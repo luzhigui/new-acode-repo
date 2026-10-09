@@ -82,8 +82,11 @@ const MUTATIONS = [
     // 第 44 轮改锚点：原为 `{ source: '近战切换', value: warriorBonus.atk * 3,`，
     //   主代码 V6.2.0（core/13）把 ×3 系数收敛进内容表 skills.nearSwitch.params → atkMul/defMul/maxHpMul，
     //   此处变成先算好的 `atkGain`。锚点失效期间 A4 是**静默失效**（树=干净树），由 --verify 查出。
+    //   2026-10-09 第 64 轮再锚：张无忌近战切换组件已从 core/13battle-shared.js 迁到
+    //   modules/27elite-mingjiao.js（L45 addMod atk，与 def/maxHp 同源），故 file 改指新位置；
+    //   `{ source: '近战切换', value: atkGain,` 在该文件唯一（defGain/maxHpGain 变量名不同）。
     { id: 'A4', kind: 'ATTR', desc: '张无忌近战切换加攻翻倍',
-      file: 'core/13battle-shared.js',
+      file: 'modules/27elite-mingjiao.js',
       from: "{ source: '近战切换', value: atkGain,",
       to:   "{ source: '近战切换', value: atkGain * 2," },
     { id: 'A5', kind: 'ATTR', desc: '流星赶月溅射成长翻倍',
@@ -255,6 +258,24 @@ const MUTATIONS = [
       file: 'core/14buff-effects.js',
       from: "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });",
       to:   "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus * 2, ttl: 'round', op: 'mul', group: 'holyFlame' });" },
+    // ===== 第 64 轮新增：验证 rule112（灭绝重设计行为数值回归）真有牙，而非恒绿 =====
+    //   关键设计：rule112 是「渲染文本 vs 配置真值」的漂移/一致性规则 —— 它读 getSkillParams('灭绝师太',…)
+    //   取到的配置值，与引擎渲染进战报的数字比对。若直接改 JSON 配置，规则「预期值」会跟着一起动，
+    //   永远咬不到（目标自己跑了）。要让它有牙，必须**只污染渲染代码**、保留配置真值不动：
+    //   引擎渲染出 ×2 的系数、规则仍按配置 0.8/100% 比对 ⇒ 数字不符 ⇒ 报红。
+    //   这两条专打 rule112 的两个数值判据（反击系数 / 三击吸血比例），证明「渲染数字一旦偏离配置即被抓」。
+    { id: 'A26', kind: 'ATTR', desc: '灭绝反击渲染系数×2（污染渲染，配置0.8不动 → rule112 反击判据应咬）',
+      file: 'modules/26elite-sixsects.js',
+      // 第 64 轮修锚点：原 from 含「🗡 灭绝师太反击 ${attacker.name}！」前缀，GNU sed BRE 在
+      //   全角「！」/emoji 衔接处静默失配（各子串单独都能匹配、拼接却 0 命中）。改锚到**纯系数包裹段**
+      //   `（伤害×${counter.dmgRatio}）`（已实测 sed 可命中且全仓唯一——其余 3 处「（伤害×」无此完整 token），
+      //   只污染渲染数字、配置真值 0.8 不动 ⇒ rule112 比对不符报红。
+      from: "（伤害×${counter.dmgRatio}）",
+      to:   "（伤害×${counter.dmgRatio * 2}）" },
+    { id: 'A27', kind: 'ATTR', desc: '灭绝三击吸血比例渲染×2（污染渲染，配置100%不动 → rule112 三击判据应咬）',
+      file: 'modules/26elite-sixsects.js',
+      from: "回复本次伤害${third.leechRatio * 100}%=",
+      to:   "回复本次伤害${third.leechRatio * 200}%=" },
 ];
 
 function toPosix(p) {
@@ -444,7 +465,10 @@ async function main() {
             // 这一句同时保证了「重复 prep 时变异不会叠加两次」：先把干净的 _base 内容盖回去，再 sed 注入。
             lines.push(`mkdir -p "$MUTROOT/m-${m.id}"`);
             lines.push(`cp -r "$MUTROOT/_base/." "$MUTROOT/m-${m.id}/"`);
-            lines.push(`sed -i "s#${breEscape(m.from)}#${m.to}#g" "$MUTROOT/m-${m.id}/${m.file}"`);
+            // 第 64 轮修：to（sed 替换串）也必须对 $ 转义，否则含 ${...} 的 to（如 A26/A27 的
+            //   `（伤害×${counter.dmgRatio * 2}）`）在双引号 sed 参数里被 bash 当变量展开 ⇒ bad substitution。
+            //   对替换串 breEscape 是安全的：. * ^ $ [ ] \ 在 sed 替换侧转义后仍是字面量（非特殊字符前的 \ 被丢弃）。
+            lines.push(`sed -i "s#${breEscape(m.from)}#${breEscape(m.to)}#g" "$MUTROOT/m-${m.id}/${m.file}"`);
         }
         console.log(lines.join('\n'));
         return;

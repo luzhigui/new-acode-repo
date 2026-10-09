@@ -42,8 +42,18 @@ export const rule112 = {
             }
         }
 
-        // 判据2/3：渲染文案对账（log 为渲染后战报；plain() 去标签）
-        const logText = (Array.isArray(log) ? log : []).map(e => plain(e && e.text)).join('\n');
+        // 判据2/3：渲染文案对账（log 为渲染后战报；plain() 去标签）。
+        //   反击/三击文案由引擎写入「攻击组 data.entries」的 info 子条目，渲染后落在**顶层条目的 .entries 嵌套**里
+        //   （非顶层 .text）—— 只扫顶层 .text 必漏报（与 129/143/133 同款病：嵌套子 fact 不递归必漏）。
+        //   故递归收集所有层级的 text：顶层条目、其 .entries、再深一层……全部摊平后再比对。
+        const texts = [];
+        const collectText = (e) => {
+            if (!e) return;
+            if (typeof e.text === 'string' && e.text) texts.push(e.text);
+            if (Array.isArray(e.entries)) e.entries.forEach(collectText);
+        };
+        (Array.isArray(log) ? log : []).forEach(collectText);
+        const logText = texts.map(t => plain(t)).join('\n');
 
         if (counter && counter.dmgRatio != null) {
             const gr = /🗡 灭绝师太反击 .*（伤害×([0-9.]+)）/g;
