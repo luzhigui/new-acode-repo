@@ -1,3 +1,7 @@
+// V2.5.1 | 预估 23400 bytes | 2026-10-09 单英雄/无精英两张表改用专用场数输入（默认 600，与普通表分开）：
+//          默认 1800 对「5 倍工作量」的单英雄表太久，用户懒得每次手改；普通表仍用「每关总场次」
+// V2.5.0 | 预估 22700 bytes | 2026-10-09 新增「🛡 无精英基线」按钮：明教侧一个精英都不出的胜率（拒绝采样凑局，
+//          依赖 116 V1.7.0 kind:'noElite'）——作精英价值对照；表格按敌方变体拆行、含总评，不拖慢另两张表
 // V2.4.2 | 预估 16700 bytes | 2026-10-08 单英雄表按敌方变体拆行：第3关拆「·胖远桥」「·宋青书」两行（与上方自然表同款口径，
 //          依赖 116 V1.6.1）；其余关落「标准」桶单行，总评跨关跨变体累加
 // V2.4.1 | 预估 15500 bytes | 2026-10-08 单英雄表补「总评」行：跨关累加五精英的胜率/场次/存活
@@ -12,7 +16,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.4.2';
+export const VER = 'tools/112-elite-eval.js V2.5.1';
 
 const configs = [
     { name: '张无忌' },
@@ -33,6 +37,10 @@ const resultEl = document.getElementById('eliteResult');
 const soloBtn = document.getElementById('eliteSoloBtn');       // 2026-10-08 单英雄胜率
 const soloProgressEl = document.getElementById('eliteSoloProgress');
 const soloResultEl = document.getElementById('eliteSoloResult');
+const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
+const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
+const noEliteResultEl = document.getElementById('eliteNoEliteResult');
+const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 600）：与普通表分开，免得忘改 1800 一跑就是 5 倍时长
 
 const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
 
@@ -105,7 +113,7 @@ startBtn.addEventListener('click', async () => {
 //       胜=明教。与普通评测的区别：普通表是「自然出场归因」（同场多精英），这张表是「控制变量单挑」。
 soloBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(runsInput.value) || 1800;
+    const RUNS = parseInt(soloRunsInput.value) || 600;   // 单英雄表专用场数（默认 600，与普通表分开）
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     soloBtn.disabled = true;
@@ -214,6 +222,105 @@ function soloTotalsOf(cfg, byStage, stages) {
     for (const st of stages) {
         for (const v of VARIANTS) {
             const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
+            if (!d) continue;
+            runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
+        }
+    }
+    return { runs, wins, sumSurv };
+}
+
+// ============ 2026-10-09 无精英基线：明教侧一个精英都不出 ============
+// 口径：不设任何 force 标志，由 worker（116 kind:'noElite'）重掷初始阵容凑出无精英局；
+//       海克斯开、胜 = 明教。作「精英价值」对照组——与上方两张表同关比，差额即精英的胜率增益。
+noEliteBtn.addEventListener('click', async () => {
+    const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
+    const RUNS = parseInt(soloRunsInput.value) || 600;   // 与单英雄表共用「单英雄/无精英场数」（对照组样本量一致）
+    if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
+
+    noEliteBtn.disabled = true;
+    noEliteProgressEl.textContent = '开始无精英基线评测...';
+    noEliteResultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
+
+    const byStage = {}; // stage -> variant -> {runs,wins,sumSurv}
+    for (const st of stages) {
+        byStage[st] = {};
+        for (const v of VARIANTS) byStage[st][v] = { runs: 0, wins: 0, sumSurv: 0 };
+    }
+    const startT = performance.now();
+    const masterSeed = Date.now();
+
+    const jobs = [];
+    for (const stage of stages) {
+        const chunks = Math.ceil(RUNS / CHUNK);
+        for (let c = 0; c < chunks; c++) {
+            const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+            if (runs <= 0) continue;
+            jobs.push({ stage, seed: masterSeed + stage * 131 + c * 100003, runs, label: `第${stage}关#${c + 1}` });
+        }
+    }
+
+    try {
+        await runParallel({
+            jobs,
+            kind: 'noElite',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'noElite', stage: job.stage, seed: job.seed, runs: job.runs }),
+            onJobDone: (finished, total, job, part) => {
+                // part = { 变体名: {runs,wins,sumSurv} }（无精英局同样按敌方变体分桶）
+                for (const [variant, d] of Object.entries((part && part.variants) || {})) {
+                    const a = byStage[job.stage] && byStage[job.stage][variant];
+                    if (!a) continue;
+                    a.runs += d.runs; a.wins += d.wins; a.sumSurv += d.sumSurv;
+                }
+                noEliteProgressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
+            },
+            onAllDone: () => {
+                renderNoEliteResults(byStage, stages);
+                noEliteProgressEl.textContent = `✅ 无精英基线完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+            }
+        });
+    } catch (e) {
+        console.error('[elite-noelite] 无精英基线异常:', e);
+        noEliteResultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>完整堆栈已输出到 F12 控制台</div>`;
+        noEliteProgressEl.textContent = '❌ 无精英基线异常';
+    } finally {
+        noEliteBtn.disabled = false;
+    }
+});
+
+function renderNoEliteResults(byStage, stages) {
+    let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:120px"><col><col></colgroup><tr><th>关卡</th><th class="elite-th">胜率 / 场次</th><th class="elite-th">平均存活</th></tr>';
+    for (const st of stages) {
+        for (const v of VARIANTS) {            // 按敌方变体拆行（第3关拆「·胖远桥」「·宋青书」）
+            const d = byStage[st] && byStage[st][v];
+            if (!d || !d.runs) continue;
+            const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+            html += noEliteRowHtml(label, d);
+        }
+    }
+    html += noEliteRowHtml('总评', noEliteTotalsOf(byStage, stages));
+    html += '</table>';
+    html += '<div style="font-size:11px;color:#999;margin-top:6px;">无精英基线 = 明教侧一个精英都不出（重掷阵容凑无精英局；海克斯开、胜=明教）。作精英价值对照：与上面两张表同关比，差额就是精英带来的胜率增益。无精英局没有「主英雄」，第三列改记全队平均存活人数。</div>';
+    noEliteResultEl.innerHTML = html;
+}
+
+// 无精英表一行：胜率/场次 + 全队平均存活人数（无精英时"存活率"没意义，改看剩几人）
+function noEliteRowHtml(label, d) {
+    if (!d || !d.runs) return `<tr><td class="elite-stage">${label}</td><td class="elite-cell">N/A</td><td class="elite-cell">N/A</td></tr>`;
+    const rate = (d.wins / d.runs * 100).toFixed(1);
+    const r = parseFloat(rate);
+    const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
+    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    return `<tr><td class="elite-stage">${label}</td>
+        <td class="elite-cell"><div class="cell-rate" style="color:${color}">胜率 ${rate}%</div><div class="cell-sub">${d.runs} 场${thin}</div></td>
+        <td class="elite-cell"><div class="cell-rate">${(d.sumSurv / d.runs).toFixed(2)} 人</div><div class="cell-sub">全队 5 人</div></td></tr>`;
+}
+
+// 跨关跨变体累加（无精英表总评行用）
+function noEliteTotalsOf(byStage, stages) {
+    let runs = 0, wins = 0, sumSurv = 0;
+    for (const st of stages) {
+        for (const v of VARIANTS) {
+            const d = byStage[st] && byStage[st][v];
             if (!d) continue;
             runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
         }
