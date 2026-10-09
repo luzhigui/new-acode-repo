@@ -298,6 +298,10 @@ const MUTATIONS = [
       file: 'content/200game-data.json',
       from: "{ \"type\": \"healMaxHpPct\", \"pct\": 0.12 }",
       to:   "{ \"type\": \"healMaxHpPct\", \"pct\": 0.10 }" },
+    { id: 'T11', kind: 'ATTR', desc: '乘风/年轻气盛击退距离 target.pos+3 → +2（⇒ 击退距离≠+3 → rule138 应咬）',
+      file: 'core/13battle-shared.js',
+      from: "const behindPos = target.pos + 3;",
+      to:   "const behindPos = target.pos + 2;" },
 ];
 
 function toPosix(p) {
