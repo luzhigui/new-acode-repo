@@ -1,5 +1,5 @@
-// V6.3.5 | ~19100 bytes | 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 后立刻把事件缓冲收进本攻击组，避免死亡事件被上层攻击帧的 flush 捞走挂到更早播出的组上。承接 V6.3.4 两处 resolveAfterDamageEffects 补传本步 log
-export const VER = 'core/10battle-attack.js V6.3.6';
+// V6.3.8 | ~19450 bytes | 2026-10-09 白骨爪斩杀的乾坤衍生条目也随斩杀行落组（core/16 广播回填 decl.execute._derivedEntries）；承接 V6.3.7 白骨爪连锁的乾坤衍生条目随爪击条目逐条落组
+export const VER = 'core/10battle-attack.js V6.3.8';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -295,6 +295,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                         if (hit.isClawHit) { e.isClawHit = true; e.clawAttackerUid = hit.clawAttackerUid; e.clawTargetUid = hit.clawTargetUid; e.isExecute = hit.isExecute; }
                         group.data.entries.push(e);
                     }
+                    // 本爪触发的小昭·姊乾坤衍生条目：紧跟该爪条目落组（core/16 逐爪广播回填；减伤已由 core/16 落地到爪伤）
+                    if (hit._derivedEntries && hit._derivedEntries.length > 0 && group && group.data.entries) {
+                        group.data.entries.push(...hit._derivedEntries);
+                    }
                 }
             }
             if (decl.execute && (decl.execute.logText || decl.execute.factType) && group && group.data.entries) {
@@ -303,6 +307,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     : { type: 'info', text: decl.execute.logText };
                 if (decl.execute.isClawHit) { e.isClawHit = true; e.clawAttackerUid = decl.execute.clawAttackerUid; e.clawTargetUid = decl.execute.clawTargetUid; e.isExecute = true; }
                 group.data.entries.push(e);
+                // 斩杀那一刀照杀不减，但仍触发乾坤衍生（治疗+加攻）：条目紧跟斩杀行落组
+                if (decl.execute._derivedEntries && decl.execute._derivedEntries.length > 0) {
+                    group.data.entries.push(...decl.execute._derivedEntries);
+                }
             }
         }
         // 再处理其他声明（HEAL 回血日志放最后）

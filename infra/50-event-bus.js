@@ -1,7 +1,8 @@
+// V6.5.2 | ~7150 bytes | 2026-10-09 EXECUTION_LAYER 新增 CLAW_HIT_APPLIED 相位（白骨爪连锁逐爪广播，小昭·姊乾坤衍生监听用的插槽）
 // V6.5.1 | ~7080 bytes | 2026-10-09 EXECUTION_LAYER.AFTER_DAMAGE_APPLIED 新增 MIEJUE_CHASE:17（灭绝追击组件监听用的插槽，排在同源的 MIEJUE_COUNTER:15 之后）
 // V6.5.0 | ~7000 bytes | 2026-10-02 监听器运行时错误加 DOM 无关追踪（_errorCount/_lastError/_recentErrors + 读取/重置 API）：页面端有 modules/21 劫持 console.error 的弱面板，worker 跑批无 DOM 完全看不到 hook 炸过，体检与批量工具改读这个计数
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.5.1';
+export const VER = 'infra/50-event-bus.js V6.5.2';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -143,6 +144,8 @@ export const EXECUTION_LAYER = {
         PERMANENT_DOUBLE_RETRY: 60
     },
     ON_BEFORE_DEATH: {},
+    // 白骨爪连锁逐爪广播：CLAW_CHAIN 处理器每结算一爪发一次（爪击不走伤害计算管线）
+    CLAW_HIT_APPLIED: { XIAOZHAO_QIAN_KUN: 10 },
     ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20 },
     ON_POSITION_SWAP: { SWITCH: 10 },
     BEFORE_STATE_TRANSITION: { MIEJUE_SUMMON: 20 }
