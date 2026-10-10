@@ -679,7 +679,10 @@ registerMechanicHandler(MECHANIC_TYPES.CHAIN_CLAW, {
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
                 const execThreshold = s.executeThreshold;
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
-                hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: simulatedTargetHp, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
+                // hpAfter 出口洗一位小数：爪雨是「累减→重算」循环，simulatedTargetHp 浮点减法会攒尾巴（7.8000…001），
+                //   不洗会渗进血条同步（player/46 HP_CHANGE）和下一爪的 lostHp 输入
+                const hpAfterClean = Math.round(simulatedTargetHp * 10) / 10;
+                hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: hpAfterClean, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
                 if (song && song.alive) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
                     totalHeal += healAmount;
