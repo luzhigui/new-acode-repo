@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.0 | ~12400 bytes | 2026-09-22 新角色实战 demo：主入口加「胖远桥 / 灭绝师太 / 谢逊」三按钮（进 index.html 真打一局），移除 demo-stage3.html 入口 -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.3.1 | ~16700 bytes | 2026-10-10 主入口加「圣火令商店」临时直链（<a> 当前页跳转，手机可点），验收后删除 -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -79,6 +79,8 @@
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
+                <!-- 临时入口（手机）：用 <a> 当前页直跳，避开 window.open 在移动端被拦截；验收后删除 -->
+                <a href="tools/105-shop.html" style="display:block;text-align:center;margin-top:6px;color:#8b7355;font-size:0.75rem;text-decoration:underline;">🏪 圣火令商店（临时入口 · 手机可点）</a>
             </div>
         </div>
 
