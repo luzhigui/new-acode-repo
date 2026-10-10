@@ -65,14 +65,15 @@ export const FACT_TYPES = Object.freeze({
     LION_INSPIRE: 'lionInspire'
 });
 
-/** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 11 项对应） */
+/** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 12 项对应） */
 export const BUFF_TYPES = Object.freeze({
     FORTIFY: 'fortify', BLOODTHIRST: 'bloodthirst',
     METEOR_SHOWER: 'meteorShower', WIND_ASSAULT: 'windAssault',
     CLOUD_BODY: 'cloudBody', HOT_BLOOD: 'hotBlood',
     CARRY: 'carry', DOUBLE_STRIKE: 'doubleStrike',
     MIND_CONTROL: 'mindControl', HORSE_FORMATION: 'horseFormation',
-    HOLY_FLAME: 'holyFlame'
+    HOLY_FLAME: 'holyFlame',
+    SOUL_DRAIN: 'soulDrain'   // 摄魂：敌方全体攻击力降低（唯一削弱型海克斯）
 });
 
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */
@@ -120,6 +121,8 @@ export const MECHANIC_TYPES = Object.freeze({
     XING_FEN: 'xingFen',               // 宋青书·性奋（modules/26）
     DOT_TICK: 'dotTick',               // 通用 DOT 逐回合扣血（modules/30）
     DAMAGE_REFLECT: 'damageReflect',   // 反伤弟子·反伤护盾（modules/30）
+    CHAIN_ARROW: 'chainArrow',         // 何太冲·连环箭（modules/26）
+    KUNLUN_COMBO: 'kunlunCombo',       // 何太冲·昆仑合击（modules/26）
     // core/15 本地安装器承接（不经注册表）
     LINK_ATTACK: 'linkAttack',         // 玄冥二老联动
     FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击

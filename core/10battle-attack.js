@@ -1,5 +1,6 @@
+// V6.3.9 | ~19500 bytes | 2026-10-10 LINK_REASONS 加 chainArrow（何太冲·连环箭：补的那一箭执行期间置 _isLinkAttack → 自身不再触发，一次命中最多追加一箭）
 // V6.3.8 | ~19450 bytes | 2026-10-09 白骨爪斩杀的乾坤衍生条目也随斩杀行落组（core/16 广播回填 decl.execute._derivedEntries）；承接 V6.3.7 白骨爪连锁的乾坤衍生条目随爪击条目逐条落组
-export const VER = 'core/10battle-attack.js V6.3.8';
+export const VER = 'core/10battle-attack.js V6.3.9';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -38,7 +39,7 @@ const C = CONFIG;
 //     想让额外出手也不占本回合行动权，配 actedMode:'restore' + actedSnapshot: unit.state._acted；
 //   跨阵营反击（如灭绝打对侧）自动按出手者阵营换边选目标，不会从自己人里挑；
 //   一次性不可闪避带 ignoreDodge: true（只在这一次出手内生效，结束即清）。
-const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack']);
+const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack', 'chainArrow']);
 
 function runExtraAttackRequests(requests, opts) {
     if (!requests || requests.length === 0) return;

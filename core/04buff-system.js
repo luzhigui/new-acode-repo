@@ -1,5 +1,6 @@
+// V6.2.8 | ~16500 bytes | 2026-10-10 新增 applySoulDrain：首个削弱型海克斯「摄魂」——按持有方给对侧每存活单位挂 atk ×(1+atkBonus) 的 round 词条（group:soulDrain），与严阵以待同款每回合重挂、故整局生效
 // V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
-export const VER = 'core/04buff-system.js V6.2.7';
+export const VER = 'core/04buff-system.js V6.2.8';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -27,6 +28,14 @@ export function applyFortifyBonus(unit, activeBuffs) {
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         applyFortifyDef(unit);
     }
+}
+
+// 摄魂（首个削弱型海克斯）：对阵方（casterActiveBuffs 持有）使我方每存活单位攻击力 ×(1+atkBonus)。
+//   与严阵以待同款「每回合重挂」口径——ttl:'round' 由回合开始统一清理，故整局持续、不做回合计数器。
+//   调用点见 core/11：明教持有 → 施加到六大派每人；六大派持有 → 施加到明教每人。
+export function applySoulDrain(unit, casterActiveBuffs) {
+    if (!hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN)) return;
+    addMod(unit, 'atk', { source: '摄魂', value: CONFIG.BUFFS.soulDrain.atkBonus, ttl: 'round', op: 'mul', group: 'soulDrain' });
 }
 
 export function applyCarryBonus(unit, A, state, log) {

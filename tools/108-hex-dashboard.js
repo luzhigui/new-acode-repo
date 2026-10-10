@@ -1,3 +1,4 @@
+// V6.1.2 | 2026-10-10 新海克斯「摄魂」(soulDrain) 补 HEX_NAME_MAP + HEX_HINTS（此前新增海克斯要手动登记，漏登则表里只显示 key、无判断提示）
 // V6.1.1 | 2026-10-02 下拉选项文案 6关×500/1000/2000场 → 7关×（实际 allStages 已是 7 关，仅标签滞留旧口径）
 // V6.1.0 | 2026-09-27 自动跑改走 117 runParallel + 细粒度分片（每片 25 场，7 关×per 场 → 几十上百片排队），
 //        池大小改 getPoolSize()（吃满核心，localStorage 'battle_pool_size' 可覆盖）；seed 逐场不变
@@ -87,7 +88,8 @@ const HEX_HINTS = {
   windAssault: '己方飞行单位越多越强，击退可拆散敌方阵型、打乱换位；无飞行单位时无收益。',
   holyFlame: '攻防兼备的万金油，覆盖到关键单位（张无忌/小昭）时收益最大；覆盖差时收益一般。',
   hotBlood: '站得住才赚，适合高血量或被集火的单位；每第 3/6/9 次攻击回血翻倍，爆发可观。',
-  mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；己方换位干扰是副作用，站位紧密时慎选。'
+  mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；己方换位干扰是副作用，站位紧密时慎选。',
+  soulDrain: '目前唯一削弱型海克斯：敌方全体攻击力-25%（整局生效，每回合刷新）。对面攻击手越多、越依赖普攻收益越高；对不吃攻击力的阵容（如张三丰纯续航、召唤物）收益低。'
 };
 
 function fmtVal(k, v) {
@@ -297,7 +299,8 @@ function render(summary, stats) {
     hotBlood: '热血奋战',
     meteorShower: '流星赶月',
     bloodthirst: '嗜血狂刀',
-    holyFlame: '圣火令'
+    holyFlame: '圣火令',
+    soulDrain: '摄魂'
   };
 
   const hexKeys = new Set();

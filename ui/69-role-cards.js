@@ -1,7 +1,8 @@
+// V1.1.0 | ~5900 bytes | 2026-10-10 新增「何太冲」名片（弱精英，按 u.name 匹配，无 HERO_FLAG）→ 弹窗技能栏/日志标签自动生效
 // V1.0.0 | ~5400 bytes | 2026-10-04 角色名片表：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示，
 //   原先这四处各写一遍「如果是张无忌…如果是拒马…」，加新角色要改四处、漏一处就漂移。
 //   ⚠️ 表内顺序 = 原 if/else 链顺序，第一个 match 生效，不要随意调整顺序。
-export const VER = 'ui/69-role-cards.js V1.0.0';
+export const VER = 'ui/69-role-cards.js V1.1.0';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -88,6 +89,15 @@ export const ROLE_CARDS = [
             `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
             `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
             `🏆 ${getSkillDesc('小昭', 'mastery')}`
+        ]
+    },
+    {
+        // 弱精英（不建组件，三技能全走 registerMechanicHandler + 纯声明）：按 name 匹配，无需新增 HERO_FLAG
+        id: 'heTaichong', name: '何太冲', match: u => u.name === '何太冲',
+        skills: () => [
+            `🏹 ${getSkillDesc('何太冲', 'chainArrow')}`,
+            `🎯 ${getSkillDesc('何太冲', 'armorPierce')}`,
+            `🤝 ${getSkillDesc('何太冲', 'kunlunCombo')}`
         ]
     },
     {
