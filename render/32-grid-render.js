@@ -1,6 +1,7 @@
 // V6.5.0 | ~29900 bytes | 2026-10-04 ①格子节点复用：9 个 div 建一次、之后只重填内容，不再每帧 innerHTML='' 全删全建（click 改一次性绑定 + 槽位现取单位）；复用会激活 .cell 的 transition: background 0.6s，故每帧重填前置 transition:none 并全程保持 → 底色仍是「瞬切」，观感与改动前完全一致 ②格子图标 7 分支 if/else 链改查 ui/69-role-cards.js 名片表
 // V6.5.2 | ~30600 bytes | 2026-10-09 格子防优先取 store 单位上的 _displayDef（player/42 由本步日志冻结的引擎真值写入），无则回落 getStat 现算——与攻击日志行同口径，修「格子防37 / 日志防56」
-export const VER = 'render/32-grid-render.js V6.5.2';
+// V6.5.3 | 2026-10-11 名字颜色分档（黑蓝紫金，老板拍板）：m≥112 金 / ≥107 紫 / ≥104 蓝 / 其余黑；nameGold 特判（张无忌/灭绝 m115）天然并入金档删除；成昆幻影跟随被模仿者 m（不剧透本体）
+export const VER = 'render/32-grid-render.js V6.5.3';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -352,13 +353,15 @@ export function renderGrid(id, camp) {
         let displayName = unit.name;
         // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
         if (displayName === '金毛狮王谢逊') displayName = '金毛狮王';
-        let displayIsZhang = unit.isZhang || false;
+        // 2026-10-11 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 蓝（弱精英）、其余黑。
+        //   张无忌/灭绝 m115 原描金特判天然并入金档；成昆幻影跟随被模仿者的 m（跟 displayName 同口径换算，不剧透本体档位）。
+        let displayTierM = unit.m || 0;
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
             const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
             const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
             if (mimicTarget) {
                 displayName = mimicTarget.name;
-                displayIsZhang = mimicTarget.isZhang || false;
+                displayTierM = mimicTarget.m || 0;
                 roleIcon = mimicTarget.role===ROLE_TYPES.WARRIOR?'⚔️':(mimicTarget.role===ROLE_TYPES.DEFENDER?'🛡️':(mimicTarget.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
             }
         }
@@ -470,8 +473,8 @@ export function renderGrid(id, camp) {
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
 
-        // 2026-09-24 灭绝师太名字描金（复用张无忌那套 gold class）
-        const nameGold = displayIsZhang || !!unit.isMieJueShiTai;
+        // 2026-10-11 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
+        const nameTier = displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : displayTierM >= 104 ? 'name-blue' : '';
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) {
@@ -484,11 +487,11 @@ export function renderGrid(id, camp) {
         let nameHtml;
         if (compressName) {
             let logoHtml = displayLogos.slice().reverse().join(' ');
-            nameHtml = `<span class="cell-name ${nameGold?'gold':''} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameTier} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
         } else if (displayLogos.length < logoList.length) {
-            nameHtml = `<span class="cell-name ${nameGold?'gold':''}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameTier}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         } else {
-            nameHtml = `<span class="cell-name ${nameGold?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameTier}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
         }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div></div>`;
         if (isDead) {
