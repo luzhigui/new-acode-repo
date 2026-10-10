@@ -295,9 +295,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                         if (hit.isClawHit) { e.isClawHit = true; e.clawAttackerUid = hit.clawAttackerUid; e.clawTargetUid = hit.clawTargetUid; e.isExecute = hit.isExecute; }
                         group.data.entries.push(e);
                     }
-                    // 本爪触发的小昭·姊乾坤衍生条目：紧跟该爪条目落组（core/16 逐爪广播回填；减伤已由 core/16 落地到爪伤）
+                    // 本爪触发的小昭·姊乾坤衍生条目：紧跟该爪条目落组（core/16 逐爪广播回填；减伤已由 core/16 落地到爪伤）。
+                    //   clawFast 标记经 projectFactEntry 透传进播放 entry：player/46 按随爪快节奏播（350ms+60ms），不再拖整场节奏
                     if (hit._derivedEntries && hit._derivedEntries.length > 0 && group && group.data.entries) {
-                        group.data.entries.push(...hit._derivedEntries);
+                        for (const de of hit._derivedEntries) group.data.entries.push({ ...de, clawFast: true });
                     }
                 }
             }
@@ -307,9 +308,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     : { type: 'info', text: decl.execute.logText };
                 if (decl.execute.isClawHit) { e.isClawHit = true; e.clawAttackerUid = decl.execute.clawAttackerUid; e.clawTargetUid = decl.execute.clawTargetUid; e.isExecute = true; }
                 group.data.entries.push(e);
-                // 斩杀那一刀照杀不减，但仍触发乾坤衍生（治疗+加攻）：条目紧跟斩杀行落组
+                // 斩杀那一刀照杀不减，但仍触发乾坤衍生（治疗+加攻）：条目紧跟斩杀行落组（同 clawFast 快节奏）
                 if (decl.execute._derivedEntries && decl.execute._derivedEntries.length > 0) {
-                    group.data.entries.push(...decl.execute._derivedEntries);
+                    for (const de of decl.execute._derivedEntries) group.data.entries.push({ ...de, clawFast: true });
                 }
             }
         }

@@ -331,13 +331,13 @@ export function createXiaoZhaoSisterComponent() {
                 if (!target || target.camp !== CAMP_TYPES.ALLY) return;
                 const s = getSkillParams('小昭', 'qianKunDerived');
                 if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
-                // 减伤半：按攻击者 atk 折算名义伤害，至少减 1（与常规路径完全同式）；斩杀照杀不减
+                // 减伤半：基数=本爪实际伤害（2026-10-09 老板拍板——不再拿攻击者普攻名义伤害算，
+                //   否则 0.6 的爪吃 2 点减伤直接归零）。爪小 → 套公式不足 1 → 保底取 1（最低限值），
+                //   实际效果：小爪被吃光、斩杀刀减 1 无关痛痒，乾坤衍生的肉在治疗+加攻上。斩杀照杀不减。
                 let reduce = 0;
                 if (!data.noReduce) {
-                    const atkStat = data.unit ? getStat(data.unit, 'atk') : 0;
                     const defStat = getStat(target, 'def');
-                    const nominal = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
-                    reduce = Math.max(1, Math.floor(nominal * defStat / (s.defToReduce * 100)));
+                    reduce = Math.max(1, Math.floor(data.dmg * defStat / (s.defToReduce * 100)));
                     data.reduce = reduce;
                 }
                 const aliveAllies = getBenefitTargets(A);

@@ -501,10 +501,14 @@ export function renderXingFenGrantFact(fact) {
     return { type:'buff-summary', text:`<span class="gold">💗 性奋：${fact.songName} 受${fact.zhouName}激励，本回合每次攻击后可再次攻击！</span>`, buffType: BUFF_SUBTYPES.ELITE_XINGFEN };
 }
 export function renderClawHitFact(fact) {
-    return { type:'info', hpAfter: fact.hpAfter, clawTargetUid: fact.targetUid, dmg: fact.dmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.jealous?'【嫉妒】':''}</span>` };
+    // 2026-10-09 爪伤一位小数出口兜底：爪雨是「累减→重算」循环，浮点尾巴（0.6000…01）会在爪间渗透，
+    //   无论源头哪条缝渗的，显示出口统一洗成一位小数（0.6→0.6、13→13、尾巴全截）。
+    const fmt1 = (v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v * 10) / 10 : v;
+    return { type:'info', hpAfter: fmt1(fact.hpAfter), clawTargetUid: fact.targetUid, dmg: fmt1(fact.dmg), text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fmt1(fact.dmg)} 点伤害${fact.jealous?'【嫉妒】':''}</span>` };
 }
 export function renderClawExecuteFact(fact) {
-    const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fact.dmg}</span> 点伤害` : '造成致命一击';
+    const fmt1 = (v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v * 10) / 10 : v;
+    const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fmt1(fact.dmg)}</span> 点伤害` : '造成致命一击';
     return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} ${dmgText}【斩杀】</span>` };
 }
 export function renderClawHealFact(fact) {
