@@ -302,6 +302,22 @@ const MUTATIONS = [
       file: 'core/13battle-shared.js',
       from: "const behindPos = target.pos + 3;",
       to:   "const behindPos = target.pos + 2;" },
+    // T12/T13/T14：污染渲染数字（引擎真值不动），对应规则比对父伤害/固定下限必咬，绕开单源陷阱。
+    // T12 原为「渲染伤害×0.3 → 触发旧判据『伤害<1.5』」；2026-10-09 引擎 V6.0.8 起 fact.dmg 回填
+    //   减伤后落地值（合法 <1.5），rule132 判据1 已改为「有限数且≥0」，×0.3 不再触发。
+    //   改打**负数**（新判据的守卫点：Math.max(0,…) 下限被破坏）。
+    { id: 'T12', kind: 'TEXT', desc: '九阴白骨爪渲染伤害取负（⇒ 落地伤害<0 → rule132 判据1 应咬）',
+      file: 'render/35-facts-effect.js',
+      from: "造成 ${fact.dmg} 点伤害",
+      to:   "造成 ${fact.dmg * -1} 点伤害" },
+    { id: 'T13', kind: 'TEXT', desc: '嗜血狂刀吸血渲染量×2（⇒ 吸血>伤害×0.85 → rule151 判据2应咬）',
+      file: 'render/35-facts-effect.js',
+      from: "的嗜血狂刀吸血+${fact.leechVal}",
+      to:   "的嗜血狂刀吸血+${fact.leechVal * 2}" },
+    { id: 'T14', kind: 'TEXT', desc: '韦一笑吸血(plusMaxHp)渲染heal×2（⇒ 吸血>伤害×maxRatio余量 → rule159 判据3应咬）',
+      file: 'render/36-generic-renderers.js',
+      from: "${label}+${heal}，上限→${fact.newMaxHp}",
+      to:   "${label}+${heal * 2}，上限→${fact.newMaxHp}" },
 ];
 
 function toPosix(p) {
