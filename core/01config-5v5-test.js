@@ -1,5 +1,6 @@
+// V6.7.0 | ~20200 bytes | 2026-10-10 DESC_TRUTH 新增何太冲三技能条目（chainArrow / armorPierce / kunlunCombo），技能说明的 {prob}{dmgRatio}{defIgnore}{dmgMultiplier} 从 mechanics 取真值
 // V6.6.0 | ~19900 bytes | 2026-10-02 DESC_TRUTH 的 type 全部改用 MECHANIC_TYPES / MECHANIC_EFFECT_TYPES 枚举（与 core/15 安装期校验、modules 注册同源）
-export const VER = 'core/01config-5v5-test.js V6.6.0';
+export const VER = 'core/01config-5v5-test.js V6.7.0';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -101,6 +102,16 @@ export const DESC_TRUTH = {
     } },
     bloodDodge: { character: '韦一笑', fields: {
         maxRatio: { type: MECHANIC_EFFECT_TYPES.DODGE_RULES.LOST_HP_PERCENT, field: 'max', scale: 100 }
+    } },
+    chainArrow: { character: '何太冲', fields: {
+        prob:     { type: MECHANIC_TYPES.CHAIN_ARROW, field: 'prob',     scale: 100 },
+        dmgRatio: { type: MECHANIC_TYPES.CHAIN_ARROW, field: 'dmgRatio', scale: 1 }
+    } },
+    armorPierce: { character: '何太冲', fields: {
+        defIgnore: { type: MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.IGNORE_DEF, field: 'ratio', scale: 100 }
+    } },
+    kunlunCombo: { character: '何太冲', fields: {
+        dmgMultiplier: { type: MECHANIC_TYPES.KUNLUN_COMBO, field: 'dmgMultiplier', scale: 1 }
     } }
 };
 

@@ -1,3 +1,4 @@
+// V6.20.0 | ~60300 bytes | 2026-10-10 新增弱精英「何太冲」（昆仑·远程·m104）：连环箭（命中后 prob 补一箭 ×dmgRatio，reason 进 core/10 LINK_REASONS → 不链式）、破甲箭（beforeDamageEffects.ignoreDef 纯声明）、昆仑合击（目标本回合已被其他六大派同伴打过 → ×dmgMultiplier，记账写受击者 _kunlunComboFlag）；后两者走 registerMechanicHandler
 // V6.19.1 | ~57700 bytes | 2026-10-09 召唤周芷若落位避让活人：flushZhouSummon 以阵亡者原格为 anchor 做「原格+1 环形顺延」找空位（复用 core/05 findFreePos，只算 alive 占位），spawnUnit 与 SUMMON_UNIT fact 同用 landPos——旧版直接落原格，拒马刚刷进刚空出的格时会两活人同格（fuzz seed159 关7 r2）
 // V6.19.0 | ~56100 bytes | 2026-10-09 灭绝新增「追击」技能：每次打中（普攻/反击/跟随/追击本身）后 0.1 概率对同一目标再追击一次（×1.2、可被闪避），追击计入出手数、且可链式自触发（故意不入 core/10 LINK_REASONS，靠 0.1^n 收敛）；普攻系数回 1.0；thirdStrike 文案补 dmgMultiplier
 // V6.18.0 | 2026-10-08 搭档连线注册面接龙：宋青书×周芷若配对知识从 core/11 迁入本文件
@@ -6,7 +7,7 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.19.1';
+export const VER = 'modules/26elite-sixsects.js V6.20.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
@@ -802,6 +803,63 @@ registerMechanicHandler(MECHANIC_TYPES.XING_FEN, {
                 log.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
                 processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
             }
+        });
+    }
+});
+
+// ========== 何太冲机制（弱精英：技能走 registerMechanicHandler + 纯声明，不建组件） ==========
+
+// 机制① 连环箭：每次命中后 prob 概率对同一目标再补一箭（伤害×dmgRatio，可被闪避）。
+//   与灭绝「追击」的关键区别：reason:'chainArrow' **进** core/10 的 LINK_REASONS——
+//   补的那一箭执行期间 _isLinkAttack=true，本 handler 开头据此拦掉 → **不链式**（一次命中最多多一箭）。
+registerMechanicHandler(MECHANIC_TYPES.CHAIN_ARROW, {
+    fields: { prob: 'number', dmgRatio: 'number' },
+    install({ eventBus, decl }) {
+        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_CHAIN_ARROW, (data) => {
+            const unit = data.unit;
+            if (!unit || unit.name !== decl.name || !unit.alive) return;
+            if (unit.state._isLinkAttack) return;             // 补的那一箭不再触发（不链式）
+            if (unit.state._pendingDeath) return;             // 本击已把自己打进待死
+            if (!data.dmg || data.dmg <= 0) return;           // 只在真正打中后判定
+            const t = data.target;
+            if (!t || !t.alive || t.state._pendingDeath) return;   // 目标已倒，不换目标
+            if (getBattleRng().next() >= (decl.prob ?? 0)) return;
+            if (!data.extraRequests) data.extraRequests = [];
+            data.extraRequests.push({
+                unit,
+                targetUid: t.uid,
+                reason: 'chainArrow',
+                dmgRatio: decl.dmgRatio,
+                actedMode: 'restore',
+                actedSnapshot: unit.state._acted,
+                priority: 12
+            });
+        });
+    }
+});
+
+// 机制③ 昆仑合击：目标本回合已被「其他」六大派同伴打过 → 何太冲这一击伤害 ×dmgMultiplier。
+//   记账写在敌方受击者的 state._kunlunComboFlag（core/17 回合级字段，回合开始自动清）；
+//   判定发生在 BEFORE_DAMAGE_CALC，故只反映「本击之前」的同伴命中；
+//   盖戳时按 name 排除何太冲自己——顺带排掉「连环箭补的第二箭白吃 ×1.5」。
+registerMechanicHandler(MECHANIC_TYPES.KUNLUN_COMBO, {
+    fields: { dmgMultiplier: 'number' },
+    install({ eventBus, decl }) {
+        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_KUNLUN_MARK, (data) => {
+            const unit = data.unit;
+            if (!unit || !unit.alive || unit.name === decl.name) return;
+            if (unit.camp !== decl.camp) return;              // 只认同一阵营的同伴（六大派）
+            if (!data.dmg || data.dmg <= 0) return;
+            const t = data.target;
+            if (!t) return;
+            t.state._kunlunComboFlag = true;
+        });
+        eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.HE_TAICHONG_KUNLUN_COMBO, (data) => {
+            const unit = data.unit;
+            if (!unit || unit.name !== decl.name || !unit.alive) return;
+            const t = data.target;
+            if (!t || !t.state._kunlunComboFlag) return;
+            data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: decl.dmgMultiplier, source: unit, label: '昆仑合击' });
         });
     }
 });

@@ -1,5 +1,6 @@
+// V2.6.2 | ~10460 bytes | 2026-10-10 ROUND_STATE_SCHEMA 加 _kunlunComboFlag（何太冲·昆仑合击的受击记账，回合开始自动清零）
 // V2.6.1 | ~10400 bytes | 2026-09-26 加 _fsmPhase（FSM 相位镜像，渲染层读它判附身/飞天，不再读 unit._fsm）
-export const VER = 'core/17-state-keys.js V2.6.1';
+export const VER = 'core/17-state-keys.js V2.6.2';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -32,6 +33,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 胖远桥·正义国字脸：被嘲讽者本回合后续只能打胖远桥（回合级，回合开始自动清）
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 何太冲·昆仑合击：本回合已被其他六大派同伴打过的目标（回合级，回合开始自动清）
+    _kunlunComboFlag:        { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置

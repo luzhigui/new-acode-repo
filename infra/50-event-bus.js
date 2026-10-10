@@ -1,8 +1,9 @@
+// V6.5.3 | ~7250 bytes | 2026-10-10 EXECUTION_LAYER 补何太冲插槽：AFTER_DAMAGE_APPLIED +HE_TAICHONG_CHAIN_ARROW:18 / +HE_TAICHONG_KUNLUN_MARK:19，BEFORE_DAMAGE_CALC +HE_TAICHONG_KUNLUN_COMBO:18
 // V6.5.2 | ~7150 bytes | 2026-10-09 EXECUTION_LAYER 新增 CLAW_HIT_APPLIED 相位（白骨爪连锁逐爪广播，小昭·姊乾坤衍生监听用的插槽）
 // V6.5.1 | ~7080 bytes | 2026-10-09 EXECUTION_LAYER.AFTER_DAMAGE_APPLIED 新增 MIEJUE_CHASE:17（灭绝追击组件监听用的插槽，排在同源的 MIEJUE_COUNTER:15 之后）
 // V6.5.0 | ~7000 bytes | 2026-10-02 监听器运行时错误加 DOM 无关追踪（_errorCount/_lastError/_recentErrors + 读取/重置 API）：页面端有 modules/21 劫持 console.error 的弱面板，worker 跑批无 DOM 完全看不到 hook 炸过，体检与批量工具改读这个计数
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.5.2';
+export const VER = 'infra/50-event-bus.js V6.5.3';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -101,7 +102,7 @@ export const EXECUTION_LAYER = {
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
-    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, MIEJUE_NORMAL_MULT: 14, MIEJUE_THIRD_MULT: 15, PANG_YOUNG_MULT: 16, TRUE_DMG: 30 },
+    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, MIEJUE_NORMAL_MULT: 14, MIEJUE_THIRD_MULT: 15, PANG_YOUNG_MULT: 16, HE_TAICHONG_KUNLUN_COMBO: 18, TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
     ON_DODGE:          {},
     AFTER_DAMAGE_APPLIED: {
@@ -110,6 +111,8 @@ export const EXECUTION_LAYER = {
         WARRIOR_EXECUTE: 45,
         MIEJUE_COUNTER: 15,
         MIEJUE_CHASE: 17,
+        HE_TAICHONG_CHAIN_ARROW: 18,
+        HE_TAICHONG_KUNLUN_MARK: 19,
         PANG_RAGE: 22,
         LION_INSPIRE: 23,
         LION_FOLLOW: 24,

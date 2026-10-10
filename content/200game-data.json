@@ -1,6 +1,6 @@
 {
-  "version": "5.6.25",
-  "updated": "2026-10-08",
+  "version": "5.6.26",
+  "updated": "2026-10-10",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -298,6 +298,33 @@
       }
     },
 
+    "何太冲": {
+      "tags": ["六大派", "昆仑", "远程", "精英"],
+      "skills": {
+        "chainArrow": {
+          "name": "连环箭",
+          "desc": "命中后{prob}%概率对同一目标再补一箭：伤害×{dmgRatio}、可被闪避（补的这一箭不会再次触发）"
+        },
+        "armorPierce": {
+          "name": "破甲箭",
+          "desc": "攻击忽略目标{defIgnore}%防御"
+        },
+        "kunlunCombo": {
+          "name": "昆仑合击",
+          "desc": "本回合目标已被其他六大派同伴打过时，伤害×{dmgMultiplier}"
+        }
+      },
+      "mechanics": [
+        { "camp": "enemy", "type": "chainArrow", "prob": 0.5, "dmgRatio": 0.6 },
+        { "camp": "enemy", "beforeDamageEffects": [ { "type": "ignoreDef", "ratio": 0.30 } ] },
+        { "camp": "enemy", "type": "kunlunCombo", "dmgMultiplier": 1.5 }
+      ],
+      "taunts": {
+        "attack": ["昆仑剑法！", "看箭！", "接我一箭！"],
+        "kill": []
+      }
+    },
+
     "张三丰": {
       "tags": ["六大派", "防战", "精英"],
       "cannotAttack": true,
@@ -496,14 +523,15 @@
     "holyFlame": { "name": "圣火令", "desc": "随机两列+30%攻击，随机两行+30%防御", "atkBonus": 0.3, "defBonus": 0.3, "icon": "🔥" },
     "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
-    "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] }
+    "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] },
+    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-25%（整局生效，每回合刷新）", "atkBonus": -0.25, "icon": "👻" }
   },
 
   "hexes": {
     "permanentBuffKeys": [
       "fortify", "bloodthirst", "meteorShower", "windAssault",
       "cloudBody", "hotBlood", "carry", "doubleStrike",
-      "mindControl", "horseFormation", "holyFlame"
+      "mindControl", "horseFormation", "holyFlame", "soulDrain"
     ]
   },
 
@@ -535,6 +563,16 @@
             { "name": "殷梨亭", "role": "战士", "m": 97 }
           ],
           "posTemplate": { "防战": [1], "战士": [3], "远程": [7, 8] }
+        },
+        {
+          "squad": [
+            { "name": "何太冲", "role": "远程", "m": 104 },
+            { "name": "班淑娴", "role": "防战", "m": 104 },
+            { "name": "昆仑白鹿子", "role": "远程", "m": 97 },
+            { "name": "昆仑灵宝", "role": "战士", "m": 97 },
+            { "name": "昆仑玉清", "role": "战士", "m": 97 }
+          ],
+          "posTemplate": { "防战": [1], "战士": [3], "远程": [8] }
         }
       ]
     },
@@ -584,7 +622,7 @@
       "空闻": 104, "空智": 104, "空性": 104,
       "清虚": 104, "清风": 104, "明月": 104,
       "静玄": 104, "静虚": 104, "静照": 104,
-      "何太冲": 104, "班淑娴": 104,
+      "班淑娴": 104,
       "宗维侠": 104, "常敬之": 104,
       "少林圆真": 97, "少林圆音": 97, "少林圆业": 97, "少林慧轮": 97, "少林慧净": 97, "少林虚竹": 97, "少林虚清": 97,
       "武当凌云": 97, "武当松溪": 97, "武当莲舟": 97, "武当岱岩": 97, "武当声谷": 97,
@@ -601,7 +639,7 @@
       "少林": ["空闻", "空智", "空性", "少林圆真", "少林圆音", "少林圆业", "少林慧轮", "少林慧净", "少林虚竹", "少林虚清", "少林弟子"],
       "武当": ["清虚", "清风", "明月", "武当凌云", "武当松溪", "武当莲舟", "武当岱岩", "武当声谷", "武当弟子"],
       "峨眉": ["静玄", "静虚", "静照", "峨眉慧静", "峨眉慧心", "峨眉慧明", "峨眉妙清", "峨眉妙音", "峨眉素问", "峨眉灵枢", "峨眉弟子"],
-      "昆仑": ["何太冲", "班淑娴", "昆仑白鹿子", "昆仑灵宝", "昆仑玉清", "昆仑紫阳", "昆仑弟子"],
+      "昆仑": ["班淑娴", "昆仑白鹿子", "昆仑灵宝", "昆仑玉清", "昆仑紫阳", "昆仑弟子"],
       "崆峒": ["宗维侠", "常敬之", "崆峒唐文亮", "崆峒胡豹", "崆峒简捷", "崆峒赵明", "崆峒弟子"],
       "default": ["少林弟子", "武当弟子", "峨眉弟子", "昆仑弟子", "崆峒弟子"]
     },
