@@ -46,7 +46,12 @@
 //   · 负向测试 7 例全过：同组有处决→pass、缺处决→fail、处决在别组→fail（不跨组误认）、
 //     处决先于 hit 渲染→pass（验"先收集后判定"）、未标斩杀的爪击→pass（不被判据 2 误伤）、
 //     伤害 1.2→fail（判据 1 仍活）、无爪击→skip。
-export const VER = 'tests/health-rules/132-claw-damage.js V6.1.18';
+// V6.1.19 | 2026-10-09/10 判据1 按引擎新契约重写：引擎 V6.0.8（core/16 L254-258）起爪击 fact 的
+//          data.dmg 回填**减伤后落地值** Math.max(0, designed-reduce)，不再是设计值 bonusDmg，
+//          「伤害<1.5 即回归」失效并误报（seed=6/stage=7 实测最低 0.7999999999999998）；
+//          改判「有限数且≥0」（仍抓 NaN/负数）。设计值未进 fact（原始流 clawHit 顶层 dmg 恒
+//          undefined，26/26），下限守护须引擎补 designedDmg 字段后方可重建 —— 已报业务侧。
+export const VER = 'tests/health-rules/132-claw-damage.js V6.1.19';
 // 用 as 保留原调用名 collectNodes：调用点（L61 等）不改，避免"改名漏改调用点"这类回归。
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 
@@ -73,12 +78,15 @@ export const rule79 = {
             // 组级收集要在下面的 continue 之前（处决条目过不了伤害正则，hit 判定也不能依赖正则命中）
             if (e.text.indexOf('九阴白骨爪斩杀！') !== -1) { execEntryGroups[gi] = true; continue; }
             if (e.isExecute === true && e.dmg !== undefined) execHitGroups[gi] = true;
-            // 伤害为小数（如 1.5 / 2.5），必须捕获小数，否则规则会跳过全部真实爪击而漏检
-            var m = e.text.match(/对 (.+?) 造成 (\d+(?:\.\d+)?) 点伤害/);
+            // 伤害为小数（如 1.5 / 2.5），必须捕获小数，否则规则会跳过全部真实爪击而漏检。
+            // V6.1.19：再放宽到可捕获负数/NaN —— 判据1 改校验「有限且≥0」，这两类必须被正则吃到，
+            //   否则「造成 -1/NaN 点伤害」会因正则不匹配而整条跳过，判据1 反而空转。
+            var m = e.text.match(/对 (.+?) 造成 (-?\d+(?:\.\d+)?|NaN) 点伤害/);
             if (!m) continue;
             saw = true;
             var name = m[1];
-            var dmg = parseFloat(m[2]);
+            var raw = m[2];
+            var dmg = (raw === 'NaN') ? NaN : parseFloat(raw);
             // 字段口径修正（第 21 轮）：原名 clawTargetHpAfter 已随 fact 改名撤除、全库再无写入源，
             //   故 hpAfter 恒为 undefined —— 不只判据2 是死分支，**判据3 的连锁调血校验也一直是空转**
             //   （undefined 参与的四则运算得 NaN，等值校验永不成立）。现行 render/35:478 渲染出的是
@@ -86,10 +94,27 @@ export const rule79 = {
             //   按现行字段重写 —— 这次是让判据3 真正生效，不是放宽。
             var hpAfter = e.hpAfter;
 
-            // 1. 伤害底线：baseDmg=1.5（张无忌在场为 2），ratioDmg>=0 → 单爪下界恰为 1.5；
-            //    任何 < 1.5 的伤害均为回归（设计底线都没达到）
-            if (dmg < 1.5) {
-                return { fail: true, msg: '复发：九阴白骨爪伤害<1.5 为' + dmg + '（周芷若伤害计算异常，低于设计底线 baseDmg=1.5）' };
+            // 1.（V6.1.19 重写）落地伤害必须是**有限数且 ≥ 0** —— 不再是「<1.5 即回归」。
+            //    为什么旧判据失效（有实证，勿复原）：2026-10-09 引擎 V6.0.8
+            //    （core/16effect-handlers.js L254-258）把爪击 fact 的 `data.dmg` **回填为减伤后
+            //    实际落地值** `Math.max(0, designed - reduce)`（小昭·姊乾坤衍生按爪减伤，
+            //    CLAW_HIT_APPLIED 相位），渲染与规则读到的已**不是**设计值
+            //    bonusDmg（= floor((baseHit+ratioDmg)*10)/10，下界恒 1.5）。
+            //    ⇒ 减伤后合法低于 1.5（实测 seed=6/stage=7 最低 0.7999999999999998，甚至可为 0），
+            //      旧判据在该场误报（本轮即由此触发）。
+            //    为什么不能改成"校验设计值"：设计值 bonusDmg **未进 fact** —— 原始 fact 流里
+            //    clawHit 的顶层 `dmg` 恒 undefined（实测 26/26 条），只有 data.dmg（落地值），
+            //    规则侧无从还原。要重建下限守护须引擎在 fact 上补 designedDmg 字段（已报业务侧）。
+            //    仍成立的两条硬性质（减伤再多也不可能违反，故不是放宽而是换判据）：
+            //      · 有限数：modules/26:659 `decl.jealous?.baseDmg` 可选链缺失 ⇒ bonusDmg=NaN ⇒ 落地 NaN；
+            //      · ≥0   ：`Math.max(0, 伤害-减伤)` 下限守卫被破坏 ⇒ 负数。
+            if (!isFinite(dmg)) {
+                return { fail: true, msg: '复发：九阴白骨爪落地伤害非有限数「' + raw + '」（设计值 bonusDmg 计算断链，'
+                    + '如 modules/26:659 decl.jealous?.baseDmg 缺失 → NaN）' };
+            }
+            if (dmg < 0) {
+                return { fail: true, msg: '复发：九阴白骨爪落地伤害为负数 ' + dmg
+                    + '（core/16:254 Math.max(0, 伤害-减伤) 下限守卫被破坏）' };
             }
             // 2.（已删除，第 21 轮）原判据「标记斩杀则目标血量应为 0」是**自相矛盾的伪判据**：
             //    modules/26elite-sixsects.js:534 的斩杀定义就是
