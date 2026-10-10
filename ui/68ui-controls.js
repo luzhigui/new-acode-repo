@@ -10,7 +10,7 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { buffsOfCamp } from '../modules/28buff-tools.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { attachSaveBattleReportButton, getBattleRecording } from '../player/50battle-export.js';
-import { startReplayFromFile } from './61main-5v5-test.js';
+import { startReplayFromFile } from './76replay-entry.js';
 
 // 2026-09-14 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
 // 而该函数从未挂到 window 上（定义在 ui/61 且未导出），属静默失效；改为走 UIHandler 通道。
