@@ -1,9 +1,18 @@
 <!DOCTYPE html>
+<!--
+  光明顶 5v5 · 圣火令商店 V2（局外养成 demo）
+  描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
+  数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
+        ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
+  版本：V2.0.0
+  预估字节数：约 44 KB
+  日期：2026-10-10
+-->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>光明顶 · 圣火令商店 V1</title>
+    <title>光明顶 · 圣火令商店 V2</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -12,7 +21,7 @@
             min-height: 100vh; padding: 20px;
         }
         .container {
-            width: 100%; max-width: 420px; background: #16213e;
+            width: 100%; max-width: 440px; background: #16213e;
             border-radius: 16px; padding: 24px 20px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.5);
             position: relative;
@@ -32,42 +41,81 @@
         }
         .icon-btn:hover { background: #2a2a4e; }
 
+        /* 顶部数据条：积分 / 圣火令 / 宝箱 / 背包 */
         .score-row {
-            display: flex; gap: 12px; margin-bottom: 16px;
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 8px; margin-bottom: 12px;
         }
         .stat-card {
-            flex: 1; background: #0f0f1a; border: 1px solid #333;
-            border-radius: 10px; padding: 12px; text-align: center;
+            background: #0f0f1a; border: 1px solid #333;
+            border-radius: 10px; padding: 10px 4px; text-align: center;
         }
-        .stat-card .icon { font-size: 24px; margin-bottom: 4px; }
-        .stat-card .value { font-size: 1.4rem; font-weight: bold; color: #ffd700; }
-        .stat-card .label { font-size: 0.7rem; color: #888; margin-top: 2px; }
+        .stat-card .icon { font-size: 18px; margin-bottom: 2px; }
+        .stat-card .value { font-size: 1.05rem; font-weight: bold; color: #ffd700; }
+        .stat-card .label { font-size: 0.62rem; color: #888; margin-top: 2px; }
+        .stat-card.clickable { cursor: pointer; transition: all 0.2s; }
+        .stat-card.clickable:hover { border-color: #ffd700; background: #1a1a3a; }
+
+        /* 今日折扣 */
+        .discount-bar {
+            background: #1f1a0f; border: 1px solid #6b5a1e; color: #ffd700;
+            font-size: 0.7rem; border-radius: 8px; padding: 8px 10px;
+            margin-bottom: 14px; line-height: 1.6;
+        }
+        .discount-bar .dim { color: #888; }
 
         .section-title {
             color: #aaa; font-size: 0.75rem; font-weight: bold; margin: 16px 0 8px;
             padding-left: 8px; border-left: 3px solid #ffd700;
         }
 
+        /* 角色卡 */
         .hero-card {
             background: #0f0f1a; border: 1px solid #333; border-radius: 10px;
-            padding: 14px; display: flex; gap: 12px; align-items: center;
+            padding: 12px; display: flex; gap: 10px; align-items: center;
             margin-bottom: 8px; transition: all 0.2s;
         }
         .hero-card.unlocked { cursor: pointer; }
         .hero-card.unlocked:hover { border-color: #ffd700; background: #1a1a3a; }
-        .hero-card.locked { opacity: 0.5; cursor: not-allowed; }
-        .hero-avatar {
-            font-size: 40px; min-width: 48px; text-align: center;
-        }
-        .hero-info { flex: 1; }
-        .hero-name { font-size: 1rem; font-weight: bold; color: #ffd700; }
+        .hero-card.locked { opacity: 0.6; }
+        .hero-avatar { font-size: 34px; min-width: 40px; text-align: center; }
+        .hero-info { flex: 1; min-width: 0; }
+        .hero-name { font-size: 0.95rem; font-weight: bold; color: #ffd700; }
         .hero-name .lock-tag {
             font-size: 0.6rem; color: #888; margin-left: 6px;
             padding: 2px 6px; border: 1px solid #555; border-radius: 4px;
         }
-        .hero-role { font-size: 0.7rem; color: #888; margin-bottom: 4px; }
-        .hero-stats { font-size: 0.75rem; color: #ccc; }
-        .hero-stats span { margin-right: 12px; }
+        .hero-role { font-size: 0.7rem; color: #888; margin: 2px 0 4px; }
+        .hero-stats { font-size: 0.72rem; color: #ccc; }
+        .hero-stats span { margin-right: 10px; }
+
+        /* 商品行 */
+        .shop-item {
+            background: #0f0f1a; border: 1px solid #333; border-radius: 10px;
+            padding: 12px; display: flex; gap: 10px; align-items: center;
+            margin-bottom: 8px;
+        }
+        .shop-item.disabled { opacity: 0.55; }
+        .item-icon { font-size: 26px; min-width: 34px; text-align: center; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-name { font-size: 0.9rem; font-weight: bold; color: #ffd700; }
+        .item-desc { font-size: 0.68rem; color: #888; margin-top: 2px; line-height: 1.5; }
+
+        .buy-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+        .price-line { font-size: 0.75rem; color: #ffd700; white-space: nowrap; }
+        .price-old { color: #777; text-decoration: line-through; margin-right: 4px; font-size: 0.68rem; }
+        .price-now { font-weight: bold; }
+        .badge-discount {
+            background: #c0392b; color: #fff; font-size: 0.6rem;
+            padding: 1px 4px; border-radius: 4px; margin-left: 4px;
+        }
+        .mini-btn {
+            background: #ffd700; color: #1a1a2e; border: none; border-radius: 6px;
+            padding: 6px 10px; font-size: 0.7rem; font-weight: bold;
+            cursor: pointer; font-family: monospace; white-space: nowrap;
+        }
+        .mini-btn:hover { background: #ffea70; }
+        .mini-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .btn-row { display: flex; gap: 8px; margin-top: 16px; }
         button {
@@ -77,50 +125,43 @@
         }
         .btn-back { background: #444; color: #ccc; }
 
-        /* 技能弹窗 */
-        .skill-modal {
+        /* 弹窗通用 */
+        .skill-modal, .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); z-index: 9999;
             display: none; justify-content: center; align-items: center;
         }
-        .skill-modal.show { display: flex; }
+        .skill-modal.show, .modal-overlay.show { display: flex; }
         .skill-box {
             background: #16213e; border: 2px solid #ffd700; border-radius: 12px;
-            padding: 20px; width: 90%; max-width: 360px; max-height: 80vh;
+            padding: 20px; width: 90%; max-width: 360px; max-height: 84vh;
             overflow-y: auto; position: relative;
         }
         .skill-box h3 { color: #ffd700; margin-bottom: 4px; font-size: 1.1rem; }
         .skill-box .role-line { color: #888; font-size: 0.75rem; margin-bottom: 10px; }
         .skill-box .skill-item {
             background: #0f0f1a; border: 1px solid #333; border-radius: 8px;
-            padding: 10px; margin-bottom: 8px; font-size: 0.8rem; line-height: 1.5;
+            padding: 10px; margin-bottom: 8px; font-size: 0.78rem; line-height: 1.5;
             color: #ccc;
         }
         .skill-box .skill-item .skill-name { color: #ffd700; font-weight: bold; margin-bottom: 4px; }
         .close-btn {
             position: absolute; top: 8px; right: 12px;
             background: none; border: none; color: #888; font-size: 20px;
-            cursor: pointer; width: auto; padding: 0;
+            cursor: pointer; width: auto; padding: 0; flex: none;
         }
         .close-btn:hover { color: #ffd700; }
 
-        /* 串码弹窗 */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); z-index: 9999;
-            display: flex; justify-content: center; align-items: center;
-            display: none;
-        }
-        .modal-overlay.show { display: flex; }
         .modal-box {
             background: #16213e; border: 2px solid #ffd700; border-radius: 12px;
             padding: 20px; width: 90%; max-width: 380px; text-align: center;
+            max-height: 84vh; overflow-y: auto;
         }
         .modal-box h3 { color: #ffd700; margin-bottom: 12px; }
         .tab-row { display: flex; gap: 4px; margin-bottom: 12px; }
         .tab-btn {
-            flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #555;
-            background: #0f0f1a; color: #ccc; font-size: 0.8rem; cursor: pointer;
+            flex: 1; padding: 8px 4px; border-radius: 6px; border: 1px solid #555;
+            background: #0f0f1a; color: #ccc; font-size: 0.75rem; cursor: pointer;
             font-family: monospace;
         }
         .tab-btn.active { background: #ffd700; color: #1a1a2e; border-color: #ffd700; }
@@ -139,7 +180,48 @@
         .result-text { font-size: 0.75rem; margin-top: 4px; }
         .result-text.ok { color: #4caf50; }
         .result-text.err { color: #f44336; }
-        .info { font-size: 0.7rem; color: #888; margin-top: 8px; text-align: center; line-height: 1.5; }
+        .info { font-size: 0.7rem; color: #888; margin-top: 10px; text-align: center; line-height: 1.6; }
+
+        /* 角色详情 / 加点 */
+        .detail-box {
+            background: #0f0f1a; border: 1px solid #333; border-radius: 8px;
+            padding: 10px; font-size: 0.75rem; color: #ccc; line-height: 1.8;
+            margin-bottom: 10px; text-align: left;
+        }
+        .alloc-title {
+            color: #aaa; font-size: 0.7rem; font-weight: bold;
+            margin: 12px 0 6px; padding-left: 6px; border-left: 2px solid #ffd700; text-align: left;
+        }
+        .alloc-row {
+            display: flex; align-items: center; gap: 6px; background: #0f0f1a;
+            border: 1px solid #333; border-radius: 8px; padding: 8px 10px;
+            margin-bottom: 6px; font-size: 0.75rem; color: #ccc;
+        }
+        .alloc-row .grow { flex: 1; text-align: left; font-size: 0.7rem; color: #888; }
+        .bag-row {
+            display: flex; justify-content: space-between; font-size: 0.78rem;
+            color: #ccc; background: #0f0f1a; border: 1px solid #333;
+            border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;
+        }
+        .bag-row b { color: #ffd700; }
+
+        /* 提示 */
+        .toast {
+            position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);
+            background: #ffd700; color: #1a1a2e; padding: 10px 18px;
+            border-radius: 20px; font-size: 0.8rem; font-weight: bold;
+            z-index: 99999; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+            max-width: 88%; text-align: center;
+        }
+        .toast.show { opacity: 1; }
+
+        /* 临时测试入口（demo 用，可删） */
+        .test-bar {
+            margin-top: 14px; padding-top: 10px; border-top: 1px dashed #333;
+            font-size: 0.68rem; color: #666; display: flex; gap: 6px;
+            align-items: center; flex-wrap: wrap;
+        }
+        .test-bar .mini-btn { background: #2a2a3e; color: #aaa; }
     </style>
 </head>
 <body>
@@ -152,41 +234,86 @@
         </div>
     </div>
 
-    <!-- 积分 & 圣火令 & 宝箱 -->
+    <!-- 积分 / 圣火令 / 宝箱 / 背包 -->
     <div class="score-row">
         <div class="stat-card">
             <div class="icon">🏆</div>
-            <div class="value" id="scoreVal">100</div>
+            <div class="value" id="scoreVal">0</div>
             <div class="label">积分</div>
         </div>
         <div class="stat-card">
             <div class="icon">🔥</div>
-            <div class="value" id="tokenVal">2</div>
+            <div class="value" id="tokenVal">0</div>
             <div class="label">圣火令</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" id="chestCard" title="点击开箱">
             <div class="icon">🎁</div>
             <div class="value" id="chestVal">0</div>
             <div class="label">宝箱</div>
         </div>
+        <div class="stat-card clickable" id="bagCard" title="打开背包">
+            <div class="icon">🎒</div>
+            <div class="value" id="bagVal">0</div>
+            <div class="label">背包</div>
+        </div>
     </div>
 
-    <!-- 已解锁角色 -->
+    <!-- 今日折扣 -->
+    <div class="discount-bar" id="discountBar"></div>
+
+    <!-- 角色图鉴 -->
     <div class="section-title">🦸 角色图鉴</div>
     <div id="heroList"></div>
+
+    <!-- 属性点 -->
+    <div class="section-title">📈 属性点</div>
+    <div id="pointShop"></div>
+
+    <!-- 经验（不可购买） -->
+    <div class="section-title">📦 经验</div>
+    <div class="shop-item disabled">
+        <div class="item-icon">📦</div>
+        <div class="item-info">
+            <div class="item-name">经验包</div>
+            <div class="item-desc">不出售 · 宝箱专属（单次 8-15 点）</div>
+        </div>
+    </div>
 
     <!-- 底部 -->
     <div class="btn-row">
         <button class="btn-back" id="backBtn">↩️ 返回游戏</button>
     </div>
 
-    <div class="info">💡 积分通过战斗获得，圣火令通过击杀/通关掉落获得<br>每次通关约有 1% 几率掉落宝箱（第1-7关均可）</div>
+    <div class="info">
+        💡 圣火令来自战斗掉落与积分兑换（50 积分 = 1 令）<br>
+        宝箱通关掉落：第 1 关 3% → 第 7 关 9%（首通 +5%）<br>
+        箱内：属性点 40% / 经验 40% / 圣火令 20%
+    </div>
+
+    <div class="test-bar">
+        <span>🧪 demo 测试：</span>
+        <button class="mini-btn" id="addTokenBtn">+10 圣火令</button>
+        <button class="mini-btn" id="addChestBtn">+1 宝箱</button>
+        <button class="mini-btn" id="resetBtn">重置养成存档</button>
+    </div>
 </div>
 
-<!-- 技能详情弹窗 -->
-<div class="skill-modal" id="skillModal">
-    <div class="skill-box" id="skillBox">
-        <button class="close-btn" id="closeSkillBtn">✕</button>
+<!-- 角色详情 / 加点弹窗 -->
+<div class="skill-modal" id="heroModal">
+    <div class="skill-box" id="heroBox"></div>
+</div>
+
+<!-- 背包弹窗 -->
+<div class="modal-overlay" id="bagModal">
+    <div class="modal-box">
+        <h3>🎒 背包</h3>
+        <div class="tab-row">
+            <button class="tab-btn active" data-bag="point">属性点</button>
+            <button class="tab-btn" data-bag="free">自由点</button>
+            <button class="tab-btn" data-bag="exp">经验</button>
+        </div>
+        <div id="bagBody"></div>
+        <button style="width:100%;margin-top:12px;background:#444;color:#ccc;" id="closeBagBtn">关闭</button>
     </div>
 </div>
 
@@ -211,12 +338,13 @@
     </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-// ==================== 角色技能库 ====================
+// ==================== 角色技能库（展示用） ====================
 const SKILL_DB = {
     '小昭·妹': {
         icon: '🕷️',
-        role: '远程',
         skills: [
             { name: '蛛变', desc: '每回合随机变换职业（战士/防战/远程/飞行），不与上回合重复。记录精通职业，每次变身+5生命上限。精通加成：每职业+2攻+2防+5血上限（全精通额外+1次）。' },
             { name: '飞天', desc: '整场战斗最多触发3次：首次受击/血量<70%/血量<40%时自动触发，化为小蜘蛛遁走并免疫当次伤害。回合结束落下攻击随机敌人（穿透伤害+精通×额外伤害，精通0=5/1=10/2=15/3=30）。' },
@@ -226,7 +354,6 @@ const SKILL_DB = {
     },
     '小昭·姊': {
         icon: '🦋',
-        role: '远程',
         skills: [
             { name: '蝶变附身', desc: '明教首次攻击前，附身到4号位后最近队友。转移一半攻/防/当前血量给宿主，自身血量按队友总血量比例调整。附身后格子消失（不挡后排、不被打、不吃衍生效果）。' },
             { name: '乾坤衍生', desc: '张无忌不在时，队友受伤自动触发减伤、随机治疗、随机加攻。数值基于目标防御力计算。' },
@@ -236,7 +363,6 @@ const SKILL_DB = {
     },
     '张无忌': {
         icon: '⚔️',
-        role: '远程/战士',
         skills: [
             { name: '九阳神功', desc: '每次造成伤害后回复最大生命12%的血量。' },
             { name: '乾坤大挪移', desc: '远程形态下，保护4/6号位队友。队友被攻击时减伤10%并反弹10%伤害给攻击者，无忌自伤原始伤害的10%。' },
@@ -245,7 +371,6 @@ const SKILL_DB = {
     },
     '韦一笑': {
         icon: '🦇',
-        role: '飞行',
         skills: [
             { name: '蝠影汲血', desc: '优先攻击全场血量最低的敌人。伤害后按 5%~50% 吸血（濒死越多吸越狠），吸血值等量提升生命上限与当前血量（最低1，无上限）。' },
             { name: '青翼蝠王', desc: '基础闪避20%，无视已行动状态。闪避反击造成(攻+防)×0.5真实伤害，攻击者被眩晕。' },
@@ -254,7 +379,6 @@ const SKILL_DB = {
     },
     '小昭': {
         icon: '🦋',
-        role: '远程',
         skills: [
             { name: '蝶变乾坤', desc: '每回合随机变换职业，记录精通，+5血上限。精通加成：每职业+2攻+2防+5血上限（全精通额外+1次）。' },
             { name: '乾坤大挪移·衍生', desc: '张无忌不在时，队友受伤触发减伤、治疗和攻击加成。' },
@@ -264,149 +388,489 @@ const SKILL_DB = {
     }
 };
 
-// ==================== 数据管理 ====================
-const STORAGE_KEY = 'ming_shop_data';
+// ==================== 角色静态元数据（baseM / 职业 为占位，待按实际代码校准） ====================
+const HERO_META = {
+    '小昭·妹': { baseM: 107, role: '战士' },   // 待校准
+    '小昭·姊': { baseM: 105, role: '远程' },   // 待校准
+    '张无忌':   { baseM: 110, role: '远程' },   // 待校准
+    '韦一笑':   { baseM: 103, role: '飞行' },   // 待校准
+    '小昭':     { baseM: 100, role: '远程' }    // 待校准
+};
+const HERO_ORDER = ['小昭·妹', '小昭·姊', '张无忌', '韦一笑', '小昭'];
 
-function getDefaultData() {
-    const score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
-    const token = parseInt(localStorage.getItem('ming_holy_token_5v5_test') || '0');
+// ==================== 存储 key ====================
+const SHOP_KEY  = 'ming_shop_data';
+const HERO_KEY  = 'ming_cultivated_heroes';
+const TOKEN_KEY = 'ming_holy_token_5v5_test';
+const SCORE_KEY = 'ming_vote_score_5v5_test';
+const CHEST_KEY = 'ming_chest_count';
+
+// ==================== 定价（按账号累计） ====================
+const PRICE_UNLOCK_FIRST = 20,  PRICE_UNLOCK_NEXT = 50;
+const PRICE_POINT_FIRST  = 50,  PRICE_POINT_NEXT  = 100;
+
+const POINT_TYPES = [
+    { id: 'pointAtk', key: 'atk', icon: '⚔️', name: '攻击点' },
+    { id: 'pointDef', key: 'def', icon: '🛡️', name: '防御点' },
+    { id: 'pointHp',  key: 'hp',  icon: '❤️', name: '生命点' }
+];
+const POINT_LABEL = { atk: '攻击点', def: '防御点', hp: '生命点' };
+
+const DISCOUNT_ITEM_NAME = {
+    unlock: '角色解锁', pointAtk: '攻击点', pointDef: '防御点', pointHp: '生命点'
+};
+
+// ==================== 小工具 ====================
+function num(v) {
+    const n = parseInt(v, 10);
+    return (isNaN(n) || n < 0) ? 0 : n;
+}
+function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+}
+function hashStr(str) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+    }
+    return h >>> 0;
+}
+
+let toastTimer = null;
+function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ==================== 每日折扣（日期串做种子，零存储、确定性） ====================
+function getDailyDiscount(dateStr) {
+    let seed = hashStr(dateStr);
+    const rnd = () => {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        return seed / 4294967296;
+    };
+    const pool = ['unlock', 'pointAtk', 'pointDef', 'pointHp'];
+    const count = 1 + Math.floor(rnd() * 2);   // 每天 1-2 个可购项
+    const picked = {};
+    for (let i = 0; i < count && pool.length > 0; i++) {
+        const idx = Math.floor(rnd() * pool.length);
+        const id = pool.splice(idx, 1)[0];
+        picked[id] = 5 + Math.floor(rnd() * 5);  // 5/6/7/8/9 折
+    }
+    return picked;
+}
+
+// ==================== 等级与经验曲线 ====================
+// 等级 = 总 M = baseM + 属性点点数三项之和（M 值多少就是多少级，不做二次换算）
+// R(n) = E(n) ± W(n)，下限 5；E(n) = 10 + 5n；W 按「窄—宽」交替 5, 15（n 为第 n 次经验升级）
+function expNeed(name, n) {
+    const E = 10 + 5 * n;
+    const W = (n % 2 === 1) ? 5 : 15;
+    const lo = Math.max(5, E - W);
+    const hi = Math.max(lo, E + W);
+    return lo + (hashStr(name + '|' + n) % (hi - lo + 1));
+}
+
+// ==================== 存档读写 ====================
+function normalizeShop(raw) {
+    const d = (raw && typeof raw === 'object') ? raw : {};
+    const bag = d.bag || {};
+    const bought = d.bought || {};
     return {
-        v: 1,
-        score: score,
-        token: token,
-        scoreSource: 'game',
-        items: { '圣火令': token },
-        heroes: {
-            '小昭·妹': {
-                unlocked: true,
-                role: '远程',
-                atk: 33,
-                def: 25,
-                maxHp: 108,
-                hp: 108,
-                masteredRoles: ['远程'],
-                isXiaoZhaoBrother: true
-            },
-            '小昭·姊': { unlocked: false },
-            '张无忌': { unlocked: false },
-            '韦一笑': { unlocked: false },
-            '小昭': { unlocked: false }
-        },
-        unlocked: []
+        v: 2,
+        bag: { atk: num(bag.atk), def: num(bag.def), hp: num(bag.hp), free: num(bag.free), exp: num(bag.exp) },
+        bought: { heroes: num(bought.heroes), points: num(bought.points) },
+        exp: (d.exp && typeof d.exp === 'object') ? d.exp : {}
     };
 }
-
-function loadData() {
+function normalizeCultivated(raw) {
+    const list = (raw && Array.isArray(raw.list)) ? raw.list : [];
+    const out = [];
+    for (const it of list) {
+        if (!it || !it.name) continue;
+        const meta = HERO_META[it.name];
+        const p = it.points || {};
+        out.push({
+            name: it.name,
+            baseM: num(it.baseM) || (meta ? meta.baseM : 100),
+            role: it.role || (meta ? meta.role : '战士'),
+            points: { atk: num(p.atk), def: num(p.def), hp: num(p.hp) },
+            skills: Array.isArray(it.skills) ? it.skills : [],
+            equips: Array.isArray(it.equips) ? it.equips : []
+        });
+    }
+    return { v: 1, list: out };
+}
+function loadShop() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            const data = JSON.parse(raw);
-            const score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
-            const gameToken = localStorage.getItem('ming_holy_token_5v5_test');
-            let token;
-            if (gameToken !== null) {
-                token = parseInt(gameToken, 10);
-            } else {
-                // 新圣火令 key 尚未存在，从商店存档迁移
-                token = (data.items && data.items['圣火令']) ? data.items['圣火令'] : 0;
-                localStorage.setItem('ming_holy_token_5v5_test', String(token));
-            }
-            if (data.scoreSource !== 'import') data.score = score;
-            data.token = token;
-            data.items = data.items || {};
-            data.items['圣火令'] = token;
-            if (!data.heroes) data.heroes = getDefaultData().heroes;
-            // 确保所有角色存在
-            for (const name of Object.keys(SKILL_DB)) {
-                if (!data.heroes[name]) data.heroes[name] = { unlocked: false };
-            }
-            // 小昭·妹永远已解锁
-            if (!data.heroes['小昭·妹']) data.heroes['小昭·妹'] = { unlocked: true };
-            data.heroes['小昭·妹'].unlocked = true;
-            if (!data.scoreSource) data.scoreSource = 'game';
-            return data;
-        }
+        const raw = localStorage.getItem(SHOP_KEY);
+        if (raw) return normalizeShop(JSON.parse(raw));
     } catch (e) {}
-    return getDefaultData();
+    return normalizeShop(null);
+}
+function loadCultivated() {
+    try {
+        const raw = localStorage.getItem(HERO_KEY);
+        if (raw) return normalizeCultivated(JSON.parse(raw));
+    } catch (e) {}
+    return normalizeCultivated(null);
+}
+function saveShop() { localStorage.setItem(SHOP_KEY, JSON.stringify(shopData)); }
+function saveCultivated() { localStorage.setItem(HERO_KEY, JSON.stringify(cultivated)); }
+
+function getToken() { return num(localStorage.getItem(TOKEN_KEY)); }
+function setToken(v) { localStorage.setItem(TOKEN_KEY, String(Math.max(0, num(v)))); }
+function getScore() { return num(localStorage.getItem(SCORE_KEY)); }
+function getChests() { return num(localStorage.getItem(CHEST_KEY)); }
+function setChests(v) { localStorage.setItem(CHEST_KEY, String(Math.max(0, num(v)))); }
+// 老版本迁移：圣火令余额曾存在商店存档里
+function ensureToken() {
+    if (localStorage.getItem(TOKEN_KEY) === null) {
+        let t = 0;
+        try {
+            const old = JSON.parse(localStorage.getItem(SHOP_KEY) || '{}');
+            t = num(old.items && old.items['圣火令']);
+        } catch (e) {}
+        localStorage.setItem(TOKEN_KEY, String(t));
+    }
 }
 
-function saveData(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+let shopData = null;
+let cultivated = null;
+let dailyDiscount = getDailyDiscount(todayStr());
+
+function findEntry(name) {
+    for (const it of cultivated.list) if (it.name === name) return it;
+    return null;
+}
+function heroTotalM(entry) {
+    return entry.baseM + entry.points.atk + entry.points.def + entry.points.hp;
+}
+function expState(name) {
+    if (!shopData.exp[name]) shopData.exp[name] = { lv: 1, exp: 0 };
+    const st = shopData.exp[name];
+    st.lv = num(st.lv) || 1;
+    st.exp = num(st.exp);
+    return st;
 }
 
-let shopData = loadData();
+// ==================== 定价 / 折扣 ====================
+function unlockPrice() { return shopData.bought.heroes === 0 ? PRICE_UNLOCK_FIRST : PRICE_UNLOCK_NEXT; }
+function pointPrice() { return shopData.bought.points === 0 ? PRICE_POINT_FIRST : PRICE_POINT_NEXT; }
+function finalPrice(base, itemId) {
+    const d = dailyDiscount[itemId];
+    return d ? Math.max(1, Math.round(base * d / 10)) : base;
+}
+function priceHtml(base, itemId) {
+    const d = dailyDiscount[itemId];
+    if (!d) return '<span class="price-now">' + base + '🔥</span>';
+    return '<span class="price-old">' + base + '</span>' +
+        '<span class="price-now">' + finalPrice(base, itemId) + '🔥</span>' +
+        '<span class="badge-discount">' + d + '折</span>';
+}
 
-// ==================== 界面渲染 ====================
+// ==================== 渲染 ====================
 function renderStats() {
-    document.getElementById('scoreVal').textContent = shopData.score;
-    document.getElementById('tokenVal').textContent = shopData.items['圣火令'] || 0;
-    document.getElementById('chestVal').textContent = parseInt(localStorage.getItem('ming_chest_count') || '0');
+    document.getElementById('scoreVal').textContent = getScore();
+    document.getElementById('tokenVal').textContent = getToken();
+    document.getElementById('chestVal').textContent = getChests();
+    const b = shopData.bag;
+    document.getElementById('bagVal').textContent = b.atk + b.def + b.hp + b.free;
+}
+
+function renderDiscount() {
+    const ids = Object.keys(dailyDiscount);
+    const bar = document.getElementById('discountBar');
+    if (ids.length === 0) {
+        bar.innerHTML = '🎉 今日无折扣 <span class="dim">（每日刷新）</span>';
+        return;
+    }
+    bar.innerHTML = '🎉 今日折扣：' + ids.map(id => DISCOUNT_ITEM_NAME[id] + ' ' + dailyDiscount[id] + '折').join(' · ') +
+        ' <span class="dim">（每日刷新，价格按账号累计）</span>';
 }
 
 function renderHeroes() {
     const list = document.getElementById('heroList');
     list.innerHTML = '';
-    const heroOrder = ['小昭·妹', '小昭·姊', '张无忌', '韦一笑', '小昭'];
-    for (const name of heroOrder) {
-        const heroData = shopData.heroes[name] || { unlocked: false };
-        const skillInfo = SKILL_DB[name] || { icon: '❓', role: '未知', skills: [] };
-        const unlocked = heroData.unlocked === true;
+    for (const name of HERO_ORDER) {
+        const meta = HERO_META[name];
+        const info = SKILL_DB[name] || { icon: '❓' };
+        const entry = findEntry(name);
         const card = document.createElement('div');
-        card.className = 'hero-card ' + (unlocked ? 'unlocked' : 'locked');
-        const masteredCount = heroData.masteredRoles ? heroData.masteredRoles.length : 0;
-        const statsHtml = unlocked && heroData.atk !== undefined
-            ? `<div class="hero-stats"><span>⚔️ ${heroData.atk}</span><span>🛡️ ${heroData.def}</span><span>❤️ ${heroData.hp}/${heroData.maxHp}</span></div>`
-            : '';
-        const roleText = unlocked
-            ? `${heroData.role || skillInfo.role}${masteredCount > 0 ? ' · 精通' + masteredCount + '/4' : ''}`
-            : '尚未解锁';
-        card.innerHTML = `
-            <div class="hero-avatar">${skillInfo.icon}</div>
-            <div class="hero-info">
-                <div class="hero-name">
-                    ${name}
-                    ${unlocked ? '' : '<span class="lock-tag">未解锁</span>'}
-                </div>
-                <div class="hero-role">${roleText}</div>
-                ${statsHtml}
-            </div>
-        `;
-        if (unlocked) {
-            card.addEventListener('click', () => showSkillPopup(name));
+
+        if (entry) {
+            card.className = 'hero-card unlocked';
+            card.innerHTML =
+                '<div class="hero-avatar">' + info.icon + '</div>' +
+                '<div class="hero-info">' +
+                    '<div class="hero-name">' + name + '</div>' +
+                    '<div class="hero-role">Lv' + heroTotalM(entry) + ' · ' + entry.role + '</div>' +
+                    '<div class="hero-stats">' +
+                        '<span>⚔️ ' + entry.points.atk + '</span>' +
+                        '<span>🛡️ ' + entry.points.def + '</span>' +
+                        '<span>❤️ ' + entry.points.hp + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<button class="mini-btn" data-act="detail">加点</button>';
+            card.querySelector('[data-act="detail"]').addEventListener('click', e => {
+                e.stopPropagation();
+                showHeroModal(name);
+            });
+            card.addEventListener('click', () => showHeroModal(name));
+        } else {
+            card.className = 'hero-card locked';
+            card.innerHTML =
+                '<div class="hero-avatar">' + info.icon + '</div>' +
+                '<div class="hero-info">' +
+                    '<div class="hero-name">' + name + '<span class="lock-tag">未解锁</span></div>' +
+                    '<div class="hero-role">baseM ' + meta.baseM + ' · ' + meta.role + '</div>' +
+                '</div>' +
+                '<div class="buy-col">' +
+                    '<div class="price-line">' + priceHtml(unlockPrice(), 'unlock') + '</div>' +
+                    '<button class="mini-btn" data-act="unlock">解锁</button>' +
+                '</div>';
+            card.querySelector('[data-act="unlock"]').addEventListener('click', e => {
+                e.stopPropagation();
+                buyHero(name);
+            });
         }
         list.appendChild(card);
     }
 }
 
-// ==================== 技能弹窗 ====================
-function showSkillPopup(name) {
-    const skillInfo = SKILL_DB[name];
-    if (!skillInfo) return;
-    const heroData = shopData.heroes[name] || {};
-    const box = document.getElementById('skillBox');
-    let skillsHtml = '';
-    skillInfo.skills.forEach(s => {
-        skillsHtml += `<div class="skill-item"><div class="skill-name">${skillInfo.icon} ${s.name}</div>${s.desc}</div>`;
-    });
-    box.innerHTML = `
-        <button class="close-btn" id="closeSkillBtn">✕</button>
-        <h3>${skillInfo.icon} ${name}</h3>
-        <div class="role-line">职业：${heroData.role || skillInfo.role}${heroData.masteredRoles ? ' · 精通' + heroData.masteredRoles.length + '/4' : ''}</div>
-        ${skillsHtml}
-        <div style="color:#888;font-size:0.7rem;text-align:center;margin-top:10px;">点击外部关闭</div>
-    `;
-    document.getElementById('skillModal').classList.add('show');
-    // 重新绑定关闭按钮
-    document.getElementById('closeSkillBtn').addEventListener('click', () => {
-        document.getElementById('skillModal').classList.remove('show');
-    });
+function renderPointShop() {
+    const box = document.getElementById('pointShop');
+    box.innerHTML = '';
+    const base = pointPrice();
+    for (const t of POINT_TYPES) {
+        const el = document.createElement('div');
+        el.className = 'shop-item';
+        el.innerHTML =
+            '<div class="item-icon">' + t.icon + '</div>' +
+            '<div class="item-info">' +
+                '<div class="item-name">' + t.name + '</div>' +
+                '<div class="item-desc">已拥有 ' + (shopData.bag[t.key] || 0) + ' 个 · 每个自带 1 级</div>' +
+            '</div>' +
+            '<div class="buy-col">' +
+                '<div class="price-line">' + priceHtml(base, t.id) + '</div>' +
+                '<button class="mini-btn" data-buy="' + t.key + '">购买</button>' +
+            '</div>';
+        el.querySelector('[data-buy]').addEventListener('click', () => buyPoint(t));
+        box.appendChild(el);
+    }
 }
 
-document.getElementById('skillModal').addEventListener('click', function(e) {
-    if (e.target === this) this.classList.remove('show');
-});
+function renderAll() {
+    renderStats();
+    renderDiscount();
+    renderHeroes();
+    renderPointShop();
+}
 
-function renderAll() { renderStats(); renderHeroes(); }
+// ==================== 角色详情 / 加点弹窗 ====================
+function showHeroModal(name) {
+    renderHeroModal(name);
+    document.getElementById('heroModal').classList.add('show');
+}
+function closeHeroModal() {
+    document.getElementById('heroModal').classList.remove('show');
+}
+function renderHeroModal(name) {
+    const box = document.getElementById('heroBox');
+    const info = SKILL_DB[name] || { icon: '❓', skills: [] };
+    const entry = findEntry(name);
+    if (!entry) {
+        box.innerHTML = '<button class="close-btn" data-close>✕</button><h3>' + name + '</h3>' +
+            '<div class="item-desc">尚未解锁</div>';
+        box.querySelector('[data-close]').addEventListener('click', closeHeroModal);
+        return;
+    }
+    const st = expState(name);
+    const need = expNeed(name, st.lv);
+    const sum = entry.points.atk + entry.points.def + entry.points.hp;
+    const bag = shopData.bag;
+
+    let allocHtml = '';
+    for (const t of POINT_TYPES) {
+        const n = bag[t.key] || 0;
+        allocHtml += '<div class="alloc-row"><span>' + t.icon + ' ' + t.name + '</span>' +
+            '<span class="grow">背包 ' + n + '</span>' +
+            '<button class="mini-btn" data-alloc="' + t.key + '"' + (n <= 0 ? ' disabled' : '') + '>分配 +1</button></div>';
+    }
+    allocHtml += '<div class="alloc-row"><span>⭐ 自由点</span><span class="grow">背包 ' + bag.free + '</span>' +
+        POINT_TYPES.map(t => '<button class="mini-btn" data-free="' + t.key + '"' + (bag.free <= 0 ? ' disabled' : '') + '>+' + t.icon + '</button>').join('') +
+        '</div>';
+    allocHtml += '<div class="alloc-row"><span>📈 经验池</span><span class="grow">' + bag.exp + ' 点</span>' +
+        '<button class="mini-btn" data-exp="1"' + (bag.exp <= 0 ? ' disabled' : '') + '>投入</button></div>';
+
+    let skillsHtml = '';
+    (info.skills || []).forEach(s => {
+        skillsHtml += '<div class="skill-item"><div class="skill-name">' + s.name + '</div>' + s.desc + '</div>';
+    });
+
+    box.innerHTML =
+        '<button class="close-btn" data-close>✕</button>' +
+        '<h3>' + info.icon + ' ' + name + '</h3>' +
+        '<div class="role-line">Lv' + heroTotalM(entry) + ' · ' + entry.role + '</div>' +
+        '<div class="detail-box">' +
+            '<div>等级 = baseM ' + entry.baseM + ' + 属性点 ' + sum + '</div>' +
+            '<div>属性点：⚔️ ' + entry.points.atk + ' · 🛡️ ' + entry.points.def + ' · ❤️ ' + entry.points.hp + '</div>' +
+            '<div>经验：' + st.exp + ' / ' + need + '（第 ' + st.lv + ' 次升级）</div>' +
+        '</div>' +
+        '<div class="alloc-title">背包分配</div>' + allocHtml +
+        '<div class="alloc-title">技能</div>' + skillsHtml;
+
+    box.querySelector('[data-close]').addEventListener('click', closeHeroModal);
+    box.querySelectorAll('[data-alloc]').forEach(b => {
+        b.addEventListener('click', () => allocatePoint(name, b.dataset.alloc));
+    });
+    box.querySelectorAll('[data-free]').forEach(b => {
+        b.addEventListener('click', () => allocateFree(name, b.dataset.free));
+    });
+    const expBtn = box.querySelector('[data-exp]');
+    if (expBtn) expBtn.addEventListener('click', () => useExpPool(name));
+}
+
+// ==================== 背包弹窗 ====================
+function renderBagBody(tab) {
+    const bag = shopData.bag;
+    const body = document.getElementById('bagBody');
+    if (tab === 'free') {
+        body.innerHTML = '<div class="bag-row"><span>⭐ 自由点</span><b>' + bag.free + '</b></div>' +
+            '<div class="info">自由点由「宝箱经验」升级时产出，可囤可收藏；<br>在角色卡点「加点」，自行选择加 攻 / 防 / 血。</div>';
+    } else if (tab === 'exp') {
+        body.innerHTML = '<div class="bag-row"><span>📈 经验池</span><b>' + bag.exp + '</b></div>' +
+            '<div class="info">经验来自宝箱（单次 8-15），在角色卡点「加点」投入某角色。<br>经验升级给 1 个自由点；属性点自带的那一级不给自由点。</div>';
+    } else {
+        body.innerHTML = POINT_TYPES.map(t =>
+            '<div class="bag-row"><span>' + t.icon + ' ' + t.name + '</span><b>' + (bag[t.key] || 0) + '</b></div>'
+        ).join('') +
+            '<div class="info">属性点自带 1 级（总 M +1）；在角色卡点「加点」分配给角色。</div>';
+    }
+}
+function openBag() {
+    const active = document.querySelector('#bagModal .tab-btn.active');
+    renderBagBody(active ? active.dataset.bag : 'point');
+    document.getElementById('bagModal').classList.add('show');
+}
+
+// ==================== 购买 / 分配 ====================
+function buyHero(name) {
+    const price = finalPrice(unlockPrice(), 'unlock');
+    const token = getToken();
+    if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
+    const meta = HERO_META[name] || { baseM: 100, role: '战士' };
+    setToken(token - price);
+    cultivated.list.push({
+        name: name,
+        baseM: meta.baseM,
+        role: meta.role,
+        points: { atk: 0, def: 0, hp: 0 },
+        skills: [],
+        equips: []
+    });
+    saveCultivated();
+    shopData.bought.heroes += 1;
+    expState(name);
+    saveShop();
+    renderAll();
+    showToast('已解锁 ' + name + '（花费 ' + price + ' 🔥）');
+}
+
+function buyPoint(type) {
+    const base = pointPrice();
+    const price = finalPrice(base, type.id);
+    const token = getToken();
+    if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
+    setToken(token - price);
+    shopData.bag[type.key] += 1;
+    shopData.bought.points += 1;
+    saveShop();
+    renderAll();
+    showToast('已购买 ' + type.name + ' ×1（花费 ' + price + ' 🔥），已进背包');
+}
+
+function allocatePoint(name, key) {
+    const entry = findEntry(name);
+    if (!entry || shopData.bag[key] <= 0) return;
+    shopData.bag[key] -= 1;
+    entry.points[key] += 1;
+    saveShop(); saveCultivated();
+    renderAll(); renderHeroModal(name);
+    showToast(POINT_LABEL[key] + ' +1 → ' + name + '（Lv' + heroTotalM(entry) + '）');
+}
+
+function allocateFree(name, key) {
+    const entry = findEntry(name);
+    if (!entry || shopData.bag.free <= 0) return;
+    shopData.bag.free -= 1;
+    entry.points[key] += 1;
+    saveShop(); saveCultivated();
+    renderAll(); renderHeroModal(name);
+    showToast('自由点 → ' + POINT_LABEL[key] + ' +1（Lv' + heroTotalM(entry) + '）');
+}
+
+function useExpPool(name) {
+    const pool = shopData.bag.exp;
+    const entry = findEntry(name);
+    if (!entry || pool <= 0) return;
+    const st = expState(name);
+    let amount = pool;
+    let gained = 0;
+    let guard = 0;
+    while (amount > 0 && guard++ < 500) {
+        const need = expNeed(name, st.lv);
+        const rest = need - st.exp;
+        if (amount >= rest) {
+            amount -= rest;
+            st.exp = 0;
+            st.lv += 1;
+            gained += 1;
+            entry.baseM += 1;          // 经验升级 → baseM +1
+            shopData.bag.free += 1;    // 经验升级 → 1 个自由点
+        } else {
+            st.exp += amount;
+            amount = 0;
+        }
+    }
+    shopData.bag.exp = 0;
+    saveShop(); saveCultivated();
+    renderAll(); renderHeroModal(name);
+    if (gained > 0) {
+        showToast('投入 ' + pool + ' 经验：升 ' + gained + ' 级（Lv' + heroTotalM(entry) + '），获得 ' + gained + ' 个自由点');
+    } else {
+        showToast('投入 ' + pool + ' 经验（当前 ' + st.exp + ' / ' + expNeed(name, st.lv) + '）');
+    }
+}
+
+// ==================== 宝箱 ====================
+function openChest() {
+    const c = getChests();
+    if (c <= 0) { showToast('暂无宝箱（通关掉落）'); return; }
+    setChests(c - 1);
+    const r = Math.random();
+    if (r < 0.4) {
+        const keys = ['atk', 'def', 'hp'];
+        const k = keys[Math.floor(Math.random() * 3)];
+        shopData.bag[k] += 1;
+        showToast('宝箱开出 属性点：' + POINT_LABEL[k] + ' +1（已进背包）');
+    } else if (r < 0.8) {
+        const gain = 8 + Math.floor(Math.random() * 8);  // 8-15
+        shopData.bag.exp += gain;
+        showToast('宝箱开出 经验 +' + gain + '（已进经验池）');
+    } else {
+        setToken(getToken() + 1);
+        showToast('宝箱开出 圣火令 +1');
+    }
+    saveShop();
+    renderAll();
+}
 
 // ==================== 串码系统 ====================
 function checksum(str) {
@@ -414,14 +878,12 @@ function checksum(str) {
     for (let i = 0; i < str.length; i++) sum += str.charCodeAt(i);
     return (sum & 0xFFFF).toString(16).padStart(4, '0').toUpperCase();
 }
-
 function encode(data) {
     const json = JSON.stringify(data);
     const base64 = btoa(unescape(encodeURIComponent(json)));
     const chunked = base64.replace(/(.{6})/g, '$1-').replace(/-$/, '');
     return 'M5V2-' + chunked + '-' + checksum(base64);
 }
-
 function decode(code) {
     try {
         if (!code.startsWith('M5V2-')) return null;
@@ -437,27 +899,62 @@ function decode(code) {
     } catch (e) { return null; }
 }
 
-// ==================== 弹窗逻辑 ====================
-const modal = document.getElementById('serialModal');
+// ==================== 初始化与事件绑定 ====================
+function rebuildState() {
+    shopData = loadShop();
+    cultivated = loadCultivated();
+    for (const it of cultivated.list) expState(it.name);
+}
+
+document.getElementById('bagCard').addEventListener('click', openBag);
+document.getElementById('chestCard').addEventListener('click', openChest);
+document.getElementById('closeBagBtn').addEventListener('click', () => {
+    document.getElementById('bagModal').classList.remove('show');
+});
+document.getElementById('bagModal').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('show');
+});
+document.querySelectorAll('#bagModal .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#bagModal .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderBagBody(btn.dataset.bag);
+    });
+});
+
+document.getElementById('heroModal').addEventListener('click', function (e) {
+    if (e.target === this) closeHeroModal();
+});
+
+// 串码弹窗
+const serialModal = document.getElementById('serialModal');
 const codeDisplay = document.getElementById('codeDisplay');
 const importInput = document.getElementById('importInput');
 const resultText = document.getElementById('resultText');
 
-document.getElementById('serialBtn').addEventListener('click', () => modal.classList.add('show'));
-document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.remove('show'));
-
-document.querySelectorAll('.tab-btn').forEach(btn => {
+document.getElementById('serialBtn').addEventListener('click', () => serialModal.classList.add('show'));
+document.getElementById('closeModalBtn').addEventListener('click', () => serialModal.classList.remove('show'));
+serialModal.addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('show');
+});
+document.querySelectorAll('#serialModal .tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('#serialModal .tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#serialModal .tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('tab' + btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)).classList.add('active');
     });
 });
-
 document.getElementById('genCodeBtn').addEventListener('click', () => {
-    shopData = loadData();
-    const code = encode(shopData);
+    rebuildState();
+    const code = encode({
+        v: 2,
+        score: getScore(),
+        token: getToken(),
+        chest: getChests(),
+        shop: shopData,
+        heroes: cultivated
+    });
     codeDisplay.textContent = code;
     navigator.clipboard.writeText(code).then(() => {
         codeDisplay.style.borderColor = '#4caf50';
@@ -465,7 +962,6 @@ document.getElementById('genCodeBtn').addEventListener('click', () => {
         resultText.className = 'result-text ok';
     });
 });
-
 codeDisplay.addEventListener('click', () => {
     if (codeDisplay.textContent === '点击生成串码') return;
     navigator.clipboard.writeText(codeDisplay.textContent).then(() => {
@@ -473,30 +969,54 @@ codeDisplay.addEventListener('click', () => {
         setTimeout(() => codeDisplay.style.borderColor = '#333', 1500);
     });
 });
-
 document.getElementById('importBtn').addEventListener('click', () => {
     const code = importInput.value.trim();
     if (!code) { resultText.textContent = '请先粘贴串码'; resultText.className = 'result-text err'; return; }
     const data = decode(code);
     if (!data) { resultText.textContent = '串码无效（校验失败）'; resultText.className = 'result-text err'; return; }
-    data.scoreSource = 'import';
-    saveData(data);
-    localStorage.setItem('ming_vote_score_5v5_test', data.score);
-    shopData = data;
+    localStorage.setItem(SHOP_KEY, JSON.stringify(normalizeShop(data.shop)));
+    localStorage.setItem(HERO_KEY, JSON.stringify(normalizeCultivated(data.heroes)));
+    if (data.token !== undefined) setToken(data.token);
+    if (data.chest !== undefined) setChests(data.chest);
+    if (data.score !== undefined) localStorage.setItem(SCORE_KEY, String(num(data.score)));
+    rebuildState();
     renderAll();
-    resultText.textContent = '导入成功！积分 ' + data.score + '，圣火令 ' + (data.items['圣火令'] || 0);
+    resultText.textContent = '导入成功！积分 ' + getScore() + '，圣火令 ' + getToken() + '，角色 ' + cultivated.list.length + ' 个';
     resultText.className = 'result-text ok';
 });
 
+// 返回游戏
 document.getElementById('backBtn').addEventListener('click', () => {
     window.close();
     setTimeout(() => {
-        if (!window.closed) {
-            window.location.href = '../index.html';
-        }
+        if (!window.closed) window.location.href = '../index.html';
     }, 1000);
 });
 
+// demo 测试入口
+document.getElementById('addTokenBtn').addEventListener('click', () => {
+    setToken(getToken() + 10);
+    renderStats();
+    showToast('圣火令 +10');
+});
+document.getElementById('addChestBtn').addEventListener('click', () => {
+    setChests(getChests() + 1);
+    renderStats();
+    showToast('宝箱 +1');
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+    if (!confirm('重置养成存档？（清空角色养成 / 背包 / 购买计数 / 宝箱，不影响积分与圣火令）')) return;
+    localStorage.removeItem(SHOP_KEY);
+    localStorage.removeItem(HERO_KEY);
+    setChests(0);
+    rebuildState();
+    renderAll();
+    showToast('养成存档已重置');
+});
+
+// ==================== 启动 ====================
+ensureToken();
+rebuildState();
 renderAll();
 </script>
 </body>
