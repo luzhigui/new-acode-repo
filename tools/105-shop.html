@@ -4,9 +4,10 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.0.0
-  预估字节数：约 44 KB
+  版本：V2.1.0
+  预估字节数：约 45 KB
   日期：2026-10-10
+  改动：自由点权重下调为 攻/防 +0.1、血 +0.25（购买的属性点仍各 +1）；等级显示取整，明细保留小数
 -->
 <html lang="zh-CN">
 <head>
@@ -193,7 +194,7 @@
             margin: 12px 0 6px; padding-left: 6px; border-left: 2px solid #ffd700; text-align: left;
         }
         .alloc-row {
-            display: flex; align-items: center; gap: 6px; background: #0f0f1a;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: #0f0f1a;
             border: 1px solid #333; border-radius: 8px; padding: 8px 10px;
             margin-bottom: 6px; font-size: 0.75rem; color: #ccc;
         }
@@ -425,6 +426,11 @@ function num(v) {
     const n = parseInt(v, 10);
     return (isNaN(n) || n < 0) ? 0 : n;
 }
+// 小数版解析（属性点可为 0.1 / 0.25），保留 2 位
+function numF(v) {
+    const n = parseFloat(v);
+    return (isNaN(n) || n < 0) ? 0 : Math.round(n * 100) / 100;
+}
 function todayStr() {
     const d = new Date();
     return d.getFullYear() + '-' +
@@ -500,7 +506,7 @@ function normalizeCultivated(raw) {
             name: it.name,
             baseM: num(it.baseM) || (meta ? meta.baseM : 100),
             role: it.role || (meta ? meta.role : '战士'),
-            points: { atk: num(p.atk), def: num(p.def), hp: num(p.hp) },
+            points: { atk: numF(p.atk), def: numF(p.def), hp: numF(p.hp) },
             skills: Array.isArray(it.skills) ? it.skills : [],
             equips: Array.isArray(it.equips) ? it.equips : []
         });
@@ -552,6 +558,10 @@ function findEntry(name) {
 function heroTotalM(entry) {
     return entry.baseM + entry.points.atk + entry.points.def + entry.points.hp;
 }
+// 自由点权重（2026-10-10 定）：攻/防 +0.1、血 +0.25；购买的属性点仍是各 +1（自带一级）
+const FREE_POINT_VALUE = { atk: 0.1, def: 0.1, hp: 0.25 };
+function lvDisplay(entry) { return Math.round(heroTotalM(entry)); }
+function fmtNum(v) { return Math.round(v * 100) / 100; }
 function expState(name) {
     if (!shopData.exp[name]) shopData.exp[name] = { lv: 1, exp: 0 };
     const st = shopData.exp[name];
@@ -610,11 +620,11 @@ function renderHeroes() {
                 '<div class="hero-avatar">' + info.icon + '</div>' +
                 '<div class="hero-info">' +
                     '<div class="hero-name">' + name + '</div>' +
-                    '<div class="hero-role">Lv' + heroTotalM(entry) + ' · ' + entry.role + '</div>' +
+                    '<div class="hero-role">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
                     '<div class="hero-stats">' +
-                        '<span>⚔️ ' + entry.points.atk + '</span>' +
-                        '<span>🛡️ ' + entry.points.def + '</span>' +
-                        '<span>❤️ ' + entry.points.hp + '</span>' +
+                        '<span>⚔️ ' + fmtNum(entry.points.atk) + '</span>' +
+                        '<span>🛡️ ' + fmtNum(entry.points.def) + '</span>' +
+                        '<span>❤️ ' + fmtNum(entry.points.hp) + '</span>' +
                     '</div>' +
                 '</div>' +
                 '<button class="mini-btn" data-act="detail">加点</button>';
@@ -704,8 +714,9 @@ function renderHeroModal(name) {
             '<button class="mini-btn" data-alloc="' + t.key + '"' + (n <= 0 ? ' disabled' : '') + '>分配 +1</button></div>';
     }
     allocHtml += '<div class="alloc-row"><span>⭐ 自由点</span><span class="grow">背包 ' + bag.free + '</span>' +
-        POINT_TYPES.map(t => '<button class="mini-btn" data-free="' + t.key + '"' + (bag.free <= 0 ? ' disabled' : '') + '>+' + t.icon + '</button>').join('') +
-        '</div>';
+        POINT_TYPES.map(t => '<button class="mini-btn" data-free="' + t.key + '"' + (bag.free <= 0 ? ' disabled' : '') + '>' + t.icon + ' +' + FREE_POINT_VALUE[t.key] + '</button>').join('') +
+        '</div>' +
+        '<div class="item-desc" style="margin:-2px 0 6px 4px;">自由点：攻 / 防 +0.1 · 血 +0.25（购买的属性点仍是各 +1）</div>';
     allocHtml += '<div class="alloc-row"><span>📈 经验池</span><span class="grow">' + bag.exp + ' 点</span>' +
         '<button class="mini-btn" data-exp="1"' + (bag.exp <= 0 ? ' disabled' : '') + '>投入</button></div>';
 
@@ -717,10 +728,10 @@ function renderHeroModal(name) {
     box.innerHTML =
         '<button class="close-btn" data-close>✕</button>' +
         '<h3>' + info.icon + ' ' + name + '</h3>' +
-        '<div class="role-line">Lv' + heroTotalM(entry) + ' · ' + entry.role + '</div>' +
+        '<div class="role-line">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
         '<div class="detail-box">' +
-            '<div>等级 = baseM ' + entry.baseM + ' + 属性点 ' + sum + '</div>' +
-            '<div>属性点：⚔️ ' + entry.points.atk + ' · 🛡️ ' + entry.points.def + ' · ❤️ ' + entry.points.hp + '</div>' +
+            '<div>等级 = baseM ' + entry.baseM + ' + 属性点 ' + fmtNum(sum) + '（显示取整 Lv' + lvDisplay(entry) + '）</div>' +
+            '<div>属性点：⚔️ ' + fmtNum(entry.points.atk) + ' · 🛡️ ' + fmtNum(entry.points.def) + ' · ❤️ ' + fmtNum(entry.points.hp) + '</div>' +
             '<div>经验：' + st.exp + ' / ' + need + '（第 ' + st.lv + ' 次升级）</div>' +
         '</div>' +
         '<div class="alloc-title">背包分配</div>' + allocHtml +
@@ -743,7 +754,7 @@ function renderBagBody(tab) {
     const body = document.getElementById('bagBody');
     if (tab === 'free') {
         body.innerHTML = '<div class="bag-row"><span>⭐ 自由点</span><b>' + bag.free + '</b></div>' +
-            '<div class="info">自由点由「宝箱经验」升级时产出，可囤可收藏；<br>在角色卡点「加点」，自行选择加 攻 / 防 / 血。</div>';
+            '<div class="info">自由点由「宝箱经验」升级时产出，可囤可收藏；<br>在角色卡点「加点」，自行选择加 攻 / 防 / 血。<br>自由点权重：攻 / 防 +0.1，血 +0.25（购买的属性点仍是各 +1）。</div>';
     } else if (tab === 'exp') {
         body.innerHTML = '<div class="bag-row"><span>📈 经验池</span><b>' + bag.exp + '</b></div>' +
             '<div class="info">经验来自宝箱（单次 8-15），在角色卡点「加点」投入某角色。<br>经验升级给 1 个自由点；属性点自带的那一级不给自由点。</div>';
@@ -803,17 +814,18 @@ function allocatePoint(name, key) {
     entry.points[key] += 1;
     saveShop(); saveCultivated();
     renderAll(); renderHeroModal(name);
-    showToast(POINT_LABEL[key] + ' +1 → ' + name + '（Lv' + heroTotalM(entry) + '）');
+    showToast(POINT_LABEL[key] + ' +1 → ' + name + '（Lv' + lvDisplay(entry) + '）');
 }
 
 function allocateFree(name, key) {
     const entry = findEntry(name);
     if (!entry || shopData.bag.free <= 0) return;
+    const add = FREE_POINT_VALUE[key] || 0.1;
     shopData.bag.free -= 1;
-    entry.points[key] += 1;
+    entry.points[key] = Math.round((entry.points[key] + add) * 100) / 100;
     saveShop(); saveCultivated();
     renderAll(); renderHeroModal(name);
-    showToast('自由点 → ' + POINT_LABEL[key] + ' +1（Lv' + heroTotalM(entry) + '）');
+    showToast('自由点 → ' + POINT_LABEL[key] + ' +' + add + '（Lv' + lvDisplay(entry) + '）');
 }
 
 function useExpPool(name) {
@@ -843,7 +855,7 @@ function useExpPool(name) {
     saveShop(); saveCultivated();
     renderAll(); renderHeroModal(name);
     if (gained > 0) {
-        showToast('投入 ' + pool + ' 经验：升 ' + gained + ' 级（Lv' + heroTotalM(entry) + '），获得 ' + gained + ' 个自由点');
+        showToast('投入 ' + pool + ' 经验：升 ' + gained + ' 级（Lv' + lvDisplay(entry) + '），获得 ' + gained + ' 个自由点');
     } else {
         showToast('投入 ' + pool + ' 经验（当前 ' + st.exp + ' / ' + expNeed(name, st.lv) + '）');
     }
