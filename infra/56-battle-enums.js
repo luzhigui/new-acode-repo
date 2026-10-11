@@ -1,5 +1,6 @@
+// V1.4.4 | ~13960 bytes | 2026-10-11 FACT_TYPES 增 SOUL_DRAIN_APPLY（摄魂数值声明 fact，供体检对照 soulDrain group；renderFn:null 不进画面）
 // V1.4.3 | ~13860 bytes | 2026-10-09 SIGNAL_TYPES 增 CLAW_HIT_APPLIED（白骨爪连锁每爪结算后广播：供小昭·姊乾坤衍生按爪结算，堵住「一次攻击只触发一次」的断链）
-export const VER = 'infra/56-battle-enums.js V1.4.3';
+export const VER = 'infra/56-battle-enums.js V1.4.4';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -40,6 +41,8 @@ export const FACT_TYPES = Object.freeze({
     AURA_APPLY: 'auraApply',
     // 圣火令（core/14 命中列加攻/命中行加防，op:mul 乘法词条）：每次 addMod 1 条，发乘率不发增量（共享乘区）
     HOLY_FLAME_APPLY: 'holyFlameApply',
+    // 摄魂（core/04 applySoulDrain，op:mul 削弱型海克斯）：每回合每存活单位 1 条，发乘率（-0.25 为负，体检契约 allowNeg）
+    SOUL_DRAIN_APPLY: 'soulDrainApply',
     // 韦一笑·闪避反击吸血（WEI_HEAL）独立数值声明：此前体检只能借 dodgeFact.weiHeal 嵌套读取；纯账本不进画面（演出仍走 dodgeFact）
     WEI_DODGE_LEECH: 'weiDodgeLeech',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',

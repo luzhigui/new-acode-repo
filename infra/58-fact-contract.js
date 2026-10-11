@@ -1,5 +1,6 @@
+// V1.5.7 | ~15540 bytes | 2026-10-11 登记 SOUL_DRAIN_APPLY 数值声明契约（摄魂 op:mul，镜像 HOLY_FLAME_APPLY，renderFn/translateFn 均 null）
 // V1.5.6 | ~15400 bytes | 2026-10-02 登记 AURA_APPLY / HOLY_FLAME_APPLY / WEI_DODGE_LEECH 三个数值声明契约（renderFn/translateFn 均 null）
-export const VER = 'infra/58-fact-contract.js V1.5.6';
+export const VER = 'infra/58-fact-contract.js V1.5.7';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -155,6 +156,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.AURA_APPLY]: { requiredFields: ['unitName', 'unitUid', 'emptyCol', 'bloodAura'], renderFn: null, translateFn: null },
     // 圣火令（乘法共享乘区，无独立增量）：ratio 与 addMod value 同值（0.3=+30%），field 为 atk/def，体检按乘率口径核对
     [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值（-0.25=-25%），field 恒 atk；体检按乘率（mulSum）口径核对
+    [FACT_TYPES.SOUL_DRAIN_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
 });
