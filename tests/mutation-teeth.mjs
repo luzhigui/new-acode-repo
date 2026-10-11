@@ -1,3 +1,5 @@
+// V2.9.2 | 2026-10-11 第 71 轮：新增 A28 摄魂（SOUL_DRAIN）牙齿 —— 主代码 2424621 补发 SOUL_DRAIN_APPLY fact、
+//   契约升严格后，mirror A25 把 core/04 addMod 乘率翻倍（fact ratio 保持不动）⇒ 对照器应命中（ATTR 类"对照器兜住"）。
 // V2.9.0 | 2026-10-08 第 59 轮：给 harness 加**新鲜度守卫**（第 5 次栽在 harness，且是最隐蔽的一次）。
 //   现象：`--report` 拿 **9-29 16:25** 的 teeth-results.txt，配 10-02 两改过的判据（V2.7.0 判定顺序 /
 //   V2.8.0 baseline 增量口径）渲染 ⇒ 屏幕上写着「T2 ❌装饰品(真盲区)」，而该结论**根本不是当前代码跑出来的**。
@@ -52,7 +54,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.1';
+export const VER = 'tests/mutation-teeth.mjs V2.9.2';
 
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -338,6 +340,16 @@ const MUTATIONS = [
       file: 'core/15-skill-mechanisms.js',
       from: "newMaxHp: Math.floor(newMaxHp),",
       to:   "newMaxHp: Math.floor(newMaxHp) + 0.5," },
+    // ===== 第 71 轮新增：验证 SOUL_DRAIN（摄魂·削弱型海克斯）严格契约真有牙，而非恒绿 =====
+    //   背景：第 71 轮主代码 2424621 给 core/04 applySoulDrain 补发 SOUL_DRAIN_APPLY fact，
+    //   体检契约由「警告态（零声明·非空转）」升为严格判据（stat-decl-vs-actual-check V3.0.1）。
+    //   本牙 mirror A25（HOLY_FLAME mul 判据）：把 addMod 实际侧 value 翻倍、**fact 的 ratio 保持不动**
+    //   （ratio 若同翻则无偏差）⇒ mulSum=2×ratio ≠ sum ⇒ SOUL_DRAIN 严格判据命中；
+    //   ATTR 类变异规则侧无责，预期判定 =「规则无牙·对照器兜住」。
+    { id: 'A28', kind: 'ATTR', desc: '摄魂乘率翻倍（SOUL_DRAIN 严格 mul 判据）',
+      file: 'core/04buff-system.js',
+      from: "addMod(unit, 'atk', { source: '摄魂', value: CONFIG.BUFFS.soulDrain.atkBonus, ttl: 'round', op: 'mul', group: 'soulDrain' });",
+      to:   "addMod(unit, 'atk', { source: '摄魂', value: CONFIG.BUFFS.soulDrain.atkBonus * 2, ttl: 'round', op: 'mul', group: 'soulDrain' });" },
 ];
 
 function toPosix(p) {
