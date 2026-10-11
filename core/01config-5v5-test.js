@@ -1,6 +1,7 @@
+// V6.7.1 | ~20500 bytes | 2026-10-11 新增 isNamedCharacter（characters 表内即具名角色）：供 render/32 名字颜色「蓝=弱精英(104 档具名)」作判据，无名杂兵不再涂蓝
 // V6.7.0 | ~20200 bytes | 2026-10-10 DESC_TRUTH 新增何太冲三技能条目（chainArrow / armorPierce / kunlunCombo），技能说明的 {prob}{dmgRatio}{defIgnore}{dmgMultiplier} 从 mechanics 取真值
 // V6.6.0 | ~19900 bytes | 2026-10-02 DESC_TRUTH 的 type 全部改用 MECHANIC_TYPES / MECHANIC_EFFECT_TYPES 枚举（与 core/15 安装期校验、modules 注册同源）
-export const VER = 'core/01config-5v5-test.js V6.7.0';
+export const VER = 'core/01config-5v5-test.js V6.7.1';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -32,6 +33,12 @@ function getSkillParamsJealous(characterName, skillKey) {
     const ch = gameData?.characters?.[characterName];
     const skill = ch?.skills?.[skillKey];
     return skill?.paramsJealous || null;
+}
+
+// 是否「具名角色」：characters 表里有条目（含技能/机制）的才算，无名杂兵（空闻/班淑娴等）不在表内。
+//   用途：名字颜色分档里「蓝=弱精英（104 档具名）」的判据——只按 m 值判会把所有 104 无名兵一起涂蓝。
+function isNamedCharacter(name) {
+    return !!(gameData?.characters?.[name]);
 }
 
 function getSkillName(characterName, skillKey) {
@@ -195,7 +202,7 @@ function getSkillDesc(characterName, skillKey, jealous) {
 }
 
 // 导出加载函数供外部使用
-export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue };
+export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter };
 
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。

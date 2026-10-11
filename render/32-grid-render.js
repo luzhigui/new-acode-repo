@@ -1,10 +1,11 @@
 // V6.5.0 | ~29900 bytes | 2026-10-04 ①格子节点复用：9 个 div 建一次、之后只重填内容，不再每帧 innerHTML='' 全删全建（click 改一次性绑定 + 槽位现取单位）；复用会激活 .cell 的 transition: background 0.6s，故每帧重填前置 transition:none 并全程保持 → 底色仍是「瞬切」，观感与改动前完全一致 ②格子图标 7 分支 if/else 链改查 ui/69-role-cards.js 名片表
 // V6.5.2 | ~30600 bytes | 2026-10-09 格子防优先取 store 单位上的 _displayDef（player/42 由本步日志冻结的引擎真值写入），无则回落 getStat 现算——与攻击日志行同口径，修「格子防37 / 日志防56」
+// V6.5.4 | 2026-10-11 蓝档加「具名」门槛：m≥104 且 characters 表内有条目才蓝（弱精英），无名杂兵落黑（老板：蓝只给弱精英，不该给所有 104）
 // V6.5.3 | 2026-10-11 名字颜色分档（黑蓝紫金，老板拍板）：m≥112 金 / ≥107 紫 / ≥104 蓝 / 其余黑；nameGold 特判（张无忌/灭绝 m115）天然并入金档删除；成昆幻影跟随被模仿者 m（不剧透本体）
-export const VER = 'render/32-grid-render.js V6.5.3';
+export const VER = 'render/32-grid-render.js V6.5.4';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
-import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getStat } from '../core/13battle-shared.js';
@@ -353,7 +354,7 @@ export function renderGrid(id, camp) {
         let displayName = unit.name;
         // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
         if (displayName === '金毛狮王谢逊') displayName = '金毛狮王';
-        // 2026-10-11 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 蓝（弱精英）、其余黑。
+        // 2026-10-11 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 且具名 蓝（弱精英）、其余黑。
         //   张无忌/灭绝 m115 原描金特判天然并入金档；成昆幻影跟随被模仿者的 m（跟 displayName 同口径换算，不剧透本体档位）。
         let displayTierM = unit.m || 0;
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
@@ -474,7 +475,8 @@ export function renderGrid(id, camp) {
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
 
         // 2026-10-11 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
-        const nameTier = displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : displayTierM >= 104 ? 'name-blue' : '';
+        //   蓝档加「具名」门槛（老板：蓝色只给弱精英，不该给所有 104）：无名杂兵（空闻/班淑娴等）落黑
+        const nameTier = displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : (displayTierM >= 104 && isNamedCharacter(displayName)) ? 'name-blue' : '';
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) {
