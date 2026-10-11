@@ -749,6 +749,34 @@ const CONTRACTS = [
             }
             return out;
         }
+    },
+    {
+        // 第 70 轮（阶段一·数值真值网闭环）：摄魂 soulDrain —— 镜像 HOLY_FLAME（op:'mul' 削弱型海克斯），零主代码侧只绑契约。
+        //   ⚠️ 声明 fact 需主代码补发（需求见体检迭代日志第 70 轮）：core/04 applySoulDrain 在 addMod 同处 push
+        //     SOUL_DRAIN_APPLY fact，data:{ unitName, unitUid, camp, field:'atk', op:'mul', ratio: CONFIG.BUFFS.soulDrain.atkBonus }
+        //     （ratio 为负 -0.25，故 allowNeg 放开严格闸门负值）。core/11 两处调用点须补传 `log`。
+        //   与 HOLY_FLAME 同：mul:true ⇒ 主循环取账本 mulSum 比对；dir:+1 不翻转符号，负 ratio 走 allowNeg。
+        //   待 fact 上线前：extract 取不到 SOUL_DRAIN_APPLY ⇒ 仅 warning（group 账本已现 827 词条，非空转）；fact 上线后自动激活。
+        //   牙齿 A28（core/04 把 value 翻倍、fact 不动）⇒ 实际 mul=2×ratio 命中（2×声明）。
+        id: 'SOUL_DRAIN',
+        label: '摄魂',
+        group: 'soulDrain',
+        dir: +1,
+        mul: true,
+        allowNeg: true,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SOUL_DRAIN_APPLY) continue;
+                const d = f.data;
+                if (typeof d.unitName !== 'string') continue;
+                const field = d.field === 'def' ? 'def' : (d.field === 'atk' ? 'atk' : null);
+                if (field && typeof d.ratio === 'number') {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: field, amount: d.ratio });
+                }
+            }
+            return out;
+        }
     }
 ];
 
