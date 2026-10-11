@@ -306,10 +306,13 @@ const MUTATIONS = [
     // T12 原为「渲染伤害×0.3 → 触发旧判据『伤害<1.5』」；2026-10-09 引擎 V6.0.8 起 fact.dmg 回填
     //   减伤后落地值（合法 <1.5），rule132 判据1 已改为「有限数且≥0」，×0.3 不再触发。
     //   改打**负数**（新判据的守卫点：Math.max(0,…) 下限被破坏）。
-    { id: 'T12', kind: 'TEXT', desc: '九阴白骨爪渲染伤害取负（⇒ 落地伤害<0 → rule132 判据1 应咬）',
+    // T12：2026-10-11 第 68 轮修锚点 —— render/35 L507 爪击伤害渲染由 `造成 ${fact.dmg} 点伤害`
+    //   改为 `造成 ${fmt1(fact.dmg)} 点伤害`（fmt1 取整包裹），旧 from 0 处 ⇒ 树木=干净树（假绿制造机）。
+    //   锚点改指 `造成 ${fmt1(fact.dmg)} 点伤害`，to 取负 ⇒ 渲染出负伤害 ⇒ rule132 判据1（dmg<0）应咬。
+    { id: 'T12', kind: 'TEXT', desc: '九阴白骨爪渲染伤害取负（fmt1 包裹后⇒ 落地伤害<0 → rule132 判据1 应咬）',
       file: 'render/35-facts-effect.js',
-      from: "造成 ${fact.dmg} 点伤害",
-      to:   "造成 ${fact.dmg * -1} 点伤害" },
+      from: "造成 ${fmt1(fact.dmg)} 点伤害",
+      to:   "造成 ${fmt1(fact.dmg * -1)} 点伤害" },
     { id: 'T13', kind: 'TEXT', desc: '嗜血狂刀吸血渲染量×2（⇒ 吸血>伤害×0.85 → rule151 判据2应咬）',
       file: 'render/35-facts-effect.js',
       from: "的嗜血狂刀吸血+${fact.leechVal}",
@@ -318,6 +321,23 @@ const MUTATIONS = [
       file: 'render/36-generic-renderers.js',
       from: "${label}+${heal}，上限→${fact.newMaxHp}",
       to:   "${label}+${heal * 2}，上限→${fact.newMaxHp}" },
+    // 第 68 轮新增：验证 rule163（正义国字脸叠防数值回归）真有牙，而非恒绿。
+    //   rule163 读 ATTACK fact 的 data.pangDefGain，与配置 getSkillParams('胖远桥','righteousFace').defGain 对账；
+    //   写事实那行在 modules/26 L368（pangDefGain = face.defGain）。把写入值×2 ⇒ 事实≠配置 ⇒ rule163 判据2 应咬。
+    //   注意：addMod 实际加防（L337）仍用 face.defGain（正确），只有事实字段被污染 ⇒ 游戏真值不变、仅体检抓到，
+    //   且**不是单源陷阱**（配置与事实写入分属两处，污染写入代码≠污染配置）。
+    { id: 'T15', kind: 'ATTR', desc: '正义国字脸 pangDefGain 写入×2（⇒ 事实≠配置defGain → rule163 判据2应咬）',
+      file: 'modules/26elite-sixsects.js',
+      from: "data.group.data.pangDefGain = face.defGain;",
+      to:   "data.group.data.pangDefGain = face.defGain * 2;" },
+    // 第 68 轮新增：验证 rule164（吸血上限提升数值回归）真有牙，而非恒绿。
+    //   rule164 读 WEI_LEECH fact 的 data.newMaxHp，要求其为有限正整数（判据2）；写入点在 core/15 L276
+    //   `newMaxHp: Math.floor(newMaxHp)`（取整保整数）。把取整结果+0.5 ⇒ 事实变非整数 ⇒ rule164 判据2 应咬。
+    //   同样非单源陷阱：newMaxHp 由「unit.maxHp+heal」算出、取整后入 fact，规则只验整数性，配置不参与。
+    { id: 'T16', kind: 'ATTR', desc: '吸血上限 newMaxHp 取整后+0.5（⇒ 非整数 → rule164 判据2应咬）',
+      file: 'core/15-skill-mechanisms.js',
+      from: "newMaxHp: Math.floor(newMaxHp),",
+      to:   "newMaxHp: Math.floor(newMaxHp) + 0.5," },
 ];
 
 function toPosix(p) {
