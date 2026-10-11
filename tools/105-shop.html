@@ -4,10 +4,10 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.3.0
-  预估字节数：约 46 KB
+  版本：V2.4.0
+  预估字节数：约 47 KB
   日期：2026-10-11
-  改动：口径全部统一为 0.1 值（宝箱 / 购买 / 背包 / 加点不再出现 ×1）；经验升级 baseM +0.1（等级显示取整）；存档解析保留小数
+  改动：每日折扣改为「限量消耗制」——每天 1-2 个可购项、每项限购 1-2 个，买满即恢复原价；打折记录按「日期|商品」记账，跨日自动作废
 -->
 <html lang="zh-CN">
 <head>
@@ -460,7 +460,7 @@ function showToast(msg) {
     toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
-// ==================== 每日折扣（日期串做种子，零存储、确定性） ====================
+// ==================== 每日折扣（日期串做种子，每天 1-2 个可购项，各限购 1-2 个） ====================
 function getDailyDiscount(dateStr) {
     let seed = hashStr(dateStr);
     const rnd = () => {
@@ -473,7 +473,10 @@ function getDailyDiscount(dateStr) {
     for (let i = 0; i < count && pool.length > 0; i++) {
         const idx = Math.floor(rnd() * pool.length);
         const id = pool.splice(idx, 1)[0];
-        picked[id] = 5 + Math.floor(rnd() * 5);  // 5/6/7/8/9 折
+        picked[id] = {
+            rate: 5 + Math.floor(rnd() * 5),    // 5/6/7/8/9 折
+            quota: 1 + Math.floor(rnd() * 2)    // 折扣限量 1-2 个，买完恢复原价
+        };
     }
     return picked;
 }
@@ -494,11 +497,17 @@ function normalizeShop(raw) {
     const d = (raw && typeof raw === 'object') ? raw : {};
     const bag = d.bag || {};
     const bought = d.bought || {};
+    // 折扣记账只保留当天，跨日记录自动作废
+    const usedRaw = (d.discountUsed && typeof d.discountUsed === 'object') ? d.discountUsed : {};
+    const prefix = todayStr() + '|';
+    const discountUsed = {};
+    for (const k of Object.keys(usedRaw)) if (k.indexOf(prefix) === 0) discountUsed[k] = num(usedRaw[k]);
     return {
         v: 2,
         bag: { atk: num(bag.atk), def: num(bag.def), hp: num(bag.hp), free: num(bag.free), exp: num(bag.exp) },
         bought: { heroes: num(bought.heroes), points: num(bought.points) },
-        exp: (d.exp && typeof d.exp === 'object') ? d.exp : {}
+        exp: (d.exp && typeof d.exp === 'object') ? d.exp : {},
+        discountUsed: discountUsed
     };
 }
 function normalizeCultivated(raw) {
@@ -581,16 +590,29 @@ function expState(name) {
 // ==================== 定价 / 折扣 ====================
 function unlockPrice() { return shopData.bought.heroes === 0 ? PRICE_UNLOCK_FIRST : PRICE_UNLOCK_NEXT; }
 function pointPrice() { return shopData.bought.points === 0 ? PRICE_POINT_FIRST : PRICE_POINT_NEXT; }
+// 折扣限量记账：键 = 日期|商品，跨日自动作废；买满 quota 个即恢复原价
+function discountUsedOf(itemId) { return shopData.discountUsed[todayStr() + '|' + itemId] || 0; }
+function discountLeft(itemId) {
+    const d = dailyDiscount[itemId];
+    return d ? Math.max(0, d.quota - discountUsedOf(itemId)) : 0;
+}
+function useDiscount(itemId) {
+    if (!dailyDiscount[itemId]) return;
+    const k = todayStr() + '|' + itemId;
+    shopData.discountUsed[k] = (shopData.discountUsed[k] || 0) + 1;
+}
 function finalPrice(base, itemId) {
     const d = dailyDiscount[itemId];
-    return d ? Math.max(1, Math.round(base * d / 10)) : base;
+    if (!d || discountLeft(itemId) <= 0) return base;
+    return Math.max(1, Math.round(base * d.rate / 10));
 }
 function priceHtml(base, itemId) {
     const d = dailyDiscount[itemId];
-    if (!d) return '<span class="price-now">' + base + '🔥</span>';
+    const left = discountLeft(itemId);
+    if (!d || left <= 0) return '<span class="price-now">' + base + '🔥</span>';
     return '<span class="price-old">' + base + '</span>' +
         '<span class="price-now">' + finalPrice(base, itemId) + '🔥</span>' +
-        '<span class="badge-discount">' + d + '折</span>';
+        '<span class="badge-discount">' + d.rate + '折·限' + left + '个</span>';
 }
 
 // ==================== 渲染 ====================
@@ -605,12 +627,15 @@ function renderStats() {
 function renderDiscount() {
     const ids = Object.keys(dailyDiscount);
     const bar = document.getElementById('discountBar');
-    if (ids.length === 0) {
-        bar.innerHTML = '🎉 今日无折扣 <span class="dim">（每日刷新）</span>';
+    const alive = ids.filter(id => discountLeft(id) > 0);
+    if (alive.length === 0) {
+        bar.innerHTML = ids.length === 0
+            ? '🎉 今日无折扣 <span class="dim">（每日刷新）</span>'
+            : '🎉 今日折扣已抢光 <span class="dim">（买完即恢复原价，每日刷新）</span>';
         return;
     }
-    bar.innerHTML = '🎉 今日折扣：' + ids.map(id => DISCOUNT_ITEM_NAME[id] + ' ' + dailyDiscount[id] + '折').join(' · ') +
-        ' <span class="dim">（每日刷新，价格按账号累计）</span>';
+    bar.innerHTML = '🎉 今日折扣：' + alive.map(id => DISCOUNT_ITEM_NAME[id] + ' ' + dailyDiscount[id].rate + '折（限 ' + discountLeft(id) + ' 个）').join(' · ') +
+        ' <span class="dim">（买完即恢复原价，每日刷新）</span>';
 }
 
 function renderHeroes() {
@@ -796,6 +821,7 @@ function buyHero(name) {
     });
     saveCultivated();
     shopData.bought.heroes += 1;
+    useDiscount('unlock');
     expState(name);
     saveShop();
     renderAll();
@@ -810,6 +836,7 @@ function buyPoint(type) {
     setToken(token - price);
     shopData.bag[type.key] += 1;
     shopData.bought.points += 1;
+    useDiscount(type.id);
     saveShop();
     renderAll();
     showToast('已购买 ' + type.name + ' +' + FREE_POINT_VALUE[type.key] + '（花费 ' + price + ' 🔥），已进背包');
