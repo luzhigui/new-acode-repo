@@ -1,5 +1,6 @@
+// V6.3.0 | 2026-10-12 已行动镜像收口（老板拍板收口）：起跳/收尾的 _acted: true 全部改 _renderActed（infra/61 视图表妆造字段），收尾处同步发 _renderActed: null 清理——fx 层不再直写账本语义字段 state._acted，步末引擎真值覆盖自愈机制保持（09-19 裁决落地）
 // V6.2.0 | 2026-09-24 showMeleeDodge 补 flyMode：原格隐藏，与 Crash/Miss 三兄弟行为一致
-export const VER = 'fx/82fx-crash-5v5-test.js V6.2.0';
+export const VER = 'fx/82fx-crash-5v5-test.js V6.3.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -11,7 +12,7 @@ function finishCrash(clone, unitA) {
     if (clone && clone.parentNode) clone.remove();
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _acted: true });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _renderActed: true });
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
     }
     if (ctx) ctx.updateUI();
@@ -101,7 +102,7 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
 
     // 设置 _renderFlyMode，renderGrid 自动处理原格子（fly=透明，ghost=虚影）
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _renderFlyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
     }
 
     const chargeDur = 800;
@@ -189,7 +190,7 @@ export function showMeleeDodge(unitA, unitD) {
     const flyMode = GlobalStore.get('crashMode') || 'fly';
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _renderFlyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
     }
 
     // 2026-09-16 简单模式闪避反击提速过猛（原 350+500=850ms，仅命中 2500ms 的 1/3）
@@ -271,7 +272,7 @@ export function showMeleeMiss(unitA, unitD, onMiss) {
     const flyMode = GlobalStore.get('crashMode') || 'fly';
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _renderFlyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
     }
 
     const flyDur = 700;
@@ -294,7 +295,7 @@ export function showMeleeMiss(unitA, unitD, onMiss) {
                     if (p2 >= 1) {
                         if (clone.parentNode) clone.remove();
                         if (ctx && ctx.store) {
-                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null });
+                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _renderActed: null });
                         }
                         resolve();
                     }
