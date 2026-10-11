@@ -1,5 +1,6 @@
+// V6.8.4 | 2026-10-11 状态源唯一第二刀（老板拍板三批落地·批2）：syncStoreFromStep 删「从日志 snap 单点捞」整段补丁，改读引擎随 step 下发的 frozenValues 挂到 store 单位 _frozen——_displayDef 从此无写入
 // ~37700 bytes | V6.8.3 | 2026-10-09 格子/日志同口径：syncStoreFromStep 把本步日志里引擎冻结的真值（snap.attackerDef / snap.targetDefDisplay）写进 store 单位的 _displayDef，格子不再从跨步共享的 _mods 词条快照现算（修「格子防37 / 日志防56」）
-export const VER = 'player/42player-core.js V6.8.3';
+export const VER = 'player/42player-core.js V6.8.4';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -75,25 +76,20 @@ function applyStageActionToStoreAfter(c, action, pendingDeaths) {
 
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
-    // 2026-10-09 格子/日志同口径：格子上的攻防不再从 step 词条快照（_mods）现算——该快照跨步共享，
-    //   可能含已被清除的破防等词条、漏掉刚生效的增益，算出的数不等于引擎真值（回放「格子防37 / 日志防56」即此因）。
-    //   改为采用本步日志里引擎冻结的真值（攻击组 snap.attackerDef / snap.targetDefDisplay）；
-    //   本步没有其日志的单位仍回落到 getStat 现算（兜底在 render/32）。
-    const frozenDef = new Map();
-    for (const e of (step.log || [])) {
-        const d = e && e.data;
-        if (!d || !d.snap) continue;
-        if (d.attacker && d.attacker.uid != null && d.snap.attackerDef !== undefined) frozenDef.set(d.attacker.uid, d.snap.attackerDef);
-        if (d.target && d.target.uid != null && d.snap.targetDefDisplay !== undefined) frozenDef.set(d.target.uid, d.snap.targetDefDisplay);
-    }
+    // 2026-10-11 状态源唯一：格子数据不再从 _mods 词条原料现算、也不再从日志 snap 单点捞（那是补丁），
+    //   直接读引擎随 step 下发的 frozenValues——引擎每步为全部单位冻结一份真值（core/11 makeStep），
+    //   所有下游读同一份，「谁现算谁对」的歧义消失。
+    //   _mods 仍保留数组层深拷：step.ally/enemy 是引擎活体引用，避免引擎下一步 addMod 原地 push 污染
+    //   已入 store 的快照（frozenValues 缺失时的 getStat 兜底数据源）。
+    const frozen = step.frozenValues || {};
     const units = [...step.ally, ...step.enemy]
         .filter(u => !(c._removedUids && c._removedUids.has(u.uid)))
         .map(u => {
             const unit = { ...u };
             if (u._mods) unit._mods = { atk: [...u._mods.atk], def: [...u._mods.def], maxHp: [...u._mods.maxHp] };
             else unit._mods = { atk: [], def: [], maxHp: [] };
-            const fd = frozenDef.get(u.uid);
-            if (fd !== undefined) unit._displayDef = fd;
+            const fv = frozen[u.uid];
+            if (fv) unit._frozen = fv;
             return unit;
         });
     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });
