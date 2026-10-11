@@ -2,7 +2,8 @@
 // V6.5.2 | ~30600 bytes | 2026-10-09 格子防优先取 store 单位上的 _displayDef（player/42 由本步日志冻结的引擎真值写入），无则回落 getStat 现算——与攻击日志行同口径，修「格子防37 / 日志防56」
 // V6.5.4 | 2026-10-11 蓝档加「具名」门槛：m≥104 且 characters 表内有条目才蓝（弱精英），无名杂兵落黑（老板：蓝只给弱精英，不该给所有 104）
 // V6.5.3 | 2026-10-11 名字颜色分档（黑蓝紫金，老板拍板）：m≥112 金 / ≥107 紫 / ≥104 蓝 / 其余黑；nameGold 特判（张无忌/灭绝 m115）天然并入金档删除；成昆幻影跟随被模仿者 m（不剧透本体）
-export const VER = 'render/32-grid-render.js V6.5.4';
+// V6.5.5 | 2026-10-11 logo 上限全名统一：所有名字最多显示最新 2 个 logo（原规则只管 4 字以上，3 字名挂 3 个放不下）
+export const VER = 'render/32-grid-render.js V6.5.5';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
@@ -479,12 +480,9 @@ export function renderGrid(id, camp) {
         const nameTier = displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : (displayTierM >= 104 && isNamedCharacter(displayName)) ? 'name-blue' : '';
         let compressName = false;
         let displayLogos = logoList.slice();
-        if (displayName.length >= 5) {
-            compressName = true;
-            if (displayLogos.length > 2) displayLogos = displayLogos.slice(-2);
-        } else if (displayName.length === 4 && displayLogos.length > 2) {
-            displayLogos = displayLogos.slice(-2);
-        }
+        if (displayName.length >= 5) compressName = true;
+        // 2026-10-11 logo 上限全名统一（老板拍板收紧）：不管名字几字，最多显示最新 2 个——原来只限 4 字以上名字，3 字名挂 3 个照样挤爆格子
+        if (displayLogos.length > 2) displayLogos = displayLogos.slice(-2);
 
         let nameHtml;
         if (compressName) {
