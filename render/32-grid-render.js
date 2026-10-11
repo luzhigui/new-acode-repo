@@ -3,8 +3,9 @@
 // V6.5.4 | 2026-10-11 蓝档加「具名」门槛：m≥104 且 characters 表内有条目才蓝（弱精英），无名杂兵落黑（老板：蓝只给弱精英，不该给所有 104）
 // V6.5.3 | 2026-10-11 名字颜色分档（黑蓝紫金，老板拍板）：m≥112 金 / ≥107 紫 / ≥104 蓝 / 其余黑；nameGold 特判（张无忌/灭绝 m115）天然并入金档删除；成昆幻影跟随被模仿者 m（不剧透本体）
 // V6.5.6 | ~31200 bytes | 2026-10-11 两个状态标记（末尾优先，不被 buff 图标挤掉）：🎯 昆仑合击（_kunlunComboFlag 且何太冲在场）/ 🔻 摄魂降攻（atk 词条含 group:'soulDrain'）
-// V6.5.5 | 2026-10-11 logo 上限全名统一：所有名字最多显示最新 2 个 logo（原规则只管 4 字以上，3 字名挂 3 个放不下）
-export const VER = 'render/32-grid-render.js V6.5.6';
+// V6.5.5 | ~31200 bytes | 2026-10-11 logo 上限全名统一：所有名字最多显示最新 2 个 logo（原规则只管 4 字以上，3 字名挂 3 个放不下）
+// V6.5.7 | ~31300 bytes | 2026-10-11 去英雄名字面量（README 原则1）：成昆×2/周芷若/宋青书/何太冲/金毛狮王谢逊 改身份标记（applyHeroFlags 自动打标）；图标表迁 render/37，import 由 ui/69 改 ./37-role-cards.js，切断 render→ui 反向依赖（原则6）
+export const VER = 'render/32-grid-render.js V6.5.7';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
@@ -14,7 +15,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { clock } from '../infra/52-clock.js';
 import { getView, setView } from '../infra/61-view-sheet.js';
-import { getRoleIcon } from '../ui/69-role-cards.js';
+import { getRoleIcon } from './37-role-cards.js';
 
 let _store = null;
 let _subscribed = false;
@@ -349,17 +350,18 @@ export function renderGrid(id, camp) {
         let isResting = (unit.state && unit.state._resting) || false;
         let isStunned = (unit.state && unit.state._stunned) || false;
 
-        // 2026-10-04 改查 ui/69-role-cards.js 名片表（原为本地 7 分支 if/else 链）
+        // 2026-10-04 改查名片表（原为本地 7 分支 if/else 链）
+        //   2026-10-11 表迁 render/37：import 由 ui/69 改 ./37-role-cards.js，切断 render→ui 反向依赖
         //   顺序/回落与原先完全一致：😵 > 无忌(非远程)⚔️ > 拒马🐴 > 小昭·姊🦋 > 幼狮🐱 > 胖远桥嘲讽🐷 > 职业图标
         let roleIcon = getRoleIcon(unit, { isStunned, isDead, pangTaunting });
 
         let displayName = unit.name;
         // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
-        if (displayName === '金毛狮王谢逊') displayName = '金毛狮王';
+        if (unit.isXieXun) displayName = '金毛狮王';
         // 2026-10-11 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 且具名 蓝（弱精英）、其余黑。
         //   张无忌/灭绝 m115 原描金特判天然并入金档；成昆幻影跟随被模仿者的 m（跟 displayName 同口径换算，不剧透本体档位）。
         let displayTierM = unit.m || 0;
-        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
+        if (unit.isChengKun && unit.state && unit.state._phantomTarget) {
             const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
             const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
             if (mimicTarget) {
@@ -461,15 +463,15 @@ export function renderGrid(id, camp) {
         // 小昭姊/妹的身份已由左侧 roleIcon（🦋/🕷️）承担，名字后不再重复挂
         // 张三丰：进入严阵以待阶段后挂图标——他的严阵以待是组件自身 addMod（不走团队 buff），
         // activeBuffs 里没有 fortify，格子上原本毫无提示
-        let eliteSkillIcon = (unit.name === '周芷若' && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
-            : (unit.name === '宋青书' && getView(unit.uid, '_hasXingFen')) ? ' 💗'
+        let eliteSkillIcon = (unit.isZhouZhiruo && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
+            : (unit.isSongQingshu && getView(unit.uid, '_hasXingFen')) ? ' 💗'
             : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
             : '';
         if (!eliteSkillIcon) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state._butterflyHost === unit.uid);
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
-        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
+        if (unit.isChengKun && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
 
         let logoList = [];
@@ -480,7 +482,7 @@ export function renderGrid(id, camp) {
         //   ① 🎯 昆仑合击：本回合被六大派同伴打过的单位（_kunlunComboFlag 回合级，回合开始自动清）；
         //      仅当何太冲在场才显示——他不在时这个标记对玩家无意义。
         //   ② 🔻 摄魂降攻：挂有 group:'soulDrain' 的 atk 词条（ttl:'round' 每回合重挂），随降攻生灭。
-        if (unit.state._kunlunComboFlag && selectOrStore(ctx, unit.camp === CAMP_TYPES.ALLY ? 'enemyTeam' : 'allyTeam').some(u => u.alive && u.name === '何太冲')) logoList.push('🎯');
+        if (unit.state._kunlunComboFlag && selectOrStore(ctx, unit.camp === CAMP_TYPES.ALLY ? 'enemyTeam' : 'allyTeam').some(u => u.alive && u.isHeTaichong)) logoList.push('🎯');
         if ((unit._mods && unit._mods.atk ? unit._mods.atk : []).some(m => m.group === 'soulDrain')) logoList.push('🔻');
 
         // 2026-10-11 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖

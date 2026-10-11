@@ -521,8 +521,10 @@ export function renderPhantomRevealFact(fact) {
     return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>`, phantomFlashUid: fact.deceiverUid };
 }
 export function renderPhantomConfuseFact(fact) {
-    const isButterfly = fact.deceiver === '小昭·妹';
-    return { type:'info', text:`<span class="gold">${isButterfly ? '🕷️ 蝶舞迷心！' : '🎭 幻影伪装！'}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
+    // 2026-10-11 去名字字面量：来源由 modules/27 显式打标（deceiverIsSpider），渲染层不再比英雄名。
+    //   变量名同时纠偏：原 isButterfly 装的其实是「是蛛」，改成 isSpider 与事实一致
+    const isSpider = fact.deceiverIsSpider === true;
+    return { type:'info', text:`<span class="gold">${isSpider ? '🕷️ 蝶舞迷心！' : '🎭 幻影伪装！'}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
 }
 
 // ── 注册（本域 67 条）────────────────────────────────────

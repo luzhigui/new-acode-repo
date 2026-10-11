@@ -296,8 +296,10 @@ export function createXiaoZhaoSisterComponent() {
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
-                    applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
-                    if (atkTarget.state._baseAtk !== undefined) atkTarget.state._baseAtk += atkGain;
+                    // 2026-10-11 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
+                    //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
+                    addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
+                    emitEvent(atkTarget, UNIT_EVENT_TYPES.HP_CHANGE, { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: getStat(atkTarget, 'atk'), def: getStat(atkTarget, 'def') });
                     // 记账随 beforeDamageCalc 事件 data 携带，由 12 calcFinalDamage 收入 dmgCalc 返回，不落 unit
                     if (!data._derivedEntries) data._derivedEntries = [];
                     data._derivedEntries.push({
@@ -348,8 +350,9 @@ export function createXiaoZhaoSisterComponent() {
                 const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                 const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                 applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
-                applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
-                if (atkTarget.state._baseAtk !== undefined) atkTarget.state._baseAtk += atkGain;
+                // 2026-10-11 属性只算不存：加攻改走 addMod 词条（同常规乾坤衍生，原直改 _baseAtk 绕过词条）
+                addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
+                emitEvent(atkTarget, UNIT_EVENT_TYPES.HP_CHANGE, { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: getStat(atkTarget, 'atk'), def: getStat(atkTarget, 'def') });
                 if (!data.derivedEntries) data.derivedEntries = [];
                 const entryData = {
                     targetName: target.name,
@@ -657,7 +660,9 @@ export function createXiaoZhaoBrotherComponent() {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
-                        data.declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: data.unit.name, deceiver: '小昭·妹', targetName: fakeTarget.name } };
+                        // 2026-10-11 去名字字面量：deceiver 用本人名，另打 deceiverIsSpider 供渲染层分支
+                        //   （render/35 原先拿 fact.deceiver === '小昭·妹' 判蝶舞迷心，渲染层不该认英雄名）
+                        data.declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: data.unit.name, deceiver: brother.name, deceiverIsSpider: true, targetName: fakeTarget.name } };
                     }
                 }
             }

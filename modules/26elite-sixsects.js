@@ -810,6 +810,15 @@ registerMechanicHandler(MECHANIC_TYPES.XING_FEN, {
 
 // ========== 何太冲机制（弱精英：技能走 registerMechanicHandler + 纯声明，不建组件） ==========
 
+// 何太冲：无组件逻辑（三技能全走注册表 + 纯声明），空壳只为 registerElite 结构一致——
+//   与成昆/鹿杖客同款：注册表靠这个空壳保持「每个精英都有条目」，将来补组件时不会漏注册
+export function createHeTaichongComponent() {
+    return {
+        name: '何太冲',
+        register(eventBus, A, B, log) {}
+    };
+}
+
 // 机制① 连环箭：每次命中后 prob 概率对同一目标再补一箭（伤害×dmgRatio，可被闪避）。
 //   与灭绝「追击」的关键区别：reason:'chainArrow' **进** core/10 的 LINK_REASONS——
 //   补的那一箭执行期间 _isLinkAttack=true，本 handler 开头据此拦掉 → **不链式**（一次命中最多多一箭）。
@@ -903,3 +912,4 @@ registerLinkPartners('宋青书', '周芷若');
 registerElite('张三丰', createZhangSanfengComponent);
 registerElite('胖远桥', createPangYuanQiaoComponent);
 registerElite('灭绝师太', createMieJueShiTaiComponent);
+registerElite('何太冲', createHeTaichongComponent);
