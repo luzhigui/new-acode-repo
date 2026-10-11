@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.3 | ~16400 bytes | 2026-10-11 恢复「9 个游戏入口当前页跳转」= 重做今早被 72084a3 撤销的 V6.3.2（VS Code 内置预览拦 window.open 弹确认框，用户晚间再报弹窗）；工具入口（商店/体检/工具箱）维持 window.open 与 V6.3.2 同口径 | V6.3.1 | 2026-10-10 主入口加「圣火令商店」临时直链（<a> 当前页跳转，手机可点），验收后删除 -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.3.4 | ~16450 bytes | 2026-10-11 工具三入口（商店/体检/工具箱）也改当前页跳转——宿主内置预览拦 window.open('_blank') 弹确认框（用户报体检/工具仍弹），至此全站 12 入口零弹窗；9 个游戏入口 = V6.3.3 恢复版 | V6.3.1 | 2026-10-10 主入口加「圣火令商店」临时直链（<a> 当前页跳转，手机可点），验收后删除 -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -139,13 +139,13 @@
             window.location.href = 'index.html';
         });
         document.getElementById('btnShop').addEventListener('click', () => {
-            window.open('tools/105-shop.html', '_blank');
+            window.location.href = 'tools/105-shop.html';
         });
         document.getElementById('btnHealthCheck').addEventListener('click', () => {
-            window.open('tests/120test-runner.html', '_blank');
+            window.location.href = 'tests/120test-runner.html';
         });
         document.getElementById('btnTools').addEventListener('click', () => {
-            window.open('tools/102-toolkit.html', '_blank');
+            window.location.href = 'tools/102-toolkit.html';
         });
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
