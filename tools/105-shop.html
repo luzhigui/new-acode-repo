@@ -4,10 +4,10 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.2.0
+  版本：V2.3.0
   预估字节数：约 46 KB
   日期：2026-10-11
-  改动：属性点 / 自由点统一权重 攻/防 +0.1、血 +0.25（宝箱掉落、购买、经验产出全部一致）；等级显示取整，明细保留小数
+  改动：口径全部统一为 0.1 值（宝箱 / 购买 / 背包 / 加点不再出现 ×1）；经验升级 baseM +0.1（等级显示取整）；存档解析保留小数
 -->
 <html lang="zh-CN">
 <head>
@@ -510,7 +510,7 @@ function normalizeCultivated(raw) {
         const p = it.points || {};
         out.push({
             name: it.name,
-            baseM: num(it.baseM) || (meta ? meta.baseM : 100),
+            baseM: numF(it.baseM) || (meta ? meta.baseM : 100),
             role: it.role || (meta ? meta.role : '战士'),
             points: { atk: numF(p.atk), def: numF(p.def), hp: numF(p.hp) },
             skills: Array.isArray(it.skills) ? it.skills : [],
@@ -738,7 +738,7 @@ function renderHeroModal(name) {
         '<h3>' + info.icon + ' ' + name + '</h3>' +
         '<div class="role-line">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
         '<div class="detail-box">' +
-            '<div>等级 = baseM ' + entry.baseM + ' + 属性点 ' + fmtNum(sum) + '（显示取整 Lv' + lvDisplay(entry) + '）</div>' +
+            '<div>等级 = baseM ' + fmtNum(entry.baseM) + ' + 属性点 ' + fmtNum(sum) + '（显示取整 Lv' + lvDisplay(entry) + '）</div>' +
             '<div>属性点：⚔️ ' + fmtNum(entry.points.atk) + ' · 🛡️ ' + fmtNum(entry.points.def) + ' · ❤️ ' + fmtNum(entry.points.hp) + '</div>' +
             '<div>经验：' + st.exp + ' / ' + need + '（第 ' + st.lv + ' 次升级）</div>' +
         '</div>' +
@@ -765,7 +765,7 @@ function renderBagBody(tab) {
             '<div class="info">自由点由「宝箱经验」升级时产出，可囤可收藏；<br>在角色卡点「加点」，自行选择加 攻 / 防 / 血。<br>统一权重：攻 / 防 +0.1，血 +0.25。</div>';
     } else if (tab === 'exp') {
         body.innerHTML = '<div class="bag-row"><span>📈 经验池</span><b>' + bag.exp + '</b></div>' +
-            '<div class="info">经验来自宝箱（单次 8-15），在角色卡点「加点」投入某角色。<br>经验升级给 1 个自由点；属性点自带的那一级不给自由点。</div>';
+            '<div class="info">经验来自宝箱（单次 8-15），在角色卡点「加点」投入某角色。<br>经验升级：baseM 每次 +0.1（等级显示取整），并给 1 个自由点。</div>';
     } else {
         body.innerHTML = POINT_TYPES.map(t =>
             '<div class="bag-row"><span>' + t.icon + ' ' + t.name + '</span><b>' + bagVal(t.key) + '</b></div>'
@@ -853,7 +853,7 @@ function useExpPool(name) {
             st.exp = 0;
             st.lv += 1;
             gained += 1;
-            entry.baseM += 1;          // 经验升级 → baseM +1
+            entry.baseM = Math.round((entry.baseM + 0.1) * 100) / 100;   // 经验升级 → baseM +0.1（等级显示取整）
             shopData.bag.free += 1;    // 经验升级 → 1 个自由点
         } else {
             st.exp += amount;
@@ -864,7 +864,7 @@ function useExpPool(name) {
     saveShop(); saveCultivated();
     renderAll(); renderHeroModal(name);
     if (gained > 0) {
-        showToast('投入 ' + pool + ' 经验：升 ' + gained + ' 级（Lv' + lvDisplay(entry) + '），获得 ' + gained + ' 个自由点');
+        showToast('投入 ' + pool + ' 经验：升 ' + fmtNum(gained * 0.1) + ' 级（显示 Lv' + lvDisplay(entry) + '），获得 ' + gained + ' 个自由点');
     } else {
         showToast('投入 ' + pool + ' 经验（当前 ' + st.exp + ' / ' + expNeed(name, st.lv) + '）');
     }
