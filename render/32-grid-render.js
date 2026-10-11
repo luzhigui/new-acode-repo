@@ -2,8 +2,9 @@
 // V6.5.2 | ~30600 bytes | 2026-10-09 格子防优先取 store 单位上的 _displayDef（player/42 由本步日志冻结的引擎真值写入），无则回落 getStat 现算——与攻击日志行同口径，修「格子防37 / 日志防56」
 // V6.5.4 | 2026-10-11 蓝档加「具名」门槛：m≥104 且 characters 表内有条目才蓝（弱精英），无名杂兵落黑（老板：蓝只给弱精英，不该给所有 104）
 // V6.5.3 | 2026-10-11 名字颜色分档（黑蓝紫金，老板拍板）：m≥112 金 / ≥107 紫 / ≥104 蓝 / 其余黑；nameGold 特判（张无忌/灭绝 m115）天然并入金档删除；成昆幻影跟随被模仿者 m（不剧透本体）
+// V6.5.6 | ~31200 bytes | 2026-10-11 两个状态标记（末尾优先，不被 buff 图标挤掉）：🎯 昆仑合击（_kunlunComboFlag 且何太冲在场）/ 🔻 摄魂降攻（atk 词条含 group:'soulDrain'）
 // V6.5.5 | 2026-10-11 logo 上限全名统一：所有名字最多显示最新 2 个 logo（原规则只管 4 字以上，3 字名挂 3 个放不下）
-export const VER = 'render/32-grid-render.js V6.5.5';
+export const VER = 'render/32-grid-render.js V6.5.6';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
@@ -474,6 +475,13 @@ export function renderGrid(id, camp) {
         let logoList = [];
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
+        // 2026-10-11 两个「状态标记」压到 logoList 末尾——V6.5.5 的「最多留最新 2 个」按尾部优先，
+        //   放末尾才能保证这两个老板点名要看的标记不会被 buff 图标挤掉：
+        //   ① 🎯 昆仑合击：本回合被六大派同伴打过的单位（_kunlunComboFlag 回合级，回合开始自动清）；
+        //      仅当何太冲在场才显示——他不在时这个标记对玩家无意义。
+        //   ② 🔻 摄魂降攻：挂有 group:'soulDrain' 的 atk 词条（ttl:'round' 每回合重挂），随降攻生灭。
+        if (unit.state._kunlunComboFlag && selectOrStore(ctx, unit.camp === CAMP_TYPES.ALLY ? 'enemyTeam' : 'allyTeam').some(u => u.alive && u.name === '何太冲')) logoList.push('🎯');
+        if ((unit._mods && unit._mods.atk ? unit._mods.atk : []).some(m => m.group === 'soulDrain')) logoList.push('🔻');
 
         // 2026-10-11 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
         //   蓝档加「具名」门槛（老板：蓝色只给弱精英，不该给所有 104）：无名杂兵（空闻/班淑娴等）落黑

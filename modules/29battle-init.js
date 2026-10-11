@@ -1,8 +1,9 @@
+// V7.5.17 | ~23500 bytes | 2026-10-11 具名角色（characters 表内）填数值空位时用自身职业：tags 内匹配 ROLES，何太冲不再顶着"防战"出场；无名杂兵保持四选一随机
 // V7.5.16 | 2026-10-08 随机精英轮盘互锁补全：forceXieXun / forceXiaoZhao 也抑制轮盘（与张/韦对称）——四路 force 全=真·单精英局；正常局无 force 行为不变（基线 18 场全一致）
 // V6.5.4 | ~23400 bytes | 2026-10-03 强制小昭换人候选补排谢逊（!u.isXieXun，对齐下方站位段口径）：此前谢逊在场且无小昭时被当普通兵换掉，normalPowerOf(107) 查表抛「缺 roster.normalPower: 107」
-export const VER = 'modules/29battle-init.js V6.5.4';
+export const VER = 'modules/29battle-init.js V7.5.17';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
+import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -329,7 +330,12 @@ export function initBattleTeams(currentStage, _rng) {
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
+                // 2026-10-11 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
+                //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。
+                //   无名杂兵（空闻/班淑娴等，不在 characters 表）保持随机，当作阵容变数。
                 let role = C.ROLES[_rand(0, 3)];
+                const tagRole = getGameData()?.characters?.[name]?.tags?.find(t => C.ROLES.includes(t));
+                if (tagRole) role = tagRole;
                 let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
