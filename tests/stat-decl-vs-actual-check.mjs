@@ -1,3 +1,5 @@
+// V3.0.1 | ~80200 bytes | 2026-10-11 SOUL_DRAIN 契约由警告态转严格（主代码 4 处补发 fact：core/04 V6.2.9 / core/11 V6.3.7 /
+//          infra/56 V1.4.4 / infra/58 V1.5.7）：声明 827 条 · 严格比对 799 条 / 偏差 0，全程 EXIT=0。
 // V3.0.0 | ~79800 bytes | 2026-10-09 账本对照补第 23 条契约 ENDLESS_BREATH_COST（生生不息「付费触发」扣攻：modules/26 L160
 //          addMod group 'endlessBreathCost' value -atkCost ↔ ENDLESS_BREATH fact data.cost；factType 守卫 + cost>0 排除免费/fail 形态）。
 //          scan-groups 由 22/23 → 23/23 零盲区（endlessBreathCost 曾是唯一账本出现却未绑契约的 group）。
@@ -81,7 +83,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.0.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.0.1';
 
 import { fileURLToPath } from 'node:url';
 
@@ -752,12 +754,13 @@ const CONTRACTS = [
     },
     {
         // 第 70 轮（阶段一·数值真值网闭环）：摄魂 soulDrain —— 镜像 HOLY_FLAME（op:'mul' 削弱型海克斯），零主代码侧只绑契约。
-        //   ⚠️ 声明 fact 需主代码补发（需求见体检迭代日志第 70 轮）：core/04 applySoulDrain 在 addMod 同处 push
-        //     SOUL_DRAIN_APPLY fact，data:{ unitName, unitUid, camp, field:'atk', op:'mul', ratio: CONFIG.BUFFS.soulDrain.atkBonus }
-        //     （ratio 为负 -0.25，故 allowNeg 放开严格闸门负值）。core/11 两处调用点须补传 `log`。
+        //   第 71 轮（2026-10-11）**严格态**：主代码已补发（core/04 V6.2.9 push fact / core/11 V6.3.7 两处透传 log /
+        //     infra/56 V1.4.4 注册 SOUL_DRAIN_APPLY / infra/58 V1.5.7 登记契约），data:{ unitName, unitUid, camp, field:'atk', op:'mul', ratio }
+        //     （ratio 为负 -0.25，故 allowNeg 放开严格闸门负值）。
         //   与 HOLY_FLAME 同：mul:true ⇒ 主循环取账本 mulSum 比对；dir:+1 不翻转符号，负 ratio 走 allowNeg。
-        //   待 fact 上线前：extract 取不到 SOUL_DRAIN_APPLY ⇒ 仅 warning（group 账本已现 827 词条，非空转）；fact 上线后自动激活。
-        //   牙齿 A28（core/04 把 value 翻倍、fact 不动）⇒ 实际 mul=2×ratio 命中（2×声明）。
+        //   实测：声明 827 条 · 严格比对 799 条 / 偏差 0（fact 上线即自动激活，无需改本文件判据）。
+        //   牙齿：A28（core/04 把 value 翻倍、fact 不动）⇒ 实际 mul=2×ratio 命中（2×声明）——第 70 轮已用临时 worktree 手动验证
+        //     （契约严格比对 800 条 / 偏差 800 当场报红）；**尚未登记进 mutation-teeth.mjs**，待补。
         id: 'SOUL_DRAIN',
         label: '摄魂',
         group: 'soulDrain',
