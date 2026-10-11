@@ -1,5 +1,6 @@
-// V6.0.8 | ~13800 bytes | 2026-10-09 CLAW_CHAIN 改「先广播后扣血」：乾坤衍生的减伤按爪落地（伤害−减伤，下限0），斩杀那一刀也广播（照杀不减，只触发治疗+加攻）；爪击 fact 回填实际伤害/血量；承接 V6.0.7 每爪广播 CLAW_HIT_APPLIED
-export const VER = 'core/16effect-handlers.js V6.0.8';
+// V6.0.9 | ~15900 bytes | 2026-10-11 爪击落地值源头收敛 1 位小数（浮点尾巴 0.7999999999999998 不再进 fact）、
+//          fact 另存 data.designedDmg 保留设计值（体检还原「设计下限」守护用）；承接 V6.0.8 先广播后扣血
+export const VER = 'core/16effect-handlers.js V6.0.9';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -251,9 +252,14 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             const clawPayload = { unit: chainSource, target: chainTarget, dmg: hit.dmg, derivedEntries: [] };
             eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, clawPayload);
             if (clawPayload.derivedEntries.length > 0) hit._derivedEntries = clawPayload.derivedEntries;
-            const applied = Math.max(0, hit.dmg - (clawPayload.reduce || 0));
+            // 2026-10-11 落地值源头收敛到 1 位小数：设计值 hit.dmg 已是 1 位小数（modules/26 floor(×10)/10）、
+            //   reduce 是整数，但二进制浮点相减会出尾巴（2.8−2=0.7999999999999998）——此前只在显示出口洗，
+            //   原始 fact / 规则读到的仍是尾巴值；源头收敛后 fact 与界面同值。
+            const applied = Math.round(Math.max(0, hit.dmg - (clawPayload.reduce || 0)) * 10) / 10;
             applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
-            // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里
+            // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里；
+            //   设计值另存 data.designedDmg —— 落地值被减伤后可为 0~设计值，体检靠它还原「设计下限」守护
+            hit.data.designedDmg = hit.dmg;
             hit.data.dmg = applied;
             hit.data.hpAfter = chainTarget.hp;
             hit._events = flushBattleEvents();
