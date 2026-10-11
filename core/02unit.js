@@ -32,6 +32,9 @@ export const HERO_FLAGS = Object.freeze({
     '胖远桥': 'isPangYuanQiao',
     '灭绝师太': 'isMieJueShiTai',
     '金毛狮王谢逊': 'isXieXun',
+    // 2026-10-11 何太冲（弱精英、无组件）：补身份标记，render/32、名片表不再比名字。
+    //   他是六大派身份，不在 MING_M 池内，进这张表不影响 modules/29 的明教候选池过滤
+    '何太冲': 'isHeTaichong',
     // 谢逊的三只狮子：统一打 isXieXunLion，便于识别同一家族；形态各自另打标记（母狮/雄狮/幼狮）
     '雄狮': 'isXieXunLion',
     '幼狮': 'isXieXunLion',
@@ -62,6 +65,9 @@ export function applyHeroFlags(unit) {
     if (name === '母狮') unit.isLioness = true;
     if (name === '雄狮') unit.isLionMale = true;
     if (name === '幼狮') unit.isLionCub = true;
+    // 2026-10-11 反伤弟子：**刻意不进 HERO_FLAGS**——那张表被 modules/29 用来过滤明教普通兵候选池，
+    //   反伤弟子(M97)在池内，塞进去会被踢出候选池。与三狮同款走独立 if
+    if (name === '反伤弟子') unit.isReflectDisciple = true;
     // 2026-10-08 不争数据旗：content 声明了 noContend 技能的英雄自动获得；
     //   回合末「敌方仅剩一人且不争 → 对方胜」的判定不再认识具体英雄（core/11 特判收口）
     if (getGameData().characters?.[name]?.skills?.noContend) unit.noContend = true;

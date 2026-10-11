@@ -64,8 +64,9 @@ registerMechanicHandler(MECHANIC_TYPES.DAMAGE_REFLECT, {
             priority: L.AFTER_DAMAGE_APPLIED.REBOUND,
             handler: (data) => {
                 const { unit, target, dmg } = data || {};
-                // 仅反伤弟子存活并实际承伤时触发
-                if (!target || target.name !== '反伤弟子' || !target.alive) return;
+                // 仅反伤弟子存活并实际承伤时触发。2026-10-11 去名字字面量：用声明自带的 decl.name
+                //   （buildMechanicDeclarations 注入的角色名），不再硬编码「反伤弟子」
+                if (!target || target.name !== decl.name || !target.alive) return;
                 if (!dmg || dmg <= 0) return;
                 const value = Math.floor(dmg * ratio);
                 if (value <= 0) return;
