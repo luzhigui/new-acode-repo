@@ -86,6 +86,10 @@
             font-size: 0.6rem; color: #888; margin-left: 6px;
             padding: 2px 6px; border: 1px solid #555; border-radius: 4px;
         }
+        .hero-name .newbie-tag {
+            font-size: 0.6rem; color: #7fe07f; margin-left: 6px;
+            padding: 2px 6px; border: 1px solid #3a6a3a; border-radius: 4px;
+        }
         .hero-role { font-size: 0.7rem; color: #888; margin: 2px 0 4px; }
         .hero-stats { font-size: 0.72rem; color: #ccc; }
         .hero-stats span { margin-right: 10px; }
@@ -398,6 +402,8 @@ const HERO_META = {
     '小昭':     { baseM: 100, role: '远程' }    // 待校准
 };
 const HERO_ORDER = ['小昭·妹', '小昭·姊', '张无忌', '韦一笑', '小昭'];
+// 默认赠送的新手英雄：初始即解锁，重置后仍保留，不占用付费解锁名额、不计入首解锁价
+const DEFAULT_HEROES = ['小昭·妹'];
 
 // ==================== 存储 key ====================
 const SHOP_KEY  = 'ming_shop_data';
@@ -619,7 +625,7 @@ function renderHeroes() {
             card.innerHTML =
                 '<div class="hero-avatar">' + info.icon + '</div>' +
                 '<div class="hero-info">' +
-                    '<div class="hero-name">' + name + '</div>' +
+                    '<div class="hero-name">' + name + (DEFAULT_HEROES.includes(name) ? '<span class="newbie-tag">新手</span>' : '') + '</div>' +
                     '<div class="hero-role">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
                     '<div class="hero-stats">' +
                         '<span>⚔️ ' + fmtNum(entry.points.atk) + '</span>' +
@@ -912,9 +918,28 @@ function decode(code) {
 }
 
 // ==================== 初始化与事件绑定 ====================
+// 补齐默认新手英雄：首次进入 / 重置存档后，小昭·妹都自动解锁（不改动付费解锁计数）
+function ensureDefaultHeroes() {
+    let changed = false;
+    for (const name of DEFAULT_HEROES) {
+        if (findEntry(name)) continue;
+        const meta = HERO_META[name] || { baseM: 100, role: '战士' };
+        cultivated.list.push({
+            name: name,
+            baseM: meta.baseM,
+            role: meta.role,
+            points: { atk: 0, def: 0, hp: 0 },
+            skills: [],
+            equips: []
+        });
+        changed = true;
+    }
+    if (changed) saveCultivated();
+}
 function rebuildState() {
     shopData = loadShop();
     cultivated = loadCultivated();
+    ensureDefaultHeroes();
     for (const it of cultivated.list) expState(it.name);
 }
 
