@@ -1,6 +1,7 @@
+// V1.4.5 | ~14200 bytes | 2026-10-11 何太冲三技能显性化：FACT_TYPES 增 SKILL_ANNOUNCE（技能报幕/飘字声明 fact）、STAGE_ACTION_TYPES 增 SKILL_FLOAT（任意文本头顶飘字）、MECHANIC_TYPES 增 ARMOR_PIERCE（破甲箭显性化处理器）
 // V1.4.4 | ~13960 bytes | 2026-10-11 FACT_TYPES 增 SOUL_DRAIN_APPLY（摄魂数值声明 fact，供体检对照 soulDrain group；renderFn:null 不进画面）
 // V1.4.3 | ~13860 bytes | 2026-10-09 SIGNAL_TYPES 增 CLAW_HIT_APPLIED（白骨爪连锁每爪结算后广播：供小昭·姊乾坤衍生按爪结算，堵住「一次攻击只触发一次」的断链）
-export const VER = 'infra/56-battle-enums.js V1.4.4';
+export const VER = 'infra/56-battle-enums.js V1.4.5';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -65,7 +66,10 @@ export const FACT_TYPES = Object.freeze({
     // 数值声明 fact（供体检对照器比对「声明 vs 账本 group 实际增量」；不进画面，只进 step.log）
     BAGUA_ARRAY: 'baguaArray',
     RAGE_ON_HIT: 'rageOnHit',
-    LION_INSPIRE: 'lionInspire'
+    LION_INSPIRE: 'lionInspire',
+    // 何太冲三技能显性化：技能报幕行 + 头顶飘字声明。note 为战报文本；
+    //   line:false 时只走飘字不落行（renderLog 返回 null，其 stageAction 照播）；floatText/floatUid 走 SKILL_FLOAT 头顶飘字
+    SKILL_ANNOUNCE: 'skillAnnounce'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 12 项对应） */
@@ -92,7 +96,8 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     TRANSFORM: 'transform', FLY_MODE: 'flyMode', STUN: 'stun',
     SPLASH: 'splash', BUFF_EFFECT: 'buffEffect',
     DAMAGE_FLOAT: 'damageFloat',
-    HP_PCT_DANMAKU: 'hpPctDanmaku', BANNER: 'banner'
+    HP_PCT_DANMAKU: 'hpPctDanmaku', BANNER: 'banner',
+    SKILL_FLOAT: 'skillFloat'
 });
 
 /** Buff 特效子类型：BUFF_EFFECT stageAction 的 effectType 唯一来源（不再用裸字符串） */
@@ -126,6 +131,7 @@ export const MECHANIC_TYPES = Object.freeze({
     DAMAGE_REFLECT: 'damageReflect',   // 反伤弟子·反伤护盾（modules/30）
     CHAIN_ARROW: 'chainArrow',         // 何太冲·连环箭（modules/26）
     KUNLUN_COMBO: 'kunlunCombo',       // 何太冲·昆仑合击（modules/26）
+    ARMOR_PIERCE: 'armorPierce',       // 何太冲·破甲箭（modules/26；数值走 beforeDamageEffects.ignoreDef，本处理器只做伤害行后缀 + 目标格飘字显性化）
     // core/15 本地安装器承接（不经注册表）
     LINK_ATTACK: 'linkAttack',         // 玄冥二老联动
     FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击

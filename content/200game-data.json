@@ -316,11 +316,11 @@
       },
       "mechanics": [
         { "camp": "enemy", "type": "chainArrow", "prob": 0.5, "dmgRatio": 0.6 },
-        { "camp": "enemy", "beforeDamageEffects": [ { "type": "ignoreDef", "ratio": 0.30 } ] },
+        { "camp": "enemy", "type": "armorPierce", "beforeDamageEffects": [ { "type": "ignoreDef", "ratio": 0.30 } ] },
         { "camp": "enemy", "type": "kunlunCombo", "dmgMultiplier": 1.5 }
       ],
       "taunts": {
-        "attack": ["昆仑剑法！", "看箭！", "接我一箭！"],
+        "attack": ["昆仑箭法！", "看箭！", "接我一箭！"],
         "kill": []
       }
     },

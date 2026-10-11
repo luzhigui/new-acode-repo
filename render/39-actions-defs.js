@@ -1,4 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.2.7 | ~26200 bytes | 2026-10-11 何太冲显性化：STAGE_ACTION_DEFS 增 SKILL_FLOAT（任意文本头顶飘字，复用灭绝计数飘字通道 fx/89 → showMiejueCountFloat）
 // V1.2.6 | ~25700 bytes | 2026-10-03 乘风溅射减防飘字笔误修正：{ unit, → { unit: u,（forEach 形参是 u，原 shorthand 引用未定义变量，当前不可达但一配 defReduce 即 ReferenceError）
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
@@ -11,7 +12,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.6';
+export const VER = 'render/39-actions-defs.js V1.2.7';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -484,6 +485,16 @@ export const STAGE_ACTION_DEFS = {
             if (target && action.text && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.DANMAKU, { unit: target, text: action.text });
             }
+        }
+    },
+    [STAGE_ACTION_TYPES.SKILL_FLOAT]: {
+        // 2026-10-11 何太冲技能任意文本头顶飘字（破甲箭🛡-N% 飘目标格 / 昆仑合击🎯×N 飘何太冲格）：
+        //   fx/89 复用「灭绝计数」的任意文本头顶上飘通道（showMiejueCountFloat），不另造字形。
+        grid: 'none', log: 'sync', timing: 'afterText',
+        fx: (c, action) => {
+            if (GlobalStore.get('fastForwardActive')) return;
+            const unit = findUnitByUidLocal(c, action.targetUid);
+            if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
         }
     }
 };

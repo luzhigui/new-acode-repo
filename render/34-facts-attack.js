@@ -1,4 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
+// V1.4.0 | ~16500 bytes | 2026-10-11 何太冲显性化：新增 renderSkillAnnounceFact（SKILL_ANNOUNCE 报幕行，line:false 返回 null 只走飘字）；renderAttackFact 伤害行末追加 armorPierceHint（破甲箭·无视N%防御）
 // V1.3.0 | ~15800 bytes | 2026-10-07 乾坤减伤进计算行（老板拍板格式「19.44-30% 减伤=14」）：乾坤走 query 通道不进加成/乘数链，公式与实际掉血对不上；现从 dmgResult.bonusEntries 取乾坤 entry 逐条追加「-N% 减伤=值」
 // V1.2.1 | ~15400 bytes | 2026-10-02 叛逆真伤真值查找 'bonusTargetCurrentHp' 改用 MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP 枚举（mechanics type 同源治理）
 //
@@ -10,7 +11,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.2.1';
+export const VER = 'render/34-facts-attack.js V1.4.0';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -176,10 +177,11 @@ export function renderAttackFact(fact) {
         }).text
         : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
     // 2026-09-24 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
+    // 2026-10-11 何太冲：破甲箭提示同样挂伤害行末（armorPierceHint 由 modules/26 破甲箭处理器写进本击 fact）
     group.entries.push({
         type:'damage-text',
         deadFlag: killLine,
-        text: damageText + (fact.miejueHint || '')
+        text: damageText + (fact.miejueHint || '') + (fact.armorPierceHint || '')
     });
     if (fact.entries) {
         for (const e of fact.entries) {
@@ -269,6 +271,14 @@ export function renderBreakDefFact(fact) {
     return {type:'detail', text:`<span class="purple small">🗡️ ${fact.attackerName} 破防：${fact.targetName} 防御 -${fact.reduce}</span>`};
 }
 
+// 何太冲技能报幕（连环箭·补射 / 昆仑合击 ×N）：note 为战报文本整行。
+//   line===false（破甲箭：只做伤害行后缀 + 目标格飘字）时返回 null → renderLog 返回 null，
+//   该 fact 的 stageAction（SKILL_FLOAT 飘字）仍由 player/42 在「无渲染」分支照常播放。
+export function renderSkillAnnounceFact(fact) {
+    if (!fact || fact.line === false) return null;
+    return { type:'info', text:`<span class="gold">${fact.note}</span>` };
+}
+
 // 击杀行
 export function renderKillLineFact(fact) {
     return { text:`<span class="damage-line brush-red ${fact.ac}">💀击杀💀 ${fact.campA} ${fact.unitName}</span> 造成 <span class="red">${fact.dmg}</span> 伤害，<span class="${fact.dc}">${fact.campD} ${fact.targetName}</span> ${fact.hpBefore} → ${fact.hpNow} 💀阵亡` };
@@ -282,3 +292,4 @@ registerFactRenderer(FACT_TYPES.EMPTY_TARGET, renderEmptyTargetFact);
 registerFactRenderer(FACT_TYPES.IMMUNE, renderImmuneFact);
 registerFactRenderer(FACT_TYPES.DROP, renderDropFact);
 registerFactRenderer(FACT_TYPES.BREAK_DEF, renderBreakDefFact);
+registerFactRenderer(FACT_TYPES.SKILL_ANNOUNCE, renderSkillAnnounceFact);

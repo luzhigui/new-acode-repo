@@ -1,6 +1,7 @@
+// V1.5.8 | ~15700 bytes | 2026-10-11 登记 SKILL_ANNOUNCE 契约（何太冲技能报幕/飘字：renderSkillAnnounceFact / translateSkillAnnounce）
 // V1.5.7 | ~15540 bytes | 2026-10-11 登记 SOUL_DRAIN_APPLY 数值声明契约（摄魂 op:mul，镜像 HOLY_FLAME_APPLY，renderFn/translateFn 均 null）
 // V1.5.6 | ~15400 bytes | 2026-10-02 登记 AURA_APPLY / HOLY_FLAME_APPLY / WEI_DODGE_LEECH 三个数值声明契约（renderFn/translateFn 均 null）
-export const VER = 'infra/58-fact-contract.js V1.5.7';
+export const VER = 'infra/58-fact-contract.js V1.5.8';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -25,6 +26,9 @@ export const FACT_SPECS = Object.freeze({
     // 掉落 / 破防
     [FACT_TYPES.DROP]: { requiredFields: ['kind'], renderFn: 'renderDropFact', translateFn: null },
     [FACT_TYPES.BREAK_DEF]: { requiredFields: ['attackerName'], renderFn: 'renderBreakDefFact', translateFn: null },
+
+    // 何太冲三技能报幕/飘字（显性化）：note 为战报文本（line:false 时不落行，只走 floatText/floatUid 飘字）
+    [FACT_TYPES.SKILL_ANNOUNCE]: { requiredFields: ['unitName', 'unitUid', 'camp', 'skillName', 'note'], renderFn: 'renderSkillAnnounceFact', translateFn: 'translateSkillAnnounce' },
 
     // 拒马 / 张无忌
     [FACT_TYPES.HORSE_DESTROY]: { requiredFields: ['success'], renderFn: 'renderHorseDestroyFact', translateFn: 'translateHorseDestroy' },
