@@ -1,6 +1,7 @@
-// V1.1.0 | ~2300 bytes | 2026-09-23 视图表：妆造字段（uid → { _flash, _renderFlyMode, ... }）与引擎单位账本解耦
+// V1.2.0 | 2026-10-12 视图表新增 _renderActed（已行动的视觉镜像，老板拍板收口）：fx/82、fx/85 起跳/收尾的「立即变灰」改写本表，不再直写账本语义字段 state._acted——步末 syncStoreFromStep 的引擎真值覆盖自愈机制保持，表现层零语义污染（09-19 裁决落地）
+// V1.1.0 | 2026-09-23 视图表：妆造字段（uid → { _flash, _renderFlyMode, ... }）与引擎单位账本解耦
 // 写：dispatch hook 里 applyActionToView 按 action 类型写入；读：render/fx/player 走 getView
-export const VER = 'infra/61-view-sheet.js V1.1.0';
+export const VER = 'infra/61-view-sheet.js V1.2.0';
 
 import { STORE_ACTION_TYPES } from './56-battle-enums.js';
 
@@ -9,7 +10,8 @@ export const VIEW_FIELDS = Object.freeze([
     '_flash',
     '_renderFlyMode',
     '_phantomFlash',
-    '_hasXingFen'
+    '_hasXingFen',
+    '_renderActed'
 ]);
 
 const _sheet = new Map();
@@ -54,6 +56,7 @@ export function applyActionToView(action, units) {
             if (action._phantomFlash !== undefined) setView(action.uid, '_phantomFlash', action._phantomFlash);
             if (action._hasXingFen !== undefined) setView(action.uid, '_hasXingFen', action._hasXingFen);
             if (action._renderFlyMode !== undefined) setView(action.uid, '_renderFlyMode', action._renderFlyMode);
+            if (action._renderActed !== undefined) setView(action.uid, '_renderActed', action._renderActed);
             break;
     }
 }
