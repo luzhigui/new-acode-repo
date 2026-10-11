@@ -564,10 +564,12 @@ function findEntry(name) {
 function heroTotalM(entry) {
     return entry.baseM + entry.points.atk + entry.points.def + entry.points.hp;
 }
-// 自由点权重（2026-10-10 定）：攻/防 +0.1、血 +0.25；购买的属性点仍是各 +1（自带一级）
+// 统一权重（2026-10-11 定）：宝箱掉落 / 购买 / 经验产出的点，全部 攻/防 +0.1、血 +0.25
 const FREE_POINT_VALUE = { atk: 0.1, def: 0.1, hp: 0.25 };
 function lvDisplay(entry) { return Math.round(heroTotalM(entry)); }
 function fmtNum(v) { return Math.round(v * 100) / 100; }
+// 背包属性点的「经手值」：界面一律展示值（0.1 / 0.25），不出现个数
+function bagVal(key) { return fmtNum((shopData.bag[key] || 0) * (FREE_POINT_VALUE[key] || 0.1)); }
 function expState(name) {
     if (!shopData.exp[name]) shopData.exp[name] = { lv: 1, exp: 0 };
     const st = shopData.exp[name];
@@ -716,7 +718,7 @@ function renderHeroModal(name) {
     for (const t of POINT_TYPES) {
         const n = bag[t.key] || 0;
         allocHtml += '<div class="alloc-row"><span>' + t.icon + ' ' + t.name + '</span>' +
-            '<span class="grow">背包 ' + n + '</span>' +
+            '<span class="grow">可用 ' + bagVal(t.key) + '</span>' +
             '<button class="mini-btn" data-alloc="' + t.key + '"' + (n <= 0 ? ' disabled' : '') + '>分配 +' + FREE_POINT_VALUE[t.key] + '</button></div>';
     }
     allocHtml += '<div class="alloc-row"><span>⭐ 自由点</span><span class="grow">背包 ' + bag.free + '</span>' +
@@ -766,7 +768,7 @@ function renderBagBody(tab) {
             '<div class="info">经验来自宝箱（单次 8-15），在角色卡点「加点」投入某角色。<br>经验升级给 1 个自由点；属性点自带的那一级不给自由点。</div>';
     } else {
         body.innerHTML = POINT_TYPES.map(t =>
-            '<div class="bag-row"><span>' + t.icon + ' ' + t.name + '</span><b>' + (bag[t.key] || 0) + '</b></div>'
+            '<div class="bag-row"><span>' + t.icon + ' ' + t.name + '</span><b>' + bagVal(t.key) + '</b></div>'
         ).join('') +
             '<div class="info">属性点来源：宝箱掉落 / 直接购买，类型固定（攻 / 防 / 血）。<br>在角色卡点「加点」分配给角色，权重与自由点一致（攻 / 防 +0.1、血 +0.25）。</div>';
     }
@@ -810,7 +812,7 @@ function buyPoint(type) {
     shopData.bought.points += 1;
     saveShop();
     renderAll();
-    showToast('已购买 ' + type.name + ' ×1（花费 ' + price + ' 🔥），已进背包');
+    showToast('已购买 ' + type.name + ' +' + FREE_POINT_VALUE[type.key] + '（花费 ' + price + ' 🔥），已进背包');
 }
 
 function allocatePoint(name, key) {
@@ -878,7 +880,7 @@ function openChest() {
         const keys = ['atk', 'def', 'hp'];
         const k = keys[Math.floor(Math.random() * 3)];
         shopData.bag[k] += 1;
-        showToast('宝箱开出 属性点：' + POINT_LABEL[k] + ' ×1（分配 +' + FREE_POINT_VALUE[k] + '）');
+        showToast('宝箱开出 属性点：' + POINT_LABEL[k] + ' +' + FREE_POINT_VALUE[k] + '（已进背包）');
     } else if (r < 0.8) {
         const gain = 8 + Math.floor(Math.random() * 8);  // 8-15
         shopData.bag.exp += gain;
