@@ -1,3 +1,4 @@
+// V6.21.0 | ~61500 bytes | 2026-10-11 何太冲三技能显性化：连环箭补射插报幕行、破甲箭伤害行后缀（armorPierceHint）+目标格飘🛡-N%、昆仑合击插报幕行+何太冲格飘🎯×N；新增 ARMOR_PIERCE 处理器（数值仍走 beforeDamageEffects.ignoreDef，处理器只做显示）
 // V6.20.0 | ~60300 bytes | 2026-10-10 新增弱精英「何太冲」（昆仑·远程·m104）：连环箭（命中后 prob 补一箭 ×dmgRatio，reason 进 core/10 LINK_REASONS → 不链式）、破甲箭（beforeDamageEffects.ignoreDef 纯声明）、昆仑合击（目标本回合已被其他六大派同伴打过 → ×dmgMultiplier，记账写受击者 _kunlunComboFlag）；后两者走 registerMechanicHandler
 // V6.19.1 | ~57700 bytes | 2026-10-09 召唤周芷若落位避让活人：flushZhouSummon 以阵亡者原格为 anchor 做「原格+1 环形顺延」找空位（复用 core/05 findFreePos，只算 alive 占位），spawnUnit 与 SUMMON_UNIT fact 同用 landPos——旧版直接落原格，拒马刚刷进刚空出的格时会两活人同格（fuzz seed159 关7 r2）
 // V6.19.0 | ~56100 bytes | 2026-10-09 灭绝新增「追击」技能：每次打中（普攻/反击/跟随/追击本身）后 0.1 概率对同一目标再追击一次（×1.2、可被闪避），追击计入出手数、且可链式自触发（故意不入 core/10 LINK_REASONS，靠 0.1^n 收敛）；普攻系数回 1.0；thirdStrike 文案补 dmgMultiplier
@@ -7,10 +8,10 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.20.0';
+export const VER = 'modules/26elite-sixsects.js V6.21.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
-import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted, getBenefitTargets } from '../core/03battle-utils.js';
@@ -834,6 +835,33 @@ registerMechanicHandler(MECHANIC_TYPES.CHAIN_ARROW, {
                 actedSnapshot: unit.state._acted,
                 priority: 12
             });
+            // 战报显性化：补射报幕一行（飘字沿用补射那一箭自身攻击闪烁，不另加）
+            if (data.log) {
+                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '连环箭', note: `${unit.name} 连环箭·补射` } });
+            }
+        });
+    }
+});
+
+// 机制② 破甲箭：伤害计算忽略 30% 防御（数值仍走 content 的 beforeDamageEffects.ignoreDef 纯声明）。
+//   本 handler 只做「显性化」：本击命中后 ① 给伤害行追加后缀（写 data.group.data.armorPierceHint，
+//   由 render/34 renderAttackFact 拼进伤害文本）② 目标格飘一次「🛡-30%」（走 SKILL_ANNOUNCE 的 floatText 通道）。
+registerMechanicHandler(MECHANIC_TYPES.ARMOR_PIERCE, {
+    install({ eventBus, decl }) {
+        const eff = (decl.beforeDamageEffects || []).find(e => e && e.type === MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.IGNORE_DEF);
+        const pct = eff ? Math.round((eff.ratio || 0) * 100) : 0;
+        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_ARMOR_PIERCE, (data) => {
+            const unit = data.unit;
+            if (!unit || unit.name !== decl.name || !unit.alive) return;
+            if (!data.dmg || data.dmg <= 0) return;
+            const t = data.target;
+            if (!t) return;
+            if (data.group && data.group.data) {
+                data.group.data.armorPierceHint = `<span class="gold small">（破甲箭·无视${pct}%防御）</span>`;
+            }
+            if (data.log) {
+                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '破甲箭', note: `破甲箭·无视${pct}%防御`, line: false, floatText: `🛡-${pct}%`, floatUid: t.uid } });
+            }
         });
     }
 });
@@ -860,6 +888,10 @@ registerMechanicHandler(MECHANIC_TYPES.KUNLUN_COMBO, {
             const t = data.target;
             if (!t || !t.state._kunlunComboFlag) return;
             data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: decl.dmgMultiplier, source: unit, label: '昆仑合击' });
+            // 战报显性化：报幕一行「昆仑合击 ×1.5」+ 何太冲格飘「🎯×1.5」
+            if (data.log) {
+                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '昆仑合击', note: `昆仑合击 ×${decl.dmgMultiplier}`, floatText: `🎯×${decl.dmgMultiplier}`, floatUid: unit.uid } });
+            }
         });
     }
 });

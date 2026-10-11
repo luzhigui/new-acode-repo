@@ -1,5 +1,6 @@
+// V6.1.3 | ~2700 bytes | 2026-10-11 加 SKILL_FLOAT（何太冲技能任意文本头顶飘字；fx/89 复用灭绝计数飘字通道）
 // V6.1.2 | ~2600 bytes | 2026-09-26 加 PANG_TAUNT / PANG_CLUMSY（胖远桥两技能演出，快进跳过）；信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
-export const VER = 'infra/55-fx-signals.js V6.1.2';
+export const VER = 'infra/55-fx-signals.js V6.1.3';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
@@ -40,5 +41,6 @@ export const FX_SIGNALS = {
     MIEJUE_COUNT: 'fx:miejueCount',      // 灭绝师太出手计数飘字（快进跳过）
     // 胖远桥（六大派精英）
     PANG_TAUNT: 'fx:pangTaunt',          // 正义国字脸：扇形金锥 + 台词气泡 + 被嘲讽者红闪（快进跳过）
-    PANG_CLUMSY: 'fx:pangClumsy'         // 年轻气盛：出手前侧倾甩歪 + 😵（快进跳过）
+    PANG_CLUMSY: 'fx:pangClumsy',        // 年轻气盛：出手前侧倾甩歪 + 😵（快进跳过）
+    SKILL_FLOAT: 'fx:skillFloat'         // 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N；快进跳过）
 };

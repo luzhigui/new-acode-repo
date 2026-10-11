@@ -1,5 +1,6 @@
+// V6.1.2 | ~4400 bytes | 2026-10-11 加 SKILL_FLOAT 订阅（何太冲技能任意文本飘字，复用 showMiejueCountFloat；快进跳过）
 // V6.1.1 | ~4300 bytes | 2026-09-26 加胖远桥两技能转发（PANG_TAUNT / PANG_CLUMSY，快进跳过）
-export const VER = 'fx/89fx-subscriber.js V6.1.1';
+export const VER = 'fx/89fx-subscriber.js V6.1.2';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -83,4 +84,10 @@ eventBus.on(FX_SIGNALS.PANG_TAUNT, P, (d) => {
 eventBus.on(FX_SIGNALS.PANG_CLUMSY, P, (d) => {
     if (inFastForward()) return;
     return showPangClumsy(d.unit);
+});
+// 2026-10-11 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N）：
+//   复用「灭绝计数」的任意文本飘字通道 showMiejueCountFloat（头顶放大上浮消散），不另造字形（快进跳过）
+eventBus.on(FX_SIGNALS.SKILL_FLOAT, P, (d) => {
+    if (inFastForward()) return;
+    return showMiejueCountFloat(d.unit, d.text);
 });

@@ -1,4 +1,5 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
+// V1.2.0 | ~34200 bytes | 2026-10-11 何太冲显性化：SKILL_ANNOUNCE 增翻译器 translateSkillAnnounce（带 floatText/floatUid 时产 SKILL_FLOAT 头顶飘字，否则 null=只落战报行）
 // V1.1.9 | ~33500 bytes | 2026-10-07 飞行再生飘字改走 afterText 通道（不再依赖锚文本与正文逐字匹配——该链 10-06 空格案已静默断过一次，今日机器复跑 16/16 信号全发仍不飘，锚点通道结构性扬弃；与生生不息同通道）
 // V1.1.8 | ~33100 bytes | 2026-10-02 胖远桥·莽撞补飘字：ATTACK fact 的 pangAtkGain（被攻击加攻）→ STAT_CHANGE(atk) 飘「⚔+N」（此前只有金色战报行）
 // V1.1.7 | ~32900 bytes | 2026-10-02 流星赶月减防补飘字：主目标 METEOR_SHOWER_MAIN 增 STAT_CHANGE(def,-mainDefReduce)、溅射 BUFF_EFFECT 带 splashDefReduce（render/39 每个存活溅射目标飘🛡-N）；加深掉血飘字为 V1.1.6
@@ -9,7 +10,7 @@
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.9';
+export const VER = 'render/38-actions-translate.js V1.2.0';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -443,6 +444,7 @@ const FACT_TRANSLATORS = {
     [FACT_TYPES.SPIDER_DOUBLE_STRIKE]: (data, index) => ({ kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' }),
     [FACT_TYPES.XING_FEN_GRANT]: () => null,
     [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: () => null,
+    [FACT_TYPES.SKILL_ANNOUNCE]: (data, index) => translateSkillAnnounce(data, index),
     [FACT_TYPES.XIN_HUN]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
         effectType: BUFF_EFFECT_TYPES.XIN_HUN,
@@ -466,6 +468,19 @@ function translateFact(entry, index) {
     const { factType, data } = entry;
     const translator = FACT_TRANSLATORS[factType];
     return translator ? translator(data, index) : null;
+}
+
+// 何太冲技能飘字：破甲箭（🛡-N%）飘在目标格、昆仑合击（🎯×N）飘在何太冲格。
+//   带 floatText+floatUid 才产动作；连环箭无飘字（沿用本击攻击闪烁）→ 返回 null，只落报幕行。
+function translateSkillAnnounce(data, index) {
+    if (!data || !data.floatText || data.floatUid == null) return null;
+    return {
+        kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
+        targetUid: data.floatUid,
+        text: data.floatText,
+        factIndex: index,
+        timing: 'afterText'
+    };
 }
 
 function makeAttackAction(data, index) {
