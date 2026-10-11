@@ -1,3 +1,8 @@
+// V3.0.2 | ~83700 bytes | 2026-10-11 第 72 轮：BREAK_DEF 契约 extract 加 factType 显式校验，修形状碰撞假偏差——
+//          小昭·姊「乾坤衍生」QIAN_KUN_DERIVED（modules/27 L303/354：data.reduce 是减伤值、无 attackerName）被
+//          `typeof data.reduce === 'number'` 形状判据吞成破防声明（seed=18 stage=2 r13 声明 10 = 破防 2+2 + 乾坤 3+3，
+//          账本 breakDef 仅 -4 ⇒ 干净树假偏差 1，即第 71 轮遗留项）。修后 40 局：声明 581 条 · 严格比对 544 条 / 偏差 0；
+//          BREAK_DEF 随之出保守名单升严格判据（复核证伪「跨步错位」旧归因）。
 // V3.0.1 | ~80200 bytes | 2026-10-11 SOUL_DRAIN 契约由警告态转严格（主代码 4 处补发 fact：core/04 V6.2.9 / core/11 V6.3.7 /
 //          infra/56 V1.4.4 / infra/58 V1.5.7）：声明 827 条 · 严格比对 799 条 / 偏差 0，全程 EXIT=0。
 // V3.0.0 | ~79800 bytes | 2026-10-09 账本对照补第 23 条契约 ENDLESS_BREATH_COST（生生不息「付费触发」扣攻：modules/26 L160
@@ -83,7 +88,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.0.1';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.0.2';
 
 import { fileURLToPath } from 'node:url';
 
@@ -113,21 +118,22 @@ const STAGES = [1, 2, 3, 4];
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 // 第 47 轮：以下 group 的 fact 与 addMod 在**同一 handler、用同一变量/同一值**发射，无跨步错位
-//   （与 carry(ttl:'round') / BREAK_DEF(fact 嵌套在攻击 entries、mod 在不同子步生效) 不同）
+//   （与 carry(ttl:'round') 不同；BREAK_DEF 同类疑虑经第 72 轮复核已证伪——544 条比对偏差 0，见下方名单说明）
 //   ⇒ 干净树必 sum===actual，故可安全开「声明 > 实际」的虚报（少加/多报）校验。
 //   新增机制前先确认它满足「同 handler 同值同 step」，否则只保留整数倍（超应用）判据。
 const SAME_STEP_GROUPS = new Set(['fortify', 'baguaArray', 'rageOnHit', 'lionInspire', 'kuLian',
     'rangedGrowth', 'zhangSwitch', 'spiderMastery']);
 
-// 第 49 轮：**仅**这两条契约存在跨步错位，必须走保守判据。
-//   实测依据（40 局干净树偏差扫描，见下方 checked/mismatch 列）：
-//     BREAK_DEF    严格比对 548 条 → 偏差 7   （fact 嵌套在攻击 entries、mod 在不同子步生效）
+// 第 49 轮：最初这两条契约列保守判据；第 72 轮复核后 **BREAK_DEF 已出列升严格**，名单只剩 RIGHTEOUS_FACE。
+//   历史实测依据（40 局干净树偏差扫描，见下方 checked/mismatch 列）：
+//     BREAK_DEF    第 49 轮严格比对 548 条 → 偏差 7（fact 嵌攻击 entries、mod 在不同子步，当时判为跨步错位）；
+//                  第 72 轮复查：干净树仅存 1 条偏差，且定位为乾坤衍生形状碰撞假阳（extract 已加 factType 守卫）——
+//                  修后 40 局严格比对 544 条 / 偏差 0，与其余契约同待遇 ⇒ 按「默认严格」规则出列。
 //     CARRY_APPLY  严格比对 267 条 → 偏差 0   （第 53 轮修 ttl:'round' 续期口径后归零；原 198 偏差是跨步时序假阳性，非数值 bug）
-//   其余 13 条**全部 0 偏差** ⇒ 当年「一刀切保守」是被这 2 条拖累的，误伤了本可严格的 11 条。
-//   → 改为「默认严格、名单例外」：新契约自动享受严格判据；若哪天干净树出现假阳性，把它加进来即可。
+//   → 名单规则：默认严格；干净树出现假阳性把它加进来即可。
 // 保守判据名单：fact 与 mod 跨步错位（fact 嵌攻击 entries / 不同子步生效），同一步 ledger 比对必然错位
-//   ⇒ 只抓整数倍超应用（翻倍），零误报。含 BREAK_DEF（破防）与 RIGHTEOUS_FACE（正义国字脸，def 加在嘲讽设置步、fact 在攻击步）。
-const LOOSE_IDS = new Set(['BREAK_DEF', 'RIGHTEOUS_FACE']);
+//   ⇒ 只抓整数倍超应用（翻倍），零误报。现仅 RIGHTEOUS_FACE（正义国字脸，def 加在嘲讽设置步、fact 在攻击步）。
+const LOOSE_IDS = new Set(['RIGHTEOUS_FACE']);
 
 // 2026-10-02 审核线：factType 守卫。早期契约刻意「不导入枚举、靠字段形状签名」，
 //   但 commit 12a5808 给 SPIDER_TRANSFORM 补了 unitUid+atkDelta/defDelta/maxHpDelta 后，
@@ -146,7 +152,15 @@ const CONTRACTS = [
         extract(stepLog) {
             const out = [];
             const scan = (e) => {
-                if (e && e.data && typeof e.data.reduce === 'number' && e.data.targetName) {
+                // 第 72 轮：加 factType 显式校验——形状启发式（typeof data.reduce === 'number' + targetName）会被
+                //   小昭·姊「乾坤衍生」QIAN_KUN_DERIVED 静默碰撞（modules/27 L303/354：data.reduce 是**减伤**值、
+                //   无 attackerName），冒充破防声明。实证：seed=18 stage=2 r13 声明 10(4条)=破防 2+2 + 乾坤衍生 3+3，
+                //   而账本 breakDef 仅 [-2,-2]=4 ⇒ 干净树假偏差 1（第 71 轮遗留，第 72 轮定位）。
+                //   与 WEI_LEECH（L615）同式：凡能拿到 factType 的契约一律显式校验（教训见 L135）——
+                //   无 factType 保留形状兜底，防未来裸推的破防条目被静默漏计。
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.BREAK_DEF) return;
+                if (typeof e.data.reduce === 'number' && e.data.targetName) {
                     out.push({ unit: e.data.targetName, stat: 'def', amount: e.data.reduce });
                 }
             };
