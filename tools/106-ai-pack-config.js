@@ -1,3 +1,6 @@
+// V6.0.22 | ~18200 bytes | 2026-10-11 补登记 3 个主代码新文件（packcheck 双向 diff B 类归零）：
+//           ui/75net-session.js、ui/76replay-entry.js（ui/61 减负批拆出，61/68 已 import）、
+//           render/37-role-cards.js（从 ui/69 迁入 render，62/65/32 已 import）
 // V6.0.21 | ~17800 bytes | 2026-10-08 补登记 9 个新文件（全仓比对清单与磁盘，补「被已登记文件 import 却漏登」的断裂链）：
 //           ui/69-role-cards.js（62/65/32 查名片表）、modules/00reg-mechanics.js（61 机制装配单入口）、
 //           player/50battle-export.js（42/61/64/68 战报导出）、player/51-battle-log-analyze.js（64 战报分析）、
@@ -27,7 +30,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.21';
+export const VER = 'tools/106-ai-pack-config.js V6.0.22';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -76,6 +79,8 @@ export const ALL_PROJECT_FILES = [
     '../ui/69-role-cards.js',
     '../ui/74reset-runtime.js', '../ui/70buff-dialog.js',
     '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
+    // 2026-10-11 补登记 75/76：ui/61 减负批拆出的联网会话与战报回放入口（ui/61、ui/68 已 import）
+    '../ui/75net-session.js', '../ui/76replay-entry.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
@@ -91,6 +96,8 @@ export const ALL_PROJECT_FILES = [
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js', '../render/36-generic-renderers.js',
+    // 2026-10-11 补登记 37：角色名片表从 ui/69 迁入 render（消除 render→ui 反向依赖；ui/62、ui/65、render/32 已 import）
+    '../render/37-role-cards.js',
     '../render/38-actions-translate.js', '../render/39-actions-defs.js',
     // content（游戏内容数据）
     '../content/200game-data.json',
