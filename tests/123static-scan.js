@@ -3,6 +3,19 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.4.0 | 2026-10-13 体检第 84 轮修「共享符号 import 缺失」4 条假红（modules/26 拆分后组件文件被点名）：
+//   根因 = scanSharedSymbolImport 的 usage 正则只认 `sym.`/`sym(`，**不认形参遮蔽** ——
+//   `register(eventBus, A, B, log)` / `install({ eventBus, decl })` 由调用方注入，函数体内
+//   eventBus.emit/on 合法引用形参、无需 import，旧正则判成"使用未 import"（误报）。
+//   修法 = 三件套：①maskStrings 先掩码字符串/模板字面量（防内容带偏括号配平、防串内假使用）；
+//   ②collectParamScopes 括号栈追踪「形参表 → 块体」区间（排除 if/for/while/switch/catch/with 控制语句），
+//   解析形参绑定名（只取顶层项 `=` 前的名字 + 解构内名字，不吞默认值表达式）；
+//   ③usage 命中位置落在「绑定含该 sym 的函数体区间」内即遮蔽、不算缺失。
+//   口径：**宁误报不漏报** —— 箭头表达式体（`=> expr` 非块体）不做遮蔽；顶层/无绑定引用仍被抓（牙齿保住）。
+// V1.3.4 | 2026-10-13 SCAN_FILES 补登 render/38-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
+//         （-attack/-heal/-control/-stat，38 入口 import 它们）
+// V1.3.3 | 2026-10-13 SCAN_FILES 补登 modules/26elite-sixsects 拆分出的 6 个组件文件
+//         （-songqingshu/-zhouzhiruo/-zhangsanfeng/-pangyuanqiao/-miejueshitai/-hetaichong，26 入口 import 它们）
 // V1.3.2 | 2026-10-02 SCAN_FILES 补登 ./health-rules/157-mechanic-install-reconcile.js（mechanics 安装对账，
 //         import core/01、core/15、modules/26、modules/30；入册后本扫描可发现这些 import 路径断裂）
 // V1.3.1 | 2026-09-29 SCAN_FILES 补登 ./health-rules/156-desc-truth-drift.js（技能说明数字 == 引擎真值
@@ -13,7 +26,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.3.2';
+export const VER = 'tests/123static-scan.js V1.4.0';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -45,7 +58,11 @@ export const SCAN_FILES = [
     '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js',
     '../infra/59-state-change.js', '../infra/60-net-pvp.js',
     '../modules/20elite-skills.js', '../modules/24battle-store.js', '../modules/25elite-imperial.js',
-    '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js', '../modules/28buff-tools.js',
+    '../modules/26elite-sixsects.js', '../modules/26elite-sixsects-songqingshu.js',
+    '../modules/26elite-sixsects-zhouzhiruo.js', '../modules/26elite-sixsects-zhangsanfeng.js',
+    '../modules/26elite-sixsects-pangyuanqiao.js', '../modules/26elite-sixsects-miejueshitai.js',
+    '../modules/26elite-sixsects-hetaichong.js',
+    '../modules/27elite-mingjiao.js', '../modules/28buff-tools.js',
     '../modules/29battle-init.js', '../modules/30custom-effects.js',
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
     '../player/43animation-scheduler.js', '../player/44battle-player-5v5-test.js',
@@ -53,7 +70,10 @@ export const SCAN_FILES = [
     '../player/48battle-report.js', '../player/49battle-flow.js',
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js', '../render/36-generic-renderers.js',
-    '../render/38-actions-translate.js', '../render/39-actions-defs.js',
+    '../render/38-actions-translate.js',
+    '../render/38-actions-translate-attack.js', '../render/38-actions-translate-heal.js',
+    '../render/38-actions-translate-control.js', '../render/38-actions-translate-stat.js',
+    '../render/39-actions-defs.js',
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
@@ -228,9 +248,102 @@ export async function detectWindowMounts() {
     return _mountsCache;
 }
 
+// ---- V1.4.0 形参作用域遮蔽三件套（修共享符号 4 条假红）----
+
+// ① 掩码字符串/模板字面量：内容换空格、保留换行。
+//    两个用途：防串内括号把配平带偏；防串内 `eventBus.emit` 被当真使用。
+//    模板字面量整体掩码（`${...}` 内表达式不保留）——串内插值引用共享符号极罕见，宁漏勿错。
+export function maskStrings(code) {
+    let out = '', i = 0;
+    while (i < code.length) {
+        const c = code[i];
+        if (c === "'" || c === '"' || c === '`') {
+            const quote = c;
+            out += ' ';
+            i++;
+            while (i < code.length) {
+                if (code[i] === '\\') { out += '  '; i += 2; continue; }
+                if (code[i] === quote) { out += ' '; i++; break; }
+                out += code[i] === '\n' ? '\n' : ' ';
+                i++;
+            }
+            continue;
+        }
+        out += c;
+        i++;
+    }
+    return out;
+}
+
+// ②a 解析形参绑定名：只取顶层逗号项里 `=` 之前的部分（不吞默认值表达式里的标识符），
+//    简单参数名与解构 `{ a, b }`/`[x]` 内的名字都会收进 binds。
+function parseParamBinds(paramSrc) {
+    const binds = new Set();
+    let depth = 0, item = '';
+    const items = [];
+    for (const ch of paramSrc) {
+        if (ch === '(' || ch === '[' || ch === '{') depth++;
+        else if (ch === ')' || ch === ']' || ch === '}') depth--;
+        if (ch === ',' && depth === 0) { items.push(item); item = ''; }
+        else item += ch;
+    }
+    items.push(item);
+    for (let it of items) {
+        const eq = it.indexOf('=');
+        if (eq >= 0) it = it.slice(0, eq); // 截断默认值（解构体内 `=` 截断也无害：名字在 `=` 前）
+        for (const m of it.matchAll(/[\w$]+/g)) binds.add(m[0]);
+    }
+    return binds;
+}
+
+// ②b 括号栈追踪「形参表 → 块体」区间：返回 [{ start, end, binds }]（start/end 为函数体 `{`..`}` 位置）。
+//    排除 if/for/while/switch/catch/with 的控制语句括号（`if (eventBus)` 不是形参遮蔽）；
+//    箭头表达式体（`=> expr` 非块体）不遮蔽 —— 宁误报不漏报。
+export function collectParamScopes(code) {
+    const scopes = [];
+    const CTRL = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
+    for (let i = 0; i < code.length; i++) {
+        if (code[i] !== '(') continue;
+        // 找匹配 ')'
+        let depth = 0, j = -1;
+        for (let k = i; k < code.length; k++) {
+            if (code[k] === '(') depth++;
+            else if (code[k] === ')') { depth--; if (depth === 0) { j = k; break; } }
+        }
+        if (j < 0) return scopes; // 括号失衡（maskStrings 后已罕见），放弃后续
+        // `)` 后跳空白；遇 `=>` 再跳箭头；之后必须是 `{` 才算函数体
+        let k = j + 1;
+        while (k < code.length && /\s/.test(code[k])) k++;
+        if (code[k] === '=' && code[k + 1] === '>') {
+            k += 2;
+            while (k < code.length && /\s/.test(code[k])) k++;
+        }
+        if (code[k] !== '{') continue;
+        // 控制语句排除：看 `(` 前最后一段标识符
+        let p = i - 1;
+        while (p >= 0 && /\s/.test(code[p])) p--;
+        let e = p;
+        while (e >= 0 && /[\w$]/.test(code[e])) e--;
+        if (CTRL.has(code.slice(e + 1, p + 1))) continue;
+        // 找匹配 '}'
+        let bdepth = 0, end = -1;
+        for (let t = k; t < code.length; t++) {
+            if (code[t] === '{') bdepth++;
+            else if (code[t] === '}') { bdepth--; if (bdepth === 0) { end = t; break; } }
+        }
+        if (end < 0) continue;
+        const binds = parseParamBinds(code.slice(i + 1, j));
+        if (binds.size) scopes.push({ start: k, end, binds });
+    }
+    return scopes;
+}
+
 export function scanSharedSymbolImport(code, mounts) {
     const { imported } = collectImports(code);
     const missing = [];
+    // V1.4.0：usage 判定跑在掩码副本上，形参遮蔽区间内的命中不算"使用"
+    const masked = maskStrings(code);
+    const scopes = collectParamScopes(masked);
     for (const sym of SHARED_SYMBOLS) {
         if (imported.has(sym)) continue;
         // 本文件自定义/自导出该符号 → 不算缺失
@@ -243,8 +356,15 @@ export function scanSharedSymbolImport(code, mounts) {
         if (defs.some(re => new RegExp(re, 'm').test(code))) continue;
         // 使用形式：仅成员访问(.)或调用(( )才算"需要import"；参数位/解构(后跟 , } )不算——
         // 引擎普遍 register(eventBus,...)/install({ eventBus }) 由调用方注入，无 import 也正确。
-        const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(]');
-        if (usageRe.test(code)) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
+        // V1.4.0 起命中位置落在「绑定含该 sym 的函数体区间」内 = 形参遮蔽，不算缺失（修 4 条假红）。
+        const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(]', 'g');
+        let m, unshadowed = false;
+        while ((m = usageRe.exec(masked)) !== null) {
+            const pos = m.index;
+            const shadowed = scopes.some(s => s.binds.has(sym) && pos >= s.start && pos <= s.end);
+            if (!shadowed) { unshadowed = true; break; }
+        }
+        if (unshadowed) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
     }
     return missing;
 }

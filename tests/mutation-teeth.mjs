@@ -1,3 +1,10 @@
+// V2.9.5 | 2026-10-13 体检第 84 轮：A11 锚点重校（唯一性）—— 旧 from `"{ source: '韦一笑吸血', value: delta,"`
+//   在 core/12battle-attack-steps.js 命中 2 处（L594 weiLeech maxHp 上限提升 / L597 weiDodgeHeal hp 记账），
+//   违反 --verify「非 multi 的 from 必须恰好 1 次」；且 A11 语义「上限提升翻倍」只应打 maxHp 行。
+//   修法：from/to 各延长到含 `ttl: 'permanent', group: 'weiLeech',`，锚定 maxHp 行、与 hp 记账行区分。
+// V2.9.4 | 2026-10-13 第 83 轮：modules/26elite-sixsects.js 拆分联动 —— 14 处 26 系变异锚点的 file 字段
+//   改指 6 个组件文件（A6/A12/A13/A18/T5/T7→-songqingshu；A7/A9/T4→-zhangsanfeng；
+//   A10/A23/T15→-pangyuanqiao；A26/A27→-miejueshitai）；锚点 from/to 文本与缩进未动，仅换文件路径。
 // V2.9.3 | 2026-10-13 第 82 轮：A28 锚点重校准 —— 主代码摄魂再平衡（V6.3.3 逆风系数 perUnitBonus、
 //   V6.3.2/6.3.3 降防线性叠加）后，core/04 applySoulDrain 的 atk addMod 由直读
 //   `CONFIG.BUFFS.soulDrain.atkBonus` 改为先算 `ratio = cfg.atkBonus - cfg.perUnitBonus * extra`
@@ -59,7 +66,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.2';
+export const VER = 'tests/mutation-teeth.mjs V2.9.5';
 
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -104,11 +111,11 @@ const MUTATIONS = [
     //   原锚点 `value: s.atkBonus * mult` 已被改写 → --verify 报 0 处（不修就是假绿制造机）。
     //   只改 addMod 那一份、fact 的 targets 仍用原变量 ⇒ 实际=2×声明，由整数倍判据兜。
     { id: 'A6', kind: 'ATTR', desc: '苦练攻击加成翻倍',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-songqingshu.js',
       from: "{ source: '苦练', value: atkDelta,",
       to:   "{ source: '苦练', value: atkDelta * 2," },
     { id: 'A7', kind: 'ATTR', desc: '生生不息转防翻倍',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-zhangsanfeng.js',
       from: "{ source: '生生不息', value: defGain,",
       to:   "{ source: '生生不息', value: defGain * 2," },
     // 第 58 轮修锚点：A8 原锚在 **atk** 那行，但 flyDirection 恒为 'left'（core/11 只写 `A._flyDirection = A._flyDirection || 'left'`，
@@ -122,20 +129,20 @@ const MUTATIONS = [
     //   旧 from 串 0 处 ⇒ 树=干净树 ⇒ 此前「待确认盲区」是假阴性。重新对准到现行机制：扣攻翻倍，
     //   声明 fact(BAGUA_ARRAY.atkDelta=-ba.atkCost) 不变 ⇒ BAGUA_ATK 契约出现偏差，真有牙。
     { id: 'A9', kind: 'ATTR', desc: '八卦阵攻击消耗翻倍（付费触发扣攻翻倍 → BAGUA_ATK 契约偏差）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-zhangsanfeng.js',
       from: "{ source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' }",
       to:   "{ source: '八卦阵', value: -ba.atkCost * 2, ttl: 'permanent', group: 'baguaArray', op: 'add' }" },
     { id: 'A10', kind: 'ATTR', desc: '莽撞每次挨打加攻翻倍（主目标+溅射两处都改）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-pangyuanqiao.js',
       from: "{ source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });",
       to:   "{ source: '莽撞', value: rage.atkPerHit * 2, ttl: 'permanent', group: 'rageOnHit', op: 'add' });",
       multi: true },
     { id: 'A11', kind: 'ATTR', desc: '韦一笑吸血上限提升翻倍',
       file: 'core/12battle-attack-steps.js',
-      from: "{ source: '韦一笑吸血', value: delta,",
-      to:   "{ source: '韦一笑吸血', value: delta * 2," },
+      from: "{ source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech',",
+      to:   "{ source: '韦一笑吸血', value: delta * 2, ttl: 'permanent', group: 'weiLeech'," },
     { id: 'A12', kind: 'ATTR', desc: '性奋代价翻倍（多扣上限）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-songqingshu.js',
       from: "{ source: '性奋代价', value: -penalty,",
       to:   "{ source: '性奋代价', value: -penalty * 2," },
     // 第 44 轮改锚点：原为写死的 `value: 3`，主代码把三项收敛成 `carryMods.atk/def/maxHp` 后写法变了。
@@ -146,7 +153,7 @@ const MUTATIONS = [
     //   最终改打 `xingFenCost`（性奋代价，95 词条，maxHp **负值**且逐次递减 -1/-2/-3…）——
     //   专测「负值 + 非整数倍」判据：旧判据只认 sum>0 与整数倍超应用，这类负值递减词条最容易漏。
     { id: 'A13', kind: 'ATTR', desc: '性奋代价扣血上限翻倍（负值词条 ×2）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-songqingshu.js',
       from: "addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });",
       to:   "addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty * 2, ttl: 'permanent', group: 'xingFenCost', op: 'add' });" },
     { id: 'A14', kind: 'ATTR', desc: '雄狮振奋加攻翻倍',
@@ -178,7 +185,7 @@ const MUTATIONS = [
     //     A19：实际=0 ⇒ `actual > sum` 为假 ⇒ 整数倍不报；但 butterfly 不在 SAME_STEP_GROUPS ⇒ 虚报分支不开 ⇒ 漏。
     //   这两条若升级后仍是 0 命中，就说明严格判据没真正生效。
     { id: 'A18', kind: 'ATTR', desc: '苦练攻击加成手抖多加 1 点（非整数倍，旧判据必漏）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-songqingshu.js',
       from: "{ source: '苦练', value: atkDelta,",
       to:   "{ source: '苦练', value: atkDelta + 1," },
     { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（改 0，非整数倍判据必漏）',
@@ -204,11 +211,11 @@ const MUTATIONS = [
       from: "data: { unitName: ctx.unit.name, growth } }",
       to:   "data: { unitName: ctx.unit.name, growth: growth + 5 } }" },
     { id: 'T4', kind: 'TEXT', desc: '生生不息 fact 的 atkGain 多写 5（实际未变）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-zhangsanfeng.js',
       from: "atkGain: selfAtkGain,",
       to:   "atkGain: selfAtkGain + 5," },
     { id: 'T5', kind: 'TEXT', desc: '性奋代价 fact 的 penalty 多写 5（实际未变）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-songqingshu.js',
       from: "oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty }",
       to:   "oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty: penalty + 5 }" },
     // 第 44 轮新增：把流星加攻的**来源**写死（不再依赖小昭·姊的海克斯增强）→ 无增强来源的场次也会加攻。
@@ -223,7 +230,7 @@ const MUTATIONS = [
     //   苦练 fact 的 targets.atkDelta 多写 5，而 addMod 用的仍是原 atkDelta（实际未变）
     //   ⇒ 声明 > 实际，只有 SAME_STEP_GROUPS 的「sum > actual」分支能抓（整数倍判据抓不到这个方向）。
     { id: 'T7', kind: 'TEXT', desc: '苦练 fact targets 的 atkDelta 多写 5（实际未变）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-songqingshu.js',
       from: "kuLianTargets.push({ unitName: u.name, atkDelta, defDelta, maxHpDelta });",
       to:   "kuLianTargets.push({ unitName: u.name, atkDelta: atkDelta + 5, defDelta, maxHpDelta });" },
     // 第 52 轮新增：验证新补契约 SPIDER_TRANSFORM / LEECH_MAXHP 是否真有牙（而非死代码）。
@@ -246,7 +253,7 @@ const MUTATIONS = [
       from: "addMod(decl.target, 'def', { source: decl.reason || '属性变更', value: decl.delta, ttl: 'permanent', group: 'statChange', op: 'add' });",
       to:   "addMod(decl.target, 'def', { source: decl.reason || '属性变更', value: decl.delta * 2, ttl: 'permanent', group: 'statChange', op: 'add' });" },
     { id: 'A23', kind: 'ATTR', desc: '正义国字脸叠防 defGain 翻倍',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-pangyuanqiao.js',
       from: "addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });",
       to:   "addMod(pang, 'def', { source: '正义国字脸', value: face.defGain * 2, ttl: 'permanent', group: 'righteousFace', op: 'add' });" },
     // ===== 第 54 轮：覆盖率收官 22/22，给AURA / HOLY_FLAME 两条新契约加牙 =====
@@ -272,7 +279,7 @@ const MUTATIONS = [
     //   引擎渲染出 ×2 的系数、规则仍按配置 0.8/100% 比对 ⇒ 数字不符 ⇒ 报红。
     //   这两条专打 rule112 的两个数值判据（反击系数 / 三击吸血比例），证明「渲染数字一旦偏离配置即被抓」。
     { id: 'A26', kind: 'ATTR', desc: '灭绝反击渲染系数×2（污染渲染，配置0.8不动 → rule112 反击判据应咬）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-miejueshitai.js',
       // 第 64 轮修锚点：原 from 含「🗡 灭绝师太反击 ${attacker.name}！」前缀，GNU sed BRE 在
       //   全角「！」/emoji 衔接处静默失配（各子串单独都能匹配、拼接却 0 命中）。改锚到**纯系数包裹段**
       //   `（伤害×${counter.dmgRatio}）`（已实测 sed 可命中且全仓唯一——其余 3 处「（伤害×」无此完整 token），
@@ -280,7 +287,7 @@ const MUTATIONS = [
       from: "（伤害×${counter.dmgRatio}）",
       to:   "（伤害×${counter.dmgRatio * 2}）" },
     { id: 'A27', kind: 'ATTR', desc: '灭绝三击吸血比例渲染×2（污染渲染，配置100%不动 → rule112 三击判据应咬）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-miejueshitai.js',
       from: "回复本次伤害${third.leechRatio * 100}%=",
       to:   "回复本次伤害${third.leechRatio * 200}%=" },
     // ===== 第 65 轮新增：验证坚盾双规则（125 计数时序 / 130 叠加超上限）真有牙，而非恒绿 =====
@@ -334,7 +341,7 @@ const MUTATIONS = [
     //   注意：addMod 实际加防（L337）仍用 face.defGain（正确），只有事实字段被污染 ⇒ 游戏真值不变、仅体检抓到，
     //   且**不是单源陷阱**（配置与事实写入分属两处，污染写入代码≠污染配置）。
     { id: 'T15', kind: 'ATTR', desc: '正义国字脸 pangDefGain 写入×2（⇒ 事实≠配置defGain → rule163 判据2应咬）',
-      file: 'modules/26elite-sixsects.js',
+      file: 'modules/26elite-sixsects-pangyuanqiao.js',
       from: "data.group.data.pangDefGain = face.defGain;",
       to:   "data.group.data.pangDefGain = face.defGain * 2;" },
     // 第 68 轮新增：验证 rule164（吸血上限提升数值回归）真有牙，而非恒绿。

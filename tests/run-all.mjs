@@ -1,30 +1,36 @@
-// tests/run-all.mjs | ~3800 bytes | V1.0.0 | 2026-10-09
+// tests/run-all.mjs | ~3900 bytes | V1.0.1 | 2026-10-13 CHECKS 末尾挂「翻译层golden对照」（tests/translate-golden.mjs，render/38 拆分护栏）
 // 一键全量体检：串行跑齐 node 侧全套红线（七项常规 + 大样本 fuzz），最后出一页「谁绿谁红」汇总，任一红则退出码 1。
 // 背景：浏览器 120test-runner.html 的「一键体检」只覆盖浏览器那一层（UI/规则/不变量）；
 //       node 侧回放/账本/基线/覆盖率/fuzz 此前要手敲多条命令、没有总入口，本脚本补上这个总入口。
 // 用法：node tests/run-all.mjs
 //   不含变异牙齿（mutation-teeth 全量约 8 分钟、会生成 tests/.mut 临时树），需要时单独跑。
 //   子脚本的环境变量可透传，例如 SEEDS=1,2 STAGES=2 node tests/run-all.mjs（影响回放）。
+// V1.1.0 | 2026-10-13 体检第 84 轮：挂「静态契约一致性」tests/contract-consistency.mjs（新检查，放静态扫描之后）——
+//   ①门槛一致性：player/42 hasStageWork 门槛 vs render/39 STAGE_ACTION_DEFS 全表（带 store/storeAfter 的定义必须被放行）；
+//   ②翻译器契约：infra/58 FACT_SPECS.translateFn 登记 vs render/38 家族 FACT_TRANSLATORS 表（双向对账）。
+//   均为源码级静态检查（浏览器代码 node 测不进运行时），判据与牙齿见该文件头。
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.0.0';
+export const VER = 'tests/run-all.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const node = process.execPath;
 
-// 七项红线，顺序 = 从快到慢、从结构到数值
+// 十项红线（V1.1.0 起），顺序 = 从快到慢、从结构到数值
 const CHECKS = [
     { name: '静态扫描(import/枚举)', script: 'tests/123static-scan.js', args: [] },
+    { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
     { name: '精英注册一致性', script: 'tests/registration-check.mjs', args: [] },
     { name: '规则回放(20seed×7关)', script: 'tests/rules-replay.mjs', args: [] },
     { name: '胜负基线闸门(18场)', script: 'tests/140-baseline.js', args: ['--check'] },
     { name: '无头冒烟', script: 'tests/smoke-headless.mjs', args: [] },
     { name: '账本对照(声明vs实际)', script: 'tests/stat-decl-vs-actual-check.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
-    { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] }
+    { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
+    { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
