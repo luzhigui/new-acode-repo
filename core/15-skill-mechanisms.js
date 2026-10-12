@@ -1,5 +1,5 @@
-// V6.6.0 | ~27740 bytes | 2026-10-12 九阳神功治疗补 `_mods['hp']` 纯记账条目（group 'nineYangHeal'）：NINE_YANG_HEAL 自身 hp 贡献隔离进账本，供体检对照器核对「声明 heal vs 实际治疗」；真实治疗仍由 EFFECT_TYPES.HEAL 声明结算负责，零游戏逻辑副作用
-export const VER = 'core/15-skill-mechanisms.js V6.6.0';
+// V6.7.0 | ~27750 bytes | 2026-10-12 成昆幻影伪装治疗补 `_mods['hp']` 纯记账条目（group 'phantomDisguiseHeal'）：PHANTOM_DISGUISE_HEAL 自身 hp 贡献隔离进账本，供体检对照器核对「声明 heal vs 实际治疗」；真实治疗仍由 EFFECT_TYPES.HEAL 声明结算负责，零游戏逻辑副作用
+export const VER = 'core/15-skill-mechanisms.js V6.7.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
@@ -330,6 +330,10 @@ function submitPhantomDisguiseOnHit(data, decls) {
         const heal = Math.floor(lostHp * decl.healRatio * aliveCount);
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
+        // 体检记账（V6.7.0）：幻影伪装治疗自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按
+        //   group='phantomDisguiseHeal' 比对「声明 heal vs 实际治疗」。纯记账——addMod 只 push 到 _mods['hp']，
+        //   真实治疗仍由上方 HEAL 声明结算负责，零游戏逻辑副作用。
+        addMod(unit, 'hp', { source: '成昆幻影伪装治疗', value: heal, ttl: 'permanent', group: 'phantomDisguiseHeal', op: 'add' });
     }
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
 }
