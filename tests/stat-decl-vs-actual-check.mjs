@@ -851,6 +851,30 @@ const CONTRACTS = [
             }
             return out;
         }
+    },
+    {
+        id: 'PHANTOM_DISGUISE_HEAL',
+        label: '小昭幻容治疗',
+        group: 'phantomDisguiseHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.PHANTOM_DISGUISE_HEAL) return;
+                const d = e.data;
+                if (typeof d.heal === 'number' && d.unitUid != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.heal });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
     }
 ];
 
