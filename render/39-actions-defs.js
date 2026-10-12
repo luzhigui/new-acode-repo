@@ -1,4 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.3.1 | 2026-10-12 播放器执行门槛修正（player/42 V6.8.5）后 ROUND_START 清场首次真正被调度——此前播放器只认「有 fx 的 action」，本表回合清场（只有 store 回调）被过滤挡死，自 9-06 起从未执行
 // V1.3.0 | ~26400 bytes | 2026-10-12 何太冲三改跟进：①ATTACK 发 TRIGGER 信号补 markBurst（fx/88 命中帧播靶子碎裂）；
 //          ②POS_SWAP 透传 connectLine（红血两仪互换走「连线换位」演出，fx/83 分支）
 // V1.2.8 | ~26500 bytes | 2026-10-12 回合开始随 _acted 一并清 _renderActed 视图镜像——修「未行动单位跨回合被判已行动（非绿）」：fx 动画起跳写镜像 true（立即变灰），收尾（fx/82 finishCrash）与回合复位此前均不清，仅扑空/子弹时间两路会清 → 镜像跨回合残留；本处复位与 render/32 判灰双路一一对齐
@@ -15,7 +16,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.3.0';
+export const VER = 'render/39-actions-defs.js V1.3.1';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -291,9 +292,10 @@ export const STAGE_ACTION_DEFS = {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
             c.store.getState().units.forEach(u => {
-                // 2026-10-12 镜像同清：_renderActed 由 fx 动画起跳写 true（立即变灰），此前收尾/回合复位均不清，
+                // 2026-10-12 镜像同清：_renderActed 由 fx 动画起跳写 true（立即变灰），其余收尾只写 true 不清 null，
                 //   仅扑空/子弹时间两路会写 null → 撞飞/闪避走过的单位镜像跨回合残留，
                 //   render/32 判灰双路取或把未行动单位判成已行动（非绿）。回合开始=人人未行动，随账本一并归零。
+                //   注：player/42 V6.8.5 门槛修正后本回调才真正被调度（此前无 fx 被过滤挡死，本段从未跑过）。
                 if (u.alive) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: u.uid, _acted: false, _renderActed: null });
             });
         }
