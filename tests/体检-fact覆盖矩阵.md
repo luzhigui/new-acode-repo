@@ -160,7 +160,7 @@
 
 | 分组 | 候选（emit 源不在用户 WIP 者打✓） | 加牙可行性 |
 |------|----------------------------------|-----------|
-| **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal → 记账已落地 · 严格态 303/303 偏差 0，见第 75 轮) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal → 记账待补 · 警告态 109 条，见第 77 轮) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
+| **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal → 记账已落地 · 严格态 303/303 偏差 0，见第 75 轮) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal → 记账已落地 · 严格态 106/106 偏差 0，见第 79 轮) · HOT_BLOOD_HEAL✓(core/04:148,data.leech → 记账待补 · 警告态 436 条，见第 80 轮) · BLOOD_THIRST_LEECH✓(core/04:106/117,data.leechVal → 记账待补 · 警告态 201 条，见第 80 轮) · FLYER_REGEN✓(core/04:277,data.heal → 记账待补 · 警告态 541 条，见第 80 轮) · WEI_DODGE_LEECH✓(core/12 → 另见平行会话 WEI_DODGE_HEAL 契约，第 80 轮) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
 | **即时伤害/斩杀/溅射** | WARRIOR_EXECUTE✓(core/03) · SPIDER_STRIKE✓(modules/20) · METEOR_SHOWER_SPLASH✓(core/04,减def+splashDmg) · CLAW_EXECUTE/HEAL/HIT(modules/26·WIP) · XING_FEN_* (modules/26·WIP) | 需主代码：伤害贡献进 `_mods['hp']` 或独立伤害账本 |
 | **击退/换位**（声明位移量 vs 实际 pos 差） | PUSH_STUN✓(core/13) · WIND_ASSAULT_PUSH✓(core/13) · WIND_ASSAULT_SPLASH✓(core/04) · MIND_CONTROL_SWAP✓(core/14) · HORSE_DESTROY✓(core/05) · HORSE_REBOUND✓(core/12) · ZHANG_TAUNT(modules/27·WIP) | 需主代码：pos 变更机制账本，或声明位移量 vs 实际 pos 差比对 |
 | **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK(无数值字段 {partnerName,unitName}，第 77 轮移入纯事件类) · **XUAN_MING_DOT✓(modules/30:47 → 记账已落地 · 严格态 112/112 偏差 0，见第 75 轮)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | ✅ 已闭环（DoT 贡献进 `_mods['hp']` group 隔离） |
@@ -190,6 +190,14 @@
 > 4. **XUAN_MING_LINK_ATTACK 重分类**：读码确认其 factData 仅 `{partnerName, unitName}`（`core/15` L436），**无任何数值字段**，是纯事件通知（非伤害）——从「量化候选」移入「纯事件/文案」类，订正此前误列。
 > 5. 主代码转交（成昆幻影伪装记账条目）见 `tests/体检迭代日志.md` 第 77 轮「主代码改动 START/END」。
 > 6. **已落地（第 79 轮）**：主代码 `core/15-skill-mechanisms.js` V6.7.0 已提交 —— 重跑红线：`PHANTOM_DISGUISE_HEAL 声明 109 条 · 严格比对 106 条 / 偏差 0`、EXIT=0（全契约偏差 0；NINE_YANG_HEAL 369/369、XUAN_MING_DOT 106/106 不变）。
+
+### 第 80 轮更新（HP 治疗/吸血组 3 契约落地〔BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN〕· 警告态）
+
+> 1. **3 条契约已写**（test-only，`tests/stat-decl-vs-actual-check.mjs` V3.0.6）：`BLOOD_THIRST_LEECH`（group `bloodthirstLeech`、`dir=+1`、extract `data.leechVal` 带 `>0` 守卫——主代码分支 B 无零值守卫）· `HOT_BLOOD_HEAL`（group `hotBloodHeal`、`dir=+1`、extract `data.leech`，声明侧已 clamp）· `FLYER_REGEN`（group `flyerRegen`、`dir=+1`、extract `data.heal` = 实际落地值 `u.hp - before`）。
+> 2. **STAGES[1-6] 无需扩**：三条均可在 stage 1-6 内触发（嗜血/热血走 Buff 轮转门控、飞行再生常驻）。
+> 3. **验证**（临时补 `core/04` 四处记账条目跑、再回滚）：激活态严格比对 **193 / 436 / 541 条 / 偏差 0**、EXIT=0；咬牙（×2）→ **偏差 193 / 436 / 541 全命中、EXIT=1**。已回滚，当前警告态（声明 201 / 436 / 541 条）。
+> 4. 主代码转交（`core/04` 四处记账条目）见 `tests/体检迭代日志.md` 第 80 轮「主代码改动 START/END」。
+> 5. **WEI_DODGE_LEECH 边界**：韦一笑闪避吸血的 hp 回血由 `refreshMaxHp` 上限抬升路径产生（非直接回血），已由平行会话以 `WEI_DODGE_HEAL` 契约（group `weiDodgeHeal`）另行覆盖，不在本批。
 
 ### 📝 纯事件/文案（37 个，接受不补契约）
 

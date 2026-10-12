@@ -1,3 +1,5 @@
+// V3.0.6 | ~98800 bytes | 2026-10-12 第 80 轮：新增 BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN 三条即时治疗类契约
+//          （dir=+1；group='bloodthirstLeech'/'hotBloodHeal'/'flyerRegen'）——主代码记账条目待补（当前警告态：声明>0、账本 null 跳过，补后自动转严格）。
 // V3.0.5 | ~88200 bytes | 2026-10-12 第 77 轮：新增 PHANTOM_DISGUISE_HEAL 契约（成昆·幻影伪装治疗，dir=+1，group='phantomDisguiseHeal'）——
 //          成昆只在 stage 6 出场，STAGES 扩 [1-6]；主代码记账条目待用户补（当前警告态）。
 //          【第 76 轮】新增 NINE_YANG_HEAL 契约（治疗类 dir=+1，group='nineYangHeal'）——用户已应用并提交（core/15 V6.6.0），激活态严格比对 369/偏差 0；
@@ -672,6 +674,84 @@ const CONTRACTS = [
             return out;
         }
     },
+    // 第 79 轮：韦一笑闪避吸血的 hp 实际增量盲区——WEI_HEAL 契约只盯 maxHp 账本（group weiLeech），
+    //   但 refreshMaxHp（core/13 L233）会把 hp 同步抬升同样增量（applyStatChange('hp', delta)），
+    //   该 hp 变更无 group 记账 = 数值网盲区。本契约补上：读 WEI_DODGE_LEECH fact 的 maxHpDelta
+    //   （core/12 L587 顶层 log.push），**不用 data.heal**——heal 是 27 传的毛估值（floor 前），
+    //   实际 hp 增量 = delta = maxHpDelta（refreshMaxHp 同源），用 heal 会因 floor 差误报。
+    {
+        id: 'WEI_DODGE_HEAL',
+        label: '韦一笑闪避吸血回血',
+        group: 'weiDodgeHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.WEI_DODGE_LEECH) return;
+                const d = e.data;
+                if (typeof d.unitName === 'string' && typeof d.maxHpDelta === 'number' && d.maxHpDelta > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'hp', amount: d.maxHpDelta });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    // 第 79 轮：反弹伤害盲区——REBOUND handler（core/16 L189-199）对 hp 伤害无 group 记账。
+    //   两个声明源共用同一 handler：小昭马形阵反弹（core/12 L387-394，factData.rebound）
+    //   与 张无忌反击（core/12 L397-408 + modules/26 L243-248，factData.reboundDmg；⚠️ 嵌套子 fact，
+    //   递归扫）。dir=-1（声明为正伤害、hp 下降）。hasSister 回血走 decl.source，另条契约不覆盖。
+    {
+        id: 'HORSE_REBOUND',
+        label: '马形阵反弹伤害',
+        group: 'horseRebound',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.HORSE_REBOUND) return;
+                const d = e.data;
+                if (typeof d.unitName === 'string' && typeof d.rebound === 'number' && d.rebound > 0) {
+                    out.push({ unit: d.unitName, uid: d.attackerUid || null, stat: 'hp', amount: d.rebound });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        id: 'FORTIFY_REBOUND',
+        label: '张无忌反击伤害',
+        group: 'fortifyRebound',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.FORTIFY_REBOUND) return;
+                const d = e.data;
+                if (typeof d.unitName === 'string' && typeof d.reboundDmg === 'number' && d.reboundDmg > 0) {
+                    out.push({ unit: d.unitName, uid: d.attackerUid || null, stat: 'hp', amount: d.reboundDmg });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
     {
         // 第 53 轮（回应主代码③）：通用属性裁定 STAT_CHANGE（EFFECT_TYPES.STAT_CHANGE 声明通道）。
         //   fact（core/16 L207-216）与 addMod **同 handler、同值（decl.delta）**、group:'statChange'、ttl:'permanent' ⇒ 同一步，干净树恒等。
@@ -868,6 +948,97 @@ const CONTRACTS = [
                 if (e.factType && e.factType !== FACT_TYPES.PHANTOM_DISGUISE_HEAL) return;
                 const d = e.data;
                 if (typeof d.heal === 'number' && d.unitUid != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.heal });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 80 轮（HP 类扩展第三批 · 战斗内即时治疗三连）：三条均 dir:+1、group 隔离、fact 带 unitUid（uid 精确归因）。
+        //   三处 fact 与主代码待补的 addMod 记账条目都在**同一 handler、同一变量**发射 ⇒ 同一步，可走严格判据；
+        //   缺账本条目时为警告态：声明>0、gd=null → 跳过比对（非假绿），主代码补上后自动转严格。
+        id: 'BLOOD_THIRST_LEECH',
+        label: '嗜血狂刀吸血',
+        group: 'bloodthirstLeech',
+        dir: +1,
+        // emit（core/04 submitBloodthirstDeclaration L106/L117 两条分支）：{ factType:BLOOD_THIRST_LEECH,
+        //   data:{ unitName, leechVal, isBrother, unitUid } }；leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio)。
+        //   依赖主代码：两条分支 push 声明后各补 addMod(unit,'hp',{source:'嗜血狂刀',value:leechVal,
+        //   ttl:'permanent',group:'bloodthirstLeech',op:'add'})——纯记账（真实吸血仍由 EFFECT_TYPES.LEECH 结算负责）。
+        //   extract 加 >0 守卫：leechVal 可算出 0（dmg=1 时 floor(0.8)=0，主代码该分支无 >0 守卫），跳过防「声明 0」假报。
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.BLOOD_THIRST_LEECH) return;
+                const d = e.data;
+                if (typeof d.leechVal === 'number' && d.leechVal > 0 && d.unitUid != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.leechVal });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        id: 'HOT_BLOOD_HEAL',
+        label: '热血奋战回血',
+        group: 'hotBloodHeal',
+        dir: +1,
+        // emit（core/04 submitHotBloodDeclaration L146-149）：{ factType:HOT_BLOOD_HEAL,
+        //   data:{ unitName, leech, tag, isBrother, unitUid } }；leech = Math.min(floor((maxHp-hp)*ratio), maxHp-hp)，声明侧已 clamp。
+        //   依赖主代码：push 声明后补 addMod(unit,'hp',{source:'热血奋战',value:leech,
+        //   ttl:'permanent',group:'hotBloodHeal',op:'add'})——纯记账（真实治疗仍由 EFFECT_TYPES.HEAL 结算负责）。
+        //   buff 门控（hotBlood，tickAndPickBuffs 确定性轮转选入）——样本覆盖不足时零触发按两级守卫处理。
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.HOT_BLOOD_HEAL) return;
+                const d = e.data;
+                if (typeof d.leech === 'number' && d.leech > 0 && d.unitUid != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.leech });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        id: 'FLYER_REGEN',
+        label: '飞行再生',
+        group: 'flyerRegen',
+        dir: +1,
+        // emit（core/04 onUnitDeathFlyerRegen L272-279 循环）：{ factType:FLYER_REGEN,
+        //   data:{ unitName, unitUid, heal, deadCount } }；heal = u.hp - before = **实际落地值**（applyStatChange 已被
+        //   maxHp 上限截断后的真增量，非 gain 意图值）——记账条目取同一表达式，保证「声明 vs 实际」精确相等。
+        //   依赖主代码：log.push 的 if 块内补 addMod(u,'hp',{source:'飞行再生',value:u.hp - before,
+        //   ttl:'permanent',group:'flyerRegen',op:'add'})——纯记账（真实治疗仍由 applyStatChange 负责）。
+        //   触发条件宽（任一非马单位阵亡 + 场上存活飞行）——stage 3/4 宋青书、stage 5 鹤笔翁、精英 韦一笑/小昭等均可触发。
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.FLYER_REGEN) return;
+                const d = e.data;
+                if (typeof d.heal === 'number' && d.heal > 0 && d.unitUid != null && typeof d.unitName === 'string') {
                     out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.heal });
                 }
             };
