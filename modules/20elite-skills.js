@@ -1,5 +1,5 @@
-// V6.1.0 | ~13565 bytes | 2026-10-08 蛛落改回原格优先（老板定稿）：自己是几号位先落哪，被占按原格+1 环形顺延；一切存活队友（拒马/狮子/天上蝶蛛/附身者）都算占格——旧版后排优先且把拒马当空气，会落进拒马格子（seed15 stage5 体检 pos 冲突案）
-export const VER = 'modules/20elite-skills.js V6.1.0';
+// V6.1.1 | ~14050 bytes | 2026-10-13 蛛袭伤害补 hp 记账（第 81 轮体检转交）：applyStatChange 后 addMod group:'spiderStrike'（纯记账，供数值对照器隔离自身贡献；SPIDER_STRIKE 契约警告态→严格态）
+export const VER = 'modules/20elite-skills.js V6.1.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -199,6 +199,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const extraDmg = extraDmgMap[Math.min(masteryCount, Object.keys(extraDmgMap).length - 1)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
+        // 纯记账（体检对照 spiderStrike group，第 81 轮转交）：只 push _mods['hp']，零游戏逻辑副作用
+        addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', group: 'spiderStrike', op: 'add' });
         log.push({
             factType: FACT_TYPES.SPIDER_STRIKE,
             data: {
