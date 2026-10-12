@@ -161,7 +161,7 @@
 
 | 分组 | 候选（emit 源不在用户 WIP 者打✓） | 加牙可行性 |
 |------|----------------------------------|-----------|
-| **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
+| **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal → 记账已落地 · 严格态 303/303 偏差 0，见第 75 轮) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
 | **即时伤害/斩杀/溅射** | WARRIOR_EXECUTE✓(core/03) · SPIDER_STRIKE✓(modules/20) · METEOR_SHOWER_SPLASH✓(core/04,减def+splashDmg) · CLAW_EXECUTE/HEAL/HIT(modules/26·WIP) · XING_FEN_* (modules/26·WIP) | 需主代码：伤害贡献进 `_mods['hp']` 或独立伤害账本 |
 | **击退/换位**（声明位移量 vs 实际 pos 差） | PUSH_STUN✓(core/13) · WIND_ASSAULT_PUSH✓(core/13) · WIND_ASSAULT_SPLASH✓(core/04) · MIND_CONTROL_SWAP✓(core/14) · HORSE_DESTROY✓(core/05) · HORSE_REBOUND✓(core/12) · ZHANG_TAUNT(modules/27·WIP) | 需主代码：pos 变更机制账本，或声明位移量 vs 实际 pos 差比对 |
 | **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK✓(core/15) · **XUAN_MING_DOT✓(modules/30:47 → 记账已落地 · 严格态 112/112 偏差 0，见第 75 轮)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | ✅ 已闭环（DoT 贡献进 `_mods['hp']` group 隔离） |
@@ -174,6 +174,13 @@
 > 1. **XUAN_MING_DOT 契约已写**（test-only，`tests/stat-decl-vs-actual-check.mjs` V3.0.3）：`group='xuanMingDot'`、`stat='hp'`、`dir=-1`（声明 `dot` 为正、hp 下降），extract 抓 `data.dot`。`LEDGER_STATS` 扩 `['atk','def','maxHp','hp']`；`STAGES` 加 `5`（玄冥中毒只在 stage 5 出现，否则契约零触发）。
 > 2. **验证**（临时补主代码记账条目跑、再回滚）：激活后严格比对 **116 条 / 偏差 0**；把 `addMod value` 故意翻倍 → **命中 116 处、EXIT=1**。证明契约有牙、引擎正确。
 > 3. **主代码改动极简且零行为副作用**：在 `modules/30custom-effects.js` dotTick 处额外 `addMod(u,'hp',{source:'玄冥中毒',value:-dot,ttl:'permanent',group:'xuanMingDot',op:'add'})` —— `core/13 addMod` 只 push 到 `_mods` 纯记账，真实扣血仍由既有 `ROUND_STAT_GRANT` 负责。其余 23 个 HP/pos 候选照此模式逐站点补 `_mods` 记账条目即可批量 test-only 落地。
+
+### 第 75 轮更新（NINE_YANG_HEAL 契约落地 + 发现主代码 hp 浮点根因）
+
+> 1. **NINE_YANG_HEAL 契约已写**（test-only，`stat-decl-vs-actual-check.mjs` V3.0.4）：`group='nineYangHeal'`、`stat='hp'`、**`dir=+1`**（治疗，hp 上升），extract 抓 `data.heal`（factData 字段 `unitName/heal/unitUid`）。与 XUAN_MING_DOT 的 `dir=-1` 形成正负双向对照，验证模式普适。
+> 2. **验证**（临时补 `core/15` 记账条目跑、再回滚）：激活后严格比对 **303 条 / 偏差 0**（基线样本张无忌常驻明教阵营，九阳每击非满血即触发）；把 `addMod value` 故意翻倍 → **命中 303 处、EXIT=1**。证明契约有牙、引擎正确。
+> 3. **⚠ 根因发现（主代码潜在 bug，非契约问题）**：验证中发现 NINE_YANG_HEAL 的 `heal` 是浮点（如 15.8、17.5），追到 `core/15` L278 `heal = Math.min(Math.floor(maxHp*pct), maxHp - hp)`——`floorRes` 恒为整数，但 `unit.hp` **在战斗中是浮点**（实测 176.2 / 207.3 / …），`Math.min(整数, 浮点)` 返回浮点。即**主代码 `unit.hp` 出现了非整数**（疑似某按比例扣血/治疗路径未取整）。契约本身因 `声明 heal` 与 `addMod value=heal` **同源精确相等**仍稳健（303/偏差 0），不阻塞落地；但 hp 浮点本身建议主代码排查取整（属独立问题，见下方「需主代码配合」第二项）。
+> 4. 主代码转交（NINE_YANG_HEAL 记账条目）见 `tests/体检迭代日志.md` 第 75 轮「主代码改动 START/END」。
 
 ### 📝 纯事件/文案（37 个，接受不补契约）
 
