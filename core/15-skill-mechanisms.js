@@ -1,10 +1,10 @@
-// V6.5.0 | ~26800 bytes | 2026-10-02 安装期校验从 type 名扩到字段：注册表 handler 可声明 fields 契约、本地机制与四类内层效果带字段 schema，缺字段/类型错开局即抛；targetRule 收口到 MECHANIC_TARGET_RULES，未知值不再静默；导出 validateMechanicDeclarations / buildMechanicDeclarations 供体检 157 对账
-export const VER = 'core/15-skill-mechanisms.js V6.5.0';
+// V6.6.0 | ~27740 bytes | 2026-10-12 九阳神功治疗补 `_mods['hp']` 纯记账条目（group 'nineYangHeal'）：NINE_YANG_HEAL 自身 hp 贡献隔离进账本，供体检对照器核对「声明 heal vs 实际治疗」；真实治疗仍由 EFFECT_TYPES.HEAL 声明结算负责，零游戏逻辑副作用
+export const VER = 'core/15-skill-mechanisms.js V6.6.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
-import { emitEvent, applyStatChange, getBattleRng } from './13battle-shared.js';
+import { emitEvent, applyStatChange, getBattleRng, addMod } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './18mechanic-registry.js';
@@ -279,6 +279,10 @@ function submitOnHitEffects(data, onHitDecls) {
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid } });
+                    // 体检记账（V6.6.0）：九阳神功治疗自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按
+                    //   group='nineYangHeal' 比对「声明 heal vs 实际治疗」。纯记账——addMod 只 push 到 _mods['hp']，
+                    //   全库无 getStat('hp') 调用点 ⇒ 不串进活值/显示；真实治疗仍由上方 HEAL 声明结算负责。
+                    addMod(unit, 'hp', { source: '九阳神功治疗', value: heal, ttl: 'permanent', group: 'nineYangHeal', op: 'add' });
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 Object.assign(target.state, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
