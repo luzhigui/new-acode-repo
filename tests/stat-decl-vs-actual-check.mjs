@@ -1,4 +1,4 @@
-// V3.0.3 | ~85400 bytes | 2026-10-12 第 74 轮：新增 XUAN_MING_DOT 契约（首个 HP 类数值契约，group='xuanMingDot'，账本扩 'hp'）——
+// V3.0.4 | ~86800 bytes | 2026-10-12 第 75 轮：新增 NINE_YANG_HEAL 契约（治疗类 dir=+1，group='nineYangHeal'，mirror XUAN_MING_DOT 的 dir=-1）；
 //          小昭·姊「乾坤衍生」QIAN_KUN_DERIVED（modules/27 L303/354：data.reduce 是减伤值、无 attackerName）被
 //          `typeof data.reduce === 'number'` 形状判据吞成破防声明（seed=18 stage=2 r13 声明 10 = 破防 2+2 + 乾坤 3+3，
 //          账本 breakDef 仅 -4 ⇒ 干净树假偏差 1，即第 71 轮遗留项）。修后 40 局：声明 581 条 · 严格比对 544 条 / 偏差 0；
@@ -817,6 +817,30 @@ const CONTRACTS = [
                 const d = e.data;
                 if (typeof d.dot === 'number' && d.uidD != null && typeof d.unitName === 'string') {
                     out.push({ unit: d.unitName, uid: d.uidD, stat: 'hp', amount: d.dot });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        id: 'NINE_YANG_HEAL',
+        label: '九阳神功治疗',
+        group: 'nineYangHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.NINE_YANG_HEAL) return;
+                const d = e.data;
+                if (typeof d.heal === 'number' && d.unitUid != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.heal });
                 }
             };
             for (const f of stepLog || []) {
