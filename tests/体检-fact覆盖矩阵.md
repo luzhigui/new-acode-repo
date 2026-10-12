@@ -164,7 +164,7 @@
 | **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
 | **即时伤害/斩杀/溅射** | WARRIOR_EXECUTE✓(core/03) · SPIDER_STRIKE✓(modules/20) · METEOR_SHOWER_SPLASH✓(core/04,减def+splashDmg) · CLAW_EXECUTE/HEAL/HIT(modules/26·WIP) · XING_FEN_* (modules/26·WIP) | 需主代码：伤害贡献进 `_mods['hp']` 或独立伤害账本 |
 | **击退/换位**（声明位移量 vs 实际 pos 差） | PUSH_STUN✓(core/13) · WIND_ASSAULT_PUSH✓(core/13) · WIND_ASSAULT_SPLASH✓(core/04) · MIND_CONTROL_SWAP✓(core/14) · HORSE_DESTROY✓(core/05) · HORSE_REBOUND✓(core/12) · ZHANG_TAUNT(modules/27·WIP) | 需主代码：pos 变更机制账本，或声明位移量 vs 实际 pos 差比对 |
-| **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK✓(core/15) · **XUAN_MING_DOT✓(modules/30:45 → 契约已写·待主代码激活)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | 需主代码：DoT 贡献进 `_mods['hp']` 或独立账本 |
+| **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK✓(core/15) · **XUAN_MING_DOT✓(modules/30:47 → 记账已落地 · 严格态 112/112 偏差 0，见第 75 轮)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | ✅ 已闭环（DoT 贡献进 `_mods['hp']` group 隔离） |
 | **减防**（def 是账本属性，但 `STAT_CHANGE field:'def'` 走通用 group） | FORTIFY_REBOUND(core/12+modules/26·WIP) · METEOR_SHOWER_SPLASH 减防部分(core/04) | 待确认：能否用独立 group 隔离减防贡献；不能则随上组需主代码 |
 
 ### 第 74 轮更新（XUAN_MING_DOT 契约落地 + 主代码转交 concretized）
