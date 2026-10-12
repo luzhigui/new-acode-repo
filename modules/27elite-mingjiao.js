@@ -1,5 +1,5 @@
-// V6.7.3 | ~51800 bytes | 2026-10-09 白骨爪连锁每爪补回减伤半（与常规路径同式，至少1，写回 payload.reduce 由 core/16 落地「伤害−减伤」）；斩杀那一刀照杀不减（noReduce）但仍触发治疗+加攻
-export const VER = 'modules/27elite-mingjiao.js V6.7.3';
+// V6.7.4 | ~63800 bytes | 2026-10-13 乾坤衍生治疗补 hp 纯记账（体检转交）：常规路径 + 白骨爪路径各插一条 addMod group 'qianKunHeal'（value=heal，只 push _mods['hp'] 零行为副作用）
+export const VER = 'modules/27elite-mingjiao.js V6.7.4';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -289,6 +289,8 @@ export function createXiaoZhaoSisterComponent() {
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                    // 纯记账（体检对照 qianKunHeal group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用
+                    addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
                     // 2026-10-11 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
                     //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
                     addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
@@ -343,6 +345,8 @@ export function createXiaoZhaoSisterComponent() {
                 const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                 const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                 applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                // 纯记账（体检对照 qianKunHeal group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用
+                addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
                 // 2026-10-11 属性只算不存：加攻改走 addMod 词条（同常规乾坤衍生，原直改 _baseAtk 绕过词条）
                 addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
                 emitEvent(atkTarget, UNIT_EVENT_TYPES.HP_CHANGE, { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: getStat(atkTarget, 'atk'), def: getStat(atkTarget, 'def') });

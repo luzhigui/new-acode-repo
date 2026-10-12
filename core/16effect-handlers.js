@@ -1,6 +1,6 @@
-// V6.1.0 | ~17100 bytes | 2026-10-13 反弹伤害补 hp 记账（体检转交）：REBOUND handler 按 decl.factType 分组纯记账
-//          （group horseRebound/fortifyRebound，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
-export const VER = 'core/16effect-handlers.js V6.1.0';
+// V6.1.1 | ~17713 bytes | 2026-10-13 溅射伤害补 hp 纯记账（体检转交）：SPLASH handler 按 decl.buffType 分组
+//          （METEOR_SPLASH→meteorSplash / WIND_ASSAULT→windSplash，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
+export const VER = 'core/16effect-handlers.js V6.1.1';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -161,6 +161,10 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
         for (const st of decl.targets) {
             if (!st.alive) continue;
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
+            // 纯记账（体检对照 meteorSplash/windSplash group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用；
+            //   按 decl.buffType 分组（流星赶月 METEOR_SPLASH / 乘风突袭 WIND_ASSAULT），无 buffType 的其他溅射不进契约、不记账
+            const splashGroup = decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH ? 'meteorSplash' : decl.buffType === BUFF_SUBTYPES.WIND_ASSAULT ? 'windSplash' : null;
+            if (splashGroup) addMod(st, 'hp', { source: '溅射', value: -(decl.value || 0), ttl: 'permanent', group: splashGroup, op: 'add' });
             // 2026-09-24 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
             //   （那条挂着 LEECH/流星/嗜血/九阳等十余条监听，重发等于把一次溅射当成一次完整攻击）
             // 2026-09-29 补 log：监听者（莽撞类挨打增益）需要把「实际加了什么」发成数值声明 fact，
