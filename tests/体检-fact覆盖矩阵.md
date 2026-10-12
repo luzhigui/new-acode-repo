@@ -8,7 +8,7 @@
 - **有渲染器（infra/58 FACT_SPECS 注册）**：87 / 87 —— 全部注册 ⇒ `rules-replay.mjs` 的渲染器注册检查（L298-304）对**所有** factType 观测“发出但未注册渲染”类回归。
 - **对照器数值契约覆盖**（数值真值网，阶段一闭环）：22 个 factType 携带“属性增减”载荷，均有契约盯着（显式枚举 12 + 形状锁定 12，去重后 22）。
 - **无数值契约的渲染 fact**：65 个 —— 均为非数值的战报/事件类 fact。
-  - 其中 **携带可量化数据**（治疗/伤害/击退等，扩展数值网候选）：28 个
+  - 其中 **携带可量化数据**（治疗/伤害/击退等，扩展数值网候选）：24 个（原 28，剔除 4 个纯事件标志 CLAW_EXECUTE / XING_FEN_GRANT / XING_FEN_EXTRA_ATTACK / XING_FEN_RETRY——它们只带 `{unitName}` 等，无数值字段）
   - 其中 **纯事件/文案**（roundStart、pass、immune… 接受不补契约）：37 个
 
 ## 三维口径说明
@@ -113,7 +113,7 @@
 
 ## 阶段二盲区分析
 
-### 📊 量化数据候选（28 个，扩展数值网的潜在靶点）
+### 📊 量化数据候选（24 个，扩展数值网的潜在靶点）
 
 这些 fact 携带数值（治疗量/伤害/击退距离等）且由引擎计算后展示给用户；若引擎算错（如治疗翻倍）数值网目前不盯。
 补契约可行性（**第 73 轮取证修正：原"基本 test-only"判断不成立**）：28 候选全部为**即时效果**（HP 治疗/吸血、伤害、斩杀、击退换位、DoT、减防），**不进面板属性账本** `unit._mods`（现有数值网仅覆盖 `LEDGER_STATS=['atk','def','maxHp']`，且 HP 当前血量不在账本内——它是即时变更，治疗/伤害直接改 `unit.hp`）。要真正加牙（治"声明对、做错"核心洞），普遍需主代码配合——把即时效果贡献以独立 group 纳入可观测账本（重点 `_mods['hp']` 扩展）。个别 fact 虽已带数值字段，但那只是"绝对值"，隔离贡献仍需主代码。详见下方「28 候选加牙可行性判定」。
@@ -164,8 +164,16 @@
 | **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
 | **即时伤害/斩杀/溅射** | WARRIOR_EXECUTE✓(core/03) · SPIDER_STRIKE✓(modules/20) · METEOR_SHOWER_SPLASH✓(core/04,减def+splashDmg) · CLAW_EXECUTE/HEAL/HIT(modules/26·WIP) · XING_FEN_* (modules/26·WIP) | 需主代码：伤害贡献进 `_mods['hp']` 或独立伤害账本 |
 | **击退/换位**（声明位移量 vs 实际 pos 差） | PUSH_STUN✓(core/13) · WIND_ASSAULT_PUSH✓(core/13) · WIND_ASSAULT_SPLASH✓(core/04) · MIND_CONTROL_SWAP✓(core/14) · HORSE_DESTROY✓(core/05) · HORSE_REBOUND✓(core/12) · ZHANG_TAUNT(modules/27·WIP) | 需主代码：pos 变更机制账本，或声明位移量 vs 实际 pos 差比对 |
-| **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK✓(core/15) · XUAN_MING_DOT✓(modules/30:45 dotTick 动态 `FACT_TYPES[decl.factKey]` + content:251 `factKey:"XUAN_MING_DOT"`，**非孤儿，已订正**) · PHANTOM_CONFUSE(core/15+modules/27·WIP) | 需主代码：DoT 贡献进 `_mods['hp']` 或独立账本 |
+| **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK✓(core/15) · **XUAN_MING_DOT✓(modules/30:45 → 契约已写·待主代码激活)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | 需主代码：DoT 贡献进 `_mods['hp']` 或独立账本 |
 | **减防**（def 是账本属性，但 `STAT_CHANGE field:'def'` 走通用 group） | FORTIFY_REBOUND(core/12+modules/26·WIP) · METEOR_SHOWER_SPLASH 减防部分(core/04) | 待确认：能否用独立 group 隔离减防贡献；不能则随上组需主代码 |
+
+### 第 74 轮更新（XUAN_MING_DOT 契约落地 + 主代码转交 concretized）
+
+> 本轮把"HP 类加牙"从猜测落地为**已验证的可复用模式**，并写出**明确起止的主代码转交**（见 `tests/体检迭代日志.md` 第 74 轮「主代码改动 START/END」）。
+>
+> 1. **XUAN_MING_DOT 契约已写**（test-only，`tests/stat-decl-vs-actual-check.mjs` V3.0.3）：`group='xuanMingDot'`、`stat='hp'`、`dir=-1`（声明 `dot` 为正、hp 下降），extract 抓 `data.dot`。`LEDGER_STATS` 扩 `['atk','def','maxHp','hp']`；`STAGES` 加 `5`（玄冥中毒只在 stage 5 出现，否则契约零触发）。
+> 2. **验证**（临时补主代码记账条目跑、再回滚）：激活后严格比对 **116 条 / 偏差 0**；把 `addMod value` 故意翻倍 → **命中 116 处、EXIT=1**。证明契约有牙、引擎正确。
+> 3. **主代码改动极简且零行为副作用**：在 `modules/30custom-effects.js` dotTick 处额外 `addMod(u,'hp',{source:'玄冥中毒',value:-dot,ttl:'permanent',group:'xuanMingDot',op:'add'})` —— `core/13 addMod` 只 push 到 `_mods` 纯记账，真实扣血仍由既有 `ROUND_STAT_GRANT` 负责。其余 23 个 HP/pos 候选照此模式逐站点补 `_mods` 记账条目即可批量 test-only 落地。
 
 ### 📝 纯事件/文案（37 个，接受不补契约）
 
@@ -213,7 +221,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 
 - 阶段一“数值真值网”对 **22/87** 个属性类 fact 已闭环（其余 65 个本就不是数值 fact）。
 - rules-replay 的渲染器注册检查已对**全部** 87 个 factType 兜底“发出但未渲染”回归。
-- 阶段二真正的硬骨头（第 73 轮取证订正）：28 个量化数据 fact 是否纳入数值网——**不是“直接补 28 条契约”，而是先推动主代码基建**（把即时 hp 变更以独立 group 纳入 `_mods['hp']`）。因为它们全部是即时效果（HP 治疗/吸血、伤害、斩杀、击退换位、DoT、减防），不进 `atk/def/maxHp` 面板账本，照搬净增量比对必误报（重蹈第 39 轮 def 多来源）。建议优先级：先攻 **HP 治疗/吸血类基建**（HP 直接变更、易翻倍、风险最高）→ 再击退/换位 → 再伤害类。
-- **主代码配合（第 73 轮订正）**：现有 22 个契约零主代码，是因为它们全是 `atk/def/maxHp` **面板账本类**；28 候选则普遍需主代码基建——**把即时 hp 变更以独立 group 纳入 `_mods['hp']`** 是一次性的引擎账本扩展，之后治疗/吸血/伤害/DoT/斩杀可批量 test-only 落地。在此之前 test-only 只能做声明内部一致性弱校验，治不了核心洞（见上方「28 候选加牙可行性判定」）。
+- 阶段二真正的硬骨头（第 73 轮取证订正）：24 个量化数据 fact（原 28，剔除 4 个纯事件标志）是否纳入数值网——**不是“直接补 24 条契约”，而是先推动主代码基建**（把即时 hp 变更以独立 group 纳入 `_mods['hp']`）。因为它们全部是即时效果（HP 治疗/吸血、伤害、斩杀、击退换位、DoT、减防），不进 `atk/def/maxHp` 面板账本，照搬净增量比对必误报（重蹈第 39 轮 def 多来源）。建议优先级：先攻 **HP 治疗/吸血类基建**（HP 直接变更、易翻倍、风险最高）→ 再击退/换位 → 再伤害类。
+- **主代码配合（第 73 轮订正 → 第 74 轮 concretized）**：现有 22 个契约零主代码，是因为它们全是 `atk/def/maxHp` **面板账本类**；24 候选则普遍需主代码基建——**把即时 hp 变更以独立 group 纳入 `_mods['hp']`**。第 74 轮已用 XUAN_MING_DOT 跑通该模式（临时补记账条目→严格比对 116 条偏差 0→翻倍咬牙命中 116→回滚），证明**这是可复用、零行为副作用**的改动，其余 HP 候选照此逐站点补 `_mods` 记账条目即可批量 test-only 落地（具体转交见迭代日志第 74 轮「主代码改动 START/END」，约 2 行/候选）。
 
-> 注：本矩阵原（阶段二）为静态只读分析；第 73 轮据读码取证订正了「基本 test-only」判断，新增「28 候选加牙可行性判定」节（未改 CONTRACTS 契约文件；round72 已落定，无并行会话占用）。
+> 注：本矩阵原（阶段二）为静态只读分析；第 73 轮据读码取证订正了「基本 test-only」判断，新增「28 候选加牙可行性判定」节；第 74 轮把 XUAN_MING_DOT 契约落地（`tests/stat-decl-vs-actual-check.mjs` V3.0.3，LEDGER_STATS 扩 'hp'、STAGES 加 5）并 concretized 主代码转交（明确 START/END）。

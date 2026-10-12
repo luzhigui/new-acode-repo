@@ -1,4 +1,4 @@
-// V3.0.2 | ~83700 bytes | 2026-10-11 第 72 轮：BREAK_DEF 契约 extract 加 factType 显式校验，修形状碰撞假偏差——
+// V3.0.3 | ~85400 bytes | 2026-10-12 第 74 轮：新增 XUAN_MING_DOT 契约（首个 HP 类数值契约，group='xuanMingDot'，账本扩 'hp'）——
 //          小昭·姊「乾坤衍生」QIAN_KUN_DERIVED（modules/27 L303/354：data.reduce 是减伤值、无 attackerName）被
 //          `typeof data.reduce === 'number'` 形状判据吞成破防声明（seed=18 stage=2 r13 声明 10 = 破防 2+2 + 乾坤 3+3，
 //          账本 breakDef 仅 -4 ⇒ 干净树假偏差 1，即第 71 轮遗留项）。修后 40 局：声明 581 条 · 严格比对 544 条 / 偏差 0；
@@ -114,7 +114,7 @@ globalThis.self = globalThis;
 //   —— 扩展后，原 5 处「未观测到影响」覆盖缺口中 4 处（A5/A7/A9/A12）转为真实牙口判定；
 //      A13 小昭·妹永久carry 需 bro 拿到永久 carry 海克斯且队伍无 carry buff（稀有条件），单独搜索仍零触发 → 记结构性稀有条件。
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
-const STAGES = [1, 2, 3, 4];
+const STAGES = [1, 2, 3, 4, 5]; // 第 74 轮加 5：stage 5 含鹿杖客/玄冥中毒（XUAN_MING_DOT 契约专属形态，否则该契约零触发）
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 // 第 47 轮：以下 group 的 fact 与 addMod 在**同一 handler、用同一变量/同一值**发射，无跨步错位
@@ -794,6 +794,39 @@ const CONTRACTS = [
             }
             return out;
         }
+    },
+    {
+        // 第 74 轮（阶段二·fact全覆盖）：玄冥中毒 DoT 伤害 xuanMingDot —— 首个 HP 类数值契约（治"声明对、做错"核心洞）。
+        //   emit（modules/30custom-effects.js L45 dotTick）：{ factType:XUAN_MING_DOT, data:{ unitName, dot, uidD, isDead } }
+        //     dot = Math.floor(u.maxHp * pct)；同处已 push ROUND_STAT_GRANT { field:'hp', delta:-dot } 实际扣血。
+        //   镜像 BREAK_DEF（dir:-1：声明 dot 为正、hp 下降）：group='xuanMingDot'，比对「玄冥中毒」自身贡献，不受同步其他 hp 来源干扰。
+        //   ⚠️ 依赖主代码一次性基建：modules/30 dotTick 须额外 addMod(u,'hp',{source:'玄冥中毒',value:-dot,ttl:'permanent',group:'xuanMingDot',op:'add'})
+        //     —— 纯记账（core/13 addMod L256 只 push 到 _mods，零游戏逻辑副作用；真实扣血仍由 ROUND_STAT_GRANT 负责）。
+        //     主代码未加该条目时 gd 为 null → 走 net-delta 兜底但 mismatch 不计（主循环 L1088 守卫）→ 零触发不误报（警告态）。
+        //     主代码加上后即自动激活严格比对，应见偏差 0。
+        //   牙齿：后续补（把 dot 翻倍 / 把 addMod value 改错 ⇒ 命中）。
+        id: 'XUAN_MING_DOT',
+        label: '玄冥中毒DoT',
+        group: 'xuanMingDot',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data) return;
+                if (e.factType && e.factType !== FACT_TYPES.XUAN_MING_DOT) return;
+                const d = e.data;
+                if (typeof d.dot === 'number' && d.uidD != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.uidD, stat: 'hp', amount: d.dot });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
     }
 ];
 
@@ -907,7 +940,7 @@ async function main() {
     //   → 逐步对 `_mods` 做「按引用」的差集，就能精确知道这一步**哪些机制加了什么、哪些到期了**。
     //   这等价于此前认为必须改主代码才能拿到的「按 group 归集增量」（Tier2），
     //   **而这里一行主代码都不用改** —— 第 44 轮把 Tier2 列为主代码需求是判断错误，已撤回。
-    const LEDGER_STATS = ['atk', 'def', 'maxHp'];
+    const LEDGER_STATS = ['atk', 'def', 'maxHp', 'hp'];
     const snapLedger = (units) => {
         const m = new Map();
         for (const u of units || []) {
@@ -1075,7 +1108,11 @@ async function main() {
                             // 乘法契约（圣火令）：声明的是乘率 ratio，实际取本步该 group 的 mul 累加值，
                             //   不能用加法 sum（乘区无"增量"语义，sum恒为 0 会全判少加）。
                             if (c.mul) actual = gd ? gd.mulSum * c.dir : 0;
-                            else actual = gd ? gd.sum * c.dir : (a[statName] - p[statName]) * c.dir;
+                            // 第 74 轮：group 型契约在「隔离账本不可得」（gd 为 null，即主代码尚未补该 group 的
+                            //   _mods 记账条目）时，actual 置 null 跳过比对——绝不回退到净增量兜底。原因：HP 等多来源属性
+                            //   净增量不可靠，会触发保守分支「整数倍重复应用」假阳性（如玄冥中毒同一步还夹了回血/伤害）。
+                            //   非 group 契约（无隔离需求）维持净增量兜底不变。
+                            else actual = gd ? gd.sum * c.dir : (c.group ? null : (a[statName] - p[statName]) * c.dir);
                         } else {
                             actual = (a[statName] - p[statName]) * c.dir;
                         }
