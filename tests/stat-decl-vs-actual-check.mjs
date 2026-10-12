@@ -1,3 +1,5 @@
+// V3.0.8 | ~106300 bytes | 2026-10-13 警告态显式化：声明>0 但严格比对 0 条时打 ⚠ 点名（账本空跳过≠比对通过，防"偏差 0"被误读）；
+//          同批主代码补 3 条 hp 记账（core/12 weiDodgeHeal + core/16 horseRebound/fortifyRebound），三契约警告态→严格态
 // V3.0.7 | ~107000 bytes | 2026-10-12 第 81 轮：新增 SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL 四条 HP 类契约——
 //          SPIDER_STRIKE（小昭蛛袭，dir=-1，group='spiderStrike'，读 data.totalDmg；主代码 modules/20 记账待补，警告态 41 条）；
 //          CLAW_HIT（九阴白骨爪，dir=-1，group='clawHit'，读回填后 data.dmg；记账在 core/16 CLAW_CHAIN handler 应用点）；
@@ -1590,6 +1592,11 @@ async function main() {
                 console.log(`  ✗ 零触发：${c.id} 在 ${cases.length} 场未产生任何声明，且 group「${c.group || '(无)'}」账本中完全没出现——契约空转（装配/字段路径错误，覆盖度缺口）`);
                 hardFail = true;
             }
+        }
+        // 警告态显式化（2026-10-13 复盘）：声明>0 但严格比对 0 = 主代码账本缺记账条目，比对被跳过——
+        //   「偏差 0」是没比对、不是比对通过，与零触发同等易误读，必须点名（不硬红：警告态是记账落地前的合法过渡态）
+        if (s.declared > 0 && s.checked === 0) {
+            console.log(`  ⚠ 警告态(账本空，非真比对)：${c.id} 有 ${s.declared} 条声明，但 group「${c.group || '(无)'}」账本无对应条目——严格比对 0 条，"偏差 0" 不作数；待主代码补记账`);
         }
     }
     if (hits.length > 0) {
