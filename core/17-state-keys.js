@@ -1,6 +1,8 @@
+// V2.7.0 | ~10600 bytes | 2026-10-12 何太冲重做 V3：删 _kunlunComboFlag（旧昆仑合击记账），
+//   新增 _dualSchools（两仪双修的附加职业能力）/ _liangyiPartnerUid（两仪连接对象）/
+//   _redBloodUsed（每局限一次红血额度）/ _heMarkRounds（箭靶标记剩余回合）
 // V2.6.2 | ~10460 bytes | 2026-10-10 ROUND_STATE_SCHEMA 加 _kunlunComboFlag（何太冲·昆仑合击的受击记账，回合开始自动清零）
-// V2.6.1 | ~10400 bytes | 2026-09-26 加 _fsmPhase（FSM 相位镜像，渲染层读它判附身/飞天，不再读 unit._fsm）
-export const VER = 'core/17-state-keys.js V2.6.2';
+export const VER = 'core/17-state-keys.js V2.7.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -33,8 +35,6 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 胖远桥·正义国字脸：被嘲讽者本回合后续只能打胖远桥（回合级，回合开始自动清）
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 何太冲·昆仑合击：本回合已被其他六大派同伴打过的目标（回合级，回合开始自动清）
-    _kunlunComboFlag:        { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置
@@ -55,6 +55,14 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _spiderRemaining:        { type: STATE_FIELD_TYPES.NUMBER,  default: 3 },
     _extinctionUsed:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _linkedPartnerUid:       { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 何太冲·两仪双修：附加的对方职业能力（连接建立时写入、整场保留；core/03 三个特效声明按它放行）
+    _dualSchools:            { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
+    // 何太冲·两仪连接对象 uid（建立即绑定不更换；搭档阵亡即视为断连）
+    _liangyiPartnerUid:      { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 何太冲·红血额度（每局限一次；血量回升也不再触发）
+    _redBloodUsed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 箭靶标记 🎯 剩余回合数（0 = 无标记；何太冲命中刷新为 3）
+    _heMarkRounds:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _spiderTriggeredHit:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },

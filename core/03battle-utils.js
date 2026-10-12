@@ -1,5 +1,7 @@
+// V6.3.0 | ~17600 bytes | 2026-10-12 何太冲·两仪双修：新增 hasCombatSchool(unit, role) 职业能力判据（默认 = 本职业，
+//   被授予 _dualSchools 的单位额外具备）；战士破防/战士斩杀/远程成长三处 role 硬判据改走它，普通单位行为零变化
 // V6.2.0 | ~17400 bytes | 2026-10-07 新增受益池裁判 getBenefitTargets：所有「发好处」技能（治疗/加攻防/鼓舞/接盘）挑人统一走这里，口径与打人门禁 canBeTargeted 同源（乾坤衍生/苦练/振奋/生生不息溢出四处收编，苦练补上垂死+天上蝶蛛排除）
-export const VER = 'core/03battle-utils.js V6.2.0';
+export const VER = 'core/03battle-utils.js V6.3.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -172,11 +174,21 @@ export function hasEnemyLowHp(enemySide, threshold = C.LOW_HP_THRESHOLD) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
 }
 
+// 职业能力判据（2026-10-12 何太冲·两仪双修）：默认「本职业才具备」，
+//   被授予 _dualSchools 的单位额外获得对应职业能力（连接搭档由 modules/26 打标）。
+//   core 只读字段、不 import 英雄模块 —— 链路仍单向。
+export function hasCombatSchool(unit, role) {
+    if (!unit) return false;
+    if (unit.role === role) return true;
+    const extra = unit.state && unit.state._dualSchools;
+    return Array.isArray(extra) && extra.includes(role);
+}
+
 // 战士破防：只提交声明，由 core/16 的裁定器统一 addMod（见 V6.1.3：本处原有一次直改，与裁定重复导致双扣）
 function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
-    if (unit.role !== ROLE_TYPES.WARRIOR || getStat(target, 'def') <= 0) return;
+    if (!hasCombatSchool(unit, ROLE_TYPES.WARRIOR) || getStat(target, 'def') <= 0) return;
     // 2026-09-14 参数三源收敛：分档表移入 CONFIG.WARRIOR_BREAK_DEF_TIERS（原先内联魔法数字）
     const targetDef = getStat(target, 'def');
     const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
@@ -204,7 +216,7 @@ export function registerWarriorBreakDefense(eventBus) {
 // 远程成长：每次攻击后攻击 +2，走永久词条
 function submitRangedGrowthDeclaration(data) {
     const { unit, target, dmg, group } = data;
-    if (unit.role !== ROLE_TYPES.RANGED || dmg <= 0) return;
+    if (!hasCombatSchool(unit, ROLE_TYPES.RANGED) || dmg <= 0) return;
     const growth = C.RANGED_GROWTH_ATK;
     addMod(unit, 'atk', { source: '远程成长', value: growth, ttl: 'permanent', group: 'rangedGrowth', op: 'add' });
     if (group && group.data && group.data.entries) {
@@ -225,7 +237,7 @@ export function registerRangedGrowth(eventBus) {
 // 战士斩杀：目标血量低于阈值时直接击杀（不涉及属性词条）
 function submitWarriorExecuteDeclaration(data) {
     const { unit, target, allySide, declarations } = data;
-    if (unit.role !== ROLE_TYPES.WARRIOR || !unit.alive) return;
+    if (!hasCombatSchool(unit, ROLE_TYPES.WARRIOR) || !unit.alive) return;
     if (!target || !target.alive || target.hp <= 0) return;
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);

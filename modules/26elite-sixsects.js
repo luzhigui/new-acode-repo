@@ -1,3 +1,7 @@
+// V6.22.0 | ~63500 bytes | 2026-10-12 何太冲重做 V3（旧三技能整组删除）：新组件承接①两仪连接（开局与对系队友结连 ☯，
+//   双方互授职业能力 _dualSchools → core/03 破防/斩杀/远程成长按能力放行）②箭靶标记 🎯（何太冲挂标 3 回合，
+//   队友打带标目标 ×1.3、自己 ×1.5 并刷新）③红血（≤40% 当帧、每局限一次：仅一方红血→两仪互换职业与位置，
+//   否则单人规则：叠两套加成 / 能撤则撤切远程 / 撤不了再叠战士切战士）；随删 CHAIN_ARROW/ARMOR_PIERCE/KUNLUN_COMBO 三处理器
 // V6.21.0 | ~61500 bytes | 2026-10-11 何太冲三技能显性化：连环箭补射插报幕行、破甲箭伤害行后缀（armorPierceHint）+目标格飘🛡-N%、昆仑合击插报幕行+何太冲格飘🎯×N；新增 ARMOR_PIERCE 处理器（数值仍走 beforeDamageEffects.ignoreDef，处理器只做显示）
 // V6.20.0 | ~60300 bytes | 2026-10-10 新增弱精英「何太冲」（昆仑·远程·m104）：连环箭（命中后 prob 补一箭 ×dmgRatio，reason 进 core/10 LINK_REASONS → 不链式）、破甲箭（beforeDamageEffects.ignoreDef 纯声明）、昆仑合击（目标本回合已被其他六大派同伴打过 → ×dmgMultiplier，记账写受击者 _kunlunComboFlag）；后两者走 registerMechanicHandler
 // V6.19.1 | ~57700 bytes | 2026-10-09 召唤周芷若落位避让活人：flushZhouSummon 以阵亡者原格为 anchor 做「原格+1 环形顺延」找空位（复用 core/05 findFreePos，只算 alive 占位），spawnUnit 与 SUMMON_UNIT fact 同用 landPos——旧版直接落原格，拒马刚刷进刚空出的格时会两活人同格（fuzz seed159 关7 r2）
@@ -8,11 +12,13 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.21.0';
+export const VER = 'modules/26elite-sixsects.js V6.22.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
-import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
+import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
+import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
+import { getRoleBonus } from '../core/02unit.js';
+import { emitStateChange } from '../infra/59-state-change.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted, getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
@@ -808,102 +814,150 @@ registerMechanicHandler(MECHANIC_TYPES.XING_FEN, {
     }
 });
 
-// ========== 何太冲机制（弱精英：技能走 registerMechanicHandler + 纯声明，不建组件） ==========
-
-// 何太冲：无组件逻辑（三技能全走注册表 + 纯声明），空壳只为 registerElite 结构一致——
-//   与成昆/鹿杖客同款：注册表靠这个空壳保持「每个精英都有条目」，将来补组件时不会漏注册
+// ========== 何太冲（六大派·昆仑·远程；「两仪双修」型弱精英） ==========
+// 2026-10-12 重做 V3：旧三技能（连环箭/破甲箭/昆仑合击）整组删除，改由本组件全量承接。
+//   机制① 两仪连接：开局即与一名对系队友（远程连战士、战士连远程）结连（☯），
+//     双方互授对方职业能力（_dualSchools）→ core/03 的破防/斩杀/远程成长三个声明按能力放行，
+//     即「连接期间共享战士+远程两系攻击特效」。连接绑定不更换，搭档阵亡即断连。
+//   机制② 箭靶标记 🎯：何太冲命中即挂标（3 回合、不叠层）；带标目标被队友打 ×1.3、被何太冲打 ×1.5 并当场刷新。
+//   机制③ 红血：血量 ≤40% 当帧触发（每局限一次，不挑伤害来源）；有连接且仅一方红血 → 两仪互换，
+//     否则走单人规则（先叠两套加成，能撤则撤切远程，撤不了再叠战士加成切战士）。
 export function createHeTaichongComponent() {
     return {
         name: '何太冲',
-        register(eventBus, A, B, log) {}
+        register(eventBus, A, B, log) {
+            const he = B.find(u => u.isHeTaichong && u.alive);
+            if (!he) return;
+            const mark = getSkillParams('何太冲', 'targetMark');
+            if (!mark) throw new Error('缺技能参数: 何太冲.targetMark');
+            const red = getSkillParams('何太冲', 'redBlood');
+            if (!red) throw new Error('缺技能参数: 何太冲.redBlood');
+            const team = B;
+            const redThreshold = (red.thresholdPct || 40) / 100;
+
+            // 连接搭档（存活才算；阵亡 / 未连接 → null，即单人态）
+            const partnerOf = (u) => (u.state._liangyiPartnerUid ? team.find(p => p.alive && p.uid === u.state._liangyiPartnerUid) : null);
+
+            // 只登记职业加成（不改职业）：旧加成保留，照蛛变「叠新不扣旧」口径
+            function addRoleBonus(unit, role, label) {
+                const bonus = getRoleBonus(role);
+                addMod(unit, 'atk', { source: label, value: bonus.atk, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
+                addMod(unit, 'def', { source: label, value: bonus.def, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
+                addMod(unit, 'maxHp', { source: label, value: bonus.maxHp, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
+                refreshMaxHp(unit, null, label);
+            }
+            // 换职业 + 叠该职业加成（两仪互换 / 单人红血共用）
+            function switchRole(unit, role, label, outLog) {
+                addRoleBonus(unit, role, label);
+                unit.role = role;
+                emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role });
+                emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole: role }, outLog);
+            }
+
+            // ── 机制① 两仪连接（建立一次即绑定，不更换） ──
+            if (he.state._liangyiPartnerUid == null) {
+                const foeRole = he.role === ROLE_TYPES.WARRIOR ? ROLE_TYPES.RANGED : ROLE_TYPES.WARRIOR;
+                const candidates = team.filter(u => u.alive && u.uid !== he.uid && u.role === foeRole && !u.isHorse);
+                if (candidates.length > 0) {
+                    const partner = candidates[getBattleRng().nextInt(0, candidates.length - 1)];
+                    Object.assign(he.state, { _liangyiPartnerUid: partner.uid, _dualSchools: [foeRole] });
+                    Object.assign(partner.state, { _liangyiPartnerUid: he.uid, _dualSchools: [he.role] });
+                    if (log) log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '两仪双修', note: `☯ 两仪连接：${he.name} 与 ${partner.name}` } });
+                }
+            }
+
+            // ── 箭靶标记 🎯 计时：每回合开始递减（挂标当回合即算 1 回合，共 3 回合） ──
+            for (const u of [...A, ...B]) {
+                if (u.state._heMarkRounds > 0) u.state._heMarkRounds -= 1;
+            }
+
+            // ── 机制② 箭靶标记（加伤） ──
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.HE_TAICHONG_MARK, (data) => {
+                const unit = data.unit;
+                if (!unit || unit.camp !== he.camp) return;
+                // 单人常态（无存活搭档）：何太冲攻击伤害 ×soloMult
+                if (unit.uid === he.uid && !partnerOf(he)) {
+                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: red.soloMult, source: he, label: '两仪独修' });
+                }
+                const t = data.target;
+                if (!t || !t.state || !(t.state._heMarkRounds > 0)) return;
+                const isSelf = unit.uid === he.uid;
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: isSelf ? mark.selfMult : mark.allyMult, source: he, label: '箭靶标记' });
+                if (data.log) {
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '箭靶标记', note: `箭靶标记 ×${isSelf ? mark.selfMult : mark.allyMult}`, line: false, floatText: `🎯×${isSelf ? mark.selfMult : mark.allyMult}`, floatUid: unit.uid } });
+                }
+            });
+
+            // ── 机制② 箭靶标记（挂标 / 刷新） ──
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_MARK, (data) => {
+                const unit = data.unit;
+                if (!unit || unit.uid !== he.uid || !he.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const t = data.target;
+                if (!t || !t.alive) return;
+                const isNew = !(t.state._heMarkRounds > 0);
+                t.state._heMarkRounds = mark.rounds;
+                if (data.log) {
+                    // 新挂：整行报幕；刷新：只飘「🎯」小破碎（表现性，不刷屏文本）
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '箭靶标记', note: isNew ? `🎯 ${he.name} 标记 ${t.name}` : `🎯 ${he.name} 刷新标记 ${t.name}`, line: isNew, floatText: '🎯', floatUid: t.uid } });
+                }
+            });
+
+            // ── 机制③ 红血（当帧判定，每局限一次） ──
+            function soloRedBlood(u, outLog) {
+                // ① 先叠一套战士加成，再叠一套远程加成
+                addRoleBonus(u, ROLE_TYPES.WARRIOR, '红血·战士');
+                addRoleBonus(u, ROLE_TYPES.RANGED, '红血·远程');
+                // ② 能撤则撤：移到一名 1–6 位存活队友身后的空位（同列后方），切远程
+                let retreatPos = null;
+                for (const mate of team) {
+                    if (!mate.alive || mate.uid === u.uid || mate.isHorse) continue;
+                    if (mate.pos < 1 || mate.pos > 6) continue;
+                    const back = mate.pos + 3;
+                    if (!team.some(x => x.alive && x.pos === back)) { retreatPos = back; break; }
+                }
+                if (retreatPos != null) {
+                    moveUnitPosition(u, retreatPos, outLog);
+                    switchRole(u, ROLE_TYPES.RANGED, '红血·转远程', outLog);
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：撤退至 ${retreatPos} 号位、转远程`, floatText: '🩸', floatUid: u.uid } });
+                } else {
+                    // ③ 无法撤退 → 再叠一套战士加成，切战士
+                    addRoleBonus(u, ROLE_TYPES.WARRIOR, '红血·战士');
+                    switchRole(u, ROLE_TYPES.WARRIOR, '红血·转战士', outLog);
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：退无可退、转战士`, floatText: '🩸', floatUid: u.uid } });
+                }
+            }
+            function tryRedBlood(subject, data) {
+                if (!subject || !subject.alive || subject.state._redBloodUsed) return;
+                const hpAfter = Math.max(0, subject.hp - (data.dmg || 0));
+                if (hpAfter > subject.maxHp * redThreshold) return;
+                const partner = partnerOf(subject);
+                const partnerRed = partner ? (partner.hp <= partner.maxHp * redThreshold) : false;
+                subject.state._redBloodUsed = true;
+                subject.state._stunned = false;   // 触发当帧免疫控制（眩晕）
+                const outLog = data.log || log;
+                if (partner && !partnerRed) {
+                    // ① 仅一方红血 → 两仪互换（职业 + 位置，各叠一套对方职业加成）
+                    const myRole = subject.role, hisRole = partner.role;
+                    subject.state._redBloodUsed = true;
+                    partner.state._redBloodUsed = true;
+                    swapUnitPositions(subject, partner, outLog);
+                    switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
+                    switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid } });
+                } else if (subject.uid === he.uid) {
+                    // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
+                    soloRedBlood(he, outLog);
+                }
+            }
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, L.BEFORE_DAMAGE_APPLY.HE_TAICHONG_RED_BLOOD, (data) => {
+                const t = data.target;
+                if (!t) return;
+                if (t.uid === he.uid || (he.state._liangyiPartnerUid && t.uid === he.state._liangyiPartnerUid)) tryRedBlood(t, data);
+            });
+        }
     };
 }
-
-// 机制① 连环箭：每次命中后 prob 概率对同一目标再补一箭（伤害×dmgRatio，可被闪避）。
-//   与灭绝「追击」的关键区别：reason:'chainArrow' **进** core/10 的 LINK_REASONS——
-//   补的那一箭执行期间 _isLinkAttack=true，本 handler 开头据此拦掉 → **不链式**（一次命中最多多一箭）。
-registerMechanicHandler(MECHANIC_TYPES.CHAIN_ARROW, {
-    fields: { prob: 'number', dmgRatio: 'number' },
-    install({ eventBus, decl }) {
-        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_CHAIN_ARROW, (data) => {
-            const unit = data.unit;
-            if (!unit || unit.name !== decl.name || !unit.alive) return;
-            if (unit.state._isLinkAttack) return;             // 补的那一箭不再触发（不链式）
-            if (unit.state._pendingDeath) return;             // 本击已把自己打进待死
-            if (!data.dmg || data.dmg <= 0) return;           // 只在真正打中后判定
-            const t = data.target;
-            if (!t || !t.alive || t.state._pendingDeath) return;   // 目标已倒，不换目标
-            if (getBattleRng().next() >= (decl.prob ?? 0)) return;
-            if (!data.extraRequests) data.extraRequests = [];
-            data.extraRequests.push({
-                unit,
-                targetUid: t.uid,
-                reason: 'chainArrow',
-                dmgRatio: decl.dmgRatio,
-                actedMode: 'restore',
-                actedSnapshot: unit.state._acted,
-                priority: 12
-            });
-            // 战报显性化：补射报幕一行（飘字沿用补射那一箭自身攻击闪烁，不另加）
-            if (data.log) {
-                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '连环箭', note: `${unit.name} 连环箭·补射` } });
-            }
-        });
-    }
-});
-
-// 机制② 破甲箭：伤害计算忽略 30% 防御（数值仍走 content 的 beforeDamageEffects.ignoreDef 纯声明）。
-//   本 handler 只做「显性化」：本击命中后 ① 给伤害行追加后缀（写 data.group.data.armorPierceHint，
-//   由 render/34 renderAttackFact 拼进伤害文本）② 目标格飘一次「🛡-30%」（走 SKILL_ANNOUNCE 的 floatText 通道）。
-registerMechanicHandler(MECHANIC_TYPES.ARMOR_PIERCE, {
-    install({ eventBus, decl }) {
-        const eff = (decl.beforeDamageEffects || []).find(e => e && e.type === MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.IGNORE_DEF);
-        const pct = eff ? Math.round((eff.ratio || 0) * 100) : 0;
-        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_ARMOR_PIERCE, (data) => {
-            const unit = data.unit;
-            if (!unit || unit.name !== decl.name || !unit.alive) return;
-            if (!data.dmg || data.dmg <= 0) return;
-            const t = data.target;
-            if (!t) return;
-            if (data.group && data.group.data) {
-                data.group.data.armorPierceHint = `<span class="gold small">（破甲箭·无视${pct}%防御）</span>`;
-            }
-            if (data.log) {
-                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '破甲箭', note: `破甲箭·无视${pct}%防御`, line: false, floatText: `🛡-${pct}%`, floatUid: t.uid } });
-            }
-        });
-    }
-});
-
-// 机制③ 昆仑合击：目标本回合已被「其他」六大派同伴打过 → 何太冲这一击伤害 ×dmgMultiplier。
-//   记账写在敌方受击者的 state._kunlunComboFlag（core/17 回合级字段，回合开始自动清）；
-//   判定发生在 BEFORE_DAMAGE_CALC，故只反映「本击之前」的同伴命中；
-//   盖戳时按 name 排除何太冲自己——顺带排掉「连环箭补的第二箭白吃 ×1.5」。
-registerMechanicHandler(MECHANIC_TYPES.KUNLUN_COMBO, {
-    fields: { dmgMultiplier: 'number' },
-    install({ eventBus, decl }) {
-        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_KUNLUN_MARK, (data) => {
-            const unit = data.unit;
-            if (!unit || !unit.alive || unit.name === decl.name) return;
-            if (unit.camp !== decl.camp) return;              // 只认同一阵营的同伴（六大派）
-            if (!data.dmg || data.dmg <= 0) return;
-            const t = data.target;
-            if (!t) return;
-            t.state._kunlunComboFlag = true;
-        });
-        eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.HE_TAICHONG_KUNLUN_COMBO, (data) => {
-            const unit = data.unit;
-            if (!unit || unit.name !== decl.name || !unit.alive) return;
-            const t = data.target;
-            if (!t || !t.state._kunlunComboFlag) return;
-            data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: decl.dmgMultiplier, source: unit, label: '昆仑合击' });
-            // 战报显性化：报幕一行「昆仑合击 ×1.5」+ 何太冲格飘「🎯×1.5」
-            if (data.log) {
-                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '昆仑合击', note: `昆仑合击 ×${decl.dmgMultiplier}`, floatText: `🎯×${decl.dmgMultiplier}`, floatUid: unit.uid } });
-            }
-        });
-    }
-});
 
 registerElite('宋青书', createSongQingshuComponent);
 registerElite('周芷若', createZhouZhiruoComponent);

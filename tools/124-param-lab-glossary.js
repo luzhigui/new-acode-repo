@@ -1,4 +1,8 @@
 // tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.7.0 | 预估 44000 bytes | 2026-10-12 何太冲重做 V3 后同步 ENGINE_READ：新增 targetMark:[rounds,allyMult,selfMult]、
+//   redBlood:[thresholdPct,soloMult]（旧 chainArrow/armorPierce/kunlunCombo 已随技能删除、无登记）；顺带修 4 项旧漂移——
+//   endlessBreath 补 atkCost（V6.17.0 付费触发后漏登）、baguaArray 删 atkFloor/defGain（已改纯扣攻、源码不读）、
+//   补登记 normalAttack:[dmgMultiplier] 与 chaseAttack:[prob,dmgMultiplier]（V6.19.0 灭绝追击后漏登）。
 // V2.6.1 | 预估 43700 bytes | 2026-09-30 按 tests/param-read-guard.mjs 实测再清一条：ENGINE_READ 删 xinHun ——
 //   healLevels 已改从 mechanics 读、skills.xinHun 无读取点（守卫报「表陈旧」）。删完守卫退出码 0。
 // V2.6.0 | 预估 42900 bytes | 2026-09-30 韦一笑吸血收口后清尾：ENGINE_READ 删 bloodSiphon（skills 侧副本已删、
@@ -53,7 +57,7 @@
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 
-export const VER = 'tools/124-param-lab-glossary.js V2.6.1';
+export const VER = 'tools/124-param-lab-glossary.js V2.7.0';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -116,13 +120,17 @@ export const ENGINE_READ = {
     righteousFace:   ['defGain'],
     youngBlood:      ['dmgMultiplier'],
     counterAttack:   ['prob', 'dmgRatio'],
+    normalAttack:    ['dmgMultiplier'],
+    chaseAttack:     ['prob', 'dmgMultiplier'],
     thirdStrike:     ['interval', 'dmgMultiplier', 'leechRatio'],
     summonZhou:      ['m'],
     summonLion:      ['prob', 'cub', 'grow'],
     lionInspire:     ['atkPerHit'],
-    endlessBreath:   ['healPct', 'healAtkDiv', 'healDefDiv', 'overflowAtkDiv', 'overflowDefDiv', 'minBonus'],
-    baguaArray:      ['atkFloor', 'procChance', 'atkCost', 'defGain'],
+    endlessBreath:   ['healPct', 'healAtkDiv', 'healDefDiv', 'overflowAtkDiv', 'overflowDefDiv', 'minBonus', 'atkCost'],
+    baguaArray:      ['procChance', 'atkCost'],
     tenRoundFortify: ['round'],
+    targetMark:      ['rounds', 'allyMult', 'selfMult'],
+    redBlood:        ['thresholdPct', 'soloMult'],
     qianKun:         ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunDerived:  ['defToReduce', 'defToHeal', 'defToAtk'],

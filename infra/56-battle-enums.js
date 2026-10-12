@@ -1,7 +1,9 @@
+// V1.5.0 | ~14200 bytes | 2026-10-12 何太冲重做 V3：删 MECHANIC_TYPES 三孤儿（CHAIN_ARROW/KUNLUN_COMBO/ARMOR_PIERCE，
+//   旧三技能已废，新机制全走 modules/26 组件，不经注册表）
 // V1.4.5 | ~14200 bytes | 2026-10-11 何太冲三技能显性化：FACT_TYPES 增 SKILL_ANNOUNCE（技能报幕/飘字声明 fact）、STAGE_ACTION_TYPES 增 SKILL_FLOAT（任意文本头顶飘字）、MECHANIC_TYPES 增 ARMOR_PIERCE（破甲箭显性化处理器）
 // V1.4.4 | ~13960 bytes | 2026-10-11 FACT_TYPES 增 SOUL_DRAIN_APPLY（摄魂数值声明 fact，供体检对照 soulDrain group；renderFn:null 不进画面）
 // V1.4.3 | ~13860 bytes | 2026-10-09 SIGNAL_TYPES 增 CLAW_HIT_APPLIED（白骨爪连锁每爪结算后广播：供小昭·姊乾坤衍生按爪结算，堵住「一次攻击只触发一次」的断链）
-export const VER = 'infra/56-battle-enums.js V1.4.5';
+export const VER = 'infra/56-battle-enums.js V1.5.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -129,9 +131,6 @@ export const MECHANIC_TYPES = Object.freeze({
     XING_FEN: 'xingFen',               // 宋青书·性奋（modules/26）
     DOT_TICK: 'dotTick',               // 通用 DOT 逐回合扣血（modules/30）
     DAMAGE_REFLECT: 'damageReflect',   // 反伤弟子·反伤护盾（modules/30）
-    CHAIN_ARROW: 'chainArrow',         // 何太冲·连环箭（modules/26）
-    KUNLUN_COMBO: 'kunlunCombo',       // 何太冲·昆仑合击（modules/26）
-    ARMOR_PIERCE: 'armorPierce',       // 何太冲·破甲箭（modules/26；数值走 beforeDamageEffects.ignoreDef，本处理器只做伤害行后缀 + 目标格飘字显性化）
     // core/15 本地安装器承接（不经注册表）
     LINK_ATTACK: 'linkAttack',         // 玄冥二老联动
     FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击
