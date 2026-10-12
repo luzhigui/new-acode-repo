@@ -292,7 +292,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 > 7. **量化候选覆盖进度**：24 个候选中已落地 **13 条契约**（XUAN_MING_DOT / NINE_YANG_HEAL / PHANTOM_DISGUISE_HEAL / WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL，其中 **13 条全部已激活**（SPIDER_STRIKE 于 2026-10-13 随 `modules/20` V6.1.1 落地）；重分类纯事件 5 个（WARRIOR_EXECUTE / XUAN_MING_LINK_ATTACK / CLAW_EXECUTE / XING_FEN_GRANT / XING_FEN_EXTRA_ATTACK / XING_FEN_RETRY——后三个第 79 轮已判定、量化列表条目待清理）；**剩余待攻**：METEOR_SHOWER_SPLASH（伤害+减防，减防部分或已被 STAT_CHANGE 契约覆盖，下轮核）、HORSE_DESTROY（prob/roll 概率一致性，非属性增量）、pos/状态类 5 个（MIND_CONTROL_SWAP / PUSH_STUN / WIND_ASSAULT_PUSH / WIND_ASSAULT_SPLASH / ZHANG_TAUNT——位移/嘲讽无可账本化属性，需另设计检验法）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）。
 > 8. **本轮未跑全量红线外的改动**：仅 tests/ 三文件（检查器 V3.0.7 + 本矩阵 + 迭代日志）。当前红线快照（23:57）：stat-decl EXIT=0（12 契约激活偏差 0 + SPIDER_STRIKE 警告态）；static-scan EXIT=0；rules-replay **1 条失败**（`carry五号位队友加成量(回归)` pass=39 fail=1——并行会话 23:36 carry 改动 `86de191` 引入，非本轮范围，已在其收尾视野内）；baseline 5 场 winner 翻转（何太冲重做预期项，待用户拍板重录）。
 
-### 主代码改动 START（modules/20elite-skills.js，蛛落落地打击段）=====
+### ===== 主代码改动 START（modules/20elite-skills.js，蛛落落地打击段）=====
 // import 区已含 addMod（L5），无需改 import。
 // 在 L203 `applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');` 之后加一条纯记账：
 addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', group: 'spiderStrike', op: 'add' });
@@ -307,3 +307,13 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 //   modules/26 L719 后：// 体检记账（V6.x.x）：爪击回血自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按 group='clawHeal' 比对
 // （纯注释改动，零行为影响；顺手把文件头版本号 +0.1）
 ===== 主代码改动 END =====
+
+> 9. **第 82 轮（2026-10-13）——carry 同名假阳性根治 + A28 锚点重校准（纯体检侧，主代码零改动）**：
+>    `rules-replay` 遗留 1 fail「carry五号位队友加成量」定位为**规则假阳性**：rule95 信号5 队友池按显示名
+>    剔自己，把同名个体一并剔除（引擎只按 uid 剔 self）——seed=9 stage=7 终局 3 只「雄狮」致上界算小
+>    （cap 防 5.52 < 真值 6）。修法（148 V6.1.22）：名字唯一才剔自己，**同名时 mates 取整池**（上界判据
+>    只会更松：actual ≤ cap/2 恒成立；信号3 min 更保守；信号1 同名仍跳过）。咬牙：引擎侧 atk 比例 ×3 ⇒
+>    rule95 16 处命中 ⇒ 回滚干净。另修 `mutation-teeth` A28 锚点（主代码摄魂改 `value: ratio` 后旧锚点
+>    0 匹配 = 变异静默失效假阴性），V2.9.3 重对准后 44/44 锚点有效并重跑全量。红线：rules-replay（含
+>    DEAD=1）全绿 0 fail；static-scan / smoke / stat-decl（13 契约全激活）EXIT=0；baseline 仍 5 场 winner
+>    翻转（何太冲三改，待用户拍板重录）。

@@ -26,9 +26,13 @@
 //   4) 门控失效：小昭·姊 / 小昭·弟 拿到了 carry（core/04 明确排除这两人）
 //   5) 数值膨胀：加成超过「Σ 队友 getStat(攻/防/血) × 存活1/死亡deathMultiplier × 比例 × 2 倍余量」
 //      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
+//      队友池口径：名字唯一时剔自己；**同名时取整池**（引擎只按 uid 剔自己，同名个体照常计入——
+//      第 82 轮 seed=9 stage=7 雄狮×3 假阳性即旧口径全剔同名所致）。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.06/0.06/0.08/2，并在读不到时只跑 1/2/4 三条结构判据。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.21';
+//   第 82 轮：量级判据（3/5）的队友池在**同名**时取整池不剔名（引擎只按 uid 剔自己）——
+//   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.22';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -145,11 +149,20 @@ export const rule95 = {
                 seenThisRound[who] = true;
 
                 var pool = poolOf(who, afterA, afterE);
-                // 队友池 = 同池除自己外的单位（终局快照；只用于"量级"定性，不做精确重算）
+                // 队友池 = 同池单位（终局快照；只用于"量级"定性，不做精确重算）。
+                // 第 82 轮修（seed=9 stage=7 R9 实证假阳性）：**同名时不能按名字剔"自己"**——
+                //   引擎 calcCarryBonus 只按 uid 剔 beneficiary 自己（core/14 `u.uid !== unit.uid`），
+                //   其余同名个体（召唤雄狮实测终局 3 只 u76/u211/u276）照常计入队友池；旧口径把
+                //   全部同名剔出 mates ⇒ 池子算小 ⇒ 上界算小 ⇒ 真值 防+6 被判超界（cap 5.52）。
+                //   修正：名字唯一时才剔自己；同名（无法按显示名定位 self）时 mates 取整池
+                //   （含同名个体、含 beneficiary 自己）——对上界判据只会更松（估计×2 余量下
+                //   恒 actual ≤ cap/2），对信号3 的 min 取整池也只会更保守；宁漏勿误。
+                //   信号1（同回合重复声明）同名仍整体跳过，不变。
                 var mates = [];
                 for (var p = 0; p < pool.length; p++) {
                     var u = pool[p];
-                    if (!u || u.name === who) continue;
+                    if (!u) continue;
+                    if (nameCount <= 1 && u.name === who) continue;
                     mates.push(u); // 2026-10-12 起拒马也计入队友池（core/14 已去掉 !u.isHorse）——与引擎同源
                 }
 
