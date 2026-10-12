@@ -1,5 +1,4 @@
 // V6.1.3 | ~2700 bytes | 2026-10-11 加 SKILL_FLOAT（何太冲技能任意文本头顶飘字；fx/89 复用灭绝计数飘字通道）
-// V6.1.2 | ~2600 bytes | 2026-09-26 加 PANG_TAUNT / PANG_CLUMSY（胖远桥两技能演出，快进跳过）；信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
 export const VER = 'infra/55-fx-signals.js V6.1.3';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离

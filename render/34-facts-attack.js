@@ -1,7 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
 // V1.4.0 | ~16500 bytes | 2026-10-11 何太冲显性化：新增 renderSkillAnnounceFact（SKILL_ANNOUNCE 报幕行，line:false 返回 null 只走飘字）；renderAttackFact 伤害行末追加 armorPierceHint（破甲箭·无视N%防御）
-// V1.3.0 | ~15800 bytes | 2026-10-07 乾坤减伤进计算行（老板拍板格式「19.44-30% 减伤=14」）：乾坤走 query 通道不进加成/乘数链，公式与实际掉血对不上；现从 dmgResult.bonusEntries 取乾坤 entry 逐条追加「-N% 减伤=值」
-// V1.2.1 | ~15400 bytes | 2026-10-02 叛逆真伤真值查找 'bonusTargetCurrentHp' 改用 MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP 枚举（mechanics type 同源治理）
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。

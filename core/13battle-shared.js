@@ -1,6 +1,4 @@
-// V7.5.19 | 2026-10-08 checkZhangSwitch 迁出（张无忌知识回英雄家，老板拍板「搬掉」）：函数体逐字移 modules/27 张无忌组件旁，本文件 export/死 import（getSkillParams、getRoleBonus）同步清——core 从此无英雄名
-// V7.5.15 | 2026-10-08 击退撞「天上/附身单位」改判退无可退→眩晕（老板定调飞天原格不被换位；探针实锤旧版会把天上蝶蛛拽去换位——1号被击退时4号飞天妹pos被换到1）。判据与 getFronts/惑心换位同口径
-// V6.2.1 | ~15400 bytes | 2026-10-02 checkZhangSwitch 前排判定与 27 组件 watcher 同口径：改为「同列无 pos 更小的存活非马队友」（他成为该列最前排才切），修后排边界硬切
+// V7.5.19 | ~13848 bytes | 2026-10-08 checkZhangSwitch 迁出（张无忌知识回英雄家，老板拍板「搬掉」）：函数体逐字移 modules/27 张无忌组件旁，本文件 export/死 import（getSkillParams、getRoleBonus）同步清——core 从此无英雄名
 export const VER = 'core/13battle-shared.js V6.2.1';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清

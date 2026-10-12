@@ -1,9 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
 // V1.0.17 | ~38700 bytes | 2026-10-11 renderClawHitFact 透传 designedDmg（core/16 回填的设计值）——体检规则据此还原「设计下限」守护；承接 V1.0.16
-// V1.0.16 | ~36550 bytes | 2026-10-09 renderQianKunDerivedFact 注释对齐：白骨爪连锁逐爪的衍生现在也带 reduce（写回 payload 由 core/16 落地减伤），仅斩杀那一刀照杀不减时缺省
-// V1.0.15 | 2026-10-09 renderQianKunDerivedFact 兼容「无减伤」条目（白骨爪连锁逐爪的乾坤衍生只治疗+加攻，fact.reduce 缺省时不吐「减伤N」）
-// V1.0.14 | 2026-10-06 修飞行再生弹幕永不飘：锚点文本「回复+N」与正文「回复 N 点」不一致（锚点按子串匹配，对不上=回调永不触发），对齐成「回复 N 点」——同文件其余锚点全对，仅此一处笔误
-// V1.0.13 | ~36500 bytes | 2026-10-03 renderPassFact 默认分支（眩晕/附身 pass）去 needsSeparator：空 attack-group 带 SEP = 纯分隔符，回合末紧挨蝶变飞回即双分隔符（提示已由 PUSH_STUN/FLY_SKIP 文本承担）
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。

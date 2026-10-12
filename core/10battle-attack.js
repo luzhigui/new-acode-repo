@@ -1,6 +1,4 @@
 // V6.4.0 | ~19500 bytes | 2026-10-12 何太冲重做 V3：LINK_REASONS 删 chainArrow（连环箭已废，补射链路整体移除）
-// V6.3.9 | ~19500 bytes | 2026-10-10 LINK_REASONS 加 chainArrow（何太冲·连环箭：补的那一箭执行期间置 _isLinkAttack → 自身不再触发，一次命中最多追加一箭）
-// V6.3.8 | ~19450 bytes | 2026-10-09 白骨爪斩杀的乾坤衍生条目也随斩杀行落组（core/16 广播回填 decl.execute._derivedEntries）；承接 V6.3.7 白骨爪连锁的乾坤衍生条目随爪击条目逐条落组
 export const VER = 'core/10battle-attack.js V6.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';

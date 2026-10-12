@@ -1,6 +1,4 @@
 // V6.4.0 | ~6900 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
-// V6.3.0 | ~6700 bytes | 2026-09-19 联网PVP阶段3：handlePvpBuffSelection 房主统一发选项、双方各选后合并
-// V6.2.0 | ~3400 bytes | 2026-09-19 联网PVP：handleBuffSelection 加 camp 参数，按阵营取队伍与已有 buff
 export const VER = 'player/49battle-flow.js V6.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

@@ -1,7 +1,4 @@
-// V6.4.0 | 2026-10-07 挂战中首次海克斯一次性提示（stepBattleBuff，来自 71tutorial；只挂面板不跨层）
-// V6.3.0 | ~8100 bytes | 2026-10-06 候选过滤补 carry 位判据（无 carry 位不给选，与 modules/28 同口径）
-// V6.2.0 | ~7900 bytes | 2026-09-19 联网PVP阶段3：showBuffPopup 支持 presetChoices（从机用房主下发的选项）
-// V6.1.0 | ~4600 bytes | 2026-09-19 联网PVP：showBuffPopup 加 camp 参数，六大派可选自己的海克斯
+// V6.4.0 | ~8007 bytes | 2026-10-07 挂战中首次海克斯一次性提示（stepBattleBuff，来自 71tutorial；只挂面板不跨层）
 export const VER = 'ui/70buff-dialog.js V6.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

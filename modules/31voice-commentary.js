@@ -1,6 +1,5 @@
 // modules/31voice-commentary.js — 语音解说引擎（实时朗读版）
 // V1.1.0 | ~13100 bytes | 2026-10-11 DERIVED_PATTERNS 增三条词条（何太冲三技能解说）：连环箭补射 / 昆仑合击 / 破甲箭
-// V1.0.0 | 2026-10-01 首版：播放层每条战报播完后调 speakFact（防剧透：动画收尾再开口），
 // 关键节点现场编词、手机系统 TTS 实时朗读；音色/语速/音调/话痨度可调，设置面板在 ui/73。
 // 单机/联机主机/联机从机/战报回放四条路全走 playSingleLogEntry，一处挂钩全生效。
 import { GlobalStore } from '../infra/54-global-store.js';

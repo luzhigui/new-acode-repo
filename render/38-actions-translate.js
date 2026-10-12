@@ -1,11 +1,6 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
 // V1.3.0 | ~34500 bytes | 2026-10-12 何太冲三改跟进：①translateSkillAnnounce 支持 swap 载荷——返回 [POS_SWAP(连线换位, beforeText), SKILL_FLOAT(afterText)]（数组由 translateFactsToStageActions 展平）；
 //          ②ATTACK 动作透传 markBurst（本击消费 🎯 的靶子碎裂由 fx/88 在命中帧播，先于伤害弹幕）
-// V1.2.0 | ~34200 bytes | 2026-10-11 何太冲显性化：SKILL_ANNOUNCE 增翻译器 translateSkillAnnounce（带 floatText/floatUid 时产 SKILL_FLOAT 头顶飘字，否则 null=只落战报行）
-// V1.1.9 | ~33500 bytes | 2026-10-07 飞行再生飘字改走 afterText 通道（不再依赖锚文本与正文逐字匹配——该链 10-06 空格案已静默断过一次，今日机器复跑 16/16 信号全发仍不飘，锚点通道结构性扬弃；与生生不息同通道）
-// V1.1.8 | ~33100 bytes | 2026-10-02 胖远桥·莽撞补飘字：ATTACK fact 的 pangAtkGain（被攻击加攻）→ STAT_CHANGE(atk) 飘「⚔+N」（此前只有金色战报行）
-// V1.1.7 | ~32900 bytes | 2026-10-02 流星赶月减防补飘字：主目标 METEOR_SHOWER_MAIN 增 STAT_CHANGE(def,-mainDefReduce)、溅射 BUFF_EFFECT 带 splashDefReduce（render/39 每个存活溅射目标飘🛡-N）；加深掉血飘字为 V1.1.6
-//   承接 V1.1.5：entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。

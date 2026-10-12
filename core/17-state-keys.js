@@ -1,7 +1,6 @@
 // V2.7.0 | ~10600 bytes | 2026-10-12 何太冲重做 V3：删 _kunlunComboFlag（旧昆仑合击记账），
 //   新增 _dualSchools（两仪双修的附加职业能力）/ _liangyiPartnerUid（两仪连接对象）/
 //   _redBloodUsed（每局限一次红血额度）/ _heMarkRounds（箭靶标记剩余回合）
-// V2.6.2 | ~10460 bytes | 2026-10-10 ROUND_STATE_SCHEMA 加 _kunlunComboFlag（何太冲·昆仑合击的受击记账，回合开始自动清零）
 export const VER = 'core/17-state-keys.js V2.7.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */

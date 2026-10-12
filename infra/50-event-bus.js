@@ -1,11 +1,6 @@
 // V6.6.0 | ~7300 bytes | 2026-10-12 何太冲重做 V3：删旧三技能插槽（HE_TAICHONG_CHAIN_ARROW/KUNLUN_MARK/KUNLUN_COMBO/ARMOR_PIERCE），
 //   新插槽 ROUND_START +HE_TAICHONG_LINK:30（两仪连接/标记衰减）、BEFORE_DAMAGE_APPLY +HE_TAICHONG_RED_BLOOD:90（红血当帧）、
 //   BEFORE_DAMAGE_CALC +HE_TAICHONG_MARK:22（🎯 加伤）、AFTER_DAMAGE_APPLIED +HE_TAICHONG_MARK:19（🎯 挂标/刷新）
-// V6.5.4 | ~7330 bytes | 2026-10-11 EXECUTION_LAYER.AFTER_DAMAGE_APPLIED 增 HE_TAICHONG_ARMOR_PIERCE:21（何太冲破甲箭显性化：伤害行后缀 + 目标格飘字）
-// V6.5.3 | ~7250 bytes | 2026-10-10 EXECUTION_LAYER 补何太冲插槽：AFTER_DAMAGE_APPLIED +HE_TAICHONG_CHAIN_ARROW:18 / +HE_TAICHONG_KUNLUN_MARK:19，BEFORE_DAMAGE_CALC +HE_TAICHONG_KUNLUN_COMBO:18
-// V6.5.2 | ~7150 bytes | 2026-10-09 EXECUTION_LAYER 新增 CLAW_HIT_APPLIED 相位（白骨爪连锁逐爪广播，小昭·姊乾坤衍生监听用的插槽）
-// V6.5.1 | ~7080 bytes | 2026-10-09 EXECUTION_LAYER.AFTER_DAMAGE_APPLIED 新增 MIEJUE_CHASE:17（灭绝追击组件监听用的插槽，排在同源的 MIEJUE_COUNTER:15 之后）
-// V6.5.0 | ~7000 bytes | 2026-10-02 监听器运行时错误加 DOM 无关追踪（_errorCount/_lastError/_recentErrors + 读取/重置 API）：页面端有 modules/21 劫持 console.error 的弱面板，worker 跑批无 DOM 完全看不到 hook 炸过，体检与批量工具改读这个计数
 import { GlobalStore } from './54-global-store.js';
 export const VER = 'infra/50-event-bus.js V6.6.0';
 

@@ -1,11 +1,4 @@
 // V6.7.3 | ~51800 bytes | 2026-10-09 白骨爪连锁每爪补回减伤半（与常规路径同式，至少1，写回 payload.reduce 由 core/16 落地「伤害−减伤」）；斩杀那一刀照杀不减（noReduce）但仍触发治疗+加攻
-// V6.7.2 | 2026-10-09 白骨爪连锁每爪接回乾坤衍生：新增 CLAW_HIT_APPLIED 监听，每爪只做「治疗/加攻随机队友」（爪击不进伤害计算，不发减伤半），条目随 hit 落攻击组；承接 V6.7.1 振奋豁免幼狮
-// V6.7.1 | 2026-10-08 振奋豁免幼狮（用户拍板）：攻被抬>0 会让零攻白板幼狮真的出手、且成长前白赚全队攻破坏成长链代价感；V6.7.0 checkZhangSwitch 从 core/13 迁入本文件（张无忌知识回家；老板拍板）——core 层从此零英雄名
-// V6.6.0 | 2026-10-08 回合钩子注册（core/11 特判收口）：小昭·姊/妹登记回合组件、圣火令增强判定+行列重画变换器、四条状态迁移分发闭包迁入本文件；姊组件新增 onFirstAllyTurn 相位钩子与默认飞行方向（均从 core/11 逐字迁移）
-// V6.5.0 | 2026-10-07 乾坤衍生/狮群振奋受益池收编 getBenefitTargets 裁判（core/03）——乾坤衍生补上垂死/_spiderFlying/FSM附身/不可选排除，振奋行为不变口径归一
-// V6.4.8 | 2026-10-06 乾坤衍生治疗/加攻候选池排除附身中的姐姐（_flyMode='butterfly' 蝶形态不是地面作战单位，老板拍板：附身后不吃自己乾坤加成，未附身仍可被选）
-// V6.4.7 | ~50800 bytes | 2026-10-03 蝶变飞回（宿主存活路径）补清 _untargetable——此前漏清致姐姐飞回后整场不可被选，敌方越列打她身后队友（体检139零承伤真根因）
-// V6.4.6 | ~50700 bytes | 2026-10-02 吸血参数查找 'leech' 改用 MECHANIC_EFFECT_TYPES.ON_HIT.LEECH 枚举（mechanics type 同源治理）
 export const VER = 'modules/27elite-mingjiao.js V6.7.3';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
