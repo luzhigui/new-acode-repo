@@ -1,5 +1,5 @@
 {
-  "version": "5.7.1",
+  "version": "5.7.3",
   "updated": "2026-10-12",
 
   "roles": {
@@ -307,8 +307,8 @@
         },
         "targetMark": {
           "name": "箭靶标记",
-          "desc": "何太冲命中即给目标挂 🎯 持续{rounds}回合、不叠层；其他队友攻击带 🎯 目标伤害×{allyMult}，何太冲自己攻击 ×{selfMult} 并命中当帧重新刷新标记",
-          "params": { "rounds": 3, "allyMult": 1.3, "selfMult": 1.5 }
+          "desc": "何太冲或两仪搭档命中即给目标挂 🎯 持续{rounds}回合（当前回合+下一回合）；任何人打中带 🎯 目标即消耗掉标记（一次性），其他队友伤害×{allyMult}、何太冲自己 ×{selfMult}，何太冲或搭档打中后立即重新挂标",
+          "params": { "rounds": 2, "allyMult": 1.3, "selfMult": 1.5 }
         },
         "redBlood": {
           "name": "红血·两仪互换",
@@ -522,7 +522,7 @@
     "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
     "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] },
-    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +10%（我方人数不少于敌方时保底 -30%）", "atkBonus": -0.30, "perUnitBonus": 0.10, "icon": "👻" }
+    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +10%（我方人数不少于敌方时保底 -30%）；另敌方全体防御每回合 ×0.92 乘方累积（第 N 回合 = 防御×0.92^N）", "atkBonus": -0.30, "perUnitBonus": 0.10, "defBonus": -0.08, "icon": "👻" }
   },
 
   "hexes": {
@@ -632,7 +632,7 @@
       "default": ["少林弟子", "武当弟子", "峨眉弟子", "昆仑弟子", "崆峒弟子"]
     },
     "elitePower": { "张无忌": 130, "韦一笑": 120, "小昭": 135, "金毛狮王谢逊": 140 },
-    "eliteRate": { "张无忌": 0.40, "韦一笑": 0.30, "小昭": 0.30, "金毛狮王谢逊": 0.20 },
+    "eliteRate": { "张无忌": 0.30, "韦一笑": 0.20, "小昭": 0.40, "金毛狮王谢逊": 0.20 },
     "normalPower": { "95": 90, "97": 95, "100": 100, "104": 110 }
   },
 

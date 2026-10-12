@@ -1,8 +1,9 @@
+// V1.5.10 | ~15800 bytes | 2026-10-12 摄魂契约注释补 second field：def（ratio = 0.92^N-1 按回合乘方累积），field 不再恒 atk
 // V1.5.9 | ~15740 bytes | 2026-10-12 摄魂数值加强注释同步：-0.25→-0.30（值在 content soulDrain.atkBonus，随人数差下探更负）
 // V1.5.8 | ~15700 bytes | 2026-10-11 登记 SKILL_ANNOUNCE 契约（何太冲技能报幕/飘字：renderSkillAnnounceFact / translateSkillAnnounce）
 // V1.5.7 | ~15540 bytes | 2026-10-11 登记 SOUL_DRAIN_APPLY 数值声明契约（摄魂 op:mul，镜像 HOLY_FLAME_APPLY，renderFn/translateFn 均 null）
 // V1.5.6 | ~15400 bytes | 2026-10-02 登记 AURA_APPLY / HOLY_FLAME_APPLY / WEI_DODGE_LEECH 三个数值声明契约（renderFn/translateFn 均 null）
-export const VER = 'infra/58-fact-contract.js V1.5.9';
+export const VER = 'infra/58-fact-contract.js V1.5.10';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -161,7 +162,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.AURA_APPLY]: { requiredFields: ['unitName', 'unitUid', 'emptyCol', 'bloodAura'], renderFn: null, translateFn: null },
     // 圣火令（乘法共享乘区，无独立增量）：ratio 与 addMod value 同值（0.3=+30%），field 为 atk/def，体检按乘率口径核对
     [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
-    // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值（-0.30=-30%，逆风更深），field 恒 atk；体检按乘率（mulSum）口径核对
+    // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值——atk 为 atkBonus(-0.30) 随人数差更深，def 为 0.92^N-1 按回合乘方累积；field 为 atk/def，体检按乘率（mulSum）口径核对
     [FACT_TYPES.SOUL_DRAIN_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
