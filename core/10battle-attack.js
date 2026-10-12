@@ -1,5 +1,7 @@
-// V6.4.0 | ~19500 bytes | 2026-10-12 何太冲重做 V3：LINK_REASONS 删 chainArrow（连环箭已废，补射链路整体移除）
-export const VER = 'core/10battle-attack.js V6.4.0';
+// V6.4.1 | ~21100 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：core/12 三函数（resolveAttackHit/applyAttackResult/buildAttackGroup）
+//          的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象，本文件 3 处调用点同步改传 ctx。
+//          业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
+export const VER = 'core/10battle-attack.js V6.4.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -133,7 +135,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
-    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus, state);
+    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, eventBus, { log, A, B, doubleStrikeUnitUid, state });
     if (hitResult.skipped) {
         if (hitResult.missFact) {
             log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
@@ -167,7 +169,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const immuneDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
-    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid });
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
         applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false);
@@ -207,7 +209,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         return true;
     }
 
-    const group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact);
+    const group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid }, phantomFact);
 
     log.push(group);
 
