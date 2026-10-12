@@ -1,6 +1,8 @@
+// V6.8.5 | ~38300 bytes | 2026-10-12 回合开始不绿根治：action 执行门槛由「仅认有 fx」改为「fx/store/storeAfter 任一有活」——
+//   ROUND_START 回合清场只有 store 回调、无 fx，自 9-06 播放器加 fx 过滤起被整体跳过（render/39 的清场代码静默失效），
+//   回合开始「账本随回合归零 + 镜像清空」从未执行：回合开始文本出现时格子仍挂上一回合末的灰，要等本步步末 sync 才翻绿
 // V6.8.4 | 2026-10-11 状态源唯一第二刀（老板拍板三批落地·批2）：syncStoreFromStep 删「从日志 snap 单点捞」整段补丁，改读引擎随 step 下发的 frozenValues 挂到 store 单位 _frozen——_displayDef 从此无写入
-// ~37700 bytes | V6.8.3 | 2026-10-09 格子/日志同口径：syncStoreFromStep 把本步日志里引擎冻结的真值（snap.attackerDef / snap.targetDefDisplay）写进 store 单位的 _displayDef，格子不再从跨步共享的 _mods 词条快照现算（修「格子防37 / 日志防56」）
-export const VER = 'player/42player-core.js V6.8.4';
+export const VER = 'player/42player-core.js V6.8.5';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -52,6 +54,14 @@ function getActionTiming(action) {
 function getActionFx(action) {
     const def = STAGE_ACTION_DEFS[action && action.kind];
     return def && def.fx ? 'has' : 'none';
+}
+
+// 2026-10-12 执行门槛修正：此前过滤器只认「有 fx 的 action」，无 fx 但有 store 回调的 action（全表唯一=ROUND_START 回合清场）
+//   被整体跳过 → 回合开始「账本随回合归零」从未执行。门槛改为「fx / store / storeAfter 任一有活」；
+//   fx 执行处本就各自判空（L156/L222 与 applyStageActionToFX 内），无 fx 的 action 不会误调 fx。
+function hasStageWork(action) {
+    const def = STAGE_ACTION_DEFS[action && action.kind];
+    return !!(def && (def.fx || def.store || def.storeAfter));
 }
 
 function applyStageActionToStore(c, action, pendingDeaths) {
@@ -162,9 +172,9 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
         let entries = prepareLogEntry(rawEntry);
         if (entries === null || entries === undefined) {
             const factIndex = i;
-            const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'beforeText');
+            const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'beforeText');
             for (const action of beforeActions) await runAction(action);
-            const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
+            const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'afterText');
             for (const action of afterActions) await runAction(action);
             continue;
         }
@@ -178,7 +188,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
 
             if (!processedBeforeIndexes.has(factIndex)) {
                 processedBeforeIndexes.add(factIndex);
-                const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'beforeText');
+                const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'beforeText');
                 for (const action of beforeActions) {
                     applyStageActionToStore(c, action, pendingDeaths);
                     if (action.nonBlocking) applyStageActionToFX(c, action);
@@ -189,7 +199,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
 
             // 锚点动作：打包成 anchorSpecs 挂到 entry，由 playLineText 打到锚点文本时触发
             if (entry && typeof entry === 'object' && !entry._anchorSpecs && Array.isArray(entry.fxAnchors) && entry.fxAnchors.length > 0) {
-                const anchorActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'anchor');
+                const anchorActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'anchor');
                 if (anchorActions.length > 0) {
                     entry._anchorSpecs = anchorActions.map(a => {
                         const idx = a.anchorIndex || 0;
@@ -210,7 +220,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
 
             if (!processedAfterIndexes.has(factIndex)) {
                 processedAfterIndexes.add(factIndex);
-                const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
+                const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'afterText');
                 for (const action of afterActions) await runAction(action);
             }
         }
