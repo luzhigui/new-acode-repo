@@ -177,11 +177,10 @@ export function renderAttackFact(fact) {
         }).text
         : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
     // 2026-09-24 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
-    // 2026-10-11 何太冲：破甲箭提示同样挂伤害行末（armorPierceHint 由 modules/26 破甲箭处理器写进本击 fact）
     group.entries.push({
         type:'damage-text',
         deadFlag: killLine,
-        text: damageText + (fact.miejueHint || '') + (fact.armorPierceHint || '')
+        text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {
         for (const e of fact.entries) {

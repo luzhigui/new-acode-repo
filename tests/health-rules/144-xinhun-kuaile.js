@@ -12,7 +12,9 @@
 //   - 性奋代价有 `unit.maxHp > 1` 保底（core/15），宋青书上限被扣到 ≤2 时合法地不再扣 → 此时跳过配对校验
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
-export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.22';
+export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.23';
+// V6.1.23（2026-10-12）修弱判据 hpIsCap：maxHp 是浮点、fact 文本走 fmtHp(floor)，旧严格相等漏认
+//   "回满截断" → seed=1/5 stage=4 两条误报；改为 Math.floor(maxHp) === hpAfter。判据强度不变。
 import { entryTexts } from '../122health-utils.js';
 import { getGameData } from '../../core/01config-5v5-test.js';
 
@@ -25,14 +27,19 @@ const XINHUN_DEDUCT = 1;   // hpDeduct（mechanics 真值，单一来源）
 // 一条战报里可能被本规则命中的文本：顶层 text + attack-group 的 entries 子条目
 
 
-// 快照里是否存在「血量上限恰等于 hpAfter」的单位 —— 用于识别快乐回血的"回满截断"合法形态。
+// 快照里是否存在「血量上限（取整后）恰等于 hpAfter」的单位 —— 用于识别快乐回血的"回满截断"合法形态。
 // 注意是弱判据（同名/同上限会误认），故只在"精确判据不成立"时兜底放行，不做反向断言。
+// V6.1.23 修正（弱判据漏认回满截断 → 误报）：引擎内部 maxHp 是浮点（seed=1 stage=4 周芷若 maxHp=157.5、
+//   seed=5 stage=4 =142.5），而 fact 文本经 fmtHp(floor) 显示成 157 / 142，规则从文本解析出的 hpAfter
+//   是整数，旧判据 `maxHp === hpAfter` 严格相等必然不等 → 被误判为"既非 +heal 也非回满截断"。
+//   故取整后再比：Math.floor(maxHp) === hpAfter。判据强度不变（仍是"上限恰等于落点"才放行），
+//   只是把"浮点真值 vs 文本 floor"的表示差对齐。
 function hpIsCap(pools, hpAfter) {
     if (typeof hpAfter !== 'number') return false;
     for (var i = 0; i < pools.length; i++) {
         var arr = pools[i] || [];
         for (var k = 0; k < arr.length; k++) {
-            if (arr[k] && arr[k].maxHp === hpAfter) return true;
+            if (arr[k] && typeof arr[k].maxHp === 'number' && Math.floor(arr[k].maxHp) === hpAfter) return true;
         }
     }
     return false;

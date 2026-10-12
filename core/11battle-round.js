@@ -1,9 +1,10 @@
+// V6.3.9 | 2026-10-12 摄魂逆风补偿：双方循环前快照本回合存活单位数（非马，与 L60/67 挑人、苦练口径一致），两处 applySoulDrain 传 {casterAlive,targetAlive}
 // V6.3.7 | ~27350 bytes | 2026-10-11 applySoulDrain 两处调用补传 log（摄魂 SOUL_DRAIN_APPLY 数值声明 fact 的落地通路）
 // V6.3.8 | 2026-10-11 状态源唯一第一刀（老板拍板三批落地·批1）：makeStep 每步为全部单位冻结真值 frozenValues（getStat 现算：atk/def/maxHp/hp）随 step 下发——引擎出口带出唯一权威，下游 player/42→render/32 只读它，删日志 snap 单点捞
 // V6.3.6 | ~27300 bytes | 2026-10-10 双方循环各补一条 applySoulDrain（海克斯「摄魂」：明教持 → 削六大派；六大派持 → 削明教），与严阵以待同款每回合重挂
 // V7.5.13 | 2026-10-08 英雄特判收口（老板批）：小昭姊妹工厂分支/圣火令增强/蝶附身触发/搭档连线/不争判定全部下沉注册面（core/08 五件套），引擎不再认识任何具体英雄；姊妹组件调度改 roundComps+状态迁移路由表；删玄冥联动死码与死变量 xiaoZhao。140 基线 18 场全一致
 // V6.3.5 | ~27200 bytes | 2026-10-02 光环补发 AURA_APPLY 数值声明 fact（双方循环每存活单位每回合 1 条，emptyCol/bloodAura 为 0 也发）；applyHolyFlameBonus 两处调用透传 log
-export const VER = 'core/11battle-round.js V6.3.8';
+export const VER = 'core/11battle-round.js V6.3.9';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -162,6 +163,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
     A._butterflyTriggered = false;
     A._mindControlTriggered = false;
+    // 2026-10-12 摄魂逆风补偿用：本回合双方存活单位数快照（非马，与 L60/67 挑人、苦练「全队非马存活单位」同口径）
+    const aliveCountA = A.filter(x => x.alive && !x.isHorse).length;
+    const aliveCountB = B.filter(x => x.alive && !x.isHorse).length;
+
     A.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
@@ -175,7 +180,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
         applyHolyFlameBonus(u, A._activeBuffs || [], isHolyFlameEnhanced(A), log);   // 2026-10-08 增强判定迁注册面（modules/27）
         applyFortifyBonus(u, A._activeBuffs || []);
-        applySoulDrain(u, B._activeBuffs || [], log);   // 六大派持摄魂 → 削弱明教
+        applySoulDrain(u, B._activeBuffs || [], log, { casterAlive: aliveCountB, targetAlive: aliveCountA });   // 六大派持摄魂 → 削弱明教
         applyCarryBonus(u, A, state, log);
 
         const auraBonuses = getAuraBonuses(u, A, B);
@@ -197,7 +202,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         let bStats = computeBuffStats(u, B._activeBuffs || [], B);
         applyHolyFlameBonus(u, B._activeBuffs || [], false, log);
         applyFortifyBonus(u, B._activeBuffs || []);
-        applySoulDrain(u, A._activeBuffs || [], log);   // 明教持摄魂 → 削弱六大派
+        applySoulDrain(u, A._activeBuffs || [], log, { casterAlive: aliveCountA, targetAlive: aliveCountB });   // 明教持摄魂 → 削弱六大派
         applyCarryBonus(u, B, state, log);
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;

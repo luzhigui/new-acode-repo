@@ -1,6 +1,6 @@
 {
-  "version": "5.6.26",
-  "updated": "2026-10-10",
+  "version": "5.7.0",
+  "updated": "2026-10-12",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -301,24 +301,22 @@
     "何太冲": {
       "tags": ["六大派", "昆仑", "远程", "精英"],
       "skills": {
-        "chainArrow": {
-          "name": "连环箭",
-          "desc": "命中后{prob}%概率对同一目标再补一箭：伤害×{dmgRatio}、可被闪避（补的这一箭不会再次触发）"
+        "liangyiLink": {
+          "name": "两仪双修",
+          "desc": "战斗开始即刻与一名对系队友（远程连战士、战士连远程，候选多人随机）结成两仪连接，双方名字各挂 ☯。连接期间任一方出手同时享有战士+远程两系攻击特效（战士破防/战士斩杀/远程成长）；连接建立即绑定不更换，搭档阵亡即断连"
         },
-        "armorPierce": {
-          "name": "破甲箭",
-          "desc": "攻击忽略目标{defIgnore}%防御"
+        "targetMark": {
+          "name": "箭靶标记",
+          "desc": "何太冲命中即给目标挂 🎯 持续{rounds}回合、不叠层；其他队友攻击带 🎯 目标伤害×{allyMult}，何太冲自己攻击 ×{selfMult} 并命中当帧重新刷新标记",
+          "params": { "rounds": 3, "allyMult": 1.3, "selfMult": 1.5 }
         },
-        "kunlunCombo": {
-          "name": "昆仑合击",
-          "desc": "本回合目标已被其他六大派同伴打过时，伤害×{dmgMultiplier}"
+        "redBlood": {
+          "name": "红血·两仪互换",
+          "desc": "血量≤{thresholdPct}% 当帧触发（每局限一次，不挑伤害来源）：有连接且仅一方红血→两仪互换（两人互换职业与位置、各叠一套对方职业加成，旧加成保留，连接继续）；两人同时红血或已断连→走单人规则。单人常态攻击伤害×{soloMult}",
+          "params": { "thresholdPct": 40, "soloMult": 1.3 }
         }
       },
-      "mechanics": [
-        { "camp": "enemy", "type": "chainArrow", "prob": 0.5, "dmgRatio": 0.6 },
-        { "camp": "enemy", "type": "armorPierce", "beforeDamageEffects": [ { "type": "ignoreDef", "ratio": 0.30 } ] },
-        { "camp": "enemy", "type": "kunlunCombo", "dmgMultiplier": 1.5 }
-      ],
+      "mechanics": [],
       "taunts": {
         "attack": ["昆仑箭法！", "看箭！", "接我一箭！"],
         "kill": []
@@ -524,7 +522,7 @@
     "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
     "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] },
-    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-25%（整局生效，每回合刷新）", "atkBonus": -0.25, "icon": "👻" }
+    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-25%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +5%（我方人数不少于敌方时保底 -25%）", "atkBonus": -0.25, "perUnitBonus": 0.05, "icon": "👻" }
   },
 
   "hexes": {
