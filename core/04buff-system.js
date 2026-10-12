@@ -1,5 +1,6 @@
 // V6.3.4 | ~17840 bytes | 2026-10-12 rule151 修复（体检转交）：嗜血狂刀分支 1 吸血声明补 `leechVal > 0` 守卫——
 //          dmg=1 时 floor(0.8)=0，不再登记「吸血+0」噪声声明（分支 2 未动，建议同批）
+// V6.3.5 | ~22050 bytes | 2026-10-12 carry 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：applyCarryBonus 门控删 !unit.isHorse——拒马站受益位时也吃加成（狮子本就不在排除项内）；攻加成>0 后拒马不再休息、会出手
 // V6.3.3 | ~17600 bytes | 2026-10-12 摄魂再平衡（老板：加强过头）：逆风系数 perUnitBonus 0.10→0.05；降防改**线性叠加**——
 //          初始 -10%、每多一个回合再叠 -5%（defRatio = defBonus + perRoundBonus×(N-1)，原 ×0.92^N 乘方作废）；两值看 content buffs.soulDrain
 // V6.3.2 | ~17600 bytes | 2026-10-12 摄魂加降防（老板拍板②）：同一份摄魂再削敌方防御，按回合数**乘方累积**
@@ -11,7 +12,7 @@
 // V6.2.9 | ~16800 bytes | 2026-10-11 applySoulDrain 补发 SOUL_DRAIN_APPLY 数值声明 fact（ratio 与 addMod 同值，供体检对照 soulDrain group 账本；契约入 infra/58，renderFn:null 不进画面）
 // V6.2.8 | ~16500 bytes | 2026-10-10 新增 applySoulDrain：首个削弱型海克斯「摄魂」——按持有方给对侧每存活单位挂 atk ×(1+atkBonus) 的 round 词条（group:soulDrain），与严阵以待同款每回合重挂、故整局生效
 // V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
-export const VER = 'core/04buff-system.js V6.3.4';
+export const VER = 'core/04buff-system.js V6.3.5';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -64,12 +65,14 @@ export function applySoulDrain(unit, casterActiveBuffs, log, aliveCounts) {
     if (log) log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
 
+// 2026-10-12 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：门控删 !unit.isHorse——
+//   拒马站受益位时也吃加成；狮子本就不在排除项内（无需改）。副作用：拒马吃到攻加成后 atk>0，不再走「拒马休息」、会出手。
 export function applyCarryBonus(unit, A, state, log) {
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
     const carryPositions = sister ? [4, 5, 6] : [5];
-    if (hasCarryActive && carryPositions.includes(unit.pos) && !unit.isHorse && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
+    if (hasCarryActive && carryPositions.includes(unit.pos) && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         const bonus = sister ? calcCarryBonus_Sister(unit, A) : calcCarryBonus_Normal(unit, A);
         if (bonus.atkAbs) addMod(unit, 'atk', { source: 'carry', value: bonus.atkAbs, ttl: 'round', op: 'add', group: 'carry' });
         if (bonus.defAbs) addMod(unit, 'def', { source: 'carry', value: bonus.defAbs, ttl: 'round', op: 'add', group: 'carry' });

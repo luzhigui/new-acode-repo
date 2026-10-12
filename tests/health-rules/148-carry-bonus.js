@@ -1,11 +1,11 @@
 // 回归规则：carry「你就是carry」五号位队友属性加成 — 此前完全没有体检项盯这条链路。
 // 机制源（core/14buff-effects.js calcCarryBonus_Normal / _Sister，core/04buff-system.js L34-42 应用）：
-//   - 门控：单位存活、非拒马、**非小昭·姊/弟**；站位 = 5 号位（有小昭·姊出阵时放宽到 4/5/6）
+//   - 门控：单位存活、**非小昭·姊/弟**；站位 = 5 号位（有小昭·姊出阵时放宽到 4/5/6）——2026-10-12 起拒马也在此范围内（吃加成）
 //   - 公式（对每个「队友」= 同阵营除自己外的单位，逐个累加；2026-10-12 起拒马也计入——core/14 去掉 !u.isHorse）：
 //       mult      = 队友存活 ? 1 : CONFIG.BUFFS.carry.deathMultiplier   （配置值 2，即"死亡队友双倍"）
-//       atkAbs   += Math.floor(队友atk  × atkBonus × mult)               （配置值 0.08）
-//       defAbs   += Math.floor(队友def  × defBonus × mult)               （配置值 0.08）
-//       hpAbs    += Math.floor(队友_baseMaxHp × hpBonus × mult)          （配置值 0.1；_baseMaxHp 取不到记 0）
+//       atkAbs   += Math.floor(队友atk  × atkBonus × mult)               （配置值 0.06）
+//       defAbs   += Math.floor(队友def  × defBonus × mult)               （配置值 0.06）
+//       hpAbs    += Math.floor(队友_baseMaxHp × hpBonus × mult)          （配置值 0.08；_baseMaxHp 取不到记 0）
 //   - 渲染：render/30 renderCarryApplyFact → 顶层 info
 //     「👑 carry：X 获得队友属性加成 攻+N 防+M 血上限+K」（后面紧跟一条无数值的 buff-summary 同名条目）
 // 为什么值得盯：
@@ -27,8 +27,8 @@
 //   5) 数值膨胀：加成超过「Σ 队友 getStat(攻/防/血) × 存活1/死亡deathMultiplier × 比例 × 2 倍余量」
 //      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
-//   配置比例读不到时退回版本约定值 0.08/0.08/0.1/2，并在读不到时只跑 1/2/4 三条结构判据。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.19';
+//   配置比例读不到时退回版本约定值 0.06/0.06/0.08/2，并在读不到时只跑 1/2/4 三条结构判据。
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.21';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -41,9 +41,9 @@ function carryCfg() {
         c = (CONFIG.BUFFS && CONFIG.BUFFS.carry) || null;
     } catch (e) { c = null; }
     return {
-        atkBonus: (c && typeof c.atkBonus === 'number') ? c.atkBonus : 0.08,
-        defBonus: (c && typeof c.defBonus === 'number') ? c.defBonus : 0.08,
-        hpBonus: (c && typeof c.hpBonus === 'number') ? c.hpBonus : 0.1,
+        atkBonus: (c && typeof c.atkBonus === 'number') ? c.atkBonus : 0.06,
+        defBonus: (c && typeof c.defBonus === 'number') ? c.defBonus : 0.06,
+        hpBonus: (c && typeof c.hpBonus === 'number') ? c.hpBonus : 0.08,
         deathMultiplier: (c && typeof c.deathMultiplier === 'number') ? c.deathMultiplier : 2,
         ok: !!c
     };
