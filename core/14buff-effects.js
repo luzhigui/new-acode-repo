@@ -1,5 +1,5 @@
-// V6.1.3 | ~8560 bytes | 2026-10-12 拒马计入 carry 队友池（老板拍板「改成拒马也能进 carry」）——calcCarryBonus_Normal/Sister 的队友 filter 去掉 !u.isHorse（拒马活 1 份/死 2 份，与狮子同口径）；受益门控仍排除拒马
-export const VER = 'core/14buff-effects.js V6.1.3';
+// V6.1.4 | ~8630 bytes | 2026-10-12 拒马双向参与 carry（老板拍板）：① 队友池去 !u.isHorse（活 1 份/死 2 份，与狮子同口径）；② 受益门控也去 isHorse——拒马站受益位（5；小昭·姊在场 4/5/6）时也能吃到，攻加成>0 后拒马不再休息、会出手
+export const VER = 'core/14buff-effects.js V6.1.4';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -54,10 +54,10 @@ export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, log) {
 }
 
 // carry：5 号位按队友属性百分比加成，死亡队友加成翻倍
-// 2026-10-12 拒马计入队友池（老板拍板「改成拒马也能进 carry」）：活 1 份 / 死 deathMultiplier 份，
-//   与狮子同口径；受益门控（L58）仍排除拒马自身——拒马只贡献、不吃加成
+// 2026-10-12 拒马双向全开（老板拍板）：① 计入队友池——活 1 份 / 死 deathMultiplier 份，与狮子同口径；
+//   ② 受益面也放开——拒马站受益位（无小昭·姊=5 号位，有小昭·姊=4/5/6）时同样吃到加成（门控已去 isHorse）
 export function calcCarryBonus_Normal(unit, allyTeam) {
-    if (unit.pos !== 5 || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
+    if (unit.pos !== 5 || !unit.alive) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     let allAllies = allyTeam.filter(u => u.uid !== unit.uid);
     allAllies.forEach(a => {
@@ -70,7 +70,7 @@ export function calcCarryBonus_Normal(unit, allyTeam) {
 }
 
 export function calcCarryBonus_Sister(unit, allyTeam) {
-    if ((unit.pos < 4 || unit.pos > 6) || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
+    if ((unit.pos < 4 || unit.pos > 6) || !unit.alive) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     let allAllies = allyTeam.filter(u => u.uid !== unit.uid);
     allAllies.forEach(a => {
