@@ -1,3 +1,5 @@
+// V6.3.6 | ~23100 bytes | 2026-10-12 体检转交·第 80 轮记账落地：嗜血狂刀两分支+热血奋战+飞行再生 四处补 hp 记账
+//          （addMod 纯 push _mods['hp']：group bloodthirstLeech/hotBloodHeal/flyerRegen，零游戏逻辑副作用）；分支 2 同批补 `leechVal > 0` 守卫
 // V6.3.4 | ~17840 bytes | 2026-10-12 rule151 修复（体检转交）：嗜血狂刀分支 1 吸血声明补 `leechVal > 0` 守卫——
 //          dmg=1 时 floor(0.8)=0，不再登记「吸血+0」噪声声明（分支 2 未动，建议同批）
 // V6.3.5 | ~22050 bytes | 2026-10-12 carry 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：applyCarryBonus 门控删 !unit.isHorse——拒马站受益位时也吃加成（狮子本就不在排除项内）；攻加成>0 后拒马不再休息、会出手
@@ -12,7 +14,7 @@
 // V6.2.9 | ~16800 bytes | 2026-10-11 applySoulDrain 补发 SOUL_DRAIN_APPLY 数值声明 fact（ratio 与 addMod 同值，供体检对照 soulDrain group 账本；契约入 infra/58，renderFn:null 不进画面）
 // V6.2.8 | ~16500 bytes | 2026-10-10 新增 applySoulDrain：首个削弱型海克斯「摄魂」——按持有方给对侧每存活单位挂 atk ×(1+atkBonus) 的 round 词条（group:soulDrain），与严阵以待同款每回合重挂、故整局生效
 // V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
-export const VER = 'core/04buff-system.js V6.3.5';
+export const VER = 'core/04buff-system.js V6.3.6';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -112,7 +114,11 @@ export function submitBloodthirstDeclaration(data) {
         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const decl = { type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
         if (!data.declarations) data.declarations = [];
-        if (leechVal > 0) data.declarations.push(decl);
+        if (leechVal > 0) {
+            data.declarations.push(decl);
+            // 纯记账（体检对照 bloodthirstLeech group）：只 push _mods['hp']，零游戏逻辑副作用
+            addMod(unit, 'hp', { source: '嗜血狂刀', value: leechVal, ttl: 'permanent', group: 'bloodthirstLeech', op: 'add' });
+        }
         if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
             unit.state._bloodthirstStriked = true;
             if (!data.extraRequests) data.extraRequests = [];
@@ -121,7 +127,11 @@ export function submitBloodthirstDeclaration(data) {
     } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR) {
         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         if (!data.declarations) data.declarations = [];
-        data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
+        if (leechVal > 0) {
+            data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
+            // 纯记账（同分支 1，体检对照 bloodthirstLeech group）：零游戏逻辑副作用
+            addMod(unit, 'hp', { source: '嗜血狂刀', value: leechVal, ttl: 'permanent', group: 'bloodthirstLeech', op: 'add' });
+        }
     }
 }
 
@@ -153,6 +163,8 @@ export function submitHotBloodDeclaration(data) {
     if (leech > 0) {
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: leech, source: unit, isDouble, factType: FACT_TYPES.HOT_BLOOD_HEAL, factData: { unitName: unit.name, leech, tag: isDouble ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战', isBrother, unitUid: unit.uid } });
+        // 纯记账（体检对照 hotBloodHeal group）：只 push _mods['hp']，零游戏逻辑副作用
+        addMod(unit, 'hp', { source: '热血奋战', value: leech, ttl: 'permanent', group: 'hotBloodHeal', op: 'add' });
     }
 }
 
@@ -282,6 +294,8 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
         applyStatChange(u, 'hp', gain, null, '飞行再生');
         if (log && u.hp > before) {
             log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: u.hp - before, deadCount: dead.length } });
+            // 纯记账（体检对照 flyerRegen group）：value 与 fact heal 同表达式，保精确相等
+            addMod(u, 'hp', { source: '飞行再生', value: u.hp - before, ttl: 'permanent', group: 'flyerRegen', op: 'add' });
         }
     }
 }
