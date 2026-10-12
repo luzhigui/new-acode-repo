@@ -1,6 +1,7 @@
-// V6.3.6 | ~23100 bytes | 2026-10-12 体检转交·第 80 轮记账落地：嗜血狂刀两分支+热血奋战+飞行再生 四处补 hp 记账
-//          （addMod 纯 push _mods['hp']：group bloodthirstLeech/hotBloodHeal/flyerRegen，零游戏逻辑副作用）；分支 2 同批补 `leechVal > 0` 守卫
-export const VER = 'core/04buff-system.js V6.3.6';
+// V6.3.7 | ~21000 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：applySoulDrain / applyHolyFlameBonus / logBuffSummary 的
+//          上下文型尾参（log、aliveCounts、hasSister、doubleStrikeUid）合并为单 ctx 对象，业务参数保持原位；
+//          此后新增上下文只进 ctx，不再改签名。行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
+export const VER = 'core/04buff-system.js V6.3.7';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -15,11 +16,11 @@ import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } 
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
-export function applyHolyFlameBonus(unit, activeBuffs, hasSister, log) {
+export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
-    if (hasSister) applyHolyFlame_Sister(unit, null, activeBuffs, log);
-    else applyHolyFlame_Normal(unit, null, activeBuffs, log);
+    if (ctx.hasSister) applyHolyFlame_Sister(unit, null, activeBuffs, ctx.log);
+    else applyHolyFlame_Normal(unit, null, activeBuffs, ctx.log);
 }
 
 export function applyFortifyBonus(unit, activeBuffs) {
@@ -36,21 +37,22 @@ export function applyFortifyBonus(unit, activeBuffs) {
 // 2026-10-12 逆风补偿（老板拍板）：被削方每比施法方多 1 个存活单位（非马），减攻比例再 -perUnitBonus；
 //   被削方人数 ≤ 施法方时保底 atkBonus。两值见 content buffs.soulDrain（当前 -0.30 / 0.05），两方人数由 core/11 回合开始快照传入。
 //   另有降防（初始 defBonus + 每回合 perRoundBonus 线性叠加）见 applySoulDrain 内注释，当前回合数同样由 core/11 传入。
-export function applySoulDrain(unit, casterActiveBuffs, log, aliveCounts) {
+// 2026-10-13 ctx 收口：log / aliveCounts 两个上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，此后新增上下文只进 ctx 不再改签名
+export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     if (!hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN)) return;
     const cfg = CONFIG.BUFFS.soulDrain;
-    const extra = aliveCounts ? Math.max(0, aliveCounts.targetAlive - aliveCounts.casterAlive) : 0;
+    const extra = ctx ? Math.max(0, ctx.targetAlive - ctx.casterAlive) : 0;
     const ratio = cfg.atkBonus - cfg.perUnitBonus * extra;
     addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     // 数值声明 fact（体检对照 soulDrain group，不进画面）：ratio 与 addMod 同值（随人数下探为负，契约 allowNeg 放行）
-    if (log) log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio } });
+    if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio } });
     // 2026-10-12 降防再平衡（老板：加强过头）：改线性叠加——初始 -10%、每多一个回合再叠 -5%——
     //   第 N 回合 defRatio = defBonus + perRoundBonus×(N-1)（原 ×0.92^N 乘方中期削得太狠，作废）。
     //   词条 mul 是多条求和，故按当回合线性值算好单条 ratio 挂上；ttl:'round' 每回合随清理重挂，恒 1 条不残留。
-    const round = (aliveCounts && aliveCounts.round) || 1;
+    const round = ctx?.round || 1;
     const defRatio = (cfg.defBonus || 0) + (cfg.perRoundBonus || 0) * (round - 1);
     addMod(unit, 'def', { source: '摄魂', value: defRatio, ttl: 'round', op: 'mul', group: 'soulDrain' });
-    if (log) log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
+    if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
 
 // 2026-10-12 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：门控删 !unit.isHorse——
@@ -81,10 +83,10 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     return { atkBonus: 0, defBonus: 0, dodgeBonus, hpBonus: 0, carryAtkAbs: 0, carryDefAbs: 0, carryHpAbs: 0 };
 }
 
-export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
+export function logBuffSummary(allyTeam, ctx) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
-        log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeamUids: allyTeam.filter(u => u.alive).map(u => u.uid), doubleStrikeUid } });
+        ctx.log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeamUids: allyTeam.filter(u => u.alive).map(u => u.uid), doubleStrikeUid: ctx.doubleStrikeUid } });
     });
 }
 

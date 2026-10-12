@@ -1,6 +1,7 @@
-// V6.3.10 | ~31150 bytes | 2026-10-13 韦一笑闪避吸血补 hp 记账（体检转交）：resolveDodgeEffects WEI_HEAL 分支 refreshMaxHp 后补 addMod group:'weiDodgeHeal'
-//           （value=delta 与 hp 抬升同源，纯记账零行为副作用）；WEI_DODGE_HEAL 契约警告态→严格态
-export const VER = 'core/12battle-attack-steps.js V6.3.10';
+// V6.3.11 | ~31400 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
+//           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
+//           业务参数（unit/target/dmgCalc/allySide/phantomFact 等）保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
+export const VER = 'core/12battle-attack-steps.js V6.3.11';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -103,12 +104,13 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 }
 
 // 步骤2：未命中+闪避判定
-export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus, state) {
+// ctx = { log, A, B, doubleStrikeUnitUid, state }
+export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, eventBus, ctx) {
     if (unit.state._neverMiss) return { skipped: false };
     const rng = getBattleRng();
     // 2026-09-16 未命中率算法下沉 03.getMissBreakdown（与详情弹窗同源，避免两处漂移）
-    const missAllySide = unit.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []);
-    const missEnemySide = unit.camp === CAMP_TYPES.ALLY ? (B || []) : (A || []);
+    const missAllySide = unit.camp === CAMP_TYPES.ALLY ? (ctx.A || []) : (ctx.B || []);
+    const missEnemySide = unit.camp === CAMP_TYPES.ALLY ? (ctx.B || []) : (ctx.A || []);
     const missChance = getMissBreakdown(unit, missAllySide, missEnemySide).total;
 
     if (missChance > 0 && rng.nextInt(1,100) <= missChance) {
@@ -126,9 +128,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
         if (eventBus) {
             let afterMissExtraRequests = [];
-            const allySide = unit.camp === CAMP_TYPES.ALLY ? A : B;
-            const enemySide = unit.camp === CAMP_TYPES.ALLY ? B : A;
-            let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests, allySide, enemySide, A, B, state };
+            const allySide = unit.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
+            const enemySide = unit.camp === CAMP_TYPES.ALLY ? ctx.B : ctx.A;
+            let afterMissData = { unit, target, log: ctx.log, extraRequests: afterMissExtraRequests, allySide, enemySide, A: ctx.A, B: ctx.B, state: ctx.state };
             eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
             if (afterMissExtraRequests.length > 0) {
                 missData.extraRequests = afterMissExtraRequests;
@@ -138,7 +140,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         return missData;
     }
 
-    const allyBuffs = (target.camp === CAMP_TYPES.ALLY && A ? A._activeBuffs : (target.camp === CAMP_TYPES.ENEMY && B ? B._activeBuffs : []));
+    const allyBuffs = (target.camp === CAMP_TYPES.ALLY && ctx.A ? ctx.A._activeBuffs : (target.camp === CAMP_TYPES.ENEMY && ctx.B ? ctx.B._activeBuffs : []));
     if (target.state._stunned) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
     // 2026-09-22 不可闪避：攻击方带 _ignoreDodge 时整体跳过闪避判定（灭绝师太反击用，见 core/10 额外攻击循环）
@@ -183,7 +185,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
             eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
-            resolveDodgeEffects(dodgeDeclarations, unit, target, log);
+            resolveDodgeEffects(dodgeDeclarations, unit, target, ctx.log);
 
             unit.state._acted = true;
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });
@@ -327,7 +329,8 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 }
 
 // 步骤4：应用伤害结果
-export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
+// ctx = { log, A, B, state, doubleStrikeUnitUid }
+export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, ctx) {
     const rng = getBattleRng();
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
@@ -362,7 +365,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             setBattleState('holyToken', currentToken + 1);
             persistValue('ming_holy_token_5v5_test', currentToken + 1);
             pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
-            log.push({ factType: FACT_TYPES.DROP, data: { kind: DROP_TYPES.TOKEN, killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid } });
+            ctx.log.push({ factType: FACT_TYPES.DROP, data: { kind: DROP_TYPES.TOKEN, killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid } });
         }
     }
     if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target.state._chestDropped) {
@@ -373,13 +376,13 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             chests++;
             persistValue('ming_chest_count', chests);
             setBattleState('chestCount', chests);
-            log.push({ factType: FACT_TYPES.DROP, data: { kind: DROP_TYPES.CHEST, killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid } });
+            ctx.log.push({ factType: FACT_TYPES.DROP, data: { kind: DROP_TYPES.CHEST, killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid } });
         }
     }
 
     let horseReboundDeclarations = [];
-    const xiaoHEnhance = query('xiaoHexEnhance', A, A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
-    if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION)) {
+    const xiaoHEnhance = query('xiaoHexEnhance', ctx.A, ctx.A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
+    if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(ctx.A._activeBuffs, BUFF_TYPES.HORSE_FORMATION)) {
         const rebound = xiaoHEnhance.reboundDmg;
         horseReboundDeclarations.push({
             type: EFFECT_TYPES.REBOUND,
@@ -395,11 +398,11 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     let reboundEntry = null;
     let fortifyDeclarations = null;
-    let allyBuffs_fortify = (target.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs) || [];
+    let allyBuffs_fortify = (target.camp === CAMP_TYPES.ALLY ? ctx.A._activeBuffs : ctx.B._activeBuffs) || [];
     if (hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) && target.role === ROLE_TYPES.DEFENDER && dmg > 0) {
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
         if (reboundDmg > 0) {
-            const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);
+            const hasSister = ctx.A && ctx.A.some(u => u.isXiaoZhaoSister && u.alive);
             fortifyDeclarations = [{
                 type: EFFECT_TYPES.REBOUND,
                 value: reboundDmg,
@@ -502,7 +505,8 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
 }
 
 // 步骤5：构建攻击事实
-export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact) {
+// ctx = { log, A, B, state, doubleStrikeUnitUid }
+export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, ctx, phantomFact) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
 

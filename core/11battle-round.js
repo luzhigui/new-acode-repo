@@ -1,5 +1,7 @@
-// V6.3.11 | ~29175 bytes | 2026-10-12 摄魂降防改线性注释同步：round 供 def 按 defBonus + perRoundBonus×(N-1) 线性累积（原 ×0.92^N 乘方作废）
-export const VER = 'core/11battle-round.js V6.3.11';
+// V6.3.12 | ~29600 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
+//           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
+//           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
+export const VER = 'core/11battle-round.js V6.3.12';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -23,7 +25,7 @@ import { resolveDeaths } from './12battle-attack-steps.js';
 
 const C = CONFIG;
 
-function prepareRoundStart(A, B, log, state, round, rng) {
+function prepareRoundStart(A, B, state, ctx) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
 
@@ -39,15 +41,15 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     setBattleState('currentBattleState', null);
     flushBattleEvents();
 
-    log.push({ factType: FACT_TYPES.ROUND_START, data: { round } });
+    ctx.log.push({ factType: FACT_TYPES.ROUND_START, data: { round: ctx.round } });
 
-    const teamHorseA = spawnHorse(A, log, B);
+    const teamHorseA = spawnHorse(A, ctx.log, B);
     if (teamHorseA) {
-        log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
+        ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
     }
-    const teamHorseB = spawnHorse(B, log, A);
+    const teamHorseB = spawnHorse(B, ctx.log, A);
     if (teamHorseB) {
-        log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
+        ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
     }
 
     let doubleStrikeUnitUid = null;
@@ -55,14 +57,14 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            let chosen = candidates[rng.nextInt(0, candidates.length - 1)];
+            let chosen = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
             doubleStrikeUnitUid = chosen.uid;
         }
     }
     if (hasBuff(B._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = B.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            let chosen = candidates[rng.nextInt(0, candidates.length - 1)];
+            let chosen = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
             doubleStrikeUnitUidEnemy = chosen.uid;
         }
     }
@@ -71,10 +73,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
-        if (dsUnit) log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
+        if (dsUnit) ctx.log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
     }
 
-    log.filter(l => l.factType === 'horseSummon').forEach(hl => {
+    ctx.log.filter(l => l.factType === 'horseSummon').forEach(hl => {
         const horse = A.find(u => u.uid === hl.data.horseUid);
         if (horse) {
             emitFullUnitState(horse, UNIT_EVENT_TYPES.UNIT_ADD);
@@ -84,7 +86,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     // 2026-10-08 V7.5.13 圣火令增强迁 modules/27：回合开始 buff 变换器注册面，
     //   同位置同条件画 rng（序不变，基线二分保障）；无增强者在变换器内部走默认行列重画
     for (const [buffKey, transformBuff] of getBuffRoundTransformers()) {
-        state.activeBuffs = state.activeBuffs.map(b => (b.key === buffKey ? transformBuff(b, rng, A, B) : b));
+        state.activeBuffs = state.activeBuffs.map(b => (b.key === buffKey ? transformBuff(b, ctx.rng, A, B) : b));
     }
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
@@ -106,7 +108,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerDoubleStrike(eventBus, doubleStrikeUnitUidEnemy, B, B._activeBuffs);
     // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
-    // 2026-10-05 修静默 bug：不能闭包本函数参数 log——它在回合开始步 yield 后就被主循环换成新数组，
+    // 2026-10-05 修静默 bug：不能闭包本函数 ctx.log——它在回合开始步 yield 后就被主循环换成新数组，
     //   此后 fact 全推进无人读的死数组（数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
     eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, 30, (data) => { onUnitDeathFlyerRegen(data, A, B, data.log); });
 
@@ -127,7 +129,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             if (Factory) {
                 let comp = roundCompByName.get(u.name);
                 if (!comp) { comp = Factory(); roundCompByName.set(u.name, comp); roundComps.push(comp); }
-                comp.register(eventBus, A, B, log);
+                comp.register(eventBus, A, B, ctx.log);
             }
             continue;
         }
@@ -135,11 +137,11 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         if (Factory) {
             const comp = Factory();
             if (comp.declarations) declaredSkills.push(...comp.declarations);
-            comp.register(eventBus, A, B, log);
+            comp.register(eventBus, A, B, ctx.log);
         }
     }
-    installDeclaredSkills(eventBus, A, B, log, declaredSkills);
-    installFromGameData(eventBus, A, B, log, getGameData());
+    installDeclaredSkills(eventBus, A, B, ctx.log, declaredSkills);
+    installFromGameData(eventBus, A, B, ctx.log, getGameData());
 
     // 2026-10-08 V7.5.13 搭档连线泛化：配对知识在英雄模块侧注册（原两对搭档内联连线）；
     //   原版仅扫敌方 B，保持
@@ -153,7 +155,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
 
     const roundStatDeclarations = [];
-    eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log, declarations: roundStatDeclarations });
+    eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log: ctx.log, declarations: roundStatDeclarations });
     resolveRoundStatGrants(roundStatDeclarations);
 
     A._butterflyTriggered = false;
@@ -173,14 +175,14 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
 
-        applyHolyFlameBonus(u, A._activeBuffs || [], isHolyFlameEnhanced(A), log);   // 2026-10-08 增强判定迁注册面（modules/27）
+        applyHolyFlameBonus(u, A._activeBuffs || [], { hasSister: isHolyFlameEnhanced(A), log: ctx.log });   // 2026-10-08 增强判定迁注册面（modules/27）
         applyFortifyBonus(u, A._activeBuffs || []);
-        applySoulDrain(u, B._activeBuffs || [], log, { casterAlive: aliveCountB, targetAlive: aliveCountA, round });   // 六大派持摄魂 → 削弱明教
-        applyCarryBonus(u, A, state, log);
+        applySoulDrain(u, B._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountB, targetAlive: aliveCountA, round: ctx.round });   // 六大派持摄魂 → 削弱明教
+        applyCarryBonus(u, A, state, ctx.log);
 
         const auraBonuses = getAuraBonuses(u, A, B);
         // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
-        log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
+        ctx.log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
         if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
         if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
 
@@ -195,16 +197,16 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
         let bStats = computeBuffStats(u, B._activeBuffs || [], B);
-        applyHolyFlameBonus(u, B._activeBuffs || [], false, log);
+        applyHolyFlameBonus(u, B._activeBuffs || [], { hasSister: false, log: ctx.log });
         applyFortifyBonus(u, B._activeBuffs || []);
-        applySoulDrain(u, A._activeBuffs || [], log, { casterAlive: aliveCountA, targetAlive: aliveCountB, round });   // 明教持摄魂 → 削弱六大派
-        applyCarryBonus(u, B, state, log);
+        applySoulDrain(u, A._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountA, targetAlive: aliveCountB, round: ctx.round });   // 明教持摄魂 → 削弱六大派
+        applyCarryBonus(u, B, state, ctx.log);
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;
         const auraBonuses = getAuraBonuses(u, B, A);
         // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
-        log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
+        ctx.log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
         if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
         if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
@@ -228,7 +230,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         u.state._dodgeChance = Math.round((1 - product) * 100);
     }
 
-    logBuffSummary(A, log, doubleStrikeUnitUid);
+    logBuffSummary(A, { log: ctx.log, doubleStrikeUid: doubleStrikeUnitUid });
 
     // 2026-10-08 默认飞行方向迁回合组件 register（幂等 ||=，无人中途清空 → 每轮设与首轮设等价）
 
@@ -289,7 +291,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         };
     };
 
-    const { doubleStrikeUnitUid, roundStartEvents, roundComps } = prepareRoundStart(A, B, log, state, round, rng);
+    const { doubleStrikeUnitUid, roundStartEvents, roundComps } = prepareRoundStart(A, B, state, { log, round, rng });
 
     yield makeStep(log, roundStartEvents);
     log = [];
@@ -489,11 +491,11 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         if (eSpec && eSpec.deferred) eSpec.dispatch(roundComps, decl, A, B, log);
     }
 
-    const { winner, done, endEvents } = finalizeRoundEnd(A, B, log, round);
+    const { winner, done, endEvents } = finalizeRoundEnd(A, B, { log, round });
     yield makeStep(log, endEvents, winner, done);
 }
 
-function finalizeRoundEnd(A, B, log, round) {
+function finalizeRoundEnd(A, B, ctx) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
@@ -501,15 +503,15 @@ function finalizeRoundEnd(A, B, log, round) {
         }
     });
 
-    destroyHorse(A, log); destroyHorse(B, log);
+    destroyHorse(A, ctx.log); destroyHorse(B, ctx.log);
 
     let winner = null;
     let done = false;
     if (B.every(c => !c.alive)) { winner = '明教'; done = true; }
     else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
-    if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
+    if (ctx.round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
 
-    eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log, forced: true });
+    eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log: ctx.log, forced: true });
 
     if (winner) {
         let losers = winner === '明教' ? B : A;
@@ -521,7 +523,7 @@ function finalizeRoundEnd(A, B, log, round) {
         });
     }
 
-    log.push({ factType: FACT_TYPES.ROUND_END, data: { round } });
+    ctx.log.push({ factType: FACT_TYPES.ROUND_END, data: { round: ctx.round } });
 
     const endEvents = flushBattleEvents();
 
