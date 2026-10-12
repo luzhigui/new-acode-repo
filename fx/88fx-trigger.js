@@ -1,6 +1,5 @@
 // fx/88fx-trigger.js
-// V6.1.4 | 2026-10-12 箭靶标记碎裂：_triggerFX 补第 12 参 markBurst——命中帧（伤害弹幕 1100ms 之前）播靶子碎裂 showMarkBurst
-// V6.1.3 | 2026-09-24 被闪避优先于职业分流：远程与近战同款「冲过去被挡回」，不再演成射偏；死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
+// V6.1.4 | ~5077 bytes | 2026-10-12 箭靶标记碎裂：_triggerFX 补第 12 参 markBurst——命中帧（伤害弹幕 1100ms 之前）播靶子碎裂 showMarkBurst
 export const VER = 'fx/88fx-trigger.js V6.1.4';
 
 import { getKillTaunt } from '../core/03battle-utils.js';

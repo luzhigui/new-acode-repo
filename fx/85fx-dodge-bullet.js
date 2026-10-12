@@ -1,5 +1,4 @@
-// V6.2.0 | 2026-10-12 已行动镜像收口（同款收口）：起跳/收尾的 _acted: true 全部改 _renderActed（infra/61 视图表妆造字段），收尾处同步发 _renderActed: null 清理——fx 层不再直写账本语义字段 state._acted，步末引擎真值覆盖自愈机制保持（09-19 裁决落地）
-// V6.1.1 | 2026-09-13 统一时间层：本地 wait/rAF/setInterval 换 clock；删 isPaused 操作（改由 await 链阻止推进）
+// V6.2.0 | ~25763 bytes | 2026-10-12 已行动镜像收口（同款收口）：起跳/收尾的 _acted: true 全部改 _renderActed（infra/61 视图表妆造字段），收尾处同步发 _renderActed: null 清理——fx 层不再直写账本语义字段 state._acted，步末引擎真值覆盖自愈机制保持（09-19 裁决落地）
 export const VER = 'fx/85fx-dodge-bullet.js V6.2.0';
 
 import { showComicBubble } from './80fx-common-5v5-test.js';

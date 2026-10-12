@@ -1,6 +1,5 @@
 // V6.3.0 | ~17600 bytes | 2026-10-12 何太冲·两仪双修：新增 hasCombatSchool(unit, role) 职业能力判据（默认 = 本职业，
 //   被授予 _dualSchools 的单位额外具备）；战士破防/战士斩杀/远程成长三处 role 硬判据改走它，普通单位行为零变化
-// V6.2.0 | ~17400 bytes | 2026-10-07 新增受益池裁判 getBenefitTargets：所有「发好处」技能（治疗/加攻防/鼓舞/接盘）挑人统一走这里，口径与打人门禁 canBeTargeted 同源（乾坤衍生/苦练/振奋/生生不息溢出四处收编，苦练补上垂死+天上蝶蛛排除）
 export const VER = 'core/03battle-utils.js V6.3.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';

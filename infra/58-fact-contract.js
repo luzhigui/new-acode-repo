@@ -1,9 +1,4 @@
 // V1.5.11 | ~15800 bytes | 2026-10-12 摄魂降防改线性注释同步：def ratio = defBonus + perRoundBonus×(N-1)（-0.10 起步、每回合再叠 -0.05；原 0.92^N-1 作废）
-// V1.5.10 | ~15800 bytes | 2026-10-12 摄魂契约注释补 second field：def（ratio = 0.92^N-1 按回合乘方累积），field 不再恒 atk
-// V1.5.9 | ~15740 bytes | 2026-10-12 摄魂数值加强注释同步：-0.25→-0.30（值在 content soulDrain.atkBonus，随人数差下探更负）
-// V1.5.8 | ~15700 bytes | 2026-10-11 登记 SKILL_ANNOUNCE 契约（何太冲技能报幕/飘字：renderSkillAnnounceFact / translateSkillAnnounce）
-// V1.5.7 | ~15540 bytes | 2026-10-11 登记 SOUL_DRAIN_APPLY 数值声明契约（摄魂 op:mul，镜像 HOLY_FLAME_APPLY，renderFn/translateFn 均 null）
-// V1.5.6 | ~15400 bytes | 2026-10-02 登记 AURA_APPLY / HOLY_FLAME_APPLY / WEI_DODGE_LEECH 三个数值声明契约（renderFn/translateFn 均 null）
 export const VER = 'infra/58-fact-contract.js V1.5.11';
 
 import { FACT_TYPES } from './56-battle-enums.js';

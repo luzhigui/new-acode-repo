@@ -1,6 +1,5 @@
 // infra/52-clock.js
-// V1.1.0 | 2026-09-13 统一时间源：唯一 rAF 循环，集中管理 倍速/暂停/快进
-// V1.1.0 | 2026-09-19 快进从"瞬时跳过"改为"按 fastForwardScale 倍率推进"——瞬时跳过看不到任何演出，用户反馈太快
+// V1.1.0 | ~3948 bytes | 2026-09-13 统一时间源：唯一 rAF 循环，集中管理 倍速/暂停/快进
 // 消费方只调 wait()/animate()，不再自己判 fastForwardActive、不再传 getPausedFn、不再各自开 rAF
 export const VER = 'infra/52-clock.js V1.1.0';
 

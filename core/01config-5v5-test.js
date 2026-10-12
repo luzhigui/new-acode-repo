@@ -1,8 +1,5 @@
 // V6.8.0 | ~19900 bytes | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
 //   新技能 liangyiLink/targetMark/redBlood 的说明占位符一律回落 params（无 mechanics 真值源）
-// V6.7.1 | ~20500 bytes | 2026-10-11 新增 isNamedCharacter（characters 表内即具名角色）：供 render/32 名字颜色「蓝=弱精英(104 档具名)」作判据，无名杂兵不再涂蓝
-// V6.7.0 | ~20200 bytes | 2026-10-10 DESC_TRUTH 新增何太冲三技能条目（chainArrow / armorPierce / kunlunCombo），技能说明的 {prob}{dmgRatio}{defIgnore}{dmgMultiplier} 从 mechanics 取真值
-// V6.6.0 | ~19900 bytes | 2026-10-02 DESC_TRUTH 的 type 全部改用 MECHANIC_TYPES / MECHANIC_EFFECT_TYPES 枚举（与 core/15 安装期校验、modules 注册同源）
 export const VER = 'core/01config-5v5-test.js V6.8.0';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';

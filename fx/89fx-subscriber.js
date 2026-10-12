@@ -1,6 +1,4 @@
-// V6.1.3 | 2026-10-12 TRIGGER 转发补第 12 参 markBurst（何太冲箭靶碎裂，透传给 fx/88）
-// V6.1.2 | ~4400 bytes | 2026-10-11 加 SKILL_FLOAT 订阅（何太冲技能任意文本飘字，复用 showMiejueCountFloat；快进跳过）
-// V6.1.1 | ~4300 bytes | 2026-09-26 加胖远桥两技能转发（PANG_TAUNT / PANG_CLUMSY，快进跳过）
+// V6.1.3 | ~5519 bytes | 2026-10-12 TRIGGER 转发补第 12 参 markBurst（何太冲箭靶碎裂，透传给 fx/88）
 export const VER = 'fx/89fx-subscriber.js V6.1.3';
 
 import { eventBus } from '../infra/50-event-bus.js';

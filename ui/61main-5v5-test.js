@@ -1,11 +1,6 @@
-// V6.14.0 | 2026-10-10 ui/61 减负批（外部AI架构稿#3）：联网会话九函数+消息分发拆去 ui/75net-session.js、
+// V6.14.0 | ~35415 bytes | 2026-10-10 ui/61 减负批（外部AI架构稿#3）：联网会话九函数+消息分发拆去 ui/75net-session.js、
 //   战报回放入口拆去 ui/76replay-entry.js（闭包标志位经 installNetSession/installReplayEntry 注入，搬家零行为漂移）；
 //   61 从 889 行缩到 ~640 行，剩余为战斗启动/DOMContentLoaded 装配
-// V6.13.1 | ~45400 bytes | 2026-10-07 __DSH_TEST_API__ 补挂 syncAutoModeButton：体检改 autoLevel 后右下角按钮如实显示"全自动"（121 原调 w.updateAutoModeButton 从未挂 window，一直是无效应）
-// V6.13.0 | ~45250 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
-// V6.12.2 | ~45100 bytes | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口（行为零变化，仅装配路径）
-// V6.12.1 | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
-// V6.13.2 | 2026-10-07 新手引导补完：stepVoteOpen/stepCountdown/stepBuff 三步接入（71 原为死代码）；❓重播只重看分步引导，不再强制重看 CG/图鉴
 export const VER = 'ui/61main-5v5-test.js V6.14.0';
 
 import '../infra/54-global-store.js';

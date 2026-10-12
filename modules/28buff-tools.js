@@ -1,6 +1,4 @@
 // V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
-// V6.1.0 | ~1800 bytes | 2026-09-19 联网PVP：buff 分阵营（createBuffObject 加 target 参数、新增 buffsOfCamp）
-// V6.0.0 | ~1200 bytes | 2026-08-15 从 23global-store 拆出
 export const VER = 'modules/28buff-tools.js V6.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

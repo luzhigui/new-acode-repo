@@ -1,14 +1,5 @@
-// V6.7.0 | 2026-10-12 修状态标记隐形（老板：何太冲与搭档名字后面没 logo）：短名且未触发裁剪的分支原先只拼 eliteSkillIcon+buffIcons，
+// V6.7.0 | ~32967 bytes | 2026-10-12 修状态标记隐形（老板：何太冲与搭档名字后面没 logo）：短名且未触发裁剪的分支原先只拼 eliteSkillIcon+buffIcons，
 //          不消费 logoList 里的 🎯/☯/🔻 → 4 字内名字上的状态标记全不渲染；改统一用 displayLogos（与裁剪/长名两分支同源）
-// V6.6.0 | 2026-10-12 何太冲重做 V3：状态标记改源——🎯 箭靶标记（_heMarkRounds > 0，带标单位）+ ☯ 两仪连接（_liangyiPartnerUid 指向存活同伴）；删旧 🎯 昆仑合击（_kunlunComboFlag）
-// V6.5.8 | 2026-10-12 状态源唯一第三刀（老板拍板三批落地·批3）＋10-12判灰双路：攻/防/血显示全量改读 store 单位 _frozen（引擎 frozenValues 单向下发），ghost 虚影分支同口径；_displayDef 读取删除，回落链= _frozen → getStat（老回放兼容）
-// V6.5.0 | ~29900 bytes | 2026-10-04 ①格子节点复用：9 个 div 建一次、之后只重填内容，不再每帧 innerHTML='' 全删全建（click 改一次性绑定 + 槽位现取单位）；复用会激活 .cell 的 transition: background 0.6s，故每帧重填前置 transition:none 并全程保持 → 底色仍是「瞬切」，观感与改动前完全一致 ②格子图标 7 分支 if/else 链改查 ui/69-role-cards.js 名片表
-// V6.5.2 | ~30600 bytes | 2026-10-09 格子防优先取 store 单位上的 _displayDef（player/42 由本步日志冻结的引擎真值写入），无则回落 getStat 现算——与攻击日志行同口径，修「格子防37 / 日志防56」
-// V6.5.4 | 2026-10-11 蓝档加「具名」门槛：m≥104 且 characters 表内有条目才蓝（弱精英），无名杂兵落黑（老板：蓝只给弱精英，不该给所有 104）
-// V6.5.3 | 2026-10-11 名字颜色分档（黑蓝紫金，老板拍板）：m≥112 金 / ≥107 紫 / ≥104 蓝 / 其余黑；nameGold 特判（张无忌/灭绝 m115）天然并入金档删除；成昆幻影跟随被模仿者 m（不剧透本体）
-// V6.5.6 | ~31200 bytes | 2026-10-11 两个状态标记（末尾优先，不被 buff 图标挤掉）：🎯 昆仑合击（_kunlunComboFlag 且何太冲在场）/ 🔻 摄魂降攻（atk 词条含 group:'soulDrain'）
-// V6.5.5 | ~31200 bytes | 2026-10-11 logo 上限全名统一：所有名字最多显示最新 2 个 logo（原规则只管 4 字以上，3 字名挂 3 个放不下）
-// V6.5.7 | ~31300 bytes | 2026-10-11 去英雄名字面量（README 原则1）：成昆×2/周芷若/宋青书/何太冲/金毛狮王谢逊 改身份标记（applyHeroFlags 自动打标）；图标表迁 render/37，import 由 ui/69 改 ./37-role-cards.js，切断 render→ui 反向依赖（原则6）
 export const VER = 'render/32-grid-render.js V6.7.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';

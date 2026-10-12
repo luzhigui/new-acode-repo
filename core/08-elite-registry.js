@@ -1,8 +1,7 @@
-// V7.5.13 | 2026-10-08 回合钩子注册面四件套（core/11 英雄特判收口，老板批）：
+// V7.5.13 | ~3449 bytes | 2026-10-08 回合钩子注册面四件套（core/11 英雄特判收口，老板批）：
 //   core 引擎只认「注册面 + 通用协议」，不认识任何具体英雄；英雄知识全部住在 modules 的注册里。
 //   加载时序：modules/00reg-mechanics 是全战斗入口统一装载点（先于任何 prepareRoundStart），
 //   模块顶层注册保证开战前就位。
-// V6.0.0 | 2026-08-12 core层定义注册接口，modules层注册
 export const VER = 'core/08-elite-registry.js V7.5.13';
 
 const eliteRegistry = new Map();

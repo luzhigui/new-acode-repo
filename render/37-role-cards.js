@@ -1,9 +1,5 @@
 // render/37-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
 // V1.1.0 | ~7800 bytes | 2026-10-12 何太冲重做 V3：名片技能三条换新（liangyiLink 两仪双修 / targetMark 箭靶标记 / redBlood 红血·两仪互换），旧三技能条目已删
-// V1.0.0 | ~7800 bytes | 2026-10-11 从 ui/69-role-cards.js 整块迁入（消除 render→ui 反向依赖，README 原则 6）。
-//   内容一字未改，仅两处：①文件头/VER 换名；②何太冲 match 由 u.name 字面量改 isHeTaichong 标记
-//   （core/02 applyHeroFlags 已按名字自动打标）。ui/69 保留为转口，外部引用不断。
-//   ⚠️ 表内顺序 = 原 if/else 链顺序，第一个 match 生效，不要随意调整顺序。
 export const VER = 'render/37-role-cards.js V1.1.0';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';

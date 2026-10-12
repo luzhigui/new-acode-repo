@@ -1,5 +1,4 @@
-// V7.5.13 | 2026-10-08 applyHeroFlags 增两条数据旗：noContend（不争）/endlessBreath（生生不息休息通道）由 content 技能声明驱动，clone 天然保留
-// V6.3.2 | ~9500 bytes | 2026-09-29 参数体系收敛批 2：防战 z 值分档表与属性生成公式（血量掷点/生命上限倍率/攻防差约束/小昭分配）改读 CONFIG
+// V7.5.13 | ~11264 bytes | 2026-10-08 applyHeroFlags 增两条数据旗：noContend（不争）/endlessBreath（生生不息休息通道）由 content 技能声明驱动，clone 天然保留
 export const VER = 'core/02unit.js V6.3.2';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';

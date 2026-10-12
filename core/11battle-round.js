@@ -1,11 +1,4 @@
-// V6.3.11 | 2026-10-12 摄魂降防改线性注释同步：round 供 def 按 defBonus + perRoundBonus×(N-1) 线性累积（原 ×0.92^N 乘方作废）
-// V6.3.10 | 2026-10-12 摄魂降防：两处 applySoulDrain 的 aliveCounts 增传 round（当回合数，供 def 降防按回合累积）
-// V6.3.9 | 2026-10-12 摄魂逆风补偿：双方循环前快照本回合存活单位数（非马，与 L60/67 挑人、苦练口径一致），两处 applySoulDrain 传 {casterAlive,targetAlive}
-// V6.3.7 | ~27350 bytes | 2026-10-11 applySoulDrain 两处调用补传 log（摄魂 SOUL_DRAIN_APPLY 数值声明 fact 的落地通路）
-// V6.3.8 | 2026-10-11 状态源唯一第一刀（老板拍板三批落地·批1）：makeStep 每步为全部单位冻结真值 frozenValues（getStat 现算：atk/def/maxHp/hp）随 step 下发——引擎出口带出唯一权威，下游 player/42→render/32 只读它，删日志 snap 单点捞
-// V6.3.6 | ~27300 bytes | 2026-10-10 双方循环各补一条 applySoulDrain（海克斯「摄魂」：明教持 → 削六大派；六大派持 → 削明教），与严阵以待同款每回合重挂
-// V7.5.13 | 2026-10-08 英雄特判收口（老板批）：小昭姊妹工厂分支/圣火令增强/蝶附身触发/搭档连线/不争判定全部下沉注册面（core/08 五件套），引擎不再认识任何具体英雄；姊妹组件调度改 roundComps+状态迁移路由表；删玄冥联动死码与死变量 xiaoZhao。140 基线 18 场全一致
-// V6.3.5 | ~27200 bytes | 2026-10-02 光环补发 AURA_APPLY 数值声明 fact（双方循环每存活单位每回合 1 条，emptyCol/bloodAura 为 0 也发）；applyHolyFlameBonus 两处调用透传 log
+// V6.3.11 | ~29175 bytes | 2026-10-12 摄魂降防改线性注释同步：round 供 def 按 defBonus + perRoundBonus×(N-1) 线性累积（原 ×0.92^N 乘方作废）
 export const VER = 'core/11battle-round.js V6.3.11';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';

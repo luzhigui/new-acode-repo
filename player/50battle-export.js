@@ -1,13 +1,4 @@
 // V1.1.5 | ~16200 bytes | 2026-09-26 战报全灰修复：plainUnit 的 state 浅引用被引擎原地改（_acted 等），整份战报序列化时全读到终态——回放从头到尾全灰、回合开始步也不绿。改用 copyAllStateFields 按 schema 深拷断引用
-// V1.1.4 | 2026-09-26 plainUnit 剔除 _fsm（妆造剥离收尾：渲染层已改读 state._fsmPhase，战报不再存 FSM 骨架，体积随之下降）
-//   v1.1.3: 「已取消」终修：fs层 AbortError 同样不再终止——安卓 Chrome 其实带 showSaveFilePicker 且部分机型谎报（弹窗不显秒抛取消），v1.1.2 只修了分享层漏了这第一站。整链已无 return 'cancel'，谎报一律降级到下载层
-//   v1.1.2: 修「显示已取消」：分享层 AbortError 不再终止（手机网页 canShare 谎报→面板没弹就秒抛取消，=点击没反应的真相），一律降级到下载层
-//   v1.1.1: 分享5秒竞赛防挂死；取消显示「已取消」；blob+dataURL双下载
-//   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
-//   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-//   版本号规矩（2026-10-04 立）：version 只跟「战报文件格式」走，别跟游戏版本号（V6.x）混用。
-//   step 结构一变（字段增删改名）就 +1，并在 REPORT_MIGRATIONS 里挂一个搬家函数（吃旧吐新）；
-//   导入侧见 ui/61：文件版本比游戏新 → 拒收提示升级；比游戏旧 → 顺搬家链升上来再播，老战报永远能放。
 export const VER = 'player/50battle-export.js V1.2.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 

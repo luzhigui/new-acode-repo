@@ -1,19 +1,5 @@
 // V6.3.6 | ~23100 bytes | 2026-10-12 体检转交·第 80 轮记账落地：嗜血狂刀两分支+热血奋战+飞行再生 四处补 hp 记账
 //          （addMod 纯 push _mods['hp']：group bloodthirstLeech/hotBloodHeal/flyerRegen，零游戏逻辑副作用）；分支 2 同批补 `leechVal > 0` 守卫
-// V6.3.4 | ~17840 bytes | 2026-10-12 rule151 修复（体检转交）：嗜血狂刀分支 1 吸血声明补 `leechVal > 0` 守卫——
-//          dmg=1 时 floor(0.8)=0，不再登记「吸血+0」噪声声明（分支 2 未动，建议同批）
-// V6.3.5 | ~22050 bytes | 2026-10-12 carry 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：applyCarryBonus 门控删 !unit.isHorse——拒马站受益位时也吃加成（狮子本就不在排除项内）；攻加成>0 后拒马不再休息、会出手
-// V6.3.3 | ~17600 bytes | 2026-10-12 摄魂再平衡（老板：加强过头）：逆风系数 perUnitBonus 0.10→0.05；降防改**线性叠加**——
-//          初始 -10%、每多一个回合再叠 -5%（defRatio = defBonus + perRoundBonus×(N-1)，原 ×0.92^N 乘方作废）；两值看 content buffs.soulDrain
-// V6.3.2 | ~17600 bytes | 2026-10-12 摄魂加降防（老板拍板②）：同一份摄魂再削敌方防御，按回合数**乘方累积**
-//          ——第 N 回合 def ×(1+defBonus)^N（10 → 第5回合 10×0.92^5）。mul 词条是多条求和，故按当回合指数
-//          算好单条 ratio 后挂（ttl:'round' 每回合重挂），不能靠堆 N 条 -8%（那是 1-0.08N 线性）。另补 def 声明 fact
-// V6.3.1 | ~17090 bytes | 2026-10-12 摄魂数值加强（老板拍板）：基础减攻 -25%→-30%、逆风系数 perUnitBonus 0.05→0.10 ——
-//          两值全在 content/200game-data.json 的 buffs.soulDrain，本文件逻辑与结构未动（此处仅同步注释）
-// V6.3.0 | ~17000 bytes | 2026-10-12 摄魂逆风补偿（老板拍板①）：被削方每比施法方多 1 个存活单位（非马）减攻再 -CONFIG.BUFFS.soulDrain.perUnitBonus(0.05)，被削方人数≤施法方时保底 -25%；applySoulDrain 新增 aliveCounts 参数（core/11 回合开始快照）
-// V6.2.9 | ~16800 bytes | 2026-10-11 applySoulDrain 补发 SOUL_DRAIN_APPLY 数值声明 fact（ratio 与 addMod 同值，供体检对照 soulDrain group 账本；契约入 infra/58，renderFn:null 不进画面）
-// V6.2.8 | ~16500 bytes | 2026-10-10 新增 applySoulDrain：首个削弱型海克斯「摄魂」——按持有方给对侧每存活单位挂 atk ×(1+atkBonus) 的 round 词条（group:soulDrain），与严阵以待同款每回合重挂、故整局生效
-// V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
 export const VER = 'core/04buff-system.js V6.3.6';
 import {
     applyFortifyDef,

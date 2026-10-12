@@ -1,7 +1,6 @@
 // fx/83fx-position-swap.js
-// V6.2.0 | 2026-10-12 红血两仪互换专属演出 animateLiangyiSwap（options.connectLine 分流）：金色连线展开 → 中点 ☯ 脉冲
+// V6.2.0 | ~9907 bytes | 2026-10-12 红血两仪互换专属演出 animateLiangyiSwap（options.connectLine 分流）：金色连线展开 → 中点 ☯ 脉冲
 //          → 两人沿连线对穿一次 → 落定 pop-in；全程 clock.animate 驱动（不手写 rAF），用完即清无残留
-// V6.1.0 | 2026-09-13 统一时间层：删本地 wait，换 clock.wait
 export const VER = 'fx/83fx-position-swap.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

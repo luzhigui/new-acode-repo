@@ -1,5 +1,4 @@
-// V6.0.1 | 2026-10-08 搭档连线注册面接龙：鹿杖客×鹤笔翁配对知识从 core/11 迁入本文件
-// V6.0.0 | 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
+// V6.0.1 | ~1353 bytes | 2026-10-08 搭档连线注册面接龙：鹿杖客×鹤笔翁配对知识从 core/11 迁入本文件
 export const VER = 'modules/25elite-imperial.js V6.0.0';
 
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';

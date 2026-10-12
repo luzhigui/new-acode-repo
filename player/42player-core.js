@@ -1,7 +1,6 @@
 // V6.8.5 | ~38300 bytes | 2026-10-12 回合开始不绿根治：action 执行门槛由「仅认有 fx」改为「fx/store/storeAfter 任一有活」——
 //   ROUND_START 回合清场只有 store 回调、无 fx，自 9-06 播放器加 fx 过滤起被整体跳过（render/39 的清场代码静默失效），
 //   回合开始「账本随回合归零 + 镜像清空」从未执行：回合开始文本出现时格子仍挂上一回合末的灰，要等本步步末 sync 才翻绿
-// V6.8.4 | 2026-10-11 状态源唯一第二刀（老板拍板三批落地·批2）：syncStoreFromStep 删「从日志 snap 单点捞」整段补丁，改读引擎随 step 下发的 frozenValues 挂到 store 单位 _frozen——_displayDef 从此无写入
 export const VER = 'player/42player-core.js V6.8.5';
 
 import { eventBus } from '../infra/50-event-bus.js';
