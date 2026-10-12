@@ -1,4 +1,5 @@
 // tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.7.1 | 2026-10-12 箭靶乘区改档同步：targetMark 词表 selfMult→carrierMult（何太冲或搭档 ×1.3、其他队友 ×1.1）
 // V2.7.0 | 预估 44000 bytes | 2026-10-12 何太冲重做 V3 后同步 ENGINE_READ：新增 targetMark:[rounds,allyMult,selfMult]、
 //   redBlood:[thresholdPct,soloMult]（旧 chainArrow/armorPierce/kunlunCombo 已随技能删除、无登记）；顺带修 4 项旧漂移——
 //   endlessBreath 补 atkCost（V6.17.0 付费触发后漏登）、baguaArray 删 atkFloor/defGain（已改纯扣攻、源码不读）、
@@ -57,7 +58,7 @@
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 
-export const VER = 'tools/124-param-lab-glossary.js V2.7.0';
+export const VER = 'tools/124-param-lab-glossary.js V2.7.1';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -129,7 +130,7 @@ export const ENGINE_READ = {
     endlessBreath:   ['healPct', 'healAtkDiv', 'healDefDiv', 'overflowAtkDiv', 'overflowDefDiv', 'minBonus', 'atkCost'],
     baguaArray:      ['procChance', 'atkCost'],
     tenRoundFortify: ['round'],
-    targetMark:      ['rounds', 'allyMult', 'selfMult'],
+    targetMark:      ['rounds', 'allyMult', 'carrierMult'],
     redBlood:        ['thresholdPct', 'soloMult'],
     qianKun:         ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],

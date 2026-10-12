@@ -1,12 +1,13 @@
 // fx/88fx-trigger.js
+// V6.1.4 | 2026-10-12 箭靶标记碎裂：_triggerFX 补第 12 参 markBurst——命中帧（伤害弹幕 1100ms 之前）播靶子碎裂 showMarkBurst
 // V6.1.3 | 2026-09-24 被闪避优先于职业分流：远程与近战同款「冲过去被挡回」，不再演成射偏；死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
-export const VER = 'fx/88fx-trigger.js V6.1.3';
+export const VER = 'fx/88fx-trigger.js V6.1.4';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble } from './80fx-common-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showMarkBurst } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
@@ -19,7 +20,7 @@ export function shakeTarget(uid, durationMs = 350) {
 }
 
 // 统一视觉特效入口：弹幕/箭矢/飞撞/死亡
-export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
+export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole, markBurst) {
     if (GlobalStore.get('fastForwardActive')) return;
     if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
         let killTaunt = getKillTaunt(unitA);
@@ -53,6 +54,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
+                    // 2026-10-12 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
+                    if (markBurst) showMarkBurst(unitD);
                     // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
@@ -67,6 +70,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 });
             } else {
                 showMeleeCrash(unitA, unitD, () => {
+                    // 2026-10-12 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
+                    if (markBurst) showMarkBurst(unitD);
                     // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);

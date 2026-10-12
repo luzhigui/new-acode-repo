@@ -1,3 +1,6 @@
+// V6.24.0 | ~64200 bytes | 2026-10-12 何太冲三改（老板拍板）：①箭靶乘区改档——何太冲或搭档打带标目标 ×carrierMult(1.3)、其他队友 ×allyMult(1.1)；
+//   ②碎裂时机前移——消费重挂不再落日志行，改挂本击 group.data.markBurst（ATTACK 命中帧播碎裂，先于伤害弹幕）；
+//   ③红血两仪互换带 swap 载荷（双方 uid+旧位置）→ render/38 翻出「连线换位」POS_SWAP 演出；content targetMark params 同步
 // V6.23.0 | ~63700 bytes | 2026-10-12 箭靶标记改「一次性消耗」（老板：原来偏强）：任何人（同阵营）打中带标目标 → 标记当帧消耗消失，
 //   不叠层；挂标改判「攻击特效」——何太冲或其存活两仪搭档命中都可上标，两人打中（消费后）随即重挂；
 //   持续回合 3→2（当前回合+下一回合，下下一回合开始消失）；content targetMark.rounds 同步 3→2、desc 改写
@@ -15,7 +18,7 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.23.0';
+export const VER = 'modules/26elite-sixsects.js V6.24.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -884,10 +887,13 @@ export function createHeTaichongComponent() {
                 }
                 const t = data.target;
                 if (!t || !t.state || !(t.state._heMarkRounds > 0)) return;
-                const isSelf = unit.uid === he.uid;
-                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: isSelf ? mark.selfMult : mark.allyMult, source: he, label: '箭靶标记' });
+                // 2026-10-12 乘区改档（老板拍板）：何太冲「或」其搭档打带标目标 ×carrierMult(1.3)、其他队友 ×allyMult(1.1)
+                const p = partnerOf(he);
+                const isCarrier = unit.uid === he.uid || !!(p && unit.uid === p.uid);
+                const mult = isCarrier ? mark.carrierMult : mark.allyMult;
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: mult, source: he, label: '箭靶标记' });
                 if (data.log) {
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '箭靶标记', note: `箭靶标记 ×${isSelf ? mark.selfMult : mark.allyMult}`, line: false, floatText: `🎯×${isSelf ? mark.selfMult : mark.allyMult}`, floatUid: unit.uid } });
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '箭靶标记', note: `箭靶标记 ×${mult}`, line: false, floatText: `🎯×${mult}`, floatUid: unit.uid } });
                 }
             });
 
@@ -906,9 +912,12 @@ export function createHeTaichongComponent() {
                 const isCarrier = unit.uid === he.uid || (partner && unit.uid === partner.uid);
                 if (!isCarrier) return;
                 t.state._heMarkRounds = mark.rounds;
-                if (data.log) {
-                    // 新挂：整行报幕；消费后重挂：只飘「🎯」小破碎（表现性，不刷屏文本）
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: consumed ? `🎯 ${unit.name} 重新标记 ${t.name}` : `🎯 ${unit.name} 标记 ${t.name}`, line: !consumed, floatText: '🎯', floatUid: t.uid } });
+                // 2026-10-12 碎裂时机前移（老板拍板）：消费后重挂的「碎裂」原先落日志行 → 排在整组文本之后、永远最后出来；
+                //   改挂本击攻击组标记 markBurst——由 ATTACK 演出在命中帧（伤害弹幕之前）播靶子碎裂；新挂照旧整行报幕。
+                if (consumed) {
+                    if (data.group && data.group.data) data.group.data.markBurst = true;
+                } else if (data.log) {
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: `🎯 ${unit.name} 标记 ${t.name}`, floatText: '🎯', floatUid: t.uid } });
                 }
             });
 
@@ -948,12 +957,13 @@ export function createHeTaichongComponent() {
                 if (partner && !partnerRed) {
                     // ① 仅一方红血 → 两仪互换（职业 + 位置，各叠一套对方职业加成）
                     const myRole = subject.role, hisRole = partner.role;
+                    const myPos = subject.pos, hisPos = partner.pos;   // 2026-10-12 连线换位特效：旧位置先存（swap 一走就没了）
                     subject.state._redBloodUsed = true;
                     partner.state._redBloodUsed = true;
                     swapUnitPositions(subject, partner, outLog);
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
                     switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid } });
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos } } });
                 } else if (subject.uid === he.uid) {
                     // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
                     soloRedBlood(he, outLog);

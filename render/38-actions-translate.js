@@ -1,4 +1,6 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
+// V1.3.0 | ~34500 bytes | 2026-10-12 何太冲三改跟进：①translateSkillAnnounce 支持 swap 载荷——返回 [POS_SWAP(连线换位, beforeText), SKILL_FLOAT(afterText)]（数组由 translateFactsToStageActions 展平）；
+//          ②ATTACK 动作透传 markBurst（本击消费 🎯 的靶子碎裂由 fx/88 在命中帧播，先于伤害弹幕）
 // V1.2.0 | ~34200 bytes | 2026-10-11 何太冲显性化：SKILL_ANNOUNCE 增翻译器 translateSkillAnnounce（带 floatText/floatUid 时产 SKILL_FLOAT 头顶飘字，否则 null=只落战报行）
 // V1.1.9 | ~33500 bytes | 2026-10-07 飞行再生飘字改走 afterText 通道（不再依赖锚文本与正文逐字匹配——该链 10-06 空格案已静默断过一次，今日机器复跑 16/16 信号全发仍不飘，锚点通道结构性扬弃；与生生不息同通道）
 // V1.1.8 | ~33100 bytes | 2026-10-02 胖远桥·莽撞补飘字：ATTACK fact 的 pangAtkGain（被攻击加攻）→ STAT_CHANGE(atk) 飘「⚔+N」（此前只有金色战报行）
@@ -10,7 +12,7 @@
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.2.0';
+export const VER = 'render/38-actions-translate.js V1.3.0';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -470,10 +472,30 @@ function translateFact(entry, index) {
     return translator ? translator(data, index) : null;
 }
 
-// 何太冲技能飘字：破甲箭（🛡-N%）飘在目标格、昆仑合击（🎯×N）飘在何太冲格。
-//   带 floatText+floatUid 才产动作；连环箭无飘字（沿用本击攻击闪烁）→ 返回 null，只落报幕行。
+// 何太冲技能飘字/演出：箭靶标记（🎯×N）飘在出手者格；红血两仪互换带 swap 载荷 → 先翻连线换位 POS_SWAP。
+//   带 floatText+floatUid 才产 SKILL_FLOAT；无浮字的报幕返回 null，只落战报行。
 function translateSkillAnnounce(data, index) {
-    if (!data || !data.floatText || data.floatUid == null) return null;
+    if (!data) return null;
+    // 2026-10-12 两仪互换（红血）：带 swap 载荷的报幕先翻出一条「连线换位」POS_SWAP（beforeText——它挂在
+    //   被击前 BEFORE_DAMAGE_APPLY，事实序在本击攻击组之前，正好先播换位再挨打）；☯ 飘字照旧 afterText。
+    //   返回数组由 translateFactsToStageActions 展平。
+    if (data.swap && data.swap.aUid != null && data.swap.bUid != null) {
+        const acts = [{
+            kind: STAGE_ACTION_TYPES.POS_SWAP,
+            actorUid: data.swap.aUid,
+            targetUid: data.swap.bUid,
+            oldPosA: data.swap.posA,
+            oldPosB: data.swap.posB,
+            connectLine: true,
+            factIndex: index,
+            timing: 'beforeText'
+        }];
+        if (data.floatText && data.floatUid != null) {
+            acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
+        }
+        return acts;
+    }
+    if (!data.floatText || data.floatUid == null) return null;
     return {
         kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
         targetUid: data.floatUid,
@@ -517,7 +539,9 @@ function makeAttackAction(data, index) {
         miejueLeech: data.miejueLeech ?? 0,
         // 2026-09-26 胖远桥：两技能演出标记（由 modules/26 写进本击 fact），render/39 出手帧据此发信号
         pangTaunt: data.pangTaunt ?? false,
-        pangClumsy: data.pangClumsy ?? false
+        pangClumsy: data.pangClumsy ?? false,
+        // 2026-10-12 箭靶标记碎裂：本击消费了 🎯 时由 modules/26 写进本击 fact → 命中帧（伤害弹幕之前）播碎裂
+        markBurst: data.markBurst ?? false
     };
 
     // 从 attack fact 的 entries 提取 afterText 特效，靠 e.type/e.factType 区分：溅射 / 白骨爪 / 乾坤飘字 / 死亡画笔
