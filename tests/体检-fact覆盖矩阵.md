@@ -260,7 +260,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 > 3. **rules-replay 报 1 例真实失败并已定根因（主代码缺陷，非体检误报）**：`嗜血狂刀吸血(回归)` rule151 seed=18 stage=2「吸血量 +0」。探针实证：该例 **isBrother=false（分支 1）**，`dmg>0` 守卫通过，但 `Math.floor(dmg×0.8)=0`（**dmg=1 时 floor(0.8)=0**）仍登记 ⇒ 战报多一行「吸血+0」噪声。rule151 注释原判"+0 只来自分支 2 dmg=0"不完整——分支 1 低伤害同样产 +0（r13-r15 大量出现：雄狮/谢逊 dmg=1 频繁）。**修法见下方主代码转交**（分支 1 push 前加 `leechVal > 0` 守卫，语义无损；分支 2 的 dmg=0 问题规则注释已述、同批可修）。
 > 4. **本轮三条契约均未提交**：工作区被并行会话第 80 轮（BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三条即时治疗契约，V3.0.6）占用中（其 22:46 仍在跑红线收尾），为避免提交撞车，本批契约留在工作区（已验证 EXIT=0），待其收尾后随下一笔 tests 提交一并落库。迭代日志第 80 轮章节亦留待并行会话写毕再补第 81 轮，避免锚点冲突。
 
-### 主代码改动 START（core/04buff-system.js L104-108，submitBloodthirstDeclaration 分支 1）=====
+===== 主代码改动 START（core/04buff-system.js L104-108，submitBloodthirstDeclaration 分支 1）=====
 // 现状（dmg>0 但 dmg=1 时 floor(1×0.8)=0 ⇒ 登记「吸血+0」噪声行）：
 //     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
 //         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
@@ -276,3 +276,34 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 ===== 主代码改动 END =====
 
 说明：`leechRatio=0.8`（content L514），dmg=1 时 floor 得 0；吸 0 血 = 不吸血，加 `>0` 守卫后 rule151 判据 1 恢复绿（当前 62 pass/1 fail）。分支 2（L114-117，小昭·弟永久海克斯、无 dmg 守卫）建议同批处理：把 `const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);` 后的 push 也加 `if (leechVal > 0)`（分支 2 的 push 是单行 `data.declarations.push({...})`，把整行包进 if 即可）。
+
+> ✅ **第 80 轮已核销**：主代码 `core/04buff-system.js` V6.3.6（commit `c5fca17`）已落地双分支 `leechVal>0` 守卫 + 热血奋战/飞行再生记账——rule151 复跑 **pass=61 fail=0**，BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三契约转严格态（168/394/531 · 偏差 0）。
+
+---
+
+## 第 81 轮更新（2026-10-12 深夜 · 宋青书爪系 + 小昭蛛袭 4 契约落地 · WARRIOR_EXECUTE 重分类）
+
+> 1. **SPIDER_STRIKE 契约已写**（test-only，`stat-decl-vs-actual-check.mjs` V3.0.7）：小昭蛛袭（蛛落落地打击），`modules/20` L203-212 直推 fact，`data.totalDmg = penetrationDmg + extraDmg`，同函数 `applyStatChange(target,'hp',-totalDmg)` 即时扣血。`dir=-1`、`group='spiderStrike'`、读 `data.totalDmg`（>0 守卫）。验证：临时补 `modules/20` 记账 → 激活态严格比对 **42/42 偏差 0**；翻倍记账 → **命中 42、EXIT=1**（明细"多加 X"精确）。已回滚，当前**警告态（声明 41 条）**，主代码转交见下方 START/END。
+> 2. **CLAW_HIT 契约已写并已激活**：九阴白骨爪链式多爪（CLAW_CHAIN），fact 经 `core/10` L294-295 以嵌套子 fact 落进攻击组 entries（递归扫）。读 **回填后的 `data.dmg`**（core/16 L263，减伤后实际落地值——不用 `designedDmg`，那是减伤前设计值，会被小昭·姊乾坤衍生 reduce 拉开）。记账点在 **core/16 CLAW_CHAIN handler 应用点**（每次应用一条 ⇒ 双应用可被抓）。激活态 **71 个比对条目 / 覆盖 316 条声明 / 偏差 0**（316= hits 数，71=按单位聚合条目，平均 4.4 爪/链，**非缺口**）；咬牙翻倍 → 命中 71、EXIT=1。
+> 3. **KUAI_LE_HEAL 契约已写并已激活**：快乐回血（周芷若快乐层数结算），`modules/26` L627 推 `ROUND_STAT_GRANT{field:'hp',delta:totalHeal}` 声明 + L635 直推 `data.heal`。`dir=+1` mirror NINE_YANG_HEAL。激活态 **80/80 偏差 0**；咬牙翻倍 → 命中 80。
+> 4. **CLAW_HEAL 契约已写并已激活**：爪击回血（宋青书吸血段），`modules/26` L719 推 `HEAL{value:totalHeal, source:song}` 声明，factData 仅 `{totalHeal, unitUid}`（**无 unitName**）⇒ 走 **uid 精确归因**（主循环 L1413-1417 支持，命中明细显示 `null.hp` 即此因，功能正确）。激活态 **27/偏差 0**（28 声明 vs 27 比对：1 条为宋青书当场阵亡，HEAL handler `!source.alive` 跳过、无记账无比对，合理损耗）；咬牙翻倍 → 命中 27。
+> 5. **⚠ 并行会话全量提交扫入事件**：上述三条主代码记账条目（core/16 + modules/26 两处）在本轮临时验证期间被并行会话的"工作区全量入库"提交 `8544c03`（23:24）扫入 HEAD——**内容正是转交的记账条目（值正确、group 正确），三契约由此直接转激活态**；但注释仍带着"【临时验证用，验证后回滚】"字样（ cosmetic 问题，建议主代码侧找机会清一下措辞，见下方可选清理）。modules/20 的 SPIDER_STRIKE 记账**未**被扫入（本轮已回滚），仍是待转交状态。
+> 6. **WARRIOR_EXECUTE 重分类为纯事件**：读码确认其 factData 仅 `{unitName, targetName, unitUid, targetUid}`（core/03 L260），**无任何数值字段**——斩杀伤害量不在 fact 里（EXECUTE 声明本身也不带 value），是事件标记。从「量化候选」移出。
+> 7. **量化候选覆盖进度**：24 个候选中已落地 **13 条契约**（XUAN_MING_DOT / NINE_YANG_HEAL / PHANTOM_DISGUISE_HEAL / WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL，其中 12 条已激活、SPIDER_STRIKE 警告态待转交）；重分类纯事件 5 个（WARRIOR_EXECUTE / XUAN_MING_LINK_ATTACK / CLAW_EXECUTE / XING_FEN_GRANT / XING_FEN_EXTRA_ATTACK / XING_FEN_RETRY——后三个第 79 轮已判定、量化列表条目待清理）；**剩余待攻**：METEOR_SHOWER_SPLASH（伤害+减防，减防部分或已被 STAT_CHANGE 契约覆盖，下轮核）、HORSE_DESTROY（prob/roll 概率一致性，非属性增量）、pos/状态类 5 个（MIND_CONTROL_SWAP / PUSH_STUN / WIND_ASSAULT_PUSH / WIND_ASSAULT_SPLASH / ZHANG_TAUNT——位移/嘲讽无可账本化属性，需另设计检验法）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）。
+> 8. **本轮未跑全量红线外的改动**：仅 tests/ 三文件（检查器 V3.0.7 + 本矩阵 + 迭代日志）。当前红线快照（23:57）：stat-decl EXIT=0（12 契约激活偏差 0 + SPIDER_STRIKE 警告态）；static-scan EXIT=0；rules-replay **1 条失败**（`carry五号位队友加成量(回归)` pass=39 fail=1——并行会话 23:36 carry 改动 `86de191` 引入，非本轮范围，已在其收尾视野内）；baseline 5 场 winner 翻转（何太冲重做预期项，待用户拍板重录）。
+
+### 主代码改动 START（modules/20elite-skills.js，蛛落落地打击段）=====
+// import 区已含 addMod（L5），无需改 import。
+// 在 L203 `applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');` 之后加一条纯记账：
+addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', group: 'spiderStrike', op: 'add' });
+===== 主代码改动 END =====
+
+说明：`core/13 addMod` 只 push 到 `_mods['hp']` 纯记账，真实扣血仍由上方 `applyStatChange` 负责，零游戏逻辑副作用。应用后重跑红线应见 `SPIDER_STRIKE 严格比对 41 条 / 偏差 0`（激活态）。
+
+### 可选清理 START（core/16effect-handlers.js + modules/26elite-sixsects.js，注释措辞）=====
+// 8544c03 扫入的 3 条记账条目注释带着"【临时验证用，验证后回滚】"字样，建议改为正式措辞，例如：
+//   core/16 L260：// 体检记账（V6.x.x）：爪击自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按 group='clawHit' 比对「声明 dmg vs 实际扣血」
+//   modules/26 L631 后：// 体检记账（V6.x.x）：快乐回血自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按 group='kuaiLeHeal' 比对
+//   modules/26 L719 后：// 体检记账（V6.x.x）：爪击回血自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按 group='clawHeal' 比对
+// （纯注释改动，零行为影响；顺手把文件头版本号 +0.1）
+===== 主代码改动 END =====
