@@ -1,5 +1,5 @@
 // V3.0.6 | ~98800 bytes | 2026-10-12 第 80 轮：新增 BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN 三条即时治疗类契约
-//          （dir=+1；group='bloodthirstLeech'/'hotBloodHeal'/'flyerRegen'）——主代码记账条目待补（当前警告态：声明>0、账本 null 跳过，补后自动转严格）。
+//          （dir=+1；group='bloodthirstLeech'/'hotBloodHeal'/'flyerRegen'）——主代码记账已落地（core/04 V6.3.6）：三契约转严格态（60 场 168/394/531 · 偏差 0）。
 // V3.0.5 | ~88200 bytes | 2026-10-12 第 77 轮：新增 PHANTOM_DISGUISE_HEAL 契约（成昆·幻影伪装治疗，dir=+1，group='phantomDisguiseHeal'）——
 //          成昆只在 stage 6 出场，STAGES 扩 [1-6]；主代码记账条目待用户补（当前警告态）。
 //          【第 76 轮】新增 NINE_YANG_HEAL 契约（治疗类 dir=+1，group='nineYangHeal'）——用户已应用并提交（core/15 V6.6.0），激活态严格比对 369/偏差 0；
