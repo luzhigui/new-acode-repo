@@ -753,6 +753,112 @@ const CONTRACTS = [
         }
     },
     {
+        // 第 81 轮：小昭蛛袭（蛛落落地打击）——modules/20 L203-212 直推 fact（非声明通道），
+        //   data.totalDmg = penetrationDmg + extraDmg，同函数 applyStatChange(target,'hp',-totalDmg) 即时扣血。
+        //   HP 多来源 ⇒ 走 group 账本隔离（mirror HORSE_REBOUND 的 dir=-1）；主代码未补记账时为警告态。
+        //   extract 抓 data.totalDmg（>0 才计，与 REBOUND 同式的正值守卫）。
+        id: 'SPIDER_STRIKE',
+        label: '小昭蛛袭伤害',
+        group: 'spiderStrike',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.SPIDER_STRIKE) return;
+                const d = e.data;
+                if (typeof d.targetName === 'string' && typeof d.totalDmg === 'number' && d.totalDmg > 0) {
+                    out.push({ unit: d.targetName, uid: d.targetUid || null, stat: 'hp', amount: d.totalDmg });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 81 轮：九阴白骨爪爪击（CLAW_CHAIN 链式多爪）——core/16 L247-267 逐爪扣血，
+        //   fact 经 core/10 L294-295 以 {factType:CLAW_HIT, data:hit.data} 落进攻击组 entries（嵌套子 fact，须递归扫）。
+        //   data.dmg 是 core/16 L263 **回填后的实际落地值**（减伤后、1 位小数），与 addMod 记账值同源 ⇒ 干净树恒等。
+        //   ⚠️ 不用 designedDmg（那是减伤前设计值，会被小昭·姊乾坤衍生 reduce 拉开差距）。
+        id: 'CLAW_HIT',
+        label: '九阴白骨爪爪击',
+        group: 'clawHit',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.CLAW_HIT) return;
+                const d = e.data;
+                if (typeof d.targetName === 'string' && typeof d.dmg === 'number' && d.dmg > 0) {
+                    out.push({ unit: d.targetName, uid: d.targetUid || null, stat: 'hp', amount: d.dmg });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 81 轮：快乐回血（周芷若快乐层数结算）——modules/26 L627 推 ROUND_STAT_GRANT{field:'hp',delta:totalHeal}
+        //   声明通道落地治疗，fact 由同处 L635 直推 data.heal=totalHeal。dir=+1 mirror NINE_YANG_HEAL。
+        id: 'KUAI_LE_HEAL',
+        label: '快乐回血',
+        group: 'kuaiLeHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.KUAI_LE_HEAL) return;
+                const d = e.data;
+                if (typeof d.unitName === 'string' && typeof d.heal === 'number' && d.heal > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'hp', amount: d.heal });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 81 轮：爪击回血（宋青书吸血段）——modules/26 L717 推 HEAL{value:totalHeal, source:song} 声明，
+        //   factData 仅 {totalHeal, unitUid:song.uid}（**无 unitName**）⇒ 走 uid 精确归因（主循环 L1334-1338 支持）。
+        //   ⚠️ HEAL handler（core/16）按 min(value, maxHp-hp) 封顶；modules/26 模拟值用 simulatedSongHp，
+        //     若模拟与落地之间宋青书血量被别因改变 ⇒ declared≠applied 会现偏差——这正是本契约要盯的洞。
+        id: 'CLAW_HEAL',
+        label: '爪击回血',
+        group: 'clawHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.CLAW_HEAL) return;
+                const d = e.data;
+                if (typeof d.totalHeal === 'number' && d.totalHeal > 0 && d.unitUid != null) {
+                    out.push({ unit: null, uid: d.unitUid, stat: 'hp', amount: d.totalHeal });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
         // 第 53 轮（回应主代码③）：通用属性裁定 STAT_CHANGE（EFFECT_TYPES.STAT_CHANGE 声明通道）。
         //   fact（core/16 L207-216）与 addMod **同 handler、同值（decl.delta）**、group:'statChange'、ttl:'permanent' ⇒ 同一步，干净树恒等。
         //   ⚠️ delta 可正可负（atk 升 / def 降），按**带符号**声明；dir:+1 不翻转符号，
