@@ -1,7 +1,10 @@
+// V7.5.18 | ~23600 bytes | 2026-10-12 凑模板改职不再动具名角色（老板实测：何太冲第六关被改成「飞行」）：上版只守了「抽名用自身职业」，
+//   但随后的模板补职会把多出来的远程改职去补飞行（stage6 模板要 8 号位飞行）——两仪连接按职业选搭档，职业被改全乱；
+//   现在 isTagFixed（characters 表内且有 ROLES tag）单位不参与改职，缺位交给无名杂兵（仍随机，阵容变数不变）
 // V7.5.17 | ~23500 bytes | 2026-10-11 具名角色（characters 表内）填数值空位时用自身职业：tags 内匹配 ROLES，何太冲不再顶着"防战"出场；无名杂兵保持四选一随机
 // V7.5.16 | 2026-10-08 随机精英轮盘互锁补全：forceXieXun / forceXiaoZhao 也抑制轮盘（与张/韦对称）——四路 force 全=真·单精英局；正常局无 force 行为不变（基线 18 场全一致）
 // V6.5.4 | ~23400 bytes | 2026-10-03 强制小昭换人候选补排谢逊（!u.isXieXun，对齐下方站位段口径）：此前谢逊在场且无小昭时被当普通兵换掉，normalPowerOf(107) 查表抛「缺 roster.normalPower: 107」
-export const VER = 'modules/29battle-init.js V7.5.17';
+export const VER = 'modules/29battle-init.js V7.5.18';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -379,12 +382,15 @@ export function initBattleTeams(currentStage, _rng) {
             normalUnits.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
             let templateNeeds = {};
             for (let [role, poses] of Object.entries(template)) { if (role === 'random') continue; templateNeeds[role] = poses.length; }
+            // 2026-10-12 具名角色（characters 表且有 ROLES tag，如 何太冲=远程）：职业是身份，不参与下面的凑模板改职
+            const isTagFixed = (u) => !!(getGameData()?.characters?.[u.name]?.tags || []).find(t => C.ROLES.includes(t));
             for (let role of [ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.WARRIOR]) {
                 let need = templateNeeds[role] || 0;
                 let current = roleCounts[role] || 0;
                 let shortage = need - current;
                 if (shortage > 0) {
-                    let others = normalUnits.filter(u => u.role !== role && (templateNeeds[u.role] || 0) < (roleCounts[u.role] || 0));
+                    // 2026-10-12 具名角色不参与凑模板改职（V7.5.17 只守了抽名这步，会把何太冲改成飞行）——缺位留给无名杂兵
+                    let others = normalUnits.filter(u => u.role !== role && (templateNeeds[u.role] || 0) < (roleCounts[u.role] || 0) && !isTagFixed(u));
                     for (let i = 0; i < Math.min(shortage, others.length); i++) { roleCounts[others[i].role]--; others[i].role = role; roleCounts[role]++; }
                 }
             }

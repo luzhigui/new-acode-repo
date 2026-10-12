@@ -1,3 +1,5 @@
+// V6.24.1 | ~64300 bytes | 2026-10-12 消费重挂补回日志行（老板实测：被攻击者的 🎯 log 缺失）——「🎯 某人 重新标记 目标」照常落行，
+//   碎裂特效仍走命中帧 markBurst（两条并存：先碎裂演出、后文本行）
 // V6.24.0 | ~64200 bytes | 2026-10-12 何太冲三改（老板拍板）：①箭靶乘区改档——何太冲或搭档打带标目标 ×carrierMult(1.3)、其他队友 ×allyMult(1.1)；
 //   ②碎裂时机前移——消费重挂不再落日志行，改挂本击 group.data.markBurst（ATTACK 命中帧播碎裂，先于伤害弹幕）；
 //   ③红血两仪互换带 swap 载荷（双方 uid+旧位置）→ render/38 翻出「连线换位」POS_SWAP 演出；content targetMark params 同步
@@ -18,7 +20,7 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.24.0';
+export const VER = 'modules/26elite-sixsects.js V6.24.1';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -915,7 +917,9 @@ export function createHeTaichongComponent() {
                 // 2026-10-12 碎裂时机前移（老板拍板）：消费后重挂的「碎裂」原先落日志行 → 排在整组文本之后、永远最后出来；
                 //   改挂本击攻击组标记 markBurst——由 ATTACK 演出在命中帧（伤害弹幕之前）播靶子碎裂；新挂照旧整行报幕。
                 if (consumed) {
+                    // 2026-10-12 补回日志行（老板：被攻击者的 🎯 log 不能缺）：消耗→重挂 = 命中帧碎裂（markBurst 演出）+ 一行「重新标记」文本
                     if (data.group && data.group.data) data.group.data.markBurst = true;
+                    if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: `🎯 ${unit.name} 重新标记 ${t.name}` } });
                 } else if (data.log) {
                     data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: `🎯 ${unit.name} 标记 ${t.name}`, floatText: '🎯', floatUid: t.uid } });
                 }
