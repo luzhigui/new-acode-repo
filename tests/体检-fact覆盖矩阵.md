@@ -255,8 +255,8 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 
 ## 第 79 轮追加（2026-10-12 深夜 · 反弹伤害与吸血回血盲区 + 嗜血狂刀 +0 根因）
 
-> 1. **WEI_DODGE_HEAL 契约已写**（`stat-decl-vs-actual-check.mjs`）：韦一笑闪避吸血的 **hp 实际增量盲区**——WEI_HEAL 契约只盯 maxHp 账本（group weiLeech），但 `refreshMaxHp`（core/13 L233）会把 hp 同步抬升同样增量（`applyStatChange('hp', delta)`），该 hp 变更无 group 记账。契约读 `WEI_DODGE_LEECH` fact 的 **`maxHpDelta`**（不用 `data.heal`：heal 是 27 传的毛估值、floor 前，与实际 hp 增量差舍入会误报；实际 hp 增量 = delta = maxHpDelta 同源）。验证：临时补记账条目 → 严格比对 **79/79 偏差 0**；翻倍咬牙 → **命中 79、EXIT=1**；已回滚。当前警告态（声明 79）。
-> 2. **HORSE_REBOUND / FORTIFY_REBOUND 两条契约已写**：反弹伤害盲区——REBOUND handler（core/16 L189-199）对 hp 伤害无 group 记账。两个声明源共用同一 handler：小昭马形阵反弹（core/12 L387，`factData.rebound`）与张无忌反击（core/12 L397 + modules/26 L243，`factData.reboundDmg`，⚠️ 嵌套子 fact、递归扫）。`dir=-1`（声明为正伤害、hp 下降）。验证：HORSE_REBOUND 激活态 6/6 偏差 0、咬牙翻倍命中 6；FORTIFY_REBOUND 激活态 220/偏差 0（声明 264 vs 比对 220 的差 = 目标已死被 handler `continue` 跳过的合理损耗）；已回滚。当前均警告态（6 / 264）。
+> 1. **WEI_DODGE_HEAL 契约已写**（`stat-decl-vs-actual-check.mjs`）：韦一笑闪避吸血的 **hp 实际增量盲区**——WEI_HEAL 契约只盯 maxHp 账本（group weiLeech），但 `refreshMaxHp`（core/13 L233）会把 hp 同步抬升同样增量（`applyStatChange('hp', delta)`），该 hp 变更无 group 记账。契约读 `WEI_DODGE_LEECH` fact 的 **`maxHpDelta`**（不用 `data.heal`：heal 是 27 传的毛估值、floor 前，与实际 hp 增量差舍入会误报；实际 hp 增量 = delta = maxHpDelta 同源）。验证：临时补记账条目 → 严格比对 **79/79 偏差 0**；翻倍咬牙 → **命中 79、EXIT=1**；已回滚。当时警告态（声明 79）→ **已落地转严格态（第 83 轮，`core/12` V6.3.10 记账 group weiDodgeHeal：声明 71 · 严格 71 · 偏差 0）**。
+> 2. **HORSE_REBOUND / FORTIFY_REBOUND 两条契约已写**：反弹伤害盲区——REBOUND handler（core/16 L189-199）对 hp 伤害无 group 记账。两个声明源共用同一 handler：小昭马形阵反弹（core/12 L387，`factData.rebound`）与张无忌反击（core/12 L397 + modules/26 L243，`factData.reboundDmg`，⚠️ 嵌套子 fact、递归扫）。`dir=-1`（声明为正伤害、hp 下降）。验证：HORSE_REBOUND 激活态 6/6 偏差 0、咬牙翻倍命中 6；FORTIFY_REBOUND 激活态 220/偏差 0（声明 264 vs 比对 220 的差 = 目标已死被 handler `continue` 跳过的合理损耗）；已回滚。当时均警告态（6 / 264）→ **已落地转严格态（第 83 轮，`core/16` V6.1.0 REBOUND handler 按 decl.factType 分组记账 horseRebound/fortifyRebound：HORSE 6/6、FORTIFY 227/202 · 偏差 0，差额=目标离场损耗）**。
 > 3. **rules-replay 报 1 例真实失败并已定根因（主代码缺陷，非体检误报）**：`嗜血狂刀吸血(回归)` rule151 seed=18 stage=2「吸血量 +0」。探针实证：该例 **isBrother=false（分支 1）**，`dmg>0` 守卫通过，但 `Math.floor(dmg×0.8)=0`（**dmg=1 时 floor(0.8)=0**）仍登记 ⇒ 战报多一行「吸血+0」噪声。rule151 注释原判"+0 只来自分支 2 dmg=0"不完整——分支 1 低伤害同样产 +0（r13-r15 大量出现：雄狮/谢逊 dmg=1 频繁）。**修法见下方主代码转交**（分支 1 push 前加 `leechVal > 0` 守卫，语义无损；分支 2 的 dmg=0 问题规则注释已述、同批可修）。
 > 4. **本轮三条契约均未提交**：工作区被并行会话第 80 轮（BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三条即时治疗契约，V3.0.6）占用中（其 22:46 仍在跑红线收尾），为避免提交撞车，本批契约留在工作区（已验证 EXIT=0），待其收尾后随下一笔 tests 提交一并落库。迭代日志第 80 轮章节亦留待并行会话写毕再补第 81 轮，避免锚点冲突。
 
@@ -289,7 +289,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 > 4. **CLAW_HEAL 契约已写并已激活**：爪击回血（宋青书吸血段），`modules/26` L719 推 `HEAL{value:totalHeal, source:song}` 声明，factData 仅 `{totalHeal, unitUid}`（**无 unitName**）⇒ 走 **uid 精确归因**（主循环 L1413-1417 支持，命中明细显示 `null.hp` 即此因，功能正确）。激活态 **27/偏差 0**（28 声明 vs 27 比对：1 条为宋青书当场阵亡，HEAL handler `!source.alive` 跳过、无记账无比对，合理损耗）；咬牙翻倍 → 命中 27。
 > 5. **⚠ 并行会话全量提交扫入事件**：上述三条主代码记账条目（core/16 + modules/26 两处）在本轮临时验证期间被并行会话的"工作区全量入库"提交 `8544c03`（23:24）扫入 HEAD——**内容正是转交的记账条目（值正确、group 正确），三契约由此直接转激活态**；但注释仍带着"【临时验证用，验证后回滚】"字样（ cosmetic 问题，建议主代码侧找机会清一下措辞，见下方可选清理）。modules/20 的 SPIDER_STRIKE 记账当时**未**被扫入（本轮已回滚）→ **后于 2026-10-13 经正式转交落地（`modules/20` V6.1.1）**，四契约现全部激活。
 > 6. **WARRIOR_EXECUTE 重分类为纯事件**：读码确认其 factData 仅 `{unitName, targetName, unitUid, targetUid}`（core/03 L260），**无任何数值字段**——斩杀伤害量不在 fact 里（EXECUTE 声明本身也不带 value），是事件标记。从「量化候选」移出。
-> 7. **量化候选覆盖进度**：24 个候选中已落地 **13 条契约**（XUAN_MING_DOT / NINE_YANG_HEAL / PHANTOM_DISGUISE_HEAL / WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL，其中 **13 条全部已激活**（SPIDER_STRIKE 于 2026-10-13 随 `modules/20` V6.1.1 落地）；重分类纯事件 5 个（WARRIOR_EXECUTE / XUAN_MING_LINK_ATTACK / CLAW_EXECUTE / XING_FEN_GRANT / XING_FEN_EXTRA_ATTACK / XING_FEN_RETRY——后三个第 79 轮已判定、量化列表条目待清理）；**剩余待攻**：METEOR_SHOWER_SPLASH（伤害+减防，减防部分或已被 STAT_CHANGE 契约覆盖，下轮核）、HORSE_DESTROY（prob/roll 概率一致性，非属性增量）、pos/状态类 5 个（MIND_CONTROL_SWAP / PUSH_STUN / WIND_ASSAULT_PUSH / WIND_ASSAULT_SPLASH / ZHANG_TAUNT——位移/嘲讽无可账本化属性，需另设计检验法）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）。
+> 7. **量化候选覆盖进度**：24 个候选中已落地 **13 条契约**（XUAN_MING_DOT / NINE_YANG_HEAL / PHANTOM_DISGUISE_HEAL / WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL，其中 **10 条当时已激活**（SPIDER_STRIKE 于 2026-10-13 随 `modules/20` V6.1.1 落地）；**【第 83 轮订正】**原写「13 条全部已激活」不实——WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND 三条当时仍是警告态（账本空、严格比对 0 非真比对），至第 83 轮记账落地才转严格；重分类纯事件 5 个（WARRIOR_EXECUTE / XUAN_MING_LINK_ATTACK / CLAW_EXECUTE / XING_FEN_GRANT / XING_FEN_EXTRA_ATTACK / XING_FEN_RETRY——后三个第 79 轮已判定、量化列表条目待清理）；**剩余待攻**：METEOR_SHOWER_SPLASH（伤害+减防，减防部分或已被 STAT_CHANGE 契约覆盖，下轮核）、HORSE_DESTROY（prob/roll 概率一致性，非属性增量）、pos/状态类 5 个（MIND_CONTROL_SWAP / PUSH_STUN / WIND_ASSAULT_PUSH / WIND_ASSAULT_SPLASH / ZHANG_TAUNT——位移/嘲讽无可账本化属性，需另设计检验法）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）。
 > 8. **本轮未跑全量红线外的改动**：仅 tests/ 三文件（检查器 V3.0.7 + 本矩阵 + 迭代日志）。当前红线快照（23:57）：stat-decl EXIT=0（12 契约激活偏差 0 + SPIDER_STRIKE 警告态）；static-scan EXIT=0；rules-replay **1 条失败**（`carry五号位队友加成量(回归)` pass=39 fail=1——并行会话 23:36 carry 改动 `86de191` 引入，非本轮范围，已在其收尾视野内）；baseline 5 场 winner 翻转（何太冲重做预期项，待用户拍板重录）。
 
 ### ===== 主代码改动 START（modules/20elite-skills.js，蛛落落地打击段）=====
@@ -315,5 +315,14 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >    只会更松：actual ≤ cap/2 恒成立；信号3 min 更保守；信号1 同名仍跳过）。咬牙：引擎侧 atk 比例 ×3 ⇒
 >    rule95 16 处命中 ⇒ 回滚干净。另修 `mutation-teeth` A28 锚点（主代码摄魂改 `value: ratio` 后旧锚点
 >    0 匹配 = 变异静默失效假阴性），V2.9.3 重对准后 44/44 锚点有效并重跑全量。红线：rules-replay（含
->    DEAD=1）全绿 0 fail；static-scan / smoke / stat-decl（13 契约全激活）EXIT=0；baseline 仍 5 场 winner
+>    DEAD=1）全绿 0 fail；static-scan / smoke / stat-decl（**【第 83 轮订正】**原写「13 契约全激活」不实：WEI_DODGE_HEAL / HORSE_REBOUND /
+>    FORTIFY_REBOUND 三条当时为警告态，非全激活）EXIT=0；baseline 仍 5 场 winner
 >    翻转（何太冲三改，待用户拍板重录）。
+
+> 10. **第 83 轮（2026-10-13）——第 79-82 轮综合审核 + 三契约记账落地收尾（主代码授权直改）**：
+>    审核实证面扎实（static-scan 0、teeth 44/44、38 契约偏差 0、10 条 HP 契约判据成立），揪出 1 中（假绿
+>    措辞：三条警告态被记作「全部激活偏差 0」）+3 低（临时注释未清 / SPIDER_STRIKE 缺 0 值守卫可选 / 探针
+>    残留在途）+1 挂起（baseline 5 场 winner 翻转待拍板）。落地：`core/16` V6.1.0 REBOUND 分组记账
+>    （horseRebound/fortifyRebound）+ `core/12` V6.3.10 WEI_HEAL 补 hp 记账（weiDodgeHeal）+ 检查器
+>    V3.0.8「声明>0 严格比对 0」⚠ 显式行。三契约**警告态→严格态**：WEI_DODGE_HEAL 71/71、HORSE_REBOUND 6/6、
+>    FORTIFY_REBOUND 227/202 · 偏差全 0；rules-replay 0 fail / smoke 全过 / baseline 无新增翻转。
