@@ -1,3 +1,8 @@
+// V2.9.3 | 2026-10-13 第 82 轮：A28 锚点重校准 —— 主代码摄魂再平衡（V6.3.3 逆风系数 perUnitBonus、
+//   V6.3.2/6.3.3 降防线性叠加）后，core/04 applySoulDrain 的 atk addMod 由直读
+//   `CONFIG.BUFFS.soulDrain.atkBonus` 改为先算 `ratio = cfg.atkBonus - cfg.perUnitBonus * extra`
+//   再挂 `value: ratio`，旧锚点 0 匹配 ⇒ 变异静默失效（树=干净树，"规则没牙"是假阴性）。
+//   新锚点对准现行 `value: ratio`，翻倍语义不变（实际侧 ×2、fact ratio 不动）。
 // V2.9.2 | 2026-10-11 第 71 轮：新增 A28 摄魂（SOUL_DRAIN）牙齿 —— 主代码 2424621 补发 SOUL_DRAIN_APPLY fact、
 //   契约升严格后，mirror A25 把 core/04 addMod 乘率翻倍（fact ratio 保持不动）⇒ 对照器应命中（ATTR 类"对照器兜住"）。
 // V2.9.0 | 2026-10-08 第 59 轮：给 harness 加**新鲜度守卫**（第 5 次栽在 harness，且是最隐蔽的一次）。
@@ -348,8 +353,8 @@ const MUTATIONS = [
     //   ATTR 类变异规则侧无责，预期判定 =「规则无牙·对照器兜住」。
     { id: 'A28', kind: 'ATTR', desc: '摄魂乘率翻倍（SOUL_DRAIN 严格 mul 判据）',
       file: 'core/04buff-system.js',
-      from: "addMod(unit, 'atk', { source: '摄魂', value: CONFIG.BUFFS.soulDrain.atkBonus, ttl: 'round', op: 'mul', group: 'soulDrain' });",
-      to:   "addMod(unit, 'atk', { source: '摄魂', value: CONFIG.BUFFS.soulDrain.atkBonus * 2, ttl: 'round', op: 'mul', group: 'soulDrain' });" },
+      from: "addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });",
+      to:   "addMod(unit, 'atk', { source: '摄魂', value: ratio * 2, ttl: 'round', op: 'mul', group: 'soulDrain' });" },
 ];
 
 function toPosix(p) {
