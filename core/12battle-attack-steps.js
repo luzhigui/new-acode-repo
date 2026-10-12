@@ -1,5 +1,6 @@
-// V6.3.9 | ~29600 bytes | 2026-10-02 韦一笑闪避反击吸血补发独立 WEI_DODGE_LEECH 数值声明 fact（heal/newMaxHp/maxHpDelta，纯账本不进画面；演出仍走 dodgeFact.weiHeal）
-export const VER = 'core/12battle-attack-steps.js V6.3.9';
+// V6.3.10 | ~31150 bytes | 2026-10-13 韦一笑闪避吸血补 hp 记账（体检转交）：resolveDodgeEffects WEI_HEAL 分支 refreshMaxHp 后补 addMod group:'weiDodgeHeal'
+//           （value=delta 与 hp 抬升同源，纯记账零行为副作用）；WEI_DODGE_HEAL 契约警告态→严格态
+export const VER = 'core/12battle-attack-steps.js V6.3.10';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -588,6 +589,8 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             if (delta > 0) {
                 addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
                 refreshMaxHp(target, null, '韦一笑吸血上限提升');
+                // 纯记账（体检对照 weiDodgeHeal group，2026-10-13）：hp 抬升与 refreshMaxHp 同源（delta），只 push _mods['hp']，零行为副作用
+                addMod(target, 'hp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiDodgeHeal', op: 'add' });
             }
             recordCombatStat(target, target, 'leech', {
                 actualAmount: heal
