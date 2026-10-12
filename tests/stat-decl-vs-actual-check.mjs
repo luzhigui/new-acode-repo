@@ -1,3 +1,8 @@
+// V3.0.7 | ~107000 bytes | 2026-10-12 第 81 轮：新增 SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL 四条 HP 类契约——
+//          SPIDER_STRIKE（小昭蛛袭，dir=-1，group='spiderStrike'，读 data.totalDmg；主代码 modules/20 记账待补，警告态 41 条）；
+//          CLAW_HIT（九阴白骨爪，dir=-1，group='clawHit'，读回填后 data.dmg；记账在 core/16 CLAW_CHAIN handler 应用点）；
+//          KUAI_LE_HEAL（快乐回血，dir=+1，group='kuaiLeHeal'）/ CLAW_HEAL（爪击回血，dir=+1，group='clawHeal'，uid-only 归因）。
+//          后三者主代码记账已随 8544c03 全量提交进 HEAD ⇒ 激活态（71/80/27 · 偏差 0）；四条均咬牙验证通过（翻倍记账即命中）。
 // V3.0.6 | ~98800 bytes | 2026-10-12 第 80 轮：新增 BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN 三条即时治疗类契约
 //          （dir=+1；group='bloodthirstLeech'/'hotBloodHeal'/'flyerRegen'）——主代码记账已落地（core/04 V6.3.6）：三契约转严格态（60 场 168/394/531 · 偏差 0）。
 // V3.0.5 | ~88200 bytes | 2026-10-12 第 77 轮：新增 PHANTOM_DISGUISE_HEAL 契约（成昆·幻影伪装治疗，dir=+1，group='phantomDisguiseHeal'）——
