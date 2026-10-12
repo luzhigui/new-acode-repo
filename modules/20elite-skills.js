@@ -1,4 +1,4 @@
-// V6.1.1 | ~14050 bytes | 2026-10-13 蛛袭伤害补 hp 记账（第 81 轮体检转交）：applyStatChange 后 addMod group:'spiderStrike'（纯记账，供数值对照器隔离自身贡献；SPIDER_STRIKE 契约警告态→严格态）
+// V6.1.1 | ~13730 bytes | 2026-10-13 蛛袭伤害补 hp 记账（第 81 轮体检转交）：applyStatChange 后 addMod group:'spiderStrike'（纯记账，供数值对照器隔离自身贡献；SPIDER_STRIKE 契约警告态→严格态）
 export const VER = 'modules/20elite-skills.js V6.1.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
