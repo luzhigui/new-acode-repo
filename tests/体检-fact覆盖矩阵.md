@@ -143,7 +143,6 @@
 - `XING_FEN_GRANT` (`xingFenGrant`)
 - `XING_FEN_RETRY` (`xingFenRetry`)
 - `XUAN_MING_DOT` (`xuanmingDot`)
-- `XUAN_MING_LINK_ATTACK` (`xuanmingLinkAttack`)
 - `XUAN_MING_POISONED` (`xuanmingPoisoned`)
 - `ZHANG_TAUNT` (`zhangTaunt`)
 
@@ -161,10 +160,10 @@
 
 | 分组 | 候选（emit 源不在用户 WIP 者打✓） | 加牙可行性 |
 |------|----------------------------------|-----------|
-| **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal → 记账已落地 · 严格态 303/303 偏差 0，见第 75 轮) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
+| **HP 治疗/吸血**（贡献进 `_mods['hp']` 隔离，mirror WEI_LEECH） | NINE_YANG_HEAL✓(core/15:281,data.heal → 记账已落地 · 严格态 303/303 偏差 0，见第 75 轮) · PHANTOM_DISGUISE_HEAL✓(core/15:328,data.heal → 记账待补 · 警告态 109 条，见第 77 轮) · HOT_BLOOD_HEAL✓(core/04:129,data.leech) · BLOOD_THIRST_LEECH✓(core/04:87/98,data.leechVal) · FLYER_REGEN✓(core/04:258,data.heal) · WEI_DODGE_LEECH✓(core/12) · KUAI_LE_HEAL(modules/26·WIP暂跳) | **需主代码补 `_mods['hp']` group**；fact 已带 heal/leech 数值绝对值，但引擎即时 hp 变更、HP 多来源 → 净增量误报 |
 | **即时伤害/斩杀/溅射** | WARRIOR_EXECUTE✓(core/03) · SPIDER_STRIKE✓(modules/20) · METEOR_SHOWER_SPLASH✓(core/04,减def+splashDmg) · CLAW_EXECUTE/HEAL/HIT(modules/26·WIP) · XING_FEN_* (modules/26·WIP) | 需主代码：伤害贡献进 `_mods['hp']` 或独立伤害账本 |
 | **击退/换位**（声明位移量 vs 实际 pos 差） | PUSH_STUN✓(core/13) · WIND_ASSAULT_PUSH✓(core/13) · WIND_ASSAULT_SPLASH✓(core/04) · MIND_CONTROL_SWAP✓(core/14) · HORSE_DESTROY✓(core/05) · HORSE_REBOUND✓(core/12) · ZHANG_TAUNT(modules/27·WIP) | 需主代码：pos 变更机制账本，或声明位移量 vs 实际 pos 差比对 |
-| **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK✓(core/15) · **XUAN_MING_DOT✓(modules/30:47 → 记账已落地 · 严格态 112/112 偏差 0，见第 75 轮)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | ✅ 已闭环（DoT 贡献进 `_mods['hp']` group 隔离） |
+| **中毒 DoT/链接** | XUAN_MING_POISONED✓(core/15:285) · XUAN_MING_LINK_ATTACK(无数值字段 {partnerName,unitName}，第 77 轮移入纯事件类) · **XUAN_MING_DOT✓(modules/30:47 → 记账已落地 · 严格态 112/112 偏差 0，见第 75 轮)** · PHANTOM_CONFUSE(core/15+modules/27·WIP) | ✅ 已闭环（DoT 贡献进 `_mods['hp']` group 隔离） |
 | **减防**（def 是账本属性，但 `STAT_CHANGE field:'def'` 走通用 group） | FORTIFY_REBOUND(core/12+modules/26·WIP) · METEOR_SHOWER_SPLASH 减防部分(core/04) | 待确认：能否用独立 group 隔离减防贡献；不能则随上组需主代码 |
 
 ### 第 74 轮更新（XUAN_MING_DOT 契约落地 + 主代码转交 concretized）
@@ -182,6 +181,14 @@
 > 3. **⚠ 根因发现（主代码潜在 bug，非契约问题）**：验证中发现 NINE_YANG_HEAL 的 `heal` 是浮点（如 15.8、17.5），追到 `core/15` L278 `heal = Math.min(Math.floor(maxHp*pct), maxHp - hp)`——`floorRes` 恒为整数，但 `unit.hp` **在战斗中是浮点**（实测 176.2 / 207.3 / …），`Math.min(整数, 浮点)` 返回浮点。即**主代码 `unit.hp` 出现了非整数**（疑似某按比例扣血/治疗路径未取整）。契约本身因 `声明 heal` 与 `addMod value=heal` **同源精确相等**仍稳健（303/偏差 0），不阻塞落地；但 hp 浮点本身建议主代码排查取整（属独立问题，见下方「需主代码配合」第二项）。
 > 4. 主代码转交（NINE_YANG_HEAL 记账条目）见 `tests/体检迭代日志.md` 第 75 轮「主代码改动 START/END」。
 > 5. **已落地（第 77 轮）**：主代码 `core/15-skill-mechanisms.js` V6.6.0 已提交 —— 重跑红线：`NINE_YANG_HEAL 声明 362 条 · 严格比对 354 条 / 偏差 0`、EXIT=0（全契约偏差 0，含 XUAN_MING_DOT 109/109）。
+
+### 第 77 轮更新（PHANTOM_DISGUISE_HEAL 契约落地 + XUAN_MING_LINK_ATTACK 重分类）
+
+> 1. **PHANTOM_DISGUISE_HEAL 契约已写**（test-only，`stat-decl-vs-actual-check.mjs` V3.0.5）：成昆·幻影伪装治疗，`group='phantomDisguiseHeal'`、`stat='hp'`、`dir=+1`，extract 抓 `data.heal`（floor 整数）。
+> 2. **STAGES 扩 [1-6]**：成昆只在 **stage 6** 出场（content L547），否则契约零触发致命（重蹈 XUAN_MING_DOT 需 stage 5）。
+> 3. **验证**（临时补 `core/15` 记账条目跑、再回滚）：激活态严格比对 **106 条 / 偏差 0**；翻倍 `addMod value` → **命中 104 处、EXIT=1**。证明契约有牙、引擎正确。已回滚，当前警告态（声明 109 条）。
+> 4. **XUAN_MING_LINK_ATTACK 重分类**：读码确认其 factData 仅 `{partnerName, unitName}`（`core/15` L436），**无任何数值字段**，是纯事件通知（非伤害）——从「量化候选」移入「纯事件/文案」类，订正此前误列。
+> 5. 主代码转交（成昆幻影伪装记账条目）见 `tests/体检迭代日志.md` 第 77 轮「主代码改动 START/END」。
 
 ### 📝 纯事件/文案（37 个，接受不补契约）
 
@@ -224,6 +231,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 - `XIAO_ZHAO_HORSE` (`xiaoZhaoHorse`)
 - `XIN_HUN` (`xinHun`)
 - `XIN_HUN_DEATH` (`xinHunDeath`)
+- `XUAN_MING_LINK_ATTACK` (`xuanmingLinkAttack`) ← 第 77 轮从量化候选移入（无数值字段）
 
 ## 结论与下一步
 

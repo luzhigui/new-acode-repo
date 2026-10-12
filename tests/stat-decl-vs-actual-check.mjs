@@ -1,4 +1,8 @@
-// V3.0.4 | ~86800 bytes | 2026-10-12 第 75 轮：新增 NINE_YANG_HEAL 契约（治疗类 dir=+1，group='nineYangHeal'，mirror XUAN_MING_DOT 的 dir=-1）；
+// V3.0.5 | ~88200 bytes | 2026-10-12 第 77 轮：新增 PHANTOM_DISGUISE_HEAL 契约（成昆·幻影伪装治疗，dir=+1，group='phantomDisguiseHeal'）——
+//          成昆只在 stage 6 出场，STAGES 扩 [1-6]；主代码记账条目待用户补（当前警告态）。
+//          【第 76 轮】新增 NINE_YANG_HEAL 契约（治疗类 dir=+1，group='nineYangHeal'）——用户已应用并提交（core/15 V6.6.0），激活态严格比对 369/偏差 0；
+//          另发现主代码 unit.hp 浮点根因（core/15 L278 Math.min 浮点项），契约因同源精确相等仍稳健，建议主代码独立排查 hp 取整。
+//          【第 74/71 轮】BREAK_DEF 契约 extract 加 factType 显式校验，修形状碰撞假偏差——
 //          小昭·姊「乾坤衍生」QIAN_KUN_DERIVED（modules/27 L303/354：data.reduce 是减伤值、无 attackerName）被
 //          `typeof data.reduce === 'number'` 形状判据吞成破防声明（seed=18 stage=2 r13 声明 10 = 破防 2+2 + 乾坤 3+3，
 //          账本 breakDef 仅 -4 ⇒ 干净树假偏差 1，即第 71 轮遗留项）。修后 40 局：声明 581 条 · 严格比对 544 条 / 偏差 0；
@@ -114,7 +118,7 @@ globalThis.self = globalThis;
 //   —— 扩展后，原 5 处「未观测到影响」覆盖缺口中 4 处（A5/A7/A9/A12）转为真实牙口判定；
 //      A13 小昭·妹永久carry 需 bro 拿到永久 carry 海克斯且队伍无 carry buff（稀有条件），单独搜索仍零触发 → 记结构性稀有条件。
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
-const STAGES = [1, 2, 3, 4, 5]; // 第 74 轮加 5：stage 5 含鹿杖客/玄冥中毒（XUAN_MING_DOT 契约专属形态，否则该契约零触发）
+const STAGES = [1, 2, 3, 4, 5, 6]; // 第 74 轮加 5：stage 5 含鹿杖客/玄冥中毒（XUAN_MING_DOT 契约专属形态）；第 77 轮加 6：stage 6 含成昆·幻影伪装（PHANTOM_DISGUISE_HEAL 契约专属形态）
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 // 第 47 轮：以下 group 的 fact 与 addMod 在**同一 handler、用同一变量/同一值**发射，无跨步错位
@@ -854,7 +858,7 @@ const CONTRACTS = [
     },
     {
         id: 'PHANTOM_DISGUISE_HEAL',
-        label: '小昭幻容治疗',
+        label: '成昆幻影伪装治疗',
         group: 'phantomDisguiseHeal',
         dir: +1,
         extract(stepLog) {
