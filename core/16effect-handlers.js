@@ -1,6 +1,6 @@
-// V6.0.9 | ~15900 bytes | 2026-10-11 爪击落地值源头收敛 1 位小数（浮点尾巴 0.7999999999999998 不再进 fact）、
-//          fact 另存 data.designedDmg 保留设计值（体检还原「设计下限」守护用）；承接 V6.0.8 先广播后扣血
-export const VER = 'core/16effect-handlers.js V6.0.9';
+// V6.1.0 | ~17100 bytes | 2026-10-13 反弹伤害补 hp 记账（体检转交）：REBOUND handler 按 decl.factType 分组纯记账
+//          （group horseRebound/fortifyRebound，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
+export const VER = 'core/16effect-handlers.js V6.1.0';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -191,6 +191,10 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
+        // 纯记账（体检对照 horseRebound/fortifyRebound group，2026-10-13）：只 push _mods['hp']，零行为副作用；
+        //   按 decl.factType 分组（马形阵 HORSE_REBOUND / 张无忌反击 FORTIFY_REBOUND），无 factType 的闪避反击不进契约、不记账
+        const reboundGroup = decl.factType === FACT_TYPES.HORSE_REBOUND ? 'horseRebound' : decl.factType === FACT_TYPES.FORTIFY_REBOUND ? 'fortifyRebound' : null;
+        if (reboundGroup) addMod(decl.target, 'hp', { source: '反弹', value: -(decl.value || 0), ttl: 'permanent', group: reboundGroup, op: 'add' });
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
         if (decl.hasSister && decl.source && decl.source.alive) {
             applyStatChange(decl.source, 'hp', decl.value || 0, null, '反弹回复');
