@@ -1,3 +1,9 @@
+// V3.1.0 | ~111900 bytes | 2026-10-13 第 84 轮（续）：新增 QIAN_KUN_ATK / QIAN_KUN_HEAL 两条乾坤衍生契约——
+//         QIAN_KUN_ATK（group 'qianKunDerived'，atk，dir=+1，读 factData.atkGain/atkTargetUid）：--scan-groups
+//         盲区扫描挖出该 group 268 条 atk 词条无契约盯；addMod 与 fact 同 handler 同值 ⇒ **零主代码依赖，落地即严格态**
+//         （249 条偏差 0；咬牙 atkGain×2 命中 236 EXIT=1）。QIAN_KUN_HEAL（group 'qianKunHeal'，hp，dir=+1，读
+//         data.heal/healTargetUid）：治疗走 applyStatChange 即时 hp，需主代码补记账（转交见矩阵第 84 轮节，警告态 268 条；
+//         临时记账严格 248 偏差 0、咬牙 ×2 命中 248 EXIT=1）。溅射两条（V3.0.9）已随并行会话 ac34b34 入库。
 // V3.0.9 | 2026-10-13 第 84 轮：新增 METEOR_SHOWER_SPLASH / WIND_ASSAULT_SPLASH 两条溅射伤害契约（dir=-1，
 //         group='meteorSplash'/'windSplash'，读 factData.splashDmg，targets 逐目标 uid 归因）——core/16 SPLASH
 //         handler 是两条契约共用的唯一落地口，主代码记账一行同时激活两者（转交见矩阵第 84 轮节，补前警告态）；
@@ -840,6 +846,64 @@ const CONTRACTS = [
                     for (const t of d.targets) {
                         if (t && t.uid != null) out.push({ unit: t.name || null, uid: t.uid, stat: 'hp', amount: d.splashDmg });
                     }
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 84 轮：乾坤衍生·加攻（小昭·姊，modules/27 L294/L347 addMod group 'qianKunDerived'）——
+        //   --scan-groups 盲区扫描挖出：qianKunDerived 268 条 atk 词条无任何契约盯（"改错数值也查不出"）。
+        //   fact（QIAN_KUN_DERIVED）自带 atkGain + atkTargetUid，addMod 与 fact **同 handler 同值**（都是 atkGain）
+        //   ⇒ 纯 test-side 即可严格比对，**零主代码依赖**，落地即激活。
+        //   落点：BEFORE_DAMAGE_CALC 路径经 core/12 L328 derivedEntries → core/10 L219 收入攻击组 entries；
+        //   CLAW_HIT_APPLIED 路径经 core/10 L302/L314 落 group.data.entries（均被下方递归扫覆盖）。
+        //   ⚠️ 与 BREAK_DEF 的形状碰撞史（第 71/72 轮：data.reduce 曾被误判成破防）——本契约只认
+        //   factType===QIAN_KUN_DERIVED 且显式取 atkGain 字段，不碰 reduce，不会重蹈覆辙。
+        id: 'QIAN_KUN_ATK',
+        label: '乾坤衍生加攻',
+        group: 'qianKunDerived',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.QIAN_KUN_DERIVED) return;
+                const d = e.data;
+                if (typeof d.atkGain === 'number' && d.atkGain > 0 && d.atkTargetUid != null) {
+                    out.push({ unit: d.atkTargetName || null, uid: d.atkTargetUid, stat: 'atk', amount: d.atkGain });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 84 轮：乾坤衍生·治疗（modules/27 L292/L345 applyStatChange(healTarget,'hp',heal) 即时治疗）——
+        //   与加攻同一次衍生结算：fact 带 heal + healTargetUid；HP 多来源 ⇒ 需主代码补 group 记账才能隔离比对
+        //   （转交见矩阵第 84 轮节，补前警告态）。reduce（减伤值）不在数值契约范围——它是伤害减免、
+        //   无对应属性账本，留待伤害侧检测（登记为剩余项）。
+        id: 'QIAN_KUN_HEAL',
+        label: '乾坤衍生治疗',
+        group: 'qianKunHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.QIAN_KUN_DERIVED) return;
+                const d = e.data;
+                if (typeof d.heal === 'number' && d.heal > 0 && d.healTargetUid != null) {
+                    out.push({ unit: d.healTargetName || null, uid: d.healTargetUid, stat: 'hp', amount: d.heal });
                 }
             };
             for (const f of stepLog || []) {

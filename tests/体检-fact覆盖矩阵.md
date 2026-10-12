@@ -326,3 +326,46 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >    （horseRebound/fortifyRebound）+ `core/12` V6.3.10 WEI_HEAL 补 hp 记账（weiDodgeHeal）+ 检查器
 >    V3.0.8「声明>0 严格比对 0」⚠ 显式行。三契约**警告态→严格态**：WEI_DODGE_HEAL 71/71、HORSE_REBOUND 6/6、
 >    FORTIFY_REBOUND 227/202 · 偏差全 0；rules-replay 0 fail / smoke 全过 / baseline 无新增翻转。
+
+> 11. **第 84 轮（2026-10-13）——溅射双契约 + 乾坤衍生双契约，scan-groups 盲区扫地（纯体检侧，主代码零改动）**：
+>     矩阵「剩余待攻」首项 METEOR_SHOWER_SPLASH 本轮核掉：**伤害部分**落地契约（group 'meteorSplash'，hp，dir=-1，
+>     读 factData.splashDmg，targets 逐目标 uid 归因），**减防部分**证实已由 STAT_CHANGE 契约覆盖（core/04 L238 的
+>     def decl 无 factType、走通用 group 'statChange'）——矩阵当年「或已被覆盖」的猜测坐实。同轮的
+>     WIND_ASSAULT_SPLASH（乘风溅射）读码证实被矩阵误归「击退/换位」组，实为溅射伤害、与流星共用同一 SPLASH
+>     handler ⇒ 一行记账转交同时激活两条（group 'windSplash'）。另：`--scan-groups` 盲区扫描（39 真实 group）
+>     挖出 **qianKunDerived 268 条 atk 词条无契约盯**——乾坤衍生加攻/治疗双契约落地：QIAN_KUN_ATK
+>     （group 'qianKunDerived'，addMod 与 fact 同 handler 同值）**零主代码依赖、落地即严格态** 249/偏差 0；
+>     QIAN_KUN_HEAL（group 'qianKunHeal'，治疗走即时 hp）警告态待转交。四条全部走完「临时记账→严格比对→
+>     咬牙→回滚」闭环（133/68/236/248 命中，EXIT=1）。剩余盲区：heTaichongRed（两仪互换 48 词条，下轮攻）；
+>     乾坤衍生 reduce（减伤值）无属性账本，归伤害侧检测。转交 2 处见下方 START/END 块。
+
+### ===== 主代码改动 START（core/16effect-handlers.js，SPLASH handler 逐目标循环内，applyStatChange 那一行之后）=====
+// 激活 METEOR_SHOWER_SPLASH + WIND_ASSAULT_SPLASH 两条契约（第 84 轮转交）。原样保留第一行，在它后面插入：
+            applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
+            // 纯记账（体检对照 meteorSplash/windSplash group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用；
+            //   按 decl.buffType 分组（流星赶月 METEOR_SPLASH / 乘风突袭 WIND_ASSAULT），无 buffType 的其他溅射不进契约、不记账
+            const splashGroup = decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH ? 'meteorSplash' : decl.buffType === BUFF_SUBTYPES.WIND_ASSAULT ? 'windSplash' : null;
+            if (splashGroup) addMod(st, 'hp', { source: '溅射', value: -(decl.value || 0), ttl: 'permanent', group: splashGroup, op: 'add' });
+// 依赖均已 import（core/16 头部：addMod ← 13battle-shared；BUFF_SUBTYPES ← 56-battle-enums），无需加 import。
+// 预期效果：两契约警告态→严格态（临时记账实测 METEOR 133 条 / WIND 68 条偏差 0；本改动落地后红线 stat-decl EXIT=0）。
+===== 主代码改动 END =====
+
+### ===== 主代码改动 START（modules/27elite-mingjiao.js，乾坤衍生治疗两处 applyStatChange 之后）=====
+// 激活 QIAN_KUN_HEAL 契约（第 84 轮转交）。共两处，缩进不同，逐处插入：
+// 处一（常规路径，submitXiaoZhaoQianKunDerivedDeclaration 内，20 空格缩进）：
+                    applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                    // 纯记账（体检对照 qianKunHeal group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用
+                    addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
+// 处二（白骨爪路径 submitClawQianKunDerived 内，16 空格缩进）：
+                applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                // 纯记账（体检对照 qianKunHeal group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用
+                addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
+// addMod 已在 modules/27 头部 import，无需加。预期效果：QIAN_KUN_HEAL 警告态→严格态（临时记账实测 248 条偏差 0）。
+===== 主代码改动 END =====
+
+> **第 84 轮订正（矩阵旧条目）**：①「剩余待攻」METEOR_SHOWER_SPLASH 已核（伤害部分契约化、减防部分归 STAT_CHANGE）；
+>   ② WIND_ASSAULT_SPLASH 从「击退/换位」组移入「即时伤害/溅射」组（读码证实是溅射伤害，factData 带 splashDmg）；
+>   ③ 量化候选覆盖进度：24 候选已落地 **17 条契约**（原 13 + 溅射 2 + 乾坤衍生 2），重分类纯事件 5 个，
+>   **剩余待攻**：HORSE_DESTROY（prob/roll 概率一致性）、pos/状态类 4 个（MIND_CONTROL_SWAP / PUSH_STUN /
+>   WIND_ASSAULT_PUSH / ZHANG_TAUNT）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）；
+>   ④ 新增剩余盲区 1 个：**heTaichongRed**（两仪互换，scan-groups 实测 48 条 atk/def/maxHp 词条无契约）。
