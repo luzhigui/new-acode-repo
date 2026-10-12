@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.3.0 | ~26400 bytes | 2026-10-12 何太冲三改跟进：①ATTACK 发 TRIGGER 信号补 markBurst（fx/88 命中帧播靶子碎裂）；
+//          ②POS_SWAP 透传 connectLine（红血两仪互换走「连线换位」演出，fx/83 分支）
 // V1.2.8 | ~26500 bytes | 2026-10-12 回合开始随 _acted 一并清 _renderActed 视图镜像——修「未行动单位跨回合被判已行动（非绿）」：fx 动画起跳写镜像 true（立即变灰），收尾（fx/82 finishCrash）与回合复位此前均不清，仅扑空/子弹时间两路会清 → 镜像跨回合残留；本处复位与 render/32 判灰双路一一对齐
 // V1.2.7 | ~26200 bytes | 2026-10-11 何太冲显性化：STAGE_ACTION_DEFS 增 SKILL_FLOAT（任意文本头顶飘字，复用灭绝计数飘字通道 fx/89 → showMiejueCountFloat）
 // V1.2.6 | ~25700 bytes | 2026-10-03 乘风溅射减防飘字笔误修正：{ unit, → { unit: u,（forEach 形参是 u，原 shorthand 引用未定义变量，当前不可达但一配 defReduce 即 ReferenceError）
@@ -13,7 +15,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.7';
+export const VER = 'render/39-actions-defs.js V1.3.0';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -78,7 +80,8 @@ export const STAGE_ACTION_DEFS = {
                     waveTaunt: action.waveTaunt || null,
                     waveUnitUid: action.waveUnitUid || null,
                     waveUnit: action.waveUnit || null,
-                    attackerRole: action.attackerRole
+                    attackerRole: action.attackerRole,
+                    markBurst: action.markBurst === true
                 });
             }
             // 2026-09-24 灭绝师太三击吸血：回血飘字同样锚在出手帧（快进由 fx/89 拦）
@@ -188,7 +191,8 @@ export const STAGE_ACTION_DEFS = {
             if (unitA && unitB) {
                 const { animatePositionSwap } = await import('../fx/87fx-manager.js');
                 await animatePositionSwap(unitA, unitB, c, {
-                    oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
+                    oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null,
+                    connectLine: action.connectLine === true   // 2026-10-12 红血两仪互换：走「连线→互换」专属演出
                 });
             }
         }

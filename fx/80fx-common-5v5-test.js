@@ -1,3 +1,5 @@
+// V6.3.10 | 2026-10-12 新增 showMarkBurst（何太冲箭靶碎裂）：🎯 命中帧急弹 → 崩裂放大消散 + 金环冲击 + 4 片碎光四散；
+//   一次性元素（data-fx=temporary）不走对象池；由 fx/88 命中帧调用（伤害弹幕 1100ms 之前），快进在其入口已拦
 // V6.3.9 | 2026-10-08 同类飘字水平放不下时垂直一上一下（老板拍板，次条**往上**错——03:20 纠偏：往下错会压单位脸部）：
 //   病根=窄格(~110px)物理放不下两条🛡️/⚔并排（需2×条宽+GAP≈114px），避让的 min 上限把第二条压回
 //   与第一条只差15px=视觉叠死（流星🛡-2打防战叠坚盾🛡+1，10-02/10-05 两功能上线后同格相遇头一回）。
@@ -19,7 +21,7 @@
 // V6.2.4 | 2026-10-02 🛡飘字微调：钢蓝 #4a9bc9→#6ec6ff+深阴影（深底发虚）；定位改 right 锚定（healUp 动画接管 transform，原 translate(-100%) 失效致文字右溢格子）
 // V6.2.3 | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
 // V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.8';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.10';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -319,6 +321,63 @@ export function showMiejueCountFloat(unit, text) {
         el.style.opacity = op.toFixed(2);
         el.style.transform = `translate(-50%, calc(-50% + ${rise.toFixed(1)}px)) scale(${sc.toFixed(2)})`;
     }).then(() => { if (el.parentNode) el.parentNode.removeChild(el); });
+}
+
+// 2026-10-12 何太冲箭靶碎裂（消费 🎯 的命中帧）：🎯 急弹放大 → 崩裂消散，同时金色冲击环扩散、4 片碎光四散。
+//   一次性元素（data-fx="temporary"），不走对象池；快进在调用方（fx/88 _triggerFX 入口）已拦。
+export function showMarkBurst(unit) {
+    const rect = snapshotUnitCell(unit);
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+
+    // ① 金色冲击环
+    const ring = document.createElement('div');
+    ring.setAttribute('data-fx', 'temporary');
+    ring.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:8px;height:8px;border-radius:50%;
+        border:2px solid rgba(255,205,85,0.95);box-shadow:0 0 14px rgba(255,120,40,0.9);
+        transform:translate(-50%,-50%);z-index:10013;pointer-events:none;`;
+    document.body.appendChild(ring);
+    clock.animate(420, (p) => {
+        ring.style.transform = `translate(-50%,-50%) scale(${(1 + 8 * (1 - Math.pow(1 - p, 2))).toFixed(2)})`;
+        ring.style.opacity = (0.95 * (1 - p)).toFixed(2);
+    }).then(() => { if (ring.parentNode) ring.parentNode.removeChild(ring); });
+
+    // ② 靶心 🎯：急弹 → 崩裂放大消散
+    const core = document.createElement('div');
+    core.textContent = '🎯';
+    core.setAttribute('data-fx', 'temporary');
+    core.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:26px;line-height:1;
+        transform:translate(-50%,-50%) scale(0.5) rotate(-14deg);z-index:10014;pointer-events:none;opacity:0;
+        filter:drop-shadow(0 0 10px rgba(255,150,40,0.95));`;
+    document.body.appendChild(core);
+    clock.animate(520, (p) => {
+        let op, sc, rot;
+        if (p <= 0.30) { const t = p / 0.30; op = t; sc = 0.5 + 1.0 * t; rot = -14 + 10 * t; }           // 弹出
+        else { const t = (p - 0.30) / 0.70; op = 1 - t; sc = 1.5 + 0.9 * t; rot = -4 + 22 * t; }        // 崩裂放大消散
+        core.style.opacity = op.toFixed(2);
+        core.style.transform = `translate(-50%,-50%) scale(${sc.toFixed(2)}) rotate(${rot.toFixed(0)}deg)`;
+    }).then(() => { if (core.parentNode) core.parentNode.removeChild(core); });
+
+    // ③ 4 片碎光四散（上/右/下/左四向 + 固定抖动，不用随机数——表现层不占战斗 RNG）
+    for (let i = 0; i < 4; i++) {
+        const shard = document.createElement('div');
+        shard.textContent = '✦';
+        shard.setAttribute('data-fx', 'temporary');
+        shard.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:12px;
+            transform:translate(-50%,-50%);z-index:10013;pointer-events:none;opacity:0;
+            color:#ffd76a;text-shadow:0 0 8px rgba(255,120,40,0.9);`;
+        document.body.appendChild(shard);
+        const ang = (-70 + i * 75) * Math.PI / 180;
+        const dist = 26 + (i % 2) * 8;
+        clock.animate(560, (p) => {
+            const d = dist * (1 - Math.pow(1 - p, 2));   // easeOut
+            const op = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
+            shard.style.left = (cx + Math.cos(ang) * d).toFixed(1) + 'px';
+            shard.style.top = (cy + Math.sin(ang) * d).toFixed(1) + 'px';
+            shard.style.opacity = Math.max(0, op).toFixed(2);
+            shard.style.transform = `translate(-50%,-50%) rotate(${(p * 260).toFixed(0)}deg)`;
+        }).then(() => { if (shard.parentNode) shard.parentNode.removeChild(shard); });
+    }
 }
 
 // 死亡画笔：600ms 展开覆盖层，clock 驱动
