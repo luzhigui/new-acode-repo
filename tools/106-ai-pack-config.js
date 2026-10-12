@@ -1,3 +1,7 @@
+// V6.0.24 | ~19600 bytes | 2026-10-13 补登记 render/38-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
+//           （-attack/-heal/-control/-stat，38 入口 import 它们）
+// V6.0.23 | ~19100 bytes | 2026-10-13 补登记 modules/26elite-sixsects.js 拆分出的 6 个组件文件
+//           （-songqingshu/-zhouzhiruo/-zhangsanfeng/-pangyuanqiao/-miejueshitai/-hetaichong，26 入口 import 它们）
 // V6.0.22 | ~18200 bytes | 2026-10-11 补登记 3 个主代码新文件（packcheck 双向 diff B 类归零）：
 //           ui/75net-session.js、ui/76replay-entry.js（ui/61 减负批拆出，61/68 已 import）、
 //           render/37-role-cards.js（从 ui/69 迁入 render，62/65/32 已 import）
@@ -30,7 +34,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.22';
+export const VER = 'tools/106-ai-pack-config.js V6.0.24';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -92,13 +96,21 @@ export const ALL_PROJECT_FILES = [
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
+    // 2026-10-13 补登记 26 六组件：26elite-sixsects.js 拆分出的组件文件（26 入口 import 它们，漏登则包内引用断裂）
+    '../modules/26elite-sixsects-songqingshu.js', '../modules/26elite-sixsects-zhouzhiruo.js',
+    '../modules/26elite-sixsects-zhangsanfeng.js', '../modules/26elite-sixsects-pangyuanqiao.js',
+    '../modules/26elite-sixsects-miejueshitai.js', '../modules/26elite-sixsects-hetaichong.js',
     '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js', '../render/36-generic-renderers.js',
     // 2026-10-11 补登记 37：角色名片表从 ui/69 迁入 render（消除 render→ui 反向依赖；ui/62、ui/65、render/32 已 import）
     '../render/37-role-cards.js',
-    '../render/38-actions-translate.js', '../render/39-actions-defs.js',
+    '../render/38-actions-translate.js',
+    // 2026-10-13 补登记 38 四族：38-actions-translate.js 拆分出的 fact 族翻译器文件（38 入口 import 它们，漏登则包内引用断裂）
+    '../render/38-actions-translate-attack.js', '../render/38-actions-translate-heal.js',
+    '../render/38-actions-translate-control.js', '../render/38-actions-translate-stat.js',
+    '../render/39-actions-defs.js',
     // content（游戏内容数据）
     '../content/200game-data.json',
     // tests（体检规则与自动测试）

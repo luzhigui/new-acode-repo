@@ -20,11 +20,85 @@
 // V1.2.0 | 2026-10-08 修 import↔allRules 解析的别名盲区：121 用 `import { rule156 as rule103 }`（156 导出名按文件号），
 //   旧正则要求 `(rule\d+)\s*}` 紧邻花括号，别名项隔着 ` as ` 整条漏匹配，rule103 被误判「数组引用未 import」硬失败（假红）。
 //   改为拆分花括号逐项解析，取**本地绑定名**（as 后的别名优先，与 allRules 引用一致）。
-export const VER = 'tests/registration-check.mjs V1.2.0';
+// V1.3.0 | 2026-10-13 体检第 84 轮：新增第六项检查 —— **modules/26 拆分结构对账**（26elite-sixsects.js
+//   2026-10-13 拆成「注册入口 + 6 个角色组件文件」后的新静默失效面）：(a) 死文件（组件存在但入口没 import）、
+//   (b) import 断裂（入口 import 的组件文件不存在）、(c) 死导出（组件导出了入口没引用 = 组件逻辑没挂上注册链）、
+//   (d) 漏 import（入口正文用 register* 却没 import）、(e) 漏导出（入口 import 的远端名组件里没 export）。
+//   判据是**源码级静态对账、非运行时**（入口/组件是浏览器代码，node 不加载）；
+//   解析出 0 条一律硬红（防零触发假绿），核心逻辑抽成 checkSixsectsStructure 纯函数供牙齿探针注入反例。
+export const VER = 'tests/registration-check.mjs V1.3.0';
 
 import { readdir, readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
+
+// ============ V1.3.0：modules/26 拆分结构对账（纯函数，供牙齿探针注入反例）============
+// 入参：entryCode = 26elite-sixsects.js 源码（已剥行注释）；compSources = { '26elite-sixsects-xxx.js': 源码 }
+// 返回：问题字符串数组（空 = 一致）。判据 (a)~(e) 见文件头 V1.3.0；判据是静态源码级、非运行时。
+export function checkSixsectsStructure(entryCode, compSources) {
+    const problems = [];
+    const compNames = Object.keys(compSources);
+    // 零触发守卫：解析面为 0 = 正则/扫描失配，硬红（防空跑假绿）
+    if (!entryCode || !entryCode.trim()) { problems.push('零触发守卫：入口源码为空'); return problems; }
+    if (compNames.length === 0) { problems.push('零触发守卫：组件文件数为 0（目录扫描失效？）'); return problems; }
+
+    // 解析入口里对组件文件的 named import：远端名（as 前）+ 本地绑定名
+    const imports = new Map(); // 组件文件名 -> [{ remote, local }]
+    for (const im of entryCode.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\/(26elite-sixsects-[^']+)'/g)) {
+        const list = [];
+        for (const part of im[1].split(',')) {
+            const mm = part.trim().match(/^(\w+)(?:\s+as\s+(\w+))?$/);
+            if (mm) list.push({ remote: mm[1], local: mm[2] || mm[1] });
+        }
+        if (!imports.has(im[2])) imports.set(im[2], []);
+        imports.get(im[2]).push(...list);
+    }
+    if (imports.size === 0) problems.push('零触发守卫：入口未解析出任何组件 import（解析失配？）');
+
+    // (a) 死文件：组件存在但入口没 import = 拆出去了却没挂上（机制静默失效）
+    for (const f of compNames) {
+        if (!imports.has(f)) problems.push(`(a) 死文件：${f} 存在但入口未 import（组件没挂上注册链）`);
+    }
+    // (b) 断裂：入口 import 的组件文件必须真实存在
+    for (const f of imports.keys()) {
+        if (!compSources[f]) problems.push(`(b) import 断裂：入口 import 的 ./${f} 不存在`);
+    }
+
+    // (c) 死导出 / (e) 漏导出：逐组件文件对账导出面 ↔ 入口引用面
+    for (const [f, code] of Object.entries(compSources)) {
+        const exported = new Set();
+        for (const m of code.matchAll(/export\s+(?:async\s+)?(?:function|const|let|class)\s+(\w+)/g)) exported.add(m[1]);
+        for (const m of code.matchAll(/export\s*\{([^}]*)\}/g)) {
+            for (const p of m[1].split(',')) { const mm = p.trim().match(/^(\w+)/); if (mm) exported.add(mm[1]); }
+        }
+        if (exported.size === 0) { problems.push(`零触发守卫：${f} 未解析出任何导出（解析失配？）`); continue; }
+        const remoteNames = new Set((imports.get(f) || []).map(x => x.remote));
+        for (const name of exported) {
+            if (name === 'VER') continue; // 版本元数据不算组件逻辑
+            if (!remoteNames.has(name)) problems.push(`(c) 死导出：${f} 的 export ${name} 未被入口引用（导出了没人用 = 逻辑没执行）`);
+        }
+        for (const { remote } of (imports.get(f) || [])) {
+            if (!exported.has(remote)) problems.push(`(e) 漏导出：入口 import 的 ${remote} 在 ${f} 中无 export（浏览器加载即报错）`);
+        }
+    }
+
+    // (d) 漏 import：入口正文引用注册 API 时必须在 import 绑定里（浏览器加载即 ReferenceError）
+    const boundLocals = new Set();
+    for (const im of entryCode.matchAll(/import\s*\{([^}]*)\}\s*from\s*'[^']+'/g)) {
+        for (const part of im[1].split(',')) {
+            const mm = part.trim().match(/^(\w+)(?:\s+as\s+(\w+))?$/);
+            if (mm) boundLocals.add(mm[2] || mm[1]);
+        }
+    }
+    const body = entryCode.replace(/import\s*\{[^}]*\}\s*from\s*'[^']+'\s*;?/g, '');
+    for (const api of ['registerElite', 'registerMechanicHandler', 'registerLinkPartners']) {
+        if (new RegExp('(?<![\\w$.])' + api + '\\s*\\(').test(body) && !boundLocals.has(api)) {
+            problems.push(`(d) 漏 import：入口正文使用了 ${api}(...)，但 import 列表里没有它`);
+        }
+    }
+    return problems;
+}
 
 // 规则文件导出的中文名（124 的 RULE_META 以它为 key）
 function ruleName(code) {
@@ -90,6 +164,14 @@ async function main() {
     const orphan = inArray.filter(r => !imported.includes(r));     // 执行了但没 import（会崩）
     const dupArray = inArray.filter((r, i) => inArray.indexOf(r) !== i);
 
+    // ============ V1.3.0：modules/26 拆分结构对账（源码级静态，非运行时）============
+    const modDir = new URL('../modules/', import.meta.url);
+    const modFiles = (await readdir(modDir)).filter(f => /^26elite-sixsects-.+\.js$/.test(f)).sort();
+    const compSources = {};
+    for (const f of modFiles) compSources[f] = stripLineComments(await readFile(new URL(f, modDir), 'utf8'));
+    const entry26 = stripLineComments(await read('../modules/26elite-sixsects.js'));
+    const sixProblems = checkSixsectsStructure(entry26, compSources);
+
     const hard = [];
     if (miss121.length) hard.push(['121health-monitor.js 未 import', miss121]);
     if (dangling.length) hard.push(['121 内 import 了但未进 allRules 数组（浏览器侧从不执行）', dangling]);
@@ -98,8 +180,9 @@ async function main() {
     if (miss123.length) hard.push(['123static-scan.js SCAN_FILES 未登记', miss123]);
     if (miss124.length) hard.push(['124rule-recipes.js RULE_META 未登记', miss124]);
     if (noName.length) hard.push(['规则文件取不到 name（无法核 124）', noName]);
+    if (sixProblems.length) hard.push(['modules/26 拆分结构对账失败（死文件/断裂/死导出/漏 import/漏导出）', sixProblems]);
 
-    console.log(`登记一致性：health-rules ${ruleFiles.length} 个文件 · 打包清单含 tests 条目 ${entries.length} 条`);
+    console.log(`登记一致性：health-rules ${ruleFiles.length} 个文件 · 打包清单含 tests 条目 ${entries.length} 条 · modules/26 入口 + ${modFiles.length} 个组件文件`);
     if (hard.length) {
         console.log(`\n[硬失败] tests/ 侧登记缺失（体检侧自修，共 ${hard.length} 类）：`);
         for (const [why, list] of hard) {
@@ -107,7 +190,7 @@ async function main() {
             for (const x of list) console.log('      - ' + x);
         }
     } else {
-        console.log(`✅ 121 / 123 / 124 三处登记齐全（含 121 内 import↔allRules 数组一致：${inArray.length} 条规则进执行数组）`);
+        console.log(`✅ 121 / 123 / 124 三处登记齐全（含 121 内 import↔allRules 数组一致：${inArray.length} 条规则进执行数组）· modules/26 拆分结构一致（入口 + ${modFiles.length} 组件，死文件/断裂/死导出/漏 import/漏导出 均无）`);
     }
 
     // 106 是给网页端 DeepSeek 的复制包清单，有意不全（见头部 V1.1.1 说明）：
@@ -119,4 +202,7 @@ async function main() {
     if (hard.length) process.exit(1);
 }
 
-main().catch(e => { console.error('[registration-check] 失败：', e); process.exit(1); });
+// CLI 入口守卫：被牙齿探针 import 时只取 checkSixsectsStructure 纯函数，不跑 main（V1.3.0，与 contract-consistency 同口径）
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch(e => { console.error('[registration-check] 失败：', e); process.exit(1); });
+}

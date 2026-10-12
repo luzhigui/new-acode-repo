@@ -1,5 +1,7 @@
-// V1.5.11 | ~15800 bytes | 2026-10-12 摄魂降防改线性注释同步：def ratio = defBonus + perRoundBonus×(N-1)（-0.10 起步、每回合再叠 -0.05；原 0.92^N-1 作废）
-export const VER = 'infra/58-fact-contract.js V1.5.11';
+// V1.5.12 | ~17300 bytes | 2026-10-13 体检第 84 轮契约对账补登记（零行为差异）：BAGUA_ARRAY / QIAN_KUN_UPGRADED /
+//          QIAN_KUN_BASIC 三条 38 翻译表内已有产动作翻译器（-stat.js，2026-10-05 起），58 仍登记 translateFn:null
+//          ——契约谎称「不产生 stageAction」，由 tests/contract-consistency.mjs 翻译器契约方向B 抓出，补登记函数名
+export const VER = 'infra/58-fact-contract.js V1.5.12';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -55,8 +57,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.MIND_CONTROL_BANNER]: { requiredFields: ['side'], renderFn: 'renderMindControlBannerFact', translateFn: 'translateMindControlBanner' },
 
     // 乾坤大挪移
-    [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunUpgradedFact', translateFn: null },
-    [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunBasicFact', translateFn: null },
+    [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
+    [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
 
     // 快乐回血
     [FACT_TYPES.KUAI_LE_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderKuaiLeHealFact', translateFn: 'makeHealAction' },
@@ -149,7 +151,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
 
     // 数值声明 fact（体检对照器专用；renderFn:null = 无渲染，不进画面）
-    [FACT_TYPES.BAGUA_ARRAY]:  { requiredFields: ['unitName', 'atkDelta', 'defDelta'], renderFn: null, translateFn: null },
+    [FACT_TYPES.BAGUA_ARRAY]:  { requiredFields: ['unitName', 'atkDelta', 'defDelta'], renderFn: null, translateFn: 'translateBaguaArray' },
     [FACT_TYPES.RAGE_ON_HIT]:  { requiredFields: ['unitName', 'atkDelta'], renderFn: null, translateFn: null },
     [FACT_TYPES.LION_INSPIRE]: { requiredFields: ['unitName', 'targets'], renderFn: null, translateFn: null },
     // STAT_CHANGE 通用裁定落地（流星赶月/流星溅射降防）：delta 与 addMod 入参同值，field 为 atk/def

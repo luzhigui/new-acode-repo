@@ -1,3 +1,7 @@
+// V3.0.9 | 2026-10-13 第 84 轮：新增 METEOR_SHOWER_SPLASH / WIND_ASSAULT_SPLASH 两条溅射伤害契约（dir=-1，
+//         group='meteorSplash'/'windSplash'，读 factData.splashDmg，targets 逐目标 uid 归因）——core/16 SPLASH
+//         handler 是两条契约共用的唯一落地口，主代码记账一行同时激活两者（转交见矩阵第 84 轮节，补前警告态）；
+//         溅射减防部分不在本条范围（已由 STAT_CHANGE 契约经 group 'statChange' 覆盖）
 // V3.0.8 | ~106300 bytes | 2026-10-13 警告态显式化：声明>0 但严格比对 0 条时打 ⚠ 点名（账本空跳过≠比对通过，防"偏差 0"被误读）；
 //          同批主代码补 3 条 hp 记账（core/12 weiDodgeHeal + core/16 horseRebound/fortifyRebound），三契约警告态→严格态
 // V3.0.7 | ~107000 bytes | 2026-10-12 第 81 轮：新增 SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL 四条 HP 类契约——
@@ -775,6 +779,67 @@ const CONTRACTS = [
                 const d = e.data;
                 if (typeof d.targetName === 'string' && typeof d.totalDmg === 'number' && d.totalDmg > 0) {
                     out.push({ unit: d.targetName, uid: d.targetUid || null, stat: 'hp', amount: d.totalDmg });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 84 轮：流星赶月溅射伤害（core/04 L231-238 推 SPLASH decl + METEOR_SHOWER_SPLASH fact）——
+        //   factData.targets = [{uid,name}]，同一 splashDmg 作用于每个相邻目标；core/16 SPLASH handler L163
+        //   逐目标 applyStatChange(st,'hp',-splashDmg)。溅射**减防**部分已由 STAT_CHANGE 契约覆盖
+        //   （core/04 L238 的 def decl 无 factType、走通用 group 'statChange'），本条只盯**伤害本体**。
+        //   dir=-1（声明 splashDmg 为正、hp 下降）；>0 守卫（floor(dmg×0.3) 可为 0，与 decl 同条件）。
+        //   主代码 core/16 记账待补（转交见「体检-fact覆盖矩阵.md」第 84 轮节）：补前 gd=null ⇒ 警告态跳过，不比对。
+        id: 'METEOR_SHOWER_SPLASH',
+        label: '流星赶月溅射',
+        group: 'meteorSplash',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.METEOR_SHOWER_SPLASH) return;
+                const d = e.data;
+                if (typeof d.splashDmg === 'number' && d.splashDmg > 0 && Array.isArray(d.targets)) {
+                    for (const t of d.targets) {
+                        // uid 归因：溅射目标按 decl 时的 uid 逐个人账（factData 带 uid，优先于显示名）
+                        if (t && t.uid != null) out.push({ unit: t.name || null, uid: t.uid, stat: 'hp', amount: d.splashDmg });
+                    }
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 84 轮：乘风突袭溅射伤害（core/04 L180-187 推 SPLASH decl + WIND_ASSAULT_SPLASH fact）——
+        //   与流星溅射**同一 handler**（core/16 L157-185 SPLASH），按 decl.buffType 分流 group：
+        //   METEOR_SPLASH→meteorSplash / WIND_ASSAULT→windSplash（转交一行同时覆盖两条契约）。
+        //   factData 同型 {targets:[{uid,name}], splashDmg}；dir=-1、>0 守卫、uid 归因均同 METEOR_SHOWER_SPLASH。
+        id: 'WIND_ASSAULT_SPLASH',
+        label: '乘风突袭溅射',
+        group: 'windSplash',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.WIND_ASSAULT_SPLASH) return;
+                const d = e.data;
+                if (typeof d.splashDmg === 'number' && d.splashDmg > 0 && Array.isArray(d.targets)) {
+                    for (const t of d.targets) {
+                        if (t && t.uid != null) out.push({ unit: t.name || null, uid: t.uid, stat: 'hp', amount: d.splashDmg });
+                    }
                 }
             };
             for (const f of stepLog || []) {
