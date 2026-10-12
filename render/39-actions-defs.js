@@ -1,4 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.2.8 | ~26500 bytes | 2026-10-12 回合开始随 _acted 一并清 _renderActed 视图镜像——修「未行动单位跨回合被判已行动（非绿）」：fx 动画起跳写镜像 true（立即变灰），收尾（fx/82 finishCrash）与回合复位此前均不清，仅扑空/子弹时间两路会清 → 镜像跨回合残留；本处复位与 render/32 判灰双路一一对齐
 // V1.2.7 | ~26200 bytes | 2026-10-11 何太冲显性化：STAGE_ACTION_DEFS 增 SKILL_FLOAT（任意文本头顶飘字，复用灭绝计数飘字通道 fx/89 → showMiejueCountFloat）
 // V1.2.6 | ~25700 bytes | 2026-10-03 乘风溅射减防飘字笔误修正：{ unit, → { unit: u,（forEach 形参是 u，原 shorthand 引用未定义变量，当前不可达但一配 defReduce 即 ReferenceError）
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
@@ -286,7 +287,10 @@ export const STAGE_ACTION_DEFS = {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
             c.store.getState().units.forEach(u => {
-                if (u.alive) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: u.uid, _acted: false });
+                // 2026-10-12 镜像同清：_renderActed 由 fx 动画起跳写 true（立即变灰），此前收尾/回合复位均不清，
+                //   仅扑空/子弹时间两路会写 null → 撞飞/闪避走过的单位镜像跨回合残留，
+                //   render/32 判灰双路取或把未行动单位判成已行动（非绿）。回合开始=人人未行动，随账本一并归零。
+                if (u.alive) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: u.uid, _acted: false, _renderActed: null });
             });
         }
     },
