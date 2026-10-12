@@ -257,6 +257,8 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             //   原始 fact / 规则读到的仍是尾巴值；源头收敛后 fact 与界面同值。
             const applied = Math.round(Math.max(0, hit.dmg - (clawPayload.reduce || 0)) * 10) / 10;
             applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
+            // 【临时验证用，验证后回滚】纯记账：爪击自身 hp 贡献以独立 group 隔离，供体检按 group='clawHit' 比对
+            addMod(chainTarget, 'hp', { source: '九阴白骨爪', value: -applied, ttl: 'permanent', group: 'clawHit', op: 'add' });
             // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里；
             //   设计值另存 data.designedDmg —— 落地值被减伤后可为 0~设计值，体检靠它还原「设计下限」守护
             hit.data.designedDmg = hit.dmg;

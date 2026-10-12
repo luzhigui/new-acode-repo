@@ -1,7 +1,7 @@
 // 回归规则：carry「你就是carry」五号位队友属性加成 — 此前完全没有体检项盯这条链路。
 // 机制源（core/14buff-effects.js calcCarryBonus_Normal / _Sister，core/04buff-system.js L34-42 应用）：
 //   - 门控：单位存活、非拒马、**非小昭·姊/弟**；站位 = 5 号位（有小昭·姊出阵时放宽到 4/5/6）
-//   - 公式（对每个「队友」= 同阵营除自己外、且非拒马的单位，逐个累加）：
+//   - 公式（对每个「队友」= 同阵营除自己外的单位，逐个累加；2026-10-12 起拒马也计入——core/14 去掉 !u.isHorse）：
 //       mult      = 队友存活 ? 1 : CONFIG.BUFFS.carry.deathMultiplier   （配置值 2，即"死亡队友双倍"）
 //       atkAbs   += Math.floor(队友atk  × atkBonus × mult)               （配置值 0.08）
 //       defAbs   += Math.floor(队友def  × defBonus × mult)               （配置值 0.08）
@@ -28,7 +28,7 @@
 //      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.08/0.08/0.1/2，并在读不到时只跑 1/2/4 三条结构判据。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.18';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.19';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -150,8 +150,7 @@ export const rule95 = {
                 for (var p = 0; p < pool.length; p++) {
                     var u = pool[p];
                     if (!u || u.name === who) continue;
-                    if (u.isHorse) continue; // 拒马不计入队友（core/14 过滤 isHorse）
-                    mates.push(u);
+                    mates.push(u); // 2026-10-12 起拒马也计入队友池（core/14 已去掉 !u.isHorse）——与引擎同源
                 }
 
                 // 复发信号3：静默归零 —— 最弱队友按比例 floor 后 ≥1，合计就不该是 0

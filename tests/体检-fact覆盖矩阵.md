@@ -250,3 +250,29 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 - **主代码配合（第 73 轮订正 → 第 74 轮 concretized）**：现有 22 个契约零主代码，是因为它们全是 `atk/def/maxHp` **面板账本类**；24 候选则普遍需主代码基建——**把即时 hp 变更以独立 group 纳入 `_mods['hp']`**。第 74 轮已用 XUAN_MING_DOT 跑通该模式（临时补记账条目→严格比对 116 条偏差 0→翻倍咬牙命中 116→回滚），证明**这是可复用、零行为副作用**的改动，其余 HP 候选照此逐站点补 `_mods` 记账条目即可批量 test-only 落地（具体转交见迭代日志第 74 轮「主代码改动 START/END」，约 2 行/候选）。
 
 > 注：本矩阵原（阶段二）为静态只读分析；第 73 轮据读码取证订正了「基本 test-only」判断，新增「28 候选加牙可行性判定」节；第 74 轮把 XUAN_MING_DOT 契约落地（`tests/stat-decl-vs-actual-check.mjs` V3.0.3，LEDGER_STATS 扩 'hp'、STAGES 加 5）并 concretized 主代码转交（明确 START/END）。
+
+---
+
+## 第 79 轮追加（2026-10-12 深夜 · 反弹伤害与吸血回血盲区 + 嗜血狂刀 +0 根因）
+
+> 1. **WEI_DODGE_HEAL 契约已写**（`stat-decl-vs-actual-check.mjs`）：韦一笑闪避吸血的 **hp 实际增量盲区**——WEI_HEAL 契约只盯 maxHp 账本（group weiLeech），但 `refreshMaxHp`（core/13 L233）会把 hp 同步抬升同样增量（`applyStatChange('hp', delta)`），该 hp 变更无 group 记账。契约读 `WEI_DODGE_LEECH` fact 的 **`maxHpDelta`**（不用 `data.heal`：heal 是 27 传的毛估值、floor 前，与实际 hp 增量差舍入会误报；实际 hp 增量 = delta = maxHpDelta 同源）。验证：临时补记账条目 → 严格比对 **79/79 偏差 0**；翻倍咬牙 → **命中 79、EXIT=1**；已回滚。当前警告态（声明 79）。
+> 2. **HORSE_REBOUND / FORTIFY_REBOUND 两条契约已写**：反弹伤害盲区——REBOUND handler（core/16 L189-199）对 hp 伤害无 group 记账。两个声明源共用同一 handler：小昭马形阵反弹（core/12 L387，`factData.rebound`）与张无忌反击（core/12 L397 + modules/26 L243，`factData.reboundDmg`，⚠️ 嵌套子 fact、递归扫）。`dir=-1`（声明为正伤害、hp 下降）。验证：HORSE_REBOUND 激活态 6/6 偏差 0、咬牙翻倍命中 6；FORTIFY_REBOUND 激活态 220/偏差 0（声明 264 vs 比对 220 的差 = 目标已死被 handler `continue` 跳过的合理损耗）；已回滚。当前均警告态（6 / 264）。
+> 3. **rules-replay 报 1 例真实失败并已定根因（主代码缺陷，非体检误报）**：`嗜血狂刀吸血(回归)` rule151 seed=18 stage=2「吸血量 +0」。探针实证：该例 **isBrother=false（分支 1）**，`dmg>0` 守卫通过，但 `Math.floor(dmg×0.8)=0`（**dmg=1 时 floor(0.8)=0**）仍登记 ⇒ 战报多一行「吸血+0」噪声。rule151 注释原判"+0 只来自分支 2 dmg=0"不完整——分支 1 低伤害同样产 +0（r13-r15 大量出现：雄狮/谢逊 dmg=1 频繁）。**修法见下方主代码转交**（分支 1 push 前加 `leechVal > 0` 守卫，语义无损；分支 2 的 dmg=0 问题规则注释已述、同批可修）。
+> 4. **本轮三条契约均未提交**：工作区被并行会话第 80 轮（BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三条即时治疗契约，V3.0.6）占用中（其 22:46 仍在跑红线收尾），为避免提交撞车，本批契约留在工作区（已验证 EXIT=0），待其收尾后随下一笔 tests 提交一并落库。迭代日志第 80 轮章节亦留待并行会话写毕再补第 81 轮，避免锚点冲突。
+
+### 主代码改动 START（core/04buff-system.js L104-108，submitBloodthirstDeclaration 分支 1）=====
+// 现状（dmg>0 但 dmg=1 时 floor(1×0.8)=0 ⇒ 登记「吸血+0」噪声行）：
+//     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
+//         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+//         const decl = { type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
+//         if (!data.declarations) data.declarations = [];
+//         data.declarations.push(decl);
+// 改为（仅包住 decl 登记一行；extraRequests 追击逻辑不动——dmg>0 已保证打出过伤害）：
+//     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
+//         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+//         const decl = { type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
+//         if (!data.declarations) data.declarations = [];
+//         if (leechVal > 0) data.declarations.push(decl);
+===== 主代码改动 END =====
+
+说明：`leechRatio=0.8`（content L514），dmg=1 时 floor 得 0；吸 0 血 = 不吸血，加 `>0` 守卫后 rule151 判据 1 恢复绿（当前 62 pass/1 fail）。分支 2（L114-117，小昭·弟永久海克斯、无 dmg 守卫）建议同批处理：把 `const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);` 后的 push 也加 `if (leechVal > 0)`（分支 2 的 push 是单行 `data.declarations.push({...})`，把整行包进 if 即可）。
