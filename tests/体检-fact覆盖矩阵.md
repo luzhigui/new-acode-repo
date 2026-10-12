@@ -350,6 +350,9 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 // 预期效果：两契约警告态→严格态（临时记账实测 METEOR 133 条 / WIND 68 条偏差 0；本改动落地后红线 stat-decl EXIT=0）。
 ===== 主代码改动 END =====
 
+**已应用（2026-10-13，`core/16effect-handlers.js` V6.1.1）**：实测 `METEOR_SHOWER_SPLASH 139 声明 · 严格比对 133`、
+`WIND_ASSAULT_SPLASH 71 声明 · 严格比对 68` · **偏差 0 · EXIT=0**（警告态→严格态；缺口 = 目标离场未记账的合理损耗）。
+
 ### ===== 主代码改动 START（modules/27elite-mingjiao.js，乾坤衍生治疗两处 applyStatChange 之后）=====
 // 激活 QIAN_KUN_HEAL 契约（第 84 轮转交）。共两处，缩进不同，逐处插入：
 // 处一（常规路径，submitXiaoZhaoQianKunDerivedDeclaration 内，20 空格缩进）：
@@ -362,6 +365,10 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
                 addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
 // addMod 已在 modules/27 头部 import，无需加。预期效果：QIAN_KUN_HEAL 警告态→严格态（临时记账实测 248 条偏差 0）。
 ===== 主代码改动 END =====
+
+**已应用（2026-10-13，`modules/27elite-mingjiao.js` V6.7.4）**：实测 `QIAN_KUN_HEAL 268 声明 · 严格比对 248 条 · 偏差 0`、
+`QIAN_KUN_ATK 268 声明 · 严格比对 249 条 · 偏差 0` · EXIT=0（前者警告态→严格态；后者本就零主代码依赖）。
+回归：`rules-replay` 0 fail / 0 空转、`smoke-headless` 全过。
 
 > **第 84 轮订正（矩阵旧条目）**：①「剩余待攻」METEOR_SHOWER_SPLASH 已核（伤害部分契约化、减防部分归 STAT_CHANGE）；
 >   ② WIND_ASSAULT_SPLASH 从「击退/换位」组移入「即时伤害/溅射」组（读码证实是溅射伤害，factData 带 splashDmg）；
