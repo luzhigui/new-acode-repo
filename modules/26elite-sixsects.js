@@ -1,3 +1,6 @@
+// V6.23.0 | ~63700 bytes | 2026-10-12 箭靶标记改「一次性消耗」（老板：原来偏强）：任何人（同阵营）打中带标目标 → 标记当帧消耗消失，
+//   不叠层；挂标改判「攻击特效」——何太冲或其存活两仪搭档命中都可上标，两人打中（消费后）随即重挂；
+//   持续回合 3→2（当前回合+下一回合，下下一回合开始消失）；content targetMark.rounds 同步 3→2、desc 改写
 // V6.22.0 | ~63500 bytes | 2026-10-12 何太冲重做 V3（旧三技能整组删除）：新组件承接①两仪连接（开局与对系队友结连 ☯，
 //   双方互授职业能力 _dualSchools → core/03 破防/斩杀/远程成长按能力放行）②箭靶标记 🎯（何太冲挂标 3 回合，
 //   队友打带标目标 ×1.3、自己 ×1.5 并刷新）③红血（≤40% 当帧、每局限一次：仅一方红血→两仪互换职业与位置，
@@ -12,7 +15,7 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.22.0';
+export const VER = 'modules/26elite-sixsects.js V6.23.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -866,7 +869,7 @@ export function createHeTaichongComponent() {
                 }
             }
 
-            // ── 箭靶标记 🎯 计时：每回合开始递减（挂标当回合即算 1 回合，共 3 回合） ──
+            // ── 箭靶标记 🎯 计时：每回合开始递减（挂标当回合算 1 回合，共 mark.rounds 回合＝当前回合+下一回合） ──
             for (const u of [...A, ...B]) {
                 if (u.state._heMarkRounds > 0) u.state._heMarkRounds -= 1;
             }
@@ -888,18 +891,24 @@ export function createHeTaichongComponent() {
                 }
             });
 
-            // ── 机制② 箭靶标记（挂标 / 刷新） ──
+            // ── 机制② 箭靶标记（挂标 / 一次性消耗） ──
+            // 挂标属「攻击特效」：何太冲与其两仪搭档（存活才算连）命中都可上标；
+            // 任何人（同阵营）打中带标目标 → 标记当帧消耗消失；何太冲/搭档打中后随即重挂。
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.HE_TAICHONG_MARK, (data) => {
                 const unit = data.unit;
-                if (!unit || unit.uid !== he.uid || !he.alive) return;
+                if (!unit || unit.camp !== he.camp || !he.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 const t = data.target;
-                if (!t || !t.alive) return;
-                const isNew = !(t.state._heMarkRounds > 0);
+                if (!t || !t.alive || !t.state) return;
+                const consumed = t.state._heMarkRounds > 0;
+                if (consumed) t.state._heMarkRounds = 0;
+                const partner = partnerOf(he);
+                const isCarrier = unit.uid === he.uid || (partner && unit.uid === partner.uid);
+                if (!isCarrier) return;
                 t.state._heMarkRounds = mark.rounds;
                 if (data.log) {
-                    // 新挂：整行报幕；刷新：只飘「🎯」小破碎（表现性，不刷屏文本）
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '箭靶标记', note: isNew ? `🎯 ${he.name} 标记 ${t.name}` : `🎯 ${he.name} 刷新标记 ${t.name}`, line: isNew, floatText: '🎯', floatUid: t.uid } });
+                    // 新挂：整行报幕；消费后重挂：只飘「🎯」小破碎（表现性，不刷屏文本）
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: consumed ? `🎯 ${unit.name} 重新标记 ${t.name}` : `🎯 ${unit.name} 标记 ${t.name}`, line: !consumed, floatText: '🎯', floatUid: t.uid } });
                 }
             });
 
