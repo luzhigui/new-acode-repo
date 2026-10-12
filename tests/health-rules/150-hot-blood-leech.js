@@ -23,6 +23,7 @@
 //   3) 同一单位在同一次攻击（同一个 attack-group）内登记两次 → 回血翻倍膨胀
 //   4) 回血量量级膨胀：单次回血 > 血量上限 × 0.6（合法上限是 leechPct×2，小昭·姊强化下也才 0.40；
 //      留 0.6 是给未来配置上调留余量，只抓"比例被写大/翻倍重复叠加"这类粗错）
+//      2026-10-12 加固：加绝对值门槛 leech>2——小数字（maxHp=1 回 1 → 占比 100%）是合法回血，原判据误报
 //   5) 摘要百分比与 CONFIG.BUFFS.hotBlood.leechRatio 不符 → 渲染写死 / 配置未收口
 // 误报规避：本场没有热血奋战条目直接 skip；maxHp 取不到就跳过判据2/4、配置读不到（CONFIG.BUFFS 是
 //   getter，数据未就绪会抛）就跳过判据5；文案形态变了匹配不上就当 skip，绝不硬报。
@@ -33,7 +34,7 @@
 // 刻意不做（留给以后，避免一次加太多）：不校验"每 N 次翻倍"的节奏 —— leech 为 0 时引擎不登记条目，
 //   战报序列天然有缺口，数节奏必然误报；若要盯"翻倍永远打不出来"这个静默失效，得先给回放器补
 //   「每回合单位血量快照」通道，届时才能按 ratio 精确重算。
-export const VER = 'tests/health-rules/150-hot-blood-leech.js V6.1.15';
+export const VER = 'tests/health-rules/150-hot-blood-leech.js V6.1.16';
 import { collectNodes, maxHpOf, plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -106,7 +107,9 @@ export const rule97 = {
                     + '（min(缺口) 兜底失效 → 回血越过上限）' };
             }
             // 判据4：量级膨胀哨兵（合法上限 leechPct×2，小昭·姊强化下也才 0.40，取 0.6 留余量）
-            if (mh != null && leech > mh * 0.6) {
+            //   2026-10-12 加固（误报修复）：加绝对值门槛 leech>2——小数字场景（maxHp 被压到 1、回 1 即占比 100%）
+            //   是合法回血；占比判据只对 >2 的回血生效，大额回血照旧报红。
+            if (mh != null && leech > 2 && leech > mh * 0.6) {
                 return { fail: true, msg: '复发：热血奋战给 ' + who + ' 单次回复 +' + leech + '，占其血量上限 ' + mh
                     + ' 的 ' + Math.round(leech / mh * 100) + '%（合法上限是 leechPct×2，超过 60% 说明比例被写大'
                     + '或翻倍被重复叠加）' };

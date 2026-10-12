@@ -19,7 +19,8 @@
 //   3) 它与 150 热血奋战是**两条不同的吸血链路**（热血按已损失生命比例回血、嗜血按本次伤害比例吸血），
 //      共用一套 EFFECT_TYPES.LEECH 结算，重复登记会让回血翻倍膨胀。
 // 五条复发信号（只选"文本自身 + 攻击组 _dmg + 终局快照就能定性"的判据）：
-//   1) 吸血量必须是正整数：+0 / 负数 / 小数 → Math.floor 被改或 dmg=0 仍登记（分支2 漏守）
+//   1) 吸血量必须是正整数：负数/小数 → 取整被改或结算改道；+0 仅父组 _dmg===1（floor(1×0.8)=0）合法容忍
+//      （2026-10-12 加固：原「+0 一律 fail」属误报），其余 +0 → dmg=0 仍登记（分支2 漏守）
 //   2) 比例哨兵：leechVal > 本次伤害 × 0.85 → 比例被写大或翻倍被重复叠加
 //      （合法上限就是 floor(dmg×0.8)/dmg ≤ 0.8，实测 120 场 ratioMax 恰为 0.800；留 0.85 给取整余量）
 //   3) 同一次攻击（同一个 attack-group）内同一单位登记两次 → 吸血膨胀
@@ -32,7 +33,7 @@
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.15';
+export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.16';
 import { collectNodes, maxHpOf, plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -106,10 +107,19 @@ export const rule98 = {
             var raw = lm[1];
             var leech = parseFloat(raw);
 
-            // 判据1：必须是正整数（Math.floor 的必然结果；+0 说明分支2 漏了 dmg>0 守卫）
-            if (!/^\d+$/.test(raw) || !(leech > 0)) {
+            // 判据1：必须是正整数（Math.floor 的必然结果）。
+            //   2026-10-12 加固（误报修复）：`+0` 有一个合法边缘——父组 _dmg===1 时 floor(1×0.8)=0 是引擎正确输出，
+            //   原先一律判 fail 属误报；仅此场景容忍，其余 0/负数/小数照旧报红。
+            if (!/^\d+$/.test(raw)) {
                 return { fail: true, msg: '复发：嗜血狂刀吸血量为「+' + raw + '」（引擎是 Math.floor(dmg×ratio) '
-                    + '且 dmg>0 才登记，出现 0/负数/小数说明取整被改或 dmg=0 仍结算）' };
+                    + '的整数，负数/小数说明取整被改或结算改道）' };
+            }
+            if (!(leech > 0)) {
+                var _pd = parentDmgOf(e, log);
+                if (!(leech === 0 && _pd === 1)) {
+                    return { fail: true, msg: '复发：嗜血狂刀吸血量为「+' + raw + '」（唯一合法 +0 是本次伤害恰好 1、'
+                        + 'floor(1×0.8)=0；其余 0 说明 dmg=0 仍登记（分支2 漏了 dmg>0 守卫））' };
+                }
             }
 
             // 判据2：比例哨兵（合法上限 floor(dmg×0.8)/dmg ≤ 0.8，取 0.85 留取整余量）

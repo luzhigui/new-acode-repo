@@ -1,5 +1,5 @@
 {
-  "version": "5.7.3",
+  "version": "5.7.4",
   "updated": "2026-10-12",
 
   "roles": {
@@ -522,7 +522,7 @@
     "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
     "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] },
-    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +10%（我方人数不少于敌方时保底 -30%）；另敌方全体防御每回合 ×0.92 乘方累积（第 N 回合 = 防御×0.92^N）", "atkBonus": -0.30, "perUnitBonus": 0.10, "defBonus": -0.08, "icon": "👻" }
+    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +5%（我方人数不少于敌方时保底 -30%）；另敌方全体防御初始 -10%、每多一个回合再叠 -5%（第 N 回合 = -(10+5×(N-1))%）", "atkBonus": -0.30, "perUnitBonus": 0.05, "defBonus": -0.10, "perRoundBonus": -0.05, "icon": "👻" }
   },
 
   "hexes": {

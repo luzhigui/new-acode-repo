@@ -1,3 +1,5 @@
+// V6.3.3 | ~17600 bytes | 2026-10-12 摄魂再平衡（老板：加强过头）：逆风系数 perUnitBonus 0.10→0.05；降防改**线性叠加**——
+//          初始 -10%、每多一个回合再叠 -5%（defRatio = defBonus + perRoundBonus×(N-1)，原 ×0.92^N 乘方作废）；两值看 content buffs.soulDrain
 // V6.3.2 | ~17600 bytes | 2026-10-12 摄魂加降防（老板拍板②）：同一份摄魂再削敌方防御，按回合数**乘方累积**
 //          ——第 N 回合 def ×(1+defBonus)^N（10 → 第5回合 10×0.92^5）。mul 词条是多条求和，故按当回合指数
 //          算好单条 ratio 后挂（ttl:'round' 每回合重挂），不能靠堆 N 条 -8%（那是 1-0.08N 线性）。另补 def 声明 fact
@@ -7,7 +9,7 @@
 // V6.2.9 | ~16800 bytes | 2026-10-11 applySoulDrain 补发 SOUL_DRAIN_APPLY 数值声明 fact（ratio 与 addMod 同值，供体检对照 soulDrain group 账本；契约入 infra/58，renderFn:null 不进画面）
 // V6.2.8 | ~16500 bytes | 2026-10-10 新增 applySoulDrain：首个削弱型海克斯「摄魂」——按持有方给对侧每存活单位挂 atk ×(1+atkBonus) 的 round 词条（group:soulDrain），与严阵以待同款每回合重挂、故整局生效
 // V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
-export const VER = 'core/04buff-system.js V6.3.2';
+export const VER = 'core/04buff-system.js V6.3.3';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -41,8 +43,8 @@ export function applyFortifyBonus(unit, activeBuffs) {
 //   与严阵以待同款「每回合重挂」口径——ttl:'round' 由回合开始统一清理，故整局持续、不做回合计数器。
 //   调用点见 core/11：明教持有 → 施加到六大派每人；六大派持有 → 施加到明教每人。
 // 2026-10-12 逆风补偿（老板拍板）：被削方每比施法方多 1 个存活单位（非马），减攻比例再 -perUnitBonus；
-//   被削方人数 ≤ 施法方时保底 atkBonus。两值见 content buffs.soulDrain（当前 -0.30 / 0.10），两方人数由 core/11 回合开始快照传入。
-//   另有 defBonus（降防，按回合乘方累积）见 applySoulDrain 内注释，当前回合数同样由 core/11 传入。
+//   被削方人数 ≤ 施法方时保底 atkBonus。两值见 content buffs.soulDrain（当前 -0.30 / 0.05），两方人数由 core/11 回合开始快照传入。
+//   另有降防（初始 defBonus + 每回合 perRoundBonus 线性叠加）见 applySoulDrain 内注释，当前回合数同样由 core/11 传入。
 export function applySoulDrain(unit, casterActiveBuffs, log, aliveCounts) {
     if (!hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN)) return;
     const cfg = CONFIG.BUFFS.soulDrain;
@@ -51,11 +53,11 @@ export function applySoulDrain(unit, casterActiveBuffs, log, aliveCounts) {
     addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     // 数值声明 fact（体检对照 soulDrain group，不进画面）：ratio 与 addMod 同值（随人数下探为负，契约 allowNeg 放行）
     if (log) log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio } });
-    // 2026-10-12 降防（老板拍板②）：同一份摄魂再削对侧防御，且按回合数**乘方累积**——
-    //   第 N 回合 def ×(1+defBonus)^N（原本 10 → 第 5 回合 10×0.92^5），不是 N 次线性叠加（1-0.08N）。
-    //   词条 mul 是多条求和，故按当回合指数算好单条 ratio 挂上；ttl:'round' 每回合随清理重挂，恒 1 条不残留。
+    // 2026-10-12 降防再平衡（老板：加强过头）：改线性叠加——初始 -10%、每多一个回合再叠 -5%——
+    //   第 N 回合 defRatio = defBonus + perRoundBonus×(N-1)（原 ×0.92^N 乘方中期削得太狠，作废）。
+    //   词条 mul 是多条求和，故按当回合线性值算好单条 ratio 挂上；ttl:'round' 每回合随清理重挂，恒 1 条不残留。
     const round = (aliveCounts && aliveCounts.round) || 1;
-    const defRatio = Math.pow(1 + (cfg.defBonus || 0), round) - 1;
+    const defRatio = (cfg.defBonus || 0) + (cfg.perRoundBonus || 0) * (round - 1);
     addMod(unit, 'def', { source: '摄魂', value: defRatio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     if (log) log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
