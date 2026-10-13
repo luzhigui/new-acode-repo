@@ -1,7 +1,6 @@
-// V6.8.5 | ~38300 bytes | 2026-10-12 回合开始不绿根治：action 执行门槛由「仅认有 fx」改为「fx/store/storeAfter 任一有活」——
-//   ROUND_START 回合清场只有 store 回调、无 fx，自 9-06 播放器加 fx 过滤起被整体跳过（render/39 的清场代码静默失效），
-//   回合开始「账本随回合归零 + 镜像清空」从未执行：回合开始文本出现时格子仍挂上一回合末的灰，要等本步步末 sync 才翻绿
-export const VER = 'player/42player-core.js V6.8.5';
+// V6.8.6 | ~38300 bytes | 2026-10-13 胜利横幅去重：正常通关（有存活单位）时横幅由 ui/62 spawnVictoryEffects 统一输出，
+//   player/42 不再重复渲染；仅当无存活单位（ui/62 未被调用）时兜底输出，平局/投票行不变。
+export const VER = 'player/42player-core.js V6.8.6';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -489,7 +488,9 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
-        if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
+        // 2026-10-13 胜利横幅去重：有存活单位时 ui/62 spawnVictoryEffects 已在台词后输出横幅，此处不再重复；
+        //   仅当无存活单位（spawnVictoryEffects 未被调用）时兜底输出一行。
+        if (c.gs === 'GAMEOVER' && aliveUnits.length === 0) renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
         await clock.wait(6000);
         const showBattleReportFn = GlobalStore.getUIHandler('showBattleReport');

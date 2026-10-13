@@ -1,5 +1,7 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
-// V1.4.0 | ~16500 bytes | 2026-10-11 何太冲显性化：新增 renderSkillAnnounceFact（SKILL_ANNOUNCE 报幕行，line:false 返回 null 只走飘字）；renderAttackFact 伤害行末追加 armorPierceHint（破甲箭·无视N%防御）
+// V1.4.1 | ~16600 bytes | 2026-10-13 斩杀图标顺序修正：伤害行的 💀击杀/💀阵亡 与 brush-red 底改判 dmgResult.dead
+//   （本击直接打死），战士斩杀（executeKill）时血线未归零 → 伤害行不标 💀，阵亡标记由 render/35 斩杀行统一出；
+//   group.isDead 仍取 killLine（dead||executeKill），死亡特效/尸体清理不受影响（133 规则依赖）。
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
@@ -9,7 +11,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.4.0';
+export const VER = 'render/34-facts-attack.js V1.4.1';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -97,6 +99,10 @@ export function renderAttackFact(fact) {
         ? { attackerPos: snap.attackerPos, defenderPos: snap.targetPos }
         : makeFXSnapshot(unit, target);
     const killLine = dmgResult.dead || dmgResult.executeKill;
+    // 2026-10-13 斩杀图标顺序：伤害行的 💀 只认「本击直接打死」（dmgResult.dead）。
+    //   战士斩杀（executeKill）时本击血量未到 0，💀 由后续「⚔️ 战士斩杀」行统一标（render/35），
+    //   避免「84 → 43 💀阵亡」这种图标与血线矛盾的行。group.isDead 仍取 killLine，死亡特效不受影响。
+    const directKill = !!dmgResult.dead;
     const group = {
         type:'attack-group', uidA:unit.uid, uidD:target.uid,
         attackerName:unit.name, targetName:target.name,
@@ -164,7 +170,7 @@ export function renderAttackFact(fact) {
         formulaText += ` -${pct}% 减伤=${runningRaw}`;
     }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
-    const damageText = killLine
+    const damageText = directKill
         ? renderKillLineFact({
             ac, dc, campA, campD,
             unitName: unit.name,
@@ -177,7 +183,7 @@ export function renderAttackFact(fact) {
     // 2026-09-24 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     group.entries.push({
         type:'damage-text',
-        deadFlag: killLine,
+        deadFlag: directKill,
         text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {
