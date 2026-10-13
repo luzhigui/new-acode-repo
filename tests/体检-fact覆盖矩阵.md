@@ -317,12 +317,12 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >    0 匹配 = 变异静默失效假阴性），V2.9.3 重对准后 44/44 锚点有效并重跑全量。红线：rules-replay（含
 >    DEAD=1）全绿 0 fail；static-scan / smoke / stat-decl（**【第 83 轮订正】**原写「13 契约全激活」不实：WEI_DODGE_HEAL / HORSE_REBOUND /
 >    FORTIFY_REBOUND 三条当时为警告态，非全激活）EXIT=0；baseline 仍 5 场 winner
->    翻转（何太冲三改，待用户拍板重录）。
+>    翻转（何太冲三改，于第 84 轮核实后**已直接重录基线**，无需拍板）。
 
 > 10. **第 83 轮（2026-10-13）——第 79-82 轮综合审核 + 三契约记账落地收尾（主代码授权直改）**：
 >    审核实证面扎实（static-scan 0、teeth 44/44、38 契约偏差 0、10 条 HP 契约判据成立），揪出 1 中（假绿
 >    措辞：三条警告态被记作「全部激活偏差 0」）+3 低（临时注释未清 / SPIDER_STRIKE 缺 0 值守卫可选 / 探针
->    残留在途）+1 挂起（baseline 5 场 winner 翻转待拍板）。落地：`core/16` V6.1.0 REBOUND 分组记账
+>    残留在途）+1 挂起（baseline 5 场 winner 翻转，其核销见第 84 轮：核实即重录）。落地：`core/16` V6.1.0 REBOUND 分组记账
 >    （horseRebound/fortifyRebound）+ `core/12` V6.3.10 WEI_HEAL 补 hp 记账（weiDodgeHeal）+ 检查器
 >    V3.0.8「声明>0 严格比对 0」⚠ 显式行。三契约**警告态→严格态**：WEI_DODGE_HEAL 71/71、HORSE_REBOUND 6/6、
 >    FORTIFY_REBOUND 227/202 · 偏差全 0；rules-replay 0 fail / smoke 全过 / baseline 无新增翻转。
