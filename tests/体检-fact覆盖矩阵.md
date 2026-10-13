@@ -443,3 +443,16 @@ modules/27 小昭·妹飞天重做在途）。
 //   （BEFORE_STATE_TRANSITION 当回合内复活）不变——_stunned 挡当回合、resetStateFields 下回合清，闭环完整。
 // 预期效果：rules-replay 不变量违规清零（临时补丁实测全量 0 违规 0 失败 + 全红线绿）。
 ===== 主代码改动 END =====
+
+> 14. **第 87 轮（2026-10-13）——惑心换位链路契约化（rule113/166）+ 矩阵剩余项核对清零（纯体检侧）**：
+>     矩阵「剩余待攻」核对发现 **HORSE_DESTROY 早已由 147（V6.1.16）完整覆盖**（roll/success 一致性、roll
+>     越界、减半序列、同马重复、pos 越界）——旧清单未同步；WIND_ASSAULT_PUSH（138）/ ZHANG_TAUNT（134）
+>     亦有覆盖。真正空缺仅 **MIND_CONTROL_SWAP**，本轮落地 `tests/health-rules/166-mind-control-swap.js`
+>     （rule113，规则数 112→113）。机制取证：AFTER_ATTACK 触发、门控己方最前排、一次执行 = 敌方一条 +
+>     己方一条（SWAP/FAIL，中间夹恒空 BANNER——横幅走 stageAction info 条目）；概率双层（buffs 0.8/0.4 vs
+>     hexEnhance 0.95/0.50，与 desc 一致，无冲突）。五判据：配对完整性 / SWAP 自洽（uidA≠uidB、
+>     oldPosA≠oldPosB、pos 1-9）/ FAIL 理由合法 / 文本格式完整 / 宣告位置真实生效（复用 138 V6.1.12 口径）。
+>     咬牙三条全命中（配对 fail=70 / 自洽 fail=79 / 落地 fail=82），补丁全还原（core/13 在途文件用 cp
+>     备份精确还原）。登记三处补齐（121 import+数组 / 123 清单 / 124 RULE_META+头 V1.2.2）。
+>     红线：rules-replay（含 DEAD=1）0 fail/0 空转/0 不变量违规；static-scan/smoke/stat-decl/registration/
+>     coverage 全绿；mutation 44/44；baseline 仍 7 场翻转（待用户拍板）。主代码零改动。
