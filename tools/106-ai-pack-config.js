@@ -1,3 +1,5 @@
+// V6.0.25 | ~20200 bytes | 2026-10-13 补登记 tests/health-rules/160-166 共 7 条（121health-monitor.js 已 import
+//           rule107-113、123static-scan.js SCAN_FILES 已列；漏登则包内体检页引用断裂）
 // V6.0.24 | ~19600 bytes | 2026-10-13 补登记 render/38-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
 //           （-attack/-heal/-control/-stat，38 入口 import 它们）
 // V6.0.23 | ~19100 bytes | 2026-10-13 补登记 modules/26elite-sixsects.js 拆分出的 6 个组件文件
@@ -34,7 +36,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.24';
+export const VER = 'tools/106-ai-pack-config.js V6.0.25';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -157,6 +159,15 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/157-mechanic-install-reconcile.js',
     '../tests/health-rules/158-fact-anchor-align.js',
     '../tests/health-rules/159-wei-bloodsiphon.js',
+    // 2026-10-13 补登记 160-166：121health-monitor.js 已 import rule107-113、123static-scan.js SCAN_FILES 已列，
+    //   仅打包清单漏登 —— 漏登则包内 120test-runner.html 体检页引用断裂（同 153-155 / 157-159 两次补登判据）
+    '../tests/health-rules/160-spider-transform-mastery.js',
+    '../tests/health-rules/161-lion-grow.js',
+    '../tests/health-rules/162-stat-change.js',
+    '../tests/health-rules/163-righteous-face.js',
+    '../tests/health-rules/164-leech-maxhp.js',
+    '../tests/health-rules/165-miejue-redesign.js',
+    '../tests/health-rules/166-mind-control-swap.js',
     // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）
