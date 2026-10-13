@@ -1,0 +1,35 @@
+name: Health Check
+
+# 体检红线（node-only，不跑浏览器）——2026-10-13 立
+# ─────────────────────────────────────────────────────────────────────────────
+# 与「Trae 侧定时自动化」不是一回事（体检规范·明令禁止第 1 条已注明）：
+#   那条禁的是每轮新建会话 + 非 hy4 模型 + 按会话计费；Actions 走 GitHub 免费额度，不占对话积分。
+#   技术上无障碍：tests/run-all.mjs 已是一键总入口（10 项 node 红线，任一红退 1，零 playwright）。
+#
+# 触发策略：先只留手动按钮（与 build-apk.yml 同款，零风险），跑稳了再放开 push 自动触发。
+#   目前是批次制（攒一波推送 → 手动跑一轮），所以默认不自动。
+#   要转「每笔推送必须绿了才算完」的节奏时，把下面注释的两行 on.push 打开即可。
+on:
+  # push:
+  #   branches: [main]
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 跑体检红线（node-only，零浏览器）
+        run: node tests/run-all.mjs
+
+      - name: 跑 ESLint（代码本身写没写错，与体检互补）
+        run: |
+          npm install --no-save eslint globals
+          npx eslint .
