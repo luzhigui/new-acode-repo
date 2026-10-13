@@ -1,5 +1,6 @@
-// V7.5.19 | ~13848 bytes | 2026-10-08 checkZhangSwitch 迁出（张无忌知识回英雄家，老板拍板「搬掉」）：函数体逐字移 modules/27 张无忌组件旁，本文件 export/死 import（getSkillParams、getRoleBonus）同步清——core 从此无英雄名
-export const VER = 'core/13battle-shared.js V6.2.1';
+// V6.3.0 | ~14000 bytes | 2026-10-13 小昭·妹飞天重做：applyStatChange 加天上无敌守卫（_spiderFlying 期间
+//   一切 hp 伤害免疫——毒/反伤直扣血不再穿透小蜘蛛）。文件头版本号与 VER 统一（原头注 V7.5.19 误用总纲编号）
+export const VER = 'core/13battle-shared.js V6.3.0';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -182,6 +183,9 @@ function emitCoreEvent(unit, eventType, payload) {
 
 function applyStatChange(target, field, delta, source, reason, record = true) {
     if (delta === 0 || !target || !target.alive) return false;
+    // 天上无敌（2026-10-13）：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
+    //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
+    if (field === 'hp' && delta < 0 && target.state && target.state._spiderFlying) return false;
     const oldVal = target[field];
     const stepped = Math.floor((target[field] + delta) * 10) / 10;
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;

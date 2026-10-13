@@ -1,8 +1,7 @@
-// V6.6.0 | ~7300 bytes | 2026-10-12 何太冲重做 V3：删旧三技能插槽（HE_TAICHONG_CHAIN_ARROW/KUNLUN_MARK/KUNLUN_COMBO/ARMOR_PIERCE），
-//   新插槽 ROUND_START +HE_TAICHONG_LINK:30（两仪连接/标记衰减）、BEFORE_DAMAGE_APPLY +HE_TAICHONG_RED_BLOOD:90（红血当帧）、
-//   BEFORE_DAMAGE_CALC +HE_TAICHONG_MARK:22（🎯 加伤）、AFTER_DAMAGE_APPLIED +HE_TAICHONG_MARK:19（🎯 挂标/刷新）
+// V6.6.1 | ~7200 bytes | 2026-10-13 小昭·妹蜘蛛卵：ON_BEFORE_DEATH +SPIDER_EGG:10（毒/反伤致死结茧续命）、
+//   ROUND_END +SPIDER_EGG:5（卵计时/孵化，先于 SPIDER_RETURN:10 落地）
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.6.0';
+export const VER = 'infra/50-event-bus.js V6.6.1';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -97,7 +96,7 @@ export const eventBus = new EventBus();
  */
 export const EXECUTION_LAYER = {
     ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, MIEJUE_SUMMON: 20, HE_TAICHONG_LINK: 30 },
-    ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
+    ROUND_END:        { SPIDER_EGG: 5, BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
@@ -144,7 +143,7 @@ export const EXECUTION_LAYER = {
         XINGFEN_RETRY: 50,
         PERMANENT_DOUBLE_RETRY: 60
     },
-    ON_BEFORE_DEATH: {},
+    ON_BEFORE_DEATH: { SPIDER_EGG: 10 },
     // 白骨爪连锁逐爪广播：CLAW_CHAIN 处理器每结算一爪发一次（爪击不走伤害计算管线）
     CLAW_HIT_APPLIED: { XIAOZHAO_QIAN_KUN: 10 },
     ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20 },

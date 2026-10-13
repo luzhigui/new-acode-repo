@@ -1,7 +1,6 @@
-// V2.7.0 | ~10600 bytes | 2026-10-12 何太冲重做 V3：删 _kunlunComboFlag（旧昆仑合击记账），
-//   新增 _dualSchools（两仪双修的附加职业能力）/ _liangyiPartnerUid（两仪连接对象）/
-//   _redBloodUsed（每局限一次红血额度）/ _heMarkRounds（箭靶标记剩余回合）
-export const VER = 'core/17-state-keys.js V2.7.0';
+// V2.7.1 | ~13000 bytes | 2026-10-13 小昭·妹飞天重做：新增蜘蛛卵四字段 _spiderEgg（当前是卵）/
+//   _spiderEggUsed（本局结过茧）/ _spiderEggRounds（卵存活回合计数）/ _spiderEggHatch（孵化过，跳过落地回血）
+export const VER = 'core/17-state-keys.js V2.7.1';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -66,6 +65,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredDeath:   { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 小昭·妹蜘蛛卵（2026-10-13）：毒/反伤致死绕过飞天 → 原地结茧；卵期计满 2 回合末孵化
+    _spiderEgg:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _spiderEggUsed:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _spiderEggRounds:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 孵化过（保留 40% 血）：落地回血跳过、三档全作废，本局再死=真死
+    _spiderEggHatch:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _untargetable:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _hotBloodCount:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _doubleStriked:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
