@@ -376,3 +376,36 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >   **剩余待攻**：HORSE_DESTROY（prob/roll 概率一致性）、pos/状态类 4 个（MIND_CONTROL_SWAP / PUSH_STUN /
 >   WIND_ASSAULT_PUSH / ZHANG_TAUNT）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）；
 >   ④ 新增剩余盲区 1 个：**heTaichongRed**（两仪互换，scan-groups 实测 48 条 atk/def/maxHp 词条无契约）。
+
+> 12. **第 85 轮（2026-10-13）——heTaichongRed 盲区契约化（HE_TAICHONG_RED，纯体检侧，主代码零改动，转交 1 处）**：
+>    scan-groups 第 84 轮挖出的属性盲区 `heTaichongRed`（两仪互换/单人红血，48 条 atk/def/maxHp 词条快照）本轮契约化。
+>    **关键设计决策**：红血机制唯一 fact 是 3 条 SKILL_ANNOUNCE（skillName 两仪互换/红血）且不带数值；
+>    `emitStateChange(ROLE_CHANGED)` 只发 eventBus 信号**不产 fact**（infra/59 文件头明示「日志 fact 由各源头 log.push 负责」）
+>    ⇒ 纯 test-side 推职业信息路线证死 ⇒ 走 `data.grants` 数值载荷转交（同 weiHeal.maxHpDelta / pangDefGain 先例；
+>    `refreshMaxHp` 不走 addMod（core/13 L221-242 只同步 maxHp+缩放 hp），maxHp 账本无双算源）。
+>    验证闭环：零触发警告态（声明 0/账本 48）→ 临时转交严格比对 **32/32 偏差 0**（48 词条扣 16 个 0 值 stat，
+>    与 `>0` 守卫吻合）→ 咬牙引擎 atk×2 **命中 16 处 EXIT=1** → 回滚干净（git status 验证、无「临时验证用」残留）。
+>    **补丁态全红线绿**（rules-replay 0 fail / static-scan 0 issue / smoke 全过 / mutation 44/44）——fact 加字段
+>    对渲染/翻译/规则零影响。附带侦查：另一条零触发 **BAGUA_DEF** 定性为**历史契约残留非缺陷**——2026-10-08
+>    改版有意删除「-1攻+1防」对冲（defDelta 恒 0），atk 侧本就有 BAGUA_ATK（dir:-1）盯；已在契约补注释防误读、
+>    保留作回归哨兵。契约总数 42→**43**；scan-groups 属性盲区清零（heTaichongRed 契约已建，转交后转严格）。
+
+### ===== 主代码改动 START（modules/26elite-sixsects-hetaichong.js，红血机制③，激活 HE_TAICHONG_RED 契约）=====
+// 第 85 轮转交。共 3 处插入 + 3 行替换，全部为纯记账/挂载，零行为副作用（战报文本与渲染输出不变）。
+// ── 插入①：addRoleBonus 定义前（「只登记职业加成」注释行与 function 行之间），加收集器声明 ──
+            // 红血加成 grants 收集器（2026-10-13 第 85 轮体检转交）：每套加成记一条 {uid, atk, def, maxHp}，
+            //   由下方 announce fact 的 data.grants 带给体检契约 HE_TAICHONG_RED 对账；只读 bonus 原值，零行为副作用
+            let pendingGrants = null;
+// ── 插入②：addRoleBonus 函数体内，refreshMaxHp(unit, null, label); 那一行之后 ──
+                if (pendingGrants) pendingGrants.push({ uid: unit.uid, atk: bonus.atk, def: bonus.def, maxHp: bonus.maxHp });
+// ── 插入③：tryRedBlood 内，if (hpAfter > subject.maxHp * redThreshold) return; 那一行之后 ──
+                pendingGrants = [];   // 本次红血事件的加成收集起点（两仪互换/单人红血各算一轮）
+// ── 替换④（红血·撤退 announce，原行尾 floatUid: u.uid } }); 改为挂 grants）──
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：撤退至 ${retreatPos} 号位、转远程`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
+// ── 替换⑤（红血·转战士 announce，同样在行尾挂 grants）──
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：退无可退、转战士`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
+// ── 替换⑥（两仪互换 announce，swap 对象之后挂 grants）──
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos }, grants: pendingGrants } });
+// 无需加 import（bonus/pendingGrants 均在本闭包内）。预期效果：HE_TAICHONG_RED 零触发警告态 → 严格态
+// （临时转交实测 32 声明全命中/偏差 0；落地后红线 stat-decl EXIT=0 维持）。
+===== 主代码改动 END =====
