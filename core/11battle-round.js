@@ -1,7 +1,10 @@
-// V6.3.12 | ~29600 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
+// V6.3.13 | ~29800 bytes | 2026-10-13 修死循环：组件声明 skip 时必须把该单位 state._acted 置 true
+//           （原先只 continue 不消费行动权，跳过选招的单位会一直 alive && !_acted，回合内 while 永不退出）。
+//           实际踩雷：小昭·妹蜘蛛卵（modules/27 submitSpiderSkipDeclaration）——单英雄跑批约 1/4 概率整局卡死
+// V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.12';
+export const VER = 'core/11battle-round.js V6.3.13';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -343,7 +346,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false };
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide });
-            if (decl.skip) continue;
+            // 2026-10-13 组件声明 skip = 本回合不行动：必须就地消费掉行动权，否则该单位
+            //   一直 alive && !_acted，外层 while（L367）永不退出 —— 小昭·妹蜘蛛卵卡死即此因
+            if (decl.skip) { u.state._acted = true; continue; }
             if (decl.pass) { passUnits.push({ unit: u, reason: '组件声明pass' }); continue; }
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
