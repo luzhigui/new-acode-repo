@@ -1,3 +1,7 @@
+// V2.9.6 | 2026-10-13 第 88 轮：新增 T17/T18 惑心换位（rule113，第 87 轮落地）变异牙——
+//   第 87 轮落 rule113 时未同步牙齿，构成 A28 式静默死亡缺口（主代码改 swap emit 写法 ⇒ 规则恒绿无人察）。
+//   T17 盯判据1（敌方 SWAP fact side 漂移 ⇒ 配对断链）、T18 盯判据5（fact 报反新旧位置 ⇒ 宣告位置未生效；
+//   判据2 自洽抓不到相异合法值，必须单独有牙）。预期双双「规则有牙」；若判装饰品即判据真盲区（硬发现）。
 // V2.9.5 | 2026-10-13 体检第 84 轮：A11 锚点重校（唯一性）—— 旧 from `"{ source: '韦一笑吸血', value: delta,"`
 //   在 core/12battle-attack-steps.js 命中 2 处（L594 weiLeech maxHp 上限提升 / L597 weiDodgeHeal hp 记账），
 //   违反 --verify「非 multi 的 from 必须恰好 1 次」；且 A11 语义「上限提升翻倍」只应打 maxHp 行。
@@ -66,7 +70,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.5';
+export const VER = 'tests/mutation-teeth.mjs V2.9.6';
 
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -362,6 +366,24 @@ const MUTATIONS = [
       file: 'core/04buff-system.js',
       from: "addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });",
       to:   "addMod(unit, 'atk', { source: '摄魂', value: ratio * 2, ttl: 'round', op: 'mul', group: 'soulDrain' });" },
+    // ===== 第 88 轮新增：rule113 惑心换位（第 87 轮落地，tests/health-rules/166）零变异牙 =====
+    //   背景：A28 史（第 82 轮）——新规则没有牙 ⇒ 主代码改写法时规则静默死亡，"恒绿但什么都不测"。
+    //   rule113 五判据里判据1（配对完整性）与判据5（宣告位置生效）此前无任何牙齿覆盖。
+    //   T17：敌方 SWAP fact 的 side 常量漂移 ENEMY→ALLY —— 敌方分支结果被贴上前台标签，
+    //     文本流变成「己方,己方」相邻 ⇒ 判据1「首条惑心（己方）之前不是敌方条目」应咬。
+    //     敌方侧 roll 失败时该条不产生（FAIL 分支不动）⇒ 样本里需至少一次敌方 SWAP（概率 80%/95%，覆盖充足）。
+    { id: 'T17', kind: 'TEXT', desc: '敌方惑心换位 fact 的 side 漂移成己方（⇒ 配对断链 → rule113 判据1应咬）',
+      file: 'core/14buff-effects.js',
+      from: "data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });",
+      to:   "data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });" },
+    //   T18：SWAP fact 把两个旧位置报反（posA/posB 对调，multi 两分支同改）—— 实际换位照常发生，
+    //     但宣告的 oldPosA/oldPosB 与真相对调 ⇒ 判据5「A 应落到 oldPosB」永远不命中 ⇒ 应咬。
+    //     判据2（自洽）抓不到（uid/位置仍合法且相异）—— 正是要单独验证判据5 有牙。
+    { id: 'T18', kind: 'TEXT', desc: '惑心换位 fact 报反新旧位置（⇒ 宣告位置未生效 → rule113 判据5应咬）',
+      file: 'core/14buff-effects.js',
+      from: "unitB: { uid: b.uid, name: b.name }, posA, posB } });",
+      to:   "unitB: { uid: b.uid, name: b.name }, posB, posA } });",
+      multi: true },
 ];
 
 function toPosix(p) {
