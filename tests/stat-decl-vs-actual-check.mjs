@@ -1,3 +1,10 @@
+// V3.1.1 | ~115300 bytes | 2026-10-13 第 85 轮：新增 HE_TAICHONG_RED 何太冲红血·职业加成契约（42→43）——
+//         scan-groups 盲区扫地续：group 'heTaichongRed' 48 条 atk/def/maxHp 词条（两仪互换/单人红血）无契约盯。
+//         fact 侧读 SKILL_ANNOUNCE（skillName '两仪互换'/'红血'）的 data.grants 数值载荷（主代码转交补，
+//         转交块见矩阵第 85 轮节；未转交前零触发警告态）。emitStateChange(ROLE_CHANGED) 不产 fact
+//         （infra/59 只发 eventBus 信号）⇒ 纯 test-side 路线证死，同 weiHeal.maxHpDelta/pangDefGain 先例走载荷转交。
+//         验证闭环：临时转交 → 严格比对 32/32 偏差 0（48 账本词条扣 16 个 0 值 stat）→ 咬牙引擎 atk×2
+//         命中 16 处 EXIT=1 → 回滚干净。补丁态全红线绿（rules-replay 0 fail / static-scan 0 / smoke 过 / 变异 44/44）。
 // V3.1.0 | ~111900 bytes | 2026-10-13 第 84 轮（续）：新增 QIAN_KUN_ATK / QIAN_KUN_HEAL 两条乾坤衍生契约——
 //         QIAN_KUN_ATK（group 'qianKunDerived'，atk，dir=+1，读 factData.atkGain/atkTargetUid）：--scan-groups
 //         盲区扫描挖出该 group 268 条 atk 词条无契约盯；addMod 与 fact 同 handler 同值 ⇒ **零主代码依赖，落地即严格态**
@@ -405,6 +412,9 @@ const CONTRACTS = [
         }
     },
     {
+        // 第 47 轮：八卦阵·加防。2026-10-08 改版（老板拍板）已删除「-1攻+1防」对冲、不再加防
+        //   （modules/26elite-sixsects-zhangsanfeng.js L140/L156：defDelta 恒发 0 保住三字段）⇒ 本契**永远零触发**，
+        //   属历史契约残留而非缺陷：保留作回归哨兵——未来改版若恢复加防则自动激活；atk 消耗侧由 BAGUA_ATK（dir:-1）盯。
         id: 'BAGUA_DEF',
         label: '八卦阵·加防',
         group: 'baguaArray',
@@ -911,6 +921,43 @@ const CONTRACTS = [
                 scan(f);
                 if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 85 轮：何太冲·红血（机制③：两仪互换 / 单人红血）职业加成——modules/26 addRoleBonus 三连 addMod
+        //   （atk/def/maxHp，group 'heTaichongRed'，ttl:'permanent'）。两仪互换 = 双方各叠一套对方职业加成；
+        //   单人红血 = 战士+远程两套起手，再按撤退成败叠第三/四套（共 3~4 套，均同 uid 同 step）。
+        //   fact 侧：SKILL_ANNOUNCE（skillName '两仪互换'/'红血'）的 data.grants——主代码转交补的数值载荷，
+        //   每套职业加成一条 {uid, atk, def, maxHp}（转交块见矩阵第 85 轮节；未转交前本契因为零触发警告态：
+        //   声明 0 而账本已 48 词条——正是 scan-groups 挖出的盲区形态）。
+        //   ⚠️ 职业信息无法从既有 fact 推得：emitStateChange(ROLE_CHANGED) 只发 eventBus 信号不产 fact
+        //   （infra/59 文件头明示「日志 fact 由各源头 log.push 负责」），announce note 又不带角色/数值
+        //   ⇒ 纯 test-side 路线已证死，必须 grants 载荷（同 weiHeal.maxHpDelta / pangDefGain 先例）。
+        //   ⚠️ refreshMaxHp 不走 addMod（core/13 L221-242 只同步 maxHp+缩放 hp）⇒ maxHp 账本无双算源。
+        id: 'HE_TAICHONG_RED',
+        label: '何太冲红血·职业加成',
+        group: 'heTaichongRed',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SKILL_ANNOUNCE) return;
+                const d = f.data;
+                if (d.skillName !== '两仪互换' && d.skillName !== '红血') return;
+                if (!Array.isArray(d.grants)) return;
+                for (const g of d.grants) {
+                    if (!g || g.uid == null) continue;
+                    if (typeof g.atk === 'number' && g.atk > 0) out.push({ unit: null, uid: g.uid, stat: 'atk', amount: g.atk });
+                    if (typeof g.def === 'number' && g.def > 0) out.push({ unit: null, uid: g.uid, stat: 'def', amount: g.def });
+                    if (typeof g.maxHp === 'number' && g.maxHp > 0) out.push({ unit: null, uid: g.uid, stat: 'maxHp', amount: g.maxHp });
+                }
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
         }
