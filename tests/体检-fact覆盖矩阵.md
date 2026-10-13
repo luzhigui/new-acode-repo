@@ -456,3 +456,87 @@ modules/27 小昭·妹飞天重做在途）。
 >     备份精确还原）。登记三处补齐（121 import+数组 / 123 清单 / 124 RULE_META+头 V1.2.2）。
 >     红线：rules-replay（含 DEAD=1）0 fail/0 空转/0 不变量违规；static-scan/smoke/stat-decl/registration/
 >     coverage 全绿；mutation 44/44；baseline 仍 7 场翻转（待用户拍板）。主代码零改动。
+
+> 15. **第 88 轮（2026-10-13）——蜘蛛系双盲区契约化（scan-groups 清零 45/45）+ rule113 变异牙补缺（T17/T18）**：
+>     `--scan-groups` 盲区扫地仅剩 2 个未覆盖 group：**spiderLandHeal**（飞天落地回血 37 条 hp 词条，
+>     modules/20 spiderReturn）与 **spiderEgg**（蜘蛛卵结茧 4 条 atk/def 词条，modules/27 toSpiderEgg）——
+>     「把数值写错也查不出」。取证：两者**记账 addMod 均已在主代码**（L196 / L571-572，注释"供数值对照器"），
+>     缺的只是 fact 侧数值——落地回血走 applyStatChange 只发 eventBus **不产 fact**（core/13 L222-230 无
+>     log.push），SPIDER_RETURN fact 又只带 pos；蜘蛛卵 announce note 只有「0 攻 / eggDef 防」文本（最终值
+>     非增量，atk 实际增量 = eggModValue 逆算值、依赖当前 atk 与乘法词条，无法从文本推 declared delta）
+>     ⇒ 纯 test-side 两条路均证死，走**数值载荷转交**（weiHeal.maxHpDelta / pangDefGain / grants 之后
+>     第四、第五例）。落地两条契约（stat-decl V3.2.0，43→45）：
+>     - **SPIDER_LAND_HEAL**（group spiderLandHeal，dir=+1）：读 SPIDER_RETURN fact `data.landHeal`
+>       （>0 守卫；孵化/满血/比率为 0 时记 0，与记账同条件）；fact 与 addMod 同函数同 step ⇒ 严格安全。
+>     - **SPIDER_EGG**（group spiderEgg，dir=+1 + allowNeg）：读蜘蛛卵 announce `data.eggAtkDelta/eggDefDelta`；
+>       atk 归零声明为负、def 可升可降，两侧真实符号逐字比对（mirror STAT_CHANGE 降防形态）；孵化/打碎的
+>       removeModsByGroup 步无声明条目（announce 是「蜘蛛孵化」另一 skillName）⇒ 不进比对不假偏差。
+>     验证闭环：警告态（账本 37/4 词条，两级零触发判定不硬红）→ 临时转交严格 **37/4 偏差 0** → 咬牙
+>     addMod 值 ×2 命中 **37 处 / 2 处 EXIT=1** → 咬牙回滚后补丁态全红线绿。**转交净版已被并行会话
+>     f2b4aed 全量提交扫入 HEAD**（其全量入库习惯；本次为净版、无咬牙残留）⇒ 两契约现为**严格态**，
+>     无需用户再转交。**但本次转交编辑在 modules/20 留了一处笔误**（旧 SPIDER_RETURN push 未删、与新
+>     push 并存 ⇒ 每次蛛落渲染/translate 出双条目——rules-replay 无规则覆盖重复 fact 故未报红），
+>     已由 7b2e7e4 修正（删旧留新）并全红线复验（replay 0 违规 / stat-decl 37+4 偏差 0 / static/smoke 过）。
+>     同轮补 **rule113 变异牙**（mutation-teeth V2.9.6，44→46）：第 87 轮落规则时漏同步牙齿 =
+>     A28 式静默死亡缺口（主代码改 swap emit 写法 ⇒ 规则恒绿无人察）。T17 = 敌方 SWAP fact 的 side 常量
+>     漂移 ENEMY→ALLY（判据1 配对断链应咬）；T18 = fact 报反新旧位置（multi 两分支同改，判据5 宣告位置
+>     未生效应咬；判据2 自洽抓不到「相异但合法」的值，必须单独有牙）。--verify 46/46 锚点有效；
+>     全量 46 树重跑判定见 tests/.mut/teeth-results.txt（【判定结果待填：T17/T18  verdict、其余 44 条是否维持】）。
+
+### ===== 主代码改动 START（modules/20elite-skills.js，spiderReturn 函数内，原 SPIDER_RETURN push + 落地回血段）=====
+// 第 88 轮转交（净版已由并行会话 f2b4aed 落地，重复 push 笔误由 7b2e7e4 修正）：
+// 原状：
+    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
+
+    // 落地回血（2026-10-13 飞天重做）：每次飞天落地回 maxHp 的 landHealRatio；孵化落地不回（血钉 40%）
+    if (!unit.state._spiderEggHatch) {
+        const flyParams = getSkillParams('小昭', 'spiderFly');
+        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
+        const heal = Math.floor(unit.maxHp * flyParams.landHealRatio);
+        if (heal > 0 && unit.hp < unit.maxHp) {
+            applyStatChange(unit, 'hp', heal, unit, '飞天落地回血');
+            // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
+            addMod(unit, 'hp', { source: '飞天落地回血', value: heal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
+        }
+    }
+// 改为（删旧 push；heal 提前算成 landHeal 局部并写进 fact 数据；addMod 改引同一局部）：
+    // 落地回血（2026-10-13 飞天重做）：每次飞天落地回 maxHp 的 landHealRatio；孵化落地不回（血钉 40%）
+    // landHeal 提前算好并写进 SPIDER_RETURN fact（数值对照器 SPIDER_LAND_HEAL 契约的声明侧，体检第 88 轮转交）；
+    //   不落地（孵化/满血/比率为 0）时记 0，与 addMod 记账同条件同值
+    let landHeal = 0;
+    if (!unit.state._spiderEggHatch) {
+        const flyParams = getSkillParams('小昭', 'spiderFly');
+        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
+        const heal = Math.floor(unit.maxHp * flyParams.landHealRatio);
+        if (heal > 0 && unit.hp < unit.maxHp) landHeal = heal;
+    }
+
+    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal } });
+
+    if (landHeal > 0) {
+        applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
+        // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
+        addMod(unit, 'hp', { source: '飞天落地回血', value: landHeal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
+    }
+// 零行为差异：唯一 SPIDER_RETURN push 位置相对其他 fact 不变（applyStatChange 不产 fact）；
+//   landHeal 只作 fact 数据与记账值，不进任何游戏逻辑。infra/58 requiredFields 无需动（下限集不变）。
+===== 主代码改动 END =====
+
+### ===== 主代码改动 START（modules/27elite-mingjiao.js，toSpiderEgg 函数内，addMod 两行 + announce push）=====
+// 第 88 轮转交（净版已由并行会话 f2b4aed 落地）：
+// 原状：
+    addMod(u, 'atk', { source: '蜘蛛卵', value: eggModValue(u, 'atk', 0), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    addMod(u, 'def', { source: '蜘蛛卵', value: eggModValue(u, 'def', fp.eggDef), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    ...
+    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid } });
+// 改为（两个 eggModValue 提为局部、announce data 补两个数值字段；addMod 引同一局部）：
+    // 结茧属性增量先算局部（体检第 88 轮转交：写进 announce fact 供数值对照器 SPIDER_EGG 契约做声明侧）
+    const eggAtkDelta = eggModValue(u, 'atk', 0);
+    const eggDefDelta = eggModValue(u, 'def', fp.eggDef);
+    addMod(u, 'atk', { source: '蜘蛛卵', value: eggAtkDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    addMod(u, 'def', { source: '蜘蛛卵', value: eggDefDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    ...
+    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta } });
+// 零行为差异：eggModValue(atk) 先算不影响 eggModValue(def)（def 的 getStat/mulSum 不读 atk 词条）；
+//   两字段只作 fact 数据。infra/58 requiredFields 无需动。
+===== 主代码改动 END =====
