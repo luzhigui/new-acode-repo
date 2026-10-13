@@ -160,7 +160,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.AURA_APPLY]: { requiredFields: ['unitName', 'unitUid', 'emptyCol', 'bloodAura'], renderFn: null, translateFn: null },
     // 圣火令（乘法共享乘区，无独立增量）：ratio 与 addMod value 同值（0.3=+30%），field 为 atk/def，体检按乘率口径核对
     [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
-    // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值——atk 为 atkBonus(-0.30) 随人数差更深（每多 1 人 -0.05），def 为 defBonus + perRoundBonus×(N-1)（-0.10 起步、每回合再叠 -0.05）；field 为 atk/def，体检按乘率（mulSum）口径核对
+    // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值——atk 为 atkBonus(-0.30) 随人数差更深（每多 1 人 -0.05），def 为乘法累积 (1+defBonus)×(1+perRoundBonus)^(N-1)-1（×0.9 起步、每回合再 ×0.95）；field 为 atk/def，体检按乘率（mulSum）口径核对
     [FACT_TYPES.SOUL_DRAIN_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },

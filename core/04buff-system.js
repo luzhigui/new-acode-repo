@@ -1,7 +1,9 @@
+// V6.4.3 | ~27370 bytes | 2026-10-13 摄魂降防改乘法（老板拍板）：第 N 回合累计乘率 = 0.9×0.95^(N-1)（原线性叠加作废），
+//           defRatio = (1+defBonus)×(1+perRoundBonus)^(N-1)-1，乘法累积越拖越脆但渐近封顶
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.2';
+export const VER = 'core/04buff-system.js V6.4.3';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -47,11 +49,12 @@ export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     // 数值声明 fact（体检对照 soulDrain group，不进画面）：ratio 与 addMod 同值（随人数下探为负，契约 allowNeg 放行）
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio } });
-    // 2026-10-12 降防再平衡（老板：加强过头）：改线性叠加——初始 -10%、每多一个回合再叠 -5%——
-    //   第 N 回合 defRatio = defBonus + perRoundBonus×(N-1)（原 ×0.92^N 乘方中期削得太狠，作废）。
-    //   词条 mul 是多条求和，故按当回合线性值算好单条 ratio 挂上；ttl:'round' 每回合随清理重挂，恒 1 条不残留。
+    // 2026-10-13 降防改乘法（老板拍板）：防御 ×0.9，此后每回合再 ×0.95——
+    //   第 N 回合累计乘率 defRatio = (1+defBonus)×(1+perRoundBonus)^(N-1) - 1（defBonus=-0.10 → ×0.9，perRoundBonus=-0.05 → ×0.95），
+    //   乘法累积越拖越脆但渐近封顶（不再像线性版第 19 回合防御归零）。
+    //   词条 mul 是多条求和，故把累计乘率算好挂单条；ttl:'round' 每回合随清理重挂，恒 1 条不残留。
     const round = ctx?.round || 1;
-    const defRatio = (cfg.defBonus || 0) + (cfg.perRoundBonus || 0) * (round - 1);
+    const defRatio = (1 + (cfg.defBonus || 0)) * Math.pow(1 + (cfg.perRoundBonus || 0), round - 1) - 1;
     addMod(unit, 'def', { source: '摄魂', value: defRatio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
