@@ -417,6 +417,26 @@
       }
     },
 
+    "杨逍": {
+      "tags": ["明教", "飞行", "精英"],
+      "skills": {
+        "dianXueShenTong": {
+          "name": "弹指神通",
+          "desc": "攻击命中后 35% 概率点穴目标：目标自己下一次行动序被跳过（回合级眩晕），同一目标 3 回合内最多被点一次。",
+          "params": { "prob": 0.35, "cdRounds": 3 }
+        },
+        "dianXueJieMai": {
+          "name": "点穴截脉",
+          "desc": "被点穴的目标眩晕解除后进入截脉 2 回合：受到的治疗/吸血回复减少 50%（反治疗）。",
+          "params": { "rounds": 2, "healReduceRatio": 0.5 }
+        }
+      },
+      "taunts": {
+        "attack": ["弹指神通！", "光明左使在此，岂容你放肆！", "接我一指！"],
+        "kill": ["点中死穴，无药可救。", "光明顶岂是你能撒野之地！", "回去再练二十年吧。"]
+      }
+    },
+
     "小昭": {
       "tags": ["明教", "远程", "精英"],
       "skills": {
@@ -522,14 +542,16 @@
     "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
     "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] },
-    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +5%（我方人数不少于敌方时保底 -30%）；另敌方全体防御初始 -10%、每多一个回合再叠 -5%（第 N 回合 = -(10+5×(N-1))%）", "atkBonus": -0.30, "perUnitBonus": 0.05, "defBonus": -0.10, "perRoundBonus": -0.05, "icon": "👻" }
+    "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +5%（我方人数不少于敌方时保底 -30%）；另敌方全体防御初始 -10%、每多一个回合再叠 -5%（第 N 回合 = -(10+5×(N-1))%）", "atkBonus": -0.30, "perUnitBonus": 0.05, "defBonus": -0.10, "perRoundBonus": -0.05, "icon": "👻" },
+    "holyFire": { "name": "圣火不熄", "desc": "每局首次有一名己方非巨马单位阵亡时，该单位在下一个行动步原地复活：回复 40% 最大生命，复活当回合不可行动；每局仅触发 1 次（防无限复活）", "reviveRatio": 0.4, "icon": "🕯️", "effects": ["holyFireRevive"] }
   },
 
   "hexes": {
     "permanentBuffKeys": [
       "fortify", "bloodthirst", "meteorShower", "windAssault",
       "cloudBody", "hotBlood", "carry", "doubleStrike",
-      "mindControl", "horseFormation", "holyFlame", "soulDrain"
+      "mindControl", "horseFormation", "holyFlame", "soulDrain",
+      "holyFire"
     ]
   },
 
@@ -631,8 +653,8 @@
       "崆峒": ["宗维侠", "常敬之", "崆峒唐文亮", "崆峒胡豹", "崆峒简捷", "崆峒赵明", "崆峒弟子"],
       "default": ["少林弟子", "武当弟子", "峨眉弟子", "昆仑弟子", "崆峒弟子"]
     },
-    "elitePower": { "张无忌": 130, "韦一笑": 125, "小昭": 130, "金毛狮王谢逊": 130 },
-    "eliteRate": { "张无忌": 0.30, "韦一笑": 0.20, "小昭": 0.40, "金毛狮王谢逊": 0.20 },
+    "elitePower": { "张无忌": 130, "韦一笑": 125, "小昭": 130, "金毛狮王谢逊": 130, "杨逍": 128 },
+    "eliteRate": { "张无忌": 0.30, "韦一笑": 0.20, "小昭": 0.40, "金毛狮王谢逊": 0.20, "杨逍": 0.20 },
     "normalPower": { "95": 90, "97": 95, "100": 100, "104": 110 }
   },
 

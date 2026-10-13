@@ -1,5 +1,5 @@
-// V1.5.1 | ~14250 bytes | 2026-10-12 摄魂数值加强注释同步：-0.25→-0.30（值在 content soulDrain.atkBonus）
-export const VER = 'infra/56-battle-enums.js V1.5.1';
+// V1.6.0 | ~14300 bytes | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
+export const VER = 'infra/56-battle-enums.js V1.6.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -70,7 +70,7 @@ export const FACT_TYPES = Object.freeze({
     SKILL_ANNOUNCE: 'skillAnnounce'
 });
 
-/** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 12 项对应） */
+/** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 13 项对应） */
 export const BUFF_TYPES = Object.freeze({
     FORTIFY: 'fortify', BLOODTHIRST: 'bloodthirst',
     METEOR_SHOWER: 'meteorShower', WIND_ASSAULT: 'windAssault',
@@ -78,7 +78,8 @@ export const BUFF_TYPES = Object.freeze({
     CARRY: 'carry', DOUBLE_STRIKE: 'doubleStrike',
     MIND_CONTROL: 'mindControl', HORSE_FORMATION: 'horseFormation',
     HOLY_FLAME: 'holyFlame',
-    SOUL_DRAIN: 'soulDrain'   // 摄魂：敌方全体攻击力降低（唯一削弱型海克斯）
+    SOUL_DRAIN: 'soulDrain',  // 摄魂：敌方全体攻击力降低（唯一削弱型海克斯）
+    HOLY_FIRE: 'holyFire'     // 圣火不熄：每局首次己方非巨马阵亡 → 下一个行动步原位复活（死亡交互型海克斯）
 });
 
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */
