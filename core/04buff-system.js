@@ -1,7 +1,7 @@
-// V6.4.1 | ~24250 bytes | 2026-10-13 圣火不熄复活落账 applyStatChange 补 isHeal=false（复活回血非「治疗/吸血
-//          回复」语义，不吃杨逍截脉减疗）
+// V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
+//           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.1';
+export const VER = 'core/04buff-system.js V6.4.2';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -331,6 +331,13 @@ function reviveHolyFireUnit(u, team, log, withStun) {
     // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
     applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false, false);
     if (withStun) u.state._stunned = true;
+    // 2026-10-13 第 86 轮：回合开始兜底复活（withStun=false）＝设计意图「那个回合已过、新回合正常参与」，
+    //   但阵亡前已行动过的单位 _acted 遗留 true —— core/11 L157-158 的回合初重置 resetStateFields 只扫 alive，
+    //   阵亡态被整段跳过；本钩子挂在 ON_ROUND_START（本文件 L374），跑在 L157-158 之后 ⇒ 复活者回合级旧值一个都没清。
+    //   回合循环按 alive && !_acted 选人（core/11 L372/L387）⇒ 新回合行动权被吞（静默：无攻击、无 PASS、无休息记录）。
+    //   清 false 让它进本回合候选。注：只清行动权一字段——本钩子之前（优先级 5~35）已发的回合级加成不擦除；
+    //   withStun=true 路径（当回合内复活）由 _stunned 挡当回合、下回合 resetStateFields 自然清，闭环完整无需动。
+    else u.state._acted = false;
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: !!withStun });
     if (log) {
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
