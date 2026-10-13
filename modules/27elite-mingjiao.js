@@ -1,7 +1,7 @@
 // V6.9.1 | ~73600 bytes | 2026-10-13 修永久 carry 无限叠加 bug：蛛变声明里续 carry 的 addMod 加 group 去重门控，
-//   只续一份常驻（此前每回合叠 +3/+4/+20，长局滚雪球）
+//   杨逍重做（2026-10-13 拍板）：弱精英 m104；选敌优先未行动；点穴=眩晕😵+禁疗❌3回合同时挂；敌方全行动→飞行默认+追击×1.3
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V6.9.1';
+export const VER = 'modules/27elite-mingjiao.js V7.0.0';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -983,11 +983,13 @@ export function createXieXunComponent() {
     };
 }
 
-// 杨逍（光明左使·飞行·精英）
-// ① 弹指神通：攻击命中后 prob 概率点穴目标——置回合级 _stunned（目标本轮尚未行动则被跳过），
-//    并打独立来源标记 _dianXue（不与击退/闪避反击共用的 _stunned 混淆）+ 冷却 _dianXueCd（同一目标 cdRounds 回合最多被点一次）。
-// ② 点穴截脉：目标眩晕解除的头一个回合开始（_stunned 已被 resetStateFields 清）转入截脉 rounds 回合：
-//    受到的治疗/吸血回复按 ratio 打折，落点在 core/13 applyStatChange 单点收口（全库 10+ 治疗出口）。
+// 杨逍（光明左使·飞行·弱精英 m104）
+// ① 弹指神通：命中后 prob 概率点穴——回合级 _stunned（😵 复用现有渲染，本回合选人时被跳过）+ 同时挂截脉禁疗 _jinMai（❌）
+//    rounds 回合（本回合+下+下下，回合开始递减），冷却 _dianXueCd（同一目标 cdRounds 回合最多被点一次）。
+//    禁疗消费落点在 core/13 applyStatChange 单点收口（全库 10+ 治疗出口）。
+// ② 选敌：pool-filter 优先未行动敌人（点穴控到还有行动权的 target 才有意义）；敌方全部已行动 → 候选排空照飞行默认选敌，
+//    且本次伤害 ×allActedDmgRatio（BEFORE_DAMAGE_CALC 声明，战报明细可见）。
+// ③ 鹰眼被动（未命中 −12pp）实装在 core/03 getMissBreakdown 单源，详情弹窗自动同步。
 export function createYangXiaoComponent() {
     return {
         name: '杨逍',
@@ -1001,7 +1003,7 @@ export function createYangXiaoComponent() {
             const jie = getSkillParams('杨逍', 'dianXueJieMai');
             if (!jie) throw new Error('缺技能参数: 杨逍.dianXueJieMai');
 
-            // ① 命中后点穴判定（data.unit=杨逍，data.target=被命中者）
+            // ① 命中后点穴判定：眩晕 + 禁疗同时挂（data.unit=杨逍，data.target=被命中者）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.DIAN_XUE, (data) => {
                 const unit = data.unit;
                 if (!unit || !unit.isYangXiao || !unit.alive) return;
@@ -1010,35 +1012,36 @@ export function createYangXiaoComponent() {
                 if (target.state._dianXueCd > 0) return;                 // 冷却中：cdRounds 回合内不再被点
                 if (getBattleRng().next() >= dian.prob) return;
 
-                Object.assign(target.state, { _stunned: true, _dianXue: true, _dianXueCd: dian.cdRounds });
+                Object.assign(target.state, { _stunned: true, _dianXueCd: dian.cdRounds });
+                // OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
+                target.state._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
                 emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), _stunned: true });
                 emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
                 if (data.log) {
                     data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                         unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '弹指神通',
-                        note: `🫰 ${unit.name} 弹指神通：点中 ${target.name} 穴道，${target.name} 下次行动被跳过`,
-                        floatText: '🫰', floatUid: target.uid
+                        note: `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动，并禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${Math.round(jie.healReduceRatio * 100)}%）`,
+                        floatText: '😵', floatUid: target.uid
                     } });
                 }
             });
 
-            // ② 回合开始：眩晕解除 → 转截脉；并递减 _jinMai 剩余回合与 _dianXueCd 冷却
+            // ② 敌方全部已行动过 → 追击：本次伤害 ×allActedDmgRatio（与选敌排空回退飞行默认同一条件）
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.YANGXIAO_ALL_ACTED, (data) => {
+                if (data.unit !== yangxiao || !yangxiao.alive) return;
+                if (!dian.allActedDmgRatio) return;
+                const enemySide = yangxiao.camp === CAMP_TYPES.ALLY ? B : A;
+                const enemies = enemySide.filter(u => u.alive);
+                if (enemies.length === 0 || !enemies.every(u => u.state._acted)) return;
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: dian.allActedDmgRatio, source: yangxiao, label: '弹指神通·追击' });
+            });
+
+            // ③ 回合开始：递减 _jinMai 剩余回合与 _dianXueCd 冷却
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.JIN_MAI, (data) => {
                 for (const u of [...(data.A || []), ...(data.B || [])]) {
                     if (!u.alive) continue;
                     const st = u.state;
-                    if (st._dianXue) {
-                        // 眩晕刚解除 → 转截脉。OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
-                        st._dianXue = false;
-                        st._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
-                        if (data.log) {
-                            data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                                unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '点穴截脉',
-                                note: `🔒 ${u.name} 穴道被封，截脉 ${jie.rounds} 回合：受到的治疗/吸血回复减少 ${Math.round(jie.healReduceRatio * 100)}%`,
-                                floatText: '🔒', floatUid: u.uid
-                            } });
-                        }
-                    } else if (st._jinMai && st._jinMai.rounds > 0) {
+                    if (st._jinMai && st._jinMai.rounds > 0) {
                         st._jinMai = { ...st._jinMai, rounds: st._jinMai.rounds - 1 };
                     }
                     if (st._dianXueCd > 0) st._dianXueCd -= 1;
@@ -1056,11 +1059,11 @@ registerElite('金毛狮王谢逊', createXieXunComponent);
 registerElite('杨逍', createYangXiaoComponent);
 
 // 杨逍·选敌 pool-filter（core/07 通用飞行分支取目标前调用）：
-//   排除当前已被点穴（_stunned）或处于截脉（_jinMai 剩余>0）的敌人；非杨逍返回 null（不干预）；
-//   候选被排空时返回空数组 → runTargetPoolFilters 不替换池，按飞行默认照打（设计：极端情况照默认）。
+//   优先未行动且未被点穴的敌人（控到还有行动权的 target 才有意义）；非杨逍返回 null（不干预）；
+//   敌方全部已行动时候选排空 → runTargetPoolFilters 不替换池，按飞行默认照打（与组件内追击 ×1.3 同一条件）。
 registerTargetPoolFilter((unit, candidates) => {
     if (!unit.isYangXiao) return null;
-    return candidates.filter(e => !e.state._stunned && !(e.state._jinMai && e.state._jinMai.rounds > 0));
+    return candidates.filter(e => !e.state._acted && !e.state._stunned);
 });
 
 // —— 2026-10-08 V7.5.13 回合钩子注册（core/11 特判收口）：小昭的知识搬回小昭家 ——

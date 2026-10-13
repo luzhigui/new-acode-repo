@@ -1,7 +1,9 @@
 // modules/26elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-// V6.25.1 | ~14050 bytes | 2026-10-13 红血职业加成挂 grants 载荷（体检转交，零行为副作用）：addRoleBonus 收集
-//   {uid,atk,def,maxHp}，两仪互换/红血 announce fact 的 data.grants 带给契约 HE_TAICHONG_RED 对账
-export const VER = 'modules/26elite-sixsects-hetaichong.js V6.25.1';
+// V6.26.0 | ~15815 bytes | 2026-10-13 红血触发改挂 ON_UNIT_ACTED（行动结束帧）：旧挂 BEFORE_DAMAGE_APPLY
+//   是「先换位后挨打」——swap 事实序排在本击攻击组之前，攻击组还按换位后坐标画出「追着打」；
+//   改后整段攻击（含双击/连锁）先落地打成红血，行动结束再播两仪互换；打死不触发（hp≤0/待死跳过），
+//   加血独立行随迁本文件（core/10 的对照补偿退役）。优先级 ON_UNIT_ACTED:30 见 infra/50 V6.9.0。
+export const VER = 'modules/26elite-sixsects-hetaichong.js V6.26.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
@@ -15,7 +17,8 @@ import { SIGNAL_TYPES, FACT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TY
 //     双方互授对方职业能力（_dualSchools）→ core/03 的破防/斩杀/远程成长三个声明按能力放行，
 //     即「连接期间共享战士+远程两系攻击特效」。连接绑定不更换，搭档阵亡即断连。
 //   机制② 箭靶标记 🎯：何太冲命中即挂标（3 回合、不叠层）；带标目标被队友打 ×1.3、被何太冲打 ×1.5 并当场刷新。
-//   机制③ 红血：血量 ≤40% 当帧触发（每局限一次，不挑伤害来源）；有连接且仅一方红血 → 两仪互换，
+//   机制③ 红血：血量 ≤40% 触发（每局限一次，不挑伤害来源），判定在当次行动结束帧——先挨打成红血、演出完再换位；
+//     有连接且仅一方红血 → 两仪互换，
 //     否则走单人规则（先叠两套加成，能撤则撤切远程，撤不了再叠战士加成切战士）。
 export function createHeTaichongComponent() {
     return {
@@ -141,21 +144,21 @@ export function createHeTaichongComponent() {
                     if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：退无可退、转战士`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
                 }
             }
-            function tryRedBlood(subject, data) {
+            function tryRedBlood(subject, outLog) {
+                // 行动结束帧判定（2026-10-13 改时机）：伤害已落地，直接看现血；打死（hp≤0/待死）不触发
                 if (!subject || !subject.alive || subject.state._redBloodUsed) return;
-                const hpAfter = Math.max(0, subject.hp - (data.dmg || 0));
-                if (hpAfter > subject.maxHp * redThreshold) return;
+                if (subject.hp <= 0 || subject.state._pendingDeath) return;
+                if (subject.hp > subject.maxHp * redThreshold) return;
                 pendingGrants = [];   // 本次红血事件的加成收集起点（两仪互换/单人红血各算一轮）
                 const partner = partnerOf(subject);
                 const partnerRed = partner ? (partner.hp <= partner.maxHp * redThreshold) : false;
                 subject.state._redBloodUsed = true;
                 subject.state._stunned = false;   // 触发当帧免疫控制（眩晕）
-                const outLog = data.log || log;
+                const hpBefore = Math.floor(subject.hp);
                 if (partner && !partnerRed) {
                     // ① 仅一方红血 → 两仪互换（职业 + 位置，各叠一套对方职业加成）
                     const myRole = subject.role, hisRole = partner.role;
                     const myPos = subject.pos, hisPos = partner.pos;   // 2026-10-12 连线换位特效：旧位置先存（swap 一走就没了）
-                    subject.state._redBloodUsed = true;
                     partner.state._redBloodUsed = true;
                     swapUnitPositions(subject, partner, outLog);
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
@@ -165,11 +168,22 @@ export function createHeTaichongComponent() {
                     // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
                     soloRedBlood(he, outLog);
                 }
+                // 加血独立行（2026-10-13 随迁自 core/10）：maxHp 词条「升则等量加」的回血单独落行，
+                //   紧跟互换/红血报幕——加血发生在攻击行之后，天然不会再有「造成 33 伤害，75→77」矛盾行
+                const healed = Math.floor(subject.hp) - hpBefore;
+                if (healed > 0 && outLog) {
+                    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '红血加血', note: `🩸 ${subject.name} 红血：生命 +${healed}（${hpBefore} → ${hpBefore + healed}）`, floatText: `+${healed}`, floatUid: subject.uid } });
+                }
             }
-            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, L.BEFORE_DAMAGE_APPLY.HE_TAICHONG_RED_BLOOD, (data) => {
-                const t = data.target;
-                if (!t) return;
-                if (t.uid === he.uid || (he.state._liangyiPartnerUid && t.uid === he.state._liangyiPartnerUid)) tryRedBlood(t, data);
+            // ── 机制③ 红血触发（2026-10-13 改时机：ON_UNIT_ACTED 行动结束帧） ──
+            // 旧挂 BEFORE_DAMAGE_APPLY 是「先换位后挨打」：swap 事实序排在本击攻击组之前，
+            //   攻击组还按换位后坐标补刀（「换到后排还被追着打」）；现整段攻击（含双击/连锁）先打完，
+            //   血落定红血再触发互换。何太冲先判（两人同时红血时单人规则归他），再判搭档。
+            eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, L.ON_UNIT_ACTED.HE_TAICHONG_RED_BLOOD, (data) => {
+                const outLog = data.log || log;
+                tryRedBlood(he, outLog);
+                const p = partnerOf(he);
+                if (p) tryRedBlood(p, outLog);
             });
         }
     };

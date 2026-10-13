@@ -1,10 +1,9 @@
-// V6.8.0 | ~7400 bytes | 2026-10-13 新精英「杨逍」优先级：AFTER_DAMAGE_APPLIED +DIAN_XUE:28（命中后点穴判定）、
-//   ROUND_START +JIN_MAI:35（眩晕清除 → 转截脉 / 冷却递减，排在 HOLY_FIRE:40 之前）
+// V6.9.1 | ~7500 bytes | 2026-10-13 杨逍重做：BEFORE_DAMAGE_CALC 增 YANGXIAO_ALL_ACTED:17（敌方全行动→追击×1.3 声明槽）
+// V6.9.0 | 2026-10-13 何太冲红血触发挪位：HE_TAICHONG_RED_BLOOD 从 BEFORE_DAMAGE_APPLY:90
+//   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
-// V6.7.0 | 2026-10-13 新海克斯「圣火不熄」优先级：ON_UNIT_DEATH +HOLY_FIRE:40（记死位，晚于 MIEJUE_RECORD:20）、
-//   BEFORE_STATE_TRANSITION +HOLY_FIRE:30（下一行动步落位）、ROUND_START +HOLY_FIRE:40（回合末阵亡兜底）
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.8.0';
+export const VER = 'infra/50-event-bus.js V6.9.0';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -103,9 +102,10 @@ export const EXECUTION_LAYER = {
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
-    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, MIEJUE_NORMAL_MULT: 14, MIEJUE_THIRD_MULT: 15, PANG_YOUNG_MULT: 16, HE_TAICHONG_MARK: 22, TRUE_DMG: 30 },
-    BEFORE_DAMAGE_APPLY: { HE_TAICHONG_RED_BLOOD: 90, SPIDER_IMMUNE: 100 },
+    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, MIEJUE_NORMAL_MULT: 14, MIEJUE_THIRD_MULT: 15, PANG_YOUNG_MULT: 16, YANGXIAO_ALL_ACTED: 17, HE_TAICHONG_MARK: 22, TRUE_DMG: 30 },
+    BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
     ON_DODGE:          {},
+    ON_UNIT_ACTED:     { HE_TAICHONG_RED_BLOOD: 30 },
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,
         // 2026-10-02 斩杀挪到 45：升序执行，必须晚于 JIUYANG=40 的融会 BONUS_DMG 声明（以及 PANG_CLUMSY_LOG=42），斩杀才能把融会伤害计入有效血量
