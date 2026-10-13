@@ -3,7 +3,7 @@
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.0';
+export const VER = 'infra/50-event-bus.js V6.9.1';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {

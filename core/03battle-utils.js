@@ -1,6 +1,5 @@
-// V6.3.0 | ~17600 bytes | 2026-10-12 何太冲·两仪双修：新增 hasCombatSchool(unit, role) 职业能力判据（默认 = 本职业，
-//   被授予 _dualSchools 的单位额外具备）；战士破防/战士斩杀/远程成长三处 role 硬判据改走它，普通单位行为零变化
-export const VER = 'core/03battle-utils.js V6.3.0';
+// V6.3.1 | ~18100 bytes | 2026-10-13 杨逍·鹰眼被动：getMissBreakdown 未命中 −missReduce 个百分点（单源收口，详情弹窗自动同步）
+export const VER = 'core/03battle-utils.js V6.3.1';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';

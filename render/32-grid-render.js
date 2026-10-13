@@ -1,8 +1,8 @@
-// V6.8.0 | ~33150 bytes | 2026-10-13 杨逍状态标记：🫰 点穴中（_dianXue，本轮行动被跳过）/ 🔒 截脉中（_jinMai 剩余>0，
+// V6.8.1 | ~33150 bytes | 2026-10-13 杨逍改版图标：点穴眩晕复用角色图标 😵（getRoleIcon 最高优先级），删 🫰；截脉 🔒→❌ 禁疗（_jinMai 剩余>0，
 //          受到的治疗/吸血回复减半）——压到 logoList 末尾，与 🎯/☯/🔻 同口径（不被 buff 图标挤掉）
 // ── 更早版本见 记录-更改履历.md
 // V6.7.0 | 2026-10-12 修状态标记隐形（短名未裁剪分支不消费 logoList）→ 统一用 displayLogos
-export const VER = 'render/32-grid-render.js V6.8.0';
+export const VER = 'render/32-grid-render.js V6.8.1';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
@@ -486,9 +486,8 @@ export function renderGrid(id, camp) {
         if (unit.state._heMarkRounds > 0) logoList.push('🎯');
         if (unit.state._liangyiPartnerUid && selectOrStore(ctx, unit.camp === CAMP_TYPES.ALLY ? 'allyTeam' : 'enemyTeam').some(u => u.alive && u.uid === unit.state._liangyiPartnerUid)) logoList.push('☯');
         if ((unit._mods && unit._mods.atk ? unit._mods.atk : []).some(m => m.group === 'soulDrain')) logoList.push('🔻');
-        // 2026-10-13 杨逍：🫰 点穴中（本轮行动将被跳过）/ 🔒 截脉中（受到的治疗/吸血回复被减半）
-        if (unit.state._dianXue) logoList.push('🫰');
-        else if (unit.state._jinMai && unit.state._jinMai.rounds > 0) logoList.push('🔒');
+        // 2026-10-13 杨逍改版：点穴眩晕走角色图标 😵（getRoleIcon），此处只挂 ❌ 禁疗（截脉中：治疗/吸血回复减半）
+        if (unit.state._jinMai && unit.state._jinMai.rounds > 0) logoList.push('❌');
 
         // 2026-10-11 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
         //   蓝档加「具名」门槛（老板：蓝色只给弱精英，不该给所有 104）：无名杂兵（空闻/班淑娴等）落黑
