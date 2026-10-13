@@ -11,10 +11,14 @@
 //   根因是两次破防之间会夹增益到期/坚盾过期等非破防的永久 def 变化，日志文本通道无法归因，
 //   仅凭文本做不出可靠判据。该检测改由 `tests/breakdef-dedupe-check.mjs` 用**逐步真实 def 增量**
 //   比对声明 reduce 实现（同 140-baseline.js 的独立跑法，不依赖日志文本）。
-export const VER = 'tests/health-rules/135-break-def-pos.js V6.1.3';
+export const VER = 'tests/health-rules/135-break-def-pos.js V6.1.4';
 
-// V6.1.3 破防分档合法 reduce 值集合（与 core/01config WARRIOR_BREAK_DEF_TIERS 保持一致）
-const VALID_BREAK_REDUCE = { 2: true, 3: true, 4: true };
+// V6.1.4 | 2026-10-13 第 86 轮：合法档位集合补 1（min 夹取态）——core/03 L201
+//   `defReduced = Math.min(defReduced, getStat(target,'def'))`，目标 def=1 时破防量被夹成 1；
+//   L190 门控挡掉 def<=0，故夹取后最小值为 1、0 不可能由该路径产生 ⇒ 集合含 1 不含 0 不削牙
+//   （reduce 归零/越界仍照报）。此前只认 {2,3,4}，seed=3 stage=2「小昭·妹 破防：武当弟子 防御 -1」
+//   （多次破防叠加把武当弟子 def 压到 1）被误报——假阳性根治。
+const VALID_BREAK_REDUCE = { 1: true, 2: true, 3: true, 4: true };
 
 export const rule82 = {
     group: '战报渲染回归',
