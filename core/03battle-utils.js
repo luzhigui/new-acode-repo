@@ -2,7 +2,7 @@
 //   被授予 _dualSchools 的单位额外具备）；战士破防/战士斩杀/远程成长三处 role 硬判据改走它，普通单位行为零变化
 export const VER = 'core/03battle-utils.js V6.3.0';
 
-import { CONFIG, getGameData } from './01config-5v5-test.js';
+import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
@@ -129,6 +129,16 @@ export function getMissBreakdown(unit, allySide, enemySide) {
         const base = C.GROUND_MISS_CHANCE * PCT;
         total = base;
         sources.push({ label: '地面基础', value: base });
+    }
+    // 2026-10-13 杨逍·鹰眼被动：未命中 −missReduce 个百分点（值在 content eagleEye.params，单源），
+    //   对残血光环等附加项同样生效；末尾 Math.max(0,…) 封底，不会减成负数
+    if (unit.isYangXiao) {
+        const ee = getSkillParams('杨逍', 'eagleEye');
+        if (ee && ee.missReduce) {
+            const v = -ee.missReduce * PCT;
+            total += v;
+            sources.push({ label: '鹰眼', value: v });
+        }
     }
     return { total: Math.max(0, Math.round(total * 10) / 10), sources };
 }

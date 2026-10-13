@@ -1,7 +1,7 @@
-// V6.4.3 | ~21400 bytes | 2026-10-13 两仪互换加血独立行：BEFORE_DAMAGE_APPLY 前记录红血前血量，
-//          红血加血走独立 SKILL_ANNOUNCE fact，攻击组 hpBefore 取红血后值，避免「造成 33 伤害，75→77」矛盾行。
+// V6.4.4 | ~21050 bytes | 2026-10-13 红血加血独立行拆除：何太冲红血触发改挂 ON_UNIT_ACTED（modules/26 V6.26.0），
+//          加血发生在攻击行之后，「正伤害血反增」矛盾不再存在，BEFORE_DAMAGE_APPLY 血量对照补偿随之退役。
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/10battle-attack.js V6.4.3';
+export const VER = 'core/10battle-attack.js V6.4.4';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -166,21 +166,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     eventBus.emit(SIGNAL_TYPES.BEFORE_ATTACK, { unit, allySide, enemySide, log });
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
-    // 2026-10-13 两仪互换加血独立行：记录红血触发前的血量，红血加血走独立 fact，攻击组 hpBefore 取红血后值
-    const hpBeforeRedBlood = Math.floor(target.hp);
-
     const immuneDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
-
-    // 2026-10-13 红血加血独立行：若红血触发（两仪互换/单人红血），加血走独立 SKILL_ANNOUNCE fact；
-    //   攻击组 hpBefore 改取红血后值（必须在 applyAttackResult 之前改——dmgResult.hpBefore 从 dmgCalc 解构），
-    //   避免「造成 33 伤害，75→77」正伤害血反增的矛盾行
-    const hpAfterRedBlood = Math.floor(target.hp);
-    if (hpAfterRedBlood > hpBeforeRedBlood) {
-        const healAmount = hpAfterRedBlood - hpBeforeRedBlood;
-        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: target.name, unitUid: target.uid, camp: target.camp, skillName: '红血加血', note: `🩸 ${target.name} 红血：生命 +${healAmount}（${hpBeforeRedBlood} → ${hpAfterRedBlood}）`, floatText: `+${healAmount}`, floatUid: target.uid } });
-        dmgCalc.hpBefore = hpAfterRedBlood;
-    }
 
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid });
     const immuneResult = resolveDamageImmune(immuneDeclarations);

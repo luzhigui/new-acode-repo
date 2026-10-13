@@ -1,8 +1,8 @@
 // render/38-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
-// V1.0.0 | ~8300 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：属性增减/乾坤/召唤/报幕飘字/
-//          心魂类 FACT_TRANSLATORS 条目 + translateSkillAnnounce，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
+// V1.0.1 | ~8215 bytes | 2026-10-13 两仪互换注释随红血时机修正：事实序不再是「先换位再挨打」，
+//          改挂 ON_UNIT_ACTED 后 swap 报幕落在整段攻击组之后，翻译逻辑零改动。
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-stat.js V1.0.0';
+export const VER = 'render/38-actions-translate-stat.js V1.0.1';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -165,8 +165,8 @@ export const STAT_TRANSLATORS = {
 //   带 floatText+floatUid 才产 SKILL_FLOAT；无浮字的报幕返回 null，只落战报行。
 function translateSkillAnnounce(data, index) {
     if (!data) return null;
-    // 2026-10-12 两仪互换（红血）：带 swap 载荷的报幕先翻出一条「连线换位」POS_SWAP（beforeText——它挂在
-    //   被击前 BEFORE_DAMAGE_APPLY，事实序在本击攻击组之前，正好先播换位再挨打）；☯ 飘字照旧 afterText。
+    // 2026-10-13 两仪互换（红血）：带 swap 载荷的报幕先翻出一条「连线换位」POS_SWAP（beforeText——触发已改挂
+    //   ON_UNIT_ACTED，事实序在整段攻击组之后，先挨打成红血、演出完再播换位）；☯ 飘字照旧 afterText。
     //   返回数组由 translateFactsToStageActions 展平。
     if (data.swap && data.swap.aUid != null && data.swap.bUid != null) {
         const acts = [{
