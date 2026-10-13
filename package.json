@@ -6,10 +6,15 @@
   "scripts": {
     "build:web": "node scripts/prepare-web.mjs",
     "android:sync": "npm run build:web && npx cap sync android",
-    "android:build": "cd android && gradlew.bat assembleDebug"
+    "android:build": "cd android && gradlew.bat assembleDebug",
+    "lint": "eslint .",
+    "lint:warn": "eslint . --max-warnings=-1",
+    "test:health": "node tests/run-all.mjs"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0"
+    "@capacitor/cli": "^6.0.0",
+    "eslint": "^9.14.0",
+    "globals": "^15.12.0"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
