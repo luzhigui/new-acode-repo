@@ -388,7 +388,8 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >    **补丁态全红线绿**（rules-replay 0 fail / static-scan 0 issue / smoke 全过 / mutation 44/44）——fact 加字段
 >    对渲染/翻译/规则零影响。附带侦查：另一条零触发 **BAGUA_DEF** 定性为**历史契约残留非缺陷**——2026-10-08
 >    改版有意删除「-1攻+1防」对冲（defDelta 恒 0），atk 侧本就有 BAGUA_ATK（dir:-1）盯；已在契约补注释防误读、
->    保留作回归哨兵。契约总数 42→**43**；scan-groups 属性盲区清零（heTaichongRed 契约已建，转交后转严格）。
+>    保留作回归哨兵。契约总数 42→**43**；scan-groups 属性盲区清零（heTaichongRed 契约已建，**已随转交落地转严格**——
+>    `modules/26elite-sixsects-hetaichong.js` V6.25.1，实测 44/44 偏差 0）。
 
 ### ===== 主代码改动 START（modules/26elite-sixsects-hetaichong.js，红血机制③，激活 HE_TAICHONG_RED 契约）=====
 // 第 85 轮转交。共 3 处插入 + 3 行替换，全部为纯记账/挂载，零行为副作用（战报文本与渲染输出不变）。
@@ -409,3 +410,9 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 // 无需加 import（bonus/pendingGrants 均在本闭包内）。预期效果：HE_TAICHONG_RED 零触发警告态 → 严格态
 // （临时转交实测 32 声明全命中/偏差 0；落地后红线 stat-decl EXIT=0 维持）。
 ===== 主代码改动 END =====
+
+**已应用（2026-10-13，`modules/26elite-sixsects-hetaichong.js` V6.25.1）**：6 处全部落地（该文件当日已由 V6.25.0 拆分自
+`modules/26elite-sixsects.js`，锚点逐一核对无漂移）。实测 `HE_TAICHONG_RED 声明 44 条 · 严格比对 44 条 · 偏差 0` ·
+**EXIT=0**（警告态→严格态，44 = 48 词条扣 4 个 0 值 stat，与 `>0` 守卫吻合）。回归：`smoke-headless` 全过；
+`rules-replay` 唯一失败项 `小昭妹/姐不可选期被打` 经 **git stash 单文件回退复跑证实与我方无关**（并行会话
+modules/27 小昭·妹飞天重做在途）。
