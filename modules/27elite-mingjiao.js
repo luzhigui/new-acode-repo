@@ -1,9 +1,7 @@
-// V6.9.0 | ~71500 bytes | 2026-10-13 新精英「杨逍」（光明左使·飞行·精英）：①弹指神通（命中 prob 点穴 →
-//   回合级 _stunned；独立来源标记 _dianXue + 同一目标 cdRounds 回合冷却 _dianXueCd）②点穴截脉（眩晕解除
-//   转 _jinMai 若干回合：治疗/吸血回复按 ratio 打折，落点在 core/13 applyStatChange 单点收口）
-//   ③选敌 pool-filter（core/07 注册面）：排除已被点穴/截脉的敌人，不干预通用飞行分支
+// V6.9.1 | ~73600 bytes | 2026-10-13 修永久 carry 无限叠加 bug：蛛变声明里续 carry 的 addMod 加 group 去重门控，
+//   只续一份常驻（此前每回合叠 +3/+4/+20，长局滚雪球）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V6.9.0';
+export const VER = 'modules/27elite-mingjiao.js V6.9.1';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -740,7 +738,10 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
-                if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro.state._baseMaxHp !== undefined) {
+                // 去重门控（2026-10-13 修无限叠加 bug）：永久 carry 只续一份常驻——_mods 里已有该 group 即已续过，
+                //   不再 addMod（此前每回合蛛变叠一笔 +3/+4/+20，R5-R15 叠 11 笔、血上限 132→577）
+                const carryApplied = bro._mods?.atk?.some(m => m.group === 'xiaoZhaoCarry');
+                if (!hasTeamCarry && !carryApplied && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro.state._baseMaxHp !== undefined) {
                     const carryMods = CONFIG.XIAO_ZHAO_CARRY_MODS;
                     addMod(bro, 'atk', { source: '小昭·妹永久carry', value: carryMods.atk, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
                     addMod(bro, 'def', { source: '小昭·妹永久carry', value: carryMods.def, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
