@@ -1,6 +1,8 @@
-// V6.3.0 | ~14000 bytes | 2026-10-13 小昭·妹飞天重做：applyStatChange 加天上无敌守卫（_spiderFlying 期间
-//   一切 hp 伤害免疫——毒/反伤直扣血不再穿透小蜘蛛）。文件头版本号与 VER 统一（原头注 V7.5.19 误用总纲编号）
-export const VER = 'core/13battle-shared.js V6.3.0';
+// V6.4.0 | ~14700 bytes | 2026-10-13 杨逍「点穴截脉」反治疗：applyStatChange 加 isHeal 参数（默认 true），
+//   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
+//   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
+// ── 更早版本见 记录-更改履历.md
+export const VER = 'core/13battle-shared.js V6.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -181,13 +183,22 @@ function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
 
-function applyStatChange(target, field, delta, source, reason, record = true) {
+// isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），
+//   不吃杨逍截脉的减疗。默认 true = 正常治疗语义。
+function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true) {
     if (delta === 0 || !target || !target.alive) return false;
     // 天上无敌（2026-10-13）：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
     //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
     if (field === 'hp' && delta < 0 && target.state && target.state._spiderFlying) return false;
+    // 杨逍·点穴截脉（反治疗）：被点穴目标眩晕解除后 rounds 回合内，受到的治疗/吸血回复按 ratio 打折。
+    //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
+    //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。
+    let applied = delta;
+    if (isHeal && field === 'hp' && delta > 0 && target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
+        applied = Math.round(delta * target.state._jinMai.ratio);
+    }
     const oldVal = target[field];
-    const stepped = Math.floor((target[field] + delta) * 10) / 10;
+    const stepped = Math.floor((target[field] + applied) * 10) / 10;
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     if (field === 'hp' && record) {
@@ -241,7 +252,7 @@ function refreshMaxHp(target, source, reason) {
     if (newHp <= 0) {
         applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死', false);
     } else if (delta !== 0) {
-        applyStatChange(target, 'hp', delta, source, reason, false);
+        applyStatChange(target, 'hp', delta, source, reason, false, false);
     }
 }
 

@@ -1,9 +1,7 @@
-// V6.4.0 | ~24200 bytes | 2026-10-13 新海克斯「圣火不熄」（死亡交互·复活）：每局首次己方（非巨马）单位阵亡
-//          → 记阵亡者 state._holyFire='pending'，延到下一个行动步（BEFORE_STATE_TRANSITION）原位复活；
-//          回复 reviveRatio 生命并置 _stunned（当回合不可行动）；回合最后一手阵亡由 ON_ROUND_START 兜底。
-//          复活对象＝原单位本体（不调 spawnUnit）；fact 复用 SKILL_ANNOUNCE（零新 fact）。
-//          ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.0';
+// V6.4.1 | ~24250 bytes | 2026-10-13 圣火不熄复活落账 applyStatChange 补 isHeal=false（复活回血非「治疗/吸血
+//          回复」语义，不吃杨逍截脉减疗）
+// ── 更早版本见 记录-更改履历.md
+export const VER = 'core/04buff-system.js V6.4.1';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -331,7 +329,7 @@ function reviveHolyFireUnit(u, team, log, withStun) {
     u.alive = true;
     Object.assign(u.state, { _isDead: false, _pendingDeath: false, _deathTime: 0 });
     // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
-    applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false);
+    applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false, false);
     if (withStun) u.state._stunned = true;
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: !!withStun });
     if (log) {
