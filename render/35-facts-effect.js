@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.17 | ~38700 bytes | 2026-10-11 renderClawHitFact 透传 designedDmg（core/16 回填的设计值）——体检规则据此还原「设计下限」守护；承接 V1.0.16
+// V1.0.18 | ~38800 bytes | 2026-10-13 战士斩杀行补 💀阵亡💀 标记（伤害行斩杀时不再提前标，图标统一由本行出）；承接 V1.0.17
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -9,7 +9,7 @@ import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '.
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
 // 2026-10-08 第一刀：通用语义默认渲染器工厂（回血/dot 族模板化，详见 36 文件头）
 import { makeHealRenderer, makeDotRenderer } from './36-generic-renderers.js';
-export const VER = 'render/35-facts-effect.js V1.0.17';
+export const VER = 'render/35-facts-effect.js V1.0.18';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -390,8 +390,9 @@ export function renderFlySkipFact(fact) {
 }
 
 // 战士斩杀
+// 2026-10-13 斩杀图标顺序：伤害行（render/34）斩杀时不再提前标 💀，阵亡标记由本行统一出。
 export function renderWarriorExecuteFact(fact) {
-    return { type:'info', text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！</span>` };
+    return { type:'info', text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！💀阵亡💀</span>` };
 }
 
 // 巨马反伤 / 严阵以待反弹

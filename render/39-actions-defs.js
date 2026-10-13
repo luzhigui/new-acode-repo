@@ -1,5 +1,8 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.3.1 | ~30656 bytes | 2026-10-12 播放器执行门槛修正（player/42 V6.8.5）后 ROUND_START 清场首次真正被调度——此前播放器只认「有 fx 的 action」，本表回合清场（只有 store 回调）被过滤挡死，自 9-06 起从未执行
+// V1.4.0 | ~31780 bytes | 2026-10-13 FLY_MODE 节奏修复：fx 改 async 并 await emit——原先同步函数发射即走，主线不等
+//          缩小/飞行演出完就继续（两个节奏源撕开→「缩小后又变大、顿一下才继续」）；新增 storeAfter 交棒占位格
+//          （起飞/附身写 _renderFlyMode，返程/宿亡/无宿/飞免清标记回退 state._flyMode），fx/86 V6.2.0 同批不再自愈格子。
+// ── 更早版本见 记录-更改履历.md
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +14,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.3.1';
+export const VER = 'render/39-actions-defs.js V1.4.0';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -266,21 +269,32 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.FLY_MODE]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
-        fx: (c, action) => {
+        // 2026-10-13 节奏修复：fx 必须 await emit（emit 汇聚异步监听器的 Promise）——原先同步函数发射即走，
+        //   主线不等演出完就继续播日志/下一动作，与独立时间线的缩放动画叠出「缩小→变大→顿一下才继续」。
+        fx: async (c, action) => {
             const unit = findUnitByUidLocal(c, action.actorUid);
             if (!unit) return;
             // 特效按 originalFactType 区分
             if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_ATTACH) {
                 const host = findUnitByUidLocal(c, action.hostUid);
-                if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_OUT, { sister: unit, host });
+                if (host) await eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_OUT, { sister: unit, host });
             } else if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_RETURN) {
                 const host = findUnitByUidLocal(c, action.hostUid);
-                if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_BACK, { host, sister: unit });
+                if (host) await eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_BACK, { host, sister: unit });
             } else if (action.originalFactType === FLY_MODE_TYPES.SPIDER_FLY) {
-                eventBus.emit(FX_SIGNALS.SPIDER_ASCEND, { unit });
+                await eventBus.emit(FX_SIGNALS.SPIDER_ASCEND, { unit });
             } else if (action.originalFactType === FLY_MODE_TYPES.SPIDER_RETURN) {
-                eventBus.emit(FX_SIGNALS.SPIDER_DESCEND, { unit });
+                await eventBus.emit(FX_SIGNALS.SPIDER_DESCEND, { unit });
             }
+        },
+        // 2026-10-13 演出收尾即交棒占位格：起飞/附身写 _renderFlyMode（纯渲染态，fx/82·85 同口径），
+        //   render/32 紧接着重绘 🦋/🕷️ 占位；返程/宿亡/无宿/飞免等其余 FLY_MODE 一律清标记，
+        //   回退 state._flyMode 权威源。fx/86 不再自愈格子样式（状态源唯一）。
+        storeAfter: (c, action) => {
+            if (!c.store || !action.actorUid) return;
+            const flyVal = action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_ATTACH ? 'butterfly'
+                : action.originalFactType === FLY_MODE_TYPES.SPIDER_FLY ? 'spider' : null;
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _renderFlyMode: flyVal });
         }
     },
     [STAGE_ACTION_TYPES.ROUND_START]: {

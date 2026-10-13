@@ -1,5 +1,7 @@
-// V6.1.0 | 2026-09-13 统一时间层：本地 wait 换 clock.wait，5 段手写 rAF 换 clock.animate
-export const VER = 'fx/86fx-butterfly-spider.js V6.1.0';
+// V6.2.0 | ~13020 bytes | 2026-10-13 节奏修复：删掉附身/飞天收尾的格子「长回」恢复（缩小后又变大的元凶——姐姐那条还残留
+//          0.3s transition 让长回清晰可见）。飞行态格子统一交 render/32 按 _renderFlyMode 重绘占位（🦋/🕷️ dimmed），
+//          fx 只管演出不收尾格子，与飞回/降下两函数同口径（它们本就无收尾恢复）。
+export const VER = 'fx/86fx-butterfly-spider.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -62,9 +64,7 @@ export async function showButterflyFlyOut(fromUnit, toUnit) {
     await clock.wait(300);
     butterfly.remove();
     toCell.classList.remove('pink-flash');
-
-    fromCell.style.transform = 'scale(1)';
-    fromCell.style.opacity = '1';
+    // 收尾不恢复 fromCell：保持缩小淡出的「离开态」，由 render/32 重绘接管画 🦋 占位格（见文件头 V6.2.0）
 }
 
 /**
@@ -185,8 +185,7 @@ export async function showSpiderAscend(fromUnit) {
     spider.remove();
     ghost.remove();
     silks.forEach(s => s.remove());
-    fromCell.style.opacity = '1';
-    fromCell.style.transform = 'scale(1)';
+    // 收尾不恢复 fromCell：保持隐形「离开态」，由 render/32 重绘接管画 🕷️ 占位格（见文件头 V6.2.0）
 }
 
 /**
