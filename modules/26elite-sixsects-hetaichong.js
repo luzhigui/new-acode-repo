@@ -1,6 +1,7 @@
 // modules/26elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-// V6.25.0 | ~13400 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-hetaichong.js V6.25.0';
+// V6.25.1 | ~14050 bytes | 2026-10-13 红血职业加成挂 grants 载荷（体检转交，零行为副作用）：addRoleBonus 收集
+//   {uid,atk,def,maxHp}，两仪互换/红血 announce fact 的 data.grants 带给契约 HE_TAICHONG_RED 对账
+export const VER = 'modules/26elite-sixsects-hetaichong.js V6.25.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
@@ -33,12 +34,16 @@ export function createHeTaichongComponent() {
             const partnerOf = (u) => (u.state._liangyiPartnerUid ? team.find(p => p.alive && p.uid === u.state._liangyiPartnerUid) : null);
 
             // 只登记职业加成（不改职业）：旧加成保留，照蛛变「叠新不扣旧」口径
+            // 红血加成 grants 收集器（2026-10-13 第 85 轮体检转交）：每套加成记一条 {uid, atk, def, maxHp}，
+            //   由下方 announce fact 的 data.grants 带给体检契约 HE_TAICHONG_RED 对账；只读 bonus 原值，零行为副作用
+            let pendingGrants = null;
             function addRoleBonus(unit, role, label) {
                 const bonus = getRoleBonus(role);
                 addMod(unit, 'atk', { source: label, value: bonus.atk, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
                 addMod(unit, 'def', { source: label, value: bonus.def, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
                 addMod(unit, 'maxHp', { source: label, value: bonus.maxHp, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
                 refreshMaxHp(unit, null, label);
+                if (pendingGrants) pendingGrants.push({ uid: unit.uid, atk: bonus.atk, def: bonus.def, maxHp: bonus.maxHp });
             }
             // 换职业 + 叠该职业加成（两仪互换 / 单人红血共用）
             function switchRole(unit, role, label, outLog) {
@@ -128,18 +133,19 @@ export function createHeTaichongComponent() {
                 if (retreatPos != null) {
                     moveUnitPosition(u, retreatPos, outLog);
                     switchRole(u, ROLE_TYPES.RANGED, '红血·转远程', outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：撤退至 ${retreatPos} 号位、转远程`, floatText: '🩸', floatUid: u.uid } });
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：撤退至 ${retreatPos} 号位、转远程`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
                 } else {
                     // ③ 无法撤退 → 再叠一套战士加成，切战士
                     addRoleBonus(u, ROLE_TYPES.WARRIOR, '红血·战士');
                     switchRole(u, ROLE_TYPES.WARRIOR, '红血·转战士', outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：退无可退、转战士`, floatText: '🩸', floatUid: u.uid } });
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：退无可退、转战士`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
                 }
             }
             function tryRedBlood(subject, data) {
                 if (!subject || !subject.alive || subject.state._redBloodUsed) return;
                 const hpAfter = Math.max(0, subject.hp - (data.dmg || 0));
                 if (hpAfter > subject.maxHp * redThreshold) return;
+                pendingGrants = [];   // 本次红血事件的加成收集起点（两仪互换/单人红血各算一轮）
                 const partner = partnerOf(subject);
                 const partnerRed = partner ? (partner.hp <= partner.maxHp * redThreshold) : false;
                 subject.state._redBloodUsed = true;
@@ -154,7 +160,7 @@ export function createHeTaichongComponent() {
                     swapUnitPositions(subject, partner, outLog);
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
                     switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos } } });
+                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos }, grants: pendingGrants } });
                 } else if (subject.uid === he.uid) {
                     // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
                     soloRedBlood(he, outLog);
