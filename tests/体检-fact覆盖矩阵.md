@@ -416,3 +416,30 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 **EXIT=0**（警告态→严格态，44 = 48 词条扣 4 个 0 值 stat，与 `>0` 守卫吻合）。回归：`smoke-headless` 全过；
 `rules-replay` 唯一失败项 `小昭妹/姐不可选期被打` 经 **git stash 单文件回退复跑证实与我方无关**（并行会话
 modules/27 小昭·妹飞天重做在途）。
+
+> 13. **第 86 轮（2026-10-13）——圣火不熄吞行动权真 bug 定位（转交 1 处）+ 破防夹取假阳性根治（纯体检侧）**：
+>     并行会话 4 新提交（杨逍/圣火不熄/carry 修复/ESLint）后 `rules-replay` 冒两个新红，逐个定位：
+>     ① **不变量「空性 _acted=true 但无行动记录」（真 bug·主代码）**：`flushHolyFireRoundStart`
+>     （ON_ROUND_START 兜底复活）withStun=false 设计意图「那个回合已过、新回合正常参与」，但复活不清
+>     `_acted`——阵亡前已行动过的单位遗留 true ⇒ 回合循环 `alive && !_acted` 永不选它 ⇒ **新回合行动权
+>     被吞**（静默：无攻击无 PASS）。证据：resetStateFields 只扫 alive（core/11 L157-158）阵亡态被跳过；
+>     探针 seed=20 stage=5 R8 note 无「（当回合不可行动）」后缀 ⇒ withStun=false 路径。临时补
+>     `else u.state._acted = false;` ⇒ 全量 rules-replay **0 违规 0 失败** + 全红线绿 ⇒ 回滚后症状复现
+>     （因果坐实）。② **规则 135 档位误报（假阳性·已修 V6.1.4）**：core/03 L201
+>     `defReduced = Math.min(defReduced, getStat(target,'def'))` 目标 def=1 时破防量夹成 1，合法集合补 1
+>     （L190 门控挡 def<=0 ⇒ 0 不可能由该路径产生，含 1 不含 0 不削牙）；咬牙 reduce=0/5 均报 fail。
+>     附带：`baseline --check` 又翻 7 场（6 场六大派→明教，与杨逍新落地同向；履历 V7.6.5/V7.6.7 有登记）
+>     ——按基线保护红线待用户拍板，未擅动。
+
+### ===== 主代码改动 START（core/04buff-system.js，reviveHolyFireUnit 函数内，if (withStun) 那一行）=====
+// 第 86 轮转交：修圣火不熄 ON_ROUND_START 兜底复活吞行动权。原行：
+    if (withStun) u.state._stunned = true;
+// 改为（加 else 分支）：
+    if (withStun) u.state._stunned = true;
+    else u.state._acted = false;   // 回合开始兜底复活（withStun=false）：设计意图「那个回合已过、新回合正常参与」，
+    //   但阵亡前已行动过的单位 _acted 遗留 true（resetStateFields 只扫 alive、阵亡态被跳过，core/11 L157-158），
+    //   回合循环 alive && !_acted 永不选它 ⇒ 新回合行动权被吞。清 false 让它进本回合候选（2026-10-13 第 86 轮）。
+// 只影响 flushHolyFireRoundStart 路径（ON_ROUND_START，阵亡在回合最后一手）；withStun=true 路径
+//   （BEFORE_STATE_TRANSITION 当回合内复活）不变——_stunned 挡当回合、resetStateFields 下回合清，闭环完整。
+// 预期效果：rules-replay 不变量违规清零（临时补丁实测全量 0 违规 0 失败 + 全红线绿）。
+===== 主代码改动 END =====
