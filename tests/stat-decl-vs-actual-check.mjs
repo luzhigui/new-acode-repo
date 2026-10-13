@@ -1,3 +1,11 @@
+// V3.2.0 | ~119000 bytes | 2026-10-13 第 88 轮：新增 SPIDER_LAND_HEAL / SPIDER_EGG 两条小昭·妹契约（43→45）——
+//         scan-groups 盲区清零：group 'spiderLandHeal' 33 条 hp（飞天落地回血，modules/20 spiderReturn）
+//         + group 'spiderEgg' 4 条 atk/def（毒/反伤致死档结茧，modules/27 toSpiderEgg）——两者记账 addMod
+//         均已在主代码（注释"供数值对照器"），缺的只是 fact 侧数值 ⇒ 均走载荷转交（applyStatChange 不产 fact、
+//         note 文本非增量，纯 test-side 证死）：SPIDER_RETURN fact 补 landHeal；蜘蛛卵 announce 补
+//         eggAtkDelta/eggDefDelta（转交块见矩阵第 88 轮节，未转交前零触发警告态）。
+//         SPIDER_EGG 用 dir=+1 + allowNeg（atk 归零为负、def 可升可降，真实符号逐字比对）。
+//         验证闭环：临时转交 → 严格比对（33/4 · 偏差 0）→ 咬牙 addMod 值 ×2 双双 EXIT=1 → 回滚干净。
 // V3.1.1 | ~115300 bytes | 2026-10-13 第 85 轮：新增 HE_TAICHONG_RED 何太冲红血·职业加成契约（42→43）——
 //         scan-groups 盲区扫地续：group 'heTaichongRed' 48 条 atk/def/maxHp 词条（两仪互换/单人红血）无契约盯。
 //         fact 侧读 SKILL_ANNOUNCE（skillName '两仪互换'/'红血'）的 data.grants 数值载荷（主代码转交补，
@@ -1336,6 +1344,70 @@ const CONTRACTS = [
                 scan(f);
                 if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 88 轮：飞天落地回血（小昭·妹 spiderReturn，modules/20elite-skills.js L188-198）——
+        //   --scan-groups 盲区扫地：group 'spiderLandHeal' 33 条 hp 词条无契约盯（"落地回血改错数值也查不出"）。
+        //   emit 点：applyStatChange(unit,'hp',heal) 只发 eventBus 事件**不产 fact**（core/13 L222-230 无 log.push），
+        //   同函数的 SPIDER_RETURN fact 又只带 pos ⇒ 声明侧无数值 ⇒ 纯 test-side 路线证死，走载荷转交：
+        //   主代码把 landHeal 提前算好写进 SPIDER_RETURN fact data（转交块见矩阵第 88 轮节）。
+        //   记账 addMod 已在（L196，注释"供数值对照器"）⇒ 转交只是把**同一 heal 值**补进 fact，零游戏逻辑副作用。
+        //   dir=+1；>0 守卫（孵化落地/满血/比率为 0 时 landHeal=0，与 addMod 同条件不落账）。
+        //   fact 与 addMod 同函数同 step（L186 push 与 L196 addMod 同在 spiderReturn 一步内）⇒ 干净树 sum===actual 恒等，严格安全。
+        id: 'SPIDER_LAND_HEAL',
+        label: '飞天落地回血',
+        group: 'spiderLandHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.SPIDER_RETURN) return;
+                const d = e.data;
+                if (d.spiderUid != null && typeof d.landHeal === 'number' && d.landHeal > 0) {
+                    out.push({ unit: d.unitName || null, uid: d.spiderUid, stat: 'hp', amount: d.landHeal });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 88 轮：蜘蛛卵结茧属性（小昭·妹 toSpiderEgg，modules/27elite-mingjiao.js L566-576）——
+        //   --scan-groups 盲区扫地：group 'spiderEgg' 4 条 atk/def 词条无契约盯（毒/反伤致死档结茧，
+        //   "卵属性写错也查不出"）。emit 点：SKILL_ANNOUNCE note 只有文本「0 攻 / eggDef 防」（最终值、非增量，
+        //   且 atk 实际增量 = eggModValue 逆算值，依赖当前 atk/乘法词条，无法从文本推 declared delta）⇒
+        //   纯 test-side 路线证死，走载荷转交：announce fact data 补 eggAtkDelta/eggDefDelta 两个数值字段
+        //   （与 addMod 用同一局部变量，转交块见矩阵第 88 轮节；记账 addMod 已在 L571-572）。
+        //   dir=+1 + allowNeg：atk 归零声明为负、def 可升可降，两侧均带真实符号逐字比对（mirror STAT_CHANGE 降防形态）。
+        //   ⚠️ 孵化/打碎时 removeModsByGroup('spiderEgg')（L587 / core/04 L330）发生在**无声明条目**的步
+        //   （announce 是「蜘蛛孵化」另一 skillName）⇒ 移除步不进比对，不会假偏差。
+        id: 'SPIDER_EGG',
+        label: '蜘蛛卵结茧属性',
+        group: 'spiderEgg',
+        dir: +1,
+        allowNeg: true,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SKILL_ANNOUNCE) return;
+                const d = f.data;
+                if (d.skillName !== '蜘蛛卵') return;
+                if (typeof d.unitName !== 'string' || d.unitUid == null) return;
+                if (typeof d.eggAtkDelta === 'number' && d.eggAtkDelta !== 0) out.push({ unit: d.unitName, uid: d.unitUid, stat: 'atk', amount: d.eggAtkDelta });
+                if (typeof d.eggDefDelta === 'number' && d.eggDefDelta !== 0) out.push({ unit: d.unitName, uid: d.unitUid, stat: 'def', amount: d.eggDefDelta });
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
         }
