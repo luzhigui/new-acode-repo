@@ -1,7 +1,6 @@
-// V7.5.19 | ~23800 bytes | 2026-10-13 新精英「杨逍」入队：eliteConfigs 加一条（飞行·isYangXiao）、轮盘去重补杨逍；
-//   前排保底不把杨逍（飞行）改职、forceXiaoZhao 换人不动杨逍——与张/韦/小昭/谢逊同口径
+// V7.5.20 | ~23800 bytes | 2026-10-13 杨逍重做降档：eliteConfigs m 107→104（弱精英，蓝名档），组队预算随 content elitePower=115
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.19';
+export const VER = 'modules/29battle-init.js V7.5.20';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -58,8 +57,8 @@ export function initBattleTeams(currentStage, _rng) {
         { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePowerOf('小昭') },
         // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
         { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') },
-        // 2026-10-13 杨逍转正：光明左使（飞行·精英），与四位同走随机精英轮盘
-        { name: '杨逍', m: 107, role: ROLE_TYPES.FLYER, isYangXiao: true, power: elitePowerOf('杨逍') }
+        // 2026-10-13 杨逍重做：光明左使（飞行·弱精英 m104，预算 115），与四位同走随机精英轮盘
+        { name: '杨逍', m: 104, role: ROLE_TYPES.FLYER, isYangXiao: true, power: elitePowerOf('杨逍') }
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
