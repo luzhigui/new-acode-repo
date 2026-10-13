@@ -1,7 +1,7 @@
-// V7.5.18 | ~23600 bytes | 2026-10-12 凑模板改职不再动具名角色（老板实测：何太冲第六关被改成「飞行」）：上版只守了「抽名用自身职业」，
-//   但随后的模板补职会把多出来的远程改职去补飞行（stage6 模板要 8 号位飞行）——两仪连接按职业选搭档，职业被改全乱；
-//   现在 isTagFixed（characters 表内且有 ROLES tag）单位不参与改职，缺位交给无名杂兵（仍随机，阵容变数不变）
-export const VER = 'modules/29battle-init.js V7.5.18';
+// V7.5.19 | ~23800 bytes | 2026-10-13 新精英「杨逍」入队：eliteConfigs 加一条（飞行·isYangXiao）、轮盘去重补杨逍；
+//   前排保底不把杨逍（飞行）改职、forceXiaoZhao 换人不动杨逍——与张/韦/小昭/谢逊同口径
+// ── 更早版本见 记录-更改履历.md
+export const VER = 'modules/29battle-init.js V7.5.19';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -57,7 +57,9 @@ export function initBattleTeams(currentStage, _rng) {
         { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePowerOf('韦一笑') },
         { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePowerOf('小昭') },
         // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
-        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') }
+        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') },
+        // 2026-10-13 杨逍转正：光明左使（飞行·精英），与四位同走随机精英轮盘
+        { name: '杨逍', m: 107, role: ROLE_TYPES.FLYER, isYangXiao: true, power: elitePowerOf('杨逍') }
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
@@ -130,7 +132,8 @@ export function initBattleTeams(currentStage, _rng) {
             (c.isZhang && u.isZhang) ||
             (c.isWei && u.isWei) ||
             (c.isXiaoZhaoBrother && (u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) ||
-            (c.isXieXun && u.isXieXun)
+            (c.isXieXun && u.isXieXun) ||
+            (c.isYangXiao && u.isYangXiao)
         ));
         function weightedPick(arr) {
             const total = arr.reduce((s, c) => s + (rate[c.name] || 1 / arr.length), 0);
@@ -223,7 +226,7 @@ export function initBattleTeams(currentStage, _rng) {
             existingXz.name = existingXz.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
             applyHeroFlags(existingXz);
         } else {
-            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei && !u.isXieXun);
+            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei && !u.isXieXun && !u.isYangXiao);
             if (swappable) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
                 remainingPower += normalPowerOf(swappable.m);
@@ -243,7 +246,7 @@ export function initBattleTeams(currentStage, _rng) {
 
     // 保证至少一个前排单位
     if (!allyTeam.some(u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR)) {
-        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
+        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isYangXiao);
         if (nonFixed.length > 0) {
             nonFixed[0].role = _rand(0, 1) === 0 ? ROLE_TYPES.DEFENDER : ROLE_TYPES.WARRIOR;
             nonFixed[0].init(_rng); nonFixed[0].applyBonus();

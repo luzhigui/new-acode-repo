@@ -1,6 +1,7 @@
-// V2.8.0 | ~13300 bytes | 2026-10-13 新增海克斯「圣火不熄」字段 _holyFire（battle 级 STRING：'pending' 待复活 /
-//   'used' 本局已复活；写在阵亡者本体上，跨回合存活）
-export const VER = 'core/17-state-keys.js V2.8.0';
+// V2.9.0 | ~13700 bytes | 2026-10-13 新增杨逍三字段（battle 级）：_dianXue（本回合被点穴，true→下回合初转截脉）、
+//   _dianXueCd（点穴冷却，同一目标若干回合最多被点一次）、_jinMai（截脉 OBJECT {rounds, ratio}，治疗/吸血回复乘率）
+// ── 更早版本见 记录-更改履历.md
+export const VER = 'core/17-state-keys.js V2.9.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({

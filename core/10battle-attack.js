@@ -1,7 +1,7 @@
-// V6.4.1 | ~21100 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：core/12 三函数（resolveAttackHit/applyAttackResult/buildAttackGroup）
-//          的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象，本文件 3 处调用点同步改传 ctx。
-//          业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/10battle-attack.js V6.4.1';
+// V6.4.2 | ~21200 bytes | 2026-10-13 免疫回退 applyStatChange 补 isHeal=false（回退抬血非「治疗/吸血回复」语义，
+//          不吃杨逍截脉减疗）；其余行为零变化
+// ── 更早版本见 记录-更改履历.md
+export const VER = 'core/10battle-attack.js V6.4.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -172,7 +172,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid });
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
-        applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false);
+        applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false, false);
         // 2026-09-22 免疫必须连"致死标记"一起回退：
         //   applyAttackResult 在血≤0 时已设 target.state._pendingDeath（core/12 L348），
         //   只退 hp 不退标记 → 下一次 resolveDeaths 仍按"待死"把她 alive=false。

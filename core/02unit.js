@@ -1,5 +1,6 @@
-// V7.5.13 | ~11264 bytes | 2026-10-08 applyHeroFlags 增两条数据旗：noContend（不争）/endlessBreath（生生不息休息通道）由 content 技能声明驱动，clone 天然保留
-export const VER = 'core/02unit.js V6.3.2';
+// V6.3.3 | ~11360 bytes | 2026-10-13 HERO_FLAGS 新增 '杨逍'→'isYangXiao'（光明左使·飞行·精英）：
+//   进表后 modules/29 明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动排除他，不重复出人
+export const VER = 'core/02unit.js V6.3.3';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
