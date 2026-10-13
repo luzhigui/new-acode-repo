@@ -1,11 +1,12 @@
 // V3.2.0 | ~119000 bytes | 2026-10-13 第 88 轮：新增 SPIDER_LAND_HEAL / SPIDER_EGG 两条小昭·妹契约（43→45）——
-//         scan-groups 盲区清零：group 'spiderLandHeal' 33 条 hp（飞天落地回血，modules/20 spiderReturn）
+//         scan-groups 盲区清零：group 'spiderLandHeal' 37 条 hp（飞天落地回血，modules/20 spiderReturn）
 //         + group 'spiderEgg' 4 条 atk/def（毒/反伤致死档结茧，modules/27 toSpiderEgg）——两者记账 addMod
 //         均已在主代码（注释"供数值对照器"），缺的只是 fact 侧数值 ⇒ 均走载荷转交（applyStatChange 不产 fact、
 //         note 文本非增量，纯 test-side 证死）：SPIDER_RETURN fact 补 landHeal；蜘蛛卵 announce 补
-//         eggAtkDelta/eggDefDelta（转交块见矩阵第 88 轮节，未转交前零触发警告态）。
+//         eggAtkDelta/eggDefDelta（转交块见矩阵第 88 轮节）。
 //         SPIDER_EGG 用 dir=+1 + allowNeg（atk 归零为负、def 可升可降，真实符号逐字比对）。
-//         验证闭环：临时转交 → 严格比对（33/4 · 偏差 0）→ 咬牙 addMod 值 ×2 双双 EXIT=1 → 回滚干净。
+//         验证闭环：临时转交 → 严格比对 37/4 偏差 0 → 咬牙 addMod 值 ×2 双双命中（37 处 / 2 处 EXIT=1）→
+//         咬牙回滚后补丁态全红线绿；转交净版已由并行会话 f2b4aed 全量提交落地 ⇒ 两契约现为严格态（无需用户再转交）。
 // V3.1.1 | ~115300 bytes | 2026-10-13 第 85 轮：新增 HE_TAICHONG_RED 何太冲红血·职业加成契约（42→43）——
 //         scan-groups 盲区扫地续：group 'heTaichongRed' 48 条 atk/def/maxHp 词条（两仪互换/单人红血）无契约盯。
 //         fact 侧读 SKILL_ANNOUNCE（skillName '两仪互换'/'红血'）的 data.grants 数值载荷（主代码转交补，
