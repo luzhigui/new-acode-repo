@@ -1,3 +1,4 @@
+// V6.1.8 | ~24300 bytes | 2026-10-13 海克斯详情卡「持续」支持整局：content permanent:true 显示「整局」而非回合数
 // V6.1.7 | ~24150 bytes | 2026-10-13 摄魂降防文案改乘法：防御首次乘 0.9、此后每回合再乘 0.95（原线性叠加作废，口径以 content soulDrain.desc 为准）
 // V6.1.6 | 2026-10-13 新海克斯「圣火不熄」(holyFire) 补 HEX_NAME_MAP + HEX_HINTS（同摄魂 V6.1.2 口径：新增海克斯必须手动登记，漏登则表里只显示 key、无判断提示）
 // ── 更早版本见 记录-更改履历.md
@@ -121,7 +122,7 @@ function renderVersion(title, base, enhance, kind, cls) {
     }
     lines = params.join('');
     lines += kind === 0
-      ? `<li><b>持续</b>：${(base.duration || CONFIG.BUFF_DURATION)} 回合</li>`
+      ? `<li><b>持续</b>：${base.permanent ? '整局' : (base.duration || CONFIG.BUFF_DURATION) + ' 回合'}</li>`
       : '<li><b>持续</b>：永久（无回合限制）</li>';
   } else if (!enhance) {
     lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';

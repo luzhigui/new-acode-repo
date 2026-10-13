@@ -1,5 +1,6 @@
+// V7.8.8 | ~41800 bytes | 2026-10-13 buff 槽显示支持整局海克斯：buff 带 permanent 时槽位显示「整局」而非回合数
 // V7.8.7 | ~41700 bytes | 2026-10-09 日志模式按钮补同步高亮：选「简要」后原先只改文字不改 class，按钮仍亮着（要开新一局才被 ui/61 重新同步）；判据对齐 ui/61:878 与体检 122health-utils:459「不是简要就亮」
-export const VER = 'ui/68ui-controls.js V7.8.7';
+export const VER = 'ui/68ui-controls.js V7.8.8';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -93,7 +94,7 @@ export function updateBuffSlots(activeBuffs, camp) {
         if (!slot) continue;
         if (i < list.length) {
             let buff = list[i];
-            slot.textContent = buff.name + '/' + buff.remaining + '回';
+            slot.textContent = buff.name + '/' + (buff.permanent ? '整局' : buff.remaining + '回');
             slot.classList.add('glow');
         } else {
             slot.textContent = 'buff' + (i + 1);

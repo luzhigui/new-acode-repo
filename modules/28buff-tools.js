@@ -1,5 +1,8 @@
+// V6.2.1 | ~4300 bytes | 2026-10-13 「整局」海克斯支持（圣火不熄）：createBuffObject 读 content permanent:true →
+//          时长取 CONFIG.MAX_ROUND（不用 Infinity，防对象过 JSON 时被序列化成 null 丢 buff）；
+//          getActiveBuffList 显示点渲染成「整局」而非回合数
 // V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
-export const VER = 'modules/28buff-tools.js V6.2.0';
+export const VER = 'modules/28buff-tools.js V6.2.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -7,7 +10,13 @@ import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // target 缺省为明教：单机路径行为不变；联网 PVP 下六大派传 CAMP_TYPES.ENEMY
 export function createBuffObject(key, duration, target = CAMP_TYPES.ALLY) {
-    const buff = { key, target, remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
+    // 2026-10-13 「整局」海克斯（content 打 permanent:true，如圣火不熄）：时长按引擎回合上限，确保整局不过期
+    //   ——全部抽卡入口（player/49、ui/65、ui/70、tools/116）都汇聚本函数，只此一处映射；
+    //   不用 Infinity：buff 对象进 PVP 下发/回放可能过 JSON，Infinity 会被序列化成 null 反而丢 buff。
+    //   permanent 标记随对象下发，供各显示点渲染成「整局」而不是回合数
+    const cfg = CONFIG.BUFFS[key] || {};
+    const buff = { key, target, remaining: cfg.permanent ? CONFIG.MAX_ROUND : duration, name: cfg.name || key };
+    if (cfg.permanent) buff.permanent = true;
     if (key === BUFF_TYPES.HOLY_FLAME) {
         const cols = [];
         const rng = getBattleRng();
@@ -66,5 +75,5 @@ export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlot
 }
 
 export function getActiveBuffList(activeBuffs) {
-    return activeBuffs.map(b => b.name + '(' + b.remaining + '回)').join('、') || '无';
+    return activeBuffs.map(b => b.name + '(' + (b.permanent ? '整局' : b.remaining + '回') + ')').join('、') || '无';
 }

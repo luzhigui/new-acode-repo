@@ -1,9 +1,12 @@
+// V6.4.4 | ~27700 bytes | 2026-10-13 圣火不熄两项强化（老板拍板）：① 复活名额排除召唤物（isSummon）——
+//           幼狮/雄狮/母狮阵亡不再占用唯一一次复活名额（原先只排 isHorse，名额常被 0 攻幼狮吃掉）
+//           ② 「整局」时长：content 打 permanent:true，时长映射在 modules/28 createBuffObject（单点）
 // V6.4.3 | ~27370 bytes | 2026-10-13 摄魂降防改乘法（老板拍板）：第 N 回合累计乘率 = 0.9×0.95^(N-1)（原线性叠加作废），
 //           defRatio = (1+defBonus)×(1+perRoundBonus)^(N-1)-1，乘法累积越拖越脆但渐近封顶
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.3';
+export const VER = 'core/04buff-system.js V6.4.4';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -308,7 +311,9 @@ export function submitHolyFireRecord(data) {
     if (!owner) return;
     // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
     if (owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) return;
-    const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse);
+    // 2026-10-13 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
+    //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板（老板拍板 ①）
+    const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse && !u.isSummon);
     if (!victim || victim.pos == null) return;
     victim.state._holyFire = 'pending';
 }

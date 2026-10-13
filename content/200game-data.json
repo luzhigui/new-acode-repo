@@ -548,7 +548,7 @@
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
     "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] },
     "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（整局生效，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +5%（我方人数不少于敌方时保底 -30%）；另敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）", "atkBonus": -0.30, "perUnitBonus": 0.05, "defBonus": -0.10, "perRoundBonus": -0.05, "icon": "👻" },
-    "holyFire": { "name": "圣火不熄", "desc": "每局首次有一名己方非巨马单位阵亡时，该单位在下一个行动步原地复活：回复 40% 最大生命，复活当回合不可行动；每局仅触发 1 次（防无限复活）", "reviveRatio": 0.4, "icon": "🕯️", "effects": ["holyFireRevive"] }
+    "holyFire": { "name": "圣火不熄", "desc": "每局首次有一名己方非巨马、非召唤物单位阵亡时，该单位在下一个行动步原地复活：回复 40% 最大生命，复活当回合不可行动；每局仅触发 1 次（防无限复活）。整局生效", "reviveRatio": 0.4, "permanent": true, "icon": "🕯️", "effects": ["holyFireRevive"] }
   },
 
   "hexes": {

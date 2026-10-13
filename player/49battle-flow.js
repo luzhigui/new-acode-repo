@@ -1,5 +1,6 @@
+// V6.4.1 | ~7300 bytes | 2026-10-13 三处「获得Buff」日志支持整局海克斯：buff 带 permanent 时显示「整局」而非回合数
 // V6.4.0 | ~6900 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
-export const VER = 'player/49battle-flow.js V6.4.0';
+export const VER = 'player/49battle-flow.js V6.4.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -57,7 +58,7 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
     }
     if (newBuff) {
         nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
-        appendLogHTML(`<span class="gold">✨ ${label}方获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`);
+        appendLogHTML(`<span class="gold">✨ ${label}方获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
         const mainCtx = getPlayerContext();
         if (mainCtx) {
             mainCtx.activeBuffs = nextActiveBuffs;
@@ -91,13 +92,13 @@ export async function handlePvpBuffSelection(c, nextActiveBuffs) {
     let merged = nextActiveBuffs || [];
     if (allyBuff) {
         merged = [...merged, allyBuff];
-        appendLogHTML(`<span class="gold">✨ ${CAMP_LABEL[CAMP_TYPES.ALLY]}方获得Buff：${allyBuff.name}（持续${allyBuff.remaining}回合）</span><br>`);
+        appendLogHTML(`<span class="gold">✨ ${CAMP_LABEL[CAMP_TYPES.ALLY]}方获得Buff：${allyBuff.name}（${allyBuff.permanent ? '整局' : '持续' + allyBuff.remaining + '回合'}）</span><br>`);
     }
     const pickKey = pickMsg && pickMsg.key;
     if (pickKey && CONFIG.BUFFS[pickKey]) {
         const enemyBuff = createBuffObject(pickKey, duration, CAMP_TYPES.ENEMY);
         merged = [...merged, enemyBuff];
-        appendLogHTML(`<span class="gold">✨ ${CAMP_LABEL[CAMP_TYPES.ENEMY]}方获得Buff：${enemyBuff.name}（持续${enemyBuff.remaining}回合）</span><br>`);
+        appendLogHTML(`<span class="gold">✨ ${CAMP_LABEL[CAMP_TYPES.ENEMY]}方获得Buff：${enemyBuff.name}（${enemyBuff.permanent ? '整局' : '持续' + enemyBuff.remaining + '回合'}）</span><br>`);
     }
     const mainCtx = getPlayerContext();
     if (mainCtx) {

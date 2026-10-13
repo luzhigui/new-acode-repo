@@ -1,4 +1,5 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+// V1.2.2 | 预估 22300 bytes | 2026-10-13 镜像主代码整局海克斯口径：content permanent:true → remaining 取 CONFIG.MAX_ROUND（与 modules/28 同源）
 // V1.2.1 | 预估 21400 bytes | 2026-10-12 机制装配收口：散装 import 25/26/27 → 改为 import modules/00reg-mechanics.js
 //          （原散装三行漏 30，鹿杖客 dotTick 安装期直接抛错、整台实验跑不出结果）；modules/20elite-skills.js 单列保留（00reg 不含 20）。
 // V1.2.0 | 预估 21300 bytes | 2026-10-06 tickAndPickBuffs 补 carry 候选过滤：import modules/28buff-tools.hasCarryTarget，
@@ -100,7 +101,7 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
         if (!avail.length) continue;
         const pick = avail[(seed + turn + s.off) % avail.length];
         const def = CONFIG.BUFFS[pick] || {};
-        const nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
+        const nb = { key: pick, target: s.camp, remaining: def.permanent ? CONFIG.MAX_ROUND : (def.duration || CONFIG.BUFF_DURATION || 4), name: def.name || pick };
         if (pick === BUFF_TYPES.HOLY_FLAME) {
             const c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
             nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort((a, b) => a - b);

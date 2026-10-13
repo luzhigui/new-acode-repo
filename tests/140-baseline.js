@@ -1,3 +1,6 @@
+// V1.6.1 | ~16400 bytes | 2026-10-13 镜像主代码「整局」海克斯口径：teardownPickBuffs 的 remaining 由
+//          def.duration||4 改为 def.permanent ? CONFIG.MAX_ROUND : (def.duration||CONFIG.BUFF_DURATION||4)，
+//          与 modules/28 createBuffObject 同源（圣火不熄 content permanent:true），免基线误判该 buff 过期。
 // V1.6.0 | ~16400 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
 //          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
 //          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 rules-replay/stat-decl 同口径。
@@ -22,7 +25,7 @@
 //       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
-export const VER = 'tests/140-baseline.js V1.6.0';
+export const VER = 'tests/140-baseline.js V1.6.1';
 
 import { fileURLToPath } from 'node:url';
 
@@ -109,7 +112,7 @@ async function main() {
             if (!avail.length) continue;
             var pick = avail[(seed + turn + s.off) % avail.length];
             var def = CONFIG.BUFFS[pick] || {};
-            var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
+            var nb = { key: pick, target: s.camp, remaining: def.permanent ? CONFIG.MAX_ROUND : (def.duration || CONFIG.BUFF_DURATION || 4), name: def.name || pick };
             if (pick === BUFF_TYPES.HOLY_FLAME) {
                 var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
                 nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
