@@ -1,7 +1,10 @@
+// V6.3.8 | ~21300 bytes | 2026-10-13 飞行再生回血出口取整（老板转发的外部AI靶）：hp 带 1 位小数（core/13 落 step 到 0.1），
+//          直接 `u.hp - before` 会留浮点尾巴（如 73.7-63.7 = 10.000000000000007）进日志与记账；
+//          改 Math.round(Math.max(0, …))，与生生不息等回血出口同口径；fact heal 与 addMod value 共用同一截断值，精确相等不变
 // V6.3.7 | ~21000 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：applySoulDrain / applyHolyFlameBonus / logBuffSummary 的
 //          上下文型尾参（log、aliveCounts、hasSister、doubleStrikeUid）合并为单 ctx 对象，业务参数保持原位；
 //          此后新增上下文只进 ctx，不再改签名。行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/04buff-system.js V6.3.7';
+export const VER = 'core/04buff-system.js V6.3.8';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -281,9 +284,13 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
         const before = u.hp;
         applyStatChange(u, 'hp', gain, null, '飞行再生');
         if (log && u.hp > before) {
-            log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: u.hp - before, deadCount: dead.length } });
-            // 纯记账（体检对照 flyerRegen group）：value 与 fact heal 同表达式，保精确相等
-            addMod(u, 'hp', { source: '飞行再生', value: u.hp - before, ttl: 'permanent', group: 'flyerRegen', op: 'add' });
+            // 2026-10-13 回血出口取整：hp 是 0.1 精度（core/13 applyStatChange 落 step 到 0.1），
+            //   两个一位小数相减会出浮点尾巴（73.7-63.7 = 10.000000000000007）进日志与记账；
+            //   与生生不息（26elite-sixsects-zhangsanfeng L37 Math.round）同口径，截到整数
+            const healed = Math.round(Math.max(0, u.hp - before));
+            log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: healed, deadCount: dead.length } });
+            // 纯记账（体检对照 flyerRegen group）：value 与 fact heal 同一个 healed，保精确相等
+            addMod(u, 'hp', { source: '飞行再生', value: healed, ttl: 'permanent', group: 'flyerRegen', op: 'add' });
         }
     }
 }
