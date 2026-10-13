@@ -1,7 +1,10 @@
-// V6.6.1 | ~7200 bytes | 2026-10-13 小昭·妹蜘蛛卵：ON_BEFORE_DEATH +SPIDER_EGG:10（毒/反伤致死结茧续命）、
-//   ROUND_END +SPIDER_EGG:5（卵计时/孵化，先于 SPIDER_RETURN:10 落地）
+// V6.8.0 | ~7400 bytes | 2026-10-13 新精英「杨逍」优先级：AFTER_DAMAGE_APPLIED +DIAN_XUE:28（命中后点穴判定）、
+//   ROUND_START +JIN_MAI:35（眩晕清除 → 转截脉 / 冷却递减，排在 HOLY_FIRE:40 之前）
+// ── 更早版本见 记录-更改履历.md
+// V6.7.0 | 2026-10-13 新海克斯「圣火不熄」优先级：ON_UNIT_DEATH +HOLY_FIRE:40（记死位，晚于 MIEJUE_RECORD:20）、
+//   BEFORE_STATE_TRANSITION +HOLY_FIRE:30（下一行动步落位）、ROUND_START +HOLY_FIRE:40（回合末阵亡兜底）
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.6.1';
+export const VER = 'infra/50-event-bus.js V6.8.0';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -95,7 +98,7 @@ export const eventBus = new EventBus();
  *   状态写入必须在本监听器主流程内完成
  */
 export const EXECUTION_LAYER = {
-    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, MIEJUE_SUMMON: 20, HE_TAICHONG_LINK: 30 },
+    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, MIEJUE_SUMMON: 20, HE_TAICHONG_LINK: 30, JIN_MAI: 35, HOLY_FIRE: 40 },
     ROUND_END:        { SPIDER_EGG: 5, BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
@@ -114,6 +117,7 @@ export const EXECUTION_LAYER = {
         LION_INSPIRE: 23,
         LION_FOLLOW: 24,
         MIEJUE_THIRD_LEECH: 26,
+        DIAN_XUE: 28,
         HOT_BLOOD: 25,
         WIND_ASSAULT: 25,
         METEOR_SHOWER: 25,
@@ -146,9 +150,9 @@ export const EXECUTION_LAYER = {
     ON_BEFORE_DEATH: { SPIDER_EGG: 10 },
     // 白骨爪连锁逐爪广播：CLAW_CHAIN 处理器每结算一爪发一次（爪击不走伤害计算管线）
     CLAW_HIT_APPLIED: { XIAOZHAO_QIAN_KUN: 10 },
-    ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20 },
+    ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20, HOLY_FIRE: 40 },
     ON_POSITION_SWAP: { SWITCH: 10 },
-    BEFORE_STATE_TRANSITION: { MIEJUE_SUMMON: 20 }
+    BEFORE_STATE_TRANSITION: { MIEJUE_SUMMON: 20, HOLY_FIRE: 30 }
 };
 
 /**

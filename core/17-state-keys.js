@@ -1,6 +1,6 @@
-// V2.7.1 | ~13000 bytes | 2026-10-13 小昭·妹飞天重做：新增蜘蛛卵四字段 _spiderEgg（当前是卵）/
-//   _spiderEggUsed（本局结过茧）/ _spiderEggRounds（卵存活回合计数）/ _spiderEggHatch（孵化过，跳过落地回血）
-export const VER = 'core/17-state-keys.js V2.7.1';
+// V2.8.0 | ~13300 bytes | 2026-10-13 新增海克斯「圣火不熄」字段 _holyFire（battle 级 STRING：'pending' 待复活 /
+//   'used' 本局已复活；写在阵亡者本体上，跨回合存活）
+export const VER = 'core/17-state-keys.js V2.8.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -104,6 +104,18 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 召唤周芷若待落位位置：阵亡当帧只记位置，下一个行动步（或下一回合兜底）才 spawn。
     //   跨回合兜底要靠它活过回合边界，所以必须是 battle 级字段（队伍数组每回合都重建，挂不住）
     _pendingZhouPos:         { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
+    // 圣火不熄海克斯：每局首次己方非巨马阵亡时写在阵亡者本体上——'pending' 待复活 / 'used' 本局已复活。
+    //   必须 battle 级（跨回合保留）：队伍数组每回合重建，挂数组过不了回合边界（同 _pendingZhouPos 理由）
+    _holyFire:               { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 杨逍·弹指神通：本回合是否被点穴（true = 正在被点穴，等回合开始 resetStateFields 清掉 _stunned 后转截脉）。
+    //   刻意不复用共享的 _stunned 当来源判据——_stunned 还被击退无路/闪避反击/何太冲红血共用，分不清谁打的
+    _dianXue:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 杨逍·点穴冷却：同一目标 cdRounds 回合内最多被点一次（回合开始递减，>0 即免疫本次点穴判定）
+    _dianXueCd:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 杨逍·截脉（反治疗）：被点穴目标眩晕解除后进入，{ rounds: 剩余回合数, ratio: 治疗/吸血回复乘率 }。
+    //   ratio 由 components 侧从 content 写入（单一数据源，core/13 不在热路径上查表）；
+    //   只读不就地改——OBJECT 字段在 state 拷贝（copyBattleStateFields）里是浅拷贝，改内容会漏到 UI 镜像，递减时整对象换新
+    _jinMai:                 { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 不可闪避：仅一次攻击内有效，由 core/10 额外攻击循环置/清
     _ignoreDodge:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 被动出手伤害系数（反击×0.8/跟随×0.6）：仅一次攻击内有效，由 core/10 额外攻击循环置/清，

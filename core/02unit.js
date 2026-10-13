@@ -31,6 +31,9 @@ export const HERO_FLAGS = Object.freeze({
     '胖远桥': 'isPangYuanQiao',
     '灭绝师太': 'isMieJueShiTai',
     '金毛狮王谢逊': 'isXieXun',
+    // 2026-10-13 杨逍（光明左使·飞行·精英）：与韦一笑同为明教飞行精英。
+    //   进本表后 modules/29 的明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动把他排除，不重复出人
+    '杨逍': 'isYangXiao',
     // 2026-10-11 何太冲（弱精英、无组件）：补身份标记，render/32、名片表不再比名字。
     //   他是六大派身份，不在 MING_M 池内，进这张表不影响 modules/29 的明教候选池过滤
     '何太冲': 'isHeTaichong',

@@ -1,10 +1,9 @@
-// V6.3.8 | ~21300 bytes | 2026-10-13 飞行再生回血出口取整（老板转发的外部AI靶）：hp 带 1 位小数（core/13 落 step 到 0.1），
-//          直接 `u.hp - before` 会留浮点尾巴（如 73.7-63.7 = 10.000000000000007）进日志与记账；
-//          改 Math.round(Math.max(0, …))，与生生不息等回血出口同口径；fact heal 与 addMod value 共用同一截断值，精确相等不变
-// V6.3.7 | ~21000 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：applySoulDrain / applyHolyFlameBonus / logBuffSummary 的
-//          上下文型尾参（log、aliveCounts、hasSister、doubleStrikeUid）合并为单 ctx 对象，业务参数保持原位；
-//          此后新增上下文只进 ctx，不再改签名。行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/04buff-system.js V6.3.8';
+// V6.4.0 | ~24200 bytes | 2026-10-13 新海克斯「圣火不熄」（死亡交互·复活）：每局首次己方（非巨马）单位阵亡
+//          → 记阵亡者 state._holyFire='pending'，延到下一个行动步（BEFORE_STATE_TRANSITION）原位复活；
+//          回复 reviveRatio 生命并置 _stunned（当回合不可行动）；回合最后一手阵亡由 ON_ROUND_START 兜底。
+//          复活对象＝原单位本体（不调 spawnUnit）；fact 复用 SKILL_ANNOUNCE（零新 fact）。
+//          ── 更早版本见 记录-更改履历.md
+export const VER = 'core/04buff-system.js V6.4.0';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -14,7 +13,8 @@ import {
 } from './14buff-effects.js';
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup } from './13battle-shared.js';
+import { findFreePos } from './05battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -295,6 +295,78 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
     }
 }
 
+// 圣火不熄（海克斯·死亡交互）：每局首次己方（非巨马）单位阵亡 → 该单位原地复活。
+//   时机复用「灭绝召唤周芷若」的两段式：当帧只记死位（当帧复活会顶掉死亡特效），
+//   落位延到下一个行动步 BEFORE_STATE_TRANSITION；回合最后一手阵亡没有下一步，由 ON_ROUND_START 兜底。
+//   与灭绝的关键区别：复活对象＝原单位本体，不调 spawnUnit 新建。
+//   与 小昭·妹飞天/结茧 的分工：那套钩在 ON_BEFORE_DEATH（当场清 _pendingDeath 取消死亡，根本走不到
+//   ON_UNIT_DEATH），所以「能保命就保命、保不住（真死）才轮到海克斯」——两者不会同帧抢触发。
+export function submitHolyFireRecord(data) {
+    const teams = [data.allySide, data.enemySide].filter(Boolean);
+    const owner = teams.find(t => hasBuff(t._activeBuffs || [], BUFF_TYPES.HOLY_FIRE));
+    if (!owner) return;
+    // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
+    if (owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) return;
+    const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse);
+    if (!victim || victim.pos == null) return;
+    victim.state._holyFire = 'pending';
+}
+
+function reviveHolyFireUnit(u, team, log, withStun) {
+    u.state._holyFire = 'used';
+    const cfg = C.BUFFS.holyFire || {};
+    const ratio = cfg.reviveRatio != null ? cfg.reviveRatio : 0.4;
+    // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
+    //   （findFreePos 只算 alive 占位、尸体不占格，故通常直接原地复活）
+    let landPos = u.pos;
+    if (team.some(o => o !== u && o.alive && o.pos === u.pos)) {
+        const order = [];
+        for (let i = 0; i < 9; i++) order.push(((u.pos - 1 + i) % 9) + 1);
+        landPos = findFreePos(team, order);
+        if (landPos == null) return;   // 9 格全被活人占：放弃本次复活，保持阵亡
+    }
+    // 以蜘蛛卵形态阵亡（卵被打碎＝真死）时先清掉卵的攻防修正，避免 0 攻/卵防复活
+    if (u.state._spiderEgg) removeModsByGroup(u, 'spiderEgg');
+    u.pos = landPos;
+    u.alive = true;
+    Object.assign(u.state, { _isDead: false, _pendingDeath: false, _deathTime: 0 });
+    // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
+    applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false);
+    if (withStun) u.state._stunned = true;
+    emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: !!withStun });
+    if (log) {
+        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+            unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '圣火不熄',
+            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${Math.round(ratio * 100)}% 生命${withStun ? '（当回合不可行动）' : ''}`,
+            floatText: '🕯️', floatUid: u.uid
+        } });
+    }
+}
+
+// 下一个行动步落位（当回合内复活 → 置 _stunned 挡掉本回合剩余行动，回合开始自动清）
+export function flushHolyFire(data) {
+    for (const team of [data.A, data.B]) {
+        if (!team) continue;
+        const victim = team.find(u => u.state && u.state._holyFire === 'pending');
+        if (victim) reviveHolyFireUnit(victim, team, data.log, true);
+    }
+}
+
+// 回合开始兜底（阵亡发生在回合最后一手 → 无「下一行动步」）：那个回合已过，不再补 _stunned
+export function flushHolyFireRoundStart(data) {
+    for (const team of [data.A, data.B]) {
+        if (!team) continue;
+        const victim = team.find(u => u.state && u.state._holyFire === 'pending');
+        if (victim) reviveHolyFireUnit(victim, team, data.log, false);
+    }
+}
+
+export function registerHolyFire() {
+    registerSettlementHook({ when: SIGNAL_TYPES.ON_UNIT_DEATH, priority: L.ON_UNIT_DEATH.HOLY_FIRE, handler: submitHolyFireRecord });
+    registerSettlementHook({ when: SIGNAL_TYPES.BEFORE_STATE_TRANSITION, priority: L.BEFORE_STATE_TRANSITION.HOLY_FIRE, handler: flushHolyFire });
+    registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: L.ROUND_START.HOLY_FIRE, handler: flushHolyFireRoundStart });
+}
+
 // Buff 声明化装配器
 export function installBuffMechanics(eventBus) {
     const gd = getGameData();
@@ -304,7 +376,8 @@ export function installBuffMechanics(eventBus) {
         hotBloodHeal: registerHotBlood,
         windAssaultSplash: registerWindAssault,
         meteorShowerMain: registerMeteorShower,
-        mindControlSwap: registerMindControl
+        mindControlSwap: registerMindControl,
+        holyFireRevive: registerHolyFire
     };
     for (const buff of Object.values(gd.buffs)) {
         if (!buff.effects || !Array.isArray(buff.effects)) continue;
