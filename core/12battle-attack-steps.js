@@ -1,7 +1,9 @@
-// V6.3.11 | ~31400 bytes | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
+// V6.3.12 | ~31500 bytes | 2026-10-14 严阵以待反弹补「小昭·妹永久」分支（团队 buff 过期后妹仍反弹），
+//           门控改 hasBuff || query('xiaoPermanentActive')，两分支互斥不重复
+// V6.3.11 | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
 //           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
 //           业务参数（unit/target/dmgCalc/allySide/phantomFact 等）保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/12battle-attack-steps.js V6.3.11';
+export const VER = 'core/12battle-attack-steps.js V6.3.12';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -399,7 +401,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let reboundEntry = null;
     let fortifyDeclarations = null;
     let allyBuffs_fortify = (target.camp === CAMP_TYPES.ALLY ? ctx.A._activeBuffs : ctx.B._activeBuffs) || [];
-    if (hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) && target.role === ROLE_TYPES.DEFENDER && dmg > 0) {
+    // 2026-10-14 妹永久补 fortify 反弹：团队严阵以待过期后，妹（防战形态）被击仍反弹（xiaoPermanentActive 在团队 buff 在场时返回 false，两分支不重复）
+    const fortifyActive = hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) || query('xiaoPermanentActive', target, allyBuffs_fortify, BUFF_TYPES.FORTIFY);
+    if (fortifyActive && target.role === ROLE_TYPES.DEFENDER && dmg > 0) {
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
         if (reboundDmg > 0) {
             const hasSister = ctx.A && ctx.A.some(u => u.isXiaoZhaoSister && u.alive);
