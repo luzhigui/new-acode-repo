@@ -183,23 +183,18 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: unit.pos });
     emitStateChange(unit, STATE_CHANGE_TYPES.LANDING, { pos: unit.pos }, log);
 
+    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
+
     // 落地回血（2026-10-13 飞天重做）：每次飞天落地回 maxHp 的 landHealRatio；孵化落地不回（血钉 40%）
-    // landHeal 提前算好并写进 SPIDER_RETURN fact（数值对照器 SPIDER_LAND_HEAL 契约的声明侧，体检第 88 轮转交）；
-    //   不落地（孵化/满血/比率为 0）时记 0，与 addMod 记账同条件同值
-    let landHeal = 0;
     if (!unit.state._spiderEggHatch) {
         const flyParams = getSkillParams('小昭', 'spiderFly');
         if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
         const heal = Math.floor(unit.maxHp * flyParams.landHealRatio);
-        if (heal > 0 && unit.hp < unit.maxHp) landHeal = heal;
-    }
-
-    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal } });
-
-    if (landHeal > 0) {
-        applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
-        // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
-        addMod(unit, 'hp', { source: '飞天落地回血', value: landHeal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
+        if (heal > 0 && unit.hp < unit.maxHp) {
+            applyStatChange(unit, 'hp', heal, unit, '飞天落地回血');
+            // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
+            addMod(unit, 'hp', { source: '飞天落地回血', value: heal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
+        }
     }
 
     // 2026-10-06 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
