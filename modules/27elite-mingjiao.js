@@ -568,14 +568,11 @@ function toSpiderEgg(u, outLog) {
     if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
     u.state._pendingDeath = false;
     Object.assign(u.state, { _spiderEgg: true, _spiderEggRounds: 0, _spiderTriggeredDeath: true });
-    // 结茧属性增量先算局部（体检第 88 轮转交：写进 announce fact 供数值对照器 SPIDER_EGG 契约做声明侧）
-    const eggAtkDelta = eggModValue(u, 'atk', 0);
-    const eggDefDelta = eggModValue(u, 'def', fp.eggDef);
-    addMod(u, 'atk', { source: '蜘蛛卵', value: eggAtkDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
-    addMod(u, 'def', { source: '蜘蛛卵', value: eggDefDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    addMod(u, 'atk', { source: '蜘蛛卵', value: eggModValue(u, 'atk', 0), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    addMod(u, 'def', { source: '蜘蛛卵', value: eggModValue(u, 'def', fp.eggDef), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     if (u.hp < u.maxHp) applyStatChange(u, 'hp', u.maxHp - u.hp, null, '蜘蛛结茧', false, false);
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta } });
+    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid } });
 }
 
 // 孵化（2026-10-13）：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、
