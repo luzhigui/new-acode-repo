@@ -1,4 +1,4 @@
-// V6.3.12 | ~31500 bytes | 2026-10-14 严阵以待反弹补「小昭·妹永久」分支（团队 buff 过期后妹仍反弹），
+// V6.3.12 | ~31950 bytes | 2026-10-14 严阵以待反弹补「小昭·妹永久」分支（团队 buff 过期后妹仍反弹），
 //           门控改 hasBuff || query('xiaoPermanentActive')，两分支互斥不重复
 // V6.3.11 | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
 //           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
@@ -8,7 +8,7 @@ export const VER = 'core/12battle-attack-steps.js V6.3.12';
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown, canBeTargeted } from './03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod, recordHpAudit } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue, fmtHp } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { runTargetStrategies } from './07-target-strategies.js';
@@ -597,8 +597,8 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             if (delta > 0) {
                 addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
                 refreshMaxHp(target, null, '韦一笑吸血上限提升');
-                // 纯记账（体检对照 weiDodgeHeal group，2026-10-13）：hp 抬升与 refreshMaxHp 同源（delta），只 push _mods['hp']，零行为副作用
-                addMod(target, 'hp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiDodgeHeal', op: 'add' });
+                // 审计账本（2026-10-14 迁出 _mods）：hp 抬升与 refreshMaxHp 同源（delta），记进 unit._audit.hp，零行为副作用
+                recordHpAudit(target, 'weiDodgeHeal', delta, '韦一笑吸血');
             }
             recordCombatStat(target, target, 'leech', {
                 actualAmount: heal

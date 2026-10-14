@@ -1,10 +1,10 @@
 // modules/26elite-sixsects-songqingshu.js — 六大派精英「宋青书」：组件工厂 + 四大机制 handler 对象
-// V6.25.0 | ~15800 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
+// V6.25.0 | ~15670 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
 //   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
 //   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
 export const VER = 'modules/26elite-sixsects-songqingshu.js V6.25.0';
 import { getGameData } from '../core/01config-5v5-test.js';
-import { applyStatChange, addMod, getBattleRng, refreshMaxHp } from '../core/13battle-shared.js';
+import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
 import { processUnitAttack } from '../core/10battle-attack.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -51,8 +51,8 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
             const hpAfterPredicted = Math.min(unit.maxHp, unit.hp + totalHeal);
             if (declarations) {
                 declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
-                // 【临时验证用，验证后回滚】纯记账：快乐回血自身 hp 贡献以独立 group 隔离，供体检按 group='kuaiLeHeal' 比对
-                addMod(unit, 'hp', { source: '快乐回血', value: totalHeal, ttl: 'permanent', group: 'kuaiLeHeal', op: 'add' });
+                // 审计账本（2026-10-14 迁出 _mods）：快乐回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='kuaiLeHeal' 比对
+                recordHpAudit(unit, 'kuaiLeHeal', totalHeal, '快乐回血');
             } else {
                 applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             }
@@ -141,8 +141,8 @@ export const chainClawHandler = {
             }
             if (totalHeal > 0 && song && song.alive && data && data.declarations) {
                 data.declarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: song, factType: FACT_TYPES.CLAW_HEAL, factData: { totalHeal, unitUid: song.uid } });
-                // 【临时验证用，验证后回滚】纯记账：爪击回血自身 hp 贡献以独立 group 隔离，供体检按 group='clawHeal' 比对
-                addMod(song, 'hp', { source: '爪击回血', value: totalHeal, ttl: 'permanent', group: 'clawHeal', op: 'add' });
+                // 审计账本（2026-10-14 迁出 _mods）：爪击回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHeal' 比对
+                recordHpAudit(song, 'clawHeal', totalHeal, '爪击回血');
             } else if (song && song.alive) {
                 log.push({ factType: FACT_TYPES.CLAW_NO_HEAL, data: {} });
             }

@@ -1,4 +1,4 @@
-// V6.4.0 | ~14700 bytes | 2026-10-13 杨逍「点穴截脉」反治疗：applyStatChange 加 isHeal 参数（默认 true），
+// V6.4.0 | ~16190 bytes | 2026-10-13 杨逍「点穴截脉」反治疗：applyStatChange 加 isHeal 参数（默认 true），
 //   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
 //   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
 // ── 更早版本见 记录-更改履历.md
@@ -271,6 +271,18 @@ export function addMod(unit, stat, mod) {
     if (!unit._mods) unit._mods = { atk: [], def: [], maxHp: [] };
     if (!unit._mods[stat]) unit._mods[stat] = [];
     unit._mods[stat].push(mod);
+}
+
+// hp 审计账本（2026-10-14）：体检对照器要核对「声明 heal/dot vs 实际落账」，此前这些纯记账条目
+//   混在 _mods['hp'] 里（全库无 getStat('hp') 调用点，故零行为副作用），但污染了词条容器——
+//   一旦将来 hp 上词条系统，这些审计账会变成真实加成。现物理隔离到 unit._audit.hp：
+//   条目形状与 _mods 同构（{source,value,ttl:'permanent',group,op:'add'}），对照器按 group 累加的算法不变。
+//   注意：clone() 必须浅拷该数组（共享元素引用），对照器的逐步按引用差集依赖这一点。
+export function recordHpAudit(unit, group, value, source) {
+    if (!unit || !group) return;
+    if (!unit._audit) unit._audit = { hp: [] };
+    if (!unit._audit.hp) unit._audit.hp = [];
+    unit._audit.hp.push({ source: source || '审计', value, ttl: 'permanent', group, op: 'add' });
 }
 
 export function removeModsByTTL(unit, ttl) {

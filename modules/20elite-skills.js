@@ -1,11 +1,11 @@
-// V6.2.1 | ~14800 bytes | 2026-10-14 体检第 88 轮转交：landHeal 提前算好写进 SPIDER_RETURN fact data
+// V6.2.1 | ~14710 bytes | 2026-10-14 体检第 88 轮转交：landHeal 提前算好写进 SPIDER_RETURN fact data
 //   （数值对照器 SPIDER_LAND_HEAL 契约声明侧；不落地记 0，与 addMod 同条件同值，零行为变化）
 export const VER = 'modules/20elite-skills.js V6.2.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff, canBeTargeted } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit } from '../core/13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 
@@ -198,8 +198,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
     if (landHeal > 0) {
         applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
-        // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
-        addMod(unit, 'hp', { source: '飞天落地回血', value: landHeal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
+        // 审计账本（2026-10-14 迁出 _mods）：供数值对照器隔离自身贡献（同蛛袭记账口径）
+        recordHpAudit(unit, 'spiderLandHeal', landHeal, '飞天落地回血');
     }
 
     // 2026-10-06 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
@@ -217,8 +217,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const extraDmg = extraDmgMap[Math.min(masteryCount, Object.keys(extraDmgMap).length - 1)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
-        // 纯记账（体检对照 spiderStrike group，第 81 轮转交）：只 push _mods['hp']，零游戏逻辑副作用
-        addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', group: 'spiderStrike', op: 'add' });
+        // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零游戏逻辑副作用
+        recordHpAudit(target, 'spiderStrike', -totalDmg, '蛛袭');
         log.push({
             factType: FACT_TYPES.SPIDER_STRIKE,
             data: {

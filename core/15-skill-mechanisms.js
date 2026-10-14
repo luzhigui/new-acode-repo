@@ -1,4 +1,4 @@
-// V6.8.0 | ~16710 bytes | 2026-10-14 core/15 瘦身：linkAttack / followAttack / phantomDisguise 三个英雄机制
+// V6.8.0 | ~16640 bytes | 2026-10-14 core/15 瘦身：linkAttack / followAttack / phantomDisguise 三个英雄机制
 //   连同安装器迁出 core——改由 modules 侧 registerMechanicHandler 注册（25 承接玄冥联动 + 成昆幻影、
 //   26 承接灭绝跟随）。本文件删 LOCAL_MECHANIC_TYPES / LOCAL_MECHANIC_FIELDS 两张例外表与 isLocal 分支，
 //   顶层机制只剩「注册表查表」一条路（未注册的 type 开局即抛）。四个导出签名不变，core/11 调用点零改动。
@@ -8,7 +8,7 @@ export const VER = 'core/15-skill-mechanisms.js V6.8.0';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
-import { addMod } from './13battle-shared.js';
+import { recordHpAudit } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './18mechanic-registry.js';
@@ -240,10 +240,10 @@ function submitOnHitEffects(data, onHitDecls) {
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid } });
-                    // 体检记账（V6.6.0）：九阳神功治疗自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按
-                    //   group='nineYangHeal' 比对「声明 heal vs 实际治疗」。纯记账——addMod 只 push 到 _mods['hp']，
-                    //   全库无 getStat('hp') 调用点 ⇒ 不串进活值/显示；真实治疗仍由上方 HEAL 声明结算负责。
-                    addMod(unit, 'hp', { source: '九阳神功治疗', value: heal, ttl: 'permanent', group: 'nineYangHeal', op: 'add' });
+                    // 审计账本（2026-10-14 迁出 _mods）：九阳神功治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl
+                    //   对照器按 group='nineYangHeal' 比对「声明 heal vs 实际治疗」。审计容器全库无读点
+                    //   （getStat 不认 hp）⇒ 不串进活值/显示；真实治疗仍由上方 HEAL 声明结算负责。
+                    recordHpAudit(unit, 'nineYangHeal', heal, '九阳神功治疗');
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 Object.assign(target.state, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
