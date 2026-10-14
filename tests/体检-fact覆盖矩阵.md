@@ -457,7 +457,7 @@ modules/27 小昭·妹飞天重做在途）。
 >     红线：rules-replay（含 DEAD=1）0 fail/0 空转/0 不变量违规；static-scan/smoke/stat-decl/registration/
 >     coverage 全绿；mutation 44/44；baseline 仍 7 场翻转（待用户拍板）。主代码零改动。
 
-> 15. **第 88 轮（2026-10-13）——蜘蛛系双盲区契约化（scan-groups 清零 45/45；两契约警告态待载荷落地）+ rule113 变异牙补缺（T17/T18）**：
+> 15. **第 88 轮（2026-10-13）——蜘蛛系双盲区契约化（scan-groups 清零 45/45；两契约已于 2026-10-14 e2fb757 转严格）+ rule113 变异牙补缺（T17/T18）**：
 >     `--scan-groups` 盲区扫地仅剩 2 个未覆盖 group：**spiderLandHeal**（飞天落地回血 37 条 hp 词条，
 >     modules/20 spiderReturn）与 **spiderEgg**（蜘蛛卵结茧 4 条 atk/def 词条，modules/27 toSpiderEgg）——
 >     「把数值写错也查不出」。取证：两者**记账 addMod 均已在主代码**（L196 / L571-572，注释"供数值对照器"），
@@ -477,8 +477,8 @@ modules/27 小昭·妹飞天重做在途）。
 >     SPIDER_RETURN push 未删、与新 push 并存 ⇒ 每次蛛落渲染双条目——rules-replay 无规则覆盖重复 fact
 >     故未报红），由 7b2e7e4 修正。**2026-10-14 用户立规「主代码不经我手落地」并授权改回**：a8c1dda
 >     将两文件恢复至 8630c51（打补丁前）状态（git diff 为空 = 精确一致；并行会话未提交 WIP 未动），
->     两契约回到**零触发警告态**（账本 37/4 词条在、声明侧无值，EXIT=0）；下方两个转交块**存档待主代码
->     侧正式落地**，落地后自动转严格态。铁律已写入 skill「二·补」：主仓内零主代码编辑（含临时补丁），
+>     两契约回到**零触发警告态**（账本 37/4 词条在、声明侧无值，EXIT=0）；下方两个转交块**已正式落地
+>     （2026-10-14 e2fb757：modules/20 V6.2.1 + modules/27 V7.0.1，两契约转严格 36/36 · 4/4 偏差 0）**。铁律已写入 skill「二·补」：主仓内零主代码编辑（含临时补丁），
 >     确需验证去仓库外独立 worktree 跑完丢弃。
 >     同轮补 **rule113 变异牙**（mutation-teeth V2.9.6，44→46）：第 87 轮落规则时漏同步牙齿 =
 >     A28 式静默死亡缺口（主代码改 swap emit 写法 ⇒ 规则恒绿无人察）。T17 = 敌方 SWAP fact 的 side 常量
@@ -488,7 +488,7 @@ modules/27 小昭·妹飞天重做在途）。
 >     T17/T18 的增量判定挂账待办（结果文件剩约 28/46 树）。
 
 ### ===== 主代码改动 START（modules/20elite-skills.js，spiderReturn 函数内，原 SPIDER_RETURN push + 落地回血段）=====
-// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块待主代码侧正式落地）：
+// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块已正式落地 e2fb757）：
 // 原状：
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 
@@ -527,7 +527,7 @@ modules/27 小昭·妹飞天重做在途）。
 ===== 主代码改动 END =====
 
 ### ===== 主代码改动 START（modules/27elite-mingjiao.js，toSpiderEgg 函数内，addMod 两行 + announce push）=====
-// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块待主代码侧正式落地）：
+// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块已正式落地 e2fb757）：
 // 原状：
     addMod(u, 'atk', { source: '蜘蛛卵', value: eggModValue(u, 'atk', 0), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     addMod(u, 'def', { source: '蜘蛛卵', value: eggModValue(u, 'def', fp.eggDef), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
