@@ -1,5 +1,8 @@
+// V7.5.13 | ~4040 bytes | 2026-10-14 重开补清阵亡摘格 timer：player/42 setupDeathTimers 的 3 秒 timer 挂在
+//   playerContext 上，不清则跨局存活——store 已清时到点触发即空指针（player/42:148 Cannot read
+//   properties of null (reading 'getState')），且可能误摘新一局同 uid 的活格（player/42 timer 入口守卫同源）
 // V7.5.12 | ~3308 bytes | 2026-10-08 改号 69→74（同号双文件：69-role-cards 占 69），逻辑零改动
-export const VER = 'ui/74reset-runtime.js V7.5.12';
+export const VER = 'ui/74reset-runtime.js V7.5.13';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { setRenderStore } from './62ui-render-5v5-test.js';
@@ -19,6 +22,11 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     // 1. 清 Store 和渲染引用
     GlobalStore.set('battleStore', null);
     setRenderStore(null);
+    // 2026-10-14 阵亡摘格 timer 清理（store 清空之后做，见文件头）：3 秒后自执行的游离任务不跨局
+    const ctx = GlobalStore.get('playerContext');
+    if (ctx && ctx._deathTimers) {
+        for (const uid of Object.keys(ctx._deathTimers)) { clearTimeout(ctx._deathTimers[uid]); delete ctx._deathTimers[uid]; }
+    }
 
     // 2. 清闪避规则与事件缓冲
     clearEliteDodgeRules();

@@ -1,8 +1,11 @@
+// V6.8.8 | ~40290 bytes | 2026-10-14 修战后空指针（player:148 Cannot read properties of null (reading 'getState')）：
+//   阵亡摘格 timer 是「3 秒后自执行」的游离任务，重开时 ui/74 已把 battleStore 清空（timer 还欠着），
+//   到点触发即拿 null store 调 getState。timer 入口补 !c.store 早退（timer 清理见 ui/74 V7.5.13）。
 // V6.8.7 | ~39750 bytes | 2026-10-14 修「圣火不熄复活格子看不见」：阵亡清除 timer/黑名单补复活路径——
 //   syncStoreFromStep 见引擎报活即撤 timer+出 _removedUids；timer 触发时 store 报活则跳过摘格（双保险）
 // V6.8.6 | ~38300 bytes | 2026-10-13 胜利横幅去重：正常通关（有存活单位）时横幅由 ui/62 spawnVictoryEffects 统一输出，
 //   player/42 不再重复渲染；仅当无存活单位（ui/62 未被调用）时兜底输出，平局/投票行不变。
-export const VER = 'player/42player-core.js V6.8.7';
+export const VER = 'player/42player-core.js V6.8.8';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -144,11 +147,13 @@ function setupDeathTimers(c) {
                 const uid = su.uid;
                 c._deathTimers[uid] = setTimeout(() => {
                     delete c._deathTimers[uid];
+                    // 2026-10-14 重开/战后 store 已被 ui/74 清空：本 timer 属于上一局，直接放弃摘格
+                    if (!c.store) return;
                     // 2026-10-14 复活识别（与 syncStoreFromStep 出黑名单同源的双保险）：触发时 store 已报活 → 不摘格子
                     const cur = c.store.getState().units.find(u => u.uid === uid);
                     if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) return;
                     if (c._removedUids) c._removedUids.add(uid);
-                    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
                 }, 3000);
             }
         }
