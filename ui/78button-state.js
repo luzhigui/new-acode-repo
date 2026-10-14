@@ -1,5 +1,5 @@
 // ui/78button-state.js — 主界面按钮状态与 buff 槽刷新（ui/68 拆分·批 2）
-// V1.0.0 | ~8030 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：buff 槽（updateBuffSlots）/ 自动模式按钮（updateAutoModeButton）/
+// V1.0.0 | ~8040 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：buff 槽（updateBuffSlots）/ 自动模式按钮（updateAutoModeButton）/
 //   联网身份角标（updateNetIdentity）/ 主按钮状态机（updateButtons）/ enableAllButtons / updateDebugUI 整块迁入。
 //   依赖方向：本文件 → 77（enableAllButtons 调 updateSpeedButtons），77 不反向依赖本文件。行为零变化，纯搬移。
 export const VER = 'ui/78button-state.js V1.0.0';

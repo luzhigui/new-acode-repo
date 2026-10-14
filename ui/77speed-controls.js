@@ -1,5 +1,5 @@
 // ui/77speed-controls.js — 倍速控制系统（ui/68 拆分·批 1）
-// V1.0.0 | ~6150 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：倍速系统整块迁入（5 个模块级状态 +
+// V1.0.0 | ~6160 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：倍速系统整块迁入（5 个模块级状态 +
 //   getButtonBySpeedValue/updateSpeedButtons/setSpeed/attachSpeedButton/activateScrollSlowdown/
 //   restoreSpeedFromScroll/initSpeedButtons），外加 onAnyButtonClick 辅助（原 68 私有，
 //   68 绑定层的 5 个 bind* 也从这里取用）。行为零变化，纯搬移。
