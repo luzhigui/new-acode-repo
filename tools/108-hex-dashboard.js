@@ -1,4 +1,6 @@
-// V6.2.1 | ~25600 bytes | 2026-10-14 跑批加「阵容模式」选择器（常规/仅姐姐/仅妹妹/不带姐姐妹妹）：lineupMode 透传 116 hex job；
+// V6.2.2 | ~28100 bytes | 2026-10-14 修「跑完不显示」：写 localStorage 失败不再静默吞（配额满时会读回空榜显示暂无数据，
+//        症状同「跑不出结果」）——改为显式报错 + 清理提示；状态行改报「实得/应有场次」，丢场可见
+// V6.2.1 | ~27300 bytes | 2026-10-14 跑批加「阵容模式」选择器（常规/仅姐姐/仅妹妹/不带姐姐妹妹）：lineupMode 透传 116 hex job；
 //        战绩按模式分键存储（常规沿用旧键 ming_hex_battle_log，旧数据不丢），切换模式自动换榜，避免四种阵容混在一张表里
 // V6.2.0 | ~24300 bytes | 2026-10-14 结果表排序改「按胜率从高到低」（原按出场次数降序，高胜率海克斯常被低频淹没，看不清强弱）
 // V6.1.9 | ~24300 bytes | 2026-10-14 圣火不熄提示同步：复活即可行动（删「当回合不可行动」）、名额排除召唤物
@@ -290,12 +292,19 @@ function openHexDashboard() {
       });
       clearInterval(timer);
       // 结果追加进该模式自己的存储键（常规沿用旧键，与 101 同键同格式；2026-10-14 分模式后不再混榜）
+      // 2026-10-14 V6.2.2：写入失败不再静默吞——配额满时原 catch(e){} 会让「跑完 ✅」却读回空榜显示「暂无数据」，
+      //   症状与「跑不出结果」完全一样，且无从判断。现改为显式报错并提示清理；状态行同时给出实得/应有场次。
+      let saveErr = null;
       try {
         const prev = readLogs(mode);
         localStorage.setItem(keyFor(mode), JSON.stringify(prev.concat(hexLogAll)));
-      } catch (e) {}
+      } catch (e) { saveErr = e; }
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      status.textContent = `✅ 完成【${MODE_LABEL[mode]}】：7关×${per}场 共 ${hexLogAll.length} 条记录，总耗时 ${dt}s（${poolSize} 线程并行）`;
+      if (saveErr) {
+        status.textContent = `⚠️ 跑完 ${hexLogAll.length}/${total} 场，但写入本地存储失败（${(saveErr && saveErr.name) || saveErr}）——多半是存储配额已满。请点「清空」删掉不用模式的榜单后重跑。`;
+      } else {
+        status.textContent = `✅ 完成【${MODE_LABEL[mode]}】：${hexLogAll.length}/${total} 场记录，总耗时 ${dt}s（${poolSize} 线程并行）${hexLogAll.length < total ? '｜⚠️ 有丢场' : ''}`;
+      }
       logs = readLogs(mode);
       render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
     } catch (e) {
