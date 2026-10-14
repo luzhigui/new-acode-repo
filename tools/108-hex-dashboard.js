@@ -1,3 +1,4 @@
+// V6.2.0 | ~24300 bytes | 2026-10-14 结果表排序改「按胜率从高到低」（原按出场次数降序，高胜率海克斯常被低频淹没，看不清强弱）
 // V6.1.9 | ~24300 bytes | 2026-10-14 圣火不熄提示同步：复活即可行动（删「当回合不可行动」）、名额排除召唤物
 // V6.1.8 | ~24300 bytes | 2026-10-13 海克斯详情卡「持续」支持整局：content permanent:true 显示「整局」而非回合数
 // V6.1.7 | ~24150 bytes | 2026-10-13 摄魂降防文案改乘法：防御首次乘 0.9、此后每回合再乘 0.95（原线性叠加作废，口径以 content soulDrain.desc 为准）
@@ -362,7 +363,8 @@ function render(summary, stats) {
     rows.push({ key, name: HEX_NAME_MAP[key] || key, count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag });
   }
 
-  rows.sort((a, b) => b.count - a.count);
+  // 2026-10-14 按胜率从高到低排（同率时出场多的在前，次序稳定）
+  rows.sort((a, b) => (b.winRate - a.winRate) || (b.count - a.count));
 
   let html = '<table><tr><th>海克斯</th><th>出场</th><th>胜率</th><th>海克斯平均</th><th>差值</th><th>判定</th><th>差值可视化</th></tr>';
   for (const r of rows) {
