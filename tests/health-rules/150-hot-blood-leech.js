@@ -19,7 +19,7 @@
 // 五条复发信号（只选"文本自身 + 终局快照就能定性"的判据，不反推当期血量 —— 战报不带每回合血量快照，
 //   硬凑精确重算只会造误报）：
 //   1) 回血量非正整数：≤0 或带小数（Math.floor 被删 / 计算改道；leech>0 才渲染，出现 +0 即为异常）
-//   2) 回血量越过该单位血量上限（终局 maxHp 兜底，只会漏报不会误报）
+//   2) 回血量越过该单位血量上限（终局 maxHp 兜底；2026-10-14 第 89 轮加「开战 vs 终局 maxHp 一致才比」门，见误报规避节）
 //   3) 同一单位在同一次攻击（同一个 attack-group）内登记两次 → 回血翻倍膨胀
 //   4) 回血量量级膨胀：单次回血 > 血量上限 × 0.6（合法上限是 leechPct×2，小昭·姊强化下也才 0.40；
 //      留 0.6 是给未来配置上调留余量，只抓"比例被写大/翻倍重复叠加"这类粗错）
@@ -27,6 +27,12 @@
 //   5) 摘要百分比与 CONFIG.BUFFS.hotBlood.leechRatio 不符 → 渲染写死 / 配置未收口
 // 误报规避：本场没有热血奋战条目直接 skip；maxHp 取不到就跳过判据2/4、配置读不到（CONFIG.BUFFS 是
 //   getter，数据未就绪会抛）就跳过判据5；文案形态变了匹配不上就当 skip，绝不硬报。
+//   2026-10-14 第 89 轮（误报修复，V6.1.17）：判据2/4 的 maxHp 参照加「开战快照与终局一致才比」门
+//   （mhStable）——宋青书性奋代价（modules/26elite-sixsects-songqingshu.js L214，**有意设计**：新婚
+//   每次永久 -N 上限，履历有调价记录）让 maxHp 越打越缩：seed=17 stage=4 实测回血那一刻 maxHp=117、
+//   缺口 73.2、翻倍 ratio 0.30 → leech=21 完全合法（min 保险正常），终局却只剩 12（-1-2-…-15 累积 -120），
+//   原判据拿终局值当参照当场误报。战中 maxHp 会变（变大或变小）的单位一律跳过上限/占比判据（宁漏勿误）；
+//   maxHp 稳定的单位照旧全检，min 兜底真被删仍抓得到。
 //   刻意放弃的判据（实测会误报，记下免得以后重蹈）：曾想校验「回血单位必须在『热血奋战：… 攻击回血』
 //   名单里」，实测 120 场误报 17 场 —— renderBuffSummaryFact 的名单**只渲染持 Buff 的一方**
 //   （seed=3 stage=2：名单是明教五人，回血的却是六大派宗维侠/静照，因为 Buff 双阵营各选了一个），
@@ -34,7 +40,7 @@
 // 刻意不做（留给以后，避免一次加太多）：不校验"每 N 次翻倍"的节奏 —— leech 为 0 时引擎不登记条目，
 //   战报序列天然有缺口，数节奏必然误报；若要盯"翻倍永远打不出来"这个静默失效，得先给回放器补
 //   「每回合单位血量快照」通道，届时才能按 ratio 精确重算。
-export const VER = 'tests/health-rules/150-hot-blood-leech.js V6.1.16';
+export const VER = 'tests/health-rules/150-hot-blood-leech.js V6.1.17';
 import { collectNodes, maxHpOf, plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -101,15 +107,23 @@ export const rule97 = {
                     + '出现 0/负数/小数说明取整被改或计算改道）' };
             }
             // 判据2：不得越过该单位血量上限（终局 maxHp 兜底，取不到就跳过）
+            // 2026-10-14 第 89 轮修（误报修复）：终局 maxHp 只对「战中 maxHp 不变」的单位有效——
+            //   宋青书性奋代价（modules/26 L214，有意设计：每次新婚永久 -N 上限）让 maxHp 越打越缩，
+            //   seed=17 stage=4 实测：回血那一刻 maxHp=117、缺口 73.2、翻倍 ratio 0.30 → leech=21 完全合法
+            //   （min 保险正常），终局却只剩 12（-1-2-…-15 累积 -120）⇒ 原判据拿终局值误报。
+            //   ⇒ 开战快照与终局 maxHp 不一致（变大或变小）⇒ 终局值代表不了回血时刻 ⇒ 跳过上限类判据。
             var mh = maxHpOf(who, afterA, afterE);
-            if (mh != null && leech > mh) {
+            var mhStart = maxHpOf(who, beforeA, beforeE);
+            var mhStable = (mh != null && mhStart != null && mhStart === mh);
+            if (mhStable && leech > mh) {
                 return { fail: true, msg: '复发：热血奋战给 ' + who + ' 回复 +' + leech + '，超过其血量上限 ' + mh
                     + '（min(缺口) 兜底失效 → 回血越过上限）' };
             }
             // 判据4：量级膨胀哨兵（合法上限 leechPct×2，小昭·姊强化下也才 0.40，取 0.6 留余量）
             //   2026-10-12 加固（误报修复）：加绝对值门槛 leech>2——小数字场景（maxHp 被压到 1、回 1 即占比 100%）
             //   是合法回血；占比判据只对 >2 的回血生效，大额回血照旧报红。
-            if (mh != null && leech > 2 && leech > mh * 0.6) {
+            //   2026-10-14 第 89 轮修：同判据2 加 maxHp 稳定性门（mhStable）——终局缩血/变血单位不判占比。
+            if (mhStable && leech > 2 && leech > mh * 0.6) {
                 return { fail: true, msg: '复发：热血奋战给 ' + who + ' 单次回复 +' + leech + '，占其血量上限 ' + mh
                     + ' 的 ' + Math.round(leech / mh * 100) + '%（合法上限是 leechPct×2，超过 60% 说明比例被写大'
                     + '或翻倍被重复叠加）' };
