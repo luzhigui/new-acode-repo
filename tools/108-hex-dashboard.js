@@ -1,3 +1,4 @@
+// V6.2.3 | ~28800 bytes | 2026-10-14 结果表可读性：第一列（海克斯名）收窄固定 92px，长名不再撑开列；差值列加 ⬆️/⬇️ 方向标识并配色（暖红=高于均值、冷蓝=低），正负一眼可辨
 // V6.2.2 | ~28100 bytes | 2026-10-14 修「跑完不显示」：写 localStorage 失败不再静默吞（配额满时会读回空榜显示暂无数据，
 //        症状同「跑不出结果」）——改为显式报错 + 清理提示；状态行改报「实得/应有场次」，丢场可见
 // V6.2.1 | ~27300 bytes | 2026-10-14 跑批加「阵容模式」选择器（常规/仅姐姐/仅妹妹/不带姐姐妹妹）：lineupMode 透传 116 hex job；
@@ -28,7 +29,7 @@ import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
 // 2026-10-14 阵容模式：战绩按模式分键存储（常规沿用旧键，历史数据不丢），切换即换榜。
-// 消费端在 116 runHexStageJob：sister/brother 走 forceXiaoZhao 单小昭局，none 拒绝采样直到无小昭。
+// 消费端在 116 runHexStageJob：四模式统一「拒绝采样重掷自然阵容」（sister=含姊 / brother=含妹 / none=无小昭），不设 force、同一把尺子。
 const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
 const keyFor = mode => mode === 'normal' ? KEY : `${KEY}_${mode}`;
 const readLogs = mode => { try { return JSON.parse(localStorage.getItem(keyFor(mode)) || '[]'); } catch(e) { return []; } };
@@ -58,6 +59,10 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-bar-neg{position:absolute;right:50%;top:0;height:100%;background:linear-gradient(270deg,#29e3ff,#666688);box-shadow:0 0 14px rgba(41,227,255,0.9);border-radius:5px 0 0 5px}
 .hex-hex-op{color:#f44336;font-weight:bold}
 .hex-hex-weak{color:#888}
+/* 2026-10-14 V6.2.3：第一列（海克斯名）收窄固定，别让「你就是carry」这类长名把列撑开；差值列加 ⬆️⬇️ 一眼看正负 */
+.hex-hex-box th:first-child,.hex-hex-box td:first-child{width:92px;white-space:nowrap;padding-right:4px}
+.hex-hex-up{color:#ff5a45;font-weight:bold}
+.hex-hex-down{color:#29e3ff;font-weight:bold}
 .hex-hex-body{overflow:auto;flex:1}
 .hex-hex-link{color:#ffd700;cursor:pointer;text-decoration:underline;font-weight:bold}
 .hex-hex-detail-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10001;display:flex;align-items:center;justify-content:center}
@@ -393,12 +398,14 @@ function render(summary, stats) {
     }
 
     const baseText = avgRate !== null ? `${avgRate.toFixed(1)}%` : '无样本';
-    const diffText = diff !== null ? (diff > 0 ? `+${diff.toFixed(1)}%` : diff.toFixed(1) + '%') : '-';
+    // 2026-10-14 V6.2.3：差值带方向标识（⬆️ 高于海克斯平均 / ⬇️ 低于），颜色同步（暖红=强、冷蓝=弱）
+    const diffText = diff !== null ? `${diff > 0 ? '⬆️' : '⬇️'} ${diff > 0 ? '+' : ''}${diff.toFixed(1)}%` : '-';
+    const diffCls = diff === null ? '' : (diff > 0 ? 'hex-hex-up' : (diff < 0 ? 'hex-hex-down' : ''));
     const diffScale = 6; // 差值刻度：越小条越长（6 → 差 6% 即顶满半幅，视觉更夸张）
     const posPct = diff !== null && diff > 0 ? Math.min(diff / diffScale * 50, 50) : 0;
     const negPct = diff !== null && diff < 0 ? Math.min(Math.abs(diff) / diffScale * 50, 50) : 0;
 
-    rows.push({ key, name: HEX_NAME_MAP[key] || key, count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag });
+    rows.push({ key, name: HEX_NAME_MAP[key] || key, count: withHex.length, winRate, baseRate: avgRate, diff, diffText, diffCls, baseText, posPct, negPct, tag });
   }
 
   // 2026-10-14 按胜率从高到低排（同率时出场多的在前，次序稳定）
@@ -411,7 +418,7 @@ function render(summary, stats) {
       <td>${r.count}</td>
       <td>${r.winRate.toFixed(1)}%</td>
       <td>${r.baseText}</td>
-      <td>${r.diffText}</td>
+      <td class="${r.diffCls}">${r.diffText}</td>
       <td>${r.tag || '-'}</td>
       <td><div class="hex-hex-bar-wrap"><div class="hex-hex-bar-center"></div><div class="hex-hex-bar-pos" style="width:${r.posPct}%"></div><div class="hex-hex-bar-neg" style="width:${r.negPct}%"></div></div></td>
     </tr>`;
