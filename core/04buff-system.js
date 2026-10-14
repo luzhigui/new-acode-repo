@@ -1,3 +1,8 @@
+// V6.5.2 | ~35010 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：新增 spawnCarryEagle——carry 生效且
+//           5 号位无活人时召唤「雄鹰」顶位（整局仅 1 只，模块标记 isCarryEagle 判定，死了不补）；数值读 content buffs.carry.params.eagle
+// V6.5.1 | ~30500 bytes | 2026-10-14 妹永久摄魂改「点名 2 回合」（老板拍板削弱）：团队摄魂过期后不再是整局全体续削，
+//           改由 preparePermanentSoulDrain 每回合随机点名 1 名敌方（非马/非召唤物）写 _soulDrainRounds=2，
+//           稳态约 2 人同时在削（core/11 每回合先 -1 再点名）；applySoulDrain 妹版分支改认 rounds>0，姊增强只对团队版生效
 // V6.5.0 | ~29800 bytes | 2026-10-14 妹永久补全 13 项全覆盖 + 新两海克斯姊增强（老板拍板）：
 //           ① 妹永久补 fortify（自己防+50%且反弹）、soulDrain（团队过期后续削敌方）、holyFire（妹专属额外 1 次复活，_holyFireSelf 独立名额）；
 //           ② hexEnhance 接线 soulDrain（减攻 -30%→-45%、逆风 -5%→-10%/人）与 holyFire（复活回血 40%→60%），均判施法/复活方姊存活在场
@@ -13,7 +18,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.0';
+export const VER = 'core/04buff-system.js V6.5.2';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -23,8 +28,8 @@ import {
 } from './14buff-effects.js';
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup } from './13battle-shared.js';
-import { findFreePos } from './05battle-horse.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit } from './13battle-shared.js';
+import { findFreePos, spawnUnit } from './05battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -64,12 +69,14 @@ export function applyFortifyBonus(unit, activeBuffs) {
 // 2026-10-13 ctx 收口：log / aliveCounts 两个上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，此后新增上下文只进 ctx 不再改签名
 export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     const hasTeam = hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN);
-    // 2026-10-14 妹永久补 soulDrain：团队摄魂过期后，小昭·妹所在队继续削敌方（基础值，不吃姊增强）
-    const permanent = !hasTeam && !!ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoBrother && query('xiaoPermanentActive', u, casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN));
-    if (!hasTeam && !permanent) return;
+    // 2026-10-14 妹永久摄魂改「点名 2 回合」（老板拍板削弱）：团队摄魂过期后不再整局全体续削，
+    //   改由 preparePermanentSoulDrain 每回合随机点名 1 名敌方、写 unit.state._soulDrainRounds=2，
+    //   此处只认 rounds>0 才削（基础值、不吃姊增强），稳态约 2 人同时在削（见 core/11 回合开始）。
+    const permanentHit = !hasTeam && (unit.state?._soulDrainRounds || 0) > 0;
+    if (!hasTeam && !permanentHit) return;
     const cfg = CONFIG.BUFFS.soulDrain;
-    // 2026-10-14 姊增强接线：施法方小昭·姊存活在场 → 减攻 -30%→-45%、逆风每多 1 人 -5%→-10%（hexEnhance.soulDrain）
-    const enhance = (ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').soulDrain || null) : null;
+    // 2026-10-14 姊增强接线：仅团队版生效（施法方小昭·姊存活在场 → 减攻 -30%→-45%、逆风每多 1 人 -5%→-10%，hexEnhance.soulDrain）
+    const enhance = (hasTeam && ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').soulDrain || null) : null;
     const atkBase = enhance ? enhance.atkBonus : cfg.atkBonus;
     const perUnit = enhance ? enhance.perUnitBonus : cfg.perUnitBonus;
     const extra = ctx ? Math.max(0, ctx.targetAlive - ctx.casterAlive) : 0;
@@ -87,6 +94,21 @@ export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
 
+// 2026-10-14 妹永久摄魂「点名」调度（core/11 每回合开始调用，方向：casterSide 削 targetSide）：
+//   团队摄魂在场时不启用（团队版自己全体削，4 回合）；妹在场且持永久摄魂时，随机点名 1 名敌方
+//   （非巨马、非召唤物，与圣火不熄名额同口径），写 _soulDrainRounds=2 → 该单位本回合+下回合被 applySoulDrain 削。
+//   每回合 core/11 先对存量 -1 再点名，故稳态约 2 人同时在削；重复点名同名即刷新为 2（可叠加续命）。
+export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
+    if (!casterSide || !targetSide) return;
+    if (hasBuff(casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN)) return;
+    const hasBrother = casterSide.some(u => u.isXiaoZhaoBrother && query('xiaoPermanentActive', u, casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN));
+    if (!hasBrother) return;
+    const pool = targetSide.filter(u => u.alive && !u.isHorse && !u.isSummon);
+    if (!pool.length) return;
+    const pick = pool[ctx.rng.nextInt(0, pool.length - 1)];
+    pick.state._soulDrainRounds = 2;
+}
+
 // 2026-10-12 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：门控删 !unit.isHorse——
 //   拒马站受益位时也吃加成；狮子本就不在排除项内（无需改）。副作用：拒马吃到攻加成后 atk>0，不再走「拒马休息」、会出手。
 export function applyCarryBonus(unit, A, state, log) {
@@ -101,6 +123,23 @@ export function applyCarryBonus(unit, A, state, log) {
         if (bonus.hpAbs) { addMod(unit, 'maxHp', { source: 'carry', value: bonus.hpAbs, ttl: 'round', op: 'add', group: 'carry' }); refreshMaxHp(unit, null, 'carry'); }
         log.push({ factType: FACT_TYPES.CARRY_APPLY, data: { unitName: unit.name, atk: bonus.atkAbs, def: bonus.defAbs, hp: bonus.hpAbs } });
     }
+}
+
+// 2026-10-14 carry 放开 5 号位门槛（老板拍板）：5 号位无人时不再跳过 carry，改召唤「雄鹰」顶位——
+//   整局仅 1 只（模块标记 isCarryEagle 判定，死了不补），随回合开始进场，故 core/11 组件工厂循环能当回合挂上雄鹰技能。
+//   位置固定 5 号位（触发条件即「5 号位无活人」，故 5 号位必空）；数值/形态读 content buffs.carry.params.eagle
+//   （基础值，spawnUnit 照常叠飞行职业加成）。
+export function spawnCarryEagle(team, log) {
+    if (!team || !team.length) return null;
+    if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.CARRY)) return null;
+    if (team.some(u => u.alive && u.pos === 5)) return null;
+    if (team.some(u => u.isCarryEagle)) return null;
+    const spec = C.BUFFS?.carry?.params?.eagle;
+    if (!spec) return null;
+    const eagle = spawnUnit(team, spec.name, spec.m, spec.role, 5, { atk: spec.atk, def: spec.def, maxHp: spec.maxHp });
+    eagle.isCarryEagle = true;
+    if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: eagle.name, summonUid: eagle.uid, pos: eagle.pos } });
+    return eagle;
 }
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
@@ -136,8 +175,8 @@ export function submitBloodthirstDeclaration(data) {
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
             data.declarations.push(decl);
-            // 纯记账（体检对照 bloodthirstLeech group）：只 push _mods['hp']，零游戏逻辑副作用
-            addMod(unit, 'hp', { source: '嗜血狂刀', value: leechVal, ttl: 'permanent', group: 'bloodthirstLeech', op: 'add' });
+            // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零游戏逻辑副作用
+            recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀');
         }
         if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
             unit.state._bloodthirstStriked = true;
@@ -149,8 +188,8 @@ export function submitBloodthirstDeclaration(data) {
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
             data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
-            // 纯记账（同分支 1，体检对照 bloodthirstLeech group）：零游戏逻辑副作用
-            addMod(unit, 'hp', { source: '嗜血狂刀', value: leechVal, ttl: 'permanent', group: 'bloodthirstLeech', op: 'add' });
+            // 审计账本（同分支 1）：记进 unit._audit.hp，零游戏逻辑副作用
+            recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀');
         }
     }
 }
@@ -183,8 +222,8 @@ export function submitHotBloodDeclaration(data) {
     if (leech > 0) {
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: leech, source: unit, isDouble, factType: FACT_TYPES.HOT_BLOOD_HEAL, factData: { unitName: unit.name, leech, tag: isDouble ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战', isBrother, unitUid: unit.uid } });
-        // 纯记账（体检对照 hotBloodHeal group）：只 push _mods['hp']，零游戏逻辑副作用
-        addMod(unit, 'hp', { source: '热血奋战', value: leech, ttl: 'permanent', group: 'hotBloodHeal', op: 'add' });
+        // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零游戏逻辑副作用
+        recordHpAudit(unit, 'hotBloodHeal', leech, '热血奋战');
     }
 }
 
@@ -318,8 +357,8 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
             //   与生生不息（26elite-sixsects-zhangsanfeng L37 Math.round）同口径，截到整数
             const healed = Math.round(Math.max(0, u.hp - before));
             log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: healed, deadCount: dead.length } });
-            // 纯记账（体检对照 flyerRegen group）：value 与 fact heal 同一个 healed，保精确相等
-            addMod(u, 'hp', { source: '飞行再生', value: healed, ttl: 'permanent', group: 'flyerRegen', op: 'add' });
+            // 审计账本（2026-10-14 迁出 _mods）：value 与 fact heal 同一个 healed，保精确相等
+            recordHpAudit(u, 'flyerRegen', healed, '飞行再生');
         }
     }
 }

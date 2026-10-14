@@ -1,9 +1,12 @@
+// V7.0.2 | ~77790 bytes | 2026-10-14 新增雄鹰组件（carry 海克斯召唤·飞行）：命中后使己方一名已行动过的
+//   队友恢复行动力（_acted=false，不含自己/飞天/拒马）；无人可恢复则召唤白板雌鹰永久存在。
+//   由 core/04 spawnCarryEagle 在 5 号位无人时召唤顶位、core/11 组件工厂循环按名注册
 // V7.0.1 | ~74500 bytes | 2026-10-14 体检第 88 轮转交：toSpiderEgg 结茧增量先算局部（eggAtkDelta/eggDefDelta）
 //   写进「蜘蛛卵」announce fact（数值对照器 SPIDER_EGG 契约声明侧；与 addMod 同变量同值，零行为变化）
 //   V7.0.0 杨逍重做（拍板）：弱精英 m104；选敌优先未行动；点穴=眩晕😵+禁疗❌3回合同时挂；敌方全行动→飞行默认+追击×1.3
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.0.1';
+export const VER = 'modules/27elite-mingjiao.js V7.0.2';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -12,7 +15,7 @@ import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
 import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { registerTargetPoolFilter } from '../core/07-target-strategies.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
-import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
@@ -294,8 +297,8 @@ export function createXiaoZhaoSisterComponent() {
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
-                    // 纯记账（体检对照 qianKunHeal group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用
-                    addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
+                    // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零行为副作用
+                    recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
                     // 2026-10-11 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
                     //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
                     addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
@@ -350,8 +353,8 @@ export function createXiaoZhaoSisterComponent() {
                 const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                 const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                 applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
-                // 纯记账（体检对照 qianKunHeal group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用
-                addMod(healTarget, 'hp', { source: '乾坤衍生治疗', value: heal, ttl: 'permanent', group: 'qianKunHeal', op: 'add' });
+                // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零行为副作用
+                recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
                 // 2026-10-11 属性只算不存：加攻改走 addMod 词条（同常规乾坤衍生，原直改 _baseAtk 绕过词条）
                 addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
                 emitEvent(atkTarget, UNIT_EVENT_TYPES.HP_CHANGE, { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: getStat(atkTarget, 'atk'), def: getStat(atkTarget, 'def') });
@@ -1056,6 +1059,50 @@ export function createYangXiaoComponent() {
     };
 }
 
+// 雄鹰（carry 海克斯召唤 · 飞行）：5 号位无人时由 core/04 spawnCarryEagle 顶位到场（整局仅 1 只，死了不补）。
+//   命中后：己方一名「已行动过」的存活队友恢复行动力（_acted=false，不含自己 / 飞天 / 拒马）；
+//   无人可恢复（只有自己、队友都未行动、或都飞天）→ 召唤一只同 M 值白板「雌鹰」永久存在。
+export function createEagleComponent() {
+    return {
+        name: '雄鹰',
+        register(eventBus, A, B, log) {
+            const eagle = [...A, ...B].find(u => u.isCarryEagle && u.alive);
+            if (!eagle) return;
+            const myTeam = eagle.camp === CAMP_TYPES.ALLY ? A : B;
+            const spec = CONFIG.BUFFS?.carry?.params?.eagle;
+            if (!spec || !spec.female) return;
+            const femSpec = spec.female;
+            // 飞天态（蝶/蛛/FSM flying）不可被当作正常队友：与 core/11 行动跳过口径一致
+            const isFlying = (u) => !!(u.state && (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))));
+
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.EAGLE_RESTORE, (data) => {
+                const u = data.unit;
+                if (!u || !u.isCarryEagle || !u.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const pool = myTeam.filter(t => t.alive && t.uid !== u.uid && t.state._acted && !t.isHorse && !isFlying(t));
+                if (pool.length > 0) {
+                    const pick = pool[getBattleRng().nextInt(0, pool.length - 1)];
+                    pick.state._acted = false;
+                    if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                        unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '雄鹰',
+                        note: `🦅 雄鹰振翅！${pick.name} 恢复行动力`, floatText: '🦅', floatUid: pick.uid
+                    } });
+                    return;
+                }
+                // 无人可恢复 → 召唤白板雌鹰（永久存在，不做数量上限）
+                const occupied = new Set(myTeam.filter(t => t.alive).map(t => t.pos));
+                const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
+                if (free.length === 0) return;
+                const pos = free[getBattleRng().nextInt(0, free.length - 1)];
+                const fem = spawnUnit(myTeam, femSpec.name, femSpec.m, femSpec.role, pos, { atk: femSpec.atk, def: femSpec.def, maxHp: femSpec.maxHp });
+                fem.isEagleFemale = true;
+                if (data.log) data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: fem.name, summonUid: fem.uid, pos } });
+            });
+        }
+    };
+}
+
+registerElite('雄鹰', createEagleComponent);
 registerElite('张无忌', createZhangWujiComponent);
 registerElite('韦一笑', createWeiYixiaoComponent);
 registerElite('小昭·姊', createXiaoZhaoSisterComponent);

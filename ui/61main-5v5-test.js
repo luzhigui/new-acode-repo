@@ -1,6 +1,8 @@
+// V6.14.2 | ~35400 bytes | 2026-10-14 全自动海克斯放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤与
+//           hasCarryTarget import，carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
 // V6.14.1 | ~35450 bytes | 2026-10-14 ui/68 拆分配套：日志工具弹窗绑定 bindCopyLogButton 迁去 ui/64，
 //   本文件该符号改从 64 引（68 那条长 import 里去掉它，其余 import 点零改动）
-export const VER = 'ui/61main-5v5-test.js V6.14.1';
+export const VER = 'ui/61main-5v5-test.js V6.14.2';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -16,7 +18,6 @@ import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '..
 import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/44battle-player-5v5-test.js';   // 2026-10-08 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
-import { hasCarryTarget } from '../modules/28buff-tools.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
@@ -279,7 +280,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const available = allKeys.filter(k => {
                     if (existing.includes(k)) return false;
                     if (k === BUFF_TYPES.FORTIFY && !getState.activeBuffs().some(b => b.remaining > 0)) return false;
-                    if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyTeam)) return false;
                     const requiredRole = C.BUFF_ROLE_REQUIREMENTS?.[k];
                     if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
                     return true;

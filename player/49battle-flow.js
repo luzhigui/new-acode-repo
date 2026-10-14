@@ -1,12 +1,14 @@
+// V6.4.2 | ~7200 bytes | 2026-10-14 全自动选 buff 放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
+//          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）；BUFF_TYPES 随该行一并弃用
 // V6.4.1 | ~7300 bytes | 2026-10-13 三处「获得Buff」日志支持整局海克斯：buff 带 permanent 时显示「整局」而非回合数
 // V6.4.0 | ~6900 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
-export const VER = 'player/49battle-flow.js V6.4.1';
+export const VER = 'player/49battle-flow.js V6.4.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
-import { createBuffObject, buffsOfCamp, generateBuffChoices, hasCarryTarget } from '../modules/28buff-tools.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { createBuffObject, buffsOfCamp, generateBuffChoices } from '../modules/28buff-tools.js';
 import { appendLogHTML } from './47renderer.js';
 import * as net from '../infra/60-net-pvp.js';
 // 2026-09-14 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
@@ -28,7 +30,6 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         const team = c.store.getState().units.filter(u => u.camp === camp && u.alive);
         const available = allKeys.filter(k => {
             if (existing.includes(k)) return false;
-            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(team)) return false;
             const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
             if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
             return true;
