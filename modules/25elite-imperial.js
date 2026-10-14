@@ -1,5 +1,5 @@
 // modules/25elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
-// V6.1.0 | ~10950 bytes | 2026-10-14 core/15 瘦身批 1：linkAttack / phantomDisguise 两个顶层机制从 core/15
+// V6.1.0 | ~10860 bytes | 2026-10-14 core/15 瘦身批 1：linkAttack / phantomDisguise 两个顶层机制从 core/15
 //   本地安装器改造成 core/18 注册表 handler（定义与注册同处本文件）。两条改造口径：
 //   ① 每 decl 一次 install，钩子内不再遍历 decls，一律用 decl.name 过滤（玄冥双方各声明一条、各自命中自己）
 //   ② 幻影的「是不是成昆」由 isChengKun 硬标记改为 decl.name——机制实现不再知道角色名
@@ -11,7 +11,7 @@ export const VER = 'modules/25elite-imperial.js V6.1.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
-import { emitEvent, addMod, getBattleRng } from '../core/13battle-shared.js';
+import { emitEvent, getBattleRng, recordHpAudit } from '../core/13battle-shared.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { watchUnit, unwatchUnit } from '../core/19unit-watch.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -149,10 +149,9 @@ function submitPhantomDisguiseOnHit(data, decl) {
         const heal = Math.floor(lostHp * decl.healRatio * aliveCount);
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
-        // 体检记账（V6.7.0）：幻影伪装治疗自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按
-        //   group='phantomDisguiseHeal' 比对「声明 heal vs 实际治疗」。纯记账——addMod 只 push 到 _mods['hp']，
-        //   真实治疗仍由上方 HEAL 声明结算负责，零游戏逻辑副作用。
-        addMod(unit, 'hp', { source: '成昆幻影伪装治疗', value: heal, ttl: 'permanent', group: 'phantomDisguiseHeal', op: 'add' });
+        // 审计账本（2026-10-14 迁出 _mods）：幻影伪装治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
+        //   group='phantomDisguiseHeal' 比对「声明 heal vs 实际治疗」。真实治疗仍由上方 HEAL 声明结算负责。
+        recordHpAudit(unit, 'phantomDisguiseHeal', heal, '成昆幻影伪装治疗');
     }
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
 }

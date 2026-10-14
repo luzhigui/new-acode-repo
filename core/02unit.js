@@ -1,4 +1,4 @@
-// V6.3.3 | ~11360 bytes | 2026-10-13 HERO_FLAGS 新增 '杨逍'→'isYangXiao'（光明左使·飞行·精英）：
+// V6.3.3 | ~11940 bytes | 2026-10-13 HERO_FLAGS 新增 '杨逍'→'isYangXiao'（光明左使·飞行·精英）：
 //   进表后 modules/29 明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动排除他，不重复出人
 export const VER = 'core/02unit.js V6.3.3';
 
@@ -116,6 +116,7 @@ export class Unit {
         this.survivedRounds=0;
         this.fixed=false;
         this._mods = { atk: [], def: [], maxHp: [] };
+        this._audit = { hp: [] };
         this.state = createInitialState();
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
@@ -145,6 +146,9 @@ export class Unit {
             def: [...(this._mods?.def || [])],
             maxHp: [...(this._mods?.maxHp || [])]
         };
+        // 审计账本浅拷：数组独立、元素引用共享（体检对照器的逐步按引用差集依赖共享）。
+        //   注意 clone 的通用循环会跳过所有 _ 前缀字段（_mods 是唯一例外），_audit 必须在此显式处理。
+        c._audit = { hp: [...(this._audit?.hp || [])] };
         // state：全量字段统一拷贝（17-state-keys 驱动），数组深拷贝、对象浅拷贝
         c.state = {};
         copyAllStateFields(this.state, c.state);

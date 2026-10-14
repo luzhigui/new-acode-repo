@@ -1,10 +1,10 @@
-// V1.1.0 | ~5430 bytes | 2026-10-12 dotTick 补 `_mods['hp']` 纯记账条目（group 'xuanMingDot'）：玄冥中毒 DoT 自身 hp 贡献隔离进账本，供体检对照器核对「声明 dot vs 实际扣血」；真实扣血仍由 ROUND_STAT_GRANT 负责，零游戏逻辑副作用
+// V1.1.0 | ~5280 bytes | 2026-10-12 dotTick 补 `_mods['hp']` 纯记账条目（group 'xuanMingDot'）：玄冥中毒 DoT 自身 hp 贡献隔离进账本，供体检对照器核对「声明 dot vs 实际扣血」；真实扣血仍由 ROUND_STAT_GRANT 负责，零游戏逻辑副作用
 export const VER = 'modules/30custom-effects.js V1.1.0';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
-import { addMod } from '../core/13battle-shared.js';
+import { recordHpAudit } from '../core/13battle-shared.js';
 
 // 机制注册表已下沉 core/18，本文件只负责注册具体机制
 export { registerMechanicHandler, hasMechanicHandler, installMechanicByType } from '../core/18mechanic-registry.js';
@@ -44,10 +44,9 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
                             reason: decl.reason
                         });
                         data.log.push({ factType, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
-                        // 体检记账（V1.1.0）：玄冥中毒自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按
-                        //   group='xuanMingDot' 比对「声明 dot vs 实际扣血」。纯记账——addMod 只 push 到 _mods['hp']，
-                        //   全库无 getStat('hp') 调用点、详情弹窗只渲染 atk/def ⇒ 不串进活值/显示。
-                        addMod(u, 'hp', { source: '玄冥中毒', value: -dot, ttl: 'permanent', group: 'xuanMingDot', op: 'add' });
+                        // 审计账本（2026-10-14 迁出 _mods）：玄冥中毒自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
+                        //   group='xuanMingDot' 比对「声明 dot vs 实际扣血」。审计容器全库无读点、详情弹窗只渲染 atk/def。
+                        recordHpAudit(u, 'xuanMingDot', -dot, '玄冥中毒');
                     }
                 });
             }

@@ -1,9 +1,9 @@
-// V6.1.1 | ~17713 bytes | 2026-10-13 溅射伤害补 hp 纯记账（体检转交）：SPLASH handler 按 decl.buffType 分组
+// V6.1.1 | ~17460 bytes | 2026-10-13 溅射伤害补 hp 纯记账（体检转交）：SPLASH handler 按 decl.buffType 分组
 //          （METEOR_SPLASH→meteorSplash / WIND_ASSAULT→windSplash，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
 export const VER = 'core/16effect-handlers.js V6.1.1';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
+import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
@@ -161,10 +161,10 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
         for (const st of decl.targets) {
             if (!st.alive) continue;
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
-            // 纯记账（体检对照 meteorSplash/windSplash group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用；
-            //   按 decl.buffType 分组（流星赶月 METEOR_SPLASH / 乘风突袭 WIND_ASSAULT），无 buffType 的其他溅射不进契约、不记账
+            // 审计账本（2026-10-14 迁出 _mods）：按 decl.buffType 分组记进 unit._audit.hp
+            //   （流星赶月 METEOR_SPLASH / 乘风突袭 WIND_ASSAULT），无 buffType 的其他溅射不进契约、不记账
             const splashGroup = decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH ? 'meteorSplash' : decl.buffType === BUFF_SUBTYPES.WIND_ASSAULT ? 'windSplash' : null;
-            if (splashGroup) addMod(st, 'hp', { source: '溅射', value: -(decl.value || 0), ttl: 'permanent', group: splashGroup, op: 'add' });
+            if (splashGroup) recordHpAudit(st, splashGroup, -(decl.value || 0), '溅射');
             // 2026-09-24 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
             //   （那条挂着 LEECH/流星/嗜血/九阳等十余条监听，重发等于把一次溅射当成一次完整攻击）
             // 2026-09-29 补 log：监听者（莽撞类挨打增益）需要把「实际加了什么」发成数值声明 fact，
@@ -195,10 +195,10 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
-        // 纯记账（体检对照 horseRebound/fortifyRebound group，2026-10-13）：只 push _mods['hp']，零行为副作用；
-        //   按 decl.factType 分组（马形阵 HORSE_REBOUND / 张无忌反击 FORTIFY_REBOUND），无 factType 的闪避反击不进契约、不记账
+        // 审计账本（2026-10-14 迁出 _mods）：按 decl.factType 分组记进 unit._audit.hp
+        //   （马形阵 HORSE_REBOUND / 张无忌反击 FORTIFY_REBOUND），无 factType 的闪避反击不进契约、不记账
         const reboundGroup = decl.factType === FACT_TYPES.HORSE_REBOUND ? 'horseRebound' : decl.factType === FACT_TYPES.FORTIFY_REBOUND ? 'fortifyRebound' : null;
-        if (reboundGroup) addMod(decl.target, 'hp', { source: '反弹', value: -(decl.value || 0), ttl: 'permanent', group: reboundGroup, op: 'add' });
+        if (reboundGroup) recordHpAudit(decl.target, reboundGroup, -(decl.value || 0), '反弹');
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
         if (decl.hasSister && decl.source && decl.source.alive) {
             applyStatChange(decl.source, 'hp', decl.value || 0, null, '反弹回复');
@@ -265,8 +265,8 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             //   原始 fact / 规则读到的仍是尾巴值；源头收敛后 fact 与界面同值。
             const applied = Math.round(Math.max(0, hit.dmg - (clawPayload.reduce || 0)) * 10) / 10;
             applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
-            // 【临时验证用，验证后回滚】纯记账：爪击自身 hp 贡献以独立 group 隔离，供体检按 group='clawHit' 比对
-            addMod(chainTarget, 'hp', { source: '九阴白骨爪', value: -applied, ttl: 'permanent', group: 'clawHit', op: 'add' });
+            // 审计账本（2026-10-14 迁出 _mods）：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对
+            recordHpAudit(chainTarget, 'clawHit', -applied, '九阴白骨爪');
             // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里；
             //   设计值另存 data.designedDmg —— 落地值被减伤后可为 0~设计值，体检靠它还原「设计下限」守护
             hit.data.designedDmg = hit.dmg;
