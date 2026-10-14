@@ -1,10 +1,10 @@
-// V6.2.2 | ~4400 bytes | 2026-10-14 圣火令基础版口径收口为「1 列 + 2 行」（老板确认正式服即两行一列）：
-//          createBuffObject 原写死抽 2列+2行，与 modules/27 每回合重掷（无姊 1列2行 / 有姊 2列2行）及 content desc 三处不一致
+// V6.2.3 | ~4300 bytes | 2026-10-14 hasCarryTarget 收口为「只认 5 号位」：姐姐在场也不再放宽 4/5/6——
+//          入选门槛与受益面解耦（受益面仍由 core/04 carryPositions 决定），消除「仅姐姐」模式的选择口径偏差
 // V6.2.1 | ~4300 bytes | 2026-10-13 「整局」海克斯支持（圣火不熄）：createBuffObject 读 content permanent:true →
 //          时长取 CONFIG.MAX_ROUND（不用 Infinity，防对象过 JSON 时被序列化成 null 丢 buff）；
 //          getActiveBuffList 显示点渲染成「整局」而非回合数
 // V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
-export const VER = 'modules/28buff-tools.js V6.2.2';
+export const VER = 'modules/28buff-tools.js V6.2.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -40,12 +40,11 @@ export function buffsOfCamp(activeBuffs, camp) {
         : b.target === camp);
 }
 
-// carry 只在「carry 位」有活人时才有效：5 号位；小昭·姊在场放宽到 4/5/6（与 core/04 的 carryPositions 同口径）。
-// 无 carry 位则无可加成对象 → 不进候选（手动弹窗与自动选同此判据）。
+// carry 只在「carry 位」有活人时才有效：5 号位。2026-10-14 老板拍板：姐姐在场也要求 5 号位有活人才进候选，
+//   不再放宽到 4/5/6（消除选择口径偏差：此前无姊=仅 pos5 有人才入选、姐姐=4/5/6 三处任一有人就入选，两模式不可横比）。
+//   受益面（谁能吃加成）仍由 core/04 的 carryPositions 决定，与本门槛解耦。
 export function hasCarryTarget(team) {
-    const sister = team.some(u => u.alive && u.isXiaoZhaoSister);
-    const positions = sister ? [4, 5, 6] : [5];
-    return team.some(u => u.alive && positions.includes(u.pos));
+    return team.some(u => u.alive && u.pos === 5);
 }
 
 // activeBuffs 传「本阵营已有 buff」：各阵营独立去重，明教与六大派可各选一次同名 buff

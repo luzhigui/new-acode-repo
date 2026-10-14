@@ -1,4 +1,7 @@
-// V6.4.6 | ~27800 bytes | 2026-10-14 补齐「妹妹永久」缺口：applyHolyFlameBonus 团队圣火令过期分支补
+// V6.5.0 | ~29800 bytes | 2026-10-14 妹永久补全 13 项全覆盖 + 新两海克斯姊增强（老板拍板）：
+//           ① 妹永久补 fortify（自己防+50%且反弹）、soulDrain（团队过期后续削敌方）、holyFire（妹专属额外 1 次复活，_holyFireSelf 独立名额）；
+//           ② hexEnhance 接线 soulDrain（减攻 -30%→-45%、逆风 -5%→-10%/人）与 holyFire（复活回血 40%→60%），均判施法/复活方姊存活在场
+// V6.4.6 | 2026-10-14 补齐「妹妹永久」缺口：applyHolyFlameBonus 团队圣火令过期分支补
 //           小昭·妹永久续上（applyHolyFlame_Brother 此前导出后全仓零调用，该机制只记账不生效）
 // V6.4.5 | ~27600 bytes | 2026-10-14 圣火不熄取消「复活当回合不可行动」（老板拍板：复活即可动）——
 //           reviveHolyFireUnit 删 withStun 形参与 _stunned 分支，统一 _acted=false；note 后缀同步移除
@@ -10,7 +13,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.6';
+export const VER = 'core/04buff-system.js V6.5.0';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -18,7 +21,7 @@ import {
     calcCarryBonus_Normal, calcCarryBonus_Sister,
     applyMindControl_Normal, applyMindControl_Sister
 } from './14buff-effects.js';
-import { CONFIG, getGameData } from './01config-5v5-test.js';
+import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup } from './13battle-shared.js';
 import { findFreePos } from './05battle-horse.js';
@@ -46,6 +49,9 @@ export function applyFortifyBonus(unit, activeBuffs) {
     if (unit.role !== ROLE_TYPES.DEFENDER) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         applyFortifyDef(unit);
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY)) {
+        // 2026-10-14 妹永久补 fortify：团队严阵以待过期后，妹（防战形态）自己继续吃防御+50%
+        applyFortifyDef(unit);
     }
 }
 
@@ -57,10 +63,17 @@ export function applyFortifyBonus(unit, activeBuffs) {
 //   另有降防（初始 defBonus + 每回合 perRoundBonus 线性叠加）见 applySoulDrain 内注释，当前回合数同样由 core/11 传入。
 // 2026-10-13 ctx 收口：log / aliveCounts 两个上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，此后新增上下文只进 ctx 不再改签名
 export function applySoulDrain(unit, casterActiveBuffs, ctx) {
-    if (!hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN)) return;
+    const hasTeam = hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN);
+    // 2026-10-14 妹永久补 soulDrain：团队摄魂过期后，小昭·妹所在队继续削敌方（基础值，不吃姊增强）
+    const permanent = !hasTeam && !!ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoBrother && query('xiaoPermanentActive', u, casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN));
+    if (!hasTeam && !permanent) return;
     const cfg = CONFIG.BUFFS.soulDrain;
+    // 2026-10-14 姊增强接线：施法方小昭·姊存活在场 → 减攻 -30%→-45%、逆风每多 1 人 -5%→-10%（hexEnhance.soulDrain）
+    const enhance = (ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').soulDrain || null) : null;
+    const atkBase = enhance ? enhance.atkBonus : cfg.atkBonus;
+    const perUnit = enhance ? enhance.perUnitBonus : cfg.perUnitBonus;
     const extra = ctx ? Math.max(0, ctx.targetAlive - ctx.casterAlive) : 0;
-    const ratio = cfg.atkBonus - cfg.perUnitBonus * extra;
+    const ratio = atkBase - perUnit * extra;
     addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     // 数值声明 fact（体检对照 soulDrain group，不进画面）：ratio 与 addMod 同值（随人数下探为负，契约 allowNeg 放行）
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio } });
@@ -320,20 +333,36 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
 export function submitHolyFireRecord(data) {
     const teams = [data.allySide, data.enemySide].filter(Boolean);
     const owner = teams.find(t => hasBuff(t._activeBuffs || [], BUFF_TYPES.HOLY_FIRE));
-    if (!owner) return;
-    // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
-    if (owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) return;
-    // 2026-10-13 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
-    //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板（老板拍板 ①）
-    const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse && !u.isSummon);
-    if (!victim || victim.pos == null) return;
-    victim.state._holyFire = 'pending';
+    if (owner) {
+        // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
+        if (!owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) {
+            // 2026-10-13 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
+            //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板（老板拍板 ①）
+            const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse && !u.isSummon);
+            if (victim && victim.pos != null) victim.state._holyFire = 'pending';
+        }
+    }
+    // 2026-10-14 妹永久补 holyFire（老板拍板「团队 1 + 她 1」）：小昭·妹自己阵亡，独立名额再复活一次——
+    //   与团队名额互不占用（_holyFireSelf 单独记账，见 core/17 schema）；直查 _permanentBuffs，
+    //   不走 xiaoPermanentActive（那个在团队 buff 在场时返回 false，而妹名额要与团队名额叠加生效）。
+    //   本次死亡已被团队名额接管（本人 _holyFire==='pending'）时不再重复记，防同一次死亡双复活。
+    for (const team of teams) {
+        const bro = (data.deadUnits || []).find(u => u && team.includes(u) && u.isXiaoZhaoBrother && !u.isHorse && !u.isSummon);
+        if (!bro || bro.pos == null) continue;
+        if (bro.state._holyFire === 'pending') continue;
+        if (bro.state._holyFireSelf === 'pending' || bro.state._holyFireSelf === 'used') continue;
+        if (!(bro.state._permanentBuffs && bro.state._permanentBuffs.some(b => b.key === BUFF_TYPES.HOLY_FIRE))) continue;
+        bro.state._holyFireSelf = 'pending';
+    }
 }
 
-function reviveHolyFireUnit(u, team, log) {
-    u.state._holyFire = 'used';
+function reviveHolyFireUnit(u, team, log, slot) {
+    const mark = slot === 'self' ? '_holyFireSelf' : '_holyFire';
+    u.state[mark] = 'used';
     const cfg = C.BUFFS.holyFire || {};
-    const ratio = cfg.reviveRatio != null ? cfg.reviveRatio : 0.4;
+    // 2026-10-14 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）
+    const enhance = team.some(x => x.isXiaoZhaoSister && x.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
+    const ratio = enhance ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6) : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4);
     // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
     //   （findFreePos 只算 alive 占位、尸体不占格，故通常直接原地复活）
     let landPos = u.pos;
@@ -371,6 +400,8 @@ export function flushHolyFire(data) {
         if (!team) continue;
         const victim = team.find(u => u.state && u.state._holyFire === 'pending');
         if (victim) reviveHolyFireUnit(victim, team, data.log);
+        const bro = team.find(u => u.state && u.state._holyFireSelf === 'pending');
+        if (bro) reviveHolyFireUnit(bro, team, data.log, 'self');
     }
 }
 
@@ -380,6 +411,8 @@ export function flushHolyFireRoundStart(data) {
         if (!team) continue;
         const victim = team.find(u => u.state && u.state._holyFire === 'pending');
         if (victim) reviveHolyFireUnit(victim, team, data.log);
+        const bro = team.find(u => u.state && u.state._holyFireSelf === 'pending');
+        if (bro) reviveHolyFireUnit(bro, team, data.log, 'self');
     }
 }
 

@@ -1,6 +1,7 @@
-// V2.9.1 | ~13600 bytes | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
+// V2.9.2 | ~13800 bytes | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
+// V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.1';
+export const VER = 'core/17-state-keys.js V2.9.2';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -107,6 +108,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 圣火不熄海克斯：每局首次己方非巨马阵亡时写在阵亡者本体上——'pending' 待复活 / 'used' 本局已复活。
     //   必须 battle 级（跨回合保留）：队伍数组每回合重建，挂数组过不了回合边界（同 _pendingZhouPos 理由）
     _holyFire:               { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 小昭·妹专属复活名额（2026-10-14）：妹永久 holyFire 的独立名额，与团队 _holyFire 名额叠加、互不占用
+    _holyFireSelf:           { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 杨逍·点穴冷却：同一目标 cdRounds 回合内最多被点一次（回合开始递减，>0 即免疫本次点穴判定）
     _dianXueCd:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 杨逍·截脉（禁疗❌）：点穴命中同时挂上 rounds 回合，{ rounds: 剩余回合数, ratio: 治疗/吸血回复乘率 }。

@@ -1,10 +1,12 @@
-// V6.3.13 | ~29800 bytes | 2026-10-13 修死循环：组件声明 skip 时必须把该单位 state._acted 置 true
+// V6.3.14 | ~29900 bytes | 2026-10-14 applySoulDrain 两处调用点补传 casterSide（施法方队伍）——
+//           core/04 靠它判「小昭·妹永久续上」「小昭·姊增强」，只加字段不改签名
+// V6.3.13 | 2026-10-13 修死循环：组件声明 skip 时必须把该单位 state._acted 置 true
 //           （原先只 continue 不消费行动权，跳过选招的单位会一直 alive && !_acted，回合内 while 永不退出）。
 //           实际踩雷：小昭·妹蜘蛛卵（modules/27 submitSpiderSkipDeclaration）——单英雄跑批约 1/4 概率整局卡死
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.13';
+export const VER = 'core/11battle-round.js V6.3.14';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -180,7 +182,7 @@ function prepareRoundStart(A, B, state, ctx) {
 
         applyHolyFlameBonus(u, A._activeBuffs || [], { hasSister: isHolyFlameEnhanced(A), log: ctx.log });   // 2026-10-08 增强判定迁注册面（modules/27）
         applyFortifyBonus(u, A._activeBuffs || []);
-        applySoulDrain(u, B._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountB, targetAlive: aliveCountA, round: ctx.round });   // 六大派持摄魂 → 削弱明教
+        applySoulDrain(u, B._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountB, targetAlive: aliveCountA, round: ctx.round, casterSide: B });   // 六大派持摄魂 → 削弱明教
         applyCarryBonus(u, A, state, ctx.log);
 
         const auraBonuses = getAuraBonuses(u, A, B);
@@ -202,7 +204,7 @@ function prepareRoundStart(A, B, state, ctx) {
         let bStats = computeBuffStats(u, B._activeBuffs || [], B);
         applyHolyFlameBonus(u, B._activeBuffs || [], { hasSister: false, log: ctx.log });
         applyFortifyBonus(u, B._activeBuffs || []);
-        applySoulDrain(u, A._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountA, targetAlive: aliveCountB, round: ctx.round });   // 明教持摄魂 → 削弱六大派
+        applySoulDrain(u, A._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountA, targetAlive: aliveCountB, round: ctx.round, casterSide: A });   // 明教持摄魂 → 削弱六大派
         applyCarryBonus(u, B, state, ctx.log);
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;
