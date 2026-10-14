@@ -1,7 +1,6 @@
-// V6.14.0 | ~35415 bytes | 2026-10-10 ui/61 减负批（外部AI架构稿#3）：联网会话九函数+消息分发拆去 ui/75net-session.js、
-//   战报回放入口拆去 ui/76replay-entry.js（闭包标志位经 installNetSession/installReplayEntry 注入，搬家零行为漂移）；
-//   61 从 889 行缩到 ~640 行，剩余为战斗启动/DOMContentLoaded 装配
-export const VER = 'ui/61main-5v5-test.js V6.14.0';
+// V6.14.1 | ~35450 bytes | 2026-10-14 ui/68 拆分配套：日志工具弹窗绑定 bindCopyLogButton 迁去 ui/64，
+//   本文件该符号改从 64 引（68 那条长 import 里去掉它，其余 import 点零改动）
+export const VER = 'ui/61main-5v5-test.js V6.14.1';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -30,7 +29,8 @@ import {
 } from './65main-battle.js';
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
+import { bindCopyLogButton } from './64main-dialogs.js';
 import * as net from '../infra/60-net-pvp.js';
 import { stepAdjustStart, stepAdjustMove, stepVoteOpen, stepCountdown, stepBuff, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
 import { isOpeningCgDone, showOpeningCg } from './72opening-cg.js';

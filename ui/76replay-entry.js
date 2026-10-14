@@ -1,7 +1,10 @@
 // ui/76replay-entry.js — 战报回放入口（从 61main 拆出，2026-10-10 ui/61 减负批）
+// V1.1.0 | ~6640 bytes | 2026-10-14 ui/68 拆分配套：把 startReplayFromFile 挂上 UIHandler 通道，
+//   供 ui/64 的「📂 播放战报文件」按钮调用（64 不再 import 本文件 → 63→64→76→63 的环被切断）
 // V1.0.0 | startReplayFromFile/enterReplay 逐字照搬 61 原文；enterReplay 里对 61 闭包变量
 //   （gameStarted/coverRef/isBattleStarting/hasLoggedTeam）的写点经 installReplayEntry(ctx) 注入。
 //   61 在模块顶层调 installReplayEntry(...)，68 的「📂 播放战报文件」改从本文件 import。
+export const VER = 'ui/76replay-entry.js V1.1.0';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getState, setState } from './63main-state.js';
 import { renderGrid, updateUI, setRenderStore, clearLogExceptFirst } from './62ui-render-5v5-test.js';
@@ -19,8 +22,6 @@ import { rehydrateReport, migrateReport, CURRENT_REPORT_VERSION } from '../playe
 import { stepBattleStart } from './71tutorial.js';
 import { clonePlainUnit, setGuestStageLabel } from './75net-session.js';
 
-export const VER = 'ui/76replay-entry.js V1.0.0';
-
 // 61 注入的闭包变量写点（enterReplay 用）：
 //   markGameStarted()：gameStarted = true; coverRef.val = true
 //   resetBattleFlags()：isBattleStarting = false; hasLoggedTeam = false
@@ -32,6 +33,12 @@ export function installReplayEntry(ctx) {
         resetBattleFlags: (ctx && ctx.resetBattleFlags) || (() => {})
     };
 }
+
+// 2026-10-14 挂 UIHandler 通道：ui/64 的「📂 播放战报文件」按钮经 GlobalStore 取本函数，而不是 import 本文件。
+//   原因：64 已被 63 import（showBattleReport），而本文件与 75 都要 import 63 取 getState/setState——
+//   64 一旦 import 本文件就形成 63→64→76→63 的环。走通道后 64 不 import 本文件，ui 内部环归零。
+//   （函数声明会提升，此处注册即可直接引用。）
+GlobalStore.setUIHandler('startReplayFromFile', startReplayFromFile);
 
 // 2026-09-25 回放入口：选战报文件 → 校验 → 进回放（与联机从机同构，数据源是文件里的 steps）
 export async function startReplayFromFile() {

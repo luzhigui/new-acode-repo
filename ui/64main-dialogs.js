@@ -1,8 +1,10 @@
 // ui/64main-dialogs.js — 主界面弹窗（战斗结算 / 存档 / 教程等）
-// V6.4.1 | ~25688 bytes | 2026-10-06 修走势分析点击即炸：10-03 排序按钮改横排时删了 switchBtn 定义、走势分析里两处引用没跟着改（ReferenceError），改指 sortBtnDiv
-export const VER = 'ui/64main-dialogs.js V6.4.1';
+// V6.5.0 | ~31050 bytes | 2026-10-14 ui/68 拆分批 4：收编日志工具弹窗绑定 bindCopyLogButton（顺带断掉 63/68↔76 的环）；
+//   新 import 只有 copyLogToClipboard(60)；「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取
+//   （不 import 76 —— 本文件已被 63 import，再 import 76 会让 63→64→76→63 成环）。函数体逐字搬移，行为零变化。
+export const VER = 'ui/64main-dialogs.js V6.5.0';
 
-import { showModal, showAlert } from './60main-utils.js';
+import { showModal, showAlert, copyLogToClipboard } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -485,4 +487,98 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
         }
         await new Promise(r => setTimeout(r, 500));
     }
+}
+
+// 日志工具弹窗（从 ui/68 迁入，2026-10-14）：68↔76 的循环引用就断在这里——
+//   68 不再 import 76（本函数搬走后 68 里没人用 startReplayFromFile），
+//   本文件也不 import 76（回放入口经 UIHandler 通道取，见下方 onclick），
+//   61 的 bindCopyLogButton 改从本文件引（见 61 的 import 改动）。
+export function bindCopyLogButton(showModal, copyLogToClipboard) {
+    document.getElementById('copyLog').addEventListener('click', () => {
+        // 移除已有弹窗
+        const existing = document.getElementById('logPanelOverlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'logPanelOverlay';
+        overlay.className = 'modal-overlay';
+        overlay.style.background = 'rgba(0,0,0,0.7)';
+
+        const box = document.createElement('div');
+        box.className = 'modal-box';
+        box.style.cssText = 'max-width:340px;background:var(--c-dark);color:#eee;padding:20px;position:relative;border:2px solid var(--c-gold-bright);border-radius:12px;';
+
+        // 标题
+        const title = document.createElement('div');
+        title.textContent = '📋 日志工具';
+        title.style.cssText = 'color:var(--c-gold-bright);font-size:16px;font-weight:bold;margin-bottom:16px;text-align:center;';
+        box.appendChild(title);
+
+        // ── 日志复制区 ──
+        const copySection = document.createElement('div');
+        copySection.style.cssText = 'margin-bottom:12px;';
+        copySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">📝 日志复制</div>';
+
+        const copyBtns = [
+            { text: '📋 普通日志', value: 'normal', desc: '不含体检/版本信息' },
+            { text: '📋 全部日志', value: 'all', desc: '包含所有内容' },
+            { text: '📋 最新15行', value: 'recent15', desc: '最近15条记录' }
+        ];
+        copyBtns.forEach(b => {
+            const btn = document.createElement('button');
+            btn.textContent = b.text;
+            btn.title = b.desc;
+            btn.style.cssText = 'display:block;width:100%;margin-bottom:4px;padding:8px;background:#2a2a4e;color:#eee;border:1px solid #555;border-radius:6px;font-size:12px;cursor:pointer;text-align:left;';
+            btn.onclick = () => {
+                overlay.remove();
+                copyLogToClipboard(b.value);
+            };
+            copySection.appendChild(btn);
+        });
+        box.appendChild(copySection);
+
+        // ── 战报区（2026-09-26 收编右下角浮动🎬：保存本局战报 + 播放战报文件，都在这个面板里） ──
+        const replaySection = document.createElement('div');
+        replaySection.style.cssText = 'margin-bottom:12px;';
+        replaySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">🎬 战报回放</div>';
+
+        const replayBtnRow = document.createElement('div');
+        replayBtnRow.style.cssText = 'display:flex;gap:4px;align-items:stretch;';
+        attachSaveBattleReportButton(replayBtnRow, () => getBattleRecording());
+        // attach 出来的按钮自带大按钮样式，压成面板小号
+        const saveBtn = replayBtnRow.querySelector('button');
+        if (saveBtn) saveBtn.style.cssText = 'flex:1;padding:8px;background:#6a1b9a;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;';
+
+        const playFileBtn = document.createElement('button');
+        playFileBtn.textContent = '📂 播放战报文件';
+        playFileBtn.style.cssText = 'flex:1;padding:8px;background:#2a2a4e;color:#eee;border:1px solid #6a1b9a;border-radius:6px;font-size:12px;cursor:pointer;';
+        playFileBtn.onclick = () => {
+            overlay.remove();
+            // 回放入口走 UIHandler 通道（76 顶层注册）：本文件不 import 76，避免 63→64→76→63 成环
+            const fn = GlobalStore.getUIHandler('startReplayFromFile');
+            if (typeof fn === 'function') fn();
+        };
+        replayBtnRow.appendChild(playFileBtn);
+        replaySection.appendChild(replayBtnRow);
+        box.appendChild(replaySection);
+
+        // ── 分隔线 ──
+        const divider = document.createElement('div');
+        divider.style.cssText = 'border-top:1px solid #444;margin:12px 0;';
+        box.appendChild(divider);
+
+        // ── 关闭按钮 ──
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '关闭';
+        closeBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#444;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;';
+        closeBtn.onclick = () => overlay.remove();
+        box.appendChild(closeBtn);
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    });
 }
