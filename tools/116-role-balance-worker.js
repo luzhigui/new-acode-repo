@@ -1,3 +1,6 @@
+// V1.8.0 | ~34600 bytes | 2026-10-14 hex 任务阵容模式 + 抽取口径收口：runHexStageJob 收 lineupMode
+//        （normal 自然 / sister·brother 复用 modules/29 forceXiaoZhao 单小昭局 / none 拒绝采样重掷阵容直到无小昭，同 runNoEliteJob 口径）；
+//        hexPicker 改调 modules/28 createBuffObject——原手工造 buff：圣火令只抽 1列1行（正式 2列2行）、permanent 整局不生效，胜率系统性低估
 // V1.7.1 | ~33300 bytes | 2026-10-09 clearBattleGlobals 补清 forceXieXun / forcePang（原先漏清，对照 122 的完整五项）：
 //        跑完谢逊单英雄后 forceXieXun 常驻 worker，之后任何 job 都变「本 job 精英 + 谢逊」双精英（复刻取证 修复前 40/40 → 修复后 0/40）
 // V1.7.0 | ~32900 bytes | 2026-10-09 新增 kind:'noElite'（runNoEliteJob）：明教侧一个精英都不出的胜率（拒绝采样凑无精英局，
@@ -273,16 +276,31 @@ function runEliteStageJob(stage, seed, runs) {
 // 口径对齐正式游戏：支持海克斯偏好 preferredBuffs；所选 Buff 由小昭·妹永久继承（addPermanentBuff）。
 // 搬进 worker 是因为主线程一口气跑几百场会把页面占死（移动端弹「网页暂无响应」）。
 // seed 公式与 101 主线程版一致（Date.now() + i*7919），差异只在于是否并行，统计口径不受影响。
-function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex = 0) {
+function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex = 0, lineupMode = 'normal') {
     const hexLog = []; // [{ stage, buffs: [key], winner }]
     const wins = { ally: 0, enemy: 0, draw: 0 };
     const C = CONFIG;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
+        // 2026-10-14 阵容模式（108 仪表盘选择器透传）：
+        //   sister/brother = forceXiaoZhao 指定形态（modules/29 V7.5.16 轮盘互锁 = 单小昭局，与 112 单英雄口径一致）；
+        //   none = 拒绝采样重掷初始阵容直到明教侧无小昭（同 runNoEliteJob 口径，不动主代码 modules/29）；
+        //   normal = 自然抽取。clearBattleGlobals 每场先清 force，重设必须在 clear 之后。
+        if (lineupMode === 'sister') GlobalStore.set('forceXiaoZhao', 'sister');
+        else if (lineupMode === 'brother') GlobalStore.set('forceXiaoZhao', 'brother');
         // startIndex = 该片在整关序列里的起点，保证「细粒度分片」与「整关一片」产生完全相同的 seed 序列
         const seed = baseSeed + (startIndex + i) * 7919;
-        const initRng = new SeededRNG(seed);
-        const teams = initBattleTeams(stage, initRng);
+        let teams;
+        if (lineupMode === 'none') {
+            teams = null;
+            for (let k = 0; k < 200; k++) {              // 重掷上限 200 防死循环（小昭出率远低于精英，期望几次即中）
+                const t = initBattleTeams(stage, new SeededRNG(seed + k * 104729));   // 重掷步长与主种子错开
+                if (!t.allyTeam.some(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) { teams = t; break; }
+            }
+            if (!teams) continue;
+        } else {
+            teams = initBattleTeams(stage, new SeededRNG(seed));
+        }
         const buffsPicked = [];
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
         // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
@@ -302,17 +320,16 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             const pool = preferred.length > 0 ? preferred : available;
             const pick = pool[rng.nextInt(0, pool.length - 1)];
             const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
-            const nb = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
-            if (pick === BUFF_TYPES.HOLY_FLAME) {
-                nb.col = rng.nextInt(1, 3);
-                nb.row = rng.nextInt(1, 3);
-            }
+            // 2026-10-14 口径收口：原在此手工造 buff——圣火令只抽 1列1行（正式 modules/28 抽 2列2行）、
+            //   permanent 整局映射不生效（圣火不熄被当 4 回合 buff 测），两者胜率系统性低估。
+            //   现直接调 createBuffObject，抽签数值与时长口径永远跟随正式服（pickHexBuff 同先例）。
+            const nb = createBuffObject(pick, duration);
             // 对齐正式游戏：选完即由小昭·妹永久继承。
             // 必须从 allySide（战斗内的活体单位）取，不能取 teams.allyTeam——
             // runBattle 内部会 clone 一份上场，写到克隆体外等于没生效。
             const brother = allySide.find(u => u.isXiaoZhaoBrother);
             if (brother) {
-                const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: nb.col, row: nb.row } : {};
+                const extra = pick === BUFF_TYPES.HOLY_FLAME ? { cols: nb.cols, rows: nb.rows } : {};
                 addPermanentBuff(brother, pick, nb.name, extra);
             }
             buffsPicked.push(nb);
@@ -580,8 +597,8 @@ self.onmessage = (e) => {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
         } else if (kind === 'hex') {
-            const { stage, seed, runs, preferredBuffs, startIndex } = e.data;
-            result = runHexStageJob(stage, seed, runs, preferredBuffs, startIndex || 0);
+            const { stage, seed, runs, preferredBuffs, startIndex, lineupMode } = e.data;
+            result = runHexStageJob(stage, seed, runs, preferredBuffs, startIndex || 0, lineupMode || 'normal');
         } else if (kind === 'random') {
             const { size, seed, startIndex, runs } = e.data;
             result = runRandomJob(size, seed, startIndex || 0, runs);
