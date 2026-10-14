@@ -1,5 +1,7 @@
-// V1.8.0 | ~34600 bytes | 2026-10-14 hex 任务阵容模式 + 抽取口径收口：runHexStageJob 收 lineupMode
-//        （normal 自然 / sister·brother 复用 modules/29 forceXiaoZhao 单小昭局 / none 拒绝采样重掷阵容直到无小昭，同 runNoEliteJob 口径）；
+// V1.9.0 | ~36300 bytes | 2026-10-14 阵容模式改为统一「拒绝采样重掷」、不再设 forceXiaoZhao：force 会触发 modules/29 轮盘互锁
+//        （队里只剩小昭一个精英 + 20% 本该无精英的局被强塞一个小昭）= 单小昭局，与「其他精英照常轮盘」的自然局不可横向比；
+//        现 sister/brother/none 一律重掷自然阵容直到命中该形态（sister=含姊 / brother=含妹 / none=无小昭），四模式同一把尺子
+// V1.8.0 | ~34600 bytes | 2026-10-14 hex 任务阵容模式 + 抽取口径收口：runHexStageJob 收 lineupMode（none 拒绝采样无小昭，同 runNoEliteJob 口径）；
 //        hexPicker 改调 modules/28 createBuffObject——原手工造 buff：圣火令只抽 1列1行（正式基础版 1列2行）、permanent 整局不生效，胜率系统性低估
 // V1.7.1 | ~33300 bytes | 2026-10-09 clearBattleGlobals 补清 forceXieXun / forcePang（原先漏清，对照 122 的完整五项）：
 //        跑完谢逊单英雄后 forceXieXun 常驻 worker，之后任何 job 都变「本 job 精英 + 谢逊」双精英（复刻取证 修复前 40/40 → 修复后 0/40）
@@ -282,24 +284,27 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
     const C = CONFIG;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
-        // 2026-10-14 阵容模式（108 仪表盘选择器透传）：
-        //   sister/brother = forceXiaoZhao 指定形态（modules/29 V7.5.16 轮盘互锁 = 单小昭局，与 112 单英雄口径一致）；
-        //   none = 拒绝采样重掷初始阵容直到明教侧无小昭（同 runNoEliteJob 口径，不动主代码 modules/29）；
-        //   normal = 自然抽取。clearBattleGlobals 每场先清 force，重设必须在 clear 之后。
-        if (lineupMode === 'sister') GlobalStore.set('forceXiaoZhao', 'sister');
-        else if (lineupMode === 'brother') GlobalStore.set('forceXiaoZhao', 'brother');
-        // startIndex = 该片在整关序列里的起点，保证「细粒度分片」与「整关一片」产生完全相同的 seed 序列
+        // 2026-10-14 V1.9.0 阵容模式（108 仪表盘选择器透传）统一走「拒绝采样重掷自然阵容」，一律不设 forceXiaoZhao：
+        //   force 会触发 modules/29 V7.5.16 的轮盘互锁——队里只剩小昭这一个精英（张/韦/谢逊/杨逍全不出现），
+        //   且 20% 本该无精英的局也会被强塞一个小昭；得到的是「单小昭局」，与「其他精英照常轮盘」的自然局不可横向比。
+        //   四个模式要能放在同一张表里比，必须同一把尺子，所以这里只筛选、不强制：
+        //   none = 阵容里无小昭；sister = 阵容里含小昭·姊；brother = 阵容里含小昭·妹；normal = 自然（不筛选）。
         const seed = baseSeed + (startIndex + i) * 7919;
+        // startIndex = 该片在整关序列里的起点，保证「细粒度分片」与「整关一片」产生完全相同的 seed 序列
         let teams;
-        if (lineupMode === 'none') {
+        if (lineupMode === 'normal') {
+            teams = initBattleTeams(stage, new SeededRNG(seed));
+        } else {
             teams = null;
-            for (let k = 0; k < 200; k++) {              // 重掷上限 200 防死循环（小昭出率远低于精英，期望几次即中）
+            for (let k = 0; k < 200; k++) {              // 重掷上限 200 防死循环（小昭在场约 31%、形态对半，期望 3～8 次即中）
                 const t = initBattleTeams(stage, new SeededRNG(seed + k * 104729));   // 重掷步长与主种子错开
-                if (!t.allyTeam.some(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) { teams = t; break; }
+                const xz = t.allyTeam.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother);
+                const hit = lineupMode === 'none' ? !xz
+                    : lineupMode === 'sister' ? !!(xz && xz.isXiaoZhaoSister)
+                    : !!(xz && xz.isXiaoZhaoBrother);
+                if (hit) { teams = t; break; }
             }
             if (!teams) continue;
-        } else {
-            teams = initBattleTeams(stage, new SeededRNG(seed));
         }
         const buffsPicked = [];
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
