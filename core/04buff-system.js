@@ -1,3 +1,5 @@
+// V6.4.5 | ~27600 bytes | 2026-10-14 圣火不熄取消「复活当回合不可行动」（老板拍板：复活即可动）——
+//           reviveHolyFireUnit 删 withStun 形参与 _stunned 分支，统一 _acted=false；note 后缀同步移除
 // V6.4.4 | ~27700 bytes | 2026-10-13 圣火不熄两项强化（老板拍板）：① 复活名额排除召唤物（isSummon）——
 //           幼狮/雄狮/母狮阵亡不再占用唯一一次复活名额（原先只排 isHorse，名额常被 0 攻幼狮吃掉）
 //           ② 「整局」时长：content 打 permanent:true，时长映射在 modules/28 createBuffObject（单点）
@@ -6,7 +8,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.4';
+export const VER = 'core/04buff-system.js V6.4.5';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -318,7 +320,7 @@ export function submitHolyFireRecord(data) {
     victim.state._holyFire = 'pending';
 }
 
-function reviveHolyFireUnit(u, team, log, withStun) {
+function reviveHolyFireUnit(u, team, log) {
     u.state._holyFire = 'used';
     const cfg = C.BUFFS.holyFire || {};
     const ratio = cfg.reviveRatio != null ? cfg.reviveRatio : 0.4;
@@ -338,39 +340,36 @@ function reviveHolyFireUnit(u, team, log, withStun) {
     Object.assign(u.state, { _isDead: false, _pendingDeath: false, _deathTime: 0 });
     // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
     applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false, false);
-    if (withStun) u.state._stunned = true;
-    // 2026-10-13 第 86 轮：回合开始兜底复活（withStun=false）＝设计意图「那个回合已过、新回合正常参与」，
-    //   但阵亡前已行动过的单位 _acted 遗留 true —— core/11 L157-158 的回合初重置 resetStateFields 只扫 alive，
-    //   阵亡态被整段跳过；本钩子挂在 ON_ROUND_START（本文件 L374），跑在 L157-158 之后 ⇒ 复活者回合级旧值一个都没清。
-    //   回合循环按 alive && !_acted 选人（core/11 L372/L387）⇒ 新回合行动权被吞（静默：无攻击、无 PASS、无休息记录）。
-    //   清 false 让它进本回合候选。注：只清行动权一字段——本钩子之前（优先级 5~35）已发的回合级加成不擦除；
-    //   withStun=true 路径（当回合内复活）由 _stunned 挡当回合、下回合 resetStateFields 自然清，闭环完整无需动。
-    else u.state._acted = false;
-    emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: !!withStun });
+    // 2026-10-14 老板拍板：复活即可动——删「当回合眩晕」（原 withStun 置 _stunned 挡本回合剩余行动）。
+    //   _acted 统一清 false：回合中复活（BEFORE_STATE_TRANSITION）本轮没动过就正常补上这一手，
+    //   动过则多给一手（每局仅 1 次，代价可控）；回合开始兜底同口径（第 86 轮吞行动权修复的自然延续——
+    //   当时只给兜底路径清 _acted，现两条路径行为一致，withStun 形参一并删除）。
+    u.state._acted = false;
+    emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
     if (log) {
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
             unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '圣火不熄',
-            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${Math.round(ratio * 100)}% 生命${withStun ? '（当回合不可行动）' : ''}`,
+            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${Math.round(ratio * 100)}% 生命`,
             floatText: '🕯️', floatUid: u.uid
         } });
     }
 }
 
-// 下一个行动步落位（当回合内复活 → 置 _stunned 挡掉本回合剩余行动，回合开始自动清）
+// 下一个行动步落位（复活即可动，见 reviveHolyFireUnit 2026-10-14 注）
 export function flushHolyFire(data) {
     for (const team of [data.A, data.B]) {
         if (!team) continue;
         const victim = team.find(u => u.state && u.state._holyFire === 'pending');
-        if (victim) reviveHolyFireUnit(victim, team, data.log, true);
+        if (victim) reviveHolyFireUnit(victim, team, data.log);
     }
 }
 
-// 回合开始兜底（阵亡发生在回合最后一手 → 无「下一行动步」）：那个回合已过，不再补 _stunned
+// 回合开始兜底（阵亡发生在回合最后一手 → 无「下一行动步」）
 export function flushHolyFireRoundStart(data) {
     for (const team of [data.A, data.B]) {
         if (!team) continue;
         const victim = team.find(u => u.state && u.state._holyFire === 'pending');
-        if (victim) reviveHolyFireUnit(victim, team, data.log, false);
+        if (victim) reviveHolyFireUnit(victim, team, data.log);
     }
 }
 
