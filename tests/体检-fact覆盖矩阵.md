@@ -457,7 +457,7 @@ modules/27 小昭·妹飞天重做在途）。
 >     红线：rules-replay（含 DEAD=1）0 fail/0 空转/0 不变量违规；static-scan/smoke/stat-decl/registration/
 >     coverage 全绿；mutation 44/44；baseline 仍 7 场翻转（待用户拍板）。主代码零改动。
 
-> 15. **第 88 轮（2026-10-13）——蜘蛛系双盲区契约化（scan-groups 清零 45/45）+ rule113 变异牙补缺（T17/T18）**：
+> 15. **第 88 轮（2026-10-13）——蜘蛛系双盲区契约化（scan-groups 清零 45/45；两契约警告态待载荷落地）+ rule113 变异牙补缺（T17/T18）**：
 >     `--scan-groups` 盲区扫地仅剩 2 个未覆盖 group：**spiderLandHeal**（飞天落地回血 37 条 hp 词条，
 >     modules/20 spiderReturn）与 **spiderEgg**（蜘蛛卵结茧 4 条 atk/def 词条，modules/27 toSpiderEgg）——
 >     「把数值写错也查不出」。取证：两者**记账 addMod 均已在主代码**（L196 / L571-572，注释"供数值对照器"），
@@ -472,19 +472,23 @@ modules/27 小昭·妹飞天重做在途）。
 >       atk 归零声明为负、def 可升可降，两侧真实符号逐字比对（mirror STAT_CHANGE 降防形态）；孵化/打碎的
 >       removeModsByGroup 步无声明条目（announce 是「蜘蛛孵化」另一 skillName）⇒ 不进比对不假偏差。
 >     验证闭环：警告态（账本 37/4 词条，两级零触发判定不硬红）→ 临时转交严格 **37/4 偏差 0** → 咬牙
->     addMod 值 ×2 命中 **37 处 / 2 处 EXIT=1** → 咬牙回滚后补丁态全红线绿。**转交净版已被并行会话
->     f2b4aed 全量提交扫入 HEAD**（其全量入库习惯；本次为净版、无咬牙残留）⇒ 两契约现为**严格态**，
->     无需用户再转交。**但本次转交编辑在 modules/20 留了一处笔误**（旧 SPIDER_RETURN push 未删、与新
->     push 并存 ⇒ 每次蛛落渲染/translate 出双条目——rules-replay 无规则覆盖重复 fact 故未报红），
->     已由 7b2e7e4 修正（删旧留新）并全红线复验（replay 0 违规 / stat-decl 37+4 偏差 0 / static/smoke 过）。
+>     addMod 值 ×2 命中 **37 处 / 2 处 EXIT=1** → 咬牙回滚后补丁态全红线绿。**转交净版曾被并行会话
+>     f2b4aed 全量提交扫入 HEAD**（其全量入库习惯），且本次转交编辑在 modules/20 留了一处笔误（旧
+>     SPIDER_RETURN push 未删、与新 push 并存 ⇒ 每次蛛落渲染双条目——rules-replay 无规则覆盖重复 fact
+>     故未报红），由 7b2e7e4 修正。**2026-10-14 用户立规「主代码不经我手落地」并授权改回**：a8c1dda
+>     将两文件恢复至 8630c51（打补丁前）状态（git diff 为空 = 精确一致；并行会话未提交 WIP 未动），
+>     两契约回到**零触发警告态**（账本 37/4 词条在、声明侧无值，EXIT=0）；下方两个转交块**存档待主代码
+>     侧正式落地**，落地后自动转严格态。铁律已写入 skill「二·补」：主仓内零主代码编辑（含临时补丁），
+>     确需验证去仓库外独立 worktree 跑完丢弃。
 >     同轮补 **rule113 变异牙**（mutation-teeth V2.9.6，44→46）：第 87 轮落规则时漏同步牙齿 =
 >     A28 式静默死亡缺口（主代码改 swap emit 写法 ⇒ 规则恒绿无人察）。T17 = 敌方 SWAP fact 的 side 常量
 >     漂移 ENEMY→ALLY（判据1 配对断链应咬）；T18 = fact 报反新旧位置（multi 两分支同改，判据5 宣告位置
 >     未生效应咬；判据2 自洽抓不到「相异但合法」的值，必须单独有牙）。--verify 46/46 锚点有效；
->     全量 46 树重跑判定见 tests/.mut/teeth-results.txt（【判定结果待填：T17/T18  verdict、其余 44 条是否维持】）。
+>     **全量 46 树重跑已废止**（2026-10-14 立规：增量验证，新增几颗牙只跑几棵树；原全量跑被取消）——
+>     T17/T18 的增量判定挂账待办（结果文件剩约 28/46 树）。
 
 ### ===== 主代码改动 START（modules/20elite-skills.js，spiderReturn 函数内，原 SPIDER_RETURN push + 落地回血段）=====
-// 第 88 轮转交（净版已由并行会话 f2b4aed 落地，重复 push 笔误由 7b2e7e4 修正）：
+// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块待主代码侧正式落地）：
 // 原状：
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 
@@ -523,7 +527,7 @@ modules/27 小昭·妹飞天重做在途）。
 ===== 主代码改动 END =====
 
 ### ===== 主代码改动 START（modules/27elite-mingjiao.js，toSpiderEgg 函数内，addMod 两行 + announce push）=====
-// 第 88 轮转交（净版已由并行会话 f2b4aed 落地）：
+// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块待主代码侧正式落地）：
 // 原状：
     addMod(u, 'atk', { source: '蜘蛛卵', value: eggModValue(u, 'atk', 0), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     addMod(u, 'def', { source: '蜘蛛卵', value: eggModValue(u, 'def', fp.eggDef), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
