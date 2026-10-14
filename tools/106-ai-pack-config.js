@@ -1,3 +1,5 @@
+// V6.0.26 | ~21040 bytes | 2026-10-14 补登记 ui/77speed-controls.js、ui/78button-state.js（ui/68 三拆产物，
+//           68 入口 re-export 二者；漏登则包内 ui/68 引用断裂）
 // V6.0.25 | ~20200 bytes | 2026-10-13 补登记 tests/health-rules/160-166 共 7 条（121health-monitor.js 已 import
 //           rule107-113、123static-scan.js SCAN_FILES 已列；漏登则包内体检页引用断裂）
 // V6.0.24 | ~19600 bytes | 2026-10-13 补登记 render/38-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
@@ -36,7 +38,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.25';
+export const VER = 'tools/106-ai-pack-config.js V6.0.26';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -87,6 +89,8 @@ export const ALL_PROJECT_FILES = [
     '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
     // 2026-10-11 补登记 75/76：ui/61 减负批拆出的联网会话与战报回放入口（ui/61、ui/68 已 import）
     '../ui/75net-session.js', '../ui/76replay-entry.js',
+    // 2026-10-14 补登记 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者；漏登则包内引用断裂）
+    '../ui/77speed-controls.js', '../ui/78button-state.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
