@@ -1,8 +1,10 @@
+// V6.2.2 | ~4400 bytes | 2026-10-14 圣火令基础版口径收口为「1 列 + 2 行」（老板确认正式服即两行一列）：
+//          createBuffObject 原写死抽 2列+2行，与 modules/27 每回合重掷（无姊 1列2行 / 有姊 2列2行）及 content desc 三处不一致
 // V6.2.1 | ~4300 bytes | 2026-10-13 「整局」海克斯支持（圣火不熄）：createBuffObject 读 content permanent:true →
 //          时长取 CONFIG.MAX_ROUND（不用 Infinity，防对象过 JSON 时被序列化成 null 丢 buff）；
 //          getActiveBuffList 显示点渲染成「整局」而非回合数
 // V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
-export const VER = 'modules/28buff-tools.js V6.2.1';
+export const VER = 'modules/28buff-tools.js V6.2.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -18,10 +20,10 @@ export function createBuffObject(key, duration, target = CAMP_TYPES.ALLY) {
     const buff = { key, target, remaining: cfg.permanent ? CONFIG.MAX_ROUND : duration, name: cfg.name || key };
     if (cfg.permanent) buff.permanent = true;
     if (key === BUFF_TYPES.HOLY_FLAME) {
-        const cols = [];
+        // 2026-10-14 基础版形状 = 1 列 + 2 行（与 modules/27 每回合重掷的无姊口径、content desc 三处对齐）：
+        //   创建值在每回合开头即被重掷覆盖，这里只保证首帧/工具口径与正式服一致，不额外抽第二列。
         const rng = getBattleRng();
-        while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
-        cols.sort((a, b) => a - b);
+        const cols = [rng.nextInt(1, 3)];
         const rows = [];
         while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
         rows.sort((a, b) => a - b);

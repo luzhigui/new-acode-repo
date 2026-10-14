@@ -1,3 +1,5 @@
+// V6.4.6 | ~27800 bytes | 2026-10-14 补齐「妹妹永久」缺口：applyHolyFlameBonus 团队圣火令过期分支补
+//           小昭·妹永久续上（applyHolyFlame_Brother 此前导出后全仓零调用，该机制只记账不生效）
 // V6.4.5 | ~27600 bytes | 2026-10-14 圣火不熄取消「复活当回合不可行动」（老板拍板：复活即可动）——
 //           reviveHolyFireUnit 删 withStun 形参与 _stunned 分支，统一 _acted=false；note 后缀同步移除
 // V6.4.4 | ~27700 bytes | 2026-10-13 圣火不熄两项强化（老板拍板）：① 复活名额排除召唤物（isSummon）——
@@ -8,7 +10,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.4.5';
+export const VER = 'core/04buff-system.js V6.4.6';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -26,7 +28,15 @@ const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
-    if (!holyFlameBuff) return;
+    if (!holyFlameBuff) {
+        // 2026-10-14 补齐「妹妹永久」缺口：团队圣火令过期后，小昭·妹自己续上（无条件攻防双加成）——
+        //   此前 applyHolyFlame_Brother 导出后全仓零调用，「妹妹永久继承圣火令」只记账不生效。
+        //   口径与其余 9 项永久海克斯一致（core/04：流云/嗜血/热血/乘风/流星；modules/27：惑心/巨马/carry/连击）。
+        if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.HOLY_FLAME)) {
+            applyHolyFlame_Brother(unit, null, activeBuffs, ctx.log);
+        }
+        return;
+    }
     if (ctx.hasSister) applyHolyFlame_Sister(unit, null, activeBuffs, ctx.log);
     else applyHolyFlame_Normal(unit, null, activeBuffs, ctx.log);
 }
