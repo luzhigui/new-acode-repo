@@ -487,23 +487,12 @@ modules/27 小昭·妹飞天重做在途）。
 >     **全量 46 树重跑已废止**（2026-10-14 立规：增量验证，新增几颗牙只跑几棵树；原全量跑被取消）——
 >     T17/T18 的增量判定挂账待办（结果文件剩约 28/46 树）。
 
-### ===== 主代码改动 START（modules/20elite-skills.js，spiderReturn 函数内，原 SPIDER_RETURN push + 落地回血段）=====
-// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块已正式落地 e2fb757）：
-// 原状：
-    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
-
-    // 落地回血（2026-10-13 飞天重做）：每次飞天落地回 maxHp 的 landHealRatio；孵化落地不回（血钉 40%）
-    if (!unit.state._spiderEggHatch) {
-        const flyParams = getSkillParams('小昭', 'spiderFly');
-        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
-        const heal = Math.floor(unit.maxHp * flyParams.landHealRatio);
-        if (heal > 0 && unit.hp < unit.maxHp) {
-            applyStatChange(unit, 'hp', heal, unit, '飞天落地回血');
-            // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
-            addMod(unit, 'hp', { source: '飞天落地回血', value: heal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
-        }
-    }
-// 改为（删旧 push；heal 提前算成 landHeal 局部并写进 fact 数据；addMod 改引同一局部）：
+### ===== 主代码改动 START（modules/20elite-skills.js · spiderReturn）=====
+// 【位置】modules/20elite-skills.js 的 spiderReturn 函数内；定位锚点：搜 `factType: FACT_TYPES.SPIDER_RETURN`（全文件仅此一处 push）。把该 push 行及其下方「落地回血 if 块」整段替换为下面代码。
+// 【原状】push 在段首（data 只带 unitName/spiderUid/pos）；heal 在 if 块内直接 applyStatChange + addMod(heal)。
+// 【改法】① push 挪到段尾；② heal 提为 landHeal 局部变量；③ fact data 加 landHeal 字段；④ addMod 改引 landHeal。
+// 【效果】零行为差异；SPIDER_LAND_HEAL 契约转严格比对。（第 88 轮转交；曾被 f2b4aed 扫入 HEAD、a8c1dda 授权改回、e2fb757 正式落地，实测 34 条偏差 0。）
+```js
     // 落地回血（2026-10-13 飞天重做）：每次飞天落地回 maxHp 的 landHealRatio；孵化落地不回（血钉 40%）
     // landHeal 提前算好并写进 SPIDER_RETURN fact（数值对照器 SPIDER_LAND_HEAL 契约的声明侧，体检第 88 轮转交）；
     //   不落地（孵化/满血/比率为 0）时记 0，与 addMod 记账同条件同值
@@ -522,25 +511,22 @@ modules/27 小昭·妹飞天重做在途）。
         // 纯记账：只 push _mods['hp']，供数值对照器隔离自身贡献（同蛛袭记账口径）
         addMod(unit, 'hp', { source: '飞天落地回血', value: landHeal, ttl: 'permanent', group: 'spiderLandHeal', op: 'add' });
     }
-// 零行为差异：唯一 SPIDER_RETURN push 位置相对其他 fact 不变（applyStatChange 不产 fact）；
-//   landHeal 只作 fact 数据与记账值，不进任何游戏逻辑。infra/58 requiredFields 无需动（下限集不变）。
+```
 ===== 主代码改动 END =====
 
-### ===== 主代码改动 START（modules/27elite-mingjiao.js，toSpiderEgg 函数内，addMod 两行 + announce push）=====
-// 第 88 轮转交（曾被 f2b4aed 扫入 HEAD，2026-10-14 用户授权改回 a8c1dda；本块已正式落地 e2fb757）：
-// 原状：
-    addMod(u, 'atk', { source: '蜘蛛卵', value: eggModValue(u, 'atk', 0), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
-    addMod(u, 'def', { source: '蜘蛛卵', value: eggModValue(u, 'def', fp.eggDef), ttl: 'permanent', group: 'spiderEgg', op: 'add' });
-    ...
-    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid } });
-// 改为（两个 eggModValue 提为局部、announce data 补两个数值字段；addMod 引同一局部）：
+### ===== 主代码改动 START（modules/27elite-mingjiao.js · toSpiderEgg）=====
+// 【位置】modules/27elite-mingjiao.js 的 toSpiderEgg 函数内；定位锚点：搜 `group: 'spiderEgg'`（addMod 两行）。把从这两个 addMod 到 outLog.push（announce）的整段替换为下面代码。
+// 【原状】两个 addMod 内联 eggModValue(...)；announce data 只带 unitName/unitUid/camp/skillName/note/floatText/floatUid。
+// 【改法】① 两个 eggModValue 提为 eggAtkDelta/eggDefDelta 局部；② addMod 改引局部；③ announce data 补两个数值字段。
+// 【效果】零行为差异；SPIDER_EGG 契约转严格比对。（第 88 轮转交；曾被 f2b4aed 扫入 HEAD、a8c1dda 授权改回、e2fb757 正式落地，实测 4 条偏差 0。）
+```js
     // 结茧属性增量先算局部（体检第 88 轮转交：写进 announce fact 供数值对照器 SPIDER_EGG 契约做声明侧）
     const eggAtkDelta = eggModValue(u, 'atk', 0);
     const eggDefDelta = eggModValue(u, 'def', fp.eggDef);
     addMod(u, 'atk', { source: '蜘蛛卵', value: eggAtkDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     addMod(u, 'def', { source: '蜘蛛卵', value: eggDefDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
-    ...
+    if (u.hp < u.maxHp) applyStatChange(u, 'hp', u.maxHp - u.hp, null, '蜘蛛结茧', false, false);
+    emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
     outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta } });
-// 零行为差异：eggModValue(atk) 先算不影响 eggModValue(def)（def 的 getStat/mulSum 不读 atk 词条）；
-//   两字段只作 fact 数据。infra/58 requiredFields 无需动。
+```
 ===== 主代码改动 END =====
