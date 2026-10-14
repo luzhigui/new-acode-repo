@@ -1,6 +1,8 @@
+// V6.8.7 | ~39750 bytes | 2026-10-14 修「圣火不熄复活格子看不见」：阵亡清除 timer/黑名单补复活路径——
+//   syncStoreFromStep 见引擎报活即撤 timer+出 _removedUids；timer 触发时 store 报活则跳过摘格（双保险）
 // V6.8.6 | ~38300 bytes | 2026-10-13 胜利横幅去重：正常通关（有存活单位）时横幅由 ui/62 spawnVictoryEffects 统一输出，
 //   player/42 不再重复渲染；仅当无存活单位（ui/62 未被调用）时兜底输出，平局/投票行不变。
-export const VER = 'player/42player-core.js V6.8.6';
+export const VER = 'player/42player-core.js V6.8.7';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -84,6 +86,17 @@ function applyStageActionToStoreAfter(c, action, pendingDeaths) {
 
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
+    // 2026-10-14 修「复活格子看不见」（圣火不熄实测）：阵亡清除的 timer/黑名单原本没有复活路径——
+    //   timer 晚于复活触发 → 把活人从 store 摘掉（复活 3 秒后格子消失）；早于复活触发 → uid 滞留
+    //   _removedUids，被下方 filter 永久拦掉（格子从头看不见）。引擎 step.ally/enemy 是生死权威源：
+    //   报活（alive===true 且 !_isDead）即撤 pending timer + 出黑名单，格子归位。
+    //   正常阵亡/DESTROY 单位引擎恒报 alive=false，不进本分支，尸体清除行为不变。
+    for (const u of [...step.ally, ...step.enemy]) {
+        if (u.alive === true && !(u.state && u.state._isDead)) {
+            if (c._deathTimers && c._deathTimers[u.uid]) { clearTimeout(c._deathTimers[u.uid]); delete c._deathTimers[u.uid]; }
+            if (c._removedUids) c._removedUids.delete(u.uid);
+        }
+    }
     // 2026-10-11 状态源唯一：格子数据不再从 _mods 词条原料现算、也不再从日志 snap 单点捞（那是补丁），
     //   直接读引擎随 step 下发的 frozenValues——引擎每步为全部单位冻结一份真值（core/11 makeStep），
     //   所有下游读同一份，「谁现算谁对」的歧义消失。
@@ -128,10 +141,12 @@ function setupDeathTimers(c) {
         if (!c.UI) return;
         for (const su of state.units) {
             if ((su.state && su.state._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
-                c._deathTimers[su.uid] = true;
                 const uid = su.uid;
-                setTimeout(() => {
+                c._deathTimers[uid] = setTimeout(() => {
                     delete c._deathTimers[uid];
+                    // 2026-10-14 复活识别（与 syncStoreFromStep 出黑名单同源的双保险）：触发时 store 已报活 → 不摘格子
+                    const cur = c.store.getState().units.find(u => u.uid === uid);
+                    if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) return;
                     if (c._removedUids) c._removedUids.add(uid);
                     if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
                 }, 3000);
