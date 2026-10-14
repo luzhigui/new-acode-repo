@@ -1,3 +1,5 @@
+// V6.2.1 | ~25600 bytes | 2026-10-14 跑批加「阵容模式」选择器（常规/仅姐姐/仅妹妹/不带姐姐妹妹）：lineupMode 透传 116 hex job；
+//        战绩按模式分键存储（常规沿用旧键 ming_hex_battle_log，旧数据不丢），切换模式自动换榜，避免四种阵容混在一张表里
 // V6.2.0 | ~24300 bytes | 2026-10-14 结果表排序改「按胜率从高到低」（原按出场次数降序，高胜率海克斯常被低频淹没，看不清强弱）
 // V6.1.9 | ~24300 bytes | 2026-10-14 圣火不熄提示同步：复活即可行动（删「当回合不可行动」）、名额排除召唤物
 // V6.1.8 | ~24300 bytes | 2026-10-13 海克斯详情卡「持续」支持整局：content permanent:true 显示「整局」而非回合数
@@ -23,6 +25,12 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
+// 2026-10-14 阵容模式：战绩按模式分键存储（常规沿用旧键，历史数据不丢），切换即换榜。
+// 消费端在 116 runHexStageJob：sister/brother 走 forceXiaoZhao 单小昭局，none 拒绝采样直到无小昭。
+const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
+const keyFor = mode => mode === 'normal' ? KEY : `${KEY}_${mode}`;
+const readLogs = mode => { try { return JSON.parse(localStorage.getItem(keyFor(mode)) || '[]'); } catch(e) { return []; } };
+let curMode = 'normal';
 let logs = [];
 
 // 样式（一次性注入，带 hex-hex- 前缀避免污染宿主页）
@@ -179,7 +187,7 @@ function openHexDashboard() {
         <button class="hex-hex-close">关闭</button>
       </div>
       <div class="hex-hex-body">
-        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。也可用别处跑出的数据点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。</p>
+        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。也可用别处跑出的数据点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。<br>「阵容」下拉选择跑批时明教侧小昭的出现方式（仅姐姐/仅妹妹=该形态必出单小昭局；不带姐姐妹妹=重掷直到无小昭）；四种模式榜单分开存储，切换即换榜。</p>
         <button class="hex-hex-load">加载数据</button>
         <button class="hex-hex-clear">清空数据</button>
         <button class="hex-hex-load hex-hex-run" style="margin-left:8px">⚡ 自动跑</button>
@@ -188,6 +196,12 @@ function openHexDashboard() {
           <option value="1000">7关×1000场</option>
           <option value="2000">7关×2000场</option>
         </select>
+        <select class="hex-hex-lineup" title="阵容模式：决定跑批时明教侧小昭的出现方式" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
+          <option value="normal">阵容：常规</option>
+          <option value="sister">阵容：仅姐姐（小昭·姊必出）</option>
+          <option value="brother">阵容：仅妹妹（小昭·妹必出）</option>
+          <option value="none">阵容：不带姐姐妹妹</option>
+        </select>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
         <div id="hexDashStats"></div>
@@ -195,17 +209,28 @@ function openHexDashboard() {
     </div>`;
   document.body.appendChild(mask);
 
+  // 打开即按当前模式加载对应榜单（模式记忆在模块级 curMode，弹窗重开不丢）
+  const lineupSel = mask.querySelector('.hex-hex-lineup');
+  lineupSel.value = curMode;
+  logs = readLogs(curMode);
+
+  lineupSel.addEventListener('change', () => {
+    curMode = lineupSel.value;
+    logs = readLogs(curMode);
+    render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+  });
+
   mask.querySelector('.hex-hex-close').addEventListener('click', () => mask.remove());
   mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
 
   mask.querySelector('.hex-hex-load').addEventListener('click', () => {
-    try { logs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { logs = []; }
+    logs = readLogs(curMode);
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
   });
 
   mask.querySelector('.hex-hex-clear').addEventListener('click', () => {
-    if (!confirm('确认清空所有海克斯战斗记录？')) return;
-    localStorage.removeItem(KEY);
+    if (!confirm(`确认清空【${MODE_LABEL[curMode]}】模式的所有海克斯战斗记录？`)) return;
+    localStorage.removeItem(keyFor(curMode));
     logs = [];
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
   });
@@ -218,8 +243,11 @@ function openHexDashboard() {
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
     const per = parseInt(sel.value, 10) || 500;
+    const mode = lineupSel.value;      // 2026-10-14 阵容模式：透传 116，结果写进该模式自己的存储键
+    curMode = mode;
     runBtn.disabled = true;
     sel.disabled = true;
+    lineupSel.disabled = true;
     status.textContent = '加载战斗引擎…';
     const t0 = performance.now();
     const fmtSec = ms => (ms / 1000).toFixed(0) + 's';
@@ -254,27 +282,28 @@ function openHexDashboard() {
         jobs,
         kind: 'hex',
         poolSize,
-        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs }),
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, lineupMode: mode }),
         onJobDone: (finished, jobTotal, job, result) => {
           doneRuns += job.runs;
           if (result && result.hexLog) hexLogAll.push(...result.hexLog);
         }
       });
       clearInterval(timer);
-      // 结果追加进 localStorage（与 101 同键同格式，加载数据/历史记录无缝衔接）
+      // 结果追加进该模式自己的存储键（常规沿用旧键，与 101 同键同格式；2026-10-14 分模式后不再混榜）
       try {
-        const prev = JSON.parse(localStorage.getItem(KEY) || '[]');
-        localStorage.setItem(KEY, JSON.stringify(prev.concat(hexLogAll)));
+        const prev = readLogs(mode);
+        localStorage.setItem(keyFor(mode), JSON.stringify(prev.concat(hexLogAll)));
       } catch (e) {}
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      status.textContent = `✅ 完成：7关×${per}场 共 ${hexLogAll.length} 条记录，总耗时 ${dt}s（${poolSize} 线程并行）`;
-      try { logs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { logs = []; }
+      status.textContent = `✅ 完成【${MODE_LABEL[mode]}】：7关×${per}场 共 ${hexLogAll.length} 条记录，总耗时 ${dt}s（${poolSize} 线程并行）`;
+      logs = readLogs(mode);
       render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
     } catch (e) {
       status.textContent = '❌ 失败：' + (e && e.message ? e.message : e);
     } finally {
       runBtn.disabled = false;
       sel.disabled = false;
+      lineupSel.disabled = false;
     }
   });
 
@@ -294,7 +323,7 @@ function render(summary, stats) {
   const enemyWins = logs.filter(l => l.winner === '六大派').length;
   const draws = total - allyWins - enemyWins;
 
-  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
+  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
 
   // 海克斯中文名映射
   const HEX_NAME_MAP = {
