@@ -1,6 +1,6 @@
 // V1.8.0 | ~34600 bytes | 2026-10-14 hex 任务阵容模式 + 抽取口径收口：runHexStageJob 收 lineupMode
 //        （normal 自然 / sister·brother 复用 modules/29 forceXiaoZhao 单小昭局 / none 拒绝采样重掷阵容直到无小昭，同 runNoEliteJob 口径）；
-//        hexPicker 改调 modules/28 createBuffObject——原手工造 buff：圣火令只抽 1列1行（正式 2列2行）、permanent 整局不生效，胜率系统性低估
+//        hexPicker 改调 modules/28 createBuffObject——原手工造 buff：圣火令只抽 1列1行（正式基础版 1列2行）、permanent 整局不生效，胜率系统性低估
 // V1.7.1 | ~33300 bytes | 2026-10-09 clearBattleGlobals 补清 forceXieXun / forcePang（原先漏清，对照 122 的完整五项）：
 //        跑完谢逊单英雄后 forceXieXun 常驻 worker，之后任何 job 都变「本 job 精英 + 谢逊」双精英（复刻取证 修复前 40/40 → 修复后 0/40）
 // V1.7.0 | ~32900 bytes | 2026-10-09 新增 kind:'noElite'（runNoEliteJob）：明教侧一个精英都不出的胜率（拒绝采样凑无精英局，
