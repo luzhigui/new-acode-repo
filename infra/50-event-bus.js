@@ -1,9 +1,10 @@
+// V6.9.2 | ~7550 bytes | 2026-10-14 AFTER_DAMAGE_APPLIED 增 EAGLE_RESTORE:27（carry 雄鹰命中后恢复队友行动力 / 无人可恢复召雌鹰）
 // V6.9.1 | ~7500 bytes | 2026-10-13 杨逍重做：BEFORE_DAMAGE_CALC 增 YANGXIAO_ALL_ACTED:17（敌方全行动→追击×1.3 声明槽）
 // V6.9.0 | 2026-10-13 何太冲红血触发挪位：HE_TAICHONG_RED_BLOOD 从 BEFORE_DAMAGE_APPLY:90
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.1';
+export const VER = 'infra/50-event-bus.js V6.9.2';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -117,6 +118,7 @@ export const EXECUTION_LAYER = {
         LION_INSPIRE: 23,
         LION_FOLLOW: 24,
         MIEJUE_THIRD_LEECH: 26,
+        EAGLE_RESTORE: 27,
         DIAN_XUE: 28,
         HOT_BLOOD: 25,
         WIND_ASSAULT: 25,

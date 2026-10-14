@@ -1,10 +1,12 @@
+// V6.2.4 | ~4500 bytes | 2026-10-14 主代码放开 carry 5 号位门槛（老板拍板）：删 generateBuffChoices 的
+//          carry 候选过滤，改由 core/04 spawnCarryEagle 在 5 号位无人时召唤雄鹰顶位；函数保留导出供工具/体检复用
 // V6.2.3 | ~4300 bytes | 2026-10-14 hasCarryTarget 收口为「只认 5 号位」：姐姐在场也不再放宽 4/5/6——
 //          入选门槛与受益面解耦（受益面仍由 core/04 carryPositions 决定），消除「仅姐姐」模式的选择口径偏差
 // V6.2.1 | ~4300 bytes | 2026-10-13 「整局」海克斯支持（圣火不熄）：createBuffObject 读 content permanent:true →
 //          时长取 CONFIG.MAX_ROUND（不用 Infinity，防对象过 JSON 时被序列化成 null 丢 buff）；
 //          getActiveBuffList 显示点渲染成「整局」而非回合数
 // V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
-export const VER = 'modules/28buff-tools.js V6.2.3';
+export const VER = 'modules/28buff-tools.js V6.2.4';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -40,9 +42,9 @@ export function buffsOfCamp(activeBuffs, camp) {
         : b.target === camp);
 }
 
-// carry 只在「carry 位」有活人时才有效：5 号位。2026-10-14 老板拍板：姐姐在场也要求 5 号位有活人才进候选，
-//   不再放宽到 4/5/6（消除选择口径偏差：此前无姊=仅 pos5 有人才入选、姐姐=4/5/6 三处任一有人就入选，两模式不可横比）。
-//   受益面（谁能吃加成）仍由 core/04 的 carryPositions 决定，与本门槛解耦。
+// 2026-10-14 老板拍板放开门槛：carry 随时可入选，主代码不再调用本判据——
+//   5 号位无人时改由 core/04 spawnCarryEagle 召唤「雄鹰」顶位（雄鹰命中后恢复队友行动力 / 无人可恢复时召雌鹰）。
+//   函数保留导出供 tools/ 与 tests/ 复用（那边同步前仍引用，删会断链）；受益面仍由 core/04 carryPositions 决定。
 export function hasCarryTarget(team) {
     return team.some(u => u.alive && u.pos === 5);
 }
@@ -54,7 +56,6 @@ export function generateBuffChoices(activeBuffs, team = [], rng = null) {
     const available = allKeys.filter(k => {
         if (activeBuffKeys.includes(k)) return false;
         if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-        if (k === BUFF_TYPES.CARRY && !hasCarryTarget(team)) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
         return true;

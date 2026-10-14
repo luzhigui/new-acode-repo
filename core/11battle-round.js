@@ -1,3 +1,7 @@
+// V6.3.16 | ~30400 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：prepareRoundStart 在 buff 变换器重算
+//           activeBuffs 之后、组件工厂循环之前调 spawnCarryEagle(A/B)——5 号位无人则召唤雄鹰顶位（当回合即注册技能）
+// V6.3.15 | ~30300 bytes | 2026-10-14 妹永久摄魂「点名 2 回合」调度（老板拍板削弱）：重置后、ON_ROUND_START 前，
+//           先对双方 _soulDrainRounds 存量 -1，再由 preparePermanentSoulDrain 各方向随机点名 1 名敌方（非马/非召唤物）
 // V6.3.14 | ~29900 bytes | 2026-10-14 applySoulDrain 两处调用点补传 casterSide（施法方队伍）——
 //           core/04 靠它判「小昭·妹永久续上」「小昭·姊增强」，只加字段不改签名
 // V6.3.13 | 2026-10-13 修死循环：组件声明 skip 时必须把该单位 state._acted 置 true
@@ -6,12 +10,12 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.14';
+export const VER = 'core/11battle-round.js V6.3.16';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './03battle-utils.js';   // 2026-10-08 清死import×8（特判收口后失业：makeFXSnapshot/getUnitCol/getUnitRow/hasAnyEnemyEmptyCol/countEnemyEmptyCols/getBloodAuraBonus/registerEmptyColBonus）
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
@@ -97,6 +101,11 @@ function prepareRoundStart(A, B, state, ctx) {
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
     // 圣火令统一在下面的回合开始循环里施加，此处不再重复登记词条
 
+    // 2026-10-14 carry 放开 5 号位门槛：5 号位无人则召唤雄鹰顶位（每队整局 1 只）。
+    //   必须早于下方组件工厂循环 —— 雄鹰当回合就在 A/B 里，才能被注册面挂上技能。
+    spawnCarryEagle(A, ctx.log);
+    spawnCarryEagle(B, ctx.log);
+
     eventBus.clearAll();
     // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
     clearAllWatchers();
@@ -158,6 +167,12 @@ function prepareRoundStart(A, B, state, ctx) {
 
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
+
+    // 2026-10-14 妹永久摄魂「点名 2 回合」：先递减存量（挂标当回合算 1，共 2 回合），再各方向随机点名 1 名敌方
+    A.forEach(u => { if (u.state._soulDrainRounds > 0) u.state._soulDrainRounds -= 1; });
+    B.forEach(u => { if (u.state._soulDrainRounds > 0) u.state._soulDrainRounds -= 1; });
+    preparePermanentSoulDrain(A, B, { rng: ctx.rng });
+    preparePermanentSoulDrain(B, A, { rng: ctx.rng });
 
     const roundStatDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log: ctx.log, declarations: roundStatDeclarations });

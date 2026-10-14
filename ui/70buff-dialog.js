@@ -1,10 +1,12 @@
+// V6.4.1 | ~7900 bytes | 2026-10-14 手选海克斯放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
+//          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
 // V6.4.0 | ~8007 bytes | 2026-10-07 挂战中首次海克斯一次性提示（stepBattleBuff，来自 71tutorial；只挂面板不跨层）
-export const VER = 'ui/70buff-dialog.js V6.4.0';
+export const VER = 'ui/70buff-dialog.js V6.4.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
-import { createBuffObject, buffsOfCamp, hasCarryTarget } from '../modules/28buff-tools.js';
+import { createBuffObject, buffsOfCamp } from '../modules/28buff-tools.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { stepBattleBuff } from './71tutorial.js';
@@ -32,7 +34,6 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
             let available = allKeys.filter(k => {
                 if (existingKeys.includes(k)) return false;
                 if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(team)) return false;
                 const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
                 if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
                 return true;

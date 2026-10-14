@@ -1,7 +1,8 @@
-// V2.9.2 | ~13800 bytes | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
+// V2.9.3 | ~13950 bytes | 2026-10-14 新增 _soulDrainRounds（摄魂·妹永久「点名 2 回合」计数，core/11 每回合先 -1 再点名）
+// V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.2';
+export const VER = 'core/17-state-keys.js V2.9.3';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -62,6 +63,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _redBloodUsed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 箭靶标记 🎯 剩余回合数（0 = 无标记；何太冲命中刷新为 3）
     _heMarkRounds:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 摄魂·妹永久「点名」剩余回合数（0 = 未被点名；core/11 每回合开始先 -1、再随机点名置 2）
+    _soulDrainRounds:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _spiderTriggeredHit:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
