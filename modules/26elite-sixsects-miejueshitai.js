@@ -1,10 +1,13 @@
 // modules/26elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
+// V6.26.0 | ~18220 bytes | 2026-10-14 core/15 瘦身批 2：followAttack 由 core/15 本地安装器改造成 core/18 注册表
+//   handler（定义在本文件，注册在 26elite-sixsects.js 入口）：每 decl 一次 install，钩子内直接用 decl.name
+//   认跟随者，原先的 decls 遍历 + find 作废。core/15 同批瘦身（V6.8.0）删掉旧安装器，本 handler 是唯一实现
 // V6.25.0 | ~15500 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.25.0';
+export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.26.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
+import { eventBus, EFFECT_TYPES, registerSettlementHook, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 // 灭绝师太（六大派·峨眉掌门·战士·M115）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
@@ -199,4 +202,45 @@ export function createMieJueShiTaiComponent() {
             });
         }
     };
+}
+
+// —— 跟随攻击（followAttack）：任意队友命中后，chance 概率由跟随者打同一目标，无每回合上限 ——
+// 与玄冥联动的方向相反——联动是「攻击者声明带谁跟随」，队友固定；这里是「跟随者声明跟所有人」，
+// 队友是任意单位、没法逐个登记，所以声明挂在跟随者名下。
+// 2026-10-09 dmgRatio（可选）：跟随那手的伤害系数（如 0.6）——「越白嫖的出手越弱」。
+//   不配 = 全额，跟随机制对其他角色仍可用。系数由 core/10 进额外攻击前写 state、伤害计算统一乘。
+// 防乒乓：跟随攻击自身会走 AFTER_ATTACK，core/10 对 reason:'followAttack' 置 _isLinkAttack，
+// 这里开头同样判 _isLinkAttack，保证一次额外攻击不会再触发一次跟随。
+export const followAttackHandler = {
+    // 契约与原 LOCAL_MECHANIC_FIELDS 一致：dmgRatio 是可选字段（不配 = 全额），不进 schema 强校验
+    fields: { chance: 'number' },
+    install({ decl }) {
+        registerSettlementHook({
+            when: SIGNAL_TYPES.AFTER_ATTACK,
+            priority: L.AFTER_ATTACK.FOLLOW_ATTACK,
+            handler: (data) => { submitFollowAttack(data, decl); }
+        });
+    }
+};
+
+function submitFollowAttack(data, decl) {
+    const { unit, target, dmg, allySide } = data;
+    if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+    const follower = allySide.find(u => u.name === decl.name && u.alive);
+    if (!follower || follower.uid === unit.uid) return;
+    if (getBattleRng().next() >= (decl.chance || 0)) return;
+    if (data.group && data.group.data && data.group.data.entries) {
+        const ratioText = decl.dmgRatio != null ? `（伤害×${decl.dmgRatio}）` : '';
+        data.group.data.entries.push({ type: 'info', text: `<span class="gold">🐺 ${follower.name} 跟随 ${unit.name} 出手！${ratioText}</span>` });
+    }
+    if (!data.extraRequests) data.extraRequests = [];
+    data.extraRequests.push({
+        unit: follower,
+        targetUid: target.uid,
+        reason: 'followAttack',
+        dmgRatio: decl.dmgRatio ?? null,
+        actedMode: 'restore',
+        actedSnapshot: follower.state._acted,
+        priority: 45
+    });
 }

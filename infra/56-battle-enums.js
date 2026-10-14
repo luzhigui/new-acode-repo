@@ -117,21 +117,21 @@ export const FLY_MODE_TYPES = Object.freeze({
 
 /**
  * 机制类型：content 里 characters.*.mechanics 顶层条目 type 的唯一来源。
- * 分两组承接：REGISTRY 组必须经 core/18 registerMechanicHandler 注册（modules/26、30），
- * LOCAL 组由 core/15 本地安装器承接；core/15 安装期对不上任一组即抛错（漏注册=开局炸，不静默）。
+ * 全部由 core/18 注册表承接——必须经 registerMechanicHandler 注册（modules/25、26、30），
+ * core/15 安装期查不到注册即抛错（漏注册=开局炸，不静默）。2026-10-14 起无「core/15 本地安装器」例外组。
  */
 export const MECHANIC_TYPES = Object.freeze({
-    // core/18 注册表承接（modules 侧注册）
+    // 通用/六大派（modules/26、30）
     CHAIN_CLAW: 'chainClaw',           // 周芷若·九阴白骨爪连锁（modules/26）
     KU_LIAN: 'kuLian',                 // 宋青书·苦练（modules/26）
     XIN_HUN: 'xinHun',                 // 宋青书·新婚（modules/26）
     XING_FEN: 'xingFen',               // 宋青书·性奋（modules/26）
     DOT_TICK: 'dotTick',               // 通用 DOT 逐回合扣血（modules/30）
     DAMAGE_REFLECT: 'damageReflect',   // 反伤弟子·反伤护盾（modules/30）
-    // core/15 本地安装器承接（不经注册表）
-    LINK_ATTACK: 'linkAttack',         // 玄冥二老联动
-    FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击
-    PHANTOM_DISGUISE: 'phantomDisguise' // 成昆·幻影伪装
+    FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击（modules/26）
+    // 元朝朝廷（modules/25）
+    LINK_ATTACK: 'linkAttack',         // 玄冥二老联动（modules/25）
+    PHANTOM_DISGUISE: 'phantomDisguise' // 成昆·幻影伪装（modules/25）
 });
 
 /**

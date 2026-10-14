@@ -1,31 +1,17 @@
+// V6.8.0 | ~16710 bytes | 2026-10-14 core/15 瘦身：linkAttack / followAttack / phantomDisguise 三个英雄机制
+//   连同安装器迁出 core——改由 modules 侧 registerMechanicHandler 注册（25 承接玄冥联动 + 成昆幻影、
+//   26 承接灭绝跟随）。本文件删 LOCAL_MECHANIC_TYPES / LOCAL_MECHANIC_FIELDS 两张例外表与 isLocal 分支，
+//   顶层机制只剩「注册表查表」一条路（未注册的 type 开局即抛）。四个导出签名不变，core/11 调用点零改动。
 // V6.7.0 | ~27750 bytes | 2026-10-12 成昆幻影伪装治疗补 `_mods['hp']` 纯记账条目（group 'phantomDisguiseHeal'）：PHANTOM_DISGUISE_HEAL 自身 hp 贡献隔离进账本，供体检对照器核对「声明 heal vs 实际治疗」；真实治疗仍由 EFFECT_TYPES.HEAL 声明结算负责，零游戏逻辑副作用
-export const VER = 'core/15-skill-mechanisms.js V6.7.0';
+export const VER = 'core/15-skill-mechanisms.js V6.8.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
-import { emitEvent, applyStatChange, getBattleRng, addMod } from './13battle-shared.js';
+import { addMod } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './18mechanic-registry.js';
-import { canBeTargeted } from './03battle-utils.js';
-import { watchUnit, unwatchUnit } from './19unit-watch.js';
-
-// 本地安装器承接的顶层机制 type（不经 core/18 注册表）；其余顶层 type 必须已注册。
-const LOCAL_MECHANIC_TYPES = new Set([
-    MECHANIC_TYPES.LINK_ATTACK,
-    MECHANIC_TYPES.FOLLOW_ATTACK,
-    MECHANIC_TYPES.PHANTOM_DISGUISE
-]);
-
-// 本地机制的必需字段契约（注册表机制的 fields 契约写在各自 handler 描述符里，见 modules/26、30）。
-// kind：number 有限数 / string 非空串 / nonEmptyArray 非空数组 / numberArray 非空且元素全有限数 /
-//       stringArray 非空且元素全非空字符串。
-const LOCAL_MECHANIC_FIELDS = Object.freeze({
-    [MECHANIC_TYPES.LINK_ATTACK]: { partnerNames: 'stringArray' },
-    [MECHANIC_TYPES.FOLLOW_ATTACK]: { chance: 'number' },
-    [MECHANIC_TYPES.PHANTOM_DISGUISE]: { healRatio: 'number', baseChance: 'number', per10pctLost: 'number' }
-});
 
 // 四类内层容器允许的元素 type 名单（值来自 infra/56 枚举，JSON 侧字符串由安装期校验兜）。
 const LOCAL_EFFECT_TYPES = Object.freeze({
@@ -59,6 +45,8 @@ const INNER_FIELD_SCHEMA = Object.freeze({
 
 const TARGET_RULE_TYPES = new Set(Object.values(MECHANIC_TARGET_RULES));
 
+// 字段契约 kind 口径：number 有限数 / string 非空串 / nonEmptyArray 非空数组 /
+//   numberArray 非空且元素全有限数 / stringArray 非空且元素全非空字符串。
 function checkKind(value, kind) {
     if (kind === 'number') return typeof value === 'number' && Number.isFinite(value);
     if (kind === 'string') return typeof value === 'string' && value.length > 0;
@@ -90,12 +78,11 @@ export function validateMechanicDeclarations(declarations) {
     for (const decl of declarations) {
         if (!decl) continue;
         if (decl.type) {
-            const isLocal = LOCAL_MECHANIC_TYPES.has(decl.type);
-            const handler = isLocal ? null : getMechanicHandler(decl.type);
-            if (!isLocal && !handler) {
-                throw new Error(`[core/15] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册，也不在本地安装器名单内`);
+            const handler = getMechanicHandler(decl.type);
+            if (!handler) {
+                throw new Error(`[core/15] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册（实现在 modules 侧 registerMechanicHandler 登记）`);
             }
-            const schema = isLocal ? LOCAL_MECHANIC_FIELDS[decl.type] : (handler.fields || null);
+            const schema = handler.fields || null;
             if (schema) checkFields(decl, schema, `角色 ${decl.name} 的顶层 ${decl.type}`);
         }
         if (decl.targetRule !== undefined && !TARGET_RULE_TYPES.has(decl.targetRule)) {
@@ -129,28 +116,6 @@ export function buildMechanicDeclarations(gameData) {
     return declarations;
 }
 
-// 成昆模仿观察 token：chengkunUid → watcher token
-const _phantomWatchTokens = new Map();
-
-// 给成昆登记"模仿对象不可选即失效"的观察
-function registerPhantomWatcher(chengkun, target, allySide) {
-    const oldToken = _phantomWatchTokens.get(chengkun.uid);
-    if (oldToken) unwatchUnit(oldToken);
-    const targetUid = target.uid;
-    const token = watchUnit(chengkun,
-        () => {
-            const t = allySide.find(u => u.uid === targetUid);
-            return t ? canBeTargeted(t) : false;
-        },
-        (stillTargetable) => {
-            if (!stillTargetable && chengkun.state._phantomTarget === targetUid) {
-                chengkun.state._phantomTarget = null;
-            }
-        }
-    );
-    _phantomWatchTokens.set(chengkun.uid, token);
-}
-
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     // 安装期先校验全部 type 都有人接，再登记任何 hook（fail-fast，不留半装状态）
     validateMechanicDeclarations(declarations);
@@ -162,17 +127,13 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     }
     installBeforeDamageEffects(eventBus, declarations);
     installOnHitEffects(eventBus, A, B, declarations);
-    installPhantomDisguise(eventBus, A, B, declarations);
-    installLinkAttack(eventBus, declarations);
-    installFollowAttack(eventBus, declarations);
-    // 带 type 的声明（chainClaw / kuLian / xinHun / xingFen / dotTick / damageReflect …）
-    // 走机制注册表：具体实现由 modules 侧 registerMechanicHandler 提供，core 只负责转发。
-    // 本地安装器承接的 type（linkAttack / followAttack / phantomDisguise）不进注册表。
+    // 带 type 的声明（chainClaw / kuLian / xinHun / xingFen / dotTick / damageReflect /
+    //   linkAttack / followAttack / phantomDisguise …）一律走机制注册表：具体实现由 modules 侧
+    //   registerMechanicHandler 提供，core 只负责转发（2026-10-14 起无「本地安装器」例外名单）。
     for (const decl of declarations) {
         if (!decl || !decl.type) continue;
-        if (LOCAL_MECHANIC_TYPES.has(decl.type)) continue;
         if (!hasMechanicHandler(decl.type)) {
-            throw new Error(`[core/15] 未知机制 type "${decl.type}"（角色 ${decl.name}）：未注册，也不在本地名单内`);
+            throw new Error(`[core/15] 未知机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册`);
         }
         installMechanicByType(eventBus, decl.type, A, B, log, decl);
     }
@@ -316,186 +277,6 @@ function installOnHitEffects(eventBus, A, B, declarations) {
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.LEECH,
         handler: (data) => { submitOnHitEffects(data, onHitDecls); }
-    });
-}
-
-function submitPhantomDisguiseOnHit(data, decls) {
-    const unit = data.unit;
-    if (!unit || !unit.alive || data.dmg <= 0) return;
-    const decl = decls.find(d => d.name === unit.name);
-    if (!decl) return;
-    const lostHp = unit.maxHp - unit.hp;
-    if (lostHp > 0) {
-        const aliveCount = data.enemySide.filter(u => u.alive).length;
-        const heal = Math.floor(lostHp * decl.healRatio * aliveCount);
-        if (!data.declarations) data.declarations = [];
-        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
-        // 体检记账（V6.7.0）：幻影伪装治疗自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按
-        //   group='phantomDisguiseHeal' 比对「声明 heal vs 实际治疗」。纯记账——addMod 只 push 到 _mods['hp']，
-        //   真实治疗仍由上方 HEAL 声明结算负责，零游戏逻辑副作用。
-        addMod(unit, 'hp', { source: '成昆幻影伪装治疗', value: heal, ttl: 'permanent', group: 'phantomDisguiseHeal', op: 'add' });
-    }
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
-}
-
-// 幻影伪装：攻击后模仿对方单位。受击不重刷（闪避反击时保持暴露），只在成昆自身攻击结算后重刷
-function rollPhantomDisguise(unit, enemySide) {
-    const enemyAlive = enemySide.filter(u => canBeTargeted(u) && !u.isHorse);
-    if (enemyAlive.length > 0) {
-        const target = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)];
-        Object.assign(unit.state, { _phantomTarget: target.uid });
-        // 登记观察：被模仿者变得不可选（死/飞天/附身）→ 模仿立即失效
-        registerPhantomWatcher(unit, target, enemySide);
-        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
-    }
-}
-
-// 成昆开始攻击前卸下伪装（伪装不跨攻击生效）
-function submitPhantomClearBeforeAttack(data, decls) {
-    const decl = decls.find(d => d.name === data.unit.name);
-    if (!decl || !data.unit.alive) return;
-    data.unit.state._phantomTarget = null;
-}
-
-// 成昆攻击结算后重新伪装：命中/未命中都算攻击过；闪避走 ON_DODGE 不在此列
-function submitPhantomRerollAfterAttack(data, decls) {
-    const decl = decls.find(d => d.name === data.unit.name);
-    if (!decl || !data.unit.alive || !data.enemySide) return;
-    rollPhantomDisguise(data.unit, data.enemySide);
-}
-
-function submitPhantomDisguiseTarget(data, decls) {
-    if (data.unit.camp !== CAMP_TYPES.ALLY) return;
-    const { unit, enemySide, declaration, allySide } = data;
-    let phantomDecl = null;
-    let chengkun = null;
-    for (const d of decls) {
-        const candidate = enemySide.find(u => u.name === d.name && u.alive && u.state._phantomTarget);
-        if (candidate) { phantomDecl = d; chengkun = candidate; break; }
-    }
-    if (!phantomDecl || !chengkun) return;
-    const isPhantomTarget = chengkun.state._phantomTarget === unit.uid;
-    if (isPhantomTarget) {
-        declaration.targetResult = chengkun;
-        declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_REVEAL, data: { unitName: unit.name, deceiver: chengkun.name, deceiverUid: chengkun.uid } };
-        return;
-    }
-    const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
-    const confuseChance = phantomDecl.baseChance + phantomDecl.per10pctLost * (lostHpPct * 10);
-    if (getBattleRng().next() >= confuseChance) return;
-    const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u.state._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
-    if (phantomTarget) {
-        declaration.targetResult = phantomTarget;
-        declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name } };
-    }
-}
-
-function installPhantomDisguise(eventBus, A, B, declarations) {
-    const decls = declarations.filter(d => d && d.type === MECHANIC_TYPES.PHANTOM_DISGUISE);
-    if (decls.length === 0) return;
-    // 每回合重新登记已有模仿的观察（clearAllWatchers 已在上游清空，且 A/B 每回合是新克隆）
-    const chengkun = B.find(u => u.isChengKun && u.alive && u.state._phantomTarget);
-    if (chengkun) {
-        const target = A.find(u => u.uid === chengkun.state._phantomTarget);
-        if (target) {
-            registerPhantomWatcher(chengkun, target, A);
-        } else {
-            // 被模仿者已消失（上回合死亡/被移除），模仿立即作废
-            chengkun.state._phantomTarget = null;
-        }
-    }
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
-        priority: L.AFTER_DAMAGE_APPLIED.DISGUISE,
-        handler: (data) => { submitPhantomDisguiseOnHit(data, decls); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-        priority: L.BEFORE_SELECT_TARGET.DISGUISE,
-        handler: (data) => { submitPhantomDisguiseTarget(data, decls); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-        priority: L.BEFORE_SELECT_TARGET.PHANTOM_CLEAR,
-        handler: (data) => { submitPhantomClearBeforeAttack(data, decls); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_ATTACK,
-        priority: L.AFTER_ATTACK.PHANTOM_REROLL,
-        handler: (data) => { submitPhantomRerollAfterAttack(data, decls); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_MISS,
-        priority: L.AFTER_MISS.PHANTOM_REROLL,
-        handler: (data) => { submitPhantomRerollAfterAttack(data, decls); }
-    });
-}
-
-function submitLinkAttack(data, decls) {
-    const { unit, target, dmg, allySide, log } = data;
-    if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
-    const decl = decls.find(d => d.name === unit.name);
-    if (!decl) return;
-    const partnerNames = decl.partnerNames || [];
-    for (const partnerName of partnerNames) {
-        const partner = allySide.find(u => u.name === partnerName && u.alive && !u.state._linkTriggered);
-        if (!partner) continue;
-        Object.assign(partner.state, { _linkTriggered: true });
-        log.push({ factType: FACT_TYPES.XUAN_MING_LINK_ATTACK, data: { partnerName: partner.name, unitName: unit.name } });
-        if (!data.extraRequests) data.extraRequests = [];
-        data.extraRequests.push({ unit: partner, targetUid: target.uid, reason: 'xuanmingLink', actedMode: 'restore', actedSnapshot: partner.state._acted, priority: 40 });
-        break;
-    }
-}
-
-function installLinkAttack(eventBus, declarations) {
-    const decls = declarations.filter(d => d && d.type === MECHANIC_TYPES.LINK_ATTACK);
-    if (decls.length === 0) return;
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_ATTACK,
-        priority: L.AFTER_ATTACK.XUANMING_LINK,
-        handler: (data) => { submitLinkAttack(data, decls); }
-    });
-}
-
-// 跟随攻击（灭绝师太）：任意队友命中后，chance 概率由跟随者打同一目标，无每回合上限。
-// 与玄冥联动的方向相反——联动是「攻击者声明带谁跟随」，队友固定；这里是「跟随者声明跟所有人」，
-// 队友是任意单位、没法逐个登记，所以声明挂在跟随者名下。
-// 2026-10-09 dmgRatio（可选）：跟随那手的伤害系数（如 0.6）——「越白嫖的出手越弱」。
-//   不配 = 全额，跟随机制对其他角色仍可用。系数由 core/10 进额外攻击前写 state、伤害计算统一乘。
-// 防乒乓：跟随攻击自身会走 AFTER_ATTACK，core/10 对 reason:'followAttack' 置 _isLinkAttack，
-// 这里开头同样判 _isLinkAttack，保证一次额外攻击不会再触发一次跟随。
-function submitFollowAttack(data, decls) {
-    const { unit, target, dmg, allySide } = data;
-    if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
-    for (const decl of decls) {
-        const follower = allySide.find(u => u.name === decl.name && u.alive);
-        if (!follower || follower.uid === unit.uid) continue;
-        if (getBattleRng().next() >= (decl.chance || 0)) continue;
-        if (data.group && data.group.data && data.group.data.entries) {
-            const ratioText = decl.dmgRatio != null ? `（伤害×${decl.dmgRatio}）` : '';
-            data.group.data.entries.push({ type: 'info', text: `<span class="gold">🐺 ${follower.name} 跟随 ${unit.name} 出手！${ratioText}</span>` });
-        }
-        if (!data.extraRequests) data.extraRequests = [];
-        data.extraRequests.push({
-            unit: follower,
-            targetUid: target.uid,
-            reason: 'followAttack',
-            dmgRatio: decl.dmgRatio ?? null,
-            actedMode: 'restore',
-            actedSnapshot: follower.state._acted,
-            priority: 45
-        });
-    }
-}
-
-function installFollowAttack(eventBus, declarations) {
-    const decls = declarations.filter(d => d && d.type === MECHANIC_TYPES.FOLLOW_ATTACK);
-    if (decls.length === 0) return;
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_ATTACK,
-        priority: L.AFTER_ATTACK.FOLLOW_ATTACK,
-        handler: (data) => { submitFollowAttack(data, decls); }
     });
 }
 
