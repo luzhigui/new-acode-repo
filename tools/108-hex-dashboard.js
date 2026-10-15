@@ -1,4 +1,4 @@
-// V6.2.7 | 实测 34931 bytes | 2026-10-15 修「点模式对比没反应」真因：renderModeCompare 里 `return { key, cell }` 用了未声明
+// V6.2.7 | 实测 35443 bytes | 2026-10-15 修「点模式对比没反应」真因：renderModeCompare 里 `return { key, cell }` 用了未声明
 //   的变量 key（循环变量本名 k）→ 只要有数据就抛 ReferenceError、整段渲染中断（无数据时函数提前 return，故首次复现看不出问题）。
 //   上一版 V6.2.6 猜的「内容落在视口外」不是主因（浏览器实测容器在视口内、innerHTML 为空）；容器上移 + scrollIntoView 属顺手改进，保留
 // V6.2.6 | 实测 34931 bytes | 2026-10-15 修「点模式对比没反应」：对比表原插在统计表**下方**，弹窗主体 max-height:88vh
