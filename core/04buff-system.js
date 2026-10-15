@@ -1,3 +1,6 @@
+// V6.5.3 | ~37500 bytes | 2026-10-15 第二批内容：新增 applyLastStandBonus（背水一战·低血攻×1.4）、
+//           applyUnityBonus（众志成城·按存活人数阶梯乘攻防）、spawnUnityRecruits（不足 5 人时每回合召唤随机角色补员，
+//           M50 含精英技能全开、整局上限 4 个；获得时已满 5 人则永久不召）。三者调用点见 core/11。
 // V6.5.2 | ~35010 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：新增 spawnCarryEagle——carry 生效且
 //           5 号位无活人时召唤「雄鹰」顶位（整局仅 1 只，模块标记 isCarryEagle 判定，死了不补）；数值读 content buffs.carry.params.eagle
 // V6.5.1 | ~30500 bytes | 2026-10-14 妹永久摄魂改「点名 2 回合」（老板拍板削弱）：团队摄魂过期后不再是整局全体续削，
@@ -18,7 +21,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.2';
+export const VER = 'core/04buff-system.js V6.5.3';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -140,6 +143,69 @@ export function spawnCarryEagle(team, log) {
     eagle.isCarryEagle = true;
     if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: eagle.name, summonUid: eagle.uid, pos: eagle.pos } });
     return eagle;
+}
+
+// 2026-10-15 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
+//   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
+export function applyLastStandBonus(unit, activeBuffs) {
+    if (!hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND)) return;
+    const cfg = C.BUFFS.lastStand;
+    if (!cfg || unit.maxHp <= 0) return;
+    if (unit.hp >= unit.maxHp * (cfg.hpThreshold ?? 0.35)) return;
+    addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'round', op: 'mul', group: 'lastStand' });
+}
+
+// 2026-10-15 众志成城（unity）加成：按本阵营存活人数（拒马/幼狮/雄鹰/召唤物都算人）取最高达标档，攻防同乘。
+//   与摄魂同款：ttl:'round' 每回合清理重挂，故整局持续、不做回合计数器；人数每回合现算。
+export function applyUnityBonus(unit, team, activeBuffs) {
+    if (!hasBuff(activeBuffs, BUFF_TYPES.UNITY)) return;
+    const cfg = C.BUFFS.unity;
+    if (!cfg || !Array.isArray(cfg.tiers)) return;
+    const aliveN = team.filter(u => u.alive).length;
+    let tier = null;
+    for (const t of cfg.tiers) { if (aliveN >= t.count) tier = t; }
+    if (!tier) return;
+    addMod(unit, 'atk', { source: '众志成城', value: tier.atkBonus, ttl: 'round', op: 'mul', group: 'unity' });
+    addMod(unit, 'def', { source: '众志成城', value: tier.defBonus, ttl: 'round', op: 'mul', group: 'unity' });
+}
+
+// 2026-10-15 众志成城（unity）补员：获得时若本阵营不足 5 人，则每回合召唤随机角色补员——
+//   首回合补到 5 人、此后每回合 +1（整局上限 cfg.maxRecruits）；
+//   获得时已满 5 人则永久不召唤（state._unityNoRecruit 锁定），只吃加成。
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(50)、
+//   角色取 cfg.recruitPool[camp]。已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
+//   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
+export function spawnUnityRecruits(team, state, log) {
+    if (!team || !team.length || !state) return;
+    if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.UNITY)) return;
+    const cfg = C.BUFFS.unity;
+    if (!cfg) return;
+    if (state._unityNoRecruit) return;
+    if (!state._unityChecked) {
+        state._unityChecked = true;
+        if (team.filter(u => u.alive).length >= 5) { state._unityNoRecruit = true; return; }
+    }
+    const maxRecruits = cfg.maxRecruits ?? 4;
+    const recruited = team.filter(u => u.isUnityRecruit).length;
+    if (recruited >= maxRecruits) return;
+    const aliveN = team.filter(u => u.alive).length;
+    const toSpawn = aliveN < 5 ? Math.min(5 - aliveN, maxRecruits - recruited) : 1;
+    if (toSpawn <= 0) return;
+    const camp = team.find(u => u.alive)?.camp;
+    const pool = (cfg.recruitPool && cfg.recruitPool[camp === CAMP_TYPES.ENEMY ? 'enemy' : 'ally']) || [];
+    if (!pool.length) return;
+    const rng = getBattleRng();
+    for (let i = 0; i < toSpawn; i++) {
+        const order = [];
+        for (let p = 1; p <= 9; p++) order.push(p);
+        for (let j = order.length - 1; j > 0; j--) { const k = rng.nextInt(0, j); [order[j], order[k]] = [order[k], order[j]]; }
+        const landPos = findFreePos(team, order);
+        if (landPos == null) break;   // 9 格全被活人占：放弃本次落位
+        const pick = pool[rng.nextInt(0, pool.length - 1)];
+        const recruit = spawnUnit(team, pick.name, cfg.recruitM, pick.role, landPos);
+        recruit.isUnityRecruit = true;
+        if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: '众志成城' } });
+    }
 }
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
