@@ -1,15 +1,10 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.28.0 | ~14900 bytes | 2026-10-15 体检第 91 轮转交：出手声明 announce data 补 maxHpDelta=face.hpPerAttack
-//   （数值对照器 PANG_ATK_HP 契约声明侧；与 addMod group 'pangAtkHp' 同源同值，纯载荷零行为变化）
-// V6.27.0 | ~12800 bytes | 2026-10-15 出手声明前移：掷骰结果（国字脸加防 / 打歪倍率 + 出手蓄力上限）改在选敌完成后
-//   （新信号 AFTER_SELECT_TARGET，早于命中/闪避判定）立即落日志 → 被闪避反击时也能看见「加防/加血」声明；
-//   AFTER_ATTACK / AFTER_DAMAGE_APPLIED 里重复的 pushInfo 拆除，演出标记 pangTaunt/pangDefGain/pangClumsy 保留
-// V6.26.0 | ~12240 bytes | 2026-10-15 三改（老板拍板）：出手蓄力每次攻击前 maxHp+hpPerAttack（国字脸 defGain 50→40 补偿，数值走 content）；
-//   打歪倍率固定 2.0 改 dmgMultMin~dmgMultMax 随机（步长 dmgMultStep，本击定值存 _clumsyMult）
-// V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.28.0';
+// V6.29.0 | ~15400 bytes | 2026-10-15 蓄力改版（老板拍板）：每次出手命中后自身回血 healPerAttack（放弃「上限永久成长」），
+//   走通用 HEAL 通道：本组件发 HEAL 声明 → 本击 ATTACK 组 entries → render/38 回血白名单 → 战报绿字 + afterText 飘字
+export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
+import { addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';
+import { fmtHp } from '../infra/51-core-utils.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -98,9 +93,6 @@ export function createPangYuanQiaoComponent() {
                 pang.state._clumsyHit = false;
                 pang.state._tauntFired = false;
                 pendingDecl = null;
-                // 2026-10-15 出手蓄力（老板拍板，国字脸 −10 防的补偿）：每次发起攻击前生命上限永久+hpPerAttack
-                addMod(pang, 'maxHp', { source: '蓄力', value: face.hpPerAttack, ttl: 'permanent', group: 'pangAtkHp', op: 'add' });
-                refreshMaxHp(pang, null, '蓄力');
                 const cands = (data.validTargets || []).filter(t => t && t.alive && t !== pang);
                 if (cands.length === 0) return;
                 const rng = getBattleRng();
@@ -135,18 +127,31 @@ export function createPangYuanQiaoComponent() {
                 const decl = pendingDecl;
                 pendingDecl = null;
                 if (!decl || !data.log) return;
-                const hpNote = `蓄力生命上限+${face.hpPerAttack}`;
                 const note = decl.kind === 'clumsy'
-                    ? `😵 年轻气盛：胖远桥一拳打歪，招呼到 ${data.target ? data.target.name : '?'} 身上（伤害×${decl.mult}；${hpNote}）`
-                    : `😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}；${hpNote}）`;
+                    ? `😵 年轻气盛：胖远桥一拳打歪，招呼到 ${data.target ? data.target.name : '?'} 身上（伤害×${decl.mult}）`
+                    : `😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）`;
                 data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                     unitName: pang.name, unitUid: pang.uid, camp: pang.camp,
                     skillName: decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸',
-                    note,
-                    // 出手蓄力的声明侧数值（体检第 91 轮转交：数值对照器 PANG_ATK_HP 契约的声明侧）；
-                    //   与 BEFORE_SELECT_TARGET 里 addMod group 'pangAtkHp' 同源同值（face.hpPerAttack）
-                    maxHpDelta: face.hpPerAttack
+                    note
                 } });
+            });
+
+            // 出手蓄力改版（2026-10-15 老板拍板）：每次出手**命中后**自身回血 face.healPerAttack（放弃「上限永久成长」）。
+            //   走通用 HEAL 通道：把 HEAL 声明推进 data.declarations（core/10 结算后落进本击 ATTACK 组 entries），
+            //   render/38 攻击组回血白名单（ATTACK_GROUP_HEAL_FACTS 已含 FACT_TYPES.HEAL）→ makeHealAction afterText 飘字；
+            //   战报绿字由 render/35 的通用 HEAL 渲染器（plusTrail）产出。被闪避的那次攻击不发本信号，故不回血。
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
+                if (data.unit !== pang || !pang.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const healed = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
+                if (healed <= 0) return;
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: EFFECT_TYPES.HEAL, value: healed, source: pang,
+                    factType: FACT_TYPES.HEAL,
+                    factData: { unitName: pang.name, heal: healed, hpBefore: fmtHp(pang.hp), hpAfter: fmtHp(pang.hp + healed), unitUid: pang.uid, icon: '💪', label: '蓄力回复', mode: 'plusTrail', anchorVerb: '回复' }
+                });
             });
 
             // 年轻气盛：该次伤害 ×本击掷定的随机倍率（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
