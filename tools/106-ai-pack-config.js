@@ -1,3 +1,5 @@
+// V6.0.27 | ~21250 bytes | 2026-10-15 补登记 tools/125-buff-badge-demo.html（dev-index.html 已登记的
+//           「UI 效果 demo」入口按钮跳它；漏登则包内入口页点开无页面，同 demo-stage3 先例）
 // V6.0.26 | ~21040 bytes | 2026-10-14 补登记 ui/77speed-controls.js、ui/78button-state.js（ui/68 三拆产物，
 //           68 入口 re-export 二者；漏登则包内 ui/68 引用断裂）
 // V6.0.25 | ~20200 bytes | 2026-10-13 补登记 tests/health-rules/160-166 共 7 条（121health-monitor.js 已 import
@@ -38,7 +40,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.26';
+export const VER = 'tools/106-ai-pack-config.js V6.0.27';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -191,6 +193,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
     '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js', '../tools/124-param-lab-glossary.js',
+    // 2026-10-15 补登记 125：dev-index.html（已登记在包内）「UI 效果 demo」入口按钮跳转的自包含页
+    '../tools/125-buff-badge-demo.html',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',
