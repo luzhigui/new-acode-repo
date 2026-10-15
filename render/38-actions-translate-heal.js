@@ -6,6 +6,8 @@ export const VER = 'render/38-actions-translate-heal.js V1.0.0';
 
 // 回血族翻译器表（键=factType）
 export const HEAL_TRANSLATORS = {
+    // 通用回血（2026-10-15）：任何走 FACT_TYPES.HEAL 的回血都从这里出动作 —— 新增回血无需再加条目
+    [FACT_TYPES.HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.KUAI_LE_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.NINE_YANG_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.WEI_LEECH]: (data, index) => makeHealAction(data, index),

@@ -285,21 +285,16 @@ export function renderKuaiLeHealFact(fact) {
     };
 }
 
-// 通用回血（2026-10-15 HEAL fact）：字段 {unitUid, heal, hpBefore, hpAfter, label, icon}
-// text 与 fxAnchors 由同一函数同时产出 → 锚点永远匹配得上，不会出现 FLYER_REGEN 那种「文案漂移→飘字哑火」
+// 通用回血（2026-10-15 HEAL fact）：字段 {unitUid, heal, hpBefore/hpAfter 或 newMaxHp, label, icon, mode, anchorVerb}
+// 委托 36 的 makeHealRenderer 工厂（三种历史版式）——迁移时按原 mode/icon/label/anchorVerb 传参即逐字节同原样，
+// 不传则回落 plusTrail；text 与 fxAnchors 由工厂同源产出，锚点永不哑火（不重造文案模板）
 export function renderHealFact(fact) {
-    const icon = fact.icon || '💚';
-    const label = fact.label || '回血';
-    return {
-        type:'info',
-        text:`<span class="green">${icon} ${label}：${fact.unitName} 回复${fact.heal}点生命，血量 ${fact.hpBefore} → ${fact.hpAfter}</span>`,
-        fxAnchors: [`回复${fact.heal}点`],
-        zhouUid: fact.unitUid,
-        zhouHpAfter: fact.hpAfter,
-        isHealEntry: true,
-        healAmount: fact.heal,
-        healUnitUid: fact.unitUid
-    };
+    return makeHealRenderer({
+        icon: fact.icon || '💚',
+        label: fact.label || '回血',
+        mode: fact.mode || 'plusTrail',
+        anchorVerb: fact.anchorVerb || '回复'
+    })(fact);
 }
 
 // 小昭蛛变
