@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.4 | ~16450 bytes | 2026-10-11 工具三入口（商店/体检/工具箱）也改当前页跳转——宿主内置预览拦 window.open('_blank') 弹确认框（用户报体检/工具仍弹），至此全站 12 入口零弹窗；9 个游戏入口 = V6.3.3 恢复版 -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.3.5 | ~16320 bytes | 2026-10-15 「文档与准则」区整理：补 btnTestRunner 死按钮 handler（→ tests/体检迭代日志.md）、btnGameDesign 指向改 02 游戏设定、标签/缩进对齐、删除与 btnShop 重复的圣火令商店临时入口 <a>；页面版本号统一 V6.3.5。V6.3.4 工具三入口当前页跳转（全站 12 入口零弹窗） -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.0</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.5</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         body {
@@ -54,7 +54,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.1.0 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.3.5 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -79,20 +79,18 @@
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
-                <!-- 临时入口（手机）：用 <a> 当前页直跳，避开 window.open 在移动端被拦截；验收后删除 -->
-                <a href="tools/105-shop.html" style="display:block;text-align:center;margin-top:6px;color:#8b7355;font-size:0.75rem;text-decoration:underline;">🏪 圣火令商店（临时入口 · 手机可点）</a>
             </div>
         </div>
 
-        <!-- 开发准则 -->
+        <!-- 文档与准则 -->
         <div class="section">
-            <div class="section-title toggle-section" id="devGuideToggle" style="display:flex;justify-content:space-between;">📖 开发准则 ▸</div>
+            <div class="section-title toggle-section" id="devGuideToggle" style="display:flex;justify-content:space-between;">📖 文档与准则 ▸</div>
             <div class="btn-grid dev-toolbox-grid" id="devGuideGrid">
                 <button class="big-btn btn-tool" id="btnReadme">📖 README 项目大纲</button>
                 <button class="big-btn btn-tool" id="btnChangelog">📋 CHANGELOG 变更履历</button>
-                <button class="big-btn btn-tool" id="btnKaifazhunze">📋 开发准则</button>
-                <button class="big-btn btn-tool" id="btnTestRunner">📋 Test Runner 迭代变更日志</button>
-<button class="big-btn btn-tool" id="btnGameDesign">🎮 游戏设计</button>
+                <button class="big-btn btn-tool" id="btnKaifazhunze">📋 开发准则（工程决策）</button>
+                <button class="big-btn btn-tool" id="btnTestRunner">🧪 体检迭代日志</button>
+                <button class="big-btn btn-tool" id="btnGameDesign">🎮 游戏设定</button>
             </div>
         </div>
 
@@ -104,7 +102,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.0 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.5 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -182,15 +180,18 @@
         document.getElementById('btnKaifazhunze').addEventListener('click', () => {
             location.href = '文件汇总20260730/12 子版readme和准则/01 工程决策.md';
         });
-document.getElementById('btnGameDesign').addEventListener('click', () => {
-    location.href = '文件汇总20260730/05 游戏设定 不看不能理解/07 杂谈进阶.md';
-});
+        document.getElementById('btnTestRunner').addEventListener('click', () => {
+            location.href = 'tests/体检迭代日志.md';
+        });
+        document.getElementById('btnGameDesign').addEventListener('click', () => {
+            location.href = '文件汇总20260730/05 游戏设定 不看不能理解/02 游戏设定.md';
+        });
 
-        // ==================== 开发准则折叠 ====================
+        // ==================== 文档与准则折叠 ====================
         document.getElementById('devGuideToggle').addEventListener('click', function() {
             const grid = document.getElementById('devGuideGrid');
             const expanded = grid.classList.toggle('expanded');
-            this.innerHTML = expanded ? '📖 开发准则 ▾' : '📖 开发准则 ▸';
+            this.innerHTML = expanded ? '📖 文档与准则 ▾' : '📖 文档与准则 ▸';
         });
 
         // ==================== 独立背景音乐（Web Audio 缓存模式） ====================

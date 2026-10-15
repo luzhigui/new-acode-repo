@@ -1,6 +1,7 @@
 // render/37-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
-// V1.1.0 | ~7800 bytes | 2026-10-12 何太冲重做 V3：名片技能三条换新（liangyiLink 两仪双修 / targetMark 箭靶标记 / redBlood 红血·两仪互换），旧三技能条目已删
-export const VER = 'render/37-role-cards.js V1.1.0';
+// V1.2.0 | ~8100 bytes | 2026-10-15 杨逍补名片卡（老板实机反馈面板无技能说明）：👆弹指神通/❌点穴截脉/🦅鹰眼三条，popupMark/logTag 同韦一笑口径
+// V1.1.0 | 2026-10-12 何太冲重做 V3：名片技能三条换新（liangyiLink 两仪双修 / targetMark 箭靶标记 / redBlood 红血·两仪互换），旧三技能条目已删
+export const VER = 'render/37-role-cards.js V1.2.0';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -27,6 +28,15 @@ export const ROLE_CARDS = [
         skills: () => [
             getSkillDesc('韦一笑', 'bloodSiphon'),
             getSkillDesc('韦一笑', 'bloodDodge')
+        ]
+    },
+    {
+        id: 'yangXiao', name: '杨逍', match: u => !!u.isYangXiao,
+        popupMark: '[杨逍]', logTag: '[杨逍]',
+        skills: () => [
+            `👆 ${getSkillDesc('杨逍', 'dianXueShenTong')}`,
+            `❌ ${getSkillDesc('杨逍', 'dianXueJieMai')}`,
+            `🦅 ${getSkillDesc('杨逍', 'eagleEye')}`
         ]
     },
     {
