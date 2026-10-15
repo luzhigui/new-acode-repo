@@ -239,7 +239,9 @@ function submitOnHitEffects(data, onHitDecls) {
                 const heal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid } });
+                    // 2026-10-15 迁移试点：九阳改用通用 HEAL fact（契约/渲染器/白名单/翻译已在 56/58/35/38 就位），
+                    //   参数按原工厂口径传（icon/label/mode/anchorVerb）→ 文案与飘字与旧 NINE_YANG_HEAL 逐字节一致
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                     // 审计账本（2026-10-14 迁出 _mods）：九阳神功治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl
                     //   对照器按 group='nineYangHeal' 比对「声明 heal vs 实际治疗」。审计容器全库无读点
                     //   （getStat 不认 hp）⇒ 不串进活值/显示；真实治疗仍由上方 HEAL 声明结算负责。
