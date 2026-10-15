@@ -1,3 +1,7 @@
+// V3.3.1 | ~125000 bytes | 2026-10-15 第 91 轮：hp 记账类注释同步 recordHpAudit ——
+//         XUAN_MING_DOT / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_LAND_HEAL 等处的旧注
+//         「依赖主代码待补 addMod(u,'hp',{...})」已被主代码 V7.6.19（2de9895）用 recordHpAudit 落地取代，
+//         重校为 recordHpAudit(unit, group, value, source)。纯注释、零算法改动；读点仍走 _audit.hp，偏差 0 不变。
 // V3.3.0 | ~124400 bytes | 2026-10-15 第 90 轮：账本读点跟随主代码 hp 审计迁移（_mods → unit._audit.hp）——
 //         主代码 V7.6.19（2de9895）把 hp 记账迁出 _mods（防污染真实属性容器）后，本对照器读点未同步
 //         ⇒ 17 条 hp 类契约集体降级「警告态(账本空)」：声明一大把（热血奋战 462 条）、账本一条读不到。
@@ -136,7 +140,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.0.2';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.3.1';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1191,11 +1195,11 @@ const CONTRACTS = [
         //   emit（modules/30custom-effects.js L45 dotTick）：{ factType:XUAN_MING_DOT, data:{ unitName, dot, uidD, isDead } }
         //     dot = Math.floor(u.maxHp * pct)；同处已 push ROUND_STAT_GRANT { field:'hp', delta:-dot } 实际扣血。
         //   镜像 BREAK_DEF（dir:-1：声明 dot 为正、hp 下降）：group='xuanMingDot'，比对「玄冥中毒」自身贡献，不受同步其他 hp 来源干扰。
-        //   ⚠️ 依赖主代码一次性基建：modules/30 dotTick 须额外 addMod(u,'hp',{source:'玄冥中毒',value:-dot,ttl:'permanent',group:'xuanMingDot',op:'add'})
-        //     —— 纯记账（core/13 addMod L256 只 push 到 _mods，零游戏逻辑副作用；真实扣血仍由 ROUND_STAT_GRANT 负责）。
-        //     主代码未加该条目时 gd 为 null → 走 net-delta 兜底但 mismatch 不计（主循环 L1088 守卫）→ 零触发不误报（警告态）。
-        //     主代码加上后即自动激活严格比对，应见偏差 0。
-        //   牙齿：后续补（把 dot 翻倍 / 把 addMod value 改错 ⇒ 命中）。
+        //   ✅ 记账已落地（主代码 V7.6.19 / 2de9895）：modules/30 dotTick 走 recordHpAudit(u,'xuanMingDot',-dot,'玄冥中毒')
+        //     —— 纯记账（core/13 recordHpAudit → unit._audit.hp，零游戏逻辑副作用；真实扣血仍由 ROUND_STAT_GRANT 负责）。
+        //     第 90 轮起对照器 snapLedger 已跟迁读 _audit.hp ⇒ 该条目直接激活严格比对，应见偏差 0。
+        //     （旧注：主代码未加记账时 gd 为 null → 走 net-delta 兜底但 mismatch 不计（主循环守卫）→ 零触发不误报警告态。）
+        //   牙齿：后续补（把 dot 翻倍 / 把 recordHpAudit 的 value 改错 ⇒ 命中）。
         id: 'XUAN_MING_DOT',
         label: '玄冥中毒DoT',
         group: 'xuanMingDot',
@@ -1269,16 +1273,16 @@ const CONTRACTS = [
     },
     {
         // 第 80 轮（HP 类扩展第三批 · 战斗内即时治疗三连）：三条均 dir:+1、group 隔离、fact 带 unitUid（uid 精确归因）。
-        //   三处 fact 与主代码待补的 addMod 记账条目都在**同一 handler、同一变量**发射 ⇒ 同一步，可走严格判据；
-        //   缺账本条目时为警告态：声明>0、gd=null → 跳过比对（非假绿），主代码补上后自动转严格。
+        //   三处 fact 与主代码已落地的 recordHpAudit 记账条目都在**同一 handler、同一变量**发射 ⇒ 同一步，可走严格判据；
+        //   （旧：缺账本条目时为警告态：声明>0、gd=null → 跳过比对非假绿；主代码已补 recordHpAudit ⇒ 严格态。）
         id: 'BLOOD_THIRST_LEECH',
         label: '嗜血狂刀吸血',
         group: 'bloodthirstLeech',
         dir: +1,
         // emit（core/04 submitBloodthirstDeclaration L106/L117 两条分支）：{ factType:BLOOD_THIRST_LEECH,
         //   data:{ unitName, leechVal, isBrother, unitUid } }；leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio)。
-        //   依赖主代码：两条分支 push 声明后各补 addMod(unit,'hp',{source:'嗜血狂刀',value:leechVal,
-        //   ttl:'permanent',group:'bloodthirstLeech',op:'add'})——纯记账（真实吸血仍由 EFFECT_TYPES.LEECH 结算负责）。
+        //   记账（主代码已落地）：两条分支 push 声明后各走 recordHpAudit(unit,'bloodthirstLeech',leechVal,'嗜血狂刀')
+        //   ——纯记账（core/13 recordHpAudit → unit._audit.hp；真实吸血仍由 EFFECT_TYPES.LEECH 结算负责）。
         //   extract 加 >0 守卫：leechVal 可算出 0（dmg=1 时 floor(0.8)=0，主代码该分支无 >0 守卫），跳过防「声明 0」假报。
         extract(stepLog) {
             const out = [];
@@ -1306,8 +1310,8 @@ const CONTRACTS = [
         dir: +1,
         // emit（core/04 submitHotBloodDeclaration L146-149）：{ factType:HOT_BLOOD_HEAL,
         //   data:{ unitName, leech, tag, isBrother, unitUid } }；leech = Math.min(floor((maxHp-hp)*ratio), maxHp-hp)，声明侧已 clamp。
-        //   依赖主代码：push 声明后补 addMod(unit,'hp',{source:'热血奋战',value:leech,
-        //   ttl:'permanent',group:'hotBloodHeal',op:'add'})——纯记账（真实治疗仍由 EFFECT_TYPES.HEAL 结算负责）。
+        //   记账（主代码已落地）：push 声明后走 recordHpAudit(unit,'hotBloodHeal',leech,'热血奋战')
+        //   ——纯记账（core/13 recordHpAudit → unit._audit.hp；真实治疗仍由 EFFECT_TYPES.HEAL 结算负责）。
         //   buff 门控（hotBlood，tickAndPickBuffs 确定性轮转选入）——样本覆盖不足时零触发按两级守卫处理。
         extract(stepLog) {
             const out = [];
@@ -1336,8 +1340,8 @@ const CONTRACTS = [
         // emit（core/04 onUnitDeathFlyerRegen L272-279 循环）：{ factType:FLYER_REGEN,
         //   data:{ unitName, unitUid, heal, deadCount } }；heal = u.hp - before = **实际落地值**（applyStatChange 已被
         //   maxHp 上限截断后的真增量，非 gain 意图值）——记账条目取同一表达式，保证「声明 vs 实际」精确相等。
-        //   依赖主代码：log.push 的 if 块内补 addMod(u,'hp',{source:'飞行再生',value:u.hp - before,
-        //   ttl:'permanent',group:'flyerRegen',op:'add'})——纯记账（真实治疗仍由 applyStatChange 负责）。
+        //   记账（主代码已落地）：log.push 的 if 块内走 recordHpAudit(u,'flyerRegen',u.hp - before,'飞行再生')
+        //   ——纯记账（core/13 recordHpAudit → unit._audit.hp；真实治疗仍由 applyStatChange 负责）。
         //   触发条件宽（任一非马单位阵亡 + 场上存活飞行）——stage 3/4 宋青书、stage 5 鹤笔翁、精英 韦一笑/小昭等均可触发。
         extract(stepLog) {
             const out = [];
@@ -1364,9 +1368,10 @@ const CONTRACTS = [
         //   emit 点：applyStatChange(unit,'hp',heal) 只发 eventBus 事件**不产 fact**（core/13 L222-230 无 log.push），
         //   同函数的 SPIDER_RETURN fact 又只带 pos ⇒ 声明侧无数值 ⇒ 纯 test-side 路线证死，走载荷转交：
         //   主代码把 landHeal 提前算好写进 SPIDER_RETURN fact data（转交块见矩阵第 88 轮节）。
-        //   记账 addMod 已在（L196，注释"供数值对照器"）⇒ 转交只是把**同一 heal 值**补进 fact，零游戏逻辑副作用。
-        //   dir=+1；>0 守卫（孵化落地/满血/比率为 0 时 landHeal=0，与 addMod 同条件不落账）。
-        //   fact 与 addMod 同函数同 step（L186 push 与 L196 addMod 同在 spiderReturn 一步内）⇒ 干净树 sum===actual 恒等，严格安全。
+        //   记账（recordHpAudit，主代码 V7.6.19 由 _mods 迁出）已在（注释"供数值对照器"）⇒ 转交只是把**同一 heal 值**
+        //   补进 fact，零游戏逻辑副作用。
+        //   dir=+1；>0 守卫（孵化落地/满血/比率为 0 时 landHeal=0，与记账同条件不落账）。
+        //   fact 与记账同函数同 step（同在 spiderReturn 一步内）⇒ 干净树 sum===actual 恒等，严格安全。
         id: 'SPIDER_LAND_HEAL',
         label: '飞天落地回血',
         group: 'spiderLandHeal',
