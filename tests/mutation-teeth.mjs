@@ -1,3 +1,8 @@
+// V2.9.10 | 2026-10-15 第 94 轮：修 --merge-results 输出 bug（合并功能首次实际使用即暴露）——
+//   块拼接行 `[..., ...[...main.blocks.values()].join('\n'), ...]` 多写一个展开符：join 出来的大字符串被
+//   逐字符拆成数组元素，写出的结果文件整片逐字符换行 = 全损（本轮 29 棵旧结果被冲掉，靠重建树重跑恢复）。
+//   修法：去掉多余的 `...`。另补记：ONLY 模式每批跑完必须 `cp teeth-results-inc.txt <批次备份>`——
+//   inc 文件每次跑都会被覆盖（本轮 T18 的第 93 轮结果就是这样丢的）。
 // V2.9.9 | 2026-10-15 第 93 轮：T18 变异重修——旧版 `{ posA, posB }`→`{ posB, posA }` 是 ES6 简写
 //   换键顺序不换值的**空操作**（sed 注入成功但对象一模一样，树仍干净 ⇒ 首测 0 命中误导"规则没牙"）；
 //   改为真换值 `posA: posB, posB: posA`。教训入 skill：变异必须改变**行为/数值**，文本差异≠行为差异。
@@ -79,7 +84,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.9';
+export const VER = 'tests/mutation-teeth.mjs V2.9.10';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
