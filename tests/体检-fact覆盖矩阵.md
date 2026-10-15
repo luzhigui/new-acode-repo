@@ -496,8 +496,9 @@ modules/27 小昭·妹飞天重做在途）。
 >     - **A25 变异锚点失效**：圣火令拆两条路径后 atk addMod 行两处全同 ⇒ 单点锚点不唯一，改 multi
 >       （两处一起翻倍，语义不变；mutation-teeth V2.9.7，--verify 46/46）。
 >     - **scan-groups 揪出新盲区 pangAtkHp**（胖远桥出手蓄力 maxHp，41 条词条无契约盯）⇒ 新增
->       PANG_ATK_HP 契约（stat-decl V3.4.0，45→46）；声明侧只有 note 文本 ⇒ 走数值载荷转交
->       （announce data 补 maxHpDelta，转交块在下方；未转交前零触发警告态，账本 41 词条在）。
+>       PANG_ATK_HP 契约（stat-decl V3.4.0，45→46）；声明侧只有 note 文本 ⇒ 按蜘蛛卵先例走数值载荷转交
+>       （announce data 补 maxHpDelta）。**已正式落地**（2026-10-15 `3e78c4e`：modules/26-pangyuanqiao V6.28.0）
+>       ——实测 `PANG_ATK_HP 声明 41 条 · 严格比对 41 条 · 偏差 0`，警告态清零，**46 条契约全严格**。
 >     验证（干净 worktree @ 09657ba）：replay 含 DEAD=1 0 fail/0 空转/0 不变量违规；coverage 退 0；
 >     scan-groups 未覆盖 0；static/smoke/stat-decl/registration/contract-consistency 全退 0；
 >     mutation --verify 46/46；baseline 仍 3 场翻转（另案挂账）。提交 8d228e1。
@@ -546,7 +547,8 @@ modules/27 小昭·妹飞天重做在途）。
 ```
 ===== 主代码改动 END =====
 
-### ===== 主代码改动 START（modules/26elite-sixsects-pangyuanqiao.js · PANG_DECLARE 出手声明）=====
+### 【已落地】主代码改动（modules/26elite-sixsects-pangyuanqiao.js · PANG_DECLARE 出手声明）
+> 2026-10-15 `3e78c4e` 正式落地（modules/26-pangyuanqiao V6.28.0）。实测 41/41 偏差 0，PANG_ATK_HP 转严格。
 // 【位置】modules/26elite-sixsects-pangyuanqiao.js 的 PANG_DECLARE handler（AFTER_SELECT_TARGET 出手声明）内；定位锚点：搜 `skillName: decl.kind === 'clumsy'`。把该 SKILL_ANNOUNCE 的 data 对象替换为下面代码（只加一个字段）。
 // 【原状】data 只有 unitName/unitUid/camp/skillName/note 五个字段；蓄力数值只写在 note 文本里（「蓄力生命上限+N」）。
 // 【改法】data 补 `maxHpDelta: face.hpPerAttack`——与 BEFORE_SELECT_TARGET 里 addMod group 'pangAtkHp' 同源同值（同一 face 参数对象），零行为差异。
@@ -561,4 +563,4 @@ modules/27 小昭·妹飞天重做在途）。
                     maxHpDelta: face.hpPerAttack
                 } });
 ```
-===== 主代码改动 END =====
+===== 已落地 END（3e78c4e）=====
