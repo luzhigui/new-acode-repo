@@ -83,7 +83,9 @@ export const BUFF_TYPES = Object.freeze({
     MIND_CONTROL: 'mindControl', HORSE_FORMATION: 'horseFormation',
     HOLY_FLAME: 'holyFlame',
     SOUL_DRAIN: 'soulDrain',  // 摄魂：敌方全体攻击力降低（唯一削弱型海克斯）
-    HOLY_FIRE: 'holyFire'     // 圣火不熄：每局首次己方非巨马阵亡 → 下一个行动步原位复活（死亡交互型海克斯）
+    HOLY_FIRE: 'holyFire',    // 圣火不熄：每局首次己方非巨马阵亡 → 下一个行动步原位复活（死亡交互型海克斯）
+    LAST_STAND: 'lastStand',  // 背水一战：己方单位血量低于 35% → 攻击力 +40%
+    UNITY: 'unity'            // 众志成城：按存活人数（含召唤物）阶梯加攻防；生效时人不足则召唤随机角色补员
 });
 
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */

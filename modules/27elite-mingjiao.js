@@ -1,3 +1,6 @@
+// V7.1.1 | ~81900 bytes | 2026-10-15 修蜘蛛卵孵化过快：ON_ROUND_END 实际是「每个单位行动完就发一次」
+//   （core/11 L459，forced:false），卵计时器听它 +1 导致同一回合内就凑满 2 → 当回合孵化。
+//   改为只认真回合末（forced:true，core/11 L536 finalizeRoundEnd 每回合一次）——结茧回合末 +1、下一回合末 +2 才孵化
 // V7.1.0 | ~81700 bytes | 2026-10-15 妹永久 carry 改每回合刷新一轮（层数=1+2×上回合阵亡+上上回合阵亡，每层调用精通参数）
 //   + 妹永久圣火令改画行列命中制（回合初掷 atkCols 列/defRows 行存 _xiaoHolyFlame，core/14 读）+ 死亡计数钩子
 // V7.0.2 | ~77790 bytes | 2026-10-14 新增雄鹰组件（carry 海克斯召唤·飞行）：命中后使己方一名已行动过的
@@ -9,7 +12,7 @@
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.1.0';
+export const VER = 'modules/27elite-mingjiao.js V7.1.1';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -833,8 +836,11 @@ export function createXiaoZhaoBrotherComponent() {
                     toSpiderEgg(u, data.log);
                 }
             });
-            // 卵计时：结茧当回合末 +1、下回合末 +2 → 先于蛛落（SPIDER_RETURN:10）孵化
+            // 卵计时（2026-10-15 V7.1.1 修）：ON_ROUND_END 在 core/11 L459 是「每个单位行动完就发一次」（forced:false），
+            //   原先照收会同一回合内凑满 2 → 当回合孵化；改为只认真回合末（forced:true = core/11 L536 finalizeRoundEnd，
+            //   每回合恰一次）——结茧当回合末 +1、下一回合末 +2 → 先于蛛落（SPIDER_RETURN:10）孵化
             eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.SPIDER_EGG, (data) => {
+                if (!data.forced) return;
                 const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && u.state._spiderEgg);
                 if (!bro) return;
                 bro.state._spiderEggRounds = (bro.state._spiderEggRounds || 0) + 1;
