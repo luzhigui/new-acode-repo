@@ -564,3 +564,54 @@ modules/27 小昭·妹飞天重做在途）。
                 } });
 ```
 ===== 已落地 END（3e78c4e）=====
+
+---
+
+## 第 94 轮（2026-10-15）胖远桥改版跟随（PANG_HIT_HEAL）+ 变异结果全量重建 46/46
+
+### 一、跟随主代码 a6ab497（胖远桥蓄力→命中回血）
+- 并行会话撤 PANG_ATK_HP 契约（V3.5.0，46→45）审查**正确**：机制没了、契约两侧皆空。
+- scan-groups 扫地揪出**新盲区**：新回血机制（AFTER_DAMAGE_APPLIED → 通用 HEAL 声明）零契约盯。
+- 新增 **PANG_HIT_HEAL**（stat-decl V3.6.0，45→46）：声明侧读 HEAL entry 的 `data.label==='蓄力回复'`
+  + `data.heal`（core/10 只加 isHealEntry/healAmount/healUnitUid **不剥 data** ⇒ 结构化可读、不走文本解析；
+  label 区分胖远桥——通用 HEAL 通道多机制共用）；实际侧需转交 recordHpAudit（见下方转交块）。
+- 闭环（仓库外 worktree，主仓零触碰）：警告态 27 条声明 EXIT=0 → 临时记账严格 **27/27 偏差 0** →
+  咬牙记账值 ×2 **命中 27、偏差 27、EXIT=1**（样例"声明=10 实际=20"）→ worktree 丢弃。
+
+### 二、变异框架 merge bug（第 92 轮埋、本轮爆）
+- `--merge-results` 块拼接行多写一个展开符：`[..., ...[...blocks.values()].join('\n'), ...]` 把大字符串
+  **逐字符拆成数组元素** ⇒ 结果文件整片逐字符换行 = 全损（29 棵旧结果被冲掉；合并功能首次实际使用才暴露）。
+- 修复（mutation-teeth V2.9.10）：去掉多余 `...`。教训入版本头：ONLY 模式每批跑完必须 `cp` 备份 inc 文件
+  （T18 第 93 轮结果就是被 inc 覆盖冲掉的）。
+- 恢复：29 棵丢失树（A1-A21/T1-T7/T18）剥 WIP 叠加纯 HEAD 重建重跑，**29/29 全部有牙**；
+  与既有 17 棵增量合并回主文件，`--report` **46/46 全部有牙**（规则 22 + fact 文本 2 + 对照器兜住 22），
+  0 哑牙 0 盲区，_base 干净树 0 失败。
+
+### 三、红线快照（HEAD 4a56926）
+- rules-replay（含 DEAD=1）0 fail/0 空转/0 不变量违规；static-scan/smoke/coverage/registration/
+  contract-consistency 全退 0；stat-decl EXIT=0（46 契约：45 严格 + PANG_HIT_HEAL 警告态待转交）；
+  mutation --verify 46/46、--report 46/46 有牙。
+- baseline：**[预期变更] 18 场**（并行会话 f4e6418 周芷若九阴改版后 16→18；其提交说明明确"golden 基线
+  待体检版 --update 重录"）+ **[回归] 3 场**（597e7c5 老账）。**18 场重录仍须等 3 场回归定夺后一次性做**
+  （否则把回归烤进基线）。
+- 注：46 棵树基于 a6ab497 引擎；f4e6418 行为变更经 replay 全绿 + --verify 46/46 佐证不影响咬合结论
+  （变异是注入式增量判定），下轮全量重建时自然刷新。
+
+### 四、转交块（PANG_HIT_HEAL 实际侧记账，两块同一转账单元）
+
+===== 主代码改动 START（modules/26elite-sixsects-pangyuanqiao.js · import 行 + AFTER_DAMAGE_APPLIED 记账）=====
+```js
+// 【位置】modules/26elite-sixsects-pangyuanqiao.js 两处：① 文件头 import 行（第 6 行）；② AFTER_DAMAGE_APPLIED 命中回血 handler 内（定位锚点：搜 `if (healed <= 0) return;`，全文件仅此一处）。
+// 【原状】① import { addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';  ② healed 算好后只推进 HEAL 声明（data.declarations.push），无记账。
+// 【改法】① import 末尾补 `, recordHpAudit`；② 在 `if (healed <= 0) return;` 之后、`if (!data.declarations)` 之前插一行 recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复');。
+// 【效果】零行为差异（recordHpAudit 只 push unit._audit.hp，不碰任何游戏逻辑；healed 为 min 截断后实际值，与声明侧 factData.heal 同表达式同值）；PANG_HIT_HEAL 契约从零触发警告态转严格比对（27 条逐一核对，数值写错当场报红）。闭环已验证：临时记账严格 27/27 偏差 0、咬牙 ×2 命中 27 EXIT=1。
+import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from '../core/13battle-shared.js';
+
+// 以下为 AFTER_DAMAGE_APPLIED handler 内片段（替换 `const healed = ...` 到 `if (!data.declarations) ...` 之间）：
+                const healed = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
+                if (healed <= 0) return;
+                // 纯记账：只 push unit._audit.hp，供数值对照器隔离自身贡献（九阳 core/15 L248 同款口径）
+                recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复');
+                if (!data.declarations) data.declarations = [];
+```
+===== 主代码改动 END =====
