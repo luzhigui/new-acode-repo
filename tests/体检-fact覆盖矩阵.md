@@ -589,7 +589,8 @@ modules/27 小昭·妹飞天重做在途）。
 
 ### 三、红线快照（HEAD 4a56926）
 - rules-replay（含 DEAD=1）0 fail/0 空转/0 不变量违规；static-scan/smoke/coverage/registration/
-  contract-consistency 全退 0；stat-decl EXIT=0（46 契约：45 严格 + PANG_HIT_HEAL 警告态待转交）；
+  contract-consistency 全退 0；stat-decl EXIT=0（46 契约**全严格**——PANG_HIT_HEAL 已随 `855d52c` 转严格，
+  实测 27/27 偏差 0，见下方转交块「已落地」）；
   mutation --verify 46/46、--report 46/46 有牙。
 - baseline：**[预期变更] 18 场**（并行会话 f4e6418 周芷若九阴改版后 16→18；其提交说明明确"golden 基线
   待体检版 --update 重录"）+ **[回归] 3 场**（597e7c5 老账）。**18 场重录仍须等 3 场回归定夺后一次性做**
@@ -597,9 +598,9 @@ modules/27 小昭·妹飞天重做在途）。
 - 注：46 棵树基于 a6ab497 引擎；f4e6418 行为变更经 replay 全绿 + --verify 46/46 佐证不影响咬合结论
   （变异是注入式增量判定），下轮全量重建时自然刷新。
 
-### 四、转交块（PANG_HIT_HEAL 实际侧记账，两块同一转账单元）
+### 四、转交块（PANG_HIT_HEAL 实际侧记账——**已落地 855d52c**，modules/26 V6.29.1，实测 27/27 偏差 0）
 
-===== 主代码改动 START（modules/26elite-sixsects-pangyuanqiao.js · import 行 + AFTER_DAMAGE_APPLIED 记账）=====
+### 【已落地】主代码改动（modules/26elite-sixsects-pangyuanqiao.js · import 行 + AFTER_DAMAGE_APPLIED 记账）
 ```js
 // 【位置】modules/26elite-sixsects-pangyuanqiao.js 两处：① 文件头 import 行（第 6 行）；② AFTER_DAMAGE_APPLIED 命中回血 handler 内（定位锚点：搜 `if (healed <= 0) return;`，全文件仅此一处）。
 // 【原状】① import { addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';  ② healed 算好后只推进 HEAL 声明（data.declarations.push），无记账。
@@ -614,4 +615,4 @@ import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from 
                 recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复');
                 if (!data.declarations) data.declarations = [];
 ```
-===== 主代码改动 END =====
+===== 已落地 END（855d52c · modules/26 V6.29.1）=====
