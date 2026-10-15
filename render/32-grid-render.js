@@ -1,8 +1,8 @@
-// V6.8.1 | ~33150 bytes | 2026-10-13 杨逍改版图标：点穴眩晕复用角色图标 😵（getRoleIcon 最高优先级），删 🫰；截脉 🔒→❌ 禁疗（_jinMai 剩余>0，
-//          受到的治疗/吸血回复减半）——压到 logoList 末尾，与 🎯/☯/🔻 同口径（不被 buff 图标挤掉）
+// V6.8.2 | ~34322 bytes | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标
+//          （carry/双击恒显示；受格子「最多留最新 2 个」上限约束）
 // ── 更早版本见 记录-更改履历.md
 // V6.7.0 | 2026-10-12 修状态标记隐形（短名未裁剪分支不消费 logoList）→ 统一用 displayLogos
-export const VER = 'render/32-grid-render.js V6.8.1';
+export const VER = 'render/32-grid-render.js V6.8.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
@@ -456,6 +456,19 @@ export function renderGrid(id, camp) {
                     }
                 });
                 buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' ');
+            }
+        }
+        // 2026-10-15 小昭·妹永久海克斯 logo（老板需求）：有全局激活海克斯优先显示全局（上面 buffIcons 已填）；
+        //   全局缺位时补她账本里「最新的」一个受益永久海克斯图标（_permanentBuffs 按获得顺序 push，队尾即最新）。
+        //   carry/双击的永久效果直接挂妹自身（modules/27 给 bro addMod / 妹双击），不受 5 号位判定限制，恒显示。
+        if (!buffIcons && unit.isXiaoZhaoBrother && Array.isArray(unit.state._permanentBuffs)) {
+            const perms = unit.state._permanentBuffs;
+            for (let bi = perms.length - 1; bi >= 0; bi--) {
+                const pk = perms[bi].key;
+                const info = CONFIG.BUFFS ? CONFIG.BUFFS[pk] : null;
+                const ok = (pk === BUFF_TYPES.CARRY || pk === BUFF_TYPES.DOUBLE_STRIKE)
+                    || isUnitBenefitedByBuff(unit, pk, team, unit.uid, perms);
+                if (info && info.icon && ok) { buffIcons = info.icon; break; }
             }
         }
         let atkStyle = totalChange > 0 ? 'color:var(--c-gain);font-weight:bold;' : '';
