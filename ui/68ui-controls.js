@@ -1,7 +1,11 @@
+// V7.9.1 | 实测 24724 bytes | 2026-10-15 修 `restoreSpeedFromScroll is not defined`：V7.9.0 拆分后本文件里
+//   bindSettleButton 结尾仍直接调 restoreSpeedFromScroll()，但该符号只在 L20 用 `export {...} from` 做了
+//   **转出**（re-export 不产生本模块的局部绑定）→ 点「再战/结算」按钮即 ReferenceError、中断后续 updateButtons。
+//   改为与 ui/65 同款写法：L17 从 77 显式 import（局部可用），L20 的转出保持不变（外部引用点零改动）。
 // V7.9.0 | ~24170 bytes | 2026-10-14 ui/68 拆分：倍速系统迁 ui/77（含 onAnyButtonClick 辅助）、
 //   按钮状态与 buff 槽迁 ui/78、日志工具弹窗绑定迁 ui/64（同时断掉 68↔76 循环引用）；本文件只剩按钮事件绑定层。
 //   顶部 re-export 77/78 的符号 → 61/63/75/76 的 import 点零改动；唯一外部改动是 61 的 bindCopyLogButton 改从 64 引。
-export const VER = 'ui/68ui-controls.js V7.9.0';
+export const VER = 'ui/68ui-controls.js V7.9.1';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -10,7 +14,7 @@ import { clearAllEffects } from '../player/42player-core.js';
 import { resetBattleRuntime } from './74reset-runtime.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { onAnyButtonClick } from './77speed-controls.js';
+import { onAnyButtonClick, restoreSpeedFromScroll } from './77speed-controls.js';
 
 // 77/78 拆出后的 re-export：61/63/75/76 的 import 点全部保持不变
 export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, initSpeedButtons } from './77speed-controls.js';
