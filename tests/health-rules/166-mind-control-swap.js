@@ -22,13 +22,20 @@
 //   4) 文本格式漂移：渲染模板改动导致字段解析不到（判据 1/2 的前提失效，显式报出而非静默 skip）；
 //   5) 宣告位置未生效：SWAP 宣告 A→posB、B→posA，被下一次换位打断前，该单位后续出场快照
 //      从未落到宣告位（复用 138 V6.1.12 口径：一拍时滞内任一快照命中即算生效；无后续快照不报）。
+//      V6.1.1 第 93 轮补终局兜底：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位
+//      （afterA/afterE 按 uid）应等于宣告目标位，不等即报——堵住"换位后未再出场即无从观测"的盲区
+//      （T18 变异首测 0 命中即此根因）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.0';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.1';
+// V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
+//   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
+//   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
+//   终局无该单位（阵亡）跳过。test 签名补 afterA/afterE（框架本就传，此前未用）。
 
 export const rule113 = {
     group: '技能效果回归',
     name: '惑心换位配对与落地(回归)',
-    test: function(ctx, log) {
+    test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         var n = log ? log.length : 0;
         if (n === 0) return 'skip';
 
@@ -140,6 +147,35 @@ export const rule113 = {
                     if (seen > 0 && !hit) {
                         problems.push(tag + ' ' + exp.tag + ' 换位后位置未生效：预期' + exp.pos + '号位（'
                             + seen + '次出场均未落到该位）');
+                    }
+                    // 第 93 轮补：终局快照兜底 —— 原口径只认「后续 attack-group 的 _fxSnapshot」，
+                    //   换位单位若此后再没有带快照的出场（战斗即终 / 未再出手），seen=0 不报
+                    //   ⇒ 「宣告位置造假」类变异（T18：fact 报反新旧位置）恒哑火（第 92 轮首测实测 0 命中）。
+                    //   补：无后续快照、且自换位起全程无 buff-push/buff-swap 打断记录时，终局站位
+                    //   应等于宣告目标位；不等即报。终局取不到该单位（阵亡离场）则跳过（宁漏勿误）。
+                    if (seen === 0) {
+                        var interruptedAll = false;
+                        for (var s2 = it.idx + 1; s2 < n; s2++) {
+                            var mid2 = log[s2];
+                            if (mid2 && (mid2.type === 'buff-push' || mid2.type === 'buff-swap')) {
+                                if (mid2.pushTargetUid === exp.uid || mid2.behindUid === exp.uid ||
+                                    mid2.uidA === exp.uid || mid2.uidB === exp.uid) { interruptedAll = true; break; }
+                            }
+                        }
+                        if (!interruptedAll) {
+                            var endU = null;
+                            var pools93 = [afterA || [], afterE || []];
+                            for (var p93 = 0; p93 < pools93.length && !endU; p93++) {
+                                var arr93 = pools93[p93] || [];
+                                for (var u93 = 0; u93 < arr93.length; u93++) {
+                                    if (arr93[u93] && arr93[u93].uid === exp.uid) { endU = arr93[u93]; break; }
+                                }
+                            }
+                            if (endU && typeof endU.pos === 'number' && endU.pos !== exp.pos) {
+                                problems.push(tag + ' ' + exp.tag + ' 换位后位置未生效：预期' + exp.pos
+                                    + '号位（无后续出场快照，终局站位为 ' + endU.pos + '）');
+                            }
+                        }
                     }
                 }
             }
