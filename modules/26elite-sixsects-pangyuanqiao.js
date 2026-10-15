@@ -1,8 +1,10 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.25.0 | ~11200 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.25.0';
+// V6.26.0 | ~12240 bytes | 2026-10-15 三改（老板拍板）：出手蓄力每次攻击前 maxHp+hpPerAttack（国字脸 defGain 50→40 补偿，数值走 content）；
+//   打歪倍率固定 2.0 改 dmgMultMin~dmgMultMax 随机（步长 dmgMultStep，本击定值存 _clumsyMult）
+// V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
+export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.26.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';
+import { addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -85,6 +87,9 @@ export function createPangYuanQiaoComponent() {
                 if (data.unit !== pang || !pang.alive) return;
                 pang.state._clumsyHit = false;
                 pang.state._tauntFired = false;
+                // 2026-10-15 出手蓄力（老板拍板，国字脸 −10 防的补偿）：每次发起攻击前生命上限永久+hpPerAttack
+                addMod(pang, 'maxHp', { source: '蓄力', value: face.hpPerAttack, ttl: 'permanent', group: 'pangAtkHp', op: 'add' });
+                refreshMaxHp(pang, null, '蓄力');
                 const cands = (data.validTargets || []).filter(t => t && t.alive && t !== pang);
                 if (cands.length === 0) return;
                 const rng = getBattleRng();
@@ -94,7 +99,10 @@ export function createPangYuanQiaoComponent() {
                 const threshold = Math.min(f.cap, f.base + (getStat(pang, 'atk') - f.atkRef) / f.atkDiv);
                 const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
                 if (rng.next() < clumsyProb) {
-                    // 年轻气盛（打歪）：随机挑一名敌人，×dmgMultiplier 并附带击退/眩晕
+                    // 年轻气盛（打歪）：随机挑一名敌人，×随机倍率（2026-10-15 老板拍板：固定 2.0 改
+                    //   dmgMultMin~dmgMultMax 波动、步长 dmgMultStep，本击定值存 _clumsyMult）并附带击退/眩晕
+                    const steps = Math.round((young.dmgMultMax - young.dmgMultMin) / young.dmgMultStep) + 1;
+                    pang.state._clumsyMult = Math.round((young.dmgMultMin + rng.nextInt(0, steps - 1) * young.dmgMultStep) * 10) / 10;
                     data.declaration.targetResult = cands[rng.nextInt(0, cands.length - 1)];
                     pang.state._clumsyHit = true;
                     return;
@@ -106,10 +114,10 @@ export function createPangYuanQiaoComponent() {
                 pang.state._tauntFired = true;
             });
 
-            // 年轻气盛：该次伤害 ×dmgMultiplier（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
+            // 年轻气盛：该次伤害 ×本击掷定的随机倍率（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.PANG_YOUNG_MULT, (data) => {
                 if (data.unit !== pang || !pang.state._clumsyHit) return;
-                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: young.dmgMultiplier, source: pang, label: '年轻气盛' });
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: pang.state._clumsyMult || young.dmgMultMin, source: pang, label: '年轻气盛' });
             });
 
             // 年轻气盛：命中后击退（退无可退则眩晕）——与乘风突袭共用 core/13 的判定
@@ -120,7 +128,7 @@ export function createPangYuanQiaoComponent() {
                 if (!tgt || !tgt.alive) return;
                 // 打歪的演出标记：本击 fact 带上，render/39 出手帧据此发 PANG_CLUMSY（生成步不发，避免抢画面）
                 if (data.group && data.group.data) data.group.data.pangClumsy = true;
-                pushInfo(data, `<span class="gold">😵 年轻气盛：胖远桥一拳打歪，招呼到 ${tgt.name} 身上（伤害×${young.dmgMultiplier}）</span>`);
+                pushInfo(data, `<span class="gold">😵 年轻气盛：胖远桥一拳打歪，招呼到 ${tgt.name} 身上（伤害×${pang.state._clumsyMult || young.dmgMultMin}）</span>`);
                 resolvePushOrStun(tgt, tgt.camp === CAMP_TYPES.ALLY ? A : B, data.log, '😤 年轻气盛');
             });
 
