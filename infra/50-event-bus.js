@@ -1,11 +1,12 @@
-// V6.9.3 | ~7890 bytes | 2026-10-15 ON_UNIT_DEATH 增 XIAO_CARRY_COUNT:30（妹永久 carry 死亡计数钩子，modules/27）
+// V6.9.4 | ~7950 bytes | 2026-10-15 新增相位 AFTER_SELECT_TARGET：{ PANG_DECLARE: 10 }（core/10 选敌完成、命中/闪避判定前带 log 广播；胖远桥出手声明据此早于 DODGE 落行）
+// V6.9.3 | 2026-10-15 ON_UNIT_DEATH 增 XIAO_CARRY_COUNT:30（妹永久 carry 死亡计数钩子，modules/27）
 // V6.9.2 | 2026-10-14 AFTER_DAMAGE_APPLIED 增 EAGLE_RESTORE:27（carry 雄鹰命中后恢复队友行动力 / 无人可恢复召雌鹰）
 // V6.9.1 | ~7500 bytes | 2026-10-13 杨逍重做：BEFORE_DAMAGE_CALC 增 YANGXIAO_ALL_ACTED:17（敌方全行动→追击×1.3 声明槽）
 // V6.9.0 | 2026-10-13 何太冲红血触发挪位：HE_TAICHONG_RED_BLOOD 从 BEFORE_DAMAGE_APPLY:90
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.3';
+export const VER = 'infra/50-event-bus.js V6.9.4';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -104,6 +105,7 @@ export const EXECUTION_LAYER = {
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
+    AFTER_SELECT_TARGET: { PANG_DECLARE: 10 },
     BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, MIEJUE_NORMAL_MULT: 14, MIEJUE_THIRD_MULT: 15, PANG_YOUNG_MULT: 16, YANGXIAO_ALL_ACTED: 17, HE_TAICHONG_MARK: 22, TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
     ON_DODGE:          {},

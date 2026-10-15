@@ -60,6 +60,10 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
     [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
 
+    // 通用回血（2026-10-15 新增 HEAL fact）：字段固定 {unitUid, heal, hpBefore, hpAfter, label, icon}，
+    // 引擎侧统一走 emitHeal() 发射；新增回血机制只需登记这一条 + 调一行 emitHeal，无需各自建 fact 类型
+    [FACT_TYPES.HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderHealFact', translateFn: 'makeHealAction' },
+
     // 快乐回血
     [FACT_TYPES.KUAI_LE_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderKuaiLeHealFact', translateFn: 'makeHealAction' },
 
@@ -165,6 +169,23 @@ export const FACT_SPECS = Object.freeze({
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
 });
+
+/**
+ * 攻击组内回血名单（2026-10-15 从 render/38-actions-translate-attack 的硬编码数组搬来契约层）。
+ * 出现在攻击组 entries 里的回血 fact —— 需在伤害飘字旁「同拍」弹血字（timing: afterText）。
+ * 此前这份名单硬编码在渲染层，新增回血常忘记加 → 攻击组内回血只有日志行、没有飘字（静默漏掉）。
+ * 现在唯一真源在这里：新回血若要落在攻击组内，只在本数组加一行；渲染层查表，不再硬编码。
+ */
+export const ATTACK_GROUP_HEAL_FACTS = Object.freeze([
+    FACT_TYPES.BLOOD_THIRST_LEECH,
+    FACT_TYPES.HOT_BLOOD_HEAL,
+    FACT_TYPES.NINE_YANG_HEAL,
+    FACT_TYPES.WEI_LEECH,
+    FACT_TYPES.PHANTOM_DISGUISE_HEAL,
+    FACT_TYPES.CLAW_HEAL,
+    // 通用回血（2026-10-15）：由 emitHeal() 在攻击链内发射时走同一路径
+    FACT_TYPES.HEAL
+]);
 
 /**
  * 校验 fact 是否满足字段契约。缺字段 → console.error 红字，不阻断流程。
