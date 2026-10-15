@@ -1,3 +1,6 @@
+// V6.8.9 | ~40940 bytes | 2026-10-15 syncStoreFromStep 补 `_audit` 数组层深拷：hp 审计账本迁出 `_mods` 后
+//   由 core/13 recordHpAudit 写 unit._audit.hp，而 `{ ...u }` 只带引用 → 引擎下一步原地 push 会污染已入 store 的快照；
+//   与 _mods 同款浅拷（数组独立、元素引用共享）。
 // V6.8.8 | ~40290 bytes | 2026-10-14 修战后空指针（player:148 Cannot read properties of null (reading 'getState')）：
 //   阵亡摘格 timer 是「3 秒后自执行」的游离任务，重开时 ui/74 已把 battleStore 清空（timer 还欠着），
 //   到点触发即拿 null store 调 getState。timer 入口补 !c.store 早退（timer 清理见 ui/74 V7.5.13）。
@@ -5,7 +8,7 @@
 //   syncStoreFromStep 见引擎报活即撤 timer+出 _removedUids；timer 触发时 store 报活则跳过摘格（双保险）
 // V6.8.6 | ~38300 bytes | 2026-10-13 胜利横幅去重：正常通关（有存活单位）时横幅由 ui/62 spawnVictoryEffects 统一输出，
 //   player/42 不再重复渲染；仅当无存活单位（ui/62 未被调用）时兜底输出，平局/投票行不变。
-export const VER = 'player/42player-core.js V6.8.8';
+export const VER = 'player/42player-core.js V6.8.9';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -112,6 +115,9 @@ function syncStoreFromStep(c, step) {
             const unit = { ...u };
             if (u._mods) unit._mods = { atk: [...u._mods.atk], def: [...u._mods.def], maxHp: [...u._mods.maxHp] };
             else unit._mods = { atk: [], def: [], maxHp: [] };
+            // 2026-10-15 审计账本同款浅拷：hp 审计记账迁出 _mods 后由 recordHpAudit 写 _audit.hp，
+            //   {...u} 只带引用 → 引擎下一步原地 push 会污染已入 store 的快照（与 _mods 同因）。
+            if (u._audit) unit._audit = { hp: [...u._audit.hp] };
             const fv = frozen[u.uid];
             if (fv) unit._frozen = fv;
             return unit;
