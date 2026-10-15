@@ -1,3 +1,9 @@
+// V3.6.0 | ~126000 bytes | 2026-10-15 第 94 轮：新增 PANG_HIT_HEAL 胖远桥命中蓄力回血契约（45→46）——
+//         scan-groups 扫地：主代码 a6ab497 蓄力改版（命中回血，走通用 HEAL 通道）后新盲区——
+//         emit 处无记账、无契约。声明侧可观测（HEAL entry data.label==='蓄力回复' 带 data.heal，
+//         core/10 只加 isHealEntry/healAmount/healUnitUid 不剥 data ⇒ 结构化读、不走文本解析）；
+//         实际侧需转交：emit 处补 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')（九阳先例
+//         core/15 L248 同款）——未转交前账本空 ⇒ 零触发警告态（转交块见矩阵第 94 轮节）。
 // V3.5.0 | ~126000 bytes | 2026-10-15 胖远桥出手蓄力「上限成长」改「命中回血」（老板拍板）——本对照器撤除 PANG_ATK_HP 契约（46→45）：
 //         modules/26 的 addMod(maxHp, group 'pangAtkHp') 与 announce.maxHpDelta 已同步删除（蓄力改走通用 HEAL 声明，
 //         回血飘字由 render/38 攻击组白名单出）⇒ 契约声明侧/实际侧两侧皆空，撤除。
@@ -1425,6 +1431,39 @@ const CONTRACTS = [
                 if (typeof d.unitName !== 'string' || d.unitUid == null) return;
                 if (typeof d.eggAtkDelta === 'number' && d.eggAtkDelta !== 0) out.push({ unit: d.unitName, uid: d.unitUid, stat: 'atk', amount: d.eggAtkDelta });
                 if (typeof d.eggDefDelta === 'number' && d.eggDefDelta !== 0) out.push({ unit: d.unitName, uid: d.unitUid, stat: 'def', amount: d.eggDefDelta });
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 94 轮：胖远桥出手蓄力改版（老板拍板，主代码 a6ab497）——每次出手**命中后**自身回血
+        //   min(healPerAttack, maxHp-hp)（modules/26elite-sixsects-pangyuanqiao.js AFTER_DAMAGE_APPLIED →
+        //   通用 HEAL 声明 → core/10 落 ATTACK 组 data.entries）。scan-groups 扫地揪出的新盲区：零契约盯。
+        //   声明侧：HEAL entry 的 data.label==='蓄力回复' 带 data.heal 数值（core/10 只加 isHealEntry/
+        //   healAmount/healUnitUid 不剥 data ⇒ 结构化可读，不走文本解析；label 区分胖远桥——通用 HEAL
+        //   通道多机制共用，靠本组件写死的 label 字段归属）。
+        //   实际侧：emit 处需补 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')（九阳先例 core/15
+        //   L248 同款；healed 为截断后实际值，记账取同一表达式）——未转交前账本空 ⇒ 零触发警告态
+        //   （转交块见矩阵第 94 轮节）。
+        //   归因用 uid（胖远桥唯一，统一 uid 口径）。
+        id: 'PANG_HIT_HEAL',
+        label: '胖远桥命中蓄力回血',
+        group: 'pangHitHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.HEAL) return;
+                const d = f.data;
+                if (d.label !== '蓄力回复') return;
+                if (typeof d.heal !== 'number' || d.heal <= 0) return;
+                if (d.unitUid == null) return;
+                out.push({ unit: null, uid: d.unitUid, stat: 'hp', amount: d.heal });
             };
             for (const f of stepLog || []) {
                 scan(f);

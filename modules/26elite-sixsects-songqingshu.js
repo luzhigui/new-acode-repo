@@ -1,10 +1,14 @@
 // modules/26elite-sixsects-songqingshu.js — 六大派精英「宋青书」：组件工厂 + 四大机制 handler 对象
+// V6.27.0 | ~17700 bytes | 2026-10-15 白骨爪连锁概率重做（老板拍板）：取消「每回合首次出手」的进入门槛——
+//   每次出手第一爪必发、只有后续每爪才掷骰；连锁概率满血基准 0.78，按周芷若**自身**已损失血量线性升至峰值 0.88
+//   （已损失比达 chainProcRampAt 0.80 即残血 20% 到顶、之后维持），场上无存活宋青书再 +0.06，总封顶 0.90
+//   （content chainClaw 同步：删 procChance，加 chainProcMax/chainProcRampAt/songDeadBonus/chainProcCap）
 // V6.26.0 | ~16490 bytes | 2026-10-15 两改（老板拍板）：白骨爪斩杀那一刀伤害同样回血宋青书（chainClaw 模拟循环计入）；
 //   性奋代价首攻免扣——减上限=累计攻击次数−1（第 2 次起从 1 累加）
 // V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
 //   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
 //   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
-export const VER = 'modules/26elite-sixsects-songqingshu.js V6.26.0';
+export const VER = 'modules/26elite-sixsects-songqingshu.js V6.27.0';
 import { getGameData } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
@@ -88,7 +92,8 @@ function consumeXingFen(attacker) {
 export const chainClawHandler = {
     // jealous 为可选嫉妒态覆盖对象（张三丰在场时用），不进必需字段
     fields: {
-        baseDmg: 'number', procChance: 'number', chainProcChance: 'number',
+        baseDmg: 'number', chainProcChance: 'number', chainProcMax: 'number',
+        chainProcRampAt: 'number', songDeadBonus: 'number', chainProcCap: 'number',
         lostHpRatio: 'number', maxHpRatio: 'number', executeThreshold: 'number'
     },
     install({ eventBus, decl }) {
@@ -100,19 +105,27 @@ export const chainClawHandler = {
             const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
             const baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg;
             const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
-            if (!unit.state._nineYinFirstDone) Object.assign(unit.state, { _nineYinFirstDone: true });
-            else if (rng.next() > s.procChance) return;
+            // 2026-10-15 首爪必发（老板拍板）：取消「每回合首次出手」的进入门槛，每次出手第一爪都必发，
+            //   只有后续每爪才掷骰（见下方 while 循环）。
+            // 2026-10-15 连锁概率重做：满血基准 chainProcChance(0.78)，按周芷若**自身**已损失血量线性升至
+            //   chainProcMax(0.88)——已损失血量比达到 chainProcRampAt(0.80)（即残血 20%）即到峰值、之后维持；
+            //   场上无存活宋青书再 +songDeadBonus(0.06)；总封顶 chainProcCap(0.90)。
+            const selfLostRatio = unit.maxHp > 0 ? Math.max(0, (unit.maxHp - unit.hp) / unit.maxHp) : 0;
+            const rampT = s.chainProcRampAt > 0 ? Math.min(selfLostRatio / s.chainProcRampAt, 1) : 1;
+            const song = allySide.find(u => u.isSongQingshu && u.alive);
+            let chainProb = s.chainProcChance + (s.chainProcMax - s.chainProcChance) * rampT;
+            if (!song) chainProb += s.songDeadBonus;
+            chainProb = Math.min(chainProb, s.chainProcCap);
 
             const hits = [];
             let executeInfo = null;
             let totalHeal = 0;
-            const song = allySide.find(u => u.isSongQingshu && u.alive);
             let simulatedTargetHp = target.hp;
             let simulatedSongHp = song ? song.hp : 0;
             let depth = 0;
 
             while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
-                if (depth > 0 && rng.next() > s.chainProcChance) break;
+                if (depth > 0 && rng.next() > chainProb) break;
                 const lostHp = target.maxHp - simulatedTargetHp;
                 const ratioDmg = Math.floor((lostHp * s.lostHpRatio + target.maxHp * s.maxHpRatio) * 10) / 10;
                 const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
@@ -121,7 +134,7 @@ export const chainClawHandler = {
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
                 const execThreshold = s.executeThreshold;
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
-                // hpAfter 出口洗一位小数：爪雨是「累减→重算」循环，simulatedTargetHp 浮点减法会攒尾巴（7.8000…001），
+                // hpAfter 出口洗一位小数：连锁是「累减→重算」循环，simulatedTargetHp 浮点减法会攒尾巴（7.8000…001），
                 //   不洗会渗进血条同步（player/46 HP_CHANGE）和下一爪的 lostHp 输入
                 const hpAfterClean = Math.round(simulatedTargetHp * 10) / 10;
                 hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: hpAfterClean, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });

@@ -1,10 +1,12 @@
+// V2.9.6 | ~15700 bytes | 2026-10-15 删 _nineYinFirstDone（周芷若白骨爪取消「每回合首击必发」门槛，
+//           改为每次出手第一爪必发，该回合级旗标作废）
 // V2.9.5 | ~15580 bytes | 2026-10-15 新增 _clumsyMult（胖远桥打歪本击随机伤害倍率，modules/26-pang 掷、core/12 消费）
 // V2.9.4 | 2026-10-15 新增 _xiaoCarryDeaths（妹永久carry死亡计数桶）、_xiaoHolyFlame（妹永久圣火令每回合行列表）
 // V2.9.3 | 2026-10-14 新增 _soulDrainRounds（摄魂·妹永久「点名 2 回合」计数，core/11 每回合先 -1 再点名）
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.5';
+export const VER = 'core/17-state-keys.js V2.9.6';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -29,7 +31,6 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _isLinkAttack:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderAttacked:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _nineYinFirstDone:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderFlying:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _fortifyThisRound:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

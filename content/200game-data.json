@@ -1,5 +1,5 @@
 {
-  "version": "5.10.0",
+  "version": "5.11.0",
   "updated": "2026-10-15",
 
   "roles": {
@@ -20,8 +20,11 @@
           "lostHpRatio": 0.015,
           "maxHpRatio": 0.01,
           "executeThreshold": 0.15,
-          "procChance": 0.80,
-          "chainProcChance": 0.80,
+          "chainProcChance": 0.78,
+          "chainProcMax": 0.88,
+          "chainProcRampAt": 0.80,
+          "songDeadBonus": 0.06,
+          "chainProcCap": 0.90,
           "jealous": {
             "baseDmg": 2,
             "lostHpRatio": 0.015,

@@ -712,7 +712,9 @@ async function main() {
             `#META NOTE=含增量合并 ${n} 块（${[...inc.blocks.keys()].join(',')}，ONLY 模式跑于当前 HEAD）；其余块为此前全量结果，锚点已经 --verify 复核`,
         ].join('\n');
         const oldHead = main.head.filter(l => !l.startsWith('#META '));
-        const out = [freshMeta, ...oldHead.filter(l => l.trim() !== ''), ...[...main.blocks.values()].join('\n'), 'ALL DONE'].join('\n') + '\n';
+        // 第 94 轮修 bug：块拼接串是字符串，数组里不能再 `...` 展开（会把字符串逐字符拆成数组元素，
+        //   写出的结果文件整片逐字符换行 = 全损）。第一次实际使用 merge 时暴露（此前只跑过 ONLY 未合并）。
+        const out = [freshMeta, ...oldHead.filter(l => l.trim() !== ''), [...main.blocks.values()].join('\n'), 'ALL DONE'].join('\n') + '\n';
         fs.writeFileSync(mainPath, out);
         console.log(`✅ 已合并 ${n} 个增量块回 ${mainPath}（现有 ${main.blocks.size} 块）`);
         return;
