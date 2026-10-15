@@ -1,3 +1,6 @@
+// V6.2.6 | 实测 34931 bytes | 2026-10-15 修「点模式对比没反应」：对比表原插在统计表**下方**，弹窗主体 max-height:88vh
+//   + overflow:auto，表一长内容就落进滚动区底部、视口零变化（看着像没反应）。改为插到统计表上方 + 渲染后 scrollIntoView；
+//   顺带补 `.cell-sub` 小字副行样式（此前引用了未定义的 class）
 // V6.2.5 | 实测 34170 bytes | 2026-10-15 新增「🔀 模式对比」：常规/仅姐姐/仅妹妹/不带姐姐妹妹四种阵容模式并排比同一批海克斯的胜率
 //   （读各模式已存榜 raw 记录现场聚合，不重跑批）+「Δ 姐姐 / Δ 妹妹」= 该模式胜率 − 常规胜率；HEX_NAME_MAP 提到模块级共用
 // V6.2.3 | ~28600 bytes | 2026-10-14 结果表第一列（海克斯名）收窄固定 92px，长名不再撑开列（差值方向由最右偏差图呈现，不加文字标识/配色）
@@ -30,7 +33,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.2.5';
+export const VER = 'tools/108-hex-dashboard.js V6.2.6';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -65,6 +68,8 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-bar-neg{position:absolute;right:50%;top:0;height:100%;background:linear-gradient(270deg,#29e3ff,#666688);box-shadow:0 0 14px rgba(41,227,255,0.9);border-radius:5px 0 0 5px}
 .hex-hex-op{color:#f44336;font-weight:bold}
 .hex-hex-weak{color:#888}
+/* 2026-10-15 V6.2.6 模式对比表用小字副行显示场次（原先引用了未定义的 class） */
+.hex-hex-box .cell-sub{color:#888;font-size:11px}
 /* 2026-10-14 V6.2.3：第一列（海克斯名）收窄固定，别让「你就是carry」这类长名把列撑开 */
 .hex-hex-box th:first-child,.hex-hex-box td:first-child{width:92px;white-space:nowrap;padding-right:4px}
 .hex-hex-body{overflow:auto;flex:1}
@@ -233,8 +238,8 @@ function openHexDashboard() {
         <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e;margin-left:8px">🔀 模式对比</button>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
-        <div id="hexDashStats"></div>
         <div id="hexDashCompare"></div>
+        <div id="hexDashStats"></div>
       </div>
     </div>`;
   document.body.appendChild(mask);
@@ -428,6 +433,8 @@ function renderModeCompare(box) {
   html += '</table>';
   box.innerHTML = html;
   box.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
+  // 2026-10-15 V6.2.6：对比表插在统计表上方仍可能被统计表的滚动位置挤到视野外，渲染后主动滚进视口
+  box.scrollIntoView({ block: 'nearest' });
 }
 
 // 渲染
