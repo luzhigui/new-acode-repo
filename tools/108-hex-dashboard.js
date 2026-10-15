@@ -1,3 +1,5 @@
+// V6.2.5 | 实测 34170 bytes | 2026-10-15 新增「🔀 模式对比」：常规/仅姐姐/仅妹妹/不带姐姐妹妹四种阵容模式并排比同一批海克斯的胜率
+//   （读各模式已存榜 raw 记录现场聚合，不重跑批）+「Δ 姐姐 / Δ 妹妹」= 该模式胜率 − 常规胜率；HEX_NAME_MAP 提到模块级共用
 // V6.2.3 | ~28600 bytes | 2026-10-14 结果表第一列（海克斯名）收窄固定 92px，长名不再撑开列（差值方向由最右偏差图呈现，不加文字标识/配色）
 // V6.2.4 | ~28300 bytes | 2026-10-14 妹永久摄魂提示同步：不再是「团队过期后永久续上全体」，改「每回合随机点名 1 名敌方、持续 2 回合，稳态约 2 人」
 // V6.2.2 | ~28100 bytes | 2026-10-14 修「跑完不显示」：写 localStorage 失败不再静默吞（配额满时会读回空榜显示暂无数据，
@@ -27,6 +29,9 @@
 // V6.0.0 | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
+
+export const VER = 'tools/108-hex-dashboard.js V6.2.5';
+
 (function(){
 const KEY = 'ming_hex_battle_log';
 // 2026-10-14 阵容模式：战绩按模式分键存储（常规沿用旧键，历史数据不丢），切换即换榜。
@@ -113,6 +118,23 @@ const HEX_HINTS = {
   mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；己方换位干扰是副作用，站位紧密时慎选。',
   soulDrain: '目前唯一削弱型海克斯：敌方全体攻击力-30%（持续 4 回合，每回合刷新），且我方每比敌方少 1 个存活单位再 -5%（越逆风削得越狠）；敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）。小昭·妹永久：团队效果结束后，每回合随机点名 1 名敌方（非巨马、非召唤物）继续削、持续 2 回合（可重复点名刷新），稳态约 2 人同时在削。对面攻击手越多、越依赖普攻收益越高；对不吃攻击力的阵容（如张三丰纯续航、召唤物）收益低。',
   holyFire: '死亡交互型：每局首次有己方单位（非巨马、非召唤物）阵亡时，该单位原地复活并回复 40% 生命（复活即可行动），每局仅 1 次。反制斩杀/清场（周芷若白骨爪、灭绝三击），与小昭·妹飞天/结茧互补——她防死，这张死后回场；己方阵亡越早收益越高。'
+};
+
+// 海克斯中文名映射（2026-10-15 V6.2.5 从 render 内部提到模块级：模式对比视图共用）
+const HEX_NAME_MAP = {
+  doubleStrike: '概率连击',
+  horseFormation: '巨马阵',
+  carry: '你就是carry',
+  windAssault: '乘风突袭',
+  cloudBody: '流云身法',
+  mindControl: '惑人心智',
+  fortify: '严阵以待',
+  hotBlood: '热血奋战',
+  meteorShower: '流星赶月',
+  bloodthirst: '嗜血狂刀',
+  holyFlame: '圣火令',
+  soulDrain: '摄魂',
+  holyFire: '圣火不熄'
 };
 
 function fmtVal(k, v) {
@@ -208,9 +230,11 @@ function openHexDashboard() {
           <option value="brother">阵容：仅妹妹（小昭·妹必出）</option>
           <option value="none">阵容：不带姐姐妹妹</option>
         </select>
+        <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e;margin-left:8px">🔀 模式对比</button>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
         <div id="hexDashStats"></div>
+        <div id="hexDashCompare"></div>
       </div>
     </div>`;
   document.body.appendChild(mask);
@@ -223,6 +247,7 @@ function openHexDashboard() {
   lineupSel.addEventListener('change', () => {
     curMode = lineupSel.value;
     logs = readLogs(curMode);
+    mask.querySelector('#hexDashCompare').innerHTML = '';   // 换榜则收起对比视图，避免拿到旧模式的数据
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
   });
 
@@ -231,7 +256,15 @@ function openHexDashboard() {
 
   mask.querySelector('.hex-hex-load').addEventListener('click', () => {
     logs = readLogs(curMode);
+    mask.querySelector('#hexDashCompare').innerHTML = '';
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+  });
+
+  // 2026-10-15 V6.2.5 模式对比：展开 / 收起（内容非空即视为展开）
+  mask.querySelector('.hex-hex-cmp').addEventListener('click', () => {
+    const box = mask.querySelector('#hexDashCompare');
+    if (box.innerHTML) { box.innerHTML = ''; return; }
+    renderModeCompare(box);
   });
 
   mask.querySelector('.hex-hex-clear').addEventListener('click', () => {
@@ -323,6 +356,80 @@ function openHexDashboard() {
   render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
 }
 
+// ============ 2026-10-15 V6.2.5 模式对比：常规 / 仅姐姐 / 仅妹妹 / 不带姐姐妹妹 并排 ============
+// 数据来源：四个模式各自分键已存的 raw 战绩（V6.2.1 起分键），现场聚合，不需要重跑批。
+// 用途：本表主视图一次只能看一个模式（切下拉换榜），这张表把同一批海克斯横向摆一起，
+//   并给「Δ 姐姐 / Δ 妹妹」= 该模式胜率 − 常规胜率，直接看小昭形态对某个海克斯是帮忙还是拖累。
+const CMP_MODES = ['normal', 'sister', 'brother', 'none'];
+
+function hexStatsOf(logs) {
+  const per = {};
+  let allyWins = 0;
+  for (const l of logs) {
+    if (l.winner === '明教') allyWins++;
+    for (const k of (l.buffs || [])) {
+      if (!per[k]) per[k] = { count: 0, wins: 0 };
+      per[k].count++;
+      if (l.winner === '明教') per[k].wins++;
+    }
+  }
+  return { total: logs.length, allyWins, per };
+}
+
+function renderModeCompare(box) {
+  const data = {};
+  let any = false;
+  for (const m of CMP_MODES) {
+    const lg = readLogs(m);
+    if (lg.length) any = true;
+    data[m] = hexStatsOf(lg);
+  }
+  if (!any) {
+    box.innerHTML = '<p style="color:#888;margin-top:12px">四个模式都还没有数据。用上面的「阵容」下拉切到某个模式 → ⚡ 自动跑，跑完换下一个模式再跑；四个都跑过就能在这里并排比。</p>';
+    return;
+  }
+
+  const keys = new Set();
+  CMP_MODES.forEach(m => Object.keys(data[m].per).forEach(k => keys.add(k)));
+  const rows = [...keys].map(k => {
+    const cell = {};
+    for (const m of CMP_MODES) {
+      const d = data[m].per[k];
+      cell[m] = (d && d.count) ? { rate: d.wins / d.count * 100, count: d.count } : null;
+    }
+    return { key, cell };
+  });
+  // 排序：常规模式胜率高者在前（常规没样本的排最后），同率看样本量
+  const sortKey = r => r.cell.normal ? r.cell.normal.rate : -1;
+  rows.sort((a, b) => (sortKey(b) - sortKey(a)) || ((b.cell.normal ? b.cell.normal.count : 0) - (a.cell.normal ? a.cell.normal.count : 0)));
+
+  const rateTd = c => c
+    ? `<td>${c.rate.toFixed(1)}%<div class="cell-sub">${c.count} 场</div></td>`
+    : '<td style="color:#666">—</td>';
+  const deltaTd = (c, base) => {
+    if (!c || base === null) return '<td style="color:#666">—</td>';
+    const dv = c.rate - base;
+    const col = Math.abs(dv) < 1 ? '#888' : (dv > 0 ? '#ffd700' : '#4fc3f7');
+    return `<td style="color:${col}">${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
+  };
+
+  let html = '<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率</div>';
+  html += '<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的榜（不重跑）。Δ = 该模式胜率 − 常规胜率，正数=该模式更强、负数=更弱；某模式没跑过该海克斯则显示「—」。</p>';
+  html += '<table><tr><th>海克斯</th>' + CMP_MODES.map(m => `<th>${MODE_LABEL[m]}</th>`).join('') + '<th>Δ 姐姐</th><th>Δ 妹妹</th></tr>';
+  html += '<tr><td style="color:#888">模式总览</td>'
+    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">明教胜 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
+    + '<td style="color:#666">—</td><td style="color:#666">—</td></tr>';
+  for (const r of rows) {
+    const base = r.cell.normal ? r.cell.normal.rate : null;
+    html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${HEX_NAME_MAP[r.key] || r.key}</td>`
+      + CMP_MODES.map(m => rateTd(r.cell[m])).join('')
+      + deltaTd(r.cell.sister, base) + deltaTd(r.cell.brother, base) + '</tr>';
+  }
+  html += '</table>';
+  box.innerHTML = html;
+  box.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
+}
+
 // 渲染
 function render(summary, stats) {
   if (logs.length === 0) {
@@ -337,23 +444,6 @@ function render(summary, stats) {
   const draws = total - allyWins - enemyWins;
 
   summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
-
-  // 海克斯中文名映射
-  const HEX_NAME_MAP = {
-    doubleStrike: '概率连击',
-    horseFormation: '巨马阵',
-    carry: '你就是carry',
-    windAssault: '乘风突袭',
-    cloudBody: '流云身法',
-    mindControl: '惑人心智',
-    fortify: '严阵以待',
-    hotBlood: '热血奋战',
-    meteorShower: '流星赶月',
-    bloodthirst: '嗜血狂刀',
-    holyFlame: '圣火令',
-    soulDrain: '摄魂',
-    holyFire: '圣火不熄'
-  };
 
   const hexKeys = new Set();
   logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));

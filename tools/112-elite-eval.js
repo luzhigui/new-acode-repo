@@ -1,3 +1,7 @@
+// V2.6.0 | 实测 28174 bytes | 2026-10-15 新增结果快照（💾 存结果 / 📂 载入 / 🗑 清空历史）：跑完把本次三张表（主表·单英雄·无精英）压成一条
+//          历史存 localStorage（ming_elite_eval_snaps，最多留 10 条），可回看任意一条。
+//          说明：116 的 elite/soloElite/noElite 只回传聚合数（不像 kind:'hex' 回传逐场 hexLog），故存的是聚合快照——
+//          够看历史，不能事后按新维度重切（要逐场重算需先改 116 回传 raw）。
 // V2.5.1 | 预估 23400 bytes | 2026-10-09 单英雄/无精英两张表改用专用场数输入（默认 600，与普通表分开）：
 //          默认 1800 对「5 倍工作量」的单英雄表太久，用户懒得每次手改；普通表仍用「每关总场次」
 // V2.5.0 | 预估 22700 bytes | 2026-10-09 新增「🛡 无精英基线」按钮：明教侧一个精英都不出的胜率（拒绝采样凑局，
@@ -43,6 +47,74 @@ const noEliteResultEl = document.getElementById('eliteNoEliteResult');
 const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 600）：与普通表分开，免得忘改 1800 一跑就是 5 倍时长
 
 const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
+
+// ============ 2026-10-15 V2.6.0 结果快照：把跑出来的三张表存本地，可载入回看 ============
+const SNAP_KEY = 'ming_elite_eval_snaps';
+const SNAP_LIMIT = 10;                                     // 最多留 10 条历史，超出丢最旧
+const TABLE_LABEL = { elite: '主表·自然出场', solo: '单英雄', none: '无精英基线' };
+const snapSelect = document.getElementById('eliteSnapSelect');
+const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
+const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
+const snapDropBtn = document.getElementById('eliteDropSnapBtn');
+const snapStatusEl = document.getElementById('eliteSnapStatus');
+// 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage }
+let latest = { elite: null, solo: null, none: null };
+
+const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
+const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(arr)); return null; } catch (e) { return e; } };
+
+function snapLabel(s) {
+    const d = new Date(s.ts), p2 = n => String(n).padStart(2, '0');
+    const kinds = Object.keys(s.parts);
+    const stages = s.parts[kinds[0]].stages.join(',');
+    return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).join('+')}`;
+}
+
+function refreshSnapSelect(keepId) {
+    const snaps = readSnaps();
+    snapSelect.innerHTML = snaps.length
+        ? snaps.map(s => `<option value="${s.id}">${snapLabel(s)}</option>`).join('')
+        : '<option value="">（暂无历史：跑完点「💾 存结果」）</option>';
+    if (keepId && snaps.some(s => s.id === keepId)) snapSelect.value = keepId;
+}
+
+snapSaveBtn.addEventListener('click', () => {
+    const parts = {};
+    for (const k of ['elite', 'solo', 'none']) {
+        if (!latest[k]) continue;
+        // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
+        parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
+    }
+    if (Object.keys(parts).length === 0) { snapStatusEl.textContent = '⚠️ 还没跑过任何表，无可存'; return; }
+    const snaps = readSnaps();
+    const rec = { id: 'snap_' + Date.now(), ts: Date.now(), parts };
+    snaps.unshift(rec);                                    // 新的排最前
+    if (snaps.length > SNAP_LIMIT) snaps.length = SNAP_LIMIT;
+    const err = writeSnaps(snaps);
+    if (err) { snapStatusEl.textContent = `⚠️ 存盘失败（${(err && err.name) || err}）——本地存储配额已满，先「🗑 清空历史」再存`; return; }
+    refreshSnapSelect(rec.id);
+    snapStatusEl.textContent = `✅ 已存快照（${Object.keys(parts).length} 张表），现存 ${snaps.length} 条历史`;
+});
+
+snapLoadBtn.addEventListener('click', () => {
+    const rec = readSnaps().find(s => s.id === snapSelect.value);
+    if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
+    const p = rec.parts;
+    if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    snapStatusEl.textContent = `📂 已载入 ${snapLabel(rec)}`;
+});
+
+snapDropBtn.addEventListener('click', () => {
+    if (!confirm('确认删除全部历史快照？只删存盘的历史，不影响页面上当前的表')) return;
+    localStorage.removeItem(SNAP_KEY);
+    refreshSnapSelect();
+    snapStatusEl.textContent = '🗑 历史已清空';
+});
+
+refreshSnapSelect();
+
 
 startBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
@@ -95,6 +167,7 @@ startBtn.addEventListener('click', async () => {
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
+                latest.elite = { stages, runs: RUNS, byStage };
                 renderResults(byStage, stages);
                 progressEl.textContent = `✅ 全部完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
             }
@@ -162,6 +235,7 @@ soloBtn.addEventListener('click', async () => {
                 soloProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
+                latest.solo = { stages, runs: RUNS, byStage };
                 renderSoloResults(byStage, stages);
                 soloProgressEl.textContent = `✅ 单英雄评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
             }
@@ -274,6 +348,7 @@ noEliteBtn.addEventListener('click', async () => {
                 noEliteProgressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
+                latest.none = { stages, runs: RUNS, byStage };
                 renderNoEliteResults(byStage, stages);
                 noEliteProgressEl.textContent = `✅ 无精英基线完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
             }

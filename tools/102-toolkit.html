@@ -1,5 +1,7 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.8 | ~28800 bytes | 2026-09-29 页头戳改「最近一次推送时间」（精确到时分秒）：按用户要求对齐 dev-index.html 口径——
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.1.0 | 实测 33462 bytes | 2026-10-15 精英战力评测区补「💾 存结果 / 📂 载入 / 🗑 清空历史 + 快照下拉」（配 112 V2.6.0）：
+     此前该工具跑完只留在页面上，刷新即空，而海克斯仪表盘能存榜——补齐同一个能力。
+     V6.0.8 | ~28800 bytes | 2026-09-29 页头戳改「最近一次推送时间」（精确到时分秒）：按用户要求对齐 dev-index.html 口径——
      读 GitHub 仓库最新提交时间（真值，一推代码就变），加载失败只显示 —，不留过期数字。
      （V6.0.7 曾试过「读本页文件头的版本号+日期」，但文件头只登记到日、粒度不够，已撤。）
      V6.0.6 | ~28400 bytes | 2026-09-29 顶部加页面时间戳（日期 + 秒级时钟，胶囊样式与页头同行居中、窄屏自动折行）：
@@ -174,6 +176,12 @@
         #eliteSoloBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         #eliteNoEliteBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        /* 2026-10-15 精英评测结果快照（存/载/清历史，配 112 V2.6.0） */
+        #eliteSaveSnapBtn { background: #4caf50; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #eliteDropSnapBtn { background: #6d4c41; color: #ddd; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
+        #eliteSnapStatus { color: #8bc34a; font-size: 12px; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
         .elite-empty { color: #888; text-align: center; margin-top: 12px; }
         table.elite-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #16213e; border: 1px solid #333; border-radius: 10px; overflow: hidden; }
@@ -301,6 +309,12 @@
             <input type="number" id="eliteSoloRunsInput" value="600" min="100" max="5000" step="100" title="只作用于「⚔ 单英雄胜率」「🛡 无精英基线」两张表；普通评测仍用左侧「每关总场次」">
             <button id="eliteSoloBtn" title="五精英逐一单挑选中关卡（force 单精英抑制轮盘），看单核带队能力">⚔ 单英雄胜率</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
+            <span style="color:#555">｜</span>
+            <button id="eliteSaveSnapBtn" title="把本次跑出的三张表（主表·自然出场 / 单英雄 / 无精英）存成一条历史快照，最多留 10 条">💾 存结果</button>
+            <button id="eliteLoadSnapBtn" title="载入选中的历史快照，重新渲染对应的表（不重跑）">📂 载入</button>
+            <button id="eliteDropSnapBtn" title="删除全部历史快照（不影响页面上当前的表）">🗑 清空历史</button>
+            <select id="eliteSnapSelect" title="历史快照列表：时间｜关卡｜含哪几张表"></select>
+            <span id="eliteSnapStatus"></span>
         </div>
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
