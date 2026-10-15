@@ -487,6 +487,21 @@ modules/27 小昭·妹飞天重做在途）。
 >     **全量 46 树重跑已废止**（2026-10-14 立规：增量验证，新增几颗牙只跑几棵树；原全量跑被取消）——
 >     T17/T18 的增量判定挂账待办（结果文件剩约 28/46 树）。
 
+> 16. **第 91 轮（2026-10-15）跟随主代码更新三件套 + scan-groups 新盲区契约化**：
+>     主代码批次（09657ba HEAL fact 通道重构 / 63ccdd0 出手声明前移 / 81105a8 胖远桥蓄力+斩杀回血+性奋首攻免扣 /
+>     6f4c103+8073bbe 妹永久圣火令画行列命中制）落地后，红线查出三处要跟随：
+>     - **144 新婚快乐链路 20/20 全挂**：81105a8（老板拍板）性奋代价改**首攻免扣**（penalty=累计次数−1，
+>       第 1 次新婚 penalty=0 不渲染条目）⇒ 配对判据从 1:1 改 (新婚次数−1):1（V6.1.24）。旧判据在新设计下
+>       每场必误报（seed=1/2 stage=4：新婚 3 次、代价 2 次即合法）。步长/自洽判据不变。
+>     - **A25 变异锚点失效**：圣火令拆两条路径后 atk addMod 行两处全同 ⇒ 单点锚点不唯一，改 multi
+>       （两处一起翻倍，语义不变；mutation-teeth V2.9.7，--verify 46/46）。
+>     - **scan-groups 揪出新盲区 pangAtkHp**（胖远桥出手蓄力 maxHp，41 条词条无契约盯）⇒ 新增
+>       PANG_ATK_HP 契约（stat-decl V3.4.0，45→46）；声明侧只有 note 文本 ⇒ 走数值载荷转交
+>       （announce data 补 maxHpDelta，转交块在下方；未转交前零触发警告态，账本 41 词条在）。
+>     验证（干净 worktree @ 09657ba）：replay 含 DEAD=1 0 fail/0 空转/0 不变量违规；coverage 退 0；
+>     scan-groups 未覆盖 0；static/smoke/stat-decl/registration/contract-consistency 全退 0；
+>     mutation --verify 46/46；baseline 仍 3 场翻转（另案挂账）。提交 8d228e1。
+
 ### ===== 主代码改动 START（modules/20elite-skills.js · spiderReturn）=====
 // 【位置】modules/20elite-skills.js 的 spiderReturn 函数内；定位锚点：搜 `factType: FACT_TYPES.SPIDER_RETURN`（全文件仅此一处 push）。把该 push 行及其下方「落地回血 if 块」整段替换为下面代码。
 // 【原状】push 在段首（data 只带 unitName/spiderUid/pos）；heal 在 if 块内直接 applyStatChange + addMod(heal)。
@@ -528,5 +543,22 @@ modules/27 小昭·妹飞天重做在途）。
     if (u.hp < u.maxHp) applyStatChange(u, 'hp', u.maxHp - u.hp, null, '蜘蛛结茧', false, false);
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
     outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta } });
+```
+===== 主代码改动 END =====
+
+### ===== 主代码改动 START（modules/26elite-sixsects-pangyuanqiao.js · PANG_DECLARE 出手声明）=====
+// 【位置】modules/26elite-sixsects-pangyuanqiao.js 的 PANG_DECLARE handler（AFTER_SELECT_TARGET 出手声明）内；定位锚点：搜 `skillName: decl.kind === 'clumsy'`。把该 SKILL_ANNOUNCE 的 data 对象替换为下面代码（只加一个字段）。
+// 【原状】data 只有 unitName/unitUid/camp/skillName/note 五个字段；蓄力数值只写在 note 文本里（「蓄力生命上限+N」）。
+// 【改法】data 补 `maxHpDelta: face.hpPerAttack`——与 BEFORE_SELECT_TARGET 里 addMod group 'pangAtkHp' 同源同值（同一 face 参数对象），零行为差异。
+// 【效果】PANG_ATK_HP 契约从零触发警告态转严格比对（41 条 maxHp 词条逐一核对；数值写错当场报红）。
+```js
+                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                    unitName: pang.name, unitUid: pang.uid, camp: pang.camp,
+                    skillName: decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸',
+                    note,
+                    // 出手蓄力的声明侧数值（体检第 91 轮转交：数值对照器 PANG_ATK_HP 契约的声明侧）；
+                    //   与 BEFORE_SELECT_TARGET 里 addMod group 'pangAtkHp' 同源同值（face.hpPerAttack）
+                    maxHpDelta: face.hpPerAttack
+                } });
 ```
 ===== 主代码改动 END =====
