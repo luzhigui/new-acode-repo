@@ -5,8 +5,9 @@
 //   写进「蜘蛛卵」announce fact（数值对照器 SPIDER_EGG 契约声明侧；与 addMod 同变量同值，零行为变化）
 //   V7.0.0 杨逍重做（拍板）：弱精英 m104；选敌优先未行动；点穴=眩晕😵+禁疗❌3回合同时挂；敌方全行动→飞行默认+追击×1.3
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
+// V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.0.2';
+export const VER = 'modules/27elite-mingjiao.js V7.0.3';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -1017,8 +1018,24 @@ export function createYangXiaoComponent() {
                 if (!unit || !unit.isYangXiao || !unit.alive) return;
                 const target = data.target;
                 if (!target || !target.alive || !data.dmg || data.dmg <= 0) return;
-                if (target.state._dianXueCd > 0) return;                 // 冷却中：cdRounds 回合内不再被点
-                if (getBattleRng().next() >= dian.prob) return;
+                if (target.state._dianXueCd > 0) {                // 冷却中：cdRounds 回合内不再被点（老板拍板：失败也要有动静）
+                    if (data.log) {
+                        data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                            unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '弹指神通',
+                            note: `👆 ${unit.name} 弹指神通：${target.name} 穴道还麻着（冷却 ${target.state._dianXueCd} 回合），本次未发动`
+                        } });
+                    }
+                    return;
+                }
+                if (getBattleRng().next() >= dian.prob) {
+                    if (data.log) {
+                        data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                            unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '弹指神通',
+                            note: `👆 ${unit.name} 弹指神通：未点中 ${target.name} 穴道，本次未发动`
+                        } });
+                    }
+                    return;
+                }
 
                 Object.assign(target.state, { _stunned: true, _dianXueCd: dian.cdRounds });
                 // OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
