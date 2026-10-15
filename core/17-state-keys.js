@@ -1,9 +1,10 @@
-// V2.9.4 | ~15370 bytes | 2026-10-15 新增 _xiaoCarryDeaths（妹永久carry死亡计数桶）、_xiaoHolyFlame（妹永久圣火令每回合行列表）
+// V2.9.5 | ~15580 bytes | 2026-10-15 新增 _clumsyMult（胖远桥打歪本击随机伤害倍率，modules/26-pang 掷、core/12 消费）
+// V2.9.4 | 2026-10-15 新增 _xiaoCarryDeaths（妹永久carry死亡计数桶）、_xiaoHolyFlame（妹永久圣火令每回合行列表）
 // V2.9.3 | 2026-10-14 新增 _soulDrainRounds（摄魂·妹永久「点名 2 回合」计数，core/11 每回合先 -1 再点名）
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.4';
+export const VER = 'core/17-state-keys.js V2.9.5';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -105,6 +106,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 各自有明确复位点，登记在这里只为统一 clone 口径（回合级字段见 ROUND_STATE_SCHEMA）
     _clumsyHit:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _tauntFired:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _clumsyMult:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
 
     // 灭绝师太：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
     // 出手次数含反击/跟随这类被动出手（原设计）；三击不落标记，两处按 _attackCount 现算

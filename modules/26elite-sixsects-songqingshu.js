@@ -1,8 +1,10 @@
 // modules/26elite-sixsects-songqingshu.js — 六大派精英「宋青书」：组件工厂 + 四大机制 handler 对象
-// V6.25.0 | ~15670 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
+// V6.26.0 | ~16490 bytes | 2026-10-15 两改（老板拍板）：白骨爪斩杀那一刀伤害同样回血宋青书（chainClaw 模拟循环计入）；
+//   性奋代价首攻免扣——减上限=累计攻击次数−1（第 2 次起从 1 累加）
+// V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
 //   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
 //   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
-export const VER = 'modules/26elite-sixsects-songqingshu.js V6.25.0';
+export const VER = 'modules/26elite-sixsects-songqingshu.js V6.26.0';
 import { getGameData } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
@@ -130,6 +132,12 @@ export const chainClawHandler = {
                 }
                 if (isDeadByHit) break;
                 if (isExecute) {
+                    // 2026-10-15 斩杀那一刀同样回血给宋青书（老板拍板）：斩杀伤害=目标残血（设计值，
+                    //   core/16 落地时取扣减后同口径），按每爪同公式计入 totalHeal
+                    if (song && song.alive) {
+                        const execHeal = Math.min(Math.round(simulatedTargetHp), song.maxHp - simulatedSongHp);
+                        if (execHeal > 0) { totalHeal += execHeal; simulatedSongHp += execHeal; }
+                    }
                     executeInfo = { factType: FACT_TYPES.CLAW_EXECUTE, data: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
                     break;
                 }
@@ -207,8 +215,8 @@ export const xinHunHandler = {
             log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
             if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
             Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
-            // 本次减上限 = 当前累计攻击次数（第 1 次 -1、第 2 次 -2、第 3 次 -3…）
-            const penalty = unit.state._xingFenPenaltyCount;
+            // 2026-10-15 首攻免扣（老板拍板）：本次减上限 = 累计攻击次数 − 1（第 1 次不扣、第 2 次 -1、第 3 次 -2…）
+            const penalty = unit.state._xingFenPenaltyCount - 1;
             if (penalty > 0 && unit.maxHp > 1) {
                 const oldMaxHp = unit.maxHp;
                 addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });
