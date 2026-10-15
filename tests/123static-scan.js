@@ -3,6 +3,9 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.4.2 | ~29100 bytes | 2026-10-15 SCAN_FILES 补登 ui/69-role-cards.js、ui/73voice-panel.js、ui/75net-session.js、
+//         ui/76replay-entry.js（ui 家族漏登 4 员；漏登则本扫描不覆盖：这些文件 import 主代码符号/枚举，
+//         改名或删除即断裂，却扫不到）
 // V1.4.1 | ~28390 bytes | 2026-10-14 SCAN_FILES 补登 ui/77speed-controls.js、ui/78button-state.js（ui/68 三拆产物：
 //         倍速系统与按钮状态机各自独立成文件，68 入口 re-export 二者；漏登则本扫描不覆盖这两个文件，
 //         它们的 import 断裂/枚举缺失也扫不到）
@@ -29,7 +32,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.4.1';
+export const VER = 'tests/123static-scan.js V1.4.2';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -80,7 +83,12 @@ export const SCAN_FILES = [
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
+    // 2026-10-15 补登 69/73/75/76：ui 家族漏登 4 员（角色卡渲染 / 语音面板 / 联机会话 / 回放入口）。
+    //   入册后本扫描才覆盖它们——这些文件 import 主代码符号与枚举，改名/删除即断裂却扫不到。
+    '../ui/69-role-cards.js',
     '../ui/74reset-runtime.js', '../ui/70buff-dialog.js', '../ui/71tutorial.js', '../ui/72opening-cg.js',
+    '../ui/73voice-panel.js',
+    '../ui/75net-session.js', '../ui/76replay-entry.js',
     // 2026-10-14 补登 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者）
     '../ui/77speed-controls.js', '../ui/78button-state.js',
     '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
