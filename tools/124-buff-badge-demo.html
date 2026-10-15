@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<!-- V1.0.0 | ~9 KB | 2026-10-15 整局海克斯徽章位置/外观效果 demo：
+     把「整局（permanent）」海克斯从底部 2 个 buff 槽搬去战场左侧阵营标签旁，本页并列 3 种外观方案供挑选。
+     自包含（零外部资源/零依赖），手机可直接打开；点徽章看 tooltip，顶部可切尺寸。
+     位置：tools/（展示与CG 目录被 .gitignore 排除，Pages 推不上去） -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>整局海克斯徽章 · 效果 demo</title>
+<style>
+:root{
+  --c-gold:#b8860b; --c-gold-bright:#ffd700; --c-brown:#5c4033;
+  --c-parchment:#f5f0e0; --c-parchment-2:#e8d5b0;
+  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e;
+  --cell: 26px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+body{background:#000;font-family:'Segoe UI','PingFang SC',system-ui,sans-serif;color:#eee;display:flex;justify-content:center}
+.wrap{width:100%;max-width:520px;background:#1b1b24;min-height:100vh;padding:12px 12px 48px}
+h1{font-size:15px;color:var(--c-gold-bright);text-align:center;margin-bottom:3px}
+.sub{font-size:10.5px;color:#8b8b9a;text-align:center;line-height:1.5;margin-bottom:10px}
+
+/* 尺寸切换 */
+.sizes{display:flex;justify-content:center;gap:6px;margin-bottom:14px}
+.sizes button{background:#2a2a3a;border:1px solid #444;color:#ccc;font-size:11px;padding:5px 12px;border-radius:14px}
+.sizes button.on{background:var(--c-gold);border-color:var(--c-gold-bright);color:#1b1b24;font-weight:bold}
+
+/* 方案面板 */
+.panel{background:#22222e;border-radius:12px;padding:10px;margin-bottom:14px;border:1px solid #333}
+.panel-title{font-size:12px;font-weight:bold;color:var(--c-gold-bright);margin-bottom:2px}
+.panel-desc{font-size:10px;color:#8b8b9a;line-height:1.55;margin-bottom:9px}
+
+/* 模拟战场：阵营标签 + 整局徽章 + 3x3 网格（与真机 .team-row 同构） */
+.row{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+.label{writing-mode:vertical-lr;font-weight:bold;font-size:11.5px;width:16px;text-align:center;letter-spacing:1px}
+.label.blue{color:var(--c-ming-blue)}
+.label.orange{color:var(--c-sect-orange)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;flex:1;background:#d9d0b5;padding:3px;border-radius:5px}
+.cell{background:var(--c-parchment);border-radius:3px;height:var(--cell);border:1px solid var(--c-brown)}
+
+/* 徽章容器：竖列，紧贴阵营标签右侧 */
+.badges{display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;min-width:calc(var(--cell) + 6px)}
+
+/* ===== 方案 A：圆徽章（金色描边 + 阵营色外环 + 呼吸光）===== */
+.badgeRound{width:var(--cell);height:var(--cell);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;
+  background:radial-gradient(circle at 32% 28%, #4a3410 0%, #2a1d08 55%, #140d03 100%);
+  border:1.5px solid var(--c-gold-bright);
+  box-shadow:inset 0 1px 2px rgba(255,215,0,.45), inset 0 -2px 4px rgba(0,0,0,.7), 0 0 0 1px #888, 0 0 7px rgba(255,215,0,.5);
+  animation:breath 2.4s ease-in-out infinite;cursor:pointer}
+.badgeRound.ally{box-shadow:inset 0 1px 2px rgba(255,215,0,.45), inset 0 -2px 4px rgba(0,0,0,.7), 0 0 0 1.5px var(--c-ming-blue), 0 0 8px rgba(30,107,184,.75)}
+.badgeRound.enemy{box-shadow:inset 0 1px 2px rgba(255,215,0,.45), inset 0 -2px 4px rgba(0,0,0,.7), 0 0 0 1.5px var(--c-sect-orange), 0 0 8px rgba(210,105,30,.75)}
+@keyframes breath{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+
+/* ===== 方案 B：胶囊条（图标 + 「整局」字样 + 阵营色竖条）===== */
+.badgePill{display:flex;align-items:center;gap:2px;height:calc(var(--cell) * .62);padding:0 3px;
+  border-radius:4px;background:linear-gradient(180deg,#2a1d08,#140d03);
+  border:1px solid var(--c-gold-bright);border-left:3px solid #888;
+  box-shadow:0 0 5px rgba(255,215,0,.35);cursor:pointer}
+.badgePill.ally{border-left-color:var(--c-ming-blue)}
+.badgePill.enemy{border-left-color:var(--c-sect-orange)}
+.badgePill i{font-style:normal;font-size:11px;line-height:1}
+.badgePill b{font-size:7px;color:var(--c-gold-bright);writing-mode:vertical-lr;letter-spacing:0;font-weight:600;line-height:1}
+
+/* ===== 方案 C：竖排丝带（贴在阵营标签外侧，整列一体）===== */
+.ribbonCol{display:flex;flex-direction:column;gap:2px;margin-right:2px}
+.badgeRibbon{writing-mode:vertical-lr;font-size:8.5px;letter-spacing:1px;padding:3px 1px;border-radius:3px;
+  background:linear-gradient(180deg,#2a1d08,#140d03);color:var(--c-gold-bright);
+  border:1px solid var(--c-gold);box-shadow:0 0 5px rgba(255,215,0,.3);cursor:pointer}
+.badgeRibbon.ally{border-color:var(--c-ming-blue);color:#8fc4ff}
+.badgeRibbon.enemy{border-color:var(--c-sect-orange);color:#ffc590}
+
+/* 底部对比：搬走后只剩轮换槽 */
+.bottom{display:flex;align-items:center;gap:4px;background:#22222e;border:1px solid #333;border-radius:10px;padding:8px}
+.slots{display:flex;gap:3px;flex:1}
+.slot{width:76px;height:26px;display:flex;align-items:center;justify-content:center;font-size:8.5px;
+  border-radius:4px;border:1px solid #aaa;background:#f0f0f0;color:var(--c-brown);white-space:nowrap}
+.slot.hot{background:var(--c-gold-bright);border-color:var(--c-gold);font-weight:bold}
+.slot.empty{color:#666;background:#ddd}
+
+/* tooltip */
+#tip{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;max-width:480px;width:calc(100% - 28px);
+  background:rgba(20,16,6,.97);border:1px solid var(--c-gold);border-radius:10px;padding:8px 10px;
+  font-size:11px;line-height:1.55;color:#ffe9a8;display:none;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.6)}
+#tip b{color:var(--c-gold-bright)}
+.foot{font-size:9.5px;color:#666;text-align:center;margin-top:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>整局海克斯徽章 · 效果 demo</h1>
+  <div class="sub">整局（永久）海克斯从底部 2 槽 → 搬到战场左侧阵营标签旁<br>点徽章看说明 · 下面切尺寸</div>
+
+  <div class="sizes">
+    <button data-c="22">小</button>
+    <button class="on" data-c="26">中</button>
+    <button data-c="32">大</button>
+  </div>
+
+  <!-- 方案 A -->
+  <div class="panel">
+    <div class="panel-title">方案 A · 圆徽章（推荐）</div>
+    <div class="panel-desc">圆形底 + 径向渐变 + 金色描边，外圈一圈阵营色光环（明教蓝 / 六大派橙），2.4s 呼吸明暗。零图片资源，纯 CSS 质感。</div>
+    <div class="row">
+      <span class="label orange">六大派</span>
+      <div class="badges">
+        <span class="badgeRound enemy" data-t="圣火不熄">🕯️</span>
+      </div>
+      <div class="grid" id="gA1"></div>
+    </div>
+    <div class="row">
+      <span class="label blue">明 教</span>
+      <div class="badges">
+        <span class="badgeRound ally" data-t="圣火不熄">🕯️</span>
+        <span class="badgeRound ally" data-t="你就是carry">👑</span>
+      </div>
+      <div class="grid" id="gA2"></div>
+    </div>
+  </div>
+
+  <!-- 方案 B -->
+  <div class="panel">
+    <div class="panel-title">方案 B · 胶囊条</div>
+    <div class="panel-desc">图标 + 竖排「整局」二字，左侧一条阵营色标志。信息更明确（一眼知道是整局不是轮换），但比 A 占宽一点。</div>
+    <div class="row">
+      <span class="label orange">六大派</span>
+      <div class="badges"><span class="badgePill enemy" data-t="圣火不熄 · 整局生效"><i>🕯️</i><b>整局</b></span></div>
+      <div class="grid" id="gB1"></div>
+    </div>
+    <div class="row">
+      <span class="label blue">明 教</span>
+      <div class="badges">
+        <span class="badgePill ally" data-t="圣火不熄 · 整局生效"><i>🕯️</i><b>整局</b></span>
+        <span class="badgePill ally" data-t="你就是carry · 整局生效"><i>👑</i><b>整局</b></span>
+      </div>
+      <div class="grid" id="gB2"></div>
+    </div>
+  </div>
+
+  <!-- 方案 C -->
+  <div class="panel">
+    <div class="panel-title">方案 C · 竖排丝带</div>
+    <div class="panel-desc">与阵营标签同列、整列竖排，把「整局」写成文字别在标签外侧。最省横向空间，但图标被牺牲掉（只剩文字）。</div>
+    <div class="row">
+      <span class="ribbonCol"><span class="badgeRibbon enemy" data-t="圣火不熄 · 整局生效">🕯️ 圣火不熄</span></span>
+      <span class="label orange">六大派</span>
+      <div class="grid" id="gC1"></div>
+    </div>
+    <div class="row">
+      <span class="ribbonCol">
+        <span class="badgeRibbon ally" data-t="圣火不熄 · 整局生效">🕯️ 圣火不熄</span>
+        <span class="badgeRibbon ally" data-t="你就是carry · 整局生效">👑 你就是carry</span>
+      </span>
+      <span class="label blue">明 教</span>
+      <div class="grid" id="gC2"></div>
+    </div>
+  </div>
+
+  <!-- 底部对比 -->
+  <div class="panel">
+    <div class="panel-title">搬走之后 · 底部只留轮换海克斯</div>
+    <div class="panel-desc">整局项（🕯️ / 👑）不再占槽 → 2 个槽刚好容纳 2 条轮换项（时长 4 回合 / 每 3 回合补选，峰值本就是 2），不再溢出被静默丢弃。</div>
+    <div class="bottom">
+      <div class="slots">
+        <span class="slot hot">你就是carry/4回</span>
+        <span class="slot hot">摄魂/3回</span>
+      </div>
+    </div>
+    <div class="bottom" style="margin-top:6px">
+      <div class="slots">
+        <span class="slot hot">你就是carry/4回</span>
+        <span class="slot empty">buff2</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">点任意徽章 → 底部弹出说明<br>改尺寸只影响徽章，不改格子</div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+// 3x3 空格子（模拟棋盘，纯装饰）
+['gA1','gA2','gB1','gB2','gC1','gC2'].forEach(function (id) {
+  const g = document.getElementById(id);
+  for (let i = 0; i < 9; i++) { const d = document.createElement('div'); d.className = 'cell'; g.appendChild(d); }
+});
+
+// 点徽章弹说明（手机友好：点一下开，再点关）
+const tip = document.getElementById('tip');
+document.addEventListener('click', function (e) {
+  const b = e.target.closest('[data-t]');
+  if (!b) { tip.style.display = 'none'; return; }
+  tip.innerHTML = '<b>' + b.dataset.t + '</b>';
+  tip.style.display = 'block';
+  e.stopPropagation();
+});
+
+// 尺寸切换
+document.querySelectorAll('.sizes button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.sizes button').forEach(function (x) { x.classList.remove('on'); });
+    btn.classList.add('on');
+    document.documentElement.style.setProperty('--cell', btn.dataset.c + 'px');
+  });
+});
+</script>
+</body>
+</html>
