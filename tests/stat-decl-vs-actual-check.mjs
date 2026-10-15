@@ -2,6 +2,10 @@
 //         XUAN_MING_DOT / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_LAND_HEAL 等处的旧注
 //         「依赖主代码待补 addMod(u,'hp',{...})」已被主代码 V7.6.19（2de9895）用 recordHpAudit 落地取代，
 //         重校为 recordHpAudit(unit, group, value, source)。纯注释、零算法改动；读点仍走 _audit.hp，偏差 0 不变。
+// V3.4.0 | ~127400 bytes | 2026-10-15 第 91 轮：新增 PANG_ATK_HP 胖远桥出手蓄力契约（45→46）——
+//         scan-groups 扫地：group 'pangAtkHp' 41 条 maxHp（出手蓄力，modules/26pangyuanqiao L100）
+//         无契约盯（主代码 81105a8 新机制）。声明侧现只有 note 文本 ⇒ 走数值载荷转交
+//         （announce data 补 maxHpDelta，转交块见矩阵第 91 轮节；未转交前零触发警告态）。
 // V3.3.0 | ~124400 bytes | 2026-10-15 第 90 轮：账本读点跟随主代码 hp 审计迁移（_mods → unit._audit.hp）——
 //         主代码 V7.6.19（2de9895）把 hp 记账迁出 _mods（防污染真实属性容器）后，本对照器读点未同步
 //         ⇒ 17 条 hp 类契约集体降级「警告态(账本空)」：声明一大把（热血奋战 462 条）、账本一条读不到。
@@ -977,6 +981,37 @@ const CONTRACTS = [
                 }
             };
             for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 91 轮：胖远桥出手蓄力（主代码 81105a8 老板拍板，国字脸 −10 防的补偿）——每次发起攻击前
+        //   maxHp 永久 +hpPerAttack（modules/26elite-sixsects-pangyuanqiao.js L100，addMod group
+        //   'pangAtkHp'）。scan-groups 第 91 轮扫地揪出的新盲区（41 条 maxHp 词条无契约盯）。
+        //   声明侧：出手声明 SKILL_ANNOUNCE（63ccdd0 前移到 AFTER_SELECT_TARGET）目前只把数值写进
+        //   note 文本（「蓄力生命上限+N」）——note 是展示层、随时可改，按蜘蛛卵先例不走文本解析，
+        //   走数值载荷转交：announce data 补 maxHpDelta（转交块见矩阵第 91 轮节；未转交前零触发警告态）。
+        //   归因用 uid（胖远桥唯一，但统一 uid 口径）；addMod 与 announce 同读 face.hpPerAttack 同值。
+        id: 'PANG_ATK_HP',
+        label: '胖远桥出手蓄力maxHp',
+        group: 'pangAtkHp',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SKILL_ANNOUNCE) return;
+                const d = f.data;
+                if (d.skillName !== '年轻气盛' && d.skillName !== '正义国字脸') return;
+                if (typeof d.maxHpDelta !== 'number' || d.maxHpDelta <= 0) return;
+                if (d.unitUid == null) return;
+                out.push({ unit: null, uid: d.unitUid, stat: 'maxHp', amount: d.maxHpDelta });
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
                 scan(f);
                 if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
