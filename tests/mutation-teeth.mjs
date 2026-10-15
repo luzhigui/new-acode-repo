@@ -1,3 +1,6 @@
+// V2.9.8 | 2026-10-15 第 92 轮：新增 ONLY 增量过滤 + --merge-results 合并（用户立规"新增几颗牙只跑
+//   几棵树，别为 2 颗新牙跑 20-40 分钟全量"的落地）——ONLY=T17,T18 时 prep/run 只伺候这几棵树、
+//   结果落 teeth-results-inc.txt，--merge-results 按 id 合并回主文件并刷新 META（NOTE 记录来源）。
 // V2.9.7 | 2026-10-15 第 91 轮：A25 锚点重校（multi）—— 主代码 6f4c103/8073bbe 把圣火令拆成
 //   两条路径（基础 buff cols/rows + 妹永久 draw.cols/rows），atk addMod 行两处全同 ⇒ 单点锚点
 //   不再唯一。sed 单行替换不支持多行锚点，A25 改 multi（两处一起翻倍，语义不变）。
@@ -73,9 +76,9 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.7';
+export const VER = 'tests/mutation-teeth.mjs V2.9.8';
 
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -85,6 +88,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
 // 临时树放仓库内，跑完由本 runner（--emit-prep 不删；--single 也不删；由 Bash 手动 rm）或 .gitignore 排除。
 const MUT_ROOT = process.env.MUT_ROOT || path.join(REPO, 'tests', '.mut');
+// 第 92 轮：ONLY=T17,T18 增量过滤（2026-10-15 用户立规"新增几颗牙只跑几棵树，别跑全量"的落地）——
+//   prep 只建过滤到的树、run 只跑过滤到的树，结果落独立文件 teeth-results-inc.txt（不冲掉主结果），
+//   事后用 --merge-results 合并回主文件并刷新 META。未设 ONLY 时行为与从前完全一致（全量）。
+const ONLY = process.env.ONLY ? process.env.ONLY.split(',').map(s => s.trim()).filter(Boolean) : null;
+const pickMuts = () => (ONLY ? MUTATIONS.filter(m => ONLY.includes(m.id)) : MUTATIONS);
 
 // --- 变异表：一处替换 = 一个已知缺陷。from 必须在文件中唯一（multi:true 允许同串多处都改）---
 const MUTATIONS = [
@@ -578,7 +586,7 @@ async function main() {
         lines.push('for dir in core modules infra player render content; do');
         lines.push('    if [ -d "$REPO/$dir" ]; then tar -C "$REPO/$dir" -cf - . | tar -x -C "$MUTROOT/_base/$dir"; fi');
         lines.push('done');
-        for (const m of MUTATIONS) {
+        for (const m of pickMuts()) {
             // `cp -r src/. dst/` 复制**内容**到已存在的目录（直接覆盖），等价于重建且不需要先删 ——
             // 这一句同时保证了「重复 prep 时变异不会叠加两次」：先把干净的 _base 内容盖回去，再 sed 注入。
             lines.push(`mkdir -p "$MUTROOT/m-${m.id}"`);
@@ -595,12 +603,13 @@ async function main() {
     // 产出「Bash 循环运行脚本」：每条变异（含 _base 基准）由独立 node 进程跑三件套并落盘到 teeth-results.txt。
     // 本工具不 spawn / 不 import 业务脚本 —— 本环境两者都被 broker 禁用。
     if (argv.includes('--emit-run')) {
-        const ids = ['_base', ...MUTATIONS.map(m => m.id)];
+        const ids = ['_base', ...pickMuts().map(m => m.id)];
         const lines = [
             '#!/usr/bin/env bash', 'set -e',
             'REPO="$(git rev-parse --show-toplevel)"',
             `MUTROOT="${toPosix(MUT_ROOT)}"`,
-            'OUT="$MUTROOT/teeth-results.txt"',
+            // 增量模式（ONLY 设定）落独立文件，不冲掉主结果；事后再 --merge-results 合并。
+            `OUT="$MUTROOT/${ONLY ? 'teeth-results-inc.txt' : 'teeth-results.txt'}"`,
             ': > "$OUT"',
             // V2.9.0 新鲜度守卫的结果侧：把「生成这份结果时的判据版本 / 变异表指纹 / HEAD / 时间」写进头部。
             //   --report 端据此判断结果是否还配得上当前代码 —— 旧结果配新判据 = 假结论，必须拦。
@@ -660,6 +669,44 @@ async function main() {
         }
         console.log(bad === 0 ? `\n✅ ${MUTATIONS.length} 条变异锚点全部有效`
                              : `\n❌ ${bad} 条变异锚点失效 —— 不修就是「假绿制造机」，请更新 MUTATIONS 里的 from/to`);
+        return;
+    }
+
+    // 第 92 轮：--merge-results=<inc文件> —— 把增量跑（ONLY 模式）的结果块按 id 替换合并回主结果文件，
+    //   并刷新 META（VER/MUTFP/HEAD/AT + NOTE 记录增量来源）。其余块原样保留。
+    if (argv.includes('--merge-results') || argv.some(a => a.startsWith('--merge-results='))) {
+        const mp = argv.find(a => a.startsWith('--merge-results='));
+        const incPath = mp ? mp.slice('--merge-results='.length) : path.join(MUT_ROOT, 'teeth-results-inc.txt');
+        const mainPath = path.join(MUT_ROOT, 'teeth-results.txt');
+        if (!fs.existsSync(incPath)) { console.log(`❌ 找不到增量结果文件 ${incPath}`); return; }
+        const splitBlocks = (txt) => {
+            const head = [], blocks = new Map();
+            const lines = txt.split(/\r?\n/);
+            let cur = null, buf = [];
+            for (const ln of lines) {
+                const m = ln.match(/^##### MUT (\S+) #####$/);
+                if (m) { if (cur) blocks.set(cur, buf.join('\n')); cur = m[1]; buf = [ln]; }
+                else if (cur) buf.push(ln);
+                else head.push(ln);
+            }
+            if (cur) blocks.set(cur, buf.join('\n'));
+            return { head, blocks };
+        };
+        const inc = splitBlocks(fs.readFileSync(incPath, 'utf8'));
+        const main = fs.existsSync(mainPath) ? splitBlocks(fs.readFileSync(mainPath, 'utf8')) : { head: [], blocks: new Map() };
+        let n = 0;
+        for (const [id, blk] of inc.blocks) { main.blocks.set(id, blk); n++; }
+        const freshMeta = [
+            `#META VER=${VER}`,
+            `#META MUTFP=${mutFingerprint()}`,
+            `#META HEAD=${execSync('git rev-parse --short HEAD', { cwd: REPO, encoding: 'utf8' }).trim()}`,
+            `#META AT=${new Date().toISOString()}`,
+            `#META NOTE=含增量合并 ${n} 块（${[...inc.blocks.keys()].join(',')}，ONLY 模式跑于当前 HEAD）；其余块为此前全量结果，锚点已经 --verify 复核`,
+        ].join('\n');
+        const oldHead = main.head.filter(l => !l.startsWith('#META '));
+        const out = [freshMeta, ...oldHead.filter(l => l.trim() !== ''), ...[...main.blocks.values()].join('\n'), 'ALL DONE'].join('\n') + '\n';
+        fs.writeFileSync(mainPath, out);
+        console.log(`✅ 已合并 ${n} 个增量块回 ${mainPath}（现有 ${main.blocks.size} 块）`);
         return;
     }
 
