@@ -1,4 +1,8 @@
 // modules/26elite-sixsects-songqingshu.js — 六大派精英「宋青书」：组件工厂 + 四大机制 handler 对象
+// V6.28.0 | ~17600 bytes | 2026-10-15 白骨爪连锁概率终版（老板拍板）：基础 0.80、按周芷若自身已损血比线性升到
+//   0 血时的 1.00（chainProcRampAt 1.00）、无存活宋青书再 +0.10——理论上可超 1.00（超出的部分等价「保底必连几爪」）；
+//   链条内每多连一爪概率 −chainProcDecay(0.01)（累减到 ≤0 必断，天然保证不会无限连），下次出手自动回复原值。
+//   删 chainProcCap（不再封顶 90%）
 // V6.27.0 | ~17700 bytes | 2026-10-15 白骨爪连锁概率重做（老板拍板）：取消「每回合首次出手」的进入门槛——
 //   每次出手第一爪必发、只有后续每爪才掷骰；连锁概率满血基准 0.78，按周芷若**自身**已损失血量线性升至峰值 0.88
 //   （已损失比达 chainProcRampAt 0.80 即残血 20% 到顶、之后维持），场上无存活宋青书再 +0.06，总封顶 0.90
@@ -8,7 +12,7 @@
 // V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
 //   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
 //   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
-export const VER = 'modules/26elite-sixsects-songqingshu.js V6.27.0';
+export const VER = 'modules/26elite-sixsects-songqingshu.js V6.28.0';
 import { getGameData } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
@@ -93,7 +97,7 @@ export const chainClawHandler = {
     // jealous 为可选嫉妒态覆盖对象（张三丰在场时用），不进必需字段
     fields: {
         baseDmg: 'number', chainProcChance: 'number', chainProcMax: 'number',
-        chainProcRampAt: 'number', songDeadBonus: 'number', chainProcCap: 'number',
+        chainProcRampAt: 'number', songDeadBonus: 'number', chainProcDecay: 'number',
         lostHpRatio: 'number', maxHpRatio: 'number', executeThreshold: 'number'
     },
     install({ eventBus, decl }) {
@@ -107,15 +111,16 @@ export const chainClawHandler = {
             const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
             // 2026-10-15 首爪必发（老板拍板）：取消「每回合首次出手」的进入门槛，每次出手第一爪都必发，
             //   只有后续每爪才掷骰（见下方 while 循环）。
-            // 2026-10-15 连锁概率重做：满血基准 chainProcChance(0.78)，按周芷若**自身**已损失血量线性升至
-            //   chainProcMax(0.88)——已损失血量比达到 chainProcRampAt(0.80)（即残血 20%）即到峰值、之后维持；
-            //   场上无存活宋青书再 +songDeadBonus(0.06)；总封顶 chainProcCap(0.90)。
+            // 2026-10-15 连锁概率终版（老板拍板）：满血基准 chainProcChance(0.80)，按周芷若**自身**已损失血量
+            //   线性升到 0 血时的 chainProcMax(1.00)——已损失比达到 chainProcRampAt(1.00) 到顶；
+            //   场上无存活宋青书再 +songDeadBonus(0.10)，理论上可超 1.00（超过的部分等价「保底必连几爪」）；
+            //   链条内每多连一爪概率 −chainProcDecay(0.01)，累减到 ≤0 必断（天然保证不会无限连）；
+            //   chainProb 每次出手现算，故她下次出手自动回复原值。
             const selfLostRatio = unit.maxHp > 0 ? Math.max(0, (unit.maxHp - unit.hp) / unit.maxHp) : 0;
             const rampT = s.chainProcRampAt > 0 ? Math.min(selfLostRatio / s.chainProcRampAt, 1) : 1;
             const song = allySide.find(u => u.isSongQingshu && u.alive);
             let chainProb = s.chainProcChance + (s.chainProcMax - s.chainProcChance) * rampT;
             if (!song) chainProb += s.songDeadBonus;
-            chainProb = Math.min(chainProb, s.chainProcCap);
 
             const hits = [];
             let executeInfo = null;
@@ -125,7 +130,7 @@ export const chainClawHandler = {
             let depth = 0;
 
             while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
-                if (depth > 0 && rng.next() > chainProb) break;
+                if (depth > 0 && rng.next() > chainProb - (depth - 1) * s.chainProcDecay) break;
                 const lostHp = target.maxHp - simulatedTargetHp;
                 const ratioDmg = Math.floor((lostHp * s.lostHpRatio + target.maxHp * s.maxHpRatio) * 10) / 10;
                 const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
