@@ -1,10 +1,11 @@
-// V6.9.2 | ~7550 bytes | 2026-10-14 AFTER_DAMAGE_APPLIED 增 EAGLE_RESTORE:27（carry 雄鹰命中后恢复队友行动力 / 无人可恢复召雌鹰）
+// V6.9.3 | ~7890 bytes | 2026-10-15 ON_UNIT_DEATH 增 XIAO_CARRY_COUNT:30（妹永久 carry 死亡计数钩子，modules/27）
+// V6.9.2 | 2026-10-14 AFTER_DAMAGE_APPLIED 增 EAGLE_RESTORE:27（carry 雄鹰命中后恢复队友行动力 / 无人可恢复召雌鹰）
 // V6.9.1 | ~7500 bytes | 2026-10-13 杨逍重做：BEFORE_DAMAGE_CALC 增 YANGXIAO_ALL_ACTED:17（敌方全行动→追击×1.3 声明槽）
 // V6.9.0 | 2026-10-13 何太冲红血触发挪位：HE_TAICHONG_RED_BLOOD 从 BEFORE_DAMAGE_APPLY:90
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.2';
+export const VER = 'infra/50-event-bus.js V6.9.3';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -152,7 +153,7 @@ export const EXECUTION_LAYER = {
     ON_BEFORE_DEATH: { SPIDER_EGG: 10 },
     // 白骨爪连锁逐爪广播：CLAW_CHAIN 处理器每结算一爪发一次（爪击不走伤害计算管线）
     CLAW_HIT_APPLIED: { XIAOZHAO_QIAN_KUN: 10 },
-    ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20, HOLY_FIRE: 40 },
+    ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20, XIAO_CARRY_COUNT: 30, HOLY_FIRE: 40 },
     ON_POSITION_SWAP: { SWITCH: 10 },
     BEFORE_STATE_TRANSITION: { MIEJUE_SUMMON: 20, HOLY_FIRE: 30 }
 };

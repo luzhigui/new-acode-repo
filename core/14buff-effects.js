@@ -1,5 +1,6 @@
-// V6.1.4 | ~8630 bytes | 2026-10-12 拒马双向参与 carry（老板拍板）：① 队友池去 !u.isHorse（活 1 份/死 2 份，与狮子同口径）；② 受益门控也去 isHorse——拒马站受益位（5；小昭·姊在场 4/5/6）时也能吃到，攻加成>0 后拒马不再休息、会出手
-export const VER = 'core/14buff-effects.js V6.1.4';
+// V6.1.5 | ~9430 bytes | 2026-10-15 妹永久圣火令改画行列命中制（掷骰在 modules/27 回合初，读 state._xiaoHolyFlame）
+// V6.1.4 | 2026-10-12 拒马双向参与 carry（老板拍板）：① 队友池去 !u.isHorse（活 1 份/死 2 份，与狮子同口径）；② 受益门控也去 isHorse——拒马站受益位（5；小昭·姊在场 4/5/6）时也能吃到，攻加成>0 后拒马不再休息、会出手
+export const VER = 'core/14buff-effects.js V6.1.5';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -46,11 +47,20 @@ export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, log) {
     applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log);
 }
 
+// 2026-10-15 妹永久圣火令改「画行列、判命中」（老板拍板）：不再无条件双加成——回合初蛛变按全局同口径
+//   掷 defRows 行 + atkCols 列存 state._xiaoHolyFlame（modules/27），妹落位命中行→吃防加成、命中列→吃攻加成。
+//   3×3 宫格下等价 2/3 概率加防、1/3 概率加攻（独立判定），但逻辑是命中判定而非写死概率，未来扩宫格自适应。
 export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, log) {
-    addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
-    pushHolyFlameFact(log, unit, 'atk', CONFIG.BUFFS.holyFlame.atkBonus);
-    addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
-    pushHolyFlameFact(log, unit, 'def', CONFIG.BUFFS.holyFlame.defBonus);
+    const draw = unit.state._xiaoHolyFlame;
+    if (!draw) return;
+    if ((draw.rows || []).includes(getUnitRow(unit.pos))) {
+        addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+        pushHolyFlameFact(log, unit, 'def', CONFIG.BUFFS.holyFlame.defBonus);
+    }
+    if ((draw.cols || []).includes(getUnitCol(unit.pos))) {
+        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+        pushHolyFlameFact(log, unit, 'atk', CONFIG.BUFFS.holyFlame.atkBonus);
+    }
 }
 
 // carry：5 号位按队友属性百分比加成，死亡队友加成翻倍

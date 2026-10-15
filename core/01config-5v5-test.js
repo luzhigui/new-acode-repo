@@ -1,6 +1,7 @@
-// V6.8.0 | ~19900 bytes | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
+// V6.8.1 | ~20690 bytes | 2026-10-15 删 XIAO_ZHAO_CARRY_MODS（妹永久 carry 改每回合刷新一轮、数值调用精通参数，此常量作废）
+// V6.8.0 | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
 //   新技能 liangyiLink/targetMark/redBlood 的说明占位符一律回落 params（无 mechanics 真值源）
-export const VER = 'core/01config-5v5-test.js V6.8.0';
+export const VER = 'core/01config-5v5-test.js V6.8.1';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -351,7 +352,6 @@ const CONFIG = {
     DEF_WAVE_THRESHOLD: 7,                 // 攻击波动「防御波动」台词阈值（12，defVar + hpBonus 达标）
 
     SPIDER_MIND_CONTROL_CHANCE: 0.15,      // 永久惑心误伤概率（27）
-    XIAO_ZHAO_CARRY_MODS: { atk: 3, def: 4, maxHp: 20 },  // 小昭·妹永久 carry 加成（27）
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
     ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
     MASTERY_FULL_BONUS_LAYERS: 2,          // 小昭全精通后额外加的层数（20）

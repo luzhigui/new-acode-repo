@@ -1,8 +1,9 @@
-// V2.9.3 | ~13950 bytes | 2026-10-14 新增 _soulDrainRounds（摄魂·妹永久「点名 2 回合」计数，core/11 每回合先 -1 再点名）
+// V2.9.4 | ~15370 bytes | 2026-10-15 新增 _xiaoCarryDeaths（妹永久carry死亡计数桶）、_xiaoHolyFlame（妹永久圣火令每回合行列表）
+// V2.9.3 | 2026-10-14 新增 _soulDrainRounds（摄魂·妹永久「点名 2 回合」计数，core/11 每回合先 -1 再点名）
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.3';
+export const VER = 'core/17-state-keys.js V2.9.4';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -48,6 +49,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _kuLianActive:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _masteredRoles:          { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     _permanentBuffs:         { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
+    // 妹永久carry死亡计数桶 {cur,r1,r2}（modules/27 计数钩子累 cur、回合初蛛变滚动；层数=1+2×r1+r2）
+    _xiaoCarryDeaths:        { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 妹永久圣火令每回合行列表 {cols,rows}（回合初蛛变掷骰，core/14 按妹落位命中判攻防加成）
+    _xiaoHolyFlame:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _butterflyAtk:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyDef:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyHp:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
