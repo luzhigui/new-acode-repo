@@ -1,8 +1,13 @@
 // ui/78button-state.js — 主界面按钮状态与 buff 槽刷新（ui/68 拆分·批 2）
+// V1.1.0 | ~9600 bytes | 2026-10-15 updateBuffSlots 分流：整局项（permanent，当前仅圣火不熄）不再占底部槽，
+//   改挂各阵营名下方徽章位（#campBadgesAlly/#campBadgesEnemy，index.html .camp-side）——槽只有 2 个，
+//   而轮换海克斯峰值本就是 2 条，常驻项会把槽挤满导致最新那条看不见；徽章两侧各挂自己阵营的。
 // V1.0.0 | ~8040 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：buff 槽（updateBuffSlots）/ 自动模式按钮（updateAutoModeButton）/
 //   联网身份角标（updateNetIdentity）/ 主按钮状态机（updateButtons）/ enableAllButtons / updateDebugUI 整块迁入。
 //   依赖方向：本文件 → 77（enableAllButtons 调 updateSpeedButtons），77 不反向依赖本文件。行为零变化，纯搬移。
-export const VER = 'ui/78button-state.js V1.0.0';
+export const VER = 'ui/78button-state.js V1.1.0';
+
+import { CONFIG } from '../core/01config-5v5-test.js';
 
 import { getState, GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -11,17 +16,30 @@ import { updateSpeedButtons } from './77speed-controls.js';
 
 // buff 槽：联网从机显示自己（六大派）的海克斯，其余情况显示明教
 // 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
+// 2026-10-15 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项（详见文件头 V1.1.0）
+const CAMP_BADGE_ID = { [CAMP_TYPES.ALLY]: 'campBadgesAlly', [CAMP_TYPES.ENEMY]: 'campBadgesEnemy' };
 function updateBuffSlots(activeBuffs, camp) {
     const role = GlobalStore.get('netRole');
     const isCamp = camp === CAMP_TYPES.ALLY || camp === CAMP_TYPES.ENEMY;
+    // 整局徽章：两个阵营各挂自己那侧（底部槽只显示"自己这方"，徽章两边都要有）
+    for (const c of [CAMP_TYPES.ALLY, CAMP_TYPES.ENEMY]) {
+        const box = document.getElementById(CAMP_BADGE_ID[c]);
+        if (!box) continue;
+        box.innerHTML = buffsOfCamp(activeBuffs, c).filter(b => b.permanent).map(b => {
+            const cfg = CONFIG.BUFFS?.[b.key];
+            const icon = (cfg && cfg.icon) || '🎴';
+            return `<span class="camp-badge${c === CAMP_TYPES.ENEMY ? ' enemy' : ''}" title="${b.name}（整局）">${icon}</span>`;
+        }).join('');
+    }
+    // 底部 2 槽：只放轮换项（显示自己这方）
     const target = isCamp ? camp : (role === 'guest' ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY);
-    const list = buffsOfCamp(activeBuffs, target);
+    const list = buffsOfCamp(activeBuffs, target).filter(b => !b.permanent);
     for (let i = 0; i < 2; i++) {
         let slot = document.getElementById('buffSlot' + i);
         if (!slot) continue;
         if (i < list.length) {
             let buff = list[i];
-            slot.textContent = buff.name + '/' + (buff.permanent ? '整局' : buff.remaining + '回');
+            slot.textContent = buff.name + '/' + buff.remaining + '回';
             slot.classList.add('glow');
         } else {
             slot.textContent = 'buff' + (i + 1);

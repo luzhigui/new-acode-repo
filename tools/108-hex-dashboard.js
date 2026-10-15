@@ -1,3 +1,6 @@
+// V6.2.7 | 实测 34931 bytes | 2026-10-15 修「点模式对比没反应」真因：renderModeCompare 里 `return { key, cell }` 用了未声明
+//   的变量 key（循环变量本名 k）→ 只要有数据就抛 ReferenceError、整段渲染中断（无数据时函数提前 return，故首次复现看不出问题）。
+//   上一版 V6.2.6 猜的「内容落在视口外」不是主因（浏览器实测容器在视口内、innerHTML 为空）；容器上移 + scrollIntoView 属顺手改进，保留
 // V6.2.6 | 实测 34931 bytes | 2026-10-15 修「点模式对比没反应」：对比表原插在统计表**下方**，弹窗主体 max-height:88vh
 //   + overflow:auto，表一长内容就落进滚动区底部、视口零变化（看着像没反应）。改为插到统计表上方 + 渲染后 scrollIntoView；
 //   顺带补 `.cell-sub` 小字副行样式（此前引用了未定义的 class）
@@ -33,7 +36,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.2.6';
+export const VER = 'tools/108-hex-dashboard.js V6.2.7';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -402,7 +405,7 @@ function renderModeCompare(box) {
       const d = data[m].per[k];
       cell[m] = (d && d.count) ? { rate: d.wins / d.count * 100, count: d.count } : null;
     }
-    return { key, cell };
+    return { key: k, cell };
   });
   // 排序：常规模式胜率高者在前（常规没样本的排最后），同率看样本量
   const sortKey = r => r.cell.normal ? r.cell.normal.rate : -1;

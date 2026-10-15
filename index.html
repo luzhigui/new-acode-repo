@@ -1,5 +1,5 @@
-﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
-<!-- V7.5.28 | ~38672 bytes | 2026-10-11 修横幅被压：双BOM清除后页面从怪异模式切回标准，header原-12px负margin在标准模式穿透出视口（横幅被裁12px、整页上移19px）——改+7px固化怪异时代长期实际显示位，header/两阵三区块逐像素复原；补回上轮rebase合并不慎丢失的V7.5.25时间戳 -->
+<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
+<!-- V7.5.29 | ~39500 bytes | 2026-10-15 整局海克斯徽章挂位：两处 .team-row 左侧标签改用 .camp-side 竖列包裹（上=阵营名、下=整局徽章 #campBadgesAlly/#campBadgesEnemy），列宽仍 18px 不挤压格子、名字上方留旗子位。V7.5.28 修横幅被压（+7px 复原怪异时代显示位）继续有效 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -79,6 +79,18 @@
            颜色不写死、继承标签的蓝——黄字在浅底上看不清 */
         .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
         .team-label[data-netrole="host"]::after { content: '.房'; font-size: 10px; }
+        /* 2026-10-15 整局海克斯徽章（圣火不熄这类 permanent）：挂在阵营名正下方，与竖排名同处一列——
+           列宽仍 18px，格子宽度零损失（并排会每格吃掉约 7px）；名字上方留给旗帜（64 会给标签缀 🚩）。 */
+        .camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
+        .camp-badges { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .camp-badge { width: 18px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; line-height: 1; color: #ffe9a8;
+            background: radial-gradient(circle at 35% 28%, #4a3410, #2a1d08 62%, #140d03);
+            border: 1.5px solid var(--c-gold-bright);
+            box-shadow: 0 0 0 1px var(--c-ming-blue), inset 0 1px 2px rgba(255,215,0,0.4), 0 0 6px rgba(255,215,0,0.5);
+            animation: campBadgeBreath 2.4s ease-in-out infinite; }
+        .camp-badge.enemy { box-shadow: 0 0 0 1px var(--c-sect-orange), inset 0 1px 2px rgba(255,215,0,0.4), 0 0 6px rgba(255,215,0,0.5); }
+        @keyframes campBadgeBreath { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
         .grid.victory-border { border: 3px solid gold !important; box-shadow: 0 0 20px gold; }
         .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 6.2vh; height: 6.2dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
@@ -293,8 +305,8 @@
 <div class="header"><span class="net-room-badge" id="netRoomBadge"></span><h2><span id="headerTitle">⚔️ 光明顶对战 5v5 </span><span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
 <div class="upper-area">
     <div class="battlefield" id="battlefield">
-        <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
-        <div class="team-row"><span class="team-label blue" id="labelAlly">明 教</span><div class="grid" id="allyGrid"></div></div>
+        <div class="team-row"><div class="camp-side"><span class="team-label orange" id="labelEnemy">六大派</span><div class="camp-badges" id="campBadgesEnemy"></div></div><div class="grid" id="enemyGrid"></div></div>
+        <div class="team-row"><div class="camp-side"><span class="team-label blue" id="labelAlly">明 教</span><div class="camp-badges" id="campBadgesAlly"></div></div><div class="grid" id="allyGrid"></div></div>
         <canvas id="glowCanvas"></canvas>
     </div>
     <div class="controls">
