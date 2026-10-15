@@ -1,11 +1,13 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
+// V6.28.0 | ~14900 bytes | 2026-10-15 体检第 91 轮转交：出手声明 announce data 补 maxHpDelta=face.hpPerAttack
+//   （数值对照器 PANG_ATK_HP 契约声明侧；与 addMod group 'pangAtkHp' 同源同值，纯载荷零行为变化）
 // V6.27.0 | ~12800 bytes | 2026-10-15 出手声明前移：掷骰结果（国字脸加防 / 打歪倍率 + 出手蓄力上限）改在选敌完成后
 //   （新信号 AFTER_SELECT_TARGET，早于命中/闪避判定）立即落日志 → 被闪避反击时也能看见「加防/加血」声明；
 //   AFTER_ATTACK / AFTER_DAMAGE_APPLIED 里重复的 pushInfo 拆除，演出标记 pangTaunt/pangDefGain/pangClumsy 保留
 // V6.26.0 | ~12240 bytes | 2026-10-15 三改（老板拍板）：出手蓄力每次攻击前 maxHp+hpPerAttack（国字脸 defGain 50→40 补偿，数值走 content）；
 //   打歪倍率固定 2.0 改 dmgMultMin~dmgMultMax 随机（步长 dmgMultStep，本击定值存 _clumsyMult）
 // V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.27.0';
+export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.28.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
@@ -140,7 +142,10 @@ export function createPangYuanQiaoComponent() {
                 data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                     unitName: pang.name, unitUid: pang.uid, camp: pang.camp,
                     skillName: decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸',
-                    note
+                    note,
+                    // 出手蓄力的声明侧数值（体检第 91 轮转交：数值对照器 PANG_ATK_HP 契约的声明侧）；
+                    //   与 BEFORE_SELECT_TARGET 里 addMod group 'pangAtkHp' 同源同值（face.hpPerAttack）
+                    maxHpDelta: face.hpPerAttack
                 } });
             });
 
