@@ -1,209 +1,188 @@
 <!DOCTYPE html>
-<!-- V1.0.0 | ~9 KB | 2026-10-15 整局海克斯徽章位置/外观效果 demo：
-     把「整局（permanent）」海克斯从底部 2 个 buff 槽搬去战场左侧阵营标签旁，本页并列 3 种外观方案供挑选。
-     自包含（零外部资源/零依赖），手机可直接打开；点徽章看 tooltip，顶部可切尺寸。
-     位置：tools/（展示与CG 目录被 .gitignore 排除，Pages 推不上去） -->
+<!-- V2.0.0 | ~10 KB | 2026-10-15 圣火不熄 logo 位置 demo（重做）：
+     ① 真机还原：战场区样式逐行复制 index.html V7.5.28（.team-row/.team-label/.grid/.cell/.buff-slot 原值未改），
+        格子用 6.2dvh 真单位 → 手机上尺寸与真机完全一致，可据字判断。
+     ② 只挂「整局」项：目前 permanent 只有 holyFire 圣火不熄；carry 是轮换（duration 4）仍留底部槽。
+     ③ 对比三版：并排(旧)/标签上方/标签下方，页面直接量出各自 .cell 实际宽度，证明是否挤压格子。 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>整局海克斯徽章 · 效果 demo</title>
+<title>圣火不熄 logo · 位置 demo（真机 UI）</title>
 <style>
-:root{
-  --c-gold:#b8860b; --c-gold-bright:#ffd700; --c-brown:#5c4033;
-  --c-parchment:#f5f0e0; --c-parchment-2:#e8d5b0;
-  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e;
-  --cell: 26px;
-}
+/* ================= 以下为 index.html V7.5.28 真机样式原样复制，数值勿改 ================= */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
-body{background:#000;font-family:'Segoe UI','PingFang SC',system-ui,sans-serif;color:#eee;display:flex;justify-content:center}
-.wrap{width:100%;max-width:520px;background:#1b1b24;min-height:100vh;padding:12px 12px 48px}
-h1{font-size:15px;color:var(--c-gold-bright);text-align:center;margin-bottom:3px}
-.sub{font-size:10.5px;color:#8b8b9a;text-align:center;line-height:1.5;margin-bottom:10px}
+:root{--c-gold:#b8860b;--c-gold-bright:#ffd700;--c-gold-orange:#ffaa00;--c-brown:#5c4033;--c-brown-border:#8b7355;--c-tan:#b8a88a;--c-parchment:#f5f0e0;--c-parchment-2:#e8d5b0;--c-panel:#fdf5e6;--c-ming-blue:#1e6bb8;--c-sect-orange:#d2691e;--c-danger:#c0392b;--c-green:#2e7d32;--c-dark:#1a1a2e;--c-gain:#daa520}
+html{background:#000}
+body{background:var(--c-parchment);font-family:'Segoe UI',monospace;width:100%;max-width:520px;margin:0 auto;padding:0 6px 4px 6px;color:#333;user-select:none}
+.team-row{display:flex;align-items:center;gap:4px;flex:1;max-width:500px;margin:0 auto;width:100%}
+.team-label{writing-mode:vertical-lr;font-weight:bold;font-size:13px;width:18px;text-align:center}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,6.2dvh);gap:2px;flex:1;background:#d9d0b5;padding:3px;border-radius:6px}
+.cell{background:#e8e6e0;border:2px solid #bbb;border-radius:5px;padding:2px 4px;display:flex;align-items:center;gap:4px;font-size:9px;height:6.2dvh;position:relative;overflow:visible}
+.cell-placeholder{visibility:hidden}
+.cell-icon{font-size:13px;width:14px;text-align:center;flex-shrink:0}
+.cell-info{flex:1;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.cell-name{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
+.cell-name-long{letter-spacing:-0.5px}
+.cell-stats{font-size:7px;color:#555;display:flex;gap:2px}
+.hp-bar-wrap{width:8px;height:100%;background:#ccc;border-radius:3px;flex-shrink:0;align-self:stretch;position:relative}
+.hp-bar-inner{position:absolute;bottom:0;width:100%;border-radius:3px}
+.hp-text-green{color:var(--c-green)}.hp-text-orange{color:var(--c-sect-orange)}.hp-text-red{color:var(--c-danger)}
+.log-bottom-bar{display:flex;gap:4px;padding:4px 8px;align-items:center;justify-content:flex-end}
+.log-bottom-bar button{padding:6px 12px;border-radius:4px;border:1px solid #aaa;background:#f0f0f0;font-size:11px;color:#333}
+.buff-slots{display:flex;gap:3px;margin-right:4px}
+.buff-slot{width:80px;height:32px;padding:4px 6px;border-radius:4px;border:1px solid #aaa;background:#f0f0f0;font-size:8px;white-space:nowrap;text-align:center;display:flex;align-items:center;justify-content:center;color:var(--c-brown)}
+.buff-slot.active{background:var(--c-gold-bright);border-color:var(--c-gold);color:var(--c-brown);font-weight:bold}
+.buff-slot.glow{animation:buffGlow 2s ease-in-out infinite}
+@keyframes buffGlow{0%,100%{box-shadow:0 0 4px rgba(184,134,11,.3)}50%{box-shadow:0 0 10px rgba(184,134,11,.7)}}
+.orange{color:var(--c-sect-orange);font-weight:bold}.blue{color:var(--c-ming-blue);font-weight:bold}
+/* ================= 真机样式结束 ================= */
 
-/* 尺寸切换 */
-.sizes{display:flex;justify-content:center;gap:6px;margin-bottom:14px}
-.sizes button{background:#2a2a3a;border:1px solid #444;color:#ccc;font-size:11px;padding:5px 12px;border-radius:14px}
-.sizes button.on{background:var(--c-gold);border-color:var(--c-gold-bright);color:#1b1b24;font-weight:bold}
-
-/* 方案面板 */
-.panel{background:#22222e;border-radius:12px;padding:10px;margin-bottom:14px;border:1px solid #333}
-.panel-title{font-size:12px;font-weight:bold;color:var(--c-gold-bright);margin-bottom:2px}
-.panel-desc{font-size:10px;color:#8b8b9a;line-height:1.55;margin-bottom:9px}
-
-/* 模拟战场：阵营标签 + 整局徽章 + 3x3 网格（与真机 .team-row 同构） */
-.row{display:flex;align-items:center;gap:4px;margin-bottom:4px}
-.label{writing-mode:vertical-lr;font-weight:bold;font-size:11.5px;width:16px;text-align:center;letter-spacing:1px}
-.label.blue{color:var(--c-ming-blue)}
-.label.orange{color:var(--c-sect-orange)}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;flex:1;background:#d9d0b5;padding:3px;border-radius:5px}
-.cell{background:var(--c-parchment);border-radius:3px;height:var(--cell);border:1px solid var(--c-brown)}
-
-/* 徽章容器：竖列，紧贴阵营标签右侧 */
-.badges{display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;min-width:calc(var(--cell) + 6px)}
-
-/* ===== 方案 A：圆徽章（金色描边 + 阵营色外环 + 呼吸光）===== */
-.badgeRound{width:var(--cell);height:var(--cell);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;
-  background:radial-gradient(circle at 32% 28%, #4a3410 0%, #2a1d08 55%, #140d03 100%);
+/* demo 外壳（仅本页用，不属真机） */
+h1{font-size:14px;color:var(--c-brown);text-align:center;margin:8px 0 2px}
+.sub{font-size:10px;color:#777;text-align:center;line-height:1.6;margin-bottom:10px}
+.sec{background:#fff;border:1px solid #c8bfa6;border-radius:8px;padding:6px;margin-bottom:10px}
+.sec-h{font-size:11px;font-weight:bold;color:var(--c-brown);margin-bottom:1px}
+.sec-d{font-size:9.5px;color:#777;line-height:1.55;margin-bottom:5px}
+.wid{font-size:9.5px;color:#8a6d00;margin-top:4px}
+.bf{display:flex;flex-direction:column;gap:2px;height:42.5dvh;border:1px dashed #b9ad90;border-radius:6px;padding:2px}
+/* 整局徽章（唯一新增元素）：宽 18px = 阵营标签同宽，所以竖排堆叠不占额外横向空间 */
+.camp-side{display:flex;flex-direction:column;align-items:center;gap:2px;width:18px}
+.camp-side.row-side{flex-direction:row;width:auto;gap:3px;align-items:center}
+.badge{width:18px;height:22px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;line-height:1;color:#ffe9a8;cursor:pointer;
+  background:radial-gradient(circle at 35% 28%,#4a3410,#2a1d08 62%,#140d03);
   border:1.5px solid var(--c-gold-bright);
-  box-shadow:inset 0 1px 2px rgba(255,215,0,.45), inset 0 -2px 4px rgba(0,0,0,.7), 0 0 0 1px #888, 0 0 7px rgba(255,215,0,.5);
-  animation:breath 2.4s ease-in-out infinite;cursor:pointer}
-.badgeRound.ally{box-shadow:inset 0 1px 2px rgba(255,215,0,.45), inset 0 -2px 4px rgba(0,0,0,.7), 0 0 0 1.5px var(--c-ming-blue), 0 0 8px rgba(30,107,184,.75)}
-.badgeRound.enemy{box-shadow:inset 0 1px 2px rgba(255,215,0,.45), inset 0 -2px 4px rgba(0,0,0,.7), 0 0 0 1.5px var(--c-sect-orange), 0 0 8px rgba(210,105,30,.75)}
-@keyframes breath{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
-
-/* ===== 方案 B：胶囊条（图标 + 「整局」字样 + 阵营色竖条）===== */
-.badgePill{display:flex;align-items:center;gap:2px;height:calc(var(--cell) * .62);padding:0 3px;
-  border-radius:4px;background:linear-gradient(180deg,#2a1d08,#140d03);
-  border:1px solid var(--c-gold-bright);border-left:3px solid #888;
-  box-shadow:0 0 5px rgba(255,215,0,.35);cursor:pointer}
-.badgePill.ally{border-left-color:var(--c-ming-blue)}
-.badgePill.enemy{border-left-color:var(--c-sect-orange)}
-.badgePill i{font-style:normal;font-size:11px;line-height:1}
-.badgePill b{font-size:7px;color:var(--c-gold-bright);writing-mode:vertical-lr;letter-spacing:0;font-weight:600;line-height:1}
-
-/* ===== 方案 C：竖排丝带（贴在阵营标签外侧，整列一体）===== */
-.ribbonCol{display:flex;flex-direction:column;gap:2px;margin-right:2px}
-.badgeRibbon{writing-mode:vertical-lr;font-size:8.5px;letter-spacing:1px;padding:3px 1px;border-radius:3px;
-  background:linear-gradient(180deg,#2a1d08,#140d03);color:var(--c-gold-bright);
-  border:1px solid var(--c-gold);box-shadow:0 0 5px rgba(255,215,0,.3);cursor:pointer}
-.badgeRibbon.ally{border-color:var(--c-ming-blue);color:#8fc4ff}
-.badgeRibbon.enemy{border-color:var(--c-sect-orange);color:#ffc590}
-
-/* 底部对比：搬走后只剩轮换槽 */
-.bottom{display:flex;align-items:center;gap:4px;background:#22222e;border:1px solid #333;border-radius:10px;padding:8px}
-.slots{display:flex;gap:3px;flex:1}
-.slot{width:76px;height:26px;display:flex;align-items:center;justify-content:center;font-size:8.5px;
-  border-radius:4px;border:1px solid #aaa;background:#f0f0f0;color:var(--c-brown);white-space:nowrap}
-.slot.hot{background:var(--c-gold-bright);border-color:var(--c-gold);font-weight:bold}
-.slot.empty{color:#666;background:#ddd}
-
-/* tooltip */
-#tip{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;max-width:480px;width:calc(100% - 28px);
-  background:rgba(20,16,6,.97);border:1px solid var(--c-gold);border-radius:10px;padding:8px 10px;
-  font-size:11px;line-height:1.55;color:#ffe9a8;display:none;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.6)}
+  box-shadow:0 0 0 1px var(--c-ming-blue),inset 0 1px 2px rgba(255,215,0,.4),0 0 6px rgba(255,215,0,.5);
+  animation:breath 2.4s ease-in-out infinite}
+.badge.enemy{box-shadow:0 0 0 1px var(--c-sect-orange),inset 0 1px 2px rgba(255,215,0,.4),0 0 6px rgba(255,215,0,.5)}
+@keyframes breath{0%,100%{filter:brightness(1)}50%{filter:brightness(1.3)}}
+#tip{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;width:calc(100% - 24px);max-width:496px;
+  background:rgba(20,16,6,.97);border:1px solid var(--c-gold);border-radius:8px;padding:7px 10px;
+  font-size:10.5px;line-height:1.55;color:#ffe9a8;display:none;z-index:99}
 #tip b{color:var(--c-gold-bright)}
-.foot{font-size:9.5px;color:#666;text-align:center;margin-top:14px;line-height:1.6}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>整局海克斯徽章 · 效果 demo</h1>
-  <div class="sub">整局（永久）海克斯从底部 2 槽 → 搬到战场左侧阵营标签旁<br>点徽章看说明 · 下面切尺寸</div>
+  <h1>圣火不熄 logo · 位置 demo</h1>
+  <div class="sub">下方三块＝真机战场原样（样式逐行抄自 index.html，格子 6.2dvh）<br>只挂「整局」海克斯（目前只有圣火不熄）· 点徽章看说明</div>
 
-  <div class="sizes">
-    <button data-c="22">小</button>
-    <button class="on" data-c="26">中</button>
-    <button data-c="32">大</button>
+  <!-- ① 旧：并排 -->
+  <div class="sec">
+    <div class="sec-h">① 旧做法 · logo 与阵营名并排（会挤压格子）</div>
+    <div class="sec-d">左侧横向塞了「标签 + logo」两块 → 留给格子的宽度被吃掉。</div>
+    <div class="bf" id="bf1"></div>
+    <div class="wid" id="w1"></div>
   </div>
 
-  <!-- 方案 A -->
-  <div class="panel">
-    <div class="panel-title">方案 A · 圆徽章（推荐）</div>
-    <div class="panel-desc">圆形底 + 径向渐变 + 金色描边，外圈一圈阵营色光环（明教蓝 / 六大派橙），2.4s 呼吸明暗。零图片资源，纯 CSS 质感。</div>
-    <div class="row">
-      <span class="label orange">六大派</span>
-      <div class="badges">
-        <span class="badgeRound enemy" data-t="圣火不熄">🕯️</span>
-      </div>
-      <div class="grid" id="gA1"></div>
-    </div>
-    <div class="row">
-      <span class="label blue">明 教</span>
-      <div class="badges">
-        <span class="badgeRound ally" data-t="圣火不熄">🕯️</span>
-        <span class="badgeRound ally" data-t="你就是carry">👑</span>
-      </div>
-      <div class="grid" id="gA2"></div>
-    </div>
+  <!-- ② logo 在阵营名上方 -->
+  <div class="sec">
+    <div class="sec-h">② 改法 · logo 在阵营名上方（同一竖列，宽度仍 18px）</div>
+    <div class="sec-d">徽章与竖排阵营名上下堆叠、共占一列，横向宽度不变 → 格子宽度与真机一致。</div>
+    <div class="bf" id="bf2"></div>
+    <div class="wid" id="w2"></div>
   </div>
 
-  <!-- 方案 B -->
-  <div class="panel">
-    <div class="panel-title">方案 B · 胶囊条</div>
-    <div class="panel-desc">图标 + 竖排「整局」二字，左侧一条阵营色标志。信息更明确（一眼知道是整局不是轮换），但比 A 占宽一点。</div>
-    <div class="row">
-      <span class="label orange">六大派</span>
-      <div class="badges"><span class="badgePill enemy" data-t="圣火不熄 · 整局生效"><i>🕯️</i><b>整局</b></span></div>
-      <div class="grid" id="gB1"></div>
-    </div>
-    <div class="row">
-      <span class="label blue">明 教</span>
-      <div class="badges">
-        <span class="badgePill ally" data-t="圣火不熄 · 整局生效"><i>🕯️</i><b>整局</b></span>
-        <span class="badgePill ally" data-t="你就是carry · 整局生效"><i>👑</i><b>整局</b></span>
-      </div>
-      <div class="grid" id="gB2"></div>
-    </div>
+  <!-- ③ logo 在阵营名下方 -->
+  <div class="sec">
+    <div class="sec-h">③ 改法 · logo 在阵营名下方</div>
+    <div class="sec-d">同上，只是徽章挂在名字脚下（离格子更近，也更贴近"阵营角标"的读法）。</div>
+    <div class="bf" id="bf3"></div>
+    <div class="wid" id="w3"></div>
   </div>
 
-  <!-- 方案 C -->
-  <div class="panel">
-    <div class="panel-title">方案 C · 竖排丝带</div>
-    <div class="panel-desc">与阵营标签同列、整列竖排，把「整局」写成文字别在标签外侧。最省横向空间，但图标被牺牲掉（只剩文字）。</div>
-    <div class="row">
-      <span class="ribbonCol"><span class="badgeRibbon enemy" data-t="圣火不熄 · 整局生效">🕯️ 圣火不熄</span></span>
-      <span class="label orange">六大派</span>
-      <div class="grid" id="gC1"></div>
-    </div>
-    <div class="row">
-      <span class="ribbonCol">
-        <span class="badgeRibbon ally" data-t="圣火不熄 · 整局生效">🕯️ 圣火不熄</span>
-        <span class="badgeRibbon ally" data-t="你就是carry · 整局生效">👑 你就是carry</span>
-      </span>
-      <span class="label blue">明 教</span>
-      <div class="grid" id="gC2"></div>
-    </div>
-  </div>
-
-  <!-- 底部对比 -->
-  <div class="panel">
-    <div class="panel-title">搬走之后 · 底部只留轮换海克斯</div>
-    <div class="panel-desc">整局项（🕯️ / 👑）不再占槽 → 2 个槽刚好容纳 2 条轮换项（时长 4 回合 / 每 3 回合补选，峰值本就是 2），不再溢出被静默丢弃。</div>
-    <div class="bottom">
-      <div class="slots">
-        <span class="slot hot">你就是carry/4回</span>
-        <span class="slot hot">摄魂/3回</span>
-      </div>
-    </div>
-    <div class="bottom" style="margin-top:6px">
-      <div class="slots">
-        <span class="slot hot">你就是carry/4回</span>
-        <span class="slot empty">buff2</span>
+  <!-- 底部条：搬走后只剩轮换 -->
+  <div class="sec">
+    <div class="sec-h">底部槽：搬走整局项后，只放轮换海克斯</div>
+    <div class="sec-d">carry 是轮换（duration 4），不进徽章，照旧在槽里；2 槽刚好够（轮换峰值本就是 2）。</div>
+    <div style="background:var(--c-parchment-2);border-radius:6px;padding:2px">
+      <div class="log-bottom-bar">
+        <div class="buff-slots">
+          <span class="buff-slot active" data-t="你就是carry｜轮换｜剩余4回合｜5号位获得队友基础加成，死亡队友加成双倍">👑carry/4回</span>
+          <span class="buff-slot glow" data-t="摄魂｜轮换｜剩余3回合｜每回合随机点名1名敌方，持续2回合">👻摄魂/3回</span>
+        </div>
+        <button>📜详细</button><button>⚡自动</button>
       </div>
     </div>
   </div>
-
-  <div class="foot">点任意徽章 → 底部弹出说明<br>改尺寸只影响徽章，不改格子</div>
-</div>
 
 <div id="tip"></div>
 
 <script>
-// 3x3 空格子（模拟棋盘，纯装饰）
-['gA1','gA2','gB1','gB2','gC1','gC2'].forEach(function (id) {
-  const g = document.getElementById(id);
-  for (let i = 0; i < 9; i++) { const d = document.createElement('div'); d.className = 'cell'; g.appendChild(d); }
+/* ===== 真机格子内容（取自 Pages 上实际渲染的一局，字号/结构一致）===== */
+function cell(u) {
+  if (!u) return '<div class="cell cell-placeholder">空</div>';
+  return '<div class="cell">'
+    + '<span class="cell-icon">' + u.icon + '</span>'
+    + '<div class="cell-info">'
+    +   '<div class="cell-name' + (u.name.length >= 5 ? ' cell-name-long' : '') + '">' + u.name + '</div>'
+    +   '<div class="cell-stats"><span>攻' + u.atk + '</span><span>防' + u.def + '</span><span class="hp-text-green">血' + u.hp + '</span></div>'
+    + '</div>'
+    + '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:100%;background:#2e7d32"></div></div>'
+    + '</div>';
+}
+
+const ENEMY = [
+  { icon: '🦅', name: '崆峒唐文亮', atk: 34, def: 19, hp: 85 },
+  { icon: '🏹', name: '昆仑弟子',   atk: 38, def: 17, hp: 85 },
+  null,
+  null,
+  { icon: '⚔️', name: '峨眉弟子',   atk: 29, def: 24, hp: 162 },
+  null,
+  { icon: '🛡️', name: '空智',       atk: 9,  def: 29, hp: 195 },
+  null, null
+];
+const ALLY = [
+  null, null,
+  { icon: '🏹', name: '明教弟子1', atk: 31, def: 14, hp: 110 },
+  { icon: '🦋', name: '小昭·姊',   atk: 27, def: 27, hp: 132 },
+  { icon: '⚔️', name: '明教弟子3', atk: 29, def: 22, hp: 155 },
+  null,
+  { icon: '🛡️', name: '明教弟子2', atk: 13, def: 36, hp: 145 },
+  { icon: '🏹', name: '明教洪午',   atk: 40, def: 21, hp: 77 },
+  null
+];
+
+/* 三种布局的头尾片段（只差左侧那一列）*/
+const BADGE = { ally: '<span class="badge" data-t="圣火不熄">🕯️</span>', enemy: '<span class="badge enemy" data-t="圣火不熄">🕯️</span>' };
+const LAYOUT = {
+  // ① 旧：并排  [标签][logo][格子]
+  1: (b, l) => '<div class="camp-side row-side">' + l + b + '</div>',
+  // ② logo 在上  [ logo / 标签 ][格子]
+  2: (b, l) => '<div class="camp-side">' + b + l + '</div>',
+  // ③ logo 在下  [ 标签 / logo ][格子]
+  3: (b, l) => '<div class="camp-side">' + l + b + '</div>'
+};
+
+function row(side, gridId) {
+  return '<div class="team-row">' + side + '<div class="grid" id="' + gridId + '"></div></div>';
+}
+
+[1, 2, 3].forEach(function (k) {
+  const bf = document.getElementById('bf' + k);
+  const side = (camp) => LAYOUT[k](BADGE[camp], '<span class="team-label ' + (camp === 'ally' ? 'blue' : 'orange') + '">' + (camp === 'ally' ? '明 教' : '六大派') + '</span>');
+  bf.innerHTML = row(side('enemy'), 'gE' + k) + row(side('ally'), 'gA' + k);
+  bf.querySelector('#gE' + k).innerHTML = ENEMY.map(cell).join('');
+  bf.querySelector('#gA' + k).innerHTML = ALLY.map(cell).join('');
 });
 
-// 点徽章弹说明（手机友好：点一下开，再点关）
+/* 量出格子实际宽度，直接对比是否被挤压 */
+window.addEventListener('load', function () {
+  const base = document.querySelector('#bf2 .cell').getBoundingClientRect().width;
+  const old = document.querySelector('#bf1 .cell').getBoundingClientRect().width;
+  document.getElementById('w1').textContent = '格子实际宽 ' + old.toFixed(1) + ' px（比方案②窄 ' + (base - old).toFixed(1) + ' px / 每格）';
+  document.getElementById('w2').textContent = '格子实际宽 ' + base.toFixed(1) + ' px ← 与真机一致，无挤压';
+  document.getElementById('w3').textContent = '格子实际宽 ' + document.querySelector('#bf3 .cell').getBoundingClientRect().width.toFixed(1) + ' px ← 与真机一致，无挤压';
+});
+
+/* 点徽章/槽 → 底部弹说明（手机友好） */
 const tip = document.getElementById('tip');
 document.addEventListener('click', function (e) {
-  const b = e.target.closest('[data-t]');
-  if (!b) { tip.style.display = 'none'; return; }
-  tip.innerHTML = '<b>' + b.dataset.t + '</b>';
+  const t = e.target.closest('[data-t]');
+  if (!t) { tip.style.display = 'none'; return; }
+  tip.innerHTML = '<b>' + t.dataset.t + '</b>';
   tip.style.display = 'block';
   e.stopPropagation();
-});
-
-// 尺寸切换
-document.querySelectorAll('.sizes button').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    document.querySelectorAll('.sizes button').forEach(function (x) { x.classList.remove('on'); });
-    btn.classList.add('on');
-    document.documentElement.style.setProperty('--cell', btn.dataset.c + 'px');
-  });
 });
 </script>
 </body>
