@@ -1,3 +1,10 @@
+// V3.3.0 | ~124400 bytes | 2026-10-15 第 90 轮：账本读点跟随主代码 hp 审计迁移（_mods → unit._audit.hp）——
+//         主代码 V7.6.19（2de9895）把 hp 记账迁出 _mods（防污染真实属性容器）后，本对照器读点未同步
+//         ⇒ 17 条 hp 类契约集体降级「警告态(账本空)」：声明一大把（热血奋战 462 条）、账本一条读不到。
+//         snapLedger 的 hp 改读 _audit.hp 并与 _mods.hp 合并（防过渡期双写漏读；两条写入路径对象不同，
+//         不会重复计数）；按引用差集语义不变（core/02 clone 显式浅拷 _audit、元素引用共享）。
+//         复验：17 条 hp 契约全部回严格、偏差 0。另：第 88 轮 SPIDER_LAND_HEAL/SPIDER_EGG 转交已由
+//         主代码侧 e2fb757 正式落地（严格 34/4 偏差 0）。
 // V3.2.0 | ~119000 bytes | 2026-10-13 第 88 轮：新增 SPIDER_LAND_HEAL / SPIDER_EGG 两条小昭·妹契约（43→45）——
 //         scan-groups 盲区清零：group 'spiderLandHeal' 37 条 hp（飞天落地回血，modules/20 spiderReturn）
 //         + group 'spiderEgg' 4 条 atk/def（毒/反伤致死档结茧，modules/27 toSpiderEgg）——两者记账 addMod
@@ -7,8 +14,8 @@
 //         SPIDER_EGG 用 dir=+1 + allowNeg（atk 归零为负、def 可升可降，真实符号逐字比对）。
 //         验证闭环：临时转交 → 严格比对 37/4 偏差 0 → 咬牙 addMod 值 ×2 双双命中（37 处 / 2 处 EXIT=1）→
 //         咬牙回滚后补丁态全红线绿。转交净版曾被并行会话 f2b4aed 全量提交扫入 HEAD；2026-10-14 用户立规
-//         「主代码不经我手落地」后授权改回（a8c1dda，两文件恢复 8630c51 打补丁前状态）⇒ 两契约回到
-//         零触发警告态（账本有词条、声明侧无值，EXIT=0）；转交文本块见矩阵第 88 轮节，待主代码侧正式落地。
+//         「主代码不经我手落地」后授权改回（a8c1dda，两文件恢复 8630c51 打补丁前状态）；**后由主代码侧
+//         e2fb757 正式落地**（与转交块一字不差）⇒ 两契约严格态（实测 34/4 偏差 0）。
 // V3.1.1 | ~115300 bytes | 2026-10-13 第 85 轮：新增 HE_TAICHONG_RED 何太冲红血·职业加成契约（42→43）——
 //         scan-groups 盲区扫地续：group 'heTaichongRed' 48 条 atk/def/maxHp 词条（两仪互换/单人红血）无契约盯。
 //         fact 侧读 SKILL_ANNOUNCE（skillName '两仪互换'/'红血'）的 data.grants 数值载荷（主代码转交补，
@@ -1523,18 +1530,29 @@ async function main() {
     // 突破口：引擎自己就有完整账本 —— `unit._mods[stat]` 里逐条存着每次修改的
     //   { source, group, value, op, ttl }（core/13 L295 addMod 只 push 不去重）。
     //   getStat 就是把它累加出来的：(base + Σadd) × (1 + Σmul)。
-    //   且 clone() 复制数组但**共享元素引用**（core/02 L127-130），
-    //   → 逐步对 `_mods` 做「按引用」的差集，就能精确知道这一步**哪些机制加了什么、哪些到期了**。
+    //   hp 的审计记账已迁到 `unit._audit.hp`（主代码 V7.6.19 / 2de9895，防污染属性容器；
+    //   2026-10-15 第 90 轮本对照器读点同步，见 snapLedger 内注释）。
+    //   且 clone() 复制数组但**共享元素引用**（core/02 L127-130；_audit 由 core/02 L151 显式浅拷），
+    //   → 逐步对账本做「按引用」的差集，就能精确知道这一步**哪些机制加了什么、哪些到期了**。
     //   这等价于此前认为必须改主代码才能拿到的「按 group 归集增量」（Tier2），
     //   **而这里一行主代码都不用改** —— 第 44 轮把 Tier2 列为主代码需求是判断错误，已撤回。
     const LEDGER_STATS = ['atk', 'def', 'maxHp', 'hp'];
     const snapLedger = (units) => {
         const m = new Map();
         for (const u of units || []) {
-            if (!u || !u._mods) continue;
+            if (!u) continue;
             const per = {};
             for (const st of LEDGER_STATS) {
-                const arr = u._mods[st] || [];
+                // 2026-10-15 第 90 轮：hp 审计记账已由主代码迁出 _mods → unit._audit.hp
+                //   （core/13 recordHpAudit，主代码 V7.6.19 / 2de9895；core/02 clone 显式浅拷
+                //   _audit、元素引用共享 ⇒ 按引用差集语义不变）。迁移前本函数只读 _mods，
+                //   导致 17 条 hp 类契约集体"账本空"降级警告态（声明一大堆、实际读不到）。
+                //   hp 现读 _audit.hp 并与 _mods.hp 合并：防迁移过渡期双写漏读；两条写入路径
+                //   （recordHpAudit / addMod）对象不同，不会重复计数。atk/def/maxHp 仍是
+                //   _mods 真词条（getStat 消费），不变。
+                const arr = st === 'hp'
+                    ? [...((u._audit && u._audit.hp) || []), ...((u._mods && u._mods[st]) || [])]
+                    : ((u._mods && u._mods[st]) || []);
                 const mm = new Map();
                 for (const mod of arr) if (mod) mm.set(mod, mod); // 元素引用作 key
                 per[st] = mm;
@@ -1588,7 +1606,8 @@ async function main() {
     const verbose = rawArgs.length > 0;
 
     // ============ --scan-groups：账本 group 覆盖扫描（第 48 轮）============
-    //   直面「体检是不是太水」这个质疑：把全场真实出现过的 `_mods` group **全枚举**出来，
+    //   直面「体检是不是太水」这个质疑：把全场真实出现过的账本 group **全枚举**出来
+    //   （hp 走 _audit.hp、atk/def/maxHp 走 _mods，见 snapLedger），
     //   再与 CONTRACTS 绑定的 group 做差集 ⇒ 差集就是「改了属性、但体检一条契约都没盯」的真盲区。
     //   比凭印象列机制可靠得多：账本是引擎自己写的事实，既不会漏也不会多。
     const groupSeen = new Map();   // group -> { stats:Set, sources:Set, n }
