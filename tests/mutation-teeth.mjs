@@ -1,3 +1,6 @@
+// V2.9.9 | 2026-10-15 第 93 轮：T18 变异重修——旧版 `{ posA, posB }`→`{ posB, posA }` 是 ES6 简写
+//   换键顺序不换值的**空操作**（sed 注入成功但对象一模一样，树仍干净 ⇒ 首测 0 命中误导"规则没牙"）；
+//   改为真换值 `posA: posB, posB: posA`。教训入 skill：变异必须改变**行为/数值**，文本差异≠行为差异。
 // V2.9.8 | 2026-10-15 第 92 轮：新增 ONLY 增量过滤 + --merge-results 合并（用户立规"新增几颗牙只跑
 //   几棵树，别为 2 颗新牙跑 20-40 分钟全量"的落地）——ONLY=T17,T18 时 prep/run 只伺候这几棵树、
 //   结果落 teeth-results-inc.txt，--merge-results 按 id 合并回主文件并刷新 META（NOTE 记录来源）。
@@ -76,7 +79,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.8';
+export const VER = 'tests/mutation-teeth.mjs V2.9.9';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -397,8 +400,13 @@ const MUTATIONS = [
     //     判据2（自洽）抓不到（uid/位置仍合法且相异）—— 正是要单独验证判据5 有牙。
     { id: 'T18', kind: 'TEXT', desc: '惑心换位 fact 报反新旧位置（⇒ 宣告位置未生效 → rule113 判据5应咬）',
       file: 'core/14buff-effects.js',
+      // 2026-10-15 第 93 轮重修（原设计是空操作！）：旧 from/to 把简写属性 `{ ..., posA, posB }` 换成
+      //   `{ ..., posB, posA }` —— ES6 简写只换**键顺序**不换值，生成的对象一模一样 ⇒ sed 注入成功
+      //   但行为零变化，树仍是干净树 ⇒ 第 92 轮首测 0 命中还害我误判"规则没牙"。真变异必须换**值**：
+      //   `posA: posB, posB: posA`（fact 的 posA 字段装 posB 的值、反之亦然）⇒ 渲染文本位置对调
+      //   ⇒ 判据5（含第 93 轮终局兜底）应咬。
       from: "unitB: { uid: b.uid, name: b.name }, posA, posB } });",
-      to:   "unitB: { uid: b.uid, name: b.name }, posB, posA } });",
+      to:   "unitB: { uid: b.uid, name: b.name }, posA: posB, posB: posA } });",
       multi: true },
 ];
 
