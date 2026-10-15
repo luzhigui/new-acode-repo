@@ -1,7 +1,9 @@
-// V6.4.4 | ~21050 bytes | 2026-10-13 红血加血独立行拆除：何太冲红血触发改挂 ON_UNIT_ACTED（modules/26 V6.26.0），
+// V6.4.5 | ~21200 bytes | 2026-10-15 选敌完成后、命中/闪避判定前新增 AFTER_SELECT_TARGET 广播（带 log）：
+//          给「出手声明」类机制（胖远桥掷骰声明）一个早于 DODGE 的日志通道，被闪避反击时声明不再被吞。
+// V6.4.4 | 2026-10-13 红血加血独立行拆除：何太冲红血触发改挂 ON_UNIT_ACTED（modules/26 V6.26.0），
 //          加血发生在攻击行之后，「正伤害血反增」矛盾不再存在，BEFORE_DAMAGE_APPLY 血量对照补偿随之退役。
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/10battle-attack.js V6.4.4';
+export const VER = 'core/10battle-attack.js V6.4.5';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -134,6 +136,11 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let targetActiveBuffs = target.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
     let targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
+
+    // 2026-10-15 选敌完成·出手前带 log 广播：给「出手声明」类机制一个早于命中/闪避判定的日志通道。
+    //   此前无此信号，胖远桥掷骰声明只能挂 AFTER_ATTACK / AFTER_DAMAGE_APPLIED，被闪避时两条都不发、声明被吞；
+    //   此处置于 resolveAttackHit 之前 → 声明行天然排在 DODGE/MISS 行之前。
+    eventBus.emit(SIGNAL_TYPES.AFTER_SELECT_TARGET, { unit, target, log });
 
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, eventBus, { log, A, B, doubleStrikeUnitUid, state });
     if (hitResult.skipped) {

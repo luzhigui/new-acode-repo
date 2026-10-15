@@ -285,6 +285,23 @@ export function renderKuaiLeHealFact(fact) {
     };
 }
 
+// 通用回血（2026-10-15 HEAL fact）：字段 {unitUid, heal, hpBefore, hpAfter, label, icon}
+// text 与 fxAnchors 由同一函数同时产出 → 锚点永远匹配得上，不会出现 FLYER_REGEN 那种「文案漂移→飘字哑火」
+export function renderHealFact(fact) {
+    const icon = fact.icon || '💚';
+    const label = fact.label || '回血';
+    return {
+        type:'info',
+        text:`<span class="green">${icon} ${label}：${fact.unitName} 回复${fact.heal}点生命，血量 ${fact.hpBefore} → ${fact.hpAfter}</span>`,
+        fxAnchors: [`回复${fact.heal}点`],
+        zhouUid: fact.unitUid,
+        zhouHpAfter: fact.hpAfter,
+        isHealEntry: true,
+        healAmount: fact.heal,
+        healUnitUid: fact.unitUid
+    };
+}
+
 // 小昭蛛变
 export function renderSpiderTransformFact(fact) {
     const gain = fact.masteryGain ? `，精通+${fact.masteryGain.atk}攻+${fact.masteryGain.def}防+${fact.masteryGain.hp}血` : '';
@@ -544,6 +561,7 @@ registerFactRenderer(FACT_TYPES.MIND_CONTROL_BANNER, renderMindControlBannerFact
 registerFactRenderer(FACT_TYPES.QIAN_KUN_UPGRADED, renderQianKunUpgradedFact);
 registerFactRenderer(FACT_TYPES.QIAN_KUN_BASIC, renderQianKunBasicFact);
 registerFactRenderer(FACT_TYPES.KUAI_LE_HEAL, renderKuaiLeHealFact);
+registerFactRenderer(FACT_TYPES.HEAL, renderHealFact);
 registerFactRenderer(FACT_TYPES.SPIDER_TRANSFORM, renderSpiderTransformFact);
 registerFactRenderer(FACT_TYPES.SPIDER_RETURN, renderSpiderReturnFact);
 registerFactRenderer(FACT_TYPES.SPIDER_STRIKE, renderSpiderStrikeFact);

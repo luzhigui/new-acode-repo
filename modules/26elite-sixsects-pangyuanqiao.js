@@ -1,8 +1,11 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
+// V6.27.0 | ~12800 bytes | 2026-10-15 出手声明前移：掷骰结果（国字脸加防 / 打歪倍率 + 出手蓄力上限）改在选敌完成后
+//   （新信号 AFTER_SELECT_TARGET，早于命中/闪避判定）立即落日志 → 被闪避反击时也能看见「加防/加血」声明；
+//   AFTER_ATTACK / AFTER_DAMAGE_APPLIED 里重复的 pushInfo 拆除，演出标记 pangTaunt/pangDefGain/pangClumsy 保留
 // V6.26.0 | ~12240 bytes | 2026-10-15 三改（老板拍板）：出手蓄力每次攻击前 maxHp+hpPerAttack（国字脸 defGain 50→40 补偿，数值走 content）；
 //   打歪倍率固定 2.0 改 dmgMultMin~dmgMultMax 随机（步长 dmgMultStep，本击定值存 _clumsyMult）
 // V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.26.0';
+export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.27.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
@@ -14,7 +17,7 @@ import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.j
 //   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且自身防御永久+40、无上限叠加），
 //   攻越高越容易发动年轻气盛（随机目标 ×2.0 + 击退，退无可退则眩晕）。
 // 第三关与宋青书每局随机二选一（content 的 encounters.squadVariants["3"]）。
-// 三个技能全在本组件闭环：击退/眩晕复用 core/13 的公共 fact，其余日志走 group.data.entries。
+// 三个技能全在本组件闭环：击退/眩晕复用 core/13 的公共 fact；出手声明走 SKILL_ANNOUNCE（出手帧落行），其余日志走 group.data.entries。
 export function createPangYuanQiaoComponent() {
     return {
         name: '胖远桥',
@@ -36,6 +39,11 @@ export function createPangYuanQiaoComponent() {
                     data.group.data.entries.push({ type: 'info', text });
                 }
             }
+
+            // 2026-10-15 出手声明暂存：PANG_CLUMSY 掷完骰写入，AFTER_SELECT_TARGET（选敌完成·出手前）落日志后清空。
+            //   存结构化结果（kind + 数值），目标名在落日志时用信号里的 data.target 现取，
+            //   避免掷骰时声明的目标被后续选敌处理器（嘲讽强制/幻影等）改写后名字对不上。
+            let pendingDecl = null;
 
             // 技能1 莽撞（被动）：每次被攻击后自身攻击 +atkPerHit，永久累计、无上限
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.PANG_RAGE, (data) => {
@@ -87,6 +95,7 @@ export function createPangYuanQiaoComponent() {
                 if (data.unit !== pang || !pang.alive) return;
                 pang.state._clumsyHit = false;
                 pang.state._tauntFired = false;
+                pendingDecl = null;
                 // 2026-10-15 出手蓄力（老板拍板，国字脸 −10 防的补偿）：每次发起攻击前生命上限永久+hpPerAttack
                 addMod(pang, 'maxHp', { source: '蓄力', value: face.hpPerAttack, ttl: 'permanent', group: 'pangAtkHp', op: 'add' });
                 refreshMaxHp(pang, null, '蓄力');
@@ -105,6 +114,7 @@ export function createPangYuanQiaoComponent() {
                     pang.state._clumsyMult = Math.round((young.dmgMultMin + rng.nextInt(0, steps - 1) * young.dmgMultStep) * 10) / 10;
                     data.declaration.targetResult = cands[rng.nextInt(0, cands.length - 1)];
                     pang.state._clumsyHit = true;
+                    pendingDecl = { kind: 'clumsy', mult: pang.state._clumsyMult };
                     return;
                 }
                 // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗），
@@ -112,6 +122,26 @@ export function createPangYuanQiaoComponent() {
                 for (const foe of cands) foe.state._tauntedByPang = true;
                 addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });
                 pang.state._tauntFired = true;
+                pendingDecl = { kind: 'face' };
+            });
+
+            // 出手声明落日志（2026-10-15）：core/10 在选敌完成、命中/闪避判定之前广播本信号，
+            //   因此被闪避反击时声明行仍在 DODGE 行之前（此前声明挂 AFTER_ATTACK/AFTER_DAMAGE_APPLIED，被闪时两条都不发）。
+            //   走 SKILL_ANNOUNCE（契约五字段齐），只落战报行不飘字；演出仍由 pangTaunt/pangClumsy 标记在出手帧触发。
+            eventBus.on(SIGNAL_TYPES.AFTER_SELECT_TARGET, L.AFTER_SELECT_TARGET.PANG_DECLARE, (data) => {
+                if (data.unit !== pang) return;
+                const decl = pendingDecl;
+                pendingDecl = null;
+                if (!decl || !data.log) return;
+                const hpNote = `蓄力生命上限+${face.hpPerAttack}`;
+                const note = decl.kind === 'clumsy'
+                    ? `😵 年轻气盛：胖远桥一拳打歪，招呼到 ${data.target ? data.target.name : '?'} 身上（伤害×${decl.mult}；${hpNote}）`
+                    : `😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}；${hpNote}）`;
+                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                    unitName: pang.name, unitUid: pang.uid, camp: pang.camp,
+                    skillName: decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸',
+                    note
+                } });
             });
 
             // 年轻气盛：该次伤害 ×本击掷定的随机倍率（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
@@ -128,22 +158,21 @@ export function createPangYuanQiaoComponent() {
                 if (!tgt || !tgt.alive) return;
                 // 打歪的演出标记：本击 fact 带上，render/39 出手帧据此发 PANG_CLUMSY（生成步不发，避免抢画面）
                 if (data.group && data.group.data) data.group.data.pangClumsy = true;
-                pushInfo(data, `<span class="gold">😵 年轻气盛：胖远桥一拳打歪，招呼到 ${tgt.name} 身上（伤害×${pang.state._clumsyMult || young.dmgMultMin}）</span>`);
+                // 战报行已在出手帧（AFTER_SELECT_TARGET）落过，这里只保留演出标记 + 击退/眩晕结算
                 resolvePushOrStun(tgt, tgt.camp === CAMP_TYPES.ALLY ? A : B, data.log, '😤 年轻气盛');
             });
 
-            // 正义国字脸的台词：目标选择阶段没有日志通道，攒到本次攻击收尾（AFTER_ATTACK）再补一条
+            // 正义国字脸的演出标记：与台词同帧写进本击 fact，render/39 出手帧据此发 PANG_TAUNT（战报行已前移到出手帧）
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.PANG_TAUNT, (data) => {
                 if (data.unit !== pang || !pang.alive || !pang.state._tauntFired) return;
                 pang.state._tauntFired = false;
-                // 国字脸的演出标记：与台词同帧写进 fact，render/39 出手帧据此发 PANG_TAUNT
                 if (data.group && data.group.data) {
                     data.group.data.pangTaunt = true;
                     // 2026-10-02 加防量随 fact 走一格（此前只有上面那行文字、无飘字），
                     //   render/38 据此产 STAT_CHANGE(def) → fx/80 飘「🛡+N」
                     data.group.data.pangDefGain = face.defGain;
                 }
-                pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）</span>`);
+                // 战报行已在出手帧（AFTER_SELECT_TARGET）落过，这里只保留演出标记（pangTaunt/pangDefGain → 出手帧特效）
             });
 
             // 嘲讽的强制执行：被嘲讽者本回合每次选目标都改成胖远桥（标记回合级，回合开始统一清）

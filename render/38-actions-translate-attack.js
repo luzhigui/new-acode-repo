@@ -4,6 +4,8 @@
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { makeHealAction } from './38-actions-translate-heal.js';
+// 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
+import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
 export const VER = 'render/38-actions-translate-attack.js V1.0.0';
 
 // 攻击族翻译器表（键=factType）
@@ -202,7 +204,7 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
-        } else if (e.factType && [FACT_TYPES.BLOOD_THIRST_LEECH, FACT_TYPES.HOT_BLOOD_HEAL, FACT_TYPES.NINE_YANG_HEAL, FACT_TYPES.WEI_LEECH, FACT_TYPES.PHANTOM_DISGUISE_HEAL, FACT_TYPES.CLAW_HEAL].includes(e.factType)) {
+        } else if (e.factType && ATTACK_GROUP_HEAL_FACTS.includes(e.factType)) {
             const healAction = makeHealAction(e.data || {}, index);
             if (healAction && healAction.amount) {
                 healAction.timing = 'afterText';

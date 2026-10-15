@@ -1,5 +1,6 @@
-// V1.6.0 | ~14300 bytes | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
-export const VER = 'infra/56-battle-enums.js V1.6.0';
+// V1.7.0 | ~14400 bytes | 2026-10-15 新增信号 SIGNAL_TYPES.AFTER_SELECT_TARGET（选敌完成·出手前带 log 广播，modules/26 胖远桥出手声明落行）
+// V1.6.0 | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
+export const VER = 'infra/56-battle-enums.js V1.7.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -30,6 +31,9 @@ export const FACT_TYPES = Object.freeze({
     METEOR_SPLASH_GROWTH: 'meteorSplashGrowth',
     WARRIOR_EXECUTE: 'warriorExecute',
     BLOOD_THIRST_LEECH: 'bloodthirstLeech', HOT_BLOOD_HEAL: 'hotBloodHeal', FLYER_REGEN: 'flyerRegen',
+    // 通用回血事实（2026-10-15 新增）：字段固定 { unitUid, heal, hpBefore, hpAfter, label, icon }。
+    // 引擎侧统一走 core/16 的 emitHeal() 发射 → 弹幕/日志自动接上；新增回血机制不再需要逐条登记翻译表。
+    HEAL: 'heal',
     WIND_ASSAULT_SPLASH: 'windAssaultSplash', WIND_ASSAULT_PUSH: 'windAssaultPush',
     WIND_ASSAULT_FAIL: 'windAssaultFail',
     // 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
@@ -213,6 +217,8 @@ export const SIGNAL_TYPES = Object.freeze({
     BEFORE_ACTION_SELECT: 'beforeActionSelect',
     BEFORE_ATTACK: 'beforeAttack',
     BEFORE_SELECT_TARGET: 'beforeSelectTarget',
+    // 选敌完成·出手前（core/10 带 log 广播）：给「出手声明」类机制一个早于命中/闪避判定的日志通道
+    AFTER_SELECT_TARGET: 'afterSelectTarget',
     BEFORE_DAMAGE_CALC: 'beforeDamageCalc',
     BEFORE_DAMAGE_APPLY: 'beforeDamageApply',
     ON_DODGE: 'onDodge',
