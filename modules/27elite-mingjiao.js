@@ -1,3 +1,5 @@
+// V7.1.0 | ~81700 bytes | 2026-10-15 妹永久 carry 改每回合刷新一轮（层数=1+2×上回合阵亡+上上回合阵亡，每层调用精通参数）
+//   + 妹永久圣火令改画行列命中制（回合初掷 atkCols 列/defRows 行存 _xiaoHolyFlame，core/14 读）+ 死亡计数钩子
 // V7.0.2 | ~77790 bytes | 2026-10-14 新增雄鹰组件（carry 海克斯召唤·飞行）：命中后使己方一名已行动过的
 //   队友恢复行动力（_acted=false，不含自己/飞天/拒马）；无人可恢复则召唤白板雌鹰永久存在。
 //   由 core/04 spawnCarryEagle 在 5 号位无人时召唤顶位、core/11 组件工厂循环按名注册
@@ -7,7 +9,7 @@
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.0.3';
+export const VER = 'modules/27elite-mingjiao.js V7.1.0';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -17,11 +19,23 @@ import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { registerTargetPoolFilter } from '../core/07-target-strategies.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit } from '../core/13battle-shared.js';
-import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { watchUnit } from '../core/19unit-watch.js';
+
+// 2026-10-15 妹永久 carry「死亡计数」（老板拍板）：己方死亡全算（含巨马/召唤物——"这样感觉有意思"）。
+//   挂 ON_UNIT_DEATH 广播累加 state._xiaoCarryDeaths.cur；回合初蛛变结算滚动成 r1/r2 桶，
+//   层数 = 1 + 2×r1 + r2（上回合每死 1 人 +2 层、上上回合每死 1 人 +1 层，更早不再追溯）。
+registerSettlementHook({ when: SIGNAL_TYPES.ON_UNIT_DEATH, priority: L.ON_UNIT_DEATH.XIAO_CARRY_COUNT, handler: (data) => {
+    const bro = (data.allySide || []).find(u => u.isXiaoZhaoBrother && u.alive);
+    if (!bro) return;
+    const deaths = (data.deadUnits || []).filter(u => u.camp === CAMP_TYPES.ALLY).length;
+    if (deaths <= 0) return;
+    const d = bro.state._xiaoCarryDeaths || { cur: 0, r1: 0, r2: 0 };
+    Object.assign(bro.state, { _xiaoCarryDeaths: { cur: d.cur + deaths, r1: d.r1, r2: d.r2 } });
+}});
 
 // 2026-09-02 定案：本文件的 FSM（张无忌/小昭·姊/小昭·妹）不做声明化、不搬表。
 //   理由：有状态机的角色仅 3 个，转移规则在组件内一眼可见；声明化只能挪骨架、
@@ -731,6 +745,19 @@ export function createXiaoZhaoBrotherComponent() {
                 const { A, B, log } = data;
                 const bro = A.find(u => u.isXiaoZhaoBrother && u.alive);
                 if (!bro) return;
+                // 2026-10-15 结茧冻结也要滚动/掷骰（回合对齐不断档）：死亡桶 r2←r1←cur←0；
+                //   妹永久圣火令按全局同口径掷 atkCols 列 + defRows 行（core/14 _Brother 读此命中判）
+                const dd = bro.state._xiaoCarryDeaths || { cur: 0, r1: 0, r2: 0 };
+                Object.assign(bro.state, { _xiaoCarryDeaths: { cur: 0, r1: dd.cur, r2: dd.r1 } });
+                if (bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HOLY_FLAME)) {
+                    const hf = CONFIG.BUFFS.holyFlame;
+                    const rng = getBattleRng();
+                    const cols = [];
+                    while (cols.length < hf.atkCols) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
+                    const rows = [];
+                    while (rows.length < hf.defRows) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
+                    Object.assign(bro.state, { _xiaoHolyFlame: { cols: cols.sort((x, y) => x - y), rows: rows.sort((x, y) => x - y) } });
+                }
                 if (bro.state._spiderEgg) return;
                 if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
                 if (bro._fsm && bro._fsm.is('transforming')) bro._fsm.transition('normal');
@@ -747,14 +774,19 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
-                // 去重门控（2026-10-13 修无限叠加 bug）：永久 carry 只续一份常驻——_mods 里已有该 group 即已续过，
-                //   不再 addMod（此前每回合蛛变叠一笔 +3/+4/+20，R5-R15 叠 11 笔、血上限 132→577）
-                const carryApplied = bro._mods?.atk?.some(m => m.group === 'xiaoZhaoCarry');
-                if (!hasTeamCarry && !carryApplied && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro.state._baseMaxHp !== undefined) {
-                    const carryMods = CONFIG.XIAO_ZHAO_CARRY_MODS;
-                    addMod(bro, 'atk', { source: '小昭·妹永久carry', value: carryMods.atk, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
-                    addMod(bro, 'def', { source: '小昭·妹永久carry', value: carryMods.def, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
-                    addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: carryMods.maxHp, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                // 2026-10-15 永久 carry 改「每回合刷新一轮」（老板拍板）：不再一次性常驻 +3/+4/+20——
+                //   层数 = 1 + 2×(上回合己方阵亡数) + 1×(上上回合阵亡数)，每层调用精通参数
+                //   （小昭.mastery 的 atkPer/defPer/hpPer，不写死）。ttl:'round' 由回合开始清理、此处重挂
+                //   （清理先于蛛变声明，无空窗）。原 V7.0.3 carryApplied 去重门控作废——无限叠加是
+                //   permanent 挂法特有问题，round 挂法天然消除。
+                if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY)) {
+                    const d = bro.state._xiaoCarryDeaths;
+                    const layers = 1 + 2 * d.r1 + d.r2;
+                    const per = getSkillParams('小昭', 'mastery');
+                    if (!per) throw new Error('缺技能参数: 小昭.mastery');
+                    addMod(bro, 'atk', { source: '小昭·妹永久carry', value: per.atkPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
+                    addMod(bro, 'def', { source: '小昭·妹永久carry', value: per.defPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
+                    addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: per.hpPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
                     refreshMaxHp(bro, null, '小昭·妹永久carry');
                 }
             }

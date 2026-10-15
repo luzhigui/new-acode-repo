@@ -1,8 +1,7 @@
-// V6.8.2 | ~34322 bytes | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标
-//          （carry/双击恒显示；受格子「最多留最新 2 个」上限约束）
+// V6.8.3 | ~34760 bytes | 2026-10-15 妹永久圣火令改命中制后，logo 同步读每回合重画的 _xiaoHolyFlame（不再用账本旧 cols/rows）
 // ── 更早版本见 记录-更改履历.md
-// V6.7.0 | 2026-10-12 修状态标记隐形（短名未裁剪分支不消费 logoList）→ 统一用 displayLogos
-export const VER = 'render/32-grid-render.js V6.8.2';
+// V6.8.2 | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标（carry/双击恒显示）
+export const VER = 'render/32-grid-render.js V6.8.3';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
@@ -466,8 +465,14 @@ export function renderGrid(id, camp) {
             for (let bi = perms.length - 1; bi >= 0; bi--) {
                 const pk = perms[bi].key;
                 const info = CONFIG.BUFFS ? CONFIG.BUFFS[pk] : null;
-                const ok = (pk === BUFF_TYPES.CARRY || pk === BUFF_TYPES.DOUBLE_STRIKE)
-                    || isUnitBenefitedByBuff(unit, pk, team, unit.uid, perms);
+                let ok;
+                if (pk === BUFF_TYPES.CARRY || pk === BUFF_TYPES.DOUBLE_STRIKE) ok = true;
+                else if (pk === BUFF_TYPES.HOLY_FLAME) {
+                    // 2026-10-15 永久圣火令改命中制（core/14），账本里的旧 cols/rows 不作数，读每回合重画的 _xiaoHolyFlame
+                    const hfDraw = unit.state._xiaoHolyFlame;
+                    ok = !!hfDraw && ((hfDraw.rows || []).includes(getUnitRow(unit.pos))
+                        || (hfDraw.cols || []).includes(getUnitCol(unit.pos)));
+                } else ok = isUnitBenefitedByBuff(unit, pk, team, unit.uid, perms);
                 if (info && info.icon && ok) { buffIcons = info.icon; break; }
             }
         }
