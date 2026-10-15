@@ -1,9 +1,10 @@
-// V6.3.12 | ~31950 bytes | 2026-10-14 严阵以待反弹补「小昭·妹永久」分支（团队 buff 过期后妹仍反弹），
+// V6.3.13 | ~32515 bytes | 2026-10-15 圣火令·气运加 requiresHolyFlame 门控（妹拥有永久圣火令后本局击杀掉率×4，数值在 content 小昭.holyTokenLuck）
+// V6.3.12 | 2026-10-14 严阵以待反弹补「小昭·妹永久」分支（团队 buff 过期后妹仍反弹），
 //           门控改 hasBuff || query('xiaoPermanentActive')，两分支互斥不重复
 // V6.3.11 | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
 //           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
 //           业务参数（unit/target/dmgCalc/allySide/phantomFact 等）保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/12battle-attack-steps.js V6.3.12';
+export const VER = 'core/12battle-attack-steps.js V6.3.13';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -357,9 +358,13 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target.state._tokenDropped) {
         const stage = getBattleState('currentStage') || 1;
-        // 圣火令·气运：击杀者带 holyTokenLuck 时掉率按倍率放大（数据驱动，当前只有张无忌配了 4 倍；
+        // 圣火令·气运：击杀者带 holyTokenLuck 时掉率按倍率放大（数据驱动，张无忌 4 倍无条件；
         // 按名字查表而非认 isZhang——core 不硬编码精英身份，与 _canAlwaysDodge 同一约定）
-        const luck = getSkillParams(unit.name, 'holyTokenLuck');
+        // 2026-10-15 小昭条目带 requiresHolyFlame 门控（老板拍板）：妹永久账本里有圣火令才生效——
+        //   _permanentBuffs「本局不过期」语义天然满足「拥有圣火令后、这一局内」
+        let luck = getSkillParams(unit.name, 'holyTokenLuck');
+        if (luck && luck.requiresHolyFlame &&
+            !(unit.isXiaoZhaoBrother && unit.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HOLY_FLAME))) luck = null;
         const dropRate = Math.min(1, (C.TOKEN_DROP_RATES[stage] || 0) / 100 * (luck && luck.multiplier ? luck.multiplier : 1));
         if (rng.next() < dropRate) {
             target.state._tokenDropped = true;
