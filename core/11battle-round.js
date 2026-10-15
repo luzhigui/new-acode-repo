@@ -1,3 +1,6 @@
+// V6.3.17 | ~31000 bytes | 2026-10-15 第二批内容接线：import 补 applyLastStandBonus/applyUnityBonus/spawnUnityRecruits；
+//           prepareRoundStart 在 spawnCarryEagle 之后、组件工厂循环之前调 spawnUnityRecruits(A/B)（众志成城补员，
+//           当回合即挂技能），A/B 两侧 applyCarryBonus 之后各调 applyLastStandBonus/applyUnityBonus（背水一战残血增伤、众志成城人数阶梯）
 // V6.3.16 | ~30400 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：prepareRoundStart 在 buff 变换器重算
 //           activeBuffs 之后、组件工厂循环之前调 spawnCarryEagle(A/B)——5 号位无人则召唤雄鹰顶位（当回合即注册技能）
 // V6.3.15 | ~30300 bytes | 2026-10-14 妹永久摄魂「点名 2 回合」调度（老板拍板削弱）：重置后、ON_ROUND_START 前，
@@ -10,12 +13,12 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.16';
+export const VER = 'core/11battle-round.js V6.3.17';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './03battle-utils.js';   // 2026-10-08 清死import×8（特判收口后失业：makeFXSnapshot/getUnitCol/getUnitRow/hasAnyEnemyEmptyCol/countEnemyEmptyCols/getBloodAuraBonus/registerEmptyColBonus）
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
@@ -105,6 +108,11 @@ function prepareRoundStart(A, B, state, ctx) {
     //   必须早于下方组件工厂循环 —— 雄鹰当回合就在 A/B 里，才能被注册面挂上技能。
     spawnCarryEagle(A, ctx.log);
     spawnCarryEagle(B, ctx.log);
+
+    // 2026-10-15 众志成城（unity）：获得时不足 5 人则每回合召唤随机角色补员（M50/技能全开），
+    //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
+    spawnUnityRecruits(A, state, ctx.log);
+    spawnUnityRecruits(B, state, ctx.log);
 
     eventBus.clearAll();
     // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
@@ -199,6 +207,9 @@ function prepareRoundStart(A, B, state, ctx) {
         applyFortifyBonus(u, A._activeBuffs || []);
         applySoulDrain(u, B._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountB, targetAlive: aliveCountA, round: ctx.round, casterSide: B });   // 六大派持摄魂 → 削弱明教
         applyCarryBonus(u, A, state, ctx.log);
+        // 2026-10-15 第二批海克斯：背水一战（低血攻×1.4）/众志成城（按存活人数阶梯乘攻防），ttl:'round' 每回合重挂
+        applyLastStandBonus(u, A._activeBuffs || []);
+        applyUnityBonus(u, A, A._activeBuffs || []);
 
         const auraBonuses = getAuraBonuses(u, A, B);
         // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
@@ -221,6 +232,9 @@ function prepareRoundStart(A, B, state, ctx) {
         applyFortifyBonus(u, B._activeBuffs || []);
         applySoulDrain(u, A._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountA, targetAlive: aliveCountB, round: ctx.round, casterSide: A });   // 明教持摄魂 → 削弱六大派
         applyCarryBonus(u, B, state, ctx.log);
+        // 2026-10-15 第二批海克斯（六大派侧同构）
+        applyLastStandBonus(u, B._activeBuffs || []);
+        applyUnityBonus(u, B, B._activeBuffs || []);
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;

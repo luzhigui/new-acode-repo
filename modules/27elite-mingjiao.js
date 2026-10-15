@@ -1,3 +1,6 @@
+// V7.1.2 | ~84500 bytes | 2026-10-15 第二批内容：新增殷天正（白眉鹰王·防战·精英 m104）组件 createYinTianZhengComponent
+//   + registerElite('殷天正', ...)——三段钩子：YIN_PRESSURE(18) 命中后永久削目标攻/防各 5；YIN_COUNTER(16) 被击后
+//   按鹰爪功概率反击（走 extraRequests 完整管线、封顶 0.9）；成长段每次命中后自身永久 +5攻/+5防、_counterProbBonus += 0.05
 // V7.1.1 | ~81900 bytes | 2026-10-15 修蜘蛛卵孵化过快：ON_ROUND_END 实际是「每个单位行动完就发一次」
 //   （core/11 L459，forced:false），卵计时器听它 +1 导致同一回合内就凑满 2 → 当回合孵化。
 //   改为只认真回合末（forced:true，core/11 L536 finalizeRoundEnd 每回合一次）——结茧回合末 +1、下一回合末 +2 才孵化
@@ -12,7 +15,7 @@
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.1.1';
+export const VER = 'modules/27elite-mingjiao.js V7.1.2';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -1157,6 +1160,77 @@ export function createEagleComponent() {
     };
 }
 
+// 殷天正（白眉鹰王·明教·防战·弱精英 m104）：反击 / 命中削敌 / 越打越壮
+// ① 鹰爪功：被攻击后 (基础 45% + 老当益壮累计) 概率反击攻击者，伤害×dmgRatio，走 extraRequests 过完整伤害管线
+// ② 鹰王威压：殷天正每次命中（普攻/反击皆算）后永久削目标攻/防各 5（addMod 无 ttl = 整局累积，可无限叠加）
+// ③ 老当益壮：殷天正每次命中后自身永久 +攻/防各 5，并累计反击概率 +5%（反击率封顶 0.9）
+export function createYinTianZhengComponent() {
+    return {
+        name: '殷天正',
+        register(eventBus, A, B, log) {
+            // 不写死阵营：按身份标记在两侧找，殷天正换边也照样生效
+            const yin = [...A, ...B].find(u => u.isYinTianZheng && u.alive);
+            if (!yin) return;
+
+            const counter = getSkillParams('殷天正', 'yingZhuaGong');
+            if (!counter) throw new Error('缺技能参数: 殷天正.yingZhuaGong');
+            const weiya = getSkillParams('殷天正', 'yingWangWeiYa');
+            if (!weiya) throw new Error('缺技能参数: 殷天正.yingWangWeiYa');
+            const grow = getSkillParams('殷天正', 'laoDangYiZhuang');
+            if (!grow) throw new Error('缺技能参数: 殷天正.laoDangYiZhuang');
+
+            function pushInfo(data, text) {
+                if (data && data.group && data.group.data && data.group.data.entries) {
+                    data.group.data.entries.push({ type: 'info', text });
+                }
+            }
+
+            // ② 鹰王威压（16→此处 18）：命中后削目标攻防（永久，跨回合延续）
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_PRESSURE, (data) => {
+                if (data.unit !== yin || !yin.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const t = data.target;
+                if (!t || !t.alive) return;
+                addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', group: 'yingWangWeiYa' });
+                addMod(t, 'def', { source: '鹰王威压', value: -weiya.defDown, op: 'add', group: 'yingWangWeiYa' });
+                pushInfo(data, `<span class="gold">🦅 殷天正鹰王威压：${t.name} 攻 −${weiya.atkDown}、防 −${weiya.defDown}（永久累积）</span>`);
+            });
+
+            // ① 鹰爪功反击（16）：被攻击后 prob 概率反击攻击者，伤害×dmgRatio，可被闪避
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_COUNTER, (data) => {
+                if (data.target !== yin || !yin.alive) return;
+                if (yin.state._pendingDeath) return;                 // 本击已把他打进待死，不再反击
+                if (!data.dmg || data.dmg <= 0) return;
+                const attacker = data.unit;
+                if (!attacker || !attacker.alive || attacker === yin) return;
+                const prob = Math.min(0.9, (counter.counterProb ?? 0) + (yin.state._counterProbBonus || 0));
+                if (getBattleRng().next() >= prob) return;
+                if (!data.extraRequests) data.extraRequests = [];
+                data.extraRequests.push({
+                    unit: yin,
+                    targetUid: attacker.uid,
+                    reason: 'counterAttack',
+                    dmgRatio: counter.dmgRatio,
+                    actedMode: 'restore',
+                    actedSnapshot: yin.state._acted,
+                    priority: 12
+                });
+                pushInfo(data, `<span class="gold">🦅 殷天正鹰爪功反击 ${attacker.name}！（伤害×${counter.dmgRatio}）</span>`);
+            });
+
+            // ③ 老当益壮：每次命中（普攻/反击）后自身永久成长，反击概率累计（封顶由上面 prob 的 min 0.9 兜住）
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_GROW, (data) => {
+                if (data.unit !== yin || !yin.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', group: 'laoDangYiZhuang' });
+                addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', group: 'laoDangYiZhuang' });
+                yin.state._counterProbBonus = (yin.state._counterProbBonus || 0) + grow.probGain;
+                pushInfo(data, `<span class="gold">💪 殷天正老当益壮：攻 +${grow.atkGain}、防 +${grow.defGain}、反击率 +${Math.round(grow.probGain * 100)}%</span>`);
+            });
+        }
+    };
+}
+
 registerElite('雄鹰', createEagleComponent);
 registerElite('张无忌', createZhangWujiComponent);
 registerElite('韦一笑', createWeiYixiaoComponent);
@@ -1164,6 +1238,8 @@ registerElite('小昭·姊', createXiaoZhaoSisterComponent);
 registerElite('小昭·妹', createXiaoZhaoBrotherComponent);
 registerElite('金毛狮王谢逊', createXieXunComponent);
 registerElite('杨逍', createYangXiaoComponent);
+// 2026-10-15 殷天正（白眉鹰王·明教·防战·弱精英 m104）：补明教「防战精英」空缺，走随机精英轮盘
+registerElite('殷天正', createYinTianZhengComponent);
 
 // 杨逍·选敌 pool-filter（core/07 通用飞行分支取目标前调用）：
 //   优先未行动且未被点穴的敌人（控到还有行动权的 target 才有意义）；非杨逍返回 null（不干预）；
