@@ -506,6 +506,11 @@
           "name": "精通",
           "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限，精通全部四门后再加两层",
           "params": { "atkPer": 2, "defPer": 2, "hpPer": 5 }
+        },
+        "holyTokenLuck": {
+          "name": "圣火令·气运",
+          "desc": "拥有圣火令后，本局内自己击杀的圣火令掉落概率为正常的{multiplier}倍",
+          "params": { "multiplier": 4, "requiresHolyFlame": true }
         }
       },
       "taunts": {
