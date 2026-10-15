@@ -1,3 +1,6 @@
+// V2.9.7 | 2026-10-15 第 91 轮：A25 锚点重校（multi）—— 主代码 6f4c103/8073bbe 把圣火令拆成
+//   两条路径（基础 buff cols/rows + 妹永久 draw.cols/rows），atk addMod 行两处全同 ⇒ 单点锚点
+//   不再唯一。sed 单行替换不支持多行锚点，A25 改 multi（两处一起翻倍，语义不变）。
 // V2.9.6 | 2026-10-13 第 88 轮：新增 T17/T18 惑心换位（rule113，第 87 轮落地）变异牙——
 //   第 87 轮落 rule113 时未同步牙齿，构成 A28 式静默死亡缺口（主代码改 swap emit 写法 ⇒ 规则恒绿无人察）。
 //   T17 盯判据1（敌方 SWAP fact side 漂移 ⇒ 配对断链）、T18 盯判据5（fact 报反新旧位置 ⇒ 宣告位置未生效；
@@ -70,7 +73,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.6';
+export const VER = 'tests/mutation-teeth.mjs V2.9.7';
 
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -274,8 +277,13 @@ const MUTATIONS = [
       multi: true },
     { id: 'A25', kind: 'ATTR', desc: '圣火令攻方乘率翻倍（HOLY_FLAME mul 判据）',
       file: 'core/14buff-effects.js',
+      // 2026-10-15 第 91 轮重校：主代码 6f4c103/8073bbe「妹永久圣火令改画行列命中制」把圣火令拆成
+      //   两条路径（基础 buff 的 cols/rows 检查 + 妹永久的 draw.cols/draw.rows 检查），atk addMod 行
+      //   两处完全相同 ⇒ 单点锚点不再唯一（--verify 报「出现 2 次」）。sed 单行替换不支持多行锚点，
+      //   改 multi：两处一起翻倍——单场只有一条路径生效，语义与原牙一致，HOLY_FLAME_ATK 契约照样应咬。
       from: "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });",
-      to:   "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus * 2, ttl: 'round', op: 'mul', group: 'holyFlame' });" },
+      to:   "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus * 2, ttl: 'round', op: 'mul', group: 'holyFlame' });",
+      multi: true },
     // ===== 第 64 轮新增：验证 rule112（灭绝重设计行为数值回归）真有牙，而非恒绿 =====
     //   关键设计：rule112 是「渲染文本 vs 配置真值」的漂移/一致性规则 —— 它读 getSkillParams('灭绝师太',…)
     //   取到的配置值，与引擎渲染进战报的数字比对。若直接改 JSON 配置，规则「预期值」会跟着一起动，

@@ -1,18 +1,23 @@
 // 回归规则：宋青书·新婚快乐链路 — 覆盖此前完全没有体检项盯的一整套机制：
 //   ① 新婚：宋青书每次攻击命中，扣周芷若 1 点血（宋青书 mechanics type=xinHun 的 hpDeduct=1），并给周芷若叠 1 层快乐
 //   ② 快乐层：新层百分比恒为 healLevels[0]（序列见 content/200game-data.json 宋青书 mechanics.type=xinHun.healLevels，逐层衰减、末层消失）
-//   ③ 性奋代价：每次新婚同步扣宋青书血量上限，penalty 逐次 +1（core/15 submitXinHun，与 V5.x「性奋惩罚」同源）
+//   ③ 性奋代价：每次新婚同步扣宋青书血量上限，penalty 逐次 +1（core/15 submitXinHun，与 V5.x「性奋惩罚」同源）；
+//      2026-10-15 起首攻免扣（老板拍板，modules/26elite-sixsects-songqingshu.js V6.26.0）：penalty = 累计攻击次数 − 1，
+//      第 1 次新婚 penalty=0、不进 `penalty > 0` 门、不渲染条目 ⇒ 性奋代价条目数 = 新婚次数 − 1
 //   ④ 快乐回血：每回合结算按层数给周芷若回血（core/15 tickKuaiLeHeal），层数不应超过累计叠加次数
 // 三条复发信号（各对应一处历史上真出过问题的口径）：
 //   1) 新婚扣血量 ≠ 1 / 叠加百分比 ≠ 16% —— 参数漂移或新层错用了已衰减的百分比
-//   2) 新婚与性奋代价不是 1:1 配对 —— 性奋惩罚漏扣（V5.x 曾出现"仅 _xingFenActive 激活时才扣"的漏扣）
-//      或重复扣；penalty 不是每次 +1 —— 递增口径退化成固定值/倍率
+//   2) 新婚与性奋代价不是 (N−1):1 配对（2026-10-15 首攻免扣前是 1:1）—— 性奋惩罚漏扣
+//      （V5.x 曾出现"仅 _xingFenActive 激活时才扣"的漏扣）或重复扣；penalty 不是每次 +1 —— 递增口径退化成固定值/倍率
 //   3) 快乐回血层数 > 累计新婚次数 —— 叠层被重复 push（同一层算了两次，回血虚高）
 // 误报规避：
 //   - 性奋代价有 `unit.maxHp > 1` 保底（core/15），宋青书上限被扣到 ≤2 时合法地不再扣 → 此时跳过配对校验
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
-export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.23';
+export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.24';
+// V6.1.24（2026-10-15 第 91 轮）跟随主代码 81105a8「性奋代价首攻免扣」：配对判据从 1:1 改为
+//   (新婚次数 − 1) : 1——第 1 次新婚 penalty=0 不渲染条目（modules/26 V6.26.0）。旧判据在新设计下
+//   每场必误报（实测 seed=1/2 stage=4：新婚 3 次、代价 2 次即合法）。步长/自洽判据不变。
 // V6.1.23（2026-10-12）修弱判据 hpIsCap：maxHp 是浮点、fact 文本走 fmtHp(floor)，旧严格相等漏认
 //   "回满截断" → seed=1/5 stage=4 两条误报；改为 Math.floor(maxHp) === hpAfter。判据强度不变。
 import { entryTexts } from '../122health-utils.js';
@@ -171,11 +176,15 @@ export const rule91 = {
         }
         // maxHp ≤ 2 时 core/15 的 `unit.maxHp > 1` 保底会合法地停扣，此时不做配对校验避免误报
         if (!song || (typeof song.maxHp === 'number' ? song.maxHp : 99) > 2) {
-            if (xingfen.length < xinhun.length) {
-                return { fail: true, msg: '复发：新婚' + xinhun.length + '次但性奋代价仅' + xingfen.length + '次（性奋惩罚漏扣，V5.x 同类问题复发）' };
+            // 2026-10-15 第 91 轮：主代码 81105a8（老板拍板）性奋代价首攻免扣——penalty = 累计攻击次数 − 1
+            //   （modules/26elite-sixsects-songqingshu.js V6.26.0），第 1 次新婚 penalty=0、不进 `penalty > 0`
+            //   门、不渲染条目 ⇒ 预期性奋代价条目数 = 新婚次数 − 1（下限 0）。旧 1:1 判据在新设计下每场必误报。
+            var expectXf = Math.max(xinhun.length - 1, 0);
+            if (xingfen.length < expectXf) {
+                return { fail: true, msg: '复发：新婚' + xinhun.length + '次但性奋代价仅' + xingfen.length + '次（首攻免扣后期望 ' + expectXf + ' 次；性奋惩罚漏扣，V5.x 同类问题复发）' };
             }
-            if (xingfen.length > xinhun.length) {
-                return { fail: true, msg: '复发：性奋代价' + xingfen.length + '次 > 新婚' + xinhun.length + '次（每次新婚应只扣一次上限，疑重复扣）' };
+            if (xingfen.length > expectXf) {
+                return { fail: true, msg: '复发：性奋代价' + xingfen.length + '次 > 新婚' + xinhun.length + '次（首攻免扣后期望 ' + expectXf + ' 次；疑重复扣）' };
             }
             for (var f = 1; f < xingfen.length; f++) {
                 var step = xingfen[f].penalty - xingfen[f - 1].penalty;
