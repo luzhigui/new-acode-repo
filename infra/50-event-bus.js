@@ -1,3 +1,6 @@
+// V6.9.7 | ~9600 bytes | 2026-10-16 修「逐条声明钩子被误去重」：on()/registerSettlementHook 增可选 key（钩子身份键），
+//           任一带 key 按 key 判重、都无 key 才回退 toString()——修好玄冥联动 鹤笔翁→鹿杖客 方向失效
+//           （鹤笔翁与鹿杖客两条 linkAttack 声明同安装器 + 同优先级 XUANMING_LINK:10，闭包源码同形 → 第 2 条被吞）
 // V6.9.6 | ~9550 bytes | 2026-10-16 时序修正二则（老板拍板）：AFTER_ATTACK 增 YIN_COUNTER_FIRE:25——殷天正反击出手
 //   从 AFTER_DAMAGE_APPLIED 推迟到 AFTER_ATTACK，避开「本击白骨爪连锁斩杀后仍反击」；新增相位
 //   AFTER_ATTACK_IMMUNE：{ XINGFEN_EXTRA: 40 }——免疫分支（妹妹飞天）专用广播，宋青书性奋第二下照发
@@ -12,7 +15,7 @@
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.6';
+export const VER = 'infra/50-event-bus.js V6.9.7';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -35,13 +38,21 @@ class EventBus {
         this._recentErrors = [];
     }
 
-    on(signal, priority, callback) {
+    // key（可选）：钩子身份键。逐条声明注册的钩子（同一安装器 + 同优先级）闭包源码完全同形，
+    //   只比 toString() 会把第 2 条起全部误判重复静默丢弃（V6.9.7 修：玄冥联动 鹤笔翁→鹿杖客 方向失效之根因）。
+    //   规则：任一带 key → 按 key 判重（保住每回合重复安装去重）；都无 key → 回退源码文本比较。
+    on(signal, priority, callback, key) {
         if (!this._listeners[signal]) {
             this._listeners[signal] = [];
         }
         const cbKey = callback.toString();
-        if (this._listeners[signal].some(l => l.priority === priority && l.callback.toString() === cbKey)) return;
-        this._listeners[signal].push({ priority, callback });
+        const isDup = this._listeners[signal].some(l => {
+            if (l.priority !== priority) return false;
+            if (l.key || key) return l.key === key;
+            return l.callback.toString() === cbKey;
+        });
+        if (isDup) return;
+        this._listeners[signal].push({ priority, callback, key });
         this._listeners[signal].sort((a, b) => a.priority - b.priority);
     }
 
@@ -176,8 +187,8 @@ export const EXECUTION_LAYER = {
  * 结算时机注册入口：统一替代手写 eventBus.on(signal, L.X, fn)。
  * 内部透传 eventBus.on，行为零变化。
  */
-export function registerSettlementHook({ when, priority, handler }) {
-    eventBus.on(when, priority, handler);
+export function registerSettlementHook({ when, priority, handler, key }) {
+    eventBus.on(when, priority, handler, key);
 }
 
 export const EFFECT_TYPES = {

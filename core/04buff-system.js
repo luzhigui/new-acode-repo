@@ -1,3 +1,6 @@
+// V6.5.7 | ~38400 bytes | 2026-10-16 众志成城补员属性下限（老板拍板）：M 30→20（content recruitM 同步）后小 m
+//           会掷出 0 攻/纸皮数值，故召唤落地即钳——攻 <1 归 0（0 攻自然走 core/11 pass 通道不攻击）、
+//           防 <5 补到 5、生命上限 <30 补到 30（满血落位，_base*/_init* 同步，getStat 只认 _base*）
 // V6.5.6 | ~38300 bytes | 2026-10-16 众志成城补员首回合判定修正（老板拍板纠正）：首回合只在「场上不足 5 人」时
 //           一次补到 5，到手即满 5 人则该回合不召（此前误写成「满 5 也当回合 +1」，实测第 4 回合满员仍召了 1 个）；
 //           第二回合起每回合无条件 +1。首回合标记挂 buff 对象 _spawnStarted（跨回合同一对象）
@@ -32,7 +35,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.6';
+export const VER = 'core/04buff-system.js V6.5.7';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -191,8 +194,9 @@ export function applyUnityBonus(unit, team, activeBuffs) {
 //   第二回合起每回合无条件 +1，直到 buff 到期（content duration:5）。整局唯一上限是 9 格站位。
 //   首回合标记挂在 buff 对象上（buff 跨回合是同一对象、只被 remaining 递减；且只出现在持有它的阵营列表里，
 //   天然按阵营隔离）——不再用 state 字段，也不需要 state 形参。
-//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(30)、
-//   角色取 cfg.recruitPool[camp]。已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(20)、
+//   角色取 cfg.recruitPool[camp]，落地即钳属性下限（攻<1→0 / 防<5→5 / 血<30→30，见 V6.5.7）。
+//   已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
 export function spawnUnityRecruits(team, log) {
     if (!team || !team.length) return;
@@ -222,6 +226,18 @@ export function spawnUnityRecruits(team, log) {
         if (landPos == null) break;   // 9 格全被活人占：放弃本次落位
         const pick = pool[rng.nextInt(0, pool.length - 1)];
         const recruit = spawnUnit(team, pick.name, cfg.recruitM, pick.role, landPos);
+        // 2026-10-16 属性下限兜底（老板拍板）：M 降到 20 后小 m 掷点会出 0 攻/纸皮召唤物——
+        //   攻 <1 归 0（0 攻自然走 core/11 pass 通道、不参与攻击），防 <5 补到 5，生命上限 <30 补到 30。
+        //   口径同 spawnHorse / spawnUnit(stats) 分支：建人阶段直接写基础值，并同步 state._base* / _init*
+        //   （getStat 只认 _baseAtk/_baseDef/_baseMaxHp，不回写则加成后仍读旧值）+ 满血 hp。
+        if (recruit.atk < 1) { recruit.atk = 0; recruit.state._baseAtk = 0; recruit.state._initAtk = 0; }
+        if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
+        if (recruit.maxHp < 30) {
+            recruit.maxHp = 30;
+            recruit.hp = 30;
+            recruit.state._baseMaxHp = 30;
+            recruit.state._initMaxHp = 30;
+        }
         recruit.isUnityRecruit = true;
         // 2026-10-16 重名保护（老板拍板「重名可保留、但不得引出别的 bug」）：召唤角色与场上**其他**单位同名时，
         //   该召唤物降级为白板——清掉 Unit 构造期按名字自动打上的身份旗标（isZhang/isWei/isYinTianZheng…）。
