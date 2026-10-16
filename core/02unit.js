@@ -1,8 +1,12 @@
+// V6.3.5 | ~12800 bytes | 2026-10-16 修「掷点重掷死循环」：init() 两条「随机重掷直到满足攻防差约束」的 while 加有界重试 + 收敛兜底
+//   根因：约束与可行域可能不相交（众志成城 m=20 召唤物掷满血 rem=8 → a-d=rem-2d 只能落 [0,2]，进不了 [3,13]），
+//   无上限重掷即空转死循环；现重试 MAX_STAT_ROLL 次后放弃硬约束、取离目标区间最近的一档收口，保证必收敛
+//   （只在原本会死循环的种子上多走几步，可正常完成的种子 RNG 流与分布零影响）
 // V6.3.4 | ~12280 bytes | 2026-10-16 新增 clearHeroFlags（清身份标记，幂等）：众志成城召唤物与场上同名单位并存时
 //   降级为白板（core/04 spawnUnityRecruits 调用），防 modules/27 的 find(u => u.isXxx && u.alive) 误认召唤物
 // V6.3.3 | ~11940 bytes | 2026-10-13 HERO_FLAGS 新增 '杨逍'→'isYangXiao'（光明左使·飞行·精英）：
 //   进表后 modules/29 明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动排除他，不重复出人
-export const VER = 'core/02unit.js V6.3.4';
+export const VER = 'core/02unit.js V6.3.5';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -13,6 +17,10 @@ import { copyAllStateFields, createInitialState } from './17-state-keys.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 let _uidCounter = 0;
+
+// 属性掷点的最大重试次数：init() 里「随机重掷 d 直到攻防差满足约束」的循环必须有界——
+// 约束与可行域不相交时（如 m=20 召唤物 rem=8），无上限重掷会空转死循环（V6.3.5 修）。
+const MAX_STAT_ROLL = 200;
 
 // ========== 角色身份标记：单一事实源 ==========
 // 2026-09-14 建立。原先全库 79 处靠 `u.name === '张无忌'` 之类的中文字面量做战斗判断，
@@ -199,20 +207,34 @@ export class Unit {
         if(this.role===ROLE_TYPES.DEFENDER){
             const [dPctMin, dPctMax] = CONFIG.DEFENDER_DEF_ROLL;
             const dMin=Math.ceil(rem*dPctMin);
-            const dMax=Math.min(Math.floor(rem*dPctMax), rem-1);
+            let dMax=Math.min(Math.floor(rem*dPctMax), rem-1);
+            if (dMax < dMin) dMax = dMin;   // 极小 rem 保护：别掷空区间（dMin>dMax 时 nextInt 无意义）
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;
             d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;
-            while(d-a>CONFIG.DEFENDER_ATK_DEF_MAXGAP){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
+            // 有界重掷（V6.3.5）：约束与可行域不相交时不再空转，超限即收口（见文件头）
+            let tries=0;
+            while(d-a>CONFIG.DEFENDER_ATK_DEF_MAXGAP && ++tries<MAX_STAT_ROLL){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
+            if (d-a>CONFIG.DEFENDER_ATK_DEF_MAXGAP) { d=dMin; a=rem-d; }
             // 按初始血量占比分档：占比越高（越接近满血）档位越高、血量系数越大，对应单次伤害越多
             const hpPct = hp / this.m;
             this.state._hpDmgRatio = getHpDmgRatio(hpPct);
         } else {
             const [dPctMin, dPctMax] = CONFIG.DPS_DEF_ROLL;
             const [gapMin, gapMax] = CONFIG.DPS_ATK_DEF_GAP;
-            const dMin=Math.ceil(rem*dPctMin), dMax=Math.floor(rem*dPctMax);
+            const dMin=Math.ceil(rem*dPctMin);
+            let dMax=Math.floor(rem*dPctMax);
+            if (dMax < dMin) dMax = dMin;
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;
             d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;
-            while(a-d<gapMin||a-d>gapMax){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
+            // 有界重掷（V6.3.5）：rem 过小时 [gapMin,gapMax] 与 d∈[dMin,dMax] 可行域可能不相交
+            //   （m=20 召唤物掷满血 rem=8 → a-d=rem-2d 只能落 [0,2]，进不了 [3,13]），原先无上限重掷即死循环。
+            //   超限后放弃硬约束，d 取离目标区间中点最近的一档（再夹回可行域），保证必然收敛。
+            let tries=0;
+            while((a-d<gapMin||a-d>gapMax) && ++tries<MAX_STAT_ROLL){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
+            if (a-d<gapMin||a-d>gapMax) {
+                const mid=(gapMin+gapMax)/2;
+                d=Math.round(Math.min(Math.max((rem-mid)/2, dMin), dMax)*10)/10;a=rem-d;
+            }
         }
         this.atk=a;this.def=d;this.maxHp=hp*CONFIG.HP_TO_MAXHP_MUL;this.hp=this.maxHp;
     }
