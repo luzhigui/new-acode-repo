@@ -1,3 +1,6 @@
+// V6.5.6 | ~38300 bytes | 2026-10-16 众志成城补员首回合判定修正（老板拍板纠正）：首回合只在「场上不足 5 人」时
+//           一次补到 5，到手即满 5 人则该回合不召（此前误写成「满 5 也当回合 +1」，实测第 4 回合满员仍召了 1 个）；
+//           第二回合起每回合无条件 +1。首回合标记挂 buff 对象 _spawnStarted（跨回合同一对象）
 // V6.5.5 | ~38300 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 删
 //           「到手已满 5 人→永久不召」的 _unityChecked/_unityNoRecruit 锁与 maxRecruits(4) 上限，
 //           改「获得当回合补满到 5、此后每回合 +1」（持续按 content unity.duration:5，上限只剩 9 格站位）；
@@ -29,7 +32,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.5';
+export const VER = 'core/04buff-system.js V6.5.6';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -184,20 +187,28 @@ export function applyUnityBonus(unit, team, activeBuffs) {
 }
 
 // 2026-10-15 众志成城（unity）补员：获得时若本阵营不足 5 人，则每回合召唤随机角色补员——
-// 2026-10-16 定案改版（老板拍板「一直召唤」）：删掉「到手时已满 5 人→永久不召」的锁与 maxRecruits(4) 上限——
-//   获得当回合先把人数补满到 5（缺几个补几个），此后每回合再补 1 个，直到 buff 到期（content duration:5）。
-//   整局唯一上限是 9 格站位（findFreePos 返回 null 即当回合放弃落位）。
-//   （旧版口径作废：那时是「到手已满 5 人就永久不召 + 整局最多 4 个」，与此版不可混谈）
+// 2026-10-16 定案改版（老板拍板「一直召唤」）：首回合若场上不足 5 人则一次补到 5（已满 5 人则该回合不召），
+//   第二回合起每回合无条件 +1，直到 buff 到期（content duration:5）。整局唯一上限是 9 格站位。
+//   首回合标记挂在 buff 对象上（buff 跨回合是同一对象、只被 remaining 递减；且只出现在持有它的阵营列表里，
+//   天然按阵营隔离）——不再用 state 字段，也不需要 state 形参。
 //   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(30)、
 //   角色取 cfg.recruitPool[camp]。已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
 export function spawnUnityRecruits(team, log) {
     if (!team || !team.length) return;
-    if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.UNITY)) return;
+    const buff = (team._activeBuffs || []).find(b => b.key === BUFF_TYPES.UNITY);
+    if (!buff) return;
     const cfg = C.BUFFS.unity;
     if (!cfg) return;
     const aliveN = team.filter(u => u.alive).length;
-    const toSpawn = aliveN < 5 ? 5 - aliveN : 1;   // 首回合补满 5、之后每回合 1 个
+    let toSpawn;
+    if (!buff._spawnStarted) {
+        buff._spawnStarted = true;
+        if (aliveN >= 5) return;               // 到手即满 5：首回合不召，从第二回合起才 +1
+        toSpawn = 5 - aliveN;                  // 首回合补差额（一次补到 5）
+    } else {
+        toSpawn = 1;                           // 第二回合起每回合 +1
+    }
     if (toSpawn <= 0) return;
     const camp = team.find(u => u.alive)?.camp;
     const pool = (cfg.recruitPool && cfg.recruitPool[camp === CAMP_TYPES.ENEMY ? 'enemy' : 'ally']) || [];

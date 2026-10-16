@@ -1,7 +1,9 @@
 // render/37-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
+// V1.3.0 | ~10550 bytes | 2026-10-16 补两位新精英名片卡（老板实机反馈面板无技能说明）：殷天正（明教弱精英 m104）
+//           🦅鹰爪功/⬇️鹰王威压/💪老当益壮；唐文亮（崆峒精英 m104）💢七伤拳/💥同归于尽，文本走 content 单源
 // V1.2.0 | ~8100 bytes | 2026-10-15 杨逍补名片卡（老板实机反馈面板无技能说明）：👆弹指神通/❌点穴截脉/🦅鹰眼三条，popupMark/logTag 同韦一笑口径
 // V1.1.0 | 2026-10-12 何太冲重做 V3：名片技能三条换新（liangyiLink 两仪双修 / targetMark 箭靶标记 / redBlood 红血·两仪互换），旧三技能条目已删
-export const VER = 'render/37-role-cards.js V1.2.0';
+export const VER = 'render/37-role-cards.js V1.3.0';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -37,6 +39,23 @@ export const ROLE_CARDS = [
             `👆 ${getSkillDesc('杨逍', 'dianXueShenTong')}`,
             `❌ ${getSkillDesc('杨逍', 'dianXueJieMai')}`,
             `🦅 ${getSkillDesc('杨逍', 'eagleEye')}`
+        ]
+    },
+    {
+        id: 'yinTianZheng', name: '殷天正', match: u => !!u.isYinTianZheng,
+        popupMark: '[殷天正]', logTag: '[殷天正]',
+        skills: () => [
+            `🦅 ${getSkillDesc('殷天正', 'yingZhuaGong')}`,
+            `⬇️ ${getSkillDesc('殷天正', 'yingWangWeiYa')}`,
+            `💪 ${getSkillDesc('殷天正', 'laoDangYiZhuang')}`
+        ]
+    },
+    {
+        id: 'tangWenLiang', name: '唐文亮', match: u => !!u.isTangWenLiang,
+        popupMark: '[唐文亮]', logTag: '[唐文亮]',
+        skills: () => [
+            `💢 ${getSkillDesc('唐文亮', 'qiShangQuan')}`,
+            `💥 ${getSkillDesc('唐文亮', 'tongGuiYuJin')}`
         ]
     },
     {
