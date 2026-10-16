@@ -1,4 +1,6 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
+// V1.5.0 | 2026-10-16 被动出手行内徽章：反击/跟随/随动/联动/追击的攻击行前缀金色【标签】（普攻无前缀），
+//   group 新增 linkReason 透传；数据来自 core/10 → core/12 的 _linkReason 链路
 // V1.4.1 | ~16600 bytes | 2026-10-13 斩杀图标顺序修正：伤害行的 💀击杀/💀阵亡 与 brush-red 底改判 dmgResult.dead
 //   （本击直接打死），战士斩杀（executeKill）时血线未归零 → 伤害行不标 💀，阵亡标记由 render/35 斩杀行统一出；
 //   group.isDead 仍取 killLine（dead||executeKill），死亡特效/尸体清理不受影响（133 规则依赖）。
@@ -11,7 +13,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.4.1';
+export const VER = 'render/34-facts-attack.js V1.5.0';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -95,6 +97,8 @@ export function renderAttackFact(fact) {
     const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
     const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.isSongQingshu && unit.state._kuLianActive);
     const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit.state._isLinkAttack;
+    // 2026-10-16 被动出手徽章：反击/跟随/随动/联动/追击在战报行内加金色标签，一眼区分普攻
+    const linkReason = snap.linkReason !== undefined ? snap.linkReason : (unit.state ? unit.state._linkReason : null) || null;
     const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined
         ? { attackerPos: snap.attackerPos, defenderPos: snap.targetPos }
         : makeFXSnapshot(unit, target);
@@ -118,9 +122,13 @@ export function renderAttackFact(fact) {
         hpPctAfter: fact.hpPctAfter,
         isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true,
         isKuLianAttack,
-        isLinkAttack
+        isLinkAttack,
+        linkReason
     };
-    group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
+    // 被动出手行内徽章：普攻无前缀，反击/跟随等带金色【标签】——不用翻日志也知道这一手是什么
+    const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击' };
+    const linkTag = LINK_TAGS[linkReason] ? `<span class="gold">【${LINK_TAGS[linkReason]}】</span>` : '';
+    group.entries.push({type:'combat-text', text:`${linkTag}<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
     // 破防日志前置到攻击组最前
     const breakDefEntries = [];
     if (fact.entries) {

@@ -1,4 +1,5 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
+// V1.0.1 | 2026-10-16 ATTACK/MISS/DODGE 翻译器加 linkReason 透传（render/39 出手帧据此发被动出手徽章飘字）
 // V1.0.0 | ~20500 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：攻击/命中/闪避/处决/反伤/
 //          溅射/连击类 FACT_TRANSLATORS 条目 + makeAttackAction，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
@@ -6,7 +7,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '.
 import { makeHealAction } from './38-actions-translate-heal.js';
 // 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate-attack.js V1.0.0';
+export const VER = 'render/38-actions-translate-attack.js V1.0.1';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -15,6 +16,8 @@ export const ATTACK_TRANSLATORS = {
         kind: STAGE_ACTION_TYPES.MISS,
         actorUid: data.attacker?.uid ?? null,
         targetUid: data.target?.uid ?? null,
+        // 2026-10-16 被动出手原因：反击/跟随打空也能认出来（attacker 快照 state 块携带）
+        linkReason: data.attacker?.state?._linkReason ?? null,
         fx: data.fxSnapshot || null,
         factIndex: index,
         timing: 'afterText'
@@ -25,6 +28,7 @@ export const ATTACK_TRANSLATORS = {
         targetUid: data.dodger?.uid ?? null,
         reboundDmg: data.reboundDmg,
         dead: data.attackerHpAfter <= 0,
+        linkReason: data.attacker?.state?._linkReason ?? null,
         // 2026-09-24 韦一笑闪避反击吸血带给演出层，用于补吸血飘字（原先只有日志文本）
         weiHeal: data.weiHeal || null,
         fx: data.fxSnapshot || null,
@@ -153,6 +157,8 @@ function makeAttackAction(data, index) {
         waveUnit: data.dmgCalc?.waveUnit ?? null,
         isKuLianAttack: data.snap?.isKuLianAttack ?? false,
         isLinkAttack: data.snap?.isLinkAttack ?? false,
+        // 2026-10-16 被动出手原因：render/39 出手帧据此发头顶飘字徽章
+        linkReason: data.snap?.linkReason ?? null,
         // 2026-09-24 灭绝师太：出手计数文本（壹/貳/參）与三击吸血量，由 render/39 在她出手演出帧消费
         miejueCountText: data.miejueCountText ?? null,
         miejueLeech: data.miejueLeech ?? 0,
