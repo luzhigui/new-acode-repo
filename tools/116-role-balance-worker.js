@@ -1,3 +1,5 @@
+// V1.9.2 | ~36700 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）：
+//        pickHexBuff / hexPicker 两处重复实现此前漏这条，跑批里 unity 满员也在候选，与正式服口径不一致
 // V1.9.1 | ~36500 bytes | 2026-10-16 clearBattleGlobals 补清 forceWeakElite（modules/29 新增的弱精英锁定标志，同批弱精英定案）：
 //        漏清则跑完弱精英单局后该标志常驻 worker，之后所有 job 都被强塞同一弱精英，弱精英自然出场率被系统性高估
 // V1.9.0 | ~36300 bytes | 2026-10-14 阵容模式改为统一「拒绝采样重掷」、不再设 forceXiaoZhao：force 会触发 modules/29 轮盘互锁
@@ -122,6 +124,8 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
         if (existing.includes(k)) return false;
         if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
         if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyTeam)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
+        // 2026-10-16 V1.9.2 众志成城门槛同步 modules/28：只有本阵营场上存活人数 <4（含召唤物）才进候选
+        if (k === BUFF_TYPES.UNITY && allyTeam.filter(u => u.alive).length >= 4) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
         return true;
@@ -319,6 +323,8 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             const available = Object.keys(C.BUFFS).filter(k => {
                 if (existing.includes(k)) return false;
                 if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyAlive)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
+                // 2026-10-16 V1.9.2 众志成城门槛同步 modules/28：只有本阵营场上存活人数 <4（含召唤物）才进候选
+                if (k === BUFF_TYPES.UNITY && allyAlive.length >= 4) return false;
                 const req = C.BUFF_ROLE_REQUIREMENTS?.[k];
                 if (req && !allyAlive.some(u => u.role === req)) return false;
                 return true;
