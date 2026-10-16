@@ -1,7 +1,8 @@
+// V6.4.2 | ~8100 bytes | 2026-10-16 手选海克斯补众志成城门槛（老板拍板，与 modules/28、player/49 同口径）：
+//          本阵营存活 ≥4 人不进候选——手选弹窗此前自建候选列表、漏了这道门，5 人也能选
 // V6.4.1 | ~7900 bytes | 2026-10-14 手选海克斯放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
 //          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
-// V6.4.0 | ~8007 bytes | 2026-10-07 挂战中首次海克斯一次性提示（stepBattleBuff，来自 71tutorial；只挂面板不跨层）
-export const VER = 'ui/70buff-dialog.js V6.4.1';
+export const VER = 'ui/70buff-dialog.js V6.4.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -34,6 +35,9 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
             let available = allKeys.filter(k => {
                 if (existingKeys.includes(k)) return false;
                 if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
+                // 2026-10-16 众志成城门槛（老板拍板，与 modules/28、player/49 同口径）：本阵营存活 ≥4 人不进候选
+                //   上面 team 已按存活过滤（L33），此处直接比长度
+                if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
                 const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
                 if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
                 return true;

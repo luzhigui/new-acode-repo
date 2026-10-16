@@ -1,3 +1,7 @@
+// V2.8.0 | 2026-10-16 新增第四张表「🐦 弱精英评测」（配 116 V1.10.0 kind:'weakElite'）：
+//          明教侧弱精英（杨逍/殷天正，走 29 forceWeakElite 混入）+ 六大派侧弱精英（何太冲/唐文亮，走 29 M104 空位锁定）单测；
+//          同一关同一敌方变体配「自然配对对照」臂（同种子），表内直接出胜率 Δ。明教侧 Δ>0 = 增益；六大派侧 Δ<0 = 更难打（更强）。
+//          若该弱精英本局没上场（第3关六大派侧无 M104 空位、明教侧无可换普通位）则不计入，故第3关六大派侧不出行。
 // V2.7.0 | 2026-10-16 默认场次下调并顺带对齐 `VER` 常量：普通表 1800→1200、单英雄/无精英 600→400（配 102 V6.1.1，
 //          缩短默认空跑时长）；`VER` 长期停在 V2.5.1、与头注 V2.6.0 不一致，本次一并对齐为 V2.7.0
 // V2.6.0 | 实测 28174 bytes | 2026-10-15 新增结果快照（💾 存结果 / 📂 载入 / 🗑 清空历史）：跑完把本次三张表（主表·单英雄·无精英）压成一条
@@ -22,7 +26,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.7.0';
+export const VER = 'tools/112-elite-eval.js V2.8.0';
 
 const configs = [
     { name: '张无忌' },
@@ -36,6 +40,16 @@ const configs = [
 // 2026-09-24 定稿：胖远桥/宋青书是行不是列——用户要看的是"遇到谁时的整体胜率"，不是把他俩当出场角色
 const VARIANTS = ['胖远桥', '宋青书', '标准'];
 
+// 弱精英（2026-10-16 V2.8.0）：明教侧走 29 forceWeakElite 的「弱精英混入」、六大派侧走 M104 数字空位具名锁定
+const WEAK_ELITES = [
+    { name: '杨逍', side: 'ally' },
+    { name: '殷天正', side: 'ally' },
+    { name: '何太冲', side: 'enemy' },
+    { name: '唐文亮', side: 'enemy' }
+];
+const WEAK_ALLY = WEAK_ELITES.filter(w => w.side === 'ally');
+const WEAK_ENEMY = WEAK_ELITES.filter(w => w.side === 'enemy');
+
 const startBtn = document.getElementById('eliteStartBtn');
 const runsInput = document.getElementById('eliteRunsInput');
 const progressEl = document.getElementById('eliteProgress');
@@ -46,6 +60,9 @@ const soloResultEl = document.getElementById('eliteSoloResult');
 const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
 const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
 const noEliteResultEl = document.getElementById('eliteNoEliteResult');
+const weakBtn = document.getElementById('eliteWeakBtn');        // 2026-10-16 弱精英评测
+const weakProgressEl = document.getElementById('eliteWeakProgress');
+const weakResultEl = document.getElementById('eliteWeakResult');
 const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
 
 const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
@@ -53,14 +70,14 @@ const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
 // ============ 2026-10-15 V2.6.0 结果快照：把跑出来的三张表存本地，可载入回看 ============
 const SNAP_KEY = 'ming_elite_eval_snaps';
 const SNAP_LIMIT = 10;                                     // 最多留 10 条历史，超出丢最旧
-const TABLE_LABEL = { elite: '主表·自然出场', solo: '单英雄', none: '无精英基线' };
+const TABLE_LABEL = { elite: '主表·自然出场', solo: '单英雄', none: '无精英基线', weak: '弱精英' };
 const snapSelect = document.getElementById('eliteSnapSelect');
 const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
 const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
 const snapDropBtn = document.getElementById('eliteDropSnapBtn');
 const snapStatusEl = document.getElementById('eliteSnapStatus');
 // 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage }
-let latest = { elite: null, solo: null, none: null };
+let latest = { elite: null, solo: null, none: null, weak: null };
 
 const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
 const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(arr)); return null; } catch (e) { return e; } };
@@ -82,7 +99,7 @@ function refreshSnapSelect(keepId) {
 
 snapSaveBtn.addEventListener('click', () => {
     const parts = {};
-    for (const k of ['elite', 'solo', 'none']) {
+    for (const k of ['elite', 'solo', 'none', 'weak']) {
         if (!latest[k]) continue;
         // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
         parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
@@ -105,6 +122,7 @@ snapLoadBtn.addEventListener('click', () => {
     if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.weak) { latest.weak = p.weak; renderWeakResults(p.weak.byStage, p.weak.stages); weakProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     snapStatusEl.textContent = `📂 已载入 ${snapLabel(rec)}`;
 });
 
@@ -403,6 +421,154 @@ function noEliteTotalsOf(byStage, stages) {
         }
     }
     return { runs, wins, sumSurv };
+}
+
+// ============ 2026-10-16 V2.8.0 弱精英评测：单弱精英强制上场 vs 自然配对对照 ============
+// 口径：明教侧弱精英走 29 forceWeakElite 的「弱精英混入」（强精英轮盘照常、不互锁）；
+//       六大派侧走 M104 数字空位具名锁定；同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
+weakBtn.addEventListener('click', async () => {
+    const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
+    const RUNS = parseInt(soloRunsInput.value) || 400;
+    if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
+
+    weakBtn.disabled = true;
+    weakProgressEl.textContent = '开始弱精英评测...';
+    weakResultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
+
+    // byStage[st][variant][key]：key = '__natural'（自然对照臂）或 弱精英名
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
+    const byStage = {};
+    for (const st of stages) {
+        byStage[st] = {};
+        for (const v of VARIANTS) {
+            byStage[st][v] = { __natural: newAgg() };
+            for (const w of WEAK_ELITES) byStage[st][v][w.name] = newAgg();
+        }
+    }
+    const startT = performance.now();
+    const masterSeed = Date.now();
+
+    // 自然臂 + 4 精英臂共用同一 (stage,chunk) seed：配对差才干净
+    const jobs = [];
+    for (const stage of stages) {
+        const chunks = Math.ceil(RUNS / CHUNK);
+        for (let c = 0; c < chunks; c++) {
+            const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+            if (runs <= 0) continue;
+            const seed = masterSeed + stage * 131 + c * 100003;
+            jobs.push({ stage, seed, runs, arm: 'natural', label: `第${stage}关#${c + 1}·自然对照` });
+            for (const w of WEAK_ELITES) {
+                jobs.push({ stage, seed, runs, elite: w.name, side: w.side, label: `第${stage}关#${c + 1}·${w.name}` });
+            }
+        }
+    }
+
+    try {
+        await runParallel({
+            jobs,
+            kind: 'weakElite',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite' }),
+            onJobDone: (finished, total, job, part) => {
+                const key = (part && part.arm === 'natural') ? '__natural' : job.elite;
+                for (const [variant, d] of Object.entries((part && part.variants) || {})) {
+                    const slot = byStage[job.stage] && byStage[job.stage][variant];
+                    const a = slot && slot[key];
+                    if (!a) continue;
+                    a.runs += d.runs; a.wins += d.wins;
+                    a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
+                }
+                weakProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
+            },
+            onAllDone: () => {
+                latest.weak = { stages, runs: RUNS, byStage };
+                renderWeakResults(byStage, stages);
+                weakProgressEl.textContent = `✅ 弱精英评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+            }
+        });
+    } catch (e) {
+        console.error('[elite-weak] 弱精英评测异常:', e);
+        weakResultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>完整堆栈已输出到 F12 控制台</div>`;
+        weakProgressEl.textContent = '❌ 弱精英评测异常';
+    } finally {
+        weakBtn.disabled = false;
+    }
+});
+
+function renderWeakResults(byStage, stages) {
+    const sub = (title, list, note) => {
+        const anyData = stages.some(st => VARIANTS.some(v => list.some(w => byStage[st] && byStage[st][v] && byStage[st][v][w.name] && byStage[st][v][w.name].runs > 0)));
+        if (!anyData) return `<div style="font-weight:bold;margin:14px 0 6px">${title}</div><div class="elite-empty">本次该侧全部未上场，无数据</div>`;
+        let html = `<div style="font-weight:bold;margin:14px 0 6px">${title}</div>`;
+        html += '<table class="elite-table elite-table-fit"><colgroup><col style="width:120px">';
+        for (const w of list) html += '<col>';
+        html += '</colgroup><tr><th>关卡</th>';
+        for (const w of list) html += `<th class="elite-th">${w.name}</th>`;
+        html += '</tr>';
+        for (const st of stages) {
+            for (const v of VARIANTS) {              // 按敌方变体拆行（第3关拆「·胖远桥」「·宋青书」）
+                const slot = byStage[st] && byStage[st][v];
+                if (!slot) continue;
+                if (!list.some(w => slot[w.name] && slot[w.name].runs > 0)) continue;
+                const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+                const base = slot.__natural && slot.__natural.runs > 0 ? slot.__natural.wins / slot.__natural.runs * 100 : null;
+                html += `<tr><td class="elite-stage">${label}</td>`;
+                for (const w of list) html += weakCellHtml(slot[w.name], base);
+                html += '</tr>';
+            }
+        }
+        html += '<tr><td class="elite-stage">总评</td>';
+        for (const w of list) {
+            const t = weakArmTotals(w.name, byStage, stages);   // Δ 只取该精英真有数据的关/变体上的自然对照，避免口径错位
+            html += weakCellHtml(t.t, t.baseRate);
+        }
+        html += '</tr></table>';
+        html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
+        return html;
+    };
+    let html = '';
+    html += sub('🐦 明教弱精英（强制混入明教阵容，强精英轮盘照常）', WEAK_ALLY,
+        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子；明教侧换人会扰动站位洗牌，属随机噪声、多场平均掉）。Δ>0 = 该弱精英给明教带来增益（替换一个普通位更划算）。');
+    html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
+        'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。');
+    weakResultEl.innerHTML = html;
+}
+
+// 弱精英表单元格：胜率 + Δ（相对自然对照）+ 场次/输出/承伤/存活
+function weakCellHtml(d, baseRate) {
+    if (!d || !d.runs) return '<td class="elite-cell">N/A</td>';
+    const rate = d.wins / d.runs * 100;
+    const color = rate >= 50 ? '#4caf50' : rate >= 25 ? '#ffd700' : '#ff5252';
+    const surv = (d.sumSurv / d.runs * 100).toFixed(1);
+    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    let deltaHtml = '<div class="cell-sub">Δ —（无对照）</div>';
+    if (baseRate != null) {
+        const dv = rate - baseRate;
+        const dc = dv > 0.05 ? '#4caf50' : dv < -0.05 ? '#ff5252' : '#888';
+        deltaHtml = `<div class="cell-sub" style="color:${dc}">Δ ${dv >= 0 ? '+' : ''}${dv.toFixed(1)}</div>`;
+    }
+    return `<td class="elite-cell">
+        <div class="cell-rate" style="color:${color}">胜率 ${rate.toFixed(1)}%</div>
+        ${deltaHtml}
+        <div class="cell-sub">${d.runs} 场${thin}</div>
+        <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)}　承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
+        <div class="cell-sub">存活 ${surv}%</div></td>`;
+}
+
+// 某弱精英跨关跨变体累加 + 只取它真有数据的关/变体上的自然对照（总评行用）
+function weakArmTotals(name, byStage, stages) {
+    const t = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
+    let nRuns = 0, nWins = 0;
+    for (const st of stages) {
+        for (const v of VARIANTS) {
+            const slot = byStage[st] && byStage[st][v];
+            const d = slot && slot[name];
+            if (!d || !d.runs) continue;
+            t.runs += d.runs; t.wins += d.wins; t.sumSurv += d.sumSurv; t.sumDmg += d.sumDmg; t.sumTaken += d.sumTaken;
+            const nb = slot.__natural;
+            if (nb && nb.runs) { nRuns += nb.runs; nWins += nb.wins; }
+        }
+    }
+    return { t, baseRate: nRuns > 0 ? nWins / nRuns * 100 : null };
 }
 
 function renderResults(byStage, stages) {

@@ -1,3 +1,6 @@
+// V1.10.0 | ~39500 bytes | 2026-10-16 新增 kind:'weakElite'（runWeakEliteJob）：弱精英单测 + 自然配对对照（配 112 V2.8.0「🐦 弱精英评测」）——
+//   明教侧弱精英（杨逍/殷天正）走 modules/29 forceWeakElite 的明教弱精英混入块；六大派侧（何太冲/唐文亮）走六大派 M104 数字空位具名锁定；
+//   arm:'natural' 时不设任何 force、只统计整关明教胜率。同一 (stage,chunk) 的 elite 臂与 natural 臂共用同一 seed 序列 → Δ 为配对差。
 // V1.9.2 | ~36700 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）：
 //        pickHexBuff / hexPicker 两处重复实现此前漏这条，跑批里 unity 满员也在候选，与正式服口径不一致
 // V1.9.1 | ~36500 bytes | 2026-10-16 clearBattleGlobals 补清 forceWeakElite（modules/29 新增的弱精英锁定标志，同批弱精英定案）：
@@ -232,6 +235,54 @@ function runNoEliteJob(stage, seed, runs) {
         if (a.runs > 0) out[v] = a;
     }
     return { variants: out };
+}
+
+// 112「🐦 弱精英评测」：单弱精英强制上场 vs 自然配对对照。
+//   明教侧弱精英（杨逍/殷天正）：forceWeakElite 命中 mingWeakPool → modules/29 把一个普通位换成该弱精英（强精英轮盘照常，不互锁）。
+//   六大派侧弱精英（何太冲/唐文亮）：forceWeakElite 命中 ENEMY_M 且 M 值对上本关数字空位 → 该空位锁定具名（第3关是固定变体阵容、无 M104 空位，故不生效）。
+//   arm:'natural'：不设任何 force，只统计整关明教胜率（自然对照）。
+//   配对纪律：同一 (stage,chunk) 下 elite 臂与 natural 臂共用同一 seed 序列（seed+i*7919），战斗 RNG 同源。
+//     六大派侧只改一个数字空位的名字、两侧阵容完全一致 = 真配对；明教侧换人会多消耗 initRng（后续站位洗牌流错位），
+//     属随机噪声、400 场平均掉，仍是无偏对照。
+//   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
+function runWeakEliteJob(stage, seed, runs, elite, side, arm) {
+    const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng' };
+    const enemyFlagMap = { '何太冲': 'isHeTaichong', '唐文亮': 'isTangWenLiang' };
+    const flag = side === 'ally' ? allyFlagMap[elite] : enemyFlagMap[elite];
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
+        if (arm !== 'natural') GlobalStore.set('forceWeakElite', elite);
+        const initRng = new SeededRNG(seed + i * 7919);
+        const teams = initBattleTeams(stage, initRng);
+        const ally = teams.allyTeam.map(u => u.clone());
+        if (!ally.length) continue;
+        GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true);
+        if (!res.winner) continue;
+        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
+        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        if (arm === 'natural') {              // 自然对照臂：整关明教胜率，不认具体精英
+            a.runs++;
+            if (res.winner === '明教') a.wins++;
+            continue;
+        }
+        const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
+            .find(u => flag ? u[flag] : u.name === elite);
+        if (!me) continue;                    // 该弱精英本局没上场（第3关无 M104 空位等）→ 不计入
+        a.runs++;
+        if (res.winner === '明教') a.wins++;
+        if (me.alive) a.sumSurv++;
+        a.sumDmg += me.dmgDealt || 0;
+        a.sumTaken += me.dmgTaken || 0;
+    }
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (a.runs > 0) out[v] = a;
+    }
+    return { elite: arm === 'natural' ? null : elite, side, arm, variants: out };
 }
 
 function runEliteStageJob(stage, seed, runs) {
@@ -608,6 +659,9 @@ self.onmessage = (e) => {
         } else if (kind === 'noElite') {
             const { stage, seed, runs } = e.data;
             result = runNoEliteJob(stage, seed, runs);
+        } else if (kind === 'weakElite') {
+            const { stage, seed, runs, elite, side, arm } = e.data;
+            result = runWeakEliteJob(stage, seed, runs, elite, side, arm);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);

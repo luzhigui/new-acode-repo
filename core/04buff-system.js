@@ -1,3 +1,5 @@
+// V6.5.8 | ~38400 bytes | 2026-10-16 众志成城补员生命下限 30→25（老板拍板）：spawnUnityRecruits 落地钳制
+//           定为「攻<1→0 / 防<5→5 / 生命上限<25→25（满血落位，_base*/_init* 同步）」；content desc、tools/108 文案同步
 // V6.5.7 | ~38400 bytes | 2026-10-16 众志成城补员属性下限（老板拍板）：M 30→20（content recruitM 同步）后小 m
 //           会掷出 0 攻/纸皮数值，故召唤落地即钳——攻 <1 归 0（0 攻自然走 core/11 pass 通道不攻击）、
 //           防 <5 补到 5、生命上限 <30 补到 30（满血落位，_base*/_init* 同步，getStat 只认 _base*）
@@ -35,7 +37,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.7';
+export const VER = 'core/04buff-system.js V6.5.8';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -227,16 +229,16 @@ export function spawnUnityRecruits(team, log) {
         const pick = pool[rng.nextInt(0, pool.length - 1)];
         const recruit = spawnUnit(team, pick.name, cfg.recruitM, pick.role, landPos);
         // 2026-10-16 属性下限兜底（老板拍板）：M 降到 20 后小 m 掷点会出 0 攻/纸皮召唤物——
-        //   攻 <1 归 0（0 攻自然走 core/11 pass 通道、不参与攻击），防 <5 补到 5，生命上限 <30 补到 30。
+        //   攻 <1 归 0（0 攻自然走 core/11 pass 通道、不参与攻击），防 <5 补到 5，生命上限 <25 补到 25。
         //   口径同 spawnHorse / spawnUnit(stats) 分支：建人阶段直接写基础值，并同步 state._base* / _init*
         //   （getStat 只认 _baseAtk/_baseDef/_baseMaxHp，不回写则加成后仍读旧值）+ 满血 hp。
         if (recruit.atk < 1) { recruit.atk = 0; recruit.state._baseAtk = 0; recruit.state._initAtk = 0; }
         if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
-        if (recruit.maxHp < 30) {
-            recruit.maxHp = 30;
-            recruit.hp = 30;
-            recruit.state._baseMaxHp = 30;
-            recruit.state._initMaxHp = 30;
+        if (recruit.maxHp < 25) {
+            recruit.maxHp = 25;
+            recruit.hp = 25;
+            recruit.state._baseMaxHp = 25;
+            recruit.state._initMaxHp = 25;
         }
         recruit.isUnityRecruit = true;
         // 2026-10-16 重名保护（老板拍板「重名可保留、但不得引出别的 bug」）：召唤角色与场上**其他**单位同名时，

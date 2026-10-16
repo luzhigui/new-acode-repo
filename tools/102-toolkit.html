@@ -1,5 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.1.1 | ~33500 bytes | 2026-10-16 精英评测默认场次下调（配 112 V2.7.0）：「每关总场次」1800→1200、
+<!-- V6.1.2 | ~33900 bytes | 2026-10-16 精英评测区新增「🐦 弱精英评测」按钮 + 进度/结果容器（配 112 V2.8.0）：
+     单测明教弱精英（杨逍/殷天正）+ 六大派弱精英（何太冲/唐文亮），同关同变体配自然对照臂直接出胜率 Δ。
+     V6.1.1 | ~33500 bytes | 2026-10-16 精英评测默认场次下调（配 112 V2.7.0）：「每关总场次」1800→1200、
      「单英雄/无精英场数」600→400，缩短默认空跑时长；页面说明里的样本量换算同步改 1200 口径。
      V6.1.0 | 实测 33462 bytes | 2026-10-15 精英战力评测区补「💾 存结果 / 📂 载入 / 🗑 清空历史 + 快照下拉」（配 112 V2.6.0）：
      此前该工具跑完只留在页面上，刷新即空，而海克斯仪表盘能存榜——补齐同一个能力。
@@ -291,7 +293,9 @@
             列 = 明教五精英：张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊（谁在场记给谁，胜 = 明教获胜）。<br>
             行 = 关卡，按敌方阵容拆行：第3关轮换阵容拆成「·胖远桥」「·宋青书」两行分开看胜率——遇到谁更难打一眼分明。<br>
             纯走引擎原逻辑（出率 / 站位 / 每 3 回合海克斯），不做强制上场，同场共现是真实环境。<br>
-            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%。<b>每关 1200 局</b> ≈ 张无忌 480 场 / 韦一笑 400 场 / 姐妹各 200 场。
+            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%。<b>每关 1200 局</b> ≈ 张无忌 480 场 / 韦一笑 400 场 / 姐妹各 200 场。<br>
+            另有三张<b>控制变量表</b>（共用右侧「单英雄/无精英场数」）：⚔ 单英雄（五强精英逐一单挑）、🛡 无精英基线（明教一个精英不出）、
+            🐦 弱精英评测（明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮单测，同关同变体配自然对照臂、直接出胜率 Δ）。
         </p>
         <div class="elite-config">
             <label>每关总场次：</label>
@@ -308,11 +312,12 @@
             </div>
             <button id="eliteStartBtn">▶ 开始评测</button>
             <label style="color:#aaa; font-size:12px;">单英雄/无精英场数：</label>
-            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 单英雄胜率」「🛡 无精英基线」两张表；普通评测仍用左侧「每关总场次」">
+            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 单英雄胜率」「🛡 无精英基线」「🐦 弱精英评测」三张控制变量表；普通评测仍用左侧「每关总场次」">
             <button id="eliteSoloBtn" title="五精英逐一单挑选中关卡（force 单精英抑制轮盘），看单核带队能力">⚔ 单英雄胜率</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
+            <button id="eliteWeakBtn" title="单测弱精英：明教侧（杨逍/殷天正）强制混入、六大派侧（何太冲/唐文亮）锁定 M104 空位；同关同变体配自然对照臂，直接出胜率 Δ">🐦 弱精英评测</button>
             <span style="color:#555">｜</span>
-            <button id="eliteSaveSnapBtn" title="把本次跑出的三张表（主表·自然出场 / 单英雄 / 无精英）存成一条历史快照，最多留 10 条">💾 存结果</button>
+            <button id="eliteSaveSnapBtn" title="把本次跑出的四张表（主表·自然出场 / 单英雄 / 无精英 / 弱精英）存成一条历史快照，最多留 10 条">💾 存结果</button>
             <button id="eliteLoadSnapBtn" title="载入选中的历史快照，重新渲染对应的表（不重跑）">📂 载入</button>
             <button id="eliteDropSnapBtn" title="删除全部历史快照（不影响页面上当前的表）">🗑 清空历史</button>
             <select id="eliteSnapSelect" title="历史快照列表：时间｜关卡｜含哪几张表"></select>
@@ -324,6 +329,8 @@
         <div id="eliteSoloResult"><div class="elite-empty">单英雄胜率：尚未运行（勾选关卡后点上方蓝按钮）</div></div>
         <div class="elite-progress" id="eliteNoEliteProgress" style="margin-top:14px;"></div>
         <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方灰按钮）</div></div>
+        <div class="elite-progress" id="eliteWeakProgress" style="margin-top:14px;"></div>
+        <div id="eliteWeakResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方绿按钮）——明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮，同关同变体与自然对照比胜率 Δ</div></div>
     </div>
 
     <script>
