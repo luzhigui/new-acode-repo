@@ -1,5 +1,7 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.1.0 | 实测 33462 bytes | 2026-10-15 精英战力评测区补「💾 存结果 / 📂 载入 / 🗑 清空历史 + 快照下拉」（配 112 V2.6.0）：
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.1.1 | ~33500 bytes | 2026-10-16 精英评测默认场次下调（配 112 V2.7.0）：「每关总场次」1800→1200、
+     「单英雄/无精英场数」600→400，缩短默认空跑时长；页面说明里的样本量换算同步改 1200 口径。
+     V6.1.0 | 实测 33462 bytes | 2026-10-15 精英战力评测区补「💾 存结果 / 📂 载入 / 🗑 清空历史 + 快照下拉」（配 112 V2.6.0）：
      此前该工具跑完只留在页面上，刷新即空，而海克斯仪表盘能存榜——补齐同一个能力。
      V6.0.8 | ~28800 bytes | 2026-09-29 页头戳改「最近一次推送时间」（精确到时分秒）：按用户要求对齐 dev-index.html 口径——
      读 GitHub 仓库最新提交时间（真值，一推代码就变），加载失败只显示 —，不留过期数字。
@@ -289,11 +291,11 @@
             列 = 明教五精英：张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊（谁在场记给谁，胜 = 明教获胜）。<br>
             行 = 关卡，按敌方阵容拆行：第3关轮换阵容拆成「·胖远桥」「·宋青书」两行分开看胜率——遇到谁更难打一眼分明。<br>
             纯走引擎原逻辑（出率 / 站位 / 每 3 回合海克斯），不做强制上场，同场共现是真实环境。<br>
-            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%。<b>每关 1800 局</b> ≈ 张无忌 700 场 / 韦一笑 600 场 / 姐妹各 300 场。
+            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%。<b>每关 1200 局</b> ≈ 张无忌 480 场 / 韦一笑 400 场 / 姐妹各 200 场。
         </p>
         <div class="elite-config">
             <label>每关总场次：</label>
-            <input type="number" id="eliteRunsInput" value="1800" min="200" max="5000" step="200">
+            <input type="number" id="eliteRunsInput" value="1200" min="200" max="5000" step="200">
             <div class="elite-stage-group">
                 <label>关卡：</label>
                 <label><input type="checkbox" class="elite-stage-check" value="1" checked>1</label>
@@ -306,7 +308,7 @@
             </div>
             <button id="eliteStartBtn">▶ 开始评测</button>
             <label style="color:#aaa; font-size:12px;">单英雄/无精英场数：</label>
-            <input type="number" id="eliteSoloRunsInput" value="600" min="100" max="5000" step="100" title="只作用于「⚔ 单英雄胜率」「🛡 无精英基线」两张表；普通评测仍用左侧「每关总场次」">
+            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 单英雄胜率」「🛡 无精英基线」两张表；普通评测仍用左侧「每关总场次」">
             <button id="eliteSoloBtn" title="五精英逐一单挑选中关卡（force 单精英抑制轮盘），看单核带队能力">⚔ 单英雄胜率</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
             <span style="color:#555">｜</span>
