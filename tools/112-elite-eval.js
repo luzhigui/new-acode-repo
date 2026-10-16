@@ -1,3 +1,5 @@
+// V2.7.0 | 2026-10-16 默认场次下调并顺带对齐 `VER` 常量：普通表 1800→1200、单英雄/无精英 600→400（配 102 V6.1.1，
+//          缩短默认空跑时长）；`VER` 长期停在 V2.5.1、与头注 V2.6.0 不一致，本次一并对齐为 V2.7.0
 // V2.6.0 | 实测 28174 bytes | 2026-10-15 新增结果快照（💾 存结果 / 📂 载入 / 🗑 清空历史）：跑完把本次三张表（主表·单英雄·无精英）压成一条
 //          历史存 localStorage（ming_elite_eval_snaps，最多留 10 条），可回看任意一条。
 //          说明：116 的 elite/soloElite/noElite 只回传聚合数（不像 kind:'hex' 回传逐场 hexLog），故存的是聚合快照——
@@ -20,7 +22,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.5.1';
+export const VER = 'tools/112-elite-eval.js V2.7.0';
 
 const configs = [
     { name: '张无忌' },
@@ -44,7 +46,7 @@ const soloResultEl = document.getElementById('eliteSoloResult');
 const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
 const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
 const noEliteResultEl = document.getElementById('eliteNoEliteResult');
-const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 600）：与普通表分开，免得忘改 1800 一跑就是 5 倍时长
+const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
 
 const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
 
@@ -118,7 +120,7 @@ refreshSnapSelect();
 
 startBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(runsInput.value) || 1800;
+    const RUNS = parseInt(runsInput.value) || 1200;
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     startBtn.disabled = true;
@@ -186,7 +188,7 @@ startBtn.addEventListener('click', async () => {
 //       胜=明教。与普通评测的区别：普通表是「自然出场归因」（同场多精英），这张表是「控制变量单挑」。
 soloBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(soloRunsInput.value) || 600;   // 单英雄表专用场数（默认 600，与普通表分开）
+    const RUNS = parseInt(soloRunsInput.value) || 400;   // 单英雄表专用场数（默认 400，与普通表分开）
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     soloBtn.disabled = true;
