@@ -1,9 +1,10 @@
+// V6.8.6 | ~36321 bytes | 2026-10-17 计数技能进度徽章：灭绝三击/唐文亮七伤/张无忌近战连击，角色名后加「当前档/N」小胶囊
 // V6.8.5 | 2026-10-16 回退 V6.8.4 的 _jumpConsumed 特判：先机已改插队式（core/11 V6.3.25），被顺延队友
 //           保持未出手状态、天然亮待命，无需特判
 // V6.8.3 | ~34760 bytes | 2026-10-15 妹永久圣火令改命中制后，logo 同步读每回合重画的 _xiaoHolyFlame（不再用账本旧 cols/rows）
 // ── 更早版本见 记录-更改履历.md
 // V6.8.2 | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标（carry/双击恒显示）
-export const VER = 'render/32-grid-render.js V6.8.5';
+export const VER = 'render/32-grid-render.js V6.8.6';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -67,6 +68,28 @@ function resetCell(div) {
     div.innerHTML = '';
     div.dataset.uid = '';
     div.dataset.pos = '';
+}
+
+// 2026-10-17 计数技能进度徽章：进度型（凑 N 次触发）在角色名后显示「当前档/N」小胶囊，
+//   不用头顶大红数字（旧版被否）；当前档随计数推进，满档触发后回到 1。
+function buildCountBadge(unit) {
+    if (!unit || !unit.alive) return '';
+    // 灭绝师太·三击：state._attackCount=打中次数（含反击/跟随被动出手），3 档循环
+    if (unit.isMieJueShiTai) {
+        const n = unit.state._attackCount || 0;
+        if (n > 0) return `<span class="count-badge count-mj">${((n - 1) % 3) + 1}/3</span>`;
+    }
+    // 唐文亮·七伤：state._qiShangCount=七伤自损累计，7 档循环
+    if (unit.isTangWenLiang) {
+        const n = unit.state._qiShangCount || 0;
+        if (n > 0) return `<span class="count-badge count-tw">${((n - 1) % 7) + 1}/7</span>`;
+    }
+    // 张无忌·近战连击：near 形态打够 3 次（ZHANG_NEAR_ATK_LIMIT）转融会贯通，显示当前连击进度
+    if (unit.isZhang && unit.state._fsmPhase === 'near') {
+        const n = unit.nearAtkCount || 0;
+        if (n > 0) return `<span class="count-badge count-zw">${Math.min(n, 3)}/3</span>`;
+    }
+    return '';
 }
 
 export function markGridShake(uid, durationMs) {
@@ -519,15 +542,16 @@ export function renderGrid(id, camp) {
         // 2026-10-11 logo 上限全名统一（老板拍板收紧）：不管名字几字，最多显示最新 2 个——原来只限 4 字以上名字，3 字名挂 3 个照样挤爆格子
         if (displayLogos.length > 2) displayLogos = displayLogos.slice(-2);
 
+        const countBadgeHtml = buildCountBadge(unit);
         let nameHtml;
         if (compressName) {
             let logoHtml = displayLogos.slice().reverse().join(' ');
-            nameHtml = `<span class="cell-name ${nameTier} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameTier} cell-name-long">${displayName}${countBadgeHtml}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
         } else if (displayLogos.length < logoList.length) {
-            nameHtml = `<span class="cell-name ${nameTier}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameTier}">${displayName}${countBadgeHtml}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         } else {
             // 2026-10-12 修 ☯/🎯/🔻 隐形：短名分支原先只拼 eliteSkillIcon+buffIcons，logoList 里的状态标记不消费
-            nameHtml = `<span class="cell-name ${nameTier}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameTier}">${displayName}${countBadgeHtml}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div></div>`;
         if (isDead) {
