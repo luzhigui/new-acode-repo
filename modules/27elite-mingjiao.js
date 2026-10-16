@@ -1,4 +1,4 @@
-// V7.1.3 | ~89400 bytes | 2026-10-16 殷天正鹰爪功反击改「掷骰仍挂 AFTER_DAMAGE_APPLIED、出手推迟到 AFTER_ATTACK」：
+// V7.1.3 | ~89750 bytes | 2026-10-16 殷天正鹰爪功反击改「掷骰仍挂 AFTER_DAMAGE_APPLIED、出手推迟到 AFTER_ATTACK」：
 //   本击白骨爪连锁斩杀他之后，反击请求被 core/10 的 _pendingDeath 守卫拦掉——不再「已经死了还能反击」；
 //   提示行随之推迟到真正出手时落组（req.infoText）
 // V7.1.2 | ~84500 bytes | 2026-10-15 第二批内容：新增殷天正（白眉鹰王·防战·精英 m104）组件 createYinTianZhengComponent
