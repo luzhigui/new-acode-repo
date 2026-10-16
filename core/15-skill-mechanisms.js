@@ -1,14 +1,17 @@
+// V6.8.1 | ~16900 bytes | 2026-10-17 HIGHEST_HP_PCT 平局改随机：原 reduce 平局恒取末位，拒马/幼狮恒满血
+//   又 push 在队尾 ⇒ 宋青书整局只盯召唤物打。先取最高百分比，再从并列者随机挑（getBattleRng，
+//   与概率引擎同源可回放）。
 // V6.8.0 | ~16640 bytes | 2026-10-14 core/15 瘦身：linkAttack / followAttack / phantomDisguise 三个英雄机制
 //   连同安装器迁出 core——改由 modules 侧 registerMechanicHandler 注册（25 承接玄冥联动 + 成昆幻影、
 //   26 承接灭绝跟随）。本文件删 LOCAL_MECHANIC_TYPES / LOCAL_MECHANIC_FIELDS 两张例外表与 isLocal 分支，
 //   顶层机制只剩「注册表查表」一条路（未注册的 type 开局即抛）。四个导出签名不变，core/11 调用点零改动。
 // V6.7.0 | ~27750 bytes | 2026-10-12 成昆幻影伪装治疗补 `_mods['hp']` 纯记账条目（group 'phantomDisguiseHeal'）：PHANTOM_DISGUISE_HEAL 自身 hp 贡献隔离进账本，供体检对照器核对「声明 heal vs 实际治疗」；真实治疗仍由 EFFECT_TYPES.HEAL 声明结算负责，零游戏逻辑副作用
-export const VER = 'core/15-skill-mechanisms.js V6.8.0';
+export const VER = 'core/15-skill-mechanisms.js V6.8.1';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './20-registry-dodge.js';
-import { recordHpAudit } from './13battle-shared.js';
+import { recordHpAudit, getBattleRng } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './18mechanic-registry.js';
@@ -151,7 +154,15 @@ function submitLowestHpTarget(data, decl) {
 
 function submitHighestHpPctTarget(data, decl) {
     if (data.unit.name !== decl.name) return;
-    const target = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
+    // 2026-10-17 百分比并列改随机：原 reduce 平局取末位，而拒马/幼狮恒满血又 push 在队尾，
+    //   宋青书整局只会盯着召唤物打。改为先取最高百分比，再从并列者里随机挑。
+    let best = -Infinity;
+    for (const t of data.validTargets) {
+        const pct = t.hp / t.maxHp;
+        if (pct > best) best = pct;
+    }
+    const tied = data.validTargets.filter(t => t.hp / t.maxHp === best);
+    const target = tied[getBattleRng().nextInt(0, tied.length - 1)];
     if (target) data.declaration.targetResult = target;
 }
 
