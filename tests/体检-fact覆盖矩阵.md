@@ -616,3 +616,30 @@ import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from 
                 if (!data.declarations) data.declarations = [];
 ```
 ===== 已落地 END（855d52c · modules/26 V6.29.1）=====
+
+---
+
+## 第 96 轮（2026-10-16）嗜血狂刀误报修复 + 行动权违规转交（skip 补 PASS fact）
+
+### 一、嗜血狂刀误报（151 V6.1.17，已修已提交 340c957）
+- 判据5「leech 不得超过终局 maxHp」是错口径冗余：core/16 LEECH handler 有 Math.min 夹取，fact 的
+  leechVal 是意图值，超终局 maxHp 合法。删判据；真 bug（hp 溢出）由 122 不变量覆盖。
+
+### 二、行动权违规（小昭·妹，转交待落地）
+- 根因：core/11 L368 skip 通道只置 _acted 不产 fact；小昭结茧每回合走 skip（80ba18c 修复孵化时机后
+  结茧跨回合 ⇒ 爆发）。打桩时间线见迭代日志第 96 轮。
+- 验证（855d52c 工作区临时补丁）：replay 0 失败/0 违规、static/smoke 退 0。
+
+===== 主代码改动 START（core/11battle-round.js · resolveActionOrder skip 分支）=====
+```js
+// 【位置】core/11battle-round.js 的 resolveActionOrder 函数内；定位锚点：搜 `if (decl.skip)`（全文件仅此一处）。
+// 【原状】if (decl.skip) { u.state._acted = true; continue; } —— 只置行动标记，不产任何 fact。
+// 【改法】skip 时补一条同款 PASS fact（reason 按状态区分）——与下方 passEntry 的 passFact 同结构（unit/reason/hpBefore/hpAfter/actualHeal/events），checkActionRights 与 renderPassFact 都认。
+// 【效果】① 修「行动权被吞」报警：小昭·妹结茧每回合走 skip 通道，_acted=true 但无 fact ⇒ 回合末不变量必报（855d52c 上 4 类）；补 PASS 后违规消除（实测 replay 0 违规）。② 战报多一行「蜘蛛卵结茧」可见性提升。③ 落地后结茧回合战斗日志多一条 PASS 条目 ⇒ baseline factsSame 会翻（预期变更，随下一批一起重录）。
+if (decl.skip) {
+    u.state._acted = true;
+    log.push({ factType: FACT_TYPES.PASS, data: { unit: { uid: u.uid, name: u.name, camp: u.camp, pos: u.pos, hp: u.hp }, reason: u.state._spiderEgg ? '蜘蛛卵结茧' : '组件声明skip', hpBefore: Math.floor(u.hp), hpAfter: Math.floor(u.hp), actualHeal: 0, events: [] } });
+    continue;
+}
+```
+===== 主代码改动 END =====
