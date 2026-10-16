@@ -1,9 +1,14 @@
 // modules/26elite-sixsects-tangwenliang.js — 六大派精英「唐文亮」（崆峒·战士·M107）：
-//   七伤拳（出手自损换增伤 / 临危更凶） + 同归于尽（阵亡反噬一名敌人）
-// V6.0.0 | ~4300 bytes | 2026-10-15 新增：补六大派「自损爆发 / 临死反扑」缺口，与张三丰生生不息构成拉锯
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V6.0.0';
+//   七伤拳（出手自损换增伤 / 临危更凶） + 同归于尽（阵亡反噬击杀者）
+// V6.0.1 | ~5000 bytes | 2026-10-16 同归于尽改回原稿口径：反噬击杀者（core/13 致死出口记 _killerUid）、
+//   伤害可被闪避（直调 core/12 resolveAttackHit 引擎同源判定）、可直接致死不再保留 1 血；
+//   找不到有效凶手（毒/无源/同帧阵亡）时退回随机一名存活敌人
+// V6.0.0 | 2026-10-15 新增：补六大派「自损爆发 / 临死反扑」缺口，与张三丰生生不息构成拉锯
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V6.0.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { applyStatChange, getBattleRng } from '../core/13battle-shared.js';
+import { computeBuffStats } from '../core/04buff-system.js';
+import { resolveAttackHit } from '../core/12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
@@ -38,22 +43,39 @@ export function createTangWenLiangComponent() {
                 } });
             });
 
-            // ② 同归于尽：阵亡时反噬一名随机存活敌人（非拒马），扣其 maxHp×reflectRatio（留 1 点，不直接致死）。
-            //    ON_UNIT_DEATH 广播不带击杀者信息，故取「随机一名敌人」而非击杀者
+            // ② 同归于尽：阵亡时反噬击杀者，扣其 maxHp×reflectRatio 的真实伤害——可被闪避、可直接致死。
+            //    击杀者来自 core/13 致死出口的 _killerUid 记账；找不到有效凶手（毒/无源伤害致死、
+            //    凶手同帧阵亡）时退回随机一名存活敌人。闪避判定直调 core/12 resolveAttackHit，
+            //    与普攻完全同源（前置「未行动过/闪避流」+ 规则表 + 流云身法；反弹对死者天然无效）
             eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, L.ON_UNIT_DEATH.TONG_GUI, (data) => {
                 const dead = (data.deadUnits || []).find(u => u.isTangWenLiang);
                 if (!dead) return;
-                const enemies = (dead.camp === CAMP_TYPES.ALLY ? data.enemySide : data.allySide) || [];
-                const pool = enemies.filter(u => u.alive && !u.isHorse);
-                if (!pool.length) return;
-                const victim = pool[getBattleRng().nextInt(0, pool.length - 1)];
+                const allies = [...(data.allySide || []), ...(data.enemySide || [])];
+                const valid = v => v && v.alive && !v.state._pendingDeath && !v.isHorse && v.camp !== dead.camp;
+                let victim = allies.find(u => u.uid === dead.state._killerUid && valid(u)) || null;
+                if (!victim) {
+                    const pool = (dead.camp === CAMP_TYPES.ALLY ? data.enemySide : data.allySide) || [];
+                    const candidates = pool.filter(valid);
+                    if (!candidates.length) return;
+                    victim = candidates[getBattleRng().nextInt(0, candidates.length - 1)];
+                }
+                // 闪避判定（引擎同源）：A/B 用 resolveDeaths 传入的阵营本尊（带 _activeBuffs，流云身法可判）
+                const deadSide = dead.camp === CAMP_TYPES.ALLY ? data.allySide : data.enemySide;
+                const victimSide = victim.camp === CAMP_TYPES.ALLY ? data.allySide : data.enemySide;
+                const attackerStats = computeBuffStats(dead, deadSide && deadSide._activeBuffs, deadSide);
+                const defenderStats = computeBuffStats(victim, victimSide && victimSide._activeBuffs, victimSide);
+                const hitResult = resolveAttackHit(dead, victim, attackerStats, defenderStats, eventBus, { log: data.log, A: data.allySide, B: data.enemySide });
+                if (hitResult.skipped) {
+                    if (data.log && hitResult.missFact) data.log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
+                    if (data.log && hitResult.dodgeFact) data.log.push({ factType: FACT_TYPES.DODGE, data: hitResult.dodgeFact });
+                    return;
+                }
+                // 命中：全额真实伤害（不走攻防公式），不保留 1 血——致死则挂 _pendingDeath 交 resolveDeaths 统一结算
                 const want = Math.max(1, Math.round(victim.maxHp * tong.reflectRatio));
-                const real = Math.min(want, Math.max(0, Math.floor(victim.hp) - 1));
-                if (real <= 0) return;
-                applyStatChange(victim, 'hp', -real, dead, '同归于尽');
+                applyStatChange(victim, 'hp', -want, dead, '同归于尽');
                 if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                     unitName: dead.name, unitUid: dead.uid, camp: dead.camp, skillName: '同归于尽',
-                    note: `💥 唐文亮同归于尽：拖 ${victim.name} 下水，扣 ${real} 点生命`,
+                    note: `💥 唐文亮同归于尽：反噬击杀者 ${victim.name}，扣 ${want} 点生命`,
                     floatText: '💥', floatUid: victim.uid
                 } });
             });

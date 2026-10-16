@@ -1,3 +1,4 @@
+// V2.9.8 | 2026-10-16 新增 _killerUid（击杀者 uid 记账：core/13 致死出口写、唐文亮同归于尽反噬消费）
 // V2.9.7 | ~15900 bytes | 2026-10-15 第二批内容：新增 _unityChecked / _unityNoRecruit（众志成城补员门槛与锁）、
 //           _counterProbBonus（殷天正·老当益壮反击概率累计成长，modules/27 消费）
 // V2.9.6 | ~15700 bytes | 2026-10-15 删 _nineYinFirstDone（周芷若白骨爪取消「每回合首击必发」门槛，
@@ -8,7 +9,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.7';
+export const VER = 'core/17-state-keys.js V2.9.8';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -162,6 +163,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xingFenExtraAttacking:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 2026-10-16 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
+    _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },
 });
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */

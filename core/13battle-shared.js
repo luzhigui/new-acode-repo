@@ -1,8 +1,11 @@
+// V6.4.1 | 2026-10-16 击杀者记账：applyStatChange 致死出口（hp≤0 挂 _pendingDeath 处）顺手记 _killerUid
+//   （uid 非引用，快照/序列化安全；source 空=死亡结算/自损不写、有值覆盖=补刀者算凶手），
+//   供唐文亮「同归于尽」反噬击杀者用（modules/26 读）
 // V6.4.0 | ~16190 bytes | 2026-10-13 杨逍「点穴截脉」反治疗：applyStatChange 加 isHeal 参数（默认 true），
 //   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
 //   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/13battle-shared.js V6.4.0';
+export const VER = 'core/13battle-shared.js V6.4.1';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -218,6 +221,9 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     if (field === 'hp' && target.hp <= 0) {
         target.state._pendingDeath = true;
         if (!target.state._deathTime) target.state._deathTime = Date.now();
+        // 2026-10-16 击杀者记账（唐文亮·同归于尽反噬击杀者用）：存 uid 不存引用（战报快照深拷/JSON 序列化会炸引用）。
+        //   source 为空（死亡结算/自损）不写入；有 source 即覆盖 = 补刀者算最后一击的凶手
+        if (source && source.uid) target.state._killerUid = source.uid;
     }
     emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
         hp: target.hp, maxHp: target.maxHp, alive: target.alive,
