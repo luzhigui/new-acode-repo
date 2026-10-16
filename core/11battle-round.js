@@ -1,3 +1,6 @@
+// V6.3.22 | ~35800 bytes | 2026-10-16 「0 攻不发起攻击」通则化（老板拍板）：resolveActionOrder 删 isHorse/isLionCub
+//           两个身份特判，改为「getStat(u,'atk') <= 0 一律走休息通道」——对全体单位生效（含众志成城 0 攻补员）；
+//           休息回复 +15 名单同步加「无力攻击」（拒马/幼狮保留原 reason 文案，render/35 同款名单已同步）
 // V6.3.21 | ~35700 bytes | 2026-10-16 圣火不熄与判负时序修复（老板拍板方案 A·新语义）：团灭判定把「排队复活」的单位
 //           （state._holyFire/_holyFireSelf === 'pending'）算作未死透——阵亡当帧只记 pending、真正落位在下一个行动步
 //           开头（BEFORE_STATE_TRANSITION），此前最后一名单位阵亡会当步末直接判负并结束战斗，复活永远等不到那一步
@@ -27,7 +30,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.21';
+export const VER = 'core/11battle-round.js V6.3.22';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -399,10 +402,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         for (const u of sortedByPos) {
             if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
-            // 2026-09-23 拒马 / 幼狮：「不会攻击」不是身份硬编码，而是攻=0 的自然结果。
-            //   一旦被振奋之类的加攻词条抬到 >0，就放行进正常攻击流程（职业是防战 → core/12 走防战公式）。
-            if (u.isHorse && getStat(u, 'atk') <= 0) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
-            if (u.isLionCub && getStat(u, 'atk') <= 0) { passUnits.push({ unit: u, reason: '幼狮休息' }); continue; }
+            // 2026-10-16 通则化（老板拍板）：攻=0 的单位一律不发起攻击，走休息通道——
+            //   原「拒马 / 幼狮 0 攻不攻击」是身份特判，现上升为对所有单位生效的通则（含众志成城 0 攻补员）；
+            //   被振奋之类加攻词条抬到 >0 即恢复出战（职业是防战 → core/12 走防战公式）。
+            //   文案保留身份：拒马用「拒马休息」、幼狮用「幼狮休息」（render/35 有专属文案），其余统一「无力攻击」。
+            if (getStat(u, 'atk') <= 0) {
+                passUnits.push({ unit: u, reason: u.isHorse ? '拒马休息' : (u.isLionCub ? '幼狮休息' : '无力攻击') });
+                continue;
+            }
             // 2026-09-17 「不争」者不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
             //   2026-10-08 改数据旗：endlessBreath 由 content 技能声明驱动（applyHeroFlags 自动设）
             if (u.endlessBreath) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
@@ -472,7 +479,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             let hpAfter = hpBefore;
             let actualHeal = 0;
             // 2026-09-17 生生不息移到组件层（监听 ON_UNIT_ACTED），core 不再写角色名
-            if (unit.alive && (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息')) {
+            if (unit.alive && (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击')) {
                 applyStatChange(unit, 'hp', 15, null, '休息回复');
                 hpAfter = Math.floor(unit.hp);
                 actualHeal = hpAfter - hpBefore;
