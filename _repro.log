@@ -1,0 +1,27 @@
+[g0] seed=123456 start
+  >>picker pick=horseFormation
+[g0] done winner=明教 rounds=7 steps=68
+[g1] seed=131375 start
+[g1] done winner=明教 rounds=6 steps=62
+[g2] seed=139294 start
+  >>picker pick=hotBlood
+  >>picker pick=holyFire
+[g2] done winner=明教 rounds=10 steps=94
+[g3] seed=147213 start
+  >>picker pick=windAssault
+  >>picker pick=hotBlood
+  >>picker pick=doubleStrike
+[g3] done winner=明教 rounds=14 steps=139
+[g4] seed=155132 start
+  >>picker pick=cloudBody
+  >>picker pick=horseFormation
+[g4] done winner=明教 rounds=12 steps=119
+[g5] seed=163051 start
+  >>picker pick=meteorShower
+[g5] done winner=明教 rounds=7 steps=67
+[g6] seed=170970 start
+  >>picker pick=windAssault
+[g6] done winner=明教 rounds=8 steps=74
+[g7] seed=178889 start
+[g7] done winner=明教 rounds=6 steps=67
+ALL DONE steps=690
