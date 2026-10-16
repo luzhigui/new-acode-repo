@@ -1,5 +1,6 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.18 | ~38800 bytes | 2026-10-13 战士斩杀行补 💀阵亡💀 标记（伤害行斩杀时不再提前标，图标统一由本行出）；承接 V1.0.17
+// V1.0.19 | ~38900 bytes | 2026-10-16 renderPassFact 名单加「无力攻击」（0 攻通则化）：
+//           休息回复名单与 core/11 同步（拒马/幼狮保留原 reason 文案），headText 新增「攻击力不足，无法出手」分支
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -9,7 +10,7 @@ import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '.
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
 // 2026-10-08 第一刀：通用语义默认渲染器工厂（回血/dot 族模板化，详见 36 文件头）
 import { makeHealRenderer, makeDotRenderer } from './36-generic-renderers.js';
-export const VER = 'render/35-facts-effect.js V1.0.18';
+export const VER = 'render/35-facts-effect.js V1.0.19';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -175,14 +176,16 @@ export function renderPassFact(fact) {
             _events: fact.events || []
         };
     }
-    if (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息') {
+    if (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击') {
         const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : fmtHp(unit.hp);
         const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : fmtHp(unit.hp);
         const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;
         const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
         const headText = reason === '幼狮休息'
             ? `🐱 ${campName} ${unit.name} 尚幼，无法攻击`
-            : `${campName} ${unit.name} ${reason}`;
+            : (reason === '无力攻击'
+                ? `${campName} ${unit.name} 攻击力不足，无法出手`
+                : `${campName} ${unit.name} ${reason}`);
         return {
             type:'attack-group', uidA:unit.uid, uidD:null,
             entries:[
