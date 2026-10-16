@@ -1,3 +1,6 @@
+// V6.9.6 | ~9160 bytes | 2026-10-16 时序修正二则（老板拍板）：AFTER_ATTACK 增 YIN_COUNTER_FIRE:25——殷天正反击出手
+//   从 AFTER_DAMAGE_APPLIED 推迟到 AFTER_ATTACK，避开「本击白骨爪连锁斩杀后仍反击」；新增相位
+//   AFTER_ATTACK_IMMUNE：{ XINGFEN_EXTRA: 40 }——免疫分支（妹妹飞天）专用广播，宋青书性奋第二下照发
 // V6.9.5 | ~8250 bytes | 2026-10-15 第二批内容钩子登记：AFTER_DAMAGE_APPLIED 增 YIN_COUNTER:16 / YIN_PRESSURE:18 / YIN_GROW:21
 //   （殷天正·鹰爪功反击 / 鹰王威压削敌）、BEFORE_DAMAGE_CALC 增 QISHANG:20（唐文亮·七伤拳自损增伤）、
 //   ON_UNIT_DEATH 增 TONG_GUI:25（唐文亮·同归于尽反噬）
@@ -9,7 +12,7 @@
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.4';
+export const VER = 'infra/50-event-bus.js V6.9.6';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -142,6 +145,7 @@ export const EXECUTION_LAYER = {
         PANG_CLUMSY_LOG: 42
     },
     AFTER_ATTACK: {
+        YIN_COUNTER_FIRE: 25,   // 殷天正·鹰爪功反击出手（modules/27）：把 AFTER_DAMAGE_APPLIED 暂存的反击转成本次出手的额外攻击
         PHANTOM_REROLL: 20,
         SHIELD_ATTACK: 30,
         PANG_TAUNT: 35,
@@ -152,6 +156,8 @@ export const EXECUTION_LAYER = {
         DOUBLE_STRIKE: 40,
         MIND_CONTROL: 40
     },
+    // 本击被免疫（飞天）：core/10 免疫分支的专用广播（不牵连 AFTER_ATTACK 下十余条监听）
+    AFTER_ATTACK_IMMUNE: { XINGFEN_EXTRA: 40 },
     AFTER_MISS: {
         PHANTOM_REROLL: 20,
         PANG_CLEAR: 30,

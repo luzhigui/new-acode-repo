@@ -1,3 +1,7 @@
+// V6.4.7 | ~23970 bytes | 2026-10-16 三改（老板拍板）：①免疫分支（妹妹飞天）补广播新信号 AFTER_ATTACK_IMMUNE——
+//          挂在 AFTER_ATTACK 的机制（宋青书性奋额外攻击）不再被免疫整段吞掉，第二下重新选敌照打；
+//          ②runExtraAttackRequests 补 _pendingDeath 守卫（本击已把请求者打到 0 血 → 不得再出手）；
+//          ③req.infoText 支持：被动出手的提示行延迟到真正出手那一刻才落组（入队时未必真能出手）
 // V6.4.6 | 2026-10-16 被动出手原因透传：runExtraAttackRequests 执行期把 req.reason 写 state._linkReason
 //          （纯展示、不参与判定），core/12 快照进 attack fact，render 层出【反击】徽章与头顶飘字；结束即清
 // V6.4.5 | ~21200 bytes | 2026-10-15 选敌完成后、命中/闪避判定前新增 AFTER_SELECT_TARGET 广播（带 log）：
@@ -5,7 +9,7 @@
 // V6.4.4 | 2026-10-13 红血加血独立行拆除：何太冲红血触发改挂 ON_UNIT_ACTED（modules/26 V6.26.0），
 //          加血发生在攻击行之后，「正伤害血反增」矛盾不再存在，BEFORE_DAMAGE_APPLY 血量对照补偿随之退役。
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/10battle-attack.js V6.4.6';
+export const VER = 'core/10battle-attack.js V6.4.7';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -48,12 +52,16 @@ const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'fo
 
 function runExtraAttackRequests(requests, opts) {
     if (!requests || requests.length === 0) return;
-    const { log, A, B, state, allySide, enemySide, target, doubleStrikeUnitUid = null, checkBlock = false, forceUnact = false } = opts;
+    const { log, A, B, state, allySide, enemySide, target, group = null, doubleStrikeUnitUid = null, checkBlock = false, forceUnact = false } = opts;
     requests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
     const executedUids = new Set();
     for (const req of requests) {
         if (executedUids.has(req.unit.uid)) continue;
         if (!req.unit.alive) continue;
+        // 2026-10-16 「待死」= 本击已把他打到 0 血、死亡结算在更后面（resolveDeaths）——此时不得再出手。
+        //   殷天正的反击请求在 AFTER_DAMAGE_APPLIED 入队，若同一击的白骨爪连锁（AFTER_ATTACK 之后才落地）
+        //   把他斩了，只判 alive 仍会放行 →「已经死了还能反击」。这里与锁定目标判据同口径补严判据。
+        if (req.unit.state._pendingDeath) continue;
         if (checkBlock && req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
         executedUids.add(req.unit.uid);
         if (forceUnact) req.unit.state._acted = false;
@@ -63,6 +71,9 @@ function runExtraAttackRequests(requests, opts) {
         // 2026-10-16 被动出手原因透传（纯展示用，不参与引擎判定）：反击/跟随/随动/联动/追击等
         //   reason 记进 _linkReason，core/12 快照进 attack fact → render/34 战报行内徽章 + render/39 出手帧头顶飘字
         if (req.reason) req.unit.state._linkReason = req.reason;
+        // 2026-10-16 提示行延迟到真正出手这一刻才落组（req.infoText）：入队时还不知道他是否真能出手
+        //   （殷天正的反击请求可能被本击连锁斩杀作废），提前落行会写出「已死之人反击」的假日志
+        if (req.infoText && group && group.data && group.data.entries) group.data.entries.push({ type: 'info', text: req.infoText });
         // 回退判据带 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
         //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。回退 null 走正常选目标。
         const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
@@ -219,6 +230,11 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         log.push({ factType: FACT_TYPES.IMMUNE, data: immuneFact });
 
         if (!unit.state._isLinkAttack) unit.state._acted = true;
+        // 2026-10-16 免疫专属广播：本击被免疫（妹妹飞天）时上面 AFTER_ATTACK 分支提前 return 不广播，
+        //   挂在 AFTER_ATTACK 的机制（宋青书性奋额外攻击）会被整段吞掉。补一条只服务「本击虽未落地、
+        //   但仍算一次出手」的信号：性奋额外攻击照发并重新选敌（打别人 / 单目标时打第二下）。
+        //   位置与 AFTER_ATTACK 一致（_acted 之后），nested 额外攻击行为与非免疫路径完全同构。
+        eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, { unit, target, allySide, enemySide, log, A, B, state });
         return true;
     }
 
@@ -280,7 +296,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     // 打中后触发的被动出手（灭绝反击、母狮随动）：reason 表自动置 _isLinkAttack（不吃行动权+防乒乓），
     //   灭绝跨阵营反击自动换边；被动出手照样计入她的「每第三次攻击」次数（modules/26 只认本信号）。
-    runExtraAttackRequests(afterDamageExtraRequests, { log, A, B, state, allySide, enemySide, target });
+    runExtraAttackRequests(afterDamageExtraRequests, { log, A, B, state, allySide, enemySide, target, group });
 
     if (!unit.state._isLinkAttack) unit.state._acted = true;
 
@@ -340,7 +356,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         }
     }
     // 打完后的连锁（双击、玄冥联动、跟随攻击）：双击判遮挡；forceUnact 保留旧账——请求者出手前先清行动权
-    runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, checkBlock: true, forceUnact: true });
+    runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, group, checkBlock: true, forceUnact: true });
 
     resolveDeaths(allySide, enemySide, log);
     // 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 发的事件此前留在全局缓冲里没人收，

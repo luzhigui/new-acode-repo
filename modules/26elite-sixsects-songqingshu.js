@@ -1,4 +1,6 @@
 // modules/26elite-sixsects-songqingshu.js — 六大派精英「宋青书」：组件工厂 + 四大机制 handler 对象
+// V6.28.1 | ~19260 bytes | 2026-10-16 性奋额外攻击出手体抽具名函数 xingFenExtraAttack，并额外注册到新信号
+//   AFTER_ATTACK_IMMUNE——本击被免疫（妹妹飞天）同样算一次出手，第二下重新选敌照打（老板拍板）
 // V6.28.0 | ~17600 bytes | 2026-10-15 白骨爪连锁概率终版（老板拍板）：基础 0.80、按周芷若自身已损血比线性升到
 //   0 血时的 1.00（chainProcRampAt 1.00）、无存活宋青书再 +0.10——理论上可超 1.00（超出的部分等价「保底必连几爪」）；
 //   链条内每多连一爪概率 −chainProcDecay(0.01)（累减到 ≤0 必断，天然保证不会无限连），下次出手自动回复原值。
@@ -12,7 +14,7 @@
 // V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
 //   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
 //   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
-export const VER = 'modules/26elite-sixsects-songqingshu.js V6.28.0';
+export const VER = 'modules/26elite-sixsects-songqingshu.js V6.28.1';
 import { getGameData } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
@@ -245,23 +247,29 @@ export const xinHunHandler = {
     }
 };
 
-// 机制④ 性奋：回合开始授予；命中后额外攻击；未命中重试
+// 性奋额外攻击的出手体（命中后 / 本击被免疫后共用）：重新选敌打第二下
+function xingFenExtraAttack(data, decl) {
+    const { unit, allySide, enemySide, log } = data;
+    if (!unit || unit.name !== decl.name || !unit.isSongQingshu || !unit.alive || unit.state._xingFenExtraAttacking) return;
+    if (!canXingFenTrigger(unit)) return;
+    consumeXingFen(unit);
+    log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
+    unit.state._xingFenExtraAttacking = true;
+    processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
+    unit.state._xingFenExtraAttacking = false;
+}
+
+// 机制④ 性奋：回合开始授予；命中后额外攻击；本击被免疫（妹妹飞天）同样算一次出手；未命中重试
 export const xingFenHandler = {
     install({ eventBus, decl }) {
         eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XINGFEN_GRANT, (data) => {
             applyXingFenGrant(data.B, data.log);
             tickKuaiLeHeal(data.A.concat(data.B), data.log, data.declarations);
         });
-        eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.XINGFEN_EXTRA, (data) => {
-            const { unit, allySide, enemySide, log } = data;
-            if (!unit || unit.name !== decl.name || !unit.isSongQingshu || !unit.alive || unit.state._xingFenExtraAttacking) return;
-            if (!canXingFenTrigger(unit)) return;
-            consumeXingFen(unit);
-            log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
-            unit.state._xingFenExtraAttacking = true;
-            processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
-            unit.state._xingFenExtraAttacking = false;
-        });
+        eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.XINGFEN_EXTRA, (data) => xingFenExtraAttack(data, decl));
+        // 2026-10-16 本击被免疫（AFTER_ATTACK_IMMUNE）也算一次出手：免疫分支不广播 AFTER_ATTACK，
+        //   走专用信号让性奋额外攻击照发并重新选敌——第一下打妹妹飞天 → 第二下改打别人
+        eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, L.AFTER_ATTACK_IMMUNE.XINGFEN_EXTRA, (data) => xingFenExtraAttack(data, decl));
         eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.XINGFEN_RETRY, (data) => {
             const { unit, allySide, enemySide, log } = data;
             if (!unit || unit.name !== decl.name || !unit.isSongQingshu || !unit.alive) return;

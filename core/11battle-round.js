@@ -1,3 +1,7 @@
+// V6.3.18 | ~31200 bytes | 2026-10-16 众志成城召唤物重名保护（老板拍板「重名可保留、不得引出别的 bug」）：
+//           prepareRoundStart 组件工厂循环前算 dupRecruitNames（与场上其他单位同名的 isUnityRecruit），
+//           循环内跳过这些白板召唤物的组件注册（同名原版已注册，重复注册会让 declarations/hook 翻倍）；
+//           搭档连线扫描排除 isUnityRecruit（防召唤物顶替阵亡原版被配对）
 // V6.3.17 | ~31000 bytes | 2026-10-15 第二批内容接线：import 补 applyLastStandBonus/applyUnityBonus/spawnUnityRecruits；
 //           prepareRoundStart 在 spawnCarryEagle 之后、组件工厂循环之前调 spawnUnityRecruits(A/B)（众志成城补员，
 //           当回合即挂技能），A/B 两侧 applyCarryBonus 之后各调 applyLastStandBonus/applyUnityBonus（背水一战残血增伤、众志成城人数阶梯）
@@ -13,7 +17,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.17';
+export const VER = 'core/11battle-round.js V6.3.18';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -143,8 +147,16 @@ function prepareRoundStart(A, B, state, ctx) {
     const roundComps = [];
     const roundCompByName = new Map();
     const allUnits = [...A, ...B];
+    // 2026-10-16 重名保护（配套 core/04）：与场上其他单位同名的 unity 召唤物已在 core/04 降级为白板，
+    //   此处再按名字跳过它的组件注册——同名原版已注册，重复注册会让 declarations/hook 翻倍
+    //   （installDeclaredSkills 按 name 命中，同一份声明装两次 = 每次触发算两遍）
+    const dupRecruitNames = new Set();
+    for (const u of allUnits) {
+        if (u.isUnityRecruit && allUnits.some(o => o !== u && o.name === u.name)) dupRecruitNames.add(u.name);
+    }
     for (const u of allUnits) {
         if (!u.alive) continue;
+        if (u.isUnityRecruit && dupRecruitNames.has(u.name)) continue;
         const rcCamp = roundCompSpecs.get(u.name);
         if (rcCamp !== undefined && u.camp === rcCamp) {
             const Factory = factories.get(u.name);
@@ -168,8 +180,8 @@ function prepareRoundStart(A, B, state, ctx) {
     // 2026-10-08 V7.5.13 搭档连线泛化：配对知识在英雄模块侧注册（原两对搭档内联连线）；
     //   原版仅扫敌方 B，保持
     for (const [partnerA, partnerB] of getLinkPartnerPairs()) {
-        const ua = B.find(u => u.name === partnerA && u.alive);
-        const ub = B.find(u => u.name === partnerB && u.alive);
+        const ua = B.find(u => u.name === partnerA && u.alive && !u.isUnityRecruit);
+        const ub = B.find(u => u.name === partnerB && u.alive && !u.isUnityRecruit);
         if (ua && ub) { Object.assign(ua.state, { _linkedPartnerUid: ub.uid }); Object.assign(ub.state, { _linkedPartnerUid: ua.uid }); }
     }
 
