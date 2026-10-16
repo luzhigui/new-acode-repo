@@ -1,5 +1,5 @@
 {
-  "version": "5.13.4",
+  "version": "5.13.5",
   "updated": "2026-10-16",
 
   "roles": {
@@ -475,13 +475,13 @@
         },
         "yingWangWeiYa": {
           "name": "鹰王威压",
-          "desc": "每次命中后永久削弱目标：攻击 −3、防御 −3（可无限叠加，越打越削，跨回合延续）",
-          "params": { "atkDown": 3, "defDown": 3 }
+          "desc": "每次命中后永久削弱目标：攻击 −2、防御 −2（可无限叠加，越打越削，跨回合延续）",
+          "params": { "atkDown": 2, "defDown": 2 }
         },
         "laoDangYiZhuang": {
           "name": "老当益壮",
-          "desc": "每次命中后自身永久成长：攻击 +3、防御 +3、反击概率 +5%（普攻/反击皆算，本局累计，越打越硬）",
-          "params": { "atkGain": 3, "defGain": 3, "probGain": 0.05 }
+          "desc": "每次命中后自身永久成长：攻击 +2、防御 +2、反击概率 +5%（普攻/反击皆算，本局累计，越打越硬）",
+          "params": { "atkGain": 2, "defGain": 2, "probGain": 0.05 }
         }
       },
       "taunts": {
@@ -597,7 +597,7 @@
     "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "dodgeBonus": 0.25, "icon": "💨" },
     "windAssault": { "name": "乘风突袭", "desc": "飞行单位80%概率对同行敌人造成100%伤害，60%击退一格", "hitProb": 0.8, "pushProb": 0.6, "duration": 3, "icon": "🦅", "effects": ["windAssaultSplash"] },
     "meteorShower": { "name": "流星赶月", "desc": "己方远程对目标造成40%额外伤害，对周围溅射30%", "bonusRatio": 0.4, "splashRatio": 0.3, "mainDefReduce": 2, "splashDefReduce": 1, "icon": "☄️", "effects": ["meteorShowerMain"] },
-    "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍；5号位无人时召唤一只雄鹰顶位（雄鹰命中后使己方一名已行动过的队友恢复行动力；若无人可恢复则召唤一只白板雌鹰永久存在）", "atkBonus": 0.06, "defBonus": 0.06, "hpBonus": 0.06, "deathMultiplier": 2, "duration": 4, "icon": "👑", "params": { "eagle": { "name": "雄鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50, "female": { "name": "雌鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50 } } } },
+    "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍；5号位无人时召唤一只雄鹰顶位（雄鹰命中后使己方一名已行动过的队友恢复行动力；若无人可恢复则召唤一只白板雌鹰永久存在）", "atkBonus": 0.06, "defBonus": 0.06, "hpBonus": 0.06, "deathMultiplier": 2, "duration": 3, "icon": "👑", "params": { "eagle": { "name": "雄鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50, "female": { "name": "雌鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50 } } } },
     "holyFlame": { "name": "圣火令", "desc": "随机1列+30%攻击，随机2行+30%防御", "atkBonus": 0.3, "defBonus": 0.3, "icon": "🔥" },
     "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
@@ -605,7 +605,7 @@
     "soulDrain": { "name": "摄魂", "desc": "敌方全体攻击力-30%（持续 4 回合，每回合刷新）；敌方每比我方多 1 个存活单位，减攻再 +5%（我方人数不少于敌方时保底 -30%）；另敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）。小昭·妹永久：团队效果结束后，每回合随机点名 1 名敌方（非巨马、非召唤物）继续削，持续 2 回合（可重复点名刷新），稳态约 2 人同时在削", "atkBonus": -0.30, "perUnitBonus": 0.05, "defBonus": -0.10, "perRoundBonus": -0.05, "icon": "👻" },
     "holyFire": { "name": "圣火不熄", "desc": "每局首次有一名己方非巨马、非召唤物单位阵亡时，该单位在下一个行动步原地复活：回复 40% 最大生命，复活后即可行动；每局仅触发 1 次（防无限复活）。整局生效", "reviveRatio": 0.4, "permanent": true, "icon": "🕯️", "effects": ["holyFireRevive"] },
     "lastStand": { "name": "背水一战", "desc": "己方单位生命低于 35% 时，攻击力 +40%（每回合开始按当前血量重判，血回上去即失效）", "hpThreshold": 0.35, "atkBonus": 0.4, "icon": "🩸" },
-    "unity": { "name": "众志成城", "desc": "己方在场人数越多加成越高：5 人攻+15%/防+30%，6 人 20%/40%，7 人 30%/50%，8 人 50%/80%，9 人彩蛋 100%/100%。获得时若不足 5 人则每回合召唤随机角色补员（M30、含精英、技能全开），补到 5 人后每回合再补 1 个，整局最多补 4 个；获得时已满 5 人则不再召唤，只吃加成", "recruitM": 30, "maxRecruits": 4, "tiers": [
+    "unity": { "name": "众志成城", "desc": "己方在场人数越多加成越高：5 人攻+15%/防+30%，6 人 20%/40%，7 人 30%/50%，8 人 50%/80%，9 人彩蛋 100%/100%。获得当回合直接把人数补满到 5（不足则召唤随机角色补员，M30、含精英、技能全开），此后每回合再补 1 个，持续 5 回合（唯一上限是 9 格站位）", "recruitM": 30, "duration": 5, "tiers": [
       { "count": 5, "defBonus": 0.30, "atkBonus": 0.15 },
       { "count": 6, "defBonus": 0.40, "atkBonus": 0.20 },
       { "count": 7, "defBonus": 0.50, "atkBonus": 0.30 },

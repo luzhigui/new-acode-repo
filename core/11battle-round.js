@@ -1,3 +1,5 @@
+// V6.3.20 | ~35570 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 调用点去掉
+//           已弃用的 state 形参（新逻辑不再读 _unityChecked/_unityNoRecruit 锁，改「补满 5 + 每回合 +1」）
 // V6.3.19 | ~35570 bytes | 2026-10-16 skip 通道补 PASS fact（体检第 96 轮转交）：组件声明 skip（小昭·妹蜘蛛卵结茧 /
 //           蝶变附身中）此前只置 _acted、不产任何 fact ⇒ 回合末不变量报「行动权被吞」；现就地推一条与 passEntry
 //           同结构的 PASS fact（reason 按 _spiderEgg 区分「蜘蛛卵结茧 / 组件声明skip」），检查器与渲染器同款消费
@@ -20,7 +22,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.19';
+export const VER = 'core/11battle-round.js V6.3.20';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -116,10 +118,11 @@ function prepareRoundStart(A, B, state, ctx) {
     spawnCarryEagle(A, ctx.log);
     spawnCarryEagle(B, ctx.log);
 
-    // 2026-10-15 众志成城（unity）：获得时不足 5 人则每回合召唤随机角色补员（M50/技能全开），
+    // 2026-10-16 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M30/技能全开，
+    //   持续由 content unity.duration:5 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
-    spawnUnityRecruits(A, state, ctx.log);
-    spawnUnityRecruits(B, state, ctx.log);
+    spawnUnityRecruits(A, ctx.log);
+    spawnUnityRecruits(B, ctx.log);
 
     eventBus.clearAll();
     // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
