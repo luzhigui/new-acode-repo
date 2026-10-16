@@ -11,7 +11,7 @@ import { loadGameData, getGameData } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import '../modules/00reg-mechanics.js';
 
-// node 探针补丁（与 probe-hex-balance.mjs 同款）：fetch 映射 content/200game-data.json 到 file://
+// node 探针补丁：fetch 映射 content/200game-data.json 到 file://（2026-10-16 海克斯探针 probe-hex-balance.mjs 已删，此处注释同步去掉引用）
 if (typeof localStorage === 'undefined') { globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} }; }
 const _origFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {

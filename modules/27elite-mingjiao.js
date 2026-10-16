@@ -1,3 +1,8 @@
+// V7.1.6 | ~91200 bytes | 2026-10-16 杨逍两改（老板拍板）：①弹指神通点穴率 35%→40%（内容 5.13.12）；②新增「先机」——
+//           每回合开始 40% 概率抢得先机，命中则本回合走 core/11 priority 通道抢在队友之前出手
+//           （占本队本次出手顺序，isPriorityAction 不切换阵营 ⇒ 队伍总出手次数不变；他站 1 号位时天然无变化）
+// V7.1.5 | ~90800 bytes | 2026-10-16 殷天正反击档再下调 + 头注释同步（老板拍板）：起始反击率 45%→40%（内容 5.13.10）→本次 40%→33%、
+//            每次反击成长 +5%→+3%（内容 5.13.11）；削/涨单值仍 3/3，②③ 触发口径不变（仅反击命中）。下方内联注释一并同步
 // V7.1.4 | ~90400 bytes | 2026-10-16 殷天正②③收窄为「仅反击命中」触发（老板拍板）：鹰王威压削目标、老当益壮自壮
 //           都只在「鹰爪功反击」命中时生效（靠 core/10 执行期写的 state._linkReason==='counterAttack' 判定），
 //           普攻命中不再削人/自壮；数值 2→5（内容表 atkDown/defDown/atkGain/defGain），起始反击率仍 45%
@@ -21,7 +26,7 @@
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.1.4';
+export const VER = 'modules/27elite-mingjiao.js V7.1.6';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -1046,6 +1051,9 @@ export function createXieXunComponent() {
 // ② 选敌：pool-filter 优先未行动敌人（点穴控到还有行动权的 target 才有意义）；敌方全部已行动 → 候选排空照飞行默认选敌，
 //    且本次伤害 ×allActedDmgRatio（BEFORE_DAMAGE_CALC 声明，战报明细可见）。
 // ③ 鹰眼被动（未命中 −12pp）实装在 core/03 getMissBreakdown 单源，详情弹窗自动同步。
+// ④ 先机（2026-10-16）：每回合开始掷一次 jumpProb——命中则本回合声明 declaration.priority=1，在 core/11
+//    同阵营候选队列里排到队首（优先于 pos 更小的队友）；该步 isPriorityAction=true 不切换阵营，
+//    故队友仍照常出手 ⇒ 只提前顺序、不减总出手次数（与宋青书 KULIAN_PRIORITY 同款通道）。
 export function createYangXiaoComponent() {
     return {
         name: '杨逍',
@@ -1058,6 +1066,26 @@ export function createYangXiaoComponent() {
             if (!dian) throw new Error('缺技能参数: 杨逍.dianXueShenTong');
             const jie = getSkillParams('杨逍', 'dianXueJieMai');
             if (!jie) throw new Error('缺技能参数: 杨逍.dianXueJieMai');
+            const xian = getSkillParams('杨逍', 'xianJi') || { jumpProb: 0 };
+
+            // ④ 先机：每回合开始掷一次（register 每回合重建组件，闭包旗只在本回合内有效）
+            let jumpThisRound = false;
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.YANGXIAO_JUMP, (data) => {
+                if (!yangxiao.alive) return;
+                jumpThisRound = getBattleRng().next() < (xian.jumpProb || 0);
+                if (jumpThisRound && data && data.log) {
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                        unitName: yangxiao.name, unitUid: yangxiao.uid, camp: yangxiao.camp, skillName: '先机',
+                        note: `👟 ${yangxiao.name} 先机：本回合抢在队友之前出手`
+                    } });
+                }
+            });
+            // 抢在队友前出手：声明 priority=1（core/11 同阵营候选按 priority 降序、再 pos 升序取队首）
+            eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.YANGXIAO_PRIORITY, (data) => {
+                if (!jumpThisRound) return;
+                if (!data.unit || !data.unit.isYangXiao || !data.unit.alive) return;
+                data.declaration.priority = 1;
+            });
 
             // ① 命中后点穴判定：眩晕 + 禁疗同时挂（data.unit=杨逍，data.target=被命中者）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.DIAN_XUE, (data) => {
@@ -1167,9 +1195,9 @@ export function createEagleComponent() {
 }
 
 // 殷天正（白眉鹰王·明教·防战·弱精英 m104）：反击 / 反击削敌 / 反击自壮
-// ① 鹰爪功：被攻击后 (基础 45% + 老当益壮累计) 概率反击攻击者，伤害×dmgRatio，走 extraRequests 过完整伤害管线
-// ② 鹰王威压：殷天正「反击命中」后永久削目标攻/防各 5（addMod 无 ttl = 整局累积，可无限叠加）；普攻命中不触发
-// ③ 老当益壮：殷天正「反击命中」后自身永久 +攻/防各 5，并累计反击概率 +5%（反击率封顶 0.9）；普攻命中不触发
+// ① 鹰爪功：被攻击后 (基础 33% + 老当益壮累计) 概率反击攻击者，伤害×dmgRatio，走 extraRequests 过完整伤害管线
+// ② 鹰王威压：殷天正「反击命中」后永久削目标攻/防各 3（addMod 无 ttl = 整局累积，可无限叠加）；普攻命中不触发
+// ③ 老当益壮：殷天正「反击命中」后自身永久 +攻/防各 3，并累计反击概率 +3%（反击率封顶 0.9）；普攻命中不触发
 // ②③ 的「仅反击」判定靠 core/10 runExtraAttackRequests 执行期写在 yin.state._linkReason 上的 'counterAttack'
 export function createYinTianZhengComponent() {
     return {
