@@ -1,7 +1,8 @@
+// V6.8.2 | ~20860 bytes | 2026-10-16 新增 WEAK_ELITE_MIX_RATE：明教弱精英（杨逍/殷天正）随机混入正常阵容的概率（modules/29 用）
 // V6.8.1 | ~20690 bytes | 2026-10-15 删 XIAO_ZHAO_CARRY_MODS（妹永久 carry 改每回合刷新一轮、数值调用精通参数，此常量作废）
 // V6.8.0 | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
 //   新技能 liangyiLink/targetMark/redBlood 的说明占位符一律回落 params（无 mechanics 真值源）
-export const VER = 'core/01config-5v5-test.js V6.8.1';
+export const VER = 'core/01config-5v5-test.js V6.8.2';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -250,6 +251,9 @@ const CONFIG = {
     ELITE_COUNT_THRESHOLDS: [0.05, 0.20, 0.80],
     // 小昭形态骰（29battle-init 用）：默认 50% 为「小昭·姊」；图鉴选 xz 偏向姊、选 xm 偏向妹
     XIAO_ZHAO_SISTER_PROB: { default: 0.5, xz: 0.85, xm: 0.15 },
+    // 明教弱精英混入率（29battle-init 用，2026-10-16 定案）：明教固定精英轮盘只留张无忌/韦一笑/小昭/谢逊；
+    //   其余具名身份（杨逍/殷天正）属「弱精英」——不进轮盘，按本概率随机替换一个普通位混入正常阵容（每局至多一名）
+    WEAK_ELITE_MIX_RATE: 0.20,
     BASE_DODGE_FLY: 0.15,
     BASE_DODGE_GROUND: 0.05,
     DODGE_REBOUND_RATIO: 0.5,

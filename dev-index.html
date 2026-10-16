@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.7 | ~17000 bytes | 2026-10-15 「🎨 UI 效果 demo」改指向 tools/125-buff-badge-demo.html（V2 重做：真机样式逐行复制 + 只挂圣火不熄 + 量出格子实际宽度）。V6.3.6 主入口增「🎨 UI 效果 demo」区。V6.3.5 「文档与准则」区整理：补 btnTestRunner 死按钮 handler（→ tests/体检迭代日志.md）、btnGameDesign 指向改 02 游戏设定、标签/缩进对齐、删除与 btnShop 重复的圣火令商店临时入口 <a>；页面版本号统一 V6.3.5。V6.3.4 工具三入口当前页跳转（全站 12 入口零弹窗） -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.3.9 | ~17800 bytes | 2026-10-16 弱精英锁定按钮补齐：除殷天正/唐文亮外补「🐦 杨逍」「🗡 何太冲」——明教弱精英池（杨逍/殷天正）+ 六大派 M104 具名池（何太冲/唐文亮）全覆盖。V6.3.8 新增弱精英锁定按钮（🦅 殷天正 / 👊 唐文亮，写 _forceWeakElite → modules/29 必出该弱精英，只占正常阵容 1 位）。V6.3.7 | ~17000 bytes | 2026-10-15 「🎨 UI 效果 demo」改指向 tools/125-buff-badge-demo.html（V2 重做：真机样式逐行复制 + 只挂圣火不熄 + 量出格子实际宽度）。V6.3.6 主入口增「🎨 UI 效果 demo」区。V6.3.5 「文档与准则」区整理：补 btnTestRunner 死按钮 handler（→ tests/体检迭代日志.md）、btnGameDesign 指向改 02 游戏设定、标签/缩进对齐、删除与 btnShop 重复的圣火令商店临时入口 <a>；页面版本号统一 V6.3.5。V6.3.4 工具三入口当前页跳转（全站 12 入口零弹窗） -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.7</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.9</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         body {
@@ -54,7 +54,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.3.7 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.3.9 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -74,6 +74,16 @@
                     <button class="big-btn btn-play" id="btnPangYuanQiao" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #a1887f, #4e342e);">🥷 胖远桥</button>
                     <button class="big-btn btn-play" id="btnMieJue" style="flex:1;background:linear-gradient(135deg, #b0bec5, #546e7a);">🗡️ 灭绝师太</button>
                     <button class="big-btn btn-play" id="btnXieXun" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #f9a825, #e65100);">🦁 谢逊</button>
+                </div>
+                <!-- 弱精英锁定（2026-10-16）：_forceWeakElite 传具名 → modules/29 必出该弱精英（混入正常阵容占 1 位，不整队替换）。
+                     明教弱精英池＝杨逍/殷天正；六大派 M104 具名池＝何太冲/唐文亮 -->
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnYangXiao" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #4db6ac, #00695c);">🐦 杨逍</button>
+                    <button class="big-btn btn-play" id="btnHeTaichong" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #9575cd, #4527a0);">🗡 何太冲</button>
+                </div>
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnYinTianZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #8d6e63, #3e2723);">🦅 殷天正</button>
+                    <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #7cb342, #33691e);">👊 唐文亮</button>
                 </div>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
@@ -110,7 +120,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.7 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.9 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -163,6 +173,7 @@
         function clearDemoFlags() {
             localStorage.removeItem('_forcePang');
             localStorage.removeItem('_forceXieXun');
+            localStorage.removeItem('_forceWeakElite');
             localStorage.removeItem('_startStage');
         }
         document.getElementById('btnPangYuanQiao').addEventListener('click', () => {
@@ -181,6 +192,33 @@
         document.getElementById('btnXieXun').addEventListener('click', () => {
             clearDemoFlags();
             localStorage.setItem('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
+            localStorage.removeItem('_bugMode');
+            window.location.href = 'index.html';
+        });
+        // 弱精英锁定（2026-10-16）：殷天正走明教侧弱精英混入（WEAK_ELITE_MIX_RATE 概率置 1），
+        //   唐文亮走六大派侧 M104 数字空位锁定——两者都只占正常阵容 1 位，不整队替换
+        document.getElementById('btnYinTianZheng').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceWeakElite', '殷天正');
+            localStorage.removeItem('_bugMode');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnTangWenLiang').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceWeakElite', '唐文亮');
+            localStorage.removeItem('_bugMode');
+            window.location.href = 'index.html';
+        });
+        // 弱精英补齐（2026-10-16）：杨逍走明教侧弱精英池混入、何太冲走六大派 M104 数字空位锁定
+        document.getElementById('btnYangXiao').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceWeakElite', '杨逍');
+            localStorage.removeItem('_bugMode');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnHeTaichong').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceWeakElite', '何太冲');
             localStorage.removeItem('_bugMode');
             window.location.href = 'index.html';
         });

@@ -1,3 +1,5 @@
+// V1.9.1 | ~36500 bytes | 2026-10-16 clearBattleGlobals 补清 forceWeakElite（modules/29 新增的弱精英锁定标志，同批弱精英定案）：
+//        漏清则跑完弱精英单局后该标志常驻 worker，之后所有 job 都被强塞同一弱精英，弱精英自然出场率被系统性高估
 // V1.9.0 | ~36300 bytes | 2026-10-14 阵容模式改为统一「拒绝采样重掷」、不再设 forceXiaoZhao：force 会触发 modules/29 轮盘互锁
 //        （队里只剩小昭一个精英 + 20% 本该无精英的局被强塞一个小昭）= 单小昭局，与「其他精英照常轮盘」的自然局不可横向比；
 //        现 sister/brother/none 一律重掷自然阵容直到命中该形态（sister=含姊 / brother=含妹 / none=无小昭），四模式同一把尺子
@@ -66,6 +68,8 @@ function clearBattleGlobals() {
     // 对照 122-param-lab-core.js 的完整清单（五项）补齐。
     GlobalStore.set('forceXieXun', null);
     GlobalStore.set('forcePang', null);
+    // 2026-10-16 V1.9.1 补漏：forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——漏清会跨场污染弱精英出场率
+    GlobalStore.set('forceWeakElite', null);
     GlobalStore.set('currentBattleState', null);
     flushBattleEvents();
     // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
