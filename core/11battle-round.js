@@ -279,6 +279,54 @@ function computeDodgeChance(A, B) {
     }
 }
 
+// 阶段8：对单队施加回合 per-unit 加成（A/B 两个同构循环合并）。
+//   team=本队、enemy=对方队；isAlly=true 为明教(A)。差异全部参数化：
+//   · carry 拼阵亡队友：仅 A 队
+//   · 圣火令 hasSister：A 队读 isHolyFlameEnhanced，B 队恒 false
+//   · 摄魂方向：casterAlive/targetAlive 互换、casterSide 恒为对方队 enemy
+//   · 光环：getAuraBonuses(u, team, enemy)
+function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
+    const buffs = team._activeBuffs || [];
+    const enemyBuffs = enemy._activeBuffs || [];
+    const casterAlive = isAlly ? alive.B : alive.A;
+    const targetAlive = isAlly ? alive.A : alive.B;
+    team.forEach(u => {
+        if (!u.alive) return;
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
+
+        // 【第2步保留·第3步删】computeBuffStats 是死调用（返回值未用），仅 A 队 carry 时第3参拼阵亡队友。
+        let buffStatTeam = team;
+        if (isAlly) {
+            let allyTeamWithDead = team.slice();
+            if (hasBuff(buffs, BUFF_TYPES.CARRY)) {
+                allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
+                allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+            }
+            buffStatTeam = allyTeamWithDead;
+        }
+        computeBuffStats(u, buffs, buffStatTeam);
+
+        applyHolyFlameBonus(u, buffs, { hasSister: isAlly ? isHolyFlameEnhanced(team) : false, log: ctx.log });
+        applyFortifyBonus(u, buffs);
+        applySoulDrain(u, enemyBuffs, { log: ctx.log, casterAlive, targetAlive, round: ctx.round, casterSide: enemy });
+        applyCarryBonus(u, team, state, ctx.log);
+        applyLastStandBonus(u, buffs);
+        applyUnityBonus(u, team, buffs);
+
+        const auraBonuses = getAuraBonuses(u, team, enemy);
+        // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
+        ctx.log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
+        if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
+        if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
+
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
+
+        u.state._xingFenExtraAttacking = false;
+        u.state._bloodthirstStriked = false;
+        Object.assign(u.state, { _doubleStriked: false });
+    });
+}
+
 function prepareRoundStart(A, B, state, ctx) {
     clearRoundEntries(A, B, state, ctx);
     const ds = spawnHorsesAndPickDoubleStrike(A, B, state, ctx);
@@ -293,59 +341,9 @@ function prepareRoundStart(A, B, state, ctx) {
     const aliveCountA = A.filter(x => x.alive && !x.isHorse).length;
     const aliveCountB = B.filter(x => x.alive && !x.isHorse).length;
 
-    A.forEach(u => {
-        if (!u.alive) return;
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
-        let allyTeamWithDead = A.slice();
-        let hasCarryActive = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
-        if (hasCarryActive) {
-            allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
-            allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
-        }
-        let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
-
-        applyHolyFlameBonus(u, A._activeBuffs || [], { hasSister: isHolyFlameEnhanced(A), log: ctx.log });   // 2026-10-08 增强判定迁注册面（modules/27）
-        applyFortifyBonus(u, A._activeBuffs || []);
-        applySoulDrain(u, B._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountB, targetAlive: aliveCountA, round: ctx.round, casterSide: B });   // 六大派持摄魂 → 削弱明教
-        applyCarryBonus(u, A, state, ctx.log);
-        // 2026-10-15 第二批海克斯：背水一战（低血攻×1.4）/众志成城（按存活人数阶梯乘攻防），ttl:'round' 每回合重挂
-        applyLastStandBonus(u, A._activeBuffs || []);
-        applyUnityBonus(u, A, A._activeBuffs || []);
-
-        const auraBonuses = getAuraBonuses(u, A, B);
-        // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
-        ctx.log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
-        if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
-        if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
-
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-
-        u.state._xingFenExtraAttacking = false;
-        u.state._bloodthirstStriked = false;
-        Object.assign(u.state, { _doubleStriked: false });
-    });
-
-    B.forEach(u => {
-        if (!u.alive) return;
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
-        let bStats = computeBuffStats(u, B._activeBuffs || [], B);
-        applyHolyFlameBonus(u, B._activeBuffs || [], { hasSister: false, log: ctx.log });
-        applyFortifyBonus(u, B._activeBuffs || []);
-        applySoulDrain(u, A._activeBuffs || [], { log: ctx.log, casterAlive: aliveCountA, targetAlive: aliveCountB, round: ctx.round, casterSide: A });   // 明教持摄魂 → 削弱六大派
-        applyCarryBonus(u, B, state, ctx.log);
-        // 2026-10-15 第二批海克斯（六大派侧同构）
-        applyLastStandBonus(u, B._activeBuffs || []);
-        applyUnityBonus(u, B, B._activeBuffs || []);
-        Object.assign(u.state, { _doubleStriked: false });
-        u.state._xingFenExtraAttacking = false;
-        u.state._bloodthirstStriked = false;
-        const auraBonuses = getAuraBonuses(u, B, A);
-        // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
-        ctx.log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
-        if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
-        if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-    });
+    const alive = { A: aliveCountA, B: aliveCountB };
+    applyTeamRoundBuffs(A, B, state, ctx, alive, true);
+    applyTeamRoundBuffs(B, A, state, ctx, alive, false);
 
     computeDodgeChance(A, B);
 
