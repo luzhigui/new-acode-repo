@@ -1,4 +1,8 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
+// V1.0.2 | 2026-10-16 两改（老板报的实机现象）：①MISS/DODGE 翻译器补 isKuLianAttack 透传——宋青书苦练 💪
+//   在「未命中/被闪避」路径也要播（原先唯一发信点在 ATTACK 动作 fx，命中判定 skipped 时无 ATTACK 动作 →
+//   苦练特效整段消失；attacker 快照 state 块本就带 _kuLianActive，无需改引擎）；②makeAttackAction 读本击
+//   data.qiShangSelfDmg（modules/26 写进攻击组）→ 唐文亮七伤拳自损在自己头顶补 💥-N 掉血弹幕
 // V1.0.1 | 2026-10-16 ATTACK/MISS/DODGE 翻译器加 linkReason 透传（render/39 出手帧据此发被动出手徽章飘字）
 // V1.0.0 | ~20500 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：攻击/命中/闪避/处决/反伤/
 //          溅射/连击类 FACT_TRANSLATORS 条目 + makeAttackAction，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
@@ -7,7 +11,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '.
 import { makeHealAction } from './38-actions-translate-heal.js';
 // 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate-attack.js V1.0.1';
+export const VER = 'render/38-actions-translate-attack.js V1.0.2';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -16,6 +20,8 @@ export const ATTACK_TRANSLATORS = {
         kind: STAGE_ACTION_TYPES.MISS,
         actorUid: data.attacker?.uid ?? null,
         targetUid: data.target?.uid ?? null,
+        // 2026-10-16 苦练蓄力：打空同样算宋青书本回合出手，💪 不被命中判定吞掉（快照 state 块带 _kuLianActive）
+        isKuLianAttack: data.attacker?.state?._kuLianActive === true,
         // 2026-10-16 被动出手原因：反击/跟随打空也能认出来（attacker 快照 state 块携带）
         linkReason: data.attacker?.state?._linkReason ?? null,
         fx: data.fxSnapshot || null,
@@ -26,6 +32,8 @@ export const ATTACK_TRANSLATORS = {
         kind: STAGE_ACTION_TYPES.DODGE,
         actorUid: data.attacker?.uid ?? null,
         targetUid: data.dodger?.uid ?? null,
+        // 2026-10-16 苦练蓄力：被闪避（含闪避反击）同样算宋青书本回合出手，💪 照播
+        isKuLianAttack: data.attacker?.state?._kuLianActive === true,
         reboundDmg: data.reboundDmg,
         dead: data.attackerHpAfter <= 0,
         linkReason: data.attacker?.state?._linkReason ?? null,
@@ -394,6 +402,18 @@ function makeAttackAction(data, index) {
             statKind: 'atk',
             targetUid: target.uid,
             gain: Math.round(data.pangAtkGain),
+            factIndex: index,
+            timing: 'afterText'
+        });
+    }
+
+    // 2026-10-16 唐文亮·七伤拳自损掉血弹幕：自损量由 modules/26 写进本击攻击组 data（同 pangTaunt/pangClumsy
+    //   的组标记口径）。自损恒不致死（引擎侧留 1 血），锚在出手者自己头顶飘 💥-N——此前只有战报行
+    if (data.qiShangSelfDmg > 0 && attacker?.uid) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT,
+            targetUid: attacker.uid,
+            dmg: Math.round(data.qiShangSelfDmg),
             factIndex: index,
             timing: 'afterText'
         });

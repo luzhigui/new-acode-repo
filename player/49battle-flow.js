@@ -1,13 +1,15 @@
+// V6.4.3 | ~7300 bytes | 2026-10-16 全自动选 buff 补众志成城门槛（与 modules/28、tools/116/122 同口径）：
+//          本阵营存活 ≥4 人不进候选；BUFF_TYPES 随本行重新引入
 // V6.4.2 | ~7200 bytes | 2026-10-14 全自动选 buff 放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
-//          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）；BUFF_TYPES 随该行一并弃用
+//          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
 // V6.4.1 | ~7300 bytes | 2026-10-13 三处「获得Buff」日志支持整局海克斯：buff 带 permanent 时显示「整局」而非回合数
 // V6.4.0 | ~6900 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
-export const VER = 'player/49battle-flow.js V6.4.2';
+export const VER = 'player/49battle-flow.js V6.4.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { createBuffObject, buffsOfCamp, generateBuffChoices } from '../modules/28buff-tools.js';
 import { appendLogHTML } from './47renderer.js';
 import * as net from '../infra/60-net-pvp.js';
@@ -30,6 +32,9 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         const team = c.store.getState().units.filter(u => u.camp === camp && u.alive);
         const available = allKeys.filter(k => {
             if (existing.includes(k)) return false;
+            // 2026-10-16 众志成城门槛（与 modules/28 generateBuffChoices、tools/116/122 同口径）：
+            //   本阵营存活 ≥4 人不进候选——补员是「获得当回合补满到 5」，已有 4 人时只补 1 个、收益太小
+            if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
             const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
             if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
             return true;

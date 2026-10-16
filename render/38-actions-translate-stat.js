@@ -1,8 +1,10 @@
 // render/38-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
+// V1.0.2 | 2026-10-16 SKILL_ANNOUNCE 补 bannerText 可选字段透传：唐文亮七伤拳「满 7 档」的夸张横幅
+//          （💢 七伤齐发！）——与 floatText 可并存，两者都缺才只落战报行。闭环：模块 push 报幕 → 这里翻演出
 // V1.0.1 | ~8215 bytes | 2026-10-13 两仪互换注释随红血时机修正：事实序不再是「先换位再挨打」，
 //          改挂 ON_UNIT_ACTED 后 swap 报幕落在整段攻击组之后，翻译逻辑零改动。
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-stat.js V1.0.1';
+export const VER = 'render/38-actions-translate-stat.js V1.0.2';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -184,7 +186,14 @@ function translateSkillAnnounce(data, index) {
         }
         return acts;
     }
-    if (!data.floatText || data.floatUid == null) return null;
+    // 2026-10-16 bannerText 支持：唐文亮「七伤齐发」满 7 档的夸张横幅（纯演出、不改数值）——与 floatText
+    //   可并存；两者都缺才返回 null（只落战报行）。横幅走 STAGE_ACTION_TYPES.BANNER（render/39 老通道）
+    if (!data.floatText || data.floatUid == null) {
+        if (typeof data.bannerText === 'string' && data.bannerText) {
+            return { kind: STAGE_ACTION_TYPES.BANNER, text: data.bannerText, factIndex: index, timing: 'afterText' };
+        }
+        return null;
+    }
     return {
         kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
         targetUid: data.floatUid,
