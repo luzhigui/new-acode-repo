@@ -1,3 +1,8 @@
+// V6.3.21 | ~35700 bytes | 2026-10-16 圣火不熄与判负时序修复（老板拍板方案 A·新语义）：团灭判定把「排队复活」的单位
+//           （state._holyFire/_holyFireSelf === 'pending'）算作未死透——阵亡当帧只记 pending、真正落位在下一个行动步
+//           开头（BEFORE_STATE_TRANSITION），此前最后一名单位阵亡会当步末直接判负并结束战斗，复活永远等不到那一步
+//           （回合兜底也到不了）。新口径只作用于团灭判定（步末 + 回合末两处）；落位失败时 revive 首行已把标记改 'used'，
+//           故不会无限延长战斗。同批：注释里众志成城 M 值 30→20（content 同步）
 // V6.3.20 | ~35570 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 调用点去掉
 //           已弃用的 state 形参（新逻辑不再读 _unityChecked/_unityNoRecruit 锁，改「补满 5 + 每回合 +1」）
 // V6.3.19 | ~35570 bytes | 2026-10-16 skip 通道补 PASS fact（体检第 96 轮转交）：组件声明 skip（小昭·妹蜘蛛卵结茧 /
@@ -22,7 +27,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.20';
+export const VER = 'core/11battle-round.js V6.3.21';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -45,6 +50,18 @@ import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
 
 const C = CONFIG;
+
+// 2026-10-16 圣火不熄与判负时序（老板拍板方案 A·新语义）：阵亡当帧只记 state._holyFire='pending'，
+//   真正复活落位要等「下一个行动步开头」的 BEFORE_STATE_TRANSITION（core/04 flushHolyFire）；
+//   而团灭判定在当步末就执行 —— 最后一名单位阵亡时战斗当场结束，排队的复活永远等不到那一步。
+//   新语义：有排队复活的单位视作「未死透」，不参与团灭判定，让流程走到复活落位再定胜负。
+//   不会无限延长：落位失败（9 格全被活人占）时 reviveHolyFireUnit 首行已把标记改成 'used'。
+function isRevivePending(u) {
+    return !!(u.state && (u.state._holyFire === 'pending' || u.state._holyFireSelf === 'pending'));
+}
+function teamAliveOrPending(team) {
+    return team.some(u => u.alive || isRevivePending(u));
+}
 
 function prepareRoundStart(A, B, state, ctx) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
@@ -118,7 +135,7 @@ function prepareRoundStart(A, B, state, ctx) {
     spawnCarryEagle(A, ctx.log);
     spawnCarryEagle(B, ctx.log);
 
-    // 2026-10-16 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M30/技能全开，
+    // 2026-10-16 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M20/技能全开，
     //   持续由 content unity.duration:5 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);
@@ -504,8 +521,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         }
         resolveDeaths(A, B, log);
         const stepEvents = flushBattleEvents();
-        const allyAlive = A.some(u => u.alive);
-        const enemyAlive = B.some(u => u.alive);
+        // 2026-10-16 圣火不熄修复：排队复活的单位算存活，团灭判定推迟到复活落位之后
+        const allyAlive = teamAliveOrPending(A);
+        const enemyAlive = teamAliveOrPending(B);
         let winner = null;
         let done = false;
         if (!allyAlive) { winner = '六大派'; done = true; }
@@ -568,8 +586,10 @@ function finalizeRoundEnd(A, B, ctx) {
 
     let winner = null;
     let done = false;
-    if (B.every(c => !c.alive)) { winner = '明教'; done = true; }
-    else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
+    // 2026-10-16 圣火不熄修复（同步末口径）：回合最后一手阵亡时 pending 复活者不算团灭，
+    //   让流程进入下一回合由 flushHolyFireRoundStart 兜底复活后再定胜负
+    if (!teamAliveOrPending(B)) { winner = '明教'; done = true; }
+    else if (!teamAliveOrPending(A)) { winner = '六大派'; done = true; }
     if (ctx.round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
 
     eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log: ctx.log, forced: true });
