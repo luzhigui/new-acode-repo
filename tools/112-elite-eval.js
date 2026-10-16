@@ -1,3 +1,5 @@
+// V2.8.1 | 2026-10-16 分片细化 + startIndex 种子口径（老板拍板）：CHUNK 300→50（细粒度填满线程池、无尾部空转），
+//           四张表种子统一改「关基准 + 起始场号×7919」（去掉片序号×100003）——分片粗细不再改变采样分布（配 116 V1.10.1）
 // V2.8.0 | 2026-10-16 新增第四张表「🐦 弱精英评测」（配 116 V1.10.0 kind:'weakElite'）：
 //          明教侧弱精英（杨逍/殷天正，走 29 forceWeakElite 混入）+ 六大派侧弱精英（何太冲/唐文亮，走 29 M104 空位锁定）单测；
 //          同一关同一敌方变体配「自然配对对照」臂（同种子），表内直接出胜率 Δ。明教侧 Δ>0 = 增益；六大派侧 Δ<0 = 更难打（更强）。
@@ -26,7 +28,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.8.0';
+export const VER = 'tools/112-elite-eval.js V2.8.1';
 
 const configs = [
     { name: '张无忌' },
@@ -65,7 +67,7 @@ const weakProgressEl = document.getElementById('eliteWeakProgress');
 const weakResultEl = document.getElementById('eliteWeakResult');
 const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
 
-const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
+const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
 // ============ 2026-10-15 V2.6.0 结果快照：把跑出来的三张表存本地，可载入回看 ============
 const SNAP_KEY = 'ming_elite_eval_snaps';
@@ -163,7 +165,7 @@ startBtn.addEventListener('click', async () => {
         for (let c = 0; c < chunks; c++) {
             const runs = Math.min(CHUNK, RUNS - c * CHUNK);
             if (runs <= 0) continue;
-            jobs.push({ stage, seed: masterSeed + stage * 131 + c * 100003, runs, label: `第${stage}关#${c + 1}` });
+            jobs.push({ stage, seed: masterSeed + stage * 131, startIndex: c * CHUNK, runs, label: `第${stage}关#${c + 1}` });
         }
     }
 
@@ -171,7 +173,7 @@ startBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'elite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'elite', stage: job.stage, seed: job.seed, runs: job.runs }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'elite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs }),
             onJobDone: (finished, total, job, part) => {
                 // part = { 变体名: { 角色名: {runs,wins,...} } }
                 for (const [variant, roles] of Object.entries(part || {})) {
@@ -233,7 +235,7 @@ soloBtn.addEventListener('click', async () => {
             for (let c = 0; c < chunks; c++) {
                 const runs = Math.min(CHUNK, RUNS - c * CHUNK);
                 if (runs <= 0) continue;
-                jobs.push({ stage, elite: cfg.name, seed: masterSeed + stage * 131 + eliteIdx * 7717 + c * 100003, runs, label: `${cfg.name}·第${stage}关#${c + 1}` });
+                jobs.push({ stage, elite: cfg.name, seed: masterSeed + stage * 131 + eliteIdx * 7717, startIndex: c * CHUNK, runs, label: `${cfg.name}·第${stage}关#${c + 1}` });
             }
         }
         eliteIdx++;
@@ -243,7 +245,7 @@ soloBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'soloElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'soloElite', stage: job.stage, seed: job.seed, runs: job.runs, elite: job.elite }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'soloElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite }),
             onJobDone: (finished, total, job, part) => {
                 // part = { 变体名: {runs,wins,...} }（单精英局只落一个桶，桶名 = 本局敌方是谁）
                 for (const [variant, d] of Object.entries(part && part.variants || {})) {
@@ -349,7 +351,7 @@ noEliteBtn.addEventListener('click', async () => {
         for (let c = 0; c < chunks; c++) {
             const runs = Math.min(CHUNK, RUNS - c * CHUNK);
             if (runs <= 0) continue;
-            jobs.push({ stage, seed: masterSeed + stage * 131 + c * 100003, runs, label: `第${stage}关#${c + 1}` });
+            jobs.push({ stage, seed: masterSeed + stage * 131, startIndex: c * CHUNK, runs, label: `第${stage}关#${c + 1}` });
         }
     }
 
@@ -357,7 +359,7 @@ noEliteBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'noElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'noElite', stage: job.stage, seed: job.seed, runs: job.runs }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'noElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs }),
             onJobDone: (finished, total, job, part) => {
                 // part = { 变体名: {runs,wins,sumSurv} }（无精英局同样按敌方变体分桶）
                 for (const [variant, d] of Object.entries((part && part.variants) || {})) {
@@ -455,10 +457,11 @@ weakBtn.addEventListener('click', async () => {
         for (let c = 0; c < chunks; c++) {
             const runs = Math.min(CHUNK, RUNS - c * CHUNK);
             if (runs <= 0) continue;
-            const seed = masterSeed + stage * 131 + c * 100003;
-            jobs.push({ stage, seed, runs, arm: 'natural', label: `第${stage}关#${c + 1}·自然对照` });
+            const seed = masterSeed + stage * 131;
+            const startIndex = c * CHUNK;
+            jobs.push({ stage, seed, startIndex, runs, arm: 'natural', label: `第${stage}关#${c + 1}·自然对照` });
             for (const w of WEAK_ELITES) {
-                jobs.push({ stage, seed, runs, elite: w.name, side: w.side, label: `第${stage}关#${c + 1}·${w.name}` });
+                jobs.push({ stage, seed, startIndex, runs, elite: w.name, side: w.side, label: `第${stage}关#${c + 1}·${w.name}` });
             }
         }
     }
@@ -467,7 +470,7 @@ weakBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'weakElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite' }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite' }),
             onJobDone: (finished, total, job, part) => {
                 const key = (part && part.arm === 'natural') ? '__natural' : job.elite;
                 for (const [variant, d] of Object.entries((part && part.variants) || {})) {

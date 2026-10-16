@@ -1,3 +1,4 @@
+// V6.3.24 | 2026-10-16 先机占用者补 _jumpConsumed 标记：被占用的队友本回合没出手也不该灰显（render/32 跳过 acted/ready）
 // V6.3.23 | ~36100 bytes | 2026-10-16 杨逍「先机」占位式抢先（老板口径）：resolveActionOrder 支持 decl.jumpConsume——
 //           jump 者排队首但 priority 仍 0（isPriorityAction=false，本步仍算本队这一步、出手后照常切换阵营），
 //           同时把「本步本该出手者」（队列里除他外首个非 pass 条目）置 _acted 并补 PASS fact
@@ -34,7 +35,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.23';
+export const VER = 'core/11battle-round.js V6.3.24';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -457,7 +458,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     const consumed = [];
     if (head.jump === 1) {
         const victim = queue.find(e => e !== head && !e.isPass);
-        if (victim) { victim.unit.state._acted = true; consumed.push(victim.unit); }
+        // 2026-10-16 _jumpConsumed 标记：被占用者本回合既不出手也不该灰显（render/32 据此跳过 acted/ready），
+        //   与「正常出完手灰显」区分开——没出手就是没出手
+        if (victim) { victim.unit.state._acted = true; victim.unit.state._jumpConsumed = true; consumed.push(victim.unit); }
     }
     return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0, consumed };
     }
