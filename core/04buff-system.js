@@ -1,3 +1,7 @@
+// V6.5.5 | ~38300 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 删
+//           「到手已满 5 人→永久不召」的 _unityChecked/_unityNoRecruit 锁与 maxRecruits(4) 上限，
+//           改「获得当回合补满到 5、此后每回合 +1」（持续按 content unity.duration:5，上限只剩 9 格站位）；
+//           签名去掉不再使用的 state 形参（core/11 调用点同步）
 // V6.5.4 | ~38500 bytes | 2026-10-16 carry 雄鹰改「一次性判定」（老板拍板）：spawnCarryEagle 在 hasBuff 判过后查
 //           _carryEagleDone（core/17 schema）——carry 首次生效那回合判一次 5 号位即锁死，5 号位有人则本局永不招、
 //           招过之后雄鹰阵亡也不补；同批：spawnUnityRecruits 加重名保护（召唤物与场上同名单位并存时降级白板，
@@ -25,7 +29,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.4';
+export const VER = 'core/04buff-system.js V6.5.5';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -180,26 +184,20 @@ export function applyUnityBonus(unit, team, activeBuffs) {
 }
 
 // 2026-10-15 众志成城（unity）补员：获得时若本阵营不足 5 人，则每回合召唤随机角色补员——
-//   首回合补到 5 人、此后每回合 +1（整局上限 cfg.maxRecruits）；
-//   获得时已满 5 人则永久不召唤（state._unityNoRecruit 锁定），只吃加成。
-//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(50)、
+// 2026-10-16 定案改版（老板拍板「一直召唤」）：删掉「到手时已满 5 人→永久不召」的锁与 maxRecruits(4) 上限——
+//   获得当回合先把人数补满到 5（缺几个补几个），此后每回合再补 1 个，直到 buff 到期（content duration:5）。
+//   整局唯一上限是 9 格站位（findFreePos 返回 null 即当回合放弃落位）。
+//   （旧版口径作废：那时是「到手已满 5 人就永久不召 + 整局最多 4 个」，与此版不可混谈）
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(30)、
 //   角色取 cfg.recruitPool[camp]。已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
-export function spawnUnityRecruits(team, state, log) {
-    if (!team || !team.length || !state) return;
+export function spawnUnityRecruits(team, log) {
+    if (!team || !team.length) return;
     if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.UNITY)) return;
     const cfg = C.BUFFS.unity;
     if (!cfg) return;
-    if (state._unityNoRecruit) return;
-    if (!state._unityChecked) {
-        state._unityChecked = true;
-        if (team.filter(u => u.alive).length >= 5) { state._unityNoRecruit = true; return; }
-    }
-    const maxRecruits = cfg.maxRecruits ?? 4;
-    const recruited = team.filter(u => u.isUnityRecruit).length;
-    if (recruited >= maxRecruits) return;
     const aliveN = team.filter(u => u.alive).length;
-    const toSpawn = aliveN < 5 ? Math.min(5 - aliveN, maxRecruits - recruited) : 1;
+    const toSpawn = aliveN < 5 ? 5 - aliveN : 1;   // 首回合补满 5、之后每回合 1 个
     if (toSpawn <= 0) return;
     const camp = team.find(u => u.alive)?.camp;
     const pool = (cfg.recruitPool && cfg.recruitPool[camp === CAMP_TYPES.ENEMY ? 'enemy' : 'ally']) || [];

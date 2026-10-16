@@ -1,3 +1,5 @@
+// V2.9.12 | ~18500 bytes | 2026-10-16 删 _unityChecked / _unityNoRecruit（众志成城改版「一直召唤」：
+//           core/04 不再有「到手已满 5 人即永久不召」的锁与 maxRecruits 上限，两字段作废）
 // V2.9.11 | ~18550 bytes | 2026-10-16 新增 _yinCounterPending（殷天正鹰爪功反击暂存：AFTER_DAMAGE_APPLIED 掷中后
 //           暂存本击的额外攻击请求，AFTER_ATTACK 相位才出手——避开白骨爪连锁斩杀后仍反击，modules/27 消费）
 // V2.9.10 | ~16000 bytes | 2026-10-16 新增 _carryEagleDone（carry 雄鹰一次性判定锁：仅 carry 首次生效那回合判一次
@@ -13,7 +15,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.11';
+export const VER = 'core/17-state-keys.js V2.9.12';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -65,9 +67,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xiaoCarryDeaths:        { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 妹永久圣火令每回合行列表 {cols,rows}（回合初蛛变掷骰，core/14 按妹落位命中判攻防加成）
     _xiaoHolyFlame:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // 2026-10-15 众志成城（unity）补员门槛：_unityChecked 首次判定哨兵、_unityNoRecruit 锁定「到手时已满 5 人→永久不召」
-    _unityChecked:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _unityNoRecruit:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 2026-10-15 殷天正·老当益壮：反击命中累计的反击概率成长（本局累计，叠加在鹰爪功基础概率上）
     _counterProbBonus:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 2026-10-16 殷天正·鹰爪功反击暂存（老板拍板「被白骨爪斩杀后不得反击」）：本击命中掷中反击后暂存
