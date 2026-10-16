@@ -1,3 +1,5 @@
+// V6.3.27 | ~40300 bytes | 2026-10-17 prepareRoundStart 第3步删死代码：applyTeamRoundBuffs 内 computeBuffStats
+//           死调用及只服务它的 carry 拼阵亡队友拼接一并删除（computeDodgeChance 内的 computeBuffStats 保留）。
 // V6.3.26 | ~38000 bytes | 2026-10-17 prepareRoundStart 拆阶段（第1步·纯搬，零行为变化）：
 //           clearRoundEntries / spawnHorsesAndPickDoubleStrike / prepareRoundSpawns / installRoundMechanics /
 //           linkPartners / prepareSoulDrain / computeDodgeChance 七个阶段子函数；主函数仅编排，A/B 循环原样保留。
@@ -41,7 +43,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.26';
+export const VER = 'core/11battle-round.js V6.3.27';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -281,7 +283,6 @@ function computeDodgeChance(A, B) {
 
 // 阶段8：对单队施加回合 per-unit 加成（A/B 两个同构循环合并）。
 //   team=本队、enemy=对方队；isAlly=true 为明教(A)。差异全部参数化：
-//   · carry 拼阵亡队友：仅 A 队
 //   · 圣火令 hasSister：A 队读 isHolyFlameEnhanced，B 队恒 false
 //   · 摄魂方向：casterAlive/targetAlive 互换、casterSide 恒为对方队 enemy
 //   · 光环：getAuraBonuses(u, team, enemy)
@@ -293,18 +294,6 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
     team.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
-
-        // 【第2步保留·第3步删】computeBuffStats 是死调用（返回值未用），仅 A 队 carry 时第3参拼阵亡队友。
-        let buffStatTeam = team;
-        if (isAlly) {
-            let allyTeamWithDead = team.slice();
-            if (hasBuff(buffs, BUFF_TYPES.CARRY)) {
-                allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
-                allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
-            }
-            buffStatTeam = allyTeamWithDead;
-        }
-        computeBuffStats(u, buffs, buffStatTeam);
 
         applyHolyFlameBonus(u, buffs, { hasSister: isAlly ? isHolyFlameEnhanced(team) : false, log: ctx.log });
         applyFortifyBonus(u, buffs);
