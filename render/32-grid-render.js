@@ -3,7 +3,8 @@
 // V6.8.2 | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标（carry/双击恒显示）
 export const VER = 'render/32-grid-render.js V6.8.3';
 
-import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
+import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
+import { getDodgeRules } from '../core/20-registry-dodge.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';

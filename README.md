@@ -226,7 +226,7 @@
 
 4. **明教不搬表（定案）**：复杂明教机制（张无忌 FSM、小昭·姊/妹双形态、宋青书连锁白骨爪、玄冥联动）写组件，不走 JSON；能用声明原语描述（`beforeDamageEffects` / `onHitEffects` / `targetRule` / `dodgeRules`）的才走 `mechanics`。
 
-5. **精英模块注册**：精英模块必须经 `core/08-elite-registry.js` 的 `registerElite` 注册；核心战斗逻辑不得直接 import 精英模块具体函数。不注册 = 静默失效。
+5. **精英模块注册**：精英模块必须经 `core/08-registry-elite.js` 的 `registerElite` 注册；核心战斗逻辑不得直接 import 精英模块具体函数。不注册 = 静默失效。
 
 6. **交互链路单向**：`ui/fx → player → render/modules → core → infra`；跨层通信走 `GlobalStore` + UIHandler 通道，禁止反向 import，禁止 window 桥。
 

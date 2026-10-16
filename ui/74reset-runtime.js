@@ -6,7 +6,7 @@ export const VER = 'ui/74reset-runtime.js V7.5.13';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { setRenderStore } from './62ui-render-5v5-test.js';
-import { clearEliteDodgeRules } from '../core/12battle-attack-steps.js';
+import { clearEliteDodgeRules } from '../core/20-registry-dodge.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 // 弹幕池重置函数：与删除 DOM 配合，防止对象池持有游离元素
 import { resetDanmakuPool } from '../fx/80fx-common-5v5-test.js';

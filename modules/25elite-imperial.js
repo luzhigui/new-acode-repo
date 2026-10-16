@@ -10,7 +10,7 @@
 // ── 更早版本见 记录-更改履历.md
 export const VER = 'modules/25elite-imperial.js V6.1.1';
 
-import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
+import { registerElite, registerLinkPartners } from '../core/08-registry-elite.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { emitEvent, getBattleRng, recordHpAudit } from '../core/13battle-shared.js';

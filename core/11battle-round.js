@@ -1,3 +1,7 @@
+// V6.3.23 | ~36100 bytes | 2026-10-16 杨逍「先机」占位式抢先（老板口径）：resolveActionOrder 支持 decl.jumpConsume——
+//           jump 者排队首但 priority 仍 0（isPriorityAction=false，本步仍算本队这一步、出手后照常切换阵营），
+//           同时把「本步本该出手者」（队列里除他外首个非 pass 条目）置 _acted 并补 PASS fact
+//           （reason='被先机占用'，render/35 已同步）——队伍本次出手次数真的 −1
 // V6.3.22 | ~35800 bytes | 2026-10-16 「0 攻不发起攻击」通则化（老板拍板）：resolveActionOrder 删 isHorse/isLionCub
 //           两个身份特判，改为「getStat(u,'atk') <= 0 一律走休息通道」——对全体单位生效（含众志成城 0 攻补员）；
 //           休息回复 +15 名单同步加「无力攻击」（拒马/幼狮保留原 reason 文案，render/35 同款名单已同步）
@@ -30,7 +34,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.22';
+export const VER = 'core/11battle-round.js V6.3.23';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -38,12 +42,12 @@ import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefens
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
-import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
+import { clearEliteDodgeRules, getDodgeRules } from './20-registry-dodge.js';
 import { installDeclaredSkills, installFromGameData } from './15-skill-mechanisms.js';
 import { resolveRoundStatGrants } from './16effect-handlers.js';
 import { clearAllWatchers } from './19unit-watch.js';
 
-import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced } from './08-elite-registry.js';
+import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced } from './08-registry-elite.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
@@ -417,7 +421,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
-            const decl = { priority: 0, skip: false, pass: false };
+            const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide });
             // 2026-10-13 组件声明 skip = 本回合不行动：必须就地消费掉行动权，否则该单位
             //   一直 alive && !_acted，外层 while（L367）永不退出 —— 小昭·妹蜘蛛卵卡死即此因
@@ -430,21 +434,32 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
                 continue;
             }
             if (decl.pass) { passUnits.push({ unit: u, reason: '组件声明pass' }); continue; }
-            priorityDeclarations.push({ unit: u, priority: decl.priority });
+            priorityDeclarations.push({ unit: u, priority: decl.priority, jumpConsume: decl.jumpConsume });
         }
 
         const queue = [];
-        for (const d of priorityDeclarations) queue.push({ unit: d.unit, isPass: false, priority: d.priority, reason: null });
-        for (const p of passUnits) queue.push({ unit: p.unit, isPass: true, priority: 0, reason: p.reason });
-        queue.sort((a, b) => {
-            if (a.priority !== b.priority) return b.priority - a.priority;
-            return a.unit.pos - b.unit.pos;
-        });
+    for (const d of priorityDeclarations) queue.push({ unit: d.unit, isPass: false, priority: d.priority, jump: d.jumpConsume ? 1 : 0, reason: null });
+    for (const p of passUnits) queue.push({ unit: p.unit, isPass: true, priority: 0, jump: 0, reason: p.reason });
+    queue.sort((a, b) => {
+        // 2026-10-16 杨逍「先机」占位式抢先：jump 者排最前，但 priority 仍 0 ⇒ isPriorityAction=false，
+        //   本步仍算本队这一步（出手后照常切换阵营）；其身前本该出手的那名队友则被占用（见下方 consumed）
+        if (a.jump !== b.jump) return b.jump - a.jump;
+        if (a.priority !== b.priority) return b.priority - a.priority;
+        return a.unit.pos - b.unit.pos;
+    });
 
-        if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false };
-        const head = queue[0];
-        if (head.isPass) return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
-        return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
+    if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false, consumed: [] };
+    const head = queue[0];
+    if (head.isPass) return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false, consumed: [] };
+    // 先机占位：抢占本步后，「本步本该出手者」失去本回合行动
+    //   只认非 pass 条目（眩晕/0攻/生生不息等本就要休息的单位不算「本该出手者」，
+    //   否则会把「眩晕」误标成「被先机占用」）；无人在位则只改顺序、不消费
+    const consumed = [];
+    if (head.jump === 1) {
+        const victim = queue.find(e => e !== head && !e.isPass);
+        if (victim) { victim.unit.state._acted = true; consumed.push(victim.unit); }
+    }
+    return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0, consumed };
     }
 
     let currentSide = state._firstSide || CAMP_TYPES.ENEMY;
@@ -470,6 +485,16 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             continue;
         }
         const orderResult = resolveActionOrder(candidates, log);
+
+        // 2026-10-16 杨逍「先机」占位：被占用的队友补一条 PASS fact（reason='被先机占用'）——
+        //   否则该单位 _acted=true 却无任何行动记录 → 回合末不变量报「行动权被吞」（同 V6.3.19 的 skip 通道）。
+        //   文案不给「休息回复」：它是被抢走机会，不是自己休息。
+        for (const victim of (orderResult.consumed || [])) {
+            const vHp = Math.floor(victim.hp);
+            const vFact = { unit: { uid: victim.uid, name: victim.name, camp: victim.camp, pos: victim.pos, hp: victim.hp }, reason: '被先机占用', hpBefore: vHp, hpAfter: vHp, actualHeal: 0, events: [] };
+            vFact.events = flushBattleEvents();
+            log.push({ factType: FACT_TYPES.PASS, data: vFact });
+        }
 
         if (orderResult.passEntry) {
             const { unit, reason } = orderResult.passEntry;

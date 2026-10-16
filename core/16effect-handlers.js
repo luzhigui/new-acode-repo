@@ -1,13 +1,14 @@
 // V6.1.1 | ~17460 bytes | 2026-10-13 溅射伤害补 hp 纯记账（体检转交）：SPLASH handler 按 decl.buffType 分组
 //          （METEOR_SPLASH→meteorSplash / WIND_ASSAULT→windSplash，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
-export const VER = 'core/16effect-handlers.js V6.1.1';
+// V6.1.2 | 2026-10-16 计算修饰器注册表迁 core/21-registry-calc.js：本文件只直连注册函数，
+//           删「转发 export」（core/12 的 getCalcModifier 已改直连 core/21）
+export const VER = 'core/16effect-handlers.js V6.1.2';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
-import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
-export { registerCalcModifier, getCalcModifier };
+import { registerCalcModifier } from './21-registry-calc.js';
 
 const effectHandlers = new Map();
 

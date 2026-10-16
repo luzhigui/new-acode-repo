@@ -7,7 +7,7 @@ export const VER = 'core/15-skill-mechanisms.js V6.8.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
-import { registerDodgeRule } from './12battle-attack-steps.js';
+import { registerDodgeRule } from './20-registry-dodge.js';
 import { recordHpAudit } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';

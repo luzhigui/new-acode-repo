@@ -1,4 +1,6 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
+// V1.0.20 | ~39100 bytes | 2026-10-16 renderPassFact 加「被先机占用」分支（杨逍先机抢走队友出手机会，
+//           灰字提示且不给休息回复；与 core/11 declaration.jumpConsume 通道配套）
 // V1.0.19 | ~38900 bytes | 2026-10-16 renderPassFact 名单加「无力攻击」（0 攻通则化）：
 //           休息回复名单与 core/11 同步（拒马/幼狮保留原 reason 文案），headText 新增「攻击力不足，无法出手」分支
 //
@@ -10,7 +12,7 @@ import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '.
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
 // 2026-10-08 第一刀：通用语义默认渲染器工厂（回血/dot 族模板化，详见 36 文件头）
 import { makeHealRenderer, makeDotRenderer } from './36-generic-renderers.js';
-export const VER = 'render/35-facts-effect.js V1.0.19';
+export const VER = 'render/35-facts-effect.js V1.0.20';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -195,6 +197,18 @@ export function renderPassFact(fact) {
             isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
             buffEffects:[], needsSeparator: true, healAmount: actualHeal, healUnitUid: unit.uid,
+            _events: fact.events || []
+        };
+    }
+    // 2026-10-16 杨逍「先机」占位：被占用的队友本回合不再出手（灰字提示，不给休息回复——机会被抢不等于休息）
+    if (reason === '被先机占用') {
+        const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+        return {
+            type:'attack-group', uidA:unit.uid, uidD:null,
+            entries:[{type:'info', text:`<span class="gray">👟 ${campName} ${unit.name} 本回合的出手被 杨逍·先机 占用</span>`}],
+            isBlock:true,
+            _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
+            buffEffects:[], needsSeparator: true,
             _events: fact.events || []
         };
     }

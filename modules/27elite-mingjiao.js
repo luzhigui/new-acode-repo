@@ -1,6 +1,7 @@
 // V7.1.6 | ~91200 bytes | 2026-10-16 杨逍两改（老板拍板）：①弹指神通点穴率 35%→40%（内容 5.13.12）；②新增「先机」——
-//           每回合开始 40% 概率抢得先机，命中则本回合走 core/11 priority 通道抢在队友之前出手
-//           （占本队本次出手顺序，isPriorityAction 不切换阵营 ⇒ 队伍总出手次数不变；他站 1 号位时天然无变化）
+//           每个队友拟出手前各掷一次 40%，命中即声明 core/11 新增的 declaration.jumpConsume：他插到本步队首出手，
+//           且本该出手的那名队友被占用（本回合不再出手、协同一并 −1；core/11 补 PASS fact「被先机占用」，render/35 已同步）；
+//           他一旦出过手即停止掷骰，站 1 号位无人可抢则不掷
 // V7.1.5 | ~90800 bytes | 2026-10-16 殷天正反击档再下调 + 头注释同步（老板拍板）：起始反击率 45%→40%（内容 5.13.10）→本次 40%→33%、
 //            每次反击成长 +5%→+3%（内容 5.13.11）；削/涨单值仍 3/3，②③ 触发口径不变（仅反击命中）。下方内联注释一并同步
 // V7.1.4 | ~90400 bytes | 2026-10-16 殷天正②③收窄为「仅反击命中」触发（老板拍板）：鹰王威压削目标、老当益壮自壮
@@ -28,7 +29,7 @@
 // ── 更早版本见 记录-更改履历.md
 export const VER = 'modules/27elite-mingjiao.js V7.1.6';
 
-import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
+import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-registry-elite.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt, getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
@@ -1051,9 +1052,10 @@ export function createXieXunComponent() {
 // ② 选敌：pool-filter 优先未行动敌人（点穴控到还有行动权的 target 才有意义）；敌方全部已行动 → 候选排空照飞行默认选敌，
 //    且本次伤害 ×allActedDmgRatio（BEFORE_DAMAGE_CALC 声明，战报明细可见）。
 // ③ 鹰眼被动（未命中 −12pp）实装在 core/03 getMissBreakdown 单源，详情弹窗自动同步。
-// ④ 先机（2026-10-16）：每回合开始掷一次 jumpProb——命中则本回合声明 declaration.priority=1，在 core/11
-//    同阵营候选队列里排到队首（优先于 pos 更小的队友）；该步 isPriorityAction=true 不切换阵营，
-//    故队友仍照常出手 ⇒ 只提前顺序、不减总出手次数（与宋青书 KULIAN_PRIORITY 同款通道）。
+// ④ 先机（2026-10-16，老板口径=占位式）：每个队友拟出手前（他自己还没出手时）各掷一次 jumpProb——
+//    命中即声明 declaration.jumpConsume=true，core/11 里他插到本步队首出手，且本步本该出手的那名队友
+//    被他占用（本回合不再出手，core/11 置 _acted 并发 PASS fact '被先机占用'，render/35 已同步）；
+//    他一旦出过手就不再是候选 → 停止掷骰；若他已在队首（无人可抢）则无从占用、不掷骰。
 export function createYangXiaoComponent() {
     return {
         name: '杨逍',
@@ -1068,23 +1070,16 @@ export function createYangXiaoComponent() {
             if (!jie) throw new Error('缺技能参数: 杨逍.dianXueJieMai');
             const xian = getSkillParams('杨逍', 'xianJi') || { jumpProb: 0 };
 
-            // ④ 先机：每回合开始掷一次（register 每回合重建组件，闭包旗只在本回合内有效）
-            let jumpThisRound = false;
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.YANGXIAO_JUMP, (data) => {
-                if (!yangxiao.alive) return;
-                jumpThisRound = getBattleRng().next() < (xian.jumpProb || 0);
-                if (jumpThisRound && data && data.log) {
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                        unitName: yangxiao.name, unitUid: yangxiao.uid, camp: yangxiao.camp, skillName: '先机',
-                        note: `👟 ${yangxiao.name} 先机：本回合抢在队友之前出手`
-                    } });
-                }
-            });
-            // 抢在队友前出手：声明 priority=1（core/11 同阵营候选按 priority 降序、再 pos 升序取队首）
-            eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.YANGXIAO_PRIORITY, (data) => {
-                if (!jumpThisRound) return;
-                if (!data.unit || !data.unit.isYangXiao || !data.unit.alive) return;
-                data.declaration.priority = 1;
+            // ④ 先机：队友每次拟出手前（他还没出手时）掷 40%——命中即抢占本次出手：他插到本步队首出手，
+            //    本步本该出手的那名队友被他占用（本回合不再出手，core/11 置 _acted 并发 PASS fact '被先机占用'）。
+            //    他一旦出过手就不再是候选 → 停止掷骰；他若已站在队友最前（无人可抢）则无从占用，不掷骰。
+            eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.YANGXIAO_JUMP, (data) => {
+                const u = data.unit;
+                if (!u || !u.isYangXiao || !u.alive || u.state._acted) return;
+                const ahead = (data.allySide || []).some(m => m !== u && m.alive && !m.state._acted && m.pos < u.pos);
+                if (!ahead) return;
+                if (getBattleRng().next() >= (xian.jumpProb || 0)) return;
+                data.declaration.jumpConsume = true;
             });
 
             // ① 命中后点穴判定：眩晕 + 禁疗同时挂（data.unit=杨逍，data.target=被命中者）
