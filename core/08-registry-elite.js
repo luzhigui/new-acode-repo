@@ -2,7 +2,9 @@
 //   core 引擎只认「注册面 + 通用协议」，不认识任何具体英雄；英雄知识全部住在 modules 的注册里。
 //   加载时序：modules/00reg-mechanics 是全战斗入口统一装载点（先于任何 prepareRoundStart），
 //   模块顶层注册保证开战前就位。
-export const VER = 'core/08-elite-registry.js V7.5.13';
+// 2026-10-16 改名 elite-registry → registry-elite（纯改名、零逻辑改动，版本号保持 V7.5.13）：
+//   本文件实管 6 类注册面（精英/回合组件/buff变换器/搭档连线/状态迁移/圣火令增强判定），旧名「elite-registry」名不副实。
+export const VER = 'core/08-registry-elite.js V7.5.13';
 
 const eliteRegistry = new Map();
 

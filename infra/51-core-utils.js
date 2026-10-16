@@ -1,5 +1,6 @@
-// V6.1.1 | ~5800 bytes | 2026-09-26 StateMachine 加第4参 onChange 相位回调（供 unit.state._fsmPhase 镜像）；含 fmtHp 血量显示统一入口
-export const VER = 'infra/51-core-utils.js V6.1.1';
+// V6.1.2 | ~5500 bytes | 2026-10-16 闪避规则注册表迁出至 core/20-registry-dodge.js（闪避是战斗概念，
+//   infra 只留无业务依赖工具）；本文件不再持有 _dodgeRules / registerDodgeRule / clearEliteDodgeRules / getDodgeRules
+export const VER = 'infra/51-core-utils.js V6.1.2';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';
 
@@ -206,19 +207,4 @@ export function getAuraBonuses(unit, allySide, enemySide) {
     const allUnits = mySide.concat(oppSide);
     const bloodBonus = getBloodAuraBonus(allUnits);
     return { emptyCol: emptyCols * 5, bloodAura: bloodBonus };
-}
-
-// 闪避规则注册表（原 core/12 迁移）
-const _dodgeRules = [];
-
-export function registerDodgeRule(fn) {
-    _dodgeRules.push(fn);
-}
-
-export function clearEliteDodgeRules() {
-    _dodgeRules.length = 2;
-}
-
-export function getDodgeRules() {
-    return _dodgeRules;
 }

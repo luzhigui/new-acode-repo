@@ -9,20 +9,21 @@
 // V6.3.11 | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
 //           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
 //           业务参数（unit/target/dmgCalc/allySide/phantomFact 等）保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/12battle-attack-steps.js V6.3.15';
+// V6.3.16 | 2026-10-16 注册面归位：闪避规则表迁 core/20-registry-dodge.js、计算修饰器表迁 core/21-registry-calc.js；
+//           本文件 import 改直连两个新注册表，删「闪避转发 export」（core/11/15、ui/74、render/32 已同步改直连）
+export const VER = 'core/12battle-attack-steps.js V6.3.16';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown, canBeTargeted } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod, recordHpAudit } from './13battle-shared.js';
-import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue, fmtHp } from '../infra/51-core-utils.js';
-import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, persistValue, loadPersistedValue, fmtHp } from '../infra/51-core-utils.js';
+import { registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from './20-registry-dodge.js';
+import { getEffectHandler, hasEffectHandler, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
+import { getCalcModifier } from './21-registry-calc.js';
 import { runTargetStrategies } from './07-target-strategies.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
-
-// 闪避规则注册表（已下沉 infra/51，此处转发）
-export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
 
 registerDodgeRule((unit, attacker) => {
     if (unit.role === ROLE_TYPES.FLYER) return CONFIG.BASE_DODGE_FLY || 0.15;

@@ -3,6 +3,9 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.4.3 | ~29200 bytes | 2026-10-16 注册面归位批：SCAN_FILES 里 core/08-elite-registry.js → core/08-registry-elite.js、
+//         infra/57-calc-modifier-registry.js → core/21-registry-calc.js；补登 core/20-registry-dodge.js
+//         （闪避规则表自 infra/51 迁入，被 core/11/12/15、render/32、ui/74 import，漏登则扫不到其 import 断裂）
 // V1.4.2 | ~29100 bytes | 2026-10-15 SCAN_FILES 补登 ui/69-role-cards.js、ui/73voice-panel.js、ui/75net-session.js、
 //         ui/76replay-entry.js（ui 家族漏登 4 员；漏登则本扫描不覆盖：这些文件 import 主代码符号/枚举，
 //         改名或删除即断裂，却扫不到）
@@ -32,7 +35,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.4.2';
+export const VER = 'tests/123static-scan.js V1.4.3';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -54,14 +57,17 @@ export const SCAN_FILES = [
     '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
     '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-runner.js',
     '../core/07-target-strategies.js',
-    '../core/08-elite-registry.js',
+    '../core/08-registry-elite.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
     '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js',
     '../core/19unit-watch.js',
+    // 2026-10-16 补登 20/21：闪避规则表（自 infra/51 迁入）与计算修饰器表（自 infra/57 迁入）。
+    //   二者被 core/11/12/15/16、render/32、ui/74 import，漏登则本扫描不覆盖其 import 断裂。
+    '../core/20-registry-dodge.js', '../core/21-registry-calc.js',
     '../infra/50-event-bus.js', '../infra/52-clock.js', '../infra/54-global-store.js',
     '../infra/55-fx-signals.js', '../infra/56-battle-enums.js',
-    '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js',
+    '../infra/58-fact-contract.js',
     '../infra/59-state-change.js', '../infra/60-net-pvp.js',
     '../modules/20elite-skills.js', '../modules/24battle-store.js', '../modules/25elite-imperial.js',
     '../modules/26elite-sixsects.js', '../modules/26elite-sixsects-songqingshu.js',

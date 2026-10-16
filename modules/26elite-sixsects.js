@@ -7,7 +7,7 @@
 //   本文件只做集中注册（全项目统一口径）：registerMechanicHandler ×4 + registerElite ×6 + registerLinkPartners ×1；
 //   所有既有 import 点（modules/00reg-mechanics、tests/*、tools/*）一行不改照常工作
 export const VER = 'modules/26elite-sixsects.js V6.26.1';
-import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
+import { registerElite, registerLinkPartners } from '../core/08-registry-elite.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
 import { MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 import { createSongQingshuComponent, chainClawHandler, kuLianHandler, xinHunHandler, xingFenHandler } from './26elite-sixsects-songqingshu.js';
