@@ -1,3 +1,6 @@
+// V6.3.26 | ~38000 bytes | 2026-10-17 prepareRoundStart 拆阶段（第1步·纯搬，零行为变化）：
+//           clearRoundEntries / spawnHorsesAndPickDoubleStrike / prepareRoundSpawns / installRoundMechanics /
+//           linkPartners / prepareSoulDrain / computeDodgeChance 七个阶段子函数；主函数仅编排，A/B 循环原样保留。
 // V6.3.25 | 2026-10-16 深夜先机纠口径（老板）：占位式→插队式——抢的是出手顺序不是行动权，删 V6.3.24 的
 //           _jumpConsumed 与「被先机占用」PASS fact 通道；被顺延队友保持未出手、下轮照常行动；
 //           BEFORE_ACTION_SELECT 载荷加 log（插队公告由 modules/27 推 SKILL_ANNOUNCE，core 不认识杨逍）
@@ -28,7 +31,7 @@
 //           当回合即挂技能），A/B 两侧 applyCarryBonus 之后各调 applyLastStandBonus/applyUnityBonus（背水一战残血增伤、众志成城人数阶梯）
 // V6.3.16 | ~30400 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：prepareRoundStart 在 buff 变换器重算
 //           activeBuffs 之后、组件工厂循环之前调 spawnCarryEagle(A/B)——5 号位无人则召唤雄鹰顶位（当回合即注册技能）
-// V6.3.15 | ~30300 bytes | 2026-10-14 妹永久摄魂「点名 2 回合」调度（老板拍板削弱）：重置后、ON_ROUND_START 前，
+// V6.3.15 | ~30300 bytes | 2026-10-15 妹永久摄魂「点名 2 回合」调度（老板拍板削弱）：重置后、ON_ROUND_START 前，
 //           先对双方 _soulDrainRounds 存量 -1，再由 preparePermanentSoulDrain 各方向随机点名 1 名敌方（非马/非召唤物）
 // V6.3.14 | ~29900 bytes | 2026-10-14 applySoulDrain 两处调用点补传 casterSide（施法方队伍）——
 //           core/04 靠它判「小昭·妹永久续上」「小昭·姊增强」，只加字段不改签名
@@ -38,7 +41,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.25';
+export const VER = 'core/11battle-round.js V6.3.26';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -74,7 +77,10 @@ function teamAliveOrPending(team) {
     return team.some(u => u.alive || isRevivePending(u));
 }
 
-function prepareRoundStart(A, B, state, ctx) {
+// ───────────────────────── prepareRoundStart 阶段子函数（V6.3.26 纯搬） ─────────────────────────
+
+// 阶段1：切当回合 activeBuffs、清理上回合 round 词条（永久/附身保留）、清战场态、推 ROUND_START。
+function clearRoundEntries(A, B, state, ctx) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
 
@@ -91,7 +97,10 @@ function prepareRoundStart(A, B, state, ctx) {
     flushBattleEvents();
 
     ctx.log.push({ factType: FACT_TYPES.ROUND_START, data: { round: ctx.round } });
+}
 
+// 阶段2：双方刷马 + 选双击单位（rng），返回 { unitUid:A队, enemyUid:B队 }。
+function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     const teamHorseA = spawnHorse(A, ctx.log, B);
     if (teamHorseA) {
         ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
@@ -101,27 +110,27 @@ function prepareRoundStart(A, B, state, ctx) {
         ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
     }
 
-    let doubleStrikeUnitUid = null;
-    let doubleStrikeUnitUidEnemy = null;
+    let unitUid = null;
+    let enemyUid = null;
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
             let chosen = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
-            doubleStrikeUnitUid = chosen.uid;
+            unitUid = chosen.uid;
         }
     }
     if (hasBuff(B._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = B.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
             let chosen = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
-            doubleStrikeUnitUidEnemy = chosen.uid;
+            enemyUid = chosen.uid;
         }
     }
 
     setBattleState('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
 
-    if (doubleStrikeUnitUid) {
-        const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
+    if (unitUid) {
+        const dsUnit = A.find(u => u.uid === unitUid);
         if (dsUnit) ctx.log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
     }
 
@@ -132,6 +141,11 @@ function prepareRoundStart(A, B, state, ctx) {
         }
     });
 
+    return { unitUid, enemyUid };
+}
+
+// 阶段3：圣火令 buff 变换器重算（之后重切 activeBuffs）→ 召雄鹰 → 众志成城补员。
+function prepareRoundSpawns(A, B, state, ctx) {
     // 2026-10-08 V7.5.13 圣火令增强迁 modules/27：回合开始 buff 变换器注册面，
     //   同位置同条件画 rng（序不变，基线二分保障）；无增强者在变换器内部走默认行列重画
     for (const [buffKey, transformBuff] of getBuffRoundTransformers()) {
@@ -151,7 +165,10 @@ function prepareRoundStart(A, B, state, ctx) {
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);
     spawnUnityRecruits(B, ctx.log);
+}
 
+// 阶段4：清裁判登记 → 注册本回合战斗机制 → 工厂循环实例化回合组件 → 装声明技能/数据表。
+function installRoundMechanics(A, B, state, ctx, ds) {
     eventBus.clearAll();
     // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
     clearAllWatchers();
@@ -165,8 +182,8 @@ function prepareRoundStart(A, B, state, ctx) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
-    registerDoubleStrike(eventBus, doubleStrikeUnitUidEnemy, B, B._activeBuffs);
+    registerDoubleStrike(eventBus, ds.unitUid, A, A._activeBuffs);
+    registerDoubleStrike(eventBus, ds.enemyUid, B, B._activeBuffs);
     // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
     // 2026-10-05 修静默 bug：不能闭包本函数 ctx.log——它在回合开始步 yield 后就被主循环换成新数组，
     //   此后 fact 全推进无人读的死数组（数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
@@ -211,6 +228,11 @@ function prepareRoundStart(A, B, state, ctx) {
     installDeclaredSkills(eventBus, A, B, ctx.log, declaredSkills);
     installFromGameData(eventBus, A, B, ctx.log, getGameData());
 
+    return { roundComps };
+}
+
+// 阶段5：搭档连线（仅扫敌方 B，配对双方互挂 _linkedPartnerUid）。
+function linkPartners(A, B) {
     // 2026-10-08 V7.5.13 搭档连线泛化：配对知识在英雄模块侧注册（原两对搭档内联连线）；
     //   原版仅扫敌方 B，保持
     for (const [partnerA, partnerB] of getLinkPartnerPairs()) {
@@ -218,7 +240,10 @@ function prepareRoundStart(A, B, state, ctx) {
         const ub = B.find(u => u.name === partnerB && u.alive && !u.isUnityRecruit);
         if (ua && ub) { Object.assign(ua.state, { _linkedPartnerUid: ub.uid }); Object.assign(ub.state, { _linkedPartnerUid: ua.uid }); }
     }
+}
 
+// 阶段6：重置每单位状态字段 → 摄魂点名（存量 -1 + 各方向随机点名）→ 发 ON_ROUND_START 结算属性授予。
+function prepareSoulDrain(A, B, ctx) {
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
 
@@ -231,6 +256,36 @@ function prepareRoundStart(A, B, state, ctx) {
     const roundStatDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log: ctx.log, declarations: roundStatDeclarations });
     resolveRoundStatGrants(roundStatDeclarations);
+}
+
+// 阶段7：按闪避规则 + 云身词条计算每单位本回合闪避率（乘性合并）。
+function computeDodgeChance(A, B) {
+    const dodgeUnits = [...A, ...B];
+    for (const u of dodgeUnits) {
+        if (!u.alive) continue;
+        const rates = [];
+        const dodgeRules = getDodgeRules();
+        for (const ruleFn of dodgeRules) {
+            const r = ruleFn(u, null) || 0;
+            if (r > 0) rates.push(r);
+        }
+        const allyTeam = u.camp === CAMP_TYPES.ALLY ? A : B;
+        const activeBuffs = u.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
+        const buffStats = computeBuffStats(u, activeBuffs, allyTeam);
+        if (buffStats.dodgeBonus > 0) rates.push(buffStats.dodgeBonus);
+        let product = 1;
+        for (const r of rates) { product *= (1 - r); }
+        u.state._dodgeChance = Math.round((1 - product) * 100);
+    }
+}
+
+function prepareRoundStart(A, B, state, ctx) {
+    clearRoundEntries(A, B, state, ctx);
+    const ds = spawnHorsesAndPickDoubleStrike(A, B, state, ctx);
+    prepareRoundSpawns(A, B, state, ctx);
+    const { roundComps } = installRoundMechanics(A, B, state, ctx, ds);
+    linkPartners(A, B);
+    prepareSoulDrain(A, B, ctx);
 
     A._butterflyTriggered = false;
     A._mindControlTriggered = false;
@@ -292,30 +347,14 @@ function prepareRoundStart(A, B, state, ctx) {
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
     });
 
-    const dodgeUnits = [...A, ...B];
-    for (const u of dodgeUnits) {
-        if (!u.alive) continue;
-        const rates = [];
-        const dodgeRules = getDodgeRules();
-        for (const ruleFn of dodgeRules) {
-            const r = ruleFn(u, null) || 0;
-            if (r > 0) rates.push(r);
-        }
-        const allyTeam = u.camp === CAMP_TYPES.ALLY ? A : B;
-        const activeBuffs = u.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
-        const buffStats = computeBuffStats(u, activeBuffs, allyTeam);
-        if (buffStats.dodgeBonus > 0) rates.push(buffStats.dodgeBonus);
-        let product = 1;
-        for (const r of rates) { product *= (1 - r); }
-        u.state._dodgeChance = Math.round((1 - product) * 100);
-    }
+    computeDodgeChance(A, B);
 
-    logBuffSummary(A, { log: ctx.log, doubleStrikeUid: doubleStrikeUnitUid });
+    logBuffSummary(A, { log: ctx.log, doubleStrikeUid: ds.unitUid });
 
     // 2026-10-08 默认飞行方向迁回合组件 register（幂等 ||=，无人中途清空 → 每轮设与首轮设等价）
 
     const roundStartEvents = flushBattleEvents();
-    return { doubleStrikeUnitUid, roundStartEvents, roundComps };
+    return { doubleStrikeUnitUid: ds.unitUid, roundStartEvents, roundComps };
 }
 
 export function* createRoundStepper(state, { ui = true, translateFacts = null } = {}) {
