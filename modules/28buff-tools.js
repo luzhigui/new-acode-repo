@@ -1,3 +1,5 @@
+// V6.2.5 | ~4800 bytes | 2026-10-16 众志成城（unity）候选门槛（老板拍板）：只有本阵营「场上存活人数 < 4」
+//          （拒马/幼狮/雄鹰等召唤物都算人，与 core/04 applyUnityBonus 同口径）时才可能进入候选
 // V6.2.4 | ~4500 bytes | 2026-10-14 主代码放开 carry 5 号位门槛（老板拍板）：删 generateBuffChoices 的
 //          carry 候选过滤，改由 core/04 spawnCarryEagle 在 5 号位无人时召唤雄鹰顶位；函数保留导出供工具/体检复用
 // V6.2.3 | ~4300 bytes | 2026-10-14 hasCarryTarget 收口为「只认 5 号位」：姐姐在场也不再放宽 4/5/6——
@@ -6,7 +8,7 @@
 //          时长取 CONFIG.MAX_ROUND（不用 Infinity，防对象过 JSON 时被序列化成 null 丢 buff）；
 //          getActiveBuffList 显示点渲染成「整局」而非回合数
 // V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
-export const VER = 'modules/28buff-tools.js V6.2.4';
+export const VER = 'modules/28buff-tools.js V6.2.5';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -56,6 +58,9 @@ export function generateBuffChoices(activeBuffs, team = [], rng = null) {
     const available = allKeys.filter(k => {
         if (activeBuffKeys.includes(k)) return false;
         if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
+        // 2026-10-16 众志成城门槛（老板拍板）：只有本阵营「场上存活人数 < 4」时才可能出现——
+        //   人数口径含拒马/幼狮/雄鹰等召唤物（与 core/04 applyUnityBonus 同口径）；满 4 人及以上不进候选
+        if (k === BUFF_TYPES.UNITY && team.filter(u => u.alive).length >= 4) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
         return true;

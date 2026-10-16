@@ -1,3 +1,7 @@
+// V6.5.4 | ~38500 bytes | 2026-10-16 carry 雄鹰改「一次性判定」（老板拍板）：spawnCarryEagle 在 hasBuff 判过后查
+//           _carryEagleDone（core/17 schema）——carry 首次生效那回合判一次 5 号位即锁死，5 号位有人则本局永不招、
+//           招过之后雄鹰阵亡也不补；同批：spawnUnityRecruits 加重名保护（召唤物与场上同名单位并存时降级白板，
+//           清身份旗标，配合 core/11 该召唤物跳过组件注册，防 hook/声明翻倍与精英误认人）
 // V6.5.3 | ~37500 bytes | 2026-10-15 第二批内容：新增 applyLastStandBonus（背水一战·低血攻×1.4）、
 //           applyUnityBonus（众志成城·按存活人数阶梯乘攻防）、spawnUnityRecruits（不足 5 人时每回合召唤随机角色补员，
 //           M50 含精英技能全开、整局上限 4 个；获得时已满 5 人则永久不召）。三者调用点见 core/11。
@@ -21,7 +25,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.3';
+export const VER = 'core/04buff-system.js V6.5.4';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -33,6 +37,7 @@ import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit } from './13battle-shared.js';
 import { findFreePos, spawnUnit } from './05battle-horse.js';
+import { clearHeroFlags } from './02unit.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -135,6 +140,11 @@ export function applyCarryBonus(unit, A, state, log) {
 export function spawnCarryEagle(team, log) {
     if (!team || !team.length) return null;
     if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.CARRY)) return null;
+    // 2026-10-16 一次性判定（老板拍板）：carry「首次生效」那回合判一次 5 号位即锁死——
+    //   那回合 5 号位有活人则本局永不招（之后空出来也不补），招过之后雄鹰阵亡也不补。
+    //   锁记在 _carryEagleDone（core/17 schema，随 unit.clone 跨回合保留）；任一单位带标 = 本队已判过，直接跳过
+    if (team.some(u => u.state && u.state._carryEagleDone)) return null;
+    team.forEach(u => { if (u.state) u.state._carryEagleDone = true; });
     if (team.some(u => u.alive && u.pos === 5)) return null;
     if (team.some(u => u.isCarryEagle)) return null;
     const spec = C.BUFFS?.carry?.params?.eagle;
@@ -204,6 +214,12 @@ export function spawnUnityRecruits(team, state, log) {
         const pick = pool[rng.nextInt(0, pool.length - 1)];
         const recruit = spawnUnit(team, pick.name, cfg.recruitM, pick.role, landPos);
         recruit.isUnityRecruit = true;
+        // 2026-10-16 重名保护（老板拍板「重名可保留、但不得引出别的 bug」）：召唤角色与场上**其他**单位同名时，
+        //   该召唤物降级为白板——清掉 Unit 构造期按名字自动打上的身份旗标（isZhang/isWei/isYinTianZheng…）。
+        //   不清则 modules/27 一批 `find(u => u.isZhang/isWei && u.alive)` 会误认它：原版阵亡后命中白板召唤物，
+        //   精英联动/FSM 会作用在没有 _fsm 的对象上。名字本身保留（显示不变），只摘内部身份。
+        //   另一半保护在 core/11 组件工厂循环：同名召唤物跳过组件注册（重复注册会让 hook/声明翻倍）。
+        if (team.some(u => u !== recruit && u.name === recruit.name)) clearHeroFlags(recruit);
         if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: '众志成城' } });
     }
 }

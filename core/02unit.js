@@ -1,6 +1,8 @@
+// V6.3.4 | ~12280 bytes | 2026-10-16 新增 clearHeroFlags（清身份标记，幂等）：众志成城召唤物与场上同名单位并存时
+//   降级为白板（core/04 spawnUnityRecruits 调用），防 modules/27 的 find(u => u.isXxx && u.alive) 误认召唤物
 // V6.3.3 | ~11940 bytes | 2026-10-13 HERO_FLAGS 新增 '杨逍'→'isYangXiao'（光明左使·飞行·精英）：
 //   进表后 modules/29 明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动排除他，不重复出人
-export const VER = 'core/02unit.js V6.3.3';
+export const VER = 'core/02unit.js V6.3.4';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -83,6 +85,26 @@ export function applyHeroFlags(unit) {
     // 2026-10-08 生生不息数据旗：content 声明了 endlessBreath 技能的英雄不攻击、
     //   每回合走「生生不息」休息通道（付费触发在组件侧，此处只管行动选择）
     if (getGameData().characters?.[name]?.skills?.endlessBreath) unit.endlessBreath = true;
+    return unit;
+}
+
+/**
+ * 清掉按名字自动打上的身份标记（重名召唤物降级为白板时调用；幂等）。
+ * 与 applyHeroFlags 反向成对：名字/数值都不动，只摘掉 isXxx 身份与身份派生旗
+ * （施法/联动/FSM 一律靠这些旗认人，摘掉后不会再有模块把它当成那号英雄）。
+ */
+export function clearHeroFlags(unit) {
+    if (!unit || unit.isHorse) return unit;
+    for (const flag of Object.values(HERO_FLAGS)) unit[flag] = false;
+    unit.isXiaoZhao = false;
+    unit.isXiaoZhaoSister = false;
+    unit.isXiaoZhaoBrother = false;
+    unit.isLioness = false;
+    unit.isLionMale = false;
+    unit.isLionCub = false;
+    unit.isReflectDisciple = false;
+    unit.noContend = false;
+    unit.endlessBreath = false;
     return unit;
 }
 

@@ -1,6 +1,8 @@
+// V1.8.0 | ~15600 bytes | 2026-10-16 新增信号 SIGNAL_TYPES.AFTER_ATTACK_IMMUNE（本击被免疫·仍算一次出手的专用广播，
+//   core/10 免疫分支发；modules/26 宋青书性奋额外攻击据此照发第二下）
 // V1.7.0 | ~14400 bytes | 2026-10-15 新增信号 SIGNAL_TYPES.AFTER_SELECT_TARGET（选敌完成·出手前带 log 广播，modules/26 胖远桥出手声明落行）
 // V1.6.0 | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
-export const VER = 'infra/56-battle-enums.js V1.7.0';
+export const VER = 'infra/56-battle-enums.js V1.8.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -227,6 +229,9 @@ export const SIGNAL_TYPES = Object.freeze({
     AFTER_DAMAGE_APPLIED: 'afterDamageApplied',
     AFTER_ATTACK: 'afterAttack',
     AFTER_MISS: 'afterMiss',
+    // 本击被免疫（小昭·妹飞天等）：core/10 免疫分支提前 return、不广播 AFTER_ATTACK；
+    //   给「这一击虽未落地、但仍算一次出手」的机制（宋青书性奋额外攻击）一条专用通道，零外溢
+    AFTER_ATTACK_IMMUNE: 'afterAttackImmune',
     ON_UNIT_DEATH: 'onUnitDeath',
     ON_POSITION_SWAP: 'onPositionSwap',
     BEFORE_STATE_TRANSITION: 'beforeStateTransition',
