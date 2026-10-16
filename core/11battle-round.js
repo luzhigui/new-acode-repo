@@ -1,3 +1,6 @@
+// V6.3.19 | ~35570 bytes | 2026-10-16 skip 通道补 PASS fact（体检第 96 轮转交）：组件声明 skip（小昭·妹蜘蛛卵结茧 /
+//           蝶变附身中）此前只置 _acted、不产任何 fact ⇒ 回合末不变量报「行动权被吞」；现就地推一条与 passEntry
+//           同结构的 PASS fact（reason 按 _spiderEgg 区分「蜘蛛卵结茧 / 组件声明skip」），检查器与渲染器同款消费
 // V6.3.18 | ~31200 bytes | 2026-10-16 众志成城召唤物重名保护（老板拍板「重名可保留、不得引出别的 bug」）：
 //           prepareRoundStart 组件工厂循环前算 dupRecruitNames（与场上其他单位同名的 isUnityRecruit），
 //           循环内跳过这些白板召唤物的组件注册（同名原版已注册，重复注册会让 declarations/hook 翻倍）；
@@ -17,7 +20,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.18';
+export const VER = 'core/11battle-round.js V6.3.19';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -391,7 +394,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide });
             // 2026-10-13 组件声明 skip = 本回合不行动：必须就地消费掉行动权，否则该单位
             //   一直 alive && !_acted，外层 while（L367）永不退出 —— 小昭·妹蜘蛛卵卡死即此因
-            if (decl.skip) { u.state._acted = true; continue; }
+            // 2026-10-16 V6.3.19 补 PASS fact（体检第 96 轮转交）：skip 通道此前只置 _acted、不产任何 fact，
+            //   回合末不变量据此报「行动权被吞」（小昭·妹蜘蛛卵结茧每回合走此路，855d52c 上 4 类违规）。
+            //   补一条与下方 passEntry 同结构的 PASS fact（检查器/渲染器同款消费），条数随结茧回合落入战报。
+            if (decl.skip) {
+                u.state._acted = true;
+                log.push({ factType: FACT_TYPES.PASS, data: { unit: { uid: u.uid, name: u.name, camp: u.camp, pos: u.pos, hp: u.hp }, reason: u.state._spiderEgg ? '蜘蛛卵结茧' : '组件声明skip', hpBefore: Math.floor(u.hp), hpAfter: Math.floor(u.hp), actualHeal: 0, events: [] } });
+                continue;
+            }
             if (decl.pass) { passUnits.push({ unit: u, reason: '组件声明pass' }); continue; }
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
