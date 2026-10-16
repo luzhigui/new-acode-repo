@@ -1,4 +1,5 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+// V1.2.3 | 预估 22400 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）
 // V1.2.2 | 预估 22300 bytes | 2026-10-13 镜像主代码整局海克斯口径：content permanent:true → remaining 取 CONFIG.MAX_ROUND（与 modules/28 同源）
 // V1.2.1 | 预估 21400 bytes | 2026-10-12 机制装配收口：散装 import 25/26/27 → 改为 import modules/00reg-mechanics.js
 //          （原散装三行漏 30，鹿杖客 dotTick 安装期直接抛错、整台实验跑不出结果）；modules/20elite-skills.js 单列保留（00reg 不含 20）。
@@ -94,6 +95,8 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
         const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
             if (existing.indexOf(k) !== -1) return false;
             if (k === BUFF_TYPES.CARRY && !hasCarryTarget(alive)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
+            // 2026-10-16 V1.2.3 众志成城门槛同步 modules/28：只有本阵营场上存活人数 <4（含召唤物）才进候选
+            if (k === BUFF_TYPES.UNITY && alive.length >= 4) return false;
             const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
             if (req && !alive.some(u => u.role === req)) return false;
             return true;
