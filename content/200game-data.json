@@ -1,5 +1,5 @@
 {
-  "version": "5.13.5",
+  "version": "5.13.6",
   "updated": "2026-10-16",
 
   "roles": {
@@ -475,13 +475,13 @@
         },
         "yingWangWeiYa": {
           "name": "鹰王威压",
-          "desc": "每次命中后永久削弱目标：攻击 −2、防御 −2（可无限叠加，越打越削，跨回合延续）",
-          "params": { "atkDown": 2, "defDown": 2 }
+          "desc": "每次反击命中后永久削弱目标：攻击 −5、防御 −5（可无限叠加，越打越削，跨回合延续）",
+          "params": { "atkDown": 5, "defDown": 5 }
         },
         "laoDangYiZhuang": {
           "name": "老当益壮",
-          "desc": "每次命中后自身永久成长：攻击 +2、防御 +2、反击概率 +5%（普攻/反击皆算，本局累计，越打越硬）",
-          "params": { "atkGain": 2, "defGain": 2, "probGain": 0.05 }
+          "desc": "每次反击命中后自身永久成长：攻击 +5、防御 +5、反击概率 +5%（本局累计，越打越硬）",
+          "params": { "atkGain": 5, "defGain": 5, "probGain": 0.05 }
         }
       },
       "taunts": {

@@ -1,3 +1,6 @@
+// V7.1.4 | ~90400 bytes | 2026-10-16 殷天正②③收窄为「仅反击命中」触发（老板拍板）：鹰王威压削目标、老当益壮自壮
+//           都只在「鹰爪功反击」命中时生效（靠 core/10 执行期写的 state._linkReason==='counterAttack' 判定），
+//           普攻命中不再削人/自壮；数值 2→5（内容表 atkDown/defDown/atkGain/defGain），起始反击率仍 45%
 // V7.1.3 | ~89750 bytes | 2026-10-16 殷天正鹰爪功反击改「掷骰仍挂 AFTER_DAMAGE_APPLIED、出手推迟到 AFTER_ATTACK」：
 //   本击白骨爪连锁斩杀他之后，反击请求被 core/10 的 _pendingDeath 守卫拦掉——不再「已经死了还能反击」；
 //   提示行随之推迟到真正出手时落组（req.infoText）
@@ -18,7 +21,7 @@
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.1.3';
+export const VER = 'modules/27elite-mingjiao.js V7.1.4';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -1163,10 +1166,11 @@ export function createEagleComponent() {
     };
 }
 
-// 殷天正（白眉鹰王·明教·防战·弱精英 m104）：反击 / 命中削敌 / 越打越壮
+// 殷天正（白眉鹰王·明教·防战·弱精英 m104）：反击 / 反击削敌 / 反击自壮
 // ① 鹰爪功：被攻击后 (基础 45% + 老当益壮累计) 概率反击攻击者，伤害×dmgRatio，走 extraRequests 过完整伤害管线
-// ② 鹰王威压：殷天正每次命中（普攻/反击皆算）后永久削目标攻/防各 5（addMod 无 ttl = 整局累积，可无限叠加）
-// ③ 老当益壮：殷天正每次命中后自身永久 +攻/防各 5，并累计反击概率 +5%（反击率封顶 0.9）
+// ② 鹰王威压：殷天正「反击命中」后永久削目标攻/防各 5（addMod 无 ttl = 整局累积，可无限叠加）；普攻命中不触发
+// ③ 老当益壮：殷天正「反击命中」后自身永久 +攻/防各 5，并累计反击概率 +5%（反击率封顶 0.9）；普攻命中不触发
+// ②③ 的「仅反击」判定靠 core/10 runExtraAttackRequests 执行期写在 yin.state._linkReason 上的 'counterAttack'
 export function createYinTianZhengComponent() {
     return {
         name: '殷天正',
@@ -1188,10 +1192,13 @@ export function createYinTianZhengComponent() {
                 }
             }
 
-            // ② 鹰王威压（16→此处 18）：命中后削目标攻防（永久，跨回合延续）
+            // ② 鹰王威压（16→此处 18）：反击命中后削目标攻防（永久，跨回合延续）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_PRESSURE, (data) => {
                 if (data.unit !== yin || !yin.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
+                // 2026-10-16 收窄为「仅反击命中」（老板拍板）：靠 core/10 runExtraAttackRequests 执行期写在攻击者
+                //   state 上的 _linkReason 识别本次出手是不是鹰爪功反击——普攻命中不再削人
+                if (data.unit.state._linkReason !== 'counterAttack') return;
                 const t = data.target;
                 if (!t || !t.alive) return;
                 addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', group: 'yingWangWeiYa' });
@@ -1241,10 +1248,12 @@ export function createYinTianZhengComponent() {
                 });
             });
 
-            // ③ 老当益壮：每次命中（普攻/反击）后自身永久成长，反击概率累计（封顶由上面 prob 的 min 0.9 兜住）
+            // ③ 老当益壮：反击命中后自身永久成长，反击概率累计（封顶由上面 prob 的 min 0.9 兜住）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_GROW, (data) => {
                 if (data.unit !== yin || !yin.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
+                // 2026-10-16 同②：仅反击命中才成长（普攻命中不再滚雪球）
+                if (data.unit.state._linkReason !== 'counterAttack') return;
                 addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', group: 'laoDangYiZhuang' });
                 addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', group: 'laoDangYiZhuang' });
                 yin.state._counterProbBonus = (yin.state._counterProbBonus || 0) + grow.probGain;
