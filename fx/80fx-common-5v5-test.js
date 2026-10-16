@@ -1,6 +1,8 @@
-// V6.3.10 | ~33251 bytes | 2026-10-12 新增 showMarkBurst（何太冲箭靶碎裂）：🎯 命中帧急弹 → 崩裂放大消散 + 金环冲击 + 4 片碎光四散；
+// V6.3.11 | ~33275 bytes | 2026-10-17 修 showMiejueCountFloat 最右列飘字换行：只设 left（格子中心）无 right，
+//   shrink-to-fit 宽度上限=视口宽-left，最右列可用宽度不足导致「⚔️反击！」等文本竖排；加 white-space:nowrap 固定单行
+// V6.3.10 | 2026-10-12 新增 showMarkBurst（何太冲箭靶碎裂）：🎯 命中帧急弹 → 崩裂放大消散 + 金环冲击 + 4 片碎光四散；
 //   一次性元素（data-fx=temporary）不走对象池；由 fx/88 命中帧调用（伤害弹幕 1100ms 之前），快进在其入口已拦
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.10';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.11';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -289,7 +291,7 @@ export function showMiejueCountFloat(unit, text) {
         font-family:"KaiTi","STKaiti","Songti SC",serif;
         font-size:22px; font-weight:900; color:#ffe89a;
         text-shadow:0 0 10px rgba(255,170,0,0.95), 0 0 22px rgba(200,0,0,0.6), 0 2px 3px rgba(0,0,0,0.85);
-        z-index:10012; pointer-events:none; opacity:0;
+        z-index:10012; pointer-events:none; opacity:0; white-space:nowrap;
     `;
     document.body.appendChild(el);
     clock.animate(1000, (p) => {
