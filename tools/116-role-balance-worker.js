@@ -1,3 +1,5 @@
+// V1.10.1 | 2026-10-16 elite/soloElite/noElite/weakElite 四 job 加 startIndex：片内种子 = seed + (startIndex+i)×7919
+//           （对齐 hex 的口径）——分片粗细不换采样；旧调用不传 startIndex 默认 0，行为不变（配 112 V2.8.1）
 // V1.10.0 | ~39500 bytes | 2026-10-16 新增 kind:'weakElite'（runWeakEliteJob）：弱精英单测 + 自然配对对照（配 112 V2.8.0「🐦 弱精英评测」）——
 //   明教侧弱精英（杨逍/殷天正）走 modules/29 forceWeakElite 的明教弱精英混入块；六大派侧（何太冲/唐文亮）走六大派 M104 数字空位具名锁定；
 //   arm:'natural' 时不设任何 force、只统计整关明教胜率。同一 (stage,chunk) 的 elite 臂与 natural 臂共用同一 seed 序列 → Δ 为配对差。
@@ -168,7 +170,7 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 2026-10-08 单英雄胜率（112「⚔ 单英雄胜率」按钮）：force 单精英 + 轮盘互锁（29 V7.5.16 起
 // 张/韦/谢逊/小昭四路 force 全部抑制随机轮盘）= 每局明教侧只有这一个精英。
 // 口径与普通评测一致：海克斯开、种子公式同款；胜 = 明教获胜。小昭姊/妹走 forceXiaoZhao 形态值。
-function runSoloEliteJob(stage, seed, runs, elite) {
+function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
     const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun' };
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
     // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
@@ -179,12 +181,12 @@ function runSoloEliteJob(stage, seed, runs, elite) {
         clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
         if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
         else GlobalStore.set(keyMap[elite], true);
-        const initRng = new SeededRNG(seed + i * 7919);
+        const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
         const teams = initBattleTeams(stage, initRng);
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true);
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true);
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -206,7 +208,7 @@ function runSoloEliteJob(stage, seed, runs, elite) {
 // 自然局约 20% 无精英（ELITE_COUNT_THRESHOLDS [0.05,0.20,0.80] 的末档），
 // 故用「拒绝采样」：换种子重掷初始阵容，直到明教侧无精英；平均约 5 次即中（initBattleTeams 只占单场 4% 耗时，代价可忽略）。
 // 不动主代码 modules/29（无需新增开关）。按敌方变体分桶，口径与上两表一致。
-function runNoEliteJob(stage, seed, runs) {
+function runNoEliteJob(stage, seed, runs, startIndex = 0) {
     const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun;
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0 });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
@@ -214,7 +216,7 @@ function runNoEliteJob(stage, seed, runs) {
         clearBattleGlobals();   // 先清场（含上一场可能残留的 force 标志），保证本场是纯自然局
         let teams = null, ally = null, s = 0;
         for (let k = 0; k < 200; k++) {          // 重掷上限 200 防死循环（1/0.2 期望 5 次）
-            s = seed + i * 7919 + k * 104729;    // 重掷步长与主种子错开
+            s = seed + (startIndex + i) * 7919 + k * 104729;    // 重掷步长与主种子错开
             const t = initBattleTeams(stage, new SeededRNG(s));
             const a = t.allyTeam.map(u => u.clone());
             if (!a.some(isElite)) { teams = t; ally = a; break; }
@@ -245,7 +247,7 @@ function runNoEliteJob(stage, seed, runs) {
 //     六大派侧只改一个数字空位的名字、两侧阵容完全一致 = 真配对；明教侧换人会多消耗 initRng（后续站位洗牌流错位），
 //     属随机噪声、400 场平均掉，仍是无偏对照。
 //   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
-function runWeakEliteJob(stage, seed, runs, elite, side, arm) {
+function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng' };
     const enemyFlagMap = { '何太冲': 'isHeTaichong', '唐文亮': 'isTangWenLiang' };
     const flag = side === 'ally' ? allyFlagMap[elite] : enemyFlagMap[elite];
@@ -254,12 +256,12 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm) {
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
         if (arm !== 'natural') GlobalStore.set('forceWeakElite', elite);
-        const initRng = new SeededRNG(seed + i * 7919);
+        const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
         const teams = initBattleTeams(stage, initRng);
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true);
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true);
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -285,7 +287,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm) {
     return { elite: arm === 'natural' ? null : elite, side, arm, variants: out };
 }
 
-function runEliteStageJob(stage, seed, runs) {
+function runEliteStageJob(stage, seed, runs, startIndex = 0) {
     // 2026-09-24 定稿：胖远桥/宋青书是"行"不是"列"——第3关阵容在两人间轮换，
     // 按"本局敌方是谁"把整局分进对应变体桶（胖远桥/宋青书/标准），112 端每个桶渲染一行。
     // 列仍是明教五精英：谁在场记给谁，胜 = 明教获胜（同场共现是真实环境，不是污染）。
@@ -299,12 +301,12 @@ function runEliteStageJob(stage, seed, runs) {
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals(); // 每场清理防 OOM（同时清掉 force 标志，保证本场是纯普通局）
-        const initRng = new SeededRNG(seed + i * 7919);
+        const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
         const teams = initBattleTeams(stage, initRng);
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true); // 带海克斯，对齐正式游戏节奏
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true); // 带海克斯，对齐正式游戏节奏
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -651,17 +653,17 @@ self.onmessage = (e) => {
             }
             result = { wins };
         } else if (kind === 'elite') {
-            const { stage, seed, runs } = e.data;
-            result = runEliteStageJob(stage, seed, runs);
+            const { stage, seed, runs, startIndex } = e.data;
+            result = runEliteStageJob(stage, seed, runs, startIndex || 0);
         } else if (kind === 'soloElite') {
-            const { stage, seed, runs, elite } = e.data;
-            result = runSoloEliteJob(stage, seed, runs, elite);
+            const { stage, seed, runs, elite, startIndex } = e.data;
+            result = runSoloEliteJob(stage, seed, runs, elite, startIndex || 0);
         } else if (kind === 'noElite') {
-            const { stage, seed, runs } = e.data;
-            result = runNoEliteJob(stage, seed, runs);
+            const { stage, seed, runs, startIndex } = e.data;
+            result = runNoEliteJob(stage, seed, runs, startIndex || 0);
         } else if (kind === 'weakElite') {
-            const { stage, seed, runs, elite, side, arm } = e.data;
-            result = runWeakEliteJob(stage, seed, runs, elite, side, arm);
+            const { stage, seed, runs, elite, side, arm, startIndex } = e.data;
+            result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);

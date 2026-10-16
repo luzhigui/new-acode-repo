@@ -1,3 +1,4 @@
+// V2.9.15 | 2026-10-16 新增 _jumpConsumed（被杨逍先机占用的队友标记：本回合没出手不灰显，render/32 消费）
 // V2.9.14 | ~18600 bytes | 2026-10-16 唐文亮·七伤拳「本击展示三件套」补两字段（_qiShangNote 报幕文本 /
 //           _qiShangBanner 满 7 横幅）：报幕改挂「本击攻击组」（组 entries 开头 info 行 + 组 data 演出），
 //           组外那条扁平 SKILL_ANNOUNCE 作废；三件套均仅本击有效、搬进组后即清零
@@ -20,7 +21,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.14';
+export const VER = 'core/17-state-keys.js V2.9.15';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -44,6 +45,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _fortifyDefBonus:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _isLinkAttack:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 2026-10-16 被杨逍「先机」占用的队友标记：本回合没出手——render/32 据此跳过灰显与待命高亮
+    _jumpConsumed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 2026-10-16 被动出手原因：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
     //   core/12 快照进 attack fact，render 层出【反击】等徽章与头顶飘字；结束即清。
     //   ⚠️ 已被 modules/27 当判定条件消费（鹰王威压/老当益壮仅在 _linkReason==='counterAttack' 时触发），不再是纯展示
