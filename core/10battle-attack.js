@@ -1,9 +1,11 @@
+// V6.4.6 | 2026-10-16 被动出手原因透传：runExtraAttackRequests 执行期把 req.reason 写 state._linkReason
+//          （纯展示、不参与判定），core/12 快照进 attack fact，render 层出【反击】徽章与头顶飘字；结束即清
 // V6.4.5 | ~21200 bytes | 2026-10-15 选敌完成后、命中/闪避判定前新增 AFTER_SELECT_TARGET 广播（带 log）：
 //          给「出手声明」类机制（胖远桥掷骰声明）一个早于 DODGE 的日志通道，被闪避反击时声明不再被吞。
 // V6.4.4 | 2026-10-13 红血加血独立行拆除：何太冲红血触发改挂 ON_UNIT_ACTED（modules/26 V6.26.0），
 //          加血发生在攻击行之后，「正伤害血反增」矛盾不再存在，BEFORE_DAMAGE_APPLY 血量对照补偿随之退役。
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/10battle-attack.js V6.4.5';
+export const VER = 'core/10battle-attack.js V6.4.6';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -58,6 +60,9 @@ function runExtraAttackRequests(requests, opts) {
         if (req.actedMode === 'allow') req.unit.state._acted = false;
         const isLinkReq = LINK_REASONS.has(req.reason);
         if (isLinkReq) req.unit.state._isLinkAttack = true;
+        // 2026-10-16 被动出手原因透传（纯展示用，不参与引擎判定）：反击/跟随/随动/联动/追击等
+        //   reason 记进 _linkReason，core/12 快照进 attack fact → render/34 战报行内徽章 + render/39 出手帧头顶飘字
+        if (req.reason) req.unit.state._linkReason = req.reason;
         // 回退判据带 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
         //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。回退 null 走正常选目标。
         const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
@@ -72,6 +77,7 @@ function runExtraAttackRequests(requests, opts) {
         if (req.dmgRatio != null) req.unit.state._extraDmgRatio = -1;
         if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
         if (isLinkReq) req.unit.state._isLinkAttack = false;
+        req.unit.state._linkReason = null;
         if (req.actedMode === 'restore') req.unit.state._acted = req.actedSnapshot;
     }
 }

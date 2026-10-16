@@ -1,3 +1,5 @@
+// V6.3.15 | 2026-10-16 被动出手原因透传：attack fact 快照加 linkReason（反击/跟随/随动/联动/追击），
+//           snapshotUnitForFact 的 state 块同步带 _linkReason（打空/被闪避的被动出手也可识别）
 // V6.3.14 | 2026-10-16 综合闪避率下沉导出 computeDodgeChance（公式单点），snapshotUnitForFact 加 export
 //           ——唐文亮·同归于尽反噬「概率直读」消费（modules/26）：miss 判定 getMissBreakdown 直调、
 //           dodge 判定 computeDodgeChance 概率直读，绕开「行动过不能闪避」引擎前置（死人出手不吃该规矩）
@@ -7,7 +9,7 @@
 // V6.3.11 | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
 //           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
 //           业务参数（unit/target/dmgCalc/allySide/phantomFact 等）保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/12battle-attack-steps.js V6.3.14';
+export const VER = 'core/12battle-attack-steps.js V6.3.15';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -77,6 +79,7 @@ export function snapshotUnitForFact(unit) {
             _blocked: unit.state?._blocked || false,
             _kuLianActive: unit.state?._kuLianActive || false,
             _isLinkAttack: unit.state?._isLinkAttack || false,
+            _linkReason: unit.state?._linkReason || null,
             _flyMode: unit.state?._flyMode || null,
             _spiderFlying: unit.state?._spiderFlying || false,
             _butterflyHost: unit.state?._butterflyHost || null
@@ -561,6 +564,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         attackerNearAtkCount: unit.nearAtkCount,
         isKuLianAttack: !!(unit.isSongQingshu && unit.state._kuLianActive),
         isLinkAttack: !!unit.state._isLinkAttack,
+        // 2026-10-16 被动出手原因（纯展示）：反击/跟随/随动/联动/追击——render 层徽章与飘字的依据
+        linkReason: unit.state?._linkReason || null,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
         targetHpAfter: fmtHp(target.hp),
         targetAlive: target.alive

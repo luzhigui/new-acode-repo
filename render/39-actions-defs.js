@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.5.0 | 2026-10-16 被动出手徽章：ATTACK/MISS/DODGE 出手帧按 linkReason 发头顶飘字（⚔️反击！/👣跟随/🦁随动/
+//   ☯️联动/⚡追击，复用 SKILL_FLOAT 通道；联动类在 1400ms 等待期展示，非联动类让开灭绝计数 300ms）
 // V1.4.0 | ~31780 bytes | 2026-10-13 FLY_MODE 节奏修复：fx 改 async 并 await emit——原先同步函数发射即走，主线不等
 //          缩小/飞行演出完就继续（两个节奏源撕开→「缩小后又变大、顿一下才继续」）；新增 storeAfter 交棒占位格
 //          （起飞/附身写 _renderFlyMode，返程/宿亡/无宿/飞免清标记回退 state._flyMode），fx/86 V6.2.0 同批不再自愈格子。
@@ -14,7 +16,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.4.0';
+export const VER = 'render/39-actions-defs.js V1.5.0';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -46,6 +48,14 @@ export const STAGE_ACTION_DEFS = {
                 await clock.wait(1200);
             }
             // 飞撞/箭矢/台词弹幕（统一由 fx/88 的 _triggerFX 消费）
+            // 2026-10-16 被动出手徽章：反击/跟随/随动/联动/追击出手前头顶飘字，一眼区分普攻。
+            //   联动类先飘再等 1400ms（等待期正好展示）；追击等非联动类让开灭绝计数飘字 300ms 再飘
+            const LINK_FX_TEXT = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' };
+            if (attacker && action.linkReason && LINK_FX_TEXT[action.linkReason]) {
+                const badge = { unit: attacker, text: LINK_FX_TEXT[action.linkReason] };
+                if (action.isLinkAttack) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, badge);
+                else clock.wait(300).then(() => eventBus.emit(FX_SIGNALS.SKILL_FLOAT, badge));
+            }
             // 联动攻击必须等主攻动画播完再起手（emit 同步不发 Promise，需显式等待）
             if (action.isLinkAttack && attacker && target && action.attackerRole) {
                 await clock.wait(1400);
@@ -143,6 +153,11 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const attacker = findUnitByUidLocal(c, action.actorUid);
             const dodger = findUnitByUidLocal(c, action.targetUid);
+            // 2026-10-16 被动出手徽章：反击/跟随被闪避也认得出（锚在攻击者头顶）
+            if (attacker && action.linkReason) {
+                const t = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' }[action.linkReason];
+                if (t) clock.wait(300).then(() => eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit: attacker, text: t }));
+            }
             if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
             }
@@ -340,6 +355,11 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const attacker = findUnitByUidLocal(c, action.actorUid);
             const target = findUnitByUidLocal(c, action.targetUid);
+            // 2026-10-16 被动出手徽章：反击/跟随打空也认得出（锚在攻击者头顶）
+            if (attacker && action.linkReason) {
+                const t = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' }[action.linkReason];
+                if (t) clock.wait(300).then(() => eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit: attacker, text: t }));
+            }
             if (attacker && !GlobalStore.get('fastForwardActive')) {
                 // 近战/飞行 → 飞撞（撞到一半弹气泡）；远程 → 射偏箭（箭飞到一半偏出去）。
                 // 两者都由 88 的 _triggerFX 按 attackerRole 分派，此处只需把信号发出去。

@@ -9,7 +9,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.8';
+export const VER = 'core/17-state-keys.js V2.9.9';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -33,6 +33,9 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _fortifyDefBonus:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _isLinkAttack:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 2026-10-16 被动出手原因（纯展示）：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
+    //   core/12 快照进 attack fact，render 层出【反击】等徽章与头顶飘字；结束即清
+    _linkReason:             { type: STATE_FIELD_TYPES.STRING,  default: null },
     _spiderAttacked:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderFlying:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
