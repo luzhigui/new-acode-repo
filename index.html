@@ -1,4 +1,6 @@
 <!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
+<!-- V7.5.30 | ~39600 bytes | 2026-10-16 修 bug 模式海克斯面板滚不动：.modal-box 补 max-height:80vh + overflow-y:auto
+     （此前无上限，10+ 个海克斯把盒子撑出屏幕、.modal-overlay 居中后被裁且 body 为 overflow:hidden，后面的选项点不到） -->
 <!-- V7.5.29 | ~39500 bytes | 2026-10-15 整局海克斯徽章挂位：两处 .team-row 左侧标签改用 .camp-side 竖列包裹（上=阵营名、下=整局徽章 #campBadgesAlly/#campBadgesEnemy），列宽仍 18px 不挤压格子、名字上方留旗子位。V7.5.28 修横幅被压（+7px 复原怪异时代显示位）继续有效 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -195,7 +197,7 @@
         @keyframes starBurst { 0%{transform:translate(0,0) scale(0.5);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(1.5);opacity:0} }
         .shake { animation: shake 0.5s ease-in-out; } @keyframes shake { 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-5px); } 75%{ transform: translateX(5px); } }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; padding-top: 5vh; z-index: 100020; }
-        .modal-box { background: var(--c-panel); border: 4px double var(--c-brown-border); border-radius: 12px; padding: 20px; max-width: 320px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.6); position: relative; }
+        .modal-box { background: var(--c-panel); border: 4px double var(--c-brown-border); border-radius: 12px; padding: 20px; max-width: 320px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.6); position: relative; max-height: 80vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .modal-text { font-size: 14px; color: var(--c-brown); margin-bottom: 16px; }
         .modal-minimize { position: absolute; top: 6px; right: 30px; cursor: pointer; font-size: 20px; color: var(--c-brown-border); font-weight: bold; }
         .modal-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
