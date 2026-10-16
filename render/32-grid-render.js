@@ -1,8 +1,9 @@
-// V6.8.4 | 2026-10-16 被先机占用的队友不灰显也不亮待命：_jumpConsumed 跳过 acted/ready 双 class（没出手就是没出手）
+// V6.8.5 | 2026-10-16 回退 V6.8.4 的 _jumpConsumed 特判：先机已改插队式（core/11 V6.3.25），被顺延队友
+//           保持未出手状态、天然亮待命，无需特判
 // V6.8.3 | ~34760 bytes | 2026-10-15 妹永久圣火令改命中制后，logo 同步读每回合重画的 _xiaoHolyFlame（不再用账本旧 cols/rows）
 // ── 更早版本见 记录-更改履历.md
 // V6.8.2 | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标（carry/双击恒显示）
-export const VER = 'render/32-grid-render.js V6.8.4';
+export const VER = 'render/32-grid-render.js V6.8.5';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -412,10 +413,8 @@ export function renderGrid(id, camp) {
 
         // 2026-10-12 判灰认双路：引擎真值 state._acted（步末灌入）+ 视图表镜像 _renderActed（fx 起跳/收尾写，立即生效）
         const actedFlag = (unit.state && unit.state._acted) || getView(unit.uid, '_renderActed');
-        // 2026-10-16 被先机占用的队友：本回合没出手，不该灰显也不该亮待命——既非 acted 也非 ready
-        const jumpConsumed = !!(unit.state && unit.state._jumpConsumed);
-        let readyClass = (!hasFlash && !actedFlag && !jumpConsumed && unit.alive && !isDead) ? 'ready' : '';
-        let actedClass = (!hasFlash && actedFlag && !jumpConsumed && unit.alive && !isDead) ? 'acted' : '';
+        let readyClass = (!hasFlash && !actedFlag && unit.alive && !isDead) ? 'ready' : '';
+        let actedClass = (!hasFlash && actedFlag && unit.alive && !isDead) ? 'acted' : '';
         let shakeRemain = 0;
         const shakeDeadline = _shakeUntil.get(unit.uid);
         if (shakeDeadline) {
