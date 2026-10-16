@@ -1,4 +1,4 @@
-// V6.4.7 | ~23970 bytes | 2026-10-16 三改（老板拍板）：①免疫分支（妹妹飞天）补广播新信号 AFTER_ATTACK_IMMUNE——
+// V6.4.7 | ~24500 bytes | 2026-10-16 三改（老板拍板）：①免疫分支（妹妹飞天）补广播新信号 AFTER_ATTACK_IMMUNE——
 //          挂在 AFTER_ATTACK 的机制（宋青书性奋额外攻击）不再被免疫整段吞掉，第二下重新选敌照打；
 //          ②runExtraAttackRequests 补 _pendingDeath 守卫（本击已把请求者打到 0 血 → 不得再出手）；
 //          ③req.infoText 支持：被动出手的提示行延迟到真正出手那一刻才落组（入队时未必真能出手）

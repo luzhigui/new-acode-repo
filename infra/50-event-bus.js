@@ -1,4 +1,4 @@
-// V6.9.6 | ~9160 bytes | 2026-10-16 时序修正二则（老板拍板）：AFTER_ATTACK 增 YIN_COUNTER_FIRE:25——殷天正反击出手
+// V6.9.6 | ~9550 bytes | 2026-10-16 时序修正二则（老板拍板）：AFTER_ATTACK 增 YIN_COUNTER_FIRE:25——殷天正反击出手
 //   从 AFTER_DAMAGE_APPLIED 推迟到 AFTER_ATTACK，避开「本击白骨爪连锁斩杀后仍反击」；新增相位
 //   AFTER_ATTACK_IMMUNE：{ XINGFEN_EXTRA: 40 }——免疫分支（妹妹飞天）专用广播，宋青书性奋第二下照发
 // V6.9.5 | ~8250 bytes | 2026-10-15 第二批内容钩子登记：AFTER_DAMAGE_APPLIED 增 YIN_COUNTER:16 / YIN_PRESSURE:18 / YIN_GROW:21
