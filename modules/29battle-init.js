@@ -1,8 +1,8 @@
-// V7.5.21 | ~24000 bytes | 2026-10-15 第二批内容：eliteConfigs 追加殷天正（白眉鹰王·防战·精英 m104，
-//           power=elitePowerOf('殷天正')=115），去重 filter 加 (c.isYinTianZheng && u.isYinTianZheng) 防同名双抽
+// V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
+//            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // V7.5.20 | ~23800 bytes | 2026-10-13 杨逍重做降档：eliteConfigs m 107→104（弱精英，蓝名档），组队预算随 content elitePower=115
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.21';
+export const VER = 'modules/29battle-init.js V7.5.22';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -58,11 +58,9 @@ export function initBattleTeams(currentStage, _rng) {
         { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePowerOf('韦一笑') },
         { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePowerOf('小昭') },
         // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
-        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') },
-        // 2026-10-13 杨逍重做：光明左使（飞行·弱精英 m104，预算 115），与四位同走随机精英轮盘
-        { name: '杨逍', m: 104, role: ROLE_TYPES.FLYER, isYangXiao: true, power: elitePowerOf('杨逍') },
-        // 2026-10-15 殷天正（白眉鹰王·防战·精英 m104，预算 115），与五位同走随机精英轮盘
-        { name: '殷天正', m: 104, role: ROLE_TYPES.DEFENDER, isYinTianZheng: true, power: elitePowerOf('殷天正') }
+        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') }
+        // 2026-10-16 弱精英定案（老板拍板）：杨逍/殷天正撤出固定精英轮盘（明教固定精英＝张无忌/韦一笑/小昭/谢逊），
+        //   改为「弱精英随机混入」——见下方 mingWeakPool 混入块
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
@@ -135,9 +133,7 @@ export function initBattleTeams(currentStage, _rng) {
             (c.isZhang && u.isZhang) ||
             (c.isWei && u.isWei) ||
             (c.isXiaoZhaoBrother && (u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) ||
-            (c.isXieXun && u.isXieXun) ||
-            (c.isYangXiao && u.isYangXiao) ||
-            (c.isYinTianZheng && u.isYinTianZheng)
+            (c.isXieXun && u.isXieXun)
         ));
         function weightedPick(arr) {
             const total = arr.reduce((s, c) => s + (rate[c.name] || 1 / arr.length), 0);
@@ -248,9 +244,41 @@ export function initBattleTeams(currentStage, _rng) {
         }
     }
 
+    // —— 弱精英随机混入（明教，2026-10-16 定案）——
+    // 明教固定精英轮盘＝张无忌/韦一笑/小昭/谢逊；其余具名身份（杨逍/殷天正）属「弱精英」，
+    //   不进轮盘：按 WEAK_ELITE_MIX_RATE 概率随机替换一个普通位混入正常阵容（每局至多一名）。
+    // 弱精英池由名册派生（明教名册里带身份标记、且不在固定精英轮盘内），不另建清单。
+    const fixedEliteNames = new Set(eliteConfigs.map(c => c.name));
+    const mingWeakPool = Object.entries(C.MING_M)
+        .filter(([n]) => HERO_FLAGS[n] && !fixedEliteNames.has(n))
+        .map(([n, m]) => ({ name: n, m }));
+    // 弱精英锁定（dev 测试用）：GlobalStore/localStorage 传具名 → 该弱精英必出（明教侧走本块、六大派侧见数字空位锁定）
+    const forceWeakElite = GlobalStore.get('forceWeakElite') || localStorage.getItem('_forceWeakElite') || null;
+    if (forceWeakElite && !mingWeakPool.some(w => w.name === forceWeakElite) && ENEMY_M[forceWeakElite] == null) {
+        throw new Error(`forceWeakElite 无效（不在明教弱精英池、也不在 roster.enemyM）: ${forceWeakElite}`);
+    }
+    const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
+    const mixSwappable = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun);
+    // RNG 流纪律（PVP 双端同源）：抽签无条件消耗，锁定与否只改「是否应用」，不改消耗序列
+    const mixRoll = _rng.next();
+    const mixVictimIdx = mixSwappable.length > 0 ? _rand(0, mixSwappable.length - 1) : 0;
+    const mixPickIdx = mingWeakPool.length > 0 ? _rand(0, mingWeakPool.length - 1) : 0;
+    if (mingWeakPool.length > 0 && mixSwappable.length > 0 && (weakAllyForced || mixRoll < C.WEAK_ELITE_MIX_RATE)) {
+        const victim = mixSwappable[mixVictimIdx];
+        const pick = weakAllyForced
+            ? mingWeakPool.find(w => w.name === forceWeakElite)
+            : mingWeakPool[mixPickIdx];
+        const tagRole = (getGameData()?.characters?.[pick.name]?.tags || []).find(t => C.ROLES.includes(t));
+        if (!tagRole) throw new Error(`明教弱精英缺职业 tag（characters.${pick.name}.tags）`);
+        const unit = new Unit(pick.name, pick.m, tagRole, CAMP_TYPES.ALLY);
+        unit.init(_rng); unit.applyBonus();
+        unit.pos = null;
+        allyTeam.splice(allyTeam.indexOf(victim), 1, unit);
+    }
+
     // 保证至少一个前排单位
     if (!allyTeam.some(u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR)) {
-        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isYangXiao);
+        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isYangXiao && !u.isYinTianZheng);
         if (nonFixed.length > 0) {
             nonFixed[0].role = _rand(0, 1) === 0 ? ROLE_TYPES.DEFENDER : ROLE_TYPES.WARRIOR;
             nonFixed[0].init(_rng); nonFixed[0].applyBonus();
@@ -336,6 +364,11 @@ export function initBattleTeams(currentStage, _rng) {
                     const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
+                }
+                // 2026-10-16 弱精英锁定（dev 测试用）：forceWeakElite 命中名册且 M 值对上本数字空位时锁定该具名——
+                //   六大派弱精英「混入正常阵容占 1 位」；本关若无对应 M 空位则不生效（如第 3 关胖远桥组全对象项）
+                if (forceWeakElite && ENEMY_M[forceWeakElite] === mVal && !usedEnemyNames.includes(forceWeakElite)) {
+                    name = forceWeakElite;
                 }
                 // 2026-10-11 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
                 //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。
