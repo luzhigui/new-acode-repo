@@ -1,10 +1,13 @@
+// V6.3.14 | 2026-10-16 综合闪避率下沉导出 computeDodgeChance（公式单点），snapshotUnitForFact 加 export
+//           ——唐文亮·同归于尽反噬「概率直读」消费（modules/26）：miss 判定 getMissBreakdown 直调、
+//           dodge 判定 computeDodgeChance 概率直读，绕开「行动过不能闪避」引擎前置（死人出手不吃该规矩）
 // V6.3.13 | ~32515 bytes | 2026-10-15 圣火令·气运加 requiresHolyFlame 门控（妹拥有永久圣火令后本局击杀掉率×4，数值在 content 小昭.holyTokenLuck）
 // V6.3.12 | 2026-10-14 严阵以待反弹补「小昭·妹永久」分支（团队 buff 过期后妹仍反弹），
 //           门控改 hasBuff || query('xiaoPermanentActive')，两分支互斥不重复
 // V6.3.11 | 2026-10-13 ctx 收口（攻击链签名稳定）：resolveAttackHit / applyAttackResult / buildAttackGroup
 //           的上下文型尾参（log、A、B、state、doubleStrikeUnitUid）合并为单 ctx 对象；core/10 三处调用点同步改传 ctx。
 //           业务参数（unit/target/dmgCalc/allySide/phantomFact 等）保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/12battle-attack-steps.js V6.3.13';
+export const VER = 'core/12battle-attack-steps.js V6.3.14';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -32,7 +35,23 @@ registerDodgeRule((unit, attacker) => {
 const C = CONFIG;
 
 // fact 快照：把 Unit 转换为纯数据对象，供渲染/翻译读取，不保留引用
-function snapshotUnitForFact(unit) {
+// 2026-10-16 综合闪避率（0~1）：规则表各源 + buff 闪避，独立相乘后取补——resolveAttackHit 内部与
+//   外部「概率直读」消费者（唐文亮·同归于尽反噬，绕开「行动过不能闪避」前置时）共用此单点公式。
+//   attacker 参数供规则表按攻击者特判（现有规则不区分，签名与 resolveAttackHit 内调用对齐）
+export function computeDodgeChance(target, attacker, defenderBuffStats) {
+    const rates = [];
+    for (const ruleFn of getDodgeRules()) {
+        const r = ruleFn(target, attacker) || 0;
+        if (r > 0) rates.push(r);
+    }
+    if ((defenderBuffStats && defenderBuffStats.dodgeBonus || 0) > 0) rates.push(defenderBuffStats.dodgeBonus);
+    let product = 1;
+    for (const r of rates) { product *= (1 - r); }
+    return 1 - product;
+}
+
+// 2026-10-16 export snapshotUnitForFact：唐文亮·同归于尽反噬的 MISS/DODGE fact 构造需要同款快照
+export function snapshotUnitForFact(unit) {
     if (!unit) return null;
     return {
         uid: unit.uid,
@@ -163,15 +182,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 dodgeTriggered = true;
             }
         }
-        const rates = [];
-        for (const ruleFn of getDodgeRules()) {
-            const r = ruleFn(target, unit) || 0;
-            if (r > 0) rates.push(r);
-        }
-        if ((defenderBuffStats.dodgeBonus || 0) > 0) rates.push(defenderBuffStats.dodgeBonus);
-        let product = 1;
-        for (const r of rates) { product *= (1 - r); }
-        target.state._dodgeChance = Math.round((1 - product) * 100);
+        // 2026-10-16 综合闪避率下沉 computeDodgeChance（与唐文亮·同归于尽「概率直读」同源，公式单点维护）
+        target.state._dodgeChance = Math.round(computeDodgeChance(target, unit, defenderBuffStats) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
             emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), dodgeCount: target.dodgeCount });
