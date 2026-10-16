@@ -1,3 +1,6 @@
+// V7.1.7 | 2026-10-16 深夜先机纠口径（老板）：占位式→插队式——抢的是出手顺序不是行动权，被顺延队友行动权不丢、
+//           下轮照常出手；插队公告改本组件推 SKILL_ANNOUNCE（👟 点名被顺延者，走 BEFORE_ACTION_SELECT 载荷 log）；
+//           「被先机占用」PASS fact 通道作废（core/11 V6.3.25 / render/35 V1.0.21 同批）
 // V7.1.6 | ~91200 bytes | 2026-10-16 杨逍两改（老板拍板）：①弹指神通点穴率 35%→40%（内容 5.13.12）；②新增「先机」——
 //           每个队友拟出手前各掷一次 40%，命中即声明 core/11 新增的 declaration.jumpConsume：他插到本步队首出手，
 //           且本该出手的那名队友被占用（本回合不再出手、协同一并 −1；core/11 补 PASS fact「被先机占用」，render/35 已同步）；
@@ -27,7 +30,7 @@
 //   同轮：修永久 carry 无限叠加 bug（蛛变声明续 carry 的 addMod 加 group 去重门控，只续一份常驻）
 // V7.0.3 | 2026-10-15 杨逍弹指神通失败反馈（老板实机反馈"发动失败没提示"）：冷却中/概率未中两处早退补 👆 SKILL_ANNOUNCE 灰字
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/27elite-mingjiao.js V7.1.6';
+export const VER = 'modules/27elite-mingjiao.js V7.1.7';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-registry-elite.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -1070,16 +1073,22 @@ export function createYangXiaoComponent() {
             if (!jie) throw new Error('缺技能参数: 杨逍.dianXueJieMai');
             const xian = getSkillParams('杨逍', 'xianJi') || { jumpProb: 0 };
 
-            // ④ 先机：队友每次拟出手前（他还没出手时）掷 40%——命中即抢占本次出手：他插到本步队首出手，
-            //    本步本该出手的那名队友被他占用（本回合不再出手，core/11 置 _acted 并发 PASS fact '被先机占用'）。
-            //    他一旦出过手就不再是候选 → 停止掷骰；他若已站在队友最前（无人可抢）则无从占用，不掷骰。
+            // ④ 先机（2026-10-16 深夜老板纠口径=插队式）：队友拟出手前（他自己还没出手时）各掷一次 jumpProb——
+            //    命中即声明 declaration.jumpConsume=true：他插到本步队首先出手，本该先手的队友只是顺延
+            //    （行动权不丢，下轮本队轮到时照常出手）；他一旦出过手就不再是候选 → 停止掷骰；
+            //    他若已站在队友最前（无人可抢）则无从插队，不掷骰。
             eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.YANGXIAO_JUMP, (data) => {
                 const u = data.unit;
                 if (!u || !u.isYangXiao || !u.alive || u.state._acted) return;
-                const ahead = (data.allySide || []).some(m => m !== u && m.alive && !m.state._acted && m.pos < u.pos);
-                if (!ahead) return;
+                const ahead = (data.allySide || []).filter(m => m !== u && m.alive && !m.state._acted && m.pos < u.pos).sort((a, b) => a.pos - b.pos);
+                if (ahead.length === 0) return;
                 if (getBattleRng().next() >= (xian.jumpProb || 0)) return;
                 data.declaration.jumpConsume = true;
+                // 插队公告（core/11 V6.3.25 起载荷带 log）：点名被顺延的第一名队友，鞋印还是👟
+                if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                    unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '先机',
+                    note: `👟 ${u.name}·先机：抢先出手（${ahead[0].name} 顺延，行动权不丢）`
+                } });
             });
 
             // ① 命中后点穴判定：眩晕 + 禁疗同时挂（data.unit=杨逍，data.target=被命中者）

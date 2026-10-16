@@ -1,4 +1,7 @@
-// V6.3.24 | 2026-10-16 先机占用者补 _jumpConsumed 标记：被占用的队友本回合没出手也不该灰显（render/32 跳过 acted/ready）
+// V6.3.25 | 2026-10-16 深夜先机纠口径（老板）：占位式→插队式——抢的是出手顺序不是行动权，删 V6.3.24 的
+//           _jumpConsumed 与「被先机占用」PASS fact 通道；被顺延队友保持未出手、下轮照常行动；
+//           BEFORE_ACTION_SELECT 载荷加 log（插队公告由 modules/27 推 SKILL_ANNOUNCE，core 不认识杨逍）
+// V6.3.24 | 2026-10-16 先机占用者补 _jumpConsumed 标记（当晚被 V6.3.25 插队式推翻，方案留档）
 // V6.3.23 | ~36100 bytes | 2026-10-16 杨逍「先机」占位式抢先（老板口径）：resolveActionOrder 支持 decl.jumpConsume——
 //           jump 者排队首但 priority 仍 0（isPriorityAction=false，本步仍算本队这一步、出手后照常切换阵营），
 //           同时把「本步本该出手者」（队列里除他外首个非 pass 条目）置 _acted 并补 PASS fact
@@ -35,7 +38,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.24';
+export const VER = 'core/11battle-round.js V6.3.25';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -423,7 +426,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
-            eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide });
+            // 2026-10-16 log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
+            eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide, log });
             // 2026-10-13 组件声明 skip = 本回合不行动：必须就地消费掉行动权，否则该单位
             //   一直 alive && !_acted，外层 while（L367）永不退出 —— 小昭·妹蜘蛛卵卡死即此因
             // 2026-10-16 V6.3.19 补 PASS fact（体检第 96 轮转交）：skip 通道此前只置 _acted、不产任何 fact，
@@ -442,8 +446,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     for (const d of priorityDeclarations) queue.push({ unit: d.unit, isPass: false, priority: d.priority, jump: d.jumpConsume ? 1 : 0, reason: null });
     for (const p of passUnits) queue.push({ unit: p.unit, isPass: true, priority: 0, jump: 0, reason: p.reason });
     queue.sort((a, b) => {
-        // 2026-10-16 杨逍「先机」占位式抢先：jump 者排最前，但 priority 仍 0 ⇒ isPriorityAction=false，
-        //   本步仍算本队这一步（出手后照常切换阵营）；其身前本该出手的那名队友则被占用（见下方 consumed）
+        // 2026-10-16 杨逍「先机」插队式抢先（深夜老板纠口径：抢的是顺序不是行动权）：
+        //   jump 者排最前，但 priority 仍 0 ⇒ isPriorityAction=false，本步仍算本队这一步（出手后照常切换阵营）；
+        //   本该先手的队友不消费行动权——保持未出手状态，下轮本队再轮到时照常出手
         if (a.jump !== b.jump) return b.jump - a.jump;
         if (a.priority !== b.priority) return b.priority - a.priority;
         return a.unit.pos - b.unit.pos;
@@ -452,17 +457,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false, consumed: [] };
     const head = queue[0];
     if (head.isPass) return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false, consumed: [] };
-    // 先机占位：抢占本步后，「本步本该出手者」失去本回合行动
-    //   只认非 pass 条目（眩晕/0攻/生生不息等本就要休息的单位不算「本该出手者」，
-    //   否则会把「眩晕」误标成「被先机占用」）；无人在位则只改顺序、不消费
-    const consumed = [];
-    if (head.jump === 1) {
-        const victim = queue.find(e => e !== head && !e.isPass);
-        // 2026-10-16 _jumpConsumed 标记：被占用者本回合既不出手也不该灰显（render/32 据此跳过 acted/ready），
-        //   与「正常出完手灰显」区分开——没出手就是没出手
-        if (victim) { victim.unit.state._acted = true; victim.unit.state._jumpConsumed = true; consumed.push(victim.unit); }
-    }
-    return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0, consumed };
+    // 插队只改顺序、不消费任何人：原先「占用」逻辑（victim._acted=true + PASS fact）随 V6.3.25 删除
+    return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0, consumed: [] };
     }
 
     let currentSide = state._firstSide || CAMP_TYPES.ENEMY;
@@ -489,15 +485,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         }
         const orderResult = resolveActionOrder(candidates, log);
 
-        // 2026-10-16 杨逍「先机」占位：被占用的队友补一条 PASS fact（reason='被先机占用'）——
-        //   否则该单位 _acted=true 却无任何行动记录 → 回合末不变量报「行动权被吞」（同 V6.3.19 的 skip 通道）。
-        //   文案不给「休息回复」：它是被抢走机会，不是自己休息。
-        for (const victim of (orderResult.consumed || [])) {
-            const vHp = Math.floor(victim.hp);
-            const vFact = { unit: { uid: victim.uid, name: victim.name, camp: victim.camp, pos: victim.pos, hp: victim.hp }, reason: '被先机占用', hpBefore: vHp, hpAfter: vHp, actualHeal: 0, events: [] };
-            vFact.events = flushBattleEvents();
-            log.push({ factType: FACT_TYPES.PASS, data: vFact });
-        }
+        // 2026-10-16 V6.3.25 先机改插队式（老板纠口径）：不再消费队友行动权、不再产「被先机占用」PASS fact——
+        //   插队公告由 modules/27 在掷骰命中时推 SKILL_ANNOUNCE（走 BEFORE_ACTION_SELECT 载荷里的 log）
 
         if (orderResult.passEntry) {
             const { unit, reason } = orderResult.passEntry;
