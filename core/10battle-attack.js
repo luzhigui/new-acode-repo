@@ -235,6 +235,24 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         //   但仍算一次出手」的信号：性奋额外攻击照发并重新选敌（打别人 / 单目标时打第二下）。
         //   位置与 AFTER_ATTACK 一致（_acted 之后），nested 额外攻击行为与非免疫路径完全同构。
         eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, { unit, target, allySide, enemySide, log, A, B, state });
+        // 2026-10-16 修（体检第 97 轮定位·用户授权直接落地）：免疫分支账实不一致——
+        //   破防 modifier 已在 calcFinalDamage 的 BEFORE_DAMAGE_CALC 执行（账本 breakDef 有词条），
+        //   但本分支不走 buildAttackGroup ⇒ 破防 fact 不落 ⇒ 「账上扣了、战报没显示」。
+        //   实证（seed=1 stage=5 r2 峨眉素问→小昭·妹）：pendingDef=2 免疫无 fact，对照器报「多加 2」。
+        //   修法：补一个最小 attack-group 只装破防条目——规则 135 要求破防行必须在攻击组内
+        //   （顶层裸奔会挂「破防行游离在攻击组之外」）；render/34 L136 从组 entries 前置渲染，
+        //   体检 extract 扫组 entries，两条通道都认。零行为差异（纯补记录，不动任何数值/RNG）。
+        if (dmgCalc.pendingDefReduceFact) {
+            const immuneBreakGroup = {
+                type: 'attack-group',
+                attacker: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, atk: Math.floor(unit.atk), hp: fmtHp(unit.hp) },
+                target: { uid: target.uid, name: target.name, camp: target.camp, pos: target.pos, def: Math.floor(target.def), hp: fmtHp(target.hp) },
+                entries: [{ factType: FACT_TYPES.BREAK_DEF, data: dmgCalc.pendingDefReduceFact }],
+                immuneBreak: true,
+                events: []
+            };
+            log.push(immuneBreakGroup);
+        }
         return true;
     }
 
