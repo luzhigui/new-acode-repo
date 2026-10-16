@@ -33,8 +33,12 @@
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.16';
-import { collectNodes, maxHpOf, plain } from '../122health-utils.js';
+// V6.1.17（2026-10-16 第 96 轮）：删判据5「leech 不得超过终局 maxHp」——引擎 core/16 LEECH handler
+//   有 Math.min(value, maxHp-hp) 夹取，fact 的 leechVal 是**意图值**，超终局 maxHp 合法（按缺口落地）；
+//   855d52c 上 seed=16 stage=3「+235>152」即此类误报。真 bug（夹取被删⇒hp 溢出）由 122 不变量
+//   「血量溢出」逐单位每场检查，覆盖不丢。
+export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.17';
+import { collectNodes, plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 
@@ -133,13 +137,12 @@ export const rule98 = {
                 }
             }
 
-            // 判据5：不得越过该单位血量上限（终局 maxHp 兜底，取不到就跳过）
-            var nm = t.match(/(?:🗡️\s*)?(.+?)(?:\s*的嗜血狂刀|嗜血狂刀吸血)/);
-            var mh = nm ? maxHpOf(String(nm[1]).trim(), afterA, afterE) : null;
-            if (mh != null && leech > mh) {
-                return { fail: true, msg: '复发：嗜血狂刀吸血 +' + leech + ' 超过该单位血量上限 ' + mh
-                    + '（吸血未受上限约束）' };
-            }
+            // 判据5（2026-10-16 第 96 轮删除）：原判据「leech 不得超过终局 maxHp」是**错口径冗余**——
+            //   core/16 LEECH handler 有 Math.min(decl.value, maxHp - hp) 夹取，fact 里的 leechVal 是
+            //   **意图值**（dmg×ratio），超过终局 maxHp 完全合法（按缺口夹取后落地）；
+            //   855d52c 上 seed=16 stage=3「+235 > 152」即此类误报（80ba18c 改变战斗进程后第一次被跑到）。
+            //   真 bug 形态（夹取被删 ⇒ hp 溢出）由 122health-utils 不变量「血量溢出：hp>maxHp」逐单位
+            //   每场检查，删此判据不丢覆盖。
         }
 
         // 第二遍：判据3 —— 同一个 attack-group 内同单位登记两次（吸血膨胀）
