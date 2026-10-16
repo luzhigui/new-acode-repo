@@ -1,8 +1,3 @@
-// V3.7.0 | ~126000 bytes | 2026-10-16 第 97 轮：新增 HUI_CHUN 唐文亮回春术契约（46→47）——
-//         主代码 1f0f1c6 新精英回春术（ON_ROUND_START 回 lostHp×pct，通用 HEAL 通道 + hp 审计 group
-//         'huiChun'）——用户点名要求登记。**零转交即严格**（QIAN_KUN_ATK 式新范式第二例）：声明侧
-//         HEAL entry data.label==='回春术' 带 data.heal；实际侧 recordHpAudit 已随主代码落地、同表达式同值。
-//         与 PANG_HIT_HEAL 共用「label 区分归属」口径（通用 HEAL 通道多机制）。
 // V3.6.0 | ~126000 bytes | 2026-10-15 第 94 轮：新增 PANG_HIT_HEAL 胖远桥命中蓄力回血契约（45→46）——
 //         scan-groups 扫地：主代码 a6ab497 蓄力改版（命中回血，走通用 HEAL 通道）后新盲区——
 //         emit 处无记账、无契约。声明侧可观测（HEAL entry data.label==='蓄力回复' 带 data.heal，
@@ -1474,35 +1469,6 @@ const CONTRACTS = [
                 scan(f);
                 if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
-            }
-            return out;
-        }
-    },
-    {
-        // 第 97 轮：唐文亮回春术（主代码 1f0f1c6 新精英，modules/26elite-sixsects-tangwenliang.js L84-97）——
-        //   每回合开始回复自身已损失生命的 hc.lostHpPct。用户点名揪出的未登记 group 'huiChun'。
-        //   **零转交即严格**（QIAN_KUN_ATK 式新范式第二例）：声明侧 HEAL entry data.label==='回春术' 带
-        //   data.heal（可观测）；实际侧记账已随主代码落地（emit 处 recordHpAudit(tw,'huiChun',healed,'回春术')，
-        //   与声明同表达式同值）。用 label 区分（通用 HEAL 通道多机制共用：胖远桥'蓄力回复'/本处'回春术'）。
-        //   归因用 uid（唐文亮唯一，统一 uid 口径）。
-        id: 'HUI_CHUN',
-        label: '唐文亮回春术回复',
-        group: 'huiChun',
-        dir: +1,
-        extract(stepLog) {
-            const out = [];
-            const scan = (f) => {
-                if (!f || !f.data || f.factType !== FACT_TYPES.HEAL) return;
-                const d = f.data;
-                if (d.label !== '回春术') return;
-                if (typeof d.heal !== 'number' || d.heal <= 0) return;
-                if (d.unitUid == null) return;
-                out.push({ unit: null, uid: d.unitUid, stat: 'hp', amount: d.heal });
-            };
-            for (const f of stepLog || []) {
-                scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
-                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
         }
