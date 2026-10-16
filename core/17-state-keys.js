@@ -1,3 +1,5 @@
+// V2.9.13 | ~18500 bytes | 2026-10-16 _linkReason 注释补注：modules/27 鹰王威压/老当益壮已把它当「仅反击命中」判定条件
+//           消费（不再是纯展示；core/10 执行期写 'counterAttack'），字段类型/default 不变
 // V2.9.12 | ~18500 bytes | 2026-10-16 删 _unityChecked / _unityNoRecruit（众志成城改版「一直召唤」：
 //           core/04 不再有「到手已满 5 人即永久不召」的锁与 maxRecruits 上限，两字段作废）
 // V2.9.11 | ~18550 bytes | 2026-10-16 新增 _yinCounterPending（殷天正鹰爪功反击暂存：AFTER_DAMAGE_APPLIED 掷中后
@@ -39,8 +41,9 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _fortifyDefBonus:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _isLinkAttack:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 2026-10-16 被动出手原因（纯展示）：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
-    //   core/12 快照进 attack fact，render 层出【反击】等徽章与头顶飘字；结束即清
+    // 2026-10-16 被动出手原因：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
+    //   core/12 快照进 attack fact，render 层出【反击】等徽章与头顶飘字；结束即清。
+    //   ⚠️ 已被 modules/27 当判定条件消费（鹰王威压/老当益壮仅在 _linkReason==='counterAttack' 时触发），不再是纯展示
     _linkReason:             { type: STATE_FIELD_TYPES.STRING,  default: null },
     _spiderAttacked:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
