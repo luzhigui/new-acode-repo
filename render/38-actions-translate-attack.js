@@ -1,4 +1,7 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
+// V1.0.3 | 2026-10-16 新增读本击 data.qiShangBanner → 组内 BANNER 演出（唐文亮「💢 七伤齐发！」满 7 档横幅）：
+//          老板口径——单位自己产生的攻击前置/特效必须落在**自己的攻击组**里，故横幅不再走组外扁平
+//          SKILL_ANNOUNCE + render/38-stat.bannerText 通道，改为挂本组 data、锚本组 factIndex 出演出
 // V1.0.2 | 2026-10-16 两改（老板报的实机现象）：①MISS/DODGE 翻译器补 isKuLianAttack 透传——宋青书苦练 💪
 //   在「未命中/被闪避」路径也要播（原先唯一发信点在 ATTACK 动作 fx，命中判定 skipped 时无 ATTACK 动作 →
 //   苦练特效整段消失；attacker 快照 state 块本就带 _kuLianActive，无需改引擎）；②makeAttackAction 读本击
@@ -11,7 +14,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '.
 import { makeHealAction } from './38-actions-translate-heal.js';
 // 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate-attack.js V1.0.2';
+export const VER = 'render/38-actions-translate-attack.js V1.0.3';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -414,6 +417,17 @@ function makeAttackAction(data, index) {
             kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT,
             targetUid: attacker.uid,
             dmg: Math.round(data.qiShangSelfDmg),
+            factIndex: index,
+            timing: 'afterText'
+        });
+    }
+
+    // 2026-10-16 唐文亮·七伤齐发（满 7 档）组内横幅：满 7 的横幅文案由 modules/26 写进本击攻击组 data
+    //   （qiShangBanner），这里翻成 BANNER 演出、锚本组 factIndex → 与七伤拳那个攻击块同组播放
+    if (data.qiShangBanner) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.BANNER,
+            text: data.qiShangBanner,
             factIndex: index,
             timing: 'afterText'
         });

@@ -55,3 +55,6 @@ package-lock.json
 
 # 同机多会话协作锁文件（运行时落盘，不入库）
 .session-lock.json
+
+# 临时调试产物（体检/诊断会话生成，用完即弃）
+_repro.*

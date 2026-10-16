@@ -1,5 +1,6 @@
-// V2.9.14 | ~18550 bytes | 2026-10-16 新增 _qiShangCount / _qiShangDmg（唐文亮·七伤拳自损：累计计数「伤己 x/7」+ 本击自损量
-//           展示载体；modules/26 写、AFTER_DAMAGE_APPLIED 把量搬进攻击组 data 供 render/38 飘 💥-N）
+// V2.9.14 | ~18600 bytes | 2026-10-16 唐文亮·七伤拳「本击展示三件套」补两字段（_qiShangNote 报幕文本 /
+//           _qiShangBanner 满 7 横幅）：报幕改挂「本击攻击组」（组 entries 开头 info 行 + 组 data 演出），
+//           组外那条扁平 SKILL_ANNOUNCE 作废；三件套均仅本击有效、搬进组后即清零
 // V2.9.13 | ~18500 bytes | 2026-10-16 _linkReason 注释补注：modules/27 鹰王威压/老当益壮已把它当「仅反击命中」判定条件
 //           消费（不再是纯展示；core/10 执行期写 'counterAttack'），字段类型/default 不变
 // V2.9.12 | ~18500 bytes | 2026-10-16 删 _unityChecked / _unityNoRecruit（众志成城改版「一直召唤」：
@@ -74,10 +75,14 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xiaoHolyFlame:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 2026-10-15 殷天正·老当益壮：反击命中累计的反击概率成长（本局累计，叠加在鹰爪功基础概率上）
     _counterProbBonus:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-16 唐文亮·七伤拳自损累计（整场）：战报行「伤己 x/7」7 档一循环；_qiShangDmg 为「本击自损量」
-    //   展示载体（每次出手前清零，AFTER_DAMAGE_APPLIED 搬进本击攻击组 data.qiShangSelfDmg 供 render/38 飘 💥-N）
+    // 2026-10-16 唐文亮·七伤拳自损累计（整场）：战报行「伤己 x/7」7 档一循环
     _qiShangCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 2026-10-16 唐文亮·七伤拳「本击展示三件套」（仅本击有效：BEFORE_DAMAGE_CALC 写 → AFTER_DAMAGE_APPLIED
+    //   搬进**本击自己的攻击组** → 立即清零）：_qiShangDmg 自损量→组 data.qiShangSelfDmg（render/38 飘 💥-N）、
+    //   _qiShangNote 报幕文本→组 entries 开头 info 行、_qiShangBanner 满 7 横幅→组 data.qiShangBanner（BANNER 演出）
     _qiShangDmg:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _qiShangNote:            { type: STATE_FIELD_TYPES.STRING,  default: null },
+    _qiShangBanner:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 2026-10-16 殷天正·鹰爪功反击暂存（老板拍板「被白骨爪斩杀后不得反击」）：本击命中掷中反击后暂存
     //   待发的额外攻击请求，推迟到 AFTER_ATTACK 相位再出手——那时白骨爪连锁已落地，若他已死则不出手
     _yinCounterPending:      { type: STATE_FIELD_TYPES.OBJECT,  default: null },
