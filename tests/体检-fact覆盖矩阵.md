@@ -625,12 +625,15 @@ import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from 
 - 判据5「leech 不得超过终局 maxHp」是错口径冗余：core/16 LEECH handler 有 Math.min 夹取，fact 的
   leechVal 是意图值，超终局 maxHp 合法。删判据；真 bug（hp 溢出）由 122 不变量覆盖。
 
-### 二、行动权违规（小昭·妹，转交待落地）
+### 二、行动权违规（小昭·妹，**已落地 055e2ac**）
 - 根因：core/11 L368 skip 通道只置 _acted 不产 fact；小昭结茧每回合走 skip（80ba18c 修复孵化时机后
   结茧跨回合 ⇒ 爆发）。打桩时间线见迭代日志第 96 轮。
 - 验证（855d52c 工作区临时补丁）：replay 0 失败/0 违规、static/smoke 退 0。
+- **落地复核 A/B（055e2ac，core/11 V6.3.19）**：干净树 replay **5 类**不变量违规（小昭·妹「_acted=true 但
+  本回合无正常位行动记录」）→ 带改动 **0 类**；张三丰 2 条规则失败（核心机制回归 / 生生不息触发缺失）
+  **两边都在 = 老账**，与本改动无因果。PASS fact 载荷特征（不带数值字段）⇒ 只计入 baseline factsSame 翻转（预期变更）。
 
-===== 主代码改动 START（core/11battle-round.js · resolveActionOrder skip 分支）=====
+### 【已落地】主代码改动（core/11battle-round.js · resolveActionOrder skip 分支）
 ```js
 // 【位置】core/11battle-round.js 的 resolveActionOrder 函数内；定位锚点：搜 `if (decl.skip)`（全文件仅此一处）。
 // 【原状】if (decl.skip) { u.state._acted = true; continue; } —— 只置行动标记，不产任何 fact。
@@ -642,4 +645,4 @@ if (decl.skip) {
     continue;
 }
 ```
-===== 主代码改动 END =====
+===== 已落地 END（055e2ac · core/11 V6.3.19）=====
