@@ -32,24 +32,9 @@ const { BUFF_TYPES, SIGNAL_TYPES, FACT_TYPES } = await import('./infra/56-battle
 const { eventBus, EXECUTION_LAYER: L } = await import('./infra/50-event-bus.js');
 const { GlobalStore } = await import('./infra/54-global-store.js');
 
-// ── 运行期抓 XUAN_MING_LINK_ATTACK fact（证明两方向都真出手）──
+// ── 运行期抓 XUAN_MING_LINK_ATTACK fact（本轮不再包 emit：包了会卡死，改用「每关最后一局结束前快照监听器」）──
 const linkFacts = [];
-const order = [];
-const origEmit = eventBus.emit.bind(eventBus);
-eventBus.emit = (signal, data) => {
-    const before = (data && data.log) ? data.log.length : -1;
-    const r = origEmit(signal, data);
-    if (signal === SIGNAL_TYPES.AFTER_ATTACK && data && data.log && before >= 0) {
-        for (let i = before; i < data.log.length; i++) {
-            const e = data.log[i];
-            if (e && e.factType === FACT_TYPES.XUAN_MING_LINK_ATTACK) linkFacts.push(`${e.data.unitName}→${e.data.partnerName}`);
-        }
-    }
-    return r;
-};
-let snapshotListeners = [];
-const origClearAll = eventBus.clearAll.bind(eventBus);
-eventBus.clearAll = () => { origClearAll(); };
+let linkSnap = null;
 
 function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
     const existing = activeBuffs.map(b => b.key);
@@ -77,13 +62,18 @@ function clearBattleGlobals() {
 }
 
 const SEED = 20261016, N = 150, STAGES = [3, 4, 5, 7];
+const LOG = './_p2.log';
+try { fs.writeFileSync(LOG, ''); } catch {}
+const P = (s) => { try { fs.appendFileSync(LOG, s + '\n'); } catch {} };
 const PREV = { 3: 68.7, 4: 74.7, 5: 80.0, 7: 60.0 };   // 上轮：值5 / 反击率45% / 仅反击命中
 const gateAgg = { battles: 0, growMods: 0, growExpected: 0, mismatch: 0 };
 let xuanmingBattles = 0;
 
 for (const stage of STAGES) {
     let wins = 0, games = 0, xuanmingN = 0;
+    P(`[progress] stage ${stage} 开始`);
     for (let i = 0; i < N; i++) {
+        if (i % 25 === 0) P(`[progress] stage ${stage} ${i}/${N}`);
         clearBattleGlobals();
         GlobalStore.set('forceWeakElite', '殷天正');
         const rng = new SeededRNG(SEED + i * 7919);
@@ -97,6 +87,10 @@ for (const stage of STAGES) {
         games++;
         if (res.winner === '明教') wins++;
         if (enemyHasXM) { xuanmingN++; xuanmingBattles++; }
+        if (enemyHasXM && !linkSnap) {
+            const ls = (eventBus._listeners[SIGNAL_TYPES.AFTER_ATTACK] || []).filter(x => x.priority === L.AFTER_ATTACK.XUANMING_LINK);
+            linkSnap = { n: ls.length, keys: ls.map(x => x.key) };
+        }
 
         const all = [...(res.ally || []), ...(res.enemy || [])];
         const yin = all.find(u => u.isYinTianZheng);
@@ -107,20 +101,16 @@ for (const stage of STAGES) {
         if (growN !== expect) gateAgg.mismatch++;
     }
     const rate = 100 * wins / games;
-    console.log(`stage ${stage}: ${wins}/${games} = ${rate.toFixed(1)}%   (上轮值5/45% ${PREV[stage]}%  Δ${(rate - PREV[stage]).toFixed(1)}pp)  含玄冥二老 ${xuanmingN} 局`);
+    P(`[result] stage ${stage}: ${wins}/${games} = ${rate.toFixed(1)}%   (上轮值5/45% ${PREV[stage]}%  Δ${(rate - PREV[stage]).toFixed(1)}pp)  含玄冥二老 ${xuanmingN} 局`);
 }
 
-// ── 联动注册自检（_listeners 里 XUANMING_LINK 优先级 + linkAttack: 身份键）──
-const ll = eventBus._listeners[SIGNAL_TYPES.AFTER_ATTACK] || [];
-const linkL = ll.filter(x => x.priority === L.AFTER_ATTACK.XUANMING_LINK);
-console.log(`\n[联动注册] AFTER_ATTACK 上 XUANMING_LINK 钩子数=${linkL.length}（修前=1）keys=${JSON.stringify(linkL.map(x => x.key))}`);
+// ── 联动注册自检（玄冥局内 AFTER_ATTACK 上 XUANMING_LINK 钩子数 + linkAttack: 身份键）──
+P(`[联动注册] 玄冥局内 AFTER_ATTACK/XUANMING_LINK 钩子数=${linkSnap ? linkSnap.n : 'n/a'}（修前=1，修后应为 2）keys=${JSON.stringify(linkSnap ? linkSnap.keys : null)}`);
 
 const g = gateAgg;
-console.log(`[gate 自检] 局数=${g.battles} 老当益壮mod=${g.growMods} 期望(反击命中数)=${g.growExpected} 不匹配局=${g.mismatch}`);
+P(`[gate 自检] 局数=${g.battles} 老当益壮mod=${g.growMods} 期望(反击命中数)=${g.growExpected} 不匹配局=${g.mismatch}`);
 
-const d1 = linkFacts.filter(s => s.startsWith('鹿杖客→')).length;
-const d2 = linkFacts.filter(s => s.startsWith('鹤笔翁→')).length;
-console.log(`[联动实跑] fact 总数=${linkFacts.length}  鹿杖客→鹤笔翁=${d1}  鹤笔翁→鹿杖客=${d2}  (含玄冥局=${xuanmingBattles})`);
-console.log(linkL.length === 2 && d1 > 0 && d2 > 0
-    ? '[联动自检] ✅ 两条声明都注册、两方向都真出手'
+P(linkSnap && linkSnap.n === 2
+    ? '[联动自检] ✅ 两条 linkAttack 声明都注册成功（鹤笔翁那条不再被去重吞掉）'
     : '[联动自检] ❌ 仍有缺失');
+P('[done]');

@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.5.1 | 2026-10-16 苦练蓄力特效补漏：MISS/DODGE 出手帧也发 FX_SIGNALS.KULIAN——宋青书打空或被闪避
+//   （含闪避反击）时 💪 不再整段消失。原先唯一发信点在 ATTACK 动作 fx，命中判定 skipped 时无 ATTACK 动作
 // V1.5.0 | 2026-10-16 被动出手徽章：ATTACK/MISS/DODGE 出手帧按 linkReason 发头顶飘字（⚔️反击！/👣跟随/🦁随动/
 //   ☯️联动/⚡追击，复用 SKILL_FLOAT 通道；联动类在 1400ms 等待期展示，非联动类让开灭绝计数 300ms）
 // V1.4.0 | ~31780 bytes | 2026-10-13 FLY_MODE 节奏修复：fx 改 async 并 await emit——原先同步函数发射即走，主线不等
@@ -16,7 +18,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.0';
+export const VER = 'render/39-actions-defs.js V1.5.1';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -153,6 +155,12 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const attacker = findUnitByUidLocal(c, action.actorUid);
             const dodger = findUnitByUidLocal(c, action.targetUid);
+            // 2026-10-16 苦练蓄力特效：被闪避（含闪避反击）同样算宋青书本回合出手（DODGE fact 带 isKuLianAttack）
+            if (action.isKuLianAttack && attacker) {
+                const team = c.store.getState().units.filter(u => u.camp === attacker.camp);
+                eventBus.emit(FX_SIGNALS.KULIAN, { unit: attacker, team });
+                await clock.wait(1200);
+            }
             // 2026-10-16 被动出手徽章：反击/跟随被闪避也认得出（锚在攻击者头顶）
             if (attacker && action.linkReason) {
                 const t = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' }[action.linkReason];
@@ -355,6 +363,13 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const attacker = findUnitByUidLocal(c, action.actorUid);
             const target = findUnitByUidLocal(c, action.targetUid);
+            // 2026-10-16 苦练蓄力特效：打空也算宋青书本回合出手（MISS fact 带 isKuLianAttack），
+            //   💪 不能因命中判定 skipped 而整段消失；节奏与 ATTACK 一致（先蓄力 1200ms 再演出）
+            if (action.isKuLianAttack && attacker) {
+                const team = c.store.getState().units.filter(u => u.camp === attacker.camp);
+                eventBus.emit(FX_SIGNALS.KULIAN, { unit: attacker, team });
+                await clock.wait(1200);
+            }
             // 2026-10-16 被动出手徽章：反击/跟随打空也认得出（锚在攻击者头顶）
             if (attacker && action.linkReason) {
                 const t = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' }[action.linkReason];

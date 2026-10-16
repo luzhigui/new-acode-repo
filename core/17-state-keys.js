@@ -1,3 +1,5 @@
+// V2.9.14 | ~18550 bytes | 2026-10-16 新增 _qiShangCount / _qiShangDmg（唐文亮·七伤拳自损：累计计数「伤己 x/7」+ 本击自损量
+//           展示载体；modules/26 写、AFTER_DAMAGE_APPLIED 把量搬进攻击组 data 供 render/38 飘 💥-N）
 // V2.9.13 | ~18500 bytes | 2026-10-16 _linkReason 注释补注：modules/27 鹰王威压/老当益壮已把它当「仅反击命中」判定条件
 //           消费（不再是纯展示；core/10 执行期写 'counterAttack'），字段类型/default 不变
 // V2.9.12 | ~18500 bytes | 2026-10-16 删 _unityChecked / _unityNoRecruit（众志成城改版「一直召唤」：
@@ -17,7 +19,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.12';
+export const VER = 'core/17-state-keys.js V2.9.14';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -72,6 +74,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xiaoHolyFlame:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 2026-10-15 殷天正·老当益壮：反击命中累计的反击概率成长（本局累计，叠加在鹰爪功基础概率上）
     _counterProbBonus:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 2026-10-16 唐文亮·七伤拳自损累计（整场）：战报行「伤己 x/7」7 档一循环；_qiShangDmg 为「本击自损量」
+    //   展示载体（每次出手前清零，AFTER_DAMAGE_APPLIED 搬进本击攻击组 data.qiShangSelfDmg 供 render/38 飘 💥-N）
+    _qiShangCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _qiShangDmg:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 2026-10-16 殷天正·鹰爪功反击暂存（老板拍板「被白骨爪斩杀后不得反击」）：本击命中掷中反击后暂存
     //   待发的额外攻击请求，推迟到 AFTER_ATTACK 相位再出手——那时白骨爪连锁已落地，若他已死则不出手
     _yinCounterPending:      { type: STATE_FIELD_TYPES.OBJECT,  default: null },
