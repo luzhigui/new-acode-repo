@@ -1,3 +1,5 @@
+// V6.9.8 | ~9650 bytes | 2026-10-16 杨逍「先机」登记两处相位：ROUND_START 增 YANGXIAO_JUMP:36（每回合掷抢先骰）、
+//           BEFORE_ACTION 增 YANGXIAO_PRIORITY:10（本回合抢在队友前出手，复用 core/11 priority 通道）
 // V6.9.7 | ~9600 bytes | 2026-10-16 修「逐条声明钩子被误去重」：on()/registerSettlementHook 增可选 key（钩子身份键），
 //           任一带 key 按 key 判重、都无 key 才回退 toString()——修好玄冥联动 鹤笔翁→鹿杖客 方向失效
 //           （鹤笔翁与鹿杖客两条 linkAttack 声明同安装器 + 同优先级 XUANMING_LINK:10，闭包源码同形 → 第 2 条被吞）
@@ -15,7 +17,7 @@
 //   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
 // ── 更早版本见 记录-更改履历.md
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.7';
+export const VER = 'infra/50-event-bus.js V6.9.8';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -117,9 +119,9 @@ export const eventBus = new EventBus();
  *   状态写入必须在本监听器主流程内完成
  */
 export const EXECUTION_LAYER = {
-    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, MIEJUE_SUMMON: 20, HE_TAICHONG_LINK: 30, JIN_MAI: 35, HOLY_FIRE: 40 },
+    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, MIEJUE_SUMMON: 20, HE_TAICHONG_LINK: 30, JIN_MAI: 35, YANGXIAO_JUMP: 36, HOLY_FIRE: 40 },
     ROUND_END:        { SPIDER_EGG: 5, BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
-    BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
+    BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10, YANGXIAO_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
     AFTER_SELECT_TARGET: { PANG_DECLARE: 10 },
