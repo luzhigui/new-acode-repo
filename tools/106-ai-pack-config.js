@@ -1,9 +1,9 @@
-// V6.0.30 | ~24106 bytes | 2026-10-17 补登记 14 项（import 对账）：modules/27 明教按角色拆分的 9 个组件文件
+// V6.0.30 | ~24207 bytes | 2026-10-17 补登记 14 项（import 对账）：modules/27 明教按角色拆分的 9 个组件文件
 //           （eagle/zhangwuji/weiyixiao/xiaozhao-sister/xiaozhao-brother/xiexun/yangxiao/yintianzheng/hanlisa，27 barrel 已 import 它们，
 //           漏登则包内明教精英全部引用断裂）、modules/26elite-sixsects-tangwenliang.js（26 入口已 registerElite，V6.0.23 六组件批漏掉它）、
 //           fx/90-hanlisa-charge.js（render/32 已 import 的寒离飒蓄力特效）、tests/health-rules/170-taunts-integrity.js
 //           （121 已 import rule114 + 123 SCAN_FILES 已列，同 160-166 判据）、根目录两个寒离飒 demo 页
-//           （126-hanlisa-fx-demo.html / hanlisa-atk-fx-candidates.html，dev-index V6.3.12 入口按钮跳它们，同 125 判据）：core/08-elite-registry.js → core/08-registry-elite.js；
+//           （126-hanlisa-fx-demo.html / hanlisa-atk-fx-candidates.html / hanlisa-fx-compare.html，dev-index「UI 效果 demo」区入口按钮跳它们，同 125 判据；compare 页为 V2.5.x 新加）：core/08-elite-registry.js → core/08-registry-elite.js；
 //           新增 core/20-registry-dodge.js（闪避规则表，自 infra/51 迁入）、core/21-registry-calc.js
 //           （计算修饰器表，自 infra/57 迁入）；删 infra/57-calc-modifier-registry.js 登记
 // V6.0.27 | ~21250 bytes | 2026-10-15 补登记 tools/125-buff-badge-demo.html（dev-index.html 已登记的
@@ -228,7 +228,7 @@ export const ALL_PROJECT_FILES = [
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
     '../index.html', '../dev-index.html',
     // 2026-10-17 补登记两个寒离飒特效 demo 页（dev-index V6.3.12「UI 效果 demo」区入口按钮跳它们，同 125 判据）
-    '../126-hanlisa-fx-demo.html', '../hanlisa-atk-fx-candidates.html'
+    '../126-hanlisa-fx-demo.html', '../hanlisa-atk-fx-candidates.html', '../hanlisa-fx-compare.html'
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
