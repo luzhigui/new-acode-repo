@@ -1,8 +1,10 @@
+// V6.8.3 | ~20900 bytes | 2026-10-17 唐文亮重做：ENEMY_ELITE_POS_PRIORITY 新增 tangWenLiang
+//   （[4,5,6,7,8,9,1,2,3]——标枪射程与站位绑定，恒定落中后排；modules/29 抢位用）
 // V6.8.2 | ~20860 bytes | 2026-10-16 新增 WEAK_ELITE_MIX_RATE：明教弱精英（杨逍/殷天正）随机混入正常阵容的概率（modules/29 用）
 // V6.8.1 | ~20690 bytes | 2026-10-15 删 XIAO_ZHAO_CARRY_MODS（妹永久 carry 改每回合刷新一轮、数值调用精通参数，此常量作废）
 // V6.8.0 | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
 //   新技能 liangyiLink/targetMark/redBlood 的说明占位符一律回落 params（无 mechanics 真值源）
-export const VER = 'core/01config-5v5-test.js V6.8.2';
+export const VER = 'core/01config-5v5-test.js V6.8.3';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -339,7 +341,9 @@ const CONFIG = {
         mieJueShiTai: [2, 1, 3, 4, 5, 6, 7, 8, 9],
         pangYuanQiao: [2, 1, 3, 4, 5, 6, 7, 8, 9],
         luZhangKe: [7, 8, 9, 4, 5, 6, 1, 2, 3],
-        heBiWeng: [3, 4, 5, 6, 7, 8, 9, 1, 2]
+        heBiWeng: [3, 4, 5, 6, 7, 8, 9, 1, 2],
+        // 2026-10-17 唐文亮（标枪弱精英）：恒定落中后排 4~9（射程与站位绑定），1~3 仅作挤占兜底
+        tangWenLiang: [4, 5, 6, 7, 8, 9, 1, 2, 3]
     },
     ENEMY_ELITE_POS_FALLBACK: [1, 2, 3, 4, 5, 6, 7, 8, 9],
     // 阵容 power 兜底（modules/29 用）

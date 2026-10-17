@@ -1,12 +1,14 @@
 {
-  "version": "5.13.12",
-  "updated": "2026-10-16",
+  "version": "5.14.0",
+  "updated": "2026-10-17",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
     "防战": { "icon": "🛡️", "label": "防战", "bonus": { "atk": -8, "def": 2, "maxHp": 45 }, "fortify": { "attackChance": 0.9, "defendChance": 0.8 } },
     "远程": { "icon": "🏹", "label": "远程", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } },
-    "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 }, "baseRegen": 10 }
+    "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 }, "baseRegen": 10 },
+    "标枪": { "icon": "🪠", "label": "标枪", "bonus": { "atk": 3, "def": 3, "maxHp": 30 },
+      "rangeByRow": { "mid": [1, 2, 3, 4, 5, 6], "back": [1, 2, 3] } }
   },
 
   "characters": {
@@ -169,22 +171,28 @@
     },
 
     "唐文亮": {
-      "tags": ["六大派", "崆峒", "战士", "精英"],
+      "tags": ["六大派", "崆峒", "标枪", "精英"],
+      "role": "标枪",
       "skills": {
         "qiShangQuan": {
           "name": "七伤拳",
-          "desc": "每次出手前自损 4% 最大生命（最少 1 点），本次伤害×1.45；自身生命低于 30% 时额外再 +30%（共 ×1.75）",
+          "desc": "每次出手前自损 4% 最大生命（最少 1 点，留 1 血不死），本次伤害×1.45；自身生命低于 30% 时×1.75；自损与「伤己」计数 7 次为一循环",
           "params": { "selfHpPct": 0.04, "minSelfDmg": 1, "dmgBonus": 0.45, "lowHpThreshold": 0.30, "lowHpExtra": 0.30 }
+        },
+        "huiChunShu": {
+          "name": "回春术",
+          "desc": "每次出手后 4% 概率（与七伤拳自损同一概率）叠 1 层；每层每回合开始回复自身已损失生命的 15%（自身生命低于 30% 时为 25%），持续 3 回合，可叠加",
+          "params": { "chance": 0.04, "lostHpPct": 0.15, "lostHpPctLow": 0.25, "lowHpThreshold": 0.30, "rounds": 3 }
+        },
+        "chongCi": {
+          "name": "冲刺·七伤齐发",
+          "desc": "每积满 7 次出手触发：冲到目标同列的己方前排位、并把目标拽到其同列前排位；对目标造成其当前生命 45% 的伤害，自身承受当前生命 45% 的真实伤害；随后再吃一套战士加成、转为近战战士，并必定叠 1 层回春术；本回合冲刺后仍照常普攻一次",
+          "params": { "dmgRatio": 0.45, "selfDmgRatio": 0.45, "cycle": 7 }
         },
         "tongGuiYuJin": {
           "name": "同归于尽",
           "desc": "阵亡时反噬击杀者：对其造成其最大生命 25% 的真实伤害，可直接致死；可能落空（按自身未命中率与目标闪避率判定，找不到凶手时随机反噬一名敌人）",
           "params": { "reflectRatio": 0.25 }
-        },
-        "huiChunShu": {
-          "name": "回春术",
-          "desc": "每回合开始回复自身已损失生命的 20%",
-          "params": { "lostHpPct": 0.20 }
         }
       },
       "taunts": {

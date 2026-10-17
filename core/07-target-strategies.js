@@ -1,12 +1,16 @@
 // core/07-target-strategies.js
+// V1.2.0 | ~3500 bytes | 2026-10-17 新增「标枪」选敌分支（唐文亮·弱精英重做）：中程投射，按自身行段取对方射程内
+//   目标（4~6 号位 → 对方 1~6；7~9 号位 → 对方 1~3），射程内无人则主动放弃（休息）；
+//   射程表来自 content roles.标枪.rangeByRow（数据驱动，站位与射程同源）。分支注册在兜底之前。
 // V1.1.0 | ~3100 bytes | 2026-10-13 新增候选池过滤器注册面 registerTargetPoolFilter（飞行分支取目标前依次过滤）：
 //   杨逍「排除已点穴/截脉的敌人」用——通用飞行分支本身不动，过滤只由模块侧注册的过滤器决定
 // V1.0.0 | 2026-09-24 默认选敌策略注册表：从 core/12 selectAttackTarget 抽出的三分支
 // 与 registerDodgeRule 同模式：策略按注册顺序跑，第一个非 null 胜出。
 // 声明层（BEFORE_SELECT_TARGET）优先于本表——声明给出 targetResult 时根本不会进本表。
-export const VER = 'core/07-target-strategies.js V1.1.0';
+export const VER = 'core/07-target-strategies.js V1.2.0';
 
 import { getFronts } from './03battle-utils.js';
+import { getGameData } from './01config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 const _strategies = [];
@@ -78,6 +82,17 @@ registerTargetStrategy((unit, validTargets, ctx) => {
     const fronts = getFronts(validTargets);
     if (fronts.length === 0) return { abort: true };
     return { target: fronts[ctx.rng.nextInt(0, fronts.length - 1)] };
+});
+
+// 标枪：中程投射——按自身行段取对方射程内目标（4~6 号位打对方 1~6，7~9 号位只打对方 1~3）；
+//   射程内无人 → 主动放弃（休息，不走兜底）。射程表读 content roles.标枪.rangeByRow（数据驱动）
+registerTargetStrategy((unit, validTargets, ctx) => {
+    if (unit.role !== ROLE_TYPES.JAVELIN) return null;
+    const rowKey = unit.pos >= 7 ? 'back' : 'mid';
+    const range = getGameData()?.roles?.[ROLE_TYPES.JAVELIN]?.rangeByRow?.[rowKey] || [];
+    const pool = validTargets.filter(t => range.includes(t.pos));
+    if (pool.length === 0) return { abort: true };
+    return { target: pool[ctx.rng.nextInt(0, pool.length - 1)] };
 });
 
 // 兜底：全随机

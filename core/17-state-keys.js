@@ -1,3 +1,5 @@
+// V2.9.18 | 2026-10-17 唐文亮重做：新增 _hcStacks（回春术层数数组，可叠加）；
+//           _qiShangCount 语义由「自损次数」改为「出手次数」（满 7 触发冲刺）
 // V2.9.16 | 2026-10-16 删 _jumpConsumed（先机改插队式后无人写入；V2.9.15 的键当晚作废，方案见 core/11 V6.3.25）
 // V2.9.14 | ~18600 bytes | 2026-10-16 唐文亮·七伤拳「本击展示三件套」补两字段（_qiShangNote 报幕文本 /
 //           _qiShangBanner 满 7 横幅）：报幕改挂「本击攻击组」（组 entries 开头 info 行 + 组 data 演出），
@@ -21,7 +23,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.16';
+export const VER = 'core/17-state-keys.js V2.9.17';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -76,8 +78,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xiaoHolyFlame:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 2026-10-15 殷天正·老当益壮：反击命中累计的反击概率成长（本局累计，叠加在鹰爪功基础概率上）
     _counterProbBonus:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-16 唐文亮·七伤拳自损累计（整场）：战报行「伤己 x/7」7 档一循环
+    // 2026-10-16 唐文亮·七伤拳自损累计（整场）：战报行「伤己 x/7」7 档一循环；
+    //   2026-10-17 重做后改为「每次出手」计数（AFTER_SELECT_TARGET 递增，命中/闪避都计），满 7 触发冲刺·七伤齐发
     _qiShangCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 2026-10-17 唐文亮·回春术层数（整场，可叠加）：数组每项=该层剩余回合数；
+    //   每回合开始每层回自身已损生命的 lostHpPct（血 <30% 时 lostHpPctLow），减 1 回合、归零即移除
+    _hcStacks:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 2026-10-16 唐文亮·七伤拳「本击展示三件套」（仅本击有效：BEFORE_DAMAGE_CALC 写 → AFTER_DAMAGE_APPLIED
     //   搬进**本击自己的攻击组** → 立即清零）：_qiShangDmg 自损量→组 data.qiShangSelfDmg（render/38 飘 💥-N）、
     //   _qiShangNote 报幕文本→组 entries 开头 info 行、_qiShangBanner 满 7 横幅→组 data.qiShangBanner（BANNER 演出）
