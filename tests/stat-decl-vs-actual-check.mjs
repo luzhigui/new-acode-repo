@@ -153,7 +153,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.3.1';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.7.1';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1470,6 +1470,87 @@ const CONTRACTS = [
                 if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
+            return out;
+        }
+    },
+    {
+        // 第 97 轮（2026-10-17）重加：唐文亮回春术（HUI_CHUN）——该契约 10-16 登记后被并行会话
+        //   旧版 stat-decl（VER 回退 V3.3.1）覆盖丢失，本轮 scan-groups 揪出后重补。形态同 PANG_HIT_HEAL：
+        //   通用 HEAL 通道、label 区分归属（胖远桥'蓄力回复'/本处'回春术'）、零转交即严格。
+        id: 'HUI_CHUN',
+        label: '唐文亮回春术回复',
+        group: 'huiChun',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.HEAL) return;
+                const d = f.data;
+                if (d.label !== '回春术') return;
+                if (typeof d.heal !== 'number' || d.heal <= 0) return;
+                if (d.unitUid == null) return;
+                out.push({ unit: null, uid: d.unitUid, stat: 'hp', amount: d.heal });
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 97 轮（2026-10-17）盲区清扫：殷天正鹰王威压（yingWangWeiYa）——每次鹰爪功反击命中后
+        //   永久削目标攻/防各 atkDown/defDown（content 现 3/3，可无限叠加）。声明侧在攻击组内 info 文本
+        //   （pushInfo：「🦅 殷天正鹰王威压：{目标} 攻 −3、防 −3（永久累积）」）——文本解析式可观测
+        //   （数值与单位名都在文本里，同 T1/146 文本通道先例）。归因走同名歧义守卫（countName≠1 跳过）。
+        id: 'YING_WANG_WEI_YA',
+        label: '殷天正鹰王威压削敌',
+        group: 'yingWangWeiYa',
+        dir: -1,
+        allowNeg: true,
+        extract(stepLog) {
+            const out = [];
+            const scanText = (t) => {
+                const m = t.match(/殷天正鹰王威压：(.+?) 攻 −(\d+)、防 −(\d+)/);
+                if (!m) return;
+                out.push({ unit: m[1], stat: 'atk', amount: Number(m[2]) });
+                out.push({ unit: m[1], stat: 'def', amount: Number(m[3]) });
+            };
+            const scan = (e) => {
+                if (!e) return;
+                if (e.type === 'info' && typeof e.text === 'string' && e.text.indexOf('鹰王威压') !== -1) scanText(e.text);
+                if (e.data && Array.isArray(e.data.entries)) for (const x of e.data.entries) scan(x);
+                if (Array.isArray(e.entries)) for (const e2 of e.entries) scan(e2);
+            };
+            for (const f of stepLog || []) scan(f);
+            return out;
+        }
+    },
+    {
+        // 第 97 轮（2026-10-17）盲区清扫：殷天正老当益壮（laoDangYiZhuang）——每次鹰爪功反击命中后
+        //   自身永久 +攻/防各 atkGain/defGain（content 现 5/5）+ 反击率累计。声明侧同为攻击组内 info 文本
+        //   （pushInfo：「💪 殷天正老当益壮：攻 +5、防 +5、反击率 +5%」）——文本解析式。自身单位名固定
+        //   取「殷天正」（同名歧义时由引擎侧 countName 守卫跳过，宁漏勿误）。
+        id: 'LAO_DANG_YI_ZHUANG',
+        label: '殷天正老当益壮成长',
+        group: 'laoDangYiZhuang',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e) return;
+                if (e.type === 'info' && typeof e.text === 'string') {
+                    const m = e.text.match(/殷天正老当益壮：攻 \+(\d+)、防 \+(\d+)/);
+                    if (m) {
+                        out.push({ unit: '殷天正', stat: 'atk', amount: Number(m[1]) });
+                        out.push({ unit: '殷天正', stat: 'def', amount: Number(m[2]) });
+                    }
+                }
+                if (e.data && Array.isArray(e.data.entries)) for (const x of e.data.entries) scan(x);
+                if (Array.isArray(e.entries)) for (const e2 of e.entries) scan(e2);
+            };
+            for (const f of stepLog || []) scan(f);
             return out;
         }
     }

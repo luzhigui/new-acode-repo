@@ -84,7 +84,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.10';
+export const VER = 'tests/mutation-teeth.mjs V2.9.11';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -123,7 +123,7 @@ const MUTATIONS = [
     //   modules/27elite-mingjiao.js（L45 addMod atk，与 def/maxHp 同源），故 file 改指新位置；
     //   `{ source: '近战切换', value: atkGain,` 在该文件唯一（defGain/maxHpGain 变量名不同）。
     { id: 'A4', kind: 'ATTR', desc: '张无忌近战切换加攻翻倍',
-      file: 'modules/27elite-mingjiao.js',
+      file: 'modules/27elite-mingjiao-zhangwuji.js',
       from: "{ source: '近战切换', value: atkGain,",
       to:   "{ source: '近战切换', value: atkGain * 2," },
     { id: 'A5', kind: 'ATTR', desc: '流星赶月溅射成长翻倍',
@@ -145,7 +145,7 @@ const MUTATIONS = [
     //   全仓无处设 'right'）⇒ atkRatio=0 ⇒ atkTransfer 恒 0 ⇒ `value: atkTransfer * 2` 是个 no-op，
     //   baseline 与 _base 逐字节相同。改锚 **def** 那行：left 时 defRatio=bp.defRatioLeft=0.5，值非零，变异真正生效。
     { id: 'A8', kind: 'ATTR', desc: '蝶变附身防御转移翻倍',
-      file: 'modules/27elite-mingjiao.js',
+      file: 'modules/27elite-mingjiao-xiaozhao-sister.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
       to:   "{ source: '蝶变附身', value: defTransfer * 2," },
     // V2.9.1 | 2026-10-08 第 60 轮：A9 锚点因 八卦阵机制重写（defGain 防御增益 → 付费触发扣 atkCost 攻击力）失效，
@@ -180,13 +180,13 @@ const MUTATIONS = [
       from: "addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });",
       to:   "addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty * 2, ttl: 'permanent', group: 'xingFenCost', op: 'add' });" },
     { id: 'A14', kind: 'ATTR', desc: '雄狮振奋加攻翻倍',
-      file: 'modules/27elite-mingjiao.js',
+      file: 'modules/27elite-mingjiao-xiexun.js',
       from: "{ source: '振奋', value: gain,",
       to:   "{ source: '振奋', value: gain * 2," },
     // 2026-10-02 审核线修锚点：modules/27 V6.4.4 成长差值先落变量（L704 defDelta），旧内联串 0 匹配、变异静默失效。
     //   新锚点只改 addMod 实际侧（L707）；不能改 L704 的 defDelta——L717 fact 同源引用它，改了声明/实际一起翻、对照器看不出。
     { id: 'A15', kind: 'ATTR', desc: '幼狮成长防御增量翻倍',
-      file: 'modules/27elite-mingjiao.js',
+      file: 'modules/27elite-mingjiao-xiexun.js',
       from: "{ source: '幼狮成长', value: defDelta, ttl: 'permanent', group: 'lionGrow', op: 'add' }",
       to:   "{ source: '幼狮成长', value: defDelta * 2, ttl: 'permanent', group: 'lionGrow', op: 'add' }" },
     // 第 48 轮新增：--scan-groups 查出 rangedGrowth 是「词条数第 6 多的未覆盖 group」（540 条），
@@ -212,7 +212,7 @@ const MUTATIONS = [
       from: "{ source: '苦练', value: atkDelta,",
       to:   "{ source: '苦练', value: atkDelta + 1," },
     { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（改 0，非整数倍判据必漏）',
-      file: 'modules/27elite-mingjiao.js',
+      file: 'modules/27elite-mingjiao-xiaozhao-sister.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
       to:   "{ source: '蝶变附身', value: 0," },
     { id: 'T1', kind: 'TEXT', desc: '破防日志写 -（reduce+5）（实际仍只扣 reduce）',
