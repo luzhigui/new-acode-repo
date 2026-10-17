@@ -1,57 +1,9 @@
-// V6.3.27 | ~40300 bytes | 2026-10-17 prepareRoundStart 第3步删死代码：applyTeamRoundBuffs 内 computeBuffStats
-//           死调用及只服务它的 carry 拼阵亡队友拼接一并删除（computeDodgeChance 内的 computeBuffStats 保留）。
-// V6.3.26 | ~38000 bytes | 2026-10-17 prepareRoundStart 拆阶段（第1步·纯搬，零行为变化）：
-//           clearRoundEntries / spawnHorsesAndPickDoubleStrike / prepareRoundSpawns / installRoundMechanics /
-//           linkPartners / prepareSoulDrain / computeDodgeChance 七个阶段子函数；主函数仅编排，A/B 循环原样保留。
-// V6.3.25 | 2026-10-16 深夜先机纠口径（老板）：占位式→插队式——抢的是出手顺序不是行动权，删 V6.3.24 的
-//           _jumpConsumed 与「被先机占用」PASS fact 通道；被顺延队友保持未出手、下轮照常行动；
-//           BEFORE_ACTION_SELECT 载荷加 log（插队公告由 modules/27 推 SKILL_ANNOUNCE，core 不认识杨逍）
-// V6.3.24 | 2026-10-16 先机占用者补 _jumpConsumed 标记（当晚被 V6.3.25 插队式推翻，方案留档）
-// V6.3.23 | ~36100 bytes | 2026-10-16 杨逍「先机」占位式抢先（老板口径）：resolveActionOrder 支持 decl.jumpConsume——
-//           jump 者排队首但 priority 仍 0（isPriorityAction=false，本步仍算本队这一步、出手后照常切换阵营），
-//           同时把「本步本该出手者」（队列里除他外首个非 pass 条目）置 _acted 并补 PASS fact
-//           （reason='被先机占用'，render/35 已同步）——队伍本次出手次数真的 −1
-// V6.3.29 | ~40300 bytes | 2026-10-17 重名保护取消（老板拍板「完全真技能」）：工厂循环删 dupRecruitNames
-//           同名召唤物跳过组件注册 的逻辑；普通工厂分支 register 增传第 5 参 self=当前单位，组件以此认自己；
-//           回合组件（小昭·姊/妹）分支不传。配套 core/04 V6.6.0（补员不再 clearHeroFlags）。
-// V6.3.28 | ~40300 bytes | 2026-10-17 众志成城持续回合 5→3（content unity.duration 同步，本文件注释一并改 3）
-// V6.3.22 | ~35800 bytes | 2026-10-16 「0 攻不发起攻击」通则化（老板拍板）：resolveActionOrder 删 isHorse/isLionCub
-//           两个身份特判，改为「getStat(u,'atk') <= 0 一律走休息通道」——对全体单位生效（含众志成城 0 攻补员）；
-//           休息回复 +15 名单同步加「无力攻击」（拒马/幼狮保留原 reason 文案，render/35 同款名单已同步）
-// V6.3.21 | ~35700 bytes | 2026-10-16 圣火不熄与判负时序修复（老板拍板方案 A·新语义）：团灭判定把「排队复活」的单位
-//           （state._holyFire/_holyFireSelf === 'pending'）算作未死透——阵亡当帧只记 pending、真正落位在下一个行动步
-//           开头（BEFORE_STATE_TRANSITION），此前最后一名单位阵亡会当步末直接判负并结束战斗，复活永远等不到那一步
-//           （回合兜底也到不了）。新口径只作用于团灭判定（步末 + 回合末两处）；落位失败时 revive 首行已把标记改 'used'，
-//           故不会无限延长战斗。同批：注释里众志成城 M 值 30→20（content 同步）
-// V6.3.20 | ~35570 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 调用点去掉
-//           已弃用的 state 形参（新逻辑不再读 _unityChecked/_unityNoRecruit 锁，改「补满 5 + 每回合 +1」）
-// V6.3.19 | ~35570 bytes | 2026-10-16 skip 通道补 PASS fact（体检第 96 轮转交）：组件声明 skip（小昭·妹蜘蛛卵结茧 /
-//           蝶变附身中）此前只置 _acted、不产任何 fact ⇒ 回合末不变量报「行动权被吞」；现就地推一条与 passEntry
-//           同结构的 PASS fact（reason 按 _spiderEgg 区分「蜘蛛卵结茧 / 组件声明skip」），检查器与渲染器同款消费
-// V6.3.18 | ~31200 bytes | 2026-10-16 众志成城召唤物重名保护（老板拍板「重名可保留、不得引出别的 bug」）：
-//           prepareRoundStart 组件工厂循环前算 dupRecruitNames（与场上其他单位同名的 isUnityRecruit），
-//           循环内跳过这些白板召唤物的组件注册（同名原版已注册，重复注册会让 declarations/hook 翻倍）；
-//           搭档连线扫描排除 isUnityRecruit（防召唤物顶替阵亡原版被配对）
-// V6.3.17 | ~31000 bytes | 2026-10-15 第二批内容接线：import 补 applyLastStandBonus/applyUnityBonus/spawnUnityRecruits；
-//           prepareRoundStart 在 spawnCarryEagle 之后、组件工厂循环之前调 spawnUnityRecruits(A/B)（众志成城补员，
-//           当回合即挂技能），A/B 两侧 applyCarryBonus 之后各调 applyLastStandBonus/applyUnityBonus（背水一战残血增伤、众志成城人数阶梯）
-// V6.3.16 | ~30400 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：prepareRoundStart 在 buff 变换器重算
-//           activeBuffs 之后、组件工厂循环之前调 spawnCarryEagle(A/B)——5 号位无人则召唤雄鹰顶位（当回合即注册技能）
-// V6.3.15 | ~30300 bytes | 2026-10-15 妹永久摄魂「点名 2 回合」调度（老板拍板削弱）：重置后、ON_ROUND_START 前，
-//           先对双方 _soulDrainRounds 存量 -1，再由 preparePermanentSoulDrain 各方向随机点名 1 名敌方（非马/非召唤物）
-// V6.3.14 | ~29900 bytes | 2026-10-14 applySoulDrain 两处调用点补传 casterSide（施法方队伍）——
-//           core/04 靠它判「小昭·妹永久续上」「小昭·姊增强」，只加字段不改签名
-// V6.3.13 | 2026-10-13 修死循环：组件声明 skip 时必须把该单位 state._acted 置 true
-//           （原先只 continue 不消费行动权，跳过选招的单位会一直 alive && !_acted，回合内 while 永不退出）。
-//           实际踩雷：小昭·妹蜘蛛卵（modules/27 submitSpiderSkipDeclaration）——单英雄跑批约 1/4 概率整局卡死
-// V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
-//           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
-//           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
+// 版本历史见 记录-更改履历.md（检索 "core/11battle-round"）
 export const VER = 'core/11battle-round.js V6.3.29';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
-import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './03battle-utils.js';   // 2026-10-08 清死import×8（特判收口后失业：makeFXSnapshot/getUnitCol/getUnitRow/hasAnyEnemyEmptyCol/countEnemyEmptyCols/getBloodAuraBonus/registerEmptyColBonus）
+import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
@@ -71,7 +23,7 @@ import { resolveDeaths } from './12battle-attack-steps.js';
 
 const C = CONFIG;
 
-// 2026-10-16 圣火不熄与判负时序（老板拍板方案 A·新语义）：阵亡当帧只记 state._holyFire='pending'，
+// 圣火不熄与判负时序（方案 A·新语义）：阵亡当帧只记 state._holyFire='pending'，
 //   真正复活落位要等「下一个行动步开头」的 BEFORE_STATE_TRANSITION（core/04 flushHolyFire）；
 //   而团灭判定在当步末就执行 —— 最后一名单位阵亡时战斗当场结束，排队的复活永远等不到那一步。
 //   新语义：有排队复活的单位视作「未死透」，不参与团灭判定，让流程走到复活落位再定胜负。
@@ -83,7 +35,7 @@ function teamAliveOrPending(team) {
     return team.some(u => u.alive || isRevivePending(u));
 }
 
-// ───────────────────────── prepareRoundStart 阶段子函数（V6.3.26 纯搬） ─────────────────────────
+// ───────────────────────── prepareRoundStart 阶段子函数 ─────────────────────────
 
 // 阶段1：切当回合 activeBuffs、清理上回合 round 词条（永久/附身保留）、清战场态、推 ROUND_START。
 function clearRoundEntries(A, B, state, ctx) {
@@ -152,8 +104,8 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
 
 // 阶段3：圣火令 buff 变换器重算（之后重切 activeBuffs）→ 召雄鹰 → 众志成城补员。
 function prepareRoundSpawns(A, B, state, ctx) {
-    // 2026-10-08 V7.5.13 圣火令增强迁 modules/27：回合开始 buff 变换器注册面，
-    //   同位置同条件画 rng（序不变，基线二分保障）；无增强者在变换器内部走默认行列重画
+    // 圣火令增强迁 modules/27：回合开始 buff 变换器注册面，同位置同条件画 rng（序不变，基线二分保障）；
+    //   无增强者在变换器内部走默认行列重画
     for (const [buffKey, transformBuff] of getBuffRoundTransformers()) {
         state.activeBuffs = state.activeBuffs.map(b => (b.key === buffKey ? transformBuff(b, ctx.rng, A, B) : b));
     }
@@ -161,12 +113,12 @@ function prepareRoundSpawns(A, B, state, ctx) {
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
     // 圣火令统一在下面的回合开始循环里施加，此处不再重复登记词条
 
-    // 2026-10-14 carry 放开 5 号位门槛：5 号位无人则召唤雄鹰顶位（每队整局 1 只）。
+    // carry 放开 5 号位门槛：5 号位无人则召唤雄鹰顶位（每队整局 1 只）。
     //   必须早于下方组件工厂循环 —— 雄鹰当回合就在 A/B 里，才能被注册面挂上技能。
     spawnCarryEagle(A, ctx.log);
     spawnCarryEagle(B, ctx.log);
 
-    // 2026-10-16 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M20/技能全开，
+    // 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M20/技能全开，
     //   持续由 content unity.duration:3 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);
@@ -191,11 +143,11 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     registerDoubleStrike(eventBus, ds.unitUid, A, A._activeBuffs);
     registerDoubleStrike(eventBus, ds.enemyUid, B, B._activeBuffs);
     // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
-    // 2026-10-05 修静默 bug：不能闭包本函数 ctx.log——它在回合开始步 yield 后就被主循环换成新数组，
-    //   此后 fact 全推进无人读的死数组（数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
+    // 不能闭包本函数 ctx.log——它在回合开始步 yield 后就被主循环换成新数组，此后 fact 全推进无人读的死数组
+    //   （数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
     eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, 30, (data) => { onUnitDeathFlyerRegen(data, A, B, data.log); });
 
-    // 2026-10-08 V7.5.13 工厂循环泛化（原双组件特判分支）：回合组件标记在 modules 侧注册（core/08 注册面），
+    // 工厂循环泛化（原双组件特判分支）：回合组件标记在 modules 侧注册（core/08 注册面），
     //   引擎按「工厂名+camp」识别——每轮首个存活同名单位实例化一次、每个同名单位都 register、
     //   实例保留供主循环相位调度（不收 declarations，与原特判分支一致）。
     //   原联动工厂查询为死代码（全库无此注册、恒 undefined），已删——真联动在 core/10 跟随攻击链。
@@ -204,9 +156,9 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     const roundComps = [];
     const roundCompByName = new Map();
     const allUnits = [...A, ...B];
-    // 2026-10-17 重名保护取消（配套 core/04 V6.6.0）：补员精英不再降级白板、不再按名字跳过注册——
+    // 重名保护取消（配套 core/04 同批）：补员精英不再降级白板、不再按名字跳过注册——
     //   普通工厂分支给每个单位注册独立组件实例并传第 5 参 self（register(eventBus,A,B,log,self)）：
-    //   组件内部以此认「自己」（个体 hook 按 uid 守卫、全局 hook 仅首个实例挂，见各 26/27 组件 V*），
+    //   组件内部以此认「自己」（个体 hook 按 uid 守卫、全局 hook 仅首个实例挂，见各 26/27 组件），
     //   同名共存 = 多实例各管各的，不再二选一。回合组件（小昭·姊/妹）保持单例调度、不传 self。
     //   installDeclaredSkills/installFromGameData 的声明按 decl.name 匹配所有同名单位，天然多实例。
     for (const u of allUnits) {
@@ -236,8 +188,7 @@ function installRoundMechanics(A, B, state, ctx, ds) {
 
 // 阶段5：搭档连线（仅扫敌方 B，配对双方互挂 _linkedPartnerUid）。
 function linkPartners(A, B) {
-    // 2026-10-08 V7.5.13 搭档连线泛化：配对知识在英雄模块侧注册（原两对搭档内联连线）；
-    //   原版仅扫敌方 B，保持
+    // 搭档连线泛化：配对知识在英雄模块侧注册（原两对搭档内联连线）；原版仅扫敌方 B，保持
     for (const [partnerA, partnerB] of getLinkPartnerPairs()) {
         const ua = B.find(u => u.name === partnerA && u.alive && !u.isUnityRecruit);
         const ub = B.find(u => u.name === partnerB && u.alive && !u.isUnityRecruit);
@@ -250,7 +201,7 @@ function prepareSoulDrain(A, B, ctx) {
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
 
-    // 2026-10-14 妹永久摄魂「点名 2 回合」：先递减存量（挂标当回合算 1，共 2 回合），再各方向随机点名 1 名敌方
+    // 妹永久摄魂「点名 2 回合」：先递减存量（挂标当回合算 1，共 2 回合），再各方向随机点名 1 名敌方
     A.forEach(u => { if (u.state._soulDrainRounds > 0) u.state._soulDrainRounds -= 1; });
     B.forEach(u => { if (u.state._soulDrainRounds > 0) u.state._soulDrainRounds -= 1; });
     preparePermanentSoulDrain(A, B, { rng: ctx.rng });
@@ -327,7 +278,7 @@ function prepareRoundStart(A, B, state, ctx) {
 
     A._butterflyTriggered = false;
     A._mindControlTriggered = false;
-    // 2026-10-12 摄魂逆风补偿用：本回合双方存活单位数快照（非马，与 L60/67 挑人、苦练「全队非马存活单位」同口径）
+    // 摄魂逆风补偿用：本回合双方存活单位数快照（非马，与 L60/67 挑人、苦练「全队非马存活单位」同口径）
     const aliveCountA = A.filter(x => x.alive && !x.isHorse).length;
     const aliveCountB = B.filter(x => x.alive && !x.isHorse).length;
 
@@ -339,7 +290,7 @@ function prepareRoundStart(A, B, state, ctx) {
 
     logBuffSummary(A, { log: ctx.log, doubleStrikeUid: ds.unitUid });
 
-    // 2026-10-08 默认飞行方向迁回合组件 register（幂等 ||=，无人中途清空 → 每轮设与首轮设等价）
+    // 默认飞行方向迁回合组件 register（幂等 ||=，无人中途清空 → 每轮设与首轮设等价）
 
     const roundStartEvents = flushBattleEvents();
     return { doubleStrikeUnitUid: ds.unitUid, roundStartEvents, roundComps };
@@ -371,7 +322,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     let log = [];
     let round = state.round;
 
-    // 2026-10-11 状态源唯一：本步为每个单位冻结一份真值（getStat 现算），随 step 下发。
+    // 状态源唯一：本步为每个单位冻结一份真值（getStat 现算），随 step 下发。
     //   下游（player/42 → render/32）只读它，不再从 _mods 词条原料现算，也不再从日志 snap 单点捞
     //   （那些路径都受引擎活体共享影响，回放/联机读到终态 → 「格子防37/日志防56」的根因）。
     //   冻结时刻 = 本步末（引擎此刻状态）。含全单位：死掉的 hp=0、新召唤的也在 A/B 里。
@@ -414,8 +365,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             B._pendingStateTransitions = [];
         }
         eventBus.emit(SIGNAL_TYPES.BEFORE_STATE_TRANSITION, { A, B, log, declarations: stateTransitions });
-        // 2026-10-08 V7.5.13 状态迁移通用分发（原 sisterComp/brotherComp if-else 链）：
-        //   路由表在 modules/27 注册，deferred 的攒下回合、即时的当场执行
+        // 状态迁移通用分发（原 sisterComp/brotherComp if-else 链）：路由表在 modules/27 注册，
+        //   deferred 的攒下回合、即时的当场执行
         const delayedDecls = [];
         for (const decl of stateTransitions) {
             const spec = getStateTransitionSpec(decl.type);
@@ -437,29 +388,26 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         for (const u of sortedByPos) {
             if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
-            // 2026-10-16 通则化（老板拍板）：攻=0 的单位一律不发起攻击，走休息通道——
-            //   原「拒马 / 幼狮 0 攻不攻击」是身份特判，现上升为对所有单位生效的通则（含众志成城 0 攻补员）；
-            //   被振奋之类加攻词条抬到 >0 即恢复出战（职业是防战 → core/12 走防战公式）。
-            //   文案保留身份：拒马用「拒马休息」、幼狮用「幼狮休息」（render/35 有专属文案），其余统一「无力攻击」。
+            // 通则化：攻=0 的单位一律不发起攻击，走休息通道——原「拒马 / 幼狮 0 攻不攻击」是身份特判，
+            //   现上升为对所有单位生效的通则（含众志成城 0 攻补员）；被振奋之类加攻词条抬到 >0 即恢复出战
+            //   （职业是防战 → core/12 走防战公式）。文案保留身份：拒马「拒马休息」、幼狮「幼狮休息」，其余「无力攻击」。
             if (getStat(u, 'atk') <= 0) {
                 passUnits.push({ unit: u, reason: u.isHorse ? '拒马休息' : (u.isLionCub ? '幼狮休息' : '无力攻击') });
                 continue;
             }
-            // 2026-09-17 「不争」者不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
-            //   2026-10-08 改数据旗：endlessBreath 由 content 技能声明驱动（applyHeroFlags 自动设）
+            // 「不争」者不攻击：走"生生不息"休息通道；endlessBreath 由 content 技能声明驱动（applyHeroFlags 自动设）
             if (u.endlessBreath) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
-            // 2026-10-16 log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
+            // log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide, log });
-            // 2026-10-13 组件声明 skip = 本回合不行动：必须就地消费掉行动权，否则该单位
-            //   一直 alive && !_acted，外层 while（L367）永不退出 —— 小昭·妹蜘蛛卵卡死即此因
-            // 2026-10-16 V6.3.19 补 PASS fact（体检第 96 轮转交）：skip 通道此前只置 _acted、不产任何 fact，
-            //   回合末不变量据此报「行动权被吞」（小昭·妹蜘蛛卵结茧每回合走此路，855d52c 上 4 类违规）。
-            //   补一条与下方 passEntry 同结构的 PASS fact（检查器/渲染器同款消费），条数随结茧回合落入战报。
+            // 组件声明 skip = 本回合不行动：必须就地消费掉行动权，否则该单位一直 alive && !_acted，
+            //   外层 while 永不退出 —— 小昭·妹蜘蛛卵卡死即此因。
+            //   补 PASS fact：skip 通道此前只置 _acted、不产任何 fact，回合末不变量报「行动权被吞」
+            //   （小昭·妹蜘蛛卵结茧每回合走此路）。补一条与下方 passEntry 同结构的 PASS fact（检查器/渲染器同款消费）。
             if (decl.skip) {
                 u.state._acted = true;
                 log.push({ factType: FACT_TYPES.PASS, data: { unit: { uid: u.uid, name: u.name, camp: u.camp, pos: u.pos, hp: u.hp }, reason: u.state._spiderEgg ? '蜘蛛卵结茧' : '组件声明skip', hpBefore: Math.floor(u.hp), hpAfter: Math.floor(u.hp), actualHeal: 0, events: [] } });
@@ -473,9 +421,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     for (const d of priorityDeclarations) queue.push({ unit: d.unit, isPass: false, priority: d.priority, jump: d.jumpConsume ? 1 : 0, reason: null });
     for (const p of passUnits) queue.push({ unit: p.unit, isPass: true, priority: 0, jump: 0, reason: p.reason });
     queue.sort((a, b) => {
-        // 2026-10-16 杨逍「先机」插队式抢先（深夜老板纠口径：抢的是顺序不是行动权）：
-        //   jump 者排最前，但 priority 仍 0 ⇒ isPriorityAction=false，本步仍算本队这一步（出手后照常切换阵营）；
-        //   本该先手的队友不消费行动权——保持未出手状态，下轮本队再轮到时照常出手
+        // 杨逍「先机」插队式抢先（纠口径：抢的是顺序不是行动权）：jump 者排最前，但 priority 仍 0 ⇒
+        //   isPriorityAction=false，本步仍算本队这一步（出手后照常切换阵营）；本该先手的队友不消费行动权
+        //   ——保持未出手状态，下轮本队再轮到时照常出手
         if (a.jump !== b.jump) return b.jump - a.jump;
         if (a.priority !== b.priority) return b.priority - a.priority;
         return a.unit.pos - b.unit.pos;
@@ -484,7 +432,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false, consumed: [] };
     const head = queue[0];
     if (head.isPass) return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false, consumed: [] };
-    // 插队只改顺序、不消费任何人：原先「占用」逻辑（victim._acted=true + PASS fact）随 V6.3.25 删除
+    // 插队只改顺序、不消费任何人：原先「占用」逻辑（victim._acted=true + PASS fact）已删除
     return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0, consumed: [] };
     }
 
@@ -492,8 +440,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
     while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
         const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
-        // 2026-10-08 V7.5.13 首个友方回合相位（原蝶附身触发内联版）：回合组件实现 onFirstAllyTurn
-        //   钩子（组件自找目标触发附身），返回 true = 插播一段演出，主循环 yield 一步
+        // 首个友方回合相位（原蝶附身触发内联版）：回合组件实现 onFirstAllyTurn 钩子
+        //   （组件自找目标触发附身），返回 true = 插播一段演出，主循环 yield 一步
         if (currentSide === CAMP_TYPES.ALLY && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
             for (const comp of roundComps) {
@@ -512,7 +460,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         }
         const orderResult = resolveActionOrder(candidates, log);
 
-        // 2026-10-16 V6.3.25 先机改插队式（老板纠口径）：不再消费队友行动权、不再产「被先机占用」PASS fact——
+        // 先机改插队式（纠口径）：不再消费队友行动权、不再产「被先机占用」PASS fact——
         //   插队公告由 modules/27 在掷骰命中时推 SKILL_ANNOUNCE（走 BEFORE_ACTION_SELECT 载荷里的 log）
 
         if (orderResult.passEntry) {
@@ -522,7 +470,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const hpBefore = Math.floor(unit.hp);
             let hpAfter = hpBefore;
             let actualHeal = 0;
-            // 2026-09-17 生生不息移到组件层（监听 ON_UNIT_ACTED），core 不再写角色名
+            // 生生不息移到组件层（监听 ON_UNIT_ACTED），core 不再写角色名
             if (unit.alive && (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击')) {
                 applyStatChange(unit, 'hp', 15, null, '休息回复');
                 hpAfter = Math.floor(unit.hp);
@@ -531,7 +479,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const passFact = { unit: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, hp: unit.hp }, reason, hpBefore, hpAfter, actualHeal, events: [] };
             passFact.events = flushBattleEvents();
             log.push({ factType: FACT_TYPES.PASS, data: passFact });
-            // 2026-09-17 行动完成广播（休息/遮挡/生生不息都算一次行动）
+            // 行动完成广播（休息/遮挡/生生不息都算一次行动）
             eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide: currentTeam, enemySide: unit.camp === CAMP_TYPES.ALLY ? B : A, log });
             continue;
         }
@@ -553,7 +501,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         resolveDeaths(A, B, log);
-        // 2026-09-17 行动完成广播（攻击成功/未命中/被闪避都算走完一次）
+        // 行动完成广播（攻击成功/未命中/被闪避都算走完一次）
         eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide, enemySide, log });
 
         if (!isPriorityAction) {
@@ -572,15 +520,15 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         }
         resolveDeaths(A, B, log);
         const stepEvents = flushBattleEvents();
-        // 2026-10-16 圣火不熄修复：排队复活的单位算存活，团灭判定推迟到复活落位之后
+        // 圣火不熄修复：排队复活的单位算存活，团灭判定推迟到复活落位之后
         const allyAlive = teamAliveOrPending(A);
         const enemyAlive = teamAliveOrPending(B);
         let winner = null;
         let done = false;
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
-        // 2026-09-17 不争（防拖平局）：敌方仅剩「不争」单位 → 明教直接获胜
-        //   2026-10-08 V7.5.13 改数据旗：noContend 由 content 技能声明驱动（applyHeroFlags 自动设），引擎不认英雄
+        // 不争（防拖平局）：敌方仅剩「不争」单位 → 明教直接获胜；noContend 由 content 技能声明驱动
+        //   （applyHeroFlags 自动设），引擎不认英雄
         else {
             const bAlive = B.filter(u => u.alive);
             if (bAlive.length === 1 && bAlive[0].noContend) {
@@ -637,7 +585,7 @@ function finalizeRoundEnd(A, B, ctx) {
 
     let winner = null;
     let done = false;
-    // 2026-10-16 圣火不熄修复（同步末口径）：回合最后一手阵亡时 pending 复活者不算团灭，
+    // 圣火不熄修复（同步末口径）：回合最后一手阵亡时 pending 复活者不算团灭，
     //   让流程进入下一回合由 flushHolyFireRoundStart 兜底复活后再定胜负
     if (!teamAliveOrPending(B)) { winner = '明教'; done = true; }
     else if (!teamAliveOrPending(A)) { winner = '六大派'; done = true; }

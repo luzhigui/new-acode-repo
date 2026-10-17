@@ -1,36 +1,4 @@
-// V2.9.21 | 2026-10-17 寒离飒半伤改「逐目标重算一次普攻」（不再取上一击固定值）：删 _hlsLastDmg、_hlsBurstAt
-//           （爆发演出改由 fx/93 走 FX_SIGNALS.HANLISA_BURST，不再经 state）
-// V2.9.20 | 2026-10-17 寒离飒蓄力演出：新增 _hlsBurstAt（爆发时刻，clock.now，只给 fx/90 按逻辑时间播长动画）
-// V2.9.19 | 2026-10-17 寒离飒（明教·战士·弱精英）：新增 _shield / _shieldAbsorbed（通用护盾值 + 本击吸收量）、
-//           _hlsJiuYangDone / _hlsHanBingDone（本局九阳/寒毒各触发过一次）、_hlsCharging（0 无 / 1 待蓄力 / 2 蓄力中）、
-//           _hlsLastDmg（上一次普攻伤害，蓄力结算取半）、_hlsTaken（最近三回合承伤桶）、_hlsHanDu（自挂寒毒 DoT）
-// V2.9.18 | 2026-10-17 唐文亮重做：新增 _hcStacks（回春术层数数组，可叠加）；
-//           _qiShangCount 语义由「自损次数」改为「出手次数」（满 7 触发冲刺）
-// V2.9.16 | 2026-10-16 删 _jumpConsumed（先机改插队式后无人写入；V2.9.15 的键当晚作废，方案见 core/11 V6.3.25）
-// V2.9.14 | ~18600 bytes | 2026-10-16 唐文亮·七伤拳「本击展示三件套」补两字段（_qiShangNote 报幕文本 /
-//           _qiShangBanner 满 7 横幅）：报幕改挂「本击攻击组」（组 entries 开头 info 行 + 组 data 演出），
-//           组外那条扁平 SKILL_ANNOUNCE 作废；三件套均仅本击有效、搬进组后即清零
-// V2.9.13 | ~18500 bytes | 2026-10-16 _linkReason 注释补注：modules/27 鹰王威压/老当益壮已把它当「仅反击命中」判定条件
-//           消费（不再是纯展示；core/10 执行期写 'counterAttack'），字段类型/default 不变
-// V2.9.12 | ~18500 bytes | 2026-10-16 删 _unityChecked / _unityNoRecruit（众志成城改版「一直召唤」：
-//           core/04 不再有「到手已满 5 人即永久不召」的锁与 maxRecruits 上限，两字段作废）
-// V2.9.11 | ~18550 bytes | 2026-10-16 新增 _yinCounterPending（殷天正鹰爪功反击暂存：AFTER_DAMAGE_APPLIED 掷中后
-//           暂存本击的额外攻击请求，AFTER_ATTACK 相位才出手——避开白骨爪连锁斩杀后仍反击，modules/27 消费）
-// V2.9.10 | ~16000 bytes | 2026-10-16 新增 _carryEagleDone（carry 雄鹰一次性判定锁：仅 carry 首次生效那回合判一次
-//           5 号位，之后不补招；core/04 spawnCarryEagle 消费）
-// V2.9.8 | 2026-10-16 新增 _killerUid（击杀者 uid 记账：core/13 致死出口写、唐文亮同归于尽反噬消费）
-// V2.9.7 | ~15900 bytes | 2026-10-15 第二批内容：新增 _unityChecked / _unityNoRecruit（众志成城补员门槛与锁）、
-//           _counterProbBonus（殷天正·老当益壮反击概率累计成长，modules/27 消费）
-// V2.9.6 | ~15700 bytes | 2026-10-15 删 _nineYinFirstDone（周芷若白骨爪取消「每回合首击必发」门槛，
-//           改为每次出手第一爪必发，该回合级旗标作废）
-// V2.9.5 | ~15580 bytes | 2026-10-15 新增 _clumsyMult（胖远桥打歪本击随机伤害倍率，modules/26-pang 掷、core/12 消费）
-// V2.9.4 | 2026-10-15 新增 _xiaoCarryDeaths（妹永久carry死亡计数桶）、_xiaoHolyFlame（妹永久圣火令每回合行列表）
-// V2.9.3 | 2026-10-14 新增 _soulDrainRounds（摄魂·妹永久「点名 2 回合」计数，core/11 每回合先 -1 再点名）
-// V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
-// V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
-// ── 更早版本见 记录-更改履历.md
-// V2.9.22 | 2026-10-17 谢逊多实例化配套：BATTLE_STATE_SCHEMA 新增 _lionOwnerUid（幼狮归属，整场级跨回合保留）；
-//           漏登记则 clone 时字段丢失 → 幼狮跨回合后成长被跳过（seed42/stage3 回归根因）
+// 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
 export const VER = 'core/17-state-keys.js V2.9.22';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
@@ -55,7 +23,7 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _fortifyDefBonus:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _isLinkAttack:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 2026-10-16 被动出手原因：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
+    // 被动出手原因：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
     //   core/12 快照进 attack fact，render 层出【反击】等徽章与头顶飘字；结束即清。
     //   ⚠️ 已被 modules/27 当判定条件消费（鹰王威压/老当益壮仅在 _linkReason==='counterAttack' 时触发），不再是纯展示
     _linkReason:             { type: STATE_FIELD_TYPES.STRING,  default: null },
@@ -71,7 +39,7 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
 
 // 整场状态：跨回合持续，不重置
 export const BATTLE_STATE_SCHEMA = Object.freeze({
-    // 2026-10-17 谢逊幼狮归属（多实例化）：召唤时写召唤者 uid，成长/振奋/随动按此认主——整场级，跨回合克隆保留
+    // 谢逊幼狮归属（多实例化）：召唤时写召唤者 uid，成长/振奋/随动按此认主——整场级，跨回合克隆保留
     _lionOwnerUid:           { type: STATE_FIELD_TYPES.STRING,  default: null },
     _isDead:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
@@ -86,27 +54,27 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xiaoCarryDeaths:        { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 妹永久圣火令每回合行列表 {cols,rows}（回合初蛛变掷骰，core/14 按妹落位命中判攻防加成）
     _xiaoHolyFlame:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // 2026-10-15 殷天正·老当益壮：反击命中累计的反击概率成长（本局累计，叠加在鹰爪功基础概率上）
+    // 殷天正·老当益壮：反击命中累计的反击概率成长（本局累计，叠加在鹰爪功基础概率上）
     _counterProbBonus:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-16 唐文亮·七伤拳自损累计（整场）：战报行「伤己 x/7」7 档一循环；
-    //   2026-10-17 重做后改为「每次出手」计数（AFTER_SELECT_TARGET 递增，命中/闪避都计），满 7 触发冲刺·七伤齐发
+    // 唐文亮·七伤拳计数（整场）：战报行「伤己 x/7」7 档一循环；重做后改为「每次出手」计数
+    //   （AFTER_SELECT_TARGET 递增，命中/闪避都计），满 7 触发冲刺·七伤齐发
     _qiShangCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-17 唐文亮·回春术层数（整场，可叠加）：数组每项=该层剩余回合数；
+    // 唐文亮·回春术层数（整场，可叠加）：数组每项=该层剩余回合数；
     //   每回合开始每层回自身已损生命的 lostHpPct（血 <30% 时 lostHpPctLow），减 1 回合、归零即移除
     _hcStacks:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
-    // 2026-10-16 唐文亮·七伤拳「本击展示三件套」（仅本击有效：BEFORE_DAMAGE_CALC 写 → AFTER_DAMAGE_APPLIED
+    // 唐文亮·七伤拳「本击展示三件套」（仅本击有效：BEFORE_DAMAGE_CALC 写 → AFTER_DAMAGE_APPLIED
     //   搬进**本击自己的攻击组** → 立即清零）：_qiShangDmg 自损量→组 data.qiShangSelfDmg（render/38 飘 💥-N）、
     //   _qiShangNote 报幕文本→组 entries 开头 info 行、_qiShangBanner 满 7 横幅→组 data.qiShangBanner（BANNER 演出）
     _qiShangDmg:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _qiShangNote:            { type: STATE_FIELD_TYPES.STRING,  default: null },
     _qiShangBanner:          { type: STATE_FIELD_TYPES.STRING,  default: null },
-    // 2026-10-16 殷天正·鹰爪功反击暂存（老板拍板「被白骨爪斩杀后不得反击」）：本击命中掷中反击后暂存
+    // 殷天正·鹰爪功反击暂存（定案「被白骨爪斩杀后不得反击」）：本击命中掷中反击后暂存
     //   待发的额外攻击请求，推迟到 AFTER_ATTACK 相位再出手——那时白骨爪连锁已落地，若他已死则不出手
     _yinCounterPending:      { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // 2026-10-17 通用护盾（数值 = 剩余可吸收伤害；core/12 攻击扣血前先扣盾）：寒离飒蓄力时挂 20% 最大生命
+    // 通用护盾（数值 = 剩余可吸收伤害；core/12 攻击扣血前先扣盾）：寒离飒蓄力时挂 20% 最大生命
     _shield:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _shieldAbsorbed:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-17 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
+    // 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
     _hlsJiuYangDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _hlsHanBingDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 蓄力相位：0 未蓄力 / 1 已触发待下回合蓄 / 2 本回合蓄力（跳过行动）
@@ -115,9 +83,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // 2026-10-16 carry 雄鹰一次性判定（老板拍板）：只在 carry「首次生效」那回合判一次 5 号位——
-    //   那回合 5 号位有人即本局永不招（之后空出来也不补），招了之后雄鹰阵亡也不补。
-    //   core/04 spawnCarryEagle 在 hasBuff 判过后查本字段：任一单位带标即整队跳过（锁写在此，跨回合随 clone 存活）
+    // carry 雄鹰一次性判定：只在 carry「首次生效」那回合判一次 5 号位——那回合 5 号位有人即本局永不招
+    //   （之后空出来也不补），招了之后雄鹰阵亡也不补。core/04 spawnCarryEagle 在 hasBuff 判过后查本字段：
+    //   任一单位带标即整队跳过（锁写在此，跨回合随 clone 存活）
     _carryEagleDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _butterflyAtk:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyDef:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -140,7 +108,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredDeath:   { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 小昭·妹蜘蛛卵（2026-10-13）：毒/反伤致死绕过飞天 → 原地结茧；卵期计满 2 回合末孵化
+    // 小昭·妹蜘蛛卵：毒/反伤致死绕过飞天 → 原地结茧；卵期计满 2 回合末孵化
     _spiderEgg:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderEggUsed:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderEggRounds:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -183,7 +151,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 圣火不熄海克斯：每局首次己方非巨马阵亡时写在阵亡者本体上——'pending' 待复活 / 'used' 本局已复活。
     //   必须 battle 级（跨回合保留）：队伍数组每回合重建，挂数组过不了回合边界（同 _pendingZhouPos 理由）
     _holyFire:               { type: STATE_FIELD_TYPES.STRING,  default: null },
-    // 小昭·妹专属复活名额（2026-10-14）：妹永久 holyFire 的独立名额，与团队 _holyFire 名额叠加、互不占用
+    // 小昭·妹专属复活名额：妹永久 holyFire 的独立名额，与团队 _holyFire 名额叠加、互不占用
     _holyFireSelf:           { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 杨逍·点穴冷却：同一目标 cdRounds 回合内最多被点一次（回合开始递减，>0 即免疫本次点穴判定）
     _dianXueCd:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -219,7 +187,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xingFenExtraAttacking:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 2026-10-16 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
+    // 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },
 });
 

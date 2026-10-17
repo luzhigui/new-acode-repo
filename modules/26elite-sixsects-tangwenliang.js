@@ -2,16 +2,7 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-// V7.0.0 | ~13400 bytes | 2026-10-17 重做（老板拍板）：初始职业改「标枪」（content characters.唐文亮.role，
-//   中程投射、天然不吃遮挡；生成时已随职业吃标枪 bonus，本组件不再补）。三技能全量重写：
-//   ① 七伤拳保留自损 + 增伤，「伤己 x/7」计数改挂 AFTER_SELECT_TARGET（每次出手即计，命中/闪避都算）
-//   ② 回春术改版：每次出手 4% 概率叠 1 层；每层每回合开始回自身已损生命的 15%（血 <30% 时 25%），
-//      持续 3 回合、可叠加（层数数组 _hcStacks，逐层回血、逐层递减）；旧「回合开始固定回 20%」删除
-//   ③ 新增冲刺·七伤齐发：第 7 次出手时冲到「目标同列」的己方前排（1/2/3 对应列），并把对方 456/789
-//      的目标拽到其 123 位；这一击打对方 = 对方当前生命 45%，自伤 = 自身当前生命 45%（均为真伤，自伤留 1 血
-//      不致死）；随后叠一套战士加成、转「战士」近战，且本回合照常再普攻一次（冲刺在本击选敌完成后、
-//      命中判定前完成，攻击流程自然接续）；冲刺这一击必叠 1 层回春术；之后普攻循环、继续攒 7 层满 7 再冲，可反复
-//   ④ 同归于尽整段保留（阵亡反噬击杀者，扣其最大生命 25% 真伤，可落空、可直接致死）
+// 版本历史见 记录-更改履历.md（检索 "modules/26elite-sixsects-tangwenliang"）
 export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
@@ -81,7 +72,7 @@ export function createTangWenLiangComponent() {
                 if (toSelf > 0) applyStatChange(tw, 'hp', -toSelf, null, '冲刺·七伤齐发自损', false);
 
                 addRoleBonus(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士');
-                // 2026-10-17 数值声明 fact（TW_DASH_APPLY）：op:add 永久职业加成，atk/def/maxHp 与 addMod value 同值
+                // 数值声明 fact（TW_DASH_APPLY）：op:add 永久职业加成，atk/def/maxHp 与 addMod value 同值
                 //   （getRoleBonus(WARRIOR)），供体检按加法增量口径核对；纯记账、零游戏逻辑副作用（不进画面）。
                 const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
                 if (outLog) outLog.push({ factType: FACT_TYPES.TW_DASH_APPLY, data: { unitName: tw.name, unitUid: tw.uid, camp: tw.camp, atk: rb.atk, def: rb.def, maxHp: rb.maxHp } });
@@ -182,10 +173,9 @@ export function createTangWenLiangComponent() {
                 if (data.log) data.log.push({ factType: FACT_TYPES.HEAL, data: {
                     unitName: tw.name, unitUid: tw.uid, heal: total,
                     hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(Math.min(tw.maxHp, tw.hp + total)),
-                    // 2026-10-17 第 97 轮修飘字锚点静默失效：原 anchorVerb:'回复' 与正文前缀 label
-                    //   '回春术' 不一致 ⇒ 锚「回复+N」不是正文「🌿 回春术+N」子串，飘字永不触发
-                    //   （体检飘字锚点对齐规则实证 9 处）。删 anchorVerb 回退 label 兜底（render/36：
-                    //   anchorVerb || label）——胖远桥'蓄力回复'之所以没事是其 label 本身含'回复'。
+                    // 修飘字锚点静默失效：原 anchorVerb:'回复' 与正文前缀 label '回春术' 不一致 ⇒ 锚「回复+N」
+                    //   不是正文「🌿 回春术+N」子串，飘字永不触发。删 anchorVerb 回退 label 兜底（render/36：
+                    //   anchorVerb || label）——胖远桥'蓄力回复'没事是其 label 本身含'回复'。
                     icon: '🌿', label: '回春术', mode: 'plusTrail'
                 } });
             });
