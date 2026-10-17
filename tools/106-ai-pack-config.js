@@ -1,4 +1,9 @@
-// V6.0.28 | ~21400 bytes | 2026-10-16 注册面归位批：core/08-elite-registry.js → core/08-registry-elite.js；
+// V6.0.30 | ~24106 bytes | 2026-10-17 补登记 14 项（import 对账）：modules/27 明教按角色拆分的 9 个组件文件
+//           （eagle/zhangwuji/weiyixiao/xiaozhao-sister/xiaozhao-brother/xiexun/yangxiao/yintianzheng/hanlisa，27 barrel 已 import 它们，
+//           漏登则包内明教精英全部引用断裂）、modules/26elite-sixsects-tangwenliang.js（26 入口已 registerElite，V6.0.23 六组件批漏掉它）、
+//           fx/90-hanlisa-charge.js（render/32 已 import 的寒离飒蓄力特效）、tests/health-rules/170-taunts-integrity.js
+//           （121 已 import rule114 + 123 SCAN_FILES 已列，同 160-166 判据）、根目录两个寒离飒 demo 页
+//           （126-hanlisa-fx-demo.html / hanlisa-atk-fx-candidates.html，dev-index V6.3.12 入口按钮跳它们，同 125 判据）：core/08-elite-registry.js → core/08-registry-elite.js；
 //           新增 core/20-registry-dodge.js（闪避规则表，自 infra/51 迁入）、core/21-registry-calc.js
 //           （计算修饰器表，自 infra/57 迁入）；删 infra/57-calc-modifier-registry.js 登记
 // V6.0.27 | ~21250 bytes | 2026-10-15 补登记 tools/125-buff-badge-demo.html（dev-index.html 已登记的
@@ -43,7 +48,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.29';
+export const VER = 'tools/106-ai-pack-config.js V6.0.30';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -102,17 +107,26 @@ export const ALL_PROJECT_FILES = [
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
-    '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js', '../fx/93-hanlisa-burst.js',
+    '../fx/90fx-ref-manager.js', '../fx/90-hanlisa-charge.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js', '../fx/93-hanlisa-burst.js',
     // modules（通用系统 + 精英角色组件）
     // 2026-10-02 补登记 00reg-mechanics：机制装配统一入口（ui/61 唯一 import 点，25/26/27/30 经它装载）
     '../modules/00reg-mechanics.js',
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
+    // 2026-10-17 补登记 27 九组件：27elite-mingjiao.js 拆成 barrel + 8 角色文件（V7.2.0 纯搬零行为）后新增
+    //   寒离飒（新精英）——27 barrel 逐字 import 它们，漏登则包内明教精英全部引用断裂
+    '../modules/27elite-mingjiao-eagle.js', '../modules/27elite-mingjiao-hanlisa.js',
+    '../modules/27elite-mingjiao-zhangwuji.js', '../modules/27elite-mingjiao-weiyixiao.js',
+    '../modules/27elite-mingjiao-xiaozhao-sister.js', '../modules/27elite-mingjiao-xiaozhao-brother.js',
+    '../modules/27elite-mingjiao-xiexun.js', '../modules/27elite-mingjiao-yangxiao.js',
+    '../modules/27elite-mingjiao-yintianzheng.js',
     // 2026-10-13 补登记 26 六组件：26elite-sixsects.js 拆分出的组件文件（26 入口 import 它们，漏登则包内引用断裂）
     '../modules/26elite-sixsects-songqingshu.js', '../modules/26elite-sixsects-zhouzhiruo.js',
     '../modules/26elite-sixsects-zhangsanfeng.js', '../modules/26elite-sixsects-pangyuanqiao.js',
     '../modules/26elite-sixsects-miejueshitai.js', '../modules/26elite-sixsects-hetaichong.js',
+    // 2026-10-17 补登记：唐文亮组件文件（26 入口已 registerElite，V6.0.23 六组件批时它尚未拆出、后拆时漏登）
+    '../modules/26elite-sixsects-tangwenliang.js',
     '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
@@ -179,6 +193,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/164-leech-maxhp.js',
     '../tests/health-rules/165-miejue-redesign.js',
     '../tests/health-rules/166-mind-control-swap.js',
+    // 2026-10-17 补登记 170：121health-monitor.js 已 import rule114、123static-scan.js SCAN_FILES 已列（台词池双向一致性，同 160-166 判据）
+    '../tests/health-rules/170-taunts-integrity.js',
     // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）
@@ -210,7 +226,9 @@ export const ALL_PROJECT_FILES = [
     '../assets/icon-source.webp',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-    '../index.html', '../dev-index.html'
+    '../index.html', '../dev-index.html',
+    // 2026-10-17 补登记两个寒离飒特效 demo 页（dev-index V6.3.12「UI 效果 demo」区入口按钮跳它们，同 125 判据）
+    '../126-hanlisa-fx-demo.html', '../hanlisa-atk-fx-candidates.html'
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
