@@ -1,7 +1,7 @@
 // 回归规则：玄冥二老联动吞回合 — 修复后 partner.state._acted = wasActed 恢复联动前状态
 // 复发信号：玄冥联动多次发生，但搭档（跟随者）从无自己发起的攻击（被吞回合）
 // 对应已修 Bug：玄冥二老联动吞回合（partner.state._acted 被无条件设 true）
-export const VER = 'tests/health-rules/126-xuanming-link.js V6.0.0';
+export const VER = 'tests/health-rules/126-xuanming-link.js V6.1.0';
 
 export const rule73 = {
     group: '精英技能回归',
@@ -20,7 +20,11 @@ export const rule73 = {
         if (linkPartners.length === 0) return 'skip';
 
         // 找搭档的 uid
-        var allUnits = (beforeA || []).concat(beforeE || []);
+        // 2026-10-17 第 97 轮修：众志成城补员（unity）会战中召唤玄冥二老克隆（开局快照没有），
+        //   旧逻辑只查 beforeA/beforeE ⇒ uid 映射空 ⇒ soloAttackCount 恒 0 误报「吞回合」
+        //   （实证 seed=15 stage=2：场上鹿杖客/鹤笔翁全是补员克隆，联动补击都有 atk 行）。
+        //   修法：uid 来源合并终局快照（含补员）。
+        var allUnits = (beforeA || []).concat(beforeE || []).concat(afterA || []).concat(afterE || []);
         var partnerUids = {};
         for (var p = 0; p < linkPartners.length; p++) {
             for (var u = 0; u < allUnits.length; u++) {
