@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.12 | ~18450 bytes | 2026-10-17 「🎨 UI 效果 demo」区补两个寒离飒特效 demo 入口：👊 126-hanlisa-fx-demo.html（蓄力变体A）、🥊 hanlisa-atk-fx-candidates.html（4 版候选）——两页均在仓库根目录、自包含。
+<!-- V6.3.12 | ~18600 bytes | 2026-10-17 「🎨 UI 效果 demo」区补寒离飒特效三入口：126-hanlisa-fx-demo.html（蓄力变体A，已上线）、hanlisa-atk-fx-candidates.html（普攻 4 候选待选）、hanlisa-fx-compare.html（现状 vs 增量提案对比待拍板）——三页均在仓库根目录、自包含、当前页跳转。
      V6.3.11 | ~18150 bytes | 2026-10-17 弱精英按钮 logo 调整：👊 拳头由唐文亮让给寒离飒（🌀→👊），唐文亮改「👹 野蛮人」鬼面。
      V6.3.10 | ~18000 bytes | 2026-10-17 弱精英锁定补「🌀 寒离飒」（明教·战士·M107，与杨逍同走 mingWeakPool 混入）。V6.3.9 | ~17800 bytes | 2026-10-16 弱精英锁定按钮补齐：除殷天正/唐文亮外补「🐦 杨逍」「🗡 何太冲」——明教弱精英池（杨逍/殷天正）+ 六大派 M104 具名池（何太冲/唐文亮）全覆盖。V6.3.8 新增弱精英锁定按钮（🦅 殷天正 / 👊 唐文亮，写 _forceWeakElite → modules/29 必出该弱精英，只占正常阵容 1 位）。V6.3.7 | ~17000 bytes | 2026-10-15 「🎨 UI 效果 demo」改指向 tools/125-buff-badge-demo.html（V2 重做：真机样式逐行复制 + 只挂圣火不熄 + 量出格子实际宽度）。V6.3.6 主入口增「🎨 UI 效果 demo」区。V6.3.5 「文档与准则」区整理：补 btnTestRunner 死按钮 handler（→ tests/体检迭代日志.md）、btnGameDesign 指向改 02 游戏设定、标签/缩进对齐、删除与 btnShop 重复的圣火令商店临时入口 <a>；页面版本号统一 V6.3.5。V6.3.4 工具三入口当前页跳转（全站 12 入口零弹窗） -->
 <html lang="zh-CN">
@@ -56,7 +56,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.3.11 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.3.12 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -100,8 +100,9 @@
             <div class="section-title">🎨 UI 效果 demo</div>
             <div class="btn-grid">
                 <button class="big-btn btn-tool" id="btnBuffBadgeDemo">🕯️ 圣火不熄 logo 位置（真机 UI 对比）</button>
-                <button class="big-btn btn-tool" id="btnHanlisaFxDemo">👊 寒离飒技能特效 demo（蓄力变体A）</button>
-                <button class="big-btn btn-tool" id="btnHanlisaAtkCandidates">🥊 寒离飒攻击特效候选（4 版对比）</button>
+                <button class="big-btn btn-tool" id="btnHanlisaFxDemo">👊 寒离飒技能特效 demo（蓄力变体A·已上线）</button>
+                <button class="big-btn btn-tool" id="btnHanlisaAtkCandidates">🥊 寒离飒攻击特效候选（4 版对比·待选）</button>
+                <button class="big-btn btn-tool" id="btnHlsFxCompare">🆚 寒离飒特效 · 现状 vs 增量提案（待拍板）</button>
             </div>
         </div>
 
@@ -180,6 +181,10 @@
         // 寒离飒攻击特效候选：4 版招式并列供挑选（自包含页面，仓库根目录）
         document.getElementById('btnHanlisaAtkCandidates').addEventListener('click', () => {
             window.location.href = 'hanlisa-atk-fx-candidates.html';
+        });
+        // 寒离飒特效对比：现状复刻 vs 增量提案（自包含页面，仓库根目录）
+        document.getElementById('btnHlsFxCompare').addEventListener('click', () => {
+            window.location.href = 'hanlisa-fx-compare.html';
         });
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
