@@ -56,6 +56,9 @@ export const RULE_META = {
     // 2026-10-02 补登：157 mechanics 安装对账（type↔注册表↔字段 schema），直接复用 core/15 安装期校验。
     //   不读战报、只读 content，漏注册/字段缺失/未知 targetRule 立刻现形，归「通用」。
     'mechanics安装对账(类型↔注册表↔字段)': { tag: 'generic:通用', note: '不依赖本局战报；改 mechanics type/字段或漏注册 handler 时立刻现形' },
+    // 2026-10-16 第 97 轮新增：170 台词池双向一致性（唐文亮线上事故：taunts 配在 characters 里引擎不读、
+    //   role 自定义职业兜底不到 ⇒ 运行时 throw 崩 worker）。只读 content，归「通用」。
+    '台词池双向一致性(taunts)': { tag: 'generic:通用', note: '不依赖本局战报；新角色 taunts 配错层/配空池/自定义职业无兜底时立刻现形' },
     // 2026-10-07 新增：韦一笑蝠影汲血专属吸血链路（150/151 只覆盖团队 Buff 的热血奋战/嗜血狂刀，管不到它）
     // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
     '飘字锚点对齐(契约)': { tag: 'generic:通用', note: 'fact 契约红字 + 飘字锚点对齐，不依赖本局出阵角色；上一轮漏登，本轮回填' },

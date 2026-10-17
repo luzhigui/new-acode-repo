@@ -10,6 +10,8 @@
 //          与 node 侧 rules-replay V6.4.0 同口径，进 factContractWarns 与异常数）。
 // V6.3.2 | 2026-10-04 报告元数据：updateReport 顶部 + 复制文本均带「体检时间(本地) / 起始关 / 已跑关卡 / 异常总数」，区分不同批次报告（避免拿旧报告当新结果）。
 //          新增模块变量 runStartedAt(启动时间戳) / stagesRun(实际进入关号集合)，启动体检与每场 RUNNING/自动推进时记录；起始关仍走既有 start=N（已支持从第2关开始）。
+// V6.4.0 | ~47000 bytes | 2026-10-16 第 97 轮登记 170 台词池双向一致性（rule114：import + allRules 两处同补；
+//         唐文亮线上「台词池缺失」事故 + 同款 4 雷补齐后立规则长效盯守）
 // V6.3.1 | ~47000 bytes | 2026-10-02 登记 157 mechanics 安装对账（rule104：import + allRules 两处同补）
 // V6.3.0 | ~46400 bytes | 2026-10-02 第 50 轮：补 156 的 import + **allRules 数组长期停在 rule99 的静默缺口** ——
 //          153/154/155 三条只补了 import、从未进执行数组，浏览器侧体检**根本没跑它们**（node 侧
@@ -63,6 +65,7 @@ import { rule101 } from './health-rules/154-endless-breath-gain.js';
 import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import { rule156 as rule103 } from './health-rules/156-desc-truth-drift.js'; // 156 实际导出名是 rule156（按文件号），别名对齐
 import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
+import { rule114 } from './health-rules/170-taunts-integrity.js';
 import { rule105 } from './health-rules/158-fact-anchor-align.js';
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
@@ -655,7 +658,7 @@ function runRuleChecks(ctx, doc) {
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
-        rule110, rule111, rule112, rule113];
+        rule110, rule111, rule112, rule113, rule114];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

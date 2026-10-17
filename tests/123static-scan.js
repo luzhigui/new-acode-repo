@@ -3,6 +3,8 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.4.4 | ~29200 bytes | 2026-10-16 第 97 轮 SCAN_FILES 补登 ./health-rules/170-taunts-integrity.js（台词池
+//         双向一致性；唐文亮线上事故后新建，与 157 同属只读 content 的数据对账规则）
 // V1.4.3 | ~29200 bytes | 2026-10-16 注册面归位批：SCAN_FILES 里 core/08-elite-registry.js → core/08-registry-elite.js、
 //         infra/57-calc-modifier-registry.js → core/21-registry-calc.js；补登 core/20-registry-dodge.js
 //         （闪避规则表自 infra/51 迁入，被 core/11/12/15、render/32、ui/74 import，漏登则扫不到其 import 断裂）
@@ -152,6 +154,7 @@ export const SCAN_FILES = [
     './health-rules/155-meteor-growth-dup.js',
     './health-rules/156-desc-truth-drift.js',
     './health-rules/157-mechanic-install-reconcile.js',
+    './health-rules/170-taunts-integrity.js',
     // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
     './health-rules/158-fact-anchor-align.js',
     // 2026-10-07 新增：韦一笑蝠影汲血吸血（rule106：heal 正整数 / 上限恒等 / 比例上限）
