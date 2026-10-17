@@ -1,5 +1,5 @@
 // V6.1.3 | ~2700 bytes | 2026-10-11 加 SKILL_FLOAT（何太冲技能任意文本头顶飘字；fx/89 复用灭绝计数飘字通道）
-export const VER = 'infra/55-fx-signals.js V6.1.3';
+export const VER = 'infra/55-fx-signals.js V6.1.4';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
@@ -41,5 +41,6 @@ export const FX_SIGNALS = {
     // 胖远桥（六大派精英）
     PANG_TAUNT: 'fx:pangTaunt',          // 正义国字脸：扇形金锥 + 台词气泡 + 被嘲讽者红闪（快进跳过）
     PANG_CLUMSY: 'fx:pangClumsy',        // 年轻气盛：出手前侧倾甩歪 + 😵（快进跳过）
-    SKILL_FLOAT: 'fx:skillFloat'         // 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N；快进跳过）
+    SKILL_FLOAT: 'fx:skillFloat',        // 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N；快进跳过）
+    HANLISA_BURST: 'fx:hanlisaBurst'     // 寒离飒蓄力轰拳爆发：扇形冲击波 + 真伤碎冰 + 半伤冲击（快进跳过）
 };

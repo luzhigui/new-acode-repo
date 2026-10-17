@@ -1,20 +1,23 @@
 // modules/27elite-mingjiao-hanlisa.js — 明教精英「寒离飒」：战士 · 弱精英 M107（与韦一笑同池）· 恒定 2 号位
 //   ① 九阳神拳：普攻 50% 概率附带，命中回复自身最大生命 12%（同张无忌九阳）
 //   ② 寒冰神掌：普攻未触发九阳时施展，目标挂寒毒（3 回合 4%→2%→1% 最大生命，同鹿杖客）
-//   ③ 蓄力：本局每轮循环内九阳与寒毒各触发一次 → 普攻后挂 20% 最大生命护盾并蓄力；
-//      下一回合跳过行动，回合结束（下一步落地时结算）对敌方 4/6/7/9 造成半次普攻伤害、
-//      2/5/8 造成真伤 = 最近三回合自身承受总伤害；结算完复原普攻循环，并把两个技能标记清零
+//   ③ 蓄力：每轮循环内九阳与寒毒各触发一次 → 普攻后挂 20% 最大生命护盾并蓄力；
+//      下一回合跳过行动，结算时对敌方 4/6/7/9 各造成「对该目标单独算一次普攻伤害 ÷ 2」、
+//      2/5/8 造成真伤 = 最近三回合自身承受总伤害（按原始 dmg 累加）；结算完复原普攻循环，并把两个技能标记清零
 //      —— 蓄过一次必须再各触发一次九阳/寒毒才能再蓄（2026-10-17 老板实机指正「怎么老蓄力」）
+// V1.3.0 | 2026-10-17 半伤改「逐目标重算一次普攻再取半」（老板拍板：不再用上一击固定值平铺）；
+//           爆发演出改由 fx/93 经 FX_SIGNALS.HANLISA_BURST 播，本组件不再写 _hlsBurstAt/_hlsLastDmg
 // V1.2.0 | 2026-10-17 ① 爆发结算后重置 _hlsJiuYangDone/_hlsHanBingDone（修「蓄完立刻就又蓄」）；
 //           ② 九阳/寒冰触发时头顶飘弹幕（SKILL_ANNOUNCE + line:false + floatText，同灭绝反击/何太冲）
 // V1.1.0 | 2026-10-17 结算时写 state._hlsBurstAt = clock.now，交 fx/90 按逻辑时间播 900ms 爆发演出
 // V1.0.0 | ~7600 bytes | 2026-10-17 新建（老板拍板设计定稿，见 想法和优化.md 附录）
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.2.0';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.3.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
-import { getBattleRng, recordHpAudit } from '../core/13battle-shared.js';
-import { clock } from '../infra/52-clock.js';
+import { getBattleRng, recordHpAudit, getStat } from '../core/13battle-shared.js';
+import { calcDamage } from '../infra/51-core-utils.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 
 export function createHanLiSaComponent() {
     return {
@@ -54,8 +57,6 @@ export function createHanLiSaComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const target = data.target;
                 if (!target) return;
-
-                hls.state._hlsLastDmg = data.dmg;
 
                 // ① 九阳神拳：50% 附带，回最大生命 healPct
                 if (!hls.state._hlsJiuYangDone && getBattleRng().next() < (jy.prob ?? 0.5)) {
@@ -132,7 +133,6 @@ export function createHanLiSaComponent() {
                 // 蓄力结算（下回合结束时 → 落在下一步的回合开始，战报紧接上回合末）
                 if ((hls.state._hlsCharging || 0) === 2) {
                     hls.state._hlsCharging = 0;
-                    hls.state._hlsBurstAt = clock.now;   // fx/90 按逻辑时间接续播爆发演出（900ms）
                     // 老板口径（2026-10-17）:蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
                     //   否则两标记一直为 true，下一刀普攻立刻又满足起蓄条件（实机表现为「老蓄力」）
                     hls.state._hlsJiuYangDone = false;
@@ -141,20 +141,31 @@ export function createHanLiSaComponent() {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
                         const trueDmg = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
-                        const half = Math.floor((hls.state._hlsLastDmg || 0) * (xl.halfRatio ?? 0.5));
+                        const halfRatio = xl.halfRatio ?? 0.5;
+                        const atk = getStat(hls, 'atk');
                         const HIT_POS = [4, 6, 7, 9], TRUE_POS = [2, 5, 8];
                         const lines = [];
+                        const trueUids = [], halfUids = [];
                         enemies.forEach(u => {
                             if (!u.alive) return;
-                            if (HIT_POS.includes(u.pos) && half > 0) {
+                            if (HIT_POS.includes(u.pos)) {
+                                // 半伤：对每个目标各算一次普攻伤害（含其防御）再取半（2026-10-17 老板拍板）
+                                const half = Math.floor(calcDamage(atk, getStat(u, 'def')) * halfRatio);
+                                if (half <= 0) return;
                                 data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -half, target: u, source: hls, reason: '蓄力·扇形' });
                                 lines.push(`${u.name} −${half}`);
+                                halfUids.push(u.uid);
                             } else if (TRUE_POS.includes(u.pos) && trueDmg > 0) {
                                 data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -trueDmg, target: u, source: hls, reason: '蓄力·真伤' });
                                 lines.push(`${u.name} −${trueDmg}（真伤）`);
+                                trueUids.push(u.uid);
                             }
                         });
                         announce(data, `💥 ${hls.name} 蓄力爆发${lines.length ? '：' + lines.join('、') : '（范围内无目标）'}`);
+                        // 蓄力轰拳爆发视觉：发信交 fx/93（fx/89 订阅；快进由 fx 侧拦）
+                        if (trueUids.length || halfUids.length) {
+                            eventBus.emit(FX_SIGNALS.HANLISA_BURST, { unit: hls, trueUids, halfUids, taken: trueDmg });
+                        }
                         // 蓄力结束护盾消散
                         hls.state._shield = 0;
                     }

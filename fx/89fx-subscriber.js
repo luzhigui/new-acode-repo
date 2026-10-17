@@ -18,6 +18,7 @@ import {
 } from './86fx-butterfly-spider.js';
 import { showLionRoar } from './91fx-lion-roar.js';
 import { showPangTaunt, showPangClumsy } from './92fx-pang-antics.js';
+import { showHanLiSaBurst } from './93-hanlisa-burst.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 
 // 快进判断归位于表现层
@@ -89,4 +90,9 @@ eventBus.on(FX_SIGNALS.PANG_CLUMSY, P, (d) => {
 eventBus.on(FX_SIGNALS.SKILL_FLOAT, P, (d) => {
     if (inFastForward()) return;
     return showMiejueCountFloat(d.unit, d.text);
+});
+// 寒离飒·蓄力轰拳爆发：扇形冲击波 + 真伤碎冰 + 半伤冲击（快进跳过）
+eventBus.on(FX_SIGNALS.HANLISA_BURST, P, (d) => {
+    if (inFastForward()) return;
+    return showHanLiSaBurst(d);
 });
