@@ -10,7 +10,7 @@
 
 你只负责 `tests/` 目录下的内容，其余代码一律不碰：
 
-1. **体检规则**：`tests/health-rules/` 下的 rule70-87：
+1. **体检规则**：`tests/health-rules/` 下的 rule70-114（45 条，2026-10-17 第 97 轮核定）：
 
    - rule70 爪击回血刷屏、rule71 闪避后误判、rule72 坚盾时序、rule73 玄冥联动、rule74 蝴蝶叠层、rule75 蝴蝶归位、rule76 蜘蛛飞天次数（≤3）、rule77 坚盾上限（6 层）、rule78 回合分隔符不重复、rule79 九阴白骨爪伤害/斩杀/连锁、rule80 死亡特效缺失回归（斩杀/白骨爪/闪避反击击杀须带 isDead 标记）
 
@@ -25,12 +25,25 @@
 
    - `tests/124rule-recipes.js`（规则裁剪执行集——RULE_META 标注每场只跑能触发的规则，消除海量 skip 噪音）
 
-   - `tests/140-baseline.js` + `tests/baseline-entries.mjs` / `baseline-diff.mjs`（确定性基线：6 种子 × 3 关 = 18 场，供"零行为变化"重构做机器 diff；基线数据存 `tests/baselines/baseline-v1.json`）
+   - `tests/140-baseline.js`（确定性基线：6 种子 × 3 关 = 18 场，供"零行为变化"重构做机器 diff；数据存 `tests/baselines/baseline-v1.json`；旧 `baseline-entries.mjs`/`baseline-diff.mjs` 已被本文件吸收取代）
+
+   - `tests/stat-decl-vs-actual-check.mjs`（**数值真值网**：49 条契约，逐步骤比对"战报声明的属性增减 vs 引擎账本实际词条"；`--scan-groups` 枚举真实 `_mods` group 与契约的差集 = 覆盖盲区）
+
+   - `tests/mutation-teeth.mjs`（**变异牙齿**：往引擎代码注入故意改错的样本，证明回放规则"非恒绿"；每轮引擎大改后必跑 `--verify` 校准锚点）
+
+   - `tests/translate-golden.mjs`（翻译层金样：render/38 翻译器输出的逐字节基线，防渲染链路静默漂移）
+
+   - `tests/fuzz-invariants.mjs`（300 种子 × 7 关大样本不变量：崩溃/NaN/同格/越界/胜负矛盾）
+
+   - `tests/param-read-guard.mjs`（参数读取守卫：规则与引擎读同一参数真值源，防"规则念旧值"）
+
+   - `tests/run-all.mjs`（**一键全量**：串行跑齐 node 侧全套红线并出汇总页，任一红退出码 1）
 3. **测试页面**：`tests/120test-runner.html`（手动自检入口；「🏥 体检入口」二级菜单：🔄 实时跟跑 / ⚡ 快速静态体检 / 🚀 快速跑完）
 
 ## 二、强制规则
 
-1. **只碰 tests/ 目录**：不修改 `core/`、`player/`、`ui/`、`fx/`、`modules/`、`tools/` 下的任何代码文件。
+1. **只碰 tests/ 目录**：默认不修改 `core/`、`player/`、`ui/`、`fx/`、`modules/`、`tools/` 下的任何代码文件。
+   ⚠️ 授权例外（2026-10-16/17 用户两次明确授权）：用户当面说"主代码你直接改/交给你改"时，可改可提交可推送；日常或含糊授权仍走"写需求文档交用户转交"。
 2. **核心链路回归验证**：业务改动后执行以下清单：
 
    - 第 1 关：基本攻击 / 闪避 / 回血 / 死亡
