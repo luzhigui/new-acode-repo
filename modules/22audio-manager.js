@@ -430,6 +430,8 @@ export const AudioManager = {
         if (!this.enabled) return;
         try {
             if (role === ROLE_TYPES.DEFENDER) role = ROLE_TYPES.WARRIOR;
+            // 2026-10-17 标枪（唐文亮）音效回落战士——它的加成口径本就同战士；原先 SFX 表无「标枪」键 ⇒ 出手静音
+            if (role === ROLE_TYPES.JAVELIN) role = ROLE_TYPES.WARRIOR;
             const sfxConfig = CONFIG.SFX || {};
             const sfx = sfxConfig[role];
             if (!sfx) return;
