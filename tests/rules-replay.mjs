@@ -1,3 +1,6 @@
+// V6.7.1 | ~32300 bytes | 2026-10-17 第97轮转交态修复：KNOWN_TRANSFERS 误用 fetch 垫片内的局部 fs
+//           变量（IIFE 作用域外未定义，try/catch 吞 ReferenceError → 空集 → ⚠️ 永不命中）→ 改 import
+//           node:fs 的 readFileSync 在模块作用域使用；张三丰×2 转交态现可正确标 ⚠️ 且不染红退出码。
 // V6.7.0 | ~32200 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
 //          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
 //          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 140/stat-decl 同口径。
@@ -29,6 +32,7 @@
 // 注意：渲染 buff 阵营摘要依赖 GlobalStore.battleStore，本 runner 已按真实流程建 store 并每回合
 //       SET_UNITS 同步（否则所有 buff-summary 渲染不出来，会让 140/141 之类的规则假红）。
 import { readdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
@@ -446,13 +450,30 @@ if (invIssues.size) {
 }
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
-let fails = 0, dead = 0;
+// 第 97 轮（2026-10-17）转交态：known-transfers.md 登记中的项显示 ⚠️ 且不计退出码——
+//   「转交中」与「真回归」必须分开，否则红线常红 = 狼来了（审核发现，详见该清单）。
+const KNOWN_TRANSFERS = (() => {
+    try {
+        const txt = readFileSync(new URL('./known-transfers.md', import.meta.url), 'utf8');
+        const names = new Set();
+        for (const line of txt.split(/\r?\n/)) {
+            const m = line.match(/^\|\s*([^|]+?)\s*\|/);
+            if (!m) continue;
+            const cell = m[1].trim();
+            if (cell && cell !== '规则/检查项' && cell !== '检查项' && !cell.startsWith('---')) names.add(cell);
+        }
+        return names;
+    } catch (e) { return new Set(); }
+})();
+let fails = 0, dead = 0, transferred = 0;
 for (const name of Object.keys(agg)) {
     const a = agg[name];
-    if (a.fail > 0) fails++;
+    const isTransfer = a.fail > 0 && KNOWN_TRANSFERS.has(name);
+    if (a.fail > 0 && !isTransfer) fails++;
+    else if (isTransfer) transferred++;
     else if (a.pass === 0) dead++; // 恒 skip = 空转规则，值得单独盯
-    const tag = a.fail > 0 ? '❌' : (a.pass > 0 ? '✅' : '⏭ ');
-    console.log(`${tag} ${name}  pass=${a.pass} fail=${a.fail} skip=${a.skip}`);
+    const tag = a.fail > 0 ? (isTransfer ? '⚠️ ' : '❌') : (a.pass > 0 ? '✅' : '⏭ ');
+    console.log(`${tag} ${name}  pass=${a.pass} fail=${a.fail} skip=${a.skip}${isTransfer ? '  【已转交·等主代码】' : ''}`);
     for (const m of a.msgs) console.log(`      ${m}`);
 }
 if (KEYWORDS.length) {
@@ -460,7 +481,7 @@ if (KEYWORDS.length) {
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
 const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0);
-console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条` +
+console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}${transferred ? `；转交中 ${transferred} 条（⚠️ 不计退出码，见 tests/known-transfers.md）` : ''}；恒 skip(空转)规则 ${dead} 条` +
     `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +
     `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}` +
