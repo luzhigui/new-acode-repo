@@ -1,3 +1,6 @@
+// V6.4.4 | ~57600 bytes | 2026-10-17 修「体检页进不去」：170 规则的 import 名单误用 rule114，而该文件
+//           导出名是 rule170（按文件号）——ESM 具名导入不存在 ⇒ 121 整模块链接失败 ⇒ initMonitor 不执行、
+//           「体检入口 / 实时跟跑」按钮全无监听、点了没反应。改别名导入（rule170 as rule114，同 156 先例）。
 // V6.4.3 | ~57500 bytes | 2026-10-09 进体检默认改「调试模式 + 4 倍速」，且改走游戏按钮路径（debugToggle.click + btnSpeed4x.click）：
 //          原直接写 GlobalStore 时，非调试模式下 4x/8x 按钮组 display:none → 高亮加在隐藏按钮上，界面「当前倍速」全灭且无报错；
 //          按钮路径顺带把 ui/68 的 manualSpeedValue 锁到 300（跨场保持）；配合 122 V6.1.19 新增 checkSpeedButtonStates 实时检查。
@@ -26,7 +29,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.4.3';
+export const VER = 'tests/121health-monitor.js V6.4.4';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -65,7 +68,7 @@ import { rule101 } from './health-rules/154-endless-breath-gain.js';
 import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import { rule156 as rule103 } from './health-rules/156-desc-truth-drift.js'; // 156 实际导出名是 rule156（按文件号），别名对齐
 import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
-import { rule114 } from './health-rules/170-taunts-integrity.js';
+import { rule170 as rule114 } from './health-rules/170-taunts-integrity.js'; // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
 import { rule105 } from './health-rules/158-fact-anchor-align.js';
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
