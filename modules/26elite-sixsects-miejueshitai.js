@@ -1,9 +1,12 @@
 // modules/26elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
+// V6.27.0 | ~18400 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；召唤周芷若名额跨实例共享（双灭绝任一召过即全场封顶，周芷若仍全场 1 只）；
+//           ON_ROUND_START 兜底改遍历全队灭绝（find 只 flush 第一个）
 // V6.26.0 | ~18220 bytes | 2026-10-14 core/15 瘦身批 2：followAttack 由 core/15 本地安装器改造成 core/18 注册表
 //   handler（定义在本文件，注册在 26elite-sixsects.js 入口）：每 decl 一次 install，钩子内直接用 decl.name
 //   认跟随者，原先的 decls 遍历 + find 作废。core/15 同批瘦身（V6.8.0）删掉旧安装器，本 handler 是唯一实现
 // V6.25.0 | ~15500 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.26.0';
+export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.27.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -31,7 +34,9 @@ function flushZhouSummon(miejue, team, log) {
     const anchor = miejue.state._pendingZhouPos;
     if (anchor == null || anchor < 0) return;
     miejue.state._pendingZhouPos = -1;
-    if (miejue.state._summonedZhou) return;
+    // 2026-10-17 名额跨实例共享（多实例化）：双灭绝时任一灭绝召过即全场封顶（周芷若全场仅 1 只），
+    //   查全队所有灭绝（含阵亡者，state 跨回合克隆保留）——原设计「全场仅 1 次」不因补员而翻倍
+    if (team.some(u => u.isMieJueShiTai && u.state._summonedZhou)) return;
     if (team.some(u => u.isZhouZhiruo && u.alive)) return;
     const summon = getSkillParams('灭绝师太', 'summonZhou');
     if (!summon) return;
@@ -53,17 +58,18 @@ function flushZhouSummon(miejue, team, log) {
 // 跨回合兜底：灭绝本人在回合最后一手阵亡 → 当回合已无「下一个行动步」可挂，队列留到下一回合开始落位
 eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.MIEJUE_SUMMON, (data) => {
     for (const team of [data.A, data.B]) {
-        const miejue = team.find(u => u.isMieJueShiTai);
-        if (miejue) flushZhouSummon(miejue, team, data.log);
+        // 2026-10-17 多实例化：遍历全队灭绝（find 只处理第一个，补员灭绝的待落位队列会没人 flush）
+        for (const miejue of team.filter(u => u.isMieJueShiTai)) flushZhouSummon(miejue, team, data.log);
     }
 });
 
 export function createMieJueShiTaiComponent() {
     return {
         name: '灭绝师太',
-        register(eventBus, A, B, log) {
-            // 不写死阵营：按身份标记在两侧找，灭绝换边也照样生效
-            const miejue = [...A, ...B].find(u => u.isMieJueShiTai && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 不写死阵营：按身份标记在两侧找，灭绝换边也照样生效。
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            const miejue = (self && self.alive) ? self : [...A, ...B].find(u => u.isMieJueShiTai && u.alive);
             if (!miejue) return;
             const myTeam = miejue.camp === CAMP_TYPES.ALLY ? A : B;
 
@@ -191,7 +197,7 @@ export function createMieJueShiTaiComponent() {
             //   落位不在当帧（当帧会顶掉死亡特效），交给下一个行动步的 BEFORE_STATE_TRANSITION；
             //   她本人在回合最后一手阵亡时没有下一步，由模块级 ON_ROUND_START 兜底。
             eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, L.ON_UNIT_DEATH.MIEJUE_RECORD, (data) => {
-                if (miejue.state._summonedZhou || miejue.state._pendingZhouPos >= 0) return;
+                if (myTeam.some(u => u.isMieJueShiTai && u.state._summonedZhou) || miejue.state._pendingZhouPos >= 0) return;   // 2026-10-17 名额跨实例共享
                 const dead = (data.deadUnits || []).find(u => myTeam.includes(u));
                 if (!dead || dead.pos == null) return;
                 miejue.state._pendingZhouPos = dead.pos;

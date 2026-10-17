@@ -1,14 +1,17 @@
 // modules/27elite-mingjiao-weiyixiao.js — 明教精英「韦一笑」：组件工厂（青翼蝠王·吸血/轻功）
+// V1.1.0 | ~2800 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；吸血声明加 target.uid 守卫，防双韦一笑对同一闪避双倍吸血
 // V1.0.0 | ~2673 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-weiyixiao.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-weiyixiao.js V1.1.0';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 export function createWeiYixiaoComponent() {
     return {
         name: '韦一笑',
-        register(eventBus, A, B, log) {
-            const wei = A.find(u => u.isWei && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            const wei = (self && self.alive) ? self : A.find(u => u.isWei && u.alive);
             if (!wei) return;
             wei.state._neverMiss = true;
             // 行动过仍可闪避 + 不参与飞行跳前排选敌：由组件声明，core 不再认 isWei
@@ -18,6 +21,7 @@ export function createWeiYixiaoComponent() {
             function submitWeiLeechDeclaration(data) {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
+                if (target.uid !== wei.uid) return;   // 2026-10-17 多实例守卫：各实例只响应自己的单位，防双韦一笑吸血声明翻倍
                 // 吸血率真值唯一来源：韦一笑 mechanics 的 leech 原语（与命中吸血同源），不再另存 skills.params 副本
                 const leechMin = getMechanicField('韦一笑', MECHANIC_EFFECT_TYPES.ON_HIT.LEECH, 'minRatio');
                 const leechMax = getMechanicField('韦一笑', MECHANIC_EFFECT_TYPES.ON_HIT.LEECH, 'maxRatio');

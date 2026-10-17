@@ -1,6 +1,9 @@
 // modules/27elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
+// V1.1.0 | ~10000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；checkZhangSwitch 改收 zhang 实参（不再全场 find 第一个，防双张无忌误切非触发者）
+// V1.0.1 | ~9934 bytes | 2026-10-17 前排判定同口径三处排除幼狮 isLionCub（与拒马 isHorse 一样不挡前排）；雄鹰/雌鹰按老板拍板本次仍算占位不排除
 // V1.0.0 | ~9887 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.1.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/03battle-utils.js';
 import { getRoleBonus } from '../core/02unit.js';
@@ -10,11 +13,12 @@ import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { watchUnit } from '../core/19unit-watch.js';
-function checkZhangSwitch(A, log) {
-    let zhang = A.find(c => c.isZhang && c.alive && !c.state._zhangSwitched);
-    if (!zhang) return;
+function checkZhangSwitch(zhang, A, log) {
+    // 2026-10-17 多实例化（老板拍板「完全真技能」）：由调用方传自己的单位实例，不再全场 find 第一个——
+    //   双张无忌时 find 会误切「非触发者」（A 未满足切换条件也被切、触发者反而只转了形态没加攻防）
+    if (!zhang || !zhang.alive || zhang.state._zhangSwitched) return;
     // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
-    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && !c.isLionCub && c.uid !== zhang.uid
         && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
@@ -62,7 +66,7 @@ export function createZhangWujiComponent() {
             let fsm;
             // 切近战口径：他成为「所在列最靠前的存活单位」才切——同列存在任何 pos 更小的存活非马队友就仍是远程。
             //   中排(4-6)时等价于旧的「1/2/3 同列最前排」判定；被击退/换位到后排(7-9)时，4/5/6 的中排队友也算前方有人。
-            const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+            const hasFrontAlly = A.some(c => c.alive && !c.isHorse && !c.isLionCub && c.uid !== zhang.uid
                 && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
             const states = {
                 ranged: {
@@ -73,7 +77,7 @@ export function createZhangWujiComponent() {
                     onEnter(data) {
                         // 必须用触发时刻的 log（data.log）：闭包 log 是回合开始已消费的旧数组，
                         // push 进去会随 makeStep 快照丢失（切换行/台词/弹幕全丢）
-                        checkZhangSwitch(A, (data && data.log) || log);
+                        checkZhangSwitch(zhang, A, (data && data.log) || log);
                         if (fsm) fsm.transition('near');
                     },
                     onExit() {}
@@ -101,8 +105,9 @@ export function createZhangWujiComponent() {
             zhang.state._fsmPhase = initial;
             return fsm;
         },
-        register(eventBus, A, B, log) {
-            const zhang = A.find(u => u.isZhang && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            const zhang = (self && self.alive) ? self : A.find(u => u.isZhang && u.alive);
             if (!zhang) return;
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
@@ -116,7 +121,7 @@ export function createZhangWujiComponent() {
             watchUnit(zhang, () => {
                 // 条件：存活 + 尚未切换 + 处于远程形态 + 他已是同列最前排（同列无 pos 更小的存活队友）
                 if (!zhang.alive || zhang.state._zhangSwitched || !fsm.is('ranged')) return false;
-                const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+                const hasFrontAlly = A.some(c => c.alive && !c.isHorse && !c.isLionCub && c.uid !== zhang.uid
                     && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
                 return !hasFrontAlly;
             }, (shouldSwitch, trigger) => {
