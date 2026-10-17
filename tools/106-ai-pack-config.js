@@ -43,7 +43,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.28';
+export const VER = 'tools/106-ai-pack-config.js V6.0.29';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -102,7 +102,7 @@ export const ALL_PROJECT_FILES = [
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
-    '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js',
+    '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js', '../fx/93-hanlisa-burst.js',
     // modules（通用系统 + 精英角色组件）
     // 2026-10-02 补登记 00reg-mechanics：机制装配统一入口（ui/61 唯一 import 点，25/26/27/30 经它装载）
     '../modules/00reg-mechanics.js',

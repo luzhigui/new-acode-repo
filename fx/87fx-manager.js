@@ -1,5 +1,5 @@
 // V6.1.1 | 2026-09-24 转出 showMiejueCountFloat（灭绝计数飘字）｜ 预估 2.6 KB
-export const VER = 'fx/87fx-manager.js V6.1.1';
+export const VER = 'fx/87fx-manager.js V6.1.2';
 
 import {
     showDanmaku,
@@ -45,6 +45,7 @@ import {
 } from './86fx-butterfly-spider.js';
 
 import { showLionRoar } from './91fx-lion-roar.js';
+import { showHanLiSaBurst } from './93-hanlisa-burst.js';
 
 // 特效注册表：新增特效在这里加 key
 const registry = {
@@ -107,5 +108,6 @@ export {
     showButterflyFlyBack,
     showSpiderAscend,
     showSpiderDescend,
-    showLionRoar
+    showLionRoar,
+    showHanLiSaBurst
 };
