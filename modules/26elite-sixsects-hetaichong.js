@@ -8,6 +8,7 @@ import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
 import { emitStateChange } from '../infra/59-state-change.js';
+import { applyRoleBonusMods, switchRoleOnly } from './23elite-helpers.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -41,19 +42,13 @@ export function createHeTaichongComponent() {
             //   由下方 announce fact 的 data.grants 带给体检契约 HE_TAICHONG_RED 对账；只读 bonus 原值，零行为副作用
             let pendingGrants = null;
             function addRoleBonus(unit, role, label) {
-                const bonus = getRoleBonus(role);
-                addMod(unit, 'atk', { source: label, value: bonus.atk, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
-                addMod(unit, 'def', { source: label, value: bonus.def, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
-                addMod(unit, 'maxHp', { source: label, value: bonus.maxHp, ttl: 'permanent', group: 'heTaichongRed', op: 'add' });
-                refreshMaxHp(unit, null, label);
+                const bonus = applyRoleBonusMods(unit, role, label, 'heTaichongRed');
                 if (pendingGrants) pendingGrants.push({ uid: unit.uid, atk: bonus.atk, def: bonus.def, maxHp: bonus.maxHp });
             }
             // 换职业 + 叠该职业加成（两仪互换 / 单人红血共用）
             function switchRole(unit, role, label, outLog) {
                 addRoleBonus(unit, role, label);
-                unit.role = role;
-                emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role });
-                emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole: role }, outLog);
+                switchRoleOnly(unit, role, label, outLog);
             }
 
             // ── 机制① 两仪连接（建立一次即绑定，不更换） ──
