@@ -4,10 +4,10 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.5.0
-  预估字节数：约 65 KB
+  版本：V2.5.1
+  预估字节数：约 67 KB
   日期：2026-10-17
-  改动：新增全部精英图鉴（明教/六大派/朝廷分组），补属性·技能·背景介绍，未解锁也可只读预览
+  改动：修复未解锁（灰）卡片无法点开图鉴——补卡片点击监听与可点击样式，加「点击查看图鉴」提示
 -->
 <html lang="zh-CN">
 <head>
@@ -78,7 +78,9 @@
         }
         .hero-card.unlocked { cursor: pointer; }
         .hero-card.unlocked:hover { border-color: #ffd700; background: #1a1a3a; }
-        .hero-card.locked { opacity: 0.6; }
+        .hero-card.locked { opacity: 0.6; cursor: pointer; }
+        .hero-card.locked:hover { border-color: #ffd700; background: #1a1a3a; opacity: 0.85; }
+        .hero-hint { font-size: 0.62rem; color: #ffd700; opacity: 0.85; margin-top: 4px; }
         .hero-avatar { font-size: 34px; min-width: 40px; text-align: center; }
         .hero-info { flex: 1; min-width: 0; }
         .hero-name { font-size: 0.95rem; font-weight: bold; color: #ffd700; }
@@ -853,6 +855,7 @@ function renderHeroes() {
                     '<div class="hero-info">' +
                         '<div class="hero-name">' + name + '<span class="lock-tag">未解锁</span></div>' +
                         '<div class="hero-role">baseM ' + meta.baseM + ' · ' + meta.role + '</div>' +
+                        '<div class="hero-hint">点击查看图鉴（属性 / 技能 / 背景）</div>' +
                     '</div>' +
                     '<div class="buy-col">' +
                         '<div class="price-line">' + priceHtml(unlockPrice(), 'unlock') + '</div>' +
@@ -862,6 +865,7 @@ function renderHeroes() {
                     e.stopPropagation();
                     buyHero(name);
                 });
+                card.addEventListener('click', () => showHeroModal(name));
             }
             list.appendChild(card);
         }
