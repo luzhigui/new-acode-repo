@@ -4,10 +4,12 @@
 //   ③ 蓄力：本局九阳与寒毒都触发过 → 普攻后挂 20% 最大生命护盾并蓄力；
 //      下一回合跳过行动，回合结束（下一步落地时结算）对敌方 4/6/7/9 造成半次普攻伤害、
 //      2/5/8 造成真伤 = 最近三回合自身承受总伤害；结算完复原普攻循环
+// V1.1.0 | 2026-10-17 结算时写 state._hlsBurstAt = clock.now，交 fx/90 按逻辑时间播 900ms 爆发演出
 // V1.0.0 | ~7600 bytes | 2026-10-17 新建（老板拍板设计定稿，见 想法和优化.md 附录）
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.1.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, recordHpAudit } from '../core/13battle-shared.js';
+import { clock } from '../infra/52-clock.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
@@ -118,6 +120,7 @@ export function createHanLiSaComponent() {
                 // 蓄力结算（下回合结束时 → 落在下一步的回合开始，战报紧接上回合末）
                 if ((hls.state._hlsCharging || 0) === 2) {
                     hls.state._hlsCharging = 0;
+                    hls.state._hlsBurstAt = clock.now;   // fx/90 按逻辑时间接续播爆发演出（900ms）
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];

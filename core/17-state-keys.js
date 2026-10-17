@@ -1,3 +1,4 @@
+// V2.9.20 | 2026-10-17 寒离飒蓄力演出：新增 _hlsBurstAt（爆发时刻，clock.now，只给 fx/90 按逻辑时间播长动画）
 // V2.9.19 | 2026-10-17 寒离飒（明教·战士·弱精英）：新增 _shield / _shieldAbsorbed（通用护盾值 + 本击吸收量）、
 //           _hlsJiuYangDone / _hlsHanBingDone（本局九阳/寒毒各触发过一次）、_hlsCharging（0 无 / 1 待蓄力 / 2 蓄力中）、
 //           _hlsLastDmg（上一次普攻伤害，蓄力结算取半）、_hlsTaken（最近三回合承伤桶）、_hlsHanDu（自挂寒毒 DoT）
@@ -26,7 +27,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.19';
+export const VER = 'core/17-state-keys.js V2.9.20';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -109,6 +110,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 蓄力爆发时刻（clock.now，仅供 fx/90 按逻辑时间播长演出；FX 只读不写，过期自弃）
+    _hlsBurstAt:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 2026-10-16 carry 雄鹰一次性判定（老板拍板）：只在 carry「首次生效」那回合判一次 5 号位——
     //   那回合 5 号位有人即本局永不招（之后空出来也不补），招了之后雄鹰阵亡也不补。
     //   core/04 spawnCarryEagle 在 hasBuff 判过后查本字段：任一单位带标即整队跳过（锁写在此，跨回合随 clone 存活）
