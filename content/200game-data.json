@@ -488,18 +488,18 @@
       "skills": {
         "yingZhuaGong": {
           "name": "鹰爪功",
-          "desc": "被攻击后 33% 概率反击攻击者，伤害×1.0，可被闪避",
-          "params": { "counterProb": 0.33, "dmgRatio": 1.0 }
+          "desc": "被攻击后 22% 概率反击攻击者，伤害×1.0，可被闪避",
+          "params": { "counterProb": 0.22, "dmgRatio": 1.0 }
         },
         "yingWangWeiYa": {
           "name": "鹰王威压",
-          "desc": "每次反击命中后永久削弱目标：攻击 −3、防御 −3（可无限叠加，越打越削，跨回合延续）",
-          "params": { "atkDown": 3, "defDown": 3 }
+          "desc": "每次反击命中后永久削弱目标：攻击 −2、防御 −2（可无限叠加，越打越削，跨回合延续）",
+          "params": { "atkDown": 2, "defDown": 2 }
         },
         "laoDangYiZhuang": {
           "name": "老当益壮",
-          "desc": "每次反击命中后自身永久成长：攻击 +3、防御 +3、反击概率 +3%（本局累计，越打越硬）",
-          "params": { "atkGain": 3, "defGain": 3, "probGain": 0.03 }
+          "desc": "每次反击命中后自身永久成长：攻击 +2、防御 +2、反击概率 +2%（本局累计，越打越硬）",
+          "params": { "atkGain": 2, "defGain": 2, "probGain": 0.02 }
         }
       },
       "taunts": {

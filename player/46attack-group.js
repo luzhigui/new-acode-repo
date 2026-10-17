@@ -69,6 +69,11 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     let lastDiv = null;
     for (const entry2 of textEntries) {
         if (abortSig && abortSig.aborted) { defTimerCancelled = true; return { isBattleOver: false }; }
+        // 畸形防御：裸 fact 条目（缺 text）或 null 不应让整场战斗播放崩溃；跳过并告警，便于定位上游漏渲染
+        if (!entry2 || entry2.text == null) {
+            console.warn('[handleAttackGroup] 跳过无法渲染的日志条目（缺 text）:', entry2);
+            continue;
+        }
         const logLevel = getState.logLevel();
         if (logLevel === 'brief' && entry2.type === 'detail') { appendHiddenDetail(entry2.text); continue; }
 

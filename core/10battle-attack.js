@@ -247,7 +247,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 type: 'attack-group',
                 attacker: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, atk: Math.floor(unit.atk), hp: fmtHp(unit.hp) },
                 target: { uid: target.uid, name: target.name, camp: target.camp, pos: target.pos, def: Math.floor(target.def), hp: fmtHp(target.hp) },
-                entries: [{ factType: FACT_TYPES.BREAK_DEF, data: dmgCalc.pendingDefReduceFact }],
+                // 破防行必须在攻击组内（规则 135），但本 group 自身不带 factType、不经 renderAttackFact，
+                // 故在此直接建成带 text 的日志条目（与 render/35 renderBreakDefFact 同格式），
+                // 避免裸 fact 条目流入 player/46 在 playLogLine(entry2.text) 处崩（playLineText:26 text.includes）。
+                entries: [{ type: 'detail', text: `<span class="purple small">🗡️ ${dmgCalc.pendingDefReduceFact.attackerName} 破防：${dmgCalc.pendingDefReduceFact.targetName} 防御 -${dmgCalc.pendingDefReduceFact.reduce}</span>` }],
                 immuneBreak: true,
                 events: []
             };
