@@ -1,4 +1,5 @@
 // V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
+// V3.8.2 | 2026-10-17 第 98 轮补：scan-groups 扫地闭环两 hp 盲区（52→54）——hlsJiuYangHeal / hlsHanDuDot（寒离飒九阳/寒毒，均零数值改动）
 //         （scan-groups 差集 3 个 group 无契约盯）。主代码补 3 个纯记账数值声明 fact（UNITY_APPLY / LAST_STAND_APPLY
 //         / TW_DASH_APPLY，renderFn:null 不进画面）+ infra/56 enum + infra/58 FACT_SPECS 登记（不渲染不抛错）；
 //         unity/lastStand 为 op:mul 乘法词条走 mulSum 比对（与 HOLY_FLAME/SOUL_DRAIN 同款），twDash 为 op:add
@@ -158,7 +159,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.1';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.2';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1342,6 +1343,59 @@ const CONTRACTS = [
                 scan(f);
                 if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 98 轮补：寒离飒九阳神拳治疗（modules/27 L67-75 recordHpAudit(hls,'hlsJiuYangHeal',heal,...)）。
+        //   声明侧：引擎已发 FACT_TYPES.HEAL 事实（L70-74），factData 带 heal / label='九阳神拳回复' / unitUid / unitName
+        //   —— 与 PANG_HIT_HEAL / HUI_CHUN 同范式（通用 HEAL 通道靠 label 归属），零主代码改动即严格。
+        //   dir=+1；heal 截断 Math.min(floor(maxHp*healPct), maxHp-hp)，与 recordHpAudit 同一 heal 局部变量 ⇒ 恒等比对。
+        id: 'HLS_JIUYANG_HEAL',
+        label: '寒离飒九阳神拳治疗',
+        group: 'hlsJiuYangHeal',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.HEAL) return;
+                const d = f.data;
+                if (d.label !== '九阳神拳回复') return;
+                if (typeof d.heal !== 'number' || d.heal <= 0) return;
+                if (d.unitUid == null) return;
+                out.push({ unit: d.unitName || null, uid: d.unitUid, stat: 'hp', amount: d.heal });
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 98 轮补：寒离飒寒毒 DoT（modules/27 L129-133 recordHpAudit(u,'hlsHanDuDot',-dot,...)）。
+        //   声明侧原只有 SKILL_ANNOUNCE 带文字 note、无结构化数值 ⇒ 盲区。本轮回填 dot 字段（同 SPIDER_EGG 载荷转交范式），
+        //   引擎数值零改动（recordHpAudit 仍用同一 dot 局部变量）。dir=-1：声明 dot 为正、hp 下降（镜像 XUAN_MING_DOT）。
+        id: 'HLS_HANDU_DOT',
+        label: '寒离飒寒毒DoT',
+        group: 'hlsHanDuDot',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SKILL_ANNOUNCE) return;
+                const d = f.data;
+                if (d.skillName !== '寒毒') return;
+                if (typeof d.dot === 'number' && d.dot > 0 && d.unitUid != null && typeof d.unitName === 'string') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.dot });
+                }
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
         }

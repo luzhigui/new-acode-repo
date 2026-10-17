@@ -6,6 +6,7 @@
 //      2/5/8 造成真伤 = 最近三回合自身承受总伤害（按原始 dmg 累加）；结算完复原普攻循环，并把两个标记清零
 //      —— 蓄过一次必须再各出一次九阳/寒冰才能再蓄（2026-10-17 老板实机指正「怎么老蓄力」）
 // V1.3.1 | 2026-10-17 九阳/寒冰改「每次普攻独立 50/50 随机出」（删 done 门控，done 仅用于凑齐解锁蓄力）；
+// V1.3.2 | 2026-10-17 寒毒 SKILL_ANNOUNCE 回填 dot 字段（供数值对照器 hlsHanDuDot 契约对账，零数值改动）
 //           同一种技能可连续触发（2026-10-17 老板口径：「每下攻击 50% 九阳，50% 寒冰，不是看有没有触发过」）
 // V1.3.0 | 2026-10-17 半伤改「逐目标重算一次普攻再取半」（老板拍板：不再用上一击固定值平铺）；
 //           爆发演出改由 fx/93 经 FX_SIGNALS.HANLISA_BURST 播，本组件不再写 _hlsBurstAt/_hlsLastDmg
@@ -129,7 +130,8 @@ export function createHanLiSaComponent() {
                     const dot = Math.floor(u.maxHp * (st.dotPercents[idx] || 0));
                     if (dot <= 0) return;
                     data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dot, target: u, source: hls, reason: '寒毒' });
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '寒毒', note: `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命` } });
+                    // 2026-10-17 第 98 轮补：回填 dot 字段供数值对照器读（引擎数值零改动；recordHpAudit 仍用同一 dot 局部变量）
+                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '寒毒', dot, note: `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命` } });
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
 
