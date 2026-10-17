@@ -1,12 +1,15 @@
 // modules/27elite-mingjiao-hanlisa.js — 明教精英「寒离飒」：战士 · 弱精英 M107（与韦一笑同池）· 恒定 2 号位
 //   ① 九阳神拳：普攻 50% 概率附带，命中回复自身最大生命 12%（同张无忌九阳）
 //   ② 寒冰神掌：普攻未触发九阳时施展，目标挂寒毒（3 回合 4%→2%→1% 最大生命，同鹿杖客）
-//   ③ 蓄力：本局九阳与寒毒都触发过 → 普攻后挂 20% 最大生命护盾并蓄力；
+//   ③ 蓄力：本局每轮循环内九阳与寒毒各触发一次 → 普攻后挂 20% 最大生命护盾并蓄力；
 //      下一回合跳过行动，回合结束（下一步落地时结算）对敌方 4/6/7/9 造成半次普攻伤害、
-//      2/5/8 造成真伤 = 最近三回合自身承受总伤害；结算完复原普攻循环
+//      2/5/8 造成真伤 = 最近三回合自身承受总伤害；结算完复原普攻循环，并把两个技能标记清零
+//      —— 蓄过一次必须再各触发一次九阳/寒毒才能再蓄（2026-10-17 老板实机指正「怎么老蓄力」）
+// V1.2.0 | 2026-10-17 ① 爆发结算后重置 _hlsJiuYangDone/_hlsHanBingDone（修「蓄完立刻就又蓄」）；
+//           ② 九阳/寒冰触发时头顶飘弹幕（SKILL_ANNOUNCE + line:false + floatText，同灭绝反击/何太冲）
 // V1.1.0 | 2026-10-17 结算时写 state._hlsBurstAt = clock.now，交 fx/90 按逻辑时间播 900ms 爆发演出
 // V1.0.0 | ~7600 bytes | 2026-10-17 新建（老板拍板设计定稿，见 想法和优化.md 附录）
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.1.0';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, recordHpAudit } from '../core/13battle-shared.js';
 import { clock } from '../infra/52-clock.js';
@@ -35,6 +38,13 @@ export function createHanLiSaComponent() {
                 if (!ctx || !Array.isArray(ctx.log)) return;
                 ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: hls.name, unitUid: hls.uid, camp: hls.camp, skillName: '蓄力', note } });
             };
+            // 头顶弹幕（2026-10-17 老板要的「技能1/技能2 出手说明」）：复用灭绝反击/何太冲的
+            //   SKILL_ANNOUNCE + floatText/floatUid 通道（render/38 → SKILL_FLOAT → fx/80 头顶放大上浮）；
+            //   line:false → 不落战报行（战报行已由本击攻击组的 info 行承担）
+            const announceFloat = (ctx, skillName, text) => {
+                if (!ctx || !Array.isArray(ctx.log)) return;
+                ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: hls.name, unitUid: hls.uid, camp: hls.camp, skillName, note: text, line: false, floatText: text, floatUid: hls.uid } });
+            };
             const enemyOf = () => (hls.camp === CAMP_TYPES.ALLY ? B : A);
 
             // —— 普攻命中后：九阳 / 寒毒 / 解锁蓄力 ——
@@ -61,12 +71,14 @@ export function createHanLiSaComponent() {
                         recordHpAudit(hls, 'hlsJiuYangHeal', heal, '九阳神拳治疗');
                     }
                     pushInfo(data, `<span class="gold">☀️ 寒离飒九阳神拳：回复 ${heal} 点生命</span>`);
+                    announceFloat(data, '九阳神拳', `☀️ 九阳神拳${heal > 0 ? ' +' + heal : ''}`);
                 // ② 寒冰神掌：未触发九阳时施展，挂寒毒
                 } else if (!hls.state._hlsHanBingDone) {
                     hls.state._hlsHanBingDone = true;
                     target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04, 0.02, 0.01])] };
                     const pctText = (hb.dotPercents || []).map(v => Math.round(v * 100) + '%').join('→');
                     pushInfo(data, `<span class="gold">❄️ 寒离飒寒冰神掌：${target.name} 寒气入体（${hb.duration ?? 3} 回合 ${pctText} 最大生命）</span>`);
+                    announceFloat(data, '寒冰神掌', '❄️ 寒冰神掌');
                 }
 
                 // ③ 两者都触发过 → 本击结束即起蓄力（普攻照打，蓄力从下一回合开始）
@@ -121,6 +133,10 @@ export function createHanLiSaComponent() {
                 if ((hls.state._hlsCharging || 0) === 2) {
                     hls.state._hlsCharging = 0;
                     hls.state._hlsBurstAt = clock.now;   // fx/90 按逻辑时间接续播爆发演出（900ms）
+                    // 老板口径（2026-10-17）:蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
+                    //   否则两标记一直为 true，下一刀普攻立刻又满足起蓄条件（实机表现为「老蓄力」）
+                    hls.state._hlsJiuYangDone = false;
+                    hls.state._hlsHanBingDone = false;
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
