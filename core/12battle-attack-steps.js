@@ -354,7 +354,18 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
     // 2026-09-25 波动减伤：hpBonus 从本次扣血里抵扣（dmg 本身不动，吸血/反伤/破防仍按 dmg 算），下限 0 不倒吸血
-    const hpLoss = Math.max(0, dmg - hpBonus);
+    let hpLoss = Math.max(0, dmg - hpBonus);
+    // 2026-10-17 通用护盾（寒离飒蓄力）：扣血前先由护盾吸收，吸收量写 state 供组件出战报行；
+    //   护盾只吃本体伤害，不影响 dmg 本身（吸血/破防/反伤仍按 dmg 计）
+    let shieldAbsorbed = 0;
+    target.state._shieldAbsorbed = 0;
+    const shieldLeft = target.state._shield || 0;
+    if (shieldLeft > 0 && hpLoss > 0) {
+        shieldAbsorbed = Math.min(shieldLeft, hpLoss);
+        target.state._shield = shieldLeft - shieldAbsorbed;
+        target.state._shieldAbsorbed = shieldAbsorbed;
+        hpLoss -= shieldAbsorbed;
+    }
     let hpAfter = Math.floor(target.hp) - hpLoss;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');

@@ -1,3 +1,4 @@
+// V6.8.8 | ~36600 bytes | 2026-10-17 寒离飒：血条叠白色半透明护盾层、蓄力 ⏳ 标记、蓄力扇形指示（fx/90）
 // V6.8.7 | ~36340 bytes | 2026-10-17 成昆幻影伪装回落图标补「标枪」🪠（唐文亮重做后新增的职业，与 render/37 回落链同口径）
 // V6.8.6 | ~36321 bytes | 2026-10-17 计数技能进度徽章：灭绝三击/唐文亮七伤/张无忌近战连击，角色名后加「当前档/N」小胶囊
 // V6.8.5 | 2026-10-16 回退 V6.8.4 的 _jumpConsumed 特判：先机已改插队式（core/11 V6.3.25），被顺延队友
@@ -5,13 +6,14 @@
 // V6.8.3 | ~34760 bytes | 2026-10-15 妹永久圣火令改命中制后，logo 同步读每回合重画的 _xiaoHolyFlame（不再用账本旧 cols/rows）
 // ── 更早版本见 记录-更改履历.md
 // V6.8.2 | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标（carry/双击恒显示）
-export const VER = 'render/32-grid-render.js V6.8.7';
+export const VER = 'render/32-grid-render.js V6.8.8';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { updateHanLiSaChargeFx } from '../fx/90-hanlisa-charge.js';
 import { getStat } from '../core/13battle-shared.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { clock } from '../infra/52-clock.js';
@@ -422,6 +424,10 @@ export function renderGrid(id, camp) {
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
+        // 2026-10-17 护盾表现（寒离飒蓄力起通用）：血条上叠一层白色半透明，厚度=剩余护盾/最大生命
+        const shieldVal = unit.state._shield || 0;
+        const shieldPct = unit.alive && shieldVal > 0 ? Math.min(100, Math.round((shieldVal / unit.maxHp) * 100)) : 0;
+        const shieldHtml = shieldPct > 0 ? `<div style="position:absolute;left:0;right:0;bottom:0;height:${shieldPct}%;background:rgba(255,255,255,0.55);border-top:1px solid rgba(255,255,255,0.85);pointer-events:none;"></div>` : '';
         let hpDisplayHtml = `${fmtHp(unit.hp)}`;
         if ((latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp)) {
             hpDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${fmtHp(unit.hp)}</span>`;
@@ -512,6 +518,8 @@ export function renderGrid(id, camp) {
         let eliteSkillIcon = (unit.isZhouZhiruo && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
             : (unit.isSongQingshu && getView(unit.uid, '_hasXingFen')) ? ' 💗'
             : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
+            // 2026-10-17 寒离飒蓄力：格子挂沙漏标记（蓄力中/已起手两态同图标）
+            : (unit.isHanLiSa && (unit.state._hlsCharging || 0) > 0) ? ' ⏳'
             : '';
         if (!eliteSkillIcon) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state._butterflyHost === unit.uid);
@@ -519,6 +527,8 @@ export function renderGrid(id, camp) {
         }
         if (unit.isChengKun && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
+        // 2026-10-17 寒离飒·寒冰神掌寒毒：与玄冥毒同款 ❄️ 标记
+        if (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
 
         let logoList = [];
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
@@ -554,7 +564,7 @@ export function renderGrid(id, camp) {
             // 2026-10-12 修 ☯/🎯/🔻 隐形：短名分支原先只拼 eliteSkillIcon+buffIcons，logoList 里的状态标记不消费
             nameHtml = `<span class="cell-name ${nameTier}">${displayName}${countBadgeHtml}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         }
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div></div>`;
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div>${shieldHtml}</div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
@@ -575,6 +585,9 @@ export { getDodgeBreakdown, isUnitBenefitedByBuff };
 export function updateGridUI() {
     renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
     renderGrid('allyGrid', CAMP_TYPES.ALLY);
+    // 2026-10-17 寒离飒蓄力扇形：两网格都渲完后按全局单位取格子坐标画（不含在单网格内，避免画两次）
+    const st = getStore();
+    if (st && st.getState) updateHanLiSaChargeFx(st.getState().units);
 
     if (!_subscribed) {
         const store = getStore();
