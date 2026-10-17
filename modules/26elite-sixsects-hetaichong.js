@@ -8,7 +8,7 @@ import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
 import { emitStateChange } from '../infra/59-state-change.js';
-import { applyRoleBonusMods, switchRoleOnly } from './23elite-helpers.js';
+import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './23elite-helpers.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -59,7 +59,7 @@ export function createHeTaichongComponent() {
                     const partner = candidates[getBattleRng().nextInt(0, candidates.length - 1)];
                     Object.assign(he.state, { _liangyiPartnerUid: partner.uid, _dualSchools: [foeRole] });
                     Object.assign(partner.state, { _liangyiPartnerUid: he.uid, _dualSchools: [he.role] });
-                    if (log) log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '两仪双修', note: `☯ 两仪连接：${he.name} 与 ${partner.name}` } });
+                    if (log) pushSkillAnnounce(log, he, '两仪双修', `☯ 两仪连接：${he.name} 与 ${partner.name}`);
                 }
             }
 
@@ -83,9 +83,7 @@ export function createHeTaichongComponent() {
                 const isCarrier = unit.uid === he.uid || !!(p && unit.uid === p.uid);
                 const mult = isCarrier ? mark.carrierMult : mark.allyMult;
                 data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: mult, source: he, label: '箭靶标记' });
-                if (data.log) {
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: he.name, unitUid: he.uid, camp: he.camp, skillName: '箭靶标记', note: `箭靶标记 ×${mult}`, line: false, floatText: `🎯×${mult}`, floatUid: unit.uid } });
-                }
+                if (data.log) pushSkillAnnounce(data.log, he, '箭靶标记', `箭靶标记 ×${mult}`, { line: false, floatText: `🎯×${mult}`, floatUid: unit.uid });
             });
 
             // ── 机制② 箭靶标记（挂标 / 一次性消耗） ──
@@ -109,9 +107,9 @@ export function createHeTaichongComponent() {
                 t.state._heMarkRounds = mark.rounds;
                 if (consumed) {
                     // 2026-10-12 补回日志行（老板：被攻击者的 🎯 log 不能缺）：消耗→重挂 = 命中帧碎裂（markBurst 演出）+ 一行「重新标记」文本
-                    if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: `🎯 ${unit.name} 重新标记 ${t.name}` } });
+                    if (data.log) pushSkillAnnounce(data.log, unit, '箭靶标记', `🎯 ${unit.name} 重新标记 ${t.name}`, { camp: he.camp });
                 } else if (data.log) {
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: he.camp, skillName: '箭靶标记', note: `🎯 ${unit.name} 标记 ${t.name}`, floatText: '🎯', floatUid: t.uid } });
+                    pushSkillAnnounce(data.log, unit, '箭靶标记', `🎯 ${unit.name} 标记 ${t.name}`, { camp: he.camp, floatText: '🎯', floatUid: t.uid });
                 }
             });
 
@@ -131,12 +129,12 @@ export function createHeTaichongComponent() {
                 if (retreatPos != null) {
                     moveUnitPosition(u, retreatPos, outLog);
                     switchRole(u, ROLE_TYPES.RANGED, '红血·转远程', outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：撤退至 ${retreatPos} 号位、转远程`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
+                    if (outLog) pushSkillAnnounce(outLog, u, '红血', `🩸 ${u.name} 红血：撤退至 ${retreatPos} 号位、转远程`, { floatText: '🩸', floatUid: u.uid, grants: pendingGrants });
                 } else {
                     // ③ 无法撤退 → 再叠一套战士加成，切战士
                     addRoleBonus(u, ROLE_TYPES.WARRIOR, '红血·战士');
                     switchRole(u, ROLE_TYPES.WARRIOR, '红血·转战士', outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '红血', note: `🩸 ${u.name} 红血：退无可退、转战士`, floatText: '🩸', floatUid: u.uid, grants: pendingGrants } });
+                    if (outLog) pushSkillAnnounce(outLog, u, '红血', `🩸 ${u.name} 红血：退无可退、转战士`, { floatText: '🩸', floatUid: u.uid, grants: pendingGrants });
                 }
             }
             function tryRedBlood(subject, outLog) {
@@ -158,7 +156,7 @@ export function createHeTaichongComponent() {
                     swapUnitPositions(subject, partner, outLog);
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
                     switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
-                    if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '两仪互换', note: `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos }, grants: pendingGrants } });
+                    if (outLog) pushSkillAnnounce(outLog, subject, '两仪互换', `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, { floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos }, grants: pendingGrants });
                 } else if (subject.uid === he.uid) {
                     // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
                     soloRedBlood(he, outLog);
@@ -167,7 +165,7 @@ export function createHeTaichongComponent() {
                 //   紧跟互换/红血报幕——加血发生在攻击行之后，天然不会再有「造成 33 伤害，75→77」矛盾行
                 const healed = Math.floor(subject.hp) - hpBefore;
                 if (healed > 0 && outLog) {
-                    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: subject.name, unitUid: subject.uid, camp: subject.camp, skillName: '红血加血', note: `🩸 ${subject.name} 红血：生命 +${healed}（${hpBefore} → ${hpBefore + healed}）`, floatText: `+${healed}`, floatUid: subject.uid } });
+                    pushSkillAnnounce(outLog, subject, '红血加血', `🩸 ${subject.name} 红血：生命 +${healed}（${hpBefore} → ${hpBefore + healed}）`, { floatText: `+${healed}`, floatUid: subject.uid });
                 }
             }
             // ── 机制③ 红血触发（2026-10-13 改时机：ON_UNIT_ACTED 行动结束帧） ──

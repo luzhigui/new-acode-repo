@@ -13,7 +13,7 @@ import { calcDamage } from '../infra/51-core-utils.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
-import { pushInfo } from './23elite-helpers.js';
+import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
 
 export function createHanLiSaComponent() {
     return {
@@ -31,14 +31,14 @@ export function createHanLiSaComponent() {
 
             const announce = (ctx, note) => {
                 if (!ctx || !Array.isArray(ctx.log)) return;
-                ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: hls.name, unitUid: hls.uid, camp: hls.camp, skillName: '蓄力', note } });
+                pushSkillAnnounce(ctx.log, hls, '蓄力', note);
             };
             // 头顶弹幕（「技能1/技能2 出手说明」）：复用灭绝反击/何太冲的
             //   SKILL_ANNOUNCE + floatText/floatUid 通道（render/38 → SKILL_FLOAT → fx/80 头顶放大上浮）；
             //   line:false → 不落战报行（战报行已由本击攻击组的 info 行承担）
             const announceFloat = (ctx, skillName, text) => {
                 if (!ctx || !Array.isArray(ctx.log)) return;
-                ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: hls.name, unitUid: hls.uid, camp: hls.camp, skillName, note: text, line: false, floatText: text, floatUid: hls.uid } });
+                pushSkillAnnounce(ctx.log, hls, skillName, text, { line: false, floatText: text, floatUid: hls.uid });
             };
             const enemyOf = () => (hls.camp === CAMP_TYPES.ALLY ? B : A);
 
@@ -120,7 +120,7 @@ export function createHanLiSaComponent() {
                     if (dot <= 0) return;
                     data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dot, target: u, source: hls, reason: '寒毒' });
                     // 回填 dot 字段供数值对照器读（引擎数值零改动；recordHpAudit 仍用同一 dot 局部变量）
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '寒毒', dot, note: `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命` } });
+                    pushSkillAnnounce(data.log, u, '寒毒', `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命`, { dot });
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
 

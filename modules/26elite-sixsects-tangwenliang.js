@@ -12,7 +12,7 @@ import { computeDodgeChance, snapshotUnitForFact } from '../core/12battle-attack
 import { getMissBreakdown, makeFXSnapshot } from '../core/03battle-utils.js';
 import { flushBattleEvents, fmtHp } from '../infra/51-core-utils.js';
 import { emitStateChange } from '../infra/59-state-change.js';
-import { applyRoleBonusMods, switchRoleOnly } from './23elite-helpers.js';
+import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './23elite-helpers.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -76,11 +76,7 @@ export function createTangWenLiangComponent() {
                 // 冲刺报幕：在出手帧（本信号处理内）直接落一行，与胖远桥出手声明同口径——
                 //   此时本击攻击组还没建（group 由 core/10 命中结算后才产出），落不进组也不该丢
                 //   （后随的普攻若被闪避就没有组，挂组会让这行消失）
-                if (outLog) outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                    unitName: tw.name, unitUid: tw.uid, camp: tw.camp, skillName: '冲刺·七伤齐发',
-                    note: `⚡ 唐文亮冲刺·七伤齐发：拽 ${target.name} 至 ${frontPos} 号位，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
-                    floatText: '⚡', floatUid: target.uid
-                } });
+                if (outLog) pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：拽 ${target.name} 至 ${frontPos} 号位，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`, { floatText: '⚡', floatUid: target.uid });
             }
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播
@@ -201,10 +197,7 @@ export function createTangWenLiangComponent() {
                         const missFact = { type: 'miss', attacker: snapshotUnitForFact(dead), target: snapshotUnitForFact(victim), fxSnapshot: makeFXSnapshot(dead, victim) };
                         missFact.events = flushBattleEvents();
                         data.log.push({ factType: FACT_TYPES.MISS, data: missFact });
-                        data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                            unitName: dead.name, unitUid: dead.uid, camp: dead.camp, skillName: '同归于尽',
-                            note: `💨 唐文亮同归于尽反噬 ${victim.name}：打空了`, floatText: '💨', floatUid: victim.uid
-                        } });
+                        pushSkillAnnounce(data.log, dead, '同归于尽', `💨 唐文亮同归于尽反噬 ${victim.name}：打空了`, { floatText: '💨', floatUid: victim.uid });
                     }
                     return;
                 }
@@ -219,21 +212,14 @@ export function createTangWenLiangComponent() {
                             dodgerHp: Math.floor(victim.hp), weiHeal: null, fxSnapshot: makeFXSnapshot(victim, dead) };
                         dodgeFact.events = flushBattleEvents();
                         data.log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
-                        data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                            unitName: dead.name, unitUid: dead.uid, camp: dead.camp, skillName: '同归于尽',
-                            note: `🌀 唐文亮同归于尽反噬 ${victim.name}：被闪避了`, floatText: '🌀', floatUid: victim.uid
-                        } });
+                        pushSkillAnnounce(data.log, dead, '同归于尽', `🌀 唐文亮同归于尽反噬 ${victim.name}：被闪避了`, { floatText: '🌀', floatUid: victim.uid });
                     }
                     return;
                 }
                 // 命中：全额真实伤害（不走攻防公式），不保留 1 血——致死则挂 _pendingDeath 交 resolveDeaths 统一结算
                 const want = Math.max(1, Math.round(victim.maxHp * tong.reflectRatio));
                 applyStatChange(victim, 'hp', -want, dead, '同归于尽');
-                if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                    unitName: dead.name, unitUid: dead.uid, camp: dead.camp, skillName: '同归于尽',
-                    note: `💥 唐文亮同归于尽：反噬击杀者 ${victim.name}，扣 ${want} 点生命`,
-                    floatText: '💥', floatUid: victim.uid
-                } });
+                if (data.log) pushSkillAnnounce(data.log, dead, '同归于尽', `💥 唐文亮同归于尽：反噬击杀者 ${victim.name}，扣 ${want} 点生命`, { floatText: '💥', floatUid: victim.uid });
             });
         }
     };
