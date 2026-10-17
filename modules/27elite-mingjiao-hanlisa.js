@@ -4,16 +4,8 @@
 //   ③ 蓄力：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 20% 最大生命护盾并蓄力；
 //      下一回合跳过行动，结算时对敌方 4/6/7/9 各造成「对该目标单独算一次普攻伤害 ÷ 2」、
 //      2/5/8 造成真伤 = 最近三回合自身承受总伤害（按原始 dmg 累加）；结算完复原普攻循环，并把两个标记清零
-//      —— 蓄过一次必须再各出一次九阳/寒冰才能再蓄（2026-10-17 老板实机指正「怎么老蓄力」）
-// V1.3.1 | 2026-10-17 九阳/寒冰改「每次普攻独立 50/50 随机出」（删 done 门控，done 仅用于凑齐解锁蓄力）；
-// V1.3.2 | 2026-10-17 寒毒 SKILL_ANNOUNCE 回填 dot 字段（供数值对照器 hlsHanDuDot 契约对账，零数值改动）
-//           同一种技能可连续触发（2026-10-17 老板口径：「每下攻击 50% 九阳，50% 寒冰，不是看有没有触发过」）
-// V1.3.0 | 2026-10-17 半伤改「逐目标重算一次普攻再取半」（老板拍板：不再用上一击固定值平铺）；
-//           爆发演出改由 fx/93 经 FX_SIGNALS.HANLISA_BURST 播，本组件不再写 _hlsBurstAt/_hlsLastDmg
-// V1.2.0 | 2026-10-17 ① 爆发结算后重置 _hlsJiuYangDone/_hlsHanBingDone（修「蓄完立刻就又蓄」）；
-//           ② 九阳/寒冰触发时头顶飘弹幕（SKILL_ANNOUNCE + line:false + floatText，同灭绝反击/何太冲）
-// V1.1.0 | 2026-10-17 结算时写 state._hlsBurstAt = clock.now，交 fx/90 按逻辑时间播 900ms 爆发演出
-// V1.0.0 | ~7600 bytes | 2026-10-17 新建（老板拍板设计定稿，见 想法和优化.md 附录）
+//      —— 蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
+// 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
 export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.3.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, recordHpAudit, getStat } from '../core/13battle-shared.js';
@@ -44,7 +36,7 @@ export function createHanLiSaComponent() {
                 if (!ctx || !Array.isArray(ctx.log)) return;
                 ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: hls.name, unitUid: hls.uid, camp: hls.camp, skillName: '蓄力', note } });
             };
-            // 头顶弹幕（2026-10-17 老板要的「技能1/技能2 出手说明」）：复用灭绝反击/何太冲的
+            // 头顶弹幕（「技能1/技能2 出手说明」）：复用灭绝反击/何太冲的
             //   SKILL_ANNOUNCE + floatText/floatUid 通道（render/38 → SKILL_FLOAT → fx/80 头顶放大上浮）；
             //   line:false → 不落战报行（战报行已由本击攻击组的 info 行承担）
             const announceFloat = (ctx, skillName, text) => {
@@ -62,7 +54,7 @@ export function createHanLiSaComponent() {
                 if (!target) return;
 
                 // ①/② 每次普攻独立掷一次 50/50：出九阳（回最大生命 healPct）或出寒冰（给被打目标挂寒毒）；
-                //   与「本循环是否触发过」无关，同一种可以连出多次（2026-10-17 老板口径）
+                //   与「本循环是否触发过」无关，同一种可以连出多次
                 if (getBattleRng().next() < (jy.prob ?? 0.5)) {
                     hls.state._hlsJiuYangDone = true;   // 标记只为「凑齐解锁蓄力」，不锁技能
                     const heal = Math.min(Math.floor(hls.maxHp * (jy.healPct ?? 0.12)), hls.maxHp - hls.hp);
@@ -130,7 +122,7 @@ export function createHanLiSaComponent() {
                     const dot = Math.floor(u.maxHp * (st.dotPercents[idx] || 0));
                     if (dot <= 0) return;
                     data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dot, target: u, source: hls, reason: '寒毒' });
-                    // 2026-10-17 第 98 轮补：回填 dot 字段供数值对照器读（引擎数值零改动；recordHpAudit 仍用同一 dot 局部变量）
+                    // 回填 dot 字段供数值对照器读（引擎数值零改动；recordHpAudit 仍用同一 dot 局部变量）
                     data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '寒毒', dot, note: `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命` } });
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
@@ -138,7 +130,7 @@ export function createHanLiSaComponent() {
                 // 蓄力结算（下回合结束时 → 落在下一步的回合开始，战报紧接上回合末）
                 if ((hls.state._hlsCharging || 0) === 2) {
                     hls.state._hlsCharging = 0;
-                    // 老板口径（2026-10-17）:蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
+                    // 蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
                     //   否则两标记一直为 true，下一刀普攻立刻又满足起蓄条件（实机表现为「老蓄力」）
                     hls.state._hlsJiuYangDone = false;
                     hls.state._hlsHanBingDone = false;
@@ -154,7 +146,7 @@ export function createHanLiSaComponent() {
                         enemies.forEach(u => {
                             if (!u.alive) return;
                             if (HIT_POS.includes(u.pos)) {
-                                // 半伤：对每个目标各算一次普攻伤害（含其防御）再取半（2026-10-17 老板拍板）
+                                // 半伤：对每个目标各算一次普攻伤害（含其防御）再取半
                                 const half = Math.floor(calcDamage(atk, getStat(u, 'def')) * halfRatio);
                                 if (half <= 0) return;
                                 data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -half, target: u, source: hls, reason: '蓄力·扇形' });
