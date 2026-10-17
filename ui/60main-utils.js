@@ -1,5 +1,7 @@
+// V6.1.1 | ~8000 bytes | 2026-10-17 补漏：_forceWeakElite 一次性消费（弱精英锁定开关原先只有 29 直读 localStorage
+//   的路径，不清除会一直生效——线上表现为「点过一次 dev 演示按钮后每局必出该弱精英」，同 _forceXieXun 旧事故）
 // V6.1.0 | ~7500 bytes | 2026-09-22 新增角色实战 demo 开关：_forceXieXun / _forcePang / _startStage 一并一次性消费
-export const VER = 'ui/60main-utils.js V6.1.0';
+export const VER = 'ui/60main-utils.js V6.1.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -86,6 +88,13 @@ export function initBugAndXiaoZhaoModes() {
     if (localStorage.getItem('_forcePang') === '1') {
         GlobalStore.set('forcePang', true);
         localStorage.removeItem('_forcePang');
+    }
+    // 2026-10-17 补漏：_forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——与上面几个同口径一次性消费。
+    //   它的值是具名（如 '唐文亮'），不是 '1'；原先只有 29 直读 localStorage 的路径，不清除会一直生效。
+    const weakElite = localStorage.getItem('_forceWeakElite');
+    if (weakElite) {
+        GlobalStore.set('forceWeakElite', weakElite);
+        localStorage.removeItem('_forceWeakElite');
     }
     // _startStage：指定开局关卡（1~7）。本函数在 DOMContentLoaded 时执行，
     // 晚于 ui/63 模块顶层的 currentStage=1，且早于用户点封面触发的首次 doInitBattle，覆盖有效。

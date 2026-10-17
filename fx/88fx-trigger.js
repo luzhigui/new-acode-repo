@@ -1,6 +1,8 @@
 // fx/88fx-trigger.js
+// V6.1.5 | ~5500 bytes | 2026-10-17 标枪并入投射分支：唐文亮「标枪」出手掷矛（老板指正：不该近战飞撞）——
+//   外观走 JAVELIN_SHOT_STYLE（枪身/枪头/起手图标），轨迹与箭矢共用 showRangedArrow
 // V6.1.4 | ~5077 bytes | 2026-10-12 箭靶标记碎裂：_triggerFX 补第 12 参 markBurst——命中帧（伤害弹幕 1100ms 之前）播靶子碎裂 showMarkBurst
-export const VER = 'fx/88fx-trigger.js V6.1.4';
+export const VER = 'fx/88fx-trigger.js V6.1.5';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -11,6 +13,10 @@ import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
+
+// 2026-10-17 唐文亮「标枪」抛出外观（老板指正：标枪该掷矛，不该近战飞撞）：
+//   起手图标沿用职业图标 🪠（与 render/37 同源），枪身木色更粗更长、枪头金属灰
+const JAVELIN_SHOT_STYLE = { icon: '🪠', len: 54, thick: 4, color: '#6b4a2f', headSize: 10, headColor: '#b9c1c9' };
 
 // 颤动规则单一入口：目前仅远程飞箭命中触发，未来调整规则只改此处
 export function shakeTarget(uid, durationMs = 350) {
@@ -43,9 +49,11 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             if (!GlobalStore.get('dodgeEffectEnabled')) {
                 showMeleeDodge(unitA, unitD);
             }
-        } else if (attackerRole === ROLE_TYPES.RANGED && !isBlock) {
+        // 2026-10-17 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）
+        } else if ((attackerRole === ROLE_TYPES.RANGED || attackerRole === ROLE_TYPES.JAVELIN) && !isBlock) {
+            const shotStyle = attackerRole === ROLE_TYPES.JAVELIN ? JAVELIN_SHOT_STYLE : null;
             if (isMiss) {
-                showRangedArrow(unitA, unitD, false, null, true);
+                showRangedArrow(unitA, unitD, false, null, true, shotStyle);
                 // 射偏箭飞到中段再弹气泡（对齐近战"撞到一半才弹"的节奏，不在起手就抢跑）
                 clock.wait(500).then(() => {
                     if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
@@ -59,7 +67,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
-                });
+                }, false, shotStyle);
             }
         } else if (!isBlock) {
             if (isMiss) {

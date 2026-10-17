@@ -1,5 +1,7 @@
+// V6.2.1 | 2026-10-17 抛射外观参数化（第 6 参 style）：唐文亮「标枪」换枪身/枪头/起手图标，
+//   箭矢缺省值不变——轨迹/未命中/颤动仍单点维护
 // V6.2.0 | 2026-09-24 未命中轨迹重写：前 60% 假装直飞目标 → 后 40% 侧飘越过 → 翻倒下坠淡出，删掉误导性的命中抖动
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.2.0';
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.2.1';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -28,7 +30,7 @@ function applyWholeShake(elements, durationMs, basePositions, angle, onComplete)
     });
 }
 
-export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, isMiss = false) {
+export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, isMiss = false, style = null) {
     const rectA = snapshotUnitCell(unitA);
     const rectD = snapshotUnitCell(unitD);
     if (!rectA || !rectD) return;
@@ -38,17 +40,21 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     const angle = Math.atan2(dy, dx);
 
     // 流星赶月参数；时长均为 1x 基准毫秒，clock 统一缩放
-    let arrowLen = isMeteor ? 45 : 40;
-    let arrowColor = isMeteor ? '#FFD700' : '#8B4513';
-    let arrowThick = isMeteor ? 3 : 2;
-    let headSize = isMeteor ? 10 : 8;
+    // 2026-10-17 外观可覆盖（style）：标枪传自己的枪身/枪头/起手图标；缺省仍走箭矢
+    const st = style || {};
+    let arrowLen = st.len != null ? st.len : (isMeteor ? 45 : 40);
+    let arrowColor = st.color != null ? st.color : (isMeteor ? '#FFD700' : '#8B4513');
+    let arrowThick = st.thick != null ? st.thick : (isMeteor ? 3 : 2);
+    let headSize = st.headSize != null ? st.headSize : (isMeteor ? 10 : 8);
+    const headColor = st.headColor != null ? st.headColor : arrowColor;
+    const launchIcon = st.icon != null ? st.icon : '🏹';
     let chargeTime = 500;
     // 2026-09-15 飞行时长按距离匀速：普通 0.6px/ms、流星 1.0px/ms，各带 300~900ms 兜底
     const flySpeed = isMeteor ? 1.0 : 0.6;
     let flyDuration = Math.max(300, Math.min(900, dist / flySpeed));
     let pauseAfterHit = isMeteor ? 1200 : 600;
 
-    let bowIcon = document.createElement('div'); bowIcon.setAttribute('data-fx', 'temporary'); bowIcon.style.position = 'fixed'; bowIcon.style.left = (sx-12)+'px'; bowIcon.style.top = (sy-20)+'px'; bowIcon.style.fontSize = '22px'; bowIcon.style.zIndex = '10002'; bowIcon.style.pointerEvents = 'none'; bowIcon.textContent = '🏹';
+    let bowIcon = document.createElement('div'); bowIcon.setAttribute('data-fx', 'temporary'); bowIcon.style.position = 'fixed'; bowIcon.style.left = (sx-12)+'px'; bowIcon.style.top = (sy-20)+'px'; bowIcon.style.fontSize = '22px'; bowIcon.style.zIndex = '10002'; bowIcon.style.pointerEvents = 'none'; bowIcon.textContent = launchIcon;
     if (isMeteor) { bowIcon.style.filter = 'drop-shadow(0 0 6px gold)'; }
     document.body.appendChild(bowIcon);
     clock.animate(chargeTime, (p) => {
@@ -79,7 +85,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
 
         let head = document.createElement('div');
         head.style.position = 'absolute'; head.style.width = '0'; head.style.height = '0';
-        head.style.borderLeft = `${headSize}px solid ${arrowColor}`;
+        head.style.borderLeft = `${headSize}px solid ${headColor}`;
         head.style.borderTop = `${headSize/2}px solid transparent`;
         head.style.borderBottom = `${headSize/2}px solid transparent`;
         head.style.left = (arrowLen - headSize/2) + 'px';
