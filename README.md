@@ -1,6 +1,6 @@
 # README · 光明顶 5v5 对战 · 人类总纲领 + 网页端分发副本
 
-版本: V7.5.15 | 更新: 2026-10-17
+版本: V7.5.16 | 更新: 2026-10-17
 
 > **身份：本文件是网页端分发副本（兼人类总纲领），不是规则真源。**
 > - 协作规则**唯一真源** = `文件汇总20260730/12 子版readme和准则/README-IDE.md`（跨环境全文）；本文件供人类阅读与网页端 AI 自包含使用，**如与真源不一致，以真源为准**。
@@ -27,12 +27,13 @@
 
 ---
 
-## 〇·四、分支策略（2026-09-27 定稿）
+## 〇·四、分支策略（2026-09-27 定稿；2026-10-17 按实测校正）
 
-**只准推 main。**
+**目标状态：只准推 main。**
 
-- 历史支线（friend-dev / apk-styde / workbuddy / main-backup）已于 2026-09-27 全部删除，内容归档在同名 `archive/` tag（如 `friend-dev-archive-20260927`、`archive/apk-styde`），需要考古走 tag，不建分支。
-- 任何 AI 助手、任何自动化（含体检机器人）一律直接提交到 main；禁止新建远端分支、禁止 push 到 main 以外的分支。
+- **遗留支线（2026-10-17 实测仍在，未清完）**：本地 `main-backup-20260920`、`test`；Gitee 远端 `main-backup-v4.0.2`、`test`、`test-module`、`trae/agent-BXvkI7 / D44U7t / HyKpoX / z4bqMf`、`workbuddy/main-87959581`。属**待清理的历史包袱，不是可仿效的先例**。
+- 已清掉的支线：`friend-dev` / `apk-styde`（内容归档在同名 `archive/` tag，如 `friend-dev-archive-20260927`、`archive/apk-styde`），需要考古走 tag，不建分支。
+- **禁止新建远端分支**——任何 AI 助手、任何自动化（含体检机器人）一律直接提交到 main，禁止 push 到 main 以外的分支。
 - 紧急回退点用 tag（`git tag 快照名`）表达，不用分支表达。
 
 ---
