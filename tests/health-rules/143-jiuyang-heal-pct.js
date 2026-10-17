@@ -28,7 +28,7 @@
 //   长期处于失效状态（既抓不到回退，也发现不了按比例算错）。
 //   现改为双层扫描:顶层 text + attack-group entries 子条目 + 数组元素，entries 序号保持原战报下标。
 //   判据本身（12%/10%/8% 三档回退识别 + 回血写回一致性）一字未动，做到只改数据源这一处。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.16';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.2.1';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
@@ -71,18 +71,26 @@ export const rule90 = {
         if (heals.length === 0) return 'skip'; // 本场没触发九阳（张无忌未上场/未造成伤害），不触发该机制
 
         // 2. 张无忌终局血上限（阵容快照可能为空，取不到则降级）
+        //    2026-10-17 第 97 轮补同名歧义守卫：众志成城补员（unity）会召唤技能全开的低属性
+        //    「张无忌」克隆（属性下限批 d8521e4 后 maxHp≈25），与真身同名同 isZhang ⇒ 旧逻辑
+        //    「取第一个」可能取到克隆的 maxHp、而 heal 是另一名张无忌产生的 ⇒ 误报
+        //    （实证 seed=3 stage=7：回复 3 vs floor(195×12%)）。场上张无忌个体 ≠1 时
+        //    无法归因，跳过百分比比较（断言3 血线同步仍无条件跑）。
         var maxHp = 0;
+        var zhangCount = 0;
         var teams = [afterA, afterE];
         for (var ti = 0; ti < teams.length; ti++) {
             var arr = teams[ti] || [];
             for (var k = 0; k < arr.length; k++) {
                 var u = arr[k];
-                if (u && (u.isZhang || (u.name && u.name.indexOf('张无忌') !== -1))) { maxHp = u.maxHp || 0; break; }
+                if (u && (u.isZhang || (u.name && u.name.indexOf('张无忌') !== -1))) {
+                    zhangCount++;
+                    if (maxHp === 0) maxHp = u.maxHp || 0;
+                }
             }
-            if (maxHp > 0) break;
         }
-        // 严格百分比比较的前提：有终局血上限，且本场没有"变身以外的血上限增益"信号
-        var canCheckPct = maxHp > 0 && !hasOtherMaxHpGain && switchCount <= 1;
+        // 严格百分比比较的前提：场上恰一名张无忌、有终局血上限、且本场没有"变身以外的血上限增益"信号
+        var canCheckPct = maxHp > 0 && zhangCount === 1 && !hasOtherMaxHpGain && switchCount <= 1;
 
         for (var j = 0; j < heals.length; j++) {
             var h = heals[j];
