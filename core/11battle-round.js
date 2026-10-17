@@ -11,6 +11,9 @@
 //           jump 者排队首但 priority 仍 0（isPriorityAction=false，本步仍算本队这一步、出手后照常切换阵营），
 //           同时把「本步本该出手者」（队列里除他外首个非 pass 条目）置 _acted 并补 PASS fact
 //           （reason='被先机占用'，render/35 已同步）——队伍本次出手次数真的 −1
+// V6.3.29 | ~40300 bytes | 2026-10-17 重名保护取消（老板拍板「完全真技能」）：工厂循环删 dupRecruitNames
+//           同名召唤物跳过组件注册 的逻辑；普通工厂分支 register 增传第 5 参 self=当前单位，组件以此认自己；
+//           回合组件（小昭·姊/妹）分支不传。配套 core/04 V6.6.0（补员不再 clearHeroFlags）。
 // V6.3.28 | ~40300 bytes | 2026-10-17 众志成城持续回合 5→3（content unity.duration 同步，本文件注释一并改 3）
 // V6.3.22 | ~35800 bytes | 2026-10-16 「0 攻不发起攻击」通则化（老板拍板）：resolveActionOrder 删 isHorse/isLionCub
 //           两个身份特判，改为「getStat(u,'atk') <= 0 一律走休息通道」——对全体单位生效（含众志成城 0 攻补员）；
@@ -44,7 +47,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.28';
+export const VER = 'core/11battle-round.js V6.3.29';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -201,16 +204,13 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     const roundComps = [];
     const roundCompByName = new Map();
     const allUnits = [...A, ...B];
-    // 2026-10-16 重名保护（配套 core/04）：与场上其他单位同名的 unity 召唤物已在 core/04 降级为白板，
-    //   此处再按名字跳过它的组件注册——同名原版已注册，重复注册会让 declarations/hook 翻倍
-    //   （installDeclaredSkills 按 name 命中，同一份声明装两次 = 每次触发算两遍）
-    const dupRecruitNames = new Set();
-    for (const u of allUnits) {
-        if (u.isUnityRecruit && allUnits.some(o => o !== u && o.name === u.name)) dupRecruitNames.add(u.name);
-    }
+    // 2026-10-17 重名保护取消（配套 core/04 V6.6.0）：补员精英不再降级白板、不再按名字跳过注册——
+    //   普通工厂分支给每个单位注册独立组件实例并传第 5 参 self（register(eventBus,A,B,log,self)）：
+    //   组件内部以此认「自己」（个体 hook 按 uid 守卫、全局 hook 仅首个实例挂，见各 26/27 组件 V*），
+    //   同名共存 = 多实例各管各的，不再二选一。回合组件（小昭·姊/妹）保持单例调度、不传 self。
+    //   installDeclaredSkills/installFromGameData 的声明按 decl.name 匹配所有同名单位，天然多实例。
     for (const u of allUnits) {
         if (!u.alive) continue;
-        if (u.isUnityRecruit && dupRecruitNames.has(u.name)) continue;
         const rcCamp = roundCompSpecs.get(u.name);
         if (rcCamp !== undefined && u.camp === rcCamp) {
             const Factory = factories.get(u.name);
@@ -225,7 +225,7 @@ function installRoundMechanics(A, B, state, ctx, ds) {
         if (Factory) {
             const comp = Factory();
             if (comp.declarations) declaredSkills.push(...comp.declarations);
-            comp.register(eventBus, A, B, ctx.log);
+            comp.register(eventBus, A, B, ctx.log, u);
         }
     }
     installDeclaredSkills(eventBus, A, B, ctx.log, declaredSkills);

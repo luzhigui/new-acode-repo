@@ -29,7 +29,9 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.21';
+// V2.9.22 | 2026-10-17 谢逊多实例化配套：BATTLE_STATE_SCHEMA 新增 _lionOwnerUid（幼狮归属，整场级跨回合保留）；
+//           漏登记则 clone 时字段丢失 → 幼狮跨回合后成长被跳过（seed42/stage3 回归根因）
+export const VER = 'core/17-state-keys.js V2.9.22';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -69,6 +71,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
 
 // 整场状态：跨回合持续，不重置
 export const BATTLE_STATE_SCHEMA = Object.freeze({
+    // 2026-10-17 谢逊幼狮归属（多实例化）：召唤时写召唤者 uid，成长/振奋/随动按此认主——整场级，跨回合克隆保留
+    _lionOwnerUid:           { type: STATE_FIELD_TYPES.STRING,  default: null },
     _isDead:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _xuanmingPoison:         { type: STATE_FIELD_TYPES.OBJECT,  default: null },
