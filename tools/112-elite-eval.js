@@ -1,3 +1,4 @@
+// V2.8.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：WEAK_ELITES 加 ally 条目
 // V2.8.1 | 2026-10-16 分片细化 + startIndex 种子口径（老板拍板）：CHUNK 300→50（细粒度填满线程池、无尾部空转），
 //           四张表种子统一改「关基准 + 起始场号×7919」（去掉片序号×100003）——分片粗细不再改变采样分布（配 116 V1.10.1）
 // V2.8.0 | 2026-10-16 新增第四张表「🐦 弱精英评测」（配 116 V1.10.0 kind:'weakElite'）：
@@ -28,7 +29,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.8.1';
+export const VER = 'tools/112-elite-eval.js V2.8.2';
 
 const configs = [
     { name: '张无忌' },
@@ -46,6 +47,8 @@ const VARIANTS = ['胖远桥', '宋青书', '标准'];
 const WEAK_ELITES = [
     { name: '杨逍', side: 'ally' },
     { name: '殷天正', side: 'ally' },
+    // 2026-10-17 寒离飒（明教·战士·弱精英 M107）：与韦一笑同池、走 mingWeakPool 混入
+    { name: '寒离飒', side: 'ally' },
     { name: '何太冲', side: 'enemy' },
     { name: '唐文亮', side: 'enemy' }
 ];
