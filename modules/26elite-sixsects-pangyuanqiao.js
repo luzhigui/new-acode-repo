@@ -1,5 +1,6 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
 // V6.29.1 | ~15340 bytes | 2026-10-15 蓄力改版（老板拍板）：每次出手命中后自身回血 healPerAttack（放弃「上限永久成长」），
+// V6.29.2 | ~15420 bytes | 2026-10-17 正义国字脸防御+40 声明改挂 SKILL_ANNOUNCE（被闪也发，账实一致）
 //   走通用 HEAL 通道：本组件发 HEAL 声明 → 本击 ATTACK 组 entries → render/38 回血白名单 → 战报绿字 + afterText 飘字。
 //   同轮补 hp 记账（体检第 94 轮转交）：emit 处 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')——
 //   与 HEAL 声明 healed 同表达式同值，纯审计零行为差异；PANG_HIT_HEAL 契约转严格比对
@@ -135,6 +136,10 @@ export function createPangYuanQiaoComponent() {
                 data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                     unitName: pang.name, unitUid: pang.uid, camp: pang.camp,
                     skillName: decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸',
+                    // 2026-10-17 第 98 轮补：正义国字脸防御+40 的声明随 SKILL_ANNOUNCE 事实走
+                    // （该事实在 AFTER_SELECT_TARGET 落，早于命中判定，命中/被闪都发），与 BEFORE_SELECT_TARGET
+                    // 的 addMod 同触发点 ⇒ 账实一致；此前只挂 ATTACK 事实的 pangDefGain，被闪时不发导致漏报。
+                    pangDefGain: decl.kind === 'face' ? face.defGain : 0,
                     note
                 } });
             });
