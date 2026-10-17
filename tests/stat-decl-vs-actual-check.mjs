@@ -158,7 +158,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.1';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1113,23 +1113,29 @@ const CONTRACTS = [
         }
     },
     {
-        // 第 53 轮（回应主代码③）：正义国字脸·叠防（modules/26 L305 addMod def，ttl:'permanent'，group:'righteousFace'）。
-        //   加防量随本击 ATTACK fact 的 data.pangDefGain 带给 render/38（modules/26 L322-336 AFTER_ATTACK 写入）。
-        //   ⚠️ 跨步结构同 BREAK_DEF：def 加在「嘲讽设置步」，pangDefGain 事实发在「胖远桥攻击步」，二者不同子步
-        //      ⇒ 同一步 ledger 比对必然错位（actual=0 ↔ 声明>0）。故与 BREAK_DEF 同走保守判据（LOOSE_IDS），
-        //     只抓整数倍超应用（翻倍），零误报；非跨步的精确比对等主代码把事实与 mod 对齐到同子步再升级。
+        // 第 53 轮（回应主代码③）：正义国字脸·叠防（modules/26 addMod def，ttl:'permanent'，group:'righteousFace'）。
+        //   2026-10-17 第 98 轮修：加防量声明改随 SKILL_ANNOUNCE 事实走（modules/26 AFTER_SELECT_TARGET 写入，
+        //     命中/被闪都发）；此前随 ATTACK 事实 pangDefGain（仅命中后 AFTER_ATTACK 落），被闪避时不发 ⇒ 漏报。
+        //   根因：def addMod 在 BEFORE_SELECT_TARGET 无条件施加（永久叠加），声明却在 AFTER_ATTACK 才写，
+        //     被闪的嘲讽「加了防却没入账」⇒ 账实偏差（实际>声明）。现声明与 addMod 同触发点，账实一致。
+        //   仍走保守判据（LOOSE_IDS）：只抓整数倍超应用（翻倍），零误报。
         id: 'RIGHTEOUS_FACE',
         label: '正义国字脸·叠防',
         group: 'righteousFace',
         dir: +1,
         extract(stepLog) {
             const out = [];
+            // 2026-10-17 第 98 轮补：声明改读 SKILL_ANNOUNCE 事实（skillName='正义国字脸'）。
+            // 旧版读 ATTACK 事实的 pangDefGain，而 ATTACK 事实只在命中后（AFTER_ATTACK）落，被闪避/落空
+            // 时不发 ⇒ 防御加成（BEFORE_SELECT_TARGET 无条件 addMod，永久叠加）已生效却无声明 ⇒ 账实偏差。
+            // SKILL_ANNOUNCE 在 AFTER_SELECT_TARGET 落（早于命中判定，命中/被闪都发），与 addMod 同触发点，
+            // 账实一致。render/38 的「🛡+N」飘字仍走 ATTACK 事实 pangDefGain，不受影响。
             for (const f of stepLog || []) {
-                if (!f || !f.data || f.factType !== FACT_TYPES.ATTACK) continue;
+                if (!f || !f.data || f.factType !== FACT_TYPES.SKILL_ANNOUNCE) continue;
                 const d = f.data;
-                if (typeof d.pangDefGain === 'number' && d.pangDefGain > 0 && d.attacker
-                    && typeof d.attacker.name === 'string') {
-                    out.push({ unit: d.attacker.name, uid: d.attacker.uid || null, stat: 'def', amount: d.pangDefGain });
+                if (d.skillName !== '正义国字脸') continue;
+                if (typeof d.pangDefGain === 'number' && d.pangDefGain > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'def', amount: d.pangDefGain });
                 }
             }
             return out;
