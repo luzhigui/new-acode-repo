@@ -49,6 +49,12 @@ export const FACT_TYPES = Object.freeze({
     HOLY_FLAME_APPLY: 'holyFlameApply',
     // 摄魂（core/04 applySoulDrain，op:mul 削弱型海克斯）：每回合每存活单位 1 条，发乘率（-0.30 为负，体检契约 allowNeg）
     SOUL_DRAIN_APPLY: 'soulDrainApply',
+    // 背水一战（core/04 applyLastStandBonus，op:mul 残血增伤）：触发即每回合每存活单位 1 条，发乘率（atk ×(1+atkBonus)）
+    LAST_STAND_APPLY: 'lastStandApply',
+    // 众志成城（core/04 applyUnityBonus，op:mul 人数阶梯攻防同乘）：每回合每存活单位 2 条（攻/防各一），发乘率
+    UNITY_APPLY: 'unityApply',
+    // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：每次冲刺 1 条，发 atk/def/maxHp 三 stat 增量
+    TW_DASH_APPLY: 'twDashApply',
     // 韦一笑·闪避反击吸血（WEI_HEAL）独立数值声明：此前体检只能借 dodgeFact.weiHeal 嵌套读取；纯账本不进画面（演出仍走 dodgeFact）
     WEI_DODGE_LEECH: 'weiDodgeLeech',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',

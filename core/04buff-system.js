@@ -169,17 +169,21 @@ export function spawnCarryEagle(team, log) {
 
 // 2026-10-15 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
 //   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
-export function applyLastStandBonus(unit, activeBuffs) {
+//   2026-10-17 数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检按乘率口径核对
+//     （与 HOLY_FLAME_APPLY 同款；log 由 core/11 applyTeamRoundBuffs 透传 ctx.log，纯记账、零游戏逻辑副作用）。
+export function applyLastStandBonus(unit, activeBuffs, log) {
     if (!hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND)) return;
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
     if (unit.hp >= unit.maxHp * (cfg.hpThreshold ?? 0.35)) return;
     addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'round', op: 'mul', group: 'lastStand' });
+    if (log) log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
 }
 
 // 2026-10-15 众志成城（unity）加成：按本阵营存活人数（拒马/幼狮/雄鹰/召唤物都算人）取最高达标档，攻防同乘。
 //   与摄魂同款：ttl:'round' 每回合清理重挂，故整局持续、不做回合计数器；人数每回合现算。
-export function applyUnityBonus(unit, team, activeBuffs) {
+//   2026-10-17 数值声明 fact（UNITY_APPLY）：op:mul 乘法词条，攻/防各发一条乘率 ratio 供体检按乘率口径核对。
+export function applyUnityBonus(unit, team, activeBuffs, log) {
     if (!hasBuff(activeBuffs, BUFF_TYPES.UNITY)) return;
     const cfg = C.BUFFS.unity;
     if (!cfg || !Array.isArray(cfg.tiers)) return;
@@ -189,6 +193,10 @@ export function applyUnityBonus(unit, team, activeBuffs) {
     if (!tier) return;
     addMod(unit, 'atk', { source: '众志成城', value: tier.atkBonus, ttl: 'round', op: 'mul', group: 'unity' });
     addMod(unit, 'def', { source: '众志成城', value: tier.defBonus, ttl: 'round', op: 'mul', group: 'unity' });
+    if (log) {
+        log.push({ factType: FACT_TYPES.UNITY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: tier.atkBonus } });
+        log.push({ factType: FACT_TYPES.UNITY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: tier.defBonus } });
+    }
 }
 
 // 2026-10-15 众志成城（unity）补员：获得时若本阵营不足 5 人，则每回合召唤随机角色补员——
