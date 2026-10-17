@@ -4,10 +4,10 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.4.0
-  预估字节数：约 47 KB
-  日期：2026-10-11
-  改动：每日折扣改为「限量消耗制」——每天 1-2 个可购项、每项限购 1-2 个，买满即恢复原价；打折记录按「日期|商品」记账，跨日自动作废
+  版本：V2.5.0
+  预估字节数：约 65 KB
+  日期：2026-10-17
+  改动：新增全部精英图鉴（明教/六大派/朝廷分组），补属性·技能·背景介绍，未解锁也可只读预览
 -->
 <html lang="zh-CN">
 <head>
@@ -144,6 +144,11 @@
         }
         .skill-box h3 { color: #ffd700; margin-bottom: 4px; font-size: 1.1rem; }
         .skill-box .role-line { color: #888; font-size: 0.75rem; margin-bottom: 10px; }
+        .skill-box .hero-intro {
+            background: #1a1a3a; border-left: 3px solid #6b5a1e; border-radius: 6px;
+            padding: 8px 10px; margin: 0 0 10px; font-size: 0.72rem; line-height: 1.6; color: #bbb;
+        }
+        .skill-box .hero-intro b { color: #ffd700; }
         .skill-box .skill-item {
             background: #0f0f1a; border: 1px solid #333; border-radius: 8px;
             padding: 10px; margin-bottom: 8px; font-size: 0.78rem; line-height: 1.5;
@@ -348,17 +353,31 @@
 <script>
 // ==================== 角色技能库（展示用） ====================
 const SKILL_DB = {
-    '小昭·妹': {
-        icon: '🕷️',
+    // ==================== 明教 ====================
+    '张无忌': {
+        icon: '☀️',
+        camp: '明教',
+        intro: '明教核心，前排无人时切近战碾压，自带回血与反弹。',
         skills: [
-            { name: '蛛变', desc: '每回合随机变换职业（战士/防战/远程/飞行），不与上回合重复。记录精通职业，每次变身+5生命上限。精通加成：每职业+2攻+2防+5血上限（全精通额外+1次）。' },
-            { name: '飞天', desc: '整场战斗最多触发3次：首次受击/血量<70%/血量<40%时自动触发，化为小蜘蛛遁走并免疫当次伤害。回合结束落下攻击随机敌人（穿透伤害+精通×额外伤害，精通0=5/1=10/2=15/3=30）。' },
-            { name: '乾坤大挪移·升级', desc: '张无忌在场时，保护己方2/4/6/8号位，全队减伤30%，反弹20%伤害给攻击者（无忌自伤原始伤害的10%）。' },
-            { name: '记忆海克斯', desc: '团队海克斯过期后，妹妹可单独续上永久弱化版效果。仅职业匹配的Buff才激活。' }
+            { name: '九阳神功', desc: '每次造成伤害后回复最大生命12%的血量。' },
+            { name: '乾坤大挪移', desc: '远程形态下，保护2/4/6/8号位队友。队友被攻击时减伤10%并反弹10%伤害给攻击者，无忌自伤原始伤害的10%。小昭在场时减伤与反弹增强。' },
+            { name: '近战切换', desc: '当前排无友军时自动切换近战形态：攻+9、防+9、生命上限+90（封顶基础生命上限×3），职业变为战士。前3次近战攻击有特殊台词，近战第3次及之后每次攻击额外造成目标攻击与防御差值绝对值×50%的伤害。' }
+        ]
+    },
+    '韦一笑': {
+        icon: '🦇',
+        camp: '明教',
+        intro: '血量越残，吸血越多、闪避越高的飞行刺客。',
+        skills: [
+            { name: '蝠影汲血', desc: '优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = 5%（满血）→ 35%（濒死），随已损失生命比例线性提升。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。' },
+            { name: '青翼蝠王', desc: '基础闪避20%，无视已行动状态。闪避反击造成(攻+防)×0.5真实伤害，攻击者被眩晕。' },
+            { name: '残血幻影', desc: '额外闪避率 = 已损失生命比例×70%（满血 0%，濒死 70%）。与基础飞行闪避及其他闪避源独立判定，互不覆盖。' }
         ]
     },
     '小昭·姊': {
         icon: '🦋',
+        camp: '明教',
+        intro: '开局附身强化队友；张无忌不在场时提供减伤、治疗与加攻，在场时团队海克斯显著增强。',
         skills: [
             { name: '蝶变附身', desc: '明教首次攻击前，附身到4号位后最近队友。转移一半攻/防/当前血量给宿主，自身血量按队友总血量比例调整。附身后格子消失（不挡后排、不被打、不吃衍生效果）。' },
             { name: '乾坤衍生', desc: '张无忌不在时，队友受伤自动触发减伤、随机治疗、随机加攻。数值基于目标防御力计算。' },
@@ -366,42 +385,194 @@ const SKILL_DB = {
             { name: '团队强化', desc: '姐姐在场时，团队海克斯获得强化效果（连击100%、乘風100%波及、嗜血额外砍一刀等）。' }
         ]
     },
-    '张无忌': {
-        icon: '⚔️',
+    '小昭·妹': {
+        icon: '🕷️',
+        camp: '明教',
+        intro: '每回合随机变职业成长，自带 3 次免死飞天与永久惑心。',
         skills: [
-            { name: '九阳神功', desc: '每次造成伤害后回复最大生命12%的血量。' },
-            { name: '乾坤大挪移', desc: '远程形态下，保护4/6号位队友。队友被攻击时减伤10%并反弹10%伤害给攻击者，无忌自伤原始伤害的10%。' },
-            { name: '近战切换', desc: '当前排无友军时自动切换近战形态：攻+9、防+9、生命上限+90（封顶基础生命上限×3），职业变为战士。前3次近战攻击有特殊台词，近战第3次及之后每次攻击额外造成目标攻击与防御差值绝对值×50%的伤害。' }
+            { name: '蛛变', desc: '每回合随机变换职业（战士/防战/远程/飞行），不与上回合重复。记录精通职业，每次变身+5生命上限。精通加成：每职业+2攻+2防+5血上限（全精通额外+1次）。' },
+            { name: '飞天', desc: '整场战斗最多触发3次：首次受击/血量<70%/血量<40%时自动触发，化为小蜘蛛遁走并免疫当次伤害。回合结束落下攻击随机敌人（穿透伤害+精通×额外伤害，精通0=5/1=10/2=15/3=30）。' },
+            { name: '乾坤大挪移·升级', desc: '张无忌在场时，保护己方2/4/6/8号位，全队减伤30%，反弹20%伤害给攻击者（无忌自伤原始伤害的10%）。' },
+            { name: '记忆海克斯', desc: '团队海克斯过期后，妹妹可单独续上永久弱化版效果。仅职业匹配的Buff才激活。' }
         ]
     },
-    '韦一笑': {
-        icon: '🦇',
+    '金毛狮王谢逊': {
+        icon: '🦁',
+        camp: '明教',
+        intro: '本体不指望输出，靠一群狮子滚雪球——幼狮成长、雄狮全队加攻、母狮集群随动。',
         skills: [
-            { name: '蝠影汲血', desc: '优先攻击全场血量最低的敌人。伤害后按 5%~50% 吸血（濒死越多吸越狠），吸血值等量提升生命上限与当前血量（最低1，无上限）。' },
-            { name: '青翼蝠王', desc: '基础闪避20%，无视已行动状态。闪避反击造成(攻+防)×0.5真实伤害，攻击者被眩晕。' },
-            { name: '残血幻影', desc: '已损失生命比例×70%作为额外闪避率。乘法叠加：总命中=(1-基础20%)×(1-流云)×(1-残血)。空血最高70%额外闪避，与基础叠加后可达76%。' }
+            { name: '召唤狮子', desc: '每回合开始 50% 概率在随机空位召唤一只幼狮（攻 0 无法攻击，行动时休息回血；被加攻后可正常出手，按防战公式结算；不遮挡后排队友）。幼狮存活一回合后 80% 概率按所在位置成长：1-6 号位成雄狮，其余位置成母狮，未成长则保持幼狮下回合再判定。' },
+            { name: '振奋', desc: '雄狮每次命中后，己方全体角色永久 +1 攻击力（幼狮除外——保持零攻白板到成长）。' },
+            { name: '随动', desc: '母狮每次命中后，其他雄狮、母狮与谢逊各随动攻击一次（无视遮挡），目标与母狮相同；目标已阵亡则取消随动。' }
         ]
     },
-    '小昭': {
-        icon: '🦋',
+    '杨逍': {
+        icon: '👆',
+        camp: '明教',
+        intro: '明教光明左使，飞行点穴控制型精英——弹指神通点穴定身并截脉禁疗，兼具鹰眼提命中与全队先机抢手。',
         skills: [
-            { name: '蝶变乾坤', desc: '每回合随机变换职业，记录精通，+5血上限。精通加成：每职业+2攻+2防+5血上限（全精通额外+1次）。' },
-            { name: '乾坤大挪移·衍生', desc: '张无忌不在时，队友受伤触发减伤、治疗和攻击加成。' },
-            { name: '乾坤大挪移·升级', desc: '张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤原始伤害的10%）。' },
-            { name: '永久海克斯', desc: '团队海克斯消失后单独续上效果。' }
+            { name: '弹指神通', desc: '攻击命中后 40% 概率点穴目标：目标本回合无法行动（😵）并立即进入截脉（禁疗❌），同一目标 3 回合内最多被点一次。选敌优先未行动的敌人；若敌方全部已行动过，则改走飞行默认选敌且本次伤害 ×1.3。' },
+            { name: '点穴截脉', desc: '点穴命中同时挂上：目标进入截脉（禁疗❌）3 回合（本回合+下回合+下下回合），受到的治疗/吸血回复减少 50%（反治疗）。' },
+            { name: '鹰眼', desc: '被动：自身未命中概率减少 12 个百分点（含残血光环等附加未命中，最低减到 0）。' },
+            { name: '先机', desc: '队友每次拟出手前 40% 概率抢得先机：插到队首先出手（先手点穴），本该先手的队友顺延出手、行动权不丢；一旦他出过手即停止判定。' }
+        ]
+    },
+    '殷天正': {
+        icon: '🦅',
+        camp: '明教',
+        intro: '白眉鹰王，明教防战——反击越打越硬、越打越削敌：鹰爪功反击后自身永久成长，同时削弱目标攻防。',
+        skills: [
+            { name: '鹰爪功', desc: '被攻击后 22% 概率反击攻击者，伤害 ×1.0，可被闪避。' },
+            { name: '鹰王威压', desc: '每次反击命中后永久削弱目标：攻击 −2、防御 −2（可无限叠加，越打越削，跨回合延续）。' },
+            { name: '老当益壮', desc: '每次反击命中后自身永久成长：攻击 +2、防御 +2、反击概率 +2%（本局累计，越打越硬）。' }
+        ]
+    },
+    '寒离飒': {
+        icon: '❄️',
+        camp: '明教',
+        intro: '明教战士，九阳与寒冰双绝。普攻五五开：或出九阳神拳回血、或施寒冰神掌挂寒毒；两极走完解锁蓄力爆发。',
+        skills: [
+            { name: '九阳神拳', desc: '普攻 50% 概率附带：命中后回复自身最大生命 12%（同张无忌九阳）。' },
+            { name: '寒冰神掌', desc: '每次普攻独立掷 50/50：另 50% 施展时给被攻击目标叠寒毒，3 回合内每回合失去最大生命 4% / 2% / 1%（同鹿杖客玄冥神掌，可重复施展）。' },
+            { name: '蓄力', desc: '每次普攻随机：50% 出九阳神拳（回复自身最大生命 12%），否则出寒冰神掌（给被打目标挂寒毒 3 回合 4%→2%→1% 最大生命）。两种都出过后解锁蓄力：普攻后蓄力一回合，获最大生命 20% 护盾；蓄力结束时对敌方 4/6/7/9 各造成「对该目标单独算一次普攻伤害的一半」，对 2/5/8 造成真伤（等于自己最近三回合承受的总伤害）。结算后需再各出一次九阳、寒冰才能再蓄。' }
+        ]
+    },
+    // ==================== 六大派 ====================
+    '宋青书': {
+        icon: '💥',
+        camp: '六大派',
+        intro: '锁定血量百分比最高的敌人；周芷若在场走「新婚+性奋」联动，不在场走「苦练」全队成长。',
+        skills: [
+            { name: '叛逆突袭', desc: '攻击目标锁定全场血量百分比最高（hp/maxHp）的存活敌人，附加目标当前生命 10% 的真实伤害。' },
+            { name: '苦练', desc: '场上无周芷若时每回合最先行动；行动前给全体非马存活队友 +1 攻 +2 防 +5 生命上限，宋青书自身双倍（+2/+4/+10），血量同步回复至新上限。' },
+            { name: '新婚', desc: '宋青书每次造成伤害后，周芷若扣 1 血并叠一层「快乐」（每层回血 20%→17%→14%→11%→8%→5%，逐层衰减、回血后降一级）。' },
+            { name: '性奋', desc: '周芷若在场时回合开始获得「性奋」；攻击 miss 后消耗性奋立即获得一次额外攻击（每回合最多 1 次）。每次造成伤害后生命上限递减（第 1 次 -1、第 2 次 -2、第 3 次 -3……），血量按比例回缩，上限最低 1，归零判死。' }
+        ]
+    },
+    '周芷若': {
+        icon: '🐾',
+        camp: '六大派',
+        intro: '九阴白骨爪连锁追击 + 斩杀；张无忌在场进入「嫉妒」模式全面提升。',
+        skills: [
+            { name: '九阴白骨爪', desc: '每次出手第一爪必发，之后每爪按概率续接（满血基准 80%，按自身已损失血量线性升到 0 血时 100%，场上无存活宋青书再 +10%，概率可超 100%；链条内每多连一爪 −1%，累减到 0 必断），全程无视闪避。每层伤害 = 基础 2 + 目标已损失血量×1.5% + 目标最大生命×1%（无忌在场时损失/最大比例均为 1.5%）；目标血量降至 ≤15%（无忌在场 18%）时直接斩杀。' },
+            { name: '宋青书联动', desc: '连锁造成伤害时，场上存活宋青书回复等量伤害的生命。' }
+        ]
+    },
+    '胖远桥': {
+        icon: '💢',
+        camp: '六大派',
+        intro: '越挨打越硬的莽脸坦克——血气足时国字脸嘲讽吸火叠防，气血翻涌时莽拳乱砸击退。',
+        skills: [
+            { name: '莽撞', desc: '每次被攻击后自身攻击 +2，永久累计、无上限。' },
+            { name: '正义国字脸', desc: '每次攻击前与「年轻气盛」二选一（血量越高越容易发动）：全体敌人本回合后续只能攻击自己，且自身防御永久 +40（可无限叠加）；每次攻击命中后回复自身 10 点生命。' },
+            { name: '年轻气盛', desc: '每次攻击前与「正义国字脸」二选一（攻击越高越容易发动）：随机攻击一名敌人造成 ×1.5~×3.0 伤害（每次随机波动，步长 0.1），并将其击退（退无可退则眩晕）。' }
+        ]
+    },
+    '灭绝师太': {
+        icon: '✋',
+        camp: '六大派',
+        intro: '高概率不可闪避反击 + 三击轮回爆发吸血，倒下时原地站起周芷若。',
+        skills: [
+            { name: '峨眉掌法', desc: '自身普攻伤害 ×1.0（反击/跟随/追击这类被动出手不吃此加成）。' },
+            { name: '追击', desc: '每次打中（普攻/反击/跟随/追击均可）后 10% 概率对同一目标再追击一次，伤害 ×1.2，可被闪避；追击本身也算一次出手，也能再触发追击（可链式）。' },
+            { name: '反击', desc: '被攻击后 70% 概率反击攻击者，伤害 ×0.8，可被闪避，无每回合上限。' },
+            { name: '每第三次攻击', desc: '每第 3 次命中伤害 ×1.1、并回复本次伤害 1.0 倍的生命——该次是普攻/反击/跟随/追击哪种出手，再叠乘哪种的系数（被动出手照样计数）。' },
+            { name: '召唤周芷若', desc: '每局 1 次，任一队友或灭绝师太自身阵亡时，在原位置召唤周芷若（M107）——「第七关之影」，与第四关周芷若同一套九阴白骨爪机制。' }
+        ]
+    },
+    '唐文亮': {
+        icon: '💢',
+        camp: '六大派',
+        intro: '崆峒派标枪精英，七伤拳自损换爆发。出手先自伤再增伤、低血更狠；伤己七次触发冲刺突脸重创，阵亡还能反噬击杀者。',
+        skills: [
+            { name: '七伤拳', desc: '每次出手前自损 4% 最大生命（最少 1 点，留 1 血不死），本次伤害 ×1.45；自身生命低于 30% 时 ×1.75；自损与「伤己」计数 7 次为一循环。' },
+            { name: '回春术', desc: '每次出手后 4% 概率（与七伤拳自损同一概率）叠 1 层；每层每回合开始回复自身已损失生命的 15%（自身生命低于 30% 时为 25%），持续 3 回合，可叠加。' },
+            { name: '冲刺·七伤齐发', desc: '每积满 7 次出手触发：冲到目标同列的己方前排位、并把目标拽到其同列前排位；对目标造成其当前生命 45% 的伤害，自身承受当前生命 45% 的真实伤害；随后再吃一套战士加成、转为近战战士，并必定叠 1 层回春术；本回合冲刺后仍照常普攻一次。' },
+            { name: '同归于尽', desc: '阵亡时反噬击杀者：对其造成其最大生命 25% 的真实伤害，可直接致死；可能落空（按自身未命中率与目标闪避率判定，找不到凶手时随机反噬一名敌人）。' }
+        ]
+    },
+    '何太冲': {
+        icon: '☯',
+        camp: '六大派',
+        intro: '两仪双修的远程输出——与对系队友结成两仪连接共享双职业特效，全程点名增伤，红血时与搭档互换或独自变阵。',
+        skills: [
+            { name: '两仪双修', desc: '战斗开始即刻与一名对系队友（远程连战士、战士连远程，候选多人随机）结成两仪连接，双方名字各挂 ☯。连接期间任一方出手同时享有战士+远程两系攻击特效（战士破防/战士斩杀/远程成长）；连接建立即绑定不更换，搭档阵亡即断连。' },
+            { name: '箭靶标记', desc: '何太冲或两仪搭档命中即给目标挂 🎯 持续 2 回合（当前回合+下一回合）、不叠层；任何人打中带 🎯 目标即消耗掉标记（一次性），其他队友伤害 ×1.1、何太冲或其搭档 ×1.3，何太冲或搭档打中后立即重新挂标。' },
+            { name: '红血·两仪互换', desc: '血量 ≤40% 当帧触发（每局限一次，不挑伤害来源）：有连接且仅一方红血→两仪互换（两人互换职业与位置、各叠一套对方职业加成，旧加成保留，连接继续）；两人同时红血或已断连→走单人规则，单人常态攻击伤害 ×1.3。' }
+        ]
+    },
+    '张三丰': {
+        icon: '🔮',
+        camp: '六大派',
+        intro: '不攻击的续航核心——自身永动回血，回不满的溢出治疗转给随机一名队友，每笔回血都转永久攻防（溢出档给得更多），被打则掉攻换防。',
+        skills: [
+            { name: '生生不息', desc: '不攻击；每回合开始回复最大生命 16%；轮到自己行动时与八卦阵触发均需消耗 3 点攻击力（攻不足则不触发）。回血同时永久加成：实际回血每 20 点→攻+1、每 10 点→防+1，溢出每 10 点→攻+1、每 5 点→防+1（每档至少 +1，加成记在血量落点单位身上）。自身回不满的溢出转给随机一名存活友方（含拒马、不含自己；满血队友也可能被选中，选中即作废）。' },
+            { name: '八卦阵', desc: '被攻击且本次伤害 >0 时 50% 概率触发，消耗自身 3 点攻击力并立即触发一次生生不息（攻击不足 3 时不触发）。' },
+            { name: '不争', desc: '己方仅剩张三丰一人时，对方（明教）直接获胜。' },
+            { name: '严阵以待', desc: '第 3 回合结束后仍未分胜负时获得，此后每回合开始重挂一次：防御 +50%、反弹 50% 伤害。仅限张三丰自身，不走阵营 buff。' }
+        ]
+    },
+    // ==================== 朝廷 ====================
+    '成昆': {
+        icon: '🌀',
+        camp: '朝廷',
+        intro: '越残越猛（混元霹雳劲 + 伪装回血），幻影伪装诱导敌人误伤队友。',
+        skills: [
+            { name: '混元霹雳劲', desc: '攻击时附加已损失生命 20% 的真实伤害，越残伤害越高。' },
+            { name: '幻影伪装', desc: '造成伤害后从敌方存活非马不可选中单位中随机选一个作为伪装目标；敌方选攻击目标时，伪装目标本人识破伪装锁定攻击成昆本体，其他敌人按 30% + 每损失 10% 生命 +6% 概率被迷惑、误攻自己的一名存活队友。成昆造成伤害后回复已损失生命 ×6% × 存活敌人数 的生命。' }
+        ]
+    },
+    '鹿杖客': {
+        icon: '❄️',
+        camp: '朝廷',
+        intro: '玄冥二老之一的远程，玄冥神掌挂毒持续掉血。',
+        skills: [
+            { name: '玄冥神掌', desc: '攻击命中后使目标中毒，持续 3 回合，每回合开始损失最大生命 4% / 2% / 1%（随剩余持续回合衰减），毒伤致死直接判死。' },
+            { name: '玄冥联动', desc: '鹿杖客或鹤笔翁任意一方造成伤害后，若搭档存活且本回合未联动过，搭档立即对同一目标跟随发动一次攻击，每回合最多联动一次。' }
+        ]
+    },
+    '鹤笔翁': {
+        icon: '🦌',
+        camp: '朝廷',
+        intro: '玄冥二老之一的飞行，破防 + 中毒增伤。',
+        skills: [
+            { name: '鹿角杖法', desc: '攻击无视目标 30% 防御；若目标处于玄冥神掌中毒状态，本次伤害额外 +30%。' },
+            { name: '玄冥联动', desc: '鹿杖客或鹤笔翁任意一方造成伤害后，若搭档存活且本回合未联动过，搭档立即对同一目标跟随发动一次攻击，每回合最多联动一次。' }
         ]
     }
 };
 
-// ==================== 角色静态元数据（baseM / 职业 为占位，待按实际代码校准） ====================
+// ==================== 角色静态元数据（baseM / 职业 / 阵营） ====================
+// baseM 取自 content/game-data.json 的 roster（mingM / enemyM）真值；小昭姊·妹无 roster 条目，沿用旧值
 const HERO_META = {
-    '小昭·妹': { baseM: 107, role: '战士' },   // 待校准
-    '小昭·姊': { baseM: 105, role: '远程' },   // 待校准
-    '张无忌':   { baseM: 110, role: '远程' },   // 待校准
-    '韦一笑':   { baseM: 103, role: '飞行' },   // 待校准
-    '小昭':     { baseM: 100, role: '远程' }    // 待校准
+    '张无忌':       { baseM: 115, role: '远程', camp: '明教' },
+    '韦一笑':       { baseM: 107, role: '飞行', camp: '明教' },
+    '小昭·姊':     { baseM: 105, role: '远程', camp: '明教' },
+    '小昭·妹':     { baseM: 107, role: '战士', camp: '明教' },
+    '金毛狮王谢逊': { baseM: 107, role: '战士', camp: '明教' },
+    '杨逍':         { baseM: 104, role: '飞行', camp: '明教' },
+    '殷天正':       { baseM: 104, role: '防战', camp: '明教' },
+    '寒离飒':       { baseM: 107, role: '战士', camp: '明教' },
+    '宋青书':       { baseM: 107, role: '飞行', camp: '六大派' },
+    '周芷若':       { baseM: 107, role: '战士', camp: '六大派' },
+    '胖远桥':       { baseM: 107, role: '战士', camp: '六大派' },
+    '灭绝师太':     { baseM: 115, role: '战士', camp: '六大派' },
+    '唐文亮':       { baseM: 104, role: '标枪', camp: '六大派' },
+    '何太冲':       { baseM: 104, role: '远程', camp: '六大派' },
+    '张三丰':       { baseM: 107, role: '防战', camp: '六大派' },
+    '成昆':         { baseM: 112, role: '防战', camp: '朝廷' },
+    '鹿杖客':       { baseM: 112, role: '远程', camp: '朝廷' },
+    '鹤笔翁':       { baseM: 112, role: '飞行', camp: '朝廷' }
 };
-const HERO_ORDER = ['小昭·妹', '小昭·姊', '张无忌', '韦一笑', '小昭'];
+// 展示顺序：按阵营分组（明教 → 六大派 → 朝廷）
+const HERO_ORDER = [
+    '张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '杨逍', '殷天正', '寒离飒',
+    '宋青书', '周芷若', '胖远桥', '灭绝师太', '唐文亮', '何太冲', '张三丰',
+    '成昆', '鹿杖客', '鹤笔翁'
+];
+// 阵营分组顺序与标题图标
+const ELITE_CAMP_ORDER = ['明教', '六大派', '朝廷'];
+const ELITE_CAMP_ICON  = { '明教': '🔥', '六大派': '🏔️', '朝廷': '👑' };
 // 默认赠送的新手英雄：初始即解锁，重置后仍保留，不占用付费解锁名额、不计入首解锁价
 const DEFAULT_HEROES = ['小昭·妹'];
 
@@ -641,49 +812,59 @@ function renderDiscount() {
 function renderHeroes() {
     const list = document.getElementById('heroList');
     list.innerHTML = '';
-    for (const name of HERO_ORDER) {
-        const meta = HERO_META[name];
-        const info = SKILL_DB[name] || { icon: '❓' };
-        const entry = findEntry(name);
-        const card = document.createElement('div');
+    // 按阵营分组：每组先插分组小标题，再排该阵营的角色卡
+    for (const camp of ELITE_CAMP_ORDER) {
+        const names = HERO_ORDER.filter(n => HERO_META[n] && HERO_META[n].camp === camp);
+        if (names.length === 0) continue;
+        const title = document.createElement('div');
+        title.className = 'section-title';
+        title.textContent = (ELITE_CAMP_ICON[camp] || '') + ' ' + camp + '精英';
+        list.appendChild(title);
 
-        if (entry) {
-            card.className = 'hero-card unlocked';
-            card.innerHTML =
-                '<div class="hero-avatar">' + info.icon + '</div>' +
-                '<div class="hero-info">' +
-                    '<div class="hero-name">' + name + (DEFAULT_HEROES.includes(name) ? '<span class="newbie-tag">新手</span>' : '') + '</div>' +
-                    '<div class="hero-role">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
-                    '<div class="hero-stats">' +
-                        '<span>⚔️ ' + fmtNum(entry.points.atk) + '</span>' +
-                        '<span>🛡️ ' + fmtNum(entry.points.def) + '</span>' +
-                        '<span>❤️ ' + fmtNum(entry.points.hp) + '</span>' +
+        for (const name of names) {
+            const meta = HERO_META[name];
+            const info = SKILL_DB[name] || { icon: '❓' };
+            const entry = findEntry(name);
+            const card = document.createElement('div');
+
+            if (entry) {
+                card.className = 'hero-card unlocked';
+                card.innerHTML =
+                    '<div class="hero-avatar">' + info.icon + '</div>' +
+                    '<div class="hero-info">' +
+                        '<div class="hero-name">' + name + (DEFAULT_HEROES.includes(name) ? '<span class="newbie-tag">新手</span>' : '') + '</div>' +
+                        '<div class="hero-role">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
+                        '<div class="hero-stats">' +
+                            '<span>⚔️ ' + fmtNum(entry.points.atk) + '</span>' +
+                            '<span>🛡️ ' + fmtNum(entry.points.def) + '</span>' +
+                            '<span>❤️ ' + fmtNum(entry.points.hp) + '</span>' +
+                        '</div>' +
                     '</div>' +
-                '</div>' +
-                '<button class="mini-btn" data-act="detail">加点</button>';
-            card.querySelector('[data-act="detail"]').addEventListener('click', e => {
-                e.stopPropagation();
-                showHeroModal(name);
-            });
-            card.addEventListener('click', () => showHeroModal(name));
-        } else {
-            card.className = 'hero-card locked';
-            card.innerHTML =
-                '<div class="hero-avatar">' + info.icon + '</div>' +
-                '<div class="hero-info">' +
-                    '<div class="hero-name">' + name + '<span class="lock-tag">未解锁</span></div>' +
-                    '<div class="hero-role">baseM ' + meta.baseM + ' · ' + meta.role + '</div>' +
-                '</div>' +
-                '<div class="buy-col">' +
-                    '<div class="price-line">' + priceHtml(unlockPrice(), 'unlock') + '</div>' +
-                    '<button class="mini-btn" data-act="unlock">解锁</button>' +
-                '</div>';
-            card.querySelector('[data-act="unlock"]').addEventListener('click', e => {
-                e.stopPropagation();
-                buyHero(name);
-            });
+                    '<button class="mini-btn" data-act="detail">加点</button>';
+                card.querySelector('[data-act="detail"]').addEventListener('click', e => {
+                    e.stopPropagation();
+                    showHeroModal(name);
+                });
+                card.addEventListener('click', () => showHeroModal(name));
+            } else {
+                card.className = 'hero-card locked';
+                card.innerHTML =
+                    '<div class="hero-avatar">' + info.icon + '</div>' +
+                    '<div class="hero-info">' +
+                        '<div class="hero-name">' + name + '<span class="lock-tag">未解锁</span></div>' +
+                        '<div class="hero-role">baseM ' + meta.baseM + ' · ' + meta.role + '</div>' +
+                    '</div>' +
+                    '<div class="buy-col">' +
+                        '<div class="price-line">' + priceHtml(unlockPrice(), 'unlock') + '</div>' +
+                        '<button class="mini-btn" data-act="unlock">解锁</button>' +
+                    '</div>';
+                card.querySelector('[data-act="unlock"]').addEventListener('click', e => {
+                    e.stopPropagation();
+                    buyHero(name);
+                });
+            }
+            list.appendChild(card);
         }
-        list.appendChild(card);
     }
 }
 
@@ -717,6 +898,12 @@ function renderAll() {
 }
 
 // ==================== 角色详情 / 加点弹窗 ====================
+// 技能列表 HTML（已解锁 / 未解锁两条分支复用）
+function heroSkillsHtml(info) {
+    return (info.skills || []).map(s =>
+        '<div class="skill-item"><div class="skill-name">' + s.name + '</div>' + s.desc + '</div>'
+    ).join('');
+}
 function showHeroModal(name) {
     renderHeroModal(name);
     document.getElementById('heroModal').classList.add('show');
@@ -727,10 +914,22 @@ function closeHeroModal() {
 function renderHeroModal(name) {
     const box = document.getElementById('heroBox');
     const info = SKILL_DB[name] || { icon: '❓', skills: [] };
+    const meta = HERO_META[name] || {};
     const entry = findEntry(name);
+    const skillsHtml = heroSkillsHtml(info);
+    const introHtml = info.intro
+        ? '<div class="hero-intro"><b>背景介绍</b><br>' + info.intro + '</div>'
+        : '';
+
     if (!entry) {
-        box.innerHTML = '<button class="close-btn" data-close>✕</button><h3>' + name + '</h3>' +
-            '<div class="item-desc">尚未解锁</div>';
+        // 未解锁也允许只读预览：背景介绍 + 技能，但不给加点区
+        box.innerHTML =
+            '<button class="close-btn" data-close>✕</button>' +
+            '<h3>' + info.icon + ' ' + name + '</h3>' +
+            '<div class="role-line">' + (meta.camp ? meta.camp + ' · ' : '') + 'baseM ' + fmtNum(meta.baseM) + ' · ' + (meta.role || '') + '</div>' +
+            introHtml +
+            '<div class="item-desc">🔒 尚未解锁 · 仅预览</div>' +
+            '<div class="alloc-title">技能</div>' + skillsHtml;
         box.querySelector('[data-close]').addEventListener('click', closeHeroModal);
         return;
     }
@@ -753,15 +952,11 @@ function renderHeroModal(name) {
     allocHtml += '<div class="alloc-row"><span>📈 经验池</span><span class="grow">' + bag.exp + ' 点</span>' +
         '<button class="mini-btn" data-exp="1"' + (bag.exp <= 0 ? ' disabled' : '') + '>投入</button></div>';
 
-    let skillsHtml = '';
-    (info.skills || []).forEach(s => {
-        skillsHtml += '<div class="skill-item"><div class="skill-name">' + s.name + '</div>' + s.desc + '</div>';
-    });
-
     box.innerHTML =
         '<button class="close-btn" data-close>✕</button>' +
         '<h3>' + info.icon + ' ' + name + '</h3>' +
-        '<div class="role-line">Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
+        '<div class="role-line">' + (meta.camp ? meta.camp + ' · ' : '') + 'Lv' + lvDisplay(entry) + ' · ' + entry.role + '</div>' +
+        introHtml +
         '<div class="detail-box">' +
             '<div>等级 = baseM ' + fmtNum(entry.baseM) + ' + 属性点 ' + fmtNum(sum) + '（显示取整 Lv' + lvDisplay(entry) + '）</div>' +
             '<div>属性点：⚔️ ' + fmtNum(entry.points.atk) + ' · 🛡️ ' + fmtNum(entry.points.def) + ' · ❤️ ' + fmtNum(entry.points.hp) + '</div>' +
