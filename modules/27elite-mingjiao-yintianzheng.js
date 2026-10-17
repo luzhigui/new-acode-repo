@@ -1,6 +1,8 @@
 // modules/27elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
+// V1.1.0 | ~7000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；反击/威压/成长判定原按单位引用比较，self 化后双殷天正各认各的
 // V1.0.0 | ~6880 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-yintianzheng.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-yintianzheng.js V1.1.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, addMod } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -8,9 +10,10 @@ import { SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 export function createYinTianZhengComponent() {
     return {
         name: '殷天正',
-        register(eventBus, A, B, log) {
-            // 不写死阵营：按身份标记在两侧找，殷天正换边也照样生效
-            const yin = [...A, ...B].find(u => u.isYinTianZheng && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 不写死阵营：按身份标记在两侧找，殷天正换边也照样生效。
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            const yin = (self && self.alive) ? self : [...A, ...B].find(u => u.isYinTianZheng && u.alive);
             if (!yin) return;
 
             const counter = getSkillParams('殷天正', 'yingZhuaGong');

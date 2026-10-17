@@ -1,6 +1,8 @@
 // modules/26elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
+// V6.26.0 | ~16000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；ON_UNIT_ACTED 付费回血加 actor.uid 守卫（防双张三丰对同一行动双倍回血/双倍 RNG）
 // V6.25.0 | ~15900 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.25.0';
+export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.26.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
@@ -15,8 +17,9 @@ import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 export function createZhangSanfengComponent() {
     return {
         name: '张三丰',
-        register(eventBus, A, B, log) {
-            const zhang = B.find(u => u.isZhangSanfeng && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退 B 侧 find
+            const zhang = (self && self.alive) ? self : B.find(u => u.isZhangSanfeng && u.alive);
             if (!zhang) return;
 
             const s = getSkillParams('张三丰', 'endlessBreath');
@@ -127,6 +130,7 @@ export function createZhangSanfengComponent() {
             eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 50, (data) => {
                 const actor = data.unit;
                 if (!actor || !actor.alive || !actor.isZhangSanfeng) return;
+                if (actor.uid !== zhang.uid) return;   // 2026-10-17 多实例守卫：各实例只响应自己的单位，防双张三丰对同一行动双倍付费回血
                 if (getStat(actor, 'atk') < s.atkCost) {
                     if (data.log) data.log.push({ factType: FACT_TYPES.ENDLESS_BREATH, data: { unitName: actor.name, heal: 0, failReason: 'atk', atkCost: s.atkCost } });
                     return;

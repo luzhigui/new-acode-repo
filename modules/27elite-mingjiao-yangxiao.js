@@ -1,6 +1,9 @@
 // modules/27elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
+// V1.1.0 | ~8000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；先机/点穴 hook 加 uid 守卫（防双掷骰 RNG 偏移）；
+//           JIN_MAI 全局递减仅首个存活杨逍实例挂载（防双倍递减）
 // V1.0.0 | ~7667 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-yangxiao.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-yangxiao.js V1.1.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -9,10 +12,15 @@ import { emitStateChange } from '../infra/59-state-change.js';
 export function createYangXiaoComponent() {
     return {
         name: '杨逍',
-        register(eventBus, A, B, log) {
-            // 不写死阵营：按身份标记在两侧找，杨逍换边也照样生效
-            const yangxiao = [...A, ...B].find(u => u.isYangXiao && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 不写死阵营：按身份标记在两侧找，杨逍换边也照样生效。
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            const yangxiao = (self && self.alive) ? self : [...A, ...B].find(u => u.isYangXiao && u.alive);
             if (!yangxiao) return;
+            // 多实例守卫：JIN_MAI 全局递减（扫全场单位的点穴状态）只由「场上第一个存活杨逍」实例挂载，
+            //   双杨逍都挂会每回合减两遍（_dianXueCd 直接清空、_jinMai rounds 双倍递减）
+            const sameYang = [...A, ...B].filter(o => o.alive && o.isYangXiao).sort((a, b) => (a.pos - b.pos) || (a.uid < b.uid ? -1 : 1));
+            const isPrimary = sameYang.length > 0 && sameYang[0].uid === yangxiao.uid;
 
             const dian = getSkillParams('杨逍', 'dianXueShenTong');
             if (!dian) throw new Error('缺技能参数: 杨逍.dianXueShenTong');
@@ -27,6 +35,7 @@ export function createYangXiaoComponent() {
             eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.YANGXIAO_JUMP, (data) => {
                 const u = data.unit;
                 if (!u || !u.isYangXiao || !u.alive || u.state._acted) return;
+                if (u.uid !== yangxiao.uid) return;   // 2026-10-17 多实例守卫：各实例只响应自己的单位，防双杨逍对同一出手掷两次骰（RNG 偏移）
                 const ahead = (data.allySide || []).filter(m => m !== u && m.alive && !m.state._acted && m.pos < u.pos).sort((a, b) => a.pos - b.pos);
                 if (ahead.length === 0) return;
                 if (getBattleRng().next() >= (xian.jumpProb || 0)) return;
@@ -42,6 +51,7 @@ export function createYangXiaoComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.DIAN_XUE, (data) => {
                 const unit = data.unit;
                 if (!unit || !unit.isYangXiao || !unit.alive) return;
+                if (unit.uid !== yangxiao.uid) return;   // 2026-10-17 多实例守卫：防双杨逍对同一次命中双掷骰/双点穴
                 const target = data.target;
                 if (!target || !target.alive || !data.dmg || data.dmg <= 0) return;
                 if (target.state._dianXueCd > 0) {                // 冷却中：cdRounds 回合内不再被点（老板拍板：失败也要有动静）
@@ -87,8 +97,8 @@ export function createYangXiaoComponent() {
                 data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: dian.allActedDmgRatio, source: yangxiao, label: '弹指神通·追击' });
             });
 
-            // ③ 回合开始：递减 _jinMai 剩余回合与 _dianXueCd 冷却
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.JIN_MAI, (data) => {
+            // ③ 回合开始：递减 _jinMai 剩余回合与 _dianXueCd 冷却（2026-10-17 多实例守卫：仅首个存活杨逍挂，防双倍递减）
+            if (isPrimary) eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.JIN_MAI, (data) => {
                 for (const u of [...(data.A || []), ...(data.B || [])]) {
                     if (!u.alive) continue;
                     const st = u.state;

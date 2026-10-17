@@ -1,6 +1,9 @@
 // modules/27elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
+// V1.1.0 | ~13200 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
+//           register 增第 5 参 self 认自己；幼狮召唤即打 state._lionOwnerUid=召唤者 uid，
+//           成长/振奋/随动按归属过滤——双谢逊各管各的狮子，防重复成长 RNG 双消耗/双倍振奋/双份随动
 // V1.0.0 | ~12826 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-xiexun.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-xiexun.js V1.1.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnUnit } from '../core/05battle-horse.js';
@@ -11,9 +14,12 @@ import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra
 export function createXieXunComponent() {
     return {
         name: '金毛狮王谢逊',
-        register(eventBus, A, B, log) {
-            // 不写死阵营：按身份标记在两侧找，谢逊换边也照样生效
-            const xiexun = [...A, ...B].find(u => u.isXieXun && u.alive);
+        register(eventBus, A, B, log, self) {
+            // 不写死阵营：按身份标记在两侧找，谢逊换边也照样生效。
+            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find。
+            //   双谢逊各管各的狮子：召唤时给幼狮打 state._lionOwnerUid=自己 uid，成长/振奋/随动只认自己召的，
+            //   防双实例重复成长（RNG 双消耗）、双倍振奋、双份随动请求
+            const xiexun = (self && self.alive) ? self : [...A, ...B].find(u => u.isXieXun && u.alive);
             if (!xiexun) return;
             const myTeam = xiexun.camp === CAMP_TYPES.ALLY ? A : B;
 
@@ -33,7 +39,7 @@ export function createXieXunComponent() {
             //    必须排在召唤之前（LION_GROW 15 < XIE_SUMMON 16），否则刚召出来的幼狮会在同一次回合开始里立刻长大。
             //    2026-09-23 成长加概率：每只幼狮独立掷 grow.prob（默认1=必定成长），未中则保持幼狮下回合再判定。
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.LION_GROW, (data) => {
-                const cubs = myTeam.filter(u => u.isLionCub && u.alive && u.pos);
+                const cubs = myTeam.filter(u => u.isLionCub && u.alive && u.pos && u.state._lionOwnerUid === xiexun.uid);
                 const growRng = getBattleRng();
                 for (const cub of cubs) {
                     if (growRng.next() >= summon.grow.prob) continue;
@@ -77,6 +83,7 @@ export function createXieXunComponent() {
                 const pos = free[rng.nextInt(0, free.length - 1)];
                 const cub = spawnUnit(myTeam, summon.cub.name, summon.cub.m, summon.cub.role, pos,
                     { atk: summon.cub.atk, def: summon.cub.def, maxHp: summon.cub.maxHp, skipRoleBonus: summon.cub.skipRoleBonus });
+                cub.state._lionOwnerUid = xiexun.uid;   // 2026-10-17 狮子归属标记：成长/振奋/随动按此认主
                 if (data && data.log) {
                     data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: cub.name, summonUid: cub.uid, pos, byName: xiexun.name } });
                 }
@@ -87,6 +94,7 @@ export function createXieXunComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LION_INSPIRE, (data) => {
                 const lion = data.unit;
                 if (!lion || !lion.isLionMale || !lion.alive) return;
+                if (lion.state._lionOwnerUid !== xiexun.uid) return;   // 2026-10-17 只认自己召唤的雄狮，防双谢逊双倍振奋
                 if (!data.dmg || data.dmg <= 0) return;
                 const gain = inspire.atkPerHit;
                 // 2026-10-06 振奋受益池统一走 canBeTargeted + 排拒马：天上蝶/蛛不白吃加攻，拒马不加攻
@@ -122,6 +130,7 @@ export function createXieXunComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LION_FOLLOW, (data) => {
                 const lioness = data.unit;
                 if (!lioness || !lioness.isLioness || !lioness.alive) return;
+                if (lioness.state._lionOwnerUid !== xiexun.uid) return;   // 2026-10-17 只认自己召唤的母狮，防双谢逊双份随动请求
                 if (lioness.state._isLinkAttack) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 const target = data.target;
