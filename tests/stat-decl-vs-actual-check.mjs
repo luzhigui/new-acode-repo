@@ -1,3 +1,8 @@
+// V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
+//         （scan-groups 差集 3 个 group 无契约盯）。主代码补 3 个纯记账数值声明 fact（UNITY_APPLY / LAST_STAND_APPLY
+//         / TW_DASH_APPLY，renderFn:null 不进画面）+ infra/56 enum + infra/58 FACT_SPECS 登记（不渲染不抛错）；
+//         unity/lastStand 为 op:mul 乘法词条走 mulSum 比对（与 HOLY_FLAME/SOUL_DRAIN 同款），twDash 为 op:add
+//         永久词条走 sum 比对（与何太冲红血同款）。咬牙验证：把主代码 addMod value 翻倍 → 3 契约严格比对全命中 EXIT=1。
 // V3.6.0 | ~126000 bytes | 2026-10-15 第 94 轮：新增 PANG_HIT_HEAL 胖远桥命中蓄力回血契约（45→46）——
 //         scan-groups 扫地：主代码 a6ab497 蓄力改版（命中回血，走通用 HEAL 通道）后新盲区——
 //         emit 处无记账、无契约。声明侧可观测（HEAL entry data.label==='蓄力回复' 带 data.heal，
@@ -153,7 +158,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.7.1';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1208,6 +1213,72 @@ const CONTRACTS = [
                 if (field && typeof d.ratio === 'number') {
                     out.push({ unit: d.unitName, uid: d.unitUid || null, stat: field, amount: d.ratio });
                 }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 98 轮（2026-10-17）：众志成城（unity）盲区闭环——core/04 applyUnityBonus 原纯 addMod 无声明侧 fact，
+        //   scan-groups 长期裸奔（2044 条词条）。主代码补 UNITY_APPLY 数值声明 fact（atk/def 各一条乘率 ratio），
+        //   与 addMod value（tier.atkBonus/defBonus）同值。mul:true ⇒ 主循环取账本 mulSum 比对；dir:+1。
+        id: 'UNITY',
+        label: '众志成城',
+        group: 'unity',
+        dir: +1,
+        mul: true,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.UNITY_APPLY) continue;
+                const d = f.data;
+                if (typeof d.unitName !== 'string') continue;
+                const field = d.field === 'def' ? 'def' : (d.field === 'atk' ? 'atk' : null);
+                if (field && typeof d.ratio === 'number' && d.ratio > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: field, amount: d.ratio });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 98 轮（2026-10-17）：背水一战（lastStand）盲区闭环——core/04 applyLastStandBonus 原纯 addMod 无声明侧，
+        //   scan-groups 裸奔（83 条词条）。主代码补 LAST_STAND_APPLY 数值声明 fact（atk 乘率 ratio=cfg.atkBonus），
+        //   与 addMod value 同值。mul:true ⇒ 主循环取账本 mulSum 比对；dir:+1。
+        id: 'LAST_STAND',
+        label: '背水一战',
+        group: 'lastStand',
+        dir: +1,
+        mul: true,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.LAST_STAND_APPLY) continue;
+                const d = f.data;
+                if (typeof d.unitName !== 'string') continue;
+                if (d.field === 'atk' && typeof d.ratio === 'number' && d.ratio > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'atk', amount: d.ratio });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 98 轮（2026-10-17）：唐文亮冲刺·转战士（twDash）盲区闭环——modules/26 addRoleBonus 原纯 addMod 无声明侧，
+        //   scan-groups 裸奔（6 条词条）。主代码补 TW_DASH_APPLY 数值声明 fact（atk/def/maxHp=getRoleBonus(WARRIOR)），
+        //   与 addMod value 同值。op:add 永久词条 ⇒ 主循环取账本 sum 比对（无 mul）；dir:+1。
+        id: 'TW_DASH',
+        label: '唐文亮冲刺转战士',
+        group: 'twDash',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.TW_DASH_APPLY) continue;
+                const d = f.data;
+                if (typeof d.unitName !== 'string') continue;
+                if (typeof d.atk === 'number' && d.atk > 0) out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'atk', amount: d.atk });
+                if (typeof d.def === 'number' && d.def > 0) out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'def', amount: d.def });
+                if (typeof d.maxHp === 'number' && d.maxHp > 0) out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'maxHp', amount: d.maxHp });
             }
             return out;
         }

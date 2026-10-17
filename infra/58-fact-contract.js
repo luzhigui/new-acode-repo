@@ -166,6 +166,12 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值——atk 为 atkBonus(-0.30) 随人数差更深（每多 1 人 -0.05），def 为乘法累积 (1+defBonus)×(1+perRoundBonus)^(N-1)-1（×0.9 起步、每回合再 ×0.95）；field 为 atk/def，体检按乘率（mulSum）口径核对
     [FACT_TYPES.SOUL_DRAIN_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 背水一战（core/04 applyLastStandBonus，op:mul 残血增伤）：ratio 与 addMod value 同值（atkBonus），field='atk'，体检按乘率（mulSum）口径核对
+    [FACT_TYPES.LAST_STAND_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 众志成城（core/04 applyUnityBonus，op:mul 人数阶梯攻防同乘）：ratio 与 addMod value 同值（tier.atkBonus/defBonus），field='atk'|'def'，体检按乘率（mulSum）口径核对
+    [FACT_TYPES.UNITY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：atk/def/maxHp 与 addMod value 同值（getRoleBonus(WARRIOR)），体检按加法增量口径核对
+    [FACT_TYPES.TW_DASH_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
 });

@@ -81,6 +81,10 @@ export function createTangWenLiangComponent() {
                 if (toSelf > 0) applyStatChange(tw, 'hp', -toSelf, null, '冲刺·七伤齐发自损', false);
 
                 addRoleBonus(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士');
+                // 2026-10-17 数值声明 fact（TW_DASH_APPLY）：op:add 永久职业加成，atk/def/maxHp 与 addMod value 同值
+                //   （getRoleBonus(WARRIOR)），供体检按加法增量口径核对；纯记账、零游戏逻辑副作用（不进画面）。
+                const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
+                if (outLog) outLog.push({ factType: FACT_TYPES.TW_DASH_APPLY, data: { unitName: tw.name, unitUid: tw.uid, camp: tw.camp, atk: rb.atk, def: rb.def, maxHp: rb.maxHp } });
                 switchRole(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士', outLog);
                 addHuiChunStack(tw);   // 冲刺这一击必叠 1 层回春术（不走下面 4% 掷骰，两者互斥）
                 // 冲刺报幕：在出手帧（本信号处理内）直接落一行，与胖远桥出手声明同口径——

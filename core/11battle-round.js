@@ -299,8 +299,8 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
         applyFortifyBonus(u, buffs);
         applySoulDrain(u, enemyBuffs, { log: ctx.log, casterAlive, targetAlive, round: ctx.round, casterSide: enemy });
         applyCarryBonus(u, team, state, ctx.log);
-        applyLastStandBonus(u, buffs);
-        applyUnityBonus(u, team, buffs);
+        applyLastStandBonus(u, buffs, ctx.log);
+        applyUnityBonus(u, team, buffs, ctx.log);
 
         const auraBonuses = getAuraBonuses(u, team, enemy);
         // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
