@@ -10,6 +10,7 @@ import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
+import { pushSkillAnnounce } from './23elite-helpers.js';
 registerSettlementHook({ when: SIGNAL_TYPES.ON_UNIT_DEATH, priority: L.ON_UNIT_DEATH.XIAO_CARRY_COUNT, handler: (data) => {
     const bro = (data.allySide || []).find(u => u.isXiaoZhaoBrother && u.alive);
     if (!bro) return;
@@ -53,7 +54,7 @@ function toSpiderEgg(u, outLog) {
     addMod(u, 'def', { source: '蜘蛛卵', value: eggDefDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     if (u.hp < u.maxHp) applyStatChange(u, 'hp', u.maxHp - u.hp, null, '蜘蛛结茧', false, false);
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛卵', note: `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta } });
+    pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
 }
 
 // 孵化（2026-10-13）：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、
@@ -69,7 +70,7 @@ function hatchSpiderEgg(u, outLog) {
     const targetHp = Math.floor(u.maxHp * fp.eggHatchHpRatio);
     if (u.hp > targetHp) applyStatChange(u, 'hp', -(u.hp - targetHp), null, '蜘蛛孵化', false);
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-    outLog.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '蜘蛛孵化', note: `🕷️ ${u.name} 破茧孵化：保留 ${Math.round(fp.eggHatchHpRatio * 100)}% 血、攻防恢复，直接飞天！`, floatText: '🕷️', floatUid: u.uid } });
+    pushSkillAnnounce(outLog, u, '蜘蛛孵化', `🕷️ ${u.name} 破茧孵化：保留 ${Math.round(fp.eggHatchHpRatio * 100)}% 血、攻防恢复，直接飞天！`, { floatText: '🕷️', floatUid: u.uid });
     const fsm = u._fsm;
     if (fsm && fsm.is('normal')) {
         const flyData = { tier: 'hatch', reason: SPIDER_TIER_REASON.hatch, incomingDmg: 0, log: outLog };

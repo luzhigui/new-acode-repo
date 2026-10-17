@@ -11,7 +11,7 @@ import { fmtHp } from '../infra/51-core-utils.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
-import { pushInfo } from './23elite-helpers.js';
+import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
 
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
 // 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
@@ -128,15 +128,11 @@ export function createPangYuanQiaoComponent() {
                 const note = decl.kind === 'clumsy'
                     ? `😵 年轻气盛：胖远桥一拳打歪，招呼到 ${data.target ? data.target.name : '?'} 身上（伤害×${decl.mult}）`
                     : `😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）`;
-                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                    unitName: pang.name, unitUid: pang.uid, camp: pang.camp,
-                    skillName: decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸',
-                    // 2026-10-17 第 98 轮补：正义国字脸防御+40 的声明随 SKILL_ANNOUNCE 事实走
-                    // （该事实在 AFTER_SELECT_TARGET 落，早于命中判定，命中/被闪都发），与 BEFORE_SELECT_TARGET
-                    // 的 addMod 同触发点 ⇒ 账实一致；此前只挂 ATTACK 事实的 pangDefGain，被闪时不发导致漏报。
-                    pangDefGain: decl.kind === 'face' ? face.defGain : 0,
-                    note
-                } });
+                // pangDefGain 随 SKILL_ANNOUNCE 事实走（在 AFTER_SELECT_TARGET 落，早于命中判定，命中/被闪都发），
+                //   与 BEFORE_SELECT_TARGET 的 addMod 同触发点 ⇒ 账实一致；只挂 ATTACK 事实时被闪不发、会漏报。
+                pushSkillAnnounce(data.log, pang, decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸', note, {
+                    pangDefGain: decl.kind === 'face' ? face.defGain : 0
+                });
             });
 
             // 出手蓄力改版（2026-10-15 老板拍板）：每次出手**命中后**自身回血 face.healPerAttack（放弃「上限永久成长」）。

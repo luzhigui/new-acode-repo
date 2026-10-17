@@ -9,6 +9,7 @@ import { emitEvent, getBattleRng, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
+import { pushSkillAnnounce } from './23elite-helpers.js';
 export function createYangXiaoComponent() {
     return {
         name: '杨逍',
@@ -41,10 +42,7 @@ export function createYangXiaoComponent() {
                 if (getBattleRng().next() >= (xian.jumpProb || 0)) return;
                 data.declaration.jumpConsume = true;
                 // 插队公告（core/11 V6.3.25 起载荷带 log）：点名被顺延的第一名队友，鞋印还是👟
-                if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                    unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '先机',
-                    note: `👟 ${u.name}·先机：抢先出手（${ahead[0].name} 顺延，行动权不丢）`
-                } });
+                if (data.log) pushSkillAnnounce(data.log, u, '先机', `👟 ${u.name}·先机：抢先出手（${ahead[0].name} 顺延，行动权不丢）`);
             });
 
             // ① 命中后点穴判定：眩晕 + 禁疗同时挂（data.unit=杨逍，data.target=被命中者）
@@ -55,21 +53,11 @@ export function createYangXiaoComponent() {
                 const target = data.target;
                 if (!target || !target.alive || !data.dmg || data.dmg <= 0) return;
                 if (target.state._dianXueCd > 0) {                // 冷却中：cdRounds 回合内不再被点（老板拍板：失败也要有动静）
-                    if (data.log) {
-                        data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                            unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '弹指神通',
-                            note: `👆 ${unit.name} 弹指神通：${target.name} 穴道还麻着（冷却 ${target.state._dianXueCd} 回合），本次未发动`
-                        } });
-                    }
+                    if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `👆 ${unit.name} 弹指神通：${target.name} 穴道还麻着（冷却 ${target.state._dianXueCd} 回合），本次未发动`);
                     return;
                 }
                 if (getBattleRng().next() >= dian.prob) {
-                    if (data.log) {
-                        data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                            unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '弹指神通',
-                            note: `👆 ${unit.name} 弹指神通：未点中 ${target.name} 穴道，本次未发动`
-                        } });
-                    }
+                    if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `👆 ${unit.name} 弹指神通：未点中 ${target.name} 穴道，本次未发动`);
                     return;
                 }
 
@@ -78,13 +66,7 @@ export function createYangXiaoComponent() {
                 target.state._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
                 emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), _stunned: true });
                 emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
-                if (data.log) {
-                    data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                        unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '弹指神通',
-                        note: `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动，并禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${Math.round(jie.healReduceRatio * 100)}%）`,
-                        floatText: '😵', floatUid: target.uid
-                    } });
-                }
+                if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动，并禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${Math.round(jie.healReduceRatio * 100)}%）`, { floatText: '😵', floatUid: target.uid });
             });
 
             // ② 敌方全部已行动过 → 追击：本次伤害 ×allActedDmgRatio（与选敌排空回退飞行默认同一条件）
