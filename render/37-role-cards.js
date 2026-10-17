@@ -1,4 +1,5 @@
 // render/37-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
+// V1.3.4 | ~11100 bytes | 2026-10-17 新增寒离飒名片卡（☀️九阳神拳 / ❄️寒冰神掌 / 🌀蓄力，content 单源）
 // V1.3.3 | ~10800 bytes | 2026-10-17 唐文亮重做：名片卡四条（💢七伤拳/⚡冲刺·七伤齐发/🌿回春术/💥同归于尽）；
 //           职业回落图标补「标枪」🪠（getRoleIcon）
 // V1.3.2 | ~10700 bytes | 2026-10-16 杨逍名片卡补第四条 👟先机（每回合 40% 抢在队友前出手，content 单源）
@@ -7,7 +8,7 @@
 //           🦅鹰爪功/⬇️鹰王威压/💪老当益壮；唐文亮（崆峒精英 m104）💢七伤拳/💥同归于尽，文本走 content 单源
 // V1.2.0 | ~8100 bytes | 2026-10-15 杨逍补名片卡（老板实机反馈面板无技能说明）：👆弹指神通/❌点穴截脉/🦅鹰眼三条，popupMark/logTag 同韦一笑口径
 // V1.1.0 | 2026-10-12 何太冲重做 V3：名片技能三条换新（liangyiLink 两仪双修 / targetMark 箭靶标记 / redBlood 红血·两仪互换），旧三技能条目已删
-export const VER = 'render/37-role-cards.js V1.3.3';
+export const VER = 'render/37-role-cards.js V1.3.4';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -53,6 +54,15 @@ export const ROLE_CARDS = [
             `🦅 ${getSkillDesc('殷天正', 'yingZhuaGong')}`,
             `⬇️ ${getSkillDesc('殷天正', 'yingWangWeiYa')}`,
             `💪 ${getSkillDesc('殷天正', 'laoDangYiZhuang')}`
+        ]
+    },
+    {
+        id: 'hanLiSa', name: '寒离飒', match: u => !!u.isHanLiSa,
+        popupMark: '[寒离飒]', logTag: '[寒离飒]',
+        skills: () => [
+            `☀️ ${getSkillDesc('寒离飒', 'jiuYangQuan')}`,
+            `❄️ ${getSkillDesc('寒离飒', 'hanBingShenZhang')}`,
+            `🌀 ${getSkillDesc('寒离飒', 'xuLi')}`
         ]
     },
     {

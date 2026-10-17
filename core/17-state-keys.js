@@ -1,3 +1,6 @@
+// V2.9.19 | 2026-10-17 寒离飒（明教·战士·弱精英）：新增 _shield / _shieldAbsorbed（通用护盾值 + 本击吸收量）、
+//           _hlsJiuYangDone / _hlsHanBingDone（本局九阳/寒毒各触发过一次）、_hlsCharging（0 无 / 1 待蓄力 / 2 蓄力中）、
+//           _hlsLastDmg（上一次普攻伤害，蓄力结算取半）、_hlsTaken（最近三回合承伤桶）、_hlsHanDu（自挂寒毒 DoT）
 // V2.9.18 | 2026-10-17 唐文亮重做：新增 _hcStacks（回春术层数数组，可叠加）；
 //           _qiShangCount 语义由「自损次数」改为「出手次数」（满 7 触发冲刺）
 // V2.9.16 | 2026-10-16 删 _jumpConsumed（先机改插队式后无人写入；V2.9.15 的键当晚作废，方案见 core/11 V6.3.25）
@@ -23,7 +26,7 @@
 // V2.9.2 | 2026-10-14 新增 _holyFireSelf（小昭·妹专属复活名额，妹永久 holyFire 独立记账，与团队 _holyFire 叠加）
 // V2.9.1 | 2026-10-13 杨逍重做：删 _dianXue（眩晕解除转截脉旧链作废）；保留 _dianXueCd（点穴冷却）、_jinMai（禁疗 OBJECT {rounds, ratio}）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/17-state-keys.js V2.9.17';
+export const VER = 'core/17-state-keys.js V2.9.19';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -93,6 +96,19 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 2026-10-16 殷天正·鹰爪功反击暂存（老板拍板「被白骨爪斩杀后不得反击」）：本击命中掷中反击后暂存
     //   待发的额外攻击请求，推迟到 AFTER_ATTACK 相位再出手——那时白骨爪连锁已落地，若他已死则不出手
     _yinCounterPending:      { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 2026-10-17 通用护盾（数值 = 剩余可吸收伤害；core/12 攻击扣血前先扣盾）：寒离飒蓄力时挂 20% 最大生命
+    _shield:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _shieldAbsorbed:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 2026-10-17 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
+    _hlsJiuYangDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _hlsHanBingDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 蓄力相位：0 未蓄力 / 1 已触发待下回合蓄 / 2 本回合蓄力（跳过行动）
+    _hlsCharging:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _hlsLastDmg:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 最近三回合承伤（每回合一个桶，回合开始滚动；蓄力真伤 = 桶和）
+    _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
+    // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
+    _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 2026-10-16 carry 雄鹰一次性判定（老板拍板）：只在 carry「首次生效」那回合判一次 5 号位——
     //   那回合 5 号位有人即本局永不招（之后空出来也不补），招了之后雄鹰阵亡也不补。
     //   core/04 spawnCarryEagle 在 hasBuff 判过后查本字段：任一单位带标即整队跳过（锁写在此，跨回合随 clone 存活）

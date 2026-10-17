@@ -303,7 +303,11 @@ export function initBattleTeams(currentStage, _rng) {
     //   且补足到 3 的随机补位可能落到无关的普通弟子身上。
     let xie = allyTeam.find(u => u.isXieXun);
     if (xie) { xie.pos = 7; takenPos.add(7); }
-    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun);
+    // 2026-10-17 寒离飒恒定 2 号位（老板拍板）：先于「张无忌在场时 others[0] 站 2」的旧规则抢位，
+    //   并从 others 名单摘掉，避免被随机补位顶走
+    let hls = allyTeam.find(u => u.isHanLiSa);
+    if (hls && !takenPos.has(2)) { hls.pos = 2; takenPos.add(2); }
+    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun && !u.isHanLiSa);
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
     for (let i = emptySlots.length - 1; i > 0; i--) {
