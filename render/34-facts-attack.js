@@ -139,7 +139,7 @@ export function renderAttackFact(fact) {
     for (const b of breakDefEntries) {
         if (b) group.entries.unshift(b);
     }
-    if (fact.phantomFact) group.entries.push(renderLog(fact.phantomFact.factType, fact.phantomFact.data));
+    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) group.entries.push(_pf); }
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 减伤${dmgCalc.hpBonus}</span>`});
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
@@ -197,7 +197,8 @@ export function renderAttackFact(fact) {
     if (fact.entries) {
         for (const e of fact.entries) {
             if (e && e.factType === FACT_TYPES.BREAK_DEF) continue; // 已前置到攻击组开头
-            if (e && e.factType) group.entries.push(projectFactEntry(e));
+            // 无渲染声明的 fact（58 显式 renderFn:false）→ projectFactEntry 返回 null，跳过，避免 null 流入 entries 在 player/46 崩
+            if (e && e.factType) { const _re = projectFactEntry(e); if (_re) group.entries.push(_re); }
             else group.entries.push(e);
         }
     }
