@@ -2,14 +2,16 @@
 //   · 扇面顶点 = #allyGrid [data-pos=2] 格心，两翼 = #enemyGrid [data-pos=7] / [data-pos=9] 格心
 //     （按格子的 data-pos 取，不看该格上有没有单位——空位也照样画，扇面全程笼罩战场）
 //   · 蓄力期间常驻扇面，由一个 clock tween 把浓度由 0.35 渐深到 1.0（描边同步加粗）
+//   · 扇面形制＝变体A（老板自 demo tools/126 选定）：弧边（非直边三角）+ 金→冰蓝线性渐变 + 柔光（feGaussianBlur）
 //   · 真伤格（敌 2/5/8）白内发光、半伤格（敌 4/6/7/9）红棕底；色浓度走 CSS 变量 --hls-a
+// V1.3.0 | 2026-10-17 扇面形制改「变体A」：直边三角 → 弧边 + 金→冰蓝渐变 + 柔光 + 金色描边（与 fx/93 同风格）
 // V1.2.0 | 2026-10-17 爆发演出交 fx/93（FX_SIGNALS.HANLISA_BURST），删本文件 900ms 爆发段与 _hlsBurstAt 读取
 // V1.1.0 | ~5.4 KB | 2026-10-17 修「扇形完全不显示」（旧版按 7/9 格上有没有单位去找坐标，
 //          敌方 9 号位空位即整场不画）+ 补爆发长演出（对标腕豪蓄力轰拳：命中动画明显长于普攻）
 // V1.0.0 | ~2.6 KB | 2026-10-17 新建
 import { clock } from '../infra/52-clock.js';
 
-export const VER = 'fx/90-hanlisa-charge.js V1.2.0';
+export const VER = 'fx/90-hanlisa-charge.js V1.3.0';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const FAN_ID = 'hls-charge-fan';
@@ -66,24 +68,41 @@ function geometryOf(bf) {
     };
 }
 
+// 扇面形制＝变体A：外缘取弧（沿两翼夹角采样 26 段，非直边三角）+ 金→冰蓝线性渐变 + 柔光 + 金色描边
 function paintFan() {
     if (!_geom) return;
     const svg = document.getElementById(FAN_ID);
     if (!svg) return;
     const { ax, ay, x7, y7, x9, y9 } = _geom;
     const k = _strength;
-    const gid = 'hlsFanGrad';
+    // 弧边：顶点 → 两翼夹角扇扫，半径取到 7 号格
+    const R = Math.max(Math.hypot(x7 - ax, y7 - ay), 1);
+    const a0 = Math.atan2(y7 - ay, x7 - ax);
+    const a1 = Math.atan2(y9 - ay, x9 - ax);
+    let d = a1 - a0;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    const pts = [];
+    const N = 26;
+    for (let i = 0; i <= N; i++) {
+        const a = a0 + d * (i / N);
+        pts.push(`${(ax + Math.cos(a) * R).toFixed(1)} ${(ay + Math.sin(a) * R).toFixed(1)}`);
+    }
+    const dPath = `M ${ax.toFixed(1)} ${ay.toFixed(1)} L ${pts.join(' L ')} Z`;
+    const mx = (x7 + x9) / 2, my = (y7 + y9) / 2;
     svg.innerHTML = `
         <defs>
-            <linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="${ax}" y1="${ay}" x2="${(x7 + x9) / 2}" y2="${(y7 + y9) / 2}">
-                <stop offset="0%"   stop-color="rgba(150,74,42,${(0.08 * k).toFixed(3)})"/>
-                <stop offset="55%"  stop-color="rgba(150,74,42,${(0.20 * k).toFixed(3)})"/>
-                <stop offset="100%" stop-color="rgba(139,58,30,${(0.42 * k).toFixed(3)})"/>
+            <linearGradient id="hlsFanGrad" gradientUnits="userSpaceOnUse" x1="${ax}" y1="${ay}" x2="${mx}" y2="${my}">
+                <stop offset="0%"   stop-color="rgba(255,196,72,${(0.14 * k).toFixed(3)})"/>
+                <stop offset="55%"  stop-color="rgba(255,150,60,${(0.42 * k).toFixed(3)})"/>
+                <stop offset="100%" stop-color="rgba(127,199,255,${(0.34 * k).toFixed(3)})"/>
             </linearGradient>
+            <filter id="hlsFanBlur" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="${(2 + 5 * k).toFixed(1)}"/>
+            </filter>
         </defs>
-        <polygon points="${ax},${ay} ${x7},${y7} ${x9},${y9}"
-                 fill="url(#${gid})" stroke="rgba(139,58,30,${(0.5 * k).toFixed(3)})"
-                 stroke-width="${(1.5 + 1.5 * k).toFixed(2)}"/>`;
+        <path d="${dPath}" fill="url(#hlsFanGrad)" filter="url(#hlsFanBlur)"
+              stroke="rgba(255,224,150,${(0.5 * k).toFixed(3)})" stroke-width="${(1.6 + 2.0 * k).toFixed(2)}"/>`;
 }
 
 function markCells() {

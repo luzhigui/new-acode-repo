@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寒离飒 蓄力/爆发 特效 Demo</title>
+<!--
+  寒离飒技能特效 风格预览 Demo（独立页面，不改主代码）
+  布局与配色完全照搬主工程 index.html：六大派(敌)在上、明教(己)在下竖排；
+  敌方格位镜像（displayOrder=[7,8,9,4,5,6,1,2,3]，敌 1/2/3 在最下、靠中线）；
+  .battlefield / .team-row / .camp-side / .team-label / .grid / .cell 全套 class 与 CSS 直接复用。
+  仅「扇面 + 爆发」的配色/粒子/弧线做三变体对比，命中格着色沿用 fx/90 的现有口径。
+-->
+<style>
+    /* ===== 主工程 :root 变量（照搬 index.html）===== */
+    :root{
+      --c-gold:#b8860b; --c-gold-bright:#ffd700; --c-gold-orange:#ffaa00;
+      --c-brown:#5c4033; --c-brown-border:#8b7355; --c-tan:#b8a88a;
+      --c-parchment:#f5f0e0; --c-parchment-2:#e8d5b0; --c-panel:#fdf5e6;
+      --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b;
+      --c-green:#2e7d32; --c-dark:#1a1a2e; --c-gain:#daa520;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #000; }
+    body { background: var(--c-parchment); font-family: 'Segoe UI', monospace; color:#333;
+           min-height:100vh; padding: 8px 6px 24px; }
+    .phone { width:100%; max-width:520px; margin:0 auto; }
+
+    /* ===== Demo 工具条：沿用主工程 .controls button 的观感 ===== */
+    h1 { font-size:0.95rem; color:var(--c-gold); margin-bottom:4px; }
+    .sub { font-size:0.72rem; color:#8a7a5a; margin-bottom:8px; line-height:1.5; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; }
+    .toolbar button { padding:5px 9px; border-radius:4px; border:1px solid #aaa; background:#f0f0f0;
+                      font-size:9px; cursor:pointer; white-space:nowrap; font-family:inherit; }
+    .toolbar button.on { background:var(--c-gold-bright); border-color:var(--c-gold); color:var(--c-brown); font-weight:bold; }
+    .toolbar button#play { background:#3a2a5c; border-color:#5a3f8a; color:#fff; font-weight:bold; }
+    #tip { font-size:0.72rem; color:#7a6a4a; min-height:16px; margin:4px 0 6px; }
+    .legend { font-size:0.68rem; color:#8a7a5a; line-height:1.7; margin-top:8px;
+              background:var(--c-parchment-2); border:1px solid var(--c-tan); border-radius:6px; padding:6px 8px; }
+
+    /* ===== 以下 .battlefield / .team-row / .grid / .cell 系列照搬 index.html ===== */
+    .battlefield { flex:0 0 42.5dvh; display:flex; flex-direction:column; justify-content:flex-start;
+                   gap:2px; padding-top:6px; position:relative; }
+    .team-row { display:flex; align-items:center; gap:4px; flex:1; max-width:500px; margin:0 auto; width:100%; }
+    .team-label { writing-mode: vertical-lr; font-weight:bold; font-size:13px; width:18px; text-align:center; }
+    .camp-side { display:flex; flex-direction:column; align-items:center; gap:3px; width:18px; flex-shrink:0; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,6.2dvh);
+            gap:2px; flex:1; background:#d9d0b5; padding:3px; border-radius:6px; }
+    .cell { background:#e8e6e0; border:2px solid #bbb; border-radius:5px; padding:2px 4px;
+            display:flex; align-items:center; gap:4px; font-size:9px; height:6.2dvh;
+            transition:background 0.6s ease, border-color 0.6s ease; position:relative; overflow:visible; }
+    .cell.ready { background:#d4edda; border-color:#28a745; }
+    .cell-icon { font-size:13px; width:14px; text-align:center; flex-shrink:0; }
+    .cell-info { flex:1; display:flex; flex-direction:column; justify-content:center; overflow:hidden; }
+    .cell-name { font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:9px; }
+    .cell-stats { font-size:7px; color:#555; display:flex; gap:2px; }
+    .hp-bar-wrap { width:8px; height:100%; background:#ccc; border-radius:3px; flex-shrink:0; align-self:stretch; position:relative; }
+    .hp-bar-inner { position:absolute; bottom:0; width:100%; border-radius:3px; }
+    .hp-text-green { color:var(--c-green); } .hp-text-orange { color:var(--c-sect-orange); } .hp-text-red { color:var(--c-danger); }
+    .name-purple { color:#8e44ad; font-weight:bold; } .name-blue { color:#2e6fb7; font-weight:bold; } .gold { color:var(--c-gold); font-weight:bold; }
+    .orange { color:var(--c-sect-orange); font-weight:bold; } .blue { color:var(--c-ming-blue); font-weight:bold; }
+    .empty-cell { color:#999; }
+
+    /* ===== fx/90 现有命中口径着色（照搬其 STYLE_ID 内容）===== */
+    .hls-tint-true { box-shadow: inset 0 0 10px 3px rgba(255,255,255,0.85) !important; background-color: rgba(255,255,255,0.12) !important; }
+    .hls-tint-half { background-color: rgba(139,58,30, var(--hls-a, 0.16)) !important; }
+
+    /* ===== Demo 叠层（扇面 / 爆发 / 粒子 / 轰字）===== */
+    .fxLayer { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+    #fanSvg { z-index:1; }
+    #burstSvg { z-index:3; }
+    #hlsWord { position:absolute; transform:translate(-50%,-50%); font-weight:900; pointer-events:none; opacity:0; z-index:4; white-space:nowrap; }
+    .particle { position:absolute; width:7px; height:7px; border-radius:50%; margin:-3.5px 0 0 -3.5px; pointer-events:none; z-index:2; }
+</style>
+</head>
+<body>
+<div class="phone">
+    <h1>寒离飒 · 蓄力扇面 / 爆发演出 —— 风格预览</h1>
+    <div class="sub">独立 demo，不改主代码。战场布局与配色照搬游戏（六大派在上、明教在下，敌方格位镜像）。确认风格后再落到 fx/90 与 fx/93。纯 SVG / DOM。</div>
+
+    <div class="toolbar">
+        <button data-v="A" class="on">变体A 金冰双色弧扇+粒子</button>
+        <button data-v="B">变体B 极简冰蓝</button>
+        <button data-v="C">变体C 金棕冲击波</button>
+        <button id="play">▶ 播放：蓄力 → 爆发</button>
+        <button id="reset">重置</button>
+    </div>
+    <div id="tip"></div>
+
+    <div class="battlefield" id="battlefield">
+        <div class="team-row">
+            <div class="camp-side"><span class="team-label orange">六大派</span></div>
+            <div class="grid" id="enemyGrid"></div>
+        </div>
+        <div class="team-row">
+            <div class="camp-side"><span class="team-label blue">明 教</span></div>
+            <div class="grid" id="allyGrid"></div>
+        </div>
+    </div>
+
+    <div class="legend">
+        布局照搬主工程：六大派在上、明教在下；敌方格位镜像，<b>敌 1/2/3 在最下、靠中线</b>（与游戏一致，非新 UI）。<br>
+        命中口径与主代码一致：扇面顶点＝己方 2 号格；<span style="color:#2e6fb7">真伤格＝敌方 2/5/8</span>，<span style="color:#8b3a1e">半伤格＝敌方 4/6/7/9</span>。<br>
+        三变体只差「扇面配色 + 爆发粒子/弧线/轰字」，命中格着色沿用 fx/90 现有口径。
+    </div>
+</div>
+
+<script>
+/* ===== demo 专用简易时钟（不受主代码 clock 约束）===== */
+const anim = (dur, fn) => new Promise(res => {
+    const t0 = performance.now();
+    (function loop() {
+        const p = Math.min(1, (performance.now() - t0) / dur);
+        fn(p);
+        p < 1 ? requestAnimationFrame(loop) : res();
+    })();
+});
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+/* ===== 变体参数（只影响扇面 + 爆发）===== */
+const VARIANTS = {
+    A: {
+        fanEdge: ['rgba(255,196,72,', 'rgba(127,199,255,'], fanMid: 'rgba(255,150,60,',
+        stroke: 'rgba(255,224,150,', alpha: [0.14, 0.62], strokeW: [1.6, 3.6], blur: 7,
+        particles: 30, particleColors: ['#ffd36e', '#bfe4ff'],
+        shake: 8, shakeMs: 420,
+        flash: 'rgba(255,245,225,',
+        wordColor: '#ffcf5e', wordShadow: '0 0 14px rgba(255,180,60,.95),0 0 26px rgba(127,199,255,.85),0 3px 6px #000'
+    },
+    B: {
+        fanEdge: ['rgba(150,210,255,', 'rgba(205,238,255,'], fanMid: 'rgba(170,222,255,',
+        stroke: 'rgba(190,232,255,', alpha: [0.05, 0.30], strokeW: [1, 2], blur: 3,
+        particles: 0, particleColors: [],
+        shake: 4, shakeMs: 300,
+        flash: 'rgba(220,240,255,',
+        wordColor: '#dff2ff', wordShadow: '0 0 18px rgba(160,215,255,.95),0 3px 6px #000'
+    },
+    C: {
+        fanEdge: ['rgba(255,150,60,', 'rgba(150,70,30,'], fanMid: 'rgba(255,120,50,',
+        stroke: 'rgba(255,186,96,', alpha: [0.20, 0.72], strokeW: [3, 7], blur: 9,
+        particles: 16, particleColors: ['#ffb347', '#ff7a2f'],
+        shake: 14, shakeMs: 520,
+        flash: 'rgba(255,240,214,',
+        wordColor: '#ffb347', wordShadow: '0 0 18px rgba(255,120,40,.95),0 4px 8px #000'
+    }
+};
+let cur = 'A';
+
+/* ===== 阵容（照真实花名册：明教 / 六大派）===== */
+const ALLY_UNITS = {
+    1: { name: '殷天正', icon: '🛡️', tier: 'name-blue', atk: 20, def: 26, hp: 40, hpPct: 92 },
+    2: { name: '寒离飒', icon: '⚔️', tier: 'name-purple', atk: 22, def: 22, hp: 33, hpPct: 83 },
+    3: { name: '杨逍',   icon: '⚔️', tier: 'name-blue', atk: 19, def: 14, hp: 28, hpPct: 74 },
+    5: { name: '张无忌', icon: '⚔️', tier: 'gold',      atk: 25, def: 30, hp: 46, hpPct: 88 },
+    8: { name: '韦一笑', icon: '🦅', tier: 'name-purple', atk: 21, def: 12, hp: 24, hpPct: 60 }
+};
+// 敌方站位：2/5/8 真伤、7 半伤，另留 1 号（不被扇形覆盖）做对照
+const ENEMY_UNITS = {
+    1: { name: '空闻',   icon: '🛡️', tier: 'name-blue', atk: 18, def: 24, hp: 38, hpPct: 90 },
+    2: { name: '周芷若', icon: '⚔️', tier: 'name-purple', atk: 20, def: 15, hp: 26, hpPct: 71 },
+    5: { name: '宋青书', icon: '🦅', tier: 'name-purple', atk: 22, def: 11, hp: 23, hpPct: 55 },
+    7: { name: '鹿杖客', icon: '🏹', tier: 'gold',      atk: 24, def: 18, hp: 30, hpPct: 80 },
+    8: { name: '清虚',   icon: '🏹', tier: 'name-blue', atk: 17, def: 13, hp: 22, hpPct: 46 }
+};
+
+/* 真实格位显示顺序：明教 pos 由小到大（1/2/3 在最上、靠中线）；
+   六大派镜像（7/8/9 在最上，1/2/3 在最下、靠中线）——与 render/32 完全一致 */
+const ALLY_ORDER  = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const ENEMY_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3];
+
+function hpClass(p) { return p > 70 ? 'hp-text-green' : p > 40 ? 'hp-text-orange' : 'hp-text-red'; }
+function hpBar(p)   { return p > 70 ? '#4caf50' : p > 40 ? '#ff9800' : '#f44336'; }
+
+function buildGrid(host, order, units) {
+    host.innerHTML = '';
+    order.forEach(pos => {
+        const d = document.createElement('div');
+        d.dataset.pos = pos;
+        const u = units[pos];
+        if (!u) {
+            d.className = 'cell';
+            d.innerHTML = '<span class="empty-cell">空</span>';
+        } else {
+            d.className = 'cell occupied ready';
+            d.dataset.uid = u.name;
+            d.innerHTML = '<span class="cell-icon">' + u.icon + '</span>'
+                + '<div class="cell-info"><span class="cell-name ' + u.tier + '">' + u.name + '</span>'
+                + '<span class="cell-stats">攻' + u.atk + ' 防' + u.def + ' <span class="' + hpClass(u.hpPct) + '">血' + u.hp + '</span></span></div>'
+                + '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:' + u.hpPct + '%;background:' + hpBar(u.hpPct) + ';"></div></div>';
+        }
+        host.appendChild(d);
+    });
+}
+buildGrid(document.getElementById('allyGrid'), ALLY_ORDER, ALLY_UNITS);
+buildGrid(document.getElementById('enemyGrid'), ENEMY_ORDER, ENEMY_UNITS);
+
+/* ===== 几何：与 fx/90 同口径（按 data-pos 取格，不看格上有没有单位）===== */
+const bf = document.getElementById('battlefield');
+const cellOf = (gridId, pos) => document.getElementById(gridId).querySelector('[data-pos="' + pos + '"]');
+function cellBox(gridId, pos) {
+    const el = cellOf(gridId, pos); if (!el) return null;
+    const r = el.getBoundingClientRect(), b = bf.getBoundingClientRect();
+    return { w: r.width, h: r.height, cx: r.left - b.left + r.width / 2, cy: r.top - b.top + r.height / 2 };
+}
+function geom() {
+    const apex = cellBox('allyGrid', 2), l = cellBox('enemyGrid', 7), r = cellBox('enemyGrid', 9);
+    if (!apex || !l || !r) return null;
+    return { ax: apex.cx, ay: apex.cy, tx: l.cx, ty: l.cy, ux: r.cx, uy: r.cy };
+}
+const TRUE_POS = [2, 5, 8], HALF_POS = [4, 6, 7, 9];
+
+/* ===== 叠层 ===== */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const fanSvg = document.createElementNS(SVGNS, 'svg');
+fanSvg.setAttribute('class', 'fxLayer'); fanSvg.id = 'fanSvg';
+const burstSvg = document.createElementNS(SVGNS, 'svg');
+burstSvg.setAttribute('class', 'fxLayer'); burstSvg.id = 'burstSvg';
+const wordEl = document.createElement('div'); wordEl.id = 'hlsWord';
+bf.append(fanSvg, burstSvg, wordEl);
+
+fanSvg.innerHTML = '<defs><linearGradient id="fanGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="0">'
+    + '<stop offset="0%" id="gs0"/><stop offset="55%" id="gs1"/><stop offset="100%" id="gs2"/></linearGradient>'
+    + '<filter id="soft"><feGaussianBlur stdDeviation="6"/></filter></defs>'
+    + '<path id="fanBody" filter="url(#soft)"/>';
+
+/* 弧扇路径：顶点 + 外缘弧（采样，保证形状正确） */
+function fanPath(g, k) {
+    const { ax, ay, tx, ty, ux, uy } = g;
+    const R = Math.hypot(tx - ax, ty - ay) * k;
+    let a0 = Math.atan2(ty - ay, tx - ax), a1 = Math.atan2(uy - ay, ux - ax), d = a1 - a0;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    const pts = [], N = 26;
+    for (let i = 0; i <= N; i++) {
+        const a = a0 + d * (i / N);
+        pts.push((ax + Math.cos(a) * R).toFixed(1) + ' ' + (ay + Math.sin(a) * R).toFixed(1));
+    }
+    return 'M ' + ax.toFixed(1) + ' ' + ay.toFixed(1) + ' L ' + pts.join(' L ') + ' Z';
+}
+
+function paintFan(k, strength) {
+    const P = VARIANTS[cur], g = geom(); if (!g) return;
+    const grad = fanSvg.querySelector('#fanGrad'), body = fanSvg.querySelector('#fanBody');
+    grad.setAttribute('x1', g.ax); grad.setAttribute('y1', g.ay);
+    grad.setAttribute('x2', (g.tx + g.ux) / 2); grad.setAttribute('y2', (g.ty + g.uy) / 2);
+    const a0 = (P.alpha[0] * strength).toFixed(3), a1 = (P.alpha[1] * strength).toFixed(3);
+    fanSvg.querySelector('#gs0').setAttribute('stop-color', P.fanEdge[0] + a0 + ')');
+    fanSvg.querySelector('#gs1').setAttribute('stop-color', P.fanMid + (a1 * 0.7).toFixed(3) + ')');
+    fanSvg.querySelector('#gs2').setAttribute('stop-color', P.fanEdge[1] + (a1 * 0.55).toFixed(3) + ')');
+    fanSvg.querySelector('#soft feGaussianBlur').setAttribute('stdDeviation', P.blur);
+    body.setAttribute('d', fanPath(g, k));
+    body.setAttribute('fill', 'url(#fanGrad)');
+    body.setAttribute('stroke', P.stroke + (0.55 * strength).toFixed(3) + ')');
+    body.setAttribute('stroke-width', (P.strokeW[0] + (P.strokeW[1] - P.strokeW[0]) * strength).toFixed(2));
+}
+
+/* 命中格：沿用 fx/90 现有口径（真伤=白内发光、半伤=棕底，浓度走 --hls-a） */
+function markCells(strength) {
+    TRUE_POS.forEach(p => { const el = cellOf('enemyGrid', p); if (el) el.classList.add('hls-tint-true'); });
+    HALF_POS.forEach(p => {
+        const el = cellOf('enemyGrid', p); if (!el) return;
+        el.classList.add('hls-tint-half');
+        el.style.setProperty('--hls-a', (0.16 * strength).toFixed(3));
+    });
+}
+function clearTint() {
+    document.querySelectorAll('.hls-tint-true, .hls-tint-half').forEach(el => {
+        el.classList.remove('hls-tint-true', 'hls-tint-half');
+        el.style.removeProperty('--hls-a');
+    });
+    bf.style.transform = '';
+}
+
+/* 粒子：DOM 元素，从顶点飞向命中格 */
+function spawnParticles(P, g, targets) {
+    if (!P.particles) return;
+    targets.forEach((t, idx) => {
+        const n = Math.ceil(P.particles / Math.max(1, targets.length));
+        for (let i = 0; i < n; i++) {
+            const c = P.particleColors[i % P.particleColors.length];
+            const d = document.createElement('div');
+            d.className = 'particle';
+            d.style.left = g.ax + 'px'; d.style.top = g.ay + 'px';
+            d.style.background = c; d.style.boxShadow = '0 0 8px ' + c;
+            bf.appendChild(d);
+            const ex = t.cx + (Math.random() - 0.5) * t.w * 0.7 - g.ax;
+            const ey = t.cy + (Math.random() - 0.5) * t.h * 0.7 - g.ay;
+            sleep(idx * 40 + i * 12).then(() => anim(420 + Math.random() * 160, p => {
+                const e = 1 - Math.pow(1 - p, 2.4);
+                d.style.transform = 'translate(' + (ex * e).toFixed(1) + 'px,' + (ey * e).toFixed(1) + 'px) scale(' + (1.15 - 0.6 * p).toFixed(2) + ')';
+                d.style.opacity = (1 - p).toFixed(3);
+            }).then(() => d.remove()));
+        }
+    });
+}
+
+/* 命中格反馈：真伤 = 白色裂纹，半伤 = 抖动 */
+function hitCell(pos, P, isTrue) {
+    const el = cellOf('enemyGrid', pos); if (!el || !ENEMY_UNITS[pos]) return;
+    if (isTrue) {
+        const crack = document.createElementNS(SVGNS, 'svg');
+        crack.setAttribute('class', 'fxLayer'); crack.style.zIndex = 4;
+        crack.innerHTML = '<line x1="18%" y1="16%" x2="50%" y2="50%" stroke="#fff" stroke-width="2" stroke-opacity=".95"/>'
+            + '<line x1="82%" y1="20%" x2="50%" y2="50%" stroke="#fff" stroke-width="2" stroke-opacity=".95"/>'
+            + '<line x1="30%" y1="86%" x2="50%" y2="50%" stroke="#fff" stroke-width="1.6" stroke-opacity=".85"/>';
+        el.appendChild(crack);
+        anim(1100, p => { crack.style.opacity = (1 - p).toFixed(2); }).then(() => crack.remove());
+    } else {
+        el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(0)' }], { duration: P.shakeMs, iterations: 1 });
+    }
+}
+
+/* 爆发：扇面白光扩张 + 冲击环 + 粒子 + 轰字 + 震屏 */
+async function burst(P) {
+    const g = geom(); if (!g) return;
+    const targets = [];
+    TRUE_POS.forEach(p => { const b = cellBox('enemyGrid', p); if (b && ENEMY_UNITS[p]) targets.push({ ...b, pos: p, isTrue: true }); });
+    HALF_POS.forEach(p => { const b = cellBox('enemyGrid', p); if (b && ENEMY_UNITS[p]) targets.push({ ...b, pos: p, isTrue: false }); });
+
+    anim(P.shakeMs, p => {
+        const m = P.shake * (1 - p);
+        bf.style.transform = 'translate(' + ((Math.random() - 0.5) * 2 * m).toFixed(2) + 'px,' + ((Math.random() - 0.5) * 2 * m).toFixed(2) + 'px)';
+    }).then(() => { bf.style.transform = ''; });
+
+    const body = document.createElementNS(SVGNS, 'path');
+    body.setAttribute('fill', P.flash + '0.5)');
+    body.setAttribute('stroke', P.flash + '0.9)');
+    body.setAttribute('stroke-width', '6');
+    const ring = document.createElementNS(SVGNS, 'circle');
+    ring.setAttribute('cx', g.ax); ring.setAttribute('cy', g.ay);
+    ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', P.flash + '0.85)');
+    ring.setAttribute('stroke-width', '5');
+    burstSvg.append(body, ring);
+
+    targets.forEach(t => hitCell(t.pos, P, t.isTrue));
+    spawnParticles(P, g, targets);
+
+    wordEl.textContent = '轰';
+    wordEl.style.left = g.ax + 'px'; wordEl.style.top = (g.ay - 26) + 'px';
+    wordEl.style.fontSize = '34px'; wordEl.style.color = P.wordColor; wordEl.style.textShadow = P.wordShadow;
+
+    await anim(900, p => {
+        body.setAttribute('d', fanPath(g, 1 + 0.42 * p));
+        body.style.opacity = (0.9 * (1 - p)).toFixed(3);
+        ring.setAttribute('r', (10 + 190 * p).toFixed(1));
+        ring.style.opacity = (0.85 * (1 - p)).toFixed(3);
+        let op, sc, ty;
+        if (p <= 0.2) { const t = p / 0.2; op = t; sc = 0.5 + 0.75 * t; ty = -8 * t; }
+        else if (p <= 0.6) { const t = (p - 0.2) / 0.4; op = 1; sc = 1.25; ty = -8 - 16 * t; }
+        else { const t = (p - 0.6) / 0.4; op = 1 - t; sc = 1.05; ty = -24; }
+        wordEl.style.opacity = op.toFixed(3);
+        wordEl.style.transform = 'translate(-50%, calc(-50% + ' + ty.toFixed(0) + 'px)) scale(' + sc.toFixed(3) + ')';
+    });
+    body.remove(); ring.remove(); wordEl.style.opacity = '0';
+    await sleep(400);
+    clearTint();
+}
+
+/* 播放：蓄力（扇面由浅渐深 + 命中格着色）→ 爆发 */
+let playing = false;
+async function play() {
+    if (playing) return;
+    playing = true;
+    clearTint();
+    const P = VARIANTS[cur], tip = document.getElementById('tip');
+    tip.textContent = '蓄力中：扇面由浅渐深（变体 ' + cur + '：' + describe() + '）…';
+    await anim(2400, p => { const s = 0.35 + 0.65 * p; paintFan(1, s); markCells(s); });
+    tip.textContent = '蓄力完成，爆发结算…';
+    await burst(P);
+    fanSvg.querySelector('#fanBody').setAttribute('d', '');
+    tip.textContent = '播放结束，可切换变体再点「播放」对比。';
+    playing = false;
+}
+function describe() { return cur === 'A' ? '金冰双色弧扇+粒子' : cur === 'B' ? '极简冰蓝' : '金棕冲击波'; }
+
+document.querySelectorAll('.toolbar button[data-v]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.toolbar button[data-v]').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        cur = btn.dataset.v;
+        fanSvg.querySelector('#fanBody').setAttribute('d', '');
+        clearTint();
+        document.getElementById('tip').textContent = '已切到变体 ' + cur + '（' + describe() + '），点「播放」预览。';
+    });
+});
+document.getElementById('play').addEventListener('click', play);
+document.getElementById('reset').addEventListener('click', () => {
+    fanSvg.querySelector('#fanBody').setAttribute('d', '');
+    clearTint();
+    document.getElementById('tip').textContent = '已重置。';
+});
+window.addEventListener('resize', () => {
+    if (playing) return;
+    const body = fanSvg.querySelector('#fanBody');
+    if (body.getAttribute('d')) paintFan(1, 0.5);   // 蓄力态：按新布局重画扇面
+    else body.setAttribute('d', '');
+});
+
+document.getElementById('tip').textContent = '选择变体后点「播放」：先看蓄力扇面由浅渐深（约 2.4s），再看爆发结算演出。';
+</script>
+</body>
+</html>

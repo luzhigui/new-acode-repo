@@ -1,11 +1,15 @@
-// fx/93-hanlisa-burst.js — 寒离飒「蓄力轰拳」爆发瞬间视觉（方案 A，修订：柔光扇形 + 向外涟漪，慢节奏）
-//   · 顶点=寒离飒(2号位)，从顶点位置慢慢向外铺开一道柔光扇形（金→冰蓝径向渐变，非实心三角）
+// fx/93-hanlisa-burst.js — 寒离飒「蓄力轰拳」爆发瞬间视觉（变体A：柔光弧扇 + 涟漪 + 粒子 + 震屏）
+//   · 顶点=寒离飒(2号位)，从顶点位置慢慢向外铺开一道柔光扇形（金→冰蓝渐变 + feGaussianBlur 柔光，弧边非实心三角）
 //   · 两道涟漪环沿扇形弧线由内向外扩散、渐隐（示意 AOE 范围，不画死边）
+//   · 金/冰双色粒子从顶点飞向各命中格
 //   · 真伤格(2/5/8)：冰蓝高光 + 白色碎裂 + 脉冲（语义：把所受之伤奉还）
 //   · 半伤格(4/6/7/9)：红棕凹痕 + 格子慢震一下
+//   · 整块战场轻微震屏（8px / 420ms）
 //   · 顶点升「轰」字 + 金/冰双环拳心脉冲
+// V1.2.0 | 2026-10-17 应用 demo tools/126「变体A」（老板选定）：补金/冰双色粒子飞向命中格 + 整场震屏，
+//          「轰」字提亮为 #ffcf5e 双层辉光，扇形加 feGaussianBlur 柔光
 // V1.1.0 | ~3600 bytes | 2026-10-17 修订：弃硬三角，改柔光扇形+涟漪，整体放慢（用户指正"太丑/太快/一下打满"）
-export const VER = 'fx/93-hanlisa-burst.js V1.1.0';
+export const VER = 'fx/93-hanlisa-burst.js V1.2.0';
 
 import { clock } from '../infra/52-clock.js';
 import { markGridShake } from '../render/32-grid-render.js';
@@ -37,8 +41,11 @@ function shockwave(apex, hits) {
                 <stop offset="50%" stop-color="rgba(255,170,60,0.28)"/>
                 <stop offset="100%" stop-color="rgba(127,199,255,0.04)"/>
             </radialGradient>
+            <filter id="hlsSoft" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="6"/>
+            </filter>
         </defs>
-        <path id="hlsBody" fill="url(#hlsGrad)" stroke="none"/>
+        <path id="hlsBody" fill="url(#hlsGrad)" filter="url(#hlsSoft)" stroke="none"/>
         <path id="hlsRing1" fill="none" stroke="rgba(255,200,80,0.85)" stroke-width="3" stroke-linecap="round"/>
         <path id="hlsRing2" fill="none" stroke="rgba(127,199,255,0.7)" stroke-width="2.5" stroke-linecap="round"/>`;
     document.body.appendChild(svg);
@@ -127,12 +134,46 @@ function impactHalf(uid) {
     markGridShake(uid, 500);
 }
 
+// 整块战场轻微震屏（变体A，8px / 420ms）
+function shakeScreen() {
+    const bf = document.getElementById('battlefield');
+    if (!bf) return;
+    clock.animate(420, (p) => {
+        const m = 8 * (1 - p);
+        bf.style.transform = `translate(${((Math.random() - 0.5) * 2 * m).toFixed(2)}px,${((Math.random() - 0.5) * 2 * m).toFixed(2)}px)`;
+    }).then(() => { bf.style.transform = ''; });
+}
+
+// 金/冰双色粒子：从顶点飞向各命中格（变体A）
+function particles(apex, hits) {
+    if (!hits.length) return;
+    const COLORS = ['#ffd36e', '#bfe4ff'];
+    const PER = Math.ceil(30 / hits.length);
+    let i = 0;
+    hits.forEach((t, hi) => {
+        for (let n = 0; n < PER; n++, i++) {
+            const c = COLORS[i % COLORS.length];
+            const d = document.createElement('div');
+            d.setAttribute('data-fx', 'temporary');
+            d.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y}px;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:${c};box-shadow:0 0 8px ${c};z-index:10010;pointer-events:none;`;
+            document.body.appendChild(d);
+            const dx = t.x + (Math.random() - 0.5) * t.w * 0.7 - apex.x;
+            const dy = t.y + (Math.random() - 0.5) * t.h * 0.7 - apex.y;
+            clock.wait(hi * 40 + n * 12).then(() => clock.animate(420 + Math.random() * 160, (p) => {
+                const e = 1 - Math.pow(1 - p, 2.4);
+                d.style.transform = `translate(${(dx * e).toFixed(1)}px,${(dy * e).toFixed(1)}px) scale(${(1.15 - 0.6 * p).toFixed(2)})`;
+                d.style.opacity = (1 - p).toFixed(3);
+            })).then(() => { if (d.parentNode) d.remove(); });
+        }
+    });
+}
+
 // 顶点升「轰」字 + 金/冰双环拳心脉冲（放慢）
 function wordAndCore(apex) {
     const word = document.createElement('div');
     word.setAttribute('data-fx', 'temporary');
     word.textContent = '轰';
-    word.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y - 30}px;transform:translate(-50%,-50%);font-size:30px;font-weight:900;color:#b8860b;text-shadow:0 0 12px rgba(255,160,0,0.9),0 2px 4px rgba(0,0,0,0.8);z-index:10012;pointer-events:none;opacity:0;`;
+    word.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y - 30}px;transform:translate(-50%,-50%);font-size:36px;font-weight:900;color:#ffcf5e;text-shadow:0 0 14px rgba(255,180,60,0.95),0 0 26px rgba(127,199,255,0.85),0 3px 6px rgba(0,0,0,0.9);z-index:10012;pointer-events:none;opacity:0;`;
     document.body.appendChild(word);
     clock.animate(1400, (p) => {
         let op, sc, ty;
@@ -164,7 +205,9 @@ export function showHanLiSaBurst({ unit, trueUids = [], halfUids = [], taken = 0
     const apex = centerOf(unit.uid);
     if (!apex) return;
     const hits = [...trueUids, ...halfUids].map(centerOf).filter(Boolean);
+    shakeScreen();
     shockwave(apex, hits);
+    particles(apex, hits);
     wordAndCore(apex);
     trueUids.forEach(shatterTrue);
     halfUids.forEach(impactHalf);
