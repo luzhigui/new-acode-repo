@@ -223,7 +223,16 @@ const CONTRACTS = [
                 //   而账本 breakDef 仅 [-2,-2]=4 ⇒ 干净树假偏差 1（第 71 轮遗留，第 72 轮定位）。
                 //   与 WEI_LEECH（L615）同式：凡能拿到 factType 的契约一律显式校验（教训见 L135）——
                 //   无 factType 保留形状兜底，防未来裸推的破防条目被静默漏计。
-                if (!e || !e.data) return;
+                if (!e) return;
+                // 第 97 轮（2026-10-17）：免疫分支文本通道——必须放在 data 门禁**之前**：
+                //   core/10 V7.6.50（并行会话 99dee79 修 player/46 崩溃）把免疫分支的破防条目从裸
+                //   {factType,data} 改成 {type:'detail', text:'🗡️ A 破防：T 防御 -N'}——**无 data 字段**，
+                //   会被下面的 `!e.data` 门禁提前挡死（首版就是栽在这：分支写在门禁后，DETAIL-SCAN 零触发）。
+                if (e.type === 'detail' && typeof e.text === 'string' && e.text.indexOf('破防：') !== -1) {
+                    const tm = e.text.match(/破防：(.+?) 防御 -(\d+)/);
+                    if (tm) out.push({ unit: tm[1], stat: 'def', amount: Number(tm[2]) });
+                }
+                if (!e.data) return;
                 if (e.factType && e.factType !== FACT_TYPES.BREAK_DEF) return;
                 if (typeof e.data.reduce === 'number' && e.data.targetName) {
                     out.push({ unit: e.data.targetName, stat: 'def', amount: e.data.reduce });
