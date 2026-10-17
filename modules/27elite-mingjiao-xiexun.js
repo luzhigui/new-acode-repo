@@ -11,6 +11,7 @@ import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { pushInfo } from './23elite-helpers.js';
 export function createXieXunComponent() {
     return {
         name: '金毛狮王谢逊',
@@ -28,12 +29,6 @@ export function createXieXunComponent() {
             const inspire = getSkillParams('金毛狮王谢逊', 'lionInspire');
             if (!inspire) throw new Error('缺技能参数: 金毛狮王谢逊.lionInspire');
             if (!getSkillParams('金毛狮王谢逊', 'lionFollow')) throw new Error('缺技能参数: 金毛狮王谢逊.lionFollow');
-
-            function pushInfo(data, text) {
-                if (data && data.group && data.group.data && data.group.data.entries) {
-                    data.group.data.entries.push({ type: 'info', text });
-                }
-            }
 
             // ① 成长：上一回合留下的幼狮，本回合开始按所在位置成形（1-6 雄狮 / 7-9 母狮）。
             //    必须排在召唤之前（LION_GROW 15 < XIE_SUMMON 16），否则刚召出来的幼狮会在同一次回合开始里立刻长大。

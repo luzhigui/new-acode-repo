@@ -7,6 +7,7 @@ import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, addMod } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { pushInfo } from './23elite-helpers.js';
 export function createYinTianZhengComponent() {
     return {
         name: '殷天正',
@@ -22,12 +23,6 @@ export function createYinTianZhengComponent() {
             if (!weiya) throw new Error('缺技能参数: 殷天正.yingWangWeiYa');
             const grow = getSkillParams('殷天正', 'laoDangYiZhuang');
             if (!grow) throw new Error('缺技能参数: 殷天正.laoDangYiZhuang');
-
-            function pushInfo(data, text) {
-                if (data && data.group && data.group.data && data.group.data.entries) {
-                    data.group.data.entries.push({ type: 'info', text });
-                }
-            }
 
             // ② 鹰王威压（16→此处 18）：反击命中后削目标攻防（永久，跨回合延续）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_PRESSURE, (data) => {
