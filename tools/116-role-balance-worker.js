@@ -1,3 +1,4 @@
+// V1.10.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：allyFlagMap 加 isHanLiSa
 // V1.10.1 | 2026-10-16 elite/soloElite/noElite/weakElite 四 job 加 startIndex：片内种子 = seed + (startIndex+i)×7919
 //           （对齐 hex 的口径）——分片粗细不换采样；旧调用不传 startIndex 默认 0，行为不变（配 112 V2.8.1）
 // V1.10.0 | ~39500 bytes | 2026-10-16 新增 kind:'weakElite'（runWeakEliteJob）：弱精英单测 + 自然配对对照（配 112 V2.8.0「🐦 弱精英评测」）——
@@ -248,7 +249,7 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 //     属随机噪声、400 场平均掉，仍是无偏对照。
 //   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
-    const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng' };
+    const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng', '寒离飒': 'isHanLiSa' };
     const enemyFlagMap = { '何太冲': 'isHeTaichong', '唐文亮': 'isTangWenLiang' };
     const flag = side === 'ally' ? allyFlagMap[elite] : enemyFlagMap[elite];
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
