@@ -1,10 +1,11 @@
+// V6.8.7 | ~36340 bytes | 2026-10-17 成昆幻影伪装回落图标补「标枪」🪠（唐文亮重做后新增的职业，与 render/37 回落链同口径）
 // V6.8.6 | ~36321 bytes | 2026-10-17 计数技能进度徽章：灭绝三击/唐文亮七伤/张无忌近战连击，角色名后加「当前档/N」小胶囊
 // V6.8.5 | 2026-10-16 回退 V6.8.4 的 _jumpConsumed 特判：先机已改插队式（core/11 V6.3.25），被顺延队友
 //           保持未出手状态、天然亮待命，无需特判
 // V6.8.3 | ~34760 bytes | 2026-10-15 妹永久圣火令改命中制后，logo 同步读每回合重画的 _xiaoHolyFlame（不再用账本旧 cols/rows）
 // ── 更早版本见 记录-更改履历.md
 // V6.8.2 | 2026-10-15 小昭·妹永久海克斯 logo：无全局激活海克斯时，补她账本最新的受益永久海克斯图标（carry/双击恒显示）
-export const VER = 'render/32-grid-render.js V6.8.6';
+export const VER = 'render/32-grid-render.js V6.8.7';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -391,7 +392,7 @@ export function renderGrid(id, camp) {
             if (mimicTarget) {
                 displayName = mimicTarget.name;
                 displayTierM = mimicTarget.m || 0;
-                roleIcon = mimicTarget.role===ROLE_TYPES.WARRIOR?'⚔️':(mimicTarget.role===ROLE_TYPES.DEFENDER?'🛡️':(mimicTarget.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
+                roleIcon = mimicTarget.role===ROLE_TYPES.WARRIOR?'⚔️':(mimicTarget.role===ROLE_TYPES.DEFENDER?'🛡️':(mimicTarget.role===ROLE_TYPES.RANGED?'🏹':(mimicTarget.role===ROLE_TYPES.JAVELIN?'🪠':'🦅')));
             }
         }
         let latestUnit = unit;

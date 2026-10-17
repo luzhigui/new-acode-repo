@@ -1,8 +1,9 @@
+// V1.9.0 | ~16200 bytes | 2026-10-17 新增职业 ROLE_TYPES.JAVELIN「标枪」（唐文亮弱精英重做：中程投射、天然不吃遮挡）
 // V1.8.0 | ~15820 bytes | 2026-10-16 新增信号 SIGNAL_TYPES.AFTER_ATTACK_IMMUNE（本击被免疫·仍算一次出手的专用广播，
 //   core/10 免疫分支发；modules/26 宋青书性奋额外攻击据此照发第二下）
 // V1.7.0 | ~14400 bytes | 2026-10-15 新增信号 SIGNAL_TYPES.AFTER_SELECT_TARGET（选敌完成·出手前带 log 广播，modules/26 胖远桥出手声明落行）
 // V1.6.0 | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
-export const VER = 'infra/56-battle-enums.js V1.8.0';
+export const VER = 'infra/56-battle-enums.js V1.9.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -211,7 +212,10 @@ export const ROLE_TYPES = Object.freeze({
     WARRIOR: '战士',
     DEFENDER: '防战',
     RANGED: '远程',
-    FLYER: '飞行'
+    FLYER: '飞行',
+    // 2026-10-17 标枪（唐文亮独占·弱精英）：中程投射、天然不吃遮挡；射程按自身行段（4~6→对方1~6 / 7~9→对方1~3）。
+    //   不进 CONFIG.ROLES（不参与随机职业抽取 / 模板凑职），只作单位身份职业；加成数值同战士（content roles.标枪）
+    JAVELIN: '标枪'
 });
 
 /** 战斗信号类型：eventBus.on / eventBus.emit 的信号名唯一来源 */

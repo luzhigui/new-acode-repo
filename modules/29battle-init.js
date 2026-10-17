@@ -1,8 +1,9 @@
+// V7.5.23 | 2026-10-17 唐文亮（标枪弱精英）重做接线：职业优先读 content `characters.*.role`（标枪不进 CONFIG.ROLES，
+//            故不能只靠 tags 判定）+ 恒定落中后排 4~9（身份优先表 CONFIG.ENEMY_ELITE_POS_PRIORITY.tangWenLiang）
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
-// V7.5.20 | ~23800 bytes | 2026-10-13 杨逍重做降档：eliteConfigs m 107→104（弱精英，蓝名档），组队预算随 content elitePower=115
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.22';
+export const VER = 'modules/29battle-init.js V7.5.23';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -268,8 +269,10 @@ export function initBattleTeams(currentStage, _rng) {
         const pick = weakAllyForced
             ? mingWeakPool.find(w => w.name === forceWeakElite)
             : mingWeakPool[mixPickIdx];
-        const tagRole = (getGameData()?.characters?.[pick.name]?.tags || []).find(t => C.ROLES.includes(t));
-        if (!tagRole) throw new Error(`明教弱精英缺职业 tag（characters.${pick.name}.tags）`);
+        // 2026-10-17 职业解析优先级：content `role` 字段（可放非 CONFIG.ROLES 的职业，如标枪）> tags 命中 CONFIG.ROLES
+        const chWeak = getGameData()?.characters?.[pick.name];
+        const tagRole = chWeak?.role || (chWeak?.tags || []).find(t => C.ROLES.includes(t));
+        if (!tagRole) throw new Error(`明教弱精英缺职业（characters.${pick.name}.role / tags）`);
         const unit = new Unit(pick.name, pick.m, tagRole, CAMP_TYPES.ALLY);
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
@@ -374,7 +377,9 @@ export function initBattleTeams(currentStage, _rng) {
                 //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。
                 //   无名杂兵（空闻/班淑娴等，不在 characters 表）保持随机，当作阵容变数。
                 let role = C.ROLES[_rand(0, 3)];
-                const tagRole = getGameData()?.characters?.[name]?.tags?.find(t => C.ROLES.includes(t));
+                // 2026-10-17 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
+                const chNamed = getGameData()?.characters?.[name];
+                const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t));
                 if (tagRole) role = tagRole;
                 let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
@@ -420,7 +425,8 @@ export function initBattleTeams(currentStage, _rng) {
             let templateNeeds = {};
             for (let [role, poses] of Object.entries(template)) { if (role === 'random') continue; templateNeeds[role] = poses.length; }
             // 2026-10-12 具名角色（characters 表且有 ROLES tag，如 何太冲=远程）：职业是身份，不参与下面的凑模板改职
-            const isTagFixed = (u) => !!(getGameData()?.characters?.[u.name]?.tags || []).find(t => C.ROLES.includes(t));
+            //   2026-10-17 补 content `role` 字段（标枪等非 CONFIG.ROLES 职业）同判 isTagFixed
+            const isTagFixed = (u) => { const ch = getGameData()?.characters?.[u.name]; return !!(ch && (ch.role || (ch.tags || []).find(t => C.ROLES.includes(t)))); };
             for (let role of [ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.WARRIOR]) {
                 let need = templateNeeds[role] || 0;
                 let current = roleCounts[role] || 0;
@@ -440,6 +446,14 @@ export function initBattleTeams(currentStage, _rng) {
                     let unit = normalUnits.find(u => u.role === role && u.pos == null);
                     if (unit && !enemyPosSet.has(pos)) { unit.pos = pos; unit.state._originalPos = pos; enemyPosSet.add(pos); }
                 }
+            }
+        }
+        // 2026-10-17 唐文亮（标枪弱精英）：恒定落中后排 4~9——「标枪」不是模板职业，模板排位挑不到他，
+        //   故在模板排位之后、周芷若/宋青书等精英之前，按身份优先表抢位（1~3 仅作极端挤占兜底）
+        const twJavelin = normalUnits.find(u => u.isTangWenLiang && u.pos == null);
+        if (twJavelin) {
+            for (const p of C.ENEMY_ELITE_POS_PRIORITY.tangWenLiang) {
+                if (!enemyPosSet.has(p)) { twJavelin.pos = p; twJavelin.state._originalPos = p; enemyPosSet.add(p); break; }
             }
         }
         const zhou = eliteUnits.find(u => u.isZhouZhiruo);
