@@ -1,3 +1,4 @@
+// V6.5.9 | ~38400 bytes | 2026-10-17 众志成城持续回合 5→3（content unity.duration 同步，本文件注释一并改 3）
 // V6.5.8 | ~38400 bytes | 2026-10-16 众志成城补员生命下限 30→25（老板拍板）：spawnUnityRecruits 落地钳制
 //           定为「攻<1→0 / 防<5→5 / 生命上限<25→25（满血落位，_base*/_init* 同步）」；content desc、tools/108 文案同步
 // V6.5.7 | ~38400 bytes | 2026-10-16 众志成城补员属性下限（老板拍板）：M 30→20（content recruitM 同步）后小 m
@@ -8,7 +9,7 @@
 //           第二回合起每回合无条件 +1。首回合标记挂 buff 对象 _spawnStarted（跨回合同一对象）
 // V6.5.5 | ~38300 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 删
 //           「到手已满 5 人→永久不召」的 _unityChecked/_unityNoRecruit 锁与 maxRecruits(4) 上限，
-//           改「获得当回合补满到 5、此后每回合 +1」（持续按 content unity.duration:5，上限只剩 9 格站位）；
+//           改「获得当回合补满到 5、此后每回合 +1」（持续按 content unity.duration:3，上限只剩 9 格站位）；
 //           签名去掉不再使用的 state 形参（core/11 调用点同步）
 // V6.5.4 | ~38500 bytes | 2026-10-16 carry 雄鹰改「一次性判定」（老板拍板）：spawnCarryEagle 在 hasBuff 判过后查
 //           _carryEagleDone（core/17 schema）——carry 首次生效那回合判一次 5 号位即锁死，5 号位有人则本局永不招、
@@ -37,7 +38,7 @@
 // V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
 //           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.8';
+export const VER = 'core/04buff-system.js V6.5.9';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -201,11 +202,11 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
 
 // 2026-10-15 众志成城（unity）补员：获得时若本阵营不足 5 人，则每回合召唤随机角色补员——
 // 2026-10-16 定案改版（老板拍板「一直召唤」）：首回合若场上不足 5 人则一次补到 5（已满 5 人则该回合不召），
-//   第二回合起每回合无条件 +1，直到 buff 到期（content duration:5）。整局唯一上限是 9 格站位。
+//   第二回合起每回合无条件 +1，直到 buff 到期（content duration:3）。整局唯一上限是 9 格站位。
 //   首回合标记挂在 buff 对象上（buff 跨回合是同一对象、只被 remaining 递减；且只出现在持有它的阵营列表里，
 //   天然按阵营隔离）——不再用 state 字段，也不需要 state 形参。
 //   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(20)、
-//   角色取 cfg.recruitPool[camp]，落地即钳属性下限（攻<1→0 / 防<5→5 / 血<30→30，见 V6.5.7）。
+//   角色取 cfg.recruitPool[camp]，落地即钳属性下限（攻<1→0 / 防<5→5 / 血<25→25，见 V6.5.8）。
 //   已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
 export function spawnUnityRecruits(team, log) {

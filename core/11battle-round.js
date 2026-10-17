@@ -11,6 +11,7 @@
 //           jump 者排队首但 priority 仍 0（isPriorityAction=false，本步仍算本队这一步、出手后照常切换阵营），
 //           同时把「本步本该出手者」（队列里除他外首个非 pass 条目）置 _acted 并补 PASS fact
 //           （reason='被先机占用'，render/35 已同步）——队伍本次出手次数真的 −1
+// V6.3.28 | ~40300 bytes | 2026-10-17 众志成城持续回合 5→3（content unity.duration 同步，本文件注释一并改 3）
 // V6.3.22 | ~35800 bytes | 2026-10-16 「0 攻不发起攻击」通则化（老板拍板）：resolveActionOrder 删 isHorse/isLionCub
 //           两个身份特判，改为「getStat(u,'atk') <= 0 一律走休息通道」——对全体单位生效（含众志成城 0 攻补员）；
 //           休息回复 +15 名单同步加「无力攻击」（拒马/幼狮保留原 reason 文案，render/35 同款名单已同步）
@@ -43,7 +44,7 @@
 // V6.3.12 | 2026-10-13 ctx 收口（攻击链签名稳定）：prepareRoundStart / finalizeRoundEnd 的上下文型尾参
 //           （log、round、rng）合并为单 ctx 对象；core/04 三函数（applySoulDrain/applyHolyFlameBonus/logBuffSummary）
 //           调用点同步改传 ctx。业务参数保持原位，行为零变化（20 seeds × 7 关逐步日志逐字节一致）。
-export const VER = 'core/11battle-round.js V6.3.27';
+export const VER = 'core/11battle-round.js V6.3.28';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -163,7 +164,7 @@ function prepareRoundSpawns(A, B, state, ctx) {
     spawnCarryEagle(B, ctx.log);
 
     // 2026-10-16 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M20/技能全开，
-    //   持续由 content unity.duration:5 管，上限只剩 9 格站位），
+    //   持续由 content unity.duration:3 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);
     spawnUnityRecruits(B, ctx.log);
