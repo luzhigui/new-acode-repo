@@ -11,6 +11,7 @@ import { fmtHp } from '../infra/51-core-utils.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { pushInfo } from './23elite-helpers.js';
 
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
 // 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
@@ -33,12 +34,6 @@ export function createPangYuanQiaoComponent() {
             if (!face) throw new Error('缺技能参数: 胖远桥.righteousFace');
             const young = getSkillParams('胖远桥', 'youngBlood');
             if (!young) throw new Error('缺技能参数: 胖远桥.youngBlood');
-
-            function pushInfo(data, text) {
-                if (data && data.group && data.group.data && data.group.data.entries) {
-                    data.group.data.entries.push({ type: 'info', text });
-                }
-            }
 
             // 2026-10-15 出手声明暂存：PANG_CLUMSY 掷完骰写入，AFTER_SELECT_TARGET（选敌完成·出手前）落日志后清空。
             //   存结构化结果（kind + 数值），目标名在落日志时用信号里的 data.target 现取，

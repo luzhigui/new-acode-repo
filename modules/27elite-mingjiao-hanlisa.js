@@ -13,6 +13,7 @@ import { calcDamage } from '../infra/51-core-utils.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
+import { pushInfo } from './23elite-helpers.js';
 
 export function createHanLiSaComponent() {
     return {
@@ -28,10 +29,6 @@ export function createHanLiSaComponent() {
             const xl = getSkillParams('寒离飒', 'xuLi');
             if (!xl) throw new Error('缺技能参数: 寒离飒.xuLi');
 
-            const pushInfo = (data, text) => {
-                const gd = data && data.group && data.group.data;
-                if (gd && Array.isArray(gd.entries)) gd.entries.push({ type: 'info', text });
-            };
             const announce = (ctx, note) => {
                 if (!ctx || !Array.isArray(ctx.log)) return;
                 ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: hls.name, unitUid: hls.uid, camp: hls.camp, skillName: '蓄力', note } });

@@ -12,6 +12,7 @@ import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, registerSettlementHook, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { pushInfo } from './23elite-helpers.js';
 
 // 灭绝师太（六大派·峨眉掌门·战士·M115）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
 // 2026-09-22 新增，作为新第七关精英。四技能分工：
@@ -85,12 +86,6 @@ export function createMieJueShiTaiComponent() {
             if (!chase) throw new Error('缺技能参数: 灭绝师太.chaseAttack');
             // 召唤参数在落位时（flushZhouSummon）现取；这里只做一次启动期存在性校验
             if (!getSkillParams('灭绝师太', 'summonZhou')) throw new Error('缺技能参数: 灭绝师太.summonZhou');
-
-            function pushInfo(data, text) {
-                if (data && data.group && data.group.data && data.group.data.entries) {
-                    data.group.data.entries.push({ type: 'info', text });
-                }
-            }
 
             // 技能1 反击：被攻击后 prob 概率反击攻击者，伤害 ×dmgRatio，可被闪避（2026-10-09 撤掉不可闪避——
             //   与设计对齐：她没有免闪避设计；系数走 extraRequests 的 dmgRatio，由 core/10 写 state、伤害计算统一乘）。
