@@ -1,44 +1,5 @@
-// V6.5.9 | ~38400 bytes | 2026-10-17 众志成城持续回合 5→3（content unity.duration 同步，本文件注释一并改 3）
-// V6.5.8 | ~38400 bytes | 2026-10-16 众志成城补员生命下限 30→25（老板拍板）：spawnUnityRecruits 落地钳制
-//           定为「攻<1→0 / 防<5→5 / 生命上限<25→25（满血落位，_base*/_init* 同步）」；content desc、tools/108 文案同步
-// V6.5.7 | ~38400 bytes | 2026-10-16 众志成城补员属性下限（老板拍板）：M 30→20（content recruitM 同步）后小 m
-//           会掷出 0 攻/纸皮数值，故召唤落地即钳——攻 <1 归 0（0 攻自然走 core/11 pass 通道不攻击）、
-//           防 <5 补到 5、生命上限 <30 补到 30（满血落位，_base*/_init* 同步，getStat 只认 _base*）
-// V6.5.6 | ~38300 bytes | 2026-10-16 众志成城补员首回合判定修正（老板拍板纠正）：首回合只在「场上不足 5 人」时
-//           一次补到 5，到手即满 5 人则该回合不召（此前误写成「满 5 也当回合 +1」，实测第 4 回合满员仍召了 1 个）；
-//           第二回合起每回合无条件 +1。首回合标记挂 buff 对象 _spawnStarted（跨回合同一对象）
-// V6.5.5 | ~38300 bytes | 2026-10-16 众志成城补员改版（老板拍板「一直召唤」）：spawnUnityRecruits 删
-//           「到手已满 5 人→永久不召」的 _unityChecked/_unityNoRecruit 锁与 maxRecruits(4) 上限，
-//           改「获得当回合补满到 5、此后每回合 +1」（持续按 content unity.duration:3，上限只剩 9 格站位）；
-//           签名去掉不再使用的 state 形参（core/11 调用点同步）
-// V6.5.4 | ~38500 bytes | 2026-10-16 carry 雄鹰改「一次性判定」（老板拍板）：spawnCarryEagle 在 hasBuff 判过后查
-//           _carryEagleDone（core/17 schema）——carry 首次生效那回合判一次 5 号位即锁死，5 号位有人则本局永不招、
-//           招过之后雄鹰阵亡也不补；同批：spawnUnityRecruits 加重名保护（召唤物与场上同名单位并存时降级白板，
-//           清身份旗标，配合 core/11 该召唤物跳过组件注册，防 hook/声明翻倍与精英误认人）
-// V6.5.3 | ~37500 bytes | 2026-10-15 第二批内容：新增 applyLastStandBonus（背水一战·低血攻×1.4）、
-//           applyUnityBonus（众志成城·按存活人数阶梯乘攻防）、spawnUnityRecruits（不足 5 人时每回合召唤随机角色补员，
-//           M50 含精英技能全开、整局上限 4 个；获得时已满 5 人则永久不召）。三者调用点见 core/11。
-// V6.5.2 | ~35010 bytes | 2026-10-14 carry 放开 5 号位门槛（老板拍板）：新增 spawnCarryEagle——carry 生效且
-//           5 号位无活人时召唤「雄鹰」顶位（整局仅 1 只，模块标记 isCarryEagle 判定，死了不补）；数值读 content buffs.carry.params.eagle
-// V6.5.1 | ~30500 bytes | 2026-10-14 妹永久摄魂改「点名 2 回合」（老板拍板削弱）：团队摄魂过期后不再是整局全体续削，
-//           改由 preparePermanentSoulDrain 每回合随机点名 1 名敌方（非马/非召唤物）写 _soulDrainRounds=2，
-//           稳态约 2 人同时在削（core/11 每回合先 -1 再点名）；applySoulDrain 妹版分支改认 rounds>0，姊增强只对团队版生效
-// V6.5.0 | ~29800 bytes | 2026-10-14 妹永久补全 13 项全覆盖 + 新两海克斯姊增强（老板拍板）：
-//           ① 妹永久补 fortify（自己防+50%且反弹）、soulDrain（团队过期后续削敌方）、holyFire（妹专属额外 1 次复活，_holyFireSelf 独立名额）；
-//           ② hexEnhance 接线 soulDrain（减攻 -30%→-45%、逆风 -5%→-10%/人）与 holyFire（复活回血 40%→60%），均判施法/复活方姊存活在场
-// V6.4.6 | 2026-10-14 补齐「妹妹永久」缺口：applyHolyFlameBonus 团队圣火令过期分支补
-//           小昭·妹永久续上（applyHolyFlame_Brother 此前导出后全仓零调用，该机制只记账不生效）
-// V6.4.5 | ~27600 bytes | 2026-10-14 圣火不熄取消「复活当回合不可行动」（老板拍板：复活即可动）——
-//           reviveHolyFireUnit 删 withStun 形参与 _stunned 分支，统一 _acted=false；note 后缀同步移除
-// V6.4.4 | ~27700 bytes | 2026-10-13 圣火不熄两项强化（老板拍板）：① 复活名额排除召唤物（isSummon）——
-//           幼狮/雄狮/母狮阵亡不再占用唯一一次复活名额（原先只排 isHorse，名额常被 0 攻幼狮吃掉）
-//           ② 「整局」时长：content 打 permanent:true，时长映射在 modules/28 createBuffObject（单点）
-// V6.4.3 | ~27370 bytes | 2026-10-13 摄魂降防改乘法（老板拍板）：第 N 回合累计乘率 = 0.9×0.95^(N-1)（原线性叠加作废），
-//           defRatio = (1+defBonus)×(1+perRoundBonus)^(N-1)-1，乘法累积越拖越脆但渐近封顶
-// V6.4.2 | ~27000 bytes | 2026-10-13 修圣火不熄「回合开始兜底复活」吞行动权：reviveHolyFireUnit 的
-//           withStun=false 分支补 else u.state._acted = false（阵亡态被回合初重置整段跳过，旧值遗留）
-// ── 更早版本见 记录-更改履历.md
-export const VER = 'core/04buff-system.js V6.5.9';
+// 版本历史见 记录-更改履历.md（检索 "core/04buff-system"）
+export const VER = 'core/04buff-system.js V6.6.0';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -50,7 +11,6 @@ import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit } from './13battle-shared.js';
 import { findFreePos, spawnUnit } from './05battle-horse.js';
-import { clearHeroFlags } from './02unit.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -58,9 +18,8 @@ const C = CONFIG;
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) {
-        // 2026-10-14 补齐「妹妹永久」缺口：团队圣火令过期后，小昭·妹自己续上（无条件攻防双加成）——
-        //   此前 applyHolyFlame_Brother 导出后全仓零调用，「妹妹永久继承圣火令」只记账不生效。
-        //   口径与其余 9 项永久海克斯一致（core/04：流云/嗜血/热血/乘风/流星；modules/27：惑心/巨马/carry/连击）。
+        // 团队圣火令过期后，小昭·妹自己续上（永久海克斯）。别删此分支：
+        //   applyHolyFlame_Brother 曾导出后全仓零调用，导致「妹妹永久继承」只记账不生效。
         if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.HOLY_FLAME)) {
             applyHolyFlame_Brother(unit, null, activeBuffs, ctx.log);
         }
@@ -71,12 +30,12 @@ export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
 }
 
 export function applyFortifyBonus(unit, activeBuffs) {
-    // 2026-09-19 支持分阵营：六大派持有严阵以待时同样生效
+    // 支持分阵营：六大派持有严阵以待时同样生效
     if (unit.role !== ROLE_TYPES.DEFENDER) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         applyFortifyDef(unit);
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY)) {
-        // 2026-10-14 妹永久补 fortify：团队严阵以待过期后，妹（防战形态）自己继续吃防御+50%
+        // 妹永久补 fortify：团队严阵以待过期后，妹（防战形态）自己继续吃防御+50%
         applyFortifyDef(unit);
     }
 }
@@ -84,19 +43,17 @@ export function applyFortifyBonus(unit, activeBuffs) {
 // 摄魂（首个削弱型海克斯）：对阵方（casterActiveBuffs 持有）使我方每存活单位攻击力 ×(1+ratio)。
 //   与严阵以待同款「每回合重挂」口径——ttl:'round' 由回合开始统一清理，故整局持续、不做回合计数器。
 //   调用点见 core/11：明教持有 → 施加到六大派每人；六大派持有 → 施加到明教每人。
-// 2026-10-12 逆风补偿（老板拍板）：被削方每比施法方多 1 个存活单位（非马），减攻比例再 -perUnitBonus；
-//   被削方人数 ≤ 施法方时保底 atkBonus。两值见 content buffs.soulDrain（当前 -0.30 / 0.05），两方人数由 core/11 回合开始快照传入。
-//   另有降防（初始 defBonus + 每回合 perRoundBonus 线性叠加）见 applySoulDrain 内注释，当前回合数同样由 core/11 传入。
-// 2026-10-13 ctx 收口：log / aliveCounts 两个上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，此后新增上下文只进 ctx 不再改签名
+//   逆风补偿：被削方每比施法方多 1 个存活单位（非马），减攻比例再 -perUnitBonus；被削方人数 ≤ 施法方时保底 atkBonus。
+//   两值见 content buffs.soulDrain，两方人数由 core/11 回合开始快照传入；降防见函数内注释，回合数由 core/11 传入。
+//   ctx 收口：log / aliveCounts 等上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，新增上下文只进 ctx 不再改签名
 export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     const hasTeam = hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN);
-    // 2026-10-14 妹永久摄魂改「点名 2 回合」（老板拍板削弱）：团队摄魂过期后不再整局全体续削，
-    //   改由 preparePermanentSoulDrain 每回合随机点名 1 名敌方、写 unit.state._soulDrainRounds=2，
-    //   此处只认 rounds>0 才削（基础值、不吃姊增强），稳态约 2 人同时在削（见 core/11 回合开始）。
+    // 妹永久摄魂：团队摄魂过期后不再整局全体续削，改由 preparePermanentSoulDrain 每回合随机点名
+    //   1 名敌方（写 _soulDrainRounds=2），此处只认 rounds>0 才削（基础值、不吃姊增强），稳态约 2 人同时在削。
     const permanentHit = !hasTeam && (unit.state?._soulDrainRounds || 0) > 0;
     if (!hasTeam && !permanentHit) return;
     const cfg = CONFIG.BUFFS.soulDrain;
-    // 2026-10-14 姊增强接线：仅团队版生效（施法方小昭·姊存活在场 → 减攻 -30%→-45%、逆风每多 1 人 -5%→-10%，hexEnhance.soulDrain）
+    // 姊增强接线：仅团队版生效（施法方小昭·姊存活在场 → 减攻 -30%→-45%、逆风每多 1 人 -5%→-10%，hexEnhance.soulDrain）
     const enhance = (hasTeam && ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').soulDrain || null) : null;
     const atkBase = enhance ? enhance.atkBonus : cfg.atkBonus;
     const perUnit = enhance ? enhance.perUnitBonus : cfg.perUnitBonus;
@@ -105,20 +62,16 @@ export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     addMod(unit, 'atk', { source: '摄魂', value: ratio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     // 数值声明 fact（体检对照 soulDrain group，不进画面）：ratio 与 addMod 同值（随人数下探为负，契约 allowNeg 放行）
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio } });
-    // 2026-10-13 降防改乘法（老板拍板）：防御 ×0.9，此后每回合再 ×0.95——
-    //   第 N 回合累计乘率 defRatio = (1+defBonus)×(1+perRoundBonus)^(N-1) - 1（defBonus=-0.10 → ×0.9，perRoundBonus=-0.05 → ×0.95），
-    //   乘法累积越拖越脆但渐近封顶（不再像线性版第 19 回合防御归零）。
-    //   词条 mul 是多条求和，故把累计乘率算好挂单条；ttl:'round' 每回合随清理重挂，恒 1 条不残留。
+    // 降防走乘法：defRatio = (1+defBonus)×(1+perRoundBonus)^(N-1) - 1，渐近封顶（线性版会在第 19 回合归零）。
+    //   词条 mul 是多条求和，故先把累计乘率算好挂单条；ttl:'round' 每回合重挂，恒 1 条不残留。
     const round = ctx?.round || 1;
     const defRatio = (1 + (cfg.defBonus || 0)) * Math.pow(1 + (cfg.perRoundBonus || 0), round - 1) - 1;
     addMod(unit, 'def', { source: '摄魂', value: defRatio, ttl: 'round', op: 'mul', group: 'soulDrain' });
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
 
-// 2026-10-14 妹永久摄魂「点名」调度（core/11 每回合开始调用，方向：casterSide 削 targetSide）：
-//   团队摄魂在场时不启用（团队版自己全体削，4 回合）；妹在场且持永久摄魂时，随机点名 1 名敌方
-//   （非巨马、非召唤物，与圣火不熄名额同口径），写 _soulDrainRounds=2 → 该单位本回合+下回合被 applySoulDrain 削。
-//   每回合 core/11 先对存量 -1 再点名，故稳态约 2 人同时在削；重复点名同名即刷新为 2（可叠加续命）。
+// 妹永久摄魂：团队版在场时不启用（团队版全体削）；妹持永久摄魂时每回合随机点名 1 名敌方
+//   （非巨马、非召唤物），写 _soulDrainRounds=2。core/11 先对存量 -1 再点名，稳态约 2 人同削。
 export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
     if (!casterSide || !targetSide) return;
     if (hasBuff(casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN)) return;
@@ -130,8 +83,8 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
     pick.state._soulDrainRounds = 2;
 }
 
-// 2026-10-12 受益面放开（老板拍板「把拒马和狮子们也都改成能吃 carry」）：门控删 !unit.isHorse——
-//   拒马站受益位时也吃加成；狮子本就不在排除项内（无需改）。副作用：拒马吃到攻加成后 atk>0，不再走「拒马休息」、会出手。
+// 受益面含拒马与狮子：门控不放 isHorse——拒马站受益位也吃加成。副作用：拒马吃到攻加成后 atk>0，
+//   不再走「拒马休息」、会出手。
 export function applyCarryBonus(unit, A, state, log) {
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
@@ -146,16 +99,14 @@ export function applyCarryBonus(unit, A, state, log) {
     }
 }
 
-// 2026-10-14 carry 放开 5 号位门槛（老板拍板）：5 号位无人时不再跳过 carry，改召唤「雄鹰」顶位——
-//   整局仅 1 只（模块标记 isCarryEagle 判定，死了不补），随回合开始进场，故 core/11 组件工厂循环能当回合挂上雄鹰技能。
-//   位置固定 5 号位（触发条件即「5 号位无活人」，故 5 号位必空）；数值/形态读 content buffs.carry.params.eagle
-//   （基础值，spawnUnit 照常叠飞行职业加成）。
+// carry 放开 5 号位门槛：5 号位无人时改召唤「雄鹰」顶位——整局仅 1 只（死了不补），
+//   随回合开始进场，故 core/11 组件工厂循环能当回合挂上雄鹰技能；数值读 content buffs.carry.params.eagle。
 export function spawnCarryEagle(team, log) {
     if (!team || !team.length) return null;
     if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.CARRY)) return null;
-    // 2026-10-16 一次性判定（老板拍板）：carry「首次生效」那回合判一次 5 号位即锁死——
-    //   那回合 5 号位有活人则本局永不招（之后空出来也不补），招过之后雄鹰阵亡也不补。
-    //   锁记在 _carryEagleDone（core/17 schema，随 unit.clone 跨回合保留）；任一单位带标 = 本队已判过，直接跳过
+    // 一次性判定：carry「首次生效」那回合判一次 5 号位即锁死——
+    //   那回合有活人则本局永不招（之后空出来也不补），招过之后雄鹰阵亡也不补。
+    //   锁记在 _carryEagleDone（随 unit.clone 跨回合保留）；任一单位带标 = 本队已判过，直接跳过。
     if (team.some(u => u.state && u.state._carryEagleDone)) return null;
     team.forEach(u => { if (u.state) u.state._carryEagleDone = true; });
     if (team.some(u => u.alive && u.pos === 5)) return null;
@@ -168,10 +119,10 @@ export function spawnCarryEagle(team, log) {
     return eagle;
 }
 
-// 2026-10-15 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
+// 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
 //   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
-//   2026-10-17 数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检按乘率口径核对
-//     （与 HOLY_FLAME_APPLY 同款；log 由 core/11 applyTeamRoundBuffs 透传 ctx.log，纯记账、零游戏逻辑副作用）。
+//   数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检核对
+//   （与 HOLY_FLAME_APPLY 同款；log 由 core/11 透传，纯记账、零游戏逻辑副作用）。
 export function applyLastStandBonus(unit, activeBuffs, log) {
     if (!hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND)) return;
     const cfg = C.BUFFS.lastStand;
@@ -181,9 +132,9 @@ export function applyLastStandBonus(unit, activeBuffs, log) {
     if (log) log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
 }
 
-// 2026-10-15 众志成城（unity）加成：按本阵营存活人数（拒马/幼狮/雄鹰/召唤物都算人）取最高达标档，攻防同乘。
+// 众志成城（unity）加成：按本阵营存活人数（拒马/幼狮/雄鹰/召唤物都算人）取最高达标档，攻防同乘。
 //   与摄魂同款：ttl:'round' 每回合清理重挂，故整局持续、不做回合计数器；人数每回合现算。
-//   2026-10-17 数值声明 fact（UNITY_APPLY）：op:mul 乘法词条，攻/防各发一条乘率 ratio 供体检按乘率口径核对。
+//   数值声明 fact（UNITY_APPLY）：op:mul 乘法词条，攻/防各发一条乘率 ratio 供体检按乘率口径核对。
 export function applyUnityBonus(unit, team, activeBuffs, log) {
     if (!hasBuff(activeBuffs, BUFF_TYPES.UNITY)) return;
     const cfg = C.BUFFS.unity;
@@ -200,14 +151,9 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
     }
 }
 
-// 2026-10-15 众志成城（unity）补员：获得时若本阵营不足 5 人，则每回合召唤随机角色补员——
-// 2026-10-16 定案改版（老板拍板「一直召唤」）：首回合若场上不足 5 人则一次补到 5（已满 5 人则该回合不召），
-//   第二回合起每回合无条件 +1，直到 buff 到期（content duration:3）。整局唯一上限是 9 格站位。
-//   首回合标记挂在 buff 对象上（buff 跨回合是同一对象、只被 remaining 递减；且只出现在持有它的阵营列表里，
-//   天然按阵营隔离）——不再用 state 字段，也不需要 state 形参。
-//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags，故精英召唤物技能全开），M 用 cfg.recruitM(20)、
-//   角色取 cfg.recruitPool[camp]，落地即钳属性下限（攻<1→0 / 防<5→5 / 血<25→25，见 V6.5.8）。
-//   已召数按 unit.isUnityRecruit 现数（阵亡者也计，跨回合随 unit 克隆保留）。
+// 众志成城补员：首回合场上有几人补到 5，之后每回合 +1，直到 buff 到期（唯一上限是 9 格站位）。
+//   首回合标记挂 buff 对象（跨回合同一对象，且只出现在持有它的阵营列表里，天然按阵营隔离）。
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开），落地即钳属性下限。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
 export function spawnUnityRecruits(team, log) {
     if (!team || !team.length) return;
@@ -237,10 +183,9 @@ export function spawnUnityRecruits(team, log) {
         if (landPos == null) break;   // 9 格全被活人占：放弃本次落位
         const pick = pool[rng.nextInt(0, pool.length - 1)];
         const recruit = spawnUnit(team, pick.name, cfg.recruitM, pick.role, landPos);
-        // 2026-10-16 属性下限兜底（老板拍板）：M 降到 20 后小 m 掷点会出 0 攻/纸皮召唤物——
-        //   攻 <1 归 0（0 攻自然走 core/11 pass 通道、不参与攻击），防 <5 补到 5，生命上限 <25 补到 25。
-        //   口径同 spawnHorse / spawnUnit(stats) 分支：建人阶段直接写基础值，并同步 state._base* / _init*
-        //   （getStat 只认 _baseAtk/_baseDef/_baseMaxHp，不回写则加成后仍读旧值）+ 满血 hp。
+        // 属性下限兜底：M 降到 20 后小 m 掷点会出 0 攻/纸皮召唤物——攻 <1 归 0（0 攻走 core/11 pass 不攻击）、
+        //   防 <5 补到 5，生命上限 <25 补到 25。口径同 spawnHorse/spawnUnit(stats)：建人阶段直接写基础值并同步
+        //   state._base* / _init*（getStat 只认 _base*，不回写则加成后仍读旧值）+ 满血 hp。
         if (recruit.atk < 1) { recruit.atk = 0; recruit.state._baseAtk = 0; recruit.state._initAtk = 0; }
         if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
         if (recruit.maxHp < 25) {
@@ -250,12 +195,9 @@ export function spawnUnityRecruits(team, log) {
             recruit.state._initMaxHp = 25;
         }
         recruit.isUnityRecruit = true;
-        // 2026-10-16 重名保护（老板拍板「重名可保留、但不得引出别的 bug」）：召唤角色与场上**其他**单位同名时，
-        //   该召唤物降级为白板——清掉 Unit 构造期按名字自动打上的身份旗标（isZhang/isWei/isYinTianZheng…）。
-        //   不清则 modules/27 一批 `find(u => u.isZhang/isWei && u.alive)` 会误认它：原版阵亡后命中白板召唤物，
-        //   精英联动/FSM 会作用在没有 _fsm 的对象上。名字本身保留（显示不变），只摘内部身份。
-        //   另一半保护在 core/11 组件工厂循环：同名召唤物跳过组件注册（重复注册会让 hook/声明翻倍）。
-        if (team.some(u => u !== recruit && u.name === recruit.name)) clearHeroFlags(recruit);
+        // 重名保护取消（定案「完全真技能」）：众志成城补员精英不再降级白板——身份旗标保留，
+        //   组件多实例化改由 core/11 传 self 支撑：每个同名单位各自注册组件、各自认自己
+        //   （个体 hook 按 uid 守卫、全局 hook 仅首个实例挂），同名共存是「各管各的」而非「二选一降级」。
         if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: '众志成城' } });
     }
 }
@@ -293,7 +235,7 @@ export function submitBloodthirstDeclaration(data) {
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
             data.declarations.push(decl);
-            // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零游戏逻辑副作用
+            // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
             recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀');
         }
         if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
@@ -340,7 +282,7 @@ export function submitHotBloodDeclaration(data) {
     if (leech > 0) {
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: leech, source: unit, isDouble, factType: FACT_TYPES.HOT_BLOOD_HEAL, factData: { unitName: unit.name, leech, tag: isDouble ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战', isBrother, unitUid: unit.uid } });
-        // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零游戏逻辑副作用
+        // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
         recordHpAudit(unit, 'hotBloodHeal', leech, '热血奋战');
     }
 }
@@ -382,10 +324,9 @@ export function submitWindAssaultDeclaration(data) {
     }
     if (rng.nextInt(1, 100) <= pushProb) {
         // 击退/眩晕统一判定：7-9 号位退无可退改为眩晕（与胖远桥·年轻气盛共用 core/13）
-        // 取队口径（2026-09-25 修）：allySide/enemySide 是「攻击方视角」的别名（allySide=攻击方自己那队），
-        //   而 target.camp 是全局阵营 —— 必须拿 unit.camp 作参照，不能拿 CAMP_TYPES.ALLY。
-        //   原写法 `target.camp === CAMP_TYPES.ALLY ? allySide : enemySide` 在**敌方飞行单位**触发时会取到攻击方自己那队，
-        //   于是把敌方单位换进我方格 / 我方单位换进敌方格（跨阵营换位），造成同阵营双人同格。
+        // 取队口径：allySide/enemySide 是「攻击方视角」的别名（allySide=攻击方自己那队），而 target.camp 是全局阵营
+        //   ——必须拿 unit.camp 作参照，不能拿 CAMP_TYPES.ALLY。原写法 `target.camp === CAMP_TYPES.ALLY ? allySide : enemySide`
+        //   在敌方飞行单位触发时会取到攻击方自己那队，把敌方单位换进我方格（跨阵营换位、同阵营双人同格）。
         //   同文件 submitMeteorShowerDeclaration 用的就是 `target.camp === unit.camp` 的正确写法。
         const targetTeam = target.camp === unit.camp ? allySide : enemySide;
         resolvePushOrStun(target, targetTeam, log, label);
@@ -456,9 +397,8 @@ export function registerMindControl(eventBus) {
 }
 
 // 飞行职业基础再生：每有一个非拒马角色阵亡，全场所有存活飞行立即回复 baseRegen 生命。
-// 数值唯一来源：content 的 roles.飞行.baseRegen。
-// 挂 ON_UNIT_DEATH 信号（core/12 resolveDeaths 的死亡广播），由 core/11 每回合注册监听。
-// V6.2.4 | 2026-10-02 补回血弹幕：按 fact 管线推 FLYER_REGEN（render/35 渲染，isHealEntry 飘 "+N"）
+// 数值唯一来源：content 的 roles.飞行.baseRegen；挂 ON_UNIT_DEATH（core/12 死亡广播），由 core/11 每回合注册监听。
+// 回血弹幕走 fact 管线（render/35 渲染，isHealEntry 飘 "+N"）。
 export function onUnitDeathFlyerRegen(data, A, B, log) {
     const dead = (data && data.deadUnits ? data.deadUnits : []).filter(u => u && !u.isHorse);
     if (dead.length === 0) return;
@@ -470,12 +410,11 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
         const before = u.hp;
         applyStatChange(u, 'hp', gain, null, '飞行再生');
         if (log && u.hp > before) {
-            // 2026-10-13 回血出口取整：hp 是 0.1 精度（core/13 applyStatChange 落 step 到 0.1），
-            //   两个一位小数相减会出浮点尾巴（73.7-63.7 = 10.000000000000007）进日志与记账；
-            //   与生生不息（26elite-sixsects-zhangsanfeng L37 Math.round）同口径，截到整数
+            // 回血出口取整：hp 是 0.1 精度（applyStatChange 落 step 到 0.1），两个一位小数相减会出浮点尾巴
+            //   （73.7-63.7 = 10.000000000000007）进日志与记账；与生生不息同口径截到整数。
             const healed = Math.round(Math.max(0, u.hp - before));
             log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: healed, deadCount: dead.length } });
-            // 审计账本（2026-10-14 迁出 _mods）：value 与 fact heal 同一个 healed，保精确相等
+            // 审计账本：value 与 fact heal 同一个 healed，保精确相等
             recordHpAudit(u, 'flyerRegen', healed, '飞行再生');
         }
     }
@@ -493,16 +432,15 @@ export function submitHolyFireRecord(data) {
     if (owner) {
         // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
         if (!owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) {
-            // 2026-10-13 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
-            //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板（老板拍板 ①）
+            // 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
+            //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板。
             const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse && !u.isSummon);
             if (victim && victim.pos != null) victim.state._holyFire = 'pending';
         }
     }
-    // 2026-10-14 妹永久补 holyFire（老板拍板「团队 1 + 她 1」）：小昭·妹自己阵亡，独立名额再复活一次——
-    //   与团队名额互不占用（_holyFireSelf 单独记账，见 core/17 schema）；直查 _permanentBuffs，
-    //   不走 xiaoPermanentActive（那个在团队 buff 在场时返回 false，而妹名额要与团队名额叠加生效）。
-    //   本次死亡已被团队名额接管（本人 _holyFire==='pending'）时不再重复记，防同一次死亡双复活。
+    // 妹永久补 holyFire（「团队 1 + 她 1」）：小昭·妹自己阵亡，独立名额再复活一次——与团队名额互不占用
+    //   （_holyFireSelf 单独记账）；直查 _permanentBuffs，不走 xiaoPermanentActive（那个在团队 buff 在场时返回 false，
+    //   而妹名额要与团队名额叠加生效）。已被团队名额接管（_holyFire==='pending'）时不再记，防同一次死亡双复活。
     for (const team of teams) {
         const bro = (data.deadUnits || []).find(u => u && team.includes(u) && u.isXiaoZhaoBrother && !u.isHorse && !u.isSummon);
         if (!bro || bro.pos == null) continue;
@@ -517,7 +455,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     const mark = slot === 'self' ? '_holyFireSelf' : '_holyFire';
     u.state[mark] = 'used';
     const cfg = C.BUFFS.holyFire || {};
-    // 2026-10-14 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）
+    // 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）
     const enhance = team.some(x => x.isXiaoZhaoSister && x.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
     const ratio = enhance ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6) : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4);
     // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
@@ -536,10 +474,9 @@ function reviveHolyFireUnit(u, team, log, slot) {
     Object.assign(u.state, { _isDead: false, _pendingDeath: false, _deathTime: 0 });
     // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
     applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false, false);
-    // 2026-10-14 老板拍板：复活即可动——删「当回合眩晕」（原 withStun 置 _stunned 挡本回合剩余行动）。
-    //   _acted 统一清 false：回合中复活（BEFORE_STATE_TRANSITION）本轮没动过就正常补上这一手，
-    //   动过则多给一手（每局仅 1 次，代价可控）；回合开始兜底同口径（第 86 轮吞行动权修复的自然延续——
-    //   当时只给兜底路径清 _acted，现两条路径行为一致，withStun 形参一并删除）。
+    // 复活即可动：删「当回合眩晕」（原 withStun 置 _stunned 挡本回合剩余行动），_acted 统一清 false——
+    //   回合中复活（BEFORE_STATE_TRANSITION）本轮没动过就补上这一手，动过则多给一手（每局仅 1 次，代价可控）；
+    //   回合开始兜底同口径。
     u.state._acted = false;
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
     if (log) {
@@ -551,7 +488,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     }
 }
 
-// 下一个行动步落位（复活即可动，见 reviveHolyFireUnit 2026-10-14 注）
+// 下一个行动步落位（复活即可动，见 reviveHolyFireUnit 注）
 export function flushHolyFire(data) {
     for (const team of [data.A, data.B]) {
         if (!team) continue;
