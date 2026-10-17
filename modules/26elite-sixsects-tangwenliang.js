@@ -12,6 +12,7 @@ import { computeDodgeChance, snapshotUnitForFact } from '../core/12battle-attack
 import { getMissBreakdown, makeFXSnapshot } from '../core/03battle-utils.js';
 import { flushBattleEvents, fmtHp } from '../infra/51-core-utils.js';
 import { emitStateChange } from '../infra/59-state-change.js';
+import { applyRoleBonusMods, switchRoleOnly } from './23elite-helpers.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -34,17 +35,11 @@ export function createTangWenLiangComponent() {
 
             // 职业加成（冲刺转战士用，与何太冲红血同款口径：addMod 词条 + refreshMaxHp 同步）
             function addRoleBonus(unit, role, label) {
-                const bonus = getRoleBonus(role);
-                addMod(unit, 'atk', { source: label, value: bonus.atk, ttl: 'permanent', group: 'twDash', op: 'add' });
-                addMod(unit, 'def', { source: label, value: bonus.def, ttl: 'permanent', group: 'twDash', op: 'add' });
-                addMod(unit, 'maxHp', { source: label, value: bonus.maxHp, ttl: 'permanent', group: 'twDash', op: 'add' });
-                refreshMaxHp(unit, null, label);
+                return applyRoleBonusMods(unit, role, label, 'twDash');
             }
             // 换职业 + 广播（HP_CHANGE 让 UI 重画攻防，ROLE_CHANGED 走 59 状态变更通道）
             function switchRole(unit, role, label, outLog) {
-                unit.role = role;
-                emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role });
-                emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole: role }, outLog);
+                switchRoleOnly(unit, role, label, outLog);
             }
             // 回春术叠层：每层记一个「剩余回合数」（按 hc.rounds 起步），层数可叠加
             function addHuiChunStack(unit) {
