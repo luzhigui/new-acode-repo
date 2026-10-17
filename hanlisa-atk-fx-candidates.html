@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寒离飒 · 攻击特效候选（真实 UI 重建版）</title>
+<style>
+/* ===== 以下样式逐条照抄游戏本体 index.html（仅删与本 demo 无关的弹窗/联网段）===== */
+:root{
+  --c-gold:#b8860b;
+  --c-gold-bright:#ffd700;
+  --c-gold-orange:#ffaa00;
+  --c-brown:#5c4033;
+  --c-brown-border:#8b7355;
+  --c-tan:#b8a88a;
+  --c-parchment:#f5f0e0;
+  --c-parchment-2:#e8d5b0;
+  --c-panel:#fdf5e6;
+  --c-ming-blue:#1e6bb8;
+  --c-sect-orange:#d2691e;
+  --c-danger:#c0392b;
+  --c-green:#2e7d32;
+  --c-dark:#1a1a2e;
+  --c-gain:#daa520;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+html { background: #000; }
+body { background: var(--c-parchment); font-family: 'Segoe UI', monospace; width: 100%; max-width: 520px; margin: 0 auto; padding: 0 6px 12px 6px; color: #333; user-select: none; }
+.upper-area { flex: 0 0 52vh; flex: 0 0 52dvh; display: flex; flex-direction: column; overflow: hidden; }
+.battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; }
+.team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+.team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
+.camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
+.camp-badges { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+.cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 6.2vh; height: 6.2dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
+.cell.ready { background: #d4edda; border-color: #28a745; }
+.cell.acted { background: #e2e3e5; border-color: #aaa; }
+.cell[data-flash="attack"] { background: var(--c-ming-blue) !important; border-color: #0d4f8b !important; box-shadow: 0 0 20px var(--c-ming-blue); z-index: 999 !important; transform: scale(1.1); }
+.cell[data-flash="attack"] .cell-name, .cell[data-flash="attack"] .cell-stats,
+.cell[data-flash="attack"] .hp-text-green, .cell[data-flash="attack"] .hp-text-orange, .cell[data-flash="attack"] .hp-text-red { color: #fff !important; }
+.cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+.cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+.cell-name-long { letter-spacing: -0.5px; }
+.cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+.hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
+.hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; transition: height 0.6s ease, background 0.6s ease; }
+.hp-text-green { color: var(--c-green); } .hp-text-orange { color: var(--c-sect-orange); } .hp-text-red { color: var(--c-danger); }
+.orange { color: var(--c-sect-orange); font-weight: bold; } .blue { color: var(--c-ming-blue); font-weight: bold; }
+.name-purple { color: #8e44ad; font-weight: bold; } .name-blue { color: #2e6fb7; font-weight: bold; }
+.shake-screen { animation: screenShake 0.2s ease-out; }
+@keyframes screenShake { 0% { transform: translate(0, 0); } 25% { transform: translate(-4px, 3px); } 50% { transform: translate(4px, -2px); } 75% { transform: translate(-2px, -4px); } 100% { transform: translate(0, 0); } }
+
+/* ===== demo 控制区（非游戏本体）===== */
+#demoBar { max-width: 500px; margin: 10px auto 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+#demoBar button { background: var(--c-panel); border: 2px solid var(--c-gold); border-radius: 8px; padding: 8px 6px;
+  font-size: 13px; font-weight: 700; color: var(--c-brown); cursor: pointer; text-align: center; }
+#demoBar button small { display: block; font-weight: 400; font-size: 10px; color: #7a6a50; margin-top: 2px; }
+#demoBar button:hover { background: var(--c-gold-bright); }
+#note { max-width: 500px; margin: 10px auto 0; font-size: 11.5px; color: #6a5a40; text-align: center; line-height: 1.6; min-height: 36px; }
+</style>
+</head>
+<body>
+<div class="upper-area">
+  <!-- 结构逐字照抄 index.html 315-316 行 -->
+  <div class="battlefield" id="battlefield">
+    <div class="team-row"><div class="camp-side"><span class="team-label orange">六大派</span><div class="camp-badges"></div></div><div class="grid" id="enemyGrid"></div></div>
+    <div class="team-row"><div class="camp-side"><span class="team-label blue">明 教</span><div class="camp-badges"></div></div><div class="grid" id="allyGrid"></div></div>
+  </div>
+</div>
+<div id="demoBar">
+  <button onclick="play(1)">① 扇形柔光冲击波<small>顶点柔光扇面+双涟漪，罩全敌阵</small></button>
+  <button onclick="play(2)">② 冰火螺旋拳<small>金冰螺旋沿敌中列贯入</small></button>
+  <button onclick="play(3)">③ 拳影突进<small>拳影直冲敌阵留拖影</small></button>
+  <button onclick="play(4)">④ 蓄能→爆发<small>核心蓄能再炸冲击波</small></button>
+</div>
+<div id="note">格子按本体 render/32 的 allyOrder/enemyOrder 真实映射摆放（敌 7/8/9 在敌阵最上排=远离我方，敌 1/2/3 在敌阵最下排=贴着我方）；特效顶点/两翼取点逻辑与本体 fx/90 相同：allyGrid[data-pos=2] → enemyGrid[data-pos=7]/[9]。</div>
+
+<script>
+/* ============ 摆位：照抄 render/32 的 displayOrder（房主视角，非镜像）============ */
+const ALLY_ORDER  = [1,2,3,4,5,6,7,8,9];
+const ENEMY_ORDER = [7,8,9,4,5,6,1,2,3];   // 敌方：DOM 槽位 0-8 ← 逻辑位 7,8,9,4,5,6,1,2,3
+const TRUE_POS = [2,5,8], HALF_POS = [4,6,7,9];   // 与 fx/90 一致（敌方逻辑位）
+
+/* 单位数据（取自实机战报） */
+const ENEMY = {
+  2:{icon:'📿',name:'空性',tier:'name-purple',atk:35,def:24,hp:93, max:130,ready:1},
+  1:{icon:'⚔️',name:'华山弟子',atk:22,def:18,hp:105,max:105,ready:1},
+  3:{icon:'🗡️',name:'崆峒弟子',atk:19,def:21,hp:101,max:101,ready:1},
+  4:{icon:'🗡️',name:'峨眉弟子',atk:20,def:20,hp:98, max:98},
+  5:{icon:'⚔️',name:'武当弟子',atk:15,def:22,hp:124,max:124,ready:1},
+  6:{icon:'🛡️',name:'六大派弟子',atk:18,def:25,hp:110,max:110}
+};  // 7/8/9 后排留空（实机常见，空格也带 data-pos，fx/90 照画）
+const ALLY = {
+  2:{icon:'❄️',name:'寒离飒',tier:'name-purple',atk:37,def:26,hp:114,max:130},
+  5:{icon:'🐯',name:'洪午',atk:36,def:22,hp:126,max:147,ready:1},
+  8:{icon:'🦅',name:'殷天正',atk:33,def:24,hp:135,max:135}
+};
+
+function hpCls(p){ return p>0.5?'hp-text-green':(p>0.2?'hp-text-orange':'hp-text-red'); }
+function hpBar(p){ return p>0.5?'#2e7d32':(p>0.2?'#daa520':'#c0392b'); }
+/* 卡片 innerHTML 模板照抄 render/32 第 567 行（精简 atk/def 内联样式） */
+function cardHtml(u){
+  const p=u.hp/u.max;
+  return `<span class="cell-icon">${u.icon}</span><div class="cell-info">`+
+    `<span class="cell-name ${u.tier||''}">${u.name}</span>`+
+    `<span class="cell-stats">攻<span>${u.atk}</span> 防<span>${u.def}</span> <span class="${hpCls(p)}">血${u.hp}</span></span></div>`+
+    `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${Math.round(p*100)}%;background:${hpBar(p)};"></div></div>`;
+}
+function buildGrid(gridId, order, map){
+  const g=document.getElementById(gridId);
+  order.forEach(pos=>{
+    const d=document.createElement('div');
+    const u=map[pos];
+    d.className = u ? `cell occupied${u.ready?' ready':''}` : 'cell';
+    d.dataset.pos = pos;                      // ← 本体按 data-pos 取格，空格也带
+    if(u) d.innerHTML = cardHtml(u);
+    g.appendChild(d);
+  });
+}
+buildGrid('enemyGrid', ENEMY_ORDER, ENEMY);
+buildGrid('allyGrid',  ALLY_ORDER,  ALLY);
+
+/* ============ 取点逻辑：与本体 fx/90 相同（相对 #battlefield）============ */
+const bf = document.getElementById('battlefield');
+const NS = 'http://www.w3.org/2000/svg';
+const cellOf = (gridId,pos)=>document.querySelector(`#${gridId} [data-pos="${pos}"]`);
+const centerOf = el=>{ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2, y:r.top+r.height/2}; };
+function rel(pt){ const br=bf.getBoundingClientRect(); return {x:pt.x-br.left, y:pt.y-br.top}; }
+function geom(){
+  const a=rel(centerOf(cellOf('allyGrid',2)));
+  const w7=rel(centerOf(cellOf('enemyGrid',7)));
+  const w9=rel(centerOf(cellOf('enemyGrid',9)));
+  return {a,w7,w9};
+}
+function clearFx(){
+  bf.querySelectorAll('svg.fx,.boom,.fist,.core').forEach(n=>n.remove());
+  document.querySelectorAll('.cell[data-flash]').forEach(c=>c.removeAttribute('data-flash'));
+}
+function fxSvg(w,h){
+  const s=document.createElementNS(NS,'svg');
+  s.setAttribute('class','fx');
+  s.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  s.setAttribute('style','position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:50;overflow:visible;');
+  bf.appendChild(s); return s;
+}
+const mk=(tag,attrs)=>{const n=document.createElementNS(NS,tag);for(const k in attrs)n.setAttribute(k,attrs[k]);return n;};
+function flashSelf(){ const c=cellOf('allyGrid',2); c.setAttribute('data-flash','attack'); setTimeout(()=>c.removeAttribute('data-flash'),650); }
+function shake(){ bf.classList.remove('shake-screen'); void bf.offsetWidth; bf.classList.add('shake-screen'); }
+function boom(ch,pt,dur,delay){
+  const b=document.createElement('div'); b.className='boom'; b.textContent=ch;
+  b.style.cssText=`position:absolute;z-index:60;pointer-events:none;font-size:32px;font-weight:800;color:var(--c-gold-bright);`+
+    `text-shadow:0 0 14px var(--c-gold),0 0 4px #fff;opacity:0;left:${pt.x}px;top:${pt.y}px;transform:translate(-50%,-50%);`;
+  bf.appendChild(b);
+  b.animate([{opacity:0,transform:'translate(-50%,-20%) scale(.5)'},{opacity:1,transform:'translate(-50%,-70%) scale(1.1)',offset:.3},
+    {opacity:0,transform:'translate(-50%,-170%) scale(1.5)'}],{duration:dur,delay,fill:'forwards',easing:'ease-out'});
+}
+function flashPos(list,kf,opt){ list.forEach(p=>{ const c=cellOf('enemyGrid',p); if(c)c.animate(kf,opt); }); }
+
+/* ============ 四版候选（几何统一：顶点 ally2 → 两翼敌7/9）============ */
+function play1(){ // ① 扇形柔光冲击波
+  const {a,w7,w9}=geom(), W=bf.clientWidth, H=bf.clientHeight, svg=fxSvg(W,H);
+  const R=Math.hypot(w9.x-a.x,w9.y-a.y)*1.06;
+  const bow=(p,q,t)=>({x:p.x+(q.x-p.x)*t, y:p.y+(q.y-p.y)*t});
+  const c1=bow(a,w7,.30), c2=bow(a,w9,.30);                       // 两翼内收 → 边缘内凹，无硬三角
+  const far={x:(w7.x+w9.x)/2, y:Math.min(w7.y,w9.y)-18};          // 远边外凸
+  const defs=mk('defs',{});
+  const g=mk('radialGradient',{id:'g1',gradientUnits:'userSpaceOnUse',cx:a.x,cy:a.y,r:R});
+  g.append(mk('stop',{offset:'0%','stop-color':'#ffd700','stop-opacity':'.9'}),
+           mk('stop',{offset:'45%','stop-color':'#7fc7ff','stop-opacity':'.5'}),
+           mk('stop',{offset:'100%','stop-color':'#1e6bb8','stop-opacity':'0'}));
+  defs.append(g);
+  const fan=mk('path',{d:`M ${a.x},${a.y} Q ${c1.x},${c1.y} ${w7.x},${w7.y} Q ${far.x},${far.y} ${w9.x},${w9.y} Q ${c2.x},${c2.y} ${a.x},${a.y} Z`,fill:'url(#g1)',opacity:0});
+  fan.style.transformOrigin=`${a.x}px ${a.y}px`;
+  svg.append(defs,fan);
+  fan.animate([{transform:'scale(.15)',opacity:0},{opacity:.85,offset:.35},{transform:'scale(1.22)',opacity:0}],
+    {duration:1200,fill:'forwards',easing:'ease-out'});
+  [ ['#ffd700',150], ['#7fc7ff',550] ].forEach(([col,dl])=>{
+    const r=mk('circle',{cx:a.x,cy:a.y,r:R*.8,fill:'none',stroke:col,'stroke-width':3,opacity:0});
+    r.style.transformOrigin=`${a.x}px ${a.y}px`; svg.append(r);
+    r.animate([{transform:'scale(.2)',opacity:0},{opacity:.55,offset:.4},{transform:'scale(1.2)',opacity:0}],
+      {duration:950,delay:dl,fill:'forwards',easing:'ease-out'});
+  });
+  flashPos(TRUE_POS,[{backgroundColor:'#e8e6e0',boxShadow:'none'},{backgroundColor:'rgba(255,255,255,.14)',boxShadow:'inset 0 0 12px 4px rgba(127,199,255,.9)',offset:.25},
+    {backgroundColor:'#e8e6e0',boxShadow:'none'}],{duration:1100,delay:350});
+  flashPos(HALF_POS,[{backgroundColor:'#e8e6e0',transform:'scale(1)'},{backgroundColor:'rgba(139,58,30,.45)',transform:'scale(.93)',offset:.4},
+    {backgroundColor:'#e8e6e0',transform:'scale(1)'}],{duration:500,delay:1250,easing:'ease-in-out'});
+  boom('轰',a,1400,400); setTimeout(shake,1250);
+}
+function play2(){ // ② 冰火螺旋拳
+  const {a}=geom(), W=bf.clientWidth, H=bf.clientHeight, svg=fxSvg(W,H);
+  const e2=rel(centerOf(cellOf('enemyGrid',2))), e5=rel(centerOf(cellOf('enemyGrid',5))), e8=rel(centerOf(cellOf('enemyGrid',8)));
+  const defs=mk('defs',{});
+  const g=mk('linearGradient',{id:'g2',gradientUnits:'userSpaceOnUse',x1:a.x,y1:a.y,x2:e8.x,y2:e8.y});
+  g.append(mk('stop',{offset:'0%','stop-color':'#ffd700'}),mk('stop',{offset:'100%','stop-color':'#7fc7ff'}));
+  defs.append(g);
+  const d=`M ${a.x},${a.y} C ${a.x-30},${a.y-42} ${e2.x+30},${e2.y-24} ${e2.x},${e2.y}`+
+          ` C ${e2.x-28},${e2.y+26} ${e5.x+28},${e5.y-24} ${e5.x},${e5.y}`+
+          ` C ${e5.x-26},${e5.y+26} ${e8.x+26},${e8.y-24} ${e8.x},${e8.y}`;
+  const p=mk('path',{d,fill:'none',stroke:'url(#g2)','stroke-width':7,'stroke-linecap':'round'});
+  svg.append(defs,p);
+  const len=p.getTotalLength();
+  p.style.strokeDasharray=len; p.style.strokeDashoffset=len;
+  p.animate([{strokeDashoffset:len,opacity:.95},{strokeDashoffset:0,opacity:.95,offset:.7},{strokeDashoffset:0,opacity:0}],
+    {duration:1100,fill:'forwards',easing:'ease-out'});
+  flashPos(TRUE_POS,[{backgroundColor:'#e8e6e0'},{backgroundColor:'rgba(255,215,0,.6)',offset:.25},
+    {backgroundColor:'rgba(127,199,255,.55)',offset:.6},{backgroundColor:'#e8e6e0'}],{duration:1200,delay:500});
+  flashPos(HALF_POS,[{backgroundColor:'#e8e6e0'},{backgroundColor:'rgba(127,199,255,.4)',offset:.4},{backgroundColor:'#e8e6e0'}],
+    {duration:550,delay:1200,easing:'ease-in-out'});
+  boom('崩',e5,1300,600); setTimeout(shake,1200);
+}
+function play3(){ // ③ 拳影突进
+  const {a}=geom();
+  const e5=rel(centerOf(cellOf('enemyGrid',5)));
+  const mkFist=(delay,op,scale)=>{
+    const f=document.createElement('div'); f.className='fist';
+    f.style.cssText=`position:absolute;z-index:55;pointer-events:none;width:${34*scale}px;height:${34*scale}px;border-radius:11px;opacity:0;`+
+      `background:radial-gradient(circle at 35% 30%, #fff, var(--c-gold) 60%, #7a5200);box-shadow:0 0 16px var(--c-gold-bright);`+
+      `left:${a.x-17*scale}px;top:${a.y-17*scale}px;`;
+    bf.appendChild(f);
+    f.animate([{opacity:0,transform:'translateY(0)'},{opacity:op,offset:.15},{opacity:op*.85,offset:.7},
+      {opacity:0,transform:`translateY(${e5.y-a.y}px)`}],{duration:1000,delay,fill:'forwards',easing:'cubic-bezier(.5,0,.3,1)'});
+  };
+  mkFist(80,.35,1.4); mkFist(0,.7,1);           // 拖影 + 本体
+  flashPos(TRUE_POS,[{backgroundColor:'#e8e6e0'},{backgroundColor:'rgba(127,199,255,.6)',offset:.3},{backgroundColor:'#e8e6e0'}],
+    {duration:1100,delay:750});
+  flashPos(HALF_POS,[{backgroundColor:'#e8e6e0'},{backgroundColor:'rgba(139,58,30,.45)',offset:.4},{backgroundColor:'#e8e6e0'}],
+    {duration:500,delay:950,easing:'ease-in-out'});
+  boom('拳',e5,1300,850); setTimeout(shake,950);
+}
+function play4(){ // ④ 蓄能→爆发（两阶段）
+  const {a,w7}=geom(), W=bf.clientWidth, H=bf.clientHeight, svg=fxSvg(W,H);
+  const core=document.createElement('div'); core.className='core';
+  core.style.cssText=`position:absolute;z-index:55;pointer-events:none;width:30px;height:30px;border-radius:50%;opacity:0;`+
+    `background:radial-gradient(circle, var(--c-gold-bright), #7fc7ff 70%, transparent);left:${a.x-15}px;top:${a.y-15}px;`;
+  bf.appendChild(core);
+  core.animate([{opacity:0,transform:'scale(.3)'},{opacity:1,transform:'scale(1.5)'}],{duration:900,fill:'forwards',easing:'ease-in'});
+  const ring=mk('circle',{cx:a.x,cy:a.y,r:Math.max(a.y-w7.y+40,140),fill:'none',stroke:'#ffd700','stroke-width':4,opacity:0});
+  ring.style.transformOrigin=`${a.x}px ${a.y}px`; svg.appendChild(ring);
+  ring.animate([{transform:'scale(.2)',opacity:0},{opacity:.6,offset:.3},{transform:'scale(1.25)',opacity:0}],
+    {duration:1100,delay:1000,fill:'forwards',easing:'ease-out'});
+  flashPos(TRUE_POS,[{backgroundColor:'#e8e6e0'},{backgroundColor:'rgba(255,255,255,.14)',boxShadow:'inset 0 0 12px 4px rgba(127,199,255,.9)',offset:.25},
+    {backgroundColor:'#e8e6e0',boxShadow:'none'}],{duration:1100,delay:1500});
+  flashPos(HALF_POS,[{backgroundColor:'#e8e6e0'},{backgroundColor:'rgba(139,58,30,.45)',offset:.4},{backgroundColor:'#e8e6e0'}],
+    {duration:550,delay:1550,easing:'ease-in-out'});
+  boom('蓄',a,900,0); boom('轰',a,1400,1500); setTimeout(shake,1550);
+}
+
+let timer=null;
+function play(n){
+  clearTimeout(timer); clearFx(); flashSelf();
+  timer=setTimeout(()=>{ [play1,play2,play3,play4][n-1](); },350);
+}
+</script>
+</body>
+</html>
