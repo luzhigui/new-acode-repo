@@ -295,11 +295,14 @@ export function renderKuaiLeHealFact(fact) {
 // 委托 36 的 makeHealRenderer 工厂（三种历史版式）——迁移时按原 mode/icon/label/anchorVerb 传参即逐字节同原样，
 // 不传则回落 plusTrail；text 与 fxAnchors 由工厂同源产出，锚点永不哑火（不重造文案模板）
 export function renderHealFact(fact) {
+    // 2026-10-17 第 97 轮修锚点静默失效：fallback 原写死 '回复'——HEAL fact 不传 anchorVerb 时
+    //   （如唐文亮回春术）锚点「回复+N」与正文「🌿 回春术+N」不符，飘字永不触发（体检实证 9 处）。
+    //   改按 render/36 工厂原设计 anchorVerb || label 兜底（label 与正文同源，锚点恒为正文子串）。
     return makeHealRenderer({
         icon: fact.icon || '💚',
         label: fact.label || '回血',
         mode: fact.mode || 'plusTrail',
-        anchorVerb: fact.anchorVerb || '回复'
+        anchorVerb: fact.anchorVerb || fact.label || '回复'
     })(fact);
 }
 

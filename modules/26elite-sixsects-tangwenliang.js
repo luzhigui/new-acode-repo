@@ -178,7 +178,11 @@ export function createTangWenLiangComponent() {
                 if (data.log) data.log.push({ factType: FACT_TYPES.HEAL, data: {
                     unitName: tw.name, unitUid: tw.uid, heal: total,
                     hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(Math.min(tw.maxHp, tw.hp + total)),
-                    icon: '🌿', label: '回春术', mode: 'plusTrail', anchorVerb: '回复'
+                    // 2026-10-17 第 97 轮修飘字锚点静默失效：原 anchorVerb:'回复' 与正文前缀 label
+                    //   '回春术' 不一致 ⇒ 锚「回复+N」不是正文「🌿 回春术+N」子串，飘字永不触发
+                    //   （体检飘字锚点对齐规则实证 9 处）。删 anchorVerb 回退 label 兜底（render/36：
+                    //   anchorVerb || label）——胖远桥'蓄力回复'之所以没事是其 label 本身含'回复'。
+                    icon: '🌿', label: '回春术', mode: 'plusTrail'
                 } });
             });
 
