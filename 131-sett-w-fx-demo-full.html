@@ -19,6 +19,8 @@
       ⑥ 命中带击退：被命中的单位沿受力方向被推走（瑟提 W 的招牌）
       ⑦ 可拖拽瞄准，且蓄力档位直接决定锥角/伤害/击退/震屏 —— 蓄得越久越狠
   · 对照组：线上现状复刻（fx/90 V1.3.0 + fx/93 V1.2.0，扇面固定朝上、不可瞄准）
+  V1.2.0 | 2026-10-18 拖动瞄准改「指哪打哪」：手指悬停哪个敌格（方向+距离共同定位，欧氏距离最近格）就瞄哪个格，
+    拖动也能按出全场/右半场打法；拖动时实时显示「瞄准 N 号位 → 命中 X 格」。
   V1.1.0 | 2026-10-18 满员版：双阵九格全满 + 施术者更名寒离飒（基于 127-sett-w-fx-demo-3 V1.0.0）
   V1.0.0 | 2026-10-17 新建
 -->
@@ -1047,18 +1049,23 @@ function aimFromPointer(ev){
   let d = a-up; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
   d = clamp(d, -1.31, 1.31);      // ±75°，锁定上半区（朝敌阵）
   APP.aim = up+d;
-  /* v26:瞄准位跟着指针走 —— 预警框 / 蓄力高亮 / 实际命中都用 HIT_MAP[aimCellIndex]，
-     不同步的话会出现「瞄着左边、框和命中还在中间」 */
+  /* v28:指哪打哪 —— 方向+距离都参与。手指悬停在哪个敌格上方（指针到格子中心
+     欧氏距离最近）就瞄准哪个格；不再按角度吸附（拖动也能按出全场/右半场打法）。
+     手指伸得远=远排、稍近=近排，格子间隙与敌阵上方空白自动取最近格，无死区 */
   const g = stageNew.S.geo;
   if(g){
+    const px = g.apex.x+dx, py = g.apex.y+dy;
     let best = 0, bd = 1e9;
     for(const k in g.cells){
       const c = g.cells[k]; if(!c.unit) continue;
-      const ca = Math.atan2(c.y-g.apex.y, c.x-g.apex.x);
-      let da = ca-APP.aim; while(da>Math.PI) da-=TAU; while(da<-Math.PI) da+=TAU;
-      if(Math.abs(da) < bd){ bd = Math.abs(da); best = c.pos; }
+      const d = Math.hypot(c.x-px, c.y-py);
+      if(d < bd){ bd = d; best = c.pos; }
     }
-    if(best) APP.aimCellIndex = best;
+    if(best){
+      APP.aimCellIndex = best;
+      const h = document.getElementById('hintNew');
+      if(h) h.textContent = '瞄准 '+best+' 号位 → 命中 '+(HIT_MAP[best]||[]).length+' 格';
+    }
   }
 }
 bfNew.addEventListener('pointerdown', ev=>{
