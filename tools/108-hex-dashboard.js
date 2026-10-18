@@ -1,3 +1,5 @@
+// V6.2.13 | 实测 36450 bytes | 2026-10-18 暴露 window.__hexDocKeys（HEX_HINTS / HEX_NAME_MAP 的 key 清单）：
+//   供新增的 tools/126-balance-alert.js 查「新增海克斯漏登记」——这两张是手工表，漏登则表里只显示 key、点开也无判断提示。
 // V6.2.12 | 实测 36200 bytes | 2026-10-17 提示文案同步：众志成城持续回合数 5→3（content unity.duration 同步）
 // V6.2.11 | 实测 36200 bytes | 2026-10-16 提示文案同步：众志成城召唤物生命下限 30→25
 //   （攻<1 归 0、防<5 补到 5、血<25 补到 25）
@@ -45,7 +47,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.2.12';
+export const VER = 'tools/108-hex-dashboard.js V6.2.13';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -538,5 +540,8 @@ function render(summary, stats) {
   stats.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
 }
 
+// 2026-10-18 暴露文案登记表的 key 清单，供 126 平衡告警查「新增海克斯漏登记」
+//   （HEX_HINTS / HEX_NAME_MAP 是手工表，漏登则表里只显示 key、点开也没有判断提示）
+window.__hexDocKeys = { hints: Object.keys(HEX_HINTS), names: Object.keys(HEX_NAME_MAP) };
 window.openHexDashboard = openHexDashboard;
 })();

@@ -55,6 +55,7 @@ export const FACT_TYPES = Object.freeze({
     UNITY_APPLY: 'unityApply',
     // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：每次冲刺 1 条，发 atk/def/maxHp 三 stat 增量
     TW_DASH_APPLY: 'twDashApply',
+    XIAO_ZHAO_CARRY_APPLY: 'xiaoZhaoCarryApply',
     // 韦一笑·闪避反击吸血（WEI_HEAL）独立数值声明：此前体检只能借 dodgeFact.weiHeal 嵌套读取；纯账本不进画面（演出仍走 dodgeFact）
     WEI_DODGE_LEECH: 'weiDodgeLeech',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',

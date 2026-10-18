@@ -247,6 +247,7 @@ export function createXiaoZhaoBrotherComponent() {
                     addMod(bro, 'def', { source: '小昭·妹永久carry', value: per.defPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
                     addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: per.hpPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
                     refreshMaxHp(bro, null, '小昭·妹永久carry');
+                    log.push({ factType: FACT_TYPES.XIAO_ZHAO_CARRY_APPLY, data: { unitName: bro.name, unitUid: bro.uid, camp: bro.camp, layers, atk: per.atkPer * layers, def: per.defPer * layers, maxHp: per.hpPer * layers } });
                 }
             }
             // 永久双击：小昭·妹 80% 概率额外攻击一次
