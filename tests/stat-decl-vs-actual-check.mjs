@@ -1,5 +1,6 @@
 // V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
 // V3.8.2 | 2026-10-17 第 98 轮补：scan-groups 扫地闭环两 hp 盲区（52→54）——hlsJiuYangHeal / hlsHanDuDot（寒离飒九阳/寒毒，均零数值改动）
+// V3.8.3 | 2026-10-18 第 99 轮修：NINE_YANG_HEAL 契约过期——引擎已迁通用 HEAL 通道（label='九阳神功回复'），契约仍读旧专用 FACT_TYPES.NINE_YANG_HEAL 致零触发假绿；改读通用 HEAL 事实
 //         （scan-groups 差集 3 个 group 无契约盯）。主代码补 3 个纯记账数值声明 fact（UNITY_APPLY / LAST_STAND_APPLY
 //         / TW_DASH_APPLY，renderFn:null 不进画面）+ infra/56 enum + infra/58 FACT_SPECS 登记（不渲染不抛错）；
 //         unity/lastStand 为 op:mul 乘法词条走 mulSum 比对（与 HOLY_FLAME/SOUL_DRAIN 同款），twDash 为 op:add
@@ -159,7 +160,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.2';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.3';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1324,25 +1325,28 @@ const CONTRACTS = [
         }
     },
     {
+        // 2026-10-18 第 99 轮修（高视角扫地发现）：九阳神功早已迁通用 HEAL 通道——core/15 L255 发 FACT_TYPES.HEAL，
+        //   factData 带 heal / label='九阳神功回复' / unitUid / unitName。本契约却仍读旧专用 FACT_TYPES.NINE_YANG_HEAL
+        //   ⇒ 永远 0 声明（零触发假绿，曾被误登记为"长期遗留"）。改读通用 HEAL 事实（label 归属），
+        //   与 HLS_JIUYANG_HEAL / PANG_HIT_HEAL 同范式；recordHpAudit group='nineYangHeal' 不变、dir=+1。
         id: 'NINE_YANG_HEAL',
         label: '九阳神功治疗',
         group: 'nineYangHeal',
         dir: +1,
         extract(stepLog) {
             const out = [];
-            const scan = (e) => {
-                if (!e || !e.data) return;
-                if (e.factType && e.factType !== FACT_TYPES.NINE_YANG_HEAL) return;
-                const d = e.data;
-                if (typeof d.heal === 'number' && d.unitUid != null && typeof d.unitName === 'string') {
-                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'hp', amount: d.heal });
-                }
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.HEAL) return;
+                const d = f.data;
+                if (d.label !== '九阳神功回复') return;
+                if (typeof d.heal !== 'number' || d.heal <= 0) return;
+                if (d.unitUid == null) return;
+                out.push({ unit: d.unitName || null, uid: d.unitUid, stat: 'hp', amount: d.heal });
             };
             for (const f of stepLog || []) {
-                if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
-                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
         }
