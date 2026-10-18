@@ -1,0 +1,1128 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>蓄意轰拳 · 瑟提W风格特效 Demo</title>
+<!--
+  「蓄意轰拳」特效 Demo —— 对标《英雄联盟》瑟提 W（The Show Stopper）
+  · 独立页面，自包含，不改主代码。布局/CSS 全套照抄游戏本体 index.html。
+  · 核心差异 vs 线上 fx/90 + fx/93（寒离飒风）：
+      ① 蓄力段是「拳」：实体拳头在身侧成形，随蓄力变大、变白热、裂开电弧
+      ② 能量被「吸」进拳心：旋涡状能量条从战场各处螺旋压缩进拳头（不是只把一个色渐深）
+      ③ 蓄满时人开始抖、世界去饱和、边缘压暗 —— 压迫感来自全局而非单张特效
+      ④ 地面裂纹预兆：出手前地面就已经裂开
+      ⑤ 释放是「冲」：顿帧白闪 → 拳沿瞄准线冲出去 → 硬边冲击锥 + 碎地裂纹 + 碎石
+      ⑥ 命中带击退：被命中的单位沿受力方向被推走（瑟提 W 的招牌）
+      ⑦ 可拖拽瞄准，且蓄力档位直接决定锥角/伤害/击退/震屏 —— 蓄得越久越狠
+  · 对照组：线上现状复刻（fx/90 V1.3.0 + fx/93 V1.2.0，扇面固定朝上、不可瞄准）
+  V1.0.0 | 2026-10-17 新建
+-->
+<style>
+/* ===== 以下样式逐条照抄游戏本体 index.html ===== */
+:root{
+  --c-gold:#b8860b;
+  --c-gold-bright:#ffd700;
+  --c-gold-orange:#ffaa00;
+  --c-brown:#5c4033;
+  --c-brown-border:#8b7355;
+  --c-tan:#b8a88a;
+  --c-parchment:#f5f0e0;
+  --c-parchment-2:#e8d5b0;
+  --c-panel:#fdf5e6;
+  --c-ming-blue:#1e6bb8;
+  --c-sect-orange:#d2691e;
+  --c-danger:#c0392b;
+  --c-green:#2e7d32;
+  --c-dark:#1a1a2e;
+  --c-gain:#daa520;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+html { background: #000; }
+body { background: var(--c-parchment); font-family: 'Segoe UI', monospace; width: 100%; max-width: 520px; margin: 0 auto; padding: 0 6px 12px 6px; color: #333; user-select: none; }
+.battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; touch-action: none; }
+/* .world 包住两支队伍行：整体做去饱和/变暗（压迫感），FX 层在它外面所以不受滤镜影响 */
+.world { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; min-height: 0; will-change: filter; }
+.team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+.team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
+.camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+.cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; overflow: visible; position: relative; }
+.cell.ready { background: #d4edda; border-color: #28a745; }
+.cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+.cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+.cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+.hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
+.hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; }
+.hp-text-green { color: var(--c-green); } .hp-text-orange { color: var(--c-sect-orange); } .hp-text-red { color: var(--c-danger); }
+.orange { color: var(--c-sect-orange); font-weight: bold; } .blue { color: var(--c-ming-blue); font-weight: bold; }
+.name-purple { color: #8e44ad; font-weight: bold; } .name-blue { color: #2e6fb7; font-weight: bold; }
+
+/* ===== demo 专用 ===== */
+/* 单位内容包一层：击退 / 蓄力位移只动它，不动格子底色 */
+.cu { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; will-change: transform; }
+.fxLayer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 5; }
+.vig { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0; background: radial-gradient(ellipse 58% 52% at 50% 74%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 34%, rgba(14,5,2,0.5) 76%, rgba(8,2,0,0.9) 100%); }
+.flash { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0; background: #fff; }
+.hud { position: absolute; left: 0; right: 0; top: 4px; z-index: 6; text-align: center; pointer-events: none; opacity: 0; transition: opacity .1s; }
+.hud .tier { font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #ff8a3d; text-shadow: 0 0 9px rgba(255,90,20,.95), 0 1px 2px #000; }
+.hud .pct { font-size: 9px; color: #ffd9b0; text-shadow: 0 1px 2px #000; margin-top: 1px; }
+.hud .bar { width: 130px; height: 4px; margin: 3px auto 0; background: rgba(0,0,0,.5); border-radius: 3px; overflow: hidden; }
+.hud .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg,#ffd36e,#ff6a1e,#ff2d0d); }
+.hint { position: absolute; left: 0; right: 0; bottom: 3px; z-index: 6; text-align: center; font-size: 10px; color: #6b543a; pointer-events: none; text-shadow: 0 1px 0 #fff; }
+h1 { font-size: 16px; margin: 10px 0 4px; text-align: center; }
+.sub { font-size: 11px; color: #7a6a50; text-align: center; margin-bottom: 10px; line-height: 1.5; padding: 0 4px; }
+.toolbar { max-width: 500px; margin: 0 auto 8px; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.toolbar button { background: var(--c-panel); border: 2px solid var(--c-brown-border); border-radius: 8px; padding: 7px 9px; font-size: 11px; font-weight: 700; color: var(--c-brown); cursor: pointer; font-family: inherit; }
+.toolbar button:active { background: var(--c-gold-bright); }
+.toolbar button.on { background: var(--c-dark); color: #ffd700; border-color: var(--c-gold); }
+.stageCard { max-width: 500px; margin: 0 auto 10px; background: var(--c-panel); border: 2px solid var(--c-brown-border); border-radius: 10px; padding: 8px 8px 6px; }
+.stageTitle { font-size: 13px; font-weight: 700; color: var(--c-brown); margin: 0 0 6px 2px; }
+.tagA { color: #2e6fb7; } .tagB { color: #c0392b; }
+.stageNote { font-size: 10.5px; color: #7a6a50; line-height: 1.55; margin: 6px 2px 2px; }
+.legend { max-width: 500px; margin: 0 auto; font-size: 10.5px; color: #7a6a50; line-height: 1.65; }
+.k { color: #c0392b; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>👊 蓄意轰拳 · 特效 Demo</h1>
+<div class="sub">对标《英雄联盟》瑟提 W：先蓄力（能量被吸进拳心），再一拳打出去（碎地 + 击退）。<br>按住战场蓄力，拖动瞄准，松手轰出；蓄得越久锥角越大、伤害越高、击退越远。</div>
+
+<div class="toolbar">
+  <button id="btnLight" class="on">轻蓄 30%</button>
+  <button id="btnMid">中蓄 65%</button>
+  <button id="btnFull">满蓄 100%</button>
+  <button id="btnReplay">↺ 重播</button>
+  <button id="btnSide">⇄ 对比模式</button>
+</div>
+
+<div class="stageCard">
+  <div class="stageTitle"><span class="tagB">新版 · 瑟提风</span> —— 可瞄准 / 有击退 / 有压迫感</div>
+  <div class="battlefield" id="bfNew">
+    <div class="world" id="worldNew">
+      <div class="team-row"><div class="camp-side"><span class="team-label orange">六大派</span></div><div class="grid" id="enemyGridNew"></div></div>
+      <div class="team-row"><div class="camp-side"><span class="team-label blue">明 教</span></div><div class="grid" id="allyGridNew"></div></div>
+    </div>
+    <div class="vig" id="vigNew"></div>
+    <svg class="fxLayer" id="fxNew"></svg>
+    <div class="hud" id="hudNew"><div class="tier" id="hudTier">蓄 势</div><div class="pct" id="hudPct">0%</div><div class="bar"><i id="hudBar"></i></div></div>
+    <div class="hint" id="hintNew">按住战场蓄力 · 拖动瞄准 · 松手轰出</div>
+  </div>
+  <div class="stageNote">蓄力：拳实体在身侧成形、变大、变白热 → 能量旋涡从战场各处被吸进拳心 → 地面裂纹预兆 → 世界去饱和、边缘压暗、蓄满人开始抖。释放：顿帧白闪 → 拳沿瞄准线冲出 → 硬边冲击锥 + 碎地裂纹 + 碎石 → 命中单位被击退 + 伤害数字上浮。</div>
+</div>
+
+<div class="stageCard" id="cardOld">
+  <div class="stageTitle"><span class="tagA">旧版 · 线上现状复刻</span> —— 对照组（扇面固定朝上，不可瞄准）</div>
+  <div class="battlefield" id="bfOld">
+    <div class="world" id="worldOld">
+      <div class="team-row"><div class="camp-side"><span class="team-label orange">六大派</span></div><div class="grid" id="enemyGridOld"></div></div>
+      <div class="team-row"><div class="camp-side"><span class="team-label blue">明 教</span></div><div class="grid" id="allyGridOld"></div></div>
+    </div>
+    <svg class="fxLayer" id="fxOld"></svg>
+  </div>
+  <div class="stageNote">线上 fx/90 V1.3.0（弧边金→冰渐变扇，浓度两阶段渐深，形状全程静止）+ fx/93 V1.2.0（柔光扇铺开 + 双涟漪 + 金冰粒子 + 「轰」+ 冰裂/凹痕 + 8px 震屏）。</div>
+</div>
+
+<div class="legend">
+  <span class="k">玩法：</span>按住战场 → 蓄力（可拖动瞄准，松手轰出）；或用上方三个预设档位直接看效果。<br>
+  <span class="k">对照：</span>点「⇄ 对比模式」可隐藏旧版单独看新版；两版同时间轴同阵容，可直接对拍蓄力段的"死"与"活"。<br>
+  <span class="k">落地口径：</span>新版只改 fx 层画法（新增 fx/94 蓄力 + fx/95 爆发两支），不碰格子结构与战斗引擎；击退复用现有 fx/84fx-push-back.js。
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+/* ==================================================================
+   一、阵容（沿用 hanlisa-fx-compare.html 同源数据，保证横向可比）
+   ================================================================== */
+const ALLY_ORDER  = [1,2,3,4,5,6,7,8,9];
+const ENEMY_ORDER = [7,8,9,4,5,6,1,2,3];
+
+const ENEMY = {
+  2:{icon:'📿',name:'空性',    tier:'name-purple',atk:35,def:24,hp:93, max:130,ready:1},
+  1:{icon:'⚔️',name:'华山弟子',atk:22,def:18,hp:105,max:105,ready:1},
+  3:{icon:'🗡️',name:'崆峒弟子',atk:19,def:21,hp:101,max:101,ready:1},
+  4:{icon:'🗡️',name:'峨眉弟子',atk:20,def:20,hp:98, max:98},
+  5:{icon:'⚔️',name:'武当弟子',atk:15,def:22,hp:124,max:124,ready:1},
+  6:{icon:'🛡️',name:'六大派弟子',atk:18,def:25,hp:110,max:110}
+};
+const ALLY = {
+  2:{icon:'👊',name:'撼山',    tier:'name-purple',atk:44,def:28,hp:130,max:130},
+  5:{icon:'🐯',name:'洪午',    atk:36,def:22,hp:126,max:147,ready:1},
+  8:{icon:'🦅',name:'殷天正',  atk:33,def:24,hp:135,max:135}
+};
+const TRUE_POS = [2,5,8], HALF_POS = [4,6,7,9];   // 旧版（寒离飒口径）真伤/半伤格
+
+/* v21:9 格命中映射表 —— 玩家点哪格,系统打哪些格（取代原"角度范围"）
+   键 1-9 是 9 个瞄准格位,值是被命中格位列表（pos 1-9）
+   1=左列 / 2=中列 / 3=右列 / 4=左上→左下折 / 5=中列+底两格 / 6=右上→右下折
+   7=左上三角 / 8=全屏 / 9=右下三角 */
+const HIT_MAP = {
+  1:[1,4,7],   // 左列
+  2:[2,5,8],   // 中列
+  3:[3,6,9],   // 右列
+  4:[2,4,7],   // 左上→左下折
+  5:[2,5,7,8,9], // 中列+底两格
+  6:[2,6,9],   // 右上→右下折
+  7:[2,4,5,7], // 左上三角
+  8:[1,2,3,4,5,6,7,8,9], // 全屏
+  9:[2,5,6,9]  // 右下三角
+};
+
+function hpCls(p){ return p>0.5?'hp-text-green':(p>0.2?'hp-text-orange':'hp-text-red'); }
+function hpBar(p){ return p>0.5?'#2e7d32':(p>0.2?'#daa520':'#c0392b'); }
+
+/* ==================================================================
+   二、通用工具
+   ================================================================== */
+const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
+const lerp  = (a,b,t)=> a+(b-a)*t;
+const easeOut = t=> 1-Math.pow(1-t,3);
+const easeIn  = t=> t*t*t;
+const TAU = Math.PI*2;
+
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+/* v22:拳的轮廓 silhouette（base64 data URL，282×320，避免 file:// 跨域） */
+const FIST_SILHOUETTE = 'data:image/png;base64,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';
+const FIST_W = 88, FIST_H = 100;  /* 渲染 viewport（保持原图宽高比 ≈ 0.88） */
+
+/* ---- 凸包（Andrew monotone chain）：预警范围 = 实际会被命中的格子外框 + 施术者点 ----
+   比「一个角度画一个扇形」准得多：格子深浅不一时，扇形边界永远对不上真实命中区 */
+function hull(pts){
+  const P = pts.slice().sort((a,b)=> a.x-b.x || a.y-b.y);
+  if(P.length < 3) return P;
+  const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lo=[], up=[];
+  for(let i=0;i<P.length;i++){ const p=P[i];
+    while(lo.length>=2 && cross(lo[lo.length-2],lo[lo.length-1],p) <= 0) lo.pop();
+    lo.push(p); }
+  for(let i=P.length-1;i>=0;i--){ const p=P[i];
+    while(up.length>=2 && cross(up[up.length-2],up[up.length-1],p) <= 0) up.pop();
+    up.push(p); }
+  lo.pop(); up.pop();
+  return lo.concat(up);
+}
+function polyPath(pts){
+  if(!pts.length) return '';
+  return 'M '+pts.map(p=>p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' L ')+' Z';
+}
+function scalePoly(pts, apex, s){
+  return pts.map(p=>({x:apex.x+(p.x-apex.x)*s, y:apex.y+(p.y-apex.y)*s}));
+}
+
+/* ==================================================================
+   三、格子渲染
+   ================================================================== */
+function cardHtml(u){
+  const p = u.hp/u.max;
+  return '<div class="cu"><span class="cell-icon">'+u.icon+'</span><div class="cell-info">'+
+    '<span class="cell-name '+(u.tier||'')+'">'+u.name+'</span>'+
+    '<span class="cell-stats">攻<span>'+u.atk+'</span> 防<span>'+u.def+'</span> <span class="'+hpCls(p)+'">血'+u.hp+'</span></span></div>'+
+    '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:'+Math.round(p*100)+'%;background:'+hpBar(p)+';"></div></div></div>';
+}
+function buildGrid(gridId, order, map){
+  const g = document.getElementById(gridId);
+  order.forEach(pos=>{
+    const d = document.createElement('div');
+    const u = map[pos];
+    d.className = u ? ('cell occupied'+(u.ready?' ready':'')) : 'cell';
+    d.dataset.pos = pos;
+    if(u) d.innerHTML = cardHtml(u);
+    g.appendChild(d);
+  });
+}
+buildGrid('enemyGridNew', ENEMY_ORDER, ENEMY); buildGrid('allyGridNew', ALLY_ORDER, ALLY);
+buildGrid('enemyGridOld', ENEMY_ORDER, ENEMY); buildGrid('allyGridOld', ALLY_ORDER, ALLY);
+
+/* ==================================================================
+   四、时间轴
+   ================================================================== */
+const CHARGE_MAX = 2000;   // 蓄满所需时长（1x）
+const BURST_MS   = 2400;   // 爆发段总长（留足后劲：余烬/焦痕/裂纹要烧到 2s+）
+
+/* ==================================================================
+   五、舞台
+   ================================================================== */
+function makeStage(suffix, variant){
+  const bf   = document.getElementById('bf'+suffix);
+  const svg  = document.getElementById('fx'+suffix);
+  const world= document.getElementById('world'+suffix);
+  const eg   = document.getElementById('enemyGrid'+suffix);
+  const ag   = document.getElementById('allyGrid'+suffix);
+  const cell = {};
+  for(let p=1;p<=9;p++){
+    const e = eg.querySelector('[data-pos="'+p+'"]');
+    const a = ag.querySelector('[data-pos="'+p+'"]');
+    if(e) cell['e'+p]=e; if(a) cell['a'+p]=a;
+  }
+  const S = { geo:null, hits:[], coneCracks:[], debris:[], level:0, aim:-Math.PI/2 };
+  const U = suffix;   // id 后缀，避免两个舞台的 defs id 撞车
+
+  function ctr(el){
+    const r = el.getBoundingClientRect(), b = bf.getBoundingClientRect();
+    return {x:r.left-b.left+r.width/2, y:r.top-b.top+r.height/2, w:r.width, h:r.height};
+  }
+
+  /* ---------- 几何测量 ---------- */
+  function measure(){
+    const ap = ctr(cell.a2);
+    const cs = {};
+    for(let p=1;p<=9;p++){
+      if(!cell['e'+p]) continue;
+      cs['e'+p] = ctr(cell['e'+p]);
+      cs['e'+p].pos = p;
+      cs['e'+p].unit = !!ENEMY[p];
+    }
+    let R0 = 1;
+    for(const k in cs){
+      const d = Math.hypot(cs[k].x-ap.x, cs[k].y-ap.y);
+      if(d>R0) R0=d;
+    }
+    // fullHalf = 正上方方向到最偏的敌格的角度跨度
+    const up = -Math.PI/2;
+    let fullHalf = 0.25;
+    for(const k in cs){
+      const a = Math.atan2(cs[k].y-ap.y, cs[k].x-ap.x);
+      let d = a-up; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+      fullHalf = Math.max(fullHalf, Math.abs(d));
+    }
+    // 旧版固定扇面：apex → 敌 7 / 敌 9
+    const c7 = cs['e7'], c9 = cs['e9'];
+    const uL = {x:c7.x-ap.x, y:c7.y-ap.y}, uR = {x:c9.x-ap.x, y:c9.y-ap.y};
+    const dL = Math.hypot(uL.x,uL.y)||1, dR = Math.hypot(uR.x,uR.y)||1;
+    uL.x/=dL; uL.y/=dL; uR.x/=dR; uR.y/=dR;
+    let um = {x:uL.x+uR.x, y:uL.y+uR.y}; const dm = Math.hypot(um.x,um.y)||1;
+    um.x/=dm; um.y/=dm;
+
+    // 敌阵外接框（平头锥的直边落在这条线上）
+    let gL=1e9, gR=-1e9, gT=1e9;
+    for(const k in cs){
+      gL=Math.min(gL, cs[k].x-cs[k].w/2); gR=Math.max(gR, cs[k].x+cs[k].w/2);
+      gT=Math.min(gT, cs[k].y-cs[k].h/2);
+    }
+    const farMid = {x:(gL+gR)/2, y:gT};
+
+    S.geo = {
+      apex:ap, cells:cs, R0:R0, fullHalf:fullHalf, uL:uL, uR:uR, um:um,
+      mid:{x:(c7.x+c9.x)/2, y:(c7.y+c9.y)/2}, farMid:farMid,
+      cracks: genRadialCracks(ap, R0, 20261017),
+      streaks: genStreaks(R0, 777, fullHalf)
+    };
+  }
+  /* 平头锥的视觉深度：沿瞄准方向投到敌阵外接框远边 */
+  function visR(aim){
+    const g = S.geo;
+    const dx = g.farMid.x-g.apex.x, dy = g.farMid.y-g.apex.y;
+    return Math.max(70, dx*Math.cos(aim)+dy*Math.sin(aim));
+  }
+
+  /* 蓄力期地面径向裂纹（稳定生成，不随帧抖动） */
+  function genRadialCracks(apex, R0, seed){
+    const rnd = mulberry32(seed), out = [];
+    for(let i=0;i<12;i++){
+      let ang = (i/12)*TAU + rnd()*0.25;
+      let r = 8 + rnd()*14;
+      const pts = [];
+      for(let s=0;s<5;s++){
+        pts.push([apex.x+Math.cos(ang)*r, apex.y+Math.sin(ang)*r]);
+        ang += (rnd()*2-1)*0.26;
+        r += R0*0.12*(0.5+rnd()*0.75);
+      }
+      out.push({pts:pts, w:0.7+rnd()*1.5});
+    }
+    return out;
+  }
+  /* 能量旋涡条：起始角相对瞄准方向生成，所以拖动瞄准时能量总是从目标区被吸过来 */
+  function genStreaks(R0, seed, fullHalf){
+    const rnd = mulberry32(seed), out = [];
+    for(let i=0;i<18;i++){
+      out.push({
+        aOff: (rnd()*2-1)*fullHalf*0.92,
+        r0: 30 + rnd()*R0*0.55,
+        dur: 620 + rnd()*520,
+        off: rnd()*1000,
+        turns: 1.0 + rnd()*1.4,
+        w: 1.1 + rnd()*2.1
+      });
+    }
+    return out;
+  }
+  /* 释放瞬间沿锥生成的碎地裂纹：短、折、只在锥的中段内，不甩出战场 */
+  function genConeCracks(apex, aim, ha, R0, seed){
+    const rnd = mulberry32(seed), out = [];
+    const n = 6;
+    for(let i=0;i<n;i++){
+      const t = n===1?0.5:i/(n-1);
+      const baseAng = aim - ha*0.72 + 2*ha*0.72*t;
+      let ang = baseAng + (rnd()*2-1)*ha*0.08;
+      let r = R0*(0.16 + rnd()*0.34);
+      const pts = [];
+      for(let s=0;s<4;s++){
+        pts.push([apex.x+Math.cos(ang)*r, apex.y+Math.sin(ang)*r]);
+        ang += (rnd()*2-1)*0.52;              // 折得更狠，才像裂而不是枝
+        r += R0*0.055*(0.4+rnd()*0.9);
+      }
+      out.push({pts:pts, w:0.6+rnd()*0.9});
+    }
+    return out;
+  }
+  /* 碎石 */
+  function genDebris(apex, aim, ha, R0, seed){
+    const rnd = mulberry32(seed), out = [];
+    for(let i=0;i<36;i++){
+      const a = aim + (rnd()*2-1)*ha;
+      const r = 16 + rnd()*R0*0.55;
+      const sp = 110 + rnd()*330;
+      out.push({
+        x:apex.x+Math.cos(a)*r, y:apex.y+Math.sin(a)*r,
+        vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-70,
+        rot:rnd()*360, spin:(rnd()*2-1)*760,
+        c: rnd()<0.55 ? '#8a5a2b' : '#dcc79c',
+        dly: rnd()*190
+      });
+    }
+    return out;
+  }
+
+  /* ---------- 通用：清格 ---------- */
+  function resetCells(){
+    for(const k in cell){
+      const el = cell[k]; if(!el) continue;
+      el.style.boxShadow=''; el.style.backgroundColor=''; el.style.transform='';
+      const cu = el.querySelector('.cu'); if(cu) cu.style.transform='';
+    }
+  }
+
+  /* v22 拳头图形：silhouette mask + 品牌橙渐变 + halo + 描边（v17/v18 风格回归）
+     - silhouette.png 作 mask 源（feColorMatrix 反相：黑拳→白显示 / 白底→黑隐藏）
+     - 主体：brandGrad 线性渐变（白热→橙红→深棕红）
+     - halo：silhouette 模糊版（feGaussianBlur stdDeviation = 3+8*heat）
+     - 描边：0.18（细描边）
+     - 满蓄电弧（heat>0.30）：3 道分叉 */
+  function fistMarkup(x, y, ang, s, heat, alpha){
+    const deg = (ang+Math.PI/2)*180/Math.PI;
+    /* heat: 0=橙红, 0.5=亮橙, 1=白热 */
+    const fg = Math.round(170+85*heat);
+    const fb = Math.round(70+130*heat);
+    const fillTop = 'rgba(255,235,200,'+alpha.toFixed(3)+')';
+    const fillMid = 'rgba(255,'+fg+','+fb+','+alpha.toFixed(3)+')';
+    const fillBot = 'rgba(96,20,8,'+alpha.toFixed(3)+')';
+    const stroke = 'rgba(80,30,12,'+(0.85*alpha).toFixed(3)+')';
+    /* 满蓄电弧：3 道分叉 */
+    const crack = heat>0.30
+      ? '<path d="M -6 -40 L -2 -29 L 4 -41 L 8 -27 L 12 -35" stroke="rgba(255,255,235,'+(0.55+0.45*heat).toFixed(2)+')" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
+      : '';
+    return '<g transform="translate('+x.toFixed(1)+','+y.toFixed(1)+') rotate('+deg.toFixed(1)+') scale('+s.toFixed(3)+')" opacity="'+alpha.toFixed(3)+'">'+
+      '<defs>'+
+        /* 1. 反相滤镜：把 silhouette 的黑拳变白（mask 显示），白底变黑（mask 隐藏） */
+        '<filter id="invF'+U+'" x="-50%" y="-50%" width="200%" height="200%">'+
+          '<feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"/>'+
+        '</filter>'+
+        /* 2. mask：用反相后的 silhouette 蒙出拳头形状 */
+        '<mask id="mF'+U+'" maskUnits="userSpaceOnUse" x="0" y="0" width="'+FIST_W+'" height="'+FIST_H+'">'+
+          '<image href="'+FIST_SILHOUETTE+'" x="0" y="0" width="'+FIST_W+'" height="'+FIST_H+'" filter="url(#invF'+U+')"/>'+
+        '</mask>'+
+        /* 3. 品牌橙渐变：白热→橙红→深棕红 */
+        '<linearGradient id="brG'+U+'" gradientUnits="userSpaceOnUse" x1="'+(FIST_W/2)+'" y1="0" x2="'+(FIST_W/2)+'" y2="'+FIST_H+'">'+
+          '<stop offset="0%" stop-color="'+fillTop+'"/>'+
+          '<stop offset="50%" stop-color="'+fillMid+'"/>'+
+          '<stop offset="100%" stop-color="'+fillBot+'"/>'+
+        '</linearGradient>'+
+        /* 4. halo 高斯模糊 */
+        '<filter id="haF'+U+'" x="-50%" y="-50%" width="200%" height="200%">'+
+          '<feGaussianBlur stdDeviation="'+(3+8*heat).toFixed(1)+'"/>'+
+        '</filter>'+
+      '</defs>'+
+      /* 5. halo 底层：silhouette 模糊版（橙色光晕） */
+      '<image href="'+FIST_SILHOUETTE+'" x="0" y="0" width="'+FIST_W+'" height="'+FIST_H+'" filter="url(#haF'+U+')" opacity="'+(0.85*alpha).toFixed(3)+'" preserveAspectRatio="xMidYMid meet"/>'+
+      /* 6. 主体：mask 蒙出拳头 + brandGrad 填充 */
+      '<rect x="0" y="0" width="'+FIST_W+'" height="'+FIST_H+'" fill="url(#brG'+U+')" mask="url(#mF'+U+')"/>'+
+      /* 7. 描边：silhouette 轮廓描边 */
+      '<image href="'+FIST_SILHOUETTE+'" x="0" y="0" width="'+FIST_W+'" height="'+FIST_H+'" fill="none" stroke="'+stroke+'" stroke-width="0.18" preserveAspectRatio="xMidYMid meet"/>'+
+      crack+
+    '</g>';
+  }
+  function fistGhost(x, y, s, alpha){
+    const deg = (S.aim+Math.PI/2)*180/Math.PI;
+    /* v22 ghost:简化版（silhouette 模糊半透明，无描边无电弧） */
+    return '<g transform="translate('+x.toFixed(1)+','+y.toFixed(1)+') rotate('+deg.toFixed(1)+') scale('+s.toFixed(3)+')" opacity="'+alpha.toFixed(3)+'">'+
+      '<image href="'+FIST_SILHOUETTE+'" x="0" y="0" width="'+FIST_W+'" height="'+FIST_H+'" style="filter: blur(2px); opacity: 0.55;" preserveAspectRatio="xMidYMid meet"/>'+
+    '</g>';
+  }
+
+  /* ==================================================================
+     新版：蓄力段
+     ================================================================== */
+  function drawChargeNew(el, level){
+    const g = S.geo, ap = g.apex, ax = ap.x, ay = ap.y;
+    const ha = halfAng(level), aim = S.aim;
+    let h = '';
+
+    /* 预警范围 = 实际命中格的凸包（虚线橙边 + 极淡填充，v21 改 HIT_MAP） */
+    const Rv = visR(aim);
+    const tele = telegraphPoly(APP.aimCellIndex||5, 5);
+    h += '<defs><radialGradient id="aimG'+U+'" gradientUnits="userSpaceOnUse" cx="'+ax+'" cy="'+ay+'" r="'+Rv.toFixed(1)+'">'+
+      '<stop offset="0%" stop-color="rgba(255,150,60,'+(0.04+0.12*level).toFixed(3)+')"/>'+
+      '<stop offset="100%" stop-color="rgba(255,60,20,'+(0.02+0.10*level).toFixed(3)+')"/>'+
+      '</radialGradient></defs>';
+    h += '<path d="'+polyPath(tele)+'" fill="url(#aimG'+U+')" stroke="rgba(255,120,50,'+(0.30+0.5*level).toFixed(3)+')" stroke-width="'+(1.2+1.6*level).toFixed(2)+'" stroke-dasharray="8 6" stroke-dashoffset="'+(-el/14).toFixed(1)+'" stroke-linejoin="round"/>';
+
+    /* 蓄力环（套在拳头外围） */
+    const rcx = ax+Math.cos(aim)*13, rcy = ay+Math.sin(aim)*13;
+    const rr = 25 + 9*level, C = TAU*rr;
+    const rc = level<0.5 ? 'rgba(255,206,110,' : (level<0.85 ? 'rgba(255,140,50,' : 'rgba(255,70,30,');
+    h += '<circle cx="'+rcx.toFixed(1)+'" cy="'+rcy.toFixed(1)+'" r="'+rr.toFixed(1)+'" fill="none" stroke="rgba(0,0,0,0.42)" stroke-width="5.5"/>';
+    h += '<circle cx="'+rcx.toFixed(1)+'" cy="'+rcy.toFixed(1)+'" r="'+rr.toFixed(1)+'" fill="none" stroke="'+rc+(0.75+0.25*level).toFixed(2)+')" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="'+(C*level).toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 '+rcx.toFixed(1)+' '+rcy.toFixed(1)+')"/>';
+    for(let i=0;i<16;i++){
+      const a = -Math.PI/2 + i/16*TAU, r1 = rr+5, r2 = rr + (i%4===0?12:8);
+      h += '<line x1="'+(rcx+Math.cos(a)*r1).toFixed(1)+'" y1="'+(rcy+Math.sin(a)*r1).toFixed(1)+'" x2="'+(rcx+Math.cos(a)*r2).toFixed(1)+'" y2="'+(rcy+Math.sin(a)*r2).toFixed(1)+'" stroke="rgba(60,30,12,0.45)" stroke-width="'+(i%4===0?1.8:1)+'"/>';
+    }
+
+    /* 地面径向裂纹预兆 */
+    for(const cr of g.cracks){
+      const pts = cr.pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+      h += '<polyline points="'+pts+'" fill="none" stroke="rgba(255,'+Math.round(90-50*level)+',26,'+(0.10+0.55*level).toFixed(3)+')" stroke-width="'+cr.w.toFixed(2)+'" stroke-linecap="round"/>';
+    }
+
+    /* 能量旋涡：被吸进拳心（起点锚在瞄准方向上的目标区）
+       沿螺旋采样多点画成弧段，否则两点连线只是弦，看起来是直棍不是打转 */
+    for(const s of g.streaks){
+      const p  = ((el+s.off) % s.dur) / s.dur;
+      const p2 = Math.min(1, p+0.15);
+      const pts = [];
+      for(let k=0;k<=5;k++){
+        const pk = p + (p2-p)*(k/5);
+        const rk = lerp(s.r0, 9, pk*pk);
+        const ak = aim+s.aOff + s.turns*TAU*pk;
+        pts.push((ax+Math.cos(ak)*rk).toFixed(1)+','+(ay+Math.sin(ak)*rk).toFixed(1));
+      }
+      h += '<polyline points="'+pts.join(' ')+'" fill="none" stroke="rgba(255,'+Math.round(105+125*level)+','+Math.round(25+110*level)+','+(0.92*(1-p*0.35)).toFixed(3)+')" stroke-width="'+(s.w*(1-p*0.3)).toFixed(2)+'" stroke-linecap="round"/>';
+    }
+
+    /* 拳（略微前移，别把施术者本人整个盖住） */
+    const fs = 0.46 + 0.60*level;
+    const fx = ax + Math.cos(aim)*13, fy = ay + Math.sin(aim)*13;
+    h += fistMarkup(fx, fy, aim, fs, level, 1);
+
+    /* 瞄准线 + 准星 */
+    h += '<line x1="'+(ax+Math.cos(aim)*40).toFixed(1)+'" y1="'+(ay+Math.sin(aim)*40).toFixed(1)+'" x2="'+(ax+Math.cos(aim)*(Rv+4)).toFixed(1)+'" y2="'+(ay+Math.sin(aim)*(Rv+4)).toFixed(1)+'" stroke="rgba(255,220,170,'+(0.16+0.32*level).toFixed(3)+')" stroke-width="1.2" stroke-dasharray="4 8"/>';
+    const rx = ax+Math.cos(aim)*Rv, ry = ay+Math.sin(aim)*Rv;
+    h += '<circle cx="'+rx.toFixed(1)+'" cy="'+ry.toFixed(1)+'" r="'+(7+3*level).toFixed(1)+'" fill="none" stroke="rgba(255,120,50,'+(0.30+0.5*level).toFixed(3)+')" stroke-width="1.6"/>';
+
+    svg.innerHTML = h;
+  }
+
+  /* ==================================================================
+     新版：爆发段
+     ================================================================== */
+  function drawBurstNew(tb, level){
+    const g = S.geo, ap = g.apex, ax = ap.x, ay = ap.y, aim = S.aim;
+    const ha0 = halfAng(level);
+    let h = '';
+
+    /* 1) 拳冲 + 残影 */
+    if(tb < 480){
+      const p = Math.min(1, tb/210), e = easeOut(p);
+      const dist = visR(aim)*0.50*e;
+      const fs = (0.46+0.60*level)*(1+0.80*e);
+      for(let i=3;i>=1;i--){
+        const d2 = dist - i*18; if(d2 < -24) continue;
+        h += fistGhost(ax+Math.cos(aim)*d2, ay+Math.sin(aim)*d2, fs*(1-0.10*i), 0.20-0.05*i);
+      }
+      const fade = tb<300 ? 1 : Math.max(0, 1-(tb-300)/160);
+      h += fistMarkup(ax+Math.cos(aim)*dist, ay+Math.sin(aim)*dist, aim, fs, 1, fade);
+    }
+
+    /* 2) 焦痕余温：出手后地面留一片暗红，慢慢烧尽（v21 改 HIT_MAP） */
+    const Rv = visR(aim);
+    const teleFull = telegraphPoly(APP.aimCellIndex||5, 5);
+    if(tb > 240 && tb < 2200){
+      const op = clamp(1-(tb-240)/1960, 0, 1)*0.30;
+      h += '<path d="'+polyPath(scalePoly(teleFull, ap, 0.97))+'" fill="rgba(86,32,12,'+op.toFixed(3)+')"/>';
+    }
+
+    /* 2b) 冲击锥：沿预警形状从施术者向外炸开（硬边白锋 + 橙色体） */
+    if(tb < 1250){
+      const p = Math.min(1, Math.max(0,(tb-70))/260);
+      const e = easeOut(p);
+      const sc = 0.22 + 0.86*e;
+      const poly = scalePoly(teleFull, ap, sc);
+      const op = clamp(1-tb/1250, 0, 1);
+      const reach = Rv*sc;
+      h += '<defs><radialGradient id="scG'+U+'" gradientUnits="userSpaceOnUse" cx="'+ax+'" cy="'+ay+'" r="'+reach.toFixed(1)+'">'+
+        '<stop offset="0%" stop-color="rgba(255,255,255,'+(0.95*op).toFixed(3)+')"/>'+
+        '<stop offset="26%" stop-color="rgba(255,'+Math.round(200+45*level)+',90,'+(0.82*op).toFixed(3)+')"/>'+
+        '<stop offset="68%" stop-color="rgba(255,130,35,'+(0.58*op).toFixed(3)+')"/>'+
+        '<stop offset="100%" stop-color="rgba(255,80,10,0)"/>'+
+      '</radialGradient></defs>';
+      h += '<path d="'+polyPath(poly)+'" fill="url(#scG'+U+')"/>';
+      const arcT = clamp(1-tb/900, 0, 1);
+      if(arcT>0){
+        h += '<path d="'+polyPath(poly)+'" fill="none" stroke="rgba(255,255,255,'+(0.92*arcT).toFixed(3)+')" stroke-width="'+(2.5+3.2*level).toFixed(1)+'" stroke-linejoin="round"/>';
+      }
+    }
+
+    /* 3) 碎地裂纹（沿锥，细而利，久留后淡出） */
+    if(tb < 2000 && S.coneCracks.length){
+      const op = clamp(1-(tb-1300)/700, 0, 1);
+      for(const cr of S.coneCracks){
+        const pts = cr.pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+        h += '<polyline points="'+pts+'" fill="none" stroke="rgba(52,18,4,'+(0.5*op).toFixed(3)+')" stroke-width="'+(cr.w*1.2).toFixed(2)+'" stroke-linecap="round" stroke-linejoin="round"/>';
+        h += '<polyline points="'+pts+'" fill="none" stroke="rgba(255,196,120,'+(0.8*op).toFixed(3)+')" stroke-width="'+(cr.w*0.35).toFixed(2)+'" stroke-linecap="round" stroke-linejoin="round"/>';
+      }
+    }
+
+    /* 4) 碎石（带重力） */
+    if(tb < 1000){
+      for(const p of S.debris){
+        const lt = tb - p.dly; if(lt<0 || lt>900) continue;
+        const t = lt/1000, q = lt/900;
+        const x = p.x + p.vx*t;
+        const y = p.y + p.vy*t + 0.5*900*t*t;
+        h += '<rect x="'+(x-2.2).toFixed(1)+'" y="'+(y-2.2).toFixed(1)+'" width="4.4" height="4.4" fill="'+p.c+'" opacity="'+(1-q).toFixed(2)+'" transform="rotate('+(p.rot+p.spin*t).toFixed(0)+' '+x.toFixed(1)+' '+y.toFixed(1)+')"/>';
+      }
+    }
+
+    /* 5) 放射速度线 */
+    if(tb < 260){
+      const op = clamp(1-tb/260, 0, 1);
+      for(let i=0;i<16;i++){
+        const a = aim + (i/15*2-1)*ha0*1.05 + (i%2?0.025:-0.025);
+        const r1 = 18, r2 = 42 + (i%5)*26 + 70*op;
+        h += '<line x1="'+(ax+Math.cos(a)*r1).toFixed(1)+'" y1="'+(ay+Math.sin(a)*r1).toFixed(1)+'" x2="'+(ax+Math.cos(a)*r2).toFixed(1)+'" y2="'+(ay+Math.sin(a)*r2).toFixed(1)+'" stroke="rgba(255,255,255,'+(0.5*op).toFixed(3)+')" stroke-width="1.6" stroke-linecap="round"/>';
+      }
+    }
+
+    /* 6) 余烬上浮 */
+    if(tb > 130 && tb < 2000){
+      for(let i=0;i<18;i++){
+        const p = ((tb-130)+i*95)/1870; if(p<0 || p>=1) continue;
+        const a = aim + ((((i*37)%100)/100)*2-1)*ha0;
+        const r = Rv*(0.22 + ((i*53)%100)/100*0.72);
+        const x = ax+Math.cos(a)*r + Math.sin(p*7+i)*7;
+        const y = ay+Math.sin(a)*r - p*52;
+        h += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(2.8*(1-p)).toFixed(2)+'" fill="rgba(255,'+Math.round(180-110*p)+',70,'+(0.8*(1-p)).toFixed(3)+')"/>';
+      }
+    }
+
+    /* 7) 「轰」 */
+    if(tb < 1300){
+      const q = Math.min(1, tb/1300);
+      let op, sc, sk;
+      if(q<0.14){ const u=q/0.14; op=u; sc=0.5+0.8*u; sk=-8*u; }
+      else if(q<0.55){ const u=(q-0.14)/0.41; op=1; sc=1.3; sk=-8-4*u; }
+      else { const u=(q-0.55)/0.45; op=1-u*0.95; sc=1.3-0.12*u; sk=-12; }
+      const wx = ax+Math.cos(aim)*(Rv*0.34), wy = ay+Math.sin(aim)*(Rv*0.34)-6;
+      h += '<text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="'+(32+14*level).toFixed(0)+'" font-weight="900" fill="#fff6dd" stroke="#8f1c04" stroke-width="2.6" paint-order="stroke" style="opacity:'+op.toFixed(3)+'" transform="translate('+wx.toFixed(1)+','+wy.toFixed(1)+') rotate('+sk.toFixed(1)+') scale('+sc.toFixed(3)+')">轰</text>';
+      /* 余响：一层偏移的描边影，制造冲击感 */
+      h += '<text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="'+(32+14*level).toFixed(0)+'" font-weight="900" fill="none" stroke="rgba(255,140,40,'+(op*0.5).toFixed(3)+')" stroke-width="1.6" style="opacity:'+(op*0.7).toFixed(3)+'" transform="translate('+(wx+4).toFixed(1)+','+(wy+3).toFixed(1)+') rotate('+sk.toFixed(1)+') scale('+(sc*1.08).toFixed(3)+')">轰</text>';
+    }
+
+    /* 8) 伤害数字 */
+    for(const hit of S.hits){
+      const lt = tb - hit.dly; if(lt<0) continue;
+      const q = Math.min(1, lt/900);
+      const dy = -40*easeOut(q);
+      h += '<text x="'+hit.c.x.toFixed(1)+'" y="'+(hit.c.y+dy).toFixed(1)+'" text-anchor="middle" dominant-baseline="central" font-size="'+(14+5*hit.f).toFixed(0)+'" font-weight="900" fill="'+(hit.f>0.7?'#fff2cf':'#ffcda0')+'" stroke="rgba(110,18,0,.92)" stroke-width="2.6" paint-order="stroke" style="opacity:'+(1-q*q).toFixed(3)+'">'+hit.dmg+'</text>';
+    }
+
+    svg.innerHTML = h;
+  }
+
+  /* ==================================================================
+     旧版：线上现状复刻（fx/90 V1.3.0 + fx/93 V1.2.0）
+     ================================================================== */
+  function oldSector(R){
+    const g = S.geo;
+    const a0 = Math.atan2(g.uL.y,g.uL.x), a1 = Math.atan2(g.uR.y,g.uR.x);
+    let d = a1-a0; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+    let p = 'M '+g.apex.x.toFixed(1)+' '+g.apex.y.toFixed(1)+' L ';
+    for(let i=0;i<=26;i++){
+      const a = a0 + d*i/26;
+      p += (g.apex.x+Math.cos(a)*R).toFixed(1)+' '+(g.apex.y+Math.sin(a)*R).toFixed(1)+' ';
+    }
+    return p+'Z';
+  }
+  function oldArc(R){
+    const g = S.geo;
+    const a0 = Math.atan2(g.uL.y,g.uL.x), a1 = Math.atan2(g.uR.y,g.uR.x);
+    let d = a1-a0; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+    let p = 'M ';
+    for(let i=0;i<=26;i++){
+      const a = a0 + d*i/26;
+      p += (g.apex.x+Math.cos(a)*R).toFixed(1)+' '+(g.apex.y+Math.sin(a)*R).toFixed(1)+' ';
+    }
+    return p.trim();
+  }
+  function drawChargeOld(el, level){
+    const g = S.geo; if(!g) return;
+    const k = 0.35 + 0.65*level;
+    let h = '<defs>'+
+      '<linearGradient id="oldG'+U+'" gradientUnits="userSpaceOnUse" x1="'+g.apex.x+'" y1="'+g.apex.y+'" x2="'+g.mid.x+'" y2="'+g.mid.y+'">'+
+        '<stop offset="0%" stop-color="rgba(255,196,72,'+(0.14*k).toFixed(3)+')"/>'+
+        '<stop offset="55%" stop-color="rgba(255,150,60,'+(0.42*k).toFixed(3)+')"/>'+
+        '<stop offset="100%" stop-color="rgba(127,199,255,'+(0.34*k).toFixed(3)+')"/>'+
+      '</linearGradient>'+
+      '<filter id="oldB'+U+'" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="'+(2+5*k).toFixed(1)+'"/></filter>'+
+    '</defs>';
+    h += '<path d="'+oldSector(g.R0)+'" fill="url(#oldG'+U+')" filter="url(#oldB'+U+')" stroke="rgba(255,224,150,'+(0.5*k).toFixed(3)+')" stroke-width="'+(1.6+2.0*k).toFixed(2)+'"/>';
+    svg.innerHTML = h;
+  }
+  function drawBurstOld(tb){
+    const g = S.geo; if(!g) return;
+    let h = '';
+    const R0 = g.R0*1.15;
+    const pS = Math.min(1, tb/1200), s = 0.12+1.15*pS;
+    h += '<defs><radialGradient id="orG'+U+'" gradientUnits="userSpaceOnUse" cx="'+g.apex.x+'" cy="'+g.apex.y+'" r="'+(R0*s).toFixed(1)+'">'+
+      '<stop offset="0%" stop-color="rgba(255,215,0,0.55)"/><stop offset="50%" stop-color="rgba(255,170,60,0.28)"/><stop offset="100%" stop-color="rgba(127,199,255,0.04)"/>'+
+    '</radialGradient><filter id="orB'+U+'" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter></defs>';
+    if(pS<1) h += '<path d="'+oldSector(R0*s)+'" fill="url(#orG'+U+')" filter="url(#orB'+U+')" style="opacity:'+(0.8*(1-pS)).toFixed(3)+'"/>';
+    if(tb<950){ const p1=tb/950; h += '<path d="'+oldArc(R0*(0.2+0.98*p1))+'" fill="none" stroke="rgba(255,200,80,0.85)" stroke-width="3" stroke-linecap="round" style="opacity:'+(1-p1).toFixed(3)+'"/>'; }
+    if(tb>=240 && tb<1190){ const p2=(tb-240)/950; h += '<path d="'+oldArc(R0*(0.38+0.9*p2))+'" fill="none" stroke="rgba(127,199,255,0.7)" stroke-width="2.5" stroke-linecap="round" style="opacity:'+(1-p2).toFixed(3)+'"/>'; }
+    /* 「轰」 */
+    if(tb<1400){
+      const pw = tb/1400; let op,sc,ty;
+      if(pw<=0.22){ const q=pw/0.22; op=q; sc=0.5+0.7*q; ty=-10*q; }
+      else if(pw<=0.65){ const q=(pw-0.22)/0.43; op=1; sc=1.2; ty=-10-18*q; }
+      else { const q=(pw-0.65)/0.35; op=1-q; sc=1.2-0.2*q; ty=-28; }
+      h += '<text x="'+g.apex.x+'" y="'+(g.apex.y-24+ty).toFixed(1)+'" text-anchor="middle" font-size="30" font-weight="900" fill="#ffcf5e" stroke="rgba(255,160,0,0.55)" stroke-width="3" paint-order="stroke" style="opacity:'+op.toFixed(3)+'" transform="scale('+sc.toFixed(3)+')" transform-origin="'+g.apex.x+'px '+(g.apex.y-24).toFixed(1)+'px">轰</text>';
+    }
+    /* 金/冰粒子 */
+    const COLORS = ['#ffd36e','#bfe4ff'];
+    const hitCells = [];
+    TRUE_POS.forEach(p=>{ if(ENEMY[p]) hitCells.push({c:g.cells['e'+p], t:true}); });
+    HALF_POS.forEach(p=>{ if(ENEMY[p]) hitCells.push({c:g.cells['e'+p], t:false}); });
+    /* fx/93 同款：真伤格白色碎裂裂纹 */
+    if(tb<1100){
+      TRUE_POS.forEach(p=>{
+        const c = g.cells['e'+p]; if(!c || !ENEMY[p]) return;
+        const cx=c.x, cy=c.y, op=(1-tb/1100).toFixed(3);
+        h += '<g style="opacity:'+op+'">'+
+          '<polyline points="'+(cx-18)+','+(cy-14)+' '+cx+','+cy+' '+(cx-6)+','+(cy+16)+'" fill="none" stroke="#fff" stroke-width="2" stroke-opacity="0.95"/>'+
+          '<polyline points="'+(cx+16)+','+(cy-12)+' '+cx+','+cy+' '+(cx+8)+','+(cy+14)+'" fill="none" stroke="#fff" stroke-width="2" stroke-opacity="0.95"/>'+
+          '<polyline points="'+(cx-4)+','+(cy-18)+' '+cx+','+cy+' '+(cx+2)+','+(cy+18)+'" fill="none" stroke="#fff" stroke-width="1.6" stroke-opacity="0.8"/>'+
+        '</g>';
+      });
+    }
+    hitCells.forEach((t,hi)=>{
+      for(let n=0;n<4;n++){
+        const st = hi*40+n*12+80, lt = tb-st;
+        if(lt<=0 || lt>560) continue;
+        const p = Math.min(1, lt/(420+((hi+n)%3)*60)), e = 1-Math.pow(1-p,2.4);
+        const tx = t.c.x+(Math.sin(hi*7+n*13)-0.5)*t.c.w*0.7, ty2 = t.c.y+(Math.cos(hi*5+n*11)-0.5)*t.c.h*0.7;
+        const x = g.apex.x+(tx-g.apex.x)*e, y = g.apex.y+(ty2-g.apex.y)*e;
+        h += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(4*(1.15-0.6*p)).toFixed(2)+'" fill="'+COLORS[(hi+n)%2]+'" style="opacity:'+(1-p).toFixed(3)+'"/>';
+      }
+    });
+    svg.innerHTML = h;
+  }
+
+  /* ==================================================================
+     格子级反馈
+     ================================================================== */
+  function halfAng(level){ return lerp(0.40*S.geo.fullHalf, S.geo.fullHalf, level); }
+
+  /* 锥内格子（不论有没有单位，空位也算范围） */
+  function coneCells(level){
+    const g = S.geo, ha = halfAng(level), out = [];
+    for(const k in g.cells){
+      const c = g.cells[k];
+      const vx = c.x-g.apex.x, vy = c.y-g.apex.y;
+      const dist = Math.hypot(vx,vy);
+      if(dist > g.R0*1.02) continue;
+      let d = Math.atan2(vy,vx) - S.aim;
+      while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+      if(Math.abs(d) > ha) continue;
+      out.push(c);
+    }
+    return out;
+  }
+  /* v21:HIT_MAP[cellIndex] 取格数组（过滤空位） —— 9 格映射取代角度锥 */
+  function hitCellsAt(cellIndex){
+    if(!cellIndex || !S.geo) return [];
+    const out = [];
+    for(const pos of (HIT_MAP[cellIndex]||[])){
+      const c = S.geo.cells['c'+pos];
+      if(c) out.push(c);
+    }
+    return out;
+  }
+  /* 预警多边形 = 施术者 + HIT_MAP 各格四角凸包（v21 取代角度锥） */
+  function telegraphPoly(cellIndex, pad){
+    const g = S.geo, pts = [{x:g.apex.x, y:g.apex.y}];
+    for(const c of hitCellsAt(cellIndex)){
+      const hw = c.w/2+pad, hh = c.h/2+pad;
+      pts.push({x:c.x-hw,y:c.y-hh},{x:c.x+hw,y:c.y-hh},{x:c.x+hw,y:c.y+hh},{x:c.x-hw,y:c.y+hh});
+    }
+    return hull(pts);
+  }
+
+  function chargeCellFx(level){
+    const g = S.geo; if(!g) return;
+    /* 施术者：后仰蓄力，蓄满开始抖 */
+    const cu = cell.a2.querySelector('.cu');
+    if(cu){
+      const back = 7*level;
+      const jit = level>=0.90 ? (Math.random()-0.5)*2.0*((level-0.90)/0.10) : 0;
+      const ax2 = Math.cos(S.aim), ay2 = Math.sin(S.aim);
+      cu.style.transform = 'translate('+(-ax2*back+jit).toFixed(2)+'px,'+(-ay2*back+jit*0.5).toFixed(2)+'px) scale('+(1-0.05*level).toFixed(3)+')';
+    }
+    cell.a2.style.boxShadow = 'inset 0 0 '+(10+18*level).toFixed(0)+'px '+(2+5*level).toFixed(0)+'px rgba(255,'+Math.round(120+100*level)+',40,'+(0.25+0.5*level).toFixed(3)+')';
+    /* 锥内敌方格预警 */
+    const ha = halfAng(level);
+    for(const k in g.cells){
+      const c = g.cells[k]; if(!c.unit) continue;
+      const el = cell['e'+c.pos]; if(!el) continue;
+      const vx = c.x-g.apex.x, vy = c.y-g.apex.y;
+      const dist = Math.hypot(vx,vy);
+      if(dist > g.R0*1.02) continue;
+      let d = Math.atan2(vy,vx) - S.aim;
+      while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+      if(Math.abs(d) > ha) continue;
+      const pulse = 0.5+0.5*Math.sin(performance.now()/110 + c.pos);
+      el.style.boxShadow = 'inset 0 0 10px 2px rgba(255,70,30,'+(0.28+0.5*level*(0.6+0.4*pulse)).toFixed(3)+')';
+      el.style.backgroundColor = 'rgba(255,90,40,'+(0.04+0.13*level).toFixed(3)+')';
+    }
+  }
+
+  function burstCellFx(tb){
+    for(const hit of S.hits){
+      const el = cell['e'+hit.pos]; if(!el) continue;
+      const cu = el.querySelector('.cu');
+      const lt = tb - hit.dly; if(lt<0) continue;
+      if(lt<150){
+        el.style.boxShadow = 'inset 0 0 20px 7px rgba(255,255,255,'+(0.95*(1-lt/150)).toFixed(3)+')';
+      } else if(lt<560){
+        el.style.boxShadow = 'inset 0 0 13px 4px rgba(255,110,40,'+(0.72*(1-(lt-150)/410)).toFixed(3)+')';
+      }
+      if(cu){
+        const kb = (6+26*S.level)*hit.f;
+        let back;
+        if(lt<190)      back = kb*easeOut(lt/190);
+        else if(lt<320) back = kb;
+        else            back = kb*(1-Math.min(1,(lt-320)/440));
+        const sh = lt<520 ? (Math.random()-0.5)*2*3.2*(1-lt/520) : 0;
+        cu.style.transform = 'translate('+(hit.ux*back+sh).toFixed(2)+'px,'+(hit.uy*back+sh*0.6).toFixed(2)+'px) rotate('+(hit.spin*back*0.06).toFixed(2)+'deg)';
+      }
+    }
+  }
+
+  function shake(ms, amp){
+    if(ms>0){
+      const m = amp*(1-ms/520);
+      bf.style.transform = 'translate('+((Math.random()-0.5)*2*m).toFixed(2)+'px,'+((Math.random()-0.5)*2*m).toFixed(2)+'px)';
+    } else bf.style.transform = '';
+  }
+
+  /* ==================================================================
+     阶段驱动
+     ================================================================== */
+  function frameCharge(el, level){
+    resetCells();
+    if(variant==='new'){
+      drawChargeNew(el, level);
+      chargeCellFx(level);
+      world.style.filter = 'saturate('+(1-0.5*level).toFixed(3)+') brightness('+(1-0.12*level).toFixed(3)+')';
+      document.getElementById('vigNew').style.opacity = (0.25+0.6*level).toFixed(3);
+    } else {
+      drawChargeOld(el, level);
+      TRUE_POS.forEach(p=>{ const el=cell['e'+p]; if(el) el.style.boxShadow='inset 0 0 10px 3px rgba(255,255,255,0.85)'; });
+      HALF_POS.forEach(p=>{ const el=cell['e'+p]; if(el) el.style.backgroundColor='rgba(139,58,30,'+(0.16*level).toFixed(3)+')'; });
+    }
+  }
+  function frameBurst(tb){
+    resetCells();
+    if(variant==='new'){
+      drawBurstNew(tb, S.level);
+      burstCellFx(tb);
+      world.style.filter = 'none';
+      document.getElementById('vigNew').style.opacity = Math.max(0, 0.85-tb/620).toFixed(3);
+      shake(tb<700 ? tb : 0, 5+11*S.level);
+    } else {
+      drawBurstOld(tb);
+      TRUE_POS.forEach(p=>{ const el=cell['e'+p]; if(!el) return;
+        el.style.boxShadow = tb<200?'inset 0 0 16px 5px rgba(127,199,255,0.9)':(tb<700?'inset 0 0 7px 1px rgba(127,199,255,0.4)':'');
+      });
+      HALF_POS.forEach((p,ix)=>{ const el=cell['e'+p]; if(!el) return;
+        el.style.boxShadow = tb<260?'inset 0 0 14px 4px rgba(139,58,30,0.85)':(tb<680?'inset 0 0 6px 1px rgba(139,58,30,0.35)':'');
+      });
+      shake(tb<420 ? tb : 0, 8);
+    }
+  }
+
+  function reset(){
+    resetCells();
+    svg.innerHTML = '';
+    bf.style.transform = '';
+    world.style.filter = 'none';
+    if(variant==='new') document.getElementById('vigNew').style.opacity = 0;
+    S.hits = []; S.coneCracks = []; S.debris = [];
+  }
+
+  /* v21 释放：用 HIT_MAP[cellIndex] 算命中；冲击方向 = 瞄准格中心 */
+  function release(level, cellIndex){
+    const g = S.geo; if(!g || !cellIndex) return;
+    const aimCell = g.cells['c'+cellIndex];
+    if(!aimCell) return;
+    S.aim = Math.atan2(aimCell.y - g.apex.y, aimCell.x - g.apex.x);
+    const hits = [];
+    for(const c of hitCellsAt(cellIndex)){
+      if(!c.unit) continue;
+      const vx = c.x-g.apex.x, vy = c.y-g.apex.y;
+      const dist = Math.hypot(vx,vy) || 1;
+      /* cf:距瞄准格中心越远伤害越低；最远命中格距 = 基准 */
+      const aimDist = Math.hypot(c.x-aimCell.x, c.y-aimCell.y);
+      const cf = 1 - 0.30*Math.min(1, aimDist/(g.R0*0.6));
+      hits.push({
+        pos:c.pos, c:c, ux:vx/dist, uy:vy/dist,
+        spin:(Math.random()*2-1)*30,
+        f:Math.max(0.7, cf), dmg:Math.round(120*Math.max(0.7,cf)*(0.40+0.60*level)),
+        dly:dist*0.10
+      });
+    }
+    S.hits = hits;
+    /* v21:锥形裂纹与碎石仍用 halfAng(level) 撑形状,只不再用其算命中 */
+    const ha = halfAng(level);
+    S.coneCracks = genConeCracks(g.apex, S.aim, ha, g.R0, 4242);
+    S.debris = genDebris(g.apex, S.aim, ha, g.R0, 9911);
+  }
+
+  return { S:S, measure:measure, frameCharge:frameCharge, frameBurst:frameBurst, reset:reset, release:release, bf:bf };
+}
+
+const stageNew = makeStage('New','new');
+const stageOld = makeStage('Old','old');
+
+/* ==================================================================
+   六、全局控制器
+   ================================================================== */
+const APP = { state:'idle', t0:0, level:0, aim:-Math.PI/2, autoTarget:null, burstStart:0, releaseLevel:0, aimCellIndex:5 };  /* v21:默认 5 号位(中列+底两格) */
+let raf = 0;
+
+const flashEl = document.getElementById('flash');
+const hud = {
+  box:document.getElementById('hudNew'), tier:document.getElementById('hudTier'),
+  pct:document.getElementById('hudPct'), bar:document.getElementById('hudBar')
+};
+function tierName(l){
+  if(l<0.30) return '蓄 势';
+  if(l<0.62) return '聚 力';
+  if(l<0.92) return '蓄 猛';
+  return '极 限';
+}
+function updateHud(l){
+  hud.box.style.opacity = l>0.02 ? 1 : 0;
+  hud.tier.textContent = tierName(l);
+  hud.pct.textContent = Math.round(l*100)+'%';
+  hud.bar.style.width = (l*100).toFixed(0)+'%';
+}
+
+function renderCharge(el, lvl){
+  APP.level = lvl;
+  stageNew.S.level = lvl; stageOld.S.level = lvl;
+  stageNew.S.aim = APP.aim;   stageOld.S.aim = APP.aim;
+  stageNew.frameCharge(el, lvl);
+  stageOld.frameCharge(el, lvl);
+  updateHud(lvl);
+}
+function renderBurst(tb){
+  stageNew.frameBurst(tb);
+  stageOld.frameBurst(tb);
+  flashEl.style.opacity = tb<55 ? 0.88 : Math.max(0, 0.88*(1-(tb-55)/135)).toFixed(3);
+  updateHud(APP.releaseLevel);
+}
+
+function tick(){
+  const now = performance.now();
+  if(APP.state==='charge'){
+    const el = now - APP.t0;
+    let lvl = Math.min(1, el/CHARGE_MAX);
+    if(APP.autoTarget!==null){
+      lvl = Math.min(APP.autoTarget, el/CHARGE_MAX);
+      if(el >= CHARGE_MAX*APP.autoTarget - 2){
+        /* 蓄满自动松手：切爆发态，但本帧继续按爆发渲染第 0 帧（不能 return，
+           否则 rAF 链断掉、爆发段会冻在第 0 帧永远播不完） */
+        doRelease();
+        renderBurst(0);
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+    }
+    renderCharge(el, lvl);
+  }
+  if(APP.state==='burst'){
+    const tb = now - APP.burstStart;
+    if(tb > BURST_MS){ endRun(); return; }
+    renderBurst(tb);
+  }
+  raf = requestAnimationFrame(tick);
+}
+
+function startRun(autoTarget){
+  cancelAnimationFrame(raf);
+  stageNew.reset(); stageOld.reset();
+  stageNew.measure(); stageOld.measure();
+  APP.state = 'charge';
+  APP.t0 = performance.now();
+  APP.level = 0;
+  APP.autoTarget = (autoTarget===undefined) ? null : autoTarget;
+  APP.aim = -Math.PI/2;
+  stageNew.S.aim = APP.aim; stageOld.S.aim = APP.aim;
+  flashEl.style.opacity = 0;
+  raf = requestAnimationFrame(tick);
+}
+function doRelease(){
+  APP.state = 'burst';
+  APP.burstStart = performance.now();
+  APP.releaseLevel = APP.level;
+  stageNew.S.level = APP.level; stageOld.S.level = APP.level;
+  stageNew.S.aim = APP.aim;   stageOld.S.aim = APP.aim;
+  stageNew.release(APP.level, APP.aimCellIndex);
+  updateHud(APP.level);
+}
+function endRun(){
+  APP.state = 'idle';
+  cancelAnimationFrame(raf);
+  stageNew.reset(); stageOld.reset();
+  flashEl.style.opacity = 0;
+  updateHud(0);
+  document.getElementById('hintNew').textContent = '按住战场蓄力 · 拖动瞄准 · 松手轰出';
+}
+
+/* ---------- 交互 ---------- */
+const bfNew = document.getElementById('bfNew');
+let holding = false;
+
+function aimFromPointer(ev){
+  const b = bfNew.getBoundingClientRect();
+  const px = ev.clientX-b.left, py = ev.clientY-b.top;
+  const ap = stageNew.S.geo ? stageNew.S.geo.apex : {x:b.width/2, y:b.height*0.8};
+  const dx = px-ap.x, dy = py-ap.y;
+  /* 规则一：离施术者太近（等于点在自己身上）→ 不动瞄准
+     规则二：指针在施术者下方（己方半场）→ 不动瞄准
+     只有把指针拖到敌阵半区才改变方向，避免随手一点把方向甩飞 */
+  if(Math.hypot(dx,dy) < 26) return;
+  if(dy > -8) return;
+  const a = Math.atan2(dy, dx);
+  const up = -Math.PI/2;
+  let d = a-up; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+  d = clamp(d, -1.31, 1.31);      // ±75°，锁定上半区（朝敌阵）
+  APP.aim = up+d;
+}
+bfNew.addEventListener('pointerdown', ev=>{
+  ev.preventDefault();
+  /* 允许打断开场自动演示：任何状态下按下都切到手动蓄力 */
+  try{ bfNew.setPointerCapture(ev.pointerId); }catch(e){}
+  holding = true;
+  startRun(null);
+  aimFromPointer(ev);
+  document.getElementById('hintNew').textContent = '蓄力中… 拖动瞄准，松手轰出';
+});
+bfNew.addEventListener('pointermove', ev=>{
+  if(!holding) return;
+  aimFromPointer(ev);
+});
+function releasePointer(){
+  if(!holding) return;
+  holding = false;
+  if(APP.state==='charge') doRelease();
+}
+bfNew.addEventListener('pointerup', releasePointer);
+bfNew.addEventListener('pointercancel', releasePointer);
+window.addEventListener('pointerup', releasePointer);
+
+/* 键盘：空格蓄力 */
+window.addEventListener('keydown', ev=>{
+  if(ev.code!=='Space') return;
+  ev.preventDefault();
+  if(APP.state==='idle'){ holding=true; startRun(null); }
+});
+window.addEventListener('keyup', ev=>{
+  if(ev.code!=='Space') return;
+  if(!holding) return;
+  holding = false;
+  if(APP.state==='charge') doRelease();
+});
+
+/* ---------- 按钮 ---------- */
+function setPreset(target){
+  document.getElementById('btnLight').classList.toggle('on', target===0.30);
+  document.getElementById('btnMid').classList.toggle('on',   target===0.65);
+  document.getElementById('btnFull').classList.toggle('on',  target===1.00);
+  startRun(target);
+}
+document.getElementById('btnLight').onclick = ()=>setPreset(0.30);
+document.getElementById('btnMid').onclick   = ()=>setPreset(0.65);
+document.getElementById('btnFull').onclick  = ()=>setPreset(1.00);
+document.getElementById('btnReplay').onclick = ()=>{ APP.autoTarget=null; startRun(1.00); };
+let showOld = true;
+document.getElementById('btnSide').onclick = function(){
+  showOld = !showOld;
+  document.getElementById('cardOld').style.display = showOld ? '' : 'none';
+  this.classList.toggle('on', !showOld);
+  this.textContent = showOld ? '⇄ 对比模式' : '⇄ 仅新版';
+  setTimeout(()=>{ stageNew.measure(); stageOld.measure(); if(APP.state==='idle') startRun(APP.autoTarget===null?0.65:APP.autoTarget); }, 30);
+};
+
+window.addEventListener('resize', ()=>{ stageNew.measure(); stageOld.measure(); });
+
+/* v21:9 格命中映射交互 —— 给敌方 9 格加 1-9 数字标记 + 点击触发释放 + mouseover 预览 */
+(function setupAimGrid(){
+  const grid = document.getElementById('enemyGridNew');
+  if(!grid) return;
+  for(let p=1;p<=9;p++){
+    const el = grid.querySelector('.cell[data-pos="'+p+'"]');
+    if(!el) continue;
+    /* 数字标记：右上角小角标 */
+    const badge = document.createElement('span');
+    badge.textContent = p;
+    badge.style.cssText = 'position:absolute;top:2px;right:3px;font-size:9px;font-weight:bold;color:#c0392b;background:rgba(255,236,210,0.85);border:1px solid #c0392b;border-radius:3px;padding:0 3px;line-height:11px;cursor:pointer;pointer-events:auto;';
+    el.style.position = 'relative';
+    el.appendChild(badge);
+    /* 鼠标进入：高亮该格的命中范围 */
+    el.addEventListener('mouseenter', ()=>{
+      const hits = HIT_MAP[p]||[];
+      for(const q of hits){
+        const ce = grid.querySelector('.cell[data-pos="'+q+'"]'); if(ce) ce.style.boxShadow = 'inset 0 0 8px 2px rgba(255,160,80,0.55)';
+      }
+      const h = document.getElementById('hintNew');
+      if(h) h.textContent = '点 '+p+' 号位 → 打 '+(HIT_MAP[p]||[]).length+' 格（凸包预览）';
+    });
+    el.addEventListener('mouseleave', ()=>{
+      const hits = HIT_MAP[p]||[];
+      for(const q of hits){
+        const ce = grid.querySelector('.cell[data-pos="'+q+'"]'); if(ce) ce.style.boxShadow = '';
+      }
+      const h = document.getElementById('hintNew');
+      if(h) h.textContent = '按住战场蓄力 · 拖动瞄准 · 松手轰出';
+    });
+    /* 点击：直接释放 */
+    el.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      APP.aimCellIndex = p;
+      APP.autoTarget = 1.00;
+      startRun(1.00);
+      const h = document.getElementById('hintNew');
+      if(h) h.textContent = '已选中 '+p+' 号位 → 命中 '+(HIT_MAP[p]||[]).join(',')+' 满蓄轰出';
+    });
+  }
+})();
+
+/* 开场自动播一轮（满蓄） */
+setTimeout(()=>startRun(1.00), 350);
+
+/* v21 调试:URL 带 #aim=N 时,初始化时设置 APP.aimCellIndex;带 #freeze=NNN 时冻结 burst 段;带 #charge=NNN 冻结 charge 段 */
+setTimeout(()=>{
+  const mA = (location.hash||'').match(/aim=(\d+)/);
+  if(mA && +mA[1]>=1 && +mA[1]<=9){ APP.aimCellIndex = +mA[1]; }
+  const mF = (location.hash||'').match(/freeze=(\d+)/);
+  if(mF){ cancelAnimationFrame(raf); startRun(1.00); setTimeout(()=>{ cancelAnimationFrame(raf); renderBurst(+mF[1]); }, 20); }
+  const mC = (location.hash||'').match(/charge=(\d+)/);
+  if(mC){ cancelAnimationFrame(raf); const lvl = Math.min(1, +mC[1]/2000); APP.level=lvl; APP.releaseLevel=lvl; stageNew.S.level=lvl; stageOld.S.level=lvl; stageNew.S.aim=APP.aim; stageOld.S.aim=APP.aim; stageNew.release(lvl, APP.aimCellIndex); updateHud(lvl); renderCharge(+mC[1], lvl); }
+}, 50);
+</script>
+</body>
+</html>

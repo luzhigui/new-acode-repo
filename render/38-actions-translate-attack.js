@@ -1,4 +1,6 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
+// V1.0.4 | 2026-10-18 灭绝师太三击吸血回血飘字改走 HEAL 动作（afterText）：原先在 render/39 ATTACK.fx
+//          出手帧同步补发 HEAL_FLOAT，被攻击动画/闪光盖住实机看不见撒；并回与其他治疗相同的已验证通道
 // V1.0.3 | 2026-10-16 新增读本击 data.qiShangBanner → 组内 BANNER 演出（唐文亮「💢 七伤齐发！」满 7 档横幅）：
 //          老板口径——单位自己产生的攻击前置/特效必须落在**自己的攻击组**里，故横幅不再走组外扁平
 //          SKILL_ANNOUNCE + render/38-stat.bannerText 通道，改为挂本组 data、锚本组 factIndex 出演出
@@ -417,6 +419,19 @@ function makeAttackAction(data, index) {
             kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT,
             targetUid: attacker.uid,
             dmg: Math.round(data.qiShangSelfDmg),
+            factIndex: index,
+            timing: 'afterText'
+        });
+    }
+
+    // 2026-10-18 灭绝师太三击吸血：回血飘字改走 HEAL 动作（timing:afterText），与其他角色（九阳/热血/韦一笑/
+    //   乾坤）完全同一条已验证通道。此前在 render/39 ATTACK.fx 出手帧同步补发 HEAL_FLOAT，紧贴飞撞/闪光
+    //   之后，1.2s 的池化小字（z-index 10003）全程被攻击动画与闪光盖住 → 实机看不到 ❤+N。
+    if (data.miejueLeech > 0 && attacker?.uid) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.HEAL,
+            targetUid: attacker.uid,
+            amount: data.miejueLeech,
             factIndex: index,
             timing: 'afterText'
         });
