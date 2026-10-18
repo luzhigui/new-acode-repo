@@ -377,11 +377,31 @@ $j | ConvertTo-Json -Depth 6 | Set-Content .session-lock.json
 
 ---
 
+## 十、外部知识源（ima 笔记 / 知识库，按需读）
+
+**定位**：用户的「待办清单 / 项目背景」沉淀在腾讯 ima，作为跨会话共享大脑。**按需拉取**，不做常驻轮询；拉取前先问用户是否要读，避免无谓消耗。
+
+**凭据（仓外，绝不入 git）**：`~/.config/ima/client_id`、`~/.config/ima/api_key`（Windows 为 `%USERPROFILE%\.config\ima\`）；亦可用环境变量 `IMA_OPENAPI_CLIENTID` / `IMA_OPENAPI_APIKEY`。
+
+**调用约定**：
+- 一律 `POST https://ima.qq.com`，Header：`ima-openapi-clientid`、`ima-openapi-apikey`、`Content-Type: application/json`；响应统一 `{code, msg, data}`，`code=0` 为成功，`code≠0` 直接把 `msg` 展示给用户。
+- 笔记：`/openapi/note/v1/list_note`（列笔记）、`list_notebook`（笔记本）、`search_note`、`get_doc_content`（取正文，`target_content_format=0` 纯文本）、`import_doc`、`append_doc`。
+- 知识库：`/openapi/wiki/v1/get_addable_knowledge_base_list`、`get_knowledge_list`、`search_knowledge`、`add_knowledge`、`create_media` 等（完整参数见 ima 官方 skill 包）。
+
+**Windows / PowerShell 5.1 实测两坑**：
+1. **中文乱码**：PS 5.1 下 `Invoke-RestMethod` 会把请求 body 静默转 GBK、响应按错误编码解码。**一律用 `curl.exe`**：请求 body 走文件（`--data-binary "@body.json"`）、响应落文件（`-o resp.json`）再用 UTF-8 读。
+2. **写入前校验 UTF-8**：`import_doc` / `append_doc` 的 `content`、`title` 必须先确认为合法 UTF-8，否则 ima 端显示不可修复的乱码。
+
+**默认笔记**：《给AI 看看》= 当前待办来源（先 `list_note` 取 `note_id`）。笔记属用户隐私，不在公开场合主动展示。
+
+---
+
 ## 说明
 
-- **版本**：V5.8.1 → V6.0.1（V6.0.0 = 升格为唯一真源；V6.0.1 = 按仓库实测 + 复核意见校正）
-- **预估字节数**：约 27.0 KB（实测 27625 字节 / 387 行）
+- **版本**：V5.8.1 → V6.0.2（V6.0.0 = 升格为唯一真源；V6.0.1 = 按仓库实测 + 复核意见校正；V6.0.2 = 新增「十、外部知识源（ima）」+ 薄壳钩子）
+- **预估字节数**：约 28.7 KB（实测 29394 字节 / 406 行）
 - **改动**：
   - **V6.0.0（升格）**：① 头部改为身份声明 + 各副本定位表 + 6 级优先级；② 补入原根 README 独有的「〇·四 分支策略 / 〇·六 迭代铁律 / 〇·七 重构时机判据」；③ **回灌**原只在薄壳里的内容——「二·五 时间纪律」（含子 agent 派发模板、能力边界）、核心机制 9-12 条（7→12）、「七 经验速查」、「八 多会话并行」（含三段落 PowerShell 协议）、五·4 Git「不区分改动归属」、五·7 工程决策口径；④ 新增「九、协作纪律」5 条（真源优先级 / 错误分级 / 编码前推理闸 / 停下询问清单 / 交接规则）；⑤ 校正陈旧路径（精英注册 `core/08-registry-elite.js`；fact 三处改法对齐 `render/34/35/36/38/39` + `render/33` 校验）。
   - **V6.0.1（复核后修正 6 处）**：① 〇·四 改为「目标状态 + 实测遗留清单」——原写"历史支线已全部删除"与 `git branch -a` 实测冲突（本地 `main-backup-20260920`/`test`、Gitee 的 `main-backup-v4.0.2`/`test`/`test-module`/`trae/agent-*`×4/`workbuddy/main-87959581` 仍在）；② 头部薄壳行补位置限定「工作区根、仓库外，别去仓内 `.trae/` 找」（原写法在仓内是死链）；③ 六·1 / 六·6 消歧两套枚举（`EFFECT_TYPES` → `infra/50-event-bus.js`；`BUFF_EFFECT_TYPES` / `MECHANIC_EFFECT_TYPES` → `infra/56-battle-enums.js`）；④ 头部标注「本文件独立文档版本线，与代码 V7.6.x 无关」（原 V6.0.0 与履历"V6.2.0 及更早"并存，易被读成版本回退）；⑤ 九·3 补执行模式例外；⑥ 五·4 补双远端（`gh-ssh` + `gitee`）；另按复核意见补：一·职责边界授权口径、九·4① 授权判定、八·按需启用说明。
+  - **V6.0.2（新增外部知识源）**：新增「十、外部知识源（ima 笔记 / 知识库，按需读）」——凭据路径（`~/.config/ima/`，仓外、绝不入 git）、笔记与知识库接口清单、PS 5.1 两个实测坑（中文乱码改用 `curl.exe` 且 body/响应落文件、写笔记前必须校验 UTF-8）、默认待办笔记《给AI 看看》；薄壳 `<工作区根>/.trae/rules/核心工作准则.md` 同步加「外部待办源」指针。
 - **配套**：根 `README.md`（网页端分发副本，V7.5.16）、薄壳 `<工作区根>/.trae/rules/核心工作准则.md`（仓库外）、`README-工具 / README-体检 / README-文件.md`（专项衍生协议）——全部指向本真源，不再各自维护规则正文。
