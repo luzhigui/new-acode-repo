@@ -54,6 +54,12 @@ function guestTopic(room) { return TOPIC_PREFIX + room + '/g2h'; }
 //   ② 单位上的 _fsm 是 StateMachine 实例，states 里是 onEnter/onExit 函数，序列化不了
 // _fsm 侧不再需要复原：渲染层已改读 state._fsmPhase（2026-09-26 妆造剥离），
 // 从机不跑 transition，单位浅拷贝即可。
+//
+// ⚠️ 与 player/50battle-export.js 的 plainStep 是**两份、职责不同**，不是重复实现，不要合并：
+//   · 本文件（联机从机）：浅拷 + 下一步整份覆盖，不需要深拷 state。
+//   · player/50（战报导出）：state 必须按 core/17 schema 深拷（copyAllStateFields）断引用，
+//     否则引擎原地改 state 会让整份战报读到终态 → 回放全程全灰（2026-09-26 已修）。
+//   为什么不能合并：infra 不能反向依赖 core/17 的 schema（业务依赖），player→infra 单向合法。
 
 
 // buff 数组净化：cols/rows 是数组，浅拷贝一份避免共享引用

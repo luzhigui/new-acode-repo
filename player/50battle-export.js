@@ -57,7 +57,14 @@ function countRounds(steps) {
     return n;
 }
 
-// ---- 净化：把引擎 step 变成可 JSON 的普通对象（与 infra/60 plainStep 同口径）----
+// ---- 净化：把引擎 step 变成可 JSON 的普通对象 ----
+// 注意：与 infra/60-net-pvp.js 的 plainStep 是**两份、职责不同**，不是重复实现，不要合并：
+//   · 本文件（战报导出）：state 必须按 core/17 schema 深拷（copyAllStateFields）断引用——
+//     引擎行动循环原地改 unit.state（_acted 等），浅引用会让整份战报在 finish 序列化时
+//     全部读到「整场终态」→ 回放全程全灰（2026-09-26 已修）。
+//   · infra/60（联机从机）：单位浅拷即可——从机不跑引擎、不拿 step 里的 state 做后续判定，
+//     渲染层只读 state._fsmPhase 镜像，且下一步整份覆盖，深拷纯属多余开销。
+// 为什么不能合并：player→infra 单向合法，但 infra 不能反向依赖 core/17 的 schema 深拷（业务依赖）。
 
 function plainUnit(u) {
     if (!u) return u;

@@ -31,8 +31,8 @@ import {
     ensureGridCells, resetCell, getSlotUnits, updateHpDisplay, getShakeRemain,
     tryHorseSpawnAnim, clearGridCells, applyGridShake
 } from './32grid-cells.js';
-import { buildCountBadge } from './32grid-badges.js';
-export { getDodgeBreakdown, isUnitBenefitedByBuff } from './32grid-badges.js';
+import { buildCountBadge, getDodgeBreakdown, isUnitBenefitedByBuff } from './32grid-badges.js';
+export { getDodgeBreakdown, isUnitBenefitedByBuff };
 export { markGridShake } from './32grid-cells.js';
 
 let _store = null;
