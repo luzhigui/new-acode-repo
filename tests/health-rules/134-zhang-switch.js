@@ -8,7 +8,7 @@
 //   ② 张无忌本人被换位（惑人心智换位 / 乘风击退）时放弃时机判定：引擎 checkZhangSwitch 按**当前站位**算列，
 //      而换位 fact 可能晚于切换 fact 落日志（seed=8:6 首个 buff-swap 在切换 fact 之后才入 log，原 posChanged
 //      只扫 sw.idx 之前 → 漏判），开局列不再可信，故整体放弃（不判 ≠ 通过）。
-export const VER = 'tests/health-rules/134-zhang-switch.js V6.2.0';
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.0';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // 判定一条战报条目是否为「切换近战形态」：数组/entries 里任一文本命中即可；
@@ -49,61 +49,74 @@ export const rule81 = {
                 if (m) curRound = parseInt(m[1], 10);
             }
             if (isSwitchEntry(e)) {
-                switches.push({ idx: i, round: curRound });
+                switches.push({ idx: i, round: curRound, uid: (e.unitUid != null ? e.unitUid : null) });
             }
         }
         if (switches.length === 0) return 'skip';
-        if (switches.length > 1) {
-            return { fail: true, msg: '复发：张无忌近战形态切换' + switches.length + '次（每场应仅1次）' };
-        }
-        var sw = switches[0];
 
-        // 2. 开局快照：张无忌初始站位 + 同列前排队友（与 checkZhangSwitch 的 front=1+col 口径一致）
+        // 2. 按 uid 分组（2026-10-18 第 99 轮修）：多实例化（modules/27 张无忌 V1.1.0 支持双张无忌）后，
+        //   同场可有多个张无忌、各切一次。旧判据 `switches.length>1` 把「两个张无忌各切一次」误判为切换2次
+        //   （seed=20 stage=1 假阳性：u3 / u328 各切一次，均合规）。正确口径：每个张无忌每场应仅切换 1 次。
+        var byUid = {};
+        for (var s = 0; s < switches.length; s++) {
+            var key = switches[s].uid;
+            (byUid[key] = byUid[key] || []).push(switches[s]);
+        }
+        for (var gk in byUid) {
+            if (byUid[gk].length > 1) {
+                return { fail: true, msg: '复发：张无忌(' + gk + ')近战形态切换' + byUid[gk].length + '次（每个张无忌每场应仅1次）' };
+            }
+        }
+
+        // 3. 时机判定：对每个切换过的张无忌分别判（用它自己的开局站位/同列前排）
         var snap = (ctx && ctx.snapshot && Array.isArray(ctx.snapshot.ally)) ? ctx.snapshot.ally : null;
-        var zhangInitPos = null, zhangUid = null, frontUid = null;
-        if (snap) {
+        if (!snap) return { fail: false };
+        for (var gk2 in byUid) {
+            var sw = byUid[gk2][0];
+            var zhangUid = sw.uid;
+            // 开局快照里该张无忌的初始站位
+            var zhangInitPos = null;
             for (var k = 0; k < snap.length; k++) {
-                if (snap[k] && snap[k].isZhang) { zhangInitPos = snap[k].pos; zhangUid = snap[k].uid; }
+                if (snap[k] && snap[k].isZhang && snap[k].uid === zhangUid) zhangInitPos = snap[k].pos;
             }
-            if (zhangInitPos != null) {
-                var frontPos = ((zhangInitPos - 1) % 3) + 1;
-                for (var k2 = 0; k2 < snap.length; k2++) {
-                    var u2 = snap[k2];
-                    if (u2 && !u2.isHorse && u2.pos === frontPos && u2.uid !== undefined) frontUid = u2.uid;
-                }
+            if (zhangInitPos == null) continue;   // 快照定位不到该张无忌：不判其时机
+            // 同列前排队友（与 checkZhangSwitch 的 front=1+col 口径一致；排除自己与马/幼狮由引擎口径统一）
+            var frontPos = ((zhangInitPos - 1) % 3) + 1;
+            var frontUid = null;
+            for (var k2 = 0; k2 < snap.length; k2++) {
+                var u2 = snap[k2];
+                if (u2 && !u2.isHorse && u2.pos === frontPos && u2.uid !== undefined && u2.uid !== zhangUid) frontUid = u2.uid;
             }
-        }
-        // 自身在前排（frontPos 即自己）或无快照：按现逻辑开局即切属正常口径，不判
-        if (frontUid == null) return { fail: false };
-
-        // 张无忌本人被换位（惑人心智换位 / 乘风击退）：其"同列"随当前站位漂移，而换位 fact 可能
-        //   晚于切换 fact 落日志，开局列不再可信 → 放弃时机判定（引擎侧由 core/13 现算位置，仍受规则 81 覆盖）。
-        if (zhangUid != null) {
+            // 自身在前排（frontPos 即自己）或无同列前排队友：按现逻辑开局即切属正常口径，不判
+            if (frontUid == null) continue;
+            // 张无忌本人被换位（惑人心智换位 / 乘风击退）：其"同列"随当前站位漂移，而换位 fact 可能
+            //   晚于切换 fact 落日志，开局列不再可信 → 放弃该张无忌时机判定（引擎侧由 core/13 现算位置，仍受规则覆盖）。
+            var selfMoved = false;
             for (var m = 0; m < log.length; m++) {
                 var er = log[m];
                 if (!er) continue;
-                if (er.type === 'buff-swap' && (er.uidA === zhangUid || er.uidB === zhangUid)) return { fail: false };
-                if (er.type === 'buff-push' && (er.pushTargetUid === zhangUid || er.behindUid === zhangUid)) return { fail: false };
+                if (er.type === 'buff-swap' && (er.uidA === zhangUid || er.uidB === zhangUid)) { selfMoved = true; break; }
+                if (er.type === 'buff-push' && (er.pushTargetUid === zhangUid || er.behindUid === zhangUid)) { selfMoved = true; break; }
             }
-        }
-
-        // 3. 切换前：前排队友是否阵亡 / 是否发生过换位击退（影响前排占用判断，有则放弃判定避免误报）
-        var frontDead = null, posChanged = false;
-        for (var j = 0; j < sw.idx; j++) {
-            var f = log[j];
-            if (!f) continue;
-            // isDead 标记的是 uidD 所指单位（攻击组=被攻击方；闪避反击组 uidD=被反击的出手方）；
-            //   只认 uidD —— `uidA === frontUid` 会把"前排队友击杀敌人"误判为其本人阵亡。
-            if (frontDead === null && f.isDead === true && f.uidD === frontUid) {
-                frontDead = { round: roundAt(log, j), idx: j };
+            if (selfMoved) continue;
+            // 切换前：前排队友是否阵亡 / 是否发生过换位击退（影响前排占用判断，有则放弃判定避免误报）
+            var frontDead = null, posChanged = false;
+            for (var j = 0; j < sw.idx; j++) {
+                var f = log[j];
+                if (!f) continue;
+                // isDead 标记的是 uidD 所指单位（攻击组=被攻击方；闪避反击组 uidD=被反击的出手方）；
+                //   只认 uidD —— `uidA === frontUid` 会把"前排队友击杀敌人"误判为其本人阵亡。
+                if (frontDead === null && f.isDead === true && f.uidD === frontUid) {
+                    frontDead = { round: roundAt(log, j), idx: j };
+                }
+                if (f.type === 'buff-push' || f.type === 'buff-swap') posChanged = true;
             }
-            if (f.type === 'buff-push' || f.type === 'buff-swap') posChanged = true;
-        }
-        if (frontDead === null && sw.round <= 1 && !posChanged) {
-            return { fail: true, msg: '复发：第' + sw.round + '回合同列前排队友存活，张无忌却切换近战（切换时机过早）' };
-        }
-        if (frontDead !== null && !posChanged && sw.round >= frontDead.round + 2) {
-            return { fail: true, msg: '复发：前排队友第' + frontDead.round + '回合阵亡，张无忌第' + sw.round + '回合才切换近战（切换时机过晚）' };
+            if (frontDead === null && sw.round <= 1 && !posChanged) {
+                return { fail: true, msg: '复发：第' + sw.round + '回合同列前排队友存活，张无忌(' + zhangUid + ')却切换近战（切换时机过早）' };
+            }
+            if (frontDead !== null && !posChanged && sw.round >= frontDead.round + 2) {
+                return { fail: true, msg: '复发：前排队友第' + frontDead.round + '回合阵亡，张无忌(' + zhangUid + ')第' + sw.round + '回合才切换近战（切换时机过晚）' };
+            }
         }
         return { fail: false };
     }
