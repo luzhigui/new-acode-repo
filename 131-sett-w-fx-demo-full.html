@@ -19,6 +19,8 @@
       ⑥ 命中带击退：被命中的单位沿受力方向被推走（瑟提 W 的招牌）
       ⑦ 可拖拽瞄准，且蓄力档位直接决定锥角/伤害/击退/震屏 —— 蓄得越久越狠
   · 对照组：线上现状复刻（fx/90 V1.3.0 + fx/93 V1.2.0，扇面固定朝上、不可瞄准）
+  V1.3.1 | 2026-10-19 修「未瞄准没反应」：0 号（未瞄准=全屏）被 !cellIndex 空值守卫拦掉 → 预警空白+释放哑火；
+    hitCellsAt/release 改为只拦 undefined，0 时以敌阵中心为伤害基准；出界余量放大（上30/左右下44）适配小屏。
   V1.3.0 | 2026-10-18 命中映射改老板定稿「九位九形」：1=1247 / 2=2456 / 3=2369 / 4=1245 / 5=25789 / 6=2356 / 7=2457 / 8=258 / 9=2569；
     未选（原地按着不拖）或拖出敌阵格外 → 0=全屏 123456789 兜底；APP 默认值与所有 ||5 回退同步改 ||0。
   V1.2.0 | 2026-10-18 拖动瞄准改「指哪打哪」：手指悬停哪个敌格（方向+距离共同定位，欧氏距离最近格）就瞄哪个格，
@@ -772,7 +774,9 @@ function makeStage(suffix, variant){
      修复 v21 bug:measure 用 'e'+p 做 key,但 v21 用 'c'+p 取格导致永远空
      v26:再过滤掉空位,保证预警范围 == 实际命中范围,不再出现「框很大但只有中间动」 */
   function hitCellsAt(cellIndex){
-    if(!cellIndex || !S.geo) return [];
+    /* v29.1 修复：0（未瞄准=全屏）被旧守卫 !cellIndex 当空值拦掉 → 预警空白、释放哑火。
+       改为只拦 undefined（0 是合法键，HIT_MAP[0] = 全场九格） */
+    if(cellIndex===undefined || !S.geo) return [];
     const out = [];
     for(const pos of (HIT_MAP[cellIndex]||[])){
       const c = S.geo.cells['e'+pos];
@@ -903,9 +907,17 @@ function makeStage(suffix, variant){
 
   /* v25 释放：用 HIT_MAP[cellIndex] 算命中；冲击方向 = 瞄准格中心 */
   function release(level, cellIndex){
-    const g = S.geo; if(!g || !cellIndex) return;
-    const aimCell = g.cells['e'+cellIndex];  /* v25 修复:用 'e' 不是 'c' */
-    if(!aimCell) return;
+    /* v29.1 修复：0（未瞄准=全屏）同样被 !cellIndex 拦掉 → 松手无任何爆发。
+       0 时以敌阵中心为瞄准基准（伤害衰减从中心算），方向保持当前拖动方向 */
+    const g = S.geo; if(!g) return;
+    cellIndex = cellIndex || 0;
+    let aimCell = g.cells['e'+cellIndex];
+    if(!aimCell){
+      let sx=0, sy=0, n=0;
+      for(let p=1;p<=9;p++){ const c=g.cells['e'+p]; if(c && c.unit){ sx+=c.x; sy+=c.y; n++; } }
+      if(!n) return;
+      aimCell = {x:sx/n, y:sy/n};
+    }
     S.aim = Math.atan2(aimCell.y - g.apex.y, aimCell.x - g.apex.x);
     const hits = [];
     for(const c of hitCellsAt(cellIndex)){
@@ -1065,12 +1077,13 @@ function aimFromPointer(ev){
   const g = stageNew.S.geo;
   if(g){
     const px = g.apex.x+dx, py = g.apex.y+dy;
-    /* v29 规则三：先算敌阵九格包围盒，拖出界（含余量约半格）→ 全屏兜底 */
+    /* v29 规则三：拖出敌阵九格外 → 全屏。余量放大（上 30 / 左右下 44 ≈ 一格）：
+       手机屏小、敌阵几乎顶到战场边，半格余量根本拖不出去（老板实测"拉不到屏幕外没反应"）。
+       pointer capture 保证手指拖出战场外坐标仍回传（可为负/越界），出界即全屏 */
     let x0=1e9, y0=1e9, x1=-1e9, y1=-1e9;
     for(const k in g.cells){ const c=g.cells[k];
       x0=Math.min(x0,c.x); x1=Math.max(x1,c.x); y0=Math.min(y0,c.y); y1=Math.max(y1,c.y); }
-    const M = 26;
-    if(px < x0-M || px > x1+M || py < y0-M || py > y1+M){ setNoAim(); return; }
+    if(px < x0-44 || px > x1+44 || py < y0-30 || py > y1+44){ setNoAim(); return; }
     let best = 0, bd = 1e9;
     for(const k in g.cells){
       const c = g.cells[k]; if(!c.unit) continue;
