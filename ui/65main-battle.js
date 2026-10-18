@@ -14,6 +14,8 @@ import { resetBattleRuntime } from './74reset-runtime.js';
 // 2026-10-04 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
 import { getRoleLogTag } from './69-role-cards.js';
 import { stepBuff } from './71tutorial.js';
+// 2026-10-19 蓄意轰拳瞄准黑幕：模块加载即注册 showHanlisaAim UIHandler（player/49 回合末取用）
+import './79hanlisa-aim.js';
 
 const C = CONFIG;
 

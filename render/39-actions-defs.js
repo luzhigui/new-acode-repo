@@ -560,5 +560,15 @@ export const STAGE_ACTION_DEFS = {
             const unit = findUnitByUidLocal(c, action.targetUid);
             if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
         }
+    },
+    [STAGE_ACTION_TYPES.HANLISA_BURST]: {
+        // 2026-10-19 蓄意轰拳爆发（回放/从机补触发通道）：主机单机由 modules/27 引擎直发同一信号，
+        //   fx/93 按 seq 去重取先到者——此处只为战报回放/联机从机补上同款演出。
+        //   载荷全 uid+数值（可序列化，战报 JSON 原样落盘），fx/93 内部自查 DOM。
+        grid: 'sync', log: 'sync', timing: 'afterText',
+        fx: (c, action) => {
+            if (GlobalStore.get('fastForwardActive')) return;
+            if (action.hlsBurst) eventBus.emit(FX_SIGNALS.HANLISA_BURST, action.hlsBurst);
+        }
     }
 };

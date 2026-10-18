@@ -1,15 +1,18 @@
-// fx/93-hanlisa-burst.js — 寒离飒「蓄力轰拳」爆发瞬间视觉（变体A：柔光弧扇 + 涟漪 + 粒子 + 震屏）
-//   · 顶点=寒离飒(2号位)，从顶点位置慢慢向外铺开一道柔光扇形（金→冰蓝渐变 + feGaussianBlur 柔光，弧边非实心三角）
+// fx/93-hanlisa-burst.js — 寒离飒「蓄意轰拳」爆发瞬间视觉（变体A：柔光弧扇 + 涟漪 + 粒子 + 震屏）
+//   · 顶点=寒离飒，从顶点位置慢慢向外铺开一道柔光扇形（金→冰蓝渐变 + feGaussianBlur 柔光，弧边非实心三角）
 //   · 两道涟漪环沿扇形弧线由内向外扩散、渐隐（示意 AOE 范围，不画死边）
 //   · 金/冰双色粒子从顶点飞向各命中格
-//   · 真伤格(2/5/8)：冰蓝高光 + 白色碎裂 + 脉冲（语义：把所受之伤奉还）
-//   · 半伤格(4/6/7/9)：红棕凹痕 + 格子慢震一下
-//   · 整块战场轻微震屏（8px / 420ms）
-//   · 顶点升「轰」字 + 金/冰双环拳心脉冲
+//   · V2 分档格效（2026-10-19 蓄意轰拳九位九形）：direct/eight/full123=冰蓝碎裂最重档；near/full456=红棕凹痕；
+//     far/full789=轻凹痕。每格升大号真伤数字（老板口径：弹幕做大、用真实数值）
+//   · 瞄 8 特例：中列速度线 + 撞边白闪（位移动画本体走 PUSH 舞台动作的 fx 收尾写入，此处只做点缀）
+//   · 吸血：顶点 ❤+N 上浮
+//   · 整块战场轻微震屏（8px / 420ms）+ 顶点升「轰」字 + 金/冰双环拳心脉冲
+// V2.0.0 | 2026-10-19 蓄意轰拳 V2：载荷改 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp}
+//          （全 uid+数值可序列化，回放/从机经 SKILL_ANNOUNCE 桥补触发；seq 去重防引擎直发+桥双放）
 // V1.2.0 | 2026-10-17 应用 demo tools/126「变体A」（老板选定）：补金/冰双色粒子飞向命中格 + 整场震屏，
 //          「轰」字提亮为 #ffcf5e 双层辉光，扇形加 feGaussianBlur 柔光
-// V1.1.0 | ~3600 bytes | 2026-10-17 修订：弃硬三角，改柔光扇形+涟漪，整体放慢（用户指正"太丑/太快/一下打满"）
-export const VER = 'fx/93-hanlisa-burst.js V1.2.0';
+// V1.1.0 | 2026-10-17 修订：弃硬三角，改柔光扇形+涟漪，整体放慢（用户指正"太丑/太快/一下打满"）
+export const VER = 'fx/93-hanlisa-burst.js V2.0.0';
 
 import { clock } from '../infra/52-clock.js';
 import { markGridShake } from '../render/32-grid-render.js';
@@ -19,6 +22,19 @@ function centerOf(uid) {
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+}
+
+// 同格按 pos 找邻格中心（8 号撞边飞行用；从 victim 的 cell 反查同 grid，不缓存引用）
+function cellCenterOfPos(uid, pos) {
+    const el = document.querySelector(`[data-uid="${uid}"]`);
+    if (!el || !el.parentElement) return null;
+    for (const c of el.parentElement.children) {
+        if (String(c.dataset.pos) === String(pos)) {
+            const r = c.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+        }
+    }
+    return null;
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -200,15 +216,119 @@ function wordAndCore(apex) {
     });
 }
 
-export function showHanLiSaBurst({ unit, trueUids = [], halfUids = [], taken = 0 }) {
-    if (!unit) return;
-    const apex = centerOf(unit.uid);
+// 轻档格：淡凹痕一闪（far / full789）
+function impactFar(uid) {
+    const el = document.querySelector(`[data-uid="${uid}"]`);
+    if (!el) return;
+    const base = el.style.boxShadow;
+    el.style.boxShadow = 'inset 0 0 9px 2px rgba(139,58,30,0.45)';
+    clock.wait(220).then(() => { el.style.boxShadow = base || ''; });
+}
+
+// 大号真伤数字：每命中格升一枚（老板口径：弹幕做大、数值用真实值；按档位定字号/配色）
+function bigDamageFloat(uid, dmg, tier) {
+    if (!(dmg > 0)) return;
+    const el = document.querySelector(`[data-uid="${uid}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const heavy = tier === 'direct' || tier === 'eight' || tier === 'full123';
+    const mid = tier === 'near' || tier === 'full456';
+    const size = heavy ? 34 : (mid ? 27 : 22);
+    const color = heavy ? '#ffe9a8' : (mid ? '#ffc9a0' : '#d9c6b8');
+    const glow = heavy
+        ? 'text-shadow:0 0 12px rgba(255,200,80,0.95),0 0 24px rgba(127,199,255,0.85),0 3px 6px rgba(0,0,0,0.95)'
+        : 'text-shadow:0 0 8px rgba(255,160,60,0.7),0 2px 4px rgba(0,0,0,0.9)';
+    const d = document.createElement('div');
+    d.setAttribute('data-fx', 'temporary');
+    d.textContent = `−${dmg}`;
+    d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height * 0.18}px;transform:translate(-50%,0);font-size:${size}px;font-weight:900;font-family:inherit;color:${color};${glow};z-index:10013;pointer-events:none;opacity:0;`;
+    document.body.appendChild(d);
+    clock.wait(heavy ? 120 : 200).then(() => clock.animate(1350, (p) => {
+        const e = 1 - Math.pow(1 - p, 2.2);
+        d.style.opacity = p < 0.12 ? (p / 0.12).toFixed(2) : (1 - (p - 0.12) / 0.88).toFixed(2);
+        d.style.transform = `translate(-50%,${(-46 * e).toFixed(1)}px) scale(${(1 + 0.22 * (1 - Math.abs(2 * p - 1))).toFixed(2)})`;
+    })).then(() => { if (d.parentNode) d.remove(); });
+}
+
+// 8 号撞边点缀：中列速度线 + 落点白闪（位移本体走 PUSH 舞台动作，这里只加强观感）
+function flightAccents(flight) {
+    const from = centerOf(flight.uid);
+    const to = cellCenterOfPos(flight.uid, flight.to) || cellCenterOfPos(flight.uid, 2);
+    if (!from || !to) return;
+    // 速度线：中列三段白色拖尾
+    const steps = 5;
+    for (let i = 0; i < steps; i++) {
+        const t0 = i / steps, t1 = (i + 1) / steps;
+        const x1 = from.x + (to.x - from.x) * t0, y1 = from.y + (to.y - from.y) * t0;
+        const x2 = from.x + (to.x - from.x) * t1, y2 = from.y + (to.y - from.y) * t1;
+        const line = document.createElement('div');
+        line.setAttribute('data-fx', 'temporary');
+        const len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+        line.style.cssText = `position:fixed;left:${x1}px;top:${y1}px;width:${Math.max(len, 6)}px;height:3px;margin:-1.5px 0 0 0;transform:rotate(${ang.toFixed(1)}deg);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.9));border-radius:2px;z-index:10012;pointer-events:none;opacity:0;`;
+        document.body.appendChild(line);
+        clock.wait(120 + i * 110).then(() => clock.animate(260, (p) => {
+            line.style.opacity = (1 - p).toFixed(2);
+        })).then(() => { if (line.parentNode) line.remove(); });
+    }
+    // 撞边白闪 + 二次震屏
+    clock.wait(620).then(() => {
+        const flash = document.createElement('div');
+        flash.setAttribute('data-fx', 'temporary');
+        flash.style.cssText = `position:fixed;left:${to.x}px;top:${to.y}px;width:${Math.max(to.w, 40)}px;height:${Math.max(to.h, 40)}px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.95) 0%,rgba(255,230,160,0.55) 45%,rgba(255,255,255,0) 72%);z-index:10012;pointer-events:none;`;
+        document.body.appendChild(flash);
+        clock.animate(430, (p) => {
+            const s = 0.5 + p * 1.1;
+            flash.style.transform = `translate(-50%,-50%) scale(${s.toFixed(2)})`;
+            flash.style.opacity = (1 - p).toFixed(2);
+        }).then(() => { if (flash.parentNode) flash.remove(); });
+        shakeScreen();
+    });
+}
+
+// 吸血飘字：顶点 ❤+N 上浮
+function vampFloat(apex, vamp) {
+    if (!(vamp > 0) || !apex) return;
+    const d = document.createElement('div');
+    d.setAttribute('data-fx', 'temporary');
+    d.textContent = `🩸 +${vamp}`;
+    d.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y - 14}px;transform:translate(-50%,0);font-size:24px;font-weight:900;color:#9ff0b0;text-shadow:0 0 10px rgba(80,220,130,0.8),0 2px 4px rgba(0,0,0,0.9);z-index:10013;pointer-events:none;opacity:0;`;
+    document.body.appendChild(d);
+    clock.wait(650).then(() => clock.animate(1250, (p) => {
+        const e = 1 - Math.pow(1 - p, 2.2);
+        d.style.opacity = p < 0.15 ? (p / 0.15).toFixed(2) : (1 - (p - 0.15) / 0.85).toFixed(2);
+        d.style.transform = `translate(-50%,${(-52 * e).toFixed(1)}px)`;
+    })).then(() => { if (d.parentNode) d.remove(); });
+}
+
+// 引擎直发与回放桥共用入口；seq 去重（先到者赢，后到的同 seq 静默丢弃）
+let _lastSeq = null;
+export function showHanLiSaBurst(d) {
+    if (!d || d.apexUid == null) return;
+    if (d.seq != null) {
+        if (d.seq === _lastSeq) return;
+        _lastSeq = d.seq;
+    }
+    const apex = centerOf(d.apexUid);
     if (!apex) return;
-    const hits = [...trueUids, ...halfUids].map(centerOf).filter(Boolean);
+    const hits = (d.hits || []).map(h => {
+        const c = centerOf(h.uid);
+        return c ? { x: c.x, y: c.y, w: c.w, h: c.h, tier: h.tier, dmg: h.dmg, uid: h.uid } : null;
+    }).filter(Boolean);
     shakeScreen();
-    shockwave(apex, hits);
-    particles(apex, hits);
+    if (hits.length) {
+        shockwave(apex, hits);
+        particles(apex, hits);
+    }
     wordAndCore(apex);
-    trueUids.forEach(shatterTrue);
-    halfUids.forEach(impactHalf);
+    // 分档格效 + 大号真伤数字
+    hits.forEach(h => {
+        if (h.tier === 'direct' || h.tier === 'eight' || h.tier === 'full123') shatterTrue(h.uid);
+        else if (h.tier === 'near' || h.tier === 'full456') impactHalf(h.uid);
+        else impactFar(h.uid);
+        bigDamageFloat(h.uid, h.dmg, h.tier);
+    });
+    // 瞄 8 特例：撞边点缀（崩飞的两侧小跳走 PUSH 舞台动作本体，不另画）
+    if (d.flight && d.flight.uid != null) flightAccents(d.flight);
+    // 吸血
+    if (d.vamp > 0) vampFloat(apex, d.vamp);
 }

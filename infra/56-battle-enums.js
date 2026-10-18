@@ -112,7 +112,8 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     SPLASH: 'splash', BUFF_EFFECT: 'buffEffect',
     DAMAGE_FLOAT: 'damageFloat',
     HP_PCT_DANMAKU: 'hpPctDanmaku', BANNER: 'banner',
-    SKILL_FLOAT: 'skillFloat'
+    SKILL_FLOAT: 'skillFloat',
+    HANLISA_BURST: 'hanlisaBurst'
 });
 
 /** Buff 特效子类型：BUFF_EFFECT stageAction 的 effectType 唯一来源（不再用裸字符串） */

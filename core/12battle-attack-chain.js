@@ -464,6 +464,8 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
         if (decl.type === EFFECT_TYPES.REBOUND) {
             applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
         } else if (decl.type === EFFECT_TYPES.STUN) {
+            // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：闪避反击的眩晕不生效，反弹伤害照掉
+            if (unit.state && unit.state._ctrlImmune) continue;
             unit.state._stunned = true;
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });
             emitStateChange(unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
