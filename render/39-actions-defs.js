@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.5.3 | 2026-10-18 灭绝师太三击吸血飘字迁出 ATTACK.fx（改由 render/38 翻成组内 HEAL 动作 afterText，
+//   与其他治疗同通道）；原先出手帧同步 emit 被攻击动画/闪光盖住，实机看不到 ❤+N
 // V1.5.2 | ~31820 bytes | 2026-10-18 被动出手徽章补三条 reason（⚡连击/🗡️嗜血/🕷️双击），并把映射提到顶层去重
 //   （原先 ATTACK/MISS/DODGE 三处各内联一份，加新 reason 要改三遍）
 // V1.5.1 | 2026-10-16 苦练蓄力特效补漏：MISS/DODGE 出手帧也发 FX_SIGNALS.KULIAN——宋青书打空或被闪避
@@ -20,7 +22,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.2';
+export const VER = 'render/39-actions-defs.js V1.5.3';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -105,10 +107,8 @@ export const STAGE_ACTION_DEFS = {
                     markBurst: action.markBurst === true
                 });
             }
-            // 2026-09-24 灭绝师太三击吸血：回血飘字同样锚在出手帧（快进由 fx/89 拦）
-            if (attacker && action.miejueLeech > 0) {
-                eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: attacker, amount: action.miejueLeech });
-            }
+            // 2026-10-18 灭绝师太三击吸血飘字已迁走：改由 render/38 翻成组内 HEAL 动作（timing:afterText），
+            //   与其他角色同通道；原先此处出手帧同步 emit，被攻击动画/闪光盖住实机看不见。
             // 2026-09-24 雄狮振奋：狮吼 + 全体「+2 攻」飘字，锚在雄狮真正出手的这一帧。
             //   原先由 modules/27 在「生成步」时 emit LION_ROAR，但随动出手的演出被 isLinkAttack 延后 1400ms、
             //   苦练延后 1200ms，吼总是抢在画面前——看起来像「母狮出手反而吼、雄狮自己出手没吼」。

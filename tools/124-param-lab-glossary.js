@@ -1,4 +1,13 @@
 // tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.7.2 | 2026-10-18 第 101 轮：按 param-read-guard 实测同步 ENGINE_READ（24 项漂移清零）——
+//   ① 字段级：righteousFace 补 healPerAttack（蓄力改版后每次命中回血）；youngBlood 换 dmgMultiplier →
+//      dmgMultMax/dmgMultMin/dmgMultStep（年轻气盛改波动倍率，旧字段已无读取点）；
+//      spiderFly 补 landHealRatio/landHealRatioDeath/eggDef/eggHatchHpRatio（cfa2e10 落地回血档位+结茧参数）。
+//   ② 整键补登 14 个（引擎真读、表里从来没有）：eagleEye/qiShangQuan/huiChunShu/chongCi/tongGuiYuJin/
+//      jiuYangQuan/hanBingShenZhang/xuLi/dianXueShenTong/dianXueJieMai/xianJi/yingZhuaGong/yingWangWeiYa/
+//      laoDangYiZhuang——调用点已逐一验证在活函数里（寒离飒/殷天正/杨逍/唐文亮精英模块 + core/03）。
+//   ③ 新增 ENGINE_READ_MANUAL 人工补充表：spiderFly.hpThresholds 系「params 作参数传进 decideSpiderTier」
+//      的读取形态，超出扫描器块作用域分析（误报「表陈旧」），已追调用链证实，登记在案而非删表。
 // V2.7.1 | 2026-10-12 箭靶乘区改档同步：targetMark 词表 selfMult→carrierMult（何太冲或搭档 ×1.3、其他队友 ×1.1）
 // V2.7.0 | 预估 44000 bytes | 2026-10-12 何太冲重做 V3 后同步 ENGINE_READ：新增 targetMark:[rounds,allyMult,selfMult]、
 //   redBlood:[thresholdPct,soloMult]（旧 chainArrow/armorPierce/kunlunCombo 已随技能删除、无登记）；顺带修 4 项旧漂移——
