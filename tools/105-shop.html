@@ -4,10 +4,10 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.5.1
-  预估字节数：约 67 KB
-  日期：2026-10-17
-  改动：修复未解锁（灰）卡片无法点开图鉴——补卡片点击监听与可点击样式，加「点击查看图鉴」提示
+  版本：V2.6.0
+  预估字节数：约 68 KB
+  日期：2026-10-18
+  改动：角色卡按档位配色「弱精英蓝 / 强精英紫 / boss 金」——对齐战斗格子名字分档（m≥112 金 / m≥107 紫 / m≥104 蓝）
 -->
 <html lang="zh-CN">
 <head>
@@ -95,6 +95,13 @@
         .hero-role { font-size: 0.7rem; color: #888; margin: 2px 0 4px; }
         .hero-stats { font-size: 0.72rem; color: #ccc; }
         .hero-stats span { margin-right: 10px; }
+        /* 2026-10-18 角色档位配色：弱精英蓝 / 强精英紫 / boss 金（对齐战斗格子名字分档 m≥104/107/112） */
+        .hero-card.tier-blue   { border-color: #4a9ee0; }
+        .hero-card.tier-purple { border-color: #b06ee0; }
+        .hero-card.tier-gold   { border-color: #ffd700; }
+        .hero-card.tier-blue   .hero-name { color: #4a9ee0; }
+        .hero-card.tier-purple .hero-name { color: #b06ee0; }
+        .hero-card.tier-gold   .hero-name { color: #ffd700; }
 
         /* 商品行 */
         .shop-item {
@@ -811,6 +818,11 @@ function renderDiscount() {
         ' <span class="dim">（买完即恢复原价，每日刷新）</span>';
 }
 
+// 2026-10-18 角色档位（对齐 render/32「黑蓝紫金」名字分档）：m≥112 boss 金 / m≥107 强精英紫 / m≥104 弱精英蓝
+function tierOf(m) {
+    return m >= 112 ? 'gold' : m >= 107 ? 'purple' : m >= 104 ? 'blue' : 'normal';
+}
+
 function renderHeroes() {
     const list = document.getElementById('heroList');
     list.innerHTML = '';
@@ -827,10 +839,11 @@ function renderHeroes() {
             const meta = HERO_META[name];
             const info = SKILL_DB[name] || { icon: '❓' };
             const entry = findEntry(name);
+            const tierCls = ' tier-' + tierOf(meta.baseM);
             const card = document.createElement('div');
 
             if (entry) {
-                card.className = 'hero-card unlocked';
+                card.className = 'hero-card unlocked' + tierCls;
                 card.innerHTML =
                     '<div class="hero-avatar">' + info.icon + '</div>' +
                     '<div class="hero-info">' +
@@ -849,7 +862,7 @@ function renderHeroes() {
                 });
                 card.addEventListener('click', () => showHeroModal(name));
             } else {
-                card.className = 'hero-card locked';
+                card.className = 'hero-card locked' + tierCls;
                 card.innerHTML =
                     '<div class="hero-avatar">' + info.icon + '</div>' +
                     '<div class="hero-info">' +

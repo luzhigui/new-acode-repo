@@ -172,6 +172,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.UNITY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：atk/def/maxHp 与 addMod value 同值（getRoleBonus(WARRIOR)），体检按加法增量口径核对
     [FACT_TYPES.TW_DASH_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
+    [FACT_TYPES.XIAO_ZHAO_CARRY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
 });
