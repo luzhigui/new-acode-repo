@@ -1,3 +1,9 @@
+// V2.9.11 | 2026-10-18 第 100 轮：faa6068 大拆分联动锚点重修（5 处 file 路径，from/to 文本未动）——
+//   core/12 拆 chain/edge ⇒ A11（韦一笑吸血上限提升）from 行随 weiLeech addMod 迁至
+//   core/12battle-attack-chain.js L479；render/35 拆 stat/heal 等 ⇒ T8/T9（坚盾已叠 current/cap，
+//   35-facts-stat.js L68）、T12（九阴白骨爪 fmt1 伤害，35-facts-stat.js L194）、
+//   T13（嗜血狂刀 leechVal，35-facts-heal.js L18）迁户。不修即「树内没有该行 ⇒ 变异静默失效、
+//   树木=干净树」= 假绿制造机（同 V2.9.4 拆分联动模式）。
 // V2.9.10 | 2026-10-15 第 94 轮：修 --merge-results 输出 bug（合并功能首次实际使用即暴露）——
 //   块拼接行 `[..., ...[...main.blocks.values()].join('\n'), ...]` 多写一个展开符：join 出来的大字符串被
 //   逐字符拆成数组元素，写出的结果文件整片逐字符换行 = 全损（本轮 29 棵旧结果被冲掉，靠重建树重跑恢复）。
@@ -161,7 +167,7 @@ const MUTATIONS = [
       to:   "{ source: '莽撞', value: rage.atkPerHit * 2, ttl: 'permanent', group: 'rageOnHit', op: 'add' });",
       multi: true },
     { id: 'A11', kind: 'ATTR', desc: '韦一笑吸血上限提升翻倍',
-      file: 'core/12battle-attack-steps.js',
+      file: 'core/12battle-attack-chain.js',
       from: "{ source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech',",
       to:   "{ source: '韦一笑吸血', value: delta * 2, ttl: 'permanent', group: 'weiLeech'," },
     { id: 'A12', kind: 'ATTR', desc: '性奋代价翻倍（多扣上限）',
@@ -319,16 +325,17 @@ const MUTATIONS = [
       from: "回复本次伤害${third.leechRatio * 100}%=",
       to:   "回复本次伤害${third.leechRatio * 200}%=" },
     // ===== 第 65 轮新增：验证坚盾双规则（125 计数时序 / 130 叠加超上限）真有牙，而非恒绿 =====
-    //   两条都扫渲染后战报里的「🛡️ X 坚盾：防御+N（已叠C/Y）」detail 文案（render/35 L236）。
+    //   两条都扫渲染后战报里的「🛡️ X 坚盾：防御+N（已叠C/Y）」detail 文案（render/35-facts-stat.js L68，
+//   2026-10-18 第 100 轮随 render/35 拆分由 -facts-effect.js 迁入）。
     //   污染渲染数字、引擎实际侧不动 ⇒ 规则一旦读不到异常就证明是死代码。
     //   T8：把显示 current 写死成 0 ⇒ 每场坚盾都现「已叠0/Y」⇒ rule125（已叠0/ 复发信号）应咬。
     //   T9：把显示 current 写成 cap+1 ⇒ 永远 cur>cap ⇒ rule130（X>Y 溢出信号）应咬。
     { id: 'T8', kind: 'TEXT', desc: '坚盾渲染 current 写死 0（⇒已叠0/Y → rule125 计数时序应咬）',
-      file: 'render/35-facts-effect.js',
+      file: 'render/35-facts-stat.js',
       from: "（已叠${fact.current}/${fact.cap}）",
       to:   "（已叠0/${fact.cap}）" },
     { id: 'T9', kind: 'TEXT', desc: '坚盾渲染 current 写成 cap+1（⇒已叠Y+1/Y → rule130 叠加超上限应咬）',
-      file: 'render/35-facts-effect.js',
+      file: 'render/35-facts-stat.js',
       from: "（已叠${fact.current}/${fact.cap}）",
       to:   "（已叠${fact.cap + 1}/${fact.cap}）" },
     // ===== 第 65 轮新增：验证 rule143（张无忌九阳神功回复量=12%）真有牙 =====
@@ -348,15 +355,16 @@ const MUTATIONS = [
     // T12 原为「渲染伤害×0.3 → 触发旧判据『伤害<1.5』」；2026-10-09 引擎 V6.0.8 起 fact.dmg 回填
     //   减伤后落地值（合法 <1.5），rule132 判据1 已改为「有限数且≥0」，×0.3 不再触发。
     //   改打**负数**（新判据的守卫点：Math.max(0,…) 下限被破坏）。
-    // T12：2026-10-11 第 68 轮修锚点 —— render/35 L507 爪击伤害渲染由 `造成 ${fact.dmg} 点伤害`
-    //   改为 `造成 ${fmt1(fact.dmg)} 点伤害`（fmt1 取整包裹），旧 from 0 处 ⇒ 树木=干净树（假绿制造机）。
-    //   锚点改指 `造成 ${fmt1(fact.dmg)} 点伤害`，to 取负 ⇒ 渲染出负伤害 ⇒ rule132 判据1（dmg<0）应咬。
+// T12：2026-10-11 第 68 轮修锚点 —— 爪击伤害渲染由 `造成 ${fact.dmg} 点伤害`
+//   改为 `造成 ${fmt1(fact.dmg)} 点伤害`（fmt1 取整包裹），旧 from 0 处 ⇒ 树木=干净树（假绿制造机）。
+//   锚点改指 `造成 ${fmt1(fact.dmg)} 点伤害`，to 取负 ⇒ 渲染出负伤害 ⇒ rule132 判据1（dmg<0）应咬。
+//   （2026-10-18 第 100 轮：该行随 render/35 拆分迁至 render/35-facts-stat.js L194，仅换 file 路径。）
     { id: 'T12', kind: 'TEXT', desc: '九阴白骨爪渲染伤害取负（fmt1 包裹后⇒ 落地伤害<0 → rule132 判据1 应咬）',
-      file: 'render/35-facts-effect.js',
+      file: 'render/35-facts-stat.js',
       from: "造成 ${fmt1(fact.dmg)} 点伤害",
       to:   "造成 ${fmt1(fact.dmg * -1)} 点伤害" },
     { id: 'T13', kind: 'TEXT', desc: '嗜血狂刀吸血渲染量×2（⇒ 吸血>伤害×0.85 → rule151 判据2应咬）',
-      file: 'render/35-facts-effect.js',
+      file: 'render/35-facts-heal.js',
       from: "的嗜血狂刀吸血+${fact.leechVal}",
       to:   "的嗜血狂刀吸血+${fact.leechVal * 2}" },
     { id: 'T14', kind: 'TEXT', desc: '韦一笑吸血(plusMaxHp)渲染heal×2（⇒ 吸血>伤害×maxRatio余量 → rule159 判据3应咬）',
