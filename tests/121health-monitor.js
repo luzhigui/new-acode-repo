@@ -1,3 +1,5 @@
+// V6.5.0 | ~59300 bytes | 2026-10-18 新增全局运行时错误捕获：挂 iframe window 的 error / unhandledrejection，
+//           未捕获报错（漏 import / 未定义符号）当场写入体检报告，不再依赖肉眼看控制台。
 // V6.4.4 | ~57600 bytes | 2026-10-17 修「体检页进不去」：170 规则的 import 名单误用 rule114，而该文件
 //           导出名是 rule170（按文件号）——ESM 具名导入不存在 ⇒ 121 整模块链接失败 ⇒ initMonitor 不执行、
 //           「体检入口 / 实时跟跑」按钮全无监听、点了没反应。改别名导入（rule170 as rule114，同 156 先例）。
@@ -469,6 +471,7 @@ function periodicScan() {
     const doc = getDoc();
     const ctx = getCtx();
     if (!ctx || !doc) return;
+    hookRuntimeErrors(win);   // 2026-10-18 全局运行时错误捕获：iframe 每次重载自动重挂
 
     // V5.7.8 数据源切换：currentResult 无人赋值（player 快照化移除），改读 GlobalStore 战报累积日志
     //   无条件重指向：每局 doInitBattle 换新数组，旧引用不清会跨局串日志
@@ -786,6 +789,36 @@ function recordIssue(ctx, unitUid, type, detail, source, immediate) {
     detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString() });
     updateReport();
     updateStatusLine();
+}
+
+// ==================== 全局运行时错误捕获（漏 import / 未定义符号类） ====================
+// 背景 2026-10-18：V7.0.0 拆文件期连续出现未捕获 ReferenceError（render/32 isUnitBenefitedByBuff、
+//   player/42 createRoundStepper），根因都是「搬移后漏 import / re-export 不产生本地绑定」——
+//   这类错静态查不出来（仓库无 eslint，node --check 只查语法），只在运行时炸且会中断战斗流程。
+//   故在体检侧挂全局监听：未捕获错误当场进报告，不必再靠肉眼看控制台。
+//   同一错误按 recordIssue 的 key（global|类型|详情前 60 字）去重，反复触发只记一条。
+//   source 传 '系统' 而非 'UI'：错误事件本身即确认，跳过去抖，避免真崩溃被"等三次采样"吃掉。
+let _errHookedWin = null;
+function hookRuntimeErrors(win) {
+    if (!win || win === _errHookedWin) return;
+    _errHookedWin = win;
+    try {
+        win.addEventListener('error', (ev) => {
+            // 资源加载失败（img/script 404）没有 message，不算代码错误，跳过
+            const msg = ev && (ev.message || (ev.error && ev.error.message));
+            if (!msg) return;
+            let where = '';
+            try {
+                if (ev.filename) where = ' @ ' + String(ev.filename).split('/').pop() + (ev.lineno ? ':' + ev.lineno : '');
+            } catch (e) {}
+            recordIssue(getCtx(), null, '运行时错误', msg + where, '系统');
+        });
+        win.addEventListener('unhandledrejection', (ev) => {
+            const r = ev && ev.reason;
+            if (!r) return;
+            recordIssue(getCtx(), null, '未处理异步错误', String(r.message || r), '系统');
+        });
+    } catch (e) {}
 }
 
 // 静态体检报告渲染

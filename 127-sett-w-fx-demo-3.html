@@ -1118,6 +1118,7 @@ setTimeout(()=>{
   if(mAim) APP.aimCellIndex = +mAim[1];
   const mCharge = /charge=(\d+)/.exec(h);
   const mFreeze = /freeze=(\d+)/.exec(h);
+  const mLoop = /demo=(\w+)/.exec(h);
   if(mCharge){
     /* 强制停在蓄力 NNN ms（自动松手关掉） */
     cancelAnimationFrame(raf);
@@ -1139,12 +1140,70 @@ setTimeout(()=>{
     updateHud(1);
     return;
   }
+  if(mLoop && mLoop[1]==='shakeproof'){
+    /* 打印 5 帧 .cu.transform 到 console,证明颤动在跑 */
+    cancelAnimationFrame(raf);
+    stageNew.measure(); stageOld.measure();
+    stageNew.release(1.0, APP.aimCellIndex);
+    APP.releaseLevel = 1.0;
+    APP.state = 'idle';
+    const out = [];
+    for(let frame=0; frame<5; frame++){
+      renderBurst(200 + frame*40);
+      const cells = [2,4,5,6].map(p=>{
+        const el = document.querySelector('#bfNew .cell[data-pos="'+p+'"]');
+        const cu = el && el.querySelector('.cu');
+        return 'pos'+p+': "'+(cu?cu.style.transform:'default')+'"';
+      });
+      out.push('frame '+(frame+1)+' ms='+(200+frame*40)+' → '+cells.join(' | '));
+    }
+    console.log('====== shake proof ======\n'+out.join('\n'));
+    return;
+  }
+  if(mLoop && mLoop[1]==='burstloop'){
+    /* 持续循环爆发段 0~600ms（让格子颤动 / 击退连续帧可见） */
+    cancelAnimationFrame(raf);
+    stageNew.measure(); stageOld.measure();
+    stageNew.release(1.0, APP.aimCellIndex);
+    APP.releaseLevel = 1.0;
+    APP.state = 'burst';
+    APP.burstStart = performance.now();
+    let loopStart = APP.burstStart;
+    APP.state = 'idle';
+    renderBurst(0);
+    function loop(){
+      const now = performance.now();
+      const tb = (now - loopStart) % 600;
+      renderBurst(tb);
+      updateHud(APP.releaseLevel);
+      raf = requestAnimationFrame(loop);
+    }
+    raf = requestAnimationFrame(loop);
+    const h2 = document.getElementById('hintNew');
+    if(h2) h2.textContent = '⚡ burstloop 模式：自动循环爆发段 0~600ms（看颤动）';
+    return;
+  }
   startRun(1.00);
 }, 350);
 
 /* 调试钩子：控制台直接 freeze */
 window.freezeAt = function(ms){ cancelAnimationFrame(raf); stageNew.release(1.0, APP.aimCellIndex); APP.releaseLevel=1; APP.state='idle'; renderBurst(ms); updateHud(1); };
 window.chargeAt = function(ms){ cancelAnimationFrame(raf); stageNew.measure(); APP.state='idle'; renderCharge(ms, Math.min(1,ms/CHARGE_MAX)); updateHud(Math.min(1,ms/CHARGE_MAX)); };
+window.inspectState = function(){ console.log('S.hits:', stageNew.S.hits); console.log('S.aim:', stageNew.S.aim, 'S.level:', stageNew.S.level); console.log('APP.aimCellIndex:', APP.aimCellIndex); };
+/* 抓连续 5 帧 burst 中 .cu 的 transform 证明颤动在跑 */
+window.shakeProof = function(){
+  const out = [];
+  for(let frame=0; frame<5; frame++){
+    renderBurst(200 + frame*40);   /* 200,240,280,320,360 */
+    const cells = [2,4,5,6].map(p=>{
+      const el = stageNew.S && document.querySelector('[data-pos="'+p+'"]');
+      const cu = el && el.querySelector('.cu');
+      return p+': '+(cu?cu.style.transform:'default');
+    });
+    out.push('frame '+(frame+1)+' ms='+(200+frame*40)+': '+cells.join(' | '));
+  }
+  console.log(out.join('\n'));
+};
 </script>
 </body>
 </html>
