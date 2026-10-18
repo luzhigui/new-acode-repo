@@ -1,9 +1,11 @@
 // modules/27elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
+// V1.2.0 | ~13520 bytes | 2026-10-18 雄狮振奋补头顶弹幕 🦁雄狮振奋！（pushSkillAnnounce + line:false，
+//           复用 SKILL_ANNOUNCE → SKILL_FLOAT 通道；此前只有战报行、无任何飘字）
 // V1.1.0 | ~13200 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；幼狮召唤即打 state._lionOwnerUid=召唤者 uid，
 //           成长/振奋/随动按归属过滤——双谢逊各管各的狮子，防重复成长 RNG 双消耗/双倍振奋/双份随动
 // V1.0.0 | ~12826 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-xiexun.js V1.1.0';
+export const VER = 'modules/27elite-mingjiao-xiexun.js V1.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnUnit } from '../core/05battle-horse.js';
@@ -11,7 +13,7 @@ import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
-import { pushInfo } from './23elite-helpers.js';
+import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
 export function createXieXunComponent() {
     return {
         name: '金毛狮王谢逊',
@@ -116,6 +118,9 @@ export function createXieXunComponent() {
                 //   （随动出手的演出被 isLinkAttack 延后 1400ms、苦练延后 1200ms），看起来像「母狮出手反而吼」。
                 //   现由 render/39 的 ATTACK 演出在雄狮真正出手的那一帧发 LION_ROAR + ATK_BUFF_FLOAT。
                 pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${gain}</span>`);
+                // 2026-10-18 头顶弹幕：雄狮振奋此前只有战报行、无飘字（母狮随动那侧靠 lionFollow 徽章，
+                //   振奋本身没有任何飘字）。补 🦁 挂雄狮头顶；line:false —— 战报行已由上方 pushInfo 承担
+                pushSkillAnnounce(data.log, lion, '雄狮振奋', `🦁 雄狮振奋！己方全体攻 +${gain}`, { line: false, floatText: '🦁雄狮振奋！', floatUid: lion.uid });
             });
 
             // ④ 母狮·随动：母狮命中后，其他雄狮/母狮与谢逊各随动攻击一次，打母狮同一个目标。

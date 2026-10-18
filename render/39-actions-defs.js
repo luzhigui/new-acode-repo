@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.5.2 | ~31820 bytes | 2026-10-18 被动出手徽章补三条 reason（⚡连击/🗡️嗜血/🕷️双击），并把映射提到顶层去重
+//   （原先 ATTACK/MISS/DODGE 三处各内联一份，加新 reason 要改三遍）
 // V1.5.1 | 2026-10-16 苦练蓄力特效补漏：MISS/DODGE 出手帧也发 FX_SIGNALS.KULIAN——宋青书打空或被闪避
 //   （含闪避反击）时 💪 不再整段消失。原先唯一发信点在 ATTACK 动作 fx，命中判定 skipped 时无 ATTACK 动作
 // V1.5.0 | 2026-10-16 被动出手徽章：ATTACK/MISS/DODGE 出手帧按 linkReason 发头顶飘字（⚔️反击！/👣跟随/🦁随动/
@@ -18,7 +20,16 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.1';
+export const VER = 'render/39-actions-defs.js V1.5.2';
+
+// 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
+//   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
+//   2026-10-18：提到顶层去重（原先三处各内联一份），并补「连击/嗜血/双击」三条 link 系 reason。
+const LINK_FX_TEXT = {
+    counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动',
+    xuanmingLink: '☯️联动', chaseAttack: '⚡追击',
+    doubleStrike: '⚡连击！', bloodthirst: '🗡️嗜血！', xiaoZhaoDoubleMiss: '🕷️双击！'
+};
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -52,7 +63,6 @@ export const STAGE_ACTION_DEFS = {
             // 飞撞/箭矢/台词弹幕（统一由 fx/88 的 _triggerFX 消费）
             // 2026-10-16 被动出手徽章：反击/跟随/随动/联动/追击出手前头顶飘字，一眼区分普攻。
             //   联动类先飘再等 1400ms（等待期正好展示）；追击等非联动类让开灭绝计数飘字 300ms 再飘
-            const LINK_FX_TEXT = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' };
             if (attacker && action.linkReason && LINK_FX_TEXT[action.linkReason]) {
                 const badge = { unit: attacker, text: LINK_FX_TEXT[action.linkReason] };
                 if (action.isLinkAttack) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, badge);
@@ -163,7 +173,7 @@ export const STAGE_ACTION_DEFS = {
             }
             // 2026-10-16 被动出手徽章：反击/跟随被闪避也认得出（锚在攻击者头顶）
             if (attacker && action.linkReason) {
-                const t = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' }[action.linkReason];
+                const t = LINK_FX_TEXT[action.linkReason];
                 if (t) clock.wait(300).then(() => eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit: attacker, text: t }));
             }
             if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
@@ -372,7 +382,7 @@ export const STAGE_ACTION_DEFS = {
             }
             // 2026-10-16 被动出手徽章：反击/跟随打空也认得出（锚在攻击者头顶）
             if (attacker && action.linkReason) {
-                const t = { counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动', xuanmingLink: '☯️联动', chaseAttack: '⚡追击' }[action.linkReason];
+                const t = LINK_FX_TEXT[action.linkReason];
                 if (t) clock.wait(300).then(() => eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit: attacker, text: t }));
             }
             if (attacker && !GlobalStore.get('fastForwardActive')) {

@@ -1,13 +1,15 @@
 // modules/27elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
+// V1.2.0 | ~7260 bytes | 2026-10-18 鹰王威压补头顶弹幕「第二段」：反击命中后除战报行外，再飘一记
+//           📉鹰王威压！（pushSkillAnnounce + line:false，复用 SKILL_ANNOUNCE → SKILL_FLOAT 通道）
 // V1.1.0 | ~7000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；反击/威压/成长判定原按单位引用比较，self 化后双殷天正各认各的
 // V1.0.0 | ~6880 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-yintianzheng.js V1.1.0';
+export const VER = 'modules/27elite-mingjiao-yintianzheng.js V1.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, addMod } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES } from '../infra/56-battle-enums.js';
-import { pushInfo } from './23elite-helpers.js';
+import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
 export function createYinTianZhengComponent() {
     return {
         name: '殷天正',
@@ -36,6 +38,11 @@ export function createYinTianZhengComponent() {
                 addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', group: 'yingWangWeiYa' });
                 addMod(t, 'def', { source: '鹰王威压', value: -weiya.defDown, op: 'add', group: 'yingWangWeiYa' });
                 pushInfo(data, `<span class="gold">🦅 殷天正鹰王威压：${t.name} 攻 −${weiya.atkDown}、防 −${weiya.defDown}（永久累积）</span>`);
+                // 2026-10-18 头顶弹幕「第二段」：反击那一记已有 ⚔️反击！ 徽章（core/10 reason 链路），
+                //   此处补「鹰王威压」飘字，让「先反击、命中后再压」两段式一眼可见。
+                //   line:false —— 战报行已由上方 pushInfo 承担，此处只走头顶飘字不重复落行
+                pushSkillAnnounce(data.log, yin, '鹰王威压', `📉 鹰王威压！${t.name} 攻 −${weiya.atkDown}·防 −${weiya.defDown}`,
+                    { line: false, floatText: '📉鹰王威压！', floatUid: yin.uid });
             });
 
             // ① 鹰爪功反击：被攻击后 prob 概率反击攻击者，伤害×dmgRatio，可被闪避
