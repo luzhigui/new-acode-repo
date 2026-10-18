@@ -131,6 +131,8 @@ function getNextAvailableUnit(team) {
 
 function swapUnitPositions(unitA, unitB, log) {
     if (!unitA || !unitB) return;
+    // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
+    if ((unitA.state && unitA.state._ctrlImmune) || (unitB.state && unitB.state._ctrlImmune)) return;
     const posA = unitA.pos;
     const posB = unitB.pos;
     unitA.pos = posB;
@@ -160,6 +162,8 @@ function moveUnitPosition(unit, newPos, log) {
 // team 必须是目标自己那一队（换位/落点判断都在本队内找）。
 function resolvePushOrStun(target, team, log, label) {
     if (!target || !target.alive) return;
+    // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
+    if (target.state && target.state._ctrlImmune) return;
     const behindPos = target.pos + 3;
     const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
     const behindBlockedByAir = behindPos <= 9 && team.some(u => u.alive && u.pos === behindPos && isAirborne(u));

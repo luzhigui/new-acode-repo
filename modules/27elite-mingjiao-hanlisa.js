@@ -1,17 +1,21 @@
 // modules/27elite-mingjiao-hanlisa.js — 明教精英「寒离飒」：战士 · 弱精英 M107（与韦一笑同池）· 恒定 2 号位
 //   ① 九阳神拳 / ② 寒冰神掌：每次普攻独立掷 50/50 —— 出九阳则回复自身最大生命 12%（同张无忌），
 //      否则出寒冰神掌给被打目标挂寒毒（3 回合 4%→2%→1% 最大生命，同鹿杖客）；同一种可连续出，不锁
-//   ③ 蓄力：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 20% 最大生命护盾并蓄力；
-//      下一回合跳过行动，结算时对敌方 4/6/7/9 各造成「对该目标单独算一次普攻伤害 ÷ 2」、
-//      2/5/8 造成真伤 = 最近三回合自身承受总伤害（按原始 dmg 累加）；结算完复原普攻循环，并把两个标记清零
-//      —— 蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
+//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 20% 最大生命护盾并蓄力；下一回合跳过行动，
+//      蓄力回合结束（落在下一步回合开始结算）轰出蓄意轰拳，基数 N = 最近三回合自身承受总伤害：
+//      玩家瞄准敌方一格按九位九形取格——目标格 N/2、相邻格 N/4、更远格 N/6（全部真伤）；不瞄=全屏 123 各 N/3、456 各 N/4、789 各 N/5；
+//      瞄 8 特例：8 吃 N/2 且被轰穿中列落 2 号位撞边眩晕，途经 2/5 被崩向两侧（一左一右）；轰完吸血 = 总伤害 1/3。
+//      瞄准由 player/42 回合末交互写 _hlsAim（华丽模式黑幕按住-拖-松手），否则本处随机前排兜底；
+//      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
+//      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V1.3.1';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.0.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
-import { getBattleRng, recordHpAudit, getStat } from '../core/13battle-shared.js';
-import { calcDamage } from '../infra/51-core-utils.js';
+import { getFronts } from '../core/03battle-utils.js';
+import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
+import { emitStateChange } from '../infra/59-state-change.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
 
@@ -21,6 +25,11 @@ export function createHanLiSaComponent() {
         register(eventBus, A, B, log) {
             const hls = [...A, ...B].find(u => u.isHanLiSa && u.alive);
             if (!hls) return;
+
+            // 2026-10-19 控制位移免疫·开局常驻（老板口径：被闪避反击/击退/换位只掉血不动窝；守卫在 core/12+13）
+            hls.state._ctrlImmune = true;
+            // 蓄意轰拳爆发序号（fx/93 引擎直发与回放桥重放按 seq 去重）
+            let burstSeq = 0;
 
             const jy = getSkillParams('寒离飒', 'jiuYangQuan');
             if (!jy) throw new Error('缺技能参数: 寒离飒.jiuYangQuan');
@@ -124,7 +133,7 @@ export function createHanLiSaComponent() {
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
 
-                // 蓄力结算（下回合结束时 → 落在下一步的回合开始，战报紧接上回合末）
+                // 蓄意轰拳结算（蓄力回合结束 → 落在下一步的回合开始，战报紧接上回合末；2026-10-19 V2 老板六点口径）
                 if ((hls.state._hlsCharging || 0) === 2) {
                     hls.state._hlsCharging = 0;
                     // 蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
@@ -134,31 +143,125 @@ export function createHanLiSaComponent() {
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-                        const trueDmg = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
-                        const halfRatio = xl.halfRatio ?? 0.5;
-                        const atk = getStat(hls, 'atk');
-                        const HIT_POS = [4, 6, 7, 9], TRUE_POS = [2, 5, 8];
-                        const lines = [];
-                        const trueUids = [], halfUids = [];
-                        enemies.forEach(u => {
-                            if (!u.alive) return;
-                            if (HIT_POS.includes(u.pos)) {
-                                // 半伤：对每个目标各算一次普攻伤害（含其防御）再取半
-                                const half = Math.floor(calcDamage(atk, getStat(u, 'def')) * halfRatio);
-                                if (half <= 0) return;
-                                data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -half, target: u, source: hls, reason: '蓄力·扇形' });
-                                lines.push(`${u.name} −${half}`);
-                                halfUids.push(u.uid);
-                            } else if (TRUE_POS.includes(u.pos) && trueDmg > 0) {
-                                data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -trueDmg, target: u, source: hls, reason: '蓄力·真伤' });
-                                lines.push(`${u.name} −${trueDmg}（真伤）`);
-                                trueUids.push(u.uid);
+                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
+
+                        // —— 瞄准位：player/42 回合末交互写入优先（华丽模式按住-拖-松手）；
+                        //    没写 = 简单模式/全自动/快进/AI → 本处随机前排兜底（getBattleRng 保基线可复现）——
+                        let aim = 0;
+                        if (hls.state._hlsAimChosen) {
+                            aim = Math.min(9, Math.max(0, hls.state._hlsAim | 0));
+                        } else {
+                            const fronts = getFronts(enemies);
+                            if (fronts.length > 0) aim = fronts[getBattleRng().nextInt(0, fronts.length - 1)].pos;
+                        }
+                        hls.state._hlsAimChosen = false;
+                        hls.state._hlsAim = 0;
+                        hls.state._hlsAimHoldMs = 0; // 蓄力时长暂不影响伤害（口子留给未来 N1）
+
+                        // —— 取格分档：九位九形（131 demo 老板定稿）+ 全屏兜底；档位=基数 N 的分母 ——
+                        const tierOf = (a, p) => {
+                            const r1 = Math.ceil(a / 3), c1 = a - (r1 - 1) * 3;
+                            const r2 = Math.ceil(p / 3), c2 = p - (r2 - 1) * 3;
+                            const d = Math.abs(r1 - r2) + Math.abs(c1 - c2);
+                            return d <= 0 ? 'direct' : (d === 1 ? 'near' : 'far');
+                        };
+                        const shapes = xl.hitShapes || {};
+                        let cells;
+                        if (aim >= 1 && aim <= 9 && Array.isArray(shapes[String(aim)])) {
+                            const den = xl.tierDen || { direct: 2, near: 4, far: 6 };
+                            const eightDen = xl.eightDen ?? 3;
+                            cells = shapes[String(aim)].map(p => ({
+                                pos: p,
+                                tier: (aim === 8 && p !== 8) ? 'eight' : tierOf(aim, p),
+                                den: (aim === 8 && p !== 8) ? eightDen : (den[tierOf(aim, p)] ?? 6)
+                            }));
+                        } else {
+                            const fd = xl.fullDen || { row123: 3, row456: 4, row789: 5 };
+                            cells = [[1, 2, 3, fd.row123, 'full123'], [4, 5, 6, fd.row456, 'full456'], [7, 8, 9, fd.row789, 'full789']]
+                                .flatMap(([a, b, c, d, t]) => [a, b, c].map(p => ({ pos: p, tier: t, den: d })));
+                        }
+
+                        // —— 真伤声明（ROUND_STAT_GRANT：不吃防不吃闪避，与旧 2/5/8 真伤同通道）——
+                        const lines = [], hits = [], bounces = [];
+                        let flight = null, totalDealt = 0;
+                        if (N > 0) {
+                            cells.forEach(cell => {
+                                const u = enemies.find(e => e.alive && e.pos === cell.pos);
+                                if (!u) return;
+                                const dmg = Math.floor(N / cell.den);
+                                if (dmg <= 0) return;
+                                data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dmg, target: u, source: hls, reason: '蓄意轰拳·真伤' });
+                                lines.push(`${u.name} −${dmg}（真伤）`);
+                                hits.push({ uid: u.uid, pos: cell.pos, dmg, tier: cell.tier });
+                                totalDealt += dmg;
+                            });
+                        }
+
+                        // —— 瞄 8 特例：8 号被轰穿中列、落 2 号位（战场边缘）撞晕；途经 5/2 有人则崩向两侧（一左一右）——
+                        if (aim === 8 && N > 0) {
+                            const victim = enemies.find(e => e.alive && e.pos === 8);
+                            if (victim) {
+                                const SIDE_L = { 5: 4, 2: 1 }, SIDE_R = { 5: 6, 2: 3 };
+                                const u5 = enemies.find(e => e.alive && e.pos === 5 && e !== victim);
+                                const u2 = enemies.find(e => e.alive && e.pos === 2 && e !== victim);
+                                let dir5 = null, dir2 = null;
+                                if (u5 && u2) { // 两人都在：一左一右（老板 05:07 定稿）
+                                    const r = getBattleRng().nextInt(0, 1);
+                                    dir5 = r === 0 ? 'L' : 'R'; dir2 = r === 0 ? 'R' : 'L';
+                                } else if (u5) { dir5 = getBattleRng().nextInt(0, 1) === 0 ? 'L' : 'R'; }
+                                else if (u2) { dir2 = getBattleRng().nextInt(0, 1) === 0 ? 'L' : 'R'; }
+                                // 崩飞落点：优先两侧（按一左一右方向），两侧皆满则环形顺延（拒马蛛规矩；2 号位留给 8 号落）
+                                const bounceTo = (from, dir) => {
+                                    const order = dir === 'R' ? [SIDE_R[from], SIDE_L[from]] : [SIDE_L[from], SIDE_R[from]];
+                                    for (const p of order) if (p >= 1 && p <= 9 && !enemies.some(e => e.alive && e.pos === p)) return p;
+                                    for (const p of [1, 3, 4, 6, 7, 9]) if (!enemies.some(e => e.alive && e.pos === p)) return p;
+                                    return null; // 满员：原地不动
+                                };
+                                const doBounce = (u, from, dir) => {
+                                    if (!u) return;
+                                    const p = bounceTo(from, dir);
+                                    if (p == null || p === from) return;
+                                    moveUnitPosition(u, p, data.log);
+                                    data.log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label: '蓄意轰拳·崩飞', target: { uid: u.uid, name: u.name }, behindUnit: null, oldPos: from, behindPos: p } });
+                                    bounces.push({ uid: u.uid, from, to: p });
+                                };
+                                doBounce(u5, 5, dir5);
+                                doBounce(u2, 2, dir2);
+                                // 8 号本体：落 2 号位（撞战场边缘眩晕）；2 被占死不让位则退落最近空格，仍晕
+                                let land = null;
+                                if (!enemies.some(e => e.alive && e.pos === 2 && e !== victim)) land = 2;
+                                else { for (const p of [5, 4, 6, 1, 3, 7, 9]) if (!enemies.some(e => e.alive && e.pos === p)) { land = p; break; } }
+                                if (land != null && land !== 8) {
+                                    moveUnitPosition(victim, land, data.log);
+                                    data.log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label: '蓄意轰拳·轰飞', target: { uid: victim.uid, name: victim.name }, behindUnit: null, oldPos: 8, behindPos: land } });
+                                    victim.state._stunned = true;
+                                    emitEvent(victim, UNIT_EVENT_TYPES.HP_CHANGE, { hp: victim.hp, maxHp: victim.maxHp, alive: victim.alive, _stunned: true });
+                                    emitStateChange(victim, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
+                                    data.log.push({ factType: FACT_TYPES.PUSH_STUN, data: { label: '蓄意轰拳', target: { uid: victim.uid, name: victim.name }, pos: land } });
+                                    flight = { uid: victim.uid, from: 8, to: land };
+                                }
                             }
-                        });
-                        announce(data, `💥 ${hls.name} 蓄力爆发${lines.length ? '：' + lines.join('、') : '（范围内无目标）'}`);
-                        // 蓄力轰拳爆发视觉：发信交 fx/93（fx/89 订阅；快进由 fx 侧拦）
-                        if (trueUids.length || halfUids.length) {
-                            eventBus.emit(FX_SIGNALS.HANLISA_BURST, { unit: hls, trueUids, halfUids, taken: trueDmg });
+                        }
+
+                        // —— 吸血 = 总伤害 1/3（封顶缺失生命；正向 ROUND_STAT_GRANT 走 applyStatChange 治疗语义，吃截脉打折）——
+                        let vamp = 0;
+                        const vampDiv = xl.vampDiv ?? 3;
+                        if (totalDealt > 0 && vampDiv > 0) {
+                            vamp = Math.min(Math.floor(totalDealt / vampDiv), Math.max(0, hls.maxHp - hls.hp));
+                            if (vamp > 0) {
+                                data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: vamp, target: hls, source: hls, reason: '蓄意轰拳·吸血' });
+                                recordHpAudit(hls, 'hlsVamp', vamp, '蓄意轰拳吸血');
+                            }
+                        }
+
+                        // —— 战报 + 爆发视觉（载荷全可序列化：回放/从机经 SKILL_ANNOUNCE 桥重放，fx/93 按 seq 去重）——
+                        const isFull = aim < 1 || aim > 9 || !Array.isArray(shapes[String(aim)]);
+                        const aimLabel = isFull ? '【全屏】' : `【瞄准 ${aim} 号位】`;
+                        const burstPayload = { seq: ++burstSeq, apexUid: hls.uid, aim, taken: N, hits, flight, bounces, vamp };
+                        pushSkillAnnounce(data.log, hls, '蓄意轰拳', `💥 ${hls.name} 蓄意轰拳${aimLabel}${lines.length ? '：' + lines.join('、') : (N > 0 ? '（范围内无目标）' : '（能量不足，未能轰出）')}${vamp > 0 ? `；轰拳吸血 +${vamp}` : ''}`, { hlsBurst: burstPayload });
+                        // 爆发视觉：发信交 fx/93（fx/89 订阅；快进由 fx 侧拦）——回放/从机由 render/38 播报桥按同 seq 补发
+                        if (hits.length || flight || bounces.length) {
+                            eventBus.emit(FX_SIGNALS.HANLISA_BURST, burstPayload);
                         }
                         // 蓄力结束护盾消散
                         hls.state._shield = 0;

@@ -108,6 +108,8 @@ export const ALL_PROJECT_FILES = [
     '../ui/75net-session.js', '../ui/76replay-entry.js',
     // 2026-10-14 补登记 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者；漏登则包内引用断裂）
     '../ui/77speed-controls.js', '../ui/78button-state.js',
+    // 2026-10-19 补登记 79：蓄意轰拳瞄准黑幕（ui/65 已 import；漏登则包内引用断裂）
+    '../ui/79hanlisa-aim.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',

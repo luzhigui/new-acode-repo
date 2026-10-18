@@ -24,7 +24,7 @@ import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
 import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
-import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection } from './49battle-flow.js';
+import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAim } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
 import { speakVictory } from '../modules/31voice-commentary.js';
@@ -158,6 +158,9 @@ export async function playBattle() {
         }
 
         await handleFlyDirection(c, lastStep, battleState.round);
+        // 2026-10-19 蓄意轰拳：蓄力到期时在回合结束处强停全屏，黑幕按住-拖-松手选瞄准位（华丽模式专属；
+        //   简单/全自动/快进不弹，由 modules/27 结算随机前排兜底）
+        await handleHanlisaAim(c, battleState);
 
         const uiXiaoZhao = c.store ? c.store.getState().units.find(u => u.isXiaoZhaoBrother) : null;
         if (uiXiaoZhao && uiXiaoZhao.state._permanentBuffs && lastStep && lastStep.ally) {

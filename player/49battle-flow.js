@@ -129,3 +129,39 @@ export async function handleFlyDirection(c, lastStep, currentRound) {
     lastStep.ally._flyDirection = direction;
     c.isPaused = false;
 }
+
+// 蓄意轰拳瞄准（回合结束后、下一回合开始前调用；2026-10-19 老板六点口径）：
+//   寒离飒蓄力到期（_hlsCharging===2）且由本地玩家操控（明教侧）且华丽模式且非全自动/快进 →
+//   黑幕蒙太奇按住-拖-松手选瞄准位，结果写回引擎态 _hlsAim（0=全屏）；
+//   其余情况（简单模式/全自动/快进/AI/回放/从机）一概不弹，由 modules/27 结算时随机前排兜底。
+//   按住时长 holdMs 只记账不生效——口子留给未来「按蓄力时长定 N1」。
+export async function handleHanlisaAim(c, battleState) {
+    try {
+        const teams = [];
+        if (battleState && Array.isArray(battleState.ally)) teams.push(battleState.ally);
+        if (battleState && Array.isArray(battleState.enemy)) teams.push(battleState.enemy);
+        const hls = teams.flat().find(u => u && u.isHanLiSa && u.alive && u.state && u.state._hlsCharging === 2);
+        if (!hls) return;
+        const interactive = hls.camp === CAMP_TYPES.ALLY
+            && !!c.dodgeEffectEnabled
+            && !GlobalStore.get('fastForwardActive')
+            && c.autoLevel !== 'full-auto'
+            && GlobalStore.get('autoLevel') !== 'full-auto';
+        if (!interactive) return; // 引擎侧结算自动随机前排（modules/27 兜底）
+        const showAim = GlobalStore.getUIHandler('showHanlisaAim');
+        if (typeof showAim !== 'function') return; // UI 未挂（异常环境）→ 引擎兜底
+        const enemyTeam = hls.camp === CAMP_TYPES.ALLY ? battleState.enemy : battleState.ally;
+        const occupied = (enemyTeam || []).filter(u => u && u.alive && u.pos >= 1 && u.pos <= 9).map(u => u.pos);
+        c.isPaused = true;
+        const choice = await new Promise(resolve => { showAim(c, hls, occupied, resolve); });
+        c.isPaused = false;
+        if (choice && typeof choice === 'object') {
+            hls.state._hlsAimChosen = true;
+            hls.state._hlsAim = Math.min(9, Math.max(0, choice.aim | 0));
+            hls.state._hlsAimHoldMs = Math.max(0, choice.holdMs | 0);
+        }
+    } catch (e) {
+        try { c.isPaused = false; } catch (_) { /* noop */ }
+        console.warn('[蓄意轰拳] 瞄准交互异常，走引擎自动兜底', e);
+    }
+}

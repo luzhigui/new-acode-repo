@@ -184,6 +184,15 @@ function translateSkillAnnounce(data, index) {
         }
         return acts;
     }
+    // 2026-10-19 蓄意轰拳：播报载荷带 hlsBurst → 补一条 HANLISA_BURST 舞台动作（回放/从机没有引擎直发，
+    //   靠这里补触发 fx/93；主机单机两条都到时 fx/93 按 seq 去重，取先到者）
+    if (data.hlsBurst && data.hlsBurst.apexUid != null) {
+        const acts = [{ kind: STAGE_ACTION_TYPES.HANLISA_BURST, actorUid: data.hlsBurst.apexUid, hlsBurst: data.hlsBurst, factIndex: index, timing: 'afterText' }];
+        if (data.floatText && data.floatUid != null) {
+            acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
+        }
+        return acts;
+    }
     if (!data.floatText || data.floatUid == null) return null;
     return {
         kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
