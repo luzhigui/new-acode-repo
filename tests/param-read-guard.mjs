@@ -40,7 +40,7 @@ export const VER = 'tests/param-read-guard.mjs V1.2.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE, ENGINE_READ_ORPHAN } from '../tools/124-param-lab-glossary.js';
+import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE, ENGINE_READ_ORPHAN, ENGINE_READ_MANUAL } from '../tools/124-param-lab-glossary.js';
 
 const ROOTS = ['../core/', '../modules/', '../render/'];
 
@@ -290,8 +290,12 @@ async function main() {
             continue;
         }
         const tf = ENGINE_READ[k] || [];
+        // ENGINE_READ_MANUAL：引擎真读但扫描器看不见的字段（params 作参数传进 helper 的形态），
+        //   已人工追调用链证实——比对时按「扫描结果 ∪ 人工补充」算，避免把真读误报成「表陈旧」。
+        const manual = ENGINE_READ_MANUAL[k] || [];
+        const eff = new Set([...s.fields, ...manual]);
         for (const t of tf) {
-            if (![...s.fields].some(f => f === t || f.startsWith(t + '.'))) problems.push({ kind: 'stale-field', key: k, field: t });
+            if (![...eff].some(f => f === t || f.startsWith(t + '.'))) problems.push({ kind: 'stale-field', key: k, field: t });
         }
         for (const f of s.fields) {
             if (!tf.some(t => f === t || f.startsWith(t + '.'))) problems.push({ kind: 'missing-field', key: k, field: f });
@@ -308,7 +312,7 @@ async function main() {
 
     console.log('=== skills.params 引擎真读字段 · 漂移守卫 ===');
     console.log(`扫描 core/ modules/ render/：${fileCount} 文件；命中 getSkillParams 的文件 ${scanned.length} 个；技能键 ${acc.size} 个`);
-    console.log(`登记表：ENGINE_READ ${Object.keys(ENGINE_READ).length} 键 · DYNAMIC ${ENGINE_READ_DYNAMIC.size} 键 · NONE ${ENGINE_READ_NONE.size} 键 · 孤儿登记 ${orphanKeys.size} 项`);
+    console.log(`登记表：ENGINE_READ ${Object.keys(ENGINE_READ).length} 键 · DYNAMIC ${ENGINE_READ_DYNAMIC.size} 键 · NONE ${ENGINE_READ_NONE.size} 键 · 孤儿登记 ${orphanKeys.size} 项 · 人工补充 ${Object.keys(ENGINE_READ_MANUAL).length} 键`);
 
     const descProblems = await checkDescTruthDrift();
 
