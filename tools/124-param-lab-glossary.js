@@ -118,8 +118,8 @@ export { UNIT };
 //   挪到下面的 ENGINE_READ_ORPHAN（孤儿登记），供守卫双向对齐，不假装它不存在。
 export const ENGINE_READ = {
     rageOnHit:       ['atkPerHit'],
-    righteousFace:   ['defGain'],
-    youngBlood:      ['dmgMultiplier'],
+    righteousFace:   ['defGain', 'healPerAttack'],
+    youngBlood:      ['dmgMultMax', 'dmgMultMin', 'dmgMultStep'],
     counterAttack:   ['prob', 'dmgRatio'],
     normalAttack:    ['dmgMultiplier'],
     chaseAttack:     ['prob', 'dmgMultiplier'],
@@ -136,10 +136,37 @@ export const ENGINE_READ = {
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunDerived:  ['defToReduce', 'defToHeal', 'defToAtk'],
     nearSwitch:      ['atkMul', 'defMul', 'maxHpMul'],
-    spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance', 'hpThresholds'],
+    spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance', 'hpThresholds', 'landHealRatio', 'landHealRatioDeath', 'eggDef', 'eggHatchHpRatio'],
     butterflyAttach: ['atkRatioRight', 'defRatioLeft', 'hpRatio'],
     spiderStrike:    ['extraDmgMap'],
     mastery:         ['atkPer', 'defPer', 'hpPer'],
+    eagleEye:        ['missReduce'],
+    qiShangQuan:     ['lowHpThreshold', 'dmgBonus', 'lowHpExtra', 'minSelfDmg', 'selfHpPct'],
+    huiChunShu:      ['rounds', 'chance', 'lowHpThreshold', 'lostHpPctLow', 'lostHpPct'],
+    chongCi:         ['dmgRatio', 'selfDmgRatio', 'cycle'],
+    tongGuiYuJin:    ['reflectRatio'],
+    jiuYangQuan:     ['prob', 'healPct'],
+    hanBingShenZhang:['duration', 'dotPercents'],
+    xuLi:            ['shieldPct', 'halfRatio'],
+    dianXueShenTong: ['prob', 'cdRounds', 'allActedDmgRatio'],
+    dianXueJieMai:   ['rounds', 'healReduceRatio'],
+    xianJi:          ['jumpProb'],
+    yingZhuaGong:    ['counterProb', 'dmgRatio'],
+    yingWangWeiYa:   ['atkDown', 'defDown'],
+    laoDangYiZhuang: ['atkGain', 'defGain', 'probGain'],
+};
+
+// 人工补充登记（2026-10-18 第 101 轮建）：**引擎真读、但 param-read-guard 的源码扫描器看不见**的字段。
+//   扫描器只认两种形态：① `getSkillParams(...)` 后直接链式取字段；② 同一语句块内 `const x = getSkillParams(...)`
+//   再 `x.field`。第三种形态——**把 params 当参数传进helper函数、在helper体内读**——超出其块作用域分析，
+//   会被误报「表陈旧」。已逐案人工追溯调用链确认真读的，登记在此；守卫比对时按「扫描结果 ∪ 本表」计算。
+//   登记义务：每条必须能在注释里给出「读取点文件:行 + 传递链」；传递链断了（helper 改名/删参）要同步删。
+// 现有一条：
+//   spiderFly.hpThresholds —— modules/27elite-mingjiao-xiaozhao-brother.js L161/L320 `const fp = getSkillParams('小昭','spiderFly')`
+//     → L164/L324 `decideSpiderTier(..., fp)` → L25-26 `fp.hpThresholds[0]/[1]` 当飞天血量阈值（0.7/0.4）。
+//     （cfa2e10 小昭重写前是块内直读，V2.5.1 曾按直读登记；重写后改为参数传递，扫描器归不到 spiderFly 键上。）
+export const ENGINE_READ_MANUAL = {
+    spiderFly: ['hpThresholds'],
 };
 
 // 整包动态读取：引擎按动态键取子对象，无法逐字段列举（hexEnhance 经 getXiaoZhaoHexEnhance(hexKey) 取用）。
