@@ -1,4 +1,9 @@
-// tests/param-read-guard.mjs V1.2.0 | 预估 ~12400 bytes
+// tests/param-read-guard.mjs V1.2.1 | 预估 ~12500 bytes
+// V1.2.1 | 2026-10-18 第 101 轮：新增 ENGINE_READ_MANUAL 人工补充通道——params 作参数传进 helper 函数、
+//   在 helper 体内读字段的形态（实例：spiderFly.hpThresholds 经 decideSpiderTier(..., fp) 读），
+//   超出扫描器块作用域分析、会被误报「表陈旧」。比对按「扫描结果 ∪ 人工补充」算；每条人工登记须在
+//   glossary 注释里给出读取点文件:行 + 传递链。咬牙验证：删 eagleEye（非人工项）→ 报「表遗漏」EXIT=1；
+//   删 MANUAL 的 spiderFly → 精确冒回 hpThresholds 一条 stale-field EXIT=1（通道只静音那一个假阳性）。
 // V1.2.0 | 2026-09-29 参数单一真值源收口：新增第二侧校验 —— 复用 tests/health-rules/156 的
 //   checkDescTruth()，核对「技能说明里的数字 == mechanics 引擎真值」（core/01 DESC_TRUTH 映射）。
 //   两侧任一漂移都退出码 1。该侧需先垫 file:// fetch 并 loadGameData() 才能读到 content。
