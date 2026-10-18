@@ -1,8 +1,10 @@
 // modules/26elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
+// V6.27.0 | ~16200 bytes | 2026-10-18 八卦阵补头顶弹幕 ☯八卦阵！（pushSkillAnnounce + line:false，
+//           复用 SKILL_ANNOUNCE → SKILL_FLOAT 通道；回血 +N 飘字仍走 ENDLESS_BREATH fact 那条）
 // V6.26.0 | ~16000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；ON_UNIT_ACTED 付费回血加 actor.uid 守卫（防双张三丰对同一行动双倍回血/双倍 RNG）
 // V6.25.0 | ~15900 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.26.0';
+export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.27.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
@@ -10,6 +12,7 @@ import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
+import { pushSkillAnnounce } from './23elite-helpers.js';
 
 // 张三丰（六大派·防战）：不攻击的续航核心
 // 技能1 生生不息 / 技能3 八卦阵 / 技能5 第三回合严阵以待
@@ -163,6 +166,9 @@ export function createZhangSanfengComponent() {
                 triggerEndlessBreath(zhang, data.log);
                 if (data.group && data.group.data && data.group.data.entries) {
                     data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}，触发生生不息</span>` });
+                    // 2026-10-18 头顶弹幕：八卦阵此前只有战报行（回血另走 ENDLESS_BREATH 的 +N 飘字），
+                    //   补 ☯ 让「八卦阵发动」本身可见；line:false —— 战报行已由上方 if 块承担
+                    pushSkillAnnounce(data.log, zhang, '八卦阵', `☯ 八卦阵：张三丰攻击-${ba.atkCost}，触发生生不息`, { line: false, floatText: '☯八卦阵！', floatUid: zhang.uid });
                 }
             });
 

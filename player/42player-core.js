@@ -1,43 +1,40 @@
-// V6.8.9 | ~40940 bytes | 2026-10-15 syncStoreFromStep 补 `_audit` 数组层深拷：hp 审计账本迁出 `_mods` 后
-//   由 core/13 recordHpAudit 写 unit._audit.hp，而 `{ ...u }` 只带引用 → 引擎下一步原地 push 会污染已入 store 的快照；
-//   与 _mods 同款浅拷（数组独立、元素引用共享）。
-// V6.8.8 | ~40290 bytes | 2026-10-14 修战后空指针（player:148 Cannot read properties of null (reading 'getState')）：
-//   阵亡摘格 timer 是「3 秒后自执行」的游离任务，重开时 ui/74 已把 battleStore 清空（timer 还欠着），
-//   到点触发即拿 null store 调 getState。timer 入口补 !c.store 早退（timer 清理见 ui/74 V7.5.13）。
-// V6.8.7 | ~39750 bytes | 2026-10-14 修「圣火不熄复活格子看不见」：阵亡清除 timer/黑名单补复活路径——
-//   syncStoreFromStep 见引擎报活即撤 timer+出 _removedUids；timer 触发时 store 报活则跳过摘格（双保险）
-// V6.8.6 | ~38300 bytes | 2026-10-13 胜利横幅去重：正常通关（有存活单位）时横幅由 ui/62 spawnVictoryEffects 统一输出，
-//   player/42 不再重复渲染；仅当无存活单位（ui/62 未被调用）时兜底输出，平局/投票行不变。
-export const VER = 'player/42player-core.js V6.8.9';
+// player/42player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
+// V7.0.0 | ~21000 bytes | 2026-10-18 拆分（纯搬移，零行为改动）：
+//   本文件此前把四件事塞在一起（step 同步 / fact→动作翻译 / 单步播放 / 三个入口+收尾）。
+//   现按 42 族号拆出三个子文件（与 26elite-sixsects-* / 27elite-mingjiao-* / 38-actions-translate-* 同款）：
+//     · 42player-step-sync.js    syncStoreFromStep / readRound / setRound / setupDeathTimers
+//     · 42player-stage-actions.js prepareLogEntry / getActionTiming / getActionFx / hasStageWork / applyStageActionTo{Store,FX,StoreAfter}
+//     · 42player-play-step.js    playStepInterleaved / playSingleLogEntry
+//   本文件保留：clock 桥接（installClockBridge）+ 三个入口 + finishBattle + readRound re-export。
+//   全部对外导出（playBattle / playBattleGuest / playBattleReplay / readRound / clearAllEffects）
+//   路径不变——44/45/61/68/75/76 的 import 点零改动。
+// ── 更早版本历史见 记录-更改履历.md
+export const VER = 'player/42player-core.js V7.0.0';
 
-import { eventBus } from '../infra/50-event-bus.js';
-import { FX_SIGNALS } from '../infra/55-fx-signals.js';
-import { AudioManager } from '../modules/22audio-manager.js';
-import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41player-buff-ui.js';
-import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, setPresentationRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, setState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
-import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
-import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
-import { handleAttackGroup } from './46attack-group.js';
-import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
-import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
+import { autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, setBtnDisabled, initRenderer, initLogScrollControls, showScoreFloat } from './47renderer.js';
+import { setGridStore } from '../render/32-grid-render.js';
 import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
-import { renderLog } from '../render/30-fact-renderer.js';
-import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
+import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
-import { speakLogLine, speakVictory } from '../modules/31voice-commentary.js';
+import { speakVictory } from '../modules/31voice-commentary.js';
+
+import { readRound, setupDeathTimers } from './42player-step-sync.js';
+import { playStepInterleaved } from './42player-play-step.js';
 
 function getCtx() { return getPlayerContext(); }
 
 export { clearAllEffects } from './47renderer.js';
+export { readRound } from './42player-step-sync.js';
 
 // clock 桥接：单机 / 从机 / 回放三条路的「倍速·暂停·快进」接线完全同构，统一收口在此。
 // 此前三份逐字重复，回放版还多一行 setTimescale（GlobalStore.set('speed') 的 effect 已自动执行）。
@@ -64,295 +61,6 @@ function installClockBridge(c) {
         }
     });
 }
-
-function prepareLogEntry(entry) {
-    if (!entry || !entry.factType) return entry;
-    const rendered = renderLog(entry.factType, entry.data);
-    if (Array.isArray(rendered)) return rendered;
-    if (rendered && typeof rendered === 'object') {
-        const extra = {};
-        for (const k in entry) { if (k !== 'factType' && k !== 'data') extra[k] = entry[k]; }
-        return Object.assign({}, rendered, extra);
-    }
-    return rendered;
-}
-
-function getActionTiming(action) {
-    const def = STAGE_ACTION_DEFS[action && action.kind];
-    if (!def) return 'beforeText';
-    return typeof def.timing === 'function' ? def.timing(action) : (def.timing || 'beforeText');
-}
-
-function getActionFx(action) {
-    const def = STAGE_ACTION_DEFS[action && action.kind];
-    return def && def.fx ? 'has' : 'none';
-}
-
-// 2026-10-12 执行门槛修正：此前过滤器只认「有 fx 的 action」，无 fx 但有 store 回调的 action（全表唯一=ROUND_START 回合清场）
-//   被整体跳过 → 回合开始「账本随回合归零」从未执行。门槛改为「fx / store / storeAfter 任一有活」；
-//   fx 执行处本就各自判空（L156/L222 与 applyStageActionToFX 内），无 fx 的 action 不会误调 fx。
-function hasStageWork(action) {
-    const def = STAGE_ACTION_DEFS[action && action.kind];
-    return !!(def && (def.fx || def.store || def.storeAfter));
-}
-
-function applyStageActionToStore(c, action, pendingDeaths) {
-    if (!c.store || !action) return;
-    const def = STAGE_ACTION_DEFS[action.kind];
-    if (def && def.store) def.store(c, action, pendingDeaths);
-}
-
-async function applyStageActionToFX(c, action) {
-    if (!action) return;
-    const def = STAGE_ACTION_DEFS[action.kind];
-    if (def && def.fx) await def.fx(c, action);
-}
-
-function applyStageActionToStoreAfter(c, action, pendingDeaths) {
-    if (!c.store || !action) return;
-    const def = STAGE_ACTION_DEFS[action.kind];
-    if (def && def.storeAfter) def.storeAfter(c, action, pendingDeaths);
-}
-
-
-
-function syncStoreFromStep(c, step) {
-    if (!c.store || !step) return;
-    // 2026-10-14 修「复活格子看不见」（圣火不熄实测）：阵亡清除的 timer/黑名单原本没有复活路径——
-    //   timer 晚于复活触发 → 把活人从 store 摘掉（复活 3 秒后格子消失）；早于复活触发 → uid 滞留
-    //   _removedUids，被下方 filter 永久拦掉（格子从头看不见）。引擎 step.ally/enemy 是生死权威源：
-    //   报活（alive===true 且 !_isDead）即撤 pending timer + 出黑名单，格子归位。
-    //   正常阵亡/DESTROY 单位引擎恒报 alive=false，不进本分支，尸体清除行为不变。
-    for (const u of [...step.ally, ...step.enemy]) {
-        if (u.alive === true && !(u.state && u.state._isDead)) {
-            if (c._deathTimers && c._deathTimers[u.uid]) { clearTimeout(c._deathTimers[u.uid]); delete c._deathTimers[u.uid]; }
-            if (c._removedUids) c._removedUids.delete(u.uid);
-        }
-    }
-    // 2026-10-11 状态源唯一：格子数据不再从 _mods 词条原料现算、也不再从日志 snap 单点捞（那是补丁），
-    //   直接读引擎随 step 下发的 frozenValues——引擎每步为全部单位冻结一份真值（core/11 makeStep），
-    //   所有下游读同一份，「谁现算谁对」的歧义消失。
-    //   _mods 仍保留数组层深拷：step.ally/enemy 是引擎活体引用，避免引擎下一步 addMod 原地 push 污染
-    //   已入 store 的快照（frozenValues 缺失时的 getStat 兜底数据源）。
-    const frozen = step.frozenValues || {};
-    const units = [...step.ally, ...step.enemy]
-        .filter(u => !(c._removedUids && c._removedUids.has(u.uid)))
-        .map(u => {
-            const unit = { ...u };
-            if (u._mods) unit._mods = { atk: [...u._mods.atk], def: [...u._mods.def], maxHp: [...u._mods.maxHp] };
-            else unit._mods = { atk: [], def: [], maxHp: [] };
-            // 2026-10-15 审计账本同款浅拷：hp 审计记账迁出 _mods 后由 recordHpAudit 写 _audit.hp，
-            //   {...u} 只带引用 → 引擎下一步原地 push 会污染已入 store 的快照（与 _mods 同因）。
-            if (u._audit) unit._audit = { hp: [...u._audit.hp] };
-            const fv = frozen[u.uid];
-            if (fv) unit._frozen = fv;
-            return unit;
-        });
-    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });
-}
-
-export function readRound(c) {   // 2026-10-08 转正 export：45 的 currentRound 与之逐字等价（外部AI清单#15），收口单源
-    // 2026-09-14 状态三轨收敛：回合数唯一来源 battleStore；store 未就绪时回退 c.UI.round（开局前）
-    if (c && c.store) {
-        const r = c.store.getState().round;
-        if (r) return r;
-    }
-    return (c && c.UI && c.UI.round) || 1;
-}
-
-function setRound(c, round) {
-    if (!c || !round) return;
-    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round });
-}
-
-/**
- * 阵亡清除：单位 _isDead/alive=false 后 3 秒从 store 移除，尸体与死亡特效随之消失。
- * 房主从机都必须挂——从机不跑引擎，但 syncStoreFromStep 同样会把带 _isDead 的单位灌进 store，
- * 少了这段，从机格子上的尸体会一直赖着不走（且不会进 _removedUids，下一步又被灌回来）。
- */
-function setupDeathTimers(c) {
-    c._deathTimers = {};
-    c.store.subscribe((state) => {
-        if (!c.UI) return;
-        for (const su of state.units) {
-            if ((su.state && su.state._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
-                const uid = su.uid;
-                c._deathTimers[uid] = setTimeout(() => {
-                    delete c._deathTimers[uid];
-                    // 2026-10-14 重开/战后 store 已被 ui/74 清空：本 timer 属于上一局，直接放弃摘格
-                    if (!c.store) return;
-                    // 2026-10-14 复活识别（与 syncStoreFromStep 出黑名单同源的双保险）：触发时 store 已报活 → 不摘格子
-                    const cur = c.store.getState().units.find(u => u.uid === uid);
-                    if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) return;
-                    if (c._removedUids) c._removedUids.add(uid);
-                    c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
-                }, 3000);
-            }
-        }
-    });
-}
-
-async function playStepInterleaved(c, step, isFirstAttackRef) {
-    const pendingDeaths = [];
-    const actions = step.stageActions || [];
-    const log = step.log || [];
-
-    // 回合数写入唯一账本（battleStore），渲染层经 readRound 现取
-    const roundEntry = log.find(e => e && e.factType === 'roundStart');
-    if (roundEntry && roundEntry.data && roundEntry.data.round) setRound(c, roundEntry.data.round);
-
-    const actionsByFactIndex = new Map();
-    for (const action of actions) {
-        const idx = action.factIndex;
-        if (!actionsByFactIndex.has(idx)) actionsByFactIndex.set(idx, []);
-        actionsByFactIndex.get(idx).push(action);
-    }
-    const processedBeforeIndexes = new Set();
-    const processedAfterIndexes = new Set();
-
-    // action 完整生命周期：store(前置) → fx(演出) → storeAfter(收尾)
-    const runAction = async (action) => {
-        applyStageActionToStore(c, action, pendingDeaths);
-        if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
-        applyStageActionToStoreAfter(c, action, pendingDeaths);
-    };
-
-    for (let i = 0; i < log.length; i++) {
-        const rawEntry = log[i];
-        let entries = prepareLogEntry(rawEntry);
-        if (entries === null || entries === undefined) {
-            const factIndex = i;
-            const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'beforeText');
-            for (const action of beforeActions) await runAction(action);
-            const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'afterText');
-            for (const action of afterActions) await runAction(action);
-            continue;
-        }
-        if (!Array.isArray(entries)) entries = [entries];
-        const _battleLog = GlobalStore.get('battleLog');
-        if (Array.isArray(_battleLog)) { for (const entry of entries) { if (entry) _battleLog.push(entry); } }
-
-        for (let j = 0; j < entries.length; j++) {
-            const entry = entries[j];
-            const factIndex = i;
-
-            if (!processedBeforeIndexes.has(factIndex)) {
-                processedBeforeIndexes.add(factIndex);
-                const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'beforeText');
-                for (const action of beforeActions) {
-                    applyStageActionToStore(c, action, pendingDeaths);
-                    if (action.nonBlocking) applyStageActionToFX(c, action);
-                    else await applyStageActionToFX(c, action);
-                    applyStageActionToStoreAfter(c, action, pendingDeaths);
-                }
-            }
-
-            // 锚点动作：打包成 anchorSpecs 挂到 entry，由 playLineText 打到锚点文本时触发
-            if (entry && typeof entry === 'object' && !entry._anchorSpecs && Array.isArray(entry.fxAnchors) && entry.fxAnchors.length > 0) {
-                const anchorActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'anchor');
-                if (anchorActions.length > 0) {
-                    entry._anchorSpecs = anchorActions.map(a => {
-                        const idx = a.anchorIndex || 0;
-                        const anchorText = entry.fxAnchors[idx] || '';
-                        return {
-                            text: anchorText,
-                            cb: () => {
-                                applyStageActionToStore(c, a, pendingDeaths);
-                                applyStageActionToFX(c, a);
-                                applyStageActionToStoreAfter(c, a, pendingDeaths);
-                            }
-                        };
-                    }).filter(s => s.text);
-                }
-            }
-
-            await playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex);
-
-            if (!processedAfterIndexes.has(factIndex)) {
-                processedAfterIndexes.add(factIndex);
-                const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'afterText');
-                for (const action of afterActions) await runAction(action);
-            }
-        }
-    }
-
-    for (const action of actions) {
-        if (action.factIndex == null || !actionsByFactIndex.has(action.factIndex)) {
-            applyStageActionToStore(c, action, pendingDeaths);
-            if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
-            applyStageActionToStoreAfter(c, action, pendingDeaths);
-        }
-    }
-
-    for (const uid of pendingDeaths) {
-        const du = c.store.getState().units.find(u => u.uid === uid);
-        if (du && !(du.state && du.state._isDead)) {
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: FLASH_TYPES.DEAD });
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });
-        }
-    }
-
-    const hasDeathAction = actions.some(a => a.dead && (a.kind === STAGE_ACTION_TYPES.ATTACK || a.kind === STAGE_ACTION_TYPES.DEATH || a.kind === STAGE_ACTION_TYPES.DOT));
-    if (hasDeathAction) {
-        const logDiv = document.getElementById('log');
-        if (logDiv && logDiv.lastElementChild) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
-    }
-
-    syncStoreFromStep(c, step);
-}
-
-async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
-    let lastEntryType = c._lastLogType || null;
-    let abortSig = c.abortController ? c.abortController.signal : null;
-
-    if (shouldStartNewGroup(entry, lastEntryType)) renderSeparator();
-
-    switch (entry.type) {
-        case 'info':
-            if (entry.dropKind === DROP_TYPES.TOKEN) { await handleHolyTokenDrop(c, entry); lastEntryType = entry.type; break; }
-            await handleInfo(c, entry); lastEntryType = entry.type; break;
-        case 'buff-summon': await handleBuffSummon(c, entry, null); lastEntryType = entry.type; break;
-        case 'buff-destroy': await handleBuffDestroy(c, entry, null); lastEntryType = entry.type; break;
-        case 'buff-leech': case 'buff-splash': appendLogHTML(entry.text + '<br>'); lastEntryType = entry.type; break;
-        case 'buff-bonus': case 'buff-swap': case 'buff-push': await handleBuffText(c, entry); lastEntryType = entry.type; break;
-        case 'buff-summary':
-            appendLogHTML(entry.text + '<br>');
-            if (entry.buffType === 'elite_xingfen') {
-                let song = c.store ? c.store.getState().units.find(u => u.isSongQingshu) : null;
-                if (song) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: song.uid, _hasXingFen: true });
-            }
-            lastEntryType = entry.type; break;
-        case 'buff-rebound-fortify': await handleBuffText(c, entry, 200); lastEntryType = entry.type; break;
-        case 'round-start':
-            if (step.roundResult && step.roundResult.events && step.roundResult.events.length > 0) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: step.roundResult.events });
-                step.roundResult.events = [];
-            }
-            await handleRoundStart(c, entry, isFirstAttackRef);
-            if (step.doubleStrikeUid) c.currentDoubleStrikeUid = step.doubleStrikeUid;
-            lastEntryType = entry.type; break;
-        case 'attack-group': {
-            let result = await handleAttackGroup(c, entry, step, abortSig, isFirstAttackRef);
-            lastEntryType = entry.type;
-            if (result && result.isBattleOver) return result;
-            break;
-        }
-        case 'round-end': await handleRoundEnd(c, entry, step.log || [], 0); lastEntryType = entry.type; break;
-        case 'signal':
-            if (getState.logLevel() === 'debug') appendLogHTML(entry.text + '<br>');
-            lastEntryType = entry.type; break;
-        default: break;
-    }
-
-    c._lastLogType = lastEntryType;
-    // 2026-10-01 语音解说：本条日志演出收尾后再开口（防剧透铁律），raw fact 从 step.log 原位取
-    try { speakLogLine(entry, step.log && step.log[factIndex]); } catch (e) { /* 解说失败不影响战斗 */ }
-    return { isBattleOver: false };
-}
-
-// 2026-10-08 清死码：playLogEntries 整函数删除（外部AI清单#8/#17）——全库零调用（44 曾 import 未转出，已同步删）。
-//   日志播放的活路由 playBattle 内部与 45/46 分支承担，本函数为历史遗留双轨。
-
 
 export async function playBattle() {
     const c = getCtx();

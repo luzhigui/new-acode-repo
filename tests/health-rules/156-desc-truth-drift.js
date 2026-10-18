@@ -24,7 +24,13 @@
 //   反例（有意不报，已实跑确认）：灭绝师太「反击」的 {dmgRatio}=0.6 是**倍率**，模板里后面没有 %，
 //     渲染成「伤害×0.6」，本判据不命中。
 //   该判据与战报无关、不依赖 log，恒返回 pass/fail（不会恒 skip）。
-export const VER = 'tests/health-rules/156-desc-truth-drift.js V1.1.0';
+// V1.2.0（2026-10-18）：新增第三条判据——「<1 小数 + 血量词」（血/生命/生命值/上限）。补 SMALL_PCT 的盲区：
+//   模板漏写 % 号时小数后面根本没有 %，SMALL_PCT 抓不到，面板直接印「保留0.4血」（应 40%）。
+//   实例：小昭.spiderFly {eggHatchHpRatio}=0.4 曾渲染「保留0.4血」而战斗播报是「保留 40% 血」
+//   （desc 与实战真值不一致）；该技能又不在 DESC_TRUTH ⇒ checkDescTruth 也覆盖不到，三向全漏、靠人工发现。
+//   合成咬合已验证：抓「保留0.4血 / 回复0.15血量 / 突破至0.5生命上限」，放行「保留40%血 / 0攻10防满血 /
+//   伤害×0.6 / 保留0.4倍生命 / 生命上限12.5」——零误报。
+export const VER = 'tests/health-rules/156-desc-truth-drift.js V1.2.0';
 import { getSkillDesc, resolveDescValue, DESC_TRUTH, getGameData } from '../../core/01config-5v5-test.js';
 
 /**
@@ -57,10 +63,17 @@ export function checkDescTruth() {
 const RESIDUAL_PLACEHOLDER = /\{[^}\s]*\}/;
 // 「<1 的小数 + %」（如 0.8%）：负向后顾排除 12.5% 这类，被切出「2.5%」的误报；数值再判 <1
 const SMALL_PCT = /(?<![\d.])(\d*\.\d+)\s*%/g;
+// 「<1 的小数 + 血量词」（血/生命/生命值/上限，如 保留0.4血 / 回复0.15血量 / 突破至0.5生命上限）：
+//   2026-10-18 第 99 轮补。参数按「1 = 100%」存，模板漏写 % 号且占位符没进 PCT_PARAM_KEYS 时，
+//   SMALL_PCT（小数+%）抓不到——因为根本没有 % ——面板直接印裸小数「保留0.4血」（应 40%）。
+//   实例：小昭.spiderFly 的 {eggHatchHpRatio}=0.4 曾渲染成「保留0.4血」，而战斗内播报是「保留 40% 血」，
+//   desc 与实战真值直接不一致；该 desc 又不在 DESC_TRUTH ⇒ checkDescTruth 也覆盖不到，三向全漏。
+//   负向后顾同 SMALL_PCT（防 12.5血量 切出 2.5）；只允许数字与血量词之间有空白（「0.4倍生命」隔了「倍」，不抓）。
+const SMALL_HP = /(?<![\d.])(\d*\.\d+)\s*(?:血|生命|生命值|上限)/g;
 
 /**
- * 全量技能说明「卫生」扫描：遍历 gameData 所有角色所有技能，渲染说明后抓两类事故。
- *   ① 未替换占位符（/{...}/ 残留）② 百分数未换算（0.xx% 形态）。
+ * 全量技能说明「卫生」扫描：遍历 gameData 所有角色所有技能，渲染说明后抓三类事故。
+ *   ① 未替换占位符（/{...}/ 残留）② 百分数未换算（0.xx% 形态）③ 血量比未换算（0.xx + 血量词，漏 % 号形态）。
  * @returns {string[]} 问题描述列表；[] 表示全部干净。与战报无关，恒有结论（不 skip）。
  */
 export function checkDescHygiene() {
@@ -85,6 +98,13 @@ export function checkDescHygiene() {
                 while ((pm = SMALL_PCT.exec(text)) !== null) {
                     if (!(parseFloat(pm[1]) < 1)) continue;
                     problems.push('百分数未换算：' + tag + ' 出现 ' + pm[0].replace(/\s+/g, ''));
+                }
+                SMALL_HP.lastIndex = 0;
+                let hm;
+                while ((hm = SMALL_HP.exec(text)) !== null) {
+                    if (!(parseFloat(hm[1]) < 1)) continue;
+                    problems.push('血量比未换算：' + tag + ' 出现 ' + hm[0].replace(/\s+/g, '')
+                        + '（<1 小数后直接跟血量词 ⇒ 疑漏 % 号 / 未进 PCT_PARAM_KEYS，应渲染为百分数）');
                 }
             }
         }

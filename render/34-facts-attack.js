@@ -1,4 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
+// V1.5.1 | 2026-10-18 行内徽章表补三条 link 系 reason（连击/嗜血/双击），与 render/39 头顶飘字表对齐
 // V1.5.0 | 2026-10-16 被动出手行内徽章：反击/跟随/随动/联动/追击的攻击行前缀金色【标签】（普攻无前缀），
 //   group 新增 linkReason 透传；数据来自 core/10 → core/12 的 _linkReason 链路
 // V1.4.1 | ~16600 bytes | 2026-10-13 斩杀图标顺序修正：伤害行的 💀击杀/💀阵亡 与 brush-red 底改判 dmgResult.dead
@@ -126,7 +127,7 @@ export function renderAttackFact(fact) {
         linkReason
     };
     // 被动出手行内徽章：普攻无前缀，反击/跟随等带金色【标签】——不用翻日志也知道这一手是什么
-    const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击' };
+    const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击', doubleStrike: '连击', bloodthirst: '嗜血', xiaoZhaoDoubleMiss: '双击' };
     const linkTag = LINK_TAGS[linkReason] ? `<span class="gold">【${LINK_TAGS[linkReason]}】</span>` : '';
     group.entries.push({type:'combat-text', text:`${linkTag}<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
     // 破防日志前置到攻击组最前
