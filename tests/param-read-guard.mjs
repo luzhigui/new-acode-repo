@@ -36,7 +36,7 @@
 //   子字段规则：表登记父路径时其任意子字段算已登记（表值 = 顶层字段名即可满足引擎现状）。
 //
 // 运行：node tests/param-read-guard.mjs        → 一致退出码 0；发现漂移退出码 1
-export const VER = 'tests/param-read-guard.mjs V1.2.0';
+export const VER = 'tests/param-read-guard.mjs V1.2.1';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

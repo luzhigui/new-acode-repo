@@ -1150,10 +1150,10 @@ setTimeout(()=>{
     const out = [];
     for(let frame=0; frame<5; frame++){
       renderBurst(200 + frame*40);
-      const cells = [2,4,5,6].map(p=>{
+      const cells = [1,2,3,4,5,6].map(p=>{
         const el = document.querySelector('#bfNew .cell[data-pos="'+p+'"]');
         const cu = el && el.querySelector('.cu');
-        return 'pos'+p+': "'+(cu?cu.style.transform:'default')+'"';
+        return 'p'+p+': "'+(cu&&cu.style.transform?cu.style.transform:'—')+'"';
       });
       out.push('frame '+(frame+1)+' ms='+(200+frame*40)+' → '+cells.join(' | '));
     }
