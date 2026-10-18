@@ -1,6 +1,7 @@
 // modules/27elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
+// V1.1.0 | ~24500 bytes | 2026-10-18 飞天落地回血按档位：飞天时记录 _spiderLandTier，供 spiderReturn 选回血比例
 // V1.0.0 | ~24278 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.1.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
@@ -110,6 +111,8 @@ export function createXiaoZhaoBrotherComponent() {
                         const tier = (data && data.tier) || 'death';
                         const reason = (data && data.reason) || SPIDER_TIER_REASON[tier];
                         markSpiderTier(brother.state, tier);
+                        // 落地回血档位：记下本次飞天档，spiderReturn 依此选 landHealRatio / landHealRatioDeath
+                        brother.state._spiderLandTier = tier;
                         const esRemaining = brother.state._spiderRemaining;
                         Object.assign(brother.state, { _spiderRemaining: Math.max(0, (esRemaining ?? flyParams.maxTriggers) - 1) });
                         Object.assign(brother.state, { _spiderFlying: true, _flyMode: 'spider' });

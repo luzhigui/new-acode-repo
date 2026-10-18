@@ -1,3 +1,6 @@
+// V6.4.8 | ~25300 bytes | 2026-10-18 免疫回退口径修正（用户授权）：只退「本次实际扣掉的血」
+//          （hpBeforeApply − 现血）而非全额 dmgCalc.dmg——小昭·妹飞天时 core/13「天上无敌」已挡掉全部
+//          hp 扣减，旧口径回退反而凭空加血顶满 maxHp，「触发 40% 档落地看着满血」即此；回退记账同步改实扣
 // V6.4.7 | ~24500 bytes | 2026-10-16 三改（老板拍板）：①免疫分支（妹妹飞天）补广播新信号 AFTER_ATTACK_IMMUNE——
 //          挂在 AFTER_ATTACK 的机制（宋青书性奋额外攻击）不再被免疫整段吞掉，第二下重新选敌照打；
 //          ②runExtraAttackRequests 补 _pendingDeath 守卫（本击已把请求者打到 0 血 → 不得再出手）；
@@ -9,7 +12,7 @@
 // V6.4.4 | 2026-10-13 红血加血独立行拆除：何太冲红血触发改挂 ON_UNIT_ACTED（modules/26 V6.26.0），
 //          加血发生在攻击行之后，「正伤害血反增」矛盾不再存在，BEFORE_DAMAGE_APPLY 血量对照补偿随之退役。
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/10battle-attack.js V6.4.7';
+export const VER = 'core/10battle-attack.js V6.4.8';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -193,24 +196,32 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const immuneDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
+    // 2026-10-18 免疫回退口径修正（体检定位·用户授权）：只退「本次实际扣掉的血」hpBeforeApply − 现血。
+    //   旧口径按 dmgCalc.dmg 全额补回，但小昭·妹飞天时 core/13「天上无敌」已把这一击的 hp 扣减整段挡掉
+    //   （实际扣血 = 0 且 core/13 早返回、连承伤都没记）→ 回退反而凭空把血加回来、被夹到 maxHp，
+    //   于是每次触发飞天都白回满血（落地回血那步再记 0），表现为「触发 40% 档落地看着满血」。
+    //   实际扣多少退多少：被天上无敌挡掉时退 0，真正的免疫回退场景退真实损失，不再打满。
+    const hpBeforeApply = target.hp;
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid });
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
-        applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false, false);
+        const hpLossApplied = Math.max(0, hpBeforeApply - target.hp);
+        if (hpLossApplied > 0) applyStatChange(target, 'hp', hpLossApplied, null, '免疫回退', false, false);
         // 2026-09-22 免疫必须连"致死标记"一起回退：
         //   applyAttackResult 在血≤0 时已设 target.state._pendingDeath（core/12 L348），
         //   只退 hp 不退标记 → 下一次 resolveDeaths 仍按"待死"把她 alive=false。
         //   小昭·妹飞天保命的"即将阵亡"分支就是这么被误判死的：血退回来了，人还是死了
         //   （血线触发不致死，所以第 8 回合那种看起来正常）。
         target.state._pendingDeath = false;
-        // 免疫回退：承伤已记，只退输出（走统一记账入口）
+        // 免疫回退：只退实扣（hpLossApplied）——承伤/输出都按同一口径记账，
+        //   被天上无敌挡掉时实扣为 0，本行即空转，不改任何统计
         recordCombatStat(unit, target, 'immuneRollback', {
             rawAmount: 0,
-            actualAmount: dmgCalc.dmg
+            actualAmount: hpLossApplied
         });
         emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
-        const immuneHpPctBefore = Math.floor((Math.min(target.hp + dmgCalc.dmg, target.maxHp) / target.maxHp) * 100);
+        const immuneHpPctBefore = Math.floor((Math.min(hpBeforeApply, target.maxHp) / target.maxHp) * 100);
         const immuneHpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
         const immuneFact = {
             type: 'immune',
