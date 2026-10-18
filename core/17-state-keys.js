@@ -1,5 +1,5 @@
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.22';
+export const VER = 'core/17-state-keys.js V2.9.23';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -108,6 +108,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredDeath:   { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 本次飞天档位（'70' / '40' / 'death' / 'hatch'）：落地回血依此选 landHealRatio / landHealRatioDeath
+    _spiderLandTier:         { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 小昭·妹蜘蛛卵：毒/反伤致死绕过飞天 → 原地结茧；卵期计满 2 回合末孵化
     _spiderEgg:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderEggUsed:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },

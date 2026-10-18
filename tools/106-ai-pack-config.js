@@ -1,3 +1,6 @@
+// V6.0.32 | ~24580 bytes | 2026-10-18 修「复制包读取失败」：根目录两个寒离飒特效 demo 页已加序号改名，
+//           清单里仍写旧名 → 按旧名 fetch 404（Failed to fetch）。改为 128hanlisa-atk-fx-candidates.html /
+//           129hanlisa-fx-compare.html，dev-index 入口 href 同步（原按钮跳旧名同样 404）
 // V6.0.31 | ~24350 bytes | 2026-10-18 登记 tools/126-balance-alert.js（工具箱「🚨 平衡告警」入口按钮的
 //           实现文件，102 V6.1.3 已挂 type=module 脚本；漏登则包内工具箱点开无工具）
 // V6.0.30 | ~24207 bytes | 2026-10-17 补登记 14 项（import 对账）：modules/27 明教按角色拆分的 9 个组件文件
@@ -50,7 +53,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.31';
+export const VER = 'tools/106-ai-pack-config.js V6.0.32';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -231,8 +234,9 @@ export const ALL_PROJECT_FILES = [
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
     '../index.html', '../dev-index.html',
-    // 2026-10-17 补登记两个寒离飒特效 demo 页（dev-index V6.3.12「UI 效果 demo」区入口按钮跳它们，同 125 判据）
-    '../126-hanlisa-fx-demo.html', '../hanlisa-atk-fx-candidates.html', '../hanlisa-fx-compare.html'
+    // 2026-10-17 补登记三个寒离飒特效 demo 页（dev-index「UI 效果 demo」区入口按钮跳它们，同 125 判据）
+    // 2026-10-18 修「读取失败」：后两页已加序号改名（根目录演示页加序号整理），清单按新名登记，否则 fetch 404
+    '../126-hanlisa-fx-demo.html', '../128hanlisa-atk-fx-candidates.html', '../129hanlisa-fx-compare.html'
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 

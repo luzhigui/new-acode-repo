@@ -217,8 +217,11 @@ function buildGrid(gridId, order, map){
     const d = document.createElement('div');
     const u = map[pos];
     d.className = u ? ('cell occupied'+(u.ready?' ready':'')) : 'cell';
-    d.dataset.pos = pos;
-    if(u) d.innerHTML = cardHtml(u);
+  d.dataset.pos = pos;
+  /* v18:加 1-9 数字标记(右上角)让玩家知道点哪个;指针改 pointer */
+  d.style.cursor = 'pointer';
+  d.insertAdjacentHTML('beforeend', '<span style="position:absolute;top:2px;right:4px;font-size:11px;font-weight:900;color:rgba(255,170,80,0.85);text-shadow:0 0 3px rgba(0,0,0,0.8);z-index:3;pointer-events:none;">'+pos+'</span>');
+  if(u) d.innerHTML = cardHtml(u);
     g.appendChild(d);
   });
 }
@@ -230,6 +233,19 @@ buildGrid('enemyGridOld', ENEMY_ORDER, ENEMY); buildGrid('allyGridOld', ALLY_ORD
    ================================================================== */
 const CHARGE_MAX = 2000;   // 蓄满所需时长（1x）
 const BURST_MS   = 2400;   // 爆发段总长（留足后劲：余烬/焦痕/裂纹要烧到 2s+）
+
+/* v18:寒离飒 9 格命中映射 —— 玩家点哪格,系统打哪些格(取代原"角度范围") */
+const HIT_MAP = {
+  1:[1,4,7],             // 左列
+  2:[2,5,8],             // 中列
+  3:[3,6,9],             // 右列
+  4:[2,4,7],             // 左上→左下折
+  5:[2,5,7,8,9],         // 中列+底两格
+  6:[2,6,9],             // 右上→右下折
+  7:[2,4,5,7],           // 左上三角
+  8:[1,2,3,4,5,6,7,8,9], // 全屏
+  9:[2,5,6,9]            // 右下三角
+};
 
 /* ==================================================================
    五、舞台
@@ -384,65 +400,49 @@ function makeStage(suffix, variant){
     }
   }
 
-  /* ---------- 拳头图形 ---------- */
-function fistMarkup(x, y, ang, s, heat, alpha){
+  /* ---------- 拳头图形 (v19:回退到初版 v1 4-rect 风格) ----------
+     4 指节 rounded rect + 拇指椭圆 + 掌背 rect,
+     粗深棕描边 (2px) + 橙红填充 (heat 越高越白热),
+     满蓄 3 道电弧。
+     不用 silhouette mask / halo(去除 v17 在 demo 小 viewport 里的视觉糊感)。
+     v17 几何修正(指节大小比例)保留:拇指 8px、次指 10px、中无名指 8px、小指 7px,有节序。 */
+  function fistMarkup(x, y, ang, s, heat, alpha){
     const deg = (ang+Math.PI/2)*180/Math.PI;
-    const hot = 'rgba(255,'+Math.round(150+105*heat)+','+Math.round(70+185*heat)+',';
-    /* 蓄力 heat 决定"高光"白热度 */
-    const hlFill = 'rgba(255,'+Math.round(230+25*heat)+','+Math.round(195+60*heat)+','+(0.30+0.40*heat).toFixed(2)+')';
-    /* 满蓄电弧：3 道分叉，看起来"裂开"而非"线条" */
+    /* heat: 0=橙红, 0.5=亮橙, 1=白热 */
+    const fr = 255;
+    const fg = Math.round(170+85*heat);
+    const fb = Math.round(70+130*heat);
+    const fill = 'rgba('+fr+','+fg+','+fb+','+alpha.toFixed(3)+')';
+    const stroke = 'rgba(80,30,12,'+(0.92*alpha).toFixed(3)+')';
+    /* 满蓄电弧: 3 道分叉 (heat>0.30 才显示) */
     const crack = heat>0.30
       ? '<path d="M -5 -32 L -2 -42 L 1 -36 M 6 -32 L 9 -42 L 6 -36 M 15 -28 L 18 -38 L 15 -32" stroke="rgba(255,255,235,'+(0.55+0.45*heat).toFixed(2)+')" stroke-width="1.8" fill="none" stroke-linecap="round"/>'
       : '';
-    const stroke = 'rgba(45,10,2,'+(0.85+0.10*heat).toFixed(2)+')';
-    return '<g transform="translate('+x.toFixed(1)+','+y.toFixed(1)+') rotate('+deg.toFixed(1)+') scale('+s.toFixed(3)+')" style="opacity:'+alpha.toFixed(3)+'">'+
-      '<defs>'+
-        '<linearGradient id="fgG'+U+'" gradientUnits="userSpaceOnUse" x1="0" y1="-46" x2="0" y2="14">'+
-          '<stop offset="0%" stop-color="'+hot+'1)"/>'+
-          '<stop offset="45%" stop-color="rgba(255,'+Math.round(70+130*heat)+',20,0.96)"/>'+
-          '<stop offset="100%" stop-color="rgba(96,20,8,0.95)"/>'+
-        '</linearGradient>'+
-        '<filter id="fgB'+U+'" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="'+(2.5+8*heat).toFixed(1)+'"/></filter>'+
-      '</defs>'+
-      /* 1. 外发光（外接矩形 + 模糊滤镜，给整个拳头一个白热光环） */
-      '<path d="'+FIST_GLOW+'" fill="rgba(255,'+Math.round(90+120*heat)+',30,0.6)" filter="url(#fgB'+U+')"/>'+
-      /* 2. 腕部（深色稍窄的圆角矩形，比拳体窄一截暗示腕部） */
-      '<rect x="-15" y="-2" width="30" height="14" rx="3" fill="rgba(70,16,6,0.95)" stroke="'+stroke+'" stroke-width="2"/>'+
-      /* 3. 拇指球肌（左下凸出的椭圆——"只露在侧面"，不参与顶部 4 指排列） */
-      '<ellipse cx="-20" cy="-12" rx="9" ry="11" fill="url(#fgG'+U+')" stroke="'+stroke+'" stroke-width="2.5"/>'+
-      /* 4. 掌背（主体圆角矩形：宽 36 高 26） */
-      '<rect x="-18" y="-26" width="36" height="26" rx="6" fill="url(#fgG'+U+')" stroke="'+stroke+'" stroke-width="2.5"/>'+
-      /* 5. 4 个指背弧顶（rx=h/2 让顶呈半圆、凸出只有 4-10px、顶部接近平齐。
-         之前版本 rx=3 + h=14~24 看起来是"4 根独立手指戳出去",
-         现在改成"4 段鹅卵石弧顶并排"才是真握拳的指背剪影） */
-      '<rect x="-13" y="-34" width="8"  height="8"  rx="4" fill="url(#fgG'+U+')" stroke="'+stroke+'" stroke-width="2"/>'+   /* 食指弧顶（凸 8px） */
-      '<rect x="-4"  y="-36" width="10" height="10" rx="5" fill="url(#fgG'+U+')" stroke="'+stroke+'" stroke-width="2"/>'+   /* 中指弧顶（凸 10px,最长,中段最高点） */
-      '<rect x="7"   y="-34" width="8"  height="8"  rx="4" fill="url(#fgG'+U+')" stroke="'+stroke+'" stroke-width="2"/>'+   /* 无名指弧顶（凸 8px） */
-      '<rect x="16"  y="-30" width="7"  height="4"  rx="2" fill="url(#fgG'+U+')" stroke="'+stroke+'" stroke-width="2"/>'+   /* 小指弧顶（凸 4px,最短,顺着无名指自然下落） */
-      /* 6. 指缝短凹槽（只画在弧顶之间 4px 高的凹陷里 — 让 4 段分明但不要"穿透整个掌背"以免再次陷入"戳手指"印象） */
-      '<line x1="-5" y1="-32" x2="-5" y2="-28" stroke="rgba(35,8,2,0.80)" stroke-width="1.8"/>'+     /* 食-中指缝短凹槽 */
-      '<line x1="6"  y1="-32" x2="6"  y2="-28" stroke="rgba(35,8,2,0.80)" stroke-width="1.8"/>'+     /* 中-无名指缝短凹槽 */
-      '<line x1="15" y1="-28" x2="15" y2="-26" stroke="rgba(35,8,2,0.80)" stroke-width="1.8"/>'+     /* 无名-小指缝短凹槽 */
-      /* 7. 掌背肌腱阴影（中央 2 条短竖线，暗示掌骨） */
-      '<path d="M -10 -10 L -10 -22 M 8 -10 L 8 -20" stroke="rgba(35,8,2,0.4)" stroke-width="1.5" fill="none" stroke-linecap="round"/>'+
-      /* 8. 左上高光（中指顶部的肉感反光面，蓄力越大越白） */
-      '<rect x="-7" y="-35" width="8" height="2" rx="1" fill="'+hlFill+'" stroke="none"/>'+
+    return '<g transform="translate('+x.toFixed(1)+','+y.toFixed(1)+') rotate('+deg.toFixed(1)+') scale('+s.toFixed(3)+')" style="opacity:'+alpha.toFixed(3)+')">'+
+      /* 拇指球肌 (左上) */
+      '<ellipse cx="-20" cy="-12" rx="9" ry="11" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'+
+      /* 掌背 (主块) */
+      '<rect x="-18" y="-26" width="36" height="26" rx="6" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'+
+      /* 4 指节 (从拇指到小指,高度递增体现握拳层次) */
+      '<rect x="-13" y="-34" width="8"  height="8"  rx="4" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'+
+      '<rect x="-4"  y="-36" width="10" height="10" rx="5" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'+
+      '<rect x="7"   y="-34" width="8"  height="8"  rx="4" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'+
+      '<rect x="16"  y="-30" width="7"  height="4"  rx="2" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"/>'+
       crack+
     '</g>';
   }
   function fistGhost(x, y, s, alpha){
     const deg = (S.aim+Math.PI/2)*180/Math.PI;
-    /* 残影：简化版——只画 5 个块（拇指球肌 + 掌背 + 4 指节），不做高光/指缝/电弧
-       修了原版引号 bug（style 属性闭合 + 描边色与主拳一致） */
-    const ghostStroke = 'rgba(80,30,12,0.6)';
-    const ghostFill = 'rgba(255,170,90,0.55)';
+    /* ghost:简化版,无电弧、无白热,低不透明度 */
+    const fill = 'rgba(255,170,90,'+(0.55*alpha).toFixed(3)+')';
+    const stroke = 'rgba(80,30,12,'+(0.6*alpha).toFixed(3)+')';
     return '<g transform="translate('+x.toFixed(1)+','+y.toFixed(1)+') rotate('+deg.toFixed(1)+') scale('+s.toFixed(3)+')" style="opacity:'+alpha.toFixed(3)+')">'+
-      '<ellipse cx="-20" cy="-12" rx="9" ry="11" fill="'+ghostFill+'" stroke="'+ghostStroke+'" stroke-width="1.8"/>'+
-      '<rect x="-18" y="-26" width="36" height="26" rx="6" fill="'+ghostFill+'" stroke="'+ghostStroke+'" stroke-width="1.8"/>'+
-      '<rect x="-13" y="-34" width="8"  height="8"  rx="4" fill="'+ghostFill+'" stroke="'+ghostStroke+'" stroke-width="1.8"/>'+
-      '<rect x="-4"  y="-36" width="10" height="10" rx="5" fill="'+ghostFill+'" stroke="'+ghostStroke+'" stroke-width="1.8"/>'+
-      '<rect x="7"   y="-34" width="8"  height="8"  rx="4" fill="'+ghostFill+'" stroke="'+ghostStroke+'" stroke-width="1.8"/>'+
-      '<rect x="16"  y="-30" width="7"  height="4"  rx="2" fill="'+ghostFill+'" stroke="'+ghostStroke+'" stroke-width="1.8"/>'+
+      '<ellipse cx="-20" cy="-12" rx="9" ry="11" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"/>'+
+      '<rect x="-18" y="-26" width="36" height="26" rx="6" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"/>'+
+      '<rect x="-13" y="-34" width="8"  height="8"  rx="4" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"/>'+
+      '<rect x="-4"  y="-36" width="10" height="10" rx="5" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"/>'+
+      '<rect x="7"   y="-34" width="8"  height="8"  rx="4" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"/>'+
+      '<rect x="16"  y="-30" width="7"  height="4"  rx="2" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.8"/>'+
       '</g>';
   }
 
@@ -455,14 +455,16 @@ function fistMarkup(x, y, ang, s, heat, alpha){
     const ha = halfAng(level), aim = S.aim;
     let h = '';
 
-    /* 预警范围 = 实际命中格的凸包（虚线橙边 + 极淡填充） */
+    /* v20:加回 v17 的「蓄力段預警凸包」(v18 刪了)。
+       形狀用 HIT_MAP 取代角度錐(由 APP.aimCellIndex 驅動)。
+       虛線橙邊 + 漸層橙紅填充 + 流動 dashoffset,等寬 dasharray。 */
     const Rv = visR(aim);
-    const tele = telegraphPoly(level, 5);
+    const teleAim = telegraphPoly(APP.aimCellIndex||5, 5);
     h += '<defs><radialGradient id="aimG'+U+'" gradientUnits="userSpaceOnUse" cx="'+ax+'" cy="'+ay+'" r="'+Rv.toFixed(1)+'">'+
       '<stop offset="0%" stop-color="rgba(255,150,60,'+(0.04+0.12*level).toFixed(3)+')"/>'+
       '<stop offset="100%" stop-color="rgba(255,60,20,'+(0.02+0.10*level).toFixed(3)+')"/>'+
       '</radialGradient></defs>';
-    h += '<path d="'+polyPath(tele)+'" fill="url(#aimG'+U+')" stroke="rgba(255,120,50,'+(0.30+0.5*level).toFixed(3)+')" stroke-width="'+(1.2+1.6*level).toFixed(2)+'" stroke-dasharray="8 6" stroke-dashoffset="'+(-el/14).toFixed(1)+'" stroke-linejoin="round"/>';
+    h += '<path d="'+polyPath(teleAim)+'" fill="url(#aimG'+U+')" stroke="rgba(255,120,50,'+(0.30+0.5*level).toFixed(3)+')" stroke-width="'+(1.2+1.6*level).toFixed(2)+'" stroke-dasharray="8 6" stroke-dashoffset="'+(-el/14).toFixed(1)+'" stroke-linejoin="round"/>';
 
     /* 蓄力环（套在拳头外围） */
     const rcx = ax+Math.cos(aim)*13, rcy = ay+Math.sin(aim)*13;
@@ -496,8 +498,8 @@ function fistMarkup(x, y, ang, s, heat, alpha){
       h += '<polyline points="'+pts.join(' ')+'" fill="none" stroke="rgba(255,'+Math.round(105+125*level)+','+Math.round(25+110*level)+','+(0.92*(1-p*0.35)).toFixed(3)+')" stroke-width="'+(s.w*(1-p*0.3)).toFixed(2)+'" stroke-linecap="round"/>';
     }
 
-    /* 拳（略微前移，别把施术者本人整个盖住） */
-    const fs = 0.46 + 0.60*level;
+    /* 拳(略微前移,别把施术者本人整个盖住)。v17:0.46/0.60 改 0.12/0.18(缩 3 倍),匹配 v16 preview 里 200x200 rect 在 fist-final 320x320 视图里的实际显示大小 */
+    const fs = 0.12 + 0.18*level;
     const fx = ax + Math.cos(aim)*13, fy = ay + Math.sin(aim)*13;
     h += fistMarkup(fx, fy, aim, fs, level, 1);
 
@@ -517,22 +519,22 @@ function fistMarkup(x, y, ang, s, heat, alpha){
     const ha0 = halfAng(level);
     let h = '';
 
-    /* 1) 拳冲 + 残影 */
+    /* 1) 拳冲 + 残影 (临时延长到 1.8s 方便看 fist 新几何) */
     if(tb < 480){
       const p = Math.min(1, tb/210), e = easeOut(p);
       const dist = visR(aim)*0.50*e;
-      const fs = (0.46+0.60*level)*(1+0.80*e);
+      const fs = (0.12+0.18*level)*(1+0.80*e);
       for(let i=3;i>=1;i--){
         const d2 = dist - i*18; if(d2 < -24) continue;
         h += fistGhost(ax+Math.cos(aim)*d2, ay+Math.sin(aim)*d2, fs*(1-0.10*i), 0.20-0.05*i);
       }
-      const fade = tb<300 ? 1 : Math.max(0, 1-(tb-300)/160);
+      const fade = tb<300 ? 1 : Math.max(0, 1-(tb-300)/180);
       h += fistMarkup(ax+Math.cos(aim)*dist, ay+Math.sin(aim)*dist, aim, fs, 1, fade);
     }
 
     /* 2) 焦痕余温：出手后地面留一片暗红，慢慢烧尽（画在冲击锥之下，别把火压成泥色） */
     const Rv = visR(aim);
-    const teleFull = telegraphPoly(level, 5);
+    const teleFull = telegraphPoly(APP.aimCellIndex||5, 5);  /* v18:HIT_MAP 取代角度锥 */
     if(tb > 240 && tb < 2200){
       const op = clamp(1-(tb-240)/1960, 0, 1)*0.30;
       h += '<path d="'+polyPath(scalePoly(teleFull, ap, 0.97))+'" fill="rgba(86,32,12,'+op.toFixed(3)+')"/>';
@@ -734,14 +736,25 @@ function fistMarkup(x, y, ang, s, heat, alpha){
     }
     return out;
   }
-  /* 预警多边形 = 施术者 + 锥内各格外框的凸包 */
-  function telegraphPoly(level, pad){
+  /* v18 预警凸包:施术者 + HIT_MAP[cellIndex] 各格四角凸包(取代角度锥) */
+  function telegraphPoly(cellIndex, pad){
     const g = S.geo, pts = [{x:g.apex.x, y:g.apex.y}];
-    for(const c of coneCells(level)){
+    const cells = hitCellsAt(cellIndex);
+    for(const c of cells){
       const hw = c.w/2+pad, hh = c.h/2+pad;
       pts.push({x:c.x-hw,y:c.y-hh},{x:c.x+hw,y:c.y-hh},{x:c.x+hw,y:c.y+hh},{x:c.x-hw,y:c.y+hh});
     }
     return hull(pts);
+  }
+  /* v18:HIT_MAP[cellIndex] 取格数组(过滤空位) */
+  function hitCellsAt(cellIndex){
+    if(!cellIndex || !S.geo) return [];
+    const out = [];
+    for(const pos of (HIT_MAP[cellIndex]||[])){
+      const c = S.geo.cells['c'+pos];
+      if(c) out.push(c);
+    }
+    return out;
   }
 
   function chargeCellFx(level){
@@ -755,20 +768,16 @@ function fistMarkup(x, y, ang, s, heat, alpha){
       cu.style.transform = 'translate('+(-ax2*back+jit).toFixed(2)+'px,'+(-ay2*back+jit*0.5).toFixed(2)+'px) scale('+(1-0.05*level).toFixed(3)+')';
     }
     cell.a2.style.boxShadow = 'inset 0 0 '+(10+18*level).toFixed(0)+'px '+(2+5*level).toFixed(0)+'px rgba(255,'+Math.round(120+100*level)+',40,'+(0.25+0.5*level).toFixed(3)+')';
-    /* 锥内敌方格预警 */
-    const ha = halfAng(level);
-    for(const k in g.cells){
-      const c = g.cells[k]; if(!c.unit) continue;
-      const el = cell['e'+c.pos]; if(!el) continue;
-      const vx = c.x-g.apex.x, vy = c.y-g.apex.y;
-      const dist = Math.hypot(vx,vy);
-      if(dist > g.R0*1.02) continue;
-      let d = Math.atan2(vy,vx) - S.aim;
-      while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
-      if(Math.abs(d) > ha) continue;
+    /* v20:加回 v17 的「錐內紅邊脈衝高亮」(v18 刪了)。
+       改用 HIT_MAP 命中格(由 APP.aimCellIndex 驅動)取代角度錐。
+       蓄力越高脈衝越強,滿蓄時紅邊最亮。 */
+    const aimIdx = APP.aimCellIndex||5;
+    const hitCs = hitCellsAt(aimIdx);
+    for(const c of hitCs){
+      const el2 = cell['e'+c.pos]; if(!el2) continue;
       const pulse = 0.5+0.5*Math.sin(performance.now()/110 + c.pos);
-      el.style.boxShadow = 'inset 0 0 10px 2px rgba(255,70,30,'+(0.28+0.5*level*(0.6+0.4*pulse)).toFixed(3)+')';
-      el.style.backgroundColor = 'rgba(255,90,40,'+(0.04+0.13*level).toFixed(3)+')';
+      el2.style.boxShadow = 'inset 0 0 10px 2px rgba(255,70,30,'+(0.28+0.5*level*(0.6+0.4*pulse)).toFixed(3)+')';
+      el2.style.backgroundColor = 'rgba(255,90,40,'+(0.04+0.13*level).toFixed(3)+')';
     }
   }
 
@@ -846,28 +855,38 @@ function fistMarkup(x, y, ang, s, heat, alpha){
     S.hits = []; S.coneCracks = []; S.debris = [];
   }
 
-  /* 释放：算命中、生成碎裂与碎石 */
-  function release(level){
-    const g = S.geo; if(!g) return;
-    const ha = halfAng(level);
+  /* v18 释放:用 HIT_MAP[cellIndex] 算命中;冲击方向 = 瞄准格中心 */
+  function release(level, cellIndex){
+    const g = S.geo; if(!g || !cellIndex) return;
+    const aimCell = g.cells['c'+cellIndex];
+    if(!aimCell) return;
+    S.aim = Math.atan2(aimCell.y - g.apex.y, aimCell.x - g.apex.x);
+    const cells = hitCellsAt(cellIndex);
+    /* 最远命中格距离做 cf 衰减基准 */
+    const maxDist = Math.max(0.001, ...cells.map(c=>Math.hypot(c.x-g.apex.x, c.y-g.apex.y)));
     const hits = [];
-    for(const k in g.cells){
-      const c = g.cells[k]; if(!c.unit) continue;
+    for(const c of cells){
+      if(!c.unit) continue;
       const vx = c.x-g.apex.x, vy = c.y-g.apex.y;
-      const dist = Math.hypot(vx,vy);
-      if(dist > g.R0*1.02) continue;
-      let d = Math.atan2(vy,vx) - S.aim;
-      while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
-      if(Math.abs(d) > ha) continue;
-      const cf = 1 - 0.45*Math.pow(Math.abs(d)/ha, 1.4);
+      const dist = Math.hypot(vx,vy) || 0.001;
+      const cf = 1 - 0.30*(dist/maxDist);  /* 0.70~1.00 中心满伤,边缘稍弱 */
       hits.push({
-        pos:c.pos, c:c, ux:vx/(dist||1), uy:vy/(dist||1),
+        pos:c.pos, c:c, ux:vx/dist, uy:vy/dist,
         spin:(Math.random()*2-1)*30,
         f:cf, dmg:Math.round(120*cf*(0.40+0.60*level)),
         dly:dist*0.10
       });
     }
     S.hits = hits;
+    /* 碎地裂纹/碎石沿 aim 方向铺开,扇角 = 最远命中格张角 */
+    let ha = 0;
+    for(const c of cells){
+      const vx=c.x-g.apex.x, vy=c.y-g.apex.y;
+      let d = Math.atan2(vy,vx) - S.aim;
+      while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
+      ha = Math.max(ha, Math.abs(d));
+    }
+    if(ha <= 0) ha = 0.4;
     S.coneCracks = genConeCracks(g.apex, S.aim, ha, g.R0, 4242);
     S.debris = genDebris(g.apex, S.aim, ha, g.R0, 9911);
   }
@@ -881,7 +900,7 @@ const stageOld = makeStage('Old','old');
 /* ==================================================================
    六、全局控制器
    ================================================================== */
-const APP = { state:'idle', t0:0, level:0, aim:-Math.PI/2, autoTarget:null, burstStart:0, releaseLevel:0 };
+const APP = { state:'idle', t0:0, level:0, aim:-Math.PI/2, autoTarget:null, burstStart:0, releaseLevel:0, aimCellIndex:5 };  /* v18:默认 5 号位(中列+底两格) */
 let raf = 0;
 
 const flashEl = document.getElementById('flash');
@@ -962,7 +981,7 @@ function doRelease(){
   APP.releaseLevel = APP.level;
   stageNew.S.level = APP.level; stageOld.S.level = APP.level;
   stageNew.S.aim = APP.aim;   stageOld.S.aim = APP.aim;
-  stageNew.release(APP.level);
+  stageNew.release(APP.level, APP.aimCellIndex);
   updateHud(APP.level);
 }
 function endRun(){
@@ -1016,6 +1035,78 @@ bfNew.addEventListener('pointerup', releasePointer);
 bfNew.addEventListener('pointercancel', releasePointer);
 window.addEventListener('pointerup', releasePointer);
 
+/* v18:9 格命中映射交互 —— 点任意敌方格 → 设置 aimCellIndex + 立即重置 + 触发释放 */
+/* v18:悬停预览 —— 鼠标在敌方格上时高亮该格的命中范围 */
+document.getElementById('enemyGridNew').addEventListener('mouseover', ev=>{
+  const cellEl = ev.target.closest('.cell');
+  if(!cellEl || !cellEl.dataset.pos) return;
+  const pos = +cellEl.dataset.pos;
+  if(!(pos>=1 && pos<=9)) return;
+  document.querySelectorAll('#enemyGridNew .cell').forEach(el=>{
+    if(!el.dataset.pos) return;
+    const p = +el.dataset.pos;
+    if((HIT_MAP[pos]||[]).includes(p)){
+      el.style.boxShadow = 'inset 0 0 8px 2px rgba(255,160,80,0.55)';
+    } else {
+      el.style.boxShadow = '';
+    }
+  });
+  /* 在 hud 显示提示 */
+  const h = document.getElementById('hintNew');
+  if(h) h.textContent = '点 ' + pos + ' 号位 → 打 '+(HIT_MAP[pos]||[]).length+' 格(凸包预览)';
+});
+document.getElementById('enemyGridNew').addEventListener('mouseout', ev=>{
+  if(ev.target.closest('.cell') && !ev.relatedTarget?.closest?.('.cell')){
+    document.querySelectorAll('#enemyGridNew .cell').forEach(el=>{
+      el.style.boxShadow = '';
+      el.style.backgroundColor = '';
+    });
+    const h = document.getElementById('hintNew');
+    if(h) h.textContent = '点击敌方格 1-9 选择命中形状';
+  }
+});
+
+document.getElementById('enemyGridNew').addEventListener('click', ev=>{
+  const cellEl = ev.target.closest('.cell');
+  if(!cellEl || !cellEl.dataset.pos) return;
+  const pos = +cellEl.dataset.pos;
+  /* aimCellIndex 只在 1-9 范围 */
+  if(!(pos>=1 && pos<=9)) return;
+  APP.aimCellIndex = pos;
+  /* 强制重置 + 满蓄 + 释放(无论当前在 idle/charge/burst 都重置再来) */
+  cancelAnimationFrame(raf);
+  stageNew.reset(); stageOld.reset();
+  stageNew.measure(); stageOld.measure();
+  APP.state = 'charge';
+  APP.t0 = performance.now();
+  APP.level = 1;
+  APP.releaseLevel = 1;
+  APP.autoTarget = 1;
+  APP.aimCellIndex = pos;  /* 再设一次避免被覆盖 */
+  stageNew.S.level = 1;   stageOld.S.level = 1;
+  stageNew.S.aim = APP.aim; stageOld.S.aim = APP.aim;
+  stageNew.release(1, pos);
+  APP.state = 'burst';
+  APP.burstStart = performance.now();
+  flashEl.style.opacity = 0.88;  /* 白闪 */
+  updateHud(1);
+  /* 一次性把命中凸包预测在 burst=80 渲染一次,展示预览 */
+  raf = requestAnimationFrame(tick);
+  /* 视觉提示:被点中的格高亮 + 显示命中凸包 */
+  document.querySelectorAll('#enemyGridNew .cell').forEach(el=>{
+    el.style.boxShadow = '';
+    el.style.backgroundColor = '';
+  });
+  const hits = (HIT_MAP[pos]||[]);
+  for(const hp of hits){
+    const el = document.querySelector('#enemyGridNew .cell[data-pos="'+hp+'"]');
+    if(el){
+      el.style.boxShadow = 'inset 0 0 12px 4px rgba(255,70,30,0.85)';
+      el.style.backgroundColor = 'rgba(255,90,40,0.20)';
+    }
+  }
+});
+
 /* 键盘：空格蓄力 */
 window.addEventListener('keydown', ev=>{
   if(ev.code!=='Space') return;
@@ -1051,8 +1142,59 @@ document.getElementById('btnSide').onclick = function(){
 
 window.addEventListener('resize', ()=>{ stageNew.measure(); stageOld.measure(); });
 
-/* 开场自动播一轮（满蓄） */
-setTimeout(()=>startRun(1.00), 350);
+/* v20:開場自動播移到 hash 處理之後,避免被 charge/freeze 凍結覆蓋 */
+let _autoStart = setTimeout(()=>startRun(1.00), 350);
+
+/* v17 调试:URL 带 #burst=NNN 时,自动跳到爆发段第 NNN 毫秒（绕开蓄力,方便截图）
+   URL 带 #freeze=NNN 时,冻结在爆发段 NNN 毫秒（不启动 rAF 链,只渲染一帧） */
+setTimeout(()=>{
+  const mB = (location.hash||'').match(/burst=(\d+)/);
+  const mF = (location.hash||'').match(/freeze=(\d+)/);
+  const mC = (location.hash||'').match(/charge=(\d+)/);
+  /* v20:有凍結 hash 就取消開場自動播,免得被 startRun 覆蓋 */
+  if(mB || mF || mC) clearTimeout(_autoStart);
+  if(mB){
+    const tb = +mB[1];
+    cancelAnimationFrame(raf);
+    stageNew.reset(); stageOld.reset();
+    stageNew.measure(); stageOld.measure();
+    APP.level = 1; APP.releaseLevel = 1;
+    stageNew.S.level = 1; stageOld.S.level = 1;
+    stageNew.release(1, APP.aimCellIndex);
+    APP.state = 'burst';
+    APP.burstStart = performance.now() - tb;
+    flashEl.style.opacity = tb<55 ? 0.88 : Math.max(0, 0.88*(1-(tb-55)/135)).toFixed(3);
+    raf = requestAnimationFrame(tick);
+  }
+  if(mF){
+    const tb = +mF[1];
+    /* 解析可选参数 aim=N (1-9) 指定 9 格映射 */
+    const mA = (location.hash||'').match(/aim=(\d+)/);
+    if(mA && +mA[1]>=1 && +mA[1]<=9){ APP.aimCellIndex = +mA[1]; }
+    cancelAnimationFrame(raf);
+    stageNew.reset(); stageOld.reset();
+    stageNew.measure(); stageOld.measure();
+    APP.level = 1; APP.releaseLevel = 1;
+    stageNew.S.level = 1; stageOld.S.level = 1;
+    stageNew.release(1, APP.aimCellIndex);
+    flashEl.style.opacity = tb<55 ? 0.88 : Math.max(0, 0.88*(1-(tb-55)/135)).toFixed(3);
+    renderBurst(tb); // 单帧渲染,不再 schedule rAF
+  }
+  /* v20:加 #charge=NNN 冻结蓄力段第 NNN 毫秒(方便截蓄力中段的預警凸包+錐內高亮) */
+  if(mC){
+    const ch = +mC[1];
+    const mA2 = (location.hash||'').match(/aim=(\d+)/);
+    if(mA2 && +mA2[1]>=1 && +mA2[1]<=9){ APP.aimCellIndex = +mA2[1]; }
+    cancelAnimationFrame(raf);
+    stageNew.reset(); stageOld.reset();
+    stageNew.measure(); stageOld.measure();
+    stageNew.S.aim = APP.aim; stageOld.S.aim = APP.aim;
+    const lvl = Math.min(1, ch/CHARGE_MAX);
+    APP.level = lvl; stageNew.S.level = lvl; stageOld.S.level = lvl;
+    document.getElementById('vigNew').style.opacity = (0.25+0.6*lvl).toFixed(3);
+    renderCharge(ch, lvl); // 单帧渲染蓄力段
+  }
+}, 380);
 </script>
 </body>
 </html>

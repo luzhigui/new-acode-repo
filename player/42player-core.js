@@ -39,6 +39,32 @@ function getCtx() { return getPlayerContext(); }
 
 export { clearAllEffects } from './47renderer.js';
 
+// clock 桥接：单机 / 从机 / 回放三条路的「倍速·暂停·快进」接线完全同构，统一收口在此。
+// 此前三份逐字重复，回放版还多一行 setTimescale（GlobalStore.set('speed') 的 effect 已自动执行）。
+function installClockBridge(c) {
+    clock.reset();
+    clock.start();
+    clock.setTimescale(600 / (c.speed || 600));
+    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
+    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
+    // 守卫：值没变不折腾。finishBattle 收尾无条件 set(false)，没开过快进的局也会走还原分支，
+    // 不守会把手动 8x/4x 打完后冲回默认 2x。clock.fastForward 初始即 false，守卫安全。
+    GlobalStore.effect('fastForwardActive', (isActive) => {
+        if (isActive === clock.fastForward) return;
+        clock.setFastForward(isActive);
+        if (isActive) {
+            if (!c._originalSpeed) c._originalSpeed = c.speed;
+            c.speed = 1;
+        } else {
+            const restored = c._originalSpeed || 600;
+            c.speed = restored;
+            GlobalStore.set('speed', restored);   // effect('speed') 已自动 setTimescale
+            c._originalSpeed = null;              // 还原后清档，防跨局捕获旧速度
+            const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
+        }
+    });
+}
+
 function prepareLogEntry(entry) {
     if (!entry || !entry.factType) return entry;
     const rendered = renderLog(entry.factType, entry.data);
@@ -334,32 +360,8 @@ export async function playBattle() {
 
     c._removedUids = new Set();
 
-    // 统一时间源：clock 驱动全部 wait/animate；倍速/暂停/快进集中在此同步
-    clock.reset();
-    clock.start();
-    clock.setTimescale(600 / (c.speed || 600));
-    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
-    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
-
-    GlobalStore.effect('fastForwardActive', (isActive) => {
-        // 2026-10-07 守卫（与从机/回放两处同款）：值没变不折腾。finishBattle 收尾无条件 set(false)，
-        // 没开过快进的局也会触发还原分支 → _originalSpeed 空 → 落默认 600(2x)，
-        // 手动 8x/4x 打完一局战斗结束直接变 2x。clock.fastForward 初始即 false（52/14），守卫安全。
-        if (isActive === clock.fastForward) return;
-        clock.setFastForward(isActive);
-        if (isActive) {
-            if (!c._originalSpeed) c._originalSpeed = c.speed;
-            c.speed = 1;
-        } else {
-            const restored = c._originalSpeed || 600;
-            c.speed = restored;
-            GlobalStore.set('speed', restored);
-            // 还原后清档：不清的话下次快进捕获到的还是上一局的旧速度
-            //（上一局 8x→结算还原，这局改成 4x→再结算，会还原成 8x 而不是 4x）
-            c._originalSpeed = null;
-            const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
-        }
-    });
+    // 统一时间源：clock 驱动全部 wait/animate；倍速/暂停/快进收口 installClockBridge
+    installClockBridge(c);
 
     let abortSig = c.abortController ? c.abortController.signal : null;
     c._battleEnded = false;
@@ -572,27 +574,8 @@ export async function playBattleGuest() {
 
     c._removedUids = new Set();
 
-    // 时间层与房主一致：从机本地控制演出节奏，不影响房主
-    clock.reset();
-    clock.start();
-    clock.setTimescale(600 / (c.speed || 600));
-    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
-    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
-    // 快进跟随：房主把 ff 捎进 step，从机据此切换 clock.fastForward。不注册这层，从机看到 ff 也只能干瞪眼
-    GlobalStore.effect('fastForwardActive', (isActive) => {
-        if (isActive === clock.fastForward) return; // 值没变就不折腾，避免新一局初始化时把倍速冲成默认值
-        clock.setFastForward(isActive);
-        if (isActive) {
-            if (!c._originalSpeed) c._originalSpeed = c.speed;
-            c.speed = 1;
-        } else {
-            const restored = c._originalSpeed || 600;
-            c.speed = restored;
-            GlobalStore.set('speed', restored);
-            c._originalSpeed = null; // 2026-10-07 还原后清档，防跨局捕获旧速度（与单机主循环同款）
-            const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
-        }
-    });
+    // 时间层与房主一致：从机本地控制演出节奏，不影响房主（快进跟随由 installClockBridge 注册）
+    installClockBridge(c);
 
     // 从机主循环的刹车：房主重发 lineup（换关/开下一局）时由 ui/61 调 abort()，
     // 否则旧循环会继续播上一局的残留 step，最后还会把 gs 打回 GAMEOVER
@@ -682,26 +665,8 @@ export async function playBattleReplay(report) {
 
     c._removedUids = new Set();
 
-    // 时间层与从机一致：本地控制演出节奏
-    clock.reset();
-    clock.start();
-    clock.setTimescale(600 / (c.speed || 600));
-    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
-    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
-    GlobalStore.effect('fastForwardActive', (isActive) => {
-        if (isActive === clock.fastForward) return;
-        clock.setFastForward(isActive);
-        if (isActive) {
-            if (!c._originalSpeed) c._originalSpeed = c.speed;
-            c.speed = 1;
-        } else {
-            const restored = c._originalSpeed || 600;
-            c.speed = restored;
-            GlobalStore.set('speed', restored);
-            c._originalSpeed = null; // 2026-10-07 还原后清档，防跨局捕获旧速度（与单机主循环同款）
-            clock.setTimescale(600 / (restored || 600));
-        }
-    });
+    // 时间层与从机一致：本地控制演出节奏（installClockBridge 收口；回放版原多一行 setTimescale 冗余，靠 effect 已自动执行）
+    installClockBridge(c);
 
     // 演出 RNG：与从机同款，只管台词等表现层不崩
     setBattleRng(new SeededRNG(Date.now() % 1000000));
