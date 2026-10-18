@@ -19,6 +19,8 @@
       ⑥ 命中带击退：被命中的单位沿受力方向被推走（瑟提 W 的招牌）
       ⑦ 可拖拽瞄准，且蓄力档位直接决定锥角/伤害/击退/震屏 —— 蓄得越久越狠
   · 对照组：线上现状复刻（fx/90 V1.3.0 + fx/93 V1.2.0，扇面固定朝上、不可瞄准）
+  V1.3.0 | 2026-10-18 命中映射改老板定稿「九位九形」：1=1247 / 2=2456 / 3=2369 / 4=1245 / 5=25789 / 6=2356 / 7=2457 / 8=258 / 9=2569；
+    未选（原地按着不拖）或拖出敌阵格外 → 0=全屏 123456789 兜底；APP 默认值与所有 ||5 回退同步改 ||0。
   V1.2.0 | 2026-10-18 拖动瞄准改「指哪打哪」：手指悬停哪个敌格（方向+距离共同定位，欧氏距离最近格）就瞄哪个格，
     拖动也能按出全场/右半场打法；拖动时实时显示「瞄准 N 号位 → 命中 X 格」。
   V1.1.0 | 2026-10-18 满员版：双阵九格全满 + 施术者更名寒离飒（基于 127-sett-w-fx-demo-3 V1.0.0）
@@ -132,7 +134,7 @@ h1 { font-size: 16px; margin: 10px 0 4px; text-align: center; }
 </div>
 
 <div class="legend">
-  <span class="k">玩法：</span>按住战场 → 蓄力（可拖动瞄准，松手轰出）；或用上方三个预设档位直接看效果。满员 9v9：两边九格全满，瞄准打后排 BOSS 也行（远排横切）。<br>
+  <span class="k">玩法：</span>按住战场 → 蓄力，拖到敌格上瞄准（每位一种打击形状），松手轰出；原地不拖或拖出格子外 = 全屏兜底。满员 9v9，九位九形（列/块/斜线/贯穿）。<br>
   <span class="k">对照：</span>点「⇄ 对比模式」可隐藏旧版单独看新版；两版同时间轴同阵容，可直接对拍蓄力段的"死"与"活"。<br>
   <span class="k">落地口径：</span>新版只改 fx 层画法（新增 fx/94 蓄力 + fx/95 爆发两支），不碰格子结构与战斗引擎；击退复用现有 fx/84fx-push-back.js。
 </div>
@@ -171,20 +173,21 @@ const ALLY = {
 };
 const TRUE_POS = [2,5,8], HALF_POS = [4,6,7,9];   // 旧版（寒离飒口径）真伤/半伤格
 
-/* v27（满员版）:命中映射表扩到 9 格 —— 敌阵三排全满
+/* v29（老板定稿映射）:九位九形 + 全屏兜底。1/3/8=竖列、2/4/6=方块、7/9=斜线、5=贯穿打后排；
+   未选（原地按着不拖）或拖出敌阵格子外 → 0 = 全屏 123456789。
    敌阵布局:近排 1 华山 / 2 空性 / 3 崆峒,中排 4 峨眉 / 5 武当 / 6 六大派,远排 7 何太冲 / 8 宋青书 / 9 灭绝
-   （v26 只引用实有 6 格、剔空位；满员版九格全实有，列/半场/横切模式等比加深一排）
    键 1-9 = 玩家点/瞄的瞄准位,值 = 真正会被打到的格子 */
 const HIT_MAP = {
-  1:[1,4,7],               // 左列（窄，3 格）
-  2:[2,5,8],               // 中列（窄，3 格）
-  3:[3,6,9],               // 右列（窄，3 格）
-  4:[1,2,4,5,7,8],         // 左半（6 格）
-  5:[2,3,5,6,8,9],         // 右半（6 格）
-  6:[1,2,3],               // 近排横切（3 格）
-  7:[7,8,9],               // 远排横切·BOSS 排（3 格）
-  8:[1,2,3,4,5,6,7,8,9],   // 全场（9 格）
-  9:[1,3,4,6,7,9]          // 两侧包抄、跳中列（6 格）
+  0:[1,2,3,4,5,6,7,8,9],  // 未瞄准/拖出界 → 全屏（老板拍板）
+  1:[1,2,4,7],             // 左列 + 近中
+  2:[2,4,5,6],             // 中排整排 + 自身（横 T）
+  3:[2,3,6,9],             // 右列 + 近中
+  4:[1,2,4,5],             // 左下 2×2 方块
+  5:[2,5,7,8,9],           // 中列贯穿 + 远排两角（后排杀手）
+  6:[2,3,5,6],             // 右下 2×2 方块
+  7:[2,4,5,7],             // 左上斜线劈向中心
+  8:[2,5,8],               // 中列窄贯穿
+  9:[2,5,6,9]              // 右上斜线劈向中心
 };
 
 function hpCls(p){ return p>0.5?'hp-text-green':(p>0.2?'hp-text-orange':'hp-text-red'); }
@@ -340,7 +343,7 @@ function makeStage(suffix, variant){
      v26:原来 visR 投到「敌阵外接框远边」，不管瞄哪都是全场深度，所以永远像全局 */
   function visR(aim, cellIndex){
     const g = S.geo;
-    const cs = hitCellsAt(cellIndex===undefined ? (APP.aimCellIndex||5) : cellIndex);
+    const cs = hitCellsAt(cellIndex===undefined ? (APP.aimCellIndex||0) : cellIndex);
     if(cs.length){
       let m = 0;
       for(const c of cs){
@@ -488,7 +491,7 @@ function makeStage(suffix, variant){
 
     /* 预警范围 = 实际命中格的凸包（虚线橙边 + 极淡填充，v21 改 HIT_MAP） */
     const Rv = visR(aim);
-    const tele = telegraphPoly(APP.aimCellIndex||5, 5);
+    const tele = telegraphPoly(APP.aimCellIndex||0, 5);
     h += '<defs><radialGradient id="aimG'+U+'" gradientUnits="userSpaceOnUse" cx="'+ax+'" cy="'+ay+'" r="'+Rv.toFixed(1)+'">'+
       '<stop offset="0%" stop-color="rgba(255,150,60,'+(0.04+0.12*level).toFixed(3)+')"/>'+
       '<stop offset="100%" stop-color="rgba(255,60,20,'+(0.02+0.10*level).toFixed(3)+')"/>'+
@@ -545,7 +548,7 @@ function makeStage(suffix, variant){
      ================================================================== */
   function drawBurstNew(tb, level){
     const g = S.geo, ap = g.apex, ax = ap.x, ay = ap.y, aim = S.aim;
-    const ha0 = hitHalfAngle(APP.aimCellIndex||5, aim);
+    const ha0 = hitHalfAngle(APP.aimCellIndex||0, aim);
     let h = '';
 
     /* 1) 拳冲 + 残影 */
@@ -563,7 +566,7 @@ function makeStage(suffix, variant){
 
     /* 2) 焦痕余温：出手后地面留一片暗红，慢慢烧尽（v21 改 HIT_MAP） */
     const Rv = visR(aim);
-    const teleFull = telegraphPoly(APP.aimCellIndex||5, 5);
+    const teleFull = telegraphPoly(APP.aimCellIndex||0, 5);
     if(tb > 240 && tb < 2200){
       const op = clamp(1-(tb-240)/1960, 0, 1)*0.30;
       h += '<path d="'+polyPath(scalePoly(teleFull, ap, 0.97))+'" fill="rgba(86,32,12,'+op.toFixed(3)+')"/>';
@@ -816,7 +819,7 @@ function makeStage(suffix, variant){
        于是蓄力时所有敌格都在红闪，看起来像全局；现在只闪真正会被打到的格子，
        和爆发段真正会抖的格子是同一批。 */
     const pulse = 0.5+0.5*Math.sin(performance.now()/110);
-    for(const c of hitCellsAt(APP.aimCellIndex||5)){
+    for(const c of hitCellsAt(APP.aimCellIndex||0)){
       const el = cell['e'+c.pos]; if(!el) continue;
       el.style.boxShadow = 'inset 0 0 13px 2px rgba(255,70,30,'+(0.36+0.52*level*(0.6+0.4*pulse)).toFixed(3)+')';
       el.style.backgroundColor = 'rgba(255,90,40,'+(0.05+0.15*level).toFixed(3)+')';
@@ -937,7 +940,7 @@ const stageOld = makeStage('Old','old');
 /* ==================================================================
    六、全局控制器
    ================================================================== */
-const APP = { state:'idle', t0:0, level:0, aim:-Math.PI/2, autoTarget:null, burstStart:0, releaseLevel:0, aimCellIndex:5 };  /* v21:默认 5 号位(中列+底两格) */
+const APP = { state:'idle', t0:0, level:0, aim:-Math.PI/2, autoTarget:null, burstStart:0, releaseLevel:0, aimCellIndex:0 };  /* v29:默认 0 = 未瞄准 → 全屏兜底（老板拍板） */
 let raf = 0;
 
 const flashEl = document.getElementById('flash');
@@ -1039,11 +1042,18 @@ function aimFromPointer(ev){
   const px = ev.clientX-b.left, py = ev.clientY-b.top;
   const ap = stageNew.S.geo ? stageNew.S.geo.apex : {x:b.width/2, y:b.height*0.8};
   const dx = px-ap.x, dy = py-ap.y;
-  /* 规则一：离施术者太近（等于点在自己身上）→ 不动瞄准
-     规则二：指针在施术者下方（己方半场）→ 不动瞄准
-     只有把指针拖到敌阵半区才改变方向，避免随手一点把方向甩飞 */
-  if(Math.hypot(dx,dy) < 26) return;
-  if(dy > -8) return;
+  /* v29 规则（老板拍板）：未选或出界 → 0 = 全屏。
+     规则一：离施术者太近（原地按着不拖）→ 全屏
+     规则二：指针在施术者下方（己方半场）→ 全屏
+     规则三：指针拖出敌阵九格外（超包围盒+余量）→ 全屏
+     拖到格子附近才锁定具体瞄准位 */
+  const setNoAim = ()=>{
+    APP.aimCellIndex = 0;
+    const h = document.getElementById('hintNew');
+    if(h) h.textContent = '未瞄准 → 全屏 9 格（松手轰全场）';
+  };
+  if(Math.hypot(dx,dy) < 26){ setNoAim(); return; }
+  if(dy > -8){ setNoAim(); return; }
   const a = Math.atan2(dy, dx);
   const up = -Math.PI/2;
   let d = a-up; while(d>Math.PI) d-=TAU; while(d<-Math.PI) d+=TAU;
@@ -1055,11 +1065,17 @@ function aimFromPointer(ev){
   const g = stageNew.S.geo;
   if(g){
     const px = g.apex.x+dx, py = g.apex.y+dy;
+    /* v29 规则三：先算敌阵九格包围盒，拖出界（含余量约半格）→ 全屏兜底 */
+    let x0=1e9, y0=1e9, x1=-1e9, y1=-1e9;
+    for(const k in g.cells){ const c=g.cells[k];
+      x0=Math.min(x0,c.x); x1=Math.max(x1,c.x); y0=Math.min(y0,c.y); y1=Math.max(y1,c.y); }
+    const M = 26;
+    if(px < x0-M || px > x1+M || py < y0-M || py > y1+M){ setNoAim(); return; }
     let best = 0, bd = 1e9;
     for(const k in g.cells){
       const c = g.cells[k]; if(!c.unit) continue;
-      const d = Math.hypot(c.x-px, c.y-py);
-      if(d < bd){ bd = d; best = c.pos; }
+      const d2 = Math.hypot(c.x-px, c.y-py);
+      if(d2 < bd){ bd = d2; best = c.pos; }
     }
     if(best){
       APP.aimCellIndex = best;
