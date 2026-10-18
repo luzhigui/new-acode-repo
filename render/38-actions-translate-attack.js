@@ -16,7 +16,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '.
 import { makeHealAction } from './38-actions-translate-heal.js';
 // 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate-attack.js V1.0.3';
+export const VER = 'render/38-actions-translate-attack.js V1.0.4';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
