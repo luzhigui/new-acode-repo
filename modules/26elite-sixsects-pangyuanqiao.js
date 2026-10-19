@@ -1,17 +1,19 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
 // V6.29.1 | ~15340 bytes | 2026-10-15 蓄力改版（老板拍板）：每次出手命中后自身回血 healPerAttack（放弃「上限永久成长」），
+// V6.29.3 | ~15500 bytes | 2026-10-19 谁的日志归谁（老板拍板）：莽撞战报行不再 pushInfo 插进攻击者的攻击组，
+//   改为紧跟本击攻击组之后的独立 SKILL_ANNOUNCE 播报行（主路径 + 溅射路径两处）；飘字/声明 fact 通道不动。
 // V6.29.2 | ~15420 bytes | 2026-10-17 正义国字脸防御+40 声明改挂 SKILL_ANNOUNCE（被闪也发，账实一致）
 //   走通用 HEAL 通道：本组件发 HEAL 声明 → 本击 ATTACK 组 entries → render/38 回血白名单 → 战报绿字 + afterText 飘字。
 //   同轮补 hp 记账（体检第 94 轮转交）：emit 处 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')——
 //   与 HEAL 声明 healed 同表达式同值，纯审计零行为差异；PANG_HIT_HEAL 契约转严格比对
-export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.1';
+export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.3';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from '../core/13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
-import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
+import { pushSkillAnnounce } from './23elite-helpers.js';
 
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
 // 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
@@ -56,7 +58,7 @@ export function createPangYuanQiaoComponent() {
                         data: { unitName: pang.name, atkDelta: rage.atkPerHit }
                     });
                 }
-                pushInfo(data, `<span class="gold">💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`);
+                pushSkillAnnounce(data.log, pang, '莽撞', `💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）`);
             });
 
             // 技能1 补充（2026-09-24）：流星赶月/乘风突袭的溅射（二次伤害）同样算「挨打」，与主目标口径一致。
@@ -72,11 +74,10 @@ export function createPangYuanQiaoComponent() {
                         data: { unitName: pang.name, atkDelta: rage.atkPerHit }
                     });
                 }
-                // 台词挂在溅射那条 fact 上（render/35 会追加到行尾）
+                // 2026-10-19 谁的日志归谁：溅射莽撞台词不再挂攻击者组内的溅射 fact 行尾，改独立播报行
+                pushSkillAnnounce(data.log, pang, '莽撞', `💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）`);
+                // 飘字通道不动：溅射 fact 仍在攻击者组 entries 里，render/38 扫到按 uid/加攻量飘「⚔+N」
                 if (data.factData) {
-                    data.factData.rageText = `<span class="gold">💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`;
-                    // 2026-10-02 飘字同主路径：溅射 fact 也在本击 ATTACK fact 的 entries 里，
-                    //   render/38 扫到该 factType 时按此 uid/加攻量飘「⚔+N」
                     data.factData.pangAtkUid = pang.uid;
                     data.factData.pangAtkGain = rage.atkPerHit;
                 }

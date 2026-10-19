@@ -1,5 +1,5 @@
 // 版本历史见 记录-更改履历.md（检索 "core/11battle-round"）
-export const VER = 'core/11battle-round.js V6.3.30';
+export const VER = 'core/11battle-round.js V6.3.31';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -251,7 +251,7 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
         applyFortifyBonus(u, buffs);
         applySoulDrain(u, enemyBuffs, { log: ctx.log, casterAlive, targetAlive, round: ctx.round, casterSide: enemy });
         applyCarryBonus(u, team, state, ctx.log);
-        applyLastStandBonus(u, buffs, ctx.log);
+        applyLastStandBonus(u, team, buffs, ctx.log);
         applyUnityBonus(u, team, buffs, ctx.log);
 
         const auraBonuses = getAuraBonuses(u, team, enemy);

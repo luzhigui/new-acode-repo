@@ -9,10 +9,9 @@
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
-// V2.1.1 | 2026-10-19 第 106 轮：轰拳真伤补纯记账 recordHpAudit(u,'hlsBurstDmg',-dmg,'蓄意轰拳·真伤')
-//   ——原该伤害只落单位级 dmgDealt/dmgTaken、无按机制 group，数值网归不了因（scan-groups 亦因无 group 看不见）；
-//   与同文件 hlsVamp/hlsHanDuDot 同范式，供 stat-decl HLS_BURST_DMG 契约对账。零游戏逻辑副作用。
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.1.1';
+// V2.1.2 | 2026-10-19 谁的日志归谁（老板拍板）：护盾吸收战报行不再 pushInfo 插进攻击者的攻击组，
+//   改为紧跟本击攻击组之后的独立 SKILL_ANNOUNCE 播报行；零数值/行为变化。
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.1.2';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
@@ -103,9 +102,10 @@ export function createHanLiSaComponent() {
                     const arr = hls.state._hlsTaken;
                     if (Array.isArray(arr) && arr.length > 0) arr[arr.length - 1] += data.dmg;
                 }
-                // core/12 写在本击的 absorbed 量：护盾吸收行挂攻击者本击的攻击组
+                // core/12 写在本击的 absorbed 量：2026-10-19 谁的日志归谁——护盾吸收是寒离飒的承伤反应，
+                //   不再插进攻击者的攻击组（pushInfo），改为紧跟本击攻击组之后的独立播报行
                 if (hls.state._shieldAbsorbed > 0) {
-                    pushInfo(data, `<span class="gold">🛡️ 寒离飒护盾吸收 ${hls.state._shieldAbsorbed} 点伤害（剩余 ${Math.floor(hls.state._shield || 0)}）</span>`);
+                    pushSkillAnnounce(data.log, hls, '护盾吸收', `🛡️ 寒离飒护盾吸收 ${hls.state._shieldAbsorbed} 点伤害（剩余 ${Math.floor(hls.state._shield || 0)}）`);
                 }
             });
 

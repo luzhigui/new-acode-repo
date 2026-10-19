@@ -1,5 +1,5 @@
-// V6.3.1 | ~18100 bytes | 2026-10-13 杨逍·鹰眼被动：getMissBreakdown 未命中 −missReduce 个百分点（单源收口，详情弹窗自动同步）
-export const VER = 'core/03battle-utils.js V6.3.1';
+// V6.3.2 | ~18100 bytes | 2026-10-19 概率连击无视遮挡定案：registerDoubleStrike 的 ignoreBlock 恒 true（团队版/妹永久/姊强化一律穿透遮挡；姊强化仍 100% 连击）
+export const VER = 'core/03battle-utils.js V6.3.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -350,7 +350,8 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
                 reason: 'doubleStrike',
                 actedMode: 'allow',
                 priority: 10,
-                ignoreBlock: !!xiaoDoubleEnhance
+                // 2026-10-19 定案：拥有概率连击者（团队版/妹永久）连击一律无视遮挡，不再唯一限姊强化
+                ignoreBlock: true
             });
         } else {
             log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
