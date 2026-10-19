@@ -666,32 +666,34 @@ export function showHanlisaAim(c, hls, payload, resolve) {
   --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b; --c-green:#2e7d32; --c-dark:#1a1a2e; display:flex; flex-direction:column; justify-content:center; }
 #hlsAimOv * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 #hlsAimOv .hlsAimTitle { font-size:15px; font-weight:700; color:var(--c-brown); text-align:center; margin:2px 0 4px; }
+/* —— 以下 .battlefield/.world/.team-row/.grid/.cell/.cu/... 逐条照抄 131 demo（V3.1 修名字被裁/标签挤压/血条横竖之错）—— */
 #hlsAimOv .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; touch-action: none; width: 100%; max-width: 520px; margin: 0 auto; }
 #hlsAimOv .world { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; min-height: 0; will-change: filter; }
 #hlsAimOv .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
 #hlsAimOv .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
 #hlsAimOv .camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
-#hlsAimOv .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; flex: 1; width: 100%; }
-#hlsAimOv .cell { background: #d9d0b5; border: 1.5px solid #8b7355; border-radius: 7px; position: relative; overflow: hidden; min-height: 6.2dvh; }
-#hlsAimOv .cu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1px 2px; will-change: transform; }
-#hlsAimOv .cell-icon { font-size: clamp(14px, 4.2dvh, 26px); line-height: 1.05; }
-#hlsAimOv .cell-info { display: flex; flex-direction: column; align-items: center; width: 100%; min-width: 0; }
-#hlsAimOv .cell-name { font-size: clamp(8px, 1.9dvh, 12px); font-weight: bold; color: #1f1f1f; max-width: 96%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#hlsAimOv .cell-name.name-blue { color: #1e6bb8; } #hlsAimOv .cell-name.name-purple { color: #8e44ad; } #hlsAimOv .cell-name.name-gold { color: #b8860b; }
-#hlsAimOv .cell-stats { font-size: clamp(7px, 1.6dvh, 10.5px); color: #333; white-space: nowrap; }
-#hlsAimOv .cell-stats .hp-text-green { color: #2e7d32; } #hlsAimOv .cell-stats .hp-text-orange { color: #b8860b; } #hlsAimOv .cell-stats .hp-text-red { color: #c0392b; }
-#hlsAimOv .hp-bar-wrap { position: absolute; left: 2px; bottom: 2px; width: calc(100% - 4px); height: 18%; min-height: 3px; background: rgba(60,40,20,0.25); border-radius: 2px; overflow: hidden; }
-#hlsAimOv .hp-bar-inner { width: 100%; border-radius: 2px; }
+#hlsAimOv .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+#hlsAimOv .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; overflow: visible; position: relative; }
+#hlsAimOv .cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+#hlsAimOv .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+#hlsAimOv .cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+#hlsAimOv .cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+#hlsAimOv .hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
+#hlsAimOv .hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; }
+#hlsAimOv .cell-name.name-blue { color: #2e6fb7; } #hlsAimOv .cell-name.name-purple { color: #8e44ad; } #hlsAimOv .cell-name.name-gold { color: #b8860b; }
+#hlsAimOv .hp-text-green { color: #2e7d32; } #hlsAimOv .hp-text-orange { color: #d2691e; } #hlsAimOv .hp-text-red { color: #c0392b; }
+#hlsAimOv .cu { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; will-change: transform; }
 #hlsAimOv .fxLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-#hlsAimOv .vig { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .12s;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 46%, rgba(20,8,2,0.55) 100%); }
-#hlsAimOv .hud { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); background: rgba(20,10,4,0.78); color: #ffd9a0;
-  border: 1px solid rgba(255,180,80,0.55); border-radius: 8px; padding: 3px 10px 4px; text-align: center; z-index: 6; opacity: 0; transition: opacity .15s; min-width: 108px; }
-#hlsAimOv .hudTier { font-size: 12px; font-weight: 700; letter-spacing: 2px; }
-#hlsAimOv .hudPct { font-size: 11px; color: #fff; margin-left: 6px; }
-#hlsAimOv .hudBarWrap { width: 100%; height: 4px; background: rgba(255,255,255,0.16); border-radius: 2px; margin-top: 2px; overflow: hidden; }
-#hlsAimOv .hudBar { height: 100%; width: 0; background: linear-gradient(90deg, #ffb347, #ff5e3a); border-radius: 2px; }
-#hlsAimOv .hint { text-align: center; font-size: 11.5px; color: #6b5a40; padding: 4px 8px 0; }
+#hlsAimOv .vig { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+  background: radial-gradient(ellipse 58% 52% at 50% 74%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 34%, rgba(14,5,2,0.5) 76%, rgba(8,2,0,0.9) 100%); }
+#hlsAimOv .flash { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0; background: #fff; }
+/* HUD：demo 同款（橙色发光档位名 + 130px 渐变条），类名沿用本文件的 hudTier/hudPct/hudBarWrap/hudBar */
+#hlsAimOv .hud { position: absolute; left: 0; right: 0; top: 4px; z-index: 6; text-align: center; pointer-events: none; opacity: 0; transition: opacity .1s; }
+#hlsAimOv .hudTier { display: block; font-size: 12px; font-weight: 900; letter-spacing: 3px; color: #ff8a3d; text-shadow: 0 0 9px rgba(255,90,20,.95), 0 1px 2px #000; }
+#hlsAimOv .hudPct { display: block; font-size: 9px; color: #ffd9b0; text-shadow: 0 1px 2px #000; margin-top: 1px; }
+#hlsAimOv .hudBarWrap { width: 130px; height: 4px; margin: 3px auto 0; background: rgba(0,0,0,.5); border-radius: 3px; overflow: hidden; }
+#hlsAimOv .hudBar { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #ffd36e, #ff6a1e, #ff2d0d); }
+#hlsAimOv .hint { position: absolute; left: 0; right: 0; bottom: 3px; z-index: 6; text-align: center; font-size: 10px; color: #6b543a; pointer-events: none; text-shadow: 0 1px 0 #fff; }
 #hlsAimOv .team-label.orange { color: var(--c-sect-orange); } #hlsAimOv .team-label.blue { color: var(--c-ming-blue); }
 #hlsAimOv .hlsAimSkip { position: absolute; top: 8px; right: 10px; z-index: 8; background: var(--c-panel); border: 1.5px solid var(--c-brown-border); color: var(--c-brown);
   border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
@@ -750,6 +752,11 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     bf.appendChild(hint);
     overlay.appendChild(bf);
 
+    // 白闪层（demo #flash：爆发瞬间 0.88 全屏白，~190ms 衰减——震撼感的大头，V3.1 补上）
+    const flashEl = document.createElement('div');
+    flashEl.className = 'flash';
+    overlay.appendChild(flashEl);
+
     const skipBtn = document.createElement('button');
     skipBtn.className = 'hlsAimSkip';
     skipBtn.textContent = '跳过 ⏭';
@@ -789,6 +796,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
                 return;
             }
             stage.frameBurst(tb);
+            flashEl.style.opacity = tb < 55 ? 0.88 : Math.max(0, 0.88 * (1 - (tb - 55) / 135)).toFixed(3);   // demo renderBurst 原行
         } else if (APP.state === 'vamp') {
             const tb = now - APP.burstStart;
             if (tb > VAMP_MS) { finish(); return; }
@@ -805,6 +813,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         APP.level = 0;
         APP.aim = -Math.PI / 2;
         stage.S.aim = APP.aim;
+        flashEl.style.opacity = 0;
         updateHud(0);
         hint.textContent = '蓄力中… 拖动瞄准，松手轰出';
         if (!raf) raf = requestAnimationFrame(tick);
