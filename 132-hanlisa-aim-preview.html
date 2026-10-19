@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>蓄意轰拳 · 子弹时间预览 V3.3</title>
+<title>蓄意轰拳 · 子弹时间预览 V3.4</title>
 <style>
 body { background:#0d0906; font-family:'Segoe UI', monospace; max-width:520px; margin:0 auto; padding:8px 6px 20px; color:#d9c6a8; user-select:none; -webkit-user-select:none; }
 h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(255,150,40,.6); }
@@ -22,14 +22,14 @@ h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(
 </style>
 </head>
 <body>
-<h1>👊 蓄意轰拳 · 子弹时间预览 V3.3</h1>
-<div class="sub">快照自 ui/79 V3.3——游戏内华丽模式同款代码。<b style="color:#ff8a3d">本版：预警范围按九位九形画全格，空位也罩住</b>（4 号没人照样框进去红闪，只是不冒伤害数字）。</div>
+<h1>👊 蓄意轰拳 · 子弹时间预览 V3.4</h1>
+<div class="sub">快照自 ui/79 V3.4。<b style="color:#ff8a3d">本版：准星钉在你锁定的格子上</b>（旧版画在瞄准方向的最深处——瞄 2 号圈飘到 5 号的 bug）；带四向刻度，虚线连到锁定格；未瞄准（全屏）时不画。</div>
 <div class="bar">
   <button id="btnRun">▶ 手动开演</button>
-  <button id="btnAuto">🤖 自动演示（瞄空 4 号）</button>
+  <button id="btnAuto">🤖 自动演示（瞄 2 号）</button>
   <span class="sep">— 场景 —</span>
   <button data-scene="full9v9" class="on">满员（敌4空）</button>
-  <button data-scene="eight">瞄 8 特写（敌4空）</button>
+  <button data-scene="eight">瞄 8 特写</button>
   <button data-scene="sparse">残局</button>
   <span class="sep">— 承伤基数 N —</span>
   <button data-n="45">45</button>
@@ -40,10 +40,7 @@ h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(
   <span id="nDetail"></span>
   <span id="lastResult"></span>
 </div>
-<div class="note">
-<b>V3.3 改动</b>：预警凸包/蓄力红闪/张角/拳冲深度全部改按<b>形状全格</b>算（shapeCellsAt），不再因「格子里没人」缩水；伤害数字与击退仍只对有人的格（hitCellsAt）。点「自动演示」看瞄 4 号（空位）→ 预警框完整罩住横 T 形四格、4 号空格照样红闪。<br>
-<b>验证点</b>：预警形状=九位九形的完整形状；空格红闪但无伤害数字。
-</div>
+<div class="note"><b>V3.4 验证点</b>：自动演示拖到敌 2 号——橙色准星圆圈就在 2 号格中心（旧版会飘到 5 号）；蓄力越满圈越大越实。</div>
 <script type="module">
 // ui/79hanlisa-aim.js — 蓄意轰拳子弹时间（131 demo 舞台整体照搬，老板拍板「画面直接 copy demo」）
 // V3.0.0 | 2026-10-19 推倒 V2 的黑幕克隆场景：视觉逐段照搬 131-sett-w-fx-demo-full.html 新版舞台——
@@ -62,11 +59,13 @@ h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(
 //   ④进场在施术者格上给金色拳头引导（浮动+扩散金环+「按住这里蓄力」），startCharge 即隐。
 // V3.3.0 | 2026-10-19 老板口径：预警范围按九位九形画全格（空位也罩住），不按「有人的格子」——
 //          shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）拆开。
-export const VER = 'ui/79hanlisa-aim.js V3.3.0';
+// V3.4.0 | 2026-10-19 老板口径「移到 2 号圆圈却在 5 号」：准星从「锥深位置」改钉在锁定格中心（带四向刻度），
+//          虚线瞄准线连到锁定格；未瞄准（全屏兜底）时不画线不画圈。
+export const VER = 'ui/79hanlisa-aim.js V3.4.0';
 
 
 
-/* ===== demo 环境模拟（快照自 ui/79hanlisa-aim.js V3.3 · 本地；游戏内同款代码） ===== */
+/* ===== demo 环境模拟（快照自 ui/79hanlisa-aim.js V3.4 · 本地；游戏内同款代码） ===== */
 const GlobalStore = { _m: {}, set(k, v) { this._m[k] = v; }, get(k) { return this._m[k]; } };
 const XULI_PARAMS = { shieldPct: 0.2, recentRounds: 3, vampDiv: 3,
   hitShapes: { "1":[1,2,4,7], "2":[2,4,5,6], "3":[2,3,6,9], "4":[1,2,4,5], "5":[2,5,7,8,9], "6":[2,3,5,6], "7":[2,4,5,7], "8":[2,5,8], "9":[2,5,6,9] },
@@ -421,10 +420,19 @@ function makeStage(D) {
         const fx = ax + Math.cos(aim) * 13, fy = ay + Math.sin(aim) * 13;
         h += fistMarkup(fx, fy, aim, fs, level, 1);
 
-        /* 瞄准线 + 准星 */
-        h += '<line x1="' + (ax + Math.cos(aim) * 40).toFixed(1) + '" y1="' + (ay + Math.sin(aim) * 40).toFixed(1) + '" x2="' + (ax + Math.cos(aim) * (Rv + 4)).toFixed(1) + '" y2="' + (ay + Math.sin(aim) * (Rv + 4)).toFixed(1) + '" stroke="rgba(255,220,170,' + (0.16 + 0.32 * level).toFixed(3) + ')" stroke-width="1.2" stroke-dasharray="4 8"/>';
-        const rx = ax + Math.cos(aim) * Rv, ry = ay + Math.sin(aim) * Rv;
-        h += '<circle cx="' + rx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="' + (7 + 3 * level).toFixed(1) + '" fill="none" stroke="rgba(255,120,50,' + (0.30 + 0.5 * level).toFixed(3) + ')" stroke-width="1.6"/>';
+        /* 瞄准线 + 准星（V3.4 老板口径「移到 2 号圆圈却在 5 号」：旧版按锥深放在形状最深处——
+           demo 自由角度的遗产；游戏里瞄准=锁格，圆圈钉在锁定格中心。未瞄准=全屏兜底时不画（凸包已罩全场）） */
+        const aimCell = (APP.aimCellIndex || 0) >= 1 ? g.cells['e' + APP.aimCellIndex] : null;
+        if (aimCell) {
+            h += '<line x1="' + (ax + Math.cos(aim) * 40).toFixed(1) + '" y1="' + (ay + Math.sin(aim) * 40).toFixed(1) + '" x2="' + aimCell.x.toFixed(1) + '" y2="' + aimCell.y.toFixed(1) + '" stroke="rgba(255,220,170,' + (0.16 + 0.32 * level).toFixed(3) + ')" stroke-width="1.2" stroke-dasharray="4 8"/>';
+            const rr2 = Math.min(aimCell.w, aimCell.h) * (0.58 + 0.10 * level);
+            h += '<circle cx="' + aimCell.x.toFixed(1) + '" cy="' + aimCell.y.toFixed(1) + '" r="' + rr2.toFixed(1) + '" fill="none" stroke="rgba(255,120,50,' + (0.55 + 0.45 * level).toFixed(3) + ')" stroke-width="' + (1.6 + 0.8 * level).toFixed(1) + '"/>';
+            /* 四向刻度：准星感 */
+            const t1 = rr2 * 0.62, t2 = rr2 * 1.24;
+            [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(v => {
+                h += '<line x1="' + (aimCell.x + v[0] * t1).toFixed(1) + '" y1="' + (aimCell.y + v[1] * t1).toFixed(1) + '" x2="' + (aimCell.x + v[0] * t2).toFixed(1) + '" y2="' + (aimCell.y + v[1] * t2).toFixed(1) + '" stroke="rgba(255,120,50,' + (0.55 + 0.45 * level).toFixed(3) + ')" stroke-width="1.4" stroke-linecap="round"/>';
+            });
+        }
 
         svg.innerHTML = h;
     }
@@ -1029,7 +1037,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
 
 const SCENES = {
   full9v9: {
-    label: '满员 9v9',
+    label: '满员（敌4空）',
     enemies: [
       { pos:1, icon:'⚔️', name:'华山弟子', tier:'', atk:22, def:18, hp:105, max:105 },
       { pos:2, icon:'📿', name:'空性', tier:'name-purple', atk:35, def:24, hp:93, max:130 },
@@ -1050,7 +1058,7 @@ const SCENES = {
     ]
   },
   eight: {
-    label: '瞄 8 特写（4 号空位看范围）',
+    label: '瞄 8 特写',
     enemies: [
       { pos:2, icon:'⚔️', name:'华山弟子', tier:'', atk:22, def:18, hp:105, max:105 },
       { pos:5, icon:'⚔️', name:'武当弟子', tier:'', atk:15, def:22, hp:124, max:124 },
@@ -1075,7 +1083,6 @@ const SCENES = {
     ]
   }
 };
-const N_LEVELS = [45, 90, 180, 360];
 let curScene = 'full9v9', curN = 90;
 
 function buildMiniGrids(scene) {
@@ -1123,22 +1130,17 @@ function scheduleAutoDemo() {
   t(900, () => {
     const bf = document.querySelector('#hlsAimOv .battlefield');
     const ap = document.querySelector('#hlsAimOv #hlsAimAg [data-pos="2"]');
-    const e4 = document.querySelector('#hlsAimOv #hlsAimEg [data-pos="4"]');
-    if (!bf || !ap) return;
-    const apR = ap.getBoundingClientRect();
+    const e2 = document.querySelector('#hlsAimOv #hlsAimEg [data-pos="2"]');
+    if (!bf || !ap || !e2) return;
+    const apR = ap.getBoundingClientRect(), e2R = e2.getBoundingClientRect();
     const x0 = apR.left + apR.width / 2, y0 = apR.top + apR.height / 2;
+    const x1 = e2R.left + e2R.width / 2, y1 = e2R.top + e2R.height / 2;
     fire('pointerdown', x0, y0, bf);
-    if (e4) {
-      const e4R = e4.getBoundingClientRect();
-      const x1 = e4R.left + e4R.width / 2, y1 = e4R.top + e4R.height / 2;
-      for (let i = 1; i <= 6; i++) {
-        const p = i / 6;
-        t(300 + p * 900, () => fire('pointermove', x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, bf));
-      }
-      t(2500, () => fire('pointerup', x1, y1, bf));
-    } else {
-      t(2500, () => fire('pointerup', x0, y0 - 60, bf));
+    for (let i = 1; i <= 6; i++) {
+      const p = i / 6;
+      t(300 + p * 900, () => fire('pointermove', x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, bf));
     }
+    t(2500, () => fire('pointerup', x1, y1, bf));
   });
 }
 

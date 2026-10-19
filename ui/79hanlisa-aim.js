@@ -15,7 +15,9 @@
 //   ④进场在施术者格上给金色拳头引导（浮动+扩散金环+「按住这里蓄力」），startCharge 即隐。
 // V3.3.0 | 2026-10-19 老板口径：预警范围按九位九形画全格（空位也罩住），不按「有人的格子」——
 //          shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）拆开。
-export const VER = 'ui/79hanlisa-aim.js V3.3.0';
+// V3.4.0 | 2026-10-19 老板口径「移到 2 号圆圈却在 5 号」：准星从「锥深位置」改钉在锁定格中心（带四向刻度），
+//          虚线瞄准线连到锁定格；未瞄准（全屏兜底）时不画线不画圈。
+export const VER = 'ui/79hanlisa-aim.js V3.4.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
@@ -368,10 +370,19 @@ function makeStage(D) {
         const fx = ax + Math.cos(aim) * 13, fy = ay + Math.sin(aim) * 13;
         h += fistMarkup(fx, fy, aim, fs, level, 1);
 
-        /* 瞄准线 + 准星 */
-        h += '<line x1="' + (ax + Math.cos(aim) * 40).toFixed(1) + '" y1="' + (ay + Math.sin(aim) * 40).toFixed(1) + '" x2="' + (ax + Math.cos(aim) * (Rv + 4)).toFixed(1) + '" y2="' + (ay + Math.sin(aim) * (Rv + 4)).toFixed(1) + '" stroke="rgba(255,220,170,' + (0.16 + 0.32 * level).toFixed(3) + ')" stroke-width="1.2" stroke-dasharray="4 8"/>';
-        const rx = ax + Math.cos(aim) * Rv, ry = ay + Math.sin(aim) * Rv;
-        h += '<circle cx="' + rx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="' + (7 + 3 * level).toFixed(1) + '" fill="none" stroke="rgba(255,120,50,' + (0.30 + 0.5 * level).toFixed(3) + ')" stroke-width="1.6"/>';
+        /* 瞄准线 + 准星（V3.4 老板口径「移到 2 号圆圈却在 5 号」：旧版按锥深放在形状最深处——
+           demo 自由角度的遗产；游戏里瞄准=锁格，圆圈钉在锁定格中心。未瞄准=全屏兜底时不画（凸包已罩全场）） */
+        const aimCell = (APP.aimCellIndex || 0) >= 1 ? g.cells['e' + APP.aimCellIndex] : null;
+        if (aimCell) {
+            h += '<line x1="' + (ax + Math.cos(aim) * 40).toFixed(1) + '" y1="' + (ay + Math.sin(aim) * 40).toFixed(1) + '" x2="' + aimCell.x.toFixed(1) + '" y2="' + aimCell.y.toFixed(1) + '" stroke="rgba(255,220,170,' + (0.16 + 0.32 * level).toFixed(3) + ')" stroke-width="1.2" stroke-dasharray="4 8"/>';
+            const rr2 = Math.min(aimCell.w, aimCell.h) * (0.58 + 0.10 * level);
+            h += '<circle cx="' + aimCell.x.toFixed(1) + '" cy="' + aimCell.y.toFixed(1) + '" r="' + rr2.toFixed(1) + '" fill="none" stroke="rgba(255,120,50,' + (0.55 + 0.45 * level).toFixed(3) + ')" stroke-width="' + (1.6 + 0.8 * level).toFixed(1) + '"/>';
+            /* 四向刻度：准星感 */
+            const t1 = rr2 * 0.62, t2 = rr2 * 1.24;
+            [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(v => {
+                h += '<line x1="' + (aimCell.x + v[0] * t1).toFixed(1) + '" y1="' + (aimCell.y + v[1] * t1).toFixed(1) + '" x2="' + (aimCell.x + v[0] * t2).toFixed(1) + '" y2="' + (aimCell.y + v[1] * t2).toFixed(1) + '" stroke="rgba(255,120,50,' + (0.55 + 0.45 * level).toFixed(3) + ')" stroke-width="1.4" stroke-linecap="round"/>';
+            });
+        }
 
         svg.innerHTML = h;
     }
