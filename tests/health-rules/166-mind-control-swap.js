@@ -26,7 +26,11 @@
 //      （afterA/afterE 按 uid）应等于宣告目标位，不等即报——堵住"换位后未再出场即无从观测"的盲区
 //      （T18 变异首测 0 命中即此根因）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.1';
+// V6.1.2（2026-10-19 第 103 轮）：判据5 补控制位移免疫放行——swapUnitPositions 任一方
+//   _ctrlImmune（寒离飒·开局常驻）即静默 return 不换位，而 core/14 仍发 SWAP 宣告，
+//   「宣告换了但没换」是设计后果（引擎宣告侧未跟上免疫，已上报主代码侧修）。
+//   免疫状态从开局快照可查（{...u} 浅拷贝带 state），任一方免疫 ⇒ 跳过该条判据5。
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.2';
 // V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
 //   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
 //   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
@@ -115,8 +119,26 @@ export const rule113 = {
             }
             // 判据 5：宣告位置真实生效（复用 138 V6.1.12 口径）
             //   A 从 oldPosA 换到 oldPosB，B 从 oldPosB 换到 oldPosA（文本 posA/posB 即旧位）
+            // 2026-10-19 第 103 轮补：控制位移免疫方参与的换位不落地——swapUnitPositions
+            //   （core/13battle-shared.js L135）任一方 state._ctrlImmune 即静默 return（不动、不发
+            //   buff-swap），而 core/14 仍发 SWAP 宣告 ⇒ 「宣告换了但没换」是该免疫的**设计后果**
+            //   （寒离飒·开局常驻，modules/27 L30-31；引擎侧宣告未跟上免疫的问题已上报主代码）。
+            //   免疫状态在开局快照里可查（回放器传的 before/after 是 {...u} 浅拷贝、带 state 引用），
+            //   故规则侧可精确识别：任一方免疫 ⇒ 跳过本条判据5（宁漏勿误：不拿免疫单位的站位对账）。
+            var immunePair = false;
+            if (it.uidA != null && it.uidB != null) {
+                var poolsImm = [beforeA || [], beforeE || [], afterA || [], afterE || []];
+                for (var pk = 0; pk < poolsImm.length && !immunePair; pk++) {
+                    var arrP = poolsImm[pk] || [];
+                    for (var up = 0; up < arrP.length; up++) {
+                        var uP = arrP[up];
+                        if (uP && (uP.uid === it.uidA || uP.uid === it.uidB)
+                            && uP.state && uP.state._ctrlImmune) { immunePair = true; break; }
+                    }
+                }
+            }
             if (it.uidA != null && it.uidB != null && it.oldPosA != null && it.oldPosB != null
-                && it.oldPosA !== it.oldPosB && it.uidA !== it.uidB) {
+                && it.oldPosA !== it.oldPosB && it.uidA !== it.uidB && !immunePair) {
                 var expect = [
                     { uid: it.uidA, pos: it.oldPosB, tag: it.nameA + '(A)' },
                     { uid: it.uidB, pos: it.oldPosA, tag: it.nameB + '(B)' }
