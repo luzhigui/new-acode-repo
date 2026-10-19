@@ -1,5 +1,9 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.5.3 | 2026-10-18 灭绝师太三击吸血飘字迁出 ATTACK.fx（改由 render/38 翻成组内 HEAL 动作 afterText，
+// V1.5.4 | ~32900 bytes | 2026-10-19 简单模式闪避反击掉血飘字抢跑修复：DODGE.fx 里 DAMAGE_FLOAT 原先在演出第 0 帧发，
+//   与紧随的 fx/82 showMeleeDodge 冲撞演出抢同一格（克隆体 z-index 99999 + 不透明压在攻击者格上，
+//   飘字 z-index 10002 看不见）→ 简单模式改延后 1600ms（飞 700 + 回弹 900）撤走克隆体后再发，
+//   与 fx/88 常规命中延后 1100ms、本函数韦一笑吸血「整段演出之后发」口径统一；华丽模式维持原帧
+// V1.5.3 | ~31820 bytes | 2026-10-18 灭绝师太三击吸血飘字迁出 ATTACK.fx（改由 render/38 翻成组内 HEAL 动作 afterText，
 //   与其他治疗同通道）；原先出手帧同步 emit 被攻击动画/闪光盖住，实机看不到 ❤+N
 // V1.5.2 | ~31820 bytes | 2026-10-18 被动出手徽章补三条 reason（⚡连击/🗡️嗜血/🕷️双击），并把映射提到顶层去重
 //   （原先 ATTACK/MISS/DODGE 三处各内联一份，加新 reason 要改三遍）
@@ -22,7 +26,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.3';
+export const VER = 'render/39-actions-defs.js V1.5.4';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -176,9 +180,19 @@ export const STAGE_ACTION_DEFS = {
                 const t = LINK_FX_TEXT[action.linkReason];
                 if (t) clock.wait(300).then(() => eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit: attacker, text: t }));
             }
-            if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
-                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
-            }
+            // 2026-10-19 简单模式反击掉血飘字抢跑修复（老板实测：简单模式看不到这条飘字）：
+            //   原先这条 DAMAGE_FLOAT 在演出第 0 帧就发，与紧随其后的冲撞演出抢同一格——fx/82 showMeleeDodge
+            //   的克隆体（z-index 99999 + 不透明底色 #1e6bb8）正压在攻击者自己格子上，而飘字（z-index 10002）
+            //   钉在该格顶部（fx/80 right=rect.right-4 / top=rect.top-4），整段演出被盖住；且它 1.2s 的动画
+            //   与 700（飞）+900（回弹）ms 演出几乎同时耗尽。改法：简单模式延后到冲撞演出结束（1600ms）后再发，
+            //   与 fx/88 常规命中「延后 1100ms」、本函数末尾韦一笑吸血「整段演出之后发」两处既有口径统一。
+            //   华丽模式维持原帧不动（子弹时间另有「反击! N」大字，行为已被确认）。
+            const emitReboundFloat = () => {
+                if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
+                    eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
+                }
+            };
+            if (c.dodgeEffectEnabled) emitReboundFloat();
             // 华丽模式：子弹时间；简单模式：气泡
             if (c.dodgeEffectEnabled && attacker && dodger) {
                 await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
@@ -205,6 +219,9 @@ export const STAGE_ACTION_DEFS = {
                         attackerRole: attacker.role
                     });
                 }
+                // 2026-10-19 简单模式：等冲撞演出（飞 700 + 回弹 900 = 1600ms）撤走克隆体后再发掉血飘字，
+                //   否则被 z-index 99999 的克隆体压在攻击者格内看不见（老板实测）
+                clock.wait(1600).then(emitReboundFloat);
             }
             // 2026-09-24 韦一笑闪避反击吸血：补吸血弹幕。原先只有日志文本，两种模式都没有飘字
             //   （华丽模式的子弹时间飘字会被黑幕盖住，所以放在整段演出之后发）
