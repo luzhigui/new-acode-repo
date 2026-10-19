@@ -1,3 +1,9 @@
+// V1.7.0 | ~17200 bytes | 2026-10-19 参数护栏（同步夜间值班第 106 轮规格）：裸跑无参数曾把基线整盘重写
+//          （401 增/670 删 事故）——旧口径「无参数 = 全量重跑 + 写基线」，而全量重跑正是 --check 的日常用法，
+//          少打一个 --check 就毁基准。新口径：**写基线必须显式 --update**；无参数 = 打印用法 + exit 2（不跑不写）；
+//          --check 与 --update 互斥（一个只读比对、一个覆写）；--update 搭配场次过滤也拒（会写出不完整基线）。
+//          四分支实测：裸跑退 2 不写 / --check 退 1 正常 / --update 退 0 写入 / 互斥退 2。
+//          另修文档漂移：头部「18 场」→ 实际 24 场（6 种子 × 4 关）。
 // V1.6.1 | ~16400 bytes | 2026-10-13 镜像主代码「整局」海克斯口径：teardownPickBuffs 的 remaining 由
 //          def.duration||4 改为 def.permanent ? CONFIG.MAX_ROUND : (def.duration||CONFIG.BUFF_DURATION||4)，
 //          与 modules/28 createBuffObject 同源（圣火不熄 content permanent:true），免基线误判该 buff 过期。
@@ -5,7 +11,7 @@
 //          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
 //          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 rules-replay/stat-decl 同口径。
 // V1.5.0 | ~13200 bytes | 2026-09-27 补团队 Buff 注入（经用户授权）：此前 activeBuffs 恒为 []，导致
-//          carry / 流星赶月 / 乘风突袭 / 流云身法等**由团队 Buff 门控的机制在 18 场基线里一场都跑不到**
+//          carry / 流星赶月 / 乘风突袭 / 流云身法等**由团队 Buff 门控的机制在 24 场基线里一场都跑不到**
 //          （覆盖缺口 —— 第 34 轮由 stat-decl-vs-actual-check.mjs 的 CARRY_APPLY 契约零触发而暴露）。
 //          现复刻回放器的确定性选 Buff（rules-replay.mjs L113-143：seed/round 轮转、**不消耗战斗 RNG**，
 //          故战斗随机序列不变、结果可复现）。BASELINE_NOBUFFS=1 可关回旧的无 Buff 行为以对照。
@@ -19,13 +25,14 @@
 //          导致每次有意调数值都被红线拦死，红线反而失去意义。
 // V1.2.0 | ~7600 bytes | 2026-09-22 修复 Windows 下 fetch file:// 路径（new URL(url).pathname → fileURLToPath）；新增 --check 模式（与基线逐场比对 winner/rounds/facts，有差异退出码 1）；吸收并取代临时 runner baseline-check.mjs / baseline-diff.mjs
 // V1.1.0 | 2026-09-上旬 曾短暂带 check 能力后回退（baseline-v1.json 内残留 version 字段为证），功能由临时 runner baseline-check.mjs 承担
-// V1.0.0 | 2026-08-26 建立 18 场（6 种子 × 3 关）确定性基线，供"零行为变化"重构做机器 diff
-// 运行：node tests/140-baseline.js                → 全量 18 场并重录基线文件 baseline-v1.json（业务代码有意变更后使用）
-//       node tests/140-baseline.js --check       → 全量重跑并与基线比对，全部一致退出码 0，任一差异退出码 1（回归红线）
+// V1.0.0 | 2026-08-26 建立 24 场（6 种子 × 4 关）确定性基线，供"零行为变化"重构做机器 diff
+// 运行：node tests/140-baseline.js --check       → 全量重跑并与基线比对，全部一致退出码 0，任一差异退出码 1（回归红线）
+//       node tests/140-baseline.js --update      → 全量重跑并重录基线文件 baseline-v1.json（业务有意变更后使用，需显式）
 //       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）
+//       （无参数运行已禁止：exit 2 并打印用法——旧口径无参数即写基线，曾因少打 --check 毁过基准）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
-export const VER = 'tests/140-baseline.js V1.6.1';
+export const VER = 'tests/140-baseline.js V1.7.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -179,7 +186,29 @@ async function main() {
 
     const rawArgs = process.argv.slice(2);
     const checkMode = rawArgs.includes('--check');
-    const caseArgs = rawArgs.filter(a => a !== '--check');
+    const updateMode = rawArgs.includes('--update');
+    const caseArgs = rawArgs.filter(a => a !== '--check' && a !== '--update');
+
+    // —— 参数护栏（V1.7.0，同步夜间值班第 106 轮规格）——
+    // 事故源：旧口径「无参数 = 全量重跑 + 写基线」。全量重跑恰是 --check 的日常用法，少打一个 --check
+    //   就把基线整盘重写（第 106 轮实损 401 增/670 删，靠 git checkout 复原）。写基线必须显式 --update。
+    // 护栏在跑战斗之前Fail-fast：拒绝就不浪费那 24 场的算力。
+    if (checkMode && updateMode) {
+        console.error('[baseline] --check 与 --update 互斥：前者只读比对，后者覆写基线，不能同时给。');
+        process.exit(2);
+    }
+    if (!checkMode && !updateMode && caseArgs.length === 0) {
+        console.error('[baseline] 无参数运行已禁止 —— 旧口径会把基线整盘重写。请显式指定模式：');
+        console.error('  node tests/140-baseline.js --check     只读比对（日常红线用法，退出码 0/1）');
+        console.error('  node tests/140-baseline.js --update    业务有意变更后重录基线（覆写 baseline-v1.json，退出码 0）');
+        console.error('  node tests/140-baseline.js 1:1 42:3    只跑指定场次打印，不写基线（先验证用）');
+        process.exit(2);
+    }
+    if (updateMode && caseArgs.length > 0) {
+        console.error('[baseline] --update 不支持搭配场次过滤（会写出只有几场的不完整基线）。重录请全量跑（不带场次参数）。');
+        process.exit(2);
+    }
+
     const cases = caseArgs.length > 0
         ? caseArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
         : SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage })));
@@ -236,8 +265,9 @@ async function main() {
         return;
     }
 
-    if (caseArgs.length === 0) {
-        // 全量运行才写基线文件；带参数验证（如 1:1 42:3）只打印，不覆盖基线
+    if (updateMode) {
+        // 只有显式 --update 才写基线文件（V1.7.0 护栏：无参数/--check 都到不了这里）；
+        // 带场次参数的验证运行只打印、不覆盖基线（上方护栏已挡掉 --update + 场次过滤的组合）
         const fs = await import('node:fs');
         const outDir = new URL('./baselines/', import.meta.url);
         fs.mkdirSync(outDir, { recursive: true });
