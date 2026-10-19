@@ -13,7 +13,9 @@
 // V3.2.0 | 2026-10-19 老板四点（132 demo 讨论轮）：①跳过照抄 fx/85（右下角斜放半透明白字）；
 //   ②解说挪出战场到卡下方、14.5px 金橙发光；③外围改黑幕（径向暖黑渐变）+战场变米色舞台卡（发光边框）；
 //   ④进场在施术者格上给金色拳头引导（浮动+扩散金环+「按住这里蓄力」），startCharge 即隐。
-export const VER = 'ui/79hanlisa-aim.js V3.2.0';
+// V3.3.0 | 2026-10-19 老板口径：预警范围按九位九形画全格（空位也罩住），不按「有人的格子」——
+//          shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）拆开。
+export const VER = 'ui/79hanlisa-aim.js V3.3.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
@@ -185,7 +187,7 @@ function makeStage(D) {
 
     function visR(aim, cellIndex) {
         const g = S.geo;
-        const cs = hitCellsAt(cellIndex === undefined ? (APP.aimCellIndex || 0) : cellIndex);
+        const cs = shapeCellsAt(cellIndex === undefined ? (APP.aimCellIndex || 0) : cellIndex);
         if (cs.length) {
             let m = 0;
             for (const c of cs) {
@@ -484,17 +486,22 @@ function makeStage(D) {
     /* ---------- 格子级反馈（逐字） ---------- */
     function halfAng(level) { return lerp(0.40 * S.geo.fullHalf, S.geo.fullHalf, level); }
 
-    function hitCellsAt(cellIndex) {
+    // 形状全格（老板 2026-10-19 口径：预警范围按九位九形画全，不能因为格子里没人就不覆盖）
+    function shapeCellsAt(cellIndex) {
         if (cellIndex === undefined || !S.geo) return [];
         const out = [];
         for (const pos of (HIT_MAP[cellIndex] || [])) {
             const c = S.geo.cells['e' + pos];
-            if (c && c.unit) out.push(c);
+            if (c) out.push(c);
         }
         return out;
     }
+    // 实际命中（伤害数字/击退只对有人的格；demo v26 的「预警==命中」旧口径在 V3.3 拆开）
+    function hitCellsAt(cellIndex) {
+        return shapeCellsAt(cellIndex).filter(c => c.unit);
+    }
     function hitHalfAngle(cellIndex, aim) {
-        const g = S.geo, cs = hitCellsAt(cellIndex);
+        const g = S.geo, cs = shapeCellsAt(cellIndex);
         if (!cs.length) return 0.30;
         let m = 0.10;
         for (const c of cs) {
@@ -506,7 +513,7 @@ function makeStage(D) {
     }
     function telegraphPoly(cellIndex, pad) {
         const g = S.geo, pts = [{ x: g.apex.x, y: g.apex.y }];
-        for (const c of hitCellsAt(cellIndex)) {
+        for (const c of shapeCellsAt(cellIndex)) {
             const hw = c.w / 2 + pad, hh = c.h / 2 + pad;
             pts.push({ x: c.x - hw, y: c.y - hh }, { x: c.x + hw, y: c.y - hh }, { x: c.x + hw, y: c.y + hh }, { x: c.x - hw, y: c.y + hh });
         }
@@ -524,7 +531,7 @@ function makeStage(D) {
         }
         cell.a2.style.boxShadow = 'inset 0 0 ' + (10 + 18 * level).toFixed(0) + 'px ' + (2 + 5 * level).toFixed(0) + 'px rgba(255,' + Math.round(120 + 100 * level) + ',40,' + (0.25 + 0.5 * level).toFixed(3) + ')';
         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 110);
-        for (const c of hitCellsAt(APP.aimCellIndex || 0)) {
+        for (const c of shapeCellsAt(APP.aimCellIndex || 0)) {
             const el = cell['e' + c.pos]; if (!el) continue;
             el.style.boxShadow = 'inset 0 0 13px 2px rgba(255,70,30,' + (0.36 + 0.52 * level * (0.6 + 0.4 * pulse)).toFixed(3) + ')';
             el.style.backgroundColor = 'rgba(255,90,40,' + (0.05 + 0.15 * level).toFixed(3) + ')';

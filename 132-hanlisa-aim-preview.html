@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>蓄意轰拳 · 子弹时间预览 V3.2</title>
+<title>蓄意轰拳 · 子弹时间预览 V3.3</title>
 <style>
 body { background:#0d0906; font-family:'Segoe UI', monospace; max-width:520px; margin:0 auto; padding:8px 6px 20px; color:#d9c6a8; user-select:none; -webkit-user-select:none; }
 h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(255,150,40,.6); }
@@ -22,14 +22,14 @@ h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(
 </style>
 </head>
 <body>
-<h1>👊 蓄意轰拳 · 子弹时间预览 V3.2</h1>
-<div class="sub">快照自 ui/79 V3.2——游戏内华丽模式同款代码。进场先看金色拳头引导（寒离飒格子上）→ 按住蓄力 → 拖动瞄准 → 松手轰出。</div>
+<h1>👊 蓄意轰拳 · 子弹时间预览 V3.3</h1>
+<div class="sub">快照自 ui/79 V3.3——游戏内华丽模式同款代码。<b style="color:#ff8a3d">本版：预警范围按九位九形画全格，空位也罩住</b>（4 号没人照样框进去红闪，只是不冒伤害数字）。</div>
 <div class="bar">
   <button id="btnRun">▶ 手动开演</button>
-  <button id="btnAuto">🤖 自动演示（瞄 8）</button>
+  <button id="btnAuto">🤖 自动演示（瞄空 4 号）</button>
   <span class="sep">— 场景 —</span>
-  <button data-scene="full9v9" class="on">满员 9v9</button>
-  <button data-scene="eight">瞄 8 特写</button>
+  <button data-scene="full9v9" class="on">满员（敌4空）</button>
+  <button data-scene="eight">瞄 8 特写（敌4空）</button>
   <button data-scene="sparse">残局</button>
   <span class="sep">— 承伤基数 N —</span>
   <button data-n="45">45</button>
@@ -41,8 +41,8 @@ h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(
   <span id="lastResult"></span>
 </div>
 <div class="note">
-<b>V3.2 四处改动（老板口径）</b>：①跳过挪右下角、斜放半透明白字（照闪避子弹时间同款）；②解说挪出战场到卡下方、字放大 14.5px 金橙发光；③外围改黑幕+战场变米色舞台卡（暖黑径向渐变+发光边框，不再空旷）；④进场寒离飒格子上出现金色拳头引导（上下浮动+扩散金环+「按住这里蓄力」），按下去就换成真正的蓄力拳。<br>
-<b>继续讨论</b>：黑幕深浅、舞台卡发光强度、引导拳头大小/文案、解说配色——不合适报名字。
+<b>V3.3 改动</b>：预警凸包/蓄力红闪/张角/拳冲深度全部改按<b>形状全格</b>算（shapeCellsAt），不再因「格子里没人」缩水；伤害数字与击退仍只对有人的格（hitCellsAt）。点「自动演示」看瞄 4 号（空位）→ 预警框完整罩住横 T 形四格、4 号空格照样红闪。<br>
+<b>验证点</b>：预警形状=九位九形的完整形状；空格红闪但无伤害数字。
 </div>
 <script type="module">
 // ui/79hanlisa-aim.js — 蓄意轰拳子弹时间（131 demo 舞台整体照搬，老板拍板「画面直接 copy demo」）
@@ -60,11 +60,13 @@ h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(
 // V3.2.0 | 2026-10-19 老板四点（132 demo 讨论轮）：①跳过照抄 fx/85（右下角斜放半透明白字）；
 //   ②解说挪出战场到卡下方、14.5px 金橙发光；③外围改黑幕（径向暖黑渐变）+战场变米色舞台卡（发光边框）；
 //   ④进场在施术者格上给金色拳头引导（浮动+扩散金环+「按住这里蓄力」），startCharge 即隐。
-export const VER = 'ui/79hanlisa-aim.js V3.2.0';
+// V3.3.0 | 2026-10-19 老板口径：预警范围按九位九形画全格（空位也罩住），不按「有人的格子」——
+//          shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）拆开。
+export const VER = 'ui/79hanlisa-aim.js V3.3.0';
 
 
 
-/* ===== demo 环境模拟（快照自 ui/79hanlisa-aim.js V3.2 · 本地；游戏内同款代码） ===== */
+/* ===== demo 环境模拟（快照自 ui/79hanlisa-aim.js V3.3 · 本地；游戏内同款代码） ===== */
 const GlobalStore = { _m: {}, set(k, v) { this._m[k] = v; }, get(k) { return this._m[k]; } };
 const XULI_PARAMS = { shieldPct: 0.2, recentRounds: 3, vampDiv: 3,
   hitShapes: { "1":[1,2,4,7], "2":[2,4,5,6], "3":[2,3,6,9], "4":[1,2,4,5], "5":[2,5,7,8,9], "6":[2,3,5,6], "7":[2,4,5,7], "8":[2,5,8], "9":[2,5,6,9] },
@@ -238,7 +240,7 @@ function makeStage(D) {
 
     function visR(aim, cellIndex) {
         const g = S.geo;
-        const cs = hitCellsAt(cellIndex === undefined ? (APP.aimCellIndex || 0) : cellIndex);
+        const cs = shapeCellsAt(cellIndex === undefined ? (APP.aimCellIndex || 0) : cellIndex);
         if (cs.length) {
             let m = 0;
             for (const c of cs) {
@@ -537,17 +539,22 @@ function makeStage(D) {
     /* ---------- 格子级反馈（逐字） ---------- */
     function halfAng(level) { return lerp(0.40 * S.geo.fullHalf, S.geo.fullHalf, level); }
 
-    function hitCellsAt(cellIndex) {
+    // 形状全格（老板 2026-10-19 口径：预警范围按九位九形画全，不能因为格子里没人就不覆盖）
+    function shapeCellsAt(cellIndex) {
         if (cellIndex === undefined || !S.geo) return [];
         const out = [];
         for (const pos of (HIT_MAP[cellIndex] || [])) {
             const c = S.geo.cells['e' + pos];
-            if (c && c.unit) out.push(c);
+            if (c) out.push(c);
         }
         return out;
     }
+    // 实际命中（伤害数字/击退只对有人的格；demo v26 的「预警==命中」旧口径在 V3.3 拆开）
+    function hitCellsAt(cellIndex) {
+        return shapeCellsAt(cellIndex).filter(c => c.unit);
+    }
     function hitHalfAngle(cellIndex, aim) {
-        const g = S.geo, cs = hitCellsAt(cellIndex);
+        const g = S.geo, cs = shapeCellsAt(cellIndex);
         if (!cs.length) return 0.30;
         let m = 0.10;
         for (const c of cs) {
@@ -559,7 +566,7 @@ function makeStage(D) {
     }
     function telegraphPoly(cellIndex, pad) {
         const g = S.geo, pts = [{ x: g.apex.x, y: g.apex.y }];
-        for (const c of hitCellsAt(cellIndex)) {
+        for (const c of shapeCellsAt(cellIndex)) {
             const hw = c.w / 2 + pad, hh = c.h / 2 + pad;
             pts.push({ x: c.x - hw, y: c.y - hh }, { x: c.x + hw, y: c.y - hh }, { x: c.x + hw, y: c.y + hh }, { x: c.x - hw, y: c.y + hh });
         }
@@ -577,7 +584,7 @@ function makeStage(D) {
         }
         cell.a2.style.boxShadow = 'inset 0 0 ' + (10 + 18 * level).toFixed(0) + 'px ' + (2 + 5 * level).toFixed(0) + 'px rgba(255,' + Math.round(120 + 100 * level) + ',40,' + (0.25 + 0.5 * level).toFixed(3) + ')';
         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 110);
-        for (const c of hitCellsAt(APP.aimCellIndex || 0)) {
+        for (const c of shapeCellsAt(APP.aimCellIndex || 0)) {
             const el = cell['e' + c.pos]; if (!el) continue;
             el.style.boxShadow = 'inset 0 0 13px 2px rgba(255,70,30,' + (0.36 + 0.52 * level * (0.6 + 0.4 * pulse)).toFixed(3) + ')';
             el.style.backgroundColor = 'rgba(255,90,40,' + (0.05 + 0.15 * level).toFixed(3) + ')';
@@ -1020,7 +1027,6 @@ export function showHanlisaAim(c, hls, payload, resolve) {
 
 
 
-/* ================= demo 驱动（此段仅 demo 用，游戏内不存在） ================= */
 const SCENES = {
   full9v9: {
     label: '满员 9v9',
@@ -1028,7 +1034,6 @@ const SCENES = {
       { pos:1, icon:'⚔️', name:'华山弟子', tier:'', atk:22, def:18, hp:105, max:105 },
       { pos:2, icon:'📿', name:'空性', tier:'name-purple', atk:35, def:24, hp:93, max:130 },
       { pos:3, icon:'🗡️', name:'崆峒弟子', tier:'', atk:19, def:21, hp:101, max:101 },
-      { pos:4, icon:'🗡️', name:'峨眉弟子', tier:'', atk:20, def:20, hp:98, max:98 },
       { pos:5, icon:'⚔️', name:'武当弟子', tier:'', atk:15, def:22, hp:124, max:124 },
       { pos:6, icon:'🛡️', name:'六大派弟子', tier:'', atk:18, def:25, hp:110, max:110 },
       { pos:7, icon:'🗡', name:'何太冲', tier:'name-blue', atk:26, def:18, hp:90, max:105 },
@@ -1045,10 +1050,9 @@ const SCENES = {
     ]
   },
   eight: {
-    label: '瞄 8 特写（看撞边）',
+    label: '瞄 8 特写（4 号空位看范围）',
     enemies: [
       { pos:2, icon:'⚔️', name:'华山弟子', tier:'', atk:22, def:18, hp:105, max:105 },
-      { pos:4, icon:'🗡️', name:'峨眉弟子', tier:'', atk:20, def:20, hp:88, max:98 },
       { pos:5, icon:'⚔️', name:'武当弟子', tier:'', atk:15, def:22, hp:124, max:124 },
       { pos:8, icon:'⚔', name:'宋青书', tier:'name-purple', atk:38, def:22, hp:130, max:145 }
     ],
@@ -1119,17 +1123,22 @@ function scheduleAutoDemo() {
   t(900, () => {
     const bf = document.querySelector('#hlsAimOv .battlefield');
     const ap = document.querySelector('#hlsAimOv #hlsAimAg [data-pos="2"]');
-    const e8 = document.querySelector('#hlsAimOv #hlsAimEg [data-pos="8"]');
-    if (!bf || !ap || !e8) return;
-    const apR = ap.getBoundingClientRect(), e8R = e8.getBoundingClientRect();
+    const e4 = document.querySelector('#hlsAimOv #hlsAimEg [data-pos="4"]');
+    if (!bf || !ap) return;
+    const apR = ap.getBoundingClientRect();
     const x0 = apR.left + apR.width / 2, y0 = apR.top + apR.height / 2;
-    const x1 = e8R.left + e8R.width / 2, y1 = e8R.top + e8R.height / 2;
     fire('pointerdown', x0, y0, bf);
-    for (let i = 1; i <= 6; i++) {
-      const p = i / 6;
-      t(300 + p * 900, () => fire('pointermove', x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, bf));
+    if (e4) {
+      const e4R = e4.getBoundingClientRect();
+      const x1 = e4R.left + e4R.width / 2, y1 = e4R.top + e4R.height / 2;
+      for (let i = 1; i <= 6; i++) {
+        const p = i / 6;
+        t(300 + p * 900, () => fire('pointermove', x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, bf));
+      }
+      t(2500, () => fire('pointerup', x1, y1, bf));
+    } else {
+      t(2500, () => fire('pointerup', x0, y0 - 60, bf));
     }
-    t(2500, () => fire('pointerup', x1, y1, bf));
   });
 }
 
