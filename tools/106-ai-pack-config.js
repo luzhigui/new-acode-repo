@@ -1,3 +1,6 @@
+// V6.0.33 | ~24450 bytes | 2026-10-19 移除了 5 个寒离飒·瑟提特效 demo 页（126/127/128/129/131）的清单登记：
+//           这几页已移出仓库（搬去同级 _仓库外产物\），按旧名 fetch 必 404，包内出现 3 组「读取失败(0 字符)」；
+//           用户拍板「不要了，清掉引用」→ 清单与 dev-index 入口同步清除。修复「复制包读取失败」。
 // V6.0.32 | ~24580 bytes | 2026-10-18 修「复制包读取失败」：根目录两个寒离飒特效 demo 页已加序号改名，
 //           清单里仍写旧名 → 按旧名 fetch 404（Failed to fetch）。改为 128hanlisa-atk-fx-candidates.html /
 //           129hanlisa-fx-compare.html，dev-index 入口 href 同步（原按钮跳旧名同样 404）
@@ -235,10 +238,10 @@ export const ALL_PROJECT_FILES = [
     '../assets/icon-source.webp',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-    '../index.html', '../dev-index.html',
-    // 2026-10-17 补登记三个寒离飒特效 demo 页（dev-index「UI 效果 demo」区入口按钮跳它们，同 125 判据）
-    // 2026-10-18 修「读取失败」：后两页已加序号改名（根目录演示页加序号整理），清单按新名登记，否则 fetch 404
-    '../126-hanlisa-fx-demo.html', '../128hanlisa-atk-fx-candidates.html', '../129hanlisa-fx-compare.html'
+    '../index.html', '../dev-index.html'
+    // 2026-10-19 移除了 126/127/128/129/131 五个寒离飒·瑟提特效 demo 页的登记：
+    //   这五页已移出仓库（搬去同级 _仓库外产物\），清单按旧名 fetch 必 404 → 包内 3 组「读取失败(0 字符)」；
+    //   用户拍板「不要了」→ 106 清单 + dev-index 入口一并清除，demo 页不再随包复制
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
