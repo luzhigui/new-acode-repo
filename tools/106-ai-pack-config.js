@@ -1,3 +1,5 @@
+// V6.0.34 | ~26100 bytes | 2026-10-19 补登记 tools/133-md-reader.html（dev-index V6.3.17「📖 文档与准则」
+//           文本入口的起点读书式 MD 阅读器；漏登则包内 dev-index 文档按钮点开 404）
 // V6.0.33 | ~24450 bytes | 2026-10-19 移除了 5 个寒离飒·瑟提特效 demo 页（126/127/128/129/131）的清单登记：
 //           这几页已移出仓库（搬去同级 _仓库外产物\），按旧名 fetch 必 404，包内出现 3 组「读取失败(0 字符)」；
 //           用户拍板「不要了，清掉引用」→ 清单与 dev-index 入口同步清除。修复「复制包读取失败」。
@@ -56,7 +58,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.32';
+export const VER = 'tools/106-ai-pack-config.js V6.0.34';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -228,6 +230,9 @@ export const ALL_PROJECT_FILES = [
     '../tools/125-buff-badge-demo.html',
     // 2026-10-18 补登记 126：工具箱「🚨 平衡告警」按钮的实现（102 V6.1.3 挂 module 脚本）
     '../tools/126-balance-alert.js',
+    // 2026-10-19 补登记 133：dev-index V6.3.17「📖 文档与准则」文本入口的 MD 阅读器
+    //（起点读书式阅读页，漏登则包内 dev-index 文档按钮点开 404）
+    '../tools/133-md-reader.html',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',

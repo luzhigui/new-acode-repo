@@ -1,6 +1,8 @@
 // modules/27elite-mingjiao-eagle.js — 明教精英「雄鹰」：组件工厂（carry 海克斯召唤·飞行）
+// V1.0.1 | ~4000 bytes | 2026-10-19 恢复行动力报幕带 restoreActed 标记：render/38 据此补发 RESTORE_ACTED 舞台动作，
+//          让 render/39 把账本 _acted=false 同步进 store 并清 _renderActed 镜像（修「被恢复者格子不绿」）
 // V1.0.0 | ~3869 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-eagle.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-eagle.js V1.0.1';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { spawnUnit } from '../core/05battle-horse.js';
 import { getBattleRng, addMod } from '../core/13battle-shared.js';
@@ -29,7 +31,10 @@ export function createEagleComponent() {
                     pick.state._acted = false;
                     if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                         unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '雄鹰',
-                        note: `🦅 雄鹰振翅！${pick.name} 恢复行动力`, floatText: '🦅', floatUid: pick.uid
+                        note: `🦅 雄鹰振翅！${pick.name} 恢复行动力`, floatText: '🦅', floatUid: pick.uid,
+                        // 2026-10-19 恢复行动力：引擎只改账本 state._acted，UI 判灰是账本或视图镜像双路取或
+                        //   （render/32）——补 restoreActed 标记让 render/38 翻出 RESTORE_ACTED 舞台动作双清
+                        restoreActed: true
                     } });
                     return;
                 }

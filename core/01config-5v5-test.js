@@ -1,10 +1,12 @@
+// V6.8.4 | ~21100 bytes | 2026-10-19 精英出场率重定（老板拍板）：精英人数骰改为 1 人 90% / 2 人 5% / 0 人 5%、
+//   不再出 3 人（ELITE_COUNT_THRESHOLDS [0, 0.05, 0.95]）；弱精英混入率 0.20→0.30（明教侧混入与六大派 M104 空位锁定共用）
 // V6.8.3 | ~20900 bytes | 2026-10-17 唐文亮重做：ENEMY_ELITE_POS_PRIORITY 新增 tangWenLiang
 //   （[4,5,6,7,8,9,1,2,3]——标枪射程与站位绑定，恒定落中后排；modules/29 抢位用）
 // V6.8.2 | ~20860 bytes | 2026-10-16 新增 WEAK_ELITE_MIX_RATE：明教弱精英（杨逍/殷天正）随机混入正常阵容的概率（modules/29 用）
 // V6.8.1 | ~20690 bytes | 2026-10-15 删 XIAO_ZHAO_CARRY_MODS（妹永久 carry 改每回合刷新一轮、数值调用精通参数，此常量作废）
 // V6.8.0 | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
 //   新技能 liangyiLink/targetMark/redBlood 的说明占位符一律回落 params（无 mechanics 真值源）
-export const VER = 'core/01config-5v5-test.js V6.8.3';
+export const VER = 'core/01config-5v5-test.js V6.8.4';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
@@ -250,13 +252,16 @@ const CONFIG = {
     PANG_CLUMSY_FORMULA: { base: 0.10, atkRef: 30, atkDiv: 200, cap: 0.95 },
     MAX_ROUND: 35,
     HEX_INTERVAL: 3,
-    // 精英出场人数骰（29battle-init 用）：<0.05 出 3 人 / <0.20 出 2 人 / <0.80 出 1 人 / 其余 0 人
-    ELITE_COUNT_THRESHOLDS: [0.05, 0.20, 0.80],
+    // 精英出场人数骰（29battle-init 用，2026-10-19 重定）：<0 出 3 人（已禁用）/ <0.05 出 2 人（5%）/
+    //   <0.95 出 1 人（90%）/ 其余 0 人（5%）——即「九成必有 1 个，5% 两个，5% 一个都没有，不出三个」
+    ELITE_COUNT_THRESHOLDS: [0, 0.05, 0.95],
     // 小昭形态骰（29battle-init 用）：默认 50% 为「小昭·姊」；图鉴选 xz 偏向姊、选 xm 偏向妹
     XIAO_ZHAO_SISTER_PROB: { default: 0.5, xz: 0.85, xm: 0.15 },
-    // 明教弱精英混入率（29battle-init 用，2026-10-16 定案）：明教固定精英轮盘只留张无忌/韦一笑/小昭/谢逊；
-    //   其余具名身份（杨逍/殷天正）属「弱精英」——不进轮盘，按本概率随机替换一个普通位混入正常阵容（每局至多一名）
-    WEAK_ELITE_MIX_RATE: 0.20,
+    // 弱精英混入率（29battle-init 用，2026-10-16 定案 / 2026-10-19 提率 0.20→0.30）：
+    //   ① 明教侧——固定精英轮盘只留张无忌/韦一笑/小昭/谢逊，其余具名身份（杨逍/殷天正/寒离飒）按本率
+    //      随机替换一个普通位混入正常阵容；② 六大派侧——何太冲/唐文亮同按本率锁定一处 M104 数字空位。
+    //   两侧均「每局至多一名」，共用一个率值（老板拍板同值）
+    WEAK_ELITE_MIX_RATE: 0.30,
     BASE_DODGE_FLY: 0.15,
     BASE_DODGE_GROUND: 0.05,
     DODGE_REBOUND_RATIO: 0.5,
