@@ -10,7 +10,10 @@
 //   交互/驱动/工具函数逐字照搬 demo（FIST 拳形/裂纹/碎石生成器/HUD/tick 环）。
 //   60s 真实时间兜底；跳过不设 hlsAimPlayedAt（战场 fx/93 照常完整播）。
 //   holdMs 上报不生效（口子留给未来「按蓄力时长定 N1」）。
-export const VER = 'ui/79hanlisa-aim.js V3.0.0';
+// V3.2.0 | 2026-10-19 老板四点（132 demo 讨论轮）：①跳过照抄 fx/85（右下角斜放半透明白字）；
+//   ②解说挪出战场到卡下方、14.5px 金橙发光；③外围改黑幕（径向暖黑渐变）+战场变米色舞台卡（发光边框）；
+//   ④进场在施术者格上给金色拳头引导（浮动+扩散金环+「按住这里蓄力」），startCharge 即隐。
+export const VER = 'ui/79hanlisa-aim.js V3.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
@@ -659,15 +662,20 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     const overlay = document.createElement('div');
     overlay.id = 'hlsAimOv';
     overlay.setAttribute('data-fx', 'temporary');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10020;background:#f5f0e0;font-family:\'Segoe UI\', monospace;color:#333;user-select:none;-webkit-user-select:none;opacity:0;transition:opacity .22s;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10020;font-family:\'Segoe UI\', monospace;color:#333;user-select:none;-webkit-user-select:none;opacity:0;transition:opacity .22s;';
     const style = document.createElement('style');
     style.textContent = `
 #hlsAimOv{ --c-brown:#5c4033; --c-brown-border:#8b7355; --c-tan:#b8a88a; --c-parchment:#f5f0e0; --c-panel:#fdf5e6;
-  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b; --c-green:#2e7d32; --c-dark:#1a1a2e; display:flex; flex-direction:column; justify-content:center; }
+  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b; --c-green:#2e7d32; --c-dark:#1a1a2e;
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  background:radial-gradient(ellipse 120% 90% at 50% 42%, #2b1d0e 0%, #17100a 55%, #0b0705 100%); }
 #hlsAimOv * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
-#hlsAimOv .hlsAimTitle { font-size:15px; font-weight:700; color:var(--c-brown); text-align:center; margin:2px 0 4px; }
-/* —— 以下 .battlefield/.world/.team-row/.grid/.cell/.cu/... 逐条照抄 131 demo（V3.1 修名字被裁/标签挤压/血条横竖之错）—— */
-#hlsAimOv .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; touch-action: none; width: 100%; max-width: 520px; margin: 0 auto; }
+#hlsAimOv .hlsAimTitle { font-size:17px; font-weight:900; color:#ffd27a; text-align:center; margin:0 0 8px;
+  letter-spacing:6px; text-shadow:0 0 14px rgba(255,150,40,.75), 0 2px 3px #000; }
+/* 舞台卡：黑幕中央的米色战场卡（老板口径「战场外面太空→做成黑幕」） */
+#hlsAimOv .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding: 6px 8px 8px; position: relative; touch-action: none; width: 100%; max-width: 520px;
+  background: var(--c-parchment); border: 3px solid var(--c-brown-border); border-radius: 14px;
+  box-shadow: 0 0 46px rgba(255,170,70,.28), 0 18px 50px rgba(0,0,0,.85), inset 0 0 22px rgba(92,64,51,.18); }
 #hlsAimOv .world { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; min-height: 0; will-change: filter; }
 #hlsAimOv .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
 #hlsAimOv .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
@@ -693,10 +701,25 @@ export function showHanlisaAim(c, hls, payload, resolve) {
 #hlsAimOv .hudPct { display: block; font-size: 9px; color: #ffd9b0; text-shadow: 0 1px 2px #000; margin-top: 1px; }
 #hlsAimOv .hudBarWrap { width: 130px; height: 4px; margin: 3px auto 0; background: rgba(0,0,0,.5); border-radius: 3px; overflow: hidden; }
 #hlsAimOv .hudBar { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #ffd36e, #ff6a1e, #ff2d0d); }
-#hlsAimOv .hint { position: absolute; left: 0; right: 0; bottom: 3px; z-index: 6; text-align: center; font-size: 10px; color: #6b543a; pointer-events: none; text-shadow: 0 1px 0 #fff; }
+/* 解说（老板口径：挪出战场、字大、上色——黑幕上金橙发光字） */
+#hlsAimOv .hint { width:100%; max-width:520px; text-align:center; font-size:14.5px; font-weight:700; color:#ffcf8a; margin-top:10px;
+  letter-spacing:1px; text-shadow:0 0 10px rgba(255,140,40,.55), 0 2px 3px #000; }
+/* 跳过：照抄 fx/85 闪避子弹时间格式（右下角、斜放 -30°、半透明白大字） */
+#hlsAimOv .hlsAimSkip { position:absolute; bottom:12%; right:8%; z-index:8; color:rgba(255,255,255,0.7);
+  font-size:18px; font-weight:bold; cursor:pointer; line-height:1; letter-spacing:2px;
+  transform:rotate(-30deg); background:none; border:none; padding:8px; font-family:inherit; }
+/* 进场引导：施术者格上的金色拳头（老板口径「进去先给个拳头 logo 才知道点哪」） */
+#hlsAimOv .fistGuide { position:absolute; z-index:7; pointer-events:none; display:flex; flex-direction:column; align-items:center; transform:translate(-50%,-50%); }
+#hlsAimOv .fistGuide .fgIcon { font-size:40px; line-height:1; filter:drop-shadow(0 0 10px rgba(255,190,70,.95)) drop-shadow(0 2px 3px rgba(0,0,0,.6));
+  animation: hlsFistFloat 1.15s ease-in-out infinite; }
+#hlsAimOv .fistGuide .fgRing { position:absolute; top:50%; left:50%; width:74px; height:74px; margin:-37px 0 0 -37px; border-radius:50%;
+  border:3px solid rgba(255,196,80,.85); box-shadow:0 0 18px rgba(255,160,50,.7), inset 0 0 12px rgba(255,160,50,.4);
+  animation: hlsFistRing 1.15s ease-out infinite; }
+#hlsAimOv .fistGuide .fgText { margin-top:6px; font-size:12px; font-weight:900; color:#fff3d6; white-space:nowrap;
+  text-shadow:0 0 8px rgba(255,140,40,.8), 0 1px 2px #000; animation: hlsFistFloat 1.15s ease-in-out infinite; }
+@keyframes hlsFistFloat { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-7px); } }
+@keyframes hlsFistRing { 0% { transform:scale(.72); opacity:.95; } 100% { transform:scale(1.32); opacity:0; } }
 #hlsAimOv .team-label.orange { color: var(--c-sect-orange); } #hlsAimOv .team-label.blue { color: var(--c-ming-blue); }
-#hlsAimOv .hlsAimSkip { position: absolute; top: 8px; right: 10px; z-index: 8; background: var(--c-panel); border: 1.5px solid var(--c-brown-border); color: var(--c-brown);
-  border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
 `;
     overlay.appendChild(style);
 
@@ -746,20 +769,28 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     hud.className = 'hud';
     hud.innerHTML = '<span class="hudTier">蓄 势</span><span class="hudPct">0%</span><div class="hudBarWrap"><div class="hudBar"></div></div>';
     bf.appendChild(hud);
+    // 进场引导：施术者格上的金色拳头（老板口径「进去先给个拳头 logo，不然不知道点哪」；startCharge 即隐）
+    const fistGuide = document.createElement('div');
+    fistGuide.className = 'fistGuide';
+    fistGuide.innerHTML = '<div class="fgRing"></div><div class="fgIcon">👊</div><div class="fgText">按住这里蓄力</div>';
+    bf.appendChild(fistGuide);
+    overlay.appendChild(bf);
+
+    // 解说：战场卡下方（老板口径「挡到战场了，往下挪、字大点、上色」）
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = '按住战场蓄力 · 拖动瞄准 · 松手轰出';
-    bf.appendChild(hint);
-    overlay.appendChild(bf);
+    hint.textContent = '按住拳头蓄力 · 拖到敌格瞄准 · 松手轰出';
+    overlay.appendChild(hint);
 
     // 白闪层（demo #flash：爆发瞬间 0.88 全屏白，~190ms 衰减——震撼感的大头，V3.1 补上）
     const flashEl = document.createElement('div');
     flashEl.className = 'flash';
     overlay.appendChild(flashEl);
 
+    // 跳过：fx/85 闪避子弹时间同款（右下角斜放半透明白字）
     const skipBtn = document.createElement('button');
     skipBtn.className = 'hlsAimSkip';
-    skipBtn.textContent = '跳过 ⏭';
+    skipBtn.textContent = '跳过';
     overlay.appendChild(skipBtn);
 
     document.body.appendChild(overlay);
@@ -778,6 +809,16 @@ export function showHanlisaAim(c, hls, payload, resolve) {
 
     const stage = makeStage({ bf, world, svg, eg: document.getElementById('hlsAimEg'), ag: document.getElementById('hlsAimAg'), vig, ENEMY, APP });
     stage.measure();
+
+    // 引导拳头定位：施术者（ally 2 号格）中心（fx 层规矩：现查 rect，不缓存引用）
+    function positionGuide() {
+        const a2 = bf.querySelector('#hlsAimAg [data-pos="2"]');
+        if (!a2) { fistGuide.style.display = 'none'; return; }
+        const r = a2.getBoundingClientRect(), b = bf.getBoundingClientRect();
+        fistGuide.style.left = (r.left - b.left + r.width / 2) + 'px';
+        fistGuide.style.top = (r.top - b.top + r.height / 2 - 8) + 'px';
+    }
+    positionGuide();
 
     function tick() {
         const now = performance.now();
@@ -808,6 +849,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     function startCharge() {
         stage.reset();
         stage.measure();
+        fistGuide.style.display = 'none';   // 引导拳头功成身退
         APP.state = 'charge';
         APP.t0 = performance.now();
         APP.level = 0;
