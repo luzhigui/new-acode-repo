@@ -19,7 +19,7 @@
 //          虚线瞄准线连到锁定格；未瞄准（全屏兜底）时不画线不画圈。
 // V3.5.0 | 2026-10-19 补腕豪风合成音效：蓄力轰鸣（锯齿+次低音+噪声，LFO 脉动随蓄力加速）+ 轰出重锤
 //          （破空扫频→110→26Hz 下砸过软削波→拍击噪声→余震）；AudioManager 门控，独立惰性 AudioContext。
-export const VER = 'ui/79hanlisa-aim.js V3.5.0';
+export const VER = 'ui/79hanlisa-aim.js V3.5.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
@@ -41,43 +41,55 @@ function noiseBuf(ctx, sec) {
 let _chargeSfx = null;
 function chargeSfxStop() { if (_chargeSfx) { try { _chargeSfx.stop(); } catch (e) { /* noop */ } _chargeSfx = null; } }
 function chargeSfxStart() {
-    if (!sfxAllowed()) return;
-    const ctx = sfxCtx(); if (!ctx) return;
-    try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) { /* noop */ }
-    chargeSfxStop();
-    const v = sfxVol();
-    const out = ctx.createGain(); out.gain.value = 0.0001; out.connect(ctx.destination);
-    const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 32;   // 轰鸣主体
-    const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 26;       // 次低音
-    const nb = ctx.createBufferSource(); nb.buffer = noiseBuf(ctx, 1.2); nb.loop = true;
-    const nf = ctx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 140; nf.Q.value = 0.8;
-    const og = ctx.createGain(); og.gain.value = 0.5, sg = ctx.createGain(); sg.gain.value = 0.7, ng = ctx.createGain(); ng.gain.value = 0.22;
-    o1.connect(og); o2.connect(sg); nb.connect(nf); nf.connect(ng);
-    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 5.5;    // 咕噜脉动
-    const lfoG = ctx.createGain(); lfoG.gain.value = 0;
-    lfo.connect(lfoG); lfoG.connect(out.gain);
-    og.connect(out); sg.connect(out); ng.connect(out);
-    o1.start(); o2.start(); nb.start(); lfo.start();
-    const t = ctx.currentTime;
-    out.gain.setValueAtTime(0.0001, t);
-    out.gain.exponentialRampToValueAtTime(Math.max(0.02, 0.38 * v), t + 0.28);
-    _chargeSfx = { o1, o2, nb, lfo, lfoG, nf, out, ctx,
-        setLevel(l) {
-            const tt = this.ctx.currentTime;
-            this.o1.frequency.setTargetAtTime(32 + 60 * l, tt, 0.08);
-            this.o2.frequency.setTargetAtTime(26 + 12 * l, tt, 0.1);
-            this.nf.frequency.setTargetAtTime(140 + 950 * l * l, tt, 0.08);
-            this.lfo.frequency.setTargetAtTime(5.5 + 10.5 * l, tt, 0.1);
-            this.lfoG.gain.setTargetAtTime(0.20 * l, tt, 0.12);
-        },
-        stop() {
-            const tt = this.ctx.currentTime;
-            this.out.gain.setTargetAtTime(0.0001, tt, 0.03);
-            const s = tt + 0.14;
-            this.o1.stop(s); this.o2.stop(s); this.nb.stop(s); this.lfo.stop(s);
-        } };
+    // 音效永不许阻断玩法：整包 try（V3.5.1 修：旧版第 54 行逗号连接产生隐式全局 sg/ng，
+    //   ES module 严格模式下赋值未声明变量抛 ReferenceError，把 startCharge 炸死=「轰不出去」的根因）
+    try {
+        if (!sfxAllowed()) return;
+        const ctx = sfxCtx(); if (!ctx) return;
+        try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) { /* noop */ }
+        chargeSfxStop();
+        const v = sfxVol();
+        const out = ctx.createGain(); out.gain.value = 0.0001; out.connect(ctx.destination);
+        const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 32;   // 轰鸣主体
+        const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 26;       // 次低音
+        const nb = ctx.createBufferSource(); nb.buffer = noiseBuf(ctx, 1.2); nb.loop = true;
+        const nf = ctx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 140; nf.Q.value = 0.8;
+        const og = ctx.createGain(); og.gain.value = 0.5;
+        const sg = ctx.createGain(); sg.gain.value = 0.7;
+        const ng = ctx.createGain(); ng.gain.value = 0.22;
+        o1.connect(og); o2.connect(sg); nb.connect(nf); nf.connect(ng);
+        const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 5.5;    // 咕噜脉动
+        const lfoG = ctx.createGain(); lfoG.gain.value = 0;
+        lfo.connect(lfoG); lfoG.connect(out.gain);
+        og.connect(out); sg.connect(out); ng.connect(out);
+        o1.start(); o2.start(); nb.start(); lfo.start();
+        const t = ctx.currentTime;
+        out.gain.setValueAtTime(0.0001, t);
+        out.gain.exponentialRampToValueAtTime(Math.max(0.02, 0.38 * v), t + 0.28);
+        _chargeSfx = { o1, o2, nb, lfo, lfoG, nf, out, ctx,
+            setLevel(l) {
+                try {
+                    const tt = this.ctx.currentTime;
+                    this.o1.frequency.setTargetAtTime(32 + 60 * l, tt, 0.08);
+                    this.o2.frequency.setTargetAtTime(26 + 12 * l, tt, 0.1);
+                    this.nf.frequency.setTargetAtTime(140 + 950 * l * l, tt, 0.08);
+                    this.lfo.frequency.setTargetAtTime(5.5 + 10.5 * l, tt, 0.1);
+                    this.lfoG.gain.setTargetAtTime(0.20 * l, tt, 0.12);
+                } catch (e) { /* noop */ }
+            },
+            stop() {
+                try {
+                    const tt = this.ctx.currentTime;
+                    this.out.gain.setTargetAtTime(0.0001, tt, 0.03);
+                    const s = tt + 0.14;
+                    this.o1.stop(s); this.o2.stop(s); this.nb.stop(s); this.lfo.stop(s);
+                } catch (e) { /* noop */ }
+            } };
+    } catch (e) { console.warn('[蓄意轰拳] 蓄力音效异常（不影响玩法）', e); }
 }
 function boomSfx(level) {
+    // 音效永不许阻断玩法：整包 try（V3.5.1）
+    try {
     if (!sfxAllowed()) return;
     const ctx = sfxCtx(); if (!ctx) return;
     try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) { /* noop */ }
@@ -118,6 +130,7 @@ function boomSfx(level) {
     rG.gain.exponentialRampToValueAtTime(Math.max(0.02, 0.35 * v), t + 0.52);
     rG.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
     rO.connect(rG); rG.connect(ctx.destination); rO.start(t + 0.5); rO.stop(t + 1.0);
+    } catch (e) { console.warn('[蓄意轰拳] 爆发音效异常（不影响玩法）', e); }
 }
 
 /* ================= 一、demo 通用工具（逐字照搬 131） ================= */
