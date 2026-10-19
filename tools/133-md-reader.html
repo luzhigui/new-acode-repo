@@ -1,0 +1,252 @@
+<!-- V1.0.1 | ~12500 bytes | 2026-10-19 新建「MD 阅读器」（起点读书式，V1.0.1 补 fetch 15s 超时保险）：dev-index「文档与准则」文本入口原直跳 *.md 原文，
+     手机上浏览器按纯文本渲染（无 viewport → 字缩极小、白底黑字刺眼）。本页 fetch 本地 .md → 本地渲染成排版正文：
+     米黄羊皮纸底 + 近黑正文、viewport 修手机缩字、A-/A+ 调字号（localStorage 记忆）、返回按钮回 dev-index。
+     用法：tools/133-md-reader.html?f=<仓库根相对路径>，如 ?f=README.md、?f=体检条目.md、?f=tests/体检迭代日志.md。
+     自包含、无外部依赖（不引 CDN，手写迷你 MD 渲染器：标题/粗斜体/行内码/围栏码/表格/引用/列表/分隔线/链接） -->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>📖 MD 阅读器</title>
+    <style>
+        /* 起点读书式：米黄羊皮纸底 + 近黑正文，护眼不刺 */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            background: #f2e8cf;
+            color: #2d2a26;
+            font-family: 'Noto Serif SC', 'Songti SC', SimSun, Georgia, serif;
+            font-size: 18px; line-height: 1.95;
+            padding: 64px 18px 80px;
+        }
+        .toolbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 12px; padding-top: calc(10px + env(safe-area-inset-top));
+            background: rgba(242, 232, 207, 0.96);
+            border-bottom: 1px solid #d8c9a3;
+        }
+        .toolbar .title {
+            flex: 1; font-size: 0.95rem; font-weight: bold; color: #4a3b28;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .tool-btn {
+            border: 1px solid #b9a67c; background: #e9dcbd; color: #4a3b28;
+            border-radius: 8px; padding: 6px 12px; font-size: 0.95rem;
+            font-weight: bold; cursor: pointer; min-height: 36px;
+        }
+        .tool-btn:active { background: #dcc99c; }
+        .article {
+            max-width: 42em; margin: 0 auto;
+            background: #f7efd9; border: 1px solid #e0d0a8; border-radius: 12px;
+            padding: 26px 20px 40px;
+            box-shadow: 0 4px 18px rgba(120, 96, 48, 0.12);
+            word-wrap: break-word; overflow-wrap: break-word;
+        }
+        .article h1, .article h2, .article h3, .article h4, .article h5, .article h6 {
+            color: #1f1c19; line-height: 1.5; margin: 1.2em 0 0.6em; font-weight: bold;
+        }
+        .article h1 { font-size: 1.5em; border-bottom: 2px solid #d8c9a3; padding-bottom: 0.35em; }
+        .article h2 { font-size: 1.32em; border-bottom: 1px solid #e2d3ad; padding-bottom: 0.3em; }
+        .article h3 { font-size: 1.18em; }
+        .article h4 { font-size: 1.06em; }
+        .article p { margin: 0.85em 0; }
+        .article a { color: #8a5a2b; text-decoration: underline; word-break: break-all; }
+        .article strong { color: #17140f; }
+        .article code {
+            background: #e9dcbd; color: #6b4a22; border-radius: 4px;
+            padding: 0.12em 0.4em; font-size: 0.88em;
+            font-family: Consolas, 'Courier New', monospace;
+        }
+        .article pre {
+            background: #ece0c0; border: 1px solid #d8c9a3; border-radius: 8px;
+            padding: 14px 12px; overflow-x: auto; margin: 1em 0; line-height: 1.6;
+        }
+        .article pre code { background: none; padding: 0; font-size: 0.85em; color: #4a3b28; }
+        .article blockquote {
+            background: #ece0c0; border-left: 4px solid #c4a968;
+            margin: 1em 0; padding: 0.6em 1em; border-radius: 0 8px 8px 0; color: #4a3b28;
+        }
+        .article ul, .article ol { margin: 0.8em 0 0.8em 1.6em; }
+        .article li { margin: 0.35em 0; }
+        .article table {
+            border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 0.92em;
+            display: block; overflow-x: auto;
+        }
+        .article th, .article td {
+            border: 1px solid #d8c9a3; padding: 8px 10px; text-align: left; vertical-align: top;
+        }
+        .article th { background: #e9dcbd; color: #3a2d1c; }
+        .article hr { border: none; border-top: 1px solid #d8c9a3; margin: 1.5em 0; }
+        .load-error { color: #8a2f2f; padding: 1em 0; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="tool-btn" id="btnBack">← 返回</button>
+        <div class="title" id="docTitle">📖 MD 阅读器</div>
+        <button class="tool-btn" id="btnFontMinus">A−</button>
+        <button class="tool-btn" id="btnFontPlus">A＋</button>
+    </div>
+    <div class="article" id="article"><p>加载中…</p></div>
+
+    <script>
+        // ==================== 配置 ====================
+        const FS_KEY = 'mdReaderFontSize';   // 字号记忆
+        const FS_MIN = 14, FS_MAX = 28;
+        const params = new URLSearchParams(location.search);
+        const file = (params.get('f') || '').trim();
+
+        // ==================== 字号（A- / A+，localStorage 记忆） ====================
+        function getFs() {
+            const v = parseInt(localStorage.getItem(FS_KEY), 10);
+            return Number.isFinite(v) ? Math.min(FS_MAX, Math.max(FS_MIN, v)) : 18;
+        }
+        function applyFs() { document.body.style.fontSize = getFs() + 'px'; }
+        document.getElementById('btnFontMinus').onclick = () => {
+            localStorage.setItem(FS_KEY, String(Math.max(FS_MIN, getFs() - 1))); applyFs();
+        };
+        document.getElementById('btnFontPlus').onclick = () => {
+            localStorage.setItem(FS_KEY, String(Math.min(FS_MAX, getFs() + 1))); applyFs();
+        };
+        document.getElementById('btnBack').onclick = () => {
+            if (history.length > 1) history.back(); else location.href = '../dev-index.html';
+        };
+        applyFs();
+
+        // ==================== 迷你 Markdown 渲染器（自包含，无外部依赖） ====================
+        function esc(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function inline(s) {
+            s = esc(s);
+            s = s.replace(/`([^`]+)`/g, (m, c) => '<code>' + c + '</code>');
+            s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,
+                (m, t, u) => '<a href="' + u + '" target="_blank" rel="noopener">' + t + '</a>');
+            s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+            return s;
+        }
+
+        function renderMd(src) {
+            const lines = src.replace(/\r\n?/g, '\n').split('\n');
+            const out = [];
+            let i = 0;
+            while (i < lines.length) {
+                const line = lines[i];
+                const t = line.trim();
+
+                // 空行
+                if (t === '') { i++; continue; }
+
+                // 围栏代码块 ```lang
+                if (/^```/.test(t)) {
+                    const buf = [];
+                    i++;
+                    while (i < lines.length && !/^```/.test(lines[i].trim())) { buf.push(lines[i]); i++; }
+                    i++; // 跳过收尾 ```
+                    out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
+                    continue;
+                }
+
+                // 标题
+                const h = t.match(/^(#{1,6})\s+(.*)$/);
+                if (h) {
+                    const lv = h[1].length;
+                    out.push('<h' + lv + '>' + inline(h[2]) + '</h' + lv + '>');
+                    i++;
+                    continue;
+                }
+
+                // 分隔线
+                if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) { out.push('<hr>'); i++; continue; }
+
+                // 表格（含 | 且下一行是分隔行）
+                if (t.startsWith('|') && i + 1 < lines.length &&
+                    /^\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1].trim())) {
+                    const rows = [];
+                    while (i < lines.length && lines[i].trim().startsWith('|')) { rows.push(lines[i].trim()); i++; }
+                    const cells = r => r.replace(/^\||\|$/g, '').split('|').map(c => inline(c.trim()));
+                    const head = cells(rows[0]);
+                    let html = '<table><thead><tr>' + head.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+                    for (let r = 2; r < rows.length; r++) {
+                        html += '<tr>' + cells(rows[r]).map(c => '<td>' + c + '</td>').join('') + '</tr>';
+                    }
+                    out.push(html + '</tbody></table>');
+                    continue;
+                }
+
+                // 引用块
+                if (t.startsWith('>')) {
+                    const buf = [];
+                    while (i < lines.length && lines[i].trim().startsWith('>')) {
+                        buf.push(lines[i].trim().replace(/^>\s?/, ''));
+                        i++;
+                    }
+                    out.push('<blockquote><p>' + inline(buf.join(' ')) + '</p></blockquote>');
+                    continue;
+                }
+
+                // 列表（缩进定层级：2 空格 / 1 Tab = 一层）
+                if (/^([-*+]|\d+[.)])\s+/.test(t)) {
+                    const items = [];
+                    while (i < lines.length) {
+                        const raw = lines[i];
+                        const m = raw.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+                        if (!m) break;
+                        items.push({ depth: Math.floor(m[1].replace(/\t/g, '  ').length / 2), ordered: /\d/.test(m[2]), text: m[3] });
+                        i++;
+                    }
+                    const tag = items[0].ordered ? 'ol' : 'ul';
+                    let html = '<' + tag + '>', prev = 0;
+                    for (const it of items) {
+                        while (prev < it.depth) { html += '<' + tag + '>'; prev++; }
+                        while (prev > it.depth) { html += '</' + tag + '>'; prev--; }
+                        html += '<li>' + inline(it.text) + '</li>';
+                    }
+                    while (prev > 0) { html += '</' + tag + '>'; prev--; }
+                    out.push(html + '</' + tag + '>');
+                    continue;
+                }
+
+                // 段落（连续非空行合并）
+                const buf = [];
+                while (i < lines.length && lines[i].trim() !== '' &&
+                       !/^(#{1,6}\s|```|>|\|)/.test(lines[i].trim()) &&
+                       !/^([-*+]|\d+[.)])\s+/.test(lines[i].trim())) {
+                    buf.push(lines[i].trim());
+                    i++;
+                }
+                if (buf.length) out.push('<p>' + inline(buf.join(' ')) + '</p>');
+            }
+            return out.join('\n');
+        }
+
+        // ==================== 加载文档（路径相对仓库根） ====================
+        (async function load() {
+            const art = document.getElementById('article');
+            const nameEl = document.getElementById('docTitle');
+            if (!file) {
+                art.innerHTML = '<p class="load-error">缺少参数 f。用法：133-md-reader.html?f=README.md</p>';
+                return;
+            }
+            const url = new URL('../' + file, location.href);
+            nameEl.textContent = '📖 ' + file.split('/').pop();
+            document.title = '📖 ' + file.split('/').pop();
+            try {
+                // 超时保险：项目已知坑「手机上 fetch 中文文件名可能卡住」（106 清单注释），卡住不给白屏
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 15000);
+                const res = await fetch(url.href, { signal: ctrl.signal });
+                clearTimeout(timer);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                art.innerHTML = renderMd(await res.text());
+                window.scrollTo(0, 0);
+            } catch (e) {
+                art.innerHTML = '<p class="load-error">读取失败（' + esc(String(e)) + '）：' +
+                    esc(file) + '</p><p><a href="' + esc(url.href) + '">点此看原文</a></p>';
+            }
+        })();
+    </script>
+</body>
+</html>

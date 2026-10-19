@@ -1,9 +1,12 @@
+// V7.5.24 | ~25400 bytes | 2026-10-19 六大派弱精英随机混入（老板拍板，与明教侧同率 WEAK_ELITE_MIX_RATE）：
+//            池由名册派生（HERO_FLAGS ∩ 不属于任一关卡固定精英池）＝何太冲/唐文亮，命中则锁定一处 M 值匹配的数字空位
+//            （每局至多一名）；dev 强制 forceWeakElite 优先，两者共用同一条锁定通道
 // V7.5.23 | 2026-10-17 唐文亮（标枪弱精英）重做接线：职业优先读 content `characters.*.role`（标枪不进 CONFIG.ROLES，
 //            故不能只靠 tags 判定）+ 恒定落中后排 4~9（身份优先表 CONFIG.ENEMY_ELITE_POS_PRIORITY.tangWenLiang）
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.23';
+export const VER = 'modules/29battle-init.js V7.5.24';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -51,7 +54,7 @@ export function initBattleTeams(currentStage, _rng) {
         rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 5;
     }
 
-    // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
+    // 精英出场率（2026-10-19 重定）：90%一个、5%两个、5%一个都不出、不出三个，按 ELITE_RATE 权重选人
     // 阈值走 CONFIG.ELITE_COUNT_THRESHOLDS（[3人, 2人, 1人] 的上界）
     const [t3, t2, t1] = C.ELITE_COUNT_THRESHOLDS;
     const eliteConfigs = [
@@ -348,6 +351,25 @@ export function initBattleTeams(currentStage, _rng) {
     let enemyUnits = [];
     const usedEnemyNames = [];
 
+    // —— 六大派弱精英混入（2026-10-19 老板拍板：与明教侧同率 WEAK_ELITE_MIX_RATE）——
+    // 池由名册派生（六大派名册里带身份标记、且不属于任一关卡的固定精英池）＝何太冲/唐文亮，不另建清单；
+    //   命中则本局把「首个 M 值匹配的数字空位」锁定为该弱精英（每局至多一名），照明教侧混入口径。
+    //   本关若没有对应 M 的数字空位（如第 3 关变体全是对象项）则不生效。
+    const fixedEnemyEliteNames = new Set(Object.values(C.ELITE_POOL || {}).flat().map(e => e && e.name));
+    const enemyWeakPool = Object.entries(ENEMY_M)
+        .filter(([n]) => HERO_FLAGS[n] && !fixedEnemyEliteNames.has(n))
+        .map(([n, m]) => ({ name: n, m }));
+    // RNG 流纪律（PVP 双端同源）：抽签无条件消耗，锁定与否只改「是否应用」，不改消耗序列
+    const enemyWeakRoll = _rng.next();
+    const enemyWeakPickIdx = enemyWeakPool.length > 0 ? _rand(0, enemyWeakPool.length - 1) : 0;
+    let weakLockName = null;
+    if (forceWeakElite && ENEMY_M[forceWeakElite] != null) {
+        weakLockName = forceWeakElite;          // dev 强制优先
+    } else if (enemyWeakPool.length > 0 && enemyWeakRoll < C.WEAK_ELITE_MIX_RATE) {
+        weakLockName = enemyWeakPool[enemyWeakPickIdx].name;
+    }
+    let weakLockUsed = false;
+
     if (enemySquad) {
         let enemyPosSet = new Set();
         let xuanmingPairCount = 0;
@@ -374,10 +396,12 @@ export function initBattleTeams(currentStage, _rng) {
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
-                // 2026-10-16 弱精英锁定（dev 测试用）：forceWeakElite 命中名册且 M 值对上本数字空位时锁定该具名——
-                //   六大派弱精英「混入正常阵容占 1 位」；本关若无对应 M 空位则不生效（如第 3 关胖远桥组全对象项）
-                if (forceWeakElite && ENEMY_M[forceWeakElite] === mVal && !usedEnemyNames.includes(forceWeakElite)) {
-                    name = forceWeakElite;
+                // 弱精英锁定（2026-10-16 起；2026-10-19 扩为「dev 强制 or 本局随机混入」）：命中名册且 M 值对上
+                //   本数字空位时锁定该具名——六大派弱精英「混入正常阵容占 1 位」，每局至多一名；
+                //   本关若无对应 M 空位则不生效（如第 3 关胖远桥组全对象项）
+                if (!weakLockUsed && weakLockName && ENEMY_M[weakLockName] === mVal && !usedEnemyNames.includes(weakLockName)) {
+                    name = weakLockName;
+                    weakLockUsed = true;
                 }
                 // 2026-10-11 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
                 //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。

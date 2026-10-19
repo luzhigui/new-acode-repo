@@ -1,8 +1,10 @@
 // render/38-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
+// V1.0.2 | ~8600 bytes | 2026-10-19 translateSkillAnnounce 新增 restoreActed 分支：雄鹰恢复行动力的报幕补一条
+//          RESTORE_ACTED 舞台动作（render/39 双清账本 _acted 与视图镜像 _renderActed）
 // V1.0.1 | ~8215 bytes | 2026-10-13 两仪互换注释随红血时机修正：事实序不再是「先换位再挨打」，
 //          改挂 ON_UNIT_ACTED 后 swap 报幕落在整段攻击组之后，翻译逻辑零改动。
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-stat.js V1.0.1';
+export const VER = 'render/38-actions-translate-stat.js V1.0.2';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -191,6 +193,14 @@ function translateSkillAnnounce(data, index) {
         if (data.floatText && data.floatUid != null) {
             acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
         }
+        return acts;
+    }
+    // 2026-10-19 雄鹰·恢复行动力：报幕带 restoreActed + floatUid=被恢复者 uid →
+    //   除飘字外补一条 RESTORE_ACTED 舞台动作，让 render/39 把 _acted=false 同步进 store
+    //   并清 _renderActed 视图镜像（判灰双路取或，镜像残留会仍判灰）。
+    if (data.restoreActed && data.floatUid != null) {
+        const acts = [{ kind: STAGE_ACTION_TYPES.RESTORE_ACTED, actorUid: data.floatUid, factIndex: index, timing: 'afterText' }];
+        if (data.floatText) acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
         return acts;
     }
     if (!data.floatText || data.floatUid == null) return null;

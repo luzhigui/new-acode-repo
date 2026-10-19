@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.5.5 | ~33200 bytes | 2026-10-19 新增 RESTORE_ACTED 舞台动作（雄鹰恢复行动力）：store 回调按 uid 双清
+//   账本 _acted=false 与视图镜像 _renderActed=null（与 ROUND_START 同口径），修「被恢复者格子不绿」
 // V1.5.4 | ~32900 bytes | 2026-10-19 简单模式闪避反击掉血飘字抢跑修复：DODGE.fx 里 DAMAGE_FLOAT 原先在演出第 0 帧发，
 //   与紧随的 fx/82 showMeleeDodge 冲撞演出抢同一格（克隆体 z-index 99999 + 不透明压在攻击者格上，
 //   飘字 z-index 10002 看不见）→ 简单模式改延后 1600ms（飞 700 + 回弹 900）撤走克隆体后再发，
@@ -26,7 +28,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.4';
+export const VER = 'render/39-actions-defs.js V1.5.5';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -277,6 +279,17 @@ export const STAGE_ACTION_DEFS = {
             const horse = findUnitByUidLocal(c, action.actorUid);
             if (horse) {
                 await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + (action.taunt || '') });
+            }
+        }
+    },
+    // 2026-10-19 雄鹰·恢复行动力（modules/27elite-mingjiao-eagle 报幕 → render/38 翻出）：
+    //   引擎只写账本 pick.state._acted=false，UI 判灰是「账本 _acted」或「视图镜像 _renderActed」双路取或
+    //   （render/32 L246）——镜像残留仍判灰。此处按 uid 双清（与 ROUND_START 同口径），格子立即回绿。
+    [STAGE_ACTION_TYPES.RESTORE_ACTED]: {
+        grid: 'sync', log: 'sync', timing: 'afterText',
+        store: (c, action) => {
+            if (c.store && action.actorUid) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _acted: false, _renderActed: null });
             }
         }
     },
