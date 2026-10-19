@@ -1,5 +1,5 @@
 // 版本历史见 记录-更改履历.md（检索 "core/04buff-system"）
-export const VER = 'core/04buff-system.js V6.6.0';
+export const VER = 'core/04buff-system.js V6.6.1';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -103,12 +103,15 @@ export function applyCarryBonus(unit, A, state, log) {
 //   随回合开始进场，故 core/11 组件工厂循环能当回合挂上雄鹰技能；数值读 content buffs.carry.params.eagle。
 export function spawnCarryEagle(team, log) {
     if (!team || !team.length) return null;
-    if (!hasBuff(team._activeBuffs || [], BUFF_TYPES.CARRY)) return null;
-    // 一次性判定：carry「首次生效」那回合判一次 5 号位即锁死——
-    //   那回合有活人则本局永不招（之后空出来也不补），招过之后雄鹰阵亡也不补。
-    //   锁记在 _carryEagleDone（随 unit.clone 跨回合保留）；任一单位带标 = 本队已判过，直接跳过。
-    if (team.some(u => u.state && u.state._carryEagleDone)) return null;
-    team.forEach(u => { if (u.state) u.state._carryEagleDone = true; });
+    // 2026-10-19 修「先拿过 carry、之后再选一次 carry 就不出雄鹰」：原锁 _carryEagleDone 是整局锁
+    //   （写在各 unit.state 上，任一单位带标即整队跳过），第二张 carry 一律不判。
+    //   改为把锁挂在 buff 对象上（_eagleDone）——每张 carry 各判一次 5 号位；
+    //   buff 跨回合同一对象、只被 remaining 递减，且只出现在持有它的阵营列表里，天然按阵营隔离。
+    const buff = (team._activeBuffs || []).find(b => b.key === BUFF_TYPES.CARRY);
+    if (!buff) return null;
+    // 本次 carry 已判过 5 号位：当回合有人（不招）或已招（雄鹰阵亡也不补）后均不再判
+    if (buff._eagleDone) return null;
+    buff._eagleDone = true;
     if (team.some(u => u.alive && u.pos === 5)) return null;
     if (team.some(u => u.isCarryEagle)) return null;
     const spec = C.BUFFS?.carry?.params?.eagle;

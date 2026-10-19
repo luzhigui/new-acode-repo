@@ -1,5 +1,9 @@
 // V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
 // V3.8.2 | 2026-10-17 第 98 轮补：scan-groups 扫地闭环两 hp 盲区（52→54）——hlsJiuYangHeal / hlsHanDuDot（寒离飒九阳/寒毒，均零数值改动）
+// V3.8.5 | 2026-10-19 第 106 轮：闭环 hlsBurstDmg 盲区（56 契约）——轰拳真伤原无按机制 group（只落单位级
+//   dmgDealt/dmgTaken，scan-groups 因无 group 看不见；第 105 轮闭环 hlsVamp 后人工复核同技能其他数值时发现）。
+//   主代码 modules/27 V2.1.1 同处补 recordHpAudit(u,'hlsBurstDmg',-dmg)（纯记账）；契约读 hlsBurst.hits，
+//   44 条声明/偏差 0。dir=-1 镜像 XUAN_MING_DOT；天上无敌挡血不计实际（免疫效应如实呈现，已留档）。
 // V3.8.4 | 2026-10-19 第 105 轮：scan-groups 扫地闭环 hlsVamp 盲区（55 契约）——寒离飒蓄意轰拳·吸血
 //   （modules/27 L266-269，vamp=总伤害1/3封顶缺失血；L268 ROUND_STAT_GRANT 声明 + L269 recordHpAudit 实际）。
 //   声明侧读 SKILL_ANNOUNCE 的 hlsBurst 载荷（apexUid/vamp，回放桥同源）；23 条声明/偏差 0，未覆盖清零。
@@ -163,7 +167,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.4';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.5';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1429,6 +1433,41 @@ const CONTRACTS = [
                 if (!b || typeof b.vamp !== 'number' || b.vamp <= 0) return;
                 if (b.apexUid == null) return;
                 out.push({ unit: d.unitName || null, uid: b.apexUid, stat: 'hp', amount: b.vamp });
+            };
+            for (const f of stepLog || []) {
+                scan(f);
+                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 106 轮（静态对账+人工复核）：寒离飒蓄意轰拳·真伤 hlsBurstDmg —— modules/27 L204-213 每命中目标
+        //   dmg=Math.floor(N/cell.den)（真伤不吃防不吃闪避），原只推 ROUND_STAT_GRANT 声明、经 applyStatChange
+        //   只落单位级 dmgDealt/dmgTaken、**无按机制 group** ⇒ 数值网归不了因，且 scan-groups 因无 group 看不见
+        //   （第 105 轮闭环 hlsVamp 后人工复核同技能其他数值时发现）。主代码 V2.1.1 同处补
+        //   recordHpAudit(u,'hlsBurstDmg',-dmg,'蓄意轰拳·真伤')（纯记账，零逻辑副作用）。
+        //   声明侧读同处 L277 SKILL_ANNOUNCE 的 hlsBurst.hits（[{uid,pos,dmg,tier}]，回放桥同源）；
+        //   dir=-1（声明 dmg 为正、hp 下降，镜像 XUAN_MING_DOT）。⚠ 天上无敌（小昭飞天）挡掉的血不计入实际
+        //   （applyStatChange L199 提前 return、recordHpAudit 不执行）⇒ 若样本出现该叠加会现 declared>applied，
+        //   那是免疫效应、契约如实呈现（当前样本无此叠加，已在注释留档）。
+        id: 'HLS_BURST_DMG',
+        label: '蓄意轰拳真伤',
+        group: 'hlsBurstDmg',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (f) => {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SKILL_ANNOUNCE) return;
+                const d = f.data;
+                const b = d.hlsBurst;
+                if (!b || !Array.isArray(b.hits)) return;
+                for (const h of b.hits) {
+                    if (h && typeof h.dmg === 'number' && h.dmg > 0 && h.uid != null) {
+                        out.push({ unit: null, uid: h.uid, stat: 'hp', amount: h.dmg });
+                    }
+                }
             };
             for (const f of stepLog || []) {
                 scan(f);

@@ -1,5 +1,5 @@
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.23';
+export const VER = 'core/17-state-keys.js V2.9.24';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -83,10 +83,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // carry 雄鹰一次性判定：只在 carry「首次生效」那回合判一次 5 号位——那回合 5 号位有人即本局永不招
-    //   （之后空出来也不补），招了之后雄鹰阵亡也不补。core/04 spawnCarryEagle 在 hasBuff 判过后查本字段：
-    //   任一单位带标即整队跳过（锁写在此，跨回合随 clone 存活）
-    _carryEagleDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 2026-10-19 删 _carryEagleDone：carry 雄鹰「一次性判定」锁改挂 buff 对象（core/04 spawnCarryEagle），
+    //   每张 carry 各判一次 5 号位（修「再选一次 carry 不出雄鹰」），unit 级整局锁作废
     _butterflyAtk:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyDef:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyHp:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
