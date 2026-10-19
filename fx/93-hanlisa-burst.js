@@ -7,15 +7,18 @@
 //   · 瞄 8 特例：中列速度线 + 撞边白闪（位移动画本体走 PUSH 舞台动作的 fx 收尾写入，此处只做点缀）
 //   · 吸血：顶点 ❤+N 上浮
 //   · 整块战场轻微震屏（8px / 420ms）+ 顶点升「轰」字 + 金/冰双环拳心脉冲
+// V2.1.0 | 2026-10-19 补轻量模式：ui/79 黑幕（V2 重造）刚完整演出过（hlsAimPlayedAt 3.5s 内）→ 只播震屏+格子效果，
+//          防黑幕/战场双演出；跳过/回放/简单/自动挡无标记照常完整
 // V2.0.0 | 2026-10-19 蓄意轰拳 V2：载荷改 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp}
 //          （全 uid+数值可序列化，回放/从机经 SKILL_ANNOUNCE 桥补触发；seq 去重防引擎直发+桥双放）
 // V1.2.0 | 2026-10-17 应用 demo tools/126「变体A」（老板选定）：补金/冰双色粒子飞向命中格 + 整场震屏，
 //          「轰」字提亮为 #ffcf5e 双层辉光，扇形加 feGaussianBlur 柔光
 // V1.1.0 | 2026-10-17 修订：弃硬三角，改柔光扇形+涟漪，整体放慢（用户指正"太丑/太快/一下打满"）
-export const VER = 'fx/93-hanlisa-burst.js V2.0.0';
+export const VER = 'fx/93-hanlisa-burst.js V2.1.0';
 
 import { clock } from '../infra/52-clock.js';
 import { markGridShake } from '../render/32-grid-render.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 
 function centerOf(uid) {
     const el = document.querySelector(`[data-uid="${uid}"]`);
@@ -301,6 +304,8 @@ function vampFloat(apex, vamp) {
 }
 
 // 引擎直发与回放桥共用入口；seq 去重（先到者赢，后到的同 seq 静默丢弃）
+// 2026-10-19 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）→ 只播轻点缀（震屏+格子效果），
+//   跳过扇形冲击波/大号数字/撞边/吸血（黑幕里都演过了，战场再全套一遍=双演出）；回放/简单/自动挡无标记照常完整
 let _lastSeq = null;
 export function showHanLiSaBurst(d) {
     if (!d || d.apexUid == null) return;
@@ -308,12 +313,27 @@ export function showHanLiSaBurst(d) {
         if (d.seq === _lastSeq) return;
         _lastSeq = d.seq;
     }
+    let lite = false;
+    try {
+        const playedAt = GlobalStore.get('hlsAimPlayedAt') || 0;
+        lite = (Date.now() - playedAt) < 3500;
+    } catch (e) { /* noop */ }
     const apex = centerOf(d.apexUid);
     if (!apex) return;
     const hits = (d.hits || []).map(h => {
         const c = centerOf(h.uid);
         return c ? { x: c.x, y: c.y, w: c.w, h: c.h, tier: h.tier, dmg: h.dmg, uid: h.uid } : null;
     }).filter(Boolean);
+    if (lite) {
+        // 轻量版：震屏 + 分档格子效果一笔带过（重头戏已在黑幕演完）
+        shakeScreen();
+        hits.forEach(h => {
+            if (h.tier === 'direct' || h.tier === 'eight' || h.tier === 'full123') shatterTrue(h.uid);
+            else if (h.tier === 'near' || h.tier === 'full456') impactHalf(h.uid);
+            else impactFar(h.uid);
+        });
+        return;
+    }
     shakeScreen();
     if (hits.length) {
         shockwave(apex, hits);

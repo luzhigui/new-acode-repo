@@ -151,8 +151,10 @@ export async function handleHanlisaAimWindow(c, step, netLinked) {
         const showAim = GlobalStore.getUIHandler('showHanlisaAim');
         if (typeof showAim !== 'function') return; // UI 未挂（异常环境）→ 引擎兜底
         const enemyTeam = hls.camp === CAMP_TYPES.ALLY ? step.enemy : step.ally;
-        const occupied = (enemyTeam || []).filter(u => u && u.alive && u.pos >= 1 && u.pos <= 9).map(u => u.pos);
-        const choice = await new Promise(resolve => { showAim(c, hls, occupied, resolve); });
+        // 2026-10-19 V2 黑幕克隆场景需要血量真值（克隆格血条扣血+血量数字滚动按引擎当前值演）
+        const enemies = (enemyTeam || []).filter(u => u && u.alive && u.pos >= 1 && u.pos <= 9)
+            .map(u => ({ pos: u.pos, hp: u.hp, maxHp: u.maxHp, name: u.name, alive: true }));
+        const choice = await new Promise(resolve => { showAim(c, hls, enemies, resolve); });
         if (choice && typeof choice === 'object') {
             hls.state._hlsAimChosen = true;
             hls.state._hlsAim = Math.min(9, Math.max(0, choice.aim | 0));
