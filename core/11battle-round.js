@@ -1,5 +1,5 @@
 // 版本历史见 记录-更改履历.md（检索 "core/11battle-round"）
-export const VER = 'core/11battle-round.js V6.3.29';
+export const VER = 'core/11battle-round.js V6.3.30';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -118,7 +118,7 @@ function prepareRoundSpawns(A, B, state, ctx) {
     spawnCarryEagle(A, ctx.log);
     spawnCarryEagle(B, ctx.log);
 
-    // 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M20/技能全开，
+    // 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M15/技能全开，
     //   持续由 content unity.duration:3 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);
