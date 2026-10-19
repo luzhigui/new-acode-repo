@@ -1,3 +1,5 @@
+// V2.9.0 | 2026-10-19 结果快照改「跑完自动存」（对齐海克斯仪表盘，老板要求）：四张表任一跑完即自动追加一条该表快照，
+//          不必再手动点「💾 存结果」；手动按钮保留 = 把当前内存里所有表再存一条。抽出 saveSnap(keys) 统一入口。
 // V2.8.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：WEAK_ELITES 加 ally 条目
 // V2.8.1 | 2026-10-16 分片细化 + startIndex 种子口径（老板拍板）：CHUNK 300→50（细粒度填满线程池、无尾部空转），
 //           四张表种子统一改「关基准 + 起始场号×7919」（去掉片序号×100003）——分片粗细不再改变采样分布（配 116 V1.10.1）
@@ -29,7 +31,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.8.2';
+export const VER = 'tools/112-elite-eval.js V2.9.0';
 
 const configs = [
     { name: '张无忌' },
@@ -72,7 +74,7 @@ const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-
 
 const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
-// ============ 2026-10-15 V2.6.0 结果快照：把跑出来的三张表存本地，可载入回看 ============
+// ============ 2026-10-19 V2.9.0 结果快照：跑完自动存 + 手动补存，可载入回看 ============
 const SNAP_KEY = 'ming_elite_eval_snaps';
 const SNAP_LIMIT = 10;                                     // 最多留 10 条历史，超出丢最旧
 const TABLE_LABEL = { elite: '主表·自然出场', solo: '单英雄', none: '无精英基线', weak: '弱精英' };
@@ -98,26 +100,31 @@ function refreshSnapSelect(keepId) {
     const snaps = readSnaps();
     snapSelect.innerHTML = snaps.length
         ? snaps.map(s => `<option value="${s.id}">${snapLabel(s)}</option>`).join('')
-        : '<option value="">（暂无历史：跑完点「💾 存结果」）</option>';
+        : '<option value="">（暂无历史：跑完任意一张表会自动存）</option>';
     if (keepId && snaps.some(s => s.id === keepId)) snapSelect.value = keepId;
 }
 
-snapSaveBtn.addEventListener('click', () => {
+// 存一条快照：keys = 要存的表（跑完自动存「刚跑完那一张」；手动按钮存当前内存里全部表）
+function saveSnap(keys) {
     const parts = {};
-    for (const k of ['elite', 'solo', 'none', 'weak']) {
+    for (const k of keys) {
         if (!latest[k]) continue;
         // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
         parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
     }
-    if (Object.keys(parts).length === 0) { snapStatusEl.textContent = '⚠️ 还没跑过任何表，无可存'; return; }
+    if (Object.keys(parts).length === 0) return { ok: false, msg: '⚠️ 还没跑过任何表，无可存' };
     const snaps = readSnaps();
     const rec = { id: 'snap_' + Date.now(), ts: Date.now(), parts };
     snaps.unshift(rec);                                    // 新的排最前
     if (snaps.length > SNAP_LIMIT) snaps.length = SNAP_LIMIT;
     const err = writeSnaps(snaps);
-    if (err) { snapStatusEl.textContent = `⚠️ 存盘失败（${(err && err.name) || err}）——本地存储配额已满，先「🗑 清空历史」再存`; return; }
+    if (err) return { ok: false, msg: `⚠️ 存盘失败（${(err && err.name) || err}）——本地存储配额已满，先「🗑 清空历史」再存` };
     refreshSnapSelect(rec.id);
-    snapStatusEl.textContent = `✅ 已存快照（${Object.keys(parts).length} 张表），现存 ${snaps.length} 条历史`;
+    return { ok: true, msg: `✅ 已存快照（${Object.keys(parts).length} 张表），现存 ${snaps.length} 条历史` };
+}
+
+snapSaveBtn.addEventListener('click', () => {
+    snapStatusEl.textContent = saveSnap(['elite', 'solo', 'none', 'weak']).msg;
 });
 
 snapLoadBtn.addEventListener('click', () => {
@@ -195,6 +202,7 @@ startBtn.addEventListener('click', async () => {
                 latest.elite = { stages, runs: RUNS, byStage };
                 renderResults(byStage, stages);
                 progressEl.textContent = `✅ 全部完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+                snapStatusEl.textContent = saveSnap(['elite']).msg;   // V2.9.0 跑完自动存（不必手点）
             }
         });
     } catch (e) {
@@ -263,6 +271,7 @@ soloBtn.addEventListener('click', async () => {
                 latest.solo = { stages, runs: RUNS, byStage };
                 renderSoloResults(byStage, stages);
                 soloProgressEl.textContent = `✅ 单英雄评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+                snapStatusEl.textContent = saveSnap(['solo']).msg;    // V2.9.0 跑完自动存（不必手点）
             }
         });
     } catch (e) {
@@ -376,6 +385,7 @@ noEliteBtn.addEventListener('click', async () => {
                 latest.none = { stages, runs: RUNS, byStage };
                 renderNoEliteResults(byStage, stages);
                 noEliteProgressEl.textContent = `✅ 无精英基线完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+                snapStatusEl.textContent = saveSnap(['none']).msg;    // V2.9.0 跑完自动存（不必手点）
             }
         });
     } catch (e) {
@@ -489,6 +499,7 @@ weakBtn.addEventListener('click', async () => {
                 latest.weak = { stages, runs: RUNS, byStage };
                 renderWeakResults(byStage, stages);
                 weakProgressEl.textContent = `✅ 弱精英评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+                snapStatusEl.textContent = saveSnap(['weak']).msg;    // V2.9.0 跑完自动存（不必手点）
             }
         });
     } catch (e) {
