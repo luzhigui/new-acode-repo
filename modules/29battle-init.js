@@ -320,7 +320,9 @@ export function initBattleTeams(currentStage, _rng) {
     }
     // 2026-09-24 谢逊并入名单：明教固定位恒为 3 个（张/韦/小昭/谢逊 中在队的按序占名额，不足 3 随机补足）。
     //   四人同时在队时（forceXieXun + 满精英）按优先级截断到 3，保证「锁 3 位」恒定，不会又变回 4 位。
-    let toLock = [zhang, wei, xz, xie].filter(Boolean).slice(0, 3);
+    // 2026-10-19 寒离飒插队首位（老板实机反馈「初始站位固定 2 号位置」）：她的整套蓄意轰拳以 2 号位为锚，
+    //   准备阶段不许拖走；五锚同队时张/韦保锁、小昭/谢逊按序让位，锁位总数仍恒 3。
+    let toLock = [hls, zhang, wei, xz, xie].filter(Boolean).slice(0, 3);
     while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[_rand(0, pool.length - 1)]; toLock.push(pick); }
     toLock.forEach(u => { u.fixed = true; });
 

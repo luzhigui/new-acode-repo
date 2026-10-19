@@ -557,6 +557,16 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         if (done) return;
     }
 
+    // 2026-10-19 蓄意轰拳瞄准窗口（老板口径「回合要结束时候强停，按住-拖-松手」）：行动循环结束后、
+    //   收尾结算（ON_ROUND_END·forced:true 内的轰拳结算）前，若寒离飒蓄力到期且 ui 模式，先 yield 一个
+    //   空标记步——播放层在此时弹瞄准黑幕，把 _hlsAim* 写进 step.ally/enemy 的单位（与本 generator 的
+    //   A/B 同引用），随后收尾结算即读到。ui:false（headless 批量/评测）不 yield，结算走随机前排兜底。
+    if (ui && [...A, ...B].some(u => u && u.isHanLiSa && u.alive && u.state && (u.state._hlsCharging || 0) === 2)) {
+        const aimStep = makeStep([], []);
+        aimStep.hanlisaAimWindow = true;
+        yield aimStep;
+    }
+
     const allPendingDecls = [];
     if (A._pendingStateTransitions) { allPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
     if (B._pendingStateTransitions) { allPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }

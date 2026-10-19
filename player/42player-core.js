@@ -24,7 +24,7 @@ import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
 import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
-import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAim } from './49battle-flow.js';
+import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
 import { speakVictory } from '../modules/31voice-commentary.js';
@@ -136,6 +136,9 @@ export async function playBattle() {
         for (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
             lastStep = step;
+            // 2026-10-19 蓄意轰拳瞄准窗口：core/11 回合收尾前 yield 的空标记步——不播不录不发从机，
+            //   在此弹黑幕收瞄准（写进 step 的单位，与引擎 generator 的 A/B 同引用），随后收尾结算即读到
+            if (step.hanlisaAimWindow) { await handleHanlisaAimWindow(c, step, netLinked); continue; }
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs；快进状态一起捎带
             if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));
@@ -158,9 +161,6 @@ export async function playBattle() {
         }
 
         await handleFlyDirection(c, lastStep, battleState.round);
-        // 2026-10-19 蓄意轰拳：蓄力到期时在回合结束处强停全屏，黑幕按住-拖-松手选瞄准位（华丽模式专属；
-        //   简单/全自动/快进不弹，由 modules/27 结算随机前排兜底）
-        await handleHanlisaAim(c, battleState);
 
         const uiXiaoZhao = c.store ? c.store.getState().units.find(u => u.isXiaoZhaoBrother) : null;
         if (uiXiaoZhao && uiXiaoZhao.state._permanentBuffs && lastStep && lastStep.ally) {

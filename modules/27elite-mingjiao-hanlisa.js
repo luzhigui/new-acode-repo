@@ -2,21 +2,22 @@
 //   ① 九阳神拳 / ② 寒冰神掌：每次普攻独立掷 50/50 —— 出九阳则回复自身最大生命 12%（同张无忌），
 //      否则出寒冰神掌给被打目标挂寒毒（3 回合 4%→2%→1% 最大生命，同鹿杖客）；同一种可连续出，不锁
 //   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 20% 最大生命护盾并蓄力；下一回合跳过行动，
-//      蓄力回合结束（落在下一步回合开始结算）轰出蓄意轰拳，基数 N = 最近三回合自身承受总伤害：
+//      蓄力回合收尾（ON_ROUND_END·forced:true）轰出蓄意轰拳，基数 N = 最近三回合自身承受总伤害：
 //      玩家瞄准敌方一格按九位九形取格——目标格 N/2、相邻格 N/4、更远格 N/6（全部真伤）；不瞄=全屏 123 各 N/3、456 各 N/4、789 各 N/5；
 //      瞄 8 特例：8 吃 N/2 且被轰穿中列落 2 号位撞边眩晕，途经 2/5 被崩向两侧（一左一右）；轰完吸血 = 总伤害 1/3。
-//      瞄准由 player/42 回合末交互写 _hlsAim（华丽模式黑幕按住-拖-松手），否则本处随机前排兜底；
+//      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.0.0';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.1.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { resolveRoundStatGrants } from '../core/16effect-handlers.js';
+import { resolveDeaths } from '../core/12battle-attack-steps.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
-import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { pushInfo, pushSkillAnnounce } from './23elite-helpers.js';
 
 export function createHanLiSaComponent() {
@@ -114,7 +115,7 @@ export function createHanLiSaComponent() {
                 announce({ log: data.log }, `🌀 ${hls.name} 蓄力中（本回合不行动）`);
             });
 
-            // —— 回合开始：寒毒 tick + 承伤桶滚动 + 蓄力结算 ——
+            // —— 回合开始：寒毒 tick + 承伤桶滚动（蓄意轰拳结算已迁 ON_ROUND_END·forced:true，V2.1）——
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XUANMING_POISON + 1, (data) => {
                 const allUnits = [...(data.A || []), ...(data.B || [])];
 
@@ -133,13 +134,28 @@ export function createHanLiSaComponent() {
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
 
-                // 蓄意轰拳结算（蓄力回合结束 → 落在下一步的回合开始，战报紧接上回合末；2026-10-19 V2 老板六点口径）
-                if ((hls.state._hlsCharging || 0) === 2) {
-                    hls.state._hlsCharging = 0;
+
+                // 承伤桶滚动：保留最近 3 桶，新桶承载本回合
+                const arr = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken : [];
+                arr.push(0);
+                hls.state._hlsTaken = arr.slice(-3);
+                hls.state._shieldAbsorbed = 0;
+            });
+
+            // —— 蓄意轰拳结算（回合收尾 ON_ROUND_END·forced:true；2026-10-19 V2.1 老板口径：轰在蓄力回合末，
+            //    战报行打印在「第N回合结束」线上方）——瞄准输入由「瞄准窗口标记步」（core/11 回合收尾前 yield）
+            //    的播放层黑幕写入 _hlsAim*（与 generator 的 A/B 同引用直达此处）；未写=简单/全自动/快进/headless/PVP
+            //    → 随机前排兜底（getBattleRng 保基线可复现）。
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.HANLISA_BURST, (data) => {
+                if (!data || !data.forced) return;   // 每单位行动后的 forced:false 广播不结算
+                if ((hls.state._hlsCharging || 0) !== 2) return;
+                hls.state._hlsCharging = 0;           // 无论死活都清（防阵亡复活后带陈旧蓄力状态爆发）
+                if (!hls.alive) return;
                     // 蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
                     //   否则两标记一直为 true，下一刀普攻立刻又满足起蓄条件（实机表现为「老蓄力」）
                     hls.state._hlsJiuYangDone = false;
                     hls.state._hlsHanBingDone = false;
+                    const decls = [];   // ROUND_END 无 declarations 通道，本地攒齐后统一走 core/16 应用器
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
@@ -190,7 +206,7 @@ export function createHanLiSaComponent() {
                                 if (!u) return;
                                 const dmg = Math.floor(N / cell.den);
                                 if (dmg <= 0) return;
-                                data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dmg, target: u, source: hls, reason: '蓄意轰拳·真伤' });
+                                decls.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dmg, target: u, source: hls, reason: '蓄意轰拳·真伤' });
                                 lines.push(`${u.name} −${dmg}（真伤）`);
                                 hits.push({ uid: u.uid, pos: cell.pos, dmg, tier: cell.tier });
                                 totalDealt += dmg;
@@ -249,7 +265,7 @@ export function createHanLiSaComponent() {
                         if (totalDealt > 0 && vampDiv > 0) {
                             vamp = Math.min(Math.floor(totalDealt / vampDiv), Math.max(0, hls.maxHp - hls.hp));
                             if (vamp > 0) {
-                                data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: vamp, target: hls, source: hls, reason: '蓄意轰拳·吸血' });
+                                decls.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: vamp, target: hls, source: hls, reason: '蓄意轰拳·吸血' });
                                 recordHpAudit(hls, 'hlsVamp', vamp, '蓄意轰拳吸血');
                             }
                         }
@@ -259,20 +275,13 @@ export function createHanLiSaComponent() {
                         const aimLabel = isFull ? '【全屏】' : `【瞄准 ${aim} 号位】`;
                         const burstPayload = { seq: ++burstSeq, apexUid: hls.uid, aim, taken: N, hits, flight, bounces, vamp };
                         pushSkillAnnounce(data.log, hls, '蓄意轰拳', `💥 ${hls.name} 蓄意轰拳${aimLabel}${lines.length ? '：' + lines.join('、') : (N > 0 ? '（范围内无目标）' : '（能量不足，未能轰出）')}${vamp > 0 ? `；轰拳吸血 +${vamp}` : ''}`, { hlsBurst: burstPayload });
-                        // 爆发视觉：发信交 fx/93（fx/89 订阅；快进由 fx 侧拦）——回放/从机由 render/38 播报桥按同 seq 补发
-                        if (hits.length || flight || bounces.length) {
-                            eventBus.emit(FX_SIGNALS.HANLISA_BURST, burstPayload);
-                        }
+                        // 结算应用：声明统一走 core/16 应用器；击杀落阵亡行（core/12 边裁）——都在 ROUND_END fact 之前。
+                        // 爆发视觉不再引擎直发：SKILL_ANNOUNCE 载 hlsBurst 载荷由 render/38→39 舞台动作补发（单机/回放/从机同一通道，时序与战报行对齐）
+                        resolveRoundStatGrants(decls);
+                        resolveDeaths(data.A, data.B, data.log);
                         // 蓄力结束护盾消散
                         hls.state._shield = 0;
                     }
-                }
-
-                // 承伤桶滚动：保留最近 3 桶，新桶承载本回合
-                const arr = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken : [];
-                arr.push(0);
-                hls.state._hlsTaken = arr.slice(-3);
-                hls.state._shieldAbsorbed = 0;
             });
         }
     };
