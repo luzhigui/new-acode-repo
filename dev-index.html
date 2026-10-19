@@ -1,5 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.15 | ~19400 bytes | 2026-10-18 「🎨 UI 效果 demo」区补「🥊 蓄意轰拳·满员版 9v9」入口：131-sett-w-fx-demo-full.html（双阵九格全满·施术者寒离飒·老板拍板直接试版，仓库根目录、当前页跳转）。
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.3.16 | ~19000 bytes | 2026-10-19 清掉「🎨 UI 效果 demo」区 5 个失效入口（寒离飒技能/攻击候选/特效对比 + 蓄意轰拳/满员版）：
+     对应 demo 页（126/127/128/129/131）已移出仓库（搬去同级 _仓库外产物\），按钮 href 点开即 404，用户拍板删除；
+     106 清单同步移除（原按旧名 fetch 报「读取失败」）。保留 125 圣火不熄 logo 页入口。
+     V6.3.15 | ~19400 bytes | 2026-10-18 「🎨 UI 效果 demo」区补「🥊 蓄意轰拳·满员版 9v9」入口：131-sett-w-fx-demo-full.html（双阵九格全满·施术者寒离飒·老板拍板直接试版，仓库根目录、当前页跳转）。
 V6.3.14 | ~18900 bytes | 2026-10-18 「🎨 UI 效果 demo」区补「蓄意轰拳」入口：127-sett-w-fx-demo-3.html（瑟提W风格特效新提案·待拍板，仓库根目录、当前页跳转）。
 V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特效页已加序号改名，入口 href 同步为 128hanlisa-atk-fx-candidates.html / 129hanlisa-fx-compare.html（原无序号名点开即 404；106 清单同步）。
      V6.3.12 | ~18600 bytes | 2026-10-17 「🎨 UI 效果 demo」区补寒离飒特效三入口：126-hanlisa-fx-demo.html（蓄力变体A，已上线）、hanlisa-atk-fx-candidates.html（普攻 4 候选待选）、hanlisa-fx-compare.html（现状 vs 增量提案对比待拍板）——三页均在仓库根目录、自包含、当前页跳转。
@@ -103,11 +106,6 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             <div class="section-title">🎨 UI 效果 demo</div>
             <div class="btn-grid">
                 <button class="big-btn btn-tool" id="btnBuffBadgeDemo">🕯️ 圣火不熄 logo 位置（真机 UI 对比）</button>
-                <button class="big-btn btn-tool" id="btnHanlisaFxDemo">👊 寒离飒技能特效 demo（蓄力变体A·已上线）</button>
-                <button class="big-btn btn-tool" id="btnSettWFxDemo">🥊 蓄意轰拳·瑟提W风格特效（新提案·待拍板）</button>
-                <button class="big-btn btn-tool" id="btnSettWFxDemoFull">🥊 蓄意轰拳·满员版 9v9（九格全满·直接试）</button>
-                <button class="big-btn btn-tool" id="btnHanlisaAtkCandidates">🥊 寒离飒攻击特效候选（4 版对比·待选）</button>
-                <button class="big-btn btn-tool" id="btnHlsFxCompare">🆚 寒离飒特效 · 现状 vs 增量提案（待拍板）</button>
             </div>
         </div>
 
@@ -178,26 +176,6 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         //   放 tools/ 而非 展示与CG/ —— 后者被 .gitignore 排除，Pages 上取不到
         document.getElementById('btnBuffBadgeDemo').addEventListener('click', () => {
             window.location.href = 'tools/125-buff-badge-demo.html';
-        });
-        // 寒离飒技能特效 demo：蓄力扇面 + 爆发（变体A，纯 SVG/DOM 自包含页面，仓库根目录）
-        document.getElementById('btnHanlisaFxDemo').addEventListener('click', () => {
-            window.location.href = '126-hanlisa-fx-demo.html';
-        });
-        // 蓄意轰拳：瑟提W风格特效 demo（127，对标 LOL 瑟提 W，自包含页面，仓库根目录）
-        document.getElementById('btnSettWFxDemo').addEventListener('click', () => {
-            window.location.href = '127-sett-w-fx-demo-3.html';
-        });
-        // 蓄意轰拳·满员版（131）：双阵九格全满 9v9，施术者寒离飒恒定 2 号位，老板拍板「直接试」版
-        document.getElementById('btnSettWFxDemoFull').addEventListener('click', () => {
-            window.location.href = '131-sett-w-fx-demo-full.html';
-        });
-        // 寒离飒攻击特效候选：4 版招式并列供挑选（自包含页面，仓库根目录）
-        document.getElementById('btnHanlisaAtkCandidates').addEventListener('click', () => {
-            window.location.href = '128hanlisa-atk-fx-candidates.html';
-        });
-        // 寒离飒特效对比：现状复刻 vs 增量提案（自包含页面，仓库根目录）
-        document.getElementById('btnHlsFxCompare').addEventListener('click', () => {
-            window.location.href = '129hanlisa-fx-compare.html';
         });
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
