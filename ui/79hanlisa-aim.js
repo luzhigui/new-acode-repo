@@ -1,461 +1,916 @@
-// ui/79hanlisa-aim.js — 蓄意轰拳子弹时间（按住蓄力 → 拖到敌格瞄准 → 松手轰出 → 完整循环演出后退出）
-//   V2.0.0 | 2026-10-19 老板实机三连反馈重造（截图对照 fx/85 子弹时间 demo）：
-//   · 场景照 fx/85 同款语言：纯黑幕 rgba(0,0,0,0.92) + 克隆体重建——不再叠在原页面上（旧版半透明盖布，
-//     日志/按钮/米色战场全透出来，脏）；敌方九宫格整阵克隆到屏幕中央（cell 类+innerHTML 全带：
-//     名字/攻防血数字/血条原样，大小≈原格），寒离飒克隆在敌阵下方中轴，日志区不可见
-//   · 按住：拳心金冰双色聚能（双环脉冲+光点倒吸，129 demo 蓄力语言）
-//   · 拖动：最近有人敌格吸附（131 demo v29 规则：离施术者近/指己方半场/出包围盒=全屏兜底），命中格描边+真伤预览数字
-//   · 松手：完整循环（老板口径「打完伤害、轰完之后做一个完整的循环再退出」）——
-//     冲击扇形（弧边金→冰渐变，fx/93 同形制）→ 逐格命中（大号−N 数字+克隆格血条扣血+血量数字滚动）→
-//     瞄 8 特例（8 号克隆撞向 2 号位+😵，途经格侧崩）→ 吸血 ❤+N → 全场轻震 → 淡出退出
-//   · 预演数值与 modules/27 结算同公式同结果（floor(N/den)），真结算照常在 ON_ROUND_END 跑；
-//     退出时写 GlobalStore.hlsAimPlayedAt，紧随的 fx/93 舞台动作据此降为轻量版（防双演出；回放/自动挡无标记不受影响）
-//   · holdMs 上报不生效（口子留给未来「按蓄力时长定 N1」）；60s 真实时间兜底防挂死；跳过按钮同 fx/85
-//   · fx 层规矩：克隆体不缓存原格引用（开场现查现拷）；所有临时节点 data-fx=temporary；克隆内 id 全部摘除防撞
-export const VER = 'ui/79hanlisa-aim.js V2.0.0';
+// ui/79hanlisa-aim.js — 蓄意轰拳子弹时间（131 demo 舞台整体照搬，老板拍板「画面直接 copy demo」）
+// V3.0.0 | 2026-10-19 推倒 V2 的黑幕克隆场景：视觉逐段照搬 131-sett-w-fx-demo-full.html 新版舞台——
+//   米色战场居中（去日志/按钮）、双方九宫格卡面（图标/名字/攻防血/血条，尺寸同本体）、
+//   按住蓄力（拳头成形白热+能量旋涡倒吸+地面裂纹+世界去饱和+暗角+蓄势 HUD）、
+//   拖动瞄准（凸包预警+最近有人敌格吸附 v29 规则+命中格红闪）、
+//   松手轰出（拳冲残影+冲击锥+碎地裂纹+碎石+放射速度线+余烬+「轰」+击退）完整循环后退出。
+//   差异仅三处（均为接真值，不动画法）：①伤害数字=真实数值（N 分档，蓄力等级只管视觉）；
+//   ②阵容=引擎真值（player/49 传 pos/hp/maxHp/name/atk/def），图标/名字分档色从战场活格现查
+//   （按活格视觉序建阵=从机镜像天然正确）；③爆发尾巴加吸血 ❤+N 上浮。
+//   交互/驱动/工具函数逐字照搬 demo（FIST 拳形/裂纹/碎石生成器/HUD/tick 环）。
+//   60s 真实时间兜底；跳过不设 hlsAimPlayedAt（战场 fx/93 照常完整播）。
+//   holdMs 上报不生效（口子留给未来「按蓄力时长定 N1」）。
+export const VER = 'ui/79hanlisa-aim.js V3.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 
-// —— 与 modules/27 同一套分档口径（展示/预演用）——
-function manhattan(a, b) {
-    const r1 = Math.ceil(a / 3), c1 = a - (r1 - 1) * 3;
-    const r2 = Math.ceil(b / 3), c2 = b - (r2 - 1) * 3;
-    return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+/* ================= 一、demo 通用工具（逐字照搬 131） ================= */
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const TAU = Math.PI * 2;
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+const hex = (r, g, b) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const hotTop = h => hex(255, 150 + 105 * h, 70 + 185 * h);
+const hotMid = h => hex(255, 70 + 130 * h, 20);
+const glowHex = h => hex(255, 90 + 120 * h, 30);
+const F_DARK = '#601408', STK = '#2d0a02';
+
+const FIST = "M -16.6,-4.5 Q -16.1,-5.7 -14.7,-6.8 Q -13.2,-8.0 -13.1,-11.8 Q -13.1,-15.6 -12.6,-16.4 Q -12.1,-17.2 -11.2,-17.6 Q -10.3,-18.1 -9.1,-18.0 Q -7.9,-17.9 -7.0,-17.2 Q -6.1,-16.5 -5.7,-16.5 Q -5.3,-16.5 -4.3,-17.1 Q -3.3,-17.8 -2.1,-17.8 Q -0.9,-17.8 0.6,-16.6 Q 2.0,-15.4 4.3,-15.4 Q 6.6,-15.4 7.3,-15.1 Q 8.1,-14.7 9.0,-13.6 Q 9.9,-12.6 11.2,-12.6 Q 12.4,-12.6 13.2,-12.2 Q 14.0,-11.9 15.1,-10.4 Q 16.2,-9.0 16.6,-6.7 Q 17.0,-4.3 16.9,-1.9 Q 16.9,0.4 16.5,2.5 Q 16.1,4.5 15.3,6.6 Q 14.5,8.7 13.3,10.6 Q 12.1,12.6 11.8,15.8 Q 11.4,18.9 10.9,19.4 Q 10.4,20.0 0.5,19.9 Q -9.5,19.7 -9.8,19.2 Q -10.0,18.7 -10.2,15.8 Q -10.4,12.8 -13.0,8.3 Q -15.6,3.9 -16.1,2.0 Q -16.7,0.2 -16.9,-1.5 Q -17.0,-3.2 -17.0,-3.3 Q -17.0,-3.4 -16.6,-4.5 Z";
+const RIDGE = "M -11,-14.8 Q -8,-16.4 -5.8,-14.0 M -3.5,-15.2 Q 0,-16.0 3.6,-13.0 M 6.5,-12.6 Q 10,-12.0 13.5,-9.8";
+const GROOVE = "M -5.7,-15.6 L -6,-11.5 M 7.3,-14.1 L 7.6,-10.3 M 11.5,-11.6 L 11.8,-8.5";
+const THUMBCREASE = "M -13.1,-11.6 Q -14.6,-6 -14.8,-1.5";
+
+function hull(pts) {
+    if (pts.length < 3) return pts.slice();
+    pts = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lo = [], up = [];
+    for (const p of pts) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    lo.pop(); up.pop();
+    return lo.concat(up);
+}
+function polyPath(pts) {
+    if (!pts.length) return '';
+    return 'M ' + pts.map(p => p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' L ') + ' Z';
+}
+function scalePoly(pts, apex, s) {
+    return pts.map(p => ({ x: apex.x + (p.x - apex.x) * s, y: apex.y + (p.y - apex.y) * s }));
 }
 
-function previewCells(aim, N, xl) {
-    const shapes = (xl && xl.hitShapes) || {};
-    const tierDen = (xl && xl.tierDen) || { direct: 2, near: 4, far: 6 };
-    const eightDen = (xl && xl.eightDen) != null ? xl.eightDen : 3;
-    const fd = (xl && xl.fullDen) || { row123: 3, row456: 4, row789: 5 };
-    if (aim >= 1 && aim <= 9 && Array.isArray(shapes[String(aim)])) {
-        return shapes[String(aim)].map(p => {
-            const isEight = aim === 8 && p !== 8;
-            const t = manhattan(aim, p);
-            const tier = isEight ? 'eight' : (t <= 0 ? 'direct' : (t === 1 ? 'near' : 'far'));
-            const den = isEight ? eightDen : (tier === 'direct' ? tierDen.direct : tier === 'near' ? tierDen.near : tierDen.far);
-            return { pos: p, den, tier, dmg: Math.floor(N / den), mark: p === aim ? '主目标' : (aim === 8 ? '撞边' : null) };
-        });
-    }
-    return [[1, 2, 3, fd.row123], [4, 5, 6, fd.row456], [7, 8, 9, fd.row789]]
-        .flatMap(([a, b, c3, den]) => [a, b, c3].map(p => ({ pos: p, den, tier: 'full', dmg: Math.floor(N / den), mark: null })));
-}
-
-const TIER_STYLE = {
-    direct: { border: 'rgba(255,207,94,0.95)', bg: 'rgba(255,190,60,0.22)', badge: '#ffe9a8', size: 18 },
-    eight:  { border: 'rgba(127,199,255,0.9)',  bg: 'rgba(90,170,255,0.20)', badge: '#bfe3ff', size: 16 },
-    near:   { border: 'rgba(255,140,80,0.8)',   bg: 'rgba(255,120,60,0.14)', badge: '#ffc9a0', size: 14 },
-    far:    { border: 'rgba(190,170,160,0.65)', bg: 'rgba(160,140,130,0.10)', badge: '#d9c6b8', size: 12 },
-    full:   { border: 'rgba(255,170,90,0.6)',   bg: 'rgba(255,150,80,0.10)',  badge: '#ffd7b0', size: 13 }
+/* v29 九位九形（老板定稿）——与 content/200game-data.json hitShapes 同表 */
+const HIT_MAP = {
+    0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    1: [1, 2, 4, 7], 2: [2, 4, 5, 6], 3: [2, 3, 6, 9],
+    4: [1, 2, 4, 5], 5: [2, 5, 7, 8, 9], 6: [2, 3, 5, 6],
+    7: [2, 4, 5, 7], 8: [2, 5, 8], 9: [2, 5, 6, 9]
 };
 
-// 原格克隆（fx/85 buildClone 同模式：cell 类 + innerHTML，不继承原格状态）
-function cloneCell(srcCell) {
-    const clone = document.createElement('div');
-    clone.setAttribute('data-fx', 'temporary');
-    clone.classList.add('cell');
-    clone.innerHTML = srcCell.innerHTML;
-    const r = srcCell.getBoundingClientRect();
-    clone.style.cssText = `position:relative;width:${r.width}px;height:${r.height}px;margin:0;box-sizing:border-box;`;
-    // 摘除克隆内的 id（原格 hpbar-{uid} 会撞）
-    clone.querySelectorAll('[id]').forEach(el => { el.removeAttribute('id'); });
-    return clone;
+/* 卡面（demo cardHtml 逐字） */
+function hpCls(p) { return p > 0.5 ? 'hp-text-green' : (p > 0.2 ? 'hp-text-orange' : 'hp-text-red'); }
+function hpBar(p) { return p > 0.5 ? '#2e7d32' : (p > 0.2 ? '#daa520' : '#c0392b'); }
+function cardHtml(u) {
+    const p = u.hp / u.max;
+    return '<div class="cu"><span class="cell-icon">' + u.icon + '</span><div class="cell-info">' +
+        '<span class="cell-name ' + (u.tier || '') + '">' + u.name + '</span>' +
+        '<span class="cell-stats">攻<span>' + u.atk + '</span> 防<span>' + u.def + '</span> <span class="' + hpCls(p) + '">血' + u.hp + '</span></span></div>' +
+        '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:' + Math.round(p * 100) + '%;background:' + hpBar(p) + ';"></div></div></div>';
 }
 
-export function showHanlisaAim(c, hls, enemies, resolve) {
-    let done = false;
-    let holding = false;
-    let holdStart = 0;
-    let aim = 0;
-    let onWinUp = null, onKeyDown = null, onKeyUp = null;
-    const TIMEOUT_MS = 60000;    // 真实时间兜底（瞄准可思考，给足 60s）
-    let timeoutId = null;
+/* ================= 二、伤害真值（与 modules/27 结算同公式） ================= */
+function tierOf(aim, p) {
+    const r1 = Math.ceil(aim / 3), c1 = aim - (r1 - 1) * 3;
+    const r2 = Math.ceil(p / 3), c2 = p - (r2 - 1) * 3;
+    const d = Math.abs(r1 - r2) + Math.abs(c1 - c2);
+    return d <= 0 ? 'direct' : (d === 1 ? 'near' : 'far');
+}
+function dmgMapFor(aim, N, xl) {
+    const map = {};
+    if (aim >= 1 && aim <= 9) {
+        const den = xl.tierDen || { direct: 2, near: 4, far: 6 };
+        const eightDen = xl.eightDen ?? 3;
+        for (const p of (HIT_MAP[aim] || [])) {
+            map[p] = {
+                dmg: Math.floor(N / ((aim === 8 && p !== 8) ? eightDen : (den[tierOf(aim, p)] ?? 6))),
+                tier: (aim === 8 && p !== 8) ? 'eight' : tierOf(aim, p)
+            };
+        }
+    } else {
+        const fd = xl.fullDen || { row123: 3, row456: 4, row789: 5 };
+        [[1, 2, 3, fd.row123, 'full123'], [4, 5, 6, fd.row456, 'full456'], [7, 8, 9, fd.row789, 'full789']]
+            .forEach(([a, b, c, d, t]) => { [a, b, c].forEach(p => { map[p] = { dmg: Math.floor(N / d), tier: t }; }); });
+    }
+    return map;
+}
+const TIER_F = { direct: 1.0, eight: 1.0, full123: 1.0, near: 0.85, full456: 0.85, far: 0.72, full789: 0.72 };
 
-    // —— 数据快照 ——
+/* ================= 三、战场活格现查（图标/分档色/视觉序） ================= */
+function liveLook(gridId, pos) {
+    const el = document.querySelector('#' + gridId + ' [data-pos="' + pos + '"]');
+    if (!el) return { icon: '⚔️', tier: '' };
+    const iconEl = el.querySelector('.cell-icon');
+    const nameEl = el.querySelector('.cell-name');
+    let tier = '';
+    if (nameEl && nameEl.className) {
+        for (const c of String(nameEl.className).split(/\s+/)) if (c.indexOf('name-') === 0 && c !== 'name-') tier = c;
+    }
+    return { icon: (iconEl && iconEl.textContent && iconEl.textContent.trim()) || '⚔️', tier };
+}
+function liveOrder(gridId, fallback) {
+    const g = document.getElementById(gridId);
+    if (!g || !g.children.length) return fallback;
+    const order = [];
+    for (const c of g.children) { const p = Number(c.dataset.pos); if (p >= 1 && p <= 9) order.push(p); }
+    return order.length === 9 ? order : fallback;
+}
+
+/* ================= 四、舞台（makeStage 'New','new' 逐字照搬，仅换 id 引用） ================= */
+const CHARGE_MAX = 2000;   // 蓄满所需时长（1x）
+const BURST_MS = 2400;     // 爆发段总长
+const VAMP_MS = 800;       // 吸血尾巴
+
+function makeStage(D) {
+    const { bf, world, svg, eg, ag, vig, ENEMY, APP } = D;
+    const cell = {};
+    for (let p = 1; p <= 9; p++) {
+        const e = eg.querySelector('[data-pos="' + p + '"]');
+        const a = ag.querySelector('[data-pos="' + p + '"]');
+        if (e) cell['e' + p] = e; if (a) cell['a' + p] = a;
+    }
+    const S = { geo: null, hits: [], coneCracks: [], debris: [], level: 0, aim: -Math.PI / 2 };
+    const U = 'H';   // defs id 后缀（overlay 单实例）
+
+    function ctr(el) {
+        const r = el.getBoundingClientRect(), b = bf.getBoundingClientRect();
+        return { x: r.left - b.left + r.width / 2, y: r.top - b.top + r.height / 2, w: r.width, h: r.height };
+    }
+
+    /* ---------- 几何测量 ---------- */
+    function measure() {
+        const ap = ctr(cell.a2);
+        const cs = {};
+        for (let p = 1; p <= 9; p++) {
+            if (!cell['e' + p]) continue;
+            cs['e' + p] = ctr(cell['e' + p]);
+            cs['e' + p].pos = p;
+            cs['e' + p].unit = !!ENEMY[p];
+        }
+        let R0 = 1;
+        for (const k in cs) {
+            const d = Math.hypot(cs[k].x - ap.x, cs[k].y - ap.y);
+            if (d > R0) R0 = d;
+        }
+        const up = -Math.PI / 2;
+        let fullHalf = 0.25;
+        for (const k in cs) {
+            const a = Math.atan2(cs[k].y - ap.y, cs[k].x - ap.x);
+            let d = a - up; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+            fullHalf = Math.max(fullHalf, Math.abs(d));
+        }
+        const c7 = cs['e7'], c9 = cs['e9'];
+        const uL = { x: c7.x - ap.x, y: c7.y - ap.y }, uR = { x: c9.x - ap.x, y: c9.y - ap.y };
+        const dL = Math.hypot(uL.x, uL.y) || 1, dR = Math.hypot(uR.x, uR.y) || 1;
+        uL.x /= dL; uL.y /= dL; uR.x /= dR; uR.y /= dR;
+        let um = { x: uL.x + uR.x, y: uL.y + uR.y }; const dm = Math.hypot(um.x, um.y) || 1;
+        um.x /= dm; um.y /= dm;
+        let gL = 1e9, gR = -1e9, gT = 1e9;
+        for (const k in cs) {
+            gL = Math.min(gL, cs[k].x - cs[k].w / 2); gR = Math.max(gR, cs[k].x + cs[k].w / 2);
+            gT = Math.min(gT, cs[k].y - cs[k].h / 2);
+        }
+        const farMid = { x: (gL + gR) / 2, y: gT };
+        S.geo = {
+            apex: ap, cells: cs, R0: R0, fullHalf: fullHalf, uL: uL, uR: uR, um: um,
+            mid: { x: (c7.x + c9.x) / 2, y: (c7.y + c9.y) / 2 }, farMid: farMid,
+            cracks: genRadialCracks(ap, R0, 20261017),
+            streaks: genStreaks(R0, 777, fullHalf)
+        };
+    }
+
+    function visR(aim, cellIndex) {
+        const g = S.geo;
+        const cs = hitCellsAt(cellIndex === undefined ? (APP.aimCellIndex || 0) : cellIndex);
+        if (cs.length) {
+            let m = 0;
+            for (const c of cs) {
+                const p = (c.x - g.apex.x) * Math.cos(aim) + (c.y - g.apex.y) * Math.sin(aim);
+                if (p > m) m = p;
+            }
+            return Math.max(70, m * 0.80 + 26);
+        }
+        const dx = g.farMid.x - g.apex.x, dy = g.farMid.y - g.apex.y;
+        return Math.max(70, dx * Math.cos(aim) + dy * Math.sin(aim));
+    }
+
+    /* 蓄力期地面径向裂纹（稳定生成，不随帧抖动） */
+    function genRadialCracks(apex, R0, seed) {
+        const rnd = mulberry32(seed), out = [];
+        for (let i = 0; i < 12; i++) {
+            let ang = (i / 12) * TAU + rnd() * 0.25;
+            let r = 8 + rnd() * 14;
+            const pts = [];
+            for (let s = 0; s < 5; s++) {
+                pts.push([apex.x + Math.cos(ang) * r, apex.y + Math.sin(ang) * r]);
+                ang += (rnd() * 2 - 1) * 0.26;
+                r += R0 * 0.12 * (0.5 + rnd() * 0.75);
+            }
+            out.push({ pts: pts, w: 0.7 + rnd() * 1.5 });
+        }
+        return out;
+    }
+    /* 能量旋涡条 */
+    function genStreaks(R0, seed, fullHalf) {
+        const rnd = mulberry32(seed), out = [];
+        for (let i = 0; i < 18; i++) {
+            out.push({
+                aOff: (rnd() * 2 - 1) * fullHalf * 0.92,
+                r0: 30 + rnd() * R0 * 0.55,
+                dur: 620 + rnd() * 520,
+                off: rnd() * 1000,
+                turns: 1.0 + rnd() * 1.4,
+                w: 1.1 + rnd() * 2.1
+            });
+        }
+        return out;
+    }
+    /* 释放瞬间沿锥碎地裂纹 */
+    function genConeCracks(apex, aim, ha, R0, seed) {
+        const rnd = mulberry32(seed), out = [];
+        const n = 6;
+        for (let i = 0; i < n; i++) {
+            const t = n === 1 ? 0.5 : i / (n - 1);
+            const baseAng = aim - ha * 0.72 + 2 * ha * 0.72 * t;
+            let ang = baseAng + (rnd() * 2 - 1) * ha * 0.08;
+            let r = R0 * (0.16 + rnd() * 0.34);
+            const pts = [];
+            for (let s = 0; s < 4; s++) {
+                pts.push([apex.x + Math.cos(ang) * r, apex.y + Math.sin(ang) * r]);
+                ang += (rnd() * 2 - 1) * 0.52;
+                r += R0 * 0.055 * (0.4 + rnd() * 0.9);
+            }
+            out.push({ pts: pts, w: 0.6 + rnd() * 0.9 });
+        }
+        return out;
+    }
+    /* 碎石 */
+    function genDebris(apex, aim, ha, R0, seed) {
+        const rnd = mulberry32(seed), out = [];
+        for (let i = 0; i < 36; i++) {
+            const a = aim + (rnd() * 2 - 1) * ha;
+            const r = 16 + rnd() * R0 * 0.55;
+            const sp = 110 + rnd() * 330;
+            out.push({
+                x: apex.x + Math.cos(a) * r, y: apex.y + Math.sin(a) * r,
+                vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 70,
+                rot: rnd() * 360, spin: (rnd() * 2 - 1) * 760,
+                c: rnd() < 0.55 ? '#8a5a2b' : '#dcc79c',
+                dly: rnd() * 190
+            });
+        }
+        return out;
+    }
+
+    /* ---------- 通用：清格 ---------- */
+    function resetCells() {
+        for (const k in cell) {
+            const el = cell[k]; if (!el) continue;
+            el.style.boxShadow = ''; el.style.backgroundColor = ''; el.style.transform = '';
+            const cu = el.querySelector('.cu'); if (cu) cu.style.transform = '';
+        }
+    }
+
+    /* 拳头图形（v25：FIST path + 火焰渐变 + halo + 描边 + 满蓄电弧） */
+    function fistMarkup(x, y, ang, s, heat, alpha) {
+        const deg = (ang + Math.PI / 2) * 180 / Math.PI;
+        const u = U;
+        const top = hotTop(heat);
+        const mid = hotMid(heat);
+        const gh = glowHex(heat);
+        const stroke = heat < 0.5
+            ? 'rgba(45,10,2,' + (0.85 * alpha).toFixed(3) + ')'
+            : 'rgba(255,210,170,' + (0.85 * alpha).toFixed(3) + ')';
+        const ridgeOp = (0.25 + 0.55 * heat).toFixed(2);
+        const crack = heat > 0.30
+            ? '<path d="M -8 -16 L -7 -10 L -5 -15 M 1 -17 L 2 -11 L 4 -16 M 9 -13 L 10 -8 L 11 -13" stroke="rgba(255,233,176,' + (0.35 + 0.4 * (heat - 0.30) / 0.70).toFixed(2) + ')" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+            : '';
+        return '<g transform="translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ') rotate(' + deg.toFixed(1) + ') scale(' + s.toFixed(3) + ')" opacity="' + alpha.toFixed(3) + '">' +
+            '<defs>' +
+            '<linearGradient id="fG' + u + '" gradientUnits="userSpaceOnUse" x1="0" y1="-18" x2="0" y2="20">' +
+            '<stop offset="0%" stop-color="' + top + '"/>' +
+            '<stop offset="55%" stop-color="' + mid + '" stop-opacity="0.96"/>' +
+            '<stop offset="100%" stop-color="' + F_DARK + '" stop-opacity="0.95"/>' +
+            '</linearGradient>' +
+            '<filter id="fB' + u + '" x="-60%" y="-60%" width="220%" height="220%">' +
+            '<feGaussianBlur stdDeviation="' + (2 + 9 * heat).toFixed(1) + '"/>' +
+            '</filter>' +
+            '</defs>' +
+            '<path d="' + FIST + '" fill="' + gh + '" fill-opacity="0.55" filter="url(#fB' + u + ')" transform="scale(1.12) translate(0,1)"/>' +
+            '<path d="' + FIST + '" fill="url(#fG' + u + ')" stroke="' + stroke + '" stroke-width="1.8"/>' +
+            '<path d="' + RIDGE + '" stroke="rgba(255,255,235,' + ridgeOp + ')" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+            '<path d="' + GROOVE + '" stroke="rgba(35,8,2,0.55)" stroke-width="1.2" fill="none" stroke-linecap="round"/>' +
+            '<path d="' + THUMBCREASE + '" stroke="rgba(35,8,2,0.4)" stroke-width="1.2" fill="none" stroke-linecap="round"/>' +
+            crack +
+            '</g>';
+    }
+    function fistGhost(x, y, s, alpha) {
+        const deg = (S.aim + Math.PI / 2) * 180 / Math.PI;
+        return '<g transform="translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ') rotate(' + deg.toFixed(1) + ') scale(' + s.toFixed(3) + ')" opacity="' + alpha.toFixed(3) + '">' +
+            '<path d="' + FIST + '" fill="rgba(255,170,90,0.55)" stroke="rgba(255,220,170,0.5)" stroke-width="1.6" style="filter: blur(2px);"/>' +
+            '</g>';
+    }
+
+    /* ---------- 蓄力段（drawChargeNew 逐字照搬 131） ---------- */
+    function drawChargeNew(el, level) {
+        const g = S.geo, ap = g.apex, ax = ap.x, ay = ap.y;
+        const ha = halfAng(level), aim = S.aim;
+        let h = '';
+
+        /* 预警范围 = 实际命中格的凸包（虚线橙边 + 极淡填充，v21 改 HIT_MAP） */
+        const Rv = visR(aim);
+        const tele = telegraphPoly(APP.aimCellIndex || 0, 5);
+        h += '<defs><radialGradient id="aimG' + U + '" gradientUnits="userSpaceOnUse" cx="' + ax + '" cy="' + ay + '" r="' + Rv.toFixed(1) + '">' +
+            '<stop offset="0%" stop-color="rgba(255,150,60,' + (0.04 + 0.12 * level).toFixed(3) + ')"/>' +
+            '<stop offset="100%" stop-color="rgba(255,60,20,' + (0.02 + 0.10 * level).toFixed(3) + ')"/>' +
+            '</radialGradient></defs>';
+        h += '<path d="' + polyPath(tele) + '" fill="url(#aimG' + U + ')" stroke="rgba(255,120,50,' + (0.30 + 0.5 * level).toFixed(3) + ')" stroke-width="' + (1.2 + 1.6 * level).toFixed(2) + '" stroke-dasharray="8 6" stroke-dashoffset="' + (-el / 14).toFixed(1) + '" stroke-linejoin="round"/>';
+
+        /* 蓄力环（套在拳头外围） */
+        const rcx = ax + Math.cos(aim) * 13, rcy = ay + Math.sin(aim) * 13;
+        const rr = 25 + 9 * level, C = TAU * rr;
+        const rc = level < 0.5 ? 'rgba(255,206,110,' : (level < 0.85 ? 'rgba(255,140,50,' : 'rgba(255,70,30,');
+        h += '<circle cx="' + rcx.toFixed(1) + '" cy="' + rcy.toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="none" stroke="rgba(0,0,0,0.42)" stroke-width="5.5"/>';
+        h += '<circle cx="' + rcx.toFixed(1) + '" cy="' + rcy.toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="none" stroke="' + rc + (0.75 + 0.25 * level).toFixed(2) + ')" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="' + (C * level).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 ' + rcx.toFixed(1) + ' ' + rcy.toFixed(1) + ')"/>';
+        for (let i = 0; i < 16; i++) {
+            const a = -Math.PI / 2 + i / 16 * TAU, r1 = rr + 5, r2 = rr + (i % 4 === 0 ? 12 : 8);
+            h += '<line x1="' + (rcx + Math.cos(a) * r1).toFixed(1) + '" y1="' + (rcy + Math.sin(a) * r1).toFixed(1) + '" x2="' + (rcx + Math.cos(a) * r2).toFixed(1) + '" y2="' + (rcy + Math.sin(a) * r2).toFixed(1) + '" stroke="rgba(60,30,12,0.45)" stroke-width="' + (i % 4 === 0 ? 1.8 : 1) + '"/>';
+        }
+
+        /* 地面径向裂纹预兆 */
+        for (const cr of g.cracks) {
+            const pts = cr.pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+            h += '<polyline points="' + pts + '" fill="none" stroke="rgba(255,' + Math.round(90 - 50 * level) + ',26,' + (0.10 + 0.55 * level).toFixed(3) + ')" stroke-width="' + cr.w.toFixed(2) + '" stroke-linecap="round"/>';
+        }
+
+        /* 能量旋涡：被吸进拳心（起点锚在瞄准方向上的目标区；螺旋采样多点画弧段） */
+        for (const s of g.streaks) {
+            const p = ((el + s.off) % s.dur) / s.dur;
+            const p2 = Math.min(1, p + 0.15);
+            const pts = [];
+            for (let k = 0; k <= 5; k++) {
+                const pk = p + (p2 - p) * (k / 5);
+                const rk = lerp(s.r0, 9, pk * pk);
+                const ak = aim + s.aOff + s.turns * TAU * pk;
+                pts.push((ax + Math.cos(ak) * rk).toFixed(1) + ',' + (ay + Math.sin(ak) * rk).toFixed(1));
+            }
+            h += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="rgba(255,' + Math.round(105 + 125 * level) + ',' + Math.round(25 + 110 * level) + ',' + (0.92 * (1 - p * 0.35)).toFixed(3) + ')" stroke-width="' + (s.w * (1 - p * 0.3)).toFixed(2) + '" stroke-linecap="round"/>';
+        }
+
+        /* 拳（略微前移，别把施术者本人整个盖住） */
+        const fs = 0.46 + 0.60 * level;
+        const fx = ax + Math.cos(aim) * 13, fy = ay + Math.sin(aim) * 13;
+        h += fistMarkup(fx, fy, aim, fs, level, 1);
+
+        /* 瞄准线 + 准星 */
+        h += '<line x1="' + (ax + Math.cos(aim) * 40).toFixed(1) + '" y1="' + (ay + Math.sin(aim) * 40).toFixed(1) + '" x2="' + (ax + Math.cos(aim) * (Rv + 4)).toFixed(1) + '" y2="' + (ay + Math.sin(aim) * (Rv + 4)).toFixed(1) + '" stroke="rgba(255,220,170,' + (0.16 + 0.32 * level).toFixed(3) + ')" stroke-width="1.2" stroke-dasharray="4 8"/>';
+        const rx = ax + Math.cos(aim) * Rv, ry = ay + Math.sin(aim) * Rv;
+        h += '<circle cx="' + rx.toFixed(1) + '" cy="' + ry.toFixed(1) + '" r="' + (7 + 3 * level).toFixed(1) + '" fill="none" stroke="rgba(255,120,50,' + (0.30 + 0.5 * level).toFixed(3) + ')" stroke-width="1.6"/>';
+
+        svg.innerHTML = h;
+    }
+
+    /* ---------- 爆发段（drawBurstNew 逐字；伤害数字已换真值） ---------- */
+    function drawBurstNew(tb) {
+        const g = S.geo, ap = g.apex, ax = ap.x, ay = ap.y, aim = S.aim;
+        const ha0 = hitHalfAngle(APP.aimCellIndex || 0, aim);
+        const level = S.level;
+        let h = '';
+
+        if (tb < 480) {
+            const p = Math.min(1, tb / 210), e = easeOut(p);
+            const dist = visR(aim) * 0.50 * e;
+            const fs = (0.46 + 0.60 * level) * (1 + 0.80 * e);
+            for (let i = 3; i >= 1; i--) {
+                const d2 = dist - i * 18; if (d2 < -24) continue;
+                h += fistGhost(ax + Math.cos(aim) * d2, ay + Math.sin(aim) * d2, fs * (1 - 0.10 * i), 0.20 - 0.05 * i);
+            }
+            const fade = tb < 300 ? 1 : Math.max(0, 1 - (tb - 300) / 160);
+            h += fistMarkup(ax + Math.cos(aim) * dist, ay + Math.sin(aim) * dist, aim, fs, 1, fade);
+        }
+
+        const Rv = visR(aim);
+        const teleFull = telegraphPoly(APP.aimCellIndex || 0, 5);
+        if (tb > 240 && tb < 2200) {
+            const op = clamp(1 - (tb - 240) / 1960, 0, 1) * 0.30;
+            h += '<path d="' + polyPath(scalePoly(teleFull, ap, 0.97)) + '" fill="rgba(86,32,12,' + op.toFixed(3) + ')"/>';
+        }
+
+        if (tb < 1250) {
+            const p = Math.min(1, Math.max(0, (tb - 70)) / 260);
+            const e = easeOut(p);
+            const sc = 0.22 + 0.86 * e;
+            const poly = scalePoly(teleFull, ap, sc);
+            const op = clamp(1 - tb / 1250, 0, 1);
+            const reach = Rv * sc;
+            h += '<defs><radialGradient id="scG' + U + '" gradientUnits="userSpaceOnUse" cx="' + ax + '" cy="' + ay + '" r="' + reach.toFixed(1) + '">' +
+                '<stop offset="0%" stop-color="rgba(255,255,255,' + (0.95 * op).toFixed(3) + ')"/>' +
+                '<stop offset="26%" stop-color="rgba(255,' + Math.round(200 + 45 * level) + ',90,' + (0.82 * op).toFixed(3) + ')"/>' +
+                '<stop offset="68%" stop-color="rgba(255,130,35,' + (0.58 * op).toFixed(3) + ')"/>' +
+                '<stop offset="100%" stop-color="rgba(255,80,10,0)"/>' +
+                '</radialGradient></defs>';
+            h += '<path d="' + polyPath(poly) + '" fill="url(#scG' + U + ')"/>';
+            const arcT = clamp(1 - tb / 900, 0, 1);
+            if (arcT > 0) {
+                h += '<path d="' + polyPath(poly) + '" fill="none" stroke="rgba(255,255,255,' + (0.92 * arcT).toFixed(3) + ')" stroke-width="' + (2.5 + 3.2 * level).toFixed(1) + '" stroke-linejoin="round"/>';
+            }
+        }
+
+        if (tb < 2000 && S.coneCracks.length) {
+            const op = clamp(1 - (tb - 1300) / 700, 0, 1);
+            for (const cr of S.coneCracks) {
+                const pts = cr.pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+                h += '<polyline points="' + pts + '" fill="none" stroke="rgba(52,18,4,' + (0.5 * op).toFixed(3) + ')" stroke-width="' + (cr.w * 1.2).toFixed(2) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+                h += '<polyline points="' + pts + '" fill="none" stroke="rgba(255,196,120,' + (0.8 * op).toFixed(3) + ')" stroke-width="' + (cr.w * 0.35).toFixed(2) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+            }
+        }
+
+        if (tb < 1000) {
+            for (const p of S.debris) {
+                const lt = tb - p.dly; if (lt < 0 || lt > 900) continue;
+                const t = lt / 1000, q = lt / 900;
+                const x = p.x + p.vx * t;
+                const y = p.y + p.vy * t + 0.5 * 900 * t * t;
+                h += '<rect x="' + (x - 2.2).toFixed(1) + '" y="' + (y - 2.2).toFixed(1) + '" width="4.4" height="4.4" fill="' + p.c + '" opacity="' + (1 - q).toFixed(2) + '" transform="rotate(' + (p.rot + p.spin * t).toFixed(0) + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')"/>';
+            }
+        }
+
+        if (tb < 260) {
+            const op = clamp(1 - tb / 260, 0, 1);
+            for (let i = 0; i < 16; i++) {
+                const a = aim + (i / 15 * 2 - 1) * ha0 * 1.05 + (i % 2 ? 0.025 : -0.025);
+                const r1 = 18, r2 = 42 + (i % 5) * 26 + 70 * op;
+                h += '<line x1="' + (ax + Math.cos(a) * r1).toFixed(1) + '" y1="' + (ay + Math.sin(a) * r1).toFixed(1) + '" x2="' + (ax + Math.cos(a) * r2).toFixed(1) + '" y2="' + (ay + Math.sin(a) * r2).toFixed(1) + '" stroke="rgba(255,255,255,' + (0.5 * op).toFixed(3) + ')" stroke-width="1.6" stroke-linecap="round"/>';
+            }
+        }
+
+        if (tb > 130 && tb < 2000) {
+            for (let i = 0; i < 18; i++) {
+                const p = ((tb - 130) + i * 95) / 1870; if (p < 0 || p >= 1) continue;
+                const a = aim + ((((i * 37) % 100) / 100) * 2 - 1) * ha0;
+                const r = Rv * (0.22 + ((i * 53) % 100) / 100 * 0.72);
+                const x = ax + Math.cos(a) * r + Math.sin(p * 7 + i) * 7;
+                const y = ay + Math.sin(a) * r - p * 52;
+                h += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (2.8 * (1 - p)).toFixed(2) + '" fill="rgba(255,' + Math.round(180 - 110 * p) + ',70,' + (0.8 * (1 - p)).toFixed(3) + ')"/>';
+            }
+        }
+
+        if (tb < 1300) {
+            const q = Math.min(1, tb / 1300);
+            let op, sc, sk;
+            if (q < 0.14) { const u = q / 0.14; op = u; sc = 0.5 + 0.8 * u; sk = -8 * u; }
+            else if (q < 0.55) { const u = (q - 0.14) / 0.41; op = 1; sc = 1.3; sk = -8 - 4 * u; }
+            else { const u = (q - 0.55) / 0.45; op = 1 - u * 0.95; sc = 1.3 - 0.12 * u; sk = -12; }
+            const wx = ax + Math.cos(aim) * (Rv * 0.34), wy = ay + Math.sin(aim) * (Rv * 0.34) - 6;
+            h += '<text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="' + (32 + 14 * level).toFixed(0) + '" font-weight="900" fill="#fff6dd" stroke="#8f1c04" stroke-width="2.6" paint-order="stroke" style="opacity:' + op.toFixed(3) + '" transform="translate(' + wx.toFixed(1) + ',' + wy.toFixed(1) + ') rotate(' + sk.toFixed(1) + ') scale(' + sc.toFixed(3) + ')">轰</text>';
+            h += '<text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="' + (32 + 14 * level).toFixed(0) + '" font-weight="900" fill="none" stroke="rgba(255,140,40,' + (op * 0.5).toFixed(3) + ')" stroke-width="1.6" style="opacity:' + (op * 0.7).toFixed(3) + '" transform="translate(' + (wx + 4).toFixed(1) + ',' + (wy + 3).toFixed(1) + ') rotate(' + sk.toFixed(1) + ') scale(' + (sc * 1.08).toFixed(3) + ')">轰</text>';
+        }
+
+        /* 8) 伤害数字（真值：dmg 由 release() 按引擎公式算好挂进 S.hits） */
+        for (const hit of S.hits) {
+            const lt = tb - hit.dly; if (lt < 0) continue;
+            const q = Math.min(1, lt / 900);
+            const dy = -40 * easeOut(q);
+            h += '<text x="' + hit.c.x.toFixed(1) + '" y="' + (hit.c.y + dy).toFixed(1) + '" text-anchor="middle" dominant-baseline="central" font-size="' + (14 + 5 * hit.f).toFixed(0) + '" font-weight="900" fill="' + (hit.f > 0.7 ? '#fff2cf' : '#ffcda0') + '" stroke="rgba(110,18,0,.92)" stroke-width="2.6" paint-order="stroke" style="opacity:' + (1 - q * q).toFixed(3) + '">' + hit.dmg + '</text>';
+        }
+
+        svg.innerHTML = h;
+    }
+
+    /* ---------- 格子级反馈（逐字） ---------- */
+    function halfAng(level) { return lerp(0.40 * S.geo.fullHalf, S.geo.fullHalf, level); }
+
+    function hitCellsAt(cellIndex) {
+        if (cellIndex === undefined || !S.geo) return [];
+        const out = [];
+        for (const pos of (HIT_MAP[cellIndex] || [])) {
+            const c = S.geo.cells['e' + pos];
+            if (c && c.unit) out.push(c);
+        }
+        return out;
+    }
+    function hitHalfAngle(cellIndex, aim) {
+        const g = S.geo, cs = hitCellsAt(cellIndex);
+        if (!cs.length) return 0.30;
+        let m = 0.10;
+        for (const c of cs) {
+            let d = Math.atan2(c.y - g.apex.y, c.x - g.apex.x) - aim;
+            while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+            if (Math.abs(d) > m) m = Math.abs(d);
+        }
+        return m * 1.10;
+    }
+    function telegraphPoly(cellIndex, pad) {
+        const g = S.geo, pts = [{ x: g.apex.x, y: g.apex.y }];
+        for (const c of hitCellsAt(cellIndex)) {
+            const hw = c.w / 2 + pad, hh = c.h / 2 + pad;
+            pts.push({ x: c.x - hw, y: c.y - hh }, { x: c.x + hw, y: c.y - hh }, { x: c.x + hw, y: c.y + hh }, { x: c.x - hw, y: c.y + hh });
+        }
+        return hull(pts);
+    }
+
+    function chargeCellFx(level) {
+        const g = S.geo; if (!g) return;
+        const cu = cell.a2.querySelector('.cu');
+        if (cu) {
+            const back = 7 * level;
+            const jit = level >= 0.90 ? (Math.random() - 0.5) * 2.0 * ((level - 0.90) / 0.10) : 0;
+            const ax2 = Math.cos(S.aim), ay2 = Math.sin(S.aim);
+            cu.style.transform = 'translate(' + (-ax2 * back + jit).toFixed(2) + 'px,' + (-ay2 * back + jit * 0.5).toFixed(2) + 'px) scale(' + (1 - 0.05 * level).toFixed(3) + ')';
+        }
+        cell.a2.style.boxShadow = 'inset 0 0 ' + (10 + 18 * level).toFixed(0) + 'px ' + (2 + 5 * level).toFixed(0) + 'px rgba(255,' + Math.round(120 + 100 * level) + ',40,' + (0.25 + 0.5 * level).toFixed(3) + ')';
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 110);
+        for (const c of hitCellsAt(APP.aimCellIndex || 0)) {
+            const el = cell['e' + c.pos]; if (!el) continue;
+            el.style.boxShadow = 'inset 0 0 13px 2px rgba(255,70,30,' + (0.36 + 0.52 * level * (0.6 + 0.4 * pulse)).toFixed(3) + ')';
+            el.style.backgroundColor = 'rgba(255,90,40,' + (0.05 + 0.15 * level).toFixed(3) + ')';
+        }
+    }
+
+    function burstCellFx(tb) {
+        for (const hit of S.hits) {
+            const el = cell['e' + hit.pos]; if (!el) continue;
+            const cu = el.querySelector('.cu');
+            const lt = tb - hit.dly; if (lt < 0) continue;
+            if (lt < 150) {
+                el.style.boxShadow = 'inset 0 0 20px 7px rgba(255,255,255,' + (0.95 * (1 - lt / 150)).toFixed(3) + ')';
+            } else if (lt < 560) {
+                el.style.boxShadow = 'inset 0 0 13px 4px rgba(255,110,40,' + (0.72 * (1 - (lt - 150) / 410)).toFixed(3) + ')';
+            }
+            if (cu) {
+                const kb = (10 + 34 * S.level) * hit.f;
+                let back;
+                if (lt < 190) back = kb * easeOut(lt / 190);
+                else if (lt < 320) back = kb;
+                else back = kb * (1 - Math.min(1, (lt - 320) / 440));
+                const sh = lt < 620 ? (Math.random() - 0.5) * 2 * 5.0 * (1 - lt / 620) : 0;
+                cu.style.transform = 'translate(' + (hit.ux * back + sh).toFixed(2) + 'px,' + (hit.uy * back + sh * 0.6).toFixed(2) + 'px) rotate(' + (hit.spin * back * 0.06).toFixed(2) + 'deg)';
+            }
+        }
+    }
+
+    function shake(ms, amp) {
+        if (ms > 0) {
+            const m = amp * (1 - ms / 520);
+            bf.style.transform = 'translate(' + ((Math.random() - 0.5) * 2 * m).toFixed(2) + 'px,' + ((Math.random() - 0.5) * 2 * m).toFixed(2) + 'px)';
+        } else bf.style.transform = '';
+    }
+
+    /* ---------- 阶段驱动（逐字，new 分支） ---------- */
+    function frameCharge(el, level) {
+        resetCells();
+        drawChargeNew(el, level);
+        chargeCellFx(level);
+        world.style.filter = 'saturate(' + (1 - 0.5 * level).toFixed(3) + ') brightness(' + (1 - 0.12 * level).toFixed(3) + ')';
+        vig.style.opacity = (0.25 + 0.6 * level).toFixed(3);
+    }
+    function frameBurst(tb) {
+        resetCells();
+        drawBurstNew(tb);
+        burstCellFx(tb);
+        world.style.filter = 'none';
+        vig.style.opacity = Math.max(0, 0.85 - tb / 620).toFixed(3);
+        shake(tb < 700 ? tb : 0, 5 + 11 * S.level);
+    }
+    function frameVamp(tb) {
+        /* 吸血尾巴（demo 之外的游戏信息，轻量：施术者格绿光 + ❤+N 上浮） */
+        resetCells();
+        cell.a2.style.boxShadow = 'inset 0 0 16px 4px rgba(80,220,130,' + (0.55 * (1 - tb / VAMP_MS)).toFixed(3) + ')';
+        const g = S.geo;
+        const p = Math.min(1, tb / VAMP_MS);
+        svg.innerHTML = '<text x="' + g.apex.x.toFixed(1) + '" y="' + (g.apex.y - 18 - 34 * easeOut(p)).toFixed(1) + '" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="900" fill="#9ff0b0" stroke="rgba(6,40,16,.92)" stroke-width="2.4" paint-order="stroke" style="opacity:' + (1 - p * p).toFixed(3) + '">🩸+' + S.vamp + '</text>';
+    }
+    function reset() {
+        resetCells();
+        svg.innerHTML = '';
+        bf.style.transform = '';
+        world.style.filter = 'none';
+        vig.style.opacity = 0;
+        S.hits = []; S.coneCracks = []; S.debris = [];
+    }
+
+    /* 释放（v29.1：0=全屏以敌阵有人格中心为基准；伤害真值按引擎公式） */
+    function release(level, cellIndex, dmgInfo) {
+        const g = S.geo; if (!g) return;
+        cellIndex = cellIndex || 0;
+        let aimCell = g.cells['e' + cellIndex];
+        if (!aimCell) {
+            let sx = 0, sy = 0, n = 0;
+            for (let p = 1; p <= 9; p++) { const c = g.cells['e' + p]; if (c && c.unit) { sx += c.x; sy += c.y; n++; } }
+            if (!n) return;
+            aimCell = { x: sx / n, y: sy / n };
+        }
+        S.aim = Math.atan2(aimCell.y - g.apex.y, aimCell.x - g.apex.x);
+        const hits = [];
+        for (const c of hitCellsAt(cellIndex)) {
+            if (!c.unit) continue;
+            const vx = c.x - g.apex.x, vy = c.y - g.apex.y;
+            const dist = Math.hypot(vx, vy) || 1;
+            const info = (dmgInfo && dmgInfo[c.pos]) || { dmg: 0, tier: 'far' };
+            hits.push({
+                pos: c.pos, c: c, ux: vx / dist, uy: vy / dist,
+                spin: (Math.random() * 2 - 1) * 30,
+                f: TIER_F[info.tier] ?? 0.72,
+                dmg: info.dmg,
+                dly: dist * 0.10
+            });
+        }
+        S.hits = hits;
+        const ha = hitHalfAngle(cellIndex, S.aim);
+        const reach = Math.max(80, visR(S.aim, cellIndex));
+        S.coneCracks = genConeCracks(g.apex, S.aim, ha, reach, 4242);
+        S.debris = genDebris(g.apex, S.aim, ha, reach, 9911);
+    }
+
+    return { S: S, measure: measure, frameCharge: frameCharge, frameBurst: frameBurst, frameVamp: frameVamp, reset: reset, release: release, bf: bf };
+}
+
+/* ================= 五、入口 ================= */
+function tierName(l) {
+    if (l < 0.30) return '蓄 势';
+    if (l < 0.62) return '聚 力';
+    if (l < 0.92) return '蓄 猛';
+    return '极 限';
+}
+
+export function showHanlisaAim(c, hls, payload, resolve) {
+    const enemies = (payload && payload.enemies) || [];
+    const allies = (payload && payload.allies) || [];
+
+    // N 与分档参数（与 modules/27 同源）
     const xl = getSkillParams('寒离飒', 'xuLi') || {};
-    const buckets = (hls.state && Array.isArray(hls.state._hlsTaken)) ? hls.state._hlsTaken.slice(-3) : [];
+    const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
     const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
-    // enemies: [{pos, hp, maxHp, name, alive}]（player/49 传引擎真值）
-    const enemyByPos = {};
-    (enemies || []).forEach(e => { if (e && e.pos >= 1 && e.pos <= 9 && e.alive !== false) enemyByPos[e.pos] = e; });
-    const occSet = new Set(Object.keys(enemyByPos).map(Number));
 
-    // —— 原格引用（开场现查，用完即弃）——
-    const srcEnemyGrid = document.getElementById('enemyGrid');
-    const srcHlsCell = document.querySelector(`[data-uid="${hls.uid}"]`);
-    if (!srcEnemyGrid || !srcHlsCell) { resolve({ aim: 0, holdMs: 0 }); return; }
+    // 阵容（图标/分档色从战场活格现查）
+    const ENEMY = {}, ALLY = {};
+    enemies.forEach(u => { const look = liveLook('enemyGrid', u.pos); ENEMY[u.pos] = { icon: look.icon, name: u.name, tier: look.tier, atk: u.atk, def: u.def, hp: u.hp, max: u.maxHp }; });
+    allies.forEach(u => { const look = liveLook('allyGrid', u.pos); ALLY[u.pos] = { icon: look.icon, name: u.name, tier: look.tier, atk: u.atk, def: u.def, hp: u.hp, max: u.maxHp }; });
+    // 施术者恒在 ally 2 号位（demo 的 apex 依赖 cell.a2）
+    if (!ALLY[2]) {
+        const look = liveLook('allyGrid', 2);
+        ALLY[2] = { icon: look.icon !== '⚔️' ? look.icon : '👊', name: hls.name, tier: look.tier, atk: Math.round(hls.atk || 0), def: Math.round(hls.def || 0), hp: hls.hp, max: hls.maxHp };
+    }
+    const enemyOrder = liveOrder('enemyGrid', [7, 8, 9, 4, 5, 6, 1, 2, 3]);
+    const allyOrder = liveOrder('allyGrid', [1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
-    // —— 场景骨架（fx/85 语言：纯黑幕 + 克隆体重建）——
+    // —— overlay DOM：demo 舞台样式逐条照搬（选择器加 #hlsAimOv 前缀防外溢）——
     const overlay = document.createElement('div');
+    overlay.id = 'hlsAimOv';
     overlay.setAttribute('data-fx', 'temporary');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10018;background:rgba(0,0,0,0.92);touch-action:none;user-select:none;-webkit-user-select:none;cursor:crosshair;opacity:0;transition:opacity 250ms;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10020;background:#f5f0e0;font-family:\'Segoe UI\', monospace;color:#333;user-select:none;-webkit-user-select:none;opacity:0;transition:opacity .22s;';
+    const style = document.createElement('style');
+    style.textContent = `
+#hlsAimOv{ --c-brown:#5c4033; --c-brown-border:#8b7355; --c-tan:#b8a88a; --c-parchment:#f5f0e0; --c-panel:#fdf5e6;
+  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b; --c-green:#2e7d32; --c-dark:#1a1a2e; display:flex; flex-direction:column; justify-content:center; }
+#hlsAimOv * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+#hlsAimOv .hlsAimTitle { font-size:15px; font-weight:700; color:var(--c-brown); text-align:center; margin:2px 0 4px; }
+#hlsAimOv .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; touch-action: none; width: 100%; max-width: 520px; margin: 0 auto; }
+#hlsAimOv .world { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; min-height: 0; will-change: filter; }
+#hlsAimOv .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+#hlsAimOv .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
+#hlsAimOv .camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
+#hlsAimOv .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; flex: 1; width: 100%; }
+#hlsAimOv .cell { background: #d9d0b5; border: 1.5px solid #8b7355; border-radius: 7px; position: relative; overflow: hidden; min-height: 6.2dvh; }
+#hlsAimOv .cu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1px 2px; will-change: transform; }
+#hlsAimOv .cell-icon { font-size: clamp(14px, 4.2dvh, 26px); line-height: 1.05; }
+#hlsAimOv .cell-info { display: flex; flex-direction: column; align-items: center; width: 100%; min-width: 0; }
+#hlsAimOv .cell-name { font-size: clamp(8px, 1.9dvh, 12px); font-weight: bold; color: #1f1f1f; max-width: 96%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#hlsAimOv .cell-name.name-blue { color: #1e6bb8; } #hlsAimOv .cell-name.name-purple { color: #8e44ad; } #hlsAimOv .cell-name.name-gold { color: #b8860b; }
+#hlsAimOv .cell-stats { font-size: clamp(7px, 1.6dvh, 10.5px); color: #333; white-space: nowrap; }
+#hlsAimOv .cell-stats .hp-text-green { color: #2e7d32; } #hlsAimOv .cell-stats .hp-text-orange { color: #b8860b; } #hlsAimOv .cell-stats .hp-text-red { color: #c0392b; }
+#hlsAimOv .hp-bar-wrap { position: absolute; left: 2px; bottom: 2px; width: calc(100% - 4px); height: 18%; min-height: 3px; background: rgba(60,40,20,0.25); border-radius: 2px; overflow: hidden; }
+#hlsAimOv .hp-bar-inner { width: 100%; border-radius: 2px; }
+#hlsAimOv .fxLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+#hlsAimOv .vig { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .12s;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 46%, rgba(20,8,2,0.55) 100%); }
+#hlsAimOv .hud { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); background: rgba(20,10,4,0.78); color: #ffd9a0;
+  border: 1px solid rgba(255,180,80,0.55); border-radius: 8px; padding: 3px 10px 4px; text-align: center; z-index: 6; opacity: 0; transition: opacity .15s; min-width: 108px; }
+#hlsAimOv .hudTier { font-size: 12px; font-weight: 700; letter-spacing: 2px; }
+#hlsAimOv .hudPct { font-size: 11px; color: #fff; margin-left: 6px; }
+#hlsAimOv .hudBarWrap { width: 100%; height: 4px; background: rgba(255,255,255,0.16); border-radius: 2px; margin-top: 2px; overflow: hidden; }
+#hlsAimOv .hudBar { height: 100%; width: 0; background: linear-gradient(90deg, #ffb347, #ff5e3a); border-radius: 2px; }
+#hlsAimOv .hint { text-align: center; font-size: 11.5px; color: #6b5a40; padding: 4px 8px 0; }
+#hlsAimOv .team-label.orange { color: var(--c-sect-orange); } #hlsAimOv .team-label.blue { color: var(--c-ming-blue); }
+#hlsAimOv .hlsAimSkip { position: absolute; top: 8px; right: 10px; z-index: 8; background: var(--c-panel); border: 1.5px solid var(--c-brown-border); color: var(--c-brown);
+  border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+`;
+    overlay.appendChild(style);
 
-    // 顶部提示
+    const title = document.createElement('div');
+    title.className = 'hlsAimTitle';
+    title.textContent = '👊 蓄意轰拳';
+    overlay.appendChild(title);
+
+    const bf = document.createElement('div');
+    bf.className = 'battlefield';
+    const world = document.createElement('div');
+    world.className = 'world';
+    const mkRow = (label, cls, gridId, order, map) => {
+        const row = document.createElement('div');
+        row.className = 'team-row';
+        const side = document.createElement('div');
+        side.className = 'camp-side';
+        const lab = document.createElement('span');
+        lab.className = 'team-label ' + cls;
+        lab.textContent = label;
+        side.appendChild(lab);
+        row.appendChild(side);
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+        grid.id = gridId;
+        order.forEach(pos => {
+            const d = document.createElement('div');
+            const u = map[pos];
+            d.className = u ? 'cell occupied' : 'cell';
+            d.dataset.pos = pos;
+            if (u) d.innerHTML = cardHtml(u);
+            grid.appendChild(d);
+        });
+        row.appendChild(grid);
+        return row;
+    };
+    world.appendChild(mkRow('六大派', 'orange', 'hlsAimEg', enemyOrder, ENEMY));
+    world.appendChild(mkRow('明 教', 'blue', 'hlsAimAg', allyOrder, ALLY));
+    bf.appendChild(world);
+    const vig = document.createElement('div');
+    vig.className = 'vig';
+    bf.appendChild(vig);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'fxLayer');
+    bf.appendChild(svg);
+    const hud = document.createElement('div');
+    hud.className = 'hud';
+    hud.innerHTML = '<span class="hudTier">蓄 势</span><span class="hudPct">0%</span><div class="hudBarWrap"><div class="hudBar"></div></div>';
+    bf.appendChild(hud);
     const hint = document.createElement('div');
-    hint.style.cssText = 'position:absolute;top:16px;left:50%;transform:translateX(-50%);text-align:center;color:#ffe9c8;font-size:16px;font-weight:bold;text-shadow:0 0 10px rgba(255,190,80,0.55);pointer-events:none;white-space:nowrap;';
-    hint.innerHTML = `🥊 <b>蓄意轰拳</b> — 按住蓄力 · 拖到敌格瞄准 · 松手轰出<br><span style="font-size:12px;color:#cfc4b4;font-weight:normal;">轰拳能量 N=${N}（真伤基数） · 原地松手 = 全屏</span>`;
-    overlay.appendChild(hint);
+    hint.className = 'hint';
+    hint.textContent = '按住战场蓄力 · 拖动瞄准 · 松手轰出';
+    bf.appendChild(hint);
+    overlay.appendChild(bf);
 
-    // 敌阵克隆区（居中偏上）与寒离飒克隆（敌阵下方中轴）
-    const srcCells = [];
-    for (const el of srcEnemyGrid.children) {
-        const p = Number(el.dataset.pos);
-        if (p >= 1 && p <= 9) srcCells.push({ pos: p, el });
-    }
-    const rect0 = srcCells[0] ? srcCells[0].el.getBoundingClientRect() : null;
-    const cw = rect0 ? rect0.width : 100, ch = rect0 ? rect0.height : 62;
-    const gap = 8;
-    const gridW = cw * 3 + gap * 2;
-    const st = document.body.getBoundingClientRect(); // 舞台柱（宽屏不飘黑边）
-    const left0 = st.left + (st.width - gridW) / 2;
-    const top0 = Math.max(innerHeight * 0.16, 84);
-
-    const grid = document.createElement('div');
-    grid.style.cssText = `position:absolute;left:${left0}px;top:${top0}px;display:grid;grid-template-columns:repeat(3,${cw}px);grid-auto-rows:${ch}px;gap:${gap}px;`;
-    const cellEls = {};   // pos → 克隆格元素
-    for (const s of srcCells) {
-        const cl = cloneCell(s.el);
-        grid.appendChild(cl);
-        cellEls[s.pos] = cl;
-    }
-    overlay.appendChild(grid);
-
-    // 寒离飒克隆（敌阵下方中轴）
-    const hlsClone = cloneCell(srcHlsCell);
-    const hlsTop = top0 + ch * 3 + gap * 2 + 26;
-    hlsClone.style.position = 'absolute';
-    hlsClone.style.left = (left0 + (gridW - cw) / 2) + 'px';
-    hlsClone.style.top = hlsTop + 'px';
-    overlay.appendChild(hlsClone);
-
-    // 克隆格坐标快照（append 之后现拍）
-    document.body.appendChild(overlay);
-    const cells = {};
-    for (const p of Object.keys(cellEls).map(Number)) {
-        const r = cellEls[p].getBoundingClientRect();
-        cells[p] = { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
-    }
-    const hlsRect = hlsClone.getBoundingClientRect();
-    const apex = { x: hlsRect.left + hlsRect.width / 2, y: hlsRect.top + hlsRect.height / 2 };
-
-    // 聚能锚（拳心）
-    const charge = document.createElement('div');
-    charge.style.cssText = `position:absolute;left:${apex.x}px;top:${apex.y}px;width:0;height:0;pointer-events:none;z-index:3;`;
-    const ringCss = 'position:absolute;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%);';
-    const r1 = document.createElement('div');
-    r1.style.cssText = ringCss + 'width:26px;height:26px;border:2px solid rgba(255,207,94,0.9);opacity:0;';
-    const r2 = document.createElement('div');
-    r2.style.cssText = ringCss + 'width:26px;height:26px;border:2px solid rgba(127,199,255,0.85);opacity:0;';
-    charge.appendChild(r1); charge.appendChild(r2);
-    for (let i = 0; i < 8; i++) {
-        const dot = document.createElement('div');
-        const ang = (Math.PI * 2 * i) / 8 + 0.4;
-        const dist = 74 + (i % 3) * 16;
-        dot.style.cssText = `position:absolute;left:${Math.cos(ang) * dist}px;top:${Math.sin(ang) * dist}px;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:${i % 2 ? '#7fc7ff' : '#ffcf5e'};box-shadow:0 0 8px currentColor;opacity:0;`;
-        dot.animate([{ transform: 'translate(0,0) scale(1.25)', opacity: 0 }, { opacity: 0.95, offset: 0.22 }, { transform: `translate(${-Math.cos(ang) * dist}px,${-Math.sin(ang) * dist}px) scale(0.3)`, opacity: 0 }], { duration: 950, delay: i * 90, iterations: Infinity, easing: 'ease-in' });
-        charge.appendChild(dot);
-    }
-    overlay.appendChild(charge);
-
-    // 底部状态行
-    const status = document.createElement('div');
-    status.style.cssText = `position:absolute;top:${hlsTop + ch + 18}px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;font-weight:bold;text-shadow:0 1px 6px rgba(0,0,0,0.9);pointer-events:none;white-space:nowrap;`;
-    status.textContent = '按住任意处开始蓄力…';
-    overlay.appendChild(status);
-
-    // 跳过按钮（fx/85 同款）
-    const skipBtn = document.createElement('div');
-    skipBtn.textContent = '跳过';
-    const skipRight = (window.innerWidth - st.right + st.width * 0.08) + 'px';
-    skipBtn.style.cssText = 'position:fixed;bottom:12%;right:' + skipRight + ';z-index:99999;color:rgba(255,255,255,0.7);font-size:18px;font-weight:bold;cursor:pointer;pointer-events:auto;transform:rotate(-30deg);text-align:center;line-height:1;letter-spacing:2px;';
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'hlsAimSkip';
+    skipBtn.textContent = '跳过 ⏭';
     overlay.appendChild(skipBtn);
 
-    // 标记层（随 aim 重画）
-    const markLayer = document.createElement('div');
-    markLayer.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2;';
-    overlay.appendChild(markLayer);
+    document.body.appendChild(overlay);
 
-    const drawMark = (m, dim) => {
-        const cell = cells[m.pos];
-        if (!cell) return;
-        const ts = TIER_STYLE[m.tier] || TIER_STYLE.far;
-        const box = document.createElement('div');
-        box.style.cssText = `position:absolute;left:${cell.x + 2}px;top:${cell.y + 2}px;width:${cell.w - 4}px;height:${cell.h - 4}px;border:2px solid ${ts.border};background:${ts.bg};border-radius:6px;box-shadow:0 0 12px ${ts.border};opacity:${dim ? 0.5 : 1};`;
-        markLayer.appendChild(box);
-        const badge = document.createElement('div');
-        badge.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:${ts.badge};font-size:${ts.size}px;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.95);white-space:nowrap;`;
-        badge.textContent = m.dmg > 0 ? `−${m.dmg}` : '空';
-        box.appendChild(badge);
-        if (m.mark) {
-            const tag = document.createElement('div');
-            tag.style.cssText = 'position:absolute;left:50%;top:-11px;transform:translateX(-50%);font-size:10px;font-weight:bold;color:#fff;background:rgba(20,24,40,0.9);border-radius:4px;padding:1px 5px;white-space:nowrap;';
-            tag.textContent = m.mark;
-            box.appendChild(tag);
+    const hudTier = hud.querySelector('.hudTier'), hudPct = hud.querySelector('.hudPct'), hudBar = hud.querySelector('.hudBar');
+    function updateHud(l) {
+        hud.style.opacity = l > 0.02 ? 1 : 0;
+        hudTier.textContent = tierName(l);
+        hudPct.textContent = Math.round(l * 100) + '%';
+        hudBar.style.width = (l * 100).toFixed(0) + '%';
+    }
+
+    /* —— 驱动状态（demo APP 的 overlay 版；先建再传给 makeStage——hitCellsAt 等运行期读它）—— */
+    const APP = { state: 'idle', t0: 0, level: 0, aim: -Math.PI / 2, burstStart: 0, releaseLevel: 0, aimCellIndex: 0 };
+    let raf = 0, holding = false, done = false, holdStart = 0, timeoutId = 0;
+
+    const stage = makeStage({ bf, world, svg, eg: document.getElementById('hlsAimEg'), ag: document.getElementById('hlsAimAg'), vig, ENEMY, APP });
+    stage.measure();
+
+    function tick() {
+        const now = performance.now();
+        if (APP.state === 'charge') {
+            const el = now - APP.t0;
+            const lvl = Math.min(1, el / CHARGE_MAX);
+            APP.level = lvl;
+            stage.S.level = lvl; stage.S.aim = APP.aim;
+            stage.frameCharge(el, lvl);
+            updateHud(lvl);
+        } else if (APP.state === 'burst') {
+            const tb = now - APP.burstStart;
+            if (tb > BURST_MS) {
+                APP.state = 'vamp'; APP.burstStart = now;
+                raf = requestAnimationFrame(tick);
+                return;
+            }
+            stage.frameBurst(tb);
+        } else if (APP.state === 'vamp') {
+            const tb = now - APP.burstStart;
+            if (tb > VAMP_MS) { finish(); return; }
+            stage.frameVamp(tb);
         }
-    };
+        raf = requestAnimationFrame(tick);
+    }
 
-    const renderMarks = () => {
-        markLayer.innerHTML = '';
-        if (!aim) {
-            const ps = previewCells(0, N, xl);
-            status.textContent = `未瞄准 → 全屏（近排 1/2/3 各 −${Math.floor(N / 3)} · 中排 4/5/6 各 −${Math.floor(N / 4)} · 远排 7/8/9 各 −${Math.floor(N / 5)}）`;
-            ps.forEach(m => drawMark(m, true));
-            return;
+    function startCharge() {
+        stage.reset();
+        stage.measure();
+        APP.state = 'charge';
+        APP.t0 = performance.now();
+        APP.level = 0;
+        APP.aim = -Math.PI / 2;
+        stage.S.aim = APP.aim;
+        updateHud(0);
+        hint.textContent = '蓄力中… 拖动瞄准，松手轰出';
+        if (!raf) raf = requestAnimationFrame(tick);
+    }
+
+    function doRelease() {
+        APP.state = 'burst';
+        APP.burstStart = performance.now();
+        APP.releaseLevel = APP.level;
+        stage.S.level = APP.level;
+        stage.S.aim = APP.aim;
+        stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl));
+        // 吸血真值（与 modules/27 同公式：总伤 1/3 封顶缺失生命）
+        const total = stage.S.hits.reduce((s, h) => s + (h.dmg || 0), 0);
+        const vampDiv = xl.vampDiv ?? 3;
+        stage.S.vamp = (total > 0 && vampDiv > 0) ? Math.min(Math.floor(total / vampDiv), Math.max(0, hls.maxHp - hls.hp)) : 0;
+        updateHud(APP.level);
+    }
+
+    /* —— 瞄准判定（demo aimFromPointer v29 逐字）—— */
+    function aimFromPointer(ev) {
+        const b = bf.getBoundingClientRect();
+        const px = ev.clientX - b.left, py = ev.clientY - b.top;
+        const ap = stage.S.geo ? stage.S.geo.apex : { x: b.width / 2, y: b.height * 0.8 };
+        const dx = px - ap.x, dy = py - ap.y;
+        const setNoAim = () => {
+            APP.aimCellIndex = 0;
+            hint.textContent = '未瞄准 → 全屏 9 格（松手轰全场）';
+        };
+        if (Math.hypot(dx, dy) < 26) { setNoAim(); return; }
+        if (dy > -8) { setNoAim(); return; }
+        const a = Math.atan2(dy, dx);
+        const up = -Math.PI / 2;
+        let d = a - up; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+        d = clamp(d, -1.31, 1.31);
+        APP.aim = up + d;
+        const g = stage.S.geo;
+        if (g) {
+            const px2 = g.apex.x + dx, py2 = g.apex.y + dy;
+            let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+            for (const k in g.cells) { const cc = g.cells[k]; x0 = Math.min(x0, cc.x); x1 = Math.max(x1, cc.x); y0 = Math.min(y0, cc.y); y1 = Math.max(y1, cc.y); }
+            if (px2 < x0 - 44 || px2 > x1 + 44 || py2 < y0 - 30 || py2 > y1 + 44) { setNoAim(); return; }
+            let best = 0, bd = 1e9;
+            for (const k in g.cells) {
+                const cc = g.cells[k]; if (!cc.unit) continue;
+                const d2 = Math.hypot(cc.x - px2, cc.y - py2);
+                if (d2 < bd) { bd = d2; best = cc.pos; }
+            }
+            if (best) {
+                APP.aimCellIndex = best;
+                hint.textContent = '瞄准 ' + best + ' 号位 → 命中 ' + (HIT_MAP[best] || []).length + ' 格';
+            } else setNoAim();
         }
-        const ps = previewCells(aim, N, xl);
-        const hitCount = ps.filter(m => occSet.has(m.pos)).length;
-        status.textContent = `瞄准 ${aim} 号位 → ${ps.length} 格（有目标 ${hitCount} 格）${aim === 8 ? ' · 8 号将被轰穿中列撞边眩晕' : ''}`;
-        ps.forEach(m => drawMark(m, false));
-    };
+    }
 
-    // —— 瞄准判定（131 demo v29：最近有人敌格吸附；三条全屏兜底）——
-    const computeAim = (px, py) => {
-        const dx = px - apex.x, dy = py - apex.y;
-        if (Math.hypot(dx, dy) < 26) return 0;           // 离施术者太近（原地按着不拖）
-        if (dy > -8) return 0;                            // 指到己方半场（施术者下方）
-        const poses = Object.keys(cells).map(Number);
-        if (!poses.length) return 0;
-        const xs = poses.map(p => cells[p].x), ys = poses.map(p => cells[p].y);
-        const minX = Math.min(...xs) - 30, maxX = Math.max(...poses.map(p => cells[p].x + cells[p].w)) + 30;
-        const minY = Math.min(...ys) - 30, maxY = Math.max(...poses.map(p => cells[p].y + cells[p].h)) + 44;
-        if (px < minX || px > maxX || py < minY || py > maxY) return 0; // 拖出敌阵包围盒
-        let best = 0, bestD = Infinity;
-        for (const p of poses) {
-            if (!occSet.has(p)) continue;                 // 只锁有人的格
-            const d = Math.hypot(cells[p].cx - px, cells[p].cy - py);
-            if (d < bestD) { bestD = d; best = p; }
-        }
-        return best;
-    };
-
-    const startHold = () => {
-        if (done || holding) return;
+    /* —— 交互 —— */
+    bf.addEventListener('pointerdown', (ev) => {
+        if (done) return;
+        ev.preventDefault();
+        try { bf.setPointerCapture(ev.pointerId); } catch (e) { /* noop */ }
         holding = true;
         holdStart = performance.now();
-        status.textContent = '蓄力中…（拖到敌格选形状，原地或拖出 = 全屏）';
-        const pulse = (el, delay, color) => el.animate([
-            { width: '22px', height: '22px', opacity: 0.95, borderColor: color },
-            { width: '64px', height: '64px', opacity: 0, borderColor: color }
-        ], { duration: 820, delay, iterations: Infinity, easing: 'ease-out' });
-        pulse(r1, 0, 'rgba(255,207,94,0.95)');
-        pulse(r2, 320, 'rgba(127,199,255,0.9)');
-    };
-
-    // —— 完整循环演出（松手后：冲击扇形 → 逐格命中扣血 → 8特例 → 吸血 → 淡出退出）——
-    const playBurstLoop = async (finalAim) => {
-        overlay.style.cursor = 'default';
-        markLayer.innerHTML = '';
-        status.textContent = '';
-        hint.innerHTML = `💥 <b>蓄意轰拳</b> 轰出！`;
-        charge.remove();
-
-        const hits = previewCells(finalAim, N, xl).filter(m => occSet.has(m.pos) && m.dmg > 0);
-        const hitPos = new Set(hits.map(m => m.pos));
-
-        // 冲击扇形（弧边金→冰渐变，fx/93 同形制）：从拳心冲向命中范围
-        const hitCenters = hits.map(m => cells[m.pos]).filter(Boolean);
-        if (hitCenters.length) {
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('data-fx', 'temporary');
-            svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible;';
-            const left = hitCenters.reduce((a, b) => (b.cx < a.cx ? b : a));
-            const right = hitCenters.reduce((a, b) => (b.cx > a.cx ? b : a));
-            const R = Math.max(Math.hypot(left.cx - apex.x, left.cy - apex.y), Math.hypot(right.cx - apex.x, right.cy - apex.y), 1);
-            const a0 = Math.atan2(left.cy - apex.y, left.cx - apex.x);
-            const a1 = Math.atan2(right.cy - apex.y, right.cx - apex.x);
-            let d = a1 - a0;
-            while (d > Math.PI) d -= 2 * Math.PI;
-            while (d < -Math.PI) d += 2 * Math.PI;
-            const pts = [];
-            for (let i = 0; i <= 26; i++) {
-                const a = a0 + d * (i / 26);
-                pts.push(`${(apex.x + Math.cos(a) * R).toFixed(1)} ${(apex.y + Math.sin(a) * R).toFixed(1)}`);
-            }
-            const gid = 'hlsAimFan' + Date.now();
-            svg.innerHTML = `
-                <defs>
-                    <linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="${apex.x}" y1="${apex.y}" x2="${(left.cx + right.cx) / 2}" y2="${(left.cy + right.cy) / 2}">
-                        <stop offset="0%" stop-color="rgba(255,215,0,0.65)"/>
-                        <stop offset="55%" stop-color="rgba(255,150,60,0.45)"/>
-                        <stop offset="100%" stop-color="rgba(127,199,255,0.4)"/>
-                    </linearGradient>
-                    <filter id="${gid}b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
-                </defs>
-                <path d="M ${apex.x.toFixed(1)} ${apex.y.toFixed(1)} L ${pts.join(' L ')} Z" fill="url(#${gid})" filter="url(#${gid}b)"
-                      stroke="rgba(255,224,150,0.85)" stroke-width="2.6"/>`;
-            overlay.appendChild(svg);
-            svg.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: 850, easing: 'ease-out' })
-                .finished.then(() => svg.remove()).catch(() => svg.remove());
-        }
-
-        // 逐格命中（按与拳心距离由近到远 stagger）
-        const ordered = hits.slice().sort((a, b) =>
-            (Math.hypot(cells[a.pos].cx - apex.x, cells[a.pos].cy - apex.y)) - (Math.hypot(cells[b.pos].cx - apex.x, cells[b.pos].cy - apex.y)));
-        let total = 0;
-        const dmgByPos = {};
-        ordered.forEach(m => { dmgByPos[m.pos] = m.dmg; total += m.dmg; });
-        await sleep(220);
-        for (const m of ordered) {
-            const cellData = cells[m.pos];
-            const cl = cellEls[m.pos];
-            const e = enemyByPos[m.pos];
-            if (!cellData || !cl) continue;
-            // 格子受击抖
-            cl.animate([
-                { transform: 'translate(0,0) scale(1)' },
-                { transform: `translate(${(Math.random() - 0.5) * 8}px,${(Math.random() - 0.5) * 6}px) scale(1.06)` },
-                { transform: 'translate(0,0) scale(1)' }
-            ], { duration: 260, easing: 'ease-out' });
-            // 大号伤害数字（照 fx/93 分档字号）
-            const ts = TIER_STYLE[m.tier] || TIER_STYLE.far;
-            const big = m.tier === 'direct' || m.tier === 'eight' || m.tier === 'full' && m.pos <= 3;
-            const num = document.createElement('div');
-            num.setAttribute('data-fx', 'temporary');
-            num.textContent = `−${m.dmg}`;
-            num.style.cssText = `position:absolute;left:${cellData.cx}px;top:${cellData.y - 2}px;transform:translate(-50%,0);font-size:${big ? 32 : 24}px;font-weight:900;color:${ts.badge};text-shadow:0 0 12px rgba(255,200,80,0.9),0 2px 5px rgba(0,0,0,0.95);z-index:6;pointer-events:none;`;
-            markLayer.appendChild(num);
-            num.animate([
-                { transform: 'translate(-50%,0) scale(0.6)', opacity: 0 },
-                { transform: 'translate(-50%,-16px) scale(1.18)', opacity: 1, offset: 0.3 },
-                { transform: 'translate(-50%,-44px) scale(1)', opacity: 0 }
-            ], { duration: 1250, easing: 'ease-out' }).finished.then(() => num.remove()).catch(() => num.remove());
-            // 血条扣血 + 血量数字滚动（克隆格内）
-            if (e && e.maxHp > 0) {
-                const bar = cl.querySelector('.hp-bar-inner');
-                if (bar) {
-                    const pctBefore = Math.max(0, e.hp / e.maxHp) * 100;
-                    const pctAfter = Math.max(0, (e.hp - m.dmg) / e.maxHp) * 100;
-                    bar.animate([{ height: pctBefore + '%' }, { height: pctAfter + '%' }], { duration: 420, easing: 'ease-in', fill: 'forwards' });
-                    bar.style.height = pctAfter + '%';
-                }
-                const stats = cl.querySelector('.cell-stats');
-                if (stats && stats.lastElementChild) {
-                    const hpEl = stats.lastElementChild;
-                    const before = e.hp, after = Math.max(0, e.hp - m.dmg);
-                    const t0 = performance.now();
-                    const tick = () => {
-                        const p = Math.min(1, (performance.now() - t0) / 420);
-                        hpEl.textContent = '血' + Math.round(before + (after - before) * p);
-                        if (p < 1 && cl.isConnected) requestAnimationFrame(tick);
-                    };
-                    tick();
-                }
-            }
-            await sleep(110);
-        }
-
-        // 瞄 8 特例：8 号克隆撞向 2 号位 + 😵（黑幕内简版：位移+旋转小跳，正式结算由引擎+fx/93 演）
-        if (finalAim === 8 && cellEls[8] && cells[2]) {
-            const cl8 = cellEls[8];
-            const from = cells[8], to = cells[2];
-            cl8.animate([
-                { transform: 'translate(0,0) rotate(0deg)' },
-                { transform: `translate(${(to.cx - from.cx) * 0.6}px,${(to.cy - from.cy) * 0.6}px) rotate(-8deg)`, offset: 0.6 },
-                { transform: `translate(${to.cx - from.cx}px,${to.cy - from.cy}px) rotate(6deg) scale(0.92)` }
-            ], { duration: 620, easing: 'cubic-bezier(.6,0,.8,1)', fill: 'forwards' });
-            await sleep(640);
-            const stun = document.createElement('div');
-            stun.setAttribute('data-fx', 'temporary');
-            stun.textContent = '😵 撞边眩晕';
-            stun.style.cssText = `position:absolute;left:${to.cx}px;top:${to.y - 10}px;transform:translate(-50%,0);font-size:13px;font-weight:bold;color:#cfe6ff;text-shadow:0 1px 4px rgba(0,0,0,0.95);z-index:6;pointer-events:none;`;
-            markLayer.appendChild(stun);
-        }
-
-        // 吸血（总伤害 1/3，封顶缺失生命——与 modules/27 同口径）
-        const vampDiv = (xl.vampDiv != null) ? xl.vampDiv : 3;
-        const vamp = vampDiv > 0 ? Math.min(Math.floor(total / vampDiv), Math.max(0, (hls.maxHp || 0) - (hls.hp || 0))) : 0;
-        if (vamp > 0) {
-            const vf = document.createElement('div');
-            vf.setAttribute('data-fx', 'temporary');
-            vf.textContent = `🩸 +${vamp}`;
-            vf.style.cssText = `position:absolute;left:${apex.x}px;top:${hlsRect.top - 6}px;transform:translate(-50%,0);font-size:22px;font-weight:900;color:#9ff0b0;text-shadow:0 0 10px rgba(80,220,130,0.8),0 2px 4px rgba(0,0,0,0.9);z-index:6;pointer-events:none;`;
-            overlay.appendChild(vf);
-            vf.animate([
-                { transform: 'translate(-50%,0)', opacity: 0 }, { transform: 'translate(-50%,-14px)', opacity: 1, offset: 0.3 },
-                { transform: 'translate(-50%,-48px)', opacity: 0 }
-            ], { duration: 1200, easing: 'ease-out' }).finished.then(() => vf.remove()).catch(() => vf.remove());
-        }
-
-        // 汇总 + 全场轻震
-        status.textContent = `轰出完毕：命中 ${ordered.length} 格，真伤合计 −${total}${vamp > 0 ? ` · 吸血 +${vamp}` : ''}`;
-        overlay.animate([
-            { transform: 'translate(0,0)' },
-            { transform: `translate(${(Math.random() - 0.5) * 10}px,${(Math.random() - 0.5) * 8}px)` },
-            { transform: 'translate(0,0)' }
-        ], { duration: 300, easing: 'ease-out' });
-
-        await sleep(1100);
-    };
-
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-    const finish = async (finalAim, holdMs, skipped) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timeoutId);
-        try { GlobalStore.set('bulletTimeActive', false); } catch (e) { /* noop */ }
-        if (onWinUp) window.removeEventListener('pointerup', onWinUp);
-        if (onKeyDown) window.removeEventListener('keydown', onKeyDown);
-        if (onKeyUp) window.removeEventListener('keyup', onKeyUp);
-        try {
-            if (!skipped) {
-                await playBurstLoop(finalAim);
-                // 标记：黑幕已完整演出——紧随的 fx/93 舞台动作据此降为轻量版（回放/自动挡无标记不受影响）。
-                // 跳过（skip/超时）不设标记：玩家没看黑幕演出，战场 fx/93 照常完整播
-                GlobalStore.set('hlsAimPlayedAt', Date.now());
-            }
-        } catch (e) { console.warn('[蓄意轰拳] 演出异常', e); }
-        overlay.style.opacity = '0';
-        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 260);
-        resolve({ aim: finalAim | 0, holdMs: holdMs | 0 });
-    };
-
-    // 真实时间兜底：任何原因卡住 60s 强制结束（照 fx/85 防挂死）
-    timeoutId = setTimeout(() => { if (!done) { console.warn('[蓄意轰拳] 瞄准超时，强制结束'); finish(aim, 0, true); } }, TIMEOUT_MS);
-
-    skipBtn.addEventListener('click', (ev) => { ev.stopPropagation(); if (!done) finish(aim, Math.max(0, performance.now() - holdStart) | 0, true); });
-
-    overlay.addEventListener('pointerdown', (ev) => {
-        if (done) return;
-        ev.preventDefault();
-        startHold();
-        aim = computeAim(ev.clientX, ev.clientY);
-        renderMarks();
+        if (APP.state === 'idle') startCharge();
+        aimFromPointer(ev);
     });
-    overlay.addEventListener('pointermove', (ev) => {
+    bf.addEventListener('pointermove', (ev) => {
         if (!holding || done) return;
-        ev.preventDefault();
-        const next = computeAim(ev.clientX, ev.clientY);
-        if (next !== aim) { aim = next; renderMarks(); }
+        aimFromPointer(ev);
     });
-    const onUp = (ev) => {
+    const onUp = () => {
         if (!holding || done) return;
-        const holdMs = Math.max(0, (performance.now() - holdStart) | 0);
         holding = false;
-        if (ev && ev.clientX != null) aim = computeAim(ev.clientX, ev.clientY);
-        finish(aim, holdMs, false);
+        if (APP.state === 'charge') doRelease();
     };
-    overlay.addEventListener('pointerup', onUp);
-    overlay.addEventListener('pointercancel', onUp);
-    onWinUp = onUp;
-    window.addEventListener('pointerup', onWinUp);
-    // 桌面空格键同款：按住=蓄力，松开=轰出
-    onKeyDown = (ev) => { if (ev.code === 'Space' && !done) { ev.preventDefault(); startHold(); } };
-    onKeyUp = (ev) => {
-        if (ev.code === 'Space' && holding && !done) {
-            ev.preventDefault();
-            const holdMs = Math.max(0, (performance.now() - holdStart) | 0);
-            holding = false;
-            finish(aim, holdMs, false);
-        }
-    };
+    bf.addEventListener('pointerup', onUp);
+    bf.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointerup', onUp);
+    const onKeyDown = (ev) => { if (ev.code === 'Space' && !done) { ev.preventDefault(); if (APP.state === 'idle') { holdStart = performance.now(); startCharge(); } } };
+    const onKeyUp = (ev) => { if (ev.code === 'Space' && !done) { ev.preventDefault(); if (APP.state === 'charge') doRelease(); } };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
 
+    /* —— 收尾 —— */
+    async function finish(skipped) {
+        if (done) return;
+        done = true;
+        cancelAnimationFrame(raf); raf = 0;
+        clearTimeout(timeoutId);
+        try { GlobalStore.set('bulletTimeActive', false); } catch (e) { /* noop */ }
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        const holdMs = holdStart ? Math.max(0, (performance.now() - holdStart) | 0) : 0;
+        if (!skipped && APP.state !== 'idle') {
+            // 标记：demo 循环已完整演出——紧随的 fx/93 舞台动作降为轻量版；跳过不设（战场照常完整播）
+            try { GlobalStore.set('hlsAimPlayedAt', Date.now()); } catch (e) { /* noop */ }
+        }
+        overlay.style.opacity = '0';
+        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 260);
+        resolve({ aim: APP.aimCellIndex | 0, holdMs });
+    }
+    timeoutId = setTimeout(() => { if (!done) { console.warn('[蓄意轰拳] 瞄准超时，强制结束'); finish(true); } }, 60000);
+    skipBtn.addEventListener('click', (ev) => { ev.stopPropagation(); if (!done) finish(true); });
+
     try { GlobalStore.set('bulletTimeActive', true); } catch (e) { /* noop */ }
-    renderMarks();               // 初始展示全屏兜底预览
-    requestAnimationFrame(() => { overlay.style.opacity = '1'; });   // 入场淡入
+    requestAnimationFrame(() => { overlay.style.opacity = '1'; });
 }
 
 GlobalStore.setUIHandler('showHanlisaAim', showHanlisaAim);
