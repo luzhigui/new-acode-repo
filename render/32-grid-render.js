@@ -13,7 +13,7 @@
 //   对外导出路径不变——markGridShake 与 getDodgeBreakdown/isUnitBenefitedByBuff 改 re-export 子文件；
 //   fx/88、fx/93 取 markGridShake，ui/62 取 getDodgeBreakdown/isUnitBenefitedByBuff，路径零改动。
 // ── 更早版本历史见 记录-更改履历.md
-export const VER = 'render/32-grid-render.js V7.0.0';
+export const VER = 'render/32-grid-render.js V7.0.1';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -324,6 +324,10 @@ export function renderGrid(id, camp) {
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         // 2026-10-17 寒离飒·寒冰神掌寒毒：与玄冥毒同款 ❄️ 标记
         if (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
+        // 2026-10-19 唐文亮·回春术层标记（老板需求）：🌿 或 🌿xN——不然看不出他攒着几层回血
+        if (unit.isTangWenLiang && Array.isArray(unit.state._hcStacks) && unit.state._hcStacks.length > 0) {
+            eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
+        }
 
         let logoList = [];
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
