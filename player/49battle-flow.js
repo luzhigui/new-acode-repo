@@ -8,7 +8,7 @@ export const VER = 'player/49battle-flow.js V6.4.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
-import { getBattleRng } from '../core/13battle-shared.js';
+import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { createBuffObject, buffsOfCamp, generateBuffChoices } from '../modules/28buff-tools.js';
 import { appendLogHTML } from './47renderer.js';
@@ -150,11 +150,13 @@ export async function handleHanlisaAimWindow(c, step, netLinked) {
         if (!interactive) return; // 引擎侧结算自动随机前排（modules/27 兜底）
         const showAim = GlobalStore.getUIHandler('showHanlisaAim');
         if (typeof showAim !== 'function') return; // UI 未挂（异常环境）→ 引擎兜底
+        // 2026-10-19 V3（demo 舞台照搬）：传敌我双方真值（卡面攻防血/血条 + 施术者格），图标/分档色由 ui/79 从战场活格现查
         const enemyTeam = hls.camp === CAMP_TYPES.ALLY ? step.enemy : step.ally;
-        // 2026-10-19 V2 黑幕克隆场景需要血量真值（克隆格血条扣血+血量数字滚动按引擎当前值演）
-        const enemies = (enemyTeam || []).filter(u => u && u.alive && u.pos >= 1 && u.pos <= 9)
-            .map(u => ({ pos: u.pos, hp: u.hp, maxHp: u.maxHp, name: u.name, alive: true }));
-        const choice = await new Promise(resolve => { showAim(c, hls, enemies, resolve); });
+        const allyTeam = hls.camp === CAMP_TYPES.ALLY ? step.ally : step.enemy;
+        const mk = (u) => ({ pos: u.pos, hp: u.hp, maxHp: u.maxHp, name: u.name, atk: Math.round(getStat(u, 'atk')), def: Math.round(getStat(u, 'def')) });
+        const enemies = (enemyTeam || []).filter(u => u && u.alive && u.pos >= 1 && u.pos <= 9).map(mk);
+        const allies = (allyTeam || []).filter(u => u && u.alive && u.pos >= 1 && u.pos <= 9).map(mk);
+        const choice = await new Promise(resolve => { showAim(c, hls, { enemies, allies }, resolve); });
         if (choice && typeof choice === 'object') {
             hls.state._hlsAimChosen = true;
             hls.state._hlsAim = Math.min(9, Math.max(0, choice.aim | 0));
