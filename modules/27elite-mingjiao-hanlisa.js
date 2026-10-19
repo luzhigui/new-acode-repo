@@ -9,7 +9,10 @@
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.1.0';
+// V2.1.1 | 2026-10-19 第 106 轮：轰拳真伤补纯记账 recordHpAudit(u,'hlsBurstDmg',-dmg,'蓄意轰拳·真伤')
+//   ——原该伤害只落单位级 dmgDealt/dmgTaken、无按机制 group，数值网归不了因（scan-groups 亦因无 group 看不见）；
+//   与同文件 hlsVamp/hlsHanDuDot 同范式，供 stat-decl HLS_BURST_DMG 契约对账。零游戏逻辑副作用。
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.1.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
@@ -207,6 +210,11 @@ export function createHanLiSaComponent() {
                                 const dmg = Math.floor(N / cell.den);
                                 if (dmg <= 0) return;
                                 decls.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dmg, target: u, source: hls, reason: '蓄意轰拳·真伤' });
+                                // 2026-10-19 第 106 轮补：轰拳真伤记账（纯记账，零游戏逻辑副作用）——该伤害经
+                                //   applyStatChange 只落单位级 dmgDealt/dmgTaken、无按机制 group，数值网归不了因
+                                //   （scan-groups 也因无 group 而看不见）。与同文件 hlsVamp/hlsHanDuDot 同范式，
+                                //   供 stat-decl HLS_BURST_DMG 契约按 group 'hlsBurstDmg' 与 hlsBurst.hits 声明对账。
+                                recordHpAudit(u, 'hlsBurstDmg', -dmg, '蓄意轰拳·真伤');
                                 lines.push(`${u.name} −${dmg}（真伤）`);
                                 hits.push({ uid: u.uid, pos: cell.pos, dmg, tier: cell.tier });
                                 totalDealt += dmg;
