@@ -8,7 +8,7 @@
 //   ② 张无忌本人被换位（惑人心智换位 / 乘风击退）时放弃时机判定：引擎 checkZhangSwitch 按**当前站位**算列，
 //      而换位 fact 可能晚于切换 fact 落日志（seed=8:6 首个 buff-swap 在切换 fact 之后才入 log，原 posChanged
 //      只扫 sw.idx 之前 → 漏判），开局列不再可信，故整体放弃（不判 ≠ 通过）。
-export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.0';
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.1';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // 判定一条战报条目是否为「切换近战形态」：数组/entries 里任一文本命中即可；
@@ -80,12 +80,15 @@ export const rule81 = {
                 if (snap[k] && snap[k].isZhang && snap[k].uid === zhangUid) zhangInitPos = snap[k].pos;
             }
             if (zhangInitPos == null) continue;   // 快照定位不到该张无忌：不判其时机
-            // 同列前排队友（与 checkZhangSwitch 的 front=1+col 口径一致；排除自己与马/幼狮由引擎口径统一）
+            // 同列前排队友（与 checkZhangSwitch 口径逐字对齐：alive + !isHorse + !isLionCub + 非自己 + 同列 + pos 更小）
+            // 2026-10-19 第 108 轮补 isLionCub 排除：引擎（modules/27 zhangwuji L21）排除马和幼狮，本规则原只排马。
+            //   众志成城补员 M 值 20→15（4127913）+ 六大派弱精英混入后幼狮更常进阵容，开局 snap 前排队友是幼狮时，
+            //   引擎不认为被挡（照切），本规则却按"前排队友存活"报「切换过早」——seed=1 s4 实锤误报。
             var frontPos = ((zhangInitPos - 1) % 3) + 1;
             var frontUid = null;
             for (var k2 = 0; k2 < snap.length; k2++) {
                 var u2 = snap[k2];
-                if (u2 && !u2.isHorse && u2.pos === frontPos && u2.uid !== undefined && u2.uid !== zhangUid) frontUid = u2.uid;
+                if (u2 && !u2.isHorse && !u2.isLionCub && u2.pos === frontPos && u2.uid !== undefined && u2.uid !== zhangUid) frontUid = u2.uid;
             }
             // 自身在前排（frontPos 即自己）或无同列前排队友：按现逻辑开局即切属正常口径，不判
             if (frontUid == null) continue;
