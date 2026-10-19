@@ -1,5 +1,9 @@
+// V6.1.1 | ~8200 bytes | 2026-10-19 受击黄闪分档（老板口径「按本击伤害是否溢杀」）：伤害直接把血打空
+//   （entry.isDead 且 hpAfter<=0）→ 黄闪只留 600ms，到点即上死亡态（红底 ✕ + _isDead），不等整段战报播完；
+//   血量没打空、靠斩杀/处决（executeKill，如战士斩杀「84 → 43 💀」）等流程才死的 → 维持原时长，
+//   死亡落地仍由 player/42 步末 pendingDeaths 统一处理
 // V6.1.0 | 2026-09-13 统一时间层：setTimeout/waitWhilePaused 换 clock.wait，forcedSpeed 改 1x 基准时长（特效已全部移交 stageActions，本文件只负责文本与格子闪示）
-export const VER = 'player/46attack-group.js V6.1.0';
+export const VER = 'player/46attack-group.js V6.1.1';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -48,6 +52,14 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     const lineCount = textEntries.length;
     // flash 持续时长：1x 基准（每行 600ms + 300ms 余量），clock 自动缩放/快进
     const atkFlashDuration = lineCount * 600 + 300;
+    // 2026-10-19 受击黄闪分档（老板口径：按本击伤害是否「溢杀」）：
+    //   溢杀 = 本击伤害直接把血打空（entry.isDead 且 hpAfter<=0，即 render/34 的 dmgResult.dead 路径）
+    //     → 黄闪只留 600ms，到点即上死亡态，不等整段战报播完；
+    //   非溢杀 = 血量没打空、靠斩杀/处决（executeKill，此时攻击组 isDead 但 hpAfter>0）等流程才死
+    //     → 维持原时长（多留一会儿判定），死亡落地仍由 player/42 步末 pendingDeaths 统一处理。
+    const isOverkill = !!(unitD && entry.isDead === true
+        && typeof entry.hpAfter === 'number' && entry.hpAfter <= 0);
+    const defFlashDuration = isOverkill ? 600 : atkFlashDuration;
 
     await clock.wait(200);
     if (abortSig && abortSig.aborted) return { isBattleOver: false };
@@ -58,9 +70,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     // 受击方 flash 延迟清除：用 cancel flag 替代 clearTimeout（clock.wait 不可取消）
     let defTimerCancelled = false;
     if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
-        clock.wait(atkFlashDuration).then(() => {
+        clock.wait(defFlashDuration).then(() => {
             if (defTimerCancelled) return;
-            if (c.store && unitD && !entry.isDead) {
+            if (!c.store || !unitD) return;
+            if (isOverkill) {
+                // 溢杀：黄闪到点直接进死亡态（与 player/42 步末落地同两条 dispatch；
+                //   那里有 `!_isDead` 守卫，不会重复落地）
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
+            } else if (!entry.isDead) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
             }
         });
