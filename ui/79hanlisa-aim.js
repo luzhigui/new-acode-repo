@@ -17,10 +17,108 @@
 //          shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）拆开。
 // V3.4.0 | 2026-10-19 老板口径「移到 2 号圆圈却在 5 号」：准星从「锥深位置」改钉在锁定格中心（带四向刻度），
 //          虚线瞄准线连到锁定格；未瞄准（全屏兜底）时不画线不画圈。
-export const VER = 'ui/79hanlisa-aim.js V3.4.0';
+// V3.5.0 | 2026-10-19 补腕豪风合成音效：蓄力轰鸣（锯齿+次低音+噪声，LFO 脉动随蓄力加速）+ 轰出重锤
+//          （破空扫频→110→26Hz 下砸过软削波→拍击噪声→余震）；AudioManager 门控，独立惰性 AudioContext。
+export const VER = 'ui/79hanlisa-aim.js V3.5.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
+import { AudioManager } from '../modules/22audio-manager.js';
+
+/* ================= 音效（Web Audio 合成，腕豪 W 风：蓄力轰鸣渐强 → 轰出重低音；V3.5） =================
+   · 经 AudioManager 门控（enabled / sfxVolume），独立惰性 AudioContext（用户手势内创建，autoplay 合规）
+   · 蓄力：锯齿 32→92Hz + 次低音正弦 + 低通白噪，脉动 LFO 随蓄力加速（咕噜→急促），亮度随 level 抬
+   · 轰出：60ms 破空（带通扫频）→ 次低音 110→26Hz 下砸 + 方波沙砾过软削波（闷拳重锤）→ 拍击噪声 → 0.5s 余震 */
+let _sfxAc = null;
+function sfxCtx() { if (!_sfxAc) { try { _sfxAc = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* 无音频环境 */ } } return _sfxAc; }
+function sfxVol() { try { return (typeof AudioManager !== 'undefined' && AudioManager && AudioManager.sfxVolume != null ? AudioManager.sfxVolume : 0.3) * 0.9; } catch (e) { return 0.3; } }
+function sfxAllowed() { try { return typeof AudioManager !== 'undefined' && AudioManager && AudioManager.enabled !== false; } catch (e) { return false; } }
+function noiseBuf(ctx, sec) {
+    const len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+}
+let _chargeSfx = null;
+function chargeSfxStop() { if (_chargeSfx) { try { _chargeSfx.stop(); } catch (e) { /* noop */ } _chargeSfx = null; } }
+function chargeSfxStart() {
+    if (!sfxAllowed()) return;
+    const ctx = sfxCtx(); if (!ctx) return;
+    try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) { /* noop */ }
+    chargeSfxStop();
+    const v = sfxVol();
+    const out = ctx.createGain(); out.gain.value = 0.0001; out.connect(ctx.destination);
+    const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 32;   // 轰鸣主体
+    const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 26;       // 次低音
+    const nb = ctx.createBufferSource(); nb.buffer = noiseBuf(ctx, 1.2); nb.loop = true;
+    const nf = ctx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 140; nf.Q.value = 0.8;
+    const og = ctx.createGain(); og.gain.value = 0.5, sg = ctx.createGain(); sg.gain.value = 0.7, ng = ctx.createGain(); ng.gain.value = 0.22;
+    o1.connect(og); o2.connect(sg); nb.connect(nf); nf.connect(ng);
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 5.5;    // 咕噜脉动
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0;
+    lfo.connect(lfoG); lfoG.connect(out.gain);
+    og.connect(out); sg.connect(out); ng.connect(out);
+    o1.start(); o2.start(); nb.start(); lfo.start();
+    const t = ctx.currentTime;
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(Math.max(0.02, 0.38 * v), t + 0.28);
+    _chargeSfx = { o1, o2, nb, lfo, lfoG, nf, out, ctx,
+        setLevel(l) {
+            const tt = this.ctx.currentTime;
+            this.o1.frequency.setTargetAtTime(32 + 60 * l, tt, 0.08);
+            this.o2.frequency.setTargetAtTime(26 + 12 * l, tt, 0.1);
+            this.nf.frequency.setTargetAtTime(140 + 950 * l * l, tt, 0.08);
+            this.lfo.frequency.setTargetAtTime(5.5 + 10.5 * l, tt, 0.1);
+            this.lfoG.gain.setTargetAtTime(0.20 * l, tt, 0.12);
+        },
+        stop() {
+            const tt = this.ctx.currentTime;
+            this.out.gain.setTargetAtTime(0.0001, tt, 0.03);
+            const s = tt + 0.14;
+            this.o1.stop(s); this.o2.stop(s); this.nb.stop(s); this.lfo.stop(s);
+        } };
+}
+function boomSfx(level) {
+    if (!sfxAllowed()) return;
+    const ctx = sfxCtx(); if (!ctx) return;
+    try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) { /* noop */ }
+    const t = ctx.currentTime, lv = level || 0.5, v = sfxVol() * (0.75 + 0.45 * lv);
+    // 1) 出手破空：噪声带通 500→2600 扫频 70ms
+    const wN = ctx.createBufferSource(); wN.buffer = noiseBuf(ctx, 0.1);
+    const wF = ctx.createBiquadFilter(); wF.type = 'bandpass'; wF.Q.value = 1.1;
+    wF.frequency.setValueAtTime(500, t); wF.frequency.exponentialRampToValueAtTime(2600, t + 0.07);
+    const wG = ctx.createGain(); wG.gain.setValueAtTime(0.5 * v, t); wG.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    wN.connect(wF); wF.connect(wG); wG.connect(ctx.destination); wN.start(t); wN.stop(t + 0.12);
+    // 2) 主锤：次低音 110→26Hz 下砸 + 方波沙砾过软削波
+    const sh = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(2.6 * x); }
+    sh.curve = curve;
+    const sub = ctx.createOscillator(); sub.type = 'sine';
+    sub.frequency.setValueAtTime(110, t + 0.05); sub.frequency.exponentialRampToValueAtTime(26, t + 0.42);
+    const grit = ctx.createOscillator(); grit.type = 'square';
+    grit.frequency.setValueAtTime(55, t + 0.05); grit.frequency.exponentialRampToValueAtTime(20, t + 0.4);
+    const subG = ctx.createGain(); subG.gain.value = 1.0;
+    const gritG = ctx.createGain(); gritG.gain.value = 0.32;
+    const boomG = ctx.createGain();
+    boomG.gain.setValueAtTime(0.0001, t + 0.05);
+    boomG.gain.exponentialRampToValueAtTime(Math.max(0.05, 0.95 * v), t + 0.062);
+    boomG.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    sub.connect(subG); grit.connect(gritG); subG.connect(sh); gritG.connect(sh); sh.connect(boomG); boomG.connect(ctx.destination);
+    sub.start(t + 0.05); grit.start(t + 0.05); sub.stop(t + 0.85); grit.stop(t + 0.85);
+    // 3) 拍击噪声：带通 2200→320 衰减 0.22s
+    const sN = ctx.createBufferSource(); sN.buffer = noiseBuf(ctx, 0.25);
+    const sF = ctx.createBiquadFilter(); sF.type = 'bandpass'; sF.Q.value = 0.9;
+    sF.frequency.setValueAtTime(2200, t + 0.05); sF.frequency.exponentialRampToValueAtTime(320, t + 0.27);
+    const sG = ctx.createGain(); sG.gain.setValueAtTime(0.55 * v, t + 0.05); sG.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    sN.connect(sF); sF.connect(sG); sG.connect(ctx.destination); sN.start(t + 0.05); sN.stop(t + 0.32);
+    // 4) 余震：0.5s 后一记小低音
+    const rO = ctx.createOscillator(); rO.type = 'sine';
+    rO.frequency.setValueAtTime(42, t + 0.5); rO.frequency.exponentialRampToValueAtTime(24, t + 0.78);
+    const rG = ctx.createGain(); rG.gain.setValueAtTime(0.0001, t + 0.5);
+    rG.gain.exponentialRampToValueAtTime(Math.max(0.02, 0.35 * v), t + 0.52);
+    rG.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+    rO.connect(rG); rG.connect(ctx.destination); rO.start(t + 0.5); rO.stop(t + 1.0);
+}
 
 /* ================= 一、demo 通用工具（逐字照搬 131） ================= */
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
@@ -847,6 +945,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
             stage.S.level = lvl; stage.S.aim = APP.aim;
             stage.frameCharge(el, lvl);
             updateHud(lvl);
+            if (_chargeSfx) _chargeSfx.setLevel(lvl);   // 轰鸣随蓄力变急变亮
         } else if (APP.state === 'burst') {
             const tb = now - APP.burstStart;
             if (tb > BURST_MS) {
@@ -868,6 +967,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         stage.reset();
         stage.measure();
         fistGuide.style.display = 'none';   // 引导拳头功成身退
+        chargeSfxStart();                    // 蓄力轰鸣起音（V3.5）
         APP.state = 'charge';
         APP.t0 = performance.now();
         APP.level = 0;
@@ -882,6 +982,8 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     function doRelease() {
         APP.state = 'burst';
         APP.burstStart = performance.now();
+        chargeSfxStop();
+        boomSfx(APP.level);                 // 轰出重低音（V3.5）
         APP.releaseLevel = APP.level;
         stage.S.level = APP.level;
         stage.S.aim = APP.aim;
@@ -962,6 +1064,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         done = true;
         cancelAnimationFrame(raf); raf = 0;
         clearTimeout(timeoutId);
+        chargeSfxStop();                    // 任何退出路径都掐断蓄力音（防跳过/超时嗡嗡挂死）
         try { GlobalStore.set('bulletTimeActive', false); } catch (e) { /* noop */ }
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('keydown', onKeyDown);
