@@ -1,6 +1,10 @@
+// V6.1.6 | ~9460 bytes | 2026-10-19 惑心换位候选池排除控制免疫者（寒离飒·开局常驻 _ctrlImmune）：
+//   免疫者被选中后 swapUnitPositions（core/13 L135）静默 return 不换位，但 SWAP 宣告照发 ⇒ 战报说谎
+//   （"互换位置！"而谁都没动，tests/166 判据5 误报 3 场即此根因）。候选池与既有 _flyMode 过滤同款
+//   追加 !u.state._ctrlImmune ⇒ 要么选不到 2 人走 FAIL(可用单位不足)、要么选到的都真换位，宣告与实物一致。
 // V6.1.5 | ~9430 bytes | 2026-10-15 妹永久圣火令改画行列命中制（掷骰在 modules/27 回合初，读 state._xiaoHolyFlame）
 // V6.1.4 | 2026-10-12 拒马双向参与 carry（老板拍板）：① 队友池去 !u.isHorse（活 1 份/死 2 份，与狮子同口径）；② 受益门控也去 isHorse——拒马站受益位（5；小昭·姊在场 4/5/6）时也能吃到，攻加成>0 后拒马不再休息、会出手
-export const VER = 'core/14buff-effects.js V6.1.5';
+export const VER = 'core/14buff-effects.js V6.1.6';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -99,7 +103,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
 
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ENEMY } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
-        let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
+        let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying && !u.state._ctrlImmune);
         if (enemies.length >= 2) {
             let a = enemies[rng.nextInt(0, enemies.length-1)];
             let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
@@ -114,7 +118,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     }
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ALLY } });
     if (rng.nextInt(1,100) <= swapChanceAlly) {
-        let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
+        let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying && !u.state._ctrlImmune);
         if (allies.length >= 2) {
             let a = allies[rng.nextInt(0, allies.length-1)];
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
