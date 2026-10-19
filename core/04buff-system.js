@@ -1,5 +1,5 @@
 // 版本历史见 记录-更改履历.md（检索 "core/04buff-system"）
-export const VER = 'core/04buff-system.js V6.6.1';
+export const VER = 'core/04buff-system.js V6.7.0';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -124,13 +124,26 @@ export function spawnCarryEagle(team, log) {
 
 // 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
 //   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
+//   2026-10-19 定案：buff 整局持有（content permanent:true → player/49 给 remaining=Infinity，不再四回合过期）。
+//   姊强化接线：小昭·姊在场且有团队背水 → 阈值 35%→50%（hexEnhance.lastStand.hpThreshold）。
+//   妹永久接线：团队背水不在场时，只要**任一队友**血量低于阈值，妹（isXiaoZhaoBrother）也吃背水加成。
 //   数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检核对
 //   （与 HOLY_FLAME_APPLY 同款；log 由 core/11 透传，纯记账、零游戏逻辑副作用）。
-export function applyLastStandBonus(unit, activeBuffs, log) {
-    if (!hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND)) return;
+export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
-    if (unit.hp >= unit.maxHp * (cfg.hpThreshold ?? 0.35)) return;
+    const teamHas = hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND);
+    // xiaoPermanentActive 在团队 buff 在场时返回 false（两分支天然互斥，不重复）
+    const permActive = unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.LAST_STAND);
+    if (!teamHas && !permActive) return;
+    // 姊强化阈值：仅团队版生效（团队 buff 在场才算接线，与 holyFire/holyFlame 同口径）
+    const enh = (teamHas && Array.isArray(team) && team.some(u => u.isXiaoZhaoSister && u.alive))
+        ? (getSkillParams('小昭', 'hexEnhance').lastStand || null) : null;
+    const threshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
+    const selfLow = unit.hp < unit.maxHp * threshold;
+    // 妹永久：任一队友（含她本人，本人血低时 selfLow 已成立）血低即触发
+    const mateLow = permActive && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * threshold);
+    if (!selfLow && !mateLow) return;
     addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'round', op: 'mul', group: 'lastStand' });
     if (log) log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
 }
@@ -156,7 +169,7 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
 
 // 众志成城补员：首回合场上有几人补到 5，之后每回合 +1，直到 buff 到期（唯一上限是 9 格站位）。
 //   首回合标记挂 buff 对象（跨回合同一对象，且只出现在持有它的阵营列表里，天然按阵营隔离）。
-//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开），落地即钳属性下限。
+//   召唤细节（精英技能全开 + 属性下限钳制）收在 spawnOneUnityRecruit，团队补员与妹永久召唤共用。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
 export function spawnUnityRecruits(team, log) {
     if (!team || !team.length) return;
@@ -174,35 +187,45 @@ export function spawnUnityRecruits(team, log) {
         toSpawn = 1;                           // 第二回合起每回合 +1
     }
     if (toSpawn <= 0) return;
+    // 2026-10-19 姊强化接线：小昭·姊在场且有团队众志 → 补员 M 值 15→20（hexEnhance.unity.recruitM）
+    const enh = query('xiaoHexEnhance', team, team._activeBuffs || [], BUFF_TYPES.UNITY);
+    const m = (enh && enh.recruitM != null) ? enh.recruitM : cfg.recruitM;
+    for (let i = 0; i < toSpawn; i++) {
+        if (!spawnOneUnityRecruit(team, log, m, '众志成城')) break;   // 9 格全被活人占：放弃本次落位
+    }
+}
+
+// 众志成城·单次补员（团队补员与妹永久召唤共用）：随机空位 + 池内随机 + 精英技能全开 + 属性下限钳制。
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开）；属性下限：攻 <1 归 0
+//   （0 攻走 core/11 pass 不攻击）、防 <5 补到 5、生命上限 <25 补到 25；口径同 spawnHorse/spawnUnit(stats)：
+//   建人阶段直接写基础值并同步 state._base* / _init*（getStat 只认 _base*，不回写则加成后仍读旧值）+ 满血 hp。
+//   重名保护取消（定案「完全真技能」）：补员精英不降级白板，组件多实例化由 core/11 传 self 支撑。
+export function spawnOneUnityRecruit(team, log, m, byName) {
+    if (!team || !team.length) return null;
+    const cfg = C.BUFFS.unity;
+    if (!cfg) return null;
     const camp = team.find(u => u.alive)?.camp;
     const pool = (cfg.recruitPool && cfg.recruitPool[camp === CAMP_TYPES.ENEMY ? 'enemy' : 'ally']) || [];
-    if (!pool.length) return;
+    if (!pool.length) return null;
     const rng = getBattleRng();
-    for (let i = 0; i < toSpawn; i++) {
-        const order = [];
-        for (let p = 1; p <= 9; p++) order.push(p);
-        for (let j = order.length - 1; j > 0; j--) { const k = rng.nextInt(0, j); [order[j], order[k]] = [order[k], order[j]]; }
-        const landPos = findFreePos(team, order);
-        if (landPos == null) break;   // 9 格全被活人占：放弃本次落位
-        const pick = pool[rng.nextInt(0, pool.length - 1)];
-        const recruit = spawnUnit(team, pick.name, cfg.recruitM, pick.role, landPos);
-        // 属性下限兜底：M 降到 20 后小 m 掷点会出 0 攻/纸皮召唤物——攻 <1 归 0（0 攻走 core/11 pass 不攻击）、
-        //   防 <5 补到 5，生命上限 <25 补到 25。口径同 spawnHorse/spawnUnit(stats)：建人阶段直接写基础值并同步
-        //   state._base* / _init*（getStat 只认 _base*，不回写则加成后仍读旧值）+ 满血 hp。
-        if (recruit.atk < 1) { recruit.atk = 0; recruit.state._baseAtk = 0; recruit.state._initAtk = 0; }
-        if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
-        if (recruit.maxHp < 25) {
-            recruit.maxHp = 25;
-            recruit.hp = 25;
-            recruit.state._baseMaxHp = 25;
-            recruit.state._initMaxHp = 25;
-        }
-        recruit.isUnityRecruit = true;
-        // 重名保护取消（定案「完全真技能」）：众志成城补员精英不再降级白板——身份旗标保留，
-        //   组件多实例化改由 core/11 传 self 支撑：每个同名单位各自注册组件、各自认自己
-        //   （个体 hook 按 uid 守卫、全局 hook 仅首个实例挂），同名共存是「各管各的」而非「二选一降级」。
-        if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: '众志成城' } });
+    const order = [];
+    for (let p = 1; p <= 9; p++) order.push(p);
+    for (let j = order.length - 1; j > 0; j--) { const k = rng.nextInt(0, j); [order[j], order[k]] = [order[k], order[j]]; }
+    const landPos = findFreePos(team, order);
+    if (landPos == null) return null;   // 9 格全被活人占：放弃本次落位
+    const pick = pool[rng.nextInt(0, pool.length - 1)];
+    const recruit = spawnUnit(team, pick.name, m, pick.role, landPos);
+    if (recruit.atk < 1) { recruit.atk = 0; recruit.state._baseAtk = 0; recruit.state._initAtk = 0; }
+    if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
+    if (recruit.maxHp < 25) {
+        recruit.maxHp = 25;
+        recruit.hp = 25;
+        recruit.state._baseMaxHp = 25;
+        recruit.state._initMaxHp = 25;
     }
+    recruit.isUnityRecruit = true;
+    if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城' } });
+    return recruit;
 }
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {

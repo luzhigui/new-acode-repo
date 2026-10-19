@@ -1,10 +1,12 @@
 // modules/27elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
+// V1.2.0 | ~24900 bytes | 2026-10-19 妹永久众志：团队众志不在场时每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
 // V1.1.0 | ~24500 bytes | 2026-10-18 飞天落地回血按档位：飞天时记录 _spiderLandTier，供 spiderReturn 选回血比例
 // V1.0.0 | ~24278 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.1.0';
+export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.2.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
+import { spawnOneUnityRecruit } from '../core/04buff-system.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
@@ -221,6 +223,12 @@ export function createXiaoZhaoBrotherComponent() {
                     Object.assign(bro.state, { _xiaoHolyFlame: { cols: cols.sort((x, y) => x - y), rows: rows.sort((x, y) => x - y) } });
                 }
                 if (bro.state._spiderEgg) return;
+                // 2026-10-19 妹永久众志：团队众志不在场时，每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
+                if (!hasBuff(A._activeBuffs, BUFF_TYPES.UNITY) && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.UNITY)) {
+                    if (getBattleRng().next() < CONFIG.BUFFS.unity.brotherSummonChance) {
+                        spawnOneUnityRecruit(A, log, CONFIG.BUFFS.unity.recruitM, '小昭·妹');
+                    }
+                }
                 if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
                 if (bro._fsm && bro._fsm.is('transforming')) bro._fsm.transition('normal');
                 if (bro.state._spiderTriggeredHit === undefined) Object.assign(bro.state, { _spiderTriggeredHit: false });

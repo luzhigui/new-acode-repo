@@ -1,4 +1,6 @@
 // modules/26elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
+// V6.27.1 | ~18500 bytes | 2026-10-19 谁的日志归谁（老板拍板）：反击提示行不再 pushInfo 插进攻击者的攻击组，
+//           改随 extraRequest.infoText 落到灭绝自己反击组（同殷天正反击口径，入队即死被作废时提示行也不出现）
 // V6.27.0 | ~18400 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；召唤周芷若名额跨实例共享（双灭绝任一召过即全场封顶，周芷若仍全场 1 只）；
 //           ON_ROUND_START 兜底改遍历全队灭绝（find 只 flush 第一个）
@@ -6,7 +8,7 @@
 //   handler（定义在本文件，注册在 26elite-sixsects.js 入口）：每 decl 一次 install，钩子内直接用 decl.name
 //   认跟随者，原先的 decls 遍历 + find 作废。core/15 同批瘦身（V6.8.0）删掉旧安装器，本 handler 是唯一实现
 // V6.25.0 | ~15500 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.27.0';
+export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.27.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -107,9 +109,11 @@ export function createMieJueShiTaiComponent() {
                     dmgRatio: counter.dmgRatio,
                     actedMode: 'restore',
                     actedSnapshot: miejue.state._acted,
-                    priority: 12
+                    priority: 12,
+                    // 2026-10-19 谁的日志归谁：反击提示行随反击出手落进「灭绝自己的反击组」（core/10 req.infoText），
+                    //   不再插进攻击者的组；入队即死被守卫作废时提示行也不会出现（同殷天正反击口径）
+                    infoText: `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}）</span>`
                 });
-                pushInfo(data, `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}）</span>`);
             });
 
             // 技能1b 追击（2026-10-09）：她每次打中（普攻/反击/跟随/追击本身）后 prob 概率对同一目标再打一手，

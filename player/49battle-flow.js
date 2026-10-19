@@ -1,3 +1,4 @@
+// V6.4.4 | ~7400 bytes | 2026-10-19 海克斯永久整局：自动选 buff 给 duration 时，content permanent:true（背水/圣火）→ remaining=Infinity，整局持有不过期
 // V6.4.3 | ~7300 bytes | 2026-10-16 全自动选 buff 补众志成城门槛（与 modules/28、tools/116/122 同口径）：
 //          本阵营存活 ≥4 人不进候选；BUFF_TYPES 随本行重新引入
 // V6.4.2 | ~7200 bytes | 2026-10-14 全自动选 buff 放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
@@ -42,7 +43,9 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         if (available.length > 0) {
             const rng = getBattleRng();
             const pick = available[rng.nextInt(0, available.length - 1)];
-            const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
+            // 2026-10-19 permanent 接线：content 里 permanent:true 的海克斯（背水一战/圣火不熄）→ remaining=Infinity，
+            //   整局持有、不再四回合过期（过期过滤 remaining > 0 对 Infinity 天然放行）
+            const duration = CONFIG.BUFFS[pick].permanent ? Infinity : (CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4);
             newBuff = createBuffObject(pick, duration, camp);
             // 小昭·妹永久海克斯仅明教适用
             //   2026-10-08 补查重（手选路径 20 addPermanentBuff 有守卫，全自动路径此前裸塞可重复堆同名海克斯）
