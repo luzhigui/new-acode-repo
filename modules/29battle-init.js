@@ -482,7 +482,15 @@ export function initBattleTeams(currentStage, _rng) {
         //   故在模板排位之后、周芷若/宋青书等精英之前，按身份优先表抢位（1~3 仅作极端挤占兜底）
         const twJavelin = normalUnits.find(u => u.isTangWenLiang && u.pos == null);
         if (twJavelin) {
-            for (const p of C.ENEMY_ELITE_POS_PRIORITY.tangWenLiang) {
+            // V7.5.24 老板口径「456789 随机」：旧版恒抢 4 号（优先表第一顺位），把宋青书挤到 3 号挨集火
+            //   （评测实证第3关宋青书行唐文亮 Δ+4.2 = 帮明教杀宋青书的假增益）。改每局 4~9 洗牌随机（_rng 种子化，评测可复现），
+            //   全占才走原优先表 1~3 兜底
+            const twOrder = [4, 5, 6, 7, 8, 9];
+            for (let i = twOrder.length - 1; i > 0; i--) {
+                const j = _rng.nextInt(0, i);
+                const tmp = twOrder[i]; twOrder[i] = twOrder[j]; twOrder[j] = tmp;
+            }
+            for (const p of twOrder.concat(C.ENEMY_ELITE_POS_PRIORITY.tangWenLiang)) {
                 if (!enemyPosSet.has(p)) { twJavelin.pos = p; twJavelin.state._originalPos = p; enemyPosSet.add(p); break; }
             }
         }
