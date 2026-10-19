@@ -1,4 +1,6 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
+// V1.0.5 | 2026-10-19 热血奋战横幅翻倍判据修正：原先读 e.data.isDouble（该字段不在 factData 里，恒 undefined）
+//           → 永远只出「❤️ 热血奋战」，翻倍提示丢失；改读 entry 顶层 isDouble（core/04 声明顶层 → core/10 L314 落 entry）
 // V1.0.4 | 2026-10-18 灭绝师太三击吸血回血飘字改走 HEAL 动作（afterText）：原先在 render/39 ATTACK.fx
 //          出手帧同步补发 HEAL_FLOAT，被攻击动画/闪光盖住实机看不见撒；并回与其他治疗相同的已验证通道
 // V1.0.3 | 2026-10-16 新增读本击 data.qiShangBanner → 组内 BANNER 演出（唐文亮「💢 七伤齐发！」满 7 档横幅）：
@@ -16,7 +18,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '.
 import { makeHealAction } from './38-actions-translate-heal.js';
 // 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate-attack.js V1.0.4';
+export const VER = 'render/38-actions-translate-attack.js V1.0.5';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -230,10 +232,13 @@ function makeAttackAction(data, index) {
                 afterTextEffects.push(healAction);
             }
             // 热血奋战：附一条 nonBlocking 横幅，翻倍时文案不同
+            // 2026-10-19 修「翻倍横幅不提示」：原先读 e.data.isDouble，但 isDouble 并不在声明携带的 factData 里——
+            //   core/04 把它挂在**声明顶层**，由 core/10 L314 落到 entry 顶层（entry.isDouble），
+            //   故 e.data.isDouble 恒为 undefined，横幅永远只出「❤️ 热血奋战」。改读 entry 顶层字段。
             if (e.factType === FACT_TYPES.HOT_BLOOD_HEAL) {
                 afterTextEffects.push({
                     kind: STAGE_ACTION_TYPES.BANNER,
-                    text: e.data && e.data.isDouble ? '❤️‍🔥 热血奋战（翻倍）' : '❤️ 热血奋战',
+                    text: e.isDouble ? '❤️‍🔥 热血奋战（翻倍）' : '❤️ 热血奋战',
                     factIndex: index,
                     timing: 'afterText',
                     nonBlocking: true
