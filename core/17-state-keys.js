@@ -1,6 +1,8 @@
-// V2.9.25 | 2026-10-20 删死字段：_extinctionUsed / _spiderTriggeredHit（零读写；金标 golden 需同步重录）
+// V2.9.26 | 2026-10-20 删死字段：_extinctionUsed（全库零读写，确认）；_spiderTriggeredHit 恢复登记——
+//   删 schema key 无效：写侧 modules/27 L234 `if (state._spiderTriggeredHit === undefined) 补建` 会写回，
+//   state 快照仍出该 key；须先清那行（另批）再删本字段
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.25';
+export const VER = 'core/17-state-keys.js V2.9.26';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -102,6 +104,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _heMarkRounds:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 摄魂·妹永久「点名」剩余回合数（0 = 未被点名；core/11 每回合开始先 -1、再随机点名置 2）
     _soulDrainRounds:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _spiderTriggeredHit:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredDeath:   { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
