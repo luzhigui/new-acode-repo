@@ -1,3 +1,7 @@
+// V6.2.15 | 实测 37800 bytes | 2026-10-20 「阵容」下拉新增「全部4种（一起跑）」并设为默认（老板要求）：
+//   一次自动跑把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式一起跑完（同一批 job 混排喂池，比分四次跑更省时），
+//   各模式仍分别写自己的存储键；跑完上方表显示常规 + 自动展开「模式对比」。
+//   「清空数据」同步改为四种一起清（原按当前模式单清，四轮太麻烦）。
 // V6.2.14 | 实测 36450 bytes | 2026-10-19 提示文案同步：众志成城补员 M 值 20→15（content unity.recruitM 同步）
 // V6.2.13 | 实测 36450 bytes | 2026-10-18 暴露 window.__hexDocKeys（HEX_HINTS / HEX_NAME_MAP 的 key 清单）：
 //   供新增的 tools/126-balance-alert.js 查「新增海克斯漏登记」——这两张是手工表，漏登则表里只显示 key、点开也无判断提示。
@@ -48,7 +52,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.2.14';
+export const VER = 'tools/108-hex-dashboard.js V6.2.15';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -239,7 +243,7 @@ function openHexDashboard() {
         <button class="hex-hex-close">关闭</button>
       </div>
       <div class="hex-hex-body">
-        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。也可用别处跑出的数据点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。<br>「阵容」下拉选择跑批时明教侧小昭的出现方式（仅姐姐/仅妹妹=该形态必出单小昭局；不带姐姐妹妹=重掷直到无小昭）；四种模式榜单分开存储，切换即换榜。</p>
+        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。也可用别处跑出的数据点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。<br>「阵容」下拉默认「全部4种（一起跑）」：一次把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式都跑完（各模式分键存储、共用同一批 seed，便于横向配对比较），跑完自动展开「模式对比」；也可只选某一种单跑。「清空数据」一次清掉四种模式。</p>
         <button class="hex-hex-load">加载数据</button>
         <button class="hex-hex-clear">清空数据</button>
         <button class="hex-hex-load hex-hex-run" style="margin-left:8px">⚡ 自动跑</button>
@@ -249,6 +253,7 @@ function openHexDashboard() {
           <option value="2000">7关×2000场</option>
         </select>
         <select class="hex-hex-lineup" title="阵容模式：决定跑批时明教侧小昭的出现方式" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
+          <option value="all" selected>阵容：全部4种（一起跑）</option>
           <option value="normal">阵容：常规</option>
           <option value="sister">阵容：仅姐姐（小昭·姊必出）</option>
           <option value="brother">阵容：仅妹妹（小昭·妹必出）</option>
@@ -263,12 +268,14 @@ function openHexDashboard() {
     </div>`;
   document.body.appendChild(mask);
 
-  // 打开即按当前模式加载对应榜单（模式记忆在模块级 curMode，弹窗重开不丢）
+  // 打开即按当前模式加载对应榜单（模式记忆在模块级 curMode，弹窗重开不丢）；
+  // 下拉默认停在「全部4种（一起跑）」——跑批范围全开，上方表按 curMode 显示
   const lineupSel = mask.querySelector('.hex-hex-lineup');
-  lineupSel.value = curMode;
+  lineupSel.value = 'all';
   logs = readLogs(curMode);
 
   lineupSel.addEventListener('change', () => {
+    if (lineupSel.value === 'all') return;   // 「全部4种」只是跑批范围，不切榜（看表仍按 curMode）
     curMode = lineupSel.value;
     logs = readLogs(curMode);
     mask.querySelector('#hexDashCompare').innerHTML = '';   // 换榜则收起对比视图，避免拿到旧模式的数据
@@ -292,9 +299,10 @@ function openHexDashboard() {
   });
 
   mask.querySelector('.hex-hex-clear').addEventListener('click', () => {
-    if (!confirm(`确认清空【${MODE_LABEL[curMode]}】模式的所有海克斯战斗记录？`)) return;
-    localStorage.removeItem(keyFor(curMode));
+    if (!confirm('确认清空四种阵容模式（常规 / 仅姐姐 / 仅妹妹 / 不带姐姐妹妹）的全部海克斯战斗记录？')) return;
+    for (const m of CMP_MODES) localStorage.removeItem(keyFor(m));   // V6.2.15 四种一起清
     logs = [];
+    mask.querySelector('#hexDashCompare').innerHTML = '';
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
   });
 
@@ -306,8 +314,10 @@ function openHexDashboard() {
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
     const per = parseInt(sel.value, 10) || 500;
-    const mode = lineupSel.value;      // 2026-10-14 阵容模式：透传 116，结果写进该模式自己的存储键
-    curMode = mode;
+    // 2026-10-20 V6.2.15 阵容选择 = 跑批范围：'all' 表示四种模式一起跑（默认），也可单跑某一种
+    const modeSel = lineupSel.value;
+    const modes = modeSel === 'all' ? CMP_MODES : [modeSel];
+    if (modes.length === 1) curMode = modes[0]; else curMode = 'normal';   // 四种一起跑时上方表显示常规
     runBtn.disabled = true;
     sel.disabled = true;
     lineupSel.disabled = true;
@@ -317,21 +327,24 @@ function openHexDashboard() {
     try {
       const { loadGameData } = await import('../core/01config-5v5-test.js');
       if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
-      const hexLogAll = [];
+      const hexLogAll = Object.fromEntries(modes.map(m => [m, []]));   // 按模式分桶收集
       let doneRuns = 0;
       const t0run = performance.now();
       const masterSeed = Date.now();
       const allStages = [1, 2, 3, 4, 5, 6, 7];
-      const total = allStages.length * per;
+      const total = allStages.length * per * modes.length;
       // 细粒度分片：每片 25 场。原来「一整关一个 job」只有 7 个 job——喂不满 worker 池，
       // 且各关时长不一，关间负载不均会拖长尾。分片后 worker 空一片接一片，负载自然拉平。
       // seed 逐场不变：片内 seed = 关基准 + (startIndex + i) * 7919，关基准 = masterSeed + stage*131。
+      // 多模式一起跑时四种模式共用同一套 seed（同关同场号对齐），方便横向做配对比较。
       const CHUNK = 25;
       const jobs = [];
-      for (const stage of allStages) {
-        const base = masterSeed + stage * 131;
-        for (let s = 0; s < per; s += CHUNK) {
-          jobs.push({ stage, seed: base, startIndex: s, runs: Math.min(CHUNK, per - s), label: `第${stage}关#${s / CHUNK + 1}` });
+      for (const m of modes) {
+        for (const stage of allStages) {
+          const base = masterSeed + stage * 131;
+          for (let s = 0; s < per; s += CHUNK) {
+            jobs.push({ stage, mode: m, seed: base, startIndex: s, runs: Math.min(CHUNK, per - s), label: `${MODE_LABEL[m]}·第${stage}关#${s / CHUNK + 1}` });
+          }
         }
       }
       const poolSize = getPoolSize();
@@ -345,29 +358,40 @@ function openHexDashboard() {
         jobs,
         kind: 'hex',
         poolSize,
-        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, lineupMode: mode }),
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, lineupMode: job.mode }),
         onJobDone: (finished, jobTotal, job, result) => {
           doneRuns += job.runs;
-          if (result && result.hexLog) hexLogAll.push(...result.hexLog);
+          if (result && result.hexLog) hexLogAll[job.mode].push(...result.hexLog);
         }
       });
       clearInterval(timer);
-      // 结果追加进该模式自己的存储键（常规沿用旧键，与 101 同键同格式；2026-10-14 分模式后不再混榜）
+      // 结果按模式分别追加进各自存储键（常规沿用旧键，与 101 同键同格式；2026-10-14 分模式后不再混榜）
       // 2026-10-14 V6.2.2：写入失败不再静默吞——配额满时原 catch(e){} 会让「跑完 ✅」却读回空榜显示「暂无数据」，
       //   症状与「跑不出结果」完全一样，且无从判断。现改为显式报错并提示清理；状态行同时给出实得/应有场次。
-      let saveErr = null;
-      try {
-        const prev = readLogs(mode);
-        localStorage.setItem(keyFor(mode), JSON.stringify(prev.concat(hexLogAll)));
-      } catch (e) { saveErr = e; }
-      const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      if (saveErr) {
-        status.textContent = `⚠️ 跑完 ${hexLogAll.length}/${total} 场，但写入本地存储失败（${(saveErr && saveErr.name) || saveErr}）——多半是存储配额已满。请点「清空」删掉不用模式的榜单后重跑。`;
-      } else {
-        status.textContent = `✅ 完成【${MODE_LABEL[mode]}】：${hexLogAll.length}/${total} 场记录，总耗时 ${dt}s（${poolSize} 线程并行）${hexLogAll.length < total ? '｜⚠️ 有丢场' : ''}`;
+      const saveErrs = [];
+      let savedRuns = 0;
+      for (const m of modes) {
+        try {
+          localStorage.setItem(keyFor(m), JSON.stringify(readLogs(m).concat(hexLogAll[m])));
+          savedRuns += hexLogAll[m].length;
+        } catch (e) { saveErrs.push(`${MODE_LABEL[m]}:${(e && e.name) || e}`); }
       }
-      logs = readLogs(mode);
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      const scope = modes.length > 1 ? '全部4种阵容' : MODE_LABEL[modes[0]];
+      if (saveErrs.length) {
+        status.textContent = `⚠️ 【${scope}】跑了 ${total} 场、已存 ${savedRuns} 场，写入失败（${saveErrs.join(' / ')}）——多半是存储配额已满。请点「清空数据」清掉旧榜后重跑。`;
+      } else {
+        const lost = total - savedRuns;
+        status.textContent = `✅ 完成【${scope}】：${savedRuns}/${total} 场记录，总耗时 ${dt}s（${poolSize} 线程并行）${lost > 0 ? '｜⚠️ 有丢场' : ''}`;
+      }
+      logs = readLogs(curMode);
       render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+      if (modes.length > 1) {
+        // 四种一起跑完：上方表显示 curMode（常规），并自动展开四模式对比
+        const box = mask.querySelector('#hexDashCompare');
+        box.innerHTML = '';
+        renderModeCompare(box);
+      }
     } catch (e) {
       status.textContent = '❌ 失败：' + (e && e.message ? e.message : e);
     } finally {
