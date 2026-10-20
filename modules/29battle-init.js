@@ -6,7 +6,7 @@
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.24';
+export const VER = 'modules/29battle-init.js V7.5.25';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -503,9 +503,13 @@ export function initBattleTeams(currentStage, _rng) {
             if (!placed) { let displaced = normalUnits.find(u => u.pos === 2); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } zhou.pos = 2; zhou.state._originalPos = 2; enemyPosSet.add(2); }
         }
         if (song && song.pos == null) {
+            // V7.5.25 宋青书落位修复（老板报「唐文亮一上宋青书就被挤前排暴毙」，探针实证：锁定唐文亮臂
+            //   宋青书 75% 落 2/3 号、阵亡率 22%，自然臂 80% 落 4 号、阵亡率 12%）：
+            //   他是飞行职业（m107），周芷若不在时却按「从 1 号找第一个空位」落前排——唐文亮占掉一个后排位就被顶到 2 号挨集火。
+            //   改为无周芷若时从 4 号（中后排）找起，全占才回落 1~3；有周芷若（第4关）保持原「顺延在周芷若之后」不动
             const zhouPos = zhou ? zhou.pos : 0;
             let placed = false;
-            for (let p = zhouPos + 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song.state._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
+            for (let p = (zhou ? zhouPos + 1 : 4); p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song.state._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
             if (!placed) { for (let p = 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song.state._originalPos = p; enemyPosSet.add(p); placed = true; break; } } }
             if (!placed) { let backPos = zhouPos + 1; if (backPos <= 9) { let displaced = normalUnits.find(u => u.pos === backPos); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } song.pos = backPos; song.state._originalPos = backPos; enemyPosSet.add(backPos); } }
         }
