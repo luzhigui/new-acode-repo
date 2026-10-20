@@ -11,6 +11,7 @@ export const VER = 'ui/68ui-controls.js V7.9.2';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
+import { resetBattleTransientState } from '../core/17-state-keys.js';
 import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js';
 import { clearAllEffects } from '../player/42player-core.js';
 import { resetBattleRuntime } from './74reset-runtime.js';
@@ -167,11 +168,15 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             const ctx = getPlayerContext();
             // 原班再战：恢复初始阵容（含全部单位、满血、初始属性），拒马不包含在内
             if (ctx && ctx._originalSnapshot) {
-                snap.ally = ctx._originalSnapshot.ally.map(u => u.clone());
-                snap.enemy = ctx._originalSnapshot.enemy.map(u => u.clone());
+                // 2026-10-21 跨局状态清洗（根因修复）：_originalSnapshot 克隆自「选完海克斯后的开战快照」
+                //   （ui/61 L320 把 UI 队写进快照是当局合法路径），妹的 _permanentBuffs 等整场字段会被一并存档；
+                //   不洗的话上局的巨马阵带进新局 → 第1回合蛛变就召拒马（老板 10-21 实锤）。恢复后统一
+                //   resetBattleTransientState：保留基础数值/落位锚，局内累计（永久海克斯/回春层/精通/计数）全归零
+                snap.ally = ctx._originalSnapshot.ally.map(u => resetBattleTransientState(u.clone()));
+                snap.enemy = ctx._originalSnapshot.enemy.map(u => resetBattleTransientState(u.clone()));
                 const currentUI = getState.UI();
-                currentUI.allyTeam = ctx._originalSnapshot.ally.map(u => u.clone());
-                currentUI.enemyTeam = ctx._originalSnapshot.enemy.map(u => u.clone());
+                currentUI.allyTeam = snap.ally.map(u => u.clone());
+                currentUI.enemyTeam = snap.enemy.map(u => u.clone());
                 setState.UI(currentUI);
             }
             // 2026-10-02 原班的只是阵容，战斗随机序列必须全新：snap 复用上局对象、带着旧 _rngSeed，

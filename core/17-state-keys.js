@@ -1,8 +1,9 @@
+// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
 // V2.9.26 | 2026-10-20 删死字段：_extinctionUsed（全库零读写，确认）；_spiderTriggeredHit 恢复登记——
 //   删 schema key 无效：写侧 modules/27 L234 `if (state._spiderTriggeredHit === undefined) 补建` 会写回，
 //   state 快照仍出该 key；须先清那行（另批）再删本字段
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.26';
+export const VER = 'core/17-state-keys.js V2.9.27';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -234,6 +235,24 @@ export function copyBattleStateFields(srcState, dstState) {
         }
     }
     return dstState;
+}
+
+// 2026-10-21 跨局复用单位的「整场字段」保留集：这些字段是单位创建/入阵时写的（基础数值、落位锚、
+//   幼狮认主、召唤来源），重开恢复时必须原样保留；其余整场字段（永久海克斯/回春层/精通/死亡桶/计数器）
+//   都是「局内累计」，跨局复用时必须归零——ui/68 原班再战·随机重开恢复快照时统一走 resetBattleTransientState
+const BATTLE_STATE_PRESERVE_KEYS = Object.freeze(new Set(['_lionOwnerUid', '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_initMaxHp', '_hpDmgRatio', '_originalPos']));
+
+/** 跨局复用单位时的整场字段清洗：保留创建期字段，局内累计字段全部归零（防上局状态漏进新局）
+ *  2026-10-21 立案根因：ui/61 开战把「选完海克斯后的 UI 队」写进快照（妹的 _permanentBuffs 藉此进引擎，
+ *  当局合法）；player/42 又把该快照克隆成 _originalSnapshot（原班再战存档）；原班再战恢复脏存档 →
+ *  妹开局带着上局巨马阵 → 第1回合蛛变召拒马。此函数挂在恢复出口，单点断链。 */
+export function resetBattleTransientState(unit) {
+    if (!unit || !unit.state) return unit;
+    for (const [key, spec] of Object.entries(BATTLE_STATE_SCHEMA)) {
+        if (BATTLE_STATE_PRESERVE_KEYS.has(key)) continue;
+        unit.state[key] = spec.default;
+    }
+    return unit;
 }
 
 /** 拷贝全量状态字段（回合级 + 整场）到目标 state */
