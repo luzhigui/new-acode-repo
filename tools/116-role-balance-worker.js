@@ -1,10 +1,11 @@
 // V1.10.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：allyFlagMap 加 isHanLiSa
+// V1.10.0 | 2026-10-21 pickHexBuff 补妹永久海克斯继承（口径对齐正式服与 108 hex job；112 精英评测此前跑的是妹无继承的平行世界、系统性低估妹）
 // V1.10.1 | 2026-10-16 elite/soloElite/noElite/weakElite 四 job 加 startIndex：片内种子 = seed + (startIndex+i)×7919
 //           （对齐 hex 的口径）——分片粗细不换采样；旧调用不传 startIndex 默认 0，行为不变（配 112 V2.8.1）
 // V1.10.0 | ~39500 bytes | 2026-10-16 新增 kind:'weakElite'（runWeakEliteJob）：弱精英单测 + 自然配对对照（配 112 V2.8.0「🐦 弱精英评测」）——
 //   明教侧弱精英（杨逍/殷天正）走 modules/29 forceWeakElite 的明教弱精英混入块；六大派侧（何太冲/唐文亮）走六大派 M104 数字空位具名锁定；
 //   arm:'natural' 时不设任何 force、只统计整关明教胜率。同一 (stage,chunk) 的 elite 臂与 natural 臂共用同一 seed 序列 → Δ 为配对差。
-// V1.9.2 | ~36700 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）：
+// V1.10.0 | ~36700 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）：
 //        pickHexBuff / hexPicker 两处重复实现此前漏这条，跑批里 unity 满员也在候选，与正式服口径不一致
 // V1.9.1 | ~36500 bytes | 2026-10-16 clearBattleGlobals 补清 forceWeakElite（modules/29 新增的弱精英锁定标志，同批弱精英定案）：
 //        漏清则跑完弱精英单局后该标志常驻 worker，之后所有 job 都被强塞同一弱精英，弱精英自然出场率被系统性高估
@@ -139,7 +140,17 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
     if (available.length === 0) return null;
     const pick = available[rng.nextInt(0, available.length - 1)];
     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
-    return createBuffObject(pick, duration);
+    const nb = createBuffObject(pick, duration);
+    // 2026-10-21 口径统一（老板「我不信胜率那么高」案）：正式服四个入口（ui/61/65/70、player/49）选完海克斯
+    //   都调 addPermanentBuff 给妹永久继承——此前只有 108 hex job 的内联 picker 有、本共享 picker 漏了，
+    //   112 精英评测跑的是「妹无永久海克斯」的平行世界，系统性低估妹（22:28 那张表妹总评 30.1% 即此口径）。
+    //   补上后与正式服同规则；无妹阵容天然 no-op（职业平衡/无精英基线不受影响）。
+    const brother = allyTeam.find(u => u.alive && u.isXiaoZhaoBrother);
+    if (brother) {
+        const extra = pick === BUFF_TYPES.HOLY_FLAME ? { cols: nb.cols, rows: nb.rows } : {};
+        addPermanentBuff(brother, pick, nb.name, extra);
+    }
+    return nb;
 }
 
 function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
