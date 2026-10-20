@@ -4,6 +4,11 @@
 //   dmgDealt/dmgTaken，scan-groups 因无 group 看不见；第 105 轮闭环 hlsVamp 后人工复核同技能其他数值时发现）。
 //   主代码 modules/27 V2.1.1 同处补 recordHpAudit(u,'hlsBurstDmg',-dmg)（纯记账）；契约读 hlsBurst.hits，
 //   44 条声明/偏差 0。dir=-1 镜像 XUAN_MING_DOT；天上无敌挡血不计实际（免疫效应如实呈现，已留档）。
+// V3.8.6 | 2026-10-20 第 110 轮：HE_TAICHONG_RED 声明口径对齐账本——extract 去掉 grants 的 >0 过滤。
+//   根因（探针实证 seed=88888 s5 r4）：何太冲红血同帧可叠 战士(+3)/远程(-2)/转远程(-2)/两仪互换(+3) 四套，
+//   远程职业 def 加成为负；旧口径只收正向声明（6）而账本 groupDelta 四套全算（净 2）⇒ 恒定假阳性 2 处。
+//   该形态由并行会话 RNG 流改动抖出（modules/26/23、core/13 addMod 自第 106 轮全绿以来零改动，非回归）。
+//   单场隔离跑 88888:5 不出现（只叠一套 +3）——全场序 60 场标准样本才复现，属跨场状态串场后的形态。
 // V3.8.4 | 2026-10-19 第 105 轮：scan-groups 扫地闭环 hlsVamp 盲区（55 契约）——寒离飒蓄意轰拳·吸血
 //   （modules/27 L266-269，vamp=总伤害1/3封顶缺失血；L268 ROUND_STAT_GRANT 声明 + L269 recordHpAudit 实际）。
 //   声明侧读 SKILL_ANNOUNCE 的 hlsBurst 载荷（apexUid/vamp，回放桥同源）；23 条声明/偏差 0，未覆盖清零。
@@ -167,7 +172,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.5';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.6';
 
 import { fileURLToPath } from 'node:url';
 
@@ -1007,9 +1012,13 @@ const CONTRACTS = [
                 if (!Array.isArray(d.grants)) return;
                 for (const g of d.grants) {
                     if (!g || g.uid == null) continue;
-                    if (typeof g.atk === 'number' && g.atk > 0) out.push({ unit: null, uid: g.uid, stat: 'atk', amount: g.atk });
-                    if (typeof g.def === 'number' && g.def > 0) out.push({ unit: null, uid: g.uid, stat: 'def', amount: g.def });
-                    if (typeof g.maxHp === 'number' && g.maxHp > 0) out.push({ unit: null, uid: g.uid, stat: 'maxHp', amount: g.maxHp });
+                    // 第 110 轮修：去掉 >0 过滤——远程职业加成为负（def -2），何太冲红血可同帧叠
+                    //   战士(+3)/远程(-2)/转远程(-2) 多套（seed=88888 s5 r4 实证）。旧口径只收正向
+                    //   声明 ⇒ 声明 6 vs 账本净 2 假阳性。声明与账本口径对齐：引擎 addMod 落什么
+                    //   （含负值），契约就收什么；0 值无比对意义仍跳过。
+                    if (typeof g.atk === 'number' && g.atk !== 0) out.push({ unit: null, uid: g.uid, stat: 'atk', amount: g.atk });
+                    if (typeof g.def === 'number' && g.def !== 0) out.push({ unit: null, uid: g.uid, stat: 'def', amount: g.def });
+                    if (typeof g.maxHp === 'number' && g.maxHp !== 0) out.push({ unit: null, uid: g.uid, stat: 'maxHp', amount: g.maxHp });
                 }
             };
             for (const f of stepLog || []) {
