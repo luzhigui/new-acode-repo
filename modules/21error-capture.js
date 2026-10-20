@@ -1,15 +1,20 @@
+// V6.0.1 | 2026-10-20 面板创建改「有则复用」：index.html <head> 内联段若已因早期错误建过同名 panel，不再建第二个同 id 面板
 // V6.0.0 | ~5900 bytes | 2026-07-05
-export const VER = 'modules/21error-capture.js V6.0.0';
+export const VER = 'modules/21error-capture.js V6.0.1';
 
 (function initErrorCapture() {
-    // ---------- 创建面板 ----------
-    const errorPanel = document.createElement('div');
-    errorPanel.id = 'errorCapturePanel';
-    errorPanel.style.cssText = 
-        'position:fixed;bottom:0;left:0;right:0;max-height:25vh;overflow-y:auto;' +
-        'background:rgba(20,0,0,0.92);color:#f88;font-size:10px;z-index:99999;' +
-        'padding:4px 8px;font-family:monospace;display:none;';
-    document.body.appendChild(errorPanel);
+    // ---------- 创建面板（index.html <head> 内联段可能已因早期加载错误建过同名 panel：
+    //            有则复用，避免双 id / 两条线写进两个面板）----------
+    const errorPanel = document.getElementById('errorCapturePanel') || (() => {
+        const p = document.createElement('div');
+        p.id = 'errorCapturePanel';
+        p.style.cssText = 
+            'position:fixed;bottom:0;left:0;right:0;max-height:25vh;overflow-y:auto;' +
+            'background:rgba(20,0,0,0.92);color:#f88;font-size:10px;z-index:99999;' +
+            'padding:4px 8px;font-family:monospace;display:none;';
+        document.body.appendChild(p);
+        return p;
+    })();
 
     // 按钮栏
     const btnBar = document.createElement('div');

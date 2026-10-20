@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
 // V6.0.0 | 更新：2026-07-21 合并新模块
 // 【已废弃 2026-08-22】本脚本暂停使用：MODULES 清单严重过期（引用 5 个已删文件、缺 12 个现存文件），直接跑必失败。
 // 复用前必须按磁盘现状全量重写 MODULES 与 VER_GLOBAL_MAP。此前仅作历史参考保留。
@@ -39,7 +39,6 @@ const MODULES = [
     'player/47renderer.js',
     'player/45event-handlers.js',
     'modules/24battle-store.js',
-    'player/43animation-scheduler.js',
     'player/42player-core.js',
     'player/44battle-player-5v5-test.js',
     // --- UI 层 ---
@@ -89,7 +88,6 @@ const VER_GLOBAL_MAP = {
     '40player-text.js':               'VER_TEXT',
     '41player-buff-ui.js':            'VER_BUFF_UI',
     '42player-core.js':               'VER_PLAYER_CORE',
-    '43animation-scheduler.js':      'VER_ANIM_SCHEDULER',
     '44battle-player-5v5-test.js':    'VER_PLAYER',
     '60main-utils.js':                'VER_MAIN_UTILS',
     '62ui-render-5v5-test.js':        'VER_UI',

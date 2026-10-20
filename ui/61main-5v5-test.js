@@ -28,7 +28,7 @@ import {
     tickBuffDurations, getActiveBuffList,
     logTeamInfo, abortAll
 } from './65main-battle.js';
-import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
+import { setBGMVolume, fadeBGMTo, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
 import { bindCopyLogButton } from './64main-dialogs.js';

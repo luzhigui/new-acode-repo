@@ -1,5 +1,7 @@
+// V6.1.1 | 2026-10-20 删死代码：playSlash（CONFIG.SFX 无 'slash' 映射 ⇒ 'slash' 分支永不可达）+ CONFIG.SFX 删 DEFENDER:'hammer'
+//   （role 改写补丁保留：DEFENDER 先回落 WARRIOR 借战士音效）+ initSfx 死 guard 收敛
 // V6.0.0 | ~8000 bytes | 2026-07-05
-export const VER = 'modules/22audio-manager.js V6.1.0';
+export const VER = 'modules/22audio-manager.js V6.1.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 
@@ -48,9 +50,7 @@ export async function initSfx() {
     const sfxConfig = CONFIG.SFX || {};
     const promises = [];
     for (const [role, path] of Object.entries(sfxConfig)) {
-        if (path !== 'hammer' && path !== 'slash') {
-            promises.push(loadSfxBuffer(role, path));
-        }
+        promises.push(loadSfxBuffer(role, path));
     }
     await Promise.all(promises);
 }
@@ -113,45 +113,7 @@ function playBufferSfx(key, volume) {
 
 
 
-// 战士专用：低频斩击合成音效
-function playSlash() {
-    const ctx = getAudioCtx();
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(200, now);
-    osc.frequency.linearRampToValueAtTime(80, now + 0.2);
-    gain.gain.setValueAtTime(0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(now + 0.2);
-
-    const noiseDuration = 0.15;
-    const bufferSize = ctx.sampleRate * noiseDuration;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const noiseGain = ctx.createGain();
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.setValueAtTime(1500, now);
-    noiseGain.gain.setValueAtTime(0.2, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + noiseDuration);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-    noise.start();
-    noise.stop(now + noiseDuration);
-}
-
-// 狮吼合成音效：双锯齿低吼滑落 + 颤音 LFO + 气息噪声，低通收尾（无 mp3 素材，与 playSlash 同为合成路线）
+// 狮吼合成音效：双锯齿低吼滑落 + 颤音 LFO + 气息噪声，低通收尾（无 mp3 素材，走合成路线）
 function playLionRoar(volume = 0.3) {
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
@@ -438,11 +400,7 @@ export const AudioManager = {
 
             const ctx = getAudioCtx();
             if (ctx.state === 'suspended') { ctx.resume(); }
-            if (sfx === 'slash') {
-                playSlash();
-            } else {
-                playBufferSfx(role, this.sfxVolume);
-            }
+            playBufferSfx(role, this.sfxVolume);
         } catch (e) {
             // 音效播放失败不影响游戏
         }

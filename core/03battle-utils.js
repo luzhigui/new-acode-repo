@@ -1,10 +1,11 @@
+// V6.3.3 | 2026-10-20 删死代码：getFlyDodgeRate / getActiveBuffs / hasAnyEnemyEmptyCol / hasEnemyLowHp（零调用）+ 随之无用的 CAMP_TYPES import
 // V6.3.2 | ~18100 bytes | 2026-10-19 概率连击无视遮挡定案：registerDoubleStrike 的 ignoreBlock 恒 true（团队版/妹永久/姊强化一律穿透遮挡；姊强化仍 100% 连击）
-export const VER = 'core/03battle-utils.js V6.3.2';
+export const VER = 'core/03battle-utils.js V6.3.3';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import {
     calcDamage,
     getFangLevelPure,
@@ -86,13 +87,6 @@ export function getBenefitTargets(team, opts = {}) {
     );
 }
 
-export function getFlyDodgeRate(unit, attacker) {
-    const FLY_BASE_DODGE = C.BASE_DODGE_FLY;
-    if (unit.state._canAlwaysDodge) return FLY_BASE_DODGE;
-    if (unit.role === ROLE_TYPES.FLYER) return FLY_BASE_DODGE;
-    return C.BASE_DODGE_GROUND;
-}
-
 // 2026-09-16 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
 // 返回 { total, sources }，total 为百分点，sources 为 { label, value } 明细
 // 2026-09-30 V6.5.0 口径统一：CONFIG 里未命中率改按「1 = 100%」存（0.06 = 6%），本函数在此 ×100 还原，
@@ -167,20 +161,7 @@ export function getZhangNearTaunt(nearAtkCount) {
     return pool[nearAtkCount - 1] || null;
 }
 
-export function getActiveBuffs(allies, enemy) {
-    let ally = allies[0]?.camp === CAMP_TYPES.ALLY ? allies : enemy;
-    return ally._activeBuffs || [];
-}
 export function hasBuff(buffs, buffKey) { return buffs.some(b => b.key === buffKey); }
-
-export function hasAnyEnemyEmptyCol(enemySide) {
-    const cols = [[1,4,7], [2,5,8], [3,6,9]];
-    return cols.some(poses => !enemySide.some(u => u.alive && poses.includes(u.pos)));
-}
-
-export function hasEnemyLowHp(enemySide, threshold = C.LOW_HP_THRESHOLD) {
-    return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
-}
 
 // 职业能力判据（2026-10-12 何太冲·两仪双修）：默认「本职业才具备」，
 //   被授予 _dualSchools 的单位额外获得对应职业能力（连接搭档由 modules/26 打标）。

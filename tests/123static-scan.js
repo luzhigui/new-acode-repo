@@ -79,7 +79,7 @@ export const SCAN_FILES = [
     '../modules/27elite-mingjiao.js', '../modules/28buff-tools.js',
     '../modules/29battle-init.js', '../modules/30custom-effects.js',
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
-    '../player/43animation-scheduler.js', '../player/44battle-player-5v5-test.js',
+    '../player/44battle-player-5v5-test.js',
     '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
     '../player/48battle-report.js', '../player/49battle-flow.js',
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',

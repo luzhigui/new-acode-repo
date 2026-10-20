@@ -1,3 +1,4 @@
+// V1.3.5 | 2026-10-20 删死代码：getRolePopupMark（零调用，ui/62 detailPopup 走弹窗标记硬编码）
 // render/37-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
 // V1.3.4 | ~11100 bytes | 2026-10-17 新增寒离飒名片卡（☀️九阳神拳 / ❄️寒冰神掌 / 🌀蓄力，content 单源）
 // V1.3.3 | ~10800 bytes | 2026-10-17 唐文亮重做：名片卡四条（💢七伤拳/⚡冲刺·七伤齐发/🌿回春术/💥同归于尽）；
@@ -230,12 +231,6 @@ export function getRoleIcon(u, ctx) {
         : (u.role === ROLE_TYPES.DEFENDER ? '🛡️'
             : (u.role === ROLE_TYPES.RANGED ? '🏹'
                 : (u.role === ROLE_TYPES.JAVELIN ? '🪠' : '🦅')));
-}
-
-// 弹窗标题后缀（如 🐴 / [无忌] / [韦一笑]）
-export function getRolePopupMark(u) {
-    const c = firstCard(u, null);
-    return (c && c.popupMark) || '';
 }
 
 // 战斗日志标签（如 [拒马] / [无忌] / [韦一笑]）
