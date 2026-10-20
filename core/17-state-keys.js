@@ -1,5 +1,6 @@
+// V2.9.25 | 2026-10-20 删死字段：_extinctionUsed / _spiderTriggeredHit（零读写；金标 golden 需同步重录）
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.24';
+export const VER = 'core/17-state-keys.js V2.9.25';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -90,7 +91,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _butterflyHp:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyHpTransfer:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _spiderRemaining:        { type: STATE_FIELD_TYPES.NUMBER,  default: 3 },
-    _extinctionUsed:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _linkedPartnerUid:       { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 何太冲·两仪双修：附加的对方职业能力（连接建立时写入、整场保留；core/03 三个特效声明按它放行）
     _dualSchools:            { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
@@ -102,7 +102,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _heMarkRounds:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 摄魂·妹永久「点名」剩余回合数（0 = 未被点名；core/11 每回合开始先 -1、再随机点名置 2）
     _soulDrainRounds:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _spiderTriggeredHit:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered70:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggered40:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredDeath:   { type: STATE_FIELD_TYPES.BOOLEAN, default: false },

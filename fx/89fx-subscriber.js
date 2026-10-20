@@ -1,5 +1,6 @@
+// V6.1.4 | 2026-10-20 删死代码：DODGE_BULLET_TIME / POSITION_SWAP 两条订阅 + 对应两个死 import（信号已删，39 直调函数）
 // V6.1.3 | ~5519 bytes | 2026-10-12 TRIGGER 转发补第 12 参 markBurst（何太冲箭靶碎裂，透传给 fx/88）
-export const VER = 'fx/89fx-subscriber.js V6.1.3';
+export const VER = 'fx/89fx-subscriber.js V6.1.4';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -9,7 +10,7 @@ import {
     showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, showDefBuffFloat,
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
     showKuLianEffect, showWindClaw, showSplashArrows, showBoneClaw, showMeditateEffect,
-    animatePositionSwap, animatePushBack, animatePushSwap, showDodgeBulletTime, showMiejueCountFloat,
+    animatePushBack, animatePushSwap, showMiejueCountFloat,
     showHorseDissolve
 } from './87fx-manager.js';
 import {
@@ -50,7 +51,6 @@ eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain
 eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, (d) => showDefBuffFloat(d.unit, d.gain));   // 2026-10-01 钢蓝🛡，镜像位
 eventBus.on(FX_SIGNALS.HORSE_DISSOLVE, P, (d) => showHorseDissolve(d.unit));          // 2026-10-01 拒马沙化消散
 eventBus.on(FX_SIGNALS.DODGE_BUBBLE, P, (d) => showDodgeBubble(d.unit, d.text));
-eventBus.on(FX_SIGNALS.DODGE_BULLET_TIME, P, (d) => showDodgeBulletTime(d.unitA, d.unitD, 0));
 eventBus.on(FX_SIGNALS.BRUSH_EFFECT, P, (d) => applyBrushEffect(d.el));
 eventBus.on(FX_SIGNALS.HEART_EFFECT, P, (d) => showHeartEffect(d.unit));
 eventBus.on(FX_SIGNALS.PINK_FLASH, P, (d) => showPinkFlash(d.unit));
@@ -58,7 +58,6 @@ eventBus.on(FX_SIGNALS.KULIAN, P, (d) => showKuLianEffect(d.unit, d.team));
 eventBus.on(FX_SIGNALS.WIND_CLAW, P, (d) => showWindClaw(d.unit));
 eventBus.on(FX_SIGNALS.BONE_CLAW, P, (d) => showBoneClaw(d.attacker, d.target, null, d.opts));
 eventBus.on(FX_SIGNALS.SPLASH_ARROWS, P, (d) => showSplashArrows(d.attacker, d.primary, d.targets, (st) => shakeTarget(st.uid, 300)));
-eventBus.on(FX_SIGNALS.POSITION_SWAP, P, (d) => animatePositionSwap(d.unitA, d.unitB, d.c, d.opts));
 eventBus.on(FX_SIGNALS.PUSH_SWAP, P, (d) => animatePushSwap(d.target, d.behind, d.c, d.opts));
 eventBus.on(FX_SIGNALS.PUSH_BACK, P, (d) => animatePushBack(d.target, d.c, d.newPos, d.opts));
 eventBus.on(FX_SIGNALS.BUTTERFLY_FLY_OUT, P, (d) => showButterflyFlyOut(d.sister, d.host));

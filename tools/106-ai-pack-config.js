@@ -96,7 +96,7 @@ export const ALL_PROJECT_FILES = [
     '../core/06battle-runner.js',
     '../core/07-target-strategies.js',
     // player（播放器）
-    '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
+    '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
     '../player/48battle-report.js', '../player/49battle-flow.js',
     // 2026-10-08 补登记 50/51：玩家层战报导出（42/61/64/68 已 import）与战报日志分析（64 已 import）

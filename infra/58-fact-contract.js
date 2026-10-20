@@ -1,7 +1,9 @@
+// V1.5.13 | 2026-10-20 删死代码：buildTranslatorMap（零调用，V1.0.0 注册表改造前残留）+ 头部注释纠偏
+//   buildRendererMap 保留——tests/smoke-headless.mjs 契约对账（FACT_SPECS→渲染映射完整性）在用，非死代码
 // V1.5.12 | ~17300 bytes | 2026-10-13 体检第 84 轮契约对账补登记（零行为差异）：BAGUA_ARRAY / QIAN_KUN_UPGRADED /
 //          QIAN_KUN_BASIC 三条 38 翻译表内已有产动作翻译器（-stat.js，2026-10-05 起），58 仍登记 translateFn:null
 //          ——契约谎称「不产生 stageAction」，由 tests/contract-consistency.mjs 翻译器契约方向B 抓出，补登记函数名
-export const VER = 'infra/58-fact-contract.js V1.5.12';
+export const VER = 'infra/58-fact-contract.js V1.5.13';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -12,8 +14,9 @@ import { FACT_TYPES } from './56-battle-enums.js';
  *   - renderFn: 30-fact-renderer.js 中的渲染函数名（null 表示无渲染，renderLog 返回 null）
  *   - translateFn: 31-stage-actions.js 中的翻译函数名（null 表示不产生 stageAction）
  *
- * 新增 factType 只需在此登记一条，30/31 通过 buildRendererMap / buildTranslatorMap
- * 自动生成映射表，不再需要手动同步四处。
+ * 新增 factType 只需在此登记一条（本表供契约校验 / 体检对账用）。
+ * 实际映射：render/30 走副作用 import + registerFactRenderer 自注册；render/38 手工合成 FACT_TRANSLATORS。
+ * buildRendererMap 仅供 tests/smoke-headless.mjs 对账；buildTranslatorMap 已删（零调用）。
  */
 export const FACT_SPECS = Object.freeze({
     // 攻击/闪避核心
@@ -208,7 +211,9 @@ export function validateFactContract(type, data) {
 }
 
 /**
- * 从 FACT_SPECS 生成渲染映射表，供 30-fact-renderer.js 使用。
+ * 从 FACT_SPECS 生成渲染映射表。
+ * 生产渲染走 render/30 的副作用 import + registerFactRenderer 自注册；
+ * 本函数现仅被 tests/smoke-headless.mjs 用于「FACT_SPECS → 渲染器映射完整性」对账。
  * @param {Object<string, Function>} rendererFns - 渲染函数集合（key 为函数名，value 为函数）
  * @returns {Object<string, Function>} factType → 渲染函数
  */
@@ -227,22 +232,3 @@ export function buildRendererMap(rendererFns) {
     return map;
 }
 
-/**
- * 从 FACT_SPECS 生成翻译映射表，供 31-stage-actions.js 使用。
- * @param {Object<string, Function>} translatorFns - 翻译函数集合（key 为函数名，value 为函数）
- * @returns {Object<string, Function>} factType → 翻译函数
- */
-export function buildTranslatorMap(translatorFns) {
-    const map = {};
-    for (const [type, spec] of Object.entries(FACT_SPECS)) {
-        if (!spec.translateFn) { map[type] = null; continue; }
-        const fn = translatorFns[spec.translateFn];
-        if (typeof fn !== 'function') {
-            console.error(`[58] 翻译函数未注册: ${spec.translateFn}（factType ${type}）`);
-            map[type] = null;
-            continue;
-        }
-        map[type] = fn;
-    }
-    return map;
-}

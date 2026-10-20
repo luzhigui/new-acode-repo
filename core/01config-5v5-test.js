@@ -292,8 +292,7 @@ const CONFIG = {
     SFX: {
         [ROLE_TYPES.RANGED]: 'assets/sfx_arrow.mp3',
         [ROLE_TYPES.FLYER]: 'assets/sfx_fly.mp3',
-        [ROLE_TYPES.WARRIOR]: 'assets/sfx_melee.mp3',
-        [ROLE_TYPES.DEFENDER]: 'hammer'
+        [ROLE_TYPES.WARRIOR]: 'assets/sfx_melee.mp3'
     },
     get BUFFS() {
         return getGameData().buffs;
@@ -358,7 +357,7 @@ const CONFIG = {
     XUANMING_EXTRA_M: 104,            // 第 5 关玄冥二老齐出时额外补的普通兵 M 值
 
     // ── 参数体系收敛批 3：战斗通用规则常量 ──
-    LOW_HP_THRESHOLD: 0.4,                 // 低血判据阈值（03 攻击未命中残血光环 / hasEnemyLowHp 默认）
+    LOW_HP_THRESHOLD: 0.4,                 // 低血判据阈值（03 攻击未命中残血光环）
     EXEC_THRESHOLD: 0.15,                  // 战士斩杀阈值（03）
     EXEC_THRESHOLD_BLOODTHIRST: 0.20,      // 嗜血状态下战士斩杀阈值（03）
     HORSE_M: 15,                           // 拒马单位预算 M（05 spawnHorse）
@@ -379,6 +378,6 @@ const CONFIG = {
 
 
 
-const STATE = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER', STATS: 'STATS', BUFF_SELECT: 'BUFF_SELECT' };
+const STATE = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
 
 export { CONFIG, STATE };

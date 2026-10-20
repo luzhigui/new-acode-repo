@@ -1,5 +1,7 @@
+// V6.1.3 | 2026-10-20 删死代码：registry + playEffect + registerEffect（零调用；「按名调特效」旧设计残留，
+//   39/88/89 一律直 import 函数名，不经名称分派）
 // V6.1.1 | 2026-09-24 转出 showMiejueCountFloat（灭绝计数飘字）｜ 预估 2.6 KB
-export const VER = 'fx/87fx-manager.js V6.1.2';
+export const VER = 'fx/87fx-manager.js V6.1.3';
 
 import {
     showDanmaku,
@@ -46,35 +48,6 @@ import {
 
 import { showLionRoar } from './91fx-lion-roar.js';
 import { showHanLiSaBurst } from './93-hanlisa-burst.js';
-
-// 特效注册表：新增特效在这里加 key
-const registry = {
-    damageFloat: showDamageFloat,
-    healFloat: showHealFloat,
-    dodgeBubble: showDodgeBubble,
-    danmaku: showDanmaku,
-    splash: showSplashArrows,
-    claw: showBoneClaw,
-    butterflyFlyOut: showButterflyFlyOut,
-    butterflyFlyBack: showButterflyFlyBack,
-    spiderAscend: showSpiderAscend,
-    spiderDescend: showSpiderDescend,
-    spiderStrike: showSpiderStrike
-};
-
-// 按名称调用特效，args 透传
-export function playEffect(name, ...args) {
-    const fn = registry[name];
-    if (!fn) {
-        console.warn(`[FX] 未注册特效: ${name}`);
-        return undefined;
-    }
-    return fn(...args);
-}
-
-export function registerEffect(name, fn) {
-    registry[name] = fn;
-}
 
 export {
     showDanmaku,

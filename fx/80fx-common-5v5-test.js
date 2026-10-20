@@ -1,8 +1,9 @@
+// V6.3.12 | 2026-10-20 删死代码：applyBrushEffectOnHeal（零调用，死亡画笔实际只用 applyBrushEffect）
 // V6.3.11 | ~33275 bytes | 2026-10-17 修 showMiejueCountFloat 最右列飘字换行：只设 left（格子中心）无 right，
 //   shrink-to-fit 宽度上限=视口宽-left，最右列可用宽度不足导致「⚔️反击！」等文本竖排；加 white-space:nowrap 固定单行
 // V6.3.10 | 2026-10-12 新增 showMarkBurst（何太冲箭靶碎裂）：🎯 命中帧急弹 → 崩裂放大消散 + 金环冲击 + 4 片碎光四散；
 //   一次性元素（data-fx=temporary）不走对象池；由 fx/88 命中帧调用（伤害弹幕 1100ms 之前），快进在其入口已拦
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.11';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.12';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -392,7 +393,6 @@ function _executeBrush(div) {
     });
 }
 export function applyBrushEffect(div) { _executeBrush(div); }
-export function applyBrushEffectOnHeal(div, nextDiv) { _executeBrush(div); if (nextDiv) _executeBrush(nextDiv); }
 
 // 乘风突袭波及爪痕特效（视觉由 CSS 动画承担，clock 只负责移除时机）
 export function showWindClaw(unit) {
