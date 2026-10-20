@@ -8,7 +8,11 @@
 //   ② 张无忌本人被换位（惑人心智换位 / 乘风击退）时放弃时机判定：引擎 checkZhangSwitch 按**当前站位**算列，
 //      而换位 fact 可能晚于切换 fact 落日志（seed=8:6 首个 buff-swap 在切换 fact 之后才入 log，原 posChanged
 //      只扫 sw.idx 之前 → 漏判），开局列不再可信，故整体放弃（不判 ≠ 通过）。
-export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.1';
+// V6.3.2 | 2026-10-20 第 111 轮：补「爪击处决致死」死亡信号。CLAW_EXECUTE fact 只带 targetUid、
+//   render/35 不写 isDead，故前排队友被九阴白骨爪斩杀后本规则仍当其存活 → 张无忌第1回合切换被判
+//   「时机过早」（seed=1 stage=4 实锤：pos5 张无忌的同列前排 pos2 明教弟子2 第31条被斩杀）。
+//   现认「九阴白骨爪斩杀！」渲染条目（按显示名匹配，同名宁可漏判）。引擎口径无需改：切换本身正确。
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.2';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // 判定一条战报条目是否为「切换近战形态」：数组/entries 里任一文本命中即可；
@@ -19,6 +23,21 @@ function isSwitchEntry(e) {
     var texts = entryTextsDeep(e);
     for (var i = 0; i < texts.length; i++) {
         if (texts[i].indexOf('张无忌切换近战形态') !== -1) return true;
+    }
+    return false;
+}
+
+// 判定一条战报条目是否为「爪击处决致死」（V6.3.2）：CLAW_EXECUTE fact 只带 targetUid、render/35
+//   也不写 isDead，所以「九阴白骨爪斩杀！」是战报里唯一能看到的致死信号（处决的定义就是打死）。
+//   按**目标显示名**匹配 —— 同名单位宁可漏判（漏判=不报红），不制造假红。
+function isClawExecuteOn(e, targetName) {
+    if (!e || !targetName) return false;
+    var texts = entryTextsDeep(e);
+    for (var i = 0; i < texts.length; i++) {
+        var t = texts[i];
+        if (t.indexOf('九阴白骨爪斩杀！') === -1) continue;
+        var m = t.match(/对 (.+?) 造成/);
+        if (m && m[1] === targetName) return true;
     }
     return false;
 }
@@ -85,10 +104,10 @@ export const rule81 = {
             //   众志成城补员 M 值 20→15（4127913）+ 六大派弱精英混入后幼狮更常进阵容，开局 snap 前排队友是幼狮时，
             //   引擎不认为被挡（照切），本规则却按"前排队友存活"报「切换过早」——seed=1 s4 实锤误报。
             var frontPos = ((zhangInitPos - 1) % 3) + 1;
-            var frontUid = null;
+            var frontUid = null, frontName = null;
             for (var k2 = 0; k2 < snap.length; k2++) {
                 var u2 = snap[k2];
-                if (u2 && !u2.isHorse && !u2.isLionCub && u2.pos === frontPos && u2.uid !== undefined && u2.uid !== zhangUid) frontUid = u2.uid;
+                if (u2 && !u2.isHorse && !u2.isLionCub && u2.pos === frontPos && u2.uid !== undefined && u2.uid !== zhangUid) { frontUid = u2.uid; frontName = u2.name || null; }
             }
             // 自身在前排（frontPos 即自己）或无同列前排队友：按现逻辑开局即切属正常口径，不判
             if (frontUid == null) continue;
@@ -110,6 +129,10 @@ export const rule81 = {
                 // isDead 标记的是 uidD 所指单位（攻击组=被攻击方；闪避反击组 uidD=被反击的出手方）；
                 //   只认 uidD —— `uidA === frontUid` 会把"前排队友击杀敌人"误判为其本人阵亡。
                 if (frontDead === null && f.isDead === true && f.uidD === frontUid) {
+                    frontDead = { round: roundAt(log, j), idx: j };
+                }
+                // 爪击处决致死（V6.3.2）：见 isClawExecuteOn 注释 —— 不带 isDead，只能认「斩杀！」条目。
+                if (frontDead === null && isClawExecuteOn(f, frontName)) {
                     frontDead = { round: roundAt(log, j), idx: j };
                 }
                 if (f.type === 'buff-push' || f.type === 'buff-swap') posChanged = true;

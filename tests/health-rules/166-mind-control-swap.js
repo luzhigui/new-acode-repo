@@ -30,11 +30,26 @@
 //   _ctrlImmune（寒离飒·开局常驻）即静默 return 不换位，而 core/14 仍发 SWAP 宣告，
 //   「宣告换了但没换」是设计后果（引擎宣告侧未跟上免疫，已上报主代码侧修）。
 //   免疫状态从开局快照可查（{...u} 浅拷贝带 state），任一方免疫 ⇒ 跳过该条判据5。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.2';
+// V6.1.3（2026-10-20 第 111 轮）：判据5 补位置改写白名单 isOtherRelocate —— 唐文亮冲刺改站位
+//   不发位移事件，原口径把「他自己冲走了」当「换位没落地」（seed=6 stage=6 假红）。
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.3';
 // V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
 //   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
 //   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
 //   终局无该单位（阵亡）跳过。test 签名补 afterA/afterE（框架本就传，此前未用）。
+
+// 位置改写白名单（V6.1.3）：战报里能改写站位、但**不发** buff-push/buff-swap 的机制。
+//   唐文亮「冲刺·七伤齐发」（content 唐文亮 chongCi）：冲到目标同列前排位、并把目标拽到其同列
+//   前排位，只 push 一条 info 文本、没有位移事件 —— 判据 5 只认 buff-push/buff-swap 打断，
+//   于是把「换位后他自己冲走了」误判成「换位没落地」（seed=6 stage=6 实锤：第98条把唐文亮换到
+//   8号位，第191条他冲刺到前排，后续两次出场都不在 8 号位 ⇒ 假红）。
+//   命中即视为该单位位置被合法改写，放弃本条判据 5（宁漏勿误）。
+//   今后再加「不发位移事件却改站位」的机制，务必登记到这里。
+function isOtherRelocate(mid, name) {
+    if (!mid || !name || typeof mid.text !== 'string') return false;
+    if (mid.text.indexOf('冲刺·七伤齐发') !== -1 && mid.text.indexOf(name) !== -1) return true;
+    return false;
+}
 
 export const rule113 = {
     group: '技能效果回归',
@@ -140,8 +155,8 @@ export const rule113 = {
             if (it.uidA != null && it.uidB != null && it.oldPosA != null && it.oldPosB != null
                 && it.oldPosA !== it.oldPosB && it.uidA !== it.uidB && !immunePair) {
                 var expect = [
-                    { uid: it.uidA, pos: it.oldPosB, tag: it.nameA + '(A)' },
-                    { uid: it.uidB, pos: it.oldPosA, tag: it.nameB + '(B)' }
+                    { uid: it.uidA, pos: it.oldPosB, tag: it.nameA + '(A)', name: it.nameA },
+                    { uid: it.uidB, pos: it.oldPosA, tag: it.nameB + '(B)', name: it.nameB }
                 ];
                 for (var q = 0; q < expect.length; q++) {
                     var exp = expect[q];
@@ -157,7 +172,11 @@ export const rule113 = {
                         var interrupted = false;
                         for (var s = it.idx + 1; s < r; s++) {
                             var mid = log[s];
-                            if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
+                            if (!mid) continue;
+                            // 白名单先查（V6.1.3）：isOtherRelocate 命中的条目类型是 info，不是位移事件，
+                            //   原先嵌在 buff-push/buff-swap 分支里 ⇒ 永远查不到（seed=6 stage=6 仍假红）。
+                            if (isOtherRelocate(mid, exp.name)) { interrupted = true; break; }
+                            if (mid.type === 'buff-push' || mid.type === 'buff-swap') {
                                 if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
                                     mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
                             }
@@ -179,7 +198,9 @@ export const rule113 = {
                         var interruptedAll = false;
                         for (var s2 = it.idx + 1; s2 < n; s2++) {
                             var mid2 = log[s2];
-                            if (mid2 && (mid2.type === 'buff-push' || mid2.type === 'buff-swap')) {
+                            if (!mid2) continue;
+                            if (isOtherRelocate(mid2, exp.name)) { interruptedAll = true; break; }
+                            if (mid2.type === 'buff-push' || mid2.type === 'buff-swap') {
                                 if (mid2.pushTargetUid === exp.uid || mid2.behindUid === exp.uid ||
                                     mid2.uidA === exp.uid || mid2.uidB === exp.uid) { interruptedAll = true; break; }
                             }

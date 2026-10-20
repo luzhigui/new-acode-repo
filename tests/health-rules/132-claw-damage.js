@@ -68,7 +68,11 @@
 //   · floor 由 getDesignFloor() 从 content 现读（周芷若 chainClaw 取 min(baseDmg, jealous.baseDmg)
 //     的 10 分位下取整），取不到兜底 2。
 //   为什么不是放宽：V6.1.19 是因"设计值未进 fact"而只能暂判「有限且≥0」；字段到位后按原义恢复守护。
-export const VER = 'tests/health-rules/132-claw-damage.js V6.2.0';
+// V6.3.0 | 2026-10-20 第 111 轮：判据 3「连锁不递减」改判 designedDmg（原比减伤后的落地 dmg，
+//   减伤层变厚即恒定假红）。实证 seed=20 stage=4：殷天正被小昭·姊蝶变附身，「乾坤衍生」逐爪
+//   给减伤 1→2，设计值 5.6→6.6 正常递增，落地值 5.2→4.3 恰少 1.0 ⇒ 假阳性。回血导致的合法
+//   下降按 content lostHpRatio×回血量 放行（+0.11 余量）；落地值越界仍由判据 1b 守。
+export const VER = 'tests/health-rules/132-claw-damage.js V6.3.0';
 // 用 as 保留原调用名 collectNodes：调用点（下方遍历）不改，避免"改名漏改调用点"这类回归。
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 import { getGameData } from '../../core/01config-5v5-test.js';
@@ -97,6 +101,22 @@ function getDesignFloor() {
     return 2;
 }
 
+// 已损失生命比例 lostHpRatio（V6.3.0）：判据 3 用它算「回血导致设计值合法下降多少」。
+//   真值在 content 周芷若 chainClaw.lostHpRatio；取不到兜底 0.015（与当前 content 一致）。
+function getLostHpRatio() {
+    try {
+        var gd = getGameData();
+        var zhou = gd && gd.characters && gd.characters['周芷若'];
+        var ms = (zhou && zhou.mechanics) || [];
+        for (var i = 0; i < ms.length; i++) {
+            if (!ms[i] || ms[i].type !== MECHANIC_TYPES.CHAIN_CLAW) continue;
+            var r = ms[i].lostHpRatio;
+            if (typeof r === 'number' && isFinite(r) && r > 0) return r;
+        }
+    } catch (e) { /* 数据未就绪：走兜底 */ }
+    return 0.015;
+}
+
 // 一位小数无浮点尾巴（V6.2.0）：按引擎收敛式 round(v*10)/10 转一遍，字符串不等 = 带尾巴。
 //   真尾巴样例：2.8 − 2 = 0.7999999999999998（'0.7999999999999998' ≠ '0.8'）。
 function hasFloatTail(v) { return String(v) !== String(Math.round(v * 10) / 10); }
@@ -111,8 +131,9 @@ export const rule79 = {
     name: '九阴白骨爪伤害(回归)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE, facts) {
         var floorDmg = getDesignFloor(); // 设计下限（content 现读，兜底 2）
+        var lostHpRatio = getLostHpRatio(); // 判据 3 的回血容差系数（content 现读，兜底 0.015）
         var EPS = 1e-9;
-        var prev = null; // { name, dmg }
+        var prev = null; // { name, designed, hpAfter }
         var saw = false;
         var nodes = collectNodes(log);
         // 判据 2 的组级信号（V6.1.16）：处决条目与标记斩杀的 hit 谁先渲染未证，先收集后判定
@@ -191,12 +212,25 @@ export const rule79 = {
             //    同序列判据：同一次 submitChainClaw 的 hits 是连续模拟出来的，故必然满足
             //    「上一爪 hpAfter − 本爪 dmg ≈ 本爪 hpAfter」（容差 0.05 消化浮点）。不满足即说明
             //    中间隔着别的结算（回血/其他单位攻击），属新序列起点或跨次，跳过递增校验。
-            if (prev && prev.name === name && dmg < prev.dmg
+            //    ★ V6.3.0 口径修正（2026-10-20 第 111 轮）：原判据比的是**减伤后的落地 dmg**，
+            //    一旦两爪之间目标的减伤层变厚就必然假红。实证 seed=20 stage=4 第4回合：殷天正被
+            //    小昭·姊蝶变附身，「乾坤衍生」逐爪给减伤（1→2），设计值 5.6→6.6 一路正常递增，
+            //    落地值却在减伤 1→2 那一步 5.2→4.3（正好少 1.0）——调血没问题，是判据拿错了量。
+            //    现改判 designedDmg（减伤层之前的真值，render/35 已透传），落地值越界仍由判据 1b 守。
+            //    回血导致的合法下降按 lostHpRatio×回血量 放行（+0.11 取整/浮点余量），其余下降即报。
+            var curDesigned = (typeof e.designedDmg === 'number' && isFinite(e.designedDmg)) ? e.designedDmg : dmg;
+            if (prev && prev.name === name && typeof prev.designed === 'number'
                 && typeof prev.hpAfter === 'number' && typeof e.hpAfter === 'number'
                 && Math.abs((prev.hpAfter - dmg) - e.hpAfter) < 0.05) {
-                return { fail: true, msg: '复发：九阴白骨爪同一次连锁内伤害递减 ' + prev.dmg + '→' + dmg + '（未按已损失血量递增调血）' };
+                // 本爪起手血量 = e.hpAfter + dmg；高于上一爪收尾血量即为中间回血（回血合法抬高设计值下限）
+                var healGain = Math.max(0, (e.hpAfter + dmg) - prev.hpAfter);
+                var allowDrop = lostHpRatio * healGain + 0.11;
+                if (curDesigned < prev.designed - allowDrop) {
+                    return { fail: true, msg: '复发：九阴白骨爪同一次连锁内设计伤害递减 ' + prev.designed + '→' + curDesigned
+                        + '（未按已损失血量递增调血；期间回血 ' + Math.round(healGain * 10) / 10 + ' 点，容差 ' + (Math.round(allowDrop * 100) / 100) + '）' };
+                }
             }
-            prev = { name: name, dmg: dmg, hpAfter: e.hpAfter };
+            prev = { name: name, designed: curDesigned, hpAfter: e.hpAfter };
         }
         // 2.（V6.1.16）斩杀一致性：标记斩杀的 hit → 同一 attack-group 必须存在处决条目。
         //    依据 core/15 L407-413：isExecute 触发时 executeInfo 必然同组产出（declaration = {hits, execute}）。
