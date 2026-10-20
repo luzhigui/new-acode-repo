@@ -1,5 +1,6 @@
+// V1.11.0 | 2026-10-21 pickHexBuff 补妹永久海克斯继承（口径对齐正式服与 108 hex job；112 精英评测此前跑的是
+//           妹无继承的平行世界、系统性低估妹；无妹阵容 no-op，职业平衡/无精英基线不动）
 // V1.10.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：allyFlagMap 加 isHanLiSa
-// V1.10.0 | 2026-10-21 pickHexBuff 补妹永久海克斯继承（口径对齐正式服与 108 hex job；112 精英评测此前跑的是妹无继承的平行世界、系统性低估妹）
 // V1.10.1 | 2026-10-16 elite/soloElite/noElite/weakElite 四 job 加 startIndex：片内种子 = seed + (startIndex+i)×7919
 //           （对齐 hex 的口径）——分片粗细不换采样；旧调用不传 startIndex 默认 0，行为不变（配 112 V2.8.1）
 // V1.10.0 | ~39500 bytes | 2026-10-16 新增 kind:'weakElite'（runWeakEliteJob）：弱精英单测 + 自然配对对照（配 112 V2.8.0「🐦 弱精英评测」）——
