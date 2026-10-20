@@ -1,3 +1,5 @@
+// V7.9.2 | 2026-10-20 删 bindSettleButton 里两处 _scheduler 守卫（setSpeed(50) / resume()）：
+//   player/43animation-scheduler 已整文件删除、infra/54 的 _scheduler 字段同删，守卫恒假
 // V7.9.1 | 实测 24724 bytes | 2026-10-15 修 `restoreSpeedFromScroll is not defined`：V7.9.0 拆分后本文件里
 //   bindSettleButton 结尾仍直接调 restoreSpeedFromScroll()，但该符号只在 L20 用 `export {...} from` 做了
 //   **转出**（re-export 不产生本模块的局部绑定）→ 点「再战/结算」按钮即 ReferenceError、中断后续 updateButtons。
@@ -5,7 +7,7 @@
 // V7.9.0 | ~24170 bytes | 2026-10-14 ui/68 拆分：倍速系统迁 ui/77（含 onAnyButtonClick 辅助）、
 //   按钮状态与 buff 槽迁 ui/78、日志工具弹窗绑定迁 ui/64（同时断掉 68↔76 循环引用）；本文件只剩按钮事件绑定层。
 //   顶部 re-export 77/78 的符号 → 61/63/75/76 的 import 点零改动；唯一外部改动是 61 的 bindCopyLogButton 改从 64 引。
-export const VER = 'ui/68ui-controls.js V7.9.1';
+export const VER = 'ui/68ui-controls.js V7.9.2';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -265,12 +267,10 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
         if (ffCtx) {
             if (!ffCtx._originalSpeed) ffCtx._originalSpeed = ffCtx.speed;
             ffCtx.speed = 1;
-            if (ffCtx._scheduler && ffCtx._scheduler.setSpeed) ffCtx._scheduler.setSpeed(50);
         }
         if (gs === S.PAUSED) {
             setState.gs(S.RUNNING);
             setState.isPaused(false);
-            if (ffCtx && ffCtx._scheduler) ffCtx._scheduler.resume();
             document.body.classList.remove('paused-animations');
         }
         if (GlobalStore.get('bulletTimeActive')) GlobalStore.set('bulletTimeActive', false);

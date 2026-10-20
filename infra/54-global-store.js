@@ -1,5 +1,7 @@
+// V6.0.1 | 2026-10-20 删 _scheduler 字段（player/43animation-scheduler 已整文件删除，此字段永为 null；
+//   ui/68 两处守卫同删）
 // V6.0.0 | ~3700 bytes | 2026-08-21 import 路径合并至 infra/51-core-utils
-export const VER = 'infra/54-global-store.js V6.0.0';
+export const VER = 'infra/54-global-store.js V6.0.1';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './51-core-utils.js';
 
@@ -249,7 +251,6 @@ export function getPlayerContext() {
         updateScoreBadge: () => { const fn = GlobalStore.getUIHandler('updateScoreBadge'); if (fn) fn(); },
         tickBuffDurations: () => { const fn = GlobalStore.getUIHandler('tickBuffDurations'); if (fn) fn(); },
         fadeBGMTo: (targetVol, durationMs) => { const fn = GlobalStore.getUIHandler('fadeBGMTo'); if (fn) fn(targetVol, durationMs); },
-        _scheduler: null,
         _battleEnded: false,
         _originalSpeed: null,
         swapAllyPositions: (...args) => { const fn = GlobalStore.getUIHandler('swapAllyPositions'); if (fn) fn(...args); }
