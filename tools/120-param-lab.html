@@ -1,4 +1,8 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
+<!-- V3.2.5 | 2026-10-21 小昭双形态可分别选（老板指出「姐姐和妹妹选不到」）：
+     归属下拉在「小昭（全部技能）」之外新增「小昭·姊（姐姐形态）」「小昭·妹（妹妹形态）」两项，
+     同一角色按形态过滤技能：姊=蝶变附身/飞回/乾坤衍生/乾坤升级/海克斯增强；妹=蛛变/飞天/蛛袭/永久海克斯；
+     乾坤升级、精通、圣火令·气运两边共用。 -->
 <!-- V3.2.4 | 预估 48600 bytes | 2026-10-21 人员补全 + 参数中文名补齐（配 124 V2.8.0）：
      「明教侧角色」原只认 roster.mingM，小昭（姊/妹共用）未登记在名册 → 下拉里根本没有她；
      改为名册位 ∪ 角色表里带「明教 + 精英」标签的角色。海克斯新增字段的中文名见 124 FIELD_GLOSSARY。
@@ -290,7 +294,12 @@ function ownerOptions() {
     for (const st of stages) for (const n of stageEnemyNames(st)) enemies.add(n);
     const chars = Object.keys(gameRoot.characters || {});
     const opt = [];
-    for (const n of chars) if (ming.has(n)) opt.push({ layer: 'character', owner: n, label: n });
+    for (const n of chars) if (ming.has(n)) opt.push({ layer: 'character', owner: n, label: n === '小昭' ? '小昭（全部技能）' : n });
+    // 小昭双形态：同一角色两套技能表，拆成「小昭·姊 / 小昭·妹」两个归属，各自只列本形态技能
+    if (ming.has('小昭')) {
+        opt.push({ layer: 'character', owner: '小昭', form: 'sister', label: '小昭·姊（姐姐形态）' });
+        opt.push({ layer: 'character', owner: '小昭', form: 'brother', label: '小昭·妹（妹妹形态）' });
+    }
     for (const n of chars) if (!ming.has(n) && enemies.has(n)) opt.push({ layer: 'character', owner: n, label: n });
     if (allKnobs.some(k => k.layer === 'config')) opt.push({ layer: 'config', owner: '全局常量', label: '全局规则常量' });
     for (const key of [...new Set(allKnobs.filter(k => k.layer === 'data').map(k => k.owner))]) {
@@ -304,9 +313,9 @@ function buildOwnerSelect() {
     ownerSel.innerHTML = '';
     const mk = (parent, o) => {
         const e = document.createElement('option');
-        e.value = `${o.layer}|${o.owner}`;
+        e.value = `${o.layer}|${o.owner}${o.form ? '|' + o.form : ''}`;
         e.textContent = o.label;
-        e.dataset.layer = o.layer; e.dataset.owner = o.owner;
+        e.dataset.layer = o.layer; e.dataset.owner = o.owner; e.dataset.form = o.form || '';
         parent.appendChild(e);
     };
     const gMing = document.createElement('optgroup'); gMing.label = '明教侧角色';
@@ -324,8 +333,13 @@ function buildOwnerSelect() {
 }
 function curOwner() {
     const o = ownerSel.selectedOptions[0];
-    return o ? { layer: o.dataset.layer, owner: o.dataset.owner } : null;
+    return o ? { layer: o.dataset.layer, owner: o.dataset.owner, form: o.dataset.form || '' } : null;
 }
+// 小昭两形态各用哪些技能（姊=蝴蝶，妹=蜘蛛；乾坤/精通/气运两边共用）
+const XIAO_ZHAO_FORM_SKILLS = {
+    sister: ['butterflyAttach', 'butterflyReturn', 'qianKunDerived', 'qianKunUpgraded', 'hexEnhance', 'mastery', 'holyTokenLuck'],
+    brother: ['spiderTransform', 'spiderFly', 'spiderStrike', 'qianKunUpgraded', 'permanentHex', 'mastery', 'holyTokenLuck']
+};
 function buildSkillSelect() {
     const ow = curOwner();
     skillSel.innerHTML = '';
@@ -335,6 +349,11 @@ function buildSkillSelect() {
     let groups;
     if (ow.layer === 'character') {
         groups = charSkillGroups(gameRoot, ow.owner);
+        // 小昭·姊 / 小昭·妹：只列本形态实际拥有的技能，避免两套技能混在一起
+        if (ow.form) {
+            const allow = XIAO_ZHAO_FORM_SKILLS[ow.form] || [];
+            groups = groups.filter(g => allow.includes(g.key));
+        }
     } else if (ow.layer === 'config') {
         groups = [...new Set(allKnobs.filter(k => k.layer === 'config' && k.owner === ow.owner).map(k => k.skill))]
             .map(g => ({ key: g, label: CONFIG_KEY_GLOSSARY[g] || g }));
