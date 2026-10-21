@@ -188,7 +188,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitStateChange(unit, STATE_CHANGE_TYPES.LANDING, { pos: unit.pos }, log);
 
     // 落地回血（2026-10-13 飞天重做；2026-10-18 按档位分比）：70/40 档回 maxHp 的 landHealRatio，
-    //   致死档回 landHealRatioDeath；孵化落地不回（血钉 40%）。档位随 _spiderLandTier 带入。
+    //   致死档回 landHealRatioDeath；孵化落地不回（血钉 eggHatchHpRatio）。档位随 _spiderLandTier 带入。
     // landHeal 提前算好并写进 SPIDER_RETURN fact（数值对照器 SPIDER_LAND_HEAL 契约的声明侧，体检第 88 轮转交）；
     //   不落地（孵化/满血/比率为 0）时记 0，与 addMod 记账同条件同值
     let landHeal = 0;

@@ -1,5 +1,5 @@
 {
-  "version": "5.15.6",
+  "version": "5.15.7",
   "updated": "2026-10-21",
 
   "roles": {
@@ -563,7 +563,7 @@
         "spiderFly": {
           "name": "飞天",
           "desc": "受击将跌破{hpThresholds}或致死时化为小蜘蛛免疫伤害（被毒/反伤蹭过血线则机会顺延至下次受击），回合结束落下攻击并回复{landHealRatio}%血量（致死档回复{landHealRatioDeath}%）；毒/反伤致死原地结茧（0攻{eggDef}防满血，挺过两回合末孵化：保留{eggHatchHpRatio}%血、攻防恢复、直接飞天落地蛛袭），孵化后不再触发任何档",
-          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.8, "hpThresholds": [0.7, 0.4], "landHealRatio": 0.05, "landHealRatioDeath": 0.1, "eggDef": 10, "eggHatchHpRatio": 0.4 }
+          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.8, "hpThresholds": [0.7, 0.4], "landHealRatio": 0.01, "landHealRatioDeath": 0.02, "eggDef": 10, "eggHatchHpRatio": 0.3 }
         },
         "spiderStrike": {
           "name": "蛛袭",
