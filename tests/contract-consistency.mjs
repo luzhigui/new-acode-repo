@@ -144,10 +144,18 @@ async function main() {
     console.log('=== 静态一致性契约网（静态检查，非运行时体检）===');
 
     // ① 门槛一致性
-    const p42 = read('../player/42player-core.js');
-    const gateSrc = extractFunctionSource(p42, 'hasStageWork');
+    // 2026-10-21 第 112 轮：并行会话把 stageActions 家族从 42player-core.js 拆出为
+    //   42player-stage-actions.js（prepareLogEntry/getActionTiming/getActionFx/hasStageWork/
+    //   applyStageActionTo{Store,FX,StoreAfter} 全家搬入）⇒ 旧抽取路径只剩 core，恒失败、检查空转假绿。
+    //   改为**多文件轮询抽取**：新文件优先、旧 core 兜底，都不中才报抽取失败（守卫语义不变）。
+    const gateFiles = ['../player/42player-stage-actions.js', '../player/42player-core.js'];
+    let gateSrc = null, gateFrom = '';
+    for (const gf of gateFiles) {
+        const src = extractFunctionSource(read(gf), 'hasStageWork');
+        if (src) { gateSrc = src; gateFrom = gf; break; }
+    }
     const r1 = checkGate(STAGE_ACTION_DEFS, gateSrc);
-    console.log(`[门槛一致性] STAGE_ACTION_DEFS ${r1.stats.defs} 条 · hasStageWork ${gateSrc ? '源码抽取成功' : '抽取失败'}`
+    console.log(`[门槛一致性] STAGE_ACTION_DEFS ${r1.stats.defs} 条 · hasStageWork ${gateSrc ? '源码抽取成功（' + gateFrom.replace('../player/', '') + '）' : '抽取失败'}`
         + (r1.stats.workDefs !== undefined ? ` · 带活定义 ${r1.stats.workDefs} 条（其中纯 store 无 fx ${r1.stats.storeOnly} 条）/ 全空定义 ${r1.stats.emptyDefs} 条` : ''));
     for (const p of r1.problems) console.log('  ✗ ' + p);
 

@@ -3,6 +3,9 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.4.5 | ~29200 bytes | 2026-10-21 第 112 轮 SCAN_FILES 补登 ./xinhun-death-targeted-case.mjs、
+//          ./fact-dead-field-scan.mjs（第 113 轮沙箱交接规格的主线重写产物：XIN_HUN_DEATH 定向用例
+//          + 全 fact 载荷死字段普查；二者 import 引擎符号，漏登则 import 断裂扫不到）
 // V1.4.4 | ~29200 bytes | 2026-10-16 第 97 轮 SCAN_FILES 补登 ./health-rules/170-taunts-integrity.js（台词池
 //         双向一致性；唐文亮线上事故后新建，与 157 同属只读 content 的数据对账规则）
 // V1.4.3 | ~29200 bytes | 2026-10-16 注册面归位批：SCAN_FILES 里 core/08-elite-registry.js → core/08-registry-elite.js、
@@ -37,7 +40,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.4.4';
+export const VER = 'tests/123static-scan.js V1.4.5';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -107,6 +110,11 @@ export const SCAN_FILES = [
     // 两个活跃 runner 此前漏登（第 23 轮补）：它们同样 import 主代码符号，改名/删除会断裂，
     //   不进清单就扫不到。tools/106 打包清单仍未登记这两个（属工具侧，只报不动）。
     './rules-replay.mjs', './smoke-headless.mjs', './registration-check.mjs', './coverage-report.mjs',
+    // 2026-10-21 第 112 轮补登两个新探针（依据第 113 轮沙箱交接规格主线重写）：
+    //   xinhun-death-targeted-case.mjs（XIN_HUN_DEATH 定向最小触发用例 + 载荷死字段自证对撞）、
+    //   fact-dead-field-scan.mjs（全 fact 载荷死字段普查）。二者 import 引擎符号，漏登则其
+    //   import 断裂扫不到。
+    './xinhun-death-targeted-case.mjs', './fact-dead-field-scan.mjs',
     // 2026-09-29 新增：skills.params 引擎真读字段漂移守卫。它跨目录 import tools/124-param-lab-glossary.js，
     //   入册以便本扫描能发现该 import 路径断裂（改名/删除即断裂）。
     './param-read-guard.mjs',

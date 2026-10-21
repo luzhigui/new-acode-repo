@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.1.0';
+export const VER = 'tests/run-all.mjs V1.2.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -31,6 +31,14 @@ const CHECKS = [
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }
+];
+
+// V1.2.0 | 2026-10-21 第 112 轮：挂观察项（不影响退码）——第 113 轮沙箱交接规格的主线重写产物。
+//   观察项 = 取证类探针：结论供人工研判，暂不开红（死字段缺陷本身待主代码转交，开了就永远红）。
+//   实测合计约 5 秒（定向用例 1.9s + 死字段普查 3.1s）。
+const OBSERVES = [
+    { name: 'XIN_HUN_DEATH定向用例', script: 'tests/xinhun-death-targeted-case.mjs', args: [] },
+    { name: '载荷死字段普查', script: 'tests/fact-dead-field-scan.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
@@ -72,4 +80,22 @@ for (const r2 of rows) {
 console.log('---------------------------------------------------------');
 console.log('结果：' + pass + '/' + CHECKS.length + ' 通过，耗时 ' + ((Date.now() - tStart) / 1000).toFixed(1) + 's'
     + (failed ? '，X ' + failed + ' 项红（见上方对应行）' : '，全套全绿'));
+
+// 观察项（V1.2.0）：只跑只报，不计退码
+if (OBSERVES.length) {
+    console.log('---------------------------------------------------------');
+    console.log('观察项（取证类探针，结果供人工研判、不计退码）：');
+    for (const c of OBSERVES) {
+        const t0 = Date.now();
+        let r;
+        try {
+            r = spawnSync(node, [path.join(root, c.script), ...c.args],
+                { cwd: root, encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024 });
+        } catch (e) {
+            r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
+        }
+        const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''));
+        console.log('  🔎 ' + c.name.padEnd(22) + ' ' + (Date.now() - t0) + 'ms  ' + key);
+    }
+}
 process.exit(failed ? 1 : 0);

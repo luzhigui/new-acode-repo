@@ -197,26 +197,30 @@ async function main() {
         console.log('❌ 读不到 golden 基线 tests/golden-translate-stage-actions.json —— 先跑 node tests/translate-golden.mjs --update 生成');
         return 1;
     }
+    // 2026-10-21 第 112 轮：行尾归一化后再比。git autocrlf 会把签出的 golden 转成 CRLF、
+    //   而本脚本生成的 text 是 LF ⇒ 按原始字节比时"整文件皆差异"（首个差异恒在字节 1），
+    //   正确重录后的基线在下次签出也会假红。归一化 CRLF→LF 后只报真实内容差异。
+    const goldenN = golden.replace(/\r\n/g, '\n');
     console.log('=== 翻译层 golden 对照 ===');
     console.log(`  ${cases.length} 场（seeds=${SEEDS.join(',')} × stages=${STAGES.join(',')}）/ 步 ${stepCount} / fact ${factCount} / 动作 ${actionCount}（${actionKinds.size} 种 kind）`);
-    if (golden === text) {
-        console.log('RESULT: 零差异 ✅ 与 tests/golden-translate-stage-actions.json 逐字节一致');
+    if (goldenN === text) {
+        console.log('RESULT: 零差异 ✅ 与 tests/golden-translate-stage-actions.json 一致（行尾归一化后）');
         return 0;
     }
-    // 定位首个差异：字节偏移 → 行号 → 打印两侧上下文
-    const a = Buffer.from(golden, 'utf8');
+    // 定位首个差异：字节偏移 → 行号 → 打印两侧上下文（用归一化后的文本定位，行号才对准）
+    const a = Buffer.from(goldenN, 'utf8');
     const b = Buffer.from(text, 'utf8');
     let pos = 0;
     while (pos < Math.min(a.length, b.length) && a[pos] === b[pos]) pos++;
-    const lineOf = (buf, i) => buf.toString('utf8', 0, i).split('\n').length;
-    const gLines = golden.split('\n');
+    const gLines = goldenN.split('\n');
     const tLines = text.split('\n');
-    const ln = Math.min(lineOf(a, pos), gLines.length);
-    console.log(`RESULT: 有差异 ❌ 首个差异在字节 ${pos}（golden 第 ${ln} 行，长度 ${a.length} vs ${b.length}）`);
-    for (let i = Math.max(0, ln - 3); i < Math.min(gLines.length, ln + 2); i++) {
+    // 行号 = 首个差异字节之前的换行数 + 1
+    const ln2 = (goldenN.slice(0, pos).match(/\n/g) || []).length + 1;
+    console.log(`RESULT: 有差异 ❌ 首个差异在字节 ${pos}（第 ${ln2} 行，长度 ${a.length} vs ${b.length}）`);
+    for (let i = Math.max(0, ln2 - 3); i < Math.min(gLines.length, ln2 + 2); i++) {
         console.log(`  [基线] ${i + 1}: ${gLines[i]}`);
     }
-    for (let i = Math.max(0, ln - 3); i < Math.min(tLines.length, ln + 2); i++) {
+    for (let i = Math.max(0, ln2 - 3); i < Math.min(tLines.length, ln2 + 2); i++) {
         console.log(`  [本次] ${i + 1}: ${tLines[i]}`);
     }
     console.log('  → 若为翻译层有意变更：node tests/translate-golden.mjs --update 重录后复查');

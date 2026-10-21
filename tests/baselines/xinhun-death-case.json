@@ -1,0 +1,88 @@
+{
+  "ver": "tests/xinhun-death-targeted-case.mjs V1.0.1",
+  "generatedAt": "2026-10-21T11:59:17.733Z",
+  "config": {
+    "seeds": [
+      1,
+      18,
+      37,
+      42,
+      50,
+      67,
+      999,
+      12345,
+      777,
+      88888
+    ],
+    "stages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "hpDeduct": 1,
+    "zhouMaxHp": 155,
+    "note": "触发条件=周芷若血量≤hpDeduct档位时宋青书发动攻击"
+  },
+  "baseline": {
+    "battles": 70,
+    "zhouPresent": 33,
+    "songWithZhou": 10,
+    "songAttacks": 111,
+    "songAttacksAvg": 11.1,
+    "xinHunTriggers": 71,
+    "xinHunDeathHits": 0,
+    "zhouMinHpOverall": 0,
+    "zhouEverDeadByOtherDamage": true,
+    "xinHunMinZhouHpAfter": 106,
+    "contradictions": 0
+  },
+  "targeted": {
+    "stages": [
+      4
+    ],
+    "battles": 10,
+    "xinHunTriggers": 4,
+    "xinHunDeathHits": 4,
+    "contradictionSamples": [
+      {
+        "seed": 37,
+        "stage": 4,
+        "zhouHpAfter": 0,
+        "isDead": false,
+        "stackCount": 1
+      },
+      {
+        "seed": 37,
+        "stage": 4,
+        "zhouHpAfter": 0,
+        "isDead": false,
+        "stackCount": 2
+      },
+      {
+        "seed": 67,
+        "stage": 4,
+        "zhouHpAfter": 0,
+        "isDead": false,
+        "stackCount": 1
+      },
+      {
+        "seed": 67,
+        "stage": 4,
+        "zhouHpAfter": 0,
+        "isDead": false,
+        "stackCount": 2
+      }
+    ],
+    "contradictions": 4
+  },
+  "conclusion": {
+    "rootCause": "新婚扣血 hpDeduct=1 恒定、周芷若满血 155，自然流需连扣 155 次才致死；宋青书场均出手 11.1 次 ⇒ 自然条件永远扣不死",
+    "emissionPointProven": true,
+    "deadFieldDefect": true,
+    "deadFieldDetail": "XIN_HUN fact 的 isDead 读顶层 unit._pendingDeath（modules/26 L235），真值在 unit.state._pendingDeath（core/13 L226 写、core/17 登记）⇒ 恒 false。已挂主代码待转交，体检侧不代改。"
+  }
+}
