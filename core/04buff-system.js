@@ -77,6 +77,8 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
     if (hasBuff(casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN)) return;
     const hasBrother = casterSide.some(u => u.isXiaoZhaoBrother && query('xiaoPermanentActive', u, casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN));
     if (!hasBrother) return;
+    // 2026-10-21 老板拍板：妹永久摄魂不再每回合必点名，改 60% 概率（content.buffs.soulDrain.brotherPointChance）
+    if (ctx.rng.next() >= CONFIG.BUFFS.soulDrain.brotherPointChance) return;
     const pool = targetSide.filter(u => u.alive && !u.isHorse && !u.isSummon);
     if (!pool.length) return;
     const pick = pool[ctx.rng.nextInt(0, pool.length - 1)];
@@ -133,17 +135,20 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
     const teamHas = hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND);
-    // xiaoPermanentActive 在团队 buff 在场时返回 false（两分支天然互斥，不重复）
-    const permActive = unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.LAST_STAND);
-    if (!teamHas && !permActive) return;
+    // 2026-10-21 老板拍板：妹永久版不再走 xiaoPermanentActive（它在团队 buff 在场时返回 false，
+    //   会让「团队版在场、只有队友血低」时她吃不到加成）→ 直查账本，团队在场也照样判队友
+    const permOwned = !!(unit.isXiaoZhaoBrother && Array.isArray(unit.state?._permanentBuffs)
+        && unit.state._permanentBuffs.some(b => b.key === BUFF_TYPES.LAST_STAND));
+    if (!teamHas && !permOwned) return;
     // 姊强化阈值：仅团队版生效（团队 buff 在场才算接线，与 holyFire/holyFlame 同口径）
     const enh = (teamHas && Array.isArray(team) && team.some(u => u.isXiaoZhaoSister && u.alive))
         ? (getSkillParams('小昭', 'hexEnhance').lastStand || null) : null;
-    const threshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
-    const selfLow = unit.hp < unit.maxHp * threshold;
-    // 妹永久：任一队友（含她本人，本人血低时 selfLow 已成立）血低即触发
-    const mateLow = permActive && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * threshold);
-    if (!selfLow && !mateLow) return;
+    const teamThreshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
+    const permThreshold = (cfg.hpThreshold ?? 0.35);
+    const teamLow = teamHas && unit.hp < unit.maxHp * teamThreshold;
+    // 妹永久：任一队友（含她本人）血低即触发；团队版在场也生效，但全函数只挂一份 mul 词条（不叠成 1.96）
+    const permLow = permOwned && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * permThreshold);
+    if (!teamLow && !permLow) return;
     addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'round', op: 'mul', group: 'lastStand' });
     if (log) log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
 }
@@ -483,7 +488,11 @@ function reviveHolyFireUnit(u, team, log, slot) {
     const cfg = C.BUFFS.holyFire || {};
     // 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）
     const enhance = team.some(x => x.isXiaoZhaoSister && x.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
-    const ratio = enhance ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6) : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4);
+    // 2026-10-21 老板拍板：妹永久名额（slot='self'）回血固定 30%（content.buffs.holyFire.brotherReviveRatio），
+    //   不吃姊增强——与「永久版一律用团队基础值」的既定口径一致（圣火令/摄魂同款）
+    const ratio = slot === 'self'
+        ? (cfg.brotherReviveRatio != null ? cfg.brotherReviveRatio : cfg.reviveRatio)
+        : (enhance ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6) : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4));
     // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
     //   （findFreePos 只算 alive 占位、尸体不占格，故通常直接原地复活）
     let landPos = u.pos;
