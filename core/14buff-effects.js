@@ -1,15 +1,17 @@
+// V6.1.7 | 2026-10-21 姊强化·惑心换位加血差：敌方换位两人各扣 dmgOnSwap、己方换位两人各回 healOnSwap
+//   （参数走 hexEnhance.mindControl；applyStatChange 补进 core/13 import；SWAP fact 带 dmg/heal 供 render/38 飘字）
 // V6.1.6 | ~9460 bytes | 2026-10-19 惑心换位候选池排除控制免疫者（寒离飒·开局常驻 _ctrlImmune）：
 //   免疫者被选中后 swapUnitPositions（core/13 L135）静默 return 不换位，但 SWAP 宣告照发 ⇒ 战报说谎
 //   （"互换位置！"而谁都没动，tests/166 判据5 误报 3 场即此根因）。候选池与既有 _flyMode 过滤同款
 //   追加 !u.state._ctrlImmune ⇒ 要么选不到 2 人走 FAIL(可用单位不足)、要么选到的都真换位，宣告与实物一致。
 // V6.1.5 | ~9430 bytes | 2026-10-15 妹永久圣火令改画行列命中制（掷骰在 modules/27 回合初，读 state._xiaoHolyFlame）
 // V6.1.4 | 2026-10-12 拒马双向参与 carry（老板拍板）：① 队友池去 !u.isHorse（活 1 份/死 2 份，与狮子同口径）；② 受益门控也去 isHorse——拒马站受益位（5；小昭·姊在场 4/5/6）时也能吃到，攻加成>0 后拒马不再休息、会出手
-export const VER = 'core/14buff-effects.js V6.1.6';
+export const VER = 'core/14buff-effects.js V6.1.7';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
-import { getBattleRng, swapUnitPositions, addMod, getStat } from './13battle-shared.js';
+import { getBattleRng, swapUnitPositions, addMod, getStat, applyStatChange } from './13battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
@@ -97,7 +99,7 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
 }
 
-function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly) {
+function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly, enhance = null) {
     const rng = getBattleRng();
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
@@ -110,7 +112,14 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b, log);
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });
+            // 2026-10-21 姊强化：敌方换位两人各扣 dmgOnSwap 点血（source 传 null = 不记击杀者，走死亡结算由 core/10 统一处理）
+            let dmgOnSwap = 0;
+            if (enhance && enhance.dmgOnSwap) {
+                dmgOnSwap = enhance.dmgOnSwap;
+                applyStatChange(a, 'hp', -dmgOnSwap, null, '惑心换位');
+                applyStatChange(b, 'hp', -dmgOnSwap, null, '惑心换位');
+            }
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '可用单位不足' } });
         }
@@ -125,7 +134,14 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b, log);
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });
+            // 2026-10-21 姊强化：己方换位两人各回 healOnSwap 点血（治疗语义，吃杨逍截脉打折）
+            let healOnSwap = 0;
+            if (enhance && enhance.healOnSwap) {
+                healOnSwap = enhance.healOnSwap;
+                applyStatChange(a, 'hp', healOnSwap, null, '惑心换位');
+                applyStatChange(b, 'hp', healOnSwap, null, '惑心换位');
+            }
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, heal: healOnSwap } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '可用单位不足' } });
         }
@@ -143,5 +159,5 @@ export function applyMindControl_Normal(unit, allySide, enemySide, log) {
 export function applyMindControl_Sister(unit, allySide, enemySide, log) {
     const s = getSkillParams('小昭', 'hexEnhance').mindControl;
     if (!s) throw new Error('缺技能参数: 小昭.hexEnhance.mindControl');
-    applyMindControlCore(unit, allySide, enemySide, log, s.enemySwapProb * 100, s.allySwapProb * 100);
+    applyMindControlCore(unit, allySide, enemySide, log, s.enemySwapProb * 100, s.allySwapProb * 100, s);
 }
