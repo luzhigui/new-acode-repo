@@ -1,10 +1,11 @@
 // modules/27elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
+// V1.2.1 | ~10400 bytes | 2026-10-21 深夜复验 V1.2.0 修空：补调放 near.onEnter 在「初始即 near」场景永不执行（进 near 唯一路径 switching←ranged，watcher 只认 ranged），探针三场景实锤仍卡假近战态——正解挪到 register 里直接补调（幂等）
 // V1.2.0 | ~10100 bytes | 2026-10-21 修「众志召唤的张无忌卡假近战态」：near.onEnter 补一次 checkZhangSwitch（初始即 near 时构造不执行 onEnter）
 // V1.1.0 | ~10000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；checkZhangSwitch 改收 zhang 实参（不再全场 find 第一个，防双张无忌误切非触发者）
 // V1.0.1 | ~9934 bytes | 2026-10-17 前排判定同口径三处排除幼狮 isLionCub（与拒马 isHorse 一样不挡前排）；雄鹰/雌鹰按老板拍板本次仍算占位不排除
 // V1.0.0 | ~9887 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.2.0';
+export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.2.1';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/03battle-utils.js';
 import { getRoleBonus } from '../core/02unit.js';
@@ -120,6 +121,11 @@ export function createZhangWujiComponent() {
             if (!zhang) return;
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
+            // 2026-10-21 深夜复验（探针三场景实锤）：StateMachine 构造只设 current、不执行初始 onEnter，
+            //   V1.2.0 把补调放 near.onEnter 里在「初始即 near」场景永不触发（进 near 只能从 switching 来，
+            //   switching 只能从 ranged 来，watcher 又只认 ranged）——众志召到前排的张无忌仍卡假近战态。
+            //   正解：register 里直接补一次判定（_zhangSwitched 守卫幂等，重复注册/已切换均 no-op）。
+            if (fsm.is('near')) checkZhangSwitch(zhang, A, log);
             const submitZhangJiuYangDeclaration = this.submitZhangJiuYangDeclaration;
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.JIUYANG, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
