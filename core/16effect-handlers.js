@@ -1,8 +1,9 @@
+// V6.1.3 | 2026-10-21 严阵反弹回血移交 core/12：删 REBOUND 的 hasSister 全额回血分支（改发独立 HEAL 声明、回 50%）
 // V6.1.1 | ~17460 bytes | 2026-10-13 溅射伤害补 hp 纯记账（体检转交）：SPLASH handler 按 decl.buffType 分组
 //          （METEOR_SPLASH→meteorSplash / WIND_ASSAULT→windSplash，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
 // V6.1.2 | 2026-10-16 计算修饰器注册表迁 core/21-registry-calc.js：本文件只直连注册函数，
 //           删「转发 export」（core/12 的 getCalcModifier 已改直连 core/21）
-export const VER = 'core/16effect-handlers.js V6.1.2';
+export const VER = 'core/16effect-handlers.js V6.1.3';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './13battle-shared.js';
@@ -201,9 +202,7 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
         const reboundGroup = decl.factType === FACT_TYPES.HORSE_REBOUND ? 'horseRebound' : decl.factType === FACT_TYPES.FORTIFY_REBOUND ? 'fortifyRebound' : null;
         if (reboundGroup) recordHpAudit(decl.target, reboundGroup, -(decl.value || 0), '反弹');
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
-        if (decl.hasSister && decl.source && decl.source.alive) {
-            applyStatChange(decl.source, 'hp', decl.value || 0, null, '反弹回复');
-        }
+        // 2026-10-21 严阵回血已改为 core/12 的独立 HEAL 声明，此处删掉旧的全额回血逻辑
         executed.push(decl);
     }
     return { executed };

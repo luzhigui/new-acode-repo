@@ -1,8 +1,9 @@
 // render/35-facts-stat.js — 效果域·属性召唤族 fact 渲染器
+// V1.0.1 | 2026-10-21 严阵反弹文案随回血口径改 50%（姐姐强化显示值 = reboundDmg 的一半）
 // V1.0.0 | ~8800 bytes | 2026-10-18 自 render/35-facts-effect.js V1.0.21 拆出（纯搬移，函数体逐字不动）：
 //   属性召唤族（变身/乾坤/坚盾/成长/召唤/蛛变蛛袭/新婚性奋/白骨爪链/反伤）32 条整块迁入。
 //   与 render/38-actions-translate-stat.js 同族名——加新属性 fact 时「翻译器去 38s、渲染器来 35s」一眼对上。
-export const VER = 'render/35-facts-stat.js V1.0.0';
+export const VER = 'render/35-facts-stat.js V1.0.1';
 
 import { registerFactRenderer } from './33-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/56-battle-enums.js';
@@ -147,7 +148,8 @@ export function renderHorseReboundFact(fact) {
 }
 export function renderFortifyReboundFact(fact) {
     if (fact.hasSister) {
-        return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${fact.reboundDmg}）</span>` };
+        const heal = Math.floor(fact.reboundDmg * 0.5);
+        return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${heal}）</span>` };
     }
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }

@@ -1,8 +1,10 @@
 // render/38-actions-translate-control.js — fact → stageAction 翻译器·控制位移族（38 拆分）
+// V1.0.1 | 2026-10-21 惑心换位补飘字：MIND_CONTROL_SWAP 由单动作改动作数组，按 data.dmg / data.heal
+//          增发 DAMAGE_FLOAT / HEAL（afterText）
 // V1.0.0 | ~5300 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：免疫/换位/击退/眩晕/变身/
 //          飞行态（蛛化·蝶变）类 FACT_TRANSLATORS 条目，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
 import { STAGE_ACTION_TYPES, FACT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-control.js V1.0.0';
+export const VER = 'render/38-actions-translate-control.js V1.0.1';
 
 // 控制位移族翻译器表（键=factType）
 export const CONTROL_TRANSLATORS = {
@@ -32,15 +34,26 @@ export const CONTROL_TRANSLATORS = {
         factIndex: index,
         timing: 'beforeText'
     }),
-    [FACT_TYPES.MIND_CONTROL_SWAP]: (data, index) => ({
-        kind: STAGE_ACTION_TYPES.POS_SWAP,
-        actorUid: data.unitA?.uid ?? null,
-        targetUid: data.unitB?.uid ?? null,
-        oldPosA: data.posA,
-        oldPosB: data.posB,
-        factIndex: index,
-        timing: 'beforeText'
-    }),
+    [FACT_TYPES.MIND_CONTROL_SWAP]: (data, index) => {
+        const acts = [{
+            kind: STAGE_ACTION_TYPES.POS_SWAP,
+            actorUid: data.unitA?.uid ?? null,
+            targetUid: data.unitB?.uid ?? null,
+            oldPosA: data.posA,
+            oldPosB: data.posB,
+            factIndex: index,
+            timing: 'beforeText'
+        }];
+        if (data.dmg > 0) {
+            acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: data.unitA.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
+            acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: data.unitB.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
+        }
+        if (data.heal > 0) {
+            acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: data.unitA.uid, targetUid: data.unitA.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
+            acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: data.unitB.uid, targetUid: data.unitB.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
+        }
+        return acts;
+    },
     [FACT_TYPES.WIND_ASSAULT_PUSH]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.PUSH,
         actorUid: data.target?.uid ?? null,

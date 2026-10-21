@@ -1,5 +1,5 @@
 {
-  "version": "5.15.9",
+  "version": "5.16.0",
   "updated": "2026-10-21",
 
   "roles": {
@@ -563,7 +563,7 @@
         "spiderFly": {
           "name": "飞天",
           "desc": "受击将跌破{hpThresholds}或致死时化为小蜘蛛免疫伤害（被毒/反伤蹭过血线则机会顺延至下次受击），回合结束落下攻击并回复{landHealRatio}%血量（致死档回复{landHealRatioDeath}%）；毒/反伤致死原地结茧（0攻{eggDef}防、血量=自身最大生命50%，挺过两回合末孵化：保留{eggHatchHpRatio}%血、攻防恢复、直接飞天落地蛛袭），孵化后不再触发任何档",
-          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.5, "hpThresholds": [0.7, 0.4], "landHealRatio": 0.05, "landHealRatioDeath": 0.1, "eggDef": 10, "eggHatchHpRatio": 0.3 }
+          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.5, "hpThresholds": [0.7, 0.4], "landHealRatio": 0.01, "landHealRatioDeath": 0.05, "eggDef": 10, "eggHatchHpRatio": 0.3 }
         },
         "spiderStrike": {
           "name": "蛛袭",
@@ -583,7 +583,7 @@
             "hotBlood": { "leechPct": 0.20, "critInterval": 2 },
             "windAssault": { "hitProb": 1.0, "pushProb": 0.80 },
             "meteorShower": { "atkPerSplash": 2 },
-            "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50 },
+            "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50, "dmgOnSwap": 10, "healOnSwap": 10 },
             "cloudBody": { "dodgeBonus": 0.30 },
             "fortify": { "healOnRebound": true },
             "horseFormation": { "horseAtk": 0, "horseDef": 30, "horseHp": 30, "reboundDmg": 5 },
@@ -593,13 +593,13 @@
             "holyFire": { "reviveRatio": 0.60 },
             "doubleStrike": { "chance": 1.0 },
             "lastStand": { "hpThreshold": 0.5 },
-            "unity": { "recruitM": 20 }
+            "unity": { "recruitM": 25 }
           }
         },
         "mastery": {
           "name": "精通",
           "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限，精通全部四门后再加两层",
-          "params": { "atkPer": 2, "defPer": 2, "hpPer": 5 }
+          "params": { "atkPer": 1.5, "defPer": 1.5, "hpPer": 5 }
         },
         "holyTokenLuck": {
           "name": "圣火令·气运",
