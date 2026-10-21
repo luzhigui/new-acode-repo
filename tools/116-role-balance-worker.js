@@ -1,3 +1,7 @@
+// V1.12.0 | 2026-10-21 精英档位重排（老板拍板）：自然表新增寒离飒列；强精英单挑组改为
+//           韦一笑/小昭·姊/小昭·妹/金毛狮王谢逊/寒离飒（寒离飒走 forceWeakElite + 新增 forceSoloWeakElite
+//           抑制强精英轮盘，保证局内只有她一个精英）；张无忌（M115）从强精英拆出、单列 Boss 表；
+//           弱精英组同步移除寒离飒（保留杨逍/殷天正/何太冲/唐文亮）
 // V1.11.0 | 2026-10-21 pickHexBuff 补妹永久海克斯继承（口径对齐正式服与 108 hex job；112 精英评测此前跑的是
 //           妹无继承的平行世界、系统性低估妹；无妹阵容 no-op，职业平衡/无精英基线不动）
 // V1.10.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：allyFlagMap 加 isHanLiSa
@@ -80,6 +84,8 @@ function clearBattleGlobals() {
     GlobalStore.set('forcePang', null);
     // 2026-10-16 V1.9.1 补漏：forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——漏清会跨场污染弱精英出场率
     GlobalStore.set('forceWeakElite', null);
+    // 2026-10-21 V1.12.0：寒离飒强精英单挑的轮盘抑制标志，漏清会让后续 job 全部少一个随机精英
+    GlobalStore.set('forceSoloWeakElite', null);
     GlobalStore.set('currentBattleState', null);
     flushBattleEvents();
     // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
@@ -186,6 +192,9 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
     const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun' };
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
+    // 2026-10-21 V1.12.0：寒离飒（M107 强精英）不在固定轮盘，走 forceWeakElite 混入 +
+    //   forceSoloWeakElite 抑制强精英轮盘 —— 局内只有她一个精英，才是真正的单核口径。
+    const isHan = elite === '寒离飒';
     // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
     // 第3关轮换阵容拆成胖远桥/宋青书两行；其余关落进「标准」桶
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
@@ -193,6 +202,10 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
         if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
+        else if (isHan) {
+            GlobalStore.set('forceWeakElite', elite);
+            GlobalStore.set('forceSoloWeakElite', true);
+        }
         else GlobalStore.set(keyMap[elite], true);
         const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
         const teams = initBattleTeams(stage, initRng);
@@ -206,7 +219,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         a.runs++;
         if (res.winner === '明教') a.wins++;
-        const me = (res.ally || []).find(u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun);
+        const me = (res.ally || []).find(u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa);
         if (me) { if (me.alive) a.sumSurv++; a.sumDmg += me.dmgDealt || 0; a.sumTaken += me.dmgTaken || 0; }
     }
     // 只回传有数据的桶，空桶不占消息体积
@@ -261,7 +274,7 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 //     属随机噪声、400 场平均掉，仍是无偏对照。
 //   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
-    const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng', '寒离飒': 'isHanLiSa' };
+    const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng' };
     const enemyFlagMap = { '何太冲': 'isHeTaichong', '唐文亮': 'isTangWenLiang' };
     const flag = side === 'ally' ? allyFlagMap[elite] : enemyFlagMap[elite];
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
@@ -303,10 +316,10 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
 function runEliteStageJob(stage, seed, runs, startIndex = 0) {
     // 2026-09-24 定稿：胖远桥/宋青书是"行"不是"列"——第3关阵容在两人间轮换，
     // 按"本局敌方是谁"把整局分进对应变体桶（胖远桥/宋青书/标准），112 端每个桶渲染一行。
-    // 列仍是明教五精英：谁在场记给谁，胜 = 明教获胜（同场共现是真实环境，不是污染）。
+    // 列仍是明教六名精英：谁在场记给谁，胜 = 明教获胜（同场共现是真实环境，不是污染）。
     const newAgg = () => {
         const a = {};
-        for (const n of ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊']) {
+        for (const n of ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒']) {
             a[n] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
         }
         return a;
@@ -331,6 +344,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0) {
             else if (u.isXiaoZhaoSister) name = '小昭·姊';
             else if (u.isXiaoZhaoBrother) name = '小昭·妹';
             else if (u.isXieXun) name = '金毛狮王谢逊';
+            else if (u.isHanLiSa) name = '寒离飒';
             if (!name) continue;
             const a = agg[name];
             a.runs++;

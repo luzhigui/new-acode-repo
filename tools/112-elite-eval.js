@@ -1,3 +1,7 @@
+// V3.0.0 | 2026-10-21 精英档位重排（老板拍板）：① 自然表新增寒离飒列（6 列）；
+//          ② 强精英单挑组 = 韦一笑/小昭·姊/小昭·妹/金毛狮王谢逊/寒离飒；③ 张无忌（M115 boss 档）拆出，
+//          新增第五张「👑 Boss·张无忌」单表（forceZhang 单核）；④ 弱精英组移除寒离飒（只留杨逍/殷天正/何太冲/唐文亮）；
+//          ⑤ 快照新增 boss 段，四表并存（主表/强精英/Boss/无精英/弱精英）
 // V2.9.0 | 2026-10-19 结果快照改「跑完自动存」（对齐海克斯仪表盘，老板要求）：四张表任一跑完即自动追加一条该表快照，
 //          不必再手动点「💾 存结果」；手动按钮保留 = 把当前内存里所有表再存一条。抽出 saveSnap(keys) 统一入口。
 // V2.8.2 | 2026-10-17 弱精英评测补「寒离飒」（明教·战士·M107）：WEAK_ELITES 加 ally 条目
@@ -28,29 +32,34 @@
 // V2.3.1 | 预估 9200 bytes | 2026-10-04 「战力分」改名「实战评分」：主代码的「战力」(power) 是
 //          开战前的组队预算表（roster.elitePower / normalPower，仅 modules/29 用来凑明教阵容），
 //          与这里的战后实测分不是一回事，改名避撞词。算法不变 = 胜率 × 70% + 存活率 × 30%，
-//          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
+//          横向比同列六人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.9.0';
+export const VER = 'tools/112-elite-eval.js V3.0.0';
 
-const configs = [
-    { name: '张无忌' },
+// 自然出场归因表的列（2026-10-21：加寒离飒，共 6 名精英）
+const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
+const configs = NATURAL_ELITES.map(name => ({ name }));
+
+// 强精英单挑（M107）：张无忌（M115）属 boss 档，已拆到独立 Boss 表
+const SOLO_ELITES = [
     { name: '韦一笑' },
     { name: '小昭·姊' },
     { name: '小昭·妹' },
-    { name: '金毛狮王谢逊' }
+    { name: '金毛狮王谢逊' },
+    { name: '寒离飒' }
 ];
+const BOSS_ELITES = [{ name: '张无忌' }];
 
 // 敌方阵容变体（行拆分维度）：第3关在胖远桥/宋青书两套阵容间轮换，按"本局敌方是谁"拆行统计
 // 2026-09-24 定稿：胖远桥/宋青书是行不是列——用户要看的是"遇到谁时的整体胜率"，不是把他俩当出场角色
 const VARIANTS = ['胖远桥', '宋青书', '标准'];
 
 // 弱精英（2026-10-16 V2.8.0）：明教侧走 29 forceWeakElite 的「弱精英混入」、六大派侧走 M104 数字空位具名锁定
+// 2026-10-21 V3.0.0：寒离飒按 M107 归入强精英，移出本表
 const WEAK_ELITES = [
     { name: '杨逍', side: 'ally' },
     { name: '殷天正', side: 'ally' },
-    // 2026-10-17 寒离飒（明教·战士·弱精英 M107）：与韦一笑同池、走 mingWeakPool 混入
-    { name: '寒离飒', side: 'ally' },
     { name: '何太冲', side: 'enemy' },
     { name: '唐文亮', side: 'enemy' }
 ];
@@ -61,30 +70,33 @@ const startBtn = document.getElementById('eliteStartBtn');
 const runsInput = document.getElementById('eliteRunsInput');
 const progressEl = document.getElementById('eliteProgress');
 const resultEl = document.getElementById('eliteResult');
-const soloBtn = document.getElementById('eliteSoloBtn');       // 2026-10-08 单英雄胜率
+const soloBtn = document.getElementById('eliteSoloBtn');       // 2026-10-08 单英雄胜率（强精英）
 const soloProgressEl = document.getElementById('eliteSoloProgress');
 const soloResultEl = document.getElementById('eliteSoloResult');
+const bossBtn = document.getElementById('eliteBossBtn');       // 2026-10-21 Boss·张无忌（M115）
+const bossProgressEl = document.getElementById('eliteBossProgress');
+const bossResultEl = document.getElementById('eliteBossResult');
 const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
 const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
 const noEliteResultEl = document.getElementById('eliteNoEliteResult');
 const weakBtn = document.getElementById('eliteWeakBtn');        // 2026-10-16 弱精英评测
 const weakProgressEl = document.getElementById('eliteWeakProgress');
 const weakResultEl = document.getElementById('eliteWeakResult');
-const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单英雄/无精英专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
+const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/Boss/无精英）专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
 
 const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
 // ============ 2026-10-19 V2.9.0 结果快照：跑完自动存 + 手动补存，可载入回看 ============
 const SNAP_KEY = 'ming_elite_eval_snaps';
 const SNAP_LIMIT = 10;                                     // 最多留 10 条历史，超出丢最旧
-const TABLE_LABEL = { elite: '主表·自然出场', solo: '单英雄', none: '无精英基线', weak: '弱精英' };
+const TABLE_LABEL = { elite: '主表·自然出场', solo: '强精英', boss: 'Boss·张无忌', none: '无精英基线', weak: '弱精英' };
 const snapSelect = document.getElementById('eliteSnapSelect');
 const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
 const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
 const snapDropBtn = document.getElementById('eliteDropSnapBtn');
 const snapStatusEl = document.getElementById('eliteSnapStatus');
 // 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage }
-let latest = { elite: null, solo: null, none: null, weak: null };
+let latest = { elite: null, solo: null, boss: null, none: null, weak: null };
 
 const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
 const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(arr)); return null; } catch (e) { return e; } };
@@ -124,7 +136,7 @@ function saveSnap(keys) {
 }
 
 snapSaveBtn.addEventListener('click', () => {
-    snapStatusEl.textContent = saveSnap(['elite', 'solo', 'none', 'weak']).msg;
+    snapStatusEl.textContent = saveSnap(['elite', 'solo', 'boss', 'none', 'weak']).msg;
 });
 
 snapLoadBtn.addEventListener('click', () => {
@@ -132,7 +144,8 @@ snapLoadBtn.addEventListener('click', () => {
     if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
     const p = rec.parts;
     if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE); bossProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     if (p.weak) { latest.weak = p.weak; renderWeakResults(p.weak.byStage, p.weak.stages); weakProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     snapStatusEl.textContent = `📂 已载入 ${snapLabel(rec)}`;
@@ -214,24 +227,28 @@ startBtn.addEventListener('click', async () => {
     }
 });
 
-// ============ 2026-10-08 单英雄胜率：五精英逐一单挑选中关卡 ============
-// 口径：force 单精英（29 V7.5.16 起四路 force 全抑制随机轮盘=真·单英雄局）、海克斯开、
+// ============ 2026-10-08 单英雄胜率：强精英逐一单挑（2026-10-21 拆出 Boss 表） ============
+// 口径：force 单精英（29 V7.5.16 起各路 force 全抑制随机轮盘=真·单精英局）、海克斯开、
 //       胜=明教。与普通评测的区别：普通表是「自然出场归因」（同场多精英），这张表是「控制变量单挑」。
-soloBtn.addEventListener('click', async () => {
+//       寒离飒走 forceWeakElite + forceSoloWeakElite（只抑制轮盘、仍强制她混入），同样只有她一个精英。
+const SOLO_NOTE = '强精英单挑 = force 该精英单核（抑制随机轮盘、海克斯开、胜=明教）。寒离飒走「强制混入+抑制轮盘」，同样是单核局。与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。';
+const BOSS_NOTE = 'Boss·张无忌 = force 张无忌单核（M115 boss 档、抑制随机轮盘、海克斯开、胜=明教）。单独一表，避免与 M107 强精英混在同一把尺子上比较。';
+
+async function runSoloGroup(list, ui) {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(soloRunsInput.value) || 400;   // 单英雄表专用场数（默认 400，与普通表分开）
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
-    soloBtn.disabled = true;
-    soloProgressEl.textContent = '开始单英雄评测...';
-    soloResultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
+    ui.btn.disabled = true;
+    ui.progressEl.textContent = `开始${ui.title}评测...`;
+    ui.resultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
 
     const byStage = {}; // stage -> variant -> 精英名 -> {runs,wins,sumSurv,sumDmg,sumTaken}
     for (const st of stages) {
         byStage[st] = {};
         for (const v of VARIANTS) {
             byStage[st][v] = {};
-            for (const cfg of configs) byStage[st][v][cfg.name] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
+            for (const cfg of list) byStage[st][v][cfg.name] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
         }
     }
     const startT = performance.now();
@@ -240,7 +257,7 @@ soloBtn.addEventListener('click', async () => {
     // 每精英每关拆片派发（种子再错开 7717*精英序号，互不重叠）
     const jobs = [];
     let eliteIdx = 0;
-    for (const cfg of configs) {
+    for (const cfg of list) {
         for (const stage of stages) {
             const chunks = Math.ceil(RUNS / CHUNK);
             for (let c = 0; c < chunks; c++) {
@@ -265,49 +282,56 @@ soloBtn.addEventListener('click', async () => {
                     if (!a) continue;
                     a.runs += d.runs; a.wins += d.wins; a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
                 }
-                soloProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
+                ui.progressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.solo = { stages, runs: RUNS, byStage };
-                renderSoloResults(byStage, stages);
-                soloProgressEl.textContent = `✅ 单英雄评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
-                snapStatusEl.textContent = saveSnap(['solo']).msg;    // V2.9.0 跑完自动存（不必手点）
+                latest[ui.key] = { stages, runs: RUNS, byStage };
+                renderSoloResults(byStage, stages, list, ui.resultEl, ui.note);
+                ui.progressEl.textContent = `✅ ${ui.title}评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+                snapStatusEl.textContent = saveSnap([ui.key]).msg;    // V2.9.0 跑完自动存（不必手点）
             }
         });
     } catch (e) {
-        console.error('[elite-solo] 单英雄评测异常:', e);
-        soloResultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>完整堆栈已输出到 F12 控制台</div>`;
-        soloProgressEl.textContent = '❌ 单英雄评测异常';
+        console.error(`[elite-${ui.key}] ${ui.title}评测异常:`, e);
+        ui.resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>完整堆栈已输出到 F12 控制台</div>`;
+        ui.progressEl.textContent = `❌ ${ui.title}评测异常`;
     } finally {
-        soloBtn.disabled = false;
+        ui.btn.disabled = false;
     }
-});
+}
 
-function renderSoloResults(byStage, stages) {
+soloBtn.addEventListener('click', () => runSoloGroup(SOLO_ELITES, {
+    btn: soloBtn, progressEl: soloProgressEl, resultEl: soloResultEl, key: 'solo', title: '强精英', note: SOLO_NOTE
+}));
+bossBtn.addEventListener('click', () => runSoloGroup(BOSS_ELITES, {
+    btn: bossBtn, progressEl: bossProgressEl, resultEl: bossResultEl, key: 'boss', title: 'Boss', note: BOSS_NOTE
+}));
+
+function renderSoloResults(byStage, stages, list, resultEl, note) {
     let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
-    for (const cfg of configs) html += '<col>';
+    for (const cfg of list) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
-    for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
+    for (const cfg of list) html += `<th class="elite-th">${cfg.name}</th>`;
     html += '</tr>';
     for (const st of stages) {
         // 按变体拆行（V2.4.2）：第3关拆「·胖远桥」「·宋青书」两行，其余关单行；无数据的变体不出行
         for (const v of VARIANTS) {
             const slot = byStage[st] && byStage[st][v];
-            const hasData = slot && configs.some(cfg => slot[cfg.name] && slot[cfg.name].runs > 0);
+            const hasData = slot && list.some(cfg => slot[cfg.name] && slot[cfg.name].runs > 0);
             if (!hasData) continue;
             const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
             html += `<tr><td class="elite-stage">${label}</td>`;
-            for (const cfg of configs) html += soloCellHtml(slot[cfg.name]);
+            for (const cfg of list) html += soloCellHtml(slot[cfg.name]);
             html += '</tr>';
         }
     }
-    // 总评行（2026-10-08 补）：跨关累加五精英，口径与上方自然表的总评一致
+    // 总评行（2026-10-08 补）：跨关累加，口径与上方自然表的总评一致
     html += '<tr><td class="elite-stage">总评</td>';
-    for (const cfg of configs) html += soloCellHtml(soloTotalsOf(cfg, byStage, stages));
+    for (const cfg of list) html += soloCellHtml(soloTotalsOf(cfg, byStage, stages));
     html += '</tr>';
     html += '</table>';
-    html += '<div style="font-size:11px;color:#999;margin-top:6px;">单英雄胜率 = force 该精英单挑（抑制随机轮盘、海克斯开、胜=明教）。控制变量口径，与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。</div>';
-    soloResultEl.innerHTML = html;
+    html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
+    resultEl.innerHTML = html;
 }
 
 // 单英雄表单元格：胜率/场次/存活（逐关行与总评行共用）
@@ -637,7 +661,7 @@ function renderResults(byStage, stages) {
         <div class="cell-sub">胜率 70% ＋ 存活 30%</div></td>`;
     }
     html += '</tr></table>';
-    html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列五人、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
+    html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列六名精英、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
 }
 

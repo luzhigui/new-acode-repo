@@ -1,3 +1,5 @@
+// V7.5.26 | 2026-10-21 新增 forceSoloWeakElite（仅工具 112 强精英单挑用）：配合 forceWeakElite 锁定寒离飒时
+//            抑制随机精英轮盘，得到「只有她一个精英」的单核局；不设该标志时弱精英混入照旧（强精英轮盘照常）
 // V7.5.24 | ~25400 bytes | 2026-10-19 六大派弱精英随机混入（老板拍板，与明教侧同率 WEAK_ELITE_MIX_RATE）：
 //            池由名册派生（HERO_FLAGS ∩ 不属于任一关卡固定精英池）＝何太冲/唐文亮，命中则锁定一处 M 值匹配的数字空位
 //            （每局至多一名）；dev 强制 forceWeakElite 优先，两者共用同一条锁定通道
@@ -6,7 +8,7 @@
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.25';
+export const VER = 'modules/29battle-init.js V7.5.26';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -128,7 +130,9 @@ export function initBattleTeams(currentStage, _rng) {
     //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
     const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother'
         || localStorage.getItem('_forceXiaoZhao') === 'sister' || localStorage.getItem('_forceXiaoZhao') === 'brother');
-    if (eliteCount > 0 && !forceZhang && !forceWei && !forceXieXun && !_forceXzEarly) {
+    // 2026-10-21 V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
+    const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
+    if (eliteCount > 0 && !forceZhang && !forceWei && !forceXieXun && !_forceXzEarly && !forceSoloWeak) {
         const picked = [];
         // 2026-09-22 已在队的精英不再进池：forceXieXun 等强制路径可能已经加过，
         // 不去重会抽出第二个同名精英（小昭会被改名成「小昭·姊/妹」，所以标记判断不能只看 name）
