@@ -21,7 +21,12 @@
 //     doubleStrikeUnitUid`），所以「回合开始宣告[幼狮] → 成长 → 触发者[雄狮]」是**同一单位**，不是越界。
 //     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记
 //     别名后再比对；不做这层就会把谢逊狮群的正常回合误报成连击越界（2026-09-24 实测 2 条红全是这个形态）。
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.14';
+// V6.1.15 | 2026-10-21 第 114 轮：补「蝶变宿主别名」——并行会话 12c3a69 加了连击转移（core/03：
+//   轮盘选中的是姊但她已蝶变附身时，连击归宿主、banner 报宿主名），宣告名单仍是姊 ⇒ 信号2 把
+//   「姊宣告→宿主触发」误判越界（seed=8 s4 / seed=13 s1 实证：小昭·姊附身殷天正期间连击转移）。
+//   与既有「幼狮成长别名」同型：登记本轮「姊 附身于 宿主」条目，宣告名与触发名按别名放行。
+//   观察项（未改规则、建议主代码侧定夺）：回合开始宣告名单是否也该据实显示宿主。
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.15';
 import { plain } from '../122health-utils.js';
 
 const PROB_PCT = 80; // content buffs.doubleStrike.prob = 0.8，仅用于文案口径核对
@@ -114,6 +119,20 @@ export const rule93 = {
             if (gr) {
                 if (!cur.renames[gr.old]) cur.renames[gr.old] = [];
                 if (cur.renames[gr.old].indexOf(gr.now) === -1) cur.renames[gr.old].push(gr.now);
+                continue;
+            }
+            // 蝶变附身（V6.1.15）：「🦋 蝶变：小昭·姊 化为蝴蝶附身于 殷天正！」——连击转移设计下
+            //   （core/03 registerDoubleStrike 2026-10-21：选中的姊已附身则连击归宿主），
+            //   宣告名（姊）与触发名（宿主）会不同，登记别名后信号2/3 放行；非同名单位的真越界照报。
+            var bt = plain(e.text).match(/化为蝴蝶附身于\s*(.+?)！/);
+            if (bt) {
+                var hostNm = String(bt[1]).trim();
+                var sisNm = (plain(e.text).match(/蝶变：(.+?)\s*化为蝴蝶/) || [])[1];
+                if (sisNm && hostNm) {
+                    sisNm = String(sisNm).trim();
+                    if (!cur.renames[sisNm]) cur.renames[sisNm] = [];
+                    if (cur.renames[sisNm].indexOf(hostNm) === -1) cur.renames[sisNm].push(hostNm);
+                }
                 continue;
             }
             if (e.type === 'buff-summary' && txt.indexOf('概率连击：') !== -1) {

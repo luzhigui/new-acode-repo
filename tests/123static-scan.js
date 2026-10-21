@@ -3,6 +3,7 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.4.6 | ~29500 bytes | 2026-10-21 第 114 轮 SCAN_FILES 补登 ./health-rules/171-tangwenliang-dash.js（唐文亮冲刺落地，import 122health-utils）
 // V1.4.5 | ~29200 bytes | 2026-10-21 第 112 轮 SCAN_FILES 补登 ./xinhun-death-targeted-case.mjs、
 //          ./fact-dead-field-scan.mjs（第 113 轮沙箱交接规格的主线重写产物：XIN_HUN_DEATH 定向用例
 //          + 全 fact 载荷死字段普查；二者 import 引擎符号，漏登则 import 断裂扫不到）
@@ -40,7 +41,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.4.5';
+export const VER = 'tests/123static-scan.js V1.4.6';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -130,6 +131,7 @@ export const SCAN_FILES = [
     './health-rules/141-zhangsanfeng-fortify-round.js',
     './health-rules/142-zhangsanfeng-endless-roundstart.js',
     './health-rules/143-jiuyang-heal-pct.js',
+    './health-rules/171-tangwenliang-dash.js',
     // 2026-09-21 补登 144（第 2 趟新增时漏登）+ 新增 146
     './health-rules/144-xinhun-kuaile.js',
     './health-rules/145-fly-miss-aura.js',
