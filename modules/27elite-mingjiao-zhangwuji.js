@@ -1,9 +1,10 @@
 // modules/27elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
+// V1.2.0 | ~10100 bytes | 2026-10-21 修「众志召唤的张无忌卡假近战态」：near.onEnter 补一次 checkZhangSwitch（初始即 near 时构造不执行 onEnter）
 // V1.1.0 | ~10000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；checkZhangSwitch 改收 zhang 实参（不再全场 find 第一个，防双张无忌误切非触发者）
 // V1.0.1 | ~9934 bytes | 2026-10-17 前排判定同口径三处排除幼狮 isLionCub（与拒马 isHorse 一样不挡前排）；雄鹰/雌鹰按老板拍板本次仍算占位不排除
 // V1.0.0 | ~9887 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.1.0';
+export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.2.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/03battle-utils.js';
 import { getRoleBonus } from '../core/02unit.js';
@@ -83,7 +84,15 @@ export function createZhangWujiComponent() {
                     onExit() {}
                 },
                 near: {
-                    onEnter() { zhang.rangedForm = false; },
+                    onEnter() {
+                        zhang.rangedForm = false;
+                        // 2026-10-21 修「众志召唤的张无忌卡在假近战态」：_buildFsm 构建时若同列前方无人，
+                        //   initial 直接判 'near'，而 StateMachine 构造只设 current、不执行 onEnter ——
+                        //   switching.onEnter（唯一调 checkZhangSwitch 处）被绕过，role 仍「远程」、
+                        //   近战 ×3 加成没加、_zhangSwitched 未置位；且 watcher 首行 !fsm.is('ranged') 直接
+                        //   return false，永不重判。此处补一次；已切者 _zhangSwitched=true 会挡住，幂等。
+                        checkZhangSwitch(zhang, A, log);
+                    },
                     onExit() {}
                 },
                 ronghui: {
