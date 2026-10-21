@@ -1,4 +1,8 @@
 // tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.8.0 | 2026-10-21 补登记 FIELD_GLOSSARY 19 项：此前实验台把 spawnProb / bonusRatio / splashRatio /
+//   mainDefReduce / splashDefReduce / critRatio / reboundRatio / targetPositions / reviveRatio /
+//   brotherReviveRatio / brotherPenalty / brotherSpawnChance / brotherPointChance / brotherSummonChance /
+//   perUnitBonus / perRoundBonus / hpThreshold / recruitM / tiers 直接显示英文键名。
 // V2.7.2 | 2026-10-18 第 101 轮：按 param-read-guard 实测同步 ENGINE_READ（24 项漂移清零）——
 //   ① 字段级：righteousFace 补 healPerAttack（蓄力改版后每次命中回血）；youngBlood 换 dmgMultiplier →
 //      dmgMultMax/dmgMultMin/dmgMultStep（年轻气盛改波动倍率，旧字段已无读取点）；
@@ -67,7 +71,7 @@
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 
-export const VER = 'tools/124-param-lab-glossary.js V2.7.1';
+export const VER = 'tools/124-param-lab-glossary.js V2.8.0';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -469,6 +473,25 @@ export const FIELD_GLOSSARY = {
     extraStrike:        { name: '是否额外攻击一次（true/false）', unit: UNIT.raw },
     multiTarget:        { name: '是否多目标（true/false）', unit: UNIT.raw },
     healOnRebound:      { name: '反弹时是否回血（true/false）', unit: UNIT.raw },
+    spawnProb:          { name: '每回合生成概率（引擎不读，巨马每回合必出）', unit: UNIT.pct },
+    bonusRatio:         { name: '远程额外伤害比例（流星赶月）', unit: UNIT.pct },
+    splashRatio:        { name: '溅射伤害比例（流星赶月）', unit: UNIT.pct },
+    mainDefReduce:      { name: '主箭每次命中降低的目标防御', unit: UNIT.point },
+    splashDefReduce:    { name: '溅射命中降低的目标防御', unit: UNIT.point },
+    critRatio:          { name: '暴击/双倍回血触发比例（热血奋战）', unit: UNIT.pct },
+    reboundRatio:       { name: '受到伤害的反弹比例（严阵以待）', unit: UNIT.pct },
+    targetPositions:    { name: '多目标覆盖的站位号（如 4/5/6）', unit: UNIT.raw },
+    reviveRatio:        { name: '复活时回复生命的比例（圣火不熄）', unit: UNIT.pct },
+    brotherReviveRatio: { name: '妹妹永久版复活时回复生命的比例', unit: UNIT.pct },
+    brotherPenalty:     { name: '妹妹永久版比团队版少的闪避', unit: UNIT.pct },
+    brotherSpawnChance: { name: '妹妹在场时每回合生成拒马的概率', unit: UNIT.pct },
+    brotherPointChance: { name: '妹妹永久版摄魂每回合点名概率', unit: UNIT.pct },
+    brotherSummonChance:{ name: '妹妹永久版众志每回合补员概率', unit: UNIT.pct },
+    perUnitBonus:       { name: '每比敌方少 1 人额外减攻的比例（摄魂）', unit: UNIT.pct },
+    perRoundBonus:      { name: '每回合额外降低敌方防御的比例（摄魂）', unit: UNIT.pct },
+    hpThreshold:        { name: '触发血量阈值（背水一战）', unit: UNIT.pct },
+    recruitM:           { name: '补员单位的 M 值（众志成城）', unit: UNIT.point },
+    tiers:              { name: '人数档位表（众志成城：人数 → 攻/防加成）', unit: UNIT.raw },
 };
 
 // CONFIG 键 → 中文名（旋钮标题用）
