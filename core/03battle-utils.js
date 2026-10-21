@@ -1,6 +1,7 @@
+// V6.3.4 | 2026-10-21 姊强化·连击转移：轮盘选中姊但她已蝶变附身时，连击判定归宿主（submitDoubleStrikeDeclaration）
 // V6.3.3 | 2026-10-20 删死代码：getFlyDodgeRate / getActiveBuffs / hasAnyEnemyEmptyCol / hasEnemyLowHp（零调用）+ 随之无用的 CAMP_TYPES import
 // V6.3.2 | ~18100 bytes | 2026-10-19 概率连击无视遮挡定案：registerDoubleStrike 的 ignoreBlock 恒 true（团队版/妹永久/姊强化一律穿透遮挡；姊强化仍 100% 连击）
-export const VER = 'core/03battle-utils.js V6.3.3';
+export const VER = 'core/03battle-utils.js V6.3.4';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -311,7 +312,15 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     if (!doubleStrikeUnitUid) return;
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
-        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.state._doubleStriked) return;
+        // 2026-10-21 连击转移：若轮盘选中的是姊，而她已经蝶变附身，则连击归宿主。
+        let matched = (unit.uid === doubleStrikeUnitUid);
+        if (!matched) {
+            const sis = allyTeam.find(u => u.uid === doubleStrikeUnitUid);
+            if (sis && sis.isXiaoZhaoSister && sis.state._butterflyHost === unit.uid) {
+                matched = true;
+            }
+        }
+        if (!matched || !unit.alive || unit.state._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : C.BUFFS.doubleStrike.prob;
         if (getBattleRng().next() < missChainChance) {

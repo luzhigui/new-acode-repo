@@ -1,5 +1,6 @@
+// V6.7.1 | 2026-10-21 姊强化·乘风突袭：团队版主目标额外承受 20% 伤害（BONUS_DMG 声明「乘风突袭·强化」）
 // 版本历史见 记录-更改履历.md（检索 "core/04buff-system"）
-export const VER = 'core/04buff-system.js V6.7.0';
+export const VER = 'core/04buff-system.js V6.7.1';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -341,6 +342,19 @@ export function submitWindAssaultDeclaration(data) {
     const pushProb = enhance ? Math.floor(enhance.pushProb * 100) : Math.floor(C.BUFFS.windAssault.pushProb * 100);
     const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
     if (rng.nextInt(1, 100) <= hitProb) {
+        // 2026-10-21 姊强化：团队版乘风主目标额外承受 20% 伤害（妹妹永久版不生效）
+        if (enhance && target.alive && !target.state._pendingDeath) {
+            const extraDmg = Math.floor(dmg * 0.2);
+            if (extraDmg > 0) {
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: EFFECT_TYPES.BONUS_DMG,
+                    value: extraDmg,
+                    target: target,
+                    label: '乘风突袭·强化'
+                });
+            }
+        }
         const row = getUnitRow(target.pos);
         const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
         if (rowTargets.length > 0) {

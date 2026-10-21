@@ -1,3 +1,4 @@
+// V1.0.1 | 2026-10-21 严阵反弹追加 HEAL 声明：姊在场时防战回 50% 反弹伤害（原 core/16 写死 100%，已删）
 // core/12battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // V1.0.0 | ~24200 bytes | 2026-10-18 自 core/12battle-attack-steps.js V6.3.16 拆出（纯搬移，函数体逐字不动）：
 //   selectAttackTarget / resolveAttackHit / calcFinalDamage / applyAttackResult / buildAttackGroup /
@@ -8,7 +9,7 @@
 //   resolveDamageImmune / isUnitStunned）在 12battle-attack-edge.js。
 //   原文件死 import（clearEliteDodgeRules / isBlocked / getUnitCol / getUnitRow / getEffectHandler /
 //   hasEffectHandler / validateDeclarationFields）未搬入——函数体内未引用，与 edge 分工对齐。
-export const VER = 'core/12battle-attack-chain.js V1.0.0';
+export const VER = 'core/12battle-attack-chain.js V1.0.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -385,6 +386,19 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 factType: FACT_TYPES.FORTIFY_REBOUND,
                 factData: { reboundDmg, unitName: unit.name, hasSister, attackerUid: unit.uid, unitUid: target.uid }
             }];
+            // 2026-10-21 姊强化：严阵反弹时防战回复反弹伤害的 50%（原 core/16 写死回复 100%）
+            if (hasSister) {
+                const healVal = Math.floor(reboundDmg * 0.5);
+                if (healVal > 0) {
+                    fortifyDeclarations.push({
+                        type: EFFECT_TYPES.HEAL,
+                        value: healVal,
+                        source: target,
+                        factType: FACT_TYPES.HEAL,
+                        factData: { unitName: target.name, heal: healVal, hpBefore: fmtHp(target.hp), hpAfter: fmtHp(target.hp + healVal), unitUid: target.uid, icon: '🛡️', label: '严阵以待回复', mode: 'plusTrail', anchorVerb: '回复' }
+                    });
+                }
+            }
         }
     }
 
