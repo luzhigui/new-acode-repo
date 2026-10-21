@@ -1,3 +1,4 @@
+// V1.2.3 | ~9700 bytes | 2026-10-21 第 114 轮 RULE_META 补登 171 唐文亮冲刺落地（enemy:唐文亮，条件稀有）
 // V1.2.2 | ~9400 bytes | 2026-10-13 第 87 轮 RULE_META 补登 166 惑心换位；2026-10-02 RULE_META 补登 157「mechanics 安装对账」（复用 core/15 真实安装期
 //          校验对 content 全量 mechanics 对账 type/字段/targetRule）。tag 归 generic:通用 —— 不读战报、
 //          只读 content，恒有结论，不依赖本局出阵角色。
@@ -8,7 +9,7 @@
 //          VER 对账会漏掉本文件）；删除死常量 TAG_PREFIX 与 getRuleGroups 里未使用的 prefix 变量。
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.1';
+export const VER = 'tests/124rule-recipes.js V1.2.3';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
@@ -44,6 +45,9 @@ export const RULE_META = {
     // 2026-10-13 第 87 轮新增：惑人心智换位链路（138 只管乘风击退，惑心的敌方/己方配对、
     //   SWAP 自洽、宣告位置落地此前无规则盯）
     '惑心换位配对与落地(回归)': { tag: 'mechanic:惑人心智', note: '团队 Buff，需本局选到「惑人心智」且最前排单位出手过才会触发' },
+    // 第 114 轮新增：171 唐文亮冲刺落地。冲刺需唐文亮出手满 7 次（content chongCi.cycle），
+    //   且唐文亮是六大派弱精英随机混入 ⇒ 条件稀有，未抽到即 skip（实测 140 场回放有命中，非恒空转）。
+    '唐文亮冲刺落地(回归)': { tag: 'enemy:唐文亮', note: '唐文亮为弱精英随机混入，且需出手满7次才冲刺，条件稀有需连打多局碰出' },
     '破防显示位置/破防量(回归)': { tag: 'mechanic:破防' },
     // 张三丰（V6.1.7/V6.1.9 机制回归）：六大派精英，随机出阵不可强制
     '张三丰核心机制回归(严阵以待/如沐春风/生生不息)': { tag: 'enemy:张三丰', note: '张三丰为六大派随机精英，无法强制，需连打多局碰出' },
