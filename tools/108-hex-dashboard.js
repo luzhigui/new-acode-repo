@@ -1,3 +1,6 @@
+// V6.2.16 | ~38200 bytes | 2026-10-21 海克斯详情卡全中文化（老板要求）：reviveRatio / brotherReviveRatio / permanent /
+//   effects 这类代码字段名不再展示，参数名全部换中文（复活时回复生命 / 妹妹永久版复活时回复生命 …）；
+//   effects / params / tiers / recruitPool / permanent 归为内部实现字段直接隐藏，「持续」仍由原有一行表达。
 // V6.2.15 | 实测 37800 bytes | 2026-10-20 「阵容」下拉新增「全部4种（一起跑）」并设为默认（老板要求）：
 //   一次自动跑把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式一起跑完（同一批 job 混排喂池，比分四次跑更省时），
 //   各模式仍分别写自己的存储键；跑完上方表显示常规 + 自动展开「模式对比」。
@@ -125,8 +128,21 @@ const PARAM_LABELS = {
   reboundRatio: '反弹伤害', mainDefReduce: '主箭降防', splashDefReduce: '小箭降防',
   duration: '持续', horseHp: '巨马生命', horseAtk: '巨马攻击', horseDef: '巨马防御',
   deathMultiplier: '死亡队友加成倍率', multiTarget: '多目标', targetPositions: '目标位置',
-  atkCols: '攻击列数', defRows: '防御行数', extraStrike: '额外追击', healOnRebound: '反弹回血', reboundDmg: '反弹伤害'
+  atkCols: '攻击列数', defRows: '防御行数', extraStrike: '额外追击', healOnRebound: '反弹回血', reboundDmg: '反弹伤害',
+  // 复活类
+  reviveRatio: '复活时回复生命', brotherReviveRatio: '妹妹永久版复活时回复生命',
+  // 妹妹（永久版）相关
+  brotherPenalty: '妹妹永久版比团队版少的闪避', brotherSpawnChance: '妹妹在场时每回合生成概率',
+  brotherPointChance: '妹妹永久版点名概率', brotherSummonChance: '妹妹永久版每回合补员概率',
+  // 百分比类
+  perUnitBonus: '每多一名敌人额外减攻', perRoundBonus: '每回合额外减防',
+  hpThreshold: '触发血量阈值', recruitM: '补员战力',
+  // 姐姐强化版新增字段
+  leechPct: '吸血比例', atkPerSplash: '每个溅射目标额外攻击', chance: '触发概率'
 };
+
+// 内部实现字段：不给玩家看（持续/永久已在下方单独一行说明）
+const HIDDEN_PARAMS = new Set(['permanent', 'effects', 'params', 'tiers', 'recruitPool']);
 
 const HEX_HINTS = {
   doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑），触发一次就多一轮爆发；收益随机、不稳定，对位前排密集时触发收益更高。',
@@ -167,9 +183,9 @@ const HEX_NAME_MAP = {
 
 function fmtVal(k, v) {
   if (typeof v === 'boolean') return v ? '开启' : '关闭';
-  if (Array.isArray(v)) return 'P' + v.join('/P');
+  if (Array.isArray(v)) return k === 'targetPositions' ? `第 ${v.join('/')} 号位` : 'P' + v.join('/P');
   if (typeof v === 'number') {
-    if (/prob|ratio|bonus|pct/i.test(k) && v <= 1) return Math.round(v * 100) + '%';
+    if (/prob|ratio|bonus|pct|chance/i.test(k) && v <= 1) return Math.round(v * 100) + '%';
     if (k === 'duration') return v + ' 回合';
     return v;
   }
@@ -183,7 +199,7 @@ function renderVersion(title, base, enhance, kind, cls) {
   if (kind !== 1) {
     const params = [];
     for (const k in base) {
-      if (k === 'name' || k === 'desc' || k === 'icon' || k === 'duration') continue;
+      if (k === 'name' || k === 'desc' || k === 'icon' || k === 'duration' || HIDDEN_PARAMS.has(k)) continue;
       params.push(`<li><b>${PARAM_LABELS[k] || k}</b>：${fmtVal(k, base[k])}</li>`);
     }
     lines = params.join('');
@@ -194,7 +210,7 @@ function renderVersion(title, base, enhance, kind, cls) {
     lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';
   } else {
     for (const k in enhance) {
-      if (k.startsWith('xiaoZhao')) continue; // 小昭内部字段不展示
+      if (k.startsWith('xiaoZhao') || HIDDEN_PARAMS.has(k)) continue; // 小昭内部字段 / 内部实现字段不展示
       const v = enhance[k];
       if (base[k] !== undefined) {
         lines += `<li><b>${PARAM_LABELS[k] || k}</b>：<s style="color:#888">${fmtVal(k, base[k])}</s> → <b style="color:#ffd700">${fmtVal(k, v)}</b></li>`;
