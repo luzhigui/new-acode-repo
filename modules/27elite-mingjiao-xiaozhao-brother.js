@@ -238,9 +238,12 @@ export function createXiaoZhaoBrotherComponent() {
                 const teamHasHorse = hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
                 const hasPermanent = bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HORSE_FORMATION);
                 if (!teamHasHorse && hasPermanent) {
-                    const xzHorse = spawnHorse(A, log, B, true);
-                    if (xzHorse) {
-                        log.push({ factType: FACT_TYPES.XIAO_ZHAO_HORSE, data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
+                    // 2026-10-21 老板拍板：妹永久巨马阵不再每回合必召，改 80% 概率（content.buffs.horseFormation.brotherSpawnChance）
+                    if (getBattleRng().next() < CONFIG.BUFFS.horseFormation.brotherSpawnChance) {
+                        const xzHorse = spawnHorse(A, log, B, true);
+                        if (xzHorse) {
+                            log.push({ factType: FACT_TYPES.XIAO_ZHAO_HORSE, data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
+                        }
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);

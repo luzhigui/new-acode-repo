@@ -89,6 +89,8 @@ export const ALL_PROJECT_FILES = [
     '../infra/51-core-utils.js', '../infra/52-clock.js', '../infra/56-battle-enums.js', '../infra/58-fact-contract.js', '../infra/59-state-change.js', '../infra/60-net-pvp.js', '../infra/61-view-sheet.js',
     '../core/08-registry-elite.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
+    // 2026-10-21 补登记 12 拆分件：攻击链/攻击边（12battle-attack-steps 的同批产物，包内引用）
+    '../core/12battle-attack-chain.js', '../core/12battle-attack-edge.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
     '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js', '../core/19unit-watch.js',
     // 2026-10-16 注册面归位批：闪避规则表 / 计算修饰器表分别迁入 core/20、core/21（详见文件头 V6.0.28）
@@ -97,6 +99,8 @@ export const ALL_PROJECT_FILES = [
     '../core/07-target-strategies.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
+    // 2026-10-21 补登记 42 拆分件：播放步/阶段动作/步同步（42player-core 的同批产物）
+    '../player/42player-play-step.js', '../player/42player-stage-actions.js', '../player/42player-step-sync.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
     '../player/48battle-report.js', '../player/49battle-flow.js',
     // 2026-10-08 补登记 50/51：玩家层战报导出（42/61/64/68 已 import）与战报日志分析（64 已 import）
@@ -124,6 +128,8 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-02 补登记 00reg-mechanics：机制装配统一入口（ui/61 唯一 import 点，25/26/27/30 经它装载）
     '../modules/00reg-mechanics.js',
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
+    // 2026-10-21 补登记 23：精英通用助手（26/27 组件共用）
+    '../modules/23elite-helpers.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
     // 2026-10-17 补登记 27 九组件：27elite-mingjiao.js 拆成 barrel + 8 角色文件（V7.2.0 纯搬零行为）后新增
@@ -142,7 +148,11 @@ export const ALL_PROJECT_FILES = [
     '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
+    // 2026-10-21 补登记 32 拆分件：格徽章/格单元（32-grid-render 的同批产物）
+    '../render/32grid-badges.js', '../render/32grid-cells.js',
     '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js', '../render/36-generic-renderers.js',
+    // 2026-10-21 补登记 35 拆分件：控制/治疗/杂项/属性四族（35-facts-effect 的同批产物）
+    '../render/35-facts-control.js', '../render/35-facts-heal.js', '../render/35-facts-misc.js', '../render/35-facts-stat.js',
     // 2026-10-11 补登记 37：角色名片表从 ui/69 迁入 render（消除 render→ui 反向依赖；ui/62、ui/65、render/32 已 import）
     '../render/37-role-cards.js',
     '../render/38-actions-translate.js',
