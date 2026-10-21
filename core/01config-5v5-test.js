@@ -169,7 +169,7 @@ function resolveDescValue(characterName, skillKey, key) {
 const PCT_PARAM_KEYS = new Set(['reducePct', 'reboundPct', 'selfDmgPct', 'leechMin', 'leechMax',
     'procChance', 'healPct', 'prob',
     'atkRatioRight', 'defRatioLeft', 'hpRatio',           // 小昭·蝶变附身三项
-    'landHealRatio', 'landHealRatioDeath', 'eggHatchHpRatio',   // 小昭·飞天落地回血档位比（70/40 15% / 致死 30%）+ 孵化保留血量比 40%
+    'landHealRatio', 'landHealRatioDeath', 'eggHatchHpRatio',   // 小昭·飞天落地回血档位比（70/40 5% / 致死 10%）+ 孵化保留血量比 40%
     'lostHpRatio', 'maxHpRatio', 'executeThreshold']);    // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）
 
 function getSkillDesc(characterName, skillKey, jealous) {
