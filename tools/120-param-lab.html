@@ -1,5 +1,8 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.2.3 | 预估 48300 bytes | 2026-09-30 随 124 V2.6.0 退役两张表，页面去掉 isMechanicsRowHidden / dualRegisterNote
+<!-- V3.2.4 | 预估 48600 bytes | 2026-10-21 人员补全 + 参数中文名补齐（配 124 V2.8.0）：
+     「明教侧角色」原只认 roster.mingM，小昭（姊/妹共用）未登记在名册 → 下拉里根本没有她；
+     改为名册位 ∪ 角色表里带「明教 + 精英」标签的角色。海克斯新增字段的中文名见 124 FIELD_GLOSSARY。
+     V3.2.3 | 预估 48300 bytes | 2026-09-30 随 124 V2.6.0 退役两张表，页面去掉 isMechanicsRowHidden / dualRegisterNote
      的 import 与调用（「同一数值只显示一份」的隐藏、以及「两处一起改」的人话提示），字段 hint 简化为
      info.qualifier；.knob-off 灰显段与其余呈现逻辑不变。
      V3.2.2 | 预估 48200 bytes | 2026-09-30 「引擎不读」的字段在实验台上可区分（只改呈现，判定仍走 124）：
@@ -271,9 +274,17 @@ function stageEnemyNames(stage) {
     for (const v of (gameRoot.encounters?.squadVariants?.[stage] || [])) take(v && v.squad);
     return s;
 }
+// 明教侧角色：名册位 + 带「明教/精英」标签但未登记在名册的角色（如小昭·姊/妹共用的「小昭」）
+function mingNameSet() {
+    const s = new Set(Object.keys(gameRoot.roster?.mingM || {}));
+    for (const [n, c] of Object.entries(gameRoot.characters || {})) {
+        if (Array.isArray(c?.tags) && c.tags.includes('明教') && c.tags.includes('精英')) s.add(n);
+    }
+    return s;
+}
 // 归属项统一形态：{ layer, owner, label }
 function ownerOptions() {
-    const ming = new Set(Object.keys(gameRoot.roster?.mingM || {}));
+    const ming = mingNameSet();
     const stages = selectedStages();
     const enemies = new Set();
     for (const st of stages) for (const n of stageEnemyNames(st)) enemies.add(n);
@@ -301,7 +312,7 @@ function buildOwnerSelect() {
     const gMing = document.createElement('optgroup'); gMing.label = '明教侧角色';
     const gEnemy = document.createElement('optgroup'); gEnemy.label = '六大派角色（按所选关卡出场过滤）';
     const gOther = document.createElement('optgroup'); gOther.label = '常量与数据表';
-    const ming = new Set(Object.keys(gameRoot.roster?.mingM || {}));
+    const ming = mingNameSet();
     for (const o of opt) {
         if (o.layer === 'character') mk(ming.has(o.owner) ? gMing : gEnemy, o);
         else mk(gOther, o);
