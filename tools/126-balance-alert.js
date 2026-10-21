@@ -1,4 +1,7 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V2.1.0 | 2026-10-21 精英档位重排（配 112 V3.0.0）：自然表 6 人（补寒离飒）；强精英单挑只判 M107 五人
+//   （韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒）；张无忌（M115 boss）单列「Boss」段、理想线 30%；
+//   弱精英表移除寒离飒（只判杨逍/殷天正/何太冲/唐文亮）。快照新增 parts.boss，缺该段时提示补跑。
 // V2.0.0 | 实测 33484 bytes | 2026-10-18 重构判读口径（用户拍板）：
 //   废除「vs 无精英基线」——没精英基本必输（≈1.7%），拿它当分母，任何精英都平凡 +40%、z>30，无分辨力。
 //   改为按表设理想胜率线：主表·自然出场 →35%、单英雄（单强精英）→15%、弱精英 →按「Δ 相对同种子自然对照」判；
@@ -6,7 +9,7 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V2.0.0';
+export const VER = 'tools/126-balance-alert.js V2.1.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 
@@ -18,19 +21,23 @@ const TH = {
     Z_ALERT: 3.0,      // 海克斯表：|z| ≥ 3.0 判显著过强/过弱
     BAND: 0.05,        // 精英/整体：偏离理想线 ≥5pp 判过强/过弱、≥10pp 判显著（用户拍板）
     NATURAL: 0.35,     // 主表·自然出场 / 整体 7 关 的理想胜率
-    SOLO: 0.15         // 单英雄（单强精英）的理想胜率
+    SOLO: 0.15,        // 强精英（单核 M107）的理想胜率
+    BOSS: 0.30         // Boss·张无忌（单核 M115）的理想胜率
 };
 
 // 108 榜的四套阵容模式（与 108-hex-dashboard.js 同键同口径）
 const HEX_MODES = ['normal', 'sister', 'brother', 'none'];
 const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
 const hexKeyFor = m => m === 'normal' ? 'ming_hex_battle_log' : 'ming_hex_battle_log_' + m;
-// 112 主表的五精英列 + 敌方变体维度（与 112-elite-eval.js 同名同口径）
-const ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊'];
+// 112 主表（自然出场）的六名精英列 + 敌方变体维度（与 112-elite-eval.js 同名同口径）
+const ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
+// 112 强精英单挑组（M107，不含 boss 张无忌）与 Boss 单表
+const SOLO_ELITES = ['韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
+const BOSS_ELITES = ['张无忌'];
 const VARIANTS = ['胖远桥', '宋青书', '标准'];
 const SNAP_KEY = 'ming_elite_eval_snaps';
-// 112 弱精英表的五名弱精英及所属侧（与 112 WEAK_ELITES 对应）：两侧「过强」的反向不同
-const WEAK_SIDE = { 杨逍: 'ally', 殷天正: 'ally', 寒离飒: 'ally', 何太冲: 'enemy', 唐文亮: 'enemy' };
+// 112 弱精英表的四名弱精英及所属侧（与 112 WEAK_ELITES 对应）：两侧「过强」的反向不同
+const WEAK_SIDE = { 杨逍: 'ally', 殷天正: 'ally', 何太冲: 'enemy', 唐文亮: 'enemy' };
 
 const readJSON = (k, dft) => {
     try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : dft; } catch (e) { return dft; }
@@ -175,14 +182,14 @@ function hexIssues(mode) {
 /* ========== 规则三：精英过强/过弱（读 112 快照，按各表理想线/Δ 判） ========== */
 function eliteIssues() {
     const snaps = readJSON(SNAP_KEY, []);
-    if (!snaps.length) return { missing: '精英评测还没有快照 —— 到精英评测页跑「主表·自然出场」「单英雄」「弱精英」，跑完点「💾 存结果」，本工具才有数据可判。' };
+    if (!snaps.length) return { missing: '精英评测还没有快照 —— 到精英评测页跑「主表·自然出场」「强精英」「Boss·张无忌」「无精英」和「弱精英」，跑完自动存盘（也可点「💾 存结果」），本工具才有数据可判。' };
     const snap = snaps[0];                       // 112 存盘时 unshift，新的排最前
     const P = snap.parts || {};
     const ageDays = (Date.now() - snap.ts) / 86400000;
     const issues = [], nodata = [];
     let okCount = 0;
 
-    // 绝对值表（自然 / 单英雄）：逐精英累加，对表理想线判偏离
+    // 绝对值表（自然 / 强精英 / Boss）：逐精英累加，对表理想线判偏离
     function absTable(part, names, target, label) {
         if (!part) { nodata.push(`${label}：快照里没有这张表，请到 112 跑一遍并重新「💾 存结果」。`); return null; }
         const per = {}; names.forEach(n => per[n] = { runs: 0, wins: 0 });
@@ -249,7 +256,8 @@ function eliteIssues() {
     }
 
     const natural = absTable(P.elite, ELITES, TH.NATURAL, '自然出场');
-    const solo = absTable(P.solo, ELITES, TH.SOLO, '单英雄');
+    const solo = absTable(P.solo, SOLO_ELITES, TH.SOLO, '强精英');
+    const boss = absTable(P.boss, BOSS_ELITES, TH.BOSS, 'Boss·张无忌');
     const weak = weakTable(P.weak);
     // 无精英基线：不再当参照（≈必输），仅作背景数值展示
     let none = null;
@@ -261,7 +269,7 @@ function eliteIssues() {
         }
         none = { runs: r, wins: w, rate: r > 0 ? w / r : null };
     }
-    return { ts: snap.ts, ageDays, natural, solo, weak, none, issues, nodata, okCount };
+    return { ts: snap.ts, ageDays, natural, solo, boss, weak, none, issues, nodata, okCount };
 }
 
 /* ========== 规则四：整体 7 关胜率（108 榜明教整体 vs 自然理想线 35%） ========== */
@@ -361,7 +369,7 @@ function buildReport(d) {
     const L = [];
     L.push(`【光明顶5v5 平衡告警】海克斯：样本≥${TH.MIN_SAMPLE} 场、|z|≥${TH.Z_WARN} 偏 / ≥${TH.Z_ALERT} 显著；`
         + `精英·整体：偏离理想线 ≥${(TH.BAND * 100).toFixed(0)}pp 判过强过弱、≥${(TH.BAND * 200).toFixed(0)}pp 判显著`
-        + `（自然 ${pct(TH.NATURAL)} / 单英雄 ${pct(TH.SOLO)} / 弱精英看 Δ）｜模式：${MODE_LABEL[d.mode]}`);
+        + `（自然 ${pct(TH.NATURAL)} / 强精英 ${pct(TH.SOLO)} / Boss ${pct(TH.BOSS)} / 弱精英看 Δ）｜模式：${MODE_LABEL[d.mode]}`);
     L.push(`告警 ${d.alerts.length} 条 / 建议复核 ${d.warns.length} 条 / 未能判读 ${d.nojudge.length} 条`);
     const push = (arr, title) => {
         if (!arr.length) return;
@@ -381,7 +389,8 @@ function buildReport(d) {
         sec.rows.forEach(r => L.push(`${r.name}｜${r.n} 场｜${r.p === null ? '—' : pct(r.p)}｜偏离 ${r.diff === null ? '—' : signed(r.diff)}｜${absVerdict(sec, r)}`));
     };
     absLines(d.elit.natural, '主表·自然出场');
-    absLines(d.elit.solo, '单英雄');
+    absLines(d.elit.solo, '强精英（单核）');
+    absLines(d.elit.boss, 'Boss·张无忌（单核）');
     if (d.elit.weak) {
         L.push('', '— 弱精英（Δ = 弱精英臂 − 同种子自然对照）—');
         d.elit.weak.rows.forEach(r => L.push(`${r.name}(${r.side === 'ally' ? '明教' : '六大派'})｜${r.n} 场｜${r.p === null ? '—' : pct(r.p)}｜对照 ${r.base === null ? '—' : pct(r.base)}｜Δ ${r.delta === null ? '—' : signed(r.delta)}｜${weakVerdict(d.elit.weak, r)}`));
@@ -395,7 +404,7 @@ function buildReport(d) {
     return L.join('\n');
 }
 
-// 绝对值表（自然 / 单英雄）渲染
+// 绝对值表（自然 / 强精英 / Boss）渲染
 function absTableHtml(sec, title, colP) {
     if (!sec) return '';
     let h = `<div class="bal-sec"><h3 style="color:#4fc3f7">${title}（理想线 ${pct(sec.target)}）</h3>`
@@ -469,7 +478,7 @@ function openBalanceAlert() {
             + `数据源：108 榜「${MODE_LABEL[d.mode]}」${d.hex.total || 0} 场（${d.hex.total ? '明教整体 ' + pct(d.hex.allyRate) : '无数据'}）`
             + `｜112 快照 ${stamp}（${d.elit.ageDays !== undefined ? d.elit.ageDays.toFixed(1) + ' 天前' : '无'}）`
             + `｜无精英基线 ${none && none.rate !== null ? pct(none.rate) : '—'}（仅背景，不作参照）<br>`
-            + `理想线：自然 ${pct(TH.NATURAL)} / 单英雄 ${pct(TH.SOLO)}（弱精英看 Δ）｜判读：偏离 ≥${(TH.BAND * 100).toFixed(0)}pp 过强过弱、≥${(TH.BAND * 200).toFixed(0)}pp 显著<br>`
+            + `理想线：自然 ${pct(TH.NATURAL)} / 强精英 ${pct(TH.SOLO)} / Boss ${pct(TH.BOSS)}（弱精英看 Δ）｜判读：偏离 ≥${(TH.BAND * 100).toFixed(0)}pp 过强过弱、≥${(TH.BAND * 200).toFixed(0)}pp 显著<br>`
             + '本工具不重跑批：只读 108 落盘的榜与 112 存下的快照，故两者都需先各自跑一遍。</div>';
         html += '<div class="bal-sum">'
             + `<span class="bal-chip" style="color:#ff6b6b">🔴 告警 ${d.alerts.length}</span>`
@@ -502,9 +511,10 @@ function openBalanceAlert() {
             html += '<tr><td class="l bal-dim">差值合计自检</td><td colspan="5" class="bal-dim">'
                 + (d.hex.invariant ? '⚠️ 未过（见告警）' : '✅ 合计为 0，与 108 同口径') + '</td></tr></table></div>';
         }
-        // 三张精英表
+        // 四张精英表（自然 / 强精英 / Boss / 弱精英）
         html += absTableHtml(d.elit.natural, '主表·自然出场', '带队胜率');
-        html += absTableHtml(d.elit.solo, '单英雄', '单挑胜率');
+        html += absTableHtml(d.elit.solo, '强精英（单核）', '单挑胜率');
+        html += absTableHtml(d.elit.boss, 'Boss·张无忌（单核）', '单挑胜率');
         html += weakTableHtml(d.elit.weak);
         // 整体
         if (d.ovr.cur !== undefined) {

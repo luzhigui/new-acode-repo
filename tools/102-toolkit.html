@@ -1,5 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.1.5 | ~34100 bytes | 2026-10-19 精英评测结果快照改「自动存为主」（配 112 V2.9.0）：四张表任一跑完即自动存一条该表快照，
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.2.0 | ~35000 bytes | 2026-10-21 精英评测区档位重排（配 112 V3.0.0）：①「⚔ 单英雄胜率」改名「⚔ 强精英胜率」，
+     只测 M107 强精英（韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒，寒离飒移出弱精英表）；② 新增「👑 Boss·张无忌」按钮 + 进度/结果容器，
+     张无忌（M115）单独一表；③ 主表自然列补寒离飒（6 列）；④ 说明与快照口径同步为五张表。
+     V6.1.5 | ~34100 bytes | 2026-10-19 精英评测结果快照改「自动存为主」（配 112 V2.9.0）：四张表任一跑完即自动存一条该表快照，
      不必再手点；「💾 存结果」保留 = 把当前页面所有表再合并存一条，按钮 title 同步说明。
      V6.1.4 | ~34000 bytes | 2026-10-19 文件复制器「单次复制上限(字符)」默认 60000 → 80000（配 103 V6.2.3）：减少分包数，一次发更完整。
      V6.1.3 | ~34000 bytes | 2026-10-18 工具入口「🏪 商店」换成「🚨 平衡告警」（配新增 126-balance-alert.js）：
@@ -185,6 +188,8 @@
         #eliteStartBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         #eliteSoloBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        #eliteBossBtn { background: #ff9800; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #eliteBossBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         #eliteNoEliteBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         /* 2026-10-15 精英评测结果快照（存/载/清历史，配 112 V2.6.0） */
@@ -297,12 +302,12 @@
     <div class="tab-content" id="tab-elite-eval">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             自动跑各关 × N 场<b>普通对局</b>，输出各明教精英带队胜率、场均输出、场均承伤、存活率。<br>
-            列 = 明教五精英：张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊（谁在场记给谁，胜 = 明教获胜）。<br>
+            列 = 明教六名精英：张无忌（M115 boss）/ 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒（M107 强精英，按 30% 概率混入）——谁在场记给谁，胜 = 明教获胜。<br>
             行 = 关卡，按敌方阵容拆行：第3关轮换阵容拆成「·胖远桥」「·宋青书」两行分开看胜率——遇到谁更难打一眼分明。<br>
             纯走引擎原逻辑（出率 / 站位 / 每 3 回合海克斯），不做强制上场，同场共现是真实环境。<br>
-            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%。<b>每关 1200 局</b> ≈ 张无忌 480 场 / 韦一笑 400 场 / 姐妹各 200 场。<br>
-            另有三张<b>控制变量表</b>（共用右侧「单英雄/无精英场数」）：⚔ 单英雄（五强精英逐一单挑）、🛡 无精英基线（明教一个精英不出）、
-            🐦 弱精英评测（明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮单测，同关同变体配自然对照臂、直接出胜率 Δ）。
+            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%、寒离飒约 30%。<b>每关 1200 局</b> ≈ 张无忌 480 场 / 韦一笑 400 场 / 姐妹各 200 场。<br>
+            另有四张<b>控制变量表</b>（共用右侧「单英雄/无精英场数」）：⚔ 强精英（韦一笑/小昭姊妹/谢逊/寒离飒逐一单核）、👑 Boss·张无忌、
+            🛡 无精英基线（明教一个精英不出）、🐦 弱精英评测（明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮单测，同关同变体配自然对照臂、直接出胜率 Δ）。
         </p>
         <div class="elite-config">
             <label>每关总场次：</label>
@@ -318,13 +323,14 @@
                 <label><input type="checkbox" class="elite-stage-check" value="7" checked>7</label>
             </div>
             <button id="eliteStartBtn">▶ 开始评测</button>
-            <label style="color:#aaa; font-size:12px;">单英雄/无精英场数：</label>
-            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 单英雄胜率」「🛡 无精英基线」「🐦 弱精英评测」三张控制变量表；普通评测仍用左侧「每关总场次」">
-            <button id="eliteSoloBtn" title="五精英逐一单挑选中关卡（force 单精英抑制轮盘），看单核带队能力">⚔ 单英雄胜率</button>
+            <label style="color:#aaa; font-size:12px;">控制变量场数：</label>
+            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 强精英胜率」「👑 Boss·张无忌」「🛡 无精英基线」「🐦 弱精英评测」四张控制变量表；普通评测仍用左侧「每关总场次」">
+            <button id="eliteSoloBtn" title="强精英（M107）逐一单核选中关卡：韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒（force 单精英抑制轮盘）">⚔ 强精英胜率</button>
+            <button id="eliteBossBtn" title="Boss（张无忌·M115）单核：force 张无忌、抑制随机轮盘，单独一表避免与 M107 强精英混比">👑 Boss·张无忌</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
             <button id="eliteWeakBtn" title="单测弱精英：明教侧（杨逍/殷天正）强制混入、六大派侧（何太冲/唐文亮）锁定 M104 空位；同关同变体配自然对照臂，直接出胜率 Δ">🐦 弱精英评测</button>
             <span style="color:#555">｜</span>
-            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的四张表（主表·自然出场 / 单英雄 / 无精英 / 弱精英）合并再存一条。最多留 10 条">💾 存结果</button>
+            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的五张表（主表·自然出场 / 强精英 / Boss·张无忌 / 无精英 / 弱精英）合并再存一条。最多留 10 条">💾 存结果</button>
             <button id="eliteLoadSnapBtn" title="载入选中的历史快照，重新渲染对应的表（不重跑）">📂 载入</button>
             <button id="eliteDropSnapBtn" title="删除全部历史快照（不影响页面上当前的表）">🗑 清空历史</button>
             <select id="eliteSnapSelect" title="历史快照列表：时间｜关卡｜含哪几张表"></select>
@@ -333,7 +339,9 @@
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
         <div class="elite-progress" id="eliteSoloProgress" style="margin-top:14px;"></div>
-        <div id="eliteSoloResult"><div class="elite-empty">单英雄胜率：尚未运行（勾选关卡后点上方蓝按钮）</div></div>
+        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方蓝按钮）</div></div>
+        <div class="elite-progress" id="eliteBossProgress" style="margin-top:14px;"></div>
+        <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方橙按钮）</div></div>
         <div class="elite-progress" id="eliteNoEliteProgress" style="margin-top:14px;"></div>
         <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方灰按钮）</div></div>
         <div class="elite-progress" id="eliteWeakProgress" style="margin-top:14px;"></div>
