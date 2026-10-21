@@ -1,3 +1,4 @@
+// V6.1.8 | 2026-10-21 惑心换位己方回血改记到小昭账上（source 由 null 改传 unit；原先 healDone 记给被治者本人）
 // V6.1.7 | 2026-10-21 姊强化·惑心换位加血差：敌方换位两人各扣 dmgOnSwap、己方换位两人各回 healOnSwap
 //   （参数走 hexEnhance.mindControl；applyStatChange 补进 core/13 import；SWAP fact 带 dmg/heal 供 render/38 飘字）
 // V6.1.6 | ~9460 bytes | 2026-10-19 惑心换位候选池排除控制免疫者（寒离飒·开局常驻 _ctrlImmune）：
@@ -6,7 +7,7 @@
 //   追加 !u.state._ctrlImmune ⇒ 要么选不到 2 人走 FAIL(可用单位不足)、要么选到的都真换位，宣告与实物一致。
 // V6.1.5 | ~9430 bytes | 2026-10-15 妹永久圣火令改画行列命中制（掷骰在 modules/27 回合初，读 state._xiaoHolyFlame）
 // V6.1.4 | 2026-10-12 拒马双向参与 carry（老板拍板）：① 队友池去 !u.isHorse（活 1 份/死 2 份，与狮子同口径）；② 受益门控也去 isHorse——拒马站受益位（5；小昭·姊在场 4/5/6）时也能吃到，攻加成>0 后拒马不再休息、会出手
-export const VER = 'core/14buff-effects.js V6.1.7';
+export const VER = 'core/14buff-effects.js V6.1.8';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -134,12 +135,12 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b, log);
-            // 2026-10-21 姊强化：己方换位两人各回 healOnSwap 点血（治疗语义，吃杨逍截脉打折）
+            // 2026-10-21 姊强化：己方换位两人各回 healOnSwap 点血（治疗语义，吃杨逍截脉打折；产出记小昭）
             let healOnSwap = 0;
             if (enhance && enhance.healOnSwap) {
                 healOnSwap = enhance.healOnSwap;
-                applyStatChange(a, 'hp', healOnSwap, null, '惑心换位');
-                applyStatChange(b, 'hp', healOnSwap, null, '惑心换位');
+                applyStatChange(a, 'hp', healOnSwap, unit, '惑心换位');
+                applyStatChange(b, 'hp', healOnSwap, unit, '惑心换位');
             }
             log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, heal: healOnSwap } });
         } else {
