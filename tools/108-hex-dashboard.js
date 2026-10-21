@@ -136,7 +136,7 @@ const PARAM_LABELS = {
   // 复活类
   reviveRatio: '复活时回复生命', brotherReviveRatio: '妹妹永久版复活时回复生命',
   // 妹妹（永久版）相关
-  brotherPenalty: '妹妹永久版比团队版少的闪避', brotherSpawnChance: '妹妹在场时每回合生成概率',
+  brotherRatio: '妹妹永久版闪避取团队版比例', brotherSpawnChance: '妹妹在场时每回合生成概率',
   brotherPointChance: '妹妹永久版点名概率', brotherSummonChance: '妹妹永久版每回合补员概率',
   // 百分比类
   perUnitBonus: '每多一名敌人额外减攻', perRoundBonus: '每回合额外减防',
@@ -149,7 +149,7 @@ const PARAM_LABELS = {
 const HIDDEN_PARAMS = new Set(['permanent', 'effects', 'params', 'tiers', 'recruitPool', 'spawnProb']);
 
 // 妹妹永久版专属字段：普通版/姐姐强化版没有小昭·妹，不显示
-const BROTHER_ONLY_PARAMS = new Set(['brotherReviveRatio', 'brotherPenalty', 'brotherSpawnChance', 'brotherPointChance', 'brotherSummonChance']);
+const BROTHER_ONLY_PARAMS = new Set(['brotherReviveRatio', 'brotherRatio', 'brotherSpawnChance', 'brotherPointChance', 'brotherSummonChance']);
 
 const HEX_HINTS = {
   doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑），触发一次就多一轮爆发；收益随机、不稳定，对位前排密集时触发收益更高。',
