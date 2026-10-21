@@ -220,7 +220,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
         const atk = getStat(unit, 'atk');
         const def = getStat(target, 'def');
-        const penetrationDmg = Math.floor(atk * (atk / (atk + def)));
+        // 2026-10-21 老板拍板：落地蛛袭的穿透伤害减半（精通额外伤害保持不变）
+        const penetrationDmg = Math.floor(atk * (atk / (atk + def)) * 0.5);
         const masteryCount = unit.state._masteredRoles?.length || 0;
         const params = getSkillParams('小昭', 'spiderStrike');
         if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');

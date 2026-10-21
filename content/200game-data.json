@@ -640,7 +640,7 @@
     "bloodthirst": { "name": "嗜血狂刀", "desc": "己方战士攻击吸血80%伤害值", "leechRatio": 0.8, "icon": "🗡️", "effects": ["bloodthirstLeech"] },
     "hotBlood": { "name": "热血奋战", "desc": "攻击时回复15%已损失生命值，每第3次攻击回血翻倍", "leechRatio": 0.15, "critRatio": 0.3, "critInterval": 3, "icon": "❤️", "effects": ["hotBloodHeal"] },
     "fortify": { "name": "严阵以待", "desc": "己方防战防御+50%，反弹50%伤害差值", "defBonus": 0.5, "reboundRatio": 0.5, "icon": "🛡️" },
-    "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "dodgeBonus": 0.25, "brotherPenalty": 0.10, "icon": "💨" },
+    "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "dodgeBonus": 0.25, "brotherRatio": 0.7, "icon": "💨" },
     "windAssault": { "name": "乘风突袭", "desc": "飞行单位80%概率对同行敌人造成100%伤害，60%击退一格", "hitProb": 0.8, "pushProb": 0.6, "duration": 3, "icon": "🦅", "effects": ["windAssaultSplash"] },
     "meteorShower": { "name": "流星赶月", "desc": "己方远程对目标造成40%额外伤害，对周围溅射30%", "bonusRatio": 0.4, "splashRatio": 0.3, "mainDefReduce": 2, "splashDefReduce": 1, "icon": "☄️", "effects": ["meteorShowerMain"] },
     "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍；5号位无人时召唤一只雄鹰顶位（雄鹰命中后使己方一名已行动过的队友恢复行动力；若无人可恢复则召唤一只白板雌鹰永久存在）", "atkBonus": 0.08, "defBonus": 0.08, "hpBonus": 0.10, "deathMultiplier": 2, "duration": 2, "icon": "👑", "params": { "eagle": { "name": "雄鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50, "female": { "name": "雌鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50 } } } },

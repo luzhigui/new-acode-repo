@@ -23,8 +23,8 @@ export function applyFortifyDef(unit) {
 // 流云身法：闪避 +25%（闪避不走属性词条，返回比率给 computeBuffStats 用）
 export function applyCloudBodyDodge_Normal() { return CONFIG.BUFFS.cloudBody.dodgeBonus; }
 export function applyCloudBodyDodge_Sister() { return getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
-// 2026-10-21 老板拍板：妹永久流云身法比团队版少 5 个百分点（content.buffs.cloudBody.brotherPenalty）
-export function applyCloudBodyDodge_Brother() { return Math.max(0, CONFIG.BUFFS.cloudBody.dodgeBonus - CONFIG.BUFFS.cloudBody.brotherPenalty); }
+// 2026-10-21 老板拍板：妹永久流云身法取团队版原值的 70%（content.buffs.cloudBody.brotherRatio），不再按「减惩罚值」计算
+export function applyCloudBodyDodge_Brother() { return CONFIG.BUFFS.cloudBody.dodgeBonus * CONFIG.BUFFS.cloudBody.brotherRatio; }
 
 // 圣火令：命中列 +30% 攻击，命中行 +30% 防御（mul 词条）
 // 数值声明 fact：乘法词条共享 getStat 的 (1+mulSum) 乘区、无独立增量，故只发乘率 ratio，供体检按乘率口径核对
