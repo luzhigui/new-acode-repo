@@ -172,7 +172,13 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.8.6';
+// V3.9.0 | 2026-10-21 第 113 轮：固定样本扩 seed 17/77，闭合 HORSE_REBOUND（马形阵反弹）零触发硬红。
+//   该契约四条件齐发才触发（我方马形阵 buff + 小昭·姊 hexEnhance + 敌方打到本方拒马且 dmg>0），
+//   原 60 场里 42 个「打到拒马」瞬间中 buff 在的 15 个、姊活着的 3 个、同时 0 个 ⇒ 零触发。
+//   引擎探针实证机制没坏（560 场扫出 157 个齐发瞬间），是样本没覆盖 ⇒ 按第 40 轮同法扩样本。
+//   复测：HORSE_REBOUND 声明 47 条 / 严格比对 46 条 / 偏差 0；咬牙（recordHpAudit 记 3 倍）46/46 偏差 exit1。
+//   BAGUA_DEF 仍为 2026-10-08 改版后的有意哨兵（警告级，不影响退码），见契约内注释。
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.9.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -197,7 +203,15 @@ globalThis.self = globalThis;
 //      这是净增量模型对「def 多来源」的固有脆弱性（与第 39 轮 FORTIFY 同源），扩展覆盖时必须绕开此类巧合。
 //   —— 扩展后，原 5 处「未观测到影响」覆盖缺口中 4 处（A5/A7/A9/A12）转为真实牙口判定；
 //      A13 小昭·妹永久carry 需 bro 拿到永久 carry 海克斯且队伍无 carry buff（稀有条件），单独搜索仍零触发 → 记结构性稀有条件。
-const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
+// 第 113 轮扩展（闭合 HORSE_REBOUND 零触发）：
+//   · SEEDS 加 17/77。HORSE_REBOUND（马形阵反弹）四条件齐发才触发：我方马形阵 buff + 小昭·姊活着
+//     （hexEnhance）+ 敌方打到本方拒马且 dmg>0。原 10 种子 60 场里 42 个"打到拒马"瞬间中
+//     buff 在的 15 个、姊活着的 3 个、**两者同时 0 个** ⇒ 契约零触发硬红（真空转假红）。
+//     引擎探针实证（560 场扫 seed 1-80×stage 1-7）：条件可满足（157 个齐发瞬间，13 个 seed 命中），
+//     机制没坏，是固定样本没覆盖 ⇒ 按第 40 轮同法扩样本。seed 17 六个 stage 全触发（合计 30 条声明）、
+//     seed 77 在 stage 1-3 触发（17 条）；两者均**不引入其他契约假阳性**（全量复测偏差 0）。
+//   · 避坑记录：seed=6 命中瞬间最多（37 个）但**刻意不选**——它是 BREAK_DEF 的历史假红源（见上）。
+const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888, 17, 77];
 const STAGES = [1, 2, 3, 4, 5, 6]; // 第 74 轮加 5：stage 5 含鹿杖客/玄冥中毒（XUAN_MING_DOT 契约专属形态）；第 77 轮加 6：stage 6 含成昆·幻影伪装（PHANTOM_DISGUISE_HEAL 契约专属形态）
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
