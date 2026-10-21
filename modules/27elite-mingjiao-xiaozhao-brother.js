@@ -44,7 +44,7 @@ function eggModValue(unit, stat, targetVal) {
 }
 
 // 结茧（2026-10-13）：毒/反伤致死不走 BEFORE_DAMAGE_APPLY、飞天接不住 → ON_BEFORE_DEATH 清 _pendingDeath
-//   取消死亡，原地变 0 攻 / eggDef 防 / 满血的卵（占格、不可行动、可被打碎=真死）。致死档在此落账。
+//   取消死亡，原地变 0 攻 / eggDef 防 / 妹妹最大生命 50% 血的卵（占格、不可行动、可被打碎=真死）。致死档在此落账。
 function toSpiderEgg(u, outLog) {
     const fp = getSkillParams('小昭', 'spiderFly');
     if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
@@ -53,11 +53,16 @@ function toSpiderEgg(u, outLog) {
     // 结茧属性增量先算局部（体检第 88 轮转交：写进 announce fact 供数值对照器 SPIDER_EGG 契约做声明侧）
     const eggAtkDelta = eggModValue(u, 'atk', 0);
     const eggDefDelta = eggModValue(u, 'def', fp.eggDef);
+    // 2026-10-21 老板拍板：卵血 = 妹妹结茧时最大生命值的 50%（原为满血；孵化时随 group 整组移除恢复）
+    const eggMaxHpTarget = Math.floor(getStat(u, 'maxHp') * 0.5);
+    const eggMaxHpDelta = eggModValue(u, 'maxHp', eggMaxHpTarget);
     addMod(u, 'atk', { source: '蜘蛛卵', value: eggAtkDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     addMod(u, 'def', { source: '蜘蛛卵', value: eggDefDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     if (u.hp < u.maxHp) applyStatChange(u, 'hp', u.maxHp - u.hp, null, '蜘蛛结茧', false, false);
+    addMod(u, 'maxHp', { source: '蜘蛛卵', value: eggMaxHpDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
+    refreshMaxHp(u, null, '蜘蛛结茧');
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-    pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / 满血，不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
+    pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / ${eggMaxHpTarget} 血（最大生命 50%），不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
 }
 
 // 孵化（2026-10-13）：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、
@@ -70,6 +75,7 @@ function hatchSpiderEgg(u, outLog) {
         _spiderTriggered70: true, _spiderTriggered40: true, _spiderTriggeredDeath: true
     });
     removeModsByGroup(u, 'spiderEgg');
+    refreshMaxHp(u, null, '蜘蛛孵化');
     const targetHp = Math.floor(u.maxHp * fp.eggHatchHpRatio);
     if (u.hp > targetHp) applyStatChange(u, 'hp', -(u.hp - targetHp), null, '蜘蛛孵化', false);
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
@@ -238,7 +244,7 @@ export function createXiaoZhaoBrotherComponent() {
                 const teamHasHorse = hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
                 const hasPermanent = bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HORSE_FORMATION);
                 if (!teamHasHorse && hasPermanent) {
-                    // 2026-10-21 老板拍板：妹永久巨马阵不再每回合必召，改 80% 概率（content.buffs.horseFormation.brotherSpawnChance）
+                    // 2026-10-21 老板拍板：妹永久巨马阵不再每回合必召，改 70% 概率（content.buffs.horseFormation.brotherSpawnChance）
                     if (getBattleRng().next() < CONFIG.BUFFS.horseFormation.brotherSpawnChance) {
                         const xzHorse = spawnHorse(A, log, B, true);
                         if (xzHorse) {
@@ -248,13 +254,13 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
                 // 2026-10-15 永久 carry 改「每回合刷新一轮」（老板拍板）：不再一次性常驻 +3/+4/+20——
-                //   层数 = 1 + 2×(上回合己方阵亡数) + 1×(上上回合阵亡数)，每层调用精通参数
+                //   层数 = 1 + 1.5×(上回合己方阵亡数) + 0.5×(上上回合阵亡数)（2026-10-21 下调），每层调用精通参数
                 //   （小昭.mastery 的 atkPer/defPer/hpPer，不写死）。ttl:'round' 由回合开始清理、此处重挂
                 //   （清理先于蛛变声明，无空窗）。原 V7.0.3 carryApplied 去重门控作废——无限叠加是
                 //   permanent 挂法特有问题，round 挂法天然消除。
                 if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY)) {
                     const d = bro.state._xiaoCarryDeaths;
-                    const layers = 1 + 2 * d.r1 + d.r2;
+                    const layers = 1 + 1.5 * d.r1 + 0.5 * d.r2;
                     const per = getSkillParams('小昭', 'mastery');
                     if (!per) throw new Error('缺技能参数: 小昭.mastery');
                     addMod(bro, 'atk', { source: '小昭·妹永久carry', value: per.atkPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
