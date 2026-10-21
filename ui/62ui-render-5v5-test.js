@@ -3,6 +3,7 @@ export const VER = 'ui/62ui-render-5v5-test.js V6.1.1';
 
 // 2026-10-04 getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/13battle-shared.js';
+import { getSkillParams, CONFIG } from '../core/01config-5v5-test.js';
 import { getRoleSkills } from './69-role-cards.js';   // 2026-10-04 漏 import 补上（详情弹窗技能栏查名片表）
 import { fmtHp } from '../infra/51-core-utils.js';
 import { getMissBreakdown } from '../core/03battle-utils.js';
@@ -150,7 +151,19 @@ function updateDetailPopupContent() {
         const perms = u.state._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
         const mastered = u.state._masteredRoles || [];
-        masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${mastered.length * 2}攻+${mastered.length * 3}防+${(mastered.length * 12.5).toFixed(1)}血）</span>` : '';
+        if (mastered.length > 0) {
+            // 2026-10-21 修死数字：原写死 length*2 / length*3 / length*12.5，与引擎真值不符
+            //   （4 门 = 6 层×每层 2/2/5 = +12/+12/+30；旧显示 8/12/50）。改读 content 的 mastery 参数
+            //   与 CONFIG.MASTERY_FULL_BONUS_LAYERS，与 modules/20 spiderTransform 的 masteryLayers 同口径。
+            const m = getSkillParams('小昭', 'mastery') || {};
+            const layers = mastered.length >= 4
+                ? mastered.length + (CONFIG.MASTERY_FULL_BONUS_LAYERS ?? 2)
+                : mastered.length;
+            const gAtk = layers * (m.atkPer ?? 0);
+            const gDef = layers * (m.defPer ?? 0);
+            const gHp = layers * (m.hpPer ?? 0);
+            masteryText = `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${gAtk}攻+${gDef}防+${gHp}血）</span>`;
+        }
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
