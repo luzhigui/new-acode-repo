@@ -9,7 +9,7 @@
 //           🦅鹰爪功/⬇️鹰王威压/💪老当益壮；唐文亮（崆峒精英 m104）💢七伤拳/💥同归于尽，文本走 content 单源
 // V1.2.0 | ~8100 bytes | 2026-10-15 杨逍补名片卡（老板实机反馈面板无技能说明）：👆弹指神通/❌点穴截脉/🦅鹰眼三条，popupMark/logTag 同韦一笑口径
 // V1.1.0 | 2026-10-12 何太冲重做 V3：名片技能三条换新（liangyiLink 两仪双修 / targetMark 箭靶标记 / redBlood 红血·两仪互换），旧三技能条目已删
-export const VER = 'render/37-role-cards.js V1.3.4';
+export const VER = 'render/37-role-cards.js V1.3.5';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -201,11 +201,21 @@ export const ROLE_CARDS = [
         // 弹窗挂马头图标，日志挂文字标签（两处原本就不同，不要统一）
         popupMark: '🐴', logTag: '[拒马]',
         skills: () => []
+    },
+    {
+        // 2026-10-21 小昭·妹结茧：卵期职业是随机残留的（防战/远程…），按职业显示图标会误导成"还能出手"。
+        //   放数组末尾：只参与 getRoleIcon 的图标选择（走 ICON_ORDER 遍历），不抢 firstCard 的
+        //   logTag/skills（那两个仍由前面的「小昭·妹」卡提供，卵态详情弹窗照常显示她的技能说明）。
+        id: 'spiderEgg', name: '蜘蛛卵',
+        match: u => !!(u.isXiaoZhaoBrother && u.state && u.state._spiderEgg),
+        icon: () => '🥚'
     }
 ];
 
 // 图标判定顺序（只列「有图标规则」的卡，其余身份一律回落职业图标）
-const ICON_ORDER = ['stunned', 'zhang', 'horse', 'xiaoZhaoSister', 'lionCub', 'pangYuanQiao'];
+// 2026-10-21 加 'spiderEgg'：排在 stunned 之后——眩晕仍盖过一切，其次才是结茧蛋（卵期靠 skip 通道不行动，
+//   正常不会被眩晕，此顺序只为兜底）。原表里没有妹妹卡，所以她的 icon 函数从没被调用过，本次一并接上。
+const ICON_ORDER = ['stunned', 'spiderEgg', 'zhang', 'horse', 'xiaoZhaoSister', 'lionCub', 'pangYuanQiao'];
 
 const CARD_BY_ID = new Map(ROLE_CARDS.map(c => [c.id, c]));
 

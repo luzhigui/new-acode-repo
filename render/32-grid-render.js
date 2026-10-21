@@ -191,6 +191,9 @@ export function renderGrid(id, camp) {
         let displayName = unit.name;
         // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
         if (unit.isXieXun) displayName = '金毛狮王';
+        // 2026-10-21 灭绝师太 →「灭绝」：4 字名 + 出手计数徽章 + logo 挤爆格子宽度被 ellipsis 截断，
+        //   缩短后 logo 能完整露出（上限仍是 2 个，本改动只是不再被截掉）。日志/弹窗/战报仍用全名
+        if (unit.isMieJueShiTai) displayName = '灭绝';
         // 2026-10-11 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 且具名 蓝（弱精英）、其余黑。
         //   张无忌/灭绝 m115 原描金特判天然并入金档；成昆幻影跟随被模仿者的 m（跟 displayName 同口径换算，不剧透本体档位）。
         let displayTierM = unit.m || 0;

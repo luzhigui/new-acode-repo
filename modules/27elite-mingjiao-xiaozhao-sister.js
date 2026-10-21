@@ -8,6 +8,14 @@ import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
+// 乾坤衍生减伤：dmg × 目标def / defToReduce%，保留一位小数，不低于 minReduce。
+// 普通攻击路径与白骨爪逐爪路径共用同一份公式，改公式只改这里；改保底值去 content 的 minReduce。
+function calcQianKunReduce(dmg, defStat, s) {
+    const raw = dmg * defStat / (s.defToReduce * 100);
+    const min = (s.minReduce != null) ? s.minReduce : 0.5;
+    return Math.max(min, Math.round(raw * 10) / 10);
+}
+
 export function createXiaoZhaoSisterComponent() {
     return {
         name: '小昭·姊',
@@ -69,7 +77,7 @@ export function createXiaoZhaoSisterComponent() {
                 const dmg = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
                 const s = getSkillParams('小昭', 'qianKunDerived');
                 if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
-                const reduce = Math.max(1, Math.floor(dmg * defStat / (s.defToReduce * 100)));
+                const reduce = calcQianKunReduce(dmg, defStat, s);
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.DMG_REDUCTION,
@@ -134,7 +142,7 @@ export function createXiaoZhaoSisterComponent() {
                 let reduce = 0;
                 if (!data.noReduce) {
                     const defStat = getStat(target, 'def');
-                    reduce = Math.max(1, Math.floor(data.dmg * defStat / (s.defToReduce * 100)));
+                    reduce = calcQianKunReduce(data.dmg, defStat, s);
                     data.reduce = reduce;
                 }
                 const aliveAllies = getBenefitTargets(A);
