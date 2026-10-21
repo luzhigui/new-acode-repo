@@ -1,3 +1,6 @@
+// V6.2.17 | ~38400 bytes | 2026-10-21 详情卡口径修正（老板指出）：brother* 字段只在「妹妹永久版」显示，
+//   普通版不再出现「妹妹在场时每回合生成概率」；姐姐强化版跳过「0 → 0」这类无变化行；
+//   spawnProb 引擎从不读取（巨马每回合必出）故隐藏，普通版不再出现误导性的「生成概率 100%」。
 // V6.2.16 | ~38200 bytes | 2026-10-21 海克斯详情卡全中文化（老板要求）：reviveRatio / brotherReviveRatio / permanent /
 //   effects 这类代码字段名不再展示，参数名全部换中文（复活时回复生命 / 妹妹永久版复活时回复生命 …）；
 //   effects / params / tiers / recruitPool / permanent 归为内部实现字段直接隐藏，「持续」仍由原有一行表达。
@@ -141,8 +144,11 @@ const PARAM_LABELS = {
   leechPct: '吸血比例', atkPerSplash: '每个溅射目标额外攻击', chance: '触发概率'
 };
 
-// 内部实现字段：不给玩家看（持续/永久已在下方单独一行说明）
-const HIDDEN_PARAMS = new Set(['permanent', 'effects', 'params', 'tiers', 'recruitPool']);
+// 内部实现字段：不给玩家看（持续/永久已在下方单独一行说明；spawnProb 引擎从不读取，巨马每回合必出）
+const HIDDEN_PARAMS = new Set(['permanent', 'effects', 'params', 'tiers', 'recruitPool', 'spawnProb']);
+
+// 妹妹永久版专属字段：普通版/姐姐强化版没有小昭·妹，不显示
+const BROTHER_ONLY_PARAMS = new Set(['brotherReviveRatio', 'brotherPenalty', 'brotherSpawnChance', 'brotherPointChance', 'brotherSummonChance']);
 
 const HEX_HINTS = {
   doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑），触发一次就多一轮爆发；收益随机、不稳定，对位前排密集时触发收益更高。',
@@ -200,6 +206,7 @@ function renderVersion(title, base, enhance, kind, cls) {
     const params = [];
     for (const k in base) {
       if (k === 'name' || k === 'desc' || k === 'icon' || k === 'duration' || HIDDEN_PARAMS.has(k)) continue;
+      if (kind !== 2 && BROTHER_ONLY_PARAMS.has(k)) continue; // 妹妹专属字段只在妹妹永久版显示
       params.push(`<li><b>${PARAM_LABELS[k] || k}</b>：${fmtVal(k, base[k])}</li>`);
     }
     lines = params.join('');
@@ -210,14 +217,16 @@ function renderVersion(title, base, enhance, kind, cls) {
     lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';
   } else {
     for (const k in enhance) {
-      if (k.startsWith('xiaoZhao') || HIDDEN_PARAMS.has(k)) continue; // 小昭内部字段 / 内部实现字段不展示
+      if (k.startsWith('xiaoZhao') || HIDDEN_PARAMS.has(k) || BROTHER_ONLY_PARAMS.has(k)) continue; // 小昭内部 / 内部实现 / 妹妹专属字段不展示
       const v = enhance[k];
       if (base[k] !== undefined) {
+        if (base[k] === v) continue; // 旧值=新值，无变化不展示
         lines += `<li><b>${PARAM_LABELS[k] || k}</b>：<s style="color:#888">${fmtVal(k, base[k])}</s> → <b style="color:#ffd700">${fmtVal(k, v)}</b></li>`;
       } else {
         lines += `<li><b>${PARAM_LABELS[k] || k}</b>（新增）：<b style="color:#ff6ec7">${fmtVal(k, v)}</b></li>`;
       }
     }
+    if (!lines) lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';
   }
   return `<div class="hex-hex-ver hex-hex-ver-${cls}"><h3>${title} <span class="tag">${tag}</span></h3><ul>${lines || '<li style="color:#888">无参数</li>'}</ul></div>`;
 }
