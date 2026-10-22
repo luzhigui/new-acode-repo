@@ -1,7 +1,5 @@
 // fx/88fx-trigger.js
-// V6.1.5 | ~5500 bytes | 2026-10-17 标枪并入投射分支：唐文亮「标枪」出手掷矛（老板指正：不该近战飞撞）——
-//   外观走 JAVELIN_SHOT_STYLE（枪身/枪头/起手图标），轨迹与箭矢共用 showRangedArrow
-// V6.1.4 | ~5077 bytes | 2026-10-12 箭靶标记碎裂：_triggerFX 补第 12 参 markBurst——命中帧（伤害弹幕 1100ms 之前）播靶子碎裂 showMarkBurst
+// V6.1.5 | 2026-10-17 | ~5500 bytes
 export const VER = 'fx/88fx-trigger.js V6.1.5';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
@@ -14,7 +12,7 @@ import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-
 import { markGridShake } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
 
-// 2026-10-17 唐文亮「标枪」抛出外观（老板指正：标枪该掷矛，不该近战飞撞）：
+// 唐文亮「标枪」抛出外观（老板指正：标枪该掷矛，不该近战飞撞）：
 //   起手图标沿用职业图标 🪠（与 render/37 同源），枪身木色更粗更长、枪头金属灰
 const JAVELIN_SHOT_STYLE = { icon: '🪠', len: 54, thick: 4, color: '#6b4a2f', headSize: 10, headColor: '#b9c1c9' };
 
@@ -49,7 +47,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             if (!GlobalStore.get('dodgeEffectEnabled')) {
                 showMeleeDodge(unitA, unitD);
             }
-        // 2026-10-17 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）
+        // 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）
         } else if ((attackerRole === ROLE_TYPES.RANGED || attackerRole === ROLE_TYPES.JAVELIN) && !isBlock) {
             const shotStyle = attackerRole === ROLE_TYPES.JAVELIN ? JAVELIN_SHOT_STYLE : null;
             if (isMiss) {
@@ -61,9 +59,9 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
-                    // 2026-10-12 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
+                    // 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
                     if (markBurst) showMarkBurst(unitD);
-                    // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
+                    // 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
@@ -71,19 +69,19 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             }
         } else if (!isBlock) {
             if (isMiss) {
-                // 2026-09-16 return：把动画 Promise 交给调用方 await
+                // return：把动画 Promise 交给调用方 await
                 return showMeleeMiss(unitA, unitD, () => {
                     if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
                 });
             } else {
                 showMeleeCrash(unitA, unitD, () => {
-                    // 2026-10-12 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
+                    // 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
                     if (markBurst) showMarkBurst(unitD);
-                    // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
+                    // 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
-                    // 2026-09-24 死亡态不再由这里派发：原先在撞完 1100ms 后才发 DEAD flash（远程分支压根不发），
+                    // 死亡态不再由这里派发：原先在撞完 1100ms 后才发 DEAD flash（远程分支压根不发），
                     //   与「死亡特效不能延后」冲突，且替死/免疫回退取消死亡时会把格子错标成尸体。
                     //   现在死亡态只认引擎状态（resolveDeaths 写 alive/_isDead），UI 当帧就上红底 ✕。
                 });

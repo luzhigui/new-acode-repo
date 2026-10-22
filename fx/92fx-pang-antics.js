@@ -1,4 +1,4 @@
-// V1.0.1 | ~4300 bytes | 2026-09-26 胖远桥两技能演出：正义国字脸（朝对手张开的扇形金锥三道 + 「你过来啊！～」台词气泡 + 全体被嘲讽者红闪😤）、年轻气盛（出手前上半身侧倾甩歪 + 😵）
+// V1.0.1 | 2026-09-26 | ~6900 bytes
 export const VER = 'fx/92fx-pang-antics.js V1.0.1';
 
 import { clock } from '../infra/52-clock.js';

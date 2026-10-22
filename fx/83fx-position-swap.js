@@ -1,9 +1,5 @@
 // fx/83fx-position-swap.js
-// V6.2.1 | ~10200 bytes | 2026-10-13 红血两仪互换放慢（老板：太快了，一眨眼就完）：连线展开 300→480ms、☯ 脉冲 260→420ms、
-//          脉冲后加 150ms「落印停顿」（☯ 在画面停留一瞬再对穿）、对穿 560→900ms；总时长 1.12s → 1.95s。
-//          只动 connectLine 这一支（何太冲两仪互换），惑心互换的连闪分支（animatePositionSwap 原路径）保持不动。
-// V6.2.0 | ~9907 bytes | 2026-10-12 红血两仪互换专属演出 animateLiangyiSwap（options.connectLine 分流）：金色连线展开 → 中点 ☯ 脉冲
-//          → 两人沿连线对穿一次 → 落定 pop-in；全程 clock.animate 驱动（不手写 rAF），用完即清无残留
+// V6.2.1 | 2026-10-13 | ~9700 bytes
 export const VER = 'fx/83fx-position-swap.js V6.2.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -16,7 +12,7 @@ function getCellElement(unit) {
 }
 
 export async function animatePositionSwap(unit1, unit2, c, options = {}) {
-    // 2026-10-12 两仪互换（红血）：connectLine 走专属「连线→对穿」演出（惑心互换保持原连闪动画不动）
+    // 两仪互换（红血）：connectLine 走专属「连线→对穿」演出（惑心互换保持原连闪动画不动）
     if (options.connectLine) return animateLiangyiSwap(unit1, unit2, c, options);
     const { skipDataChange, oldPositions } = options;
     let cell1, cell2;
@@ -112,11 +108,10 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     }
 }
 
-// ========== 2026-10-12 两仪互换（红血）专属演出 ==========
-// 老板三点要求：①先连线再换（把两人"绑"上）②只换一次（不像惑心连闪反复）③好看。
-// 编排：金色光束从 A 拉向 B（480ms）→ 中点 ☯ 弹出脉冲（420ms）→ 落印停顿（150ms）→ 两人沿连线对穿一次（900ms，线/☯同步淡出）
+// ========== 两仪互换（红血）专属演出 ==========
+// 编排：金色光束从 A 拉向 B（480ms）→ 中点 ☯ 弹出脉冲（420ms）→ 落印停顿（150ms）→ 两人沿连线对穿一次（900ms，线/☯ 同步淡出）
 //   → 落定（dispatch POS_CHANGE → 清样式 → 重绘 → 新格 pop-in）。
-// 全程 clock.animate 插值（铁律7：时间层走 clock，不手写 rAF）；一次性元素 data-fx="temporary" 用完即删。
+// 全程 clock.animate 插值（时间层走 clock，不手写 rAF）；一次性元素 data-fx="temporary" 用完即删。
 const easeOutCubic = (p) => 1 - Math.pow(1 - p, 3);
 const easeInOutCubic = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
 
@@ -188,7 +183,7 @@ async function animateLiangyiSwap(unit1, unit2, c, options = {}) {
         mark.style.opacity = op.toFixed(2);
         mark.style.transform = `translate(-50%,-50%) scale(${sc.toFixed(2)})`;
     });
-    // 2026-10-13 落印停顿：脉冲做完让 ☯ 在画面停一瞬，别紧接着就被对穿的淡出吃掉（老板：看不清）
+    // 落印停顿：脉冲做完让 ☯ 在画面停一瞬，别紧接着就被对穿的淡出吃掉（老板：看不清）
     await clock.wait(150);
 
     // ③ 两人沿连线对穿一次（线/☯ 随穿越淡出）

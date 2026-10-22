@@ -1,6 +1,4 @@
-// V6.1.3 | 2026-10-20 删死代码：registry + playEffect + registerEffect（零调用；「按名调特效」旧设计残留，
-//   39/88/89 一律直 import 函数名，不经名称分派）
-// V6.1.1 | 2026-09-24 转出 showMiejueCountFloat（灭绝计数飘字）｜ 预估 2.6 KB
+// V6.1.3 | 2026-10-20 | ~2000 bytes
 export const VER = 'fx/87fx-manager.js V6.1.3';
 
 import {
