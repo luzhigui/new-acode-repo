@@ -1,4 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
+// V1.5.7 | 2026-10-22 新增 DASH 舞台动作（唐文亮冲刺·七伤齐发）：纯装饰，fx/94 按 fromPos/toPos 画克隆体位移
+// V1.5.6 | 2026-10-22 闪避反击眩晕按实况判定：!c.dodgeEffectEnabled 时不再无条件置灰
 // V1.5.5 | ~33200 bytes | 2026-10-19 新增 RESTORE_ACTED 舞台动作（雄鹰恢复行动力）：store 回调按 uid 双清
 //   账本 _acted=false 与视图镜像 _renderActed=null（与 ROUND_START 同口径），修「被恢复者格子不绿」
 // V1.5.4 | ~32900 bytes | 2026-10-19 简单模式闪避反击掉血飘字抢跑修复：DODGE.fx 里 DAMAGE_FLOAT 原先在演出第 0 帧发，
@@ -28,7 +30,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.6';
+export const VER = 'render/39-actions-defs.js V1.5.7';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -589,6 +591,16 @@ export const STAGE_ACTION_DEFS = {
             if (GlobalStore.get('fastForwardActive')) return;
             const unit = findUnitByUidLocal(c, action.targetUid);
             if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
+        }
+    },
+    // 2026-10-22 唐文亮冲刺：纯装饰演出（引擎侧位置已由 doDash 改好，这里不碰数据、不 dispatch POS_CHANGE）
+    [STAGE_ACTION_TYPES.DASH]: {
+        grid: 'none', log: 'sync', timing: 'beforeText',
+        fx: async (c, action) => {
+            if (GlobalStore.get('fastForwardActive')) return;
+            if (!action.dash) return;
+            const { showTangWenLiangDash } = await import('../fx/94-tangwenliang-dash.js');
+            await showTangWenLiangDash(action.dash);
         }
     },
     [STAGE_ACTION_TYPES.HANLISA_BURST]: {

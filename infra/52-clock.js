@@ -1,7 +1,9 @@
 // infra/52-clock.js
+// V1.1.1 | 2026-10-22 animate 支持 opts.minRealMs 最短真实时长保底（新增 _realNow 真实时间轴，
+//          暂停冻结、不受倍速/快进影响）：倍速下关键演出（冲刺/轰拳/打歪）也看得清
 // V1.1.0 | ~3948 bytes | 2026-09-13 统一时间源：唯一 rAF 循环，集中管理 倍速/暂停/快进
 // 消费方只调 wait()/animate()，不再自己判 fastForwardActive、不再传 getPausedFn、不再各自开 rAF
-export const VER = 'infra/52-clock.js V1.1.0';
+export const VER = 'infra/52-clock.js V1.1.1';
 
 // 逻辑时间基准：调用方传入的 ms 一律是"1x 基准时长"，实际流逝由 timescale 缩放
 class Clock {
@@ -12,6 +14,8 @@ class Clock {
         this.paused = false;
         this.fastForward = false;
         this._realLast = 0;
+        // 2026-10-22 真实时间轴（暂停时冻结、不受倍速/快进影响）：供 minRealMs 最短时长保底
+        this._realNow = 0;
         this._rafId = null;
         this._running = false;
         this._waits = [];          // { dueAt, resolve }
@@ -34,6 +38,7 @@ class Clock {
     // 重置：新一局开始时清空 now 与所有挂起任务
     reset() {
         this.now = 0;
+        this._realNow = 0;
         this._realLast = performance.now();
         this._waits = [];
         this._tweens = [];
@@ -48,6 +53,7 @@ class Clock {
         this._realLast = ts;
         if (!this.paused) {
             this.now += realDelta * (this.fastForward ? this.fastForwardScale : this.timescale);
+            this._realNow += realDelta;
         }
         this._flush();
         this._rafId = requestAnimationFrame(this._loop);
@@ -65,7 +71,9 @@ class Clock {
         if (this._tweens.length) {
             const remain = [];
             for (const t of this._tweens) {
-                const p = t.duration <= 0 ? 1 : Math.min(1, (this.now - t.startAt) / t.duration);
+                let p = t.duration <= 0 ? 1 : Math.min(1, (this.now - t.startAt) / t.duration);
+                // 2026-10-22 最短真实时长：真实时间没走满 minRealMs 就压住进度
+                if (t.minRealMs > 0) p = Math.min(p, (this._realNow - t.startReal) / t.minRealMs);
                 t.onFrame(p);
                 if (p >= 1) t.resolve();
                 else remain.push(t);
@@ -84,13 +92,19 @@ class Clock {
 
     // 逐帧动画：onFrame(progress 0..1)，duration 为 1x 基准毫秒
     // 暂停时 progress 冻结；快进时按倍率快放（仍逐帧回调）
-    animate(duration, onFrame) {
+    // opts.minRealMs：最短真实时长保底。倍速把 duration 压到 100ms 时，进度仍按真实时间爬，
+    //   至少走满 minRealMs 才到 1——给「关键演出」用（冲刺/轰拳/打歪），1x 下行为完全不变。
+    animate(duration, onFrame, opts) {
         if (duration <= 0) {
             try { onFrame(1); } catch (e) {}
             return Promise.resolve();
         }
         return new Promise(resolve => {
-            this._tweens.push({ startAt: this.now, duration, onFrame, resolve });
+            this._tweens.push({
+                startAt: this.now, duration, onFrame, resolve,
+                startReal: this._realNow,
+                minRealMs: (opts && opts.minRealMs > 0) ? opts.minRealMs : 0
+            });
         });
     }
 

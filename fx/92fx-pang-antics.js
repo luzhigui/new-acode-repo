@@ -115,5 +115,5 @@ export function showPangClumsy(pang) {
         if (p < 0.4) ang = 6 * (p / 0.4);
         else { const t = (p - 0.4) / 0.6; ang = 6 * (1 - t) * (1 - t); }
         cell.style.transform = `rotate(${ang}deg) scale(1.1)`;
-    }).then(() => { cell.style.transform = ''; });
+    }, { minRealMs: 900 }).then(() => { cell.style.transform = ''; });
 }

@@ -88,7 +88,8 @@ registerTargetStrategy((unit, validTargets, ctx) => {
 //   射程内无人 → 主动放弃（休息，不走兜底）。射程表读 content roles.标枪.rangeByRow（数据驱动）
 registerTargetStrategy((unit, validTargets, ctx) => {
     if (unit.role !== ROLE_TYPES.JAVELIN) return null;
-    const rowKey = unit.pos >= 7 ? 'back' : 'mid';
+    // 2026-10-22 射程三分支：789 打对方 123 / 456 打 1~6 / 123 打全场（原 123 与 456 共用 mid）
+    const rowKey = unit.pos >= 7 ? 'back' : (unit.pos >= 4 ? 'mid' : 'front');
     const range = getGameData()?.roles?.[ROLE_TYPES.JAVELIN]?.rangeByRow?.[rowKey] || [];
     const pool = validTargets.filter(t => range.includes(t.pos));
     if (pool.length === 0) return { abort: true };

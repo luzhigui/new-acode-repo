@@ -1,3 +1,4 @@
+// V1.10.1 | 2026-10-22 新增 STAGE_ACTION_TYPES.DASH（唐文亮冲刺·七伤齐发独立演出，fx/94）
 // V1.10.0 | ~15900 bytes | 2026-10-19 新增 STAGE_ACTION_TYPES.RESTORE_ACTED（雄鹰恢复行动力：同步账本 _acted
 //   并清视图镜像 _renderActed，修「被恢复者格子不绿」）
 // V1.9.0 | ~16200 bytes | 2026-10-17 新增职业 ROLE_TYPES.JAVELIN「标枪」（唐文亮弱精英重做：中程投射、天然不吃遮挡）
@@ -5,7 +6,7 @@
 //   core/10 免疫分支发；modules/26 宋青书性奋额外攻击据此照发第二下）
 // V1.7.0 | ~14400 bytes | 2026-10-15 新增信号 SIGNAL_TYPES.AFTER_SELECT_TARGET（选敌完成·出手前带 log 广播，modules/26 胖远桥出手声明落行）
 // V1.6.0 | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
-export const VER = 'infra/56-battle-enums.js V1.10.0';
+export const VER = 'infra/56-battle-enums.js V1.10.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -116,7 +117,8 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     HP_PCT_DANMAKU: 'hpPctDanmaku', BANNER: 'banner',
     SKILL_FLOAT: 'skillFloat',
     HANLISA_BURST: 'hanlisaBurst',
-    RESTORE_ACTED: 'restoreActed'
+    RESTORE_ACTED: 'restoreActed',
+    DASH: 'dash'
 });
 
 /** Buff 特效子类型：BUFF_EFFECT stageAction 的 effectType 唯一来源（不再用裸字符串） */

@@ -2,11 +2,13 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
+// V7.0.3 | 2026-10-22 七伤双路径 + 回春立即结算：被命中 4% 也推进七伤计数（自损 4% maxHp 留 1 血），满 7 对攻击者
+//   冲刺并补一刀；回春术叠层当场结算首轮回血（不再等回合开始）；冲刺报幕带 dash 载荷供 fx/94 独立演出
 // V7.0.2 | 2026-10-22 回春术飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
 // V7.0.1 | 2026-10-22 冲刺拽位照实报幕：swapUnitPositions/moveUnitPosition 现返回布尔，
 //   目标免疫位移时改写「免疫位移、纹丝不动」，不再假报"拽至 N 号位"（体检 114 家族案）
 // 版本历史见 记录-更改履历.md（检索 "modules/26elite-sixsects-tangwenliang"）
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.2';
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.3';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -44,9 +46,26 @@ export function createTangWenLiangComponent() {
             function switchRole(unit, role, label, outLog) {
                 switchRoleOnly(unit, role, label, outLog);
             }
-            // 回春术叠层：每层记一个「剩余回合数」（按 hc.rounds 起步），层数可叠加
-            function addHuiChunStack(unit) {
-                unit.state._hcStacks = [...(unit.state._hcStacks || []), hc.rounds];
+            // 2026-10-22 叠层即结算第一次回血（原要等回合开始，玩家看不到「刚触发」的反馈）。
+            //   该层 remaining 起手减 1（本次已消耗），后续回合开始照旧结算剩余次数。
+            function addHuiChunStack(unit, outLog) {
+                const stacks = [...(unit.state._hcStacks || []), hc.rounds - 1];
+                unit.state._hcStacks = stacks.filter(r => r > 0);
+                const ratio = unit.hp < unit.maxHp * hc.lowHpThreshold ? hc.lostHpPctLow : hc.lostHpPct;
+                const raw = Math.floor((unit.maxHp - unit.hp) * ratio);
+                const healed = previewHeal(unit, raw);
+                if (healed > 0) {
+                    applyStatChange(unit, 'hp', raw, null, '回春术');
+                    recordHpAudit(unit, 'huiChun', raw, '回春术');
+                    if (outLog) outLog.push({ factType: FACT_TYPES.HEAL, data: {
+                        unitName: unit.name, unitUid: unit.uid, heal: healed,
+                        hpBefore: fmtHp(Math.floor(unit.hp) - healed), hpAfter: fmtHp(Math.floor(unit.hp)),
+                        icon: '🌿', label: '回春术', mode: 'plusTrail'
+                    } });
+                }
+                if (outLog) pushSkillAnnounce(outLog, unit, '回春术',
+                    `🌿 ${unit.name} 回春术 +1 层（${stacks.length} 层${healed > 0 ? `，立即回复 ${healed}` : ''}）`,
+                    { floatText: '🌿', floatUid: unit.uid });
             }
             // ③ 冲刺·七伤齐发：冲到「目标同列」的己方前排位（1/2/3），把对方 456/789 的目标拽到其 123 位；
             //    双方各受当前生命 dmgRatio / selfDmgRatio 真伤；之后叠一套战士加成、转「战士」近战
@@ -60,6 +79,8 @@ export function createTangWenLiangComponent() {
                     if (occupant) return swapUnitPositions(unit, occupant, outLog);
                     return moveUnitPosition(unit, pos, outLog);
                 };
+                const twFromPos = tw.pos;
+                const targetFromPos = target.pos;
                 relocate(tw, frontPos);
                 // 2026-10-22 目标免疫 → 拽不动：照实报幕，别再写"拽至 N 号位"（体检 114）
                 const targetMoved = target.pos > 3 ? relocate(target, frontPos) : true;
@@ -76,7 +97,7 @@ export function createTangWenLiangComponent() {
                 const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
                 if (outLog) outLog.push({ factType: FACT_TYPES.TW_DASH_APPLY, data: { unitName: tw.name, unitUid: tw.uid, camp: tw.camp, atk: rb.atk, def: rb.def, maxHp: rb.maxHp } });
                 switchRole(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士', outLog);
-                addHuiChunStack(tw);   // 冲刺这一击必叠 1 层回春术（不走下面 4% 掷骰，两者互斥）
+                addHuiChunStack(tw, outLog);   // 冲刺必叠 1 层（不走 4% 掷骰），叠层即结算一次回血
                 // 冲刺报幕：在出手帧（本信号处理内）直接落一行，与胖远桥出手声明同口径——
                 //   此时本击攻击组还没建（group 由 core/10 命中结算后才产出），落不进组也不该丢
                 //   （后随的普攻若被闪避就没有组，挂组会让这行消失）
@@ -84,7 +105,11 @@ export function createTangWenLiangComponent() {
                     const dragText = targetMoved
                         ? `拽 ${target.name} 至 ${frontPos} 号位`
                         : `${target.name} 免疫位移、纹丝不动`;
-                    pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${dragText}，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`, { floatText: '⚡', floatUid: target.uid });
+                    pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${dragText}，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
+                        { floatText: '⚡', floatUid: target.uid,
+                          // 2026-10-22 冲刺独立演出：位置数值随载荷下发，fx/94 按坐标画克隆，不读 store 当前状态
+                          dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: frontPos, fromCamp: tw.camp,
+                                  targetUid: target.uid, targetFromPos, targetToPos: frontPos, targetCamp: target.camp } });
                 }
             }
 
@@ -101,7 +126,7 @@ export function createTangWenLiangComponent() {
                 if (idx === dash.cycle && data.target) {
                     doDash(data.target, data.log);
                 } else if (getBattleRng().nextInt(1, 100) <= Math.round(hc.chance * 100)) {
-                    addHuiChunStack(tw);   // 每次出手 hc.chance 概率叠 1 层回春术
+                    addHuiChunStack(tw, data.log);   // 每次出手 4% 概率叠 1 层，叠层即结算一次回血
                 }
             });
 
@@ -129,6 +154,42 @@ export function createTangWenLiangComponent() {
                 //   才产出），由下面 ①-b 钩子搬进「唐文亮自己的攻击组」，不做组外扁平行
                 tw.state._qiShangNote = `👊 唐文亮七伤拳：自损 ${real} 点生命${real <= 0 ? '（残血保命，已无可损）' : (idxInCycle > 0 ? `（伤己 ${idxInCycle}/${dash.cycle}）` : '')}，本次伤害 ×${mult.toFixed(2)}${lowHp ? '（临危加成）' : ''}`;
                 tw.state._qiShangBanner = idxInCycle === dash.cycle ? '💢 七伤齐发！' : null;
+            });
+
+            // —— 2026-10-22 被攻击也推进七伤：每次被命中 4% 概率 +1 计数、自损 4% maxHp（留 1 血），
+            //   满 7 对攻击者冲刺。若此时本回合还没出手，冲刺后立刻补一刀（消耗行动权），
+            //   攻击者已死/待死则不冲（core/10 的 _pendingDeath 守卫同理）。
+            //   优先级裸数字 60（晚于 55 的「自损量搬进攻击组」；AFTER_DAMAGE_APPLIED 无 QISHANG 键，故不引用层键）
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
+                if (data.target !== tw || !tw.alive) return;
+                if (tw.state._pendingDeath) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const attacker = data.unit;
+                if (!attacker || !attacker.alive || attacker === tw) return;
+                if (getBattleRng().nextInt(1, 100) > Math.round(hc.chance * 100)) return;   // 与回春同率 4%
+                const n = (tw.state._qiShangCount || 0) + 1;
+                tw.state._qiShangCount = n;
+                const want = Math.max(qi.minSelfDmg, Math.round(tw.maxHp * qi.selfHpPct));
+                const real = Math.min(want, Math.max(0, Math.floor(tw.hp) - 1));
+                if (real > 0) applyStatChange(tw, 'hp', -real, null, '七伤拳自损', false);
+                pushSkillAnnounce(data.log, tw, '七伤拳',
+                    `👊 唐文亮七伤拳（被击）：自损 ${real} 点（伤己 ${((n - 1) % dash.cycle) + 1}/${dash.cycle}）`,
+                    { floatText: `💥-${real}`, floatUid: tw.uid });
+                if (((n - 1) % dash.cycle) + 1 !== dash.cycle) return;
+                // 满档：对攻击者冲刺
+                doDash(attacker, data.log);
+                // 本回合未出手 → 冲刺后补一刀，并消耗行动权
+                if (!tw.state._acted) {
+                    tw.state._acted = true;
+                    if (!data.extraRequests) data.extraRequests = [];
+                    data.extraRequests.push({
+                        unit: tw,
+                        targetUid: attacker.alive ? attacker.uid : null,
+                        reason: 'dashStrike',
+                        priority: 13,
+                        infoText: `<span class="gold">⚡ ${tw.name} 被打急了眼，趁势反手一拳！</span>`
+                    });
+                }
             });
 
             // ①-b 攻击组内演出把手：把本击的「报幕文本 / 横幅 / 自损量」搬进**本击攻击组**（老板口径：单位自己
