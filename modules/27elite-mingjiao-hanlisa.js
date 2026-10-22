@@ -8,6 +8,7 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
+// V2.2.2 | 2026-10-22 左拳·九阳满血转护盾：溢出的回复量进永久护盾 _permShield（与蓄力临时 _shield 分家）
 // V2.2.1 | 2026-10-22 治疗/吸血文案改实际落地值（previewHeal 同源）：左拳·九阳、轰拳吸血
 // V2.2.0 | 2026-10-22 寒毒改「不衰减 + 可叠层无上限」（每回合首档 pct × stacks）；两拳改名左拳·九阳/右拳·寒冰；
 //   新增低血双拳：生命 < doublePunchHpPct(40%) 时 doublePunchProb(50%) 追加一拳（走 extraRequests，
@@ -15,7 +16,7 @@
 // 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
 // V2.1.2 | 2026-10-19 谁的日志归谁（老板拍板）：护盾吸收战报行不再 pushInfo 插进攻击者的攻击组，
 //   改为紧跟本击攻击组之后的独立 SKILL_ANNOUNCE 播报行；零数值/行为变化。
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.1';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.2';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/13battle-shared.js';
@@ -70,22 +71,30 @@ export function createHanLiSaComponent() {
                 //   与「本循环是否触发过」无关，同一种可以连出多次
                 if (getBattleRng().next() < (jy.prob ?? 0.5)) {
                     hls.state._hlsJiuYangDone = true;   // 标记只为「凑齐解锁蓄力」，不锁技能
-                    const rawHeal = Math.min(Math.floor(hls.maxHp * (jy.healPct ?? 0.12)), hls.maxHp - hls.hp);
-                    // 2026-10-22 战报/飘字改用实际落地值（截脉/寒毒会打折）
-                    const heal = previewHeal(hls, rawHeal);
+                    // 2026-10-22 满血转护盾：rawOnly 拿打折后应发额度（不夹 maxHp 缺口），应发 − 实回 = 溢出，
+                    //   进永久护盾 _permShield（与蓄力临时 _shield 分家，整场累积）
+                    const rawNominal = Math.floor(hls.maxHp * (jy.healPct ?? 0.12));
+                    const nominal = previewHeal(hls, rawNominal, true);
+                    // 实回按 core/16 HEAL handler 口径（先夹 maxHp 缺口、再打折），保证文案/飘字 = 血条
+                    const heal = previewHeal(hls, Math.min(rawNominal, Math.max(0, hls.maxHp - hls.hp)));
+                    const shieldGain = Math.max(0, nominal - heal);
                     if (heal > 0) {
                         if (!data.declarations) data.declarations = [];
                         data.declarations.push({
-                            // 声明量必须是原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折，
-                            //   这里若直接填 preview 值会被打两次折（25% 而非 50%）
-                            type: EFFECT_TYPES.HEAL, value: rawHeal, source: hls,
+                            // 声明量填原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折
+                            type: EFFECT_TYPES.HEAL, value: rawNominal, source: hls,
                             factType: FACT_TYPES.HEAL,
                             factData: { unitName: hls.name, heal, hpBefore: Math.floor(hls.hp), hpAfter: Math.floor(hls.hp + heal), unitUid: hls.uid, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
                         });
-                        recordHpAudit(hls, 'hlsJiuYangHeal', rawHeal, '左拳·九阳治疗');
+                        recordHpAudit(hls, 'hlsJiuYangHeal', rawNominal, '左拳·九阳治疗');
                     }
-                    pushInfo(data, `<span class="gold">☀️ 寒离飒左拳·九阳：回复 ${heal} 点生命</span>`);
-                    announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + heal : ''}`);
+                    if (shieldGain > 0) {
+                        hls.state._permShield = (hls.state._permShield || 0) + shieldGain;
+                    }
+                    const healText = heal > 0 ? `回复 ${heal} 点生命` : '满血';
+                    const shieldText = shieldGain > 0 ? `，${heal > 0 ? '溢出' : ''}转化为 ${shieldGain} 点护盾` : '';
+                    pushInfo(data, `<span class="gold">☀️ 寒离飒左拳·九阳：${healText}${shieldText}</span>`);
+                    announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + heal : ''}${shieldGain > 0 ? ` 🛡+${shieldGain}` : ''}`);
                 // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒（2026-10-22 可叠层、无上限）
                 } else {
                     hls.state._hlsHanBingDone = true;   // 同样只用于凑齐解锁

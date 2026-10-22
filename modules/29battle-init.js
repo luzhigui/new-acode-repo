@@ -1,3 +1,4 @@
+// V7.6.3 | 2026-10-22 额外兵职业解析同口径（M104 池抽到唐文亮不再掷随机四选一，读 content role/tags）
 // V7.6.2 | 2026-10-22 数字空位职业解析加第二道防线：tags 含「标枪」也认（不依赖 content role 字段在不在）
 // V7.6.1 | 2026-10-22 补寒离飒强精英 force 通道（forceHanLiSa）：她 V7.6.0 并入 eliteConfigs 后
 //   已在弱精英池之外，旧的 forceWeakElite='寒离飒' 会撞入池校验抛错、强精英评测整组跑不了
@@ -14,7 +15,7 @@
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.6.2';
+export const VER = 'modules/29battle-init.js V7.6.3';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -400,7 +401,12 @@ export function initBattleTeams(currentStage, _rng) {
                 const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                 name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
             }
+            // 2026-10-22 职业解析与具名兵同口径：content `role` 字段 > tags 命中 CONFIG.ROLES 或标枪
+            //   （此前这里只掷 C.ROLES 随机四选一，M104 池抽到唐文亮会给错职业）
+            const chNamed = getGameData()?.characters?.[name];
             let role = C.ROLES[_rand(0, 3)];
+            const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+            if (tagRole) role = tagRole;
             let extraUnit = new Unit(name, extraM, role, CAMP_TYPES.ENEMY);
             extraUnit.init(_rng); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);

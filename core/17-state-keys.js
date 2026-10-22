@@ -1,9 +1,10 @@
 ﻿// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
+// V2.9.29 | 2026-10-22 加 _permShield（永久护盾，九阳满血溢出）：与蓄力临时 _shield 分家，蓄力爆发只清 _shield
 // V2.9.26 | 2026-10-20 删死字段：_extinctionUsed（全库零读写，确认）；_spiderTriggeredHit 恢复登记——
 //   删 schema key 无效：写侧 modules/27 L234 `if (state._spiderTriggeredHit === undefined) 补建` 会写回，
 //   state 快照仍出该 key；须先清那行（另批）再删本字段
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.28';
+export const VER = 'core/17-state-keys.js V2.9.29';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -77,6 +78,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _yinCounterPending:      { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 通用护盾（数值 = 剩余可吸收伤害；core/12 攻击扣血前先扣盾）：寒离飒蓄力时挂 20% 最大生命
     _shield:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 2026-10-22 永久护盾（九阳满血溢出）：与蓄力临时护盾分家——蓄力爆发结算只清 _shield，不清本字段
+    _permShield:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _shieldAbsorbed:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
     _hlsJiuYangDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },

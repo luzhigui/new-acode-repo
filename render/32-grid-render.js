@@ -13,7 +13,7 @@
 //   对外导出路径不变——markGridShake 与 getDodgeBreakdown/isUnitBenefitedByBuff 改 re-export 子文件；
 //   fx/88、fx/93 取 markGridShake，ui/62 取 getDodgeBreakdown/isUnitBenefitedByBuff，路径零改动。
 // ── 更早版本历史见 记录-更改履历.md
-export const VER = 'render/32-grid-render.js V7.0.1';
+export const VER = 'render/32-grid-render.js V7.0.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -234,7 +234,8 @@ export function renderGrid(id, camp) {
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         // 2026-10-17 护盾表现（寒离飒蓄力起通用）：血条上叠一层白色半透明，厚度=剩余护盾/最大生命
-        const shieldVal = unit.state._shield || 0;
+        // 2026-10-22 临时（蓄力）+ 永久（九阳溢出）护盾合计显示
+        const shieldVal = (unit.state._shield || 0) + (unit.state._permShield || 0);
         const shieldPct = unit.alive && shieldVal > 0 ? Math.min(100, Math.round((shieldVal / unit.maxHp) * 100)) : 0;
         const shieldHtml = shieldPct > 0 ? `<div style="position:absolute;left:0;right:0;bottom:0;height:${shieldPct}%;background:rgba(255,255,255,0.55);border-top:1px solid rgba(255,255,255,0.85);pointer-events:none;"></div>` : '';
         let hpDisplayHtml = `${fmtHp(unit.hp)}`;
