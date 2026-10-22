@@ -1,3 +1,5 @@
+// V7.6.1 | 2026-10-22 补寒离飒强精英 force 通道（forceHanLiSa）：她 V7.6.0 并入 eliteConfigs 后
+//   已在弱精英池之外，旧的 forceWeakElite='寒离飒' 会撞入池校验抛错、强精英评测整组跑不了
 // V7.6.0 | 2026-10-22 明教精英分层重写（老板口径限强度保趣味）：Boss（张无忌 30%）独掷、Boss 局最多再配 1 个
 //   （强 70%/弱 30%）；无 Boss 时强精英 90% 出 1 / 10% 出 2（绝不 3），弱精英独立 30% 混入；
 //   寒离飒由弱升强进强精英池；删 eliteCount / ELITE_COUNT_THRESHOLDS 旧轮盘（骰子先掷后判，RNG 流仍双端同源）
@@ -11,7 +13,7 @@
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.6.0';
+export const VER = 'modules/29battle-init.js V7.6.1';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -115,15 +117,18 @@ export function initBattleTeams(currentStage, _rng) {
     const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
     const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
     const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
+    // 2026-10-22 V7.6.1：寒离飒已升强精英，需独立 force 通道（走 forceWeakElite 会撞下方入池校验抛错）
+    const forceHanLiSa = GlobalStore.get('forceHanLiSa') || localStorage.getItem('_forceHanLiSa') === '1';
     const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother'
         || localStorage.getItem('_forceXiaoZhao') === 'sister' || localStorage.getItem('_forceXiaoZhao') === 'brother');
     // 2026-10-21 V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
     const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
-    const anyForce = forceZhang || forceWei || forceXieXun || _forceXzEarly || forceSoloWeak;
+    const anyForce = forceZhang || forceWei || forceXieXun || forceHanLiSa || _forceXzEarly || forceSoloWeak;
 
     if (forceZhang && !allyTeam.some(u => u.isZhang)) pushElite(bossConfig);
     if (forceWei && !allyTeam.some(u => u.isWei)) pushElite(strongEliteConfigs.find(c => c.isWei));
     if (forceXieXun && !allyTeam.some(u => u.isXieXun)) pushElite(strongEliteConfigs.find(c => c.isXieXun));
+    if (forceHanLiSa && !allyTeam.some(u => u.isHanLiSa)) pushElite(strongEliteConfigs.find(c => c.isHanLiSa));
 
     // 2026-10-08 V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
     //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
