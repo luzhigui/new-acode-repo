@@ -250,7 +250,7 @@ const CONFIG = {
     ELITE_COUNT_THRESHOLDS: [0, 0.05, 0.95],
     // 小昭形态骰（29battle-init 用）：默认 50% 为「小昭·姊」；图鉴选 xz 偏向姊、选 xm 偏向妹
     XIAO_ZHAO_SISTER_PROB: { default: 0.5, xz: 0.85, xm: 0.15 },
-    // 弱精英混入率（29battle-init 用，定案 / 提率 0.20→0.30）：
+    // 弱精英混入率（29battle-init 用）：
     //   ① 明教侧——固定精英轮盘只留张无忌/韦一笑/小昭/谢逊，其余具名身份（杨逍/殷天正/寒离飒）按本率
     //      随机替换一个普通位混入正常阵容；② 六大派侧——何太冲/唐文亮同按本率锁定一处 M104 数字空位。
     //   两侧均「每局至多一名」，共用一个率值（老板拍板同值）
@@ -366,8 +366,7 @@ const CONFIG = {
     get ELITE_POOL() {
         return getGameData().encounters.elitePool;
     }
-    // 精英技能参数已迁入 gameData
-    // 与 characters.*.mechanics，读取统一走 getSkillParams（缺失即配置错误，调用方 throw）
+    // 精英技能参数在 gameData.characters.*.mechanics，读取统一走 getSkillParams（缺失即配置错误，调用方 throw）
 };
 
 

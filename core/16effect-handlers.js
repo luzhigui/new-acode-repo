@@ -257,8 +257,8 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, clawPayload);
             if (clawPayload.derivedEntries.length > 0) hit._derivedEntries = clawPayload.derivedEntries;
             // 落地值源头收敛到 1 位小数：设计值 hit.dmg 已是 1 位小数（modules/26 floor(×10)/10）、
-            //   reduce 是整数，但二进制浮点相减会出尾巴（2.8−2=0.7999999999999998）——此前只在显示出口洗，
-            //   原始 fact / 规则读到的仍是尾巴值；源头收敛后 fact 与界面同值。
+            //   reduce 是整数，但二进制浮点相减会出尾巴（2.8−2=0.7999999999999998）——
+            //   必须在源头收敛，只在显示出口洗会让 fact / 规则读到尾巴值。
             const applied = Math.round(Math.max(0, hit.dmg - (clawPayload.reduce || 0)) * 10) / 10;
             applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
             // 审计账本：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对

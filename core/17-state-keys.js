@@ -35,7 +35,7 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 胖远桥·正义国字脸：被嘲讽者本回合后续只能打胖远桥（回合级，回合开始自动清）
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 2026-10-22 唐文亮冲刺后待叠回春：等冲刺后那一拳结算完再叠（回合开始自动清）
+    // 唐文亮冲刺后待叠回春：等冲刺后那一拳结算完再叠（回合开始自动清）
     _pendingDashHeal:        { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
@@ -75,7 +75,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _yinCounterPending:      { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 通用护盾（数值 = 剩余可吸收伤害；core/12 攻击扣血前先扣盾）：寒离飒蓄力时挂 20% 最大生命
     _shield:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-22 永久护盾（九阳满血溢出）：与蓄力临时护盾分家——蓄力爆发结算只清 _shield，不清本字段
+    // 永久护盾（九阳满血溢出）：与蓄力临时护盾分家——蓄力爆发结算只清 _shield，不清本字段
     _permShield:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _shieldAbsorbed:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
@@ -83,14 +83,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsHanBingDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 蓄力相位：0 未蓄力 / 1 已触发待下回合蓄 / 2 本回合蓄力（跳过行动）
     _hlsCharging:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 2026-10-22 寒离飒低血双拳：本回合已触发过就置 true，回合开始统一清（防同回合无限连锁）
+    // 寒离飒低血双拳：本回合已触发过就置 true，回合开始统一清（防同回合无限连锁）
     _hlsDoubleFired:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 最近三回合承伤（每回合一个桶，回合开始滚动；蓄力真伤 = 桶和）
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // 2026-10-19 删 _carryEagleDone：carry 雄鹰「一次性判定」锁改挂 buff 对象（core/04 spawnCarryEagle），
-    //   每张 carry 各判一次 5 号位（修「再选一次 carry 不出雄鹰」），unit 级整局锁作废
     _butterflyAtk:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyDef:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyHp:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -200,13 +198,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
 export const ROUND_STATE_KEYS = Object.freeze(Object.keys(ROUND_STATE_SCHEMA));
 export const BATTLE_STATE_KEYS = Object.freeze(Object.keys(BATTLE_STATE_SCHEMA));
 
-// 旧默认值映射和字段清单已删除。schema 是唯一事实源，
-// 默认值/数组深度拷贝逻辑全部走 STATE_FIELD_TYPES 类型分发，
-// 不再需要单独的 DEFAULTS / ARRAY_BATTLE_STATE_KEYS / OBJECT_BATTLE_STATE_KEYS 导出。
+// 默认值/数组深度拷贝逻辑全部走 STATE_FIELD_TYPES 类型分发，schema 是唯一事实源。
 
-// ROUND_FIELD_KEYS / BATTLE_FIELD_KEYS 已删除，顶层迁移字段清零。
-// PERMANENT_FIELD_KEYS 仍保留 isXiaoZhaoSister / isXiaoZhaoBrother，
-// 因为这两个是角色身份标记，不属于战斗数值，留在顶层合理。
+// 身份标记 isXiaoZhaoSister / isXiaoZhaoBrother 留在顶层（不属于战斗数值）。
 
 /** 按 schema 初始化一个 state 对象 */
 export function createInitialState() {
@@ -244,10 +238,9 @@ export function copyBattleStateFields(srcState, dstState) {
 //   都是「局内累计」，跨局复用时必须归零——ui/68 原班再战·随机重开恢复快照时统一走 resetBattleTransientState
 const BATTLE_STATE_PRESERVE_KEYS = Object.freeze(new Set(['_lionOwnerUid', '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_initMaxHp', '_hpDmgRatio', '_originalPos']));
 
-/** 跨局复用单位时的整场字段清洗：保留创建期字段，局内累计字段全部归零（防上局状态漏进新局）
- *  2026-10-21 立案根因：ui/61 开战把「选完海克斯后的 UI 队」写进快照（妹的 _permanentBuffs 藉此进引擎，
- *  当局合法）；player/42 又把该快照克隆成 _originalSnapshot（原班再战存档）；原班再战恢复脏存档 →
- *  妹开局带着上局巨马阵 → 第1回合蛛变召拒马。此函数挂在恢复出口，单点断链。 */
+/** 跨局复用单位时的整场字段清洗：保留创建期字段，局内累计字段全部归零（防上局状态漏进新局）。
+ *  挂在「原班再战 / 随机重开」的恢复出口：快照里可能带着上一局的永久海克斯/回春层/精通等
+ *  局内累计字段，不清洗会漏进新局（如妹带着上局巨马阵，第 1 回合蛛变就召拒马）。 */
 export function resetBattleTransientState(unit) {
     if (!unit || !unit.state) return unit;
     for (const [key, spec] of Object.entries(BATTLE_STATE_SCHEMA)) {

@@ -17,7 +17,7 @@ import { FACT_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/33-fact-registry.js V1.0.0';
 
 // 从 battleStore 按 uid 查单位快照（渲染端不持有活体引用，按需查询）
-// 原先住在 render/30，拆分后成跨域依赖（buff 摘要、成昆幻影等都要），提到本文件当公共设施
+// buff 摘要、成昆幻影等多处都要用，故放在本文件当公共设施
 export function findUnitSnapshotByUid(uid) {
     if (!uid) return null;
     const store = GlobalStore.get('battleStore');
