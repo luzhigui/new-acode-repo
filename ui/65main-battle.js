@@ -1,4 +1,4 @@
-// V6.1.0 | 2026-10-04 | ~12500 bytes
+// V6.1.1 | 2026-10-04 | ~12500 bytes
 export const VER = 'ui/65main-battle.js V6.1.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
