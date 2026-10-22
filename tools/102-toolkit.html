@@ -237,7 +237,7 @@
 
         <div class="tool-card">
             <h3>🧮 统计一致性体检</h3>
-            <p>用 hp-change 事件流交叉核对承伤 / 输出 / 治疗记账，只在异常时报错。改记账逻辑后跑一遍。</p>
+            <p>用 hp-change 事件流交叉核对承伤 / 治疗记账；只查负差额（记账少于真实 hp 变化 = 漏记），重分配属正常机制不报警。</p>
             <div class="elite-config">
                 <div class="elite-stage-group">
                     <span style="color:#ffd700;font-size:12px;">关卡：</span>

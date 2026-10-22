@@ -1,3 +1,6 @@
+// V2.2.0 | 2026-10-22 去掉全局「dmgTaken = dmgDealt」守恒判据：承伤记全额、输出记实伤，闪避/反弹只记承伤侧，
+//   两者天生不等，旧的 ✗ 是假报警。重分配（附身/飞回/carry/苦练）改为正常机制展示、不再判污染。
+//   判定只看负差额：记账 < 真实 hp 变化 = 漏记。
 // V2.1.0 | 战斗逻辑全迁 116 通用 Worker 并行执行（kind='stats'），117 派发器逐关回报，完成显示总耗时
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 import { runParallel } from './117-shared-worker-runner.js';
@@ -62,49 +65,57 @@ function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 function renderResult(agg, stages, runs) {
     const rows = Object.entries(agg).sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
 
-    // 顶层守恒：每笔伤害同时记 target.dmgTaken 与 source.dmgDealt；新口径下都按"来袭全额"双边记账，守恒关系仍成立
-    let sumTaken = 0, sumDealt = 0;
-    for (const [, d] of rows) { sumTaken += d.dmgTaken; sumDealt += d.dmgDealt; }
-    const diff = sumTaken - sumDealt;
-    const verdict = Math.abs(diff) <= Math.max(1, rows.length)  // 单步舍入合计允差
-        ? `守恒 ✓：全体 dmgTaken(${sumTaken}) ≈ dmgDealt(${sumDealt})，每笔伤害双边记账平衡。`
-        : `守恒 ✗：全体 dmgTaken(${sumTaken}) ≠ dmgDealt(${sumDealt})，差 ${diff}（相对占比 ${(Math.abs(diff)/Math.max(1,sumTaken)*100).toFixed(2)}%）—— 存在漏记/重复记。`;
+    // 只校负差额：差额 < 0 表示真实 hp 变化比记账多 = 漏记。
+    // 正差额（格挡/免疫/溢出/闪避/反弹只记承伤侧、治疗记产出侧）是口径设计使然，不告警。
+    // 全局 dmgTaken 与 dmgDealt 天生不等，不再做守恒校验。
+    let badDmg = 0, badHeal = 0;
+    for (const [, d] of rows) {
+        if (d.dmgTaken - d.battleDmg - d.reallocDmg < -1) badDmg++;
+        if (d.healDone - d.battleHeal - d.reallocHeal < -1) badHeal++;
+    }
+    const verdict = (badDmg + badHeal) === 0
+        ? `校核 ✓：${rows.length} 个单位均无负差额，记账未少于真实 hp 变化。`
+        : `校核 ✗：${badDmg} 个单位承伤负差额、${badHeal} 个单位治疗负差额 —— 有真实 hp 变化未进记账，需查。`;
 
     let html = `<div class="hex-log-verdict">${verdict}</div>
     <p style="color:#888;font-size:11px;margin:8px 0;">
-      新口径：记账承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；记账治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
-      hp 净扣血/净回血：maxHp 不变时的真实 hp 变化。<b style="color:#ff8a80;">重分配列</b>：血量重分配（附身/飞回/carry/苦练）污染，>0 即异常。<br>
-      差额：承伤侧=记账承伤 − 净扣血 − 重分配承伤（=防御挡刀+吸收+溢出，正常）；治疗侧=记账治疗（产出侧） − 净回血 − 重分配治疗（=满血溢出+直接记产出，正常）。<br>
+      记账口径：承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
+      全局 dmgTaken 与 dmgDealt <span style="color:#ffa726;">本就不同</span>（承伤记全额、输出记实伤，闪避/反弹只记承伤侧），不做守恒校验。<br>
+      hp 净扣血/净回血：maxHp 不变时的真实 hp 变化。<span style="color:#8ab4f8;">重分配列</span>：附身/飞回/carry/苦练造成的血量重分配，属正常机制。<br>
+      判定只看<span style="color:#ff5252;">负差额</span>：承伤差额=记账承伤 − 净扣血 − 重分配承伤，为负 = 漏记；治疗侧同理。正差额正常（格挡/免疫/溢出/满血溢出）。<br>
       数值为场均（共 ${stages.length} 关 × ${runs} 场）。
     </p>
     <table class="elite-table"><tr>
         <th>单位</th><th>场次</th>
-        <th>hp 净扣血</th><th style="background:#5c2a2a;">重分配承伤</th><th>记账承伤</th><th>承伤差额</th>
-        <th>hp 净回血</th><th style="background:#5c2a2a;">重分配治疗</th><th>记账治疗</th><th>治疗差额</th>
+        <th>hp 净扣血</th><th>重分配承伤</th><th>记账承伤</th><th>承伤差额</th>
+        <th>hp 净回血</th><th>重分配治疗</th><th>记账治疗</th><th>治疗差额</th>
         <th>记账输出</th><th>判定</th>
     </tr>`;
 
     for (const [key, d] of rows) {
-        const dmgGap = d.dmgTaken - d.battleDmg - d.reallocDmg;   // 新口径：防御挡刀+吸收+溢出，正常
-        const healGap = d.healDone - d.battleHeal - d.reallocHeal; // 新口径：产出侧 vs 接收侧差（满血溢出/直接记产出），正常
-        const polluted = d.reallocDmg > 0.5 || d.reallocHeal > 0.5;
+        const dmgGap = d.dmgTaken - d.battleDmg - d.reallocDmg;    // 负 = 漏记
+        const healGap = d.healDone - d.battleHeal - d.reallocHeal; // 负 = 漏记
+        const dmgGapAvg = avg(dmgGap, d.battles);
+        const healGapAvg = avg(healGap, d.battles);
+        const negDmg = dmgGap < -1;
+        const negHeal = healGap < -1;
         let verdictTxt = '✓ 正常';
-        if (polluted) verdictTxt = '⚠ 重分配污染';
-        const vColor = polluted ? '#ff5252' : '#4caf50';
-        const reallocDmgBg = d.reallocDmg > 0.5 ? 'background:#5c2a2a;color:#ff8a80;' : '';
-        const reallocHealBg = d.reallocHeal > 0.5 ? 'background:#5c2a2a;color:#ff8a80;' : '';
-        const gapColor = '#ffa726';
+        if (negDmg && negHeal) verdictTxt = '⚠ 承伤+治疗漏记';
+        else if (negDmg) verdictTxt = '⚠ 承伤漏记';
+        else if (negHeal) verdictTxt = '⚠ 治疗漏记';
+        const vColor = (negDmg || negHeal) ? '#ff5252' : '#4caf50';
+        const reallocStyle = 'color:#8ab4f8;';   // 重分配=正常机制，只展示不判红
         html += `<tr>
             <td style="text-align:left;white-space:nowrap;">${key}</td>
             <td>${d.battles}</td>
             <td>${avg(d.battleDmg, d.battles)}</td>
-            <td style="${reallocDmgBg}">${avg(d.reallocDmg, d.battles)}</td>
+            <td style="${reallocStyle}">${avg(d.reallocDmg, d.battles)}</td>
             <td style="font-weight:bold;">${avg(d.dmgTaken, d.battles)}</td>
-            <td style="color:${gapColor};">+${avg(dmgGap, d.battles)}</td>
+            <td style="color:${negDmg ? '#ff5252' : '#ffa726'};">${dmgGapAvg >= 0 ? '+' : ''}${dmgGapAvg}</td>
             <td>${avg(d.battleHeal, d.battles)}</td>
-            <td style="${reallocHealBg}">${avg(d.reallocHeal, d.battles)}</td>
+            <td style="${reallocStyle}">${avg(d.reallocHeal, d.battles)}</td>
             <td style="font-weight:bold;">${avg(d.healDone, d.battles)}</td>
-            <td style="color:${gapColor};">${healGap >= 0 ? '+' : ''}${avg(healGap, d.battles)}</td>
+            <td style="color:${negHeal ? '#ff5252' : '#ffa726'};">${healGapAvg >= 0 ? '+' : ''}${healGapAvg}</td>
             <td>${avg(d.dmgDealt, d.battles)}</td>
             <td style="color:${vColor};font-weight:bold;">${verdictTxt}</td>
         </tr>`;
