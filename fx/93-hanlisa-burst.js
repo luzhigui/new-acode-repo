@@ -96,7 +96,7 @@ function shockwave(apex, hits) {
         body.setAttribute('d', sector(s));
         grad.setAttribute('r', (R0 * s).toFixed(1));
         body.style.opacity = (0.8 * (1 - p)).toFixed(3);
-    });
+    }, { minRealMs: 1200 });
 
     // 两道涟漪：由内向外扩散、渐隐
     const ripple = (ring, delay, from, to) => {

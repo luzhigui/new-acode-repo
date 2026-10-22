@@ -32,8 +32,8 @@ import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents, fmtHp } from '../infra/51-core-utils.js';
 import { resolveRoundStatGrants } from './16effect-handlers.js';
 
-import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition } from './13battle-shared.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
@@ -52,6 +52,26 @@ const C = CONFIG;
 //   跨阵营反击（如灭绝打对侧）自动按出手者阵营换边选目标，不会从自己人里挑；
 //   一次性不可闪避带 ignoreDodge: true（只在这一次出手内生效，结束即清）。
 const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack']);
+
+// 2026-10-22 标枪打不到人 → 往前压一行（789→456，456→123），压完由调用方重选目标。
+//   core 只认 ROLE_TYPES.JAVELIN，不认识具体英雄。落位优先同列，其次该行任意空位。
+function tryAdvanceJavelin(unit, allySide, log) {
+    if (!unit || !unit.alive) return false;
+    const col = (unit.pos - 1) % 3;
+    let order;
+    if (unit.pos >= 7) order = [4 + col, 5, 6, 4];
+    else if (unit.pos >= 4) order = [1 + col, 2, 3, 1];
+    else return false;                       // 已在 123：射程已覆盖全场，不再前进
+    const occupied = new Set(allySide.filter(u => u.alive && u.uid !== unit.uid).map(u => u.pos));
+    const landPos = order.find(p => p >= 1 && p <= 9 && !occupied.has(p));
+    if (landPos == null) return false;       // 前排满员：原地不动，走原来的「无可选目标」
+    if (moveUnitPosition(unit, landPos, log) === false) return false;   // 被控制免疫等挡住
+    log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+        unitName: unit.name, unitUid: unit.uid, camp: unit.camp,
+        skillName: '突进', note: `🥢 ${unit.name} 射程不及，向前压至 ${landPos} 号位（消耗本次行动）`
+    } });
+    return true;
+}
 
 function runExtraAttackRequests(requests, opts) {
     if (!requests || requests.length === 0) return;
@@ -133,6 +153,14 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         phantomFact = targetResult.phantomFact;
     }
 
+    if (!target && unit.role === ROLE_TYPES.JAVELIN && !lockedTargetUid) {
+        // 2026-10-22 标枪专属：射程覆盖不到时先往前压一行，压完重选；仍打不到才放弃
+        if (tryAdvanceJavelin(unit, allySide, log)) {
+            const retry = selectAttackTarget(unit, enemySide, allySide);
+            target = retry.target;
+            phantomFact = retry.phantomFact;
+        }
+    }
     if (!target) {
         const emptyFact = {
             type: 'emptyTarget',
