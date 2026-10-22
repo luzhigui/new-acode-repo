@@ -1,4 +1,6 @@
 // render/32-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
+// V7.0.3 | 2026-10-22 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
+//           「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
 // V7.0.0 | ~29800 bytes | 2026-10-18 拆分（纯搬移，函数体除 5 处接口替换外逐字不动）：
 //   本文件此前把四件事塞一起（节点/动画 / 展示计算 / 主循环 / 装配），
 //   按 42 族号拆出两个子文件（与 26elite-sixsects-* / 27elite-mingjiao-* / 42player-* 同款）：
@@ -13,7 +15,7 @@
 //   对外导出路径不变——markGridShake 与 getDodgeBreakdown/isUnitBenefitedByBuff 改 re-export 子文件；
 //   fx/88、fx/93 取 markGridShake，ui/62 取 getDodgeBreakdown/isUnitBenefitedByBuff，路径零改动。
 // ── 更早版本历史见 记录-更改履历.md
-export const VER = 'render/32-grid-render.js V7.0.2';
+export const VER = 'render/32-grid-render.js V7.0.3';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -353,10 +355,13 @@ export function renderGrid(id, camp) {
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) compressName = true;
-        // 2026-10-11 logo 上限全名统一（老板拍板收紧）：不管名字几字，最多显示最新 2 个——原来只限 4 字以上名字，3 字名挂 3 个照样挤爆格子
-        if (displayLogos.length > 2) displayLogos = displayLogos.slice(-2);
-
+        // 2026-10-22 计数胶囊（灭绝 2/3、唐文亮 1/7、张无忌 1/3）也算一个 logo 名额：
+        //   原先它白占宽度不进上限，3 字名 + 胶囊 + 2 个 logo 会把格子撑爆。
+        //   注意 slice(-0) 会返回整个数组，必须单独处理 budget<=0。
         const countBadgeHtml = buildCountBadge(unit);
+        const logoBudget = 2 - (countBadgeHtml ? 1 : 0);
+        if (logoBudget <= 0) displayLogos = [];
+        else if (displayLogos.length > logoBudget) displayLogos = displayLogos.slice(-logoBudget);
         let nameHtml;
         if (compressName) {
             let logoHtml = displayLogos.slice().reverse().join(' ');
