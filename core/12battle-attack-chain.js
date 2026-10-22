@@ -1,16 +1,7 @@
-// V1.0.1 | 2026-10-21 严阵反弹追加 HEAL 声明：姊在场时防战回 50% 反弹伤害（原 core/16 写死 100%，已删）
 // core/12battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
-// V1.0.0 | ~24200 bytes | 2026-10-18 自 core/12battle-attack-steps.js V6.3.16 拆出（纯搬移，函数体逐字不动）：
-//   selectAttackTarget / resolveAttackHit / calcFinalDamage / applyAttackResult / buildAttackGroup /
-//   resolveDodgeEffects 六件整块迁入。
-//   归属判据：这六个函数构成一条完整攻击链，数据连续流转（dmgCalc 从 calcFinalDamage 传给 applyAttackResult、
-//   dmgResult 再传给 buildAttackGroup）——跨文件会破坏可读性，故留在同一文件。
-//   边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
+// V1.0.3 | 2026-10-22 | ~28700 bytes
+// 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 12battle-attack-edge.js。
-//   原文件死 import（clearEliteDodgeRules / isBlocked / getUnitCol / getUnitRow / getEffectHandler /
-//   hasEffectHandler / validateDeclarationFields）未搬入——函数体内未引用，与 edge 分工对齐。
-// V1.0.3 | 2026-10-22 resolveDodgeEffects 返回 { stunned }，闪避 fact 带 stunned 字段：
-//   _ctrlImmune（寒离飒）实际没被眩晕时不再hardcode 写「被反击眩晕/本回合无法行动」
 export const VER = 'core/12battle-attack-chain.js V1.0.3';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
@@ -31,7 +22,7 @@ const C = CONFIG;
 // 步骤1：选择攻击目标
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
-    // 2026-09-19 统一走 canBeTargeted：含 pendingDeath / flyMode / 附身 / FSM 飞行
+    // 统一走 canBeTargeted：含 pendingDeath / flyMode / 附身 / FSM 飞行
     const validTargets = enemySide.filter(c => canBeTargeted(c));
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
@@ -74,7 +65,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, eventBus, ctx) {
     if (unit.state._neverMiss) return { skipped: false };
     const rng = getBattleRng();
-    // 2026-09-16 未命中率算法下沉 03.getMissBreakdown（与详情弹窗同源，避免两处漂移）
+    // 未命中率算法下沉 03.getMissBreakdown（与详情弹窗同源，避免两处漂移）
     const missAllySide = unit.camp === CAMP_TYPES.ALLY ? (ctx.A || []) : (ctx.B || []);
     const missEnemySide = unit.camp === CAMP_TYPES.ALLY ? (ctx.B || []) : (ctx.A || []);
     const missChance = getMissBreakdown(unit, missAllySide, missEnemySide).total;
@@ -109,8 +100,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     const allyBuffs = (target.camp === CAMP_TYPES.ALLY && ctx.A ? ctx.A._activeBuffs : (target.camp === CAMP_TYPES.ENEMY && ctx.B ? ctx.B._activeBuffs : []));
     if (target.state._stunned) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
-    // 2026-09-22 不可闪避：攻击方带 _ignoreDodge 时整体跳过闪避判定（灭绝师太反击用，见 core/10 额外攻击循环）
-    // 2026-09-24 _canAlwaysDodge 替代 isWei 硬编码：行动过仍可闪避由组件声明
+    // 不可闪避：攻击方带 _ignoreDodge 时整体跳过闪避判定（灭绝师太反击用，见 core/10 额外攻击循环）
+    // _canAlwaysDodge 替代 isWei 硬编码：行动过仍可闪避由组件声明
     if (!unit.state._ignoreDodge && target.alive && (target.state._canAlwaysDodge || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
@@ -126,7 +117,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 dodgeTriggered = true;
             }
         }
-        // 2026-10-16 综合闪避率下沉 computeDodgeChance（与唐文亮·同归于尽「概率直读」同源，公式单点维护）
+        // 综合闪避率下沉 computeDodgeChance（与唐文亮·同归于尽「概率直读」同源，公式单点维护）
         target.state._dodgeChance = Math.round(computeDodgeChance(target, unit, defenderBuffStats) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
@@ -162,7 +153,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     attackerAtk: Math.floor(getStat(unit, 'atk')),
                     dodgerDef: Math.floor(getStat(target, 'def')),
                     dodgerHp: Math.floor(target.hp),
-                    // 2026-10-22 是否真被眩晕（_ctrlImmune 单位会是 false），渲染层据此写文案
+                    // 是否真被眩晕（_ctrlImmune 单位会是 false），渲染层据此写文案
                     stunned: dodgeEffectResult.stunned,
                     weiHeal: dodgeDeclarations.find(d => d.type === EFFECT_TYPES.WEI_HEAL)?.data || null,
                     fxSnapshot: makeFXSnapshot(target, unit)
@@ -181,7 +172,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
 
-    // 2026-10-09 被动出手系数（core/10 额外攻击写入，-1=无）：反击/跟随那手按系数打折。
+    // 被动出手系数（core/10 额外攻击写入，-1=无）：反击/跟随那手按系数打折。
     //   记进 dmgMultiplierEntries：战报公式明细里能看到这一乘，日志不吹牛。
     const extraDmgRatio = unit.state._extraDmgRatio;
 
@@ -216,9 +207,8 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
-    // 2026-09-25 波动改口径：旧写法「先回血 +hpBonus 再扣 dmg」，满血时这几点被 maxHp 夹掉＝白给
-    //   （幼狮 40/40 吃 41 伤害即死）。现把 hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣。
-    //   非满血场景净扣血与旧口径数值完全相同（旧：+b 后 −dmg），故按 dmg 计数的链路（吸血/反伤/破防/统计）不变。
+    // hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣（不能「先回血再加」——满血时被 maxHp 夹掉＝白给）。
+    //   按 dmg 计数的链路（吸血/反伤/破防/统计）不受影响。
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), critCount: unit.critCount }); }
     else if (defVar + hpBonus >= C.DEF_WAVE_THRESHOLD) {
@@ -295,13 +285,12 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     const rng = getBattleRng();
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
-    // 2026-09-25 波动减伤：hpBonus 从本次扣血里抵扣（dmg 本身不动，吸血/反伤/破防仍按 dmg 算），下限 0 不倒吸血
+    // 波动减伤：hpBonus 从本次扣血里抵扣（dmg 本身不动，吸血/反伤/破防仍按 dmg 算），下限 0 不倒吸血
     let hpLoss = Math.max(0, dmg - hpBonus);
-    // 2026-10-17 通用护盾（寒离飒蓄力）：扣血前先由护盾吸收，吸收量写 state 供组件出战报行；
-    //   护盾只吃本体伤害，不影响 dmg 本身（吸血/破防/反伤仍按 dmg 计）
+    // 护盾：扣血前先吸收，吸收量写 state 供组件出战报行；只吃本体伤害，不影响 dmg 本身（吸血/破防/反伤仍按 dmg 计）。
+    //   两种护盾分家：先吃临时（蓄力，爆发结算会清零），吃完再吃永久（九阳满血溢出，整场累积）。
     let shieldAbsorbed = 0;
     target.state._shieldAbsorbed = 0;
-    // 2026-10-22 两种护盾分家：先吃临时（蓄力，爆发结算会清零），吃完再吃永久（九阳满血溢出，整场累积）
     const tempLeft = target.state._shield || 0;
     if (tempLeft > 0 && hpLoss > 0) {
         const a = Math.min(tempLeft, hpLoss);
@@ -327,9 +316,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         });
     }
     if (dead) {
-        // 2026-09-16 不再直接设 alive=false：留给 resolveDeaths 统一处理。
-        //   否则 resolveDeaths 的 (_pendingDeath && alive) 过滤为空 → DEATH 信号不发
-        //   → watchUnit 收不到重判 → 张无忌不变身
+        // 不直接设 alive=false，留给 resolveDeaths 统一处理：否则 (_pendingDeath && alive) 过滤为空
+        //   → DEATH 信号不发 → watchUnit 收不到重判 → 张无忌不变身。
         target.state._pendingDeath = true;
         if (!target.state._deathTime) target.state._deathTime = Date.now();
     }
@@ -338,7 +326,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         const stage = getBattleState('currentStage') || 1;
         // 圣火令·气运：击杀者带 holyTokenLuck 时掉率按倍率放大（数据驱动，张无忌 4 倍无条件；
         // 按名字查表而非认 isZhang——core 不硬编码精英身份，与 _canAlwaysDodge 同一约定）
-        // 2026-10-15 小昭条目带 requiresHolyFlame 门控（老板拍板）：妹永久账本里有圣火令才生效——
+        // 小昭条目带 requiresHolyFlame 门控（老板拍板）：妹永久账本里有圣火令才生效——
         //   _permanentBuffs「本局不过期」语义天然满足「拥有圣火令后、这一局内」
         let luck = getSkillParams(unit.name, 'holyTokenLuck');
         if (luck && luck.requiresHolyFlame &&
@@ -384,7 +372,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let reboundEntry = null;
     let fortifyDeclarations = null;
     let allyBuffs_fortify = (target.camp === CAMP_TYPES.ALLY ? ctx.A._activeBuffs : ctx.B._activeBuffs) || [];
-    // 2026-10-14 妹永久补 fortify 反弹：团队严阵以待过期后，妹（防战形态）被击仍反弹（xiaoPermanentActive 在团队 buff 在场时返回 false，两分支不重复）
+    // 妹永久补 fortify 反弹：团队严阵以待过期后，妹（防战形态）被击仍反弹
+    //   （xiaoPermanentActive 在团队 buff 在场时返回 false，两分支不重复）
     const fortifyActive = hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) || query('xiaoPermanentActive', target, allyBuffs_fortify, BUFF_TYPES.FORTIFY);
     if (fortifyActive && target.role === ROLE_TYPES.DEFENDER && dmg > 0) {
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
@@ -399,7 +388,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 factType: FACT_TYPES.FORTIFY_REBOUND,
                 factData: { reboundDmg, unitName: unit.name, hasSister, attackerUid: unit.uid, unitUid: target.uid }
             }];
-            // 2026-10-21 姊强化：严阵反弹时防战回复反弹伤害的 50%（原 core/16 写死回复 100%）
+            // 姊强化：严阵反弹时防战回复反弹伤害的 50%
             if (hasSister) {
                 const healVal = Math.floor(reboundDmg * 0.5);
                 if (healVal > 0) {
@@ -434,8 +423,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         unit._executeLog.forEach(e => pendingEntries.push(e));
         delete unit._executeLog;
     }
-    // 2026-09-16 修正：修饰器 fact（乾坤等）必须进 entries 才能进 log→31 拿 stageAction。
-    // 上轮删这条是删错方向；该删的是 renderAttackFact 直读 dmgResult.bonusEntries 那条（见改动 B）。
+    // 修饰器 fact（乾坤等）必须进 entries 才能进 log→31 拿 stageAction。
     if (Array.isArray(bonusEntries) && bonusEntries.length > 0) {
         bonusEntries.forEach(e => pendingEntries.push(e));
     }
@@ -454,7 +442,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         attackerNearAtkCount: unit.nearAtkCount,
         isKuLianAttack: !!(unit.isSongQingshu && unit.state._kuLianActive),
         isLinkAttack: !!unit.state._isLinkAttack,
-        // 2026-10-16 被动出手原因（纯展示）：反击/跟随/随动/联动/追击——render 层徽章与飘字的依据
+        // 被动出手原因（纯展示）：反击/跟随/随动/联动/追击——render 层徽章与飘字的依据
         linkReason: unit.state?._linkReason || null,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
         targetHpAfter: fmtHp(target.hp),
@@ -485,7 +473,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
 
 // 闪避后效果边裁
 export function resolveDodgeEffects(declarations, unit, target, log) {
-    // 2026-10-22 返回 { stunned }：调用方据此决定战报写不写「被反击眩晕」
+    // 返回 { stunned }：调用方据此决定战报写不写「被反击眩晕」
     //   （_ctrlImmune 单位实际没被控，原渲染器无条件写「本回合无法行动」= 战报说谎）
     const result = { stunned: false };
     if (!declarations || declarations.length === 0) return result;
@@ -494,7 +482,7 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
         if (decl.type === EFFECT_TYPES.REBOUND) {
             applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
         } else if (decl.type === EFFECT_TYPES.STUN) {
-            // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：闪避反击的眩晕不生效，反弹伤害照掉
+            // 控制位移免疫（寒离飒·开局常驻）：闪避反击的眩晕不生效，反弹伤害照掉
             if (unit.state && unit.state._ctrlImmune) continue;
             unit.state._stunned = true;
             result.stunned = true;
@@ -504,7 +492,7 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             const { heal, newMaxHp } = decl.data;
             // 词条化：27 传的 newMaxHp 已是"当前 maxHp+heal"的绝对值（不封顶），这里只算增量
             const delta = Math.max(0, newMaxHp - Math.floor(getStat(target, 'maxHp')));
-            // 2026-10-02 体检对照增量字段：decl.data 随后按引用挂到 dodgeFact.weiHeal（见上方闪避 fact 组装）
+            // 体检对照增量字段：decl.data 随后按引用挂到 dodgeFact.weiHeal（见上方闪避 fact 组装）
             decl.data.maxHpDelta = delta;
             // 独立数值声明 fact（演出仍走 dodgeFact.weiHeal：34 日志行 + 39 飘字，此 fact 不进画面）
             log.push({ factType: FACT_TYPES.WEI_DODGE_LEECH, data: { unitName: target.name, unitUid: target.uid, heal, newMaxHp, maxHpDelta: delta } });
