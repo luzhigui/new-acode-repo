@@ -1,4 +1,7 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V2.1.1 | 2026-10-22 名单与海克斯中文名改从 127-tool-registry.js 取（单一来源）：
+//   删本地 ELITES / SOLO_ELITES / BOSS_ELITES / VARIANTS / WEAK_SIDE / HEX_DOC_NAMES 六份副本，
+//   以后 112 改档位、108 加海克斯，本文件自动跟上，不再需要人工同步（2026-10-21 加寒离飒即漏改过）。
 // V2.1.0 | 2026-10-21 精英档位重排（配 112 V3.0.0）：自然表 6 人（补寒离飒）；强精英单挑只判 M107 五人
 //   （韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒）；张无忌（M115 boss）单列「Boss」段、理想线 30%；
 //   弱精英表移除寒离飒（只判杨逍/殷天正/何太冲/唐文亮）。快照新增 parts.boss，缺该段时提示补跑。
@@ -9,9 +12,10 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V2.1.0';
+export const VER = 'tools/126-balance-alert.js V2.1.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
 
 (function () {
 // ==================== 判读阈值（集中一处，要调只改这里） ====================
@@ -29,15 +33,9 @@ const TH = {
 const HEX_MODES = ['normal', 'sister', 'brother', 'none'];
 const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
 const hexKeyFor = m => m === 'normal' ? 'ming_hex_battle_log' : 'ming_hex_battle_log_' + m;
-// 112 主表（自然出场）的六名精英列 + 敌方变体维度（与 112-elite-eval.js 同名同口径）
-const ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
-// 112 强精英单挑组（M107，不含 boss 张无忌）与 Boss 单表
-const SOLO_ELITES = ['韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
-const BOSS_ELITES = ['张无忌'];
-const VARIANTS = ['胖远桥', '宋青书', '标准'];
+// 名单与海克斯中文名统一由 127-tool-registry.js 提供（ELITES / SOLO_ELITES / BOSS_ELITES /
+// VARIANTS / WEAK_SIDE / HEX_NAMES）；本文件不再持有副本，112 改档位时自动跟上。
 const SNAP_KEY = 'ming_elite_eval_snaps';
-// 112 弱精英表的四名弱精英及所属侧（与 112 WEAK_ELITES 对应）：两侧「过强」的反向不同
-const WEAK_SIDE = { 杨逍: 'ally', 殷天正: 'ally', 何太冲: 'enemy', 唐文亮: 'enemy' };
 
 const readJSON = (k, dft) => {
     try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : dft; } catch (e) { return dft; }
@@ -77,7 +75,7 @@ function coverageIssues() {
     const keys = Object.keys(buffs);
     const enhance = getSkillParams('小昭', 'hexEnhance') || {};   // 姊增强：content 小昭.hexEnhance
     const permKeys = CONFIG.XIAO_ZHAO_PERMANENT_BUFFS || [];      // 妹永久：content hexes.permanentBuffKeys
-    const nameOf = k => (buffs[k] && buffs[k].name) || (HEX_DOC_NAMES[k] || k);
+    const nameOf = k => (buffs[k] && buffs[k].name) || (HEX_NAMES[k] || k);
     const out = [];
 
     // ① 缺姊增强（提示级）：可能是设计选择，但每次加新海克斯都该被看见
@@ -125,14 +123,7 @@ function coverageIssues() {
     }
     return out;
 }
-// 兜底中文名（108 的 HEX_NAME_MAP 同名兜底，避免告警里出现裸 key 看不懂）
-const HEX_DOC_NAMES = {
-    doubleStrike: '概率连击', horseFormation: '巨马阵', carry: '你就是carry',
-    windAssault: '乘风突袭', cloudBody: '流云身法', mindControl: '惑人心智',
-    fortify: '严阵以待', hotBlood: '热血奋战', meteorShower: '流星赶月',
-    bloodthirst: '嗜血狂刀', holyFlame: '圣火令', soulDrain: '摄魂',
-    holyFire: '圣火不熄', lastStand: '背水一战', unity: '众志成城'
-};
+// 兜底中文名改由 127 的 HEX_NAMES 提供（与 108 的 HEX_NAME_MAP 同源，见 127 文件头）
 
 /* ========== 规则二：海克斯过强/过弱（读 108 榜，与原口径一致） ========== */
 function hexIssues(mode) {
@@ -149,7 +140,7 @@ function hexIssues(mode) {
     const rows = entries.map(([k, d]) => {
         const p = d.wins / d.count;
         const z = d.count >= TH.MIN_SAMPLE ? zVsBase(p, d.count, base, cluster) : null;
-        return { key: k, name: (CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_DOC_NAMES[k] || k, n: d.count, p, diff: p - base, z };
+        return { key: k, name: (CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k, n: d.count, p, diff: p - base, z };
     }).sort((a, b) => b.diff - a.diff);
     // z 为 null 的两种情形：样本不足，或本批战绩里平均每局海克斯数为 0（聚类校正退化）→ 都归入未判读
     const canJudge = r => r.n >= TH.MIN_SAMPLE && r.z !== null;
