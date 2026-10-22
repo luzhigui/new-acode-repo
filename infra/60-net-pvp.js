@@ -203,10 +203,8 @@ function onMessage(topic, payload) {
 function onGuestJoin() {
     if (!_isHost) return;
     const wasConnected = _status === STATUS.CONNECTED;
-    // 修「从机首屏六大派在上方、点一下才翻下来」：setStatus 是同步的，一进 connected
-    // 就会当场把 lineup 发给从机。原先 accept 排在 setStatus 后面 → 从机先收到阵容、后收到身份，
-    // applyNetLineup 渲染时 netRole 还是 null，按房主视角画（六大派在上方）；要等玩家点格子
-    // 触发下一次 renderGrid 才翻正。accept 先上线，身份先落地，渲染自然是对的。
+    // accept 必须先于 setStatus 发送：身份（netRole）先落地，applyNetLineup 渲染才按从机视角画，
+    // 否则先收到阵容时 netRole 还是 null，会按房主视角画反。
     publish({ t: 'accept', roomId: _roomId });
     if (!wasConnected) setStatus(STATUS.CONNECTED, { roomId: _roomId, isHost: true });
     startHeartbeat();

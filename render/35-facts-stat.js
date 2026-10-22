@@ -20,8 +20,7 @@ export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
     let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fact.splashDmg}，防御-${fact.defReduce}</span>`;
-    // 不再在此追加 ⚡ 成长段：成长改由 METEOR_SPLASH_GROWTH fact 独立渲染（原来这里读的
-    //   fact.unitName 从未被赋值 → 玩家看到的一直是「⚡ undefined 攻击+N」，且与新 fact 重复渲染两遍）
+    // 成长段由 METEOR_SPLASH_GROWTH fact 独立渲染，不在此追加（否则重复渲染两遍）
     // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
@@ -95,8 +94,7 @@ export function renderSpiderTransformFact(fact) {
 }
 
 export function renderSpiderStrikeFact(fact) {
-    // 恢复日志文本：原先只靠 stageAction 演特效，玩家看不出这一下打谁、掉了多少血。
-    // 特效仍由 stageAction 驱动（不重复），这里只补文字行；伤害构成与击杀一并写出。
+    // 补文字行：特效仍由 stageAction 驱动（不重复），这里只写「打谁、掉多少、是否击杀」。
     const detail = fact.extraDmg ? `（穿透${fact.penetrationDmg} + 精通${fact.extraDmg}）` : '';
     const dead = fact.isDead ? ' 💀击杀' : '';
     return { type:'info', text:`<span class="gold">🕷️ 蛛袭：${fact.unitName} 对 ${fact.targetName} 造成 ${fact.totalDmg} 伤害${detail}${dead}</span>` };

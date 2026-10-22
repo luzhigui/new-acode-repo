@@ -83,7 +83,6 @@ export function destroyHorse(allyTeam, log) {
     if (horses.length === 0) return;
 
     // 连续销毁概率递减，失败重置。基数唯一来源 gameData.buffs.horseFormation.destroyProb
-    // （2026-09-14 参数三源收敛：原先硬编码 50，改数据里 destroyProb 不生效）
     const baseProb = Math.round(C.BUFFS?.horseFormation?.destroyProb * 100);
     let currentProb = baseProb;
     const rng = getBattleRng();

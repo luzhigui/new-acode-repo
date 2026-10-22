@@ -90,8 +90,8 @@ export function renderEndlessBreathFact(fact) {
         const via = fact.via ? `${fact.via}想触发` : '';
         return { type:'info', text:`<span class="gray">☯ ${via}生生不息：${fact.unitName} 攻击力不足${fact.atkCost}点，未能触发</span>` };
     }
-    // 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
-    // 二选一改版配套：每次触发攻/防只有一边>0，零的那边不再显示（「攻+2.6 防+0」→「攻+2.6」）
+    // 攻防明细：回血同时按「实际回血/溢出」两档转永久攻防
+    // 二选一：每次触发攻/防只有一边>0，零的那边不显示（「攻+2.6 防+0」→「攻+2.6」）
     const num = (v) => Math.round((v || 0) * 10) / 10;
     const bonus = (atk, def) => {
         const parts = [];

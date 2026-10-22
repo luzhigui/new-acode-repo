@@ -177,12 +177,8 @@ function waitWhilePaused() {
         check();
     });
 }
-// V7.5.12 去 DOM（外部AI复核稿 ②，老板批）：autoScrollLog / onLogUserScroll / updateScoreBadge
-//   三个 DOM 函数体迁出 infra → player/47renderer.js（日志/徽章渲染本就归它，badge 直改在那也有先例）。
-//   playerContext 两项改走 UIHandler 间接通道（与上方 updateUI 等兄弟同款，消费方签名零改动）；
-//   onLogUserScroll 全库零调用，直接火化不迁移。infra 从此不摸 document。
-// 去 window 桥：delete window.updateScoreBadge / window._getPlayerContext。
-// 页面内消费方一律 import 或走 UIHandler；这两个挂载点全库已无引用。
+// infra 不摸 document：日志/徽章渲染归 player/47，此处只经 UIHandler 通道调用。
+// 页面内消费方一律 import 或走 UIHandler，禁止 window 桥。
 
 let _playerCtx = null;
 export function getPlayerContext() {
