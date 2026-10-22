@@ -1,8 +1,10 @@
-// V1.12.1 | 2026-10-22 寒离飒单挑跟随主代码升档（modules/29 V7.6.0 把寒离飒并入 eliteConfigs）：
-//           弱精英池自此只剩杨逍/殷天正，forceWeakElite='寒离飒' 会撞 29 的入池校验抛错、整组 job 崩；
-//           且 forceSoloWeakElite 只抑制轮盘、不再补人（删校验也只会跑出零精英局）。
-//           改走 V1.9.0 已确立的「拒绝采样重掷」：不设任何 force，重掷自然阵容直到恰好只有她一个精英再开打。
-//           同时补 runNoEliteJob 的 isElite 漏项（原不含 isHanLiSa → 只有寒离飒的局被误判无精英）。
+// V1.12.2 | 2026-10-22 寒离飒单挑改走 29 V7.6.1 新增的 forceHanLiSa（取代 V1.12.1 的拒绝采样方案）：
+//           她并入 eliteConfigs 后弱精英池已无此人，forceWeakElite='寒离飒' 会撞入池校验整组抛错；
+//           主代码补了专用 force 通道后，单核口径回到「force 单精英 + 轮盘互锁」，与其它强精英同一把尺子。
+//           同步 clearBattleGlobals 补清 forceHanLiSa（漏清会让后续 job 全带寒离飒）。
+// V1.12.1 | 2026-10-22 无精英基线改 forceSoloWeakElite 抑制随机块 + 排弱精英混入（29 V7.6.0 起无 Boss 也必出
+//           1 个强精英，自然局已 0% 无精英，旧的纯拒绝采样会 200 次全空、整表静默 0 场）；
+//           runNoEliteJob 的 isElite 补 isHanLiSa / 杨逍 / 殷天正。
 // V1.12.0 | 2026-10-21 精英档位重排（老板拍板）：自然表新增寒离飒列；强精英单挑组改为
 //           韦一笑/小昭·姊/小昭·妹/金毛狮王谢逊/寒离飒（寒离飒走 forceWeakElite + 新增 forceSoloWeakElite
 //           抑制强精英轮盘，保证局内只有她一个精英）；张无忌（M115）从强精英拆出、单列 Boss 表；
@@ -87,6 +89,8 @@ function clearBattleGlobals() {
     // 对照 122-param-lab-core.js 的完整清单（五项）补齐。
     GlobalStore.set('forceXieXun', null);
     GlobalStore.set('forcePang', null);
+    // 2026-10-22 V1.12.2：寒离飒强精英 force（29 V7.6.1 新增）——漏清会让后续 job 全部带寒离飒
+    GlobalStore.set('forceHanLiSa', null);
     // 2026-10-16 V1.9.1 补漏：forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——漏清会跨场污染弱精英出场率
     GlobalStore.set('forceWeakElite', null);
     // 2026-10-21 V1.12.0：寒离飒强精英单挑的轮盘抑制标志，漏清会让后续 job 全部少一个随机精英
@@ -195,33 +199,19 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 张/韦/谢逊/小昭四路 force 全部抑制随机轮盘）= 每局明教侧只有这一个精英。
 // 口径与普通评测一致：海克斯开、种子公式同款；胜 = 明教获胜。小昭姊/妹走 forceXiaoZhao 形态值。
 function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
-    const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun' };
+    // 2026-10-22 V1.12.2：寒离飒走 29 V7.6.1 新增的 forceHanLiSa（她已升强精英，弱精英池里已无此人）
+    const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun', '寒离飒': 'forceHanLiSa' };
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
-    // 2026-10-22 V1.12.1：寒离飒升强精英后无 force 通道，改「拒绝采样重掷」自然阵容（见头注）
-    const isHan = elite === '寒离飒';
-    const isEliteU = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa;
     // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
     // 第3关轮换阵容拆成胖远桥/宋青书两行；其余关落进「标准」桶
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
-        let teams = null;
-        let battleSeed = seed + (startIndex + i) * 7919;
-        if (isHan) {
-            // 命中率 ≈ 11%（无 Boss 70% × 强精英恰好 1 个 90% × 抽中她 1/4 × 无弱精英混入 70%），期望约 9 次重掷
-            for (let k = 0; k < 200; k++) {
-                const s = battleSeed + k * 104729;
-                const t = initBattleTeams(stage, new SeededRNG(s));
-                const elites = t.allyTeam.filter(isEliteU);
-                if (elites.length === 1 && elites[0].isHanLiSa) { teams = t; battleSeed = s; break; }
-            }
-            if (!teams) continue;                 // 200 次仍未凑出单寒离飒局 → 本场不计入（不污染胜率）
-        } else {
-            if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
-            else GlobalStore.set(keyMap[elite], true);
-            teams = initBattleTeams(stage, new SeededRNG(battleSeed));
-        }
+        if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
+        else GlobalStore.set(keyMap[elite], true);
+        const battleSeed = seed + (startIndex + i) * 7919;
+        const teams = initBattleTeams(stage, new SeededRNG(battleSeed));
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
