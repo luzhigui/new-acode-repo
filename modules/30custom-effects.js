@@ -1,4 +1,4 @@
-﻿// V1.1.0 | 2026-10-12 | ~5100 bytes
+﻿// V1.1.1 | 2026-10-12 | ~5100 bytes
 export const VER = 'modules/30custom-effects.js V1.1.1';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
