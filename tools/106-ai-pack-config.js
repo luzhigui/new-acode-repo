@@ -81,7 +81,7 @@ export const AI_INTERFACE_NOTE = `// ===========================================
 // ───────────────────────────────────────────────────────────────
 
 // 项目全部文件清单（全项目唯一数据源）
-// 注意：104-toolkit-more.js 的 TARGET_FILES 已改为从本清单派生（自动排除入口页/工具箱页/音频），
+// 注意：ALL_PROJECT_FILES 是文件复制器（103）与 AI 复制包的唯一来源；
 // 新增/删除项目文件时只需改这一处，无需再同步 104。
 export const ALL_PROJECT_FILES = [
     // core（核心战斗引擎）
@@ -230,7 +230,7 @@ export const ALL_PROJECT_FILES = [
     // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/124-param-lab-glossary.js 的 ENGINE_READ 表）
     '../tests/param-read-guard.mjs',
     // tools（开发工具箱）
-    '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
+    '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
     '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
     '../tools/109-role-balance.js', '../tools/116-role-balance-worker.js', '../tools/117-shared-worker-runner.js', '../tools/110-role-balance-random.html',
@@ -238,8 +238,6 @@ export const ALL_PROJECT_FILES = [
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
     '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js', '../tools/124-param-lab-glossary.js',
-    // 2026-10-15 补登记 125：dev-index.html（已登记在包内）「UI 效果 demo」入口按钮跳转的自包含页
-    '../tools/125-buff-badge-demo.html',
     // 2026-10-18 补登记 126：工具箱「🚨 平衡告警」按钮的实现（102 V6.1.3 挂 module 脚本）
     '../tools/126-balance-alert.js',
     // 2026-10-22 补登记 127：工具箱共用名单与文案表（112/126/122/116/108 的单一来源；
@@ -248,9 +246,13 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-19 补登记 133：dev-index V6.3.17「📖 文档与准则」文本入口的 MD 阅读器
     //（起点读书式阅读页，漏登则包内 dev-index 文档按钮点开 404）
     '../tools/133-md-reader.html',
+    // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；
+    // 用途与复用场景见 TOOL-AI.md「四、历史探针」节）
+    '../tools/TOOL-AI.md',
+    '../tools/probe-lioness.mjs', '../tools/probe-lioness2.mjs',
+    '../tools/probe-pang-balance.mjs', '../tools/probe-yangxiao-jump.mjs',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
-    '../tools/101auto-battle-utils.js',
     // assets（音频资源，不参与 fetch 复制）
     '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
     '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',

@@ -107,14 +107,6 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             </div>
         </div>
 
-        <!-- UI 效果 demo -->
-        <div class="section">
-            <div class="section-title">🎨 UI 效果 demo</div>
-            <div class="btn-grid">
-                <button class="big-btn btn-tool" id="btnBuffBadgeDemo">🕯️ 圣火不熄 logo 位置（真机 UI 对比）</button>
-            </div>
-        </div>
-
         <!-- 文档与准则 -->
         <div class="section">
             <div class="section-title toggle-section" id="devGuideToggle" style="display:flex;justify-content:space-between;">📖 文档与准则 ▸</div>
@@ -179,11 +171,6 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         });
         document.getElementById('btnTools').addEventListener('click', () => {
             window.location.href = 'tools/102-toolkit.html';
-        });
-        // UI 效果 demo：整局海克斯徽章（3 方案并列供挑选，自包含页面）
-        //   放 tools/ 而非 展示与CG/ —— 后者被 .gitignore 排除，Pages 上取不到
-        document.getElementById('btnBuffBadgeDemo').addEventListener('click', () => {
-            window.location.href = 'tools/125-buff-badge-demo.html';
         });
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
