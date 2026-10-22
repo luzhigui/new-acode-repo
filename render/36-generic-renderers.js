@@ -1,4 +1,4 @@
-// V1.0.1 | 2026-10-13 dot 族百分比量级修正（老板转发的外部AI靶）：dotPercents 是比例原值（0.04/0.02/0.01），
+﻿// V1.0.1 | 2026-10-13 dot 族百分比量级修正（老板转发的外部AI靶）：dotPercents 是比例原值（0.04/0.02/0.01），
 //          原样 join('%→') 印出「0.04%→0.02%→0.01%」；实际按 maxHp×0.04 扣血（4%）。改按 core/01 L187 技能说明
 //          同一换算口径 ×100（Math.round(v*1000)/10，兼容 0.015→1.5），输出「4%→2%→1%→消失」
 // V1.0.0 | 2026-10-08 第一刀：通用语义默认渲染器工厂（外部AI修正靶，老板 21:27 拍板执行）
@@ -11,7 +11,7 @@
 //   ③ 锚点逐字对齐（SKILL-飘字血泪：「回复+N」≠「回复 N 点」，子串匹配不上=飘字哑火）——anchorVerb 显式传参，
 //     模板产物与手写版逐字节一致，golden 探针保障
 //   ④ 加攻/加防族预留位：现无手写同款（飘字走 render/38 STAT_CHANGE 通道），出现第三遍再进工厂
-export const VER = 'render/36-generic-renderers.js V1.0.1';
+export const VER = 'render/36-generic-renderers.js V1.0.2';
 
 // —— 回血族：三种版式对应历史文案 ——
 // mode 'plusTrail'  ：`{icon} {label}+{heal}，{hpBefore}→{hpAfter}`（九阳：label 含动词，如「九阳神功回复」）
@@ -36,12 +36,14 @@ export function makeHealRenderer({ icon, label, mode, anchorVerb = null, isHealE
     };
 }
 
-// —— dot 族：`{icon} {attackerName} 的{skillName}使 {targetName} 中毒！每回合损失生命（{dots}→消失）` ——
-// dotPercents 是比例原值（0.04/0.02/0.01），须换算成百分数再拼（4%→2%→1%）——
-//   口径与 core/01 L187 技能说明同一表达式，保证「日志显示的衰减链 == 技能说明的衰减链」
+// —— dot 族：`{icon} {attackerName} 的{skillName}使 {targetName} 中毒！每回合损失最大生命 {pct}[×N层]` ——
+// 2026-10-22 起寒毒不衰减、可叠层：dotPercents 取首档换算百分数，层数读 fact.stacks
 export function makeDotRenderer({ icon, skillName }) {
     return function renderDotFact(fact) {
-        const dots = fact.dotPercents.map(v => (typeof v === 'number' && v < 1 ? Math.round(v * 1000) / 10 : v) + '%').join('→');
-        return { type: 'info', text: `<span class="purple">${icon} ${fact.attackerName} 的${skillName}使 ${fact.targetName} 中毒！每回合损失生命（${dots}→消失）</span>` };
+        // 2026-10-22 寒毒改「不衰减 + 可叠加」：dotPercents 只取首档，层数信息读 fact.stacks
+        const pct = fact.dotPercents && fact.dotPercents[0];
+        const pctText = (typeof pct === 'number' && pct < 1 ? Math.round(pct * 1000) / 10 : pct) + '%';
+        const stackText = (fact.stacks || 1) > 1 ? `×${fact.stacks}层` : '';
+        return { type: 'info', text: `<span class="purple">${icon} ${fact.attackerName} 的${skillName}使 ${fact.targetName} 中毒！每回合损失最大生命 ${pctText}${stackText}（持续 3 回合，可叠加）</span>` };
     };
 }

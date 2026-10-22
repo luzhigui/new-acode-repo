@@ -1,9 +1,9 @@
-// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
+﻿// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
 // V2.9.26 | 2026-10-20 删死字段：_extinctionUsed（全库零读写，确认）；_spiderTriggeredHit 恢复登记——
 //   删 schema key 无效：写侧 modules/27 L234 `if (state._spiderTriggeredHit === undefined) 补建` 会写回，
 //   state 快照仍出该 key；须先清那行（另批）再删本字段
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.27';
+export const VER = 'core/17-state-keys.js V2.9.28';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -83,6 +83,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsHanBingDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 蓄力相位：0 未蓄力 / 1 已触发待下回合蓄 / 2 本回合蓄力（跳过行动）
     _hlsCharging:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 2026-10-22 寒离飒低血双拳：本回合已触发过就置 true，回合开始统一清（防同回合无限连锁）
+    _hlsDoubleFired:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 最近三回合承伤（每回合一个桶，回合开始滚动；蓄力真伤 = 桶和）
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）

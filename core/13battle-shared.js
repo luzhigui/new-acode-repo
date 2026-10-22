@@ -1,4 +1,4 @@
-// V6.4.2 | 2026-10-22 位移免疫不再静默：swapUnitPositions / moveUnitPosition 返回布尔（免疫=false），
+﻿// V6.4.2 | 2026-10-22 位移免疫不再静默：swapUnitPositions / moveUnitPosition 返回布尔（免疫=false），
 //   resolvePushOrStun 换位失败改落眩晕分支（与"退无可退"同语义），不再照发假的 PUSH 战报（体检 114 家族案）
 // V6.4.1 | 2026-10-16 击杀者记账：applyStatChange 致死出口（hp≤0 挂 _pendingDeath 处）顺手记 _killerUid
 //   （uid 非引用，快照/序列化安全；source 空=死亡结算/自损不写、有值覆盖=补刀者算凶手），
@@ -7,7 +7,7 @@
 //   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
 //   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/13battle-shared.js V6.4.2';
+export const VER = 'core/13battle-shared.js V6.4.3';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -213,6 +213,15 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     let applied = delta;
     if (isHeal && field === 'hp' && delta > 0 && target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
         applied = Math.round(delta * target.state._jinMai.ratio);
+    }
+    // 2026-10-22 寒毒抑疗：带寒毒目标受到的治疗再乘 XUANMING_POISON_HEAL_REDUCE（与截脉可叠乘）。
+    //   两种寒毒都算：玄冥 _xuanmingPoison（鹿杖客）/ 寒离飒 _hlsHanDu，remaining>0 且 stacks>0。
+    if (isHeal && field === 'hp' && delta > 0 && target.state) {
+        const xp = target.state._xuanmingPoison;
+        const hd = target.state._hlsHanDu;
+        const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+            || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+        if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
     }
     const oldVal = target[field];
     const stepped = Math.floor((target[field] + applied) * 10) / 10;
