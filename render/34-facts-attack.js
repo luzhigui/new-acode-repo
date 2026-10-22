@@ -1,4 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
+// V1.5.2 | 2026-10-22 闪避反击按 fact.stunned 写文案：控制免疫（寒离飒）不再写「本回合无法行动」假账
 // V1.5.1 | 2026-10-18 行内徽章表补三条 link 系 reason（连击/嗜血/双击），与 render/39 头顶飘字表对齐
 // V1.5.0 | 2026-10-16 被动出手行内徽章：反击/跟随/随动/联动/追击的攻击行前缀金色【标签】（普攻无前缀），
 //   group 新增 linkReason 透传；数据来自 core/10 → core/12 的 _linkReason 链路
@@ -14,7 +15,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.5.0';
+export const VER = 'render/34-facts-attack.js V1.5.2';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -71,6 +72,9 @@ export function renderDodgeFact(fact) {
     if (dodgeGroup.isDead) {
         dodgeGroup.hpAfter = 0;
         dodgeGroup.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
+    } else if (fact.stunned === false) {
+        // 2026-10-22 控制免疫（寒离飒）实际没被眩晕，不再写「本回合无法行动」的假账
+        dodgeGroup.entries.push({type:'info', text:`<span class="gray">${unit.name} 被反击（免疫眩晕，可正常行动）</span>`});
     } else {
         dodgeGroup.entries.push({type:'info', text:`<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
     }

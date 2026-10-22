@@ -28,7 +28,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.5';
+export const VER = 'render/39-actions-defs.js V1.5.6';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -161,8 +161,8 @@ export const STAGE_ACTION_DEFS = {
             if (action.actorUid) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _acted: true });
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
-                // 简单模式无子弹时间，立即显示眩晕
-                if (!c.dodgeEffectEnabled) {
+                // 简单模式无子弹时间，立即显示眩晕（2026-10-22 控制免疫单位不置灰）
+                if (!c.dodgeEffectEnabled && action.stunned !== false) {
                     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true });
                 }
             }
