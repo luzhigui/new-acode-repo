@@ -1,6 +1,4 @@
-// V6.3.4 | 2026-10-21 姊强化·连击转移：轮盘选中姊但她已蝶变附身时，连击判定归宿主（submitDoubleStrikeDeclaration）
-// V6.3.3 | 2026-10-20 删死代码：getFlyDodgeRate / getActiveBuffs / hasAnyEnemyEmptyCol / hasEnemyLowHp（零调用）+ 随之无用的 CAMP_TYPES import
-// V6.3.2 | ~18100 bytes | 2026-10-19 概率连击无视遮挡定案：registerDoubleStrike 的 ignoreBlock 恒 true（团队版/妹永久/姊强化一律穿透遮挡；姊强化仍 100% 连击）
+// V6.3.4 | 2026-10-21 | ~19400 bytes
 export const VER = 'core/03battle-utils.js V6.3.4';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
@@ -61,7 +59,7 @@ export function isBlocked(unit, allies) {
 // 供成昆模仿有效性、混乱目标校验、锁定目标校验等共用
 export function canBeTargeted(unit) {
     if (!unit || !unit.alive) return false;
-    // 2026-09-19 加 _pendingDeath：血量归零到正式死亡之间不该再被选为目标
+    // 加 _pendingDeath：血量归零到正式死亡之间不该再被选为目标
     if (unit.state && unit.state._pendingDeath) return false;
     if (unit.state && unit.state._untargetable) return false;
     if (unit.state && (unit.state._flyMode === 'butterfly' || unit.state._flyMode === 'spider')) return false;
@@ -88,9 +86,9 @@ export function getBenefitTargets(team, opts = {}) {
     );
 }
 
-// 2026-09-16 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
+// 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
 // 返回 { total, sources }，total 为百分点，sources 为 { label, value } 明细
-// 2026-09-30 V6.5.0 口径统一：CONFIG 里未命中率改按「1 = 100%」存（0.06 = 6%），本函数在此 ×100 还原，
+// V6.5.0 口径统一：CONFIG 里未命中率改按「1 = 100%」存（0.06 = 6%），本函数在此 ×100 还原，
 //   对外契约（total / sources.value 均为百分点）不变，日志、详情弹窗、体检 145 无需跟改。
 export function getMissBreakdown(unit, allySide, enemySide) {
     if (!unit) return { total: 0, sources: [] };
@@ -124,7 +122,7 @@ export function getMissBreakdown(unit, allySide, enemySide) {
         total = base;
         sources.push({ label: '地面基础', value: base });
     }
-    // 2026-10-13 杨逍·鹰眼被动：未命中 −missReduce 个百分点（值在 content eagleEye.params，单源），
+    // 杨逍·鹰眼被动：未命中 −missReduce 个百分点（值在 content eagleEye.params，单源），
     //   对残血光环等附加项同样生效；末尾 Math.max(0,…) 封底，不会减成负数
     if (unit.isYangXiao) {
         const ee = getSkillParams('杨逍', 'eagleEye');
@@ -164,7 +162,7 @@ export function getZhangNearTaunt(nearAtkCount) {
 
 export function hasBuff(buffs, buffKey) { return buffs.some(b => b.key === buffKey); }
 
-// 职业能力判据（2026-10-12 何太冲·两仪双修）：默认「本职业才具备」，
+// 职业能力判据：默认「本职业才具备」，
 //   被授予 _dualSchools 的单位额外获得对应职业能力（连接搭档由 modules/26 打标）。
 //   core 只读字段、不 import 英雄模块 —— 链路仍单向。
 export function hasCombatSchool(unit, role) {
@@ -179,7 +177,7 @@ function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
     if (!hasCombatSchool(unit, ROLE_TYPES.WARRIOR) || getStat(target, 'def') <= 0) return;
-    // 2026-09-14 参数三源收敛：分档表移入 CONFIG.WARRIOR_BREAK_DEF_TIERS（原先内联魔法数字）
+    // 参数三源收敛：分档表移入 CONFIG.WARRIOR_BREAK_DEF_TIERS（原先内联魔法数字）
     const targetDef = getStat(target, 'def');
     const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
         || { reduce: C.WARRIOR_BREAK_DEF, chance: null };
@@ -232,14 +230,14 @@ function submitWarriorExecuteDeclaration(data) {
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
     const threshold = hasBloodthirst ? C.EXEC_THRESHOLD_BLOODTHIRST : C.EXEC_THRESHOLD;
-    // 2026-10-02 斩杀判定后置（修正版）：把张无忌融会贯通的额外伤害先算进有效血量再判阈值。
+    // 斩杀判定后置（修正版）：把张无忌融会贯通的额外伤害先算进有效血量再判阈值。
     //   监听器按 priority 升序执行：本监听 45（infra/50），融会 JIUYANG=40 先跑、BONUS_DMG 已在数组里；
     //   结算（core/16 resolveAfterDamageEffects）按声明入数组顺序执行：BONUS_DMG 先扣血、EXECUTE 再清零，
     //   落地顺序天然 =「普攻 → 融会 → 斩杀」。上版把升序误当降序（20 vs 40），判定实际在融会之前，已修。
     const ronghuiDecl = Array.isArray(declarations)
         ? declarations.find(d => d && d.type === EFFECT_TYPES.BONUS_DMG && d.target === target)
         : null;
-    // 2026-10-22 护盾算进有效血量：只比 hp 会让 17 血 + 43 盾的单位被一刀处决，盾完全白给。
+    // 护盾算进有效血量：只比 hp 会让 17 血 + 43 盾的单位被一刀处决，盾完全白给。
     //   临时（蓄力 _shield）+ 永久（九阳溢出 _permShield）两个池都算。
     const shieldHp = (target.state._shield || 0) + (target.state._permShield || 0);
     const effHp = target.hp + shieldHp - (ronghuiDecl ? ronghuiDecl.value : 0);
@@ -315,7 +313,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     if (!doubleStrikeUnitUid) return;
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
-        // 2026-10-21 连击转移：若轮盘选中的是姊，而她已经蝶变附身，则连击归宿主。
+        // 连击转移：若轮盘选中的是姊，而她已经蝶变附身，则连击归宿主。
         let matched = (unit.uid === doubleStrikeUnitUid);
         if (!matched) {
             const sis = allyTeam.find(u => u.uid === doubleStrikeUnitUid);
@@ -327,7 +325,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : C.BUFFS.doubleStrike.prob;
         if (getBattleRng().next() < missChainChance) {
-            // 2026-09-27 补 unitName：原成功分支不带单位，而渲染出的 banner 也没有单位字段，
+            // 补 unitName：原成功分支不带单位，而渲染出的 banner 也没有单位字段，
             //   体检 146 只能靠「banner 之后第一条 attack-group 的攻击者」反推触发者 ——
             //   母狮随动链、其他单位自己的回合插在 banner 之后时必然误报（seed=10 stage=2 实测）。
             //   失败分支本就带 unitName，这里补齐对称，判据即可直接读单位、不再推断。
@@ -336,14 +334,14 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
                 unit,
-                // 2026-09-22 补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
+                // 补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
                 //   只判 alive 会把"待死"的 uid 锁给第二次攻击 → 消费端按严判据找不到人 → 白跳一次。
                 //   判 null 后走正常选目标流程（概率连击改打别人）。
                 targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
                 reason: 'doubleStrike',
                 actedMode: 'allow',
                 priority: 10,
-                // 2026-10-19 定案：拥有概率连击者（团队版/妹永久）连击一律无视遮挡，不再唯一限姊强化
+                // 定案：拥有概率连击者（团队版/妹永久）连击一律无视遮挡，不再唯一限姊强化
                 ignoreBlock: true
             });
         } else {
@@ -362,4 +360,4 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     });
 }
 
-// 2026-10-08 清死码：registerEmptyColBonus 空壳（光环已改纯函数实时计算，外部AI清单#5）连同 core/11 调用点一并删除
+// 清死码：registerEmptyColBonus 空壳（光环已改纯函数实时计算，外部AI清单#5）连同 core/11 调用点一并删除

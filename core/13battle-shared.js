@@ -1,19 +1,7 @@
-// V6.4.5 | 2026-10-22 previewHeal 增 rawOnly 参数：true 时只打折、不夹 maxHp 溢出（供「满血转护盾」拿应发额度）
-// V6.4.4 | 2026-10-22 新增 previewHeal(target, raw)：治疗预演（截脉→寒毒抑疗→maxHp 溢出），
-//   治疗文案/飘字与 applyStatChange 同源，修「战报写 +42、血条只跳 +21」的假账
-// V6.4.3 | 2026-10-22 寒毒抑疗：applyStatChange 治疗正向出口再乘 XUANMING_POISON_HEAL_REDUCE（与截脉可叠乘）
-// V6.4.2 | 2026-10-22 位移免疫不再静默：swapUnitPositions / moveUnitPosition 返回布尔（免疫=false），
-//   resolvePushOrStun 换位失败改落眩晕分支（与"退无可退"同语义），不再照发假的 PUSH 战报（体检 114 家族案）
-// V6.4.1 | 2026-10-16 击杀者记账：applyStatChange 致死出口（hp≤0 挂 _pendingDeath 处）顺手记 _killerUid
-//   （uid 非引用，快照/序列化安全；source 空=死亡结算/自损不写、有值覆盖=补刀者算凶手），
-//   供唐文亮「同归于尽」反噬击杀者用（modules/26 读）
-// V6.4.0 | ~16190 bytes | 2026-10-13 杨逍「点穴截脉」反治疗：applyStatChange 加 isHeal 参数（默认 true），
-//   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
-//   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
-// ── 更早版本见 记录-更改履历.md
+// V6.4.5 | 2026-10-22 | ~19100 bytes
 export const VER = 'core/13battle-shared.js V6.4.5';
 
-import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
+import { CONFIG } from './01config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
@@ -137,8 +125,8 @@ function getNextAvailableUnit(team) {
 
 function swapUnitPositions(unitA, unitB, log) {
     if (!unitA || !unitB) return false;
-    // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
-    // 2026-10-22 返回布尔：原静默 return 让调用方在换位失败时照发"换位成功"战报（体检 114 家族案）。
+    // 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
+    // 返回布尔：原静默 return 让调用方在换位失败时照发"换位成功"战报（体检 114 家族案）。
     if ((unitA.state && unitA.state._ctrlImmune) || (unitB.state && unitB.state._ctrlImmune)) return false;
     const posA = unitA.pos;
     const posB = unitB.pos;
@@ -154,7 +142,7 @@ function swapUnitPositions(unitA, unitB, log) {
 
 function moveUnitPosition(unit, newPos, log) {
     if (!unit || newPos == null) return false;
-    // 2026-10-22 免疫也挡"移动"分支：原只挡 swap，唐文亮拽免疫者且前排空着时走 move 分支 → 硬拽走、免疫破功
+    // 免疫也挡"移动"分支：原只挡 swap，唐文亮拽免疫者且前排空着时走 move 分支 → 硬拽走、免疫破功
     //   （体检 114 家族案的反向洞）。返回布尔供调用方照实报幕。
     if (unit.state && unit.state._ctrlImmune) return false;
     const oldPos = unit.pos;
@@ -168,13 +156,13 @@ function moveUnitPosition(unit, newPos, log) {
 // 击退 / 眩晕统一判定（乘风突袭、胖远桥·年轻气盛共用）：
 //   目标后方一格（pos+3）可用 → 击退：有人则换位、无人则移动；
 //   越界（7/8/9 号位往后推）→ 退无可退，改为眩晕一回合（_stunned 回合级，回合开始自动清）。
-//   2026-10-08 V7.5.15 身后格被「天上/附身单位」占着 → 同样退无可退 → 眩晕（老板定调：飞天/附身
+//   V7.5.15 身后格被「天上/附身单位」占着 → 同样退无可退 → 眩晕（老板定调：飞天/附身
 //   期间原格保留、不被换位——旧版 find 只查 pos+alive，会把天上的蝶蛛拽去换位。判据与核心循环
 //   getFronts / 惑心换位同口径：_spiderFlying / _flyMode 蝶蛛 / _butterflyHost / FSM attached·flying）。
 // team 必须是目标自己那一队（换位/落点判断都在本队内找）。
 function resolvePushOrStun(target, team, log, label) {
     if (!target || !target.alive) return;
-    // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
+    // 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
     if (target.state && target.state._ctrlImmune) return;
     const behindPos = target.pos + 3;
     const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
@@ -184,7 +172,7 @@ function resolvePushOrStun(target, team, log, label) {
         const oldPos = target.pos;
         if (behindUnit) {
             const behindOldPos = behindUnit.pos;
-            // 2026-10-22 身后格站着免疫者 = 推不动 → 与"退无可退"同语义，落到下面眩晕分支，不写假 PUSH 战报
+            // 身后格站着免疫者 = 推不动 → 与"退无可退"同语义，落到下面眩晕分支，不写假 PUSH 战报
             if (swapUnitPositions(target, behindUnit, log)) {
                 log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
                 return;
@@ -204,7 +192,7 @@ function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
 
-// 2026-10-22 治疗预演：返回「这次治疗实际能落多少」，口径与 applyStatChange 内部完全一致
+// 治疗预演：返回「这次治疗实际能落多少」，口径与 applyStatChange 内部完全一致
 //   （截脉 → 寒毒抑疗 → maxHp 溢出夹取）。所有治疗类 factData / 文案 / 飘字都该用它，
 //   否则声明值会被打折落地，出现「战报写 +42、血条只跳 +21」的假账。
 // 注意：同一帧连续多次治疗时，后一次的可用空间按「前一次已落」计算——调用方按声明顺序调即可。
@@ -219,7 +207,7 @@ function previewHeal(target, raw, rawOnly = false) {
             || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
         if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
     }
-    // 2026-10-22 rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
+    // rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
     if (rawOnly) return Math.max(0, applied);
     return Math.max(0, Math.min(applied, target.maxHp - target.hp));
 }
@@ -228,14 +216,14 @@ function previewHeal(target, raw, rawOnly = false) {
 //   不吃杨逍截脉的减疗。默认 true = 正常治疗语义。
 function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true) {
     if (delta === 0 || !target || !target.alive) return false;
-    // 天上无敌（2026-10-13）：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
+    // 天上无敌：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
     //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
     if (field === 'hp' && delta < 0 && target.state && target.state._spiderFlying) return false;
     // 杨逍·点穴截脉（反治疗）：被点穴目标眩晕解除后 rounds 回合内，受到的治疗/吸血回复按 ratio 打折。
     //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
     //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。
     let applied = delta;
-    // 2026-10-22 打折口径收口到 previewHeal（公式单点维护，文案/飘字同源）。
+    // 打折口径收口到 previewHeal（公式单点维护，文案/飘字同源）。
     //   注意这里不夹 maxHp 溢出——applyStatChange 下面本来就会夹，重复夹会改变「溢出前」的中间值。
     if (isHeal && field === 'hp' && delta > 0) {
         applied = delta;
@@ -271,7 +259,7 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     if (field === 'hp' && target.hp <= 0) {
         target.state._pendingDeath = true;
         if (!target.state._deathTime) target.state._deathTime = Date.now();
-        // 2026-10-16 击杀者记账（唐文亮·同归于尽反噬击杀者用）：存 uid 不存引用（战报快照深拷/JSON 序列化会炸引用）。
+        // 击杀者记账（唐文亮·同归于尽反噬击杀者用）：存 uid 不存引用（战报快照深拷/JSON 序列化会炸引用）。
         //   source 为空（死亡结算/自损）不写入；有 source 即覆盖 = 补刀者算最后一击的凶手
         if (source && source.uid) target.state._killerUid = source.uid;
     }
@@ -329,7 +317,7 @@ export function addMod(unit, stat, mod) {
     unit._mods[stat].push(mod);
 }
 
-// hp 审计账本（2026-10-14）：体检对照器要核对「声明 heal/dot vs 实际落账」，此前这些纯记账条目
+// hp 审计账本：体检对照器要核对「声明 heal/dot vs 实际落账」，此前这些纯记账条目
 //   混在 _mods['hp'] 里（全库无 getStat('hp') 调用点，故零行为副作用），但污染了词条容器——
 //   一旦将来 hp 上词条系统，这些审计账会变成真实加成。现物理隔离到 unit._audit.hp：
 //   条目形状与 _mods 同构（{source,value,ttl:'permanent',group,op:'add'}），对照器按 group 累加的算法不变。

@@ -1,5 +1,5 @@
 // render/32grid-badges.js — 格子内展示计算（计数徽章 / 闪避分解 / buff 受益判定）
-// V1.0.0 | ~2600 bytes | 2026-10-18 自 render/32-grid-render.js V6.8.8 拆出（纯搬移，函数体逐字不动）：
+// V1.0.0 | 2026-10-18 | ~5300 bytes
 //   buildCountBadge / getDodgeBreakdown / isUnitBenefitedByBuff 整块迁入。
 //   只依赖传入的 unit/team/buffs，不碰 DOM、不碰 store（渲染主循环调用它们取值）。
 export const VER = 'render/32grid-badges.js V1.0.0';
@@ -10,7 +10,7 @@ import { getDodgeRules } from '../core/20-registry-dodge.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
 
-// 2026-10-17 计数技能进度徽章：进度型（凑 N 次触发）在角色名后显示「当前档/N」小胶囊，
+// 计数技能进度徽章：进度型（凑 N 次触发）在角色名后显示「当前档/N」小胶囊，
 //   不用头顶大红数字（旧版被否）；当前档随计数推进，满档触发后回到 1。
 export function buildCountBadge(unit) {
     if (!unit || !unit.alive) return '';
@@ -59,7 +59,7 @@ export function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
         }
     }
 
-    // 2026-09-25 改走 computeBuffStats 现算：buffDodgeBonus 是 V6.1.1 词条化时剥离掉的顶层字段，
+    // 改走 computeBuffStats 现算：buffDodgeBonus 是 V6.1.1 词条化时剥离掉的顶层字段，
     //   全库已无写入源（原读法让「流云身法」这行永远读不到值）。闪避真值本来就由本函数现算，与 core/10、core/12 同源。
     const buffStats = computeBuffStats(unit, activeBuffs || [], allyTeam);
     if (buffStats.dodgeBonus > 0) {

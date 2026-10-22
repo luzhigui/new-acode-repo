@@ -1,4 +1,5 @@
-// V1.2.0 | ~1900 bytes | 2026-10-02 新增 getMechanicHandler：core/15 安装期字段 schema 校验需读注册表 handler 声明的 fields（字段契约与机制实现放在一起）
+// V1.2.0 | 2026-10-02 | ~1900 bytes
+// 新增 getMechanicHandler：core/15 安装期字段 schema 校验需读注册表 handler 声明的 fields（字段契约与机制实现放在一起）
 export const VER = 'core/18mechanic-registry.js V1.2.0';
 
 // 机制注册表：type → 处理器（须提供 install）

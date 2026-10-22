@@ -1,20 +1,7 @@
 // render/32-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
-// V7.0.3 | 2026-10-22 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
-//           「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-// V7.0.0 | ~29800 bytes | 2026-10-18 拆分（纯搬移，函数体除 5 处接口替换外逐字不动）：
-//   本文件此前把四件事塞一起（节点/动画 / 展示计算 / 主循环 / 装配），
-//   按 42 族号拆出两个子文件（与 26elite-sixsects-* / 27elite-mingjiao-* / 42player-* 同款）：
-//     · 32grid-cells.js    _cellNodes/_slotUnits/_hpTargetPct/_hpDisplayPct/_hpAnimRunning/_shakeUntil/
-//                          _horseSpawnedUids + ensureGridCells/resetCell/tickHpAnim/createHorseSpawnAnim/
-//                          markGridShake/runGridShake
-//     · 32grid-badges.js   buildCountBadge/getDodgeBreakdown/isUnitBenefitedByBuff
-//   本文件保留：_store/_subscribed/_ctx + getCtx/selectOrStore/getStore/setGridStore +
-//   renderGrid + updateGridUI + setGridRenderCtx。
-//   renderGrid 内 5 处状态访问改为调子文件接口（getSlotUnits / updateHpDisplay / getShakeRemain /
-//   tryHorseSpawnAnim / clearGridCells），其余逐字不动；行为等价。
-//   对外导出路径不变——markGridShake 与 getDodgeBreakdown/isUnitBenefitedByBuff 改 re-export 子文件；
-//   fx/88、fx/93 取 markGridShake，ui/62 取 getDodgeBreakdown/isUnitBenefitedByBuff，路径零改动。
-// ── 更早版本历史见 记录-更改履历.md
+// V7.0.3 | 2026-10-22 | ~28500 bytes
+// 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
+// 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
 export const VER = 'render/32-grid-render.js V7.0.3';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
@@ -99,12 +86,12 @@ export function renderGrid(id, camp) {
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
     let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : selectOrStore(ctx, 'allyTeam');
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
-    // 2026-09-23 胖远桥·正义国字脸生效期间：本回合有敌人被锁定 → 他头顶换 🐷 嘲讽脸（回合级标记，回合开始自清）
+    // 胖远桥·正义国字脸生效期间：本回合有敌人被锁定 → 他头顶换 🐷 嘲讽脸（回合级标记，回合开始自清）
     const pangTauntUnits = (store && store.getState) ? store.getState().units : allyTeam.concat(selectOrStore(ctx, 'enemyTeam'));
     const pangTaunting = pangTauntUnits.some(u => u && u.alive && u.state && u.state._tauntedByPang);
 
     for (let i = 0; i < displayOrder.length; i++) {
-        // 2026-09-24 同格「尸体 + 新单位」（周芷若在原位召唤、击退换位）：先让尸体的死亡特效播完。
+        // 同格「尸体 + 新单位」（周芷若在原位召唤、击退换位）：先让尸体的死亡特效播完。
         //   UI 3 秒清尸（player/42 REMOVE_UNIT）之前一律优先渲尸体，清尸触发 store 重绘后自然露出新单位；
         //   否则新单位当帧就顶掉红底 ✕，看起来像死亡特效被吃掉。无存活单位同格时行为与原先一致。
         let pos = displayOrder[i];
@@ -185,18 +172,18 @@ export function renderGrid(id, camp) {
         let isResting = (unit.state && unit.state._resting) || false;
         let isStunned = (unit.state && unit.state._stunned) || false;
 
-        // 2026-10-04 改查名片表（原为本地 7 分支 if/else 链）
-        //   2026-10-11 表迁 render/37：import 由 ui/69 改 ./37-role-cards.js，切断 render→ui 反向依赖
+        // 改查名片表（原为本地 7 分支 if/else 链）
+        //   表迁 render/37：import 由 ui/69 改 ./37-role-cards.js，切断 render→ui 反向依赖
         //   顺序/回落与原先完全一致：😵 > 无忌(非远程)⚔️ > 拒马🐴 > 小昭·姊🦋 > 幼狮🐱 > 胖远桥嘲讽🐷 > 职业图标
         let roleIcon = getRoleIcon(unit, { isStunned, isDead, pangTaunting });
 
         let displayName = unit.name;
-        // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
+        // 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
         if (unit.isXieXun) displayName = '金毛狮王';
-        // 2026-10-21 灭绝师太 →「灭绝」：4 字名 + 出手计数徽章 + logo 挤爆格子宽度被 ellipsis 截断，
+        // 灭绝师太 →「灭绝」：4 字名 + 出手计数徽章 + logo 挤爆格子宽度被 ellipsis 截断，
         //   缩短后 logo 能完整露出（上限仍是 2 个，本改动只是不再被截掉）。日志/弹窗/战报仍用全名
         if (unit.isMieJueShiTai) displayName = '灭绝';
-        // 2026-10-11 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 且具名 蓝（弱精英）、其余黑。
+        // 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 且具名 蓝（弱精英）、其余黑。
         //   张无忌/灭绝 m115 原描金特判天然并入金档；成昆幻影跟随被模仿者的 m（跟 displayName 同口径换算，不剧透本体档位）。
         let displayTierM = unit.m || 0;
         if (unit.isChengKun && unit.state && unit.state._phantomTarget) {
@@ -215,7 +202,7 @@ export function renderGrid(id, camp) {
             if (freshUnit) latestUnit = freshUnit;
         }
 
-        // 2026-10-11 状态源唯一：攻/防都优先读引擎随 step 下发的本步真值（core/11 frozenValues →
+        // 状态源唯一：攻/防都优先读引擎随 step 下发的本步真值（core/11 frozenValues →
         //   player/42 挂到 store 单位 _frozen），读不到才回落到 getStat 现算（老回放文件无 frozenValues 时）。
         //   原 def 走 _displayDef（从日志 snap 单点捞的补丁）已删——frozenValues 是它的正主。
         const displayAtk = latestUnit._frozen?.atk !== undefined ? Math.round(latestUnit._frozen.atk) : Math.round(getStat(latestUnit, 'atk'));
@@ -235,8 +222,8 @@ export function renderGrid(id, camp) {
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
-        // 2026-10-17 护盾表现（寒离飒蓄力起通用）：血条上叠一层白色半透明，厚度=剩余护盾/最大生命
-        // 2026-10-22 临时（蓄力）+ 永久（九阳溢出）护盾合计显示
+        // 护盾表现（寒离飒蓄力起通用）：血条上叠一层白色半透明，厚度=剩余护盾/最大生命
+        // 临时（蓄力）+ 永久（九阳溢出）护盾合计显示
         const shieldVal = (unit.state._shield || 0) + (unit.state._permShield || 0);
         const shieldPct = unit.alive && shieldVal > 0 ? Math.min(100, Math.round((shieldVal / unit.maxHp) * 100)) : 0;
         const shieldHtml = shieldPct > 0 ? `<div style="position:absolute;left:0;right:0;bottom:0;height:${shieldPct}%;background:rgba(255,255,255,0.55);border-top:1px solid rgba(255,255,255,0.85);pointer-events:none;"></div>` : '';
@@ -248,7 +235,7 @@ export function renderGrid(id, camp) {
         // HP 条动画状态更新（目标 pct / 首帧直落 / 需要时启动 tick），返回本帧展示 pct —— 与原先内联段等价
         const displayPct = updateHpDisplay(unit, hpPct);
 
-        // 2026-10-12 判灰认双路：引擎真值 state._acted（步末灌入）+ 视图表镜像 _renderActed（fx 起跳/收尾写，立即生效）
+        // 判灰认双路：引擎真值 state._acted（步末灌入）+ 视图表镜像 _renderActed（fx 起跳/收尾写，立即生效）
         const actedFlag = (unit.state && unit.state._acted) || getView(unit.uid, '_renderActed');
         let readyClass = (!hasFlash && !actedFlag && unit.alive && !isDead) ? 'ready' : '';
         let actedClass = (!hasFlash && actedFlag && unit.alive && !isDead) ? 'acted' : '';
@@ -291,7 +278,7 @@ export function renderGrid(id, camp) {
                 buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' ');
             }
         }
-        // 2026-10-15 小昭·妹永久海克斯 logo（老板需求）：有全局激活海克斯优先显示全局（上面 buffIcons 已填）；
+        // 小昭·妹永久海克斯 logo（老板需求）：有全局激活海克斯优先显示全局（上面 buffIcons 已填）；
         //   全局缺位时补她账本里「最新的」一个受益永久海克斯图标（_permanentBuffs 按获得顺序 push，队尾即最新）。
         //   carry/双击的永久效果直接挂妹自身（modules/27 给 bro addMod / 妹双击），不受 5 号位判定限制，恒显示。
         if (!buffIcons && unit.isXiaoZhaoBrother && Array.isArray(unit.state._permanentBuffs)) {
@@ -302,7 +289,7 @@ export function renderGrid(id, camp) {
                 let ok;
                 if (pk === BUFF_TYPES.CARRY || pk === BUFF_TYPES.DOUBLE_STRIKE) ok = true;
                 else if (pk === BUFF_TYPES.HOLY_FLAME) {
-                    // 2026-10-15 永久圣火令改命中制（core/14），账本里的旧 cols/rows 不作数，读每回合重画的 _xiaoHolyFlame
+                    // 永久圣火令改命中制（core/14），账本里的旧 cols/rows 不作数，读每回合重画的 _xiaoHolyFlame
                     const hfDraw = unit.state._xiaoHolyFlame;
                     ok = !!hfDraw && ((hfDraw.rows || []).includes(getUnitRow(unit.pos))
                         || (hfDraw.cols || []).includes(getUnitCol(unit.pos)));
@@ -319,7 +306,7 @@ export function renderGrid(id, camp) {
         let eliteSkillIcon = (unit.isZhouZhiruo && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
             : (unit.isSongQingshu && getView(unit.uid, '_hasXingFen')) ? ' 💗'
             : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
-            // 2026-10-17 寒离飒蓄力：格子挂沙漏标记（蓄力中/已起手两态同图标）
+            // 寒离飒蓄力：格子挂沙漏标记（蓄力中/已起手两态同图标）
             : (unit.isHanLiSa && (unit.state._hlsCharging || 0) > 0) ? ' ⏳'
             : '';
         if (!eliteSkillIcon) {
@@ -328,9 +315,9 @@ export function renderGrid(id, camp) {
         }
         if (unit.isChengKun && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        // 2026-10-17 寒离飒·寒冰神掌寒毒：与玄冥毒同款 ❄️ 标记
+        // 寒离飒·寒冰神掌寒毒：与玄冥毒同款 ❄️ 标记
         if (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
-        // 2026-10-19 唐文亮·回春术层标记（老板需求）：🌿 或 🌿xN——不然看不出他攒着几层回血
+        // 唐文亮·回春术层标记（老板需求）：🌿 或 🌿xN——不然看不出他攒着几层回血
         if (unit.isTangWenLiang && Array.isArray(unit.state._hcStacks) && unit.state._hcStacks.length > 0) {
             eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
         }
@@ -338,7 +325,7 @@ export function renderGrid(id, camp) {
         let logoList = [];
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
-        // 2026-10-12 何太冲重做 V3：两个「状态标记」压到 logoList 末尾——V6.5.5 的「最多留最新 2 个」按尾部优先，
+        // 何太冲重做 V3：两个「状态标记」压到 logoList 末尾——V6.5.5 的「最多留最新 2 个」按尾部优先，
         //   放末尾才能保证这两个老板点名要看的标记不会被 buff 图标挤掉：
         //   ① 🎯 箭靶标记：带标单位（_heMarkRounds > 0，何太冲命中挂标/刷新，整场存活 3 回合）；
         //   ② ☯ 两仪连接：已结连且搭档仍在场的一方（_liangyiPartnerUid 指向存活同伴）。
@@ -346,16 +333,16 @@ export function renderGrid(id, camp) {
         if (unit.state._heMarkRounds > 0) logoList.push('🎯');
         if (unit.state._liangyiPartnerUid && selectOrStore(ctx, unit.camp === CAMP_TYPES.ALLY ? 'allyTeam' : 'enemyTeam').some(u => u.alive && u.uid === unit.state._liangyiPartnerUid)) logoList.push('☯');
         if ((unit._mods && unit._mods.atk ? unit._mods.atk : []).some(m => m.group === 'soulDrain')) logoList.push('🔻');
-        // 2026-10-13 杨逍改版：点穴眩晕走角色图标 😵（getRoleIcon），此处只挂 ❌ 禁疗（截脉中：治疗/吸血回复减半）
+        // 杨逍改版：点穴眩晕走角色图标 😵（getRoleIcon），此处只挂 ❌ 禁疗（截脉中：治疗/吸血回复减半）
         if (unit.state._jinMai && unit.state._jinMai.rounds > 0) logoList.push('❌');
 
-        // 2026-10-11 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
+        // 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
         //   蓝档加「具名」门槛（老板：蓝色只给弱精英，不该给所有 104）：无名杂兵（空闻/班淑娴等）落黑
         const nameTier = displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : (displayTierM >= 104 && isNamedCharacter(displayName)) ? 'name-blue' : '';
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) compressName = true;
-        // 2026-10-22 计数胶囊（灭绝 2/3、唐文亮 1/7、张无忌 1/3）也算一个 logo 名额：
+        // 计数胶囊（灭绝 2/3、唐文亮 1/7、张无忌 1/3）也算一个 logo 名额：
         //   原先它白占宽度不进上限，3 字名 + 胶囊 + 2 个 logo 会把格子撑爆。
         //   注意 slice(-0) 会返回整个数组，必须单独处理 budget<=0。
         const countBadgeHtml = buildCountBadge(unit);
@@ -369,7 +356,7 @@ export function renderGrid(id, camp) {
         } else if (displayLogos.length < logoList.length) {
             nameHtml = `<span class="cell-name ${nameTier}">${displayName}${countBadgeHtml}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         } else {
-            // 2026-10-12 修 ☯/🎯/🔻 隐形：短名分支原先只拼 eliteSkillIcon+buffIcons，logoList 里的状态标记不消费
+            // 修 ☯/🎯/🔻 隐形：短名分支原先只拼 eliteSkillIcon+buffIcons，logoList 里的状态标记不消费
             nameHtml = `<span class="cell-name ${nameTier}">${displayName}${countBadgeHtml}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div>${shieldHtml}</div>`;
@@ -380,7 +367,7 @@ export function renderGrid(id, camp) {
         if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
         }
-        // 2026-09-24 灭绝师太的出手计数不再走格子徽章（顶个红底数字太丑），
+        // 灭绝师太的出手计数不再走格子徽章（顶个红底数字太丑），
         //   改由 fx 层在她头顶飘出「壹/貳/參」气泡消散（信号 fx:mejueCount，见 fx/89）
         div.style.cursor = 'pointer';
         // click 已在 ensureGridCells 一次性绑定，这里只登记当前单位供回调取用
@@ -391,7 +378,7 @@ export function renderGrid(id, camp) {
 export function updateGridUI() {
     renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
     renderGrid('allyGrid', CAMP_TYPES.ALLY);
-    // 2026-10-17 寒离飒蓄力扇形：两网格都渲完后按全局单位取格子坐标画（不含在单网格内，避免画两次）
+    // 寒离飒蓄力扇形：两网格都渲完后按全局单位取格子坐标画（不含在单网格内，避免画两次）
     const st = getStore();
     if (st && st.getState) updateHanLiSaChargeFx(st.getState().units);
 

@@ -1,4 +1,4 @@
-// V6.3.1 | ~7700 bytes | 2026-09-29 参数体系收敛批 3：拒马预算 M 改读 CONFIG.HORSE_M；销毁概率去掉字面兜底 0.5 直读内容表 destroyProb
+// V6.3.1 | 2026-09-29 | ~5600 bytes
 export const VER = 'core/05battle-horse.js V6.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
@@ -56,7 +56,7 @@ export function findFreePos(allyTeam, positions) {
 // 走 Unit.init + applyBonus，与开局单位同口径（含 _base/_init 数值与 _hpDmgRatio 分档）；
 // 打 isSummon 标记便于日志/UI 区分召唤物；拒马不走这里（它有独立的随机格 + 固定数值逻辑）。
 // stats 可选：{ atk, def, maxHp, skipRoleBonus? } —— 传了就把它当【基础值】写死（谢逊三狮这类固定数值召唤物），
-//   随后照常叠职业加成（2026-09-26 口径统一：m 是基础预算，职业加成由引擎加，不写进配置）。
+//   随后照常叠职业加成。
 //   skipRoleBonus:true = 只保留职业、不吃加成（幼狮这类特殊召唤物；与 02unit.applyBonus 同参同名）。
 //   stats 分支不再自己写 _base*/_init*：applyBonus 已按最终值写好，重叠写会把加成抹掉。
 export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
@@ -91,7 +91,7 @@ export function destroyHorse(allyTeam, log) {
         const roll = rng.nextInt(1, 100);
         const success = roll <= currentProb;
         if (success) {
-            // 2026-10-01 消散与死亡分家（用户定调）：消散≠死亡——不再设 _isDead（那是死亡管线标记，
+            // 消散与死亡分家（用户定调）：消散≠死亡——不再设 _isDead（那是死亡管线标记，
             //   会渲染红叉尸体+死亡画笔），直接从队伍移除，表现层用新「沙化消散」特效送走。
             //   被打死路径（ATTACK dead）不受影响，仍走死亡特效。
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });

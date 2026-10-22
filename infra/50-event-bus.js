@@ -1,21 +1,4 @@
-// V6.9.8 | ~9650 bytes | 2026-10-16 杨逍「先机」登记相位：BEFORE_ACTION 增 YANGXIAO_JUMP:11——占位式抢先
-//           （插到本步队首出手，并占掉本次队友出手机会），走 core/11 新增的 declaration.jumpConsume 通道
-// V6.9.7 | ~9600 bytes | 2026-10-16 修「逐条声明钩子被误去重」：on()/registerSettlementHook 增可选 key（钩子身份键），
-//           任一带 key 按 key 判重、都无 key 才回退 toString()——修好玄冥联动 鹤笔翁→鹿杖客 方向失效
-//           （鹤笔翁与鹿杖客两条 linkAttack 声明同安装器 + 同优先级 XUANMING_LINK:10，闭包源码同形 → 第 2 条被吞）
-// V6.9.6 | ~9550 bytes | 2026-10-16 时序修正二则（老板拍板）：AFTER_ATTACK 增 YIN_COUNTER_FIRE:25——殷天正反击出手
-//   从 AFTER_DAMAGE_APPLIED 推迟到 AFTER_ATTACK，避开「本击白骨爪连锁斩杀后仍反击」；新增相位
-//   AFTER_ATTACK_IMMUNE：{ XINGFEN_EXTRA: 40 }——免疫分支（妹妹飞天）专用广播，宋青书性奋第二下照发
-// V6.9.5 | ~8250 bytes | 2026-10-15 第二批内容钩子登记：AFTER_DAMAGE_APPLIED 增 YIN_COUNTER:16 / YIN_PRESSURE:18 / YIN_GROW:21
-//   （殷天正·鹰爪功反击 / 鹰王威压削敌）、BEFORE_DAMAGE_CALC 增 QISHANG:20（唐文亮·七伤拳自损增伤）、
-//   ON_UNIT_DEATH 增 TONG_GUI:25（唐文亮·同归于尽反噬）
-// V6.9.4 | ~7950 bytes | 2026-10-15 新增相位 AFTER_SELECT_TARGET：{ PANG_DECLARE: 10 }（core/10 选敌完成、命中/闪避判定前带 log 广播；胖远桥出手声明据此早于 DODGE 落行）
-// V6.9.3 | 2026-10-15 ON_UNIT_DEATH 增 XIAO_CARRY_COUNT:30（妹永久 carry 死亡计数钩子，modules/27）
-// V6.9.2 | 2026-10-14 AFTER_DAMAGE_APPLIED 增 EAGLE_RESTORE:27（carry 雄鹰命中后恢复队友行动力 / 无人可恢复召雌鹰）
-// V6.9.1 | ~7500 bytes | 2026-10-13 杨逍重做：BEFORE_DAMAGE_CALC 增 YANGXIAO_ALL_ACTED:17（敌方全行动→追击×1.3 声明槽）
-// V6.9.0 | 2026-10-13 何太冲红血触发挪位：HE_TAICHONG_RED_BLOOD 从 BEFORE_DAMAGE_APPLY:90
-//   移到 ON_UNIT_ACTED:30（行动结束判定——先挨打成红血、演出完再换位，不再「先换位后挨打」）
-// ── 更早版本见 记录-更改履历.md
+// V6.9.8 | 2026-10-16 | ~8600 bytes
 import { GlobalStore } from './54-global-store.js';
 export const VER = 'infra/50-event-bus.js V6.9.8';
 
@@ -131,7 +114,7 @@ export const EXECUTION_LAYER = {
     ON_UNIT_ACTED:     { HE_TAICHONG_RED_BLOOD: 30 },
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,
-        // 2026-10-02 斩杀挪到 45：升序执行，必须晚于 JIUYANG=40 的融会 BONUS_DMG 声明（以及 PANG_CLUMSY_LOG=42），斩杀才能把融会伤害计入有效血量
+        // 斩杀挪到 45：升序执行，必须晚于 JIUYANG=40 的融会 BONUS_DMG 声明（以及 PANG_CLUMSY_LOG=42），斩杀才能把融会伤害计入有效血量
         WARRIOR_EXECUTE: 45,
         MIEJUE_COUNTER: 15,
         YIN_COUNTER: 16,        // 殷天正·鹰爪功反击（modules/27）

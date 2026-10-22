@@ -1,11 +1,4 @@
-// V1.10.1 | 2026-10-22 新增 STAGE_ACTION_TYPES.DASH（唐文亮冲刺·七伤齐发独立演出，fx/94）
-// V1.10.0 | ~15900 bytes | 2026-10-19 新增 STAGE_ACTION_TYPES.RESTORE_ACTED（雄鹰恢复行动力：同步账本 _acted
-//   并清视图镜像 _renderActed，修「被恢复者格子不绿」）
-// V1.9.0 | ~16200 bytes | 2026-10-17 新增职业 ROLE_TYPES.JAVELIN「标枪」（唐文亮弱精英重做：中程投射、天然不吃遮挡）
-// V1.8.0 | ~15820 bytes | 2026-10-16 新增信号 SIGNAL_TYPES.AFTER_ATTACK_IMMUNE（本击被免疫·仍算一次出手的专用广播，
-//   core/10 免疫分支发；modules/26 宋青书性奋额外攻击据此照发第二下）
-// V1.7.0 | ~14400 bytes | 2026-10-15 新增信号 SIGNAL_TYPES.AFTER_SELECT_TARGET（选敌完成·出手前带 log 广播，modules/26 胖远桥出手声明落行）
-// V1.6.0 | 2026-10-13 新增海克斯「圣火不熄」BUFF_TYPES.HOLY_FIRE（死亡交互·复活）
+// V1.10.1 | 2026-10-22 | ~16400 bytes
 export const VER = 'infra/56-battle-enums.js V1.10.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
@@ -37,7 +30,7 @@ export const FACT_TYPES = Object.freeze({
     METEOR_SPLASH_GROWTH: 'meteorSplashGrowth',
     WARRIOR_EXECUTE: 'warriorExecute',
     BLOOD_THIRST_LEECH: 'bloodthirstLeech', HOT_BLOOD_HEAL: 'hotBloodHeal', FLYER_REGEN: 'flyerRegen',
-    // 通用回血事实（2026-10-15 新增）：字段固定 { unitUid, heal, hpBefore, hpAfter, label, icon }。
+    // 通用回血事实：字段固定 { unitUid, heal, hpBefore, hpAfter, label, icon }。
     // 引擎侧统一走 core/16 的 emitHeal() 发射 → 弹幕/日志自动接上；新增回血机制不再需要逐条登记翻译表。
     HEAL: 'heal',
     WIND_ASSAULT_SPLASH: 'windAssaultSplash', WIND_ASSAULT_PUSH: 'windAssaultPush',
@@ -226,7 +219,7 @@ export const ROLE_TYPES = Object.freeze({
     DEFENDER: '防战',
     RANGED: '远程',
     FLYER: '飞行',
-    // 2026-10-17 标枪（唐文亮独占·弱精英）：中程投射、天然不吃遮挡；射程按自身行段（4~6→对方1~6 / 7~9→对方1~3）。
+    // 标枪（唐文亮独占·弱精英）：中程投射、天然不吃遮挡；射程按自身行段（4~6→对方1~6 / 7~9→对方1~3）。
     //   不进 CONFIG.ROLES（不参与随机职业抽取 / 模板凑职），只作单位身份职业；加成数值同战士（content roles.标枪）
     JAVELIN: '标枪'
 });
@@ -307,6 +300,6 @@ export const STORE_ACTION_TYPES = Object.freeze({
     REMOVE_UNIT: 'REMOVE_UNIT',
     HP_CHANGE: 'hp-change',
     SET_UNITS: 'SET_UNITS',
-    // 2026-09-14 状态三轨收敛：回合数由 battleStore 持有（原先散在 c.UI.round）
+    // 状态三轨收敛：回合数由 battleStore 持有（原先散在 c.UI.round）
     SET_ROUND: 'SET_ROUND'
 });

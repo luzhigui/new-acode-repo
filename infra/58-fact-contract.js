@@ -1,8 +1,4 @@
-// V1.5.13 | 2026-10-20 删死代码：buildTranslatorMap（零调用，V1.0.0 注册表改造前残留）+ 头部注释纠偏
-//   buildRendererMap 保留——tests/smoke-headless.mjs 契约对账（FACT_SPECS→渲染映射完整性）在用，非死代码
-// V1.5.12 | ~17300 bytes | 2026-10-13 体检第 84 轮契约对账补登记（零行为差异）：BAGUA_ARRAY / QIAN_KUN_UPGRADED /
-//          QIAN_KUN_BASIC 三条 38 翻译表内已有产动作翻译器（-stat.js，2026-10-05 起），58 仍登记 translateFn:null
-//          ——契约谎称「不产生 stageAction」，由 tests/contract-consistency.mjs 翻译器契约方向B 抓出，补登记函数名
+// V1.5.13 | 2026-10-20 | ~18900 bytes
 export const VER = 'infra/58-fact-contract.js V1.5.13';
 
 import { FACT_TYPES } from './56-battle-enums.js';
@@ -63,7 +59,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
     [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
 
-    // 通用回血（2026-10-15 新增 HEAL fact）：字段固定 {unitUid, heal, hpBefore, hpAfter, label, icon}，
+    // 通用回血：字段固定 {unitUid, heal, hpBefore, hpAfter, label, icon}，
     // 引擎侧统一走 emitHeal() 发射；新增回血机制只需登记这一条 + 调一行 emitHeal，无需各自建 fact 类型
     [FACT_TYPES.HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderHealFact', translateFn: 'makeHealAction' },
 
@@ -193,7 +189,7 @@ export const ATTACK_GROUP_HEAL_FACTS = Object.freeze([
     FACT_TYPES.WEI_LEECH,
     FACT_TYPES.PHANTOM_DISGUISE_HEAL,
     FACT_TYPES.CLAW_HEAL,
-    // 通用回血（2026-10-15）：由 emitHeal() 在攻击链内发射时走同一路径
+    // 通用回血：由 emitHeal() 在攻击链内发射时走同一路径
     FACT_TYPES.HEAL
 ]);
 

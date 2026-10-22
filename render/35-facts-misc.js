@@ -1,5 +1,5 @@
 ﻿// render/35-facts-misc.js — 效果域·系统/离散项 fact 渲染器
-// V1.0.0 | ~7400 bytes | 2026-10-18 自 render/35-facts-effect.js V1.0.21 拆出（纯搬移，函数体逐字不动）：
+// V1.0.1 | 2026-10-22 | ~9800 bytes
 //   系统行（回合开始/结束/台词/不争/连击摘要）+ 离散精英项（幻影识破迷惑/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）13 条整块迁入。
 //   「misc」不是垃圾桶：它是「不归回血/控制位移/属性召唤三族」的剩余——系统行与跨族离散事件。
 //   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
@@ -73,7 +73,7 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUid) {
                 }
             }
             break;
-        case BUFF_TYPES.MIND_CONTROL:   // 2026-10-08 清死码：DOUBLE_STRIKE 空分支删（连击无 buff 概要行，外部AI清单#6）
+        case BUFF_TYPES.MIND_CONTROL:   // 清死码：DOUBLE_STRIKE 空分支删（连击无 buff 概要行，外部AI清单#6）
             return {type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
         case BUFF_TYPES.CARRY:
             let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
@@ -128,7 +128,7 @@ export function renderPhantomRevealFact(fact) {
     return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>`, phantomFlashUid: fact.deceiverUid };
 }
 export function renderPhantomConfuseFact(fact) {
-    // 2026-10-11 去名字字面量：来源由 modules/27 显式打标（deceiverIsSpider），渲染层不再比英雄名。
+    // 去名字字面量：来源由 modules/27 显式打标（deceiverIsSpider），渲染层不再比英雄名。
     //   变量名同时纠偏：原 isButterfly 装的其实是「是蛛」，改成 isSpider 与事实一致
     const isSpider = fact.deceiverIsSpider === true;
     return { type:'info', text:`<span class="gold">${isSpider ? '🕷️ 蝶舞迷心！' : '🎭 幻影伪装！'}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };

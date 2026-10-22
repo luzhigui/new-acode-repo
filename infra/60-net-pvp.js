@@ -1,5 +1,5 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// ~18600 bytes | V7.4.1 | 2026-09-26 删 reviveUnit 的 StateMachine 重建壳（妆造剥离收尾：渲染层已改读 state._fsmPhase，从机不再需要 _fsm.is()）及 StateMachine 导入
+// V7.4.1 | 2026-09-26 | ~19500 bytes
 export const VER = 'infra/60-net-pvp.js V7.4.1';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
@@ -52,13 +52,13 @@ function guestTopic(room) { return TOPIC_PREFIX + room + '/g2h'; }
 // step 里的单位是引擎 Unit 实例，直接 JSON 会炸：
 //   ① 团队数组 A/B 上挂着 _pendingStateTransitions，其元素持有整队引用 → 循环引用
 //   ② 单位上的 _fsm 是 StateMachine 实例，states 里是 onEnter/onExit 函数，序列化不了
-// _fsm 侧不再需要复原：渲染层已改读 state._fsmPhase（2026-09-26 妆造剥离），
+// _fsm 侧不再需要复原：渲染层已改读 state._fsmPhase，
 // 从机不跑 transition，单位浅拷贝即可。
 //
 // ⚠️ 与 player/50battle-export.js 的 plainStep 是**两份、职责不同**，不是重复实现，不要合并：
 //   · 本文件（联机从机）：浅拷 + 下一步整份覆盖，不需要深拷 state。
 //   · player/50（战报导出）：state 必须按 core/17 schema 深拷（copyAllStateFields）断引用，
-//     否则引擎原地改 state 会让整份战报读到终态 → 回放全程全灰（2026-09-26 已修）。
+//     否则引擎原地改 state 会让整份战报读到终态 → 回放全程全灰。
 //   为什么不能合并：infra 不能反向依赖 core/17 的 schema（业务依赖），player→infra 单向合法。
 
 
@@ -194,7 +194,7 @@ function onMessage(topic, payload) {
     const waiter = _msgWaiters.get(data.t);
     if (waiter) { _msgWaiters.delete(data.t); waiter(data); return; }
     if (typeof _dataCb === 'function') {
-        // 不能静默吞：2026-09-19 房主 lineupReady 写 frozen snapshot 抛错被吞，查了很久才定位
+        // 不能静默吞：房主 lineupReady 写 frozen snapshot 抛错被吞，查了很久才定位
         try { _dataCb(data); } catch (e) { console.error('[net] 消息处理异常 t=' + data.t, e); }
     }
 }
@@ -203,7 +203,7 @@ function onMessage(topic, payload) {
 function onGuestJoin() {
     if (!_isHost) return;
     const wasConnected = _status === STATUS.CONNECTED;
-    // 2026-09-20 修「从机首屏六大派在上方、点一下才翻下来」：setStatus 是同步的，一进 connected
+    // 修「从机首屏六大派在上方、点一下才翻下来」：setStatus 是同步的，一进 connected
     // 就会当场把 lineup 发给从机。原先 accept 排在 setStatus 后面 → 从机先收到阵容、后收到身份，
     // applyNetLineup 渲染时 netRole 还是 null，按房主视角画（六大派在上方）；要等玩家点格子
     // 触发下一次 renderGrid 才翻正。accept 先上线，身份先落地，渲染自然是对的。

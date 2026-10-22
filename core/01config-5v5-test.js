@@ -1,11 +1,4 @@
-﻿// V6.8.4 | ~21100 bytes | 2026-10-19 精英出场率重定（老板拍板）：精英人数骰改为 1 人 90% / 2 人 5% / 0 人 5%、
-//   不再出 3 人（ELITE_COUNT_THRESHOLDS [0, 0.05, 0.95]）；弱精英混入率 0.20→0.30（明教侧混入与六大派 M104 空位锁定共用）
-// V6.8.3 | ~20900 bytes | 2026-10-17 唐文亮重做：ENEMY_ELITE_POS_PRIORITY 新增 tangWenLiang
-//   （[4,5,6,7,8,9,1,2,3]——标枪射程与站位绑定，恒定落中后排；modules/29 抢位用）
-// V6.8.2 | ~20860 bytes | 2026-10-16 新增 WEAK_ELITE_MIX_RATE：明教弱精英（杨逍/殷天正）随机混入正常阵容的概率（modules/29 用）
-// V6.8.1 | ~20690 bytes | 2026-10-15 删 XIAO_ZHAO_CARRY_MODS（妹永久 carry 改每回合刷新一轮、数值调用精通参数，此常量作废）
-// V6.8.0 | 2026-10-12 何太冲重做 V3：DESC_TRUTH 删旧三技能条目（chainArrow/armorPierce/kunlunCombo）；
-//   新技能 liangyiLink/targetMark/redBlood 的说明占位符一律回落 params（无 mechanics 真值源）
+﻿// V6.8.5 | 2026-10-22 | ~21100 bytes
 export const VER = 'core/01config-5v5-test.js V6.8.5';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
@@ -53,7 +46,7 @@ function getSkillName(characterName, skillKey) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// 文案占位符 → 引擎真值出处（2026-09-29 单一真值源收口）
+// 文案占位符 → 引擎真值出处
 //
 // 背景：skills.<键>.params 与 characters.<角色>.mechanics 曾各存一份同一个数（技能说明的
 //   {占位符} 从前者取、引擎战斗从后者读），改一处另一处不跟 → 面板数字与实战漂移。
@@ -161,7 +154,7 @@ function resolveDescValue(characterName, skillKey, key) {
 
 // 技能说明里的百分数占位符：这些字段的模板自己带 %，params 一律按「1 = 100%」存储，
 //   下落分支按 ×100 输出人话（0.1 → 10）。与 DESC_TRUTH 的 scale:100 同一口径。
-//   2026-09-30 V6.5.0：登记口径从「字段名里含 ratio 就换算」的猜测，改为**显式白名单**——
+//   V6.5.0：登记口径从「字段名里含 ratio 就换算」的猜测，改为**显式白名单**——
 //   猜测分支把倍率字段 dmgRatio（0.6）误当成百分数，面板显示成「伤害×60」。现只认本表：
 //     · 带 % 的百分数占位符 → 登记在此（未登记的新字段请补进来，否则会显示 0.xx%）
 //     · 倍率/点数/回合数一类 → 不登记，原样输出（如 dmgRatio 0.6 → 「伤害×0.6」）
@@ -218,7 +211,7 @@ const CONFIG = {
     },
     ROLES: [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
-    // 未命中率统一「1 = 100%」（2026-09-30 口径统一 V6.5.0）：读点 core/03 getMissBreakdown 内 ×100 转百分点域。
+    // 未命中率统一「1 = 100%」：读点 core/03 getMissBreakdown 内 ×100 转百分点域。
     //   该函数对外契约仍是百分点（日志、详情弹窗、体检 145 均按 % 比对），只在"存储 → 计算"这一步换算。
     //   注：×100 写在同一括号内（如 C.X * 100），与旧值逐位一致（0.06*100 === 6，无 ulp 漂移）。
     RANGED_MISS_CHANCE: 0.03,
@@ -252,12 +245,12 @@ const CONFIG = {
     PANG_CLUMSY_FORMULA: { base: 0.10, atkRef: 30, atkDiv: 200, cap: 0.95 },
     MAX_ROUND: 35,
     HEX_INTERVAL: 3,
-    // 精英出场人数骰（29battle-init 用，2026-10-19 重定）：<0 出 3 人（已禁用）/ <0.05 出 2 人（5%）/
+    // 精英出场人数骰（29battle-init 用，重定）：<0 出 3 人（已禁用）/ <0.05 出 2 人（5%）/
     //   <0.95 出 1 人（90%）/ 其余 0 人（5%）——即「九成必有 1 个，5% 两个，5% 一个都没有，不出三个」
     ELITE_COUNT_THRESHOLDS: [0, 0.05, 0.95],
     // 小昭形态骰（29battle-init 用）：默认 50% 为「小昭·姊」；图鉴选 xz 偏向姊、选 xm 偏向妹
     XIAO_ZHAO_SISTER_PROB: { default: 0.5, xz: 0.85, xm: 0.15 },
-    // 弱精英混入率（29battle-init 用，2026-10-16 定案 / 2026-10-19 提率 0.20→0.30）：
+    // 弱精英混入率（29battle-init 用，定案 / 提率 0.20→0.30）：
     //   ① 明教侧——固定精英轮盘只留张无忌/韦一笑/小昭/谢逊，其余具名身份（杨逍/殷天正/寒离飒）按本率
     //      随机替换一个普通位混入正常阵容；② 六大派侧——何太冲/唐文亮同按本率锁定一处 M104 数字空位。
     //   两侧均「每局至多一名」，共用一个率值（老板拍板同值）
@@ -266,7 +259,7 @@ const CONFIG = {
     BASE_DODGE_GROUND: 0.05,
     DODGE_REBOUND_RATIO: 0.5,
     WARRIOR_BREAK_DEF: 2,
-    // 战士破防分档表（2026-09-14 参数三源收敛：原为 03battle-utils 内联魔法数字）
+    // 战士破防分档表
     // 按目标防御值落档：defMax 为档位上限（null = 兜底档），reduce 破防量，chance 触发率（口径 1 = 100%）
     WARRIOR_BREAK_DEF_TIERS: [
         { defMax: 40,   reduce: 2, chance: null },   // 低防：概率 = 防御 × WARRIOR_BREAK_CHANCE_PER_DEF（比例，读点 ×100 回百分点域）
@@ -278,7 +271,7 @@ const CONFIG = {
     RANGED_GROWTH_ATK: 2,
     FORTIFY_INCREMENT: 1,
     FORTIFY_CAP: 4,
-    TOKEN_DROP_RATES: [0, 1.5, 2, 2.5, 4, 5.5, 6, 7], // 索引=关卡号，1.5→7 递增。2026-10-08 统一口径：对齐 player/48 通关奖励的 10-02 定案表（此前两张表各修一半方向相反：core 头补0[0,0,1.5,...,6] vs 48 尾补7；统一后 s1 局内击杀也掉令1.5%，s7=7%）
+    TOKEN_DROP_RATES: [0, 1.5, 2, 2.5, 4, 5.5, 6, 7], // 索引=关卡号，1.5→7 递增。统一口径：对齐 player/48 通关奖励的 10-02 定案表（此前两张表各修一半方向相反：core 头补0[0,0,1.5,...,6] vs 48 尾补7；统一后 s1 局内击杀也掉令1.5%，s7=7%）
     CHEST_DROP_RATE: 0.2,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
@@ -347,7 +340,7 @@ const CONFIG = {
         pangYuanQiao: [2, 1, 3, 4, 5, 6, 7, 8, 9],
         luZhangKe: [7, 8, 9, 4, 5, 6, 1, 2, 3],
         heBiWeng: [3, 4, 5, 6, 7, 8, 9, 1, 2],
-        // 2026-10-17 唐文亮（标枪弱精英）：恒定落中后排 4~9（射程与站位绑定），1~3 仅作挤占兜底
+        // 唐文亮（标枪弱精英）：恒定落中后排 4~9（射程与站位绑定），1~3 仅作挤占兜底
         tangWenLiang: [4, 5, 6, 7, 8, 9, 1, 2, 3]
     },
     ENEMY_ELITE_POS_FALLBACK: [1, 2, 3, 4, 5, 6, 7, 8, 9],

@@ -1,5 +1,6 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器入口（装配 + 出口）
-// V7.0.0 | ~1200 bytes | 2026-10-18 拆分（纯搬移，零行为改动）：
+// V7.0.0 | 2026-10-18 | ~1800 bytes
+// 拆分（纯搬移，零行为改动）：
 //   本文件此前 621 行 / 34.5KB，把 72 个零依赖的渲染器与注册表挤在一起（互不调用、只有末尾注册把它们串起来）。
 //   按 38-actions-translate 同款「父号 + 语义后缀」拆成四族（对应 38 的 attack/heal/control/stat）：
 //     · 35-facts-heal.js    回血族 11 条（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复 + 工厂产物）
@@ -9,7 +10,6 @@
 //   本文件只做装配与转出口（与 30-fact-renderer.js 同款）：副作用导入四族触发注册，
 //   export * 保持全部函数名可用（虽然目前外部零具名 import，不改白不改）。
 //   render/30 的 `import './35-facts-effect.js'` 路径零改动；`validateRegistry('renderer')` 校验粒度不变。
-// ── 更早版本历史见 记录-更改履历.md
 export const VER = 'render/35-facts-effect.js V7.0.0';
 
 // 副作用导入：四族文件在模块顶层调 registerFactRenderer 完成注册
