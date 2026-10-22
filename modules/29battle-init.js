@@ -1,3 +1,4 @@
+// V7.6.2 | 2026-10-22 数字空位职业解析加第二道防线：tags 含「标枪」也认（不依赖 content role 字段在不在）
 // V7.6.1 | 2026-10-22 补寒离飒强精英 force 通道（forceHanLiSa）：她 V7.6.0 并入 eliteConfigs 后
 //   已在弱精英池之外，旧的 forceWeakElite='寒离飒' 会撞入池校验抛错、强精英评测整组跑不了
 // V7.6.0 | 2026-10-22 明教精英分层重写（老板口径限强度保趣味）：Boss（张无忌 30%）独掷、Boss 局最多再配 1 个
@@ -13,7 +14,7 @@
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.6.1';
+export const VER = 'modules/29battle-init.js V7.6.2';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -373,8 +374,9 @@ export function initBattleTeams(currentStage, _rng) {
                 //   无名杂兵（空闻/班淑娴等，不在 characters 表）保持随机，当作阵容变数。
                 let role = C.ROLES[_rand(0, 3)];
                 // 2026-10-17 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
+                // 2026-10-22 第二道防线：tags 里直接写「标枪」也认（role 字段丢失时不至于回落到随机四选一）
                 const chNamed = getGameData()?.characters?.[name];
-                const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t));
+                const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
                 if (tagRole) role = tagRole;
                 let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
