@@ -1,4 +1,4 @@
-// V6.1.0 | ~2600 bytes | 2026-09-09 视觉引用管理器：特效统一走本文件获取 cell / rect，不缓存 DOM 引用
+// V6.1.0 | 2026-09-09 | ~3900 bytes
 export const VER = 'fx/90fx-ref-manager.js V6.1.0';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -8,7 +8,7 @@ function getGridId(camp) {
     return camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
 }
 
-// 2026-09-19 联网从机视角修复：查找 cell 改按 dataset.pos 直接匹配，不再背固定顺序表。
+// 联网从机视角修复：查找 cell 改按 dataset.pos 直接匹配，不再背固定顺序表。
 // 原先的 [1..9]/[7,8,9,4,5,6,1,2,3] 对照表只对房主视角成立；从机视角下 32-grid-render 会镜像行序
 // （明教/六大派行序互换），旧表会把 7 号位指到 1 号位的格子上 → 飞箭/飞撞/击退/换位全飞错格子。
 // renderGrid 渲染时已给每个格子盖了 dataset.pos 戳（空位/占用位都有），按戳找天然视角无关。

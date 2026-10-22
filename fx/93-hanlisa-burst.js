@@ -2,18 +2,15 @@
 //   · 顶点=寒离飒，从顶点位置慢慢向外铺开一道柔光扇形（金→冰蓝渐变 + feGaussianBlur 柔光，弧边非实心三角）
 //   · 两道涟漪环沿扇形弧线由内向外扩散、渐隐（示意 AOE 范围，不画死边）
 //   · 金/冰双色粒子从顶点飞向各命中格
-//   · V2 分档格效（2026-10-19 蓄意轰拳九位九形）：direct/eight/full123=冰蓝碎裂最重档；near/full456=红棕凹痕；
+//   · V2 分档格效：direct/eight/full123=冰蓝碎裂最重档；near/full456=红棕凹痕；
 //     far/full789=轻凹痕。每格升大号真伤数字（老板口径：弹幕做大、用真实数值）
 //   · 瞄 8 特例：中列速度线 + 撞边白闪（位移动画本体走 PUSH 舞台动作的 fx 收尾写入，此处只做点缀）
 //   · 吸血：顶点 ❤+N 上浮
 //   · 整块战场轻微震屏（8px / 420ms）+ 顶点升「轰」字 + 金/冰双环拳心脉冲
-// V2.1.0 | 2026-10-19 补轻量模式：ui/79 黑幕（V2 重造）刚完整演出过（hlsAimPlayedAt 3.5s 内）→ 只播震屏+格子效果，
-//          防黑幕/战场双演出；跳过/回放/简单/自动挡无标记照常完整
-// V2.0.0 | 2026-10-19 蓄意轰拳 V2：载荷改 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp}
-//          （全 uid+数值可序列化，回放/从机经 SKILL_ANNOUNCE 桥补触发；seq 去重防引擎直发+桥双放）
-// V1.2.0 | 2026-10-17 应用 demo tools/126「变体A」（老板选定）：补金/冰双色粒子飞向命中格 + 整场震屏，
-//          「轰」字提亮为 #ffcf5e 双层辉光，扇形加 feGaussianBlur 柔光
-// V1.1.0 | 2026-10-17 修订：弃硬三角，改柔光扇形+涟漪，整体放慢（用户指正"太丑/太快/一下打满"）
+// V2.1.0 | 2026-10-19 | ~19100 bytes
+// 载荷 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp} 全 uid+数值可序列化；
+//   seq 去重防「引擎直发 + SKILL_ANNOUNCE 桥」双放。
+// 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）只播震屏 + 格子效果，防双演出。
 export const VER = 'fx/93-hanlisa-burst.js V2.1.0';
 
 import { clock } from '../infra/52-clock.js';
@@ -304,7 +301,7 @@ function vampFloat(apex, vamp) {
 }
 
 // 引擎直发与回放桥共用入口；seq 去重（先到者赢，后到的同 seq 静默丢弃）
-// 2026-10-19 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）→ 只播轻点缀（震屏+格子效果），
+// 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）→ 只播轻点缀（震屏+格子效果），
 //   跳过扇形冲击波/大号数字/撞边/吸血（黑幕里都演过了，战场再全套一遍=双演出）；回放/简单/自动挡无标记照常完整
 let _lastSeq = null;
 export function showHanLiSaBurst(d) {

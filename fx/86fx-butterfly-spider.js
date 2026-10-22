@@ -1,6 +1,6 @@
-// V6.2.0 | ~13020 bytes | 2026-10-13 节奏修复：删掉附身/飞天收尾的格子「长回」恢复（缩小后又变大的元凶——姐姐那条还残留
-//          0.3s transition 让长回清晰可见）。飞行态格子统一交 render/32 按 _renderFlyMode 重绘占位（🦋/🕷️ dimmed），
-//          fx 只管演出不收尾格子，与飞回/降下两函数同口径（它们本就无收尾恢复）。
+// V6.2.0 | 2026-10-13 | ~12800 bytes
+// fx 只管演出、不收尾格子：飞行态格子统一交 render/32 按 _renderFlyMode 重绘占位（🦋/🕷️ dimmed）。
+//   收尾若把格子"长回"，会与缩小动画叠出"缩小后又变大"。
 export const VER = 'fx/86fx-butterfly-spider.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

@@ -1,4 +1,4 @@
-// V6.0.0 | 2026-09-24 雄狮振奋咆哮：雄狮格金色冲击波三环扩散 + 「吼」字升起，己方全体金光脉冲
+// V6.0.0 | 2026-09-24 | ~3300 bytes
 export const VER = 'fx/91fx-lion-roar.js V6.0.0';
 
 import { clock } from '../infra/52-clock.js';

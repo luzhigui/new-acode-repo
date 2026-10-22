@@ -1,4 +1,4 @@
-// V6.2.0 | ~25763 bytes | 2026-10-12 已行动镜像收口（同款收口）：起跳/收尾的 _acted: true 全部改 _renderActed（infra/61 视图表妆造字段），收尾处同步发 _renderActed: null 清理——fx 层不再直写账本语义字段 state._acted，步末引擎真值覆盖自愈机制保持（09-19 裁决落地）
+// V6.2.0 | 2026-10-12 | ~25400 bytes
 export const VER = 'fx/85fx-dodge-bullet.js V6.2.0';
 
 import { showComicBubble } from './80fx-common-5v5-test.js';
@@ -7,7 +7,7 @@ import { STORE_ACTION_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
 
-// 2026-09-20 宽屏留黑适配：舞台=body 那根居中限宽 520px 的"手机柱"。
+// 宽屏留黑适配：舞台=body 那根居中限宽 520px 的"手机柱"。
 // 本文件原先全按 innerWidth（整块屏幕）算分镜位置——宽屏电脑上闪电/克隆体/分镜框会飞进两侧黑边。
 // 统一改按舞台矩形换算；手机上舞台=全屏（left=0, width=innerWidth），行为一个像素不变。
 function stageBox() {
@@ -144,7 +144,7 @@ function triggerShake() {
 function buildClone(innerHTML, rect, extraCSS) {
     const clone = document.createElement('div');
     clone.setAttribute('data-fx', 'temporary');
-    // 2026-09-16 补 cell 类：只用 innerHTML 会丢外层布局（align-items/gap/padding 全无），
+    // 补 cell 类：只用 innerHTML 会丢外层布局（align-items/gap/padding 全无），
     //   图标被 stretch 拉到整格高度 → 贴左上角。加回 cell 后与 82 的 cloneNode 行为一致
     clone.classList.add('bullet-clone', 'cell');
     clone.innerHTML = innerHTML;

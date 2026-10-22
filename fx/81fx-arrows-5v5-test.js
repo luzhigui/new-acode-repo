@@ -1,6 +1,4 @@
-// V6.2.1 | 2026-10-17 抛射外观参数化（第 6 参 style）：唐文亮「标枪」换枪身/枪头/起手图标，
-//   箭矢缺省值不变——轨迹/未命中/颤动仍单点维护
-// V6.2.0 | 2026-09-24 未命中轨迹重写：前 60% 假装直飞目标 → 后 40% 侧飘越过 → 翻倒下坠淡出，删掉误导性的命中抖动
+// V6.2.1 | 2026-10-17 | ~18600 bytes
 export const VER = 'fx/81fx-arrows-5v5-test.js V6.2.1';
 
 import { markGridShake } from '../render/32-grid-render.js';
@@ -40,7 +38,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     const angle = Math.atan2(dy, dx);
 
     // 流星赶月参数；时长均为 1x 基准毫秒，clock 统一缩放
-    // 2026-10-17 外观可覆盖（style）：标枪传自己的枪身/枪头/起手图标；缺省仍走箭矢
+    // 外观可覆盖（style）：标枪传自己的枪身/枪头/起手图标；缺省仍走箭矢
     const st = style || {};
     let arrowLen = st.len != null ? st.len : (isMeteor ? 45 : 40);
     let arrowColor = st.color != null ? st.color : (isMeteor ? '#FFD700' : '#8B4513');
@@ -49,7 +47,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     const headColor = st.headColor != null ? st.headColor : arrowColor;
     const launchIcon = st.icon != null ? st.icon : '🏹';
     let chargeTime = 500;
-    // 2026-09-15 飞行时长按距离匀速：普通 0.6px/ms、流星 1.0px/ms，各带 300~900ms 兜底
+    // 飞行时长按距离匀速：普通 0.6px/ms、流星 1.0px/ms，各带 300~900ms 兜底
     const flySpeed = isMeteor ? 1.0 : 0.6;
     let flyDuration = Math.max(300, Math.min(900, dist / flySpeed));
     let pauseAfterHit = isMeteor ? 1200 : 600;
@@ -95,8 +93,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
 
         document.body.appendChild(container);
         // 未命中轨迹：前 60% 照直朝目标中心飞（看起来必中），后 40% 侧向飘偏越过目标。
-        // 2026-09-24 重写：原实现前半程终点就是目标中心（真撞上了再滑开）+ 结尾 applyWholeShake
-        // 抖 600ms（命中颤动同款）——观众看到的是"打到人了又滑开"，完全读不出未命中。
+        //   前半程不能直接以目标中心为终点——那样观众读到的是"打到人了又滑开"，读不出未命中。
         const nx0 = Math.cos(angle), ny0 = Math.sin(angle);
         let missEndX = 0, missEndY = 0;
         clock.animate(flyDuration, (p) => {
@@ -225,7 +222,7 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
     const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
     if (dist < 1) { if (onHit) onHit(); return; }
     const angle = Math.atan2(dy, dx);
-    // 2026-09-16 再次提速：凝结 250→150、飞行保底 400→250、系数 1.5→0.9、停顿 150→100
+    // 再次提速：凝结 250→150、飞行保底 400→250、系数 1.5→0.9、停顿 150→100
     const chargeTime = 150;
     let baseMin = 250;
     if (unitD && unitD.hp !== undefined) {
@@ -278,7 +275,7 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
             claw.style.left = cx + 'px';
             claw.style.top = cy + 'px';
             if (p >= 1) {
-                // 2026-10-09 受击反馈复活：7/6 出生时接的是 applyImpactShrink，9/3 远程颤动重构时被顺手删成「近战不加颤动」。
+                // 受击反馈复活：7/6 出生时接的是 applyImpactShrink，9/3 远程颤动重构时被顺手删成「近战不加颤动」。
                 //   颤动走渲染层 markGridShake（与远程箭同款，格子重建也带 .shake 类），外加黄光快闪一眼可见。
                 markGridShake(unitD.uid, 250);
                 const hitRect = snapshotUnitCellRobust(unitD);
@@ -345,7 +342,7 @@ function triggerExecuteShatter(rect) {
         redFlash.style.opacity = '0';
     });
     clock.wait(1000).then(() => {
-        // 2026-09-20 修白骨爪斩杀后白屏：原来写成 redFlash.parentNode.remove()——删的是闪光元素的爹
+        // 修白骨爪斩杀后白屏：原来写成 redFlash.parentNode.remove()——删的是闪光元素的爹
         // （document.body），斩杀碎开播完 1 秒整个页面主体被移除 → 白屏。同款错误还有碎片那行。
         // 应删元素自己：redFlash.remove() / s.remove()。全文件其他特效都是这个正确写法，独这两行漏网。
         if (redFlash.parentNode) redFlash.remove();

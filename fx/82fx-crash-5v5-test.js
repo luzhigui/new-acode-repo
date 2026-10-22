@@ -1,4 +1,5 @@
-// V6.3.0 | ~12738 bytes | 2026-10-12 已行动镜像收口（老板拍板收口）：起跳/收尾的 _acted: true 全部改 _renderActed（infra/61 视图表妆造字段），收尾处同步发 _renderActed: null 清理——fx 层不再直写账本语义字段 state._acted，步末引擎真值覆盖自愈机制保持（09-19 裁决落地）
+// V6.3.0 | 2026-10-12 | ~12500 bytes
+// fx 层不直写账本语义字段 state._acted：起跳/收尾一律写视图表 _renderActed（步末引擎真值覆盖自愈）。
 export const VER = 'fx/82fx-crash-5v5-test.js V6.3.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -185,14 +186,14 @@ export function showMeleeDodge(unitA, unitD) {
     clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
     document.body.appendChild(clone);
 
-    // 补齐与 Crash/Miss 一致的 flyMode（2026-09-24）：原先漏设，闪避时原格全程可见，出现"人变两个"
+    // 补齐与 Crash/Miss 一致的 flyMode：原先漏设，闪避时原格全程可见，出现"人变两个"
     const flyMode = GlobalStore.get('crashMode') || 'fly';
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
     }
 
-    // 2026-09-16 简单模式闪避反击提速过猛（原 350+500=850ms，仅命中 2500ms 的 1/3）
+    // 简单模式闪避反击提速过猛（原 350+500=850ms，仅命中 2500ms 的 1/3）
     const flyDur = 700;
     const returnDur = 900;
     let blocked = false;
@@ -238,7 +239,7 @@ export function showMeleeMiss(unitA, unitD, onMiss) {
     const nx = dx / dist, ny = dy / dist;
     const approach = dist - rectD.width * 0.5;
 
-    // 2026-09-16 配色改与命中一致的蓝色放大版（原灰底虚线"扑空感"太弱且显透明）
+    // 配色改与命中一致的蓝色放大版（原灰底虚线"扑空感"太弱且显透明）
     const clone = cellA.cloneNode(true);
     clone.classList.remove('ready', 'acted');
     clone.removeAttribute('data-flash');
@@ -278,7 +279,7 @@ export function showMeleeMiss(unitA, unitD, onMiss) {
     const returnDur = 500;
     let missFired = false;
 
-    // 2026-09-16 返回 Promise：调用方可 await 动画播完再推下一组（原先同步返回，日志抢跑）
+    // 返回 Promise：调用方可 await 动画播完再推下一组（原先同步返回，日志抢跑）
     return new Promise(resolve => {
         clock.animate(flyDur, (p) => {
             const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;

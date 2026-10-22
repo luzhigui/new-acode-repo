@@ -1,8 +1,4 @@
-// V6.3.12 | 2026-10-20 删死代码：applyBrushEffectOnHeal（零调用，死亡画笔实际只用 applyBrushEffect）
-// V6.3.11 | ~33275 bytes | 2026-10-17 修 showMiejueCountFloat 最右列飘字换行：只设 left（格子中心）无 right，
-//   shrink-to-fit 宽度上限=视口宽-left，最右列可用宽度不足导致「⚔️反击！」等文本竖排；加 white-space:nowrap 固定单行
-// V6.3.10 | 2026-10-12 新增 showMarkBurst（何太冲箭靶碎裂）：🎯 命中帧急弹 → 崩裂放大消散 + 金环冲击 + 4 片碎光四散；
-//   一次性元素（data-fx=temporary）不走对象池；由 fx/88 命中帧调用（伤害弹幕 1100ms 之前），快进在其入口已拦
+// V6.3.12 | 2026-10-20 | ~32400 bytes
 export const VER = 'fx/80fx-common-5v5-test.js V6.3.12';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -75,7 +71,7 @@ export function showDanmaku(unit, text) {
 
 function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
 initPool('dmgFloat', createDmgFloatEl);
-// 2026-10-02 同单位掉血飘字短时错位（与 healFloat 同方案）：主攻击数字与流星加深等 afterText 数字近窗连飘时分层上移
+// 同单位掉血飘字短时错位（与 healFloat 同方案）：主攻击数字与流星加深等 afterText 数字近窗连飘时分层上移
 const _dmgFloatStack = new Map();
 const DMG_STACK_WINDOW = 900;   // ms：同单位在此窗口内的第 N 条上移
 const DMG_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
@@ -91,7 +87,7 @@ export function showDamageFloat(unit, dmg) {
     _dmgFloatStack.set(unit.uid, rec);
     const stackOffset = (rec.count - 1) * DMG_STACK_STEP;
     acquireFromPool('dmgFloat', (dmgEl) => {
-        dmgEl.textContent = '💥-'+dmg;   // 2026-10-02 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
+        dmgEl.textContent = '💥-'+dmg;   // 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
         dmgEl.style.display = '';        // 点亮量宽（登记进 _activeFloats 供 ⚔/🛡️ 避让；💥 自身仍 right 锚定不变）
         markFloatActive(unit.uid, 'dmg', dmgEl.offsetWidth);
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
@@ -114,7 +110,7 @@ export function showDodgeBubble(unit, text) {
 function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
 initPool('healFloat', createHealFloatEl);
 
-// ===== 2026-10-05 三次定稿（老板拍板·动态布局）：飘字同单位活跃登记表 =====
+// ===== 三次定稿（老板拍板·动态布局）：飘字同单位活跃登记表 =====
 // 规则：❤ 钉死格内最左（左缘贴 rect.left+2），💥 钉死最右（right 锚定不动）；
 //   ⚔/🛡️ 不占固定坐标——落位时查同单位当前活跃的其他飘字，在「❤右界 ↔ 💥左界」剩余空间动态安放，
 //   只保证相对关系「⚔ 恒在 🛡️ 左」。四条实战从不同帧，有限组合：张三丰=❤+⚔、流星=💥+🛡️、振奋=⚔单、胖远桥=🛡️单。
@@ -148,10 +144,8 @@ function dynamicBuffLeft(uid, rect, kind, w) {
     let left;
     if (kind === 'atk') left = rec.def > now ? healR + span * 0.28 : healR + span * 0.3;
     else { const base = dmgL - w; left = rec.atk > now ? base - span * 0.28 : base - span * 0.3; }
-    // 2026-10-08 V6.3.9 同类避让返回 wrap 标记：并排需要「对方宽+GAP」≈2条身位，但💥左界上限只放得出
-    //   span*0.3——窄格(~110px)里物理放不下两条🛡/⚔并排，min 封顶把第二条压回去叠在第一条上
-    //   （流星🛡-2打防战叠坚盾🛡+1，两飘字左缘只差15px=视觉叠死）。放不下时 left 回独享位、
-    //   wrap=true 交调用方垂直错层（老板拍板「一上一下」）；宽屏放得下仍水平并排（一行=一个高度不变）。
+    // 同类避让返回 wrap 标记：窄格放不下两条并排时 left 回独享位、wrap=true 交调用方垂直错层；
+    //   宽屏放得下仍水平并排（一行 = 一个高度）。
     if (rec[kind] > now) {
         const shifted = left + (rec[kind + 'W'] || 30) + FLOAT_GAP;
         if (shifted > dmgL - w) return { left, wrap: true };
@@ -160,7 +154,7 @@ function dynamicBuffLeft(uid, rect, kind, w) {
     return { left, wrap: false };
 }
 
-// 2026-09-16 同单位回血飘字短时错位：九阳+热血同时回血时两条飘字原先完全重叠
+// 同单位回血飘字短时错位：九阳+热血同时回血时两条飘字原先完全重叠
 const _healFloatStack = new Map();
 const HEAL_STACK_WINDOW = 900;   // ms：同单位在此窗口内的第 N 条上移
 const HEAL_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
@@ -179,7 +173,7 @@ export function showHealFloat(unit, heal) {
     acquireFromPool('healFloat', (healEl) => {
         healEl.textContent = '❤+' + heal;
         healEl.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
-        // 2026-10-05 三次定稿：❤ 钉死格内最左（左缘贴 rect.left+2，不再外伸——二次版被否）。
+        // 三次定稿：❤ 钉死格内最左（左缘贴 rect.left+2，不再外伸——二次版被否）。
         //   宽度登记进 _activeFloats 供 ⚔/🛡️ 落位时避让；史前版内联 translate 被 healUp 首帧覆盖的坑见 V6.2.9 注。
         markFloatActive(unit.uid, 'heal', healEl.offsetWidth);
         healEl.style.left = Math.round(rect.left + 2) + 'px';
@@ -193,7 +187,7 @@ export function showHealFloat(unit, heal) {
 function createAtkBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#ff8c00'; return d; }
 initPool('atkBuffFloat', createAtkBuffFloatEl);
 
-// 2026-10-01 弹幕图标版（用户定调）：加攻⚔ / 加防🛡️ 前缀图标
+// 弹幕图标版（用户定调）：加攻⚔ / 加防🛡️ 前缀图标
 //   图标一律取游戏职业 logo 本体（战士⚔️ / 防战🛡️），不另造字形；数值颜色沿用既有色规：
 //   攻=橙 .orange #d2691e、防=蓝 .blue #1e6bb8、血=绿 .green #2e7d32、掉血=红 .red #c0392b
 function createDefBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.textShadow = '0 1px 3px rgba(0,0,0,0.85)'; return d; }
@@ -207,7 +201,7 @@ export function showDefBuffFloat(unit, def) {
         el.style.color = '#1e6bb8';                            // 复用游戏既有防御色，不自造
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
         const w = el.offsetWidth;
-        // 2026-10-05 V6.3.8：先算 left 再登记（查的是之前在飘的同类）；V6.3.9 返回值带 wrap：
+        // V6.3.8：先算 left 再登记（查的是之前在飘的同类）；V6.3.9 返回值带 wrap：
         //   水平放不下（窄格两条🛡️，如流星减防+坚盾同格）→ 垂直一上一下（老板 10-08 拍板），首条标准位、次条**上错 20px**
         const { left, wrap } = dynamicBuffLeft(unit.uid, rect, 'def', w);
         el.style.left = Math.round(left) + 'px';
@@ -217,7 +211,7 @@ export function showDefBuffFloat(unit, def) {
     }, 1400);
 }
 
-// 2026-10-01 拒马沙化消散（用户定调：消散≠死亡，不走死亡画笔）：
+// 拒马沙化消散（用户定调：消散≠死亡，不走死亡画笔）：
 //   拒马原地碎成一撮烟沙——底座沙圈淡出 + 顶上冒一缕上飘的沙雾粒子，纯 CSS 动画一次性元素。
 export function showHorseDissolve(unit) {
     const rect = snapshotUnitCell(unit);
@@ -254,7 +248,7 @@ export function showHorseDissolve(unit) {
         });
     }, 1700);
 }
-// 2026-10-03 攻/防飘字落点**统一**（用户定案）：初始高度与掉血/回血**同一高度**（rect.top - 4，顶边距格顶 4px），
+// 攻/防飘字落点**统一**（用户定案）：初始高度与掉血/回血**同一高度**（rect.top - 4，顶边距格顶 4px），
 //   再由 healUp 动画往上飘；水平按类型错开——⚔ 居中偏左 0.38、🛡️ 居中偏右 0.62。
 //   此前 ⚔/🛡️ 试过「格子内垂直居中」「格子上方（底距格顶 4px）」两版，均非用户要的落点（已废弃）。
 //   通用注意：不能用 translate 做居中（healUp 动画全程接管 transform），一律「先清 display → 量宽 → 算 left」。
@@ -266,7 +260,7 @@ export function showAtkBuffFloat(unit, atk) {
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时 display:none，offsetWidth 恒 0）
         el.style.transform = '';    // 清掉旧 translate，见上注
         const w = el.offsetWidth;
-        // 2026-10-05 V6.3.8：先算 left 再登记；V6.3.9 同款 wrap——⚔×2 同格水平放不下（胖远桥被溅射+攻+八卦-攻同格等）
+        // V6.3.8：先算 left 再登记；V6.3.9 同款 wrap——⚔×2 同格水平放不下（胖远桥被溅射+攻+八卦-攻同格等）
         //   垂直上错，与 🛡️ 同规矩（次条往上）
         const { left, wrap } = dynamicBuffLeft(unit.uid, rect, 'atk', w);
         el.style.left = Math.round(left) + 'px';
@@ -277,7 +271,7 @@ export function showAtkBuffFloat(unit, atk) {
     }, 1400);
 }
 
-// 2026-09-24 灭绝师太出手计数：头顶正中飘出大写数字（壹/貳/參 轮换），放大后上浮消散。
+// 灭绝师太出手计数：头顶正中飘出大写数字（壹/貳/參 轮换），放大后上浮消散。
 //   不走对象池——一次性元素用完即删，与 fx/91 的「吼」字同套路；快进判断由 emit 侧（fx/89）拦。
 export function showMiejueCountFloat(unit, text) {
     const rect = snapshotUnitCell(unit);
@@ -305,7 +299,7 @@ export function showMiejueCountFloat(unit, text) {
     }).then(() => { if (el.parentNode) el.parentNode.removeChild(el); });
 }
 
-// 2026-10-12 何太冲箭靶碎裂（消费 🎯 的命中帧）：🎯 急弹放大 → 崩裂消散，同时金色冲击环扩散、4 片碎光四散。
+// 何太冲箭靶碎裂（消费 🎯 的命中帧）：🎯 急弹放大 → 崩裂消散，同时金色冲击环扩散、4 片碎光四散。
 //   一次性元素（data-fx="temporary"），不走对象池；快进在调用方（fx/88 _triggerFX 入口）已拦。
 export function showMarkBurst(unit) {
     const rect = snapshotUnitCell(unit);

@@ -1,5 +1,4 @@
-// V6.1.4 | 2026-10-20 删死代码：DODGE_BULLET_TIME / POSITION_SWAP 两条订阅 + 对应两个死 import（信号已删，39 直调函数）
-// V6.1.3 | ~5519 bytes | 2026-10-12 TRIGGER 转发补第 12 参 markBurst（何太冲箭靶碎裂，透传给 fx/88）
+// V6.1.4 | 2026-10-20 | ~5400 bytes
 export const VER = 'fx/89fx-subscriber.js V6.1.4';
 
 import { eventBus } from '../infra/50-event-bus.js';
@@ -32,7 +31,7 @@ const P = 50;
 
 // ES Module 单例 + eventBus.on 幂等去重
 eventBus.on(FX_SIGNALS.TRIGGER, P, (d) => {
-    // 2026-09-16 return：eventBus.emit 会 Promise.all 收集异步监听器，调用方才能 await
+    // return：eventBus.emit 会 Promise.all 收集异步监听器，调用方才能 await
     return _triggerFX(d.fxSnapshot, d.unitA, d.unitD, d.isDead, d.isDodge, d.isMiss, d.isBlock, d.dmg, d.waveTaunt, d.waveUnit, d.attackerRole, d.markBurst);
 });
 
@@ -48,8 +47,8 @@ eventBus.on(FX_SIGNALS.MEDITATE, P, (d) => { if (inFastForward()) return; showMe
 eventBus.on(FX_SIGNALS.SPIDER_STRIKE, P, (d) => { if (inFastForward()) return; return showSpiderStrike(d.spiderUnit, d.strikeTarget); });
 
 eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain));
-eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, (d) => showDefBuffFloat(d.unit, d.gain));   // 2026-10-01 钢蓝🛡，镜像位
-eventBus.on(FX_SIGNALS.HORSE_DISSOLVE, P, (d) => showHorseDissolve(d.unit));          // 2026-10-01 拒马沙化消散
+eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, (d) => showDefBuffFloat(d.unit, d.gain));   // 钢蓝🛡，镜像位
+eventBus.on(FX_SIGNALS.HORSE_DISSOLVE, P, (d) => showHorseDissolve(d.unit));          // 拒马沙化消散
 eventBus.on(FX_SIGNALS.DODGE_BUBBLE, P, (d) => showDodgeBubble(d.unit, d.text));
 eventBus.on(FX_SIGNALS.BRUSH_EFFECT, P, (d) => applyBrushEffect(d.el));
 eventBus.on(FX_SIGNALS.HEART_EFFECT, P, (d) => showHeartEffect(d.unit));
@@ -70,12 +69,12 @@ eventBus.on(FX_SIGNALS.LION_ROAR, P, (d) => {
     AudioManager.playSfxByName('lionRoar');
     return showLionRoar(d.unit, d.team);
 });
-// 2026-09-24 灭绝师太出手计数：头顶飘出「壹/貳/參」气泡消散（快进跳过）
+// 灭绝师太出手计数：头顶飘出「壹/貳/參」气泡消散（快进跳过）
 eventBus.on(FX_SIGNALS.MIEJUE_COUNT, P, (d) => {
     if (inFastForward()) return;
     return showMiejueCountFloat(d.unit, d.text);
 });
-// 2026-09-26 胖远桥：正义国字脸（扇形金锥 + 台词气泡 + 被嘲讽者红闪）/ 年轻气盛（侧倾甩歪 + 😵）
+// 胖远桥：正义国字脸（扇形金锥 + 台词气泡 + 被嘲讽者红闪）/ 年轻气盛（侧倾甩歪 + 😵）
 eventBus.on(FX_SIGNALS.PANG_TAUNT, P, (d) => {
     if (inFastForward()) return;
     return showPangTaunt(d.unit, d.foes);
@@ -84,7 +83,7 @@ eventBus.on(FX_SIGNALS.PANG_CLUMSY, P, (d) => {
     if (inFastForward()) return;
     return showPangClumsy(d.unit);
 });
-// 2026-10-11 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N）：
+// 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N）：
 //   复用「灭绝计数」的任意文本飘字通道 showMiejueCountFloat（头顶放大上浮消散），不另造字形（快进跳过）
 eventBus.on(FX_SIGNALS.SKILL_FLOAT, P, (d) => {
     if (inFastForward()) return;

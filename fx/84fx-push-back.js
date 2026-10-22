@@ -1,5 +1,5 @@
 // fx/84fx-push-back.js
-// V6.1.0 | 2026-09-13 统一时间层：删本地 wait，换 clock.wait
+// V6.1.0 | 2026-09-13 | ~5800 bytes
 export const VER = 'fx/84fx-push-back.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -18,7 +18,7 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
 
     const oldPos = unit.pos;
 
-    // 2026-09-16 改为真位移：格子从旧位拱到新位，动画落定后才写数据
+    // 改为真位移：格子从旧位拱到新位，动画落定后才写数据
     const oldRect = snapshotCellByPos(unit.camp, oldPos);
     const newRect = snapshotCellByPos(unit.camp, targetPos);
     if (oldRect && newRect) {
