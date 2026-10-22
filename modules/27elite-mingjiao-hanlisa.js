@@ -8,10 +8,13 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
+// V2.2.0 | 2026-10-22 寒毒改「不衰减 + 可叠层无上限」（每回合首档 pct × stacks）；两拳改名左拳·九阳/右拳·寒冰；
+//   新增低血双拳：生命 < doublePunchHpPct(40%) 时 doublePunchProb(50%) 追加一拳（走 extraRequests，
+//   回合级 _hlsDoubleFired 防连锁，ON_ROUND_START 清闸）
 // 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
 // V2.1.2 | 2026-10-19 谁的日志归谁（老板拍板）：护盾吸收战报行不再 pushInfo 插进攻击者的攻击组，
 //   改为紧跟本击攻击组之后的独立 SKILL_ANNOUNCE 播报行；零数值/行为变化。
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.1.2';
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
@@ -76,15 +79,17 @@ export function createHanLiSaComponent() {
                         });
                         recordHpAudit(hls, 'hlsJiuYangHeal', heal, '九阳神拳治疗');
                     }
-                    pushInfo(data, `<span class="gold">☀️ 寒离飒九阳神拳：回复 ${heal} 点生命</span>`);
-                    announceFloat(data, '九阳神拳', `☀️ 九阳神拳${heal > 0 ? ' +' + heal : ''}`);
-                // ② 寒冰神掌：另 50% —— 给被打目标挂寒毒（同一种可重复出）
+                    pushInfo(data, `<span class="gold">☀️ 寒离飒左拳·九阳：回复 ${heal} 点生命</span>`);
+                    announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + heal : ''}`);
+                // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒（2026-10-22 可叠层、无上限）
                 } else {
                     hls.state._hlsHanBingDone = true;   // 同样只用于凑齐解锁
-                    target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04, 0.02, 0.01])] };
-                    const pctText = (hb.dotPercents || []).map(v => Math.round(v * 100) + '%').join('→');
-                    pushInfo(data, `<span class="gold">❄️ 寒离飒寒冰神掌：${target.name} 寒气入体（${hb.duration ?? 3} 回合 ${pctText} 最大生命）</span>`);
-                    announceFloat(data, '寒冰神掌', '❄️ 寒冰神掌');
+                    const prev = target.state._hlsHanDu;
+                    const stacks = (prev && prev.remaining > 0 && prev.stacks > 0 ? prev.stacks : 0) + 1;
+                    target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04])], stacks };
+                    const pctText = Math.round(((hb.dotPercents || [0.04])[0] || 0) * 100);
+                    pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 寒气入体（${hb.duration ?? 3} 回合，每回合 ${pctText}%×${stacks} 层最大生命）</span>`);
+                    announceFloat(data, '右拳·寒冰', '❄️ 右拳·寒冰');
                 }
 
                 // ③ 凑齐两种（九阳 + 寒冰各至少出过一次）→ 本击结束即起蓄力（普攻照打，蓄力从下一回合开始）
@@ -109,6 +114,31 @@ export function createHanLiSaComponent() {
                 }
             });
 
+            // —— 2026-10-22 低血双拳：血量 < doublePunchHpPct 时 doublePunchProb 概率追加一拳 ——
+            //   走 extraRequests（core/10 AFTER_ATTACK 口统一执行），第二拳是完整独立攻击：
+            //   独立选敌（targetUid=null，第一下打死就换人）、独立命中/伤害、独立触发九阳/寒冰。
+            //   reason 刻意不进 LINK_REASONS —— 否则会被置 _isLinkAttack，技能特效 handler 首行就 return。
+            //   _hlsDoubleFired 回合级防连锁（第二拳的 AFTER_ATTACK 直接返回）。
+            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, 12, (data) => {
+                if (data.unit !== hls || !hls.alive) return;
+                if (hls.state._isLinkAttack) return;
+                if (hls.state._hlsDoubleFired) return;
+                const hpPct = hls.maxHp > 0 ? hls.hp / hls.maxHp : 1;
+                if (hpPct >= (xl.doublePunchHpPct ?? 0.4)) return;
+                if (getBattleRng().next() >= (xl.doublePunchProb ?? 0.5)) return;
+                hls.state._hlsDoubleFired = true;
+                if (!data.extraRequests) data.extraRequests = [];
+                data.extraRequests.push({
+                    unit: hls,
+                    targetUid: null,
+                    reason: 'hanlisaDouble',
+                    actedMode: 'restore',
+                    actedSnapshot: hls.state._acted,
+                    priority: 12
+                });
+                pushSkillAnnounce(data.log, hls, '双拳', `👊👊 寒离飒双拳齐出！（生命 ${Math.floor(hls.hp)}/${Math.floor(hls.maxHp)}）`, { floatText: '👊👊', floatUid: hls.uid });
+            });
+
             // —— 蓄力回合：跳过行动（core/11 声明通道，产 PASS 行）——
             eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
                 if (data.unit !== hls) return;
@@ -122,18 +152,22 @@ export function createHanLiSaComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XUANMING_POISON + 1, (data) => {
                 const allUnits = [...(data.A || []), ...(data.B || [])];
 
+                // 2026-10-22 低血双拳的回合级闸门在此清（每回合最多一次）
+                hls.state._hlsDoubleFired = false;
+
                 // 寒毒结算（本组件自管，不依赖鹿杖客是否在场）
                 allUnits.forEach(u => {
                     if (!u.alive) return;
                     const st = u.state._hlsHanDu;
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;
-                    const idx = Math.min(st.dotPercents.length - 1, st.dotPercents.length - 1 - st.remaining);
-                    const dot = Math.floor(u.maxHp * (st.dotPercents[idx] || 0));
+                    // 2026-10-22 不衰减 + 可叠加：固定首档 pct × stacks
+                    const hdStacks = st.stacks || 1;
+                    const dot = Math.floor(u.maxHp * (st.dotPercents[0] || 0) * hdStacks);
                     if (dot <= 0) return;
                     data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dot, target: u, source: hls, reason: '寒毒' });
                     // 回填 dot 字段供数值对照器读（引擎数值零改动；recordHpAudit 仍用同一 dot 局部变量）
-                    pushSkillAnnounce(data.log, u, '寒毒', `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命`, { dot });
+                    pushSkillAnnounce(data.log, u, '寒毒', `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命${hdStacks > 1 ? `（${hdStacks} 层）` : ''}`, { dot });
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
 
