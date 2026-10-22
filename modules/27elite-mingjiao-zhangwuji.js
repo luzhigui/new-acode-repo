@@ -1,10 +1,5 @@
 // modules/27elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
-// V1.2.1 | ~10400 bytes | 2026-10-21 深夜复验 V1.2.0 修空：补调放 near.onEnter 在「初始即 near」场景永不执行（进 near 唯一路径 switching←ranged，watcher 只认 ranged），探针三场景实锤仍卡假近战态——正解挪到 register 里直接补调（幂等）
-// V1.2.0 | ~10100 bytes | 2026-10-21 修「众志召唤的张无忌卡假近战态」：near.onEnter 补一次 checkZhangSwitch（初始即 near 时构造不执行 onEnter）
-// V1.1.0 | ~10000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
-//           register 增第 5 参 self 认自己；checkZhangSwitch 改收 zhang 实参（不再全场 find 第一个，防双张无忌误切非触发者）
-// V1.0.1 | ~9934 bytes | 2026-10-17 前排判定同口径三处排除幼狮 isLionCub（与拒马 isHorse 一样不挡前排）；雄鹰/雌鹰按老板拍板本次仍算占位不排除
-// V1.0.0 | ~9887 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
+// V1.2.1 | 2026-10-21 | ~11500 bytes
 export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.2.1';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/03battle-utils.js';
@@ -16,7 +11,7 @@ import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STA
 import { emitStateChange } from '../infra/59-state-change.js';
 import { watchUnit } from '../core/19unit-watch.js';
 function checkZhangSwitch(zhang, A, log) {
-    // 2026-10-17 多实例化（老板拍板「完全真技能」）：由调用方传自己的单位实例，不再全场 find 第一个——
+    // 多实例化（老板拍板「完全真技能」）：由调用方传自己的单位实例，不再全场 find 第一个——
     //   双张无忌时 find 会误切「非触发者」（A 未满足切换条件也被切、触发者反而只转了形态没加攻防）
     if (!zhang || !zhang.alive || zhang.state._zhangSwitched) return;
     // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
@@ -87,7 +82,7 @@ export function createZhangWujiComponent() {
                 near: {
                     onEnter() {
                         zhang.rangedForm = false;
-                        // 2026-10-21 修「众志召唤的张无忌卡在假近战态」：_buildFsm 构建时若同列前方无人，
+                        // 修「众志召唤的张无忌卡在假近战态」：_buildFsm 构建时若同列前方无人，
                         //   initial 直接判 'near'，而 StateMachine 构造只设 current、不执行 onEnter ——
                         //   switching.onEnter（唯一调 checkZhangSwitch 处）被绕过，role 仍「远程」、
                         //   近战 ×3 加成没加、_zhangSwitched 未置位；且 watcher 首行 !fsm.is('ranged') 直接
@@ -116,12 +111,12 @@ export function createZhangWujiComponent() {
             return fsm;
         },
         register(eventBus, A, B, log, self) {
-            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
             const zhang = (self && self.alive) ? self : A.find(u => u.isZhang && u.alive);
             if (!zhang) return;
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
-            // 2026-10-21 深夜复验（探针三场景实锤）：StateMachine 构造只设 current、不执行初始 onEnter，
+            // 深夜复验（探针三场景实锤）：StateMachine 构造只设 current、不执行初始 onEnter，
             //   V1.2.0 把补调放 near.onEnter 里在「初始即 near」场景永不触发（进 near 只能从 switching 来，
             //   switching 只能从 ranged 来，watcher 又只认 ranged）——众志召到前排的张无忌仍卡假近战态。
             //   正解：register 里直接补一次判定（_zhangSwitched 守卫幂等，重复注册/已切换均 no-op）。
@@ -166,7 +161,7 @@ export function createZhangWujiComponent() {
                     } else {
                         applyStatChange(target, 'hp', -extra, unit, '融会贯通');
                     }
-                    // 2026-09-27 补 targetUid / targetAlive：render/38 扫 entries 时据此在目标头上补一条额外伤害飘字
+                    // 补 targetUid / targetAlive：render/38 扫 entries 时据此在目标头上补一条额外伤害飘字
                     // （这笔 BONUS_DMG 在主攻击结算之后单独扣血，不进主攻击 dmg，此前完全没有飘字）；
                     // targetAlive 与 core/16 裁定器的应用条件（decl.target.alive）一致——已死目标不扣这笔，也就不飘字
                     group.data.entries.push({ factType: FACT_TYPES.RONG_HUI_BONUS, data: { unitName: unit.name, extra, targetUid: target.uid, targetAlive: target.alive, targetAtk: Math.floor(getStat(target, 'atk')), targetDef: Math.floor(getStat(target, 'def')) } });

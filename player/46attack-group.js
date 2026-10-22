@@ -1,8 +1,8 @@
-// V6.1.1 | ~8200 bytes | 2026-10-19 受击黄闪分档（老板口径「按本击伤害是否溢杀」）：伤害直接把血打空
-//   （entry.isDead 且 hpAfter<=0）→ 黄闪只留 600ms，到点即上死亡态（红底 ✕ + _isDead），不等整段战报播完；
-//   血量没打空、靠斩杀/处决（executeKill，如战士斩杀「84 → 43 💀」）等流程才死的 → 维持原时长，
-//   死亡落地仍由 player/42 步末 pendingDeaths 统一处理
-// V6.1.0 | 2026-09-13 统一时间层：setTimeout/waitWhilePaused 换 clock.wait，forcedSpeed 改 1x 基准时长（特效已全部移交 stageActions，本文件只负责文本与格子闪示）
+// player/46attack-group.js — 攻击组播放（文本逐行 + 格子闪示 + 血条/死亡态）
+// 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
+//   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
+// 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
+// V6.1.1 | 2026-10-19 | ~10400 bytes
 export const VER = 'player/46attack-group.js V6.1.1';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
@@ -16,7 +16,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     let unitA = findUnitByUid(c, entry.uidA);
     let unitD = entry.uidD ? findUnitByUid(c, entry.uidD) : null;
 
-    // 2026-09-17 加 !isEndlessBreath：生生不息无目标（uidD=null），不是异常
+    // 加 !isEndlessBreath：生生不息无目标（uidD=null），不是异常
     if (!entry.isBlock && !entry.isMiss && !entry.isDodge && !entry.isEndlessBreath && (!unitA || !unitD)) {
         appendLogHTML(`<span class="gray">${entry.attackerName || entry.uidA || '未知'} 攻击 ${entry.targetName || entry.uidD || '未知'}，但目标已不存在</span><br>`);
     }
@@ -33,7 +33,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         });
     }
 
-    // 2026-09-17 生生不息：金圈闪 1.2s（区别于拒马 😴），复用 cell-cheer 类
+    // 生生不息：金圈闪 1.2s（区别于拒马 😴），复用 cell-cheer 类
     if (unitA && entry.isEndlessBreath) {
         showMeditateEffect(unitA);
     }
@@ -42,7 +42,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _blocked: true });
     }
 
-    // 2026-09-17 生生不息不闪蓝（它不是攻击，走自己的金圈）
+    // 生生不息不闪蓝（它不是攻击，走自己的金圈）
     if (unitA && !entry.isBlock && !entry.isDodge && !entry.isEndlessBreath) {
         // 闪避反击时攻击者只显示眩晕，由 DODGE stage action 处理
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.ATTACK });
@@ -52,7 +52,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     const lineCount = textEntries.length;
     // flash 持续时长：1x 基准（每行 600ms + 300ms 余量），clock 自动缩放/快进
     const atkFlashDuration = lineCount * 600 + 300;
-    // 2026-10-19 受击黄闪分档（老板口径：按本击伤害是否「溢杀」）：
+    // 受击黄闪分档（老板口径：按本击伤害是否「溢杀」）：
     //   溢杀 = 本击伤害直接把血打空（entry.isDead 且 hpAfter<=0，即 render/34 的 dmgResult.dead 路径）
     //     → 黄闪只留 600ms，到点即上死亡态，不等整段战报播完；
     //   非溢杀 = 血量没打空、靠斩杀/处决（executeKill，此时攻击组 isDead 但 hpAfter>0）等流程才死
@@ -101,7 +101,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         }
 
         // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）
-        //   2026-10-08 清死重：本块曾连注释一字不差写两遍（外部AI清单#1），删其一
+        //   清死重：本块曾连注释一字不差写两遍（外部AI清单#1），删其一
         if (entry2.phantomFlashUid && c.store) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: entry2.phantomFlashUid, _phantomFlash: true });
         }
@@ -162,7 +162,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     updateRoundDisplay(`📜 日志（第${(c.store ? c.store.getState().round : (c.UI && c.UI.round)) || 1}回合）`);
 
     // 血量事件延迟到特效快结束才应用，避免与受击特效冲突
-    // 2026-09-23 修击退剧透：POS_CHANGE 不随攻击组提前落账——原先是攻击组末尾就把击退/换位的位置写进
+    // 修击退剧透：POS_CHANGE 不随攻击组提前落账——原先是攻击组末尾就把击退/换位的位置写进
     // store（格子瞬移），随后的 PUSH/POS_SWAP 特效纯属重播 = 剧透。位置的唯一即时写入点=对应 fx 动画
     // 收尾（fx/83/84 落定后自 dispatch POS_CHANGE）；无专属动画的路径由步末 syncStoreFromStep 兜底。
     if (entry._events && entry._events.length > 0) {

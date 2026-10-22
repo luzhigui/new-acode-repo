@@ -1,12 +1,8 @@
-// modules/27elite-mingjiao.js — 明教精英注册入口（barrel；组件实现拆在 27elite-mingjiao-*.js）
-// 命名规则：编号 = 模块族 ID，族内拆文件共享父号，用语义后缀区分
-//   （对齐 26elite-sixsects-* 拆法）。"27" 表示「明教精英」模块族，不是单文件序号。
-// V7.3.0 | ~6300 bytes | 2026-10-17 新增寒离飒（明教·战士·弱精英）：registerElite('寒离飒')
-// V7.2.0 | ~6045 bytes | 2026-10-17 按角色拆分为 barrel + 8 个角色文件（纯搬移，零逻辑改动）：
-//   eagle/zhangwuji/weiyixiao/xiaozhao-sister/xiaozhao-brother/xiexun/yangxiao/yintianzheng；
-//   本文件只 import 组件并集中注册（registerElite×8 + targetPoolFilter + roundComponent×2
-//   + holyFlameEnhancer + buffRoundTransformer + stateTransition×4）；
-//   所有既有 import 点（modules/00reg-mechanics、tests/*、tools/*）路径一行不改照常工作。
+// modules/27elite-mingjiao.js — 明教精英注册入口（barrel；组件实现在 27elite-mingjiao-*.js）
+// 编号 27 = 「明教精英」模块族，不是单文件序号；族内拆文件共享父号、用语义后缀区分。
+// 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
+//   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
+// V7.3.0 | 2026-10-17 | ~6000 bytes
 export const VER = 'modules/27elite-mingjiao.js V7.3.0';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-registry-elite.js';
@@ -31,9 +27,9 @@ registerElite('小昭·姊', createXiaoZhaoSisterComponent);
 registerElite('小昭·妹', createXiaoZhaoBrotherComponent);
 registerElite('金毛狮王谢逊', createXieXunComponent);
 registerElite('杨逍', createYangXiaoComponent);
-// 2026-10-15 殷天正（白眉鹰王·明教·防战·弱精英 m104）：补明教「防战精英」空缺，走随机精英轮盘
+// 殷天正（白眉鹰王·明教·防战·弱精英 m104）：补明教「防战精英」空缺，走随机精英轮盘
 registerElite('殷天正', createYinTianZhengComponent);
-// 2026-10-17 寒离飒（明教·战士·弱精英 M107，与韦一笑同池）：九阳/寒冰神掌/蓄力
+// 寒离飒（明教·战士·弱精英 M107，与韦一笑同池）：九阳/寒冰神掌/蓄力
 registerElite('寒离飒', createHanLiSaComponent);
 
 // 杨逍·选敌 pool-filter（core/07 通用飞行分支取目标前调用）：
@@ -44,7 +40,7 @@ registerTargetPoolFilter((unit, candidates) => {
     return candidates.filter(e => !e.state._acted && !e.state._stunned);
 });
 
-// —— 2026-10-08 V7.5.13 回合钩子注册（core/11 特判收口）：小昭的知识搬回小昭家 ——
+// ——V7.5.13 回合钩子注册（core/11 特判收口）：小昭的知识搬回小昭家 ——
 // 回合组件：姊/妹工厂产的是带相位方法的组件（onFirstAllyTurn/executeAttach/executeFly…），
 // 主循环工厂循环按此标记保留实例调度（原 core/11 小昭特判分支的泛化）
 registerRoundComponent('小昭·姊', CAMP_TYPES.ALLY);

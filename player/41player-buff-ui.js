@@ -1,4 +1,4 @@
-// V6.0.0 | 2026-08-26 删除 handleBuffLeech 死函数
+// V6.0.0 | 2026-08-26 | ~3800 bytes
 export const VER = 'player/41player-buff-ui.js V6.0.0';
 
 import { Unit } from '../core/02unit.js';
@@ -10,15 +10,15 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { clock } from '../infra/52-clock.js';
 import { getCellByPos } from '../fx/90fx-ref-manager.js';
 
-// 2026-10-08 清死码：getCtx（文内无人调）与 setBuffUIContext（44 转口 import 后无人调用）删除（外部AI清单#7）
+// 清死码：getCtx（文内无人调）与 setBuffUIContext（44 转口 import 后无人调用）删除（外部AI清单#7）
 export async function handleHolyTokenDrop(c, entry) {
-    // 2026-09-23 修复卡死：原代码先 c.isPaused=true 再 clock.wait——isPaused 经 GlobalStore 触发 clock.pause()，
+    // 修复卡死：原代码先 c.isPaused=true 再 clock.wait——isPaused 经 GlobalStore 触发 clock.pause()，
     // 时钟冻结后 wait 的 dueAt 永远到不了，圣火令一掉落整局死锁。播放循环本就 await 本函数（顺序播放），
     // 无需额外暂停；只需 bulletTimeActive 禁用按钮防用户在动画期间点暂停/下一步。
     GlobalStore.set('bulletTimeActive', true);
 
     const unit = findUnitByUid(c, entry.unitUid);
-    // 2026-09-19 联网从机视角修复：格子查找走 90 的 dataset.pos 匹配（视角无关），
+    // 联网从机视角修复：格子查找走 90 的 dataset.pos 匹配（视角无关），
     // 原先本地背的固定顺序表在从机视角（行序镜像）下会把圣火令图标扔错格子
     const cell = unit ? getCellByPos(unit.camp, unit.pos) : null;
     const cellRect = cell ? cell.getBoundingClientRect() : null;
@@ -62,7 +62,7 @@ export async function handleHolyTokenDrop(c, entry) {
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {
-    // 2026-09-14 状态三轨收敛：删除 c.UI.lastSnapshot（只写不读的死拷贝，第 4 份状态）
+    // 状态三轨收敛：删除 c.UI.lastSnapshot（只写不读的死拷贝，第 4 份状态）
     // 结算数据唯一来源为 battleStore，渲染层按 uid 现查
     // 特效已由 stageAction 触发，此处只播文本
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';

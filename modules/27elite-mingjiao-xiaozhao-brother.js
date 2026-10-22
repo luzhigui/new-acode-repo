@@ -1,7 +1,5 @@
 // modules/27elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-// V1.2.0 | ~24900 bytes | 2026-10-19 妹永久众志：团队众志不在场时每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
-// V1.1.0 | ~24500 bytes | 2026-10-18 飞天落地回血按档位：飞天时记录 _spiderLandTier，供 spiderReturn 选回血比例
-// V1.0.0 | ~24278 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
+// V1.2.0 | 2026-10-19 | ~25700 bytes
 export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.2.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff } from '../core/03battle-utils.js';
@@ -43,7 +41,7 @@ function eggModValue(unit, stat, targetVal) {
     return (targetVal - cur) / (1 + mulSum);
 }
 
-// 结茧（2026-10-13）：毒/反伤致死不走 BEFORE_DAMAGE_APPLY、飞天接不住 → ON_BEFORE_DEATH 清 _pendingDeath
+// 结茧：毒/反伤致死不走 BEFORE_DAMAGE_APPLY、飞天接不住 → ON_BEFORE_DEATH 清 _pendingDeath
 //   取消死亡，原地变 0 攻 / eggDef 防 / 妹妹最大生命 50% 血的卵（占格、不可行动、可被打碎=真死）。致死档在此落账。
 function toSpiderEgg(u, outLog) {
     const fp = getSkillParams('小昭', 'spiderFly');
@@ -53,7 +51,7 @@ function toSpiderEgg(u, outLog) {
     // 结茧属性增量先算局部（体检第 88 轮转交：写进 announce fact 供数值对照器 SPIDER_EGG 契约做声明侧）
     const eggAtkDelta = eggModValue(u, 'atk', 0);
     const eggDefDelta = eggModValue(u, 'def', fp.eggDef);
-    // 2026-10-21 老板拍板：卵血 = 妹妹结茧时最大生命值的 50%（原为满血；孵化时随 group 整组移除恢复）
+    // 老板拍板：卵血 = 妹妹结茧时最大生命值的 50%（原为满血；孵化时随 group 整组移除恢复）
     const eggMaxHpTarget = Math.floor(getStat(u, 'maxHp') * 0.5);
     const eggMaxHpDelta = eggModValue(u, 'maxHp', eggMaxHpTarget);
     addMod(u, 'atk', { source: '蜘蛛卵', value: eggAtkDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
@@ -65,7 +63,7 @@ function toSpiderEgg(u, outLog) {
     pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / ${eggMaxHpTarget} 血（最大生命 50%），不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
 }
 
-// 孵化（2026-10-13）：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、
+// 孵化：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、
 //   三档全作废（再死=真死），直接飞天 → 落地蛛袭（spiderReturn 自带随机目标；_spiderEggHatch 跳过落地回血）
 function hatchSpiderEgg(u, outLog) {
     const fp = getSkillParams('小昭', 'spiderFly');
@@ -114,7 +112,7 @@ export function createXiaoZhaoBrotherComponent() {
                         // 飞天次数上限唯一来源：内容表 小昭.spiderFly.params（core/17 state 默认值只是镜像）
                         const flyParams = getSkillParams('小昭', 'spiderFly');
                         if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
-                        // 档位消费（2026-10-13）：档位由 decideSpiderTier 在触发点算好随 data.tier 带入，这里只落账；
+                        // 档位消费：档位由 decideSpiderTier 在触发点算好随 data.tier 带入，这里只落账；
                         //   hatch（蜘蛛孵化）不占档——孵化时三档已全作废
                         const tier = (data && data.tier) || 'death';
                         const reason = (data && data.reason) || SPIDER_TIER_REASON[tier];
@@ -196,7 +194,7 @@ export function createXiaoZhaoBrotherComponent() {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
-                        // 2026-10-11 去名字字面量：deceiver 用本人名，另打 deceiverIsSpider 供渲染层分支
+                        // 去名字字面量：deceiver 用本人名，另打 deceiverIsSpider 供渲染层分支
                         //   （render/35 原先拿 fact.deceiver === '小昭·妹' 判蝶舞迷心，渲染层不该认英雄名）
                         data.declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: data.unit.name, deceiver: brother.name, deceiverIsSpider: true, targetName: fakeTarget.name } };
                     }
@@ -215,7 +213,7 @@ export function createXiaoZhaoBrotherComponent() {
                 const { A, B, log } = data;
                 const bro = A.find(u => u.isXiaoZhaoBrother && u.alive);
                 if (!bro) return;
-                // 2026-10-15 结茧冻结也要滚动/掷骰（回合对齐不断档）：死亡桶 r2←r1←cur←0；
+                // 结茧冻结也要滚动/掷骰（回合对齐不断档）：死亡桶 r2←r1←cur←0；
                 //   妹永久圣火令按全局同口径掷 atkCols 列 + defRows 行（core/14 _Brother 读此命中判）
                 const dd = bro.state._xiaoCarryDeaths || { cur: 0, r1: 0, r2: 0 };
                 Object.assign(bro.state, { _xiaoCarryDeaths: { cur: 0, r1: dd.cur, r2: dd.r1 } });
@@ -229,7 +227,7 @@ export function createXiaoZhaoBrotherComponent() {
                     Object.assign(bro.state, { _xiaoHolyFlame: { cols: cols.sort((x, y) => x - y), rows: rows.sort((x, y) => x - y) } });
                 }
                 if (bro.state._spiderEgg) return;
-                // 2026-10-19 妹永久众志：团队众志不在场时，每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
+                // 妹永久众志：团队众志不在场时，每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
                 if (!hasBuff(A._activeBuffs, BUFF_TYPES.UNITY) && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.UNITY)) {
                     if (getBattleRng().next() < CONFIG.BUFFS.unity.brotherSummonChance) {
                         spawnOneUnityRecruit(A, log, CONFIG.BUFFS.unity.recruitM, '小昭·妹');
@@ -244,7 +242,7 @@ export function createXiaoZhaoBrotherComponent() {
                 const teamHasHorse = hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
                 const hasPermanent = bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HORSE_FORMATION);
                 if (!teamHasHorse && hasPermanent) {
-                    // 2026-10-21 老板拍板：妹永久巨马阵不再每回合必召，改 70% 概率（content.buffs.horseFormation.brotherSpawnChance）
+                    // 老板拍板：妹永久巨马阵不再每回合必召，改 70% 概率（content.buffs.horseFormation.brotherSpawnChance）
                     if (getBattleRng().next() < CONFIG.BUFFS.horseFormation.brotherSpawnChance) {
                         const xzHorse = spawnHorse(A, log, B, true);
                         if (xzHorse) {
@@ -253,8 +251,8 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
-                // 2026-10-15 永久 carry 改「每回合刷新一轮」（老板拍板）：不再一次性常驻 +3/+4/+20——
-                //   层数 = 1 + 1.5×(上回合己方阵亡数) + 0.5×(上上回合阵亡数)（2026-10-21 下调），每层调用精通参数
+                // 永久 carry 改「每回合刷新一轮」（老板拍板）：不再一次性常驻 +3/+4/+20——
+                //   层数 = 1 + 1.5×(上回合己方阵亡数) + 0.5×(上上回合阵亡数)，每层调用精通参数
                 //   （小昭.mastery 的 atkPer/defPer/hpPer，不写死）。ttl:'round' 由回合开始清理、此处重挂
                 //   （清理先于蛛变声明，无空窗）。原 V7.0.3 carryApplied 去重门控作废——无限叠加是
                 //   permanent 挂法特有问题，round 挂法天然消除。
@@ -286,7 +284,7 @@ export function createXiaoZhaoBrotherComponent() {
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit,
-                        // 2026-09-22 同 doubleStrike：原目标同击致死后 alive 仍 true，须连 _pendingDeath 一起判，
+                        // 同 doubleStrike：原目标同击致死后 alive 仍 true，须连 _pendingDeath 一起判，
                         //   否则把待死 uid 锁给第二次攻击 → 白跳
                         targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
                         reason: 'xiaoZhaoDoubleMiss',
@@ -304,7 +302,7 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.SPIDER_RETURN, (data) => {
                 submitSpiderDescendDeclaration(data);
             });
-            // 蜘蛛卵（2026-10-13）：毒/反伤致死 → 结茧续命。正常攻击致死走致死档飞天、到不了这里；
+            // 蜘蛛卵：毒/反伤致死 → 结茧续命。正常攻击致死走致死档飞天、到不了这里；
             //   打碎的卵（_spiderEgg）/ 本局结过茧（_spiderEggUsed）/ 致死档已花（_spiderTriggeredDeath）= 真死
             eventBus.on(SIGNAL_TYPES.ON_BEFORE_DEATH, L.ON_BEFORE_DEATH.SPIDER_EGG, (data) => {
                 for (const u of data.units) {
@@ -313,7 +311,7 @@ export function createXiaoZhaoBrotherComponent() {
                     toSpiderEgg(u, data.log);
                 }
             });
-            // 卵计时（2026-10-15 V7.1.1 修）：ON_ROUND_END 在 core/11 L459 是「每个单位行动完就发一次」（forced:false），
+            // 卵计时：ON_ROUND_END 在 core/11 L459 是「每个单位行动完就发一次」（forced:false），
             //   原先照收会同一回合内凑满 2 → 当回合孵化；改为只认真回合末（forced:true = core/11 L536 finalizeRoundEnd，
             //   每回合恰一次）——结茧当回合末 +1、下一回合末 +2 → 先于蛛落（SPIDER_RETURN:10）孵化
             eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.SPIDER_EGG, (data) => {
@@ -336,7 +334,7 @@ export function createXiaoZhaoBrotherComponent() {
             if (!fsm || !fsm.is('normal')) return false;
             const fp = getSkillParams('小昭', 'spiderFly');
             if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
-            // 2026-10-13 与 submitSpiderFlyDeclaration 共用落点判据（顺延语义一致）
+            // 与 submitSpiderFlyDeclaration 共用落点判据（顺延语义一致）
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             const tier = decideSpiderTier(unit.state, unit.maxHp, hpAfter, fp);
             if (!tier) return false;
@@ -361,7 +359,7 @@ export function createXiaoZhaoBrotherComponent() {
 }
 
 // 金毛狮王谢逊（明教 · 站 7 号位）：召唤幼狮 / 幼狮成长 / 雄狮振奋 / 母狮随动
-// 2026-09-22 新增；2026-09-23 改版：删「替死 / 集火 / 狮吼」，狮子改为一条成长链——
+// 新增；改版：删「替死 / 集火 / 狮吼」，狮子改为一条成长链——
 //   召唤幼狮 → ON_ROUND_START 每回合 prob 概率随机空位 1 只（攻=0 故打不出伤害，轮到它走休息通道回血；
 //               被振奋抬到攻>0 后会正常出手，职业是防战 → core/12 走防战公式）
 //   幼狮成长 → ON_ROUND_START 上一回合留下的幼狮按所在位置成形（1-6 雄狮 / 7-9 母狮）

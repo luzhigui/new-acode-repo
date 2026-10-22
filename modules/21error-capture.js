@@ -1,5 +1,4 @@
-// V6.0.1 | 2026-10-20 面板创建改「有则复用」：index.html <head> 内联段若已因早期错误建过同名 panel，不再建第二个同 id 面板
-// V6.0.0 | ~5900 bytes | 2026-07-05
+// V6.0.1 | 2026-10-20 | ~6000 bytes
 export const VER = 'modules/21error-capture.js V6.0.1';
 
 (function initErrorCapture() {

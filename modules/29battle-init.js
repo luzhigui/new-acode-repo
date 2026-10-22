@@ -1,20 +1,7 @@
-// V7.6.3 | 2026-10-22 额外兵职业解析同口径（M104 池抽到唐文亮不再掷随机四选一，读 content role/tags）
-// V7.6.2 | 2026-10-22 数字空位职业解析加第二道防线：tags 含「标枪」也认（不依赖 content role 字段在不在）
-// V7.6.1 | 2026-10-22 补寒离飒强精英 force 通道（forceHanLiSa）：她 V7.6.0 并入 eliteConfigs 后
-//   已在弱精英池之外，旧的 forceWeakElite='寒离飒' 会撞入池校验抛错、强精英评测整组跑不了
-// V7.6.0 | 2026-10-22 明教精英分层重写（老板口径限强度保趣味）：Boss（张无忌 30%）独掷、Boss 局最多再配 1 个
-//   （强 70%/弱 30%）；无 Boss 时强精英 90% 出 1 / 10% 出 2（绝不 3），弱精英独立 30% 混入；
-//   寒离飒由弱升强进强精英池；删 eliteCount / ELITE_COUNT_THRESHOLDS 旧轮盘（骰子先掷后判，RNG 流仍双端同源）
-// V7.5.26 | 2026-10-21 新增 forceSoloWeakElite（仅工具 112 强精英单挑用）：配合 forceWeakElite 锁定寒离飒时
-//            抑制随机精英轮盘，得到「只有她一个精英」的单核局；不设该标志时弱精英混入照旧（强精英轮盘照常）
-// V7.5.24 | ~25400 bytes | 2026-10-19 六大派弱精英随机混入（老板拍板，与明教侧同率 WEAK_ELITE_MIX_RATE）：
-//            池由名册派生（HERO_FLAGS ∩ 不属于任一关卡固定精英池）＝何太冲/唐文亮，命中则锁定一处 M 值匹配的数字空位
-//            （每局至多一名）；dev 强制 forceWeakElite 优先，两者共用同一条锁定通道
-// V7.5.23 | 2026-10-17 唐文亮（标枪弱精英）重做接线：职业优先读 content `characters.*.role`（标枪不进 CONFIG.ROLES，
-//            故不能只靠 tags 判定）+ 恒定落中后排 4~9（身份优先表 CONFIG.ENEMY_ELITE_POS_PRIORITY.tangWenLiang）
-// V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
-//            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
-// ── 更早版本见 记录-更改履历.md
+// modules/29battle-init.js — 双方阵容生成（精英分层 / 弱精英混入 / 站位锚点）
+// 明教精英分层：Boss（张无忌）独掷，出 Boss 最多再配 1 个（强 70%/弱 30%）；无 Boss 时强精英 90% 出 1、10% 出 2，
+//   弱精英独立 30% 混入。骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
+// V7.6.3 | 2026-10-22 | ~33500 bytes
 export const VER = 'modules/29battle-init.js V7.6.3';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
@@ -63,10 +50,10 @@ export function initBattleTeams(currentStage, _rng) {
         rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 5;
     }
 
-    // ── 2026-10-22 明教精英分层重写（老板口径：限强度、保趣味）──
+    // ── 明教精英分层重写（老板口径：限强度、保趣味）──
     //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（30%）独立掷；出 Boss 时最多再配 1 个（强 70% / 弱 30%）
     //   无 Boss：强精英 90% 出 1 / 10% 出 2（绝不 3）；弱精英独立 WEAK_ELITE_MIX_RATE（30%）混入，总数 ≤ 3
-    //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒 2026-10-22 由弱升强，与前者同级）
+    //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒由弱升强，与前者同级）
     //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
     //   RNG 流纪律（PVP 双端同源）：骰子全部无条件消耗，force 只改「是否应用」，不改消耗序列。
     const bossConfig = { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePowerOf('张无忌') };
@@ -119,11 +106,11 @@ export function initBattleTeams(currentStage, _rng) {
     const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
     const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
     const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
-    // 2026-10-22 V7.6.1：寒离飒已升强精英，需独立 force 通道（走 forceWeakElite 会撞下方入池校验抛错）
+    // V7.6.1：寒离飒已升强精英，需独立 force 通道（走 forceWeakElite 会撞下方入池校验抛错）
     const forceHanLiSa = GlobalStore.get('forceHanLiSa') || localStorage.getItem('_forceHanLiSa') === '1';
     const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother'
         || localStorage.getItem('_forceXiaoZhao') === 'sister' || localStorage.getItem('_forceXiaoZhao') === 'brother');
-    // 2026-10-21 V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
+    // V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
     const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
     const anyForce = forceZhang || forceWei || forceXieXun || forceHanLiSa || _forceXzEarly || forceSoloWeak;
 
@@ -132,7 +119,7 @@ export function initBattleTeams(currentStage, _rng) {
     if (forceXieXun && !allyTeam.some(u => u.isXieXun)) pushElite(strongEliteConfigs.find(c => c.isXieXun));
     if (forceHanLiSa && !allyTeam.some(u => u.isHanLiSa)) pushElite(strongEliteConfigs.find(c => c.isHanLiSa));
 
-    // 2026-10-08 V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
+    // V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
     //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
     if (!anyForce) {
         if (hasBoss) {
@@ -157,7 +144,7 @@ export function initBattleTeams(currentStage, _rng) {
     // 普通兵候选池
     const candidatePool = [];
     for (const [name, m] of Object.entries(C.MING_M)) {
-        // 2026-09-14 去名字字面量：用身份标记判断是否精英（与 eliteConfigs 同源）
+        // 去名字字面量：用身份标记判断是否精英（与 eliteConfigs 同源）
         if (HERO_FLAGS[name]) continue;
         if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPowerOf(m) });
     }
@@ -213,7 +200,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
     }
 
-    // —— 弱精英随机混入（明教，2026-10-16 定案）——
+    // —— 弱精英随机混入（明教，定案）——
     // 明教固定精英轮盘＝张无忌/韦一笑/小昭/谢逊；其余具名身份（杨逍/殷天正）属「弱精英」，
     //   不进轮盘：按 WEAK_ELITE_MIX_RATE 概率随机替换一个普通位混入正常阵容（每局至多一名）。
     // 弱精英池由名册派生（明教名册里带身份标记、且不在固定精英轮盘内），不另建清单。
@@ -227,7 +214,7 @@ export function initBattleTeams(currentStage, _rng) {
         throw new Error(`forceWeakElite 无效（不在明教弱精英池、也不在 roster.enemyM）: ${forceWeakElite}`);
     }
     const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
-    // 2026-10-22 寒离飒已升强精英：混入时不能再把他换掉；Boss 局搭档已配强精英则跳过（总数控在 Boss+1）
+    // 寒离飒已升强精英：混入时不能再把他换掉；Boss 局搭档已配强精英则跳过（总数控在 Boss+1）
     const mixSwappable = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun && !u.isHanLiSa);
     // RNG 流纪律（PVP 双端同源）：抽签无条件消耗，锁定与否只改「是否应用」，不改消耗序列
     const mixRoll = _rng.next();
@@ -239,7 +226,7 @@ export function initBattleTeams(currentStage, _rng) {
         const pick = weakAllyForced
             ? mingWeakPool.find(w => w.name === forceWeakElite)
             : mingWeakPool[mixPickIdx];
-        // 2026-10-17 职业解析优先级：content `role` 字段（可放非 CONFIG.ROLES 的职业，如标枪）> tags 命中 CONFIG.ROLES
+        // 职业解析优先级：content `role` 字段（可放非 CONFIG.ROLES 的职业，如标枪）> tags 命中 CONFIG.ROLES
         const chWeak = getGameData()?.characters?.[pick.name];
         const tagRole = chWeak?.role || (chWeak?.tags || []).find(t => C.ROLES.includes(t));
         if (!tagRole) throw new Error(`明教弱精英缺职业（characters.${pick.name}.role / tags）`);
@@ -267,13 +254,13 @@ export function initBattleTeams(currentStage, _rng) {
     if (zhang) { zhang.pos = 5; takenPos.add(5); }
     if (wei) { wei.pos = 6; takenPos.add(6); }
     if (xz) { xz.pos = 4; takenPos.add(4); }
-    // 2026-09-22 金毛狮王谢逊站 7 号位（与张无忌5/韦一笑6/小昭4 同性质：只是站位锚点）
-    // 2026-09-24 不在这里单独锁死：他和张/韦/小昭 一样，只占下面「固定 3 位」里的一个名额。
+    // 金毛狮王谢逊站 7 号位（与张无忌5/韦一笑6/小昭4 同性质：只是站位锚点）
+    // 不在这里单独锁死：他和张/韦/小昭 一样，只占下面「固定 3 位」里的一个名额。
     //   原先此处直接 xie.fixed = true，会让他不在 toLock 名单里却多锁一个 → 明教出现 4 个固定位，
     //   且补足到 3 的随机补位可能落到无关的普通弟子身上。
     let xie = allyTeam.find(u => u.isXieXun);
     if (xie) { xie.pos = 7; takenPos.add(7); }
-    // 2026-10-17 寒离飒恒定 2 号位（老板拍板）：先于「张无忌在场时 others[0] 站 2」的旧规则抢位，
+    // 寒离飒恒定 2 号位（老板拍板）：先于「张无忌在场时 others[0] 站 2」的旧规则抢位，
     //   并从 others 名单摘掉，避免被随机补位顶走
     let hls = allyTeam.find(u => u.isHanLiSa);
     if (hls && !takenPos.has(2)) { hls.pos = 2; takenPos.add(2); }
@@ -288,9 +275,9 @@ export function initBattleTeams(currentStage, _rng) {
         if (emptySlots.length > 0) { u.pos = emptySlots.shift(); takenPos.add(u.pos); }
         else { u.pos = 5; }
     }
-    // 2026-09-24 谢逊并入名单：明教固定位恒为 3 个（张/韦/小昭/谢逊 中在队的按序占名额，不足 3 随机补足）。
+    // 谢逊并入名单：明教固定位恒为 3 个（张/韦/小昭/谢逊 中在队的按序占名额，不足 3 随机补足）。
     //   四人同时在队时（forceXieXun + 满精英）按优先级截断到 3，保证「锁 3 位」恒定，不会又变回 4 位。
-    // 2026-10-19 寒离飒插队首位（老板实机反馈「初始站位固定 2 号位置」）：她的整套蓄意轰拳以 2 号位为锚，
+    // 寒离飒插队首位（老板实机反馈「初始站位固定 2 号位置」）：她的整套蓄意轰拳以 2 号位为锚，
     //   准备阶段不许拖走；五锚同队时张/韦保锁、小昭/谢逊按序让位，锁位总数仍恒 3。
     let toLock = [hls, zhang, wei, xz, xie].filter(Boolean).slice(0, 3);
     while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[_rand(0, pool.length - 1)]; toLock.push(pick); }
@@ -299,7 +286,7 @@ export function initBattleTeams(currentStage, _rng) {
     // 六大派阵容生成
     let enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
     // 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（走 _rng，PVP 双端同源）
-    // 2026-09-22 变体升级为 { squad, posTemplate? }：阵容与站位成套下发；posTemplate 缺省才回落关卡级 ENEMY_POS_TEMPLATES
+    // 变体升级为 { squad, posTemplate? }：阵容与站位成套下发；posTemplate 缺省才回落关卡级 ENEMY_POS_TEMPLATES
     const squadVariants = C.ENCOUNTER_VARIANTS[currentStage];
     let variantPosTemplate = null;
     if (squadVariants && squadVariants.length > 0) {
@@ -318,7 +305,7 @@ export function initBattleTeams(currentStage, _rng) {
     let enemyUnits = [];
     const usedEnemyNames = [];
 
-    // —— 六大派弱精英混入（2026-10-19 老板拍板：与明教侧同率 WEAK_ELITE_MIX_RATE）——
+    // —— 六大派弱精英混入——
     // 池由名册派生（六大派名册里带身份标记、且不属于任一关卡的固定精英池）＝何太冲/唐文亮，不另建清单；
     //   命中则本局把「首个 M 值匹配的数字空位」锁定为该弱精英（每局至多一名），照明教侧混入口径。
     //   本关若没有对应 M 的数字空位（如第 3 关变体全是对象项）则不生效。
@@ -363,19 +350,19 @@ export function initBattleTeams(currentStage, _rng) {
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
-                // 弱精英锁定（2026-10-16 起；2026-10-19 扩为「dev 强制 or 本局随机混入」）：命中名册且 M 值对上
+                // 弱精英锁定：命中名册且 M 值对上
                 //   本数字空位时锁定该具名——六大派弱精英「混入正常阵容占 1 位」，每局至多一名；
                 //   本关若无对应 M 空位则不生效（如第 3 关胖远桥组全对象项）
                 if (!weakLockUsed && weakLockName && ENEMY_M[weakLockName] === mVal && !usedEnemyNames.includes(weakLockName)) {
                     name = weakLockName;
                     weakLockUsed = true;
                 }
-                // 2026-10-11 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
+                // 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
                 //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。
                 //   无名杂兵（空闻/班淑娴等，不在 characters 表）保持随机，当作阵容变数。
                 let role = C.ROLES[_rand(0, 3)];
-                // 2026-10-17 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
-                // 2026-10-22 第二道防线：tags 里直接写「标枪」也认（role 字段丢失时不至于回落到随机四选一）
+                // 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
+                // 第二道防线：tags 里直接写「标枪」也认（role 字段丢失时不至于回落到随机四选一）
                 const chNamed = getGameData()?.characters?.[name];
                 const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
                 if (tagRole) role = tagRole;
@@ -401,7 +388,7 @@ export function initBattleTeams(currentStage, _rng) {
                 const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                 name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
             }
-            // 2026-10-22 职业解析与具名兵同口径：content `role` 字段 > tags 命中 CONFIG.ROLES 或标枪
+            // 职业解析与具名兵同口径：content `role` 字段 > tags 命中 CONFIG.ROLES 或标枪
             //   （此前这里只掷 C.ROLES 随机四选一，M104 池抽到唐文亮会给错职业）
             const chNamed = getGameData()?.characters?.[name];
             let role = C.ROLES[_rand(0, 3)];
@@ -415,7 +402,7 @@ export function initBattleTeams(currentStage, _rng) {
         let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
-        // 2026-09-17 张三丰固定1号位：普通兵排位之前先锁，其他单位不许占
+        // 张三丰固定1号位：普通兵排位之前先锁，其他单位不许占
         const zhangSanfeng = eliteUnits.find(u => u.name === '张三丰');
         if (zhangSanfeng && !enemyPosSet.has(1)) {
             zhangSanfeng.pos = 1;
@@ -427,15 +414,15 @@ export function initBattleTeams(currentStage, _rng) {
             normalUnits.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
             let templateNeeds = {};
             for (let [role, poses] of Object.entries(template)) { if (role === 'random') continue; templateNeeds[role] = poses.length; }
-            // 2026-10-12 具名角色（characters 表且有 ROLES tag，如 何太冲=远程）：职业是身份，不参与下面的凑模板改职
-            //   2026-10-17 补 content `role` 字段（标枪等非 CONFIG.ROLES 职业）同判 isTagFixed
+            // 具名角色（characters 表且有 ROLES tag，如 何太冲=远程）：职业是身份，不参与下面的凑模板改职
+            //   补 content `role` 字段（标枪等非 CONFIG.ROLES 职业）同判 isTagFixed
             const isTagFixed = (u) => { const ch = getGameData()?.characters?.[u.name]; return !!(ch && (ch.role || (ch.tags || []).find(t => C.ROLES.includes(t)))); };
             for (let role of [ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.WARRIOR]) {
                 let need = templateNeeds[role] || 0;
                 let current = roleCounts[role] || 0;
                 let shortage = need - current;
                 if (shortage > 0) {
-                    // 2026-10-12 具名角色不参与凑模板改职（V7.5.17 只守了抽名这步，会把何太冲改成飞行）——缺位留给无名杂兵
+                    // 具名角色不参与凑模板改职（V7.5.17 只守了抽名这步，会把何太冲改成飞行）——缺位留给无名杂兵
                     let others = normalUnits.filter(u => u.role !== role && (templateNeeds[u.role] || 0) < (roleCounts[u.role] || 0) && !isTagFixed(u));
                     for (let i = 0; i < Math.min(shortage, others.length); i++) { roleCounts[others[i].role]--; others[i].role = role; roleCounts[role]++; }
                 }
@@ -451,7 +438,7 @@ export function initBattleTeams(currentStage, _rng) {
                 }
             }
         }
-        // 2026-10-17 唐文亮（标枪弱精英）：恒定落中后排 4~9——「标枪」不是模板职业，模板排位挑不到他，
+        // 唐文亮（标枪弱精英）：恒定落中后排 4~9——「标枪」不是模板职业，模板排位挑不到他，
         //   故在模板排位之后、周芷若/宋青书等精英之前，按身份优先表抢位（1~3 仅作极端挤占兜底）
         const twJavelin = normalUnits.find(u => u.isTangWenLiang && u.pos == null);
         if (twJavelin) {

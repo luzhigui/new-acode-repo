@@ -1,4 +1,6 @@
-// V6.1.0 | ~11800 bytes | 2026-09-23 妆造字段剥离：SET_FLASH/CLEAR_* 只换 units 引用触发重绘，妆造走 infra/61-view-sheet；删 buffXxxBonus 顶层字段与 STAT_BONUS_CHANGE
+// modules/24battle-store.js — 战斗 Store（reducer + 单位事件应用）
+// 妆造字段不存 units：SET_FLASH / CLEAR_* 只换 units 引用触发重绘，妆造走 infra/61-view-sheet。
+// V6.1.0 | 2026-09-23 | ~7200 bytes
 export const VER = 'modules/24battle-store.js V6.1.0';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -48,7 +50,7 @@ export function battleReducer(state, action) {
             return { ...state, units: action.units.map(u => ({ ...u, state: { ...u.state } })) };
         }
         case STORE_ACTION_TYPES.SET_ROUND: {
-            // 2026-09-14 状态三轨收敛：回合数唯一存于 store（readRound 现取）
+            // 状态三轨收敛：回合数唯一存于 store（readRound 现取）
             if (action.round === undefined || action.round === state.round) return state;
             return { ...state, round: action.round };
         }

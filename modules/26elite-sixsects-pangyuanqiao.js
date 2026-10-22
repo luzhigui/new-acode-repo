@@ -1,12 +1,5 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.29.1 | ~15340 bytes | 2026-10-15 蓄力改版（老板拍板）：每次出手命中后自身回血 healPerAttack（放弃「上限永久成长」），
-// V6.29.3 | ~15500 bytes | 2026-10-19 谁的日志归谁（老板拍板）：莽撞战报行不再 pushInfo 插进攻击者的攻击组，
-//   改为紧跟本击攻击组之后的独立 SKILL_ANNOUNCE 播报行（主路径 + 溅射路径两处）；飘字/声明 fact 通道不动。
-// V6.29.2 | ~15420 bytes | 2026-10-17 正义国字脸防御+40 声明改挂 SKILL_ANNOUNCE（被闪也发，账实一致）
-//   走通用 HEAL 通道：本组件发 HEAL 声明 → 本击 ATTACK 组 entries → render/38 回血白名单 → 战报绿字 + afterText 飘字。
-//   同轮补 hp 记账（体检第 94 轮转交）：emit 处 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')——
-//   与 HEAL 声明 healed 同表达式同值，纯审计零行为差异；PANG_HIT_HEAL 契约转严格比对
-// V6.29.4 | 2026-10-22 蓄力回复飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
+// V6.29.4 | 2026-10-22 | ~15100 bytes
 export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.4';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -17,7 +10,7 @@ import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.j
 import { pushSkillAnnounce } from './23elite-helpers.js';
 
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
-// 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
+// 新增；改版：嘲讽与打歪合并为「每次攻击前二选一」——
 //   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且自身防御永久+40、无上限叠加），
 //   攻越高越容易发动年轻气盛（随机目标 ×2.0 + 击退，退无可退则眩晕）。
 // 第三关与宋青书每局随机二选一（content 的 encounters.squadVariants["3"]）。
@@ -38,7 +31,7 @@ export function createPangYuanQiaoComponent() {
             const young = getSkillParams('胖远桥', 'youngBlood');
             if (!young) throw new Error('缺技能参数: 胖远桥.youngBlood');
 
-            // 2026-10-15 出手声明暂存：PANG_CLUMSY 掷完骰写入，AFTER_SELECT_TARGET（选敌完成·出手前）落日志后清空。
+            // 出手声明暂存：PANG_CLUMSY 掷完骰写入，AFTER_SELECT_TARGET（选敌完成·出手前）落日志后清空。
             //   存结构化结果（kind + 数值），目标名在落日志时用信号里的 data.target 现取，
             //   避免掷骰时声明的目标被后续选敌处理器（嘲讽强制/幻影等）改写后名字对不上。
             let pendingDecl = null;
@@ -48,7 +41,7 @@ export function createPangYuanQiaoComponent() {
                 if (data.target !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
-                // 2026-10-02 飘字：加攻量随本击 fact 走一格（此前只有金色战报行、头顶零飘字）。
+                // 飘字：加攻量随本击 fact 走一格（此前只有金色战报行、头顶零飘字）。
                 //   group.data === 本击 ATTACK fact 的 data（core/12 buildAttackGroup 同一对象），render/38 据此产
                 //   STAT_CHANGE(atk) → render/39 发 ATK_BUFF_FLOAT → fx/80 在胖远桥头顶飘「⚔+N」。
                 if (data.group && data.group.data) data.group.data.pangAtkGain = rage.atkPerHit;
@@ -62,7 +55,7 @@ export function createPangYuanQiaoComponent() {
                 pushSkillAnnounce(data.log, pang, '莽撞', `💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）`);
             });
 
-            // 技能1 补充（2026-09-24）：流星赶月/乘风突袭的溅射（二次伤害）同样算「挨打」，与主目标口径一致。
+            // 技能1 补充：流星赶月/乘风突袭的溅射（二次伤害）同样算「挨打」，与主目标口径一致。
             //   AFTER_DAMAGE_APPLIED 只发主目标，溅射由 core/16 的 SPLASH handler 走 SPLASH_DAMAGED 窄信号。
             eventBus.on(SIGNAL_TYPES.SPLASH_DAMAGED, 50, (data) => {
                 if (data.unit !== pang || !pang.alive) return;
@@ -75,7 +68,7 @@ export function createPangYuanQiaoComponent() {
                         data: { unitName: pang.name, atkDelta: rage.atkPerHit }
                     });
                 }
-                // 2026-10-19 谁的日志归谁：溅射莽撞台词不再挂攻击者组内的溅射 fact 行尾，改独立播报行
+                // 谁的日志归谁：溅射莽撞台词不再挂攻击者组内的溅射 fact 行尾，改独立播报行
                 pushSkillAnnounce(data.log, pang, '莽撞', `💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）`);
                 // 飘字通道不动：溅射 fact 仍在攻击者组 entries 里，render/38 扫到按 uid/加攻量飘「⚔+N」
                 if (data.factData) {
@@ -102,7 +95,7 @@ export function createPangYuanQiaoComponent() {
                 const threshold = Math.min(f.cap, f.base + (getStat(pang, 'atk') - f.atkRef) / f.atkDiv);
                 const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
                 if (rng.next() < clumsyProb) {
-                    // 年轻气盛（打歪）：随机挑一名敌人，×随机倍率（2026-10-15 老板拍板：固定 2.0 改
+                    // 年轻气盛（打歪）：随机挑一名敌人，×随机倍率（老板拍板：固定 2.0 改
                     //   dmgMultMin~dmgMultMax 波动、步长 dmgMultStep，本击定值存 _clumsyMult）并附带击退/眩晕
                     const steps = Math.round((young.dmgMultMax - young.dmgMultMin) / young.dmgMultStep) + 1;
                     pang.state._clumsyMult = Math.round((young.dmgMultMin + rng.nextInt(0, steps - 1) * young.dmgMultStep) * 10) / 10;
@@ -112,14 +105,14 @@ export function createPangYuanQiaoComponent() {
                     return;
                 }
                 // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗），
-                //   同时自身防御永久 +defGain（2026-09-24 由「被嘲讽者的伤害 ×0.3」改为叠防，无上限叠加）
+                //   同时自身防御永久 +defGain
                 for (const foe of cands) foe.state._tauntedByPang = true;
                 addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });
                 pang.state._tauntFired = true;
                 pendingDecl = { kind: 'face' };
             });
 
-            // 出手声明落日志（2026-10-15）：core/10 在选敌完成、命中/闪避判定之前广播本信号，
+            // 出手声明落日志：core/10 在选敌完成、命中/闪避判定之前广播本信号，
             //   因此被闪避反击时声明行仍在 DODGE 行之前（此前声明挂 AFTER_ATTACK/AFTER_DAMAGE_APPLIED，被闪时两条都不发）。
             //   走 SKILL_ANNOUNCE（契约五字段齐），只落战报行不飘字；演出仍由 pangTaunt/pangClumsy 标记在出手帧触发。
             eventBus.on(SIGNAL_TYPES.AFTER_SELECT_TARGET, L.AFTER_SELECT_TARGET.PANG_DECLARE, (data) => {
@@ -137,14 +130,14 @@ export function createPangYuanQiaoComponent() {
                 });
             });
 
-            // 出手蓄力改版（2026-10-15 老板拍板）：每次出手**命中后**自身回血 face.healPerAttack（放弃「上限永久成长」）。
+            // 出手蓄力改版：每次出手**命中后**自身回血 face.healPerAttack（放弃「上限永久成长」）。
             //   走通用 HEAL 通道：把 HEAL 声明推进 data.declarations（core/10 结算后落进本击 ATTACK 组 entries），
             //   render/38 攻击组回血白名单（ATTACK_GROUP_HEAL_FACTS 已含 FACT_TYPES.HEAL）→ makeHealAction afterText 飘字；
             //   战报绿字由 render/35 的通用 HEAL 渲染器（plusTrail）产出。被闪避的那次攻击不发本信号，故不回血。
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
                 if (data.unit !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                // 2026-10-22 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
+                // 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
                 //   preview 只用于飘字/审计的实际落地值
                 const rawHeal = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
                 const healed = previewHeal(pang, rawHeal);
@@ -183,7 +176,7 @@ export function createPangYuanQiaoComponent() {
                 pang.state._tauntFired = false;
                 if (data.group && data.group.data) {
                     data.group.data.pangTaunt = true;
-                    // 2026-10-02 加防量随 fact 走一格（此前只有上面那行文字、无飘字），
+                    // 加防量随 fact 走一格（此前只有上面那行文字、无飘字），
                     //   render/38 据此产 STAT_CHANGE(def) → fx/80 飘「🛡+N」
                     data.group.data.pangDefGain = face.defGain;
                 }

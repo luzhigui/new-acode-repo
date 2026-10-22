@@ -1,13 +1,6 @@
 // modules/25elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
-// V6.1.1 | ~11000 bytes | 2026-10-16 linkAttack 钩子补身份键 key:'linkAttack:'+decl.name（配 infra/50 V6.9.7）：
+// V6.1.1 | 2026-10-16 | ~10600 bytes
 //           修「鹤笔翁出手 → 鹿杖客不跟随」——两条 linkAttack 声明同源同优先级被误去重，只留了鹿杖客那条
-// V6.1.0 | ~10860 bytes | 2026-10-14 core/15 瘦身批 1：linkAttack / phantomDisguise 两个顶层机制从 core/15
-//   本地安装器改造成 core/18 注册表 handler（定义与注册同处本文件）。两条改造口径：
-//   ① 每 decl 一次 install，钩子内不再遍历 decls，一律用 decl.name 过滤（玄冥双方各声明一条、各自命中自己）
-//   ② 幻影的「是不是成昆」由 isChengKun 硬标记改为 decl.name——机制实现不再知道角色名
-//   同批（core/15 V6.8.0）已删 core/15 的两张例外表与旧本地安装器：本 handler 是这两个机制的唯一实现，
-//   core/15 只在安装期按键查表转发
-// ── 更早版本见 记录-更改履历.md
 export const VER = 'modules/25elite-imperial.js V6.1.1';
 
 import { registerElite, registerLinkPartners } from '../core/08-registry-elite.js';
@@ -54,7 +47,7 @@ export const linkAttackHandler = {
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_ATTACK,
             priority: L.AFTER_ATTACK.XUANMING_LINK,
-            // 2026-10-16 带身份键：鹿杖客 / 鹤笔翁各有一条 linkAttack 声明，闭包源码同形 + 同优先级，
+            // 带身份键：鹿杖客 / 鹤笔翁各有一条 linkAttack 声明，闭包源码同形 + 同优先级，
             //   只比 toString() 会把第 2 条（鹤笔翁那条）当重复丢弃 → 「鹤笔翁出手带动鹿杖客」永不触发
             key: 'linkAttack:' + decl.name,
             handler: (data) => { submitLinkAttack(data, decl); }
@@ -154,7 +147,7 @@ function submitPhantomDisguiseOnHit(data, decl) {
         const heal = Math.floor(lostHp * decl.healRatio * aliveCount);
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
-        // 审计账本（2026-10-14 迁出 _mods）：幻影伪装治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
+        // 审计账本：幻影伪装治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
         //   group='phantomDisguiseHeal' 比对「声明 heal vs 实际治疗」。真实治疗仍由上方 HEAL 声明结算负责。
         recordHpAudit(unit, 'phantomDisguiseHeal', heal, '成昆幻影伪装治疗');
     }
@@ -209,8 +202,8 @@ function submitPhantomDisguiseTarget(data, decl) {
 registerElite('成昆', createChengKunComponent);
 registerElite('鹿杖客', createLuZhangKeComponent);
 registerElite('鹤笔翁', createHeBiWengComponent);
-// 2026-10-08 搭档连线注册（core/11 特判收口）：玄冥二老配对知识住在英雄家
+// 搭档连线注册（core/11 特判收口）：玄冥二老配对知识住在英雄家
 registerLinkPartners('鹿杖客', '鹤笔翁');
-// 2026-10-14 core/15 迁移：两个机制改走 core/18 注册表（原先靠 core/15 本地安装器例外承接）
+// core/15 迁移：两个机制改走 core/18 注册表（原先靠 core/15 本地安装器例外承接）
 registerMechanicHandler(MECHANIC_TYPES.LINK_ATTACK, linkAttackHandler);
 registerMechanicHandler(MECHANIC_TYPES.PHANTOM_DISGUISE, phantomDisguiseHandler);

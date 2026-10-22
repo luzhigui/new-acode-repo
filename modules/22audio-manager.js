@@ -1,7 +1,4 @@
-// V6.1.2 | 2026-10-20 续删 cycleSource（唯一调用方 toggleBGM 已删；音乐面板走 switchSource/currentSource，保留）
-// V6.1.1 | 2026-10-20 删死代码：playSlash（CONFIG.SFX 无 'slash' 映射 ⇒ 'slash' 分支永不可达）+ CONFIG.SFX 删 DEFENDER:'hammer'
-//   （role 改写补丁保留：DEFENDER 先回落 WARRIOR 借战士音效）+ initSfx 死 guard 收敛
-// V6.0.0 | ~8000 bytes | 2026-07-05
+// V6.1.2 | 2026-10-20 | ~14600 bytes
 export const VER = 'modules/22audio-manager.js V6.1.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -376,7 +373,7 @@ export const AudioManager = {
         if (!this.enabled) return;
         try {
             if (role === ROLE_TYPES.DEFENDER) role = ROLE_TYPES.WARRIOR;
-            // 2026-10-17 标枪（唐文亮）音效回落战士——它的加成口径本就同战士；原先 SFX 表无「标枪」键 ⇒ 出手静音
+            // 标枪（唐文亮）音效回落战士——它的加成口径本就同战士；原先 SFX 表无「标枪」键 ⇒ 出手静音
             if (role === ROLE_TYPES.JAVELIN) role = ROLE_TYPES.WARRIOR;
             const sfxConfig = CONFIG.SFX || {};
             const sfx = sfxConfig[role];

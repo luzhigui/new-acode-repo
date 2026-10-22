@@ -1,10 +1,7 @@
-// V6.4.4 | ~7400 bytes | 2026-10-19 海克斯永久整局：自动选 buff 给 duration 时，content permanent:true（背水/圣火）→ remaining=Infinity，整局持有不过期
-// V6.4.3 | ~7300 bytes | 2026-10-16 全自动选 buff 补众志成城门槛（与 modules/28、tools/116/122 同口径）：
-//          本阵营存活 ≥4 人不进候选；BUFF_TYPES 随本行重新引入
-// V6.4.2 | ~7200 bytes | 2026-10-14 全自动选 buff 放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
-//          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
-// V6.4.1 | ~7300 bytes | 2026-10-13 三处「获得Buff」日志支持整局海克斯：buff 带 permanent 时显示「整局」而非回合数
-// V6.4.0 | ~6900 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
+// player/49battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
+// 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
+// permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
+// V6.4.4 | 2026-10-19 | ~10600 bytes
 export const VER = 'player/49battle-flow.js V6.4.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -14,7 +11,7 @@ import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { createBuffObject, buffsOfCamp, generateBuffChoices } from '../modules/28buff-tools.js';
 import { appendLogHTML } from './47renderer.js';
 import * as net from '../infra/60-net-pvp.js';
-// 2026-09-14 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
+// 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
 // （注册方见 ui/63main-state.js；对应 rules 原则 6：依赖方向 ui/fx → player → render/modules → core → infra）
 
 const CAMP_LABEL = { [CAMP_TYPES.ALLY]: '明教', [CAMP_TYPES.ENEMY]: '六大派' };
@@ -33,7 +30,7 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         const team = c.store.getState().units.filter(u => u.camp === camp && u.alive);
         const available = allKeys.filter(k => {
             if (existing.includes(k)) return false;
-            // 2026-10-16 众志成城门槛（与 modules/28 generateBuffChoices、tools/116/122 同口径）：
+            // 众志成城门槛（与 modules/28 generateBuffChoices、tools/116/122 同口径）：
             //   本阵营存活 ≥4 人不进候选——补员是「获得当回合补满到 5」，已有 4 人时只补 1 个、收益太小
             if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
             const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
@@ -43,12 +40,12 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         if (available.length > 0) {
             const rng = getBattleRng();
             const pick = available[rng.nextInt(0, available.length - 1)];
-            // 2026-10-19 permanent 接线：content 里 permanent:true 的海克斯（背水一战/圣火不熄）→ remaining=Infinity，
+            // permanent 接线：content 里 permanent:true 的海克斯（背水一战/圣火不熄）→ remaining=Infinity，
             //   整局持有、不再四回合过期（过期过滤 remaining > 0 对 Infinity 天然放行）
             const duration = CONFIG.BUFFS[pick].permanent ? Infinity : (CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4);
             newBuff = createBuffObject(pick, duration, camp);
             // 小昭·妹永久海克斯仅明教适用
-            //   2026-10-08 补查重（手选路径 20 addPermanentBuff 有守卫，全自动路径此前裸塞可重复堆同名海克斯）
+            //   补查重（手选路径 20 addPermanentBuff 有守卫，全自动路径此前裸塞可重复堆同名海克斯）
             if (camp === CAMP_TYPES.ALLY && c.store) {
                 const xiaoZhao = c.store.getState().units.find(u => u.isXiaoZhaoBrother && u.alive);
                 if (xiaoZhao) {
@@ -133,7 +130,7 @@ export async function handleFlyDirection(c, lastStep, currentRound) {
     c.isPaused = false;
 }
 
-// 蓄意轰拳瞄准窗口（2026-10-19 V2.1：core/11 回合收尾前 yield 的标记步 hanlisaAimWindow 到此处理）。
+// 蓄意轰拳瞄准窗口。
 //   旧版两个病根一并修掉：①华丽开关误读 c.dodgeEffectEnabled（不存在，恒 undefined）→ 改 GlobalStore.get；
 //   ②旧钩子搜 battleState（上一回合的旧克隆，_hlsCharging 停在 1）→ 弹窗永不触发 → 改搜 step.ally/enemy
 //   （本回合克隆，与引擎 generator 的 A/B 同引用——写入直达随后的 ON_ROUND_END 结算）。
@@ -153,7 +150,7 @@ export async function handleHanlisaAimWindow(c, step, netLinked) {
         if (!interactive) return; // 引擎侧结算自动随机前排（modules/27 兜底）
         const showAim = GlobalStore.getUIHandler('showHanlisaAim');
         if (typeof showAim !== 'function') return; // UI 未挂（异常环境）→ 引擎兜底
-        // 2026-10-19 V3（demo 舞台照搬）：传敌我双方真值（卡面攻防血/血条 + 施术者格），图标/分档色由 ui/79 从战场活格现查
+        // V3（demo 舞台照搬）：传敌我双方真值（卡面攻防血/血条 + 施术者格），图标/分档色由 ui/79 从战场活格现查
         const enemyTeam = hls.camp === CAMP_TYPES.ALLY ? step.enemy : step.ally;
         const allyTeam = hls.camp === CAMP_TYPES.ALLY ? step.ally : step.enemy;
         const mk = (u) => ({ pos: u.pos, hp: u.hp, maxHp: u.maxHp, name: u.name, atk: Math.round(getStat(u, 'atk')), def: Math.round(getStat(u, 'def')) });

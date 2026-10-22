@@ -1,4 +1,4 @@
-// V6.0.0 | ~25600 bytes | 2026-08-26 特效单轨收尾：handleInfo/handleBuffReboundFortify 残留特效全移交导演 stageAction，本文件纯文本
+// V6.0.0 | 2026-08-26 | ~2700 bytes
 export const VER = 'player/45event-handlers.js V6.0.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
@@ -9,7 +9,7 @@ import { readRound } from './42player-core.js';
 import { clock } from '../infra/52-clock.js';
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
-// 2026-10-08 收口（外部AI清单#15）：currentRound 与 42.readRound 逐字等价，删本地版改引单源
+// 收口（外部AI清单#15）：currentRound 与 42.readRound 逐字等价，删本地版改引单源
 
 export async function handleBuffText(c, entry, delayMs = 0) {
     // 特效已由 stageAction 触发，此处只播文本

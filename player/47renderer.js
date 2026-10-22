@@ -1,4 +1,4 @@
-// V6.0.0 | ~5600 bytes | 2026-08-14 DOM操作收口，新增 playLogLine/appendHiddenDetail
+// V6.0.0 | 2026-08-14 | ~6500 bytes
 export const VER = 'player/47renderer.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -58,7 +58,7 @@ export function autoScrollLog() {
     if (log) log.scrollTop = log.scrollHeight;
 }
 
-// 2026-10-08 V7.5.12 从 infra/54 迁入（外部AI复核稿 ②「infra 去 UI」，老板批）：徽章 DOM 渲染归日志渲染层。
+// V7.5.12 从 infra/54 迁入（外部AI复核稿 ②「infra 去 UI」，老板批）：徽章 DOM 渲染归日志渲染层。
 //   _state.voteScore 直读改为 GlobalStore.get('voteScore')（同一份 _state，口径不变）；
 //   holyToken 保持 GlobalStore.get（战斗态 key 路由，54 原注释的坑照旧成立）。
 export function updateScoreBadge() {

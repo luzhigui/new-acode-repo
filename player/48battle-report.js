@@ -1,4 +1,4 @@
-// V6.2.0 | ~4700 bytes | 2026-09-24 战报补召唤单位行（狮子之类不在开局 snapshot，按 uid 补）
+// V6.2.0 | 2026-09-24 | ~5500 bytes
 export const VER = 'player/48battle-report.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -6,7 +6,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { renderVictoryLine, showScoreFloat } from './47renderer.js';
 
-// 2026-09-24 召唤单位补行：战报名单原先只映射开局 snapshot 两队，谢逊召唤出来的幼狮/雄狮/母狮
+// 召唤单位补行：战报名单原先只映射开局 snapshot 两队，谢逊召唤出来的幼狮/雄狮/母狮
 //   压根不在 snapshot 里，输出与承伤全被丢掉。此处把「结束态队伍里 uid 不在 snapshot」的单位
 //   （即召唤物）原样补到队尾，统计字段直接取结束态单位自身的记账。
 function collectSummons(finalState, snapshotList) {
@@ -67,7 +67,7 @@ export function grantClearRewards(winner, currentStage) {
     if (winner !== '明教' || !currentStage) return;
     const rng = getBattleRng();
     const stage = currentStage;
-    // 2026-10-08 掉率收口：killRate 改引 CONFIG.TOKEN_DROP_RATES（与 core/12 局内击杀掉落同源单表）。
+    // 掉率收口：killRate 改引 CONFIG.TOKEN_DROP_RATES（与 core/12 局内击杀掉落同源单表）。
     //   值不变：1.5→7 递增、第7关 7%（10-02 定案口径），此前手写数组与 core/01 两张表各自修越界、方向相反
     const killRate = CONFIG.TOKEN_DROP_RATES[stage] / 100;
     const clearRate = stage === 5 ? killRate * 6 : killRate * 5;
