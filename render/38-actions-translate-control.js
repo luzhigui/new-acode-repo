@@ -1,8 +1,5 @@
 // render/38-actions-translate-control.js — fact → stageAction 翻译器·控制位移族（38 拆分）
-// V1.0.1 | 2026-10-21 惑心换位补飘字：MIND_CONTROL_SWAP 由单动作改动作数组，按 data.dmg / data.heal
-//          增发 DAMAGE_FLOAT / HEAL（afterText）
-// V1.0.0 | ~5300 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：免疫/换位/击退/眩晕/变身/
-//          飞行态（蛛化·蝶变）类 FACT_TRANSLATORS 条目，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
+// V1.0.1 | 2026-10-21 | ~5300 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/38-actions-translate-control.js V1.0.1';
 

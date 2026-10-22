@@ -1,8 +1,5 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器入口（翻译域）
-// V1.4.0 | ~3700 bytes | 2026-10-13 按 fact 族拆分：攻击/回血/控制位移/属性召唤四族条目与 helper 纯搬移到
-//          38-actions-translate-attack/-heal/-control/-stat.js（翻译逻辑、动作字段、timing 零改动）；
-//          本文件保留入口装配：translateFactsToStageActions 导出 + FACT_TRANSLATORS 合成 + translateFact 分发
-//          + 末尾缺翻译器校验循环（语义原样）+ 回合族（ROUND_START/ROUND_END/PASS）三条。
+// V1.4.0 | 2026-10-13 | ~3700 bytes
 // 加新 fact 的舞台动作：在对应族文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
@@ -49,7 +46,7 @@ const FACT_TRANSLATORS = {
                 targetUid: data.unit?.uid ?? data.unitUid ?? null,
                 amount: data.actualHeal,
                 factIndex: index,
-                // 2026-09-16 必须显式 afterText：HEAL 的 timing 函数只认 afterText，写 beforeText 会被当 anchor 且无 fxAnchors → 静默丢弃
+                // 必须显式 afterText：HEAL 的 timing 函数只认 afterText，写 beforeText 会被当 anchor 且无 fxAnchors → 静默丢弃
                 timing: 'afterText'
             });
         }
