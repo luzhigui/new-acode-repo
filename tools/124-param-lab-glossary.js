@@ -147,7 +147,7 @@ export const ENGINE_READ = {
     redBlood:        ['thresholdPct', 'soloMult'],
     qianKun:         ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
-    qianKunDerived:  ['defToReduce', 'defToHeal', 'defToAtk'],
+    qianKunDerived:  ['defToHeal', 'defToAtk'],
     nearSwitch:      ['atkMul', 'defMul', 'maxHpMul'],
     spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance', 'hpThresholds', 'landHealRatio', 'landHealRatioDeath', 'eggDef', 'eggHatchHpRatio'],
     butterflyAttach: ['atkRatioRight', 'defRatioLeft', 'hpRatio'],
@@ -160,7 +160,7 @@ export const ENGINE_READ = {
     tongGuiYuJin:    ['reflectRatio'],
     jiuYangQuan:     ['prob', 'healPct'],
     hanBingShenZhang:['duration', 'dotPercents'],
-    xuLi:            ['shieldPct', 'halfRatio'],
+    xuLi:            ['shieldPct', 'hitShapes', 'tierDen', 'eightDen', 'fullDen', 'vampDiv', 'doublePunchHpPct', 'doublePunchProb'],
     dianXueShenTong: ['prob', 'cdRounds', 'allActedDmgRatio'],
     dianXueJieMai:   ['rounds', 'healReduceRatio'],
     xianJi:          ['jumpProb'],
@@ -174,12 +174,16 @@ export const ENGINE_READ = {
 //   再 `x.field`。第三种形态——**把 params 当参数传进helper函数、在helper体内读**——超出其块作用域分析，
 //   会被误报「表陈旧」。已逐案人工追溯调用链确认真读的，登记在此；守卫比对时按「扫描结果 ∪ 本表」计算。
 //   登记义务：每条必须能在注释里给出「读取点文件:行 + 传递链」；传递链断了（helper 改名/删参）要同步删。
-// 现有一条：
+// 现两条：
 //   spiderFly.hpThresholds —— modules/27elite-mingjiao-xiaozhao-brother.js L161/L320 `const fp = getSkillParams('小昭','spiderFly')`
 //     → L164/L324 `decideSpiderTier(..., fp)` → L25-26 `fp.hpThresholds[0]/[1]` 当飞天血量阈值（0.7/0.4）。
 //     （cfa2e10 小昭重写前是块内直读，V2.5.1 曾按直读登记；重写后改为参数传递，扫描器归不到 spiderFly 键上。）
+//   qianKunDerived.defToReduce —— modules/27elite-mingjiao-xiaozhao-sister.js L78/L140 `const s = getSkillParams('小昭','qianKunDerived')`
+//     → L80/L148 `calcQianKunReduce(dmg, defStat, s)` → L14 `s.defToReduce` 算乾坤衍生减伤分母。
+//     （defToHeal/defToAtk 是块内直读，扫描器能看见，故仍留在 ENGINE_READ；defToReduce 走 helper 传参，扫描器看不见。）
 export const ENGINE_READ_MANUAL = {
     spiderFly: ['hpThresholds'],
+    qianKunDerived: ['defToReduce'],
 };
 
 // 整包动态读取：引擎按动态键取子对象，无法逐字段列举（hexEnhance 经 getXiaoZhaoHexEnhance(hexKey) 取用）。
@@ -492,6 +496,22 @@ export const FIELD_GLOSSARY = {
     hpThreshold:        { name: '触发血量阈值（背水一战）', unit: UNIT.pct },
     recruitM:           { name: '补员单位的 M 值（众志成城）', unit: UNIT.point },
     tiers:              { name: '人数档位表（众志成城：人数 → 攻/防加成）', unit: UNIT.raw },
+    // 寒离飒 · 蓄意轰拳
+    shieldPct:          { name: '蓄力护盾比例（最大生命的百分比）', unit: UNIT.pct },
+    recentRounds:       { name: '伤害基数回溯回合数（取最近几回合承受的总伤害）', unit: UNIT.round },
+    vampDiv:            { name: '轰拳吸血除数（总伤害 ÷ 该值）', unit: UNIT.raw },
+    doublePunchHpPct:   { name: '双拳齐出血量阈值（生命低于该比例时触发）', unit: UNIT.pct },
+    doublePunchProb:    { name: '双拳齐出概率', unit: UNIT.pct },
+    hitShapes:          { name: '九位九形取格表（瞄第几号位 → 波及哪几个号位）', unit: UNIT.raw },
+    tierDen:            { name: '各档伤害除数（直击/相邻/更远，基数 ÷ 该值）', unit: UNIT.raw },
+    fullDen:            { name: '不瞄时的全屏伤害除数（上中下三行各一个）', unit: UNIT.raw },
+    direct:             { name: '直击格伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    near:               { name: '相邻格伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    far:                { name: '更远格伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    eightDen:           { name: '8 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    row123:             { name: '1/2/3 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    row456:             { name: '4/5/6 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    row789:             { name: '7/8/9 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
 };
 
 // CONFIG 键 → 中文名（旋钮标题用）
@@ -596,11 +616,21 @@ function enclosingType(root, parts) {
 function lastField(parts, root) {
     const last = parts[parts.length - 1];
     if (!/^\d+$/.test(last)) return { field: last, slot: '' };
-    const field = parts[parts.length - 2] || last;
+    // 2026-10-22 修：二维/多维数组时原实现只往上退一层，外层下标被当成字段名（显示成「1（第 1/4 档）」）。
+    // 现一路退到第一个非数字段，中间所有下标拼成「第 a/b-c/d 档」。
+    let i = parts.length - 1;
+    const idx = [];
+    while (i >= 0 && /^\d+$/.test(parts[i])) { idx.unshift(Number(parts[i])); i--; }
+    const field = i >= 0 ? parts[i] : String(idx[0]);
     let node = root;
-    for (let i = 0; i < parts.length - 1 && node != null; i++) node = node[parts[i]];
-    const total = Array.isArray(node) ? node.length : 0;
-    return { field, slot: total ? `（第 ${Number(last) + 1}/${total} 档）` : `（第 ${Number(last) + 1} 项）` };
+    for (let j = 0; j <= i && node != null; j++) node = node[parts[j]];
+    const dims = [];
+    for (let d = 0; d < idx.length; d++) {
+        const total = Array.isArray(node) ? node.length : 0;
+        dims.push(total ? `${idx[d] + 1}/${total}` : `${idx[d] + 1}`);
+        node = Array.isArray(node) ? node[idx[d]] : undefined;
+    }
+    return { field, slot: dims.length ? `（第 ${dims.join('-')} 档）` : '' };
 }
 
 /** 单位解析：全项目只有一套口径，直接按字段表默认单位（未登记 = raw 原值） */

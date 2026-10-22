@@ -1,4 +1,6 @@
-// tests/run-all.mjs | ~3900 bytes | V1.0.1 | 2026-10-13 CHECKS 末尾挂「翻译层golden对照」（tests/translate-golden.mjs，render/38 拆分护栏）
+// tests/run-all.mjs | ~4100 bytes | V1.3.0 | 2026-10-22 CHECKS 新增「蓄意轰拳数值口径对账」
+//   （tests/hit-shapes-consistency.mjs，新检查，放在静态契约一致性之后——秒级、纯静态对账）
+// V1.0.1 | 2026-10-13 CHECKS 末尾挂「翻译层golden对照」（tests/translate-golden.mjs，render/38 拆分护栏）
 // 一键全量体检：串行跑齐 node 侧全套红线（七项常规 + 大样本 fuzz），最后出一页「谁绿谁红」汇总，任一红则退出码 1。
 // 背景：浏览器 120test-runner.html 的「一键体检」只覆盖浏览器那一层（UI/规则/不变量）；
 //       node 侧回放/账本/基线/覆盖率/fuzz 此前要手敲多条命令、没有总入口，本脚本补上这个总入口。
@@ -13,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.2.0';
+export const VER = 'tests/run-all.mjs V1.3.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -23,6 +25,7 @@ const node = process.execPath;
 const CHECKS = [
     { name: '静态扫描(import/枚举)', script: 'tests/123static-scan.js', args: [] },
     { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
+    { name: '蓄意轰拳数值口径对账', script: 'tests/hit-shapes-consistency.mjs', args: [] },
     { name: '精英注册一致性', script: 'tests/registration-check.mjs', args: [] },
     { name: '规则回放(20seed×7关)', script: 'tests/rules-replay.mjs', args: [] },
     { name: '胜负基线闸门(18场)', script: 'tests/140-baseline.js', args: ['--check'] },

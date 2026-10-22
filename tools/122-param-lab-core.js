@@ -1,4 +1,5 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+// V1.2.5 | 2026-10-22 ELITE_LABELS 改从 127-tool-registry.js 取（单一来源），本文件不再自建名单
 // V1.2.4 | 2026-10-22 ELITE_LABELS 补寒离飒（116 V1.12.0 已并入明教精英池）——此前含她的阵容被误并组、
 //          只有她的阵容被误判「无精英」，120 的典型阵容分组失真；注释同步 6 人池口径；VER 对齐（V1.2.2/V1.2.3 漏更）
 // V1.2.3 | 预估 22400 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）
@@ -15,7 +16,7 @@
 //          数值旋钮扫描）。不 import 任何 node 内置模块，浏览器 worker 与 node 直跑通用。
 //          CLI 侧的 node 垫片（fetch / localStorage）由调用方在 import 本文件之前装好；
 //          本文件自带 window/localStorage 垫片，保证模块体在无 DOM 环境也能跑。
-export const VER = 'tools/122-param-lab-core.js V1.2.4';
+export const VER = 'tools/122-param-lab-core.js V1.2.5';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -32,7 +33,7 @@ if (typeof localStorage === 'undefined') {
 // --- 引擎加载（顺序同 tests/rules-replay.mjs）---
 const [{ CONFIG, loadGameData }, { Unit, baseHeroName }, { initBattleTeams }, { SeededRNG },
     { createRoundStepper }, { GlobalStore }, { CAMP_TYPES, BUFF_TYPES }, { eventBus },
-    { hasCarryTarget }] =
+    { filterAvailableBuffs }] =
     await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../core/02unit.js'),
@@ -42,7 +43,7 @@ const [{ CONFIG, loadGameData }, { Unit, baseHeroName }, { initBattleTeams }, { 
         import('../infra/54-global-store.js'),
         import('../infra/56-battle-enums.js'),
         import('../infra/50-event-bus.js'),
-        import('../modules/28buff-tools.js')   // hasCarryTarget：与主代码逐字同口径（carry 候选过滤）
+        import('../modules/28buff-tools.js')   // filterAvailableBuffs：候选池过滤与主代码同口径
     ]);
 await import('../modules/20elite-skills.js');   // 副作用：注册 damageModifiers / xiaoHexEnhance 等 query
 await import('../modules/00reg-mechanics.js');  // 机制统一装配入口（25/26/27/30）：原散装三行漏 30，鹿杖客 dotTick 直接抛错、整台实验跑不出结果
@@ -96,17 +97,10 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
     const sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
     for (const s of sides) {
         const mine = next.filter(b => (b.target || CAMP_TYPES.ALLY) === s.camp);
-        const existing = mine.map(b => b.key);
         const alive = (s.team || []).filter(u => u && u.alive);
-        const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
-            if (existing.indexOf(k) !== -1) return false;
-            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(alive)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
-            // 2026-10-16 V1.2.3 众志成城门槛同步 modules/28：只有本阵营场上存活人数 <4（含召唤物）才进候选
-            if (k === BUFF_TYPES.UNITY && alive.length >= 4) return false;
-            const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-            if (req && !alive.some(u => u.role === req)) return false;
-            return true;
-        });
+        // 2026-10-22 V1.2.5：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径，
+        //   含 unity 门槛；carry 过滤已随 28 V6.2.4 删除）。.sort() 保持确定性选取不变。
+        const avail = filterAvailableBuffs(mine, s.team, {}).sort();
         if (!avail.length) continue;
         const pick = avail[(seed + turn + s.off) % avail.length];
         const def = CONFIG.BUFFS[pick] || {};
@@ -141,7 +135,9 @@ export function specOfUnit(u) {
         label: u.name
     };
 }
-export const ELITE_LABELS = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
+// 精英名单统一由 127-tool-registry.js 提供；本文件继续对外导出同名绑定（调用方无需改动）
+import { ELITE_LABELS } from './127-tool-registry.js';
+export { ELITE_LABELS };
 const byPos = (a, b) => a.pos - b.pos;
 export const concreteKey = spec => spec.slice().sort(byPos).map(e => `${e.label}(${e.role})@${e.pos}`).join(' '); // 含职业+站位
 

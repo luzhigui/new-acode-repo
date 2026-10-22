@@ -1235,16 +1235,37 @@ document.getElementById('genCodeBtn').addEventListener('click', () => {
         heroes: cultivated
     });
     codeDisplay.textContent = code;
-    navigator.clipboard.writeText(code).then(() => {
-        codeDisplay.style.borderColor = '#4caf50';
-        resultText.textContent = '✅ 串码已复制到剪贴板';
-        resultText.className = 'result-text ok';
+    copyText(code).then(ok => {
+        codeDisplay.style.borderColor = ok ? '#4caf50' : '#f44336';
+        resultText.textContent = ok ? '✅ 串码已复制到剪贴板' : '⚠️ 自动复制失败，请手动长按/选中串码复制';
+        resultText.className = 'result-text ' + (ok ? 'ok' : 'err');
     });
 });
+// 2026-10-22 复制兜底：file:// 等无 clipboard API 场景下 writeText 会 reject，
+//   原实现静默失败；现 fallback 到 textarea + execCommand（同 103/108 口径）。
+function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text));
+    }
+    return Promise.resolve(fallbackCopy(text));
+}
+function fallbackCopy(text) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        return ok;
+    } catch (e) { return false; }
+}
 codeDisplay.addEventListener('click', () => {
     if (codeDisplay.textContent === '点击生成串码') return;
-    navigator.clipboard.writeText(codeDisplay.textContent).then(() => {
-        codeDisplay.style.borderColor = '#4caf50';
+    copyText(codeDisplay.textContent).then(ok => {
+        codeDisplay.style.borderColor = ok ? '#4caf50' : '#f44336';
         setTimeout(() => codeDisplay.style.borderColor = '#333', 1500);
     });
 });
