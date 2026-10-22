@@ -1,5 +1,5 @@
 // player/42player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
-// V7.0.0 | 2026-10-18 | ~20000 bytes
+// V7.0.0 | 2026-10-18 | ~22200 bytes
 export const VER = 'player/42player-core.js V7.0.0';
 
 import { SeededRNG } from '../infra/51-core-utils.js';

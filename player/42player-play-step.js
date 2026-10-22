@@ -1,5 +1,5 @@
 // player/42player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
-// V1.0.0 | ~8500 bytes | 2026-10-18 自 player/42player-core.js V6.8.9 拆出（纯搬移，函数体逐字不动）：
+// V1.0.0 | 2026-10-18 | ~9800 bytes
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
 export const VER = 'player/42player-play-step.js V1.0.0';
 
@@ -173,7 +173,7 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     }
 
     c._lastLogType = lastEntryType;
-    // 2026-10-01 语音解说：本条日志演出收尾后再开口（防剧透铁律），raw fact 从 step.log 原位取
+    // 语音解说：本条日志演出收尾后再开口（防剧透铁律），raw fact 从 step.log 原位取
     try { speakLogLine(entry, step.log && step.log[factIndex]); } catch (e) { /* 解说失败不影响战斗 */ }
     return { isBattleOver: false };
 }

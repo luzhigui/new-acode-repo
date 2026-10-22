@@ -1,9 +1,7 @@
-// V6.3.2 | 2026-10-22 飞天落地回血改「先预演再落账」：文案/飘字取实际值（previewHeal），声明值只记审计
-// V6.3.1 | ~15300 bytes | 2026-10-18 落地回血补回血弹幕/飘字：spiderReturn 回血后发 SKILL_ANNOUNCE
-//   （note 战报行 + floatText +N 格上飘字，照何太冲「红血加血」写法；文本按实际回血量，fact 仍记声明值）
-// V6.3.0 | ~14900 bytes | 2026-10-18 飞天落地回血按档位：70/40 档用 landHealRatio，致死档用 landHealRatioDeath
-// V6.2.1 | ~14710 bytes | 2026-10-14 体检第 88 轮转交：landHeal 提前算好写进 SPIDER_RETURN fact data
-//   （数值对照器 SPIDER_LAND_HEAL 契约声明侧；不落地记 0，与 addMod 同条件同值，零行为变化）
+// modules/20elite-skills.js — 精英技能公共实现（小昭蛛变/飞天/蛛袭、乾坤减伤、永久海克斯查询）
+// 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
+//   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
+// V6.3.2 | 2026-10-22 | ~15500 bytes
 export const VER = 'modules/20elite-skills.js V6.3.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -79,7 +77,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
         modifiedDmg = reducedDmg;
     } else if (!xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
-        // 2026-10-03 基础版保护域与升级版同口径（张无忌四邻格），两档只差数值。
+        // 基础版保护域与升级版同口径（张无忌四邻格），两档只差数值。
         // 张无忌保持远程（所在列有更靠前的活队友）才有乾坤；切近战 rangedForm=false 自动关闭——前排在时借力分担，前排倒了亲自顶上
         const s = getSkillParams('张无忌', 'qianKun');
         if (!s) throw new Error('缺技能参数: 张无忌.qianKun');
@@ -160,7 +158,7 @@ export function spiderTransform(unit, log) {
 
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role: newRole });
     emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole }, log);
-    // 2026-10-02 体检对照增量字段：atkDelta/defDelta/maxHpDelta = 本次蛛变实际登记的职业加成（与上方 addMod 入参同源）；
+    // 体检对照增量字段：atkDelta/defDelta/maxHpDelta = 本次蛛变实际登记的职业加成（与上方 addMod 入参同源）；
     //   masteryGain 是精通层数的独立增量，勿混用
     log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, unitUid: unit.uid, newRole, mastered: unit.state._masteredRoles.length, masteryGain, atkDelta: newStats.atk, defDelta: newStats.def, maxHpDelta: newStats.maxHp } });
 }
@@ -172,7 +170,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     Object.assign(unit.state, { _spiderFlying: false, _flyMode: null });
     unit.state._acted = false;
 
-    // 2026-10-08 落格规矩（老板定稿）：回原格优先——自己是几号位先落哪，原格被占再按「原格+1 环形顺延」
+    // 落格规矩（老板定稿）：回原格优先——自己是几号位先落哪，原格被占再按「原格+1 环形顺延」
     //   （7 → 8,9,1,2,3,4,5,6）。一切存活队友都算占格：拒马/狮子/召唤物/天上的蝶/蛛/附身者（旧版
     //   后排优先 [4,5,6...] 且把拒马当空气，会一头落进拒马格子——seed15 stage5 R9 重叠案，体检不变量
     //   「pos 冲突」即此）。飞天期间 pos 不动（自己原格天然保留），anchor 即原格。
@@ -188,7 +186,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: unit.pos });
     emitStateChange(unit, STATE_CHANGE_TYPES.LANDING, { pos: unit.pos }, log);
 
-    // 落地回血（2026-10-13 飞天重做；2026-10-18 按档位分比）：70/40 档回 maxHp 的 landHealRatio，
+    // 落地回血：70/40 档回 maxHp 的 landHealRatio，
     //   致死档回 landHealRatioDeath；孵化落地不回（血钉 eggHatchHpRatio）。档位随 _spiderLandTier 带入。
     // landHeal 提前算好并写进 SPIDER_RETURN fact（数值对照器 SPIDER_LAND_HEAL 契约的声明侧，体检第 88 轮转交）；
     //   不落地（孵化/满血/比率为 0）时记 0，与 addMod 记账同条件同值
@@ -204,7 +202,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal } });
 
     if (landHeal > 0) {
-        // 2026-10-22 飘字/文案取实际落地值（截脉/寒毒打折后），声明值只记审计
+        // 飘字/文案取实际落地值（截脉/寒毒打折后），声明值只记审计
         const hpBeforeHeal = Math.floor(unit.hp);
         const actualHeal = previewHeal(unit, landHeal);
         applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
@@ -212,14 +210,14 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${actualHeal}（${hpBeforeHeal} → ${hpBeforeHeal + actualHeal}）`, { floatText: `+${actualHeal}`, floatUid: unit.uid });
     }
 
-    // 2026-10-06 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
+    // 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
     const aliveEnemies = enemySide.filter(u => u.alive && canBeTargeted(u));
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
         const atk = getStat(unit, 'atk');
         const def = getStat(target, 'def');
-        // 2026-10-21 老板拍板：落地蛛袭的穿透伤害减半（精通额外伤害保持不变）
+        // 老板拍板：落地蛛袭的穿透伤害减半（精通额外伤害保持不变）
         const penetrationDmg = Math.floor(atk * (atk / (atk + def)) * 0.5);
         const masteryCount = unit.state._masteredRoles?.length || 0;
         const params = getSkillParams('小昭', 'spiderStrike');
@@ -228,7 +226,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const extraDmg = extraDmgMap[Math.min(masteryCount, Object.keys(extraDmgMap).length - 1)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
-        // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零游戏逻辑副作用
+        // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
         recordHpAudit(target, 'spiderStrike', -totalDmg, '蛛袭');
         log.push({
             factType: FACT_TYPES.SPIDER_STRIKE,

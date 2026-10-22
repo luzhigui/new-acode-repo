@@ -1,7 +1,7 @@
 // modules/31voice-commentary.js — 语音解说引擎（实时朗读版）
-// V1.1.0 | ~13100 bytes | 2026-10-11 DERIVED_PATTERNS 增三条词条（何太冲三技能解说）：连环箭补射 / 昆仑合击 / 破甲箭
 // 关键节点现场编词、手机系统 TTS 实时朗读；音色/语速/音调/话痨度可调，设置面板在 ui/73。
 // 单机/联机主机/联机从机/战报回放四条路全走 playSingleLogEntry，一处挂钩全生效。
+// V1.1.0 | 2026-10-11 | ~13100 bytes
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { AudioManager } from './22audio-manager.js';
@@ -21,7 +21,7 @@ const cfg = {
 };
 try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-    // 2026-10-01 二版迁移：V1.1 的 full（全文太慢跟不上节奏）统一落到新默认摘要；用户手动再选全文会写回 _v2
+    // 二版迁移：V1.1 的 full（全文太慢跟不上节奏）统一落到新默认摘要；用户手动再选全文会写回 _v2
     if (saved && saved.mode === 'full' && !saved._v2) saved.mode = 'condense';
     saved._v2 = 1;
     Object.assign(cfg, saved);
@@ -214,7 +214,7 @@ export function speakLogLine(entry, fact) {
     else speakEntryCondensed(entry);
 }
 
-// ── 摘要模式（2026-10-01 二版，用户定调）：「谁打谁N点伤害」主句 + 衍生效果触发名 ──
+// ── 摘要模式：「谁打谁N点伤害」主句 + 衍生效果触发名 ──
 // 不念预览行（攻防血数字）、不念计算行、不念波动作；击杀补一句；衍生效果念触发词
 const DERIVED_PATTERNS = [
     [/流星赶月|溅射/, '触发流星赶月溅射'],

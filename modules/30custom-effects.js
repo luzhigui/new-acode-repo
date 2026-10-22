@@ -1,4 +1,4 @@
-﻿// V1.1.0 | ~5280 bytes | 2026-10-12 dotTick 补 `_mods['hp']` 纯记账条目（group 'xuanMingDot'）：玄冥中毒 DoT 自身 hp 贡献隔离进账本，供体检对照器核对「声明 dot vs 实际扣血」；真实扣血仍由 ROUND_STAT_GRANT 负责，零游戏逻辑副作用
+﻿// V1.1.0 | 2026-10-12 | ~5100 bytes
 export const VER = 'modules/30custom-effects.js V1.1.1';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -31,7 +31,7 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
                     const st = u.state[decl.stateKey];
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;
-                    // 2026-10-22 不衰减 + 可叠加：固定取首档 pct，按 stacks 倍乘（无上限）
+                    // 不衰减 + 可叠加：固定取首档 pct，按 stacks 倍乘（无上限）
                     const stacks = st.stacks || 1;
                     const pct = (st.dotPercents[0] || 0) * stacks;
                     const dot = Math.floor(u.maxHp * pct);
@@ -45,7 +45,7 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
                             reason: decl.reason
                         });
                         data.log.push({ factType, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive, stacks } });
-                        // 审计账本（2026-10-14 迁出 _mods）：玄冥中毒自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
+                        // 审计账本：玄冥中毒自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
                         //   group='xuanMingDot' 比对「声明 dot vs 实际扣血」。审计容器全库无读点、详情弹窗只渲染 atk/def。
                         recordHpAudit(u, 'xuanMingDot', -dot, '玄冥中毒');
                     }
@@ -69,7 +69,7 @@ registerMechanicHandler(MECHANIC_TYPES.DAMAGE_REFLECT, {
             priority: L.AFTER_DAMAGE_APPLIED.REBOUND,
             handler: (data) => {
                 const { unit, target, dmg } = data || {};
-                // 仅反伤弟子存活并实际承伤时触发。2026-10-11 去名字字面量：用声明自带的 decl.name
+                // 仅反伤弟子存活并实际承伤时触发。去名字字面量：用声明自带的 decl.name
                 //   （buildMechanicDeclarations 注入的角色名），不再硬编码「反伤弟子」
                 if (!target || target.name !== decl.name || !target.alive) return;
                 if (!dmg || dmg <= 0) return;

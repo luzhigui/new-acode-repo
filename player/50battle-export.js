@@ -1,4 +1,5 @@
-// V1.1.5 | ~16200 bytes | 2026-09-26 战报全灰修复：plainUnit 的 state 浅引用被引擎原地改（_acted 等），整份战报序列化时全读到终态——回放从头到尾全灰、回合开始步也不绿。改用 copyAllStateFields 按 schema 深拷断引用
+// player/50battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
+// V1.2.0 | 2026-09-26 | ~18700 bytes
 export const VER = 'player/50battle-export.js V1.2.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
@@ -61,7 +62,7 @@ function countRounds(steps) {
 // 注意：与 infra/60-net-pvp.js 的 plainStep 是**两份、职责不同**，不是重复实现，不要合并：
 //   · 本文件（战报导出）：state 必须按 core/17 schema 深拷（copyAllStateFields）断引用——
 //     引擎行动循环原地改 unit.state（_acted 等），浅引用会让整份战报在 finish 序列化时
-//     全部读到「整场终态」→ 回放全程全灰（2026-09-26 已修）。
+//     全部读到「整场终态」→ 回放全程全灰。
 //   · infra/60（联机从机）：单位浅拷即可——从机不跑引擎、不拿 step 里的 state 做后续判定，
 //     渲染层只读 state._fsmPhase 镜像，且下一步整份覆盖，深拷纯属多余开销。
 // 为什么不能合并：player→infra 单向合法，但 infra 不能反向依赖 core/17 的 schema 深拷（业务依赖）。
@@ -76,7 +77,7 @@ function plainUnit(u) {
         if (k === '_fsm') continue;                     // 状态机不进战报：渲染层已改读 state._fsmPhase
         o[k] = v;
     }
-    // 2026-09-26 战报全灰修复：state 必须按 schema 深拷断引用。
+    // 战报全灰修复：state 必须按 schema 深拷断引用。
     // 引擎行动循环原地改 unit.state（_acted/_resting 等），浅引用会让整份战报
     // 在 finish 序列化时全部读到"整场终态"——回合开始步也全灰，回放自然全程灰。
     // copyAllStateFields 覆盖回合级+整场+妆造相位（_fsmPhase）全部字段，数组逐项拷。
@@ -103,7 +104,7 @@ function plainStep(step, activeBuffs) {
     };
 }
 
-// ---- 增量瘦身（2026-09-25 v1.1）----
+// ---- 增量瘦身----
 // 每步带两队完整快照是 2.2MB 的元凶，但相邻两步绝大多数单位一字未动。
 // 存储侧：与前一步逐 uid 比序列化结果，没变的单位从本步剔除（首步全量）。
 // 读取侧：rehydrateReport 按序合并还原全量。来回均有探针断言保真（tests/_tmp-export-probe.mjs 同款逻辑）。
@@ -155,7 +156,7 @@ function mergeUnits(prev, partial) {
     return out;
 }
 
-// ---- 版本号 + 搬家链（2026-10-04）----
+// ---- 版本号 + 搬家链----
 // CURRENT_REPORT_VERSION：当前游戏写出的战报格式版本。今天格式没变所以是 1。
 // 以后 step 格式一变：这里 +1，同时在下面挂一个搬家函数（v1→v2 的钥匙挂 1 号钩位，依此类推）。
 export const CURRENT_REPORT_VERSION = 1;
@@ -188,7 +189,7 @@ function makeFileName(report) {
     const pad = (n) => String(n).padStart(2, '0');
     const stage = report.meta.stage ? `-第${report.meta.stage}关` : '';
     const w = report.meta.winner ? `-${report.meta.winner}` : '';
-    // 2026-10-09 日期打头：旧格式关卡/胜负在前、日期压尾——文件名排序按关卡走，翻新旧要肉眼扫尾部。
+    // 日期打头：旧格式关卡/胜负在前、日期压尾——文件名排序按关卡走，翻新旧要肉眼扫尾部。
     //   日期提到最前 → 按名字排序=按时间排序，长名被截断也先保住日期。
     return `战报-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${stage}${w}.json`;
 }
@@ -209,7 +210,7 @@ export async function exportBattleReport(report) {
     const name = makeFileName(report);
 
     // ① File System Access API（桌面 Chrome / 安卓新 Chrome）
-    // 2026-09-26 v1.1.3：AbortError 不再终止——安卓 Chrome 也带 showSaveFilePicker（此前误判手机没有），
+    // v1.1.3：AbortError 不再终止——安卓 Chrome 也带 showSaveFilePicker（此前误判手机没有），
     //   且部分机型弹窗不显示秒抛 AbortError（与 canShare 同款谎报）。用户取消和环境谎报浏览器层无法分辨，
     //   统一降级到下载层；真想取消的用户在系统下载框里再取消一次。这是「已取消」病历的第一站，最后一块病灶。
     if (typeof window !== 'undefined' && window.showSaveFilePicker) {
@@ -225,7 +226,7 @@ export async function exportBattleReport(report) {
     }
 
     // ② 系统分享（手机浏览器）：弹原生面板，可直接「保存到文件」或发微信
-    // 2026-09-26 v1.1.2：AbortError 不再终止——部分 WebView canShare 谎报 true，
+    // v1.1.2：AbortError 不再终止——部分 WebView canShare 谎报 true，
     //   share 面板根本没弹就秒抛 AbortError（被误读成「用户取消」＝点击没反应的真相）。
     //   现在取消/失败一律降级到下载层；只有下载层结果才算数（真取消的用户在系统下载框里再取消一次即可）。
     try {

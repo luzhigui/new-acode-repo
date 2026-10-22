@@ -1,20 +1,7 @@
-// modules/26elite-sixsects-songqingshu.js — 六大派精英「宋青书」：组件工厂 + 四大机制 handler 对象
-// V6.28.1 | ~19520 bytes | 2026-10-16 性奋额外攻击出手体抽具名函数 xingFenExtraAttack，并额外注册到新信号
-//   AFTER_ATTACK_IMMUNE——本击被免疫（妹妹飞天）同样算一次出手，第二下重新选敌照打（老板拍板）
-// V6.28.0 | ~17600 bytes | 2026-10-15 白骨爪连锁概率终版（老板拍板）：基础 0.80、按周芷若自身已损血比线性升到
-//   0 血时的 1.00（chainProcRampAt 1.00）、无存活宋青书再 +0.10——理论上可超 1.00（超出的部分等价「保底必连几爪」）；
-//   链条内每多连一爪概率 −chainProcDecay(0.01)（累减到 ≤0 必断，天然保证不会无限连），下次出手自动回复原值。
-//   删 chainProcCap（不再封顶 90%）
-// V6.27.0 | ~17700 bytes | 2026-10-15 白骨爪连锁概率重做（老板拍板）：取消「每回合首次出手」的进入门槛——
-//   每次出手第一爪必发、只有后续每爪才掷骰；连锁概率满血基准 0.78，按周芷若**自身**已损失血量线性升至峰值 0.88
-//   （已损失比达 chainProcRampAt 0.80 即残血 20% 到顶、之后维持），场上无存活宋青书再 +0.06，总封顶 0.90
-//   （content chainClaw 同步：删 procChance，加 chainProcMax/chainProcRampAt/songDeadBonus/chainProcCap）
-// V6.26.0 | ~16490 bytes | 2026-10-15 两改（老板拍板）：白骨爪斩杀那一刀伤害同样回血宋青书（chainClaw 模拟循环计入）；
-//   性奋代价首攻免扣——减上限=累计攻击次数−1（第 2 次起从 1 累加）
-// V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
-//   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
-//   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
-// V6.28.2 | 2026-10-22 快乐回血飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
+// modules/26elite-sixsects-songqingshu.js — 宋青书（叛逆突袭 / 苦练 / 新婚 / 性奋 / 白骨爪连锁）
+// 白骨爪连锁概率：基础 0.80，按周芷若自身已损血比线性升到 1.00，无存活宋青书再 +0.10（可超 1.00，等价「保底必连几爪」）；
+//   链条内每多连一爪概率 −0.01，累减到 ≤0 必断——这是「不会无限连」的唯一保证，不要改成固定概率。
+// V6.28.2 | 2026-10-22 | ~17900 bytes
 export const VER = 'modules/26elite-sixsects-songqingshu.js V6.28.2';
 import { getGameData } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -61,12 +48,12 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
         });
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
-            // 2026-10-22 飘字取实际落地值（截脉/寒毒打折后）
+            // 飘字取实际落地值（截脉/寒毒打折后）
             const actualHeal = previewHeal(unit, totalHeal);
             const hpAfterPredicted = hpBefore + actualHeal;
             if (declarations) {
                 declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
-                // 审计账本（2026-10-14 迁出 _mods）：快乐回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='kuaiLeHeal' 比对
+                // 审计账本：快乐回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='kuaiLeHeal' 比对
                 recordHpAudit(unit, 'kuaiLeHeal', totalHeal, '快乐回血');
             } else {
                 applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
@@ -114,9 +101,9 @@ export const chainClawHandler = {
             const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
             const baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg;
             const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
-            // 2026-10-15 首爪必发（老板拍板）：取消「每回合首次出手」的进入门槛，每次出手第一爪都必发，
+            // 首爪必发（老板拍板）：取消「每回合首次出手」的进入门槛，每次出手第一爪都必发，
             //   只有后续每爪才掷骰（见下方 while 循环）。
-            // 2026-10-15 连锁概率终版（老板拍板）：满血基准 chainProcChance(0.80)，按周芷若**自身**已损失血量
+            // 连锁概率终版（老板拍板）：满血基准 chainProcChance(0.80)，按周芷若**自身**已损失血量
             //   线性升到 0 血时的 chainProcMax(1.00)——已损失比达到 chainProcRampAt(1.00) 到顶；
             //   场上无存活宋青书再 +songDeadBonus(0.10)，理论上可超 1.00（超过的部分等价「保底必连几爪」）；
             //   链条内每多连一爪概率 −chainProcDecay(0.01)，累减到 ≤0 必断（天然保证不会无限连）；
@@ -155,7 +142,7 @@ export const chainClawHandler = {
                 }
                 if (isDeadByHit) break;
                 if (isExecute) {
-                    // 2026-10-15 斩杀那一刀同样回血给宋青书（老板拍板）：斩杀伤害=目标残血（设计值，
+                    // 斩杀那一刀同样回血给宋青书（老板拍板）：斩杀伤害=目标残血（设计值，
                     //   core/16 落地时取扣减后同口径），按每爪同公式计入 totalHeal
                     if (song && song.alive) {
                         const execHeal = Math.min(Math.round(simulatedTargetHp), song.maxHp - simulatedSongHp);
@@ -172,7 +159,7 @@ export const chainClawHandler = {
             }
             if (totalHeal > 0 && song && song.alive && data && data.declarations) {
                 data.declarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: song, factType: FACT_TYPES.CLAW_HEAL, factData: { totalHeal, unitUid: song.uid } });
-                // 审计账本（2026-10-14 迁出 _mods）：爪击回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHeal' 比对
+                // 审计账本：爪击回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHeal' 比对
                 recordHpAudit(song, 'clawHeal', totalHeal, '爪击回血');
             } else if (song && song.alive) {
                 log.push({ factType: FACT_TYPES.CLAW_NO_HEAL, data: {} });
@@ -191,7 +178,7 @@ export const kuLianHandler = {
             const kuLianSong = checkKuLian(B);
             if (!kuLianSong) return;
             Object.assign(kuLianSong.state, { _kuLianActive: true });
-            // 2026-10-07 苦练受益池收编 getBenefitTargets 裁判：原写法只排死人和拒马，
+            // 苦练受益池收编 getBenefitTargets 裁判：原写法只排死人和拒马，
             // 垂死、天上蝶蛛、附身中的都能白吃加成——与乾坤衍生/振奋/生生不息溢出同口径
             const targets = getBenefitTargets(B);
             const kuLianTargets = [];
@@ -238,7 +225,7 @@ export const xinHunHandler = {
             log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
             if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
             Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
-            // 2026-10-15 首攻免扣（老板拍板）：本次减上限 = 累计攻击次数 − 1（第 1 次不扣、第 2 次 -1、第 3 次 -2…）
+            // 首攻免扣（老板拍板）：本次减上限 = 累计攻击次数 − 1（第 1 次不扣、第 2 次 -1、第 3 次 -2…）
             const penalty = unit.state._xingFenPenaltyCount - 1;
             if (penalty > 0 && unit.maxHp > 1) {
                 const oldMaxHp = unit.maxHp;
@@ -270,7 +257,7 @@ export const xingFenHandler = {
             tickKuaiLeHeal(data.A.concat(data.B), data.log, data.declarations);
         });
         eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.XINGFEN_EXTRA, (data) => xingFenExtraAttack(data, decl));
-        // 2026-10-16 本击被免疫（AFTER_ATTACK_IMMUNE）也算一次出手：免疫分支不广播 AFTER_ATTACK，
+        // 本击被免疫（AFTER_ATTACK_IMMUNE）也算一次出手：免疫分支不广播 AFTER_ATTACK，
         //   走专用信号让性奋额外攻击照发并重新选敌——第一下打妹妹飞天 → 第二下改打别人
         eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, L.AFTER_ATTACK_IMMUNE.XINGFEN_EXTRA, (data) => xingFenExtraAttack(data, decl));
         eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.XINGFEN_RETRY, (data) => {

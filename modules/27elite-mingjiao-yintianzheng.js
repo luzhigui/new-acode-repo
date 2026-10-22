@@ -1,9 +1,6 @@
 // modules/27elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
-// V1.2.0 | ~7260 bytes | 2026-10-18 鹰王威压补头顶弹幕「第二段」：反击命中后除战报行外，再飘一记
+// V1.2.0 | 2026-10-18 | ~7400 bytes
 //           📉鹰王威压！（pushSkillAnnounce + line:false，复用 SKILL_ANNOUNCE → SKILL_FLOAT 通道）
-// V1.1.0 | ~7000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
-//           register 增第 5 参 self 认自己；反击/威压/成长判定原按单位引用比较，self 化后双殷天正各认各的
-// V1.0.0 | ~6880 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
 export const VER = 'modules/27elite-mingjiao-yintianzheng.js V1.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, addMod } from '../core/13battle-shared.js';
@@ -15,7 +12,7 @@ export function createYinTianZhengComponent() {
         name: '殷天正',
         register(eventBus, A, B, log, self) {
             // 不写死阵营：按身份标记在两侧找，殷天正换边也照样生效。
-            // 2026-10-17 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
+            // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
             const yin = (self && self.alive) ? self : [...A, ...B].find(u => u.isYinTianZheng && u.alive);
             if (!yin) return;
 
@@ -30,7 +27,7 @@ export function createYinTianZhengComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_PRESSURE, (data) => {
                 if (data.unit !== yin || !yin.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                // 2026-10-16 收窄为「仅反击命中」（老板拍板）：靠 core/10 runExtraAttackRequests 执行期写在攻击者
+                // 收窄为「仅反击命中」（老板拍板）：靠 core/10 runExtraAttackRequests 执行期写在攻击者
                 //   state 上的 _linkReason 识别本次出手是不是鹰爪功反击——普攻命中不再削人
                 if (data.unit.state._linkReason !== 'counterAttack') return;
                 const t = data.target;
@@ -38,7 +35,7 @@ export function createYinTianZhengComponent() {
                 addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', group: 'yingWangWeiYa' });
                 addMod(t, 'def', { source: '鹰王威压', value: -weiya.defDown, op: 'add', group: 'yingWangWeiYa' });
                 pushInfo(data, `<span class="gold">🦅 殷天正鹰王威压：${t.name} 攻 −${weiya.atkDown}、防 −${weiya.defDown}（永久累积）</span>`);
-                // 2026-10-18 头顶弹幕「第二段」：反击那一记已有 ⚔️反击！ 徽章（core/10 reason 链路），
+                // 头顶弹幕「第二段」：反击那一记已有 ⚔️反击！ 徽章（core/10 reason 链路），
                 //   此处补「鹰王威压」飘字，让「先反击、命中后再压」两段式一眼可见。
                 //   line:false —— 战报行已由上方 pushInfo 承担，此处只走头顶飘字不重复落行
                 pushSkillAnnounce(data.log, yin, '鹰王威压', `📉 鹰王威压！${t.name} 攻 −${weiya.atkDown}·防 −${weiya.defDown}`,
@@ -46,7 +43,7 @@ export function createYinTianZhengComponent() {
             });
 
             // ① 鹰爪功反击：被攻击后 prob 概率反击攻击者，伤害×dmgRatio，可被闪避
-            //   2026-10-16 改「掷骰在此、出手推迟到 AFTER_ATTACK」：本击的主伤害此刻已落地，但同一击的后置连锁
+            //   改「掷骰在此、出手推迟到 AFTER_ATTACK」：本击的主伤害此刻已落地，但同一击的后置连锁
             //   （周芷若白骨爪斩）在 AFTER_ATTACK 之后才落地；原先在 AFTER_DAMAGE_APPLIED 就 push 反击请求、由
             //   core/10 L295 执行完毕 → 他先反击、后死于爪链（「已经死了还能反击」）。现在只掷骰 + 暂存，
             //   由 YIN_COUNTER_FIRE 挂到 AFTER_ATTACK 的 extraRequests（core/10 L355 执行，晚于爪链落地），
@@ -91,7 +88,7 @@ export function createYinTianZhengComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_GROW, (data) => {
                 if (data.unit !== yin || !yin.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                // 2026-10-16 同②：仅反击命中才成长（普攻命中不再滚雪球）
+                // 同②：仅反击命中才成长（普攻命中不再滚雪球）
                 if (data.unit.state._linkReason !== 'counterAttack') return;
                 addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', group: 'laoDangYiZhuang' });
                 addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', group: 'laoDangYiZhuang' });

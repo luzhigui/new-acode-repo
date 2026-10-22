@@ -1,8 +1,5 @@
-// modules/23elite-helpers.js — 精英组件公共小工具
-// V1.2.0 | ~2100 bytes | 2026-10-17 追加 pushSkillAnnounce（收敛 22 处 SKILL_ANNOUNCE 直写）
-// V1.1.0 | ~1700 bytes | 2026-10-17 追加 applyRoleBonusMods / switchRoleOnly（收敛何太冲·唐文亮的换职业样板）
-// V1.0.0 | ~450 bytes | 2026-10-17 新建：收敛 5 份同形 pushInfo
-//   （27elite-mingjiao-yintianzheng / -xiexun / -hanlisa、26elite-sixsects-pangyuanqiao / -miejueshitai）
+// modules/23elite-helpers.js — 精英组件公共小工具（pushInfo / pushSkillAnnounce / 职业加成 / 换职业）
+// V1.2.0 | 2026-10-17 | ~3200 bytes
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, refreshMaxHp, emitEvent, getStat } from '../core/13battle-shared.js';
 import { UNIT_EVENT_TYPES, STATE_CHANGE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
