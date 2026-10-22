@@ -1,6 +1,4 @@
-// V6.0.2 | 2026-10-20 续删 pauseBGM（零调用；ui/64 直接调 AudioManager.pause()，不经此转发）
-// V6.0.1 | 2026-10-20 删死代码：initBGM / playBGM / toggleBGM / updateBGMBtn（零调用；btnBGM 走 ui/68 bindBGButton → showMusicPanel，不经此）
-// V6.0.0 | ~1200 bytes | 2026-07-07
+// V6.0.2 | 2026-10-20 | ~400 bytes
 export const VER = 'ui/66audio-control.js V6.0.2';
 
 import { AudioManager } from '../modules/22audio-manager.js';

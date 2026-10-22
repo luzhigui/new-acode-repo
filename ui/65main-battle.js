@@ -1,4 +1,4 @@
-// V6.1.0 | 2026-10-04 阵容日志的身份标签（[拒马]/[无忌]/[韦一笑]）改查 ui/69-role-cards.js 名片表，标签位置保持原样不改
+// V6.1.0 | 2026-10-04 | ~12500 bytes
 export const VER = 'ui/65main-battle.js V6.1.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -11,10 +11,10 @@ import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
 import { resetBattleRuntime } from './74reset-runtime.js';
-// 2026-10-04 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
+// 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
 import { getRoleLogTag } from './69-role-cards.js';
 import { stepBuff } from './71tutorial.js';
-// 2026-10-19 蓄意轰拳瞄准黑幕：模块加载即注册 showHanlisaAim UIHandler（player/49 回合末取用）
+// 蓄意轰拳瞄准黑幕：模块加载即注册 showHanlisaAim UIHandler（player/49 回合末取用）
 import './79hanlisa-aim.js';
 
 const C = CONFIG;
@@ -107,7 +107,7 @@ export function showFlyDirectionPopup(callback) {
     btnRight.onclick = () => { if (overlay.parentNode) overlay.remove(); wrappedCallback('right'); };
 }
 
-// 2026-09-14 注册到 UIHandler 通道，供 player/49 调用（消除 player → ui 反向 import）
+// 注册到 UIHandler 通道，供 player/49 调用（消除 player → ui 反向 import）
 GlobalStore.setUIHandler('showFlyDirectionPopup', showFlyDirectionPopup);
 
 // Buff-创建：构建Buff对象（含圣火令随机行列）—— 实现已移至 modules/28buff-tools.js
@@ -153,7 +153,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         updateBuffSlotsFn();
         let logDiv = document.getElementById('log');
         if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
-        // 2026-09-14 原 window._updateGlowColors 全库从未定义（静默失效），删除无效调用
+        // 原 window._updateGlowColors 全库从未定义（静默失效），删除无效调用
         updateUIFn();
         callback();
     }, true, false);

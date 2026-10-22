@@ -1,13 +1,10 @@
-// ui/77speed-controls.js — 倍速控制系统（ui/68 拆分·批 1）
-// V1.0.0 | ~6160 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：倍速系统整块迁入（5 个模块级状态 +
-//   getButtonBySpeedValue/updateSpeedButtons/setSpeed/attachSpeedButton/activateScrollSlowdown/
-//   restoreSpeedFromScroll/initSpeedButtons），外加 onAnyButtonClick 辅助（原 68 私有，
-//   68 绑定层的 5 个 bind* 也从这里取用）。行为零变化，纯搬移。
+// ui/77speed-controls.js — 倍速控制系统（按钮高亮 / 手动锁 / 滚动降速）
+// V1.0.0 | 2026-10-14 | ~5800 bytes
 export const VER = 'ui/77speed-controls.js V1.0.0';
 
 import { getState, setState, GlobalStore } from '../infra/54-global-store.js';
 
-// 2026-09-14 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
+// 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
 // 而该函数从未挂到 window 上（定义在 ui/61 且未导出），属静默失效；改为走 UIHandler 通道。
 export function onAnyButtonClick() {
     const fn = GlobalStore.getUIHandler('onAnyButtonClick');

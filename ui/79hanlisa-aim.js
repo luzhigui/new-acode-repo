@@ -1,34 +1,22 @@
-// ui/79hanlisa-aim.js — 蓄意轰拳子弹时间（131 demo 舞台整体照搬，老板拍板「画面直接 copy demo」）
-// V3.0.0 | 2026-10-19 推倒 V2 的黑幕克隆场景：视觉逐段照搬 131-sett-w-fx-demo-full.html 新版舞台——
-//   米色战场居中（去日志/按钮）、双方九宫格卡面（图标/名字/攻防血/血条，尺寸同本体）、
-//   按住蓄力（拳头成形白热+能量旋涡倒吸+地面裂纹+世界去饱和+暗角+蓄势 HUD）、
-//   拖动瞄准（凸包预警+最近有人敌格吸附 v29 规则+命中格红闪）、
-//   松手轰出（拳冲残影+冲击锥+碎地裂纹+碎石+放射速度线+余烬+「轰」+击退）完整循环后退出。
-//   差异仅三处（均为接真值，不动画法）：①伤害数字=真实数值（N 分档，蓄力等级只管视觉）；
-//   ②阵容=引擎真值（player/49 传 pos/hp/maxHp/name/atk/def），图标/名字分档色从战场活格现查
-//   （按活格视觉序建阵=从机镜像天然正确）；③爆发尾巴加吸血 ❤+N 上浮。
-//   交互/驱动/工具函数逐字照搬 demo（FIST 拳形/裂纹/碎石生成器/HUD/tick 环）。
-//   60s 真实时间兜底；跳过不设 hlsAimPlayedAt（战场 fx/93 照常完整播）。
-//   holdMs 上报不生效（口子留给未来「按蓄力时长定 N1」）。
-// V3.2.0 | 2026-10-19 老板四点（132 demo 讨论轮）：①跳过照抄 fx/85（右下角斜放半透明白字）；
-//   ②解说挪出战场到卡下方、14.5px 金橙发光；③外围改黑幕（径向暖黑渐变）+战场变米色舞台卡（发光边框）；
-//   ④进场在施术者格上给金色拳头引导（浮动+扩散金环+「按住这里蓄力」），startCharge 即隐。
-// V3.3.0 | 2026-10-19 老板口径：预警范围按九位九形画全格（空位也罩住），不按「有人的格子」——
-//          shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）拆开。
-// V3.4.0 | 2026-10-19 老板口径「移到 2 号圆圈却在 5 号」：准星从「锥深位置」改钉在锁定格中心（带四向刻度），
-//          虚线瞄准线连到锁定格；未瞄准（全屏兜底）时不画线不画圈。
-// V3.5.0 | 2026-10-19 补腕豪风合成音效：蓄力轰鸣（锯齿+次低音+噪声，LFO 脉动随蓄力加速）+ 轰出重锤
-//          （破空扫频→110→26Hz 下砸过软削波→拍击噪声→余震）；AudioManager 门控，独立惰性 AudioContext。
+// ui/79hanlisa-aim.js — 蓄意轰拳子弹时间（131 demo 舞台整体照搬）
+// V3.5.1 | 2026-10-19 | ~66500 bytes
+// 差异仅三处（均为接真值，不动画法）：伤害数字用真实数值（N 分档，蓄力等级只管视觉）；阵容取引擎真值、
+//   图标/分档色从战场活格现查（从机镜像天然正确）；爆发尾巴加吸血 ❤+N。
+// shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）必须拆开——
+//   预警按九位九形画全格（空位也罩住），命中只对有人的格。
+// 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
 export const VER = 'ui/79hanlisa-aim.js V3.5.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 
-/* ================= 音效（Web Audio 合成，腕豪 W 风：蓄力轰鸣渐强 → 轰出重低音；V3.5） =================
-   · 经 AudioManager 门控（enabled / sfxVolume），独立惰性 AudioContext（用户手势内创建，autoplay 合规）
-   · 蓄力：锯齿 32→92Hz + 次低音正弦 + 低通白噪，脉动 LFO 随蓄力加速（咕噜→急促），亮度随 level 抬
-   · 轰出：60ms 破空（带通扫频）→ 次低音 110→26Hz 下砸 + 方波沙砾过软削波（闷拳重锤）→ 拍击噪声 → 0.5s 余震 */
+/* ================= 音效（Web Audio 合成，蓄力轰鸣 → 轰出重低音） =================
+   · 经 AudioManager 门控（enabled / sfxVolume），独立惰性 AudioContext（用户手势内创建）
+   · 蓄力：锯齿 + 次低音正弦 + 低通白噪，脉动 LFO 随蓄力加速
+   · 轰出：破空扫频 → 次低音下砸 + 方波软削波 → 拍击噪声 → 余震
+   ⚠️ 音效函数整包 try：ES module 严格模式下任何未声明变量赋值都会抛 ReferenceError，
+      把 startCharge 炸死 = 表现「轰不出去」。 */
 let _sfxAc = null;
 function sfxCtx() { if (!_sfxAc) { try { _sfxAc = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* 无音频环境 */ } } return _sfxAc; }
 function sfxVol() { try { return (typeof AudioManager !== 'undefined' && AudioManager && AudioManager.sfxVolume != null ? AudioManager.sfxVolume : 0.3) * 0.9; } catch (e) { return 0.3; } }
@@ -198,8 +186,11 @@ function tierOf(aim, p) {
 function dmgMapFor(aim, N, xl) {
     const map = {};
     if (aim >= 1 && aim <= 9) {
-        const den = xl.tierDen || { direct: 2, near: 4, far: 6 };
-        const eightDen = xl.eightDen ?? 3;
+        // 无兜底：参数缺失一律抛错（旧版兜底成 direct:2/eightDen:3 会静默算出与引擎不一致的伤害）
+        if (!xl.tierDen) throw new Error('缺技能参数: 寒离飒.xuLi.tierDen');
+        if (xl.eightDen == null) throw new Error('缺技能参数: 寒离飒.xuLi.eightDen');
+        const den = xl.tierDen;
+        const eightDen = xl.eightDen;
         for (const p of (HIT_MAP[aim] || [])) {
             map[p] = {
                 dmg: Math.floor(N / ((aim === 8 && p !== 8) ? eightDen : (den[tierOf(aim, p)] ?? 6))),
@@ -207,7 +198,8 @@ function dmgMapFor(aim, N, xl) {
             };
         }
     } else {
-        const fd = xl.fullDen || { row123: 3, row456: 4, row789: 5 };
+        if (!xl.fullDen) throw new Error('缺技能参数: 寒离飒.xuLi.fullDen');
+        const fd = xl.fullDen;
         [[1, 2, 3, fd.row123, 'full123'], [4, 5, 6, fd.row456, 'full456'], [7, 8, 9, fd.row789, 'full789']]
             .forEach(([a, b, c, d, t]) => { [a, b, c].forEach(p => { map[p] = { dmg: Math.floor(N / d), tier: t }; }); });
     }
@@ -771,7 +763,17 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     const allies = (payload && payload.allies) || [];
 
     // N 与分档参数（与 modules/27 同源）
-    const xl = getSkillParams('寒离飒', 'xuLi') || {};
+    // 无兜底：params 取不到/字段缺失一律报错，不静默按旧口径算
+    //   （旧版 `|| {}` + dmgMapFor 里的字面量兜底会让 UI 显示与引擎结算脱钩且无声）
+    // 但**不能直接抛**：本函数是 player/49 await 的 Promise 制造者，抛出后 resolve 永不调用 → 战斗卡死。
+    // 故：显式 console.error 报出缺失字段 + 立刻 resolve「未瞄准」，由引擎侧随机前排兜底结算（modules/27 有真值路径）。
+    const xl = getSkillParams('寒离飒', 'xuLi');
+    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.fullDen || xl.vampDiv == null || xl.shieldPct == null) {
+        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/fullDen/vampDiv/shieldPct）——瞄准窗口中止，走引擎兜底',
+            { got: xl ? Object.keys(xl) : null });
+        resolve({ aim: 0, holdMs: 0 });
+        return;
+    }
     const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
     const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
 
@@ -1003,7 +1005,8 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl));
         // 吸血真值（与 modules/27 同公式：总伤 1/3 封顶缺失生命）
         const total = stage.S.hits.reduce((s, h) => s + (h.dmg || 0), 0);
-        const vampDiv = xl.vampDiv ?? 3;
+        const vampDiv = xl.vampDiv;
+        if (vampDiv == null) throw new Error('缺技能参数: 寒离飒.xuLi.vampDiv');
         stage.S.vamp = (total > 0 && vampDiv > 0) ? Math.min(Math.floor(total / vampDiv), Math.max(0, hls.maxHp - hls.hp)) : 0;
         updateHud(APP.level);
     }

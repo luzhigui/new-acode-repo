@@ -1,15 +1,10 @@
-// V7.9.2 | 2026-10-20 删 bindSettleButton 里两处 _scheduler 守卫（setSpeed(50) / resume()）：
-//   player/43animation-scheduler 已整文件删除、infra/54 的 _scheduler 字段同删，守卫恒假
-// V7.9.1 | 实测 24724 bytes | 2026-10-15 修 `restoreSpeedFromScroll is not defined`：V7.9.0 拆分后本文件里
-//   bindSettleButton 结尾仍直接调 restoreSpeedFromScroll()，但该符号只在 L20 用 `export {...} from` 做了
-//   **转出**（re-export 不产生本模块的局部绑定）→ 点「再战/结算」按钮即 ReferenceError、中断后续 updateButtons。
-//   改为与 ui/65 同款写法：L17 从 77 显式 import（局部可用），L20 的转出保持不变（外部引用点零改动）。
-// V7.9.0 | ~24170 bytes | 2026-10-14 ui/68 拆分：倍速系统迁 ui/77（含 onAnyButtonClick 辅助）、
-//   按钮状态与 buff 槽迁 ui/78、日志工具弹窗绑定迁 ui/64（同时断掉 68↔76 循环引用）；本文件只剩按钮事件绑定层。
-//   顶部 re-export 77/78 的符号 → 61/63/75/76 的 import 点零改动；唯一外部改动是 61 的 bindCopyLogButton 改从 64 引。
+// ui/68ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
+// V7.9.2 | 2026-10-20 | ~25000 bytes
+// `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
+//   顶部 re-export 保住 61/63/75/76 的 import 点不变。
 export const VER = 'ui/68ui-controls.js V7.9.2';
 
-// 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
+// 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { resetBattleTransientState } from '../core/17-state-keys.js';
 import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js';
@@ -168,7 +163,7 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             const ctx = getPlayerContext();
             // 原班再战：恢复初始阵容（含全部单位、满血、初始属性），拒马不包含在内
             if (ctx && ctx._originalSnapshot) {
-                // 2026-10-21 跨局状态清洗（根因修复）：_originalSnapshot 克隆自「选完海克斯后的开战快照」
+                // 跨局状态清洗（根因修复）：_originalSnapshot 克隆自「选完海克斯后的开战快照」
                 //   （ui/61 L320 把 UI 队写进快照是当局合法路径），妹的 _permanentBuffs 等整场字段会被一并存档；
                 //   不洗的话上局的巨马阵带进新局 → 第1回合蛛变就召拒马（老板 10-21 实锤）。恢复后统一
                 //   resetBattleTransientState：保留基础数值/落位锚，局内累计（永久海克斯/回春层/精通/计数）全归零
@@ -179,7 +174,7 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
                 currentUI.enemyTeam = snap.enemy.map(u => u.clone());
                 setState.UI(currentUI);
             }
-            // 2026-10-02 原班的只是阵容，战斗随机序列必须全新：snap 复用上局对象、带着旧 _rngSeed，
+            // 原班的只是阵容，战斗随机序列必须全新：snap 复用上局对象、带着旧 _rngSeed，
             //   不换的话 player/42 开战按旧种子重建 RNG，配合跨回合保 _rng 会从头到尾重演上一局。
             snap._rngSeed = Date.now();
             setState.snapshot(snap);
@@ -208,7 +203,7 @@ export function bindDetailButton(getState, setState, showModal) {
         ], (choice) => {
             setState.logLevel(choice);
             this.textContent = choice === 'detailed' ? '详细' : (choice === 'brief' ? '简要' : '调试');
-            // 2026-10-09 补同步高亮：原先只改文字不改 class，战斗中切「简要」按钮还是亮的（要开新一局才被 ui/61
+            // 补同步高亮：原先只改文字不改 class，战斗中切「简要」按钮还是亮的（要开新一局才被 ui/61
             //   重新同步）。判据与 ui/61:878、体检 122health-utils:459 一致——「不是简要就亮」（详细/调试都亮）。
             this.classList.toggle('active', choice !== 'brief');
             // _renderAllLogs 全库从未定义，删除无效调用
@@ -252,7 +247,7 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             doInitBattle(stage, currentUI, snap, [], -1, null, true);
             setState.UI(currentUI);
             setState.snapshot(snap);
-            // 2026-10-02 状态复位（此前漏调，gs 停 GAMEOVER 致主按钮仍是「下一关」）：与原班再战分支同构，落地进摆位态
+            // 状态复位（此前漏调，gs 停 GAMEOVER 致主按钮仍是「下一关」）：与原班再战分支同构，落地进摆位态
             setState.adjustMode(true);
             setState.selectedAdjustPos(null);
             setState.isPaused(false);
@@ -332,9 +327,9 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
         if (getState.gs() !== 'IDLE') return;
         const currentStage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
         const buttons = [];
-        // 2026-09-22 扩到 7：第七关是灭绝师太关；2026-10-02 循环已全量放出第1-7关
+        // 扩到 7：第七关是灭绝师太关；2026-10-02 循环已全量放出第1-7关
         for (let i = 1; i <= 7; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
-        // 2026-10-01 虚影/飞走并入选关弹窗（原头部按钮撤掉，低频功能收进角落）：值固定 crash-mode，选中即切换并关弹窗
+        // 虚影/飞走并入选关弹窗（原头部按钮撤掉，低频功能收进角落）：值固定 crash-mode，选中即切换并关弹窗
         const crashMode = GlobalStore.get('crashMode') === 'fly' ? 'fly' : 'ghost';
         buttons.push({ text: crashMode === 'fly' ? '🕊️ 飞走模式 ✓' : '👻 虚影模式', value: 'crash-mode', cls: 'buff' });
         showModal('选择关卡', buttons, (choice) => {

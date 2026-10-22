@@ -1,4 +1,4 @@
-// V6.0.0 | ~900 bytes | 2026-08-21 特效触发下沉至fx/88，本文件仅保留UI交互开关
+// V6.0.0 | 2026-08-21 | ~500 bytes
 export const VER = 'ui/67fx-trigger.js V6.0.0';
 
 import { getState, setState } from '../infra/54-global-store.js';

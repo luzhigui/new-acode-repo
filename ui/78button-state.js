@@ -1,12 +1,8 @@
-// ui/78button-state.js — 主界面按钮状态与 buff 槽刷新（ui/68 拆分·批 2）
-// V1.1.1 | ~9900 bytes | 2026-10-19 关卡上限修正：GAMEOVER 主按钮判据 currentStage>=6 → >=7
-//   （共 7 关，第 6 关结束应显示「下一关」，原先提前一格显示「重新开始」丢掉第 7 关）
-// V1.1.0 | ~9600 bytes | 2026-10-15 updateBuffSlots 分流：整局项（permanent，当前仅圣火不熄）不再占底部槽，
-//   改挂各阵营名下方徽章位（#campBadgesAlly/#campBadgesEnemy，index.html .camp-side）——槽只有 2 个，
-//   而轮换海克斯峰值本就是 2 条，常驻项会把槽挤满导致最新那条看不见；徽章两侧各挂自己阵营的。
-// V1.0.0 | ~8040 bytes | 2026-10-14 从 ui/68ui-controls.js 拆出：buff 槽（updateBuffSlots）/ 自动模式按钮（updateAutoModeButton）/
-//   联网身份角标（updateNetIdentity）/ 主按钮状态机（updateButtons）/ enableAllButtons / updateDebugUI 整块迁入。
-//   依赖方向：本文件 → 77（enableAllButtons 调 updateSpeedButtons），77 不反向依赖本文件。行为零变化，纯搬移。
+// ui/78button-state.js — 主界面按钮状态与 buff 槽刷新
+// V1.1.1 | 2026-10-19 | ~9300 bytes
+// 整局项（permanent，如圣火不熄）挂阵营名下方徽章 #campBadgesAlly/Enemy，不占底部 2 槽——
+//   轮换海克斯峰值本就 2 条，常驻项会把槽挤满导致最新那条看不见。
+// 关卡共 7 关：GAMEOVER 主按钮判据 currentStage>=7（否则第 6 关结束就显示「重新开始」丢掉第 7 关）。
 export const VER = 'ui/78button-state.js V1.1.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -18,7 +14,7 @@ import { updateSpeedButtons } from './77speed-controls.js';
 
 // buff 槽：联网从机显示自己（六大派）的海克斯，其余情况显示明教
 // 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
-// 2026-10-15 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项（详见文件头 V1.1.0）
+// 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项（详见文件头 V1.1.0）
 const CAMP_BADGE_ID = { [CAMP_TYPES.ALLY]: 'campBadgesAlly', [CAMP_TYPES.ENEMY]: 'campBadgesEnemy' };
 function updateBuffSlots(activeBuffs, camp) {
     const role = GlobalStore.get('netRole');
@@ -123,7 +119,7 @@ function updateButtons() {
             pauseBtn.disabled=true;pauseBtn.classList.remove('active');
             return;
         }
-        // 2026-10-19 关卡上限修正：共 7 关（ui/61 的关卡推进与循环判据均为 curStage>=7 → 回第 1 关），
+        // 关卡上限修正：共 7 关（ui/61 的关卡推进与循环判据均为 curStage>=7 → 回第 1 关），
         //   原先写 >=6 导致第 6 关打完主按钮就变「重新开始」，丢掉了第 7 关。改 >=7 后：
         //   第 1~6 关结束显示「▶ 下一关」，第 7 关结束才显示「🔄 重新开始」。
         mainBtn.innerHTML=currentStage>=7?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;
