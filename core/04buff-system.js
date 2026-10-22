@@ -1,6 +1,5 @@
-// V6.7.2 | 2026-10-22 治疗/吸血文案改实际落地值（previewHeal）：嗜血狂刀（两分支）/热血奋战/圣火不熄
-// V6.7.1 | 2026-10-21 姊强化·乘风突袭：团队版主目标额外承受 20% 伤害（BONUS_DMG 声明「乘风突袭·强化」）
-// 版本历史见 记录-更改履历.md（检索 "core/04buff-system"）
+// core/04buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
+// V6.7.2 | 2026-10-22 | ~26000 bytes
 export const VER = 'core/04buff-system.js V6.7.2';
 import {
     applyFortifyDef,
@@ -107,9 +106,7 @@ export function applyCarryBonus(unit, A, state, log) {
 //   随回合开始进场，故 core/11 组件工厂循环能当回合挂上雄鹰技能；数值读 content buffs.carry.params.eagle。
 export function spawnCarryEagle(team, log) {
     if (!team || !team.length) return null;
-    // 2026-10-19 修「先拿过 carry、之后再选一次 carry 就不出雄鹰」：原锁 _carryEagleDone 是整局锁
-    //   （写在各 unit.state 上，任一单位带标即整队跳过），第二张 carry 一律不判。
-    //   改为把锁挂在 buff 对象上（_eagleDone）——每张 carry 各判一次 5 号位；
+    // 「先拿过 carry、之后再选一次 carry 就不出雄鹰」的修复：锁挂在 buff 对象上（_eagleDone），每张 carry 各判一次 5 号位。
     //   buff 跨回合同一对象、只被 remaining 递减，且只出现在持有它的阵营列表里，天然按阵营隔离。
     const buff = (team._activeBuffs || []).find(b => b.key === BUFF_TYPES.CARRY);
     if (!buff) return null;
@@ -128,17 +125,16 @@ export function spawnCarryEagle(team, log) {
 
 // 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
 //   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
-//   2026-10-19 定案：buff 整局持有（content permanent:true → player/49 给 remaining=Infinity，不再四回合过期）。
+//   buff 整局持有（content permanent:true → player/49 给 remaining=Infinity）。
 //   姊强化接线：小昭·姊在场且有团队背水 → 阈值 35%→50%（hexEnhance.lastStand.hpThreshold）。
 //   妹永久接线：团队背水不在场时，只要**任一队友**血量低于阈值，妹（isXiaoZhaoBrother）也吃背水加成。
-//   数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检核对
-//   （与 HOLY_FLAME_APPLY 同款；log 由 core/11 透传，纯记账、零游戏逻辑副作用）。
+//   数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检核对。
 export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
     const teamHas = hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND);
-    // 2026-10-21 老板拍板：妹永久版不再走 xiaoPermanentActive（它在团队 buff 在场时返回 false，
-    //   会让「团队版在场、只有队友血低」时她吃不到加成）→ 直查账本，团队在场也照样判队友
+    // 妹永久版不走 xiaoPermanentActive（它在团队 buff 在场时返回 false，会让「团队版在场、只有队友血低」时她吃不到加成）
+    //   → 直查账本，团队在场也照样判队友
     const permOwned = !!(unit.isXiaoZhaoBrother && Array.isArray(unit.state?._permanentBuffs)
         && unit.state._permanentBuffs.some(b => b.key === BUFF_TYPES.LAST_STAND));
     if (!teamHas && !permOwned) return;
@@ -194,7 +190,7 @@ export function spawnUnityRecruits(team, log) {
         toSpawn = 1;                           // 第二回合起每回合 +1
     }
     if (toSpawn <= 0) return;
-    // 2026-10-19 姊强化接线：小昭·姊在场且有团队众志 → 补员 M 值 15→20（hexEnhance.unity.recruitM）
+    // 姊强化接线：小昭·姊在场且有团队众志 → 补员 M 值 15→20（hexEnhance.unity.recruitM）
     const enh = query('xiaoHexEnhance', team, team._activeBuffs || [], BUFF_TYPES.UNITY);
     const m = (enh && enh.recruitM != null) ? enh.recruitM : cfg.recruitM;
     for (let i = 0; i < toSpawn; i++) {
@@ -263,7 +259,7 @@ export function submitBloodthirstDeclaration(data) {
     const isBrother = unit.isXiaoZhaoBrother;
 
     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
-        // 2026-10-22 声明量必须填原值：core/16 LEECH handler 落账时还会再走一次截脉/寒毒打折，
+        // 声明量必须填原值：core/16 LEECH handler 落账时还会再走一次截脉/寒毒打折，
         //   这里若直接填 preview 值会被打两次折（50% 变 25%）；preview 只用于飘字/审计「实际落地值」
         const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const leechVal = previewHeal(unit, rawLeech);
@@ -280,7 +276,7 @@ export function submitBloodthirstDeclaration(data) {
             data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20 });
         }
     } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR) {
-        // 2026-10-22 同主分支：声明量填原值，preview 只用于飘字/审计
+        // 同主分支：声明量填原值，preview 只用于飘字/审计
         const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const leechVal = previewHeal(unit, rawLeech);
         if (!data.declarations) data.declarations = [];
@@ -316,7 +312,7 @@ export function submitHotBloodDeclaration(data) {
     const critInterval = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.critInterval || C.HOT_BLOOD_CRIT_INTERVAL) : C.HOT_BLOOD_CRIT_INTERVAL;
     const isDouble = unit.state._hotBloodCount % critInterval === 0;
     const ratio = isDouble ? leechPct * 2 : leechPct;
-    // 2026-10-22 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
+    // 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
     //   preview 只用于飘字/审计的实际落地值
     const rawLeech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
     const leech = previewHeal(unit, rawLeech);
@@ -351,7 +347,7 @@ export function submitWindAssaultDeclaration(data) {
     const pushProb = enhance ? Math.floor(enhance.pushProb * 100) : Math.floor(C.BUFFS.windAssault.pushProb * 100);
     const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
     if (rng.nextInt(1, 100) <= hitProb) {
-        // 2026-10-21 姊强化：团队版乘风主目标额外承受 20% 伤害（妹妹永久版不生效）
+        // 姊强化：团队版乘风主目标额外承受 20% 伤害（妹妹永久版不生效）
         if (enhance && target.alive && !target.state._pendingDeath) {
             const extraDmg = Math.floor(dmg * 0.2);
             if (extraDmg > 0) {
@@ -511,7 +507,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     const cfg = C.BUFFS.holyFire || {};
     // 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）
     const enhance = team.some(x => x.isXiaoZhaoSister && x.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
-    // 2026-10-21 老板拍板：妹永久名额（slot='self'）回血固定 30%（content.buffs.holyFire.brotherReviveRatio），
+    // 妹永久名额（slot='self'）回血固定 30%（content.buffs.holyFire.brotherReviveRatio），
     //   不吃姊增强——与「永久版一律用团队基础值」的既定口径一致（圣火令/摄魂同款）
     const ratio = slot === 'self'
         ? (cfg.brotherReviveRatio != null ? cfg.brotherReviveRatio : cfg.reviveRatio)
@@ -531,8 +527,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     u.alive = true;
     Object.assign(u.state, { _isDead: false, _pendingDeath: false, _deathTime: 0 });
     // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
-    // 2026-10-22 文案报实际落地值：下面 isHeal=false 不吃截脉/寒毒，故不能用 previewHeal（会误打折），
-    //   按 maxHp 缺口夹取即实际值
+    // 文案报实际落地值：下面 isHeal=false 不吃截脉/寒毒，故不能用 previewHeal（会误打折），按 maxHp 缺口夹取即实际值
     const reviveRaw = Math.round(u.maxHp * ratio);
     const reviveHeal = Math.min(reviveRaw, Math.max(0, u.maxHp - u.hp));
     applyStatChange(u, 'hp', reviveRaw, null, '圣火不熄', false, false);
