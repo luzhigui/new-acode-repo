@@ -32,7 +32,7 @@
 //   免疫状态从开局快照可查（{...u} 浅拷贝带 state），任一方免疫 ⇒ 跳过该条判据5。
 // V6.1.3（2026-10-20 第 111 轮）：判据5 补位置改写白名单 isOtherRelocate —— 唐文亮冲刺改站位
 //   不发位移事件，原口径把「他自己冲走了」当「换位没落地」（seed=6 stage=6 假红）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.3';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.4';
 // V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
 //   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
 //   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
@@ -45,9 +45,18 @@ export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.3';
 //   8号位，第191条他冲刺到前排，后续两次出场都不在 8 号位 ⇒ 假红）。
 //   命中即视为该单位位置被合法改写，放弃本条判据 5（宁漏勿误）。
 //   今后再加「不发位移事件却改站位」的机制，务必登记到这里。
-function isOtherRelocate(mid, name) {
+function isOtherRelocate(mid, name, expectPos) {
     if (!mid || !name || typeof mid.text !== 'string') return false;
-    if (mid.text.indexOf('冲刺·七伤齐发') !== -1 && mid.text.indexOf(name) !== -1) return true;
+    if (mid.text.indexOf('冲刺·七伤齐发') === -1) return false;
+    if (mid.text.indexOf(name) !== -1) return true;
+    // 第 121 轮补：冲刺文案只报**被拽者**（「拽 韦一笑 至 3 号位」），不报被挤走的占位者。
+    //   实证 seed=90 stage=3：宋青书 110 条换位到 3 号位，113 条唐文亮冲刺拽韦一笑至 3 号位
+    //   把 3 号位占了，宋青书被挪到 5 号位 —— 文案全程没有"宋青书"三字 ⇒ 旧白名单查不到，
+    //   误判"宋青书换位未生效"。补：落位号与期望位相同 = 该位被第三方重写，无法归因 ⇒ 算打断。
+    if (expectPos != null) {
+        var dm = mid.text.match(/至\s*(\d+)\s*号位/);
+        if (dm && parseInt(dm[1], 10) === expectPos) return true;
+    }
     return false;
 }
 
@@ -175,7 +184,7 @@ export const rule113 = {
                             if (!mid) continue;
                             // 白名单先查（V6.1.3）：isOtherRelocate 命中的条目类型是 info，不是位移事件，
                             //   原先嵌在 buff-push/buff-swap 分支里 ⇒ 永远查不到（seed=6 stage=6 仍假红）。
-                            if (isOtherRelocate(mid, exp.name)) { interrupted = true; break; }
+                            if (isOtherRelocate(mid, exp.name, exp.pos)) { interrupted = true; break; }
                             if (mid.type === 'buff-push' || mid.type === 'buff-swap') {
                                 if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
                                     mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
@@ -199,7 +208,7 @@ export const rule113 = {
                         for (var s2 = it.idx + 1; s2 < n; s2++) {
                             var mid2 = log[s2];
                             if (!mid2) continue;
-                            if (isOtherRelocate(mid2, exp.name)) { interruptedAll = true; break; }
+                            if (isOtherRelocate(mid2, exp.name, exp.pos)) { interruptedAll = true; break; }
                             if (mid2.type === 'buff-push' || mid2.type === 'buff-swap') {
                                 if (mid2.pushTargetUid === exp.uid || mid2.behindUid === exp.uid ||
                                     mid2.uidA === exp.uid || mid2.uidB === exp.uid) { interruptedAll = true; break; }

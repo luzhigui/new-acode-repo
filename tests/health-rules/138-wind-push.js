@@ -8,7 +8,25 @@
 // V6.1.12（2026-10-1x）：判据3 改「被下一次换位打断前，任一快照落到宣告位即算生效」——
 //   旧口径只看击退后第一条快照，而 fxSnapshot 抓取存在一拍时滞（实测 seed=20 stage=4：
 //   击退后紧邻的一条仍是旧位、再往后两条才落宣告位），把"位置其实生效了"误判未生效。
-export const VER = 'tests/health-rules/138-wind-push.js V6.1.13';
+export const VER = 'tests/health-rules/138-wind-push.js V6.2.0';
+
+// 静默位移识别（第 121 轮取证）：唐文亮冲刺 / 何太冲撤退 / 寒离飒位移都走 core/13 moveUnitPosition，
+//   它**只发 ON_UNIT_STATE_CHANGE 信号、不产 buff-push/buff-swap 条目**（第 115 轮实证），
+//   于是这类位移在战报里不留任何"位置改写"标记。旧逻辑只看得见位置变了、看不见是谁改的，
+//   便把"击退已落地、之后又被别人挪走"误判为"击退没落地"（实证 seed=63 stage=4：唐文亮在
+//   117 条被击退至 6 号位，125 条冲刺把自己 relocate 到 2 号位，126 条快照 @2 ⇒ 旧判据误报）。
+// 口径收得很紧，只认真正会改写该期望单位站位的两种情形；数值与落地判据一字未放宽：
+//   ① 冲刺条目本身会让唐文亮本人改站位 ⇒ 期望单位就是唐文亮（或被拽者本人）时视为被打断；
+//   ② 位移条目宣告的落位号（「至 N 号位」）与期望位相同 ⇒ 该位被第三方占了，无法归因。
+function isSilentRelocate(mid, exp) {
+    if (!mid || typeof mid.text !== 'string') return false;
+    var t = mid.text;
+    if (t.indexOf('冲刺·七伤齐发') === -1) return false;
+    if (exp.name && t.indexOf(exp.name) !== -1) return true;
+    var dm = t.match(/至\s*(\d+)\s*号位/);
+    if (dm && parseInt(dm[1], 10) === exp.pos) return true;
+    return false;
+}
 
 export const rule85 = {
     group: '技能效果回归',
@@ -50,8 +68,13 @@ export const rule85 = {
             //    是旧位，再往后两条才落到宣告位），于是"位置其实生效了"却被判未生效 → 误报。
             //    改为：在被下一次换位打断之前，只要任一快照出现宣告位置即视为生效；只有存在
             //    后续快照却全部不等于宣告位置，才是真的"击退没落地"。
-            var expect = [{ uid: pu.pushTargetUid, pos: newPos, tag: '被击退者' }];
-            if (pu.behindUid != null) expect.push({ uid: pu.behindUid, pos: oldPos, tag: '被迫换位者' });
+            //    静默位移名解析（第 121 轮）：唐文亮冲刺会把**他自己** relocate 到前排，文案只报
+            //    被拽者（「拽 X 至 N 号位」），不报他自己 ⇒ 判据要靠名字认出"这条位移改写了谁"。
+            var pt = typeof pu.text === 'string' ? pu.text : '';
+            var pnM = pt.match(/击退！(\S+?)从\d+号位被击退至\d+号位/);
+            var bnM = pt.match(/(\S+?)被迫从\d+号位移至\d+号位/);
+            var expect = [{ uid: pu.pushTargetUid, pos: newPos, tag: '被击退者', name: pnM ? pnM[1] : null }];
+            if (pu.behindUid != null) expect.push({ uid: pu.behindUid, pos: oldPos, tag: '被迫换位者', name: bnM ? bnM[1] : null });
             for (var q = 0; q < expect.length; q++) {
                 var exp = expect[q];
                 var seen = 0, hit = false;
@@ -65,10 +88,12 @@ export const rule85 = {
                     var interrupted = false;
                     for (var s = windPushes[p].idx + 1; s < r; s++) {
                         var mid = log[s];
-                        if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
-                            if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
-                                mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
-                        }
+                            if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
+                                if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
+                                    mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
+                            }
+                            // 第 121 轮补：静默位移（冲刺/撤退/寒离飒位移）也要算打断，否则误报
+                            if (isSilentRelocate(mid, exp)) { interrupted = true; break; }
                     }
                     if (interrupted) break;
                     seen++;
