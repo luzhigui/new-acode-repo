@@ -2,8 +2,10 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
+// V7.0.1 | 2026-10-22 冲刺拽位照实报幕：swapUnitPositions/moveUnitPosition 现返回布尔，
+//   目标免疫位移时改写「免疫位移、纹丝不动」，不再假报"拽至 N 号位"（体检 114 家族案）
 // 版本历史见 记录-更改履历.md（检索 "modules/26elite-sixsects-tangwenliang"）
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.0';
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit } from '../core/13battle-shared.js';
@@ -51,14 +53,15 @@ export function createTangWenLiangComponent() {
                 const frontPos = ((target.pos - 1) % 3) + 1;   // 目标同列的前排位（4→1 / 5→2 / 6→3，7→1 / 8→2 / 9→3）
                 // 落点若被本队队友占着先换位（避免两单位挤同一格；只在本队内找占位者，两队 1~9 编号同域）
                 const relocate = (unit, pos) => {
-                    if (!unit || unit.pos === pos) return;
+                    if (!unit || unit.pos === pos) return true;
                     const team = unit.camp === CAMP_TYPES.ALLY ? A : B;
                     const occupant = team.find(u => u !== unit && u.alive && u.pos === pos);
-                    if (occupant) swapUnitPositions(unit, occupant, outLog);
-                    else moveUnitPosition(unit, pos, outLog);
+                    if (occupant) return swapUnitPositions(unit, occupant, outLog);
+                    return moveUnitPosition(unit, pos, outLog);
                 };
                 relocate(tw, frontPos);
-                if (target.pos > 3) relocate(target, frontPos);
+                // 2026-10-22 目标免疫 → 拽不动：照实报幕，别再写"拽至 N 号位"（体检 114）
+                const targetMoved = target.pos > 3 ? relocate(target, frontPos) : true;
 
                 const toFoe = Math.max(1, Math.round(target.hp * dash.dmgRatio));
                 applyStatChange(target, 'hp', -toFoe, tw, '冲刺·七伤齐发');
@@ -76,7 +79,12 @@ export function createTangWenLiangComponent() {
                 // 冲刺报幕：在出手帧（本信号处理内）直接落一行，与胖远桥出手声明同口径——
                 //   此时本击攻击组还没建（group 由 core/10 命中结算后才产出），落不进组也不该丢
                 //   （后随的普攻若被闪避就没有组，挂组会让这行消失）
-                if (outLog) pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：拽 ${target.name} 至 ${frontPos} 号位，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`, { floatText: '⚡', floatUid: target.uid });
+                if (outLog) {
+                    const dragText = targetMoved
+                        ? `拽 ${target.name} 至 ${frontPos} 号位`
+                        : `${target.name} 免疫位移、纹丝不动`;
+                    pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${dragText}，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`, { floatText: '⚡', floatUid: target.uid });
+                }
             }
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播

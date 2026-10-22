@@ -1,3 +1,5 @@
+// V6.4.2 | 2026-10-22 位移免疫不再静默：swapUnitPositions / moveUnitPosition 返回布尔（免疫=false），
+//   resolvePushOrStun 换位失败改落眩晕分支（与"退无可退"同语义），不再照发假的 PUSH 战报（体检 114 家族案）
 // V6.4.1 | 2026-10-16 击杀者记账：applyStatChange 致死出口（hp≤0 挂 _pendingDeath 处）顺手记 _killerUid
 //   （uid 非引用，快照/序列化安全；source 空=死亡结算/自损不写、有值覆盖=补刀者算凶手），
 //   供唐文亮「同归于尽」反噬击杀者用（modules/26 读）
@@ -5,7 +7,7 @@
 //   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
 //   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/13battle-shared.js V6.4.1';
+export const VER = 'core/13battle-shared.js V6.4.2';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -130,9 +132,10 @@ function getNextAvailableUnit(team) {
 }
 
 function swapUnitPositions(unitA, unitB, log) {
-    if (!unitA || !unitB) return;
+    if (!unitA || !unitB) return false;
     // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
-    if ((unitA.state && unitA.state._ctrlImmune) || (unitB.state && unitB.state._ctrlImmune)) return;
+    // 2026-10-22 返回布尔：原静默 return 让调用方在换位失败时照发"换位成功"战报（体检 114 家族案）。
+    if ((unitA.state && unitA.state._ctrlImmune) || (unitB.state && unitB.state._ctrlImmune)) return false;
     const posA = unitA.pos;
     const posB = unitB.pos;
     unitA.pos = posB;
@@ -142,15 +145,20 @@ function swapUnitPositions(unitA, unitB, log) {
     emitCoreEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
     emitStateChange(unitA, STATE_CHANGE_TYPES.POSITION, { fromPos: posA, toPos: posB }, log);
     emitStateChange(unitB, STATE_CHANGE_TYPES.POSITION, { fromPos: posB, toPos: posA }, log);
+    return true;
 }
 
 function moveUnitPosition(unit, newPos, log) {
-    if (!unit || newPos == null) return;
+    if (!unit || newPos == null) return false;
+    // 2026-10-22 免疫也挡"移动"分支：原只挡 swap，唐文亮拽免疫者且前排空着时走 move 分支 → 硬拽走、免疫破功
+    //   （体检 114 家族案的反向洞）。返回布尔供调用方照实报幕。
+    if (unit.state && unit.state._ctrlImmune) return false;
     const oldPos = unit.pos;
     unit.pos = newPos;
     // 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
     emitCoreEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
     emitStateChange(unit, STATE_CHANGE_TYPES.POSITION, { fromPos: oldPos, toPos: newPos }, log);
+    return true;
 }
 
 // 击退 / 眩晕统一判定（乘风突袭、胖远桥·年轻气盛共用）：
@@ -172,13 +180,15 @@ function resolvePushOrStun(target, team, log, label) {
         const oldPos = target.pos;
         if (behindUnit) {
             const behindOldPos = behindUnit.pos;
-            swapUnitPositions(target, behindUnit, log);
-            log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
-        } else {
-            moveUnitPosition(target, behindPos, log);
+            // 2026-10-22 身后格站着免疫者 = 推不动 → 与"退无可退"同语义，落到下面眩晕分支，不写假 PUSH 战报
+            if (swapUnitPositions(target, behindUnit, log)) {
+                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
+                return;
+            }
+        } else if (moveUnitPosition(target, behindPos, log)) {
             log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: null, oldPos, behindPos } });
+            return;
         }
-        return;
     }
     target.state._stunned = true;
     emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), _stunned: true });
