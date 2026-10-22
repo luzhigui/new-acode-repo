@@ -339,7 +339,7 @@ export async function playBattleGuest() {
         if (!!step.ff !== !!GlobalStore.get('fastForwardActive')) GlobalStore.set('fastForwardActive', !!step.ff);
         // 与房主一致：每回合重置「是否本回合首次攻击」
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
-        feedBattleStep(step, step.activeBuffs || c.activeBuffs);   // 2026-09-25 战报导出：从机喂房主发来的 step
+        feedBattleStep(step, step.activeBuffs || c.activeBuffs);   // 战报导出：从机喂房主发来的 step
         await playStepInterleaved(c, step, isFirstAttackRef);
         await clock.wait(300);
         if (step.winner) { finalWinner = step.winner; isBattleOver = true; }

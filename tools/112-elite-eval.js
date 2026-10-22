@@ -40,35 +40,16 @@
 //          与这里的战后实测分不是一回事，改名避撞词。算法不变 = 胜率 × 70% + 存活率 × 30%，
 //          横向比同列六人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
+import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.0.2';
+export const VER = 'tools/112-elite-eval.js V3.0.3';
 
-// 自然出场归因表的列（2026-10-21：加寒离飒，共 6 名精英）
-const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
+// 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
+// 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
 const configs = NATURAL_ELITES.map(name => ({ name }));
-
-// 强精英单挑（M107）：张无忌（M115）属 boss 档，已拆到独立 Boss 表
-const SOLO_ELITES = [
-    { name: '韦一笑' },
-    { name: '小昭·姊' },
-    { name: '小昭·妹' },
-    { name: '金毛狮王谢逊' },
-    { name: '寒离飒' }
-];
-const BOSS_ELITES = [{ name: '张无忌' }];
-
-// 敌方阵容变体（行拆分维度）：第3关在胖远桥/宋青书两套阵容间轮换，按"本局敌方是谁"拆行统计
-// 2026-09-24 定稿：胖远桥/宋青书是行不是列——用户要看的是"遇到谁时的整体胜率"，不是把他俩当出场角色
-const VARIANTS = ['胖远桥', '宋青书', '标准'];
-
-// 弱精英（2026-10-16 V2.8.0）：明教侧走 29 forceWeakElite 的「弱精英混入」、六大派侧走 M104 数字空位具名锁定
-// 2026-10-21 V3.0.0：寒离飒按 M107 归入强精英，移出本表
-const WEAK_ELITES = [
-    { name: '杨逍', side: 'ally' },
-    { name: '殷天正', side: 'ally' },
-    { name: '何太冲', side: 'enemy' },
-    { name: '唐文亮', side: 'enemy' }
-];
+const SOLO_ELITES = SOLO_ELITE_NAMES.map(name => ({ name }));
+const BOSS_ELITES = BOSS_ELITE_NAMES.map(name => ({ name }));
+const VARIANTS = ENEMY_VARIANTS;
 const WEAK_ALLY = WEAK_ELITES.filter(w => w.side === 'ally');
 const WEAK_ENEMY = WEAK_ELITES.filter(w => w.side === 'enemy');
 
