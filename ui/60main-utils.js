@@ -1,7 +1,8 @@
+// V6.1.2 | 2026-10-22 补 _forceHanLiSa 一次性消费（寒离飒升强精英后 dev 面板改走此标志，29 V7.6.1 新增）
 // V6.1.1 | ~8000 bytes | 2026-10-17 补漏：_forceWeakElite 一次性消费（弱精英锁定开关原先只有 29 直读 localStorage
 //   的路径，不清除会一直生效——线上表现为「点过一次 dev 演示按钮后每局必出该弱精英」，同 _forceXieXun 旧事故）
 // V6.1.0 | ~7500 bytes | 2026-09-22 新增角色实战 demo 开关：_forceXieXun / _forcePang / _startStage 一并一次性消费
-export const VER = 'ui/60main-utils.js V6.1.1';
+export const VER = 'ui/60main-utils.js V6.1.2';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -84,6 +85,12 @@ export function initBugAndXiaoZhaoModes() {
     if (localStorage.getItem('_forceXieXun') === '1') {
         GlobalStore.set('forceXieXun', true);
         localStorage.removeItem('_forceXieXun');
+    }
+    // 2026-10-22 寒离飒升强精英（29 V7.6.1 新增 forceHanLiSa 通道）：dev 面板按钮改走此标志，
+    //   与 forceXieXun 同口径一次性消费——残留会让她每次开局都被强制上场
+    if (localStorage.getItem('_forceHanLiSa') === '1') {
+        GlobalStore.set('forceHanLiSa', true);
+        localStorage.removeItem('_forceHanLiSa');
     }
     if (localStorage.getItem('_forcePang') === '1') {
         GlobalStore.set('forcePang', true);

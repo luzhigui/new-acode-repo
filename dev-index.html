@@ -1,5 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.17 | ~24600 bytes | 2026-10-19 「📖 文档与准则」区改造：① 文本入口原直跳 *.md 原文，手机上浏览器按纯文本渲染（无 viewport → 字缩极小、白底刺眼），
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.3.18 | 2026-10-22 修「👊 寒离飒」按钮必崩：她已升强精英（29 V7.6.0 并入 eliteConfigs、弱精英池无此人），
+     旧写法 _forceWeakElite='寒离飒' 会撞 29 的入池校验抛错；改走 29 V7.6.1 新增的 _forceHanLiSa，
+     并在 clearDemoFlags 里同步清除。配套 ui/60 一次性消费该标志。
+ V6.3.17 | ~24600 bytes | 2026-10-19 「📖 文档与准则」区改造：① 文本入口原直跳 *.md 原文，手机上浏览器按纯文本渲染（无 viewport → 字缩极小、白底刺眼），
      现统一走 tools/133-md-reader.html 起点读书式阅读器（米黄底黑字、A-/A+ 调字号、本地 MD 渲染）；② 补「📋 体检条目」（根目录 体检条目.md）与「📜 网页端协议」（04 网页端协议.md）两个根目录文档入口；106 清单登记 133。
      V6.3.16 | ~19000 bytes | 2026-10-19 清掉「🎨 UI 效果 demo」区 5 个失效入口（寒离飒技能/攻击候选/特效对比 + 蓄意轰拳/满员版）：
      对应 demo 页（126/127/128/129/131）已移出仓库（搬去同级 _仓库外产物\），按钮 href 点开即 404，用户拍板删除；
@@ -14,7 +17,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.17</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.18</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         body {
@@ -86,7 +89,8 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                     <button class="big-btn btn-play" id="btnXieXun" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #f9a825, #e65100);">🦁 谢逊</button>
                 </div>
                 <!-- 弱精英锁定（2026-10-16）：_forceWeakElite 传具名 → modules/29 必出该弱精英（混入正常阵容占 1 位，不整队替换）。
-                     明教弱精英池＝杨逍/殷天正/寒离飒；六大派 M104 具名池＝何太冲/唐文亮 -->
+                     明教弱精英池＝杨逍/殷天正（寒离飒 2026-10-22 升强精英，改走 _forceHanLiSa）；
+                     六大派 M104 具名池＝何太冲/唐文亮 -->
                 <div style="display:flex;gap:0;margin-bottom:10px;">
                     <button class="big-btn btn-play" id="btnYangXiao" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #4db6ac, #00695c);">🐦 杨逍</button>
                     <button class="big-btn btn-play" id="btnHanLiSa" style="flex:1;background:linear-gradient(135deg, #90caf9, #1565c0);">👊 寒离飒</button>
@@ -186,6 +190,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         function clearDemoFlags() {
             localStorage.removeItem('_forcePang');
             localStorage.removeItem('_forceXieXun');
+            localStorage.removeItem('_forceHanLiSa');
             localStorage.removeItem('_forceWeakElite');
             localStorage.removeItem('_startStage');
         }
@@ -235,10 +240,11 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             localStorage.removeItem('_bugMode');
             window.location.href = 'index.html';
         });
-        // 2026-10-17 寒离飒（明教·战士·弱精英 M107）：同杨逍走明教侧弱精英混入，恒定 2 号位
+        // 2026-10-22 寒离飒升强精英（29 V7.6.0）：不能再走 _forceWeakElite（她已不在弱精英池，会撞入池校验抛错），
+        //   改走 29 V7.6.1 新增的 _forceHanLiSa（强精英 force，与她同级的韦一笑/谢逊互斥轮盘）
         document.getElementById('btnHanLiSa').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '寒离飒');
+            localStorage.setItem('_forceHanLiSa', '1');
             localStorage.removeItem('_bugMode');
             window.location.href = 'index.html';
         });
