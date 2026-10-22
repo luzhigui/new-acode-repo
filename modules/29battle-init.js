@@ -1,3 +1,6 @@
+// V7.6.0 | 2026-10-22 明教精英分层重写（老板口径限强度保趣味）：Boss（张无忌 30%）独掷、Boss 局最多再配 1 个
+//   （强 70%/弱 30%）；无 Boss 时强精英 90% 出 1 / 10% 出 2（绝不 3），弱精英独立 30% 混入；
+//   寒离飒由弱升强进强精英池；删 eliteCount / ELITE_COUNT_THRESHOLDS 旧轮盘（骰子先掷后判，RNG 流仍双端同源）
 // V7.5.26 | 2026-10-21 新增 forceSoloWeakElite（仅工具 112 强精英单挑用）：配合 forceWeakElite 锁定寒离飒时
 //            抑制随机精英轮盘，得到「只有她一个精英」的单核局；不设该标志时弱精英混入照旧（强精英轮盘照常）
 // V7.5.24 | ~25400 bytes | 2026-10-19 六大派弱精英随机混入（老板拍板，与明教侧同率 WEAK_ELITE_MIX_RATE）：
@@ -8,7 +11,7 @@
 // V7.5.22 | ~24700 bytes | 2026-10-16 弱精英定案：明教固定精英轮盘只留张/韦/小昭/谢逊，杨逍/殷天正改「随机混入」正常阵容；
 //            六大派第 3 关撤销崆峒整队变体（只剩宋青书/胖远桥两变体），唐文亮降 M104 混入具名池；新增 forceWeakElite 锁定（测试用）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'modules/29battle-init.js V7.5.26';
+export const VER = 'modules/29battle-init.js V7.6.0';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -56,140 +59,91 @@ export function initBattleTeams(currentStage, _rng) {
         rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 5;
     }
 
-    // 精英出场率（2026-10-19 重定）：90%一个、5%两个、5%一个都不出、不出三个，按 ELITE_RATE 权重选人
-    // 阈值走 CONFIG.ELITE_COUNT_THRESHOLDS（[3人, 2人, 1人] 的上界）
-    const [t3, t2, t1] = C.ELITE_COUNT_THRESHOLDS;
-    const eliteConfigs = [
-        { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePowerOf('张无忌') },
+    // ── 2026-10-22 明教精英分层重写（老板口径：限强度、保趣味）──
+    //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（30%）独立掷；出 Boss 时最多再配 1 个（强 70% / 弱 30%）
+    //   无 Boss：强精英 90% 出 1 / 10% 出 2（绝不 3）；弱精英独立 WEAK_ELITE_MIX_RATE（30%）混入，总数 ≤ 3
+    //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒 2026-10-22 由弱升强，与前者同级）
+    //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
+    //   RNG 流纪律（PVP 双端同源）：骰子全部无条件消耗，force 只改「是否应用」，不改消耗序列。
+    const bossConfig = { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePowerOf('张无忌') };
+    const strongEliteConfigs = [
         { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePowerOf('韦一笑') },
         { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePowerOf('小昭') },
-        // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
-        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') }
-        // 2026-10-16 弱精英定案（老板拍板）：杨逍/殷天正撤出固定精英轮盘（明教固定精英＝张无忌/韦一笑/小昭/谢逊），
-        //   改为「弱精英随机混入」——见下方 mingWeakPool 混入块
+        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') },
+        { name: '寒离飒', m: 107, role: ROLE_TYPES.WARRIOR, isHanLiSa: true, power: elitePowerOf('寒离飒') }
     ];
-    const eliteRoll = _rng.next();
-    let eliteCount;
-    if (eliteRoll < t3) {
-        eliteCount = 3;
-    } else if (eliteRoll < t2) {
-        eliteCount = 2;
-    } else if (eliteRoll < t1) {
-        eliteCount = 1;
-    } else {
-        eliteCount = 0;
-    }
+    // eliteConfigs 保留旧名：下游「弱精英池排除固定精英」按名字过滤，Boss 与强精英一并纳入
+    const eliteConfigs = [bossConfig, ...strongEliteConfigs];
+
+    // 骰子先掷后判（全部无条件消耗）
+    const bossRoll = _rng.next();
+    const bossPartnerRoll = _rng.next();
+    const strongCountRoll = _rng.next();
+    const strongPickIdxA = _rng.nextInt(0, strongEliteConfigs.length - 1);
+    const strongPickIdxB = _rng.nextInt(0, strongEliteConfigs.length - 1);
+    const hasBoss = bossRoll < (rate['张无忌'] ?? 0.30);
+    const bossWantStrong = bossPartnerRoll < 0.70;
+    const noBossStrongCount = strongCountRoll < 0.10 ? 2 : 1;
 
     let usedPower = 0;
+    let bossPartnerIsStrong = false;   // Boss 局搭档名额是否已用掉（弱精英块据此跳过）
 
-    // 强制精英：张无忌/韦一笑独立覆盖
-    const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
-    const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
-    if (forceZhang || forceWei) {
-        eliteCount = Math.max(eliteCount, 1);
-        if (forceZhang) {
-            const cfg = eliteConfigs.find(c => c.name === '张无忌');
-            if (cfg && !allyTeam.some(u => u.isZhang)) {
-                let unit = new Unit(cfg.name, cfg.m, cfg.role, CAMP_TYPES.ALLY);
-                unit.isZhang = true;
-                unit.init(_rng); unit.applyBonus();
-                unit.pos = null;
-                allyTeam.push(unit);
-                usedPower += cfg.power;
-            }
+    // 造精英单位（小昭走形态分支；其余 init+applyBonus）
+    const pushElite = (c) => {
+        const initRole = c.isXiaoZhaoBrother ? C.ROLES[_rng.nextInt(0, 3)] : c.role;
+        const unit = new Unit(c.name, c.m, initRole, CAMP_TYPES.ALLY);
+        if (c.isZhang) unit.isZhang = true;
+        if (c.isWei) unit.isWei = true;
+        if (c.isXiaoZhaoBrother) {
+            const sisterProb = C.XIAO_ZHAO_SISTER_PROB[pickKey] ?? C.XIAO_ZHAO_SISTER_PROB.default;
+            if (_rng.next() < sisterProb) { unit.isXiaoZhaoSister = true; }
+            else { unit.isXiaoZhaoBrother = true; }
+            unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
+            applyHeroFlags(unit);
+            unit.initXiaoZhao(); unit.applyBonus(true);   // true = 不吃职业加成
+            unit.state._baseMaxHp = unit.maxHp; unit.state._baseAtk = unit.atk; unit.state._baseDef = unit.def;
+        } else {
+            unit.init(_rng); unit.applyBonus();
         }
-        if (forceWei) {
-            const cfg = eliteConfigs.find(c => c.name === '韦一笑');
-            if (cfg && !allyTeam.some(u => u.isWei)) {
-                let unit = new Unit(cfg.name, cfg.m, cfg.role, CAMP_TYPES.ALLY);
-                unit.isWei = true;
-                unit.init(_rng); unit.applyBonus();
-                unit.pos = null;
-                allyTeam.push(unit);
-                usedPower += cfg.power;
-            }
-        }
-    }
-
-    // 2026-09-22 强制金毛狮王谢逊（demo 用）：明教侧固定加入，站 7 号位。
-    // 与 forceZhang / forceWei 同口径（GlobalStore 优先、localStorage 兜底），但独立成块——
-    // 谢逊是固定位角色，不参与上面的随机精英轮盘（eliteCount / weightedPick）。
-    // 2026-10-08 V7.5.16 轮盘互锁（老板拍板「谢逊加一下」）：forceXieXun 同样抑制随机轮盘——
-    //   旧版勾谢逊后轮盘照转，队里常是「谢逊+另一个精英」，四精英单挑评测口径不对齐（112/探针实测
-    //   单精英命中 0/300）。现与张/韦同款互锁，勾了谢逊=单精英局。
-    const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
-    if (forceXieXun && !allyTeam.some(u => u.isXieXun)) {
-        const unit = new Unit('金毛狮王谢逊', 107, ROLE_TYPES.WARRIOR, CAMP_TYPES.ALLY);
-        unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
-        usedPower += elitePowerOf('金毛狮王谢逊');
-    }
+        usedPower += c.power;
+        return unit;
+    };
 
-    // 2026-10-08 V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
-    //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
+    // 强制精英（dev）：任一 force 命中 = 单精英局，抑制随机轮盘
+    const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
+    const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
+    const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
     const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother'
         || localStorage.getItem('_forceXiaoZhao') === 'sister' || localStorage.getItem('_forceXiaoZhao') === 'brother');
     // 2026-10-21 V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
     const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
-    if (eliteCount > 0 && !forceZhang && !forceWei && !forceXieXun && !_forceXzEarly && !forceSoloWeak) {
-        const picked = [];
-        // 2026-09-22 已在队的精英不再进池：forceXieXun 等强制路径可能已经加过，
-        // 不去重会抽出第二个同名精英（小昭会被改名成「小昭·姊/妹」，所以标记判断不能只看 name）
-        const pool = eliteConfigs.filter(c => !allyTeam.some(u =>
-            u.name === c.name ||
-            (c.isZhang && u.isZhang) ||
-            (c.isWei && u.isWei) ||
-            (c.isXiaoZhaoBrother && (u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) ||
-            (c.isXieXun && u.isXieXun)
-        ));
-        function weightedPick(arr) {
-            const total = arr.reduce((s, c) => s + (rate[c.name] || 1 / arr.length), 0);
-            let r = _rng.next() * total;
-            for (let i = 0; i < arr.length; i++) {
-                r -= (rate[arr[i].name] || 1 / arr.length);
-                if (r <= 0) return i;
-            }
-            return arr.length - 1;
-        }
-        if (eliteCount === 3) {
-            // 2026-09-22 池子从 3 人扩到 4 人后，不能再 push(...pool) 全抽（会出 4 个超编），改为按权重抽满 3 个
-            const rest = [...pool];
-            while (picked.length < 3 && rest.length > 0) {
-                const i = weightedPick(rest);
-                picked.push(rest[i]);
-                rest.splice(i, 1);
-            }
-        } else if (eliteCount === 2) {
-            const i1 = weightedPick(pool);
-            const rest = pool.filter((_, i) => i !== i1);
-            const i2 = weightedPick(rest);
-            picked.push(pool[i1], rest[i2]);
-        } else {
-            picked.push(pool[weightedPick(pool)]);
-        }
+    const anyForce = forceZhang || forceWei || forceXieXun || _forceXzEarly || forceSoloWeak;
 
-        for (const c of picked) {
-            // 小昭初始职业随机（与 forceXiaoZhao 路径一致，两条路必须同口径）。
-            // initXiaoZhao 只覆盖 血/攻/防 的分配（50% 血、剩余对半分），不改职业，故这里给什么职业都行。
-            const initRole = c.isXiaoZhaoBrother ? C.ROLES[_rng.nextInt(0, 3)] : c.role;
-            let unit = new Unit(c.name, c.m, initRole, CAMP_TYPES.ALLY);
-            if (c.isZhang) unit.isZhang = true;
-            if (c.isWei) unit.isWei = true;
-            if (c.isXiaoZhaoBrother) {
-                const sisterProb = C.XIAO_ZHAO_SISTER_PROB[pickKey] ?? C.XIAO_ZHAO_SISTER_PROB.default;
-                if (_rng.next() < sisterProb) { unit.isXiaoZhaoSister = true; }
-                else { unit.isXiaoZhaoBrother = true; }
-                unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
-                applyHeroFlags(unit);
-                unit.initXiaoZhao(); unit.applyBonus(true);   // true = 不吃职业加成
-                unit.state._baseMaxHp = unit.maxHp; unit.state._baseAtk = unit.atk; unit.state._baseDef = unit.def;
-            } else {
-                unit.init(_rng); unit.applyBonus();
+    if (forceZhang && !allyTeam.some(u => u.isZhang)) pushElite(bossConfig);
+    if (forceWei && !allyTeam.some(u => u.isWei)) pushElite(strongEliteConfigs.find(c => c.isWei));
+    if (forceXieXun && !allyTeam.some(u => u.isXieXun)) pushElite(strongEliteConfigs.find(c => c.isXieXun));
+
+    // 2026-10-08 V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
+    //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
+    if (!anyForce) {
+        if (hasBoss) {
+            pushElite(bossConfig);
+            // Boss 局最多再配 1 个：70% 配强精英，30% 名额留给下方弱精英混入块
+            if (bossWantStrong) {
+                pushElite(strongEliteConfigs[strongPickIdxA]);
+                bossPartnerIsStrong = true;
             }
-            unit.pos = null;
-            allyTeam.push(unit);
-            usedPower += c.power;
+        } else {
+            pushElite(strongEliteConfigs[strongPickIdxA]);
+            if (noBossStrongCount >= 2) {
+                // 第二抽避开第一抽（index 相同时顺延一位，不额外消耗 RNG）
+                const idxB = (strongPickIdxB === strongPickIdxA)
+                    ? (strongPickIdxB + 1) % strongEliteConfigs.length
+                    : strongPickIdxB;
+                pushElite(strongEliteConfigs[idxB]);
+            }
         }
     }
 
@@ -266,12 +220,14 @@ export function initBattleTeams(currentStage, _rng) {
         throw new Error(`forceWeakElite 无效（不在明教弱精英池、也不在 roster.enemyM）: ${forceWeakElite}`);
     }
     const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
-    const mixSwappable = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun);
+    // 2026-10-22 寒离飒已升强精英：混入时不能再把他换掉；Boss 局搭档已配强精英则跳过（总数控在 Boss+1）
+    const mixSwappable = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun && !u.isHanLiSa);
     // RNG 流纪律（PVP 双端同源）：抽签无条件消耗，锁定与否只改「是否应用」，不改消耗序列
     const mixRoll = _rng.next();
     const mixVictimIdx = mixSwappable.length > 0 ? _rand(0, mixSwappable.length - 1) : 0;
     const mixPickIdx = mingWeakPool.length > 0 ? _rand(0, mingWeakPool.length - 1) : 0;
-    if (mingWeakPool.length > 0 && mixSwappable.length > 0 && (weakAllyForced || mixRoll < C.WEAK_ELITE_MIX_RATE)) {
+    const weakMixAllowed = weakAllyForced || (!bossPartnerIsStrong && mixRoll < C.WEAK_ELITE_MIX_RATE);
+    if (mingWeakPool.length > 0 && mixSwappable.length > 0 && weakMixAllowed) {
         const victim = mixSwappable[mixVictimIdx];
         const pick = weakAllyForced
             ? mingWeakPool.find(w => w.name === forceWeakElite)
