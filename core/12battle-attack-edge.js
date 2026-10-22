@@ -18,7 +18,7 @@ import { fmtHp } from '../infra/51-core-utils.js';
 import { UNIT_EVENT_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 
-// 2026-10-16 综合闪避率（0~1）：规则表各源 + buff 闪避，独立相乘后取补——resolveAttackHit 内部与
+// 综合闪避率（0~1）：规则表各源 + buff 闪避，独立相乘后取补——resolveAttackHit 内部与
 //   外部「概率直读」消费者（唐文亮·同归于尽反噬，绕开「行动过不能闪避」前置时）共用此单点公式。
 //   attacker 参数供规则表按攻击者特判（现有规则不区分，签名与 resolveAttackHit 内调用对齐）
 export function computeDodgeChance(target, attacker, defenderBuffStats) {
@@ -33,7 +33,7 @@ export function computeDodgeChance(target, attacker, defenderBuffStats) {
     return 1 - product;
 }
 
-// 2026-10-16 export snapshotUnitForFact：唐文亮·同归于尽反噬的 MISS/DODGE fact 构造需要同款快照
+// export snapshotUnitForFact：唐文亮·同归于尽反噬的 MISS/DODGE fact 构造需要同款快照
 export function snapshotUnitForFact(unit) {
     if (!unit) return null;
     return {
@@ -132,7 +132,7 @@ export function resolveDeaths(allySide, enemySide, log) {
 
     eventBus.emit(SIGNAL_TYPES.ON_BEFORE_DEATH, { units: pending, allySide, enemySide, log });
 
-    // 2026-09-22 支持「替死」：ON_BEFORE_DEATH 监听器可以清掉自己的 _pendingDeath 来取消本次死亡
+    // 支持「替死」：ON_BEFORE_DEATH 监听器可以清掉自己的 _pendingDeath 来取消本次死亡
     //   （谢逊消耗狮子替死）。pending 是发射前的快照，只清标记是取消不掉循环的，必须逐条复查。
     const died = [];
     for (const u of pending) {
@@ -140,10 +140,10 @@ export function resolveDeaths(allySide, enemySide, log) {
         applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
         u.alive = false;
         u.state._isDead = true;
-        // 2026-09-19 修字段 bug：标记时写的是 state._pendingDeath，清理时写成了顶层
+        // 修字段 bug：标记时写的是 state._pendingDeath，清理时写成了顶层
         u.state._pendingDeath = false;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
-        // 2026-09-24 死亡不再发 UNIT_REMOVE：伤口一结算就把格子从 store 摘掉，会出现「格子先空、死亡特效后到」。
+        // 死亡不再发 UNIT_REMOVE：伤口一结算就把格子从 store 摘掉，会出现「格子先空、死亡特效后到」。
         //   改为只保留 _isDead 状态 → 格子当帧就上死亡态（红底 ✕），尸体交给 player/42 的 3 秒清尸计时统一移除。
         emitStateChange(u, STATE_CHANGE_TYPES.DEATH, {}, log);
         died.push(u);
