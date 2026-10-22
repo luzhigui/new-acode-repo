@@ -1,12 +1,11 @@
 // render/38-actions-translate-heal.js — fact → stageAction 翻译器·回血族（38 拆分）
-// V1.0.0 | ~5600 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：回血/吸血类 FACT_TRANSLATORS
-//          条目 + makeHealAction / translateEndlessBreath，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
+// V1.0.0 | 2026-10-13 | ~5600 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/38-actions-translate-heal.js V1.0.0';
 
 // 回血族翻译器表（键=factType）
 export const HEAL_TRANSLATORS = {
-    // 通用回血（2026-10-15）：任何走 FACT_TYPES.HEAL 的回血都从这里出动作 —— 新增回血无需再加条目
+    // 通用回血：任何走 FACT_TYPES.HEAL 的回血都从这里出动作 —— 新增回血无需再加条目
     [FACT_TYPES.HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.KUAI_LE_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.NINE_YANG_HEAL]: (data, index) => makeHealAction(data, index),
@@ -17,13 +16,8 @@ export const HEAL_TRANSLATORS = {
     [FACT_TYPES.ENDLESS_BREATH]: (data, index) => translateEndlessBreath(data, index),
     [FACT_TYPES.HOT_BLOOD_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.BLOOD_THIRST_LEECH]: (data, index) => makeHealAction(data, index),
-    // 2026-10-07 飞行再生飘字改走 afterText（老板屏幕上仍不飘的终修）：
-    // 原走 makeHealAction（不带 timing）→ HEAL 被 timing 函数判为 'anchor' → 飘字靠
-    // 「锚文本与正文逐字匹配」触发——这条链已静默断过一次（10-06 空格案），今日机器复跑
-    // 全链 16/16 信号全发（代码本体无病），但老板实测仍不飘，剩浏览器模块混搭/APK 旧包
-    // 两种环境态。锚点通道的本质缺陷：任何一环文案漂移/缓存旧模块=无声哑火。
-    // 改为显式 afterText：飘字跟张三丰生生不息同通道（老板 10-05 亲眼见过能飘），
-    // 不再依赖任何文本匹配，本类故障从结构上消灭。
+    // 飞行再生飘字改走 afterText：锚点通道（飘字靠「锚文本与正文逐字匹配」触发）任何一环文案漂移
+    //   或缓存旧模块就无声哑火；显式 afterText 不依赖文本匹配，本类故障从结构上消灭。
     [FACT_TYPES.FLYER_REGEN]: (data, index) => ({ ...makeHealAction(data, index), timing: 'afterText' })
 };
 

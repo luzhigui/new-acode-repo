@@ -1,18 +1,5 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
-// V1.0.5 | 2026-10-19 热血奋战横幅翻倍判据修正：原先读 e.data.isDouble（该字段不在 factData 里，恒 undefined）
-//           → 永远只出「❤️ 热血奋战」，翻倍提示丢失；改读 entry 顶层 isDouble（core/04 声明顶层 → core/10 L314 落 entry）
-// V1.0.4 | 2026-10-18 灭绝师太三击吸血回血飘字改走 HEAL 动作（afterText）：原先在 render/39 ATTACK.fx
-//          出手帧同步补发 HEAL_FLOAT，被攻击动画/闪光盖住实机看不见撒；并回与其他治疗相同的已验证通道
-// V1.0.3 | 2026-10-16 新增读本击 data.qiShangBanner → 组内 BANNER 演出（唐文亮「💢 七伤齐发！」满 7 档横幅）：
-//          老板口径——单位自己产生的攻击前置/特效必须落在**自己的攻击组**里，故横幅不再走组外扁平
-//          SKILL_ANNOUNCE + render/38-stat.bannerText 通道，改为挂本组 data、锚本组 factIndex 出演出
-// V1.0.2 | 2026-10-16 两改（老板报的实机现象）：①MISS/DODGE 翻译器补 isKuLianAttack 透传——宋青书苦练 💪
-//   在「未命中/被闪避」路径也要播（原先唯一发信点在 ATTACK 动作 fx，命中判定 skipped 时无 ATTACK 动作 →
-//   苦练特效整段消失；attacker 快照 state 块本就带 _kuLianActive，无需改引擎）；②makeAttackAction 读本击
-//   data.qiShangSelfDmg（modules/26 写进攻击组）→ 唐文亮七伤拳自损在自己头顶补 💥-N 掉血弹幕
-// V1.0.1 | 2026-10-16 ATTACK/MISS/DODGE 翻译器加 linkReason 透传（render/39 出手帧据此发被动出手徽章飘字）
-// V1.0.0 | ~20500 bytes | 2026-10-13 从 render/38-actions-translate.js 纯搬移：攻击/命中/闪避/处决/反伤/
-//          溅射/连击类 FACT_TRANSLATORS 条目 + makeAttackAction，翻译逻辑零改动。表由 38 入口合成进 FACT_TRANSLATORS。
+// V1.0.6 | 2026-10-19 | ~20500 bytes
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { makeHealAction } from './38-actions-translate-heal.js';
@@ -27,7 +14,7 @@ export const ATTACK_TRANSLATORS = {
         kind: STAGE_ACTION_TYPES.MISS,
         actorUid: data.attacker?.uid ?? null,
         targetUid: data.target?.uid ?? null,
-        // 2026-10-16 苦练蓄力：打空同样算宋青书本回合出手，💪 不被命中判定吞掉（快照 state 块带 _kuLianActive）
+        // 苦练蓄力：打空同样算宋青书本回合出手，💪 不被命中判定吞掉（快照 state 块带 _kuLianActive）
         isKuLianAttack: data.attacker?.state?._kuLianActive === true,
         // 2026-10-16 被动出手原因：反击/跟随打空也能认出来（attacker 快照 state 块携带）
         linkReason: data.attacker?.state?._linkReason ?? null,
@@ -39,14 +26,14 @@ export const ATTACK_TRANSLATORS = {
         kind: STAGE_ACTION_TYPES.DODGE,
         actorUid: data.attacker?.uid ?? null,
         targetUid: data.dodger?.uid ?? null,
-        // 2026-10-16 苦练蓄力：被闪避（含闪避反击）同样算宋青书本回合出手，💪 照播
+        // 苦练蓄力：被闪避（含闪避反击）同样算宋青书本回合出手，💪 照播
         isKuLianAttack: data.attacker?.state?._kuLianActive === true,
         reboundDmg: data.reboundDmg,
         dead: data.attackerHpAfter <= 0,
-        // 2026-10-22 是否真被眩晕（_ctrlImmune 单位 false）：render/39 据此决定是否置灰
+        // 是否真被眩晕（_ctrlImmune 单位 false）：render/39 据此决定是否置灰
         stunned: data.stunned !== false,
         linkReason: data.attacker?.state?._linkReason ?? null,
-        // 2026-09-24 韦一笑闪避反击吸血带给演出层，用于补吸血飘字（原先只有日志文本）
+        // 韦一笑闪避反击吸血带给演出层，用于补吸血飘字
         weiHeal: data.weiHeal || null,
         fx: data.fxSnapshot || null,
         factIndex: index,
