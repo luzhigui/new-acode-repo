@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<!-- tools/134-idea-lab.html — 创意摸奖：四类创意 × 三种摸法，随机抽元素拼成卡片，并按引擎现状标合法性
+     V1.0.0 | 2026-10-22 新建。纯前端、不跑战斗：只读 content/200game-data.json 提取引擎已有的 mechanics type，
+       与 124 的 TYPE_GLOSSARY 合成白名单；扩展词条由 134-fetch-pool.mjs 写进 134-idea-pool-additions.json。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>创意摸奖 · 光明顶5v5</title>
+<style>
+  :root {
+    --bg: #14151a; --panel: #1d1f26; --line: #2c2f39; --text: #d8dae2; --dim: #8b8f9c;
+    --gold: #ffd700; --ok: #4caf50; --warn: #ffa726; --bad: #ff5252;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.6 "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; }
+  header { padding: 20px 24px 10px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 4px; font-size: 20px; color: var(--gold); font-weight: 600; }
+  header p { margin: 0; color: var(--dim); font-size: 12px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 18px; padding: 14px 24px; align-items: center;
+    border-bottom: 1px solid var(--line); background: var(--panel); }
+  .group { display: flex; align-items: center; gap: 6px; }
+  .group > label { color: var(--dim); font-size: 12px; margin-right: 2px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { background: #262932; border: 1px solid var(--line); color: var(--text);
+    padding: 5px 12px; border-radius: 14px; cursor: pointer; font-size: 12px; transition: .15s; }
+  .seg button:hover { border-color: #4a4f5c; }
+  .seg button.on { background: #3a3320; border-color: var(--gold); color: var(--gold); }
+  select { background: #262932; border: 1px solid var(--line); color: var(--text);
+    padding: 5px 8px; border-radius: 6px; font-size: 12px; }
+  .primary { background: linear-gradient(135deg,#c9a227,#ffd700); color: #1a1a1a; border: 0;
+    padding: 8px 22px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .ghost { background: transparent; border: 1px solid var(--line); color: var(--dim);
+    padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  .ghost:hover { color: var(--text); border-color: #4a4f5c; }
+  main { padding: 16px 24px 60px; }
+  .stat { color: var(--dim); font-size: 12px; margin-bottom: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill,minmax(360px,1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px; }
+  .card.hide { display: none; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--gold); line-height: 1.45; }
+  .tag { flex: 0 0 auto; font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid; white-space: nowrap; }
+  .tag.ok { color: var(--ok); border-color: #2f5c33; background: #16251a; }
+  .tag.warn { color: var(--warn); border-color: #5c4a20; background: #2a2417; }
+  .tag.bad { color: var(--dim); border-color: #3a3d47; background: #22242b; }
+  .rows { display: grid; grid-template-columns: 64px 1fr; gap: 3px 8px; font-size: 12px; }
+  .rows dt { color: var(--dim); text-align: right; }
+  .rows dd { margin: 0; }
+  .one { background: #23262e; border-left: 2px solid #c9a227; padding: 6px 9px; border-radius: 4px;
+    font-size: 12.5px; color: #e6e8ef; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; }
+  .src { color: var(--dim); font-size: 11px; }
+  .copy { background: transparent; border: 1px solid var(--line); color: var(--dim); cursor: pointer;
+    font-size: 11px; padding: 3px 10px; border-radius: 6px; }
+  .copy:hover { color: var(--gold); border-color: #5c4a20; }
+  .empty { color: var(--dim); padding: 40px 0; text-align: center; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 24px;
+    background: rgba(20,21,26,.94); border-top: 1px solid var(--line); display: flex; gap: 12px; align-items: center; }
+  footer .hint { color: var(--dim); font-size: 11px; }
+  .err { color: var(--bad); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎲 创意摸奖</h1>
+  <p>随机抽元素拼创意卡片。合法性标签只表示「引擎现在能不能直接实现」，不能实现的不删，留给以后扩引擎。</p>
+</header>
+
+<div class="bar">
+  <div class="group">
+    <label>创意类型</label>
+    <div class="seg" id="typeSeg">
+      <button data-v="elite" class="on">新精英</button>
+      <button data-v="hex">新海克斯</button>
+      <button data-v="mech">新机制</button>
+      <button data-v="stage">新关卡</button>
+    </div>
+  </div>
+  <div class="group">
+    <label>摸法</label>
+    <div class="seg" id="modeSeg">
+      <button data-v="old">纯旧</button>
+      <button data-v="new">纯新</button>
+      <button data-v="mix" class="on">新旧混</button>
+    </div>
+  </div>
+  <div class="group">
+    <label>数量</label>
+    <select id="countSel">
+      <option value="10">10 张</option>
+      <option value="20" selected>20 张</option>
+      <option value="50">50 张</option>
+    </select>
+  </div>
+  <div class="group">
+    <button class="primary" id="genBtn">摸一把</button>
+  </div>
+</div>
+
+<main>
+  <div class="stat" id="statLine">还没生成。</div>
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty">选好类型和摸法，点「摸一把」。</div>
+</main>
+
+<footer>
+  <button class="ghost" id="exportBtn">导出全部为 md</button>
+  <span class="hint" id="poolHint"></span>
+</footer>
+
+<script type="module">
+import { TYPE_GLOSSARY } from './124-param-lab-glossary.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 一、元素池
+//   每条 = [显示文本, 引擎实现键]；实现键 null = 引擎里没有对应实现。
+//   触发时机的第二列 = 引擎是否有对应回调点（依据项目现有机制人工核对）。
+// ─────────────────────────────────────────────────────────────────────────────
+const TRIGGERS = [
+    ['攻击前', 'beforeAttack'], ['攻击后', 'afterAttack'], ['命中后', 'onHit'],
+    ['被攻击前', 'beforeDamage'], ['被攻击后', 'afterDamage'], ['闪避后', 'onDodge'],
+    ['暴击后', null], ['回合开始', 'roundStart'], ['回合结束', 'roundEnd'],
+    ['行动前', 'beforeAct'], ['行动后', 'afterAct'], ['死亡时', 'onDeath'],
+    ['击杀后', 'onKill'], ['血量低于X%', 'lowHp'], ['队友阵亡时', 'allyDeath'],
+    ['获得护盾时', null], ['护盾破碎时', null], ['被治疗时', null],
+    ['治疗溢出时', 'healOverflow'], ['位移后', 'afterMove'], ['换位后', 'afterSwap'],
+    ['召唤物出场时', 'summonSpawn'], ['召唤物阵亡时', null], ['连锁第N次', 'chainN'],
+    ['叠满N层时', 'stackFull'], ['首次受击', null], ['每回合首次', null]
+];
+
+const EFFECTS = [
+    ['持续伤害（毒/灼烧/流血）', 'poison'], ['直接伤害', 'core:damage'], ['真实伤害', 'ignoreDef'],
+    ['吸血', 'leech'], ['反伤', 'damageReflect'], ['护盾', 'xuLi'], ['治疗', 'core:heal'],
+    ['禁疗', 'dianXueJieMai'], ['减攻', 'yingWangWeiYa'], ['减防', 'yingWangWeiYa'],
+    ['破防', 'core:breakDef'], ['眩晕', 'core:stun'], ['冰冻', 'hanBingShenZhang'],
+    ['沉默', null], ['缴械', null], ['减速', null], ['击退', 'core:push'],
+    ['换位', 'core:swap'], ['魅惑（误伤队友）', 'core:mindControl'], ['召唤', 'summonLion'],
+    ['成长（永久加属性）', 'rageOnHit'], ['叠加层数', 'fortifyIncrementMul'],
+    ['标记（被标记后受额外伤害）', 'targetMark'], ['斩杀', 'core:execute'],
+    ['复活', 'core:revive'], ['免死', null], ['反弹控制', null],
+    ['偷取属性', null], ['共享属性', 'butterflyAttach'], ['转移伤害', 'butterflyAttach'],
+    ['延迟结算', 'dotTick']
+];
+
+const FLAVORS = [
+    '点穴（定身+禁疗）', '擒拿（定身+卸武器）', '震（内伤+眩晕）', '缠（无法出招）',
+    '吸纳（吸攻击）', '化功（削成长）', '挪移（改目标）', '经脉逆行（免疫控制）',
+    '护体罡气（吸收+反伤）', '以彼之道还施彼身（反弹）', '走火入魔（自伤增伤）',
+    '龟息（假死）', '借力打力（反伤成长）', '隔山打牛（穿透）', '声东击西（误导）'
+];
+
+const ELITE_CAMP = ['明教', '六大派', '朝廷'];
+const ELITE_ROLE = ['战士', '防战', '远程', '飞行', '标枪'];
+const ELITE_M = [['104', '弱精英'], ['107', '强精英'], ['112', 'Boss'], ['115', '大Boss']];
+const ELITE_POS = ['输出核心', '承伤核心', '辅助', '控制', '召唤', '成长型', '反制型', '滚雪球'];
+
+const HEX_TARGET = ['己方全体', '己方某职业', '己方某位置', '己方精英', '敌方全体', '敌方某职业'];
+const HEX_DURATION = ['整局永久', 'N回合', '一次性触发', '每回合刷新', '叠层无上限'];
+const HEX_POWER = ['弱（≤5% 胜率影响）', '中（5-10%）', '强（10-20%）', '极强（>20%）'];
+
+const MECH_RULE = ['站位规则', '行动顺序', '伤害计算', '状态叠加', '资源系统', '回合限制', '胜利条件'];
+const MECH_TARGET = ['全体', '单方', '某职业', '某位置', '特定角色'];
+const MECH_SETTLE = ['立即生效', '回合末结算', '延迟N回合', '条件触发', '累计后爆发'];
+
+const STAGE_CAMP = ['六大派', '朝廷', '混编'];
+const STAGE_ELITES = ['0', '1', '2', '3'];
+const STAGE_RULES = ['无', '地形限制', '回合限制', '强化某职业', '削弱某职业', '增援波次',
+    'Boss阶段', '环境伤害', '禁选某机制', '双Boss', '限时击杀'];
+const STAGE_POWER = ['普通（当前1-3关）', '困难（当前4-5关）', '极难（当前6-7关）', '超纲（新上限）'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 二、引擎现状（白名单）
+// ─────────────────────────────────────────────────────────────────────────────
+let ENGINE_TYPES = new Set();     // content 里出现过的 mechanics.type
+let WEB_POOL = [];                // 134-fetch-pool.mjs 追加的扩展词条
+let lastCards = [];
+let lastLabel = '';
+
+async function loadEngineTypes() {
+    // 白名单 = 124 的 TYPE_GLOSSARY（引擎已登记的机制类型）+ content 里出现过的 mechanics.type
+    for (const t of Object.keys(TYPE_GLOSSARY)) ENGINE_TYPES.add(t);
+    try {
+        const res = await fetch(new URL('../content/200game-data.json', import.meta.url));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const walk = o => {
+            if (!o || typeof o !== 'object') return;
+            if (typeof o.type === 'string') ENGINE_TYPES.add(o.type);
+            for (const k of Object.keys(o)) walk(o[k]);
+        };
+        walk(json);
+    } catch (e) {
+        console.warn('[134] content 读取失败，合法性检查只能按人工表判定：', e.message);
+    }
+}
+
+async function loadWebPool() {
+    try {
+        const res = await fetch(new URL('./134-idea-pool-additions.json', import.meta.url));
+        if (!res.ok) return;
+        const json = await res.json();
+        WEB_POOL = Array.isArray(json.items) ? json.items : [];
+    } catch { /* 没这文件就是没跑过 fetch-pool，正常 */ }
+}
+
+function refreshPoolHint() {
+    const usable = WEB_POOL.filter(x => x.tag !== '归档').length;
+    const enginePart = ENGINE_TYPES.size
+        ? `引擎已有机制类型 ${ENGINE_TYPES.size} 个`
+        : '引擎机制表未读到（file:// 直开），合法性按人工映射表判';
+    document.getElementById('poolHint').textContent =
+        `${enginePart} · 外部扩展词条 ${WEB_POOL.length} 条（可用/待确认 ${usable}）`;
+}
+
+// 加权抽取：归档词条权重降到 0.3，其余 1
+function pick(arr) {
+    if (!arr.length) return null;
+    const weights = arr.map(x => (x && x.tag === '归档' ? 0.3 : 1));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < arr.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return arr[i];
+    }
+    return arr[arr.length - 1];
+}
+const pickText = arr => {
+    const x = pick(arr);
+    return typeof x === 'string' ? x : (x ? x.v : null);
+};
+
+// 扩展词条按维度取用
+function webPoolOf(dim) {
+    return WEB_POOL.filter(x => x.dim === dim).map(x => ({ v: x.text, tag: x.tag }));
+}
+
+// 取某维度的池：
+//   纯旧 = 只用引擎已有的；纯新 = 只用「引擎没有的」+ 外部扩展池；混 = 以引擎已有的为主，小概率掺扩展词条
+function poolFor(dim, mode, oldOnes, newOnes, allOnes) {
+    const web = webPoolOf(dim);
+    if (mode === 'old') return oldOnes.length ? oldOnes : allOnes;
+    if (mode === 'new') {
+        const ext = newOnes.concat(web);
+        return ext.length ? ext : allOnes;
+    }
+    return web.length && Math.random() < 0.25 ? oldOnes.concat(web) : oldOnes;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 三、合法性判定
+// ─────────────────────────────────────────────────────────────────────────────
+const triggerKeyOf = text => {
+    const t = TRIGGERS.find(x => x[0] === text);
+    return t ? t[1] : undefined;
+};
+const effectKeyOf = text => {
+    const e = EFFECTS.find(x => x[0] === text);
+    return e ? e[1] : undefined;
+};
+
+/**
+ * 返回 { level: 'ok'|'warn'|'bad', text, why }
+ *   ok   = 效果类型引擎已有（content 里出现过该 type，或属引擎内置通用机制）
+ *   warn = 效果类型要新扩，但触发时机引擎有回调点
+ *   bad  = 两者都没有，需人工确认
+ */
+function legality(effectText, triggerText) {
+    const ek = effectKeyOf(effectText);
+    const tk = triggerKeyOf(triggerText);
+    // content 读不到（file:// 直开）时 ENGINE_TYPES 为空，只能信任人工映射表：有 key 就算引擎有实现
+    const effectKnown = ek
+        ? (ek.startsWith('core:') || !ENGINE_TYPES.size ? true : ENGINE_TYPES.has(ek))
+        : null;
+
+    if (effectKnown === true) {
+        const isCore = ek.startsWith('core:');
+        return { level: 'ok', text: '引擎支持', why: isCore
+            ? `效果「${effectText}」由战斗内核通用机制处理`
+            : `效果「${effectText}」= ${ek}${ENGINE_TYPES.size ? '' : '（content 未读到，按人工映射表）'}` };
+    }
+    if (effectKnown === false) {
+        // 有映射但 content 里没这 type：可能是新增 type 或内容表还没填
+        if (tk) return { level: 'warn', text: '需新增机制类型', why: `「${ek}」不在 content 现有 type 里，但触发时机有回调点` };
+        return { level: 'bad', text: '可能不可行', why: `效果与触发时机都缺引擎支持` };
+    }
+    // 词条来自扩展池（无映射）
+    if (tk) return { level: 'warn', text: '需新增机制类型', why: '扩展词条，触发时机有回调点，效果要新写' };
+    return { level: 'bad', text: '可能不可行', why: '扩展词条，触发时机也无回调点' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 四、生成
+// ─────────────────────────────────────────────────────────────────────────────
+// 旧池：触发时机/效果都取引擎已有的部分（纯旧模式用）
+const TRIGGERS_OLD = TRIGGERS.filter(x => x[1]).map(x => x[0]);
+const EFFECTS_OLD = EFFECTS.filter(x => x[1]).map(x => x[0]);
+// 新池：更偏「需要扩引擎」的部分（纯新模式用）
+const TRIGGERS_NEW = TRIGGERS.filter(x => !x[1]).map(x => x[0]);
+const EFFECTS_NEW = EFFECTS.filter(x => !x[1]).map(x => x[0]);
+
+const TRIG_ALL = TRIGGERS.map(x => x[0]);
+const EFF_ALL = EFFECTS.map(x => x[0]);
+const pickTrigger = mode => pickText(poolFor('trigger', mode, TRIGGERS_OLD, TRIGGERS_NEW, TRIG_ALL));
+const pickEffect = mode => pickText(poolFor('effect', mode, EFFECTS_OLD, EFFECTS_NEW, EFF_ALL));
+
+function makeElite(mode) {
+    const camp = pickText(ELITE_CAMP);
+    const role = pickText(ELITE_ROLE);
+    const mPair = pick(ELITE_M);
+    const pos = pickText(ELITE_POS);
+    const trig = pickTrigger(mode);
+    const eff = pickEffect(mode);
+    const eff2 = Math.random() < 0.35 ? pickEffect(mode) : '';   // 核心机制 1-2 个
+    const flavor = Math.random() < 0.55 ? pickText(FLAVORS) : '';
+    const effTxt = eff2 ? `${eff} + ${eff2}` : eff;
+    const one = `${camp}的${role}，M${mPair[0]}（${mPair[1]}档），定位${pos}。${trig}时触发「${effTxt}」${flavor ? `，带${flavor}` : ''}。`;
+    return {
+        type: '新精英',
+        title: `【${camp} · ${role} · M${mPair[0]} · ${pos}】`,
+        rows: [['触发', trig], ['效果', effTxt], ['风味', flavor || '—'], ['定位', pos]],
+        one,
+        legal: worseLegal(legality(eff, trig), eff2 ? legality(eff2, trig) : null),
+        effect: effTxt, trigger: trig
+    };
+}
+
+// 两个机制取更差的一档（ok < warn < bad）
+const LEGAL_RANK = { ok: 0, warn: 1, bad: 2 };
+function worseLegal(a, b) {
+    if (!b) return a;
+    return LEGAL_RANK[b.level] > LEGAL_RANK[a.level] ? b : a;
+}
+
+function makeHex(mode) {
+    const target = pickText(HEX_TARGET);
+    const dur = pickText(HEX_DURATION);
+    const power = pickText(HEX_POWER);
+    const trig = pickTrigger(mode);
+    const eff = pickEffect(mode);
+    const flavor = Math.random() < 0.35 ? pickText(FLAVORS) : '';
+    const one = `${target}${trig}时获得「${eff}」${flavor ? `（${flavor}）` : ''}，${dur}。`;
+    return {
+        type: '新海克斯',
+        title: `【海克斯 · ${target} · ${power}】`,
+        rows: [['触发', trig], ['效果', eff], ['持续', dur], ['强度', power]],
+        one,
+        legal: legality(eff, trig),
+        effect: eff, trigger: trig
+    };
+}
+
+function makeMech(mode) {
+    const rule = pickText(MECH_RULE);
+    const target = pickText(MECH_TARGET);
+    const settle = pickText(MECH_SETTLE);
+    const trig = pickTrigger(mode);
+    const eff = pickEffect(mode);
+    const one = `${target}的${rule}改为：${trig}时按「${eff}」处理，${settle}。`;
+    return {
+        type: '新机制',
+        title: `【机制 · ${rule} · ${target}】`,
+        rows: [['作用', target], ['结算', settle], ['触发', trig], ['效果', eff]],
+        one,
+        legal: legality(eff, trig),
+        effect: eff, trigger: trig
+    };
+}
+
+function makeStage(mode) {
+    const camp = pickText(STAGE_CAMP);
+    const cnt = pickText(STAGE_ELITES);
+    const rule = pickText(STAGE_RULES);
+    const power = pickText(STAGE_POWER);
+    // 关卡没有「效果类型」，合法性按特殊规则判：无规则 = 纯阵容关可直接做，其余需关卡层新支持
+    const legal = rule === '无'
+        ? { level: 'ok', text: '引擎支持', why: '无特殊规则，纯阵容关' }
+        : { level: 'warn', text: '需扩展关卡规则', why: `特殊规则「${rule}」需关卡层新支持` };
+    const one = `敌方${camp}，${cnt} 名精英，强度${power}${rule !== '无' ? `，特殊规则：${rule}` : '，无特殊规则'}。`;
+    return {
+        type: '新关卡',
+        title: `【关卡 · ${camp} · ${cnt}精英 · ${power}】`,
+        rows: [['敌方', camp], ['精英', `${cnt} 名`], ['规则', rule], ['强度', power]],
+        one,
+        legal
+    };
+}
+
+const MAKERS = { elite: makeElite, hex: makeHex, mech: makeMech, stage: makeStage };
+
+function generate() {
+    const type = document.querySelector('#typeSeg button.on').dataset.v;
+    const mode = document.querySelector('#modeSeg button.on').dataset.v;
+    const n = parseInt(document.getElementById('countSel').value, 10);
+    const maker = MAKERS[type];
+    const cards = [];
+    for (let i = 0; i < n; i++) cards.push(maker(mode));
+    lastCards = cards;
+    lastLabel = `${document.querySelector('#typeSeg button.on').textContent} · ${document.querySelector('#modeSeg button.on').textContent}`;
+    render(cards);
+}
+
+const LEVEL_CLS = { ok: 'ok', warn: 'warn', bad: 'bad' };
+function render(cards) {
+    const box = document.getElementById('cards');
+    const empty = document.getElementById('empty');
+    empty.style.display = 'none';
+    box.innerHTML = cards.map((c, i) => `
+        <div class="card" data-i="${i}">
+          <div class="card-head">
+            <span class="card-title">${esc(c.title)}</span>
+            <span class="tag ${LEVEL_CLS[c.legal.level]}" title="${esc(c.legal.why)}">${c.legal.text}</span>
+          </div>
+          <dl class="rows">${c.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v || '—')}</dd>`).join('')}</dl>
+          <div class="one">${esc(c.one)}</div>
+          <div class="card-foot">
+            <span class="src">${c.type}</span>
+            <button class="copy" data-i="${i}">复制</button>
+          </div>
+        </div>`).join('');
+
+    const ok = cards.filter(c => c.legal.level === 'ok').length;
+    const warn = cards.filter(c => c.legal.level === 'warn').length;
+    const bad = cards.length - ok - warn;
+    document.getElementById('statLine').textContent =
+        `${lastLabel} · 共 ${cards.length} 张：✅ 引擎支持 ${ok} · ⚠ 需扩机制 ${warn} · ❓ 待人工确认 ${bad}`;
+}
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 五、导出
+// ─────────────────────────────────────────────────────────────────────────────
+function toMd(cards) {
+    const lines = [`# 创意摸奖 · ${lastLabel}`, `生成时间：${new Date().toLocaleString()}`,
+        `共 ${cards.length} 张`, ''];
+    cards.forEach((c, i) => {
+        lines.push(`## ${i + 1}. ${c.title}`);
+        lines.push(`- 合法性：**${c.legal.text}**（${c.legal.why}）`);
+        for (const [k, v] of c.rows) lines.push(`- ${k}：${v || '—'}`);
+        lines.push(`- 一句话：${c.one}`);
+        lines.push('');
+    });
+    return lines.join('\n');
+}
+
+function download(name, text) {
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 六、交互
+// ─────────────────────────────────────────────────────────────────────────────
+for (const seg of ['typeSeg', 'modeSeg']) {
+    document.getElementById(seg).addEventListener('click', e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        for (const b of document.querySelectorAll(`#${seg} button`)) b.classList.toggle('on', b === btn);
+    });
+}
+document.getElementById('genBtn').addEventListener('click', generate);
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* 复制不了就只给视觉反馈 */ }
+    ta.remove();
+}
+document.getElementById('cards').addEventListener('click', e => {
+    const btn = e.target.closest('.copy');
+    if (!btn) return;
+    const c = lastCards[parseInt(btn.dataset.i, 10)];
+    const markCopied = () => {
+        btn.textContent = '已复制';
+        setTimeout(() => { btn.textContent = '复制'; }, 900);
+    };
+    // 先给视觉反馈：clipboard 在未聚焦的窗口里会 reject（NotAllowedError），不能让它决定按钮状态
+    markCopied();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(c.one).catch(() => fallbackCopy(c.one));
+    } else {
+        fallbackCopy(c.one);
+    }
+});
+document.getElementById('exportBtn').addEventListener('click', () => {
+    if (!lastCards.length) { alert('先摸一把再导出'); return; }
+    download(`创意摸奖_${Date.now()}.md`, toMd(lastCards));
+});
+
+// 启动：先读引擎类型白名单与外部词条，再允许生成
+(async () => {
+    await Promise.all([loadEngineTypes(), loadWebPool()]);
+    refreshPoolHint();
+    document.getElementById('genBtn').disabled = false;
+})();
+</script>
+</body>
+</html>

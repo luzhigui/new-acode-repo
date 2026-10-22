@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<!-- tools/135-param-scan.html — 参数扫描：A 敏感度扫描（含死参数清单）/ B 定向搜索（贪心叠加 + 过拟合标注）
+     V1.0.0 | 2026-10-22 新建。复用 122 的 listNumericKnobs / sampleStage / pickTypicals 与 123 worker 的 lab-run；
+       不写新的跑批逻辑，只做循环 + 聚合。配对 seed（基线与补丁逐局同种子），阵容取每关最高频精英组合的 medoid。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>参数扫描 · 光明顶5v5</title>
+<style>
+  :root { --bg:#14151a; --panel:#1d1f26; --line:#2c2f39; --text:#d8dae2; --dim:#8b8f9c;
+    --gold:#ffd700; --ok:#4caf50; --warn:#ffa726; --bad:#ff5252; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font:13px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif; }
+  header { padding:20px 24px 10px; border-bottom:1px solid var(--line); }
+  h1 { margin:0 0 4px; font-size:20px; color:var(--gold); font-weight:600; }
+  header p { margin:0; color:var(--dim); font-size:12px; }
+  .tabs { display:flex; gap:2px; padding:0 24px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .tabs button { background:transparent; border:0; border-bottom:2px solid transparent; color:var(--dim);
+    padding:10px 18px; cursor:pointer; font-size:13px; }
+  .tabs button.on { color:var(--gold); border-bottom-color:var(--gold); }
+  .pane { display:none; padding:16px 24px 80px; }
+  .pane.on { display:block; }
+  .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; padding:10px 12px;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; }
+  .row > label { color:var(--dim); font-size:12px; }
+  .chk { display:inline-flex; align-items:center; gap:4px; margin-right:8px; font-size:12px; }
+  select,input[type=number] { background:#262932; border:1px solid var(--line); color:var(--text);
+    padding:4px 8px; border-radius:6px; font-size:12px; }
+  input[type=number] { width:80px; }
+  .primary { background:linear-gradient(135deg,#c9a227,#ffd700); color:#1a1a1a; border:0;
+    padding:7px 20px; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px; }
+  .primary:disabled { opacity:.5; cursor:default; }
+  .ghost { background:transparent; border:1px solid var(--line); color:var(--dim);
+    padding:5px 12px; border-radius:7px; cursor:pointer; font-size:12px; }
+  .ghost:hover { color:var(--text); }
+  .progress { color:var(--gold); font-size:12px; min-height:18px; }
+  .note { color:var(--dim); font-size:11.5px; margin:6px 0 12px; line-height:1.7; }
+  .verdict { padding:8px 12px; border-radius:8px; background:#23262e; border-left:3px solid var(--gold);
+    font-size:12.5px; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; font-size:11.5px; }
+  th,td { border:1px solid var(--line); padding:4px 6px; text-align:right; white-space:nowrap; }
+  th { background:#262932; color:var(--dim); font-weight:600; position:sticky; top:0; }
+  td.l,th.l { text-align:left; }
+  .wrap { max-height:520px; overflow:auto; border:1px solid var(--line); border-radius:8px; margin-bottom:18px; }
+  .path { font-family:Consolas,monospace; font-size:11px; color:#aab; max-width:420px;
+    overflow:hidden; text-overflow:ellipsis; }
+  h2 { font-size:14px; color:var(--gold); margin:18px 0 8px; }
+  .out { background:#23262e; border:1px solid var(--line); border-radius:8px; padding:12px 14px;
+    font-family:Consolas,monospace; font-size:12px; white-space:pre-wrap; line-height:1.7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 参数扫描</h1>
+  <p>A 敏感度扫描：逐个旋钮 +1 档，配对 seed 跑批比胜率，顺带产出死参数清单。B 定向搜索：在高敏感参数里贪心叠加，逼近目标胜率。</p>
+</header>
+
+<div class="tabs">
+  <button data-p="scan" class="on">A · 敏感度扫描</button>
+  <button data-p="search">B · 定向搜索</button>
+</div>
+
+<!-- ══════════════ Tab A ══════════════ -->
+<section class="pane on" id="pane-scan">
+  <div class="row">
+    <label>关卡</label>
+    <span id="scanStages"></span>
+  </div>
+  <div class="row">
+    <label>每旋钮每关局数</label>
+    <select id="scanRuns">
+      <option value="10">10</option>
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+    </select>
+    <label>旋钮范围</label>
+    <select id="scanScope">
+      <option value="ming" selected>明教侧角色 + 全局常量</option>
+      <option value="all">全扫（含六大派 / 数据表）</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="scanSkipDead" checked>跳过静态判定为死的参数（省一半时间）</label>
+  </div>
+  <div class="row">
+    <button class="primary" id="scanBtn">开始扫描</button>
+    <button class="ghost" id="scanExport" disabled>导出 md</button>
+    <span class="progress" id="scanProgress"></span>
+  </div>
+  <p class="note">
+    阵容固定：每关取采样里最高频「精英组合」的 medoid（最居中那套真实采样阵容），同一旋钮只改一个数、逐局同 seed 配对比较，
+    所以胜率变化只来自这个数。改动幅度：比例/倍率/点数 ×1.2（比例封顶 1.0，点数额外保证至少 +1），回合 +1。<br>
+    敏感度等级：高 ≥2pp · 中 1~2pp · 低 0.3~1pp · 死 &lt;0.3pp。结果为场均（所选关合计）。
+  </p>
+  <div id="scanResult"></div>
+</section>
+
+<!-- ══════════════ Tab B ══════════════ -->
+<section class="pane" id="pane-search">
+  <div class="row">
+    <label>目标</label>
+    <select id="sGoal">
+      <option value="overall" selected>明教整体胜率</option>
+      <option value="stage">指定关卡胜率</option>
+      <option value="solo">某精英单挑胜率</option>
+    </select>
+    <span id="sGoalExtra"></span>
+    <label>目标值</label>
+    <input type="number" id="sTarget" value="35" min="1" max="99" step="1"> %
+  </div>
+  <div class="row">
+    <label>候选参数数</label>
+    <select id="sTopN"><option>10</option><option selected>20</option><option>30</option></select>
+    <label>每轮每关局数</label>
+    <select id="sRuns"><option>20</option><option selected>30</option><option>50</option></select>
+    <label>最多轮数</label>
+    <select id="sRounds"><option>3</option><option selected>4</option><option>5</option></select>
+    <label>结果形态</label>
+    <select id="sForm"><option value="dir" selected>给方向</option><option value="plan">给方案</option></select>
+  </div>
+  <div class="row">
+    <button class="primary" id="sBtn">开始搜索</button>
+    <button class="ghost" id="sExport" disabled>导出 md</button>
+    <span class="progress" id="sProgress"></span>
+  </div>
+  <p class="note">
+    候选参数来自 A 的敏感度排行（未跑 A 会提示先扫）。每轮：对每个候选试 +10% / +20% / −10% 三档，保留提升最大的一条叠加进方案，直到达标或用完轮数。<br>
+    过拟合：搜索用种子批次 A，收尾自动用批次 B 复验一遍；两者差距大就说明是拟合噪声。
+  </p>
+  <div id="sResult"></div>
+</section>
+
+<script type="module">
+import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-core.js';
+import { runParallel } from './117-shared-worker-runner.js';
+import {
+    describeKnob, FIELD_GLOSSARY, charGroupKeyOf, isOrphanField, skillFieldVerdict, UNIT
+} from './124-param-lab-glossary.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
+import { NATURAL_ELITES } from './127-tool-registry.js';
+
+const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
+const SAMPLE_BASE = 20000;      // 阵容采样 seed 起点（与 120 一致）
+const SAMPLE_RUNS = 300;        // 每关采样次数（只为定出高频阵容）
+const BASE_SEED = 1;            // 扫描 / 搜索用种子批次 A
+const VERIFY_SEED = 500001;     // 复验用种子批次 B（与 A 分开，防过拟合自证）
+const LS_SCAN = 'ming_param_scan_result';
+const LS_SEARCH = 'ming_param_search_result';
+const STAGES = [1, 2, 3, 4, 5, 6, 7];
+const DIRS = [[1.1, '+10%'], [1.2, '+20%'], [0.9, '−10%']];
+
+const $ = id => document.getElementById(id);
+let root = null, knobs = [], lineups = new Map(), samples = new Map();
+let scanRows = [];          // 阶段 A 结果（B 的候选来源）
+let scanMeta = null;
+let lastSearchMd = '', lastSearchText = '';
+
+// ───────────────────────── 公共小件 ─────────────────────────
+function fieldOf(path) {
+    const parts = path.split('.');
+    let i = parts.length - 1;
+    while (i >= 0 && /^\d+$/.test(parts[i])) i--;
+    return i >= 0 ? parts[i] : '';
+}
+function unitOfKnob(k) {
+    const fg = FIELD_GLOSSARY[fieldOf(k.path)];
+    return fg ? fg.unit : UNIT.raw;
+}
+function fmtKnobValue(v, unit) {
+    if (unit === UNIT.pct) return `${Math.round(v * 1000) / 10}%`;
+    if (unit === UNIT.mul) return `${Math.round(v * 1000) / 1000} 倍`;
+    return String(Math.round(v * 1000) / 1000);
+}
+function fieldNameOf(k) {
+    const fg = FIELD_GLOSSARY[fieldOf(k.path)];
+    return fg ? fg.name : fieldOf(k.path);
+}
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+}
+const isWin = w => w === '明教';
+const winRate = arr => (arr && arr.length ? arr.filter(isWin).length / arr.length : 0);
+
+// 扫一个数：按单位 +1 档
+function tweak(v, unit) {
+    if (unit === UNIT.round) return Math.round(v) + 1;
+    if (v === 0) return unit === UNIT.pct ? 0.01 : 1;
+    if (unit === UNIT.pct) return v < 1 ? Math.min(1, v * 1.2) : v * 1.2;
+    if (unit === UNIT.mul) return v * 1.2;
+    return Math.max(v + 1, v * 1.2);   // point / raw
+}
+// 按倍率缩放（定向搜索用）
+function scaleValue(v, factor, unit) {
+    if (unit === UNIT.round) return Math.max(1, Math.round(v) + (factor >= 1 ? 1 : -1));
+    if (v === 0) return factor >= 1 ? (unit === UNIT.pct ? 0.01 : 1) : 0;
+    const nv = v * factor;
+    return unit === UNIT.pct && v < 1 ? Math.min(1, nv) : nv;
+}
+
+// 静态死参数判定：引擎根本不读的，不必花局数去跑
+function staticVerdict(k) {
+    const parts = k.path.split('.');
+    const si = parts.indexOf('skills');
+    if (si >= 0) {
+        const sk = parts[si + 1];
+        const rel = parts.slice(parts.indexOf('params') + 1).join('.');
+        const v = skillFieldVerdict(sk, rel);
+        if (v === 'text') return { dead: true, why: '技能面板参数：引擎不读，只供文案插值' };
+        if (v === 'none') return { dead: true, why: '引擎只检查字段存不存在，不读值' };
+        if (v === 'dynamic') return { dead: false, why: '整包动态读取，可能只在特定条件生效' };
+        return { dead: false, why: '' };
+    }
+    try {
+        const info = describeKnob(k.path, root, k);
+        if (info.kind === 'mechanics' && isOrphanField(charGroupKeyOf(root, info.char, k.path), info.fieldRaw)) {
+            return { dead: true, why: '读取这段的代码已废弃（所在函数无调用点）' };
+        }
+    } catch { /* 描述失败不影响判定 */ }
+    return { dead: false, why: '' };
+}
+
+// ───────────────────────── 关卡勾选 ─────────────────────────
+function buildStageChecks() {
+    $('scanStages').innerHTML = STAGES.map(s =>
+        `<label class="chk"><input type="checkbox" class="stk" value="${s}" checked>第${s}关</label>`).join('');
+}
+const checkedStages = () =>
+    Array.from(document.querySelectorAll('#scanStages .stk:checked')).map(c => parseInt(c.value, 10));
+
+// ───────────────────────── 阵容 / 基线 ─────────────────────────
+// 采样一律在 worker 里跑（300 局 × 7 关放主线程会卡死页面）
+async function ensureLineups(stages) {
+    const missing = stages.filter(s => !samples.has(s));
+    if (missing.length) {
+        const done = await runParallel({
+            jobs: missing.map(s => ({ stage: s })),
+            workerUrl: WORKER_URL,
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'lab-sample', stage: job.stage, runs: SAMPLE_RUNS, base: SAMPLE_BASE })
+        });
+        for (const d of done) samples.set(d.job.stage, d.result.list);
+    }
+    for (const s of stages) {
+        if (lineups.has(s)) continue;
+        const top = pickTypicals({ list: samples.get(s) }, 1)[0];
+        if (top) lineups.set(s, top.spec);
+    }
+}
+
+async function runArm(arm, stages, runs, opts = {}) {
+    const perStageInput = stages.map(s => ({
+        stage: s, base: opts.base ?? BASE_SEED, startIndex: 0, runs,
+        spec: opts.soloSpec || lineups.get(s)
+    }));
+    const done = await runParallel({
+        jobs: [{ arm }],
+        workerUrl: WORKER_URL,
+        nextJobMsg: (job, id) => ({
+            jobId: id, kind: 'lab-run', arm,
+            stages: perStageInput,
+            patchOps: opts.patchOps
+        })
+    });
+    const map = new Map();
+    for (const ps of done[0].result.perStage) map.set(ps.stage, ps.winners);
+    return map;
+}
+
+// ───────────────────────── A · 敏感度扫描 ─────────────────────────
+$('scanBtn').addEventListener('click', async () => {
+    const stages = checkedStages();
+    if (!stages.length) { alert('至少选一个关卡'); return; }
+    const runs = parseInt($('scanRuns').value, 10);
+    const scope = $('scanScope').value;
+    const skipDead = $('scanSkipDead').checked;
+
+    $('scanBtn').disabled = true;
+    $('scanProgress').textContent = '加载参数表…';
+    const t0 = performance.now();
+    try {
+        root = root || await ensureGameData();
+        if (!knobs.length) knobs = listNumericKnobs(root);
+
+        const mingSet = new Set(Object.keys(CONFIG.MING_M || {}).concat(NATURAL_ELITES));
+        let pool0 = scope === 'all' ? knobs.slice()
+            : knobs.filter(k => k.layer === 'config' || (k.layer === 'character' && mingSet.has(k.owner)));
+
+        const staticDead = [];
+        if (skipDead) {
+            const keep = [];
+            for (const k of pool0) {
+                const v = staticVerdict(k);
+                if (v.dead) staticDead.push({ knob: k, why: v.why });
+                else keep.push(k);
+            }
+            pool0 = keep;
+        }
+
+        $('scanProgress').textContent = `采样关卡阵容…（${pool0.length} 个旋钮待扫 + ${staticDead.length} 个静态死）`;
+        await ensureLineups(stages);
+
+        $('scanProgress').textContent = '跑基线…';
+        const base = await runArm('base', stages, runs);
+
+        const jobs = pool0.map(k => ({ knob: k, unit: unitOfKnob(k), newValue: tweak(k.value, unitOfKnob(k)) }));
+        const rows = [];
+        let finished = 0;
+
+        $('scanProgress').textContent = `扫描中 0/${jobs.length}`;
+        await runParallel({
+            jobs,
+            workerUrl: WORKER_URL,
+            nextJobMsg: (job, id) => ({
+                jobId: id, kind: 'lab-run', arm: 'patch:' + job.knob.path + ':' + job.newValue,
+                stages: stages.map(s => ({ stage: s, spec: lineups.get(s), base: BASE_SEED, startIndex: 0, runs })),
+                patchOps: [{ path: job.knob.path, value: job.newValue }]
+            }),
+            onJobDone: (fin, total, job, result) => {
+                finished = fin;
+                let bw = 0, pw = 0, n = 0, changed = 0;
+                for (const ps of result.perStage) {
+                    const b = base.get(ps.stage) || [], p = ps.winners;
+                    const br = winRate(b), pr = winRate(p);
+                    bw += br; pw += pr; n++;
+                    if (Math.abs(pr - br) * 100 >= 0.3) changed++;
+                }
+                const deltaPp = n ? (pw - bw) / n * 100 : 0;
+                rows.push({
+                    path: job.knob.path, owner: job.knob.owner, layer: job.knob.layer,
+                    field: fieldNameOf(job.knob), value: job.knob.value, newValue: job.newValue,
+                    unit: job.unit, deltaPp, changedStages: changed
+                });
+                if (fin % 10 === 0 || fin === total) {
+                    $('scanProgress').textContent = `扫描中 ${fin}/${total}（已用 ${((performance.now() - t0) / 1000).toFixed(0)}s）`;
+                }
+            }
+        });
+
+        const baseOverall = stages.reduce((a, s) => a + winRate(base.get(s)), 0) / stages.length;
+        scanRows = rows.sort((a, b) => Math.abs(b.deltaPp) - Math.abs(a.deltaPp));
+        scanMeta = { time: new Date().toLocaleString(), stages, runs, scope, baseOverall, seconds: (performance.now() - t0) / 1000 };
+        renderScan(scanRows, staticDead);
+        localStorage.setItem(LS_SCAN, JSON.stringify({ meta: scanMeta, rows: scanRows, staticDead: staticDead.map(d => ({
+            path: d.knob.path, owner: d.knob.owner, layer: d.knob.layer, field: fieldNameOf(d.knob), value: d.knob.value, why: d.why
+        })) }));
+        $('scanExport').disabled = false;
+        $('scanProgress').textContent =
+            `✅ 扫描完成：${rows.length} 个旋钮 + ${staticDead.length} 个静态死，总耗时 ${((performance.now() - t0) / 1000).toFixed(0)}s`;
+    } catch (e) {
+        console.error('[135] 扫描异常', e);
+        $('scanProgress').textContent = '❌ ' + e.message;
+    } finally {
+        $('scanBtn').disabled = false;
+    }
+});
+
+function levelOf(pp) {
+    const a = Math.abs(pp);
+    if (a >= 2) return { txt: '高', color: '#ff5252' };
+    if (a >= 1) return { txt: '中', color: '#ffa726' };
+    if (a >= 0.3) return { txt: '低', color: '#8ab4f8' };
+    return { txt: '死参数', color: '#8b8f9c' };
+}
+
+function renderScan(rows, staticDead) {
+    const head = `<div class="verdict">
+        扫描批次 seed=${BASE_SEED} · ${scanMeta.stages.length} 关 × ${scanMeta.runs} 局 · 基线胜率 ${(scanMeta.baseOverall * 100).toFixed(1)}%<br>
+        <span style="color:#8b8f9c;">共 ${rows.length} 个旋钮实测、${staticDead.length} 个静态判定为死（未跑）</span></div>`;
+
+    const t1 = `<h2>表1 · 敏感度排行</h2><div class="wrap"><table>
+      <tr><th class="l">参数路径</th><th class="l">角色/归属</th><th class="l">字段名</th>
+          <th>原值</th><th>改动后</th><th>胜率变化(pp)</th><th>影响阵容数</th><th>等级</th></tr>
+      ${rows.map(r => {
+        const lv = levelOf(r.deltaPp);
+        return `<tr>
+          <td class="l"><div class="path" title="${esc(r.path)}">${esc(r.path)}</div></td>
+          <td class="l">${esc(r.owner)}</td>
+          <td class="l">${esc(r.field)}</td>
+          <td>${fmtKnobValue(r.value, r.unit)}</td>
+          <td>${fmtKnobValue(r.newValue, r.unit)}</td>
+          <td style="color:${r.deltaPp >= 0 ? '#4caf50' : '#ff5252'};">${r.deltaPp >= 0 ? '+' : ''}${r.deltaPp.toFixed(2)}</td>
+          <td>${r.changedStages}/${scanMeta.stages.length}</td>
+          <td style="color:${lv.color};font-weight:bold;">${lv.txt}</td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+
+    const dead = rows.filter(r => Math.abs(r.deltaPp) < 0.3);
+    const t2 = `<h2>表2 · 死参数清单（${dead.length + staticDead.length} 条）</h2><div class="wrap"><table>
+      <tr><th class="l">参数路径</th><th class="l">角色/归属</th><th class="l">字段名</th><th>原值</th><th class="l">为什么可能是死的</th></tr>
+      ${staticDead.map(d => `<tr>
+          <td class="l"><div class="path" title="${esc(d.knob.path)}">${esc(d.knob.path)}</div></td>
+          <td class="l">${esc(d.knob.owner)}</td>
+          <td class="l">${esc(fieldNameOf(d.knob))}</td>
+          <td>${fmtKnobValue(d.knob.value, unitOfKnob(d.knob))}</td>
+          <td class="l" style="color:#8b8f9c;">${esc(d.why)}</td></tr>`).join('')}
+      ${dead.map(r => `<tr>
+          <td class="l"><div class="path" title="${esc(r.path)}">${esc(r.path)}</div></td>
+          <td class="l">${esc(r.owner)}</td>
+          <td class="l">${esc(r.field)}</td>
+          <td>${fmtKnobValue(r.value, r.unit)}</td>
+          <td class="l" style="color:#ffa726;">${esc(deadWhy(r))}</td></tr>`).join('')}
+    </table></div>`;
+
+    $('scanResult').innerHTML = head + t1 + t2;
+}
+
+function deadWhy(r) {
+    const knob = { path: r.path, owner: r.owner, layer: r.layer };
+    const v = staticVerdict(knob);
+    if (v.why) return v.why;
+    if (r.layer === 'character') return '引擎读了，但影响太小或从未触发';
+    if (r.layer === 'config') return '全局常量，这一档改动对胜率影响小于 0.3pp';
+    return '数据表数值，可能只在特定阵容/关卡生效';
+}
+
+$('scanExport').addEventListener('click', () => {
+    if (!scanRows.length) return;
+    const md = [ `# 参数敏感度扫描`, `- 时间：${scanMeta.time}`, `- 关卡：${scanMeta.stages.join(',')} ｜ 每关 ${scanMeta.runs} 局`,
+        `- 基线胜率：${(scanMeta.baseOverall * 100).toFixed(1)}% ｜ 扫描种子批次：${BASE_SEED}`, '',
+        '## 表1 敏感度排行', '', '| 参数路径 | 角色/归属 | 字段名 | 原值 | 改动后 | 胜率变化(pp) | 影响阵容数 | 等级 |',
+        '|---|---|---|---|---|---|---|---|',
+        ...scanRows.map(r => { const lv = levelOf(r.deltaPp);
+            return `| ${r.path} | ${r.owner} | ${r.field} | ${fmtKnobValue(r.value, r.unit)} | ${fmtKnobValue(r.newValue, r.unit)} | ${r.deltaPp.toFixed(2)} | ${r.changedStages} | ${lv.txt} |`; }),
+        '', '## 表2 死参数清单', '', '| 参数路径 | 角色/归属 | 字段名 | 原值 | 为什么可能是死的 |', '|---|---|---|---|---|',
+        ...scanRows.filter(r => Math.abs(r.deltaPp) < 0.3).map(r => `| ${r.path} | ${r.owner} | ${r.field} | ${fmtKnobValue(r.value, r.unit)} | ${deadWhy(r)} |`)
+    ].join('\n');
+    download(`参数敏感度扫描_${Date.now()}.md`, md);
+});
+
+function download(name, text) {
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ───────────────────────── B · 定向搜索 ─────────────────────────
+function renderGoalExtra() {
+    const v = $('sGoal').value;
+    if (v === 'stage') {
+        $('sGoalExtra').innerHTML = `<select id="sStage">${STAGES.map(s => `<option>${s}</option>`).join('')}</select>`;
+    } else if (v === 'solo') {
+        $('sGoalExtra').innerHTML = `<select id="sSolo">${NATURAL_ELITES.map(n => `<option>${n}</option>`).join('')}</select>`;
+    } else {
+        $('sGoalExtra').innerHTML = '';
+    }
+}
+$('sGoal').addEventListener('change', renderGoalExtra);
+
+// 单挑 spec：采样里找含该精英的阵容，只留精英本人（M/职业/站位都来自真实采样，不另抄一份）
+async function buildSoloSpec(name, stages) {
+    if (!root) root = await ensureGameData();
+    await ensureLineups(stages);
+    for (const st of stages) {
+        const typicals = pickTypicals({ list: samples.get(st) }, 99);
+        for (const t of typicals) {
+            const hit = t.spec.find(e => e.label === name);
+            if (hit) return [hit];
+        }
+    }
+    throw new Error(`所选关卡的采样里都没出现「${name}」，换关或放宽关卡勾选`);
+}
+
+$('sBtn').addEventListener('click', async () => {
+    if (!scanRows.length) { alert('先跑一遍 A 敏感度扫描，B 的候选参数从那份排行里取'); return; }
+    const stages = checkedStages();
+    if (!stages.length) { alert('至少选一个关卡（B 沿用 A 的关卡勾选）'); return; }
+    const goal = $('sGoal').value;
+    const target = parseFloat($('sTarget').value) / 100;
+    const topN = parseInt($('sTopN').value, 10);
+    const runs = parseInt($('sRuns').value, 10);
+    const maxRounds = parseInt($('sRounds').value, 10);
+    const soloName = goal === 'solo' ? $('sSolo').value : null;
+    const goalStage = goal === 'stage' ? parseInt($('sStage').value, 10) : null;
+
+    $('sBtn').disabled = true;
+    const t0 = performance.now();
+    try {
+        root = root || await ensureGameData();
+        let soloSpec = null;
+        if (soloName) soloSpec = await buildSoloSpec(soloName, stages);
+        else await ensureLineups(stages);
+
+        const metricStages = goalStage ? [goalStage] : stages;
+        // 候选：A 排行里的非死参数（前 topN）
+        const cand = scanRows.filter(r => Math.abs(r.deltaPp) >= 0.3).slice(0, topN);
+        if (!cand.length) throw new Error('A 里没有非死参数，先放宽扫描范围');
+
+        const measure = resMap => {
+            let w = 0, n = 0;
+            for (const s of metricStages) {
+                const arr = resMap.get(s) || [];
+                w += arr.filter(isWin).length; n += arr.length;
+            }
+            return n ? w / n : 0;
+        };
+
+        // 起点胜率（未打任何补丁）
+        $('sProgress').textContent = '跑起点…';
+        const baseMap = await runArm('base', stages, runs, { soloSpec });
+        const startRate = measure(baseMap);
+
+        const applied = [];
+        let curRate = startRate;
+
+        for (let r = 1; r <= maxRounds; r++) {
+            if (curRate >= target) break;
+            const jobs = [];
+            for (const c of cand) {
+                if (applied.some(a => a.path === c.path)) continue;
+                const unit = c.unit;
+                for (const [factor, dirLabel] of DIRS) {
+                    const nv = scaleValue(c.value, factor, unit);
+                    if (nv === c.value) continue;
+                    jobs.push({ c, dirLabel, nv, unit,
+                        arm: `s${r}:${c.path}:${factor}`,
+                        ops: applied.concat([{ path: c.path, value: nv }]) });
+                }
+            }
+            if (!jobs.length) break;
+            let fin = 0;
+            $('sProgress').textContent = `第 ${r} 轮：试 ${jobs.length} 组（已用 ${((performance.now() - t0) / 1000).toFixed(0)}s）`;
+            const scores = new Map();
+            await runParallel({
+                jobs,
+                workerUrl: WORKER_URL,
+                nextJobMsg: (job, id) => ({
+                    jobId: id, kind: 'lab-run', arm: job.arm,
+                    stages: stages.map(s => ({ stage: s, spec: soloSpec || lineups.get(s), base: BASE_SEED, startIndex: 0, runs })),
+                    patchOps: job.ops
+                }),
+                onJobDone: (f, total, job, result) => {
+                    fin = f;
+                    const map = new Map();
+                    for (const ps of result.perStage) map.set(ps.stage, ps.winners);
+                    scores.set(job.arm, { job, rate: measure(map) });
+                    if (f % 10 === 0 || f === total) {
+                        $('sProgress').textContent = `第 ${r} 轮：${f}/${total}（已用 ${((performance.now() - t0) / 1000).toFixed(0)}s）`;
+                    }
+                }
+            });
+            let best = null;
+            for (const v of scores.values()) {
+                if (!best || v.rate > best.rate) best = v;
+            }
+            if (!best || best.rate <= curRate) break;
+            applied.push({ path: best.job.c.path, owner: best.job.c.owner, field: best.job.c.field,
+                unit: best.job.unit, from: best.job.c.value, to: best.job.nv,
+                dir: best.job.dirLabel, rate: best.rate, gain: best.rate - curRate });
+            curRate = best.rate;
+        }
+
+        // 复验：换种子批次 B，跑「原样」vs「方案」
+        $('sProgress').textContent = '复验（种子批次 B）…';
+        const mv = await runArm('base', stages, runs, { base: VERIFY_SEED, soloSpec });
+        const pv = await runArm('verify', stages, runs, { base: VERIFY_SEED, soloSpec,
+            patchOps: applied.map(a => ({ path: a.path, value: a.to })) });
+        const verifyBefore = measure(mv), verifyAfter = measure(pv);
+
+        renderSearch({ goal, goalStage, soloName, target, startRate, curRate,
+            applied, verifyBefore, verifyAfter, candCount: cand.length });
+
+        localStorage.setItem(LS_SEARCH, JSON.stringify({ time: new Date().toLocaleString(),
+            target, startRate, curRate, applied, verifyBefore, verifyAfter }));
+        $('sExport').disabled = false;
+        $('sProgress').textContent =
+            `✅ 搜索完成：${(startRate * 100).toFixed(1)}% → ${(curRate * 100).toFixed(1)}%（复验 ${(verifyBefore * 100).toFixed(1)}% → ${(verifyAfter * 100).toFixed(1)}%），耗时 ${((performance.now() - t0) / 1000).toFixed(0)}s`;
+    } catch (e) {
+        console.error('[135] 搜索异常', e);
+        $('sProgress').textContent = '❌ ' + e.message;
+    } finally {
+        $('sBtn').disabled = false;
+    }
+});
+
+function overfitRisk(r) {
+    const gap = Math.abs((r.verifyAfter - r.verifyBefore) - (r.curRate - r.startRate)) * 100;
+    const tried = r.applied.length * r.candCount * DIRS.length;
+    if (gap < 1) return { txt: '低', gap, tried };
+    if (gap < 3) return { txt: '中', gap, tried };
+    return { txt: '高', gap, tried };
+}
+
+function renderSearch(r) {
+    const form = $('sForm').value;
+    const risk = overfitRisk(r);
+    const goalTxt = r.goal === 'overall' ? '明教整体胜率'
+        : (r.goal === 'stage' ? `第 ${r.goalStage} 关胜率` : `${r.soloName} 单挑胜率`);
+    const reached = r.curRate >= r.target;
+    const need = (r.target - r.startRate) * 100;
+    const needTxt = `${need >= 0 ? '+' : ''}${need.toFixed(1)}`;
+
+    let body = '';
+    if (form === 'dir') {
+        body = `目标：${goalTxt} 从 ${(r.startRate * 100).toFixed(1)}% → ${(r.target * 100).toFixed(1)}%（需 ${needTxt}pp）\n`
+            + (r.applied.length
+                ? `最有效的改动（按采纳顺序）：\n` + r.applied.map((a, i) =>
+                    `  ${i + 1}. ${a.path}  ${a.dir}  → 预计 ${(a.rate * 100).toFixed(1)}%（本轮 +${(a.gain * 100).toFixed(2)}pp）`).join('\n')
+                : '（没有找到能提升的参数）')
+            + `\n组合预计：${(r.curRate * 100).toFixed(1)}%（起始 ${(r.startRate * 100).toFixed(1)}%）`
+            + (reached ? '，已达标。' : `，距目标还差 ${((r.target - r.curRate) * 100).toFixed(1)}pp，需继续叠加或换方向。`)
+            + `\n复验（种子批次 ${VERIFY_SEED}）：${(r.verifyBefore * 100).toFixed(1)}% → ${(r.verifyAfter * 100).toFixed(1)}%`
+            + `\n扫描种子批次：${BASE_SEED} ｜ 建议用新种子再验一次 ｜ 过拟合概率：${risk.txt}（两批种子实测差 ${risk.gap.toFixed(2)}pp）`;
+    } else {
+        body = `目标：${goalTxt} ${(r.target * 100).toFixed(1)}%\n推荐改动（按顺序应用）：\n`
+            + (r.applied.length
+                ? r.applied.map((a, i) =>
+                    `  ${i + 1}. ${a.path}: ${fmtKnobValue(a.from, a.unit)} → ${fmtKnobValue(a.to, a.unit)}`).join('\n')
+                : '（无）')
+            + `\n预计效果：${(r.startRate * 100).toFixed(1)}% → ${(r.curRate * 100).toFixed(1)}%`
+            + (reached ? '（已达标）' : `（未完全达标，差 ${((r.target - r.curRate) * 100).toFixed(1)}pp）`)
+            + `\n复验（种子批次 ${VERIFY_SEED}）：${(r.verifyBefore * 100).toFixed(1)}% → ${(r.verifyAfter * 100).toFixed(1)}%`
+            + `\n扫描种子批次：${BASE_SEED} ｜ 本轮候选 ${r.candCount} 个参数、试了 ${risk.tried} 组组合`
+            + `\n过拟合概率：${risk.txt}（两批种子实测差 ${risk.gap.toFixed(2)}pp）`;
+    }
+
+    lastSearchText = body;
+    lastSearchMd = `# 参数定向搜索\n\n- 时间：${new Date().toLocaleString()}\n- ${goalTxt} ｜ 目标 ${(r.target * 100).toFixed(1)}%\n`
+        + `- 结果形态：${form === 'dir' ? '给方向' : '给方案'}\n- 扫描种子批次：${BASE_SEED} ｜ 复验批次：${VERIFY_SEED}\n\n\`\`\`\n${body}\n\`\`\`\n`;
+
+    $('sResult').innerHTML = `<div class="verdict">
+        起始 ${(r.startRate * 100).toFixed(1)}% → 现在 ${(r.curRate * 100).toFixed(1)}% ｜ 目标 ${(r.target * 100).toFixed(1)}%
+        ${reached ? '<span style="color:#4caf50;">已达标</span>' : '<span style="color:#ffa726;">未达标</span>'}
+        ｜ 过拟合风险 <span style="color:${risk.txt === '低' ? '#4caf50' : risk.txt === '中' ? '#ffa726' : '#ff5252'};">${risk.txt}</span></div>
+        <div class="out">${esc(body)}</div>`;
+}
+
+$('sExport').addEventListener('click', () => {
+    if (!lastSearchMd) return;
+    download(`参数定向搜索_${Date.now()}.md`, lastSearchMd);
+});
+
+// ───────────────────────── 启动 ─────────────────────────
+buildStageChecks();
+renderGoalExtra();
+$('sForm').addEventListener('change', () => {
+    const out = $('sResult').querySelector('.out');
+    if (lastSearchText && out) out.textContent = lastSearchText;
+});
+for (const btn of document.querySelectorAll('.tabs button')) {
+    btn.addEventListener('click', () => {
+        for (const b of document.querySelectorAll('.tabs button')) b.classList.toggle('on', b === btn);
+        for (const p of document.querySelectorAll('.pane')) p.classList.toggle('on', p.id === 'pane-' + btn.dataset.p);
+    });
+}
+// 恢复上次 A 的结果，B 才有候选可用
+try {
+    const saved = JSON.parse(localStorage.getItem(LS_SCAN) || 'null');
+    if (saved && saved.rows && saved.rows.length) {
+        scanRows = saved.rows; scanMeta = saved.meta;
+        $('scanResult').innerHTML = `<div class="verdict">已恢复上次扫描结果（${scanMeta.time}，${scanRows.length} 个旋钮）。重跑会覆盖。</div>`;
+        $('scanExport').disabled = false;
+    }
+} catch { /* 旧格式忽略 */ }
+</script>
+</body>
+</html>

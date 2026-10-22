@@ -27,6 +27,8 @@
 ## 三、浏览器页面（人用，AI 只读逻辑别执行）
 
 `102-toolkit.html`（工具箱主页，含文件复制器 103、精英评测 112、底部的「🧰 备用工具」折叠区：统计一致性体检 113 / 精英基线对比 114 / 阵容分布搜索 115）、`105-shop.html`、`107-battle-log-viewer`（战报查看）、`108-hex-dashboard`（海克斯看板）、`109-role-balance`（职业平衡）、`110-role-balance-random.html`、`120-param-lab.html`（参数实验室 UI）。
+- `134-idea-lab.html`（创意摸奖：四类创意 × 三种摸法，自带元素池；合法性标签按 content 的 mechanics.type + 124 的 TYPE_GLOSSARY 判定。外部词条由 `node tools/134-fetch-pool.mjs` 手动维护进 `134-idea-pool-additions.json`）。
+- `135-param-scan.html`（参数扫描：A 敏感度扫描 + 死参数清单，B 定向搜索贪心叠加；复用 122/123，阵容取每关最高频精英组合的 medoid，基线与补丁逐局同 seed 配对）。
 - 这些页面背后的**战斗引擎逻辑在 116/122/123 worker 里**，node 侧可直接 import 复用，不用起浏览器。
 - 112 的「⚔ 强精英胜率」按钮（2026-10-08 新增）走的 `kind:'soloElite'` 就是第一节单英雄口径的 worker 版。
 
