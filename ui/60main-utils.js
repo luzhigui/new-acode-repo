@@ -1,7 +1,4 @@
-// V6.1.2 | 2026-10-22 补 _forceHanLiSa 一次性消费（寒离飒升强精英后 dev 面板改走此标志，29 V7.6.1 新增）
-// V6.1.1 | ~8000 bytes | 2026-10-17 补漏：_forceWeakElite 一次性消费（弱精英锁定开关原先只有 29 直读 localStorage
-//   的路径，不清除会一直生效——线上表现为「点过一次 dev 演示按钮后每局必出该弱精英」，同 _forceXieXun 旧事故）
-// V6.1.0 | ~7500 bytes | 2026-09-22 新增角色实战 demo 开关：_forceXieXun / _forcePang / _startStage 一并一次性消费
+// V6.1.2 | 2026-10-22 | ~8400 bytes
 export const VER = 'ui/60main-utils.js V6.1.2';
 
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -80,13 +77,13 @@ export function initBugAndXiaoZhaoModes() {
         GlobalStore.set('forceWei', true);
         localStorage.removeItem('_forceWei');
     }
-    // 2026-09-22 新角色实战 demo（dev-index 三按钮）：
+    // 新角色实战 demo（dev-index 三按钮）：
     // _forceXieXun 之前只有 29battle-init 直读 localStorage 的路径，不清除会一直生效，这里补上一次性消费
     if (localStorage.getItem('_forceXieXun') === '1') {
         GlobalStore.set('forceXieXun', true);
         localStorage.removeItem('_forceXieXun');
     }
-    // 2026-10-22 寒离飒升强精英（29 V7.6.1 新增 forceHanLiSa 通道）：dev 面板按钮改走此标志，
+    // 寒离飒升强精英（29 V7.6.1 新增 forceHanLiSa 通道）：dev 面板按钮改走此标志，
     //   与 forceXieXun 同口径一次性消费——残留会让她每次开局都被强制上场
     if (localStorage.getItem('_forceHanLiSa') === '1') {
         GlobalStore.set('forceHanLiSa', true);
@@ -96,7 +93,7 @@ export function initBugAndXiaoZhaoModes() {
         GlobalStore.set('forcePang', true);
         localStorage.removeItem('_forcePang');
     }
-    // 2026-10-17 补漏：_forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——与上面几个同口径一次性消费。
+    // 补漏：_forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——与上面几个同口径一次性消费。
     //   它的值是具名（如 '唐文亮'），不是 '1'；原先只有 29 直读 localStorage 的路径，不清除会一直生效。
     const weakElite = localStorage.getItem('_forceWeakElite');
     if (weakElite) {
@@ -161,7 +158,7 @@ export function copyLogToClipboard(choice) {
 }
 
 // 版本列表从 window.ALL_VERS 动态生成（61 启动时写入），避免各处版本号与硬编码列表脱节
-// 2026-09-19 追加页面文件时间：GitHub Pages 上是最后部署时间，刷新一眼即可判断线上是否最新版
+// 追加页面文件时间：GitHub Pages 上是最后部署时间，刷新一眼即可判断线上是否最新版
 export function updateCoverVersion() {
     const el = document.getElementById('coverVersion');
     if (!el) return;

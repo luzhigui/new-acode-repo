@@ -1,9 +1,7 @@
-// ui/75net-session.js — 联网对战会话（从 61main 拆出，2026-10-10 ui/61 减负批）
-// V1.0.0 | 内容逐字照搬 61：clonePlainUnit/setGuestStageLabel/applyNetLineup/clearNetBadge/exitNetIdentity/
-//   syncNetPositions/applyPosUpdate/sendNetLineup/hostEnterAdjust + 消息分发（onNetMessage/onNetAccept）。
-//   61 的模块级闭包变量（gameStarted/coverRef/currentDoubleStrikeUid/isBattleStarting/hasLoggedTeam）
-//   通过 installNetSession(ctx) 注入：applyNetLineup/hostEnterAdjust 定义在 install 闭包内，
-//   标志位写点经 ctx 回调走（纯写无读点，时序等价）——搬家不改行为，61 那边照旧读得到。
+// ui/75net-session.js — 联网对战会话（消息分发 / 阵容下发 / 摆位同步 / 掉线收口）
+// V1.0.0 | 2026-10-10 | ~16200 bytes
+// 61 的模块级闭包变量经 installNetSession(ctx) 注入：applyNetLineup / hostEnterAdjust 定义在 install 闭包内，
+//   标志位写点走 ctx 回调（纯写无读点）。
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getState, setState } from './63main-state.js';
 import { renderGrid, updateUI, setRenderStore, clearLogExceptFirst } from './62ui-render-5v5-test.js';
@@ -25,7 +23,7 @@ export const VER = 'ui/75net-session.js V1.0.0';
 // 纯数据化单位（与 76replay-entry 共用）：从机/回放的 steps 里恢复出的 plain object 再浅拷一份，断引用
 // ---- 联网对战阶段3：阵容 / 站位 / 海克斯双向 ----
 // 从机收到的单位是普通对象（infra/60 reviveUnit 的产物，没有 Unit 方法），浅拷贝 + 单拷 state 即可
-// 2026-10-08 V7.5.20 跨局泄漏修复（老板 22:04 报「妹哪来的巨马」）：回放/联机灌入的单位浅拷时
+// V7.5.20 跨局泄漏修复（老板 22:04 报「妹哪来的巨马」）：回放/联机灌入的单位浅拷时
 //   **洗掉妹的永久海克斯清单**（_permanentBuffs）——这清单是「本局内不过期」语义，跨局残留=上局记忆
 //   泄漏进新局（回放把旧单位灌回现场且不清场，妹带着上局永久巨马阵，新局 R1 就出马）。
 //   本局选的海克斯照常走 handleBuffSelection/addPermanentBuff 写入，不受影响；只杀跨局残留。
@@ -135,7 +133,7 @@ export function installNetSession(ctx) {
         snap.enemy = (lineup.enemy || []).map(clonePlainUnit);
         setState.UI(UI); setState.snapshot(snap);
 
-        // 2026-09-19 修「下一关从机画面不刷新」：renderGrid 取数 store 优先（32 的 getStore），
+        // 修「下一关从机画面不刷新」：renderGrid 取数 store 优先（32 的 getStore），
         // 上一局 playBattleGuest 留下的旧 battleStore 里还是残局阵容，只换 UI 队伍不换 store，
         // 格子画出来的永远是上一局 → 从机看着像「没收到数据」，
         // 与 playBattleGuest 同款重建：units 与 UI 队伍同引用，从机摆位改 pos 后渲染即刻生效；
@@ -262,7 +260,7 @@ export function installNetSession(ctx) {
     // 连接成功：双方都进摆位态；房主额外下发阵容，且等对手回传后才能开战
     const onNetAccept = (meta) => {
         if (meta && meta.isHost) { hostEnterAdjust(); return; }
-        // 2026-09-20 从机保险丝：身份（netRole=guest）刚落上就重画一遍，保证 guest-view 翻转即时生效。
+        // 从机保险丝：身份（netRole=guest）刚落上就重画一遍，保证 guest-view 翻转即时生效。
         // 正常时序 accept 比 lineup 先到、applyNetLineup 渲染时身份已在（60 的 onGuestJoin 已调序）；
         // 这里兜的是消息乱序/重连等边角：哪怕阵容先到、先按房主视角画了，这一笔也会立刻翻正，
         // 不用等玩家点格子触发下一次 renderGrid 才突然换位。

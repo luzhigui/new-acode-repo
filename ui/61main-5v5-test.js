@@ -1,7 +1,5 @@
-// V6.14.2 | ~35400 bytes | 2026-10-14 全自动海克斯放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤与
-//           hasCarryTarget import，carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
-// V6.14.1 | ~35450 bytes | 2026-10-14 ui/68 拆分配套：日志工具弹窗绑定 bindCopyLogButton 迁去 ui/64，
-//   本文件该符号改从 64 引（68 那条长 import 里去掉它，其余 import 点零改动）
+// ui/61main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
+// V6.14.2 | 2026-10-14 | ~34800 bytes
 export const VER = 'ui/61main-5v5-test.js V6.14.2';
 
 import '../infra/54-global-store.js';
@@ -15,7 +13,7 @@ import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, c
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/80fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/82fx-crash-5v5-test.js';
-import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/44battle-player-5v5-test.js';   // 2026-10-08 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
+import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/44battle-player-5v5-test.js';   // 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
@@ -50,7 +48,7 @@ import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/20elite-skills.js';
 // 精英组件注册已并入 ../modules/00reg-mechanics.js（registerElite 副作用统一装配）
 import { VER as VER_MAIN_UTILS } from './60main-utils.js';
-// 2026-09-14 去 window 桥：直接 import，不再经 window.AudioManager
+// 去 window 桥：直接 import，不再经 window.AudioManager
 import { AudioManager } from '../modules/22audio-manager.js';
 
 const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -60,7 +58,7 @@ const C = CONFIG, S = STATE;
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
 // 精英图鉴选人弹层：CG 之后、新手引导之前弹出，用户选定角色 → 提高该角色出场率（写 localStorage，29battle-init 读取加权）
-// 2026-09-15 改为只弹一次：与开场CG同套路，选过就跳过（想重选走 dev-index 入口 或 清 localStorage）
+// 改为只弹一次：与开场CG同套路，选过就跳过（想重选走 dev-index 入口 或 清 localStorage）
 const ELITE_GALLERY_DONE_KEY = 'ming_elite_gallery_done_5v5_test';
 function isEliteGalleryDone() {
     try { return localStorage.getItem(ELITE_GALLERY_DONE_KEY) === '1'; } catch { return true; }
@@ -107,7 +105,7 @@ GlobalStore.set('crashMode', 'fly');
 
 let currentDoubleStrikeUid = null;
 
-// 2026-10-10 拆分批：联网会话/回放入口搬去 75/76，闭包标志位在这里注入（搬家零行为漂移）
+// 拆分批：联网会话/回放入口搬去 75/76，闭包标志位在这里注入（搬家零行为漂移）
 const netSession = installNetSession({
     resetBattleFlags: () => { currentDoubleStrikeUid = null; isBattleStarting = false; hasLoggedTeam = false; },
     markGameStarted: () => { gameStarted = true; coverRef.val = true; }
@@ -130,7 +128,7 @@ GlobalStore.set('voteChoice', null); GlobalStore.set('battleHasZhang', false); G
 const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
 const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
 
-// 2026-09-14 去重：实现唯一留在 infra/54，此处直接用 playerContext 版本，不再维护第二份
+// 去重：实现唯一留在 infra/54，此处直接用 playerContext 版本，不再维护第二份
 const updateScoreBadge = () => { const ctx = getPlayerContext(); if (ctx && ctx.updateScoreBadge) ctx.updateScoreBadge(); };
 export function onAnyButtonClick() { if (!gameStarted) return; if (AudioManager && AudioManager.enabled && parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5') > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
@@ -192,7 +190,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         setState.snapshot({ ally: [], enemy: [] });
     }
 
-    // 倍速按钮初始化（2026-09-14 改直接 import；原 window._initSpeedButtons 从未挂载 → 一直没执行）
+    // 倍速按钮初始化
     initSpeedButtons();
 
     // 任意按钮点击钩子注册到 UIHandler 通道（ui/68 的 6 个按钮经此调用）
@@ -256,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // 全自动/手动共用战斗启动流程
         const startBattle = async (choice) => {
-            // 2026-10-09 修原班再战走势分析串局：battleLog 只在 doInitBattle（下一关/重开）和中止时清，
+            // 修原班再战走势分析串局：battleLog 只在 doInitBattle（下一关/重开）和中止时清，
             //   原班再战两口都不走，第二局的条目会接在第一局后面——走势分析按回合号并账，伤害/击杀双份。
             //   开战是所有对局的公共漏斗，在这里跟 DOM 日志（clearLogExceptFirst）一起清内存日志。
             GlobalStore.set('battleLog', []);
@@ -329,7 +327,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         else { unit.pos = 1 + _randLocal(0, 8); unit.state._originalPos = unit.pos; }
                     }
                 }
-                // 2026-09-16 冻结副本，不能冻 enemyList 本身：它紧接着要交给 UI，
+                // 冻结副本，不能冻 enemyList 本身：它紧接着要交给 UI，
                 //   冻结后 resetBattleRuntime 写 _flash 会抛 "read only property"
                 snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u.clone())));
                 setState.snapshot(snap);
@@ -339,7 +337,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 stepBattleStart();
                 await playBattle();
             } catch (e) {
-                // 2026-09-16 #log 可能已被移除，catch 自身不能再崩（否则真错误被吞）
+                // #log 可能已被移除，catch 自身不能再崩（否则真错误被吞）
                 console.error('战斗异常', e);
                 const logDiv = document.getElementById('log');
                 if (logDiv) {
@@ -494,7 +492,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
         try { updateUI(); } catch(e){}
-        updateButtons();enableAllButtons();updateSpeedButtons();   // 2026-10-08 清死重：连调两次删其一
+        updateButtons();enableAllButtons();updateSpeedButtons();   // 清死重：连调两次删其一
     }
 
     function doManualReset(){
@@ -560,7 +558,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // doManualReset / getGameState 四个挂载点全库无引用，已删）。生产代码一律走 import 或 UIHandler。
     window.__DSH_TEST_API__ = {
         selectStage: (stage) => { if (stage === getState.currentStage()) return; forceStopGame(); switchToStageInternal(stage); },
-        // 2026-10-07 补挂：体检改 autoLevel 后同步右下角模式按钮。121 原调 w.updateAutoModeButton
+        // 补挂：体检改 autoLevel 后同步右下角模式按钮。121 原调 w.updateAutoModeButton
         // 是无效应（该函数从未挂 window，try/catch 静默吞），按钮一直显示旧模式文案
         syncAutoModeButton: () => updateAutoModeButton()
     };
@@ -582,7 +580,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateAutoModeButton();
         document.getElementById('btnDodgeToggle').classList.toggle('active', getState.dodgeEffectEnabled());
         document.getElementById('btnDodgeToggle').textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';
-        // 2026-10-01 虚影/飞走按钮已并入选关弹窗，此处不再刷新其文案
+        // 虚影/飞走按钮已并入选关弹窗，此处不再刷新其文案
     } catch(e) {
         console.error('[光明顶5v5测试版] 初始化错误：', e.stack || e.message || e);
     }

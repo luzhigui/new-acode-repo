@@ -1,10 +1,10 @@
-// V6.1.0 | ~16100 bytes | 2026-10-04 详情弹窗：标题身份标记 + 25 分支技能 if/else 链，两处都改查 ui/69-role-cards.js 名片表（显示内容逐条等价，加新角色只加一行）
+// V6.1.1 | 2026-10-04 | ~16800 bytes
 export const VER = 'ui/62ui-render-5v5-test.js V6.1.1';
 
-// 2026-10-04 getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用
+// getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/13battle-shared.js';
 import { getSkillParams, CONFIG } from '../core/01config-5v5-test.js';
-import { getRoleSkills } from './69-role-cards.js';   // 2026-10-04 漏 import 补上（详情弹窗技能栏查名片表）
+import { getRoleSkills } from './69-role-cards.js';   // 漏 import 补上（详情弹窗技能栏查名片表）
 import { fmtHp } from '../infra/51-core-utils.js';
 import { getMissBreakdown } from '../core/03battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -35,7 +35,7 @@ function getCtx() {
     return getPlayerContext();
 }
 
-// 2026-09-14 状态三轨收敛：战斗期一律读 battleStore，不再读 c.UI 的冗余拷贝
+// 状态三轨收敛：战斗期一律读 battleStore，不再读 c.UI 的冗余拷贝
 function selectOrStore(ctx, key) {
     const store = ctx && ctx.store;
     if (store) {
@@ -127,7 +127,7 @@ function updateDetailPopupContent() {
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
     const u = latestUnit;
-    // 2026-10-02 面板阵营口径：每个单位只认自己阵营的团队 buff（b.target 定归属，无 target 的老数据归明教），
+    // 面板阵营口径：每个单位只认自己阵营的团队 buff（b.target 定归属，无 target 的老数据归明教），
     //   与 render/32 格子图标、core/11 引擎分边同源。sameCampTeam 供闪避姐姐强化/迷惑等「查同阵营队伍」的逻辑使用。
     const sameCampTeam = u.camp === CAMP_TYPES.ENEMY ? enemyTeam : allyTeam;
     const unitCampBuffs = activeBuffs.filter(b => u.camp === CAMP_TYPES.ALLY
@@ -152,9 +152,8 @@ function updateDetailPopupContent() {
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
         const mastered = u.state._masteredRoles || [];
         if (mastered.length > 0) {
-            // 2026-10-21 修死数字：原写死 length*2 / length*3 / length*12.5，与引擎真值不符
-            //   （4 门 = 6 层×每层 2/2/5 = +12/+12/+30；旧显示 8/12/50）。改读 content 的 mastery 参数
-            //   与 CONFIG.MASTERY_FULL_BONUS_LAYERS，与 modules/20 spiderTransform 的 masteryLayers 同口径。
+            // 精通加成必须读 content 的 mastery 参数 + CONFIG.MASTERY_FULL_BONUS_LAYERS，
+            //   与 modules/20 spiderTransform 的 masteryLayers 同口径（写死数字会与引擎真值漂移）。
             const m = getSkillParams('小昭', 'mastery') || {};
             const layers = mastered.length >= 4
                 ? mastered.length + (CONFIG.MASTERY_FULL_BONUS_LAYERS ?? 2)
@@ -193,7 +192,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">Buff</span><span>${buffText}</span>
             ${masteryText}
             ${(() => {
-                // 2026-10-04 改查 ui/69-role-cards.js 名片表（原为本地 25 分支 if/else 链）
+                // 改查 ui/69-role-cards.js 名片表（原为本地 25 分支 if/else 链）
                 let skills = getRoleSkills(u);
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:var(--c-gold);">${skills.join('<br>')}</span>`;
@@ -232,7 +231,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         winUnits = winnerCamp==='明教' ? UI.allyTeam : UI.enemyTeam;
     }
     let aliveUnits = aliveUnitsOverride || winUnits.filter(u => u.alive);
-    // 2026-09-19 联网从机视角修复：金圈直接按格子的 dataset.pos 戳匹配存活单位，
+    // 联网从机视角修复：金圈直接按格子的 dataset.pos 戳匹配存活单位，
     // 原先背的固定顺序表在从机视角（行序镜像）下会把庆祝金圈标错格子
     for (let i=0;i<cells.length;i++) {
         let pos = Number(cells[i].dataset.pos);
@@ -268,7 +267,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
             });
         }, index * 600);
     });
-    logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColorClass}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;   // 2026-10-08 清死重：winColor/winColorClass 同值双定义，删早定义用晚定义
+    logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColorClass}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;   // 清死重：winColor/winColorClass 同值双定义，删早定义用晚定义
 }
 
 // 日志清除

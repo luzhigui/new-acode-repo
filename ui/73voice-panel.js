@@ -1,6 +1,5 @@
 // ui/73voice-panel.js — 语音解说设置区（实时朗读版，嵌入音乐面板）
-// V1.1.0 | 2026-10-01 V1.0 独立按钮版收编：🎙️按钮撤掉，设置区嵌进音乐面板（ui/64 调 buildVoiceControls）；
-// 新增播报模式（全文=逐行念整条日志 / 关键=只报大事）。引擎在 modules/31。
+// V1.1.0 | 2026-10-01 | ~5700 bytes
 import { getVoiceCfg, setVoiceCfg, listVoices, speakTest, stopCommentary, ttsAvailable } from '../modules/31voice-commentary.js';
 
 export const VER = 'ui/73voice-panel.js V1.1.0';

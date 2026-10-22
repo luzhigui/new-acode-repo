@@ -1,7 +1,7 @@
-// ui/64main-dialogs.js — 主界面弹窗（战斗结算 / 存档 / 教程等）
-// V6.5.0 | ~31050 bytes | 2026-10-14 ui/68 拆分批 4：收编日志工具弹窗绑定 bindCopyLogButton（顺带断掉 63/68↔76 的环）；
-//   新 import 只有 copyLogToClipboard(60)；「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取
-//   （不 import 76 —— 本文件已被 63 import，再 import 76 会让 63→64→76→63 成环）。函数体逐字搬移，行为零变化。
+// ui/64main-dialogs.js — 主界面弹窗（战报 / 音乐 / 投票 / 倒计时 / 日志工具）
+// V6.5.0 | 2026-10-14 | ~30600 bytes
+// 「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取，不 import 76——
+//   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
 export const VER = 'ui/64main-dialogs.js V6.5.0';
 
 import { showModal, showAlert, copyLogToClipboard } from './60main-utils.js';
@@ -24,7 +24,7 @@ export function showBattleReport(battleResultForInfo) {
     if (oldOverlay) oldOverlay.remove();
     const oldFloat = document.getElementById('battleReportFloat');
     if (oldFloat) oldFloat.remove();
-    // 2026-09-14 去 window 桥：直接走 playerContext
+    // 去 window 桥：直接走 playerContext
     const _pc = getPlayerContext();
     if (_pc && _pc.updateScoreBadge) _pc.updateScoreBadge();
 
@@ -75,7 +75,7 @@ export function showBattleReport(battleResultForInfo) {
     title.textContent = '战斗结束 · ' + winner + '获胜';
     box.appendChild(title);
     
-    // 排序按钮横排三枚：输出 / 承伤 / 治疗，点击即按该列排序（2026-10-03 替代原两态切换按钮）
+    // 排序按钮横排三枚：输出 / 承伤 / 治疗，点击即按该列排序
     let sortBy = 'dmgDealt';
     const sortBtns = {};
     const sortBtnDiv = document.createElement('div');
@@ -135,10 +135,10 @@ export function showBattleReport(battleResultForInfo) {
     let btnDiv = document.createElement('div');
     btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;flex-shrink:0;';
 
-    // 2026-09-25 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
+    // 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
     attachSaveBattleReportButton(btnDiv, () => getBattleRecording());
 
-    // 2026-09-28 一键走势分析：把内存 battleLog 拍平喂给 player/51（与工具箱 107 同一套解析/叙事/图表）
+    // 一键走势分析：把内存 battleLog 拍平喂给 player/51（与工具箱 107 同一套解析/叙事/图表）
     let analyzeBtn = document.createElement('button');
     analyzeBtn.textContent = '📊 走势分析';
     analyzeBtn.style.cssText = 'background:#6a3de0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
@@ -274,7 +274,7 @@ export function showMusicPanel() {
     const box = document.createElement('div');
     box.className = 'modal-box';
     box.style.cssText = 'max-width:380px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
-    // 2026-10-01 手机竖屏溢出修复：塞入解说区后面板超一屏，底部按钮被浏览器地址栏挡住——限高+内部滚动
+    // 手机竖屏溢出修复：塞入解说区后面板超一屏，底部按钮被浏览器地址栏挡住——限高+内部滚动
     box.style.maxHeight = '82vh';
     box.style.overflowY = 'auto';
     box.style.webkitOverflowScrolling = 'touch';
@@ -351,7 +351,7 @@ export function showMusicPanel() {
     bgmSlider.style.width = '100%';
     bgmSlider.oninput = () => {
         const vol = parseInt(bgmSlider.value) / 100;
-        // 优先操作 AudioManager 节点（2026-09-14 改用直接 import，不再经 window 桥）
+        // 优先操作 AudioManager 节点
         if (AudioManager && AudioManager.bgmGainNode) {
             const ctx = AudioManager.bgmGainNode.context;
             AudioManager.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
@@ -415,7 +415,7 @@ export function showMusicPanel() {
     });
     box.appendChild(sourceRow);
 
-    // 2026-10-01 语音解说设置区嵌入音乐面板（原独立 🎙️ 按钮撤掉，声音相关收进一个面板）
+    // 语音解说设置区嵌入音乐面板（原独立 🎙️ 按钮撤掉，声音相关收进一个面板）
     buildVoiceControls(box);
 
     const bottomClose = document.createElement('button');
@@ -537,7 +537,7 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
         });
         box.appendChild(copySection);
 
-        // ── 战报区（2026-09-26 收编右下角浮动🎬：保存本局战报 + 播放战报文件，都在这个面板里） ──
+        // ── 战报区 ──
         const replaySection = document.createElement('div');
         replaySection.style.cssText = 'margin-bottom:12px;';
         replaySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">🎬 战报回放</div>';

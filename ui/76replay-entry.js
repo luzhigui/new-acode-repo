@@ -1,9 +1,5 @@
-// ui/76replay-entry.js — 战报回放入口（从 61main 拆出，2026-10-10 ui/61 减负批）
-// V1.1.0 | ~6640 bytes | 2026-10-14 ui/68 拆分配套：把 startReplayFromFile 挂上 UIHandler 通道，
-//   供 ui/64 的「📂 播放战报文件」按钮调用（64 不再 import 本文件 → 63→64→76→63 的环被切断）
-// V1.0.0 | startReplayFromFile/enterReplay 逐字照搬 61 原文；enterReplay 里对 61 闭包变量
-//   （gameStarted/coverRef/isBattleStarting/hasLoggedTeam）的写点经 installReplayEntry(ctx) 注入。
-//   61 在模块顶层调 installReplayEntry(...)，68 的「📂 播放战报文件」改从本文件 import。
+// ui/76replay-entry.js — 战报回放入口（从 61main 拆出）
+// V1.1.0 | 2026-10-14 | ~6000 bytes
 export const VER = 'ui/76replay-entry.js V1.1.0';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getState, setState } from './63main-state.js';
@@ -34,13 +30,13 @@ export function installReplayEntry(ctx) {
     };
 }
 
-// 2026-10-14 挂 UIHandler 通道：ui/64 的「📂 播放战报文件」按钮经 GlobalStore 取本函数，而不是 import 本文件。
+// 挂 UIHandler 通道：ui/64 的「📂 播放战报文件」按钮经 GlobalStore 取本函数，而不是 import 本文件。
 //   原因：64 已被 63 import（showBattleReport），而本文件与 75 都要 import 63 取 getState/setState——
 //   64 一旦 import 本文件就形成 63→64→76→63 的环。走通道后 64 不 import 本文件，ui 内部环归零。
 //   （函数声明会提升，此处注册即可直接引用。）
 GlobalStore.setUIHandler('startReplayFromFile', startReplayFromFile);
 
-// 2026-09-25 回放入口：选战报文件 → 校验 → 进回放（与联机从机同构，数据源是文件里的 steps）
+// 回放入口：选战报文件 → 校验 → 进回放（与联机从机同构，数据源是文件里的 steps）
 export async function startReplayFromFile() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -59,7 +55,7 @@ export async function startReplayFromFile() {
             alert('❌ 不是有效的战报文件（需含 format:"ming-battle-replay" 和 steps）');
             return;
         }
-        // 版本看章（2026-10-04）：老文件（含没盖 version 章的 v1.0）顺搬家链升上来照放；
+        // 版本看章：老文件（含没盖 version 章的 v1.0）顺搬家链升上来照放；
         // 比游戏新的文件拒收——硬读会放到一半炸，不如一句人话。
         const fileVer = report.version || 1;
         if (fileVer > CURRENT_REPORT_VERSION) {

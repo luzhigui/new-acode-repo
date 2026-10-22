@@ -1,7 +1,7 @@
-// V6.4.2 | ~8100 bytes | 2026-10-16 手选海克斯补众志成城门槛（老板拍板，与 modules/28、player/49 同口径）：
-//          本阵营存活 ≥4 人不进候选——手选弹窗此前自建候选列表、漏了这道门，5 人也能选
-// V6.4.1 | ~7900 bytes | 2026-10-14 手选海克斯放开 carry 5 号位门槛（老板拍板）：删 carry 候选过滤，
-//          carry 随时可入选（5 号位无人时由 core/04 召唤雄鹰顶位）
+// ui/70buff-dialog.js — 海克斯手选弹窗
+// V6.4.2 | 2026-10-16 | ~8400 bytes
+// 候选门槛与 modules/28 generateBuffChoices、player/49 全自动同口径：众志成城要求本阵营存活 <4 人。
+//   本弹窗自建候选列表，门槛必须手动跟上，不能只改一处。
 export const VER = 'ui/70buff-dialog.js V6.4.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -35,7 +35,7 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
             let available = allKeys.filter(k => {
                 if (existingKeys.includes(k)) return false;
                 if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-                // 2026-10-16 众志成城门槛（老板拍板，与 modules/28、player/49 同口径）：本阵营存活 ≥4 人不进候选
+                // 众志成城门槛（老板拍板，与 modules/28、player/49 同口径）：本阵营存活 ≥4 人不进候选
                 //   上面 team 已按存活过滤（L33），此处直接比长度
                 if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
                 const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
@@ -82,7 +82,7 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
                 // 小昭·妹永久海克斯仅明教适用（见 20 addPermanentBuff 守卫）
                 if (camp === CAMP_TYPES.ALLY) {
                     const ctx = GlobalStore.get('playerContext');
-                    // 2026-09-14 状态三轨收敛：战斗期读 battleStore，不再读 c.UI 冗余拷贝
+                    // 状态三轨收敛：战斗期读 battleStore，不再读 c.UI 冗余拷贝
                     const allyUnits = (ctx && ctx.store)
                         ? (ctx.store.getState().units || []).filter(u => u.camp === CAMP_TYPES.ALLY)
                         : ((ctx && ctx.UI && ctx.UI.allyTeam) || []);
