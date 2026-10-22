@@ -1,5 +1,5 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器入口（翻译域）
-// V1.4.0 | 2026-10-13 | ~3700 bytes
+// V1.4.0 | 2026-10-13 | ~3300 bytes
 // 加新 fact 的舞台动作：在对应族文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';

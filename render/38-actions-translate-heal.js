@@ -1,5 +1,5 @@
 // render/38-actions-translate-heal.js — fact → stageAction 翻译器·回血族（38 拆分）
-// V1.0.0 | 2026-10-13 | ~5600 bytes
+// V1.0.0 | 2026-10-13 | ~5000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/38-actions-translate-heal.js V1.0.0';
 
@@ -12,7 +12,7 @@ export const HEAL_TRANSLATORS = {
     [FACT_TYPES.WEI_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.CLAW_HEAL]: (data, index) => makeHealAction(data, index),
-    // 2026-09-27 生生不息：一个 fact 可能两口回血（自身 + 溢出接盘者），故单独翻译
+    // 生生不息：一个 fact 可能两口回血（自身 + 溢出接盘者），故单独翻译
     [FACT_TYPES.ENDLESS_BREATH]: (data, index) => translateEndlessBreath(data, index),
     [FACT_TYPES.HOT_BLOOD_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.BLOOD_THIRST_LEECH]: (data, index) => makeHealAction(data, index),
@@ -38,7 +38,7 @@ export function makeHealAction(data, index) {
 function translateEndlessBreath(data, index) {
     const actions = [];
     const selfHeal = Math.round(data.heal || 0);
-    // 2026-10-08 付费触发扣攻飘字（⚔-N，与八卦阵 BAGUA_ARRAY 的 atkDelta 飘字同款；fail fact cost 为空自动跳过）
+    // 付费触发扣攻飘字（⚔-N，与八卦阵 BAGUA_ARRAY 的 atkDelta 飘字同款；fail fact cost 为空自动跳过）
     const cost = Math.round(data.cost || 0);
     if (cost > 0 && data.unitUid) {
         actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.unitUid, gain: -cost, factIndex: index, timing: 'afterText' });
@@ -58,7 +58,7 @@ function translateEndlessBreath(data, index) {
             anchorIndex: 0, factIndex: index, timing: 'afterText'
         });
     }
-    // 2026-10-01 攻防二选一的加成飘字（用户定调：该加攻加攻、该加防加防，随回血同时升）：
+    // 攻防二选一的加成飘字（用户定调：该加攻加攻、该加防加防，随回血同时升）：
     //   atkGain→ATK_BUFF_FLOAT（橙⚔ 左上，原通道）、defGain→DEF_BUFF_FLOAT（钢蓝🛡 右上，新通道）。
     //   翻译器只派动作，emit 由 39 的 STAT_CHANGE 演出帧发——与回血弹幕同帧，不抢日志文字。
     const selfAtk = Math.round(data.atkGain || 0), selfDef = Math.round(data.defGain || 0);

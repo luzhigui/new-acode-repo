@@ -1,5 +1,5 @@
 // render/38-actions-translate-control.js — fact → stageAction 翻译器·控制位移族（38 拆分）
-// V1.0.1 | 2026-10-21 | ~5300 bytes
+// V1.0.1 | 2026-10-21 | ~6000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/38-actions-translate-control.js V1.0.1';
 
