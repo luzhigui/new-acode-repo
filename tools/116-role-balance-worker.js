@@ -1,3 +1,8 @@
+// V1.12.1 | 2026-10-22 寒离飒单挑跟随主代码升档（modules/29 V7.6.0 把寒离飒并入 eliteConfigs）：
+//           弱精英池自此只剩杨逍/殷天正，forceWeakElite='寒离飒' 会撞 29 的入池校验抛错、整组 job 崩；
+//           且 forceSoloWeakElite 只抑制轮盘、不再补人（删校验也只会跑出零精英局）。
+//           改走 V1.9.0 已确立的「拒绝采样重掷」：不设任何 force，重掷自然阵容直到恰好只有她一个精英再开打。
+//           同时补 runNoEliteJob 的 isElite 漏项（原不含 isHanLiSa → 只有寒离飒的局被误判无精英）。
 // V1.12.0 | 2026-10-21 精英档位重排（老板拍板）：自然表新增寒离飒列；强精英单挑组改为
 //           韦一笑/小昭·姊/小昭·妹/金毛狮王谢逊/寒离飒（寒离飒走 forceWeakElite + 新增 forceSoloWeakElite
 //           抑制强精英轮盘，保证局内只有她一个精英）；张无忌（M115）从强精英拆出、单列 Boss 表；
@@ -192,27 +197,35 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
     const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun' };
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
-    // 2026-10-21 V1.12.0：寒离飒（M107 强精英）不在固定轮盘，走 forceWeakElite 混入 +
-    //   forceSoloWeakElite 抑制强精英轮盘 —— 局内只有她一个精英，才是真正的单核口径。
+    // 2026-10-22 V1.12.1：寒离飒升强精英后无 force 通道，改「拒绝采样重掷」自然阵容（见头注）
     const isHan = elite === '寒离飒';
+    const isEliteU = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa;
     // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
     // 第3关轮换阵容拆成胖远桥/宋青书两行；其余关落进「标准」桶
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
-        if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
-        else if (isHan) {
-            GlobalStore.set('forceWeakElite', elite);
-            GlobalStore.set('forceSoloWeakElite', true);
+        let teams = null;
+        let battleSeed = seed + (startIndex + i) * 7919;
+        if (isHan) {
+            // 命中率 ≈ 11%（无 Boss 70% × 强精英恰好 1 个 90% × 抽中她 1/4 × 无弱精英混入 70%），期望约 9 次重掷
+            for (let k = 0; k < 200; k++) {
+                const s = battleSeed + k * 104729;
+                const t = initBattleTeams(stage, new SeededRNG(s));
+                const elites = t.allyTeam.filter(isEliteU);
+                if (elites.length === 1 && elites[0].isHanLiSa) { teams = t; battleSeed = s; break; }
+            }
+            if (!teams) continue;                 // 200 次仍未凑出单寒离飒局 → 本场不计入（不污染胜率）
+        } else {
+            if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
+            else GlobalStore.set(keyMap[elite], true);
+            teams = initBattleTeams(stage, new SeededRNG(battleSeed));
         }
-        else GlobalStore.set(keyMap[elite], true);
-        const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
-        const teams = initBattleTeams(stage, initRng);
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true);
+        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true);
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -231,17 +244,19 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
 }
 
 // 112「🛡 无精英基线」：明教侧一个精英都不出的胜率（精英价值的对照组）。
-// 自然局约 20% 无精英（ELITE_COUNT_THRESHOLDS [0.05,0.20,0.80] 的末档），
-// 故用「拒绝采样」：换种子重掷初始阵容，直到明教侧无精英；平均约 5 次即中（initBattleTeams 只占单场 4% 耗时，代价可忽略）。
-// 不动主代码 modules/29（无需新增开关）。按敌方变体分桶，口径与上两表一致。
+// 2026-10-22 V1.12.1：modules/29 V7.6.0 起「无 Boss 也必出 1 个强精英」，自然局已不存在无精英阵容，
+//   旧的纯拒绝采样会 200 次全空、整表静默 0 场。改用 forceSoloWeakElite 抑制随机精英块（该标志下不补任何精英），
+//   再拒绝采样排除 30% 的弱精英混入 → 得到真正「一个精英都没有」的 5 普通兵局。按敌方变体分桶，口径与上两表一致。
 function runNoEliteJob(stage, seed, runs, startIndex = 0) {
-    const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun;
+    const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun
+        || u.isHanLiSa || u.isYangXiao || u.isYinTianZheng;
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0 });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场可能残留的 force 标志），保证本场是纯自然局
+        GlobalStore.set('forceSoloWeakElite', true);   // clear 会清掉，每场都要在 clear 之后重设
         let teams = null, ally = null, s = 0;
-        for (let k = 0; k < 200; k++) {          // 重掷上限 200 防死循环（1/0.2 期望 5 次）
+        for (let k = 0; k < 200; k++) {          // 重掷上限 200 防死循环（弱混入 30% 未命中，期望约 1.4 次）
             s = seed + (startIndex + i) * 7919 + k * 104729;    // 重掷步长与主种子错开
             const t = initBattleTeams(stage, new SeededRNG(s));
             const a = t.allyTeam.map(u => u.clone());
