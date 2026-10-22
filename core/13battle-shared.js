@@ -220,8 +220,11 @@ function previewHeal(target, raw, rawOnly = false) {
         if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
     }
     // 2026-10-22 rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
-    if (rawOnly) return Math.max(0, applied);
-    return Math.max(0, Math.min(applied, target.maxHp - target.hp));
+    if (rawOnly) return Math.max(0, Math.floor(applied));
+    // 2026-10-22 体检第 115 轮转交：出口统一取整——入口 raw 可能是浮点（hp 带 .x 时
+    //   Math.min(raw, maxHp-hp) 会返回浮点缺口），文案/飘字/账本同取整数，与血条 fmtHp 同口径，
+    //   修「+13.400000000000006」外泄到战报。
+    return Math.max(0, Math.floor(Math.min(applied, target.maxHp - target.hp)));
 }
 
 // isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），
