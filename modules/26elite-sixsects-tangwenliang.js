@@ -52,7 +52,7 @@ export function createTangWenLiangComponent() {
                 const healed = previewHeal(unit, raw);
                 if (healed > 0) {
                     applyStatChange(unit, 'hp', raw, null, '回春术');
-                    recordHpAudit(unit, 'huiChun', healed, '回春术'); // 账本记实际落地值（与 fact heal 同口径）
+                    recordHpAudit(unit, 'huiChun', raw, '回春术');
                     if (outLog) outLog.push({ factType: FACT_TYPES.HEAL, data: {
                         unitName: unit.name, unitUid: unit.uid, heal: healed,
                         hpBefore: fmtHp(Math.floor(unit.hp) - healed), hpAfter: fmtHp(Math.floor(unit.hp)),
@@ -246,7 +246,7 @@ export function createTangWenLiangComponent() {
                 // 飘字取实际落地值（截脉/寒毒打折后）
                 const actualTotal = previewHeal(tw, total);
                 if (data.declarations) data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: total, target: tw, source: null, reason: '回春术' });
-                recordHpAudit(tw, 'huiChun', actualTotal, '回春术'); // 账本记实际落地值（与 fact heal 同口径）
+                recordHpAudit(tw, 'huiChun', total, '回春术');
                 if (data.log) data.log.push({ factType: FACT_TYPES.HEAL, data: {
                     unitName: tw.name, unitUid: tw.uid, heal: actualTotal,
                     hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpBefore + actualTotal),

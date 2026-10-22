@@ -199,18 +199,15 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (heal > 0 && unit.hp < unit.maxHp) landHeal = heal;
     }
 
-    // 2026-10-22 体检第 115 轮转交：fact/账本/飘字三处同报实际落地值（截脉/寒毒打折后），
-    //   与九阳/嗜血/热血/快乐/寒离飒吸血同口径（landHeal 仍是公式原值，只作 applyStatChange 入参）
-    let actualLandHeal = 0;
-    if (landHeal > 0) actualLandHeal = previewHeal(unit, landHeal);
-
-    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal: actualLandHeal } });
+    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal } });
 
     if (landHeal > 0) {
+        // 飘字/文案取实际落地值（截脉/寒毒打折后），声明值只记审计
         const hpBeforeHeal = Math.floor(unit.hp);
+        const actualHeal = previewHeal(unit, landHeal);
         applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
-        recordHpAudit(unit, 'spiderLandHeal', actualLandHeal, '飞天落地回血');
-        pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${actualLandHeal}（${hpBeforeHeal} → ${hpBeforeHeal + actualLandHeal}）`, { floatText: `+${actualLandHeal}`, floatUid: unit.uid });
+        recordHpAudit(unit, 'spiderLandHeal', landHeal, '飞天落地回血');
+        pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${actualHeal}（${hpBeforeHeal} → ${hpBeforeHeal + actualHeal}）`, { floatText: `+${actualHeal}`, floatUid: unit.uid });
     }
 
     // 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）

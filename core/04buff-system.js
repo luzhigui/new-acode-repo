@@ -268,7 +268,7 @@ export function submitBloodthirstDeclaration(data) {
         if (leechVal > 0) {
             data.declarations.push(decl);
             // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
-            recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
+            recordHpAudit(unit, 'bloodthirstLeech', rawLeech, '嗜血狂刀');
         }
         if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
             unit.state._bloodthirstStriked = true;
@@ -283,7 +283,7 @@ export function submitBloodthirstDeclaration(data) {
         if (leechVal > 0) {
             data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
             // 审计账本（同分支 1）：记进 unit._audit.hp，零游戏逻辑副作用
-            recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
+            recordHpAudit(unit, 'bloodthirstLeech', rawLeech, '嗜血狂刀');
         }
     }
 }
@@ -320,7 +320,7 @@ export function submitHotBloodDeclaration(data) {
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawLeech, source: unit, isDouble, factType: FACT_TYPES.HOT_BLOOD_HEAL, factData: { unitName: unit.name, leech, tag: isDouble ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战', isBrother, unitUid: unit.uid } });
         // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
-        recordHpAudit(unit, 'hotBloodHeal', leech, '热血奋战'); // 账本记实际落地值（与 factData.leech 同口径）
+        recordHpAudit(unit, 'hotBloodHeal', rawLeech, '热血奋战');
     }
 }
 
