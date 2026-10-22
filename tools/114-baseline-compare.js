@@ -1,15 +1,12 @@
+// V1.2.0 | 2026-10-22 精英名单改从 127 取（配 registry V1.1.0）：补谢逊/寒离飒，六名精英都可作 A/B；
+//               替换前先剔除随机阵容里已存在的同名精英，避免「目标精英 + 另一个自己」；116 同步去重与全标记复位
 // V1.1.0 | 战斗逻辑全迁 116 通用 Worker 并行执行（kind='baseline'），117 派发器逐关回报，完成显示总耗时
 // 口径不变：同种子生成同一套阵容，A/B 两组精英配置各跑一遍；逐关对照 胜率/输出/承伤/存活 差异
-import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { runParallel } from './117-shared-worker-runner.js';
+import { ELITE_UNIT_META } from './127-tool-registry.js';
 
-// 角色配置表：flag / 标准位 / 角色
-const ROLE_CFG = {
-    '张无忌': { flag: 'isZhang', role: ROLE_TYPES.RANGED, stdPos: 5 },
-    '韦一笑': { flag: 'isWei', role: ROLE_TYPES.FLYER, stdPos: 6 },
-    '小昭·姊': { flag: 'isXiaoZhaoSister', role: ROLE_TYPES.RANGED, stdPos: 4 },
-    '小昭·妹': { flag: 'isXiaoZhaoBrother', role: ROLE_TYPES.RANGED, stdPos: 4 }
-};
+// 角色配置表（单一来源：127 的 ELITE_UNIT_META：flag / stdPos / role）
+const ROLE_CFG = ELITE_UNIT_META;
 
 const startBtn = document.getElementById('bcStartBtn');
 const roleAEl = document.getElementById('bcRoleA');
@@ -25,6 +22,7 @@ startBtn.addEventListener('click', async () => {
     const cfgB = { name: roleBEl.value, m: parseInt(mBEl.value) || 107 };
     Object.assign(cfgA, ROLE_CFG[cfgA.name]);
     Object.assign(cfgB, ROLE_CFG[cfgB.name]);
+    if (!cfgA.flag || !cfgB.flag) { alert('A/B 精英配置缺失'); return; }
     const stages = Array.from(document.querySelectorAll('.bc-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(runsInput.value) || 20;
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }

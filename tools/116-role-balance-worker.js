@@ -1,3 +1,12 @@
+// V1.13.0 | 2026-10-22 基线对比（kind:'baseline'）支持六名精英：applyConfig 的「剔除候选」和「身份标记复位」
+//           改由 127 ELITE_UNIT_META 派生（此前只认张/韦/小昭，谢逊寒离飒会被当普通位覆盖）；runBaselineStageJob
+//           先把随机阵容里已存在的同名精英剔掉，避免目标精英重复出场（配 114 V1.2.0）
+// V1.12.4 | 2026-10-22 海克斯候选过滤收口：pickHexBuff / runHexStageJob 内联 hexPicker 两处重复的过滤逻辑
+//   （已有 buff / 严阵以待 / 众志成城人数 / 角色需求）改调 modules/28 新增的 filterAvailableBuffs，
+//   以后加过滤条件只改 28 一处；顺带删掉已随 28 V6.2.4 失效的 carry 过滤（正式服 10-14 已放开）。
+// V1.12.3 | 2026-10-22 精英名单与 force/标记映射改从 127-tool-registry.js 取（单一来源）：
+//   删本地 6 人数组（runEliteStageJob.newAgg）、单挑 keyMap（runSoloEliteJob）、弱精英 allyFlagMap/enemyFlagMap，
+//   以后加精英只改 127，本 worker 自动跟上（此前加寒离飒时这里手改过 3 处）。
 // V1.12.2 | 2026-10-22 寒离飒单挑改走 29 V7.6.1 新增的 forceHanLiSa（取代 V1.12.1 的拒绝采样方案）：
 //           她并入 eliteConfigs 后弱精英池已无此人，forceWeakElite='寒离飒' 会撞入池校验整组抛错；
 //           主代码补了专用 force 通道后，单核口径回到「force 单精英 + 轮盘互锁」，与其它强精英同一把尺子。
@@ -65,10 +74,11 @@ if (typeof localStorage === 'undefined') {
 }
 import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
+import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './127-tool-registry.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
 import { runBattle } from '../core/06battle-runner.js';
 import { setBattleRng } from '../core/13battle-shared.js';
-import { createBuffObject, hasCarryTarget } from '../modules/28buff-tools.js';
+import { createBuffObject, filterAvailableBuffs } from '../modules/28buff-tools.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
@@ -141,18 +151,9 @@ function buildTeam(extraRole, camp, positions, rng) {
 }
 
 function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
-    const existing = activeBuffs.map(b => b.key);
-    const allKeys = Object.keys(CONFIG.BUFFS);
-    const available = allKeys.filter(k => {
-        if (existing.includes(k)) return false;
-        if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-        if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyTeam)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
-        // 2026-10-16 V1.9.2 众志成城门槛同步 modules/28：只有本阵营场上存活人数 <4（含召唤物）才进候选
-        if (k === BUFF_TYPES.UNITY && allyTeam.filter(u => u.alive).length >= 4) return false;
-        const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
-        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
-        return true;
-    });
+    // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径）；
+    //   withFortifyRule 原样透传给 opts（职业平衡 job 专用：无剩余 buff 时禁选严阵以待）。
+    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule });
     if (available.length === 0) return null;
     const pick = available[rng.nextInt(0, available.length - 1)];
     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
@@ -199,8 +200,8 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 张/韦/谢逊/小昭四路 force 全部抑制随机轮盘）= 每局明教侧只有这一个精英。
 // 口径与普通评测一致：海克斯开、种子公式同款；胜 = 明教获胜。小昭姊/妹走 forceXiaoZhao 形态值。
 function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
-    // 2026-10-22 V1.12.2：寒离飒走 29 V7.6.1 新增的 forceHanLiSa（她已升强精英，弱精英池里已无此人）
-    const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun', '寒离飒': 'forceHanLiSa' };
+    // 2026-10-22 V1.12.3：force 键映射统一由 127 的 SOLO_FORCE_KEY 提供（含寒离飒的 forceHanLiSa）
+    const keyMap = SOLO_FORCE_KEY;
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
     // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
     // 第3关轮换阵容拆成胖远桥/宋青书两行；其余关落进「标准」桶
@@ -279,9 +280,8 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 //     属随机噪声、400 场平均掉，仍是无偏对照。
 //   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
-    const allyFlagMap = { '杨逍': 'isYangXiao', '殷天正': 'isYinTianZheng' };
-    const enemyFlagMap = { '何太冲': 'isHeTaichong', '唐文亮': 'isTangWenLiang' };
-    const flag = side === 'ally' ? allyFlagMap[elite] : enemyFlagMap[elite];
+    // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
+    const flag = WEAK_UNIT_FLAG[elite];
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
@@ -324,7 +324,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0) {
     // 列仍是明教六名精英：谁在场记给谁，胜 = 明教获胜（同场共现是真实环境，不是污染）。
     const newAgg = () => {
         const a = {};
-        for (const n of ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒']) {
+        for (const n of NATURAL_ELITES) {
             a[n] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
         }
         return a;
@@ -403,17 +403,9 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
         // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
         const hexPicker = (activeBuffs, allySide, rng) => {
-            const existing = activeBuffs.map(b => b.key);
-            const allyAlive = allySide.filter(u => u.alive);
-            const available = Object.keys(C.BUFFS).filter(k => {
-                if (existing.includes(k)) return false;
-                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyAlive)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
-                // 2026-10-16 V1.9.2 众志成城门槛同步 modules/28：只有本阵营场上存活人数 <4（含召唤物）才进候选
-                if (k === BUFF_TYPES.UNITY && allyAlive.length >= 4) return false;
-                const req = C.BUFF_ROLE_REQUIREMENTS?.[k];
-                if (req && !allyAlive.some(u => u.role === req)) return false;
-                return true;
-            });
+            // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供；
+            //   hex job 不开 withFortifyRule（与原行为一致）。
+            const available = filterAvailableBuffs(activeBuffs, allySide, {});
             if (available.length === 0) return null;
             // 偏好海克斯出现时优先选（与 101 主线程版一致；无偏好则全池随机）
             const preferred = available.filter(k => preferredBuffs.includes(k));
@@ -598,11 +590,14 @@ function record(agg, u, t) {
 
 // 114 基线对比
 // 原主线程逻辑：同一阵容克隆两份套 A/B 配置（applyConfig），各跑一场对比
+const ALL_ELITE_FLAGS = Object.values(ELITE_UNIT_META).map(m => m.flag);
+const ALL_WEAK_FLAGS = Object.values(WEAK_UNIT_FLAG);
+
 function applyConfig(team, cfg, seed) {
     let eu = team.find(u => u[cfg.flag]);
     if (!eu) {
         const candidates = team.filter(u =>
-            !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother
+            !ALL_ELITE_FLAGS.some(f => u[f]) && !ALL_WEAK_FLAGS.some(f => u[f])
         );
         if (!candidates.length) return null;
         eu = candidates.find(u => u.pos === cfg.stdPos) || candidates[0];
@@ -610,7 +605,7 @@ function applyConfig(team, cfg, seed) {
     eu.name = cfg.name;
     eu.role = cfg.role;
     eu.m = cfg.m;
-    eu.isZhang = eu.isWei = eu.isXiaoZhaoSister = eu.isXiaoZhaoBrother = false;
+    for (const f of ALL_ELITE_FLAGS) eu[f] = false;
     eu[cfg.flag] = true;
     if (cfg.flag === 'isXiaoZhaoSister' || cfg.flag === 'isXiaoZhaoBrother') {
         eu.initXiaoZhao();
@@ -633,8 +628,11 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB) {
         const seedBase = seed + i * 7919;
         const initRng = new SeededRNG(seedBase);
         const { allyTeam, enemyTeam } = initBattleTeams(stage, initRng);
-        const teamA = allyTeam.map(u => u.clone());
-        const teamB = allyTeam.map(u => u.clone());
+        // 2026-10-22 V1.13.0：A/B 两支都先从同一底阵容里剔掉两个目标精英再各自套配置——
+        // 否则守方若已随机出目标，会出现「目标精英 + 另一个自己」，A/B 差也混进阵容随机差
+        const baseTeam = allyTeam.filter(u => !u[cfgA.flag] && !u[cfgB.flag]);
+        const teamA = baseTeam.map(u => u.clone());
+        const teamB = baseTeam.map(u => u.clone());
         const euA = applyConfig(teamA, cfgA, seedBase + 31);
         const euB = applyConfig(teamB, cfgB, seedBase + 31);
         if (!euA || !euB) continue;

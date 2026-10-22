@@ -1,5 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.0 | 2026-10-22 按老板要求精简入口（配 104/101 退役）：
+<!-- V6.3.1 | 2026-10-22 备用工具跟进新精英（配 114 V1.2.0 / 115 V1.1.0 / 127 V1.1.0）：
+     ① 基线对比 A/B 下拉补谢逊、寒离飒；② 阵容分布搜索补强制谢逊/强制寒离飒开关，说明改为「只报实际分布」。
+     V6.3.0 | 2026-10-22 按老板要求精简入口（配 104/101 退役）：
      ① 删除「⚔️ 自动批量战斗」tab（跑批能力由海克斯仪表盘覆盖）——连带删该 tab 的 HTML/CSS/104 模块引用；
      ② 新增「🧰 备用工具」折叠区，收纳此前无入口的三个低频工具：统计一致性体检 / 精英基线对比 / 阵容分布搜索。
      V6.2.0 | ~35000 bytes | 2026-10-21 精英评测区档位重排（配 112 V3.0.0）：①「⚔ 单英雄胜率」改名「⚔ 强精英胜率」，
@@ -262,12 +264,14 @@
                 <label>精英A</label>
                 <select id="bcRoleA">
                     <option>张无忌</option><option>韦一笑</option><option>小昭·姊</option><option>小昭·妹</option>
+                    <option>金毛狮王谢逊</option><option>寒离飒</option>
                 </select>
                 <label>M</label>
                 <input type="number" id="bcMA" value="115" min="90" max="120">
                 <label>精英B</label>
                 <select id="bcRoleB">
                     <option>韦一笑</option><option>张无忌</option><option>小昭·姊</option><option>小昭·妹</option>
+                    <option>金毛狮王谢逊</option><option>寒离飒</option>
                 </select>
                 <label>M</label>
                 <input type="number" id="bcMB" value="107" min="90" max="120">
@@ -293,7 +297,7 @@
 
         <div class="tool-card">
             <h3>🔎 阵容分布搜索</h3>
-            <p>批量采样指定关卡，统计精英人数 / 组合 / 出场率与站位分布（默认 200 场，主线程串行，跑的时候别切走）。</p>
+            <p>批量初始化阵容（不打仗），统计六名固定精英的人数 / 组合 / 出场率与站位，按 modules/29 现行规则验算。</p>
             <div class="elite-config">
                 <label>关卡</label>
                 <select id="lsStageSelect">
@@ -306,6 +310,8 @@
                 <input type="number" id="lsRunsInput" value="200" min="10" max="2000">
                 <label><input type="checkbox" id="lsForceZhang">强制张无忌</label>
                 <label><input type="checkbox" id="lsForceWei">强制韦一笑</label>
+                <label><input type="checkbox" id="lsForceXieXun">强制谢逊</label>
+                <label><input type="checkbox" id="lsForceHanLiSa">强制寒离飒</label>
                 <button id="lsStartBtn">▶ 开始采样</button>
             </div>
             <div class="status-text" id="lsProgress"></div>
