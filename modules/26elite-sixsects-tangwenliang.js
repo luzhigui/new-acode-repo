@@ -2,13 +2,15 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
+// V7.0.4 | 2026-10-22 回春改「攻击完再叠」：冲刺置 _pendingDashHeal，等 dashStrike/紧随普攻的
+//   AFTER_ATTACK 或 AFTER_MISS 再叠层（打空也叠——这层是冲刺给的）；本回合已出手过则当场叠
 // V7.0.3 | 2026-10-22 七伤双路径 + 回春立即结算：被命中 4% 也推进七伤计数（自损 4% maxHp 留 1 血），满 7 对攻击者
 //   冲刺并补一刀；回春术叠层当场结算首轮回血（不再等回合开始）；冲刺报幕带 dash 载荷供 fx/94 独立演出
 // V7.0.2 | 2026-10-22 回春术飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
 // V7.0.1 | 2026-10-22 冲刺拽位照实报幕：swapUnitPositions/moveUnitPosition 现返回布尔，
 //   目标免疫位移时改写「免疫位移、纹丝不动」，不再假报"拽至 N 号位"（体检 114 家族案）
 // 版本历史见 记录-更改履历.md（检索 "modules/26elite-sixsects-tangwenliang"）
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.3';
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.4';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -97,7 +99,8 @@ export function createTangWenLiangComponent() {
                 const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
                 if (outLog) outLog.push({ factType: FACT_TYPES.TW_DASH_APPLY, data: { unitName: tw.name, unitUid: tw.uid, camp: tw.camp, atk: rb.atk, def: rb.def, maxHp: rb.maxHp } });
                 switchRole(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士', outLog);
-                addHuiChunStack(tw, outLog);   // 冲刺必叠 1 层（不走 4% 掷骰），叠层即结算一次回血
+                // 2026-10-22 回春延到「冲刺后那一拳」结算完再叠（老板口径：攻击完再回春）
+                tw.state._pendingDashHeal = true;
                 // 冲刺报幕：在出手帧（本信号处理内）直接落一行，与胖远桥出手声明同口径——
                 //   此时本击攻击组还没建（group 由 core/10 命中结算后才产出），落不进组也不该丢
                 //   （后随的普攻若被闪避就没有组，挂组会让这行消失）
@@ -108,10 +111,20 @@ export function createTangWenLiangComponent() {
                     pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${dragText}，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
                         { floatText: '⚡', floatUid: target.uid,
                           // 2026-10-22 冲刺独立演出：位置数值随载荷下发，fx/94 按坐标画克隆，不读 store 当前状态
-                          dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: frontPos, fromCamp: tw.camp,
-                                  targetUid: target.uid, targetFromPos, targetToPos: frontPos, targetCamp: target.camp } });
+                          //   终点取 relocate 之后的真实落点（目标免疫位移/换位时也不飞错格）
+                          dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: tw.pos, fromCamp: tw.camp,
+                                  targetUid: target.uid, targetFromPos, targetToPos: target.pos, targetCamp: target.camp } });
                 }
             }
+
+            // 2026-10-22 冲刺后的回春：等这一拳（dashStrike 或紧随的普攻）结算完再叠
+            const flushDashHeal = (data) => {
+                if (data.unit !== tw || !tw.alive || !tw.state._pendingDashHeal) return;
+                tw.state._pendingDashHeal = false;
+                addHuiChunStack(tw, data.log);
+            };
+            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, 60, flushDashHeal);
+            eventBus.on(SIGNAL_TYPES.AFTER_MISS, 60, flushDashHeal);
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播
             //   （带 target 与 log）——故命中/闪避都算一次出手；射程内无人（休息）时不广播、不计。
@@ -179,7 +192,11 @@ export function createTangWenLiangComponent() {
                 // 满档：对攻击者冲刺
                 doDash(attacker, data.log);
                 // 本回合未出手 → 冲刺后补一刀，并消耗行动权
-                if (!tw.state._acted) {
+                if (tw.state._acted) {
+                    // 本回合已出手过，没有后续那一拳 → 回春当场生效
+                    tw.state._pendingDashHeal = false;
+                    addHuiChunStack(tw, data.log);
+                } else {
                     tw.state._acted = true;
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({

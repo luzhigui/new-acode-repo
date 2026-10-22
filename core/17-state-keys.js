@@ -1,10 +1,10 @@
-﻿// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
+// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
 // V2.9.29 | 2026-10-22 加 _permShield（永久护盾，九阳满血溢出）：与蓄力临时 _shield 分家，蓄力爆发只清 _shield
 // V2.9.26 | 2026-10-20 删死字段：_extinctionUsed（全库零读写，确认）；_spiderTriggeredHit 恢复登记——
 //   删 schema key 无效：写侧 modules/27 L234 `if (state._spiderTriggeredHit === undefined) 补建` 会写回，
 //   state 快照仍出该 key；须先清那行（另批）再删本字段
 // 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
-export const VER = 'core/17-state-keys.js V2.9.29';
+export const VER = 'core/17-state-keys.js V2.9.30';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -40,6 +40,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 胖远桥·正义国字脸：被嘲讽者本回合后续只能打胖远桥（回合级，回合开始自动清）
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 2026-10-22 唐文亮冲刺后待叠回春：等冲刺后那一拳结算完再叠（回合开始自动清）
+    _pendingDashHeal:        { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置
