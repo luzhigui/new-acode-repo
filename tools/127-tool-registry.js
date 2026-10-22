@@ -1,11 +1,13 @@
 // tools/127-tool-registry.js — 工具箱共用名单与文案表（只读常量，不跑逻辑）
+// V1.1.0 | 2026-10-22 新增 ELITE_UNIT_META（flag/stdPos/tag/role），114 基线对比与 115 阵容采样改从这里取，
+//   补谢逊/寒离飒时不再各自手抄；配合 29 V7.6.x 寒离飒进强精英池
 // V1.0.0 | 预估 3300 bytes | 2026-10-22 新建：精英名单 / 敌方变体 / 海克斯中文名 / force 键与单位标记
 //   原先散在 112（4 组名单）、126（4 组名单 + 中文名）、116（newAgg 硬编码 6 人 + keyMap + 两个 flagMap）、
 //   122（ELITE_LABELS）、108（HEX_NAME_MAP）共 5 个文件里，加新精英/新海克斯要人工同步 3~5 处——
 //   2026-10-21 加寒离飒时 126 跟了、122 漏了，就是这套重复的直接代价。
 //   本文件为单一来源；各工具 import 这里的常量，不再自建副本。
 // 维护：新增精英/海克斯时只改本文件；各工具的表头、判读、force 通道会自动跟上。
-export const VER = 'tools/127-tool-registry.js V1.0.0';
+export const VER = 'tools/127-tool-registry.js V1.1.0';
 
 // 自然出场归因表的列（112 主表 / 126 判读），顺序即表头顺序
 export const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
@@ -47,6 +49,17 @@ export const WEAK_UNIT_FLAG = {
     '殷天正': 'isYinTianZheng',
     '何太冲': 'isHeTaichong',
     '唐文亮': 'isTangWenLiang'
+};
+
+// 精英单位元数据（114 基线对比 / 115 阵容采样共用）：flag = unit 身份标记；stdPos = 29 固定站位；
+// tag = 组合缩写；role = 基准职业（中文枚举值，替换时作初始职业）。加新精英只改这里。
+export const ELITE_UNIT_META = {
+    '张无忌': { flag: 'isZhang', stdPos: 5, tag: '张', role: '远程' },
+    '韦一笑': { flag: 'isWei', stdPos: 6, tag: '韦', role: '飞行' },
+    '小昭·姊': { flag: 'isXiaoZhaoSister', stdPos: 4, tag: '昭姊', role: '远程' },
+    '小昭·妹': { flag: 'isXiaoZhaoBrother', stdPos: 4, tag: '昭妹', role: '远程' },
+    '金毛狮王谢逊': { flag: 'isXieXun', stdPos: 7, tag: '谢', role: '战士' },
+    '寒离飒': { flag: 'isHanLiSa', stdPos: 2, tag: '寒', role: '战士' }
 };
 
 // 海克斯中文名（108 表头 / 126 告警文案共用）
