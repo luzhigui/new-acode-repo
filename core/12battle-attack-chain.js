@@ -9,7 +9,9 @@
 //   resolveDamageImmune / isUnitStunned）在 12battle-attack-edge.js。
 //   原文件死 import（clearEliteDodgeRules / isBlocked / getUnitCol / getUnitRow / getEffectHandler /
 //   hasEffectHandler / validateDeclarationFields）未搬入——函数体内未引用，与 edge 分工对齐。
-export const VER = 'core/12battle-attack-chain.js V1.0.2';
+// V1.0.3 | 2026-10-22 resolveDodgeEffects 返回 { stunned }，闪避 fact 带 stunned 字段：
+//   _ctrlImmune（寒离飒）实际没被眩晕时不再hardcode 写「被反击眩晕/本回合无法行动」
+export const VER = 'core/12battle-attack-chain.js V1.0.3';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -142,10 +144,10 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
             eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
-            resolveDodgeEffects(dodgeDeclarations, unit, target, ctx.log);
+            const dodgeEffectResult = resolveDodgeEffects(dodgeDeclarations, unit, target, ctx.log);
 
             unit.state._acted = true;
-            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });
+            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: dodgeEffectResult.stunned });
 
             const dodgeData = {
                 skipped: true,
@@ -160,6 +162,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     attackerAtk: Math.floor(getStat(unit, 'atk')),
                     dodgerDef: Math.floor(getStat(target, 'def')),
                     dodgerHp: Math.floor(target.hp),
+                    // 2026-10-22 是否真被眩晕（_ctrlImmune 单位会是 false），渲染层据此写文案
+                    stunned: dodgeEffectResult.stunned,
                     weiHeal: dodgeDeclarations.find(d => d.type === EFFECT_TYPES.WEI_HEAL)?.data || null,
                     fxSnapshot: makeFXSnapshot(target, unit)
                 }
@@ -481,7 +485,10 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
 
 // 闪避后效果边裁
 export function resolveDodgeEffects(declarations, unit, target, log) {
-    if (!declarations || declarations.length === 0) return;
+    // 2026-10-22 返回 { stunned }：调用方据此决定战报写不写「被反击眩晕」
+    //   （_ctrlImmune 单位实际没被控，原渲染器无条件写「本回合无法行动」= 战报说谎）
+    const result = { stunned: false };
+    if (!declarations || declarations.length === 0) return result;
 
     for (const decl of declarations) {
         if (decl.type === EFFECT_TYPES.REBOUND) {
@@ -490,6 +497,7 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             // 2026-10-19 控制位移免疫（寒离飒·开局常驻）：闪避反击的眩晕不生效，反弹伤害照掉
             if (unit.state && unit.state._ctrlImmune) continue;
             unit.state._stunned = true;
+            result.stunned = true;
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });
             emitStateChange(unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
@@ -511,4 +519,5 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             });
         }
     }
+    return result;
 }

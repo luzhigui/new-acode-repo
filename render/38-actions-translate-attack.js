@@ -18,7 +18,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '.
 import { makeHealAction } from './38-actions-translate-heal.js';
 // 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate-attack.js V1.0.5';
+export const VER = 'render/38-actions-translate-attack.js V1.0.6';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -43,6 +43,8 @@ export const ATTACK_TRANSLATORS = {
         isKuLianAttack: data.attacker?.state?._kuLianActive === true,
         reboundDmg: data.reboundDmg,
         dead: data.attackerHpAfter <= 0,
+        // 2026-10-22 是否真被眩晕（_ctrlImmune 单位 false）：render/39 据此决定是否置灰
+        stunned: data.stunned !== false,
         linkReason: data.attacker?.state?._linkReason ?? null,
         // 2026-09-24 韦一笑闪避反击吸血带给演出层，用于补吸血飘字（原先只有日志文本）
         weiHeal: data.weiHeal || null,
