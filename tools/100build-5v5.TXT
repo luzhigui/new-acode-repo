@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
 // V6.0.0 | 更新：2026-07-21 合并新模块
 // 【已废弃 2026-08-22】本脚本暂停使用：MODULES 清单严重过期（引用 5 个已删文件、缺 12 个现存文件），直接跑必失败。
 // 复用前必须按磁盘现状全量重写 MODULES 与 VER_GLOBAL_MAP。此前仅作历史参考保留。
@@ -48,7 +48,6 @@ const MODULES = [
     'modules/22audio-manager.js',
     'modules/23global-store.js',
     'modules/29battle-init.js',
-    'tools/101auto-battle-utils.js',
     'ui/63main-state.js',
     'ui/64main-dialogs.js',
     'ui/65main-battle.js',
@@ -102,7 +101,6 @@ const VER_GLOBAL_MAP = {
     '21error-capture.js':             'VER_ERROR_CAPTURE',
     '22audio-manager.js':             'VER_AUDIO',
     '23global-store.js':              'VER_GLOBAL_STORE',
-    '101auto-battle-utils.js':         'VER_AUTO_BATTLE_UTILS',
     '29battle-init.js':               'VER_BATTLE_INIT',
     '63main-state.js':                'VER_MAIN_STATE',
     '64main-dialogs.js':              'VER_MAIN_DIALOGS',
