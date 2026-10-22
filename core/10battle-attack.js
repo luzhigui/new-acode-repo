@@ -68,7 +68,7 @@ function tryAdvanceJavelin(unit, allySide, log) {
     if (moveUnitPosition(unit, landPos, log) === false) return false;   // 被控制免疫等挡住
     log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
         unitName: unit.name, unitUid: unit.uid, camp: unit.camp,
-        skillName: '突进', note: `🥢 ${unit.name} 射程不及，向前压至 ${landPos} 号位（消耗本次行动）`
+        skillName: '突进', note: `🥢 ${unit.name} 射程不及，向前压至 ${landPos} 号位`
     } });
     return true;
 }

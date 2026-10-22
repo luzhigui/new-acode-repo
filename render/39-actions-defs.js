@@ -596,6 +596,17 @@ export const STAGE_ACTION_DEFS = {
     // 2026-10-22 唐文亮冲刺：纯装饰演出（引擎侧位置已由 doDash 改好，这里不碰数据、不 dispatch POS_CHANGE）
     [STAGE_ACTION_TYPES.DASH]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
+        // 2026-10-22 演出期间原格隐形（同 fx/82 冲撞口径），否则格子先瞬移到终点、克隆体再飞一遍
+        store: (c, action) => {
+            if (!c.store || !action.dash) return;
+            const ids = [action.dash.fromUid, action.dash.targetUid].filter(x => x != null);
+            for (const uid of ids) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: 'fly' });
+        },
+        storeAfter: (c, action) => {
+            if (!c.store || !action.dash) return;
+            const ids = [action.dash.fromUid, action.dash.targetUid].filter(x => x != null);
+            for (const uid of ids) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: null });
+        },
         fx: async (c, action) => {
             if (GlobalStore.get('fastForwardActive')) return;
             if (!action.dash) return;
