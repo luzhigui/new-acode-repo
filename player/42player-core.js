@@ -1,14 +1,5 @@
 // player/42player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
-// V7.0.0 | ~21000 bytes | 2026-10-18 拆分（纯搬移，零行为改动）：
-//   本文件此前把四件事塞在一起（step 同步 / fact→动作翻译 / 单步播放 / 三个入口+收尾）。
-//   现按 42 族号拆出三个子文件（与 26elite-sixsects-* / 27elite-mingjiao-* / 38-actions-translate-* 同款）：
-//     · 42player-step-sync.js    syncStoreFromStep / readRound / setRound / setupDeathTimers
-//     · 42player-stage-actions.js prepareLogEntry / getActionTiming / getActionFx / hasStageWork / applyStageActionTo{Store,FX,StoreAfter}
-//     · 42player-play-step.js    playStepInterleaved / playSingleLogEntry
-//   本文件保留：clock 桥接（installClockBridge）+ 三个入口 + finishBattle + readRound re-export。
-//   全部对外导出（playBattle / playBattleGuest / playBattleReplay / readRound / clearAllEffects）
-//   路径不变——44/45/61/68/75/76 的 import 点零改动。
-// ── 更早版本历史见 记录-更改履历.md
+// V7.0.0 | 2026-10-18 | ~20000 bytes
 export const VER = 'player/42player-core.js V7.0.0';
 
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -38,7 +29,6 @@ export { clearAllEffects } from './47renderer.js';
 export { readRound } from './42player-step-sync.js';
 
 // clock 桥接：单机 / 从机 / 回放三条路的「倍速·暂停·快进」接线完全同构，统一收口在此。
-// 此前三份逐字重复，回放版还多一行 setTimescale（GlobalStore.set('speed') 的 effect 已自动执行）。
 function installClockBridge(c) {
     clock.reset();
     clock.start();
@@ -119,12 +109,12 @@ export async function playBattle() {
     }
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
-    // 2026-09-16 回合历史快照：每回合末存一份定稿（含 buff），供回放/存档/教学读取
+    // 回合历史快照：每回合末存一份定稿（含 buff），供回放/存档/教学读取
     // schema 约定：单位为 clone() 快照（state 字段走 core/17 V2 schema）；快照结构体带 version 便于未来演进
     const SNAPSHOT_VERSION = 1;
     const roundHistory = [];
 
-    // 2026-09-25 战报导出：开一条录制（单机/房主同路；从机在 playBattleGuest 单独喂）
+    // 战报导出：开一条录制（单机/房主同路；从机在 playBattleGuest 单独喂）
     startBattleRecording({ stage: GlobalStore.get('currentStage'), mode: netLinked ? 'pvp-host' : 'single', seed: c.snapshot._rngSeed });
 
     while (!isBattleOver) {
@@ -136,13 +126,13 @@ export async function playBattle() {
         for (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
             lastStep = step;
-            // 2026-10-19 蓄意轰拳瞄准窗口：core/11 回合收尾前 yield 的空标记步——不播不录不发从机，
+            // 蓄意轰拳瞄准窗口：core/11 回合收尾前 yield 的空标记步——不播不录不发从机，
             //   在此弹黑幕收瞄准（写进 step 的单位，与引擎 generator 的 A/B 同引用），随后收尾结算即读到
             if (step.hanlisaAimWindow) { await handleHanlisaAimWindow(c, step, netLinked); continue; }
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs；快进状态一起捎带
             if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));
-            feedBattleStep(step, c.activeBuffs);   // 2026-09-25 战报导出：与联机同源同净化
+            feedBattleStep(step, c.activeBuffs);   // 战报导出：与联机同源同净化
             await playStepInterleaved(c, step, isFirstAttackRef);
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
@@ -180,7 +170,7 @@ export async function playBattle() {
             }))
         });
 
-        // 2026-10-02 跨回合必须带上同一颗 _rng：漏带会让 11 兜底用 Date.now() 重新播种，
+        // 跨回合必须带上同一颗 _rng：漏带会让 11 兜底用 Date.now() 重新播种，
         // 从第 2 回合起同种子不可复现（与 06 批量路径「同一 rng 同序列」口径对齐）
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies, _rng: battleState._rng };
 
@@ -204,9 +194,9 @@ export async function playBattle() {
 // 收尾（房主/从机共用）：胜负结算 → 胜利特效 → 战报 → 投票积分 → 历史落库
 async function finishBattle(c, finalStep, finalWinner, roundHistory) {
     if (!finalWinner) finalWinner = '平局';
-    // 2026-09-25 战报导出：收尾定稿（写死胜负/回合数），战报弹窗的「保存战报」从这里取
+    // 战报导出：收尾定稿（写死胜负/回合数），战报弹窗的「保存战报」从这里取
     finishBattleRecording(finalWinner);
-    // 2026-10-01 语音解说：胜负一句话收口（清队列插队播）
+    // 语音解说：胜负一句话收口（清队列插队播）
     try { speakVictory(finalWinner); } catch (e) { /* 解说失败不影响结算 */ }
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
@@ -228,7 +218,7 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
-        // 2026-10-13 胜利横幅去重：有存活单位时 ui/62 spawnVictoryEffects 已在台词后输出横幅，此处不再重复；
+        // 胜利横幅去重：有存活单位时 ui/62 spawnVictoryEffects 已在台词后输出横幅，此处不再重复；
         //   仅当无存活单位（spawnVictoryEffects 未被调用）时兜底输出一行。
         if (c.gs === 'GAMEOVER' && aliveUnits.length === 0) renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
@@ -267,7 +257,7 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
         localStorage.setItem('ming_vote_score_5v5_test', String(result.newScore));
     }
     GlobalStore.set('voteChoice', null);
-    // 2026-09-16 历史落库：唯一入口，resetBattleRuntime 清场时一并清掉
+    // 历史落库：唯一入口，resetBattleRuntime 清场时一并清掉
     GlobalStore.set('battleHistory', roundHistory);
     c._battleEnded = true;
     c.abortController = null;
@@ -275,7 +265,7 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
 }
 
 /**
- * 联网对战·阶段2 从机入口。
+ * 联网对战·从机入口。
  * 从机不跑引擎，只把房主发来的 step 播出来——数据源从「本地 stepper」换成「网络 step」，
  * 播放链路（playStepInterleaved）与收尾（finishBattle）与房主完全共用。
  * 房主侧的回合间操作（选 Buff、小昭飞向）都由房主定，从机只管等下一条 step。
@@ -295,8 +285,8 @@ export async function playBattleGuest() {
     const abortSig = c.abortController.signal;
     c._battleEnded = false;
 
-    // 从机 store 用摆位阵容垫底：原来给空数组 + 紧接着 c.updateUI()，会先渲染出一片空格子，
-    // 要等房主跑完海克斯、发出第一条 step 才恢复 —— 这就是「开战瞬间画面突然消失一下」。
+    // 从机 store 用摆位阵容垫底：空数组 + c.updateUI() 会先渲染出一片空格子，
+    // 要等房主跑完海克斯、发出第一条 step 才恢复（「开战瞬间画面突然消失一下」）。
     // 第一条 step 一到仍会被 syncStoreFromStep 整套覆盖。
     const seedUnits = [...((c.UI && c.UI.allyTeam) || []), ...((c.UI && c.UI.enemyTeam) || [])];
     c.store = createStore({ units: seedUnits, round: 1 }, battleReducer);
@@ -322,7 +312,7 @@ export async function playBattleGuest() {
     const isFirstAttackRef = { value: true };
     let isBattleOver = false, finalWinner = null, finalStep = null, firstStep = true;
 
-    // 2026-09-25 战报导出：从机也录一份（step 是房主发来的净化数据，喂回去即可）
+    // 战报导出：从机也录一份（step 是房主发来的净化数据，喂回去即可）
     startBattleRecording({ stage: null, mode: 'pvp-guest', seed: null });
 
     while (!isBattleOver) {
@@ -363,7 +353,7 @@ export async function playBattleGuest() {
 }
 
 /**
- * 回放入口（2026-09-25）：从战报文件播放整场。
+ * 回放入口：从战报文件播放整场。
  * 与 playBattleGuest 同构——不跑引擎，数据源从「网络 step」换成「文件 steps」。
  * 调用方（ui/61 startReplayFromFile）负责：abort 旧循环、UI 队伍/store 重建、关封面、gs=RUNNING。
  */
@@ -377,7 +367,7 @@ export async function playBattleReplay(report) {
 
     c._removedUids = new Set();
 
-    // 时间层与从机一致：本地控制演出节奏（installClockBridge 收口；回放版原多一行 setTimescale 冗余，靠 effect 已自动执行）
+    // 时间层与从机一致：本地控制演出节奏（installClockBridge 收口，靠 effect 已自动执行）
     installClockBridge(c);
 
     // 演出 RNG：与从机同款，只管台词等表现层不崩
