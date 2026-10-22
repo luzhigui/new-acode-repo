@@ -1,10 +1,4 @@
-﻿// V1.0.1 | 2026-10-13 dot 族百分比量级修正（老板转发的外部AI靶）：dotPercents 是比例原值（0.04/0.02/0.01），
-//          原样 join('%→') 印出「0.04%→0.02%→0.01%」；实际按 maxHp×0.04 扣血（4%）。改按 core/01 L187 技能说明
-//          同一换算口径 ×100（Math.round(v*1000)/10，兼容 0.015→1.5），输出「4%→2%→1%→消失」
-// V1.0.0 | 2026-10-08 第一刀：通用语义默认渲染器工厂（外部AI修正靶，老板 21:27 拍板执行）
-//          背景：core/15 安装层已把声明原语统一处理，但渲染器仍每条手写（韦一笑吸血/张无忌九阳/玄冥中毒/
-//          飞行再生/幻影伪装五条 fact 的渲染函数都是模板复制品）。本文件把「回血族 / dot 族」收敛成工厂，
-//          以后声明原语类技能的渲染 = 一行工厂调用，不再手写整函数。
+﻿// V1.0.2 | 2026-10-22 | ~3600 bytes
 // 设计约束：
 //   ① 58 契约保持显式（requiredFields / renderFn 名不变）——体检对账粒度不降（外部AI 第四节第3条：此弊端可消）
 //   ② 工厂零依赖（纯函数，node 探针可直接 import 做金样对比）
@@ -40,7 +34,7 @@ export function makeHealRenderer({ icon, label, mode, anchorVerb = null, isHealE
 // 2026-10-22 起寒毒不衰减、可叠层：dotPercents 取首档换算百分数，层数读 fact.stacks
 export function makeDotRenderer({ icon, skillName }) {
     return function renderDotFact(fact) {
-        // 2026-10-22 寒毒改「不衰减 + 可叠加」：dotPercents 只取首档，层数信息读 fact.stacks
+        // 寒毒改「不衰减 + 可叠加」：dotPercents 只取首档，层数信息读 fact.stacks
         const pct = fact.dotPercents && fact.dotPercents[0];
         const pctText = (typeof pct === 'number' && pct < 1 ? Math.round(pct * 1000) / 10 : pct) + '%';
         const stackText = (fact.stacks || 1) > 1 ? `×${fact.stacks}层` : '';

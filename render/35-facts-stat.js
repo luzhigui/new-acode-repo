@@ -1,8 +1,5 @@
 // render/35-facts-stat.js — 效果域·属性召唤族 fact 渲染器
-// V1.0.1 | 2026-10-21 严阵反弹文案随回血口径改 50%（姐姐强化显示值 = reboundDmg 的一半）
-// V1.0.0 | ~8800 bytes | 2026-10-18 自 render/35-facts-effect.js V1.0.21 拆出（纯搬移，函数体逐字不动）：
-//   属性召唤族（变身/乾坤/坚盾/成长/召唤/蛛变蛛袭/新婚性奋/白骨爪链/反伤）32 条整块迁入。
-//   与 render/38-actions-translate-stat.js 同族名——加新属性 fact 时「翻译器去 38s、渲染器来 35s」一眼对上。
+// V1.0.1 | 2026-10-21 | ~14000 bytes
 export const VER = 'render/35-facts-stat.js V1.0.1';
 
 import { registerFactRenderer } from './33-fact-registry.js';
@@ -23,9 +20,9 @@ export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
     let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fact.splashDmg}，防御-${fact.defReduce}</span>`;
-    // 2026-09-29 不再在此追加 ⚡ 成长段：成长改由 METEOR_SPLASH_GROWTH fact 独立渲染（原来这里读的
+    // 不再在此追加 ⚡ 成长段：成长改由 METEOR_SPLASH_GROWTH fact 独立渲染（原来这里读的
     //   fact.unitName 从未被赋值 → 玩家看到的一直是「⚡ undefined 攻击+N」，且与新 fact 重复渲染两遍）
-    // 2026-09-24 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
+    // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
 }
@@ -51,7 +48,7 @@ export function renderKuLianFact(fact) {
 // 概率连击
 export function renderDoubleStrikeFact(fact) {
     if (fact.success) {
-        // 2026-09-27 透传 doubleStrikeName：banner 文案不带单位，判据（tests/health-rules/146）
+        // 透传 doubleStrikeName：banner 文案不带单位，判据（tests/health-rules/146）
         //   此前只能反推「banner 后第一条 attack-group 的攻击者」→ 母狮随动链插入即误报。
         //   字段名不用 unitName，避免与「文案里可读到的单位名」混淆；文案保持原样不动（不改 UI）。
         return {type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true, doubleStrikeName: fact.unitName || null};
@@ -98,7 +95,7 @@ export function renderSpiderTransformFact(fact) {
 }
 
 export function renderSpiderStrikeFact(fact) {
-    // 2026-09-22 恢复日志文本：原先只靠 stageAction 演特效，玩家看不出这一下打谁、掉了多少血。
+    // 恢复日志文本：原先只靠 stageAction 演特效，玩家看不出这一下打谁、掉了多少血。
     // 特效仍由 stageAction 驱动（不重复），这里只补文字行；伤害构成与击杀一并写出。
     const detail = fact.extraDmg ? `（穿透${fact.penetrationDmg} + 精通${fact.extraDmg}）` : '';
     const dead = fact.isDead ? ' 💀击杀' : '';
@@ -137,7 +134,7 @@ export function renderSpiderDoubleStrikeFact(fact) {
 }
 
 // 战士斩杀
-// 2026-10-13 斩杀图标顺序：伤害行（render/34）斩杀时不再提前标 💀，阵亡标记由本行统一出。
+// 斩杀图标顺序：伤害行（render/34）斩杀时不再提前标 💀，阵亡标记由本行统一出。
 export function renderWarriorExecuteFact(fact) {
     return { type:'info', text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！💀阵亡💀</span>` };
 }
@@ -188,10 +185,10 @@ export function renderXingFenGrantFact(fact) {
 }
 
 export function renderClawHitFact(fact) {
-    // 2026-10-09 爪伤一位小数出口兜底：爪雨是「累减→重算」循环，浮点尾巴（0.6000…01）会在爪间渗透，
+    // 爪伤一位小数出口兜底：爪雨是「累减→重算」循环，浮点尾巴（0.6000…01）会在爪间渗透，
     //   无论源头哪条缝渗的，显示出口统一洗成一位小数（0.6→0.6、13→13、尾巴全截）。
     const fmt1 = (v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v * 10) / 10 : v;
-    // 2026-10-11 designedDmg 透传：设计值随条目带出（core/16 回填），体检规则可还原「设计下限」守护
+    // designedDmg 透传：设计值随条目带出（core/16 回填），体检规则可还原「设计下限」守护
     //   （落地值 dmg 被减伤后可为 0~设计值，不能再当设计值用）
     return { type:'info', hpAfter: fmt1(fact.hpAfter), clawTargetUid: fact.targetUid, dmg: fmt1(fact.dmg), designedDmg: fact.designedDmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fmt1(fact.dmg)} 点伤害${fact.jealous?'【嫉妒】':''}</span>` };
 }

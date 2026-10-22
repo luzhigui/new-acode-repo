@@ -1,8 +1,8 @@
 // render/33-fact-registry.js — 渲染层注册表 + fact 渲染出口
-// V1.0.0 | ~5800 bytes | 2026-09-22 渲染层扩展点收口：加新特效 = 加注册行，不再改 render/30、render/31
+// V1.0.0 | 2026-09-22 | ~5700 bytes
+// 渲染层扩展点收口：加新特效 = 加注册行，不再改 render/30、render/31
 //
-// 背景：infra/58 的 FACT_SPECS 是唯一事实源，但实现全挤在 render/30（825 行）、render/31 里，
-//   加一条 fact 仍要进那两个大文件翻。本表把「注册」与「实现」分开：实现按域散在 34-37，本文件只收集。
+// FACT_SPECS（infra/58）是唯一事实源。本表把「注册」与「实现」分开：实现按域散在 34-37，本文件只收集。
 //
 // 用法（在域文件里）：
 //   import { registerFactRenderer } from './33-fact-registry.js';

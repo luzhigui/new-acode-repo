@@ -1,5 +1,4 @@
-// V6.1.5 | 2026-10-20 删死代码：DODGE_BULLET_TIME / POSITION_SWAP（零 emit；render/39 已直调 fx/85、fx/83，信号通道作废）
-// V6.1.3 | ~2700 bytes | 2026-10-11 加 SKILL_FLOAT（何太冲技能任意文本头顶飘字；fx/89 复用灭绝计数飘字通道）
+// V6.1.5 | 2026-10-20 | ~2700 bytes
 export const VER = 'infra/55-fx-signals.js V6.1.5';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
@@ -23,7 +22,7 @@ export const FX_SIGNALS = {
     // 攻击演出
     SPLASH_ARROWS: 'fx:splashArrows',    // 流星箭雨
     BRUSH_EFFECT: 'fx:brushEffect',      // 死亡画笔渐隐
-    HORSE_DISSOLVE: 'fx:horseDissolve',  // 拒马沙化消散（2026-10-01 消散≠死亡，不走死亡画笔）
+    HORSE_DISSOLVE: 'fx:horseDissolve',  // 拒马沙化消散
     DEF_BUFF_FLOAT: 'fx:defBuffFloat',   // 防御加成飘字（钢蓝🛡，与攻击飘字镜像位）
     // 位移动画
     PUSH_SWAP: 'fx:pushSwap',            // 推挤换位

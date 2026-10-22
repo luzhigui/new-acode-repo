@@ -1,7 +1,7 @@
 // infra/52-clock.js
-// V1.1.1 | 2026-10-22 animate 支持 opts.minRealMs 最短真实时长保底（新增 _realNow 真实时间轴，
-//          暂停冻结、不受倍速/快进影响）：倍速下关键演出（冲刺/轰拳/打歪）也看得清
-// V1.1.0 | ~3948 bytes | 2026-09-13 统一时间源：唯一 rAF 循环，集中管理 倍速/暂停/快进
+// V1.1.1 | 2026-10-22 | ~4900 bytes
+// animate 支持 opts.minRealMs 最短真实时长保底（新增 _realNow 真实时间轴，
+// 暂停冻结、不受倍速/快进影响）：倍速下关键演出（冲刺/轰拳/打歪）也看得清
 // 消费方只调 wait()/animate()，不再自己判 fastForwardActive、不再传 getPausedFn、不再各自开 rAF
 export const VER = 'infra/52-clock.js V1.1.1';
 
@@ -14,7 +14,7 @@ class Clock {
         this.paused = false;
         this.fastForward = false;
         this._realLast = 0;
-        // 2026-10-22 真实时间轴（暂停时冻结、不受倍速/快进影响）：供 minRealMs 最短时长保底
+        // 真实时间轴（暂停时冻结、不受倍速/快进影响）：供 minRealMs 最短时长保底
         this._realNow = 0;
         this._rafId = null;
         this._running = false;
@@ -72,7 +72,7 @@ class Clock {
             const remain = [];
             for (const t of this._tweens) {
                 let p = t.duration <= 0 ? 1 : Math.min(1, (this.now - t.startAt) / t.duration);
-                // 2026-10-22 最短真实时长：真实时间没走满 minRealMs 就压住进度
+                // 最短真实时长：真实时间没走满 minRealMs 就压住进度
                 if (t.minRealMs > 0) p = Math.min(p, (this._realNow - t.startReal) / t.minRealMs);
                 t.onFrame(p);
                 if (p >= 1) t.resolve();

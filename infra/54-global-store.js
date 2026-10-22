@@ -1,6 +1,4 @@
-// V6.0.1 | 2026-10-20 删 _scheduler 字段（player/43animation-scheduler 已整文件删除，此字段永为 null；
-//   ui/68 两处守卫同删）
-// V6.0.0 | ~3700 bytes | 2026-08-21 import 路径合并至 infra/51-core-utils
+// V6.0.1 | 2026-10-20 | ~12000 bytes
 export const VER = 'infra/54-global-store.js V6.0.1';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './51-core-utils.js';
@@ -179,11 +177,11 @@ function waitWhilePaused() {
         check();
     });
 }
-// 2026-10-08 V7.5.12 去 DOM（外部AI复核稿 ②，老板批）：autoScrollLog / onLogUserScroll / updateScoreBadge
+// V7.5.12 去 DOM（外部AI复核稿 ②，老板批）：autoScrollLog / onLogUserScroll / updateScoreBadge
 //   三个 DOM 函数体迁出 infra → player/47renderer.js（日志/徽章渲染本就归它，badge 直改在那也有先例）。
 //   playerContext 两项改走 UIHandler 间接通道（与上方 updateUI 等兄弟同款，消费方签名零改动）；
 //   onLogUserScroll 全库零调用，直接火化不迁移。infra 从此不摸 document。
-// 2026-09-14 去 window 桥：delete window.updateScoreBadge / window._getPlayerContext。
+// 去 window 桥：delete window.updateScoreBadge / window._getPlayerContext。
 // 页面内消费方一律 import 或走 UIHandler；这两个挂载点全库已无引用。
 
 let _playerCtx = null;
@@ -246,7 +244,7 @@ export function getPlayerContext() {
         enableAllButtons: () => { const fn = GlobalStore.getUIHandler('enableAllButtons'); if (fn) fn(); },
         updateSpeedButtons: () => { const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn(); },
         waitWhilePaused,
-        // 2026-10-08 V7.5.12：DOM 实现迁 player/47，此处只留 UIHandler 间接通道（消费方 c.autoScrollLog() / c.updateScoreBadge() 调用方式不变）
+        // V7.5.12：DOM 实现迁 player/47，此处只留 UIHandler 间接通道（消费方 c.autoScrollLog() / c.updateScoreBadge() 调用方式不变）
         autoScrollLog: () => { const fn = GlobalStore.getUIHandler('autoScrollLog'); if (fn) fn(); },
         updateScoreBadge: () => { const fn = GlobalStore.getUIHandler('updateScoreBadge'); if (fn) fn(); },
         tickBuffDurations: () => { const fn = GlobalStore.getUIHandler('tickBuffDurations'); if (fn) fn(); },
@@ -258,4 +256,4 @@ export function getPlayerContext() {
     GlobalStore.set('playerContext', _playerCtx);
     return _playerCtx;
 }
-// 2026-09-14 原 window._getPlayerContext = getPlayerContext 已删：消费方（62/64/65/68）改为直接 import
+// 原 window._getPlayerContext = getPlayerContext 已删：消费方（62/64/65/68）改为直接 import

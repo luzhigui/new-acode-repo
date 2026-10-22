@@ -1,5 +1,5 @@
 // render/32grid-cells.js — 格子 DOM 节点复用 + HP 条动画 + 抖动 + 拒马入场
-// V1.0.1 | ~7600 bytes | 2026-10-18 自 render/32-grid-render.js V6.8.8 拆出（纯搬移，函数体逐字不动）：
+// V1.0.0 | 2026-10-18 | ~8300 bytes
 //   _cellNodes / _slotUnits / _hpTargetPct / _hpDisplayPct / _hpAnimRunning / _shakeUntil / _horseSpawnedUids
 //   + ensureGridCells / resetCell / tickHpAnim / createHorseSpawnAnim / markGridShake / applyGridShake
 //   整块迁入。对外接口：ensureGridCells / resetCell / getSlotUnits / markGridShake / applyGridShake /
@@ -17,7 +17,7 @@ const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
 const _shakeUntil = new Map();
 const _horseSpawnedUids = new Set();
-// 2026-10-04 格子节点复用：原先每次 store 变更都 grid.innerHTML='' 再新建 18 个 div，
+// 格子节点复用：原先每次 store 变更都 grid.innerHTML='' 再新建 18 个 div，
 //   改成「9 个 div 建一次、之后只重填内容」，DOM 节点不再反复创建销毁。
 //   ⚠️ 复用会让 .cell 的 transition: background 0.6s 真正生效（底色开始淡入淡出），
 //   这与原观感不同 —— 故每帧重填前统一置 transition:none 并全程保持，
@@ -82,7 +82,7 @@ export function applyGridShake(el, durationMs) {
     el.style.transition = 'background 0.1s ease';
     el.style.background = 'var(--c-gold-bright)';
     let bgCleared = false;
-    // 2026-09-16 改走 clock：与全场特效同步缩放/暂停（原 rAF+Date.now 是统一时间层漏改）
+    // 改走 clock：与全场特效同步缩放/暂停（原 rAF+Date.now 是统一时间层漏改）
     clock.animate(durationMs, (p) => {
         const decay = 1 - p;
         // 起振 1.1 回落 1.0：接上受击 defend flash 的 scale(1.1)，不再向下缩成 0.88
@@ -93,7 +93,7 @@ export function applyGridShake(el, durationMs) {
         if (!bgCleared && p * durationMs > d) { el.style.background = origBg; bgCleared = true; }
         if (p >= 1) {
             el.style.transform = origTransform;
-            // 2026-10-04 格子复用后不能恢复成 ''（那会取回 CSS 的 background 0.6s，底色开始渐变）；
+            // 格子复用后不能恢复成 ''（那会取回 CSS 的 background 0.6s，底色开始渐变）；
             //   改回 none，保持「瞬切」观感与改动前一致
             el.style.transition = 'none';
             if (!bgCleared) { el.style.background = origBg; bgCleared = true; }

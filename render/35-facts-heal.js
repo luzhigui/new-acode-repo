@@ -1,5 +1,5 @@
 // render/35-facts-heal.js — 效果域·回血族 fact 渲染器
-// V1.0.0 | ~4800 bytes | 2026-10-18 自 render/35-facts-effect.js V1.0.21 拆出（纯搬移，函数体逐字不动）：
+// V1.0.0 | 2026-10-18 | ~8500 bytes
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
@@ -37,11 +37,11 @@ export function renderKuaiLeHealFact(fact) {
     };
 }
 
-// 通用回血（2026-10-15 HEAL fact）：字段 {unitUid, heal, hpBefore/hpAfter 或 newMaxHp, label, icon, mode, anchorVerb}
+// 通用回血：字段 {unitUid, heal, hpBefore/hpAfter 或 newMaxHp, label, icon, mode, anchorVerb}
 // 委托 36 的 makeHealRenderer 工厂（三种历史版式）——迁移时按原 mode/icon/label/anchorVerb 传参即逐字节同原样，
 // 不传则回落 plusTrail；text 与 fxAnchors 由工厂同源产出，锚点永不哑火（不重造文案模板）
 export function renderHealFact(fact) {
-    // 2026-10-17 第 97 轮修锚点静默失效：fallback 原写死 '回复'——HEAL fact 不传 anchorVerb 时
+    // 第 97 轮修锚点静默失效：fallback 原写死 '回复'——HEAL fact 不传 anchorVerb 时
     //   （如唐文亮回春术）锚点「回复+N」与正文「🌿 回春术+N」不符，飘字永不触发（体检实证 9 处）。
     //   改按 render/36 工厂原设计 anchorVerb || label 兜底（label 与正文同源，锚点恒为正文子串）。
     return makeHealRenderer({
@@ -56,10 +56,10 @@ export function renderHealFact(fact) {
 export const renderPhantomDisguiseHealFact = makeHealRenderer({ icon: '🎭', label: '幻影伪装', mode: 'colonPlain', isHealEntry: false });
 
 // 张无忌九阳 / 融会贯通
-export const renderNineYangHealFact = makeHealRenderer({ icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' });   // 2026-10-08 模板化：原手写体迁工厂（golden 逐字节比对过），函数名保留供 58 契约引用
+export const renderNineYangHealFact = makeHealRenderer({ icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' });   // 模板化：原手写体迁工厂（golden 逐字节比对过），函数名保留供 58 契约引用
 
-// 飞行再生（V6.3.3 | 2026-10-02 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
-// 2026-10-05 文案回滚：老板否掉「食腐」命名（不好听），弹幕走正常回血款（❤+N），日志用低调版
+// 飞行再生（V6.3.3 | 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
+// 文案回滚：老板否掉「食腐」命名（不好听），弹幕走正常回血款（❤+N），日志用低调版
 export const renderFlyerRegenFact = makeHealRenderer({ icon: '🕊️', label: '飞行再生', mode: 'colonPlain', isHealEntry: true, suffix: f => `（${f.deadCount} 名角色阵亡）` });
 
 // 韦一笑吸血
@@ -85,13 +85,13 @@ export function renderQianKunDerivedFact(fact) {
 // 张三丰：生生不息（回血 + 溢出转嫁 + 回血转永久攻防）
 // 溢出文案分两种：无人可接（无其他存活队友）/ 有人接（再区分接盘者是否真回了血）
 export function renderEndlessBreathFact(fact) {
-    // 2026-10-08 付费触发配套：攻不足未触发 → 灰字明示（此前静默，玩家看不出燃料耗尽）
+    // 付费触发配套：攻不足未触发 → 灰字明示（此前静默，玩家看不出燃料耗尽）
     if (fact.failReason === 'atk') {
         const via = fact.via ? `${fact.via}想触发` : '';
         return { type:'info', text:`<span class="gray">☯ ${via}生生不息：${fact.unitName} 攻击力不足${fact.atkCost}点，未能触发</span>` };
     }
-    // 2026-09-27 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
-    // 2026-09-28 二选一改版配套：每次触发攻/防只有一边>0，零的那边不再显示（「攻+2.6 防+0」→「攻+2.6」）
+    // 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
+    // 二选一改版配套：每次触发攻/防只有一边>0，零的那边不再显示（「攻+2.6 防+0」→「攻+2.6」）
     const num = (v) => Math.round((v || 0) * 10) / 10;
     const bonus = (atk, def) => {
         const parts = [];
@@ -100,12 +100,12 @@ export function renderEndlessBreathFact(fact) {
         return parts.length > 0 ? parts.join(' ') : '';
     };
     const wrap = (t) => t ? `（${t}）` : '';
-    // 2026-10-08 付费触发：付费路径句首带「消耗N点攻击力」（回合开始免费无此前缀）
+    // 付费触发：付费路径句首带「消耗N点攻击力」（回合开始免费无此前缀）
     const costTag = fact.cost ? `消耗${fact.cost}点攻击力，` : '';
     const self = `${costTag}${fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
     let tail = '';
     if (fact.overflow > 0) {
-        // 2026-09-21 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
+        // 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
         // ① 无人可接（除张三丰外无存活友方）② 接盘者确实回了血 ③ 接盘者已满血，本次溢出作废
         if (!fact.overflowToName) {
             tail = `，溢出${fact.overflow}点（无其他存活队友）`;

@@ -1,5 +1,4 @@
-// V6.1.2 | ~5500 bytes | 2026-10-16 闪避规则注册表迁出至 core/20-registry-dodge.js（闪避是战斗概念，
-//   infra 只留无业务依赖工具）；本文件不再持有 _dodgeRules / registerDodgeRule / clearEliteDodgeRules / getDodgeRules
+// V6.1.2 | 2026-10-16 | ~6800 bytes
 export const VER = 'infra/51-core-utils.js V6.1.2';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';

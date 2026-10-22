@@ -1,11 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
-// V1.5.2 | 2026-10-22 闪避反击按 fact.stunned 写文案：控制免疫（寒离飒）不再写「本回合无法行动」假账
-// V1.5.1 | 2026-10-18 行内徽章表补三条 link 系 reason（连击/嗜血/双击），与 render/39 头顶飘字表对齐
-// V1.5.0 | 2026-10-16 被动出手行内徽章：反击/跟随/随动/联动/追击的攻击行前缀金色【标签】（普攻无前缀），
-//   group 新增 linkReason 透传；数据来自 core/10 → core/12 的 _linkReason 链路
-// V1.4.1 | ~16600 bytes | 2026-10-13 斩杀图标顺序修正：伤害行的 💀击杀/💀阵亡 与 brush-red 底改判 dmgResult.dead
-//   （本击直接打死），战士斩杀（executeKill）时血线未归零 → 伤害行不标 💀，阵亡标记由 render/35 斩杀行统一出；
-//   group.isDead 仍取 killLine（dead||executeKill），死亡特效/尸体清理不受影响（133 规则依赖）。
+// V1.5.2 | 2026-10-22 | ~18300 bytes
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
@@ -28,7 +22,7 @@ export function renderMissFact(fact) {
         uidA: fact.attacker.uid,
         uidD: fact.target.uid,
         entries: [
-            // 2026-09-16 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
+            // 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
             {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${Math.floor(fact.attacker.atk)} 血${fmtHp(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${Math.floor(fact.target.def)} 血${fmtHp(fact.target.hp)})`},
             {type:'info', text:`<span class="gray">未命中！</span>`}
         ],
@@ -73,7 +67,7 @@ export function renderDodgeFact(fact) {
         dodgeGroup.hpAfter = 0;
         dodgeGroup.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
     } else if (fact.stunned === false) {
-        // 2026-10-22 控制免疫（寒离飒）实际没被眩晕，不再写「本回合无法行动」的假账
+        // 控制免疫（寒离飒）实际没被眩晕，不再写「本回合无法行动」的假账
         dodgeGroup.entries.push({type:'info', text:`<span class="gray">${unit.name} 被反击（免疫眩晕，可正常行动）</span>`});
     } else {
         dodgeGroup.entries.push({type:'info', text:`<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
@@ -102,13 +96,13 @@ export function renderAttackFact(fact) {
     const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
     const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.isSongQingshu && unit.state._kuLianActive);
     const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit.state._isLinkAttack;
-    // 2026-10-16 被动出手徽章：反击/跟随/随动/联动/追击在战报行内加金色标签，一眼区分普攻
+    // 被动出手徽章：反击/跟随/随动/联动/追击在战报行内加金色标签，一眼区分普攻
     const linkReason = snap.linkReason !== undefined ? snap.linkReason : (unit.state ? unit.state._linkReason : null) || null;
     const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined
         ? { attackerPos: snap.attackerPos, defenderPos: snap.targetPos }
         : makeFXSnapshot(unit, target);
     const killLine = dmgResult.dead || dmgResult.executeKill;
-    // 2026-10-13 斩杀图标顺序：伤害行的 💀 只认「本击直接打死」（dmgResult.dead）。
+    // 斩杀图标顺序：伤害行的 💀 只认「本击直接打死」（dmgResult.dead）。
     //   战士斩杀（executeKill）时本击血量未到 0，💀 由后续「⚔️ 战士斩杀」行统一标（render/35），
     //   避免「84 → 43 💀阵亡」这种图标与血线矛盾的行。group.isDead 仍取 killLine，死亡特效不受影响。
     const directKill = !!dmgResult.dead;
@@ -149,7 +143,7 @@ export function renderAttackFact(fact) {
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     if (dmgCalc.trueDmg > 0) {
-        // 2026-09-29 单一真值源收口：比例取 mechanics 真值（引擎实际读的那份），不读 skills.params 副本
+        // 单一真值源收口：比例取 mechanics 真值（引擎实际读的那份），不读 skills.params 副本
         const rebelRatio = getMechanicField('宋青书', MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP, 'ratio');
         if (rebelRatio === undefined) throw new Error('缺机制真值: 宋青书.bonusTargetCurrentHp.ratio');
         group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round(rebelRatio * 100)}%）</span>`});
@@ -158,7 +152,7 @@ export function renderAttackFact(fact) {
     // 不再自己调 calcDamage / 查 FANG_K / 反推 baseRaw —— 那会和引擎的实时值打架。
     let formulaText = '';
     const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);
-    // 2026-09-23 乘数不再只显示 >1：嘲讽减伤（×0.4）也必须落在计算行上，否则玩家看不到伤害为何变小
+    // 乘数不再只显示 >1：嘲讽减伤（×0.4）也必须落在计算行上，否则玩家看不到伤害为何变小
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value !== 1);
     const fm = dmgCalc.formula;
     let runningRaw = fm ? fm.baseRaw : 0;
@@ -171,7 +165,7 @@ export function renderAttackFact(fact) {
         runningRaw = Math.round(runningRaw * e.value);
         formulaText += ` ×${e.value} ${e.label}=${runningRaw}`;
     }
-    // 2026-10-07 乾坤减伤进计算行（老板拍板格式「19.44-30% 减伤=14」）：乾坤走 query 通道
+    // 乾坤减伤进计算行（老板拍板格式「19.44-30% 减伤=14」）：乾坤走 query 通道
     // 不进上面两条链（不加成、不乘数，直接改最终值），此前公式与实际掉血对不上、中间差一块看不见。
     // 减伤档（reducePct）和减后值都在乾坤 entry 里，从 dmgResult.bonusEntries 取；
     // 多条乾坤同时命中时逐条追加（每条按上一条结果继续减），与引擎实际计算顺序一致。
@@ -193,7 +187,7 @@ export function renderAttackFact(fact) {
             hpNow: targetHpAfter
         }).text
         : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
-    // 2026-09-24 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
+    // 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     group.entries.push({
         type:'damage-text',
         deadFlag: directKill,

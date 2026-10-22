@@ -1,8 +1,4 @@
-// V6.1.3 | 2026-10-21 严阵反弹回血移交 core/12：删 REBOUND 的 hasSister 全额回血分支（改发独立 HEAL 声明、回 50%）
-// V6.1.1 | ~17460 bytes | 2026-10-13 溅射伤害补 hp 纯记账（体检转交）：SPLASH handler 按 decl.buffType 分组
-//          （METEOR_SPLASH→meteorSplash / WIND_ASSAULT→windSplash，value=-(decl.value)，只 push _mods['hp'] 零行为副作用）
-// V6.1.2 | 2026-10-16 计算修饰器注册表迁 core/21-registry-calc.js：本文件只直连注册函数，
-//           删「转发 export」（core/12 的 getCalcModifier 已改直连 core/21）
+// V6.1.3 | 2026-10-21 | ~16900 bytes
 export const VER = 'core/16effect-handlers.js V6.1.3';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -131,7 +127,7 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
                 addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
                 refreshMaxHp(decl.source, null, '吸血上限提升');
             }
-            // 2026-10-02 体检对照增量字段：把实际登记的词条增量回写 factData
+            // 体检对照增量字段：把实际登记的词条增量回写 factData
             //   （core/10 随后按引用落 WEI_LEECH fact；fact 原有 newMaxHp 是目标绝对值，体检无法反推增量）
             if (decl.factData) decl.factData.maxHpDelta = delta > 0 ? delta : 0;
         }
@@ -163,13 +159,13 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
         for (const st of decl.targets) {
             if (!st.alive) continue;
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
-            // 审计账本（2026-10-14 迁出 _mods）：按 decl.buffType 分组记进 unit._audit.hp
+            // 审计账本：按 decl.buffType 分组记进 unit._audit.hp
             //   （流星赶月 METEOR_SPLASH / 乘风突袭 WIND_ASSAULT），无 buffType 的其他溅射不进契约、不记账
             const splashGroup = decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH ? 'meteorSplash' : decl.buffType === BUFF_SUBTYPES.WIND_ASSAULT ? 'windSplash' : null;
             if (splashGroup) recordHpAudit(st, splashGroup, -(decl.value || 0), '溅射');
-            // 2026-09-24 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
+            // 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
             //   （那条挂着 LEECH/流星/嗜血/九阳等十余条监听，重发等于把一次溅射当成一次完整攻击）
-            // 2026-09-29 补 log：监听者（莽撞类挨打增益）需要把「实际加了什么」发成数值声明 fact，
+            // 补 log：监听者（莽撞类挨打增益）需要把「实际加了什么」发成数值声明 fact，
             //   而它只能从本信号取 log，缺 log 就等于盲区。传引用不复制，零成本。
             eventBus.emit(SIGNAL_TYPES.SPLASH_DAMAGED, {
                 unit: st, target: st, attacker: ctx.unit,
@@ -197,12 +193,12 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
-        // 审计账本（2026-10-14 迁出 _mods）：按 decl.factType 分组记进 unit._audit.hp
+        // 审计账本：按 decl.factType 分组记进 unit._audit.hp
         //   （马形阵 HORSE_REBOUND / 张无忌反击 FORTIFY_REBOUND），无 factType 的闪避反击不进契约、不记账
         const reboundGroup = decl.factType === FACT_TYPES.HORSE_REBOUND ? 'horseRebound' : decl.factType === FACT_TYPES.FORTIFY_REBOUND ? 'fortifyRebound' : null;
         if (reboundGroup) recordHpAudit(decl.target, reboundGroup, -(decl.value || 0), '反弹');
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
-        // 2026-10-21 严阵回血已改为 core/12 的独立 HEAL 声明，此处删掉旧的全额回血逻辑
+        // 严阵回血已改为 core/12 的独立 HEAL 声明，此处删掉旧的全额回血逻辑
         executed.push(decl);
     }
     return { executed };
@@ -212,7 +208,7 @@ registerEffectHandler(EFFECT_TYPES.STAT_CHANGE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
-        // 2026-10-02 数值声明 fact：只在 addMod 落地的 atk/def 分支发（group=statChange），
+        // 数值声明 fact：只在 addMod 落地的 atk/def 分支发（group=statChange），
         //   与 addMod 同 handler、同值（decl.delta），供体检对照器核对；hp 等走 applyStatChange 的不发
         const emitDeclFact = (field) => {
             if (ctx.log) ctx.log.push({
@@ -254,18 +250,18 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
         decl._events = decl._events || [];
         for (const hit of decl.hits) {
             if (!chainTarget.alive || chainTarget._pendingDeath) break;
-            // 2026-10-09 先广播后扣血：小昭·姊乾坤衍生在 payload 上写回 reduce，本爪按「伤害−减伤」落地（下限 0）。
+            // 先广播后扣血：小昭·姊乾坤衍生在 payload 上写回 reduce，本爪按「伤害−减伤」落地（下限 0）。
             //   监听方没触发（姐姐不在/张无忌在场/被爪者非友方）时 reduce 缺省，等价旧行为。
             //   衍生条目随 payload 回传，挂到本爪上，由 core/10 随爪击条目逐条落进攻击组 entries（战报/飘字与爪同序）。
             const clawPayload = { unit: chainSource, target: chainTarget, dmg: hit.dmg, derivedEntries: [] };
             eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, clawPayload);
             if (clawPayload.derivedEntries.length > 0) hit._derivedEntries = clawPayload.derivedEntries;
-            // 2026-10-11 落地值源头收敛到 1 位小数：设计值 hit.dmg 已是 1 位小数（modules/26 floor(×10)/10）、
+            // 落地值源头收敛到 1 位小数：设计值 hit.dmg 已是 1 位小数（modules/26 floor(×10)/10）、
             //   reduce 是整数，但二进制浮点相减会出尾巴（2.8−2=0.7999999999999998）——此前只在显示出口洗，
             //   原始 fact / 规则读到的仍是尾巴值；源头收敛后 fact 与界面同值。
             const applied = Math.round(Math.max(0, hit.dmg - (clawPayload.reduce || 0)) * 10) / 10;
             applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
-            // 审计账本（2026-10-14 迁出 _mods）：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对
+            // 审计账本：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对
             recordHpAudit(chainTarget, 'clawHit', -applied, '九阴白骨爪');
             // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里；
             //   设计值另存 data.designedDmg —— 落地值被减伤后可为 0~设计值，体检靠它还原「设计下限」守护

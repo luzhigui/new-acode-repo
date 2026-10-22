@@ -1,9 +1,4 @@
-// V2.9.27 | 2026-10-21 新增 resetBattleTransientState + BATTLE_STATE_PRESERVE_KEYS：跨局复用单位（原班再战）时整场累计字段归零（永久海克斯/回春层/精通/计数），保留创建期字段——修「妹永久海克斯跨局漏→拒马凭空出现」
-// V2.9.29 | 2026-10-22 加 _permShield（永久护盾，九阳满血溢出）：与蓄力临时 _shield 分家，蓄力爆发只清 _shield
-// V2.9.26 | 2026-10-20 删死字段：_extinctionUsed（全库零读写，确认）；_spiderTriggeredHit 恢复登记——
-//   删 schema key 无效：写侧 modules/27 L234 `if (state._spiderTriggeredHit === undefined) 补建` 会写回，
-//   state 快照仍出该 key；须先清那行（另批）再删本字段
-// 版本历史见 记录-更改履历.md（检索 "core/17-state-keys"）
+// V2.9.30 | 2026-10-22 | ~21000 bytes
 export const VER = 'core/17-state-keys.js V2.9.30';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
@@ -244,7 +239,7 @@ export function copyBattleStateFields(srcState, dstState) {
     return dstState;
 }
 
-// 2026-10-21 跨局复用单位的「整场字段」保留集：这些字段是单位创建/入阵时写的（基础数值、落位锚、
+// 跨局复用单位的「整场字段」保留集：这些字段是单位创建/入阵时写的（基础数值、落位锚、
 //   幼狮认主、召唤来源），重开恢复时必须原样保留；其余整场字段（永久海克斯/回春层/精通/死亡桶/计数器）
 //   都是「局内累计」，跨局复用时必须归零——ui/68 原班再战·随机重开恢复快照时统一走 resetBattleTransientState
 const BATTLE_STATE_PRESERVE_KEYS = Object.freeze(new Set(['_lionOwnerUid', '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_initMaxHp', '_hpDmgRatio', '_originalPos']));

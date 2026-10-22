@@ -1,5 +1,5 @@
 // render/35-facts-control.js — 效果域·控制位移族 fact 渲染器
-// V1.0.0 | ~6200 bytes | 2026-10-18 自 render/35-facts-effect.js V1.0.21 拆出（纯搬移，函数体逐字不动）：
+// V1.0.0 | 2026-10-18 | ~9900 bytes
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/38-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
 export const VER = 'render/35-facts-control.js V1.0.0';
@@ -13,7 +13,7 @@ export function renderWindAssaultSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
     let text = `<span class="orange">${fact.label}波及${details}，${word}${fact.splashDmg}</span>`;
-    // 2026-09-24 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
+    // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
 }
@@ -37,7 +37,7 @@ export function renderPushStunFact(fact) {
 // 行动跳过
 export function renderPassFact(fact) {
     const { unit, reason } = fact;
-    // 2026-09-17 张三丰：生生不息走独立文案（回血数值由组件层触发，这里只标记行动）
+    // 张三丰：生生不息走独立文案（回血数值由组件层触发，这里只标记行动）
     if (reason === '生生不息') {
         const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
         return {
@@ -45,7 +45,7 @@ export function renderPassFact(fact) {
             entries:[
                 {type:'info', text:`<span class="gray">${campName} ${unit.name} 生生不息</span>`}
             ],
-            // 2026-09-17 不设 isBlock（否则被标"被遮挡"→显示 😴），走专属 isEndlessBreath
+            // 不设 isBlock（否则被标"被遮挡"→显示 😴），走专属 isEndlessBreath
             isEndlessBreath:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
             buffEffects:[], needsSeparator: true,
@@ -78,7 +78,7 @@ export function renderPassFact(fact) {
         type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true,
         _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
         buffEffects:[],
-        // 2026-10-03 去掉 needsSeparator：眩晕/附身 pass 渲染空 attack-group（entries=[] 无文本），
+        // 去掉 needsSeparator：眩晕/附身 pass 渲染空 attack-group（entries=[] 无文本），
         //   带 SEP 会打出一条"纯分隔符"；回合末紧挨蝶变飞回（也带 SEP）就是用户看到的双分隔符。
         //   眩晕/附身提示已由 PUSH_STUN / FLY_SKIP 文本承担，此处完全静默（格子置灰仍生效）。
         _events: fact.events || []

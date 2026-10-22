@@ -1,5 +1,5 @@
 // core/06battle-runner.js — 无头整局跑（headless full-battle runner）
-// V1.2.0 | 2026-09-29 默认回合上限/补海克斯间隔改读 CONFIG（MAX_ROUND / HEX_INTERVAL），消除与注释不一致的内联数字
+// V1.2.0 | 2026-09-29 | ~6600 bytes
 //
 // ⚠️⚠️ 三条死守（防止 UI 提前剧透 / 演出错序）——改本文件前先把这三条读完 ⚠️⚠️
 //

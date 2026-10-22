@@ -1,12 +1,4 @@
-// V6.3.6 | 2026-10-20 删死代码：clearHeroFlags / hasHeroFlag（零调用；重名降级方案已废弃，core/04 不再调用）
-// V6.3.5 | ~12800 bytes | 2026-10-16 修「掷点重掷死循环」：init() 两条「随机重掷直到满足攻防差约束」的 while 加有界重试 + 收敛兜底
-//   根因：约束与可行域可能不相交（众志成城 m=20 召唤物掷满血 rem=8 → a-d=rem-2d 只能落 [0,2]，进不了 [3,13]），
-//   无上限重掷即空转死循环；现重试 MAX_STAT_ROLL 次后放弃硬约束、取离目标区间最近的一档收口，保证必收敛
-//   （只在原本会死循环的种子上多走几步，可正常完成的种子 RNG 流与分布零影响）
-// V6.3.4 | ~12280 bytes | 2026-10-16 新增 clearHeroFlags（清身份标记，幂等）：众志成城召唤物与场上同名单位并存时
-//   降级为白板（core/04 spawnUnityRecruits 调用），防 modules/27 的 find(u => u.isXxx && u.alive) 误认召唤物
-// V6.3.3 | ~11940 bytes | 2026-10-13 HERO_FLAGS 新增 '杨逍'→'isYangXiao'（光明左使·飞行·精英）：
-//   进表后 modules/29 明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动排除他，不重复出人
+// V6.3.6 | 2026-10-20 | ~13400 bytes
 export const VER = 'core/02unit.js V6.3.6';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
@@ -24,7 +16,7 @@ let _uidCounter = 0;
 const MAX_STAT_ROLL = 200;
 
 // ========== 角色身份标记：单一事实源 ==========
-// 2026-09-14 建立。原先全库 79 处靠 `u.name === '张无忌'` 之类的中文字面量做战斗判断，
+// 建立。原先全库 79 处靠 `u.name === '张无忌'` 之类的中文字面量做战斗判断，
 // 加一个角色就要在每个判断点补一段字符串匹配。此处把「名字 → 身份标记」收成一张表，
 // 单位构造时按名字自动打标，战斗逻辑一律读标记。
 //
@@ -43,19 +35,19 @@ export const HERO_FLAGS = Object.freeze({
     '胖远桥': 'isPangYuanQiao',
     '灭绝师太': 'isMieJueShiTai',
     '金毛狮王谢逊': 'isXieXun',
-    // 2026-10-13 杨逍（光明左使·飞行·精英）：与韦一笑同为明教飞行精英。
+    // 杨逍（光明左使·飞行·精英）：与韦一笑同为明教飞行精英。
     //   进本表后 modules/29 的明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动把他排除，不重复出人
     '杨逍': 'isYangXiao',
-    // 2026-10-15 殷天正（白眉鹰王·防战·精英 M104，弱精英档）：进表即被 modules/29 明教普通兵候选池过滤，
+    // 殷天正（白眉鹰王·防战·精英 M104，弱精英档）：进表即被 modules/29 明教普通兵候选池过滤，
     //   与其余明教精英同走随机轮盘；同时让「众志成城」召唤出的殷天正自动技能全开
     '殷天正': 'isYinTianZheng',
-    // 2026-10-17 寒离飒（明教·战士·弱精英 M107，与韦一笑同池）：进表即被 modules/29 明教普通兵候选池过滤，
+    // 寒离飒（明教·战士·弱精英 M107，与韦一笑同池）：进表即被 modules/29 明教普通兵候选池过滤，
     //   走 mingWeakPool 弱精英随机混入；同时用于恒定 2 号位落位规则
     '寒离飒': 'isHanLiSa',
-    // 2026-10-15 唐文亮（崆峒·战士·精英 M107）：六大派侧新精英。注意与 roster 里的普通兵「崆峒唐文亮」(M97)
+    // 唐文亮（崆峒·战士·精英 M107）：六大派侧新精英。注意与 roster 里的普通兵「崆峒唐文亮」(M97)
     //   不同名（本表按整名匹配），两者互不影响
     '唐文亮': 'isTangWenLiang',
-    // 2026-10-11 何太冲（弱精英、无组件）：补身份标记，render/32、名片表不再比名字。
+    // 何太冲（弱精英、无组件）：补身份标记，render/32、名片表不再比名字。
     //   他是六大派身份，不在 MING_M 池内，进这张表不影响 modules/29 的明教候选池过滤
     '何太冲': 'isHeTaichong',
     // 谢逊的三只狮子：统一打 isXieXunLion，便于识别同一家族；形态各自另打标记（母狮/雄狮/幼狮）
@@ -88,13 +80,13 @@ export function applyHeroFlags(unit) {
     if (name === '母狮') unit.isLioness = true;
     if (name === '雄狮') unit.isLionMale = true;
     if (name === '幼狮') unit.isLionCub = true;
-    // 2026-10-11 反伤弟子：**刻意不进 HERO_FLAGS**——那张表被 modules/29 用来过滤明教普通兵候选池，
+    // 反伤弟子：**刻意不进 HERO_FLAGS**——那张表被 modules/29 用来过滤明教普通兵候选池，
     //   反伤弟子(M97)在池内，塞进去会被踢出候选池。与三狮同款走独立 if
     if (name === '反伤弟子') unit.isReflectDisciple = true;
-    // 2026-10-08 不争数据旗：content 声明了 noContend 技能的英雄自动获得；
+    // 不争数据旗：content 声明了 noContend 技能的英雄自动获得；
     //   回合末「敌方仅剩一人且不争 → 对方胜」的判定不再认识具体英雄（core/11 特判收口）
     if (getGameData().characters?.[name]?.skills?.noContend) unit.noContend = true;
-    // 2026-10-08 生生不息数据旗：content 声明了 endlessBreath 技能的英雄不攻击、
+    // 生生不息数据旗：content 声明了 endlessBreath 技能的英雄不攻击、
     //   每回合走「生生不息」休息通道（付费触发在组件侧，此处只管行动选择）
     if (getGameData().characters?.[name]?.skills?.endlessBreath) unit.endlessBreath = true;
     return unit;
@@ -136,7 +128,7 @@ export class Unit {
     }
     toJSON(){
         // 序列化出口：_fsm 是 StateMachine 实例（states 里是函数），且已无读者——
-        //   渲染层改读 state._fsmPhase（2026-09-26 妆造剥离），故整段剔除，
+        //   渲染层改读 state._fsmPhase，故整段剔除，
         //   省掉每 step 载荷里的 FSM 骨架（战报体积随之下降）
         const o = { ...this };
         delete o._fsm;
@@ -164,7 +156,7 @@ export class Unit {
         c.state = {};
         copyAllStateFields(this.state, c.state);
         // FSM：重建新实例，深拷贝 transitions 避免共享引用
-        // 2026-09-02 定案：FSM 不做骨架声明化。有 FSM 的角色仅 3 个（张无忌/小昭·姊/小昭·妹），
+        // 定案：FSM 不做骨架声明化。有 FSM 的角色仅 3 个（张无忌/小昭·姊/小昭·妹），
         //   声明化只能挪骨架、动作仍须写 JS，收益不抵成本。若后续状态收口把 elite-state 并入
         //   Unit.state，transitions 随 state 统一 clone/reset，此处 JSON 深拷贝的脆弱点顺带解决，
         //   不再单独做声明化。此决定不再反复讨论。

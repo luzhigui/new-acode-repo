@@ -1,8 +1,7 @@
 // render/30-fact-renderer.js — fact 渲染入口（装配 + 出口）
-// V7.1.0 | ~900 bytes | 2026-09-22 拆出效果域(35)：本文件只做装配与出口
-//
+// V7.1.0 | 2026-09-22 | ~1000 bytes
 // 加新 fact 渲染：改对应域文件（34 攻击 / 35 效果），本文件不用动。
-// renderLog / projectFactEntry / findUnitSnapshotByUid 已下沉 render/33（各域都要调，留在本文件会成环）。
+// renderLog / projectFactEntry / findUnitSnapshotByUid 在 render/33（各域都要调，留在这里会成环）。
 export const VER = 'render/30-fact-renderer.js V7.1.0';
 
 import { validateRegistry } from './33-fact-registry.js';
