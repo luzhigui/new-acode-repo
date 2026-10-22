@@ -499,7 +499,7 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             if (delta > 0) {
                 addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
                 refreshMaxHp(target, null, '韦一笑吸血上限提升');
-                // 审计账本（2026-10-14 迁出 _mods）：hp 抬升与 refreshMaxHp 同源（delta），记进 unit._audit.hp，零行为副作用
+                // 审计账本：hp 抬升与 refreshMaxHp 同源（delta），记进 unit._audit.hp，零行为副作用
                 recordHpAudit(target, 'weiDodgeHeal', delta, '韦一笑吸血');
             }
             recordCombatStat(target, target, 'leech', {

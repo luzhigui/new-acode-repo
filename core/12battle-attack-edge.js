@@ -1,13 +1,8 @@
 // core/12battle-attack-edge.js — 攻击流程·边裁与纯工具（快照 / 闪避概率 / 免疫 / 后置效果 / 死亡结算）
-// V1.0.0 | ~7300 bytes | 2026-10-18 自 core/12battle-attack-steps.js V6.3.16 拆出（纯搬移，函数体逐字不动）：
-//   computeDodgeChance / snapshotUnitForFact / resolveDamageImmune / resolveAfterDamageEffects /
-//   resolveDeaths / isUnitStunned 六件整块迁入。
-//   归属判据：这些函数被「攻击链之外」的调用方单独使用——modules/26-tangwenliang 取 computeDodgeChance +
-//   snapshotUnitForFact，core/10 在每步结束/额外攻击后独立调 resolveDeaths，core/16 独立调 resolveDamageImmune。
-//   攻击链内部流转（selectAttackTarget / resolveAttackHit / calcFinalDamage / applyAttackResult / buildAttackGroup /
-//   resolveDodgeEffects）留在 12battle-attack-chain.js，保持「一条攻击链一个文件」。
-//   原文件死 import（clearEliteDodgeRules / isBlocked / getUnitCol / getUnitRow）未搬入——函数体内未引用，
-//   不搬不影响运行时行为（保真探针/金样不感知）。
+// V1.0.0 | 2026-10-18 | ~6800 bytes
+// 归属判据：这些函数被「攻击链之外」的调用方单独使用（modules/26-tangwenliang 取 computeDodgeChance +
+//   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
+//   攻击链内部流转留在 12battle-attack-chain.js，保持「一条攻击链一个文件」。
 export const VER = 'core/12battle-attack-edge.js V1.0.0';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
