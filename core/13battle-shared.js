@@ -208,8 +208,8 @@ function previewHeal(target, raw, rawOnly = false) {
         if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
     }
     // rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
-    if (rawOnly) return Math.max(0, applied);
-    return Math.max(0, Math.min(applied, target.maxHp - target.hp));
+    if (rawOnly) return Math.max(0, Math.floor(applied));
+    return Math.max(0, Math.floor(Math.min(applied, target.maxHp - target.hp)));
 }
 
 // isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），

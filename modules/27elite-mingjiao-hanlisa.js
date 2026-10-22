@@ -79,7 +79,7 @@ export function createHanLiSaComponent() {
                             factType: FACT_TYPES.HEAL,
                             factData: { unitName: hls.name, heal, hpBefore: Math.floor(hls.hp), hpAfter: Math.floor(hls.hp + heal), unitUid: hls.uid, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
                         });
-                        recordHpAudit(hls, 'hlsJiuYangHeal', rawNominal, '左拳·九阳治疗');
+                        recordHpAudit(hls, 'hlsJiuYangHeal', heal, '左拳·九阳治疗'); // 账本记实际落地值（与 fact heal 同口径）
                     }
                     if (shieldGain > 0) {
                         hls.state._permShield = (hls.state._permShield || 0) + shieldGain;
@@ -325,7 +325,7 @@ export function createHanLiSaComponent() {
                                 // 声明 delta 用原值（core/16 ROUND_STAT_GRANT 落账时还会打折一次）：
                                 //   填 preview 值会变成二次打折
                                 decls.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: rawVamp, target: hls, source: hls, reason: '蓄意轰拳·吸血' });
-                                recordHpAudit(hls, 'hlsVamp', rawVamp, '蓄意轰拳吸血');
+                                recordHpAudit(hls, 'hlsVamp', vamp, '蓄意轰拳吸血'); // 账本记实际落地值（与 SKILL_ANNOUNCE hlsBurst.vamp 同口径）
                             }
                         }
 
