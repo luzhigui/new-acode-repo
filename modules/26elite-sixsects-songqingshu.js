@@ -54,7 +54,7 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
             if (declarations) {
                 declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
                 // 审计账本：快乐回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='kuaiLeHeal' 比对
-                recordHpAudit(unit, 'kuaiLeHeal', totalHeal, '快乐回血');
+                recordHpAudit(unit, 'kuaiLeHeal', actualHeal, '快乐回血'); // 账本记实际落地值（与 fact heal 同口径）
             } else {
                 applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             }

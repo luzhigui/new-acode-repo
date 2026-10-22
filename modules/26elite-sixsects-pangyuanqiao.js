@@ -143,7 +143,7 @@ export function createPangYuanQiaoComponent() {
                 const healed = previewHeal(pang, rawHeal);
                 if (healed <= 0) return;
                 // 纯记账：只 push unit._audit.hp，供数值对照器隔离自身贡献（九阳 core/15 L248 同款口径）
-                recordHpAudit(pang, 'pangHitHeal', rawHeal, '蓄力回复');
+                recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复'); // 账本记实际落地值（与 fact heal 同口径）
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.HEAL, value: rawHeal, source: pang,

@@ -101,7 +101,7 @@ export function createXiaoZhaoSisterComponent() {
                     const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                     applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
                     // 审计账本：记进 unit._audit.hp，零行为副作用
-                    recordHpAudit(healTarget, 'qianKunHeal', healRaw, '乾坤衍生治疗');
+                    recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗'); // 账本记实际落地值（与 fact heal 同口径；白骨爪路径已同口径）
                     // 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
                     //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
                     addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
