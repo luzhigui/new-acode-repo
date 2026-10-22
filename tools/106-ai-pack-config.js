@@ -1,3 +1,5 @@
+// V6.0.36 | ~26700 bytes | 2026-10-22 补登记 tools/134-idea-lab.html（创意摸奖）+ 134-fetch-pool.mjs +
+//   134-idea-pool-additions.json（外部词条池）+ 135-param-scan.html（参数扫描 A/B）
 // V6.0.35 | ~26300 bytes | 2026-10-22 补登记 tools/127-tool-registry.js（工具箱共用名单与文案表的单一来源，
 //           112/126/122/116/108 将改从这里 import；漏登则包内这些工具引用断裂）
 // V6.0.34 | ~26100 bytes | 2026-10-19 补登记 tools/133-md-reader.html（dev-index V6.3.17「📖 文档与准则」
@@ -60,7 +62,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.35';
+export const VER = 'tools/106-ai-pack-config.js V6.0.36';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -246,6 +248,10 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-19 补登记 133：dev-index V6.3.17「📖 文档与准则」文本入口的 MD 阅读器
     //（起点读书式阅读页，漏登则包内 dev-index 文档按钮点开 404）
     '../tools/133-md-reader.html',
+    // 2026-10-22 补登记 134/135：创意摸奖（自带元素池 + 手动维护的外部词条池）与参数扫描
+    //（135 依赖 123 V1.2.0 的 stages 多关支持；134 只读 content，不跑战斗）
+    '../tools/134-idea-lab.html', '../tools/134-fetch-pool.mjs', '../tools/134-idea-pool-additions.json',
+    '../tools/135-param-scan.html',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；
     // 用途与复用场景见 TOOL-AI.md「四、历史探针」节）
     '../tools/TOOL-AI.md',
