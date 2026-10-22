@@ -139,7 +139,7 @@ import {
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES } from './127-tool-registry.js';
 
-const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
+const WORKER_URL = new URL('./123-param-lab-worker.js?v=135-1', import.meta.url);
 const SAMPLE_BASE = 20000;      // 阵容采样 seed 起点（与 120 一致）
 const SAMPLE_RUNS = 300;        // 每关采样次数（只为定出高频阵容）
 const BASE_SEED = 1;            // 扫描 / 搜索用种子批次 A
@@ -241,16 +241,25 @@ async function ensureLineups(stages) {
     }
     for (const s of stages) {
         if (lineups.has(s)) continue;
-        const top = pickTypicals({ list: samples.get(s) }, 1)[0];
-        if (top) lineups.set(s, top.spec);
+        const list = samples.get(s);
+        if (!Array.isArray(list) || !list.length) continue;
+        const top = pickTypicals({ list }, 1)[0];
+        let spec = top && top.spec;
+        if (!spec) {
+            const g = list[0];
+            const vals = g && g.concretes instanceof Map ? [...g.concretes.values()] : Object.values((g && g.concretes) || {});
+            if (vals[0]) spec = vals[0].spec;
+        }
+        if (spec) lineups.set(s, spec);
     }
 }
 
 async function runArm(arm, stages, runs, opts = {}) {
-    const perStageInput = stages.map(s => ({
-        stage: s, base: opts.base ?? BASE_SEED, startIndex: 0, runs,
-        spec: opts.soloSpec || lineups.get(s)
-    }));
+    const perStageInput = stages.map(s => {
+        const spec = opts.soloSpec || lineups.get(s);
+        if (!spec) throw new Error(`第 ${s} 关阵容未就绪（采样失败，或 worker 走了旧缓存）——请 Ctrl+Shift+R 硬刷新后重试`);
+        return { stage: s, base: opts.base ?? BASE_SEED, startIndex: 0, runs, spec };
+    });
     const done = await runParallel({
         jobs: [{ arm }],
         workerUrl: WORKER_URL,
