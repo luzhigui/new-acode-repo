@@ -38,8 +38,25 @@
 | 覆盖率·宋青书未命中重试 13/140 | 样本不足类 | 触发条件苛刻（宋青书 + 苦练 + 未命中），非空转；已登记观察 |
 | NINE_YANG_HEAL 零触发（账本 327→368 词条 / 声明 0） | 长期遗留（非并行会话新引入，f7b3dc3 已存在）：九阳神功回复的声明 fact 未被契约 extract 捕获，非空转 | 待定夺：补 announce 数值载荷或修 extract 后转严格 |
 
-## 三、维护记录
+## 三、结构不可达分支核销建议（第 123 轮整理，销挂账①）
 
+> 由第 123 轮新增的 `tests/structural-dead-branch-scan.mjs`（V1.0.0）自动产出，两条通道互相印证：
+> 通道 A 静态（同变量同字段「顶层读 ↔ state 读」并存 ⇒ 顶层那处恒假），通道 B 动态（父 fact 有量、分支零命中）。
+> 样本 20 seed × 7 stage = 140 场。**候选 ≠ 缺陷**，下表均已给出实证与建议核销动作，等主代码侧拍板。
+
+| # | 分支/守卫 | 实证（父 → 分支） | 定性 | 建议核销动作 |
+|---|---|---|---|---|
+| 1 | `XIN_HUN.isDead`（modules/26-songqingshu L225） | 父 179 → 分支 0；且 `XIN_HUN_DEATH` fact 同为 **0** | **定性修正**：第 112 轮写的是「读错层级（顶层 `_pendingDeath` vs `state._pendingDeath`）」，**不完整**——第 123 轮打桩把 L225 改成读 state 层后 isDead **仍 0 次**，通道 A 候选同步 1→0 ⇒ 真因是**时序**：新婚快乐结算发 fact 时，周芷若的致死尚未落定（`_pendingDeath` 由 core/13 结算阶段才写），读哪个层级都是 false | 不要只改读层级（改了也没用）。要么把 XIN_HUN / XIN_HUN_DEATH 的发射推迟到死亡结算之后，要么删掉这个恒假字段与其消费分支（modules/26 L226、render 侧），避免 UI 长期拿假值 |
+| 2 | `BLOOD_THIRST_LEECH.isBrother=true`（core/04 L278-287 小昭·兄永久海克斯转移分支） | 父 222 → 分支 0（**对照指纹 `isBrother=false` 222/222 全中**，证明父 fact 正常发射、不是收集漏层） | **结构性不可达**：该分支要 `isXiaoZhaoBrother` + `xiaoPermanentActive(BLOODTHIRST)` + 战士职；`_permanentBuffs` 只在玩家手选永久海克斯路径（`addPermanentBuff`）写入，标准回放器与全自动路径恒空 ⇒ 分支进不去 | 二选一：确认永久海克斯是纯玩家手选功能 ⇒ 补一条"手选路径"的定向用例（体检侧加样本）或登记为设计内不可达；若期望全自动路径也能拿到永久海克斯 ⇒ 修 `addPermanentBuff` 的调用面 |
+| 3 | `XUANMING_DOT_TICK.isDead`（modules/30 L46） | 父 272 → 分支 0 | 时序性死守卫（读 `!u.alive`，早于 `finalizeDeaths`）| 同 #1：改到死亡结算后取值，或删字段 |
+| 4 | `SPIDER_STRIKE.isDead`（modules/20 L241） | 父 41 → 分支 0 | 同 #3 同款 `!target.alive` 时序 | 同 #1 |
+| 5 | `BUTTERFLY_HOST_DEAD.isDead`（modules/27-sister L275） | 父 8 → 分支 0 | **语义错位**：fact 描述「宿主已阵亡、sister 被迫返回」，而守卫读 `!sister.alive`——sister 本人是活的，故恒 false；render/35 L120 又把它透传成条目 isDead ⇒ UI 对飞回的 sister 永远判「未死」 | 改读宿主存活态（`!host.alive`），或改名为 `hostDead` 并直写 true；渲染侧同步 |
+
+**顺带修掉的体检侧自身缺陷（非主代码）**：`tests/fact-dead-field-scan.mjs` V1.0.0 只读 `step.log` 顶层，而**声明类 fact 由 core/10 L303-305 / L382-384 塞进 attack-group 的 `data.entries` 嵌套层**（嗜血狂刀 / 热血奋战 / 溅射 / 反弹等全在此层）⇒ 54388 条里漏掉约 19051 条。V1.1.0 改为递归收集后样本 54388 → **73439**，新冒出 `bloodthirstLeech.isBrother`（222 次永假）与 10 条恒定候选（`rangedGrowth.growth` / `breakDef.type` / `heal.mode` / `heal.anchorVerb` / `qianKunBasic.*` …）。
+
+## 四、维护记录
+
+- 2026-10-23 第 123 轮：新增「三、结构不可达分支核销建议」整节（销挂账①），5 条零命中分支 + 1 条静态层级错位全部给出实证与核销动作；其中 **XIN_HUN.isDead 定性被修正**（第 112 轮「读错层级」不完整，打桩改读 state 层后仍恒假 ⇒ 真因是时序）；另修掉体检侧自身漏层缺陷（死字段扫描 V1.1.0 递归 attack-group 嵌套 fact，样本 54388 → 73439）。
 - 2026-10-23 第 122 轮：① 韦一笑蝠影转交**销项**（真因是满血落地归零，非 max(1) 漏守，规则 159 V1.1.0 按落地口径收紧后 31 场假红归零且带牙）；② 吸血上限转交**重新定性**为「core/15 与 core/16 两处 maxHp 口径不同源」（22 场实证，含 delta 为负被静默吞掉）；③ 新登记「同帧重复声明吃增量」（seed=12 stage=4，口径修正后才可见）；④ 规则 164 V1.1.0 修掉跨通道归因误报 5 场。
 - 2026-10-23 第 121 轮新增 1 转交：小昭妹/姐不可选期被打（连击路径未排除飞天单位 + 战报宣称伤害未落地）——由扩样本（seed 1-120，840 场）取证发现，固定样本覆盖不到。
 - 2026-10-21 第 114 轮新增 1 转交：唐文亮冲刺落地（拽位静默失败但报幕宣称，同上同型不同路径）。

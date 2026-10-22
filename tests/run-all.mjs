@@ -41,7 +41,9 @@ const CHECKS = [
 //   实测合计约 5 秒（定向用例 1.9s + 死字段普查 3.1s）。
 const OBSERVES = [
     { name: 'XIN_HUN_DEATH定向用例', script: 'tests/xinhun-death-targeted-case.mjs', args: [] },
-    { name: '载荷死字段普查', script: 'tests/fact-dead-field-scan.mjs', args: [] }
+    { name: '载荷死字段普查', script: 'tests/fact-dead-field-scan.mjs', args: [] },
+    // 第 123 轮新增：结构不可达分支扫描（静态层级错位 + 动态分支指纹零命中），同样不计退码
+    { name: '结构不可达分支扫描', script: 'tests/structural-dead-branch-scan.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

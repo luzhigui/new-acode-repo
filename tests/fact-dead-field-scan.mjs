@@ -1,4 +1,9 @@
-// tests/fact-dead-field-scan.mjs | V1.0.0 | 2026-10-21 第 112 轮
+// tests/fact-dead-field-scan.mjs | V1.1.0 | 2026-10-21 第 112 轮 · 2026-10-23 第 123 轮扩层
+// V1.1.0（第 123 轮）：fact 收集**递归进 attack-group 的 data.entries**。
+//   声明类 fact（嗜血狂刀 / 热血奋战 / 溅射 / 反弹 …）由 core/10 L303-305、L382-384 塞进
+//   `group.data.entries`，**不在 step.log 顶层**；V1.0.0 只读顶层 ⇒ 整批嵌套声明全漏，
+//   （实证：bloodthirstLeech 顶层 0 条、递归后 222 条）。漏层的直接后果是「死字段候选名单」
+//   少一大块，且会把「未收集到」误读成「字段不存在」。
 // 通用载荷死字段扫描（D1 软判据主线版）—— 第 113 轮沙箱交接列的「下一轮目标二」。
 //
 // 要抓的假绿形态：fact 照常发射、契约字段照常齐、覆盖矩阵全绿，但某个载荷字段**从来不变**——
@@ -40,7 +45,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/fact-dead-field-scan.mjs V1.0.0';
+export const VER = 'tests/fact-dead-field-scan.mjs V1.1.0';
 
 const argv = process.argv.slice(2);
 const argOf = (k, d) => { const i = argv.indexOf(k); return (i !== -1 && argv[i + 1]) ? Number(argv[i + 1]) : d; };
@@ -60,6 +65,17 @@ const EXEMPT_CONST = new Set([
 //   skillAnnounce.line —— infra/58-fact-contract.js L33 明注「line:false 时不落行、只走 floatText 飘字」，
 //   当前样本全是飘字形态 ⇒ 永假是设计使然，不是死字段（第 112 轮首扫定性后登记）。
 const EXEMPT_BOOL = new Set(['skillAnnounce.line']);
+
+// 递归收集 fact（V1.1.0）：顶层 + attack-group 的 data.entries 嵌套层。
+function* walkFacts(nodes) {
+    for (const n of (nodes || [])) {
+        if (!n || typeof n !== 'object') continue;
+        if (n.factType) yield n;
+        const inner = (n.data && Array.isArray(n.data.entries)) ? n.data.entries
+            : (Array.isArray(n.entries) ? n.entries : null);
+        if (inner) yield* walkFacts(inner);
+    }
+}
 
 async function main() {
     const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
@@ -131,8 +147,7 @@ async function main() {
                 let lastStep = null;
                 for (const step of stepper) {
                     lastStep = step;
-                    for (const f of (step.log || [])) {
-                        if (!f || !f.factType) continue;
+                    for (const f of walkFacts(step.log)) {
                         facts++;
                         const d = f.data;
                         if (d && typeof d === 'object') {
