@@ -9,7 +9,7 @@
 //   resolveDamageImmune / isUnitStunned）在 12battle-attack-edge.js。
 //   原文件死 import（clearEliteDodgeRules / isBlocked / getUnitCol / getUnitRow / getEffectHandler /
 //   hasEffectHandler / validateDeclarationFields）未搬入——函数体内未引用，与 edge 分工对齐。
-export const VER = 'core/12battle-attack-chain.js V1.0.1';
+export const VER = 'core/12battle-attack-chain.js V1.0.2';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -297,13 +297,22 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     //   护盾只吃本体伤害，不影响 dmg 本身（吸血/破防/反伤仍按 dmg 计）
     let shieldAbsorbed = 0;
     target.state._shieldAbsorbed = 0;
-    const shieldLeft = target.state._shield || 0;
-    if (shieldLeft > 0 && hpLoss > 0) {
-        shieldAbsorbed = Math.min(shieldLeft, hpLoss);
-        target.state._shield = shieldLeft - shieldAbsorbed;
-        target.state._shieldAbsorbed = shieldAbsorbed;
-        hpLoss -= shieldAbsorbed;
+    // 2026-10-22 两种护盾分家：先吃临时（蓄力，爆发结算会清零），吃完再吃永久（九阳满血溢出，整场累积）
+    const tempLeft = target.state._shield || 0;
+    if (tempLeft > 0 && hpLoss > 0) {
+        const a = Math.min(tempLeft, hpLoss);
+        target.state._shield = tempLeft - a;
+        shieldAbsorbed += a;
+        hpLoss -= a;
     }
+    const permLeft = target.state._permShield || 0;
+    if (permLeft > 0 && hpLoss > 0) {
+        const a = Math.min(permLeft, hpLoss);
+        target.state._permShield = permLeft - a;
+        shieldAbsorbed += a;
+        hpLoss -= a;
+    }
+    target.state._shieldAbsorbed = shieldAbsorbed;
     let hpAfter = Math.floor(target.hp) - hpLoss;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');

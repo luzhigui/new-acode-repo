@@ -1,3 +1,4 @@
+// V6.4.5 | 2026-10-22 previewHeal 增 rawOnly 参数：true 时只打折、不夹 maxHp 溢出（供「满血转护盾」拿应发额度）
 // V6.4.4 | 2026-10-22 新增 previewHeal(target, raw)：治疗预演（截脉→寒毒抑疗→maxHp 溢出），
 //   治疗文案/飘字与 applyStatChange 同源，修「战报写 +42、血条只跳 +21」的假账
 // V6.4.3 | 2026-10-22 寒毒抑疗：applyStatChange 治疗正向出口再乘 XUANMING_POISON_HEAL_REDUCE（与截脉可叠乘）
@@ -10,7 +11,7 @@
 //   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
 //   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/13battle-shared.js V6.4.4';
+export const VER = 'core/13battle-shared.js V6.4.5';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -207,7 +208,7 @@ function emitCoreEvent(unit, eventType, payload) {
 //   （截脉 → 寒毒抑疗 → maxHp 溢出夹取）。所有治疗类 factData / 文案 / 飘字都该用它，
 //   否则声明值会被打折落地，出现「战报写 +42、血条只跳 +21」的假账。
 // 注意：同一帧连续多次治疗时，后一次的可用空间按「前一次已落」计算——调用方按声明顺序调即可。
-function previewHeal(target, raw) {
+function previewHeal(target, raw, rawOnly = false) {
     if (!target || !(raw > 0)) return 0;
     let applied = raw;
     const st = target.state;
@@ -218,6 +219,8 @@ function previewHeal(target, raw) {
             || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
         if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
     }
+    // 2026-10-22 rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
+    if (rawOnly) return Math.max(0, applied);
     return Math.max(0, Math.min(applied, target.maxHp - target.hp));
 }
 

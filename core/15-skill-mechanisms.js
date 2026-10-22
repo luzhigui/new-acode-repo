@@ -1,4 +1,5 @@
-﻿// V6.8.1 | ~16900 bytes | 2026-10-17 HIGHEST_HP_PCT 平局改随机：原 reduce 平局恒取末位，拒马/幼狮恒满血
+﻿// V6.8.2 | 2026-10-22 张无忌九阳满血转护盾：溢出回复量进永久护盾 _permShield（rawOnly 拿应发额度）
+// V6.8.1 | ~16900 bytes | 2026-10-17 HIGHEST_HP_PCT 平局改随机：原 reduce 平局恒取末位，拒马/幼狮恒满血
 //   又 push 在队尾 ⇒ 宋青书整局只盯召唤物打。先取最高百分比，再从并列者随机挑（getBattleRng，
 //   与概率引擎同源可回放）。
 // V6.8.0 | ~16640 bytes | 2026-10-14 core/15 瘦身：linkAttack / followAttack / phantomDisguise 三个英雄机制
@@ -6,7 +7,7 @@
 //   26 承接灭绝跟随）。本文件删 LOCAL_MECHANIC_TYPES / LOCAL_MECHANIC_FIELDS 两张例外表与 isLocal 分支，
 //   顶层机制只剩「注册表查表」一条路（未注册的 type 开局即抛）。四个导出签名不变，core/11 调用点零改动。
 // V6.7.0 | ~27750 bytes | 2026-10-12 成昆幻影伪装治疗补 `_mods['hp']` 纯记账条目（group 'phantomDisguiseHeal'）：PHANTOM_DISGUISE_HEAL 自身 hp 贡献隔离进账本，供体检对照器核对「声明 heal vs 实际治疗」；真实治疗仍由 EFFECT_TYPES.HEAL 声明结算负责，零游戏逻辑副作用
-export const VER = 'core/15-skill-mechanisms.js V6.8.2';
+export const VER = 'core/15-skill-mechanisms.js V6.8.3';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
@@ -249,19 +250,20 @@ function submitOnHitEffects(data, onHitDecls) {
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawHeal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT) {
-                // 2026-10-22 战报/飘字取实际落地值（截脉/寒毒打折后）
-                const rawHeal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
-                const heal = previewHeal(unit, rawHeal);
+                // 2026-10-22 满血转护盾（与寒离飒左拳·九阳同口径）：rawOnly 拿打折后应发额度，
+                //   应发 − 实回 = 溢出，进永久护盾 _permShield（截脉/寒毒都算在 nominal 里）
+                const rawNominal = Math.floor(unit.maxHp * eff.pct);
+                const nominal = previewHeal(unit, rawNominal, true);
+                // 实回按 core/16 HEAL handler 口径（先夹 maxHp 缺口、再打折），保证文案/飘字 = 血条
+                const heal = previewHeal(unit, Math.min(rawNominal, Math.max(0, unit.maxHp - unit.hp)));
+                const shieldGain = Math.max(0, nominal - heal);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
-                    // 2026-10-15 迁移试点：九阳改用通用 HEAL fact（契约/渲染器/白名单/翻译已在 56/58/35/38 就位），
-                    //   参数按原工厂口径传（icon/label/mode/anchorVerb）→ 文案与飘字与旧 NINE_YANG_HEAL 逐字节一致
-                    // 声明量填原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折
-                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawHeal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
-                    // 审计账本（2026-10-14 迁出 _mods）：九阳神功治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl
-                    //   对照器按 group='nineYangHeal' 比对「声明 heal vs 实际治疗」。审计容器全库无读点
-                    //   （getStat 不认 hp）⇒ 不串进活值/显示；真实治疗仍由上方 HEAL 声明结算负责。
-                    recordHpAudit(unit, 'nineYangHeal', rawHeal, '九阳神功治疗');
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
+                    recordHpAudit(unit, 'nineYangHeal', rawNominal, '九阳神功治疗');
+                }
+                if (shieldGain > 0) {
+                    unit.state._permShield = (unit.state._permShield || 0) + shieldGain;
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 // 2026-10-22 不衰减 + 可叠加 + 无上限：每命中 stacks+1、remaining 刷新为 duration。
