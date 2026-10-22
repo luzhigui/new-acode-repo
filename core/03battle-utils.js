@@ -239,7 +239,10 @@ function submitWarriorExecuteDeclaration(data) {
     const ronghuiDecl = Array.isArray(declarations)
         ? declarations.find(d => d && d.type === EFFECT_TYPES.BONUS_DMG && d.target === target)
         : null;
-    const effHp = target.hp - (ronghuiDecl ? ronghuiDecl.value : 0);
+    // 2026-10-22 护盾算进有效血量：只比 hp 会让 17 血 + 43 盾的单位被一刀处决，盾完全白给。
+    //   临时（蓄力 _shield）+ 永久（九阳溢出 _permShield）两个池都算。
+    const shieldHp = (target.state._shield || 0) + (target.state._permShield || 0);
+    const effHp = target.hp + shieldHp - (ronghuiDecl ? ronghuiDecl.value : 0);
     if (effHp <= target.maxHp * threshold) {
         if (!declarations) return;
         declarations.push({

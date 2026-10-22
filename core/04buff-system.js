@@ -49,7 +49,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
 //   ctx 收口：log / aliveCounts 等上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，新增上下文只进 ctx 不再改签名
 export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     const hasTeam = hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN);
-    // 妹永久摄魂：团队摄魂过期后不再整局全体续削，改由 preparePermanentSoulDrain 每回合随机点名
+    // 妹永久摄魂：团队摄魂过期后由 preparePermanentSoulDrain 每回合随机点名
     //   1 名敌方（写 _soulDrainRounds=2），此处只认 rounds>0 才削（基础值、不吃姊增强），稳态约 2 人同时在削。
     const permanentHit = !hasTeam && (unit.state?._soulDrainRounds || 0) > 0;
     if (!hasTeam && !permanentHit) return;
@@ -78,7 +78,7 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
     if (hasBuff(casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN)) return;
     const hasBrother = casterSide.some(u => u.isXiaoZhaoBrother && query('xiaoPermanentActive', u, casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN));
     if (!hasBrother) return;
-    // 2026-10-21 老板拍板：妹永久摄魂不再每回合必点名，改 60% 概率（content.buffs.soulDrain.brotherPointChance）
+    // 妹永久摄魂不再每回合必点名，改 60% 概率（content.buffs.soulDrain.brotherPointChance）
     if (ctx.rng.next() >= CONFIG.BUFFS.soulDrain.brotherPointChance) return;
     const pool = targetSide.filter(u => u.alive && !u.isHorse && !u.isSummon);
     if (!pool.length) return;

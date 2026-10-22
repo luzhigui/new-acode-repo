@@ -192,8 +192,8 @@ export const STAGE_ACTION_DEFS = {
                         attackerRole: attacker.role
                     });
                 }
-                // 2026-10-19 简单模式：等冲撞演出（飞 700 + 回弹 900 = 1600ms）撤走克隆体后再发掉血飘字，
-                //   否则被 z-index 99999 的克隆体压在攻击者格内看不见（老板实测）
+                // 简单模式：等冲撞演出（飞 700 + 回弹 900 = 1600ms）撤走克隆体后再发掉血飘字，
+                //   否则被 z-index 99999 的克隆体压在攻击者格内看不见
                 clock.wait(1600).then(emitReboundFloat);
             }
             // 韦一笑闪避反击吸血：补吸血弹幕。华丽模式的子弹时间飘字会被黑幕盖住，所以放在整段演出之后发
@@ -212,7 +212,7 @@ export const STAGE_ACTION_DEFS = {
                 const { animatePositionSwap } = await import('../fx/87fx-manager.js');
                 await animatePositionSwap(unitA, unitB, c, {
                     oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null,
-                    connectLine: action.connectLine === true   // 2026-10-12 红血两仪互换：走「连线→互换」专属演出
+                    connectLine: action.connectLine === true   // 红血两仪互换：走「连线→互换」专属演出
                 });
             }
         }
@@ -545,7 +545,7 @@ export const STAGE_ACTION_DEFS = {
         }
     },
     [STAGE_ACTION_TYPES.SKILL_FLOAT]: {
-        // 2026-10-11 何太冲技能任意文本头顶飘字（破甲箭🛡-N% 飘目标格 / 昆仑合击🎯×N 飘何太冲格）：
+        // 何太冲技能任意文本头顶飘字（破甲箭🛡-N% 飘目标格 / 昆仑合击🎯×N 飘何太冲格）：
         //   fx/89 复用「灭绝计数」的任意文本头顶上飘通道（showMiejueCountFloat），不另造字形。
         grid: 'none', log: 'sync', timing: 'afterText',
         fx: (c, action) => {

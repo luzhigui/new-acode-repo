@@ -1,4 +1,6 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+// V1.2.4 | 2026-10-22 ELITE_LABELS 补寒离飒（116 V1.12.0 已并入明教精英池）——此前含她的阵容被误并组、
+//          只有她的阵容被误判「无精英」，120 的典型阵容分组失真；注释同步 6 人池口径；VER 对齐（V1.2.2/V1.2.3 漏更）
 // V1.2.3 | 预估 22400 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）
 // V1.2.2 | 预估 22300 bytes | 2026-10-13 镜像主代码整局海克斯口径：content permanent:true → remaining 取 CONFIG.MAX_ROUND（与 modules/28 同源）
 // V1.2.1 | 预估 21400 bytes | 2026-10-12 机制装配收口：散装 import 25/26/27 → 改为 import modules/00reg-mechanics.js
@@ -13,7 +15,7 @@
 //          数值旋钮扫描）。不 import 任何 node 内置模块，浏览器 worker 与 node 直跑通用。
 //          CLI 侧的 node 垫片（fetch / localStorage）由调用方在 import 本文件之前装好；
 //          本文件自带 window/localStorage 垫片，保证模块体在无 DOM 环境也能跑。
-export const VER = 'tools/122-param-lab-core.js V1.2.1';
+export const VER = 'tools/122-param-lab-core.js V1.2.4';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -56,7 +58,11 @@ export async function ensureGameData() {
 }
 
 // 强制精英开关残留一次性清干净（否则采样/对战都会被覆盖）
-for (const k of ['forceZhang', 'forceWei', 'forceXiaoZhao', 'forceXieXun', 'forcePang']) {
+// 2026-10-22 V1.2.4：清单对齐 116-clearBattleGlobals 的完整 8 项——原缺 forceHanLiSa / forceWeakElite /
+//   forceSoloWeakElite（116 V1.9.1 / V1.12.0 / V1.12.2 各补一项时这里没跟着同步）。
+//   现状下 122/123 都不设这三项，暂不暴发；但 param-lab 一旦加寒离飒/弱精英实验，残留 force 会污染后续基线跑批。
+for (const k of ['forceZhang', 'forceWei', 'forceXiaoZhao', 'forceXieXun', 'forcePang',
+                 'forceHanLiSa', 'forceWeakElite', 'forceSoloWeakElite']) {
     GlobalStore.set(k, null);
     localStorage.removeItem('_' + k);
 }
@@ -135,7 +141,7 @@ export function specOfUnit(u) {
         label: u.name
     };
 }
-export const ELITE_LABELS = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊'];
+export const ELITE_LABELS = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
 const byPos = (a, b) => a.pos - b.pos;
 export const concreteKey = spec => spec.slice().sort(byPos).map(e => `${e.label}(${e.role})@${e.pos}`).join(' '); // 含职业+站位
 
@@ -170,7 +176,8 @@ export function buildAlly(spec, statSeed) {
 }
 
 // 采样：跑 N 次 initBattleTeams，只取明教阵容。
-// 分组的粒度 = **精英组合**：精英池 4 人、出场人数 0~3，全部可能组合恰为 15 种（1+4+6+4），
+// 分组的粒度 = **精英组合**：精英池 6 个 label（小昭·姊/小昭·妹互斥，同场只出其一）、
+//   出场人数 0~3，组合数随档位重排已不止 15 种（张无忌/韦一笑/谢逊/寒离飒 4 独立 × 小昭二选一）；
 //   且精英 M 值 107~155 远高于普通兵（90~110）、站位又固定，阵容身份实际由精英组合决定。
 //   按「名册」分组无意义：18 个普通兵随机取 5 位 + 职业随机，1000 次采样出 913 种名册、最高频仅 0.5%。
 export function sampleStage(stage, runs, base) {
