@@ -8,14 +8,7 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-// V2.2.2 | 2026-10-22 左拳·九阳满血转护盾：溢出的回复量进永久护盾 _permShield（与蓄力临时 _shield 分家）
-// V2.2.1 | 2026-10-22 治疗/吸血文案改实际落地值（previewHeal 同源）：左拳·九阳、轰拳吸血
-// V2.2.0 | 2026-10-22 寒毒改「不衰减 + 可叠层无上限」（每回合首档 pct × stacks）；两拳改名左拳·九阳/右拳·寒冰；
-//   新增低血双拳：生命 < doublePunchHpPct(40%) 时 doublePunchProb(50%) 追加一拳（走 extraRequests，
-//   回合级 _hlsDoubleFired 防连锁，ON_ROUND_START 清闸）
-// 版本历史见 记录-更改履历.md（检索 "modules/27elite-mingjiao-hanlisa"）
-// V2.1.2 | 2026-10-19 谁的日志归谁（老板拍板）：护盾吸收战报行不再 pushInfo 插进攻击者的攻击组，
-//   改为紧跟本击攻击组之后的独立 SKILL_ANNOUNCE 播报行；零数值/行为变化。
+// V2.2.2 | 2026-10-22 | ~27300 bytes
 export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.2';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
@@ -34,7 +27,7 @@ export function createHanLiSaComponent() {
             const hls = [...A, ...B].find(u => u.isHanLiSa && u.alive);
             if (!hls) return;
 
-            // 2026-10-19 控制位移免疫·开局常驻（老板口径：被闪避反击/击退/换位只掉血不动窝；守卫在 core/12+13）
+            // 控制位移免疫·开局常驻（老板口径：被闪避反击/击退/换位只掉血不动窝；守卫在 core/12+13）
             hls.state._ctrlImmune = true;
             // 蓄意轰拳爆发序号（fx/93 引擎直发与回放桥重放按 seq 去重）
             let burstSeq = 0;
@@ -71,7 +64,7 @@ export function createHanLiSaComponent() {
                 //   与「本循环是否触发过」无关，同一种可以连出多次
                 if (getBattleRng().next() < (jy.prob ?? 0.5)) {
                     hls.state._hlsJiuYangDone = true;   // 标记只为「凑齐解锁蓄力」，不锁技能
-                    // 2026-10-22 满血转护盾：rawOnly 拿打折后应发额度（不夹 maxHp 缺口），应发 − 实回 = 溢出，
+                    // 满血转护盾：rawOnly 拿打折后应发额度（不夹 maxHp 缺口），应发 − 实回 = 溢出，
                     //   进永久护盾 _permShield（与蓄力临时 _shield 分家，整场累积）
                     const rawNominal = Math.floor(hls.maxHp * (jy.healPct ?? 0.12));
                     const nominal = previewHeal(hls, rawNominal, true);
@@ -95,7 +88,7 @@ export function createHanLiSaComponent() {
                     const shieldText = shieldGain > 0 ? `，${heal > 0 ? '溢出' : ''}转化为 ${shieldGain} 点护盾` : '';
                     pushInfo(data, `<span class="gold">☀️ 寒离飒左拳·九阳：${healText}${shieldText}</span>`);
                     announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + heal : ''}${shieldGain > 0 ? ` 🛡+${shieldGain}` : ''}`);
-                // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒（2026-10-22 可叠层、无上限）
+                // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒
                 } else {
                     hls.state._hlsHanBingDone = true;   // 同样只用于凑齐解锁
                     const prev = target.state._hlsHanDu;
@@ -108,7 +101,8 @@ export function createHanLiSaComponent() {
 
                 // ③ 凑齐两种（九阳 + 寒冰各至少出过一次）→ 本击结束即起蓄力（普攻照打，蓄力从下一回合开始）
                 if (hls.state._hlsJiuYangDone && hls.state._hlsHanBingDone && (hls.state._hlsCharging || 0) === 0) {
-                    const shield = Math.floor(hls.maxHp * (xl.shieldPct ?? 0.2));
+                    if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
+                    const shield = Math.floor(hls.maxHp * xl.shieldPct);
                     Object.assign(hls.state, { _hlsCharging: 1, _shield: (hls.state._shield || 0) + shield });
                     pushInfo(data, `<span class="gold">🌀 寒离飒起手蓄力：获得 ${shield} 点护盾（下回合凝聚）</span>`);
                 }
@@ -121,14 +115,14 @@ export function createHanLiSaComponent() {
                     const arr = hls.state._hlsTaken;
                     if (Array.isArray(arr) && arr.length > 0) arr[arr.length - 1] += data.dmg;
                 }
-                // core/12 写在本击的 absorbed 量：2026-10-19 谁的日志归谁——护盾吸收是寒离飒的承伤反应，
+                // core/12 写在本击的 absorbed 量：谁的日志归谁——护盾吸收是寒离飒的承伤反应，
                 //   不再插进攻击者的攻击组（pushInfo），改为紧跟本击攻击组之后的独立播报行
                 if (hls.state._shieldAbsorbed > 0) {
                     pushSkillAnnounce(data.log, hls, '护盾吸收', `🛡️ 寒离飒护盾吸收 ${hls.state._shieldAbsorbed} 点伤害（剩余 ${Math.floor(hls.state._shield || 0)}）`);
                 }
             });
 
-            // —— 2026-10-22 低血双拳：血量 < doublePunchHpPct 时 doublePunchProb 概率追加一拳 ——
+            // ——低血双拳：血量 < doublePunchHpPct 时 doublePunchProb 概率追加一拳 ——
             //   走 extraRequests（core/10 AFTER_ATTACK 口统一执行），第二拳是完整独立攻击：
             //   独立选敌（targetUid=null，第一下打死就换人）、独立命中/伤害、独立触发九阳/寒冰。
             //   reason 刻意不进 LINK_REASONS —— 否则会被置 _isLinkAttack，技能特效 handler 首行就 return。
@@ -166,7 +160,7 @@ export function createHanLiSaComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XUANMING_POISON + 1, (data) => {
                 const allUnits = [...(data.A || []), ...(data.B || [])];
 
-                // 2026-10-22 低血双拳的回合级闸门在此清（每回合最多一次）
+                // 低血双拳的回合级闸门在此清（每回合最多一次）
                 hls.state._hlsDoubleFired = false;
 
                 // 寒毒结算（本组件自管，不依赖鹿杖客是否在场）
@@ -175,7 +169,7 @@ export function createHanLiSaComponent() {
                     const st = u.state._hlsHanDu;
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;
-                    // 2026-10-22 不衰减 + 可叠加：固定首档 pct × stacks
+                    // 不衰减 + 可叠加：固定首档 pct × stacks
                     const hdStacks = st.stacks || 1;
                     const dot = Math.floor(u.maxHp * (st.dotPercents[0] || 0) * hdStacks);
                     if (dot <= 0) return;
@@ -193,7 +187,7 @@ export function createHanLiSaComponent() {
                 hls.state._shieldAbsorbed = 0;
             });
 
-            // —— 蓄意轰拳结算（回合收尾 ON_ROUND_END·forced:true；2026-10-19 V2.1 老板口径：轰在蓄力回合末，
+            // —— 蓄意轰拳结算（回合收尾 ON_ROUND_END·forced:true；V2.1 老板口径：轰在蓄力回合末，
             //    战报行打印在「第N回合结束」线上方）——瞄准输入由「瞄准窗口标记步」（core/11 回合收尾前 yield）
             //    的播放层黑幕写入 _hlsAim*（与 generator 的 A/B 同引用直达此处）；未写=简单/全自动/快进/headless/PVP
             //    → 随机前排兜底（getBattleRng 保基线可复现）。
@@ -232,18 +226,22 @@ export function createHanLiSaComponent() {
                             const d = Math.abs(r1 - r2) + Math.abs(c1 - c2);
                             return d <= 0 ? 'direct' : (d === 1 ? 'near' : 'far');
                         };
-                        const shapes = xl.hitShapes || {};
+                        const shapes = xl.hitShapes;
+                        if (!shapes) throw new Error('缺技能参数: 寒离飒.xuLi.hitShapes');
                         let cells;
                         if (aim >= 1 && aim <= 9 && Array.isArray(shapes[String(aim)])) {
-                            const den = xl.tierDen || { direct: 2, near: 4, far: 6 };
-                            const eightDen = xl.eightDen ?? 3;
+                            if (!xl.tierDen) throw new Error('缺技能参数: 寒离飒.xuLi.tierDen');
+                            if (xl.eightDen == null) throw new Error('缺技能参数: 寒离飒.xuLi.eightDen');
+                            const den = xl.tierDen;
+                            const eightDen = xl.eightDen;
                             cells = shapes[String(aim)].map(p => ({
                                 pos: p,
                                 tier: (aim === 8 && p !== 8) ? 'eight' : tierOf(aim, p),
                                 den: (aim === 8 && p !== 8) ? eightDen : (den[tierOf(aim, p)] ?? 6)
                             }));
                         } else {
-                            const fd = xl.fullDen || { row123: 3, row456: 4, row789: 5 };
+                            if (!xl.fullDen) throw new Error('缺技能参数: 寒离飒.xuLi.fullDen');
+                            const fd = xl.fullDen;
                             cells = [[1, 2, 3, fd.row123, 'full123'], [4, 5, 6, fd.row456, 'full456'], [7, 8, 9, fd.row789, 'full789']]
                                 .flatMap(([a, b, c, d, t]) => [a, b, c].map(p => ({ pos: p, tier: t, den: d })));
                         }
@@ -258,7 +256,7 @@ export function createHanLiSaComponent() {
                                 const dmg = Math.floor(N / cell.den);
                                 if (dmg <= 0) return;
                                 decls.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dmg, target: u, source: hls, reason: '蓄意轰拳·真伤' });
-                                // 2026-10-19 第 106 轮补：轰拳真伤记账（纯记账，零游戏逻辑副作用）——该伤害经
+                                // 第 106 轮补：轰拳真伤记账（纯记账，零游戏逻辑副作用）——该伤害经
                                 //   applyStatChange 只落单位级 dmgDealt/dmgTaken、无按机制 group，数值网归不了因
                                 //   （scan-groups 也因无 group 而看不见）。与同文件 hlsVamp/hlsHanDuDot 同范式，
                                 //   供 stat-decl HLS_BURST_DMG 契约按 group 'hlsBurstDmg' 与 hlsBurst.hits 声明对账。
@@ -317,9 +315,10 @@ export function createHanLiSaComponent() {
 
                         // —— 吸血 = 总伤害 1/3（封顶缺失生命；正向 ROUND_STAT_GRANT 走 applyStatChange 治疗语义，吃截脉打折）——
                         let vamp = 0;
-                        const vampDiv = xl.vampDiv ?? 3;
+                        const vampDiv = xl.vampDiv;
+                        if (vampDiv == null) throw new Error('缺技能参数: 寒离飒.xuLi.vampDiv');
                         if (totalDealt > 0 && vampDiv > 0) {
-                            // 2026-10-22 吸血飘字/载荷按实际落地值（截脉/寒毒打折后），避免战报与血条不符
+                            // 吸血飘字/载荷按实际落地值（截脉/寒毒打折后），避免战报与血条不符
                             const rawVamp = Math.min(Math.floor(totalDealt / vampDiv), Math.max(0, hls.maxHp - hls.hp));
                             vamp = previewHeal(hls, rawVamp);
                             if (vamp > 0) {
