@@ -2,13 +2,14 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
+// V7.0.2 | 2026-10-22 回春术飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
 // V7.0.1 | 2026-10-22 冲刺拽位照实报幕：swapUnitPositions/moveUnitPosition 现返回布尔，
 //   目标免疫位移时改写「免疫位移、纹丝不动」，不再假报"拽至 N 号位"（体检 114 家族案）
 // 版本历史见 记录-更改履历.md（检索 "modules/26elite-sixsects-tangwenliang"）
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.1';
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.2';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
-import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit } from '../core/13battle-shared.js';
+import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { computeDodgeChance, snapshotUnitForFact } from '../core/12battle-attack-steps.js';
 import { getMissBreakdown, makeFXSnapshot } from '../core/03battle-utils.js';
@@ -167,11 +168,13 @@ export function createTangWenLiangComponent() {
                 tw.state._hcStacks = next;
                 if (total <= 0) return;
                 const hpBefore = Math.floor(tw.hp);
+                // 2026-10-22 飘字取实际落地值（截脉/寒毒打折后）
+                const actualTotal = previewHeal(tw, total);
                 if (data.declarations) data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: total, target: tw, source: null, reason: '回春术' });
                 recordHpAudit(tw, 'huiChun', total, '回春术');
                 if (data.log) data.log.push({ factType: FACT_TYPES.HEAL, data: {
-                    unitName: tw.name, unitUid: tw.uid, heal: total,
-                    hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(Math.min(tw.maxHp, tw.hp + total)),
+                    unitName: tw.name, unitUid: tw.uid, heal: actualTotal,
+                    hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpBefore + actualTotal),
                     // 修飘字锚点静默失效：原 anchorVerb:'回复' 与正文前缀 label '回春术' 不一致 ⇒ 锚「回复+N」
                     //   不是正文「🌿 回春术+N」子串，飘字永不触发。删 anchorVerb 回退 label 兜底（render/36：
                     //   anchorVerb || label）——胖远桥'蓄力回复'没事是其 label 本身含'回复'。

@@ -1,4 +1,5 @@
 // modules/26elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
+// V6.27.2 | 2026-10-22 灭绝三击战报/飘字改实际落地值（previewHeal）：被截脉/寒毒打折时显示「回复 N 点（治疗被削减）」
 // V6.27.1 | ~18500 bytes | 2026-10-19 谁的日志归谁（老板拍板）：反击提示行不再 pushInfo 插进攻击者的攻击组，
 //           改随 extraRequest.infoText 落到灭绝自己反击组（同殷天正反击口径，入队即死被作废时提示行也不出现）
 // V6.27.0 | ~18400 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
@@ -8,10 +9,10 @@
 //   handler（定义在本文件，注册在 26elite-sixsects.js 入口）：每 decl 一次 install，钩子内直接用 decl.name
 //   认跟随者，原先的 decls 遍历 + find 作废。core/15 同批瘦身（V6.8.0）删掉旧安装器，本 handler 是唯一实现
 // V6.25.0 | ~15500 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.27.1';
+export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.27.2';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
-import { getBattleRng } from '../core/13battle-shared.js';
+import { getBattleRng, previewHeal } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, registerSettlementHook, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { pushInfo } from './23elite-helpers.js';
@@ -183,13 +184,17 @@ export function createMieJueShiTaiComponent() {
                 const leechVal = Math.floor(data.dmg * third.leechRatio);
                 // 实际回血量按 core/16 LEECH handler 的同口径现算（封顶当前缺口）：LEECH 结算在本次
                 //   AFTER_DAMAGE_APPLIED 之后立刻执行（core/10 resolveAfterDamageEffects），此处算的就是最终值
+                // 2026-10-22 战报/飘字改实际值：声明 leechVal 会在结算时被截脉/寒毒打折，
+                //   旧写法用声明值拼「生命 A → B」= 假账（实测 42 报成实回 21）。
                 const capped = Math.max(0, Math.floor(Math.min(leechVal, miejue.maxHp - miejue.hp)));
+                const actualHeal = previewHeal(miejue, capped);
                 const hpBefore = Math.floor(miejue.hp);
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: miejue });
-                // 吸血飘字交给 render/39 的出手演出帧发（同计数飘字，避免抢在画面前）
-                if (data.group && data.group.data) data.group.data.miejueLeech = capped;
-                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，回复本次伤害${third.leechRatio * 100}%=${capped}，生命 ${hpBefore} → ${hpBefore + capped}</span>`);
+                // 吸血飘字交给 render/39 的出手演出帧发（同计数飘字，避免抢在画面前）——传实际值
+                if (data.group && data.group.data) data.group.data.miejueLeech = actualHeal;
+                const mutedTag = actualHeal < capped ? '（治疗被削减）' : '';
+                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，回复 ${actualHeal} 点${mutedTag}，生命 ${hpBefore} → ${hpBefore + actualHeal}</span>`);
             });
 
             // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，全场仅 1 次。

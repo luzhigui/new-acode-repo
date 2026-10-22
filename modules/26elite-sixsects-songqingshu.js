@@ -14,9 +14,10 @@
 // V6.25.0 | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）：
 //   createSongQingshuComponent + 苦练/快乐回血/性奋五助手 + chainClaw/kuLian/xinHun/xingFen 四个机制 handler 对象；
 //   handler 由 modules/26elite-sixsects.js（注册入口）集中 registerMechanicHandler 注册（全项目统一集中注册口径）
-export const VER = 'modules/26elite-sixsects-songqingshu.js V6.28.1';
+// V6.28.2 | 2026-10-22 快乐回血飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
+export const VER = 'modules/26elite-sixsects-songqingshu.js V6.28.2';
 import { getGameData } from '../core/01config-5v5-test.js';
-import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit } from '../core/13battle-shared.js';
+import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
 import { processUnitAttack } from '../core/10battle-attack.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -60,7 +61,9 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
         });
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
-            const hpAfterPredicted = Math.min(unit.maxHp, unit.hp + totalHeal);
+            // 2026-10-22 飘字取实际落地值（截脉/寒毒打折后）
+            const actualHeal = previewHeal(unit, totalHeal);
+            const hpAfterPredicted = hpBefore + actualHeal;
             if (declarations) {
                 declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
                 // 审计账本（2026-10-14 迁出 _mods）：快乐回血自身 hp 贡献记进 unit._audit.hp，供体检按 group='kuaiLeHeal' 比对
@@ -68,7 +71,7 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
             } else {
                 applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             }
-            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: totalHeal, hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpAfterPredicted), layers: unit.state._kuaiLeStack.length } });
+            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: actualHeal, hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpAfterPredicted), layers: unit.state._kuaiLeStack.length } });
         }
         Object.assign(unit.state, { _kuaiLeStack: newStack });
     });
