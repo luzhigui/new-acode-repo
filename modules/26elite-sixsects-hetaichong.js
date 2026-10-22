@@ -3,7 +3,9 @@
 //   是「先换位后挨打」——swap 事实序排在本击攻击组之前，攻击组还按换位后坐标画出「追着打」；
 //   改后整段攻击（含双击/连锁）先落地打成红血，行动结束再播两仪互换；打死不触发（hp≤0/待死跳过），
 //   加血独立行随迁本文件（core/10 的对照补偿退役）。优先级 ON_UNIT_ACTED:30 见 infra/50 V6.9.0。
-export const VER = 'modules/26elite-sixsects-hetaichong.js V6.26.0';
+// V6.26.1 | 2026-10-22 两仪互换位置被免疫挡下时照实报幕（职业照换），且不发 swap 载荷以免前端演假动画
+//   （swapUnitPositions 现返回布尔；体检 114 家族案第 4 口）
+export const VER = 'modules/26elite-sixsects-hetaichong.js V6.26.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
@@ -153,10 +155,14 @@ export function createHeTaichongComponent() {
                     const myRole = subject.role, hisRole = partner.role;
                     const myPos = subject.pos, hisPos = partner.pos;   // 2026-10-12 连线换位特效：旧位置先存（swap 一走就没了）
                     partner.state._redBloodUsed = true;
-                    swapUnitPositions(subject, partner, outLog);
+                    // 2026-10-22 位置互换可能被免疫挡下（同侧出现免疫者时）：职业照换，位置失败要明说，
+                    //   且不发 swap 载荷——否则 render/38 会演一次假换位动画（体检 114 家族案第 4 口）
+                    const posSwapped = swapUnitPositions(subject, partner, outLog);
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
                     switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
-                    if (outLog) pushSkillAnnounce(outLog, subject, '两仪互换', `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`, { floatText: '☯', floatUid: subject.uid, swap: { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos }, grants: pendingGrants });
+                    if (outLog) pushSkillAnnounce(outLog, subject, '两仪互换', posSwapped
+                        ? `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`
+                        : `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（职业已互换，位置被免疫挡下）`, { floatText: '☯', floatUid: subject.uid, swap: posSwapped ? { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos } : null, grants: pendingGrants });
                 } else if (subject.uid === he.uid) {
                     // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
                     soloRedBlood(he, outLog);
