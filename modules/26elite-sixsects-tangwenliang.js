@@ -2,6 +2,8 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
+// V7.0.5 | 2026-10-22 免疫分支补叠回春：那一拳被免疫（AFTER_ATTACK_IMMUNE）时前两条信号都不发，
+//   补挂同一条 flushDashHeal，「冲刺后必叠」在所有结算分支成立
 // V7.0.4 | 2026-10-22 回春改「攻击完再叠」：冲刺置 _pendingDashHeal，等 dashStrike/紧随普攻的
 //   AFTER_ATTACK 或 AFTER_MISS 再叠层（打空也叠——这层是冲刺给的）；本回合已出手过则当场叠
 // V7.0.3 | 2026-10-22 七伤双路径 + 回春立即结算：被命中 4% 也推进七伤计数（自损 4% maxHp 留 1 血），满 7 对攻击者
@@ -10,7 +12,7 @@
 // V7.0.1 | 2026-10-22 冲刺拽位照实报幕：swapUnitPositions/moveUnitPosition 现返回布尔，
 //   目标免疫位移时改写「免疫位移、纹丝不动」，不再假报"拽至 N 号位"（体检 114 家族案）
 // 版本历史见 记录-更改履历.md（检索 "modules/26elite-sixsects-tangwenliang"）
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.4';
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.5';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -125,6 +127,9 @@ export function createTangWenLiangComponent() {
             };
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, 60, flushDashHeal);
             eventBus.on(SIGNAL_TYPES.AFTER_MISS, 60, flushDashHeal);
+            // 2026-10-22 免疫分支（AFTER_ATTACK_IMMUNE，小昭·妹飞天）：上面两条都不发，
+            //   这一拳打出去了但回春不叠——补挂一条，保证「冲刺后必叠」在任何结算分支都成立。
+            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, 60, flushDashHeal);
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播
             //   （带 target 与 log）——故命中/闪避都算一次出手；射程内无人（休息）时不广播、不计。
