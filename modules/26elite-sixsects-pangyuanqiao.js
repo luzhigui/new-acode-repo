@@ -6,9 +6,10 @@
 //   走通用 HEAL 通道：本组件发 HEAL 声明 → 本击 ATTACK 组 entries → render/38 回血白名单 → 战报绿字 + afterText 飘字。
 //   同轮补 hp 记账（体检第 94 轮转交）：emit 处 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')——
 //   与 HEAL 声明 healed 同表达式同值，纯审计零行为差异；PANG_HIT_HEAL 契约转严格比对
-export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.3';
+// V6.29.4 | 2026-10-22 蓄力回复飘字改实际落地值（previewHeal）：截脉/寒毒打折后与血条一致
+export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.4';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from '../core/13battle-shared.js';
+import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -143,13 +144,16 @@ export function createPangYuanQiaoComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
                 if (data.unit !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                const healed = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
+                // 2026-10-22 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
+                //   preview 只用于飘字/审计的实际落地值
+                const rawHeal = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
+                const healed = previewHeal(pang, rawHeal);
                 if (healed <= 0) return;
                 // 纯记账：只 push unit._audit.hp，供数值对照器隔离自身贡献（九阳 core/15 L248 同款口径）
-                recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复');
+                recordHpAudit(pang, 'pangHitHeal', rawHeal, '蓄力回复');
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
-                    type: EFFECT_TYPES.HEAL, value: healed, source: pang,
+                    type: EFFECT_TYPES.HEAL, value: rawHeal, source: pang,
                     factType: FACT_TYPES.HEAL,
                     factData: { unitName: pang.name, heal: healed, hpBefore: fmtHp(pang.hp), hpAfter: fmtHp(pang.hp + healed), unitUid: pang.uid, icon: '💪', label: '蓄力回复', mode: 'plusTrail', anchorVerb: '回复' }
                 });

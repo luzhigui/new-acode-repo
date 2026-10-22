@@ -1,9 +1,10 @@
 // modules/27elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
+// V1.0.1 | 2026-10-22 乾坤衍生治疗（两处）：治疗量改实际落地值（previewHeal），飘字与血条一致
 // V1.0.0 | ~22046 bytes | 2026-10-17 自 modules/27elite-mingjiao.js V7.1.7 拆出（纯搬移，零逻辑改动；组件工厂逐字迁入，集中注册留 barrel）
-export const VER = 'modules/27elite-mingjiao-xiaozhao-sister.js V1.0.0';
+export const VER = 'modules/27elite-mingjiao-xiaozhao-sister.js V1.0.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
@@ -93,12 +94,15 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length > 0) {
                     const rng = getBattleRng();
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
+                    // 2026-10-22 实际落地值（截脉/寒毒打折后）只用于飘字/审计；
+                    //   落账仍传原值——applyStatChange 内部会打折，传 preview 会二次打折
+                    const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
+                    const heal = previewHeal(healTarget, healRaw);
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
-                    applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                    applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
                     // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零行为副作用
-                    recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
+                    recordHpAudit(healTarget, 'qianKunHeal', healRaw, '乾坤衍生治疗');
                     // 2026-10-11 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
                     //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
                     addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
@@ -149,10 +153,12 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length === 0) return;
                 const rng = getBattleRng();
                 const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
+                // 2026-10-22 实际落地值只用于飘字/审计；落账传原值（applyStatChange 内部打折，传 preview 会二次打折）
+                const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
+                const heal = previewHeal(healTarget, healRaw);
                 const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                 const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
-                applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
                 // 审计账本（2026-10-14 迁出 _mods）：记进 unit._audit.hp，零行为副作用
                 recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
                 // 2026-10-11 属性只算不存：加攻改走 addMod 词条（同常规乾坤衍生，原直改 _baseAtk 绕过词条）

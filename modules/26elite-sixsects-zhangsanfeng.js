@@ -4,9 +4,10 @@
 // V6.26.0 | ~16000 bytes | 2026-10-17 多实例化（老板拍板「完全真技能」，配套 core/11 V6.3.29 / core/04 V6.6.0）：
 //           register 增第 5 参 self 认自己；ON_UNIT_ACTED 付费回血加 actor.uid 守卫（防双张三丰对同一行动双倍回血/双倍 RNG）
 // V6.25.0 | ~15900 bytes | 2026-10-13 自 modules/26elite-sixsects.js V6.24.2 拆出（纯搬移，数值/日志/fact 顺序零变化）
-export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.27.0';
+// V6.27.1 | 2026-10-22 生生不息溢出转嫁：先 previewHeal 预演再落账，receiverHealed 取「应发∩实收」
+export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.27.1';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { applyStatChange, addMod, getStat, getBattleRng } from '../core/13battle-shared.js';
+import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/13battle-shared.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
@@ -55,10 +56,11 @@ export function createZhangSanfengComponent() {
                         const rHpBefore = pick.hp;
                         // source 必须传张三丰：统计层按产出者记账（core/13 `(source||target).healDone`），
                         // 不传 source 会把溢出治疗记到接盘队友头上，张三丰的治疗量看起来少一大截
+                        // 2026-10-22 先预演再落账：截脉/寒毒打折后的量才是「应发」，再受 maxHp 夹取得「实收」
+                        const willHeal = previewHeal(pick, overflow);
                         applyStatChange(pick, 'hp', overflow, unit, '生生不息·溢出');
                         receiver = pick;
-                        // 队友可能只差一点点血（或本就满血），实际收到的比溢出量少——飘字和日志都报实际值
-                        receiverHealed = Math.round(Math.max(0, receiver.hp - rHpBefore));
+                        receiverHealed = Math.round(Math.max(0, Math.min(willHeal, receiver.hp - rHpBefore)));
                     }
                 }
 

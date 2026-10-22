@@ -11,7 +11,7 @@ export const VER = 'core/15-skill-mechanisms.js V6.8.2';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './20-registry-dodge.js';
-import { recordHpAudit, getBattleRng } from './13battle-shared.js';
+import { recordHpAudit, getBattleRng, previewHeal } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './18mechanic-registry.js';
@@ -242,21 +242,26 @@ function submitOnHitEffects(data, onHitDecls) {
             if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.LEECH) {
                 const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
                 const ratio = eff.minRatio + (eff.maxRatio - eff.minRatio) * lostPct;
-                const heal = Math.max(1, Math.floor(dmg * ratio));
+                // 2026-10-22 吸血量与飘字都取实际落地值（截脉/寒毒打折后；上限提升按实际回血等量加）
+                const rawHeal = Math.max(1, Math.floor(dmg * ratio));
+                const heal = previewHeal(unit, rawHeal);
                 const newMaxHp = unit.maxHp + heal;
                 if (!data.declarations) data.declarations = [];
-                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: heal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
+                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawHeal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT) {
-                const heal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
+                // 2026-10-22 战报/飘字取实际落地值（截脉/寒毒打折后）
+                const rawHeal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
+                const heal = previewHeal(unit, rawHeal);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
                     // 2026-10-15 迁移试点：九阳改用通用 HEAL fact（契约/渲染器/白名单/翻译已在 56/58/35/38 就位），
                     //   参数按原工厂口径传（icon/label/mode/anchorVerb）→ 文案与飘字与旧 NINE_YANG_HEAL 逐字节一致
-                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
+                    // 声明量填原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawHeal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                     // 审计账本（2026-10-14 迁出 _mods）：九阳神功治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl
                     //   对照器按 group='nineYangHeal' 比对「声明 heal vs 实际治疗」。审计容器全库无读点
                     //   （getStat 不认 hp）⇒ 不串进活值/显示；真实治疗仍由上方 HEAL 声明结算负责。
-                    recordHpAudit(unit, 'nineYangHeal', heal, '九阳神功治疗');
+                    recordHpAudit(unit, 'nineYangHeal', rawHeal, '九阳神功治疗');
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 // 2026-10-22 不衰减 + 可叠加 + 无上限：每命中 stacks+1、remaining 刷新为 duration。

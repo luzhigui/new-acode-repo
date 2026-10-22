@@ -1,6 +1,7 @@
+// V6.7.2 | 2026-10-22 治疗/吸血文案改实际落地值（previewHeal）：嗜血狂刀（两分支）/热血奋战/圣火不熄
 // V6.7.1 | 2026-10-21 姊强化·乘风突袭：团队版主目标额外承受 20% 伤害（BONUS_DMG 声明「乘风突袭·强化」）
 // 版本历史见 记录-更改履历.md（检索 "core/04buff-system"）
-export const VER = 'core/04buff-system.js V6.7.1';
+export const VER = 'core/04buff-system.js V6.7.2';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -10,7 +11,7 @@ import {
 } from './14buff-effects.js';
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal } from './13battle-shared.js';
 import { findFreePos, spawnUnit } from './05battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
@@ -262,13 +263,16 @@ export function submitBloodthirstDeclaration(data) {
     const isBrother = unit.isXiaoZhaoBrother;
 
     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
-        const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
-        const decl = { type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
+        // 2026-10-22 声明量必须填原值：core/16 LEECH handler 落账时还会再走一次截脉/寒毒打折，
+        //   这里若直接填 preview 值会被打两次折（50% 变 25%）；preview 只用于飘字/审计「实际落地值」
+        const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+        const leechVal = previewHeal(unit, rawLeech);
+        const decl = { type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
             data.declarations.push(decl);
             // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
-            recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀');
+            recordHpAudit(unit, 'bloodthirstLeech', rawLeech, '嗜血狂刀');
         }
         if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
             unit.state._bloodthirstStriked = true;
@@ -276,12 +280,14 @@ export function submitBloodthirstDeclaration(data) {
             data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20 });
         }
     } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR) {
-        const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+        // 2026-10-22 同主分支：声明量填原值，preview 只用于飘字/审计
+        const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+        const leechVal = previewHeal(unit, rawLeech);
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
-            data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
+            data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
             // 审计账本（同分支 1）：记进 unit._audit.hp，零游戏逻辑副作用
-            recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀');
+            recordHpAudit(unit, 'bloodthirstLeech', rawLeech, '嗜血狂刀');
         }
     }
 }
@@ -310,12 +316,15 @@ export function submitHotBloodDeclaration(data) {
     const critInterval = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.critInterval || C.HOT_BLOOD_CRIT_INTERVAL) : C.HOT_BLOOD_CRIT_INTERVAL;
     const isDouble = unit.state._hotBloodCount % critInterval === 0;
     const ratio = isDouble ? leechPct * 2 : leechPct;
-    const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+    // 2026-10-22 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
+    //   preview 只用于飘字/审计的实际落地值
+    const rawLeech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+    const leech = previewHeal(unit, rawLeech);
     if (leech > 0) {
         if (!data.declarations) data.declarations = [];
-        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: leech, source: unit, isDouble, factType: FACT_TYPES.HOT_BLOOD_HEAL, factData: { unitName: unit.name, leech, tag: isDouble ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战', isBrother, unitUid: unit.uid } });
+        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawLeech, source: unit, isDouble, factType: FACT_TYPES.HOT_BLOOD_HEAL, factData: { unitName: unit.name, leech, tag: isDouble ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战', isBrother, unitUid: unit.uid } });
         // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
-        recordHpAudit(unit, 'hotBloodHeal', leech, '热血奋战');
+        recordHpAudit(unit, 'hotBloodHeal', rawLeech, '热血奋战');
     }
 }
 
@@ -522,7 +531,11 @@ function reviveHolyFireUnit(u, team, log, slot) {
     u.alive = true;
     Object.assign(u.state, { _isDead: false, _pendingDeath: false, _deathTime: 0 });
     // 回血出口与生生不息等同口径（目标血值取整；core/13 applyStatChange 自行落 0.1 精度）；复活不回写治疗统计
-    applyStatChange(u, 'hp', Math.round(u.maxHp * ratio), null, '圣火不熄', false, false);
+    // 2026-10-22 文案报实际落地值：下面 isHeal=false 不吃截脉/寒毒，故不能用 previewHeal（会误打折），
+    //   按 maxHp 缺口夹取即实际值
+    const reviveRaw = Math.round(u.maxHp * ratio);
+    const reviveHeal = Math.min(reviveRaw, Math.max(0, u.maxHp - u.hp));
+    applyStatChange(u, 'hp', reviveRaw, null, '圣火不熄', false, false);
     // 复活即可动：删「当回合眩晕」（原 withStun 置 _stunned 挡本回合剩余行动），_acted 统一清 false——
     //   回合中复活（BEFORE_STATE_TRANSITION）本轮没动过就补上这一手，动过则多给一手（每局仅 1 次，代价可控）；
     //   回合开始兜底同口径。
@@ -531,7 +544,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     if (log) {
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
             unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '圣火不熄',
-            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${Math.round(ratio * 100)}% 生命`,
+            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${reviveHeal} 点生命`,
             floatText: '🕯️', floatUid: u.uid
         } });
     }

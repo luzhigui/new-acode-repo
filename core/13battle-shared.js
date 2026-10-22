@@ -1,4 +1,7 @@
-﻿// V6.4.2 | 2026-10-22 位移免疫不再静默：swapUnitPositions / moveUnitPosition 返回布尔（免疫=false），
+// V6.4.4 | 2026-10-22 新增 previewHeal(target, raw)：治疗预演（截脉→寒毒抑疗→maxHp 溢出），
+//   治疗文案/飘字与 applyStatChange 同源，修「战报写 +42、血条只跳 +21」的假账
+// V6.4.3 | 2026-10-22 寒毒抑疗：applyStatChange 治疗正向出口再乘 XUANMING_POISON_HEAL_REDUCE（与截脉可叠乘）
+// V6.4.2 | 2026-10-22 位移免疫不再静默：swapUnitPositions / moveUnitPosition 返回布尔（免疫=false），
 //   resolvePushOrStun 换位失败改落眩晕分支（与"退无可退"同语义），不再照发假的 PUSH 战报（体检 114 家族案）
 // V6.4.1 | 2026-10-16 击杀者记账：applyStatChange 致死出口（hp≤0 挂 _pendingDeath 处）顺手记 _killerUid
 //   （uid 非引用，快照/序列化安全；source 空=死亡结算/自损不写、有值覆盖=补刀者算凶手），
@@ -7,7 +10,7 @@
 //   非治疗语义的 hp 抬升（形态变换/上限同步/伤害回退/复活落账）显式传 false 豁免；_jinMai 期间治疗/吸血
 //   回复按 ratio 打折——单点收口全库 10+ 治疗出口（飞行再生/休息回复/吸血/回血/反弹/乾坤衍生…）
 // ── 更早版本见 记录-更改履历.md
-export const VER = 'core/13battle-shared.js V6.4.3';
+export const VER = 'core/13battle-shared.js V6.4.4';
 
 import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
@@ -200,6 +203,24 @@ function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
 
+// 2026-10-22 治疗预演：返回「这次治疗实际能落多少」，口径与 applyStatChange 内部完全一致
+//   （截脉 → 寒毒抑疗 → maxHp 溢出夹取）。所有治疗类 factData / 文案 / 飘字都该用它，
+//   否则声明值会被打折落地，出现「战报写 +42、血条只跳 +21」的假账。
+// 注意：同一帧连续多次治疗时，后一次的可用空间按「前一次已落」计算——调用方按声明顺序调即可。
+function previewHeal(target, raw) {
+    if (!target || !(raw > 0)) return 0;
+    let applied = raw;
+    const st = target.state;
+    if (st && st._jinMai && st._jinMai.rounds > 0) applied = Math.round(applied * st._jinMai.ratio);
+    if (st) {
+        const xp = st._xuanmingPoison, hd = st._hlsHanDu;
+        const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+            || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+        if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+    }
+    return Math.max(0, Math.min(applied, target.maxHp - target.hp));
+}
+
 // isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），
 //   不吃杨逍截脉的减疗。默认 true = 正常治疗语义。
 function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true) {
@@ -211,17 +232,20 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
     //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。
     let applied = delta;
-    if (isHeal && field === 'hp' && delta > 0 && target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
-        applied = Math.round(delta * target.state._jinMai.ratio);
-    }
-    // 2026-10-22 寒毒抑疗：带寒毒目标受到的治疗再乘 XUANMING_POISON_HEAL_REDUCE（与截脉可叠乘）。
-    //   两种寒毒都算：玄冥 _xuanmingPoison（鹿杖客）/ 寒离飒 _hlsHanDu，remaining>0 且 stacks>0。
-    if (isHeal && field === 'hp' && delta > 0 && target.state) {
-        const xp = target.state._xuanmingPoison;
-        const hd = target.state._hlsHanDu;
-        const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
-            || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
-        if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+    // 2026-10-22 打折口径收口到 previewHeal（公式单点维护，文案/飘字同源）。
+    //   注意这里不夹 maxHp 溢出——applyStatChange 下面本来就会夹，重复夹会改变「溢出前」的中间值。
+    if (isHeal && field === 'hp' && delta > 0) {
+        applied = delta;
+        if (target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
+            applied = Math.round(applied * target.state._jinMai.ratio);
+        }
+        if (target.state) {
+            const xp = target.state._xuanmingPoison;
+            const hd = target.state._hlsHanDu;
+            const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+                || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+            if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+        }
     }
     const oldVal = target[field];
     const stepped = Math.floor((target[field] + applied) * 10) / 10;
@@ -352,6 +376,7 @@ export {
     moveUnitPosition,
     resolvePushOrStun,
     applyStatChange,
+    previewHeal,
     refreshMaxHp,
     recordCombatStat
 };

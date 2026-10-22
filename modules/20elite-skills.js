@@ -1,14 +1,15 @@
+// V6.3.2 | 2026-10-22 飞天落地回血改「先预演再落账」：文案/飘字取实际值（previewHeal），声明值只记审计
 // V6.3.1 | ~15300 bytes | 2026-10-18 落地回血补回血弹幕/飘字：spiderReturn 回血后发 SKILL_ANNOUNCE
 //   （note 战报行 + floatText +N 格上飘字，照何太冲「红血加血」写法；文本按实际回血量，fact 仍记声明值）
 // V6.3.0 | ~14900 bytes | 2026-10-18 飞天落地回血按档位：70/40 档用 landHealRatio，致死档用 landHealRatioDeath
 // V6.2.1 | ~14710 bytes | 2026-10-14 体检第 88 轮转交：landHeal 提前算好写进 SPIDER_RETURN fact data
 //   （数值对照器 SPIDER_LAND_HEAL 契约声明侧；不落地记 0，与 addMod 同条件同值，零行为变化）
-export const VER = 'modules/20elite-skills.js V6.3.1';
+export const VER = 'modules/20elite-skills.js V6.3.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff, canBeTargeted } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { pushSkillAnnounce } from './23elite-helpers.js';
@@ -203,14 +204,12 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal } });
 
     if (landHeal > 0) {
+        // 2026-10-22 飘字/文案取实际落地值（截脉/寒毒打折后），声明值只记审计
         const hpBeforeHeal = Math.floor(unit.hp);
+        const actualHeal = previewHeal(unit, landHeal);
         applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
-        // 审计账本（2026-10-14 迁出 _mods）：供数值对照器隔离自身贡献（同蛛袭记账口径）
         recordHpAudit(unit, 'spiderLandHeal', landHeal, '飞天落地回血');
-        // 2026-10-18 补落地回血弹幕/飘字（老板要）：照何太冲「红血加血」写法——note 出战报行，
-        //   floatText 出格上飘字；文本按实际回血量（可能被 maxHp 夹住），fact 里仍记声明值 landHeal
-        const healed = Math.floor(unit.hp) - hpBeforeHeal;
-        pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${healed}（${hpBeforeHeal} → ${Math.floor(unit.hp)}）`, { floatText: `+${healed}`, floatUid: unit.uid });
+        pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${actualHeal}（${hpBeforeHeal} → ${hpBeforeHeal + actualHeal}）`, { floatText: `+${actualHeal}`, floatUid: unit.uid });
     }
 
     // 2026-10-06 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
