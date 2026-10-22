@@ -1,5 +1,5 @@
 // render/38-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
-// V1.0.3 | 2026-10-22 | ~8600 bytes
+// V1.0.3 | 2026-10-22 | ~10000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/38-actions-translate-stat.js V1.0.3';
 

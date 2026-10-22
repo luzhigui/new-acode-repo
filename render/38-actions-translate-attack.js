@@ -1,9 +1,9 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
-// V1.0.6 | 2026-10-19 | ~20500 bytes
+// V1.0.6 | 2026-10-19 | ~23600 bytes
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { makeHealAction } from './38-actions-translate-heal.js';
-// 2026-10-15 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
+// 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/58-fact-contract.js';
 export const VER = 'render/38-actions-translate-attack.js V1.0.6';
 
@@ -16,7 +16,7 @@ export const ATTACK_TRANSLATORS = {
         targetUid: data.target?.uid ?? null,
         // 苦练蓄力：打空同样算宋青书本回合出手，💪 不被命中判定吞掉（快照 state 块带 _kuLianActive）
         isKuLianAttack: data.attacker?.state?._kuLianActive === true,
-        // 2026-10-16 被动出手原因：反击/跟随打空也能认出来（attacker 快照 state 块携带）
+        // 被动出手原因：反击/跟随打空也能认出来（attacker 快照 state 块携带）
         linkReason: data.attacker?.state?._linkReason ?? null,
         fx: data.fxSnapshot || null,
         factIndex: index,
@@ -161,21 +161,21 @@ function makeAttackAction(data, index) {
         waveUnit: data.dmgCalc?.waveUnit ?? null,
         isKuLianAttack: data.snap?.isKuLianAttack ?? false,
         isLinkAttack: data.snap?.isLinkAttack ?? false,
-        // 2026-10-16 被动出手原因：render/39 出手帧据此发头顶飘字徽章
+        // 被动出手原因：render/39 出手帧据此发头顶飘字徽章
         linkReason: data.snap?.linkReason ?? null,
-        // 2026-09-24 灭绝师太：出手计数文本（壹/貳/參）与三击吸血量，由 render/39 在她出手演出帧消费
+        // 灭绝师太：出手计数文本（壹/貳/參）与三击吸血量，由 render/39 在她出手演出帧消费
         miejueCountText: data.miejueCountText ?? null,
         miejueLeech: data.miejueLeech ?? 0,
-        // 2026-09-26 胖远桥：两技能演出标记（由 modules/26 写进本击 fact），render/39 出手帧据此发信号
+        // 胖远桥：两技能演出标记（由 modules/26 写进本击 fact），render/39 出手帧据此发信号
         pangTaunt: data.pangTaunt ?? false,
         pangClumsy: data.pangClumsy ?? false,
-        // 2026-10-12 箭靶标记碎裂：本击消费了 🎯 时由 modules/26 写进本击 fact → 命中帧（伤害弹幕之前）播碎裂
+        // 箭靶标记碎裂：本击消费了 🎯 时由 modules/26 写进本击 fact → 命中帧（伤害弹幕之前）播碎裂
         markBurst: data.markBurst ?? false
     };
 
     // 从 attack fact 的 entries 提取 afterText 特效，靠 e.type/e.factType 区分：溅射 / 白骨爪 / 乾坤飘字 / 死亡画笔
     const afterTextEffects = [];
-    const beforeEffects = [];   // 2026-10-05 破防等「攻击前」效果：引擎序在伤害计算前，飘字赶在箭矢/💥 之前
+    const beforeEffects = [];   // 破防等「攻击前」效果：引擎序在伤害计算前，飘字赶在箭矢/💥 之前
     const entries = data.entries || [];
     for (const e of entries) {
         if (!e) continue;
@@ -187,7 +187,7 @@ function makeAttackAction(data, index) {
                 primaryUid: e.primaryUid ?? target?.uid ?? null,
                 splashUids: e.splashUids ?? (e.data?.targets?.map(t => t.uid) ?? []),
                 splashDmg: e.splashDmg ?? null,
-                // 2026-10-02 溅射减防（流星 splashDefReduce，core/04 对每个溅射目标 STAT_CHANGE 已实改）；
+                // 溅射减防（流星 splashDefReduce，core/04 对每个溅射目标 STAT_CHANGE 已实改）；
                 //   buff-splash/乘风等无此字段为 null，render/39 有值才飘「🛡-N」
                 splashDefReduce: e.data?.defReduce ?? null,
                 buffType: e.buffType ?? null,
@@ -204,7 +204,7 @@ function makeAttackAction(data, index) {
                 timing: 'afterText'
             });
         } else if (e.factType === FACT_TYPES.FORTIFY_SHIELD) {
-            // 2026-10-05 坚盾/攻盾飘字（老板 demo 定稿）：与 💥 同拍（本行 afterText，箭矢落点后紧跟）。
+            // 坚盾/攻盾飘字（老板 demo 定稿）：与 💥 同拍（本行 afterText，箭矢落点后紧跟）。
             //   fact 走组内 entries（tryFortify 优先推 group），此前白名单没它 → 只有日志行没有 🛡️ 飘字。
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.STAT_CHANGE,
@@ -221,7 +221,7 @@ function makeAttackAction(data, index) {
                 afterTextEffects.push(healAction);
             }
             // 热血奋战：附一条 nonBlocking 横幅，翻倍时文案不同
-            // 2026-10-19 修「翻倍横幅不提示」：原先读 e.data.isDouble，但 isDouble 并不在声明携带的 factData 里——
+            // 修「翻倍横幅不提示」：原先读 e.data.isDouble，但 isDouble 并不在声明携带的 factData 里——
             //   core/04 把它挂在**声明顶层**，由 core/10 L314 落到 entry 顶层（entry.isDouble），
             //   故 e.data.isDouble 恒为 undefined，横幅永远只出「❤️ 热血奋战」。改读 entry 顶层字段。
             if (e.factType === FACT_TYPES.HOT_BLOOD_HEAL) {
@@ -273,7 +273,7 @@ function makeAttackAction(data, index) {
                 nonBlocking: true
             });
         } else if (e.factType === FACT_TYPES.QIAN_KUN_UPGRADED || e.factType === FACT_TYPES.QIAN_KUN_BASIC) {
-            // 2026-09-16 乾坤大挪移：翻译器永远不会被调用（fact 藏在 attack.data.entries 里，不在 log 顶层），
+            // 乾坤大挪移：翻译器永远不会被调用（fact 藏在 attack.data.entries 里，不在 log 顶层），
             // 飘字只能在这里扫 entries 产出。自伤与反弹各一条。
             const kd = e.data || {};
             if (kd.zhangUid && kd.selfDmg > 0) {
@@ -307,7 +307,7 @@ function makeAttackAction(data, index) {
                 timing: 'afterText'
             });
         } else if (e.factType === FACT_TYPES.BREAK_DEF) {
-            // 2026-10-05 破防改攻击前飘（老板拍板正序：🛡-2 先 → 箭矢+💥 → 坚盾🛡+1）：
+            // 破防改攻击前飘（老板拍板正序：🛡-2 先 → 箭矢+💥 → 坚盾🛡+1）：
             //   引擎里破防在伤害计算**之前**（伤害公式用减过的防），飘字跟随引擎序才不怪；
             //   此前挂 afterText = 破防跑到伤害后面，与坚盾挤同拍。fact 无 uid 但作用对象恒为本击目标，
             //   借 target.uid；本击打死目标不飘（别在尸体格子上跳数字，与 RONG_HUI_BONUS 同口径）。
@@ -323,7 +323,7 @@ function makeAttackAction(data, index) {
                 });
             }
         } else if (e.factType === FACT_TYPES.METEOR_SHOWER_MAIN) {
-            // 2026-10-02 流星赶月 40% 加深：BONUS_DMG 在主伤害之后由 core/16 裁定器单独实扣（不在主攻击 dmg 里），
+            // 流星赶月 40% 加深：BONUS_DMG 在主伤害之后由 core/16 裁定器单独实扣（不在主攻击 dmg 里），
             //   此前只有金色战报行、头顶零飘字。目标恒为本击主目标；本击打死目标时裁定器对死目标不扣血（同 RONG_HUI 口径），故 !dead 才飘。
             const mm = e.data || {};
             const mmUid = mm.targetUid ?? target?.uid ?? null;
@@ -336,7 +336,7 @@ function makeAttackAction(data, index) {
                     timing: 'afterText'
                 });
             }
-            // 2026-10-02 主目标减防（mainDefReduce，core/04 STAT_CHANGE 已实改）：走 STAT_CHANGE(def) 飘「🛡-N」，
+            // 主目标减防（mainDefReduce，core/04 STAT_CHANGE 已实改）：走 STAT_CHANGE(def) 飘「🛡-N」，
             //   与加深同组 afterText；目标已死则减防无意义不飘。减防飘字在头顶镜像位，与掉血数字不重叠。
             if (mmUid && mm.defReduce > 0 && !dead) {
                 afterTextEffects.push({
@@ -349,7 +349,7 @@ function makeAttackAction(data, index) {
                 });
             }
         } else if (e.factType === FACT_TYPES.WIND_ASSAULT_SPLASH || e.factType === FACT_TYPES.METEOR_SHOWER_SPLASH) {
-            // 2026-10-02 胖远桥·莽撞的溅射分支：他被流星/乘风溅射到时同样 +攻（modules/26 在 SPLASH_DAMAGED 把
+            // 胖远桥·莽撞的溅射分支：他被流星/乘风溅射到时同样 +攻（modules/26 在 SPLASH_DAMAGED 把
             //   加攻量与本人 uid 写进本溅射 fact 的 data），与主路径同口径飘「⚔+N」——加攻对象是胖远桥本人（被溅射者）。
             const sp = e.data || {};
             if (sp.pangAtkUid && sp.pangAtkGain > 0) {
@@ -363,7 +363,7 @@ function makeAttackAction(data, index) {
                 });
             }
         } else if (e.factType === FACT_TYPES.RONG_HUI_BONUS) {
-            // 2026-09-27 张无忌融会贯通：这笔额外伤害由 BONUS_DMG 声明在主攻击结算之后单独扣血，
+            // 张无忌融会贯通：这笔额外伤害由 BONUS_DMG 声明在主攻击结算之后单独扣血，
             // 不在主攻击的 dmg 里（主弹幕只有主伤害），此前只有一行文字、一点飘字都没有。
             // targetAlive=false（已被主攻击打死，裁定器不会再扣这笔）时不飘，免得在尸体格子上跳数字。
             const rh = e.data || {};
@@ -380,7 +380,7 @@ function makeAttackAction(data, index) {
         }
     }
 
-    // 2026-10-02 胖远桥·正义国字脸：嘲讽那一下就永久加防（modules/26 在 AFTER_ATTACK 把加防量写进本击 fact），
+    // 胖远桥·正义国字脸：嘲讽那一下就永久加防（modules/26 在 AFTER_ATTACK 把加防量写进本击 fact），
     //   此前只有一行日志文字、无飘字。加防对象是胖远桥自己（= 本击攻击者），走 STAT_CHANGE(def) 通道。
     if (data.pangDefGain > 0 && attacker?.uid) {
         afterTextEffects.push({
@@ -393,7 +393,7 @@ function makeAttackAction(data, index) {
         });
     }
 
-    // 2026-10-02 胖远桥·莽撞（被动：被攻击后攻击永久+N）：modules/26 在 AFTER_DAMAGE_APPLIED 把加攻量写进本击 fact，
+    // 胖远桥·莽撞（被动：被攻击后攻击永久+N）：modules/26 在 AFTER_DAMAGE_APPLIED 把加攻量写进本击 fact，
     //   此前只有金色战报行、头顶零飘字。加攻对象是胖远桥自己（= 本击**目标**，他被打了才涨攻），走 STAT_CHANGE(atk) → fx/80 飘「⚔+N」。
     if (data.pangAtkGain > 0 && target?.uid && !dead) {
         afterTextEffects.push({
@@ -406,7 +406,7 @@ function makeAttackAction(data, index) {
         });
     }
 
-    // 2026-10-16 唐文亮·七伤拳自损掉血弹幕：自损量由 modules/26 写进本击攻击组 data（同 pangTaunt/pangClumsy
+    // 唐文亮·七伤拳自损掉血弹幕：自损量由 modules/26 写进本击攻击组 data（同 pangTaunt/pangClumsy
     //   的组标记口径）。自损恒不致死（引擎侧留 1 血），锚在出手者自己头顶飘 💥-N——此前只有战报行
     if (data.qiShangSelfDmg > 0 && attacker?.uid) {
         afterTextEffects.push({
@@ -418,7 +418,7 @@ function makeAttackAction(data, index) {
         });
     }
 
-    // 2026-10-18 灭绝师太三击吸血：回血飘字改走 HEAL 动作（timing:afterText），与其他角色（九阳/热血/韦一笑/
+    // 灭绝师太三击吸血：回血飘字改走 HEAL 动作（timing:afterText），与其他角色（九阳/热血/韦一笑/
     //   乾坤）完全同一条已验证通道。此前在 render/39 ATTACK.fx 出手帧同步补发 HEAL_FLOAT，紧贴飞撞/闪光
     //   之后，1.2s 的池化小字（z-index 10003）全程被攻击动画与闪光盖住 → 实机看不到 ❤+N。
     if (data.miejueLeech > 0 && attacker?.uid) {
@@ -431,7 +431,7 @@ function makeAttackAction(data, index) {
         });
     }
 
-    // 2026-10-16 唐文亮·七伤齐发（满 7 档）组内横幅：满 7 的横幅文案由 modules/26 写进本击攻击组 data
+    // 唐文亮·七伤齐发（满 7 档）组内横幅：满 7 的横幅文案由 modules/26 写进本击攻击组 data
     //   （qiShangBanner），这里翻成 BANNER 演出、锚本组 factIndex → 与七伤拳那个攻击块同组播放
     if (data.qiShangBanner) {
         afterTextEffects.push({
