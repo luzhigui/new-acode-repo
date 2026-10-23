@@ -128,6 +128,15 @@ export const ROLE_CARDS = [
         ]
     },
     {
+        // 弱精英「空见」：金刚不坏护罩 / 逗你玩升级
+        id: 'kongJian', name: '空见', match: u => !!u.isKongJian,
+        popupMark: '[空见]', logTag: '[空见]',
+        skills: () => [
+            `🛡️ ${getSkillDesc('空见', 'jinGangBuHuai')}`,
+            `🎭 ${getSkillDesc('空见', 'douNiWan')}`
+        ]
+    },
+    {
         // 弱精英「何太冲」：2026-10-11 起用 isHeTaichong 标记；2026-10-12 重做 V3 后技能组换新
         id: 'heTaichong', name: '何太冲', match: u => !!u.isHeTaichong,
         skills: () => [

@@ -158,6 +158,16 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
         if (!decl.targets || decl.targets.length === 0) continue;
         for (const st of decl.targets) {
             if (!st.alive) continue;
+            // 金刚不坏护罩（空见）：吸收一次伤害——不扣血、不发 SPLASH_DAMAGED（被挡=没受伤，不触发"友方受伤"）
+            if (st.state && st.state._immuneShield) {
+                const sh = st.state._immuneShield;
+                st.state._immuneShield = null;
+                if (ctx.log) ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                    unitName: sh.sourceName || '金刚不坏', unitUid: sh.sourceUid || st.uid, camp: st.camp,
+                    skillName: '金刚不坏', note: `🛡️ 金刚不坏：${st.name} 的护罩挡下溅射`
+                } });
+                continue;
+            }
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
             // 审计账本：按 decl.buffType 分组记进 unit._audit.hp
             //   （流星赶月 METEOR_SPLASH / 乘风突袭 WIND_ASSAULT），无 buffType 的其他溅射不进契约、不记账
