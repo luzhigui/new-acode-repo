@@ -1394,10 +1394,18 @@ const CONTRACTS = [
         }
     },
     {
-        // 第 98 轮补：寒离飒九阳神拳治疗（modules/27 L67-75 recordHpAudit(hls,'hlsJiuYangHeal',heal,...)）。
-        //   声明侧：引擎已发 FACT_TYPES.HEAL 事实（L70-74），factData 带 heal / label='九阳神拳回复' / unitUid / unitName
+        // 第 98 轮补：寒离飒九阳神拳治疗（modules/27 L82 recordHpAudit(hls,'hlsJiuYangHeal',heal,...)）。
+        //   声明侧：引擎已发 FACT_TYPES.HEAL 事实（L78-80），factData 带 heal / label='左拳·九阳回复' / unitUid / unitName
         //   —— 与 PANG_HIT_HEAL / HUI_CHUN 同范式（通用 HEAL 通道靠 label 归属），零主代码改动即严格。
         //   dir=+1；heal 截断 Math.min(floor(maxHp*healPct), maxHp-hp)，与 recordHpAudit 同一 heal 局部变量 ⇒ 恒等比对。
+        //
+        //   ⚠ 第 128 轮修（契约绑定键漂移，第 127 轮恒空转白名单的直接根因之一）：
+        //     原绑定键写作 label === '九阳神拳回复'，而主代码实际发的是 '左拳·九阳回复'
+        //     （modules/27elite-mingjiao-hanlisa.js L80）。全库检索 '九阳神拳回复' **零命中**
+        //     ⇒ 声明侧恒 0 ⇒ 严格比对恒 0 ⇒ 「偏差 0」是**没得比**，不是「比过了没偏差」：
+        //     账本 group「hlsJiuYangHeal」的 61 条词条一条都没被盯住，改错也查不出 —— 真·假绿。
+        //     与第 99 轮 NINE_YANG_HEAL 同款（旧专用 FACT 通道过期），本轮改为按主代码实际 label 精确绑定。
+        //     防复发：新增 tests/contract-binding-drift-selftest.mjs 做全契约绑定键存在性核验并计退码。
         id: 'HLS_JIUYANG_HEAL',
         label: '寒离飒九阳神拳治疗',
         group: 'hlsJiuYangHeal',
@@ -1407,7 +1415,7 @@ const CONTRACTS = [
             const scan = (f) => {
                 if (!f || !f.data || f.factType !== FACT_TYPES.HEAL) return;
                 const d = f.data;
-                if (d.label !== '九阳神拳回复') return;
+                if (d.label !== '左拳·九阳回复') return;
                 if (typeof d.heal !== 'number' || d.heal <= 0) return;
                 if (d.unitUid == null) return;
                 out.push({ unit: d.unitName || null, uid: d.unitUid, stat: 'hp', amount: d.heal });

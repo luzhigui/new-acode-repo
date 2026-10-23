@@ -1,3 +1,9 @@
+// V1.5.0 | 2026-10-24 第 128 轮：CHECKS 新增「契约绑定键漂移自检」（tests/contract-binding-drift-selftest.mjs，
+//   第 11 项，计退码）。由来：第 127 轮把「恒空转契约 2 条」定性为"样本未覆盖"、立待办等拍板；
+//   本轮取证发现其中一条（HLS_JIUYANG_HEAL）是**契约绑定键过期**——绑的 label 在主代码里零命中，
+//   属真·假绿（与第 99 轮 NINE_YANG_HEAL 同款）⇒ 已按实际 label 重绑并修复。
+//   为防这类别再次复发，新增本项：静态扫出每条契约靠哪些字面量认领声明，逐个到主代码全库核存在性，
+//   再运行时核对契约绑定的账本 group 真的有词条 ⇒ 任一"接线松了"即转红。
 // V1.4.0 | 2026-10-24 第 127 轮：CHECKS 新增「对照器守卫自检」（tests/contract-guard-selftest.mjs，第 10 项，计退码）
 // tests/run-all.mjs | ~4100 bytes | V1.3.0 | 2026-10-22 CHECKS 新增「蓄意轰拳数值口径对账」
 //   （tests/hit-shapes-consistency.mjs，新检查，放在静态契约一致性之后——秒级、纯静态对账）
@@ -16,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.4.0';
+export const VER = 'tests/run-all.mjs V1.5.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -38,6 +44,11 @@ const CHECKS = [
     //   却一直没配离线自检（第 125 轮立的通规：白名单型判据都是回放盲区，须逐个补自检）。
     //   自检五条：契约表可解析 / 干净树零命中 / 恒空转契约棘轮 / 牙→契约归属表存在 / 守卫非死契约。
     { name: '对照器守卫自检(离线断言)', script: 'tests/contract-guard-selftest.mjs', args: [] },
+    // V1.5.0 | 2026-10-24 第 128 轮：挂「契约绑定键漂移自检」tests/contract-binding-drift-selftest.mjs。
+    //   盯的是"契约跟主代码之间的接线"：绑定键字面量在主代码全库是否存在（防契约过期）、
+    //   FACT_TYPES 引用是否仍在枚举里、契约绑定的账本 group 是否在标准样本里真的有词条。
+    //   本轮就是靠这条口径挖出 HLS_JIUYANG_HEAL 的真·假绿（旧键零命中）。
+    { name: '契约绑定键漂移自检(离线断言)', script: 'tests/contract-binding-drift-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }
