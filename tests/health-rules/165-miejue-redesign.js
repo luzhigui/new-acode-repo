@@ -12,9 +12,11 @@
 // 复活信号：
 //   1) SUMMON_UNIT fact byName==='灭绝师太'：pos 必须在 1~9；summonName 必须含「周芷若」→ 召唤越界/对象错
 //   2) 反击渲染「伤害×R」：R 必须 == counterAttack.dmgRatio（全角括号，保留小数位比对）
-//   3) 三击渲染「回复本次伤害P%」：P 必须 == thirdStrike.leechRatio*100；K 必须 >=0（吸血封顶缺口，非负）
+//   3) 三击渲染「回复 K 点，生命 H1 → H2」：K==H2-H1（落地值自洽）+ K>=0；leechRatio 公式值(fact声明侧)交由 stat-decl LEECH 契约验
+// V1.1.0 | 2026-10-23 判据3 落地值化：三击文案经 5de0846 refactor 改格式，旧 regex「回复本次伤害P%=K」恒不匹配⇒空转；
+//   改匹配新格式「回复 K 点[（治疗被削减）]，生命 H1 → H2」并验 K==H2-H1 自洽。修 rule165 三击盲区。
 // 误报规避：本场灭绝未出场（无 SUMMON_UNIT fact 且无相关渲染文案）直接 skip；getSkillParams 取不到跳过对应判据。
-export const VER = 'tests/health-rules/165-miejue-redesign.js V1.0.0';
+export const VER = 'tests/health-rules/165-miejue-redesign.js V1.1.0';
 import { getSkillParams } from '../../core/01config-5v5-test.js';
 import { plain } from '../122health-utils.js';
 import { FACT_TYPES } from '../../infra/56-battle-enums.js';
@@ -68,17 +70,22 @@ export const rule112 = {
         }
 
         if (third && third.leechRatio != null) {
-            const gr = /🩸 灭绝三击：第 \d+ 次出手，回复本次伤害([0-9.]+)%=([0-9]+)/g;
+            // 2026-10-23 落地值口径：三击吸血文案经 5de0846 refactor 改为「回复 {实际落地值} 点，
+            //   生命 H1 → H2」（旧「回复本次伤害P%=K」格式已不存在，旧 regex 恒不匹配 ⇒ 判据3 空转）。
+            //   leechRatio 公式值(fact 声明侧)交由 stat-decl 的 LEECH 契约验；本判据改验落地值自洽：
+            //   K==H2-H1 + K>=0 + 整数(K 由 \d+ 保证)。
+            const gr = /🩸 灭绝三击：第 \d+ 次出手，回复 (\d+) 点(?:（治疗被削减）)?，生命 (\d+) → (\d+)/g;
             let gm;
             while ((gm = gr.exec(logText)) !== null) {
                 triggered = true;
-                const p = parseFloat(gm[1]);
-                const k = parseInt(gm[2], 10);
-                if (!(p >= 0) || Math.abs(p - third.leechRatio * 100) > 1e-6) {
-                    return { fail: true, msg: '灭绝三击吸血比例渲染=' + p + '% 与配置 thirdStrike.leechRatio*100=' + (third.leechRatio * 100) + '% 不符' };
-                }
+                const k = parseInt(gm[1], 10);
+                const h1 = parseInt(gm[2], 10);
+                const h2 = parseInt(gm[3], 10);
                 if (!(k >= 0)) {
                     return { fail: true, msg: '灭绝三击回血量 K=' + k + ' 非负校验失败' };
+                }
+                if (Math.abs(h2 - (h1 + k)) > 1) {
+                    return { fail: true, msg: '灭绝三击回复 ' + k + ' 与血线 ' + h1 + '→' + h2 + ' 不一致（回血没写进血量）' };
                 }
             }
         }
