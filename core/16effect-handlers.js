@@ -1,5 +1,5 @@
 // V6.1.3 | 2026-10-21 | ~16900 bytes
-export const VER = 'core/16effect-handlers.js V6.1.3';
+export const VER = 'core/16effect-handlers.js V6.2.0';   // V6.2.0 溅射破罩 SKILL_ANNOUNCE 捎带 shieldBreak/shieldTargetUid（碎裂演出通道）
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './13battle-shared.js';
@@ -164,7 +164,9 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
                 st.state._immuneShield = null;
                 if (ctx.log) ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                     unitName: sh.sourceName || '金刚不坏', unitUid: sh.sourceUid || st.uid, camp: st.camp,
-                    skillName: '金刚不坏', note: `🛡️ 金刚不坏：${st.name} 的护罩挡下溅射`
+                    skillName: '金刚不坏', note: `🛡️ 金刚不坏：${st.name} 的护罩挡下溅射`,
+                    // 溅射不经 BEFORE_DAMAGE_APPLY，产生不了 IMMUNE fact，靠这里捎带 shieldBreak 补碎裂演出
+                    shieldBreak: true, shieldTargetUid: st.uid
                 } });
                 continue;
             }

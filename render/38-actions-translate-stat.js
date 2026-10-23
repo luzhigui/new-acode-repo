@@ -1,7 +1,7 @@
 // render/38-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
 // V1.0.3 | 2026-10-22 | ~10000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-stat.js V1.0.3';
+export const VER = 'render/38-actions-translate-stat.js V1.1.0';   // V1.1.0 SKILL_ANNOUNCE 识别 shieldBreak → IMMUNE 动作（溅射破罩碎裂）
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -204,6 +204,18 @@ function translateSkillAnnounce(data, index) {
         const acts = [{ kind: STAGE_ACTION_TYPES.RESTORE_ACTED, actorUid: data.floatUid, factIndex: index, timing: 'afterText' }];
         if (data.floatText) acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
         return acts;
+    }
+    // 金刚不坏护罩被溅射打破：产出 IMMUNE 动作，splashBreak 标记让 render/39 只播碎裂不播飞撞
+    if (data.shieldBreak && data.shieldTargetUid != null) {
+        return {
+            kind: STAGE_ACTION_TYPES.IMMUNE,
+            actorUid: null,
+            targetUid: data.shieldTargetUid,
+            reason: '金刚不坏',
+            splashBreak: true,
+            factIndex: index,
+            timing: 'afterText'
+        };
     }
     if (!data.floatText || data.floatUid == null) return null;
     return {

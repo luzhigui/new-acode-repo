@@ -2,7 +2,7 @@
 // V7.0.3 | 2026-10-22 | ~28500 bytes
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-export const VER = 'render/32-grid-render.js V7.1.0';   // V7.1.0 金刚不坏护罩：格子 has-immune-shield class + 🔔 logo 占位
+export const VER = 'render/32-grid-render.js V7.1.1';   // V7.1.1 死亡格不画罩子（毒/反伤死时不外罩金圈）
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
@@ -246,7 +246,8 @@ export function renderGrid(id, camp) {
         resetCell(div);
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
         // 金刚不坏护罩：淡金罩子由 CSS 伪元素画，随格子重绘自动跟随（state 清空即消失）
-        if (unit.state && unit.state._immuneShield) div.classList.add('has-immune-shield');
+        // 死亡格不画罩子：毒/反伤/自损不走免疫分支，护罩没被消耗人却死了——红底✕外罩金圈很怪
+        if (unit.state && unit.state._immuneShield && !isDead) div.classList.add('has-immune-shield');
         // 消费抖动：只播动画、不续 deadline（等价原内联 runGridShake(div, shakeRemain)）；
         //   若改用 markGridShake 会每帧续 deadline → 抖动在连续 store 重绘下永不停
         if (shakeRemain > 0) applyGridShake(div, shakeRemain);
