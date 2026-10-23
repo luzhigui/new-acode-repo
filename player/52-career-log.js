@@ -5,6 +5,7 @@
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
 import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
 
 export const VER = 'player/52-career-log.js V1.0.0';
 
@@ -145,6 +146,7 @@ export function getCareerInsights() {
     const winRate = Math.round(wins / total * 100);
     const avgRounds = Math.round(arr.reduce((s, r) => s + (r.rounds || 0), 0) / total * 10) / 10;
 
+    // 各关胜率：门槛降到 1 局，卡片上标局数，让读者自己判断可信度
     const byStage = {};
     for (const r of arr) {
         const s = r.stage || 0;
@@ -152,12 +154,11 @@ export function getCareerInsights() {
         byStage[s].n++;
         if (r.winner === '明教') byStage[s].w++;
     }
-    const stages = Object.entries(byStage)
-        .map(([s, v]) => ({ stage: +s, n: v.n, rate: v.w / v.n }))
-        .filter(s => s.n >= 3);
+    const stages = Object.entries(byStage).map(([s, v]) => ({ stage: +s, n: v.n, rate: v.w / v.n }));
     const hardest = stages.slice().sort((a, b) => a.rate - b.rate)[0] || null;
     const easiest = stages.slice().sort((a, b) => b.rate - a.rate)[0] || null;
 
+    // 主力英雄：明教侧出场次数最多
     const appear = {}, heroWins = {};
     for (const r of arr) {
         const seen = new Set();
@@ -170,12 +171,56 @@ export function getCareerInsights() {
     }
     const topEntry = Object.entries(appear).sort((a, b) => b[1] - a[1])[0];
 
+    // 单局最高输出：跨所有局、双方所有单位取最大 dmgDealt
+    let bestHit = null;
+    for (const r of arr) {
+        const all = (r.ally || []).concat(r.enemy || []);
+        for (const u of all) {
+            const d = u.dmgDealt || 0;
+            if (!bestHit || d > bestHit.dmg) bestHit = { name: u.name, dmg: Math.round(d), stage: r.stage };
+        }
+    }
+
+    // 海克斯胜率：只统计出场 >=2 次的，避免单局噪声
+    const hexStat = {};
+    for (const r of arr) {
+        for (const k of (r.hex || [])) {
+            if (!hexStat[k]) hexStat[k] = { n: 0, w: 0 };
+            hexStat[k].n++;
+            if (r.winner === '明教') hexStat[k].w++;
+        }
+    }
+    const hexTopEntry = Object.entries(hexStat)
+        .filter(([, v]) => v.n >= 2)
+        .sort((a, b) => (b[1].w / b[1].n) - (a[1].w / a[1].n))[0];
+    let hexTop = null;
+    if (hexTopEntry) {
+        const k = hexTopEntry[0], v = hexTopEntry[1];
+        let name = k;
+        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || k; } catch (e) {}
+        hexTop = { key: k, name, rate: Math.round(v.w / v.n * 100), n: v.n };
+    }
+
+    // 最近 10 局战绩（时间正序，老的在前）
+    const recent = arr.slice(-10).map(r => r.winner || '平局');
+
+    // 一句话总结（纯规则，不打分）
+    let summaryLine = '';
+    if (total < 5) summaryLine = '样本太少（' + total + ' 局），仅供参考。';
+    else if (winRate >= 80) summaryLine = '明教 ' + winRate + '% 胜率，阵容强势。';
+    else if (winRate <= 30) summaryLine = '明教 ' + winRate + '% 胜率，明显吃力。';
+    if (avgRounds > 0) {
+        const pace = avgRounds < 8 ? '速推型对局' : (avgRounds > 15 ? '鏖战居多' : '节奏正常');
+        summaryLine += (summaryLine ? ' ' : '') + '平均 ' + avgRounds + ' 回合，' + pace + '。';
+    }
+
     return {
         total, wins, winRate, avgRounds,
         hardest: hardest ? { stage: hardest.stage, rate: Math.round(hardest.rate * 100), n: hardest.n } : null,
         easiest: easiest ? { stage: easiest.stage, rate: Math.round(easiest.rate * 100), n: easiest.n } : null,
         topHero: topEntry
             ? { name: topEntry[0], games: topEntry[1], rate: Math.round((heroWins[topEntry[0]] || 0) / topEntry[1] * 100) }
-            : null
+            : null,
+        bestHit, hexTop, recent, summaryLine
     };
 }
