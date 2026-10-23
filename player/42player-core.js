@@ -18,6 +18,7 @@ import { buildBattleReportData, computeVoteResult, grantClearRewards } from './4
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
+import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from './52-career-log.js';
 import { speakVictory } from '../modules/31voice-commentary.js';
 
 import { readRound, setupDeathTimers } from './42player-step-sync.js';
@@ -113,6 +114,8 @@ export async function playBattle() {
     // schema 约定：单位为 clone() 快照（state 字段走 core/17 V2 schema）；快照结构体带 version 便于未来演进
     const SNAPSHOT_VERSION = 1;
     const roundHistory = [];
+    // 生涯记录：只累计每回合伤害/击杀摘要，不存快照（localStorage 容量有限）
+    const careerRounds = [];
 
     // 战报导出：开一条录制（单机/房主同路；从机在 playBattleGuest 单独喂）
     startBattleRecording({ stage: GlobalStore.get('currentStage'), mode: netLinked ? 'pvp-host' : 'single', seed: c.snapshot._rngSeed });
@@ -169,6 +172,8 @@ export async function playBattle() {
                 ...(b.rows ? { rows: [...b.rows] } : {})
             }))
         });
+        // 生涯记录：本回合伤害/击杀摘要（纯读 step.log）
+        careerRounds.push(summarizeRoundStep(lastStep, battleState.round));
 
         // 跨回合必须带上同一颗 _rng：漏带会让 11 兜底用 Date.now() 重新播种，
         // 从第 2 回合起同种子不可复现（与 06 批量路径「同一 rng 同序列」口径对齐）
@@ -188,6 +193,7 @@ export async function playBattle() {
         }
     }
 
+    c._careerRounds = careerRounds;
     await finishBattle(c, finalStep, finalWinner, roundHistory);
 }
 
@@ -240,6 +246,24 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
         renderVictoryLine('<span class="gray">🤝 平局！积分不变</span><br>');
         autoScrollLog();
     }
+
+    // 生涯记录：只对单机/房主（有 _careerRounds）写一条摘要；回放/从机跳过
+    try {
+        if (c._careerRounds && c._careerRounds.length > 0) {
+            const rec = buildCareerRecord({
+                stage: GlobalStore.get('currentStage'),
+                mode: GlobalStore.get('pvpMode') ? 'pvp' : 'single',
+                seed: c.snapshot ? c.snapshot._rngSeed : null,
+                winner: finalWinner,
+                rounds: roundHistory.length,
+                hexKeys: (c.activeBuffs || []).map(b => b.key),
+                report: c.battleResultForInfo || (finalStep ? { ally: finalStep.ally, enemy: finalStep.enemy } : null),
+                roundSummary: c._careerRounds
+            });
+            appendCareerRecord(rec);
+        }
+    } catch (e) { /* 生涯记录失败不影响结算 */ }
+    c._careerRounds = null;
 
     let mainCtx = getPlayerContext();
     if (mainCtx && mainCtx.activeBuffs) mainCtx.activeBuffs = [];

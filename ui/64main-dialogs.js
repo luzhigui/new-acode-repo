@@ -11,7 +11,7 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/50battle-export.js';
-import { flattenBattleLogToText, renderLogAnalysisInto } from '../player/51-battle-log-analyze.js';
+import { injectLogAnalyzeStyle, analyzeBattleFacts } from '../player/51-battle-log-analyze.js';
 import { buildVoiceControls } from './73voice-panel.js';
 
 // 战报弹窗
@@ -148,22 +148,38 @@ export function showBattleReport(battleResultForInfo) {
         analysisShown = !analysisShown;
         if (analysisShown) {
             if (!analysisRendered) {
-                const logText = flattenBattleLogToText(GlobalStore.get('battleLog'));
-                renderLogAnalysisInto(analysisDiv, logText);
+                injectLogAnalyzeStyle();
+                const facts = GlobalStore.get('battleFacts') || [];
+                const r = analyzeBattleFacts(facts, { winner });
+                analysisDiv.innerHTML = `<div class="hex-log-summary" style="display:flex">${r.summaryHtml}</div>` + r.bodyHtml;
                 analysisRendered = true;
             }
             tableDiv.style.display = 'none';
             sortBtnDiv.style.display = 'none';
             analysisDiv.style.display = 'block';
             analyzeBtn.textContent = '↩️ 返回数据表';
+            copyAnalysisBtn.style.display = '';
         } else {
             tableDiv.style.display = 'block';
             sortBtnDiv.style.display = 'flex';
             analysisDiv.style.display = 'none';
             analyzeBtn.textContent = '📊 走势分析';
+            copyAnalysisBtn.style.display = 'none';
         }
     };
     btnDiv.appendChild(analyzeBtn);
+
+    let copyAnalysisBtn = document.createElement('button');
+    copyAnalysisBtn.textContent = '📋 复制分析';
+    copyAnalysisBtn.style.cssText = 'background:#37474f;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;display:none;';
+    copyAnalysisBtn.onclick = () => {
+        const text = analysisDiv.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            copyAnalysisBtn.textContent = '✅ 已复制';
+            setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
+        }).catch(() => alert('复制失败，请手动选择文本'));
+    };
+    btnDiv.appendChild(copyAnalysisBtn);
 
     let copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 复制战报';
@@ -182,45 +198,7 @@ export function showBattleReport(battleResultForInfo) {
     };
     btnDiv.appendChild(copyBtn);
     
-    let exportBtn = document.createElement('button');
-    exportBtn.textContent = '📤 导出 JSON';
-    exportBtn.style.cssText = 'background:#1565c0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
-    exportBtn.onclick = () => {
-        const header = '阵营,名称,角色,输出,承伤,治疗,闪避,暴击,存活回合,状态';
-        const rows = [];
-        ally.forEach(u => {
-            rows.push(`明教,${u.name},${u.role},${Math.round(u.dmgDealt||0)},${Math.round(u.dmgTaken||0)},${Math.round(u.healDone||0)},${Math.round(u.dodgeCount||0)},${Math.round(u.critCount||0)},${Math.round(u.survivedRounds||0)},${u.alive?'存活':'阵亡'}`);
-        });
-        enemy.forEach(u => {
-            rows.push(`六大派,${u.name},${u.role},${Math.round(u.dmgDealt||0)},${Math.round(u.dmgTaken||0)},${Math.round(u.healDone||0)},${Math.round(u.dodgeCount||0)},${Math.round(u.critCount||0)},${Math.round(u.survivedRounds||0)},${u.alive?'存活':'阵亡'}`);
-        });
-        const csv = header + '\n' + rows.join('\n');
-        const name = 'battle_report_' + Date.now() + '.csv';
-        // 自定义下载弹窗
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
-        const dialog = document.createElement('div');
-        dialog.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:90vw;max-height:85vh;display:flex;flex-direction:column;min-width:300px;';
-        dialog.innerHTML = '<div style="color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:12px;">📥 ' + name + '</div>' +
-          '<textarea readonly style="flex:1;min-height:150px;max-height:50vh;background:#0d0d1a;color:#ccc;border:1px solid #444;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical;">' + csv + '</textarea>' +
-          '<div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;">' +
-          '<button id="_csvCopyBtn" style="background:#4caf50;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">📋 复制内容</button>' +
-          '<button id="_csvCloseBtn" style="background:#666;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button></div>';
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-        dialog.querySelector('#_csvCopyBtn').onclick = () => {
-            navigator.clipboard.writeText(csv).then(() => {
-                dialog.querySelector('#_csvCopyBtn').textContent = '✅ 已复制！';
-            }).catch(() => {
-                dialog.querySelector('textarea').select();
-                document.execCommand('copy');
-                dialog.querySelector('#_csvCopyBtn').textContent = '✅ 已复制！';
-            });
-        };
-        dialog.querySelector('#_csvCloseBtn').onclick = () => { if (overlay.parentNode) overlay.remove(); };
-        overlay.onclick = (e) => { if (e.target === overlay && overlay.parentNode) overlay.remove(); };
-    };
-    btnDiv.appendChild(exportBtn);
+
     
 
     let closeBtn = document.createElement('button');
