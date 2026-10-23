@@ -25,6 +25,10 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     const actions = step.stageActions || [];
     const log = step.log || [];
 
+    // 原始 fact 累积：供 ui/64 的走势分析直接消费（不经渲染层反推）
+    const _bf = GlobalStore.get('battleFacts');
+    if (Array.isArray(_bf)) { for (const _e of log) _bf.push(_e); }
+
     // 回合数写入唯一账本（battleStore），渲染层经 readRound 现取
     const roundEntry = log.find(e => e && e.factType === 'roundStart');
     if (roundEntry && roundEntry.data && roundEntry.data.round) setRound(c, roundEntry.data.round);

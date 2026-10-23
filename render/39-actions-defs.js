@@ -7,10 +7,12 @@ import { clock } from '../infra/52-clock.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+// markGridShake 从它的真身模块直取（不走 32-grid-render 全链，避开 37/90 依赖链——任务书坑1的稳妥解）
+import { markGridShake } from './32grid-cells.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.5.7';
+export const VER = 'render/39-actions-defs.js V1.7.2';   // V1.7.2 IMMUNE 破罩演出改不 await 并行加载（真机首载阻塞实锤）
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -407,7 +409,41 @@ export const STAGE_ACTION_DEFS = {
             }
         }
     },
-    [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.IMMUNE]: {
+        grid: 'none', log: 'sync',
+        // 函数式：动作自带 timing 优先（溅射破罩要 afterText，跟箭雨同步）；不带的维持 beforeText 原行为
+        timing: (action) => (action && action.timing) || 'beforeText',
+        fx: async (c, action) => {
+            if (GlobalStore.get('fastForwardActive')) return;
+            // 金刚不坏：飞撞照常，撞上瞬间罩子碎裂（不飘伤害、不闪红——免疫分支本就走不到受击特效）
+            if (action.reason && action.reason.indexOf('金刚不坏') >= 0) {
+                const target = findUnitByUidLocal(c, action.targetUid);
+                if (!target) return;
+                // 真机实锤（2026-10-23 手机端）：首次 await import 在慢网络下阻塞播放主循环——「卡一下才继续」。
+                //   所以这里一律不 await：双模块并行加载，加载完再播；首载期间碎裂晚一拍可接受，卡场不可接受
+                if (action.splashBreak) {
+                    // 溅射破罩：箭雨演出已由 fx/81 播完（同组 afterText），只补碎裂不叠飞撞
+                    import('../fx/95-immune-shield-break.js').then((m) => {
+                        m.showImmuneShieldBreak(target);
+                        markGridShake(target.uid, 160);
+                    }).catch(() => {});
+                    return;
+                }
+                const attacker = findUnitByUidLocal(c, action.actorUid);
+                if (!attacker) return;
+                Promise.all([
+                    import('../fx/82fx-crash-5v5-test.js'),
+                    import('../fx/95-immune-shield-break.js')
+                ]).then(([crash, shield]) => {
+                    crash.showMeleeCrash(attacker, target, () => {
+                        shield.showImmuneShieldBreak(target);
+                        markGridShake(target.uid, 160);
+                    });
+                }).catch(() => {});
+            }
+            // 飞天（flyData）走 core/10 原有分支：文本由 render/34 的 SPIDER_FLY 渲染，特效由飞行态 stageAction 负责
+        }
+    },
     [STAGE_ACTION_TYPES.STAT_CHANGE]: {
         grid: 'sync', log: 'sync',
         // 函数式：action 可自带 timing 覆盖（破防=beforeText，赶在箭矢/💥 前）；不带的维持 afterText 原行为
@@ -554,25 +590,36 @@ export const STAGE_ACTION_DEFS = {
             if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
         }
     },
-    // 唐文亮冲刺：纯装饰演出（引擎侧位置已由 doDash 改好，这里不碰数据、不 dispatch POS_CHANGE）
+    // 唐文亮冲刺：纯装饰演出（引擎侧位置已由 doDash 经 moveUnitPosition 落定，POS_CHANGE/STATE_CHANGE
+    //   事件走 core/13 既有链，这里不碰位置数据）。多人版：遍历 moves 全部 uid 设/清 fly。
     [STAGE_ACTION_TYPES.DASH]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
-        // 演出期间原格隐形（同 fx/82 冲撞口径），否则格子先瞬移到终点、克隆体再飞一遍
+        // 演出期间终点格隐形（同 fx/82 冲撞口径），否则格子已瞬移到终点、克隆体再飞一遍
         store: (c, action) => {
             if (!c.store || !action.dash) return;
-            const ids = [action.dash.fromUid, action.dash.targetUid].filter(x => x != null);
-            for (const uid of ids) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: 'fly' });
+            const ids = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
+                ? action.dash.moves.map(m => m.uid)
+                : [action.dash.fromUid, action.dash.targetUid];
+            for (const uid of ids) if (uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: 'fly' });
         },
         storeAfter: (c, action) => {
             if (!c.store || !action.dash) return;
-            const ids = [action.dash.fromUid, action.dash.targetUid].filter(x => x != null);
-            for (const uid of ids) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: null });
+            const ids = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
+                ? action.dash.moves.map(m => m.uid)
+                : [action.dash.fromUid, action.dash.targetUid];
+            for (const uid of ids) if (uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: null });
+            // 交棒顺序（fx/82 口径）：先清 fly 让真格子显出来（在克隆体下面），克隆体随后才淡出——
+            //   顺序反了会出现「旧格闪回一帧」
+            if (action._dashGhosts && action._dashGhosts.length > 0) {
+                import('../fx/94-tangwenliang-dash.js').then(m => m.fadeOutDashGhosts(action._dashGhosts)).catch(() => {});
+            }
         },
         fx: async (c, action) => {
             if (GlobalStore.get('fastForwardActive')) return;
             if (!action.dash) return;
-            const { showTangWenLiangDash } = await import('../fx/94-tangwenliang-dash.js');
-            await showTangWenLiangDash(action.dash);
+            const fx94 = await import('../fx/94-tangwenliang-dash.js');
+            // 克隆体引用交给 storeAfter：落定 → storeAfter 清 fly 显格 → 克隆体才淡出
+            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash);
         }
     },
     [STAGE_ACTION_TYPES.HANLISA_BURST]: {

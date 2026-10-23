@@ -1,3 +1,6 @@
+// V6.1.20 | 2026-10-23 修 checkBuffIcons 阵营误报：未按 buff.target 过滤，敌方「热血奋战」等全队 Buff
+//          让 5 个己方单位被误报缺 ❤️（渲染侧 render/32 只给本阵营画图标）。现对齐渲染口径，
+//          只保留 target === ALLY 或历史无 target 的 Buff。
 // V6.1.19 | ~41800 bytes | 2026-10-09 新增 checkSpeedButtonStates（倍速按钮高亮一致性）：当前倍速必须落在「可见且高亮」的按钮上——
 //          非调试模式下 8x/4x 组 display:none，speed=300 时 ui/68 把 active 加在隐藏按钮上，界面「当前倍速」全灭且无报错
 //          （121 默认 4 倍速实测）；可见性按内联 display:none 祖先链判，不依赖 offsetParent（体检切报告视图时 iframe 整体隐藏会全量假红）。
@@ -21,7 +24,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.19';
+export const VER = 'tests/122health-utils.js V6.1.20';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -253,7 +256,9 @@ const _missingBuffIconSince = {};
 export function checkBuffIcons(ctx, doc, liveAlly) {
     const issues = [];
     const allyTeam = (liveAlly && liveAlly.length) ? liveAlly : ((ctx.UI && ctx.UI.allyTeam) || []);
-    const activeBuffs = ctx.activeBuffs || [];
+    // V6.1.20 阵营过滤（对齐 render/32-grid-render L267-272）：渲染只给「target === 本阵营 或 无 target（历史）」
+    //   的 Buff 画图标。体检原先不过滤，敌方阵营的热血奋战等全队 Buff 会让 5 个己方单位被误报缺 ❤️。
+    const activeBuffs = (ctx.activeBuffs || []).filter(b => !b.target || b.target === CAMP_TYPES.ALLY);
     const doubleStrikeUid = ctx.currentDoubleStrikeUid;
 
     const BUFF_ICONS = {

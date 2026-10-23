@@ -49,6 +49,8 @@ export const HERO_FLAGS = Object.freeze({
     // 何太冲（弱精英、无组件）：补身份标记，render/32、名片表不再比名字。
     //   他是六大派身份，不在 MING_M 池内，进这张表不影响 modules/29 的明教候选池过滤
     '何太冲': 'isHeTaichong',
+    // 空见（弱精英·少林防战）：金刚不坏护罩，modules/26elite-sixsects-kongjian.js
+    '空见': 'isKongJian',
     // 谢逊的三只狮子：统一打 isXieXunLion，便于识别同一家族；形态各自另打标记（母狮/雄狮/幼狮）
     '雄狮': 'isXieXunLion',
     '幼狮': 'isXieXunLion',

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V6.3.18 | 2026-10-22 修「👊 寒离飒」按钮必崩：她已升强精英（29 V7.6.0 并入 eliteConfigs、弱精英池无此人），
      旧写法 _forceWeakElite='寒离飒' 会撞 29 的入池校验抛错；改走 29 V7.6.1 新增的 _forceHanLiSa，
      并在 clearDemoFlags 里同步清除。配套 ui/60 一次性消费该标志。
@@ -98,12 +98,14 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                 </div>
                 <div style="display:flex;gap:0;margin-bottom:10px;">
                     <button class="big-btn btn-play" id="btnYinTianZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #8d6e63, #3e2723);">🦅 殷天正</button>
-                    <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
+                    <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
+                    <button class="big-btn btn-play" id="btnKongJian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
                 </div>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
+                <button class="big-btn btn-tool" id="btnCareerLog">📊 生涯记录</button>
             </div>
         </div>
 
@@ -172,6 +174,89 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         document.getElementById('btnTools').addEventListener('click', () => {
             window.location.href = 'tools/102-toolkit.html';
         });
+        // 生涯记录：读本地累积的单局摘要，导出 Markdown（可直接喂 AI 分析）
+        document.getElementById('btnCareerLog').addEventListener('click', async () => {
+            let md = null, count = 0;
+            try {
+                const m = await import('./player/52-career-log.js');
+                count = m.getCareerRecords().length;
+                md = m.exportCareerMarkdown();
+            } catch (e) {
+                alert('读取生涯记录失败：' + (e && e.message ? e.message : e));
+                return;
+            }
+            if (!md) { alert('还没有生涯记录，先打几局'); return; }
+            showCareerDialog(md, count);
+        });
+
+        function showCareerDialog(text, count) {
+            const old = document.getElementById('careerLogOverlay');
+            if (old) old.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'careerLogOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+            const box = document.createElement('div');
+            box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:14px;width:min(760px,94vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;';
+            const title = document.createElement('div');
+            title.textContent = '📊 生涯记录（' + count + ' 局）';
+            title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:15px;';
+            // 统计卡片（读已有记录算，不新增存储）
+            (async () => {
+                try {
+                    const m = await import('./player/52-career-log.js');
+                    const ins = m.getCareerInsights();
+                    if (!ins) return;
+                    const cards = document.createElement('div');
+                    cards.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+                    const mk = (v, l) => `<div style="flex:1;min-width:84px;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:7px 4px;text-align:center;"><div style="font-size:17px;font-weight:bold;color:#ffd700;">${v}</div><div style="font-size:10px;color:#888;margin-top:2px;">${l}</div></div>`;
+                    let html = mk(ins.total, '总场次') + mk(ins.winRate + '%', '明教胜率') + mk(ins.avgRounds, '平均回合');
+                    if (ins.hardest) html += mk(ins.hardest.rate + '%', '最难 s' + ins.hardest.stage + '(' + ins.hardest.n + '局)');
+                    if (ins.easiest) html += mk(ins.easiest.rate + '%', '最易 s' + ins.easiest.stage + '(' + ins.easiest.n + '局)');
+                    if (ins.topHero) html += mk(ins.topHero.rate + '%', '主力 ' + ins.topHero.name);
+                    cards.innerHTML = html;
+                    box.insertBefore(cards, box.querySelector('textarea'));
+                } catch (e) { /* 统计失败不影响文本导出 */ }
+            })();
+
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'flex:1;min-height:46vh;width:100%;box-sizing:border-box;background:#0f0f1a;color:#d8d8d8;border:1px solid #444;border-radius:8px;padding:10px;font-size:11px;font-family:monospace;line-height:1.5;resize:vertical;';
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;';
+            const mkBtn = (label, bg, fn) => {
+                const b = document.createElement('button');
+                b.textContent = label;
+                b.style.cssText = 'background:' + bg + ';color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;';
+                b.onclick = fn;
+                return b;
+            };
+            row.appendChild(mkBtn('📋 复制全文', '#4caf50', async () => {
+                try { await navigator.clipboard.writeText(text); alert('已复制'); }
+                catch (e) { ta.select(); document.execCommand('copy'); alert('已复制'); }
+            }));
+            row.appendChild(mkBtn('💾 下载 .md', '#1565c0', () => {
+                const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = '生涯记录-' + new Date().toISOString().slice(0, 10) + '.md';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            }));
+            row.appendChild(mkBtn('🗑 清空', '#7f8c8d', async () => {
+                if (!confirm('清空全部 ' + count + ' 局生涯记录？不可恢复。')) return;
+                try {
+                    const m = await import('./player/52-career-log.js');
+                    m.clearCareerRecords();
+                } catch (e) {}
+                overlay.remove();
+                alert('已清空');
+            }));
+            row.appendChild(mkBtn('关闭', '#555', () => overlay.remove()));
+            box.appendChild(title); box.appendChild(ta); box.appendChild(row);
+            overlay.appendChild(box);
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            document.body.appendChild(overlay);
+        }
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
         function clearDemoFlags() {
@@ -211,6 +296,12 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         document.getElementById('btnTangWenLiang').addEventListener('click', () => {
             clearDemoFlags();
             localStorage.setItem('_forceWeakElite', '唐文亮');
+            localStorage.removeItem('_bugMode');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnKongJian').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceWeakElite', '空见');
             localStorage.removeItem('_bugMode');
             window.location.href = 'index.html';
         });

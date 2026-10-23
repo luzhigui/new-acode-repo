@@ -1,7 +1,7 @@
 // render/38-actions-translate-control.js — fact → stageAction 翻译器·控制位移族（38 拆分）
 // V1.0.1 | 2026-10-21 | ~6000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-control.js V1.0.1';
+export const VER = 'render/38-actions-translate-control.js V1.1.0';   // V1.1.0 IMMUNE 透传 reason（金刚不坏碎裂用）
 
 // 控制位移族翻译器表（键=factType）
 export const CONTROL_TRANSLATORS = {
@@ -10,6 +10,7 @@ export const CONTROL_TRANSLATORS = {
             kind: STAGE_ACTION_TYPES.IMMUNE,
             actorUid: data.attacker?.uid ?? null,
             targetUid: data.target?.uid ?? null,
+            reason: data.reason ?? null,   // 免疫原因透传（core/10 immuneFact 自带 reason），金刚不坏碎裂特效按前缀判断
             factIndex: index,
             timing: 'beforeText'
         }];

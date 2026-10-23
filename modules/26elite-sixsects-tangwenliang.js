@@ -4,10 +4,10 @@
 //   ④ 同归于尽（阵亡反噬击杀者）
 // V7.0.5 | 2026-10-22 | ~24300 bytes
 //   补挂同一条 flushDashHeal，「冲刺后必叠」在所有结算分支成立
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.0.5';
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.0';   // V7.1.0 冲刺改强推挤压（forceInsert 只算路 + moveUnitPosition 落地）
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
-import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, swapUnitPositions, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
+import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { computeDodgeChance, snapshotUnitForFact } from '../core/12battle-attack-steps.js';
 import { getMissBreakdown, makeFXSnapshot } from '../core/03battle-utils.js';
@@ -63,23 +63,70 @@ export function createTangWenLiangComponent() {
                     `🌿 ${unit.name} 回春术 +1 层（${stacks.length} 层${healed > 0 ? `，立即回复 ${healed}` : ''}）`,
                     { floatText: '🌿', floatUid: unit.uid });
             }
-            // ③ 冲刺·七伤齐发：冲到「目标同列」的己方前排位（1/2/3），把对方 456/789 的目标拽到其 123 位；
+            // ③ 冲刺·七伤齐发：冲到「目标同列」的己方前排位（1/2/3），落点被占不换人——
+            //    沿 PUSH_PATH（本列自上而下，满了往邻列顺延）把挡路队友整列前推到空位
+            //    （2026-10-23 拍板：换位制两人对调 → 强推挤压制）；
             //    双方各受当前生命 dmgRatio / selfDmgRatio 真伤；之后叠一套战士加成、转「战士」近战
+            // 列路径（key=frontPos 所在列 0/1/2）：先本列 1→4→7，满了按邻列顺序顺延
+            const PUSH_PATH = {
+                0: [1, 4, 7, 2, 5, 8, 3, 6, 9],
+                1: [2, 5, 8, 1, 4, 7, 3, 6, 9],
+                2: [3, 6, 9, 2, 5, 8, 1, 4, 7]
+            };
+            // 飞天/附身原格不可推——判据照抄 core/13 resolvePushOrStun（2026-10-23 拍板），别另造
+            const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
+
+            // 只读扫描：算「unit 落到 targetPos」的推挤路径，不改任何 pos——
+            //   落地必须走 applyMoves→moveUnitPosition（免疫守卫/POS_CHANGE 事件/战报行全在接口里，不许绕过 core/13）
+            function forceInsert(team, unit, targetPos) {
+                if (unit.pos === targetPos) return { ok: true, moved: [] };
+                const col = (targetPos - 1) % 3;
+                const path = PUSH_PATH[col];
+                const startIdx = path.indexOf(targetPos);
+                if (startIdx === -1) return { ok: false, reason: 'bad-pos', moved: [] };
+
+                let emptyIdx = -1, blocked = null;
+                for (let i = startIdx; i < path.length; i++) {
+                    const p = path[i];
+                    const occ = team.find(u => u !== unit && u.pos === p && u.alive);
+                    if (occ) {
+                        if (occ.state && occ.state._ctrlImmune) { blocked = occ; break; }
+                        if (isAirborne(occ)) { blocked = occ; break; }   // 飞天/附身原格不可推（同拒马铁律）
+                        continue;
+                    }
+                    emptyIdx = i; break;
+                }
+
+                if (blocked) return { ok: false, reason: 'immune', blocked, moved: [] };
+                if (emptyIdx === -1) return { ok: false, reason: 'full', moved: [] };
+
+                const moved = [];
+                for (let i = emptyIdx; i > startIdx; i--) {
+                    const curr = path[i], prev = path[i - 1];
+                    const mover = team.find(u => u !== unit && u.pos === prev && u.alive);
+                    if (mover) moved.push({ unit: mover, from: prev, to: curr });
+                }
+                moved.push({ unit, from: unit.pos, to: targetPos, isDash: true });
+                return { ok: true, moved };
+            }
+
+            // 落地：moved 已是「末端→前端」顺序，正序调用不会撞格
+            function applyMoves(moves, log) {
+                for (const m of moves) moveUnitPosition(m.unit, m.to, log);
+            }
+
             function doDash(target, outLog) {
                 const frontPos = ((target.pos - 1) % 3) + 1;   // 目标同列的前排位（4→1 / 5→2 / 6→3，7→1 / 8→2 / 9→3）
-                // 落点若被本队队友占着先换位（避免两单位挤同一格；只在本队内找占位者，两队 1~9 编号同域）
-                const relocate = (unit, pos) => {
-                    if (!unit || unit.pos === pos) return true;
-                    const team = unit.camp === CAMP_TYPES.ALLY ? A : B;
-                    const occupant = team.find(u => u !== unit && u.alive && u.pos === pos);
-                    if (occupant) return swapUnitPositions(unit, occupant, outLog);
-                    return moveUnitPosition(unit, pos, outLog);
-                };
                 const twFromPos = tw.pos;
                 const targetFromPos = target.pos;
-                relocate(tw, frontPos);
-                // 目标免疫 → 拽不动：照实报幕，别再写"拽至 N 号位"（体检 114）
-                const targetMoved = target.pos > 3 ? relocate(target, frontPos) : true;
+                // 两侧独立算路独立落地（免疫语义=各自判断，2026-10-23 拍板）：目标侧被挡不影响冲方侧，反之亦然
+                const allyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
+                const enemyTeam = tw.camp === CAMP_TYPES.ALLY ? A : B;
+                const allyRes = target.pos > 3 ? forceInsert(allyTeam, target, frontPos) : { ok: true, moved: [] };
+                const enemyRes = forceInsert(enemyTeam, tw, frontPos);
+                // 先落冲方、再落目标方（落地顺序只影响战报行先后，两端落地完才算真伤）
+                if (enemyRes.ok) applyMoves(enemyRes.moved, outLog);
+                if (allyRes.ok) applyMoves(allyRes.moved, outLog);
 
                 const toFoe = Math.max(1, Math.round(target.hp * dash.dmgRatio));
                 applyStatChange(target, 'hp', -toFoe, tw, '冲刺·七伤齐发');
@@ -99,15 +146,28 @@ export function createTangWenLiangComponent() {
                 //   此时本击攻击组还没建（group 由 core/10 命中结算后才产出），落不进组也不该丢
                 //   （后随的普攻若被闪避就没有组，挂组会让这行消失）
                 if (outLog) {
-                    const dragText = targetMoved
-                        ? `拽 ${target.name} 至 ${frontPos} 号位`
-                        : `${target.name} 免疫位移、纹丝不动`;
-                    pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${dragText}，双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
+                    // 强推挤压报幕：逐条列「XX from→to」（被挤走的队友也列）；被挡侧照实写「整侧不动」（体检 114 家族口径）
+                    const moves = [...(enemyRes.ok ? enemyRes.moved : []), ...(allyRes.ok ? allyRes.moved : [])]
+                        .map(m => ({ uid: m.unit.uid, camp: m.unit.camp, from: m.from, to: m.to, isDash: !!m.isDash }));
+                    const blockText = (res) => {
+                        if (res.reason === 'full') return '无空位';
+                        const b = res.blocked;
+                        return `被 ${b.name}${isAirborne(b) ? '（飞天/附身）' : ''} 免疫挡下、整侧不动`;
+                    };
+                    const listText = (res) => res.moved.map(m => `${m.unit.name} ${m.from}→${m.to}`).join('、');
+                    const enemyText = enemyRes.ok
+                        ? (listText(enemyRes) || '唐文亮原地未动')
+                        : `唐文亮无法落位（${blockText(enemyRes)}）`;
+                    const allyText = target.pos > 3
+                        ? (allyRes.ok ? (listText(allyRes) || `${target.name} 原地未动`) : `目标侧${blockText(allyRes)}`)
+                        : `${target.name} 已在前排`;
+                    pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${enemyText}；${allyText}。双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
                         { floatText: '⚡', floatUid: target.uid,
-                          // 冲刺独立演出：位置数值随载荷下发，fx/94 按坐标画克隆，不读 store 当前状态
-                          //   终点取 relocate 之后的真实落点（目标免疫位移/换位时也不飞错格）
+                          // 冲刺独立演出：moves 多单位载荷（全 uid+数值，可 JSON 序列化，回放/联机从机可用）；
+                          //   旧双单位字段保留向后兼容（老战报回放仍能按两格演出）
                           dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: tw.pos, fromCamp: tw.camp,
-                                  targetUid: target.uid, targetFromPos, targetToPos: target.pos, targetCamp: target.camp } });
+                                  targetUid: target.uid, targetFromPos, targetToPos: target.pos, targetCamp: target.camp,
+                                  moves } });
                 }
             }
 

@@ -10,6 +10,8 @@ import { createZhangSanfengComponent } from './26elite-sixsects-zhangsanfeng.js'
 import { createPangYuanQiaoComponent } from './26elite-sixsects-pangyuanqiao.js';
 import { createMieJueShiTaiComponent, followAttackHandler } from './26elite-sixsects-miejueshitai.js';
 import { createHeTaichongComponent } from './26elite-sixsects-hetaichong.js';
+// 空见（少林·防战·弱精英 m104）：金刚不坏护罩 / 逗你玩升级
+import { createKongJianComponent } from './26elite-sixsects-kongjian.js';
 // 唐文亮（崆峒·战士·精英 m107）：七伤拳自损增伤 / 同归于尽反噬
 import { createTangWenLiangComponent } from './26elite-sixsects-tangwenliang.js';
 
@@ -30,5 +32,6 @@ registerElite('张三丰', createZhangSanfengComponent);
 registerElite('胖远桥', createPangYuanQiaoComponent);
 registerElite('灭绝师太', createMieJueShiTaiComponent);
 registerElite('何太冲', createHeTaichongComponent);
+registerElite('空见', createKongJianComponent);
 // 唐文亮（崆峒·战士·精英 m107）
 registerElite('唐文亮', createTangWenLiangComponent);
