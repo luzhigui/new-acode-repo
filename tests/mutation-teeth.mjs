@@ -1,3 +1,20 @@
+// V2.9.13 | 2026-10-24 第 126 轮：修「转交中（⚠️）规则 = 证据黑洞」—— 第 126 轮 46 颗牙全量重算时由 T16 暴露。
+//   现象：run.sh 的 REPLAY 过滤只抓 `❌`，而回放器把「已登记转交」的失败规则标 `⚠️`（rules-replay L476：
+//   fail>0 且命中 KNOWN_TRANSFERS ⇒ ⚠️ 不染退码）。于是这类规则的**规则头行与全部报红明细都进不了结果文件**，
+//   而 parseBlock 的 curRule 又只由 ❌ 行设置 ⇒ 它们的明细**无归属**，既不进 newDetail 也不进 masked。
+//   后果（两面都坏）：① 判据其实咬住了，却显示「未观测到影响」（T16 实证：变异让 164 报出
+//   「newMaxHp=132.5 应为正整数目标上限」3 条新明细，屏幕上却一行不显）；② 反之若日后有人靠它们混进
+//   cleanPairs，又会拿「基线已红」的规则给变异作伪证（第 43 轮 153 那次教训）。
+//   修法（只补证据通道，判据一行未改）：
+//     a) --emit-run 的 grep 补 `⚠️`，让转交中规则的头行与明细一起落盘；
+//     b) parseBlock 识别 `⚠️` 规则行，设 curRule 并记入 warn（**不进 red**，转交态本就不计退码）；
+//     c) report 把 _base 的 warn 与 red 合并成「失去作证资格」集合传给 judge ⇒ 转交中规则与基线已红规则
+//        同等待遇：不能作证，但其新明细照旧记入 masked（[掩盖×N]）显式呈现，不静默吞掉。
+// V2.9.12 | 2026-10-24 第 126 轮：新增 `--matrix-out=<path>` —— 牙口矩阵 Markdown 落盘。
+//   起因：46 颗牙的结论此前**只活在 stdout**（--report 打印完即散），而 teeth-results.txt 一旦被新鲜度
+//   守卫判陈旧，矩阵就只剩零星几条 ⇒ 白天会话看不到「规则到底有没有牙」的全貌，也无法逐轮对照变化。
+//   本次仅新增**输出通道**（多写一个 md 文件），**判据口径一行未改**，故 VER（判据版本）不升 ——
+//   VER 只钉判据，判据一改必须升，见 V2.9.0 新鲜度守卫。
 // V2.9.11 | 2026-10-18 第 100 轮：faa6068 大拆分联动锚点重修（5 处 file 路径，from/to 文本未动）——
 //   core/12 拆 chain/edge ⇒ A11（韦一笑吸血上限提升）from 行随 weiLeech addMod 迁至
 //   core/12battle-attack-chain.js L479；render/35 拆 stat/heal 等 ⇒ T8/T9（坚盾已叠 current/cap，
@@ -90,7 +107,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.11';
+export const VER = 'tests/mutation-teeth.mjs V2.9.13';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -648,7 +665,8 @@ async function main() {
             //   原因：干净树可能本就有红（如 153 实测的「⚡ undefined」真 bug），此时只看「哪条规则红」
             //   完全没有分辨力（基线红会把变异红掩盖掉）。改为比对**明细文本**才能分辨
             //   「同一条规则是否因本次变异报出了新的红」。
-            '  ( cd "$d" && node tests/rules-replay.mjs 2>/dev/null | grep -E "RESULT:|❌|^\\s+\\[seed=" ) >> "$OUT" || true',
+            // V2.9.13：grep 补 `⚠️` —— 转交中规则的头行此前被过滤掉，其明细在 parseBlock 里无归属（见头部 V2.9.13）。
+            '  ( cd "$d" && node tests/rules-replay.mjs 2>/dev/null | grep -E "RESULT:|❌|⚠️|^\\s+\\[seed=" ) >> "$OUT" || true',
             '  echo "BASELINE:" >> "$OUT"',
             '  ( cd "$d" && node tests/140-baseline.js --check 2>/dev/null | grep -E "BASELINE-MATCH|回归|场与基线不一致|DIFF" ) >> "$OUT" || true',
             '  echo "STAT:" >> "$OUT"',
@@ -772,6 +790,15 @@ async function main() {
             BASE_SIG = b.baselineSig ?? null;
             BASE_MISMATCH = (typeof b.statMismatch === 'number' ? b.statMismatch : 0);
             BASE_RED = b.red || []; BASE_DETAILS = b.details || [];
+            // V2.9.13：干净树里「转交中（⚠️）」的规则同样是**基线就已红**（fail>0，只是不计退码），
+            //   按第 43 轮同一条道理，它们也失去作证资格 —— 否则变异改了战斗轨迹，顺带让 164 多报几条
+            //   就会被误判成「规则有牙」。与 BASE_RED 合并后，其新明细改记 masked（[掩盖×N]）显式呈现。
+            const baseWarn = (b.warn || []).filter(w => !BASE_RED.includes(w));
+            if (baseWarn.length) {
+                console.log(`  ⚠ 干净树里「转交中」的规则 ${baseWarn.length} 条（${baseWarn.join('、')}）—— fail>0 但已登记转交、不计退码；`);
+                console.log('    按「基线已红不得作证」同一口径，一并列入失去作证资格集合（其新明细仍记 [掩盖×N] 显式呈现）。');
+                BASE_RED = [...BASE_RED, ...baseWarn];
+            }
             console.log(`[对照·未变异 _base] 规则报红 ${b.red.length} 条（明细 ${BASE_DETAILS.length} 条）· 基线 ${b.match === 18 ? 'MATCH 18' : (b.changed ? '已变' : '?')} · 对照器命中 ${b.statTotal} · 偏差 ${BASE_MISMATCH} · 指纹 ${b.fp}`);
             if (b.red.length || b.statTotal > 0 || b.changed || !b.fp) {
                 // 第 43 轮：不再一票否决。干净树有红时改走「增量判定」—— 用 _base 的红/明细做底噪扣除，
@@ -813,7 +840,11 @@ async function main() {
             }
             rows.push({ mut: m, red: p.red, ...j });
         }
-        summarize(rows);
+        // V2.9.12：--matrix-out=<path> 把同一份结论写成 Markdown 落盘（stdout 之外的新出口，判定逻辑不变）。
+        const mo = argv.find(a => a.startsWith('--matrix-out='));
+        const outPath = mo ? mo.slice('--matrix-out='.length) : null;
+        const metaLines = txt.split('\n').filter(l => l.startsWith('#META'));
+        summarize(rows, outPath, metaLines, stale.length);
         return;
     }
 
@@ -845,10 +876,15 @@ function parseBlock(body) {
     //   否则一条在基线就已报红的规则（如 153 实测的主代码真 bug）会用自己的明细给任意变异"作伪证"。
     const details = [];
     const pairs = [];
+    // V2.9.13：转交中（⚠️，fail>0 但已登记转交、不计退码）规则的报红明细**同样存在**，此前被整段丢弃。
+    const warn = [];
     let curRule = null;
     for (const line of replay.split('\n')) {
         const m = line.match(/^❌\s+(.+?)\s+pass=\d+\s+fail=\d+\s+skip=\d+/);
         if (m) { curRule = m[1].trim(); red.push(curRule); continue; }
+        // ⚠️ 行：只设 curRule（让后续明细有归属）+ 记入 warn，**不进 red**（转交态不是新红，不作证）。
+        const wm = line.match(/^⚠️\s+(.+?)\s+pass=\d+\s+fail=\d+\s+skip=\d+/);
+        if (wm) { curRule = wm[1].trim(); warn.push(curRule); continue; }
         const dm = line.match(/^\s+\[seed=\d+\s+stage=\d+\]\s+(.+)$/);
         if (dm) {
             details.push(dm[1].trim());
@@ -884,17 +920,22 @@ function parseBlock(body) {
         if (mm) statMismatch += Number(mm[2]);
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, fp: fpM ? fpM[1] : null };
+    return { red, warn, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, fp: fpM ? fpM[1] : null };
 }
 
-function summarize(rows) {
+function summarize(rows, outPath, metaLines, staleCount) {
+    // V2.9.12：md 与 stdout 同步产出 —— 控制台照旧给人看，md 落盘给下一轮/白天会话看。
+    const md = [];
     console.log('\n=== 牙口矩阵 ===');
     console.log('ID   类型   判定                     报红规则');
+    md.push('| ID | 类型 | 判定 | 报红规则 | 变异描述 |');
+    md.push('|---|---|---|---|---|');
     for (const r of rows) {
         const red = (r.red || []).length ? r.red.map(s => s.replace('(回归)', '')).join('、') : '—';
         // [掩盖×N]：该变异让「基线已红的规则」冒出了 N 条新明细 —— 属噪声，**不可**当成有牙的证据
         const mk = (r.masked || []).length ? ` [掩盖×${(r.masked || []).length}]` : '';
         console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${(r.verdict || '').padEnd(30)} ${red}${mk}`);
+        md.push(`| ${r.mut.id} | ${r.mut.kind} | ${r.verdict || ''} | ${red}${mk} | ${r.mut.desc} |`);
     }
     const has = (r, k) => r.verdict && r.verdict.indexOf(k) >= 0;
     const blind = rows.filter(r => has(r, '装饰品'));
@@ -906,34 +947,87 @@ function summarize(rows) {
     const deadAnchor = rows.filter(r => has(r, '锚点失效'));
     if (deadAnchor.length) {
         console.log(`\n⚠⚠ 锚点失效·结论作废 ${deadAnchor.length} 处 —— 树=干净树，跑的不是变异（**必须修锚点后重跑**，不可据此判"没牙"）：`);
-        for (const r of deadAnchor) console.log(`   · ${r.mut.id} ${r.mut.desc} —— ${r.why || ''}`);
+        md.push(`\n### ⚠⚠ 锚点失效·结论作废 ${deadAnchor.length} 处`);
+        md.push('树=干净树，跑的不是变异，**必须修锚点后重跑**，不可据此判「没牙」。');
+        for (const r of deadAnchor) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc} —— ${r.why || ''}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc} —— ${r.why || ''}`);
+        }
     }
     // 第 57 轮：TEXT 类有牙单列一段（fact 文本被对照器抓到，与 ATTR 的"规则无牙·对照器兜住"是两回事：
     //   ATTR 是规则本该管但让给了对照器；TEXT 是专测 fact 文本，对照器抓到就是真有牙）。
     const textHasTeeth = rows.filter(r => has(r, '对照器有牙'));
     if (textHasTeeth.length) {
         console.log(`\n🔵 fact 文本有牙（对照器命中）${textHasTeeth.length} 处 —— TEXT 类变异被stat-decl 对照器抓住了：`);
-        for (const r of textHasTeeth) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+        md.push(`\n### 🔵 fact 文本有牙（对照器命中）${textHasTeeth.length} 处`);
+        md.push('TEXT 类变异被 stat-decl 对照器抓住 —— 与 ATTR「规则无牙·对照器兜住」不同，TEXT 专测 fact 文本，抓到就是真有牙。');
+        for (const r of textHasTeeth) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc}`);
+        }
     }
     if (blind.length) {
         console.log(`\n❌ 真盲区（装饰品）${blind.length} 处 —— TEXT 类变异已生效，但规则侧+对照器侧+基线侧都没反应：`);
-        for (const r of blind) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+        md.push(`\n### ❌ 真盲区（装饰品）${blind.length} 处`);
+        md.push('**= 立待办上报的对象**：变异已生效，规则侧 + 对照器侧 + 基线侧全无反应，规则形同装饰品。');
+        for (const r of blind) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc}`);
+        }
     }
     if (contractor.length) {
         console.log(`\n🟢 规则无牙·对照器兜住 ${contractor.length} 处 —— 规则抓不到，但 stat-decl 对照器（BREAK_DEF/CARRY_APPLY 契约）抓住了：`);
-        for (const r of contractor) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+        md.push(`\n### 🟢 规则无牙·对照器兜住 ${contractor.length} 处`);
+        md.push('规则抓不到，但 stat-decl 对照器（BREAK_DEF / CARRY_APPLY 契约）抓住 —— 属已知分工，不算盲区。');
+        for (const r of contractor) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc}`);
+        }
     }
     if (baselineOnly.length) {
         console.log(`\n🟡 规则无牙·仅基线兜底 ${baselineOnly.length} 处 —— 规则+对照器都抓不到，只有 140-baseline 回归闸门（18 场种子）能兜底：`);
-        for (const r of baselineOnly) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+        md.push(`\n### 🟡 规则无牙·仅基线兜底 ${baselineOnly.length} 处`);
+        md.push('规则 + 对照器都抓不到，只有 140-baseline 回归闸门（18 场种子）能兜底 —— 兜底面窄，属待加强。');
+        for (const r of baselineOnly) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc}`);
+        }
     }
     if (confirmed.length) {
         console.log(`\n🔴 完全无反应（待确认盲区）${confirmed.length} 处 —— 属性变了，但规则+对照器+基线全无反应（无论 18 场种子还是指纹都没动）：`);
-        for (const r of confirmed) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+        md.push(`\n### 🔴 完全无反应（待确认盲区）${confirmed.length} 处`);
+        md.push('属性变了，规则 + 对照器 + 基线全无反应 —— **= 立待办上报的对象**（与「装饰品」同列最高优先）。');
+        for (const r of confirmed) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc}`);
+        }
     }
     if (noEffect.length) {
         console.log(`\n⚪ 未观测到影响 ${noEffect.length} 处 —— 变异未改变 18 场种子的战斗状态（指纹≡基线），可能是该机制在此 18 场未被触发，属测试覆盖缺口：`);
-        for (const r of noEffect) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+        md.push(`\n### ⚪ 未观测到影响 ${noEffect.length} 处`);
+        md.push('变异未改变 18 场种子的战斗状态（指纹 ≡ 基线）—— 该机制在此 18 场未被触发，属**样本覆盖缺口**，不等于没牙也不等于有牙。');
+        for (const r of noEffect) {
+            console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+            md.push(`- ${r.mut.id} ${r.mut.desc}`);
+        }
+    }
+    // V2.9.12 落盘：头部带判据版本 / 结果 META / 覆盖条数，保证「这份矩阵是哪次跑出来的」可回溯。
+    if (outPath) {
+        const head = [
+            '# 牙口矩阵（变异牙齿测试 · 结论快照）',
+            '',
+            `> 生成：${new Date().toISOString()} · 判据版本 ${VER}`,
+            `> 结果文件：tests/.mut/teeth-results.txt（新鲜度守卫：${staleCount === 0 ? '通过' : '⚠ 陈旧 ' + staleCount + ' 项，结论不代表当前代码'}）`,
+            ...(metaLines || []).map(l => '> ' + l),
+            '',
+            `覆盖 **${rows.length}** 颗牙（A1–A28 / T1–T18）。口径见 \`tests/mutation-teeth.mjs\` 头部方法论；`,
+            '判定共七类：锚点失效 / fact 文本有牙 / 真盲区(装饰品) / 对照器兜住 / 仅基线兜底 / 待确认盲区 / 未观测到影响。',
+            '',
+            '## 全集矩阵',
+            '',
+        ];
+        fs.writeFileSync(outPath, head.join('\n') + md.join('\n') + '\n', 'utf8');
+        console.log(`\n💾 牙口矩阵已落盘：${outPath}（${rows.length} 行）`);
     }
 }
 
