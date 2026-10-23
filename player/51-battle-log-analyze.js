@@ -402,11 +402,14 @@ function renderDetail(events) {
   let html = '<table><tr><th>回合</th><th>攻击者</th><th>目标</th><th>伤害</th><th>血线</th><th>结果</th></tr>';
   for (const e of events) {
     const hpText = e.hpBefore !== null ? `${e.hpBefore} → ${e.hpAfter ?? '?'}${e.overkill > 0 ? ` <span class="hex-log-miss">(溢出${e.overkill})</span>` : ''}` : '-';
+    const dmgText = e.type === 'heal' ? `+${e.heal ?? 0}` : (e.dmg ?? '-');
     const typeText = e.type === 'kill' ? '<span class="hex-log-kill">💀击杀</span>'
       : e.type === 'dodge' ? '<span class="hex-log-dodge">🦅闪避</span>'
       : e.type === 'miss' ? '<span class="hex-log-miss">未命中</span>'
+      : e.type === 'heal' ? '<span class="hex-log-dodge">💚 回血</span>'
+      : e.type === 'immune' ? '<span class="hex-log-miss">免疫</span>'
       : e.type === 'attack' ? '命中' : e.type;
-    html += `<tr><td>${e.round}</td><td>${dispName(e.attacker)}</td><td>${dispName(e.target)}</td><td>${e.dmg ?? '-'}</td><td>${hpText}</td><td>${typeText}</td></tr>`;
+    html += `<tr><td>${e.round}</td><td>${dispName(e.attacker)}</td><td>${dispName(e.target)}</td><td>${dmgText}</td><td>${hpText}</td><td>${typeText}</td></tr>`;
   }
   html += '</table>';
   return html;
@@ -595,7 +598,8 @@ export function buildReport(events, opts) {
   let winner = opts.winner || null;
   if (!winner) winner = killedCamp[TEAM_SIX] > killedCamp[TEAM_MING] ? TEAM_MING : TEAM_SIX; // 兜底：阵亡多者败
   const loser = winner === TEAM_MING ? TEAM_SIX : TEAM_MING;
-  const topHit = attacksOnly.filter(e => e.dmg !== null).sort((a, b) => eff(b) - eff(a))[0] || null;
+  // 单发最高按「声明伤害」排，不按实际扣血——护罩/减伤会把有效伤害压低，导致高伤单发被漏掉
+  const topHit = attacksOnly.filter(e => e.dmg !== null).sort((a, b) => b.dmg - a.dmg)[0] || null;
   const agg = {
     winner, loser, rounds, kills, dodges, totalDmg, killedCamp, deadSet, minHp, dodgeBy,
     dmgBy, killsBy, takenBy, camp, campByRound, roundInfo, topHit, killEvents, peak: null
@@ -644,6 +648,25 @@ function _campName(u) {
 export function factsToEvents(facts) {
   const events = [];
   let round = 0;
+
+  // 回血事件统一出口：组内 HEAL（嵌在 ATTACK.entries）/ 顶层 ENDLESS_BREATH 都走这里。
+  // 不带阵营前缀——heal 不参与 takenBy / buildNarration 的统计，只用于解释血线上跳。
+  function pushHeal(data, fallbackLabel) {
+    const name = data.unitName || data.targetName || '?';
+    events.push({
+      round,
+      attacker: name,
+      target: name,
+      dmg: null,
+      hpBefore: data.hpBefore != null ? Math.round(data.hpBefore) : null,
+      hpAfter: data.hpAfter != null ? Math.round(data.hpAfter) : null,
+      formula: null,
+      type: 'heal',
+      heal: Math.round(data.heal ?? data.leechVal ?? data.leech ?? data.totalHeal ?? 0),
+      label: data.label || fallbackLabel || '回血'
+    });
+  }
+
   for (const f of (facts || [])) {
     if (!f || !f.factType) continue;
     const d = f.data || {};
@@ -654,21 +677,27 @@ export function factsToEvents(facts) {
     if (f.factType === FACT_TYPES.ATTACK) {
       const r = d.dmgResult || {};
       const dmg = Math.round(r.dmg || 0);
-      const hpBefore = (r.hpBefore != null) ? r.hpBefore : (d.target && d.target.hp);
-      const hpAfter = (d.snap && d.snap.targetHpAfter != null) ? d.snap.targetHpAfter : (d.target && d.target.hp);
+      const hpBefore = (r.hpBefore != null) ? Math.round(r.hpBefore) : null;
+      const hpAfter = (d.snap && d.snap.targetHpAfter != null) ? Math.round(d.snap.targetHpAfter) : null;
       const effDmg = (hpBefore != null && hpAfter != null) ? Math.max(0, hpBefore - hpAfter) : dmg;
+      // 真溢出：只有声明伤害超过攻击前剩余血时才出现；剩余血充足时被减伤的那部分不算
+      const overkill = (hpBefore != null && hpBefore >= 0) ? Math.max(0, dmg - hpBefore) : 0;
       events.push({
         round,
         attacker: _campName(d.attacker),
         target: _campName(d.target),
         dmg,
-        hpBefore: hpBefore != null ? Math.round(hpBefore) : null,
-        hpAfter: hpAfter != null ? Math.round(hpAfter) : null,
+        hpBefore,
+        hpAfter,
         formula: null,
         type: (r.dead || r.executeKill) ? 'kill' : 'attack',
-        overkill: Math.max(0, dmg - effDmg),
+        overkill,
         effDmg
       });
+      // 组内回血条目：嗜血/九阳/热血/严阵反弹/乾坤衍生等嵌在 entries 里，不在顶层 log
+      for (const e of (d.entries || [])) {
+        if (e && e.factType === FACT_TYPES.HEAL && e.data) pushHeal(e.data, '组内回血');
+      }
       continue;
     }
     if (f.factType === FACT_TYPES.DODGE) {
@@ -690,6 +719,52 @@ export function factsToEvents(facts) {
       events.push({
         round, attacker: _campName(d.attacker), target: _campName(d.target),
         dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'immune'
+      });
+      continue;
+    }
+    // 顶层回血 fact：张三丰生生不息（每回合开始触发）
+    if (f.factType === FACT_TYPES.ENDLESS_BREATH) {
+      pushHeal(d, '生生不息');
+      continue;
+    }
+    // 非 ATTACK 路径的伤害：蛛袭 / 玄冥毒 / 白骨爪。这些不产生 ATTACK fact，
+    //   致死也不进「击杀」统计，导致事件明细缺杀、总击杀与阵亡数对不上。
+    if (f.factType === FACT_TYPES.SPIDER_STRIKE) {
+      const dmg = Math.round(d.totalDmg || 0);
+      events.push({
+        round,
+        attacker: _campName({ camp: CAMP_TYPES.ALLY, name: d.unitName || '小昭·妹' }),
+        target: _campName({ camp: CAMP_TYPES.ENEMY, name: d.targetName || '?' }),
+        dmg, hpBefore: null, hpAfter: null, formula: null,
+        type: d.isDead ? 'kill' : 'attack',
+        overkill: 0, effDmg: dmg,
+        source: '蛛袭'
+      });
+      continue;
+    }
+    if (f.factType === FACT_TYPES.XUAN_MING_DOT) {
+      const dmg = Math.round(d.dot || 0);
+      events.push({
+        round,
+        attacker: '玄冥中毒',
+        target: _campName({ camp: CAMP_TYPES.ALLY, name: d.unitName || '?' }),
+        dmg, hpBefore: null, hpAfter: null, formula: null,
+        type: d.isDead ? 'kill' : 'attack',
+        overkill: 0, effDmg: dmg,
+        source: '玄冥毒'
+      });
+      continue;
+    }
+    if (f.factType === FACT_TYPES.CLAW_HIT || f.factType === FACT_TYPES.CLAW_EXECUTE) {
+      const dmg = Math.round(d.dmg || 0);
+      events.push({
+        round,
+        attacker: _campName({ camp: CAMP_TYPES.ENEMY, name: d.unitName || '周芷若' }),
+        target: _campName({ camp: CAMP_TYPES.ALLY, name: d.targetName || '?' }),
+        dmg, hpBefore: null, hpAfter: null, formula: null,
+        type: (f.factType === FACT_TYPES.CLAW_EXECUTE) ? 'kill' : 'attack',
+        overkill: 0, effDmg: dmg,
+        source: '白骨爪'
       });
       continue;
     }

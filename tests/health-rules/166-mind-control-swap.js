@@ -32,7 +32,13 @@
 //   免疫状态从开局快照可查（{...u} 浅拷贝带 state），任一方免疫 ⇒ 跳过该条判据5。
 // V6.1.3（2026-10-20 第 111 轮）：判据5 补位置改写白名单 isOtherRelocate —— 唐文亮冲刺改站位
 //   不发位移事件，原口径把「他自己冲走了」当「换位没落地」（seed=6 stage=6 假红）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.5';
+// V6.1.6（2026-10-24 第 125 轮）：与上游 V6.1.4（并行会话第 118 轮）冲突裁决 —— 保留本地共享化
+//   路线（V6.1.5 收口到 122health-utils，138/166 不再各写一份），并把上游独立登记的另外三条
+//   机制（红血撤退 / 蓄意轰拳 / 冲刺·七伤齐发）逐条补进共享判据，取两边并集，覆盖面只增不减。
+//   上游 V6.1.4 是「关键词 + 单位名」的逐条名单，本地是「落位号证据 + 具名互换证据」的通用判据；
+//   本轮实测发现本地判据漏掉冲刺的「N→M」箭头写法（唐文亮报幕写「唐文亮 5→2」，不带「号位」二字），
+//   已补 ARROW_POS_RE 判据，详见 122health-utils.js V6.3.0 注释。
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.6';
 // V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
 //   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
 //   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
@@ -45,6 +51,13 @@ export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.5';
 //   （互换职业与位置）」走 swapUnitPositions 把他挪到 2 号位，此后 4 次出场全在 2 号位 ⇒ 旧白名单
 //   只认「冲刺·七伤齐发」，把上游新机制误判成「惑心换位没生效」。今后再有「改站位却不发位移事件」
 //   的机制，一律登记到 122health-utils.js 的调用点清单与判据里。
+// 位置改写白名单（V6.1.3 立）：战报里能改写站位、但**不发** buff-push/buff-swap 的机制。
+//   命中即视为该单位位置被合法改写，放弃本条判据 5（宁漏勿误）。机制清单与判据见 122health-utils.js。
+//     - 冲刺·七伤齐发：唐文亮强推挤压（moveUnitPosition，tangwenliang.js L115 区）
+//     - 红血：撤退至  ：何太冲低血撤退（moveUnitPosition，hetaichong.js L128）
+//     - 蓄意轰拳     ：寒离飒崩飞/轰飞（moveUnitPosition + WIND_ASSAULT_PUSH fact，hanlisa.js L294/305）
+//     - 两仪互换     ：何太冲/昆仑弟子红血互换职业+位置（swapUnitPositions + SKILL_ANNOUNCE，hetaichong.js L156）
+//     - 标枪前压     ：（core/10battle-attack.js L52）
 import { isSilentRelocate } from '../122health-utils.js';
 
 export const rule113 = {

@@ -65,3 +65,4 @@
 - 2026-10-17 建立（5 转交 + 3 待定夺）。
 - 划记：2026-10-17 免疫破防（seed=1 stage=5 多加）——并行会话 99dee79 改条目形态致复发，当日已由 BREAK_DEF 文本通道闭环（f700eab），未及登记即销项。
 - 划记：2026-10-17 第 98 轮（f7b3dc3）unity / lastStand / twDash 三处「纯 addMod 无声明侧」盲区已闭环——主代码补 LAST_STAND_APPLY / UNITY_APPLY / TW_DASH_APPLY 纯记账 fact（renderFn:null，不进战报）+ stat-decl 新增 UNITY/LAST_STAND/TW_DASH 三契约（49→52），scan-groups 盲区清零；咬牙验证三契约均命中（BITE_EXIT=1）。销项。
+- 2026-10-24 第 119 轮数据卫生：`butterflyAttach.atkTransfer` 载荷死字段候选实证为**不可达分支**——`flyDirection` 写死 `'left'`（sister.js L61/L205，源自 550d207 纯搬运、非回归），配置 `atkRatioRight=0.5`（向右飞转攻）整支不可达 ⇒ atkTransfer 恒 0（普查 185 样本唯一值 0 + flyDirection 唯一值 left 佐证）。游戏正常（小昭·姊一贯向左飞、转防不走攻），**非功能 bug**。待业务侧定夺：补「方向选择」逻辑（按宿主位置？）或删死配置 atkRatioRight + 'right' 分支。
