@@ -16,19 +16,24 @@
 //   - unit.state._neverMiss（必中）时 getMissBreakdown 直接返回 0/必中，不参与公式校验
 //   - 只校验存活单位（死亡单位不计入残血统计，与引擎口径一致）
 //   - 本场无存活飞行单位直接 skip（韦一笑为我方随机精英，敌方飞行亦随关卡浮动）
-export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.10';
+export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.11';
 
 import { ROLE_TYPES } from '../../infra/56-battle-enums.js';
 import { getMissBreakdown, countEnemyEmptyCols } from '../../core/03battle-utils.js';
+import { CONFIG, getSkillParams } from '../../core/01config-5v5-test.js';
 
-// 当前版本数值（对照 记录-更改履历.md V6.1.10 / core/01config FLY_MISS_*）
-const FLY_BASE = 6;          // C.FLY_MISS_CHANCE
-const LOWHP_BONUS = 6;       // C.FLY_MISS_LOWHP_BONUS（V6.1.10: 12 → 6）
-const EMPTYCOL_REDUCE = 12;  // C.FLY_MISS_EMPTYCOL_REDUCE（V6.1.10: 6 → 12）
-const LOWHP_PCT = 0.4;       // 残血判定阈值：hp/maxHp < 40%
+// V6.1.11 两处修正：
+//   ① 常量不再硬编码，一律从 CONFIG 读（口径与 core/03 getMissBreakdown 同源，CONFIG 按
+//      「1 = 100%」存，×100 还原为百分点）——业务调系数时规则自动跟上，不再漂移出假红。
+//   ② 补杨逍·鹰眼被动（core/03 L127-134：unit.isYangXiao 时 total −eagleEye.missReduce×100，
+//      末尾封底 0）。此前漏算该项，把「杨逍 6−12 封底 0」误报成「应为 6%」（2026-10-23 报告）。
+const FLY_BASE = CONFIG.FLY_MISS_CHANCE * 100;          // C.FLY_MISS_CHANCE
+const LOWHP_BONUS = CONFIG.FLY_MISS_LOWHP_BONUS * 100;  // C.FLY_MISS_LOWHP_BONUS
+const EMPTYCOL_REDUCE = CONFIG.FLY_MISS_EMPTYCOL_REDUCE * 100; // C.FLY_MISS_EMPTYCOL_REDUCE
+const LOWHP_PCT = CONFIG.LOW_HP_THRESHOLD;              // 残血判定阈值（与引擎同一真值源）
 
-// 按同一份单位快照重算飞行未命中率（与 getMissBreakdown 口径逐字对齐）
-function recompute(side, other) {
+// 按同一份单位快照重算飞行未命中率（与 getMissBreakdown 口径逐字对齐，含鹰眼项）
+function recompute(unit, side, other) {
     var low = 0;
     var all = (side || []).concat(other || []);
     for (var i = 0; i < all.length; i++) {
@@ -39,7 +44,12 @@ function recompute(side, other) {
     }
     var empty = countEnemyEmptyCols(other || []);
     var raw = FLY_BASE + low * LOWHP_BONUS - empty * EMPTYCOL_REDUCE;
-    return { total: Math.max(0, Math.round(raw * 10) / 10), low: low, empty: empty };
+    var eagle = 0;
+    if (unit && unit.isYangXiao) {
+        var ee = getSkillParams('杨逍', 'eagleEye');
+        if (ee && ee.missReduce) { eagle = ee.missReduce * 100; raw -= eagle; }
+    }
+    return { total: Math.max(0, Math.round(raw * 10) / 10), low: low, empty: empty, eagle: eagle };
 }
 
 export const rule92 = {
@@ -54,7 +64,6 @@ export const rule92 = {
         var checked = 0;
         for (var p = 0; p < pairs.length; p++) {
             var side = pairs[p].side || [], other = pairs[p].other || [];
-            var exp = recompute(side, other);
             for (var i = 0; i < side.length; i++) {
                 var u = side[i];
                 if (!u || !u.alive) continue;
@@ -72,12 +81,14 @@ export const rule92 = {
                 if (u.state && u.state._neverMiss) continue; // 必中单位走独立分支，不参与公式校验
                 var bd = getMissBreakdown(u, side, other);
                 checked++;
+                var exp = recompute(u, side, other);
 
                 // 复发信号1：合计值与公式不符（系数被回退或漏算一项）
                 if (bd.total !== exp.total) {
-                    return { fail: true, msg: '复发：' + (u.name || '?') + '飞行未命中率' + bd.total + '%，按 V6.1.10 公式应为'
+                    return { fail: true, msg: '复发：' + (u.name || '?') + '飞行未命中率' + bd.total + '%，按 CONFIG 真值公式应为'
                         + exp.total + '%（飞行基础' + FLY_BASE + ' + 残血×' + exp.low + '×' + LOWHP_BONUS
-                        + ' − 空列×' + exp.empty + '×' + EMPTYCOL_REDUCE + '，下限0）' };
+                        + ' − 空列×' + exp.empty + '×' + EMPTYCOL_REDUCE
+                        + (exp.eagle ? ' − 鹰眼' + exp.eagle : '') + '，下限0）' };
                 }
 
                 // 复发信号2：sources 明细项数与单条数值必须与公式一致
@@ -99,6 +110,13 @@ export const rule92 = {
                         seenEmpty = parseInt(em[1], 10);
                         if (it.value !== -seenEmpty * EMPTYCOL_REDUCE) {
                             return { fail: true, msg: '复发：空列×' + seenEmpty + ' 记 ' + it.value + '%，应为 ' + (-seenEmpty * EMPTYCOL_REDUCE) + '%（FLY_MISS_EMPTYCOL_REDUCE 系数漂移或符号写反）' };
+                        }
+                        continue;
+                    }
+                    // 鹰眼项：只应出现在杨逍身上，且数值 = eagleEye.missReduce×100（V6.1.11）
+                    if (label === '鹰眼') {
+                        if (it.value !== -exp.eagle) {
+                            return { fail: true, msg: '复发：' + (u.name || '?') + ' 鹰眼项记 ' + it.value + '%，应为 ' + (-exp.eagle) + '%（eagleEye.missReduce 漂移或鹰眼越界到非杨逍单位）' };
                         }
                     }
                 }

@@ -26,7 +26,12 @@
 //   「姊宣告→宿主触发」误判越界（seed=8 s4 / seed=13 s1 实证：小昭·姊附身殷天正期间连击转移）。
 //   与既有「幼狮成长别名」同型：登记本轮「姊 附身于 宿主」条目，宣告名与触发名按别名放行。
 //   观察项（未改规则、建议主代码侧定夺）：回合开始宣告名单是否也该据实显示宿主。
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.15';
+// V6.1.16 | 2026-10-23 附身别名跨回合持久化：V6.1.15 只登记「附身当回合」的别名，而附身是跨回合
+//   状态——姊附身期间每回合都宣告姊、连击每回合都转移宿主，第二回合起无 attach 条目可登记，
+//   信号2 把正常的「宣告[小昭·姊]→触发[宿主]」误判越界（2026-10-23 报告：触发明教弟子3）。
+//   现维护全场 butterfly 映射（attach 登记，「飞回恢复原形」/「宿主阵亡被迫返回」解除），
+//   每回合作为新回合 renames 起点；幼狮成长别名仍按回合内生效。
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.16';
 import { plain } from '../122health-utils.js';
 
 const PROB_PCT = 80; // content buffs.doubleStrike.prob = 0.8，仅用于文案口径核对
@@ -95,6 +100,13 @@ function grownNameOf(text) {
     return { old: String(m[1]).trim(), now: String(m[2]).trim() };
 }
 
+// 浅拷贝持久别名（数组值也复制，避免回合内追加污染全场状态）
+function copyOf(map) {
+    var out = {};
+    for (var k in map) { if (Object.prototype.hasOwnProperty.call(map, k)) out[k] = map[k].slice(); }
+    return out;
+}
+
 export const rule93 = {
     group: '技能效果回归',
     name: '概率连击触发越界/重复(回归)',
@@ -103,14 +115,18 @@ export const rule93 = {
 
         // 按 round-start 切段：连击登记是「每回合」重新挑人，跨回合重复属正常
         var rounds = [];
-        var cur = { declared: [], fires: [], fails: [], renames: {} };
+        // V6.1.16 蝶变别名跨回合持久：附身是跨回合状态（core/03 连击转移在姊附身期间每回合生效），
+        //   只在「附身当回合」登记别名会让下一回合「宣告[姊]→触发[宿主]」误判越界（2026-10-23 报告）。
+        //   butterfly: 姊名 → [宿主名]，attach 登记，「飞回恢复原形」「宿主阵亡被迫返回」解除。
+        var butterfly = {};
+        var cur = { declared: [], fires: [], fails: [], renames: copyOf(butterfly) };
         var touched = false;
         for (var i = 0; i < log.length; i++) {
             var e = log[i];
             if (!e) continue;
             if (e.type === 'round-start') {
                 if (touched || cur.declared.length || cur.fires.length || cur.fails.length) rounds.push(cur);
-                cur = { declared: [], fires: [], fails: [], renames: {} };
+                cur = { declared: [], fires: [], fails: [], renames: copyOf(butterfly) };
                 continue;
             }
             var txt = plain(e.text);
@@ -132,7 +148,19 @@ export const rule93 = {
                     sisNm = String(sisNm).trim();
                     if (!cur.renames[sisNm]) cur.renames[sisNm] = [];
                     if (cur.renames[sisNm].indexOf(hostNm) === -1) cur.renames[sisNm].push(hostNm);
+                    if (!butterfly[sisNm]) butterfly[sisNm] = [];
+                    if (butterfly[sisNm].indexOf(hostNm) === -1) butterfly[sisNm].push(hostNm);
                 }
+                continue;
+            }
+            // 蝶变解除（V6.1.16）：飞回恢复原形 / 宿主阵亡被迫返回——此后回合不再转移，持久别名失效。
+            //   文案真源 render/35：「🦋 蝶变：X 从 Y 飞回，恢复原形！」「🦋 蝶变：宿主已阵亡，X 被迫返回！」
+            //   只删 butterfly，**不删本回合 renames**：宿主阵亡返回发生在本回合连击转移之后
+            //   （seed=12 s6 实证：r13 宣告[姊]→附身[谢逊]→banner[谢逊]→宿主阵亡返回），
+            //   本回合回合末才比对，删了就把刚发生的合法转移判成越界。
+            var bx = plain(e.text).match(/蝶变：(.+?)\s*从\s*(.+?)\s*飞回/) || plain(e.text).match(/宿主已阵亡，(.+?)\s*被迫返回/);
+            if (bx) {
+                delete butterfly[String(bx[1]).trim()];
                 continue;
             }
             if (e.type === 'buff-summary' && txt.indexOf('概率连击：') !== -1) {
