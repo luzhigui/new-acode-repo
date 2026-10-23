@@ -32,7 +32,10 @@
 //   免疫状态从开局快照可查（{...u} 浅拷贝带 state），任一方免疫 ⇒ 跳过该条判据5。
 // V6.1.3（2026-10-20 第 111 轮）：判据5 补位置改写白名单 isOtherRelocate —— 唐文亮冲刺改站位
 //   不发位移事件，原口径把「他自己冲走了」当「换位没落地」（seed=6 stage=6 假红）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.3';
+// V6.1.4（2026-10-24 第 118 轮）：isOtherRelocate 白名单补何太冲「红血」低血撤退
+//   （hetaichong.js L128 moveUnitPosition 不发位移事件）——seed=19 s3 何太冲被惑心换到
+//   8号位后红血撤退挪走，旧白名单只认唐文亮冲刺 ⇒ 误判「换位没落地」假红。红血撤退是合法机制，归入白名单。
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.4';
 // V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
 //   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
 //   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
@@ -45,9 +48,21 @@ export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.3';
 //   8号位，第191条他冲刺到前排，后续两次出场都不在 8 号位 ⇒ 假红）。
 //   命中即视为该单位位置被合法改写，放弃本条判据 5（宁漏勿误）。
 //   今后再加「不发位移事件却改站位」的机制，务必登记到这里。
+// 位置改写白名单（V6.1.3 立，V6.1.4 重构为关键词登记表）：这些机制改站位但不发
+//   buff-push/buff-swap 位移事件，判据5 只认那两类事件 ⇒ 会把「之后被合法挪走」误判成
+//   「换位没落地」。命中任一关键词 + 单位名 ⇒ 位置被合法改写，放弃其落位对账（宁漏勿误）。
+//   ★ 今后再加「不发 buff 位移事件却改站位」的机制，务必往 RELOCATE_KEYWORDS 登记。
+//     - 冲刺·七伤齐发：唐文亮强推挤压（moveUnitPosition）
+//     - 红血：撤退至  ：何太冲低血撤退（moveUnitPosition，hetaichong.js L128）
+//     - 蓄意轰拳     ：寒离飒崩飞/轰飞（moveUnitPosition + WIND_ASSAULT_PUSH fact，hanlisa.js L294/305）
+//     - 两仪互换     ：何太冲/昆仑弟子红血互换职业+位置（swapUnitPositions + SKILL_ANNOUNCE，hetaichong.js L156）
+//       （seed=19 s3 实锤：何太冲被惑心换到8号位后与昆仑弟子两仪互换到2号位 ⇒ 假红）
+var RELOCATE_KEYWORDS = ['冲刺·七伤齐发', '红血：撤退至', '蓄意轰拳', '两仪互换'];
 function isOtherRelocate(mid, name) {
     if (!mid || !name || typeof mid.text !== 'string') return false;
-    if (mid.text.indexOf('冲刺·七伤齐发') !== -1 && mid.text.indexOf(name) !== -1) return true;
+    for (var k = 0; k < RELOCATE_KEYWORDS.length; k++) {
+        if (mid.text.indexOf(RELOCATE_KEYWORDS[k]) !== -1 && mid.text.indexOf(name) !== -1) return true;
+    }
     return false;
 }
 
