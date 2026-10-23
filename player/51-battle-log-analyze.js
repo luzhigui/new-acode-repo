@@ -3,7 +3,9 @@
 //   样式统一 hex-log- 前缀，injectLogAnalyzeStyle() 幂等注入一次。
 // 两处消费：工具箱「日志复盘」（粘贴文本）、战报弹窗「走势分析」（直接喂内存 battleLog）。
 // V1.3.0 | 2026-10-13 | ~46400 bytes
-export const VER = 'player/51-battle-log-analyze.js V1.3.0';
+import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+
+export const VER = 'player/51-battle-log-analyze.js V1.4.0';
 
 // ───────────────────────── 样式（幂等注入） ─────────────────────────
 const STYLE_ID = 'hexLogStyle';
@@ -111,7 +113,9 @@ export function injectLogAnalyzeStyle() {
 }
 
 // ───────────────────────── 解析（纯函数） ─────────────────────────
-export function parseLog(text) {
+  events._ctx = ctx;
+  return events;
+}
   const lines = String(text || '').split('\n').map(s => s.trim()).filter(Boolean);
   const events = [];
   // 上下文线索：buff 叠层 / 破防 / 反弹 / 圣火令 / 中毒 / 严阵以待（用于因果讲解）
@@ -596,8 +600,11 @@ function buildHighlightCards(agg) {
 
 // ───────────────────────── 高层：文本 → 两段 HTML ─────────────────────────
 // 返回 { ok, summaryHtml, bodyHtml, rounds, attacks, totalDmg }；不碰 DOM。
-export function analyzeBattleLogText(text) {
-  const events = parseLog(text);
+
+
+// 共用渲染：events → { summaryHtml, bodyHtml }。文本入口与 fact 入口都走这里，判据只维护一份。
+export function buildReport(events, opts) {
+  opts = opts || {};
   const rounds = new Set(events.map(e => e.round)).size;
   const attacks = events.filter(e => e.type === 'attack' || e.type === 'kill').length;
   const kills = events.filter(e => e.type === 'kill').length;
@@ -670,7 +677,7 @@ export function analyzeBattleLogText(text) {
     const n = dispName(e.target);
     if (n && n !== '?') dodgeBy[n] = (dodgeBy[n] || 0) + 1;
   }
-  let winner = (String(text).match(/(明教|六大派)\s*胜/) || [])[1] || null;
+  let winner = opts.winner || null;
   if (!winner) winner = killedCamp[TEAM_SIX] > killedCamp[TEAM_MING] ? TEAM_MING : TEAM_SIX; // 兜底：阵亡多者败
   const loser = winner === TEAM_MING ? TEAM_SIX : TEAM_MING;
   const topHit = attacksOnly.filter(e => e.dmg !== null).sort((a, b) => eff(b) - eff(a))[0] || null;
@@ -756,4 +763,85 @@ export function renderLogAnalysisInto(container, text, summaryContainer) {
     container.innerHTML = (summaryContainer ? '' : `<div class="hex-log-summary" style="display:flex">${r.summaryHtml}</div>`) + r.bodyHtml;
   }
   return r;
+}
+
+// ───────────────────────── fact 入口（游戏内 / 战报文件共用） ─────────────────────────
+// 与 parseLog 产出的 events 同构，buildReport 及以下渲染函数零改动。
+// 关键收益：dodge / immune 不进 takenBy（承伤只算真正命中的伤害），
+//   不再出现「高闪避单位被误判为被集火」。
+
+function _campName(u) {
+  if (!u) return '?';
+  return (u.camp === CAMP_TYPES.ALLY ? '明教 ' : '六大派 ') + (u.name || '?');
+}
+
+export function factsToEvents(facts) {
+  const events = [];
+  let round = 0;
+  for (const f of (facts || [])) {
+    if (!f || !f.factType) continue;
+    const d = f.data || {};
+    if (f.factType === FACT_TYPES.ROUND_START) {
+      round = d.round || round;
+      continue;
+    }
+    if (f.factType === FACT_TYPES.ATTACK) {
+      const r = d.dmgResult || {};
+      const dmg = Math.round(r.dmg || 0);
+      const hpBefore = (r.hpBefore != null) ? r.hpBefore : (d.target && d.target.hp);
+      const hpAfter = (d.snap && d.snap.targetHpAfter != null) ? d.snap.targetHpAfter : (d.target && d.target.hp);
+      const effDmg = (hpBefore != null && hpAfter != null) ? Math.max(0, hpBefore - hpAfter) : dmg;
+      events.push({
+        round,
+        attacker: _campName(d.attacker),
+        target: _campName(d.target),
+        dmg,
+        hpBefore: hpBefore != null ? Math.round(hpBefore) : null,
+        hpAfter: hpAfter != null ? Math.round(hpAfter) : null,
+        formula: null,
+        type: (r.dead || r.executeKill) ? 'kill' : 'attack',
+        overkill: Math.max(0, dmg - effDmg),
+        effDmg
+      });
+      continue;
+    }
+    if (f.factType === FACT_TYPES.DODGE) {
+      events.push({
+        round, attacker: _campName(d.attacker), target: _campName(d.dodger),
+        dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'dodge'
+      });
+      continue;
+    }
+    if (f.factType === FACT_TYPES.MISS) {
+      events.push({
+        round, attacker: _campName(d.attacker), target: _campName(d.target),
+        dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'miss'
+      });
+      continue;
+    }
+    if (f.factType === FACT_TYPES.IMMUNE) {
+      // 护罩/飞天挡下：记事件但不记伤害，takenBy 天然不含
+      events.push({
+        round, attacker: _campName(d.attacker), target: _campName(d.target),
+        dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'immune'
+      });
+      continue;
+    }
+  }
+  events._ctx = { stacks: [], breaks: [], fortify: [], holy: [], poison: [], rebound: [] };
+  return events;
+}
+
+export function analyzeBattleFacts(facts, opts) {
+  return buildReport(factsToEvents(facts), opts || {});
+}
+
+// 战报文件（format: ming-battle-replay）→ 展平全部 fact
+export function collectFactsFromReport(report) {
+  if (!report || !Array.isArray(report.steps)) return [];
+  const out = [];
+  for (const s of report.steps) {
+    if (s && Array.isArray(s.log)) for (const e of s.log) out.push(e);
+  }
+  return out;
 }
