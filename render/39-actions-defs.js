@@ -12,7 +12,7 @@ import { markGridShake } from './32grid-cells.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.7.1';   // V1.7.1 IMMUNE 函数式 timing + splashBreak 分流（溅射只补碎裂不叠飞撞）
+export const VER = 'render/39-actions-defs.js V1.7.2';   // V1.7.2 IMMUNE 破罩演出改不 await 并行加载（真机首载阻塞实锤）
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -419,22 +419,27 @@ export const STAGE_ACTION_DEFS = {
             if (action.reason && action.reason.indexOf('金刚不坏') >= 0) {
                 const target = findUnitByUidLocal(c, action.targetUid);
                 if (!target) return;
-                // 溅射破罩：箭雨演出已由 fx/81 播完（同组 afterText），这里只补碎裂，不再叠飞撞
+                // 真机实锤（2026-10-23 手机端）：首次 await import 在慢网络下阻塞播放主循环——「卡一下才继续」。
+                //   所以这里一律不 await：双模块并行加载，加载完再播；首载期间碎裂晚一拍可接受，卡场不可接受
                 if (action.splashBreak) {
-                    const { showImmuneShieldBreak } = await import('../fx/95-immune-shield-break.js');
-                    showImmuneShieldBreak(target);
-                    markGridShake(target.uid, 160);
+                    // 溅射破罩：箭雨演出已由 fx/81 播完（同组 afterText），只补碎裂不叠飞撞
+                    import('../fx/95-immune-shield-break.js').then((m) => {
+                        m.showImmuneShieldBreak(target);
+                        markGridShake(target.uid, 160);
+                    }).catch(() => {});
                     return;
                 }
                 const attacker = findUnitByUidLocal(c, action.actorUid);
-                if (attacker) {
-                    const { showMeleeCrash } = await import('../fx/82fx-crash-5v5-test.js');
-                    const { showImmuneShieldBreak } = await import('../fx/95-immune-shield-break.js');
-                    await showMeleeCrash(attacker, target, () => {
-                        showImmuneShieldBreak(target);
+                if (!attacker) return;
+                Promise.all([
+                    import('../fx/82fx-crash-5v5-test.js'),
+                    import('../fx/95-immune-shield-break.js')
+                ]).then(([crash, shield]) => {
+                    crash.showMeleeCrash(attacker, target, () => {
+                        shield.showImmuneShieldBreak(target);
                         markGridShake(target.uid, 160);
                     });
-                }
+                }).catch(() => {});
             }
             // 飞天（flyData）走 core/10 原有分支：文本由 render/34 的 SPIDER_FLY 渲染，特效由飞行态 stageAction 负责
         }
