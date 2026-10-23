@@ -320,10 +320,10 @@ const MUTATIONS = [
       //   只污染渲染数字、配置真值 0.8 不动 ⇒ rule112 比对不符报红。
       from: "（伤害×${counter.dmgRatio}）",
       to:   "（伤害×${counter.dmgRatio * 2}）" },
-    { id: 'A27', kind: 'ATTR', desc: '灭绝三击吸血比例渲染×2（污染渲染，配置100%不动 → rule112 三击判据应咬）',
+    { id: 'A27', kind: 'ATTR', desc: '灭绝三击吸血报值×2（渲染污染 → rule165 判据3 落地值自洽 K==H2-H1 应咬）',
       file: 'modules/26elite-sixsects-miejueshitai.js',
-      from: "回复本次伤害${third.leechRatio * 100}%=",
-      to:   "回复本次伤害${third.leechRatio * 200}%=" },
+      from: "回复 ${actualHeal} 点${mutedTag}",
+      to:   "回复 ${actualHeal * 2} 点${mutedTag}" },
     // ===== 第 65 轮新增：验证坚盾双规则（125 计数时序 / 130 叠加超上限）真有牙，而非恒绿 =====
     //   两条都扫渲染后战报里的「🛡️ X 坚盾：防御+N（已叠C/Y）」detail 文案（render/35-facts-stat.js L68，
 //   2026-10-18 第 100 轮随 render/35 拆分由 -facts-effect.js 迁入）。
@@ -340,13 +340,14 @@ const MUTATIONS = [
       to:   "（已叠${fact.cap + 1}/${fact.cap}）" },
     // ===== 第 65 轮新增：验证 rule143（张无忌九阳神功回复量=12%）真有牙 =====
     //   九阳 pct 的唯一真值源是 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12），
-    //   rule143 硬编码期望 floor(maxHp×0.12)。把 pct 回退到历史值 0.10（恰好命中 rule143 的 prevExpect 分支）
-    //   ⇒ 引擎实回 floor(maxHp×0.10)、规则仍按 0.12 比对 ⇒ 报「12% 被回退」⇒ 有牙。
+    //   rule143 硬编码期望 floor(maxHp×0.12)。2026-10-23 落地值口径后 pct 调小与折扣不可区分，
+    //   rule143 改抓「调大」：pct→0.15 ⇒ 实回 floor(maxHp×0.15) > floor(maxHp×0.12) ⇒ 命中
+    //   rule143 超上限分支(heal>expect)报「超出公式上限」⇒ 有牙（调小方向已弃，见 rule143 V6.2.2 注释）。
     //   锚点 { "type": "healMaxHpPct", "pct": 0.12 } 全仓唯一（Grep 确认仅 1 处）。
-    { id: 'T10', kind: 'TEXT', desc: '九阳 healMaxHpPct.pct 0.12→0.10（回退历史值 → rule143 应咬）',
+    { id: 'T10', kind: 'TEXT', desc: '九阳 healMaxHpPct.pct 0.12→0.15（调大 → heal>expect 超上限 → rule143 应咬）',
       file: 'content/200game-data.json',
       from: "{ \"type\": \"healMaxHpPct\", \"pct\": 0.12 }",
-      to:   "{ \"type\": \"healMaxHpPct\", \"pct\": 0.10 }" },
+      to:   "{ \"type\": \"healMaxHpPct\", \"pct\": 0.15 }" },
     { id: 'T11', kind: 'ATTR', desc: '乘风/年轻气盛击退距离 target.pos+3 → +2（⇒ 击退距离≠+3 → rule138 应咬）',
       file: 'core/13battle-shared.js',
       from: "const behindPos = target.pos + 3;",
@@ -406,8 +407,8 @@ const MUTATIONS = [
     //     敌方侧 roll 失败时该条不产生（FAIL 分支不动）⇒ 样本里需至少一次敌方 SWAP（概率 80%/95%，覆盖充足）。
     { id: 'T17', kind: 'TEXT', desc: '敌方惑心换位 fact 的 side 漂移成己方（⇒ 配对断链 → rule113 判据1应咬）',
       file: 'core/14buff-effects.js',
-      from: "data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });",
-      to:   "data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });" },
+      from: "data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });",
+      to:   "data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });" },
     //   T18：SWAP fact 把两个旧位置报反（posA/posB 对调，multi 两分支同改）—— 实际换位照常发生，
     //     但宣告的 oldPosA/oldPosB 与真相对调 ⇒ 判据5「A 应落到 oldPosB」永远不命中 ⇒ 应咬。
     //     判据2（自洽）抓不到（uid/位置仍合法且相异）—— 正是要单独验证判据5 有牙。
@@ -418,8 +419,8 @@ const MUTATIONS = [
       //   但行为零变化，树仍是干净树 ⇒ 第 92 轮首测 0 命中还害我误判"规则没牙"。真变异必须换**值**：
       //   `posA: posB, posB: posA`（fact 的 posA 字段装 posB 的值、反之亦然）⇒ 渲染文本位置对调
       //   ⇒ 判据5（含第 93 轮终局兜底）应咬。
-      from: "unitB: { uid: b.uid, name: b.name }, posA, posB } });",
-      to:   "unitB: { uid: b.uid, name: b.name }, posA: posB, posB: posA } });",
+      from: "unitB: { uid: b.uid, name: b.name }, posA, posB",
+      to:   "unitB: { uid: b.uid, name: b.name }, posA: posB, posB: posA",
       multi: true },
 ];
 

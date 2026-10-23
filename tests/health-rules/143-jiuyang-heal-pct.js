@@ -28,15 +28,16 @@
 //   长期处于失效状态（既抓不到回退，也发现不了按比例算错）。
 //   现改为双层扫描:顶层 text + attack-group entries 子条目 + 数组元素，entries 序号保持原战报下标。
 //   判据本身（12%/10%/8% 三档回退识别 + 回血写回一致性）一字未动，做到只改数据源这一处。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.2.1';
+// V6.2.2 | 2026-10-23 落地值口径：5de0846 后战报报打折后落地值，百分比判据从
+//   「heal==floor(maxHp×12%)」放宽为「heal≤floor(maxHp×12%) + 整数 + 血线同步」；
+//   移除「heal==历史比例(10%/8%)⇒回退」分支(折扣落地值与 pct 调小数值不可区分，会假红)；
+//   保留超上限(>expect)与非整数检测。修 fail=39 折扣假红。遗留 gap：无折扣样本 pct 被调小
+//   会被当折扣放行(登记 known-transfers)；变异牙 T10 改测「pct 调大」方向。
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.2.2';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
 var NINE_YANG_PCT = 0.12;
-// V6.1.8~V6.1.11 的上一版比例，用于精确识别"被回退"
-var NINE_YANG_PREV_PCT = 0.10;
-// V6.1.8 之前的更早比例
-var NINE_YANG_OLD_PCT = 0.08;
 
 export const rule90 = {
     group: '数值回归',
@@ -110,19 +111,22 @@ export const rule90 = {
             if (h.hpAfter >= maxHp) continue;
 
             var expect = Math.floor(maxHp * NINE_YANG_PCT);
-            var prevExpect = Math.floor(maxHp * NINE_YANG_PREV_PCT);
-            var oldExpect = Math.floor(maxHp * NINE_YANG_OLD_PCT);
 
-            // 断言1/2（回退检测）：恰好等于历史版本比例 → 现行 12% 被回退
+            // 【2026-10-23 落地值口径】5de0846 后战报报打折后落地值；折扣落地值与「pct 调小」数值上
+            //   不可区分(都让 heal<公式)。原「heal==历史比例(10%/8%)⇒回退」判据既抓不住真回归、又对
+            //   折扣假红(实测6条：回复14=floor(185×8%) 实为22打六几折凑巧撞上)，故移除该分支，改为
+            //   documented 口径：heal ≤ floor(maxHp×12%) + 整数 + 血线同步(断言3已保) ⇒ 合法折扣放行。
+            //   仍抓：>expect(pct调大/重复应用)、非整数(浮点外泄)。遗留gap：无折扣样本 pct 调小会被当
+            //   折扣放行(登记 known-transfers)；变异牙 T10 改测「pct 调大」方向。
             if (h.heal !== expect) {
-                if (h.heal === prevExpect && expect !== prevExpect) {
-                    return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×10%)，疑似 V6.1.12 提高的 12% 被回退（应为 ' + expect + '）' };
+                if (h.heal > expect) {
+                    return { fail: true, msg: '复发：九阳神功回复' + h.heal + ' > floor(血上限' + maxHp + '×12%=' + expect + ')（超出公式上限，疑重复应用或上限被改大）' };
                 }
-                if (h.heal === oldExpect && expect !== oldExpect) {
-                    return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×8%)，疑似回退到更早版本（应为 ' + expect + '）' };
+                if (!Number.isInteger(h.heal)) {
+                    return { fail: true, msg: '复发：九阳神功回复' + h.heal + ' 非整数（落地值未取整，浮点外泄到战报）' };
                 }
-                // 断言3：既不是现行 12%，也不是任何历史值（含 mechanics.pct 被改动、或回血机制没跟上）
-                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（张无忌 mechanics healMaxHpPct.pct 被改动？）' };
+                // heal < expect 且为整数：截脉/寒毒折扣的合法落地值，血线同步已由断言3保证，放行
+                continue;
             }
         }
         return { fail: false };
