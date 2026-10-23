@@ -89,6 +89,13 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 金刚不坏护罩（空见）：{ sourceUid, sourceName }，免疫一次伤害；被正规攻击/溅射消耗后置 null
+    _immuneShield:           { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 空见：已发出护罩次数 / 待发数量 / 五条件标记（opening/allyHurt/allyDead/selfHurt/selfLow）/ 升级标记
+    _kongJianUsed:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _kongJianPending:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _kongJianFlags:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    _kongJianUpgraded:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _butterflyAtk:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyDef:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyHp:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
