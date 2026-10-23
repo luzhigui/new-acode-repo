@@ -98,7 +98,8 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                 </div>
                 <div style="display:flex;gap:0;margin-bottom:10px;">
                     <button class="big-btn btn-play" id="btnYinTianZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #8d6e63, #3e2723);">🦅 殷天正</button>
-                    <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
+                    <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
+                    <button class="big-btn btn-play" id="btnKongJian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
                 </div>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
@@ -211,6 +212,12 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         document.getElementById('btnTangWenLiang').addEventListener('click', () => {
             clearDemoFlags();
             localStorage.setItem('_forceWeakElite', '唐文亮');
+            localStorage.removeItem('_bugMode');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnKongJian').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceWeakElite', '空见');
             localStorage.removeItem('_bugMode');
             window.location.href = 'index.html';
         });
