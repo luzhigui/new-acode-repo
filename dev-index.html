@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V6.3.18 | 2026-10-22 修「👊 寒离飒」按钮必崩：她已升强精英（29 V7.6.0 并入 eliteConfigs、弱精英池无此人），
      旧写法 _forceWeakElite='寒离飒' 会撞 29 的入池校验抛错；改走 29 V7.6.1 新增的 _forceHanLiSa，
      并在 clearDemoFlags 里同步清除。配套 ui/60 一次性消费该标志。
@@ -200,24 +200,6 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             const title = document.createElement('div');
             title.textContent = '📊 生涯记录（' + count + ' 局）';
             title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:15px;';
-            // 统计卡片（读已有记录算，不新增存储）
-            (async () => {
-                try {
-                    const m = await import('./player/52-career-log.js');
-                    const ins = m.getCareerInsights();
-                    if (!ins) return;
-                    const cards = document.createElement('div');
-                    cards.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
-                    const mk = (v, l) => `<div style="flex:1;min-width:84px;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:7px 4px;text-align:center;"><div style="font-size:17px;font-weight:bold;color:#ffd700;">${v}</div><div style="font-size:10px;color:#888;margin-top:2px;">${l}</div></div>`;
-                    let html = mk(ins.total, '总场次') + mk(ins.winRate + '%', '明教胜率') + mk(ins.avgRounds, '平均回合');
-                    if (ins.hardest) html += mk(ins.hardest.rate + '%', '最难 s' + ins.hardest.stage + '(' + ins.hardest.n + '局)');
-                    if (ins.easiest) html += mk(ins.easiest.rate + '%', '最易 s' + ins.easiest.stage + '(' + ins.easiest.n + '局)');
-                    if (ins.topHero) html += mk(ins.topHero.rate + '%', '主力 ' + ins.topHero.name);
-                    cards.innerHTML = html;
-                    box.insertBefore(cards, box.querySelector('textarea'));
-                } catch (e) { /* 统计失败不影响文本导出 */ }
-            })();
-
             // 统计卡片（读已有记录算，不新增存储）
             (async () => {
                 try {

@@ -112,91 +112,6 @@ export function injectLogAnalyzeStyle() {
     document.head.appendChild(style);
 }
 
-// ───────────────────────── 解析（纯函数） ─────────────────────────
-  events._ctx = ctx;
-  return events;
-}
-  const lines = String(text || '').split('\n').map(s => s.trim()).filter(Boolean);
-  const events = [];
-  // 上下文线索：buff 叠层 / 破防 / 反弹 / 圣火令 / 中毒 / 严阵以待（用于因果讲解）
-  const ctx = { stacks: [], breaks: [], fortify: [], holy: [], poison: [], rebound: [] };
-  let round = 0;
-  let pending = null;
-  const pushPending = () => { if (pending) { events.push(pending); pending = null; } };
-
-  for (const line of lines) {
-    let m;
-    if ((m = line.match(/第(\d+)回合开始/))) {
-      round = parseInt(m[1], 10);
-    } else if ((m = line.match(/^(.+?)\(攻\s*\d+\s*血\s*\d+\)\s*→\s*(.+?)\(防\s*\d+\s*血\s*\d+\)$/))) {
-      pushPending();
-      pending = { round, attacker: m[1].trim(), target: m[2].trim(), dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'attack' };
-    } else if (pending && (m = line.match(/^计算：(.*?)\s*=\s*(\d+)/))) {
-      // 伤害公式：留存系数（如 ×6.66、防御值），用于解释爆发来源
-      pending.formula = m[1].trim();
-    } else if (pending && (m = line.match(/造成\s*(\d+)\s*伤害/))) {
-      pending.dmg = parseInt(m[1], 10);
-      const hpM = line.match(/(\d+)\s*→\s*(\d+)/);
-      if (hpM) { pending.hpBefore = parseInt(hpM[1], 10); pending.hpAfter = parseInt(hpM[2], 10); }
-      if (line.includes('阵亡')) pending.type = 'kill';
-      // 溢出伤害识别：dmg > 目标剩余血 → 有效伤害按剩余血计，溢出部分不参与统计
-      const hasOver = pending.hpBefore !== null && pending.dmg > pending.hpBefore;
-      pending.overkill = hasOver ? pending.dmg - pending.hpBefore : 0;
-      pending.effDmg = hasOver ? pending.hpBefore : pending.dmg;
-      pushPending();
-    } else if (line.includes('闪避并反击') || line.includes('闪避了攻击')) {
-      // 闪避：紧接的箭头行已建 pending（攻击者→闪避者），把它转为 dodge，而不是再补一条空攻击。
-      // 现网文案「🦅 X闪避并反击 → Y 造成 N 真实伤害（…）」里的 N 是反击的反弹伤害，不计正面命中；
-      // 老工具箱文案为「X闪避了攻击」。注意「💨 流云身法：X 闪避+30%」是 buff 提示而非出手，
-      // 故只认「闪避并反击 / 闪避了攻击」两种出手文案，避免把加成提示误记成闪避。
-      const dm = line.match(/🦅\s*(.+?)闪避/);
-      const dodger = dm
-        ? dm[1].trim()
-        : (line.includes('闪避了攻击') ? line.split('闪避了攻击')[0].replace(/^[^一-龥A-Za-z0-9·]+/, '').trim() : (pending ? pending.target : '?'));
-      if (pending) {
-        pending.type = 'dodge';
-        pending.dmg = null;
-        pending.target = dodger || pending.target;
-        pushPending();
-      } else {
-        pushPending();
-        pending = { round, attacker: '?', target: dodger || '?', dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'dodge' };
-        pushPending();
-      }
-    } else if (line.includes('未命中')) {
-      // 未命中：箭头行已建 pending（攻击者→目标），转为 miss；不再先推一条 dmg=null 的空攻击
-      //（旧逻辑会让攻击次数 +1、明细表多一行没有伤害的「命中」）。
-      if (pending) {
-        pending.type = 'miss';
-        pending.dmg = null;
-        pushPending();
-      } else {
-        pushPending();
-        pending = { round, attacker: '?', target: '?', dmg: null, hpBefore: null, hpAfter: null, formula: null, type: 'miss' };
-        pushPending();
-      }
-    }
-
-    // ---- 上下文线索（与事件流独立，逐行捕获） ----
-    if (line.includes('圣火令')) ctx.holy.push({ round, line });
-    if ((m = line.match(/严阵以待：(.+?) 防御\+50%/))) ctx.fortify.push({ round, units: m[1].split(/[、,，]/).map(s => s.trim()) });
-    if ((m = line.match(/^🛡️ (.+?) (攻盾|坚盾)：防御\+(\d+)（已叠(\d+)\/(\d+)）/))) {
-      ctx.stacks.push({ round, unit: m[1].trim(), kind: m[2], n: parseInt(m[4], 10), def: parseInt(m[3], 10) });
-    }
-    if ((m = line.match(/^🗡️ (.+?) 破防：(.+?) 防御 -(\d+)/))) {
-      ctx.breaks.push({ round, by: m[1].trim(), target: m[2].trim(), n: parseInt(m[3], 10) });
-    }
-    if ((m = line.match(/反弹(\d+)给(.+?)(?:\s*（|\s*$)/))) ctx.rebound.push({ round, dmg: parseInt(m[1], 10), target: m[2].trim() });
-    if (line.includes('中毒')) {
-      const vm = line.match(/使\s*(.+?)\s*中毒/);
-      if (vm) ctx.poison.push({ round, unit: vm[1].trim() });
-    }
-  }
-  pushPending();
-  events._ctx = ctx;
-  return events;
-}
-
 // 顶层公共辅助（供 render/buildNarration/largestHitAt 共用）
 const TEAM_MING = '明教', TEAM_SIX = '六大派';
 const teamOf = u => (u || '').startsWith(TEAM_MING) ? TEAM_MING : (u || '').startsWith(TEAM_SIX) ? TEAM_SIX : null;
@@ -716,57 +631,8 @@ export function buildReport(events, opts) {
   return { ok: true, summaryHtml, bodyHtml, rounds, attacks, totalDmg };
 }
 
-// ───────────────────────── battleLog 条目 → 纯文本 ─────────────────────────
-// battleLog 是渲染后条目树：{ type, text, entries: [ {type,text,entries?} ... ] }。
-// 递归收集全部 text（含 detail / damage-text 子条目，简略模式下数据仍在 battleLog 里），
-// 拼成 parseLog 期望的逐行文本。
-//
-// 关键：条目 text 是「渲染期 HTML」（形如 `造成 <span class="red">123</span> 伤害`、
-// `<div class="separator">———— 第N回合开始 ————</div>`）。玩家手动全选复制日志时，浏览器
-// 剪贴板里是剥掉标签的 textContent；但直接读数据树拿到的是带 <span> 的 HTML 源串，
-// parseLog 的正则（`造成\s*(\d+)\s*伤害`、箭头行 `$` 锚定等）会整体失配。故此处必须先
-// 剥标签 + 还原常见实体，使「一键分析」与「手动粘贴」严格等价。
-const htmlToPlain = (s) => String(s == null ? '' : s)
-  .replace(/<br\s*\/?>(?=.)/gi, '\n')
-  .replace(/<\/div>\s*<div[^>]*>/gi, '\n')
-  .replace(/<[^>]+>/g, '')
-  .replace(/&nbsp;/g, ' ')
-  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&hellip;/g, '…');
-
-export function flattenBattleLogToText(logEntries) {
-  const lines = [];
-  const walk = (node) => {
-    if (!node) return;
-    if (typeof node === 'string') { if (node.trim()) lines.push(htmlToPlain(node).trim()); return; }
-    if (typeof node.text === 'string') {
-      const t = htmlToPlain(node.text).trim();
-      if (t) lines.push(t);
-    }
-    if (Array.isArray(node.entries)) node.entries.forEach(walk);
-  };
-  (Array.isArray(logEntries) ? logEntries : []).forEach(walk);
-  return lines.join('\n');
-}
-
-// ───────────────────────── 一站式：渲染进给定容器 ─────────────────────────
-// container：正文容器；summaryContainer（可选）：顶部卡片容器。
-// 返回 analyzeBattleLogText 的 meta（含 ok）。
-export function renderLogAnalysisInto(container, text, summaryContainer) {
-  injectLogAnalyzeStyle();
-  const r = analyzeBattleLogText(text);
-  if (summaryContainer) {
-    summaryContainer.style.display = 'flex';
-    summaryContainer.innerHTML = r.summaryHtml;
-  }
-  if (container) {
-    container.innerHTML = (summaryContainer ? '' : `<div class="hex-log-summary" style="display:flex">${r.summaryHtml}</div>`) + r.bodyHtml;
-  }
-  return r;
-}
-
 // ───────────────────────── fact 入口（游戏内 / 战报文件共用） ─────────────────────────
-// 与 parseLog 产出的 events 同构，buildReport 及以下渲染函数零改动。
+// events 结构与 buildReport 入参同构，buildReport 及以下渲染函数零改动。
 // 关键收益：dodge / immune 不进 takenBy（承伤只算真正命中的伤害），
 //   不再出现「高闪避单位被误判为被集火」。
 
