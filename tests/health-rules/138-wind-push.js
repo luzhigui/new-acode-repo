@@ -8,7 +8,7 @@
 // V6.1.12（2026-10-1x）：判据3 改「被下一次换位打断前，任一快照落到宣告位即算生效」——
 //   旧口径只看击退后第一条快照，而 fxSnapshot 抓取存在一拍时滞（实测 seed=20 stage=4：
 //   击退后紧邻的一条仍是旧位、再往后两条才落宣告位），把"位置其实生效了"误判未生效。
-export const VER = 'tests/health-rules/138-wind-push.js V6.2.0';
+export const VER = 'tests/health-rules/138-wind-push.js V6.2.1';
 
 // 静默位移识别（第 121 轮取证）：唐文亮冲刺 / 何太冲撤退 / 寒离飒位移都走 core/13 moveUnitPosition，
 //   它**只发 ON_UNIT_STATE_CHANGE 信号、不产 buff-push/buff-swap 条目**（第 115 轮实证），
@@ -16,17 +16,12 @@ export const VER = 'tests/health-rules/138-wind-push.js V6.2.0';
 //   便把"击退已落地、之后又被别人挪走"误判为"击退没落地"（实证 seed=63 stage=4：唐文亮在
 //   117 条被击退至 6 号位，125 条冲刺把自己 relocate 到 2 号位，126 条快照 @2 ⇒ 旧判据误报）。
 // 口径收得很紧，只认真正会改写该期望单位站位的两种情形；数值与落地判据一字未放宽：
-//   ① 冲刺条目本身会让唐文亮本人改站位 ⇒ 期望单位就是唐文亮（或被拽者本人）时视为被打断；
-//   ② 位移条目宣告的落位号（「至 N 号位」）与期望位相同 ⇒ 该位被第三方占了，无法归因。
-function isSilentRelocate(mid, exp) {
-    if (!mid || typeof mid.text !== 'string') return false;
-    var t = mid.text;
-    if (t.indexOf('冲刺·七伤齐发') === -1) return false;
-    if (exp.name && t.indexOf(exp.name) !== -1) return true;
-    var dm = t.match(/至\s*(\d+)\s*号位/);
-    if (dm && parseInt(dm[1], 10) === exp.pos) return true;
-    return false;
-}
+//   ① 位移条目宣告的落位号（「至 / 落在 / 压至 … N 号位」）与期望位相同 ⇒ 该位被第三方重写，无法归因；
+//   ② 条目宣告两人互换位置却不报落位号、且文本含期望单位名（两仪互换，第 124 轮登记）。
+// V6.2.1（2026-10-23 第 124 轮）：上面两条收口为 tests/122health-utils.js 的 isSilentRelocate
+//   （138 / 166 此前各写一份，重复即埋雷；本轮在 166 侧实证上游新机制「两仪互换」同样走
+//   swapUnitPositions、同样不发位移事件，白名单必须由唯一来源维护）。
+import { isSilentRelocate } from '../122health-utils.js';
 
 export const rule85 = {
     group: '技能效果回归',

@@ -24,7 +24,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.20';
+export const VER = 'tests/122health-utils.js V6.2.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -763,4 +763,33 @@ export function checkActionRights(roundFacts, units) {
         }
     }
     return issues;
+}
+
+// ===== 静默位移白名单（第 124 轮：138 / 166 各写一份的重复实现收口为唯一来源）=====
+// 背景（第 115 / 121 轮实证，本轮在合并上游 main 后复发一次）：
+//   moveUnitPosition / swapUnitPositions（core/13battle-shared.js）只发 ON_UNIT_STATE_CHANGE 信号，
+//   **不产** buff-push / buff-swap 条目 ⇒ 战报里没有任何「位置被改写」的标记。138 / 166 的
+//   「宣告位置是否真实生效」判据只认 buff-push/buff-swap 打断，于是把「已落地、之后被第三方挪走」
+//   误判成「没落地」。
+// 全库调用点（第 124 轮 grep 实证，6 处——今后再加务必登记，否则这里会静默漏判）：
+//   core/10battle-attack.js:52           标枪射程不及前压  「🥢 X 射程不及，向前压至 N 号位」
+//   modules/26…-tangwenliang.js:115      唐文亮冲刺·七伤齐发（强推挤压，多单位 moveUnitPosition）
+//   modules/26…-hetaichong.js:128        何太冲红血撤退    「🩸 X 红血：撤退至 N 号位、转远程」
+//   modules/26…-hetaichong.js:156        两仪互换（swapUnitPositions）「☯ 两仪互换：A ⇄ B（互换职业与位置）」
+//   modules/27…-hanlisa.js:294 / 305     蓄意轰拳·崩飞 / 轰飞（WIND_ASSAULT_PUSH fact）
+// 两条判据（任一命中 ⇒ 期望位被合法改写，放弃本条归因；宁漏勿误，数值与落地判据一字未放宽）：
+//   ① 落位号证据（通用，不限机制）：条目宣告任意单位落到 N 号位且 N === exp.pos ⇒ 该格被重写，
+//      无法再归因（第 121 轮实证：冲刺文案只报被拽者，占位者的名字全程不出现，只能靠落位号认）；
+//   ② 具名互换证据（按机制登记）：条目宣告两人互换位置却不报落位号、且文本含期望单位名。
+//      两仪互换是此类唯一机制（第 124 轮实证 seed=19 stage=3）；「位置被免疫挡下」那支文案
+//      不带「互换职业与位置」字样，不会被误放行。
+const LANDING_POS_RE = /(?:至|落在|落至|压至|推至|拽至|飞至|退至)\s*(\d+)\s*号位/;
+const SWAP_ANNOUNCE_RE = /两仪互换/;
+export function isSilentRelocate(mid, exp) {
+    if (!mid || typeof mid.text !== 'string' || !exp) return false;
+    var t = mid.text;
+    if (SWAP_ANNOUNCE_RE.test(t) && exp.name && t.indexOf(exp.name) !== -1) return true;
+    var dm = t.match(LANDING_POS_RE);
+    if (dm && exp.pos != null && parseInt(dm[1], 10) === exp.pos) return true;
+    return false;
 }
