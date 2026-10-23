@@ -200,21 +200,56 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             const title = document.createElement('div');
             title.textContent = '📊 生涯记录（' + count + ' 局）';
             title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:15px;';
-            // 统计卡片（读已有记录算，不新增存储）
+            // 统计卡片 + 战绩条 + 一句话总结（读已有记录算，不新增存储）
             (async () => {
                 try {
                     const m = await import('./player/52-career-log.js');
                     const ins = m.getCareerInsights();
                     if (!ins) return;
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+
                     const cards = document.createElement('div');
                     cards.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
-                    const mk = (v, l) => `<div style="flex:1;min-width:84px;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:7px 4px;text-align:center;"><div style="font-size:17px;font-weight:bold;color:#ffd700;">${v}</div><div style="font-size:10px;color:#888;margin-top:2px;">${l}</div></div>`;
+                    const mk = (v, l) => `<div style="flex:1;min-width:78px;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:7px 4px;text-align:center;"><div style="font-size:17px;font-weight:bold;color:#ffd700;">${v}</div><div style="font-size:10px;color:#888;margin-top:2px;">${l}</div></div>`;
                     let html = mk(ins.total, '总场次') + mk(ins.winRate + '%', '明教胜率') + mk(ins.avgRounds, '平均回合');
-                    if (ins.hardest) html += mk(ins.hardest.rate + '%', '最难 s' + ins.hardest.stage + '(' + ins.hardest.n + '局)');
-                    if (ins.easiest) html += mk(ins.easiest.rate + '%', '最易 s' + ins.easiest.stage + '(' + ins.easiest.n + '局)');
-                    if (ins.topHero) html += mk(ins.topHero.rate + '%', '主力 ' + ins.topHero.name);
+                    // 最难 / 最易：同一关（或胜率相同且只有一关）时只显示一张，避免"最难=最易"的怪状
+                    const sameStage = ins.hardest && ins.easiest && ins.hardest.stage === ins.easiest.stage;
+                    if (ins.hardest && !sameStage) html += mk(ins.hardest.rate + '%', '最难 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局)');
+                    if (ins.easiest && !sameStage) html += mk(ins.easiest.rate + '%', '最易 s' + ins.easiest.stage + ' (' + ins.easiest.n + '局)');
+                    if (ins.hardest && sameStage) html += mk(ins.hardest.rate + '%', '关卡 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局)');
+                    if (ins.topHero) html += mk(ins.topHero.rate + '%', '主力 ' + ins.topHero.name + ' (' + ins.topHero.games + '局)');
+                    if (ins.bestHit) html += mk(ins.bestHit.dmg, '单局最高 ' + ins.bestHit.name);
+                    if (ins.hexTop) html += mk(ins.hexTop.rate + '%', '海克斯 ' + ins.hexTop.name + ' (' + ins.hexTop.n + '局)');
                     cards.innerHTML = html;
-                    box.insertBefore(cards, box.querySelector('textarea'));
+                    wrap.appendChild(cards);
+
+                    // 战绩条：最近 10 局，胜绿负灰平棕
+                    if (ins.recent && ins.recent.length) {
+                        const bar = document.createElement('div');
+                        bar.style.cssText = 'display:flex;gap:3px;align-items:center;';
+                        const tag = document.createElement('span');
+                        tag.textContent = '最近：';
+                        tag.style.cssText = 'font-size:10px;color:#888;';
+                        bar.appendChild(tag);
+                        ins.recent.forEach((w, i) => {
+                            const d = document.createElement('div');
+                            d.title = '第 ' + (ins.total - ins.recent.length + i + 1) + ' 局 · ' + w;
+                            d.style.cssText = 'width:16px;height:16px;border-radius:3px;' + (w === '明教' ? 'background:#2e7d32;' : (w === '六大派' ? 'background:#616161;' : 'background:#8d6e63;'));
+                            bar.appendChild(d);
+                        });
+                        wrap.appendChild(bar);
+                    }
+
+                    // 一句话总结
+                    if (ins.summaryLine) {
+                        const s = document.createElement('div');
+                        s.textContent = ins.summaryLine;
+                        s.style.cssText = 'font-size:11px;color:#a8b4c0;line-height:1.5;';
+                        wrap.appendChild(s);
+                    }
+
+                    box.insertBefore(wrap, box.querySelector('textarea'));
                 } catch (e) { /* 统计失败不影响文本导出 */ }
             })();
 
