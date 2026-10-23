@@ -1,3 +1,4 @@
+// V1.4.0 | 2026-10-24 第 127 轮：CHECKS 新增「对照器守卫自检」（tests/contract-guard-selftest.mjs，第 10 项，计退码）
 // tests/run-all.mjs | ~4100 bytes | V1.3.0 | 2026-10-22 CHECKS 新增「蓄意轰拳数值口径对账」
 //   （tests/hit-shapes-consistency.mjs，新检查，放在静态契约一致性之后——秒级、纯静态对账）
 // V1.0.1 | 2026-10-13 CHECKS 末尾挂「翻译层golden对照」（tests/translate-golden.mjs，render/38 拆分护栏）
@@ -15,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.3.0';
+export const VER = 'tests/run-all.mjs V1.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -32,6 +33,11 @@ const CHECKS = [
     { name: '无头冒烟', script: 'tests/smoke-headless.mjs', args: [] },
     { name: '账本对照(声明vs实际)', script: 'tests/stat-decl-vs-actual-check.mjs', args: [] },
     { name: '静默位移判据自检(离线断言)', script: 'tests/silent-relocate-judge-selftest.mjs', args: [] },
+    // V1.4.0 | 2026-10-24 第 127 轮：挂「对照器守卫自检」tests/contract-guard-selftest.mjs。
+    //   18 颗 ATTR 变异牙的判定是「规则无牙·对照器兜住」——对照器是它们**唯一**的证据来源，
+    //   却一直没配离线自检（第 125 轮立的通规：白名单型判据都是回放盲区，须逐个补自检）。
+    //   自检五条：契约表可解析 / 干净树零命中 / 恒空转契约棘轮 / 牙→契约归属表存在 / 守卫非死契约。
+    { name: '对照器守卫自检(离线断言)', script: 'tests/contract-guard-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }

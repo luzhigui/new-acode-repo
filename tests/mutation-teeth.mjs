@@ -107,7 +107,18 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.13';
+// V2.9.14 | 2026-10-24 第 127 轮：对照器侧补「归属 + 不得作证」两道闸门（只补证据通道，判据不放松）。
+//   背景：V2.9.13 及以前，对照器证据只有一个**汇总数**（grep「检出重复应用 N 处」），既不知道
+//   是哪条契约抓的，也没有「干净树本就命中 ⇒ 不得作证」这道闸门——与第 43 轮（153）、第 126 轮
+//   （转交中规则）在**规则侧**修的是同一类洞，只是对照器侧一直没补。
+//   ① 归属：STAT 段本来就逐条打印 `CONTRACT 声明 N 条 · 命中 M · …`，此前被丢弃。改为解析成
+//     statByContract，把「对照器兜住」写成「对照器兜住(LEECH_MAXHP×199)」——18 颗 ATTR 牙各自
+//     由哪条契约守着，从此可审计（第 126 轮下轮目标点名的 A20/A11/A5 分别对应
+//     LEECH_MAXHP / WEI_HEAL / METEOR_GROWTH，已实测 1:1 对应、无错配）。
+//   ② 不得作证：干净树 _base 里 命中>0 的契约（若有）列入 BASE_DIRTY_CONTRACTS，其命中不计入
+//     「有牙」证据，改记对照器侧 [掩盖×N]——道理同「基线已红的规则不得作证」。
+//     实测当前 _base 全部 56 条契约命中皆 0 ⇒ 本闸门当下为空操作（零判定迁移），纯属加固。
+export const VER = 'tests/mutation-teeth.mjs V2.9.14';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -542,8 +553,11 @@ function breEscape(s) {
 let BASE_SIG = null;
 // V2.9.0：干净树自己的「偏差」条数基准（实测 BREAK_DEF 跨子步 2 条）。偏差只看增量，不看绝对值。
 let BASE_MISMATCH = 0;
+// V2.9.14：干净树里「命中>0」的契约集合 —— 与 BASE_RED 同理，这些契约失去作证资格。
+//   实测当前为空（56 条契约在 _base 上命中皆 0），故本闸门当下不改变任何判定，只防未来假绿。
+let BASE_DIRTY_CONTRACTS = {};
 
-function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
+function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts) {
     // ★ 第 58 轮：baselineChanged 改为**相对 _base 干净树的增量**判定。
     //   旧口径 `B.changed || match<18` 是「与录制基线比」，而主代码进行中的 dotTick 让干净树自己就报红线，
     //   ⇒ 任何变异的 changed 恒 true ⇒ no-op 变异（A8/A19/A13，baseline 输出与 _base 逐字节相同）
@@ -566,11 +580,27 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
     // V2.9.0：对照器「偏差」方向命中（TEXT 变异的"声明写大 ⇒ 少加/多报"落在这里，statTotal 恒 0）。
     //   同样取**相对干净树的增量**，避免把干净树固有的 2 条 BREAK_DEF 偏差当成有牙。
     const mismatchDelta = (typeof S.statMismatch === 'number' ? S.statMismatch : 0) - BASE_MISMATCH;
-    const statHit = S.total > 0 || mismatchDelta > 0;
+    // ★★ V2.9.14：对照器侧「归属 + 不得作证」——与上面规则侧两道闸门同一条道理，只是对象换成契约：
+    //   一条在干净树就命中的契约，它的命中无法区分「抓到了本次变异」与「战斗轨迹变了顺带命中」。
+    //   ⇒ 只有**干净树命中为 0** 的契约，其在变异树上的新命中才算真有牙；脏契约的命中改记 statMasked。
+    //   实测当前 _base 56 条契约命中皆 0 ⇒ 本闸门当下为空操作（零判定迁移），属纯加固。
+    const dirtyC = baseDirtyContracts || {};
+    const byC = S.statByContract || {};
+    const guardians = [];
+    let statClean = 0, statMasked = 0;
+    for (const k of Object.keys(byC).sort()) {
+        if (dirtyC[k]) statMasked += byC[k];
+        else { statClean += byC[k]; guardians.push(k + '×' + byC[k]); }
+    }
+    // 兼容旧结果文件（无逐契约列）：退回归总数口径，不因解析缺口把「有牙」误判成「没牙」。
+    if (Object.keys(byC).length === 0 && S.total > 0) { statClean = S.total; guardians.push('(未归属)×' + S.total); }
+    const statHit = statClean > 0 || mismatchDelta > 0;
     const effective = mut.kind === 'TEXT' || newDetail.length > 0 || newRed.length > 0
         || baselineChanged || fpChanged || statHit;
-    if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
-    if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+    // V2.9.14：把守到它的契约名写进判定 —— 「对照器兜住」从此可审计（谁兜的、兜了几处）。
+    const gbit = guardians.length ? `(${guardians.join('、')})` : '';
+    if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+    if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     // 规则侧：只认「基线不红的规则」报出的新红
     const bit = newDetail.length > 0 ? `(+${newDetail.length}条新明细)` : '';
     if (newRed.length > 0) {
@@ -584,15 +614,15 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
         //   TEXT 类本就是「专测 fact 文本有没有牙」（第 43 轮立意），对照器抓到却当没抓到，
         //   是最坏的假盲区 —— 会让人误以为该机制完全没人管。正确顺序同 ATTR：规则 → 对照器 → 装饰品。
         if (statHit) {
-            const via = S.total > 0 ? `(+对照器命中 ${S.total})`
-                                    : `(+对照器偏差 ${mismatchDelta})`;
-            if (baselineChanged) return { verdict: '规则无牙·对照器兜底' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
-            return { verdict: '对照器有牙' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+            const via = statClean > 0 ? `(+对照器命中 ${statClean}${gbit})`
+                                      : `(+对照器偏差 ${mismatchDelta})`;
+            if (baselineChanged) return { verdict: '规则无牙·对照器兜底' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+            return { verdict: '对照器有牙' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
         }
-        if (baselineChanged) return { verdict: '❌装饰品(仅基线能察觉)', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
-        return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+        if (baselineChanged) return { verdict: '❌装饰品(仅基线能察觉)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+        return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     }
-    if (S.total > 0) return { verdict: '规则无牙·对照器兜住', effective, baselineChanged, fpChanged, newDetail, newRed };
+    if (statClean > 0) return { verdict: '规则无牙·对照器兜住' + gbit, effective, baselineChanged, fpChanged, newDetail, newRed, statMasked };
     if (baselineChanged) return { verdict: '规则无牙·仅基线兜底', effective, baselineChanged, fpChanged, newDetail, newRed };
     // 属性变了(fpChanged) 但规则+对照器+基线都没反应
     return { verdict: '⚠属性已变但规则+对照器+基线均未反应(待确认盲区)', effective, baselineChanged, fpChanged, newDetail, newRed };
@@ -790,6 +820,13 @@ async function main() {
             BASE_SIG = b.baselineSig ?? null;
             BASE_MISMATCH = (typeof b.statMismatch === 'number' ? b.statMismatch : 0);
             BASE_RED = b.red || []; BASE_DETAILS = b.details || [];
+            // V2.9.14：干净树里已命中的契约 ⇒ 失去作证资格（对照器侧「不得作证」闸门）。
+            BASE_DIRTY_CONTRACTS = Object.fromEntries(
+                Object.entries(b.statByContract || {}).filter(([, v]) => v > 0));
+            if (Object.keys(BASE_DIRTY_CONTRACTS).length) {
+                console.log(`  ⚠ 干净树里已命中的契约 ${Object.keys(BASE_DIRTY_CONTRACTS).length} 条（${Object.keys(BASE_DIRTY_CONTRACTS).join('、')}）`);
+                console.log('    按第 43 轮同一口径，它们失去作证资格 —— 其命中不计入「有牙」，改记 [对照器掩盖×N]。');
+            }
             // V2.9.13：干净树里「转交中（⚠️）」的规则同样是**基线就已红**（fail>0，只是不计退码），
             //   按第 43 轮同一条道理，它们也失去作证资格 —— 否则变异改了战斗轨迹，顺带让 164 多报几条
             //   就会被误判成「规则有牙」。与 BASE_RED 合并后，其新明细改记 masked（[掩盖×N]）显式呈现。
@@ -825,9 +862,9 @@ async function main() {
             if (!p) { console.log(`⏭ 缺 ${m.id} 结果`); continue; }
             const R = { red: p.red, details: p.details || [], pairs: p.pairs || [], crash: p.crash };
             const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig };
-            const S = { total: p.statTotal, statMismatch: p.statMismatch };
+            const S = { total: p.statTotal, statMismatch: p.statMismatch, statByContract: p.statByContract };
             const stf = { fp: p.fp };
-            const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS);
+            const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS, BASE_DIRTY_CONTRACTS);
             // V2.9.0：实证「变异到底注进树里没有」。锚点失效时（主代码改写了 from 串）sed 替换 0 处，
             //   树 = 干净树，跑出来的一切都是「没变化」——而 judge 对 TEXT 无条件判 effective，
             //   于是「没注入」被渲染成「规则没牙 / 装饰品(真盲区)」，是最坏的假结论（T2 挂了好几轮就是这么来的）。
@@ -908,6 +945,11 @@ function parseBlock(body) {
     //   与 statTotal（重复应用）互补：超应用抓 statTotal，少加/多报抓 statMismatch。
     //   ⚠️ 只看**相对 _base 的增量**（干净树本身就有 2 条 BREAK_DEF 跨子步偏差），绝对值无分辨力。
     let statMismatch = 0;
+    // V2.9.14：逐契约归属。STAT 段每行形如
+    //   `LEECH_MAXHP  声明  185 条 · 命中 199 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0`
+    //   此前只取汇总数、丢弃归属 ⇒ 「对照器兜住」不显示是谁兜的，无从审计。
+    //   只收 命中>0 的契约（0 命中的契约不构成证据，收进来只会稀释归属）。
+    const statByContract = {};
     for (const line of stat.split('\n')) {
         // stat-decl 汇总行：命中时 `✗ 检出重复应用 N 处`（N>0）；干净树为 `✅ 全部数值声明…（无重复应用）`（无此行）。
         // ⚠️ 旧正则 `重复应用命中\s+(\d+)` 与 stat-decl 实际文案「检出重复应用 N 处」不匹配，导致严格命中的契约
@@ -918,9 +960,17 @@ function parseBlock(body) {
         //   ⇒ `声明` 永远匹配不上 ⇒ 偏差恒 0（首版就栽这：_base 明明 BREAK_DEF 偏差 2 却显示 0）。
         const mm = line.match(/^([A-Z][A-Z_0-9]*)\s+声明.*?偏差\s+(\d+)/);
         if (mm) statMismatch += Number(mm[2]);
+        // V2.9.14：逐契约「命中」列（重复应用命中数）。注意与上面的「偏差」列是同一行的两个不同字段，
+        //   正则必须锚到 `声明\s+(\d+)\s+条\s+·\s+命中\s+(\d+)`，不能只写 `命中\s+(\d+)`——
+        //   汇总行「检出重复应用 199 处」里没有「命中」二字，但「歧义跳过」行等其他文案可能撞车。
+        const mc = line.match(/^([A-Z][A-Z_0-9]*)\s+声明\s+\d+\s+条\s+·\s+命中\s+(\d+)/);
+        if (mc) {
+            const n = Number(mc[2]);
+            if (n > 0) statByContract[mc[1]] = (statByContract[mc[1]] || 0) + n;
+        }
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, warn, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, fp: fpM ? fpM[1] : null };
+    return { red, warn, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, statByContract, fp: fpM ? fpM[1] : null };
 }
 
 function summarize(rows, outPath, metaLines, staleCount) {
@@ -934,8 +984,10 @@ function summarize(rows, outPath, metaLines, staleCount) {
         const red = (r.red || []).length ? r.red.map(s => s.replace('(回归)', '')).join('、') : '—';
         // [掩盖×N]：该变异让「基线已红的规则」冒出了 N 条新明细 —— 属噪声，**不可**当成有牙的证据
         const mk = (r.masked || []).length ? ` [掩盖×${(r.masked || []).length}]` : '';
-        console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${(r.verdict || '').padEnd(30)} ${red}${mk}`);
-        md.push(`| ${r.mut.id} | ${r.mut.kind} | ${r.verdict || ''} | ${red}${mk} | ${r.mut.desc} |`);
+        // V2.9.14：对照器侧被「已命中契约」吃掉的部分（同规则侧 [掩盖×N]，只提示、不作证据）
+        const cmk = r.statMasked > 0 ? ` [对照器掩盖×${r.statMasked}]` : '';
+        console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${(r.verdict || '').padEnd(30)} ${red}${mk}${cmk}`);
+        md.push(`| ${r.mut.id} | ${r.mut.kind} | ${r.verdict || ''} | ${red}${mk}${cmk} | ${r.mut.desc} |`);
     }
     const has = (r, k) => r.verdict && r.verdict.indexOf(k) >= 0;
     const blind = rows.filter(r => has(r, '装饰品'));
