@@ -10,7 +10,7 @@ import { eventBus } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { pushSkillAnnounce } from './23elite-helpers.js';
 
-export const VER = 'modules/26elite-sixsects-kongjian.js V1.0.0';
+export const VER = 'modules/26elite-sixsects-kongjian.js V1.1.0';   // V1.1.0 reason 文案加长（fx 按前缀「金刚不坏」判断）
 
 // 触发监听排在常规 afterDamage 之后（吸血/嗜血/乘风等在 20~35），保证溅射受伤也记进待发队列
 const TRIGGER_PRIORITY = 55;
@@ -148,7 +148,7 @@ export function createKongJianComponent() {
                 if (!t || !t.state || !t.state._immuneShield) return;
                 if (Array.isArray(data.declarations) && data.declarations.some(d => d.immune)) return;
                 if (!data.declarations) data.declarations = [];
-                data.declarations.push({ immune: true, reason: '🛡️ 金刚不坏' });
+                data.declarations.push({ immune: true, reason: '🛡️ 金刚不坏：护罩挡下这一击' });
                 t.state._immuneShield = null;
             });
         }
