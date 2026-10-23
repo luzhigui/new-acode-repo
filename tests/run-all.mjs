@@ -31,6 +31,7 @@ const CHECKS = [
     { name: '胜负基线闸门(18场)', script: 'tests/140-baseline.js', args: ['--check'] },
     { name: '无头冒烟', script: 'tests/smoke-headless.mjs', args: [] },
     { name: '账本对照(声明vs实际)', script: 'tests/stat-decl-vs-actual-check.mjs', args: [] },
+    { name: '静默位移判据自检(离线断言)', script: 'tests/silent-relocate-judge-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }

@@ -1,3 +1,16 @@
+// V6.3.0 | 2026-10-24 第 125 轮 isSilentRelocate 补两条证据判据（与上游第 118 轮 V6.1.4 关键词名单
+//          取并集后，实测本地 V6.2.0 的通用落位号判据有两类漏判）：
+//          ③ 箭头落位证据 —— 唐文亮冲刺报幕写「唐文亮 5→2」（tangwenliang.js L160 listText），
+//             只有「数字→数字」、不带「号位」二字 ⇒ V6.2.0 的 LANDING_POS_RE 认不出。
+//             判据：条目含已登记机制关键词 + 「单位名 N→M」且 M === exp.pos（名字锚定，避免
+//             同句里「张松溪 4→1」被误认成唐文亮落到 1 号位）。
+//          ④ 载荷落位证据 —— 蓄意轰拳（hanlisa.js L294/305/310）**全程无报幕文本**，只发
+//             WIND_ASSAULT_PUSH（behindPos）/ PUSH_STUN（pos）两个带落位号的 fact ⇒ 任何文本
+//             关键词判据（含上游名单里的「蓄意轰拳」）都够不着真实落位，只能靠名字粗匹配误放行。
+//             判据：条目 data（含嵌套 data.data）里 target.uid/name 与期望单位一致、
+//             且落位字段（behindPos/pos/land/to/newPos）之一 === exp.pos。
+//          两条都是**按证据**判定，比关键词名单更通用：今后任何机制只要报了落位号或落位载荷，
+//          无需再来这里登记关键词。
 // V6.1.20 | 2026-10-23 修 checkBuffIcons 阵营误报：未按 buff.target 过滤，敌方「热血奋战」等全队 Buff
 //          让 5 个己方单位被误报缺 ❤️（渲染侧 render/32 只给本阵营画图标）。现对齐渲染口径，
 //          只保留 target === ALLY 或历史无 target 的 Buff。
@@ -785,11 +798,66 @@ export function checkActionRights(roundFacts, units) {
 //      不带「互换职业与位置」字样，不会被误放行。
 const LANDING_POS_RE = /(?:至|落在|落至|压至|推至|拽至|飞至|退至)\s*(\d+)\s*号位/;
 const SWAP_ANNOUNCE_RE = /两仪互换/;
+// ③ 箭头落位证据：已登记「改站位却不发位移事件」的机制关键词（V6.1.3 立、V6.3.0 与上游第 118 轮
+//   名单取并集）。★ 今后再加此类机制，往这里登记关键词即可；但优先靠 ④ 载荷证据自动覆盖。
+const RELOCATE_MECHANISMS = ['冲刺·七伤齐发', '红血', '蓄意轰拳', '两仪互换', '标枪'];
+// ④ 载荷落位证据：fact 里表示「落/被推到哪个位」的字段名（值必须是位号 1..9）
+//   behindPos / land / to / newPos 语义唯一，直接认；
+//   pos 语义太泛（很多 fact 用它记「当时所在位」，若照单全收会把「单位本来就在期望位」
+//   当成「被合法改写」而误放行 ⇒ 只在标签/类型明示是推挤位移时才认（PUSH_STUN 的 pos 即落点）。
+const LANDING_FIELDS = ['behindPos', 'land', 'to', 'newPos'];
+const PUSH_LABEL_RE = /崩飞|轰飞|轰拳|击退|PUSH|STUN|推/;
+function hasMechanism(t) {
+    for (var i = 0; i < RELOCATE_MECHANISMS.length; i++) {
+        if (t.indexOf(RELOCATE_MECHANISMS[i]) !== -1) return true;
+    }
+    return false;
+}
+// 载荷落位：只认「这条落位说的就是期望的那个单位」——uid 优先，其次 target.name / name。
+// 拿不到归属（无名无 uid）的一律不认，宁漏勿误。
+function payloadLanding(mid, exp) {
+    if (!mid || exp == null || exp.pos == null) return false;
+    var d = mid.data;
+    if (!d || typeof d !== 'object') return false;
+    var dd = (d.data && typeof d.data === 'object') ? d.data : null;
+    var tgt = d.target || (dd && dd.target) || null;
+    var tName = (tgt && tgt.name) || d.name || (dd && dd.name) || null;
+    var tUid = (tgt && tgt.uid) || d.uid || d.targetUid || (dd && dd.uid) || null;
+    var same = (exp.uid != null && tUid != null && tUid === exp.uid)
+            || (!exp.uid || !tUid) && (exp.name && tName && tName === exp.name);
+    if (!same) return false;
+    for (var k = 0; k < LANDING_FIELDS.length; k++) {
+        var v = d[LANDING_FIELDS[k]];
+        if (v == null && dd) v = dd[LANDING_FIELDS[k]];
+        if (v == null) continue;
+        var n = parseInt(v, 10);
+        if (!isNaN(n) && n >= 1 && n <= 9 && n === exp.pos) return true;
+    }
+    // pos 只在明示推挤位移时才认落点
+    var pv = d.pos != null ? d.pos : (dd ? dd.pos : null);
+    if (pv != null) {
+        var n2 = parseInt(pv, 10);
+        var lbl = String(d.label || (dd && dd.label) || mid.type || '');
+        if (!isNaN(n2) && n2 >= 1 && n2 <= 9 && n2 === exp.pos && PUSH_LABEL_RE.test(lbl)) return true;
+    }
+    return false;
+}
 export function isSilentRelocate(mid, exp) {
-    if (!mid || typeof mid.text !== 'string' || !exp) return false;
-    var t = mid.text;
-    if (SWAP_ANNOUNCE_RE.test(t) && exp.name && t.indexOf(exp.name) !== -1) return true;
-    var dm = t.match(LANDING_POS_RE);
-    if (dm && exp.pos != null && parseInt(dm[1], 10) === exp.pos) return true;
+    if (!mid || !exp) return false;
+    var t = typeof mid.text === 'string' ? mid.text : '';
+    // ② 具名互换证据（按机制登记）
+    if (t && SWAP_ANNOUNCE_RE.test(t) && exp.name && t.indexOf(exp.name) !== -1) return true;
+    // ① 落位号证据（通用，不限机制）
+    if (t && exp.pos != null) {
+        var dm = t.match(LANDING_POS_RE);
+        if (dm && parseInt(dm[1], 10) === exp.pos) return true;
+    }
+    // ③ 箭头落位证据（名字锚定的「N→M」，覆盖不带「号位」二字的报幕写法）
+    if (t && exp.pos != null && exp.name && hasMechanism(t)) {
+        var am = t.match(new RegExp(exp.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*(\\d+)\\s*→\\s*(\\d+)'));
+        if (am && parseInt(am[2], 10) === exp.pos) return true;
+    }
+    // ④ 载荷落位证据（无文本的纯 fact 位移，如蓄意轰拳）
+    if (payloadLanding(mid, exp)) return true;
     return false;
 }
