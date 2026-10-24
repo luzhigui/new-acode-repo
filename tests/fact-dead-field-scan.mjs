@@ -1,4 +1,9 @@
-// tests/fact-dead-field-scan.mjs | V1.0.0 | 2026-10-21 第 112 轮
+// tests/fact-dead-field-scan.mjs | V1.1.0 | 2026-10-21 第 112 轮 · 2026-10-23 第 123 轮扩层
+// V1.1.0（第 123 轮）：fact 收集**递归进 attack-group 的 data.entries**。
+//   声明类 fact（嗜血狂刀 / 热血奋战 / 溅射 / 反弹 …）由 core/10 L303-305、L382-384 塞进
+//   `group.data.entries`，**不在 step.log 顶层**；V1.0.0 只读顶层 ⇒ 整批嵌套声明全漏，
+//   （实证：bloodthirstLeech 顶层 0 条、递归后 222 条）。漏层的直接后果是「死字段候选名单」
+//   少一大块，且会把「未收集到」误读成「字段不存在」。
 // 通用载荷死字段扫描（D1 软判据主线版）—— 第 113 轮沙箱交接列的「下一轮目标二」。
 //
 // 要抓的假绿形态：fact 照常发射、契约字段照常齐、覆盖矩阵全绿，但某个载荷字段**从来不变**——
@@ -27,8 +32,89 @@
 //   本脚本做**全 fact 载荷的普查**，把候选名单交人工复核（宁漏勿误：候选 ≠ 缺陷）。
 //
 // 用法：node tests/fact-dead-field-scan.mjs [--json] [--seeds 20] [--min 20]
+//       node tests/fact-dead-field-scan.mjs --triage        （第 124 轮新增：候选自动分流，见下）
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+
+// === 第 124 轮新增 --triage：给「恒定 / 永假候选」做证据驱动的第一刀分流（挂账②人工复核前置）===
+// 背景：恒定候选一路涨到 59~64 条（第 123 轮递归扩层所致），全靠人逐条看不动；
+//   其中绝大多数按设计就是常量（type: 'breakDef'、ratio: 0.3），真正要人看的是
+//   「值来自变量却恒不变」那一类（第 112 / 123 轮 xinHun.isDead、xuanmingDot.isDead 就是这类）。
+// 三分类（软结论：只降优先级，**不改判据、不删候选、不自动转红**）：
+//   A 结构常量 —— 发射该 fact 的源码文件里，字段是**字面量**写死的 ⇒ 恒值即设计，可整批降级；
+//   B 需人工复核 —— 发射文件里该字段来自变量 / 表达式 ⇒ 时序性恒值或样本不足，优先看这一类；
+//   C 未定位发射点 —— 源码里找不到该 fact 常量（动态拼装 / 枚举未直用），保留待查。
+//   只在**发射侧**（core / modules）找发射文件：render / ui / player 是消费侧，
+//   那里出现 `isDead: false` 只是渲染默认值或动作定义（实证：xinHun.isDead 会被 render/39
+//   的 `isDead: false` 误判成 A 类，而真发射点在 modules/26 且是表达式 ⇒ 实为 B 类）。
+const SRC_DIRS = ['core', 'modules'];
+function readSrc() {
+    const files = [];
+    const walk = (d) => {
+        let ents = [];
+        try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+        for (const e of ents) {
+            const p = d + '/' + e.name;
+            if (e.isDirectory()) walk(p);
+            else if (e.name.endsWith('.js')) {
+                try { files.push({ p, txt: fs.readFileSync(p, 'utf8') }); } catch (e2) { /* 读不到跳过 */ }
+            }
+        }
+    };
+    for (const d of SRC_DIRS) walk(d);
+    return files;
+}
+const upperSnake = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
+// factType 字符串 → FACT_TYPES 常量名：直接读 infra/56 建值→名映射（不靠 camel→UPPER_SNAKE 猜，
+//   实测猜错两例：xuanmingDot 的常量是 XUAN_MING_DOT、bloodthirstLeech 是 BLOOD_THIRST_LEECH，
+//   猜成 XUANMING_DOT / BLOODTHIRST_LEECH 会落进「未定位」桶 ⇒ 分流失真）。
+function factConstMap() {
+    const m = new Map();
+    try {
+        const txt = fs.readFileSync('infra/56-battle-enums.js', 'utf8');
+        for (const mm of txt.matchAll(/([A-Z0-9_]+)\s*:\s*'([A-Za-z0-9_]+)'/g)) m.set(mm[2], mm[1]);
+    } catch (e) { /* 读不到则退回猜名 */ }
+    return m;
+}
+function literalRe(v) {
+    if (typeof v === 'string') return '[\'"`]' + v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\'"`]';
+    if (typeof v === 'boolean') return '\\b' + String(v) + '\\b';
+    return String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function triageOne(key, value, src, constMap) {
+    const dot = key.indexOf('.');
+    const ft = key.slice(0, dot), field = key.slice(dot + 1);
+    const constName = constMap.get(ft) || upperSnake(ft);
+    const emitFiles = src.filter(f => f.txt.indexOf(constName) !== -1);
+    if (!emitFiles.length) return { cls: 'C', why: '源码未出现 ' + constName + '，发射点未定位' };
+    // 只看**发射点附近**（fact 常量所在行 ±12 行）的同名字段写法，避免把文件里别处的
+    //   `type:` / `op:` 算进来（实测会把 dodge.type、unityApply.op 这类真常量错判成 B）。
+    //   同一发射文件里该字段有 ≥2 种写法 ⇒ 不是结构常量（多分支 / 变量），一律进 B：
+    //   实证 core/04buff-system.js 的 isBrother 有 `false`（主分支 L266）与 `true`（兄线 L284）两支，
+    //   兄线永不触发 ⇒ 这正是挂账①「小昭兄永久海克斯从未转移」，绝不能按 A 降级放走。
+    const near = [];
+    for (const f of emitFiles) {
+        const lines = f.txt.split('\n');
+        const marks = [];
+        for (let i = 0; i < lines.length; i++) if (lines[i].indexOf(constName) !== -1) marks.push(i);
+        if (!marks.length) continue;
+        const reNear = new RegExp('\\b' + field + '\\s*:\\s*([^,}\\n]+)');
+        for (let i = 0; i < lines.length; i++) {
+            if (!marks.some(m => Math.abs(m - i) <= 12)) continue;
+            const mm = lines[i].match(reNear);
+            if (mm) near.push({ file: f.p, snippet: mm[1].trim() });
+        }
+    }
+    const distinct = new Set(near.map(x => x.snippet));
+    const hit = near.find(x => x.snippet.indexOf(JSON.stringify(value)) !== -1
+        || x.snippet.replace(/^['"`]|['"`]$/g, '') === String(value));
+    if (hit && distinct.size === 1) return { cls: 'A', why: hit.file + ' 发射点字面量写死 ' + field + ': ' + hit.snippet };
+    if (distinct.size > 1) {
+        return { cls: 'B', why: emitFiles.slice(0, 2).map(f => f.p).join(' / ') + ' 内 ' + field
+            + ' 有 ' + distinct.size + ' 种写法（' + [...distinct].slice(0, 3).join(' | ').slice(0, 60) + '）' };
+    }
+    return { cls: 'B', why: emitFiles.slice(0, 2).map(f => f.p).join(' / ') + ' 内 ' + field + ' 非字面量（变量/表达式）' };
+}
 
 // 环境 mock（不改引擎源码，Node 补浏览器能力）—— 必须在任何引擎 import 之前
 globalThis.fetch = async (url) => {
@@ -40,11 +126,12 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/fact-dead-field-scan.mjs V1.0.0';
+export const VER = 'tests/fact-dead-field-scan.mjs V1.2.0';
 
 const argv = process.argv.slice(2);
 const argOf = (k, d) => { const i = argv.indexOf(k); return (i !== -1 && argv[i + 1]) ? Number(argv[i + 1]) : d; };
 const JSON_ONLY = argv.includes('--json');
+const TRIAGE = argv.includes('--triage');
 const N_SEEDS = argOf('--seeds', 20);
 const MIN_SAMPLES = argOf('--min', 20);
 const SEEDS = Array.from({ length: N_SEEDS }, (_, i) => i + 1);
@@ -60,6 +147,17 @@ const EXEMPT_CONST = new Set([
 //   skillAnnounce.line —— infra/58-fact-contract.js L33 明注「line:false 时不落行、只走 floatText 飘字」，
 //   当前样本全是飘字形态 ⇒ 永假是设计使然，不是死字段（第 112 轮首扫定性后登记）。
 const EXEMPT_BOOL = new Set(['skillAnnounce.line']);
+
+// 递归收集 fact（V1.1.0）：顶层 + attack-group 的 data.entries 嵌套层。
+function* walkFacts(nodes) {
+    for (const n of (nodes || [])) {
+        if (!n || typeof n !== 'object') continue;
+        if (n.factType) yield n;
+        const inner = (n.data && Array.isArray(n.data.entries)) ? n.data.entries
+            : (Array.isArray(n.entries) ? n.entries : null);
+        if (inner) yield* walkFacts(inner);
+    }
+}
 
 async function main() {
     const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
@@ -131,8 +229,7 @@ async function main() {
                 let lastStep = null;
                 for (const step of stepper) {
                     lastStep = step;
-                    for (const f of (step.log || [])) {
-                        if (!f || !f.factType) continue;
+                    for (const f of walkFacts(step.log)) {
                         facts++;
                         const d = f.data;
                         if (d && typeof d === 'object') {
@@ -182,6 +279,28 @@ async function main() {
     console.log(`--- 取值唯一的字段（恒定候选，多系配置常量）：${constant.length} 条 ---`);
     for (const c of constant.slice(0, 20)) console.log('  · ' + c.field + '  样本 ' + c.n + ' 次、唯一值 ' + JSON.stringify(c.value).slice(0, 60));
     if (neverTrue.length === 0 && constant.length === 0) console.log('（无候选）');
+
+    // --- 分流（--triage）：替人工复核做第一刀，输出 A/B/C 三桶 ---
+    if (TRIAGE) {
+        const src = readSrc();
+        const constMap = factConstMap();
+        const buckets = { A: [], B: [], C: [] };
+        const push = (key, value, n, kind) => {
+            const t = triageOne(key, value, src, constMap);
+            buckets[t.cls].push({ key, value, n, kind, why: t.why });
+        };
+        for (const c of neverTrue) push(c.field, false, c.n, '永假布尔');
+        for (const c of constant) push(c.field, c.value, c.n, '取值唯一');
+        console.log(`\n--- 分流（源码文件 ${src.length} 个；A 结构常量 / B 需人工复核 / C 未定位）---`);
+        for (const k of ['B', 'A', 'C']) {
+            const list = buckets[k];
+            const label = k === 'B' ? 'B 需人工复核（值来自变量/表达式）' : (k === 'A' ? 'A 结构常量（字面量写死，可整批降级）' : 'C 未定位发射点');
+            console.log(`【${label}】${list.length} 条`);
+            for (const x of list) {
+                console.log('  · ' + x.key + '  ' + x.n + ' 次 · ' + x.kind + ' · ' + x.why.slice(0, 110));
+            }
+        }
+    }
     return 0;
 }
 

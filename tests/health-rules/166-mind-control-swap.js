@@ -32,39 +32,33 @@
 //   免疫状态从开局快照可查（{...u} 浅拷贝带 state），任一方免疫 ⇒ 跳过该条判据5。
 // V6.1.3（2026-10-20 第 111 轮）：判据5 补位置改写白名单 isOtherRelocate —— 唐文亮冲刺改站位
 //   不发位移事件，原口径把「他自己冲走了」当「换位没落地」（seed=6 stage=6 假红）。
-// V6.1.4（2026-10-24 第 118 轮）：isOtherRelocate 白名单补何太冲「红血」低血撤退
-//   （hetaichong.js L128 moveUnitPosition 不发位移事件）——seed=19 s3 何太冲被惑心换到
-//   8号位后红血撤退挪走，旧白名单只认唐文亮冲刺 ⇒ 误判「换位没落地」假红。红血撤退是合法机制，归入白名单。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.4';
+// V6.1.6（2026-10-24 第 125 轮）：与上游 V6.1.4（并行会话第 118 轮）冲突裁决 —— 保留本地共享化
+//   路线（V6.1.5 收口到 122health-utils，138/166 不再各写一份），并把上游独立登记的另外三条
+//   机制（红血撤退 / 蓄意轰拳 / 冲刺·七伤齐发）逐条补进共享判据，取两边并集，覆盖面只增不减。
+//   上游 V6.1.4 是「关键词 + 单位名」的逐条名单，本地是「落位号证据 + 具名互换证据」的通用判据；
+//   本轮实测发现本地判据漏掉冲刺的「N→M」箭头写法（唐文亮报幕写「唐文亮 5→2」，不带「号位」二字），
+//   已补 ARROW_POS_RE 判据，详见 122health-utils.js V6.3.0 注释。
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.6';
 // V6.1.1（2026-10-15 第 93 轮）判据5 补终局快照兜底：原口径只认后续 attack-group 的 _fxSnapshot，
 //   换位单位此后再无带快照出场时 seen=0 不报 ⇒ T18（fact 报反新旧位置）首测 0 命中哑火。
 //   补：无后续快照且全程无 buff-push/buff-swap 打断时，终局站位应等于宣告目标位，不等即报；
 //   终局无该单位（阵亡）跳过。test 签名补 afterA/afterE（框架本就传，此前未用）。
 
-// 位置改写白名单（V6.1.3）：战报里能改写站位、但**不发** buff-push/buff-swap 的机制。
-//   唐文亮「冲刺·七伤齐发」（content 唐文亮 chongCi）：冲到目标同列前排位、并把目标拽到其同列
-//   前排位，只 push 一条 info 文本、没有位移事件 —— 判据 5 只认 buff-push/buff-swap 打断，
-//   于是把「换位后他自己冲走了」误判成「换位没落地」（seed=6 stage=6 实锤：第98条把唐文亮换到
-//   8号位，第191条他冲刺到前排，后续两次出场都不在 8 号位 ⇒ 假红）。
-//   命中即视为该单位位置被合法改写，放弃本条判据 5（宁漏勿误）。
-//   今后再加「不发位移事件却改站位」的机制，务必登记到这里。
-// 位置改写白名单（V6.1.3 立，V6.1.4 重构为关键词登记表）：这些机制改站位但不发
-//   buff-push/buff-swap 位移事件，判据5 只认那两类事件 ⇒ 会把「之后被合法挪走」误判成
-//   「换位没落地」。命中任一关键词 + 单位名 ⇒ 位置被合法改写，放弃其落位对账（宁漏勿误）。
-//   ★ 今后再加「不发 buff 位移事件却改站位」的机制，务必往 RELOCATE_KEYWORDS 登记。
-//     - 冲刺·七伤齐发：唐文亮强推挤压（moveUnitPosition）
+// V6.1.5（2026-10-23 第 124 轮）：位置改写白名单收口为 tests/122health-utils.js 的 isSilentRelocate
+//   （138 与 166 此前各写一份，重复即埋雷）。同时把「落位号证据」从唐文亮冲刺专属扩成通用判据——
+//   合并上游 main 后复现实证 seed=19 stage=3：第 144 条惑心把何太冲（u7）从 1 号位换到 8 号位
+//   （对照方静照 u8 后续快照 @1 证明换位确已落地），第 165 条「☯ 两仪互换：昆仑弟子 ⇄ 何太冲
+//   （互换职业与位置）」走 swapUnitPositions 把他挪到 2 号位，此后 4 次出场全在 2 号位 ⇒ 旧白名单
+//   只认「冲刺·七伤齐发」，把上游新机制误判成「惑心换位没生效」。今后再有「改站位却不发位移事件」
+//   的机制，一律登记到 122health-utils.js 的调用点清单与判据里。
+// 位置改写白名单（V6.1.3 立）：战报里能改写站位、但**不发** buff-push/buff-swap 的机制。
+//   命中即视为该单位位置被合法改写，放弃本条判据 5（宁漏勿误）。机制清单与判据见 122health-utils.js。
+//     - 冲刺·七伤齐发：唐文亮强推挤压（moveUnitPosition，tangwenliang.js L115 区）
 //     - 红血：撤退至  ：何太冲低血撤退（moveUnitPosition，hetaichong.js L128）
 //     - 蓄意轰拳     ：寒离飒崩飞/轰飞（moveUnitPosition + WIND_ASSAULT_PUSH fact，hanlisa.js L294/305）
 //     - 两仪互换     ：何太冲/昆仑弟子红血互换职业+位置（swapUnitPositions + SKILL_ANNOUNCE，hetaichong.js L156）
-//       （seed=19 s3 实锤：何太冲被惑心换到8号位后与昆仑弟子两仪互换到2号位 ⇒ 假红）
-var RELOCATE_KEYWORDS = ['冲刺·七伤齐发', '红血：撤退至', '蓄意轰拳', '两仪互换'];
-function isOtherRelocate(mid, name) {
-    if (!mid || !name || typeof mid.text !== 'string') return false;
-    for (var k = 0; k < RELOCATE_KEYWORDS.length; k++) {
-        if (mid.text.indexOf(RELOCATE_KEYWORDS[k]) !== -1 && mid.text.indexOf(name) !== -1) return true;
-    }
-    return false;
-}
+//     - 标枪前压     ：（core/10battle-attack.js L52）
+import { isSilentRelocate } from '../122health-utils.js';
 
 export const rule113 = {
     group: '技能效果回归',
@@ -190,7 +184,7 @@ export const rule113 = {
                             if (!mid) continue;
                             // 白名单先查（V6.1.3）：isOtherRelocate 命中的条目类型是 info，不是位移事件，
                             //   原先嵌在 buff-push/buff-swap 分支里 ⇒ 永远查不到（seed=6 stage=6 仍假红）。
-                            if (isOtherRelocate(mid, exp.name)) { interrupted = true; break; }
+                            if (isSilentRelocate(mid, exp)) { interrupted = true; break; }
                             if (mid.type === 'buff-push' || mid.type === 'buff-swap') {
                                 if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
                                     mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
@@ -214,7 +208,7 @@ export const rule113 = {
                         for (var s2 = it.idx + 1; s2 < n; s2++) {
                             var mid2 = log[s2];
                             if (!mid2) continue;
-                            if (isOtherRelocate(mid2, exp.name)) { interruptedAll = true; break; }
+                            if (isSilentRelocate(mid2, exp)) { interruptedAll = true; break; }
                             if (mid2.type === 'buff-push' || mid2.type === 'buff-swap') {
                                 if (mid2.pushTargetUid === exp.uid || mid2.behindUid === exp.uid ||
                                     mid2.uidA === exp.uid || mid2.uidB === exp.uid) { interruptedAll = true; break; }
