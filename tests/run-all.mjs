@@ -1,3 +1,9 @@
+// V1.8.0 | 2026-10-25 第 131 轮：CHECKS 新增「判据分支级空转自检」（tests/rule-branch-idle-selftest.mjs，
+//   第 14 项，计退码）。由来：第 130 轮点名的下轮目标 —— 规则恒空转自检只裁定「有没有判定过」
+//   （规则级），补「判据分支级空转」。★ 关键取舍：158 条分支里只有 4 条命中，若按"空转即红"
+//   会把 145 条正常回归哨兵刷成噪声 ⇒ 改为把**已咬过的分支钉成基线、只许收缩**，专门抓
+//   「判据分支掉牙」这个静默事件（掉牙只会让回放越变越绿，无人报警）。体检项 16→17。
+//   （另修正第 130 轮遗留：头注释已写 V1.7.0 而 VER 常量仍停在 V1.6.0，本轮一并归位。）
 // V1.7.0 | 2026-10-25 第 130 轮：CHECKS 新增「规则恒空转自检」（tests/rule-idle-selftest.mjs，第 13 项，
 //   计退码）。由来：第 129 轮交付「规则绑定键漂移自检」时点名的下轮最高优先 —— 那条只保证"键还在"，
 //   不能证明规则真的判定过。规则侧恒空转（pass=0 fail=0 全 skip）在回放汇总里只打一个 ⏭ 就过去了，
@@ -33,7 +39,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.6.0';
+export const VER = 'tests/run-all.mjs V1.8.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -73,6 +79,16 @@ const CHECKS = [
     //   该集合必须**恰好等于**白名单（只许收缩：新增恒空转 ⇒ 红，白名单条目被激活 ⇒ 红），
     //   再加白名单名/文件在册两道腐烂检测与样本规模、规则条数两道闸门（防自检静默恒绿）。
     { name: '规则恒空转自检(离线断言)', script: 'tests/rule-idle-selftest.mjs', args: [] },
+    // V1.8.0 | 2026-10-25 第 131 轮：挂「判据分支级空转自检」tests/rule-branch-idle-selftest.mjs。
+    //   第 130 轮补的是**规则级**（整条规则判定过没有），本项补**分支级**（判据分支掉没掉牙）。
+    //   为什么必须补：「规则 pass=140」不代表它的 fail 分支判据被验证过 —— 第 44 轮 136 号规则
+    //   正是这一款（锚点行被主代码删了 ⚡，规则照样 pass=51，复发信号分支永久沉默）。而**掉牙是
+    //   静默事件**：分支不再触发只会让回放从"有失败"变"无失败"，越变越绿，没有任何东西会报警。
+    //   口径：静态抽取每个 fail 分支的 msg 静态前缀作指纹，跑真实回放落盘 fired msg 做前缀匹配；
+    //   把**已咬过的分支钉成基线**（只许收缩），配规模闸门 / 无指纹白名单 / 基线在册 / 匹配率五条。
+    //   ★ 刻意不把 145 条未命中分支刷成噪声：它们绝大多数是回归哨兵本就不该触发的正确形态，
+    //     要证明"哨兵有牙"靠的是变异树取证（牙口矩阵），不是本自检。
+    { name: '判据分支级空转自检(离线断言)', script: 'tests/rule-branch-idle-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }

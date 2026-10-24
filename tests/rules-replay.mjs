@@ -383,6 +383,10 @@ function runCase(seed, stage) {
 }
 
 const agg = {}, kwHit = {};
+// 分支指纹落盘（第 131 轮 V6.7.2）：仅在显式设置 RULE_MSGS_OUT 时才建容器，默认零副作用
+// ——不改任何判据、不影响既有输出与退出码。与 V6.7.1 的 RULE_STATS_OUT 同款口径（各管一个环境变量）。
+// 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
+const BRANCH_MSGS = process.env.RULE_MSGS_OUT ? new Map() : null;
 let cases = 0;
 for (const seed of SEEDS) {
     for (const stage of STAGES) {
@@ -415,6 +419,12 @@ for (const seed of SEEDS) {
             const a = agg[r.name] || (agg[r.name] = { pass: 0, fail: 0, skip: 0, msgs: [] });
             a[st]++;
             if (st === 'fail' && a.msgs.length < 3) a.msgs.push(`[seed=${seed} stage=${stage}] ${(res.msg || '').slice(0, 160)}`);
+            // 分支指纹：只收集"真的报出来过"的 msg（去重；单规则上限 400 条防内存膨胀）
+            if (BRANCH_MSGS && st === 'fail') {
+                let s = BRANCH_MSGS.get(r.name);
+                if (!s) { s = new Set(); BRANCH_MSGS.set(r.name, s); }
+                if (s.size < 400) s.add(String((res && res.msg) || ''));
+            }
         }
     }
 }
@@ -498,6 +508,18 @@ if (process.env.RULE_STATS_OUT) {
         );
     } catch (e) {
         console.error('RULE_STATS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
+    }
+}
+if (BRANCH_MSGS) {
+    try {
+        const branchMsgs = {};
+        for (const [k, v] of BRANCH_MSGS) branchMsgs[k] = [...v];
+        writeFileSync(
+            process.env.RULE_MSGS_OUT,
+            JSON.stringify({ cases, ruleCount: rules.length, branchMsgs })
+        );
+    } catch (e) {
+        console.error('RULE_MSGS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
     }
 }
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);
