@@ -1,4 +1,6 @@
 // fx/94-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
+// V2.1.0 | 2026-10-24 子弹时间档真实时间保底：慢速档全部阶段走 minRealMs（真实时钟），
+//   倍速 2x/4x 压不短这一段——冲刺演出必须完整可见；1x 下时长与原来一致。快进/自动照旧直接跳过。
 // V2.0.0 | 2026-10-23 强推挤压版（老板拍板）：单目标双克隆 → moves 多人克隆 + 金线对拉 + 冲击环/火花/屏震。
 //   纯装饰：位置由引擎 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 事件走 core/13 既有链）。
 //   step 回放起点 store 位置已是终值——单位渲染在「终点格」、DASH store 步用 fly 模式藏住等交棒，
@@ -8,8 +10,15 @@
 import { clock } from '../infra/52-clock.js';
 import { getCellByPos } from './90fx-ref-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { getRoleIcon } from '../render/37-role-cards.js';
 
-export const VER = 'fx/94-tangwenliang-dash.js V2.0.0';
+export const VER = 'fx/94-tangwenliang-dash.js V2.1.0';
+
+// 真实时间等待：clock.wait 会被倍速压缩，子弹时间档不能用它——
+//   用一个空 animate + minRealMs 同值，保证真实时钟走满 ms 才 resolve（暂停时同样冻结）。
+function realWait(ms) {
+    return clock.animate(ms, () => {}, { minRealMs: ms });
+}
 
 function rectOf(camp, pos) {
     if (camp == null || pos == null) return null;
@@ -19,18 +28,43 @@ function rectOf(camp, pos) {
     return { left: r.left, top: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
 }
 
-// 克隆体：内容取「终点格」（store 已是终值、fly 模式隐藏中），摆到「起点格」rect 起跑
-function makeGhost(camp, fromPos, toPos, z) {
+// 单位数据 → 格子卡片 HTML（与 render/32 的格子同款结构；自绘用，解决 fly 空壳拿不到内容）
+function cardHtmlFromUnit(u) {
+    const pct = Math.max(0, Math.floor((u.hp / u.maxHp) * 100));
+    const hpCls = pct > 50 ? 'hp-text-green' : (pct > 20 ? 'hp-text-orange' : 'hp-text-red');
+    const bar = pct > 50 ? '#2e7d32' : (pct > 20 ? '#daa520' : '#c0392b');
+    const icon = getRoleIcon(u, { isStunned: false, isDead: false, pangTaunting: false });
+    return `<span class="cell-icon">${icon}</span>` +
+        `<div class="cell-info"><span class="cell-name">${u.name}</span>` +
+        `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${Math.floor(u.hp)}</span></span></div>` +
+        `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar};"></div></div>`;
+}
+
+// 克隆体：摆到「起点格」rect 起跑。
+//   内容来源两级：① 终点格 DOM 有内容就克隆（最省事、样式完全一致）；
+//   ② 终点格是空壳 → 从 battleStore 按 uid 自绘卡片。
+//   为什么需要 ②：DASH 的 store 步先把位置写进 store、再设 _renderFlyMode='fly'，而 render/32 的 fly 分支
+//   会 resetCell 清空内容只留透明样式 —— 终点格必然是空壳，只靠 ① 会导致所有克隆体 null、
+//   整个位移/锁链/慢速档全部跳过（老板实机「动画完全不对」的根因）。
+function makeGhost(camp, fromPos, toPos, z, uid) {
     const r = rectOf(camp, fromPos);
     if (!r) return null;
-    const src = getCellByPos(camp, toPos) || getCellByPos(camp, fromPos);
-    if (!src) return null;
-    // 终点格是空壳（单位中途阵亡被清格等）：宁可少克隆一个，不飞空壳
-    if (!src.querySelector('.cell-icon') && !src.textContent.trim()) return null;
-    const g = src.cloneNode(true);
+    const src = getCellByPos(camp, toPos);
+    let g = null;
+    if (src && (src.querySelector('.cell-icon') || src.textContent.trim())) {
+        g = src.cloneNode(true);
+        g.classList.remove('ready', 'acted');
+        g.removeAttribute('data-flash');
+    }
+    if (!g) {
+        const store = GlobalStore.get('battleStore');
+        const u = store ? store.getState().units.find(x => x.uid === uid) : null;
+        if (!u) return null;
+        g = document.createElement('div');
+        g.className = 'cell';
+        g.innerHTML = cardHtmlFromUnit(u);
+    }
     g.setAttribute('data-fx', 'temporary');
-    g.classList.remove('ready', 'acted');
-    g.removeAttribute('data-flash');
     // 只覆盖定位/显隐，保留 .cell 类自带的外观样式（背景/边框/圆角）
     g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.w}px;height:${r.h}px;
         margin:0;z-index:${z};pointer-events:none;box-sizing:border-box;opacity:1;visibility:visible;transition:none;`;
@@ -125,6 +159,7 @@ function screenShake() {
 }
 
 // —— 子弹时间档（老板口径 2026-10-23）：遮罩内慢速完整演出 ——
+//   时长用真实时钟（每段 minRealMs），倍速 2x/4x 压不短；快进/自动入口直接返回 []。
 //   与快版共用 makeGhost/rectOf；慢版自己造粗锁链与高 z 环/火花（快版 createBeam 的 z 写死 10/11/12、
 //   impactRing/sparkBurstAt 的 z 写死 20/35，都会被遮罩盖住）。
 //   返回 ghosts 交 render/39 storeAfter 淡出（交棒顺序与快版一致：先清 fly 显真格，再淡出克隆体）。
@@ -164,7 +199,7 @@ async function showTangWenLiangDashSlow(dash) {
 
     // ② 克隆体（z 高于遮罩；dash 本体 10070、其余 10050）
     for (const m of moves) {
-        const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 10070 : 10050);
+        const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 10070 : 10050, m.uid);
         if (g) ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
     }
     if (ghosts.length === 0) { cleanupAll(); return []; }
@@ -180,7 +215,7 @@ async function showTangWenLiangDashSlow(dash) {
     highlight(twG, 'rgba(255,209,102,0.95)');
     if (tgG) highlight(tgG, 'rgba(255,120,80,0.95)');
 
-    await clock.animate(350, (p) => { mask.style.opacity = String(0.86 * p); });
+    await clock.animate(350, (p) => { mask.style.opacity = String(0.86 * p); }, { minRealMs: 350 });
     if (skipped) { cleanupAll(); return []; }
 
     // ③ 粗锁链展开（唐文亮 → 目标），双层发光
@@ -269,7 +304,7 @@ async function showTangWenLiangDashSlow(dash) {
     document.body.appendChild(flash);
     await clock.animate(400, (p) => {
         flash.style.opacity = p < 0.35 ? String(0.75 * (p / 0.35)) : String(Math.max(0, 0.75 * (1 - (p - 0.35) / 0.65)));
-    });
+    }, { minRealMs: 400 });
     if (twG && twG.toRect) { ringAt(twG.toRect, 'rgba(255,209,102,0.95)', 10062); sparksAt(twG.toRect.cx, twG.toRect.cy, '#ffd166', 12, 10063); }
     if (tgG && tgG.toRect) { ringAt(tgG.toRect, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgG.toRect.cx, tgG.toRect.cy, '#ff6b3d', 10, 10063); }
     screenShake();
@@ -279,7 +314,7 @@ async function showTangWenLiangDashSlow(dash) {
     const hits = Array.isArray(dash.hits) ? dash.hits : [];
     hits.forEach((h, i) => {
         if (!(h.dmg > 0) || h.uid == null) return;
-        clock.wait(120 + i * 90).then(() => {
+        realWait(120 + i * 90).then(() => {
             if (skipped) return;
             const el = document.querySelector(`[data-uid="${h.uid}"]`);
             const r = el ? el.getBoundingClientRect() : null;
@@ -296,11 +331,11 @@ async function showTangWenLiangDashSlow(dash) {
             }).then(() => { if (d.parentNode) d.remove(); });
         });
     });
-    await clock.wait(900);
+    await realWait(900);
     if (skipped) { cleanupAll(); return []; }
 
     // ⑦ 遮罩淡出（真格已在终位，克隆体留给 storeAfter 淡出）
-    await clock.animate(400, (p) => { mask.style.opacity = String(0.86 * (1 - p)); });
+    await clock.animate(400, (p) => { mask.style.opacity = String(0.86 * (1 - p)); }, { minRealMs: 400 });
     chainGlow.style.opacity = '0';
     chainCore.style.opacity = '0';
     if (skipBtn.parentNode) skipBtn.remove();
@@ -330,7 +365,7 @@ export async function showTangWenLiangDash(dash, opts) {
     // ① 克隆体（内容取终点格、起点 rect 起跑；dash 本体 z=70，其余 50）
     const ghosts = [];
     for (const m of moves) {
-        const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 70 : 50);
+        const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 70 : 50, m.uid);
         if (g) ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
     }
     if (ghosts.length === 0) return [];
