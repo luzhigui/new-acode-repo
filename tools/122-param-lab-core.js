@@ -337,7 +337,7 @@ export function restoreGameData() {
 //     全部列出不替用户过滤；层信息（layer/owner/skill）供页面做「角色 → 技能 → 字段」三级选择。
 // ---------------------------------------------------------------------------
 // CONFIG 里这些键是「顺序/位次表」，不是可调数量，列出来只会淹没有效旋钮；显式跳过。
-const CONFIG_SKIP_KEYS = ['ELITE_POS_PRIORITY', 'ENEMY_ELITE_POS_PRIORITY', 'ENEMY_ELITE_POS_FALLBACK'];
+const CONFIG_SKIP_KEYS = ['ELITE_POS_PRIORITY', 'ENEMY_ELITE_POS_FALLBACK'];
 
 // 路径渲染：数字段按数组下标写成 [i]，其余段用点连接。label 只为好读。
 function knobLabel(owner, relParts) {

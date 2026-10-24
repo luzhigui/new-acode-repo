@@ -1,4 +1,4 @@
-﻿// V6.8.5 | 2026-10-22 | ~21100 bytes
+// V6.8.5 | 2026-10-22 | ~21100 bytes
 export const VER = 'core/01config-5v5-test.js V6.8.5';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
@@ -311,6 +311,16 @@ const CONFIG = {
     get ELITE_RATE() {
         return getGameData().roster.eliteRate;
     },
+    // 明教精英出场配置（name/m/role/flag/tier）——数据源 content.roster.eliteConfigs
+    // 加新精英：只改 content，不动代码
+    get ELITE_CONFIGS() {
+        return getGameData().roster.eliteConfigs || [];
+    },
+    // 六大派精英身份 → 站位优先数组（{ flag: [优先级数组] }）——数据源 content.roster.enemyElitePos
+    // 加新精英：若需要固定站位就在 content 加一行
+    get ENEMY_ELITE_POS_FLAGS_MAP() {
+        return getGameData().roster.enemyElitePos || {};
+    },
     get NORMAL_POWER() {
         return getGameData().roster.normalPower;
     },
@@ -333,16 +343,8 @@ const CONFIG = {
         [ROLE_TYPES.FLYER]: [1, 2, 3, 4, 5, 6, 7, 8, 9],
         [ROLE_TYPES.RANGED]: [7, 8, 9, 4, 5, 6, 1, 2, 3]
     },
-    // 六大派精英按身份覆盖的站位优先表（身份优先于上面的职业表；modules/29 用）
-    ENEMY_ELITE_POS_PRIORITY: {
-        chengKun: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        mieJueShiTai: [2, 1, 3, 4, 5, 6, 7, 8, 9],
-        pangYuanQiao: [2, 1, 3, 4, 5, 6, 7, 8, 9],
-        luZhangKe: [7, 8, 9, 4, 5, 6, 1, 2, 3],
-        heBiWeng: [3, 4, 5, 6, 7, 8, 9, 1, 2],
-        // 唐文亮（标枪弱精英）：恒定落中后排 4~9（射程与站位绑定），1~3 仅作挤占兜底
-        tangWenLiang: [4, 5, 6, 7, 8, 9, 1, 2, 3]
-    },
+    // 六大派精英站位优先表已数据化到 content.roster.enemyElitePos（getter = ENEMY_ELITE_POS_FLAGS_MAP）
+    // 未命中身份时的兜底表
     ENEMY_ELITE_POS_FALLBACK: [1, 2, 3, 4, 5, 6, 7, 8, 9],
     // 阵容 power 兜底（modules/29 用）
     MING_TARGET_POWER_FALLBACK: 500,  // 关卡目标 power 兜底（第 1 关未在 encounters.mingTargetPower 列出）

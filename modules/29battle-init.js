@@ -23,14 +23,12 @@ function normalPowerOf(m) {
     return p;
 }
 
-// 六大派精英身份 → 站位优先表（身份优先于 CONFIG.ELITE_POS_PRIORITY 的职业表）
-const ENEMY_ELITE_POS_FLAGS = [
-    ['isChengKun', 'chengKun'],
-    ['isMieJueShiTai', 'mieJueShiTai'],
-    ['isPangYuanQiao', 'pangYuanQiao'],
-    ['isLuZhangKe', 'luZhangKe'],
-    ['isHeBiWeng', 'heBiWeng']
-];
+// 六大派精英身份 → 站位优先数组：数据源 content.roster.enemyElitePos（格式 { flag: [优先级数组] }）
+// 加新精英：若需要固定站位就在 content 加一行 { "isXxx": [优先级数组] }，本文件无需改
+// ⚠️ 匹配顺序 = JSON 键序（Object.entries 按书写顺序），靠前的身份优先命中
+function getEnemyElitePosFlags() {
+    return Object.entries(C.ENEMY_ELITE_POS_FLAGS_MAP || {});
+}
 
 // 战斗-初始化：生成明教+六大派阵容（纯逻辑，无 DOM）
 export function initBattleTeams(currentStage, _rng) {
@@ -56,13 +54,34 @@ export function initBattleTeams(currentStage, _rng) {
     //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒由弱升强，与前者同级）
     //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
     //   RNG 流纪律（PVP 双端同源）：骰子全部无条件消耗，force 只改「是否应用」，不改消耗序列。
-    const bossConfig = { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePowerOf('张无忌') };
-    const strongEliteConfigs = [
-        { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePowerOf('韦一笑') },
-        { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePowerOf('小昭') },
-        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') },
-        { name: '寒离飒', m: 107, role: ROLE_TYPES.WARRIOR, isHanLiSa: true, power: elitePowerOf('寒离飒') }
-    ];
+    // 精英配置从 content.roster.eliteConfigs 读（数据化）——加精英只改 content，本文件不动
+    //   tier='boss'   明教 Boss（独一档，Boss 局最多再配 1 个搭档）
+    //   tier='strong' 强精英池（Boss 局可配、无 Boss 局走轮盘）
+    //   flag          与 core/02 HERO_FLAGS 的名字映射对应（加新精英时那边也要补一行）
+    //   power         仍从 content.roster.elitePower 查（数值唯一源不变）
+    // 无兜底：配置缺失一律抛错，避免静默按老口径算
+    const allEliteConfigs = C.ELITE_CONFIGS;
+    if (!Array.isArray(allEliteConfigs) || allEliteConfigs.length === 0) {
+        throw new Error('缺配置: content.roster.eliteConfigs（应为非空数组）');
+    }
+    const toEliteConfig = (c) => {
+        if (!c || !c.name || !c.m || !c.role || !c.flag || !c.tier) {
+            throw new Error(`缺字段: content.roster.eliteConfigs 项 ${JSON.stringify(c)}（须含 name/m/role/flag/tier）`);
+        }
+        if (!Object.values(ROLE_TYPES).includes(c.role)) {
+            throw new Error(`非法 role: content.roster.eliteConfigs 项 ${c.name} 的 role='${c.role}'（须为 ROLE_TYPES 之一）`);
+        }
+        return { name: c.name, m: c.m, role: c.role, [c.flag]: true, power: elitePowerOf(c.name) };
+    };
+    const bossConfigs = allEliteConfigs.filter(c => c.tier === 'boss').map(toEliteConfig);
+    if (bossConfigs.length !== 1) {
+        throw new Error(`content.roster.eliteConfigs 里 tier='boss' 必须恰好 1 项（当前实现不支持多 Boss），实际 ${bossConfigs.length} 项`);
+    }
+    const bossConfig = bossConfigs[0];
+    const strongEliteConfigs = allEliteConfigs.filter(c => c.tier === 'strong').map(toEliteConfig);
+    if (strongEliteConfigs.length === 0) {
+        throw new Error(`content.roster.eliteConfigs 里 tier='strong' 至少 1 项`);
+    }
     // eliteConfigs 保留旧名：下游「弱精英池排除固定精英」按名字过滤，Boss 与强精英一并纳入
     const eliteConfigs = [bossConfig, ...strongEliteConfigs];
 
@@ -450,7 +469,10 @@ export function initBattleTeams(currentStage, _rng) {
                 const j = _rng.nextInt(0, i);
                 const tmp = twOrder[i]; twOrder[i] = twOrder[j]; twOrder[j] = tmp;
             }
-            for (const p of twOrder.concat(C.ENEMY_ELITE_POS_PRIORITY.tangWenLiang)) {
+            // 唐文亮的"优先兜底数组"也走 content（content.roster.enemyElitePos.isTangWenLiang）；
+            //   他不走 general 循环（不是 eliteUnits），此处显式引用
+            const twPriority = C.ENEMY_ELITE_POS_FLAGS_MAP.isTangWenLiang || [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            for (const p of twOrder.concat(twPriority)) {
                 if (!enemyPosSet.has(p)) { twJavelin.pos = p; twJavelin.state._originalPos = p; enemyPosSet.add(p); break; }
             }
         }
@@ -474,11 +496,12 @@ export function initBattleTeams(currentStage, _rng) {
             if (!placed) { let backPos = zhouPos + 1; if (backPos <= 9) { let displaced = normalUnits.find(u => u.pos === backPos); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } song.pos = backPos; song.state._originalPos = backPos; enemyPosSet.add(backPos); } }
         }
         const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
+        // 身份优先表见 content.roster.enemyElitePos（未命中回落默认 1→9）
+        const enemyElitePosMap = getEnemyElitePosFlags();
         for (let u of otherElites) {
             let priority;
-            // 身份优先表见 CONFIG.ENEMY_ELITE_POS_PRIORITY（未命中回落默认 1→9）
-            const hit = ENEMY_ELITE_POS_FLAGS.find(([flag]) => u[flag]);
-            priority = hit ? C.ENEMY_ELITE_POS_PRIORITY[hit[1]] : C.ENEMY_ELITE_POS_FALLBACK;
+            const hit = enemyElitePosMap.find(([flag]) => u[flag]);
+            priority = hit ? hit[1] : C.ENEMY_ELITE_POS_FALLBACK;
             for (const p of priority) { if (!enemyPosSet.has(p)) { u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); break; } }
             if (u.pos == null) { let p = priority[0]; let displaced = normalUnits.find(u2 => u2.pos === p); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); }
         }
