@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-// tests/rule-branch-idle-selftest.mjs | V1.1.0 | 2026-10-25 第 132 轮
+// tests/rule-branch-idle-selftest.mjs | V1.1.1 | 2026-10-25 第 133 轮
+//
+// V1.1.1 变更（第 133 轮，**纯重构，判定口径一行未动**）：
+//   把静态抽取（stripCommentsKeepStrings / extractBranches / keyOf / bittenKeyOf / 命中判定）
+//   搬到共享模块 tests/_lib/rule-branch-extract.mjs，本自检改为 import 它。
+//   动因：第 133 轮新增的 rule-teeth-evidence-selftest（牙口证据链对账）必须用**同一套**口径，
+//   若各自抄一份，两处口径必然分叉（一处收紧另一处没跟 ⇒ 同一分支在两个自检里结论不同，
+//   而两边都报绿，谁都看不出来）。属第 122 轮「收口为唯一来源」通规的同款应用。
 //
 // V1.1.0 变更（第 132 轮，两处都是**收紧**，不是放宽）：
 //   1) 抽取口径收紧：msg 表达式只取到本语句结束（含 msg 的那条 return 语句的第一个分号前）。
@@ -48,7 +55,13 @@
 // 与既有自检的分工：
 //   rule-binding-drift-selftest 盯「判据键还在不在」（静态·中文键）；
 //   rule-idle-selftest          盯「规则判定过没有」（运行时·规则级）；
-//   本自检                       盯「判据分支掉没掉牙」（运行时·分支级）—— 三者互补，缺一都可能漏。
+//   本自检                       盯「判据分支掉没掉牙」（运行时·分支级）；
+//   rule-teeth-evidence-selftest 盯「牙口取证结论配不配得上当前代码」（证据链·分支级）
+//   —— 四者互补，缺一都可能漏。
+//
+// ★ 判据分支的静态抽取口径**只有一个来源**：tests/_lib/rule-branch-extract.mjs（第 133 轮抽出来的）。
+//   本自检与牙口证据链自检共用它 —— 各自抄一份必然分叉，一处收紧另一处没跟，
+//   会出现「同一分支在两个自检里结论不同」而两边都报绿的幽灵事件。
 //
 // 用法：node tests/rule-branch-idle-selftest.mjs
 import fs from 'node:fs';
@@ -56,12 +69,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { scanAllBranches, keyOf, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 
-export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.0';
+export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
-const RULE_DIR = path.join(here, 'health-rules');
 
 // --- 规模闸门（低于下限 ⇒ 自检结论不可信，防静默恒绿）---
 const MIN_CASES = 140;
@@ -74,7 +87,7 @@ const MIN_MATCH_RATE = 0.9;   // fired msg 能匹配到静态指纹的比例下�
 // 每条 = 本次样本里**真的报出过 msg** 的判据分支。掉了牙 ⇒ 红。
 // ★ 若某条确因「缺陷已被主代码修复」而不再触发，那是好消息，但也必须**显式收缩本基线**
 //   （并同步 tests/known-transfers.md），不许让它挂着变腐烂。
-const BITTEN_BASELINE = [
+export const BITTEN_BASELINE = [
     {
         file: '141-zhangsanfeng-fortify-round.js',
         rule: '张三丰核心机制回归(严阵以待/如沐春风/生生不息)',
@@ -107,74 +120,7 @@ const BITTEN_BASELINE = [
 // ★ 此后若再出现无指纹分支：**不要在下面登记**（那等于承认盲区并让它静默），
 //   正确做法是给该分支的 msg 补一个可定位的静态前缀（见断言②的报错提示），让它变成可裁定的分支。
 // ★ 本白名单保留为空数组，是为让断言②的「恰好相等」继续生效：任何新增无指纹分支都会立刻判红。
-const NO_FP_WHITELIST = [];
-
-// --- 静态抽取：剥注释但保留字符串/正则字面量原样 ---
-function stripCommentsKeepStrings(src) {
-    let out = '';
-    let i = 0;
-    const n = src.length;
-    while (i < n) {
-        const ch = src[i];
-        if (ch === '/' && src[i + 1] === '/') { while (i < n && src[i] !== '\n') i++; continue; }
-        if (ch === '/' && src[i + 1] === '*') { i += 2; while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++; i += 2; continue; }
-        if (ch === '"' || ch === "'" || ch === '`') {
-            const q = ch;
-            let j = i + 1;
-            while (j < n) {
-                if (src[j] === '\\') { j += 2; continue; }
-                if (src[j] === q) { j++; break; }
-                j++;
-            }
-            out += src.slice(i, j);
-            i = j;
-            continue;
-        }
-        out += ch;
-        i++;
-    }
-    return out;
-}
-
-// 抽取一个规则文件里的全部判据分支
-function extractBranches(src, file) {
-    const lines = stripCommentsKeepStrings(src).split('\n');
-    const out = [];
-    let curRule = null;
-    for (let li = 0; li < lines.length; li++) {
-        const L = lines[li];
-        const nm = L.match(/name:\s*(['"])(.*?)\1/);
-        if (nm) curRule = nm[2];
-        if (!/fail:\s*true/.test(L)) continue;
-        // msg 可能换行书写，向后多看 6 行拼成片段再找；★ 但**只取到本语句结束**（含 msg 的那条语句
-        //   的第一个分号前）——旧口径会越过语句边界，把后续代码里的别的字符串误当成本分支指纹，
-        //   造出"假指纹"（比无指纹危险：自检会以为自己能裁定这条分支，实际裁定的是别人的分支）。
-        let seg = L;
-        for (let k = 1; k <= 6 && li + k < lines.length; k++) {
-            seg += '\n' + lines[li + k];
-            const ms = seg.indexOf('msg:');
-            const term = ms === -1 ? -1 : seg.indexOf(';', ms);
-            if (term !== -1) { seg = seg.slice(0, term); break; }
-        }
-        const mi = seg.indexOf('msg:');
-        let fp = null;
-        if (mi !== -1) {
-            const m = seg.slice(mi + 4, mi + 404).match(/(['"`])((?:\\.|(?!\1).)*)\1/);
-            if (m) {
-                let v = m[2];
-                const d = v.indexOf('${');       // 模板插值处截断，只取静态前缀
-                if (d !== -1) v = v.slice(0, d);
-                v = v.trim();
-                if (v.length >= 4) fp = v;      // 短于 4 字视为"多分支共用前缀"，不可定位
-            }
-        }
-        out.push({ file, rule: curRule, fp });
-    }
-    return out;
-}
-
-function keyOf(b) { return b.file + '|' + b.rule; }
-function bittenKeyOf(b) { return b.file + '|' + b.rule + '|' + b.fp; }
+export const NO_FP_WHITELIST = [];
 
 function fail(msg) {
     console.log('  ❌ ' + msg);
@@ -182,10 +128,8 @@ function fail(msg) {
 }
 
 function main() {
-    // --- 静态抽取 ---
-    const files = fs.readdirSync(RULE_DIR).filter(f => f.endsWith('.js')).sort();
-    const branches = [];
-    for (const f of files) branches.push(...extractBranches(fs.readFileSync(path.join(RULE_DIR, f), 'utf8'), f));
+    // --- 静态抽取（唯一来源：_lib/rule-branch-extract.mjs） ---
+    const { files, branches } = scanAllBranches();
 
     // --- 运行时：真实回放落盘 fired msg ---
     const tmp = path.join(os.tmpdir(), 'rule-branch-msgs-' + process.pid + '.json');
@@ -220,7 +164,7 @@ function main() {
         const cands = branches.filter(b => b.rule === rule && b.fp);
         for (const m of msgs) {
             firedTotal++;
-            const hit = cands.find(b => m.startsWith(b.fp));
+            const hit = findBranchByMsg(cands, m);
             if (hit) { firedMatched++; bitten.add(bittenKeyOf(hit)); }
         }
     }
@@ -328,4 +272,7 @@ function main() {
     process.exit(0);
 }
 
-main();
+// 被 import 时（第 133 轮的 rule-teeth-evidence-selftest 要复用 BITTEN_BASELINE / NO_FP_WHITELIST，
+// 避免第二套登记 ⇒ 两套基线分叉）**不得执行 main**：否则会连带跑一遍回放、并提前 exit(0) 吞掉对方结论。
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();

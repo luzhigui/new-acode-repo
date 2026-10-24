@@ -1,3 +1,9 @@
+// V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
+//   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
+//   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
+//   （证据停在第 127 轮，129/132 轮各改了 21 个规则文件，mutation-teeth 的四项新鲜度守卫
+//   全都不盯规则文件 ⇒ 文档顶上至今写着「新鲜度守卫：通过」）。实测已有 3 条牙口结论对不上号。
+//   本项只做静态证据对账（拿证据 msg 到当前规则文件找分支指纹），不跑变异树、不重录证据。
 // V1.9.0 | 2026-10-25 第 132 轮：第 14 项「判据分支级空转自检」随 rule-branch-idle-selftest 升 V1.1.0
 //   （口径收紧 + 新增断言⑥指纹可区分性），本文件只同步版本号与注释，未改任何判定逻辑、体检项仍 17。
 //   收紧的两处（详见该脚本头注释）：① 指纹抽取只取到 msg 语句结束，不再越过语句边界误取后续代码里的
@@ -46,7 +52,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.9.0';
+export const VER = 'tests/run-all.mjs V1.10.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -99,6 +105,22 @@ const CHECKS = [
     //   ★ 刻意不把 145 条未命中分支刷成噪声：它们绝大多数是回归哨兵本就不该触发的正确形态，
     //     要证明"哨兵有牙"靠的是变异树取证（牙口矩阵），不是本自检。
     { name: '判据分支级空转自检(离线断言)', script: 'tests/rule-branch-idle-selftest.mjs', args: [] },
+    // V1.10.0 | 2026-10-25 第 133 轮：挂「牙口证据链对账」tests/rule-teeth-evidence-selftest.mjs。
+    //   第 14 项只钉住**曾经咬过的分支**（158 条里只有 4 条在日常样本命中），其余 154 条哨兵
+    //   "有牙还是没牙"靠的是**变异树取证**（46 颗牙，牙口矩阵）——那是整个分支级判定的证据地基。
+    //   本项盯的就是**这份证据地基配不配得上当前代码**：
+    //     · 证据文件是第 127 轮（HEAD=e93c6e7）的产物，之后 129/132 轮各改了 21 个规则文件；
+    //     · 实测已有 3 条牙口结论对不上号（143 九阳、154 生生不息加攻属「文案被改型」，
+    //       135 破防属「聚合外壳型」），而 mutation-teeth 自带的新鲜度守卫四项**一项都盯不到
+    //       规则文件被改** ⇒ 牙口矩阵文档顶上至今写着「新鲜度守卫：通过」。
+    //   做法：不做 mtime 比较（会被 touch / git checkout 刷新 ⇒ 假阳性，且说不出"哪条作废"），
+    //   改做**实质对账**——拿证据里每条 msg 到当前规则文件里找分支指纹，找不到就是真对不上号了。
+    //   七条断言：证据规模 3 / 可解析率 / 腐烂棘轮 / 覆盖面 / 规则名在册 / 运行时交叉验证 / 聚合型棘轮。
+    //   ★ 本轮实测还钉出 6 条**聚合型分支**（166 一条指纹承载 7 种子病因、158 承载 5 种）：
+    //     掉其中任何一种都看不出来，属分支级判定的黑洞，已逐条列出请用户拍板是否拆分。
+    //   ★ 处置口径：不修数据、不重录证据 —— 那等于把证据改成配得上代码，方向反了；
+    //     正确处置是重跑变异树，复通后腐烂白名单自然收缩。
+    { name: '牙口证据链对账(离线断言)', script: 'tests/rule-teeth-evidence-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }
