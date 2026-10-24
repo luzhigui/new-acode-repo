@@ -52,7 +52,10 @@ function tryAdvanceJavelin(unit, allySide, log) {
     if (moveUnitPosition(unit, landPos, log) === false) return false;   // 被控制免疫等挡住
     log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
         unitName: unit.name, unitUid: unit.uid, camp: unit.camp,
-        skillName: '突进', note: `🥢 ${unit.name} 射程不及，向前压至 ${landPos} 号位`
+        skillName: '突进', note: `🥢 ${unit.name} 射程不及，向前压至 ${landPos} 号位`,
+        // 前压是独立动作（本回合唯一一手），必须画分隔线自成一段 ——
+        //   否则播放时 info 行无 needsSeparator，会紧贴上一单位攻击组末尾，读起来像那组的一部分。
+        needsSeparator: true
     } });
     return true;
 }
@@ -102,6 +105,14 @@ function runExtraAttackRequests(requests, opts) {
 
 // 同步流程：UI 层异步包装保持逐步渲染，这里纯同步
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
+    // 已死 / 待死不入攻击流程：core/11 的候选池与循环条件已排除，这里是第二道防线 ——
+    //   extraRequests（反击/随动/双击）可能带着「本击刚被打死」的 uid 进来，
+    //   那种情况下出手会产出「0 血单位攻击、反击 0 伤害、被反击击杀」的假战报。
+    //   静默返回（战报里该单位的死亡行已由 resolveDeaths 产出，不需要额外 SKIP 行）。
+    if (!unit || !unit.alive || unit.hp <= 0 || unit.state._pendingDeath) {
+        if (unit && unit.state) unit.state._acted = true;
+        return false;
+    }
     if (unit.state._stunned) {
         log.push({ factType: FACT_TYPES.STUN_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
@@ -138,11 +149,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     }
 
     if (!target && unit.role === ROLE_TYPES.JAVELIN && !lockedTargetUid) {
-        // 标枪专属：射程覆盖不到时先往前压一行，压完重选；仍打不到才放弃
+        // 标枪专属：射程覆盖不到时向前压一行。前压本身就是这一回合的行动 ——
+        //   消耗行动力、本回合不再攻击（老板口径 2026-10-23：移动算一手，不能白嫖一次攻击）。
+        //   前压失败（前排满/被免疫挡住）则落到下面 emptyFact 走「无可选目标」休息分支。
         if (tryAdvanceJavelin(unit, allySide, log)) {
-            const retry = selectAttackTarget(unit, enemySide, allySide);
-            target = retry.target;
-            phantomFact = retry.phantomFact;
+            unit.state._acted = true;
+            return false;
         }
     }
     if (!target) {

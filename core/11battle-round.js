@@ -432,7 +432,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
     let currentSide = state._firstSide || CAMP_TYPES.ENEMY;
 
-    while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
+    // 待死单位（hp 已归零、_pendingDeath=true，等 resolveDeaths 清）不算「还有未行动的人」：
+    //   只判 alive 会让循环永远为真（这类单位 alive 仍是 true、_acted 也不会被置），
+    //   而它们又选不出可行动目标 → 阵营来回切换、死循环或拖到回合上限。
+    //   真正死亡由本轮末尾的 finalizeRoundEnd → resolveDeaths 统一落地。
+    while (
+        A.some(u => u.alive && u.hp > 0 && !u.state._pendingDeath && !u.state._acted) ||
+        B.some(u => u.alive && u.hp > 0 && !u.state._pendingDeath && !u.state._acted)
+    ) {
         const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
         // 首个友方回合相位：回合组件实现 onFirstAllyTurn 钩子（组件自找目标触发附身），
         //   返回 true = 插播一段演出，主循环 yield 一步
@@ -447,7 +454,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
                 }
             }
         }
-        const candidates = currentTeam.filter(u => u.alive && !u.state._acted).sort((a, b) => a.pos - b.pos);
+        // hp>0 且非待死才算候选：一击致死会先挂 _pendingDeath、死亡结算在更后面，
+        //   中间若还把他当候选，就会出现「0 血单位出手、反击伤害 0」这类战报（实机已见）。
+        const candidates = currentTeam.filter(u => u.alive && u.hp > 0 && !u.state._pendingDeath && !u.state._acted).sort((a, b) => a.pos - b.pos);
         if (candidates.length === 0) {
             currentSide = currentSide === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
             continue;

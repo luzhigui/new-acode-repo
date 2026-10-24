@@ -42,9 +42,9 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         }
         // 被闪避优先于「远程/近战」分流：远程被闪避与近战同款——克隆体冲过去被挡回。
         //   原先远程走 showRangedArrow(isMiss=true) 演成「箭射偏」，读作未命中而非闪避。
-        //   华丽模式的子弹时间在 render/39 的 DODGE stage action 里演，这里只管简单模式。
+        //   开着「闪避反击·子弹时间」时子弹时间在 render/39 的 DODGE stage action 里演，这里只管关着的情况。
         if (!isBlock && isDodge) {
-            if (!GlobalStore.get('dodgeEffectEnabled')) {
+            if (!GlobalStore.get('fxDodgeBullet')) {
                 showMeleeDodge(unitA, unitD);
             }
         // 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）

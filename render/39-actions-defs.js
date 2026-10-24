@@ -136,12 +136,12 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.DODGE]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
-            // 闪避反击后攻击者进入眩晕态并清除 flash；华丽模式子弹时间结束后才显示 😵
+            // 闪避反击后攻击者进入眩晕态并清除 flash；开着子弹时间时结束后才显示 😵
             if (action.actorUid) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _acted: true });
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
-                // 简单模式无子弹时间，立即显示眩晕（控制免疫单位不置灰）
-                if (!c.dodgeEffectEnabled && action.stunned !== false) {
+                // 「闪避反击·子弹时间」关着 → 无子弹时间，立即显示眩晕（控制免疫单位不置灰）
+                if (!GlobalStore.get('fxDodgeBullet') && action.stunned !== false) {
                     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true });
                 }
             }
@@ -168,9 +168,9 @@ export const STAGE_ACTION_DEFS = {
                     eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
                 }
             };
-            if (c.dodgeEffectEnabled) emitReboundFloat();
-            // 华丽模式：子弹时间；简单模式：气泡
-            if (c.dodgeEffectEnabled && attacker && dodger) {
+            if (GlobalStore.get('fxDodgeBullet')) emitReboundFloat();
+            // 开「闪避反击·子弹时间」→ 子弹时间；关着 → 气泡 + 冲撞
+            if (GlobalStore.get('fxDodgeBullet') && attacker && dodger) {
                 await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
                 // 必须直接 await，不能走 eventBus（emit 同步不等待 Promise），否则动画并行战斗推进会踩踏
                 const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
@@ -634,9 +634,8 @@ export const STAGE_ACTION_DEFS = {
             if (!action.dash) return;
             const fx94 = await import('../fx/94-tangwenliang-dash.js');
             // 克隆体引用交给 storeAfter：落定 → storeAfter 清 fly 显格 → 克隆体才淡出
-            // 冲刺固定走子弹时间档（老板口径 2026-10-24）：不再受「华丽 / 简单」开关控制——
-            //   冲刺是招牌动作，任何档位都必须完整可见（简单档只影响闪避气泡等其它特效）。
-            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash, { slowMotion: true });
+            // 冲刺按弹窗里的「唐文亮·冲刺子弹时间」开关走慢速档（默认开）；关掉走原快版
+            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash, { slowMotion: !!GlobalStore.get('fxDashSlow') });
         }
     },
     [STAGE_ACTION_TYPES.HANLISA_BURST]: {

@@ -65,7 +65,13 @@ export function renderDodgeFact(fact) {
 
     if (dodgeGroup.isDead) {
         dodgeGroup.hpAfter = 0;
-        dodgeGroup.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
+        // 出手前血量就已 <= 0（待死单位被额外攻击请求带进来，或上一击已致死）：
+        //   他不是被这次反击打死的，写「被反击击杀」会读成「0 血还能被反杀」。
+        //   fact.attackerHpBefore 是闪避判定那一刻的血量，用它区分「本来就没血」与「反击致死」。
+        const wasAlreadyDown = typeof fact.attackerHpBefore === 'number' && fact.attackerHpBefore <= 0;
+        dodgeGroup.entries.push({type:'info', text: wasAlreadyDown
+            ? `<span class="gray">${unit.name} 已无余力，反击未及落下便已倒下</span>`
+            : `${unit.name}被反击击杀！`});
     } else if (fact.stunned === false) {
         // 控制免疫（寒离飒）实际没被眩晕，不再写「本回合无法行动」的假账
         dodgeGroup.entries.push({type:'info', text:`<span class="gray">${unit.name} 被反击（免疫眩晕，可正常行动）</span>`});
@@ -287,7 +293,9 @@ export function renderBreakDefFact(fact) {
 //   该 fact 的 stageAction（SKILL_FLOAT 飘字）仍由 player/42 在「无渲染」分支照常播放。
 export function renderSkillAnnounceFact(fact) {
     if (!fact || fact.line === false) return null;
-    return { type:'info', text:`<span class="gold">${fact.note}</span>` };
+    // needsSeparator 由发射方按需声明（当前仅标枪·突进 true）：播放层 shouldStartNewGroup 读它画「- - - - -」，
+    //   让这条播报自成一段、不与上一单位的攻击组粘连。其余 SKILL_ANNOUNCE（何太冲/灭绝/鹰王报幕）不带此字段，行为不变。
+    return { type:'info', text:`<span class="gold">${fact.note}</span>`, needsSeparator: fact.needsSeparator === true };
 }
 
 // 击杀行

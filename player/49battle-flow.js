@@ -143,7 +143,7 @@ export async function handleHanlisaAimWindow(c, step, netLinked) {
         if (!hls) return;
         const interactive = hls.camp === CAMP_TYPES.ALLY
             && !netLinked
-            && !!GlobalStore.get('dodgeEffectEnabled')
+            && !!GlobalStore.get('fxHanlisaAim')
             && !GlobalStore.get('fastForwardActive')
             && c.autoLevel !== 'full-auto'
             && GlobalStore.get('autoLevel') !== 'full-auto';

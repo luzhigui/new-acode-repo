@@ -4,7 +4,7 @@
 //   ④ 同归于尽（阵亡反噬击杀者）
 // V7.0.5 | 2026-10-22 | ~24300 bytes
 //   补挂同一条 flushDashHeal，「冲刺后必叠」在所有结算分支成立
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.0';   // V7.1.0 冲刺改强推挤压（forceInsert 只算路 + moveUnitPosition 落地）
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.1';   // V7.1.1 forceInsert 落点为空直接落、不再白推队友
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -109,6 +109,9 @@ export function createTangWenLiangComponent() {
                         return { ok: false, reason: 'blocked-target-airborne', blocked: occAtTarget, moved: [] };
                     }
                 }
+                // 落点本身空着 → 不推任何人，直接落（旧版从 startIdx+1 往后扫到第一个空格，
+                //   会把落点之后的队友整串前推——2 号位空着却把 5 号的队友推到 8 号，就是老板看到的现象）
+                if (!occAtTarget) return { ok: true, moved: [{ unit, from: unit.pos, to: targetPos, isDash: true }] };
 
                 const col = (targetPos - 1) % 3;
                 const path = PUSH_PATH[col];
@@ -206,9 +209,16 @@ export function createTangWenLiangComponent() {
                         : `${target.name} 已在前排`;
                     pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${enemyText}；${allyText}。双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
                         { floatText: '⚡', floatUid: target.uid,
+                          // 冲刺是唐文亮的独立动作（被动触发时插在攻击者组后），画分隔线自成一段
+                          needsSeparator: true,
                           dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: tw.pos, fromCamp: tw.camp,
                                   targetUid: target.uid, targetFromPos, targetToPos: target.pos, targetCamp: target.camp,
-                                  moves } });
+                                  moves,
+                                  // 子弹时间慢速档 ⑥ 伤害数字数据源（fx/94 按 uid 找格子浮字）
+                                  hits: [
+                                      toFoe > 0 ? { uid: target.uid, dmg: toFoe } : null,
+                                      toSelf > 0 ? { uid: tw.uid, dmg: toSelf } : null
+                                  ].filter(Boolean) } });
                 }
             }
 

@@ -60,6 +60,11 @@ export async function handleRoundEnd(c, entry, log, i) {
 
 export function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
+    // 回合开始后紧跟的攻击组不画分隔符：没有系统消息（buff 摘要/蛛变/召唤）垫场时，
+    //   「第N回合开始」下一行直接是攻击组，中间再插一条「- - - - -」读起来多余。
+    //   有系统消息时 lastType 是它们的类型（info/buff-summary…），此处不拦，分隔符照常画——
+    //   系统消息行与攻击组之间仍需要分隔。
+    if (lastType === 'round-start') return false;
     if (entry.needsSeparator) return true;
     return false;
 }

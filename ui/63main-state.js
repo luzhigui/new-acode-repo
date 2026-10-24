@@ -30,6 +30,11 @@ GlobalStore.set('isBattleStarting', false);
 GlobalStore.set('adjustMode', false);
 GlobalStore.set('selectedAdjustPos', null);
 GlobalStore.set('currentStage', 1);
+// 特效开关（ui/67 弹窗）：3 个细分项各自独立；dodgeEffectEnabled 是派生值（= 任一项开着），
+//   只供按钮文案与体检读，运行时判定一律读下面 3 个 key
+GlobalStore.set('fxDodgeBullet', true);
+GlobalStore.set('fxHanlisaAim', true);
+GlobalStore.set('fxDashSlow', true);
 GlobalStore.set('dodgeEffectEnabled', true);
 GlobalStore.set('selectedBuffIndex', -1);
 GlobalStore.set('currentDoubleStrikeUid', null);

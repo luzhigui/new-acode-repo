@@ -381,7 +381,7 @@ async function showTangWenLiangDashSlow(dash) {
 // 主演出：克隆多人 → 金线对拉 → 位移动画（dash 本体超冲回弹）→ 落定特效。
 // 返回克隆体数组交给 39 的 storeAfter（交棒：清 fly 显格后才淡出）。
 export async function showTangWenLiangDash(dash, opts) {
-    // 华丽模式（dodgeEffectEnabled）走子弹时间慢速档；简单/自动/快进走原快版
+    // 「唐文亮·冲刺子弹时间」（fxDashSlow）开着走慢速档；关掉 / 快进走原快版
     if (opts && opts.slowMotion) return showTangWenLiangDashSlow(dash);
     if (!dash || GlobalStore.get('fastForwardActive')) return [];
 
