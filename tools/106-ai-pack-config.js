@@ -1,3 +1,7 @@
+// V6.0.38 | ~27200 bytes | 2026-10-24 补登记 3 个运行必需文件（全仓清单↔磁盘比对发现，均在主代码引用链上）：
+//           player/52-career-log.js（42player-core 已 import，dev-index 生涯记录按钮也动态 import）、
+//           fx/95-immune-shield-break.js（render/39 空见护罩碎裂的动态 import）、
+//           modules/26elite-sixsects-kongjian.js（26 入口已 import 的空见组件）；漏登则包内引用断裂。
 // V6.0.37 | ~26900 bytes | 2026-10-23 补登记 fx/94-tangwenliang-dash.js（render/39 动态 import 的唐文亮冲刺
 //           演出；漏登导致 URL 直读索引里没有该文件、网页端读它 404）
 // V6.0.36 | ~26700 bytes | 2026-10-22 补登记 tools/134-idea-lab.html（创意摸奖）+ 134-fetch-pool.mjs +
@@ -64,7 +68,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.37';
+export const VER = 'tools/106-ai-pack-config.js V6.0.38';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -105,6 +109,8 @@ export const ALL_PROJECT_FILES = [
     '../core/07-target-strategies.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
+    // 2026-10-24 补登记：生涯记录（42player-core 已 import；dev-index 生涯按钮也动态 import）
+    '../player/52-career-log.js',
     // 2026-10-21 补登记 42 拆分件：播放步/阶段动作/步同步（42player-core 的同批产物）
     '../player/42player-play-step.js', '../player/42player-stage-actions.js', '../player/42player-step-sync.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
@@ -130,6 +136,8 @@ export const ALL_PROJECT_FILES = [
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
     '../fx/90fx-ref-manager.js', '../fx/90-hanlisa-charge.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js', '../fx/93-hanlisa-burst.js', '../fx/94-tangwenliang-dash.js',
+    // 2026-10-24 补登记：render/39 动态 import 的空见护罩碎裂特效
+    '../fx/95-immune-shield-break.js',
     // modules（通用系统 + 精英角色组件）
     // 2026-10-02 补登记 00reg-mechanics：机制装配统一入口（ui/61 唯一 import 点，25/26/27/30 经它装载）
     '../modules/00reg-mechanics.js',
@@ -151,6 +159,8 @@ export const ALL_PROJECT_FILES = [
     '../modules/26elite-sixsects-miejueshitai.js', '../modules/26elite-sixsects-hetaichong.js',
     // 2026-10-17 补登记：唐文亮组件文件（26 入口已 registerElite，V6.0.23 六组件批时它尚未拆出、后拆时漏登）
     '../modules/26elite-sixsects-tangwenliang.js',
+    // 2026-10-24 补登记：空见组件文件（26 入口已 import createKongJianComponent）
+    '../modules/26elite-sixsects-kongjian.js',
     '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
