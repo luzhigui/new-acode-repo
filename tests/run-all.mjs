@@ -1,3 +1,9 @@
+// V1.7.0 | 2026-10-25 第 130 轮：CHECKS 新增「规则恒空转自检」（tests/rule-idle-selftest.mjs，第 13 项，
+//   计退码）。由来：第 129 轮交付「规则绑定键漂移自检」时点名的下轮最高优先 —— 那条只保证"键还在"，
+//   不能证明规则真的判定过。规则侧恒空转（pass=0 fail=0 全 skip）在回放汇总里只打一个 ⏭ 就过去了，
+//   而「样本未覆盖 / 判据键过期 / 数据源错位」三种病因表现完全一样、回放数字一模一样、肉眼撞不见。
+//   本项复用 rules-replay 的真实统计（新增 RULE_STATS_OUT 落盘口径，默认零副作用），按契约侧恒空转
+//   棘轮的同款口径：恒空转集合必须**恰好等于**白名单（只许收缩），配规模闸门防自检恒绿，体检项 15→16。
 // V1.6.0 | 2026-10-24 第 129 轮：CHECKS 新增「规则绑定键漂移自检」（tests/rule-binding-drift-selftest.mjs，
 //   第 12 项，计退码）。由来：第 128 轮立的下轮目标 —— 把契约侧的「绑定键漂移」口径横向铺到规则侧。
 //   难点是 health-rules 里 416 条中文字面量绝大多数是注释/规则名/报错文案，照单全收必误报刷屏；
@@ -61,6 +67,12 @@ const CHECKS = [
     //   154 条真判据键、11 条留痕免检，避免误报刷屏。盯的是"规则跟主代码之间的接线"：
     //   规则靠哪个中文字面量认领战报，主代码改名而规则没跟上 ⇒ 判据恒不命中（恒空转或恒绿）。
     { name: '规则绑定键漂移自检(离线断言)', script: 'tests/rule-binding-drift-selftest.mjs', args: [] },
+    // V1.7.0 | 2026-10-25 第 130 轮：挂「规则恒空转自检」tests/rule-idle-selftest.mjs。
+    //   契约侧早有「恒空转契约」棘轮（contract-guard-selftest 第③条），规则侧一直没有同款 ⇒ 本项补上。
+    //   口径：跑标准样本（20seed×7关=140 场）回放取逐条 pass/fail/skip，恒空转 = pass=0 且 fail=0；
+    //   该集合必须**恰好等于**白名单（只许收缩：新增恒空转 ⇒ 红，白名单条目被激活 ⇒ 红），
+    //   再加白名单名/文件在册两道腐烂检测与样本规模、规则条数两道闸门（防自检静默恒绿）。
+    { name: '规则恒空转自检(离线断言)', script: 'tests/rule-idle-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }

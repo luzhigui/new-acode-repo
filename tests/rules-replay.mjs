@@ -32,7 +32,7 @@
 // 注意：渲染 buff 阵营摘要依赖 GlobalStore.battleStore，本 runner 已按真实流程建 store 并每回合
 //       SET_UNITS 同步（否则所有 buff-summary 渲染不出来，会让 140/141 之类的规则假红）。
 import { readdir } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
@@ -487,4 +487,17 @@ console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报�
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +
     `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}` +
     `${hookErrorCount ? ' / hook 运行时错误 ' + hookErrorCount + ' 次' : ''}`);
+// 第 130 轮：为「规则恒空转自检」（tests/rule-idle-selftest.mjs）提供机器可读口径。
+// 仅在显式设置 RULE_STATS_OUT 时落盘，默认零副作用——不改任何判据、不影响既有输出与退出码。
+// 落盘内容：样本场次 cases、规则条数、逐条规则 pass/fail/skip 计数，以及本轮解析出的转交名单。
+if (process.env.RULE_STATS_OUT) {
+    try {
+        writeFileSync(
+            process.env.RULE_STATS_OUT,
+            JSON.stringify({ cases, ruleCount: rules.length, agg, knownTransfers: [...KNOWN_TRANSFERS] })
+        );
+    } catch (e) {
+        console.error('RULE_STATS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
+    }
+}
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);
