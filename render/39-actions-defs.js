@@ -594,13 +594,26 @@ export const STAGE_ACTION_DEFS = {
     //   事件走 core/13 既有链，这里不碰位置数据）。多人版：遍历 moves 全部 uid 设/清 fly。
     [STAGE_ACTION_TYPES.DASH]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
-        // 演出期间终点格隐形（同 fx/82 冲撞口径），否则格子已瞬移到终点、克隆体再飞一遍
+        // 演出顺序（老板口径 2026-10-23）：①先把位置写进 store（供克隆体取终点格内容）→
+        //   ②再设 fly 让终点格隐身 → fx 播克隆体从旧格飞向新格 → storeAfter 清 fly 显格。
+        //   此前只设 fly 不写位置：makeGhost 取终点格是空壳、返回 null，整个动画跳过，
+        //   位置更新延后到 step 末尾 → 表现为「先攻击后瞬移」（老板实机指出的病根）。
         store: (c, action) => {
             if (!c.store || !action.dash) return;
-            const ids = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
-                ? action.dash.moves.map(m => m.uid)
-                : [action.dash.fromUid, action.dash.targetUid];
-            for (const uid of ids) if (uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: 'fly' });
+            const moves = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
+                ? action.dash.moves
+                : [
+                    action.dash.fromUid != null ? { uid: action.dash.fromUid, to: action.dash.toPos } : null,
+                    action.dash.targetUid != null ? { uid: action.dash.targetUid, to: action.dash.targetToPos } : null
+                ].filter(Boolean);
+            if (moves.length === 0) return;
+            // ① 先把位置写进 store（APPLY_EVENTS 走 reducer 正规通道）
+            const events = moves
+                .filter(m => m.uid != null && m.to != null && m.to !== undefined)
+                .map(m => ({ eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: m.uid, pos: m.to }));
+            if (events.length > 0) c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events });
+            // ② 再让新位置格隐身（等 storeAfter 清 fly 让真格显出来）
+            for (const m of moves) if (m.uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
         },
         storeAfter: (c, action) => {
             if (!c.store || !action.dash) return;

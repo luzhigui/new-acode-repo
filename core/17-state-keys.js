@@ -62,8 +62,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     //   （AFTER_SELECT_TARGET 递增，命中/闪避都计），满 7 触发冲刺·七伤齐发
     _qiShangCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 唐文亮·回春术层数（整场，可叠加）：数组每项=该层剩余回合数；
-    //   每回合开始每层回自身已损生命的 lostHpPct（血 <30% 时 lostHpPctLow），减 1 回合、归零即移除
+    //   行动完那一刻（ON_UNIT_ACTED）每层回自身已损生命的 lostHpPct（血 <30% 时 lostHpPctLow），
+    //   减 1 回合、归零即移除。本回合是否已 tick 由 _hcTickedThisTurn 防双回血（冲刺后赠送攻击 vs 正常行动）
     _hcStacks:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
+    _hcTickedThisTurn:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 唐文亮·七伤拳「本击展示三件套」（仅本击有效：BEFORE_DAMAGE_CALC 写 → AFTER_DAMAGE_APPLIED
     //   搬进**本击自己的攻击组** → 立即清零）：_qiShangDmg 自损量→组 data.qiShangSelfDmg（render/38 飘 💥-N）、
     //   _qiShangNote 报幕文本→组 entries 开头 info 行、_qiShangBanner 满 7 横幅→组 data.qiShangBanner（BANNER 演出）

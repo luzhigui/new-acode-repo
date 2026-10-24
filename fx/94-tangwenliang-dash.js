@@ -148,14 +148,16 @@ export async function showTangWenLiangDash(dash) {
     }
     if (ghosts.length === 0) return [];
 
-    // ② 金线对拉：连「唐文亮落点」与「目标落点」，从两端向中间收拢
+    // ② 金线锁定：连「唐文亮克隆体当前位置」与「目标克隆体当前位置」，随动画实时跟随
+    //   （demo 口径：线是锁在两人身上的，不是画在两个未来落点之间——老板实机指出的视觉偏差）
     const twG = ghosts.find(x => x.isDash) || ghosts[0];
     const tgG = ghosts.find(x => !x.isDash);
-    const beam = (twG.toRect && tgG && tgG.toRect) ? createBeam(document.body) : null;
+    const beam = (twG && tgG) ? createBeam(document.body) : null;
     if (beam) {
-        const a = twG.toRect, b = tgG.toRect;
+        const a0 = twG.g.el.getBoundingClientRect();
+        const b0 = tgG.g.el.getBoundingClientRect();
         await clock.animate(240, (p) => {
-            setBeam(beam, a.cx, a.cy, b.cx, b.cy, p);
+            setBeam(beam, a0.left + a0.width/2, a0.top + a0.height/2, b0.left + b0.width/2, b0.top + b0.height/2, p);
             beam.glow.style.opacity = String(0.85 * p);
             beam.core.style.opacity = String(p);
             beam.head.style.opacity = String(p);
@@ -179,9 +181,10 @@ export async function showTangWenLiangDash(dash) {
             gh.g.el.style.left = x.toFixed(1) + 'px';
             gh.g.el.style.top = y.toFixed(1) + 'px';
         }
-        if (beam) {
-            const a = twG.toRect, b = tgG ? tgG.toRect : null;
-            if (b) setBeam(beam, a.cx, a.cy, b.cx, b.cy, 1 - p * 0.35);
+        if (beam && twG && tgG) {
+            const a1 = twG.g.el.getBoundingClientRect();
+            const b1 = tgG.g.el.getBoundingClientRect();
+            setBeam(beam, a1.left + a1.width/2, a1.top + a1.height/2, b1.left + b1.width/2, b1.top + b1.height/2, 1);
         }
     });
 
