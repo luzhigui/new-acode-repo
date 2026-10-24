@@ -1,5 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.5.7 | 2026-10-22 | ~33000 bytes
+// V1.5.8 | 2026-10-24 | ~33000 bytes
+//   V1.5.8：DASH 的 fx 步固定传 slowMotion:true（冲刺永远子弹时间，不受华丽/简单开关控制）
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
 // 并在 infra/56 的 STAGE_ACTION_TYPES 登记。
@@ -633,11 +634,9 @@ export const STAGE_ACTION_DEFS = {
             if (!action.dash) return;
             const fx94 = await import('../fx/94-tangwenliang-dash.js');
             // 克隆体引用交给 storeAfter：落定 → storeAfter 清 fly 显格 → 克隆体才淡出
-            // 华丽模式（dodgeEffectEnabled）走子弹时间慢速档：遮罩内完整演出「锁链→对拉→撞击→归位」；
-            //   简单/自动/快进走原快版。两档返回同一 ghosts 结构，交棒顺序不变。
-            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash, {
-                slowMotion: !!GlobalStore.get('dodgeEffectEnabled')
-            });
+            // 冲刺固定走子弹时间档（老板口径 2026-10-24）：不再受「华丽 / 简单」开关控制——
+            //   冲刺是招牌动作，任何档位都必须完整可见（简单档只影响闪避气泡等其它特效）。
+            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash, { slowMotion: true });
         }
     },
     [STAGE_ACTION_TYPES.HANLISA_BURST]: {
