@@ -1,4 +1,6 @@
 // fx/94-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
+// V2.2.1 | 2026-10-24 收尾修正：撞击即断链 + 清主角高亮（不留「人已落位、线还连着」1.3 秒）；
+//   唐文亮原地未动时 twG 取 null，不再退回 ghosts[0]（那会把锁链/金边锁到被挤队友身上）。
 // V2.2.0 | 2026-10-24 视觉权重修正：主角=唐文亮+目标（按 targetUid 精确认，旧版取「第一个非 dash」会锁到被挤队友），
 //   队友克隆体压暗缩小(z10040/0.82/0.55)且 380ms 先归位——「被挤走」只作背景，主视觉是主角连线对拉。
 // V2.1.0 | 2026-10-24 子弹时间档真实时间保底：慢速档全部阶段走 minRealMs（真实时钟），
@@ -14,7 +16,7 @@ import { getCellByPos } from './90fx-ref-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getRoleIcon } from '../render/37-role-cards.js';
 
-export const VER = 'fx/94-tangwenliang-dash.js V2.1.0';
+export const VER = 'fx/94-tangwenliang-dash.js V2.2.1';
 
 // 真实时间等待：clock.wait 会被倍速压缩，子弹时间档不能用它——
 //   用一个空 animate + minRealMs 同值，保证真实时钟走满 ms 才 resolve（暂停时同样冻结）。
@@ -212,11 +214,16 @@ async function showTangWenLiangDashSlow(dash) {
     }
     if (ghosts.length === 0) { cleanupAll(); return []; }
 
-    const twG = ghosts.find(x => x.isDash) || ghosts[0];
+    // 唐文亮原地未动时（已在前排、from===to 被 moves 过滤）ghosts 里没有他——
+    //   不能退回 ghosts[0]：那是某个被挤走的队友，锁链与主角高亮会连到队友身上。
+    //   返回 null = 本次不画锁链，只高亮目标。
+    const twG = ghosts.find(x => x.isDash) || null;
     // 目标按 uid 精确认（旧版取「第一个非 dash」——被挤队友排在前面时金线会锁到队友身上）
     const tgG = (targetUid != null ? ghosts.find(x => x.uid === targetUid) : null)
         || ghosts.find(x => !x.isDash) || null;
-    const minorGhosts = ghosts.filter(x => x !== twG && x !== tgG);
+    // 队友 = 既不是唐文亮（没动时为空）也不是目标的其余克隆体。
+    //   不能只写 x !== twG：twG 为 null 时该条件恒真，目标会被误当队友提前滑走
+    const minorGhosts = ghosts.filter(x => !x.isDash && x !== tgG);
 
     // 主角高亮：唐文亮金边、目标橙红边（被挤队友不加特写）
     const highlight = (gh, color) => {
@@ -281,7 +288,7 @@ async function showTangWenLiangDashSlow(dash) {
     }
     await clock.animate(750, (p) => {
         const e = 1 - Math.pow(1 - p, 3);
-        slide(twG, e);
+        if (twG) slide(twG, e);
         if (tgG) slide(tgG, e);
         chainSet(1);
     }, { minRealMs: 750 });
@@ -328,6 +335,13 @@ async function showTangWenLiangDashSlow(dash) {
     if (twG && twG.toRect) { ringAt(twG.toRect, 'rgba(255,209,102,0.95)', 10062); sparksAt(twG.toRect.cx, twG.toRect.cy, '#ffd166', 12, 10063); }
     if (tgG && tgG.toRect) { ringAt(tgG.toRect, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgG.toRect.cx, tgG.toRect.cy, '#ff6b3d', 10, 10063); }
     screenShake();
+    // 撞击即断链：此刻还在白闪与遮罩里，断链看不见突兀；
+    //   留到 ⑦ 才断，会出现「两人已经落位、金线还连着」持续 1.3 秒（实机「怪怪的」主因）。
+    //   主角高亮同步清掉，否则遮罩退场后金边跟着克隆体一起淡出。
+    chainGlow.style.opacity = '0';
+    chainCore.style.opacity = '0';
+    if (twG && twG.g && twG.g.el) twG.g.el.style.boxShadow = '';
+    if (tgG && tgG.g && tgG.g.el) tgG.g.el.style.boxShadow = '';
     if (skipped) { cleanupAll(); return []; }
 
     // ⑥ 真伤数字浮出（dash.hits 载荷里带 dmg）
