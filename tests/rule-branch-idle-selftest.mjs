@@ -1,5 +1,18 @@
 #!/usr/bin/env node
-// tests/rule-branch-idle-selftest.mjs | V1.0.0 | 2026-10-25 第 131 轮
+// tests/rule-branch-idle-selftest.mjs | V1.1.0 | 2026-10-25 第 132 轮
+//
+// V1.1.0 变更（第 132 轮，两处都是**收紧**，不是放宽）：
+//   1) 抽取口径收紧：msg 表达式只取到本语句结束（含 msg 的那条 return 语句的第一个分号前）。
+//      旧口径在 msg 是变量（如 `msg: bad`）时会向后多看几行、把**后续代码里的别的字符串**误当作
+//      本分支的指纹 ⇒ 造出假指纹（第 132 轮实测：149 的 `msg: bad` 曾被误配成「复发：第」）。
+//      假指纹比无指纹危险得多：它会让本自检**以为**自己能裁定这条分支，实际裁定的是别人的分支。
+//   2) 新增断言⑥「指纹可区分性」：同一规则内任意两条分支的指纹不得相同、不得互为前缀。
+//      命中判定是「fired msg 以某分支指纹为前缀则算该分支命中」，若两条分支指纹相同或互为前缀，
+//      匹配会被先命中者抢走 ⇒ 分支级判定**静默退化成规则级**，而报告里照样写"分支级自检通过"。
+//      （第 132 轮实测：改前 11 组重复 + 11 组前缀包含，涉及约 35 条分支，半数以上的分支级结论是假的。）
+//   3) 无指纹分支白名单**清零**：第 132 轮给全部 10 条无指纹分支补上可区分的静态前缀后，
+//      158 条分支指纹可抽取率 100%、盲区归零。白名单保留为空数组作棘轮：任何新增无指纹分支 ⇒ 立即判红，
+//      **不得靠重新登记让它静默**（登记 = 承认盲区，补前缀 = 消灭盲区，后者才是对的做法）。
 //
 // 背景（为什么要有它，务必先读）：
 //   第 130 轮的 rule-idle-selftest 补齐了**规则级**恒空转棘轮（pass=0 fail=0 ⇒ 规则压根没判定过）。
@@ -44,7 +57,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/rule-branch-idle-selftest.mjs V1.0.0';
+export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -88,21 +101,13 @@ const BITTEN_BASELINE = [
     }
 ];
 
-// --- 无指纹分支白名单（只许收缩）---
-// 这些分支的 msg 由运行时变量拼出、或以 '复发：' 这类**多分支共用短前缀**开头 ⇒ 无法建立可定位的
-// 静态指纹 ⇒ 本自检对它们**既不能证明有牙、也不能证明掉牙**，属登记在册的分支级盲区。
-// ★ 待办（建议后续轮次做）：给这些分支补上可区分的静态前缀（如 '复发：白骨爪回血刷屏：'），
-//   补一条就应把对应条目从本白名单移出（收缩），把盲区换成可裁定的分支。
-const NO_FP_WHITELIST = [
-    { file: '123-claw-heal-spam.js', rule: '白骨爪回血刷屏(回归)', why: 'msg 为 issues.slice().join()，整体由运行时数组拼出，无静态前缀' },
-    { file: '131-separator-duplicate.js', rule: '回合分隔符重复(回归)', why: 'msg 以共用短前缀「复发：」开头后直接接变量 dup，无法定位到分支' },
-    { file: '135-break-def-pos.js', rule: '破防显示位置/破防量(回归)', why: 'msg 为「复发：」+ msgs.join()，整体动态' },
-    { file: '139-spider-butterfly-target.js', rule: '小昭妹/姐不可选期被打(回归)', why: 'msg 为「复发：」+ problems.slice().join()，整体动态' },
-    { file: '145-fly-miss-aura.js', rule: '飞行未命中光环数值(回归)', why: '本规则两条分支均以「复发：」开头后接单位名变量，两条分支指纹不可区分' },
-    { file: '150-hot-blood-leech.js', rule: '热血奋战攻击回血(回归)', why: 'msg 以「复发：」开头后接单位名变量 w，无静态可定位前缀' },
-    { file: '156-desc-truth-drift.js', rule: '技能说明数字==引擎真值(单源守卫)', why: 'msg 整体由 problems 数组拼出，无静态前缀' },
-    { file: '157-mechanic-install-reconcile.js', rule: 'mechanics安装对账(类型↔注册表↔字段)', why: 'msg 为「复发：」+ problems[0]，直接取数组首项，无静态前缀' }
-];
+// --- 无指纹分支白名单（棘轮：**恒空**，只许保持空）---
+// 第 132 轮已把最后 10 条无指纹分支全部补上可区分的静态前缀（123 / 131 / 135 / 139 / 145×2 /
+// 149 / 150 / 156 / 157）⇒ 158 条分支**全部可建立指纹**，盲区归零，本白名单随之清空。
+// ★ 此后若再出现无指纹分支：**不要在下面登记**（那等于承认盲区并让它静默），
+//   正确做法是给该分支的 msg 补一个可定位的静态前缀（见断言②的报错提示），让它变成可裁定的分支。
+// ★ 本白名单保留为空数组，是为让断言②的「恰好相等」继续生效：任何新增无指纹分支都会立刻判红。
+const NO_FP_WHITELIST = [];
 
 // --- 静态抽取：剥注释但保留字符串/正则字面量原样 ---
 function stripCommentsKeepStrings(src) {
@@ -141,9 +146,16 @@ function extractBranches(src, file) {
         const nm = L.match(/name:\s*(['"])(.*?)\1/);
         if (nm) curRule = nm[2];
         if (!/fail:\s*true/.test(L)) continue;
-        // msg 可能换行书写，向后多看 6 行拼成片段再找
+        // msg 可能换行书写，向后多看 6 行拼成片段再找；★ 但**只取到本语句结束**（含 msg 的那条语句
+        //   的第一个分号前）——旧口径会越过语句边界，把后续代码里的别的字符串误当成本分支指纹，
+        //   造出"假指纹"（比无指纹危险：自检会以为自己能裁定这条分支，实际裁定的是别人的分支）。
         let seg = L;
-        for (let k = 1; k <= 6 && li + k < lines.length; k++) seg += '\n' + lines[li + k];
+        for (let k = 1; k <= 6 && li + k < lines.length; k++) {
+            seg += '\n' + lines[li + k];
+            const ms = seg.indexOf('msg:');
+            const term = ms === -1 ? -1 : seg.indexOf(';', ms);
+            if (term !== -1) { seg = seg.slice(0, term); break; }
+        }
         const mi = seg.indexOf('msg:');
         let fp = null;
         if (mi !== -1) {
@@ -262,6 +274,38 @@ function main() {
             firedTotal + '，下限 ' + (MIN_MATCH_RATE * 100) + '%）⇒ 抽取口径与运行时 msg 已脱节，命中判定失真'));
     }
 
+    // ⑥ 指纹可区分性（第 132 轮新增）：同一规则内，任意两条分支的指纹不得相同、不得互为前缀。
+    //    命中判定是「fired msg 以某分支指纹为前缀 ⇒ 该分支命中」，指纹撞车或互为前缀时匹配会被
+    //    先命中者抢走 ⇒ 分支级判定**静默退化成规则级**，而报告照样写"分支级自检通过"——这类假绿
+    //    比无指纹更隐蔽，故单列一条断言常驻。
+    const fpsByRule = new Map();
+    for (const b of branches) {
+        if (!b.fp) continue;
+        if (!fpsByRule.has(b.rule)) fpsByRule.set(b.rule, []);
+        fpsByRule.get(b.rule).push(b.fp);
+    }
+    let dupGroups = 0, prefixGroups = 0;
+    for (const [rule, fps] of fpsByRule) {
+        const uniq = [...new Set(fps)];
+        const cnt = new Map();
+        for (const fpx of fps) cnt.set(fpx, (cnt.get(fpx) || 0) + 1);
+        for (const [fpx, c] of cnt) {
+            if (c > 1) {
+                dupGroups++;
+                problems.push(fail('同规则内指纹重复：' + rule + ' 有 ' + c + ' 条分支共用指纹「' + fpx +
+                    '」⇒ 命中判定只会记到其中一条，被抢的那条永久不可判定，须给它们各补可区分的静态前缀'));
+            }
+        }
+        for (const a of uniq) {
+            for (const b2 of uniq) {
+                if (a === b2 || !b2.startsWith(a)) continue;
+                prefixGroups++;
+                problems.push(fail('同规则内指纹互为前缀：' + rule + ' 中「' + a + '」是「' + b2 +
+                    '」的前缀 ⇒ 长那条分支永远匹配不到（被短的抢先），须把分叉点提前到静态前缀里'));
+            }
+        }
+    }
+
     // --- 报告 ---
     console.log('  · 本次命中（有牙）分支 ' + bitten.size + ' 条：');
     for (const k of bitten) console.log('      ✅ ' + k);
@@ -269,15 +313,18 @@ function main() {
     console.log('  · 未命中分支 ' + (branches.length - noFp.length - bitten.size) +
         ' 条 —— 绝大多数是**回归哨兵本就不该触发**的正确形态，本自检刻意不把它们刷成噪声；' +
         '要证明「哨兵有牙」靠的是变异树取证（牙口矩阵），不是本自检');
-    console.log('  · 无指纹（本自检裁定不到）' + noFp.length + ' 条 / 白名单 ' + NO_FP_WHITELIST.length + ' 条（只许收缩）');
+    console.log('  · 无指纹（本自检裁定不到）' + noFp.length + ' 条 / 白名单 ' + NO_FP_WHITELIST.length +
+        ' 条（★ 第 132 轮已清零，此后新增无指纹分支即判红，不得重新登记）');
     for (const w of NO_FP_WHITELIST) console.log('      - ' + w.file + ' · ' + w.rule + '  ' + w.why);
+    console.log('  · 指纹可区分性：重复 ' + dupGroups + ' 组 / 前缀包含 ' + prefixGroups + ' 组（均须为 0，' +
+        '撞车会让分支级判定静默退化成规则级）');
     console.log('  · fired msg ' + firedTotal + ' 条，匹配上静态指纹 ' + firedMatched + ' 条（' + (matchRate * 100).toFixed(1) + '%）');
 
     if (problems.length) {
         console.log('❌ 判据分支级空转自检失败（' + problems.length + ' 项）');
         process.exit(1);
     }
-    console.log('✅ 判据分支级空转自检通过（5 项断言：规模闸门 3 / 无指纹白名单恰好相等 + 抽取率 / 有牙棘轮 / 基线在册 / 匹配率）');
+    console.log('✅ 判据分支级空转自检通过（6 项断言：规模闸门 3 / 无指纹白名单恰好相等 + 抽取率 / 有牙棘轮 / 基线在册 / 匹配率 / 指纹可区分性）');
     process.exit(0);
 }
 

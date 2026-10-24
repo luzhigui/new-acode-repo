@@ -124,7 +124,9 @@ export const rule97 = {
             //   是合法回血；占比判据只对 >2 的回血生效，大额回血照旧报红。
             //   2026-10-14 第 89 轮修：同判据2 加 maxHp 稳定性门（mhStable）——终局缩血/变血单位不判占比。
             if (mhStable && leech > 2 && leech > mh * 0.6) {
-                return { fail: true, msg: '复发：热血奋战给 ' + who + ' 单次回复 +' + leech + '，占其血量上限 ' + mh
+                // ★ 第 132 轮：本条与本规则「回血越过上限」那条分支曾共用同一指纹「复发：热血奋战给 」，
+                //   命中判定会被先匹配者抢走 ⇒ 两条分支不可区分，分支级自检退化成规则级。现补独立前缀。
+                return { fail: true, msg: '复发：热血奋战回血量级膨胀：给 ' + who + ' 单次回复 +' + leech + '，占其血量上限 ' + mh
                     + ' 的 ' + Math.round(leech / mh * 100) + '%（合法上限是 leechPct×2，超过 60% 说明比例被写大'
                     + '或翻倍被重复叠加）' };
             }
@@ -143,7 +145,7 @@ export const rule97 = {
                 var w = String(em[1]).trim();
                 cnt[w] = (cnt[w] || 0) + 1;
                 if (cnt[w] >= 2) {
-                    return { fail: true, msg: '复发：' + w + ' 在同一次攻击里被登记了 ' + cnt[w]
+                    return { fail: true, msg: '复发：热血奋战单次攻击重复登记：' + w + ' 在同一次攻击里被登记了 ' + cnt[w]
                         + ' 次热血奋战回血（一次攻击只应结算一次 → 回血翻倍膨胀）' };
                 }
             }

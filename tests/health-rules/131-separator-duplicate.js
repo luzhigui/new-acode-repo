@@ -31,7 +31,8 @@ export const rule78 = {
             }
         }
         if (!sawSeparator) return 'skip';
-        if (dup) return { fail: true, msg: '复发：' + dup + '（双分隔符）' };
+        // ★ 第 132 轮：原 msg 以多分支共用短前缀「复发：」开头后直接接变量 ⇒ 无法定位到分支，现已补前缀
+        if (dup) return { fail: true, msg: '复发：回合分隔符重复：' + dup + '（双分隔符）' };
         return { fail: false };
     }
 };

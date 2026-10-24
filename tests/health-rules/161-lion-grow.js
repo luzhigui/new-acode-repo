@@ -58,7 +58,7 @@ export const rule108 = {
             if (renderSet.has(sig)) {
                 // 渲染文案与 fact 绝对目标一致 —— 通过
             } else if (renderPosSeen.has(d.pos)) {
-                return { fail: true, msg: '复发：幼狮成长落点 ' + d.pos + ' 的渲染文案 攻/防/血 与 fact 绝对目标 '
+                return { fail: true, msg: '复发：幼狮成长渲染文案漂移：落点 ' + d.pos + ' 的渲染文案 攻/防/血 与 fact 绝对目标 '
                     + d.atk + '/' + d.def + '/' + d.maxHp + ' 不符（渲染漂移）' };
             }
             // 该 pos 无渲染行：渲染未捕获（可能嵌套未展开），跳过判据3，不硬报

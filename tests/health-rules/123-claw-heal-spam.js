@@ -92,7 +92,9 @@ export const rule70 = {
         }
 
         if (issues.length > 0) {
-            return { fail: true, msg: issues.slice(0, 2).join(' | ') };
+            // ★ 第 132 轮：msg 原本整体由运行时数组拼出（无静态前缀）⇒ 分支级自检无法为它建指纹、
+            //   既不能证明有牙也不能证明掉牙，属登记在册的盲区。补上可定位的静态前缀后已出白名单。
+            return { fail: true, msg: '复发：白骨爪回血刷屏：' + issues.slice(0, 2).join(' | ') };
         }
         return { fail: false };
     }

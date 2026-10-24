@@ -123,24 +123,26 @@ export const rule96 = {
 
                 // 判据6：同回合 ≥3 条 = 重复登记回归（实测恒 1 条，取 3 留足余量）
                 if (perRound >= 3) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合出现 ' + perRound
+                    return { fail: true, msg: '复发：圣火令摘要重复登记：第' + curRound + '回合出现 ' + perRound
                         + ' 条圣火令摘要（同一回合只需登记一次，重复登记会让加成叠两次）' };
                 }
                 // 判据5：cols 与 rows 同时为空 → 渲染守卫失效，打出「攻击无 +30%，防御无 +30%」的空转条目
                 if (cols.length === 0 && rows.length === 0) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 圣火令摘要的攻击列与防御行均为空'
+                    return { fail: true, msg: '复发：圣火令cols/rows守卫失效：第' + curRound + '回合 圣火令摘要的攻击列与防御行均为空'
                         + '（render/30 的 cols/rows 守卫失效 → 无人受益却显示 +30% 加成）' };
                 }
                 // 判据1/2/3：越界 / 重复 / 升序
                 var bad = checkSeq(cols, '攻击列', curRound) || checkSeq(rows, '防御行', curRound);
-                if (bad) return { fail: true, msg: bad };
+                // ★ 第 132 轮：原写 msg: bad（整条 msg 由 checkSeq 运行时拼出，静态抽取拿不到前缀 ⇒
+                //   本分支既不能证明有牙也不能证明掉牙）。改为以静态前缀领起，bad 内容原样保留 ⇒ 出盲区。
+                if (bad) return { fail: true, msg: '复发：圣火令行列异常：' + bad };
                 // 判据4：百分比必须与配置一致（渲染写死 vs 配置漂移）
                 if (cfg.atkPct != null && parseInt(m[2], 10) !== cfg.atkPct) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 圣火令攻击加成文案 +' + m[2]
+                    return { fail: true, msg: '复发：圣火令攻击加成百分比不符：第' + curRound + '回合 圣火令攻击加成文案 +' + m[2]
                         + '% 与配置 CONFIG.BUFFS.holyFlame.atkBonus（' + cfg.atkPct + '%）不符（渲染被写死或配置未收口）' };
                 }
                 if (cfg.defPct != null && parseInt(m[4], 10) !== cfg.defPct) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 圣火令防御加成文案 +' + m[4]
+                    return { fail: true, msg: '复发：圣火令防御加成百分比不符：第' + curRound + '回合 圣火令防御加成文案 +' + m[4]
                         + '% 与配置 CONFIG.BUFFS.holyFlame.defBonus（' + cfg.defPct + '%）不符（渲染被写死或配置未收口）' };
                 }
             }
