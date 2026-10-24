@@ -221,7 +221,12 @@ export async function exportBattleReport(report) {
             await w.close();
             return 'fs';
         } catch (e) {
-            console.error('[战报] fs层未成（用户取消或环境谎报），降级:', e && e.message ? e.message : e);
+            // 用户主动取消（AbortError）：picker 根本没选路径，降级到后续层没有意义，直接收口
+            if (e && e.name === 'AbortError') return 'cancel';
+            // picker 已弹出、handle 已拿到、只是写流被拒（权限/上下文/扩展）：真错误，不再降级 ——
+            //   用户刚在系统框里选完路径，再弹第二个下载框必然困惑（「为啥出俩」）
+            console.error('[战报] 写入被拒（非取消），检查浏览器权限/扩展/是否在 iframe 内:', e);
+            return null;
         }
     }
 

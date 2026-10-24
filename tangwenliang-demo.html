@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<!-- V1.4.0 | 2026-10-23 极致挤压版：
+     · 强行推箱子：目标在147列，强制前压至1号位。原位有人则往后挤（1->4->7->2...），直到挤出空位
+     · 免疫拦截：挤压途中遇到免疫，直接卡住不动
+     · 妹妹飞天：赵敏（场景2 6号位）被平A后触发升空飞天特效，并结算死亡
+     · 多人移动动画：无论挤走了几个人，全部通过克隆层平滑演出。 -->
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>唐文亮·冲刺·七伤齐发 demo V1.4.0</title>
+<style>
+:root{
+  --c-gold:#b8860b; --c-gold-bright:#ffd700; --c-gold-orange:#ffaa00;
+  --c-brown:#5c4033; --c-brown-border:#8b7355; --c-tan:#b8a88a;
+  --c-parchment:#f5f0e0; --c-parchment-2:#e8d5b0; --c-panel:#fdf5e6;
+  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b;
+  --c-green:#2e7d32;
+}
+*{box-sizing:border-box}
+html{background:#000}
+body{background:var(--c-parchment);font-family:'Segoe UI',monospace;display:flex;flex-direction:column;min-height:100vh;width:100%;max-width:520px;margin:0 auto;padding:6px 6px 10px;color:#333;user-select:none}
+.demo-head{background:linear-gradient(135deg,var(--c-parchment) 0%,var(--c-parchment-2) 100%);border-radius:6px;padding:6px 8px;margin-bottom:4px}
+.demo-head h2{color:var(--c-gold);font-size:.85rem;margin:0 0 2px;letter-spacing:-.5px}
+.demo-head .sub{font-size:8px;color:#777;line-height:1.4}
+.scene-bar{display:flex;gap:4px;margin:4px 0}
+.scene-bar button{flex:1;padding:4px 2px;border-radius:4px;border:1px solid var(--c-brown-border);background:var(--c-panel);font-size:9px;cursor:pointer;font-weight:bold}
+.scene-bar button.active{background:#007bff;color:#fff;border-color:#007bff}
+.battlefield{display:flex;flex-direction:column;gap:2px;padding-top:6px;position:relative}
+.team-row{display:flex;align-items:stretch;gap:4px;max-width:500px;margin:0 auto;width:100%}
+.camp-side{display:flex;flex-direction:column;align-items:center;flex:0 0 18px}
+.team-label{writing-mode:vertical-lr;font-weight:bold;font-size:13px;width:18px;text-align:center}
+.orange{color:var(--c-sect-orange)} .blue{color:var(--c-ming-blue)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,52px);gap:2px;flex:1;background:#d9d0b5;padding:3px;border-radius:6px}
+.cell{background:#e8e6e0;border:2px solid #bbb;border-radius:5px;padding:2px 4px;display:flex;align-items:center;gap:4px;font-size:9px;height:52px;position:relative;overflow:visible;transition:background .6s ease,border-color .6s ease}
+.cell-icon{font-size:13px;width:14px;text-align:center;flex-shrink:0}
+.cell-info{flex:1;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.cell-name{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
+.cell-stats{font-size:7px;color:#555;display:flex;gap:2px;flex-wrap:wrap}
+.gold{color:var(--c-gold);font-weight:bold}
+.name-purple{color:#8e44ad;font-weight:bold}
+.name-blue{color:#2e6fb7;font-weight:bold}
+.count-badge{display:inline-block;margin-left:2px;padding:0 3px;font-size:8px;font-weight:700;line-height:11px;border-radius:6px;vertical-align:baseline;background:rgba(0,0,0,.30);border:1px solid currentColor;white-space:nowrap}
+.count-badge.count-tw{color:#ff7d3d}
+.hp-bar-wrap{width:8px;height:100%;background:#ccc;border-radius:3px;flex-shrink:0;align-self:stretch;position:relative}
+.hp-bar-inner{position:absolute;bottom:0;width:100%;border-radius:3px;transition:height .5s ease,background .5s ease}
+.hp-text-green{color:var(--c-green)} .hp-text-orange{color:var(--c-sect-orange)} .hp-text-red{color:var(--c-danger)}
+.cell.dashable{border-color:#28a745;cursor:pointer}
+.cell.dashable:hover{background:#e2f6e6}
+.cell.dashable:active{background:#d4edda}
+.cell.immune-mark{outline:2px dashed #8e44ad;outline-offset:-4px}
+.cell.target-picked{border-color:var(--c-gold-bright);box-shadow:0 0 10px var(--c-gold-bright)}
+.swap-flash{animation:swapFlash .3s ease-in-out infinite}
+@keyframes swapFlash{0%,100%{box-shadow:0 0 15px gold;border-color:gold}50%{box-shadow:0 0 30px gold;border-color:#fff}}
+.swap-lock{outline:3px solid #ff4500;outline-offset:-3px;box-shadow:0 0 25px rgba(255,69,0,.8) !important;animation:lockPulse .8s ease-in-out infinite}
+@keyframes lockPulse{0%,100%{box-shadow:0 0 20px rgba(255,69,0,.6)}50%{box-shadow:0 0 35px rgba(255,69,0,1)}}
+.cell.charge{animation:chargePulse .28s ease-in-out 2}
+@keyframes chargePulse{0%,100%{box-shadow:0 0 0 rgba(255,215,0,0)}50%{box-shadow:0 0 20px rgba(255,215,0,.95),inset 0 0 12px rgba(255,215,0,.45)}}
+.shake{animation:twShake .4s ease-in-out}
+@keyframes twShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}45%{transform:translateX(4px)}70%{transform:translateX(-2px)}}
+.log-container{display:flex;flex-direction:column;background:var(--c-parchment);border:2px solid var(--c-tan);border-radius:6px;overflow:hidden;margin-top:6px;min-height:110px;max-height:170px}
+.log-header{display:flex;justify-content:space-between;align-items:center;background:#d6c9a8;padding:4px 8px;font-weight:bold;font-size:11px;flex-shrink:0}
+#log{flex:1;overflow-y:auto;padding:4px 6px;font-size:10px;line-height:1.5}
+#log .tw-dash{color:var(--c-brown)}
+#log .tw-attack{color:var(--c-danger)}
+#log .immune{color:#8e44ad;font-weight:bold}
+#log .truth{background:#fff3d6;border-left:3px solid var(--c-gold);padding:1px 4px;margin:1px 0}
+.note-panel{margin-top:6px;background:var(--c-panel);border:1px solid var(--c-tan);border-radius:6px;padding:6px 8px;font-size:9px;line-height:1.6;color:#555}
+.note-panel b{color:var(--c-brown)}
+.demo-foot{margin-top:6px;font-size:8px;color:#999;text-align:center}
+#fxLayer{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:9000}
+.dmg-float{position:fixed;pointer-events:none;font-size:15px;font-weight:900;color:var(--c-danger);font-family:'Segoe UI',monospace;white-space:nowrap;letter-spacing:-.5px;text-shadow:0 0 6px rgba(255,255,255,.95),0 2px 3px rgba(0,0,0,.35);animation:dmgPop 1.3s cubic-bezier(.2,.9,.3,1.2) forwards}
+.dmg-float-self{position:fixed;pointer-events:none;font-size:13px;font-weight:900;color:#8e44ad;font-family:'Segoe UI',monospace;white-space:nowrap;text-shadow:0 0 6px rgba(255,255,255,.95),0 2px 3px rgba(0,0,0,.35);animation:dmgPop 1.3s cubic-bezier(.2,.9,.3,1.2) forwards}
+@keyframes dmgPop{0%{opacity:0;transform:translate(-50%,8px) scale(.45)}16%{opacity:1;transform:translate(-50%,-2px) scale(1.28)}30%{transform:translate(-50%,-7px) scale(1)}72%{opacity:1;transform:translate(-50%,-16px) scale(1)}100%{opacity:0;transform:translate(-50%,-30px) scale(.9)}}
+.immune-float{position:fixed;pointer-events:none;font-size:12px;font-weight:900;color:#8e44ad;font-family:'Segoe UI',monospace;white-space:nowrap;text-shadow:0 0 7px rgba(255,255,255,.95),0 2px 3px rgba(0,0,0,.3);animation:dmgPop 1.3s cubic-bezier(.2,.9,.3,1.2) forwards}
+</style>
+</head>
+<body>
+<div class="demo-head">
+  <h2>⚡ 唐文亮·冲刺·七伤齐发 — demo V1.4.0</h2>
+  <div class="sub">点 <b>绿框目标格</b> 触发：强行挤位（1挤4、4挤7） → 金线对拉 → 落定冲击 → 平A一拳（妹妹触发飞天）。</div>
+</div>
+<div class="scene-bar">
+  <button id="btnScene1">① 普通拽位（第3关 seed11 实拍阵容）</button>
+  <button id="btnScene2">② 免疫挡拽 + 妹妹飞天（seed15 调整版）</button>
+  <button id="btnReset" style="flex:.5">↺ 重置</button>
+</div>
+<div class="battlefield" id="battlefield">
+  <div class="team-row"><div class="camp-side"><span class="team-label orange">六大派</span></div><div class="grid" id="enemyGrid"></div></div>
+  <div class="team-row"><div class="camp-side"><span class="team-label blue">明 教</span></div><div class="grid" id="allyGrid"></div></div>
+</div>
+<div class="log-container">
+  <div class="log-header"><span>⚔ 战报（报幕同游戏格式）</span></div>
+  <div id="log"><div style="color:#888">选好目标后点绿框格开始…</div></div>
+</div>
+<div class="note-panel" id="notePanel"></div>
+<div class="demo-foot">V1.4.0 | 强行挤压机制 | 真伤45% | 平A=core/12 公式直算 ×1.45 | 仅 demo</div>
+<div id="fxLayer"></div>
+<script>
+const SCENES = {
+  1: {
+    ally: [
+      {pos:2, name:'明教弟子1', icon:'🦅', atk:29.1, def:13.9, hp:105},
+      {pos:5, name:'张无忌', icon:'🏹', tier:'gold', atk:41, def:28, hp:100},
+      {pos:6, name:'韦一笑', icon:'🦅', tier:'purple', atk:35.5, def:26.5, hp:88},
+      {pos:7, name:'明教岳山', icon:'🏹', atk:35, def:21, hp:88},
+      {pos:9, name:'明教洪午', icon:'⚔️', atk:34, def:25, hp:140}
+    ],
+    enemy: [
+      {pos:1, name:'清风', icon:'🛡️', atk:14, def:41, hp:153},
+      {pos:3, name:'昆仑弟子', icon:'🛡️', atk:7.9, def:33.1, hp:178},
+      {pos:4, name:'宋青书', icon:'🦅', tier:'purple', atk:31.9, def:15.1, hp:125},
+      {pos:8, name:'峨眉慧明', icon:'🏹', atk:28.4, def:15.6, hp:118},
+      {pos:9, name:'唐文亮', icon:'🪠', tier:'blue', atk:36.5, def:28.5, hp:142.5, isTW:true}
+    ]
+  },
+  2: {
+    ally: [
+      {pos:1, name:'明教弟子1', icon:'🦅', atk:34.9, def:19.1, hp:78},
+      {pos:2, name:'寒离飒', icon:'⚔️', tier:'purple', atk:29.5, def:22.5, hp:182.5, ctrlImmune:true},
+      {pos:3, name:'明教弟子3', icon:'🦅', atk:32.5, def:21.5, hp:78},
+      {pos:5, name:'张无忌', icon:'🏹', tier:'gold', atk:36.1, def:19.9, hp:132.5},
+      {pos:6, name:'赵敏妹妹', icon:'👸', tier:'gold', atk:30, def:20, hp:100, isSister:true},
+      {pos:9, name:'明教弟子2', icon:'🏹', atk:36.5, def:24.5, hp:70}
+    ],
+    enemy: [
+      {pos:1, name:'崆峒弟子', icon:'🛡️', atk:11.1, def:32.9, hp:170},
+      {pos:3, name:'崆峒唐文亮', icon:'🛡️', atk:11.3, def:35.7, hp:155},
+      {pos:4, name:'宋青书', icon:'🦅', tier:'purple', atk:32.8, def:20.2, hp:110},
+      {pos:5, name:'唐文亮', icon:'🪠', tier:'blue', atk:30.6, def:25.4, hp:165, isTW:true},
+      {pos:8, name:'宗维侠', icon:'🏹', tier:'blue', atk:39.6, def:25.4, hp:82.5}
+    ]
+  }
+};
+const DASH = { cycle:7, dmgRatio:0.45, selfDmgRatio:0.45, dmgBonus:0.45, lowHpExtra:0.30, lowHpThreshold:0.30 };
+const WARRIOR_BONUS = { atk:3, def:3, maxHp:30 };
+const ALLY_ORDER=[1,2,3,4,5,6,7,8,9], ENEMY_ORDER=[7,8,9,4,5,6,1,2,3];
+let scene=2, state={ally:[],enemy:[]}, busy=false;
+const $=id=>document.getElementById(id);
+const fxLayer=$('fxLayer');
+const fmtHp=u=>Math.round(u.hp);
+const tierCls=u=>u.tier==='gold'?'gold':u.tier==='purple'?'name-purple':u.tier==='blue'?'name-blue':'';
+const badge=u=>u.isTW&&u.qiShang>0?`<span class="count-badge count-tw">${((u.qiShang-1)%7)+1}/7</span>`:'';
+function cellHtml(u){
+  if(!u) return '';
+  const pct=Math.max(0,Math.floor(u.hp/u.maxHp*100));
+  const cls=pct>70?'hp-text-green':(pct>40?'hp-text-orange':'hp-text-red');
+  const bar=pct>70?'#4caf50':(pct>40?'#ff9800':'#f44336');
+  return `<span class="cell-icon">${u.alive===false?'☠':u.icon}</span>
+    <div class="cell-info"><span class="cell-name ${tierCls(u)}">${u.name}${badge(u)}</span>
+    <span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${cls}">血${fmtHp(u)}</span></span></div>
+    <div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar}"></div></div>`;
+}
+function renderGrid(gridId, order, team){
+  const g=$(gridId); g.innerHTML='';
+  order.forEach(pos=>{
+    const u=team.find(x=>x.pos===pos);
+    const d=document.createElement('div');
+    d.className='cell'; d.dataset.pos=pos;
+    if(u){ d.innerHTML=cellHtml(u);
+      if(u.ctrlImmune) d.classList.add('immune-mark');
+      if(u.alive!==false && !u.isTW && team===state.ally){ d.classList.add('dashable'); d.title='点我=唐文亮冲刺目标'; d.onclick=()=>pickTarget(u); }
+    }
+    g.appendChild(d);
+  });
+}
+function renderAll(){ renderGrid('allyGrid',ALLY_ORDER,state.ally); renderGrid('enemyGrid',ENEMY_ORDER,state.enemy); refreshNote(); }
+function clearFx(){ fxLayer.innerHTML=''; }
+function loadScene(n){
+  if(busy) return;
+  scene=n;
+  const s=SCENES[n];
+  state.ally=s.ally.map(u=>({...u,maxHp:u.hp,alive:true,qiShang:0,ctrlImmune:!!u.ctrlImmune,isTW:!!u.isTW,isSister:!!u.isSister}));
+  state.enemy=s.enemy.map(u=>({...u,maxHp:u.hp,alive:true,qiShang:0,ctrlImmune:!!u.ctrlImmune,isTW:!!u.isTW,isSister:!!u.isSister}));
+  $('btnScene1').classList.toggle('active',n===1); $('btnScene2').classList.toggle('active',n===2);
+  $('log').innerHTML=`<div style="color:#888">第3关 seed${n===1?'11':'15'} 真实阵容已就位——点明教侧绿框格。</div>`;
+  clearFx(); renderAll();
+}
+function getCell(camp,pos){ const grid=$(camp==='ally'?'allyGrid':'enemyGrid');
+  for(const c of grid.children) if(String(c.dataset.pos)===String(pos)) return c; return null; }
+function rectOf(camp,pos){ const el=getCell(camp,pos); if(!el) return null;
+  const r=el.getBoundingClientRect();
+  return {left:r.left,top:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2}; }
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const rand=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const easeOutCubic=p=>1-Math.pow(1-p,3);
+const easeInCubic=p=>p*p*p;
+function tween(dur,onUpdate){
+  return new Promise(res=>{
+    const t0=performance.now();
+    onUpdate(0);
+    (function step(t){
+      const p=Math.min(1,(t-t0)/dur);
+      onUpdate(p);
+      if(p<1) requestAnimationFrame(step); else res();
+    })(t0);
+  });
+}
+const centerOf=r=>({x:r.left+r.w/2, y:r.top+r.h/2});
+const shiftRect=(r,dx,dy)=>({left:r.left+dx, top:r.top+dy, w:r.w, h:r.h});
+function edgeOf(r,tx,ty){
+  const cx=r.left+r.w/2, cy=r.top+r.h/2;
+  const dx=tx-cx, dy=ty-cy;
+  if(!dx && !dy) return {x:cx,y:cy};
+  const kx = dx ? (r.w/2)/Math.abs(dx) : Infinity;
+  const ky = dy ? (r.h/2)/Math.abs(dy) : Infinity;
+  const k = Math.min(kx,ky);
+  return {x:cx+dx*k, y:cy+dy*k};
+}
+function cloneCellEl(cell,r){
+  const c=cell.cloneNode(true);
+  c.classList.remove('dashable','swap-flash','swap-lock','moving','shake','target-picked','immune-mark','charge');
+  c.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.w}px;height:${r.h}px;margin:0;padding:2px 4px;pointer-events:none;transition:none;transform-origin:50% 50%;will-change:transform;`;
+  fxLayer.appendChild(c);
+  return c;
+}
+function createBeam(){
+  const glow=document.createElement('div');
+  glow.style.cssText='position:fixed;height:9px;border-radius:6px;pointer-events:none;opacity:0;z-index:10;background:linear-gradient(90deg,rgba(255,214,96,.15),rgba(255,150,60,.62));filter:blur(3px);transform-origin:0 50%;';
+  const core=document.createElement('div');
+  core.style.cssText='position:fixed;height:3px;border-radius:2px;pointer-events:none;opacity:0;z-index:11;background:linear-gradient(90deg,#fff3c4,#ffd166 42%,#ff9f43);box-shadow:0 0 10px rgba(255,200,90,.95);transform-origin:0 50%;';
+  const head=document.createElement('div');
+  head.style.cssText='position:fixed;width:11px;height:11px;border-radius:50%;pointer-events:none;opacity:0;z-index:12;background:radial-gradient(circle,#fff 0%,#ffe9a8 35%,rgba(255,170,60,0) 72%);';
+  fxLayer.append(glow,core,head);
+  return {glow,core,head};
+}
+function setBeam(b,x1,y1,x2,y2,p){
+  const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy)||0.001;
+  const ang=Math.atan2(dy,dx)*180/Math.PI;
+  const pp=Math.max(0.0001,p);
+  [[b.glow,9],[b.core,3]].forEach(([el,h])=>{
+    el.style.left=x1+'px';
+    el.style.top=(y1-h/2)+'px';
+    el.style.width=len+'px';
+    el.style.transform=`rotate(${ang}deg) scaleX(${pp})`;
+  });
+  const hx=x1+Math.cos(Math.atan2(dy,dx))*len*p;
+  const hy=y1+Math.sin(Math.atan2(dy,dx))*len*p;
+  b.head.style.left=(hx-5.5)+'px';
+  b.head.style.top=(hy-5.5)+'px';
+}
+function removeBeam(b){
+  if(!b) return;
+  tween(180,p=>{
+    b.glow.style.opacity=String(0.85*(1-p));
+    b.core.style.opacity=String(1-p);
+    b.head.style.opacity=String(1-p);
+  }).then(()=>{ b.glow.remove(); b.core.remove(); b.head.remove(); });
+}
+function floatText(camp,pos,txt,cls,offY=0){
+  const r=rectOf(camp,pos); if(!r) return;
+  const d=document.createElement('div'); d.className=cls; d.textContent=txt;
+  d.style.left=r.cx+'px'; d.style.top=(r.top+offY)+'px';
+  d.style.transform='translate(-50%,0)';
+  fxLayer.appendChild(d); setTimeout(()=>d.remove(),1400);
+}
+function impactRing(r,color){
+  const d=document.createElement('div');
+  d.style.cssText=`position:fixed;left:${r.cx}px;top:${r.cy}px;width:${r.w}px;height:${r.h}px;border:2px solid ${color};border-radius:9px;pointer-events:none;z-index:20;box-shadow:0 0 16px ${color};`;
+  fxLayer.appendChild(d);
+  tween(430,p=>{
+    const e=1-Math.pow(1-p,2);
+    d.style.transform=`translate(-50%,-50%) scale(${0.55+e*0.95})`;
+    d.style.opacity=String(1-p);
+  }).then(()=>d.remove());
+}
+function sparkBurstAt(cx,cy,color,n){
+  for(let i=0;i<n;i++){
+    const a=(Math.PI*2*i)/n+Math.random()*0.6;
+    const sp=20+Math.random()*32;
+    const sz=2+Math.random()*3;
+    const d=document.createElement('div');
+    d.style.cssText=`position:fixed;left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;margin:${-sz/2}px 0 0 ${-sz/2}px;border-radius:50%;background:${color};box-shadow:0 0 7px ${color};pointer-events:none;z-index:35;`;
+    fxLayer.appendChild(d);
+    const dur=280+Math.random()*200;
+    tween(dur,p=>{
+      const e=1-Math.pow(1-p,2.4);
+      d.style.transform=`translate(${Math.cos(a)*sp*e}px,${Math.sin(a)*sp*e+26*p*p}px) scale(${1-p*0.7})`;
+      d.style.opacity=String(1-p*p);
+    }).then(()=>d.remove());
+  }
+}
+function hitFlash(r){
+  const d=document.createElement('div');
+  d.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.w}px;height:${r.h}px;border-radius:6px;background:radial-gradient(circle at 50% 45%,#fff 0%,rgba(255,255,255,.9) 30%,rgba(255,240,180,.35) 68%,rgba(255,255,255,0) 100%);pointer-events:none;z-index:80;`;
+  fxLayer.appendChild(d);
+  tween(230,p=>{
+    d.style.opacity=String(1-p);
+    d.style.transform=`scale(${1+p*0.18})`;
+  }).then(()=>d.remove());
+}
+function shakeScreen(px=2,dur=220){
+  const bf=$('battlefield');
+  tween(dur,p=>{
+    const amp=px*(1-p);
+    bf.style.transform=`translate(${(Math.random()*2-1)*amp}px,${(Math.random()*2-1)*amp}px)`;
+  }).then(()=>{ bf.style.transform=''; });
+}
+
+// ============ 推箱子强制挤压算法 ============
+function forceInsert(team, unit, targetPos) {
+    if (unit.pos === targetPos) return true;
+    const col = (targetPos - 1) % 3;
+    let path = [];
+    if (col === 0) path = [1, 4, 7, 2, 5, 8, 3, 6, 9]; 
+    if (col === 1) path = [2, 5, 8, 1, 4, 7, 3, 6, 9]; 
+    if (col === 2) path = [3, 6, 9, 2, 5, 8, 1, 4, 7]; 
+    
+    let startIndex = path.indexOf(targetPos);
+    if (startIndex === -1) return false;
+    
+    let emptyIndex = -1;
+    for (let i = startIndex; i < path.length; i++) {
+        const p = path[i];
+        const occ = team.find(u => u.pos === p && u.alive !== false && u !== unit);
+        if (occ && occ.ctrlImmune) return false; // 遇到免疫，推箱子失败，全员卡住
+        if (!occ) { emptyIndex = i; break; }
+    }
+    
+    if (emptyIndex !== -1) {
+        for (let i = emptyIndex; i > startIndex; i--) {
+            const currP = path[i];
+            const prevP = path[i - 1];
+            const mover = team.find(u => u.pos === prevP && u.alive !== false && u !== unit);
+            if (mover) { mover.pos = currP; }
+        }
+        unit.pos = targetPos;
+        return true;
+    }
+    return false;
+}
+
+async function punchA(tw,target,twCamp,tgtCamp){
+  const from=rectOf(twCamp,tw.pos), to=rectOf(tgtCamp,target.pos);
+  if(!from||!to) return {dmg:0,raw:0,low:false};
+  const twCell=getCell(twCamp,tw.pos), tgtCell=getCell(tgtCamp,target.pos);
+  const dx=to.cx-from.cx, dy=to.cy-from.cy;
+  const dist=Math.hypot(dx,dy)||1;
+  const nx=dx/dist, ny=dy/dist;
+  const reach=Math.min(dist*0.42,54);
+  const clone=twCell?cloneCellEl(twCell,from):null;
+  if(clone) clone.style.zIndex='70';
+  if(twCell) twCell.style.visibility='hidden';
+  try{
+    if(clone) await tween(100,p=>{
+      const e=easeOutCubic(p);
+      clone.style.transform=`translate(${-nx*5*e}px,${-ny*5*e}px)`;
+    });
+    await tween(110,p=>{
+      const e=easeInCubic(p);
+      if(clone) clone.style.transform=`translate(${-nx*5+nx*(reach+5)*e}px,${-ny*5+ny*(reach+5)*e}px)`;
+    });
+    const px=from.cx+nx*reach, py=from.cy+ny*reach;
+    const pB=edgeOf(to,px,py);
+    const beam=createBeam();
+    beam.glow.style.opacity='.8'; beam.core.style.opacity='1'; beam.head.style.opacity='1';
+    tween(70,p=>setBeam(beam,px,py,pB.x,pB.y,easeOutCubic(p)));
+    await wait(70);
+    hitFlash(to);
+    if(tgtCell){ tgtCell.classList.add('shake'); setTimeout(()=>{ tgtCell && tgtCell.classList.remove('shake'); },420); }
+    sparkBurstAt(to.cx,to.cy,'#fff2b0',12);
+    sparkBurstAt(to.cx,to.cy,'#ff9f43',6);
+    shakeScreen(2.2,190);
+    await wait(140);
+    removeBeam(beam);
+    if(clone) await tween(200,p=>{
+      const e=easeOutCubic(p);
+      clone.style.transform=`translate(${nx*reach*(1-e)}px,${ny*reach*(1-e)}px)`;
+    });
+  } finally {
+    if(clone) clone.remove();
+    if(twCell) twCell.style.visibility='';
+  }
+  const atkAct=tw.atk+rand(1,6), defAct=target.def+rand(1,4);
+  const pen=defAct<=0?atkAct:atkAct*(atkAct/(atkAct+defAct));
+  const low=tw.hp/tw.maxHp<DASH.lowHpThreshold;
+  const mult=1+DASH.dmgBonus+(low?DASH.lowHpExtra:0);
+  const raw=Math.floor(pen*mult*10)/10;
+  return {dmg:Math.round(raw), raw, low};
+}
+
+async function pickTarget(target){
+  if(busy) return;
+  const tw=state.enemy.find(u=>u.isTW&&u.alive!==false);
+  if(!tw) return;
+  busy=true;
+  const twCamp='enemy', tgtCamp='ally';
+  try{
+    for(let i=0;i<7;i++){ tw.qiShang=Math.min(7,(tw.qiShang%7)+1); renderAll(); await wait(55); }
+    
+    const frontPos=((target.pos-1)%3)+1;
+    const twFromPos=tw.pos, targetFromPos=target.pos;
+    const twCell=getCell(twCamp,twFromPos), tgtCell=getCell(tgtCamp,targetFromPos);
+    if(!twCell||!tgtCell) return;
+
+    // 记录前置位置
+    const oldPositions = new Map();
+    state.ally.forEach(u => oldPositions.set(u, u.pos));
+    state.enemy.forEach(u => oldPositions.set(u, u.pos));
+
+    // 引擎计算：强推
+    const targetMoved = forceInsert(state.ally, target, frontPos);
+    const twMoved = forceInsert(state.enemy, tw, frontPos);
+    const actuallyMoved = targetMoved && target.pos !== targetFromPos;
+
+    // 真伤
+    const toFoe=Math.max(1,Math.round(target.hp*DASH.dmgRatio));
+    target.hp-=toFoe; if(target.hp<=0){ target.hp=0; target.alive=false; }
+    const selfWant=Math.max(1,Math.round(tw.hp*DASH.selfDmgRatio));
+    const toSelf=Math.min(selfWant,Math.max(0,Math.floor(tw.hp)-1));
+    if(toSelf>0) tw.hp-=toSelf;
+    tw.icon='⚔️'; tw.atk+=WARRIOR_BONUS.atk; tw.def+=WARRIOR_BONUS.def; tw.maxHp+=WARRIOR_BONUS.maxHp;
+
+    const twRect=rectOf(twCamp,twFromPos);
+    const tgtRect=rectOf(tgtCamp,targetFromPos);
+    const twToRect=rectOf(twCamp,tw.pos);
+    const tgtToRect=rectOf(tgtCamp,target.pos);
+    if(!twRect||!tgtRect||!twToRect||!tgtToRect) return;
+
+    tgtCell.classList.add('swap-lock');
+    twCell.classList.add('charge');
+    await wait(320);
+    twCell.classList.remove('charge');
+
+    const beam=createBeam();
+    const cA=centerOf(twRect), cB=centerOf(tgtRect);
+    const ptA=edgeOf(twRect,cB.x,cB.y), ptB=edgeOf(tgtRect,cA.x,cA.y);
+    beam.glow.style.opacity='.85'; beam.core.style.opacity='1'; beam.head.style.opacity='1';
+    await tween(240,p=>{ setBeam(beam,ptA.x,ptA.y,ptB.x,ptB.y,easeOutCubic(p)); });
+
+    // 克隆所有位移单位
+    const clones = [];
+    function setupClone(unit, camp, isTW) {
+        const oldP = oldPositions.get(unit);
+        const newP = unit.pos;
+        if (oldP === newP) return null;
+        const oldRect = rectOf(camp, oldP), newRect = rectOf(camp, newP);
+        const el = getCell(camp, oldP);
+        if (!oldRect || !newRect || !el) return null;
+        const c = cloneCellEl(el, oldRect);
+        c.style.zIndex = isTW ? '60' : '50';
+        if (isTW) c.classList.add('swap-flash');
+        el.style.visibility = 'hidden';
+        return { c, oldRect, newRect };
+    }
+
+    const twCloneObj = setupClone(tw, twCamp, true);
+    const tgtCloneObj = setupClone(target, tgtCamp, false);
+    const otherClones = [];
+    state.ally.forEach(u => { if (u !== target && u.alive !== false) { const o = setupClone(u, tgtCamp, false); if(o) otherClones.push(o); } });
+    state.enemy.forEach(u => { if (u !== tw && u.alive !== false) { const o = setupClone(u, twCamp, false); if(o) otherClones.push(o); } });
+
+    const ghosts = [];
+    if (twCloneObj) {
+        for (let i=0; i<3; i++) {
+            const g = cloneCellEl(twCell, twCloneObj.oldRect);
+            g.style.zIndex = String(40-i); g.style.opacity = '0'; g.style.filter = 'blur(1.6px) saturate(1.5)';
+            ghosts.push(g);
+        }
+    }
+
+    await tween(560,p=>{
+      let ux=0, uy=0;
+      if (twCloneObj) {
+        const { c, oldRect, newRect } = twCloneObj;
+        const dTWx = newRect.left - oldRect.left, dTWy = newRect.top - oldRect.top;
+        const distTW = Math.hypot(dTWx, dTWy);
+        ux = distTW ? dTWx / distTW : 0; uy = distTW ? dTWy / distTW : 0;
+        const ov = Math.min(16, distTW * 0.22);
+        let e, o;
+        if (p < 0.68) { const q = p / 0.68; e = easeOutCubic(q); o = ov * easeOutCubic(q); }
+        else { const q = (p - 0.68) / 0.32; e = 1; o = ov * (1 - easeOutCubic(q)); }
+        const x = dTWx * e + ux * o, y = dTWy * e + uy * o;
+        c.style.transform = `translate(${x}px,${y}px)`;
+        ghosts.forEach((g, i) => {
+            const k = (i + 1) * 6 * Math.min(1, e * 3);
+            g.style.transform = `translate(${x - ux * k}px,${y - uy * k}px)`;
+            g.style.opacity = String((0.26 / (i + 1)) * Math.min(1, e * 2.6));
+        });
+      }
+      
+      const animOther = (obj, delay) => {
+          if (!obj) return;
+          const e2 = easeOutCubic(Math.max(0, (p - delay) / (1 - delay)));
+          obj.c.style.transform = `translate(${(obj.newRect.left - obj.oldRect.left) * e2}px,${(obj.newRect.top - obj.oldRect.top) * e2}px)`;
+      };
+      animOther(tgtCloneObj, 0.16);
+      otherClones.forEach(o => animOther(o, 0.22));
+
+      if (!targetMoved && tgtCell && p < 1) {
+        const k = Math.sin(Math.min(1, p * 1.8) * Math.PI) * 6;
+        tgtCell.style.transform = `translate(${ux * k}px,${uy * k}px)`;
+      }
+
+      if (twCloneObj && tgtCloneObj) {
+        const rA = twCloneObj.c.getBoundingClientRect(), rB = tgtCloneObj.c.getBoundingClientRect();
+        const q1 = edgeOf(rA, rB.left+rB.width/2, rB.top+rB.height/2), q2 = edgeOf(rB, rA.left+rA.width/2, rA.top+rA.height/2);
+        setBeam(beam,q1.x,q1.y,q2.x,q2.y,1);
+      } else if (twCloneObj && !tgtCloneObj) {
+        const rA = twCloneObj.c.getBoundingClientRect();
+        const q1 = edgeOf(rA, tgtRect.cx, tgtRect.cy);
+        setBeam(beam,q1.x,q1.y,ptB.x,ptB.y,1);
+      }
+    });
+
+    if (twCloneObj) twCloneObj.c.remove();
+    if (tgtCloneObj) tgtCloneObj.c.remove();
+    otherClones.forEach(o => o.c.remove());
+    ghosts.forEach(g => g.remove());
+    removeBeam(beam);
+    if(tgtCell) { tgtCell.style.transform=''; tgtCell.classList.remove('swap-lock'); }
+    renderAll();
+
+    const twLandRect=rectOf(twCamp,tw.pos);
+    if(twLandRect){ impactRing(twLandRect,'rgba(255,215,0,.95)'); sparkBurstAt(twLandRect.cx, twLandRect.cy, '#ffd700', 10); }
+    if(actuallyMoved){
+      const tgtLandRect=rectOf(tgtCamp,target.pos);
+      if(tgtLandRect){ impactRing(tgtLandRect,'rgba(255,90,40,.95)'); sparkBurstAt(tgtLandRect.cx, tgtLandRect.cy, '#ff6b3d', 8); }
+    }
+    shakeScreen(2.4,240);
+    await wait(120);
+
+    floatText(tgtCamp,target.pos,`-${toFoe}`,'dmg-float');
+    floatText(twCamp,tw.pos,`-${toSelf}`,'dmg-float-self',-4);
+    if(!actuallyMoved && !targetMoved){
+      floatText(tgtCamp,target.pos,'免疫/卡住','immune-float',-18);
+    }
+    await wait(300);
+
+    let atkLine='';
+    if(target.alive!==false){
+      const r=await punchA(tw,target,twCamp,tgtCamp);
+      target.hp-=r.raw; if(target.hp<=0){ target.hp=0; target.alive=false; }
+      
+      // 妹妹飞天触发
+      let feitianHtml = '';
+      if (target.isSister && target.alive !== false) {
+          target.alive = false;
+          const rCell = rectOf(tgtCamp, target.pos);
+          if (rCell) {
+              const el = getCell(tgtCamp, target.pos);
+              if (el) {
+                  const c = cloneCellEl(el, rCell);
+                  c.style.transition = 'all .8s cubic-bezier(.2,.9,.3,1.2)';
+                  c.style.opacity = '0';
+                  c.style.transform = 'translate(0, -120px) scale(0.4) rotate(30deg)';
+                  el.style.visibility = 'hidden';
+                  setTimeout(() => c.remove(), 800);
+              }
+          }
+          floatText(tgtCamp, target.pos, '飞天！', 'immune-float', -20);
+          feitianHtml = `<br><span style="color:#e91e63;font-weight:bold">✨ ${target.name} 被平A触发【飞天】，升空离场！</span>`;
+      }
+
+      renderAll();
+      floatText(tgtCamp,target.pos,`-${r.dmg}`,'dmg-float');
+      atkLine=`<div class="tw-attack">⚔️ 唐文亮 平A ${target.name}：-${r.dmg}（攻${Math.round(tw.atk)}+方差 → 七伤第7击 ${r.low?'×1.75（临危）':'×1.45'}，core/12 公式直算）${feitianHtml}</div>`;
+    } else {
+      atkLine=`<div class="tw-attack">☠ ${target.name} 已被真伤击倒，平A落空</div>`;
+    }
+
+    let dragText = `${target.name} 免疫位移、纹丝不动`;
+    if (targetMoved) {
+        dragText = `拽 ${target.name} 至 ${frontPos} 号位`;
+        const pushed = state.ally.filter(u => oldPositions.get(u) !== u.pos && u !== target).length;
+        if (pushed > 0) dragText += `，并挤走 ${pushed} 名队友`;
+    } else if (!target.ctrlImmune) {
+        dragText = `${target.name} 无法位移（推挤遇到免疫单位卡住）`;
+    }
+    let landText = twMoved ? `唐文亮落 ${tw.pos} 号位（强行挤位）` : `唐文亮无法落位`;
+    
+    const line1=`⚡ 唐文亮冲刺·七伤齐发：${dragText}，${landText}，双方各受当前生命 45% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`;
+    const log=$('log');
+    log.innerHTML=`<div class="tw-dash">${line1}</div>${atkLine}`+
+      (!targetMoved?`<div class="truth">▲ ${target.name} 真没动：<span class="immune">${target.ctrlImmune ? '自身免疫挡拽' : '前排有免疫单位卡住了推箱子链条'}</span>。</div>`:'')+
+      log.innerHTML;
+
+    tw.qiShang=0; renderAll();
+  } finally {
+    busy=false;
+  }
+}
+
+function refreshNote(){
+  $('notePanel').innerHTML = scene===2
+    ? `<b>场景②：</b>点 <b>赵敏妹妹</b>（6号位）→ 强行拉到 3 号位。此时明教 3 号位“弟子3”被挤去 6 号位！六大派唐文亮（5号）去 3 号位，把“崆峒唐文亮”挤去 6 号位！<br>唐文亮一顿平A，赵敏妹妹受到伤害后直接<b>升空飞天</b>。点 <b>张无忌</b> 则会被免疫的寒离飒卡住。`
+    : `<b>场景①：</b>点 <b>韦一笑</b>（6号位）→ 拉到 3 号位。六大派唐文亮（9号）去 3 号位，把原本 3 号位的“昆仑弟子”挤去 6 号位（因为 6号原本是唐文亮位置，空出来了）。点 <b>张无忌</b>，目标去 2 号，唐文亮去 2 号，各自挤掉原来的占位者。`;
+}
+$('btnScene1').onclick=()=>loadScene(1);
+$('btnScene2').onclick=()=>loadScene(2);
+$('btnReset').onclick=()=>loadScene(scene);
+loadScene(2);
+</script>
+</body>
+</html>

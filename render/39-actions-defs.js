@@ -1,5 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.5.7 | 2026-10-22 | ~33000 bytes
+// V1.5.8 | 2026-10-24 | ~33000 bytes
+//   V1.5.8：DASH 的 fx 步固定传 slowMotion:true（冲刺永远子弹时间，不受华丽/简单开关控制）
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
 // 并在 infra/56 的 STAGE_ACTION_TYPES 登记。
@@ -135,12 +136,12 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.DODGE]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
-            // 闪避反击后攻击者进入眩晕态并清除 flash；华丽模式子弹时间结束后才显示 😵
+            // 闪避反击后攻击者进入眩晕态并清除 flash；开着子弹时间时结束后才显示 😵
             if (action.actorUid) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _acted: true });
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
-                // 简单模式无子弹时间，立即显示眩晕（控制免疫单位不置灰）
-                if (!c.dodgeEffectEnabled && action.stunned !== false) {
+                // 「闪避反击·子弹时间」关着 → 无子弹时间，立即显示眩晕（控制免疫单位不置灰）
+                if (!GlobalStore.get('fxDodgeBullet') && action.stunned !== false) {
                     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true });
                 }
             }
@@ -167,9 +168,9 @@ export const STAGE_ACTION_DEFS = {
                     eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
                 }
             };
-            if (c.dodgeEffectEnabled) emitReboundFloat();
-            // 华丽模式：子弹时间；简单模式：气泡
-            if (c.dodgeEffectEnabled && attacker && dodger) {
+            if (GlobalStore.get('fxDodgeBullet')) emitReboundFloat();
+            // 开「闪避反击·子弹时间」→ 子弹时间；关着 → 气泡 + 冲撞
+            if (GlobalStore.get('fxDodgeBullet') && attacker && dodger) {
                 await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
                 // 必须直接 await，不能走 eventBus（emit 同步不等待 Promise），否则动画并行战斗推进会踩踏
                 const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
@@ -590,17 +591,31 @@ export const STAGE_ACTION_DEFS = {
             if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
         }
     },
-    // 唐文亮冲刺：纯装饰演出（引擎侧位置已由 doDash 经 moveUnitPosition 落定，POS_CHANGE/STATE_CHANGE
-    //   事件走 core/13 既有链，这里不碰位置数据）。多人版：遍历 moves 全部 uid 设/清 fly。
+    // 唐文亮冲刺：引擎侧位置已由 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 走 core/13 既有链），
+    //   演出层只在 store 步把终位同步进 store（供克隆体取终点格内容）+ 设 fly 隐身，storeAfter 清 fly 交棒。
+    //   多人版：遍历 moves 全部 uid 写位置、设/清 fly。
     [STAGE_ACTION_TYPES.DASH]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
-        // 演出期间终点格隐形（同 fx/82 冲撞口径），否则格子已瞬移到终点、克隆体再飞一遍
+        // 演出顺序（老板口径 2026-10-23）：①先把位置写进 store（供克隆体取终点格内容）→
+        //   ②再设 fly 让终点格隐身 → fx 播克隆体从旧格飞向新格 → storeAfter 清 fly 显格。
+        //   此前只设 fly 不写位置：makeGhost 取终点格是空壳、返回 null，整个动画跳过，
+        //   位置更新延后到 step 末尾 → 表现为「先攻击后瞬移」（老板实机指出的病根）。
         store: (c, action) => {
             if (!c.store || !action.dash) return;
-            const ids = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
-                ? action.dash.moves.map(m => m.uid)
-                : [action.dash.fromUid, action.dash.targetUid];
-            for (const uid of ids) if (uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: 'fly' });
+            const moves = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
+                ? action.dash.moves
+                : [
+                    action.dash.fromUid != null ? { uid: action.dash.fromUid, to: action.dash.toPos } : null,
+                    action.dash.targetUid != null ? { uid: action.dash.targetUid, to: action.dash.targetToPos } : null
+                ].filter(Boolean);
+            if (moves.length === 0) return;
+            // ① 先把位置写进 store（APPLY_EVENTS 走 reducer 正规通道）
+            const events = moves
+                .filter(m => m.uid != null && m.to != null && m.to !== undefined)
+                .map(m => ({ eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: m.uid, pos: m.to }));
+            if (events.length > 0) c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events });
+            // ② 再让新位置格隐身（等 storeAfter 清 fly 让真格显出来）
+            for (const m of moves) if (m.uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
         },
         storeAfter: (c, action) => {
             if (!c.store || !action.dash) return;
@@ -619,7 +634,8 @@ export const STAGE_ACTION_DEFS = {
             if (!action.dash) return;
             const fx94 = await import('../fx/94-tangwenliang-dash.js');
             // 克隆体引用交给 storeAfter：落定 → storeAfter 清 fly 显格 → 克隆体才淡出
-            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash);
+            // 冲刺按弹窗里的「唐文亮·冲刺子弹时间」开关走慢速档（默认开）；关掉走原快版
+            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash, { slowMotion: !!GlobalStore.get('fxDashSlow') });
         }
     },
     [STAGE_ACTION_TYPES.HANLISA_BURST]: {

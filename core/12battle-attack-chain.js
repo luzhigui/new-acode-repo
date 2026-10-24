@@ -133,7 +133,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             dodgeDeclarations.push({ type: EFFECT_TYPES.REBOUND, value: reboundDmg });
             dodgeDeclarations.push({ type: EFFECT_TYPES.STUN });
 
-            eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
+            // log 随载荷下发：唐文亮「冲刺后必叠回春」挂在 ON_DODGE 上（闪避分支不发 AFTER_ATTACK/AFTER_MISS），
+            //   而回春叠层 + 回血必须往当步 log 里推 fact（战报行 + 飘字锚点），无 log 会静默丢公告。
+            eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations, log: ctx.log });
 
             const dodgeEffectResult = resolveDodgeEffects(dodgeDeclarations, unit, target, ctx.log);
 

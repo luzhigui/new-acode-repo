@@ -4,7 +4,7 @@
 //   ④ 同归于尽（阵亡反噬击杀者）
 // V7.0.5 | 2026-10-22 | ~24300 bytes
 //   补挂同一条 flushDashHeal，「冲刺后必叠」在所有结算分支成立
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.0';   // V7.1.0 冲刺改强推挤压（forceInsert 只算路 + moveUnitPosition 落地）
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.1';   // V7.1.1 forceInsert 落点为空直接落、不再白推队友
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
@@ -42,26 +42,42 @@ export function createTangWenLiangComponent() {
             function switchRole(unit, role, label, outLog) {
                 switchRoleOnly(unit, role, label, outLog);
             }
-            // 叠层即结算第一次回血（原要等回合开始，玩家看不到「刚触发」的反馈）。
-            //   该层 remaining 起手减 1（本次已消耗），后续回合开始照旧结算剩余次数。
+            // 叠层：只累加 _hcStacks（remaining 起始 = hc.rounds），不立即回血。
+            //   回血统一由 tickHuiChun 在「行动完那一刻」（ON_UNIT_ACTED / 冲刺后赠送攻击完）结算。
             function addHuiChunStack(unit, outLog) {
-                const stacks = [...(unit.state._hcStacks || []), hc.rounds - 1];
+                const stacks = [...(unit.state._hcStacks || []), hc.rounds];
                 unit.state._hcStacks = stacks.filter(r => r > 0);
-                const ratio = unit.hp < unit.maxHp * hc.lowHpThreshold ? hc.lostHpPctLow : hc.lostHpPct;
-                const raw = Math.floor((unit.maxHp - unit.hp) * ratio);
-                const healed = previewHeal(unit, raw);
-                if (healed > 0) {
-                    applyStatChange(unit, 'hp', raw, null, '回春术');
-                    recordHpAudit(unit, 'huiChun', healed, '回春术'); // 账本记实际落地值（与 fact heal 同口径）
-                    if (outLog) outLog.push({ factType: FACT_TYPES.HEAL, data: {
-                        unitName: unit.name, unitUid: unit.uid, heal: healed,
-                        hpBefore: fmtHp(Math.floor(unit.hp) - healed), hpAfter: fmtHp(Math.floor(unit.hp)),
-                        icon: '🌿', label: '回春术', mode: 'plusTrail'
-                    } });
-                }
                 if (outLog) pushSkillAnnounce(outLog, unit, '回春术',
-                    `🌿 ${unit.name} 回春术 +1 层（${stacks.length} 层${healed > 0 ? `，立即回复 ${healed}` : ''}）`,
+                    `🌿 ${unit.name} 回春术 +1 层（${stacks.length} 层）`,
                     { floatText: '🌿', floatUid: unit.uid });
+            }
+
+            // 回春结算：逐层按当前已损血比回一次，每层 remaining-1，归零移除。
+            //   每层按「回血前」的当前血量比计算（血越空回得越多），逐层推进。
+            function tickHuiChun(unit, outLog) {
+                if (!unit || !unit.alive) return;
+                const stacks = unit.state._hcStacks || [];
+                if (stacks.length === 0) return;
+                let vhp = unit.hp;
+                let total = 0;
+                const next = [];
+                for (const remain of stacks) {
+                    const ratio = vhp < unit.maxHp * hc.lowHpThreshold ? hc.lostHpPctLow : hc.lostHpPct;
+                    const healed = Math.floor((unit.maxHp - vhp) * ratio);
+                    if (healed > 0) { total += healed; vhp = Math.min(unit.maxHp, vhp + healed); }
+                    if (remain - 1 > 0) next.push(remain - 1);
+                }
+                unit.state._hcStacks = next;
+                if (total <= 0) return;
+                const hpBefore = Math.floor(unit.hp);
+                const actualTotal = previewHeal(unit, total);
+                applyStatChange(unit, 'hp', total, null, '回春术');
+                recordHpAudit(unit, 'huiChun', actualTotal, '回春术');
+                if (outLog) outLog.push({ factType: FACT_TYPES.HEAL, data: {
+                    unitName: unit.name, unitUid: unit.uid, heal: actualTotal,
+                    hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpBefore + actualTotal),
+                    icon: '🌿', label: '回春术', mode: 'plusTrail'
+                } });
             }
             // ③ 冲刺·七伤齐发：冲到「目标同列」的己方前排位（1/2/3），落点被占不换人——
             //    沿 PUSH_PATH（本列自上而下，满了往邻列顺延）把挡路队友整列前推到空位
@@ -77,37 +93,72 @@ export function createTangWenLiangComponent() {
             const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
 
             // 只读扫描：算「unit 落到 targetPos」的推挤路径，不改任何 pos——
-            //   落地必须走 applyMoves→moveUnitPosition（免疫守卫/POS_CHANGE 事件/战报行全在接口里，不许绕过 core/13）
+            //   落地必须走 applyMoves→moveUnitPosition（免疫守卫/POS_CHANGE 事件/战报行全在接口里，不许绕过 core/13）。
+            //   落点被免疫/飞天占 → 失败（外层换列）；路径中间遇免疫 → 失败（外层换列）；
+            //   路径中间遇飞天/附身 → 穿过（视同空位继续往后找）。
             function forceInsert(team, unit, targetPos) {
                 if (unit.pos === targetPos) return { ok: true, moved: [] };
+
+                // 落点检查：被免疫/飞天占 → 直接失败（外层换列）
+                const occAtTarget = team.find(u => u !== unit && u.pos === targetPos && u.alive);
+                if (occAtTarget) {
+                    if (occAtTarget.state && occAtTarget.state._ctrlImmune) {
+                        return { ok: false, reason: 'blocked-target-immune', blocked: occAtTarget, moved: [] };
+                    }
+                    if (isAirborne(occAtTarget)) {
+                        return { ok: false, reason: 'blocked-target-airborne', blocked: occAtTarget, moved: [] };
+                    }
+                }
+                // 落点本身空着 → 不推任何人，直接落（旧版从 startIdx+1 往后扫到第一个空格，
+                //   会把落点之后的队友整串前推——2 号位空着却把 5 号的队友推到 8 号，就是老板看到的现象）
+                if (!occAtTarget) return { ok: true, moved: [{ unit, from: unit.pos, to: targetPos, isDash: true }] };
+
                 const col = (targetPos - 1) % 3;
                 const path = PUSH_PATH[col];
                 const startIdx = path.indexOf(targetPos);
                 if (startIdx === -1) return { ok: false, reason: 'bad-pos', moved: [] };
 
                 let emptyIdx = -1, blocked = null;
-                for (let i = startIdx; i < path.length; i++) {
+                for (let i = startIdx + 1; i < path.length; i++) {
                     const p = path[i];
                     const occ = team.find(u => u !== unit && u.pos === p && u.alive);
                     if (occ) {
-                        if (occ.state && occ.state._ctrlImmune) { blocked = occ; break; }
-                        if (isAirborne(occ)) { blocked = occ; break; }   // 飞天/附身原格不可推（同拒马铁律）
-                        continue;
+                        if (occ.state && occ.state._ctrlImmune) { blocked = occ; break; }  // 路径中间免疫 → 换列
+                        if (isAirborne(occ)) continue;   // 飞天/附身 → 穿过（视同空位）
+                        continue;                        // 活人 → 继续往后
                     }
                     emptyIdx = i; break;
                 }
 
-                if (blocked) return { ok: false, reason: 'immune', blocked, moved: [] };
+                if (blocked) return { ok: false, reason: 'blocked-path-immune', blocked, moved: [] };
                 if (emptyIdx === -1) return { ok: false, reason: 'full', moved: [] };
 
                 const moved = [];
                 for (let i = emptyIdx; i > startIdx; i--) {
                     const curr = path[i], prev = path[i - 1];
                     const mover = team.find(u => u !== unit && u.pos === prev && u.alive);
-                    if (mover) moved.push({ unit: mover, from: prev, to: curr });
+                    if (mover && !isAirborne(mover)) moved.push({ unit: mover, from: prev, to: curr });
                 }
                 moved.push({ unit, from: unit.pos, to: targetPos, isDash: true });
                 return { ok: true, moved };
+            }
+
+            // 多列尝试：先落 preferredPos；失败则随机试另两列（老板口径：「1 或 3 随机」）。
+            //   任何原因导致失败（落点免疫/飞天/路径免疫/满）都换列；三列全失败才真的不动。
+            function forceInsertAnyColumn(team, unit, preferredPos) {
+                const r0 = forceInsert(team, unit, preferredPos);
+                if (r0.ok) return r0;
+                const prefCol = (preferredPos - 1) % 3;
+                // 另两列（col 0/1/2 映射到 pos 1/2/3）
+                const altCols = prefCol === 1 ? [0, 2] : (prefCol === 0 ? [1, 2] : [0, 1]);
+                const altPos = altCols.map(c => c + 1);
+                // 随机顺序（老板口径「1 或 3 随机」）
+                if (getBattleRng().nextInt(0, 1) === 0) altPos.reverse();
+                for (const pos of altPos) {
+                    const r = forceInsert(team, unit, pos);
+                    if (r.ok) return r;
+                }
+                return { ok: false, reason: 'all-blocked', moved: [] };
             }
 
             // 落地：moved 已是「末端→前端」顺序，正序调用不会撞格
@@ -116,43 +167,38 @@ export function createTangWenLiangComponent() {
             }
 
             function doDash(target, outLog) {
-                const frontPos = ((target.pos - 1) % 3) + 1;   // 目标同列的前排位（4→1 / 5→2 / 6→3，7→1 / 8→2 / 9→3）
+                const frontPos = ((target.pos - 1) % 3) + 1;   // 目标同列的前排位（首选）
                 const twFromPos = tw.pos;
                 const targetFromPos = target.pos;
-                // 两侧独立算路独立落地（免疫语义=各自判断，2026-10-23 拍板）：目标侧被挡不影响冲方侧，反之亦然
                 const allyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
                 const enemyTeam = tw.camp === CAMP_TYPES.ALLY ? A : B;
-                const allyRes = target.pos > 3 ? forceInsert(allyTeam, target, frontPos) : { ok: true, moved: [] };
-                const enemyRes = forceInsert(enemyTeam, tw, frontPos);
-                // 先落冲方、再落目标方（落地顺序只影响战报行先后，两端落地完才算真伤）
+                // 多列尝试（首选同列前排；被免疫/飞天占或路径被免疫挡 → 随机换 1/3 列）
+                const allyRes = target.pos > 3 ? forceInsertAnyColumn(allyTeam, target, frontPos) : { ok: true, moved: [] };
+                const enemyRes = forceInsertAnyColumn(enemyTeam, tw, frontPos);
+                // 先落冲方、再落目标方
                 if (enemyRes.ok) applyMoves(enemyRes.moved, outLog);
                 if (allyRes.ok) applyMoves(allyRes.moved, outLog);
 
-                const toFoe = Math.max(1, Math.round(target.hp * dash.dmgRatio));
-                applyStatChange(target, 'hp', -toFoe, tw, '冲刺·七伤齐发');
-                const selfWant = Math.max(1, Math.round(tw.hp * dash.selfDmgRatio));
-                const toSelf = Math.min(selfWant, Math.max(0, Math.floor(tw.hp) - 1));   // 自伤留 1 血：不因冲刺把自己送走
+                // 真伤：当前生命 45%，上限「当前血 - 1」（冲刺不会致死，老板口径）
+                const toFoe = Math.max(0, Math.min(Math.round(target.hp * dash.dmgRatio), Math.floor(target.hp) - 1));
+                if (toFoe > 0) applyStatChange(target, 'hp', -toFoe, tw, '冲刺·七伤齐发');
+                const toSelf = Math.max(0, Math.min(Math.round(tw.hp * dash.selfDmgRatio), Math.floor(tw.hp) - 1));
                 if (toSelf > 0) applyStatChange(tw, 'hp', -toSelf, null, '冲刺·七伤齐发自损', false);
 
                 addRoleBonus(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士');
-                // 数值声明 fact（TW_DASH_APPLY）：op:add 永久职业加成，atk/def/maxHp 与 addMod value 同值
-                //   （getRoleBonus(WARRIOR)），供体检按加法增量口径核对；纯记账、零游戏逻辑副作用（不进画面）。
                 const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
                 if (outLog) outLog.push({ factType: FACT_TYPES.TW_DASH_APPLY, data: { unitName: tw.name, unitUid: tw.uid, camp: tw.camp, atk: rb.atk, def: rb.def, maxHp: rb.maxHp } });
                 switchRole(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士', outLog);
-                // 回春延到「冲刺后那一拳」结算完再叠（老板口径：攻击完再回春）
+                // 回春延到「冲刺后那一拳」结算完再叠
                 tw.state._pendingDashHeal = true;
-                // 冲刺报幕：在出手帧（本信号处理内）直接落一行，与胖远桥出手声明同口径——
-                //   此时本击攻击组还没建（group 由 core/10 命中结算后才产出），落不进组也不该丢
-                //   （后随的普攻若被闪避就没有组，挂组会让这行消失）
                 if (outLog) {
-                    // 强推挤压报幕：逐条列「XX from→to」（被挤走的队友也列）；被挡侧照实写「整侧不动」（体检 114 家族口径）
                     const moves = [...(enemyRes.ok ? enemyRes.moved : []), ...(allyRes.ok ? allyRes.moved : [])]
                         .map(m => ({ uid: m.unit.uid, camp: m.unit.camp, from: m.from, to: m.to, isDash: !!m.isDash }));
                     const blockText = (res) => {
                         if (res.reason === 'full') return '无空位';
+                        if (res.reason === 'all-blocked') return '全部列被免疫/飞天挡下、整侧不动';
                         const b = res.blocked;
-                        return `被 ${b.name}${isAirborne(b) ? '（飞天/附身）' : ''} 免疫挡下、整侧不动`;
+                        return `被 ${b.name}${isAirborne(b) ? '（飞天/附身）' : '免疫'} 挡下、整侧不动`;
                     };
                     const listText = (res) => res.moved.map(m => `${m.unit.name} ${m.from}→${m.to}`).join('、');
                     const enemyText = enemyRes.ok
@@ -163,25 +209,42 @@ export function createTangWenLiangComponent() {
                         : `${target.name} 已在前排`;
                     pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${enemyText}；${allyText}。双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
                         { floatText: '⚡', floatUid: target.uid,
-                          // 冲刺独立演出：moves 多单位载荷（全 uid+数值，可 JSON 序列化，回放/联机从机可用）；
-                          //   旧双单位字段保留向后兼容（老战报回放仍能按两格演出）
+                          // 冲刺是唐文亮的独立动作（被动触发时插在攻击者组后），画分隔线自成一段
+                          needsSeparator: true,
                           dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: tw.pos, fromCamp: tw.camp,
                                   targetUid: target.uid, targetFromPos, targetToPos: target.pos, targetCamp: target.camp,
-                                  moves } });
+                                  moves,
+                                  // 子弹时间慢速档 ⑥ 伤害数字数据源（fx/94 按 uid 找格子浮字）
+                                  hits: [
+                                      toFoe > 0 ? { uid: target.uid, dmg: toFoe } : null,
+                                      toSelf > 0 ? { uid: tw.uid, dmg: toSelf } : null
+                                  ].filter(Boolean) } });
                 }
             }
 
-            // 冲刺后的回春：等这一拳（dashStrike 或紧随的普攻）结算完再叠
+            // 冲刺后的回春：等这一拳（dashStrike 或紧随的普攻）结算完再叠 + 立即 tick 回血。
+            //   冲刺后的这一拳若走额外攻击通道（被动触发/赠送攻击），core/11 不会再 emit ON_UNIT_ACTED，
+            //   所以此处必须「叠 + tick」一起做；主动冲刺的普攻在 ON_UNIT_ACTED 会再触发一次，
+            //   由 _hcTickedThisTurn 拦下（本回合已 tick 过则跳过），不会双回血。
             const flushDashHeal = (data) => {
                 if (data.unit !== tw || !tw.alive || !tw.state._pendingDashHeal) return;
                 tw.state._pendingDashHeal = false;
                 addHuiChunStack(tw, data.log);
+                if (!tw.state._hcTickedThisTurn) {
+                    tickHuiChun(tw, data.log);
+                    tw.state._hcTickedThisTurn = true;
+                }
             };
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, 60, flushDashHeal);
             eventBus.on(SIGNAL_TYPES.AFTER_MISS, 60, flushDashHeal);
             // 免疫分支（AFTER_ATTACK_IMMUNE，小昭·妹飞天）：上面两条都不发，
             //   这一拳打出去了但回春不叠——补挂一条，保证「冲刺后必叠」在任何结算分支都成立。
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, 60, flushDashHeal);
+            // 闪避分支：被闪避时 core/10 的 skipped 分支直接 return，AFTER_ATTACK/AFTER_MISS 都不发，
+            //   只有 core/12 内部 emit 的 ON_DODGE（data.unit = 攻击者）——漏挂这条导致
+            //   「冲刺后的平A被闪避 → 回春叠不上」（线上实测病根）。tw 作为攻击者时 data.unit === tw 通过，
+            //   别人闪避时 data.unit 是别人、被判据拦掉，不会误触发。
+            eventBus.on(SIGNAL_TYPES.ON_DODGE, 60, flushDashHeal);
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播
             //   （带 target 与 log）——故命中/闪避都算一次出手；射程内无人（休息）时不广播、不计。
@@ -196,7 +259,7 @@ export function createTangWenLiangComponent() {
                 if (idx === dash.cycle && data.target) {
                     doDash(data.target, data.log);
                 } else if (getBattleRng().nextInt(1, 100) <= Math.round(hc.chance * 100)) {
-                    addHuiChunStack(tw, data.log);   // 每次出手 4% 概率叠 1 层，叠层即结算一次回血
+                    addHuiChunStack(tw, data.log);   // 每次出手 4% 概率叠 1 层（只叠层，回血由行动完 ON_UNIT_ACTED 的 tickHuiChun 结算）
                 }
             });
 
@@ -226,9 +289,10 @@ export function createTangWenLiangComponent() {
                 tw.state._qiShangBanner = idxInCycle === dash.cycle ? '💢 七伤齐发！' : null;
             });
 
-            // ——被攻击也推进七伤：每次被命中 4% 概率 +1 计数、自损 4% maxHp（留 1 血），
-            //   满 7 对攻击者冲刺。若此时本回合还没出手，冲刺后立刻补一刀（消耗行动权），
-            //   攻击者已死/待死则不冲（core/10 的 _pendingDeath 守卫同理）。
+            // ——被攻击推进七伤：每次被命中必涨 1 次计数（无概率）——老板口径：被击必涨七伤。
+            //   自损 4% maxHp（留 1 血）随计数同进。
+            //   4% 概率的位置在「被击是否叠回春」上（与出手同率），不在「涨不涨计数」上。
+            //   满 7 → 冲刺 + 赠送一次攻击（不论本回合是否已行动过，都赠送攻击；见用户口径 a/b 统一）。
             //   优先级裸数字 60（晚于 55 的「自损量搬进攻击组」；AFTER_DAMAGE_APPLIED 无 QISHANG 键，故不引用层键）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
                 if (data.target !== tw || !tw.alive) return;
@@ -236,7 +300,8 @@ export function createTangWenLiangComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === tw) return;
-                if (getBattleRng().nextInt(1, 100) > Math.round(hc.chance * 100)) return;   // 与回春同率 4%
+
+                // 计数必涨（老板口径：被击必涨七伤，无概率）
                 const n = (tw.state._qiShangCount || 0) + 1;
                 tw.state._qiShangCount = n;
                 const want = Math.max(qi.minSelfDmg, Math.round(tw.maxHp * qi.selfHpPct));
@@ -245,16 +310,12 @@ export function createTangWenLiangComponent() {
                 pushSkillAnnounce(data.log, tw, '七伤拳',
                     `👊 唐文亮七伤拳（被击）：自损 ${real} 点（伤己 ${((n - 1) % dash.cycle) + 1}/${dash.cycle}）`,
                     { floatText: `💥-${real}`, floatUid: tw.uid });
-                if (((n - 1) % dash.cycle) + 1 !== dash.cycle) return;
-                // 满档：对攻击者冲刺
-                doDash(attacker, data.log);
-                // 本回合未出手 → 冲刺后补一刀，并消耗行动权
-                if (tw.state._acted) {
-                    // 本回合已出手过，没有后续那一拳 → 回春当场生效
-                    tw.state._pendingDashHeal = false;
-                    addHuiChunStack(tw, data.log);
-                } else {
+
+                // 满 7 → 冲刺 + 赠送一次额外攻击（a/b 两种场景统一：都赠送攻击）
+                if (((n - 1) % dash.cycle) + 1 === dash.cycle) {
+                    doDash(attacker, data.log);
                     tw.state._acted = true;
+                    tw.state._pendingDashHeal = true;
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit: tw,
@@ -263,6 +324,12 @@ export function createTangWenLiangComponent() {
                         priority: 13,
                         infoText: `<span class="gold">⚡ ${tw.name} 被打急了眼，趁势反手一拳！</span>`
                     });
+                    return;
+                }
+
+                // 未满 7：独立 4% 叠回春（这是「被击触发回春」的真实位置）
+                if (getBattleRng().nextInt(1, 100) <= Math.round(hc.chance * 100)) {
+                    addHuiChunStack(tw, data.log);
                 }
             });
 
@@ -284,37 +351,23 @@ export function createTangWenLiangComponent() {
                 if (banner) gd.qiShangBanner = banner;
             });
 
-            // ② 回春术：每回合开始，逐层回自身已损生命的 hc.lostHpPct（血 <30% 时 hc.lostHpPctLow）——
-            //    层数数组每人每层各回一次（逐层按当时血量算，血越空回得越多），每层剩余回合 -1、归零即移除。
-            //    走统一声明出口（ROUND_STAT_GRANT）+ 通用 HEAL 通道（🌿 飘字 + 战报行），总回血量合并成一条
+            // ② 回春术：回血时机从「回合开始」改为「行动完那一刻」——冲刺自损/普攻自损全部结算完，
+            //    在该单位本回合行动结束的那一刹那回一次。叠层动作本身不回血（见 addHuiChunStack）。
+            //    回合开始只做一件事：清 _hcTickedThisTurn（本回合尚未 tick，等待行动完触发）。
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 33, (data) => {
-                if (!tw.alive || tw.state._pendingDeath) return;
-                const stacks = tw.state._hcStacks || [];
-                if (stacks.length === 0) return;
-                let vhp = tw.hp;
-                let total = 0;
-                const next = [];
-                for (const remain of stacks) {
-                    const ratio = vhp < tw.maxHp * hc.lowHpThreshold ? hc.lostHpPctLow : hc.lostHpPct;
-                    const healed = Math.floor((tw.maxHp - vhp) * ratio);
-                    if (healed > 0) { total += healed; vhp = Math.min(tw.maxHp, vhp + healed); }
-                    if (remain - 1 > 0) next.push(remain - 1);
-                }
-                tw.state._hcStacks = next;
-                if (total <= 0) return;
-                const hpBefore = Math.floor(tw.hp);
-                // 飘字取实际落地值（截脉/寒毒打折后）
-                const actualTotal = previewHeal(tw, total);
-                if (data.declarations) data.declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: total, target: tw, source: null, reason: '回春术' });
-                recordHpAudit(tw, 'huiChun', actualTotal, '回春术'); // 账本记实际落地值（与 fact heal 同口径）
-                if (data.log) data.log.push({ factType: FACT_TYPES.HEAL, data: {
-                    unitName: tw.name, unitUid: tw.uid, heal: actualTotal,
-                    hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpBefore + actualTotal),
-                    // 修飘字锚点静默失效：原 anchorVerb:'回复' 与正文前缀 label '回春术' 不一致 ⇒ 锚「回复+N」
-                    //   不是正文「🌿 回春术+N」子串，飘字永不触发。删 anchorVerb 回退 label 兜底（render/36：
-                    //   anchorVerb || label）——胖远桥'蓄力回复'没事是其 label 本身含'回复'。
-                    icon: '🌿', label: '回春术', mode: 'plusTrail'
-                } });
+                if (!tw.alive) return;
+                tw.state._hcTickedThisTurn = false;
+            });
+
+            // ③ 行动完 tick：每次行动结束（攻击/休息/被遮挡）emit ON_UNIT_ACTED，此处触发回春回血。
+            //    优先级 55（晚于常规 ON_UNIT_ACTED 监听，确保其他机制已处理完）。本回合已 tick 则跳过。
+            eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 55, (data) => {
+                if (data.unit !== tw || !tw.alive) return;
+                if (tw.state._pendingDeath) return;
+                if (tw.state._hcTickedThisTurn) return;
+                if (!Array.isArray(tw.state._hcStacks) || tw.state._hcStacks.length === 0) return;
+                tickHuiChun(tw, data.log);
+                tw.state._hcTickedThisTurn = true;
             });
 
             // ④ 同归于尽：阵亡时反噬击杀者，扣其 maxHp×reflectRatio 的真实伤害——可被闪避、可直接致死。

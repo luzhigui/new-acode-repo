@@ -494,14 +494,17 @@ async function prepareLineups() {
         prepMsg.className = 'msg err'; prepMsg.textContent = '至少选一个关卡';
         refreshScale(); return;
     }
+    // 只采样还没缓存的关（换勾选时复用已有结果，不重跑整批）
+    const missing = stages.filter(st => !lineupsByStage.has(st));
     try {
-        const done = await runParallel({
-            jobs: stages.map(st => ({ stage: st })),
-            workerUrl: WORKER_URL,
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'lab-sample', stage: job.stage, runs: SAMPLE_RUNS, base: SAMPLE_BASE })
-        });
-        lineupsByStage.clear();
-        for (const d of done) lineupsByStage.set(d.job.stage, pickTypicals({ list: d.result.list }, PICK));
+        if (missing.length) {
+            const done = await runParallel({
+                jobs: missing.map(st => ({ stage: st })),
+                workerUrl: WORKER_URL,
+                nextJobMsg: (job, id) => ({ jobId: id, kind: 'lab-sample', stage: job.stage, runs: SAMPLE_RUNS, base: SAMPLE_BASE })
+            });
+            for (const d of done) lineupsByStage.set(d.job.stage, pickTypicals({ list: d.result.list }, PICK));
+        }
         const n = [...lineupsByStage.values()].reduce((s, l) => s + l.length, 0);
         lineupPill.textContent = `${stages.length} 关共 ${n} 套典型阵容`;
         prepMsg.className = 'hint'; prepMsg.textContent = '';

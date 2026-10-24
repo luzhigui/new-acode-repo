@@ -263,9 +263,14 @@ function renderVersion(title, key, base, enhance, kind, cls) {
   if (!d) {
     lines = `<li>${base.desc || '该海克斯暂无说明'}</li>`;
   } else if (kind === 1) {
-    lines = enhance ? (d.sister(base, enhance) || []).map(t => `<li>${t}</li>`).join('') : '';
+    // 防御：新海克斯可能只写了 normal/brother，缺 sister 时不能直接调用
+    lines = (enhance && typeof d.sister === 'function') ? (d.sister(base, enhance) || []).map(t => `<li>${t}</li>`).join('') : '';
   } else {
-    lines = (kind === 2 ? d.brother(base, enhance) : d.normal(base)).map(t => `<li>${t}</li>`).join('');
+    // 防御：缺 brother/normal 时退回 base.desc，不让整张详情卡抛 TypeError
+    const fn = kind === 2 ? d.brother : d.normal;
+    const arr = (typeof fn === 'function') ? fn.call(d, base, enhance) : null;
+    lines = (arr || []).map(t => `<li>${t}</li>`).join('');
+    if (!lines && base.desc) lines = `<li>${base.desc}</li>`;
     lines += `<li><b>持续</b>：${kind === 2 ? '永久（无回合限制）' : (base.permanent ? '整局' : (base.duration || CONFIG.BUFF_DURATION) + ' 回合')}</li>`;
   }
   if (!lines) lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';

@@ -450,6 +450,10 @@ const MUTATIONS = [
       from: "unitB: { uid: b.uid, name: b.name }, posA, posB",
       to:   "unitB: { uid: b.uid, name: b.name }, posA: posB, posB: posA",
       multi: true },
+    { id: 'A29', kind: 'ATTR', desc: '空见金刚不坏加持计数器 +1→+2（跳号 → rule172 判据1「严格1,2,3」应咬）',
+      file: 'modules/26elite-sixsects-kongjian.js',
+      from: "kj.state._kongJianUsed = (kj.state._kongJianUsed || 0) + 1;",
+      to:   "kj.state._kongJianUsed = (kj.state._kongJianUsed || 0) + 2;" },
 ];
 
 function toPosix(p) {

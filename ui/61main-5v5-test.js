@@ -27,7 +27,7 @@ import {
     logTeamInfo, abortAll
 } from './65main-battle.js';
 import { setBGMVolume, fadeBGMTo, lowerBGM } from './66audio-control.js';
-import { toggleDodgeEffect } from './67fx-trigger.js';
+import { toggleFxPanel, syncFxButton } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
 import { bindCopyLogButton } from './64main-dialogs.js';
 import * as net from '../infra/60-net-pvp.js';
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
     bindBGButton(showMusicPanel);
-    bindDodgeButton(toggleDodgeEffect);
+    bindDodgeButton(toggleFxPanel);
     bindAutoButton(getState, setState);
     bindSettleButton(() => getState.currentStage(), { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
     bindStageSelectButton(() => getState.currentStage(), getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
@@ -579,8 +579,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
         document.getElementById('btnDetail').classList.toggle('active', getState.logLevel() !== 'brief');
         updateAutoModeButton();
-        document.getElementById('btnDodgeToggle').classList.toggle('active', getState.dodgeEffectEnabled());
-        document.getElementById('btnDodgeToggle').textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';
+        syncFxButton();   // 按钮文案跟着「是否有任意特效开着」走（派生 dodgeEffectEnabled）
         // 虚影/飞走按钮已并入选关弹窗，此处不再刷新其文案
     } catch(e) {
         console.error('[光明顶5v5测试版] 初始化错误：', e.stack || e.message || e);

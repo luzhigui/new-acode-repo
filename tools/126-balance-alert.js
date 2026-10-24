@@ -174,8 +174,16 @@ function hexIssues(mode) {
 function eliteIssues() {
     const snaps = readJSON(SNAP_KEY, []);
     if (!snaps.length) return { missing: '精英评测还没有快照 —— 到精英评测页跑「主表·自然出场」「强精英」「Boss·张无忌」「无精英」和「弱精英」，跑完自动存盘（也可点「💾 存结果」），本工具才有数据可判。' };
+    // 112 自动存是「一张表一条」，单条常缺表；从新到旧合并，按表类型取最近一条含该表的快照
+    const WANT = ['elite', 'solo', 'boss', 'none', 'weak'];
+    const picked = {};
+    for (const k of WANT) {
+        for (const s of snaps) {
+            if (s && s.parts && s.parts[k]) { picked[k] = s.parts[k]; break; }
+        }
+    }
     const snap = snaps[0];                       // 112 存盘时 unshift，新的排最前
-    const P = snap.parts || {};
+    const P = picked;
     const ageDays = (Date.now() - snap.ts) / 86400000;
     const issues = [], nodata = [];
     let okCount = 0;
