@@ -73,6 +73,7 @@ import { rule156 as rule103 } from './health-rules/156-desc-truth-drift.js'; // 
 import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import { rule170 as rule114 } from './health-rules/170-taunts-integrity.js'; // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
 import { rule171 } from './health-rules/171-tangwenliang-dash.js'; // 第 114 轮新建：唐文亮冲刺落地验证（export 名按文件号 rule171）
+import { rule172 } from './health-rules/172-kongjian-jingang.js'; // 第 120 轮新建：空见金刚不坏次数与升级验证（新角色零覆盖盲区）
 import { rule105 } from './health-rules/158-fact-anchor-align.js';
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
@@ -666,7 +667,7 @@ function runRuleChecks(ctx, doc) {
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
-        rule110, rule111, rule112, rule113, rule114, rule171];
+        rule110, rule111, rule112, rule113, rule114, rule171, rule172];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
