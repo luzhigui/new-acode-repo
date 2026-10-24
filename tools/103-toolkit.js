@@ -589,6 +589,16 @@ function escapeHtml(text) {
         const displayIndex = actualIndex + 1;
         const totalBatches = sendBatches.length;
 
+        if (status === 'copyfail') {
+            senderBar.innerHTML = `<span style="color:#f44336;">❌ 复制失败（浏览器拦截剪贴板），当前包未发出。请手动点该包『复制』按钮，或按 Enter 重试</span>
+                <div style="display:flex;gap:8px;">
+                    <button id="senderNextBtn" style="background:#ffd700;color:#1a1a2e;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;">重试当前包</button>
+                    <button id="senderCancelBtn" style="background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
+                </div>`;
+            document.getElementById('senderNextBtn').onclick = nextBatch;
+            document.getElementById('senderCancelBtn').onclick = () => { sendCancelled = true; renderSenderBar(); };
+            return;
+        }
         if (status === 'copied') {
             if (sendIndex + 1 < sendBatches.length) {
                 senderBar.innerHTML = `<span style="color:#4caf50;">✅ 已复制 全局 ${displayIndex}/${totalBatches} · 【${gn}】 组内 ${groupBatchIndex}/${groupBatchTotal}，按 <b>Enter</b> 复制下一包</span>
@@ -616,7 +626,13 @@ function escapeHtml(text) {
         if (sendCancelled || sendIndex >= sendBatches.length) return;
         // 复制当前包
         const fullText = getBatchText(sendBatches[sendIndex]);
-        try { await navigator.clipboard.writeText(fullText); } catch (e) {}
+        let ok = true;
+        try { await navigator.clipboard.writeText(fullText); } catch (e) { ok = false; }
+        if (!ok) {
+            // 复制失败：不推进 sendIndex，明确提示用户重试或手动复制
+            renderSenderBar(sendIndex, 'copyfail');
+            return;
+        }
         // 显示"已复制当前包"，sendIndex 不变，确保显示的是当前刚复制的包
         renderSenderBar(sendIndex, 'copied');
         sendIndex++;
