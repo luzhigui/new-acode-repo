@@ -1,4 +1,9 @@
 // fx/94-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
+// V2.3.0 | 2026-10-24 对齐 demo（老板指正「跟 demo 差蛮多、连线没有、对方不动就没高亮」）：
+//   ① 锚点不再依赖 moves：目标在前排不动 / 唐文亮被挡原地时，直接用真格当高亮+连线端点；
+//   ② 金线改「卡边→卡边」并抬到克隆体之上（旧版中心线压在卡片底下，实机等于看不见）；
+//   ③ 唐文亮超冲回弹 + 3 层残影；目标原地不动时被「顶」一下；落点冲击环/火花两侧都放；
+//   ④ 遮罩从 0.86 黑改 0.34 轻压暗，真格高亮才看得见（旧版黑幕把原地目标埋了）。
 // V2.2.1 | 2026-10-24 收尾修正：撞击即断链 + 清主角高亮（不留「人已落位、线还连着」1.3 秒）；
 //   唐文亮原地未动时 twG 取 null，不再退回 ghosts[0]（那会把锁链/金边锁到被挤队友身上）。
 // V2.2.0 | 2026-10-24 视觉权重修正：主角=唐文亮+目标（按 targetUid 精确认，旧版取「第一个非 dash」会锁到被挤队友），
@@ -16,7 +21,7 @@ import { getCellByPos } from './90fx-ref-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getRoleIcon } from '../render/37-role-cards.js';
 
-export const VER = 'fx/94-tangwenliang-dash.js V2.2.1';
+export const VER = 'fx/94-tangwenliang-dash.js V2.3.0';
 
 // 真实时间等待：clock.wait 会被倍速压缩，子弹时间档不能用它——
 //   用一个空 animate + minRealMs 同值，保证真实时钟走满 ms 才 resolve（暂停时同样冻结）。
@@ -162,6 +167,33 @@ function screenShake() {
     }).then(() => { bf.style.transform = ''; });
 }
 
+// 慢速档专用样式（目标锁框脉冲 / 唐文亮金边）：只注入一次
+function injectSlowStyle() {
+    if (document.getElementById('fx94-slow-style')) return;
+    const st = document.createElement('style');
+    st.id = 'fx94-slow-style';
+    st.textContent = [
+        '@keyframes fx94Lock{0%,100%{box-shadow:0 0 0 2px rgba(255,90,40,.95),0 0 14px rgba(255,90,40,.55)}',
+        '50%{box-shadow:0 0 0 3px rgba(255,140,70,1),0 0 30px rgba(255,90,40,.95)}}',
+        '@keyframes fx94Tw{0%,100%{box-shadow:0 0 0 2px rgba(255,209,102,.95),0 0 22px rgba(255,209,102,.8)}',
+        '50%{box-shadow:0 0 0 3px rgba(255,255,255,1),0 0 34px rgba(255,215,0,1)}}',
+        '.fx94-lock{animation:fx94Lock .8s ease-in-out infinite !important;}',
+        '.fx94-tw{animation:fx94Tw .5s ease-in-out infinite !important;}'
+    ].join('');
+    document.head.appendChild(st);
+}
+
+// 卡边取点：把「卡中心 → 对方中心」的射线裁到本卡边框上（demo 的 edgeOf）
+function edgeOf(r, tx, ty) {
+    const cx = r.left + r.w / 2, cy = r.top + r.h / 2;
+    const dx = tx - cx, dy = ty - cy;
+    if (!dx && !dy) return { x: cx, y: cy };
+    const kx = dx ? (r.w / 2) / Math.abs(dx) : Infinity;
+    const ky = dy ? (r.h / 2) / Math.abs(dy) : Infinity;
+    const k = Math.min(kx, ky);
+    return { x: cx + dx * k, y: cy + dy * k };
+}
+
 // —— 子弹时间档（老板口径 2026-10-23）：遮罩内慢速完整演出 ——
 //   时长用真实时钟（每段 minRealMs），倍速 2x/4x 压不短；快进/自动入口直接返回 []。
 //   与快版共用 makeGhost/rectOf；慢版自己造粗锁链与高 z 环/火花（快版 createBeam 的 z 写死 10/11/12、
@@ -184,14 +216,21 @@ async function showTangWenLiangDashSlow(dash) {
     let skipped = false;
     const created = [];
     const ghosts = [];
+    let clearHl = () => {};
+    let staticCell = null;
     const track = (el) => { if (el) created.push(el); return el; };
     const cleanupUi = () => { for (const el of created) if (el && el.parentNode) el.remove(); };
-    const cleanupAll = () => { cleanupUi(); for (const gh of ghosts) if (gh && gh.g && gh.g.el && gh.g.el.parentNode) gh.g.el.remove(); };
+    const cleanupAll = () => {
+        clearHl();
+        if (staticCell) staticCell.style.transform = '';
+        cleanupUi();
+        for (const gh of ghosts) if (gh && gh.g && gh.g.el && gh.g.el.parentNode) gh.g.el.remove();
+    };
 
-    // ① 遮罩 + 跳过按钮
+    // ① 遮罩 + 跳过按钮（轻压暗：0.86 黑幕会把「原地不动的目标」埋掉，高亮看不见）
     const mask = track(document.createElement('div'));
     mask.setAttribute('data-fx', 'temporary');
-    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.86);z-index:9990;pointer-events:none;opacity:0;';
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.34);z-index:9990;pointer-events:none;opacity:0;';
     document.body.appendChild(mask);
 
     const skipBtn = track(document.createElement('div'));
@@ -214,84 +253,137 @@ async function showTangWenLiangDashSlow(dash) {
     }
     if (ghosts.length === 0) { cleanupAll(); return []; }
 
-    // 唐文亮原地未动时（已在前排、from===to 被 moves 过滤）ghosts 里没有他——
-    //   不能退回 ghosts[0]：那是某个被挤走的队友，锁链与主角高亮会连到队友身上。
-    //   返回 null = 本次不画锁链，只高亮目标。
-    const twG = ghosts.find(x => x.isDash) || null;
-    // 目标按 uid 精确认（旧版取「第一个非 dash」——被挤队友排在前面时金线会锁到队友身上）
-    const tgG = (targetUid != null ? ghosts.find(x => x.uid === targetUid) : null)
-        || ghosts.find(x => !x.isDash) || null;
-    // 队友 = 既不是唐文亮（没动时为空）也不是目标的其余克隆体。
-    //   不能只写 x !== twG：twG 为 null 时该条件恒真，目标会被误当队友提前滑走
-    const minorGhosts = ghosts.filter(x => !x.isDash && x !== tgG);
+    const twGH = ghosts.find(x => x.isDash) || null;
+    const tgtGH = targetUid != null ? (ghosts.find(x => x.uid === targetUid) || null) : null;
+    // 队友 = 既不是唐文亮（没动时为空）也不是目标的其余克隆体
+    const minorGhosts = ghosts.filter(x => !x.isDash && x.uid !== targetUid);
 
-    // 主角高亮：唐文亮金边、目标橙红边（被挤队友不加特写）
-    const highlight = (gh, color) => {
-        if (!gh || !gh.g || !gh.g.el) return;
-        gh.g.el.style.boxShadow = `0 0 0 2px ${color}, 0 0 24px ${color}`;
+    // 锚点 = 克隆体（动了）或真格（没动）。目标在前排原地不动时也要高亮 + 连线（老板 2026-10-24 指正：
+    //   旧版只认 moves，目标不动就没有 tgG → 既没金线也没高亮，看着像什么都没发生）
+    const twActorEl = twGH ? twGH.g.el
+        : (dash.fromCamp != null && dash.toPos != null ? getCellByPos(dash.fromCamp, dash.toPos) : null);
+    const tgtActorEl = tgtGH ? tgtGH.g.el
+        : (dash.targetCamp != null && dash.targetToPos != null ? getCellByPos(dash.targetCamp, dash.targetToPos) : null);
+    staticCell = tgtGH ? null : tgtActorEl;
+    const actorRect = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { left: r.left, top: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
     };
-    highlight(twG, 'rgba(255,209,102,0.95)');
-    if (tgG) highlight(tgG, 'rgba(255,120,80,0.95)');
 
-    await clock.animate(350, (p) => { mask.style.opacity = String(0.86 * p); }, { minRealMs: 350 });
+    // 主角高亮：唐文亮金边、目标橙红锁框脉冲（原地不动也亮）
+    injectSlowStyle();
+    const hlList = [];
+    const addHl = (el, cls) => { if (!el) return; el.classList.add(cls); hlList.push([el, cls]); };
+    addHl(twActorEl, 'fx94-tw');
+    addHl(tgtActorEl, 'fx94-lock');
+    clearHl = () => { for (const [el, cls] of hlList) { try { el.classList.remove(cls); } catch (e) {} } hlList.length = 0; };
+
+    // 唐文亮残影（只有真冲出去才有）：3 层拖影把「冲」拉出来
+    const afterImgs = [];
+    if (twGH) {
+        for (let i = 0; i < 3; i++) {
+            const im = track(twGH.g.el.cloneNode(true));
+            im.classList.remove('fx94-tw');
+            im.style.cssText = twGH.g.el.style.cssText + `;z-index:${10066 - i};opacity:0;filter:blur(1.6px) saturate(1.5);`;
+            document.body.appendChild(im);
+            afterImgs.push(im);
+        }
+    }
+
+    await clock.animate(350, (p) => { mask.style.opacity = String(0.34 * p); }, { minRealMs: 350 });
     if (skipped) { cleanupAll(); return []; }
 
     // ③ 粗锁链展开（唐文亮 → 目标），双层发光
     const chainGlow = track(document.createElement('div'));
     chainGlow.setAttribute('data-fx', 'temporary');
-    chainGlow.style.cssText = 'position:fixed;height:14px;border-radius:8px;pointer-events:none;opacity:0;z-index:10060;background:linear-gradient(90deg,rgba(255,214,96,.2),rgba(255,150,60,.8));filter:blur(4px);transform-origin:0 50%;';
+    chainGlow.style.cssText = 'position:fixed;height:12px;border-radius:8px;pointer-events:none;opacity:0;z-index:10072;background:linear-gradient(90deg,rgba(255,214,96,.25),rgba(255,160,60,.85));filter:blur(4px);transform-origin:0 50%;';
     document.body.appendChild(chainGlow);
     const chainCore = track(document.createElement('div'));
     chainCore.setAttribute('data-fx', 'temporary');
-    chainCore.style.cssText = 'position:fixed;height:6px;border-radius:3px;pointer-events:none;opacity:0;z-index:10061;background:linear-gradient(90deg,#fff7d6,#ffd166 42%,#ff9f43);box-shadow:0 0 14px rgba(255,200,90,.95),0 0 30px rgba(255,150,60,.6);transform-origin:0 50%;';
+    chainCore.style.cssText = 'position:fixed;height:5px;border-radius:3px;pointer-events:none;opacity:0;z-index:10073;background:linear-gradient(90deg,#fff7d6,#ffd166 42%,#ff9f43);box-shadow:0 0 14px rgba(255,200,90,.95),0 0 30px rgba(255,150,60,.6);transform-origin:0 50%;';
     document.body.appendChild(chainCore);
+    const chainHead = track(document.createElement('div'));
+    chainHead.setAttribute('data-fx', 'temporary');
+    chainHead.style.cssText = 'position:fixed;width:11px;height:11px;border-radius:50%;pointer-events:none;opacity:0;z-index:10074;background:radial-gradient(circle,#fff 0%,#ffe9a8 35%,rgba(255,170,60,0) 72%);';
+    document.body.appendChild(chainHead);
 
+    // 卡边 → 卡边，且 z(10072~10074) 高于克隆体(10070)：旧版中心线压在卡片底下，实机等于看不见
     const chainSet = (p) => {
-        if (!twG || !tgG) return;
-        const a = twG.g.el.getBoundingClientRect();
-        const b = tgG.g.el.getBoundingClientRect();
-        const x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
-        const x2 = b.left + b.width / 2, y2 = b.top + b.height / 2;
-        const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+        const ra = actorRect(twActorEl), rb = actorRect(tgtActorEl);
+        if (!ra || !rb) return;
+        const pa = edgeOf(ra, rb.cx, rb.cy), pb = edgeOf(rb, ra.cx, ra.cy);
+        const dx = pb.x - pa.x, dy = pb.y - pa.y, len = Math.hypot(dx, dy) || 1;
         const ang = Math.atan2(dy, dx) * 180 / Math.PI;
         const sc = Math.max(0.0001, p);
-        [[chainGlow, 14], [chainCore, 6]].forEach(([el, h]) => {
-            el.style.left = x1 + 'px';
-            el.style.top = (y1 - h / 2) + 'px';
+        [[chainGlow, 12], [chainCore, 5]].forEach(([el, h]) => {
+            el.style.left = pa.x + 'px';
+            el.style.top = (pa.y - h / 2) + 'px';
             el.style.width = len + 'px';
             el.style.transform = `rotate(${ang}deg) scaleX(${sc})`;
         });
+        chainHead.style.left = (pb.x - 5.5) + 'px';
+        chainHead.style.top = (pb.y - 5.5) + 'px';
     };
 
-    if (twG && tgG) {
-        await clock.animate(500, (p) => {
+    if (twActorEl && tgtActorEl) {
+        await clock.animate(240, (p) => {
             chainSet(p);
             chainGlow.style.opacity = String(0.9 * p);
             chainCore.style.opacity = String(p);
-        }, { minRealMs: 500 });
+            chainHead.style.opacity = String(p);
+        }, { minRealMs: 240 });
     }
     if (skipped) { cleanupAll(); return []; }
 
-    // ④ 走位：队友先快速归位（380ms、不 await，只体现「被挤开」的感觉），
-    //   主角与目标向中间靠拢 750ms，锁链实时跟随——主视觉是这一对，不是队友
-    const slide = (gh, e) => {
-        const t = gh.toRect; if (!t) return;
-        const f = gh.g.from;
-        gh.g.el.style.left = (f.left + (t.left - f.left) * e).toFixed(1) + 'px';
-        gh.g.el.style.top = (f.top + (t.top - f.top) * e).toFixed(1) + 'px';
-    };
-    if (minorGhosts.length > 0) {
-        clock.animate(380, (p) => {
-            const e = 1 - Math.pow(1 - p, 3);
-            for (const gh of minorGhosts) slide(gh, e);
-        }, { minRealMs: 380 });
-    }
-    await clock.animate(750, (p) => {
-        const e = 1 - Math.pow(1 - p, 3);
-        if (twG) slide(twG, e);
-        if (tgG) slide(tgG, e);
+    // ④ 走位（对齐 demo 节奏）：唐文亮 620ms 超冲回弹 + 残影；目标延迟 16% 跟上；
+    //   目标原地不动 → 被「顶」一下；队友只快速让位，不抢戏
+    const twFrom = twGH ? twGH.g.from : null, twTo = twGH ? twGH.toRect : null;
+    const tgtFrom = tgtGH ? tgtGH.g.from : null, tgtTo = tgtGH ? tgtGH.toRect : null;
+    await clock.animate(620, (p) => {
+        if (twFrom && twTo) {
+            const dx = twTo.left - twFrom.left, dy = twTo.top - twFrom.top;
+            const dist = Math.hypot(dx, dy) || 1;
+            const ux = dx / dist, uy = dy / dist;
+            const ovMax = Math.min(16, dist * 0.22);
+            const easeOut = (q) => 1 - Math.pow(1 - q, 3);
+            let e, ov;
+            if (p < 0.68) { const q = p / 0.68; e = easeOut(q); ov = ovMax * easeOut(q); }
+            else { const q = (p - 0.68) / 0.32; e = 1; ov = ovMax * (1 - easeOut(q)); }
+            const x = dx * e + ux * ov, y = dy * e + uy * ov;
+            twGH.g.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+            afterImgs.forEach((im, i) => {
+                const k = (i + 1) * 6 * Math.min(1, e * 3);
+                im.style.transform = `translate(${(x - ux * k).toFixed(1)}px,${(y - uy * k).toFixed(1)}px)`;
+                im.style.opacity = String((0.26 / (i + 1)) * Math.min(1, e * 2.6));
+            });
+        }
+        if (tgtFrom && tgtTo) {
+            const q = Math.max(0, (p - 0.16) / 0.84);
+            const e2 = 1 - Math.pow(1 - q, 3);
+            tgtGH.g.el.style.transform = `translate(${((tgtTo.left - tgtFrom.left) * e2).toFixed(1)}px,${((tgtTo.top - tgtFrom.top) * e2).toFixed(1)}px)`;
+        }
+        if (minorGhosts.length > 0) {
+            const q = Math.min(1, p * 1.4);
+            const e3 = 1 - Math.pow(1 - q, 3);
+            for (const gh of minorGhosts) {
+                const t = gh.toRect; if (!t) continue;
+                const f = gh.g.from;
+                gh.g.el.style.transform = `translate(${((t.left - f.left) * e3).toFixed(1)}px,${((t.top - f.top) * e3).toFixed(1)}px) scale(0.82)`;
+            }
+        }
+        // 原地不动的目标被顶一下（沿唐文亮→目标方向 ±6px，撞完回弹）
+        if (staticCell) {
+            const ra = actorRect(twActorEl), rb = actorRect(tgtActorEl);
+            if (ra && rb) {
+                const ddx = rb.cx - ra.cx, ddy = rb.cy - ra.cy, dd = Math.hypot(ddx, ddy) || 1;
+                const k = Math.sin(Math.min(1, p * 1.8) * Math.PI) * 6;
+                staticCell.style.transform = `translate(${(ddx / dd * k).toFixed(1)}px,${(ddy / dd * k).toFixed(1)}px)`;
+            }
+        }
         chainSet(1);
-    }, { minRealMs: 750 });
+    }, { minRealMs: 620 });
+    if (staticCell) staticCell.style.transform = '';
     if (skipped) { cleanupAll(); return []; }
 
     // ⑤ 碰撞：白闪 + 高 z 冲击环 + 火花 + 屏震
@@ -332,16 +424,16 @@ async function showTangWenLiangDashSlow(dash) {
     await clock.animate(400, (p) => {
         flash.style.opacity = p < 0.35 ? String(0.75 * (p / 0.35)) : String(Math.max(0, 0.75 * (1 - (p - 0.35) / 0.65)));
     }, { minRealMs: 400 });
-    if (twG && twG.toRect) { ringAt(twG.toRect, 'rgba(255,209,102,0.95)', 10062); sparksAt(twG.toRect.cx, twG.toRect.cy, '#ffd166', 12, 10063); }
-    if (tgG && tgG.toRect) { ringAt(tgG.toRect, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgG.toRect.cx, tgG.toRect.cy, '#ff6b3d', 10, 10063); }
+    if (twGH && twGH.toRect) { ringAt(twGH.toRect, 'rgba(255,209,102,0.95)', 10062); sparksAt(twGH.toRect.cx, twGH.toRect.cy, '#ffd166', 12, 10063); }
+    const tgtRectNow = actorRect(tgtActorEl);
+    if (tgtRectNow) { ringAt(tgtRectNow, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgtRectNow.cx, tgtRectNow.cy, '#ff6b3d', 10, 10063); }
     screenShake();
-    // 撞击即断链：此刻还在白闪与遮罩里，断链看不见突兀；
+    // 撞击即断链 + 清高亮：此刻还在白闪里，断得看不出来；
     //   留到 ⑦ 才断，会出现「两人已经落位、金线还连着」持续 1.3 秒（实机「怪怪的」主因）。
-    //   主角高亮同步清掉，否则遮罩退场后金边跟着克隆体一起淡出。
     chainGlow.style.opacity = '0';
     chainCore.style.opacity = '0';
-    if (twG && twG.g && twG.g.el) twG.g.el.style.boxShadow = '';
-    if (tgG && tgG.g && tgG.g.el) tgG.g.el.style.boxShadow = '';
+    chainHead.style.opacity = '0';
+    clearHl();
     if (skipped) { cleanupAll(); return []; }
 
     // ⑥ 真伤数字浮出（dash.hits 载荷里带 dmg）
@@ -369,9 +461,10 @@ async function showTangWenLiangDashSlow(dash) {
     if (skipped) { cleanupAll(); return []; }
 
     // ⑦ 遮罩淡出（真格已在终位，克隆体留给 storeAfter 淡出）
-    await clock.animate(400, (p) => { mask.style.opacity = String(0.86 * (1 - p)); }, { minRealMs: 400 });
+    await clock.animate(400, (p) => { mask.style.opacity = String(0.34 * (1 - p)); }, { minRealMs: 400 });
     chainGlow.style.opacity = '0';
     chainCore.style.opacity = '0';
+    chainHead.style.opacity = '0';
     if (skipBtn.parentNode) skipBtn.remove();
     cleanupUi();
 
