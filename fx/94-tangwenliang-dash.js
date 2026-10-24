@@ -1,4 +1,6 @@
 // fx/94-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
+// V2.2.0 | 2026-10-24 视觉权重修正：主角=唐文亮+目标（按 targetUid 精确认，旧版取「第一个非 dash」会锁到被挤队友），
+//   队友克隆体压暗缩小(z10040/0.82/0.55)且 380ms 先归位——「被挤走」只作背景，主视觉是主角连线对拉。
 // V2.1.0 | 2026-10-24 子弹时间档真实时间保底：慢速档全部阶段走 minRealMs（真实时钟），
 //   倍速 2x/4x 压不短这一段——冲刺演出必须完整可见；1x 下时长与原来一致。快进/自动照旧直接跳过。
 // V2.0.0 | 2026-10-23 强推挤压版（老板拍板）：单目标双克隆 → moves 多人克隆 + 金线对拉 + 冲击环/火花/屏震。
@@ -197,15 +199,24 @@ async function showTangWenLiangDashSlow(dash) {
     skipBtn.onclick = () => { skipped = true; };
     document.body.appendChild(skipBtn);
 
-    // ② 克隆体（z 高于遮罩；dash 本体 10070、其余 10050）
+    // ② 克隆体：只给「唐文亮 + 目标」主角权重（z 高于遮罩、原尺寸）；
+    //   被挤队友压暗缩小、z 更低，只作背景（老板口径 2026-10-24：挤走是自然结果，别抢戏）
+    const targetUid = dash.targetUid;
     for (const m of moves) {
-        const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 10070 : 10050, m.uid);
-        if (g) ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
+        const isMain = !!m.isDash || (targetUid != null && m.uid === targetUid);
+        const g = makeGhost(m.camp, m.from, m.to, isMain ? 10070 : 10040, m.uid);
+        if (g) {
+            if (!isMain) g.el.style.cssText += ';opacity:0.55;transform:scale(0.82);';
+            ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
+        }
     }
     if (ghosts.length === 0) { cleanupAll(); return []; }
 
     const twG = ghosts.find(x => x.isDash) || ghosts[0];
-    const tgG = ghosts.find(x => !x.isDash) || null;
+    // 目标按 uid 精确认（旧版取「第一个非 dash」——被挤队友排在前面时金线会锁到队友身上）
+    const tgG = (targetUid != null ? ghosts.find(x => x.uid === targetUid) : null)
+        || ghosts.find(x => !x.isDash) || null;
+    const minorGhosts = ghosts.filter(x => x !== twG && x !== tgG);
 
     // 主角高亮：唐文亮金边、目标橙红边（被挤队友不加特写）
     const highlight = (gh, color) => {
@@ -254,15 +265,24 @@ async function showTangWenLiangDashSlow(dash) {
     }
     if (skipped) { cleanupAll(); return []; }
 
-    // ④ 全员克隆体缓慢走位（750ms），锁链实时跟随
+    // ④ 走位：队友先快速归位（380ms、不 await，只体现「被挤开」的感觉），
+    //   主角与目标向中间靠拢 750ms，锁链实时跟随——主视觉是这一对，不是队友
+    const slide = (gh, e) => {
+        const t = gh.toRect; if (!t) return;
+        const f = gh.g.from;
+        gh.g.el.style.left = (f.left + (t.left - f.left) * e).toFixed(1) + 'px';
+        gh.g.el.style.top = (f.top + (t.top - f.top) * e).toFixed(1) + 'px';
+    };
+    if (minorGhosts.length > 0) {
+        clock.animate(380, (p) => {
+            const e = 1 - Math.pow(1 - p, 3);
+            for (const gh of minorGhosts) slide(gh, e);
+        }, { minRealMs: 380 });
+    }
     await clock.animate(750, (p) => {
         const e = 1 - Math.pow(1 - p, 3);
-        for (const gh of ghosts) {
-            const t = gh.toRect; if (!t) continue;
-            const f = gh.g.from;
-            gh.g.el.style.left = (f.left + (t.left - f.left) * e).toFixed(1) + 'px';
-            gh.g.el.style.top = (f.top + (t.top - f.top) * e).toFixed(1) + 'px';
-        }
+        slide(twG, e);
+        if (tgG) slide(tgG, e);
         chainSet(1);
     }, { minRealMs: 750 });
     if (skipped) { cleanupAll(); return []; }
