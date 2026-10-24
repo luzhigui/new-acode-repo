@@ -124,9 +124,196 @@ function screenShake() {
     }).then(() => { bf.style.transform = ''; });
 }
 
+// —— 子弹时间档（老板口径 2026-10-23）：遮罩内慢速完整演出 ——
+//   与快版共用 makeGhost/rectOf；慢版自己造粗锁链与高 z 环/火花（快版 createBeam 的 z 写死 10/11/12、
+//   impactRing/sparkBurstAt 的 z 写死 20/35，都会被遮罩盖住）。
+//   返回 ghosts 交 render/39 storeAfter 淡出（交棒顺序与快版一致：先清 fly 显真格，再淡出克隆体）。
+//   跳过 / 快进 / 无位移 → 返回 [] 或原 ghosts，不影响 store 步已写好的位置。
+async function showTangWenLiangDashSlow(dash) {
+    if (!dash || GlobalStore.get('fastForwardActive')) return [];
+
+    let moves = Array.isArray(dash.moves) ? dash.moves.filter(m => m && m.uid != null) : [];
+    if (moves.length === 0 && dash.fromUid != null && dash.fromPos != null && dash.toPos != null) {
+        moves = [{ uid: dash.fromUid, camp: dash.fromCamp, from: dash.fromPos, to: dash.toPos, isDash: true }];
+        if (dash.targetUid != null && dash.targetFromPos != null && dash.targetToPos != null && dash.targetFromPos !== dash.targetToPos) {
+            moves.push({ uid: dash.targetUid, camp: dash.targetCamp, from: dash.targetFromPos, to: dash.targetToPos, isDash: false });
+        }
+    }
+    moves = moves.filter(m => m.from !== m.to && m.to != null);
+    if (moves.length === 0) return [];
+
+    let skipped = false;
+    const created = [];
+    const ghosts = [];
+    const track = (el) => { if (el) created.push(el); return el; };
+    const cleanupUi = () => { for (const el of created) if (el && el.parentNode) el.remove(); };
+    const cleanupAll = () => { cleanupUi(); for (const gh of ghosts) if (gh && gh.g && gh.g.el && gh.g.el.parentNode) gh.g.el.remove(); };
+
+    // ① 遮罩 + 跳过按钮
+    const mask = track(document.createElement('div'));
+    mask.setAttribute('data-fx', 'temporary');
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.86);z-index:9990;pointer-events:none;opacity:0;';
+    document.body.appendChild(mask);
+
+    const skipBtn = track(document.createElement('div'));
+    skipBtn.setAttribute('data-fx', 'temporary');
+    skipBtn.textContent = '跳过';
+    skipBtn.style.cssText = 'position:fixed;bottom:12%;right:8%;z-index:10090;color:rgba(255,255,255,0.72);font-size:18px;font-weight:bold;cursor:pointer;line-height:1;letter-spacing:2px;transform:rotate(-30deg);pointer-events:auto;';
+    skipBtn.onclick = () => { skipped = true; };
+    document.body.appendChild(skipBtn);
+
+    // ② 克隆体（z 高于遮罩；dash 本体 10070、其余 10050）
+    for (const m of moves) {
+        const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 10070 : 10050);
+        if (g) ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
+    }
+    if (ghosts.length === 0) { cleanupAll(); return []; }
+
+    const twG = ghosts.find(x => x.isDash) || ghosts[0];
+    const tgG = ghosts.find(x => !x.isDash) || null;
+
+    // 主角高亮：唐文亮金边、目标橙红边（被挤队友不加特写）
+    const highlight = (gh, color) => {
+        if (!gh || !gh.g || !gh.g.el) return;
+        gh.g.el.style.boxShadow = `0 0 0 2px ${color}, 0 0 24px ${color}`;
+    };
+    highlight(twG, 'rgba(255,209,102,0.95)');
+    if (tgG) highlight(tgG, 'rgba(255,120,80,0.95)');
+
+    await clock.animate(350, (p) => { mask.style.opacity = String(0.86 * p); });
+    if (skipped) { cleanupAll(); return []; }
+
+    // ③ 粗锁链展开（唐文亮 → 目标），双层发光
+    const chainGlow = track(document.createElement('div'));
+    chainGlow.setAttribute('data-fx', 'temporary');
+    chainGlow.style.cssText = 'position:fixed;height:14px;border-radius:8px;pointer-events:none;opacity:0;z-index:10060;background:linear-gradient(90deg,rgba(255,214,96,.2),rgba(255,150,60,.8));filter:blur(4px);transform-origin:0 50%;';
+    document.body.appendChild(chainGlow);
+    const chainCore = track(document.createElement('div'));
+    chainCore.setAttribute('data-fx', 'temporary');
+    chainCore.style.cssText = 'position:fixed;height:6px;border-radius:3px;pointer-events:none;opacity:0;z-index:10061;background:linear-gradient(90deg,#fff7d6,#ffd166 42%,#ff9f43);box-shadow:0 0 14px rgba(255,200,90,.95),0 0 30px rgba(255,150,60,.6);transform-origin:0 50%;';
+    document.body.appendChild(chainCore);
+
+    const chainSet = (p) => {
+        if (!twG || !tgG) return;
+        const a = twG.g.el.getBoundingClientRect();
+        const b = tgG.g.el.getBoundingClientRect();
+        const x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
+        const x2 = b.left + b.width / 2, y2 = b.top + b.height / 2;
+        const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+        const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        const sc = Math.max(0.0001, p);
+        [[chainGlow, 14], [chainCore, 6]].forEach(([el, h]) => {
+            el.style.left = x1 + 'px';
+            el.style.top = (y1 - h / 2) + 'px';
+            el.style.width = len + 'px';
+            el.style.transform = `rotate(${ang}deg) scaleX(${sc})`;
+        });
+    };
+
+    if (twG && tgG) {
+        await clock.animate(500, (p) => {
+            chainSet(p);
+            chainGlow.style.opacity = String(0.9 * p);
+            chainCore.style.opacity = String(p);
+        }, { minRealMs: 500 });
+    }
+    if (skipped) { cleanupAll(); return []; }
+
+    // ④ 全员克隆体缓慢走位（750ms），锁链实时跟随
+    await clock.animate(750, (p) => {
+        const e = 1 - Math.pow(1 - p, 3);
+        for (const gh of ghosts) {
+            const t = gh.toRect; if (!t) continue;
+            const f = gh.g.from;
+            gh.g.el.style.left = (f.left + (t.left - f.left) * e).toFixed(1) + 'px';
+            gh.g.el.style.top = (f.top + (t.top - f.top) * e).toFixed(1) + 'px';
+        }
+        chainSet(1);
+    }, { minRealMs: 750 });
+    if (skipped) { cleanupAll(); return []; }
+
+    // ⑤ 碰撞：白闪 + 高 z 冲击环 + 火花 + 屏震
+    const ringAt = (rect, color, z) => {
+        if (!rect) return;
+        const d = track(document.createElement('div'));
+        d.setAttribute('data-fx', 'temporary');
+        d.style.cssText = `position:fixed;left:${rect.cx}px;top:${rect.cy}px;width:${rect.w}px;height:${rect.h}px;border:3px solid ${color};border-radius:12px;pointer-events:none;z-index:${z};box-shadow:0 0 24px ${color};`;
+        document.body.appendChild(d);
+        clock.animate(620, (p) => {
+            const e = 1 - Math.pow(1 - p, 2);
+            d.style.transform = `translate(-50%,-50%) scale(${0.5 + e * 1.1})`;
+            d.style.opacity = String(1 - p);
+        }).then(() => { if (d.parentNode) d.remove(); });
+    };
+    const sparksAt = (cx, cy, color, n, z) => {
+        for (let i = 0; i < n; i++) {
+            const a = (Math.PI * 2 * i) / n + Math.random() * 0.6;
+            const sp = 26 + Math.random() * 40;
+            const sz = 3 + Math.random() * 3;
+            const d = track(document.createElement('div'));
+            d.setAttribute('data-fx', 'temporary');
+            d.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;margin:${-sz / 2}px 0 0 ${-sz / 2}px;border-radius:50%;background:${color};box-shadow:0 0 9px ${color};pointer-events:none;z-index:${z};`;
+            document.body.appendChild(d);
+            const dur = 380 + Math.random() * 240;
+            clock.animate(dur, (p) => {
+                const e = 1 - Math.pow(1 - p, 2.4);
+                d.style.transform = `translate(${Math.cos(a) * sp * e}px,${Math.sin(a) * sp * e + 30 * p * p}px) scale(${1 - p * 0.7})`;
+                d.style.opacity = String(1 - p * p);
+            }).then(() => { if (d.parentNode) d.remove(); });
+        }
+    };
+
+    const flash = track(document.createElement('div'));
+    flash.setAttribute('data-fx', 'temporary');
+    flash.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:10080;pointer-events:none;opacity:0;';
+    document.body.appendChild(flash);
+    await clock.animate(400, (p) => {
+        flash.style.opacity = p < 0.35 ? String(0.75 * (p / 0.35)) : String(Math.max(0, 0.75 * (1 - (p - 0.35) / 0.65)));
+    });
+    if (twG && twG.toRect) { ringAt(twG.toRect, 'rgba(255,209,102,0.95)', 10062); sparksAt(twG.toRect.cx, twG.toRect.cy, '#ffd166', 12, 10063); }
+    if (tgG && tgG.toRect) { ringAt(tgG.toRect, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgG.toRect.cx, tgG.toRect.cy, '#ff6b3d', 10, 10063); }
+    screenShake();
+    if (skipped) { cleanupAll(); return []; }
+
+    // ⑥ 真伤数字浮出（dash.hits 载荷里带 dmg）
+    const hits = Array.isArray(dash.hits) ? dash.hits : [];
+    hits.forEach((h, i) => {
+        if (!(h.dmg > 0) || h.uid == null) return;
+        clock.wait(120 + i * 90).then(() => {
+            if (skipped) return;
+            const el = document.querySelector(`[data-uid="${h.uid}"]`);
+            const r = el ? el.getBoundingClientRect() : null;
+            if (!r) return;
+            const d = track(document.createElement('div'));
+            d.setAttribute('data-fx', 'temporary');
+            d.textContent = '−' + h.dmg;
+            d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height * 0.18}px;transform:translate(-50%,0);font-size:32px;font-weight:900;color:#ffe9a8;text-shadow:0 0 12px rgba(255,200,80,0.95),0 3px 6px rgba(0,0,0,0.95);z-index:10085;pointer-events:none;opacity:0;`;
+            document.body.appendChild(d);
+            clock.animate(900, (p) => {
+                const e2 = 1 - Math.pow(1 - p, 2.2);
+                d.style.opacity = p < 0.12 ? String(p / 0.12) : String(1 - (p - 0.12) / 0.88);
+                d.style.transform = `translate(-50%,${(-46 * e2).toFixed(1)}px) scale(${(1 + 0.2 * (1 - Math.abs(2 * p - 1))).toFixed(2)})`;
+            }).then(() => { if (d.parentNode) d.remove(); });
+        });
+    });
+    await clock.wait(900);
+    if (skipped) { cleanupAll(); return []; }
+
+    // ⑦ 遮罩淡出（真格已在终位，克隆体留给 storeAfter 淡出）
+    await clock.animate(400, (p) => { mask.style.opacity = String(0.86 * (1 - p)); });
+    chainGlow.style.opacity = '0';
+    chainCore.style.opacity = '0';
+    if (skipBtn.parentNode) skipBtn.remove();
+    cleanupUi();
+
+    return ghosts;
+}
+
 // 主演出：克隆多人 → 金线对拉 → 位移动画（dash 本体超冲回弹）→ 落定特效。
 // 返回克隆体数组交给 39 的 storeAfter（交棒：清 fly 显格后才淡出）。
-export async function showTangWenLiangDash(dash) {
+export async function showTangWenLiangDash(dash, opts) {
+    // 华丽模式（dodgeEffectEnabled）走子弹时间慢速档；简单/自动/快进走原快版
+    if (opts && opts.slowMotion) return showTangWenLiangDashSlow(dash);
     if (!dash || GlobalStore.get('fastForwardActive')) return [];
 
     // moves 载荷（新）优先；旧档无 moves 按旧双单位字段拼两条（兼容老战报回放）

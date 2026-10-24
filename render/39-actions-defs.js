@@ -590,8 +590,9 @@ export const STAGE_ACTION_DEFS = {
             if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
         }
     },
-    // 唐文亮冲刺：纯装饰演出（引擎侧位置已由 doDash 经 moveUnitPosition 落定，POS_CHANGE/STATE_CHANGE
-    //   事件走 core/13 既有链，这里不碰位置数据）。多人版：遍历 moves 全部 uid 设/清 fly。
+    // 唐文亮冲刺：引擎侧位置已由 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 走 core/13 既有链），
+    //   演出层只在 store 步把终位同步进 store（供克隆体取终点格内容）+ 设 fly 隐身，storeAfter 清 fly 交棒。
+    //   多人版：遍历 moves 全部 uid 写位置、设/清 fly。
     [STAGE_ACTION_TYPES.DASH]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
         // 演出顺序（老板口径 2026-10-23）：①先把位置写进 store（供克隆体取终点格内容）→
@@ -632,7 +633,11 @@ export const STAGE_ACTION_DEFS = {
             if (!action.dash) return;
             const fx94 = await import('../fx/94-tangwenliang-dash.js');
             // 克隆体引用交给 storeAfter：落定 → storeAfter 清 fly 显格 → 克隆体才淡出
-            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash);
+            // 华丽模式（dodgeEffectEnabled）走子弹时间慢速档：遮罩内完整演出「锁链→对拉→撞击→归位」；
+            //   简单/自动/快进走原快版。两档返回同一 ghosts 结构，交棒顺序不变。
+            action._dashGhosts = await fx94.showTangWenLiangDash(action.dash, {
+                slowMotion: !!GlobalStore.get('dodgeEffectEnabled')
+            });
         }
     },
     [STAGE_ACTION_TYPES.HANLISA_BURST]: {

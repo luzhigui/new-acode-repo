@@ -230,6 +230,11 @@ export function createTangWenLiangComponent() {
             // 免疫分支（AFTER_ATTACK_IMMUNE，小昭·妹飞天）：上面两条都不发，
             //   这一拳打出去了但回春不叠——补挂一条，保证「冲刺后必叠」在任何结算分支都成立。
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, 60, flushDashHeal);
+            // 闪避分支：被闪避时 core/10 的 skipped 分支直接 return，AFTER_ATTACK/AFTER_MISS 都不发，
+            //   只有 core/12 内部 emit 的 ON_DODGE（data.unit = 攻击者）——漏挂这条导致
+            //   「冲刺后的平A被闪避 → 回春叠不上」（线上实测病根）。tw 作为攻击者时 data.unit === tw 通过，
+            //   别人闪避时 data.unit 是别人、被判据拦掉，不会误触发。
+            eventBus.on(SIGNAL_TYPES.ON_DODGE, 60, flushDashHeal);
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播
             //   （带 target 与 log）——故命中/闪避都算一次出手；射程内无人（休息）时不广播、不计。
@@ -244,7 +249,7 @@ export function createTangWenLiangComponent() {
                 if (idx === dash.cycle && data.target) {
                     doDash(data.target, data.log);
                 } else if (getBattleRng().nextInt(1, 100) <= Math.round(hc.chance * 100)) {
-                    addHuiChunStack(tw, data.log);   // 每次出手 4% 概率叠 1 层，叠层即结算一次回血
+                    addHuiChunStack(tw, data.log);   // 每次出手 4% 概率叠 1 层（只叠层，回血由行动完 ON_UNIT_ACTED 的 tickHuiChun 结算）
                 }
             });
 
