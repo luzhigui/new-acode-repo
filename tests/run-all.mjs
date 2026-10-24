@@ -1,3 +1,8 @@
+// V1.6.0 | 2026-10-24 第 129 轮：CHECKS 新增「规则绑定键漂移自检」（tests/rule-binding-drift-selftest.mjs，
+//   第 12 项，计退码）。由来：第 128 轮立的下轮目标 —— 把契约侧的「绑定键漂移」口径横向铺到规则侧。
+//   难点是 health-rules 里 416 条中文字面量绝大多数是注释/规则名/报错文案，照单全收必误报刷屏；
+//   故先做抽取口径：剥注释 → 只取判据匹配位 → 三类免检（模板拼装 / 规则自身文案 / 反向哨兵白名单·棘轮），
+//   压到 154 条真判据键 + 11 条留痕免检。盯的是"规则靠哪个中文键认领战报"，键漂移即恒空转或恒绿。
 // V1.5.0 | 2026-10-24 第 128 轮：CHECKS 新增「契约绑定键漂移自检」（tests/contract-binding-drift-selftest.mjs，
 //   第 11 项，计退码）。由来：第 127 轮把「恒空转契约 2 条」定性为"样本未覆盖"、立待办等拍板；
 //   本轮取证发现其中一条（HLS_JIUYANG_HEAL）是**契约绑定键过期**——绑的 label 在主代码里零命中，
@@ -22,7 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.5.0';
+export const VER = 'tests/run-all.mjs V1.6.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -49,6 +54,13 @@ const CHECKS = [
     //   FACT_TYPES 引用是否仍在枚举里、契约绑定的账本 group 是否在标准样本里真的有词条。
     //   本轮就是靠这条口径挖出 HLS_JIUYANG_HEAL 的真·假绿（旧键零命中）。
     { name: '契约绑定键漂移自检(离线断言)', script: 'tests/contract-binding-drift-selftest.mjs', args: [] },
+    // V1.6.0 | 2026-10-24 第 129 轮：挂「规则绑定键漂移自检」tests/rule-binding-drift-selftest.mjs。
+    //   第 128 轮在契约侧立了"绑定键漂移"口径并留了下轮目标：把它横向铺到规则侧。本轮交的是
+    //   低噪声抽取口径 —— 先剥注释，再只取**判据匹配位**（比较/包含/分支/正则片段）上的中文字面量，
+    //   配三类免检（模板拼装 / 规则自身文案 / 反向哨兵白名单·棘轮），把 416 条原始字面量压到
+    //   154 条真判据键、11 条留痕免检，避免误报刷屏。盯的是"规则跟主代码之间的接线"：
+    //   规则靠哪个中文字面量认领战报，主代码改名而规则没跟上 ⇒ 判据恒不命中（恒空转或恒绿）。
+    { name: '规则绑定键漂移自检(离线断言)', script: 'tests/rule-binding-drift-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }

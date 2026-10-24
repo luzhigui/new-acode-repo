@@ -1,3 +1,23 @@
+// V6.5.0 | 2026-10-24 第 129 轮 checkActionRights 补「压进即行动」——同一批上游改动（唐文亮冲刺/
+//          压进重写）还让行动权不变量冒出 7 类新红（唐文亮(A) _acted=true 但本回合无正常位行动记录）。
+//          取证（DUMP=3:5 第 4 回合）：整回合唐文亮只留一条「🥢 唐文亮 射程不及，向前压至 5 号位」，
+//          core/10:150-158 实证「前压本身就是这一回合的行动——消耗行动力、本回合不再攻击（老板口径
+//          2026-10-23）」，代码只置 _acted=true 就 return，不发 attack/emptyTarget ⇒ 不是吞回合，
+//          是不变量口径缺了「移动也算一手」这支已登记机制。修法：把 SKILL_ANNOUNCE('突进'+射程不及)
+//          计入本人正常位行动，与 isSilentRelocate 判据⑤ 同为窄口径、不推广成「有公告即算行动」。
+// V6.4.0 | 2026-10-24 第 129 轮 isSilentRelocate 补判据⑤「具名位移改写」——合入上游 main（4f3abfe6，
+//          唐文亮冲刺/压进重写）后 166 冒出 2 条新红（seed=6 stage=6 / seed=20 stage=5，唐文亮(A)）：
+//          惑心换位把唐文亮 6→8 号位（同条武当弟子 8→6 已落地、实证换位确实生效），但**换完还没等到
+//          第一条带快照的出场**，唐文亮就被「🥢 唐文亮 射程不及，向前压至 5 号位」这条静默位移挪走了
+//          ⇒ 之后 11 次出场均在 5/3 号位，166 报「换位后位置未生效」= 假红。
+//          根因是判据①只认「落位号 === 期望位」：那是第 121 轮的保守口径，当时冲刺文案不点名位移者
+//          （只报被拽者），只能靠落位号认；而压进文案**点名**了位移者，落位号不等于期望位时 ① 认不出。
+//          修法：补判据⑤「压进位移」—— 只认 core/10:55 的「射程不及…向前压至 N 号位」这一支
+//          （点名位移者 + 已登记机制 + 落位号），与 ③④ 一样是按证据判定、按机制登记。
+//          ★ 同步否决了更宽的口径「点名即打断（不看落位号、不看机制）」：那个版本虽然也能消掉这 2 条红，
+//            但会推翻 silent-relocate-judge-selftest 的 ①反 / ③反 / 通反 三条既有反例
+//            （那三条按「宁漏勿误」立的），属判据放宽 ⇒ 本轮不采纳，留给用户拍板（见第 129 轮挂账）。
+//          只补证据通道、不碰数值与落地判据；验牙见第 129 轮日志（T11/T17/T18 复跑有牙不减）。
 // V6.3.0 | 2026-10-24 第 125 轮 isSilentRelocate 补两条证据判据（与上游第 118 轮 V6.1.4 关键词名单
 //          取并集后，实测本地 V6.2.0 的通用落位号判据有两类漏判）：
 //          ③ 箭头落位证据 —— 唐文亮冲刺报幕写「唐文亮 5→2」（tangwenliang.js L160 listText），
@@ -37,7 +57,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.2.0';
+export const VER = 'tests/122health-utils.js V6.5.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -748,6 +768,7 @@ export function collectNodesGrouped(log) {
  *   pass（休息/遮挡/生生不息）在 data.unit；快照 _isLinkAttack=true 的属额外攻击、不认；
  *   状态转换即行动（butterflyAttach/Return→data.sisterUid，spiderFly/Return→data.spiderUid）：
  *   FSM 进入附身/飞天时主动置 _acted=true，这就是本人本回合的行动。
+ *   压进（突进）= 行动（第 129 轮新增，见函数内注释）：SKILL_ANNOUNCE('突进' + 射程不及) 记本人。
  * 边界：胜负已分当回合未行动者 _acted=false 不查；死亡者 alive=false 不查；
  *   召唤物 _acted 默认 false、当回合进正常位有记录。
  */
@@ -765,6 +786,16 @@ export function checkActionRights(roundFacts, units) {
              f.factType === FACT_TYPES.SPIDER_FLY || f.factType === FACT_TYPES.SPIDER_RETURN) &&
             (d.sisterUid != null || d.spiderUid != null)) {
             actedNormal.add(d.sisterUid != null ? d.sisterUid : d.spiderUid);
+        }
+        // 压进（突进）即行动（第 129 轮）：标枪射程不及时的「向前压至 N 号位」（core/10:42
+        //   tryAdvanceJavelin）是设计上的「本回合唯一一手」——消耗行动力、本回合不再出手
+        //   （老板口径 2026-10-23），落地面只有一条 SKILL_ANNOUNCE('突进')，既无 attack 也无
+        //   emptyTarget ⇒ 按旧口径被判「_acted=true 却查无出手」= 假红（第 129 轮合入上游后
+        //   唐文亮 7 类）。★ 只认这一支已登记机制（skillName 突进 + 射程不及），**不**推广成
+        //   「有技能公告就算行动」——那会让「被打断/被吞回合」的真红也被放行，属判据放宽。
+        if (f.factType === FACT_TYPES.SKILL_ANNOUNCE && d.skillName === '突进' && d.unitUid != null &&
+            PRESS_FORWARD_RE.test(String(d.note || ''))) {
+            actedNormal.add(d.unitUid);
         }
     }
     const issues = [];
@@ -798,6 +829,8 @@ export function checkActionRights(roundFacts, units) {
 //      不带「互换职业与位置」字样，不会被误放行。
 const LANDING_POS_RE = /(?:至|落在|落至|压至|推至|拽至|飞至|退至)\s*(\d+)\s*号位/;
 const SWAP_ANNOUNCE_RE = /两仪互换/;
+// ⑤ 压进（突进）机制关键词：core/10:55 的「🥢 X 射程不及，向前压至 N 号位」
+const PRESS_FORWARD_RE = /射程不及/;
 // ③ 箭头落位证据：已登记「改站位却不发位移事件」的机制关键词（V6.1.3 立、V6.3.0 与上游第 118 轮
 //   名单取并集）。★ 今后再加此类机制，往这里登记关键词即可；但优先靠 ④ 载荷证据自动覆盖。
 const RELOCATE_MECHANISMS = ['冲刺·七伤齐发', '红血', '蓄意轰拳', '两仪互换', '标枪'];
@@ -859,5 +892,17 @@ export function isSilentRelocate(mid, exp) {
     }
     // ④ 载荷落位证据（无文本的纯 fact 位移，如蓄意轰拳）
     if (payloadLanding(mid, exp)) return true;
+    // ⑤ 压进位移（第 129 轮）：「🥢 X 射程不及，向前压至 N 号位」（core/10:55，skillName '突进'，
+    //   任何远程单位够不着目标都会压进）。它点名位移者、且真的改写了站位，却**从不发位移事件**
+    //   ⇒ 之前四条判据一条都认不出：①要看落位号恰好等于期望位（压到别的位就不算），
+    //   ③④要看已登记机制关键词（'突进' 从未登记）。
+    //   后果：166 惑心换位把唐文亮换到 8 号位（同条武当弟子 8→6 已落地，实证换位生效），
+    //   换完还没等到第一条带快照的出场，唐文亮就被压进挪到 5 号位 ⇒ 11 次出场均不在 8 号位
+    //   ⇒ 166 报「换位后位置未生效」= 假红（seed=6 stage=6 / seed=20 stage=5 两条）。
+    //   判定：点名期望单位 + 命中压进关键词 + 宣告落位号 ⇒ 该单位位置已被第三方改写，归因链到此为止。
+    //   ★ 只认「压进」这一支已登记机制，**不**推广成「点名即打断」—— 广口径会推翻既有
+    //     ①反/③反/通反 三条反例的语义（那三条是第 121-125 轮按「宁漏勿误」立的），属判据放宽，
+    //     本轮**否决**广口径、只补这一支漏判，并把广口径是否采纳留给用户拍板（见第 129 轮日志挂账）。
+    if (t && exp.name && t.indexOf(exp.name) !== -1 && PRESS_FORWARD_RE.test(t) && LANDING_POS_RE.test(t)) return true;
     return false;
 }
