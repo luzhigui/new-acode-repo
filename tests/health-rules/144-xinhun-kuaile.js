@@ -137,7 +137,7 @@ export const rule91 = {
                 var exact = (diff === kl.heal || diff === kl.heal - 1);
                 var pools2 = [afterA || [], afterE || [], beforeA || [], beforeE || []];
                 if (!exact && !hpIsCap(pools2, kl.hpAfter)) {
-                    return { fail: true, msg: '复发：快乐回血' + kl.heal + '点，但血量' + kl.hpBefore + '→'
+                    return { fail: true, msg: '复发：快乐回血与血量脱节：' + kl.heal + '点，但血量' + kl.hpBefore + '→'
                         + kl.hpAfter + ' 既非 +' + kl.heal + ' 也非回满截断（治疗量与实际血量脱节）' };
                 }
             }
@@ -181,10 +181,10 @@ export const rule91 = {
             //   门、不渲染条目 ⇒ 预期性奋代价条目数 = 新婚次数 − 1（下限 0）。旧 1:1 判据在新设计下每场必误报。
             var expectXf = Math.max(xinhun.length - 1, 0);
             if (xingfen.length < expectXf) {
-                return { fail: true, msg: '复发：新婚' + xinhun.length + '次但性奋代价仅' + xingfen.length + '次（首攻免扣后期望 ' + expectXf + ' 次；性奋惩罚漏扣，V5.x 同类问题复发）' };
+                return { fail: true, msg: '复发：性奋惩罚漏扣：新婚' + xinhun.length + '次但性奋代价仅' + xingfen.length + '次（首攻免扣后期望 ' + expectXf + ' 次；性奋惩罚漏扣，V5.x 同类问题复发）' };
             }
             if (xingfen.length > expectXf) {
-                return { fail: true, msg: '复发：性奋代价' + xingfen.length + '次 > 新婚' + xinhun.length + '次（首攻免扣后期望 ' + expectXf + ' 次；疑重复扣）' };
+                return { fail: true, msg: '复发：性奋代价疑重复扣：' + xingfen.length + '次 > 新婚' + xinhun.length + '次（首攻免扣后期望 ' + expectXf + ' 次；疑重复扣）' };
             }
             for (var f = 1; f < xingfen.length; f++) {
                 var step = xingfen[f].penalty - xingfen[f - 1].penalty;

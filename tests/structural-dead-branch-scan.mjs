@@ -214,7 +214,21 @@ async function scanDynamicZeroHit() {
             if (!avail.length) continue;
             const pick = avail[(seed + turn + s.off) % avail.length];
             const def = CONFIG.BUFFS[pick] || {};
-            next.push({ key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick });
+            const nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
+            next.push(nb);
+            // 2026-10-25 第 122 轮（日间线）：补「小昭·妹永久海克斯继承」——与 rules-replay V6.7.2 同口径
+            //   （对齐 player/49battle-flow.js L49-57 真路径）。本扫描器此前与回放器犯同一個错：只建团队
+            //   Buff 不建永久副本 ⇒ 妹永久分支（嗜血 isBrother=true 等）在本扫描器样本里结构性不可达，
+            //   通道 B 把它们报成「零命中候选」实为扫描器自身盲区。仅明教侧继承（真路径同理）。
+            if (s.camp === 'ally') {
+                const xz = alive.find(u => u.isXiaoZhaoBrother);
+                if (xz) {
+                    if (!xz.state._permanentBuffs) Object.assign(xz.state, { _permanentBuffs: [] });
+                    if (!xz.state._permanentBuffs.some(b => b.key === nb.key)) {
+                        xz.state._permanentBuffs.push({ ...nb, remaining: Infinity });
+                    }
+                }
+            }
         }
         return next;
     };

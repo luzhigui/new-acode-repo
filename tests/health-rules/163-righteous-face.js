@@ -36,7 +36,7 @@ export const rule110 = {
             }
             // 判据2：声明值 == 配置真值
             if (face && typeof face.defGain === 'number' && d.pangDefGain !== face.defGain) {
-                return { fail: true, msg: '复发：正义国字脸 pangDefGain=' + d.pangDefGain
+                return { fail: true, msg: '复发：正义国字脸声明值与配置不符：pangDefGain=' + d.pangDefGain
                     + '（配置 defGain=' + face.defGain + '，事实与配置不符）' };
             }
             // 判据3：带 pangDefGain 的攻击应来自胖远桥

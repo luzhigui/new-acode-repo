@@ -85,7 +85,7 @@ export const rule92 = {
 
                 // 复发信号1：合计值与公式不符（系数被回退或漏算一项）
                 if (bd.total !== exp.total) {
-                    return { fail: true, msg: '复发：' + (u.name || '?') + '飞行未命中率' + bd.total + '%，按 CONFIG 真值公式应为'
+                    return { fail: true, msg: '复发：飞行未命中率数值与公式不符：' + (u.name || '?') + '飞行未命中率' + bd.total + '%，按 CONFIG 真值公式应为'
                         + exp.total + '%（飞行基础' + FLY_BASE + ' + 残血×' + exp.low + '×' + LOWHP_BONUS
                         + ' − 空列×' + exp.empty + '×' + EMPTYCOL_REDUCE
                         + (exp.eagle ? ' − 鹰眼' + exp.eagle : '') + '，下限0）' };
@@ -116,7 +116,7 @@ export const rule92 = {
                     // 鹰眼项：只应出现在杨逍身上，且数值 = eagleEye.missReduce×100（V6.1.11）
                     if (label === '鹰眼') {
                         if (it.value !== -exp.eagle) {
-                            return { fail: true, msg: '复发：' + (u.name || '?') + ' 鹰眼项记 ' + it.value + '%，应为 ' + (-exp.eagle) + '%（eagleEye.missReduce 漂移或鹰眼越界到非杨逍单位）' };
+                            return { fail: true, msg: '复发：鹰眼项越界或系数漂移：' + (u.name || '?') + ' 鹰眼项记 ' + it.value + '%，应为 ' + (-exp.eagle) + '%（eagleEye.missReduce 漂移或鹰眼越界到非杨逍单位）' };
                         }
                     }
                 }

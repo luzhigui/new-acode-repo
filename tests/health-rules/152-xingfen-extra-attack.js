@@ -52,20 +52,20 @@ export const rule99 = {
         //   每次消耗都要吃掉一个 _xingFenActive，授予是唯一来源 → 消耗 > 授予 即 consume 失效
         //   （实测 120 场：授予 61 / 消耗 49，恒有余量，判据不会误报）
         if (uses.length > grants.length) {
-            return { fail: true, msg: '复发：性奋消耗' + uses.length + '次 > 授予' + grants.length + '次（consumeXingFen 失效，_xingFenActive 未被清掉 → 性奋无限触发）' };
+            return { fail: true, msg: '复发：性奋消耗超配额：' + uses.length + '次 > 授予' + grants.length + '次（consumeXingFen 失效，_xingFenActive 未被清掉 → 性奋无限触发）' };
         }
         // 检查2：同一回合内消耗 ≥2 次 —— 布尔位一回合只撑得住一次额外攻击
         var useByRound = countByRound(uses);
         for (var r in useByRound) {
             if (useByRound[r] >= 2) {
-                return { fail: true, msg: '复发：第' + r + '回合出现' + useByRound[r] + '次「性奋：获得额外攻击机会」（一回合只应授予一次额外攻击，疑 consumeXingFen/递归防护失效导致无限连击）' };
+                return { fail: true, msg: '复发：性奋单回合重复消耗：第' + r + '回合出现' + useByRound[r] + '次「性奋：获得额外攻击机会」（一回合只应授予一次额外攻击，疑 consumeXingFen/递归防护失效导致无限连击）' };
             }
         }
         // 检查3：同一回合内重复授予（ON_ROUND_START 重复注册或信号双发）
         var grantByRound = countByRound(grants);
         for (var r2 in grantByRound) {
             if (grantByRound[r2] >= 2) {
-                return { fail: true, msg: '复发：第' + r2 + '回合出现' + grantByRound[r2] + '条性奋授予（一回合只应授予一次，疑 ON_ROUND_START 信号重复注册）' };
+                return { fail: true, msg: '复发：性奋单回合重复授予：第' + r2 + '回合出现' + grantByRound[r2] + '条性奋授予（一回合只应授予一次，疑 ON_ROUND_START 信号重复注册）' };
             }
         }
         // 检查4：越界人名 —— 性奋只能由周芷若授予、只能宋青书消耗
@@ -82,7 +82,7 @@ export const rule99 = {
         }
         // 检查5：第一次消耗之前必须先有授予（否则说明 _xingFenActive 凭空为真）
         if (uses.length > 0 && (grants.length === 0 || uses[0].i < grants[0].i)) {
-            return { fail: true, msg: '复发：第' + uses[0].i + '条性奋消耗出现在任何授予之前（_xingFenActive 残留或未授予就触发）' };
+            return { fail: true, msg: '复发：性奋消耗早于授予：第' + uses[0].i + '条性奋消耗出现在任何授予之前（_xingFenActive 残留或未授予就触发）' };
         }
         return { fail: false };
     }

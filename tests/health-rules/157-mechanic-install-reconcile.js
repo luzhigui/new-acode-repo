@@ -43,6 +43,7 @@ export const rule104 = {
     test: function () {
         const problems = checkMechanicInstall();
         if (problems.length === 0) return { fail: false };
-        return { fail: true, msg: '复发：' + problems[0] };
+        // ★ 第 132 轮：同上，原 msg 取 problems[0] 无静态前缀，现已补可定位前缀
+        return { fail: true, msg: '复发：mechanics安装对账失败：' + problems[0] };
     }
 };

@@ -68,8 +68,13 @@ export const rule85 = {
             //    是旧位，再往后两条才落到宣告位），于是"位置其实生效了"却被判未生效 → 误报。
             //    改为：在被下一次换位打断之前，只要任一快照出现宣告位置即视为生效；只有存在
             //    后续快照却全部不等于宣告位置，才是真的"击退没落地"。
-            var expect = [{ uid: pu.pushTargetUid, pos: newPos, tag: '被击退者' }];
-            if (pu.behindUid != null) expect.push({ uid: pu.behindUid, pos: oldPos, tag: '被迫换位者' });
+            //    静默位移名解析（第 121 轮）：唐文亮冲刺会把**他自己** relocate 到前排，文案只报
+            //    被拽者（「拽 X 至 N 号位」），不报他自己 ⇒ 判据要靠名字认出"这条位移改写了谁"。
+            var pt = typeof pu.text === 'string' ? pu.text : '';
+            var pnM = pt.match(/击退！(\S+?)从\d+号位被击退至\d+号位/);
+            var bnM = pt.match(/(\S+?)被迫从\d+号位移至\d+号位/);
+            var expect = [{ uid: pu.pushTargetUid, pos: newPos, tag: '被击退者', name: pnM ? pnM[1] : null }];
+            if (pu.behindUid != null) expect.push({ uid: pu.behindUid, pos: oldPos, tag: '被迫换位者', name: bnM ? bnM[1] : null });
             for (var q = 0; q < expect.length; q++) {
                 var exp = expect[q];
                 var seen = 0, hit = false;
@@ -83,10 +88,12 @@ export const rule85 = {
                     var interrupted = false;
                     for (var s = windPushes[p].idx + 1; s < r; s++) {
                         var mid = log[s];
-                        if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
-                            if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
-                                mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
-                        }
+                            if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
+                                if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
+                                    mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
+                            }
+                            // 第 121 轮补：静默位移（冲刺/撤退/寒离飒位移）也要算打断，否则误报
+                            if (isSilentRelocate(mid, exp)) { interrupted = true; break; }
                     }
                     if (interrupted) break;
                     seen++;

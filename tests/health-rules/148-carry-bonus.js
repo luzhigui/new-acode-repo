@@ -119,13 +119,13 @@ export const rule95 = {
                 var vals = [atk, def, hp];
                 for (var v = 0; v < vals.length; v++) {
                     if (!isFinite(vals[v]) || vals[v] < 0 || Math.floor(vals[v]) !== vals[v]) {
-                        return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 的 carry 加成为 攻+' + atk
+                        return { fail: true, msg: '复发：carry加成非整数：第' + curRound + '回合 ' + who + ' 的 carry 加成为 攻+' + atk
                             + ' 防+' + def + ' 血上限+' + hp + '（公式按 floor 逐项累加，结果必须是非负整数）' };
                     }
                 }
                 // 复发信号4：门控失效 —— 小昭姊妹不该拿到 carry（core/04 明确 isXiaoZhaoSister/isXiaoZhaoBrother 排除）
                 if (who.indexOf('小昭') !== -1) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 拿到了 carry 加成（小昭·姊/弟被门控排除，不该受益）' };
+                    return { fail: true, msg: '复发：carry门控失效：第' + curRound + '回合 ' + who + ' 拿到了 carry 加成（小昭·姊/弟被门控排除，不该受益）' };
                 }
                 // 复发信号1：同一回合同一单位出现 ≥2 条应用声明（每单位每回合应至多 1 条）
                 //   ⚠ 第 36 轮修正（关键）：**多个单位可能同名** —— 召唤物「雄狮」在 seed=18 stage=3 场上
@@ -144,7 +144,7 @@ export const rule95 = {
                 if (nameCount > 1) {
                     ambiguousNames++; // 同名，无法归因到个体，跳过
                 } else if (seenThisRound[who]) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
+                    return { fail: true, msg: '复发：carry重复应用：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
                 }
                 seenThisRound[who] = true;
 
@@ -180,7 +180,7 @@ export const rule95 = {
                     if (minDef != null && Math.floor(minDef * cfg.defBonus) >= 1 && def === 0) zeroBits.push('防');
                     if (minHp != null && Math.floor(minHp * cfg.hpBonus) >= 1 && hp === 0) zeroBits.push('血上限');
                     if (zeroBits.length > 0) {
-                        return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 的 carry 加成 ' + zeroBits.join('/')
+                        return { fail: true, msg: '复发：carry加成静默归零：第' + curRound + '回合 ' + who + ' 的 carry 加成 ' + zeroBits.join('/')
                             + ' 为 0，但最弱队友按配置比例（攻' + cfg.atkBonus + ' 防' + cfg.defBonus + ' 血' + cfg.hpBonus
                             + '）至少应 +1（加成未接上，或血上限分支的 _baseMaxHp 读不到导致静默归零）' };
                     }
@@ -203,7 +203,7 @@ export const rule95 = {
                     var capDef = sumDef * cfg.defBonus * 2;
                     var capHp = sumHp * cfg.hpBonus * 2;
                     if (atk > capAtk || def > capDef || hp > capHp) {
-                        return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
+                        return { fail: true, msg: '复发：carry加成超出上界：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
                             + ' 血上限+' + hp + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
                             + ' 血≤' + Math.round(capHp) + '，比例或死亡倍率被写大）' };
                     }

@@ -61,19 +61,19 @@ export const rule101 = {
 
             // 信号1：二选一被破坏（攻防同时给了）
             if (atk > 0 && def > 0) {
-                return { fail: true, msg: '复发：第' + i + '条 ' + who + ' 生生不息同时给了 攻+' + atk + ' 防+' + def
+                return { fail: true, msg: '复发：生生不息同时给攻防：第' + i + '条 ' + who + ' 生生不息同时给了 攻+' + atk + ' 防+' + def
                     + '（V6.14.7 起每次触发应只给一边）' };
             }
             // 信号3：无回血也无溢出却仍显示加成
             if (heal === 0 && ov === 0 && (atk > 0 || def > 0)) {
-                return { fail: true, msg: '复发：第' + i + '条 ' + who + ' 生生不息在「无回血且无溢出」时仍给了加成（攻+'
+                return { fail: true, msg: '复发：生生不息无源加成：第' + i + '条 ' + who + ' 生生不息在「无回血且无溢出」时仍给了加成（攻+'
                     + atk + ' 防+' + def + '，无源之水）' };
             }
             // 信号2：按公式反推的精确校验
             if (atk > 0) {
                 var expAtk = gainOf(heal, P.healAtkDiv) + gainOf(ov, P.overflowAtkDiv);
                 if (Math.abs(atk - expAtk) > EPS) {
-                    return { fail: true, msg: '复发：第' + i + '条 ' + who + ' 生生不息 回复' + heal + '点/溢出' + ov
+                    return { fail: true, msg: '复发：生生不息加攻数值不符：第' + i + '条 ' + who + ' 生生不息 回复' + heal + '点/溢出' + ov
                         + '点，加攻却写 ' + atk + '，按 content 公式应为 ' + Math.round(expAtk * 10) / 10
                         + '（heal/' + P.healAtkDiv + ' + overflow/' + P.overflowAtkDiv + '，每档地板 ' + P.minBonus + '）' };
                 }
@@ -81,7 +81,7 @@ export const rule101 = {
             if (def > 0) {
                 var expDef = gainOf(heal, P.healDefDiv) + gainOf(ov, P.overflowDefDiv);
                 if (Math.abs(def - expDef) > EPS) {
-                    return { fail: true, msg: '复发：第' + i + '条 ' + who + ' 生生不息 回复' + heal + '点/溢出' + ov
+                    return { fail: true, msg: '复发：生生不息加防数值不符：第' + i + '条 ' + who + ' 生生不息 回复' + heal + '点/溢出' + ov
                         + '点，加防却写 ' + def + '，按 content 公式应为 ' + Math.round(expDef * 10) / 10
                         + '（heal/' + P.healDefDiv + ' + overflow/' + P.overflowDefDiv + '，每档地板 ' + P.minBonus + '）' };
                 }

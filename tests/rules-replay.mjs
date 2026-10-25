@@ -1,3 +1,6 @@
+// V6.7.2 | ~32400 bytes | 2026-10-25 第122轮（日间线合并）：tickAndPickBuffs 增加「小昭·妹永久海克斯继承」
+//   （对齐 player/49battle-flow.js L49-57 真路径）——此前回放不建永久副本，妹永久分支全不可达
+//   （isBrother=true 零发射实锤），详见 tickAndPickBuffs 内注释。叠加在夜间 129-133 轮成果之上。
 // V6.7.1 | ~32300 bytes | 2026-10-17 第97轮转交态修复：KNOWN_TRANSFERS 误用 fetch 垫片内的局部 fs
 //           变量（IIFE 作用域外未定义，try/catch 吞 ReferenceError → 空集 → ⚠️ 永不命中）→ 改 import
 //           node:fs 的 readFileSync 在模块作用域使用；张三丰×2 转交态现可正确标 ⚠️ 且不染红退出码。
@@ -32,7 +35,7 @@
 // 注意：渲染 buff 阵营摘要依赖 GlobalStore.battleStore，本 runner 已按真实流程建 store 并每回合
 //       SET_UNITS 同步（否则所有 buff-summary 渲染不出来，会让 140/141 之类的规则假红）。
 import { readdir } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
@@ -176,6 +179,22 @@ function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
             nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
         }
         next.push(nb);
+        // V6.7.2 | 2026-10-24 第 122 轮（日间线）：补「小昭·妹永久海克斯继承」——对齐 player/49battle-flow.js
+        //   L49-57 真路径（全自动选 Buff 时给明教侧存活妹塞一份 remaining=Infinity 的永久副本，带查重）。
+        //   回放器此前只建团队 Buff、不建永久副本 ⇒ 团队 Buff 4 回合过期后妹仍持有的机制在回放里
+        //   全部不可达：isXiaoZhaoPermanentActive 恒 false（团队在场返 false、过期后 _permanentBuffs 空），
+        //   嗜血 L278 isBrother=true 分支零发射（结构扫描器通道 B 实锤）只是第一症状——
+        //   圣火令/Fortify/灵魂 Drain/流星溅射/背水的妹永久分支同批不可达，蝶血渲染(render/35)同盲。
+        //   仅明教侧（真路径同理；六大派侧选 Buff 不继承）。
+        if (s.camp === CAMP_TYPES.ALLY) {
+            var xzBrother = alive.find(function (u) { return u.isXiaoZhaoBrother; });
+            if (xzBrother) {
+                if (!xzBrother.state._permanentBuffs) Object.assign(xzBrother.state, { _permanentBuffs: [] });
+                if (!xzBrother.state._permanentBuffs.some(function (b) { return b.key === nb.key; })) {
+                    xzBrother.state._permanentBuffs.push({ ...nb, remaining: Infinity });
+                }
+            }
+        }
     }
     return next;
 }
@@ -274,9 +293,13 @@ function runCase(seed, stage) {
         ally: allyTeam.map(u => u.clone()),
         enemy: enemyTeam.map(u => u.clone()),
         // 第 1 回合预注入一轮：真实流程要等到第 3 回合才选 Buff，体检为覆盖机制提前一拍
-        round: 1, activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
+        round: 1, activeBuffs: [],
         allAllies: allyTeam.map(u => u.clone()), _rng: rng
     };
+    // V6.7.2 永久继承补丁：选 Buff 必须落在**本场战斗单位**（battleState.ally 克隆体）上——
+    //   旧写法把 allyTeam（原型）传给 tickAndPickBuffs，永久副本全写进不被战斗使用的对象，
+    //   战斗克隆体永远拿不到（实测蝶血渲染 0 次）。pick 输入只看 alive/role，原型与克隆体等价，pick 结果不变。
+    battleState.activeBuffs = tickAndPickBuffs([], battleState.ally, battleState.enemy, 1, seed, true);
     const log = [];
     const facts = [];   // Step 0：本场原始 fact 全流（含嵌套），喂给规则做数值对账
     let winner = null, lastStep = null;
@@ -354,12 +377,18 @@ function runCase(seed, stage) {
             }
         }
         if (winner || !lastStep) break;
+        // V6.7.2 永久继承补丁的顺序前提：tickAndPickBuffs 会把新 Buff 的永久副本写进传入单位的
+        //   state._permanentBuffs，必须先于 clone() 执行——clone() 深拷 state（core/02 L157-158
+        //   copyAllStateFields 数组深拷贝），顺序反了副本全落进随后被丢弃的旧单位（实测蝶血 0 次）。
+        //   除写入目标外语义与原写法一致（round/pickNew 参数仍用旧 battleState.round）。
+        const nextRoundNo = battleState.round + 1;
+        const nextActiveBuffs = tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+            battleState.round, seed, battleState.round % 3 === 0);
         battleState = {
             ally: lastStep.ally.map(u => u.clone()),
             enemy: lastStep.enemy.map(u => u.clone()),
-            round: battleState.round + 1,
-            activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
-                battleState.round, seed, battleState.round % 3 === 0),
+            round: nextRoundNo,
+            activeBuffs: nextActiveBuffs,
             allAllies: battleState.allAllies,
             _rng: rng
         };
@@ -383,6 +412,10 @@ function runCase(seed, stage) {
 }
 
 const agg = {}, kwHit = {};
+// 分支指纹落盘（第 131 轮 V6.7.2）：仅在显式设置 RULE_MSGS_OUT 时才建容器，默认零副作用
+// ——不改任何判据、不影响既有输出与退出码。与 V6.7.1 的 RULE_STATS_OUT 同款口径（各管一个环境变量）。
+// 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
+const BRANCH_MSGS = process.env.RULE_MSGS_OUT ? new Map() : null;
 let cases = 0;
 for (const seed of SEEDS) {
     for (const stage of STAGES) {
@@ -415,6 +448,12 @@ for (const seed of SEEDS) {
             const a = agg[r.name] || (agg[r.name] = { pass: 0, fail: 0, skip: 0, msgs: [] });
             a[st]++;
             if (st === 'fail' && a.msgs.length < 3) a.msgs.push(`[seed=${seed} stage=${stage}] ${(res.msg || '').slice(0, 160)}`);
+            // 分支指纹：只收集"真的报出来过"的 msg（去重；单规则上限 400 条防内存膨胀）
+            if (BRANCH_MSGS && st === 'fail') {
+                let s = BRANCH_MSGS.get(r.name);
+                if (!s) { s = new Set(); BRANCH_MSGS.set(r.name, s); }
+                if (s.size < 400) s.add(String((res && res.msg) || ''));
+            }
         }
     }
 }
@@ -487,4 +526,29 @@ console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报�
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +
     `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}` +
     `${hookErrorCount ? ' / hook 运行时错误 ' + hookErrorCount + ' 次' : ''}`);
+// 第 130 轮：为「规则恒空转自检」（tests/rule-idle-selftest.mjs）提供机器可读口径。
+// 仅在显式设置 RULE_STATS_OUT 时落盘，默认零副作用——不改任何判据、不影响既有输出与退出码。
+// 落盘内容：样本场次 cases、规则条数、逐条规则 pass/fail/skip 计数，以及本轮解析出的转交名单。
+if (process.env.RULE_STATS_OUT) {
+    try {
+        writeFileSync(
+            process.env.RULE_STATS_OUT,
+            JSON.stringify({ cases, ruleCount: rules.length, agg, knownTransfers: [...KNOWN_TRANSFERS] })
+        );
+    } catch (e) {
+        console.error('RULE_STATS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
+    }
+}
+if (BRANCH_MSGS) {
+    try {
+        const branchMsgs = {};
+        for (const [k, v] of BRANCH_MSGS) branchMsgs[k] = [...v];
+        writeFileSync(
+            process.env.RULE_MSGS_OUT,
+            JSON.stringify({ cases, ruleCount: rules.length, branchMsgs })
+        );
+    } catch (e) {
+        console.error('RULE_MSGS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
+    }
+}
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);

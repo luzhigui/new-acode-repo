@@ -62,13 +62,13 @@ export const rule84 = {
         }
         if (count === 0) return 'skip';
         if (zeroVal > 0) {
-            return { fail: true, msg: '复发：苦练提示' + zeroVal + '处数值为+0攻/+0防（占位提示未过滤，数值不对）' };
+            return { fail: true, msg: '复发：苦练提示占位未过滤：' + zeroVal + '处数值为+0攻/+0防（占位提示未过滤，数值不对）' };
         }
         if (tripleText > 0) {
             return { fail: true, msg: '复发：苦练提示仍写"自身三倍"（V6.1.8 应改"自身双倍"，render/30 文案回退）' };
         }
         if (badVal > 0) {
-            return { fail: true, msg: '复发：苦练提示' + badDetail + '与当前版本(+1攻/+2防/+5血上限，V6.1.7)不符' };
+            return { fail: true, msg: '复发：苦练提示数值与版本不符：' + badDetail + '与当前版本(+1攻/+2防/+5血上限，V6.1.7)不符' };
         }
         // 复发信号5：同一回合苦练 ≥2 次（刷屏/死循环——本应每回合每单位仅 1 次）
         var dupRound = 0, dupCount = 0;
