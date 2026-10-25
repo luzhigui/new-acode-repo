@@ -1,7 +1,9 @@
 // ui/77speed-controls.js — 倍速控制系统（按钮高亮 / 手动锁 / 滚动降速）
-// V1.1.0 | 2026-10-25 | 全局 ×2：所有按钮值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800）；
-//   点已亮的按钮不再"按灭变原速"——永远有一个档位亮着。
-export const VER = 'ui/77speed-controls.js V1.1.0';
+// V1.2.0 | 2026-10-25 8x 按钮改造：点它 = 切 8x + 暂停 + 打开表现参数面板（ui/80 经 UIHandler openPerfPanel 注册），
+//   不再走通用 attachSpeedButton 绑定（关闭面板即恢复运行）。
+// V1.1.1 | 2026-10-25 | 全局 ×2：所有按钮值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800）；
+//   点已亮的按钮 → 变回 1 倍速（原速 300）并清所有高亮（"取消"入口）。
+export const VER = 'ui/77speed-controls.js V1.2.0';
 
 import { getState, setState, GlobalStore } from '../infra/54-global-store.js';
 
@@ -142,7 +144,19 @@ function restoreSpeedFromScroll() {
 // 倍速按钮初始化由 ui/61 在 DOM 就绪后调用（export，不再挂 window）
 function initSpeedButtons() {
     attachSpeedButton('btnSpeed2', 300);
-    attachSpeedButton('btnSpeed8x', 50);
+    // 8x 按钮改造：点它 = 切到 8x + 暂停 + 打开参数面板（面板由 ui/80 注册 openPerfPanel）
+    const btn8x = document.getElementById('btnSpeed8x');
+    if (btn8x) {
+        btn8x.addEventListener('click', () => {
+            onAnyButtonClick();
+            setSpeed(50, true);
+            setState.isPaused(true);
+            GlobalStore.set('bulletTimeActive', true);
+            document.body.classList.add('paused-animations');
+            const fn = GlobalStore.getUIHandler('openPerfPanel');
+            if (typeof fn === 'function') fn();
+        });
+    }
     attachSpeedButton('btnSpeed4x', 150);
     attachSpeedButton('btnSpeed2x', 300);
     attachSpeedButton('btnSpeed05', 800);

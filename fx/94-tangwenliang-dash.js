@@ -1,4 +1,6 @@
 // fx/94-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
+// V2.4.0 | 2026-10-25 冲刺慢版总时长接表现参数表（dashDur）：内部 2910ms 编排按 dashTotal 等比缩放，
+//   各段 minRealMs 同值跟随（遮罩进/锁链/走位/白闪/真伤数字/遮罩出），慢版不再固定 2910ms。
 // V2.3.0 | 2026-10-24 对齐 demo（老板指正「跟 demo 差蛮多、连线没有、对方不动就没高亮」）：
 //   ① 锚点不再依赖 moves：目标在前排不动 / 唐文亮被挡原地时，直接用真格当高亮+连线端点；
 //   ② 金线改「卡边→卡边」并抬到克隆体之上（旧版中心线压在卡片底下，实机等于看不见）；
@@ -19,9 +21,10 @@
 import { clock } from '../infra/52-clock.js';
 import { getCellByPos } from './90fx-ref-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 import { getRoleIcon } from '../render/37-role-cards.js';
 
-export const VER = 'fx/94-tangwenliang-dash.js V2.3.0';
+export const VER = 'fx/94-tangwenliang-dash.js V2.4.0';
 
 // 真实时间等待：clock.wait 会被倍速压缩，子弹时间档不能用它——
 //   用一个空 animate + minRealMs 同值，保证真实时钟走满 ms 才 resolve（暂停时同样冻结）。
@@ -218,6 +221,11 @@ async function showTangWenLiangDashSlow(dash) {
     const ghosts = [];
     let clearHl = () => {};
     let staticCell = null;
+    // 2026-10-25 总时长读参数表（dashDur），按当前 speed 档位；取不到回落 1700。
+    //   内部编排 350+240+620+400+900+400 = 2910ms，按 dashTotal 等比缩放，各段 minRealMs 同值跟随。
+    const dashTotal = getPerfParam('dashDur', GlobalStore.get('speed') || 300) || 1700;
+    const s = dashTotal / 2910;
+    const T = (v) => Math.max(60, Math.round(v * s));
     const track = (el) => { if (el) created.push(el); return el; };
     const cleanupUi = () => { for (const el of created) if (el && el.parentNode) el.remove(); };
     const cleanupAll = () => {
@@ -291,7 +299,7 @@ async function showTangWenLiangDashSlow(dash) {
         }
     }
 
-    await clock.animate(350, (p) => { mask.style.opacity = String(0.34 * p); }, { minRealMs: 350 });
+    await clock.animate(T(350), (p) => { mask.style.opacity = String(0.34 * p); }, { minRealMs: T(350) });
     if (skipped) { cleanupAll(); return []; }
 
     // ③ 粗锁链展开（唐文亮 → 目标），双层发光
@@ -327,12 +335,12 @@ async function showTangWenLiangDashSlow(dash) {
     };
 
     if (twActorEl && tgtActorEl) {
-        await clock.animate(240, (p) => {
+        await clock.animate(T(240), (p) => {
             chainSet(p);
             chainGlow.style.opacity = String(0.9 * p);
             chainCore.style.opacity = String(p);
             chainHead.style.opacity = String(p);
-        }, { minRealMs: 240 });
+        }, { minRealMs: T(240) });
     }
     if (skipped) { cleanupAll(); return []; }
 
@@ -340,7 +348,7 @@ async function showTangWenLiangDashSlow(dash) {
     //   目标原地不动 → 被「顶」一下；队友只快速让位，不抢戏
     const twFrom = twGH ? twGH.g.from : null, twTo = twGH ? twGH.toRect : null;
     const tgtFrom = tgtGH ? tgtGH.g.from : null, tgtTo = tgtGH ? tgtGH.toRect : null;
-    await clock.animate(620, (p) => {
+    await clock.animate(T(620), (p) => {
         if (twFrom && twTo) {
             const dx = twTo.left - twFrom.left, dy = twTo.top - twFrom.top;
             const dist = Math.hypot(dx, dy) || 1;
@@ -382,7 +390,7 @@ async function showTangWenLiangDashSlow(dash) {
             }
         }
         chainSet(1);
-    }, { minRealMs: 620 });
+    }, { minRealMs: T(620) });
     if (staticCell) staticCell.style.transform = '';
     if (skipped) { cleanupAll(); return []; }
 
@@ -421,9 +429,9 @@ async function showTangWenLiangDashSlow(dash) {
     flash.setAttribute('data-fx', 'temporary');
     flash.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:10080;pointer-events:none;opacity:0;';
     document.body.appendChild(flash);
-    await clock.animate(400, (p) => {
+    await clock.animate(T(400), (p) => {
         flash.style.opacity = p < 0.35 ? String(0.75 * (p / 0.35)) : String(Math.max(0, 0.75 * (1 - (p - 0.35) / 0.65)));
-    }, { minRealMs: 400 });
+    }, { minRealMs: T(400) });
     if (twGH && twGH.toRect) { ringAt(twGH.toRect, 'rgba(255,209,102,0.95)', 10062); sparksAt(twGH.toRect.cx, twGH.toRect.cy, '#ffd166', 12, 10063); }
     const tgtRectNow = actorRect(tgtActorEl);
     if (tgtRectNow) { ringAt(tgtRectNow, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgtRectNow.cx, tgtRectNow.cy, '#ff6b3d', 10, 10063); }
@@ -440,7 +448,7 @@ async function showTangWenLiangDashSlow(dash) {
     const hits = Array.isArray(dash.hits) ? dash.hits : [];
     hits.forEach((h, i) => {
         if (!(h.dmg > 0) || h.uid == null) return;
-        realWait(120 + i * 90).then(() => {
+        realWait(T(120 + i * 90)).then(() => {
             if (skipped) return;
             const el = document.querySelector(`[data-uid="${h.uid}"]`);
             const r = el ? el.getBoundingClientRect() : null;
@@ -450,18 +458,18 @@ async function showTangWenLiangDashSlow(dash) {
             d.textContent = '−' + h.dmg;
             d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height * 0.18}px;transform:translate(-50%,0);font-size:32px;font-weight:900;color:#ffe9a8;text-shadow:0 0 12px rgba(255,200,80,0.95),0 3px 6px rgba(0,0,0,0.95);z-index:10085;pointer-events:none;opacity:0;`;
             document.body.appendChild(d);
-            clock.animate(900, (p) => {
+            clock.animate(T(900), (p) => {
                 const e2 = 1 - Math.pow(1 - p, 2.2);
                 d.style.opacity = p < 0.12 ? String(p / 0.12) : String(1 - (p - 0.12) / 0.88);
                 d.style.transform = `translate(-50%,${(-46 * e2).toFixed(1)}px) scale(${(1 + 0.2 * (1 - Math.abs(2 * p - 1))).toFixed(2)})`;
             }).then(() => { if (d.parentNode) d.remove(); });
         });
     });
-    await realWait(900);
+    await realWait(T(900));
     if (skipped) { cleanupAll(); return []; }
 
     // ⑦ 遮罩淡出（真格已在终位，克隆体留给 storeAfter 淡出）
-    await clock.animate(400, (p) => { mask.style.opacity = String(0.34 * (1 - p)); }, { minRealMs: 400 });
+    await clock.animate(T(400), (p) => { mask.style.opacity = String(0.34 * (1 - p)); }, { minRealMs: T(400) });
     chainGlow.style.opacity = '0';
     chainCore.style.opacity = '0';
     chainHead.style.opacity = '0';

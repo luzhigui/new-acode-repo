@@ -2,10 +2,11 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
-// V6.1.1 | 2026-10-19 | ~10400 bytes
-export const VER = 'player/46attack-group.js V6.1.1';
+// V6.1.2 | 2026-10-25 | ~10500 bytes | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
+export const VER = 'player/46attack-group.js V6.1.2';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
@@ -143,7 +144,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
         // clawFast（随爪乾坤衍生）不吃这 120ms 行距——随爪节奏由上面的 60ms 间隔独占，防止双重等待
         if ((entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') && !entry2.clawFast) {
-            await clock.wait(120);
+            await clock.wait(getPerfParam('lineGap', GlobalStore.get('speed') || 300) || 120);
         }
     }
 

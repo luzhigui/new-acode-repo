@@ -2,9 +2,11 @@
 // V1.0.0 | 2026-10-18 | ~4500 bytes
 //   syncStoreFromStep / readRound / setRound / setupDeathTimers 整块迁入。
 //   readRound 仍对外（45 经 42 barrel 取），本文件 export。
-export const VER = 'player/42player-step-sync.js V1.0.0';
+export const VER = 'player/42player-step-sync.js V1.0.1';
 
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { GlobalStore } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 export function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
@@ -71,7 +73,7 @@ export function setupDeathTimers(c) {
                     if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) return;
                     if (c._removedUids) c._removedUids.add(uid);
                     c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
-                }, 3000);
+                }, getPerfParam('corpseDelay', GlobalStore.get('speed') || 300) || 3000);
             }
         }
     });

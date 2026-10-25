@@ -1,5 +1,6 @@
-// V6.3.12 | 2026-10-20 | ~32400 bytes
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.12';
+// V6.3.13 | 2026-10-25 | ~32450 bytes | 飘字/气泡存活接表现参数表：❤回血、💥掉血、⚔加攻、🛡️加防读 floatLife，
+//   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.13';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -112,7 +113,7 @@ export function showDodgeBubble(unit, text) {
         bubble.textContent=text;
         bubble.style.left=(rect.left+rect.width/2)+'px';
         bubble.style.top=(rect.top-8)+'px';
-    }, 1600);
+    }, getPerfParam('bubbleLife', GlobalStore.get('speed') || 300) || 1600);
 }
 
 function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
@@ -178,6 +179,7 @@ export function showHealFloat(unit, heal) {
     rec.lastAt = now;
     _healFloatStack.set(unit.uid, rec);
     const stackOffset = (rec.count - 1) * HEAL_STACK_STEP;
+    // 存活时长读参数表（floatLife），按当前 speed 档位；取不到回落 1400
     acquireFromPool('healFloat', (healEl) => {
         healEl.textContent = '❤+' + heal;
         healEl.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
@@ -188,7 +190,7 @@ export function showHealFloat(unit, heal) {
         healEl.style.right = 'auto';
         healEl.style.top = Math.round(rect.top - 4 - stackOffset) + 'px';
         healEl.style.transform = '';    // 清残留（动画接管 transform）
-    }, 1400);
+    }, getPerfParam('floatLife', GlobalStore.get('speed') || 300) || 1400);
 }
 
 // 攻击力增加飘字
@@ -216,7 +218,7 @@ export function showDefBuffFloat(unit, def) {
         markFloatActive(unit.uid, 'def', w);
         el.style.right = 'auto';
         el.style.top = Math.round(rect.top - 4 - (wrap ? 20 : 0)) + 'px';   // 放得下=一行一个高度；放不下=一上一下
-    }, 1400);
+    }, getPerfParam('floatLife', GlobalStore.get('speed') || 300) || 1400);
 }
 
 // 拒马沙化消散（用户定调：消散≠死亡，不走死亡画笔）：
@@ -276,7 +278,7 @@ export function showAtkBuffFloat(unit, atk) {
         el.style.right = 'auto';
         el.style.top = Math.round(rect.top - 4 - (wrap ? 20 : 0)) + 'px';   // 初始高度与掉血/回血一致；放不下=一上一下
         el.style.zIndex = '10004';
-    }, 1400);
+    }, getPerfParam('floatLife', GlobalStore.get('speed') || 300) || 1400);
 }
 
 // 灭绝师太出手计数：头顶正中飘出大写数字（壹/貳/參 轮换），放大后上浮消散。

@@ -2,11 +2,12 @@
 // V6.5.0 | 2026-10-14 | ~30600 bytes
 // 「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取，不 import 76——
 //   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
-export const VER = 'ui/64main-dialogs.js V6.5.0';
+export const VER = 'ui/64main-dialogs.js V6.5.1';
 
 import { showModal, showAlert, copyLogToClipboard } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
@@ -433,12 +434,14 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
     let nums = ['3', '2', '1'];
     let mainBtn = document.getElementById('btnMain');
     mainBtn.disabled = true;
+    // 每跳时长读参数表（countdownTick），按当前 speed 档位；取不到回落 700
+    const tick = getPerfParam('countdownTick', GlobalStore.get('speed') || 300) || 700;
     for (let i = 0; i < nums.length; i++) {
         let div = document.createElement('div');
         div.className = 'countdown-num';
         div.textContent = nums[i];
         document.body.appendChild(div);
-        await new Promise(r => setTimeout(r, 700));
+        await new Promise(r => setTimeout(r, tick));
         if (div.parentNode) div.parentNode.removeChild(div);
         if (i === 0) {
             let t = trashTalkAlly[randFn(0, trashTalkAlly.length - 1)];
@@ -458,7 +461,7 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
             l.appendChild(d);
             autoScrollLogFn();
         }
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, Math.round(tick * 0.7)));
     }
 }
 
