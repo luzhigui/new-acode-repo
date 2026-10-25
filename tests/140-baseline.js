@@ -32,6 +32,9 @@
 //       （无参数运行已禁止：exit 2 并打印用法——旧口径无参数即写基线，曾因少打 --check 毁过基准）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
+// VER-HOLD-DECL 第 136 轮：VER 刻意保持 V1.7.1，不追到版本日志已有的 V1.7.2 —— 本文件的 VER 会被写进
+//       入库产物 tests/baselines/baseline-v1.json 的 version 字段，单抬 VER 会让「已入库基线的 version」与
+//       「脚本自报的 VER」脱节；是否允许连带刷新该字段属动基线范畴，须先拍板。故此处登记 hold，不做归位。
 export const VER = 'tests/140-baseline.js V1.7.1';
 
 import { fileURLToPath } from 'node:url';

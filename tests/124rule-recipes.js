@@ -10,7 +10,7 @@
 //          VER 对账会漏掉本文件）；删除死常量 TAG_PREFIX 与 getRuleGroups 里未使用的 prefix 变量。
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.3';
+export const VER = 'tests/124rule-recipes.js V1.2.4';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
