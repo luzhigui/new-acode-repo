@@ -2,8 +2,10 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
+// V6.2.0 | 2026-10-25 无锚点 info/detail 改整行直出（不逐字），行间隔改 clock.waitReal 真实毫秒；
+//   白骨爪 / 带 _anchorSpecs 的行仍逐字跟特效
 // V6.1.2 | 2026-10-25 | ~10500 bytes | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
-export const VER = 'player/46attack-group.js V6.1.2';
+export const VER = 'player/46attack-group.js V6.2.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { getPerfParam } from '../core/23perf-params.js';
@@ -101,6 +103,17 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             continue;
         }
 
+        // 无锚点 info/detail（攻盾/坚盾/乾坤大挪移/波动/计算等）整行直接出，不逐字。
+        //   行间隔用 waitReal(lineGap)，参数表填多少就是真实多少毫秒。
+        //   白骨爪（isClawHit/clawFast）和有 _anchorSpecs 的不在此列——它们需要逐字跟特效。
+        if ((entry2.type === 'info' || entry2.type === 'detail')
+            && !entry2.isClawHit && !entry2.clawFast
+            && !(entry2._anchorSpecs && entry2._anchorSpecs.length)) {
+            appendLogHTML(entry2.text + '<br>');
+            await clock.waitReal(getPerfParam('lineGap', GlobalStore.get('speed') || 300) || 120);
+            continue;
+        }
+
         // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）
         //   清死重：本块曾连注释一字不差写两遍（外部AI清单#1），删其一
         if (entry2.phantomFlashUid && c.store) {
@@ -144,7 +157,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
         // clawFast（随爪乾坤衍生）不吃这 120ms 行距——随爪节奏由上面的 60ms 间隔独占，防止双重等待
         if ((entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') && !entry2.clawFast) {
-            await clock.wait(getPerfParam('lineGap', GlobalStore.get('speed') || 300) || 120);
+            await clock.waitReal(getPerfParam('lineGap', GlobalStore.get('speed') || 300) || 120);
         }
     }
 

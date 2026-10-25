@@ -1,5 +1,8 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.1 | 2026-10-25 备用工具卡片二次优化（整卡可点）：去掉卡片里占满整行的「打开」大按钮，
+<!-- V6.4.2 | 2026-10-25 备用工具卡片三次定稿：① 一行固定两张并排（repeat(2, minmax(0,1fr))）；
+     ② 卡片高度锁死 56px、宽度由栅格定，说明单行省略，文字长短/换行不再改变卡片尺寸；
+     ③ 右侧恢复固定 46×26 的「打开」小按钮（整卡仍可点），hover 按钮转金色。
+     V6.4.1 | 2026-10-25 备用工具卡片二次优化（整卡可点）：去掉卡片里占满整行的「打开」大按钮，
      改为 logo + 名字 + 两行说明 + 右侧小箭头 ›，hover 整卡上浮、点任意位置即打开；视觉层次按名片式收窄。
      V6.4.0 | 2026-10-25 备用工具区改卡片式（一卡一工具：logo + 名字 + 一句话说明 + 打开按钮）：
      ① 113 统计体检 / 114 基线对比 / 115 阵容搜索 从竖排长卡改成卡片入口，点「打开」在卡片下方展开对应面板
@@ -163,20 +166,23 @@
         .tool-more button { background: #4fc3f7; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .tool-more button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        /* 卡片（2026-10-25 二次优化）：整卡可点，横向 icon + 名字 + 两行说明 + 右侧小箭头，不再放大按钮 */
-        .tc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 10px; }
-        .tool-more .tc-card { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
-            background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 8px; padding: 10px 12px;
+        /* 卡片（2026-10-25 三次定稿）：一行两张并排、尺寸锁死（不随文字长短/换行变宽变高），
+           横向 icon + 名字 + 单行说明 + 固定宽度的「打开」按钮 */
+        .tc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+        .tool-more .tc-card { display: flex; align-items: center; gap: 8px; width: 100%; height: 56px; overflow: hidden;
+            text-align: left; background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 8px; padding: 0 10px;
             color: #eee; font-family: monospace; font-weight: normal; cursor: pointer; transition: 0.15s; }
-        .tool-more .tc-card:hover { background: #22223e; border-color: #ffd70088; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+        .tool-more .tc-card:hover { background: #22223e; border-color: #ffd70088; }
         .tool-more .tc-card.active { border-color: #ffd700; background: #262648; }
-        .tc-icon { font-size: 22px; line-height: 1; flex: 0 0 auto; }
-        .tc-body { flex: 1; min-width: 0; }
-        .tc-title { display: block; color: #ffd700; font-weight: bold; font-size: 13px; margin-bottom: 3px; }
-        .tc-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-            color: #8b949e; font-size: 11px; line-height: 1.45; }
-        .tc-arrow { flex: 0 0 auto; color: #4fc3f7; font-size: 16px; line-height: 1; transition: 0.15s; }
-        .tool-more .tc-card:hover .tc-arrow { transform: translateX(2px); }
+        .tc-icon { flex: 0 0 20px; font-size: 20px; line-height: 1; text-align: center; }
+        .tc-body { flex: 1 1 auto; min-width: 0; }
+        .tc-title { display: block; color: #ffd700; font-weight: bold; font-size: 12.5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tc-desc { display: block; color: #8b949e; font-size: 10.5px; line-height: 1.4;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tool-more .tc-open { flex: 0 0 46px; width: 46px; height: 26px; padding: 0; font-size: 11px;
+            border-radius: 6px; background: #4fc3f7; color: #1a1a2e; border: none; font-weight: bold; cursor: pointer; }
+        .tool-more .tc-card:hover .tc-open { background: #ffd700; }
         .tc-panel { margin-top: 10px; background: #1a1a2e; border: 1px solid #ffd70066; border-radius: 10px; padding: 12px; }
         .tc-panel[hidden] { display: none; }
 
@@ -259,60 +265,60 @@
         <button class="tool-link-btn" id="btnOpenBalanceAlert">🚨 平衡告警</button>
     </div>
 
-    <!-- 2026-10-25 备用工具改卡片式：一卡一工具（logo + 名字 + 说明 + 右侧箭头，整卡可点）；
-         点卡片在下方展开对应面板（一次只开一个，再点收起），独立单页仍走页内 iframe 弹窗 -->
+    <!-- 2026-10-25 备用工具改卡片式：一卡一工具（logo + 名字 + 单行说明 + 「打开」按钮，整卡可点）；
+         一行两张并排、尺寸锁死；点卡片在下方展开对应面板（一次只开一个，再点收起），独立单页仍走页内 iframe 弹窗 -->
     <details class="tool-more" id="toolMore">
         <summary>🧰 备用工具（低频工具收拢处）</summary>
 
         <div class="tc-grid">
-            <button class="tc-card" data-tool="stats">
+            <div class="tc-card" data-tool="stats">
                 <span class="tc-icon">🧮</span>
                 <span class="tc-body">
                     <span class="tc-title">统计一致性体检</span>
-                    <span class="tc-desc">用 hp-change 事件流交叉核对承伤 / 治疗记账，只揪负差额（漏记）。</span>
+                    <span class="tc-desc">核对承伤 / 治疗记账，只揪漏记</span>
                 </span>
-                <span class="tc-arrow">›</span>
-            </button>
-            <button class="tc-card" data-tool="baseline">
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="baseline">
                 <span class="tc-icon">⚖️</span>
                 <span class="tc-body">
                     <span class="tc-title">精英基线对比</span>
-                    <span class="tc-desc">同种子跑 A / B 两套精英配置，逐关对照胜率 / 输出 / 承伤 / 存活。</span>
+                    <span class="tc-desc">同种子 A/B 精英，逐关对照四项</span>
                 </span>
-                <span class="tc-arrow">›</span>
-            </button>
-            <button class="tc-card" data-tool="lineup">
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="lineup">
                 <span class="tc-icon">🔎</span>
                 <span class="tc-body">
                     <span class="tc-title">阵容分布搜索</span>
-                    <span class="tc-desc">只初始化不打仗，批量统计六名精英的组合、出场率与站位分布。</span>
+                    <span class="tc-desc">只初始化不打仗，统计组合与站位</span>
                 </span>
-                <span class="tc-arrow">›</span>
-            </button>
-            <button class="tc-card" data-tool="idea">
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="idea">
                 <span class="tc-icon">🎲</span>
                 <span class="tc-body">
                     <span class="tc-title">创意摸奖</span>
-                    <span class="tc-desc">四类创意 × 三种摸法随机拼卡，按引擎现状标合法性。</span>
+                    <span class="tc-desc">创意 × 摸法随机拼卡，标合法性</span>
                 </span>
-                <span class="tc-arrow">›</span>
-            </button>
-            <button class="tc-card" data-tool="param">
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="param">
                 <span class="tc-icon">📊</span>
                 <span class="tc-body">
                     <span class="tc-title">参数扫描</span>
-                    <span class="tc-desc">A 敏感度扫描 + 死参数清单；B 定向搜索并换种子批次复验。</span>
+                    <span class="tc-desc">敏感度扫描 + 死参数 + 定向搜索</span>
                 </span>
-                <span class="tc-arrow">›</span>
-            </button>
-            <button class="tc-card" data-tool="voice">
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="voice">
                 <span class="tc-icon">🎙️</span>
                 <span class="tc-body">
                     <span class="tc-title">语音解说（存档）</span>
-                    <span class="tc-desc">已从主游戏下线、存档待用；这里只看设置项与试听。</span>
+                    <span class="tc-desc">已下线存档，只看设置与试听</span>
                 </span>
-                <span class="tc-arrow">›</span>
-            </button>
+                <button class="tc-open">打开</button>
+            </div>
         </div>
 
         <div class="tc-panel" id="tcPanel-stats" hidden>

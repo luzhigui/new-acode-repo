@@ -1,5 +1,7 @@
+// V6.3.0 | 2026-10-25 | ~18700 bytes | 全部演出改真实时间轴：clock.wait→waitReal（12 处）、clock.animate→animateReal（7 处），
+//   时长不再被 timescale 二次缩放（参数表填多少就是多少）
 // V6.2.1 | 2026-10-17 | ~18600 bytes
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.2.1';
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.0';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -9,7 +11,7 @@ import { clock } from '../infra/52-clock.js';
 import { getPerfParam } from '../core/23perf-params.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, onComplete) {
-    clock.animate(durationMs, (p) => {
+    clock.animateReal(durationMs, (p) => {
         if (p >= 1) {
             for (let i = 0; i < elements.length; i++) {
                 elements[i].style.left = basePositions[i].x + 'px';
@@ -58,7 +60,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     let bowIcon = document.createElement('div'); bowIcon.setAttribute('data-fx', 'temporary'); bowIcon.style.position = 'fixed'; bowIcon.style.left = (sx-12)+'px'; bowIcon.style.top = (sy-20)+'px'; bowIcon.style.fontSize = '22px'; bowIcon.style.zIndex = '10002'; bowIcon.style.pointerEvents = 'none'; bowIcon.textContent = launchIcon;
     if (isMeteor) { bowIcon.style.filter = 'drop-shadow(0 0 6px gold)'; }
     document.body.appendChild(bowIcon);
-    clock.animate(chargeTime, (p) => {
+    clock.animateReal(chargeTime, (p) => {
         if (p >= 1) {
             if (bowIcon.parentNode) bowIcon.remove();
             launchArrow();
@@ -99,7 +101,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
         //   前半程不能直接以目标中心为终点——那样观众读到的是"打到人了又滑开"，读不出未命中。
         const nx0 = Math.cos(angle), ny0 = Math.sin(angle);
         let missEndX = 0, missEndY = 0;
-        clock.animate(flyDuration, (p) => {
+        clock.animateReal(flyDuration, (p) => {
             let curStartX, curStartY;
             if (isMiss) {
                 const veerAt = 0.6;
@@ -127,7 +129,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
                 if (isMiss) {
                     // 未命中收尾：失势翻倒下坠 + 淡出（不抖动——抖动读作命中颤动）
                     missEndX = curStartX; missEndY = curStartY;
-                    clock.animate(450, (p2) => {
+                    clock.animateReal(450, (p2) => {
                         container.style.left = (missEndX + nx0 * 44 * p2) + 'px';
                         container.style.top = (missEndY + 18 + 66 * p2 * p2) + 'px';
                         container.style.transform = `rotate(${angle + p2 * 1.4}rad)`;
@@ -141,7 +143,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
                     ring.setAttribute('data-fx', 'temporary');
                     ring.style.cssText = `position:fixed;left:${ex}px;top:${ey}px;width:40px;height:40px;border:3px solid #FFD700;border-radius:50%;transform:translate(-50%,-50%);z-index:10002;pointer-events:none;box-shadow:0 0 12px #FFA500;animation:meteorRing 0.8s ease-out forwards;`;
                     document.body.appendChild(ring);
-                    clock.wait(800).then(() => { if (ring.parentNode) ring.remove(); });
+                    clock.waitReal(800).then(() => { if (ring.parentNode) ring.remove(); });
                 }
 
                 applyWholeShake([container], pauseAfterHit, [{x: finalStartX, y: finalStartY}], angle, () => { if (container.parentNode) container.remove(); });
@@ -162,9 +164,9 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
     ring.setAttribute('data-fx', 'temporary');
     ring.style.cssText = `position:fixed;left:${px}px;top:${py}px;width:40px;height:40px;border:3px solid #FFD700;border-radius:50%;transform:translate(-50%,-50%);z-index:10002;pointer-events:none;box-shadow:0 0 12px #FFA500;animation:meteorRing 0.8s ease-out forwards;`;
     document.body.appendChild(ring);
-    clock.wait(800).then(() => { if (ring.parentNode) ring.remove(); });
+    clock.waitReal(800).then(() => { if (ring.parentNode) ring.remove(); });
 
-    await clock.wait(300);
+    await clock.waitReal(300);
 
     splashTargets.forEach(st => {
         const rectD = snapshotUnitCell(st);
@@ -201,14 +203,14 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
 
         document.body.appendChild(container);
 
-        clock.animate(flyDuration, (p) => {
+        clock.animateReal(flyDuration, (p) => {
             let curStartX = sx + (finalStartX - sx) * p;
             let curStartY = sy + (finalStartY - sy) * p;
             container.style.left = curStartX + 'px';
             container.style.top = curStartY + 'px';
             if (p >= 1) {
                 if (onHit) onHit(st);
-                clock.wait(600).then(() => { if (container.parentNode) container.remove(); });
+                clock.waitReal(600).then(() => { if (container.parentNode) container.remove(); });
             }
         });
     });
@@ -266,7 +268,7 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
     document.body.appendChild(claw);
 
     // 凝结阶段：放大浮现
-    clock.animate(chargeTime, (p) => {
+    clock.animateReal(chargeTime, (p) => {
         let scale = 0.4 + 0.6 * p;
         claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(${scale})`;
         claw.style.opacity = 0.5 + 0.5 * p;
@@ -275,7 +277,7 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
 
     // 飞行阶段：从攻击者位置飞向目标，不旋转（保持指尖朝向目标）
     function phaseFly() {
-        clock.animate(flyDuration, (p) => {
+        clock.animateReal(flyDuration, (p) => {
             let cx = sx + (ex - sx) * p;
             let cy = sy + (ey - sy) * p;
             claw.style.left = cx + 'px';
@@ -291,17 +293,17 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
                     claw.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
                     claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(2.2)`;
                     claw.style.opacity = '1';
-                    clock.wait(500).then(() => {
+                    clock.waitReal(500).then(() => {
                         claw.style.transition = 'opacity 0.3s';
                         claw.style.opacity = '0';
-                        clock.wait(300).then(() => { if (claw.parentNode) claw.remove(); });
+                        clock.waitReal(300).then(() => { if (claw.parentNode) claw.remove(); });
                     });
-                    clock.wait(600).then(() => {
+                    clock.waitReal(600).then(() => {
                         const finalRectD = snapshotUnitCellRobust(unitD);
                         if (finalRectD) triggerExecuteShatter(finalRectD);
                     });
                 } else {
-                    clock.wait(pauseAfterHit).then(() => { if (claw.parentNode) claw.remove(); });
+                    clock.waitReal(pauseAfterHit).then(() => { if (claw.parentNode) claw.remove(); });
                 }
             }
         });
@@ -314,10 +316,10 @@ function flashBoneClawHit(rect) {
     flash.setAttribute('data-fx', 'temporary');
     flash.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:radial-gradient(circle, rgba(255,238,140,0.95), rgba(235,185,40,0.5));z-index:9990;pointer-events:none;opacity:0.9;border-radius:4px;`;
     document.body.appendChild(flash);
-    clock.wait(180).then(() => {
+    clock.waitReal(180).then(() => {
         flash.style.transition = 'opacity 0.15s';
         flash.style.opacity = '0';
-        clock.wait(150).then(() => { if (flash.parentNode) flash.remove(); });
+        clock.waitReal(150).then(() => { if (flash.parentNode) flash.remove(); });
     });
 }
 
@@ -343,11 +345,11 @@ function triggerExecuteShatter(rect) {
         });
         shards.push(shard);
     }
-    clock.wait(300).then(() => {
+    clock.waitReal(300).then(() => {
         redFlash.style.transition = 'opacity 0.4s';
         redFlash.style.opacity = '0';
     });
-    clock.wait(1000).then(() => {
+    clock.waitReal(1000).then(() => {
         // 修白骨爪斩杀后白屏：原来写成 redFlash.parentNode.remove()——删的是闪光元素的爹
         // （document.body），斩杀碎开播完 1 秒整个页面主体被移除 → 白屏。同款错误还有碎片那行。
         // 应删元素自己：redFlash.remove() / s.remove()。全文件其他特效都是这个正确写法，独这两行漏网。

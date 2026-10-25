@@ -1,6 +1,8 @@
+// V6.3.14 | 2026-10-25 | 池元素存活时长改 clock.waitReal：参数表 floatLife/bubbleLife 填多少就是真实多少毫秒，
+//   不再被 timescale 二次缩放
 // V6.3.13 | 2026-10-25 | ~32450 bytes | 飘字/气泡存活接表现参数表：❤回血、💥掉血、⚔加攻、🛡️加防读 floatLife，
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.13';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.14';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -34,7 +36,8 @@ function acquireFromPool(type, setupFn, duration) {
     el._releaseSeq = (el._releaseSeq || 0) + 1;
     const seq = el._releaseSeq;
     if (duration > 0) {
-        clock.wait(duration).then(() => {
+        // 存活时长用真实时间：参数表填多少就是多少，不被 timescale 二次缩放
+        clock.waitReal(duration).then(() => {
             if (el._releaseSeq !== seq) return;
             releaseToPool(type, el);
         });

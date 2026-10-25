@@ -2,8 +2,9 @@
 // 所有「时间相关的表现参数」集中在此，各模块读这里，不再各写各的。
 // 每项 × 每档：值 = 毫秒。档位 key = 该档位对应的 speed 值（与 ui/77speed-controls 一致）。
 //   '800' = 慢（0.5x 按钮）· '300' = 标准（2x 按钮）· '150' = 快（4x 按钮）· '50' = 极快（8x 按钮）
+// V1.1.0 | 2026-10-25 | 新增 charMsAnchor 锚点行专用每字时长（白骨爪/回血等逐字跟特效的行更快）
 // V1.0.0 | 2026-10-25 | ~2000 bytes
-export const VER = 'core/23perf-params.js V1.0.0';
+export const VER = 'core/23perf-params.js V1.1.0';
 
 // 档位 key（按 speed 值升序 → 速度升序）
 export const SPEED_TIER_KEYS = Object.freeze(['800', '300', '150', '50']);
@@ -11,6 +12,8 @@ export const SPEED_TIER_KEYS = Object.freeze(['800', '300', '150', '50']);
 const DEFAULTS = {
   // ① 逐字文字（每字多少毫秒；0 = 回落旧逻辑）
   charMs:        { '800': 8,    '300': 4,    '150': 2,    '50': 1 },
+  // ①-b 锚点行专用每字时长（白骨爪/回血等需要逐字跟特效的行；比普通行更快）
+  charMsAnchor:  { '800': 4,    '300': 2,    '150': 1,    '50': 1 },
   // ② 整行文字行间隔
   lineGap:       { '800': 200,  '300': 120,  '150': 60,   '50': 30 },
   // ③ 飘字存活（💥❤⚔🛡）
