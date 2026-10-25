@@ -8,7 +8,6 @@ export const HEAL_TRANSLATORS = {
     // 通用回血：任何走 FACT_TYPES.HEAL 的回血都从这里出动作 —— 新增回血无需再加条目
     [FACT_TYPES.HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.KUAI_LE_HEAL]: (data, index) => makeHealAction(data, index),
-    [FACT_TYPES.NINE_YANG_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.WEI_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.CLAW_HEAL]: (data, index) => makeHealAction(data, index),

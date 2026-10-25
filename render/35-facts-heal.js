@@ -55,9 +55,6 @@ export function renderHealFact(fact) {
 // 成昆幻影伪装
 export const renderPhantomDisguiseHealFact = makeHealRenderer({ icon: '🎭', label: '幻影伪装', mode: 'colonPlain', isHealEntry: false });
 
-// 张无忌九阳 / 融会贯通
-export const renderNineYangHealFact = makeHealRenderer({ icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' });   // 模板化：原手写体迁工厂（golden 逐字节比对过），函数名保留供 58 契约引用
-
 // 飞行再生（V6.3.3 | 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
 // 文案回滚：老板否掉「食腐」命名（不好听），弹幕走正常回血款（❤+N），日志用低调版
 export const renderFlyerRegenFact = makeHealRenderer({ icon: '🕊️', label: '飞行再生', mode: 'colonPlain', isHealEntry: true, suffix: f => `（${f.deadCount} 名角色阵亡）` });
@@ -127,9 +124,8 @@ registerFactRenderer(FACT_TYPES.BLOOD_THIRST_LEECH, renderBloodthirstLeechFact);
 registerFactRenderer(FACT_TYPES.HOT_BLOOD_HEAL, renderHotBloodHealFact);
 registerFactRenderer(FACT_TYPES.KUAI_LE_HEAL, renderKuaiLeHealFact);
 registerFactRenderer(FACT_TYPES.HEAL, renderHealFact);
-registerFactRenderer(FACT_TYPES.PHANTOM_DISGUISE_HEAL, renderPhantomDisguiseHealFact);
-registerFactRenderer(FACT_TYPES.NINE_YANG_HEAL, renderNineYangHealFact);
-registerFactRenderer(FACT_TYPES.FLYER_REGEN, renderFlyerRegenFact);
+    registerFactRenderer(FACT_TYPES.PHANTOM_DISGUISE_HEAL, renderPhantomDisguiseHealFact);
+    registerFactRenderer(FACT_TYPES.FLYER_REGEN, renderFlyerRegenFact);
 registerFactRenderer(FACT_TYPES.WEI_LEECH, renderWeiLeechFact);
 registerFactRenderer(FACT_TYPES.QIAN_KUN_DERIVED, renderQianKunDerivedFact);
 registerFactRenderer(FACT_TYPES.ENDLESS_BREATH, renderEndlessBreathFact);

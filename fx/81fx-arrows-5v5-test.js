@@ -232,19 +232,10 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
     const speedKey = GlobalStore.get('speed') || 300;
     const chargeTime = getPerfParam('clawStart', speedKey) || 150;
     const clawSpeed = getPerfParam('clawSpeed', speedKey) || 0.9;
-    let baseMin = 250;
-    if (unitD && unitD.hp !== undefined) {
-        const battleState = GlobalStore.get('currentBattleState');
-        const xiaoZhaoActive = battleState?.ally?.find(u => u.isXiaoZhaoSister && u.alive);
-        if (xiaoZhaoActive) {
-            const zhang = battleState?.ally?.find(u => u.isZhang && u.alive);
-            if (!zhang) {
-                const derivedHeal = Math.floor(unitD.def / 10);
-                if (derivedHeal > 0) baseMin = 180;
-            }
-        }
-    }
-    let flyDuration = Math.max(baseMin, dist / clawSpeed);
+    // 保底只留「看得见」这一条（约 5 帧），不再用它兜速度。
+    //   原来 250ms 会把近距离（同侧对打）全部卡死，爪速参数在近处完全失效。
+    //   小昭乾坤衍生那套 baseMin 180 的特例随之失效（它本来就是给 baseMin 让路的）。
+    let flyDuration = Math.max(80, dist / clawSpeed);
     let pauseAfterHit = 100;
 
     let claw = document.createElement('div');

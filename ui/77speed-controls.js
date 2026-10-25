@@ -94,12 +94,13 @@ function attachSpeedButton(id, speedVal) {
         onAnyButtonClick();
         // V1.1.1：点已亮的按钮 → 变回 1 倍速（原速 300）并清所有高亮（用户要求恢复"取消"入口）
         if (btn.classList.contains('active')) {
-            setState.speed(300);
+            // 取消高亮 = 1 倍速（400）：比 2x（300）慢 1.33 倍，且不点亮任何按钮
+            setState.speed(400);
             manualSpeedLock = false;
             manualSpeedValue = null;
             slideSpeedActive = true;
             const ctx = GlobalStore.get('playerContext');
-            if (ctx) ctx.speed = 300;
+            if (ctx) ctx.speed = 400;
             document.querySelectorAll('.controls button').forEach(b => {
                 b.classList.remove('active', 'semi-active');
             });

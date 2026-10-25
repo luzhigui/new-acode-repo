@@ -34,14 +34,17 @@ function showCloseRangeFX(unitA, unitD, role) {
     else if (role === ROLE_TYPES.FLYER) icon.textContent = '🦅';
     document.body.appendChild(icon);
 
-    clock.animateReal(800, (p) => {
+    // 三段总时长读参数表（closeHitDur），内部飞 / 停 / 淡出各占 1/3
+    const closeTotal = getPerfParam('closeHitDur', GlobalStore.get('speed') || 300) || 900;
+    const closeSeg = Math.max(40, Math.round(closeTotal / 3));
+    clock.animateReal(closeSeg, (p) => {
         icon.style.left = (ax + (bx - ax) * p) + 'px';
         icon.style.top = (ay + (by - ay) * p) + 'px';
         if (p >= 1) {
-            clock.waitReal(800).then(() => {
-                icon.style.transition = 'opacity 0.8s ease-out';
+            clock.waitReal(closeSeg).then(() => {
+                icon.style.transition = `opacity ${closeSeg}ms ease-out`;
                 icon.style.opacity = '0';
-                clock.waitReal(800).then(() => { if (icon.parentNode) icon.remove(); });
+                clock.waitReal(closeSeg).then(() => { if (icon.parentNode) icon.remove(); });
             });
         }
     });
@@ -111,7 +114,7 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
     //   起手 / 回弹按飞行时长的 0.9 比例算（内部编排，不进表）
     const speedKey = GlobalStore.get('speed') || 300;
     const crashSpeed = getPerfParam('crashSpeed', speedKey) || 0.8;
-    const crashDur = Math.max(200, Math.min(1500, flyDist / crashSpeed));
+    const crashDur = Math.max(280, Math.min(1500, flyDist / crashSpeed));
     const chargeDur = Math.round(crashDur * 0.9);
     const returnDur = Math.round(crashDur * 0.9);
 

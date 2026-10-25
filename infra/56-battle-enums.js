@@ -18,7 +18,7 @@ export const FACT_TYPES = Object.freeze({
     XUAN_MING_DOT: 'xuanmingDot', XUAN_MING_POISONED: 'xuanmingPoisoned',
     PHANTOM_DISGUISE_HEAL: 'phantomDisguiseHeal',
     XING_FEN_RETRY: 'xingFenRetry', XIN_HUN: 'xinHun',
-    XING_FEN_COST: 'xingFenCost', NINE_YANG_HEAL: 'nineYangHeal',
+    XING_FEN_COST: 'xingFenCost',
     RONG_HUI_BONUS: 'rongHuiBonus', WEI_LEECH: 'weiLeech',
     QIAN_KUN_DERIVED: 'qianKunDerived',
     BUTTERFLY_ATTACH: 'butterflyAttach', BUTTERFLY_NO_HOST: 'butterflyNoHost',

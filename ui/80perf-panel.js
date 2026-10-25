@@ -26,7 +26,7 @@ function saveToStorage() {
     } catch (e) { return false; }
 }
 
-const TIER_LABELS = { '800': '0.5x', '300': '2x', '150': '4x', '50': '8x' };
+const TIER_LABELS = { '800': '0.5x', '400': '1x', '300': '2x', '150': '4x', '50': '8x' };
 
 function buildTable(box) {
     const params = getPerfParams();

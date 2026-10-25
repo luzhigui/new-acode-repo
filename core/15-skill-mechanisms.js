@@ -252,7 +252,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
-                    recordHpAudit(unit, 'nineYangHeal', heal, '九阳神功治疗'); // 账本记实际落地值（与 fact.heal 同口径）
+                    recordHpAudit(unit, 'nineYangHeal', heal, '九阳神功治疗'); // 账本记实际落地值（与 fact.heal 同口径；stat-decl NINE_YANG_HEAL 契约据此 group 追踪九阳回血量
                 }
                 if (shieldGain > 0) {
                     unit.state._permShield = (unit.state._permShield || 0) + shieldGain;

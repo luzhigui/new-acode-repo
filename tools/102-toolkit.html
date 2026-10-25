@@ -1,5 +1,9 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.2 | 2026-10-25 备用工具卡片三次定稿：① 一行固定两张并排（repeat(2, minmax(0,1fr))）；
+<!-- V6.4.3 | 2026-10-25 备用工具卡片四次定稿（修左右重叠 + 文字裁切）：
+     ① 根因是卡片缺 box-sizing:border-box——width:100% 再叠内边距/边框会撑出列宽，两列互相压住；已补；
+     ② 卡内改竖排三行：icon + 完整名字（独占整卡宽）/ 说明两行 / 右下角固定 44×22「打开」；
+     ③ 高度锁死 92px、说明由单行省略改为两行截断，标题不再被按钮挤掉；说明文案同步收短。
+     V6.4.2 | 2026-10-25 备用工具卡片三次定稿：① 一行固定两张并排（repeat(2, minmax(0,1fr))）；
      ② 卡片高度锁死 56px、宽度由栅格定，说明单行省略，文字长短/换行不再改变卡片尺寸；
      ③ 右侧恢复固定 46×26 的「打开」小按钮（整卡仍可点），hover 按钮转金色。
      V6.4.1 | 2026-10-25 备用工具卡片二次优化（整卡可点）：去掉卡片里占满整行的「打开」大按钮，
@@ -166,22 +170,25 @@
         .tool-more button { background: #4fc3f7; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .tool-more button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        /* 卡片（2026-10-25 三次定稿）：一行两张并排、尺寸锁死（不随文字长短/换行变宽变高），
-           横向 icon + 名字 + 单行说明 + 固定宽度的「打开」按钮 */
+        /* 卡片（2026-10-25 四次定稿）：一行两张、尺寸锁死；卡内竖排三行——
+           ① icon + 完整名字（整卡宽）② 说明两行 ③ 右下角固定小「打开」按钮。
+           关键：box-sizing:border-box —— 少了它 width:100% 会把内边距/边框叠出去，两列互相压住（左右重叠的根因） */
         .tc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-        .tool-more .tc-card { display: flex; align-items: center; gap: 8px; width: 100%; height: 56px; overflow: hidden;
-            text-align: left; background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 8px; padding: 0 10px;
+        .tool-more .tc-card { display: flex; flex-direction: column; gap: 4px; width: 100%; height: 92px;
+            box-sizing: border-box; overflow: hidden; text-align: left;
+            background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 8px; padding: 8px 10px;
             color: #eee; font-family: monospace; font-weight: normal; cursor: pointer; transition: 0.15s; }
         .tool-more .tc-card:hover { background: #22223e; border-color: #ffd70088; }
         .tool-more .tc-card.active { border-color: #ffd700; background: #262648; }
-        .tc-icon { flex: 0 0 20px; font-size: 20px; line-height: 1; text-align: center; }
-        .tc-body { flex: 1 1 auto; min-width: 0; }
-        .tc-title { display: block; color: #ffd700; font-weight: bold; font-size: 12.5px;
+        .tc-head { display: flex; align-items: center; gap: 5px; min-width: 0; }
+        .tc-icon { flex: 0 0 auto; font-size: 15px; line-height: 1; }
+        .tc-title { flex: 1 1 auto; min-width: 0; color: #ffd700; font-weight: bold; font-size: 11.5px; line-height: 1.2;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tc-desc { display: block; color: #8b949e; font-size: 10.5px; line-height: 1.4;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tool-more .tc-open { flex: 0 0 46px; width: 46px; height: 26px; padding: 0; font-size: 11px;
-            border-radius: 6px; background: #4fc3f7; color: #1a1a2e; border: none; font-weight: bold; cursor: pointer; }
+        .tc-desc { flex: 1 1 auto; min-width: 0; color: #8b949e; font-size: 10px; line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .tool-more .tc-open { align-self: flex-end; flex: 0 0 auto; box-sizing: border-box;
+            width: 44px; height: 22px; padding: 0; font-size: 10.5px; border-radius: 5px;
+            background: #4fc3f7; color: #1a1a2e; border: none; font-weight: bold; cursor: pointer; }
         .tool-more .tc-card:hover .tc-open { background: #ffd700; }
         .tc-panel { margin-top: 10px; background: #1a1a2e; border: 1px solid #ffd70066; border-radius: 10px; padding: 12px; }
         .tc-panel[hidden] { display: none; }
@@ -272,51 +279,33 @@
 
         <div class="tc-grid">
             <div class="tc-card" data-tool="stats">
-                <span class="tc-icon">🧮</span>
-                <span class="tc-body">
-                    <span class="tc-title">统计一致性体检</span>
-                    <span class="tc-desc">核对承伤 / 治疗记账，只揪漏记</span>
-                </span>
+                <span class="tc-head"><span class="tc-icon">🧮</span><span class="tc-title">统计一致性体检</span></span>
+                <span class="tc-desc">核对承伤 / 治疗记账</span>
                 <button class="tc-open">打开</button>
             </div>
             <div class="tc-card" data-tool="baseline">
-                <span class="tc-icon">⚖️</span>
-                <span class="tc-body">
-                    <span class="tc-title">精英基线对比</span>
-                    <span class="tc-desc">同种子 A/B 精英，逐关对照四项</span>
-                </span>
+                <span class="tc-head"><span class="tc-icon">⚖️</span><span class="tc-title">精英基线对比</span></span>
+                <span class="tc-desc">同种子 A/B 逐关对照</span>
                 <button class="tc-open">打开</button>
             </div>
             <div class="tc-card" data-tool="lineup">
-                <span class="tc-icon">🔎</span>
-                <span class="tc-body">
-                    <span class="tc-title">阵容分布搜索</span>
-                    <span class="tc-desc">只初始化不打仗，统计组合与站位</span>
-                </span>
+                <span class="tc-head"><span class="tc-icon">🔎</span><span class="tc-title">阵容分布搜索</span></span>
+                <span class="tc-desc">只初始化，统计组合与站位</span>
                 <button class="tc-open">打开</button>
             </div>
             <div class="tc-card" data-tool="idea">
-                <span class="tc-icon">🎲</span>
-                <span class="tc-body">
-                    <span class="tc-title">创意摸奖</span>
-                    <span class="tc-desc">创意 × 摸法随机拼卡，标合法性</span>
-                </span>
+                <span class="tc-head"><span class="tc-icon">🎲</span><span class="tc-title">创意摸奖</span></span>
+                <span class="tc-desc">随机拼卡，按引擎标合法性</span>
                 <button class="tc-open">打开</button>
             </div>
             <div class="tc-card" data-tool="param">
-                <span class="tc-icon">📊</span>
-                <span class="tc-body">
-                    <span class="tc-title">参数扫描</span>
-                    <span class="tc-desc">敏感度扫描 + 死参数 + 定向搜索</span>
-                </span>
+                <span class="tc-head"><span class="tc-icon">📊</span><span class="tc-title">参数扫描</span></span>
+                <span class="tc-desc">敏感度扫描 + 死参数</span>
                 <button class="tc-open">打开</button>
             </div>
             <div class="tc-card" data-tool="voice">
-                <span class="tc-icon">🎙️</span>
-                <span class="tc-body">
-                    <span class="tc-title">语音解说（存档）</span>
-                    <span class="tc-desc">已下线存档，只看设置与试听</span>
-                </span>
+                <span class="tc-head"><span class="tc-icon">🎙️</span><span class="tc-title">语音解说（存档）</span></span>
+                <span class="tc-desc">已下线存档，仅试听</span>
                 <button class="tc-open">打开</button>
             </div>
         </div>

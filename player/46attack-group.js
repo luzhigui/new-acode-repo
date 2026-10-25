@@ -13,6 +13,7 @@ import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '.
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
+import { markGridShake } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -52,17 +53,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     const textEntries = entry.entries || [];
-    const lineCount = textEntries.length;
-    // flash 持续时长：1x 基准（每行 600ms + 300ms 余量），clock 自动缩放/快进
-    const atkFlashDuration = lineCount * 600 + 300;
-    // 受击黄闪分档（老板口径：按本击伤害是否「溢杀」）：
-    //   溢杀 = 本击伤害直接把血打空（entry.isDead 且 hpAfter<=0，即 render/34 的 dmgResult.dead 路径）
-    //     → 黄闪只留 600ms，到点即上死亡态，不等整段战报播完；
-    //   非溢杀 = 血量没打空、靠斩杀/处决（executeKill，此时攻击组 isDead 但 hpAfter>0）等流程才死
-    //     → 维持原时长（多留一会儿判定），死亡落地仍由 player/42 步末 pendingDeaths 统一处理。
+    // 受击黄闪不再单独猜时长——文字已改真实毫秒，猜出来的数必然对不上，
+    //   结果就是「文字还没播完、黄闪已经没了」。
+    //   现在的规则：非溢杀一路挂到本组文字播完（函数末尾统一 CLEAR_UNIT_FLASH）；
+    //   溢杀 = 本击直接把血打空，600ms 后提前上死亡态，不等战报播完。
     const isOverkill = !!(unitD && entry.isDead === true
         && typeof entry.hpAfter === 'number' && entry.hpAfter <= 0);
-    const defFlashDuration = isOverkill ? 600 : atkFlashDuration;
 
     await clock.wait(200);
     if (abortSig && abortSig.aborted) return { isBattleOver: false };
@@ -70,20 +66,17 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (unitD && !entry.isMiss && !entry.isDodge && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEFEND });
     }
-    // 受击方 flash 延迟清除：用 cancel flag 替代 clearTimeout（clock.wait 不可取消）
+    // 受击方 flash：只有溢杀需要中途定时（600ms 后上死亡态）；
+    //   非溢杀不设定时器，黄闪挂到函数末尾统一清。
+    //   defTimerCancelled 保留：abort 或提前结束时让溢杀定时器失效（clock.waitReal 不可取消）。
     let defTimerCancelled = false;
-    if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
-        clock.wait(defFlashDuration).then(() => {
+    if (isOverkill && unitD && c.store) {
+        clock.waitReal(600).then(() => {
             if (defTimerCancelled) return;
             if (!c.store || !unitD) return;
-            if (isOverkill) {
-                // 溢杀：黄闪到点直接进死亡态（与 player/42 步末落地同两条 dispatch；
-                //   那里有 `!_isDead` 守卫，不会重复落地）
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
-            } else if (!entry.isDead) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
-            }
+            // 与 player/42 步末落地同两条 dispatch；那里有 `!_isDead` 守卫，不会重复落地
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
         });
     }
 
@@ -148,6 +141,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 unitUid: entry2.clawTargetUid,
                 payload: { hp: Math.max(0, entry2.hpAfter) }
             });
+            // 逐爪抖动：跟飞箭命中同一个函数（markGridShake），同一套观感。
+            //   必须在 dispatch 之后调——重绘会清掉内联 transform，先调等于白调。
+            markGridShake(entry2.clawTargetUid, 250);
         }
 
         // 爪击/随爪衍生条目之间极短间隔，形成连续快打节奏

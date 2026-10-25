@@ -15,7 +15,7 @@
 // V3.8.4 | 2026-10-19 第 105 轮：scan-groups 扫地闭环 hlsVamp 盲区（55 契约）——寒离飒蓄意轰拳·吸血
 //   （modules/27 L266-269，vamp=总伤害1/3封顶缺失血；L268 ROUND_STAT_GRANT 声明 + L269 recordHpAudit 实际）。
 //   声明侧读 SKILL_ANNOUNCE 的 hlsBurst 载荷（apexUid/vamp，回放桥同源）；23 条声明/偏差 0，未覆盖清零。
-// V3.8.3 | 2026-10-18 第 99 轮修：NINE_YANG_HEAL 契约过期——引擎已迁通用 HEAL 通道（label='九阳神功回复'），契约仍读旧专用 FACT_TYPES.NINE_YANG_HEAL 致零触发假绿；改读通用 HEAL 事实
+// V3.8.3 | 2026-10-18 第 99 轮修：NINE_YANG_HEAL 契约过期——引擎已迁通用 HEAL 通道（label='九阳神功回复'），契约曾绑旧专用九阳枚举致零触发假绿；改读通用 HEAL 事实
 //         （scan-groups 差集 3 个 group 无契约盯）。主代码补 3 个纯记账数值声明 fact（UNITY_APPLY / LAST_STAND_APPLY
 //         / TW_DASH_APPLY，renderFn:null 不进画面）+ infra/56 enum + infra/58 FACT_SPECS 登记（不渲染不抛错）；
 //         unity/lastStand 为 op:mul 乘法词条走 mulSum 比对（与 HOLY_FLAME/SOUL_DRAIN 同款），twDash 为 op:add
@@ -1371,7 +1371,7 @@ const CONTRACTS = [
     },
     {
         // 2026-10-18 第 99 轮修（高视角扫地发现）：九阳神功早已迁通用 HEAL 通道——core/15 L255 发 FACT_TYPES.HEAL，
-        //   factData 带 heal / label='九阳神功回复' / unitUid / unitName。本契约却仍读旧专用 FACT_TYPES.NINE_YANG_HEAL
+        //   factData 带 heal / label='九阳神功回复' / unitUid / unitName。本契约曾绑旧专用九阳枚举（已随本轮清理删除）
         //   ⇒ 永远 0 声明（零触发假绿，曾被误登记为"长期遗留"）。改读通用 HEAL 事实（label 归属），
         //   与 HLS_JIUYANG_HEAL / PANG_HIT_HEAL 同范式；recordHpAudit group='nineYangHeal' 不变、dir=+1。
         id: 'NINE_YANG_HEAL',
