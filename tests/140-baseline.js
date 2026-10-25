@@ -232,6 +232,16 @@ async function main() {
             console.log(`\n[回归] ${regressions.length} 场（红线：报红，严禁重录基线）`);
             for (const l of regressions) console.log('  ✗ ' + l);
         }
+        // V1.7.2 | 2026-10-25 第 124 轮：机器可读汇总行（RESULT 前缀进 run-all pickKeyLine 关键词表）。
+        //   此前失败态下本闸门没有任何一行含 RESULT/失败 等关键词 ⇒ run-all 回退挑「最后一行」
+        //   （任意 ✗ 明细）⇒ 失败总数不可见——第 123 轮我因此把「10+ 场红」误读成「只有 seed777 一条」，
+        //   并写下错误归因（已纠正）。汇总行必须最后打印，确保 pickKeyLine 取到的是总数而非明细。
+        const total = results.length;
+        if (regressions.length) {
+            console.log(`RESULT: 基线回归 ${regressions.length}/${total} 场（红线，严禁重录；明细见上）`);
+        } else {
+            console.log(`RESULT: 基线预期变更 ${intended.length}/${total} 场（winner 未变，待人工核对后重录）`);
+        }
         // 只有「回归」才退码 1
         if (regressions.length) process.exit(1);
         return;

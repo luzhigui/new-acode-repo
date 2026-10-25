@@ -38,9 +38,11 @@ globalThis.self = globalThis;
 export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.0.0';
 
 const SCAN_ONLY = process.argv.includes('--scan');
-const SEEDS_N = Number(process.env.SEEDS_N || 40);
+// 默认 20 seeds × 7 stages = 140 场（run-all 每次跑的量）。实测命中率 ≈18.6%，
+// 预期命中 ~26，MIN_HITS=3 的假红概率≈0；深扫/校准用 SEEDS_N=40（280 场）手动触发。
+const SEEDS_N = Number(process.env.SEEDS_N || 20);
 const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : [1, 2, 3, 4, 5, 6, 7];
-// 命中下限（棘轮）：低于此数即红。校准依据：强制妹模式下 280 场预期命中 10+（实测见 --scan）。
+// 命中下限（棘轮）：低于此数即红。校准依据：强制妹模式下 140 场预期命中 20+（实测见 --scan）。
 const MIN_HITS = 3;
 
 async function main() {
