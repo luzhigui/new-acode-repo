@@ -68,12 +68,13 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.7.0';
+export const VER = 'tests/rules-replay.mjs V6.7.3';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
-    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
+    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES },
+    { tickAndPickBuffs: _sharedTickAndPickBuffs }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
@@ -82,7 +83,8 @@ const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBa
         import('../modules/24battle-store.js'),
         import('../core/17-state-keys.js'),
         import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js')
+        import('../infra/56-battle-enums.js'),
+        import('./_lib/buff-picker.mjs')
     ]);
 // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
 //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
@@ -142,7 +144,7 @@ const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
 // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
 const NOBUFFS = process.env.NOBUFFS === '1';
 
-// --- 团队海克斯 Buff 注入（V6.1.12）---
+// --- 团队海克斯 Buff 注入 ---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
 //   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
 // 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/49battle-flow.js 的全自动选 Buff
@@ -150,53 +152,15 @@ const NOBUFFS = process.env.NOBUFFS === '1';
 //   每回合递减 remaining（过期淘汰），每 3 回合为明教/六大派各补选一个（与 player/42 的
 //   `round % 3 === 0` 补选节奏一致），并按「已选轮次」轮转键名，让 11 个 Buff 都能轮到。
 // 注意：这里用 seed/round 确定性轮转，不消耗战斗 RNG —— 否则会改变战斗随机序列，破坏可复现性。
+// V6.7.3 | 2026-10-25 第 123 轮：主体逻辑收口至 tests/_lib/buff-picker.mjs（唯一来源）——本函数在
+//   tests/ 下曾有 8 份拷贝且已实证分化三档（xinhun 那份连 cols/rows 块与永久继承都没跟上），
+//   按第 133 轮 _lib/rule-branch-extract.mjs 先例收口。本文件只留 NOBUFFS 环境开关这一 runner 特有能力。
 function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
         .filter(function (b) { return b.remaining > 0; });
+    // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报（runner 特有开关，共享模块不管环境变量）
     if (NOBUFFS || !pickNew) return next;
-    var turn = Math.floor(round / 3); // 第几次补选（round=1 预注入时为 0，其后 3/6/9… 递增）
-    var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
-    for (var i = 0; i < sides.length; i++) {
-        var s = sides[i];
-        var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
-        var existing = mine.map(function (b) { return b.key; });
-        var alive = (s.team || []).filter(function (u) { return u && u.alive; });
-        var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
-            if (existing.indexOf(k) !== -1) return false;
-            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
-            var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-            if (req && !alive.some(function (u) { return u.role === req; })) return false;
-            return true;
-        });
-        if (!avail.length) continue;
-        var pick = avail[(seed + turn + s.off) % avail.length];
-        var def = CONFIG.BUFFS[pick] || {};
-        var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
-        if (pick === BUFF_TYPES.HOLY_FLAME) {
-            // 圣火令需要 cols/rows；核心引擎只给明教重算，敌方快照得自带，否则面板取不到值
-            var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
-            nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
-            nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
-        }
-        next.push(nb);
-        // V6.7.2 | 2026-10-24 第 122 轮（日间线）：补「小昭·妹永久海克斯继承」——对齐 player/49battle-flow.js
-        //   L49-57 真路径（全自动选 Buff 时给明教侧存活妹塞一份 remaining=Infinity 的永久副本，带查重）。
-        //   回放器此前只建团队 Buff、不建永久副本 ⇒ 团队 Buff 4 回合过期后妹仍持有的机制在回放里
-        //   全部不可达：isXiaoZhaoPermanentActive 恒 false（团队在场返 false、过期后 _permanentBuffs 空），
-        //   嗜血 L278 isBrother=true 分支零发射（结构扫描器通道 B 实锤）只是第一症状——
-        //   圣火令/Fortify/灵魂 Drain/流星溅射/背水的妹永久分支同批不可达，蝶血渲染(render/35)同盲。
-        //   仅明教侧（真路径同理；六大派侧选 Buff 不继承）。
-        if (s.camp === CAMP_TYPES.ALLY) {
-            var xzBrother = alive.find(function (u) { return u.isXiaoZhaoBrother; });
-            if (xzBrother) {
-                if (!xzBrother.state._permanentBuffs) Object.assign(xzBrother.state, { _permanentBuffs: [] });
-                if (!xzBrother.state._permanentBuffs.some(function (b) { return b.key === nb.key; })) {
-                    xzBrother.state._permanentBuffs.push({ ...nb, remaining: Infinity });
-                }
-            }
-        }
-    }
-    return next;
+    return _sharedTickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew);
 }
 
 // --- 不变量套件（V6.2.0）：与具体机制无关的低成本断言，逐步跑 ---

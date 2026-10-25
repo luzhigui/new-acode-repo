@@ -37,7 +37,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/xinhun-death-targeted-case.mjs V1.0.1';
+export const VER = 'tests/xinhun-death-targeted-case.mjs V1.0.2';
 
 // 与 stat-decl-vs-actual-check.mjs 同口径的 10 种子（含 12345：沙箱实测矛盾命中种子）
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
@@ -53,34 +53,10 @@ async function main() {
         import('../modules/29battle-init.js'),
         import('../infra/56-battle-enums.js')
     ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     // carry 候选判据与主代码同口径（tickAndPickBuffs 需要，否则 buff 门控机制一场都跑不到）
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
-    // 团队 Buff 注入：复刻自 tests/rules-replay.mjs L113-143（该函数是回放器本地函数、不可导入）；
-    //   seed/round 确定性轮转、不消耗战斗 RNG ⇒ 不改随机序列、可复现。
-    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
-        var next = (activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 }))
-            .filter(b => b.remaining > 0);
-        if (!pickNew) return next;
-        const turn = Math.floor(round / 3);
-        const sides = [{ camp: 'ally', team: ally, off: 0 }, { camp: 'enemy', team: enemy, off: 1 }];
-        for (const s of sides) {
-            const mine = next.filter(b => (b.target || 'ally') === s.camp);
-            const existing = mine.map(b => b.key);
-            const alive = (s.team || []).filter(u => u && u.alive);
-            const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
-                if (existing.indexOf(k) !== -1) return false;
-                if (k === 'carry' && !hasCarryTarget(s.team)) return false;
-                const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-                if (req && !alive.some(u => u.role === req)) return false;
-                return true;
-            });
-            if (!avail.length) continue;
-            const pick = avail[(seed + turn + s.off) % avail.length];
-            const def = CONFIG.BUFFS[pick] || {};
-            next.push({ key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick });
-        }
-        return next;
-    };
+    
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');

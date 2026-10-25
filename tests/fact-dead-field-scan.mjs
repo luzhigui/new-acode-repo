@@ -1,4 +1,4 @@
-// tests/fact-dead-field-scan.mjs | V1.1.0 | 2026-10-21 第 112 轮 · 2026-10-23 第 123 轮扩层
+// tests/fact-dead-field-scan.mjs | V1.1.1 | 2026-10-21 第 112 轮 · 2026-10-23 第 123 轮扩层
 // V1.1.0（第 123 轮）：fact 收集**递归进 attack-group 的 data.entries**。
 //   声明类 fact（嗜血狂刀 / 热血奋战 / 溅射 / 反弹 …）由 core/10 L303-305、L382-384 塞进
 //   `group.data.entries`，**不在 step.log 顶层**；V1.0.0 只读顶层 ⇒ 整批嵌套声明全漏，
@@ -167,31 +167,10 @@ async function main() {
         import('../core/11battle-round.js'),
         import('../modules/29battle-init.js')
     ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
-    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
-        var next = (activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 }))
-            .filter(b => b.remaining > 0);
-        if (!pickNew) return next;
-        const turn = Math.floor(round / 3);
-        const sides = [{ camp: 'ally', team: ally, off: 0 }, { camp: 'enemy', team: enemy, off: 1 }];
-        for (const s of sides) {
-            const mine = next.filter(b => (b.target || 'ally') === s.camp);
-            const existing = mine.map(b => b.key);
-            const alive = (s.team || []).filter(u => u && u.alive);
-            const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
-                if (existing.indexOf(k) !== -1) return false;
-                if (k === 'carry' && !hasCarryTarget(s.team)) return false;
-                const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-                if (req && !alive.some(u => u.role === req)) return false;
-                return true;
-            });
-            if (!avail.length) continue;
-            const pick = avail[(seed + turn + s.off) % avail.length];
-            const def = CONFIG.BUFFS[pick] || {};
-            next.push({ key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick });
-        }
-        return next;
-    };
+
+    
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');

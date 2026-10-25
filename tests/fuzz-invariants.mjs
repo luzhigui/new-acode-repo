@@ -11,7 +11,7 @@
 // 口径：硬伤（高可信）去重后逐条列、退出码 1；可疑项只计数+样本，需人工定性，不单独判红。
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/fuzz-invariants.mjs V1.0.0';
+export const VER = 'tests/fuzz-invariants.mjs V1.0.1';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
 globalThis.fetch = async (url) => {
@@ -37,6 +37,7 @@ const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBa
     import('../core/13battle-shared.js'),
     import('../modules/28buff-tools.js')
 ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
 await import('../modules/25elite-imperial.js');
 await import('../modules/26elite-sixsects.js');
 await import('../modules/27elite-mingjiao.js');
@@ -49,29 +50,7 @@ const seedFrom = Number(argv[0] || process.env.SEED_FROM || 1);
 const seedTo = Number(argv[1] || process.env.SEED_TO || 300);
 const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : [1, 2, 3, 4, 5, 6, 7];
 
-// 确定性团队 Buff 注入（与 rules-replay 同口径，seed/round 轮转、不消耗战斗 RNG）
-function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
-    let next = (activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
-    if (!pickNew) return next;
-    const turn = Math.floor(round / 3);
-    const sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
-    for (const s of sides) {
-        const existing = next.filter(b => (b.target || CAMP_TYPES.ALLY) === s.camp).map(b => b.key);
-        const alive = (s.team || []).filter(u => u && u.alive);
-        const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
-            if (existing.includes(k)) return false;
-            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
-            const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-            if (req && !alive.some(u => u.role === req)) return false;
-            return true;
-        });
-        if (!avail.length) continue;
-        const pick = avail[(seed + turn + s.off) % avail.length];
-        const def = CONFIG.BUFFS[pick] || {};
-        next.push({ key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick });
-    }
-    return next;
-}
+
 
 const hard = new Set();       // 硬伤（高可信真问题）
 const suspect = new Map();    // 可疑（计数 + 样本，需人工定性）
