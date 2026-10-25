@@ -118,6 +118,7 @@ export const rule156 = {
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         const problems = checkDescTruth().concat(checkDescHygiene());
         if (problems.length === 0) return { fail: false };
-        return { fail: true, msg: '复发：' + problems[0] };
+        // ★ 第 132 轮：原 msg 直接取 problems[0]（运行时拼出，无静态前缀）⇒ 本分支属自检裁定不到的盲区，现已补前缀
+        return { fail: true, msg: '复发：技能说明数字与引擎真值不符：' + problems[0] };
     }
 };

@@ -1,3 +1,6 @@
+// V6.7.2 | ~32400 bytes | 2026-10-25 第122轮（日间线合并）：tickAndPickBuffs 增加「小昭·妹永久海克斯继承」
+//   （对齐 player/49battle-flow.js L49-57 真路径）——此前回放不建永久副本，妹永久分支全不可达
+//   （isBrother=true 零发射实锤），详见 tickAndPickBuffs 内注释。叠加在夜间 129-133 轮成果之上。
 // V6.7.1 | ~32300 bytes | 2026-10-17 第97轮转交态修复：KNOWN_TRANSFERS 误用 fetch 垫片内的局部 fs
 //           变量（IIFE 作用域外未定义，try/catch 吞 ReferenceError → 空集 → ⚠️ 永不命中）→ 改 import
 //           node:fs 的 readFileSync 在模块作用域使用；张三丰×2 转交态现可正确标 ⚠️ 且不染红退出码。
@@ -32,7 +35,7 @@
 // 注意：渲染 buff 阵营摘要依赖 GlobalStore.battleStore，本 runner 已按真实流程建 store 并每回合
 //       SET_UNITS 同步（否则所有 buff-summary 渲染不出来，会让 140/141 之类的规则假红）。
 import { readdir } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
@@ -65,12 +68,13 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.7.0';
+export const VER = 'tests/rules-replay.mjs V6.7.3';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
-    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
+    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES },
+    { tickAndPickBuffs: _sharedTickAndPickBuffs }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
@@ -79,7 +83,8 @@ const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBa
         import('../modules/24battle-store.js'),
         import('../core/17-state-keys.js'),
         import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js')
+        import('../infra/56-battle-enums.js'),
+        import('./_lib/buff-picker.mjs')
     ]);
 // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
 //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
@@ -139,7 +144,7 @@ const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
 // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
 const NOBUFFS = process.env.NOBUFFS === '1';
 
-// --- 团队海克斯 Buff 注入（V6.1.12）---
+// --- 团队海克斯 Buff 注入 ---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
 //   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
 // 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/49battle-flow.js 的全自动选 Buff
@@ -147,37 +152,15 @@ const NOBUFFS = process.env.NOBUFFS === '1';
 //   每回合递减 remaining（过期淘汰），每 3 回合为明教/六大派各补选一个（与 player/42 的
 //   `round % 3 === 0` 补选节奏一致），并按「已选轮次」轮转键名，让 11 个 Buff 都能轮到。
 // 注意：这里用 seed/round 确定性轮转，不消耗战斗 RNG —— 否则会改变战斗随机序列，破坏可复现性。
+// V6.7.3 | 2026-10-25 第 123 轮：主体逻辑收口至 tests/_lib/buff-picker.mjs（唯一来源）——本函数在
+//   tests/ 下曾有 8 份拷贝且已实证分化三档（xinhun 那份连 cols/rows 块与永久继承都没跟上），
+//   按第 133 轮 _lib/rule-branch-extract.mjs 先例收口。本文件只留 NOBUFFS 环境开关这一 runner 特有能力。
 function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
         .filter(function (b) { return b.remaining > 0; });
+    // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报（runner 特有开关，共享模块不管环境变量）
     if (NOBUFFS || !pickNew) return next;
-    var turn = Math.floor(round / 3); // 第几次补选（round=1 预注入时为 0，其后 3/6/9… 递增）
-    var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
-    for (var i = 0; i < sides.length; i++) {
-        var s = sides[i];
-        var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
-        var existing = mine.map(function (b) { return b.key; });
-        var alive = (s.team || []).filter(function (u) { return u && u.alive; });
-        var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
-            if (existing.indexOf(k) !== -1) return false;
-            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
-            var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-            if (req && !alive.some(function (u) { return u.role === req; })) return false;
-            return true;
-        });
-        if (!avail.length) continue;
-        var pick = avail[(seed + turn + s.off) % avail.length];
-        var def = CONFIG.BUFFS[pick] || {};
-        var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
-        if (pick === BUFF_TYPES.HOLY_FLAME) {
-            // 圣火令需要 cols/rows；核心引擎只给明教重算，敌方快照得自带，否则面板取不到值
-            var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
-            nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
-            nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
-        }
-        next.push(nb);
-    }
-    return next;
+    return _sharedTickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew);
 }
 
 // --- 不变量套件（V6.2.0）：与具体机制无关的低成本断言，逐步跑 ---
@@ -274,9 +257,13 @@ function runCase(seed, stage) {
         ally: allyTeam.map(u => u.clone()),
         enemy: enemyTeam.map(u => u.clone()),
         // 第 1 回合预注入一轮：真实流程要等到第 3 回合才选 Buff，体检为覆盖机制提前一拍
-        round: 1, activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
+        round: 1, activeBuffs: [],
         allAllies: allyTeam.map(u => u.clone()), _rng: rng
     };
+    // V6.7.2 永久继承补丁：选 Buff 必须落在**本场战斗单位**（battleState.ally 克隆体）上——
+    //   旧写法把 allyTeam（原型）传给 tickAndPickBuffs，永久副本全写进不被战斗使用的对象，
+    //   战斗克隆体永远拿不到（实测蝶血渲染 0 次）。pick 输入只看 alive/role，原型与克隆体等价，pick 结果不变。
+    battleState.activeBuffs = tickAndPickBuffs([], battleState.ally, battleState.enemy, 1, seed, true);
     const log = [];
     const facts = [];   // Step 0：本场原始 fact 全流（含嵌套），喂给规则做数值对账
     let winner = null, lastStep = null;
@@ -354,12 +341,18 @@ function runCase(seed, stage) {
             }
         }
         if (winner || !lastStep) break;
+        // V6.7.2 永久继承补丁的顺序前提：tickAndPickBuffs 会把新 Buff 的永久副本写进传入单位的
+        //   state._permanentBuffs，必须先于 clone() 执行——clone() 深拷 state（core/02 L157-158
+        //   copyAllStateFields 数组深拷贝），顺序反了副本全落进随后被丢弃的旧单位（实测蝶血 0 次）。
+        //   除写入目标外语义与原写法一致（round/pickNew 参数仍用旧 battleState.round）。
+        const nextRoundNo = battleState.round + 1;
+        const nextActiveBuffs = tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+            battleState.round, seed, battleState.round % 3 === 0);
         battleState = {
             ally: lastStep.ally.map(u => u.clone()),
             enemy: lastStep.enemy.map(u => u.clone()),
-            round: battleState.round + 1,
-            activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
-                battleState.round, seed, battleState.round % 3 === 0),
+            round: nextRoundNo,
+            activeBuffs: nextActiveBuffs,
             allAllies: battleState.allAllies,
             _rng: rng
         };
@@ -383,6 +376,10 @@ function runCase(seed, stage) {
 }
 
 const agg = {}, kwHit = {};
+// 分支指纹落盘（第 131 轮 V6.7.2）：仅在显式设置 RULE_MSGS_OUT 时才建容器，默认零副作用
+// ——不改任何判据、不影响既有输出与退出码。与 V6.7.1 的 RULE_STATS_OUT 同款口径（各管一个环境变量）。
+// 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
+const BRANCH_MSGS = process.env.RULE_MSGS_OUT ? new Map() : null;
 let cases = 0;
 for (const seed of SEEDS) {
     for (const stage of STAGES) {
@@ -415,6 +412,12 @@ for (const seed of SEEDS) {
             const a = agg[r.name] || (agg[r.name] = { pass: 0, fail: 0, skip: 0, msgs: [] });
             a[st]++;
             if (st === 'fail' && a.msgs.length < 3) a.msgs.push(`[seed=${seed} stage=${stage}] ${(res.msg || '').slice(0, 160)}`);
+            // 分支指纹：只收集"真的报出来过"的 msg（去重；单规则上限 400 条防内存膨胀）
+            if (BRANCH_MSGS && st === 'fail') {
+                let s = BRANCH_MSGS.get(r.name);
+                if (!s) { s = new Set(); BRANCH_MSGS.set(r.name, s); }
+                if (s.size < 400) s.add(String((res && res.msg) || ''));
+            }
         }
     }
 }
@@ -487,4 +490,29 @@ console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报�
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +
     `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}` +
     `${hookErrorCount ? ' / hook 运行时错误 ' + hookErrorCount + ' 次' : ''}`);
+// 第 130 轮：为「规则恒空转自检」（tests/rule-idle-selftest.mjs）提供机器可读口径。
+// 仅在显式设置 RULE_STATS_OUT 时落盘，默认零副作用——不改任何判据、不影响既有输出与退出码。
+// 落盘内容：样本场次 cases、规则条数、逐条规则 pass/fail/skip 计数，以及本轮解析出的转交名单。
+if (process.env.RULE_STATS_OUT) {
+    try {
+        writeFileSync(
+            process.env.RULE_STATS_OUT,
+            JSON.stringify({ cases, ruleCount: rules.length, agg, knownTransfers: [...KNOWN_TRANSFERS] })
+        );
+    } catch (e) {
+        console.error('RULE_STATS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
+    }
+}
+if (BRANCH_MSGS) {
+    try {
+        const branchMsgs = {};
+        for (const [k, v] of BRANCH_MSGS) branchMsgs[k] = [...v];
+        writeFileSync(
+            process.env.RULE_MSGS_OUT,
+            JSON.stringify({ cases, ruleCount: rules.length, branchMsgs })
+        );
+    } catch (e) {
+        console.error('RULE_MSGS_OUT 落盘失败: ' + (e && e.message ? e.message : e));
+    }
+}
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);

@@ -121,7 +121,7 @@ export const rule98 = {
             if (!(leech > 0)) {
                 var _pd = parentDmgOf(e, log);
                 if (!(leech === 0 && _pd === 1)) {
-                    return { fail: true, msg: '复发：嗜血狂刀吸血量为「+' + raw + '」（唯一合法 +0 是本次伤害恰好 1、'
+                    return { fail: true, msg: '复发：嗜血狂刀吸血量非法归零：为「+' + raw + '」（唯一合法 +0 是本次伤害恰好 1、'
                         + 'floor(1×0.8)=0；其余 0 说明 dmg=0 仍登记（分支2 漏了 dmg>0 守卫））' };
                 }
             }

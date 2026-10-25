@@ -152,7 +152,7 @@ export const rule106 = {
             if (sn && typeof sn.dmg === 'number' && sn.dmg > 0 && maxRatio != null && heal > 0) {
                 var cap = Math.floor(sn.dmg * maxRatio) + Math.max(1, Math.floor(sn.dmg * 0.06));
                 if (heal > cap) {
-                    return { fail: true, msg: '复发：青翼蝠王命中吸血 +' + heal + ' 超过本次伤害 ' + sn.dmg
+                    return { fail: true, msg: '复发：青翼蝠王命中吸血超上限：+' + heal + ' 超过本次伤害 ' + sn.dmg
                         + ' 的 ' + Math.round(heal / sn.dmg * 100) + '%（合法上限 floor(dmg×' + maxRatio
                         + ')，说明 leechMax 被写大或 rate 公式越界）' };
                 }
@@ -183,7 +183,7 @@ export const rule106 = {
                 if (bdmg != null && bdmg > 0 && maxRatio != null) {
                     var bcap = Math.floor(bdmg * maxRatio) + Math.max(1, Math.floor(bdmg * 0.06));
                     if (bHeal > bcap) {
-                        return { fail: true, msg: '复发：青翼蝠王闪避反击吸血 +' + bHeal + ' 超过本次伤害 ' + bdmg
+                        return { fail: true, msg: '复发：青翼蝠王闪避反击吸血超上限：+' + bHeal + ' 超过本次伤害 ' + bdmg
                             + ' 的 ' + Math.round(bHeal / bdmg * 100) + '%（合法上限 floor(dmg×' + maxRatio
                             + ')，说明 leechMax 被写大或 rate 公式越界）' };
                     }

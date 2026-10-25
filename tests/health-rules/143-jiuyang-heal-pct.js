@@ -171,11 +171,13 @@ export const rule90 = {
             var oldExpect = Math.floor(maxHpAt * NINE_YANG_OLD_PCT);
             if (expectLanded - h.heal > 1 && (h.heal === prevExpect || h.heal === oldExpect) && prevExpect !== raw) {
                 var pctTxt = (h.heal === prevExpect) ? '×10%' : '×8%';
-                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHpAt + pctTxt + ')，疑似 V6.1.12 提高的 12% 被回退（落地应为 ' + expectLanded + '）' };
+                // ★ 第 132 轮：本条与下一条曾共用同一指纹「复发：九阳神功回复」，且它俩又是另两条分支指纹的
+                //   前缀 ⇒ 四条分支互相抢匹配，分支级判定失效。补独立前缀（只改报错文案，判据一行未动）。
+                return { fail: true, msg: '复发：九阳神功回复疑似被回退：' + h.heal + '=floor(血上限' + maxHpAt + pctTxt + ')，疑似 V6.1.12 提高的 12% 被回退（落地应为 ' + expectLanded + '）' };
             }
             // 抑疗信号存在但比例对不上（如截脉 ratio 由 content 决定、本规则取不到）→ 无法归因，不误报
             if (hasHealReduceSignal && h.heal < expectLanded) continue;
-            return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠落地期望' + expectLanded + '（当时血上限' + maxHpAt + '×12%=' + raw + '，缺口' + gap + '，抑疗档应为' + expectReduced + '）' };
+            return { fail: true, msg: '复发：九阳神功回复与落地期望不符：' + h.heal + '≠落地期望' + expectLanded + '（当时血上限' + maxHpAt + '×12%=' + raw + '，缺口' + gap + '，抑疗档应为' + expectReduced + '）' };
         }
         return { fail: false };
     }

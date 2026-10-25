@@ -91,17 +91,17 @@ export const rule94 = {
 
                 // 复发信号2：roll 必须落在 nextInt(1,100) 的值域内
                 if (!(roll >= 1 && roll <= 100)) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + pos + '号位拒马判定 roll=' + roll
+                    return { fail: true, msg: '复发：拒马判定roll越界：第' + curRound + '回合 ' + pos + '号位拒马判定 roll=' + roll
                         + ' 越界（应在 1~100，destroyHorse 的 nextInt 边界被改动）' };
                 }
                 // 复发信号1：success ⟺ roll <= prob（等号算消散）
                 if (success !== (roll <= prob)) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + pos + '号位拒马 roll=' + roll + '、成功率'
+                    return { fail: true, msg: '复发：拒马判定写反：第' + curRound + '回合 ' + pos + '号位拒马 roll=' + roll + '、成功率'
                         + prob + '%，却判为"' + m[2] + '"（判定写反，应为 roll<=' + prob + ' 才消散）' };
                 }
                 // 复发信号3：概率必须落在"基值 + 逐次减半"序列里
                 if (!decaySet[prob]) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + pos + '号位拒马销毁概率为' + prob
+                    return { fail: true, msg: '复发：拒马销毁概率递减链断点：第' + curRound + '回合 ' + pos + '号位拒马销毁概率为' + prob
                         + '%，既非基值 ' + BASE_PROB + '% 也不在递减序列（递减链断点，或被写死成别的常数）' };
                 }
                 // 复发信号4：同一回合同一只拒马不得被清算两次 —— 优先按 horseUid 去重。
@@ -111,7 +111,7 @@ export const rule94 = {
                 var uid = (it.horseUid != null && it.horseUid !== '') ? String(it.horseUid) : null;
                 var dedupKey = uid != null ? ('uid:' + uid) : ('pos:' + pos);
                 if (seenThisRound[dedupKey]) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 '
+                    return { fail: true, msg: '复发：拒马同回合重复清算：第' + curRound + '回合 '
                         + (uid != null ? ('uid=' + uid + ' 的拒马') : (pos + '号位拒马'))
                         + '被清算两次（同一只拒马重复进入销毁判定）' };
                 }

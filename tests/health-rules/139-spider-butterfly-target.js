@@ -114,7 +114,8 @@ export const rule86 = {
             }
         }
 
-        if (problems.length > 0) return { fail: true, msg: '复发：' + problems.slice(0, 3).join(' | ') };
+        // ★ 第 132 轮：原 msg 为「复发：」+ problems 拼装 ⇒ 无法定位到分支，现已补前缀
+        if (problems.length > 0) return { fail: true, msg: '复发：小昭妹/姐不可选期被打：' + problems.slice(0, 3).join(' | ') };
         if (spiderFlyIdx === -1 && attachIdx === -1 && enemyAttacks === 0) return 'skip';
         return { fail: false };
     }

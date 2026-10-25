@@ -189,11 +189,11 @@ export const rule79 = {
                     + '（应恒为一位小数，modules/26 bonusDmg 的 floor(×10)/10 收敛被破坏）' };
             }
             if (e.designedDmg < floorDmg - EPS) {
-                return { fail: true, msg: '复发：九阴白骨爪设计值 ' + e.designedDmg + ' 低于设计下限 ' + floorDmg
+                return { fail: true, msg: '复发：九阴白骨爪设计值低于下限：' + e.designedDmg + ' 低于设计下限 ' + floorDmg
                     + '（content 周芷若 chainClaw 声明下界；如 decl.jealous?.baseDmg 缺失或改错）' };
             }
             if (dmg > e.designedDmg + EPS) {
-                return { fail: true, msg: '复发：九阴白骨爪落地伤害 ' + dmg + ' 超过设计值 ' + e.designedDmg
+                return { fail: true, msg: '复发：九阴白骨爪落地值超过设计值：' + dmg + ' 超过设计值 ' + e.designedDmg
                     + '（减伤/回填写反，落地不可大于设计）' };
             }
             // 2.（已删除，第 21 轮）原判据「标记斩杀则目标血量应为 0」是**自相矛盾的伪判据**：

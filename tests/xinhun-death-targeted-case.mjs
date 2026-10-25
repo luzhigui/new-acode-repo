@@ -37,7 +37,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/xinhun-death-targeted-case.mjs V1.0.1';
+export const VER = 'tests/xinhun-death-targeted-case.mjs V1.0.2';
 
 // 与 stat-decl-vs-actual-check.mjs 同口径的 10 种子（含 12345：沙箱实测矛盾命中种子）
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
@@ -53,34 +53,10 @@ async function main() {
         import('../modules/29battle-init.js'),
         import('../infra/56-battle-enums.js')
     ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     // carry 候选判据与主代码同口径（tickAndPickBuffs 需要，否则 buff 门控机制一场都跑不到）
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
-    // 团队 Buff 注入：复刻自 tests/rules-replay.mjs L113-143（该函数是回放器本地函数、不可导入）；
-    //   seed/round 确定性轮转、不消耗战斗 RNG ⇒ 不改随机序列、可复现。
-    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
-        var next = (activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 }))
-            .filter(b => b.remaining > 0);
-        if (!pickNew) return next;
-        const turn = Math.floor(round / 3);
-        const sides = [{ camp: 'ally', team: ally, off: 0 }, { camp: 'enemy', team: enemy, off: 1 }];
-        for (const s of sides) {
-            const mine = next.filter(b => (b.target || 'ally') === s.camp);
-            const existing = mine.map(b => b.key);
-            const alive = (s.team || []).filter(u => u && u.alive);
-            const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
-                if (existing.indexOf(k) !== -1) return false;
-                if (k === 'carry' && !hasCarryTarget(s.team)) return false;
-                const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-                if (req && !alive.some(u => u.role === req)) return false;
-                return true;
-            });
-            if (!avail.length) continue;
-            const pick = avail[(seed + turn + s.off) % avail.length];
-            const def = CONFIG.BUFFS[pick] || {};
-            next.push({ key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick });
-        }
-        return next;
-    };
+    
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');
@@ -105,10 +81,14 @@ async function main() {
             ally: allyTeam.map(u => u.clone()),
             enemy: enemyTeam.map(u => u.clone()),
             round: 1,
-            activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
+            activeBuffs: [],
             allAllies: allyTeam.map(u => u.clone()),
             _rng: rng
         };
+        // V1.0.2 修同款顺序 bug（rules-replay V6.7.2 同型）：选 Buff 必须落在**战斗克隆体**上——
+        //   旧写法传 allyTeam（原型），共享 picker 的永久副本全写进不被战斗使用的对象。
+        //   pick 输入只看 alive/role，原型与克隆体等价，pick 结果不变。
+        battleState.activeBuffs = tickAndPickBuffs([], battleState.ally, battleState.enemy, 1, seed, true);
         const facts = [];
         let songAttacks = 0, zhouMinHp = Infinity, zhouEverDead = false, winner = null;
         let songUid = null, zhouUid = null;
@@ -162,12 +142,17 @@ async function main() {
             }
             if (winner) break;
             if (!lastStep) break;
+            // V1.0.2 修同款顺序 bug（rules-replay V6.7.2 同型）：先选 Buff（共享 picker 会把永久副本
+            //   写进 lastStep 单位的 state._permanentBuffs）后 clone——clone 深拷 state，顺序反了副本
+            //   全落进随后被丢弃的旧单位。round/pickNew 参数仍用旧 battleState.round，语义不变。
+            const nextRoundNo = battleState.round + 1;
+            const nextActiveBuffs = tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+                battleState.round, seed, battleState.round % 3 === 0);
             battleState = {
                 ally: lastStep.ally.map(u => u.clone()),
                 enemy: lastStep.enemy.map(u => u.clone()),
-                round: battleState.round + 1,
-                activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
-                    battleState.round, seed, battleState.round % 3 === 0),
+                round: nextRoundNo,
+                activeBuffs: nextActiveBuffs,
                 allAllies: battleState.allAllies,
                 _rng: rng
             };

@@ -66,7 +66,8 @@ export const rule82 = {
         if (latePos > 0) msgs.push(latePos + '/' + total + '处破防显示位置靠后（应在攻击组最前面、波动行之前）');
         if (misplace > 0) msgs.push(misplace + '处破防行与所在攻击组攻击者/目标不一致或游离在攻击组外');
         if (badReduce > 0) msgs.push(badReduce + '处破防量不在合法档位{2,3,4}（V6.1.3 破防分档回归）');
-        if (msgs.length > 0) return { fail: true, msg: '复发：' + msgs.join(' | ') };
+        // ★ 第 132 轮：原 msg 为「复发：」+ msgs.join()，整体动态 ⇒ 无法定位到分支，现已补前缀
+        if (msgs.length > 0) return { fail: true, msg: '复发：破防显示位置/破防量：' + msgs.join(' | ') };
         return { fail: false };
     }
 };
