@@ -1,4 +1,13 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.3.0 | 2026-10-26 第 138 轮 补「版本行写法」覆盖面：上一版⑪数出「77 个带 VER 文件里只有 26 个
+//        | 真被比对」，本轮顺着追问那 51 个为什么没日志 —— 实测它们**大多并非没有版本史，而是写法不被
+//        | 抽取器认得**：有人写 `// V1.2.0 | 日期`（标准约定），也有人写 `// tests/x.mjs | V1.0.0 | 日期`、
+//        | `// tests/x.mjs V1.0.0`、以及规则文件惯用的 `// V6.1.13（2026-10-19 第 103 轮）：…`。
+//        | 只认第一种 ⇒ 后三种所在的整族文件集体隐形，那里的漂移永远不会有人报。认全四种后：
+//        | 可比对 26 → 43（+65%），无日志 51 → 34，并**当场抓出 4 处此前完全裸奔的真漂移**
+//        | （fact-dead-field-scan V1.2.0、rule-teeth-evidence V1.0.1、structural-dead-branch-scan
+//        | V1.0.1、xinhun-death-targeted-case V1.0.2 —— 四处都已补上当时漏写的日志行）。
+//        | 新增断言⑭：每种写法自带样例行自证 + 真实文件数下限，正则被改坏或某写法灭绝都会响。
 // V1.2.0 | 2026-10-26 第 137 轮 补「可比对规模」闸门（断言⑪⑫⑬）：上一版只有①规模闸门，而①数的是
 //        | 「带 VER 的文件数」（实测 77），真正被断言②拿去比对的却是「有可解析版本日志的文件数」——实测
 //        | 只有 26 个，另外 51 个（占 66%，几乎全是 health-rules 的 47 个规则文件）因 logMax 为空被②
@@ -58,7 +67,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.2.0';
+export const VER = 'tests/ver-drift-selftest.mjs V1.3.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -83,12 +92,15 @@ const MIN_JS_VER_FILES = 45;
 //   实测 77 个带 VER 的文件里只有 26 个有可解析的版本日志，另外 51 个被②整体跳过。
 //   若版本日志正则腐烂，logMax 全空 ⇒ ②零命中 ⇒ ①仍以 77≥70 放行 ⇒ 打印全绿而实际比对 0 个文件。
 //   这正是①当初要防的「空集出绿」，只是它量的是另一个口径，故必须另立一根线。
-const MIN_LOG_PARSED = 22;
+// 实测 43（V1.3.0 认全四种版本行写法后，由 26 涨到这里）。
+const MIN_LOG_PARSED = 37;
 
-// 无日志名单规模：当前「有 VER 但没有可解析版本日志」的文件数。实测 51（其中 47 个是 health-rules 规则文件）。
+// 无日志名单规模：当前「有 VER 但没有可解析版本日志」的文件数。
+// 沿革：51（第 137 轮，只认标准约定时）→ 34（第 138 轮，认全四种写法后；剩下 34 个的头顶压根没有
+// 版本行，47 个 health-rules 规则文件里有 33 个属此类 —— 它们的版本史写在注释正文里，凑不成一行log）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 51;
+const EXPECT_NO_LOG = 34;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
@@ -114,8 +126,42 @@ const VER_EMBEDDED_IN = {
     }
 };
 
-// 版本日志条目：行首注释 + V<x.y.z> + 竖线分隔符（日期/轮次紧随其后）
-const RE_LOG_ENTRY = /^\s*\/\/\s*V(\d+\.\d+(?:\.\d+)?)\s*\|/;
+// --- 版本日志条目的**四种历史约定**（V1.3.0 新增 B/C/D，见头顶日志）
+//   A 标准约定（夜间线自检文件通用）：  // V1.2.0 | 2026-10-26 第 137 轮：说明
+//   B 文件名前缀・带竖线（日间线）：   // tests/example.mjs | V1.0.0 | 2026-10-25 第 133 轮
+//   C 文件名前缀・无竖线：             // tests/example.mjs V1.0.0
+//   D 中文全角括号（规则文件通用）：   // V6.1.13（2026-10-19 第 103 轮）：说明
+// ★ B/C 只认文件头 HEAD_LOG_WINDOW 行内 —— 它们都是「文件标头」形状；放宽到全文会被正文里
+//   引用别的文件版本的注释误命中（第 133 轮口径：注释里常出现 V6.8.5 这类引用，取 max 即假漂移）。
+// ★ 每种格式都带一条**自证样例行** SAMPLE：断言⑭先验证"这个格式还认得出它自己的样例"，
+//   再验证"它今天在仓库里仍有真实文件在用"，两头一起锁，正则被人改坏或某种约定整体消失都会响。
+const HEAD_LOG_WINDOW = 80;
+const LOG_PATTERNS = [
+    {
+        id: 'A', headOnly: false, minFiles: 22,
+        re: /^\s*\/\/\s*V(\d+\.\d+(?:\.\d+)?)\s*\|/,
+        sample: '// V1.2.0 | 2026-10-26 第 137 轮：说明',
+        note: '标准约定'
+    },
+    {
+        id: 'B', headOnly: true, minFiles: 8,
+        re: /^\s*\/\/\s*[\w.@/-]+\.(?:mjs|js)\s*\|\s*V(\d+\.\d+(?:\.\d+)?)\s*\|/,
+        sample: '// tests/example.mjs | V1.0.0 | 2026-10-25 第 133 轮',
+        note: '文件名前缀带竖线'
+    },
+    {
+        id: 'C', headOnly: true, minFiles: 1,
+        re: /^\s*\/\/\s*[\w.@/-]+\.(?:mjs|js)\s+V(\d+\.\d+(?:\.\d+)?)\s*$/,
+        sample: '// tests/example.mjs V1.0.0',
+        note: '文件名前缀无竖线'
+    },
+    {
+        id: 'D', headOnly: false, minFiles: 6,
+        re: /^\s*\/\/\s*V(\d+\.\d+(?:\.\d+)?)\s*[（(]/,
+        sample: '// V6.1.13（2026-10-19 第 103 轮）：说明',
+        note: '中文全角括号'
+    },
+];
 // VER 常量：const VER = '<path> V<x.y.z>'
 const RE_VER = /^(?:export\s+)?const\s+VER\s*=\s*'([^']*)'/m;
 // 同一份 VER 常量的**全部**声明（⑫用）：RE_VER 是非全局的、只取第一处，若一个文件里声明了两处，
@@ -156,6 +202,8 @@ const files = collect(testsDir, []).sort();
 const recs = [];
 const noVerFiles = [];
 const noLogFiles = [];
+// 每种被认可的版本行格式今天各命中了多少个真实文件（断言⑭的格式覆盖面棘轮用）
+const fmtHits = {};
 for (const f of files) {
     const src = fs.readFileSync(f, 'utf8');
     const rel0 = path.relative(repoRoot, f).split(path.sep).join('/');
@@ -166,12 +214,19 @@ for (const f of files) {
     const parsed = raw.match(/^(\S+)\s+V(\d+\.\d+(?:\.\d+)?)$/);
     const dupVer = (src.match(RE_VER_ALL) || []).length;
     const logVers = [];
+    const hitFmt = new Set();
     let hold = false;
-    for (const ln of src.split('\n')) {
-        const lm = ln.match(RE_LOG_ENTRY);
-        if (lm) logVers.push(lm[1]);
+    const lines = src.split('\n');
+    for (let li = 0; li < lines.length; li++) {
+        const ln = lines[li];
+        for (const p of LOG_PATTERNS) {
+            if (p.headOnly && li >= HEAD_LOG_WINDOW) continue;
+            const lm = ln.match(p.re);
+            if (lm) { logVers.push(lm[1]); hitFmt.add(p.id); }
+        }
         if (RE_HOLD.test(ln)) hold = true;
     }
+    for (const id of hitFmt) fmtHits[id] = (fmtHits[id] || 0) + 1;
     const uniq = [...new Set(logVers)].sort(cmpVer);
     if (uniq.length === 0) noLogFiles.push(rel);
     recs.push({
@@ -277,6 +332,23 @@ if (noLogFiles.length > EXPECT_NO_LOG) {
     push('⑬', `有 VER 但无版本日志的文件 ${noLogFiles.length} < 登记 ${EXPECT_NO_LOG}（有文件补上了日志，须回头把 EXPECT_NO_LOG 改小 —— 腐烂的登记不许挂着骗人）`);
 }
 
+// ⑭ 版本行**格式**覆盖面双向锁（第 138 轮）：每条下述两块都要过硬，缺一块即红。
+//   一、自证：每个被收录的格式必须认得出自己的样例行 —— 改正则时悄悄丢掉某一族（例如把
+//      `[（(]` 写回 `\|`），掉下去的文件会重新跌进"无日志桶"，而①③⑪⑬一条都不会响。
+//   二、实占：每个格式今天仍要有真实文件在用 —— 一旦某族文件集体改写写法，这里会说清楚
+//      "该格式已无用户"，而不是让覆盖面悄悄缩水（届时须按实测量更新登记，不许直接删掉这条格式）。
+for (const p of LOG_PATTERNS) {
+    if (!p.sample.match(p.re)) {
+        push('⑭', `版本行格式 ${p.id}（${p.note}）认不出它自己的样例行「${p.sample}」—— 该格式已失效，`
+            + `其下的文件会跌进「无日志桶」而②整批跳过它们（这正是⑬看到的"孤儿"）`);
+    }
+    const n = fmtHits[p.id] || 0;
+    if (n < p.minFiles) {
+        push('⑭', `版本行格式 ${p.id}（${p.note}）只命中 ${n} 个真实文件 < 登记下限 ${p.minFiles}`
+            + ` —— 该族写法正在消失，覆盖面已缩水，按实测量更新登记前不许删掉这条格式`);
+    }
+}
+
 // ② 漂移零容忍（hold 三项齐备才放行）
 for (const r of recs) {
     if (r.unparseable || !r.logMax) continue; // 无日志条目的文件不参与本断言
@@ -340,5 +412,5 @@ if (bad.length) {
 }
 
 console.log('✅ 版本常量漂移自检通过'
-    + `（13 项断言：规模闸门 ${scanned}≥${MIN_VER_FILES} / 漂移零容忍 / hold 在册 / hold 在位 / hold 棘轮 ≤${MAX_HOLD} / hold 必有落差 / VER 路径自证 / 覆盖面 .js ${jsWithVer}≥${MIN_JS_VER_FILES} / VER 耦合产物一致 / 无 VER 名单相等 / 可解析日志 ${logParsed}≥${MIN_LOG_PARSED} / VER 不重复 / 无日志规模 =${EXPECT_NO_LOG}）`
+    + `（14 项断言：规模闸门 ${scanned}≥${MIN_VER_FILES} / 漂移零容忍 / hold 在册 / hold 在位 / hold 棘轮 ≤${MAX_HOLD} / hold 必有落差 / VER 路径自证 / 覆盖面 .js ${jsWithVer}≥${MIN_JS_VER_FILES} / VER 耦合产物一致 / 无 VER 名单相等 / 可解析日志 ${logParsed}≥${MIN_LOG_PARSED} / VER 不重复 / 无日志规模 =${EXPECT_NO_LOG} / 版本行写法四族自证与实占）`
     + ` · ${scanned} 个带 VER 文件（其中 .js ${jsWithVer} 个），**仅 ${logParsed} 个有版本日志可比对**（其余 ${noLogFiles.length} 个无日志、不参与漂移判定），${driftFree} 个 VER 与日志一致，hold ${holded} 个（白名单 ${holds.length} 条）`);
