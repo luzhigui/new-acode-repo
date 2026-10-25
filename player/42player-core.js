@@ -19,7 +19,6 @@ import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handle
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
 import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from './52-career-log.js';
-import { speakVictory } from '../modules/31voice-commentary.js';
 
 import { readRound, setupDeathTimers } from './42player-step-sync.js';
 import { playStepInterleaved } from './42player-play-step.js';
@@ -104,8 +103,12 @@ export async function playBattle() {
     if (c.snapshot._rngSeed !== undefined) battleState._rng = new SeededRNG(c.snapshot._rngSeed);
     const hasSisterAtStart = battleState.ally && battleState.ally.some(u => u.isXiaoZhaoSister && u.alive);
     if (hasSisterAtStart) {
-        const { showFlyDirectionPopup } = await import('../ui/65main-battle.js');
-        const direction = await new Promise(resolve => { showFlyDirectionPopup(resolve); });
+        // 去反向依赖：player 层不 import ui 层，弹窗经 UIHandler 通道取（注册方见 ui/65 顶层）
+        //   与回合结束路径（player/49 handleFlyDirection）同一条通道，两条路径行为一致
+        const showFlyDirectionPopup = GlobalStore.getUIHandler('showFlyDirectionPopup');
+        const direction = (typeof showFlyDirectionPopup === 'function')
+            ? await new Promise(resolve => { showFlyDirectionPopup(resolve); })
+            : 'left';
         battleState.ally._flyDirection = direction || 'left';
     }
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
@@ -202,8 +205,6 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
     if (!finalWinner) finalWinner = '平局';
     // 战报导出：收尾定稿（写死胜负/回合数），战报弹窗的「保存战报」从这里取
     finishBattleRecording(finalWinner);
-    // 语音解说：胜负一句话收口（清队列插队播）
-    try { speakVictory(finalWinner); } catch (e) { /* 解说失败不影响结算 */ }
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
     GlobalStore.set('gs', 'GAMEOVER');

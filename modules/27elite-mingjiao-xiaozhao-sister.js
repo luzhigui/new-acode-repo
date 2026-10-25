@@ -272,7 +272,7 @@ export function createXiaoZhaoSisterComponent() {
                 Object.assign(sister.state, { _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
                 emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
-                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
+                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid } });
                 return;
             }
             const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
@@ -285,8 +285,6 @@ export function createXiaoZhaoSisterComponent() {
             } else {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友', false);
             }
-            applyStatChange(sister, 'atk', sister.state._baseAtk - sister.atk, null, '蝶变飞回重置攻');
-            applyStatChange(sister, 'def', sister.state._baseDef - sister.def, null, '蝶变飞回重置防');
             if (host && host.alive) {
                 removeModsByGroup(host, 'butterfly');
                 refreshMaxHp(host, sister, '蝶变飞回血上限');

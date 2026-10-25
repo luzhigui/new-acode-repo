@@ -2,18 +2,17 @@
 // V6.5.0 | 2026-10-14 | ~30600 bytes
 // 「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取，不 import 76——
 //   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
-export const VER = 'ui/64main-dialogs.js V6.5.0';
+export const VER = 'ui/64main-dialogs.js V6.5.1';
 
 import { showModal, showAlert, copyLogToClipboard } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/50battle-export.js';
 import { injectLogAnalyzeStyle, analyzeBattleFacts } from '../player/51-battle-log-analyze.js';
-import { buildVoiceControls } from './73voice-panel.js';
-
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
 export function showBattleReport(battleResultForInfo) {
@@ -393,9 +392,6 @@ export function showMusicPanel() {
     });
     box.appendChild(sourceRow);
 
-    // 语音解说设置区嵌入音乐面板（原独立 🎙️ 按钮撤掉，声音相关收进一个面板）
-    buildVoiceControls(box);
-
     const bottomClose = document.createElement('button');
     bottomClose.textContent = '关闭';
     bottomClose.style.cssText = 'display:block;width:100%;margin-top:12px;padding:10px;background:#444;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;';
@@ -438,12 +434,14 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
     let nums = ['3', '2', '1'];
     let mainBtn = document.getElementById('btnMain');
     mainBtn.disabled = true;
+    // 每跳时长读参数表（countdownTick），按当前 speed 档位；取不到回落 700
+    const tick = getPerfParam('countdownTick', GlobalStore.get('speed') || 300) || 700;
     for (let i = 0; i < nums.length; i++) {
         let div = document.createElement('div');
         div.className = 'countdown-num';
         div.textContent = nums[i];
         document.body.appendChild(div);
-        await new Promise(r => setTimeout(r, 700));
+        await new Promise(r => setTimeout(r, tick));
         if (div.parentNode) div.parentNode.removeChild(div);
         if (i === 0) {
             let t = trashTalkAlly[randFn(0, trashTalkAlly.length - 1)];
@@ -463,7 +461,7 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
             l.appendChild(d);
             autoScrollLogFn();
         }
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, Math.round(tick * 0.7)));
     }
 }
 

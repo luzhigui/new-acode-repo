@@ -1,4 +1,4 @@
-﻿// V1.1.1 | 2026-10-12 | ~5100 bytes
+// V1.1.1 | 2026-10-12 | ~5100 bytes
 export const VER = 'modules/30custom-effects.js V1.1.1';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -44,7 +44,9 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
                             source,
                             reason: decl.reason
                         });
-                        data.log.push({ factType, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive, stacks } });
+                        // isDead 用预测值：毒是声明式扣血，u.hp 此刻尚未落账，结算阶段才 applyStatChange。
+                        //   原 isDead: !u.alive 在声明期恒为 false ⇒ 寒毒致死从不带死亡标记。
+                        data.log.push({ factType, data: { unitName: u.name, dot, uidD: u.uid, isDead: (u.hp - dot) <= 0, stacks } });
                         // 审计账本：玄冥中毒自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
                         //   group='xuanMingDot' 比对「声明 dot vs 实际扣血」。审计容器全库无读点、详情弹窗只渲染 atk/def。
                         recordHpAudit(u, 'xuanMingDot', -dot, '玄冥中毒');

@@ -1,9 +1,12 @@
 // infra/52-clock.js
+// V1.2.0 | 2026-10-25 | ~6100 bytes | 新增 waitReal / animateReal 真实时间轴（按 _realNow 推进，不吃 timescale；
+//   暂停冻结、快进直接完成）——参数表 core/23perf-params 的消费点改用真实毫秒，表里填多少就是多少。
+//   原 wait/animate 保留不动（逻辑时间，仍受倍速缩放）
 // V1.1.1 | 2026-10-22 | ~4900 bytes
 // animate 支持 opts.minRealMs 最短真实时长保底（新增 _realNow 真实时间轴，
 // 暂停冻结、不受倍速/快进影响）：倍速下关键演出（冲刺/轰拳/打歪）也看得清
 // 消费方只调 wait()/animate()，不再自己判 fastForwardActive、不再传 getPausedFn、不再各自开 rAF
-export const VER = 'infra/52-clock.js V1.1.1';
+export const VER = 'infra/52-clock.js V1.2.0';
 
 // 逻辑时间基准：调用方传入的 ms 一律是"1x 基准时长"，实际流逝由 timescale 缩放
 class Clock {
@@ -20,6 +23,9 @@ class Clock {
         this._running = false;
         this._waits = [];          // { dueAt, resolve }
         this._tweens = [];         // { startAt, duration, onFrame, resolve }
+        // 真实时间队列（waitReal / animateReal）：按 _realNow 推进，不吃 timescale、快进直接完成
+        this._realWaits = [];      // { dueAt, resolve }
+        this._realTweens = [];     // { startReal, duration, onFrame, resolve }
         this._loop = this._loop.bind(this);
     }
 
@@ -42,6 +48,8 @@ class Clock {
         this._realLast = performance.now();
         this._waits = [];
         this._tweens = [];
+        this._realWaits = [];
+        this._realTweens = [];
         this.paused = false;
         this.fastForward = false;
         this.timescale = 1;
@@ -80,6 +88,31 @@ class Clock {
             }
             this._tweens = remain;
         }
+        // 真实时间 waits：按 _realNow 到点（不受 timescale 影响，暂停冻结，快进直接完成）
+        if (this._realWaits.length) {
+            const remain = [];
+            for (const w of this._realWaits) {
+                if (this.fastForward || this._realNow >= w.dueAt) w.resolve();
+                else remain.push(w);
+            }
+            this._realWaits = remain;
+        }
+        // 真实时间 tweens：按 _realNow 计算进度（暂停冻结，快进直接跳到 1）
+        if (this._realTweens.length) {
+            const remain = [];
+            for (const t of this._realTweens) {
+                if (this.fastForward) {
+                    try { t.onFrame(1); } catch (e) {}
+                    t.resolve();
+                    continue;
+                }
+                const p = t.duration <= 0 ? 1 : Math.min(1, (this._realNow - t.startReal) / t.duration);
+                t.onFrame(p);
+                if (p >= 1) t.resolve();
+                else remain.push(t);
+            }
+            this._realTweens = remain;
+        }
     }
 
     // 等待 ms 逻辑毫秒（1x 基准时长）。快进时不再瞬时返回，由 _loop 的 fastForwardScale 加速推进
@@ -104,6 +137,36 @@ class Clock {
                 startAt: this.now, duration, onFrame, resolve,
                 startReal: this._realNow,
                 minRealMs: (opts && opts.minRealMs > 0) ? opts.minRealMs : 0
+            });
+        });
+    }
+
+    // 真实时间等待：ms 就是真实毫秒，不吃 timescale。暂停冻结、快进直接完成。
+    //   参数表（core/23perf-params）的所有消费点都该用这个，表里填什么就是什么。
+    waitReal(ms) {
+        if (ms <= 0) return Promise.resolve();
+        if (this.fastForward) return Promise.resolve();
+        return new Promise(resolve => {
+            this._realWaits.push({ dueAt: this._realNow + ms, resolve });
+        });
+    }
+
+    // 真实时间动画：duration 是真实毫秒，不吃 timescale。暂停冻结、快进直接 onFrame(1)。
+    animateReal(duration, onFrame) {
+        if (duration <= 0) {
+            try { onFrame(1); } catch (e) {}
+            return Promise.resolve();
+        }
+        if (this.fastForward) {
+            try { onFrame(1); } catch (e) {}
+            return Promise.resolve();
+        }
+        return new Promise(resolve => {
+            this._realTweens.push({
+                startReal: this._realNow,
+                duration,
+                onFrame,
+                resolve
             });
         });
     }

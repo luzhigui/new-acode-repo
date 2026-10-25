@@ -1,9 +1,14 @@
-// V6.3.12 | 2026-10-20 | ~32400 bytes
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.12';
+// V6.3.14 | 2026-10-25 | 池元素存活时长改 clock.waitReal：参数表 floatLife/bubbleLife 填多少就是真实多少毫秒，
+//   不再被 timescale 二次缩放
+// V6.3.13 | 2026-10-25 | ~32450 bytes | 飘字/气泡存活接表现参数表：❤回血、💥掉血、⚔加攻、🛡️加防读 floatLife，
+//   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.14';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
+import { GlobalStore } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
@@ -31,7 +36,8 @@ function acquireFromPool(type, setupFn, duration) {
     el._releaseSeq = (el._releaseSeq || 0) + 1;
     const seq = el._releaseSeq;
     if (duration > 0) {
-        clock.wait(duration).then(() => {
+        // 存活时长用真实时间：参数表填多少就是多少，不被 timescale 二次缩放
+        clock.waitReal(duration).then(() => {
             if (el._releaseSeq !== seq) return;
             releaseToPool(type, el);
         });
@@ -59,6 +65,9 @@ export function resetDanmakuPool() {
 export function showDanmaku(unit, text) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
+    // 存活时长读参数表（bubbleLife），按当前 speed 档位；取不到回落 3500
+    const speedKey = GlobalStore.get('speed') || 300;
+    const life = getPerfParam('bubbleLife', speedKey) || 3500;
     acquireFromPool('danmaku', (bubble) => {
         bubble.textContent = text;
         bubble.className = 'danmaku-bubble';
@@ -66,7 +75,7 @@ export function showDanmaku(unit, text) {
         bubble.style.left=(rect.left-4)+'px';
         bubble.style.top=(rect.top+rect.height*0.35)+'px';
         bubble.style.transform='translate(-100%, -50%)';
-    }, 3500);
+    }, life);
 }
 
 function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
@@ -86,13 +95,16 @@ export function showDamageFloat(unit, dmg) {
     rec.lastAt = now;
     _dmgFloatStack.set(unit.uid, rec);
     const stackOffset = (rec.count - 1) * DMG_STACK_STEP;
+    // 存活时长读参数表（floatLife），按当前 speed 档位；取不到回落 1400
+    const speedKey = GlobalStore.get('speed') || 300;
+    const life = getPerfParam('floatLife', speedKey) || 1400;
     acquireFromPool('dmgFloat', (dmgEl) => {
         dmgEl.textContent = '💥-'+dmg;   // 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
         dmgEl.style.display = '';        // 点亮量宽（登记进 _activeFloats 供 ⚔/🛡️ 避让；💥 自身仍 right 锚定不变）
         markFloatActive(unit.uid, 'dmg', dmgEl.offsetWidth);
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
         dmgEl.style.top=(rect.top-4-stackOffset)+'px';
-    }, 1400);
+    }, life);
 }
 
 function createDodgeBubbleEl() { let b = document.createElement('div'); b.className = 'dodge-bubble'; return b; }
@@ -104,7 +116,7 @@ export function showDodgeBubble(unit, text) {
         bubble.textContent=text;
         bubble.style.left=(rect.left+rect.width/2)+'px';
         bubble.style.top=(rect.top-8)+'px';
-    }, 1600);
+    }, getPerfParam('bubbleLife', GlobalStore.get('speed') || 300) || 1600);
 }
 
 function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
@@ -170,6 +182,7 @@ export function showHealFloat(unit, heal) {
     rec.lastAt = now;
     _healFloatStack.set(unit.uid, rec);
     const stackOffset = (rec.count - 1) * HEAL_STACK_STEP;
+    // 存活时长读参数表（floatLife），按当前 speed 档位；取不到回落 1400
     acquireFromPool('healFloat', (healEl) => {
         healEl.textContent = '❤+' + heal;
         healEl.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
@@ -180,7 +193,7 @@ export function showHealFloat(unit, heal) {
         healEl.style.right = 'auto';
         healEl.style.top = Math.round(rect.top - 4 - stackOffset) + 'px';
         healEl.style.transform = '';    // 清残留（动画接管 transform）
-    }, 1400);
+    }, getPerfParam('floatLife', GlobalStore.get('speed') || 300) || 1400);
 }
 
 // 攻击力增加飘字
@@ -208,7 +221,7 @@ export function showDefBuffFloat(unit, def) {
         markFloatActive(unit.uid, 'def', w);
         el.style.right = 'auto';
         el.style.top = Math.round(rect.top - 4 - (wrap ? 20 : 0)) + 'px';   // 放得下=一行一个高度；放不下=一上一下
-    }, 1400);
+    }, getPerfParam('floatLife', GlobalStore.get('speed') || 300) || 1400);
 }
 
 // 拒马沙化消散（用户定调：消散≠死亡，不走死亡画笔）：
@@ -268,7 +281,7 @@ export function showAtkBuffFloat(unit, atk) {
         el.style.right = 'auto';
         el.style.top = Math.round(rect.top - 4 - (wrap ? 20 : 0)) + 'px';   // 初始高度与掉血/回血一致；放不下=一上一下
         el.style.zIndex = '10004';
-    }, 1400);
+    }, getPerfParam('floatLife', GlobalStore.get('speed') || 300) || 1400);
 }
 
 // 灭绝师太出手计数：头顶正中飘出大写数字（壹/貳/參 轮换），放大后上浮消散。

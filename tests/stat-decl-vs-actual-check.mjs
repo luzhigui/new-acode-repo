@@ -1,3 +1,6 @@
+// V3.8.3 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
+//   本文件此前自带一份拷贝（有 cols/rows、无永久继承），与 rules-replay 口径分叉；收口后样本
+//   含妹永久海克斯继承（与 rules-replay 自 V6.7.2 起一致）。验证：全部契约偏差 0、EXIT=0。
 // V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
 // V3.8.2 | 2026-10-17 第 98 轮补：scan-groups 扫地闭环两 hp 盲区（52→54）——hlsJiuYangHeal / hlsHanDuDot（寒离飒九阳/寒毒，均零数值改动）
 // V3.8.5 | 2026-10-19 第 106 轮：闭环 hlsBurstDmg 盲区（56 契约）——轰拳真伤原无按机制 group（只落单位级
@@ -1826,46 +1829,13 @@ async function main() {
         import('../core/13battle-shared.js'),
         import('../infra/56-battle-enums.js')
     ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
 
     // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
     //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
 
-    // 团队 Buff 注入 —— 必须有它，否则 buff 门控机制（carry/流星赶月/乘风突袭…）一场都跑不到。
-    // 复刻自 tests/rules-replay.mjs L113-143 的 tickAndPickBuffs（该函数是回放器本地函数、不可导入；
-    // rules-replay.mjs 属他人并行维护，不改它）。口径一致：seed/round 确定性轮转，**不消耗战斗 RNG**，
-    // 故不改变战斗随机序列、可复现。首版漏了这段 → CARRY_APPLY 契约 18 场零触发（假绿），已修。
-    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
-        var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
-            .filter(function (b) { return b.remaining > 0; });
-        if (!pickNew) return next;
-        var turn = Math.floor(round / 3);
-        var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
-        for (var i = 0; i < sides.length; i++) {
-            var s = sides[i];
-            var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
-            var existing = mine.map(function (b) { return b.key; });
-            var alive = (s.team || []).filter(function (u) { return u && u.alive; });
-            var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
-                if (existing.indexOf(k) !== -1) return false;
-                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
-                var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-                if (req && !alive.some(function (u) { return u.role === req; })) return false;
-                return true;
-            });
-            if (!avail.length) continue;
-            var pick = avail[(seed + turn + s.off) % avail.length];
-            var def = CONFIG.BUFFS[pick] || {};
-            var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
-            if (pick === BUFF_TYPES.HOLY_FLAME) {
-                var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
-                nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
-                nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
-            }
-            next.push(nb);
-        }
-        return next;
-    };
+    
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');

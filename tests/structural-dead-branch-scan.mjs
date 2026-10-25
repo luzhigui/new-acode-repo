@@ -33,7 +33,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/structural-dead-branch-scan.mjs V1.0.0';
+export const VER = 'tests/structural-dead-branch-scan.mjs V1.0.1';
 
 const argv = process.argv.slice(2);
 const argOf = (k, d) => { const i = argv.indexOf(k); return (i !== -1 && argv[i + 1]) ? Number(argv[i + 1]) : d; };
@@ -185,6 +185,7 @@ async function scanDynamicZeroHit() {
         import('../core/11battle-round.js'),
         import('../modules/29battle-init.js')
     ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
     const forceInto = (list) => {
         if (!FORCE_BUFF) return list;
@@ -194,30 +195,8 @@ async function scanDynamicZeroHit() {
         next.push({ key: FORCE_BUFF, target: 'ally', remaining: 999, name: def.name || FORCE_BUFF });
         return next;
     };
-    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
-        var next = (activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 }))
-            .filter(b => b.remaining > 0);
-        if (!pickNew) return next;
-        const turn = Math.floor(round / 3);
-        const sides = [{ camp: 'ally', team: ally, off: 0 }, { camp: 'enemy', team: enemy, off: 1 }];
-        for (const s of sides) {
-            const mine = next.filter(b => (b.target || 'ally') === s.camp);
-            const existing = mine.map(b => b.key);
-            const alive = (s.team || []).filter(u => u && u.alive);
-            const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
-                if (existing.indexOf(k) !== -1) return false;
-                if (k === 'carry' && !hasCarryTarget(s.team)) return false;
-                const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-                if (req && !alive.some(u => u.role === req)) return false;
-                return true;
-            });
-            if (!avail.length) continue;
-            const pick = avail[(seed + turn + s.off) % avail.length];
-            const def = CONFIG.BUFFS[pick] || {};
-            next.push({ key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick });
-        }
-        return next;
-    };
+
+    
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');

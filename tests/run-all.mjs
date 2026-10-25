@@ -1,3 +1,4 @@
+// V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
@@ -121,9 +122,17 @@ const CHECKS = [
     //   ★ 处置口径：不修数据、不重录证据 —— 那等于把证据改成配得上代码，方向反了；
     //     正确处置是重跑变异树，复通后腐烂白名单自然收缩。
     { name: '牙口证据链对账(离线断言)', script: 'tests/rule-teeth-evidence-selftest.mjs', args: [] },
+    // V1.11.0 | 2026-10-25 第 123 轮：挂「小昭·妹永久嗜血·蝶血分支定向用例」——
+    //   结构扫描器报 isBrother=true 父196/分支0 的最后一环覆盖缺口（第122轮定性：样本稀缺+
+    //   行动权竞争）。本用例强制妹模式广扫，实测命中 52 次，断言 fact/渲染/账本三对照；
+    //   带 MIN_HITS=3 棘轮 + 咬牙实证（打断 picker 永久继承即红）。tier=heavy（采样项，--quick 跳过）。
+    { name: '蝶血分支定向用例(妹永久嗜血)', script: 'tests/xiaozhao-brother-leech-case.mjs', args: [], tier: 'heavy' },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
-    { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
-    { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }
+    // V1.12.0 | 2026-10-25 第 124 轮：fuzz(2100场) 与 翻译golden(35场/13MB) 是耗时主因，
+    //   标记 tier=heavy —— --quick 模式下跳过，仅守门项跑（每次开发迭代不必重跑大样本）；
+    //   nightly 自动化不带 --quick 仍跑全量，不漏回归。
+    { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [], tier: 'heavy' },
+    { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [], tier: 'heavy' }
 ];
 
 // V1.2.0 | 2026-10-21 第 112 轮：挂观察项（不影响退码）——第 113 轮沙箱交接规格的主线重写产物。
@@ -144,11 +153,15 @@ function pickKeyLine(out) {
     return (hit[hit.length - 1] || lines[lines.length - 1] || '').slice(0, 100);
 }
 
+const QUICK = process.argv.includes('--quick');
+const activeChecks = QUICK ? CHECKS.filter(c => c.tier !== 'heavy') : CHECKS;
+const skippedHeavy = QUICK ? CHECKS.filter(c => c.tier === 'heavy') : [];
 console.log('================ 光明顶 5v5 · 一键全量体检 ================');
+if (QUICK) console.log('· --quick：跳过 ' + skippedHeavy.length + ' 项重型采样（' + skippedHeavy.map(c => c.name).join('、') + '）');
 const rows = [];
 let failed = 0;
 const tStart = Date.now();
-for (const c of CHECKS) {
+for (const c of activeChecks) {
     process.stdout.write('▶ ' + c.name + ' ... ');
     const t0 = Date.now();
     let r;
@@ -168,13 +181,13 @@ for (const c of CHECKS) {
 }
 
 console.log('=========================================================');
-const pass = CHECKS.length - failed;
+const pass = activeChecks.length - failed;
 for (const r2 of rows) {
     console.log((r2.ok ? '  ✅ ' : '  ❌ ') + r2.name.padEnd(22) + ' ' + r2.ms + 'ms' + (r2.ok ? '' : '  exit=' + r2.code + '  ' + r2.key));
 }
 console.log('---------------------------------------------------------');
-console.log('结果：' + pass + '/' + CHECKS.length + ' 通过，耗时 ' + ((Date.now() - tStart) / 1000).toFixed(1) + 's'
-    + (failed ? '，X ' + failed + ' 项红（见上方对应行）' : '，全套全绿'));
+console.log('结果：' + pass + '/' + activeChecks.length + ' 通过，耗时 ' + ((Date.now() - tStart) / 1000).toFixed(1) + 's'
+    + (failed ? '，X ' + failed + ' 项红（见上方对应行）' : (QUICK ? '（--quick 精简态）' : '，全套全绿')));
 
 // 观察项（V1.2.0）：只跑只报，不计退码
 if (OBSERVES.length) {

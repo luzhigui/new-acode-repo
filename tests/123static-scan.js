@@ -100,7 +100,6 @@ export const SCAN_FILES = [
     //   入册后本扫描才覆盖它们——这些文件 import 主代码符号与枚举，改名/删除即断裂却扫不到。
     '../ui/69-role-cards.js',
     '../ui/74reset-runtime.js', '../ui/70buff-dialog.js', '../ui/71tutorial.js', '../ui/72opening-cg.js',
-    '../ui/73voice-panel.js',
     '../ui/75net-session.js', '../ui/76replay-entry.js',
     // 2026-10-14 补登 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者）
     '../ui/77speed-controls.js', '../ui/78button-state.js',

@@ -1,4 +1,5 @@
 // tests/translate-golden.mjs — 翻译层 golden 输出对照器（render/38 拆分护栏）
+// V1.0.1 | ~12200 bytes | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源（拷贝缺永久继承，与 rules-replay 口径分叉）；golden 输出随样本变化待业务侧重录
 // V1.0.0 | ~12200 bytes | 2026-10-13 新建：真跑引擎（SeededRNG + initBattleTeams + createRoundStepper）
 //          收集每一步日志，逐条走 translateFactsToStageActions（经 render/31 转出口取，顺带守住 re-export 契约），
 //          产出规范化 JSON 快照与 golden 基线逐字节比对。翻译器是纯函数（log → stageActions），
@@ -75,6 +76,7 @@ async function main() {
         import('../infra/56-battle-enums.js'),
         import('../render/31-stage-actions.js')
     ]);
+    const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
     // 精英组件 + custom-effects 靠模块顶层副作用注册（漏 import 则 initBattleTeams/装配期即崩）
     await import('../modules/25elite-imperial.js');
@@ -91,37 +93,8 @@ async function main() {
     // 不消耗战斗 RNG → 战斗随机序列可复现）。不注入则流星/乘风/连击/巨马这一批由 Buff 门控的
     // fact 一场都跑不到，翻译器覆盖就是空的。GOLDEN_NOBUFFS=1 可关掉做对照。
     const NO_BUFFS = process.env.GOLDEN_NOBUFFS === '1';
-    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
-        var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
-            .filter(function (b) { return b.remaining > 0; });
-        if (NO_BUFFS || !pickNew) return next;
-        var turn = Math.floor(round / 3);
-        var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
-        for (var i = 0; i < sides.length; i++) {
-            var s = sides[i];
-            var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
-            var existing = mine.map(function (b) { return b.key; });
-            var alive = (s.team || []).filter(function (u) { return u && u.alive; });
-            var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
-                if (existing.indexOf(k) !== -1) return false;
-                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
-                var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
-                if (req && !alive.some(function (u) { return u.role === req; })) return false;
-                return true;
-            });
-            if (!avail.length) continue;
-            var pick = avail[(seed + turn + s.off) % avail.length];
-            var def = CONFIG.BUFFS[pick] || {};
-            var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
-            if (pick === BUFF_TYPES.HOLY_FLAME) {
-                var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
-                nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
-                nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
-            }
-            next.push(nb);
-        }
-        return next;
-    };
+
+    
 
     // 跑一场：引擎逐步产出日志 → 每步调 translateFactsToStageActions → 记「fact 序列 + 动作序列」。
     // fact 序列一并入 golden：铁律「fact 顺序不许变」也归这把尺子管。

@@ -1,5 +1,19 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.3.2 | 2026-10-22 折叠区加「独立页面」入口：134 创意摸奖 / 135 参数扫描（各自完整单页，新窗口打开）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.4.2 | 2026-10-25 备用工具卡片三次定稿：① 一行固定两张并排（repeat(2, minmax(0,1fr))）；
+     ② 卡片高度锁死 56px、宽度由栅格定，说明单行省略，文字长短/换行不再改变卡片尺寸；
+     ③ 右侧恢复固定 46×26 的「打开」小按钮（整卡仍可点），hover 按钮转金色。
+     V6.4.1 | 2026-10-25 备用工具卡片二次优化（整卡可点）：去掉卡片里占满整行的「打开」大按钮，
+     改为 logo + 名字 + 两行说明 + 右侧小箭头 ›，hover 整卡上浮、点任意位置即打开；视觉层次按名片式收窄。
+     V6.4.0 | 2026-10-25 备用工具区改卡片式（一卡一工具：logo + 名字 + 一句话说明 + 打开按钮）：
+     ① 113 统计体检 / 114 基线对比 / 115 阵容搜索 从竖排长卡改成卡片入口，点「打开」在卡片下方展开对应面板
+        （同一时间只开一个，再点收起；三个面板的 ID 与控件原样保留，113/114/115 脚本无需改）；
+     ② 新增「🎲 创意摸奖」「📊 参数扫描」两张卡片（原为链接行，改走页内 iframe 弹窗）；
+     ③ 新增「🎙️ 语音解说（存档）」卡片——语音解说已从主游戏下线，引擎与面板搬到 tools/136、137，
+        本页挂 137 模块，点卡片开页内弹窗看设置项与试听。
+     V6.3.3 | 2026-10-25 文件复制器加两个独立复制按钮（配 103 V6.2.4）：①「📋 复制 04 网页端协议」——读仓库根的
+     `04 网页端协议.md` 原文进剪贴板（不随包发送，口径与 106 排除中文名文件一致）；②「🔗 仓库网址 + 目录索引」——
+     拼 GitHub/Gitee 地址 + 两套 raw 模板 + ALL_PROJECT_FILES 分组目录清单，一次性复制，粘在复制包前面用。
+     V6.3.2 | 2026-10-22 折叠区加「独立页面」入口：134 创意摸奖 / 135 参数扫描（各自完整单页，新窗口打开）
      V6.3.1 | 2026-10-22 备用工具跟进新精英（配 114 V1.2.0 / 115 V1.1.0 / 127 V1.1.0）：
      ① 基线对比 A/B 下拉补谢逊、寒离飒；② 阵容分布搜索补强制谢逊/强制寒离飒开关，说明改为「只报实际分布」。
      V6.3.0 | 2026-10-22 按老板要求精简入口（配 104/101 退役）：
@@ -145,16 +159,32 @@
         .fang-btn-copy:hover { background: #66bb6a; }
         .fang-result-area { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-top: 12px; white-space: pre-wrap; font-size: 12px; color: #ccc; max-height: 500px; overflow-y: auto; display: none; }
 
-        /* ========== 备用工具折叠区（2026-10-22）：收纳有用但没必要占主页的低频工具 ========== */
+        /* ========== 备用工具折叠区（2026-10-22；2026-10-25 改卡片式）：一卡一工具 ========== */
         .tool-more { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
         .tool-more > summary { color: #ffd700; font-weight: bold; cursor: pointer; font-size: 13px; }
-        .tool-more .tool-card { margin-top: 10px; }
         .tool-more select, .tool-more input[type="number"] { padding: 6px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 13px; }
         .tool-more button { background: #4fc3f7; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .tool-more button:disabled { opacity: 0.4; cursor: not-allowed; }
-        .tool-more .tool-link { display: inline-block; padding: 7px 16px; border: 1px solid #ffd70066; border-radius: 7px;
-            color: #ffd700; text-decoration: none; font-size: 13px; font-weight: bold; }
-        .tool-more .tool-link:hover { background: #ffd7001a; }
+
+        /* 卡片（2026-10-25 三次定稿）：一行两张并排、尺寸锁死（不随文字长短/换行变宽变高），
+           横向 icon + 名字 + 单行说明 + 固定宽度的「打开」按钮 */
+        .tc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+        .tool-more .tc-card { display: flex; align-items: center; gap: 8px; width: 100%; height: 56px; overflow: hidden;
+            text-align: left; background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 8px; padding: 0 10px;
+            color: #eee; font-family: monospace; font-weight: normal; cursor: pointer; transition: 0.15s; }
+        .tool-more .tc-card:hover { background: #22223e; border-color: #ffd70088; }
+        .tool-more .tc-card.active { border-color: #ffd700; background: #262648; }
+        .tc-icon { flex: 0 0 20px; font-size: 20px; line-height: 1; text-align: center; }
+        .tc-body { flex: 1 1 auto; min-width: 0; }
+        .tc-title { display: block; color: #ffd700; font-weight: bold; font-size: 12.5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tc-desc { display: block; color: #8b949e; font-size: 10.5px; line-height: 1.4;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tool-more .tc-open { flex: 0 0 46px; width: 46px; height: 26px; padding: 0; font-size: 11px;
+            border-radius: 6px; background: #4fc3f7; color: #1a1a2e; border: none; font-weight: bold; cursor: pointer; }
+        .tool-more .tc-card:hover .tc-open { background: #ffd700; }
+        .tc-panel { margin-top: 10px; background: #1a1a2e; border: 1px solid #ffd70066; border-radius: 10px; padding: 12px; }
+        .tc-panel[hidden] { display: none; }
 
         /* ========== 控制台脚本说明面板 ========== */
         .tool-card { background: #1a1a2e; border: 1px solid #444; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
@@ -235,13 +265,63 @@
         <button class="tool-link-btn" id="btnOpenBalanceAlert">🚨 平衡告警</button>
     </div>
 
-    <!-- 2026-10-22 折叠区：有用但不需要占主页的三个低频工具（此前无入口、脚本仍登记在 AI 包） -->
-    <details class="tool-more">
-        <summary>🧰 备用工具（统计体检 / 基线对比 / 阵容搜索 / 独立页面）</summary>
+    <!-- 2026-10-25 备用工具改卡片式：一卡一工具（logo + 名字 + 单行说明 + 「打开」按钮，整卡可点）；
+         一行两张并排、尺寸锁死；点卡片在下方展开对应面板（一次只开一个，再点收起），独立单页仍走页内 iframe 弹窗 -->
+    <details class="tool-more" id="toolMore">
+        <summary>🧰 备用工具（低频工具收拢处）</summary>
 
-        <div class="tool-card">
-            <h3>🧮 统计一致性体检</h3>
-            <p>用 hp-change 事件流交叉核对承伤 / 治疗记账；只查负差额（记账少于真实 hp 变化 = 漏记），重分配属正常机制不报警。</p>
+        <div class="tc-grid">
+            <div class="tc-card" data-tool="stats">
+                <span class="tc-icon">🧮</span>
+                <span class="tc-body">
+                    <span class="tc-title">统计一致性体检</span>
+                    <span class="tc-desc">核对承伤 / 治疗记账，只揪漏记</span>
+                </span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="baseline">
+                <span class="tc-icon">⚖️</span>
+                <span class="tc-body">
+                    <span class="tc-title">精英基线对比</span>
+                    <span class="tc-desc">同种子 A/B 精英，逐关对照四项</span>
+                </span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="lineup">
+                <span class="tc-icon">🔎</span>
+                <span class="tc-body">
+                    <span class="tc-title">阵容分布搜索</span>
+                    <span class="tc-desc">只初始化不打仗，统计组合与站位</span>
+                </span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="idea">
+                <span class="tc-icon">🎲</span>
+                <span class="tc-body">
+                    <span class="tc-title">创意摸奖</span>
+                    <span class="tc-desc">创意 × 摸法随机拼卡，标合法性</span>
+                </span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="param">
+                <span class="tc-icon">📊</span>
+                <span class="tc-body">
+                    <span class="tc-title">参数扫描</span>
+                    <span class="tc-desc">敏感度扫描 + 死参数 + 定向搜索</span>
+                </span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="voice">
+                <span class="tc-icon">🎙️</span>
+                <span class="tc-body">
+                    <span class="tc-title">语音解说（存档）</span>
+                    <span class="tc-desc">已下线存档，只看设置与试听</span>
+                </span>
+                <button class="tc-open">打开</button>
+            </div>
+        </div>
+
+        <div class="tc-panel" id="tcPanel-stats" hidden>
             <div class="elite-config">
                 <div class="elite-stage-group">
                     <span style="color:#ffd700;font-size:12px;">关卡：</span>
@@ -261,9 +341,7 @@
             <div id="scResult"></div>
         </div>
 
-        <div class="tool-card">
-            <h3>⚖️ 精英基线对比</h3>
-            <p>同种子把 A / B 两套精英配置各跑一遍，逐关对照胜率 / 输出 / 承伤 / 存活（默认张无忌 vs 韦一笑）。</p>
+        <div class="tc-panel" id="tcPanel-baseline" hidden>
             <div class="elite-config">
                 <label>精英A</label>
                 <select id="bcRoleA">
@@ -299,9 +377,7 @@
             <div id="bcResult"></div>
         </div>
 
-        <div class="tool-card">
-            <h3>🔎 阵容分布搜索</h3>
-            <p>批量初始化阵容（不打仗），统计六名固定精英的人数 / 组合 / 出场率与站位，按 modules/29 现行规则验算。</p>
+        <div class="tc-panel" id="tcPanel-lineup" hidden>
             <div class="elite-config">
                 <label>关卡</label>
                 <select id="lsStageSelect">
@@ -321,15 +397,6 @@
             <div class="status-text" id="lsProgress"></div>
             <div id="lsResult"></div>
         </div>
-
-        <div class="tool-card">
-            <h3>🔗 独立页面（新窗口打开）</h3>
-            <p>下面两个工具是完整单页，自带交互，不嵌在工具箱里，点开即用。</p>
-            <div class="elite-config">
-                <a class="tool-link" href="./134-idea-lab.html" target="_blank">🎲 创意摸奖</a>
-                <a class="tool-link" href="./135-param-scan.html" target="_blank">📊 参数扫描</a>
-            </div>
-        </div>
     </details>
 
     <div class="tab-content active" id="tab-file-copier">
@@ -348,6 +415,12 @@
         <div class="add-file-row">
             <input type="text" id="fcCustomFileInput" placeholder="输入文件名，多个用逗号分隔">
             <button id="fcBtnAddFile">＋ 添加文件</button>
+        </div>
+
+        <div class="add-file-row">
+            <button id="fcBtnCopyProtocol" style="background:#3a3a6e;color:#eee;border:1px solid #555;">📋 复制 04 网页端协议</button>
+            <button id="fcBtnCopyRepoInfo" style="background:#3a3a6e;color:#eee;border:1px solid #555;">🔗 仓库网址 + 目录索引</button>
+            <span class="count">独立复制，不随复制包发送</span>
         </div>
 
         <div id="fcFileGroups"></div>
@@ -456,6 +529,34 @@
         document.getElementById('btnOpenBalanceAlert').addEventListener('click', () => {
             window.openBalanceAlert();
         });
+
+        // 备用工具卡片（2026-10-25）：整卡可点，展开对应面板（一次只开一个，再点收起）；
+        // 独立单页走 openInPage 页内 iframe，语音解说走 137 的页内弹窗
+        (function () {
+            const grid = document.querySelector('.tc-grid');
+            if (!grid) return;
+            const PANELS = { stats: 'tcPanel-stats', baseline: 'tcPanel-baseline', lineup: 'tcPanel-lineup' };
+            function closeAll() {
+                document.querySelectorAll('.tc-panel').forEach(p => { p.hidden = true; });
+                document.querySelectorAll('.tc-card').forEach(c => c.classList.remove('active'));
+            }
+            grid.querySelectorAll('.tc-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const key = card.dataset.tool;
+                    if (key === 'idea') { openInPage('134-idea-lab.html', '🎲 创意摸奖'); return; }
+                    if (key === 'param') { openInPage('135-param-scan.html', '📊 参数扫描'); return; }
+                    if (key === 'voice') { window.openVoicePanel(); return; }
+                    const panel = document.getElementById(PANELS[key]);
+                    if (!panel) return;
+                    const wasOpen = !panel.hidden;
+                    closeAll();
+                    if (wasOpen) return;
+                    panel.hidden = false;
+                    card.classList.add('active');
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+            });
+        })();
     </script>
 
     <script type="module" src="./107-battle-log-viewer.js"></script>
@@ -467,6 +568,7 @@
     <script type="module" src="./114-baseline-compare.js"></script>
     <script type="module" src="./115-lineup-search.js"></script>
     <script type="module" src="./126-balance-alert.js"></script>
+    <script type="module" src="./137-voice-panel.js"></script>
     <script type="module">
         // 数据底座：112 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
         // 数据源是 content/200game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。

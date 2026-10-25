@@ -1,16 +1,17 @@
-// modules/31voice-commentary.js — 语音解说引擎（实时朗读版）
-// 关键节点现场编词、手机系统 TTS 实时朗读；音色/语速/音调/话痨度可调，设置面板在 ui/73。
-// 单机/联机主机/联机从机/战报回放四条路全走 playSingleLogEntry，一处挂钩全生效。
+// tools/136-voice-commentary.js — 语音解说引擎（实时朗读版，已从主游戏下线，存档待用）
+// 原路径 modules/31voice-commentary.js，2026-10-25 从主游戏移除（语音达不到理想效果）。
+// 主游戏不再 import 本文件；本文件保留完整实现，日后若要重接入，在 tools 页面自行接线。
+// 注意：本文件目前无任何调用方，仅作存档；改路径后未跑过验证。
 // V1.1.0 | 2026-10-11 | ~13100 bytes
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
-import { AudioManager } from './22audio-manager.js';
+import { AudioManager } from '../modules/22audio-manager.js';
 
-export const VER = 'modules/31voice-commentary.js V1.1.0';
+export const VER = 'tools/136-voice-commentary.js V1.1.0';
 
 const LS_KEY = 'ming_voice_commentary';
 
-// ── 设置（localStorage 持久化，面板在 ui/73）────────────────────────
+// ── 设置（localStorage 持久化，面板在 tools/137）────────────────────
 const cfg = {
     on: false,          // 总开关
     mode: 'condense',   // 播报模式：condense=摘要（默认，「谁打谁N点伤害」+衍生效果触发名）；full=全文逐行；key=只报关键节点

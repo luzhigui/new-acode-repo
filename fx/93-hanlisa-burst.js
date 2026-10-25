@@ -7,15 +7,18 @@
 //   · 瞄 8 特例：中列速度线 + 撞边白闪（位移动画本体走 PUSH 舞台动作的 fx 收尾写入，此处只做点缀）
 //   · 吸血：顶点 ❤+N 上浮
 //   · 整块战场轻微震屏（8px / 420ms）+ 顶点升「轰」字 + 金/冰双环拳心脉冲
+// V2.2.0 | 2026-10-25 全部点缀改真实时间轴：clock.wait→waitReal（13 处）、clock.animate→animateReal（10 处）；
+//   例外保留：柔光弧扇主体带 { minRealMs: bodyDur }，仍走逻辑时间版 clock.animate。
 // V2.1.0 | 2026-10-19 | ~19100 bytes
 // 载荷 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp} 全 uid+数值可序列化；
 //   seq 去重防「引擎直发 + SKILL_ANNOUNCE 桥」双放。
 // 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）只播震屏 + 格子效果，防双演出。
-export const VER = 'fx/93-hanlisa-burst.js V2.1.0';
+export const VER = 'fx/93-hanlisa-burst.js V2.2.0';
 
 import { clock } from '../infra/52-clock.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 function centerOf(uid) {
     const el = document.querySelector(`[data-uid="${uid}"]`);
@@ -85,21 +88,25 @@ function shockwave(apex, hits) {
         return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} A ${R.toFixed(1)} ${R.toFixed(1)} 0 0 1 ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
     };
 
-    // 主体柔光：从顶点慢慢向外铺开（~1200ms）
+    // 主体柔光：时长 = burstDur × 0.5（受参数表控制，不再写死 1200）
+    const speedKey = GlobalStore.get('speed') || 300;
+    const burstTotal = getPerfParam('burstDur', speedKey) || 2400;
+    const bodyDur = Math.round(burstTotal * 0.5);
     body.setAttribute('d', sector(0.12));
     grad.setAttribute('r', R0 * 0.12);
-    clock.animate(1200, (p) => {
+    // 例外：带 minRealMs 的最短真实时长保底，保留逻辑时间版 animate（animateReal 不吃 opts）
+    clock.animate(bodyDur, (p) => {
         const s = 0.12 + 1.15 * p;
         body.setAttribute('d', sector(s));
         grad.setAttribute('r', (R0 * s).toFixed(1));
         body.style.opacity = (0.8 * (1 - p)).toFixed(3);
-    }, { minRealMs: 1200 });
+    }, { minRealMs: bodyDur });
 
     // 两道涟漪：由内向外扩散、渐隐
     const ripple = (ring, delay, from, to) => {
         ring.setAttribute('d', arc(from));
         ring.style.opacity = '0';
-        clock.wait(delay).then(() => clock.animate(950, (p) => {
+        clock.waitReal(delay).then(() => clock.animateReal(950, (p) => {
             const s = from + (to - from) * p;
             ring.setAttribute('d', arc(s));
             ring.style.opacity = (1 - p).toFixed(3);
@@ -108,7 +115,7 @@ function shockwave(apex, hits) {
     ripple(ring1, 0, 0.2, 1.18);
     ripple(ring2, 240, 0.38, 1.28);
 
-    clock.wait(1500).then(() => { if (svg.parentNode) svg.remove(); });
+    clock.waitReal(1500).then(() => { if (svg.parentNode) svg.remove(); });
 }
 
 // 真伤格：冰蓝高光 + 白色碎裂裂纹（奉还语义），慢一点
@@ -117,9 +124,9 @@ function shatterTrue(uid) {
     if (el) {
         const base = el.style.boxShadow;
         el.style.boxShadow = 'inset 0 0 16px 5px rgba(127,199,255,0.9)';
-        clock.wait(200).then(() => {
+        clock.waitReal(200).then(() => {
             el.style.boxShadow = 'inset 0 0 7px 1px rgba(127,199,255,0.4)';
-            clock.wait(500).then(() => { el.style.boxShadow = base || ''; });
+            clock.waitReal(500).then(() => { el.style.boxShadow = base || ''; });
         });
     }
     const r = el ? el.getBoundingClientRect() : null;
@@ -133,7 +140,7 @@ function shatterTrue(uid) {
         <polyline points="${cx + 16},${cy - 12} ${cx},${cy} ${cx + 8},${cy + 14}" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.95"/>
         <polyline points="${cx - 4},${cy - 18} ${cx},${cy} ${cx + 2},${cy + 18}" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-opacity="0.8"/>`;
     document.body.appendChild(svg);
-    clock.animate(1100, (p) => { svg.style.opacity = (1 - p).toFixed(2); }).then(() => { if (svg.parentNode) svg.remove(); });
+    clock.animateReal(1100, (p) => { svg.style.opacity = (1 - p).toFixed(2); }).then(() => { if (svg.parentNode) svg.remove(); });
 }
 
 // 半伤格：红棕凹痕 + 慢震一下
@@ -142,9 +149,9 @@ function impactHalf(uid) {
     if (el) {
         const base = el.style.boxShadow;
         el.style.boxShadow = 'inset 0 0 14px 4px rgba(139,58,30,0.85)';
-        clock.wait(260).then(() => {
+        clock.waitReal(260).then(() => {
             el.style.boxShadow = 'inset 0 0 6px 1px rgba(139,58,30,0.35)';
-            clock.wait(420).then(() => { el.style.boxShadow = base || ''; });
+            clock.waitReal(420).then(() => { el.style.boxShadow = base || ''; });
         });
     }
     markGridShake(uid, 500);
@@ -154,7 +161,7 @@ function impactHalf(uid) {
 function shakeScreen() {
     const bf = document.getElementById('battlefield');
     if (!bf) return;
-    clock.animate(420, (p) => {
+    clock.animateReal(420, (p) => {
         const m = 8 * (1 - p);
         bf.style.transform = `translate(${((Math.random() - 0.5) * 2 * m).toFixed(2)}px,${((Math.random() - 0.5) * 2 * m).toFixed(2)}px)`;
     }).then(() => { bf.style.transform = ''; });
@@ -175,7 +182,7 @@ function particles(apex, hits) {
             document.body.appendChild(d);
             const dx = t.x + (Math.random() - 0.5) * t.w * 0.7 - apex.x;
             const dy = t.y + (Math.random() - 0.5) * t.h * 0.7 - apex.y;
-            clock.wait(hi * 40 + n * 12).then(() => clock.animate(420 + Math.random() * 160, (p) => {
+            clock.waitReal(hi * 40 + n * 12).then(() => clock.animateReal(420 + Math.random() * 160, (p) => {
                 const e = 1 - Math.pow(1 - p, 2.4);
                 d.style.transform = `translate(${(dx * e).toFixed(1)}px,${(dy * e).toFixed(1)}px) scale(${(1.15 - 0.6 * p).toFixed(2)})`;
                 d.style.opacity = (1 - p).toFixed(3);
@@ -191,7 +198,7 @@ function wordAndCore(apex) {
     word.textContent = '轰';
     word.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y - 30}px;transform:translate(-50%,-50%);font-size:36px;font-weight:900;color:#ffcf5e;text-shadow:0 0 14px rgba(255,180,60,0.95),0 0 26px rgba(127,199,255,0.85),0 3px 6px rgba(0,0,0,0.9);z-index:10012;pointer-events:none;opacity:0;`;
     document.body.appendChild(word);
-    clock.animate(1400, (p) => {
+    clock.animateReal(1400, (p) => {
         let op, sc, ty;
         if (p <= 0.22) { const t = p / 0.22; op = t; sc = 0.5 + 0.7 * t; ty = -10 * t; }
         else if (p <= 0.65) { const t = (p - 0.22) / 0.43; op = 1; sc = 1.2; ty = -10 - 18 * t; }
@@ -201,12 +208,12 @@ function wordAndCore(apex) {
     }).then(() => { if (word.parentNode) word.remove(); });
 
     [['rgba(255,215,0,', 0], ['rgba(127,199,255,', 180]].forEach(([col, delay]) => {
-        clock.wait(delay).then(() => {
+        clock.waitReal(delay).then(() => {
             const ring = document.createElement('div');
             ring.setAttribute('data-fx', 'temporary');
             ring.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y}px;width:14px;height:14px;margin:-7px 0 0 -7px;border:2px solid ${col}0.9);border-radius:50%;z-index:10011;pointer-events:none;opacity:0;`;
             document.body.appendChild(ring);
-            clock.animate(1000, (p) => {
+            clock.animateReal(1000, (p) => {
                 const s = 14 + p * 78;
                 ring.style.width = s + 'px'; ring.style.height = s + 'px';
                 ring.style.margin = `${-s / 2}px 0 0 ${-s / 2}px`;
@@ -222,7 +229,7 @@ function impactFar(uid) {
     if (!el) return;
     const base = el.style.boxShadow;
     el.style.boxShadow = 'inset 0 0 9px 2px rgba(139,58,30,0.45)';
-    clock.wait(220).then(() => { el.style.boxShadow = base || ''; });
+    clock.waitReal(220).then(() => { el.style.boxShadow = base || ''; });
 }
 
 // 大号真伤数字：每命中格升一枚（老板口径：弹幕做大、数值用真实值；按档位定字号/配色）
@@ -243,7 +250,7 @@ function bigDamageFloat(uid, dmg, tier) {
     d.textContent = `−${dmg}`;
     d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height * 0.18}px;transform:translate(-50%,0);font-size:${size}px;font-weight:900;font-family:inherit;color:${color};${glow};z-index:10013;pointer-events:none;opacity:0;`;
     document.body.appendChild(d);
-    clock.wait(heavy ? 120 : 200).then(() => clock.animate(1350, (p) => {
+    clock.waitReal(heavy ? 120 : 200).then(() => clock.animateReal(1350, (p) => {
         const e = 1 - Math.pow(1 - p, 2.2);
         d.style.opacity = p < 0.12 ? (p / 0.12).toFixed(2) : (1 - (p - 0.12) / 0.88).toFixed(2);
         d.style.transform = `translate(-50%,${(-46 * e).toFixed(1)}px) scale(${(1 + 0.22 * (1 - Math.abs(2 * p - 1))).toFixed(2)})`;
@@ -266,17 +273,17 @@ function flightAccents(flight) {
         const len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
         line.style.cssText = `position:fixed;left:${x1}px;top:${y1}px;width:${Math.max(len, 6)}px;height:3px;margin:-1.5px 0 0 0;transform:rotate(${ang.toFixed(1)}deg);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.9));border-radius:2px;z-index:10012;pointer-events:none;opacity:0;`;
         document.body.appendChild(line);
-        clock.wait(120 + i * 110).then(() => clock.animate(260, (p) => {
+        clock.waitReal(120 + i * 110).then(() => clock.animateReal(260, (p) => {
             line.style.opacity = (1 - p).toFixed(2);
         })).then(() => { if (line.parentNode) line.remove(); });
     }
     // 撞边白闪 + 二次震屏
-    clock.wait(620).then(() => {
+    clock.waitReal(620).then(() => {
         const flash = document.createElement('div');
         flash.setAttribute('data-fx', 'temporary');
         flash.style.cssText = `position:fixed;left:${to.x}px;top:${to.y}px;width:${Math.max(to.w, 40)}px;height:${Math.max(to.h, 40)}px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.95) 0%,rgba(255,230,160,0.55) 45%,rgba(255,255,255,0) 72%);z-index:10012;pointer-events:none;`;
         document.body.appendChild(flash);
-        clock.animate(430, (p) => {
+        clock.animateReal(430, (p) => {
             const s = 0.5 + p * 1.1;
             flash.style.transform = `translate(-50%,-50%) scale(${s.toFixed(2)})`;
             flash.style.opacity = (1 - p).toFixed(2);
@@ -293,7 +300,7 @@ function vampFloat(apex, vamp) {
     d.textContent = `🩸 +${vamp}`;
     d.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y - 14}px;transform:translate(-50%,0);font-size:24px;font-weight:900;color:#9ff0b0;text-shadow:0 0 10px rgba(80,220,130,0.8),0 2px 4px rgba(0,0,0,0.9);z-index:10013;pointer-events:none;opacity:0;`;
     document.body.appendChild(d);
-    clock.wait(650).then(() => clock.animate(1250, (p) => {
+    clock.waitReal(650).then(() => clock.animateReal(1250, (p) => {
         const e = 1 - Math.pow(1 - p, 2.2);
         d.style.opacity = p < 0.15 ? (p / 0.15).toFixed(2) : (1 - (p - 0.15) / 0.85).toFixed(2);
         d.style.transform = `translate(-50%,${(-52 * e).toFixed(1)}px)`;
