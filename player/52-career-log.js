@@ -156,7 +156,8 @@ export function getCareerInsights() {
     }
     const stages = Object.entries(byStage).map(([s, v]) => ({ stage: +s, n: v.n, rate: v.w / v.n }));
     const hardest = stages.slice().sort((a, b) => a.rate - b.rate)[0] || null;
-    const easiest = stages.slice().sort((a, b) => b.rate - a.rate)[0] || null;
+    // “最易”至少要 3 局样本，避免 1 局 100% 胜率挤掉真实数据
+const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] || null;
 
     // 主力英雄：明教侧出场次数最多
     const appear = {}, heroWins = {};
@@ -190,14 +191,23 @@ export function getCareerInsights() {
             if (r.winner === '明教') hexStat[k].w++;
         }
     }
+    // 改为按出场次数排序，反映“最常选”而不是“胜率最高”
     const hexTopEntry = Object.entries(hexStat)
         .filter(([, v]) => v.n >= 2)
-        .sort((a, b) => (b[1].w / b[1].n) - (a[1].w / a[1].n))[0];
+        .sort((a, b) => b[1].n - a[1].n)[0];
     let hexTop = null;
     if (hexTopEntry) {
         const k = hexTopEntry[0], v = hexTopEntry[1];
+        // 补充手动映射，防止 holyFire 这种新海克斯显示英文 key
+        const HEX_NAMES = {
+            doubleStrike: '概率连击', horseFormation: '巨马阵', carry: '你就是carry',
+            windAssault: '乘风突袭', cloudBody: '流云身法', mindControl: '惑人心智',
+            fortify: '严阵以待', hotBlood: '热血奋战', meteorShower: '流星赶月',
+            bloodthirst: '嗜血狂刀', holyFlame: '圣火令', soulDrain: '摄魂',
+            holyFire: '圣火不熄', lastStand: '背水一战', unity: '众志成城'
+        };
         let name = k;
-        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || k; } catch (e) {}
+        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
         hexTop = { key: k, name, rate: Math.round(v.w / v.n * 100), n: v.n };
     }
 
