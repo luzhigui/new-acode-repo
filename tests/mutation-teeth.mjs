@@ -130,6 +130,10 @@
 //   守卫 / 输出通道 / 证据通道的升级**不升 VER**（V2.9.12 先例，V2.9.15 沿用）——
 //   故本文件头注释已到 V2.9.15 而 VER 仍为 V2.9.14，是刻意的，不是漏改：
 //   V2.9.15 只新增了新鲜度守卫第⑤项（RULEFP），判定逻辑一行未动，升 VER 会让全部旧结果被误判陈旧。
+// ★ VER-HOLD-DECL：上一段「VER 刻意不升」此前只是散文说明，机器读不出来，
+//   第 135 轮的 ver-drift-selftest 无法区分「刻意 hold」与「漏改」。本行把意图升级为可断言标记 ——
+//   hold 从此要同时在册（自检白名单）+ 在位（本行）+ 且真有落差（VER≠日志最新版）三者齐备才放行，
+//   落差消失（VER 归位）则本标记必须同步删除，否则自检转红。判据口径与 VER 值本身一行未动。
 export const VER = 'tests/mutation-teeth.mjs V2.9.14';
 
 import { spawnSync, execSync } from 'node:child_process';

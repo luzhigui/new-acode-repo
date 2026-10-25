@@ -1,3 +1,10 @@
+// V1.13.0 | 2026-10-26 第 135 轮：CHECKS 新增第 20 项「版本常量漂移自检」（tests/ver-drift-selftest.mjs，
+//   计退码）。动因：「头注释已写 Vx 而 VER 常量仍停在 Vy」这个漏改在本仓库已复发三次
+//   （第 130 轮 V1.7.0/V1.6.0、第 132 轮顺手归位、第 134 轮点名留办），本轮实测又抓出两处真漏改
+//   （本文件 V1.12.0 vs VER V1.10.0、translate-golden V1.0.1 vs VER V1.0.0）。
+//   ★ 性质：VER 不是装饰 —— mutation-teeth 拿它当结果文件新鲜度键、多份自检对外自报版本，
+//   数字说谎会让「我用的是哪一版判据」这个问题失去答案。故不再靠人眼，立自动绊线。
+//   （本轮一并归位：VER 常量 V1.10.0 → V1.12.0 → V1.13.0。）
 // V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
@@ -53,7 +60,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.10.0';
+export const VER = 'tests/run-all.mjs V1.13.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -127,6 +134,10 @@ const CHECKS = [
     //   行动权竞争）。本用例强制妹模式广扫，实测命中 52 次，断言 fact/渲染/账本三对照；
     //   带 MIN_HITS=3 棘轮 + 咬牙实证（打断 picker 永久继承即红）。tier=heavy（采样项，--quick 跳过）。
     { name: '蝶血分支定向用例(妹永久嗜血)', script: 'tests/xiaozhao-brother-leech-case.mjs', args: [], tier: 'heavy' },
+    // V1.13.0 | 2026-10-26 第 135 轮：挂「版本常量漂移自检」tests/ver-drift-selftest.mjs（第 20 项，计退码）。
+    //   盯的是「头注释版本日志已写到 Vx，脚下 VER 常量还停在 Vy」这个漏改 —— 已复发三次，本轮实测
+    //   抓出两处真漏改（本文件、translate-golden）。秒级、纯静态，放在采样项之前。
+    { name: '版本常量漂移自检(离线断言)', script: 'tests/ver-drift-selftest.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     // V1.12.0 | 2026-10-25 第 124 轮：fuzz(2100场) 与 翻译golden(35场/13MB) 是耗时主因，
     //   标记 tier=heavy —— --quick 模式下跳过，仅守门项跑（每次开发迭代不必重跑大样本）；

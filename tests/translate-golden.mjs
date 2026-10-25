@@ -9,7 +9,10 @@
 //       SEEDS=1,2,3 STAGES=2 node tests/translate-golden.mjs   → 只跑小样本（先验证用）
 // 关键口径：对象键**递归排序**后再序列化 —— 拆文件后对象字面量键序可能变化，但字段值不变，
 //          不排序会制造假差异；数组顺序（fact 顺序 / 动作顺序）是行为本体，原样保留、绝不排序。
-export const VER = 'tests/translate-golden.mjs V1.0.0';
+// V1.0.1 归位说明（第 135 轮）：本文件头注释早已写到 V1.0.1（第 123 轮 tickAndPickBuffs 收口至
+//   tests/_lib/buff-picker.mjs 唯一来源），而 VER 常量一直停在 V1.0.0 —— 属漏改，本轮由
+//   ver-drift-selftest 自动绊线抓出后归位。VER 只归位到日志已有的 V1.0.1，未擅自升版。
+export const VER = 'tests/translate-golden.mjs V1.0.1';
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
