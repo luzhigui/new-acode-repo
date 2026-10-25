@@ -157,13 +157,14 @@ function scalePoly(pts, apex, s) {
     return pts.map(p => ({ x: apex.x + (p.x - apex.x) * s, y: apex.y + (p.y - apex.y) * s }));
 }
 
-/* v29 九位九形（老板定稿）——与 content/200game-data.json hitShapes 同表 */
-const HIT_MAP = {
-    0: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-    1: [1, 2, 4, 7], 2: [2, 4, 5, 6], 3: [2, 3, 6, 9],
-    4: [1, 2, 4, 5], 5: [2, 5, 7, 8, 9], 6: [2, 3, 5, 6],
-    7: [2, 4, 5, 7], 8: [2, 5, 8], 9: [2, 5, 6, 9]
-};
+/* 九位九形：唯一数据源 = content 寒离飒.xuLi.hitShapes（引擎 modules/27 也读这张表）；
+   本地不再抄一份——两份数据要同步维护，改一处另一处不跟会错位。
+   0 / 未指定 = 全屏兜底（content 表里没有 "0"，全屏是 UI 侧兜底逻辑）。 */
+function hitShapeOf(aim) {
+    if (aim === 0 || aim == null) return [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const xl = getSkillParams('寒离飒', 'xuLi');
+    return (xl && xl.hitShapes && xl.hitShapes[String(aim)]) || [];
+}
 
 /* 卡面（demo cardHtml 逐字） */
 function hpCls(p) { return p > 0.5 ? 'hp-text-green' : (p > 0.2 ? 'hp-text-orange' : 'hp-text-red'); }
@@ -191,7 +192,7 @@ function dmgMapFor(aim, N, xl) {
         if (xl.eightDen == null) throw new Error('缺技能参数: 寒离飒.xuLi.eightDen');
         const den = xl.tierDen;
         const eightDen = xl.eightDen;
-        for (const p of (HIT_MAP[aim] || [])) {
+        for (const p of hitShapeOf(aim)) {
             map[p] = {
                 dmg: Math.floor(N / ((aim === 8 && p !== 8) ? eightDen : (den[tierOf(aim, p)] ?? 6))),
                 tier: (aim === 8 && p !== 8) ? 'eight' : tierOf(aim, p)
@@ -604,7 +605,7 @@ function makeStage(D) {
     function shapeCellsAt(cellIndex) {
         if (cellIndex === undefined || !S.geo) return [];
         const out = [];
-        for (const pos of (HIT_MAP[cellIndex] || [])) {
+        for (const pos of hitShapeOf(cellIndex)) {
             const c = S.geo.cells['e' + pos];
             if (c) out.push(c);
         }
@@ -768,8 +769,8 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     // 但**不能直接抛**：本函数是 player/49 await 的 Promise 制造者，抛出后 resolve 永不调用 → 战斗卡死。
     // 故：显式 console.error 报出缺失字段 + 立刻 resolve「未瞄准」，由引擎侧随机前排兜底结算（modules/27 有真值路径）。
     const xl = getSkillParams('寒离飒', 'xuLi');
-    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.fullDen || xl.vampDiv == null || xl.shieldPct == null) {
-        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/fullDen/vampDiv/shieldPct）——瞄准窗口中止，走引擎兜底',
+    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.fullDen || xl.vampDiv == null || xl.shieldPct == null || !xl.hitShapes) {
+        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/fullDen/vampDiv/shieldPct/hitShapes）——瞄准窗口中止，走引擎兜底',
             { got: xl ? Object.keys(xl) : null });
         resolve({ aim: 0, holdMs: 0 });
         return;
@@ -1042,7 +1043,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
             }
             if (best) {
                 APP.aimCellIndex = best;
-                hint.textContent = '瞄准 ' + best + ' 号位 → 命中 ' + (HIT_MAP[best] || []).length + ' 格';
+                hint.textContent = '瞄准 ' + best + ' 号位 → 命中 ' + hitShapeOf(best).length + ' 格';
             } else setNoAim();
         }
     }

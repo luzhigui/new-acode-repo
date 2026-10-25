@@ -40,9 +40,12 @@
 // 误报规避：本场没有青翼蝠王吸血条目直接 skip；父快照取不到（facts 不可用时）退回 V1.0.0 文案判据，
 //   不静默放行；配置读不到(getMechanicField 在数据未就绪时会抛)就跳过比例上限判据。
 // V1.0.0 | ~7135 bytes | 2026-10-07 新增韦一笑蝠影汲血吸血回归规则（rule106）
+// V1.2.0 | 2026-10-25 兜底文案通道同步 V1.1.0 的落地口径：「+0」不再单条判死——满血时预览回血会把
+//          max(1,floor(...)) 夹成 0（合法）。改为计数，仅当本场吸血全为 +0（从无正数）才判复发。
+//          实测假阳性：报告「青翼蝠王吸血量为「+0」（无原始 fact 可归因…）」，根因即本判据见 0 即判死。
 // V1.1.0 | 2026-10-23 第 122 轮：命中通道按落地口径重定判据（满血/抑疗可证归零 + 缺口上限 + 整数性），
 //          消除满血误报 31 场；闪避反击通道判据不变。
-export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.1.0';
+export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.0';
 import { collectNodes, plain } from '../122health-utils.js';
 import { getMechanicField } from '../../core/01config-5v5-test.js';
 import { MECHANIC_EFFECT_TYPES, FACT_TYPES } from '../../infra/56-battle-enums.js';
@@ -159,6 +162,9 @@ export const rule106 = {
             }
         }
 
+        // 兜底通道（文案判据）计数：把「+0」从「单条即判死」改为「全场定性」（见循环后判据）
+        var textZeroCount = 0, textPosCount = 0;
+
         // —— 通道 B：闪避反击吸血（不经 previewHeal，heal = max(1, floor(...)) 恒 ≥ 1）——
         for (var i = 0; i < nodes.length; i++) {
             var e = nodes[i];
@@ -197,10 +203,16 @@ export const rule106 = {
             if (snaps.length > 0) continue; // 已由通道 A 按 fact 判过，避免同一条判两遍
             checked++;
             var aHeal = parseFloat(am[1]);
-            if (!/^\d+$/.test(am[1]) || !(aHeal > 0)) {
+            if (!/^\d+$/.test(am[1])) {
                 return { fail: true, msg: '复发：青翼蝠王吸血量为「+' + am[1] + '」（无原始 fact 可归因，退回文案判据；'
                     + '引擎是 max(1, floor(dmg×rate)) 后过落地夹取，出现负数/小数说明取整被改）' };
             }
+            // 2026-10-25 修假阳性：纯文案层面「+0」有两种来源 —— ①目标满血时落地夹取（缺口 0，**合法**）；
+            //   ②max(1) 被删 / rate 归零（缺陷）。旧判据见 0 即判死，把 ① 误报成复发。
+            //   现改为计数，循环结束后按「本场是否从无正数」定性（见下方 textZeroCount 判据），
+            //   与有 fact 时的 A3（heal===0 且 gap>0 才算缺陷）保持同一思路。
+            if (aHeal === 0) { textZeroCount++; continue; }
+            textPosCount++;
             var admg = parentDmgOf(e, log);
             if (admg != null && admg > 0 && maxRatio != null) {
                 var acap = Math.floor(admg * maxRatio) + Math.max(1, Math.floor(admg * 0.06));
@@ -210,6 +222,14 @@ export const rule106 = {
                         + ')，说明 leechMax 被写大或 rate 公式越界）' };
                 }
             }
+        }
+
+        // 兜底通道定性：本场吸血文案全部为「+0」⇒ max(1, floor(...)) 必被删或 rate 归零。
+        //   依据：满血落地夹取只会偶发为 0，不可能每次吸血都恰好满血；全零即为真缺陷。
+        if (textZeroCount > 0 && textPosCount === 0) {
+            return { fail: true, msg: '复发：本场青翼蝠王吸血 ' + textZeroCount + ' 次，文案全为「+0」'
+                + '（无原始 fact 可归因，退回文案判据；引擎 max(1, floor(dmg×rate)) 保证基础吸血 ≥1，'
+                + '满血落地夹取只可能偶发为 0，全零说明 max(1) 被删或 rate 归零）' };
         }
 
         if (checked === 0) return 'skip'; // 本场韦一笑未出手 / 未触发吸血

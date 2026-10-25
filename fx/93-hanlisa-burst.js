@@ -16,6 +16,7 @@ export const VER = 'fx/93-hanlisa-burst.js V2.1.0';
 import { clock } from '../infra/52-clock.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 function centerOf(uid) {
     const el = document.querySelector(`[data-uid="${uid}"]`);
@@ -85,15 +86,18 @@ function shockwave(apex, hits) {
         return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} A ${R.toFixed(1)} ${R.toFixed(1)} 0 0 1 ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
     };
 
-    // 主体柔光：从顶点慢慢向外铺开（~1200ms）
+    // 主体柔光：时长 = burstDur × 0.5（受参数表控制，不再写死 1200）
+    const speedKey = GlobalStore.get('speed') || 300;
+    const burstTotal = getPerfParam('burstDur', speedKey) || 2400;
+    const bodyDur = Math.round(burstTotal * 0.5);
     body.setAttribute('d', sector(0.12));
     grad.setAttribute('r', R0 * 0.12);
-    clock.animate(1200, (p) => {
+    clock.animate(bodyDur, (p) => {
         const s = 0.12 + 1.15 * p;
         body.setAttribute('d', sector(s));
         grad.setAttribute('r', (R0 * s).toFixed(1));
         body.style.opacity = (0.8 * (1 - p)).toFixed(3);
-    }, { minRealMs: 1200 });
+    }, { minRealMs: bodyDur });
 
     // 两道涟漪：由内向外扩散、渐隐
     const ripple = (ring, delay, from, to) => {

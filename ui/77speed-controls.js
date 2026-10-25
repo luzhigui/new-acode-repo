@@ -1,6 +1,7 @@
 // ui/77speed-controls.js — 倍速控制系统（按钮高亮 / 手动锁 / 滚动降速）
-// V1.0.0 | 2026-10-14 | ~5800 bytes
-export const VER = 'ui/77speed-controls.js V1.0.0';
+// V1.1.0 | 2026-10-25 | 全局 ×2：所有按钮值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800）；
+//   点已亮的按钮不再"按灭变原速"——永远有一个档位亮着。
+export const VER = 'ui/77speed-controls.js V1.1.0';
 
 import { getState, setState, GlobalStore } from '../infra/54-global-store.js';
 
@@ -18,14 +19,16 @@ let slideSpeedActive = true;
 let preManualSpeedLock = false;
 let preManualSpeedValue = null;
 
+// 速度值（V1.1.0 全局 ×2）：
+//   300 = 原速（2x 按钮）· 150 = 快（4x 按钮）· 50 = 极快（8x 按钮）· 800 = 慢（0.5x 按钮）
 function getButtonBySpeedValue(val, isDebug) {
-    if (val === 600) {
+    if (val === 300) {
         return isDebug ? document.getElementById('btnSpeed2x') : document.getElementById('btnSpeed2');
-    } else if (val === 100) {
+    } else if (val === 50) {
         return document.getElementById('btnSpeed8x');
-    } else if (val === 300) {
+    } else if (val === 150) {
         return document.getElementById('btnSpeed4x');
-    } else if (val === 1600) {
+    } else if (val === 800) {
         return isDebug ? document.getElementById('btnSpeed05x') : document.getElementById('btnSpeed05');
     }
     return null;
@@ -63,7 +66,7 @@ function updateSpeedButtons() {
     if (!slideSpeedActive) {
         const btn05Target = debugMode ? btn05x : btn05;
         if (btn05Target) btn05Target.classList.add('active');
-        if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 1600) {
+        if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 800) {
             const lockedBtn = getButtonBySpeedValue(manualSpeedValue, debugMode);
             if (lockedBtn) lockedBtn.classList.add('semi-active');
         }
@@ -87,33 +90,32 @@ function attachSpeedButton(id, speedVal) {
     let btn = document.getElementById(id); if (!btn) return;
     btn.addEventListener('click', function() {
         onAnyButtonClick();
+        // V1.1.1：点已亮的按钮 → 变回 1 倍速（原速 300）并清所有高亮（用户要求恢复"取消"入口）
         if (btn.classList.contains('active')) {
-            setState.speed(1000);
+            setState.speed(300);
             manualSpeedLock = false;
             manualSpeedValue = null;
             slideSpeedActive = true;
             const ctx = GlobalStore.get('playerContext');
-            if (ctx) {
-                ctx.speed = 1000;
-            }
+            if (ctx) ctx.speed = 300;
             document.querySelectorAll('.controls button').forEach(b => {
                 b.classList.remove('active', 'semi-active');
             });
             updateSpeedButtons();
-        } else {
-            setSpeed(speedVal, true);
+            return;
         }
+        setSpeed(speedVal, true);
     });
 }
 
 function activateScrollSlowdown() {
     if (GlobalStore.get('fastForwardActive')) return;
     const speed = getState.speed();
-    if (speed === 1600) return;
+    if (speed === 800) return;  // 已经是慢速档
     preManualSpeedLock = manualSpeedLock;
     preManualSpeedValue = manualSpeedValue;
     slideSpeedActive = false;
-    setState.speed(1600);
+    setState.speed(800);
     updateSpeedButtons();
 }
 
@@ -125,30 +127,29 @@ function restoreSpeedFromScroll() {
         manualSpeedValue = preManualSpeedValue;
         setState.speed(preManualSpeedValue);
     } else if (manualSpeedLock && manualSpeedValue) {
-        // V7.8.1 | 2026-10-02 跨关倍速保持：74reset-runtime（原 69，10-08 改号）每场战斗重置都会调本函数，
+        // 跨关倍速保持：74reset-runtime 每场战斗重置都会调本函数，
         //   用户手动选过倍速但本次未滚动过日志时 preManualSpeed* 是初始空值，
-        //   原 else 分支把倍速打回默认并清锁 → "上一关4倍速、下一关变回默认"。
-        //   这里优先尊重当前手动锁定值；完全没手动选过倍速才落回默认 1000
+        //   这里优先尊重当前手动锁定值；完全没手动选过倍速才落回默认 300
         setState.speed(manualSpeedValue);
     } else {
         manualSpeedLock = false;
         manualSpeedValue = null;
-        setState.speed(1000);
+        setState.speed(300);
     }
     updateSpeedButtons();
 }
 
 // 倍速按钮初始化由 ui/61 在 DOM 就绪后调用（export，不再挂 window）
 function initSpeedButtons() {
-    attachSpeedButton('btnSpeed2', 600);
-    attachSpeedButton('btnSpeed8x', 100);
-    attachSpeedButton('btnSpeed4x', 300);
-    attachSpeedButton('btnSpeed2x', 600);
-    attachSpeedButton('btnSpeed05', 1600);
-    attachSpeedButton('btnSpeed05x', 1600);
-    setState.speed(600);
+    attachSpeedButton('btnSpeed2', 300);
+    attachSpeedButton('btnSpeed8x', 50);
+    attachSpeedButton('btnSpeed4x', 150);
+    attachSpeedButton('btnSpeed2x', 300);
+    attachSpeedButton('btnSpeed05', 800);
+    attachSpeedButton('btnSpeed05x', 800);
+    setState.speed(300);
     manualSpeedLock = true;
-    manualSpeedValue = 600;
+    manualSpeedValue = 300;
     slideSpeedActive = true;
     updateSpeedButtons();
 }

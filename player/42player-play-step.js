@@ -12,8 +12,6 @@ import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41pl
 import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { appendLogHTML, renderSeparator } from './47renderer.js';
-import { speakLogLine } from '../modules/31voice-commentary.js';
-
 import { setRound, syncStoreFromStep } from './42player-step-sync.js';
 import {
     prepareLogEntry, getActionTiming, getActionFx, hasStageWork,
@@ -177,7 +175,5 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     }
 
     c._lastLogType = lastEntryType;
-    // 语音解说：本条日志演出收尾后再开口（防剧透铁律），raw fact 从 step.log 原位取
-    try { speakLogLine(entry, step.log && step.log[factIndex]); } catch (e) { /* 解说失败不影响战斗 */ }
     return { isBattleOver: false };
 }

@@ -7,6 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 function finishCrash(clone, unitA) {
     if (clone && clone.parentNode) clone.remove();
@@ -105,9 +106,13 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
     }
 
-    const chargeDur = 800;
-    const crashDur = 900;
-    const returnDur = 800;
+    // 飞撞速度从参数表读（按当前 speed 档位），飞行时长 = 距离 / 速度；
+    //   起手 / 回弹按飞行时长的 0.9 比例算（内部编排，不进表）
+    const speedKey = GlobalStore.get('speed') || 300;
+    const crashSpeed = getPerfParam('crashSpeed', speedKey) || 0.8;
+    const crashDur = Math.max(200, Math.min(1500, flyDist / crashSpeed));
+    const chargeDur = Math.round(crashDur * 0.9);
+    const returnDur = Math.round(crashDur * 0.9);
 
     // ghost 模式蓄力缩放 clone
     const startFly = () => {

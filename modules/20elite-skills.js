@@ -239,7 +239,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
                 penetrationDmg,
                 extraDmg,
                 totalDmg,
-                isDead: !target.alive,
+                isDead: target.hp <= 0,          // 原 isDead: !target.alive —— 上一步 applyStatChange 已即时扣血（hp 夹到 0 不保 1），
+                                                 //   alive 要到 finalizeDeaths 才置 false，故旧写法恒为 false、击杀标记永远不出现
                 unitUid: unit.uid,
                 targetUid: target.uid
             }

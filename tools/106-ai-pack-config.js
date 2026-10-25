@@ -1,3 +1,6 @@
+// V6.0.39 | ~27400 bytes | 2026-10-25 语音解说从主游戏下线、搬到 tools 存档：移除 ui/73voice-panel.js 与
+//           modules/31voice-commentary.js，补登记 tools/136-voice-commentary.js + tools/137-voice-panel.js
+//           （不登记则新档漏包、删档会让包内出现「读取失败」）
 // V6.0.38 | ~27200 bytes | 2026-10-24 补登记 3 个运行必需文件（全仓清单↔磁盘比对发现，均在主代码引用链上）：
 //           player/52-career-log.js（42player-core 已 import，dev-index 生涯记录按钮也动态 import）、
 //           fx/95-immune-shield-break.js（render/39 空见护罩碎裂的动态 import）、
@@ -124,7 +127,7 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-04 补登记 69-role-cards：角色名片表（ui/62、ui/65、render/32 已 import）
     '../ui/69-role-cards.js',
     '../ui/74reset-runtime.js', '../ui/70buff-dialog.js',
-    '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
+    '../ui/71tutorial.js', '../ui/72opening-cg.js',
     // 2026-10-11 补登记 75/76：ui/61 减负批拆出的联网会话与战报回放入口（ui/61、ui/68 已 import）
     '../ui/75net-session.js', '../ui/76replay-entry.js',
     // 2026-10-14 补登记 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者；漏登则包内引用断裂）
@@ -161,7 +164,7 @@ export const ALL_PROJECT_FILES = [
     '../modules/26elite-sixsects-tangwenliang.js',
     // 2026-10-24 补登记：空见组件文件（26 入口已 import createKongJianComponent）
     '../modules/26elite-sixsects-kongjian.js',
-    '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
+    '../modules/28buff-tools.js', '../modules/30custom-effects.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     // 2026-10-21 补登记 32 拆分件：格徽章/格单元（32-grid-render 的同批产物）
@@ -264,6 +267,8 @@ export const ALL_PROJECT_FILES = [
     //（135 依赖 123 V1.2.0 的 stages 多关支持；134 只读 content，不跑战斗）
     '../tools/134-idea-lab.html', '../tools/134-fetch-pool.mjs', '../tools/134-idea-pool-additions.json',
     '../tools/135-param-scan.html',
+    // 2026-10-25 补登记：语音解说从主游戏下线，搬到 tools 存档（136 引擎 / 137 设置面板）
+    '../tools/136-voice-commentary.js', '../tools/137-voice-panel.js',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；
     // 用途与复用场景见 TOOL-AI.md「四、历史探针」节）
     '../tools/TOOL-AI.md',

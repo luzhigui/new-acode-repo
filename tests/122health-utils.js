@@ -1,3 +1,7 @@
+// V6.6.0 | 2026-10-25 checkBuffIcons 缺图标缓冲改成真正的「连续缺失」语义：旧实现只在本次仍受益时清零
+//          时间戳，跨回合（概率连击 uid 每步重选）/buff 消失/单位阵亡时旧时间戳残留 ⇒ 再次受益的首次缺失
+//          即越过 1 秒阈值直接上报（体检报「张无忌有概率连击Buff但缺 ⚡（持续1秒）」实测假阳性）。
+//          现于进入检查时清理失效 key，并在本次不受益时立刻清零。
 // V6.5.0 | 2026-10-24 第 129 轮 checkActionRights 补「压进即行动」——同一批上游改动（唐文亮冲刺/
 //          压进重写）还让行动权不变量冒出 7 类新红（唐文亮(A) _acted=true 但本回合无正常位行动记录）。
 //          取证（DUMP=3:5 第 4 回合）：整回合唐文亮只留一条「🥢 唐文亮 射程不及，向前压至 5 号位」，
@@ -57,7 +61,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.5.0';
+export const VER = 'tests/122health-utils.js V6.6.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -341,6 +345,21 @@ export function checkBuffIcons(ctx, doc, liveAlly) {
         }
     }
 
+    // [V6.6.0] 陈旧时间戳清理：ICON_BUFFER_MS 只应度量「**连续**缺失」。
+    //   旧实现只在「本采样仍受益」时才清零时间戳，于是单位本回合没受益（如概率连击 currentDoubleStrikeUid
+    //   每步重选、张无忌本回合没被抽中）、buff 已消失、单位已阵亡时，时间戳全留着；
+    //   下回合该单位重新受益时，时间差早已越过 1 秒 ⇒ 首次缺失就立刻上报，而渲染其实刚画上 —— 假阳性。
+    //   修法：每次进入检查，先把「单位不在场/已死」或「buff 已不在 activeBuffs」的 key 全部清掉；
+    //   再由下方循环在「本次不受益」时清掉（见 L364），两次合起来才是真正的连续缺失语义。
+    const liveUids = new Set(allyTeam.filter(u => u && u.alive).map(u => String(u.uid)));
+    const liveBuffKeys = new Set(activeBuffs.map(b => b.key));
+    for (const k of Object.keys(_missingBuffIconSince)) {
+        const sep = k.indexOf('|');
+        const uidStr = sep >= 0 ? k.substring(0, sep) : k;
+        const buffKey = sep >= 0 ? k.substring(sep + 1) : '';
+        if (!liveUids.has(uidStr) || !liveBuffKeys.has(buffKey)) delete _missingBuffIconSince[k];
+    }
+
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
         // 只按 uid 定位该单位自己的格子（渲染器在 div.dataset.uid 上写死 uid），绝不回退到按 pos 查——
@@ -361,8 +380,9 @@ export function checkBuffIcons(ctx, doc, liveAlly) {
         for (const buff of activeBuffs) {
             const icon = BUFF_ICONS[buff.key];
             if (!icon) continue;
-            if (!isBenefited(unit, buff.key)) continue;
             const missKey = unit.uid + '|' + buff.key;
+            // 本次不受益 ⇒ 立即清零：保证缓冲窗口只累计「连续缺失」，跨回合/跨抽签的陈旧时间戳不得复用
+            if (!isBenefited(unit, buff.key)) { delete _missingBuffIconSince[missKey]; continue; }
             if (nameText.indexOf(icon) === -1) {
                 // 图标缺失：记录首次缺失时间，持续超过缓冲(给渲染留时间)才上报，避免渲染时序误报
                 if (!_missingBuffIconSince[missKey]) {

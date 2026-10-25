@@ -6,6 +6,7 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { snapshotUnitCell, snapshotUnitCellRobust } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, onComplete) {
     clock.animate(durationMs, (p) => {
@@ -47,8 +48,10 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     const headColor = st.headColor != null ? st.headColor : arrowColor;
     const launchIcon = st.icon != null ? st.icon : '🏹';
     let chargeTime = 500;
-    // 飞行时长按距离匀速：普通 0.6px/ms、流星 1.0px/ms，各带 300~900ms 兜底
-    const flySpeed = isMeteor ? 1.0 : 0.6;
+    // 飞行时长按距离匀速，速度从参数表读（arrowSpeed / meteorSpeed，按当前 speed 档位）
+    const speedKey = GlobalStore.get('speed') || 300;
+    const paramKey = isMeteor ? 'meteorSpeed' : 'arrowSpeed';
+    const flySpeed = getPerfParam(paramKey, speedKey) || (isMeteor ? 1.0 : 0.6);
     let flyDuration = Math.max(300, Math.min(900, dist / flySpeed));
     let pauseAfterHit = isMeteor ? 1200 : 600;
 
@@ -222,8 +225,11 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
     const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
     if (dist < 1) { if (onHit) onHit(); return; }
     const angle = Math.atan2(dy, dx);
-    // 再次提速：凝结 250→150、飞行保底 400→250、系数 1.5→0.9、停顿 150→100
-    const chargeTime = 150;
+    // 起手 / 飞行速度从参数表读（clawStart / clawSpeed，按当前 speed 档位）；
+    //   距离远飞得久，速度恒定
+    const speedKey = GlobalStore.get('speed') || 300;
+    const chargeTime = getPerfParam('clawStart', speedKey) || 150;
+    const clawSpeed = getPerfParam('clawSpeed', speedKey) || 0.9;
     let baseMin = 250;
     if (unitD && unitD.hp !== undefined) {
         const battleState = GlobalStore.get('currentBattleState');
@@ -236,7 +242,7 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
             }
         }
     }
-    let flyDuration = Math.max(baseMin, dist * 0.9);
+    let flyDuration = Math.max(baseMin, dist / clawSpeed);
     let pauseAfterHit = 100;
 
     let claw = document.createElement('div');

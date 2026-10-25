@@ -1,8 +1,11 @@
-// ui/73voice-panel.js — 语音解说设置区（实时朗读版，嵌入音乐面板）
+// tools/137-voice-panel.js — 语音解说设置区（已从主游戏下线，存档待用）
+// 原路径 ui/73voice-panel.js，2026-10-25 从音乐面板移除。
+// 主游戏不再 import 本文件；日后若要重接入，在 tools 页面自行接线。
+// V1.2.0 | 2026-10-25 | 工具箱接线：补 openVoicePanel() 页内弹窗入口（配 102 语音卡片）
 // V1.1.0 | 2026-10-01 | ~5700 bytes
-import { getVoiceCfg, setVoiceCfg, listVoices, speakTest, stopCommentary, ttsAvailable } from '../modules/31voice-commentary.js';
+import { getVoiceCfg, setVoiceCfg, listVoices, speakTest, stopCommentary, ttsAvailable } from './136-voice-commentary.js';
 
-export const VER = 'ui/73voice-panel.js V1.1.0';
+export const VER = 'tools/137-voice-panel.js V1.2.0';
 
 function rowLabel(text) {
     const d = document.createElement('div');
@@ -113,3 +116,25 @@ export function buildVoiceControls(box) {
     testBtn.onclick = () => speakTest();
     box.appendChild(testBtn);
 }
+
+// 工具箱入口（tools/102 备用工具的「语音解说」卡片点击）：页内 mask 弹窗挂设置区。
+// 只有设置区，没有播报输入口——主游戏已不调用 speakLogLine / speakVictory。
+export function openVoicePanel() {
+    let mask = document.getElementById('voicePanelMask');
+    if (!mask) {
+        mask = document.createElement('div');
+        mask.id = 'voicePanelMask';
+        mask.className = 'tf-mask';
+        mask.innerHTML = '<div class="tf-box" style="width:min(460px,94vw);height:auto;max-height:88vh;">'
+            + '<div class="tf-head"><span class="tf-title">🎙️ 语音解说（存档）</span>'
+            + '<button class="tf-close">关闭</button></div>'
+            + '<div class="tf-body" style="flex:1;overflow-y:auto;padding:2px 6px 12px;"></div></div>';
+        document.body.appendChild(mask);
+        mask.querySelector('.tf-close').addEventListener('click', () => { mask.style.display = 'none'; });
+        mask.addEventListener('click', (e) => { if (e.target === mask) mask.style.display = 'none'; });
+        buildVoiceControls(mask.querySelector('.tf-body'));
+    }
+    mask.style.display = 'flex';
+}
+
+if (typeof window !== 'undefined') window.openVoicePanel = openVoicePanel;

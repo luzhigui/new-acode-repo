@@ -4,6 +4,8 @@ export const VER = 'fx/80fx-common-5v5-test.js V6.3.12';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
+import { GlobalStore } from '../infra/54-global-store.js';
+import { getPerfParam } from '../core/23perf-params.js';
 
 const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
@@ -59,6 +61,9 @@ export function resetDanmakuPool() {
 export function showDanmaku(unit, text) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
+    // 存活时长读参数表（bubbleLife），按当前 speed 档位；取不到回落 3500
+    const speedKey = GlobalStore.get('speed') || 300;
+    const life = getPerfParam('bubbleLife', speedKey) || 3500;
     acquireFromPool('danmaku', (bubble) => {
         bubble.textContent = text;
         bubble.className = 'danmaku-bubble';
@@ -66,7 +71,7 @@ export function showDanmaku(unit, text) {
         bubble.style.left=(rect.left-4)+'px';
         bubble.style.top=(rect.top+rect.height*0.35)+'px';
         bubble.style.transform='translate(-100%, -50%)';
-    }, 3500);
+    }, life);
 }
 
 function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
@@ -86,13 +91,16 @@ export function showDamageFloat(unit, dmg) {
     rec.lastAt = now;
     _dmgFloatStack.set(unit.uid, rec);
     const stackOffset = (rec.count - 1) * DMG_STACK_STEP;
+    // 存活时长读参数表（floatLife），按当前 speed 档位；取不到回落 1400
+    const speedKey = GlobalStore.get('speed') || 300;
+    const life = getPerfParam('floatLife', speedKey) || 1400;
     acquireFromPool('dmgFloat', (dmgEl) => {
         dmgEl.textContent = '💥-'+dmg;   // 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
         dmgEl.style.display = '';        // 点亮量宽（登记进 _activeFloats 供 ⚔/🛡️ 避让；💥 自身仍 right 锚定不变）
         markFloatActive(unit.uid, 'dmg', dmgEl.offsetWidth);
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
         dmgEl.style.top=(rect.top-4-stackOffset)+'px';
-    }, 1400);
+    }, life);
 }
 
 function createDodgeBubbleEl() { let b = document.createElement('div'); b.className = 'dodge-bubble'; return b; }

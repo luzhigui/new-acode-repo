@@ -1,9 +1,13 @@
+// V6.2.4 | ~38500 bytes | 2026-10-25 文件复制器加两个独立复制按钮（配 102 V6.3.3）：
+//   ①「📋 复制 04 网页端协议」——fetch 仓库根 `04 网页端协议.md`（失败回退 文件汇总20260730/12 协议与准则/ 同名文件）→ 剪贴板；
+//   ②「🔗 仓库网址 + 目录索引」——拼 GitHub/Gitee 地址 + 两套 raw 模板 + ALL_PROJECT_FILES 按 FILE_GROUPS 分组清单。
+//   两者都只进剪贴板，不改复制包内容、不进清单（中文名 md 仍按 106 口径不随包）。
 // V6.2.3 | ~34600 bytes | 2026-10-19 「单次复制上限(字符)」默认值 60000 → 80000（配 102 V6.1.3）：减少分包数，一次发更完整。
 // V6.2.2 | ~34500 bytes | 2026-09-22 文件复制器白名单补 .mjs（收录 tools/118-import-export-check.mjs，node 直跑的 ESM 脚本）
 // V6.2.1 | ~34000 bytes | 2026-09-13 修复：手机 WebView 选目录后误抛 AbortError 被当"取消"导致不下载，改为回退逐个下载
 // V6.2.0 | 2026-09-13 「一键全下」优先 File System Access API 选目录直写（只弹一次），不支持/失败回退逐个下载
 // V6.1.0 | 2026-09-12 新增「一键全下(txt)」：串行触发全部分包下载，自动跳过含读取失败的包
-export const VER = 'tools/103-toolkit.js V6.2.3';
+export const VER = 'tools/103-toolkit.js V6.2.4';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
 
@@ -116,6 +120,116 @@ function escapeHtml(text) {
 
     document.getElementById('fcCustomFileInput').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') document.getElementById('fcBtnAddFile').click();
+    });
+
+    // ===== 独立复制：04 网页端协议 / 仓库网址 + 目录索引（2026-10-25 新增，均不随包发送）=====
+    async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* 回退 execCommand */ }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            const ok = document.execCommand('copy');
+            ta.remove();
+            return ok;
+        } catch (e) { return false; }
+    }
+
+    // 读单个本地文件（10s 超时，中文/空格路径交 encodeURI 处理）
+    async function readLocalText(path) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        try {
+            const res = await fetch(encodeURI(path), { signal: controller.signal });
+            clearTimeout(timer);
+            if (!res.ok) return { error: 'HTTP ' + res.status };
+            return { content: await res.text() };
+        } catch (e) {
+            clearTimeout(timer);
+            return { error: (e && e.name === 'AbortError') ? '读取超时(10s)' : (e && e.message) || '读取失败' };
+        }
+    }
+
+    // 04 网页端协议：优先仓库根，失败回退文件汇总目录（两处内容同步维护，取先读到的那份）
+    const PROTOCOL_PATHS = ['../04 网页端协议.md', '../文件汇总20260730/12 协议与准则/04 网页端协议.md'];
+    document.getElementById('fcBtnCopyProtocol').addEventListener('click', async () => {
+        const btn = document.getElementById('fcBtnCopyProtocol');
+        const BACK = '📋 复制 04 网页端协议';
+        btn.disabled = true; btn.textContent = '⏳ 读取中...';
+        let lastErr = '';
+        for (const path of PROTOCOL_PATHS) {
+            const r = await readLocalText(path);
+            if (!r.error) {
+                const ok = await copyText(r.content);
+                const shown = path.replace('../', '');
+                statusDiv.textContent = ok
+                    ? `✅ 已复制《04 网页端协议》（${shown}，${r.content.length} 字符）—— 粘到网页端会话开头即可`
+                    : `❌ 剪贴板写入失败。请直接打开 ${shown} 手动复制`;
+                btn.textContent = ok ? '✅ 已复制' : '❌ 复制失败';
+                setTimeout(() => { btn.textContent = BACK; btn.disabled = false; }, 2000);
+                return;
+            }
+            lastErr = `${path.replace('../', '')}：${r.error}`;
+        }
+        statusDiv.textContent = `❌ 读不到 04 网页端协议（${lastErr}）。请用 tools/启动工具箱.bat 从 http://localhost 打开（file:// 下浏览器禁止 fetch 本地文件）。`;
+        btn.textContent = '❌ 读取失败';
+        setTimeout(() => { btn.textContent = BACK; btn.disabled = false; }, 2000);
+    });
+
+    // 仓库网址 + 目录索引：地址 / 两套 raw 模板 / ALL_PROJECT_FILES 分组清单（与复制包同源）
+    function buildRepoInfo() {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        const L = [];
+        L.push('// ============================================================');
+        L.push('// 光明顶5v5 · 仓库地址与目录索引');
+        L.push(`// 生成时间：${ts}（本地）｜清单文件数：${ALL_PROJECT_FILES.length}`);
+        L.push('// ============================================================');
+        L.push('');
+        L.push('## 一、仓库地址');
+        L.push('GitHub：https://github.com/luzhigui/new-acode-repo');
+        L.push('Gitee ：https://gitee.com/luzhigui/new-acode-repo');
+        L.push('');
+        L.push('## 二、源码直读（raw）');
+        L.push('GitHub raw 模板：https://raw.githubusercontent.com/luzhigui/new-acode-repo/main/<路径>');
+        L.push('Gitee  raw 模板：https://gitee.com/luzhigui/new-acode-repo/raw/main/<路径>');
+        L.push('注意：中文/空格路径要 encodeURIComponent（空格变 %20）；按需单读，禁止全量拉取。');
+        L.push('main 会随每次 push 变化；需要固定版本时以当次提交的 commit SHA 替换 main。');
+        L.push('');
+        L.push(`## 三、目录索引（与复制包同源，共 ${ALL_PROJECT_FILES.length} 个文件）`);
+        const buckets = FILE_GROUPS.map(g => ({ label: g.displayName, files: [] }));
+        ALL_PROJECT_FILES.forEach(f => {
+            let idx = 0;
+            for (let i = 0; i < FILE_GROUPS.length; i++) {
+                const g = FILE_GROUPS[i];
+                if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) { idx = i; break; }
+            }
+            buckets[idx].files.push(f.replace(/^\.\.\//, ''));
+        });
+        buckets.forEach(b => {
+            if (!b.files.length) return;
+            L.push('');
+            L.push(`【${b.label}】${b.files.length} 个`);
+            b.files.forEach(f => L.push('  ' + f));
+        });
+        L.push('');
+        L.push('## 四、纪律');
+        L.push('- 清单唯一真源 = tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES，与复制包同源；索引里没有的文件视为不随包。');
+        L.push('- 改动前按 raw 读原文，禁止凭索引摘写改代码。');
+        return L.join('\n');
+    }
+    document.getElementById('fcBtnCopyRepoInfo').addEventListener('click', async () => {
+        const btn = document.getElementById('fcBtnCopyRepoInfo');
+        const BACK = '🔗 仓库网址 + 目录索引';
+        const text = buildRepoInfo();
+        const ok = await copyText(text);
+        statusDiv.textContent = ok
+            ? `✅ 已复制仓库网址 + 目录索引（${text.length} 字符，${ALL_PROJECT_FILES.length} 个文件）—— 粘在复制包前面用`
+            : '❌ 剪贴板写入失败，请重试';
+        btn.textContent = ok ? '✅ 已复制' : '❌ 复制失败';
+        setTimeout(() => { btn.textContent = BACK; }, 2000);
     });
 
     document.getElementById('fcBtnSelectAll').addEventListener('click', () => {
