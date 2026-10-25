@@ -1,4 +1,12 @@
 // tests/hit-shapes-consistency.mjs — 寒离飒「蓄意轰拳」数值口径对账（静态检查，非运行时体检）
+// V1.1.0 | 2026-10-25 第 134 轮：上游把 ui/79 的九位九形**收口为唯一数据源**——删掉本地抄写的
+//   `const HIT_MAP = {...}`，改 `function hitShapeOf(aim)` 直读 content 寒离飒.xuLi.hitShapes。
+//   本检查的抽取器只认 `const HIT_MAP` ⇒ 抽取失败 ⇒ 报「抽取或求值失败」退出码 1。
+//   ★ 这个红是**自检失效**（根本没做比对），不是发现了数值漂移；且它长期红着会让 ui/79 侧口径
+//     彻底失去监控 —— 以后真漂移也看不出来。与第 133 轮牙口证据腐烂同源：被监控对象换了写法，
+//     监控口径没跟（第 128 轮通规「自检自身也会腐烂」的又一实例）。
+//   修法（收紧）：按新写法求值引擎本体 hitShapeOf（注入 content 真值，不复刻实现），dmgMapFor 改注入
+//   hitShapeOf + tierOf；新增检查⑥「收口守住」——不得又抄一份本地表 + hitShapeOf 必须在位。
 // V1.0.0 | ~9000 bytes | 2026-10-22 体检第 116 轮新建
 //   背景（一次真事故）：蓄意轰拳的伤害分母有三份副本——content 真值、modules/27 结算、ui/79 引擎 UI。
 //     2026-10-22 发现 ui/79 与 modules/27 里各留了「兜底字面量」{direct:2, near:4, far:6} / eightDen:3，
@@ -13,7 +21,7 @@
 //        缺参数就该报错（老板口径：有错误就让他暴露出来，不要静默兜底）。
 //   零触发守卫：真值/引擎源码任一读取失败、或对账格子数为 0 → 硬红（解析失效 = 空跑出绿，不许有）。
 // 用法：node tests/hit-shapes-consistency.mjs
-export const VER = 'tests/hit-shapes-consistency.mjs V1.0.0';
+export const VER = 'tests/hit-shapes-consistency.mjs V1.1.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -81,7 +89,18 @@ function settlementCells(blockSrc, xl) {
     return byAim;
 }
 
-// ---- 引擎 UI 侧：求值 ui/79 的 dmgMapFor + HIT_MAP ----
+// ---- 引擎 UI 侧：求值 ui/79 的 dmgMapFor + 取格表 ----
+// V1.1.0 | 2026-10-25 第 134 轮：上游把 ui/79 的九位九形**收口为唯一数据源**——
+//   删除了本地抄写的 `const HIT_MAP = {...}`，改为 `function hitShapeOf(aim)` 直读
+//   content 寒离飒.xuLi.hitShapes（与 modules/27 同一张表，0/未指定 = UI 侧全屏兜底）。
+//   这是正确的收口（两份数据要同步维护，改一处另一处不跟就会错位），但本检查的抽取器
+//   只认 `const HIT_MAP` ⇒ 抽取返回 null ⇒ 报「抽取或求值失败」并退出码 1。
+//   ★ 这个红是**自检失效**，不是发现了数值漂移：它根本没做比对。更坏的是它一旦长期红着，
+//     以后真出现数值漂移也看不出来（红得没有信息量）⇒ 等于 ui/79 侧口径**彻底失去监控**。
+//     这正是第 128 轮立的通规「自检自身也会腐烂」的又一实例，且成因与第 133 轮的牙口腐烂同源：
+//     主代码/上游把被监控对象换了写法，而监控口径没跟。
+//   修法（收紧，不是放宽）：按新写法求值引擎本体的 hitShapeOf（注入 content 真值，不复刻实现），
+//   并新增断言④「UI 侧不得再抄一份取格表」——收口了就要守住，不许又分叉回去。
 export function extractHitMap(src) {
     const m = /const\s+HIT_MAP\s*=\s*\{([\s\S]*?)\n\};/.exec(src);
     if (!m) return null;
@@ -93,14 +112,42 @@ export function extractHitMap(src) {
     }
 }
 
+// 新版取格：求值 ui/79 的 hitShapeOf 本体，逐瞄位（含 0）还原成取格表。
+// hitShapeOf 内部调 getSkillParams('寒离飒', 'xuLi') —— 注入 content 真值，跑的是引擎源码而非复刻。
+export function evalHitShapeOf(src, xl) {
+    const shapeSrc = extractFunctionSource(src, 'hitShapeOf');
+    if (!shapeSrc) return null;
+    try {
+        const getSkillParams = (ch, sk) => (ch === '寒离飒' && sk === 'xuLi') ? xl : null;
+        const shapeFn = new Function('getSkillParams', 'return (' + shapeSrc + ');')(getSkillParams);
+        const map = {};
+        for (let aim = 0; aim <= 9; aim++) map[aim] = shapeFn(aim);
+        return { shapeFn, hitMap: map };
+    } catch (e) {
+        return null;
+    }
+}
+
 function evalDmgMapFor(src, xl) {
     const fnSrc = extractFunctionSource(src, 'dmgMapFor');
     const tierSrc = extractFunctionSource(src, 'tierOf');
-    const hitMap = extractHitMap(src);
-    if (!fnSrc || !tierSrc || !hitMap) return null;
-    const fn = new Function('HIT_MAP', 'tierOf', 'return (' + fnSrc + ');');
+    if (!fnSrc || !tierSrc) return null;
     const tierFn = new Function('return (' + tierSrc + ');')();
-    return { dmgMapFor: fn(hitMap, tierFn), hitMap };
+    const shaped = evalHitShapeOf(src, xl);
+    try {
+        if (shaped) {
+            // 新口径：dmgMapFor 依赖 hitShapeOf / tierOf 两个自由变量
+            const fn = new Function('hitShapeOf', 'tierOf', 'return (' + fnSrc + ');');
+            return { dmgMapFor: fn(shaped.shapeFn, tierFn), hitMap: shaped.hitMap };
+        }
+        // 旧口径回退（仍认 const HIT_MAP）：仅为兼容历史写法，正常路径不该走这里
+        const hitMap = extractHitMap(src);
+        if (!hitMap) return null;
+        const fn = new Function('HIT_MAP', 'tierOf', 'return (' + fnSrc + ');');
+        return { dmgMapFor: fn(hitMap, tierFn), hitMap };
+    } catch (e) {
+        return null;
+    }
 }
 
 // ---- 兜底扫描：xuLi 字段的字面量兜底 ----
@@ -151,10 +198,28 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
         problems.push('modules/27 结算块求值抛错：' + (e && e.message || e));
         return { problems, stats };
     }
+    // ---- 检查⑥：取格表唯一数据源收口（V1.1.0 | 第 134 轮新增）----
+    // 上游已把九位九形收口为 content 唯一数据源：ui/79 删掉本地抄写的 HIT_MAP，改 hitShapeOf 直读 content。
+    // 收口是对的，但**收口了就得守住**，两条：
+    //   ① 不得又抄一份本地表 —— 两份数据要同步维护，改一处另一处不跟就会错位，且错位时 UI 显示
+    //      与引擎结算脱钩还不报错（与 132 预览页整份参数快照过期是同一类事故）。
+    //   ② hitShapeOf 必须在位 —— 抽不到说明本检查的 UI 侧已经降级/失效，此时不许靠旧口径静默出绿
+    //      （第 128 轮通规：自检自身也会腐烂，失效必须喊出来而不是悄悄降级）。
+    // ★ 位置必须在**零触发守卫区**（UI 侧求值之前、提前 return 之前）：本项正是「自检还有效吗」的
+    //   断言，若放到求值之后，抽取一失败就提前 return，它永远执行不到 ⇒ 变成永远绿的死断言。
+    //   （第 134 轮验牙 2 实测抓出：改名 hitShapeOf 后只报「抽取失败」而不报本条，正是被提前 return
+    //    短路了。第 133 轮立的通规「新增断言必须先问它有可能报吗」在此第二次应验，且是同一类坑。）
+    if (/const\s+HIT_MAP\s*=\s*\{/.test(uiSrc)) {
+        problems.push('ui/79 又抄了一份本地取格表 const HIT_MAP = {...} —— 取格表唯一数据源是 content 寒离飒.xuLi.hitShapes，本地第二份迟早与引擎错位，收口成果不许回退');
+    }
+    if (!extractFunctionSource(uiSrc, 'hitShapeOf')) {
+        problems.push('ui/79 找不到 hitShapeOf（取格表已改为从 content 唯一数据源读取）—— UI 侧抽取已降级或失效，不许静默出绿');
+    }
+
     // ---- ② 引擎 UI 侧求值 ----
     const ui = evalDmgMapFor(uiSrc, xl);
     if (!ui) {
-        problems.push('ui/79 的 HIT_MAP / tierOf / dmgMapFor 抽取或求值失败');
+        problems.push('ui/79 的 取格表 / tierOf / dmgMapFor 抽取或求值失败');
         return { problems, stats };
     }
 
