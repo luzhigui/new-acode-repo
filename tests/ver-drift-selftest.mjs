@@ -1,4 +1,12 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.2.0 | 2026-10-26 第 137 轮 补「可比对规模」闸门（断言⑪⑫⑬）：上一版只有①规模闸门，而①数的是
+//        | 「带 VER 的文件数」（实测 77），真正被断言②拿去比对的却是「有可解析版本日志的文件数」——实测
+//        | 只有 26 个，另外 51 个（占 66%，几乎全是 health-rules 的 47 个规则文件）因 logMax 为空被②
+//        | 整体 continue 跳过，从未被比对过一次，而这个数字此前从未在任何输出里露过面。更危险的是①测错了
+//        | 量：一旦版本日志正则腐烂，logMax 全空 ⇒ ②跳过全部 ⇒ ①仍以 77≥70 放行 ⇒ 打印全绿而实际比对
+//        | 0 个文件 —— 这正是①当初要防的「空集出绿」，只是①守的是另一个口径，守不住这一个。故新增
+//        | ⑪可解析日志数下限（实测 26 / 下限 22）、⑫同文件重复声明 VER 即红（防改了下面那个、上面还在撒谎）、
+//        | ⑬无日志名单规模双向棘轮（实测 51，新增孤儿要红、补上日志后不更新也要红）。
 // V1.1.0 | 2026-10-26 第 136 轮 覆盖面从 .mjs 扩到 tests 下全部 .js/.mjs：上一版 collect 只收 .mjs，
 //        | 实测漏掉 52 个带 VER 的 .js（占全库 68%，含 121/122/123/124/140 与 health-rules 全部 47 个规则文件），
 //        | 其中 4 处真漂移正在裸奔（121/123/124/140-baseline）。同时按住两个口子：新增断言⑧覆盖面（防再度
@@ -45,11 +53,12 @@
 //   这是第 128 轮通规「自检自身也会腐烂」第四次应验：**上一轮刚立的绊线，自己就有覆盖缺口**。
 //
 // 【断言清单】①规模闸门 ②漂移零容忍 ③hold 在册 ④hold 在位 ⑤hold 棘轮 ⑥hold 必有落差 ⑦VER 路径自证
-//   ⑧覆盖面（两种后缀都必须在册）⑨VER 耦合入库存产物（见 VER_EMBEDDED_IN）
-//   每条都做过验牙（见体检迭代日志第 135 / 136 轮），验牙时均转红、还原后回绿。
+//   ⑧覆盖面（两种后缀都必须在册）⑨VER 耦合入库存产物（见 VER_EMBEDDED_IN）⑩无 VER 名单双向棘轮
+//   ⑪可解析日志规模闸门（①守不住的那个口径）⑫VER 不得重复声明 ⑬无日志名单规模双向棘轮
+//   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.1.0';
+export const VER = 'tests/ver-drift-selftest.mjs V1.2.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -68,6 +77,18 @@ const MIN_VER_FILES = 70;
 // 覆盖面副闸门：其中 .js 侧带 VER 的文件数下限。实测 52（121/122/123/124/140 五个 + health-rules 47 个）。
 // 单独拎出来是因为 V1.0.0 的教训：总数够不代表每类都采到，只看总数会被「只扫 .mjs」蒙混过关。
 const MIN_JS_VER_FILES = 45;
+
+// 可解析日志闸门：带 VER 的文件里，**真正有版本日志可比对的**那部分的下限。实测 26。
+// ★ 为什么①守不住这个口子：①数的是「带 VER 的文件数」（77），而②比对的前提是 logMax 非空。
+//   实测 77 个带 VER 的文件里只有 26 个有可解析的版本日志，另外 51 个被②整体跳过。
+//   若版本日志正则腐烂，logMax 全空 ⇒ ②零命中 ⇒ ①仍以 77≥70 放行 ⇒ 打印全绿而实际比对 0 个文件。
+//   这正是①当初要防的「空集出绿」，只是它量的是另一个口径，故必须另立一根线。
+const MIN_LOG_PARSED = 22;
+
+// 无日志名单规模：当前「有 VER 但没有可解析版本日志」的文件数。实测 51（其中 47 个是 health-rules 规则文件）。
+// 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
+// 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
+const EXPECT_NO_LOG = 51;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
@@ -97,6 +118,9 @@ const VER_EMBEDDED_IN = {
 const RE_LOG_ENTRY = /^\s*\/\/\s*V(\d+\.\d+(?:\.\d+)?)\s*\|/;
 // VER 常量：const VER = '<path> V<x.y.z>'
 const RE_VER = /^(?:export\s+)?const\s+VER\s*=\s*'([^']*)'/m;
+// 同一份 VER 常量的**全部**声明（⑫用）：RE_VER 是非全局的、只取第一处，若一个文件里声明了两处，
+// 第一处之后的都永远不被看见 —— 修漂移时改错那一处就成了「改了下面那个、上面还在撒谎」。
+const RE_VER_ALL = /^(?:export\s+)?const\s+VER\s*=\s*'[^']*'/gm;
 // hold 标记：必须出现 VER-HOLD-DECL 这个机器可读记号，且必须位于注释行行首（允许 ★ > * - 等项目符号）。
 // ★ 为什么既要特殊记号又要行首锚定：本文件自己的说明文字里会反复提到这个记号名，若只做「全文出现过」
 //   就把本文件的散文误判成 hold 声明（本轮实测踩到一次）。行首锚定把「声明」与「提及」区分开。
@@ -131,6 +155,7 @@ function cmpVer(a, b) {
 const files = collect(testsDir, []).sort();
 const recs = [];
 const noVerFiles = [];
+const noLogFiles = [];
 for (const f of files) {
     const src = fs.readFileSync(f, 'utf8');
     const rel0 = path.relative(repoRoot, f).split(path.sep).join('/');
@@ -139,6 +164,7 @@ for (const f of files) {
     const rel = path.relative(repoRoot, f).split(path.sep).join('/');
     const raw = m[1];
     const parsed = raw.match(/^(\S+)\s+V(\d+\.\d+(?:\.\d+)?)$/);
+    const dupVer = (src.match(RE_VER_ALL) || []).length;
     const logVers = [];
     let hold = false;
     for (const ln of src.split('\n')) {
@@ -147,6 +173,7 @@ for (const f of files) {
         if (RE_HOLD.test(ln)) hold = true;
     }
     const uniq = [...new Set(logVers)].sort(cmpVer);
+    if (uniq.length === 0) noLogFiles.push(rel);
     recs.push({
         rel,
         raw,
@@ -154,6 +181,7 @@ for (const f of files) {
         verNum: parsed ? parsed[2] : null,
         logMax: uniq.length ? uniq[uniq.length - 1] : null,
         hold,
+        dupVer,
         unparseable: !parsed
     });
 }
@@ -229,6 +257,26 @@ for (const rel0 of NO_VER_WHITELIST) {
     }
 }
 
+// ⑫ VER 不得重复声明：RE_VER 只取第一处，第二处起永远不被任何断言看见
+for (const r of recs) {
+    if (r.dupVer > 1) {
+        push('⑫', `${r.rel} 里声明了 ${r.dupVer} 处 VER 常量 —— 只有第一处会被比对，其余是永不生效的谎言（应合并为一处）`);
+    }
+}
+
+// ⑪ 可解析日志规模闸门：真正拿去比对的文件数，①守不住这个口径（见常量处说明）
+const logParsed = recs.filter(r => r.logMax).length;
+if (logParsed < MIN_LOG_PARSED) {
+    push('⑪', `有可解析版本日志的文件 ${logParsed} < 下限 ${MIN_LOG_PARSED}（版本日志抽取器可能已失效：此时②会跳过全部文件、①仍按 VER 数放行，形成「比对 0 个却打印全绿」的假绿）`);
+}
+
+// ⑬ 无日志名单规模双向棘轮（与⑩同口径：多一个少一个都要红）
+if (noLogFiles.length > EXPECT_NO_LOG) {
+    push('⑬', `有 VER 但无版本日志的文件 ${noLogFiles.length} > 登记 ${EXPECT_NO_LOG}（新增了无法比对版本的孤儿，或某文件的版本日志被写坏了）`);
+} else if (noLogFiles.length < EXPECT_NO_LOG) {
+    push('⑬', `有 VER 但无版本日志的文件 ${noLogFiles.length} < 登记 ${EXPECT_NO_LOG}（有文件补上了日志，须回头把 EXPECT_NO_LOG 改小 —— 腐烂的登记不许挂着骗人）`);
+}
+
 // ② 漂移零容忍（hold 三项齐备才放行）
 for (const r of recs) {
     if (r.unparseable || !r.logMax) continue; // 无日志条目的文件不参与本断言
@@ -287,10 +335,10 @@ const holded = recs.filter(r => r.hold).length;
 if (bad.length) {
     console.log('❌ 版本常量漂移自检失败：');
     for (const b of bad) console.log('   ' + b);
-    console.log(`   扫描 ${scanned} 个带 VER 文件 · hold ${holded} 个 · 白名单 ${holds.length} 条`);
+    console.log(`   扫描 ${scanned} 个带 VER 文件（其中 ${logParsed} 个可比对版本）· 无日志 ${noLogFiles.length} 个 · 无 VER ${noVerSet.size} 个 · hold ${holded} 个 · 白名单 ${holds.length} 条`);
     process.exit(1);
 }
 
 console.log('✅ 版本常量漂移自检通过'
-    + `（10 项断言：规模闸门 ${scanned}≥${MIN_VER_FILES} / 漂移零容忍 / hold 在册 / hold 在位 / hold 棘轮 ≤${MAX_HOLD} / hold 必有落差 / VER 路径自证 / 覆盖面 .js ${jsWithVer}≥${MIN_JS_VER_FILES} / VER 耦合产物一致 / 无 VER 名单相等）`
-    + ` · ${scanned} 个带 VER 文件（其中 .js ${jsWithVer} 个），${driftFree} 个 VER 与日志一致，hold ${holded} 个（白名单 ${holds.length} 条）`);
+    + `（13 项断言：规模闸门 ${scanned}≥${MIN_VER_FILES} / 漂移零容忍 / hold 在册 / hold 在位 / hold 棘轮 ≤${MAX_HOLD} / hold 必有落差 / VER 路径自证 / 覆盖面 .js ${jsWithVer}≥${MIN_JS_VER_FILES} / VER 耦合产物一致 / 无 VER 名单相等 / 可解析日志 ${logParsed}≥${MIN_LOG_PARSED} / VER 不重复 / 无日志规模 =${EXPECT_NO_LOG}）`
+    + ` · ${scanned} 个带 VER 文件（其中 .js ${jsWithVer} 个），**仅 ${logParsed} 个有版本日志可比对**（其余 ${noLogFiles.length} 个无日志、不参与漂移判定），${driftFree} 个 VER 与日志一致，hold ${holded} 个（白名单 ${holds.length} 条）`);
