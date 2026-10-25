@@ -1,3 +1,4 @@
+// V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
@@ -121,6 +122,11 @@ const CHECKS = [
     //   ★ 处置口径：不修数据、不重录证据 —— 那等于把证据改成配得上代码，方向反了；
     //     正确处置是重跑变异树，复通后腐烂白名单自然收缩。
     { name: '牙口证据链对账(离线断言)', script: 'tests/rule-teeth-evidence-selftest.mjs', args: [] },
+    // V1.11.0 | 2026-10-25 第 123 轮：挂「小昭·妹永久嗜血·蝶血分支定向用例」——
+    //   结构扫描器报 isBrother=true 父196/分支0 的最后一环覆盖缺口（第122轮定性：样本稀缺+
+    //   行动权竞争）。本用例强制妹模式广扫 280 场，实测命中 52 次，断言 fact/渲染/账本三对照；
+    //   带 MIN_HITS=3 棘轮 + 咬牙实证（打断 picker 永久继承即红）。约 2.5 分钟，放慢项区。
+    { name: '蝶血分支定向用例(妹永久嗜血)', script: 'tests/xiaozhao-brother-leech-case.mjs', args: [] },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [] },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [] }

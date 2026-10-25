@@ -81,10 +81,14 @@ async function main() {
             ally: allyTeam.map(u => u.clone()),
             enemy: enemyTeam.map(u => u.clone()),
             round: 1,
-            activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
+            activeBuffs: [],
             allAllies: allyTeam.map(u => u.clone()),
             _rng: rng
         };
+        // V1.0.2 修同款顺序 bug（rules-replay V6.7.2 同型）：选 Buff 必须落在**战斗克隆体**上——
+        //   旧写法传 allyTeam（原型），共享 picker 的永久副本全写进不被战斗使用的对象。
+        //   pick 输入只看 alive/role，原型与克隆体等价，pick 结果不变。
+        battleState.activeBuffs = tickAndPickBuffs([], battleState.ally, battleState.enemy, 1, seed, true);
         const facts = [];
         let songAttacks = 0, zhouMinHp = Infinity, zhouEverDead = false, winner = null;
         let songUid = null, zhouUid = null;
@@ -138,12 +142,17 @@ async function main() {
             }
             if (winner) break;
             if (!lastStep) break;
+            // V1.0.2 修同款顺序 bug（rules-replay V6.7.2 同型）：先选 Buff（共享 picker 会把永久副本
+            //   写进 lastStep 单位的 state._permanentBuffs）后 clone——clone 深拷 state，顺序反了副本
+            //   全落进随后被丢弃的旧单位。round/pickNew 参数仍用旧 battleState.round，语义不变。
+            const nextRoundNo = battleState.round + 1;
+            const nextActiveBuffs = tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+                battleState.round, seed, battleState.round % 3 === 0);
             battleState = {
                 ally: lastStep.ally.map(u => u.clone()),
                 enemy: lastStep.enemy.map(u => u.clone()),
-                round: battleState.round + 1,
-                activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
-                    battleState.round, seed, battleState.round % 3 === 0),
+                round: nextRoundNo,
+                activeBuffs: nextActiveBuffs,
                 allAllies: battleState.allAllies,
                 _rng: rng
             };
