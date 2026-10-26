@@ -3,7 +3,8 @@
 //   系统行（回合开始/结束/台词/不争/连击摘要）+ 离散精英项（幻影识破迷惑/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）13 条整块迁入。
 //   「misc」不是垃圾桶：它是「不归回血/控制位移/属性召唤三族」的剩余——系统行与跨族离散事件。
 //   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
-export const VER = 'render/35-facts-misc.js V1.0.1';
+// V1.1.0 | 2026-10-26 | 去锚定化：玄冥 dot fxAnchors → fx: [{ kind:'dmg', amount }]
+export const VER = 'render/35-facts-misc.js V1.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
@@ -89,7 +90,7 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUid) {
 // 玄冥神掌
 export function renderXuanmingDotFact(fact) {
     const stackText = (fact.stacks || 1) > 1 ? `（${fact.stacks} 层）` : '';
-    return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作${stackText}，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, fxAnchors: [`受到 ${fact.dot} 点`], uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
+    return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作${stackText}，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, fx: [{ kind: 'dmg', amount: fact.dot }], uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
 }
 export const renderXuanmingPoisonedFact = makeDotRenderer({ icon: '❄️', skillName: '玄冥神掌' });
 

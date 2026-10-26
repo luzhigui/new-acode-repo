@@ -5,7 +5,8 @@
 //   ③ 锚点逐字对齐（SKILL-飘字血泪：「回复+N」≠「回复 N 点」，子串匹配不上=飘字哑火）——anchorVerb 显式传参，
 //     模板产物与手写版逐字节一致，golden 探针保障
 //   ④ 加攻/加防族预留位：现无手写同款（飘字走 render/38 STAT_CHANGE 通道），出现第三遍再进工厂
-export const VER = 'render/36-generic-renderers.js V1.0.2';
+// V1.1.0 | 2026-10-26 | 去锚定化：回血族 fxAnchors → fx: [{ kind:'heal', amount }]，特效由播放器按行触发
+export const VER = 'render/36-generic-renderers.js V1.1.0';
 
 // —— 回血族：三种版式对应历史文案 ——
 // mode 'plusTrail'  ：`{icon} {label}+{heal}，{hpBefore}→{hpAfter}`（九阳：label 含动词，如「九阳神功回复」）
@@ -17,14 +18,14 @@ export function makeHealRenderer({ icon, label, mode, anchorVerb = null, isHealE
     return function renderHealFact(fact) {
         const heal = fact.heal;
         if (mode === 'plusTrail') {
-            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, fxAnchors: [`${anchorVerb || label}+${heal}`], isHealEntry: true, healAmount: heal, healUnitUid: fact.unitUid };
+            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, fx: [{ kind: 'heal', amount: heal }], isHealEntry: true, healAmount: heal, healUnitUid: fact.unitUid };
         }
         if (mode === 'plusMaxHp') {
-            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}，上限→${fact.newMaxHp}</span>`, fxAnchors: [`${anchorVerb || label}+${heal}`], isHealEntry: true, healAmount: heal, healUnitUid: fact.unitUid };
+            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}，上限→${fact.newMaxHp}</span>`, fx: [{ kind: 'heal', amount: heal }], isHealEntry: true, healAmount: heal, healUnitUid: fact.unitUid };
         }
-        // colonPlain：锚点固定「回复 N 点」（带空格版，飞行再生/幻影伪装历史口径）
+        // colonPlain：效果由 fx 数据字段驱动（不再靠文字锚点匹配）
         const tail = suffix ? suffix(fact) : '';
-        const out = { type: 'info', text: `<span class="green">${icon} ${label}：${fact.unitName} 回复 ${heal} 点生命${tail}</span>`, fxAnchors: [`回复 ${heal} 点`] };
+        const out = { type: 'info', text: `<span class="green">${icon} ${label}：${fact.unitName} 回复 ${heal} 点生命${tail}</span>`, fx: [{ kind: 'heal', amount: heal }] };
         if (isHealEntry) { out.isHealEntry = true; out.healAmount = heal; out.healUnitUid = fact.unitUid; }
         return out;
     };

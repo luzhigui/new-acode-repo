@@ -3,7 +3,8 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/35-facts-heal.js V1.0.0';
+// V1.1.0 | 2026-10-26 | 去锚定化：吸血/热血/快活/乾坤/白骨爪回血 fxAnchors → fx: [{ kind:'heal'|'atk', amount }]
+export const VER = 'render/35-facts-heal.js V1.1.0';
 
 import { registerFactRenderer } from './33-fact-registry.js';
 import { makeHealRenderer } from './36-generic-renderers.js';
@@ -11,15 +12,15 @@ import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/56-battle-enums.js';
 
 // Buff 衍生效果（嗜血/热血）
 export function renderBloodthirstLeechFact(fact) {
-    const anchors = [`吸血+${fact.leechVal}`];
+    const fx = [{ kind: 'heal', amount: fact.leechVal }];
     if (fact.isBrother) {
-        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>`, fxAnchors: anchors };
+        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>`, fx };
     }
-    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>`, fxAnchors: anchors };
+    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>`, fx };
 }
 
 export function renderHotBloodHealFact(fact) {
-    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>`, fxAnchors: [`回复+${fact.leech}`] };
+    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>`, fx: [{ kind: 'heal', amount: fact.leech }] };
 }
 
 // 快乐回血
@@ -27,7 +28,7 @@ export function renderKuaiLeHealFact(fact) {
     return {
         type:'info',
         text:`<span class="green">💚 快乐回血：${fact.unitName} 回复${fact.heal}点生命（${fact.layers}层触发），血量 ${fact.hpBefore} → ${fact.hpAfter}</span>`,
-        fxAnchors: [`回复${fact.heal}点`],
+        fx: [{ kind: 'heal', amount: fact.heal }],
         buffType: BUFF_SUBTYPES.ELITE_KUAILE_HEAL,
         zhouUid: fact.unitUid,
         zhouHpAfter: fact.hpAfter,
@@ -69,7 +70,7 @@ export function renderQianKunDerivedFact(fact) {
     return {
         type:'info',
         text:`<span class="gold">🦋 乾坤衍生：${reducePart}${fact.healTargetName}治疗+${fact.heal}，${fact.atkTargetName}攻击+${fact.atkGain}</span>`,
-        fxAnchors: [`治疗+${fact.heal}`, `攻击+${fact.atkGain}`],
+        fx: [{ kind: 'heal', amount: fact.heal }, { kind: 'atk', amount: fact.atkGain }],
         isHealEntry: true,
         healAmount: fact.heal,
         healUnitUid: fact.healTargetUid,
@@ -116,7 +117,7 @@ export function renderEndlessBreathFact(fact) {
 }
 
 export function renderClawHealFact(fact) {
-    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>`, fxAnchors: [`共回复${Math.round(fact.totalHeal)}点`] };
+    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>`, fx: [{ kind: 'heal', amount: Math.round(fact.totalHeal) }] };
 }
 
 // ── 注册 ────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 // V6.0.0 | 2026-08-26 | ~2700 bytes
-export const VER = 'player/45event-handlers.js V6.0.0';
+// V6.1.0 | 2026-10-26 | 去锚定化：取 entry._fxSpecs 传给 playLogLine（原 _anchorSpecs）
+export const VER = 'player/45event-handlers.js V6.1.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -28,14 +29,14 @@ export async function handleInfo(c, entry) {
 
     // 飞行/附身动画已由 stageAction 触发
     // 连击横幅/新婚爱心/白骨爪/死亡画笔/乾坤加攻飘字/张无忌台词弹幕等特效已全部移交导演 stageAction（见 31/42），此处只播文本
-    const anchorSpecs = entry._anchorSpecs || null;
+    const fxSpecs = entry._fxSpecs || null;
 
     if(entry.isZhangSwitch&&entry.unitUid){
         renderSeparator();
-        await playLogLine(entry.text, null, anchorSpecs);
+        await playLogLine(entry.text, null, fxSpecs);
     }
     else {
-        await playLogLine(entry.text, null, anchorSpecs);
+        await playLogLine(entry.text, null, fxSpecs);
     }
     updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
 }
