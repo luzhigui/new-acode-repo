@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// tests/contract-guard-selftest.mjs | V1.1.0 | 2026-10-27 夜间第 140 轮：新增判据 ⓪（对照器崩溃预检）
 // tests/contract-guard-selftest.mjs | V1.0.0 | 2026-10-24 第 127 轮
 //
 // 背景：18 颗 ATTR 变异牙的判定是「规则无牙·对照器兜住」——规则侧抓不到，全靠 stat-decl 对照器兜。
@@ -26,7 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/contract-guard-selftest.mjs V1.0.0';
+export const VER = 'tests/contract-guard-selftest.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -86,6 +87,18 @@ const notes = [];
 
 const out = runComparer();
 const contracts = parseContracts(out);
+
+// ⓪ 对照器自身必须跑完（2026-10-27 夜间第 140 轮新增）—— 起因：上游 5818419a 把小昭·姊职业改成
+//   「蝴蝶」却漏补 taunts 池，对照器一跑到她开口就 throw「台词池缺失」，stdout 整片为空；
+//   而既有的 ①~⑤ 全把"解析不出 / 恒空"归因为「输出格式变了 / 契约改名」，
+//   **真因被 56 条同根因噪音淹没**，白天会话照着报错去改解析正则只会越改越错。
+//   故先钉一条：对照器崩 ⇒ 下面所有解析结论一律不成立，先修对照器（主代码侧），不许拿解析结论当真。
+const crashLine = out.split('\n').find(l => /对照器异常|^\s*Error:|throw |台词池缺失|击杀台词池缺失/.test(l));
+if (crashLine) {
+    fails.push('⓪ 对照器本次根本没跑完（异常中断）：' + crashLine.trim().slice(0, 160)
+        + ' —— 下述 ①~⑤ 的解析结论**全部不成立**（拿空输出去判"格式漂移/契约改名"是假诊断），'
+        + '先修对照器崩这一条主代码回归，再谈解析');
+}
 
 // ① 契约表可解析 + 规模不缩水
 if (contracts.length < MIN_CONTRACTS) {

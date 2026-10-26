@@ -3,7 +3,11 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
-// V1.4.7 | ~29600 bytes | 2026-10-24 第 121 轮 SCAN_FILES 补登 ./health-rules/172-kongjian-jingang.js（空见金刚不坏，第 120 轮新建时漏登，注册一致性检查抓出）
+//   3. 枚举成员未定义：ENUM.KEY 被引用但 infra/56 的枚举表里没有该键（运行时恒 undefined）
+// V1.5.0 | 2026-10-27 夜间第 140 轮：新增第四类「枚举成员未定义」+ 自证断言（枚举表解析数 ≥10、
+//   ROLE_TYPES 成员 ≥5）。起因是上游 5818419a 加 BUTTERFLY 时顶掉 JAVELIN，致 ROLE_TYPES.JAVELIN
+//   恒 undefined、标枪选靶整条静默失效，而既有三类一条都报不出（断的是成员不是模块）。
+//   V1.4.7 | ~29600 bytes | 2026-10-24 第 121 轮 SCAN_FILES 补登 ./health-rules/172-kongjian-jingang.js（空见金刚不坏，第 120 轮新建时漏登，注册一致性检查抓出）
 // V1.4.6 | ~29500 bytes | 2026-10-21 第 114 轮 SCAN_FILES 补登 ./health-rules/171-tangwenliang-dash.js（唐文亮冲刺落地，import 122health-utils）
 // V1.4.5 | ~29200 bytes | 2026-10-21 第 112 轮 SCAN_FILES 补登 ./xinhun-death-targeted-case.mjs、
 //          ./fact-dead-field-scan.mjs（第 113 轮沙箱交接规格的主线重写产物：XIN_HUN_DEATH 定向用例
@@ -42,7 +46,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.4.7';
+export const VER = 'tests/123static-scan.js V1.5.0';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -262,6 +266,86 @@ export function scanEnumImport(code) {
     return { missing, imported, fromPaths };
 }
 
+// 检查 1.8：枚举成员引用完整性（引用的 ENUM.KEY 必须在 infra/56 里确有定义）
+// 背景（2026-10-27 夜间第 140 轮 P0 取证）：上游 5818419a「小昭·姊身份职业改蝴蝶」在 ROLE_TYPES 里
+//   用 BUTTERFLY:'蝴蝶' **顶掉**了 JAVELIN:'标枪'（是替换不是新增）⇒ ROLE_TYPES.JAVELIN 变 undefined
+//   ⇒ core/07:85 `if (unit.role !== ROLE_TYPES.JAVELIN) return null;` 恒真（标枪专属选靶整条静默失效）、
+//   core/10:151 标枪落位分支恒不进 —— 单元 role 仍是 '标枪'，与 undefined 永远不相等。
+//   既有三类扫描一条都报不出：import 行好端端在，断的是"成员"不是"模块"，属于**覆盖面有洞**。
+//   故补第四类。枚举表的键现场解析 infra/56 源码（唯一来源，不另抄一份清单 —— 第 124 轮通规）。
+export function parseEnumMembers(code) {
+    const clean = maskStrings(stripComments(code));
+    const out = {};
+    for (const name of ENUM_NAMES) {
+        const headRe = new RegExp('export\\s+const\\s+' + name + '\\s*=\\s*Object\\.freeze\\(\\s*\\{');
+        const hm = headRe.exec(clean);
+        if (!hm) continue;
+        const open = hm.index + hm[0].length - 1;
+        let depth = 0;
+        let blockStart = -1;
+        const keys = [];
+        for (let i = open; i < clean.length; i++) {
+            const ch = clean[i];
+            if (ch === '{') { depth++; if (depth === 1) blockStart = i; }
+            else if (ch === '}') { depth--; if (depth === 0) break; }
+            else if (ch === ':' && depth === 1 && blockStart >= 0) {
+                const km = /([A-Za-z_$][\w$]*)\s*$/.exec(clean.slice(blockStart + 1, i));
+                if (km) keys.push(km[1]);
+            }
+        }
+        out[name] = keys;
+    }
+    return out;
+}
+
+// ENUM.x 位置上出现的非成员访问（对象/原型方法名），不算枚举成员引用
+const ENUM_NON_MEMBER_KEYS = ['keys', 'values', 'entries', 'freeze', 'assign', 'hasOwnProperty',
+    'length', 'name', 'prototype', 'toString', 'fromEntries'];
+export function scanEnumMemberRefs(code, members) {
+    const bad = [];
+    for (const name of Object.keys(members)) {
+        const set = new Set(members[name]);
+        const re = new RegExp('(?<![\\w$.])\\b' + name + '\\.([A-Za-z_$][\\w$]*)', 'g');
+        let m;
+        while ((m = re.exec(code)) !== null) {
+            const key = m[1];
+            if (set.has(key)) continue;
+            if (ENUM_NON_MEMBER_KEYS.indexOf(key) >= 0) continue;
+            bad.push(name + '.' + key);
+        }
+    }
+    return bad.filter((v, i, a) => a.indexOf(v) === i);
+}
+
+export function countEnumMemberRefs(code, members) {
+    let n = 0;
+    for (const name of Object.keys(members)) {
+        const set = new Set(members[name]);
+        const re = new RegExp('(?<![\\w$.])\\b' + name + '\\.([A-Za-z_$][\\w$]*)', 'g');
+        let m;
+        while ((m = re.exec(code)) !== null) {
+            if (set.has(m[1]) || ENUM_NON_MEMBER_KEYS.indexOf(m[1]) >= 0) n++;
+        }
+    }
+    return n;
+}
+
+// 自证断言（防本检查自身腐烂后恒绿 —— 解析不出成员表时必须报，不许静悄悄通过）：
+//   ① 至少解析到 10 个枚举（ENUM_NAMES 共 13 个，个别非 freeze 写法可缺）；
+//   ② ROLE_TYPES 成员不少于 5 种（战士/防战/远程/飞行 + 标枪/蝴蝶）；
+//   ③ 全仓合法成员引用不少于 20 处（引用扫描器腐烂 ⇒ 第四类恒 0 条，与不跑同形）。
+export function selfCheckEnumMembers(members, refCount) {
+    const issues = [];
+    const names = Object.keys(members);
+    if (names.length < 10) issues.push('枚举成员表只解析到 ' + names.length + ' 个（下限 10）—— 抽取器已腐烂，第四类检查形同虚设');
+    const roles = members.ROLE_TYPES || [];
+    if (roles.length < 5) issues.push('ROLE_TYPES 只解析到 ' + roles.length + ' 个成员（下限 5）—— 抽取器已腐烂，标枪/蝴蝶类顶替事故将查不出');
+    if (typeof refCount === 'number' && refCount < 20) {
+        issues.push('全仓合法枚举成员引用只扫到 ' + refCount + ' 处（下限 20）—— 引用扫描器已腐烂，第四类恒 0 条与不跑同形');
+    }
+    return issues;
+}
+
 // 检查 1.5：共享符号 used-but-not-imported（eventBus/GlobalStore 等跨文件符号）
 // 排除规则：a) 已 import；b) 本文件自导出/自定义；c) window.xxx 全局挂载引用
 // 挂载缓存：window.X = 形式的全局挂载检测（当前仅 54-global-store 挂 GlobalStore）
@@ -429,12 +513,20 @@ export async function runStaticScan() {
         slots: {
             enumImport: { name: '枚举 import 缺失', issues: [] },
             sharedImport: { name: '共享符号 import 缺失', issues: [] },
-            importRef: { name: 'import 引用断裂', issues: [] }
+            importRef: { name: 'import 引用断裂', issues: [] },
+            enumMember: { name: '枚举成员未定义', issues: [] }
         },
+        enumRefCount: 0,
         elapsedMs: 0
     };
     const baseUrl = new URL('./', window.location.href).href; // tests/ 目录
     const mounts = await detectWindowMounts();
+    // 第四类：先取 infra/56 源码解析枚举成员表（唯一来源），失败则自证报红而非静默跳过
+    let enumMembers = {};
+    try {
+        const enumResp = await fetch(new URL('../infra/56-battle-enums.js', baseUrl).href + '?t=' + t0);
+        if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
+    } catch (e) { /* 落空由自证断言接管 */ }
     for (const rel of SCAN_FILES) {
         const fileUrl = new URL(rel, baseUrl).href;
         let code;
@@ -467,6 +559,16 @@ export async function runStaticScan() {
         // 检查 2：import 引用断裂
         const broken = await scanImportRefs(scanCode, fileUrl);
         for (const b of broken) result.slots.importRef.issues.push(rel + ' → ' + b);
+        // 检查 3：枚举成员引用完整性（ENUM.KEY 未在 infra/56 定义 ⇒ 恒 undefined 的静默死分支）
+        for (const bad of scanEnumMemberRefs(scanCode, enumMembers)) {
+            result.slots.enumMember.issues.push(rel + '：引用 ' + bad + '，但 infra/56 未定义该成员'
+                + '（运行时为 undefined，比较恒不等 ⇒ 分支静默失效）');
+        }
+        result.enumRefCount += countEnumMemberRefs(scanCode, enumMembers);
+    }
+    // 自证断言放在扫描收尾处（引用总数要等全仓扫完才知道）—— 抽取器/扫描器任一腐烂，先把自己报红
+    for (const it of selfCheckEnumMembers(enumMembers, result.enumRefCount)) {
+        result.slots.enumMember.issues.push('（自证）' + it);
     }
     result.elapsedMs = Date.now() - t0;
     return result;
@@ -500,7 +602,7 @@ if (isNode) {
         const slots = Object.values(r.slots);
         for (const s of slots) for (const it of s.issues) console.log('  ✗ [' + s.name + '] ' + it);
         const total = slots.reduce((n, s) => n + s.issues.length, 0);
-        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 三类 issue 合计 ${total} 条`);
+        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 四类 issue 合计 ${total} 条`);
         if (total > 0) process.exit(1);
     })();
 }

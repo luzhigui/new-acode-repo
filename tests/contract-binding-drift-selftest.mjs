@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// tests/contract-binding-drift-selftest.mjs | V1.1.0 | 2026-10-27 夜间第 140 轮：新增判据 ⓪（对照器崩溃预检）
 // tests/contract-binding-drift-selftest.mjs | V1.0.0 | 2026-10-24 第 128 轮
 //
 // 背景（本轮最硬的一条，务必先读）：
@@ -35,7 +36,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/contract-binding-drift-selftest.mjs V1.0.0';
+export const VER = 'tests/contract-binding-drift-selftest.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -131,6 +132,10 @@ function parseFactTypesEnum(src) {
     return map;
 }
 
+// 对照器崩溃标记（2026-10-27 夜间第 140 轮新增；由 scanLedgerGroups 填，供 ⓪ 判据使用）
+let CRASH_FLAG = 0;
+let CRASH_LINE = '';
+
 // 跑一次对照器 --scan-groups，取「账本里真的出现过哪些 group」
 function scanLedgerGroups() {
     const r = spawnSync(process.execPath, [path.join(root, COMPARER), '--scan-groups'],
@@ -140,6 +145,13 @@ function scanLedgerGroups() {
     const re = /^([A-Za-z][A-Za-z0-9_]*)\s*\|\s*(\d+)\s*\|/gm;
     let m;
     while ((m = re.exec(out)) !== null) seen.set(m[1], Number(m[2]));
+    // 2026-10-27 夜间第 140 轮新增：对照器崩 ⇒ 取样为空 ⇒ ③ 会把「恒空」误诊成「group 改名/撤除」。
+    //   真因是主代码回归（小昭·姊职业改「蝴蝶」漏补 taunts 池，对照器 throw「台词池缺失」），
+    // 与契约绑定毫无关系。故先把崩如实标出（存模块级变量，不污染 group 表本身），
+    //   避免白天会话照着 56 条假诊断去改契约绑定。
+    const crashLine = (out.split('\n').find(l => /对照器异常|^\s*Error:|throw |台词池缺失|击杀台词池缺失/.test(l)) || '').trim();
+    CRASH_LINE = crashLine.slice(0, 160);
+    CRASH_FLAG = crashLine ? 1 : 0;
     return seen;
 }
 
@@ -215,6 +227,12 @@ for (const chunk of chunks) {
                 + ' —— group 被改名/撤除，或该机制本场不出场 ⇒ 实际侧恒空，比对永远比不到东西');
         }
     }
+}
+
+if (CRASH_FLAG) {
+    fails.push('⓪ 对照器本次根本没跑完（异常中断）：' + CRASH_LINE
+        + ' —— ③ 的「group 一次都没出现」是**空取样**造成的假诊断（真因是主代码回归，非 group 改名），'
+        + '先修对照器崩这一条，再谈绑定键漂移');
 }
 
 if (contractCount < MIN_CONTRACTS) {
