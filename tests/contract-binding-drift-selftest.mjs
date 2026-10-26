@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// tests/contract-binding-drift-selftest.mjs | V1.2.0 | 2026-10-27 夜间第 141 轮：空取样闸门 ——
+//   ③ 的 56 条「group 一次都没出现」实为空取样所致，不再逐条报并误导成 group 改名；新增 ④ 自证两条
 // tests/contract-binding-drift-selftest.mjs | V1.1.0 | 2026-10-27 夜间第 140 轮：新增判据 ⓪（对照器崩溃预检）
 // tests/contract-binding-drift-selftest.mjs | V1.0.0 | 2026-10-24 第 128 轮
 //
@@ -36,7 +38,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/contract-binding-drift-selftest.mjs V1.1.0';
+export const VER = 'tests/contract-binding-drift-selftest.mjs V1.2.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -136,20 +138,28 @@ function parseFactTypesEnum(src) {
 let CRASH_FLAG = 0;
 let CRASH_LINE = '';
 
+// 崩溃行识别正则（第 141 轮抽成常量，供 ④b 自证）—— 它一旦失配，空取样就无法与真改名区分。
+const CRASH_RE = /对照器异常|^\s*Error:|throw |台词池缺失|击杀台词池缺失/;
+// scan-groups 行形如：`hlsJiuYangHeal | 61 |`（第 141 轮抽成常量，供 ④b 自证）
+const GROUP_LINE_RE = /^([A-Za-z][A-Za-z0-9_]*)\s*\|\s*(\d+)\s*\|/gm;
+// ④a 规模下限：主代码里静态抽出的 group 字面量个数。它是「运行时取样确实坏了」的对照基准 ——
+//   静态侧明明有几十个 group，运行时却取样到 0 个，才能断言是取样坏了而非 group 真被撤光。
+const MIN_GROUP_SOURCES = 20;
+
 // 跑一次对照器 --scan-groups，取「账本里真的出现过哪些 group」
 function scanLedgerGroups() {
     const r = spawnSync(process.execPath, [path.join(root, COMPARER), '--scan-groups'],
         { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     const out = ((r.stdout || '') + '\n' + (r.stderr || ''));
     const seen = new Map();
-    const re = /^([A-Za-z][A-Za-z0-9_]*)\s*\|\s*(\d+)\s*\|/gm;
+    const re = new RegExp(GROUP_LINE_RE.source, 'gm');
     let m;
     while ((m = re.exec(out)) !== null) seen.set(m[1], Number(m[2]));
     // 2026-10-27 夜间第 140 轮新增：对照器崩 ⇒ 取样为空 ⇒ ③ 会把「恒空」误诊成「group 改名/撤除」。
     //   真因是主代码回归（小昭·姊职业改「蝴蝶」漏补 taunts 池，对照器 throw「台词池缺失」），
     // 与契约绑定毫无关系。故先把崩如实标出（存模块级变量，不污染 group 表本身），
     //   避免白天会话照着 56 条假诊断去改契约绑定。
-    const crashLine = (out.split('\n').find(l => /对照器异常|^\s*Error:|throw |台词池缺失|击杀台词池缺失/.test(l)) || '').trim();
+    const crashLine = (out.split('\n').find(l => CRASH_RE.test(l)) || '').trim();
     CRASH_LINE = crashLine.slice(0, 160);
     CRASH_FLAG = crashLine ? 1 : 0;
     return seen;
@@ -157,6 +167,10 @@ function scanLedgerGroups() {
 
 const fails = [];
 const notes = [];
+// 空转不成立清单（2026-10-27 夜间第 141 轮新增）：取样为空时依赖该取样的结论既不是通过也不是失败，
+//   而是「没得判」。此前 ③ 在取样为空时逐条报「group 一次都没出现」共 56 条，
+//   把白天会话引向「查 group 是不是改名了」—— 指错方向，故单列一档，不计绿也不计红。
+const vacuous = [];
 
 const comparerSrc = readIfAbs(path.join(root, COMPARER));
 if (!comparerSrc) {
@@ -177,6 +191,8 @@ if (!corpus) {
 }
 const enumMap = parseFactTypesEnum(readIfAbs(ENUM_FILE));
 const ledgerGroups = scanLedgerGroups();
+// 运行时取样为空 ⇒ ③ 的逐条「group 一次都没出现」全部是空取样所致，不是 group 改名/撤除。
+const GROUPS_EMPTY = ledgerGroups.size === 0;
 
 // ② 需要的 group 来源两种写法：`group: 'xxx'`（addMod）与 `recordHpAudit(u,'xxx',…)`（hp 记账）
 const groupSources = new Set();
@@ -191,6 +207,7 @@ const groupSources = new Set();
 let contractCount = 0;
 let keyCount = 0;
 let zeroDecl = 0;
+let groupChecked = 0;
 for (const chunk of chunks) {
     const idm = /id:\s*'([^']+)'/.exec(chunk);
     if (!idm) continue;
@@ -222,10 +239,27 @@ for (const chunk of chunks) {
     const gm = /group\s*:\s*'([^']+)'/.exec(chunk);
     if (gm) {
         const g = gm[1];
-        if (!ledgerGroups.has(g)) {
+        groupChecked++;
+        // 第 141 轮收口：取样为空时不逐条判 —— 此刻每条都会「一次都没出现」，
+        //   报出来是 56 条同根因噪音，且会被误读成「group 改名/撤除」（指错方向）。
+        //   统一收口到循环后的「③ 空转不成立」一条。
+        if (!GROUPS_EMPTY && !ledgerGroups.has(g)) {
             fails.push(`③ 契约 ${id} 绑定的账本 group 「${g}」在标准样本的账本里一次都没出现`
                 + ' —— group 被改名/撤除，或该机制本场不出场 ⇒ 实际侧恒空，比对永远比不到东西');
         }
+    }
+}
+
+// ③ 空取样收口（第 141 轮新增）：崩已知 ⇒ 标「不成立」（不计绿也不计红）；
+//   崩未知 ⇒ **仍判失败**，绝不凭空放行 —— 否则取样器一坏，③ 就永久静默。
+if (GROUPS_EMPTY) {
+    if (CRASH_FLAG) {
+        vacuous.push(`③ ${groupChecked} 条契约的账本 group 非空校验不成立 —— 对照器 --scan-groups 本次崩了，`
+            + '取样 0 个 group，逐条「一次都没出现」是**空取样**所致，不是 group 改名/撤除（真因见 ⓪）');
+    } else {
+        fails.push(`③ 账本 group 取样到 0 个，且未识别到崩溃行 —— 可能是 --scan-groups 输出格式变了、`
+            + `也可能是未知崩溃；静态侧主代码里仍有 ${groupSources.size} 个 group 字面量，`
+            + '说明运行时取样确实坏了，必查（不逐条报，避免同根因噪音淹没真因）');
     }
 }
 
@@ -242,14 +276,45 @@ if (contractCount < MIN_CONTRACTS) {
 if (!fails.length) {
     notes.push(`① ${contractCount} 条契约共 ${keyCount} 个绑定键，逐个到主代码全库核存在性 —— 无一漂移`);
     notes.push(`② 契约引用的 FACT_TYPES 全部存在于 infra/56 枚举（${enumMap.size} 项）`);
-    notes.push(`③ ${contractCount} 条契约的账本 group 全部在标准样本账本里实测出现过（共 ${ledgerGroups.size} 个 group）`);
+    if (!GROUPS_EMPTY) {
+        notes.push(`③ ${contractCount} 条契约的账本 group 全部在标准样本账本里实测出现过（共 ${ledgerGroups.size} 个 group）`);
+    }
+}
+
+// ④ 自证断言（2026-10-27 夜间第 141 轮新增）—— 本线自己的抽取器与闸门腐烂时，先把自己报红：
+//   ④a 静态 group 字面量抽取必须非空 —— 它是「运行时取样确实坏了」的对照基准；一旦抽不出，
+//       「静态侧有 group、运行时 0 个」这个论断就不成立，③ 的空取样收口也随之失去依据。
+//   ④b 崩溃正则与 scan-groups 行解析器必须在合成样本上命中 —— 任一腐烂，
+//       空取样与「group 真被改名/撤除」就无从区分，③ 的结论不再可信。
+{
+    if (groupSources.size < MIN_GROUP_SOURCES) {
+        fails.push(`④a 主代码里只抽出 ${groupSources.size} 个 group 字面量，低于下限 ${MIN_GROUP_SOURCES} —— `
+            + '抽取器已腐烂，「运行时取样坏了」失去对照基准，③ 的空取样收口不再可信（先修本文件）');
+    } else {
+        notes.push(`④a 静态侧抽出 ${groupSources.size} 个 group 字面量（下限 ${MIN_GROUP_SOURCES}）—— `
+            + '可作为「运行时取样是否坏了」的对照基准');
+    }
+
+    const synthCrash = '对照器异常： Error: 台词池缺失: 小昭·姊';
+    const synthGroup = 'hlsJiuYangHeal | 61 |';
+    const okCrash = CRASH_RE.test(synthCrash);
+    const okGroup = new RegExp(GROUP_LINE_RE.source, 'gm').test(synthGroup);
+    if (!okCrash || !okGroup) {
+        fails.push(`④b 合成样本自证失败（崩溃正则${okCrash ? '命中' : '失配'} / `
+            + `group 行解析${okGroup ? '命中' : '失配'}）—— 空取样与真改名将无从区分，`
+            + '③ 的结论不再可信（先修本文件，不是主代码）');
+    } else {
+        notes.push('④b 崩溃正则与 group 行解析器在合成样本上均命中 —— 空取样可与真改名区分');
+    }
 }
 
 for (const n of notes) console.log('  ✅ ' + n);
+for (const v of vacuous) console.log('  ⚠️  ' + v);
 if (fails.length) {
-    console.log(`\n❌ 契约绑定键漂移自检失败 ${fails.length} 项：`);
+    console.log(`\n❌ 契约绑定键漂移自检失败 ${fails.length} 项`
+        + (vacuous.length ? `（另有 ${vacuous.length} 项因取样为空**不成立**，不计绿也不计红）` : '') + '：');
     for (const f of fails) console.log('  ❌ ' + f);
     process.exit(1);
 }
-console.log(`\n✅ 契约绑定键漂移自检通过（${notes.length}/${notes.length} 项断言：绑定键存在性 / FACT_TYPES 枚举一致性 / 账本 group 实测非空）`);
+console.log(`\n✅ 契约绑定键漂移自检通过（${notes.length}/${notes.length} 项断言：绑定键存在性 / FACT_TYPES 枚举一致性 / 账本 group 实测非空 / 自证两条）`);
 process.exit(0);
