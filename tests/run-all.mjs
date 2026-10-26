@@ -1,4 +1,5 @@
-// V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
+// V1.15.0 | 2026-10-26 第 140 轮：新增「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs（静态检查，防头注释与 VER 常量漂移，落下即退码 1）；fact 发射普查升为 CHECKS 守门项（第125轮）
+// V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环，heavy 采样项）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
@@ -53,7 +54,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.10.0';
+export const VER = 'tests/run-all.mjs V1.15.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -64,6 +65,11 @@ const CHECKS = [
     { name: '静态扫描(import/枚举)', script: 'tests/123static-scan.js', args: [] },
     { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
     { name: '蓄意轰拳数值口径对账', script: 'tests/hit-shapes-consistency.mjs', args: [] },
+    // V1.15.0 | 2026-10-26 第 140 轮：挂「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs。
+    //   头注释 Vx 与 export const VER 的 Vx 不一致（只抬一头）是体检代码反复踩的坑（夜检 135 立线前已复发 ≥3 次，
+    //   本轮初扫出 tests/ 下 16 处漂移）。此线静态扫全部 tests/*.mjs/*.js，两端声明不一致即退码 1，落下即咬。
+    //   140-baseline.js 因 VER 耦合入库基线 JSON（用户挂 hold 待拍板）被豁免，不拦门。
+    { name: '版本号遗忘抬升绊线', script: 'tests/ver-bump-selftest.mjs', args: [] },
     { name: '精英注册一致性', script: 'tests/registration-check.mjs', args: [] },
     { name: '规则回放(20seed×7关)', script: 'tests/rules-replay.mjs', args: [] },
     { name: '胜负基线闸门(18场)', script: 'tests/140-baseline.js', args: ['--check'] },
@@ -127,7 +133,14 @@ const CHECKS = [
     //   行动权竞争）。本用例强制妹模式广扫，实测命中 52 次，断言 fact/渲染/账本三对照；
     //   带 MIN_HITS=3 棘轮 + 咬牙实证（打断 picker 永久继承即红）。tier=heavy（采样项，--quick 跳过）。
     { name: '蝶血分支定向用例(妹永久嗜血)', script: 'tests/xiaozhao-brother-leech-case.mjs', args: [], tier: 'heavy' },
+    // V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环）。
+    //   蛛袭/寒毒由「恒false的!alive」改为正确致死判定；护栏跑样本对局断言 isDead===true 至少命中
+    //   MIN_HITS 次（退回恒false会归零变红），并诊断 true 目标是否确死（防飞天免疫误判）。tier=heavy。
+    { name: 'isDead修复回归护栏(蛛袭/寒毒)', script: 'tests/isdead-fix-guard.mjs', args: [], tier: 'heavy' },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
+    // V1.14.0 | 2026-10-25 第 125 轮·续：fact 发射普查升级为**守门项**——deadEnum / orphanSpec（零发射点可靠红）
+    //   直接 EXIT 1 拦构建；rare/silent/blind 仅诊断不拦。NINE_YANG_HEAL 清理后即全绿，回归再引入僵尸 fact 立即咬。
+    { name: 'fact 发射普查(契约腐烂守门)', script: 'tests/fact-emission-census.mjs', args: [] },
     // V1.12.0 | 2026-10-25 第 124 轮：fuzz(2100场) 与 翻译golden(35场/13MB) 是耗时主因，
     //   标记 tier=heavy —— --quick 模式下跳过，仅守门项跑（每次开发迭代不必重跑大样本）；
     //   nightly 自动化不带 --quick 仍跑全量，不漏回归。

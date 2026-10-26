@@ -1,4 +1,4 @@
-// V1.0.0 | ~8600 bytes | 2026-09-26 第 25 轮：把每轮靠「临时探针现写现删」做的四方登记核对，做成常驻检查。
+// V1.3.0 | ~8600 bytes | 2026-09-26 第 25 轮：把每轮靠「临时探针现写现删」做的四方登记核对，做成常驻检查。
 // 干什么：一条命令核对规则文件的四处登记是否齐全 ——
 //   tests/health-rules/*.js  ↔  121health-monitor.js（import 装载）
 //   ↔ 124rule-recipes.js（RULE_META 登记）↔ 123static-scan.js（SCAN_FILES）

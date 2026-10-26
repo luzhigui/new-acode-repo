@@ -1,3 +1,5 @@
+// V6.6.0 | 2026-10-26 接 facts 进浏览器体检：runRuleChecks 现把 battleLog 递归展平的原始 fact 流作为第 7 参传给 rule.test，
+//           消除 159/132/160-165 共 8 条事实级规则在浏览器侧静默降级到文案兜底（此前只传 6 参，facts=undefined）的缺口。
 // V6.5.0 | ~59300 bytes | 2026-10-18 新增全局运行时错误捕获：挂 iframe window 的 error / unhandledrejection，
 //           未捕获报错（漏 import / 未定义符号）当场写入体检报告，不再依赖肉眼看控制台。
 // V6.4.5 | ~57900 bytes | 2026-10-21 第 114 轮登记 171 唐文亮冲刺落地验证（rule171：import + allRules 两处同补）
@@ -32,7 +34,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.4.5';
+export const VER = 'tests/121health-monitor.js V6.6.0';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -647,6 +649,19 @@ function runUIChecks(ctx, doc) {
 }
 
 // 规则体检：战报日志回归规则（GAMEOVER 时日志已完整，立即执行）
+// 浏览器侧 fact 流收集（与 node 侧 rules-replay.mjs Step 0 同口径）：递归展平 battleLog 中带 factType 的条目
+// （含 data.entries / entries 嵌套层），喂给规则第 7 参 facts。此前浏览器只传 6 参、facts=undefined，
+// 导致 159/132/160-165 八条事实级规则在浏览器里静默降级到文案兜底通道。纯递归、无 node API，浏览器可用。
+function collectFacts(arr, out) {
+    for (const f of arr || []) {
+        if (!f || !f.factType) continue;
+        out.push(f);
+        collectFacts(f.data && f.data.entries, out);
+        collectFacts(f.entries, out);
+    }
+    return out;
+}
+
 function runRuleChecks(ctx, doc) {
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
@@ -660,6 +675,8 @@ function runRuleChecks(ctx, doc) {
         const gsLog2 = wgs && wgs.GlobalStore ? wgs.GlobalStore.get('battleLog') : null;
         if (Array.isArray(gsLog2)) battleLog = gsLog2;
     }
+    // 浏览器侧事实流（与 node rules-replay Step 0 同口径）：喂给规则第 7 参 facts，消除事实级规则静默降级
+    const facts = collectFacts(battleLog, []);
     // ⚠ 第 50 轮修复：本数组曾长期停在 rule99 —— 153/154/155 三条规则 import 了却从未进数组，
     //   等于浏览器侧体检**根本没跑它们**（node 侧 rules-replay 是自动扫目录，故一直没暴露），
     //   156 则连 import 都没有。加新规则必须**同时**补 import 与本数组两处（registration-check
@@ -692,7 +709,7 @@ function runRuleChecks(ctx, doc) {
     const finalEnemies = storeTeams.enemy;
     for (const rule of rules) {
         try {
-            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies);
+            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies, facts);
             if (result && result.fail) {
                 const msgs = (result.msg || '').split(' | ');
                 for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
