@@ -3,9 +3,10 @@
 //   滑块位置 → 直接取参数表对应列的出厂值，不改出厂表本身。
 // 第一行「未进表倍率」：控制所有未进参数表的演出（蝶变/换位/击退等），四档 0.5/1/2/4。
 // 头/中/底三段：标题+倍率固定顶部，滑块区滚动，按钮固定底部。
+// V3.0.1 | 2026-10-26 | 跟随 core/23 去锚定化：删「锚点行每字」、加「效果行停留」（lineGapFx）
 // V3.0.0 | 2026-10-26 | 四档滑块 + 未进表倍率 + 三段布局 + 清单按钮
 // V2.0.2 | 2026-10-26 | 滑块行加高（40px 行高 / 24px 滑块）+ 弹窗高度 88vh→72vh
-export const VER = 'ui/80perf-panel.js V3.0.0';
+export const VER = 'ui/80perf-panel.js V3.0.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { clock } from '../infra/52-clock.js';
@@ -23,7 +24,7 @@ const STOPS = [
 ];
 
 const LABELS = {
-    charMs: '每字时长', charMsAnchor: '锚点行每字', lineGap: '行间隔',
+    charMs: '每字时长', lineGap: '行间隔', lineGapFx: '效果行停留',
     floatLife: '飘字存活', bubbleLife: '气泡存活',
     moveDur: '位移总时长', moveStart: '位移起手',
     crashSpeed: '飞撞速度', arrowSpeed: '飞箭速度', meteorSpeed: '流星速度',
