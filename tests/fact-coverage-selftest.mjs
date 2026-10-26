@@ -20,6 +20,15 @@
 //   口径：静态扫描（不跑引擎，秒出）；白名单棘轮只许收缩——新增未登记缺口即红，
 //        已在册的必须带理由（UI 展示类 / 运行时由 X 规则间接覆盖 / 已知待办）。
 //
+// 第 144 轮修订（取样面口径显形，不改既有结论）：
+//   第 143 轮立待办时只说「切片脏」（145 条 vs 真实 FACT_TYPES 91 项），没回答**脏在哪、脏到什么程度**。
+//   本轮把它落成可拍板的实证清单：① 切片按所属枚举拆开，逐个数清混入者；
+//   ② 揪出与 FACT_TYPES 同名的键 —— 它们让同一条被计两次（实测 gaps 里 HEAL/MISS/DODGE/DOUBLE_STRIKE 各报了
+//   两遍，覆盖率分母同样虚增）；③ 新增一套**真值对照口径**（直接 import 真实 FACT_TYPES 对象，与
+//   fact-emission-census 同一取法），原口径与真值口径并列打印。
+//   ★ 口径取舍：**原口径一个字没改**（接受度已跑了很多轮、数字进了好几份决策），真值口径只作对照，
+//     是否切换属于改判据，须拍板 —— 本轮只负责把差异摆到桌上，不许它再静默。
+//
 // 用法：node tests/fact-coverage-selftest.mjs [--scan]（--scan 只报告不判退码）
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -31,6 +40,9 @@ import { fileURLToPath } from 'node:url';
 //   报告打出「覆盖缺口 0 类、悬空引用 0 类」，而真相是"一条都没查"。这就是第 142 轮点名的
 //   「只查了 3 条就说 56 条都没问题」在本文件的版本，本轮一并收口。
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
+// 真值口径的枚举来源：与 fact-emission-census 同一取法（直接 import 对象，不做文本切片）。
+//   两套自称同源的面（本文件的文本切片 vs 这个 import）若不一致，就是取样面口径错位 —— 本轮要显形的对象。
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -57,6 +69,39 @@ function walk(dir, exts, out = []) {
 const enumsSrc = readFileSync(path.join(ROOT, 'infra/56-battle-enums.js'), 'utf8');
 const factBlock = enumsSrc.slice(enumsSrc.indexOf('FACT_TYPES'), enumsSrc.indexOf('MECHANIC_TYPES'));
 const FACT_KEYS = [...factBlock.matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)].map(m => ({ key: m[1], val: m[2] }));
+
+// ①b 第 144 轮新增 · 取样面构成审计：把切片逐行归属到它真正所属的那个 export const 枚举。
+//   口径：以『export const XXX = Object.freeze({』为界切段，段内的 KEY:'val' 即属 XXX。
+//   ★ 两条提取路径必须数出同一份东西（下面的 META_FAILS 自证会盯），否则说明 infra/56 结构变了。
+const SLICE_LINES = factBlock.split('\n');
+const sliceRows = [];
+let sliceOwner = 'FACT_TYPES';
+for (const line of SLICE_LINES) {
+    const decl = line.match(/^export const ([A-Z][A-Z0-9_]*) = Object\.freeze/);
+    if (decl) { sliceOwner = decl[1]; continue; }
+    for (const h of line.matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)) sliceRows.push({ owner: sliceOwner, key: h[1] });
+}
+const OWNER_COUNT = {};
+for (const r of sliceRows) OWNER_COUNT[r.owner] = (OWNER_COUNT[r.owner] || 0) + 1;
+const KEY_COUNT = {};
+for (const r of sliceRows) KEY_COUNT[r.key] = (KEY_COUNT[r.key] || 0) + 1;
+const FOREIGN_OWNERS = Object.keys(OWNER_COUNT).filter(o => o !== 'FACT_TYPES');
+const FOREIGN_ROWS = sliceRows.filter(r => r.owner !== 'FACT_TYPES');
+const DUP_KEYS = Object.keys(KEY_COUNT).filter(k => KEY_COUNT[k] > 1).sort();
+// 每个重复键所属枚举（供报告逐条点名，也供后续人工核销）
+const DUP_DETAIL = DUP_KEYS.map(k => k + '（' + sliceRows.filter(r => r.key === k).map(r => r.owner).join(' + ') + '）');
+const TRUE_FACT_KEYS = Object.keys(FACT_TYPES);
+// 独立第三路径：只截 FACT_TYPES 那一段（从它的 Object.freeze 起到本段闭合的 '});' 止），再数一遍。
+//   用途：咬住「真值口径被偷偷换成脏源」。若哪天真值口径改用文本重建，它与这条独立路径会立刻对不上。
+const SRC_LINES = enumsSrc.split('\n');
+let soloStart = -1, soloEnd = -1;
+for (let i = 0; i < SRC_LINES.length; i++) {
+    if (soloStart < 0) { if (/FACT_TYPES\s*=\s*Object\.freeze\(\{/.test(SRC_LINES[i])) soloStart = i; continue; }
+    if (/^\}\);/.test(SRC_LINES[i])) { soloEnd = i; break; }
+}
+const SOLO_KEYS = (soloStart >= 0 && soloEnd > soloStart)
+    ? [...SRC_LINES.slice(soloStart, soloEnd).join('\n').matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)].map(m => m[1])
+    : [];
 
 // ② 引擎侧引用文件集（发射面代理：core/+modules/ 里含 FACT_TYPES.X 的行）
 const engineFiles = [...walk(path.join(ROOT, 'core'), ['.js']), ...walk(path.join(ROOT, 'modules'), ['.js'])];
@@ -156,6 +201,77 @@ if (SAMPLE_INSUFFICIENT) {
     }
 }
 
+// —— 第 144 轮新增 · 真值对照口径（clean）——
+//   同一套判据，全集换成 import 来的真实 FACT_TYPES 对象（91 条，无混入无重复），与 fact-emission-census 同源。
+//   ★ 只作**对照**，不替换上面的 rows/gaps/stale（替换 = 改既有结论 = 须拍板）。
+const cleanRows = [], cleanGaps = [], cleanStale = [];
+for (const key of TRUE_FACT_KEYS) {
+    const val = FACT_TYPES[key];
+    const eng = countRefs(engineFiles, key);
+    const rule = consumeRefs(key, val);
+    const decl = statDeclRefs(key);
+    const rend = countRefs(renderFiles, key);
+    cleanRows.push({ key, eng, rule, decl, rend });
+    const watched = rule + decl > 0;
+    if (eng > 0 && !watched && !WHITELIST[key]) cleanGaps.push({ key, eng, rend });
+    if (eng === 0 && (rule > 0 || decl > 0) && !WHITELIST[key]) cleanStale.push({ key, rule, decl });
+}
+const statOf = (rs, gs, ss) => {
+    const emitted = rs.filter(r => r.eng > 0).length;
+    const watched = rs.filter(r => r.eng > 0 && (r.rule + r.decl) > 0).length;
+    return { emitted, watched, rate: watched / Math.max(1, emitted) * 100, gaps: gs.length, stale: ss.length };
+};
+const STAT_DIRTY = statOf(rows, gaps, stale);
+const STAT_CLEAN = statOf(cleanRows, cleanGaps, cleanStale);
+
+// —— 第 144 轮新增 · 取样面口径红线（caliberFails）：同源于 infra/56 的两套面必须一致 ——
+const caliberFails = [];
+if (sliceRows.length !== TRUE_FACT_KEYS.length) {
+    caliberFails.push('切片实收 ' + sliceRows.length + ' 条 ≠ 真实 FACT_TYPES ' + TRUE_FACT_KEYS.length
+        + ' 条（多收 ' + (sliceRows.length - TRUE_FACT_KEYS.length) + ' 条）');
+}
+if (FOREIGN_ROWS.length) {
+    caliberFails.push('切片混入 ' + FOREIGN_OWNERS.length + ' 个非 FACT_TYPES 枚举共 ' + FOREIGN_ROWS.length + ' 条：'
+        + FOREIGN_OWNERS.map(o => o + ' ' + OWNER_COUNT[o] + ' 条').join(' / '));
+}
+if (DUP_KEYS.length) {
+    caliberFails.push('同名重复 ' + DUP_KEYS.length + ' 条 ⇒ 同一条被计两次，gaps / stale / 覆盖率分母虚增：'
+        + DUP_DETAIL.join('、'));
+}
+if (STAT_DIRTY.emitted !== STAT_CLEAN.emitted || STAT_DIRTY.gaps !== STAT_CLEAN.gaps || STAT_DIRTY.stale !== STAT_CLEAN.stale) {
+    caliberFails.push('两套口径结论不一致（引擎发射 ' + STAT_DIRTY.emitted + ' vs ' + STAT_CLEAN.emitted
+        + ' 类 / 缺口 ' + STAT_DIRTY.gaps + ' vs ' + STAT_CLEAN.gaps + ' 类 / 悬空 ' + STAT_DIRTY.stale + ' vs '
+        + STAT_CLEAN.stale + ' 类）⇒ 「覆盖率 ' + STAT_DIRTY.rate.toFixed(1) + '%」不可直接引用');
+}
+
+// —— 第 144 轮新增 · 对照口径自身的可信度自证（拦「审计器自己也会漂」）——
+//   ① 两条提取路径数不清同一份 ⇒ infra/56 结构变了，下面的所有结论作废，必须先看这条；
+//   ② 真值口径按对象遍历，天然不得有重复键 —— 若它也有了重复，说明 FACT_TYPES 本身被改坏了。
+const metaFails = [];
+if (sliceRows.length !== FACT_KEYS.length) {
+    metaFails.push('切片的两条提取路径数出不同结果（逐行归属 ' + sliceRows.length + ' 条 vs 正则全量 '
+        + FACT_KEYS.length + ' 条）⇒ infra/56 结构已变，本文件取样逻辑需先看这');
+}
+if (cleanRows.length !== TRUE_FACT_KEYS.length) {
+    metaFails.push('真值口径行数 ' + cleanRows.length + ' 与真实 FACT_TYPES ' + TRUE_FACT_KEYS.length + ' 条不符');
+}
+if (new Set(cleanRows.map(r => r.key)).size !== cleanRows.length) {
+    metaFails.push('真值口径内出现重复键（对象遍历本不该有重复）⇒ FACT_TYPES 导出已被改坏');
+}
+if (TRUE_FACT_KEYS.length === 0) {
+    metaFails.push('真实 FACT_TYPES 取到 0 条（import 失败或枚举被删）⇒ 两套口径同时作废');
+}
+if (!SOLO_KEYS.length) {
+    metaFails.push('独立路径截取 FACT_TYPES 段落失败 ⇒ infra/56 结构已变，无法自证真值口径');
+} else {
+    const missK = TRUE_FACT_KEYS.filter(k => !SOLO_KEYS.includes(k));
+    const extraK = SOLO_KEYS.filter(k => !TRUE_FACT_KEYS.includes(k));
+    if (missK.length || extraK.length) {
+        metaFails.push('真值口径与 infra/56 的 FACT_TYPES 段落对不上（独立路径多 ' + extraK.length
+            + ' 条 / import 多 ' + missK.length + ' 条）⇒ 真值口径来源可能被掉包，其结论不可信');
+    }
+}
+
 console.log('==== factType 覆盖交叉检查（引擎发射 ↔ 体检消费）====');
 console.log('· FACT_TYPES 全表 ' + FACT_KEYS.length + ' 条；引擎文件 ' + engineFiles.length + ' / 规则文件 ' + ruleFiles.length + ' / 渲染文件 ' + renderFiles.length);
 console.log('· 取样档位：枚举 ' + SAMPLE_FK.state + '（薄线 ' + SAMPLE_FK.thin + '）· 规则文件 '
@@ -165,15 +281,78 @@ if (sampleFails.length) {
     console.log('· ⛔ 取样面红线（' + sampleFails.length + ' 项；本检查器按第 124 轮定性恒不判退码，仅报告）：');
     for (const s of sampleFails) console.log('    ❌ ' + s);
 }
+if (caliberFails.length) {
+    console.log('· ⛔ 取样面口径红线（第 144 轮新增 · ' + caliberFails.length + ' 项；恒不判退码，仅报告）：');
+    for (const s of caliberFails) console.log('    ❌ ' + s);
+    if (FOREIGN_ROWS.length) {
+        console.log('      混入明细（前 20 条）：' + FOREIGN_ROWS.slice(0, 20).map(r => r.key + '@' + r.owner).join('、')
+            + (FOREIGN_ROWS.length > 20 ? ' …等 ' + FOREIGN_ROWS.length + ' 条' : ''));
+    }
+    if (DUP_KEYS.length) {
+        const dupInGaps = gaps.map(g => g.key).filter(k => KEY_COUNT[k] > 1);
+        const dupInStale = stale.map(s => s.key).filter(k => KEY_COUNT[k] > 1);
+        console.log('      重复键对结论的实际影响：gaps 里重复计 ' + dupInGaps.length + ' 次（'
+            + [...new Set(dupInGaps)].join('、') + '）· stale 里重复计 ' + dupInStale.length + ' 次（'
+            + ([...new Set(dupInStale)].join('、') || '无') + '）');
+    }
+    console.log('      ⇒ 修法（属改判据，须拍板）：把切片换成『直接 import FACT_TYPES 对象』—— 与 fact-emission-census 同源；');
+    console.log('        本轮只作了上面的真值对照口径，**未切换**，故既有历史数字保持不变。');
+}
+if (metaFails.length) {
+    console.log('· ⛔ 口径审计自证（第 144 轮新增 · ' + metaFails.length + ' 项）：');
+    for (const s of metaFails) console.log('    ❌ ' + s);
+} else {
+    console.log('· ✅ 口径审计自证通过（切片两路径一致 ' + FACT_KEYS.length + ' 条 / 真值口径 '
+        + cleanRows.length + ' 条无重复）');
+}
+console.log('· 两套口径并列对照（第 144 轮新增，真值口径仅供对照、**未**替代原口径）：');
+console.log('    ┌ 原口径（脏文本切片 ' + rows.length + ' 条）：引擎发射 ' + STAT_DIRTY.emitted + ' 类 / 被盯梢 '
+    + STAT_DIRTY.watched + ' 类 / 覆盖率 ' + STAT_DIRTY.rate.toFixed(1) + '% / 缺口 ' + STAT_DIRTY.gaps
+    + ' 类 / 悬空 ' + STAT_DIRTY.stale + ' 类');
+console.log('    └ 真值口径（FACT_TYPES 对象 ' + cleanRows.length + ' 条）：引擎发射 ' + STAT_CLEAN.emitted
+    + ' 类 / 被盯梢 ' + STAT_CLEAN.watched + ' 类 / 覆盖率 ' + STAT_CLEAN.rate.toFixed(1) + '% / 缺口 '
+    + STAT_CLEAN.gaps + ' 类 / 悬空 ' + STAT_CLEAN.stale + ' 类');
+if (STAT_CLEAN.gaps !== STAT_DIRTY.gaps || STAT_CLEAN.stale !== STAT_DIRTY.stale) {
+    // 差额从哪来：重复键必脏，混入的非 FACT_TYPES 条目也可能冒充 FACT_TYPES 的结论。
+    const dupKeysInGaps = [...new Set(gaps.map(g => g.key).filter(k => KEY_COUNT[k] > 1))];
+    const dupKeysInStale = [...new Set(stale.map(s => s.key).filter(k => KEY_COUNT[k] > 1))];
+    const foreignInGaps = [...new Set(gaps.map(g => g.key).filter(k => !TRUE_FACT_KEYS.includes(k)))];
+    const foreignInStale = [...new Set(stale.map(s => s.key).filter(k => !TRUE_FACT_KEYS.includes(k)))];
+    console.log('      差额溯源：缺口 ' + STAT_DIRTY.gaps + '→' + STAT_CLEAN.gaps + '（虚增 '
+        + (STAT_DIRTY.gaps - STAT_CLEAN.gaps) + ' 类 = 重复键 ' + dupKeysInGaps.length + ' 条'
+        + (foreignInGaps.length ? ' + 混入枚举 ' + foreignInGaps.length + ' 条' : '') + '）：'
+        + dupKeysInGaps.concat(foreignInGaps).slice(0, 12).join('、'));
+    if (foreignInStale.length || dupKeysInStale.length) {
+        console.log('      悬空 ' + STAT_DIRTY.stale + '→' + STAT_CLEAN.stale + '（虚增 '
+            + (STAT_DIRTY.stale - STAT_CLEAN.stale) + ' 类）：'
+            + [...new Set(dupKeysInStale.concat(foreignInStale))].join('、')
+            + ' —— 这些此前被当成「规则对着不存在的 fact 干活」在报，实为同一份枚举的别名被重复/误收');
+    }
+}
 const watchedCount = rows.filter(r => r.eng > 0 && (r.rule + r.decl) > 0).length;
 const emittedCount = rows.filter(r => r.eng > 0).length;
 console.log('· 引擎发射 ' + emittedCount + ' 类，其中被规则/契约盯梢 ' + watchedCount + ' 类（覆盖率 ' + (watchedCount / Math.max(1, emittedCount) * 100).toFixed(1) + '%）');
 console.log('· 覆盖缺口候选（引擎发射、零规则/契约、未登记）: ' + gaps.length + ' 类');
 console.log('   ⚠ 注：静态零引用 ≠ 真缺口 —— 规则常按 fact.data 字段值 / 渲染后文本消费，factType 字符串不出现；');
 console.log('     以下为「待样本验证候选」，不判红；需配合结构扫描器跑真实对局核对实际覆盖。按引擎引用降序：');
-for (const g of gaps.sort((a, b) => b.eng - a.eng)) console.log('    ? ' + g.key + '（引擎引用 ' + g.eng + ' 处，渲染 ' + g.rend + ' 处）');
+// 来源索引（第 144 轮新增）：每条裁决项标出它真正所属的枚举，让「谁是真悬空、谁是混入假警报」一眼可辨。
+//   注意这里只**标注**，不剔除 —— 剔除会改变既有结论（属改判据，须拍板）。
+const OWNER_OF = {};
+for (const r of sliceRows) if (!(r.key in OWNER_OF)) OWNER_OF[r.key] = r.owner;
+const tagOf = (key) => {
+    const own = OWNER_OF[key] || '?';
+    return own === 'FACT_TYPES' ? '属 FACT_TYPES' : '混入·实际属 ' + own;
+};
+for (const g of gaps.sort((a, b) => b.eng - a.eng)) {
+    console.log('    ? ' + g.key + '（引擎引用 ' + g.eng + ' 处，渲染 ' + g.rend + ' 处）[' + tagOf(g.key)
+        + (KEY_COUNT[g.key] > 1 ? ' · 同名重复，被计 ' + KEY_COUNT[g.key] + ' 次' : '') + ']');
+}
 console.log('· 悬空引用（规则/契约引用、引擎零发射、未登记）: ' + stale.length + ' 类 ← 红线（引擎变更后规则失配的苗头）');
-for (const s of stale) console.log('    ⚠ ' + s.key + '（规则 ' + s.rule + ' / 契约 ' + s.decl + '）');
+console.log('   ⚠ 第 144 轮起逐条标源：凡标「混入」者并非 FACT_TYPES 的键，是别的枚举同名误收 ⇒ 属**假警报**；');
+console.log('     真悬空只可能出现在标「属 FACT_TYPES」的那几条里（未剔除，剔除属改判据须拍板）。');
+for (const s of stale) {
+    console.log('    ⚠ ' + s.key + '（规则 ' + s.rule + ' / 契约 ' + s.decl + '）[' + tagOf(s.key) + ']');
+}
 if (SAMPLE_INSUFFICIENT) {
     // 「零悬空」「零缺口」同属**没查到**类结论：取样面一塌它俩必然双双归零，不能当绿看。
     //   ★ 故取样不足时**无条件**给出这句（不看 stale 是否为空）—— 空集出绿正是本轮要收的洞。
