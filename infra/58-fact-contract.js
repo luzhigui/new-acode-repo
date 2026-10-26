@@ -92,8 +92,6 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.XING_FEN_GRANT]: { requiredFields: ['songName', 'zhouName'], renderFn: 'renderXingFenGrantFact', translateFn: null },
     [FACT_TYPES.XIN_HUN_DEATH]: { requiredFields: ['uidD'], renderFn: 'renderXinHunDeathFact', translateFn: 'translateXinHunDeath' },
 
-    // 张无忌九阳 / 融会贯通
-    [FACT_TYPES.NINE_YANG_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderNineYangHealFact', translateFn: 'makeHealAction' },
     [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk', 'targetUid'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
 
     // 韦一笑吸血
@@ -185,7 +183,6 @@ export const FACT_SPECS = Object.freeze({
 export const ATTACK_GROUP_HEAL_FACTS = Object.freeze([
     FACT_TYPES.BLOOD_THIRST_LEECH,
     FACT_TYPES.HOT_BLOOD_HEAL,
-    FACT_TYPES.NINE_YANG_HEAL,
     FACT_TYPES.WEI_LEECH,
     FACT_TYPES.PHANTOM_DISGUISE_HEAL,
     FACT_TYPES.CLAW_HEAL,

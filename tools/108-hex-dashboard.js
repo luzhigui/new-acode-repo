@@ -1,78 +1,33 @@
-// V6.2.19 | 2026-10-21 详情卡文案全量重写（老板指出「一大堆奇奇怪怪不对」）：废弃「参数逐条机翻」，
-//   改由 HEX_DETAIL 为 15 个海克斯各写 普通/姐姐/妹妹 三档人话；数字实时读 content（buff/hexEnhance/spiderFly），
-//   妹妹永久版按引擎真实行为描述（双击 50%、摄魂点名 60%、巨马 70%、众志 40%、惑心 15% 等），
-//   不再出现英文键名、死字段（critRatio）、「攻击加成 -30%」这类方向误导。未登记的新海克斯退回 content 官方 desc。
-// V6.2.18 | ~38500 bytes | 2026-10-21 提示文案同步：众志成城档位下调（5 人 10%/20%、6 人 20%/30%、7 人 30%/40%、8 人 50%/60%，9 人 100%/100% 不变）
-// V6.2.17 | ~38400 bytes | 2026-10-21 详情卡口径修正（老板指出）：brother* 字段只在「妹妹永久版」显示，
-//   普通版不再出现「妹妹在场时每回合生成概率」；姐姐强化版跳过「0 → 0」这类无变化行；
-//   spawnProb 引擎从不读取（巨马每回合必出）故隐藏，普通版不再出现误导性的「生成概率 100%」。
-// V6.2.16 | ~38200 bytes | 2026-10-21 海克斯详情卡全中文化（老板要求）：reviveRatio / brotherReviveRatio / permanent /
-//   effects 这类代码字段名不再展示，参数名全部换中文（复活时回复生命 / 妹妹永久版复活时回复生命 …）；
-//   effects / params / tiers / recruitPool / permanent 归为内部实现字段直接隐藏，「持续」仍由原有一行表达。
-// V6.2.15 | 实测 37800 bytes | 2026-10-20 「阵容」下拉新增「全部4种（一起跑）」并设为默认（老板要求）：
-//   一次自动跑把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式一起跑完（同一批 job 混排喂池，比分四次跑更省时），
-//   各模式仍分别写自己的存储键；跑完上方表显示常规 + 自动展开「模式对比」。
-//   「清空数据」同步改为四种一起清（原按当前模式单清，四轮太麻烦）。
-// V6.2.14 | 实测 36450 bytes | 2026-10-19 提示文案同步：众志成城补员 M 值 20→15（content unity.recruitM 同步）
-// V6.2.13 | 实测 36450 bytes | 2026-10-18 暴露 window.__hexDocKeys（HEX_HINTS / HEX_NAME_MAP 的 key 清单）：
-//   供新增的 tools/126-balance-alert.js 查「新增海克斯漏登记」——这两张是手工表，漏登则表里只显示 key、点开也无判断提示。
-// V6.2.12 | 实测 36200 bytes | 2026-10-17 提示文案同步：众志成城持续回合数 5→3（content unity.duration 同步）
-// V6.2.11 | 实测 36200 bytes | 2026-10-16 提示文案同步：众志成城召唤物生命下限 30→25
-//   （攻<1 归 0、防<5 补到 5、血<25 补到 25）
-// V6.2.10 | 实测 36100 bytes | 2026-10-16 指令/提示文案同步：众志成城 M 值 30→20，并补「召唤落地即钳属性下限
-//   （攻<1 归 0、防<5 补到 5、血<30 补到 30）」——防战职业 bonus atk -8，小 m 掷点会出负攻召唤物（UI 显示 0）
-// V6.2.9 | 实测 36000 bytes | 2026-10-16 众志成城改版同步提示文案：删「到手已满 5 人即不召 / 整局最多 4 个」，
-//   改「获得当回合补满 5 人、此后每回合 +1、持续 5 回合（上限 9 格站位）」；carry 持续 4→3 回合
-// V6.2.8 | 实测 35900 bytes | 2026-10-15 第二批海克斯「背水一战」(lastStand) / 「众志成城」(unity) 补 HEX_NAME_MAP + HEX_HINTS
-//   （同摄魂 V6.1.2 口径：新增海克斯必须手动登记，漏登则表里只显示 key、无判断提示）
-// V6.2.7 | 实测 35443 bytes | 2026-10-15 修「点模式对比没反应」真因：renderModeCompare 里 `return { key, cell }` 用了未声明
-//   的变量 key（循环变量本名 k）→ 只要有数据就抛 ReferenceError、整段渲染中断（无数据时函数提前 return，故首次复现看不出问题）。
-//   上一版 V6.2.6 猜的「内容落在视口外」不是主因（浏览器实测容器在视口内、innerHTML 为空）；容器上移 + scrollIntoView 属顺手改进，保留
-// V6.2.6 | 实测 34931 bytes | 2026-10-15 修「点模式对比没反应」：对比表原插在统计表**下方**，弹窗主体 max-height:88vh
-//   + overflow:auto，表一长内容就落进滚动区底部、视口零变化（看着像没反应）。改为插到统计表上方 + 渲染后 scrollIntoView；
-//   顺带补 `.cell-sub` 小字副行样式（此前引用了未定义的 class）
-// V6.2.5 | 实测 34170 bytes | 2026-10-15 新增「🔀 模式对比」：常规/仅姐姐/仅妹妹/不带姐姐妹妹四种阵容模式并排比同一批海克斯的胜率
-//   （读各模式已存榜 raw 记录现场聚合，不重跑批）+「Δ 姐姐 / Δ 妹妹」= 该模式胜率 − 常规胜率；HEX_NAME_MAP 提到模块级共用
-// V6.2.3 | ~28600 bytes | 2026-10-14 结果表第一列（海克斯名）收窄固定 92px，长名不再撑开列（差值方向由最右偏差图呈现，不加文字标识/配色）
-// V6.2.4 | ~28300 bytes | 2026-10-14 妹永久摄魂提示同步：不再是「团队过期后永久续上全体」，改「每回合随机点名 1 名敌方、持续 2 回合，稳态约 2 人」
-// V6.2.2 | ~28100 bytes | 2026-10-14 修「跑完不显示」：写 localStorage 失败不再静默吞（配额满时会读回空榜显示暂无数据，
-//        症状同「跑不出结果」）——改为显式报错 + 清理提示；状态行改报「实得/应有场次」，丢场可见
-// V6.2.1 | ~27300 bytes | 2026-10-14 跑批加「阵容模式」选择器（常规/仅姐姐/仅妹妹/不带姐姐妹妹）：lineupMode 透传 116 hex job；
-//        战绩按模式分键存储（常规沿用旧键 ming_hex_battle_log，旧数据不丢），切换模式自动换榜，避免四种阵容混在一张表里
-// V6.2.0 | ~24300 bytes | 2026-10-14 结果表排序改「按胜率从高到低」（原按出场次数降序，高胜率海克斯常被低频淹没，看不清强弱）
-// V6.1.9 | ~24300 bytes | 2026-10-14 圣火不熄提示同步：复活即可行动（删「当回合不可行动」）、名额排除召唤物
-// V6.1.8 | ~24300 bytes | 2026-10-13 海克斯详情卡「持续」支持整局：content permanent:true 显示「整局」而非回合数
-// V6.1.7 | ~24150 bytes | 2026-10-13 摄魂降防文案改乘法：防御首次乘 0.9、此后每回合再乘 0.95（原线性叠加作废，口径以 content soulDrain.desc 为准）
-// V6.1.6 | 2026-10-13 新海克斯「圣火不熄」(holyFire) 补 HEX_NAME_MAP + HEX_HINTS（同摄魂 V6.1.2 口径：新增海克斯必须手动登记，漏登则表里只显示 key、无判断提示）
-// ── 更早版本见 记录-更改履历.md
-// V6.1.4 | 2026-10-12 摄魂文案补降防：敌方防御按回合乘方累积 ×0.92^N（值在 content soulDrain.defBonus）
-// V6.1.3 | 2026-10-12 摄魂文案同步数值加强：基础 -25%→-30%、逆风系数 5%→10%（值与 desc 以 content buffs.soulDrain 为准）
-// V6.1.2 | 2026-10-10 新海克斯「摄魂」(soulDrain) 补 HEX_NAME_MAP + HEX_HINTS（此前新增海克斯要手动登记，漏登则表里只显示 key、无判断提示）
-// V6.1.1 | 2026-10-02 下拉选项文案 6关×500/1000/2000场 → 7关×（实际 allStages 已是 7 关，仅标签滞留旧口径）
-// V6.1.0 | 2026-09-27 自动跑改走 117 runParallel + 细粒度分片（每片 25 场，7 关×per 场 → 几十上百片排队），
-//        池大小改 getPoolSize()（吃满核心，localStorage 'battle_pool_size' 可覆盖）；seed 逐场不变
-// V6.0.5 | 2026-09-22 关卡范围扩到 7 关（配合主代码新增第 7 关灭绝师太）：allStages 数组 + 进度/ETA 改为按数组长度算，不再写死 6
-// V6.0.4 | 2026-09-20 ①弹窗内自带「自动跑」（自走 116 Worker kind:'hex'，不经 101；默认每关×1000 可选 2000，跑完自动出表）
-//        （更正：本条原写「复用 101 runAutoBattle」，实际一直直连 116 Worker，未 import 101）
-//        ②OP/WEAK 判定线自适应：标准差 σ（底线 2%）——整体平衡时不判，拉开才判，汇总行显示当前判定线
-// V6.0.3 | 2026-09-20 基准=「所有海克斯各自胜率的平均」（用户拍板）。自检标准：差值列加起来必须正好为 0。
-//        （全场次平均胜率当尺子时差值仍全为正——赢的局海克斯多、在海克斯角度下票数多，全场角度只算一局）
-// V6.0.2 | ~15500 bytes | 2026-09-20 差值可视化夸张化：刻度 12→6（同样差值条长翻倍）、条高 14→22px、加发光与圆角、渐变更艳
-// V6.0.1 | ~14900 bytes | 2026-09-20 基准改为"所有含海克斯场次的平均胜率"（原"不含该海克斯场次胜率"会让每个海克斯差值一律偏正）；列表头同步改为「海克斯平均」；修正虚标的字节数
-// V6.0.0 | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
+// ===== ../tools/108-hex-dashboard.js =====
+// V6.3.4 | 2026-10-26 提示文案同步：众志成城首回合补员目标 5→4（姐姐强化仍 5），详情卡「姐姐强化版」补「补满人数 4 → 5」一行
+// V6.3.3 | 约 42500 字节 | 2026-10-25 修：七关一起跑时数据只写进了「七关合计」键、单关键全空（切单关一片空、
+//   跨关对比 1-7 行全是「—」）——现按每条记录的 rec.stage 拆写到各单关键，七关批次额外合并一份 all 键。
+//   （keyFor 加 stage 维，七关沿用旧键、历史数据不丢），切关卡自动换榜；删除「加载数据」按钮
+//   （开弹窗/切模式/切关卡/跑完都自动重读，该按钮已无残余价值）；单关时「🔀 模式对比」禁用
+//   （对比表只比七关合计，单关数据不参与，避免误读）；「清空数据」扩到 4 模式 ×(七关+7 单关)=32 键。
+//   （更早版本见 记录-更改履历.md）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.2.19';
+export const VER = 'tools/108-hex-dashboard.js V6.3.3';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
 // 2026-10-14 阵容模式：战绩按模式分键存储（常规沿用旧键，历史数据不丢），切换即换榜。
 // 消费端在 116 runHexStageJob：四模式统一「拒绝采样重掷自然阵容」（sister=含姊 / brother=含妹 / none=无小昭），不设 force、同一把尺子。
 const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
-const keyFor = mode => mode === 'normal' ? KEY : `${KEY}_${mode}`;
-const readLogs = mode => { try { return JSON.parse(localStorage.getItem(keyFor(mode)) || '[]'); } catch(e) { return []; } };
+const CMP_MODES = ['normal', 'sister', 'brother', 'none'];
+const ALL_STAGES = [1, 2, 3, 4, 5, 6, 7];
+
+// 2026-10-25 V6.3.0：存储键加关卡维——七关沿用旧键（历史数据不丢），单关加 _stageN 后缀，
+// 各关/各模式互不污染。单关结果也落盘（老板定：切到该关就能看到历史，不必重跑）。
+const keyFor = (mode, stage) => {
+  const base = mode === 'normal' ? KEY : `${KEY}_${mode}`;
+  return (stage === 'all' || stage == null) ? base : `${base}_stage${stage}`;
+};
+const readLogs = (mode, stage) => { try { return JSON.parse(localStorage.getItem(keyFor(mode, stage)) || '[]'); } catch(e) { return []; } };
 let curMode = 'normal';
+let curStage = 'all';
 let logs = [];
 
 // 样式（一次性注入，带 hex-hex- 前缀避免污染宿主页）
@@ -211,8 +166,8 @@ const HEX_DETAIL = {
   },
   unity: {
     normal: b => [`按己方在场存活人数取档：${b.tiers.map(t => `${t.count} 人 攻+${pct(t.atkBonus)}/防+${pct(t.defBonus)}`).join('；')}`,
-      `获得当回合若不足 5 人，一次补满到 5 人（M${b.recruitM}、含精英、技能全开；召唤落地钳属性下限：攻<1 归 0、防<5 补 5、血<25 补 25），此后每回合再补 1 人；补员永久存活`],
-    sister: (b, e) => [`补员 M 值 ${b.recruitM} → ${e.recruitM}`],
+      `获得当回合若不足 4 人，一次补满到 4 人（姐姐强化补满到 5 人；M${b.recruitM}、含精英、技能全开；召唤落地钳属性下限：攻<1 归 0、防<5 补 5、血<25 补 25），此后每回合再补 1 人；补员永久存活`],
+    sister: (b, e) => [`补员 M 值 ${b.recruitM} → ${e.recruitM}；首回合补满人数 ${b.recruitTarget ?? 4} → ${e.recruitTarget ?? 5}`],
     brother: b => [`团队效果结束后，小昭·妹永久保留：每回合开始 ${pct(b.brotherSummonChance)} 概率召唤 1 名 M${b.recruitM} 明教英雄（技能全开）`]
   }
 };
@@ -232,7 +187,7 @@ const HEX_HINTS = {
   soulDrain: '目前唯一削弱型海克斯：敌方全体攻击力-30%（持续 4 回合，每回合刷新），且我方每比敌方少 1 个存活单位再 -5%（越逆风削得越狠）；敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）。对面攻击手越多、越依赖普攻收益越高；对不吃攻击力的阵容（如张三丰纯续航、召唤物）收益低。',
   holyFire: '死亡交互型：每局首次有己方单位（非巨马、非召唤物）阵亡时，该单位原地复活并回复 40% 生命（复活即可行动），每局仅 1 次。反制斩杀/清场（周芷若白骨爪、灭绝三击），与小昭·妹飞天/结茧互补——她防死，这张死后回场；己方阵亡越早收益越高。',
   lastStand: '残血增伤型：己方单位血量低于 35% 时攻击力 +40%，每回合开始按当前血量重判（血回上去即失效）。适合换血流/带自损技能的角色（唐文亮七伤拳、嗜血狂刀），越到残局收益越高；纯续航阵容（张三丰）几乎吃不到。',
-  unity: '滚雪球人数型：随在场人数阶梯加成（5 人攻+10%/防+20%，6 人 20%/30%，7 人 30%/40%，8 人 50%/60%，9 人彩蛋 100%/100%）。获得当回合若不足 5 人则一次补满到 5（M15、含精英、技能全开；到手即满 5 人则该回合不召；召唤落地即钳属性下限：攻<1 归 0、防<5 补到 5、血<25 补到 25），此后每回合再补 1 个、持续 3 回合（唯一上限是 9 格站位）；补员永久存活，不随 buff 到期消失。适合铺场/召唤流，人越多越猛；单位少的斩杀阵容收益低。',
+  unity: '滚雪球人数型：随在场人数阶梯加成（5 人攻+10%/防+20%，6 人 20%/30%，7 人 30%/40%，8 人 50%/60%，9 人彩蛋 100%/100%）。获得当回合若不足 4 人则一次补满到 4（姐姐强化补满到 5；M15、含精英、技能全开；到手已达标则该回合不召；召唤落地即钳属性下限：攻<1 归 0、防<5 补到 5、血<25 补到 25），此后每回合再补 1 个、持续 3 回合（唯一上限是 9 格站位）；补员永久存活，不随 buff 到期消失。适合铺场/召唤流，人越多越猛；单位少的斩杀阵容收益低。',
 };
 
 // 海克斯中文名映射（2026-10-15 V6.2.5 从 render 内部提到模块级：模式对比视图共用）
@@ -314,14 +269,21 @@ function openHexDashboard() {
         <button class="hex-hex-close">关闭</button>
       </div>
       <div class="hex-hex-body">
-        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。也可用别处跑出的数据点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。<br>「阵容」下拉默认「全部4种（一起跑）」：一次把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式都跑完（各模式分键存储、共用同一批 seed，便于横向配对比较），跑完自动展开「模式对比」；也可只选某一种单跑。「清空数据」一次清掉四种模式。</p>
-        <button class="hex-hex-load">加载数据</button>
-        <button class="hex-hex-clear">清空数据</button>
-        <button class="hex-hex-load hex-hex-run" style="margin-left:8px">⚡ 自动跑</button>
-        <select class="hex-hex-runsel" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
-          <option value="500">7关×500场</option>
-          <option value="1000">7关×1000场</option>
-          <option value="2000">7关×2000场</option>
+        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。<br>三个选择器：① 关卡 —— 默认「七关一起」，也可单跑某一关（单关结果单独存，切到该关即自动显示历史）；② 场次 —— 每关跑多少场；③ 阵容 —— 默认「全部4种（一起跑）」：一次把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式都跑完（各模式分键存储、共用同一批 seed，便于横向配对比较），跑完自动展开「模式对比」；也可只选某一种单跑。「清空数据」一次清掉四种模式 ×（七关 + 7 个单关）。</p>
+        <select class="hex-hex-stage" title="关卡：七关一起 = 长期榜；单关 = 只看这一关（单独存，切到该关即显示）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px">
+          <option value="all">关卡：七关一起</option>
+          <option value="1">关卡：第1关</option>
+          <option value="2">关卡：第2关</option>
+          <option value="3">关卡：第3关</option>
+          <option value="4">关卡：第4关</option>
+          <option value="5">关卡：第5关</option>
+          <option value="6">关卡：第6关</option>
+          <option value="7">关卡：第7关</option>
+        </select>
+        <select class="hex-hex-runsel" title="每关跑多少场（七关一起时每关各跑这么多；单关时就是这一关跑这么多）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
+          <option value="500">每关 500 场</option>
+          <option value="1000">每关 1000 场</option>
+          <option value="2000">每关 2000 场</option>
         </select>
         <select class="hex-hex-lineup" title="阵容模式：决定跑批时明教侧小昭的出现方式" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
           <option value="all" selected>阵容：全部4种（一起跑）</option>
@@ -330,51 +292,85 @@ function openHexDashboard() {
           <option value="brother">阵容：仅妹妹（小昭·妹必出）</option>
           <option value="none">阵容：不带姐姐妹妹</option>
         </select>
-        <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e;margin-left:8px">🔀 模式对比</button>
+        <button class="hex-hex-load hex-hex-run" style="margin-left:10px">⚡ 自动跑</button>
+        <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（按当前关卡读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e;margin-left:6px">🔀 模式对比</button>
+        <button class="hex-hex-cross" title="选一个海克斯，看它在 1–7 关 × 四种阵容模式的表现（跨关读全部已存榜，不重跑）" style="background:#81c784;color:#1a1a2e;margin-left:6px">📈 跨关对比</button>
+        <button class="hex-hex-clear" style="margin-left:6px">清空数据</button>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
         <div id="hexDashCompare"></div>
+        <div id="hexDashCross"></div>
         <div id="hexDashStats"></div>
       </div>
     </div>`;
   document.body.appendChild(mask);
 
-  // 打开即按当前模式加载对应榜单（模式记忆在模块级 curMode，弹窗重开不丢）；
-  // 下拉默认停在「全部4种（一起跑）」——跑批范围全开，上方表按 curMode 显示
+  // 打开即按当前关卡/模式加载对应榜单（模式记忆在模块级 curMode/curStage，弹窗重开不丢）；
+  // 阵容下拉默认停在「全部4种（一起跑）」——只是跑批范围，不切榜
   const lineupSel = mask.querySelector('.hex-hex-lineup');
+  const stageSel = mask.querySelector('.hex-hex-stage');
   lineupSel.value = 'all';
-  logs = readLogs(curMode);
+  stageSel.value = String(curStage);
+  logs = readLogs(curMode, curStage);
+
+  const summaryEl = mask.querySelector('#hexDashSummary');
+  const statsEl = mask.querySelector('#hexDashStats');
+  const compareEl = mask.querySelector('#hexDashCompare');
+  const cmpBtn = mask.querySelector('.hex-hex-cmp');
+  const crossEl = mask.querySelector('#hexDashCross');
+  const crossBtn = mask.querySelector('.hex-hex-cross');
+
+  // 模式对比按当前关卡读各模式榜（单关也有四模式榜），始终可用，只更新 title
+  function syncCmpBtn() {
+    const stageLabel = curStage === 'all' ? '七关合计' : `第${curStage}关`;
+    cmpBtn.disabled = false;
+    cmpBtn.style.opacity = '1';
+    cmpBtn.style.cursor = 'pointer';
+    cmpBtn.title = `四种阵容模式并排比同一批海克斯的胜率（按当前【${stageLabel}】读各模式已存榜，不重跑）`;
+  }
+
+  // 换关卡：自动重读对应榜（单关榜独立存储，切过去即显示历史）
+  stageSel.addEventListener('change', () => {
+    curStage = stageSel.value === 'all' ? 'all' : parseInt(stageSel.value, 10);
+    logs = readLogs(curMode, curStage);
+    compareEl.innerHTML = '';   // 换榜则收起对比视图，避免拿到旧数据
+    syncCmpBtn();
+    render(summaryEl, statsEl);
+  });
 
   lineupSel.addEventListener('change', () => {
     if (lineupSel.value === 'all') return;   // 「全部4种」只是跑批范围，不切榜（看表仍按 curMode）
     curMode = lineupSel.value;
-    logs = readLogs(curMode);
-    mask.querySelector('#hexDashCompare').innerHTML = '';   // 换榜则收起对比视图，避免拿到旧模式的数据
-    render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+    logs = readLogs(curMode, curStage);
+    compareEl.innerHTML = '';   // 换榜则收起对比视图，避免拿到旧模式的数据
+    render(summaryEl, statsEl);
   });
 
   mask.querySelector('.hex-hex-close').addEventListener('click', () => mask.remove());
   mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
 
-  mask.querySelector('.hex-hex-load').addEventListener('click', () => {
-    logs = readLogs(curMode);
-    mask.querySelector('#hexDashCompare').innerHTML = '';
-    render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+  // 2026-10-15 V6.2.5 模式对比：展开 / 收起（内容非空即视为展开）
+  cmpBtn.addEventListener('click', () => {
+    if (compareEl.innerHTML) { compareEl.innerHTML = ''; return; }
+    renderModeCompare(compareEl);
   });
 
-  // 2026-10-15 V6.2.5 模式对比：展开 / 收起（内容非空即视为展开）
-  mask.querySelector('.hex-hex-cmp').addEventListener('click', () => {
-    const box = mask.querySelector('#hexDashCompare');
-    if (box.innerHTML) { box.innerHTML = ''; return; }
-    renderModeCompare(box);
+  // 2026-10-25 V6.3.1 跨关对比：展开 / 收起（内容非空即视为展开）
+  crossBtn.addEventListener('click', () => {
+    if (crossEl.innerHTML) { crossEl.innerHTML = ''; return; }
+    renderCrossStage(crossEl);
   });
 
   mask.querySelector('.hex-hex-clear').addEventListener('click', () => {
-    if (!confirm('确认清空四种阵容模式（常规 / 仅姐姐 / 仅妹妹 / 不带姐姐妹妹）的全部海克斯战斗记录？')) return;
-    for (const m of CMP_MODES) localStorage.removeItem(keyFor(m));   // V6.2.15 四种一起清
+    if (!confirm('确认清空全部海克斯战斗记录？（四种阵容模式 × 七关合计 + 7 个单关，共 32 份榜）')) return;
+    // V6.3.0：清空扩到全部键（4 模式 × 七关+7 单关）
+    for (const m of CMP_MODES) {
+      for (const s of ['all', ...ALL_STAGES]) localStorage.removeItem(keyFor(m, s));
+    }
     logs = [];
-    mask.querySelector('#hexDashCompare').innerHTML = '';
-    render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+    compareEl.innerHTML = '';
+    crossEl.innerHTML = '';
+    render(summaryEl, statsEl);
   });
 
   // 2026-09-27 弹窗内自带批量战斗：走 117 runParallel（kind:'hex'，细粒度分片）+ 116 Worker 池并行，
@@ -385,13 +381,20 @@ function openHexDashboard() {
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
     const per = parseInt(sel.value, 10) || 500;
-    // 2026-10-20 V6.2.15 阵容选择 = 跑批范围：'all' 表示四种模式一起跑（默认），也可单跑某一种
+    // V6.3.0 关卡选择 = 跑批范围：'all' 跑七关、数字跑单关；阵容同前（all = 四模式一起跑）
+    const stageVal = stageSel.value;
+    const stages = stageVal === 'all' ? ALL_STAGES : [parseInt(stageVal, 10)];
     const modeSel = lineupSel.value;
     const modes = modeSel === 'all' ? CMP_MODES : [modeSel];
     if (modes.length === 1) curMode = modes[0]; else curMode = 'normal';   // 四种一起跑时上方表显示常规
+    curStage = stageVal === 'all' ? 'all' : parseInt(stageVal, 10);
+    const stageLabel = curStage === 'all' ? '七关' : `第${curStage}关`;
+
     runBtn.disabled = true;
     sel.disabled = true;
     lineupSel.disabled = true;
+    stageSel.disabled = true;
+    cmpBtn.disabled = true;
     status.textContent = '加载战斗引擎…';
     const t0 = performance.now();
     const fmtSec = ms => (ms / 1000).toFixed(0) + 's';
@@ -402,8 +405,7 @@ function openHexDashboard() {
       let doneRuns = 0;
       const t0run = performance.now();
       const masterSeed = Date.now();
-      const allStages = [1, 2, 3, 4, 5, 6, 7];
-      const total = allStages.length * per * modes.length;
+      const total = stages.length * per * modes.length;
       // 细粒度分片：每片 25 场。原来「一整关一个 job」只有 7 个 job——喂不满 worker 池，
       // 且各关时长不一，关间负载不均会拖长尾。分片后 worker 空一片接一片，负载自然拉平。
       // seed 逐场不变：片内 seed = 关基准 + (startIndex + i) * 7919，关基准 = masterSeed + stage*131。
@@ -411,7 +413,7 @@ function openHexDashboard() {
       const CHUNK = 25;
       const jobs = [];
       for (const m of modes) {
-        for (const stage of allStages) {
+        for (const stage of stages) {
           const base = masterSeed + stage * 131;
           for (let s = 0; s < per; s += CHUNK) {
             jobs.push({ stage, mode: m, seed: base, startIndex: s, runs: Math.min(CHUNK, per - s), label: `${MODE_LABEL[m]}·第${stage}关#${s / CHUNK + 1}` });
@@ -436,50 +438,69 @@ function openHexDashboard() {
         }
       });
       clearInterval(timer);
-      // 结果按模式分别追加进各自存储键（常规沿用旧键，与 101 同键同格式；2026-10-14 分模式后不再混榜）
+      // 结果按模式分别追加进各自存储键（V6.3.0：七关沿用旧键、单关加 _stageN，互不污染）
       // 2026-10-14 V6.2.2：写入失败不再静默吞——配额满时原 catch(e){} 会让「跑完 ✅」却读回空榜显示「暂无数据」，
       //   症状与「跑不出结果」完全一样，且无从判断。现改为显式报错并提示清理；状态行同时给出实得/应有场次。
+      // 2026-10-25 V6.3.3 修：七关一起跑时原实现把四模式全部记录写进了「七关合计」键，单关键一根没写
+      //   → 切到单关一片空、跨关对比 1-7 行全「—」。现按每条记录自带的 rec.stage 拆写到各单关键；
+      //   七关批次（stages.length>1）额外合并一份 all 键，保证「七关合计」始终是完整七关的数据
+      //   （单关补跑只进单关键，不破坏 all 的每关等量假设）。
       const saveErrs = [];
       let savedRuns = 0;
-      for (const m of modes) {
+      const saveTo = (k, arr) => {
+        if (!arr.length) return;
         try {
-          localStorage.setItem(keyFor(m), JSON.stringify(readLogs(m).concat(hexLogAll[m])));
-          savedRuns += hexLogAll[m].length;
-        } catch (e) { saveErrs.push(`${MODE_LABEL[m]}:${(e && e.name) || e}`); }
+          const cur = JSON.parse(localStorage.getItem(k) || '[]');
+          localStorage.setItem(k, JSON.stringify(cur.concat(arr)));
+        } catch (e) { saveErrs.push(`${k}:${(e && e.name) || e}`); }
+      };
+      for (const m of modes) {
+        const byStage = {};
+        for (const rec of hexLogAll[m]) {
+          (byStage[rec.stage] || (byStage[rec.stage] = [])).push(rec);
+        }
+        for (const stStr of Object.keys(byStage)) {
+          saveTo(keyFor(m, parseInt(stStr, 10)), byStage[stStr]);
+          savedRuns += byStage[stStr].length;
+        }
+        if (stages.length > 1) saveTo(keyFor(m, 'all'), hexLogAll[m]);
       }
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      const scope = modes.length > 1 ? '全部4种阵容' : MODE_LABEL[modes[0]];
+      const scope = (modes.length > 1 ? '全部4种阵容' : MODE_LABEL[modes[0]]) + ' · ' + stageLabel;
       if (saveErrs.length) {
         status.textContent = `⚠️ 【${scope}】跑了 ${total} 场、已存 ${savedRuns} 场，写入失败（${saveErrs.join(' / ')}）——多半是存储配额已满。请点「清空数据」清掉旧榜后重跑。`;
       } else {
         const lost = total - savedRuns;
         status.textContent = `✅ 完成【${scope}】：${savedRuns}/${total} 场记录，总耗时 ${dt}s（${poolSize} 线程并行）${lost > 0 ? '｜⚠️ 有丢场' : ''}`;
       }
-      logs = readLogs(curMode);
-      render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
-      if (modes.length > 1) {
-        // 四种一起跑完：上方表显示 curMode（常规），并自动展开四模式对比
-        const box = mask.querySelector('#hexDashCompare');
-        box.innerHTML = '';
-        renderModeCompare(box);
+      logs = readLogs(curMode, curStage);
+      render(summaryEl, statsEl);
+      if (curStage === 'all' && modes.length > 1) {
+        // 七关 + 四模式一起跑完：上方表显示 curMode（常规），并自动展开四模式对比
+        compareEl.innerHTML = '';
+        renderModeCompare(compareEl);
       }
+      crossEl.innerHTML = '';   // 新数据已写入，收起跨关表（再点会读到最新）
     } catch (e) {
       status.textContent = '❌ 失败：' + (e && e.message ? e.message : e);
     } finally {
       runBtn.disabled = false;
       sel.disabled = false;
       lineupSel.disabled = false;
+      stageSel.disabled = false;
+      syncCmpBtn();
     }
   });
 
-  render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+  syncCmpBtn();
+  render(summaryEl, statsEl);
 }
 
 // ============ 2026-10-15 V6.2.5 模式对比：常规 / 仅姐姐 / 仅妹妹 / 不带姐姐妹妹 并排 ============
 // 数据来源：四个模式各自分键已存的 raw 战绩（V6.2.1 起分键），现场聚合，不需要重跑批。
 // 用途：本表主视图一次只能看一个模式（切下拉换榜），这张表把同一批海克斯横向摆一起，
 //   并给「Δ 姐姐 / Δ 妹妹」= 该模式胜率 − 常规胜率，直接看小昭形态对某个海克斯是帮忙还是拖累。
-const CMP_MODES = ['normal', 'sister', 'brother', 'none'];
+// V6.3.0：只读七关榜（stage='all'）——单关数据不参与模式对比。
 
 function hexStatsOf(logs) {
   const per = {};
@@ -499,12 +520,13 @@ function renderModeCompare(box) {
   const data = {};
   let any = false;
   for (const m of CMP_MODES) {
-    const lg = readLogs(m);
+    const lg = readLogs(m, curStage);   // 按当前关卡读各模式榜（单关也有各自的榜）
     if (lg.length) any = true;
     data[m] = hexStatsOf(lg);
   }
+  const stageLabel = curStage === 'all' ? '七关合计' : `第${curStage}关`;
   if (!any) {
-    box.innerHTML = '<p style="color:#888;margin-top:12px">四个模式都还没有数据。用上面的「阵容」下拉切到某个模式 → ⚡ 自动跑，跑完换下一个模式再跑；四个都跑过就能在这里并排比。</p>';
+    box.innerHTML = `<p style="color:#888;margin-top:12px">四个模式都还没有【${stageLabel}】数据。用上面的「阵容」下拉切到某个模式 → ⚡ 自动跑，跑完换下一个模式再跑；四个都跑过就能在这里并排比。</p>`;
     return;
   }
 
@@ -532,17 +554,22 @@ function renderModeCompare(box) {
     return `<td style="color:${col}">${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
   };
 
-  let html = '<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率</div>';
-  html += '<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的榜（不重跑）。Δ = 该模式胜率 − 常规胜率，正数=该模式更强、负数=更弱；某模式没跑过该海克斯则显示「—」。</p>';
-  html += '<table><tr><th>海克斯</th>' + CMP_MODES.map(m => `<th>${MODE_LABEL[m]}</th>`).join('') + '<th>Δ 姐姐</th><th>Δ 妹妹</th></tr>';
-  html += '<tr><td style="color:#888">模式总览</td>'
-    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">明教胜 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
-    + '<td style="color:#666">—</td><td style="color:#666">—</td></tr>';
+  let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${stageLabel}）</div>`;
+  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。Δ = 该格胜率 − <b>本模式全海克斯平均</b>（净增益，已排除模式整体强度差），正数=该海克斯在本模式偏强、负数=偏弱。横向比四个 Δ 即「同一海克斯对不同小昭形态的增益程度」。</p>`;
+  // 每个模式先算「全海克斯平均胜率」（净 Δ 的基准），与 108 主表同口径
+  const modeAvg = {};
+  for (const m of CMP_MODES) {
+    const ks = Object.keys(data[m].per).filter(k => data[m].per[k].count > 0);
+    modeAvg[m] = ks.length ? ks.reduce((a, k) => a + data[m].per[k].wins / data[m].per[k].count, 0) / ks.length * 100 : null;
+  }
+  html += '<table><tr><th>海克斯</th>' + CMP_MODES.map(m => `<th>${MODE_LABEL[m]}</th>`).join('') + '<th>Δ 常规</th><th>Δ 姐姐</th><th>Δ 妹妹</th></tr>';
+  html += '<tr><td style="color:#888">全海克斯平均</td>'
+    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">平均 ${modeAvg[m] !== null ? modeAvg[m].toFixed(1) + '%' : '—'}｜明教胜 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
+    + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
   for (const r of rows) {
-    const base = r.cell.normal ? r.cell.normal.rate : null;
     html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${HEX_NAME_MAP[r.key] || r.key}</td>`
       + CMP_MODES.map(m => rateTd(r.cell[m])).join('')
-      + deltaTd(r.cell.sister, base) + deltaTd(r.cell.brother, base) + '</tr>';
+      + deltaTd(r.cell.normal, modeAvg.normal) + deltaTd(r.cell.sister, modeAvg.sister) + deltaTd(r.cell.brother, modeAvg.brother) + '</tr>';
   }
   html += '</table>';
   box.innerHTML = html;
@@ -551,11 +578,75 @@ function renderModeCompare(box) {
   box.scrollIntoView({ block: 'nearest' });
 }
 
+// ============ 2026-10-25 V6.3.1 跨关对比：单个海克斯在 1–7 关 × 四种阵容模式的表现 ============
+// 数据全部来自各关各模式已存的榜（不重跑）。Δ = 该海克斯胜率 − 同关同模式全海克斯平均（与 108 主表同口径）。
+function renderCrossStage(box, keepKey) {
+  const stageList = ['all', 1, 2, 3, 4, 5, 6, 7];
+  const stageLabel = st => st === 'all' ? '七关合计' : `第${st}关`;
+  const data = {};   // data[stage][mode] = { total, allyWins, per, avg }
+  let any = false;
+  const allKeys = new Set();
+  for (const st of stageList) {
+    data[st] = {};
+    for (const m of CMP_MODES) {
+      const lg = readLogs(m, st);
+      if (lg.length) any = true;
+      const s = hexStatsOf(lg);
+      const ks = Object.keys(s.per).filter(k => s.per[k].count > 0);
+      s.avg = ks.length ? ks.reduce((a, k) => a + s.per[k].wins / s.per[k].count, 0) / ks.length * 100 : null;
+      data[st][m] = s;
+      for (const k of ks) allKeys.add(k);
+    }
+  }
+  if (!any) {
+    box.innerHTML = '<p style="color:#888;margin-top:12px">还没有任何关卡/模式的榜数据。先跑一批再来。</p>';
+    return;
+  }
+  const name = k => HEX_NAME_MAP[k] || k;
+  const keysArr = [...allKeys].sort((a, b) => name(a).localeCompare(name(b), 'zh'));
+  const selKey = (keepKey && keysArr.includes(keepKey)) ? keepKey : keysArr[0];
+
+  let html = '<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">📈 跨关对比：单个海克斯在 1–7 关 × 四种阵容模式的表现</div>';
+  html += '<p style="color:#999;font-size:12px;margin:0 0 8px">行 = 关卡（含七关合计）；列 = 四种阵容模式。每格「胜率% / 场次」，下方 Δ = 该海克斯胜率 − <b>同关同模式全海克斯平均</b>（净增益，已排除模式整体强度差），正数=本关本模式偏强、负数=偏弱。某关某模式没数据就显示「—」。</p>';
+  html += '<div style="margin-bottom:10px">海克斯：<select class="hex-hex-crosskey" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px">';
+  for (const k of keysArr) html += `<option value="${k}"${k === selKey ? ' selected' : ''}>${name(k)}</option>`;
+  html += '</select></div>';
+
+  html += '<table><tr><th>关卡</th>' + CMP_MODES.map(m => `<th>${MODE_LABEL[m]}</th>`).join('') + '</tr>';
+  for (const st of stageList) {
+    // 每关都出一行；没跑过的关各格显示「—」，别整行跳过（跳了会让人误以为被挡住）
+    html += `<tr><td style="color:#ffd700;font-weight:bold;white-space:nowrap;padding:6px 8px">${stageLabel(st)}</td>`;
+    // Δ 基准 = 本关本模式全海克斯平均（净增益，已排除模式整体强度差）
+    for (const m of CMP_MODES) {
+      const s = data[st][m];
+      const d = s.per[selKey];
+      if (!d || !d.count) { html += '<td style="color:#666">—</td>'; continue; }
+      const rate = d.wins / d.count * 100;
+      const rcol = rate >= 50 ? '#4caf50' : rate >= 25 ? '#ffd700' : '#ff5252';
+      html += `<td style="color:${rcol};font-weight:bold">${rate.toFixed(1)}%<div class="cell-sub">${d.count} 场</div>`;
+      if (s.avg !== null) {
+        const delta = rate - s.avg;
+        const dcol = Math.abs(delta) < 1 ? '#888' : (delta > 0 ? '#ffd700' : '#4fc3f7');
+        html += `<div class="cell-sub" style="color:${dcol}">Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}</div>`;
+      }
+      html += '</td>';
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  box.innerHTML = html;
+  box.querySelector('.hex-hex-crosskey').addEventListener('change', e => {
+    renderCrossStage(box, e.target.value);
+  });
+  box.scrollIntoView({ block: 'nearest' });
+}
+
 // 渲染
 function render(summary, stats) {
   if (logs.length === 0) {
     summary.innerHTML = '';
-    stats.innerHTML = '<p style="color:#888;margin-top:16px">暂无数据。请先在自动批量战斗里跑几场。</p>';
+    const stageLabel = curStage === 'all' ? '七关合计' : `第${curStage}关`;
+    stats.innerHTML = `<p style="color:#888;margin-top:16px">【${MODE_LABEL[curMode]} · ${stageLabel}】暂无数据。点上方「⚡ 自动跑」跑一批，或换关卡/阵容看别的榜。</p>`;
     return;
   }
 
@@ -563,8 +654,9 @@ function render(summary, stats) {
   const allyWins = logs.filter(l => l.winner === '明教').length;
   const enemyWins = logs.filter(l => l.winner === '六大派').length;
   const draws = total - allyWins - enemyWins;
+  const stageLabel = curStage === 'all' ? '七关合计' : `第${curStage}关`;
 
-  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
+  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
 
   const hexKeys = new Set();
   logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));

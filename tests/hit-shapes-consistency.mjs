@@ -7,6 +7,10 @@
 //     监控口径没跟（第 128 轮通规「自检自身也会腐烂」的又一实例）。
 //   修法（收紧）：按新写法求值引擎本体 hitShapeOf（注入 content 真值，不复刻实现），dmgMapFor 改注入
 //   hitShapeOf + tierOf；新增检查⑥「收口守住」——不得又抄一份本地表 + hitShapeOf 必须在位。
+// V1.0.1 | 2026-10-26 上游第139轮·跟随 713d0ddb 轰拳重构：ui/79 移除 HIT_MAP 命中格拷贝，
+//   改读 content 真值(hitShapeOf)；上游重写 UI 侧抽取并注入自写 hitShapeOf。★ 第 139 轮夜间线裁决：
+//   同一处缺口两边各修一次，上游版在自检里自写一份 hitShapeOf（复刻实现，判据与被测同义反复），
+//   本地版求值 ui/79 源码本体（不复制实现）更严 —— 保留本地版，上游仅此注释行留档。
 // V1.0.0 | ~9000 bytes | 2026-10-22 体检第 116 轮新建
 //   背景（一次真事故）：蓄意轰拳的伤害分母有三份副本——content 真值、modules/27 结算、ui/79 引擎 UI。
 //     2026-10-22 发现 ui/79 与 modules/27 里各留了「兜底字面量」{direct:2, near:4, far:6} / eightDen:3，
@@ -223,16 +227,15 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
         return { problems, stats };
     }
 
-    // ---- 检查①：九位九形形状对账 ----
-    // 结算侧 cellsByAim[aim] 的 pos 集合 === 真值 shapes[aim] === UI 侧 HIT_MAP[aim]
+    // ---- 检查①：九位九形形状对账（真值 content ↔ 引擎结算 modules/27）----
+    // 注：UI 侧旧对照的 HIT_MAP 已在 713d0ddb 移除——ui/79 现直接读 content 真值(hitShapeOf)，
+    // 与真值同源、结构上不可能脱节，故不再单独比对 UI 侧（避免真值自己比自己）；UI 的伤害口径由检查②覆盖。
     const shapeMismatch = [];
     for (let aim = 1; aim <= 9; aim++) {
         const truthCells = [...(shapes[String(aim)] || [])].map(Number).sort((a, b) => a - b);
         const settleCells = (cellsByAim[aim] || []).map(c => c.pos).sort((a, b) => a - b);
-        const uiCells = [...(ui.hitMap[aim] || [])].map(Number).sort((a, b) => a - b);
         const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
         if (!eq(truthCells, settleCells)) shapeMismatch.push(`瞄${aim}：结算侧取格 {${settleCells}} ≠ 真值 {${truthCells}}`);
-        if (!eq(truthCells, uiCells)) shapeMismatch.push(`瞄${aim}：UI 侧 HIT_MAP {${uiCells}} ≠ 真值 {${truthCells}}`);
     }
     problems.push(...shapeMismatch);
 

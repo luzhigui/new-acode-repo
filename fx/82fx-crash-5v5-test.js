@@ -1,7 +1,9 @@
+// V6.4.1 | 2026-10-26 | showMeleeDodge / showMeleeMiss 改回逻辑时间（animate/wait）：闪避反击与扑空跟着倍速走，
+//   2x 档 1.6s→0.8s、扑空 1.2s→0.6s。showMeleeCrash / showCloseRangeFX 不碰（由 crashSpeed 参数表控制）
 // V6.4.0 | 2026-10-25 | ~12600 bytes | 全部演出改真实时间轴：clock.wait→waitReal（3 处）、clock.animate→animateReal（8 处）
 // V6.3.0 | 2026-10-12 | ~12500 bytes
 // fx 层不直写账本语义字段 state._acted：起跳/收尾一律写视图表 _renderActed（步末引擎真值覆盖自愈）。
-export const VER = 'fx/82fx-crash-5v5-test.js V6.4.0';
+export const VER = 'fx/82fx-crash-5v5-test.js V6.4.1';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -34,14 +36,17 @@ function showCloseRangeFX(unitA, unitD, role) {
     else if (role === ROLE_TYPES.FLYER) icon.textContent = '🦅';
     document.body.appendChild(icon);
 
-    clock.animateReal(800, (p) => {
+    // 三段总时长读参数表（closeHitDur），内部飞 / 停 / 淡出各占 1/3
+    const closeTotal = getPerfParam('closeHitDur', GlobalStore.get('speed') || 300) || 900;
+    const closeSeg = Math.max(40, Math.round(closeTotal / 3));
+    clock.animateReal(closeSeg, (p) => {
         icon.style.left = (ax + (bx - ax) * p) + 'px';
         icon.style.top = (ay + (by - ay) * p) + 'px';
         if (p >= 1) {
-            clock.waitReal(800).then(() => {
-                icon.style.transition = 'opacity 0.8s ease-out';
+            clock.waitReal(closeSeg).then(() => {
+                icon.style.transition = `opacity ${closeSeg}ms ease-out`;
                 icon.style.opacity = '0';
-                clock.waitReal(800).then(() => { if (icon.parentNode) icon.remove(); });
+                clock.waitReal(closeSeg).then(() => { if (icon.parentNode) icon.remove(); });
             });
         }
     });
@@ -111,7 +116,7 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
     //   起手 / 回弹按飞行时长的 0.9 比例算（内部编排，不进表）
     const speedKey = GlobalStore.get('speed') || 300;
     const crashSpeed = getPerfParam('crashSpeed', speedKey) || 0.8;
-    const crashDur = Math.max(200, Math.min(1500, flyDist / crashSpeed));
+    const crashDur = Math.max(280, Math.min(1500, flyDist / crashSpeed));
     const chargeDur = Math.round(crashDur * 0.9);
     const returnDur = Math.round(crashDur * 0.9);
 
@@ -204,7 +209,7 @@ export function showMeleeDodge(unitA, unitD) {
     const returnDur = 900;
     let blocked = false;
 
-    clock.animateReal(flyDur, (p) => {
+    clock.animate(flyDur, (p) => {
         const flown = approachDist * (1 - Math.pow(1 - p, 3));
         clone.style.left = (rectA.left + nx * flown) + 'px';
         clone.style.top = (rectA.top + ny * flown) + 'px';
@@ -212,12 +217,12 @@ export function showMeleeDodge(unitA, unitD) {
             blocked = true;
             clone.style.transition = 'transform 0.1s ease';
             clone.style.transform = 'scale(0.9)';
-            clock.waitReal(100).then(() => { clone.style.transform = 'scale(1)'; });
+            clock.wait(100).then(() => { clone.style.transform = 'scale(1)'; });
         }
         if (p >= 1) {
             const contactX = rectA.left + nx * approachDist;
             const contactY = rectA.top + ny * approachDist;
-            clock.animateReal(returnDur, (p2) => {
+            clock.animate(returnDur, (p2) => {
                 const ease2 = 1 - Math.pow(1 - p2, 2);
                 const perpX = -ny, perpY = nx;
                 const offsetMag = Math.sin(p2 * Math.PI) * 35;
@@ -287,11 +292,11 @@ export function showMeleeMiss(unitA, unitD, onMiss) {
 
     // 返回 Promise：调用方可 await 动画播完再推下一组（原先同步返回，日志抢跑）
     return new Promise(resolve => {
-        clock.animateReal(flyDur, (p) => {
+        clock.animate(flyDur, (p) => {
             const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
             clone.style.transform = `translate(${nx * approach * ease}px, ${ny * approach * ease}px) scale(1.15)`;
             if (p >= 1) {
-                clock.animateReal(returnDur, (p2) => {
+                clock.animate(returnDur, (p2) => {
                     clone.style.transform = `translate(${nx * approach * (1 - p2)}px, ${ny * approach * (1 - p2)}px) scale(1.15)`;
                     // 气泡在返回中段（撞了一半往回走）才弹，不再飞撞前抢跑
                     if (!missFired && p2 >= 0.5) {

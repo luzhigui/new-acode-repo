@@ -119,7 +119,7 @@ function prepareRoundSpawns(A, B, state, ctx) {
     spawnCarryEagle(A, ctx.log);
     spawnCarryEagle(B, ctx.log);
 
-    // 众志成城（unity）改版：获得当回合把人数补满到 5、此后每回合再补 1 个（M15/技能全开，
+    // 众志成城（unity）改版：获得当回合把人数补满到 4（姐姐强化补满到 5）、此后每回合再补 1 个（M15/技能全开，
     //   持续由 content unity.duration:3 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);

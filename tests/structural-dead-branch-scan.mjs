@@ -1,4 +1,4 @@
-// tests/structural-dead-branch-scan.mjs | V1.0.0 | 2026-10-23 第 123 轮
+// tests/structural-dead-branch-scan.mjs | V1.0.1 | 2026-10-23 第 123 轮
 // V1.0.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 九份拷贝收口为唯一来源（_lib/buff-picker.mjs），
 //        | 本文件的本地实现改为 import 引入。★ 本行由第 138 轮补登记：这次抬 VER 当时只改了常量、
 //        | 没留日志行，而旧写法「文件名 | V1.0.0 | 日期」又不被版本漂移自检认得，两者叠加使得本文件

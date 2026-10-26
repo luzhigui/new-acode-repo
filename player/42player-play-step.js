@@ -1,7 +1,8 @@
 // player/42player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
 // V1.0.0 | 2026-10-18 | ~9800 bytes
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
-export const VER = 'player/42player-play-step.js V1.0.0';
+// V1.1.0 | 2026-10-26 | 去锚定化：anchor 动作改挂 _fxSpecs（由 entry.fx 数据字段驱动，不再靠文字锚点）
+export const VER = 'player/42player-play-step.js V1.1.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -77,22 +78,18 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
                 }
             }
 
-            // 锚点动作：打包成 anchorSpecs 挂到 entry，由 playLineText 打到锚点文本时触发
-            if (entry && typeof entry === 'object' && !entry._anchorSpecs && Array.isArray(entry.fxAnchors) && entry.fxAnchors.length > 0) {
-                const anchorActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'anchor');
-                if (anchorActions.length > 0) {
-                    entry._anchorSpecs = anchorActions.map(a => {
-                        const idx = a.anchorIndex || 0;
-                        const anchorText = entry.fxAnchors[idx] || '';
-                        return {
-                            text: anchorText,
-                            cb: () => {
-                                applyStageActionToStore(c, a, pendingDeaths);
-                                applyStageActionToFX(c, a);
-                                applyStageActionToStoreAfter(c, a, pendingDeaths);
-                            }
-                        };
-                    }).filter(s => s.text);
+            // 特效动作：打包成 fx 回调挂到 entry，整行开始播放时统一触发（不再等文字打到某个词）
+            //   触发依据是数据里的 fx 字段（[{kind, amount}]），文案怎么改都不影响。
+            if (entry && typeof entry === 'object' && !entry._fxSpecs && Array.isArray(entry.fx) && entry.fx.length > 0) {
+                const fxActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'anchor');
+                if (fxActions.length > 0) {
+                    entry._fxSpecs = fxActions.map((a) => ({
+                        cb: () => {
+                            applyStageActionToStore(c, a, pendingDeaths);
+                            applyStageActionToFX(c, a);
+                            applyStageActionToStoreAfter(c, a, pendingDeaths);
+                        }
+                    }));
                 }
             }
 

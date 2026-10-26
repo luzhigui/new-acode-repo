@@ -1,7 +1,11 @@
+// V6.3.3 | 2026-10-26 | 白骨爪收尾（500/300/600/100）+ 命中黄闪（180/150）+ 斩杀碎裂（300/1000）
+//   共 8 处 waitReal→wait，改回逻辑时间跟随倍速
+// V6.3.2 | 2026-10-26 | 流星溅射（showSplashArrows）改回逻辑时间：蓄力环/停顿 800/300、溅射箭 flyDuration、收尾 600
+//   全部 waitReal→wait / animateReal→animate，跟倍速走（上一轮批量改真实时间时误伤）。
+// V6.3.1 | 2026-10-26 | 飞箭/流星蓄力改半压缩 250+250/timescale（2x≈375ms、8x≈271ms），高倍速下不再固定 500ms
 // V6.3.0 | 2026-10-25 | ~18700 bytes | 全部演出改真实时间轴：clock.wait→waitReal（12 处）、clock.animate→animateReal（7 处），
 //   时长不再被 timescale 二次缩放（参数表填多少就是多少）
-// V6.2.1 | 2026-10-17 | ~18600 bytes
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.0';
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.3';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -49,7 +53,10 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     let headSize = st.headSize != null ? st.headSize : (isMeteor ? 10 : 8);
     const headColor = st.headColor != null ? st.headColor : arrowColor;
     const launchIcon = st.icon != null ? st.icon : '🏹';
-    let chargeTime = 500;
+    // 蓄力半压缩：一半走真实时间、一半走逻辑时间（被倍速缩放）。
+    //   2x 档 500→约 375ms，8x 档→约 271ms。比全跟倍速慢，但高倍速下不再固定 500ms。
+    const _ts = Math.max(1, 600 / (GlobalStore.get('speed') || 300));
+    let chargeTime = Math.round(250 + 250 / _ts);
     // 飞行时长按距离匀速，速度从参数表读（arrowSpeed / meteorSpeed，按当前 speed 档位）
     const speedKey = GlobalStore.get('speed') || 300;
     const paramKey = isMeteor ? 'meteorSpeed' : 'arrowSpeed';
@@ -164,9 +171,9 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
     ring.setAttribute('data-fx', 'temporary');
     ring.style.cssText = `position:fixed;left:${px}px;top:${py}px;width:40px;height:40px;border:3px solid #FFD700;border-radius:50%;transform:translate(-50%,-50%);z-index:10002;pointer-events:none;box-shadow:0 0 12px #FFA500;animation:meteorRing 0.8s ease-out forwards;`;
     document.body.appendChild(ring);
-    clock.waitReal(800).then(() => { if (ring.parentNode) ring.remove(); });
+    clock.wait(800).then(() => { if (ring.parentNode) ring.remove(); });
 
-    await clock.waitReal(300);
+    await clock.wait(300);
 
     splashTargets.forEach(st => {
         const rectD = snapshotUnitCell(st);
@@ -203,14 +210,16 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
 
         document.body.appendChild(container);
 
-        clock.animateReal(flyDuration, (p) => {
+        // 溅射箭跟倍速走（逻辑时间）：上一轮批量改真实时间时误伤，
+        //   2x 档从 175ms 变回 350ms/2，恢复「急促」的观感。
+        clock.animate(flyDuration, (p) => {
             let curStartX = sx + (finalStartX - sx) * p;
             let curStartY = sy + (finalStartY - sy) * p;
             container.style.left = curStartX + 'px';
             container.style.top = curStartY + 'px';
             if (p >= 1) {
                 if (onHit) onHit(st);
-                clock.waitReal(600).then(() => { if (container.parentNode) container.remove(); });
+                clock.wait(600).then(() => { if (container.parentNode) container.remove(); });
             }
         });
     });
@@ -232,19 +241,10 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
     const speedKey = GlobalStore.get('speed') || 300;
     const chargeTime = getPerfParam('clawStart', speedKey) || 150;
     const clawSpeed = getPerfParam('clawSpeed', speedKey) || 0.9;
-    let baseMin = 250;
-    if (unitD && unitD.hp !== undefined) {
-        const battleState = GlobalStore.get('currentBattleState');
-        const xiaoZhaoActive = battleState?.ally?.find(u => u.isXiaoZhaoSister && u.alive);
-        if (xiaoZhaoActive) {
-            const zhang = battleState?.ally?.find(u => u.isZhang && u.alive);
-            if (!zhang) {
-                const derivedHeal = Math.floor(unitD.def / 10);
-                if (derivedHeal > 0) baseMin = 180;
-            }
-        }
-    }
-    let flyDuration = Math.max(baseMin, dist / clawSpeed);
+    // 保底只留「看得见」这一条（约 5 帧），不再用它兜速度。
+    //   原来 250ms 会把近距离（同侧对打）全部卡死，爪速参数在近处完全失效。
+    //   小昭乾坤衍生那套 baseMin 180 的特例随之失效（它本来就是给 baseMin 让路的）。
+    let flyDuration = Math.max(80, dist / clawSpeed);
     let pauseAfterHit = 100;
 
     let claw = document.createElement('div');
@@ -293,17 +293,17 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
                     claw.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
                     claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(2.2)`;
                     claw.style.opacity = '1';
-                    clock.waitReal(500).then(() => {
+                    clock.wait(500).then(() => {
                         claw.style.transition = 'opacity 0.3s';
                         claw.style.opacity = '0';
-                        clock.waitReal(300).then(() => { if (claw.parentNode) claw.remove(); });
+                        clock.wait(300).then(() => { if (claw.parentNode) claw.remove(); });
                     });
-                    clock.waitReal(600).then(() => {
+                    clock.wait(600).then(() => {
                         const finalRectD = snapshotUnitCellRobust(unitD);
                         if (finalRectD) triggerExecuteShatter(finalRectD);
                     });
                 } else {
-                    clock.waitReal(pauseAfterHit).then(() => { if (claw.parentNode) claw.remove(); });
+                    clock.wait(pauseAfterHit).then(() => { if (claw.parentNode) claw.remove(); });
                 }
             }
         });
@@ -316,10 +316,10 @@ function flashBoneClawHit(rect) {
     flash.setAttribute('data-fx', 'temporary');
     flash.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:radial-gradient(circle, rgba(255,238,140,0.95), rgba(235,185,40,0.5));z-index:9990;pointer-events:none;opacity:0.9;border-radius:4px;`;
     document.body.appendChild(flash);
-    clock.waitReal(180).then(() => {
+    clock.wait(180).then(() => {
         flash.style.transition = 'opacity 0.15s';
         flash.style.opacity = '0';
-        clock.waitReal(150).then(() => { if (flash.parentNode) flash.remove(); });
+        clock.wait(150).then(() => { if (flash.parentNode) flash.remove(); });
     });
 }
 
@@ -345,11 +345,11 @@ function triggerExecuteShatter(rect) {
         });
         shards.push(shard);
     }
-    clock.waitReal(300).then(() => {
+    clock.wait(300).then(() => {
         redFlash.style.transition = 'opacity 0.4s';
         redFlash.style.opacity = '0';
     });
-    clock.waitReal(1000).then(() => {
+    clock.wait(1000).then(() => {
         // 修白骨爪斩杀后白屏：原来写成 redFlash.parentNode.remove()——删的是闪光元素的爹
         // （document.body），斩杀碎开播完 1 秒整个页面主体被移除 → 白屏。同款错误还有碎片那行。
         // 应删元素自己：redFlash.remove() / s.remove()。全文件其他特效都是这个正确写法，独这两行漏网。

@@ -1,4 +1,4 @@
-// tests/xinhun-death-targeted-case.mjs | V1.0.1 | 2026-10-21 第 112 轮
+// tests/xinhun-death-targeted-case.mjs | V1.0.2 | 2026-10-21 第 112 轮
 // V1.0.2 | 2026-10-25 第 123 轮：构造 battleState 时不再直接调用 tickAndPickBuffs 预置 activeBuffs，
 //        | 改为空数组起步、由 GlobalStore 的 forceXiaoZhao='brother' 驱动走标准选 buff 流程，
 //        | 与 xiaozhao-brother-leech-case 的强制妹模式同口径。

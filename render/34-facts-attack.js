@@ -1,4 +1,6 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
+// V1.5.3 | 2026-10-26 | ~18400 bytes | damage-text 条目补 dmg 字段（player/46 播到伤害行时用它弹飘字，
+//   修复上一批把 fx/88 的 1100ms 飘字删掉后伤害数字全丢）
 // V1.5.2 | 2026-10-22 | ~18300 bytes
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
@@ -9,7 +11,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.5.2';
+export const VER = 'render/34-facts-attack.js V1.5.3';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -194,9 +196,13 @@ export function renderAttackFact(fact) {
         }).text
         : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
     // 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
+    // dmg：player/46 播到这行时用它弹伤害飘字（原先飘字由 fx/88 在命中后 1100ms 打，
+    //   已改为「播到伤害行同帧打」，所以这里必须把数值带出来）。
+    //   取值与上面 damageText 里显示的完全同源（都是 Math.round(dmgResult.dmg)），数字与文案一致。
     group.entries.push({
         type:'damage-text',
         deadFlag: directKill,
+        dmg: Math.round(dmgResult.dmg),
         text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {

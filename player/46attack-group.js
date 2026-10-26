@@ -2,10 +2,12 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
-// V6.2.0 | 2026-10-25 无锚点 info/detail 改整行直出（不逐字），行间隔改 clock.waitReal 真实毫秒；
-//   白骨爪 / 带 _anchorSpecs 的行仍逐字跟特效
-// V6.1.2 | 2026-10-25 | ~10500 bytes | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
-export const VER = 'player/46attack-group.js V6.2.0';
+// V6.3.0 | 2026-10-26 | ~10800 bytes | 去锚定化：带 fx 的效果行走 lineGapFx 慢档（普通行走 lineGap 快档）；
+//   效果行整行直出并同帧触发 _fxSpecs 回调；伤害飘字改由 damage-text 行同帧打（不再等 fx/88 的 1100ms）
+// V6.2.2 | 2026-10-26 溢杀落地等待 600ms 改回逻辑时间（waitReal→wait），跟随倍速
+// V6.2.0 | 2026-10-25 无锚点 info/detail 改整行直出（不逐字），行间隔改 clock.waitReal 真实毫秒
+// V6.1.2 | 2026-10-25 | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
+export const VER = 'player/46attack-group.js V6.3.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { getPerfParam } from '../core/23perf-params.js';
@@ -13,6 +15,7 @@ import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '.
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
+import { markGridShake } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -52,17 +55,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     const textEntries = entry.entries || [];
-    const lineCount = textEntries.length;
-    // flash 持续时长：1x 基准（每行 600ms + 300ms 余量），clock 自动缩放/快进
-    const atkFlashDuration = lineCount * 600 + 300;
-    // 受击黄闪分档（老板口径：按本击伤害是否「溢杀」）：
-    //   溢杀 = 本击伤害直接把血打空（entry.isDead 且 hpAfter<=0，即 render/34 的 dmgResult.dead 路径）
-    //     → 黄闪只留 600ms，到点即上死亡态，不等整段战报播完；
-    //   非溢杀 = 血量没打空、靠斩杀/处决（executeKill，此时攻击组 isDead 但 hpAfter>0）等流程才死
-    //     → 维持原时长（多留一会儿判定），死亡落地仍由 player/42 步末 pendingDeaths 统一处理。
+    // 受击黄闪不再单独猜时长——文字已改真实毫秒，猜出来的数必然对不上，
+    //   结果就是「文字还没播完、黄闪已经没了」。
+    //   现在的规则：非溢杀一路挂到本组文字播完（函数末尾统一 CLEAR_UNIT_FLASH）；
+    //   溢杀 = 本击直接把血打空，600ms 后提前上死亡态，不等战报播完。
     const isOverkill = !!(unitD && entry.isDead === true
         && typeof entry.hpAfter === 'number' && entry.hpAfter <= 0);
-    const defFlashDuration = isOverkill ? 600 : atkFlashDuration;
 
     await clock.wait(200);
     if (abortSig && abortSig.aborted) return { isBattleOver: false };
@@ -70,20 +68,17 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (unitD && !entry.isMiss && !entry.isDodge && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEFEND });
     }
-    // 受击方 flash 延迟清除：用 cancel flag 替代 clearTimeout（clock.wait 不可取消）
+    // 受击方 flash：只有溢杀需要中途定时（600ms 后上死亡态）；
+    //   非溢杀不设定时器，黄闪挂到函数末尾统一清。
+    //   defTimerCancelled 保留：abort 或提前结束时让溢杀定时器失效（clock.waitReal 不可取消）。
     let defTimerCancelled = false;
-    if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
-        clock.wait(defFlashDuration).then(() => {
+    if (isOverkill && unitD && c.store) {
+        clock.wait(600).then(() => {
             if (defTimerCancelled) return;
             if (!c.store || !unitD) return;
-            if (isOverkill) {
-                // 溢杀：黄闪到点直接进死亡态（与 player/42 步末落地同两条 dispatch；
-                //   那里有 `!_isDead` 守卫，不会重复落地）
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
-            } else if (!entry.isDead) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
-            }
+            // 与 player/42 步末落地同两条 dispatch；那里有 `!_isDead` 守卫，不会重复落地
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
         });
     }
 
@@ -99,18 +94,29 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         if (logLevel === 'brief' && entry2.type === 'detail') { appendHiddenDetail(entry2.text); continue; }
 
         if (entry2.type === 'damage-text') {
+            // 伤害飘字改为「播到这行时打」，不再等飞撞动画的固定 1100ms。
+            //   原来的 1100 跟动画配，文字一加速就错位；现在文字和数字同帧。
+            if (unitD && entry2.dmg > 0 && !GlobalStore.get('fastForwardActive')) {
+                try { showDamageFloat(unitD, Math.round(entry2.dmg)); } catch (e) {}
+            }
             lastDiv = await playLogLine(entry2.text, 1200);
             continue;
         }
 
-        // 无锚点 info/detail（攻盾/坚盾/乾坤大挪移/波动/计算等）整行直接出，不逐字。
-        //   行间隔用 waitReal(lineGap)，参数表填多少就是真实多少毫秒。
-        //   白骨爪（isClawHit/clawFast）和有 _anchorSpecs 的不在此列——它们需要逐字跟特效。
+        // info/detail（攻盾/坚盾/乾坤/波动/计算/回血/加攻等）整行直接出，不逐字。
+        //   带 fx 的 = 「效果行」：同帧触发特效回调 + 停 lineGapFx 慢档让玩家看清；
+        //   其余普通行停 lineGap 快档。白骨爪（isClawHit/clawFast）不在此列，仍逐字跟特效。
         if ((entry2.type === 'info' || entry2.type === 'detail')
-            && !entry2.isClawHit && !entry2.clawFast
-            && !(entry2._anchorSpecs && entry2._anchorSpecs.length)) {
+            && !entry2.isClawHit && !entry2.clawFast) {
+            const hasFx = Array.isArray(entry2.fx) && entry2.fx.length > 0;
+            if (hasFx && Array.isArray(entry2._fxSpecs)) {
+                for (const spec of entry2._fxSpecs) {
+                    if (spec && spec.cb) { try { spec.cb(); } catch (e) { console.error('[handleAttackGroup] fx 回调出错:', e); } }
+                }
+            }
             appendLogHTML(entry2.text + '<br>');
-            await clock.waitReal(getPerfParam('lineGap', GlobalStore.get('speed') || 300) || 120);
+            const gap = getPerfParam(hasFx ? 'lineGapFx' : 'lineGap', GlobalStore.get('speed') || 300) || (hasFx ? 280 : 30);
+            await clock.waitReal(gap);
             continue;
         }
 
@@ -148,6 +154,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 unitUid: entry2.clawTargetUid,
                 payload: { hp: Math.max(0, entry2.hpAfter) }
             });
+            // 逐爪抖动：跟飞箭命中同一个函数（markGridShake），同一套观感。
+            //   必须在 dispatch 之后调——重绘会清掉内联 transform，先调等于白调。
+            markGridShake(entry2.clawTargetUid, 250);
         }
 
         // 爪击/随爪衍生条目之间极短间隔，形成连续快打节奏
@@ -155,9 +164,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             await clock.wait(60);
         }
 
-        // clawFast（随爪乾坤衍生）不吃这 120ms 行距——随爪节奏由上面的 60ms 间隔独占，防止双重等待
+        // clawFast（随爪乾坤衍生）不吃行距——随爪节奏由上面的 60ms 间隔独占，防止双重等待。
+        //   带 fx 的是「效果行」（回血/加攻/乾坤/三击吸血），要走 lineGapFx 慢档让玩家看清；
+        //   其余（波动/计算/破防）走 lineGap 快档。
         if ((entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') && !entry2.clawFast) {
-            await clock.waitReal(getPerfParam('lineGap', GlobalStore.get('speed') || 300) || 120);
+            const hasFx = Array.isArray(entry2.fx) && entry2.fx.length > 0;
+            const gap = getPerfParam(hasFx ? 'lineGapFx' : 'lineGap', GlobalStore.get('speed') || 300) || (hasFx ? 280 : 30);
+            await clock.waitReal(gap);
         }
     }
 

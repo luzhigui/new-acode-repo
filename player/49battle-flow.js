@@ -31,7 +31,7 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         const available = allKeys.filter(k => {
             if (existing.includes(k)) return false;
             // 众志成城门槛（与 modules/28 generateBuffChoices、tools/116/122 同口径）：
-            //   本阵营存活 ≥4 人不进候选——补员是「获得当回合补满到 5」，已有 4 人时只补 1 个、收益太小
+            //   本阵营存活 ≥4 人不进候选——补员是「获得当回合补满到 4」，已有 4 人时当回合不召、收益太小
             if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
             const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
             if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;

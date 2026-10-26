@@ -1,12 +1,12 @@
 // fx/88fx-trigger.js
-// V6.1.5 | 2026-10-17 | ~5500 bytes
-export const VER = 'fx/88fx-trigger.js V6.1.5';
+// V6.2.0 | 2026-10-26 | ~5100 bytes | 伤害飘字移交 player/46（播到伤害行时同帧打），删除两处 wait(1100) 延后飘字
+export const VER = 'fx/88fx-trigger.js V6.2.0';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showMarkBurst } from './80fx-common-5v5-test.js';
+import { showDanmaku, showDodgeBubble, showMarkBurst } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
@@ -23,6 +23,8 @@ export function shakeTarget(uid, durationMs = 350) {
 }
 
 // 统一视觉特效入口：弹幕/箭矢/飞撞/死亡
+//   伤害飘字不在此处负责：改由 player/46 播到 damage-text 行时同帧打（原先这里等 1100ms，
+//   与动画时长强绑，文字一加速就错位）。
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole, markBurst) {
     if (GlobalStore.get('fastForwardActive')) return;
     if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
@@ -59,12 +61,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
-                    // 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
+                    // 箭靶碎裂：命中帧炸 🎯（飘字已移交 player/46，此处不再延后）
                     if (markBurst) showMarkBurst(unitD);
-                    // 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
-                    clock.wait(1100).then(() => {
-                        if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
-                    });
                 }, false, shotStyle);
             }
         } else if (!isBlock) {
@@ -75,12 +73,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 });
             } else {
                 showMeleeCrash(unitA, unitD, () => {
-                    // 箭靶碎裂：命中帧先炸 🎯，再等 1100ms 出伤害弹幕（老板：碎裂要在弹幕之前）
+                    // 箭靶碎裂：命中帧炸 🎯（飘字已移交 player/46，此处不再延后）
                     if (markBurst) showMarkBurst(unitD);
-                    // 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
-                    clock.wait(1100).then(() => {
-                        if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
-                    });
                     // 死亡态不再由这里派发：原先在撞完 1100ms 后才发 DEAD flash（远程分支压根不发），
                     //   与「死亡特效不能延后」冲突，且替死/免疫回退取消死亡时会把格子错标成尸体。
                     //   现在死亡态只认引擎状态（resolveDeaths 写 alive/_isDead），UI 当帧就上红底 ✕。
@@ -88,5 +82,5 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             }
         }
     }
-    // 伤害飘字由 DODGE stage action 发出，此处不重复
+    // 伤害飘字由 player/46 播到 damage-text 行时打出，此处不重复
 }
