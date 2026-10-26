@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// tests/contract-guard-selftest.mjs | V1.3.0 | 2026-10-27 夜间第 142 轮：薄取样档 ——
+//   ②③⑤ 在「取样不为空但极小」时仍会恒过（第 141 轮点名的同一类盲区余量），本轮把判定的
+//   空-成立门槛从 0 抬到「规模下限的一半」；红由 ① 无条件兜住，另加 ⑥d 门槛自证
 // tests/contract-guard-selftest.mjs | V1.2.0 | 2026-10-27 夜间第 141 轮：空取样闸门 —— 崩时下游结论一律标「不成立」
 //   （含②③⑤ 三条空转假绿的收口，与 ⑥ 三条自证断言）
 // tests/contract-guard-selftest.mjs | V1.1.0 | 2026-10-27 夜间第 140 轮：新增判据 ⓪（对照器崩溃预检）
@@ -29,7 +32,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/contract-guard-selftest.mjs V1.2.0';
+export const VER = 'tests/contract-guard-selftest.mjs V1.3.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -62,6 +65,14 @@ const TEETH_GUARDIAN = {
 
 // ① 规模下限：第 127 轮实测 56 条契约。低于此值说明契约被删或输出解析不全。
 const MIN_CONTRACTS = 50;
+
+// 薄取样上限（2026-10-27 夜间第 142 轮新增）：低于 MIN_CONTRACTS 的一半即视为「取样不足」。
+//   起因是第 141 轮自己点名的余量 —— ②③⑤ 只在取样**恰好为 0** 时才标「不成立」，
+//   取样是 1 至 5 条时它们的「零命中 / 无新增恒空转 / 守卫非空转」照样是 ✅，
+//   而"从 3 条里看出 0 条命中"根本推不出"剩下 53 条也没命中" —— 这是同一类假绿，只是换了个体量。
+//   取 MIN_CONTRACTS 的一半是为了不另抄魔数：门槛随规模闸门联动抬降。
+//   注意它恒小于 MIN_CONTRACTS ⇒ 凡判「薄」必然同时触 ① 的无条件失败，红不会丢（见 ① 处注释）。
+const THIN_SAMPLE_MAX = Math.floor(MIN_CONTRACTS / 2);
 
 // ⑥b 规模下限：第 127 轮全量重跑 46 棵变异树实测 29 项「牙 → 守卫契约」归属。
 //   低于此值说明归属表被误删 —— 表一空，④ 就什么都不用比、恒过，属静默失效。
@@ -112,6 +123,19 @@ const crashLine = out.split('\n').find(l => CRASH_RE.test(l));
 const CRASH_FLAG = Boolean(crashLine);
 // 取样为空 ⇒ ①~⑤ 中凡依赖取样的结论全部「没得判」。
 const SAMPLE_EMPTY = contracts.length === 0;
+// 取样薄（2026-10-27 夜间第 142 轮新增）：条数 > 0 但远低于规模闸门 ⇒ ②③⑤ 的结论是**查不全**
+//   得出的：25 条里没有命中，推不出 56 条里没有命中。与空取样同一处置：标「不成立」，不计绿也不计红。
+const SAMPLE_THIN = contracts.length > 0 && contracts.length < THIN_SAMPLE_MAX;
+const SAMPLE_INSUFFICIENT = SAMPLE_EMPTY || SAMPLE_THIN;
+const SAMPLE_STATE = SAMPLE_EMPTY
+    ? '取样 0 条（对照器未产出任何契约行）'
+    : `取样仅 ${contracts.length} 条（低于 ${THIN_SAMPLE_MAX} 条的薄取样线，历史基线 ${MIN_CONTRACTS}+ 条）`;
+
+// 取样不足时的取舍原则（第 142 轮立，下轮沿用）：**有罪证据不受取样量影响，无罪结论受取样量影响**。
+//   ①②③ 里真抓到的东西（② 干净树有命中、③ 白名单外的新增恒空转、以及 ① 规模不够本身）
+//   是「查到了坏消息」—— 取样再少也是实打实的坏消息，故一律照判失败，不因取样薄而豁免；
+//   ②③⑤ 的"没查出问题"（② 零命中、③ 无新增、⑤ 守卫没进恒空转集合）是「没等到坏消息」——
+//   只查了 3 条就说 56 条都没问题不成立，故一律标「不成立」，也不许它冒充 ✅。
 
 if (crashLine) {
     fails.push('⓪ 对照器本次根本没跑完（异常中断）：' + crashLine.trim().slice(0, 160)
@@ -139,9 +163,9 @@ if (dirty.length) {
     fails.push(`② 干净树上有 ${dirty.length} 条契约命中>0（${dirty.map(c => c.id + ':' + c.hit).join('、')}）`
         + ' —— 对照器自身已在报红；同时 mutation-teeth 的「对照器侧不得作证」闸门开始生效，'
         + '被判定为脏的契约其命中不再计入「有牙」，牙口结论会整体降级');
-} else if (SAMPLE_EMPTY) {
-    // 第 141 轮收口：0 条契约「零命中」是**没得比**，此前它是一条 ✅，等于在崩的时候说"这条还好"。
-    vacuous.push('② 「干净树零命中」不成立 —— 取样 0 条，零命中是没得比、不是比过没问题'
+} else if (SAMPLE_INSUFFICIENT) {
+    // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：N 条「零命中」是**没得比**，不是比过没问题。
+    vacuous.push(`② 「干净树零命中」不成立 —— ${SAMPLE_STATE}，零命中是没得比、不是比过没问题`
         + '（mutation-teeth「对照器侧不得作证」闸门此刻无从判断）');
 } else {
     notes.push(`② 干净树 ${contracts.length} 条契约命中皆为 0 —— 「不得作证」闸门当前为空操作（零判定迁移）`);
@@ -154,10 +178,10 @@ if (unknownZero.length) {
     fails.push(`③ 新增恒空转契约 ${unknownZero.length} 条（${unknownZero.join('、')}）`
         + ' —— 声明 0 且严格比对 0 ⇒ 「偏差 0」是没得比、不是比过了没偏差，这类契约守不住任何牙；'
         + '已知白名单只允许收缩，新增一律判失败');
-} else if (SAMPLE_EMPTY) {
-    // 第 141 轮收口：0 条契约时棘轮一条都咬不住，新增恒空转契约会被整条漏掉。
-    vacuous.push('③ 恒空转契约棘轮不成立 —— 取样 0 条，白名单收缩与否无从判断'
-        + '（此刻新增恒空转契约会被漏掉，棘轮暂时失效）');
+} else if (SAMPLE_INSUFFICIENT) {
+    // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：少量契约时棘轮只咬得住这区区几条，新增恒空转会被漏掉。
+    vacuous.push(`③ 恒空转契约棘轮不成立 —— ${SAMPLE_STATE}，白名单收缩与否无从判断`
+        + '（此刻新增的恒空转契约会被漏掉，棘轮暂时失效）');
 } else {
     // 把「账本有值却比对不上」的量级显式报出来：这些词条改错了查不出，是实打实的覆盖缺口。
     const blind = [];
@@ -177,11 +201,13 @@ for (const [tooth, cid] of Object.entries(TEETH_GUARDIAN)) {
     if (!byId.has(cid)) missing.push(`${tooth}→${cid}`);
 }
 const guardCount = Object.keys(TEETH_GUARDIAN).length;
-if (SAMPLE_EMPTY) {
-    // 第 141 轮收口：契约表 0 条 ⇒ 逐条「不存在」是空取样所致，**不是**契约改名。
-    //   第 140 轮这 29 条曾把白天会话引向「查契约是不是改名了」的方向，属指错方向，故不再计入失败。
-    vacuous.push(`④ 归属表 ${guardCount} 项存在性校验不成立 —— 契约表 0 条，`
-        + '逐条「指向不存在的契约」是**空取样**所致，不是契约改名（真因见 ⓪）');
+if (SAMPLE_INSUFFICIENT) {
+    // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：取样不足时逐条「不存在」分不清是**真改名**还是**没取样到**，
+    //   第 140 轮正是把白天会话引向「查契约是不是改名了」的方向，属指错方向，故不计入失败。
+    //   归属明细照常列出（信息不丢），只是不定性；定性所需的前提（取样完整）此刻不成立。
+    vacuous.push(`④ 归属表 ${guardCount} 项存在性校验不成立 —— ${SAMPLE_STATE}，`
+        + `其中 ${missing.length} 项查不到对应契约（${missing.slice(0, 8).join('、') || '无'}）`
+        + ' ⇒ 无法区分「契约真改名」与「取样没带到」，不作改名定性（红由 ① 无条件兜住）');
 } else if (missing.length) {
     fails.push(`④ 归属表里有 ${missing.length} 项指向不存在的契约（${missing.join('、')}）`
         + ' —— 契约改名会让该牙的「对照器兜住」静默失效');
@@ -194,9 +220,11 @@ const deadGuard = [];
 for (const [tooth, cid] of Object.entries(TEETH_GUARDIAN)) {
     if (zeroTrigger.includes(cid)) deadGuard.push(`${tooth}→${cid}`);
 }
-if (SAMPLE_EMPTY) {
-    // 第 141 轮收口：零恒空转是「一个都没查」，不是「查过都没问题」。
-    vacuous.push('⑤ 守卫契约非空转校验不成立 —— 取样 0 条，恒空转集合为空是没得判、不是查过没问题');
+if (SAMPLE_INSUFFICIENT) {
+    // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：零恒空转是「一个都没查 / 只查了这几条」，不是「查过都没问题」。
+    vacuous.push(`⑤ 守卫契约非空转校验不成立 —— ${SAMPLE_STATE}，`
+        + `恒空转集合里查到 ${deadGuard.length} 项守卫契约（${deadGuard.slice(0, 6).join('、') || '无'}）`
+        + ' ⇒ 取样不足时「decl 0 / strict 0」可能是对照器中途中断所致，不作死契约定性，明细照列（信息不丢）');
 } else if (deadGuard.length) {
     fails.push(`⑤ ${deadGuard.length} 颗牙的守卫契约是恒空转契约（${deadGuard.join('、')}）`
         + ' —— 守着它的是个死契约，「对照器兜住」属自欺');
@@ -232,15 +260,27 @@ if (SAMPLE_EMPTY) {
     } else {
         notes.push('⑥c 契约行解析器在合成契约行上解析正常 —— 抽取器未腐烂');
     }
+
+    // ⑥d（2026-10-27 夜间第 142 轮新增）—— 薄取样门槛本身必须站得住：
+    //   取 0 ⇒ ②③⑤ 退回第 141 轮之前「1 至 5 条也判全绿」的老盲区；
+    //   ≥ MIN_CONTRACTS ⇒ 门槛高过规模闸门，取样永远算「薄」，②③⑤ 从此永不判、等于被静默拆掉。
+    if (!(THIN_SAMPLE_MAX > 0 && THIN_SAMPLE_MAX < MIN_CONTRACTS)) {
+        fails.push(`⑥d 薄取样门槛 ${THIN_SAMPLE_MAX} 失位（须满足 0 < 门槛 < ${MIN_CONTRACTS}）`
+            + ' —— 门槛为 0 则②③⑤ 退回「极少量取样也判全绿」的老盲区；'
+            + '门槛 ≥ 规模下限则②③⑤ 从此永不判、等于被静默拆掉（先修本文件的常量，不是主代码）');
+    } else {
+        notes.push(`⑥d 薄取样门槛 ${THIN_SAMPLE_MAX} 条落在合理区间（0 < ${THIN_SAMPLE_MAX} < ${MIN_CONTRACTS}）`
+            + ' —— ②③⑤ 既不恒绿也不恒虚');
+    }
 }
 
 for (const n of notes) console.log('  ✅ ' + n);
 for (const v of vacuous) console.log('  ⚠️  ' + v);
 if (fails.length) {
     console.log(`\n❌ 对照器守卫自检失败 ${fails.length}/${notes.length + vacuous.length + fails.length} 项`
-        + (vacuous.length ? `（另有 ${vacuous.length} 项因取样为空**不成立**，不计绿也不计红）` : '') + '：');
+        + (vacuous.length ? `（另有 ${vacuous.length} 项因取样不足**不成立**，不计绿也不计红）` : '') + '：');
     for (const f of fails) console.log('  ❌ ' + f);
     process.exit(1);
 }
-console.log(`\n✅ 对照器守卫自检通过（${notes.length}/${notes.length} 项断言：契约表可解析 / 干净树零命中 / 恒空转棘轮 / 归属表存在 / 守卫非死契约 / 自证三条）`);
+console.log(`\n✅ 对照器守卫自检通过（${notes.length}/${notes.length} 项断言：契约表可解析 / 干净树零命中 / 恒空转棘轮 / 归属表存在 / 守卫非死契约 / 自证四条）`);
 process.exit(0);
