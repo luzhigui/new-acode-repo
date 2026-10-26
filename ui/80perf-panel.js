@@ -2,8 +2,9 @@
 // 8x 按钮点开：只调「自定义档」这一列（SPEED_TIER 的 '50'），其他四档（0.5x/1x/2x/4x）
 //   由 core/23perf-params.js 的 DEFAULTS 决定，出厂永不变，本面板不碰。
 // 滑块拖动即时生效（当前局）；「保存」写本地（只存自定义档），刷新后仍在。
+// V2.0.1 | 2026-10-26 | 补 closeHitDur（贴身图标）滑块——此前漏项，8x 档该参数锁死 400ms 且不落存档
 // V2.0.0 | 2026-10-26 | ~6300 bytes | 表格改滑块；只读写 '50' 列；本地存档独立 key，不再整份覆盖
-export const VER = 'ui/80perf-panel.js V2.0.0';
+export const VER = 'ui/80perf-panel.js V2.0.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getPerfParams, setPerfParams, resetPerfParams } from '../core/23perf-params.js';
@@ -27,6 +28,7 @@ const RANGES = {
     meteorSpeed:   { min: 0.1, max: 6,    step: 0.1,  unit: 'px/ms' },
     clawSpeed:     { min: 0.1, max: 6,    step: 0.1,  unit: 'px/ms' },
     clawStart:     { min: 20,  max: 600,  step: 10,   unit: 'ms' },
+    closeHitDur:   { min: 200, max: 2000, step: 50,   unit: 'ms' },
     dashDur:       { min: 200, max: 4000, step: 50,   unit: 'ms' },
     burstDur:      { min: 200, max: 4000, step: 50,   unit: 'ms' },
     bulletDur:     { min: 500, max: 8000, step: 100,  unit: 'ms' },
@@ -40,6 +42,7 @@ const LABELS = {
     moveDur: '位移总时长', moveStart: '位移起手',
     crashSpeed: '飞撞速度', arrowSpeed: '飞箭速度', meteorSpeed: '流星速度',
     clawSpeed: '白骨爪速度', clawStart: '白骨爪起手',
+    closeHitDur: '贴身图标',
     dashDur: '冲刺演出', burstDur: '轰拳爆发', bulletDur: '子弹时间',
     countdownTick: '倒计时每跳', corpseDelay: '清尸延迟',
 };
