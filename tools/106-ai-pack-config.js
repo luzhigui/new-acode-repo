@@ -233,9 +233,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/155-meteor-growth-dup.js',
     // 2026-09-29 参数单一真值源收口：156 技能说明数字 == 引擎真值（DESC_TRUTH 单源守卫）
     '../tests/health-rules/156-desc-truth-drift.js',
-    // 2026-10-08 补登记 157-159：121health-monitor.js 已 import rule104-106，仅打包清单漏登
+    // 2026-10-08 补登记 157、159：121health-monitor.js 已 import rule104、rule106（158 去锚定化后退役，第142轮摘除）
     '../tests/health-rules/157-mechanic-install-reconcile.js',
-    '../tests/health-rules/158-fact-anchor-align.js',
     '../tests/health-rules/159-wei-bloodsiphon.js',
     // 2026-10-13 补登记 160-166：121health-monitor.js 已 import rule107-113、123static-scan.js SCAN_FILES 已列，
     //   仅打包清单漏登 —— 漏登则包内 120test-runner.html 体检页引用断裂（同 153-155 / 157-159 两次补登判据）

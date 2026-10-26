@@ -1,3 +1,5 @@
+// V6.7.0 | 2026-10-26 退役规则 158（飘字锚点对齐）：去锚定化重构后 fxAnchors 字段全仓清零，该规则因 anchored===0 恒返 'skip'（假绿）
+//           已从 import + allRules + 静态扫描注册三处摘除；防回归改由 123static-scan 的 deadFxAnchors 槽位真扫全仓（含 render/35-*），比恒 skip 更可靠。
 // V6.6.0 | 2026-10-26 接 facts 进浏览器体检：runRuleChecks 现把 battleLog 递归展平的原始 fact 流作为第 7 参传给 rule.test，
 //           消除 159/132/160-165 共 8 条事实级规则在浏览器侧静默降级到文案兜底（此前只传 6 参，facts=undefined）的缺口。
 // V6.5.0 | ~59300 bytes | 2026-10-18 新增全局运行时错误捕获：挂 iframe window 的 error / unhandledrejection，
@@ -34,7 +36,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.6.0';
+export const VER = 'tests/121health-monitor.js V6.7.0';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -76,7 +78,6 @@ import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import { rule170 as rule114 } from './health-rules/170-taunts-integrity.js'; // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
 import { rule171 } from './health-rules/171-tangwenliang-dash.js'; // 第 114 轮新建：唐文亮冲刺落地验证（export 名按文件号 rule171）
 import { rule172 } from './health-rules/172-kongjian-jingang.js'; // 第 120 轮新建：空见金刚不坏次数与升级验证（新角色零覆盖盲区）
-import { rule105 } from './health-rules/158-fact-anchor-align.js';
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
 import { rule108 } from './health-rules/161-lion-grow.js';
@@ -683,7 +684,7 @@ function runRuleChecks(ctx, doc) {
     //   V1.1.0 起会硬卡这一条，别再只补一处）。
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
-        rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
+        rule100, rule101, rule102, rule103, rule104, rule106, rule107, rule108, rule109,
         rule110, rule111, rule112, rule113, rule114, rule171, rule172];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// tests/rule-teeth-evidence-selftest.mjs | V1.0.1 | 2026-10-25 第 133 轮
+// tests/rule-teeth-evidence-selftest.mjs | V1.0.2 | 2026-10-26 第142轮（吸收夜检138 · 前版 V1.0.1@第133轮）
+// 补断言⑧结果新鲜度闸门：直接调 mutation-teeth --report 人机关口，陈旧即 EXIT 1，七条断言全绿也拦下
 //
 // 盯的是**牙口取证结论配不配得上当前代码**（证据链 · 分支级）。
 //
@@ -50,10 +51,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { scanAllBranches, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mjs';
 
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.1';
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.2';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
@@ -91,6 +93,34 @@ const ROTTEN_WHITELIST = [
 // 连续数字归一化（26/22/190/12% 等实测值差异不应造成多条重复登记）
 function normMsg(m) { return m.replace(/\d+/g, '#'); }
 function rottenKey(e) { return e.rule + '|' + normMsg(e.msg); }
+
+// ⑧ 结果新鲜度闸门（第139轮 item ③ 延伸 / 第138轮夜检点名）：
+//    本自检七条断言对账的"证据地基" teeth-results.txt，若比当前判据/引擎源码陈旧，
+//    则七条全绿也是假的（证据是旧的）。mutation-teeth --report 自带 ENGFP/MUTFP 鲜度守卫，
+//    陈旧即 EXIT 1 —— 直接调这个人机出口，陈旧就在这里拦下，逼着重跑变异树取证刷新。
+//    不 import checkFreshness：import 会改本判据文件 mtime ⇒ 新鲜度检查第①项反而当场判陈旧 ⇒ 死循环。
+//    --allow-stale：陈旧时只告警不拦（供临时看旧结论；run-all 不传，--quick 也要保持严格）。
+function checkEvidenceFreshness() {
+    const allowStale = process.argv.includes('--allow-stale');
+    const reportArgv = [path.join(here, 'mutation-teeth.mjs'), '--report'];
+    try {
+        execFileSync('node', reportArgv, {
+            cwd: path.resolve(here, '..'), encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        return; // 新鲜，放行
+    } catch (e) {
+        const errTxt = ((e.stdout || '') + '\n' + (e.stderr || '')).trim();
+        if (allowStale && /陈旧|stale|ENGFP|MUTFP/i.test(errTxt)) {
+            console.log('  ⚠️ 牙口证据结果已陈旧（引擎/变异表已变），因 --allow-stale 放行——七条断言即便全绿也基于过期证据，须重跑变异树取证刷新');
+            return;
+        }
+        console.log('❌ 牙口证据结果已陈旧，须重跑变异树取证刷新 ' + EVIDENCE + '：');
+        console.log(errTxt.split('\n').slice(0, 14).map(l => '    ' + l).join('\n'));
+        console.log('    处置：node tests/mutation-teeth.mjs --emit-prep > tests/.mut/prep.sh && bash tests/.mut/prep.sh && node tests/mutation-teeth.mjs --emit-run > tests/.mut/run.sh && bash tests/.mut/run.sh');
+        process.exit(1);
+    }
+}
 
 // --- 解析证据文件（格式由 rules-replay.mjs 产出，见其 tag 行与 msgs 行）---
 //   ⚠️ |❌|✅|⏭  <规则名>  pass=N fail=M skip=K  【已转交·等主代码】(可选)
@@ -135,6 +165,8 @@ function main() {
         process.exit(1);
     }
     const txt = fs.readFileSync(EVIDENCE, 'utf8');
+    // ⑧ 结果新鲜度闸门：必须在七条断言之前——结果若陈旧，七条对的内容也是假的
+    checkEvidenceFreshness();
     const all = parseEvidence(txt);
     const mutBlocks = new Set(all.filter(e => e.mut && e.mut !== '_base').map(e => e.mut));
     // 有牙证据 = 变异体（排除干净树 _base）下 fail>0 的条目。
