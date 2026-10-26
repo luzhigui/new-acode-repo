@@ -1,3 +1,10 @@
+// V6.0.40 | ~27900 bytes | 2026-10-25 补登记 10 项（清单↔磁盘双向对账发现，均在引用链上）：
+//           core/23perf-params.js（表现参数表，core/15、player/40/46、fx/81/82/93 等消费）、
+//           ui/80perf-panel.js（8x 参数面板）、tests/_lib/buff-picker.mjs + _lib/rule-branch-extract.mjs
+//           （测试 harness 单源库，rules-replay 等已登记文件 import）、tests/health-rules/171/172
+//           （121health-monitor 已列，同 160-166 判据）、tests/fact-dead-field-scan.mjs（static-scan 已列）、
+//           tests/run-all.mjs + tools/119-auto-tuner.mjs + tools/121-param-lab.mjs（文档引用的 node 直跑入口）。
+//           顺手修 VER 忘抬：头部已写 V6.0.39 但 export VER 仍停 V6.0.38。
 // V6.0.39 | ~27400 bytes | 2026-10-25 语音解说从主游戏下线、搬到 tools 存档：移除 ui/73voice-panel.js 与
 //           modules/31voice-commentary.js，补登记 tools/136-voice-commentary.js + tools/137-voice-panel.js
 //           （不登记则新档漏包、删档会让包内出现「读取失败」）
@@ -71,7 +78,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.38';
+export const VER = 'tools/106-ai-pack-config.js V6.0.40';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -108,6 +115,9 @@ export const ALL_PROJECT_FILES = [
     '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js', '../core/19unit-watch.js',
     // 2026-10-16 注册面归位批：闪避规则表 / 计算修饰器表分别迁入 core/20、core/21（详见文件头 V6.0.28）
     '../core/20-registry-dodge.js', '../core/21-registry-calc.js',
+    // 2026-10-25 补登记 23：表现参数表（倍速表现统一配置，core/15、player/40/46、fx/81/82/93、infra/56 等消费；
+    // 漏登则包内这些消费点 import 断裂）
+    '../core/23perf-params.js',
     '../core/06battle-runner.js',
     '../core/07-target-strategies.js',
     // player（播放器）
@@ -134,6 +144,8 @@ export const ALL_PROJECT_FILES = [
     '../ui/77speed-controls.js', '../ui/78button-state.js',
     // 2026-10-19 补登记 79：蓄意轰拳瞄准黑幕（ui/65 已 import；漏登则包内引用断裂）
     '../ui/79hanlisa-aim.js',
+    // 2026-10-25 补登记 80：8x 参数面板（表现参数表 core/23 的调参面板；漏登则包内引用断裂）
+    '../ui/80perf-panel.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
@@ -236,6 +248,9 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/166-mind-control-swap.js',
     // 2026-10-17 补登记 170：121health-monitor.js 已 import rule114、123static-scan.js SCAN_FILES 已列（台词池双向一致性，同 160-166 判据）
     '../tests/health-rules/170-taunts-integrity.js',
+    // 2026-10-25 补登记 171/172：唐文亮冲刺档位 / 空见金刚不坏覆盖（121health-monitor 已列，同 160-166 判据）
+    '../tests/health-rules/171-tangwenliang-dash.js',
+    '../tests/health-rules/172-kongjian-jingang.js',
     // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）
@@ -246,6 +261,11 @@ export const ALL_PROJECT_FILES = [
     '../tests/mutation-teeth.mjs',
     // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/124-param-lab-glossary.js 的 ENGINE_READ 表）
     '../tests/param-read-guard.mjs',
+    // 2026-10-25 补登记 5 项：测试单源库 + node 直跑入口（第 122-124 轮体检产物；
+    // rules-replay/translate-golden/structure 扫描器等已登记文件 import _lib 两件，漏登则包内 harness 断裂；
+    // run-all/fact-dead-field-scan 为文档与 SCAN_FILES 引用的直跑入口，同 rules-replay 先例）
+    '../tests/_lib/buff-picker.mjs', '../tests/_lib/rule-branch-extract.mjs',
+    '../tests/fact-dead-field-scan.mjs', '../tests/run-all.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
@@ -255,6 +275,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
     '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js', '../tools/124-param-lab-glossary.js',
+    // 2026-10-25 补登记 119/121：TOOL-AI 与工具箱文档引用的 node 直跑入口（参数 A/B 调优器 / 参数实验室主脚本）
+    '../tools/119-auto-tuner.mjs', '../tools/121-param-lab.mjs',
     // 2026-10-18 补登记 126：工具箱「🚨 平衡告警」按钮的实现（102 V6.1.3 挂 module 脚本）
     '../tools/126-balance-alert.js',
     // 2026-10-22 补登记 127：工具箱共用名单与文案表（112/126/122/116/108 的单一来源；
