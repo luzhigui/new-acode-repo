@@ -8,7 +8,8 @@
 //   2026-10-21 加寒离飒时 126 跟了、122 漏了，就是这套重复的直接代价。
 //   本文件为单一来源；各工具 import 这里的常量，不再自建副本。
 // 维护：新增精英/海克斯时只改本文件；各工具的表头、判读、force 通道会自动跟上。
-export const VER = 'tools/127-tool-registry.js V1.2.0';
+// V1.2.1 | 2026-10-26 小昭·姊 role → 蝴蝶（身份职业，不进 CONFIG.ROLES 随机池）
+export const VER = 'tools/127-tool-registry.js V1.2.1';
 
 // 自然出场归因表的列（112 主表 / 126 判读），顺序即表头顺序
 export const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
@@ -58,7 +59,7 @@ export const WEAK_UNIT_FLAG = {
 export const ELITE_UNIT_META = {
     '张无忌': { flag: 'isZhang', stdPos: 5, tag: '张', role: '远程' },
     '韦一笑': { flag: 'isWei', stdPos: 6, tag: '韦', role: '飞行' },
-    '小昭·姊': { flag: 'isXiaoZhaoSister', stdPos: 4, tag: '昭姊', role: '远程' },
+    '小昭·姊': { flag: 'isXiaoZhaoSister', stdPos: 4, tag: '昭姊', role: '蝴蝶' },
     '小昭·妹': { flag: 'isXiaoZhaoBrother', stdPos: 4, tag: '昭妹', role: '远程' },
     '金毛狮王谢逊': { flag: 'isXieXun', stdPos: 7, tag: '谢', role: '战士' },
     '寒离飒': { flag: 'isHanLiSa', stdPos: 2, tag: '寒', role: '战士' }

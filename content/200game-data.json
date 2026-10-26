@@ -8,7 +8,8 @@
     "远程": { "icon": "🏹", "label": "远程", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } },
     "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 }, "baseRegen": 10 },
     "标枪": { "icon": "🪠", "label": "标枪", "bonus": { "atk": 3, "def": 3, "maxHp": 30 },
-      "rangeByRow": { "front": [1, 2, 3, 4, 5, 6, 7, 8, 9], "mid": [1, 2, 3, 4, 5, 6], "back": [1, 2, 3] } }
+      "rangeByRow": { "front": [1, 2, 3, 4, 5, 6, 7, 8, 9], "mid": [1, 2, 3, 4, 5, 6], "back": [1, 2, 3] } },
+    "蝴蝶": { "icon": "🦋", "label": "蝴蝶", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } }
   },
 
   "characters": {

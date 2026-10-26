@@ -1,5 +1,6 @@
 // V6.3.6 | 2026-10-20 | ~13400 bytes
-export const VER = 'core/02unit.js V6.3.6';
+// V6.3.7 | 2026-10-26 | initXiaoZhao：姊形态 role 设为 ROLE_TYPES.BUTTERFLY（蝴蝶），妹不动
+export const VER = 'core/02unit.js V6.3.7';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -221,6 +222,9 @@ export class Unit {
         this.state._initMaxHp = this.maxHp;
     }
     initXiaoZhao(){
+        // 姊：身份职业改蝴蝶（只改身份，不改打人方式）——避免把她算进「远程」而把流星赶月拉进海克斯候选池。
+        //   本函数在 modules/29:113 被调用，晚于 29:103 的随机职业赋值，故覆盖生效；妹不动。
+        if (this.isXiaoZhaoSister) this.role = ROLE_TYPES.BUTTERFLY;
         const hpPct = CONFIG.XIAO_ZHAO_HP_ROLL;
         let hpBase = Math.floor(this.m * hpPct);
         let rem = this.m - hpBase;
