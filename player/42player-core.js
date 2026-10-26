@@ -13,6 +13,7 @@ import { autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, 
 import { setGridStore } from '../render/32-grid-render.js';
 import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
+import { getNoTableScale } from '../core/23perf-params.js';
 import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
@@ -32,8 +33,13 @@ export { readRound } from './42player-step-sync.js';
 function installClockBridge(c) {
     clock.reset();
     clock.start();
-    clock.setTimescale(600 / (c.speed || 600));
-    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
+    clock.setTimescale(c.speed === 50 ? getNoTableScale() : 600 / (c.speed || 600));
+    // 自定义档（speed=50）不按 600/50 算——那是 12 倍速，会把未进表的演出拉爆。
+    //   改由「未进表倍率」决定，与进表参数互不干扰。
+    GlobalStore.effect('speed', (v) => {
+        if (v === 50) clock.setTimescale(getNoTableScale());
+        else clock.setTimescale(600 / (v || 600));
+    });
     GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
     // 守卫：值没变不折腾。finishBattle 收尾无条件 set(false)，没开过快进的局也会走还原分支，
     // 不守会把手动 8x/4x 打完后冲回默认 2x。clock.fastForward 初始即 false，守卫安全。

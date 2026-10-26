@@ -1,11 +1,15 @@
 // ui/77speed-controls.js — 倍速控制系统（按钮高亮 / 手动锁 / 滚动降速）
+// V1.3.0 | 2026-10-26 8x 档时钟锁「未进表倍率」：点 8x 不再让 clock 按 600/50=12 倍跑，
+//   改 clock.setTimescale(getNoTableScale())，未进表演出速度由面板第一行统一控制。
 // V1.2.0 | 2026-10-25 8x 按钮改造：点它 = 切 8x + 暂停 + 打开表现参数面板（ui/80 经 UIHandler openPerfPanel 注册），
 //   不再走通用 attachSpeedButton 绑定（关闭面板即恢复运行）。
 // V1.1.1 | 2026-10-25 | 全局 ×2：所有按钮值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800）；
 //   点已亮的按钮 → 变回 1 倍速（原速 300）并清所有高亮（"取消"入口）。
-export const VER = 'ui/77speed-controls.js V1.2.0';
+export const VER = 'ui/77speed-controls.js V1.3.0';
 
 import { getState, setState, GlobalStore } from '../infra/54-global-store.js';
+import { clock } from '../infra/52-clock.js';
+import { getNoTableScale } from '../core/23perf-params.js';
 
 // 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
 // 而该函数从未挂到 window 上（定义在 ui/61 且未导出），属静默失效；改为走 UIHandler 通道。
@@ -151,6 +155,9 @@ function initSpeedButtons() {
         btn8x.addEventListener('click', () => {
             onAnyButtonClick();
             setSpeed(50, true);
+            // 自定义档：时钟不再按 600/50=12 倍跑，改由「未进表倍率」决定第 B 类演出的速度。
+            //   进表的项各自读参数表，与时钟无关。这样 8x 档下没有任何不受控的计时。
+            clock.setTimescale(getNoTableScale());
             setState.isPaused(true);
             GlobalStore.set('bulletTimeActive', true);
             document.body.classList.add('paused-animations');

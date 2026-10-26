@@ -1,8 +1,9 @@
+// V6.3.2 | 2026-10-26 | 流星溅射（showSplashArrows）改回逻辑时间：蓄力环/停顿 800/300、溅射箭 flyDuration、收尾 600
+//   全部 waitReal→wait / animateReal→animate，跟倍速走（上一轮批量改真实时间时误伤）。
 // V6.3.1 | 2026-10-26 | 飞箭/流星蓄力改半压缩 250+250/timescale（2x≈375ms、8x≈271ms），高倍速下不再固定 500ms
 // V6.3.0 | 2026-10-25 | ~18700 bytes | 全部演出改真实时间轴：clock.wait→waitReal（12 处）、clock.animate→animateReal（7 处），
 //   时长不再被 timescale 二次缩放（参数表填多少就是多少）
-// V6.2.1 | 2026-10-17 | ~18600 bytes
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.1';
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.2';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -168,9 +169,9 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
     ring.setAttribute('data-fx', 'temporary');
     ring.style.cssText = `position:fixed;left:${px}px;top:${py}px;width:40px;height:40px;border:3px solid #FFD700;border-radius:50%;transform:translate(-50%,-50%);z-index:10002;pointer-events:none;box-shadow:0 0 12px #FFA500;animation:meteorRing 0.8s ease-out forwards;`;
     document.body.appendChild(ring);
-    clock.waitReal(800).then(() => { if (ring.parentNode) ring.remove(); });
+    clock.wait(800).then(() => { if (ring.parentNode) ring.remove(); });
 
-    await clock.waitReal(300);
+    await clock.wait(300);
 
     splashTargets.forEach(st => {
         const rectD = snapshotUnitCell(st);
@@ -207,14 +208,16 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
 
         document.body.appendChild(container);
 
-        clock.animateReal(flyDuration, (p) => {
+        // 溅射箭跟倍速走（逻辑时间）：上一轮批量改真实时间时误伤，
+        //   2x 档从 175ms 变回 350ms/2，恢复「急促」的观感。
+        clock.animate(flyDuration, (p) => {
             let curStartX = sx + (finalStartX - sx) * p;
             let curStartY = sy + (finalStartY - sy) * p;
             container.style.left = curStartX + 'px';
             container.style.top = curStartY + 'px';
             if (p >= 1) {
                 if (onHit) onHit(st);
-                clock.waitReal(600).then(() => { if (container.parentNode) container.remove(); });
+                clock.wait(600).then(() => { if (container.parentNode) container.remove(); });
             }
         });
     });

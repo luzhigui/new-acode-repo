@@ -2,9 +2,11 @@
 // 所有「时间相关的表现参数」集中在此，各模块读这里，不再各写各的。
 // 每项 × 每档：值 = 毫秒。档位 key = 该档位对应的 speed 值（与 ui/77speed-controls 一致）。
 //   '800' = 0.5x 按钮 · '400' = 1 倍速（按钮全不亮）· '300' = 2x 按钮 · '150' = 4x 按钮 · '50' = 8x 按钮
+// V1.3.0 | 2026-10-26 | 新增「未进表倍率」（getNoTableScale / setNoTableScale / resetNoTableScale）：
+//   自定义档（8x，speed=50）下 clock 不再按 600/50=12 倍跑，改由该倍率决定未进表演出的速度
 // V1.2.0 | 2026-10-25 | DEFAULTS 补 '400' 列（1 倍速独立数值）；charMs/charMsAnchor/lineGap 按真实毫秒重标
 // V1.1.0 | 2026-10-25 | 新增 charMsAnchor 锚点行专用每字时长（白骨爪/回血等逐字跟特效的行更快）
-export const VER = 'core/23perf-params.js V1.2.0';
+export const VER = 'core/23perf-params.js V1.3.0';
 
 // 档位 key（按 speed 值升序 → 速度升序）
 export const SPEED_TIER_KEYS = Object.freeze(['800', '400', '300', '150', '50']);
@@ -42,6 +44,17 @@ const DEFAULTS = {
   countdownTick: { '800': 700,  '400': 640,  '300': 480,  '150': 400,  '50': 350 },
   corpseDelay:   { '800': 3000, '400': 2800, '300': 2100, '150': 1600, '50': 1200 },
 };
+
+// 未进表的演出统一倍率（第 B 类：蝶变/换位/击退等走 clock.animate 的）。
+//   只在「自定义档（8x，speed=50）」下生效——其余四档照旧走 600/speed。
+//   四档可选：0.5 慢 / 1 原速 / 2 快 / 4 极快。
+let _noTableScale = 1;
+export function getNoTableScale() { return _noTableScale; }
+export function setNoTableScale(v) {
+    const n = Number(v);
+    if (n > 0 && isFinite(n)) _noTableScale = n;
+}
+export function resetNoTableScale() { _noTableScale = 1; }
 
 let _params = JSON.parse(JSON.stringify(DEFAULTS));
 
