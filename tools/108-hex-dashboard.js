@@ -1,5 +1,11 @@
 // ===== ../tools/108-hex-dashboard.js =====
+// V6.3.5 | 2026-10-27 修「跑批绿色跳一下就卡住」双因：①落盘改增量——片结果攒内存、每 2s 刷盘、
+//   跑完补刷（原实现攒到跑完才一次性写=全程 0 条落盘，中途关页白跑+表格一直「暂无数据」像卡死；
+//   每片直接全量读写 localStorage 是 O(片数²) 字符串开销，故攒批刷）②线程池留 2 核给主线程
+//   （手机满核跑批饿死刷进度的主线程，数字冻在半路；getPoolSize 共用默认不动，仅本工具 -2）。
+//   落盘基建整体上移到 runParallel 之前（onJobDone 跑批期间回调，定义在后会 TDZ 炸）。
 // V6.3.4 | 2026-10-26 提示文案同步：众志成城首回合补员目标 5→4（姐姐强化仍 5），详情卡「姐姐强化版」补「补满人数 4 → 5」一行
+//   （V6.3.4 头注释抬了、VER 漏抬停在 V6.3.3——版号病第五例，本版一并同步）
 // V6.3.3 | 约 42500 字节 | 2026-10-25 修：七关一起跑时数据只写进了「七关合计」键、单关键全空（切单关一片空、
 //   跨关对比 1-7 行全是「—」）——现按每条记录的 rec.stage 拆写到各单关键，七关批次额外合并一份 all 键。
 //   （keyFor 加 stage 维，七关沿用旧键、历史数据不丢），切关卡自动换榜；删除「加载数据」按钮
@@ -9,7 +15,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.3.3';
+export const VER = 'tools/108-hex-dashboard.js V6.3.5';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -401,7 +407,6 @@ function openHexDashboard() {
     try {
       const { loadGameData } = await import('../core/01config-5v5-test.js');
       if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
-      const hexLogAll = Object.fromEntries(modes.map(m => [m, []]));   // 按模式分桶收集
       let doneRuns = 0;
       const t0run = performance.now();
       const masterSeed = Date.now();
@@ -420,24 +425,10 @@ function openHexDashboard() {
           }
         }
       }
-      const poolSize = getPoolSize();
-      const tick = () => {
-        const el = performance.now() - t0run;
-        const eta = doneRuns > 0 && doneRuns < total ? (el / doneRuns) * (total - doneRuns) : 0;
-        status.textContent = `⏳ ${doneRuns}/${total} 场完成（${jobs.length} 片｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneRuns < total && doneRuns > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
-      };
-      const timer = setInterval(tick, 500);
-      await runParallel({
-        jobs,
-        kind: 'hex',
-        poolSize,
-        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, lineupMode: job.mode }),
-        onJobDone: (finished, jobTotal, job, result) => {
-          doneRuns += job.runs;
-          if (result && result.hexLog) hexLogAll[job.mode].push(...result.hexLog);
-        }
-      });
-      clearInterval(timer);
+      // 2026-10-27 V6.3.5：池大小留 2 核给主线程——手机满核跑批会把刷进度行的主线程饿死，
+      //   进度数字冻在半路像卡死（8 核手机 8 worker 全占是元凶）。8 核 → 6 worker，吞吐损失约两成。
+      const poolSize = Math.max(2, getPoolSize() - 2);
+      // ---- 落盘基建（必须在 runParallel 之前定义：onJobDone 跑批期间就会回调 queueChunk）----
       // 结果按模式分别追加进各自存储键（V6.3.0：七关沿用旧键、单关加 _stageN，互不污染）
       // 2026-10-14 V6.2.2：写入失败不再静默吞——配额满时原 catch(e){} 会让「跑完 ✅」却读回空榜显示「暂无数据」，
       //   症状与「跑不出结果」完全一样，且无从判断。现改为显式报错并提示清理；状态行同时给出实得/应有场次。
@@ -454,17 +445,50 @@ function openHexDashboard() {
           localStorage.setItem(k, JSON.stringify(cur.concat(arr)));
         } catch (e) { saveErrs.push(`${k}:${(e && e.name) || e}`); }
       };
-      for (const m of modes) {
+      // V6.3.5 增量落盘：片结果先攒内存（pending），tick 每 2 秒刷一次盘，跑完再补刷一次。
+      //   原实现攒到全部跑完才一次性写——跑批全程 0 条落盘，中途关页/手机卡死全部白跑，
+      //   且表格一直「暂无数据」，观感就是「绿色跳一下然后卡住」。拆键规则与 V6.3.3 一致：
+      //   按 rec.stage 拆单关键，七关批次额外合并 all 键；写失败显式记入 saveErrs（V6.2.2）。
+      const pending = {};   // key -> 待刷记录
+      const queueChunk = (mode, records) => {
+        if (!records || !records.length) return;
         const byStage = {};
-        for (const rec of hexLogAll[m]) {
-          (byStage[rec.stage] || (byStage[rec.stage] = [])).push(rec);
-        }
+        for (const rec of records) (byStage[rec.stage] || (byStage[rec.stage] = [])).push(rec);
         for (const stStr of Object.keys(byStage)) {
-          saveTo(keyFor(m, parseInt(stStr, 10)), byStage[stStr]);
+          const k = keyFor(mode, parseInt(stStr, 10));
+          (pending[k] || (pending[k] = [])).push(...byStage[stStr]);
           savedRuns += byStage[stStr].length;
         }
-        if (stages.length > 1) saveTo(keyFor(m, 'all'), hexLogAll[m]);
-      }
+        if (stages.length > 1) (pending[keyFor(mode, 'all')] || (pending[keyFor(mode, 'all')] = [])).push(...records);
+      };
+      const flushPending = () => {
+        for (const k of Object.keys(pending)) {
+          const before = saveErrs.length;
+          saveTo(k, pending[k]);
+          if (saveErrs.length === before) delete pending[k];   // 写失败留在队列下轮重试
+        }
+      };
+      let lastFlush = 0;
+      const tick = () => {
+        const el = performance.now() - t0run;
+        const eta = doneRuns > 0 && doneRuns < total ? (el / doneRuns) * (total - doneRuns) : 0;
+        status.textContent = `⏳ ${doneRuns}/${total} 场完成（${jobs.length} 片｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneRuns < total && doneRuns > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
+        // V6.3.5 增量落盘：每 2 秒把攒着的片结果刷进 localStorage（每片直接全量读写是 O(片数²) 字符串开销）
+        if (doneRuns < total && performance.now() - lastFlush > 2000) { lastFlush = performance.now(); flushPending(); }
+      };
+      const timer = setInterval(tick, 500);
+      await runParallel({
+        jobs,
+        kind: 'hex',
+        poolSize,
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, lineupMode: job.mode }),
+        onJobDone: (finished, jobTotal, job, result) => {
+          doneRuns += job.runs;
+          if (result && result.hexLog) queueChunk(job.mode, result.hexLog);   // V6.3.5 攒片等刷盘
+        }
+      });
+      clearInterval(timer);
+      flushPending();   // V6.3.5 跑完补刷剩余攒批（定义已上移到 runParallel 之前，规避 TDZ）
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       const scope = (modes.length > 1 ? '全部4种阵容' : MODE_LABEL[modes[0]]) + ' · ' + stageLabel;
       if (saveErrs.length) {
