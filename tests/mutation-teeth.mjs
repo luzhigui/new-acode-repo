@@ -118,7 +118,7 @@
 //   ② 不得作证：干净树 _base 里 命中>0 的契约（若有）列入 BASE_DIRTY_CONTRACTS，其命中不计入
 //     「有牙」证据，改记对照器侧 [掩盖×N]——道理同「基线已红的规则不得作证」。
 //     实测当前 _base 全部 56 条契约命中皆 0 ⇒ 本闸门当下为空操作（零判定迁移），纯属加固。
-export const VER = 'tests/mutation-teeth.mjs V2.9.14';
+export const VER = 'tests/mutation-teeth.mjs V2.9.15';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -460,12 +460,13 @@ function toPosix(p) {
     return p.replace(/^([A-Za-z]):/, (m, d) => '/' + d.toLowerCase()).replace(/\\/g, '/');
 }
 
-// 新鲜度守卫（V2.9.0）：返回陈旧原因数组；空数组 = 结果配得上当前代码。
-// 四项检查，任一项命中即判陈旧：
+// 新鲜度守卫（V2.9.0，V2.9.15 扩为五项）：返回陈旧原因数组；空数组 = 结果配得上当前代码。
+// 五项检查，任一项命中即判陈旧：
 //   ① 判据文件（本文件）mtime 晚于结果文件 ⇒ 判定代码已更新，结果没重跑
 //   ② 结果头部的 VER / 变异表指纹 MUTFP 与当前不符
 //   ③ 当前 MUTATIONS 里有条目在结果里没有结果块（覆盖不全）
 //   ④ 任一变异树目录 mtime 晚于结果文件 ⇒ 树已重建（叠加了新工作树/新注入）却没重跑
+//   ⑤ 结果头部的引擎源码指纹 ENGFP 与当前引擎源码不符 ⇒ 引擎代码改过（变异表没变也会漏，item ③）
 function checkFreshness(txt, resultsPath) {
     const why = [];
     const meta = {};
@@ -487,6 +488,10 @@ function checkFreshness(txt, resultsPath) {
     const fpNow = mutFingerprint();
     if (!meta.MUTFP) why.push('结果文件缺少 #META MUTFP 头（无法证明变异表未变）');
     else if (meta.MUTFP !== fpNow) why.push(`变异表指纹不符：结果侧 ${meta.MUTFP}，当前 ${fpNow} —— 变异改过，结果没重跑`);
+    // ⑤ 引擎源码指纹（item ③：引擎改了但变异表 MUTFP 没变，旧结果仍会假绿）
+    const engFp = engineFingerprint();
+    if (!meta.ENGFP) why.push('结果文件缺少 #META ENGFP 头（无法证明引擎源码未变）');
+    else if (meta.ENGFP !== engFp) why.push(`引擎源码指纹不符：结果侧 ${meta.ENGFP}，当前 ${engFp} —— 引擎代码改过（即便变异表没变），结果没重跑`);
     // ③ 覆盖不全
     const missing = MUTATIONS.filter(m => !txt.includes(`##### MUT m-${m.id} #####`)).map(m => m.id);
     if (!txt.includes('##### MUT _base #####')) missing.unshift('_base');
@@ -531,6 +536,38 @@ function fmt(ms) {
 // 报告照样渲染 ⇒ 又一次"旧结果配新判据"。只取会影响注入结果的字段（顺序+内容）。
 function mutFingerprint() {
     const sig = MUTATIONS.map(m => [m.id, m.kind, m.file, m.from, m.to, !!m.multi].join('\u0001')).join('\u0002');
+    return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 12);
+}
+
+// 引擎源码指纹（V2.9.15 / item ③）：记录**生成结果时的引擎源码**，否则引擎代码改了（即便变异表 MUTFP 没变）、结果没重跑，
+// 报告照样渲染 ⇒ "旧结果配新引擎"假结论（正是 rule-teeth-evidence-selftest 第 128 轮点出的盲区：鲜度守卫盯不到引擎被改）。
+// 只哈希 mutation 树实际叠加的战斗相关源码目录（与第 42 轮叠加口径一致：core/modules/infra/player/render/content），路径取相对 REPO 保证跨 worktree 稳定。
+function engineFingerprint() {
+    const dirs = ['core', 'modules', 'infra', 'player', 'render', 'content'];
+    let sig = '';
+    for (const d of dirs) {
+        const full = path.join(REPO, d);
+        if (!fs.existsSync(full)) continue;
+        const files = [];
+        (function walk(p) {
+            let ents;
+            try { ents = fs.readdirSync(p, { withFileTypes: true }); } catch { return; }
+            for (const e of ents) {
+                if (e.isDirectory()) {
+                    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+                    walk(path.join(p, e.name));
+                } else if (e.name.endsWith('.js')) {
+                    files.push(path.join(p, e.name));
+                }
+            }
+        })(full);
+        files.sort();
+        for (const fp of files) {
+            let c;
+            try { c = fs.readFileSync(fp, 'utf8'); } catch { continue; }
+            sig += path.relative(REPO, fp) + '\u0001' + crypto.createHash('sha1').update(c).digest('hex').slice(0, 10) + '\u0002';
+        }
+    }
     return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 12);
 }
 
@@ -688,6 +725,7 @@ async function main() {
             //   --report 端据此判断结果是否还配得上当前代码 —— 旧结果配新判据 = 假结论，必须拦。
             `echo "#META VER=${VER}" >> "$OUT"`,
             `echo "#META MUTFP=${mutFingerprint()}" >> "$OUT"`,
+            `echo "#META ENGFP=${engineFingerprint()}" >> "$OUT"`,
             'echo "#META HEAD=$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)" >> "$OUT"',
             'echo "#META AT=$(date -Iseconds)" >> "$OUT"',
             'for id in ' + ids.map(i => i === '_base' ? '_base' : 'm-' + i).join(' ') + '; do',
@@ -773,6 +811,7 @@ async function main() {
         const freshMeta = [
             `#META VER=${VER}`,
             `#META MUTFP=${mutFingerprint()}`,
+            `#META ENGFP=${engineFingerprint()}`,
             `#META HEAD=${execSync('git rev-parse --short HEAD', { cwd: REPO, encoding: 'utf8' }).trim()}`,
             `#META AT=${new Date().toISOString()}`,
             `#META NOTE=含增量合并 ${n} 块（${[...inc.blocks.keys()].join(',')}，ONLY 模式跑于当前 HEAD）；其余块为此前全量结果，锚点已经 --verify 复核`,

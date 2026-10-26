@@ -1,5 +1,6 @@
 // tests/hit-shapes-consistency.mjs — 寒离飒「蓄意轰拳」数值口径对账（静态检查，非运行时体检）
 // V1.0.0 | ~9000 bytes | 2026-10-22 体检第 116 轮新建
+// V1.0.1 | 2026-10-26 第139轮·跟随 713d0ddb 轰拳重构：ui/79 移除 HIT_MAP 命中格拷贝，改读 content 真值(hitShapeOf)；重写 UI 侧抽取，注入同款 hitShapeOf 评估 dmgMapFor，形状对账①只比 真值↔引擎结算
 //   背景（一次真事故）：蓄意轰拳的伤害分母有三份副本——content 真值、modules/27 结算、ui/79 引擎 UI。
 //     2026-10-22 发现 ui/79 与 modules/27 里各留了「兜底字面量」{direct:2, near:4, far:6} / eightDen:3，
 //     那是 v29 定稿（direct=1.25 / eightDen=2.5）之前的旧口径。content 有值时走不到兜底 → 平时无感；
@@ -13,7 +14,7 @@
 //        缺参数就该报错（老板口径：有错误就让他暴露出来，不要静默兜底）。
 //   零触发守卫：真值/引擎源码任一读取失败、或对账格子数为 0 → 硬红（解析失效 = 空跑出绿，不许有）。
 // 用法：node tests/hit-shapes-consistency.mjs
-export const VER = 'tests/hit-shapes-consistency.mjs V1.0.0';
+export const VER = 'tests/hit-shapes-consistency.mjs V1.0.1';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -81,26 +82,23 @@ function settlementCells(blockSrc, xl) {
     return byAim;
 }
 
-// ---- 引擎 UI 侧：求值 ui/79 的 dmgMapFor + HIT_MAP ----
-export function extractHitMap(src) {
-    const m = /const\s+HIT_MAP\s*=\s*\{([\s\S]*?)\n\};/.exec(src);
-    if (!m) return null;
-    try {
-        // eslint-disable-next-line no-new-func
-        return new Function('return {' + m[1] + '};')();
-    } catch (e) {
-        return null;
-    }
-}
-
+// ---- 引擎 UI 侧：求值 ui/79 的 dmgMapFor ----
+// 713d0ddb 起 ui/79 不再维护 HIT_MAP 命中格拷贝：命中格改读 content 真值（hitShapeOf → xl.hitShapes），
+// 与引擎结算(modules/27)、真值(content) 三者共用同一张表，UI 侧结构上不可能与 content 脱节。
+// dmgMapFor(aim,N,xl) 仍返回 pos→{dmg,tier}，直接可用（检查②/③）；其本体迭代 hitShapeOf(aim)，
+// 故评估时注入同款 hitShapeOf（=真值 shapes），等价于引擎 UI 本体，不复制实现。
+// （旧 extractHitMap 已删：HIT_MAP 不复存在，再抽只会拿到 null 导致整项假红。）
 function evalDmgMapFor(src, xl) {
     const fnSrc = extractFunctionSource(src, 'dmgMapFor');
     const tierSrc = extractFunctionSource(src, 'tierOf');
-    const hitMap = extractHitMap(src);
-    if (!fnSrc || !tierSrc || !hitMap) return null;
-    const fn = new Function('HIT_MAP', 'tierOf', 'return (' + fnSrc + ');');
+    if (!fnSrc || !tierSrc) return null;
     const tierFn = new Function('return (' + tierSrc + ');')();
-    return { dmgMapFor: fn(hitMap, tierFn), hitMap };
+    // 与 ui/79 hitShapeOf 同口径：aim 0/未指定=全屏兜底九格，否则取 content 真值表
+    const hitShapeOf = (aim) => (aim === 0 || aim == null)
+        ? [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        : (xl.hitShapes && xl.hitShapes[String(aim)] || []);
+    const fn = new Function('tierOf', 'hitShapeOf', 'return (' + fnSrc + ');');
+    return { dmgMapFor: fn(tierFn, hitShapeOf) };
 }
 
 // ---- 兜底扫描：xuLi 字段的字面量兜底 ----
@@ -154,20 +152,19 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
     // ---- ② 引擎 UI 侧求值 ----
     const ui = evalDmgMapFor(uiSrc, xl);
     if (!ui) {
-        problems.push('ui/79 的 HIT_MAP / tierOf / dmgMapFor 抽取或求值失败');
+        problems.push('ui/79 的 tierOf / dmgMapFor 抽取或求值失败（HIT_MAP 已在 713d0ddb 移除，命中格改读 content 真值）');
         return { problems, stats };
     }
 
-    // ---- 检查①：九位九形形状对账 ----
-    // 结算侧 cellsByAim[aim] 的 pos 集合 === 真值 shapes[aim] === UI 侧 HIT_MAP[aim]
+    // ---- 检查①：九位九形形状对账（真值 content ↔ 引擎结算 modules/27）----
+    // 注：UI 侧旧对照的 HIT_MAP 已在 713d0ddb 移除——ui/79 现直接读 content 真值(hitShapeOf)，
+    // 与真值同源、结构上不可能脱节，故不再单独比对 UI 侧（避免真值自己比自己）；UI 的伤害口径由检查②覆盖。
     const shapeMismatch = [];
     for (let aim = 1; aim <= 9; aim++) {
         const truthCells = [...(shapes[String(aim)] || [])].map(Number).sort((a, b) => a - b);
         const settleCells = (cellsByAim[aim] || []).map(c => c.pos).sort((a, b) => a - b);
-        const uiCells = [...(ui.hitMap[aim] || [])].map(Number).sort((a, b) => a - b);
         const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
         if (!eq(truthCells, settleCells)) shapeMismatch.push(`瞄${aim}：结算侧取格 {${settleCells}} ≠ 真值 {${truthCells}}`);
-        if (!eq(truthCells, uiCells)) shapeMismatch.push(`瞄${aim}：UI 侧 HIT_MAP {${uiCells}} ≠ 真值 {${truthCells}}`);
     }
     problems.push(...shapeMismatch);
 

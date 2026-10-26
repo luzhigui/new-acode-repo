@@ -1,4 +1,5 @@
-// V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
+// V1.14.0 | 2026-10-25 第 125 轮：fact 发射普查升为 CHECKS 守门项（deadEnum/spec rot 零发射点可靠红 EXIT 1 拦构建；rare/silent/blind 仅诊断），OBSERVES 原条目已移除
+// V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环，heavy 采样项）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
@@ -127,7 +128,14 @@ const CHECKS = [
     //   行动权竞争）。本用例强制妹模式广扫，实测命中 52 次，断言 fact/渲染/账本三对照；
     //   带 MIN_HITS=3 棘轮 + 咬牙实证（打断 picker 永久继承即红）。tier=heavy（采样项，--quick 跳过）。
     { name: '蝶血分支定向用例(妹永久嗜血)', script: 'tests/xiaozhao-brother-leech-case.mjs', args: [], tier: 'heavy' },
+    // V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环）。
+    //   蛛袭/寒毒由「恒false的!alive」改为正确致死判定；护栏跑样本对局断言 isDead===true 至少命中
+    //   MIN_HITS 次（退回恒false会归零变红），并诊断 true 目标是否确死（防飞天免疫误判）。tier=heavy。
+    { name: 'isDead修复回归护栏(蛛袭/寒毒)', script: 'tests/isdead-fix-guard.mjs', args: [], tier: 'heavy' },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
+    // V1.14.0 | 2026-10-25 第 125 轮·续：fact 发射普查升级为**守门项**——deadEnum / orphanSpec（零发射点可靠红）
+    //   直接 EXIT 1 拦构建；rare/silent/blind 仅诊断不拦。NINE_YANG_HEAL 清理后即全绿，回归再引入僵尸 fact 立即咬。
+    { name: 'fact 发射普查(契约腐烂守门)', script: 'tests/fact-emission-census.mjs', args: [] },
     // V1.12.0 | 2026-10-25 第 124 轮：fuzz(2100场) 与 翻译golden(35场/13MB) 是耗时主因，
     //   标记 tier=heavy —— --quick 模式下跳过，仅守门项跑（每次开发迭代不必重跑大样本）；
     //   nightly 自动化不带 --quick 仍跑全量，不漏回归。
