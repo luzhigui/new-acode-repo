@@ -1,6 +1,6 @@
 // core/04buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.7.2 | 2026-10-22 | ~26000 bytes
-export const VER = 'core/04buff-system.js V6.7.2';
+// V6.7.3 | 2026-10-26 | ~26000 bytes —— 众志成城首回合补员目标 5→4（姐姐强化仍补到 5，读 content recruitTarget）
+export const VER = 'core/04buff-system.js V6.7.3';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
