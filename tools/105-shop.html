@@ -4,7 +4,7 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.6.0
+  版本：V2.6.1（2026-10-26：HERO_META 小昭·姊 role → 蝴蝶，与 core/02、infra/56 同步）
   预估字节数：约 68 KB
   日期：2026-10-18
   改动：角色卡按档位配色「弱精英蓝 / 强精英紫 / boss 金」——对齐战斗格子名字分档（m≥112 金 / m≥107 紫 / m≥104 蓝）
@@ -556,7 +556,7 @@ const SKILL_DB = {
 const HERO_META = {
     '张无忌':       { baseM: 115, role: '远程', camp: '明教' },
     '韦一笑':       { baseM: 107, role: '飞行', camp: '明教' },
-    '小昭·姊':     { baseM: 105, role: '远程', camp: '明教' },
+    '小昭·姊':     { baseM: 105, role: '蝴蝶', camp: '明教' },
     '小昭·妹':     { baseM: 107, role: '战士', camp: '明教' },
     '金毛狮王谢逊': { baseM: 107, role: '战士', camp: '明教' },
     '杨逍':         { baseM: 104, role: '飞行', camp: '明教' },

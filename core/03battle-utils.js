@@ -1,5 +1,6 @@
 // V6.3.4 | 2026-10-21 | ~19400 bytes
-export const VER = 'core/03battle-utils.js V6.3.4';
+// V6.3.5 | 2026-10-26 | 蝴蝶并入远程公式：getMissBreakdown 远程基础未命中、远程成长（只改身份不改打人方式）
+export const VER = 'core/03battle-utils.js V6.3.5';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -96,7 +97,7 @@ export function getMissBreakdown(unit, allySide, enemySide) {
     const sources = [];
     let total = 0;
     const PCT = 100;   // 比例 → 百分点（写成单独一次乘法，与统一前的字面量逐位一致）
-    if (unit.role === ROLE_TYPES.RANGED) {
+    if (unit.role === ROLE_TYPES.RANGED || unit.role === ROLE_TYPES.BUTTERFLY) {
         const base = C.RANGED_MISS_CHANCE * PCT;
         total = base;
         sources.push({ label: '远程基础', value: base });
@@ -204,7 +205,8 @@ export function registerWarriorBreakDefense(eventBus) {
 // 远程成长：每次攻击后攻击 +2，走永久词条
 function submitRangedGrowthDeclaration(data) {
     const { unit, target, dmg, group } = data;
-    if (!hasCombatSchool(unit, ROLE_TYPES.RANGED) || dmg <= 0) return;
+    // 蝴蝶（小昭·姊）沿用远程成长：只改身份职业，不改打人方式
+    if ((!hasCombatSchool(unit, ROLE_TYPES.RANGED) && unit.role !== ROLE_TYPES.BUTTERFLY) || dmg <= 0) return;
     const growth = C.RANGED_GROWTH_ATK;
     addMod(unit, 'atk', { source: '远程成长', value: growth, ttl: 'permanent', group: 'rangedGrowth', op: 'add' });
     if (group && group.data && group.data.entries) {

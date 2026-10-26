@@ -1,5 +1,6 @@
 // V1.10.1 | 2026-10-22 | ~16400 bytes
-export const VER = 'infra/56-battle-enums.js V1.10.1';
+// V1.11.0 | 2026-10-26 | ROLE_TYPES 新增 BUTTERFLY:'蝴蝶'（小昭·姊身份职业，不进 CONFIG.ROLES 随机池）
+export const VER = 'infra/56-battle-enums.js V1.11.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -221,7 +222,10 @@ export const ROLE_TYPES = Object.freeze({
     FLYER: '飞行',
     // 标枪（唐文亮独占·弱精英）：中程投射、天然不吃遮挡；射程按自身行段（4~6→对方1~6 / 7~9→对方1~3）。
     //   不进 CONFIG.ROLES（不参与随机职业抽取 / 模板凑职），只作单位身份职业；加成数值同战士（content roles.标枪）
-    JAVELIN: '标枪'
+    // 蝴蝶（小昭·姊独占·身份职业）：目的只是「不再是远程身份」，避免把流星赶月拉进海克斯候选池；
+    //   进 CONFIG.ROLES 会污染随机职业池，故同标枪先例只作身份职业。
+    //   打人方式不变：未命中基础、远程成长、射箭演出由 core/03、fx/88 显式并入 RANGED 分支。
+    BUTTERFLY: '蝴蝶'
 });
 
 /** 战斗信号类型：eventBus.on / eventBus.emit 的信号名唯一来源 */

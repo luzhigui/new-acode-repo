@@ -1,6 +1,7 @@
 // fx/88fx-trigger.js
 // V6.2.0 | 2026-10-26 | ~5100 bytes | 伤害飘字移交 player/46（播到伤害行时同帧打），删除两处 wait(1100) 延后飘字
-export const VER = 'fx/88fx-trigger.js V6.2.0';
+// V6.2.1 | 2026-10-26 | 蝴蝶（小昭·姊）并入投射分支，保持射箭演出
+export const VER = 'fx/88fx-trigger.js V6.2.1';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -49,8 +50,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             if (!GlobalStore.get('fxDodgeBullet')) {
                 showMeleeDodge(unitA, unitD);
             }
-        // 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）
-        } else if ((attackerRole === ROLE_TYPES.RANGED || attackerRole === ROLE_TYPES.JAVELIN) && !isBlock) {
+        // 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）；蝴蝶同远程（小昭·姊保持射箭演出）
+        } else if ((attackerRole === ROLE_TYPES.RANGED || attackerRole === ROLE_TYPES.JAVELIN || attackerRole === ROLE_TYPES.BUTTERFLY) && !isBlock) {
             const shotStyle = attackerRole === ROLE_TYPES.JAVELIN ? JAVELIN_SHOT_STYLE : null;
             if (isMiss) {
                 showRangedArrow(unitA, unitD, false, null, true, shotStyle);
