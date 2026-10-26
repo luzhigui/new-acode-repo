@@ -555,16 +555,21 @@ function renderModeCompare(box) {
   };
 
   let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${stageLabel}）</div>`;
-  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。Δ 均以「不带姐姐妹妹」模式为基准，正数=该模式相对无小昭更强、负数=更弱；某模式没跑过该海克斯则显示「—」。</p>`;
+  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。Δ = 该格胜率 − <b>本模式全海克斯平均</b>（净增益，已排除模式整体强度差），正数=该海克斯在本模式偏强、负数=偏弱。横向比四个 Δ 即「同一海克斯对不同小昭形态的增益程度」。</p>`;
+  // 每个模式先算「全海克斯平均胜率」（净 Δ 的基准），与 108 主表同口径
+  const modeAvg = {};
+  for (const m of CMP_MODES) {
+    const ks = Object.keys(data[m].per).filter(k => data[m].per[k].count > 0);
+    modeAvg[m] = ks.length ? ks.reduce((a, k) => a + data[m].per[k].wins / data[m].per[k].count, 0) / ks.length * 100 : null;
+  }
   html += '<table><tr><th>海克斯</th>' + CMP_MODES.map(m => `<th>${MODE_LABEL[m]}</th>`).join('') + '<th>Δ 常规</th><th>Δ 姐姐</th><th>Δ 妹妹</th></tr>';
-  html += '<tr><td style="color:#888">模式总览</td>'
-    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">明教胜 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
+  html += '<tr><td style="color:#888">全海克斯平均</td>'
+    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">平均 ${modeAvg[m] !== null ? modeAvg[m].toFixed(1) + '%' : '—'}｜明教胜 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
     + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
   for (const r of rows) {
-    const base = r.cell.none ? r.cell.none.rate : null;
     html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${HEX_NAME_MAP[r.key] || r.key}</td>`
       + CMP_MODES.map(m => rateTd(r.cell[m])).join('')
-      + deltaTd(r.cell.normal, base) + deltaTd(r.cell.sister, base) + deltaTd(r.cell.brother, base) + '</tr>';
+      + deltaTd(r.cell.normal, modeAvg.normal) + deltaTd(r.cell.sister, modeAvg.sister) + deltaTd(r.cell.brother, modeAvg.brother) + '</tr>';
   }
   html += '</table>';
   box.innerHTML = html;
@@ -587,8 +592,10 @@ function renderCrossStage(box, keepKey) {
       const lg = readLogs(m, st);
       if (lg.length) any = true;
       const s = hexStatsOf(lg);
+      const ks = Object.keys(s.per).filter(k => s.per[k].count > 0);
+      s.avg = ks.length ? ks.reduce((a, k) => a + s.per[k].wins / s.per[k].count, 0) / ks.length * 100 : null;
       data[st][m] = s;
-      for (const k of Object.keys(s.per)) allKeys.add(k);
+      for (const k of ks) allKeys.add(k);
     }
   }
   if (!any) {
@@ -600,7 +607,7 @@ function renderCrossStage(box, keepKey) {
   const selKey = (keepKey && keysArr.includes(keepKey)) ? keepKey : keysArr[0];
 
   let html = '<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">📈 跨关对比：单个海克斯在 1–7 关 × 四种阵容模式的表现</div>';
-  html += '<p style="color:#999;font-size:12px;margin:0 0 8px">行 = 关卡（含七关合计）；列 = 四种阵容模式。每格「胜率% / 场次」，下方 Δ = 该海克斯胜率 − 同关同海克斯的「不带姐姐妹妹」模式胜率（Δ>0 相对无小昭更强、<0 更弱；「不带姐姐妹妹」列本身标注「基准」）。某关某模式没数据就显示「—」。</p>';
+  html += '<p style="color:#999;font-size:12px;margin:0 0 8px">行 = 关卡（含七关合计）；列 = 四种阵容模式。每格「胜率% / 场次」，下方 Δ = 该海克斯胜率 − <b>同关同模式全海克斯平均</b>（净增益，已排除模式整体强度差），正数=本关本模式偏强、负数=偏弱。某关某模式没数据就显示「—」。</p>';
   html += '<div style="margin-bottom:10px">海克斯：<select class="hex-hex-crosskey" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px">';
   for (const k of keysArr) html += `<option value="${k}"${k === selKey ? ' selected' : ''}>${name(k)}</option>`;
   html += '</select></div>';
@@ -609,9 +616,7 @@ function renderCrossStage(box, keepKey) {
   for (const st of stageList) {
     // 每关都出一行；没跑过的关各格显示「—」，别整行跳过（跳了会让人误以为被挡住）
     html += `<tr><td style="color:#ffd700;font-weight:bold;white-space:nowrap;padding:6px 8px">${stageLabel(st)}</td>`;
-    // Δ 基准 = 同关同海克斯的「不带姐姐妹妹」模式胜率（none 列本身标注「基准」）
-    const noneD = data[st].none.per[selKey];
-    const noneRate = (noneD && noneD.count) ? noneD.wins / noneD.count * 100 : null;
+    // Δ 基准 = 本关本模式全海克斯平均（净增益，已排除模式整体强度差）
     for (const m of CMP_MODES) {
       const s = data[st][m];
       const d = s.per[selKey];
@@ -619,10 +624,8 @@ function renderCrossStage(box, keepKey) {
       const rate = d.wins / d.count * 100;
       const rcol = rate >= 50 ? '#4caf50' : rate >= 25 ? '#ffd700' : '#ff5252';
       html += `<td style="color:${rcol};font-weight:bold">${rate.toFixed(1)}%<div class="cell-sub">${d.count} 场</div>`;
-      if (m === 'none') {
-        html += '<div class="cell-sub" style="color:#888">基准</div>';
-      } else if (noneRate !== null) {
-        const delta = rate - noneRate;
+      if (s.avg !== null) {
+        const delta = rate - s.avg;
         const dcol = Math.abs(delta) < 1 ? '#888' : (delta > 0 ? '#ffd700' : '#4fc3f7');
         html += `<div class="cell-sub" style="color:${dcol}">Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}</div>`;
       }
