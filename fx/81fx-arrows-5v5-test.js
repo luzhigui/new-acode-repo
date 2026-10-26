@@ -1,9 +1,11 @@
+// V6.3.3 | 2026-10-26 | 白骨爪收尾（500/300/600/100）+ 命中黄闪（180/150）+ 斩杀碎裂（300/1000）
+//   共 8 处 waitReal→wait，改回逻辑时间跟随倍速
 // V6.3.2 | 2026-10-26 | 流星溅射（showSplashArrows）改回逻辑时间：蓄力环/停顿 800/300、溅射箭 flyDuration、收尾 600
 //   全部 waitReal→wait / animateReal→animate，跟倍速走（上一轮批量改真实时间时误伤）。
 // V6.3.1 | 2026-10-26 | 飞箭/流星蓄力改半压缩 250+250/timescale（2x≈375ms、8x≈271ms），高倍速下不再固定 500ms
 // V6.3.0 | 2026-10-25 | ~18700 bytes | 全部演出改真实时间轴：clock.wait→waitReal（12 处）、clock.animate→animateReal（7 处），
 //   时长不再被 timescale 二次缩放（参数表填多少就是多少）
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.2';
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.3';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -291,17 +293,17 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
                     claw.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
                     claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(2.2)`;
                     claw.style.opacity = '1';
-                    clock.waitReal(500).then(() => {
+                    clock.wait(500).then(() => {
                         claw.style.transition = 'opacity 0.3s';
                         claw.style.opacity = '0';
-                        clock.waitReal(300).then(() => { if (claw.parentNode) claw.remove(); });
+                        clock.wait(300).then(() => { if (claw.parentNode) claw.remove(); });
                     });
-                    clock.waitReal(600).then(() => {
+                    clock.wait(600).then(() => {
                         const finalRectD = snapshotUnitCellRobust(unitD);
                         if (finalRectD) triggerExecuteShatter(finalRectD);
                     });
                 } else {
-                    clock.waitReal(pauseAfterHit).then(() => { if (claw.parentNode) claw.remove(); });
+                    clock.wait(pauseAfterHit).then(() => { if (claw.parentNode) claw.remove(); });
                 }
             }
         });
@@ -314,10 +316,10 @@ function flashBoneClawHit(rect) {
     flash.setAttribute('data-fx', 'temporary');
     flash.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:radial-gradient(circle, rgba(255,238,140,0.95), rgba(235,185,40,0.5));z-index:9990;pointer-events:none;opacity:0.9;border-radius:4px;`;
     document.body.appendChild(flash);
-    clock.waitReal(180).then(() => {
+    clock.wait(180).then(() => {
         flash.style.transition = 'opacity 0.15s';
         flash.style.opacity = '0';
-        clock.waitReal(150).then(() => { if (flash.parentNode) flash.remove(); });
+        clock.wait(150).then(() => { if (flash.parentNode) flash.remove(); });
     });
 }
 
@@ -343,11 +345,11 @@ function triggerExecuteShatter(rect) {
         });
         shards.push(shard);
     }
-    clock.waitReal(300).then(() => {
+    clock.wait(300).then(() => {
         redFlash.style.transition = 'opacity 0.4s';
         redFlash.style.opacity = '0';
     });
-    clock.waitReal(1000).then(() => {
+    clock.wait(1000).then(() => {
         // 修白骨爪斩杀后白屏：原来写成 redFlash.parentNode.remove()——删的是闪光元素的爹
         // （document.body），斩杀碎开播完 1 秒整个页面主体被移除 → 白屏。同款错误还有碎片那行。
         // 应删元素自己：redFlash.remove() / s.remove()。全文件其他特效都是这个正确写法，独这两行漏网。

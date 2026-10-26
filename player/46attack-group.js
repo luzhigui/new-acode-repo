@@ -4,8 +4,9 @@
 // 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
 // V6.2.0 | 2026-10-25 无锚点 info/detail 改整行直出（不逐字），行间隔改 clock.waitReal 真实毫秒；
 //   白骨爪 / 带 _anchorSpecs 的行仍逐字跟特效
+// V6.2.2 | 2026-10-26 溢杀落地等待 600ms 改回逻辑时间（waitReal→wait），跟随倍速
 // V6.1.2 | 2026-10-25 | ~10500 bytes | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
-export const VER = 'player/46attack-group.js V6.2.0';
+export const VER = 'player/46attack-group.js V6.2.2';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { getPerfParam } from '../core/23perf-params.js';
@@ -71,7 +72,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     //   defTimerCancelled 保留：abort 或提前结束时让溢杀定时器失效（clock.waitReal 不可取消）。
     let defTimerCancelled = false;
     if (isOverkill && unitD && c.store) {
-        clock.waitReal(600).then(() => {
+        clock.wait(600).then(() => {
             if (defTimerCancelled) return;
             if (!c.store || !unitD) return;
             // 与 player/42 步末落地同两条 dispatch；那里有 `!_isDead` 守卫，不会重复落地
