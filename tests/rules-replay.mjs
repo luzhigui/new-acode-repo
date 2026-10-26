@@ -1,4 +1,4 @@
-// V6.7.2 | ~32400 bytes | 2026-10-25 第122轮（日间线合并）：tickAndPickBuffs 增加「小昭·妹永久海克斯继承」
+// V6.7.3 | ~32400 bytes | 2026-10-25 第122轮（日间线合并）：tickAndPickBuffs 增加「小昭·妹永久海克斯继承」
 //   （对齐 player/49battle-flow.js L49-57 真路径）——此前回放不建永久副本，妹永久分支全不可达
 //   （isBrother=true 零发射实锤），详见 tickAndPickBuffs 内注释。叠加在夜间 129-133 轮成果之上。
 // V6.7.1 | ~32300 bytes | 2026-10-17 第97轮转交态修复：KNOWN_TRANSFERS 误用 fetch 垫片内的局部 fs

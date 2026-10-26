@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/rule-teeth-evidence-selftest.mjs | V1.0.0 | 2026-10-25 第 133 轮
+// tests/rule-teeth-evidence-selftest.mjs | V1.0.1 | 2026-10-25 第 133 轮
 //
 // 盯的是**牙口取证结论配不配得上当前代码**（证据链 · 分支级）。
 //

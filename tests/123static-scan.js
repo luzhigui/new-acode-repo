@@ -42,7 +42,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.4.6';
+export const VER = 'tests/123static-scan.js V1.4.7';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [

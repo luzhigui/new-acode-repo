@@ -1,4 +1,4 @@
-// tests/xinhun-death-targeted-case.mjs | V1.0.1 | 2026-10-21 第 112 轮
+// tests/xinhun-death-targeted-case.mjs | V1.0.2 | 2026-10-21 第 112 轮
 // XIN_HUN_DEATH（宋青书·新婚致死）定向最小触发用例 —— 依据第 113 轮沙箱交接规格在主线重写。
 //
 // 背景（112 轮把 XIN_HUN_DEATH 定为「条件稀有」但只有定性；113 轮沙箱用定向用例把动作项做完）：

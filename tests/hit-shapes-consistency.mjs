@@ -1,5 +1,5 @@
 // tests/hit-shapes-consistency.mjs — 寒离飒「蓄意轰拳」数值口径对账（静态检查，非运行时体检）
-// V1.0.0 | ~9000 bytes | 2026-10-22 体检第 116 轮新建
+// V1.0.1 | ~9000 bytes | 2026-10-22 体检第 116 轮新建
 // V1.0.1 | 2026-10-26 第139轮·跟随 713d0ddb 轰拳重构：ui/79 移除 HIT_MAP 命中格拷贝，改读 content 真值(hitShapeOf)；重写 UI 侧抽取，注入同款 hitShapeOf 评估 dmgMapFor，形状对账①只比 真值↔引擎结算
 //   背景（一次真事故）：蓄意轰拳的伤害分母有三份副本——content 真值、modules/27 结算、ui/79 引擎 UI。
 //     2026-10-22 发现 ui/79 与 modules/27 里各留了「兜底字面量」{direct:2, near:4, far:6} / eightDen:3，

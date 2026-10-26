@@ -1,4 +1,4 @@
-// V1.14.0 | 2026-10-25 第 125 轮：fact 发射普查升为 CHECKS 守门项（deadEnum/spec rot 零发射点可靠红 EXIT 1 拦构建；rare/silent/blind 仅诊断），OBSERVES 原条目已移除
+// V1.15.0 | 2026-10-26 第 140 轮：新增「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs（静态检查，防头注释与 VER 常量漂移，落下即退码 1）；fact 发射普查升为 CHECKS 守门项（第125轮）
 // V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环，heavy 采样项）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
@@ -54,7 +54,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.10.0';
+export const VER = 'tests/run-all.mjs V1.15.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -65,6 +65,11 @@ const CHECKS = [
     { name: '静态扫描(import/枚举)', script: 'tests/123static-scan.js', args: [] },
     { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
     { name: '蓄意轰拳数值口径对账', script: 'tests/hit-shapes-consistency.mjs', args: [] },
+    // V1.15.0 | 2026-10-26 第 140 轮：挂「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs。
+    //   头注释 Vx 与 export const VER 的 Vx 不一致（只抬一头）是体检代码反复踩的坑（夜检 135 立线前已复发 ≥3 次，
+    //   本轮初扫出 tests/ 下 16 处漂移）。此线静态扫全部 tests/*.mjs/*.js，两端声明不一致即退码 1，落下即咬。
+    //   140-baseline.js 因 VER 耦合入库基线 JSON（用户挂 hold 待拍板）被豁免，不拦门。
+    { name: '版本号遗忘抬升绊线', script: 'tests/ver-bump-selftest.mjs', args: [] },
     { name: '精英注册一致性', script: 'tests/registration-check.mjs', args: [] },
     { name: '规则回放(20seed×7关)', script: 'tests/rules-replay.mjs', args: [] },
     { name: '胜负基线闸门(18场)', script: 'tests/140-baseline.js', args: ['--check'] },

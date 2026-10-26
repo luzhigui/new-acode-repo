@@ -1,4 +1,4 @@
-// tests/fact-dead-field-scan.mjs | V1.1.1 | 2026-10-21 第 112 轮 · 2026-10-23 第 123 轮扩层
+// tests/fact-dead-field-scan.mjs | V1.2.0 | 2026-10-21 第 112 轮 · 2026-10-23 第 123 轮扩层
 // V1.1.0（第 123 轮）：fact 收集**递归进 attack-group 的 data.entries**。
 //   声明类 fact（嗜血狂刀 / 热血奋战 / 溅射 / 反弹 …）由 core/10 L303-305、L382-384 塞进
 //   `group.data.entries`，**不在 step.log 顶层**；V1.0.0 只读顶层 ⇒ 整批嵌套声明全漏，

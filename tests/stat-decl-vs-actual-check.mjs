@@ -1,4 +1,4 @@
-// V3.8.3 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
+// V3.9.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
 //   本文件此前自带一份拷贝（有 cols/rows、无永久继承），与 rules-replay 口径分叉；收口后样本
 //   含妹永久海克斯继承（与 rules-replay 自 V6.7.2 起一致）。验证：全部契约偏差 0、EXIT=0。
 // V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
