@@ -25,9 +25,23 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// 取样充分性判定（2026-10-27 夜间第 143 轮接入）：与对照器守卫 / 契约绑定 / fact 普查 / 规则恒空转
+// 共用 tests/_lib/sample-sufficiency.mjs 同一份口径。本检查器此前**完全不判取样面**：
+//   FACT_TYPES 块一旦切不出来（infra/56 结构变动）⇒ FACT_KEYS=0 ⇒ gaps / stale 双双归零 ⇒
+//   报告打出「覆盖缺口 0 类、悬空引用 0 类」，而真相是"一条都没查"。这就是第 142 轮点名的
+//   「只查了 3 条就说 56 条都没问题」在本文件的版本，本轮一并收口。
+import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// 取样面规模下限（实测：FACT_KEYS 145 / 规则文件 47 / 引擎文件 52；薄线由公共件按一半推出）。
+//   ★ 实测 FACT_KEYS 145 与 infra/56 真实 FACT_TYPES 的 91 项对不上 —— 本文件的取样面本身是脏的
+//   （切片区间从 'FACT_TYPES' 起到 'MECHANIC_TYPES' 止，中途把别的枚举也收了进来）。
+//   已立待办（见文末打印与本轮日志），本轮先钉下限防塌到 0，不擅自改切片口径（那会改变既有结论）。
+const MIN_FACT_KEYS = 80;
+const MIN_RULE_FILES = 30;
+const MIN_ENGINE_FILES = 30;
 
 function walk(dir, exts, out = []) {
     if (!existsSync(dir)) return out;
@@ -119,8 +133,38 @@ for (const { key, val } of FACT_KEYS) {
     if (eng === 0 && (rule > 0 || decl > 0) && !WHITELIST[key]) stale.push({ key, rule, decl });
 }
 
+// 取样档位（第 143 轮新增，走公共件）：三个取样面各判一档，任一不足即整体「取样不足」。
+const SAMPLE_FK = judgeSample({
+    count: FACT_KEYS.length, floor: MIN_FACT_KEYS, unit: '条 factType', mode: 'floor', source: 'infra/56 枚举切片'
+});
+const SAMPLE_RF = judgeSample({
+    count: ruleFiles.length, floor: MIN_RULE_FILES, unit: '个规则文件', mode: 'floor', source: 'tests/health-rules'
+});
+const SAMPLE_EF = judgeSample({
+    count: engineFiles.length, floor: MIN_ENGINE_FILES, unit: '个引擎文件', mode: 'floor', source: 'core+modules'
+});
+const SAMPLE_INSUFFICIENT = SAMPLE_FK.insufficient || SAMPLE_RF.insufficient || SAMPLE_EF.insufficient;
+const sampleFails = [];
+for (const [tag, s] of [['枚举切片', SAMPLE_FK], ['规则文件', SAMPLE_RF], ['引擎文件', SAMPLE_EF]]) {
+    const bad = checkThreshold(s);
+    if (bad) sampleFails.push(tag + '取样门槛：' + bad);
+}
+for (const bad of selfCheck()) sampleFails.push('取样公共件自证：' + bad);
+if (SAMPLE_INSUFFICIENT) {
+    for (const [tag, s] of [['枚举切片', SAMPLE_FK], ['规则文件', SAMPLE_RF], ['引擎文件', SAMPLE_EF]]) {
+        if (s.insufficient) sampleFails.push(tag + '取样不足：' + s.detail);
+    }
+}
+
 console.log('==== factType 覆盖交叉检查（引擎发射 ↔ 体检消费）====');
 console.log('· FACT_TYPES 全表 ' + FACT_KEYS.length + ' 条；引擎文件 ' + engineFiles.length + ' / 规则文件 ' + ruleFiles.length + ' / 渲染文件 ' + renderFiles.length);
+console.log('· 取样档位：枚举 ' + SAMPLE_FK.state + '（薄线 ' + SAMPLE_FK.thin + '）· 规则文件 '
+    + SAMPLE_RF.state + '（薄线 ' + SAMPLE_RF.thin + '）· 引擎文件 ' + SAMPLE_EF.state + '（薄线 ' + SAMPLE_EF.thin + '）'
+    + (SAMPLE_INSUFFICIENT ? ' ⇒ **取样不足**：下列结论中的「没查到」一律标「不成立」' : ' ⇒ 取样充分'));
+if (sampleFails.length) {
+    console.log('· ⛔ 取样面红线（' + sampleFails.length + ' 项；本检查器按第 124 轮定性恒不判退码，仅报告）：');
+    for (const s of sampleFails) console.log('    ❌ ' + s);
+}
 const watchedCount = rows.filter(r => r.eng > 0 && (r.rule + r.decl) > 0).length;
 const emittedCount = rows.filter(r => r.eng > 0).length;
 console.log('· 引擎发射 ' + emittedCount + ' 类，其中被规则/契约盯梢 ' + watchedCount + ' 类（覆盖率 ' + (watchedCount / Math.max(1, emittedCount) * 100).toFixed(1) + '%）');
@@ -130,6 +174,14 @@ console.log('     以下为「待样本验证候选」，不判红；需配合�
 for (const g of gaps.sort((a, b) => b.eng - a.eng)) console.log('    ? ' + g.key + '（引擎引用 ' + g.eng + ' 处，渲染 ' + g.rend + ' 处）');
 console.log('· 悬空引用（规则/契约引用、引擎零发射、未登记）: ' + stale.length + ' 类 ← 红线（引擎变更后规则失配的苗头）');
 for (const s of stale) console.log('    ⚠ ' + s.key + '（规则 ' + s.rule + ' / 契约 ' + s.decl + '）');
+if (SAMPLE_INSUFFICIENT) {
+    // 「零悬空」「零缺口」同属**没查到**类结论：取样面一塌它俩必然双双归零，不能当绿看。
+    //   ★ 故取样不足时**无条件**给出这句（不看 stale 是否为空）—— 空集出绿正是本轮要收的洞。
+    console.log('    ⚠️  以上缺口 / 悬空是**查到**的项；取样不足时**「零」不等于没有问题** —— '
+        + '缺口 0 类与悬空 0 类此刻均**不成立**（既不计绿也不计红），先恢复取样面再谈结论');
+} else if (!stale.length) {
+    console.log('    （无 —— 无规则/契约对着不存在的 fact 干活）');
+}
 if (SCAN_ONLY) { console.log('· --scan 模式：仅报告不判红'); }
 // 第 124 轮反思（重要）：本检查器静态匹配不可靠，已实证两波假阳性 ——
 //   ① 规则侧 fileNorm 文件名加权 + val 渲染标签，把 PUSH/DESTROY/TRANSFORM/STAT_CHANGE/DASH/SPLASH 误判成悬空；

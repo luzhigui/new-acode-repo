@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// tests/contract-binding-drift-selftest.mjs | V1.4.0 | 2026-10-27 夜间第 143 轮：本文件的取样判定
+//   （空/薄/足 三档 + ④c 门槛自证）搬到公共件 tests/_lib/sample-sufficiency.mjs，改为 import 复用 ——
+//   判据松紧一字未改（薄线仍为 ceil(静态 group 字面量/2) = 26），只换存放位置。
 // tests/contract-binding-drift-selftest.mjs | V1.3.0 | 2026-10-27 夜间第 142 轮：薄取样档 ——
 //   取样不为空但极小（如只 2 个 group）时 ③ 会把几十条「一次都没出现」报成 group 改名/撤除，
 //   与第 141 轮收口的空取样是同一个洞；本轮把「空」的门槛从 0 抬到「静态 group 字面量的半数」，
@@ -42,10 +45,15 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/contract-binding-drift-selftest.mjs V1.3.0';
+export const VER = 'tests/contract-binding-drift-selftest.mjs V1.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
+
+// 取样充分性判定（2026-10-27 夜间第 143 轮起）走公共件，与对照器守卫共用同一份口径。
+import {
+    judgeSample, checkThreshold, thinFloorOf, selfCheck
+} from './_lib/sample-sufficiency.mjs';
 
 const COMPARER = 'tests/stat-decl-vs-actual-check.mjs';
 const ENUM_FILE = path.join(root, 'infra', '56-battle-enums.js');
@@ -213,14 +221,22 @@ const groupSources = new Set();
 //         照 ③ 报出去就是几十条「group 改名/撤除」的假诊断，与空取样是同一个洞，只是体量小一点。
 //         故第 142 轮把门槛从 0 抬到这里，空与薄统一按「取样不足」处置。
 //   不另抄魔数：门槛由静态侧的 group 字面量个数推出，静态侧一变它就跟着动。
-const THIN_GROUPS_MAX = Math.ceil(groupSources.size / 2);
-const GROUPS_EMPTY = ledgerGroups.size === 0;
-const GROUPS_THIN = ledgerGroups.size > 0 && ledgerGroups.size < THIN_GROUPS_MAX;
-const GROUPS_INSUFFICIENT = GROUPS_EMPTY || GROUPS_THIN;
-const GROUPS_STATE = GROUPS_EMPTY
+//   第 143 轮起由公共件推出（ceil 取整，与第 142 轮的 26 逐位一致，未改判据）。
+const THIN_GROUPS_MAX = thinFloorOf(groupSources.size, 'ceil');
+// 第 143 轮起：空/薄/足 三档与 detail 文案一律由公共件给出（口径全仓唯一）。
+const GROUPS_SAMPLE = judgeSample({
+    count: ledgerGroups.size, floor: groupSources.size, unit: '个 group', mode: 'ceil',
+    source: '--scan-groups'
+});
+const GROUPS_INSUFFICIENT = GROUPS_SAMPLE.insufficient;
+// 档位用公共件的，文案在本线略有加料：把「静态侧主代码里有 N 个 group 字面量」这句对照基准带上 ——
+//   它是「取样面塌了」而非「group 真被撤光」的判据来源，丢了这句话，人拿到报告会去查改名。
+const GROUPS_STATE = GROUPS_SAMPLE.count === 0
     ? '运行时取样 0 个 group'
-    : `运行时只取样到 ${ledgerGroups.size} 个 group（低于 ${THIN_GROUPS_MAX} 个的薄取样线，`
-      + `静态侧主代码里却有 ${groupSources.size} 个 group 字面量）`;
+    : (GROUPS_INSUFFICIENT
+        ? `运行时只取样到 ${ledgerGroups.size} 个 group（低于 ${THIN_GROUPS_MAX} 个的薄取样线，`
+            + `静态侧主代码里却有 ${groupSources.size} 个 group 字面量）`
+        : GROUPS_SAMPLE.detail);
 
 let contractCount = 0;
 let keyCount = 0;
@@ -329,16 +345,26 @@ if (!fails.length) {
         notes.push('④b 崩溃正则与 group 行解析器在合成样本上均命中 —— 取样不足可与真改名区分');
     }
 
-    // ④c（2026-10-27 夜间第 142 轮新增）—— 薄取样门槛本身必须站得住：
+    // ④c（2026-10-27 夜间第 142 轮新增；第 143 轮起走公共件 checkThreshold）—— 薄取样门槛本身必须站得住：
     //   门槛为 0 ⇒ ③ 退回「取样只剩 2 个 group 也照样逐条判改名」的老洞；
     //   门槛 ≥ 静态 group 字面量总数 ⇒ 任何取样都算「薄」，③ 从此永不判、等于被静默拆掉。
-    if (!(THIN_GROUPS_MAX > 0 && THIN_GROUPS_MAX < groupSources.size)) {
-        fails.push(`④c 薄取样门槛 ${THIN_GROUPS_MAX} 失位（须满足 0 < 门槛 < 静态 group 字面量 ${groupSources.size}）`
-            + ' —— 门槛为 0 则③ 退回「极少量取样也逐条判改名」的老洞；'
-            + '门槛 ≥ 静态 group 总数则③ 从此永不判、等于被静默拆掉（先修本文件的常量，不是主代码）');
+    const thBad = checkThreshold(GROUPS_SAMPLE);
+    if (thBad) {
+        fails.push('④c ' + thBad + '（先修门槛来源，不是主代码）');
     } else {
         notes.push(`④c 薄取样门槛 ${THIN_GROUPS_MAX} 个落在合理区间（0 < ${THIN_GROUPS_MAX} < ${groupSources.size}）`
             + ' —— ③ 既不恒错判改名也不恒虚');
+    }
+
+    // ④d（2026-10-27 夜间第 143 轮新增）—— 公共判定器自证：抽成公共件后它一旦腐烂，
+    //   本线与对照器守卫线会同时失守，而 ④a~④c 验的都是本文件自己的正则与常量、验不到它。
+    const libBad = selfCheck();
+    if (libBad.length) {
+        fails.push('④d 取样充分性公共判定器自证未过（' + libBad.join('；') + '）'
+            + ' —— tests/_lib/sample-sufficiency.mjs 已腐烂，③ 的结论此刻不可信');
+    } else {
+        notes.push('④d 取样充分性公共判定器自证通过（三档判定 / 有罪豁免 / 门槛两端）'
+            + ' —— ③ 与守卫线②③⑤ 共用同一份口径');
     }
 }
 

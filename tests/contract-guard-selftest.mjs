@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// tests/contract-guard-selftest.mjs | V1.4.0 | 2026-10-27 夜间第 143 轮：本文件的取样判定（空/薄/足 三档
+//   + 有罪豁免 + ⑥d 门槛自证）搬到公共件 tests/_lib/sample-sufficiency.mjs，改为 import 复用 ——
+//   判据松紧一字未改，只换存放位置（行为等价由验牙反证）。抽公共件的动因是本轮主攻：
+//   fact-coverage-selftest / fact-emission-census / rule-idle-selftest 三处都吃同一款以偏概全的盲区，
+//   各自再写一份就会出现三份口径。
 // tests/contract-guard-selftest.mjs | V1.3.0 | 2026-10-27 夜间第 142 轮：薄取样档 ——
 //   ②③⑤ 在「取样不为空但极小」时仍会恒过（第 141 轮点名的同一类盲区余量），本轮把判定的
 //   空-成立门槛从 0 抬到「规模下限的一半」；红由 ① 无条件兜住，另加 ⑥d 门槛自证
@@ -32,10 +37,16 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/contract-guard-selftest.mjs V1.3.0';
+export const VER = 'tests/contract-guard-selftest.mjs V1.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
+
+// 取样充分性判定（2026-10-27 夜间第 143 轮起）走公共件：三档（空/薄/足）与「有罪证据不受取样量影响、
+// 无罪结论受取样量影响」这条取舍原则全仓只有一份实现，改一处即全仓生效，不再有第二份口径。
+import {
+    judgeSample, verdict, checkThreshold, thinFloorOf, selfCheck, VERDICT
+} from './_lib/sample-sufficiency.mjs';
 
 // ③ 恒空转契约白名单（只允许收缩，不允许新增）。
 //   **第 128 轮收缩：2 条 → 1 条** —— 原第二条 HLS_JIUYANG_HEAL 不是样本问题，是**契约绑定键过期**：
@@ -72,7 +83,8 @@ const MIN_CONTRACTS = 50;
 //   而"从 3 条里看出 0 条命中"根本推不出"剩下 53 条也没命中" —— 这是同一类假绿，只是换了个体量。
 //   取 MIN_CONTRACTS 的一半是为了不另抄魔数：门槛随规模闸门联动抬降。
 //   注意它恒小于 MIN_CONTRACTS ⇒ 凡判「薄」必然同时触 ① 的无条件失败，红不会丢（见 ① 处注释）。
-const THIN_SAMPLE_MAX = Math.floor(MIN_CONTRACTS / 2);
+//   第 143 轮起由公共件 thinFloorOf 推出（floor 取整，与第 142 轮的 25 逐位一致，未改判据）。
+const THIN_SAMPLE_MAX = thinFloorOf(MIN_CONTRACTS, 'floor');
 
 // ⑥b 规模下限：第 127 轮全量重跑 46 棵变异树实测 29 项「牙 → 守卫契约」归属。
 //   低于此值说明归属表被误删 —— 表一空，④ 就什么都不用比、恒过，属静默失效。
@@ -121,15 +133,15 @@ const CRASH_RE = /对照器异常|^\s*Error:|throw |台词池缺失|击杀台词
 //   故先钉一条：对照器崩 ⇒ 下面所有解析结论一律不成立，先修对照器（主代码侧），不许拿解析结论当真。
 const crashLine = out.split('\n').find(l => CRASH_RE.test(l));
 const CRASH_FLAG = Boolean(crashLine);
-// 取样为空 ⇒ ①~⑤ 中凡依赖取样的结论全部「没得判」。
-const SAMPLE_EMPTY = contracts.length === 0;
+// 取样为空 ⇒ ①~⑤ 中凡依赖取样的结论全部「没得判」（档位由公共件判定，见下方 SAMPLE）。
 // 取样薄（2026-10-27 夜间第 142 轮新增）：条数 > 0 但远低于规模闸门 ⇒ ②③⑤ 的结论是**查不全**
 //   得出的：25 条里没有命中，推不出 56 条里没有命中。与空取样同一处置：标「不成立」，不计绿也不计红。
-const SAMPLE_THIN = contracts.length > 0 && contracts.length < THIN_SAMPLE_MAX;
-const SAMPLE_INSUFFICIENT = SAMPLE_EMPTY || SAMPLE_THIN;
-const SAMPLE_STATE = SAMPLE_EMPTY
-    ? '取样 0 条（对照器未产出任何契约行）'
-    : `取样仅 ${contracts.length} 条（低于 ${THIN_SAMPLE_MAX} 条的薄取样线，历史基线 ${MIN_CONTRACTS}+ 条）`;
+//   第 143 轮起：空/薄/足 三档与 detail 文案一律由公共件 judgeSample 给出（口径全仓唯一）。
+const SAMPLE = judgeSample({
+    count: contracts.length, floor: MIN_CONTRACTS, unit: '条', mode: 'floor', source: '对照器'
+});
+const SAMPLE_INSUFFICIENT = SAMPLE.insufficient;
+const SAMPLE_STATE = SAMPLE.detail;
 
 // 取样不足时的取舍原则（第 142 轮立，下轮沿用）：**有罪证据不受取样量影响，无罪结论受取样量影响**。
 //   ①②③ 里真抓到的东西（② 干净树有命中、③ 白名单外的新增恒空转、以及 ① 规模不够本身）
@@ -159,11 +171,13 @@ const byId = new Map(contracts.map(c => [c.id, c]));
 
 // ② 干净树逐契约 命中 必须全为 0
 const dirty = contracts.filter(c => c.hit > 0);
-if (dirty.length) {
+// 第 143 轮起档位由公共件裁定：found = 真抓到了命中（有罪证据，薄取样也照判失败）
+const v2 = verdict(dirty.length > 0, SAMPLE);
+if (v2 === VERDICT.FAIL) {
     fails.push(`② 干净树上有 ${dirty.length} 条契约命中>0（${dirty.map(c => c.id + ':' + c.hit).join('、')}）`
         + ' —— 对照器自身已在报红；同时 mutation-teeth 的「对照器侧不得作证」闸门开始生效，'
         + '被判定为脏的契约其命中不再计入「有牙」，牙口结论会整体降级');
-} else if (SAMPLE_INSUFFICIENT) {
+} else if (v2 === VERDICT.VACUOUS) {
     // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：N 条「零命中」是**没得比**，不是比过没问题。
     vacuous.push(`② 「干净树零命中」不成立 —— ${SAMPLE_STATE}，零命中是没得比、不是比过没问题`
         + '（mutation-teeth「对照器侧不得作证」闸门此刻无从判断）');
@@ -174,11 +188,13 @@ if (dirty.length) {
 // ③ 恒空转契约棘轮（只允许收缩）
 const zeroTrigger = contracts.filter(c => c.decl === 0 && c.strict === 0).map(c => c.id);
 const unknownZero = zeroTrigger.filter(id => !KNOWN_ZERO_TRIGGER.includes(id));
-if (unknownZero.length) {
+// 第 143 轮起档位由公共件裁定：白名单外的新增恒空转 = 真抓到的坏消息（有罪证据，不因取样薄而豁免）
+const v3 = verdict(unknownZero.length > 0, SAMPLE);
+if (v3 === VERDICT.FAIL) {
     fails.push(`③ 新增恒空转契约 ${unknownZero.length} 条（${unknownZero.join('、')}）`
         + ' —— 声明 0 且严格比对 0 ⇒ 「偏差 0」是没得比、不是比过了没偏差，这类契约守不住任何牙；'
         + '已知白名单只允许收缩，新增一律判失败');
-} else if (SAMPLE_INSUFFICIENT) {
+} else if (v3 === VERDICT.VACUOUS) {
     // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：少量契约时棘轮只咬得住这区区几条，新增恒空转会被漏掉。
     vacuous.push(`③ 恒空转契约棘轮不成立 —— ${SAMPLE_STATE}，白名单收缩与否无从判断`
         + '（此刻新增的恒空转契约会被漏掉，棘轮暂时失效）');
@@ -201,14 +217,18 @@ for (const [tooth, cid] of Object.entries(TEETH_GUARDIAN)) {
     if (!byId.has(cid)) missing.push(`${tooth}→${cid}`);
 }
 const guardCount = Object.keys(TEETH_GUARDIAN).length;
-if (SAMPLE_INSUFFICIENT) {
+// ④ 与 ②③⑤ 不同：它在取样不足时**一律转不成立**（含 missing>0 的情形）——
+//   因为「归属表里这条契约查不到」分不清是真改名还是没取样到，取样不足时它不构成有罪证据。
+//   故这里不走 verdict 的 found 参数，而是先把取样不足这一档挡掉。
+const v4 = SAMPLE.insufficient ? VERDICT.VACUOUS : verdict(missing.length > 0, SAMPLE);
+if (v4 === VERDICT.VACUOUS) {
     // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：取样不足时逐条「不存在」分不清是**真改名**还是**没取样到**，
     //   第 140 轮正是把白天会话引向「查契约是不是改名了」的方向，属指错方向，故不计入失败。
     //   归属明细照常列出（信息不丢），只是不定性；定性所需的前提（取样完整）此刻不成立。
     vacuous.push(`④ 归属表 ${guardCount} 项存在性校验不成立 —— ${SAMPLE_STATE}，`
         + `其中 ${missing.length} 项查不到对应契约（${missing.slice(0, 8).join('、') || '无'}）`
         + ' ⇒ 无法区分「契约真改名」与「取样没带到」，不作改名定性（红由 ① 无条件兜住）');
-} else if (missing.length) {
+} else if (v4 === VERDICT.FAIL) {
     fails.push(`④ 归属表里有 ${missing.length} 项指向不存在的契约（${missing.join('、')}）`
         + ' —— 契约改名会让该牙的「对照器兜住」静默失效');
 } else {
@@ -220,12 +240,14 @@ const deadGuard = [];
 for (const [tooth, cid] of Object.entries(TEETH_GUARDIAN)) {
     if (zeroTrigger.includes(cid)) deadGuard.push(`${tooth}→${cid}`);
 }
-if (SAMPLE_INSUFFICIENT) {
+// 第 143 轮起档位由公共件裁定：守卫契约进了恒空转集合 = 真抓到的坏消息（有罪证据）
+const v5 = verdict(deadGuard.length > 0, SAMPLE);
+if (v5 === VERDICT.VACUOUS) {
     // 第 141 轮收口（0 条）+ 第 142 轮扩到薄取样：零恒空转是「一个都没查 / 只查了这几条」，不是「查过都没问题」。
     vacuous.push(`⑤ 守卫契约非空转校验不成立 —— ${SAMPLE_STATE}，`
         + `恒空转集合里查到 ${deadGuard.length} 项守卫契约（${deadGuard.slice(0, 6).join('、') || '无'}）`
         + ' ⇒ 取样不足时「decl 0 / strict 0」可能是对照器中途中断所致，不作死契约定性，明细照列（信息不丢）');
-} else if (deadGuard.length) {
+} else if (v5 === VERDICT.FAIL) {
     fails.push(`⑤ ${deadGuard.length} 颗牙的守卫契约是恒空转契约（${deadGuard.join('、')}）`
         + ' —— 守着它的是个死契约，「对照器兜住」属自欺');
 } else {
@@ -261,16 +283,28 @@ if (SAMPLE_INSUFFICIENT) {
         notes.push('⑥c 契约行解析器在合成契约行上解析正常 —— 抽取器未腐烂');
     }
 
-    // ⑥d（2026-10-27 夜间第 142 轮新增）—— 薄取样门槛本身必须站得住：
+    // ⑥d（2026-10-27 夜间第 142 轮新增；第 143 轮起走公共件 checkThreshold）—— 薄取样门槛本身必须站得住：
     //   取 0 ⇒ ②③⑤ 退回第 141 轮之前「1 至 5 条也判全绿」的老盲区；
     //   ≥ MIN_CONTRACTS ⇒ 门槛高过规模闸门，取样永远算「薄」，②③⑤ 从此永不判、等于被静默拆掉。
-    if (!(THIN_SAMPLE_MAX > 0 && THIN_SAMPLE_MAX < MIN_CONTRACTS)) {
-        fails.push(`⑥d 薄取样门槛 ${THIN_SAMPLE_MAX} 失位（须满足 0 < 门槛 < ${MIN_CONTRACTS}）`
-            + ' —— 门槛为 0 则②③⑤ 退回「极少量取样也判全绿」的老盲区；'
-            + '门槛 ≥ 规模下限则②③⑤ 从此永不判、等于被静默拆掉（先修本文件的常量，不是主代码）');
+    const thBad = checkThreshold(SAMPLE);
+    if (thBad) {
+        fails.push('⑥d ' + thBad + '（先修门槛来源，不是主代码）');
     } else {
         notes.push(`⑥d 薄取样门槛 ${THIN_SAMPLE_MAX} 条落在合理区间（0 < ${THIN_SAMPLE_MAX} < ${MIN_CONTRACTS}）`
             + ' —— ②③⑤ 既不恒绿也不恒虚');
+    }
+
+    // ⑥e（2026-10-27 夜间第 143 轮新增）—— 公共判定器自证。
+    //   ★ 抽成公共件后，它一旦被改坏，本线与绑定线会在同一时刻集体假绿 / 集体假红，
+    //   而本文件的 ⑥a~⑥d 一条都验不到公共件（它们验的是本文件自己的正则与常量）。
+    //   故把公共件的「三档 + 取舍三态 + 门槛两端」钉成本文件的一条断言；公共件腐烂即此处红。
+    const libBad = selfCheck();
+    if (libBad.length) {
+        fails.push('⑥e 取样充分性公共判定器自证未过（' + libBad.join('；') + '）'
+            + ' —— tests/_lib/sample-sufficiency.mjs 已腐烂，②③⑤ 与绑定线③ 的结论此刻全部不可信');
+    } else {
+        notes.push('⑥e 取样充分性公共判定器自证通过（三档判定 / 有罪豁免 / 门槛两端）'
+            + ' —— ②③⑤ 与绑定线③ 共用同一份口径，不存在第二份分叉');
     }
 }
 

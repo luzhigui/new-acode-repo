@@ -1,4 +1,14 @@
-// tests/fact-emission-census.mjs V1.2.0
+// tests/fact-emission-census.mjs V1.3.0
+// V1.3.0 | 2026-10-27 夜间第 143 轮：接公共取样判定器 —— 本普查是**样本驱动**的，而此前它连
+//   「样本还在不在」都不判：对局跑崩 / SEEDS 被调小 ⇒ battles 塌到个位，emitKeys 随之稀，
+//   于是 ① 死枚举会暴涨（把"这次没跑到"判成"引擎根本不发"，假红一串），③ 盲区候选会归零并
+//   打一句"所有实际发射的 fact 都有人盯"（无罪结论冒充绿）。本轮补两件事：
+//     · 规模闸门（battles / facts 各一道）+ 取样不足档：走 tests/_lib/sample-sufficiency.mjs，
+//       与对照器守卫、契约绑定共用同一份口径，不另写一份；
+//     · 区分两类结论：deadEnum / orphanSpec / contractGaps 均带「全库零发射点 / 实发漏字段」
+//       这类**查到了**的静态证据，属有罪证据 —— 取样再薄也照判，不豁免；
+//       blind（盲区候选）是「没查到」类，取样不足时一律转「不成立」，不许它冒充"零盲区"。
+//   退码：规模闸门命中即与契约腐烂红同列（return 1），绝不因样本塌了而静默放行。
 // ───────────────────────────────────────────────────────────────────────────
 // 样本驱动 fact 发射普查（第 124 轮·C → 第 125 轮扩为「契约腐烂检测器」）：
 //   替代此前站不住的「静态 fact-coverage 检查器」，并新增 spec rot（规约腐烂）检测。
@@ -41,8 +51,16 @@ import { initBattleTeams } from '../modules/29battle-init.js';
 import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
+import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
-const VER = 'tests/fact-emission-census.mjs V1.2.0';
+const VER = 'tests/fact-emission-census.mjs V1.3.0';
+
+// 取样规模闸门（2026-10-27 夜间第 143 轮新增）。实测基准：210 场 / 101869 条 fact（30 seeds × 7 stages）。
+//   下限取实测的约六到八成（对局 180 / fact 60000），薄线由公共件按一半推出（90 场 / 30000 条）。
+//   ★ 为什么不设成"只要跑过就算"：SEEDS 是可调参数，SEEDS=1 也能跑完并给出一份"零死枚举、
+//   零盲区"的漂亮报告 —— 那正是第 142 轮点名的"只查了 3 条就说 56 条都没问题"。
+const MIN_BATTLES = 180;
+const MIN_FACTS = 60000;
 const argv = process.argv.slice(2);
 const JSON_ONLY = argv.includes('--json');
 const N_SEEDS = Number(process.env.SEEDS_N || (argv.includes('--seeds') ? argv[argv.indexOf('--seeds') + 1] : 30));
@@ -210,9 +228,36 @@ async function main() {
         else rareSpec.push({ v, sites });               // 有发射点但样本未触发
     }
 
+    // 取样充分性（第 143 轮新增，走公共件）：两道闸门各判一档，任一不足即整体「取样不足」。
+    const SAMPLE_B = judgeSample({
+        count: battles, floor: MIN_BATTLES, unit: '场', mode: 'floor', source: '样本对局'
+    });
+    const SAMPLE_F = judgeSample({
+        count: facts, floor: MIN_FACTS, unit: '条 fact', mode: 'floor', source: 'fact 收集器'
+    });
+    const SAMPLE_INSUFFICIENT = SAMPLE_B.insufficient || SAMPLE_F.insufficient;
+    const sampleFails = [];
+    for (const s of [SAMPLE_B, SAMPLE_F]) {
+        const bad = checkThreshold(s);
+        if (bad) sampleFails.push('取样门槛自证：' + bad);
+    }
+    for (const bad of selfCheck()) sampleFails.push('取样公共件自证：' + bad);
+    if (SAMPLE_B.insufficient) {
+        sampleFails.push(`样本规模闸门：${SAMPLE_B.detail}`
+            + ' —— 取样不足时「没查到」一律不成立，不得冒充"零盲区"；'
+            + '本普查的死枚举/死规约两栏也会因样本没跑到而失真，先恢复样本规模再看结论');
+    }
+    if (SAMPLE_F.insufficient) {
+        sampleFails.push(`fact 规模闸门：${SAMPLE_F.detail}`
+            + ' —— fact 收集面塌了（walkFacts 失配或对局未推进），本普查结论不可信');
+    }
+
     const out = {
         ver: VER, generatedAt: new Date().toISOString(),
         sample: { battles, facts, seeds: SEEDS.length, stages: STAGES.length },
+        sampleGate: {
+            battles: SAMPLE_B, facts: SAMPLE_F, insufficient: SAMPLE_INSUFFICIENT, fails: sampleFails
+        },
         emittedFactTypes: [...ftCount.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ k, n })),
         deadEnumFactTypes: deadEnum,            // 真·死枚举项（枚举有定义、零发射点）
         rareEnumFactTypes: rareEnum,            // 有发射点但样本未触发（稀有/需定向）
@@ -224,19 +269,38 @@ async function main() {
         contractFieldGaps: [...contractGaps.entries()].map(([k, m]) => ({ k, missing: [...m.entries()].map(([rf, n]) => ({ rf, n })) })),
         note: '诊断工具恒 EXIT 0：deadEnum / orphanSpec 为可靠红线候选（引擎零发射点）；blindSpot 为候选（规则按 data 字段消费时会漏计），须定向用例兜底'
     };
-    if (JSON_ONLY) { console.log(JSON.stringify(out, null, 2)); return deadEnum.length + orphanSpec.length > 0 ? 1 : 0; }
+    // JSON_ONLY 同样计取样闸门：机器消费方拿到一份"样本塌了"的 JSON 却 exit 0，比人类报告更危险。
+    if (JSON_ONLY) {
+        console.log(JSON.stringify(out, null, 2));
+        return (deadEnum.length + orphanSpec.length + sampleFails.length > 0) ? 1 : 0;
+    }
 
     console.log('=== 样本驱动 fact 发射普查 ' + VER + ' ===');
     console.log(`样本：${battles} 场 / ${facts} 条 fact / ${SEEDS.length} seeds×${STAGES.length} stages`);
+    console.log(`取样档位：对局 ${SAMPLE_B.state}（薄线 ${SAMPLE_B.thin} 场）· fact ${SAMPLE_F.state}（薄线 ${SAMPLE_F.thin} 条）`
+        + (SAMPLE_INSUFFICIENT ? ' ⇒ **取样不足**：下列「没查到」类结论一律标「不成立」' : ' ⇒ 取样充分'));
     console.log(`枚举 factType 总数：${enumKeys.length}，样本实际发射：${emitKeys.size}`);
     console.log(`\n--- ① 死枚举项（枚举有定义、全库零发射点，可靠红线候选）：${deadEnum.length} 条 ---`);
+    // 有罪证据说明（第 143 轮）：本栏判据是「全库零发射点」这一**静态**信号，不是"这次样本没跑到"，
+    //   故取样再薄也照判（不受取样量影响）；反过来，取样塌了会让 ② 稀有栏虚增，那栏才是受取样影响的。
+    if (SAMPLE_INSUFFICIENT) {
+        console.log('  ※ 取样不足（' + SAMPLE_B.detail + '）：本栏不受影响（判据是静态零发射点），'
+            + '但 ② 稀有栏会因样本没跑到而虚增，勿据此去改引擎');
+    }
     for (const k of deadEnum) console.log('  ⚠ ' + k);
     if (!deadEnum.length) console.log('  （无）');
     console.log(`\n--- ② 稀有枚举项（有发射点但样本未触发）：${rareEnum.length} 条 ---`);
     for (const r of rareEnum.slice(0, 15)) console.log('  · ' + r.k + '  引擎发射点 ' + r.sites);
     console.log(`\n--- ③ 盲区候选（实际发射 + 非声明静默 + 无渲染注册 + 无规则引用）：${blind.length} 条 ---`);
     for (const b of blind) console.log('  ? ' + b.k + '  样本 ' + b.n + ' 次');
-    if (!blind.length) console.log('  （无 —— 所有实际发射的 fact 要么有渲染、要么 58 声明静默、要么被规则盯梢）');
+    if (!blind.length && SAMPLE_INSUFFICIENT) {
+        // 第 143 轮收口：「零盲区」是**没查到**，不是查过没有 —— 取样不足时它不许冒充绿。
+        console.log('  （不成立 —— 取样不足（' + SAMPLE_B.detail + '、' + SAMPLE_F.detail + '），'
+            + '没查到盲区 ≠ 没有盲区：只跑了这么点样本，剩下的 fact 根本没进本次普查，'
+            + '此栏此刻既不计绿也不计红；先恢复样本规模再谈"零盲区"）');
+    } else if (!blind.length) {
+        console.log('  （无 —— 所有实际发射的 fact 要么有渲染、要么 58 声明静默、要么被规则盯梢）');
+    }
     console.log(`--- ④ 声明静默 fact（58 renderFn:false，by design 不单列战报行）：${silent.length} 条 ---`);
     for (const s of silent.slice(0, 12)) console.log('  · ' + s.k + '  样本 ' + s.n + ' 次');
     console.log(`\n--- ⑤ spec rot（FACT_SPECS 声明 renderFn:true 却从未发射）：${orphanSpec.length} 条 ---`);
@@ -262,16 +326,20 @@ async function main() {
     }
     // 守门：仅「零发射点」的可靠红（deadEnum + orphanSpec）与「必填字段漏发」的契约失效（contractFieldGaps）
     // 拦构建；rare/silent/blind 仅诊断不拦。
+    // ★ 第 143 轮加第三类：取样规模闸门（sampleFails）—— 样本塌了还照出漂亮报告是最危险的一种假绿。
     const rot = deadEnum.length + orphanSpec.length + contractGaps.size;
+    if (sampleFails.length) {
+        console.log('\n⛔ 取样规模红线（' + sampleFails.length + ' 项）：');
+        for (const s of sampleFails) console.log('  ❌ ' + s);
+    }
     if (rot > 0) {
         const parts = [];
         if (deadEnum.length) parts.push(deadEnum.length + ' 死枚举');
         if (orphanSpec.length) parts.push(orphanSpec.length + ' 死规约');
         if (contractGaps.size) parts.push(contractGaps.size + ' factType 漏发必填字段');
         console.log('\n⛔ 契约腐烂红线：' + parts.join(' + ') + ' —— 须清理对应枚举键 / 规约条目 / 补发必填字段后重跑');
-        return 1;
     }
-    return 0;
+    return (rot > 0 || sampleFails.length > 0) ? 1 : 0;
 }
 
 main().then(c => process.exit(c || 0)).catch(e => { console.error(e); process.exit(1); });
