@@ -1,7 +1,8 @@
+// V6.3.1 | 2026-10-26 | 飞箭/流星蓄力改半压缩 250+250/timescale（2x≈375ms、8x≈271ms），高倍速下不再固定 500ms
 // V6.3.0 | 2026-10-25 | ~18700 bytes | 全部演出改真实时间轴：clock.wait→waitReal（12 处）、clock.animate→animateReal（7 处），
 //   时长不再被 timescale 二次缩放（参数表填多少就是多少）
 // V6.2.1 | 2026-10-17 | ~18600 bytes
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.0';
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.1';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -49,7 +50,10 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     let headSize = st.headSize != null ? st.headSize : (isMeteor ? 10 : 8);
     const headColor = st.headColor != null ? st.headColor : arrowColor;
     const launchIcon = st.icon != null ? st.icon : '🏹';
-    let chargeTime = 500;
+    // 蓄力半压缩：一半走真实时间、一半走逻辑时间（被倍速缩放）。
+    //   2x 档 500→约 375ms，8x 档→约 271ms。比全跟倍速慢，但高倍速下不再固定 500ms。
+    const _ts = Math.max(1, 600 / (GlobalStore.get('speed') || 300));
+    let chargeTime = Math.round(250 + 250 / _ts);
     // 飞行时长按距离匀速，速度从参数表读（arrowSpeed / meteorSpeed，按当前 speed 档位）
     const speedKey = GlobalStore.get('speed') || 300;
     const paramKey = isMeteor ? 'meteorSpeed' : 'arrowSpeed';

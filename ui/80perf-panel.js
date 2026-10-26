@@ -2,9 +2,10 @@
 // 8x 按钮点开：只调「自定义档」这一列（SPEED_TIER 的 '50'），其他四档（0.5x/1x/2x/4x）
 //   由 core/23perf-params.js 的 DEFAULTS 决定，出厂永不变，本面板不碰。
 // 滑块拖动即时生效（当前局）；「保存」写本地（只存自定义档），刷新后仍在。
+// V2.0.2 | 2026-10-26 | 滑块行加高（40px 行高 / 24px 滑块）+ 弹窗高度 88vh→72vh，手机端不串行、不贴边
 // V2.0.1 | 2026-10-26 | 补 closeHitDur（贴身图标）滑块——此前漏项，8x 档该参数锁死 400ms 且不落存档
 // V2.0.0 | 2026-10-26 | ~6300 bytes | 表格改滑块；只读写 '50' 列；本地存档独立 key，不再整份覆盖
-export const VER = 'ui/80perf-panel.js V2.0.1';
+export const VER = 'ui/80perf-panel.js V2.0.2';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getPerfParams, setPerfParams, resetPerfParams } from '../core/23perf-params.js';
@@ -83,12 +84,13 @@ function saveToStorage() {
 function buildSliders(box) {
     const params = getPerfParams();
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;flex-direction:column;gap:11px;';
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:0;';
 
     for (const key of Object.keys(RANGES)) {
         const rg = RANGES[key];
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        // 行加高：上下各 8px 内边距 + 最小 40px 高 —— 手指点上去不会串到隔壁行
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 2px;min-height:40px;border-bottom:1px solid #eee;';
 
         const label = document.createElement('span');
         label.textContent = LABELS[key] || key;
@@ -100,7 +102,8 @@ function buildSliders(box) {
         slider.max = String(rg.max);
         slider.step = String(rg.step);
         slider.value = String(params[key][TIER]);
-        slider.style.cssText = 'flex:1;accent-color:#b8860b;min-width:0;';
+        // 滑块本体 24px 高：浏览器按高度撑开可点区域，默认 16px 在手机上太窄
+        slider.style.cssText = 'flex:1;accent-color:#b8860b;min-width:0;height:24px;';
 
         const val = document.createElement('span');
         val.style.cssText = 'font-size:11px;color:#8b7355;width:56px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;';
@@ -141,7 +144,8 @@ function openPanel() {
 
     const box = document.createElement('div');
     box.className = 'modal-box';
-    box.style.cssText = 'max-width:420px;width:94vw;max-height:88vh;overflow-y:auto;padding:14px;text-align:left;';
+    // 留出上下各 14vh：弹窗不贴屏幕边，滑动时手指有落点
+    box.style.cssText = 'max-width:420px;width:94vw;max-height:72vh;overflow-y:auto;padding:14px;text-align:left;';
 
     const title = document.createElement('div');
     title.textContent = '⚙ 自定义档（8x）';
