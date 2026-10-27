@@ -1,7 +1,29 @@
+// V1.19.0 | 2026-10-28 夜间第 149 轮：OBSERVES 挂「地基可携化」tests/foundation-portability.mjs。
+//   第 148 轮只做到「地基缺失即报」，本件补上「缺失了能一键拿回来」：把地基分成有依赖方的可携化面
+//   与无人认领的纯产物（后者实测 1.8GB，不分级就谈导出等于打包 1.8GB，那件事谁也不会去做）。
+// V1.18.0 | 2026-10-28 夜间第 148 轮：OBSERVES 挂「沙箱易碎地基普查」tests/sandbox-fragility-scan.mjs。
+//   由来见该脚本头注释：本轮开场沙箱工作区被整体重置，从 Gitee 重新克隆后体检由 13/24 变 12/24，
+//   少的那一项是「牙口证据链对账」—— 不是代码退步，是它的证据地基 tests/.mut/teeth-results.txt
+//   被 .gitignore 排除、不进 patch、换沙箱即归零。★ 挂它防的不是这一项红，而是「红得没有真因
+//   却看起来像真因」：只看总数会读成夜间轮把体检搞退步了，于是去查一个不存在的代码回归。
+//   与第 147 轮孤儿普查同一取舍：挂 OBSERVES 不改分母（24 不变），拍板开红再挪到 CHECKS。
+// V1.17.0 | 2026-10-28 夜间第 147 轮：OBSERVES 挂「孤儿自检普查」tests/orphan-selftest-sweep.mjs。
+//   由来见该脚本头注释：第 146 轮发现 tests/param-read-guard.mjs 今天是红的却不在本清单里
+//   ⇒ 它红了多久无人知晓。★ 挂在 OBSERVES 而非 CHECKS 是刻意的：挂 CHECKS 会让体检分母由
+//   24 变 25，属改既有结论须拍板（第 146 轮原话）；挂观察项则既不改分母、又天天在跑、结果可见。
+//   哪天拍板要开红，把它从 OBSERVES 挪到 CHECKS 即可，该脚本逻辑一个字不用改。
 // V1.16.1 | 2026-10-27 第143轮(续)：挂「打包清单完整性自检+自动补全」tests/pack-manifest-check.mjs（自动帮 106 补漏登的 tests 脚本，防包内套件缺文件）
 // V1.16.0 | 2026-10-26 第 142 轮：退役规则 158（去锚定化后恒 skip 假绿），158 的 import/allRules/静态注册/打包清单四处摘除，由 123static-scan 的 deadFxAnchors 槽位代防回归；rule-teeth-evidence-selftest 吸收夜检138 增断言⑧结果新鲜度门（牙口证据停更即退码 1）
 // V1.15.0 | 2026-10-26 第 140 轮：新增「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs（静态检查，防头注释与 VER 常量漂移，落下即退码 1）；fact 发射普查升为 CHECKS 守门项（第125轮）
+// V1.13.0 | 2026-10-26 第 135 轮：CHECKS 新增第 20 项「版本常量漂移自检」（tests/ver-drift-selftest.mjs，
+//   计退码）。动因：「头注释已写 Vx 而 VER 常量仍停在 Vy」这个漏改在本仓库已复发三次
+//   （第 130 轮 V1.7.0/V1.6.0、第 132 轮顺手归位、第 134 轮点名留办），本轮实测又抓出两处真漏改
+//   （本文件 V1.12.0 vs VER V1.10.0、translate-golden V1.0.1 vs VER V1.0.0）。
+//   ★ 性质：VER 不是装饰 —— mutation-teeth 拿它当结果文件新鲜度键、多份自检对外自报版本，
+//   数字说谎会让「我用的是哪一版判据」这个问题失去答案。故不再靠人眼，立自动绊线。
+//   （本轮一并归位：VER 常量 V1.10.0 → V1.12.0 → V1.13.0。）
 // V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环，heavy 采样项）
+// V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
@@ -56,7 +78,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.16.1';
+export const VER = 'tests/run-all.mjs V1.19.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -135,9 +157,14 @@ const CHECKS = [
     //   行动权竞争）。本用例强制妹模式广扫，实测命中 52 次，断言 fact/渲染/账本三对照；
     //   带 MIN_HITS=3 棘轮 + 咬牙实证（打断 picker 永久继承即红）。tier=heavy（采样项，--quick 跳过）。
     { name: '蝶血分支定向用例(妹永久嗜血)', script: 'tests/xiaozhao-brother-leech-case.mjs', args: [], tier: 'heavy' },
+    // V1.13.0 | 2026-10-26 第 135 轮：挂「版本常量漂移自检」tests/ver-drift-selftest.mjs（第 20 项，计退码）。
+    //   盯的是「头注释版本日志已写到 Vx，脚下 VER 常量还停在 Vy」这个漏改 —— 已复发三次，本轮实测
+    //   抓出两处真漏改（本文件、translate-golden）。秒级、纯静态，放在采样项之前。
+    { name: '版本常量漂移自检(离线断言)', script: 'tests/ver-drift-selftest.mjs', args: [] },
     // V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环）。
     //   蛛袭/寒毒由「恒false的!alive」改为正确致死判定；护栏跑样本对局断言 isDead===true 至少命中
     //   MIN_HITS 次（退回恒false会归零变红），并诊断 true 目标是否确死（防飞天免疫误判）。tier=heavy。
+    //   ★ 第 139 轮合并时与本地第 20 项同位置冲突，两条都保留（盯的是两件事：版本常量漂移 / isDead 回归）。
     { name: 'isDead修复回归护栏(蛛袭/寒毒)', script: 'tests/isdead-fix-guard.mjs', args: [], tier: 'heavy' },
     { name: '覆盖率/空转红线', script: 'tests/coverage-report.mjs', args: [] },
     // V1.14.0 | 2026-10-25 第 125 轮·续：fact 发射普查升级为**守门项**——deadEnum / orphanSpec（零发射点可靠红）
@@ -163,7 +190,16 @@ const OBSERVES = [
     { name: 'XIN_HUN_DEATH定向用例', script: 'tests/xinhun-death-targeted-case.mjs', args: [] },
     { name: '载荷死字段普查', script: 'tests/fact-dead-field-scan.mjs', args: [] },
     // 第 123 轮新增：结构不可达分支扫描（静态层级错位 + 动态分支指纹零命中），同样不计退码
-    { name: '结构不可达分支扫描', script: 'tests/structural-dead-branch-scan.mjs', args: [] }
+    { name: '结构不可达分支扫描', script: 'tests/structural-dead-branch-scan.mjs', args: [] },
+    // V1.17.0 | 2026-10-28 夜间第 147 轮：孤儿自检普查（磁盘有、本清单无的 tests 脚本逐个跑一遍，
+    //   报出"红了但没人盯"的盲区）。挂观察项不改分母，理由见头顶 V1.17.0 日志行。
+    { name: '孤儿自检普查(不在清单里的)', script: 'tests/orphan-selftest-sweep.mjs', args: [] },
+    // V1.18.0 | 2026-10-28 夜间第 148 轮：沙箱易碎地基普查（体检项依赖的被 .gitignore 排除的产物，
+    //   缺了就让体检项以「假退步」的面目转红）。挂观察项不改分母，理由见头顶 V1.18.0 日志行。
+    { name: '沙箱易碎地基普查', script: 'tests/sandbox-fragility-scan.mjs', args: [] },
+    // V1.19.0 | 2026-10-28 夜间第 149 轮：地基可携化（认领分级 + 快照导出/回灌/对账 + 枚举面三视图）。
+    //   挂观察项不改分母，与孤儿普查、地基普查同一取舍（挂 CHECKS 会让分母 24 变 25，须拍板）。
+    { name: '地基可携化', script: 'tests/foundation-portability.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

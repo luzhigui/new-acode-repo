@@ -1,4 +1,17 @@
-// tests/param-read-guard.mjs V1.2.1 | 预估 ~12500 bytes
+// tests/param-read-guard.mjs V1.3.0 | 预估 ~12500 bytes
+// V1.3.0 | 2026-10-28 夜间第 146 轮：接 `_lib/static-truth-slice.mjs` V1.1.0（第四个受体）。
+//   ★ 本轮查出的取样面分叉（本文件内部就有两套口径，这是第 144 轮那条病换皮）：
+//     报「命中 getSkillParams 的文件 N 个」这一句，用的是
+//       `code.replace(/\/\/.*$/gm, '')`  —— 一条只认行注释、不认块注释、也不认字符串里 // 的野路子；
+//     而**真正在做抽取**的 extractFromFile 用的是 maskLiterals（保长度的注释+字符串屏蔽）。
+//     两处同一份口径两种算法 ⇒ 报出来的"命中"随时可能与抽取侧对不上：
+//       · 块注释里写了 `getSkillParams(` ⇒ 旧口径把它算成命中（虚高）；
+//       · 某行字符串里含 `//`（如 `const u = 'http://x'; getSkillParams(a,b);`）⇒ 旧口径把整行后半
+//         截掉，真读取点被吞（虚低）。
+//     修法：报的那一份改用公共件 auditAnchorSites 的真值口径（strip 视图），与抽取侧同源；
+//     同时把「注释里的伪写法」打成可打印的数字（今天实测 phantomLine=0 / phantomTail=0，
+//     旧口径 21 个 vs 真值口径 21 个 —— 两套口径今天恰好同数同集，属运气不是担保）。
+//   ★ 同时按第 145 轮给受体的接口挂 truthSelfCheck()：一处坏、多处喊。
 // V1.2.1 | 2026-10-18 第 101 轮：新增 ENGINE_READ_MANUAL 人工补充通道——params 作参数传进 helper 函数、
 //   在 helper 体内读字段的形态（实例：spiderFly.hpThresholds 经 decideSpiderTier(..., fp) 读），
 //   超出扫描器块作用域分析、会被误报「表陈旧」。比对按「扫描结果 ∪ 人工补充」算；每条人工登记须在
@@ -41,13 +54,17 @@
 //   子字段规则：表登记父路径时其任意子字段算已登记（表值 = 顶层字段名即可满足引擎现状）。
 //
 // 运行：node tests/param-read-guard.mjs        → 一致退出码 0；发现漂移退出码 1
-export const VER = 'tests/param-read-guard.mjs V1.2.1';
+export const VER = 'tests/param-read-guard.mjs V1.3.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE, ENGINE_READ_ORPHAN, ENGINE_READ_MANUAL } from '../tools/124-param-lab-glossary.js';
+import { auditAnchorSites, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
 const ROOTS = ['../core/', '../modules/', '../render/'];
+
+// 报「命中」用的锚点：与 extractFromFile 抽取所用同一处形态
+const CALL_ANCHOR = [{ id: 'getSkillParams(', re: /(?<![\w$.])getSkillParams\s*\(/g }];
 
 // ---- 文本视图：注释 + 字符串/模板内容 → 空格（保留长度与换行），并记录字符串字面量值 ----
 function maskLiterals(code) {
@@ -252,13 +269,20 @@ async function main() {
     const acc = new Map();
     let fileCount = 0;
     const scanned = [];
+    // V1.3.0：报「命中」不再用行注释野路子，改走公共件三视图中的 strip 视图（与抽取侧同源）
+    let phantomLine = 0, phantomTail = 0, naiveCount = 0;
     for (const root of ROOTS) {
         const dirUrl = new URL(root, import.meta.url);
         for (const url of await collectFiles(dirUrl)) {
             const code = await readFile(url, 'utf8');
             const rel = fileURLToPath(url).split(/[\\/]new-acode-repo[\\/]/).pop();
             fileCount++;
-            if (/getSkillParams\s*\(/.test(code.replace(/\/\/.*$/gm, ''))) scanned.push(rel);
+            // 旧口径留作对照（只打印，不作结论）：与真值口径的差值就是"这套报告历史上掺了多少水"
+            if (/getSkillParams\s*\(/.test(code.replace(/\/\/.*$/gm, ''))) naiveCount++;
+            const a = auditAnchorSites({ src: code, anchors: CALL_ANCHOR });
+            phantomLine += a.rows[0].phantomLine;
+            phantomTail += a.rows[0].phantomTail;
+            if (a.rows[0].strip > 0) scanned.push(rel);
             extractFromFile(rel, code, acc);
         }
     }
@@ -316,7 +340,11 @@ async function main() {
     }
 
     console.log('=== skills.params 引擎真读字段 · 漂移守卫 ===');
-    console.log(`扫描 core/ modules/ render/：${fileCount} 文件；命中 getSkillParams 的文件 ${scanned.length} 个；技能键 ${acc.size} 个`);
+    console.log(`扫描 core/ modules/ render/：${fileCount} 文件；命中 getSkillParams 的文件 ${scanned.length} 个（真值口径 strip 视图）；技能键 ${acc.size} 个`);
+    console.log(`取样面口径审计（第 146 轮新增）：旧行注释野路口径同为 ${naiveCount} 个 —— 两套口径今日同数；` +
+        `\n   只活在注释里的伪写法：整行注释 ${phantomLine} 处 / 行尾注释 ${phantomTail} 处` +
+        `\n   ★ 这是运气不是担保：旧口径不认块注释、且会被字符串里的 // 截断整行 —— 哪天出现即说明报告与抽取脱节`);
+    for (const bad of truthSelfCheck()) console.log('  ✗ 静态真值口径公共件自证：' + bad);
     console.log(`登记表：ENGINE_READ ${Object.keys(ENGINE_READ).length} 键 · DYNAMIC ${ENGINE_READ_DYNAMIC.size} 键 · NONE ${ENGINE_READ_NONE.size} 键 · 孤儿登记 ${orphanKeys.size} 项 · 人工补充 ${Object.keys(ENGINE_READ_MANUAL).length} 键`);
 
     const descProblems = await checkDescTruthDrift();

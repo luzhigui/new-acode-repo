@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// tests/xiaozhao-brother-leech-case.mjs | V1.0.1 | 2026-10-27 夜间第 145 轮：新增「真因显形」诊断段——
+//   上游把妹永久嗜血扩到全队战士后 isBrother 语义错位，15 条命中 unitName 非妹名；
+//   本轮只把两类命中分开数并点名上游改动，**判据与退码一行未动**（改判据须拍板）。
 // tests/xiaozhao-brother-leech-case.mjs — 小昭·妹「永久嗜血·蝶血分支」定向用例
 //
 // 背景（第 122-123 轮日间线）：
@@ -35,7 +38,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.0.0';
+export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.0.1';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 // 默认 20 seeds × 7 stages = 140 场（run-all 每次跑的量）。实测命中率 ≈18.6%，
@@ -168,7 +171,8 @@ async function main() {
             precondRounds += r.diag.preconditionRounds;
             precondAttackRounds += r.diag.precondAttackRounds || 0;
             for (const h of r.hits) {
-                allHits.push(h);
+                // 第 145 轮：顺带把本场的妹名带在命中上，供下面的「真因显形」分段用（不参与任何判据）
+                allHits.push(Object.assign({}, h, { brotherName: r.brotherName }));
                 // 断言①：fact 载荷自洽（正整数 + 名字是妹）
                 const problems = [];
                 if (!(Number.isInteger(h.leechVal) && h.leechVal > 0)) problems.push('leechVal 非正整数: ' + h.leechVal);
@@ -191,6 +195,23 @@ async function main() {
     if (SCAN_ONLY) {
         console.log('· --scan 模式：不断言、不判退码');
         return;
+    }
+    // ---- 第 145 轮新增 · 真因显形（只加诊断：判据与退码一行未动）----------------------------
+    //   本用例自第 123 轮起一直绿，本轮随上游 fa6f206f 合并后转红 15 项。查因：上游把 core/04
+    //   submitBloodthirstDeclaration 的第二分支判据由「unit.isXiaoZhaoBrother && 本人永久嗜血」
+    //   改成「hasBrotherPermanent(allySide) && 任一战士」⇒ 妹永久嗜血已扩到**全队战士**，
+    //   而 factData.unitName 仍填出手者本人 ⇒ isBrother 的语义由「本人是妹」变成「来源=妹永久」。
+    //   ★ 是否按新语义改判据属改结论，须拍板；本轮只把两类命中分开数并逐条点名，照旧判失败。
+    const otherHits = allHits.filter(h => h.unitName !== h.brotherName);
+    const otherNames = [...new Set(otherHits.map(h => h.unitName))];
+    if (otherHits.length) {
+        console.log('· ⚠ 真因显形：' + otherHits.length + '/' + allHits.length + ' 条 isBrother=true 命中的 unitName 不是妹本人（'
+            + otherNames.slice(0, 6).join('、') + '）⇒ 上游 fa6f206f（core/04 submitBloodthirstDeclaration）把判据由'
+            + '「unit.isXiaoZhaoBrother && 本人永久嗜血」改为「hasBrotherPermanent(allySide) && 任一战士」，'
+            + '即妹永久嗜血已扩到全队战士，而 factData.unitName 仍填出手者 ⇒ isBrother 语义由「本人是妹」变为「来源=妹永久」；'
+            + 'render/35-facts-heal.js 也是看 fact.isBrother 走 🕷️ 蝶血文案，故非妹单位同样会被渲染成蝶血，属同款语义错位。'
+            + '★ 本用例判据一行未动、照旧判失败（exit 1）：改判据须拍板；若认定新行为正确，'
+            + '应把 factData 的 isBrother 换成 fromBrotherPermanent 一类字段并把渲染侧一并改掉。');
     }
     let bad = 0;
     for (const m of auditMismatch) {

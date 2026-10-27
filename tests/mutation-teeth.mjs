@@ -107,6 +107,14 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
+// V2.9.15 | 2026-10-25 第 134 轮：新鲜度守卫补第⑤项「判据（规则）文件指纹 RULEFP」——
+//   补的是第 129 / 132 轮各改 21 个规则文件、而四项守卫**一项都没响**那个洞（第 133 轮实测
+//   已有 3 条牙口结论对不上当前代码，牙口矩阵顶上却仍写着「新鲜度守卫：通过」⇒ 守卫在说谎）。
+//   ① 新增 ruleFingerprint()：tests/health-rules/*.js（47 个）+ tests/122health-utils.js 的**内容**哈希；
+//   ② --emit-run / --merge-results 把 RULEFP 写进 #META 头；③ --report 比对，不符即判陈旧（硬失败退 1）。
+//   用内容哈希而非 mtime：mtime 会被 touch / git checkout 刷新 ⇒ 假阳性，且说不出哪条结论作废。
+//   与 rule-teeth-evidence-selftest 分工：本项是粗粒度预警（判据整体变过没），后者是细粒度实质对账。
+//   ★ VER 不升：只加守卫/证据通道，判据口径一行未动（同 V2.9.12「VER 只钉判据」先例）。
 // V2.9.14 | 2026-10-24 第 127 轮：对照器侧补「归属 + 不得作证」两道闸门（只补证据通道，判据不放松）。
 //   背景：V2.9.13 及以前，对照器证据只有一个**汇总数**（grep「检出重复应用 N 处」），既不知道
 //   是哪条契约抓的，也没有「干净树本就命中 ⇒ 不得作证」这道闸门——与第 43 轮（153）、第 126 轮
@@ -118,7 +126,18 @@
 //   ② 不得作证：干净树 _base 里 命中>0 的契约（若有）列入 BASE_DIRTY_CONTRACTS，其命中不计入
 //     「有牙」证据，改记对照器侧 [掩盖×N]——道理同「基线已红的规则不得作证」。
 //     实测当前 _base 全部 56 条契约命中皆 0 ⇒ 本闸门当下为空操作（零判定迁移），纯属加固。
-export const VER = 'tests/mutation-teeth.mjs V2.9.15';
+// ★ VER 只钉**判据口径**：判据一改必须升（结果文件据此判陈旧）。
+//   守卫 / 输出通道 / 证据通道的升级**不升 VER**（V2.9.12 先例，V2.9.15 沿用）——
+//   故本文件头注释已到 V2.9.15 而 VER 仍为 V2.9.14，是刻意的，不是漏改：
+//   V2.9.15 只新增了新鲜度守卫第⑤项（RULEFP），判定逻辑一行未动，升 VER 会让全部旧结果被误判陈旧。
+// ★ VER-HOLD-DECL：上一段「VER 刻意不升」此前只是散文说明，机器读不出来，
+//   第 135 轮的 ver-drift-selftest 无法区分「刻意 hold」与「漏改」。本行把意图升级为可断言标记 ——
+//   hold 从此要同时在册（自检白名单）+ 在位（本行）+ 且真有落差（VER≠日志最新版）三者齐备才放行，
+//   落差消失（VER 归位）则本标记必须同步删除，否则自检转红。判据口径与 VER 值本身一行未动。
+//   （第 139 轮：上游把同一次改动里的 VER 顺手抬到 V2.9.15，其含义是"新增引擎指纹守卫"；
+//    本地口径认为守卫升级不升 VER —— 升了会让本轮刚重跑的 47 棵结果全部被误判陈旧，
+//    故裁决保留 V2.9.14 + 本标记，新增的⑥ ENGFP 属守卫升级，不改变判据口径。）
+export const VER = 'tests/mutation-teeth.mjs V2.9.14';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -460,13 +479,18 @@ function toPosix(p) {
     return p.replace(/^([A-Za-z]):/, (m, d) => '/' + d.toLowerCase()).replace(/\\/g, '/');
 }
 
-// 新鲜度守卫（V2.9.0，V2.9.15 扩为五项）：返回陈旧原因数组；空数组 = 结果配得上当前代码。
-// 五项检查，任一项命中即判陈旧：
+// 新鲜度守卫（V2.9.0，第 139 轮起扩为六项）：返回陈旧原因数组；空数组 = 结果配得上当前代码。
+// 六项检查，任一项命中即判陈旧：
 //   ① 判据文件（本文件）mtime 晚于结果文件 ⇒ 判定代码已更新，结果没重跑
 //   ② 结果头部的 VER / 变异表指纹 MUTFP 与当前不符
 //   ③ 当前 MUTATIONS 里有条目在结果里没有结果块（覆盖不全）
 //   ④ 任一变异树目录 mtime 晚于结果文件 ⇒ 树已重建（叠加了新工作树/新注入）却没重跑
-//   ⑤ 结果头部的引擎源码指纹 ENGFP 与当前引擎源码不符 ⇒ 引擎代码改过（变异表没变也会漏，item ③）
+//   ⑤ （V2.9.15 第 134 轮新增）判据（规则）文件指纹 RULEFP 与当前不符 ⇒ 规则改过，牙口结论配不上
+//      —— 补的正是第 129/132 轮各改 21 个规则文件而守卫全程沉默那个洞，详见 ruleFingerprint 注释。
+//   ⑥ （第 139 轮并入上游同号改动）引擎源码指纹 ENGFP 与当前引擎源码不符 ⇒ 引擎代码改过，
+//      而变异表 MUTFP 没变 ⇒ 旧结果照样渲染，属"旧结果配新引擎"的假结论，详见 engineFingerprint 注释。
+//      ★ 与⑤互补而非重复：⑤盯判据（tests/health-rules + 122health-utils），⑥盯被测（core/modules/… 主代码）。
+//      两边第 134 / 139 轮各补了一项、都编为⑤，本轮合并时按"两个盲区都真、都要守"并成⑤⑥，不删任何一边。
 function checkFreshness(txt, resultsPath) {
     const why = [];
     const meta = {};
@@ -488,9 +512,14 @@ function checkFreshness(txt, resultsPath) {
     const fpNow = mutFingerprint();
     if (!meta.MUTFP) why.push('结果文件缺少 #META MUTFP 头（无法证明变异表未变）');
     else if (meta.MUTFP !== fpNow) why.push(`变异表指纹不符：结果侧 ${meta.MUTFP}，当前 ${fpNow} —— 变异改过，结果没重跑`);
-    // ⑤ 引擎源码指纹（item ③：引擎改了但变异表 MUTFP 没变，旧结果仍会假绿）
+    // ⑤ 判据（规则）文件内容指纹（V2.9.15）：规则文件一改，"某规则有牙"的结论就可能整条作废。
+    //    缺头 = V2.9.15 之前生成的结果，无法证明规则未变 ⇒ 同样判陈旧（本轮本地证据正是这种情况）。
+    const rfpNow = ruleFingerprint();
+    if (!meta.RULEFP) why.push(`结果文件缺少 #META RULEFP 头（V2.9.15 之前的结果，无法证明规则文件未变；当前规则指纹 ${rfpNow}）——重跑变异树后自动生成`);
+    else if (meta.RULEFP !== rfpNow) why.push(`规则文件指纹不符：结果侧 ${meta.RULEFP}，当前 ${rfpNow} —— 判据（规则）文件改过，牙口结论可能已配不上当前代码`);
+    // ⑥ 引擎源码指纹（第 139 轮并入上游改动：引擎改了但变异表 MUTFP 没变，旧结果仍会假绿）
     const engFp = engineFingerprint();
-    if (!meta.ENGFP) why.push('结果文件缺少 #META ENGFP 头（无法证明引擎源码未变）');
+    if (!meta.ENGFP) why.push(`结果文件缺少 #META ENGFP 头（无法证明引擎源码未变；当前引擎指纹 ${engFp}）——重跑变异树后自动生成`);
     else if (meta.ENGFP !== engFp) why.push(`引擎源码指纹不符：结果侧 ${meta.ENGFP}，当前 ${engFp} —— 引擎代码改过（即便变异表没变），结果没重跑`);
     // ③ 覆盖不全
     const missing = MUTATIONS.filter(m => !txt.includes(`##### MUT m-${m.id} #####`)).map(m => m.id);
@@ -539,9 +568,41 @@ function mutFingerprint() {
     return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 12);
 }
 
-// 引擎源码指纹（V2.9.15 / item ③）：记录**生成结果时的引擎源码**，否则引擎代码改了（即便变异表 MUTFP 没变）、结果没重跑，
-// 报告照样渲染 ⇒ "旧结果配新引擎"假结论（正是 rule-teeth-evidence-selftest 第 128 轮点出的盲区：鲜度守卫盯不到引擎被改）。
-// 只哈希 mutation 树实际叠加的战斗相关源码目录（与第 42 轮叠加口径一致：core/modules/infra/player/render/content），路径取相对 REPO 保证跨 worktree 稳定。
+// 判据（规则）文件指纹（V2.9.15 | 第 134 轮）：结果文件必须记录**生成它时的判据文件内容**。
+//   动因（本轮真事故）：第 129 / 132 轮各改了 21 个规则文件，而 V2.9.0 的四项新鲜度守卫
+//   只盯「判据文件（本文件 mutation-teeth.mjs）mtime / VER / MUTFP / 变异树 mtime」，
+//   **一项都不盯规则文件被改** ⇒ 牙口矩阵文档顶上至今写着「新鲜度守卫：通过」，
+//   而它那些"某规则有牙"的结论里已有 3 条对不上当前代码（第 133 轮 rule-teeth-evidence-selftest 实测）。
+//   守卫说谎比没有守卫更坏：它让人以为结论还配得上代码。
+//   为什么不用 mtime：mtime 会被 touch / git checkout / 重新 clone 刷新 ⇒ 假阳性；且 mtime 只能说
+//   "可能变了"，说不出"哪条结论作废了"。改用**内容哈希**：内容没变指纹就不变，不受任何文件操作影响。
+//   与 rule-teeth-evidence-selftest 分工：本守卫是**粗粒度快速预警**（判据整体变过没），
+//   后者是**细粒度实质对账**（究竟哪条结论作废）。两者互补，不是替代。
+//   口径（只钉判据，不含被测主代码）：tests/health-rules/*.js（47 个规则文件）+ tests/122health-utils.js
+//   （判据宿主，V6.x 系列判据都在里头）。改名 / 增删文件同样会改指纹 —— 按设计如此。
+function ruleFingerprint() {
+    const h = crypto.createHash('sha1');
+    const dir = path.join(HERE, 'health-rules');
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort(); } catch (e) { /* 目录不在记空集 */ }
+    h.update('health-rules\u0001' + files.join('\u0002') + '\u0003');
+    for (const f of files) {
+        h.update(f + '\u0001');
+        try { h.update(fs.readFileSync(path.join(dir, f))); } catch (e) { h.update('\u0002READ_FAIL'); }
+    }
+    // 122health-utils.js：静默位移判据 / 行动权不变量等判据的宿主文件，改动同样会让牙口结论作废。
+    try {
+        h.update('122health-utils.js\u0001');
+        h.update(fs.readFileSync(path.join(HERE, '122health-utils.js')));
+    } catch (e) { h.update('\u0002READ_FAIL'); }
+    return h.digest('hex').slice(0, 12);
+}
+
+// 引擎源码指纹（上游 V2.9.15 / item ③，第 139 轮合并并入为守卫第⑥项）：记录**生成结果时的引擎源码**，
+// 否则引擎代码改了（即便变异表 MUTFP 没变）、结果没重跑，报告照样渲染 ⇒ "旧结果配新引擎"假结论
+// （正是 rule-teeth-evidence-selftest 第 128 轮点出的盲区：鲜度守卫盯不到引擎被改）。
+// 只哈希 mutation 树实际叠加的战斗相关源码目录（与第 42 轮叠加口径一致：core/modules/infra/player/render/content），
+// 路径取相对 REPO 保证跨 worktree 稳定。★ 与上方 ruleFingerprint 互补：一个盯判据、一个盯被测，缺一个都是盲区。
 function engineFingerprint() {
     const dirs = ['core', 'modules', 'infra', 'player', 'render', 'content'];
     let sig = '';
@@ -725,6 +786,7 @@ async function main() {
             //   --report 端据此判断结果是否还配得上当前代码 —— 旧结果配新判据 = 假结论，必须拦。
             `echo "#META VER=${VER}" >> "$OUT"`,
             `echo "#META MUTFP=${mutFingerprint()}" >> "$OUT"`,
+            `echo "#META RULEFP=${ruleFingerprint()}" >> "$OUT"`,
             `echo "#META ENGFP=${engineFingerprint()}" >> "$OUT"`,
             'echo "#META HEAD=$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)" >> "$OUT"',
             'echo "#META AT=$(date -Iseconds)" >> "$OUT"',
@@ -811,6 +873,7 @@ async function main() {
         const freshMeta = [
             `#META VER=${VER}`,
             `#META MUTFP=${mutFingerprint()}`,
+            `#META RULEFP=${ruleFingerprint()}`,
             `#META ENGFP=${engineFingerprint()}`,
             `#META HEAD=${execSync('git rev-parse --short HEAD', { cwd: REPO, encoding: 'utf8' }).trim()}`,
             `#META AT=${new Date().toISOString()}`,
