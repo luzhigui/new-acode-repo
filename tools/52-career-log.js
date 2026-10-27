@@ -1,4 +1,8 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V1.2.0 | 2026-10-28 | ① 海克斯中文名改从 127-tool-registry.js 单源取（与 108/126 同源，
+//           删掉本文件里那一份手写副本——holyFire 这类新海克斯若只在 127 加了、忘改本副本就会显示英文 key）；
+//         ② 抽出 computeCareerStats() 共享聚合，「各关胜率 / 主力英雄」两套循环不再在 markdown 与 insights 里各写一遍；
+//         ③ 修「最难关卡」误判：hardest 与 easiest 统一要求 ≥3 局样本，避免 1 局 100% 胜率被当成最难关
 // V1.1.0 | 2026-10-27 | 由 player/ 迁入 tools/（入口保留：战斗内写入在 42player-core、查看在 dev-index）
 //         新增 getHeroAggregates()（英雄跨局聚合）与 exportCareerCSV()（表格软件友好导出）
 // 只存摘要（阵容/结果/单位统计/回合走势），不存 steps——localStorage 约 5MB，
@@ -7,8 +11,11 @@
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
 import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
+// 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
+// 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
+import { HEX_NAMES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V1.1.0';
+export const VER = 'tools/52-career-log.js V1.2.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const MAX_RECORDS = 200;
@@ -84,19 +91,13 @@ export function clearCareerRecords() {
     try { localStorage.removeItem(LS_KEY); return true; } catch (e) { return false; }
 }
 
-// Markdown 导出（给 AI 分析：比 JSON 省 token 且可读）
-export function exportCareerMarkdown() {
-    const arr = getCareerRecords();
-    if (arr.length === 0) return null;
-    const lines = [];
-    lines.push(`# 光明顶 5v5 生涯记录（共 ${arr.length} 局）`, '');
-
+// 共享聚合：被 exportCareerMarkdown / getCareerInsights 复用，避免「各关胜率」「主力英雄」
+// 两套循环在两份导出里各写一遍（改一处忘改另一处就会漂移，输出对不上）。
+// byStage: {stage: {n, w}}；byStageAsc: 升序 stage（数字字符串，如 '3'）。
+export function computeCareerStats(arr) {
     const total = arr.length;
     const winA = arr.filter(r => r.winner === '明教').length;
     const winE = arr.filter(r => r.winner === '六大派').length;
-    lines.push('## 汇总');
-    lines.push(`总场次 ${total} ｜ 明教 ${winA} 胜 ｜ 六大派 ${winE} 胜 ｜ 平局 ${total - winA - winE}`);
-
     const byStage = {};
     for (const r of arr) {
         const s = r.stage || 0;
@@ -104,10 +105,7 @@ export function exportCareerMarkdown() {
         byStage[s].n++;
         if (r.winner === '明教') byStage[s].w++;
     }
-    lines.push('各关明教胜率：' + Object.keys(byStage).sort((a, b) => a - b)
-        .map(s => `s${s} ${Math.round(byStage[s].w / byStage[s].n * 100)}%(${byStage[s].n})`)
-        .join(' '));
-
+    const byStageAsc = Object.keys(byStage).sort((a, b) => a - b);
     const appear = {}, heroWins = {};
     for (const r of arr) {
         const seen = new Set();
@@ -118,6 +116,24 @@ export function exportCareerMarkdown() {
             if (r.winner === '明教') heroWins[u.name] = (heroWins[u.name] || 0) + 1;
         }
     }
+    return { total, winA, winE, byStage, byStageAsc, appear, heroWins };
+}
+
+// Markdown 导出（给 AI 分析：比 JSON 省 token 且可读）
+export function exportCareerMarkdown() {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const lines = [];
+    lines.push(`# 光明顶 5v5 生涯记录（共 ${arr.length} 局）`, '');
+
+    const { total, winA, winE, byStage, byStageAsc, appear, heroWins } = computeCareerStats(arr);
+    lines.push('## 汇总');
+    lines.push(`总场次 ${total} ｜ 明教 ${winA} 胜 ｜ 六大派 ${winE} 胜 ｜ 平局 ${total - winA - winE}`);
+
+    lines.push('各关明教胜率：' + byStageAsc
+        .map(s => `s${s} ${Math.round(byStage[s].w / byStage[s].n * 100)}%(${byStage[s].n})`)
+        .join(' '));
+
     const top = Object.entries(appear).sort((a, b) => b[1] - a[1]).slice(0, 12);
     lines.push('明教出场率 Top：' + top.map(([n, c]) =>
         `${n} ${c}局(${Math.round((heroWins[n] || 0) / c * 100)}%)`).join(' / '));
@@ -147,30 +163,14 @@ export function getCareerInsights() {
     const winRate = Math.round(wins / total * 100);
     const avgRounds = Math.round(arr.reduce((s, r) => s + (r.rounds || 0), 0) / total * 10) / 10;
 
-    // 各关胜率：门槛降到 1 局，卡片上标局数，让读者自己判断可信度
-    const byStage = {};
-    for (const r of arr) {
-        const s = r.stage || 0;
-        if (!byStage[s]) byStage[s] = { n: 0, w: 0 };
-        byStage[s].n++;
-        if (r.winner === '明教') byStage[s].w++;
-    }
-    const stages = Object.entries(byStage).map(([s, v]) => ({ stage: +s, n: v.n, rate: v.w / v.n }));
-    const hardest = stages.slice().sort((a, b) => a.rate - b.rate)[0] || null;
-    // “最易”至少要 3 局样本，避免 1 局 100% 胜率挤掉真实数据
+    // 各关胜率 / 主力英雄来自共享聚合；hardest 与 easiest 统一要求 ≥3 局样本，
+    // 避免 1 局 100% 胜率被当成「最难 / 最易」关卡（旧版 easiest 有此保护、hardest 漏了）
+    const { byStage, byStageAsc, appear, heroWins } = computeCareerStats(arr);
+    const stages = byStageAsc.map(s => ({ stage: +s, n: byStage[s].n, rate: byStage[s].w / byStage[s].n }));
+    const hardest = stages.filter(x => x.n >= 3).sort((a, b) => a.rate - b.rate)[0] || null;
     const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] || null;
 
     // 主力英雄：明教侧出场次数最多
-    const appear = {}, heroWins = {};
-    for (const r of arr) {
-        const seen = new Set();
-        for (const u of (r.ally || [])) {
-            if (seen.has(u.name)) continue;
-            seen.add(u.name);
-            appear[u.name] = (appear[u.name] || 0) + 1;
-            if (r.winner === '明教') heroWins[u.name] = (heroWins[u.name] || 0) + 1;
-        }
-    }
     const topEntry = Object.entries(appear).sort((a, b) => b[1] - a[1])[0];
 
     // 单局最高输出：跨所有局、双方所有单位取最大 dmgDealt
@@ -199,14 +199,7 @@ export function getCareerInsights() {
     let hexTop = null;
     if (hexTopEntry) {
         const k = hexTopEntry[0], v = hexTopEntry[1];
-        // 补充手动映射，防止 holyFire 这种新海克斯显示英文 key
-        const HEX_NAMES = {
-            doubleStrike: '概率连击', horseFormation: '巨马阵', carry: '你就是carry',
-            windAssault: '乘风突袭', cloudBody: '流云身法', mindControl: '惑人心智',
-            fortify: '严阵以待', hotBlood: '热血奋战', meteorShower: '流星赶月',
-            bloodthirst: '嗜血狂刀', holyFlame: '圣火令', soulDrain: '摄魂',
-            holyFire: '圣火不熄', lastStand: '背水一战', unity: '众志成城'
-        };
+        // 中文名：优先取 CONFIG.BUFFS 配置名，其次 127 单源 HEX_NAMES，最后兜底英文 key
         let name = k;
         try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
         hexTop = { key: k, name, rate: Math.round(v.w / v.n * 100), n: v.n };
