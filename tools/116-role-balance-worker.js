@@ -1,3 +1,8 @@
+// V1.14.0 | 2026-10-28 明教侧弱精英强制臂改「路C：建队后换名」（老板拍板）：
+//           弃 29 forceWeakElite 混入（换入在建队流中段，自然臂掷失时两臂流错位→站位洗牌全乱、Δ 混站位噪音），
+//           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
+//           ——两臂建队随机数逐数一致、站位逐位全同，Δ=纯精英贡献；「自然已在场」的局两臂同剔，样本逐场对应
+//           （配 112 V3.1.0）。六大派侧 M104 原样不动。
 // V1.13.1 | 2026-10-27 弱精英评测加「干净对照」：自然臂按精英名各出一套 clean[name] 计数——
 //   只剔除「本局自然出现了该精英」的局（第4关空见自然出现 18%，两臂同带空见会把 Δ 从 -6.5 稀释成 +0.5）。
 //   其他弱精英必须保持自然分布：若按侧把所有弱精英一起剔，对照会变成「敌方零弱精英」，凭空比空见臂
@@ -76,7 +81,7 @@ if (typeof localStorage === 'undefined') {
         clear: () => { _ls.clear(); }
     };
 }
-import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, getGameData } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './127-tool-registry.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
@@ -276,13 +281,46 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 }
 
 // 112「🐦 弱精英评测」：单弱精英强制上场 vs 自然配对对照。
-//   明教侧弱精英（杨逍/殷天正）：forceWeakElite 命中 mingWeakPool → modules/29 把一个普通位换成该弱精英（强精英轮盘照常，不互锁）。
-//   六大派侧弱精英（何太冲/唐文亮）：forceWeakElite 命中 ENEMY_M 且 M 值对上本关数字空位 → 该空位锁定具名（第3关是固定变体阵容、无 M104 空位，故不生效）。
+//   明教侧弱精英（杨逍/殷天正）：V1.14.0 起改 applyForcedWeakAlly「建队后确定性替身换名」（见下方路C注释）。
+//   六大派侧弱精英（何太冲/唐文亮/空见）：forceWeakElite 命中 ENEMY_M 且 M 值对上本关数字空位 → 该空位锁定具名（第3关是固定变体阵容、无 M104 空位，故不生效）。
 //   arm:'natural'：不设任何 force，只统计整关明教胜率（自然对照）。
 //   配对纪律：同一 (stage,chunk) 下 elite 臂与 natural 臂共用同一 seed 序列（seed+i*7919），战斗 RNG 同源。
-//     六大派侧只改一个数字空位的名字、两侧阵容完全一致 = 真配对；明教侧换人会多消耗 initRng（后续站位洗牌流错位），
-//     属随机噪声、400 场平均掉，仍是无偏对照。
+//     两侧强制方式都是「只换名、不碰建队流」（六大派 M104 空位锁 / 明教建队后替身换名）= 真配对：
+//     除精英本人外阵容逐位全同，Δ 不含站位噪音。
 //   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
+// 2026-10-28 V1.14.0 明教侧弱精英强制臂改「路C：建队后换名」（老板拍板「按 C 先做」）：
+//   旧路径（29 forceWeakElite 混入）的病根不在「选替身的抽签」——29 V7.6 的 RNG 纪律本就无条件消耗、
+//   两臂对齐——而在换入发生在建队流中段：新单位 init 多耗随机数、前排守卫条件分支只在一臂触发，
+//   自然臂 30% 掷失后两臂建队流错位 → 全队站位洗牌全乱，Δ 里混站位噪音（旧 112 注释拿「多场平均掉」
+//   当遮羞布，实为可避免的系统噪声）。改法：initBattleTeams 完整跑完（站位/锚点/前排定型）后，把
+//   「确定性替身」换成目标精英、站位直接继承——两臂建队消耗逐数一致，唯一差异=精英本人；六大派侧
+//   M104 空位锁本就是「只换名」形态，两侧行为从此统一。
+//   替身规则：非锚点、非任何弱精英（换成他=Δ 变「精英A vs 精英B」）、非唯一前排（阵容语义不塌），
+//   取 pos 最小者——站位每场随机洗，被换身份场间自然轮换、不偏向固定角色。
+//   计数配套：目标精英「自然混入已在场」的局强制臂跳过（自然臂 clean[name] 同剔这些局）——同种子
+//   同掷点，两臂样本逐场对应，Δ = 精英 vs 被换的普通成员，纯配对。
+function applyForcedWeakAlly(ally, elite, rng) {
+    if (ally.some(u => u.name === elite)) return false;   // 自然混入已带他：不换人，外层跳过该局
+    const isAnchor = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa;
+    const isWeak = u => Object.values(WEAK_UNIT_FLAG).some(f => u[f]);
+    const isFront = u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR;
+    const cands = ally.filter(u => !isAnchor(u) && !isWeak(u)
+        && !(isFront(u) && !ally.some(v => v !== u && isFront(v))));
+    const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
+    if (!victim) return false;
+    const m = CONFIG.MING_M[elite];
+    if (m == null) return false;
+    // 职业解析与 29 明教混入块同口径：content role 字段 > tags 命中 CONFIG.ROLES
+    const ch = getGameData()?.characters?.[elite];
+    const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t));
+    if (!role) return false;                              // 缺职业解析：当作精英未上场（与 !me continue 同口径）
+    const unit = new Unit(elite, m, role, CAMP_TYPES.ALLY);
+    unit.pos = victim.pos;                                // 继承替身站位：换人发生在洗牌之后，两臂站位全同
+    unit.init(rng); unit.applyBonus();                    // initRng 此后无人再用（战斗用独立种子），多耗无影响
+    ally[ally.indexOf(victim)] = unit;
+    return true;
+}
+
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
@@ -290,11 +328,15 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
-        if (arm !== 'natural') GlobalStore.set('forceWeakElite', elite);
+        // V1.14.0 路C：明教侧不再设 forceWeakElite（换人挪到建队后，见 applyForcedWeakAlly）；
+        //   六大派侧照旧走 29 的 M104 空位具名锁定（本就是「只换名」形态，流不动）
+        if (arm !== 'natural' && side !== 'ally') GlobalStore.set('forceWeakElite', elite);
         const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
         const teams = initBattleTeams(stage, initRng);
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
+        let swappedIn = false;
+        if (arm !== 'natural' && side === 'ally') swappedIn = applyForcedWeakAlly(ally, elite, initRng);
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true);
         if (!res.winner) continue;
@@ -320,6 +362,9 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
         const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
             .find(u => flag ? u[flag] : u.name === elite);
         if (!me) continue;                    // 该弱精英本局没上场（第3关无 M104 空位等）→ 不计入
+        // V1.14.0 路C配套：明教侧只计「换人成功」的局——目标精英自然混入已在场的局（swappedIn=false 且 me 命中）
+        // 自然臂 clean[name] 同样剔掉，两臂样本逐场对应；换人未成（无合格替身/缺职业）也走这里（me 不命中已拦）
+        if (side === 'ally' && !swappedIn) continue;
         a.runs++;
         if (res.winner === '明教') a.wins++;
         if (me.alive) a.sumSurv++;

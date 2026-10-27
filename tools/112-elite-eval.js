@@ -1,3 +1,7 @@
+// V3.1.0 | 2026-10-28 明教侧弱精英口径换「路C：建队后换名」（老板拍板）：强制臂不再走 29 forceWeakElite 混入
+//          （换入发生在建队流中段，自然臂掷失时两臂随机数流错位→站位全乱、Δ 混站位噪音），改 116 V1.14.0
+//          applyForcedWeakAlly 确定性替身换名——两臂建队随机数逐数一致、站位逐位全同，Δ 只剩精英本人；
+//          「自然已在场」的局两臂同剔，样本逐场对应（配 116 V1.14.0）。
 // V3.0.3 | 2026-10-27 弱精英表判读同步 116 V1.13.1 的「干净对照」：每列按自己的精英名取 clean 基准，
 //          只剔除「该精英在自然局登场」的局（自然臂场次略少于精英臂），Δ 不再被对照组自带该精英稀释。
 // V3.0.2 | 2026-10-22 寒离飒单挑口径改为 29 V7.6.1 的 forceHanLiSa（配 116 V1.12.2）：
@@ -44,7 +48,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.0.3';
+export const VER = 'tools/112-elite-eval.js V3.1.0';
 
 // 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
@@ -452,8 +456,9 @@ function noEliteTotalsOf(byStage, stages) {
 }
 
 // ============ 2026-10-16 V2.8.0 弱精英评测：单弱精英强制上场 vs 自然配对对照 ============
-// 口径：明教侧弱精英走 29 forceWeakElite 的「弱精英混入」（强精英轮盘照常、不互锁）；
-//       六大派侧走 M104 数字空位具名锁定；同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
+// 口径（V3.1.0 路C，老板拍板）：明教侧 = 116 建队完成后「确定性替身换名」（两臂建队随机数逐数一致、
+//       站位逐位全同，Δ=纯精英贡献）；六大派侧 = M104 数字空位具名锁定（同「只换名」形态）；
+//       同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
 weakBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(soloRunsInput.value) || 400;
@@ -560,8 +565,8 @@ function renderWeakResults(byStage, stages) {
         return html;
     };
     let html = '';
-    html += sub('🐦 明教弱精英（强制混入明教阵容，强精英轮盘照常）', WEAK_ALLY,
-        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子；明教侧换人会扰动站位洗牌，属随机噪声、多场平均掉）。Δ>0 = 该弱精英给明教带来增益（替换一个普通位更划算）。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
+    html += sub('🐦 明教弱精英（建队后换掉一个普通位，强精英轮盘照常）', WEAK_ALLY,
+        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子）。V3.1.0 起换人发生在建队完成之后：两臂站位逐位全同，Δ 不含站位噪音，只剩精英本人 vs 被换的普通位。Δ>0 = 该弱精英给明教带来增益。「自然出现该精英」的局两臂同剔，样本逐场对应。');
     html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
         'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
     weakResultEl.innerHTML = html;
