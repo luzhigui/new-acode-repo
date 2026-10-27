@@ -1,3 +1,7 @@
+// V1.13.1 | 2026-10-27 弱精英评测的自然对照臂改「干净对照」：自然局里任一侧出现弱精英即跳过该局——
+//   六大派侧 M104 数字空位走 roster.enemyM 随机抽名，池里本就含空见/何太冲/唐文亮/班淑娴（实测第4关
+//   自然臂 18% 的局 1 号位直接抽到空见）；明教侧也会按 WEAK_ELITE_MIX_RATE 随机混入。不剔除会把 Δ
+//   系统性拉向 0（第4关空见曾出 Δ+0.5，同口径双种子实测 -5.8~-6.5pp）。自然臂样本相应变少。
 // V1.13.0 | 2026-10-22 基线对比（kind:'baseline'）支持六名精英：applyConfig 的「剔除候选」和「身份标记复位」
 //           改由 127 ELITE_UNIT_META 派生（此前只认张/韦/小昭，谢逊寒离飒会被当普通位覆盖）；runBaselineStageJob
 //           先把随机阵容里已存在的同名精英剔掉，避免目标精英重复出场（配 114 V1.2.0）
@@ -282,7 +286,8 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
+    const weakFlags = Object.values(WEAK_UNIT_FLAG);   // V1.13.1：自然臂干净对照判据（两侧共用）
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, cleanAlly: { runs: 0, wins: 0 }, cleanEnemy: { runs: 0, wins: 0 } });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
@@ -298,8 +303,20 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         if (arm === 'natural') {              // 自然对照臂：整关明教胜率，不认具体精英
+            // V1.13.1 干净对照·分侧剔除：runs/wins 仍是全量（旧口径），另出两套干净子计数供给两张表——
+            //   六大派侧 M104 空位随机抽名会抽到空见/何太冲/唐文亮（第4关实测 18%），明教侧按
+            //   WEAK_ELITE_MIX_RATE=0.30 随机混入；若双侧全剔只剩约 27% 样本，故按侧各留一套。
             a.runs++;
             if (res.winner === '明教') a.wins++;
+            const isWeak = u => weakFlags.some(f => u[f]);
+            if (!(res.ally || []).some(isWeak)) {
+                a.cleanAlly.runs++;
+                if (res.winner === '明教') a.cleanAlly.wins++;
+            }
+            if (!(res.enemy || []).some(isWeak)) {
+                a.cleanEnemy.runs++;
+                if (res.winner === '明教') a.cleanEnemy.wins++;
+            }
             continue;
         }
         const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))

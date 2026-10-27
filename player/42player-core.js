@@ -19,7 +19,7 @@ import { buildBattleReportData, computeVoteResult, grantClearRewards } from './4
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
-import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from './52-career-log.js';
+import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from '../tools/52-career-log.js';
 
 import { readRound, setupDeathTimers } from './42player-step-sync.js';
 import { playStepInterleaved } from './42player-play-step.js';

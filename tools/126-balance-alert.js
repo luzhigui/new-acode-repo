@@ -17,7 +17,7 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V2.2.0';
+export const VER = 'tools/126-balance-alert.js V2.3.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
@@ -210,6 +210,7 @@ function hexIssues(mode) {
             detail: `胜率 ${pct(r.p)}${r.ci ? `（95% 区间 ${pct(r.ci[0])}–${pct(r.ci[1])}）` : ''}（${r.n} 场），基准 ${pct(base)}，差值 ${signed(r.diff)}，z=${r.z.toFixed(2)}（判读线 ±${TH.Z_WARN.toFixed(1)}）`
                 + `｜多重比较校正（BH-FDR q=${(TH.FDR_Q * 100).toFixed(0)}%，共 ${judgedCount} 项）：`
                 + (r.fdrSig ? '✅ 校正后仍成立' : '⚠️ 校正后不成立——同类检验太多，这条可能只是偶然')
+                + hexSuggest(r.diff)
         });
     }
     // 差值合计自检：与 108 的「差值列加起来正好为 0」同一不变量，这里顺带复核一遍
@@ -281,7 +282,7 @@ function eliteIssues() {
             issues.push({
                 sev: az >= TH.BAND * 2 ? 'alert' : 'warn',
                 title: `${label}「${r.name}」${r.diff > 0 ? '过强' : '过弱'}`,
-                detail: `胜率 ${pct(r.p)}（${r.n} 场），理想线 ${pct(target)}，偏离 ${signed(r.diff)}${az >= TH.BAND * 2 ? '（≥10pp，显著）' : ''}`
+                detail: `胜率 ${pct(r.p)}（${r.n} 场），理想线 ${pct(target)}，偏离 ${signed(r.diff)}${az >= TH.BAND * 2 ? '（≥10pp，显著）' : ''}` + eliteSuggest(r.diff, target)
             });
         }
         return { label, target, rows, canJudge };
@@ -320,7 +321,7 @@ function eliteIssues() {
                 title: `弱精英「${r.name}」（${r.side === 'ally' ? '明教' : '六大派'}侧）${over ? '过强' : '过弱'}`,
                 detail: `胜率 ${pct(r.p)}（${r.n} 场）vs 同种子自然对照 ${pct(r.base)}（${r.nbase} 场），Δ ${signed(r.delta)}${over
                     ? '（本该弱，实际' + (r.side === 'ally' ? '给明教带来正收益' : '大幅压低明教胜率') + '）'
-                    : '（弱得超出预期）'}`
+                    : '（弱得超出预期）'}` + weakSuggest(r)
             });
         }
         return { rows, canJudge };
@@ -351,7 +352,7 @@ function overallIssues(hex) {
     if (az >= TH.BAND) issues.push({
         sev: az >= TH.BAND * 2 ? 'alert' : 'warn',
         title: `整体 7 关胜率${diff > 0 ? '偏高' : '偏低'}（相对理想 ${pct(target)}，${signed(diff)}）`,
-        detail: `明教整体 ${pct(cur)}（${n} 场）vs 自然状态理想线 ${pct(target)}，偏离 ${signed(diff)}${az >= TH.BAND * 2 ? '（≥10pp，显著失衡）' : ''}。偏高=明教太好吃分，考虑抬敌方成长或压明教成长；偏低=反过来。`
+        detail: `明教整体 ${pct(cur)}（${n} 场）vs 自然状态理想线 ${pct(target)}，偏离 ${signed(diff)}${az >= TH.BAND * 2 ? '（≥10pp，显著失衡）' : ''}。偏高=明教太好吃分，考虑抬敌方成长或压明教成长；偏低=反过来。` + ovrSuggest(diff, target)
     });
     return { cur, target, n, diff, ok: az < TH.BAND, issues };
 }
@@ -370,6 +371,38 @@ function weakVerdict(sec, r) {
     if (az < TH.BAND) return '正常';
     const over = r.side === 'ally' ? r.delta > 0 : r.delta < 0;
     return (az >= TH.BAND * 2 ? '显著' : '') + (over ? '过强' : '过弱');
+}
+
+/* ========== 调参建议（V2.3.0 新增：直接给出回理想线的方向与幅度） ========== */
+function eliteSuggest(diff, target) {
+    if (Math.abs(diff) < TH.BAND) return '';
+    const pp = diff * 100;
+    return diff > 0
+        ? ` ｜ 建议：该敌方精英偏弱，可增强它（或增强敌方整体）约 ${pp.toFixed(1)}pp 回到理想线 ${pct(target)}`
+        : ` ｜ 建议：该敌方精英偏强，可削弱它（或增强明教对应位）约 ${(-pp).toFixed(1)}pp 回到理想线 ${pct(target)}`;
+}
+function weakSuggest(r) {
+    if (r.delta === null || Math.abs(r.delta) < TH.BAND) return '';
+    const over = r.side === 'ally' ? r.delta > 0 : r.delta < 0;
+    const pp = (Math.abs(r.delta) * 100).toFixed(1);
+    if (over) return r.side === 'ally'
+        ? ` ｜ 建议：该明教弱精英实际在帮明教，削弱其增益约 ${pp}pp`
+        : ` ｜ 建议：该六大派弱精英过强，削弱它约 ${pp}pp`;
+    return ` ｜ 建议：该${r.side === 'ally' ? '明教' : '六大派'}弱精英弱于预期，可略增强约 ${pp}pp`;
+}
+function hexSuggest(diff) {
+    if (Math.abs(diff) < TH.BAND) return '';
+    const pp = diff * 100;
+    return diff > 0
+        ? ` ｜ 建议：该海克斯偏弱（明教胜率高于基准），削弱其效果或降出现率约 ${pp.toFixed(1)}pp`
+        : ` ｜ 建议：该海克斯偏强，增强其效果或提出现率约 ${(-pp).toFixed(1)}pp`;
+}
+function ovrSuggest(diff, target) {
+    if (Math.abs(diff) < TH.BAND) return '';
+    const pp = diff * 100;
+    return diff > 0
+        ? ` ｜ 建议：明教整体偏强，抬敌方成长/增强敌方阵容约 ${pp.toFixed(1)}pp`
+        : ` ｜ 建议：明教整体偏弱，压敌方成长或增强明教约 ${(-pp).toFixed(1)}pp`;
 }
 
 /* ========== 汇总判读 ========== */
@@ -476,6 +509,16 @@ function buildReport(d) {
     return L.join('\n');
 }
 
+// V2.3.0 新增：结构化 JSON 导出（供程序化消费 / 丢给 AI 进一步分析）
+// 用 replacer 丢弃所有函数字段（如 sec.canJudge），保留数值与文字结论。
+function buildJSON(d) {
+    try {
+        return JSON.stringify(d, (k, v) => typeof v === 'function' ? undefined : v, 2);
+    } catch (e) {
+        return JSON.stringify({ error: String((e && e.message) || e) });
+    }
+}
+
 // 绝对值表（自然 / 强精英 / Boss）渲染
 function absTableHtml(sec, title, colP) {
     if (!sec) return '';
@@ -528,6 +571,7 @@ function openBalanceAlert() {
             <select class="bal-mode" id="balMode">${HEX_MODES.map(m => `<option value="${m}">${MODE_LABEL[m]}</option>`).join('')}</select>
             <button class="bal-run" id="balRun">重新判读</button>
             <button class="bal-copy" id="balCopy">复制报告</button>
+            <button class="bal-copy" id="balJson">复制 JSON</button>
             <button class="bal-close" id="balClose">关闭</button>
           </div>
         </div>
@@ -617,6 +661,23 @@ function openBalanceAlert() {
             btn.textContent = '✅ 已复制';
             setTimeout(() => btn.textContent = '复制报告', 1200);
         });
+    });
+    box.querySelector('#balJson').addEventListener('click', () => {
+        try {
+            const data = cur || judgeAll(modeSel.value);
+            const json = buildJSON(data);
+            const btn = box.querySelector('#balJson');
+            navigator.clipboard.writeText(json).then(() => {
+                btn.textContent = '✅ 已复制';
+                setTimeout(() => btn.textContent = '复制 JSON', 1200);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = json; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); ta.remove();
+                btn.textContent = '✅ 已复制';
+                setTimeout(() => btn.textContent = '复制 JSON', 1200);
+            });
+        } catch (e) { alert('导出失败：' + (e && e.message ? e.message : e)); }
     });
     // 默认模式：优先显示已有数据的那个（常规没数据时自动跳到一个跑过的模式）
     const firstWithData = HEX_MODES.find(m => hexStatsOf(readJSON(hexKeyFor(m), [])).total > 0);

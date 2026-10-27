@@ -1,5 +1,6 @@
-// player/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
-// V1.0.0 | 2026-10-23 | ~5200 bytes
+// tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V1.1.0 | 2026-10-27 | 由 player/ 迁入 tools/（入口保留：战斗内写入在 42player-core、查看在 dev-index）
+//         新增 getHeroAggregates()（英雄跨局聚合）与 exportCareerCSV()（表格软件友好导出）
 // 只存摘要（阵容/结果/单位统计/回合走势），不存 steps——localStorage 约 5MB，
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
@@ -7,7 +8,7 @@
 import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 
-export const VER = 'player/52-career-log.js V1.0.0';
+export const VER = 'tools/52-career-log.js V1.1.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const MAX_RECORDS = 200;
@@ -157,7 +158,7 @@ export function getCareerInsights() {
     const stages = Object.entries(byStage).map(([s, v]) => ({ stage: +s, n: v.n, rate: v.w / v.n }));
     const hardest = stages.slice().sort((a, b) => a.rate - b.rate)[0] || null;
     // “最易”至少要 3 局样本，避免 1 局 100% 胜率挤掉真实数据
-const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] || null;
+    const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] || null;
 
     // 主力英雄：明教侧出场次数最多
     const appear = {}, heroWins = {};
@@ -233,4 +234,69 @@ const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] 
             : null,
         bestHit, hexTop, recent, summaryLine
     };
+}
+
+// V1.1.0 新增：英雄跨局聚合——看每个英雄的「出场次数 / 胜率 / 平均输出承伤」，
+// 直接喂平衡判断：谁长期虚高、谁长期划水一目了然。纯读已有记录，不新增存储。
+export function getHeroAggregates() {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const M = {};
+    const touch = (u, won) => {
+        const a = M[u.name] || (M[u.name] = {
+            name: u.name, games: 0, wins: 0, dmgDealt: 0, dmgTaken: 0,
+            heal: 0, roundsSum: 0, alive: 0
+        });
+        a.games++;
+        if (won) a.wins++;
+        a.dmgDealt += Math.round(u.dmgDealt || 0);
+        a.dmgTaken += Math.round(u.dmgTaken || 0);
+        a.heal += Math.round(u.healDone || 0);
+        a.roundsSum += (u.survivedRounds || 0);
+        if (u.alive) a.alive++;
+    };
+    for (const r of arr) {
+        const mWin = r.winner === '明教', eWin = r.winner === '六大派';
+        for (const u of (r.ally || [])) touch(u, mWin);
+        for (const u of (r.enemy || [])) touch(u, eWin);
+    }
+    return Object.values(M).map(a => ({
+        name: a.name,
+        games: a.games,
+        winRate: Math.round(a.wins / a.games * 100),
+        avgDmg: Math.round(a.dmgDealt / a.games),
+        avgTaken: Math.round(a.dmgTaken / a.games),
+        avgHeal: Math.round(a.heal / a.games),
+        avgRounds: Math.round(a.roundsSum / a.games * 10) / 10,
+        aliveRate: Math.round(a.alive / a.games * 100)
+    })).sort((a, b) => b.games - a.games);
+}
+
+// V1.1.0 新增：CSV 导出——每行一个单位，表格软件（Excel/WPS）直接透视/排序。
+// 列：局序/关卡/模式/胜方/回合/海克斯/阵营/角色名/定位/位置/输出/承伤/治疗/存活/闪避/暴击/生存回合
+export function exportCareerCSV() {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const head = ['局序', '关卡', '模式', '胜方', '回合', '海克斯', '阵营', '角色名', '定位', '位置',
+        '输出', '承伤', '治疗', '存活', '闪避', '暴击', '生存回合'];
+    const cell = v => {
+        const s = String(v == null ? '' : v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const lines = [head.join(',')];
+    arr.forEach((r, gi) => {
+        const hex = (r.hex || []).join('/');
+        const pushRow = (list, camp) => {
+            for (const u of (list || [])) {
+                lines.push([
+                    gi + 1, r.stage, r.mode, r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
+                    Math.round(u.dmgDealt || 0), Math.round(u.dmgTaken || 0), Math.round(u.healDone || 0),
+                    u.alive ? 1 : 0, u.dodgeCount || 0, u.critCount || 0, u.survivedRounds || 0
+                ].map(cell).join(','));
+            }
+        };
+        pushRow(r.ally, '明教');
+        pushRow(r.enemy, '六大派');
+    });
+    return lines.join('\n');
 }
