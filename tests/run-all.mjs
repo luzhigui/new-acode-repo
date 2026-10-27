@@ -1,3 +1,9 @@
+// V1.18.0 | 2026-10-28 夜间第 148 轮：OBSERVES 挂「沙箱易碎地基普查」tests/sandbox-fragility-scan.mjs。
+//   由来见该脚本头注释：本轮开场沙箱工作区被整体重置，从 Gitee 重新克隆后体检由 13/24 变 12/24，
+//   少的那一项是「牙口证据链对账」—— 不是代码退步，是它的证据地基 tests/.mut/teeth-results.txt
+//   被 .gitignore 排除、不进 patch、换沙箱即归零。★ 挂它防的不是这一项红，而是「红得没有真因
+//   却看起来像真因」：只看总数会读成夜间轮把体检搞退步了，于是去查一个不存在的代码回归。
+//   与第 147 轮孤儿普查同一取舍：挂 OBSERVES 不改分母（24 不变），拍板开红再挪到 CHECKS。
 // V1.17.0 | 2026-10-28 夜间第 147 轮：OBSERVES 挂「孤儿自检普查」tests/orphan-selftest-sweep.mjs。
 //   由来见该脚本头注释：第 146 轮发现 tests/param-read-guard.mjs 今天是红的却不在本清单里
 //   ⇒ 它红了多久无人知晓。★ 挂在 OBSERVES 而非 CHECKS 是刻意的：挂 CHECKS 会让体检分母由
@@ -69,7 +75,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.17.0';
+export const VER = 'tests/run-all.mjs V1.18.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -184,7 +190,10 @@ const OBSERVES = [
     { name: '结构不可达分支扫描', script: 'tests/structural-dead-branch-scan.mjs', args: [] },
     // V1.17.0 | 2026-10-28 夜间第 147 轮：孤儿自检普查（磁盘有、本清单无的 tests 脚本逐个跑一遍，
     //   报出"红了但没人盯"的盲区）。挂观察项不改分母，理由见头顶 V1.17.0 日志行。
-    { name: '孤儿自检普查(不在清单里的)', script: 'tests/orphan-selftest-sweep.mjs', args: [] }
+    { name: '孤儿自检普查(不在清单里的)', script: 'tests/orphan-selftest-sweep.mjs', args: [] },
+    // V1.18.0 | 2026-10-28 夜间第 148 轮：沙箱易碎地基普查（体检项依赖的被 .gitignore 排除的产物，
+    //   缺了就让体检项以「假退步」的面目转红）。挂观察项不改分母，理由见头顶 V1.18.0 日志行。
+    { name: '沙箱易碎地基普查', script: 'tests/sandbox-fragility-scan.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
