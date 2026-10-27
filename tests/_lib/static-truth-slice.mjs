@@ -1,4 +1,14 @@
-// tests/_lib/static-truth-slice.mjs | V1.0.0 | 2026-10-27 夜间第 145 轮：把第 144 轮在
+// tests/_lib/static-truth-slice.mjs | V1.1.0 | 2026-10-28 夜间第 146 轮：新增第五样东西
+//   ⑤ auditAnchorSites —— 给「在源文件里正则抠锚点」这一类取样做同一个体检：
+//      这个锚点到底落在真代码里，还是只活在注释里？
+//      背景（本轮第三/第四个受体的发现点）：param-read-guard 报「命中 getSkillParams 的文件 N 个」，
+//      这个 N 是用 `code.replace(/\/\/.*$/gm,'')` 算的 —— 一条只认行注释、不认块注释、也不认字符串
+//      里 // 的野路子。它与同文件真正做抽取的 maskLiterals 是**两套口径**：同一个文件，可能被算进
+//      「命中」却在抽取侧一个读取点都提取不出来。
+//      ★ 这正是第 144 轮那条病换了个皮：不是"文本切片混进別的枚举"，而是
+//        "报告口径掺进了注释这种第二种写法"。本轮牙B2 已实证：给一个无关文件加一行块注释，
+//        旧口径立刻从 21 虚高到 22，而没人能从报告里看出那一处是假的。
+// V1.0.0 | 2026-10-27 夜间第 145 轮：把第 144 轮在
 //   fact-coverage-selftest 里**现写的一次性**「静态真值口径审计」（构成归属 / 同名重复 /
 //   真值对照 / 独立第三路径）抽成公共件，供所有"用文本切片假装静态真值"的自检复用。
 //
@@ -24,7 +34,7 @@
 //   const a = auditSlice({ src, from: 'FACT_TYPES', to: 'MECHANIC_TYPES', owner: 'FACT_TYPES', truthKeys: Object.keys(FACT_TYPES) });
 //   const v = auditValueMap(blocks, 'FACT_TYPES');
 //   for (const bad of selfCheck()) fails.push('静态真值口径公共件自证：' + bad);
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.0.0';
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.1.0';
 
 // ---------------------------------------------------------------------------
 // ① 注释清除：把注释原文清掉，但**保住字符串 / 模板串里长得像注释的东西**。
@@ -236,8 +246,55 @@ export function auditValueMap(blocks, owner) {
 }
 
 // ---------------------------------------------------------------------------
+// ⑤ 给「正则抠锚点」做体检：这个锚点落在真代码里，还是只活在注释里？
+//   opts: { src, anchors }   anchors = [{ id, re }]，re 必须带 g；函数内部每次都重置 lastIndex
+//   三份取样面，逐份数同一批锚点：
+//     rawView   原样源码                       —— 最宽松，注释也算，容易虚高
+//     lineView  codeMask 逐行屏蔽「纯注释行」   —— 挡得住整行注释，挡不住行尾注释
+//     stripView stripComments 精细剔注释文本   —— 唯一被认作真值的一份（行内注释也不留）
+//   两类差值即两类骗局：
+//     phantomLine = raw - line   —— 锚点只出现在整行注释里
+//     phantomTail = line - strip —— 锚点出现在「代码行的行尾注释」里（★ 逐行 mask 的结构性盲区）
+//   ★ 为什么必须三份而不是直接上 stripView：只有一个数字时，你无法知道它和历史报告差在哪；
+//     三个数字并列，"掺了多少水"才是看得见的量。
+// ---------------------------------------------------------------------------
+function countOf(text, re) {
+    re.lastIndex = 0;
+    let n = 0;
+    while (re.exec(text) !== null) n++;
+    return n;
+}
+
+export function auditAnchorSites(opts) {
+    const src = opts.src || '';
+    const anchors = opts.anchors || [];
+    const marks = codeMask(src);
+    const lines = src.split('\n');
+    const lineView = lines.map((ln, i) => (marks[i] === 'code' ? ln : '')).join('\n');
+    const stripView = stripComments(src);
+    const rows = anchors.map(a => {
+        const raw = countOf(src, a.re);
+        const line = countOf(lineView, a.re);
+        const strip = countOf(stripView, a.re);
+        return {
+            id: a.id,
+            raw, line, strip,
+            phantomLine: raw - line,
+            phantomTail: line - strip,
+        };
+    });
+    return {
+        rows,
+        lines: lines.length,
+        commentLines: marks.filter(m => m === 'comment').length,
+        phantomTotal: rows.reduce((s, r) => s + r.phantomLine + r.phantomTail, 0),
+    };
+}
+
+// ---------------------------------------------------------------------------
 // 自证：本件自己腐烂了要能被听见。四条 +
 //   ⒌ 独立第三路径自证（soloBlockKeys 必须数与真值口径同一份）。
+//   ⒍⒎ 锚点取样三视图自证（整行注释 / 行尾注释 两种假写法必须各自能被数出来）。
 //   ★ 设计原则照抄第 143 轮 sample-sufficiency：每个新受体挂一条 selfCheck()，一处坏多处喊。
 // ---------------------------------------------------------------------------
 export function selfCheck() {
@@ -307,5 +364,32 @@ function runSelfChecks(fails) {
     const a6 = auditSlice({ src: fx6, from: 'A_TYPES', to: 'ZZZ_MARK', owner: 'A_TYPES', truthKeys: ['K1'] });
     if (a6.foreignOwners.length !== 1) fails.push('auditSlice 没识别出切片里混进来的外来枚举（这是第 144 轮那条病的本体）');
     if (a6.dupKeys.length !== 1) fails.push('auditSlice 没识别出跨枚举同名重复（重复会让分母虚增）');
+    // ⑦ 锚点三视图：注释里的锚点一个都不许被算进真值
+    const ANCH = [{ id: 'NSX hooked', re: /\bhooked\b/g }];
+    const fx7 = [
+        "const real = 1; // hooked 只在行尾注释里",
+        "// hooked 整行都是注释",
+        "const real2 = hookedFn();",
+        "",
+    ].join('\n');
+    const a7 = auditAnchorSites({ src: fx7, anchors: ANCH });
+    if (a7.rows[0].strip !== 0) {
+        fails.push('auditAnchorSites 把注释里的锚点算成了真值（stripView 应为 0，说明注释没被剔干净）');
+    }
+    if (a7.rows[0].phantomLine !== 1) {
+        fails.push('auditAnchorSites 没数出「整行注释里的锚点」（phantomLine 应为 1，实为 ' + a7.rows[0].phantomLine + '）');
+    }
+    if (a7.rows[0].phantomTail !== 1) {
+        fails.push('auditAnchorSites 没数出「行尾注释里的锚点」（phantomTail 应为 1，实为 ' + a7.rows[0].phantomTail + '）—— 这正是逐行 mask 的结构性盲区');
+    }
+    // ⑧ 锚点三视图：反过来也不许误伤 —— 真代码里的锚点一个都不能少
+    const fx8 = "/* 注释里也提一次 hooked */\nconst x = hooked;\n";
+    const a8 = auditAnchorSites({ src: fx8, anchors: ANCH });
+    if (a8.rows[0].strip !== 1) {
+        fails.push('auditAnchorSites 把真代码里的锚点误删了（stripView 应为 1，实为 ' + a8.rows[0].strip + '）');
+    }
+    if (a8.rows[0].raw !== 2) {
+        fails.push('auditAnchorSites 的 raw 视图漏数（应为 2，实为 ' + a8.rows[0].raw + '），三视图差值就失真了');
+    }
     return fails;
 }

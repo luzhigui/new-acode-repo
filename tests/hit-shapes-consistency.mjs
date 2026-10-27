@@ -1,4 +1,16 @@
 // tests/hit-shapes-consistency.mjs — 寒离飒「蓄意轰拳」数值口径对账（静态检查，非运行时体检）
+// V1.2.0 | 2026-10-28 夜间第 146 轮：接 `_lib/static-truth-slice.mjs` V1.1.0（第三个受体），三步走。
+//   ★ 本輪的发现（检查④ 的活缺口，本轮把它转成红线）：
+//     检查④ 自述「modules/27 与 ui/79 里不得再出现 xuLi 相关字段的字面量兜底」，但它的
+//     FALLBACK_PATTERNS 是一条**手写的 6 条 pattern 名单** —— 名单字典的目的/参数_FIELD
+//     一旦新增，同款 `?? 字面量` 兜底就永久落在管辖之外、且报告照绿（假绿）。
+//     实测今天就已有两条漏管：modules/27 的 `xl.doublePunchHpPct ?? 0.4` 与
+//     `xl.doublePunchProb ?? 0.5`（content 真值同为 0.4 / 0.5，故今天**还没算错**，
+//     但正是 v29 事故同一款机关：content 一旦缺字段就静默按老口径跑）。
+//     修法（收紧，非放宽）：把名单换成**从 content 真值的 params 标量字段推导**，新增字段自动入辖，
+//     不再有第二份手写快照可腐烂；嵌套对象项（tierDen/fullDen）保留原 pattern 不变。
+//   ★ 同时按第 145 轮给的三个受体接口接入 auditAnchorSites / truthSelfCheck：
+//     报一份「锚点三视图」（raw / line / strip），把"2 锚点是不是只活在注释里"变成看得见的数字。
 // V1.1.0 | 2026-10-25 第 134 轮：上游把 ui/79 的九位九形**收口为唯一数据源**——删掉本地抄写的
 //   `const HIT_MAP = {...}`，改 `function hitShapeOf(aim)` 直读 content 寒离飒.xuLi.hitShapes。
 //   本检查的抽取器只认 `const HIT_MAP` ⇒ 抽取失败 ⇒ 报「抽取或求值失败」退出码 1。
@@ -25,11 +37,12 @@
 //        缺参数就该报错（老板口径：有错误就让他暴露出来，不要静默兜底）。
 //   零触发守卫：真值/引擎源码任一读取失败、或对账格子数为 0 → 硬红（解析失效 = 空跑出绿，不许有）。
 // 用法：node tests/hit-shapes-consistency.mjs
-export const VER = 'tests/hit-shapes-consistency.mjs V1.1.0';
+export const VER = 'tests/hit-shapes-consistency.mjs V1.2.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { auditAnchorSites, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -155,6 +168,7 @@ function evalDmgMapFor(src, xl) {
 }
 
 // ---- 兜底扫描：xuLi 字段的字面量兜底 ----
+// V1.2.0 | 夜间第 146 轮：手写名单 ⟶ 由真值 params 的标量字段推导。
 const FALLBACK_PATTERNS = [
     /xl\.tierDen\s*\|\|\s*\{/,
     /xl\.eightDen\s*\?\?/,
@@ -164,11 +178,25 @@ const FALLBACK_PATTERNS = [
     /xl\.hitShapes\s*\|\|\s*\{\s*\}/
 ];
 
-function scanFallbacks(src) {
+// 由 content 真值的 xuLi.params 推导标量字段名，逐个生成 `xl.<字段> ??|<| 字面量` 的兜底正则。
+// ★ 为什么必须推导而不是继续手写名单：手写名单本身就是第二份「引擎参数快照」，它会腐烂 ——
+//   本轮实测它已漏管 doublePunchHpPct / doublePunchProb 两条；将来谁再给 xuLi 加一个标量参数，
+//   同款 `?? 默认值` 又会静默落在管辖之外。
+// ★ 刻意排除 `!xl.X ||` 形态：那是「存在性校验」（缺参数就早退），不是「给默认值」，属被容许写法。
+export function derivedFallbackPatterns(truthParams) {
+    const fields = Object.keys(truthParams || {}).filter(k => truthParams[k] !== null && typeof truthParams[k] !== 'object');
+    return fields.map(f => ({ field: f, re: new RegExp('(?<![!.\\w])xl\\.' + f + '\\s*(?:\\?\\?|\\|\\|)') }));
+}
+
+function scanFallbacks(src, derived) {
     const hits = [];
     FALLBACK_PATTERNS.forEach(re => {
         const m = re.exec(src);
         if (m) hits.push(m[0].replace(/\s+/g, ' '));
+    });
+    if (derived) derived.forEach(p => {
+        const m = p.re.exec(src);
+        if (m) hits.push(m[0].replace(/\s+/g, ' ') + '（字段 ' + p.field + '）');
     });
     return hits;
 }
@@ -282,10 +310,22 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
     }
 
     // ---- 检查④：兜底扫描 ----
-    const settleFallbacks = scanFallbacks(settleSrc);
-    const uiFallbacks = scanFallbacks(uiSrc);
+    // 名单（嵌套对象项）+ 由真值标量字段推导的兜底（V1.2.0 新增，见 derivedFallbackPatterns）
+    const derivedFallbacks = derivedFallbackPatterns(truth.params);
+    const settleFallbacks = scanFallbacks(settleSrc, derivedFallbacks);
+    const uiFallbacks = scanFallbacks(uiSrc, derivedFallbacks);
     if (settleFallbacks.length) problems.push(`modules/27 仍有字面量兜底：${settleFallbacks.join('、')} —— 缺参数应报错，不该静默按旧口径算`);
     if (uiFallbacks.length) problems.push(`ui/79 仍有字面量兜底：${uiFallbacks.join('、')} —— 缺参数应报错，不该静默按旧口径算`);
+
+    // ---- 检查⑦（V1.2.0 新增）：抽取锚点的取样面口径审计 ----
+    // 本检查的全部证据都是"在源文件里正则抠锚点"得来的：HIT_MAP / hitShapeOf / dmgMapFor /
+    // tierOf / 结算块锚点 / 兜底 pattern。这些锚点一旦**只活在注释里**，上述所有结论就成了
+    // "照着注释比对"，而报告仍然按同一套数字输出 —— 与第 144/145 轮那条病同源，只是载体从
+    // "文本切片"换成了"锚点"。本项把这批锚点做一次三视图体检（详见 _lib 的 auditAnchorSites）。
+    problems.push(...auditExtractionAnchors(settleSrc, uiSrc));
+
+    // ---- 公共件自证：一处坏、多处喊（第 145 轮给受体的第三条接口）----
+    for (const bad of truthSelfCheck()) problems.push('静态真值口径公共件自证：' + bad);
 
     // ---- 检查⑤：desc 口径交叉验证（独立的第二真值基准）----
     // desc 是给玩家看的技能说明，它写死了各档倍率（"该格吃基数 0.8 倍、相邻格 1/4、更远格 1/6"、
@@ -306,6 +346,32 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
         eightDen: xl.eightDen
     });
     return { problems, stats };
+}
+
+// ---- 检查⑦：抽取锚点的取样面口径审计 ----
+// 三视图：raw（原样源码）/ line（codeMask 屏纯注释行）/ strip（stripComments 精细剔注释）。
+//   raw 比 strip 多的那部分 = 只活在注释里的"伪写法"。今天为 0 ⇒ 现有结论全部站得住；
+//   哪天变非 0，说明有人在注释里留了同款的旧写法（例如注释掉的 HIT_MAP），本检查会先喊。
+export function auditExtractionAnchors(settleSrc, uiSrc) {
+    const ANCHORS = [
+        { id: 'const HIT_MAP = {', re: /const\s+HIT_MAP\s*=\s*\{/g },
+        { id: 'function hitShapeOf', re: /function\s+hitShapeOf\s*\(/g },
+        { id: 'function dmgMapFor', re: /function\s+dmgMapFor\s*\(/g },
+        { id: 'function tierOf', re: /function\s+tierOf\s*\(/g },
+        { id: 'const tierOf = (a, p) => {', re: /const tierOf = \(a, p\) => \{/g },
+        { id: 'flatMap 收尾锚点', re: /\.flatMap\(\(\[a, b, c, d, t\]\) => \[a, b, c\]\.map/g },
+    ];
+    const problems = [];
+    for (const [label, src] of [['modules/27', settleSrc], ['ui/79', uiSrc]]) {
+        const a = auditAnchorSites({ src, anchors: ANCHORS });
+        for (const r of a.rows) {
+            const ghost = r.phantomLine + r.phantomTail;
+            if (ghost > 0) {
+                problems.push(`${label} 的抽取锚点「${r.id}」有 ${ghost} 处只活在注释里（raw=${r.raw} / 真代码=${r.strip}）—— 注释里的旧写法会污染取样面，请清理或本检查的口径作废`);
+            }
+        }
+    }
+    return problems;
 }
 
 // ---- desc 口径交叉验证：desc 文字里写死的倍率/比例 ↔ params 数值 ----
