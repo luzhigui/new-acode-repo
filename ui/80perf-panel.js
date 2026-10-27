@@ -3,8 +3,10 @@
 //   滑块位置 → 直接取参数表对应列的出厂值，不改出厂表本身。
 // 第一行「未进表倍率」：控制所有未进参数表的演出（蝶变/换位/击退等），四档 0.5/1/2/4。
 // 头/中/底三段：标题+倍率固定顶部，滑块区滚动，按钮固定底部。
+// V3.4.0 | 2026-10-27 | 四档改为独立绝对值表 PV_TIERS（中间=用户实机值，左右按比例重算）；
+//   修「正常档落进 core 散列后与相邻档重复/反序」7 项；不再从 core 四列拼档
 // V3.3.0 | 2026-10-27 | 修手机端两故障：①预览层豁免 paused-animations（窗口不可见）
-//   ②预览遮罩 stopPropagation（关预览连带关面板、解除暂停）③「正常」档固化用户实机值（DEFAULT_VALUES）
+//   ②预览遮罩 stopPropagation（关预览连带关面板、解除暂停）③「正常」档固化用户实机值（V3.4.0 已并入 PV_TIERS）
 // V3.2.1 | 2026-10-27 | 新增 DEFAULT_STOPS 出厂默认刻度（用户实机调定 18 项）；恢复默认/导入缺项均回落此表
 // V3.2.0 | 2026-10-26 | 预览样式/剧本改成网页端 demo 定版：羊皮纸弹窗、双格战场、18 项各带独立演出，
 //   样式与动画曲线照抄 demo（类名统一加 pv- 前缀防污染游戏页），值仍取 getPerfParams()[k]['50']
@@ -13,7 +15,7 @@
 // V3.0.1 | 2026-10-26 | 跟随 core/23 去锚定化：删「锚点行每字」、加「效果行停留」（lineGapFx）
 // V3.0.0 | 2026-10-26 | 四档滑块 + 未进表倍率 + 三段布局 + 清单按钮
 // V2.0.2 | 2026-10-26 | 滑块行加高（40px 行高 / 24px 滑块）+ 弹窗高度 88vh→72vh
-export const VER = 'ui/80perf-panel.js V3.3.0';
+export const VER = 'ui/80perf-panel.js V3.4.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { clock } from '../infra/52-clock.js';
@@ -715,15 +717,32 @@ const NO_TABLE_LIST = [
     'Buff 面板提示 / 事件提示（player/41 · player/45）',
 ];
 
-// 「正常」档的绝对值：用户实机调定的那套（原先散落在 core 四列里，现固化为中间档）。
-//   滑块停中间 = 这些值；往左/右才去 core 表取慢/快/极快列。
-const DEFAULT_VALUES = Object.freeze({
-    charMs: 24, lineGap: 10, lineGapFx: 112, floatLife: 650, bubbleLife: 700,
-    moveDur: 1000, moveStart: 90,
-    crashSpeed: 0.45, arrowSpeed: 4.00, meteorSpeed: 1.30, clawSpeed: 1.30,
-    clawStart: 120, closeHitDur: 700,
-    dashDur: 1700, burstDur: 2300, bulletDur: 3000,
-    countdownTick: 400, corpseDelay: 3000,
+// 四档绝对值 [慢, 正常, 快, 极快]。
+//   中间 = 用户实机调定的那套；左右围绕中间重算：
+//     时长类（越大越慢）慢 ×2 / 快 ×0.6 / 极快 ×0.4
+//     速度类（越大越快）慢 ×0.4 / 快 ×1.6 / 极快 ×2.4
+//   为什么不再从 core 四列拼：core 的 '800'/'400'/'300'/'150' 是历史上逐项手调的散值，
+//   中间档落进去会与相邻档重复或反序（实测 7 项：行间隔/效果行停留/飘字存活/气泡存活/
+//   位移总时长/位移起手/清尸延迟），四档必须由一张表统一给出，保证严格单调。
+const PV_TIERS = Object.freeze({
+    charMs:        [48, 24, 14, 10],
+    lineGap:       [20, 10, 6, 4],
+    lineGapFx:     [224, 112, 67, 45],
+    floatLife:     [1300, 650, 390, 260],
+    bubbleLife:    [1400, 700, 420, 280],
+    moveDur:       [2000, 1000, 600, 400],
+    moveStart:     [180, 90, 54, 36],
+    crashSpeed:    [0.18, 0.45, 0.72, 1.08],
+    arrowSpeed:    [1.60, 4.00, 6.40, 9.60],
+    meteorSpeed:   [0.52, 1.30, 2.08, 3.12],
+    clawSpeed:     [0.52, 1.30, 2.08, 3.12],
+    clawStart:     [240, 120, 72, 48],
+    closeHitDur:   [1400, 700, 420, 280],
+    dashDur:       [3400, 1700, 1020, 680],
+    burstDur:      [4600, 2300, 1380, 920],
+    bulletDur:     [6000, 3000, 1800, 1200],
+    countdownTick: [800, 400, 240, 160],
+    corpseDelay:   [6000, 3000, 1800, 1200],
 });
 
 // 出厂默认刻度（用户实机调定）：0=慢 1=正常 2=快 3=极快
@@ -786,17 +805,9 @@ function saveToStorage() {
 
 // 把某一项的刻度索引换算成参数表对应列的值，写进 '50' 列
 function applyStop(key, idx) {
-    const stop = STOPS[idx];
-    if (!stop) return;
-    let v;
-    if (idx === 1) {
-        // 中间档 = 用户调定的绝对值，不读 core 表（core 的 '300' 列是通用 2x 手感）
-        v = DEFAULT_VALUES[key];
-    } else {
-        const row = getPerfParams()[key];
-        if (!row) return;
-        v = row[stop.key];
-    }
+    const tiers = PV_TIERS[key];
+    if (!tiers) return;
+    const v = tiers[idx];
     if (typeof v !== 'number') return;
     const patch = {};
     patch[key] = {};
