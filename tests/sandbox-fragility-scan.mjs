@@ -1,5 +1,9 @@
-// tests/sandbox-fragility-scan.mjs | V1.0.0 | 2026-10-28 夜间第 148 轮：新增「沙箱易碎地基普查」。
+// tests/sandbox-fragility-scan.mjs | V1.1.0 | 2026-10-28 夜间第 149 轮：地基判据收口为唯一来源。
 //
+// V1.1.0 | 2026-10-28 夜间第 149 轮：把「非版本化地基怎么判、体检项怎么绑定到地基」的判据
+//   整段搬到 tests/_lib/foundation-scan.mjs（唯一来源），本件改为 import —— 第 149 轮新增
+//   foundation-portability（地基可携化）需要同一套判据，若各自抄一份必然分叉（第 122 轮通规）。
+//   抽取后本件输出与 V1.0.0 **逐字一致**（diff 空），跑分与结论一行未变。
 // V1.0.0 | 2026-10-28 夜间第 148 轮：立本件。由来是本轮开场撞上的一件真事 ——
 //   沙箱工作区被整体重置：/workspace/repo 与 /workspace 下全部历史 patch 一起消失，
 //   从 Gitee 重新克隆后体检由第 147 轮的 13/24 变成 12/24，少的那一项正是
@@ -30,13 +34,19 @@
 //   与第 147 轮孤儿普查同一取舍 —— 挂 CHECKS 会让分母 24 变 25，属改既有结论须拍板。
 //
 // 本件与主代码的关系：只读 tests/、run-all.mjs、.gitignore（经 git 判定），不改任何文件。
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditAnchorSites, stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
+// ★ 非版本化地基的判定只有一处：tests/_lib/foundation-scan.mjs（第 149 轮抽出的唯一来源）。
+//   本件初版把这些判据写在自己体内，第 149 轮新增 foundation-portability 需要同一套判据，
+//   故按第 122 轮通规收口 —— 本件不再持有第二份。
+import {
+    enumerateFoundations, gitIgnored, extractPathLits, collectItems,
+    selfCheck as foundationSelfCheck,
+} from './_lib/foundation-scan.mjs';
 
-export const VER = 'tests/sandbox-fragility-scan.mjs V1.0.0';
+export const VER = 'tests/sandbox-fragility-scan.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -48,92 +58,9 @@ const TESTS_DIR = 'tests';
 // 抠清单的锚点：CHECKS / OBSERVES 里每一项都是 { name: '...', script: '...' }。
 // ★ 一次抠「配对」而非只抠 script —— 交叉归因要靠项名对号，只抠脚本就得靠文件名猜中文项名。
 const RE_ITEM_ANCHOR = /name:\s*'[^']+'\s*,\s*script:\s*'[^']+'/g;
-const RE_ITEM = /name:\s*'([^']+)'\s*,\s*script:\s*'([^']+)'/g;
-// 路径字面量：源码里被引号包起来的、长度可控的片段，再由 normalizeToRepoRel 筛成仓库相对路径。
-const RE_PATH_LIT = /['"]([^'"\n]{1,160})['"]/g;
 
 // 非版本化地基规模下限：今天实测若为 0，多半是枚举面塌了（那会让本件恒绿），不是好消息。
 const MIN_UNVERSIONED = 1;
-
-function gitIgnored(rel) {
-    return spawnSync('git', ['check-ignore', '-q', rel], { cwd: root, encoding: 'utf8' }).status === 0;
-}
-
-// 已存在的被忽略产物：--directory 让整棵被忽略的目录折叠成一行
-// （否则变异树临时树 tests/.mut/ 下几千个文件会把报告彻底淹没，真信号反而看不见）。
-function ignoredPresentEntries(dirRel) {
-    const r = spawnSync('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '--', dirRel],
-        { cwd: root, encoding: 'utf8' });
-    return (r.stdout || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-}
-
-// 把源码里的字面量归一成仓库相对路径；归不出来的返回 null（不猜）。
-function normalizeToRepoRel(s) {
-    if (!s || !s.includes('/')) return null;
-    if (/^https?:/i.test(s) || s.startsWith('node:')) return null;
-    let t = s.replace(/^\.\//, '');
-    const i = t.indexOf('tests/');
-    if (i > 0) t = t.slice(i);
-    else if (i < 0 && t.startsWith('.mut')) t = 'tests/' + t;
-    else if (i < 0) return null;
-    t = t.replace(/\/\*+$/, '').replace(/\/$/, '');
-    if (!/^tests\/[A-Za-z0-9._\-\/]{1,160}$/.test(t)) return null;
-    return t;
-}
-
-// 分段拼装识别：path.join(here, '.mut', 'teeth-results.txt') 这类写法里，路径被拆成多段字面量，
-// ★ 只认整条字面量会正好漏掉最关键的那一处（本轮实测：牙口自检的 EVIDENCE 就是这么写的，
-//   初版因此把 tests/.mut/teeth-results.txt 整条地基漏掉 —— 而它正是沙箱重置后红的那一处）。
-// 这里不猜 here/root 的语义，而是把分段拼成尾段后两种基都试，最终由 git 判据定夺（并写明理由）。
-const RE_JOIN_CALL = /path\.join\(([^();]*)\)/g;
-const RE_SEG_LIT = /'([^']*)'|"([^"]*)"/g;
-
-function extractJoinTails(src) {
-    const out = [];
-    RE_JOIN_CALL.lastIndex = 0;
-    let m;
-    while ((m = RE_JOIN_CALL.exec(src))) {
-        const segs = [];
-        RE_SEG_LIT.lastIndex = 0;
-        let s;
-        while ((s = RE_SEG_LIT.exec(m[1]))) segs.push(s[1] !== undefined ? s[1] : s[2]);
-        if (!segs.length) continue;
-        const tail = segs.join('/').replace(/\/+/g, '/').replace(/^\//, '');
-        if (tail) out.push({ kind: 'join', segs, tail });
-    }
-    return out;
-}
-
-function extractPathLits(src) {
-    const out = [];
-    const seen = new Set();
-    RE_PATH_LIT.lastIndex = 0;
-    let m;
-    while ((m = RE_PATH_LIT.exec(src))) {
-        const rel = normalizeToRepoRel(m[1]);
-        if (!rel || seen.has(rel)) continue;
-        seen.add(rel);
-        out.push({ rel, why: '字面量 ' + m[1] });
-    }
-    for (const j of extractJoinTails(src)) {
-        for (const cand of ['tests/' + j.tail, j.tail]) {
-            const rel = normalizeToRepoRel(cand);
-            if (!rel || seen.has(rel)) continue;
-            seen.add(rel);
-            out.push({ rel, why: 'path.join 分段拼装（' + j.segs.join(' + ') + '）' });
-            break;
-        }
-    }
-    return out;
-}
-
-function collectItems(src) {
-    const out = [];
-    RE_ITEM.lastIndex = 0;
-    let m;
-    while ((m = RE_ITEM.exec(src))) out.push({ name: m[1], script: m[2] });
-    return out;
-}
 
 // 清单取样面审计（公共件第六受体）：真值 = 剔注释后再抠；旧野路口径 = 只剔行注释后再抠。
 function auditRegistry() {
@@ -189,35 +116,9 @@ function main() {
         console.log('    ⇒ 登记名单不可信，下列结论以真值口径为准');
     }
 
-    // ② 体检项 × 地基依赖绑定
-    const declared = new Map();
+    // ② 体检项 × 地基依赖绑定（判据唯一来源：tests/_lib/foundation-scan.mjs，第 149 轮收口）
     const items = reg.truth.filter(it => it.script !== SELF);
-    for (const it of items) {
-        let src = '';
-        try {
-            src = fs.readFileSync(path.join(root, it.script), 'utf8');
-        } catch (e) {
-            console.log('    ⚠ ' + it.script + ' 读不到（' + String(e && e.message || e) + '）');
-            continue;
-        }
-        for (const p of extractPathLits(src)) {
-            if (p.rel === it.script || !gitIgnored(p.rel)) continue;
-            if (!declared.has(p.rel)) declared.set(p.rel, { users: [], why: p.why });
-            const d = declared.get(p.rel);
-            if (!d.users.includes(it.name)) d.users.push(it.name);
-        }
-    }
-
-    // ① 已存在的被忽略产物（本沙箱独有、白天拿到 patch 也看不见）
-    const presentIgnored = ignoredPresentEntries(TESTS_DIR);
-
-    const unversioned = [];
-    const push = (rel, users, why) => {
-        if (unversioned.some(u => u.rel === rel)) return;
-        unversioned.push({ rel, users, why, present: fs.existsSync(path.join(root, rel)) });
-    };
-    for (const rel of presentIgnored) push(rel, ['（磁盘实测：存在但被 git 忽略）'], 'git ls-files --ignored 实测');
-    for (const [rel, d] of declared) push(rel, d.users.slice().sort(), d.why);
+    const unversioned = enumerateFoundations(items, TESTS_DIR);
 
     const missing = unversioned.filter(u => !u.present);
 
@@ -271,7 +172,10 @@ function main() {
     //   公共件坏了本件照样打 RESULT: MATCH 并退 0，正是本件要防的那种「自证响了、结论照旧」。
     const ownFails = runSelfChecks(unversioned.length);
     const truthBad = truthSelfCheck();
-    const fails = ownFails.concat(truthBad.map(b => '静态真值口径公共件自证：' + b));
+    const foundBad = foundationSelfCheck();
+    const fails = ownFails
+        .concat(truthBad.map(b => '静态真值口径公共件自证：' + b))
+        .concat(foundBad.map(b => '地基枚举公共件自证：' + b));
     for (const bad of fails) console.log('  ✗ ' + bad);
 
     if (fails.length) {
