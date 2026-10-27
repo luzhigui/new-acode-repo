@@ -1,5 +1,8 @@
+// V6.1.2 | 2026-10-28 | ~12800 bytes | 修 fa6f206f 两连炸：①用了 CAMP_TYPES.ALLY 却漏 import（选 Buff 点击即
+//        ReferenceError）；②删了 let duration 定义但日志行还引用（修完①后接着炸 duration is not defined）——
+//        时长改从 28 的 buff 对象取，永久 Buff 显示「永久」
 // V6.1.1 | 2026-10-04 | ~12500 bytes
-export const VER = 'ui/65main-battle.js V6.1.1';
+export const VER = 'ui/65main-battle.js V6.1.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
@@ -10,6 +13,7 @@ import { showModal } from './60main-utils.js';
 import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';   // fa6f206f 用了 CAMP_TYPES.ALLY 却漏 import，选 Buff 点击即炸（V6.1.2 补）
 import { resetBattleRuntime } from './74reset-runtime.js';
 // 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
 import { getRoleLogTag } from './69-role-cards.js';
@@ -141,7 +145,10 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
         // 圣火令仅作为标记，实际行列由回合引擎每回合生成
-        activeBuffs.push(createBuffObject(key, null, CAMP_TYPES.ALLY, allyTeam));
+        // fa6f206f 删了本函数里的 let duration 定义但日志行还在引用 → 第二炸（duration is not defined），
+        // V6.1.2 一并修：时长改从 buff 对象取（28 内部按 permanent/流星雨/默认三档判定），永久 Buff 显示「永久」
+        const buffObj = createBuffObject(key, null, CAMP_TYPES.ALLY, allyTeam);
+        activeBuffs.push(buffObj);
         // 小昭·妹永久海克斯存储（仅妹，见 20 addPermanentBuff 守卫）
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoBrother);
@@ -151,7 +158,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         }
         updateBuffSlotsFn();
         let logDiv = document.getElementById('log');
-        if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
+        if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${buffObj.permanent ? '永久' : buffObj.remaining + '回合'}）</span><br>`; autoScrollLogFn(); }
         // 原 window._updateGlowColors 全库从未定义（静默失效），删除无效调用
         updateUIFn();
         callback();
