@@ -136,13 +136,12 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         cls: 'buff'
     }));
     showModal(text, buttons, (key) => {
-        let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
         if (activeBuffs.length >= 2) {
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
         // 圣火令仅作为标记，实际行列由回合引擎每回合生成
-        activeBuffs.push(createBuffObject(key, duration));
+        activeBuffs.push(createBuffObject(key, null, CAMP_TYPES.ALLY, allyTeam));
         // 小昭·妹永久海克斯存储（仅妹，见 20 addPermanentBuff 守卫）
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoBrother);

@@ -143,7 +143,7 @@ export function renderHorseReboundFact(fact) {
 }
 export function renderFortifyReboundFact(fact) {
     if (fact.hasSister) {
-        const heal = Math.floor(fact.reboundDmg * 0.5);
+        const heal = Math.floor(fact.reboundDmg / 3);
         return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${heal}）</span>` };
     }
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };

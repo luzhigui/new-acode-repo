@@ -390,9 +390,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 factType: FACT_TYPES.FORTIFY_REBOUND,
                 factData: { reboundDmg, unitName: unit.name, hasSister, attackerUid: unit.uid, unitUid: target.uid }
             }];
-            // 姊强化：严阵反弹时防战回复反弹伤害的 50%
+            // 姊强化：严阵反弹时防战回复反弹伤害的 1/3
             if (hasSister) {
-                const healVal = Math.floor(reboundDmg * 0.5);
+                const healVal = Math.floor(reboundDmg / 3);
                 if (healVal > 0) {
                     fortifyDeclarations.push({
                         type: EFFECT_TYPES.HEAL,

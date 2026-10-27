@@ -1,4 +1,9 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V2.2.0 | 2026-10-27 判读更准确/更精细（用户提出）：
+//   ① 海克斯加 95% Wilson 置信区间 + 多重比较 BH-FDR 校正。同时检验 10+ 个海克斯时，
+//      单项 |z|≥2 本身约 5% 假阳性，以前会把噪声当信号天天报；现在每条标注「校正后是否仍成立」。
+//   ② 精英表加「最偏关卡」列。112 快照本就存了 byStage，以前被累加成总数、看不出是哪一关失衡。
+//   ③ 112 快照超过 FRESH_DAYS 天未更新 → 提示数据可能过期（主代码改过数值就别拿旧数据判）。
 // V2.1.1 | 2026-10-22 名单与海克斯中文名改从 127-tool-registry.js 取（单一来源）：
 //   删本地 ELITES / SOLO_ELITES / BOSS_ELITES / VARIANTS / WEAK_SIDE / HEX_DOC_NAMES 六份副本，
 //   以后 112 改档位、108 加海克斯，本文件自动跟上，不再需要人工同步（2026-10-21 加寒离飒即漏改过）。
@@ -12,7 +17,7 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V2.1.1';
+export const VER = 'tools/126-balance-alert.js V2.2.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
@@ -26,7 +31,9 @@ const TH = {
     BAND: 0.05,        // 精英/整体：偏离理想线 ≥5pp 判过强/过弱、≥10pp 判显著（用户拍板）
     NATURAL: 0.35,     // 主表·自然出场 / 整体 7 关 的理想胜率
     SOLO: 0.15,        // 强精英（单核 M107）的理想胜率
-    BOSS: 0.30         // Boss·张无忌（单核 M115）的理想胜率
+    BOSS: 0.30,        // Boss·张无忌（单核 M115）的理想胜率
+    FRESH_DAYS: 14,    // 112 快照超过这么多天 → 判读标注「可能过期」
+    FDR_Q: 0.10        // 海克斯多重比较的 BH-FDR 控制水平（10% = 允许约一成假阳性）
 };
 
 // 108 榜的四套阵容模式（与 108-hex-dashboard.js 同键同口径）
@@ -42,6 +49,37 @@ const readJSON = (k, dft) => {
 };
 const pct = v => (v * 100).toFixed(1) + '%';
 const signed = v => (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+
+/* ========== 统计工具：置信区间 + 多重比较校正（V2.2.0 新增） ========== */
+// 标准正态 CDF（Abramowitz-Stegun 26.2.17 近似，误差 <1e-7，足够判读用）
+function normCdf(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989422804014327 * Math.exp(-x * x / 2);
+    const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return x >= 0 ? 1 - p : p;
+}
+const twoSidedP = z => 2 * (1 - normCdf(Math.abs(z)));
+
+// Wilson 95% 置信区间：小样本/极端胜率下比正态近似稳，不会给出 <0 或 >1 的区间
+function wilson(p, n, z = 1.96) {
+    if (n <= 0) return null;
+    const denom = 1 + z * z / n;
+    const center = (p + z * z / (2 * n)) / denom;
+    const half = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / denom;
+    return [Math.max(0, center - half), Math.min(1, center + half)];
+}
+
+// Benjamini-Hochberg FDR：传入各项 p 值（null 跳过），返回「校正后仍显著」的下标集合。
+// 目的：同时对 10+ 个海克斯检验时，压掉「单项刚好 z≈2」的假阳性，只留经得起多重比较的。
+function bhReject(pvals, q) {
+    const idx = pvals.map((p, i) => ({ p, i })).filter(x => x.p !== null).sort((a, b) => a.p - b.p);
+    const m = idx.length;
+    let kmax = -1;
+    idx.forEach((x, r) => { if (x.p <= (r + 1) / m * q) kmax = r; });
+    const set = new Set();
+    for (let r = 0; r <= kmax; r++) set.add(idx[r].i);
+    return set;
+}
 
 /* ========== 统计工具：单组 vs 基准 z 检验（海克斯表用） ========== */
 // 基准是「若干重叠子群的均胜率」，同一局会同时计入多个海克斯，胜负在组间强相关
@@ -142,6 +180,14 @@ function hexIssues(mode) {
         const z = d.count >= TH.MIN_SAMPLE ? zVsBase(p, d.count, base, cluster) : null;
         return { key: k, name: (CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k, n: d.count, p, diff: p - base, z };
     }).sort((a, b) => b.diff - a.diff);
+
+    // 置信区间 + 多重比较校正（V2.2.0）：同时对 10+ 个海克斯做检验，
+    // 不做 BH-FDR 的话「单项 z 刚过 2」会把噪声当信号；这里给每条标注校正后是否仍成立。
+    rows.forEach(r => { r.ci = wilson(r.p, r.n); r.pval = r.z !== null ? twoSidedP(r.z) : null; });
+    const fdrSet = bhReject(rows.map(r => r.pval), TH.FDR_Q);
+    rows.forEach((r, i) => { r.fdrSig = fdrSet.has(i); });
+    const judgedCount = rows.filter(r => r.pval !== null).length;
+    const fdrSigCount = rows.filter(r => r.fdrSig).length;
     // z 为 null 的两种情形：样本不足，或本批战绩里平均每局海克斯数为 0（聚类校正退化）→ 都归入未判读
     const canJudge = r => r.n >= TH.MIN_SAMPLE && r.z !== null;
 
@@ -161,13 +207,15 @@ function hexIssues(mode) {
         const lvl = az >= TH.Z_ALERT ? '显著' : '';
         issues.push({
             sev, title: `「${r.name}」${lvl}${dir}`,
-            detail: `胜率 ${pct(r.p)}（${r.n} 场），基准 ${pct(base)}，差值 ${signed(r.diff)}，z=${r.z.toFixed(2)}（判读线 ±${TH.Z_WARN.toFixed(1)}）`
+            detail: `胜率 ${pct(r.p)}${r.ci ? `（95% 区间 ${pct(r.ci[0])}–${pct(r.ci[1])}）` : ''}（${r.n} 场），基准 ${pct(base)}，差值 ${signed(r.diff)}，z=${r.z.toFixed(2)}（判读线 ±${TH.Z_WARN.toFixed(1)}）`
+                + `｜多重比较校正（BH-FDR q=${(TH.FDR_Q * 100).toFixed(0)}%，共 ${judgedCount} 项）：`
+                + (r.fdrSig ? '✅ 校正后仍成立' : '⚠️ 校正后不成立——同类检验太多，这条可能只是偶然')
         });
     }
     // 差值合计自检：与 108 的「差值列加起来正好为 0」同一不变量，这里顺带复核一遍
     const diffSum = rows.reduce((s, r) => s + r.diff, 0);
     const invariant = Math.abs(diffSum) < 1e-9 ? null : `⚠️ 差值合计 ${signed(diffSum)}，理论上必须为 0 —— 基准口径可能被改动，请回 108 核对`;
-    return { base, cluster, rows, issues, nodata, total: st.total, allyRate: st.allyWins / st.total, invariant, canJudge, okCount };
+    return { base, cluster, rows, issues, nodata, total: st.total, allyRate: st.allyWins / st.total, invariant, canJudge, okCount, fdrSigCount, judgedCount };
 }
 
 /* ========== 规则三：精英过强/过弱（读 112 快照，按各表理想线/Δ 判） ========== */
@@ -188,6 +236,12 @@ function eliteIssues() {
     const issues = [], nodata = [];
     let okCount = 0;
 
+    // 数据新鲜度（V2.2.0）：快照太旧时，主代码若已改过数值，判读就是拿旧数据说新事
+    if (ageDays > TH.FRESH_DAYS) issues.push({
+        sev: 'warn', title: `112 快照已 ${ageDays.toFixed(1)} 天未更新`,
+        detail: `判读基于 ${new Date(snap.ts).toLocaleString('zh-CN')} 的数据。若这期间改过任何数值，结论就不准了——建议到 112 重跑并「💾 存结果」。`
+    });
+
     // 绝对值表（自然 / 强精英 / Boss）：逐精英累加，对表理想线判偏离
     function absTable(part, names, target, label) {
         if (!part) { nodata.push(`${label}：快照里没有这张表，请到 112 跑一遍并重新「💾 存结果」。`); return null; }
@@ -201,6 +255,24 @@ function eliteIssues() {
             const d = per[n], p = d.runs > 0 ? d.wins / d.runs : null;
             return { name: n, n: d.runs, p, diff: p === null ? null : p - target };
         }).sort((a, b) => (b.diff === null ? -9 : b.diff) - (a.diff === null ? -9 : a.diff));
+        // 按关卡拆解（V2.2.0）：找出每个精英偏离理想线最狠的那一关。
+        // 112 快照本来就存了 byStage，以前被累加成总数、看不出是「第5关崩了」还是每关都偏。
+        const devByStage = {};
+        for (const st of (part.stages || [])) {
+            for (const n of names) {
+                let rr = 0, ww = 0;
+                for (const v of VARIANTS) {
+                    const row = part.byStage && part.byStage[st] && part.byStage[st][v];
+                    const d = row && row[n];
+                    if (d) { rr += d.runs; ww += d.wins; }
+                }
+                if (rr > 0) (devByStage[n] = devByStage[n] || []).push({ stage: st, n: rr, rate: ww / rr, diff: ww / rr - target });
+            }
+        }
+        rows.forEach(r => {
+            const arr = devByStage[r.name];
+            r.worstStage = (arr && arr.length) ? arr.reduce((a, b) => Math.abs(b.diff) > Math.abs(a.diff) ? b : a) : null;
+        });
         const canJudge = r => r.p !== null && r.n >= TH.MIN_SAMPLE;
         for (const r of rows) {
             if (!canJudge(r)) { nodata.push(`样本不足：${label}·${r.name} 仅 ${r.n} 场，需 ≥${TH.MIN_SAMPLE} 场`); continue; }
@@ -369,7 +441,8 @@ function buildReport(d) {
     L.push(`【光明顶5v5 平衡告警】海克斯：样本≥${TH.MIN_SAMPLE} 场、|z|≥${TH.Z_WARN} 偏 / ≥${TH.Z_ALERT} 显著；`
         + `精英·整体：偏离理想线 ≥${(TH.BAND * 100).toFixed(0)}pp 判过强过弱、≥${(TH.BAND * 200).toFixed(0)}pp 判显著`
         + `（自然 ${pct(TH.NATURAL)} / 强精英 ${pct(TH.SOLO)} / Boss ${pct(TH.BOSS)} / 弱精英看 Δ）｜模式：${MODE_LABEL[d.mode]}`);
-    L.push(`告警 ${d.alerts.length} 条 / 建议复核 ${d.warns.length} 条 / 未能判读 ${d.nojudge.length} 条`);
+    L.push(`告警 ${d.alerts.length} 条 / 建议复核 ${d.warns.length} 条 / 未能判读 ${d.nojudge.length} 条`
+        + `｜海克斯多重比较（BH-FDR q=${(TH.FDR_Q * 100).toFixed(0)}%）：${d.hex.fdrSigCount || 0}/${d.hex.judgedCount || 0} 项校正后仍显著`);
     const push = (arr, title) => {
         if (!arr.length) return;
         L.push('', `— ${title} —`);
@@ -385,7 +458,7 @@ function buildReport(d) {
     const absLines = (sec, label) => {
         if (!sec) return;
         L.push('', `— ${label}（理想线 ${pct(sec.target)}）—`);
-        sec.rows.forEach(r => L.push(`${r.name}｜${r.n} 场｜${r.p === null ? '—' : pct(r.p)}｜偏离 ${r.diff === null ? '—' : signed(r.diff)}｜${absVerdict(sec, r)}`));
+        sec.rows.forEach(r => L.push(`${r.name}｜${r.n} 场｜${r.p === null ? '—' : pct(r.p)}｜偏离 ${r.diff === null ? '—' : signed(r.diff)}｜最偏 ${r.worstStage ? '第' + r.worstStage.stage + '关 ' + pct(r.worstStage.rate) + '(' + signed(r.worstStage.diff) + ')' : '—'}｜${absVerdict(sec, r)}`));
     };
     absLines(d.elit.natural, '主表·自然出场');
     absLines(d.elit.solo, '强精英（单核）');
@@ -407,7 +480,7 @@ function buildReport(d) {
 function absTableHtml(sec, title, colP) {
     if (!sec) return '';
     let h = `<div class="bal-sec"><h3 style="color:#4fc3f7">${title}（理想线 ${pct(sec.target)}）</h3>`
-        + `<table><tr><th>精英</th><th>场次</th><th>${colP}</th><th>偏离理想线</th><th>判读</th></tr>`;
+        + `<table><tr><th>精英</th><th>场次</th><th>${colP}</th><th>偏离理想线</th><th>最偏关卡</th><th>判读</th></tr>`;
     for (const r of sec.rows) {
         const ok = !sec.canJudge(r);
         const az = ok ? 0 : Math.abs(r.diff);
@@ -417,6 +490,7 @@ function absTableHtml(sec, title, colP) {
                     : '<span class="bal-good">正常</span>';
         h += `<tr><td class="l">${r.name}</td><td>${r.n}</td><td>${r.p === null ? '—' : pct(r.p)}</td>`
             + `<td class="${ok ? 'bal-dim' : (r.diff > 0 ? 'bal-weak' : 'bal-good')}">${r.diff === null ? '—' : signed(r.diff)}</td>`
+            + `<td class="bal-dim">${r.worstStage ? '第' + r.worstStage.stage + '关 ' + pct(r.worstStage.rate) + ' (' + signed(r.worstStage.diff) + ')' : '—'}</td>`
             + `<td>${verdict}</td></tr>`;
     }
     return h + '</table></div>';
@@ -475,9 +549,10 @@ function openBalanceAlert() {
         let html = '';
         html += '<div class="bal-src">'
             + `数据源：108 榜「${MODE_LABEL[d.mode]}」${d.hex.total || 0} 场（${d.hex.total ? '明教整体 ' + pct(d.hex.allyRate) : '无数据'}）`
-            + `｜112 快照 ${stamp}（${d.elit.ageDays !== undefined ? d.elit.ageDays.toFixed(1) + ' 天前' : '无'}）`
+            + `｜112 快照 ${stamp}（${d.elit.ageDays !== undefined ? d.elit.ageDays.toFixed(1) + ' 天前' + (d.elit.ageDays > TH.FRESH_DAYS ? ' ⚠️ 偏旧' : '') : '无'}）`
             + `｜无精英基线 ${none && none.rate !== null ? pct(none.rate) : '—'}（仅背景，不作参照）<br>`
             + `理想线：自然 ${pct(TH.NATURAL)} / 强精英 ${pct(TH.SOLO)} / Boss ${pct(TH.BOSS)}（弱精英看 Δ）｜判读：偏离 ≥${(TH.BAND * 100).toFixed(0)}pp 过强过弱、≥${(TH.BAND * 200).toFixed(0)}pp 显著<br>`
+            + `海克斯多重比较：BH-FDR q=${(TH.FDR_Q * 100).toFixed(0)}%，${d.hex.fdrSigCount || 0}/${d.hex.judgedCount || 0} 项校正后仍显著（其余可能只是偶然）｜快照超 ${TH.FRESH_DAYS} 天会标「偏旧」<br>`
             + '本工具不重跑批：只读 108 落盘的榜与 112 存下的快照，故两者都需先各自跑一遍。</div>';
         html += '<div class="bal-sum">'
             + `<span class="bal-chip" style="color:#ff6b6b">🔴 告警 ${d.alerts.length}</span>`

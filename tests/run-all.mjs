@@ -1,3 +1,5 @@
+// V1.16.1 | 2026-10-27 第143轮(续)：挂「打包清单完整性自检+自动补全」tests/pack-manifest-check.mjs（自动帮 106 补漏登的 tests 脚本，防包内套件缺文件）
+// V1.16.0 | 2026-10-26 第 142 轮：退役规则 158（去锚定化后恒 skip 假绿），158 的 import/allRules/静态注册/打包清单四处摘除，由 123static-scan 的 deadFxAnchors 槽位代防回归；rule-teeth-evidence-selftest 吸收夜检138 增断言⑧结果新鲜度门（牙口证据停更即退码 1）
 // V1.15.0 | 2026-10-26 第 140 轮：新增「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs（静态检查，防头注释与 VER 常量漂移，落下即退码 1）；fact 发射普查升为 CHECKS 守门项（第125轮）
 // V1.13.0 | 2026-10-26 第 135 轮：CHECKS 新增第 20 项「版本常量漂移自检」（tests/ver-drift-selftest.mjs，
 //   计退码）。动因：「头注释已写 Vx 而 VER 常量仍停在 Vy」这个漏改在本仓库已复发三次
@@ -62,7 +64,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.15.0';
+export const VER = 'tests/run-all.mjs V1.16.1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -158,7 +160,13 @@ const CHECKS = [
     //   标记 tier=heavy —— --quick 模式下跳过，仅守门项跑（每次开发迭代不必重跑大样本）；
     //   nightly 自动化不带 --quick 仍跑全量，不漏回归。
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [], tier: 'heavy' },
-    { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [], tier: 'heavy' }
+    { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [], tier: 'heavy' },
+    // V1.16.1 | 2026-10-27 第143轮(续)：挂「打包清单完整性自检+自动补全」tests/pack-manifest-check.mjs。
+    //   自动帮「工具文件复制器」(tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES) 检测漏登：
+    //     ① 全部 tests/health-rules/*.js（rules-replay 走 readdir 自动加载，漏登=包内静默丢弃该规则）
+    //     ② run-all CHECKS/OBSERVES 里 script: 指向的 tests/*（spawnSync 直跑，漏登=包内找不到文件即跳过/报错）
+    //   任何磁盘有、清单漏登的，它自行补进 106 的 tests 段并抬版本号；反向陈旧条目仅告警不删。
+    { name: '打包清单完整性(自动补全106)', script: 'tests/pack-manifest-check.mjs', args: [] }
 ];
 
 // V1.2.0 | 2026-10-21 第 112 轮：挂观察项（不影响退码）——第 113 轮沙箱交接规格的主线重写产物。

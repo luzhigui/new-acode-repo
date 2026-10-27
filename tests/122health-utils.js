@@ -1,3 +1,7 @@
+// V6.7.0 | 2026-10-27 checkSpeedButtonStates 档位表跟齐 ui/77 V1.1.1「全局×2」（600→300、300→150、100→50、1600→800）：
+//          UI 侧 10-25 已把所有档位值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800），体检仍按旧值判
+//          ⇒ speed=300（新口径=原速 2x）时误报「btnSpeed4x 未高亮，实际高亮 btnSpeed2x」（2026-10-27 体检报告实测）；
+//          另补 400=取消档（ui/77 点已亮按钮回落 400，全按钮不亮）并入「应全灭」断言（原只认旧默认 1000）。
 // V6.6.0 | 2026-10-25 checkBuffIcons 缺图标缓冲改成真正的「连续缺失」语义：旧实现只在本次仍受益时清零
 //          时间戳，跨回合（概率连击 uid 每步重选）/buff 消失/单位阵亡时旧时间戳残留 ⇒ 再次受益的首次缺失
 //          即越过 1 秒阈值直接上报（体检报「张无忌有概率连击Buff但缺 ⚡（持续1秒）」实测假阳性）。
@@ -61,7 +65,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.6.0';
+export const VER = 'tests/122health-utils.js V6.7.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -553,8 +557,8 @@ export function checkModeButtonStates(ctx, doc) {
  *   display:none（ui/68 updateSpeedButtons 只在调试模式显示 speedGroupHigh/Low），
  *   可见的 2x/0.5x 全灭 → 界面看不到"当前倍速"，且无任何报错（ui/68 只对隐藏按钮 addClass，
  *   不做可见性断言）。121 默认 4 倍速遇非调试模式即此症。
- * 契约（ui/68 档位口径）：600=2x、100=8x、300=4x、1600=0.5x（按 debugMode 取变体按钮）；
- *   speed=1000=未锁定的默认倍速，六个按钮应全不高亮；其余值（加载期 500 / 快进期 1）不判，避免误报。
+ * 契约（ui/77 V1.1.1 全局×2 档位口径，2026-10-27 订正）：300=2x(原速)、50=8x、150=4x、800=0.5x（按 debugMode 取变体按钮）；
+ *   speed=400=取消档（ui/77 点已亮按钮回落 400）/ 1000=旧默认值，六个按钮应全不高亮；其余值（加载期 500 / 快进期 1）不判，避免误报。
  * 可见性按"内联 display:none 祖先链"判断，不用 offsetParent——体检页面切到报告视图时
  *   iframe 整体隐藏，任何布局型判可见都会全量假红。
  */
@@ -574,14 +578,14 @@ export function checkSpeedButtonStates(doc) {
         for (let n = el; n && n.style; n = n.parentElement) { if (n.style.display === 'none') return true; }
         return false;
     };
-    if (speed === 1000) {
-        if (activeNow.length) issues.push('默认倍速(1000)下不应有倍速按钮高亮，实际高亮：' + activeNow.join('/'));
+    if (speed === 1000 || speed === 400) {
+        if (activeNow.length) issues.push('默认/取消档(' + speed + ')下不应有倍速按钮高亮，实际高亮：' + activeNow.join('/'));
         return issues;
     }
-    const wantId = speed === 600 ? (debugMode ? 'btnSpeed2x' : 'btnSpeed2')
-        : speed === 100 ? 'btnSpeed8x'
-        : speed === 300 ? 'btnSpeed4x'
-        : speed === 1600 ? (debugMode ? 'btnSpeed05x' : 'btnSpeed05') : null;
+    const wantId = speed === 300 ? (debugMode ? 'btnSpeed2x' : 'btnSpeed2')
+        : speed === 50 ? 'btnSpeed8x'
+        : speed === 150 ? 'btnSpeed4x'
+        : speed === 800 ? (debugMode ? 'btnSpeed05x' : 'btnSpeed05') : null;
     if (!wantId) return issues;   // 未映射档位（加载期 500 / 快进 1），不判
     const want = btns.find(x => x.id === wantId);
     if (!want) return issues;

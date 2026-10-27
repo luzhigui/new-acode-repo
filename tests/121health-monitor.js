@@ -1,3 +1,10 @@
+// V6.9.0 | 2026-10-27 订正 autoSpeedVal 与进体检默认倍速的注释口径（ui/77 V1.1.1 全局×2 后：4x 按钮=150、原速=300、
+//           8x=50、0.5x=800、取消档=400）；逻辑一行未动（仍点 btnSpeed4x）。档位判定本体已由 122 V6.7.0 跟齐。
+// V6.8.0 | 2026-10-26 撤销第 142 轮对规则 158 的退役：吸收夜间第 139 轮的重写版（fx:[{kind,amount}] 结构判据，
+//           同源性改为 fx.amount⊂正文 + kind 合法 + amount 有限正数），规则名更名「飘字fx数值对账(契约)」。
+//           重写优于退役——去锚定化只是把飘字从文本锚点换成数值结构，风险形态变了风险本身没消失。import+allRules 两处回填。
+// V6.7.0 | 2026-10-26 退役规则 158（飘字锚点对齐）：去锚定化重构后 fxAnchors 字段全仓清零，该规则因 anchored===0 恒返 'skip'（假绿）
+//           已从 import + allRules + 静态扫描注册三处摘除；防回归改由 123static-scan 的 deadFxAnchors 槽位真扫全仓（含 render/35-*），比恒 skip 更可靠。
 // V6.6.0 | 2026-10-26 接 facts 进浏览器体检：runRuleChecks 现把 battleLog 递归展平的原始 fact 流作为第 7 参传给 rule.test，
 //           消除 159/132/160-165 共 8 条事实级规则在浏览器侧静默降级到文案兜底（此前只传 6 参，facts=undefined）的缺口。
 // V6.5.0 | ~59300 bytes | 2026-10-18 新增全局运行时错误捕获：挂 iframe window 的 error / unhandledrejection，
@@ -34,7 +41,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.6.0';
+export const VER = 'tests/121health-monitor.js V6.9.0';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -76,7 +83,7 @@ import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import { rule170 as rule114 } from './health-rules/170-taunts-integrity.js'; // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
 import { rule171 } from './health-rules/171-tangwenliang-dash.js'; // 第 114 轮新建：唐文亮冲刺落地验证（export 名按文件号 rule171）
 import { rule172 } from './health-rules/172-kongjian-jingang.js'; // 第 120 轮新建：空见金刚不坏次数与升级验证（新角色零覆盖盲区）
-import { rule105 } from './health-rules/158-fact-anchor-align.js';
+import { rule105 } from './health-rules/158-fact-anchor-align.js'; // 第 143 轮：吸收夜间 139 重写版（fx 结构判据），取代第 142 轮的退役
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
 import { rule108 } from './health-rules/161-lion-grow.js';
@@ -141,7 +148,7 @@ try {
     if (autoMode) {
         autoBudgetMs = (parseInt(_p.get('budget'), 10) || 240) * 1000;
         autoStageTarget = parseInt(_p.get('stages'), 10) || 7;
-        autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值：100=8x, 300=4x, 500=默认
+        autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值（ui/77 V1.1.1 全局×2）：50=8x, 150=4x, 300=原速(2x), 400=取消档
     }
     // 起始关：手动体检与一键自动体检统一生效；默认第2关（2026-10-07 老板拍板 3→2），可用 start=1..7 覆盖
     autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 2));
@@ -384,7 +391,7 @@ export function initMonitor() {
                 // 界面「当前倍速」全灭且无报错（可见的 2x/0.5x 一个不亮）；② 直接 set('speed') 只改时钟，
                 // 不更新 ui/68 的 manualSpeedValue（仍停 600），每场重置 restoreSpeedFromScroll 会把倍速打回 2x。
                 // 点 debugToggle（进调试模式：速度组显隐/按钮高亮/调试面板全同步）+ 点 btnSpeed4x
-                // （走 setSpeed(300,true)：上锁 + 跨场保持 + 高亮一次到位）。已是目标态则跳过，不顶掉手动选择。
+                // （走 setSpeed(150,true)：上锁 + 跨场保持 + 高亮一次到位；ui/77 V1.1.1 全局×2 后 4x 按钮值=150）。已是目标态则跳过，不顶掉手动选择。
                 try {
                     if (w && w.GlobalStore) {
                         if (!w.GlobalStore.get('debugMode')) {
@@ -401,7 +408,7 @@ export function initMonitor() {
                         if (w.GlobalStore) {
                             w.GlobalStore.set('speed', autoSpeedVal);
                             w.GlobalStore.set('fastForwardActive', true);
-                            // 设速后同刷按钮高亮：否则高亮停在默认的 4x 而实际跑 autoSpeedVal，倍速一致性检查会报失配
+                            // 设速后同刷按钮高亮：否则高亮停在开档的 2x(300) 而实际跑 autoSpeedVal，倍速一致性检查会报失配
                             const refreshBtn2 = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
                             if (refreshBtn2) refreshBtn2();
                         }

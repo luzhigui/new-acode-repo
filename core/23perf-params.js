@@ -8,9 +8,10 @@
 //   自定义档（8x，speed=50）下 clock 不再按 600/50=12 倍跑，改由该倍率决定未进表演出的速度
 // V1.2.0 | 2026-10-25 | DEFAULTS 补 '400' 列（1 倍速独立数值）；charMs/charMsAnchor/lineGap 按真实毫秒重标
 // V1.1.0 | 2026-10-25 | 新增 charMsAnchor 锚点行专用每字时长（白骨爪/回血等逐字跟特效的行更快）
+// V1.6.0 | 2026-10-27 | 未进表倍率出厂默认 1→2（实机调定）
 // V1.5.0 | 2026-10-26 | 去锚定化：删 charMsAnchor，新增 lineGapFx（效果行停留）；「正常」档按
 //   「该慢的慢、该快的快」整体重标（文字/飘字/气泡/位移/效果行慢，普通行/倒计时/近战图标快）
-export const VER = 'core/23perf-params.js V1.5.0';
+export const VER = 'core/23perf-params.js V1.6.0';
 
 // 档位 key（按 speed 值升序 → 速度升序）
 export const SPEED_TIER_KEYS = Object.freeze(['800', '400', '300', '150', '50']);
@@ -51,14 +52,14 @@ const DEFAULTS = {
 
 // 未进表的演出统一倍率（第 B 类：蝶变/换位/击退等走 clock.animate 的）。
 //   只在「自定义档（8x，speed=50）」下生效——其余四档照旧走 600/speed。
-//   四档可选：0.5 慢 / 1 原速 / 2 快 / 4 极快。
-let _noTableScale = 1;
+//   四档可选：0.5 慢 / 1 原速 / 2 快 / 4 极快。出厂默认 2（快）。
+let _noTableScale = 2;
 export function getNoTableScale() { return _noTableScale; }
 export function setNoTableScale(v) {
     const n = Number(v);
     if (n > 0 && isFinite(n)) _noTableScale = n;
 }
-export function resetNoTableScale() { _noTableScale = 1; }
+export function resetNoTableScale() { _noTableScale = 2; }
 
 let _params = JSON.parse(JSON.stringify(DEFAULTS));
 

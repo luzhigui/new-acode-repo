@@ -1,13 +1,13 @@
 // 不跑游戏，直接 fetch 核心文件做结构性检查：
 //   1. 枚举 import 缺失：代码使用了枚举常量（infra/56-battle-enums.js 导出的 13 个）但 import 行缺失
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
+//   3. 枚举成员未定义：ENUM.KEY 被引用但 infra/56 的枚举表里没有该键（运行时恒 undefined ⇒ 分支静默失效）
+//   4. 去锚定化残留：render/特效层若重新出现已废弃的 fxAnchors 字段即报红（防去锚定化重构回潮）
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
-//   3. 枚举成员未定义：ENUM.KEY 被引用但 infra/56 的枚举表里没有该键（运行时恒 undefined）
-// V1.5.0 | 2026-10-27 夜间第 140 轮：新增第四类「枚举成员未定义」+ 自证断言（枚举表解析数 ≥10、
-//   ROLE_TYPES 成员 ≥5）。起因是上游 5818419a 加 BUTTERFLY 时顶掉 JAVELIN，致 ROLE_TYPES.JAVELIN
-//   恒 undefined、标枪选靶整条静默失效，而既有三类一条都报不出（断的是成员不是模块）。
-//   V1.4.7 | ~29600 bytes | 2026-10-24 第 121 轮 SCAN_FILES 补登 ./health-rules/172-kongjian-jingang.js（空见金刚不坏，第 120 轮新建时漏登，注册一致性检查抓出）
+// V1.4.9 | ~35000 bytes | 2026-10-26 第 143 轮吸收夜间140：新增第四类「枚举成员未定义」（parseEnumMembers 现场解析 infra/56 为唯一来源 + scanEnumMemberRefs + 三条自证断言），专抓「ENUM.KEY 被引用但键不存在」的静默死分支（正是上游 5818419a 用 BUTTERFLY 顶掉 JAVELIN 的 P0 形态）；回填 158 注册项
+// V1.4.8 | ~30300 bytes | 2026-10-26 第 142 轮退役规则 158：同步摘除 SCAN_FILES 注册项；新增 deadFxAnchors 槽位（FX_ANCHOR_WATCH_FILES 真扫 render/35-* 等，防去锚定化后 fxAnchors 残留回归）
+// V1.4.7 | ~29600 bytes | 2026-10-24 第 121 轮 SCAN_FILES 补登 ./health-rules/172-kongjian-jingang.js（空见金刚不坏，第 120 轮新建时漏登，注册一致性检查抓出）
 // V1.4.6 | ~29500 bytes | 2026-10-21 第 114 轮 SCAN_FILES 补登 ./health-rules/171-tangwenliang-dash.js（唐文亮冲刺落地，import 122health-utils）
 // V1.4.5 | ~29200 bytes | 2026-10-21 第 112 轮 SCAN_FILES 补登 ./xinhun-death-targeted-case.mjs、
 //          ./fact-dead-field-scan.mjs（第 113 轮沙箱交接规格的主线重写产物：XIN_HUN_DEATH 定向用例
@@ -46,7 +46,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.5.0';
+export const VER = 'tests/123static-scan.js V1.4.9';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -170,11 +170,26 @@ export const SCAN_FILES = [
     './health-rules/156-desc-truth-drift.js',
     './health-rules/157-mechanic-install-reconcile.js',
     './health-rules/170-taunts-integrity.js',
-    // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
+    // 2026-10-26 第143轮：回填 158（第142轮误退役，现改用夜间139重写版 fx 结构判据）
     './health-rules/158-fact-anchor-align.js',
     // 2026-10-07 新增：韦一笑蝠影汲血吸血（rule106：heal 正整数 / 上限恒等 / 比例上限）
     './health-rules/159-wei-bloodsiphon.js'
 ];
+
+// 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
+// 原 158 规则靠扫 fxAnchors 防「锚文本不在正文」静默失效，现该字段恒空使其恒返 'skip'（假绿）已退役。
+// 此处用一条硬扫取代它：专门盯历史持有 fxAnchors 的渲染/特效层，一旦出现该字段即报红，比 158 的恒 skip 更可靠。
+//   不并入上方 SCAN_FILES 的 3 项 import 检查，以免对渲染层引入无关误报。
+const FX_ANCHOR_WATCH_FILES = [
+    '../render/35-facts-heal.js', '../render/35-facts-misc.js', '../render/35-facts-effect.js',
+    '../render/35-facts-control.js', '../render/35-facts-stat.js', '../render/36-generic-renderers.js',
+    '../player/40player-text.js', '../player/42player-core.js', '../player/45event-handlers.js', '../player/46attack-group.js',
+    '../core/23perf-params.js'
+];
+export function scanDeadFxAnchors(code) {
+    // 剥注释后扫，避免注释里提一句触发假红（同 stripComments 口径）
+    return /\bfxAnchors\b/.test(stripComments(code));
+}
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
 // 剥注释（第 24 轮补）：逐字符走一遍，跟踪引号状态，剔掉 `//` 行注释与 `/* */` 块注释。
@@ -514,19 +529,20 @@ export async function runStaticScan() {
             enumImport: { name: '枚举 import 缺失', issues: [] },
             sharedImport: { name: '共享符号 import 缺失', issues: [] },
             importRef: { name: 'import 引用断裂', issues: [] },
-            enumMember: { name: '枚举成员未定义', issues: [] }
+            enumMember: { name: '枚举成员未定义', issues: [] },
+            deadFxAnchors: { name: '去锚定化残留 fxAnchors 字段', issues: [] }
         },
         enumRefCount: 0,
         elapsedMs: 0
     };
     const baseUrl = new URL('./', window.location.href).href; // tests/ 目录
     const mounts = await detectWindowMounts();
-    // 第四类：先取 infra/56 源码解析枚举成员表（唯一来源），失败则自证报红而非静默跳过
+    // 第四类前置：先取 infra/56 源码解析枚举成员表（唯一来源），失败则自证报红而非静默跳过
     let enumMembers = {};
     try {
         const enumResp = await fetch(new URL('../infra/56-battle-enums.js', baseUrl).href + '?t=' + t0);
         if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
-    } catch (e) { /* 落空由自证断言接管 */ }
+    } catch (e) { /* 落空由 selfCheckEnumMembers 接管报红 */ }
     for (const rel of SCAN_FILES) {
         const fileUrl = new URL(rel, baseUrl).href;
         let code;
@@ -566,9 +582,23 @@ export async function runStaticScan() {
         }
         result.enumRefCount += countEnumMemberRefs(scanCode, enumMembers);
     }
-    // 自证断言放在扫描收尾处（引用总数要等全仓扫完才知道）—— 抽取器/扫描器任一腐烂，先把自己报红
+    // 自证断言放收尾（引用总数要等全仓扫完才知道）—— 抽取器/扫描器任一腐烂，先把自己报红
     for (const it of selfCheckEnumMembers(enumMembers, result.enumRefCount)) {
         result.slots.enumMember.issues.push('（自证）' + it);
+    }
+    // 去锚定化防回归：专门扫历史持有 fxAnchors 的渲染/特效层（独立于 SCAN_FILES 的 3 项 import 检查）
+    for (const rel of FX_ANCHOR_WATCH_FILES) {
+        const fileUrl = new URL(rel, baseUrl).href;
+        try {
+            const resp = await fetch(fileUrl + '?t=' + t0);
+            if (!resp.ok) { result.slots.deadFxAnchors.issues.push(rel + ' (文件读取 HTTP ' + resp.status + ')'); continue; }
+            const code = await resp.text();
+            if (scanDeadFxAnchors(code)) {
+                result.slots.deadFxAnchors.issues.push(rel + '：检测到已废弃字段 fxAnchors（去锚定化后全仓清零，重新出现即回归）');
+            }
+        } catch (e) {
+            result.slots.deadFxAnchors.issues.push(rel + ' (文件读取失败 ' + (e.message || e) + ')');
+        }
     }
     result.elapsedMs = Date.now() - t0;
     return result;
@@ -602,7 +632,7 @@ if (isNode) {
         const slots = Object.values(r.slots);
         for (const s of slots) for (const it of s.issues) console.log('  ✗ [' + s.name + '] ' + it);
         const total = slots.reduce((n, s) => n + s.issues.length, 0);
-        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 四类 issue 合计 ${total} 条`);
+        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 五类 issue 合计 ${total} 条`);
         if (total > 0) process.exit(1);
     })();
 }

@@ -1,13 +1,6 @@
 #!/usr/bin/env node
-// tests/rule-teeth-evidence-selftest.mjs | V1.0.1 | 2026-10-25 第 133 轮
-// V1.0.1 | 2026-10-25 第 122 轮·日间线：腐烂白名单收缩到 0（三条对不上号的证据全部复通）。
-//        | ★ 本行由第 138 轮补登记：这次抬 VER 时没留机器可读日志行，而文件头部的旧写法
-//        | 「文件名 | V1.0.0 | 日期」不被版本漂移自检认得 ⇒ 本文件的版本长期无人比对。
-// V1.0.2 | 2026-10-26 第 138 轮：新增断言⑧「变异树结果新鲜度闸门」——详见下方第八章。
-//        | 起因：第 137 轮开头发现结果文件比判据文件旧（源头是第 135 轮加 VER-HOLD-DECL），
-//        | 也就是说「牙口结论配不上当前判据」长达数轮，而本自检的七条断言一条都没响，
-//        | 体检单照样全绿。「陈旧」此前只有人工直连 `mutation-teeth.mjs --report` 才会硬失败，
-//        | 自动化的对账项根本没接这根线。本轮把这道闸门接进体检的日常环路。
+// tests/rule-teeth-evidence-selftest.mjs | V1.0.2 | 2026-10-26 第142轮（吸收夜检138 · 前版 V1.0.1@第133轮）
+// 补断言⑧结果新鲜度闸门：直接调 mutation-teeth --report 人机关口，陈旧即 EXIT 1，七条断言全绿也拦下
 //
 // 盯的是**牙口取证结论配不配得上当前代码**（证据链 · 分支级）。
 //
@@ -53,26 +46,18 @@
 //      只要还有 1 种在报，rule-branch-idle 就照旧判定它有牙 ⇒ 假绿，且比第 132 轮的
 //      指纹撞车更隐蔽（撞车是退化到规则级，这个是**退化到"还有别的在报"**）。
 //      棘轮方向：只许收缩，新增一条即红（提示必须把子病因拆成独立分支）。
-//   ⑧ **变异树结果新鲜度闸门（第 138 轮接上）**：上面七条**只查已 parse 出来的证据内容**，
-//      一条都不查「这份证据配不配得上当前判据」。若结果文件变陈旧（判据文件被改 / 规则文件指纹变了
-//      / 变异树重建过 / 覆盖不全），①到⑦照样可以对着一堆旧字符串核对得严丝合缝 ⇒ 全绿，
-//      而结论讲的是上一版代码。复用 mutation-teeth 自己的新鲜度守卫（五项：判据 mtime / VER /
-//      MUTFP / 规则指纹 RULEFP / 覆盖与树 mtime）—— **不复制它的判定逻辑**，直接跑它的人机出口
-//      `--report`（陈旧即硬失败退 1），保证两边永远同一口径。第 137 轮实测的正是这个洞：
-//      结果比判据旧了数轮，七条断言无一条有反应。
 //
 // 用法：node tests/rule-teeth-evidence-selftest.mjs
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { scanAllBranches, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mjs';
 
 export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.2';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.dirname(here);   // /workspace/repo（跑子进程时用，保证相对路径同样成立）
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
 
 // --- 规模闸门（低于下限 ⇒ 证据已被裁剪，自检结论不可信）---
@@ -109,6 +94,34 @@ const ROTTEN_WHITELIST = [
 function normMsg(m) { return m.replace(/\d+/g, '#'); }
 function rottenKey(e) { return e.rule + '|' + normMsg(e.msg); }
 
+// ⑧ 结果新鲜度闸门（第139轮 item ③ 延伸 / 第138轮夜检点名）：
+//    本自检七条断言对账的"证据地基" teeth-results.txt，若比当前判据/引擎源码陈旧，
+//    则七条全绿也是假的（证据是旧的）。mutation-teeth --report 自带 ENGFP/MUTFP 鲜度守卫，
+//    陈旧即 EXIT 1 —— 直接调这个人机出口，陈旧就在这里拦下，逼着重跑变异树取证刷新。
+//    不 import checkFreshness：import 会改本判据文件 mtime ⇒ 新鲜度检查第①项反而当场判陈旧 ⇒ 死循环。
+//    --allow-stale：陈旧时只告警不拦（供临时看旧结论；run-all 不传，--quick 也要保持严格）。
+function checkEvidenceFreshness() {
+    const allowStale = process.argv.includes('--allow-stale');
+    const reportArgv = [path.join(here, 'mutation-teeth.mjs'), '--report'];
+    try {
+        execFileSync('node', reportArgv, {
+            cwd: path.resolve(here, '..'), encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        return; // 新鲜，放行
+    } catch (e) {
+        const errTxt = ((e.stdout || '') + '\n' + (e.stderr || '')).trim();
+        if (allowStale && /陈旧|stale|ENGFP|MUTFP/i.test(errTxt)) {
+            console.log('  ⚠️ 牙口证据结果已陈旧（引擎/变异表已变），因 --allow-stale 放行——七条断言即便全绿也基于过期证据，须重跑变异树取证刷新');
+            return;
+        }
+        console.log('❌ 牙口证据结果已陈旧，须重跑变异树取证刷新 ' + EVIDENCE + '：');
+        console.log(errTxt.split('\n').slice(0, 14).map(l => '    ' + l).join('\n'));
+        console.log('    处置：node tests/mutation-teeth.mjs --emit-prep > tests/.mut/prep.sh && bash tests/.mut/prep.sh && node tests/mutation-teeth.mjs --emit-run > tests/.mut/run.sh && bash tests/.mut/run.sh');
+        process.exit(1);
+    }
+}
+
 // --- 解析证据文件（格式由 rules-replay.mjs 产出，见其 tag 行与 msgs 行）---
 //   ⚠️ |❌|✅|⏭  <规则名>  pass=N fail=M skip=K  【已转交·等主代码】(可选)
 //         <msg 行，6 空格缩进，形如 [seed=S stage=G] 复发：…>
@@ -141,29 +154,6 @@ function fail(msg) {
     return msg;
 }
 
-// --- 新鲜度闸门（断言⑧用）---
-// 直接跑 mutation-teeth.mjs --report（读结果 + 套判据，不带 --out 故不写任何文件）：
-//   退 0 = 结果配得上当前判据；退 1 = 已陈旧（退出前会把具体原因逐条打到 stdout）。
-// ★ 为什么是「跑子进程」而不是「import 它的 checkFreshness」：
-//   后者本文件一度考虑过，但要给 mutation-teeth.mjs 加 export ⇒ 改动判据文件本体
-//   ⇒ 它的 mtime 立刻新于结果文件 ⇒ 新鲜度检查第①项当场判陈旧 ⇒ 反而得先重跑变异树才能收场；
-//   而且 --report 是人自己复核时跑的同一个入口，用它等于把「体检看到的」与「人跑看到的」锁成一条。
-function checkEvidenceFreshness() {
-    const JUDGE = path.join(here, 'mutation-teeth.mjs');
-    let r;
-    try {
-        r = spawnSync(process.execPath, [JUDGE, '--report'], {
-            cwd: repoRoot, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024
-        });
-    } catch (e) {
-        return { ok: false, why: ['跑 mutation-teeth --report 失败：' + (e && e.message)] };
-    }
-    const out = ((r.stdout || '') + (r.stderr || '')).split('\n');
-    if (r.status === 0) return { ok: true, why: [] };
-    const why = out.filter(l => /陈旧|判据|指纹|覆盖|未重跑|重跑/.test(l)).slice(0, 6).map(l => l.trim());
-    return { ok: false, why: why.length ? why : ['mutation-teeth --report 退 ' + r.status + '（原因行未捕获，见其原始输出）'] };
-}
-
 function main() {
     // --- 静态抽取（唯一来源）---
     const { files, branches } = scanAllBranches();
@@ -175,6 +165,8 @@ function main() {
         process.exit(1);
     }
     const txt = fs.readFileSync(EVIDENCE, 'utf8');
+    // ⑧ 结果新鲜度闸门：必须在七条断言之前——结果若陈旧，七条对的内容也是假的
+    checkEvidenceFreshness();
     const all = parseEvidence(txt);
     const mutBlocks = new Set(all.filter(e => e.mut && e.mut !== '_base').map(e => e.mut));
     // 有牙证据 = 变异体（排除干净树 _base）下 fail>0 的条目。
@@ -264,15 +256,6 @@ function main() {
             ' ⇒ 日常样本里它在咬，变异树却没证到它 ⇒ 两套口径已分叉，必有一套是假的'));
     }
 
-    // ⑧ 变异树结果新鲜度闸门：证据必须配得上当前判据，否则①到⑦核对得再齐也是过期结论。
-    //    走 mutation-teeth 自己的 --report 出口（陈旧即退 1），不复制其判定，口径天然同源。
-    const fres = checkEvidenceFreshness();
-    if (!fres.ok) {
-        problems.push(fail('变异树结果已陈旧（mutation-teeth --report 判陈旧）—— ①到⑦核对的是'
-            + '上一版代码的牙口证据，其结论不代表当前代码：' + fres.why.join(' ▸ ') + '。'
-            + '处置：重跑变异树取证（`--emit-prep` / `--emit-run` 三步），不许放宽本条或用 --allow-stale 蒙混'));
-    }
-
     // ⑦ 聚合型分支棘轮（只许收缩）：本轮实测 6 条，最严重的 166 一条指纹承载 7 种子病因
     if (aggBranches.length > MAX_AGG_BRANCHES) problems.push(fail('聚合型分支数涨到 ' + aggBranches.length +
         ' 条（上限 ' + MAX_AGG_BRANCHES + '，棘轮只许收缩）⇒ 新出现的聚合型判据会把多种子病因' +
@@ -304,7 +287,7 @@ function main() {
         console.log('❌ 牙口证据链对账失败（' + problems.length + ' 项）');
         process.exit(1);
     }
-    console.log('✅ 牙口证据链对账通过（8 项断言：证据规模 3 / 可解析率 / 腐烂棘轮 / 覆盖面 / 在册 / 运行时交叉验证 / 聚合型棘轮 / 结果新鲜度）· ' +
+    console.log('✅ 牙口证据链对账通过（7 项断言：证据规模 3 / 可解析率 / 腐烂棘轮 / 覆盖面 / 在册 / 运行时交叉验证 / 聚合型棘轮）· ' +
         files.length + ' 规则文件');
     process.exit(0);
 }
