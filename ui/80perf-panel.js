@@ -3,6 +3,8 @@
 //   滑块位置 → 直接取参数表对应列的出厂值，不改出厂表本身。
 // 第一行「未进表倍率」：控制所有未进参数表的演出（蝶变/换位/击退等），四档 0.5/1/2/4。
 // 头/中/底三段：标题+倍率固定顶部，滑块区滚动，按钮固定底部。
+// V3.3.0 | 2026-10-27 | 修手机端两故障：①预览层豁免 paused-animations（窗口不可见）
+//   ②预览遮罩 stopPropagation（关预览连带关面板、解除暂停）③「正常」档固化用户实机值（DEFAULT_VALUES）
 // V3.2.1 | 2026-10-27 | 新增 DEFAULT_STOPS 出厂默认刻度（用户实机调定 18 项）；恢复默认/导入缺项均回落此表
 // V3.2.0 | 2026-10-26 | 预览样式/剧本改成网页端 demo 定版：羊皮纸弹窗、双格战场、18 项各带独立演出，
 //   样式与动画曲线照抄 demo（类名统一加 pv- 前缀防污染游戏页），值仍取 getPerfParams()[k]['50']
@@ -11,7 +13,7 @@
 // V3.0.1 | 2026-10-26 | 跟随 core/23 去锚定化：删「锚点行每字」、加「效果行停留」（lineGapFx）
 // V3.0.0 | 2026-10-26 | 四档滑块 + 未进表倍率 + 三段布局 + 清单按钮
 // V2.0.2 | 2026-10-26 | 滑块行加高（40px 行高 / 24px 滑块）+ 弹窗高度 88vh→72vh
-export const VER = 'ui/80perf-panel.js V3.2.1';
+export const VER = 'ui/80perf-panel.js V3.3.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { clock } from '../infra/52-clock.js';
@@ -224,6 +226,15 @@ function injectPvStyle() {
 .pv-lbl::after{
   content:"▸";font-size:8px;color:#1e6bb8;
   position:absolute;right:-2px;top:2px;opacity:.55;
+}
+
+/* 预览层豁免暂停：面板打开时 body 有 paused-animations，会把预览的入场动画冻在
+   opacity:0，表现为「只看到背景变暗、窗口不存在」。这里只对预览子树恢复播放。 */
+body.paused-animations .pv-ov,
+body.paused-animations .pv-ov *,
+body.paused-animations .pv-ov *::before,
+body.paused-animations .pv-ov *::after {
+    animation-play-state: running !important;
 }
 `;
     document.head.appendChild(st);
@@ -639,7 +650,9 @@ function openPV(key) {
         '<div class="pv-stage" id="pvStage"></div>' +
         '<div class="pv-bfoot">点击任意处关闭</div>' +
         '</div>';
-    ov.addEventListener('click', () => closePV());
+    // stopPropagation：预览遮罩在面板遮罩之上，不拦会冒泡到面板 →
+    //   面板误判「点空白」把自己关掉，顺带解除 isPaused，游戏就跑起来了。
+    ov.addEventListener('click', (e) => { e.stopPropagation(); closePV(); });
     document.body.appendChild(ov);
 
     const stage = ov.querySelector('#pvStage');
@@ -702,18 +715,29 @@ const NO_TABLE_LIST = [
     'Buff 面板提示 / 事件提示（player/41 · player/45）',
 ];
 
+// 「正常」档的绝对值：用户实机调定的那套（原先散落在 core 四列里，现固化为中间档）。
+//   滑块停中间 = 这些值；往左/右才去 core 表取慢/快/极快列。
+const DEFAULT_VALUES = Object.freeze({
+    charMs: 24, lineGap: 10, lineGapFx: 112, floatLife: 650, bubbleLife: 700,
+    moveDur: 1000, moveStart: 90,
+    crashSpeed: 0.45, arrowSpeed: 4.00, meteorSpeed: 1.30, clawSpeed: 1.30,
+    clawStart: 120, closeHitDur: 700,
+    dashDur: 1700, burstDur: 2300, bulletDur: 3000,
+    countdownTick: 400, corpseDelay: 3000,
+});
+
 // 出厂默认刻度（用户实机调定）：0=慢 1=正常 2=快 3=极快
 //   与 core/23 的 '50' 列无关——面板加载时 applyAllStops() 会按这张表把 '50' 列写成对应档位的值。
 const DEFAULT_STOPS = Object.freeze({
     charMs: 1,
-    lineGap: 3,
-    lineGapFx: 3,
-    floatLife: 2,
-    bubbleLife: 2,
-    moveDur: 0,
-    moveStart: 2,
+    lineGap: 1,
+    lineGapFx: 1,
+    floatLife: 1,
+    bubbleLife: 1,
+    moveDur: 1,
+    moveStart: 1,
     crashSpeed: 1,
-    arrowSpeed: 3,
+    arrowSpeed: 1,
     meteorSpeed: 1,
     clawSpeed: 1,
     clawStart: 1,
@@ -722,7 +746,7 @@ const DEFAULT_STOPS = Object.freeze({
     burstDur: 1,
     bulletDur: 1,
     countdownTick: 1,
-    corpseDelay: 0,
+    corpseDelay: 1,
 });
 
 // 当前每项的刻度索引（0~3）；无存档 / 恢复默认时取 DEFAULT_STOPS
@@ -764,10 +788,15 @@ function saveToStorage() {
 function applyStop(key, idx) {
     const stop = STOPS[idx];
     if (!stop) return;
-    const params = getPerfParams();
-    const row = params[key];
-    if (!row) return;
-    const v = row[stop.key];
+    let v;
+    if (idx === 1) {
+        // 中间档 = 用户调定的绝对值，不读 core 表（core 的 '300' 列是通用 2x 手感）
+        v = DEFAULT_VALUES[key];
+    } else {
+        const row = getPerfParams()[key];
+        if (!row) return;
+        v = row[stop.key];
+    }
     if (typeof v !== 'number') return;
     const patch = {};
     patch[key] = {};
@@ -808,7 +837,7 @@ function openPanel() {
     const head = document.createElement('div');
     head.style.cssText = 'flex-shrink:0;padding:14px 14px 10px;border-bottom:2px solid #e8d5b0;';
     const title = document.createElement('div');
-    title.textContent = '⚙ 自定义档（8x）';
+    title.textContent = '⚙ 自定义档（8x） v3.3.0';
     title.style.cssText = 'font-size:15px;font-weight:bold;color:#5c4033;text-align:center;margin-bottom:10px;';
     head.appendChild(title);
 
