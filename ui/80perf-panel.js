@@ -342,15 +342,28 @@ const PV = {
             ['☄️ 流星赶月加深：少林弟子 额外-20', 'orange'],
             ['🎯 目标已眩晕，本回合无法行动', 'gray'],
         ];
-        let i = 0;
-        const tick = () => {
-            if (i >= L.length) return pvLater(done, 200);
-            const d = pvEl(box, 'pv-logline ' + L[i][1]);
-            d.textContent = L[i][0];
-            i++;
-            pvLater(tick, v);
+        let loop = 0;
+        const playOnce = () => {
+            box.innerHTML = '';
+            let i = 0;
+            const tick = () => {
+                if (i >= L.length) {
+                    loop++;
+                    if (loop < 3) {
+                        pvLater(playOnce, 600); // 播3遍，遍间停顿600ms
+                    } else {
+                        pvLater(done, 600);
+                    }
+                    return;
+                }
+                const d = pvEl(box, 'pv-logline ' + L[i][1]);
+                d.textContent = L[i][0];
+                i++;
+                pvLater(tick, v);
+            };
+            tick();
         };
-        tick();
+        playOnce();
     },
 
     /* ③ 效果行停留 */
@@ -830,9 +843,19 @@ function makeBtn(text, bg, onClick) {
     return b;
 }
 
+let _wasPausedBeforeOpen = false;
+
 function openPanel() {
     const old = document.getElementById('perfPanelOverlay');
     if (old) old.remove();
+
+    // 记录打开前的真实暂停状态，若未暂停才强制暂停
+    _wasPausedBeforeOpen = GlobalStore.get('isPaused');
+    if (!_wasPausedBeforeOpen) {
+        GlobalStore.set('isPaused', true);
+        GlobalStore.set('bulletTimeActive', true);
+        document.body.classList.add('paused-animations');
+    }
 
     const overlay = document.createElement('div');
     overlay.id = 'perfPanelOverlay';
@@ -965,7 +988,8 @@ function openPanel() {
 function closePanel() {
     const overlay = document.getElementById('perfPanelOverlay');
     if (overlay) overlay.remove();
-    if (GlobalStore.get('isPaused')) {
+    // 只在本来没暂停的情况下才恢复运行
+    if (!_wasPausedBeforeOpen) {
         GlobalStore.set('isPaused', false);
         GlobalStore.set('bulletTimeActive', false);
         document.body.classList.remove('paused-animations');

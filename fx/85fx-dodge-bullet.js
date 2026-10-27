@@ -237,7 +237,8 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         }
 
         const st = stageBox();
-        const pos = { ax: st.left + st.width * 0.09, ay: innerHeight * 0.16, dx: st.left + st.width * 0.64, dy: innerHeight * 0.68 };
+        // 改用 st.top + st.height 计算，避免手机底部长日志区导致 innerHeight 溢出
+        const pos = { ax: st.left + st.width * 0.09, ay: st.top + st.height * 0.15, dx: st.left + st.width * 0.64, dy: st.top + st.height * 0.65 };
 
         // 跳过按钮
         const skipBtn = document.createElement('div');
@@ -297,7 +298,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 攻击者克隆体
         cloneA = buildClone(htmlA, rectA, `
             left: ${pos.ax - st.width*0.06}px;
-            top: ${pos.ay - innerHeight*0.06}px;
+            top: ${pos.ay - st.height*0.06}px;
             width: ${rectA.width}px;
             height: ${rectA.height}px;
             transform: scale(0.6);
@@ -308,7 +309,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cleanupElements.push(cloneA);
 
         const startAX = pos.ax - st.width*0.06;
-        const startAY = pos.ay - innerHeight*0.06;
+        const startAY = pos.ay - st.height*0.06;
 
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '');
         if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
@@ -534,7 +535,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const flyAwayStartX = parseFloat(cloneA.style.left);
         const flyAwayStartY = parseFloat(cloneA.style.top);
         const maxDistX = st.width * 0.10;
-        const maxDistY = innerHeight * 0.10;
+        const maxDistY = st.height * 0.10;
         await clock.animateReal(T(2000), (t) => {
             if (isSkipped) return;
             const ease = t * t;
