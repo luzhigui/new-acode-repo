@@ -1,3 +1,7 @@
+// V1.13.1 | 2026-10-27 弱精英评测加「干净对照」：自然臂按精英名各出一套 clean[name] 计数——
+//   只剔除「本局自然出现了该精英」的局（第4关空见自然出现 18%，两臂同带空见会把 Δ 从 -6.5 稀释成 +0.5）。
+//   其他弱精英必须保持自然分布：若按侧把所有弱精英一起剔，对照会变成「敌方零弱精英」，凭空比空见臂
+//   强 15pp（第4关实测 45.3% vs 30.3%），Δ 被放大到 -19pp 的假值。
 // V1.13.0 | 2026-10-22 基线对比（kind:'baseline'）支持六名精英：applyConfig 的「剔除候选」和「身份标记复位」
 //           改由 127 ELITE_UNIT_META 派生（此前只认张/韦/小昭，谢逊寒离飒会被当普通位覆盖）；runBaselineStageJob
 //           先把随机阵容里已存在的同名精英剔掉，避免目标精英重复出场（配 114 V1.2.0）
@@ -282,7 +286,7 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
@@ -298,8 +302,19 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         if (arm === 'natural') {              // 自然对照臂：整关明教胜率，不认具体精英
+            // V1.13.1 干净对照：只剔除「本局自然出现了某个弱精英」的局，按名字各留一套计数（clean[name]）——
+            //   该精英在对照臂自然登场时，两臂都带同一机制、Δ 被稀释（第4关空见自然出现 18%，曾把 Δ 从 -5 拉成 +0.5）。
+            //   其他弱精英（何太冲/唐文亮等）必须保持自然分布：一起剔会把对照变成「敌方零弱精英」，
+            //   比空见臂（恰一个弱精英）凭空强 15pp，Δ 被放大到 -19pp 的假值。
             a.runs++;
             if (res.winner === '明教') a.wins++;
+            const allyU = res.ally || [], enemyU = res.enemy || [];
+            for (const [name, f] of Object.entries(WEAK_UNIT_FLAG)) {
+                if (allyU.some(u => u[f]) || enemyU.some(u => u[f])) continue;
+                const c = a.clean[name] || (a.clean[name] = { runs: 0, wins: 0 });
+                c.runs++;
+                if (res.winner === '明教') c.wins++;
+            }
             continue;
         }
         const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))

@@ -1,3 +1,5 @@
+// V3.0.3 | 2026-10-27 弱精英表判读同步 116 V1.13.1 的「干净对照」：每列按自己的精英名取 clean 基准，
+//          只剔除「该精英在自然局登场」的局（自然臂场次略少于精英臂），Δ 不再被对照组自带该精英稀释。
 // V3.0.2 | 2026-10-22 寒离飒单挑口径改为 29 V7.6.1 的 forceHanLiSa（配 116 V1.12.2）：
 //          升强精英后弱精英池已无此人，forceWeakElite 整组抛错；主代码补了专用 force 通道，
 //          单核口径回到「force 单精英」，与其它强精英同一把尺子。
@@ -462,7 +464,8 @@ weakBtn.addEventListener('click', async () => {
     weakResultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
 
     // byStage[st][variant][key]：key = '__natural'（自然对照臂）或 弱精英名
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
+    // V1.13.1：natural 桶按名字带 clean[name]（该局两侧都没出现这个弱精英的统计）
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
     const byStage = {};
     for (const st of stages) {
         byStage[st] = {};
@@ -503,6 +506,10 @@ weakBtn.addEventListener('click', async () => {
                     if (!a) continue;
                     a.runs += d.runs; a.wins += d.wins;
                     a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
+                    for (const [nm, c] of Object.entries(d.clean || {})) {
+                        const t = a.clean[nm] || (a.clean[nm] = { runs: 0, wins: 0 });
+                        t.runs += c.runs; t.wins += c.wins;
+                    }
                 }
                 weakProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
@@ -538,9 +545,8 @@ function renderWeakResults(byStage, stages) {
                 if (!slot) continue;
                 if (!list.some(w => slot[w.name] && slot[w.name].runs > 0)) continue;
                 const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
-                const base = slot.__natural && slot.__natural.runs > 0 ? slot.__natural.wins / slot.__natural.runs * 100 : null;
                 html += `<tr><td class="elite-stage">${label}</td>`;
-                for (const w of list) html += weakCellHtml(slot[w.name], base);
+                for (const w of list) html += weakCellHtml(slot[w.name], cleanBase(slot.__natural, w.name));
                 html += '</tr>';
             }
         }
@@ -555,9 +561,9 @@ function renderWeakResults(byStage, stages) {
     };
     let html = '';
     html += sub('🐦 明教弱精英（强制混入明教阵容，强精英轮盘照常）', WEAK_ALLY,
-        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子；明教侧换人会扰动站位洗牌，属随机噪声、多场平均掉）。Δ>0 = 该弱精英给明教带来增益（替换一个普通位更划算）。');
+        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子；明教侧换人会扰动站位洗牌，属随机噪声、多场平均掉）。Δ>0 = 该弱精英给明教带来增益（替换一个普通位更划算）。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
     html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
-        'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。');
+        'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
     weakResultEl.innerHTML = html;
 }
 
@@ -582,6 +588,15 @@ function weakCellHtml(d, baseRate) {
         <div class="cell-sub">存活 ${surv}%</div></td>`;
 }
 
+// 弱精英表基准取用（V1.13.1 干净对照）：只剔「本局自然出现了该弱精英」的局，其他弱精英保持自然分布
+function cleanAgg(nb, name) {
+    return nb && nb.clean ? nb.clean[name] : null;
+}
+function cleanBase(nb, name) {
+    const c = cleanAgg(nb, name);
+    return c && c.runs > 0 ? c.wins / c.runs * 100 : null;
+}
+
 // 某弱精英跨关跨变体累加 + 只取它真有数据的关/变体上的自然对照（总评行用）
 function weakArmTotals(name, byStage, stages) {
     const t = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
@@ -592,7 +607,7 @@ function weakArmTotals(name, byStage, stages) {
             const d = slot && slot[name];
             if (!d || !d.runs) continue;
             t.runs += d.runs; t.wins += d.wins; t.sumSurv += d.sumSurv; t.sumDmg += d.sumDmg; t.sumTaken += d.sumTaken;
-            const nb = slot.__natural;
+            const nb = cleanAgg(slot.__natural, name);
             if (nb && nb.runs) { nRuns += nb.runs; nWins += nb.wins; }
         }
     }

@@ -9,7 +9,7 @@
 //           modules/31voice-commentary.js，补登记 tools/136-voice-commentary.js + tools/137-voice-panel.js
 //           （不登记则新档漏包、删档会让包内出现「读取失败」）
 // V6.0.38 | ~27200 bytes | 2026-10-24 补登记 3 个运行必需文件（全仓清单↔磁盘比对发现，均在主代码引用链上）：
-//           player/52-career-log.js（42player-core 已 import，dev-index 生涯记录按钮也动态 import）、
+//           tools/52-career-log.js（42player-core 已 import，dev-index 生涯记录按钮也动态 import）、
 //           fx/95-immune-shield-break.js（render/39 空见护罩碎裂的动态 import）、
 //           modules/26elite-sixsects-kongjian.js（26 入口已 import 的空见组件）；漏登则包内引用断裂。
 // V6.0.37 | ~26900 bytes | 2026-10-23 补登记 fx/94-tangwenliang-dash.js（render/39 动态 import 的唐文亮冲刺
@@ -123,7 +123,7 @@ export const ALL_PROJECT_FILES = [
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
     // 2026-10-24 补登记：生涯记录（42player-core 已 import；dev-index 生涯按钮也动态 import）
-    '../player/52-career-log.js',
+    '../tools/52-career-log.js',
     // 2026-10-21 补登记 42 拆分件：播放步/阶段动作/步同步（42player-core 的同批产物）
     '../player/42player-play-step.js', '../player/42player-stage-actions.js', '../player/42player-step-sync.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',

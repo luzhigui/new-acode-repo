@@ -178,7 +178,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
         document.getElementById('btnCareerLog').addEventListener('click', async () => {
             let md = null, count = 0;
             try {
-                const m = await import('./player/52-career-log.js');
+                const m = await import('./tools/52-career-log.js');
                 count = m.getCareerRecords().length;
                 md = m.exportCareerMarkdown();
             } catch (e) {
@@ -203,7 +203,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             // 统计卡片 + 战绩条 + 一句话总结（读已有记录算，不新增存储）
             (async () => {
                 try {
-                    const m = await import('./player/52-career-log.js');
+                    const m = await import('./tools/52-career-log.js');
                     const ins = m.getCareerInsights();
                     if (!ins) return;
                     const wrap = document.createElement('div');
@@ -249,6 +249,25 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         wrap.appendChild(s);
                     }
 
+                    // 英雄跨局聚合（tools/52 V1.1.0）：谁长期虚高/划水一目了然
+                    try {
+                        const agg = m.getHeroAggregates();
+                        if (agg && agg.length) {
+                            const tbl = document.createElement('div');
+                            tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（按出场次数排序，前 12）</div>';
+                            h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th>均输出</th><th>均承伤</th><th>均治疗</th><th>存活率</th></tr>';
+                            agg.slice(0, 12).forEach(a => {
+                                const wc = a.winRate >= 55 ? '#4caf50' : (a.winRate <= 40 ? '#ff6b6b' : '#ccc');
+                                h += `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}">${a.winRate}%</td><td>${a.avgDmg}</td><td>${a.avgTaken}</td><td>${a.avgHeal}</td><td>${a.aliveRate}%</td></tr>`;
+                            });
+                            h += '</table>';
+                            tbl.innerHTML = h;
+                            wrap.appendChild(tbl);
+                        }
+                    } catch (e) {}
+
                     box.insertBefore(wrap, box.querySelector('textarea'));
                 } catch (e) { /* 统计失败不影响文本导出 */ }
             })();
@@ -278,11 +297,24 @@ row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wra
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(() => URL.revokeObjectURL(a.href), 5000);
             }));
+            row.appendChild(mkBtn('📊 CSV', '#8e44ad', async () => {
+                try {
+                    const m = await import('./tools/52-career-log.js');
+                    const csv = m.exportCareerCSV();
+                    if (!csv) { alert('还没有生涯记录'); return; }
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = '生涯记录-' + new Date().toISOString().slice(0, 10) + '.csv';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+                } catch (e) { alert('导出 CSV 失败：' + (e && e.message ? e.message : e)); }
+            }));
             row.appendChild(mkBtn('🗑 清空', '#7f8c8d', async () => {
                 if (!confirm('⚠️ 确认清空全部 ' + count + ' 局生涯记录？此操作不可撤销！')) return;
 if (!confirm('再次确认：真的要清空吗？')) return;
                 try {
-                    const m = await import('./player/52-career-log.js');
+                    const m = await import('./tools/52-career-log.js');
                     m.clearCareerRecords();
                 } catch (e) {}
                 overlay.remove();
