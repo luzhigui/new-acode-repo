@@ -3,6 +3,7 @@
 export const VER = 'core/03battle-utils.js V6.3.5';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
+import { getRoleBonus } from './02unit.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';

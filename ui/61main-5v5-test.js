@@ -286,13 +286,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (available.length > 0) {
                     const rng = getBattleRng();
                     const pick = available[rng.nextInt(0, available.length - 1)];
-                    const duration = C.BUFFS[pick].duration || C.BUFF_DURATION;
                     const buffs = getState.activeBuffs();
                     if (buffs.length >= 2) {
                         const shortest = buffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
                         buffs.splice(buffs.indexOf(shortest), 1);
                     }
-                    buffs.push(createBuffObject(pick, duration));
+                    const newBuff = createBuffObject(pick, null, CAMP_TYPES.ALLY, allyTeam);
+                    buffs.push(newBuff);
                     // 小昭永久海克斯备份
                     const allyTeam2 = getState.UI().allyTeam;
                     const xz = allyTeam2.find(u => u.isXiaoZhaoBrother);
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);
                     }
                     updateBuffSlots(getState.activeBuffs());
-                    logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[pick].name}（持续${duration}回合）</span><br>`;
+                    logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[pick].name}（持续${newBuff.remaining}回合）</span><br>`;
                     autoScrollLog();
                 }
             } else {

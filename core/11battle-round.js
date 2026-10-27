@@ -16,7 +16,7 @@ import { clearAllWatchers } from './19unit-watch.js';
 import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced } from './08-registry-elite.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng } from './13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -240,13 +240,45 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
     const enemyBuffs = enemy._activeBuffs || [];
     const casterAlive = isAlly ? alive.B : alive.A;
     const targetAlive = isAlly ? alive.A : alive.B;
+    
+    // 摄魂随机影响：对方存活角色数 - 1（最少 1 人）
+    const hasTeamSoulDrain = hasBuff(enemyBuffs, BUFF_TYPES.SOUL_DRAIN);
+    let soulDrainTargets = null;
+    if (hasTeamSoulDrain) {
+        const aliveTeam = team.filter(u => u.alive && !u.isHorse);
+        const count = Math.max(1, aliveTeam.length - 1);
+        const shuffled = [...aliveTeam];
+        const rng = getBattleRng();
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = rng.nextInt(0, i);
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        soulDrainTargets = new Set(shuffled.slice(0, count).map(u => u.uid));
+    }
+
+    // 流云身法：团队版每回合随机少一人享受加成（若仅 1 人则正常享受）
+    if (hasBuff(buffs, BUFF_TYPES.CLOUD_BODY)) {
+        const aliveCloudTeam = team.filter(u => u.alive);
+        if (aliveCloudTeam.length > 1) {
+            const rng = getBattleRng();
+            const skipIdx = rng.nextInt(0, aliveCloudTeam.length - 1);
+            aliveCloudTeam.forEach((u, idx) => { u.state._cloudBodySkip = (idx === skipIdx); });
+        } else if (aliveCloudTeam.length === 1) {
+            aliveCloudTeam[0].state._cloudBodySkip = false;
+        }
+    } else {
+        team.forEach(u => { u.state._cloudBodySkip = false; });
+    }
+
     team.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
 
         applyHolyFlameBonus(u, buffs, { hasSister: isAlly ? isHolyFlameEnhanced(team) : false, log: ctx.log });
-        applyFortifyBonus(u, buffs);
-        applySoulDrain(u, enemyBuffs, { log: ctx.log, casterAlive, targetAlive, round: ctx.round, casterSide: enemy });
+        applyFortifyBonus(u, buffs, team);
+        if (!hasTeamSoulDrain || soulDrainTargets.has(u.uid)) {
+            applySoulDrain(u, enemyBuffs, { log: ctx.log, casterAlive, targetAlive, round: ctx.round, casterSide: enemy });
+        }
         applyCarryBonus(u, team, state, ctx.log);
         applyLastStandBonus(u, team, buffs, ctx.log);
         applyUnityBonus(u, team, buffs, ctx.log);
@@ -395,7 +427,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
-            if (isBlocked(u, fullAllySide) && isMelee(u.role)) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
+            // 连击宿主（明教被选中者 / 拥有永久连击的妹妹）无视遮挡，强行参战
+            const isDoubleStrikeHost = (u.uid === doubleStrikeUnitUid) || (u.state && u.state._permanentBuffs && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE));
+            if (isBlocked(u, fullAllySide) && isMelee(u.role) && !isDoubleStrikeHost) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
             // log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide, log });

@@ -40,10 +40,7 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         if (available.length > 0) {
             const rng = getBattleRng();
             const pick = available[rng.nextInt(0, available.length - 1)];
-            // permanent 接线：content 里 permanent:true 的海克斯（背水一战/圣火不熄）→ remaining=Infinity，
-            //   整局持有、不再四回合过期（过期过滤 remaining > 0 对 Infinity 天然放行）
-            const duration = CONFIG.BUFFS[pick].permanent ? Infinity : (CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4);
-            newBuff = createBuffObject(pick, duration, camp);
+            newBuff = createBuffObject(pick, null, camp, team);
             // 小昭·妹永久海克斯仅明教适用
             //   补查重（手选路径 20 addPermanentBuff 有守卫，全自动路径此前裸塞可重复堆同名海克斯）
             if (camp === CAMP_TYPES.ALLY && c.store) {
@@ -102,7 +99,7 @@ export async function handlePvpBuffSelection(c, nextActiveBuffs) {
     }
     const pickKey = pickMsg && pickMsg.key;
     if (pickKey && CONFIG.BUFFS[pickKey]) {
-        const enemyBuff = createBuffObject(pickKey, duration, CAMP_TYPES.ENEMY);
+        const enemyBuff = createBuffObject(pickKey, null, CAMP_TYPES.ENEMY, enemyTeam);
         merged = [...merged, enemyBuff];
         appendLogHTML(`<span class="gold">✨ ${CAMP_LABEL[CAMP_TYPES.ENEMY]}方获得Buff：${enemyBuff.name}（${enemyBuff.permanent ? '整局' : '持续' + enemyBuff.remaining + '回合'}）</span><br>`);
     }

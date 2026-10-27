@@ -9,11 +9,12 @@ import {
     applyMindControl_Normal, applyMindControl_Sister
 } from './14buff-effects.js';
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
+import { getRoleBonus } from './02unit.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal } from './13battle-shared.js';
 import { findFreePos, spawnUnit } from './05battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
@@ -30,13 +31,19 @@ export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
     else applyHolyFlame_Normal(unit, null, activeBuffs, ctx.log);
 }
 
-export function applyFortifyBonus(unit, activeBuffs) {
+// 妹妹永久：全队同职业共享
+function hasBrotherPermanent(team, buffKey) {
+    if (!Array.isArray(team)) return false;
+    return team.some(u => u.isXiaoZhaoBrother && u.alive && u.state?._permanentBuffs?.some(b => b.key === buffKey));
+}
+
+export function applyFortifyBonus(unit, activeBuffs, team) {
     // 支持分阵营：六大派持有严阵以待时同样生效
     if (unit.role !== ROLE_TYPES.DEFENDER) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         applyFortifyDef(unit);
-    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY)) {
-        // 妹永久补 fortify：团队严阵以待过期后，妹（防战形态）自己继续吃防御+50%
+    } else if (hasBrotherPermanent(team, BUFF_TYPES.FORTIFY)) {
+        // 妹永久补 fortify：团队严阵以待过期后，防战队友共享
         applyFortifyDef(unit);
     }
 }
@@ -132,23 +139,50 @@ export function spawnCarryEagle(team, log) {
 export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
+
+    // 已经触发过，直接续上永久的攻击（防止被 removeModsByTTL 清理）
+    if (unit.state._lastStandTriggered) {
+        addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'permanent', op: 'mul', group: 'lastStand' });
+        return;
+    }
+
     const teamHas = hasBuff(activeBuffs, BUFF_TYPES.LAST_STAND);
-    // 妹永久版不走 xiaoPermanentActive（它在团队 buff 在场时返回 false，会让「团队版在场、只有队友血低」时她吃不到加成）
-    //   → 直查账本，团队在场也照样判队友
     const permOwned = !!(unit.isXiaoZhaoBrother && Array.isArray(unit.state?._permanentBuffs)
         && unit.state._permanentBuffs.some(b => b.key === BUFF_TYPES.LAST_STAND));
     if (!teamHas && !permOwned) return;
-    // 姊强化阈值：仅团队版生效（团队 buff 在场才算接线，与 holyFire/holyFlame 同口径）
+    
     const enh = (teamHas && Array.isArray(team) && team.some(u => u.isXiaoZhaoSister && u.alive))
         ? (getSkillParams('小昭', 'hexEnhance').lastStand || null) : null;
     const teamThreshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
     const permThreshold = (cfg.hpThreshold ?? 0.35);
     const teamLow = teamHas && unit.hp < unit.maxHp * teamThreshold;
-    // 妹永久：任一队友（含她本人）血低即触发；团队版在场也生效，但全函数只挂一份 mul 词条（不叠成 1.96）
     const permLow = permOwned && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * permThreshold);
+    
     if (!teamLow && !permLow) return;
-    addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'round', op: 'mul', group: 'lastStand' });
-    if (log) log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
+    
+    // 首次触发！
+    unit.state._lastStandTriggered = true;
+    // 判定最终攻击加成（姐姐强化版若给定了专属数值则用姐姐的，否则走基础配置）
+    const finalAtkBonus = (teamLow && enh && enh.atkBonus != null) ? enh.atkBonus : cfg.atkBonus;
+    addMod(unit, 'atk', { source: '背水一战', value: finalAtkBonus, ttl: 'permanent', op: 'mul', group: 'lastStand' });
+    
+    // 触发者获得一次战士加成
+    const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
+    addMod(unit, 'atk', { source: '背水一战·战士', value: warriorBonus.atk, ttl: 'permanent', group: 'lastStandWarrior', op: 'add' });
+    addMod(unit, 'def', { source: '背水一战·战士', value: warriorBonus.def, ttl: 'permanent', group: 'lastStandWarrior', op: 'add' });
+    addMod(unit, 'maxHp', { source: '背水一战·战士', value: warriorBonus.maxHp, ttl: 'permanent', group: 'lastStandWarrior', op: 'add' });
+    refreshMaxHp(unit, null, '背水一战·战士');
+
+    if (teamLow && enh && enh.leechRatio) {
+        unit.state._lastStandLeechRatio = enh.leechRatio;
+    } else {
+        unit.state._lastStandLeechRatio = 0;
+    }
+
+    if (log) {
+        log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
+        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '背水一战', note: `🩸 背水一战：${unit.name} 永久获得攻击+50%，并获得一次战士加成`, line: false, floatText: '🩸背水一战！', floatUid: unit.uid } });
+    }
 }
 
 // 众志成城（unity）加成：按本阵营存活人数（拒马/幼狮/雄鹰/召唤物都算人）取最高达标档，攻防同乘。
@@ -236,7 +270,7 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
     // 词条系统下，攻防由 getStat 统一计算；此处只保留闪避率计算
     let dodgeBonus = 0;
-    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
+    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && !unit.state._cloudBodySkip) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) dodgeBonus = applyCloudBodyDodge_Sister();
         else dodgeBonus = applyCloudBodyDodge_Normal();
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
@@ -277,7 +311,7 @@ export function submitBloodthirstDeclaration(data) {
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20 });
         }
-    } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR) {
+    } else if (hasBrotherPermanent(allySide, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         // 同主分支：声明量填原值，preview 只用于飘字/审计
         const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const leechVal = previewHeal(unit, rawLeech);
@@ -334,6 +368,34 @@ export function registerHotBlood(eventBus) {
     });
 }
 
+// 背水一战·姐姐强化专属吸血（15%）
+function submitLastStandLeechDeclaration(data) {
+    const { unit, dmg } = data;
+    if (!unit || !unit.alive || !dmg || dmg <= 0) return;
+    const ratio = unit.state._lastStandLeechRatio;
+    if (!ratio) return;
+    
+    const rawLeech = Math.floor(dmg * ratio);
+    const leechVal = previewHeal(unit, rawLeech);
+    if (leechVal > 0) {
+        if (!data.declarations) data.declarations = [];
+        data.declarations.push({
+            type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit,
+            factType: FACT_TYPES.HEAL,
+            factData: { unitName: unit.name, heal: leechVal, hpBefore: Math.floor(unit.hp), hpAfter: Math.floor(unit.hp + leechVal), unitUid: unit.uid, icon: '🩸', label: '背水一战吸血', mode: 'plusTrail', anchorVerb: '吸血' }
+        });
+        recordHpAudit(unit, 'lastStandLeech', leechVal, '背水一战吸血');
+    }
+}
+
+export function registerLastStandLeech(eventBus) {
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
+        priority: L.AFTER_DAMAGE_APPLIED.LEECH,
+        handler: (data) => { submitLastStandLeechDeclaration(data); }
+    });
+}
+
 // 乘风突袭：飞行单位攻击时波及同行 + 概率击退
 export function submitWindAssaultDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
@@ -342,7 +404,7 @@ export function submitWindAssaultDeclaration(data) {
     if (target.camp === unit.camp) return;
     const unitBuffs = allySide._activeBuffs || [];
     const active = hasBuff(unitBuffs, BUFF_TYPES.WIND_ASSAULT) && unit.role === ROLE_TYPES.FLYER;
-    const brotherActive = unit.isXiaoZhaoBrother && unit.role === ROLE_TYPES.FLYER && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
+    const brotherActive = unit.role === ROLE_TYPES.FLYER && hasBrotherPermanent(allySide, BUFF_TYPES.WIND_ASSAULT);
     if (!active && !brotherActive) return;
     const enhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
     const hitProb = enhance ? Math.floor(enhance.hitProb * 100) : Math.floor(C.BUFFS.windAssault.hitProb * 100);
@@ -403,7 +465,7 @@ export function submitMeteorShowerDeclaration(data) {
     const unitBuffs = allySide._activeBuffs || [];
     const isBrother = unit.isXiaoZhaoBrother;
     const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === ROLE_TYPES.RANGED;
-    const brotherActive = isBrother && unit.role === ROLE_TYPES.RANGED && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
+    const brotherActive = unit.role === ROLE_TYPES.RANGED && hasBrotherPermanent(allySide, BUFF_TYPES.METEOR_SHOWER);
     if (!active && !brotherActive) return;
     const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
     const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
@@ -585,7 +647,8 @@ export function installBuffMechanics(eventBus) {
         windAssaultSplash: registerWindAssault,
         meteorShowerMain: registerMeteorShower,
         mindControlSwap: registerMindControl,
-        holyFireRevive: registerHolyFire
+        holyFireRevive: registerHolyFire,
+        lastStandLeech: registerLastStandLeech
     };
     for (const buff of Object.values(gd.buffs)) {
         if (!buff.effects || !Array.isArray(buff.effects)) continue;

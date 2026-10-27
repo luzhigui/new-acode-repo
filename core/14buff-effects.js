@@ -112,6 +112,19 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
                 applyStatChange(a, 'hp', -dmgOnSwap, null, '惑心换位');
                 applyStatChange(b, 'hp', -dmgOnSwap, null, '惑心换位');
             }
+            // 姊强化·眩晕：敌方被换位者眩晕一回合（扣血若把目标直接打入待死，则不追加眩晕）
+            if (enhance && enhance.stunOnSwap) {
+                if (a.alive && !a.state._pendingDeath) {
+                    a.state._stunned = true;
+                    emitEvent(a, UNIT_EVENT_TYPES.HP_CHANGE, { hp: a.hp, maxHp: a.maxHp, alive: a.alive, atk: getStat(a, 'atk'), def: getStat(a, 'def'), _stunned: true });
+                    emitStateChange(a, STATE_CHANGE_TYPES.STUNNED, {}, log);
+                }
+                if (b.alive && !b.state._pendingDeath) {
+                    b.state._stunned = true;
+                    emitEvent(b, UNIT_EVENT_TYPES.HP_CHANGE, { hp: b.hp, maxHp: b.maxHp, alive: b.alive, atk: getStat(b, 'atk'), def: getStat(b, 'def'), _stunned: true });
+                    emitStateChange(b, STATE_CHANGE_TYPES.STUNNED, {}, log);
+                }
+            }
             log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '可用单位不足' } });

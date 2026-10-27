@@ -35,6 +35,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 胖远桥·正义国字脸：被嘲讽者本回合后续只能打胖远桥（回合级，回合开始自动清）
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 流云身法：团队版每回合随机有一人无法享受闪避加成（>1人时生效）
+    _cloudBodySkip:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 唐文亮冲刺后待叠回春：等冲刺后那一拳结算完再叠（回合开始自动清）
     _pendingDashHeal:        { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
@@ -140,11 +142,17 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     //   渲染层只读它判「附身/飞天」，不再伸手读引擎的 unit._fsm 实例。
     _fsmPhase:               { type: STATE_FIELD_TYPES.STRING,  default: null },
     _butterflyHost:          { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 蝶变附身额外选中受惠的队友 uid
+    _extraButterflyHost:     { type: STATE_FIELD_TYPES.STRING,  default: null },
     _zhangTauntDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 张三丰：第十回合严阵以待
     _roundCountForFortify:   { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _tenRoundFired:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 背水一战·姐姐强化专属吸血率：applyLastStandBonus 触发了低血才写入 0.15，没触发自动清零
+    _lastStandLeechRatio:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 背水一战整局触发标记（每个人仅触发一次获得战士加成，之后永久保留）
+    _lastStandTriggered:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 胖远桥：莽撞 / 正义国字脸 / 年轻气盛
     // _clumsyHit / _tauntFired 都是「仅本次攻击内有效」的标记，

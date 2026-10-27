@@ -7,12 +7,21 @@ import { getBattleRng } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // target 缺省为明教：单机路径行为不变；联网 PVP 下六大派传 CAMP_TYPES.ENEMY
-export function createBuffObject(key, duration, target = CAMP_TYPES.ALLY) {
-    // 「整局」海克斯（content 打 permanent:true，如圣火不熄）：时长按引擎回合上限，确保整局不过期
-    //   ——全部抽卡入口（player/49、ui/65、ui/70、tools/116）都汇聚本函数，只此一处映射；
-    //   不用 Infinity：buff 对象进 PVP 下发/回放可能过 JSON，Infinity 会被序列化成 null 反而丢 buff。
-    //   permanent 标记随对象下发，供各显示点渲染成「整局」而不是回合数
+// team 用于动态计算部分海克斯的时长（如姐姐强化流星赶月）
+export function createBuffObject(key, duration = null, target = CAMP_TYPES.ALLY, team = []) {
     const cfg = CONFIG.BUFFS[key] || {};
+    
+    // 时长收口：如果外部没传 duration，内部根据配置和当前队伍状态自行判定
+    if (duration == null) {
+        if (cfg.permanent) {
+            duration = CONFIG.MAX_ROUND;
+        } else if (key === BUFF_TYPES.METEOR_SHOWER && team.some(u => u.isXiaoZhaoSister && u.alive)) {
+            duration = 4;
+        } else {
+            duration = cfg.duration || CONFIG.BUFF_DURATION || 4;
+        }
+    }
+
     const buff = { key, target, remaining: cfg.permanent ? CONFIG.MAX_ROUND : duration, name: cfg.name || key };
     if (cfg.permanent) buff.permanent = true;
     if (key === BUFF_TYPES.HOLY_FLAME) {

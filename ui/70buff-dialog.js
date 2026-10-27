@@ -77,8 +77,7 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
                 if (overlay.parentNode) overlay.remove();
                 let floatBtn = document.getElementById('buffFloatBtn');
                 if (floatBtn) floatBtn.remove();
-                let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
-                const newBuff = createBuffObject(b.value, duration, camp);
+                const newBuff = createBuffObject(b.value, null, camp, allyUnits);
                 // 小昭·妹永久海克斯仅明教适用（见 20 addPermanentBuff 守卫）
                 if (camp === CAMP_TYPES.ALLY) {
                     const ctx = GlobalStore.get('playerContext');

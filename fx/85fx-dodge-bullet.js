@@ -237,8 +237,8 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         }
 
         const st = stageBox();
-        // 改用 st.top + st.height 计算，避免手机底部长日志区导致 innerHeight 溢出
-        const pos = { ax: st.left + st.width * 0.09, ay: st.top + st.height * 0.15, dx: st.left + st.width * 0.64, dy: st.top + st.height * 0.65 };
+        // 基准从 innerHeight 换成 st.top + st.height（真实舞台矩形），比例保持原值 0.16 / 0.68 不变
+        const pos = { ax: st.left + st.width * 0.09, ay: st.top + st.height * 0.16, dx: st.left + st.width * 0.64, dy: st.top + st.height * 0.68 };
 
         // 跳过按钮
         const skipBtn = document.createElement('div');
