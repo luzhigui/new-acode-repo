@@ -1,4 +1,8 @@
 // ===== ../tools/108-hex-dashboard.js =====
+// V6.3.6 | 2026-10-27 修「跑批卡住不报错」真凶：worker 报错后 117 杀全部线程并 reject，catch 弹出的 ❌ 在 500ms 内
+//   被没清掉的进度 tick 盖回冻住的 ⏳——症状=进度条永久卡死、无报错。catch/finally 现在统一清 tick。
+//   配套 content：补「小昭·姊」台词池——职业改蝴蝶后名字池/职业池两级皆空，战斗必崩「台词池缺失」。
+//   另加页内红底报错块（hexRunErrBox）+ 控制台全栈——报错必须页面直接可见，不再被任何刷新盖掉。
 // V6.3.5 | 2026-10-27 修「跑批绿色跳一下就卡住」双因：①落盘改增量——片结果攒内存、每 2s 刷盘、
 //   跑完补刷（原实现攒到跑完才一次性写=全程 0 条落盘，中途关页白跑+表格一直「暂无数据」像卡死；
 //   每片直接全量读写 localStorage 是 O(片数²) 字符串开销，故攒批刷）②线程池留 2 核给主线程
@@ -15,7 +19,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.3.5';
+export const VER = 'tools/108-hex-dashboard.js V6.3.6';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -397,6 +401,7 @@ function openHexDashboard() {
     const stageLabel = curStage === 'all' ? '七关' : `第${curStage}关`;
 
     runBtn.disabled = true;
+    { const old = document.getElementById('hexRunErrBox'); if (old) old.remove(); }   // V6.3.6 清上轮报错块
     sel.disabled = true;
     lineupSel.disabled = true;
     stageSel.disabled = true;
@@ -404,6 +409,7 @@ function openHexDashboard() {
     status.textContent = '加载战斗引擎…';
     const t0 = performance.now();
     const fmtSec = ms => (ms / 1000).toFixed(0) + 's';
+    let timer = null;   // V6.3.6 提前声明：finally 也要能清（报错路径原来不清 → ❌ 被 tick 盖住成「卡死」）
     try {
       const { loadGameData } = await import('../core/01config-5v5-test.js');
       if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
@@ -476,7 +482,7 @@ function openHexDashboard() {
         // V6.3.5 增量落盘：每 2 秒把攒着的片结果刷进 localStorage（每片直接全量读写是 O(片数²) 字符串开销）
         if (doneRuns < total && performance.now() - lastFlush > 2000) { lastFlush = performance.now(); flushPending(); }
       };
-      const timer = setInterval(tick, 500);
+      timer = setInterval(tick, 500);
       await runParallel({
         jobs,
         kind: 'hex',
@@ -506,8 +512,20 @@ function openHexDashboard() {
       }
       crossEl.innerHTML = '';   // 新数据已写入，收起跨关表（再点会读到最新）
     } catch (e) {
-      status.textContent = '❌ 失败：' + (e && e.message ? e.message : e);
+      const _msg = (e && e.message) ? e.message : String(e);
+      status.textContent = '❌ 失败：' + _msg;
+      // V6.3.6 页内显著报错块：红底白字摊在面板上，不受状态行刷新影响（TA 令：报错必须页面直接可见）
+      try {
+        const old = document.getElementById('hexRunErrBox'); if (old) old.remove();
+        const box = document.createElement('div');
+        box.id = 'hexRunErrBox';
+        box.style.cssText = 'background:#c0392b;color:#fff;padding:12px 16px;border-radius:8px;font-weight:700;font-size:14px;margin:10px 0;white-space:pre-wrap;word-break:break-all;line-height:1.5';
+        box.textContent = '⚠️ 跑批中断：' + _msg;
+        status.insertAdjacentElement('afterend', box);
+      } catch (e2) {}
+      console.error('[108] 跑批失败（全栈）：', e);
     } finally {
+      if (timer) { clearInterval(timer); timer = null; }   // V6.3.6：报错路径也清 tick——否则 ❌ 上屏 500ms 就被冻住的 ⏳ 盖回去
       runBtn.disabled = false;
       sel.disabled = false;
       lineupSel.disabled = false;
