@@ -1,4 +1,8 @@
 // ===== ../tools/108-hex-dashboard.js =====
+// V6.3.7 | 2026-10-27 海克斯说明全量刷新（对齐 content 5.16.9 + 引擎接线）：15 张详情卡补全
+//   姐姐强化新增效果（惑心换位扣血 10／眩晕 1 回合／我方换位回血 10、背水吸血 15%、圣火令列行动态、
+//   连击概率改读 hexEnhance.doubleStrike.chance 不再写死 100%）；普通版补全 carry 雄鹰细节、
+//   unity 补员目标改读参数；提示文案同步背水 40%/+50%、惑心姐姐强化、巨马姐姐反弹、摄魂姐/妹档、unity 姐姐 M25。
 // V6.3.6 | 2026-10-27 修「跑批卡住不报错」真凶：worker 报错后 117 杀全部线程并 reject，catch 弹出的 ❌ 在 500ms 内
 //   被没清掉的进度 tick 盖回冻住的 ⏳——症状=进度条永久卡死、无报错。catch/finally 现在统一清 tick。
 //   配套 content：补「小昭·姊」台词池——职业改蝴蝶后名字池/职业池两级皆空，战斗必崩「台词池缺失」。
@@ -19,7 +23,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.3.6';
+export const VER = 'tools/108-hex-dashboard.js V6.3.7';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -104,7 +108,13 @@ const HEX_DETAIL = {
   },
   hotBlood: {
     normal: b => [`己方单位攻击时，回复自身已损失生命的 ${pct(b.leechRatio)}；每第 ${b.critInterval} 次攻击回血翻倍`],
-    sister: (b, e) => [`每次回复比例 ${pct(b.leechRatio)} → ${pct(e.leechPct)}；翻倍间隔 第 ${b.critInterval} 次 → 第 ${e.critInterval} 次`],
+    sister: (b, e) => {
+      const out = [];
+      const lp = e.leechPct != null ? e.leechPct : b.leechRatio;
+      if (Math.round(lp * 1000) !== Math.round(b.leechRatio * 1000)) out.push(`每次回复比例 ${pct(b.leechRatio)} → ${pct(lp)}`);
+      out.push(`翻倍间隔 第 ${b.critInterval} 次 → 第 ${e.critInterval} 次（翻倍那次按 ${pct(lp * 2)} 回）`);
+      return out;
+    },
     brother: b => [`团队效果结束后，小昭·妹永久保留：她攻击时按 ${pct(b.leechRatio)} 回复已损失生命，每第 ${b.critInterval} 次翻倍`]
   },
   fortify: {
@@ -128,19 +138,24 @@ const HEX_DETAIL = {
     brother: b => [`团队效果结束后，小昭·妹永久保留：她作为远程单位时，按 ${pct(b.bonusRatio)} 追加伤害、${pct(b.splashRatio)} 溅射并降防`]
   },
   carry: {
-    normal: b => [`5 号位获得全队队友属性加成：攻击 +${pct(b.atkBonus)}、防御 +${pct(b.defBonus)}、生命 +${pct(b.hpBonus)}（按每名队友属性分别累加）`,
-      `已阵亡队友按 ${b.deathMultiplier} 倍计入；5 号位空缺时召唤雄鹰顶位`],
+    normal: b => {
+      const eg = (b.params && b.params.eagle) || {};
+      const st = (eg.atk != null) ? `攻 ${eg.atk}／防 ${eg.def}／血 ${eg.maxHp}` : '属性随内容表';
+      return [`5 号位按每名队友的基础属性分别累加：攻击 +${pct(b.atkBonus)}、防御 +${pct(b.defBonus)}、生命 +${pct(b.hpBonus)}`,
+        `已阵亡队友按 ${b.deathMultiplier} 倍计入`,
+        `5 号位空缺时召唤雄鹰顶位（${st}）：雄鹰命中后让一名已行动过的队友恢复行动力；若无人可恢复，改召白板雌鹰永久在场`];
+    },
     sister: (b, e) => [`受益位从仅 5 号位，扩大到 ${e.targetPositions.join(' / ')} 号位（多目标）`],
     brother: b => [`团队效果结束后，小昭·妹永久保留：每回合按近期阵亡队友数重新计算加成（阵亡越多加成越高，每层取精通参数）`]
   },
   holyFlame: {
     normal: b => [`随机 ${b.atkCols} 列己方攻击 +${pct(b.atkBonus)}；随机 ${b.defRows} 行己方防御 +${pct(b.defBonus)}`],
-    sister: (b, e) => [`加攻列数 ${b.atkCols} → ${e.atkCols}；加防行数 ${b.defRows} 行不变`],
+    sister: (b, e) => [`加攻列数 ${b.atkCols} → ${e.atkCols} 列；加防行数 ${b.defRows} → ${e.defRows} 行`],
     brother: b => [`团队效果结束后，小昭·妹永久保留：每回合重新抽 ${b.atkCols} 列 ${b.defRows} 行，她站到命中列攻击 +${pct(b.atkBonus)}、命中行防御 +${pct(b.defBonus)}`]
   },
   doubleStrike: {
     normal: b => [`己方随机 1 人：攻击后有 ${pct(b.prob)} 概率额外再攻击 1 次`],
-    sister: b => [`额外攻击概率 ${pct(b.prob)} → 100%（每击必追）`],
+    sister: (b, e) => [`额外攻击概率 ${pct(b.prob)} → ${pct(e.chance != null ? e.chance : 1)}（每击必追）`],
     brother: b => {
       const s = getSkillParams('小昭', 'spiderFly') || {};
       return [`团队效果结束后，小昭·妹永久保留：她攻击后有 ${pct(s.xiaoZhaoDoubleStrikeChance ?? 0.5)} 概率额外再攻击 1 次`];
@@ -155,7 +170,12 @@ const HEX_DETAIL = {
   },
   mindControl: {
     normal: b => [`每回合己方最前排行动时：${pct(b.enemySwapProb)} 概率打乱敌方站位；${pct(b.allySwapProb)} 概率打乱己方站位（副作用）`],
-    sister: (b, e) => [`扰乱敌方概率 ${pct(b.enemySwapProb)} → ${pct(e.enemySwapProb)}；扰乱己方概率 ${pct(b.allySwapProb)} → ${pct(e.allySwapProb)}`],
+    sister: (b, e) => {
+      const out = [`扰乱敌方概率 ${pct(b.enemySwapProb)} → ${pct(e.enemySwapProb)}；扰乱己方概率 ${pct(b.allySwapProb)} → ${pct(e.allySwapProb)}`];
+      if (e.dmgOnSwap) out.push(`新增：被扰乱换位的 2 名敌方各扣 ${e.dmgOnSwap} 血${e.stunOnSwap ? '，并眩晕 1 回合' : ''}`);
+      if (e.healOnSwap) out.push(`新增：被我方扰乱换位的 2 人各回复 ${e.healOnSwap} 血（副作用反成收益）`);
+      return out;
+    },
     brother: b => [`团队效果结束后，小昭·妹永久保留：她在场时，敌方攻击有 ${pct(CONFIG.SPIDER_MIND_CONTROL_CHANCE)} 概率误伤自己人（幻象迷惑）`]
   },
   soulDrain: {
@@ -171,12 +191,23 @@ const HEX_DETAIL = {
   },
   lastStand: {
     normal: b => [`己方单位当前生命低于 ${pct(b.hpThreshold)} 时，攻击力 +${pct(b.atkBonus)}（每回合开始按当前血量重判，血回上去即失效）`],
-    sister: (b, e) => [`触发血量阈值 ${pct(b.hpThreshold)} → ${pct(e.hpThreshold)}`],
+    sister: (b, e) => {
+      const out = [`触发血量阈值 ${pct(b.hpThreshold)} → ${pct(e.hpThreshold)}（团队版生效时）`];
+      if (e.leechRatio) out.push(`新增：触发者造成伤害的 ${pct(e.leechRatio)} 转化为吸血回血`);
+      return out;
+    },
     brother: b => [`团队效果结束后，小昭·妹永久保留：任一队友生命低于 ${pct(b.hpThreshold)} 时，她也获得攻击力 +${pct(b.atkBonus)}`]
   },
   unity: {
-    normal: b => [`按己方在场存活人数取档：${b.tiers.map(t => `${t.count} 人 攻+${pct(t.atkBonus)}/防+${pct(t.defBonus)}`).join('；')}`,
-      `获得当回合若不足 4 人，一次补满到 4 人（姐姐强化补满到 5 人；M${b.recruitM}、含精英、技能全开；召唤落地钳属性下限：攻<1 归 0、防<5 补 5、血<25 补 25），此后每回合再补 1 人；补员永久存活`],
+    normal: b => {
+      const ue = getSkillParams('小昭', 'hexEnhance').unity || {};
+      const t0 = b.recruitTarget ?? 4;
+      const t1 = ue.recruitTarget ?? t0;
+      const m1 = ue.recruitM ?? b.recruitM;
+      const sisterNote = t1 > t0 ? `姐姐强化补满到 ${t1} 人、M${m1}；` : '';
+      return [`按己方在场存活人数取档：${b.tiers.map(t => `${t.count} 人 攻+${pct(t.atkBonus)}/防+${pct(t.defBonus)}`).join('；')}`,
+        `获得当回合若不足 ${t0} 人，一次补满到 ${t0} 人（${sisterNote}M${b.recruitM}、含精英、技能全开；召唤落地钳属性下限：攻<1 归 0、防<5 补 5、血<25 补 25），此后每回合再补 1 人；补员永久存活`];
+    },
     sister: (b, e) => [`补员 M 值 ${b.recruitM} → ${e.recruitM}；首回合补满人数 ${b.recruitTarget ?? 4} → ${e.recruitTarget ?? 5}`],
     brother: b => [`团队效果结束后，小昭·妹永久保留：每回合开始 ${pct(b.brotherSummonChance)} 概率召唤 1 名 M${b.recruitM} 明教英雄（技能全开）`]
   }
@@ -186,18 +217,18 @@ const HEX_HINTS = {
   doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑），触发一次就多一轮爆发；收益随机、不稳定，对位前排密集时触发收益更高。',
   carry: '5 号位（张无忌常驻位）越强收益越高，队友阵亡越多加成越猛——偏保核打法，张无忌在场且被集火时收益最高。',
   cloudBody: '对高频率多段攻击（普攻/连击多）的阵容克制明显；但对抗必中技能（如九阴白骨爪）无效。',
-  horseFormation: '多一条带反弹的前排承伤，缓解防线压力并反伤近战；对面战士/防战突脸多时收益最大。',
+  horseFormation: '稳定的前排肉盾：每回合白给一只巨马替队伍挡刀，姐姐强化后巨马还会反弹 5 点伤害；对面战士/防战突脸多时收益最大，巨马也能吃 carry 加攻后出手。',
   meteorShower: '己方远程越多收益越高，溅射可顺带压低多目标血线；对面后排站位密集时效果拔群。',
   bloodthirst: '战士越多收益越高，提供续航；适合需要顶住多回合拉锯的阵容。',
   fortify: '防战是承伤核心时收益最高，反弹反制高攻脆皮输出；若己方无防战则几乎无用。',
   windAssault: '己方飞行单位越多越强，击退可拆散敌方阵型、打乱换位；无飞行单位时无收益。',
   holyFlame: '攻防兼备的万金油，覆盖到关键单位（张无忌/小昭）时收益最大；覆盖差时收益一般。',
   hotBlood: '站得住才赚，适合高血量或被集火的单位；每第 3/6/9 次攻击回血翻倍，爆发可观。',
-  mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；己方换位干扰是副作用，站位紧密时慎选。',
-  soulDrain: '目前唯一削弱型海克斯：敌方全体攻击力-30%（持续 4 回合，每回合刷新），且我方每比敌方少 1 个存活单位再 -5%（越逆风削得越狠）；敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）。对面攻击手越多、越依赖普攻收益越高；对不吃攻击力的阵容（如张三丰纯续航、召唤物）收益低。',
+  mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；姐姐强化后换位额外扣血并眩晕 1 回合、我方被换位反而回血，副作用变收益；但己方仍有 40% 被打乱的风险，站位紧密的阵容慎选。',
+  soulDrain: '目前唯一削弱型海克斯：敌方全体攻击力-30%（持续 4 回合，每回合刷新），且我方每比敌方少 1 个存活单位再 -5%（越逆风削得越狠）；敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）。姐姐强化：减攻 -45%、逆风每多 1 人 -10%；妹妹永久：团队效果结束后每回合 60% 点名 1 名敌方续削 2 回合。对面攻击手越多、越依赖普攻收益越高；对不吃攻击力的阵容（如张三丰纯续航、召唤物）收益低。',
   holyFire: '死亡交互型：每局首次有己方单位（非巨马、非召唤物）阵亡时，该单位原地复活并回复 40% 生命（复活即可行动），每局仅 1 次。反制斩杀/清场（周芷若白骨爪、灭绝三击），与小昭·妹飞天/结茧互补——她防死，这张死后回场；己方阵亡越早收益越高。',
-  lastStand: '残血增伤型：己方单位血量低于 35% 时攻击力 +40%，每回合开始按当前血量重判（血回上去即失效）。适合换血流/带自损技能的角色（唐文亮七伤拳、嗜血狂刀），越到残局收益越高；纯续航阵容（张三丰）几乎吃不到。',
-  unity: '滚雪球人数型：随在场人数阶梯加成（5 人攻+10%/防+20%，6 人 20%/30%，7 人 30%/40%，8 人 50%/60%，9 人彩蛋 100%/100%）。获得当回合若不足 4 人则一次补满到 4（姐姐强化补满到 5；M15、含精英、技能全开；到手已达标则该回合不召；召唤落地即钳属性下限：攻<1 归 0、防<5 补到 5、血<25 补到 25），此后每回合再补 1 个、持续 3 回合（唯一上限是 9 格站位）；补员永久存活，不随 buff 到期消失。适合铺场/召唤流，人越多越猛；单位少的斩杀阵容收益低。',
+  lastStand: '残血增伤型：己方单位血量低于 40% 时攻击力 +50%，每回合开始按当前血量重判（血回上去即失效），整局持有。适合换血流/带自损技能的角色（唐文亮七伤拳、嗜血狂刀），越到残局收益越高；纯续航阵容（张三丰）几乎吃不到。姐姐在场：阈值提到 50%，触发者造成伤害的 15% 转成吸血；妹妹永久：任一队友残血她也吃加成。',
+  unity: '滚雪球人数型：随在场人数阶梯加成（5 人攻+10%/防+20%，6 人 20%/30%，7 人 30%/40%，8 人 50%/60%，9 人彩蛋 100%/100%），存活单位含召唤物/巨马都算人。获得当回合若不足 4 人则一次补满到 4（姐姐强化补满到 5、M25；M15、含精英、技能全开；到手已达标则该回合不召；召唤落地即钳属性下限：攻<1 归 0、防<5 补到 5、血<25 补到 25），此后每回合再补 1 个、持续 3 回合（唯一上限是 9 格站位）；补员永久存活，不随 buff 到期消失。适合铺场/召唤流，人越多越猛；单位少的斩杀阵容收益低。',
 };
 
 // 海克斯中文名映射（2026-10-15 V6.2.5 从 render 内部提到模块级：模式对比视图共用）
