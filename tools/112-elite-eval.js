@@ -589,7 +589,7 @@ function weakCellHtml(d, baseRate) {
         <div class="cell-rate" style="color:${color}">胜率 ${rate.toFixed(1)}%</div>
         ${deltaHtml}
         <div class="cell-sub">${d.runs} 场${thin}</div>
-        <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)}　承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
+        <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)} 承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
         <div class="cell-sub">存活 ${surv}%</div></td>`;
 }
 

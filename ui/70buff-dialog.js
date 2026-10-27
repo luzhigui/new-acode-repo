@@ -1,8 +1,10 @@
 // ui/70buff-dialog.js — 海克斯手选弹窗
+// V6.4.3 | 2026-10-28 | ~8500 bytes | 修 fa6f206f 同族雷：createBuffObject 的 team 参数引用了不存在的
+//   allyUnits（块内 const 对块外不可见），点确认即 ReferenceError——改 camp 自己的队伍（与 L34/49 同口径）
 // V6.4.2 | 2026-10-16 | ~8400 bytes
 // 候选门槛与 modules/28 generateBuffChoices、player/49 全自动同口径：众志成城要求本阵营存活 <4 人。
 //   本弹窗自建候选列表，门槛必须手动跟上，不能只改一处。
-export const VER = 'ui/70buff-dialog.js V6.4.2';
+export const VER = 'ui/70buff-dialog.js V6.4.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -77,19 +79,16 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
                 if (overlay.parentNode) overlay.remove();
                 let floatBtn = document.getElementById('buffFloatBtn');
                 if (floatBtn) floatBtn.remove();
-                const newBuff = createBuffObject(b.value, null, camp, allyUnits);
+                // fa6f206f 给 createBuffObject 加 team 参数时引用了不存在的 allyUnits（下方 if 块的 const
+                // 对块外不可见）——点确认按钮即 ReferenceError（与 65 同族雷）。修：camp 自己的队伍，
+                // 与 L34 候选过滤、player/49 自动路径同口径——敌方拿敌方队，流星雨姊强化判定不串阵营
+                const myTeam = c.store ? c.store.getState().units.filter(u => u.camp === camp && u.alive) : [];
+                const newBuff = createBuffObject(b.value, null, camp, myTeam);
                 // 小昭·妹永久海克斯仅明教适用（见 20 addPermanentBuff 守卫）
                 if (camp === CAMP_TYPES.ALLY) {
-                    const ctx = GlobalStore.get('playerContext');
-                    // 状态三轨收敛：战斗期读 battleStore，不再读 c.UI 冗余拷贝
-                    const allyUnits = (ctx && ctx.store)
-                        ? (ctx.store.getState().units || []).filter(u => u.camp === CAMP_TYPES.ALLY)
-                        : ((ctx && ctx.UI && ctx.UI.allyTeam) || []);
-                    if (allyUnits.length) {
-                        const xiaoZhao = allyUnits.find(u => u.isXiaoZhaoBrother);
-                        if (xiaoZhao) {
-                            addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
-                        }
+                    const xiaoZhao = myTeam.find(u => u.isXiaoZhaoBrother);
+                    if (xiaoZhao) {
+                        addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
                     }
                 }
                 resolve(newBuff);
