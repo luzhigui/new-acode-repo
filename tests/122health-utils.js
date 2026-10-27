@@ -65,7 +65,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.6.0';
+export const VER = 'tests/122health-utils.js V6.7.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
