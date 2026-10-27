@@ -1,3 +1,5 @@
+// V6.9.0 | 2026-10-27 订正 autoSpeedVal 与进体检默认倍速的注释口径（ui/77 V1.1.1 全局×2 后：4x 按钮=150、原速=300、
+//           8x=50、0.5x=800、取消档=400）；逻辑一行未动（仍点 btnSpeed4x）。档位判定本体已由 122 V6.7.0 跟齐。
 // V6.8.0 | 2026-10-26 撤销第 142 轮对规则 158 的退役：吸收夜间第 139 轮的重写版（fx:[{kind,amount}] 结构判据，
 //           同源性改为 fx.amount⊂正文 + kind 合法 + amount 有限正数），规则名更名「飘字fx数值对账(契约)」。
 //           重写优于退役——去锚定化只是把飘字从文本锚点换成数值结构，风险形态变了风险本身没消失。import+allRules 两处回填。
@@ -146,7 +148,7 @@ try {
     if (autoMode) {
         autoBudgetMs = (parseInt(_p.get('budget'), 10) || 240) * 1000;
         autoStageTarget = parseInt(_p.get('stages'), 10) || 7;
-        autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值：100=8x, 300=4x, 500=默认
+        autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值（ui/77 V1.1.1 全局×2）：50=8x, 150=4x, 300=原速(2x), 400=取消档
     }
     // 起始关：手动体检与一键自动体检统一生效；默认第2关（2026-10-07 老板拍板 3→2），可用 start=1..7 覆盖
     autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 2));
@@ -389,7 +391,7 @@ export function initMonitor() {
                 // 界面「当前倍速」全灭且无报错（可见的 2x/0.5x 一个不亮）；② 直接 set('speed') 只改时钟，
                 // 不更新 ui/68 的 manualSpeedValue（仍停 600），每场重置 restoreSpeedFromScroll 会把倍速打回 2x。
                 // 点 debugToggle（进调试模式：速度组显隐/按钮高亮/调试面板全同步）+ 点 btnSpeed4x
-                // （走 setSpeed(300,true)：上锁 + 跨场保持 + 高亮一次到位）。已是目标态则跳过，不顶掉手动选择。
+                // （走 setSpeed(150,true)：上锁 + 跨场保持 + 高亮一次到位；ui/77 V1.1.1 全局×2 后 4x 按钮值=150）。已是目标态则跳过，不顶掉手动选择。
                 try {
                     if (w && w.GlobalStore) {
                         if (!w.GlobalStore.get('debugMode')) {
@@ -406,7 +408,7 @@ export function initMonitor() {
                         if (w.GlobalStore) {
                             w.GlobalStore.set('speed', autoSpeedVal);
                             w.GlobalStore.set('fastForwardActive', true);
-                            // 设速后同刷按钮高亮：否则高亮停在默认的 4x 而实际跑 autoSpeedVal，倍速一致性检查会报失配
+                            // 设速后同刷按钮高亮：否则高亮停在开档的 2x(300) 而实际跑 autoSpeedVal，倍速一致性检查会报失配
                             const refreshBtn2 = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
                             if (refreshBtn2) refreshBtn2();
                         }
