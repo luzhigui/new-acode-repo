@@ -40,6 +40,12 @@ import { fileURLToPath } from 'node:url';
 //   报告打出「覆盖缺口 0 类、悬空引用 0 类」，而真相是"一条都没查"。这就是第 142 轮点名的
 //   「只查了 3 条就说 56 条都没问题」在本文件的版本，本轮一并收口。
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
+// 静态真值口径审计（2026-10-27 夜间第 145 轮抽提）：本文件第 144 轮现写的一次性审计逻辑
+//   （构成归属 / 同名重复 / 真值对照 / 独立第三路径）已抽成 tests/_lib/static-truth-slice.mjs，
+//   本轮改为 import，判据与数字一字不变（行为等价性由本轮牙四的逐字节 diff 反证）。
+//   ★ 为什么要换：那套逻辑在别处也需要（同轮的 fact-dead-field-scan 已实证同一款病），
+//     留在单个文件里就意味着下一处要"再抄一份"，将来改一处忘一处 = 新分叉。
+import { auditSlice, soloBlockKeys, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 // 真值口径的枚举来源：与 fact-emission-census 同一取法（直接 import 对象，不做文本切片）。
 //   两套自称同源的面（本文件的文本切片 vs 这个 import）若不一致，就是取样面口径错位 —— 本轮要显形的对象。
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
@@ -70,38 +76,18 @@ const enumsSrc = readFileSync(path.join(ROOT, 'infra/56-battle-enums.js'), 'utf8
 const factBlock = enumsSrc.slice(enumsSrc.indexOf('FACT_TYPES'), enumsSrc.indexOf('MECHANIC_TYPES'));
 const FACT_KEYS = [...factBlock.matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)].map(m => ({ key: m[1], val: m[2] }));
 
-// ①b 第 144 轮新增 · 取样面构成审计：把切片逐行归属到它真正所属的那个 export const 枚举。
-//   口径：以『export const XXX = Object.freeze({』为界切段，段内的 KEY:'val' 即属 XXX。
+// ①b 第 144 轮新增 · 取样面构成审计（第 145 轮起改走公共件 static-truth-slice.mjs）：
+//   把切片逐行归属到它真正所属的那个 export const 枚举。口径与返回值**逐位照抄**第 144 轮版，
 //   ★ 两条提取路径必须数出同一份东西（下面的 META_FAILS 自证会盯），否则说明 infra/56 结构变了。
-const SLICE_LINES = factBlock.split('\n');
-const sliceRows = [];
-let sliceOwner = 'FACT_TYPES';
-for (const line of SLICE_LINES) {
-    const decl = line.match(/^export const ([A-Z][A-Z0-9_]*) = Object\.freeze/);
-    if (decl) { sliceOwner = decl[1]; continue; }
-    for (const h of line.matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)) sliceRows.push({ owner: sliceOwner, key: h[1] });
-}
-const OWNER_COUNT = {};
-for (const r of sliceRows) OWNER_COUNT[r.owner] = (OWNER_COUNT[r.owner] || 0) + 1;
-const KEY_COUNT = {};
-for (const r of sliceRows) KEY_COUNT[r.key] = (KEY_COUNT[r.key] || 0) + 1;
-const FOREIGN_OWNERS = Object.keys(OWNER_COUNT).filter(o => o !== 'FACT_TYPES');
-const FOREIGN_ROWS = sliceRows.filter(r => r.owner !== 'FACT_TYPES');
-const DUP_KEYS = Object.keys(KEY_COUNT).filter(k => KEY_COUNT[k] > 1).sort();
-// 每个重复键所属枚举（供报告逐条点名，也供后续人工核销）
-const DUP_DETAIL = DUP_KEYS.map(k => k + '（' + sliceRows.filter(r => r.key === k).map(r => r.owner).join(' + ') + '）');
-const TRUE_FACT_KEYS = Object.keys(FACT_TYPES);
-// 独立第三路径：只截 FACT_TYPES 那一段（从它的 Object.freeze 起到本段闭合的 '});' 止），再数一遍。
-//   用途：咬住「真值口径被偷偷换成脏源」。若哪天真值口径改用文本重建，它与这条独立路径会立刻对不上。
-const SRC_LINES = enumsSrc.split('\n');
-let soloStart = -1, soloEnd = -1;
-for (let i = 0; i < SRC_LINES.length; i++) {
-    if (soloStart < 0) { if (/FACT_TYPES\s*=\s*Object\.freeze\(\{/.test(SRC_LINES[i])) soloStart = i; continue; }
-    if (/^\}\);/.test(SRC_LINES[i])) { soloEnd = i; break; }
-}
-const SOLO_KEYS = (soloStart >= 0 && soloEnd > soloStart)
-    ? [...SRC_LINES.slice(soloStart, soloEnd).join('\n').matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)].map(m => m[1])
-    : [];
+const AUDIT = auditSlice({
+    src: enumsSrc, from: 'FACT_TYPES', to: 'MECHANIC_TYPES', owner: 'FACT_TYPES',
+    truthKeys: Object.keys(FACT_TYPES),
+});
+const { rows: sliceRows, ownerCount: OWNER_COUNT, keyCount: KEY_COUNT } = AUDIT;
+const { foreignOwners: FOREIGN_OWNERS, foreignRows: FOREIGN_ROWS, dupKeys: DUP_KEYS, dupDetail: DUP_DETAIL } = AUDIT;
+const TRUE_FACT_KEYS = AUDIT.truthKeys;
+// 独立第三路径：只截 FACT_TYPES 那一段（公共件实现，用途不变）—— 咬住「真值口径被偷偷换成脏源」。
+const SOLO_KEYS = soloBlockKeys(enumsSrc, 'FACT_TYPES');
 
 // ② 引擎侧引用文件集（发射面代理：core/+modules/ 里含 FACT_TYPES.X 的行）
 const engineFiles = [...walk(path.join(ROOT, 'core'), ['.js']), ...walk(path.join(ROOT, 'modules'), ['.js'])];
@@ -195,6 +181,9 @@ for (const [tag, s] of [['枚举切片', SAMPLE_FK], ['规则文件', SAMPLE_RF]
     if (bad) sampleFails.push(tag + '取样门槛：' + bad);
 }
 for (const bad of selfCheck()) sampleFails.push('取样公共件自证：' + bad);
+// 静态真值口径公共件自证（第 145 轮新增）：本文件的切片归属 / 独立第三路径 / 注释清除全部由它提供，
+//   它一坏，本文件下面所有"口径"字样就都成了没有根据的说法 —— 故此处无条件挂一条（⑥f 那一款）。
+for (const bad of truthSelfCheck()) sampleFails.push('静态真值口径公共件自证：' + bad);
 if (SAMPLE_INSUFFICIENT) {
     for (const [tag, s] of [['枚举切片', SAMPLE_FK], ['规则文件', SAMPLE_RF], ['引擎文件', SAMPLE_EF]]) {
         if (s.insufficient) sampleFails.push(tag + '取样不足：' + s.detail);

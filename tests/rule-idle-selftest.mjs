@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// tests/rule-idle-selftest.mjs | V1.2.0 | 2026-10-27 夜间第 145 轮：恒空转白名单清零（155 首次被激活 ⇒ 按第②条棘轮收缩；出表后回落即按『判据漂移』重红）
 // tests/rule-idle-selftest.mjs | V1.1.0 | 2026-10-27 夜间第 143 轮：接公共取样判定器（tests/_lib/sample-sufficiency.mjs），
 //   把「样本塌了」与「判据真漂移」分开报。此前规模闸门（⑤）只管喊"结论不可信"，收到同一份报告的人
 //   却仍会看到一串「新增恒空转（不在白名单）⇒ 三种病因之一，必须取证后修」—— 样本被裁时几乎每条
@@ -41,7 +42,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/rule-idle-selftest.mjs V1.1.0';
+export const VER = 'tests/rule-idle-selftest.mjs V1.2.0';
 
 // 取样充分性判定与对照器守卫 / 契约绑定 / fact 普查共用同一份口径，不另写一份。
 import {
@@ -57,13 +58,16 @@ const MIN_CASES = 140;
 const MIN_RULES = 45;
 
 // 恒空转白名单（棘轮：只许收缩不许新增；每一条都必须写明「为什么它不是缺陷」）
-const IDLE_WHITELIST = [
-    {
-        name: '流星溅射成长渲染形态(单位名/重复)',
-        file: '155-meteor-growth-dup.js',
-        why: '样本未覆盖（非判据失效）：该规则的触发形态（流星溅射成长 + 渲染重复）在标准 20seed×7关样本里一次都没被构造出来 ⇒ 恒 skip 属样本不足。第 121 轮已取证并登记挂账③「155 扩样本等拍板」。★ 扩样本后若仍恒空转，则性质变为②判据漂移（接线松了），必须修并从本白名单移出 —— 不得靠留白名单让它继续静默'
-    }
-];
+// V1.2.0 | 2026-10-27 夜间第 145 轮：白名单**清空**（棘轮收缩，第 130 轮建线以来第一次归零）。
+//   起因：上游 fa6f206f 一批参数与机制改动后，155-meteor-growth-dup 在标准 20seed×7关样本里
+//   首次被构造出来（实测 pass=1 fail=0 skip=139），本自检第②条「白名单条目已不再恒空转 ⇒ 白名单
+//   必须同步收缩」当场报红 —— 白名单此刻若不动，就是把一条已经能咬住的规则继续当盲区豁免，
+//   与本自检自己写的「不得靠留白名单让它继续静默」直接冲突。
+//   ★ 收缩不是放宽：出表后它照旧受第②条管辖 —— 哪天它又回到 pass=0 fail=0，会被当成
+//     「白名单外新增恒空转」重新报红（性质由原登记的『样本不足』升级为『判据漂移』，须修而非豁免）。
+//   ★ 仍留的挂账：155 只有 1 次命中，样本面依旧偏薄，扩样本（挂账③）仍等拍板 ——
+//     本轮只是把「它至少还能咬一口」这件事实认下来，不是宣告它已覆盖充分。
+const IDLE_WHITELIST = [];
 
 function fail(msg) {
     console.log('  ❌ ' + msg);

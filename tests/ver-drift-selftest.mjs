@@ -1,4 +1,6 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.3.1 | 2026-10-27 夜间第 145 轮：断言⑬双向棘轮到期 33 → 32（新增 _lib/static-truth-slice.mjs
+//        | 出生即带版本日志行 ⇒ 无日志桶少一个；按第 133 轮通规「腐烂的登记不许挂着骗人」同步改小）
 // V1.3.0 | 2026-10-26 第 138 轮 补「版本行写法」覆盖面：上一版⑪数出「77 个带 VER 文件里只有 26 个
 //        | 真被比对」，本轮顺着追问那 51 个为什么没日志 —— 实测它们**大多并非没有版本史，而是写法不被
 //        | 抽取器认得**：有人写 `// V1.2.0 | 日期`（标准约定），也有人写 `// tests/x.mjs | V1.0.0 | 日期`、
@@ -67,7 +69,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.3.0';
+export const VER = 'tests/ver-drift-selftest.mjs V1.3.1';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -99,10 +101,12 @@ const MIN_LOG_PARSED = 37;
 // 沿革：51（第 137 轮，只认标准约定时）→ 34（第 138 轮，认全四种写法后；剩下 34 个的头顶压根没有
 // 版本行，47 个 health-rules 规则文件里有 33 个属此类 —— 它们的版本史写在注释正文里，凑不成一行log）
 // → 33（第 139 轮：158-fact-anchor-align.js 按新数据结构重写时补上了 V2.0.0 版本日志行，
-//   从「无日志桶」进入可比对范围；另 ver-bump-selftest.mjs 修正口径时同样补齐了 A 写法日志行）。
+//   从「无日志桶」进入可比对范围；另 ver-bump-selftest.mjs 修正口径时同样补齐了 A 写法日志行）
+// → 32（第 145 轮：新增 tests/_lib/static-truth-slice.mjs V1.0.0，出生即带标准版本日志行，
+//   直接落在可比对侧而非无日志桶；另上游 fa6f206f 合并后 ver 面整体重算，实测无日志 32 个）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 33;
+const EXPECT_NO_LOG = 32;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
