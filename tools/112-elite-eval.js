@@ -1,3 +1,11 @@
+// V3.2.0 | 2026-10-28 主表快照新增「明教英雄个体胜率」字段 hero（126 规则八·英雄层面的模拟侧数据源）：
+//          runs = 该英雄在场局数、wins = 在场且明教胜的局数（即「在场时明教胜率」，与 52 生涯记录的
+//          heroWins/appear 同口径，可逐英雄同名对照）；由同一份 byStage 聚合得出，不额外跑批、
+//          不改采样与 RNG。其余四张表无此字段。
+// V3.1.0 | 2026-10-28 明教侧弱精英口径换「路C：建队后换名」（老板拍板）：强制臂不再走 29 forceWeakElite 混入
+//          （换入发生在建队流中段，自然臂掷失时两臂随机数流错位→站位全乱、Δ 混站位噪音），改 116 V1.14.0
+//          applyForcedWeakAlly 确定性替身换名——两臂建队随机数逐数一致、站位逐位全同，Δ 只剩精英本人；
+//          「自然已在场」的局两臂同剔，样本逐场对应（配 116 V1.14.0）。
 // V3.0.3 | 2026-10-27 弱精英表判读同步 116 V1.13.1 的「干净对照」：每列按自己的精英名取 clean 基准，
 //          只剔除「该精英在自然局登场」的局（自然臂场次略少于精英臂），Δ 不再被对照组自带该精英稀释。
 // V3.0.2 | 2026-10-22 寒离飒单挑口径改为 29 V7.6.1 的 forceHanLiSa（配 116 V1.12.2）：
@@ -44,7 +52,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.0.3';
+export const VER = 'tools/112-elite-eval.js V3.2.0';
 
 // 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
@@ -112,6 +120,8 @@ function saveSnap(keys) {
         if (!latest[k]) continue;
         // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
         parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
+        // V3.2.0：主表额外带上「明教英雄个体胜率」（126 规则八英雄层面的数据源；其余表没有该字段）
+        if (latest[k].hero) parts[k].hero = JSON.parse(JSON.stringify(latest[k].hero));
     }
     if (Object.keys(parts).length === 0) return { ok: false, msg: '⚠️ 还没跑过任何表，无可存' };
     const snaps = readSnaps();
@@ -201,7 +211,7 @@ startBtn.addEventListener('click', async () => {
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.elite = { stages, runs: RUNS, byStage };
+                latest.elite = { stages, runs: RUNS, byStage, hero: buildHeroRates(byStage, stages) };
                 renderResults(byStage, stages);
                 progressEl.textContent = `✅ 全部完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['elite']).msg;   // V2.9.0 跑完自动存（不必手点）
@@ -452,8 +462,9 @@ function noEliteTotalsOf(byStage, stages) {
 }
 
 // ============ 2026-10-16 V2.8.0 弱精英评测：单弱精英强制上场 vs 自然配对对照 ============
-// 口径：明教侧弱精英走 29 forceWeakElite 的「弱精英混入」（强精英轮盘照常、不互锁）；
-//       六大派侧走 M104 数字空位具名锁定；同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
+// 口径（V3.1.0 路C，老板拍板）：明教侧 = 116 建队完成后「确定性替身换名」（两臂建队随机数逐数一致、
+//       站位逐位全同，Δ=纯精英贡献）；六大派侧 = M104 数字空位具名锁定（同「只换名」形态）；
+//       同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
 weakBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(soloRunsInput.value) || 400;
@@ -560,8 +571,8 @@ function renderWeakResults(byStage, stages) {
         return html;
     };
     let html = '';
-    html += sub('🐦 明教弱精英（强制混入明教阵容，强精英轮盘照常）', WEAK_ALLY,
-        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子；明教侧换人会扰动站位洗牌，属随机噪声、多场平均掉）。Δ>0 = 该弱精英给明教带来增益（替换一个普通位更划算）。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
+    html += sub('🐦 明教弱精英（建队后换掉一个普通位，强精英轮盘照常）', WEAK_ALLY,
+        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子）。V3.1.0 起换人发生在建队完成之后：两臂站位逐位全同，Δ 不含站位噪音，只剩精英本人 vs 被换的普通位。Δ>0 = 该弱精英给明教带来增益。「自然出现该精英」的局两臂同剔，样本逐场对应。');
     html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
         'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
     weakResultEl.innerHTML = html;
@@ -584,7 +595,7 @@ function weakCellHtml(d, baseRate) {
         <div class="cell-rate" style="color:${color}">胜率 ${rate.toFixed(1)}%</div>
         ${deltaHtml}
         <div class="cell-sub">${d.runs} 场${thin}</div>
-        <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)}　承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
+        <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)} 承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
         <div class="cell-sub">存活 ${surv}%</div></td>`;
 }
 
@@ -665,6 +676,19 @@ function renderResults(byStage, stages) {
     html += '</tr></table>';
     html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列六名精英、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
+}
+
+// 明教英雄个体胜率（V3.2.0）：126 规则八「英雄层面」的模拟侧数据源。
+// 语义 = 「该英雄在场时明教整体胜率」——与 52 生涯记录的 heroWins/appear 同口径，可逐英雄同名对照。
+// 与主表 byStage 同源聚合（复用 totalsOf），不额外跑批；runs=在场局数，wins=在场且明教胜的局数。
+function buildHeroRates(byStage, stages) {
+    const out = {};
+    for (const cfg of configs) {
+        const t = totalsOf(cfg, byStage, stages);
+        if (!t.runs) continue;
+        out[cfg.name] = { runs: t.runs, wins: t.wins, rate: t.wins / t.runs };
+    }
+    return out;
 }
 
 // 跨关跨变体累加某人数据（总评行与实战评分行共用）

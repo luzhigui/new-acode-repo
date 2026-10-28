@@ -58,3 +58,6 @@ package-lock.json
 
 # 临时调试产物（体检/诊断会话生成，用完即弃）
 _repro.*
+
+# Pages 指纹发布副本（tools/build-versioned-site.mjs 产物，本地/CI 生成，永不入库）
+_site/

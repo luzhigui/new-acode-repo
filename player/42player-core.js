@@ -1,6 +1,9 @@
 // player/42player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
+// V7.0.1 | 2026-10-28 | ~22300 bytes | 补 AudioManager import：原走 window.AudioManager 全局（10-18
+//        拆桥后已不存在），75 行 typeof 守卫永远 false——BGM 音量偏好恢复（开局 fadeTo 用户设定值）一直
+//        静默失效，本版救活（ESLint no-undef 顺带抓出的死代码）
 // V7.0.0 | 2026-10-18 | ~22200 bytes
-export const VER = 'player/42player-core.js V7.0.0';
+export const VER = 'player/42player-core.js V7.0.1';
 
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, setPresentationRng } from '../core/13battle-shared.js';
@@ -8,6 +11,7 @@ import { createRoundStepper } from '../core/11battle-round.js';
 import { GlobalStore, getState, setState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { AudioManager } from '../modules/22audio-manager.js';   // 原走 window.AudioManager 全局（10-18 拆桥后不存在），typeof 守卫永远 false、BGM 音量恢复一直静默失效——V7.0.1 补 import 救活
 
 import { autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, setBtnDisabled, initRenderer, initLogScrollControls, showScoreFloat } from './47renderer.js';
 import { setGridStore } from '../render/32-grid-render.js';

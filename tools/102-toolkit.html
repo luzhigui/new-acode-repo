@@ -1,5 +1,10 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.3 | 2026-10-25 备用工具卡片四次定稿（修左右重叠 + 文字裁切）：
+<!-- V6.4.5 | 2026-10-28 精英评测按钮配色恢复原样（只补「弱精英评测」的形状）：e632fce1 曾把 8 个按钮
+     全统一成金黄，丢了原本「金=主表 / 蓝=强精英 / 橙=Boss / 灰蓝=无精英 / 绿=存 / 蓝=载 / 棕=清」的分组辨识。
+     现只统一形状/字号/圆角，配色回原版；弱精英按钮按提示文案「绿按钮」补绿色（此前缺样式退化为浏览器默认灰）。
+     V6.4.4 | 2026-10-28 顶部工具入口新增「🧬 弱精英机制贡献」按钮（配 138-elite-contrib.html / 116 V1.15.0）：
+     112 弱精英表只看胜率 Δ，138 补齐「机制触发次数」——同配对口径跑批，额外输出技能/fact/关键字探针频次。
+     V6.4.3 | 2026-10-25 备用工具卡片四次定稿（修左右重叠 + 文字裁切）：
      ① 根因是卡片缺 box-sizing:border-box——width:100% 再叠内边距/边框会撑出列宽，两列互相压住；已补；
      ② 卡内改竖排三行：icon + 完整名字（独占整卡宽）/ 说明两行 / 右下角固定 44×22「打开」；
      ③ 高度锁死 92px、说明由单行省略改为两行截断，标题不再被按钮挤掉；说明文案同步收短。
@@ -221,18 +226,24 @@
         .elite-config input[type="number"] { width: 90px; padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 14px; text-align: center; }
         .elite-stage-group { display: flex; gap: 6px; align-items: center; }
         .elite-stage-group label { color: #aaa; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 3px; }
-        #eliteStartBtn { background: #ffd700; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteStartBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteSoloBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteBossBtn { background: #ff9800; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteBossBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteNoEliteBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        /* 2026-10-15 精英评测结果快照（存/载/清历史，配 112 V2.6.0） */
-        #eliteSaveSnapBtn { background: #4caf50; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteDropSnapBtn { background: #6d4c41; color: #ddd; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        /* 2026-10-28 只统一形状，不统一颜色：「弱精英评测」原先缺样式会退化成浏览器默认灰按钮，
+           现补上与其他按钮一致的形状/字号/圆角，但各组业务配色全部恢复原样
+           （金=主表 / 蓝=强精英 / 橙=Boss / 灰蓝=无精英 / 绿=弱精英 / 绿=存结果 / 蓝=载入 / 棕=清历史）。 */
+        #eliteStartBtn, #eliteSoloBtn, #eliteBossBtn, #eliteNoEliteBtn, #eliteWeakBtn,
+        #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn {
+            border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;
+        }
+        #eliteStartBtn { background: #ffd700; color: #1a1a2e; }
+        #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; }
+        #eliteBossBtn { background: #ff9800; color: #1a1a2e; }
+        #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; }
+        #eliteWeakBtn { background: #4caf50; color: #1a1a2e; }
+        #eliteSaveSnapBtn { background: #4caf50; color: #fff; }
+        #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; padding: 10px 16px; }
+        #eliteDropSnapBtn { background: #6d4c41; color: #ddd; padding: 10px 16px; }
+        #eliteStartBtn:disabled, #eliteSoloBtn:disabled, #eliteBossBtn:disabled,
+        #eliteNoEliteBtn:disabled, #eliteWeakBtn:disabled, #eliteSaveSnapBtn:disabled,
+        #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
         #eliteSnapStatus { color: #8bc34a; font-size: 12px; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
@@ -269,6 +280,7 @@
         <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
         <button class="tool-link-btn" id="btnOpenParamLab">🧪 参数实验台</button>
         <button class="tool-link-btn" id="btnOpenRoleRandom">⚖️ 全随机站位</button>
+        <button class="tool-link-btn" id="btnOpenEliteContrib">🧬 弱精英机制贡献</button>
         <button class="tool-link-btn" id="btnOpenBalanceAlert">🚨 平衡告警</button>
     </div>
 
@@ -457,13 +469,13 @@
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
         <div class="elite-progress" id="eliteSoloProgress" style="margin-top:14px;"></div>
-        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方蓝按钮）</div></div>
+        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方「⚔ 强精英胜率」按钮）</div></div>
         <div class="elite-progress" id="eliteBossProgress" style="margin-top:14px;"></div>
-        <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方橙按钮）</div></div>
+        <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方「👑 Boss·张无忌」按钮）</div></div>
         <div class="elite-progress" id="eliteNoEliteProgress" style="margin-top:14px;"></div>
-        <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方灰按钮）</div></div>
+        <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方「🛡 无精英基线」按钮）</div></div>
         <div class="elite-progress" id="eliteWeakProgress" style="margin-top:14px;"></div>
-        <div id="eliteWeakResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方绿按钮）——明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮，同关同变体与自然对照比胜率 Δ</div></div>
+        <div id="eliteWeakResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方「🐦 弱精英评测」按钮）——明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮，同关同变体与自然对照比胜率 Δ</div></div>
     </div>
 
     <script>
@@ -515,6 +527,7 @@
         }
         document.getElementById('btnOpenParamLab').addEventListener('click', () => openInPage('120-param-lab.html', '🧪 参数实验台'));
         document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('110-role-balance-random.html', '⚖️ 全随机站位'));
+        document.getElementById('btnOpenEliteContrib').addEventListener('click', () => openInPage('138-elite-contrib.html', '🧬 弱精英机制贡献'));
         document.getElementById('btnOpenBalanceAlert').addEventListener('click', () => {
             window.openBalanceAlert();
         });

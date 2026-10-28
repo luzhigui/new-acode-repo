@@ -237,8 +237,8 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         }
 
         const st = stageBox();
-        // 基准从 innerHeight 换成 st.top + st.height（真实舞台矩形），比例保持原值 0.16 / 0.68 不变
-        const pos = { ax: st.left + st.width * 0.09, ay: st.top + st.height * 0.16, dx: st.left + st.width * 0.64, dy: st.top + st.height * 0.68 };
+        // 回归稳定基准：用视口高度算，保证不管日志多长，它的相对位置都是固定的
+        const pos = { ax: st.left + st.width * 0.09, ay: innerHeight * 0.16, dx: st.left + st.width * 0.64, dy: innerHeight * 0.68 };
 
         // 跳过按钮
         const skipBtn = document.createElement('div');
@@ -298,7 +298,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 攻击者克隆体
         cloneA = buildClone(htmlA, rectA, `
             left: ${pos.ax - st.width*0.06}px;
-            top: ${pos.ay - st.height*0.06}px;
+            top: ${pos.ay - innerHeight*0.06}px;
             width: ${rectA.width}px;
             height: ${rectA.height}px;
             transform: scale(0.6);
@@ -309,7 +309,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cleanupElements.push(cloneA);
 
         const startAX = pos.ax - st.width*0.06;
-        const startAY = pos.ay - st.height*0.06;
+        const startAY = pos.ay - innerHeight*0.06;
 
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '');
         if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
@@ -347,9 +347,10 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const glow = document.createElement('div');
         glow.className = 'breath-glow';
         cloneA.appendChild(glow);
-        const cloneDRect = cloneD.getBoundingClientRect();
-        const stormCX = cloneDRect.left + cloneDRect.width / 2;
-        const stormCY = cloneDRect.top - 10;
+        // 彻底抛弃 getBoundingClientRect（因为它会把动画缩放算进去导致偏移）
+        // 风暴的 Y 坐标：落点中心 pos.dy，减去原始高度的一半（即格子顶边），再往上抬 15px 留出呼吸感
+        const stormCX = pos.dx + rectD.width / 2;
+        const stormCY = pos.dy - rectD.height / 2 - 15;
         const storm = createCounterStorm(stormCX, stormCY);
         storm.setAttribute('data-fx', 'temporary');
         cleanupElements.push(storm);
@@ -535,7 +536,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const flyAwayStartX = parseFloat(cloneA.style.left);
         const flyAwayStartY = parseFloat(cloneA.style.top);
         const maxDistX = st.width * 0.10;
-        const maxDistY = st.height * 0.10;
+        const maxDistY = innerHeight * 0.10;
         await clock.animateReal(T(2000), (t) => {
             if (isSkipped) return;
             const ease = t * t;

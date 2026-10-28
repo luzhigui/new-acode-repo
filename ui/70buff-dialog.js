@@ -1,13 +1,15 @@
 // ui/70buff-dialog.js — 海克斯手选弹窗
+// V6.4.3 | 2026-10-28 | ~8500 bytes | 修 fa6f206f 同族雷：createBuffObject 的 team 参数引用了不存在的
+//   allyUnits（块内 const 对块外不可见），点确认即 ReferenceError——改 camp 自己的队伍（与 L34/49 同口径）
 // V6.4.2 | 2026-10-16 | ~8400 bytes
 // 候选门槛与 modules/28 generateBuffChoices、player/49 全自动同口径：众志成城要求本阵营存活 <4 人。
 //   本弹窗自建候选列表，门槛必须手动跟上，不能只改一处。
-export const VER = 'ui/70buff-dialog.js V6.4.2';
+export const VER = 'ui/70buff-dialog.js V6.4.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
-import { createBuffObject, buffsOfCamp } from '../modules/28buff-tools.js';
+import { createBuffObject, buffsOfCamp, filterAvailableBuffs } from '../modules/28buff-tools.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { stepBattleBuff } from './71tutorial.js';
@@ -15,33 +17,24 @@ import { stepBattleBuff } from './71tutorial.js';
 const CAMP_LABEL = { [CAMP_TYPES.ALLY]: '明教', [CAMP_TYPES.ENEMY]: '六大派' };
 
 // presetChoices：联网 PVP 阶段3 从机专用——选项由房主用引擎 RNG 统一下发，本机不再自算
-export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
+export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, isFullAuto = false, isBattle = true) {
     return new Promise((resolve) => {
-        stepBattleBuff(); // 战中首次海克斯一次性提示（自带完成检查，71tutorial）
+        if (isBattle) stepBattleBuff(); // 战前不弹新手提示
         if (GlobalStore.get('skipBuffPopup')) {
             GlobalStore.set('skipBuffPopup', false);
             resolve(null);
             return;
         }
+        
+        const activeBuffs = buffsOfCamp(c.activeBuffs, camp);
+        const team = c.store ? c.store.getState().units.filter(u => u.camp === camp && u.alive) : [];
+        const enemyTeam = c.store ? c.store.getState().units.filter(u => u.camp !== camp && u.alive) : [];
+        
         let choices;
         if (Array.isArray(presetChoices) && presetChoices.length > 0) {
             choices = presetChoices.slice();
         } else {
-            // 只取本阵营的 buff：各阵营独立去重，明教与六大派互不影响
-            let activeBuffs = buffsOfCamp(c.activeBuffs, camp);
-            let existingKeys = activeBuffs.map(b => b.key);
-            let allKeys = Object.keys(CONFIG.BUFFS || {});
-            const team = c.store ? c.store.getState().units.filter(u => u.camp === camp && u.alive) : [];
-            let available = allKeys.filter(k => {
-                if (existingKeys.includes(k)) return false;
-                if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-                // 众志成城门槛（老板拍板，与 modules/28、player/49 同口径）：本阵营存活 ≥4 人不进候选
-                //   上面 team 已按存活过滤（L33），此处直接比长度
-                if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
-                const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
-                if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
-                return true;
-            });
+            const available = filterAvailableBuffs(activeBuffs, team, { withFortifyRule: true, enemyTeam });
             if (available.length === 0) { resolve(null); return; }
 
             if (GlobalStore.get('bugMode')) {
@@ -56,12 +49,31 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
                 choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
             }
         }
-        let text = '选择 Buff（' + (CAMP_LABEL[camp] || '') + '方 · 持续 ' + (CONFIG.BUFF_DURATION || 4) + ' 回合）';
+        if (choices.length === 0) { resolve(null); return; }
+
+        // ====== 全自动模式：不画 UI，直接内部选完返回 ======
+        if (isFullAuto) {
+            const rng = getBattleRng();
+            const pick = choices[rng.nextInt(0, choices.length - 1)];
+            const newBuff = createBuffObject(pick, null, camp, team);
+            if (camp === CAMP_TYPES.ALLY) {
+                const xz = team.find(u => u.isXiaoZhaoBrother);
+                if (xz) addPermanentBuff(xz, pick, newBuff.name, {});
+            }
+            resolve(newBuff);
+            return;
+        }
+
+        // ====== 手选模式：接管暂停 ======
+        GlobalStore.set('panelPaused', true);
+        const fnSync = GlobalStore.getUIHandler('syncPauseState');
+        if (fnSync) fnSync();
+
+        let text = '选择海克斯（' + (CAMP_LABEL[camp] || '') + '方）';
         let buttons = choices.map(key => {
             let buff = CONFIG.BUFFS[key] || { name: key, icon: '?' };
             return { text: (buff.icon || '?') + ' ' + (buff.name || key) + '\n' + (buff.desc || ''), value: key, cls: 'buff' };
         });
-        if (buttons.length === 0) { resolve(null); return; }
 
         let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'buffModalOverlay';
         let box = document.createElement('div'); box.className = 'modal-box';
@@ -69,42 +81,40 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
         box.innerHTML = inner;
         let btnsDiv = box.querySelector('.modal-buttons');
         let unsubSkip = null;
+        function closeAndResolve(buffObj) {
+            if (unsubSkip) unsubSkip();
+            if (overlay.parentNode) overlay.remove();
+            let floatBtn = document.getElementById('buffFloatBtn');
+            if (floatBtn) floatBtn.remove();
+            
+            // 释放暂停源
+            GlobalStore.set('panelPaused', false);
+            const fnSync2 = GlobalStore.getUIHandler('syncPauseState');
+            if (fnSync2) fnSync2();
+            
+            resolve(buffObj);
+        }
+
         buttons.forEach(b => {
             let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || '');
             btn.textContent = b.text;
             btn.addEventListener('click', () => {
-                if (unsubSkip) unsubSkip();
-                if (overlay.parentNode) overlay.remove();
-                let floatBtn = document.getElementById('buffFloatBtn');
-                if (floatBtn) floatBtn.remove();
-                const newBuff = createBuffObject(b.value, null, camp, allyUnits);
-                // 小昭·妹永久海克斯仅明教适用（见 20 addPermanentBuff 守卫）
+                const newBuff = createBuffObject(b.value, null, camp, team);
                 if (camp === CAMP_TYPES.ALLY) {
-                    const ctx = GlobalStore.get('playerContext');
-                    // 状态三轨收敛：战斗期读 battleStore，不再读 c.UI 冗余拷贝
-                    const allyUnits = (ctx && ctx.store)
-                        ? (ctx.store.getState().units || []).filter(u => u.camp === CAMP_TYPES.ALLY)
-                        : ((ctx && ctx.UI && ctx.UI.allyTeam) || []);
-                    if (allyUnits.length) {
-                        const xiaoZhao = allyUnits.find(u => u.isXiaoZhaoBrother);
-                        if (xiaoZhao) {
-                            addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
-                        }
+                    const xiaoZhao = team.find(u => u.isXiaoZhaoBrother);
+                    if (xiaoZhao) {
+                        addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
                     }
                 }
-                resolve(newBuff);
+                closeAndResolve(newBuff);
             });
             btnsDiv.appendChild(btn);
         });
         overlay.appendChild(box); document.body.appendChild(overlay);
         unsubSkip = GlobalStore.on('skipBuffPopup', (val) => {
             if (val) {
-                unsubSkip();
-                if (overlay.parentNode) overlay.remove();
-                let floatBtn = document.getElementById('buffFloatBtn');
-                if (floatBtn) floatBtn.remove();
                 GlobalStore.set('skipBuffPopup', false);
-                resolve(null);
+                closeAndResolve(null);
             }
         });
         document.querySelectorAll('#buffModalOverlay .modal-box > span').forEach(s => {

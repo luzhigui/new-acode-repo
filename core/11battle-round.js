@@ -69,28 +69,40 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
         ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
     }
 
-    let unitUid = null;
-    let enemyUid = null;
+    let unitUids = [];
+    let enemyUids = [];
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            let chosen = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
-            unitUid = chosen.uid;
+            const idx1 = ctx.rng.nextInt(0, candidates.length - 1);
+            unitUids.push(candidates[idx1].uid);
+            if (candidates.length > 1) {
+                let idx2 = ctx.rng.nextInt(0, candidates.length - 1);
+                if (idx2 === idx1) idx2 = (idx2 + 1) % candidates.length;
+                unitUids.push(candidates[idx2].uid);
+            }
         }
     }
     if (hasBuff(B._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = B.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            let chosen = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
-            enemyUid = chosen.uid;
+            const idx1 = ctx.rng.nextInt(0, candidates.length - 1);
+            enemyUids.push(candidates[idx1].uid);
+            if (candidates.length > 1) {
+                let idx2 = ctx.rng.nextInt(0, candidates.length - 1);
+                if (idx2 === idx1) idx2 = (idx2 + 1) % candidates.length;
+                enemyUids.push(candidates[idx2].uid);
+            }
         }
     }
 
     setBattleState('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
 
-    if (unitUid) {
-        const dsUnit = A.find(u => u.uid === unitUid);
-        if (dsUnit) ctx.log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
+    if (unitUids.length > 0) {
+        const dsUnits = A.filter(u => unitUids.includes(u.uid));
+        dsUnits.forEach(dsUnit => {
+            ctx.log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
+        });
     }
 
     ctx.log.filter(l => l.factType === 'horseSummon').forEach(hl => {
@@ -100,7 +112,7 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
         }
     });
 
-    return { unitUid, enemyUid };
+    return { unitUids, enemyUids };
 }
 
 // 阶段3：圣火令 buff 变换器重算（之后重切 activeBuffs）→ 召雄鹰 → 众志成城补员。
@@ -141,8 +153,8 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    registerDoubleStrike(eventBus, ds.unitUid, A, A._activeBuffs);
-    registerDoubleStrike(eventBus, ds.enemyUid, B, B._activeBuffs);
+    registerDoubleStrike(eventBus, ds.unitUids, A, A._activeBuffs);
+    registerDoubleStrike(eventBus, ds.enemyUids, B, B._activeBuffs);
     // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
     // 不能闭包本函数 ctx.log——它在回合开始步 yield 后就被主循环换成新数组，此后 fact 全推进无人读的死数组
     //   （数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
@@ -317,12 +329,12 @@ function prepareRoundStart(A, B, state, ctx) {
 
     computeDodgeChance(A, B);
 
-    logBuffSummary(A, { log: ctx.log, doubleStrikeUid: ds.unitUid });
+    logBuffSummary(A, { log: ctx.log, doubleStrikeUid: (ds.unitUids || [])[0] || null });
 
     // 默认飞行方向由回合组件 register 设置（幂等）
 
     const roundStartEvents = flushBattleEvents();
-    return { doubleStrikeUnitUid: ds.unitUid, roundStartEvents, roundComps };
+    return { doubleStrikeUnitUids: ds.unitUids, roundStartEvents, roundComps };
 }
 
 export function* createRoundStepper(state, { ui = true, translateFacts = null } = {}) {
@@ -372,13 +384,13 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             enemy: B,
             winner,
             done,
-            doubleStrikeUid: doubleStrikeUnitUid,
+            doubleStrikeUid: doubleStrikeUnitUids,
             frozenValues,
             stageActions: ui && translateFacts ? translateFacts(logs) : []
         };
     };
 
-    const { doubleStrikeUnitUid, roundStartEvents, roundComps } = prepareRoundStart(A, B, state, { log, round, rng });
+    const { doubleStrikeUnitUids, roundStartEvents, roundComps } = prepareRoundStart(A, B, state, { log, round, rng });
 
     yield makeStep(log, roundStartEvents);
     log = [];
@@ -428,7 +440,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
             // 连击宿主（明教被选中者 / 拥有永久连击的妹妹）无视遮挡，强行参战
-            const isDoubleStrikeHost = (u.uid === doubleStrikeUnitUid) || (u.state && u.state._permanentBuffs && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE));
+            const isDoubleStrikeHost = (Array.isArray(doubleStrikeUnitUids) && doubleStrikeUnitUids.includes(u.uid)) || (u.state && u.state._permanentBuffs && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE));
             if (isBlocked(u, fullAllySide) && isMelee(u.role) && !isDoubleStrikeHost) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
             // log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
@@ -533,7 +545,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         unit.survivedRounds++;
         emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), survivedRounds: unit.survivedRounds });
 
-        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUids?.[0] ?? null);
         resolveDeaths(A, B, log);
         // 行动完成广播（攻击成功/未命中/被闪避都算走完一次）
         eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide, enemySide, log });

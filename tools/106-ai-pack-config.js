@@ -1,4 +1,13 @@
-// V6.0.41 | 2026-10-27 自动补全 17 项 run-all 引用但漏登的 tests 顶层脚本 | ~27900 bytes | 2026-10-25 补登记 10 项（清单↔磁盘双向对账发现，均在引用链上）：
+// V6.0.44 | 2026-10-28 补登记 tools/138-elite-contrib.html（弱精英机制贡献评估单页，配 116 V1.15.0
+//           kind:'weakContrib'；102 工具箱「🧬 弱精英机制贡献」按钮的实现，漏登则包内工具箱点开 404）
+// V6.0.43 | 2026-10-28 补登记 3 个 tests/_lib 公共件（清单↔磁盘 + import 链对账发现）：
+//           _lib/sample-sufficiency.mjs（contract-guard / contract-binding-drift / fact-emission-census / rule-idle 已 import）、
+//           _lib/static-truth-slice.mjs（param-read-guard / fact-dead-field-scan / hit-shapes-consistency / foundation-portability /
+//           orphan-selftest-sweep / sandbox-fragility-scan 已 import）、_lib/foundation-scan.mjs（foundation-portability /
+//           sandbox-fragility-scan 已 import）—— 漏登则包内这些已登记体检脚本 import 断裂（同 V6.0.25 _lib 两件判据）。
+//           其余磁盘未登记项均为口径外：包/工程配置（package*.json、capacitor）、构建脚本（100build-5v5.TXT）、
+//           demo 页（tangwenliang-demo.html、tests/141/142 语音页）、产物（tools/output/）与文档/归档。
+// V6.0.42 | 2026-10-27 自动补全 4 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-27 自动补全 17 项 run-all 引用但漏登的 tests 顶层脚本 | ~27900 bytes | 2026-10-25 补登记 10 项（清单↔磁盘双向对账发现，均在引用链上）：
 //           core/23perf-params.js（表现参数表，core/15、player/40/46、fx/81/82/93 等消费）、
 //           ui/80perf-panel.js（8x 参数面板）、tests/_lib/buff-picker.mjs + _lib/rule-branch-extract.mjs
 //           （测试 harness 单源库，rules-replay 等已登记文件 import）、tests/health-rules/171/172
@@ -78,7 +87,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.41';
+export const VER = 'tools/106-ai-pack-config.js V6.0.44';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -274,6 +283,11 @@ export const ALL_PROJECT_FILES = [
     '../tests/xinhun-death-targeted-case.mjs',
     // 2026-10-27 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/pack-manifest-check.mjs',
+    // 2026-10-27 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/foundation-portability.mjs', '../tests/orphan-selftest-sweep.mjs', '../tests/sandbox-fragility-scan.mjs', '../tests/ver-drift-selftest.mjs',
+    // 2026-10-28 补登记 3 个 tests/_lib 公共件：被上方多个已登记体检脚本 import，漏登则包内引用断裂
+    //（sample-sufficiency 4 处 / static-truth-slice 6 处 / foundation-scan 2 处，同 V6.0.25 _lib 两件判据）
+    '../tests/_lib/sample-sufficiency.mjs', '../tests/_lib/static-truth-slice.mjs', '../tests/_lib/foundation-scan.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
@@ -299,6 +313,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/135-param-scan.html',
     // 2026-10-25 补登记：语音解说从主游戏下线，搬到 tools 存档（136 引擎 / 137 设置面板）
     '../tools/136-voice-commentary.js', '../tools/137-voice-panel.js',
+    // 2026-10-28 补登记 138：弱精英机制贡献评估（116 V1.15.0 kind:'weakContrib' 的消费端）
+    '../tools/138-elite-contrib.html',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；
     // 用途与复用场景见 TOOL-AI.md「四、历史探针」节）
     '../tools/TOOL-AI.md',

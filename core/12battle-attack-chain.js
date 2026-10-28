@@ -255,6 +255,12 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     }
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
+    
+    // 背水一战易伤：如果目标处于触发状态，伤害乘以系数
+    const lastStandTakenMul = target.state._lastStandTakenMul;
+    if (lastStandTakenMul && lastStandTakenMul > 1) {
+        dmg = Math.floor(dmg * lastStandTakenMul * 10) / 10;
+    }
 
     // 计算明细（结构化，不是字符串）：渲染层照着排版，不再自己重算一遍。
     // 历史问题：render/30 为拼"计算：…"那行，又调了一次 calcDamage + 查了一次 FANG_K，

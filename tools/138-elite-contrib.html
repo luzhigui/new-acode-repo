@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<!-- tools/138-elite-contrib.html — 弱精英机制贡献评估（V1.0.0 | 2026-10-28）
+     目的：112「弱精英评测」只给胜率 Δ，看不出「机制到底触发了几次 / 精英本人干了什么」。
+     本页复用 116 V1.15.0 的 kind:'weakContrib'：配对臂（精英臂 vs 自然臂）与 112 完全同口径
+     （同种子公式 masterSeed + stage*131 + eliteIdx*7717、同 CHUNK/startIndex、同 clean 剔除），
+     精英臂额外逐条扫战斗日志（core/06 onStep），聚合：
+       技能触发/场（SKILL_ANNOUNCE by skillName）、
+       自身 fact/场（unitName=精英）、被指向 fact/场（target=精英）、
+       关键字探针/场（note/reason 命中，如「护罩挡下这一击」「穴道，本回合无法行动」）。
+     不改主代码、不改战斗逻辑；所有数字都是观测，不是估分。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>弱精英机制贡献评估</title>
+<style>
+  body { background:#14141f; color:#e8e8ef; font-family:monospace; margin:0; padding:18px; }
+  h1 { color:#ffd700; font-size:20px; margin:0 0 6px; }
+  .tip { color:#999; font-size:12px; line-height:1.7; margin-bottom:12px; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#1b1b2b; border:1px solid #333; border-radius:10px; padding:12px; }
+  .bar label { font-size:13px; color:#ccc; }
+  input[type=number] { width:80px; background:#0e0e17; color:#ffd700; border:1px solid #444; border-radius:6px; padding:6px 8px; font-family:monospace; }
+  button { padding:9px 18px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-family:monospace; font-size:13px; }
+  #runBtn { background:#ffd700; color:#14141f; }
+  #runBtn:disabled { background:#555; color:#999; cursor:wait; }
+  #progress { margin:10px 0; font-size:12px; color:#9ad; min-height:18px; }
+  #errBox { display:none; background:#4a1010; border:1px solid #f44336; color:#ffb4b4; border-radius:8px; padding:10px; font-size:12px; white-space:pre-wrap; margin:10px 0; }
+  table { border-collapse:collapse; width:100%; margin-top:10px; font-size:12px; }
+  th { background:#2a2a44; color:#ffd700; padding:7px 8px; text-align:left; white-space:nowrap; }
+  td { padding:6px 8px; border-bottom:1px solid #2c2c3c; color:#ccc; vertical-align:top; }
+  .sub { color:#888; font-size:11px; }
+  .pos { color:#4caf50; } .neg { color:#ff5252; } .mid { color:#ffd700; } .dim { color:#777; }
+  h2 { color:#9ad; font-size:14px; margin:18px 0 4px; }
+  .detail { margin-top:8px; font-size:11px; color:#aaa; line-height:1.8; }
+</style>
+</head>
+<body>
+<h1>🧬 弱精英机制贡献评估</h1>
+<div class="tip">
+  配对口径与 112「🐦 弱精英评测」完全一致：同一关同一片，精英臂与自然臂共用种子，Δ = 精英臂 − 自然臂（明教胜率）；<br>
+  自然臂只剔除「目标精英本人自然登场」的局（其他弱精英保持自然分布）。精英臂额外观测技能/事实触发次数——这是 112 表上没有的那一半。<br>
+  <span class="dim">观测项说明：技能触发 = 该精英发出的 SKILL_ANNOUNCE（按技能名计数）；关键字探针 = 日志 note/reason 命中指定关键字（如空见的「护罩挡下这一击」）。</span>
+</div>
+<div class="bar">
+  <label>每关每臂场次 <input type="number" id="runsInput" value="120" min="20" step="10"></label>
+  <span class="sub">总样本 / 精英 = 场次 × 7 关（每只弱精英各跑一套）</span>
+  <button id="runBtn">▶ 开始跑批</button>
+</div>
+<div id="progress"></div>
+<div id="errBox"></div>
+<div id="result"></div>
+
+<script type="module">
+import { runParallel } from './117-shared-worker-runner.js';
+import { WEAK_ELITES } from './127-tool-registry.js';
+
+const VERSION = '138-elite-contrib V1.0.0';
+const CHUNK = 50;
+const STAGES = [1, 2, 3, 4, 5, 6, 7];
+const VARIANTS = ['胖远桥', '宋青书', '标准'];
+// 关键字探针（只做展示归类，不改判据）：note/reason 文本包含即计一次
+const PROBES = {
+  '空见': ['护罩挡下这一击', '逗你玩'],
+  '唐文亮': ['七伤齐发'],
+  '杨逍': ['穴道，本回合无法行动', '穴道还麻着'],
+  '何太冲': ['重新标记', '标记 ', '红血'],
+  '殷天正': []
+};
+
+const runsInput = document.getElementById('runsInput');
+const runBtn = document.getElementById('runBtn');
+const progressEl = document.getElementById('progress');
+const errBox = document.getElementById('errBox');
+const resultEl = document.getElementById('result');
+
+const num = v => Number(v || 0);
+const pctStr = (w, r) => r > 0 ? (w / r * 100).toFixed(1) + '%' : '—';
+const per = (v, r) => r > 0 ? (v / r).toFixed(2) : '—';
+const topList = (obj, runs, limit) => {
+  const arr = Object.entries(obj || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, limit);
+  if (!arr.length) return '<span class="dim">—</span>';
+  return arr.map(([k, v]) => `${k} ${per(v, runs)}/场`).join('<br>');
+};
+
+// 累加器：by[elite][stage][arm]['总'|variant]
+const by = {};
+function slot(elite, stage, arm) {
+  const e = by[elite] || (by[elite] = {});
+  const s = e[stage] || (e[stage] = { elite: null, natural: null });
+  return s[arm] || (s[arm] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0, skills: {}, factsSelf: {}, factsTarget: {}, probes: {} });
+}
+function addInto(dst, r) {
+  dst.runs += r.runs; dst.wins += r.wins;
+  dst.sumSurv += num(r.sumSurv); dst.sumDmg += num(r.sumDmg); dst.sumTaken += num(r.sumTaken); dst.sumHeal += num(r.sumHeal);
+  for (const k of ['skills', 'factsSelf', 'factsTarget', 'probes']) {
+    for (const [key, v] of Object.entries(r[k] || {})) dst[k][key] = (dst[k][key] || 0) + v;
+  }
+}
+function totals(elite, arm) {
+  const t = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0, skills: {}, factsSelf: {}, factsTarget: {}, probes: {} };
+  for (const st of STAGES) {
+    const s = by[elite] && by[elite][st];
+    if (!s || !s[arm]) continue;
+    addInto(t, s[arm]);
+  }
+  return t;
+}
+
+function setErr(msg) {
+  errBox.style.display = msg ? 'block' : 'none';
+  errBox.textContent = msg || '';
+}
+
+function render() {
+  let html = '<h2>总评（七关合计）</h2><table><tr><th>弱精英</th><th>侧</th><th>样本</th><th>精英胜率</th><th>对照胜率</th><th>Δ</th><th>存活</th><th>输出/场</th><th>承伤/场</th><th>治疗/场</th><th>技能触发/场</th><th>关键事件/场</th></tr>';
+  for (const w of WEAK_ELITES) {
+    const e = totals(w.name, 'elite');
+    const n = totals(w.name, 'natural');
+    if (!e.runs) { html += `<tr><td>${w.name}</td><td>${w.side === 'ally' ? '明教' : '六大派'}</td><td colspan="10" class="dim">无数据（该精英未上场或未跑）</td></tr>`; continue; }
+    const er = e.wins / e.runs * 100;
+    const nr = n.runs ? n.wins / n.runs * 100 : NaN;
+    const delta = isNaN(nr) ? NaN : er - nr;
+    const dcls = isNaN(delta) ? 'dim' : (delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'mid');
+    const dstr = isNaN(delta) ? '—' : (delta > 0 ? '+' : '') + delta.toFixed(1) + 'pp';
+    html += `<tr><td>${w.name}</td><td class="sub">${w.side === 'ally' ? '明教' : '六大派'}</td><td>${e.runs}</td>
+      <td class="mid">${pctStr(e.wins, e.runs)}</td><td>${pctStr(n.wins, n.runs)}</td><td class="${dcls}">${dstr}</td>
+      <td>${pctStr(e.sumSurv, e.runs)}</td><td>${Math.round(e.sumDmg / e.runs)}</td><td>${Math.round(e.sumTaken / e.runs)}</td><td>${Math.round(e.sumHeal / e.runs)}</td>
+      <td>${topList(e.skills, e.runs, 6)}</td><td>${topList(e.probes, e.runs, 4)}</td></tr>`;
+  }
+  html += '</table>';
+
+  html += '<h2>分关 Δ（精英臂 − 自然臂）</h2><table><tr><th>弱精英</th>';
+  for (const st of STAGES) html += `<th>第${st}关</th>`;
+  html += '</tr>';
+  for (const w of WEAK_ELITES) {
+    if (!by[w.name]) continue;
+    html += `<tr><td>${w.name}</td>`;
+    for (const st of STAGES) {
+      const s = by[w.name][st];
+      if (!s || !s.elite || !s.elite.runs) { html += '<td class="dim">—</td>'; continue; }
+      const er = s.elite.wins / s.elite.runs * 100;
+      const nr = s.natural && s.natural.runs ? s.natural.wins / s.natural.runs * 100 : NaN;
+      if (isNaN(nr)) { html += '<td class="dim">—</td>'; continue; }
+      const d = er - nr;
+      html += `<td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : 'mid'}">${d > 0 ? '+' : ''}${d.toFixed(1)}<span class="sub"> / ${s.elite.runs}场</span></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+
+  html += '<h2>机制观测明细（精英臂，每场均值）</h2><div class="detail">';
+  for (const w of WEAK_ELITES) {
+    const e = totals(w.name, 'elite');
+    if (!e.runs) continue;
+    const facts = Object.entries(e.factsSelf || {}).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([k, v]) => `${k} ${per(v, e.runs)}`).join('；') || '—';
+    const target = Object.entries(e.factsTarget || {}).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([k, v]) => `${k} ${per(v, e.runs)}`).join('；') || '—';
+    html += `<div><b class="mid">${w.name}</b>（${e.runs} 场）：自身 fact → ${facts}<br>
+      <span class="sub">被指向 fact → ${target}　｜　关键字探针 → ${topList(e.probes, e.runs, 6)}</span></div>`;
+  }
+  html += '</div><div class="sub" style="margin-top:8px">' + VERSION + ' · 观测口径 = 战斗日志逐条计数，不含任何估算或折算。</div>';
+  resultEl.innerHTML = html;
+}
+
+runBtn.addEventListener('click', async () => {
+  const perStage = Math.max(20, parseInt(runsInput.value, 10) || 120);
+  setErr('');
+  resultEl.innerHTML = '';
+  progressEl.textContent = '准备中…';
+  runBtn.disabled = true;
+  const t0 = Date.now();
+  const jobs = [];
+  const masterSeed = Date.now();
+  WEAK_ELITES.forEach((w, eliteIdx) => {
+    for (const stage of STAGES) {
+      const chunks = Math.ceil(perStage / CHUNK);
+      for (let c = 0; c < chunks; c++) {
+        const runs = Math.min(CHUNK, perStage - c * CHUNK);
+        const seed = masterSeed + stage * 131 + eliteIdx * 7717;
+        for (const arm of ['elite', 'natural']) {
+          jobs.push({
+            stage, seed, startIndex: c * CHUNK, runs,
+            elite: w.name, side: w.side, arm,
+            probes: PROBES[w.name] || [],
+            label: `${w.name}·第${stage}关·${arm === 'elite' ? '精英臂' : '自然臂'}#${c + 1}`
+          });
+        }
+      }
+    }
+  });
+  let done = 0;
+  try {
+    await runParallel({
+      jobs,
+      nextJobMsg: (job, id) => ({
+        jobId: id, kind: 'weakContrib', stage: job.stage, seed: job.seed, startIndex: job.startIndex,
+        runs: job.runs, elite: job.elite, side: job.side, arm: job.arm, probes: job.probes
+      }),
+      onJobDone: (finished, total, job, part) => {
+        for (const [v, agg] of Object.entries(part.variants || {})) {
+          addInto(slot(job.elite, job.stage, job.arm), agg);
+        }
+        done += job.runs;
+        const sec = ((Date.now() - t0) / 1000).toFixed(0);
+        progressEl.textContent = `⏳ ${finished}/${total} 片 · ${done} 场/臂 · ${sec}s`;
+      }
+    });
+    progressEl.textContent = `✅ 完成：${jobs.length} 片 · 用时 ${((Date.now() - t0) / 1000).toFixed(1)}s（${VERSION}）`;
+    render();
+  } catch (err) {
+    setErr(`跑批失败：${err && err.message ? err.message : err}\n（查浏览器控制台全栈；worker 抛错时 117 会终止整池）`);
+    progressEl.textContent = '';
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

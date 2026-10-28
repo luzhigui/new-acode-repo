@@ -249,22 +249,108 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         wrap.appendChild(s);
                     }
 
+                    // 数据覆盖时间 + 丢弃提示（tools/52 V1.4.0）：
+                    // 没有这一行，「200 局 62%」看不出是最近三天还是两个月的，也不知道超上限丢过数据
+                    if (ins.span || ins.dropped) {
+                        const meta = document.createElement('div');
+                        const fmt = t => { const d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate(); };
+                        let txt = '';
+                        if (ins.span) txt += '统计区间 ' + fmt(ins.span.from) + ' ~ ' + fmt(ins.span.to) + '（跨 ' + ins.span.days + ' 天）';
+                        // 模式分布（V1.6.0）：单机可能挂机刷，别和联机实战混着看
+                        if (ins.byMode) {
+                            txt += (txt ? '　' : '') + '模式 ' + Object.entries(ins.byMode).map(([k, v]) => `${v.label} ${v.n}局(${v.winRate}%)`).join(' / ');
+                        }
+                        if (ins.dropped) txt += (txt ? '　' : '') + '⚠️ 上限 ' + (ins.maxRecords || 200) + ' 局，已丢弃最早 ' + ins.dropped + ' 局';
+                        meta.textContent = txt;
+                        meta.style.cssText = 'font-size:10px;color:' + (ins.dropped ? '#ffb74d' : '#666') + ';line-height:1.5;';
+                        wrap.appendChild(meta);
+                    }
+
+                    // 最近 vs 之前（tools/52 V1.5.0）：200 局上限下唯一还能做的趋势
+                    try {
+                        const tr = m.getCareerTrend(20);
+                        if (tr && tr.enough) {
+                            const t4 = document.createElement('div');
+                            t4.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                            let h4 = `<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">最近 ${tr.window} 局 vs 之前 ${tr.window} 局</div>`;
+                            h4 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+                            h4 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">指标</th><th>之前</th><th>最近</th><th>变化</th></tr>';
+                            const row4 = (label, a, b, d, unit, bar) => {
+                                const hot = Math.abs(d) >= bar;
+                                const c = hot ? (d > 0 ? '#4caf50' : '#ff6b6b') : '#888';
+                                return `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${label}</td>`
+                                    + `<td style="color:#888">${a}${unit}</td><td>${b}${unit}</td>`
+                                    + `<td style="color:${c};font-weight:${hot ? 'bold' : 'normal'}">${d > 0 ? '+' : ''}${d}${unit}</td></tr>`;
+                            };
+                            h4 += row4('胜率', tr.earlier.winRate, tr.recent.winRate, tr.delta.winRate, '%', 10);
+                            h4 += row4('平均回合', tr.earlier.avgRounds, tr.recent.avgRounds, tr.delta.avgRounds, '', 2);
+                            h4 += row4('平均存活', tr.earlier.avgAlive, tr.recent.avgAlive, tr.delta.avgAlive, '', 0.8);
+                            h4 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">只反映先后差异，不代表因果——工具不知道你什么时候改的数值。20 局的胜率波动约 ±11pp，差距小于这个数就当没变。</div>';
+                            t4.innerHTML = h4;
+                            wrap.appendChild(t4);
+                        }
+                    } catch (e) {}
+
                     // 英雄跨局聚合（tools/52 V1.1.0）：谁长期虚高/划水一目了然
                     try {
                         const agg = m.getHeroAggregates();
                         if (agg && agg.length) {
                             const tbl = document.createElement('div');
                             tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
-                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（按出场次数排序，前 12）</div>';
+                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（仅明教侧，按出场次数排序，前 12）</div>';
                             h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                             h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th>均输出</th><th>均承伤</th><th>均治疗</th><th>存活率</th></tr>';
                             agg.slice(0, 12).forEach(a => {
-                                const wc = a.winRate >= 55 ? '#4caf50' : (a.winRate <= 40 ? '#ff6b6b' : '#ccc');
-                                h += `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}">${a.winRate}%</td><td>${a.avgDmg}</td><td>${a.avgTaken}</td><td>${a.avgHeal}</td><td>${a.aliveRate}%</td></tr>`;
+                                // 样本 <8 局 → 胜率不可信：整行变灰、加「样本少」，不参与红绿判色
+                                const trusted = a.reliable !== false && a.ci;
+                                const wc = trusted ? (a.winRate >= 55 ? '#4caf50' : (a.winRate <= 40 ? '#ff6b6b' : '#ccc')) : '#666';
+                                const rateTxt = a.winRate + '%' + (a.reliable === false ? ' <span style="color:#666">样本少</span>' : '');
+                                const ciTxt = a.ci ? ` title="95% 可信区间 ${a.ci[0]}%–${a.ci[1]}%"` : '';
+                                h += `<tr style="border-top:1px solid #2a2a4e;color:${a.reliable === false ? '#666' : '#ccc'};"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}"${ciTxt}>${rateTxt}</td><td>${a.avgDmg}</td><td>${a.avgTaken}</td><td>${a.avgHeal}</td><td>${a.aliveRate}%</td></tr>`;
                             });
                             h += '</table>';
                             tbl.innerHTML = h;
                             wrap.appendChild(tbl);
+                        }
+                    } catch (e) {}
+
+                    // 英雄搭配（tools/52 V1.3.0）：谁和谁一起上更容易赢
+                    try {
+                        const pairs = m.getHeroPairs();
+                        if (pairs && pairs.length) {
+                            const good = pairs.filter(p => p.delta >= 8).slice(0, 5);
+                            const bad = pairs.filter(p => p.delta <= -8).slice(-3).reverse();
+                            if (good.length || bad.length) {
+                                const t2 = document.createElement('div');
+                                t2.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                                let h2 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄搭配（组合胜率 vs 两人单独胜率均值）</div>';
+                                h2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+                                h2 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">组合</th><th>场次</th><th>组合胜率</th><th>各自均值</th><th>差值</th></tr>';
+                                const row = (p, hot) => `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${p.a} + ${p.b}</td><td>${p.n}</td><td>${p.winRate}%</td><td style="color:#888">${p.base}%</td><td style="color:${hot ? '#4caf50' : '#ff6b6b'};font-weight:bold;">${p.delta > 0 ? '+' : ''}${p.delta}pp</td></tr>`;
+                                good.forEach(p => { h2 += row(p, true); });
+                                bad.forEach(p => { h2 += row(p, false); });
+                                h2 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">≥8 局才统计。局限：5 人阵容只有 10 个对子、样本稀疏，且「第三个人强」会被误算成这一对的功劳，只当线索看。</div>';
+                                t2.innerHTML = h2;
+                                wrap.appendChild(t2);
+                            }
+                        }
+                    } catch (e) {}
+
+                    // 败因分析（tools/52 V1.3.0）：输的局到底输在哪
+                    try {
+                        const la = m.getLossAnalysis();
+                        if (la && la.findings && la.findings.length) {
+                            const t3 = document.createElement('div');
+                            t3.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                            const colorOf = k => (k === 'insufficient' || k === 'even') ? '#888' : '#ffb74d';
+                            let h3 = `<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">败因分析（${la.losses} 败 / ${la.wins} 胜）</div>`;
+                            h3 += '<div style="padding:6px;">';
+                            la.findings.forEach(f => {
+                                h3 += `<div style="font-size:10px;line-height:1.6;color:${colorOf(f.kind)};margin-bottom:4px;">· ${f.text}</div>`;
+                            });
+                            h3 += '</div>';
+                            t3.innerHTML = h3;
+                            wrap.appendChild(t3);
                         }
                     } catch (e) {}
 

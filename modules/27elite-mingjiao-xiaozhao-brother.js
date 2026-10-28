@@ -268,17 +268,12 @@ export function createXiaoZhaoBrotherComponent() {
                     log.push({ factType: FACT_TYPES.XIAO_ZHAO_CARRY_APPLY, data: { unitName: bro.name, unitUid: bro.uid, camp: bro.camp, layers, atk: per.atkPer * layers, def: per.defPer * layers, maxHp: per.hpPer * layers } });
                 }
             }
-            // 永久双击：小昭·妹 80% 概率额外攻击一次
+            // 永久双击：小昭·妹 永远获得 80% 概率额外攻击一次（如果团队版触发过了，就不再叠加）
             function submitXiaoZhaoDoubleStrikeDeclaration(data) {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit.state._xiaoZhaoDoubleStriked) return;
-                if (!unit.state._permanentBuffs || !unit.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE)) return;
-                if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) return;
-                const s = getSkillParams('小昭', 'spiderFly');
-                if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
-                // 概率口径 1 = 100%，比较前 ×100 回到百分点域（骰子仍是 nextInt(1, 100)）
-                const chancePct = s.xiaoZhaoDoubleStrikeChance * 100;
-                if (getBattleRng().nextInt(1, 100) <= chancePct) {
+                if (unit.state._doubleStriked) return;  // 团队连击已触发，不再重复
+                if (getBattleRng().nextInt(1, 100) <= 80) {
                     Object.assign(unit.state, { _xiaoZhaoDoubleStriked: true });
                     log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];

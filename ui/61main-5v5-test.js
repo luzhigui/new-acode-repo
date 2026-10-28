@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 任意按钮点击钩子注册到 UIHandler 通道（ui/68 的 6 个按钮经此调用）
     GlobalStore.setUIHandler('onAnyButtonClick', onAnyButtonClick);
+    import('./78button-state.js').then(m => GlobalStore.setUIHandler('syncPauseState', m.syncPauseState));
 
     // 按钮事件绑定 → 68ui-controls.js
     // 开场流程：首次未看过 → 开场CG（72）→ 精英图鉴选人 → 新手分步引导（71）；已看过CG → 图鉴 → 引导
@@ -273,40 +274,38 @@ document.addEventListener('DOMContentLoaded', async function() {
             } else if (GlobalStore.get('pvpMode')) {
                 // PVP 本地双人对战：跳过海克斯 Buff 选择，保证双方对等
             } else if (getState.autoLevel() === 'full-auto') {
-                const allKeys = Object.keys(C.BUFFS);
-                const existing = getState.activeBuffs().map(b => b.key);
-                const allyTeam = getState.UI().allyTeam || [];
-                const available = allKeys.filter(k => {
-                    if (existing.includes(k)) return false;
-                    if (k === BUFF_TYPES.FORTIFY && !getState.activeBuffs().some(b => b.remaining > 0)) return false;
-                    const requiredRole = C.BUFF_ROLE_REQUIREMENTS?.[k];
-                    if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
-                    return true;
-                });
-                if (available.length > 0) {
-                    const rng = getBattleRng();
-                    const pick = available[rng.nextInt(0, available.length - 1)];
+                const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
+                const newBuff = typeof showBuffPopup === 'function' ? await showBuffPopup(getPlayerContext(), CAMP_TYPES.ALLY, null, true, false) : null;
+                if (newBuff) {
                     const buffs = getState.activeBuffs();
                     if (buffs.length >= 2) {
                         const shortest = buffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
                         buffs.splice(buffs.indexOf(shortest), 1);
                     }
-                    const newBuff = createBuffObject(pick, null, CAMP_TYPES.ALLY, allyTeam);
                     buffs.push(newBuff);
-                    // 小昭永久海克斯备份
-                    const allyTeam2 = getState.UI().allyTeam;
-                    const xz = allyTeam2.find(u => u.isXiaoZhaoBrother);
-                    if (xz) {
-                        const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: rng.nextInt(1, 3), row: rng.nextInt(1, 3) } : {};
-                        addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);
-                    }
                     updateBuffSlots(getState.activeBuffs());
-                    logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[pick].name}（持续${newBuff.remaining}回合）</span><br>`;
+                    logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`;
                     autoScrollLog();
                 }
             } else {
                 stepBuff();
-                await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam); });
+                // 统一走 70 弹窗（手选，且是战前状态）
+                const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
+                const newBuff = typeof showBuffPopup === 'function' ? await showBuffPopup(getPlayerContext(), CAMP_TYPES.ALLY, null, false, false) : null;
+                if (newBuff) {
+                    const buffs = getState.activeBuffs();
+                    if (buffs.length >= 2) {
+                        let shortest = buffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
+                        buffs.splice(buffs.indexOf(shortest), 1);
+                    }
+                    buffs.push(newBuff);
+                    updateBuffSlots(getState.activeBuffs());
+                    let logDiv = document.getElementById('log');
+                    if (logDiv) {
+                        logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`;
+                        autoScrollLog();
+                    }
+                }
             }
             await new Promise(r=>setTimeout(r,600));
             try {

@@ -1,4 +1,18 @@
 // ===== ../tools/108-hex-dashboard.js =====
+// V6.6.1 | 2026-10-28 概率连击说明同步（core/11 双击宿主已改「每队随机 2 人」，旧文案还写 1 人）：
+//   普通版行补「各 2 名宿主 / 持续回合 / 存活不足按实际人数」，战术建议同步改口。
+// V6.6.0 | 2026-10-28 模式对比表四项优化：① 补「Δ 不带」（4 模式原来只给 3 个 Δ，不对称）；
+//   ② Δ 按统计显著性着色（原来 |Δ|≥1pp 就上色，332 场噪声和 874 场的 +6.6pp 一样显眼 → 满屏颜色=没重点），
+//      现只超 1.96×标准误才上色并标 ▲/▼，否则灰显；③ 表头可点排序（原来写死常规胜率）；
+//   ④ 每格 title 给出该格噪声线，随手可查「这个数能不能当真」。
+// V6.5.0 | 2026-10-28 落盘加配额兜底：原 saveTo 直接 concat 无限增长，反复跑批会撑爆 localStorage
+//   （约 5MB），爆了整片结果白跑。现在捕获配额错 → 保留最近一半重试一次并明说丢了多少条；
+//   flushPending 改用 saveTo 返回值判断成功（原来数 saveErrs 长度，截断提示会被误判成失败→反复重写）。
+// V6.4.1 | 2026-10-28 榜顶部显示「数据时间」（起止 + 最近一批多久前 + 旧数据条数 + 超14天提醒）。
+//   刚加了 ts 但界面看不到，跑完隔几天再打开还是分不清新数据旧数据——补上这一步才算闭环。
+// V6.4.0 | 2026-10-28 落盘记录加时间戳 ts（queueChunk 统一打）。以前 log 只有 {stage,buffs,winner}，
+//   下游 126 平衡告警无法判断这份榜是三小时前还是三周前跑的，主代码改过数值后拿旧榜判读会得出错结论。
+//   只加字段不改结构：旧的没 ts 的记录照样能读，下游会把它们标成「无时间戳的旧数据」。
 // V6.3.8 | 2026-10-27 数值同步（content 5.16.9 又调）：背水一战 25%/+30%（姐姐阈值 40%）、圣火令 攻+20%/防+50%、
 //   严阵以待与流星赶月持续 3 回合——详情卡数字读配置自动跟随，本版只同步提示文案里的硬数字。
 // V6.3.7 | 2026-10-27 海克斯说明全量刷新（对齐 content 5.16.9 + 引擎接线）：15 张详情卡补全
@@ -25,7 +39,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.3.8';
+export const VER = 'tools/108-hex-dashboard.js V6.6.1';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -156,7 +170,7 @@ const HEX_DETAIL = {
     brother: b => [`团队效果结束后，小昭·妹永久保留：每回合重新抽 ${b.atkCols} 列 ${b.defRows} 行，她站到命中列攻击 +${pct(b.atkBonus)}、命中行防御 +${pct(b.defBonus)}`]
   },
   doubleStrike: {
-    normal: b => [`己方随机 1 人：攻击后有 ${pct(b.prob)} 概率额外再攻击 1 次`],
+    normal: b => [`己方随机 2 人：各自攻击后有 ${pct(b.prob)} 概率额外再攻击 1 次（持续 ${b.duration} 回合；存活不足 2 人时只点 1 人）`],
     sister: (b, e) => [`额外攻击概率 ${pct(b.prob)} → ${pct(e.chance != null ? e.chance : 1)}（每击必追）`],
     brother: b => {
       const s = getSkillParams('小昭', 'spiderFly') || {};
@@ -216,7 +230,7 @@ const HEX_DETAIL = {
 };
 
 const HEX_HINTS = {
-  doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑），触发一次就多一轮爆发；收益随机、不稳定，对位前排密集时触发收益更高。',
+  doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑）：现在每回合随机点名 2 名宿主，触发机会比单人版明显变多；收益仍随机，对位前排密集时更稳。',
   carry: '5 号位（张无忌常驻位）越强收益越高，队友阵亡越多加成越猛——偏保核打法，张无忌在场且被集火时收益最高。',
   cloudBody: '对高频率多段攻击（普攻/连击多）的阵容克制明显；但对抗必中技能（如九阴白骨爪）无效。',
   horseFormation: '稳定的前排肉盾：每回合白给一只巨马替队伍挡刀，姐姐强化后巨马还会反弹 5 点伤害；对面战士/防战突脸多时收益最大，巨马也能吃 carry 加攻后出手。',
@@ -477,12 +491,30 @@ function openHexDashboard() {
       //   （单关补跑只进单关键，不破坏 all 的每关等量假设）。
       const saveErrs = [];
       let savedRuns = 0;
+      // 返回 true = 数据已落地（含「配额满但截断后写成功」）；false = 彻底写不进，留给下轮重试。
+      //   不能再用 saveErrs.length 判断成功——截断提示也要进 saveErrs，那样会被误判成失败而反复重写同一批。
       const saveTo = (k, arr) => {
-        if (!arr.length) return;
+        if (!arr.length) return true;
         try {
           const cur = JSON.parse(localStorage.getItem(k) || '[]');
           localStorage.setItem(k, JSON.stringify(cur.concat(arr)));
-        } catch (e) { saveErrs.push(`${k}:${(e && e.name) || e}`); }
+          return true;
+        } catch (e) {
+          // V6.5.0 配额满兜底：原实现直接记错误就放弃 → 那一整片结果白跑（跑一小时全丢）。
+          //   现在保留「最近一半」重试一次，并明确告诉用户丢了多少条最早的。
+          //   配额约 5MB，反复跑批不做上限迟早撞上，这一步是防丢数据而不是省空间。
+          try {
+            const cur = JSON.parse(localStorage.getItem(k) || '[]');
+            const merged = cur.concat(arr);
+            const keep = merged.slice(-Math.max(1000, Math.floor(merged.length / 2)));
+            localStorage.setItem(k, JSON.stringify(keep));
+            saveErrs.push(`${k}:配额满，已丢弃最早 ${merged.length - keep.length} 条（保留最近 ${keep.length} 条）`);
+            return true;
+          } catch (e2) {
+            saveErrs.push(`${k}:${(e2 && e2.name) || e2}（配额完全写不进去，本片结果丢失）`);
+            return false;
+          }
+        }
       };
       // V6.3.5 增量落盘：片结果先攒内存（pending），tick 每 2 秒刷一次盘，跑完再补刷一次。
       //   原实现攒到全部跑完才一次性写——跑批全程 0 条落盘，中途关页/手机卡死全部白跑，
@@ -491,6 +523,12 @@ function openHexDashboard() {
       const pending = {};   // key -> 待刷记录
       const queueChunk = (mode, records) => {
         if (!records || !records.length) return;
+        // V6.4.0：给每条记录打「落盘时间」。以前 log 只有 {stage,buffs,winner}，下游
+        //   （126 平衡告警的「数据健康」）完全无法判断这份榜是三小时前还是三周前跑的——
+        //   主代码改过数值后还拿旧榜判读，就会得出错误结论。
+        //   只加字段、不改结构：旧的没 ts 的记录照样能读，下游会把它们标成「无时间戳的旧数据」。
+        const now = Date.now();
+        for (const rec of records) if (rec && !rec.ts) rec.ts = now;
         const byStage = {};
         for (const rec of records) (byStage[rec.stage] || (byStage[rec.stage] = [])).push(rec);
         for (const stStr of Object.keys(byStage)) {
@@ -502,9 +540,9 @@ function openHexDashboard() {
       };
       const flushPending = () => {
         for (const k of Object.keys(pending)) {
-          const before = saveErrs.length;
-          saveTo(k, pending[k]);
-          if (saveErrs.length === before) delete pending[k];   // 写失败留在队列下轮重试
+          // V6.5.0：改用 saveTo 的返回值判断，不再看 saveErrs.length
+          //   （配额截断也会 push 一条提示，用长度判断会把已落地的批次误判成失败而反复重写）
+          if (saveTo(k, pending[k])) delete pending[k];
         }
       };
       let lastFlush = 0;
@@ -591,6 +629,14 @@ function hexStatsOf(logs) {
   return { total: logs.length, allyWins, per };
 }
 
+// V6.6.0：模式对比表四项优化（都是这张表本身的毛病，不动数据结构）
+//   ① 补「Δ 不带」——原来 4 个模式列只给 3 个 Δ，最右边那列没有 Δ，不对称也不好横向比。
+//   ② Δ 改成按统计显著性着色——原来 |Δ|≥1pp 就上色，于是 332 场的 ±1pp 噪声和 874 场的 +6.6pp
+//      一样显眼，满屏黄蓝等于没重点。现在只有超过 1.96×标准误才上色并标 ▲/▼，否则灰显。
+//   ③ 表头可点排序——原来写死按「常规胜率」，想看「谁最吃姐姐」得自己横着扫 Δ 列。
+//   ④ 每格 title 给出该格的噪声线（±1.96×SE），让「这个数能不能当真」随手可查。
+let cmpSortMode = 'normal';
+
 function renderModeCompare(box) {
   const data = {};
   let any = false;
@@ -605,6 +651,13 @@ function renderModeCompare(box) {
     return;
   }
 
+  // 每个模式的「全海克斯平均胜率」= Δ 的基准（与主表同口径）。必须先算，排序要用。
+  const modeAvg = {};
+  for (const m of CMP_MODES) {
+    const ks = Object.keys(data[m].per).filter(k => data[m].per[k].count > 0);
+    modeAvg[m] = ks.length ? ks.reduce((a, k) => a + data[m].per[k].wins / data[m].per[k].count, 0) / ks.length * 100 : null;
+  }
+
   const keys = new Set();
   CMP_MODES.forEach(m => Object.keys(data[m].per).forEach(k => keys.add(k)));
   const rows = [...keys].map(k => {
@@ -615,40 +668,58 @@ function renderModeCompare(box) {
     }
     return { key: k, cell };
   });
-  // 排序：常规模式胜率高者在前（常规没样本的排最后），同率看样本量
-  const sortKey = r => r.cell.normal ? r.cell.normal.rate : -1;
-  rows.sort((a, b) => (sortKey(b) - sortKey(a)) || ((b.cell.normal ? b.cell.normal.count : 0) - (a.cell.normal ? a.cell.normal.count : 0)));
+  // 排序（V6.6.0）：按当前选中模式的 Δ 降序；缺数据排最后，同值按名字稳定排
+  const deltaOf = (r, m) => {
+    const c = r.cell[m], base = modeAvg[m];
+    return (c && base !== null) ? c.rate - base : -9999;
+  };
+  rows.sort((a, b) => (deltaOf(b, cmpSortMode) - deltaOf(a, cmpSortMode)) || a.key.localeCompare(b.key));
 
   const rateTd = c => c
     ? `<td>${c.rate.toFixed(1)}%<div class="cell-sub">${c.count} 场</div></td>`
     : '<td style="color:#666">—</td>';
+  // Δ 格（V6.6.0）：只有超过 1.96×标准误才算真差异，否则灰显、不标箭头。
+  //   332 场和 874 场的噪声线差一倍多，只看数字正负会被噪声牵着改数值。
   const deltaTd = (c, base) => {
     if (!c || base === null) return '<td style="color:#666">—</td>';
     const dv = c.rate - base;
-    const col = Math.abs(dv) < 1 ? '#888' : (dv > 0 ? '#ffd700' : '#4fc3f7');
-    return `<td style="color:${col}">${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
+    const se = Math.sqrt((c.rate / 100) * (1 - c.rate / 100) / c.count) * 100;
+    const band = 1.96 * se;
+    const sig = Math.abs(dv) >= band;
+    const col = sig ? (dv > 0 ? '#ffd700' : '#4fc3f7') : '#666';
+    const mark = sig ? (dv > 0 ? '▲' : '▼') : '';
+    return `<td style="color:${col}" title="${c.count} 场的噪声线 ±${band.toFixed(1)}%，${sig ? '超出 → 可信' : '未超出 → 可能只是随机波动'}">`
+      + `${mark}${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
   };
 
   let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${stageLabel}）</div>`;
-  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。Δ = 该格胜率 − <b>本模式全海克斯平均</b>（净增益，已排除模式整体强度差），正数=该海克斯在本模式偏强、负数=偏弱。横向比四个 Δ 即「同一海克斯对不同小昭形态的增益程度」。</p>`;
-  // 每个模式先算「全海克斯平均胜率」（净 Δ 的基准），与 108 主表同口径
-  const modeAvg = {};
+  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。Δ = 该格胜率 − <b>本模式全海克斯平均</b>（净增益，已排除模式整体强度差）。`
+    + `<b style="color:#ffd700">▲ 黄 = 显著偏强</b>、<b style="color:#4fc3f7">▼ 蓝 = 显著偏弱</b>、<span style="color:#666">灰 = 噪声内（未超 ±1.96×标准误，别当真）</span>。`
+    + `点<b>模式表头</b>可按该模式的 Δ 排序，看「谁最吃某个小昭形态」。</p>`;
+  html += '<table><tr><th>海克斯</th>';
   for (const m of CMP_MODES) {
-    const ks = Object.keys(data[m].per).filter(k => data[m].per[k].count > 0);
-    modeAvg[m] = ks.length ? ks.reduce((a, k) => a + data[m].per[k].wins / data[m].per[k].count, 0) / ks.length * 100 : null;
+    const active = m === cmpSortMode;
+    html += `<th data-sort="${m}" style="cursor:pointer;${active ? 'color:#4fc3f7' : ''}" title="点击按「${MODE_LABEL[m]}」的 Δ 排序">${MODE_LABEL[m]}${active ? ' ▼' : ''}</th>`;
   }
-  html += '<table><tr><th>海克斯</th>' + CMP_MODES.map(m => `<th>${MODE_LABEL[m]}</th>`).join('') + '<th>Δ 常规</th><th>Δ 姐姐</th><th>Δ 妹妹</th></tr>';
+  for (const m of CMP_MODES) html += `<th>Δ${MODE_LABEL[m].replace('姐姐妹妹', '')}</th>`;
+  html += '</tr>';
+  // 基准行：四个模式的整体强度（平均胜率 / 明教整体胜率），Δ 列不适用
   html += '<tr><td style="color:#888">全海克斯平均</td>'
-    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">平均 ${modeAvg[m] !== null ? modeAvg[m].toFixed(1) + '%' : '—'}｜明教胜 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
-    + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
+    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">平均 ${modeAvg[m] !== null ? modeAvg[m].toFixed(1) + '%' : '—'}｜明教 ${data[m].total ? (data[m].allyWins / data[m].total * 100).toFixed(1) + '%' : '—'}</div></td>`).join('')
+    + CMP_MODES.map(() => '<td style="color:#666">—</td>').join('') + '</tr>';
   for (const r of rows) {
     html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${HEX_NAME_MAP[r.key] || r.key}</td>`
       + CMP_MODES.map(m => rateTd(r.cell[m])).join('')
-      + deltaTd(r.cell.normal, modeAvg.normal) + deltaTd(r.cell.sister, modeAvg.sister) + deltaTd(r.cell.brother, modeAvg.brother) + '</tr>';
+      + CMP_MODES.map(m => deltaTd(r.cell[m], modeAvg[m])).join('') + '</tr>';
   }
   html += '</table>';
   box.innerHTML = html;
   box.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
+  // 点表头换排序（V6.6.0）
+  box.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
+    cmpSortMode = th.dataset.sort;
+    renderModeCompare(box);
+  }));
   // 2026-10-15 V6.2.6：对比表插在统计表上方仍可能被统计表的滚动位置挤到视野外，渲染后主动滚进视口
   box.scrollIntoView({ block: 'nearest' });
 }
@@ -731,7 +802,31 @@ function render(summary, stats) {
   const draws = total - allyWins - enemyWins;
   const stageLabel = curStage === 'all' ? '七关合计' : `第${curStage}关`;
 
-  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
+  // V6.4.1：显示这批榜是什么时候跑的。V6.4.0 起每条记录带 ts，更早的数据没有 ts。
+  //   没有这行的话，跑完隔几天再打开，完全分不清看到的是新数据还是旧数据。
+  let timeLine = '';
+  {
+    let newest = 0, oldest = 0, withTs = 0;
+    for (const l of logs) {
+      const t = l && l.ts;
+      if (typeof t === 'number' && t > 0) {
+        withTs++;
+        if (newest === 0 || t > newest) newest = t;
+        if (oldest === 0 || t < oldest) oldest = t;
+      }
+    }
+    if (withTs > 0) {
+      const dNew = (Date.now() - newest) / 86400000;
+      const fmtD = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+      const ageTxt = dNew < 1 / 24 ? '刚刚' : (dNew < 1 ? Math.round(dNew * 24) + ' 小时前' : dNew.toFixed(1) + ' 天前');
+      timeLine = `<p style="margin:2px 0 0;color:#888;font-size:12px">数据时间：${fmtD(oldest)} ~ ${fmtD(newest)}，最近一批 ${ageTxt}`
+        + (withTs < total ? `（其中 ${total - withTs} 条是加时间戳之前的旧数据）` : '')
+        + (dNew > 14 ? '　<b style="color:#ffb74d">⚠️ 超过 14 天，改过数值请重跑</b>' : '') + '</p>';
+    } else {
+      timeLine = `<p style="margin:2px 0 0;color:#888;font-size:12px">数据时间：无记录（这批是 108 V6.4.0 之前跑的，重跑一次就会带上时间）</p>`;
+    }
+  }
+  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine;
 
   const hexKeys = new Set();
   logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));

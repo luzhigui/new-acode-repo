@@ -1,8 +1,10 @@
 // player/49battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
 // permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
+// V6.4.4 | 2026-10-28 | ~9.0 KB | handlePvpBuffSelection：六大派选卡补传「对方阵营(明教)存活」给
+//        generateBuffChoices，修惑人心智恒被剔除
 // V6.4.3 | 2026-10-19 | ~10600 bytes
-export const VER = 'player/49battle-flow.js V6.4.3';
+export const VER = 'player/49battle-flow.js V6.4.4';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -22,43 +24,19 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
     const mainCtx2 = getPlayerContext();
     const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
     const label = CAMP_LABEL[camp] || '';
-    appendLogHTML(`<span class="gold">✨ ${label}方请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
+    appendLogHTML(`<span class="gold">✨ ${label}方请选择新的Buff</span><br>`);
+    
     let newBuff = null;
-    if (isFullAuto) {
-        const allKeys = Object.keys(CONFIG.BUFFS);
-        const existing = buffsOfCamp(nextActiveBuffs, camp).map(b => b.key);
-        const team = c.store.getState().units.filter(u => u.camp === camp && u.alive);
-        const available = allKeys.filter(k => {
-            if (existing.includes(k)) return false;
-            // 众志成城门槛（与 modules/28 generateBuffChoices、tools/116/122 同口径）：
-            //   本阵营存活 ≥4 人不进候选——补员是「获得当回合补满到 4」，已有 4 人时当回合不召、收益太小
-            if (k === BUFF_TYPES.UNITY && team.length >= 4) return false;
-            const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
-            if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
-            return true;
-        });
-        if (available.length > 0) {
-            const rng = getBattleRng();
-            const pick = available[rng.nextInt(0, available.length - 1)];
-            newBuff = createBuffObject(pick, null, camp, team);
-            // 小昭·妹永久海克斯仅明教适用
-            //   补查重（手选路径 20 addPermanentBuff 有守卫，全自动路径此前裸塞可重复堆同名海克斯）
-            if (camp === CAMP_TYPES.ALLY && c.store) {
-                const xiaoZhao = c.store.getState().units.find(u => u.isXiaoZhaoBrother && u.alive);
-                if (xiaoZhao) {
-                    if (!xiaoZhao.state._permanentBuffs) Object.assign(xiaoZhao.state, { _permanentBuffs: [] });
-                    if (!xiaoZhao.state._permanentBuffs.some(b => b.key === newBuff.key)) {
-                        xiaoZhao.state._permanentBuffs.push({ ...newBuff, remaining: Infinity });
-                    }
-                }
-            }
-        }
-        appendLogHTML(`<span class="gold">🤖 ${label}方自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
-    } else {
-        c.isPaused = true;
-        const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
-        newBuff = typeof showBuffPopup === 'function' ? await showBuffPopup(c, camp) : null;
+    const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
+    if (typeof showBuffPopup === 'function') {
+        // 统一走弹窗（战中），根据 isFullAuto 决定是否静默抽取
+        newBuff = await showBuffPopup(c, camp, null, isFullAuto, true);
     }
+    
+    if (isFullAuto) {
+        appendLogHTML(`<span class="gold">🤖 ${label}方自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
+    }
+    
     if (newBuff) {
         nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
         appendLogHTML(`<span class="gold">✨ ${label}方获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
@@ -68,7 +46,6 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
             if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
         }
     }
-    c.isPaused = false;
     return nextActiveBuffs;
 }
 
@@ -80,7 +57,11 @@ export async function handlePvpBuffSelection(c, nextActiveBuffs) {
     const enemyTeam = c.store
         ? c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ENEMY && u.alive)
         : ((c.UI && c.UI.enemyTeam) || []);
-    const enemyChoices = generateBuffChoices(buffsOfCamp(nextActiveBuffs, CAMP_TYPES.ENEMY), enemyTeam, getBattleRng());
+    // 六大派选卡时「对方阵营」是明教：28 的惑人心智门槛要它，不传等于恒剔除该项
+    const allyTeam = c.store
+        ? c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY && u.alive)
+        : ((c.UI && c.UI.allyTeam) || []);
+    const enemyChoices = generateBuffChoices(buffsOfCamp(nextActiveBuffs, CAMP_TYPES.ENEMY), enemyTeam, getBattleRng(), allyTeam);
     appendLogHTML(`<span class="gold">✨ 双方请选择新的Buff（持续${duration}回合）</span><br>`);
     net.sendBuffAsk(enemyChoices, duration);
 

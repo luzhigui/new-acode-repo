@@ -1,11 +1,15 @@
+// V6.1.9 | 2026-10-28 | ~10300 bytes | 补 fa6f206f 漏的 import：emitEvent（core/13 别名）/
+//   emitStateChange（infra/59）/ UNIT_EVENT_TYPES、STATE_CHANGE_TYPES（infra/56）——姊强化眩晕分支
+//   一触发就是 ReferenceError。纯补 import，逻辑零改动
 // V6.1.8 | 2026-10-21 | ~10200 bytes
-export const VER = 'core/14buff-effects.js V6.1.8';
+export const VER = 'core/14buff-effects.js V6.1.9';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
-import { getBattleRng, swapUnitPositions, addMod, getStat, applyStatChange } from './13battle-shared.js';
-import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { getBattleRng, swapUnitPositions, addMod, getStat, applyStatChange, emitEvent } from './13battle-shared.js';
+import { emitStateChange } from '../infra/59-state-change.js';
+import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 // 严阵以待：防御 +50%（mul 词条）

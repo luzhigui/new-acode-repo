@@ -167,6 +167,7 @@ export const ENGINE_READ = {
     yingZhuaGong:    ['counterProb', 'dmgRatio'],
     yingWangWeiYa:   ['atkDown', 'defDown'],
     laoDangYiZhuang: ['atkGain', 'defGain', 'probGain'],
+    jinGangBuHuai:   ['maxUses', 'lowHpThreshold'],
 };
 
 // 人工补充登记（2026-10-18 第 101 轮建）：**引擎真读、但 param-read-guard 的源码扫描器看不见**的字段。

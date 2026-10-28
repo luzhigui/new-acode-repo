@@ -173,10 +173,30 @@ export function showBattleReport(battleResultForInfo) {
     copyAnalysisBtn.style.cssText = 'background:#37474f;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;display:none;';
     copyAnalysisBtn.onclick = () => {
         const text = analysisDiv.innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            copyAnalysisBtn.textContent = '✅ 已复制';
-            setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
-        }).catch(() => alert('复制失败，请手动选择文本'));
+        const fallbackCopy = (txt) => {
+            const ta = document.createElement('textarea');
+            ta.value = txt;
+            ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            if (ok) {
+                copyAnalysisBtn.textContent = '✅ 已复制';
+                setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
+            } else {
+                alert('复制失败，请手动选择文本');
+            }
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                copyAnalysisBtn.textContent = '✅ 已复制';
+                setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
+            }).catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
     };
     btnDiv.appendChild(copyAnalysisBtn);
 
@@ -193,7 +213,28 @@ export function showBattleReport(battleResultForInfo) {
         enemy.forEach(u => {
             text += `${u.name}(${u.role}) 输出${Math.round(u.dmgDealt||0)} 承伤${Math.round(u.dmgTaken||0)} 治疗${Math.round(u.healDone||0)} 闪避${Math.round(u.dodgeCount||0)} 暴击${Math.round(u.critCount||0)} ${u.alive?'存活':'阵亡'}\n`;
         });
-        navigator.clipboard.writeText(text).then(() => showAlert('战报已复制'));
+        // 终极兼容方案：Clipboard API 失败则降级为 execCommand
+        const fallbackCopy = (txt) => {
+            const ta = document.createElement('textarea');
+            ta.value = txt;
+            ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                const ok = document.execCommand('copy');
+                if (ok) showAlert('战报已复制');
+                else showAlert('复制失败，请长按文本手动复制');
+            } catch (e) {
+                showAlert('复制失败，请长按文本手动复制');
+            }
+            document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => showAlert('战报已复制')).catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
     };
     btnDiv.appendChild(copyBtn);
     

@@ -1,12 +1,16 @@
+// V6.1.12 | 2026-10-28 | ~5.4KB | 附身转移比例改从 content butterflyAttach 读取（atkRatioRight/defRatioLeft，当前 0.4），不再写死 1/2
 // 回归规则：姐姐附身属性叠加 — 修复后基于 _baseAtk/_baseDef 转移，不重复计算 Buff
 // 复发信号：附身转移值 atkTransfer/defTransfer != 方向对应基础值份额（含 Buff 加成，回退到直接操作 atk/def）
 // 对应已修 Bug：姐姐附身属性叠加（直接操作 atk/def 导致 Buff 重复计算）
-// 优化（V6.1.x 复核）：原规则只校验「右向攻转移 == floor(_baseAtk/2)」，漏检左向防转移回归。
-//   现按 modules/27elite-mingjiao _executeAttach 口径做双向对称校验，方向由文本"←左"/"右→"自解析：
-//     右向：atkRatio=1/2（攻=floor(_baseAtk/2)）、defRatio=0（防=0）
-//     左向：atkRatio=0（攻=0）、defRatio=1/2（防=floor(_baseDef/2)）
-//   任一方向转移值含 Buff 加成（或越基础份额）即判回归，覆盖原右向-only 漏掉的左向 def 路径。
-export const VER = 'tests/health-rules/127-butterfly-stack.js V6.1.11';
+// V6.1.12 口径修正（d8a9cea8 调参导致判据漂移假红）：
+//   d8a9cea8 把 butterflyAttach 的 atkRatioRight/defRatioLeft 由 0.5 调到 0.4，旧判据写死
+//   floor(_base/2)=0.5 ⇒ 14 场「转移值 != 0.5 份额」假红。现改为**从 content 读比例**（单一真源）：
+//   content 再调参也不假红；若引擎仍用原始 atk/def（不回退到 _base*ratio）则依旧会抓。
+//   方向：(右向) 攻=floor(_baseAtk*atkRatioRight)、防=0；(左向) 攻=0、防=floor(_baseDef*defRatioLeft)。
+//   比例缺失（content 未配）即 return 'skip'（口径不明不硬判，避免拿默认值二次造数）。
+import { getSkillParams } from '../../core/01config-5v5-test.js';
+
+export const VER = 'tests/health-rules/127-butterfly-stack.js V6.1.12';
 
 export const rule74 = {
     group: '精英技能回归',
@@ -47,31 +51,32 @@ export const rule74 = {
         // 字段路径修正（第 22 轮）：_baseAtk/_baseDef **不在单位顶层**，在 `unit.state` 下 ——
         //   core/02unit.js:177 `this.state._baseAtk = this.atk`；core/13:89 取用时写的也是 unit.state._baseAtk。
         //   原写法读顶层 → 恒 undefined → 本规则 120 场**全部**卡在这条 skip（恒 skip 空转）。
-        //   取证（探针）：48/120 场确有「化为蝴蝶附身」文本且存在 isXiaoZhaoSister，
-        //   其中顶层 _baseAtk 有值 **0 场**、state._baseAtk 有值 **48 场** ——
-        //   属「机制在场但 0 命中」的数据源错位，必须改扫描层级，不是合理 skip。
         var st = sister.state || {};
         var baseAtk = st._baseAtk, baseDef = st._baseDef;
         if (baseAtk === undefined || baseDef === undefined) return 'skip';
 
-        // 引擎口径（27elite-mingjiao _executeAttach）：飞行方向决定转移项——
-        //   右向：攻转移 floor(_baseAtk/2)、防 0；左向：攻 0、防转移 floor(_baseDef/2)。
-        //   方向已渲染进附身文本（"←左" / "右→"），从文本自解析。
+        // 比例从 content 读（V6.1.12）：与引擎 modules/27elite-mingjiao-xiaozhao-sister executeAttach 同源，
+        //   引擎 `atkTransfer = floor(_baseAtk * bp.atkRatioRight)` / `defTransfer = floor(_baseDef * bp.defRatioLeft)`。
+        //   单一真源：content 调参本规则自动跟随；引擎若回退成直接操作 atk/def（含 Buff）则份额越界会被抓。
+        var bp = getSkillParams('小昭', 'butterflyAttach');
+        if (!bp || typeof bp.atkRatioRight !== 'number' || typeof bp.defRatioLeft !== 'number') return 'skip';
+
+        // 方向（"←左" / "右→"）从文本自解析。
         var dirLeft = possessText.indexOf('←左') !== -1;
         if (dirLeft) {
             // 左向：只转防，攻应为 0
-            var expDef = Math.floor(baseDef / 2);
+            var expDef = Math.floor(baseDef * bp.defRatioLeft);
             if (defTransfer !== expDef) {
-                return { fail: true, msg: '复发：左向附身防转移值' + defTransfer + ' != floor(_baseDef/2)=' + expDef + '，可能直接操作 def 导致 Buff 重复计算' };
+                return { fail: true, msg: '复发：左向附身防转移值' + defTransfer + ' != floor(_baseDef*' + bp.defRatioLeft + ')=' + expDef + '，可能直接操作 def 导致 Buff 重复计算' };
             }
             if (atkTransfer !== 0) {
                 return { fail: true, msg: '复发：左向附身攻转移值' + atkTransfer + ' 应为0（左向只转防），疑似含 Buff 加成' };
             }
         } else {
             // 右向：只转攻，防应为 0
-            var expAtk = Math.floor(baseAtk / 2);
+            var expAtk = Math.floor(baseAtk * bp.atkRatioRight);
             if (atkTransfer !== expAtk) {
-                return { fail: true, msg: '复发：右向附身攻转移值' + atkTransfer + ' != floor(_baseAtk/2)=' + expAtk + '，可能直接操作 atk 导致 Buff 重复计算' };
+                return { fail: true, msg: '复发：右向附身攻转移值' + atkTransfer + ' != floor(_baseAtk*' + bp.atkRatioRight + ')=' + expAtk + '，可能直接操作 atk 导致 Buff 重复计算' };
             }
             if (defTransfer !== 0) {
                 return { fail: true, msg: '复发：右向附身防转移值' + defTransfer + ' 应为0（右向只转攻），疑似含 Buff 加成' };

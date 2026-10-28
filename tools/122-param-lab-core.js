@@ -1,4 +1,5 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+// V1.2.6 | 2026-10-28 补敌方存活进候选过滤（28 V6.2.5 起惑人心智门槛读 opts.enemyTeam；不传恒过滤 → 该 buff 永不入选）
 // V1.2.5 | 2026-10-22 ELITE_LABELS 改从 127-tool-registry.js 取（单一来源），本文件不再自建名单
 // V1.2.4 | 2026-10-22 ELITE_LABELS 补寒离飒（116 V1.12.0 已并入明教精英池）——此前含她的阵容被误并组、
 //          只有她的阵容被误判「无精英」，120 的典型阵容分组失真；注释同步 6 人池口径；VER 对齐（V1.2.2/V1.2.3 漏更）
@@ -16,7 +17,7 @@
 //          数值旋钮扫描）。不 import 任何 node 内置模块，浏览器 worker 与 node 直跑通用。
 //          CLI 侧的 node 垫片（fetch / localStorage）由调用方在 import 本文件之前装好；
 //          本文件自带 window/localStorage 垫片，保证模块体在无 DOM 环境也能跑。
-export const VER = 'tools/122-param-lab-core.js V1.2.5';
+export const VER = 'tools/122-param-lab-core.js V1.2.6';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -100,7 +101,9 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
         const alive = (s.team || []).filter(u => u && u.alive);
         // 2026-10-22 V1.2.5：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径，
         //   含 unity 门槛；carry 过滤已随 28 V6.2.4 删除）。.sort() 保持确定性选取不变。
-        const avail = filterAvailableBuffs(mine, s.team, {}).sort();
+        // V1.2.6：补敌方存活（28 V6.2.5 起惑人心智门槛读 opts.enemyTeam；不传则恒过滤、该 buff 永不入选）
+        const other = (sides[1 - s.off].team || []).filter(u => u && u.alive);
+        const avail = filterAvailableBuffs(mine, s.team, { enemyTeam: other }).sort();
         if (!avail.length) continue;
         const pick = avail[(seed + turn + s.off) % avail.length];
         const def = CONFIG.BUFFS[pick] || {};

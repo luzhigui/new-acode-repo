@@ -8,8 +8,8 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-// V2.2.2 | 2026-10-22 | ~27300 bytes
-export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.2';
+// V2.2.3 | 2026-10-27 | ~28060 bytes —— 双拳齐出两个标量参数去掉字面量默认值（原写死 0.4 / 0.5），改 register 期显式抛错：缺参数直接暴露，不静默按老口径算
+export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.3';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/13battle-shared.js';
@@ -38,6 +38,11 @@ export function createHanLiSaComponent() {
             if (!hb) throw new Error('缺技能参数: 寒离飒.hanBingShenZhang');
             const xl = getSkillParams('寒离飒', 'xuLi');
             if (!xl) throw new Error('缺技能参数: 寒离飒.xuLi');
+            // 双拳齐出的两个标量参数只认 content 真值（不做 `?? 字面量` 兜底）：缺了就当场报错。
+            //   若只删兜底不校验，比较式会与 undefined 恒不成立 ⇒ 变成「任何血量都追加一拳」的静默错行为。
+            if (xl.doublePunchHpPct == null || xl.doublePunchProb == null) {
+                throw new Error('缺技能参数: 寒离飒.xuLi.doublePunchHpPct / doublePunchProb');
+            }
 
             const announce = (ctx, note) => {
                 if (!ctx || !Array.isArray(ctx.log)) return;
@@ -132,8 +137,8 @@ export function createHanLiSaComponent() {
                 if (hls.state._isLinkAttack) return;
                 if (hls.state._hlsDoubleFired) return;
                 const hpPct = hls.maxHp > 0 ? hls.hp / hls.maxHp : 1;
-                if (hpPct >= (xl.doublePunchHpPct ?? 0.4)) return;
-                if (getBattleRng().next() >= (xl.doublePunchProb ?? 0.5)) return;
+                if (hpPct >= xl.doublePunchHpPct) return;
+                if (getBattleRng().next() >= xl.doublePunchProb) return;
                 hls.state._hlsDoubleFired = true;
                 if (!data.extraRequests) data.extraRequests = [];
                 data.extraRequests.push({

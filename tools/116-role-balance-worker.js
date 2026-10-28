@@ -1,3 +1,16 @@
+// V1.16.0 | 2026-10-28 修「惑人心智在跑批里恒不出」：28 V6.2.5 起该 buff 候选门槛要读敌方存活数
+//           （opts.enemyTeam），但 core/06 的 hexPicker 只回传明教侧、116 也没传 → enemyTeam 恒 [] →
+//           enemyTeam.length<=2 恒真 → 108 四模式榜/112/113/114 里该 buff 彻底消失（只有正式服 ui/70 传了）。
+//           现用既有 onStep 捕获引擎每步实时敌方（step.enemy），picker 里按 alive 过滤后透传；
+//           纯读引用、不改结算不改 RNG（RNG 消耗顺序：过滤结果变了才会变，属口径对齐正式服）。
+// V1.15.0 | 2026-10-28 新增 kind:'weakContrib'（138 弱精英机制贡献）：沿用 weakElite 的配对臂与归因纪律，
+//          额外用 core/06 既有 onStep 逐条扫日志，聚合「该精英签名技能次数 / 自身 fact / 被指向 fact / 关键字探针」；
+//          纯观测，不改战斗逻辑与 RNG（runWholeBattle 加可选 opts 透传，旧调用零变化）。
+// V1.14.0 | 2026-10-28 明教侧弱精英强制臂改「路C：建队后换名」（老板拍板）：
+//           弃 29 forceWeakElite 混入（换入在建队流中段，自然臂掷失时两臂流错位→站位洗牌全乱、Δ 混站位噪音），
+//           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
+//           ——两臂建队随机数逐数一致、站位逐位全同，Δ=纯精英贡献；「自然已在场」的局两臂同剔，样本逐场对应
+//           （配 112 V3.1.0）。六大派侧 M104 原样不动。
 // V1.13.1 | 2026-10-27 弱精英评测加「干净对照」：自然臂按精英名各出一套 clean[name] 计数——
 //   只剔除「本局自然出现了该精英」的局（第4关空见自然出现 18%，两臂同带空见会把 Δ 从 -6.5 稀释成 +0.5）。
 //   其他弱精英必须保持自然分布：若按侧把所有弱精英一起剔，对照会变成「敌方零弱精英」，凭空比空见臂
@@ -76,7 +89,7 @@ if (typeof localStorage === 'undefined') {
         clear: () => { _ls.clear(); }
     };
 }
-import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, getGameData } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './127-tool-registry.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
@@ -87,7 +100,7 @@ import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
 import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30），V1.3.1 的 dotTick 漏装教训收口于此
-import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
+import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -117,12 +130,25 @@ function clearBattleGlobals() {
 // 共用：跑完整战斗（薄封装，保持调用点签名不变）。
 // 循环本体在 core/06battle-runner；原实现里的 allAllies 手工同步与 buff 双递减一并删除
 // （createRoundStepper 内部已自行处理，删掉后 18 场基线的 winner/rounds/factCount 逐条不变）。
-function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false) {
+function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = null) {
+    const user = opts || {};
+    const userOnStep = user.onStep || null;
+    // V1.16.0：捕获引擎每步的实时敌方（step.enemy），供海克斯候选过滤的惑人心智门槛（敌方存活 >2）读取；
+    //   core/06 的 hexPicker 签名只回传明教侧，不改主代码只能走 onStep 读引用。
+    let liveEnemy = null;
+    const onStep = (step) => {
+        if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy;
+        if (userOnStep) userOnStep(step);
+    };
     return runBattle({
         ally: initAlly,
         enemy: initEnemy,
         seed,
-        hexPicker: hexEnabled ? pickHexBuff : null
+        // V1.15.0：weakContrib 观测通道（onStep 只读日志，不参与结算）；旧调用 opts=null 行为不变
+        ...user,
+        hexPicker: hexEnabled ? ((ab, al, rng) => pickHexBuff(ab, al, rng, false, liveEnemy || initEnemy)) : null,
+        // 无海克斯、无观测调用时不上 onStep（保持旧路径零开销）
+        onStep: (hexEnabled || userOnStep) ? onStep : undefined
     });
 }
 
@@ -154,10 +180,12 @@ function buildTeam(extraRole, camp, positions, rng) {
     return team;
 }
 
-function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
+function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule, enemyTeam = []) {
     // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径）；
     //   withFortifyRule 原样透传给 opts（职业平衡 job 专用：无剩余 buff 时禁选严阵以待）。
-    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule });
+    // V1.16.0：enemyTeam 透传（惑人心智门槛要读敌方存活数）；按 ui/70 同口径先滤 alive
+    const enemyAlive = (enemyTeam || []).filter(u => u && u.alive);
+    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule, enemyTeam: enemyAlive });
     if (available.length === 0) return null;
     const pick = available[rng.nextInt(0, available.length - 1)];
     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
@@ -181,15 +209,18 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
     // 保证同 seed 同序列——开局补一个 + 每 3 回合补一个，与原来节奏一致。
     let initialBuffs = [];
     if (hexEnabled) {
-        const first = pickHexBuff(initialBuffs, buildAlly, rng, true);
+        const first = pickHexBuff(initialBuffs, buildAlly, rng, true, buildEnemy);
         if (first) initialBuffs.push(first);
     }
+    // V1.16.0：同 runWholeBattle——捕获实时敌方，供惑人心智门槛
+    let liveEnemy = null;
     const res = runBattle({
         ally: buildAlly,
         enemy: buildEnemy,
         seed,
         initialBuffs,
-        hexPicker: hexEnabled ? pickHexBuff : null,
+        hexPicker: hexEnabled ? ((ab, al, r) => pickHexBuff(ab, al, r, false, liveEnemy || buildEnemy)) : null,
+        onStep: hexEnabled ? ((step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }) : undefined,
         firstSide: CAMP_TYPES.ENEMY
     });
     return { winner: res.winner };
@@ -276,13 +307,46 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
 }
 
 // 112「🐦 弱精英评测」：单弱精英强制上场 vs 自然配对对照。
-//   明教侧弱精英（杨逍/殷天正）：forceWeakElite 命中 mingWeakPool → modules/29 把一个普通位换成该弱精英（强精英轮盘照常，不互锁）。
-//   六大派侧弱精英（何太冲/唐文亮）：forceWeakElite 命中 ENEMY_M 且 M 值对上本关数字空位 → 该空位锁定具名（第3关是固定变体阵容、无 M104 空位，故不生效）。
+//   明教侧弱精英（杨逍/殷天正）：V1.14.0 起改 applyForcedWeakAlly「建队后确定性替身换名」（见下方路C注释）。
+//   六大派侧弱精英（何太冲/唐文亮/空见）：forceWeakElite 命中 ENEMY_M 且 M 值对上本关数字空位 → 该空位锁定具名（第3关是固定变体阵容、无 M104 空位，故不生效）。
 //   arm:'natural'：不设任何 force，只统计整关明教胜率（自然对照）。
 //   配对纪律：同一 (stage,chunk) 下 elite 臂与 natural 臂共用同一 seed 序列（seed+i*7919），战斗 RNG 同源。
-//     六大派侧只改一个数字空位的名字、两侧阵容完全一致 = 真配对；明教侧换人会多消耗 initRng（后续站位洗牌流错位），
-//     属随机噪声、400 场平均掉，仍是无偏对照。
+//     两侧强制方式都是「只换名、不碰建队流」（六大派 M104 空位锁 / 明教建队后替身换名）= 真配对：
+//     除精英本人外阵容逐位全同，Δ 不含站位噪音。
 //   归因纪律：只统计"该弱精英真的上场了"的局（明教侧在 res.ally、六大派侧在 res.enemy 找到该单位），未上场不计。
+// 2026-10-28 V1.14.0 明教侧弱精英强制臂改「路C：建队后换名」（老板拍板「按 C 先做」）：
+//   旧路径（29 forceWeakElite 混入）的病根不在「选替身的抽签」——29 V7.6 的 RNG 纪律本就无条件消耗、
+//   两臂对齐——而在换入发生在建队流中段：新单位 init 多耗随机数、前排守卫条件分支只在一臂触发，
+//   自然臂 30% 掷失后两臂建队流错位 → 全队站位洗牌全乱，Δ 里混站位噪音（旧 112 注释拿「多场平均掉」
+//   当遮羞布，实为可避免的系统噪声）。改法：initBattleTeams 完整跑完（站位/锚点/前排定型）后，把
+//   「确定性替身」换成目标精英、站位直接继承——两臂建队消耗逐数一致，唯一差异=精英本人；六大派侧
+//   M104 空位锁本就是「只换名」形态，两侧行为从此统一。
+//   替身规则：非锚点、非任何弱精英（换成他=Δ 变「精英A vs 精英B」）、非唯一前排（阵容语义不塌），
+//   取 pos 最小者——站位每场随机洗，被换身份场间自然轮换、不偏向固定角色。
+//   计数配套：目标精英「自然混入已在场」的局强制臂跳过（自然臂 clean[name] 同剔这些局）——同种子
+//   同掷点，两臂样本逐场对应，Δ = 精英 vs 被换的普通成员，纯配对。
+function applyForcedWeakAlly(ally, elite, rng) {
+    if (ally.some(u => u.name === elite)) return false;   // 自然混入已带他：不换人，外层跳过该局
+    const isAnchor = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa;
+    const isWeak = u => Object.values(WEAK_UNIT_FLAG).some(f => u[f]);
+    const isFront = u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR;
+    const cands = ally.filter(u => !isAnchor(u) && !isWeak(u)
+        && !(isFront(u) && !ally.some(v => v !== u && isFront(v))));
+    const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
+    if (!victim) return false;
+    const m = CONFIG.MING_M[elite];
+    if (m == null) return false;
+    // 职业解析与 29 明教混入块同口径：content role 字段 > tags 命中 CONFIG.ROLES
+    const ch = getGameData()?.characters?.[elite];
+    const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t));
+    if (!role) return false;                              // 缺职业解析：当作精英未上场（与 !me continue 同口径）
+    const unit = new Unit(elite, m, role, CAMP_TYPES.ALLY);
+    unit.pos = victim.pos;                                // 继承替身站位：换人发生在洗牌之后，两臂站位全同
+    unit.init(rng); unit.applyBonus();                    // initRng 此后无人再用（战斗用独立种子），多耗无影响
+    ally[ally.indexOf(victim)] = unit;
+    return true;
+}
+
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
@@ -290,11 +354,15 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
-        if (arm !== 'natural') GlobalStore.set('forceWeakElite', elite);
+        // V1.14.0 路C：明教侧不再设 forceWeakElite（换人挪到建队后，见 applyForcedWeakAlly）；
+        //   六大派侧照旧走 29 的 M104 空位具名锁定（本就是「只换名」形态，流不动）
+        if (arm !== 'natural' && side !== 'ally') GlobalStore.set('forceWeakElite', elite);
         const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
         const teams = initBattleTeams(stage, initRng);
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
+        let swappedIn = false;
+        if (arm !== 'natural' && side === 'ally') swappedIn = applyForcedWeakAlly(ally, elite, initRng);
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true);
         if (!res.winner) continue;
@@ -320,11 +388,99 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
         const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
             .find(u => flag ? u[flag] : u.name === elite);
         if (!me) continue;                    // 该弱精英本局没上场（第3关无 M104 空位等）→ 不计入
+        // V1.14.0 路C配套：明教侧只计「换人成功」的局——目标精英自然混入已在场的局（swappedIn=false 且 me 命中）
+        // 自然臂 clean[name] 同样剔掉，两臂样本逐场对应；换人未成（无合格替身/缺职业）也走这里（me 不命中已拦）
+        if (side === 'ally' && !swappedIn) continue;
         a.runs++;
         if (res.winner === '明教') a.wins++;
         if (me.alive) a.sumSurv++;
         a.sumDmg += me.dmgDealt || 0;
         a.sumTaken += me.dmgTaken || 0;
+    }
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (a.runs > 0) out[v] = a;
+    }
+    return { elite: arm === 'natural' ? null : elite, side, arm, variants: out };
+}
+
+// 138 弱精英机制贡献：与 runWeakEliteJob 同款配对臂/归因纪律（同种子、同剔「自然已在场」），
+//   差异只在观测：精英臂用 onStep 逐条扫日志，聚合——
+//     skills      该精英作为施法者发出的 SKILL_ANNOUNCE，按 skillName 计数（技能真触发次数）
+//     factsSelf   fact 里 unitName === 该精英的条目，按 factType 计数（如 TW_DASH_APPLY / HEAL）
+//     factsTarget fact 里 target.name === 该精英的条目（被打/被免疫/被治疗……）
+//     probes      在 note/reason/skillName/label 文本中命中 job 传入关键字的次数
+//   只读观测、不参与结算；自然臂不扫日志（保持对照臂开销与 weakElite 一致）。
+function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex = 0) {
+    const flag = WEAK_UNIT_FLAG[elite];
+    const newAgg = () => ({
+        runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0,
+        skills: {}, factsSelf: {}, factsTarget: {}, probes: {}
+    });
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const bump = (obj, key) => { if (key) obj[key] = (obj[key] || 0) + 1; };
+    const merge = (dst, src) => { for (const [k, v] of Object.entries(src)) dst[k] = (dst[k] || 0) + v; };
+    const probeList = Array.isArray(probes) ? probes.filter(Boolean) : [];
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();
+        if (arm !== 'natural' && side !== 'ally') GlobalStore.set('forceWeakElite', elite);
+        const battleSeed = seed + (startIndex + i) * 7919;
+        const initRng = new SeededRNG(battleSeed);
+        const teams = initBattleTeams(stage, initRng);
+        const ally = teams.allyTeam.map(u => u.clone());
+        if (!ally.length) continue;
+        let swappedIn = false;
+        if (arm !== 'natural' && side === 'ally') swappedIn = applyForcedWeakAlly(ally, elite, initRng);
+        GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
+        const tally = { skills: {}, factsSelf: {}, factsTarget: {}, probes: {} };
+        const onStep = arm === 'natural' ? null : (step) => {
+            const log = step && step.log;
+            if (!Array.isArray(log)) return;
+            for (const e of log) {
+                if (!e || !e.factType) continue;
+                const d = e.data || {};
+                const isSelf = d.unitName === elite || (d.unit && d.unit.name === elite) || (d.attacker && d.attacker.name === elite);
+                const isTarget = (d.target && d.target.name === elite) || (d.targetName === elite);
+                if (isSelf) bump(tally.factsSelf, e.factType);
+                if (isTarget) bump(tally.factsTarget, e.factType);
+                if (e.factType === FACT_TYPES.SKILL_ANNOUNCE && d.unitName === elite) bump(tally.skills, d.skillName);
+                if (probeList.length) {
+                    const text = `${d.note || ''}|${d.reason || ''}|${d.skillName || ''}|${d.label || ''}`;
+                    for (const p of probeList) if (text.includes(p)) bump(tally.probes, p);
+                }
+            }
+        };
+        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep } : null);
+        if (!res.winner) continue;
+        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
+        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        if (arm === 'natural') {
+            // 干净对照（与 runWeakEliteJob / 112 V3.0.3 同口径）：只剔「目标精英本人自然登场」的局，
+            //   其他弱精英保持自然分布（一起剔 = 对照凭空变强，Δ 被放大成假值）
+            const allyU = res.ally || [], enemyU = res.enemy || [];
+            const seen = flag
+                ? (allyU.some(u => u[flag]) || enemyU.some(u => u[flag]))
+                : (allyU.some(u => u.name === elite) || enemyU.some(u => u.name === elite));
+            if (seen) continue;
+            a.runs++;
+            if (res.winner === '明教') a.wins++;
+            continue;
+        }
+        const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
+            .find(u => flag ? u[flag] : u.name === elite);
+        if (!me) continue;
+        if (side === 'ally' && !swappedIn) continue;
+        a.runs++;
+        if (res.winner === '明教') a.wins++;
+        if (me.alive) a.sumSurv++;
+        a.sumDmg += me.dmgDealt || 0;
+        a.sumTaken += me.dmgTaken || 0;
+        a.sumHeal += me.healDone || 0;
+        merge(a.skills, tally.skills);
+        merge(a.factsSelf, tally.factsSelf);
+        merge(a.factsTarget, tally.factsTarget);
+        merge(a.probes, tally.probes);
     }
     const out = {};
     for (const [v, a] of Object.entries(variants)) {
@@ -415,12 +571,15 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             if (!teams) continue;
         }
         const buffsPicked = [];
+        let liveEnemy = null;   // V1.16.0：本场实时敌方快照（onStep 维护），供惑人心智门槛
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
         // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
         const hexPicker = (activeBuffs, allySide, rng) => {
             // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供；
             //   hex job 不开 withFortifyRule（与原行为一致）。
-            const available = filterAvailableBuffs(activeBuffs, allySide, {});
+            // V1.16.0：实时敌方透传（惑人心智门槛）
+            const available = filterAvailableBuffs(activeBuffs, allySide,
+                { enemyTeam: (liveEnemy || teams.enemyTeam).filter(u => u && u.alive) });
             if (available.length === 0) return null;
             // 偏好海克斯出现时优先选（与 101 主线程版一致；无偏好则全池随机）
             const preferred = available.filter(k => preferredBuffs.includes(k));
@@ -446,7 +605,9 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             ally: teams.allyTeam,
             enemy: teams.enemyTeam,
             seed,
-            hexPicker
+            hexPicker,
+            // V1.16.0：捕获实时敌方（每场独立重置），供惑人心智门槛
+            onStep: (step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }
         });
         const w = res.winner || '平局';
         hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: w });
@@ -709,6 +870,9 @@ self.onmessage = (e) => {
         } else if (kind === 'weakElite') {
             const { stage, seed, runs, elite, side, arm, startIndex } = e.data;
             result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0);
+        } else if (kind === 'weakContrib') {
+            const { stage, seed, runs, elite, side, arm, probes, startIndex } = e.data;
+            result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);

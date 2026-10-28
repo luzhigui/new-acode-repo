@@ -1,6 +1,6 @@
 // core/04buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.7.3 | 2026-10-26 | ~26000 bytes —— 众志成城首回合补员目标 5→4（姐姐强化仍补到 5，读 content recruitTarget）
-export const VER = 'core/04buff-system.js V6.7.3';
+// V6.7.4 | 2026-10-27 | ~44090 bytes —— 背水一战声明 fact 的 ratio 改报实际上阵值 finalAtkBonus（姊强化 0.25 ≠ 基础 0.3，原报基础值致声明与实际不符）
+export const VER = 'core/04buff-system.js V6.7.4';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -140,9 +140,8 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
 
-    // 已经触发过，直接续上永久的攻击（防止被 removeModsByTTL 清理）
+    // 已经触发过，首次挂载的永久词条不会被清理，直接返回，严禁每回合重复 addMod 叠加
     if (unit.state._lastStandTriggered) {
-        addMod(unit, 'atk', { source: '背水一战', value: cfg.atkBonus, ttl: 'permanent', op: 'mul', group: 'lastStand' });
         return;
     }
 
@@ -162,9 +161,18 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     
     // 首次触发！
     unit.state._lastStandTriggered = true;
+    // 挂上易伤标记：承受伤害增加系数（默认 1.2 即多受 20% 伤害）
+    unit.state._lastStandTakenMul = cfg.takenDmgMul ?? 1.2;
+    
     // 判定最终攻击加成（姐姐强化版若给定了专属数值则用姐姐的，否则走基础配置）
     const finalAtkBonus = (teamLow && enh && enh.atkBonus != null) ? enh.atkBonus : cfg.atkBonus;
     addMod(unit, 'atk', { source: '背水一战', value: finalAtkBonus, ttl: 'permanent', op: 'mul', group: 'lastStand' });
+    
+    // 背水一战：防御力永久降低（用 mul 负词条，吃基础防御乘区）
+    const finalDefPenalty = cfg.defPenalty ?? 0.2;
+    if (finalDefPenalty > 0) {
+        addMod(unit, 'def', { source: '背水一战', value: -finalDefPenalty, ttl: 'permanent', op: 'mul', group: 'lastStand' });
+    }
     
     // 触发者获得一次战士加成
     const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
@@ -180,8 +188,8 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     }
 
     if (log) {
-        log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
-        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '背水一战', note: `🩸 背水一战：${unit.name} 永久获得攻击+50%，并获得一次战士加成`, line: false, floatText: '🩸背水一战！', floatUid: unit.uid } });
+        log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: finalAtkBonus } });
+        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '背水一战', note: `🩸 背水一战：${unit.name} 永久获得攻击+${Math.round(finalAtkBonus * 100)}%，并获得一次战士加成；自身受到伤害增加${Math.round((unit.state._lastStandTakenMul - 1) * 100)}%`, line: false, floatText: '🩸背水一战！', floatUid: unit.uid } });
     }
 }
 
@@ -393,6 +401,22 @@ export function registerLastStandLeech(eventBus) {
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.LEECH,
         handler: (data) => { submitLastStandLeechDeclaration(data); }
+    });
+}
+
+// 背水一战·实时触发：受伤扣血后，若跌破阈值立即原地触发（回合开始逻辑保留作为初始/毒发兜底）
+export function registerLastStand(eventBus) {
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
+        priority: L.AFTER_DAMAGE_APPLIED.LEECH + 1, // 排在吸血前，让本次触发带来的上限提升能吃到当次回血
+        handler: (data) => {
+            const u = data.target;
+            if (!u || !u.alive || u.state._lastStandTriggered) return;
+            const team = u.camp === CAMP_TYPES.ALLY ? data.A : data.B;
+            if (!team) return;
+            const buffs = team._activeBuffs || [];
+            applyLastStandBonus(u, team, buffs, data.log);
+        }
     });
 }
 
@@ -648,7 +672,8 @@ export function installBuffMechanics(eventBus) {
         meteorShowerMain: registerMeteorShower,
         mindControlSwap: registerMindControl,
         holyFireRevive: registerHolyFire,
-        lastStandLeech: registerLastStandLeech
+        lastStandLeech: registerLastStandLeech,
+        lastStandTrigger: registerLastStand
     };
     for (const buff of Object.values(gd.buffs)) {
         if (!buff.effects || !Array.isArray(buff.effects)) continue;

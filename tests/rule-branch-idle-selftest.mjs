@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-// tests/rule-branch-idle-selftest.mjs | V1.1.1 | 2026-10-25 第 133 轮
+// tests/rule-branch-idle-selftest.mjs | V1.1.2 | 2026-10-28 第 143 轮续6
+//
+// V1.1.2 变更（第 143 轮续6，**显式收缩有牙基线，判定口径一行未动**）：
+//   移除 141 的「复发：张三丰存活到第」分支——它与「复发：严阵以待首次出现在第」互斥，
+//   上游引擎变更后样本里严阵以待总会触发（只是回合数不对），「机制整个消失」不再出现 ⇒ 按基线自述收缩。
+//   详见 BITTEN_BASELINE 内注释。
 //
 // V1.1.1 变更（第 133 轮，**纯重构，判定口径一行未动**）：
 //   把静态抽取（stripCommentsKeepStrings / extractBranches / keyOf / bittenKeyOf / 命中判定）
@@ -71,7 +76,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scanAllBranches, keyOf, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 
-export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.1';
+export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.2';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -88,12 +93,12 @@ const MIN_MATCH_RATE = 0.9;   // fired msg 能匹配到静态指纹的比例下�
 // ★ 若某条确因「缺陷已被主代码修复」而不再触发，那是好消息，但也必须**显式收缩本基线**
 //   （并同步 tests/known-transfers.md），不许让它挂着变腐烂。
 export const BITTEN_BASELINE = [
-    {
-        file: '141-zhangsanfeng-fortify-round.js',
-        rule: '张三丰核心机制回归(严阵以待/如沐春风/生生不息)',
-        fp: '复发：张三丰存活到第',
-        why: '转交中（挂账③）：张三丰严阵以待时序，本分支在标准样本里持续报错，fail>0 ⇒ 确实在咬'
-    },
+    // V1.1.2（2026-10-28 第143轮续6）显式收缩：移除原「复发：张三丰存活到第」条目。
+    //   该分支与「复发：严阵以待首次出现在第」**互斥**——前者=严阵以待整个没触发（机制消失），
+    //   后者=触发了但回合数不对。上游引擎变更后，本 140 场样本里严阵以待**总会触发**（只是回合数不对 ⇒ 走后者），
+    //   「机制整个消失」这个缺陷当前样本里不再出现 ⇒ 该分支持续不触发，按本基线自述「缺陷不再触发须显式收缩本基线」移除。
+    //   规则 141 本体仍转交中（「严阵以待首次出现在第」分支仍在咬）；若将来「机制消失」缺陷复现，该分支会重新触发，
+    //   本自检无「禁止新增有牙」上限，届时不会误红，需人工再评估是否重新登记。
     {
         file: '141-zhangsanfeng-fortify-round.js',
         rule: '张三丰核心机制回归(严阵以待/如沐春风/生生不息)',
