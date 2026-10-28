@@ -1,3 +1,8 @@
+// V1.16.0 | 2026-10-28 修「惑人心智在跑批里恒不出」：28 V6.2.5 起该 buff 候选门槛要读敌方存活数
+//           （opts.enemyTeam），但 core/06 的 hexPicker 只回传明教侧、116 也没传 → enemyTeam 恒 [] →
+//           enemyTeam.length<=2 恒真 → 108 四模式榜/112/113/114 里该 buff 彻底消失（只有正式服 ui/70 传了）。
+//           现用既有 onStep 捕获引擎每步实时敌方（step.enemy），picker 里按 alive 过滤后透传；
+//           纯读引用、不改结算不改 RNG（RNG 消耗顺序：过滤结果变了才会变，属口径对齐正式服）。
 // V1.15.0 | 2026-10-28 新增 kind:'weakContrib'（138 弱精英机制贡献）：沿用 weakElite 的配对臂与归因纪律，
 //          额外用 core/06 既有 onStep 逐条扫日志，聚合「该精英签名技能次数 / 自身 fact / 被指向 fact / 关键字探针」；
 //          纯观测，不改战斗逻辑与 RNG（runWholeBattle 加可选 opts 透传，旧调用零变化）。
@@ -126,13 +131,24 @@ function clearBattleGlobals() {
 // 循环本体在 core/06battle-runner；原实现里的 allAllies 手工同步与 buff 双递减一并删除
 // （createRoundStepper 内部已自行处理，删掉后 18 场基线的 winner/rounds/factCount 逐条不变）。
 function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = null) {
+    const user = opts || {};
+    const userOnStep = user.onStep || null;
+    // V1.16.0：捕获引擎每步的实时敌方（step.enemy），供海克斯候选过滤的惑人心智门槛（敌方存活 >2）读取；
+    //   core/06 的 hexPicker 签名只回传明教侧，不改主代码只能走 onStep 读引用。
+    let liveEnemy = null;
+    const onStep = (step) => {
+        if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy;
+        if (userOnStep) userOnStep(step);
+    };
     return runBattle({
         ally: initAlly,
         enemy: initEnemy,
         seed,
-        hexPicker: hexEnabled ? pickHexBuff : null,
         // V1.15.0：weakContrib 观测通道（onStep 只读日志，不参与结算）；旧调用 opts=null 行为不变
-        ...(opts || {})
+        ...user,
+        hexPicker: hexEnabled ? ((ab, al, rng) => pickHexBuff(ab, al, rng, false, liveEnemy || initEnemy)) : null,
+        // 无海克斯、无观测调用时不上 onStep（保持旧路径零开销）
+        onStep: (hexEnabled || userOnStep) ? onStep : undefined
     });
 }
 
@@ -164,10 +180,12 @@ function buildTeam(extraRole, camp, positions, rng) {
     return team;
 }
 
-function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
+function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule, enemyTeam = []) {
     // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径）；
     //   withFortifyRule 原样透传给 opts（职业平衡 job 专用：无剩余 buff 时禁选严阵以待）。
-    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule });
+    // V1.16.0：enemyTeam 透传（惑人心智门槛要读敌方存活数）；按 ui/70 同口径先滤 alive
+    const enemyAlive = (enemyTeam || []).filter(u => u && u.alive);
+    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule, enemyTeam: enemyAlive });
     if (available.length === 0) return null;
     const pick = available[rng.nextInt(0, available.length - 1)];
     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
@@ -191,15 +209,18 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
     // 保证同 seed 同序列——开局补一个 + 每 3 回合补一个，与原来节奏一致。
     let initialBuffs = [];
     if (hexEnabled) {
-        const first = pickHexBuff(initialBuffs, buildAlly, rng, true);
+        const first = pickHexBuff(initialBuffs, buildAlly, rng, true, buildEnemy);
         if (first) initialBuffs.push(first);
     }
+    // V1.16.0：同 runWholeBattle——捕获实时敌方，供惑人心智门槛
+    let liveEnemy = null;
     const res = runBattle({
         ally: buildAlly,
         enemy: buildEnemy,
         seed,
         initialBuffs,
-        hexPicker: hexEnabled ? pickHexBuff : null,
+        hexPicker: hexEnabled ? ((ab, al, r) => pickHexBuff(ab, al, r, false, liveEnemy || buildEnemy)) : null,
+        onStep: hexEnabled ? ((step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }) : undefined,
         firstSide: CAMP_TYPES.ENEMY
     });
     return { winner: res.winner };
@@ -550,12 +571,15 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             if (!teams) continue;
         }
         const buffsPicked = [];
+        let liveEnemy = null;   // V1.16.0：本场实时敌方快照（onStep 维护），供惑人心智门槛
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
         // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
         const hexPicker = (activeBuffs, allySide, rng) => {
             // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供；
             //   hex job 不开 withFortifyRule（与原行为一致）。
-            const available = filterAvailableBuffs(activeBuffs, allySide, {});
+            // V1.16.0：实时敌方透传（惑人心智门槛）
+            const available = filterAvailableBuffs(activeBuffs, allySide,
+                { enemyTeam: (liveEnemy || teams.enemyTeam).filter(u => u && u.alive) });
             if (available.length === 0) return null;
             // 偏好海克斯出现时优先选（与 101 主线程版一致；无偏好则全池随机）
             const preferred = available.filter(k => preferredBuffs.includes(k));
@@ -581,7 +605,9 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             ally: teams.allyTeam,
             enemy: teams.enemyTeam,
             seed,
-            hexPicker
+            hexPicker,
+            // V1.16.0：捕获实时敌方（每场独立重置），供惑人心智门槛
+            onStep: (step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }
         });
         const w = res.winner || '平局';
         hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: w });
