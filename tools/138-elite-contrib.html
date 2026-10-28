@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tools/138-elite-contrib.html — 弱精英机制贡献评估（V1.0.0 | 2026-10-28）
+<!-- tools/138-elite-contrib.html — 弱精英机制贡献评估（V1.1.0 | 2026-10-28）
      目的：112「弱精英评测」只给胜率 Δ，看不出「机制到底触发了几次 / 精英本人干了什么」。
      本页复用 116 V1.15.0 的 kind:'weakContrib'：配对臂（精英臂 vs 自然臂）与 112 完全同口径
      （同种子公式 masterSeed + stage*131 + eliteIdx*7717、同 CHUNK/startIndex、同 clean 剔除），
@@ -53,7 +53,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { WEAK_ELITES } from './127-tool-registry.js';
 
-const VERSION = '138-elite-contrib V1.0.0';
+const VERSION = '138-elite-contrib V1.1.0';
 const CHUNK = 50;
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
 const VARIANTS = ['胖远桥', '宋青书', '标准'];
@@ -80,6 +80,31 @@ const topList = (obj, runs, limit) => {
   if (!arr.length) return '<span class="dim">—</span>';
   return arr.map(([k, v]) => `${k} ${per(v, runs)}/场`).join('<br>');
 };
+// 显著性：两比例差（保守按独立样本，SE = √(p1(1-p1)/n1 + p2(1-p2)/n2)，配对会更紧故不夸大）
+function sigOf(eWins, eRuns, nWins, nRuns) {
+  if (!eRuns || !nRuns) return null;
+  const p1 = eWins / eRuns, p2 = nWins / nRuns;
+  const delta = p1 - p2;
+  const se = Math.sqrt(p1 * (1 - p1) / eRuns + p2 * (1 - p2) / nRuns);
+  const z = se > 0 ? delta / se : 0;
+  return { delta, se, z, sig: Math.abs(z) >= 1.96, ciLo: delta - 1.96 * se, ciHi: delta + 1.96 * se };
+}
+const signedPP = x => (x > 0 ? '+' : '') + x.toFixed(1) + 'pp';
+// 一句话结论：把机制连到结果（数据现成，只差一句串起来）
+function verdictOf(w, e, contribPP, sig) {
+  const runs = e.runs || 1;
+  const dmg = e.sumDmg / runs, taken = e.sumTaken / runs, heal = e.sumHeal / runs;
+  const sideTxt = w.side === 'ally' ? '我方' : '敌方';
+  const sigTxt = sig ? '显著' : '仍在噪声范围内';
+  const probeTop = Object.entries(e.probes || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0];
+  const skillTop = Object.entries(e.skills || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0];
+  let mech;
+  if (taken > 250 && dmg > 110) mech = `高承伤(${Math.round(taken)}/场)+高输出(${Math.round(dmg)}/场)的前排压制`;
+  else if (probeTop && /穴道|标记|护罩|红血|麻/.test(probeTop[0])) mech = `控制/减益（「${probeTop[0]}」${per(probeTop[1], runs)}/场）`;
+  else if (heal > 30) mech = `治疗续航(${Math.round(heal)}/场)`;
+  else mech = `以「${skillTop ? skillTop[0] : '技能'}」为核心（${skillTop ? per(skillTop[1], runs) : '—'}/场）`;
+  return `${sideTxt}弱精英，对本方净贡献 <b class="${contribPP > 0 ? 'pos' : 'neg'}">${signedPP(contribPP)}</b>（${sigTxt}）。机制上${mech}。`;
+}
 
 // 累加器：by[elite][stage][arm]['总'|variant]
 const by = {};
@@ -111,22 +136,43 @@ function setErr(msg) {
 }
 
 function render() {
-  let html = '<h2>总评（七关合计）</h2><table><tr><th>弱精英</th><th>侧</th><th>样本</th><th>精英胜率</th><th>对照胜率</th><th>Δ</th><th>存活</th><th>输出/场</th><th>承伤/场</th><th>治疗/场</th><th>技能触发/场</th><th>关键事件/场</th></tr>';
+  let html = '<h2>总评（七关合计）</h2><table><tr><th>弱精英</th><th>侧</th><th>样本</th><th>精英胜率</th><th>对照胜率</th><th>Δ(明教)</th><th>对本方贡献</th><th>存活</th><th>输出/场</th><th>承伤/场</th><th>治疗/场</th><th>技能触发/场</th><th>关键事件/场</th></tr>';
   for (const w of WEAK_ELITES) {
     const e = totals(w.name, 'elite');
     const n = totals(w.name, 'natural');
-    if (!e.runs) { html += `<tr><td>${w.name}</td><td>${w.side === 'ally' ? '明教' : '六大派'}</td><td colspan="10" class="dim">无数据（该精英未上场或未跑）</td></tr>`; continue; }
-    const er = e.wins / e.runs * 100;
-    const nr = n.runs ? n.wins / n.runs * 100 : NaN;
-    const delta = isNaN(nr) ? NaN : er - nr;
-    const dcls = isNaN(delta) ? 'dim' : (delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'mid');
-    const dstr = isNaN(delta) ? '—' : (delta > 0 ? '+' : '') + delta.toFixed(1) + 'pp';
+    if (!e.runs) { html += `<tr><td>${w.name}</td><td>${w.side === 'ally' ? '明教' : '六大派'}</td><td colspan="11" class="dim">无数据（该精英未上场或未跑）</td></tr>`; continue; }
+    const er = e.wins / e.runs;
+    const nr = n.runs ? n.wins / n.runs : NaN;
+    const deltaPP = isNaN(nr) ? NaN : (er - nr) * 100;
+    const contribPP = isNaN(deltaPP) ? NaN : (w.side === 'ally' ? deltaPP : -deltaPP); // 统一成「帮他那一方的净胜率变化」
+    const s = sigOf(e.wins, e.runs, n.wins, n.runs);
+    const sigMark = !s ? '' : (s.sig ? ' ✓' : ' ≈');
+    const sigTitle = !s ? '' : ` title="95% 置信区间 ${s.ciLo * 100 >= 0 ? '+' : ''}${(s.ciLo * 100).toFixed(1)}pp ~ ${s.ciHi * 100 >= 0 ? '+' : ''}${(s.ciHi * 100).toFixed(1)}pp；|z|=${s.z.toFixed(2)}${s.sig ? '，显著' : '，仍在噪声内'}"`;
+    const dcls = isNaN(deltaPP) ? 'dim' : 'mid';
+    const dstr = isNaN(deltaPP) ? '—' : (deltaPP > 0 ? '+' : '') + deltaPP.toFixed(1) + 'pp' + sigMark;
+    const ccls = isNaN(contribPP) ? 'dim' : (contribPP > 0.5 ? 'pos' : contribPP < -0.5 ? 'neg' : 'mid');
+    const cstr = isNaN(contribPP) ? '—' : (contribPP > 0 ? '+' : '') + contribPP.toFixed(1) + 'pp';
     html += `<tr><td>${w.name}</td><td class="sub">${w.side === 'ally' ? '明教' : '六大派'}</td><td>${e.runs}</td>
-      <td class="mid">${pctStr(e.wins, e.runs)}</td><td>${pctStr(n.wins, n.runs)}</td><td class="${dcls}">${dstr}</td>
+      <td class="mid">${pctStr(e.wins, e.runs)}</td><td>${pctStr(n.wins, n.runs)}</td>
+      <td class="${dcls}"${sigTitle}>${dstr}</td>
+      <td class="${ccls}" title="统一方向：帮他那一方的净胜率变化（明教侧=Δ，六大派侧=−Δ）">${cstr}</td>
       <td>${pctStr(e.sumSurv, e.runs)}</td><td>${Math.round(e.sumDmg / e.runs)}</td><td>${Math.round(e.sumTaken / e.runs)}</td><td>${Math.round(e.sumHeal / e.runs)}</td>
       <td>${topList(e.skills, e.runs, 6)}</td><td>${topList(e.probes, e.runs, 4)}</td></tr>`;
   }
-  html += '</table>';
+  html += '</table><div class="sub" style="margin-top:4px">Δ(明教)=精英臂−自然臂的明教胜率（负=明教更难赢）；<b>对本方贡献</b>=把他那一方的净胜率变化统一成同向（绿=帮他那方、红=拖他那方），免得把「六大派精英负Δ」误读成「弱」。✓=显著，≈=噪声。</div>';
+
+  // 一句话结论（V1.1.0）：机制连到结果，免得只摆数字
+  html += '<h2>一句话结论</h2><div class="detail">';
+  for (const w of WEAK_ELITES) {
+    const e = totals(w.name, 'elite');
+    const n = totals(w.name, 'natural');
+    if (!e.runs || !n.runs) continue;
+    const deltaPP = (e.wins / e.runs - n.wins / n.runs) * 100;
+    const contribPP = w.side === 'ally' ? deltaPP : -deltaPP;
+    const s = sigOf(e.wins, e.runs, n.wins, n.runs);
+    html += `<div style="margin:4px 0">· ${verdictOf(w, e, contribPP, s && s.sig)}</div>`;
+  }
+  html += '</div>';
 
   html += '<h2>分关 Δ（精英臂 − 自然臂）</h2><table><tr><th>弱精英</th>';
   for (const st of STAGES) html += `<th>第${st}关</th>`;
@@ -137,15 +183,19 @@ function render() {
     for (const st of STAGES) {
       const s = by[w.name][st];
       if (!s || !s.elite || !s.elite.runs) { html += '<td class="dim">—</td>'; continue; }
-      const er = s.elite.wins / s.elite.runs * 100;
-      const nr = s.natural && s.natural.runs ? s.natural.wins / s.natural.runs * 100 : NaN;
+      const er = s.elite.wins / s.elite.runs;
+      const nr = s.natural && s.natural.runs ? s.natural.wins / s.natural.runs : NaN;
       if (isNaN(nr)) { html += '<td class="dim">—</td>'; continue; }
-      const d = er - nr;
-      html += `<td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : 'mid'}">${d > 0 ? '+' : ''}${d.toFixed(1)}<span class="sub"> / ${s.elite.runs}场</span></td>`;
+      const d = (er - nr) * 100;
+      const contrib = w.side === 'ally' ? d : -d; // 贡献方向统一：绿=帮他那方
+      const sg = sigOf(s.elite.wins, s.elite.runs, s.natural.wins, s.natural.runs);
+      const mark = !sg ? '' : (sg.sig ? ' ✓' : ' ≈');
+      const title = !sg ? '' : ` title="95%CI ${(sg.ciLo * 100).toFixed(1)}~${(sg.ciHi * 100).toFixed(1)}pp；|z|=${sg.z.toFixed(2)}"`;
+      html += `<td class="${contrib > 0.5 ? 'pos' : contrib < -0.5 ? 'neg' : 'mid'}"${title}>${d > 0 ? '+' : ''}${d.toFixed(1)}${mark}<span class="sub"> / ${s.elite.runs}场</span></td>`;
     }
     html += '</tr>';
   }
-  html += '</table>';
+  html += '</table><div class="sub" style="margin-top:4px">分关 Δ 着色：<span class="pos">绿=帮他那一方</span> / <span class="neg">红=拖他那一方</span>；✓=显著（95%置信区间不含0），≈=仍在噪声内（该关样本少，别当真信号）。</div>';
 
   html += '<h2>机制观测明细（精英臂，每场均值）</h2><div class="detail">';
   for (const w of WEAK_ELITES) {

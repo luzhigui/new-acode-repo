@@ -446,10 +446,10 @@
           "camp": "ally",
           "targetRule": "lowestHp",
           "onHitEffects": [
-            { "type": "leech", "minRatio": 0.10, "maxRatio": 0.30 }
+            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.35 }
           ],
           "dodgeRules": [
-            { "type": "lostHpPercent", "max": 0.70 }
+            { "type": "lostHpPercent", "max": 0.65 }
           ]
         }
       ],
@@ -816,7 +816,7 @@
       "isTangWenLiang": [4, 5, 6, 7, 8, 9, 1, 2, 3]
     },
     "elitePower": { "张无忌": 130, "韦一笑": 125, "小昭": 130, "金毛狮王谢逊": 130, "寒离飒": 125, "杨逍": 115, "殷天正": 115 },
-    "eliteRate": { "张无忌": 0.30, "韦一笑": 0.20, "小昭": 0.40, "金毛狮王谢逊": 0.20, "寒离飒": 0.40 },
+    "eliteRate": { "张无忌": 0.20, "韦一笑": 0.20, "小昭": 0.40, "金毛狮王谢逊": 0.20, "寒离飒": 0.40 },
     "normalPower": { "95": 90, "97": 95, "100": 100, "104": 110 }
   },
 
