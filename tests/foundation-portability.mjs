@@ -1,4 +1,16 @@
-// tests/foundation-portability.mjs | V1.0.0 | 2026-10-28 夜间第 149 轮：新增「地基可携化」。
+// tests/foundation-portability.mjs | V1.1.0 | 2026-10-28 夜间第 150 轮：★ 自证探针恢复真形态。
+//
+// V1.1.0 | 2026-10-28 夜间第 150 轮：兑现第 149 轮自己点名的下轮任务 —— 公共件根治之后，受体侧接上。
+//   第 149 轮的教训是「自证探针写成真路径形态 ⇒ 污染真值，地基普查当场由 MATCH 变 DRIFT、
+//   凭空多两条地基缺失」，当时只能把探针改成不含路径前缀的标识（probe-claimed）—— 那是**纪律**：
+//   每新增一个带自证的件，写自证的人都得再记一次"别写真形态"，漏记一次就复发一次。
+//   第 150 轮公共件 _lib/foundation-scan.mjs V1.1.0 把它变成**机制**：成对注释标记圈出的自证区豁免
+//   + 抽取前剔注释（★ 顺序不可换：标记本身写在注释里，先剔注释会把标记一起删掉）。
+//   本轮就在本件身上做闭环实证：**把探针改回真形态**（tests/.mut/probe-claimed.txt），
+//   结论必须一字不变 —— 若改回真形态后地基普查又多出两条地基，就说明机制根本没生效。
+//   另增【豁免差集点名】：raw 有、truth 无的每条逐条点名，并标明是被「自证区豁免」还是「注释豁免」吃掉。
+//   ★ 机制把污染关掉了，但"关掉了什么"必须看得见 —— 否则哪天标记被删掉、真值重新被污染，
+//     报告却依旧 MATCH，那就是**静默复发**（本仓库这类"看着在报、其实没咬住"的病已发作四次）。
 //
 // V1.0.0 | 2026-10-28 夜间第 149 轮：立本件。由来是第 148 轮留下的那句挂账 ——
 //   「考虑把 tests/.mut/ 这类地基改为可随 patch 或资料库一起交付，它现在两边都不沾，
@@ -34,10 +46,11 @@ import path from 'node:path';
 import { stripComments } from './_lib/static-truth-slice.mjs';
 import {
     enumerateFoundations, collectItems, gitIgnored, ignoredPresentEntries, ROOT,
+    pathLitViews, SELFCHECK_BEGIN, SELFCHECK_END,
     selfCheck as foundationSelfCheck,
 } from './_lib/foundation-scan.mjs';
 
-export const VER = 'tests/foundation-portability.mjs V1.0.0';
+export const VER = 'tests/foundation-portability.mjs V1.1.0';
 
 const RUN_ALL = 'tests/run-all.mjs';
 const SELF = 'tests/foundation-portability.mjs';
@@ -116,6 +129,38 @@ function splitClaimed(unversioned) {
         else unclaimed.push(u);
     }
     return { claimed, unclaimed };
+}
+
+// ---------------------------------------------------------------------------
+// 豁免差集点名（第 150 轮新增）
+//   ★ 机制负责"关掉污染"，这里负责"把关掉了什么打印出来"。
+//     判据唯一来源仍是公共件的 pathLitViews（raw / selfcheck / truth 三视图），本件不持有第二份。
+//     by 的判定：selfcheck 视图里就已经没有了 ⇒ 是自证区豁免吃掉的；
+//                selfcheck 里还在、truth 里没了 ⇒ 是注释豁免吃掉的。
+//   ★ 不做"有差集就报红"：今天清单里的件写得干不干净不是体检结论，点名即可（改退码须拍板）。
+// ---------------------------------------------------------------------------
+function scanExempted(items) {
+    const hits = [];
+    let rawTotal = 0;
+    let selfTotal = 0;
+    let truthTotal = 0;
+    for (const it of items) {
+        let src = '';
+        try {
+            src = fs.readFileSync(path.join(ROOT, it.script), 'utf8');
+        } catch (e) {
+            continue;
+        }
+        const v = pathLitViews(src);
+        rawTotal += v.raw.length;
+        selfTotal += v.selfcheck.length;
+        truthTotal += v.truth.length;
+        for (const rel of v.raw) {
+            if (v.truth.includes(rel)) continue;
+            hits.push({ script: it.script, rel, by: v.selfcheck.includes(rel) ? '注释豁免' : '自证区豁免' });
+        }
+    }
+    return { hits, rawTotal, selfTotal, truthTotal };
 }
 
 function readSnap(file) {
@@ -213,6 +258,17 @@ function main() {
         console.log('    折叠比 ' + rawCount + ':' + rawEntries.length + ' —— 折叠生效，真信号可见');
     }
 
+    // ③b 依赖绑定面三视图 + 豁免差集（第 150 轮新增）
+    const ex = scanExempted(items);
+    console.log('· 依赖绑定面三视图（路径字面量抽取）：raw=' + ex.rawTotal + ' 条 / selfcheck='
+        + ex.selfTotal + ' 条 / truth(真值)=' + ex.truthTotal + ' 条');
+    if (!ex.hits.length) {
+        console.log('    今日无假料：依赖表里没有自证探针、也没有只活在注释里的路径');
+    } else {
+        console.log('    ★ 被豁免的假料 ' + ex.hits.length + ' 条（raw 有、truth 无）—— 点名是为了让"机制到底咬住了什么"可被核对：');
+        for (const h of ex.hits) console.log('       - ' + h.rel + '〔' + h.by + '〕@ ' + h.script);
+    }
+
     // ① 认领分级
     console.log('· 认领分级（判据唯一来源：tests/_lib/foundation-scan.mjs）：');
     let portableBytes = 0;
@@ -304,31 +360,32 @@ function main() {
     process.exit(gap.length ? 1 : 0);
 }
 
+// FOUNDATION-SELFCHECK-BEGIN
 function runSelfChecks(rawCount, stripCount, claimedCount) {
     const fails = [];
     // ① 认领判据：无人认领与已认领两端都钉住（分错类 = 该搬的没搬、不该搬的搬了 1.9GB）
-    // ★ 探针的 rel 刻意**不写成能被归一成仓库路径的字面量**（不用 tests/.mut/ 开头）：
-    //   本仓库的"依赖 = 源码里的路径字面量"判据是静态的，它分不清真依赖与自证合成样本 ——
-    //   本件第一版把探针写成"仓库路径 + 目录前缀 + 点 txt 后缀"的真形态（连注释里也这么举例），
-    //   结果地基普查把这些合成路径当成真地基，报告当场由 MATCH 变 DRIFT、凭空多出"地基缺失"
-    //   （本轮实测，见迭代日志第 149 轮）。★ 抽取时不剔注释，所以注释里写同样形态一样中招。
-    //   ⇒ 自证要证明的是**分类逻辑**，不是路径长相；路径可以随便取，取了真长相反而污染真值。
+    // ★ 探针**故意写成真路径形态**（tests/.mut/ 开头）—— 这是第 150 轮的闭环实证：
+    //   第 149 轮就是因为这么写才污染真值（地基普查 MATCH 变 DRIFT、凭空多两条地基缺失），
+    //   当时唯一的办法是把探针改成不含路径前缀的标识，那是纪律不是机制；
+    //   本轮公共件 V1.1.0 给了机制（自证区标记豁免 + 抽取前剔注释），探针于是可以恢复真形态，
+    //   而结论必须一字不变 —— 自证⑤同时验「raw 里有探针」与「truth 里没有探针」两端。
+    //   ★ 自证要证明的是**分类逻辑**；机制生效后，"路径长相"不再是需要回避的东西。
     const probe = [
-        { rel: 'probe-unclaimed', users: [UNCLAIMED], why: '', present: true },
-        { rel: 'probe-claimed', users: ['牙口证据链对账(离线断言)'], why: '', present: true },
+        { rel: 'tests/.mut/probe-unclaimed.txt', users: [UNCLAIMED], why: '', present: true },
+        { rel: 'tests/.mut/probe-claimed.txt', users: ['牙口证据链对账(离线断言)'], why: '', present: true },
     ];
     const sp = splitClaimed(probe);
-    if (sp.claimed.length !== 1 || sp.claimed[0].rel !== 'probe-claimed') {
+    if (sp.claimed.length !== 1 || sp.claimed[0].rel !== 'tests/.mut/probe-claimed.txt') {
         fails.push('① 认领分级失位：有依赖方的地基没被分进可携化面（实得 ' + JSON.stringify(sp.claimed.map(x => x.rel)) + '）');
     }
-    if (sp.unclaimed.length !== 1 || sp.unclaimed[0].rel !== 'probe-unclaimed') {
+    if (sp.unclaimed.length !== 1 || sp.unclaimed[0].rel !== 'tests/.mut/probe-unclaimed.txt') {
         fails.push('①b 认领分级失位：无人认领的产物被当成了体检地基（实得 ' + JSON.stringify(sp.unclaimed.map(x => x.rel)) + '）');
     }
     // ② 快照往返自证：导出 → 回灌到临时目标 → 读回校验 sha256，任一步错都必须喊
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fp149-'));
     try {
-        // 同上：真实地基路径也用拼装取，避免自证样本被静态抽取器认成"本件依赖该地基"
-        const srcRel = ['tests', '.mut', 'teeth-results.txt'].join('/');
+        // 第 150 轮：机制生效后不必再靠拼装躲抽取器 —— 自证区内的字面量不计真值，直写即可。
+        const srcRel = 'tests/.mut/teeth-results.txt';
         const srcAbs = path.join(ROOT, srcRel);
         if (!fs.existsSync(srcAbs)) {
             fails.push('② 快照往返自证跑不了：' + srcRel + ' 不在本沙箱（本件因此无法证明回灌可信）');
@@ -362,6 +419,22 @@ function runSelfChecks(rawCount, stripCount, claimedCount) {
         if (claimedCount === 0) {
             fails.push('④b 可携化面为空：没有任何体检项引用到非版本化地基 —— 多半是依赖绑定塌了（本件会恒绿）');
         }
+        // ⑤ 机制闭环实证（第 150 轮新增，本件本轮存在的理由）：
+        //   本件自己的探针**必须被豁免** —— raw 视图里必须有（否则探针被改掉了 ⇒ ⑤b 是空转的假绿），
+        //   truth 视图里必须没有（否则就是第 149 轮那款污染的复发路径）。
+        const selfSrc = fs.readFileSync(path.join(ROOT, SELF), 'utf8');
+        const sv = pathLitViews(selfSrc);
+        for (const pr of ['tests/.mut/probe-claimed.txt', 'tests/.mut/probe-unclaimed.txt']) {
+            if (!sv.raw.includes(pr)) {
+                fails.push('⑤ 自证探针没写进本件源码（' + pr + ' 在 raw 视图里都找不到）—— 探针被改掉了，⑤b 那条会变成空转的假绿');
+            }
+            if (sv.truth.includes(pr)) {
+                fails.push('⑤b 自证区豁免没咬住本件自己：探针 ' + pr + ' 混进真值 —— 这正是第 149 轮「地基普查 MATCH 变 DRIFT」的复发路径');
+            }
+        }
+        if (!selfSrc.includes(SELFCHECK_BEGIN) || !selfSrc.includes(SELFCHECK_END)) {
+            fails.push('⑤c 自证区标记缺失：本件源码里找不到成对的标记常量引用 —— 标记不成对则豁免区一直吃到文件尾，真值会被整段吃掉');
+        }
     } catch (e) {
         fails.push('地基可携化自证自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 本件全部结论作废');
     } finally {
@@ -369,5 +442,6 @@ function runSelfChecks(rawCount, stripCount, claimedCount) {
     }
     return fails;
 }
+// FOUNDATION-SELFCHECK-END
 
 main();
