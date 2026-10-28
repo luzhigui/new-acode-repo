@@ -1,4 +1,15 @@
-// tests/_lib/foundation-scan.mjs | V1.0.0 | 2026-10-28 夜间第 149 轮
+// tests/_lib/foundation-scan.mjs | V1.1.0 | 2026-10-28 夜间第 150 轮
+//
+// V1.1.0 | 2026-10-28 夜间第 150 轮：★ 根治第 149 轮撞上的「自证探针污染真值」。
+//   第 149 轮的症状：foundation-portability 的自证把合成样本写成真路径形态，地基普查把这些
+//   合成路径当成真地基，报告当场由 MATCH 变 DRIFT、凭空多出两条"地基缺失"；连注释里提同样
+//   形态的路径也照样中招。第 149 轮的修法是**把探针改成不含路径前缀的标识**（probe-claimed），
+//   —— 那是"每个新件各自记得别写真形态"的纪律，不是机制：每新增一个带自证的件，就得再记一次。
+//   本轮在公共件侧根治，两条一起收：
+//     ①【自证区豁免】统一标记 FOUNDATION-SELFCHECK-BEGIN / END，标记区内的字面量不计入真值；
+//     ②【注释豁免】抽取前先剔注释（复用 _lib/static-truth-slice 的 stripComments，不手写第二份）。
+//   ★ 两条有先后：标记本身写在注释行里，先剔注释会把标记一起删掉 ⇒ 必须先剔自证区、再剔注释。
+//   行为对现有受体**一字未变**（今日无污染，diff 空），只把"以后还会不会再犯"这件事关掉。
 //
 // 「非版本化地基」枚举与「体检项 × 地基」依赖绑定的**唯一来源**（single source of truth）。
 //
@@ -22,8 +33,9 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './static-truth-slice.mjs';
 
-export const VER = 'tests/_lib/foundation-scan.mjs V1.0.0';
+export const VER = 'tests/_lib/foundation-scan.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +51,32 @@ export const RE_ITEM = /name:\s*'([^']+)'\s*,\s*script:\s*'([^']+)'/g;
 
 // 路径字面量：源码里被引号包起来的、长度可控的片段，再由 normalizeToRepoRel 筛成仓库相对路径。
 const RE_PATH_LIT = /['"]([^'"\n]{1,160})['"]/g;
+
+// ---------------------------------------------------------------------------
+// 自证区豁免（第 150 轮新增）
+//   用法：件里把自己的自证函数体用注释行包起来 ——
+//     // FOUNDATION-SELFCHECK-BEGIN
+//     ... 自证探针（可以放心写真路径形态）...
+//     // FOUNDATION-SELFCHECK-END
+//   ★ 标记必须成对；缺 END 则该区一直吃到文件尾（宁可多剔、不可漏剔：漏剔 = 污染真值）。
+// ---------------------------------------------------------------------------
+export const SELFCHECK_BEGIN = 'FOUNDATION-SELFCHECK-BEGIN';
+export const SELFCHECK_END = 'FOUNDATION-SELFCHECK-END';
+
+const RE_SELFCHECK_REGION = new RegExp(
+    '^[^\\n]*' + SELFCHECK_BEGIN + '[^\\n]*$[\\s\\S]*?^[^\\n]*' + SELFCHECK_END + '[^\\n]*$',
+    'gm',
+);
+
+/** 把自证区整段抹成空白（保留行数与偏移，避免影响任何按行号的口径） */
+export function stripSelfCheckRegions(src) {
+    return String(src || '').replace(RE_SELFCHECK_REGION, m => m.replace(/[^\n]/g, ' '));
+}
+
+// 抽取前的预处理档位：none=原样 / selfcheck=只剔自证区 / all=剔自证区再剔注释（真值口径）
+export const STRIP_NONE = 'none';
+export const STRIP_SELFCHECK = 'selfcheck';
+export const STRIP_ALL = 'all';
 
 export function gitIgnored(rel) {
     return spawnSync('git', ['check-ignore', '-q', rel], { cwd: ROOT, encoding: 'utf8' }).status === 0;
@@ -89,18 +127,23 @@ export function extractJoinTails(src) {
     return out;
 }
 
-export function extractPathLits(src) {
+export function extractPathLits(src, opts = {}) {
+    const mode = opts.strip || STRIP_ALL;
+    let work = String(src || '');
+    // ★ 顺序不可换：标记写在注释行里，先剔注释会连标记一起删掉 ⇒ 豁免静默失效。
+    if (mode === STRIP_SELFCHECK || mode === STRIP_ALL) work = stripSelfCheckRegions(work);
+    if (mode === STRIP_ALL) work = stripComments(work);
     const out = [];
     const seen = new Set();
     RE_PATH_LIT.lastIndex = 0;
     let m;
-    while ((m = RE_PATH_LIT.exec(src))) {
+    while ((m = RE_PATH_LIT.exec(work))) {
         const rel = normalizeToRepoRel(m[1]);
         if (!rel || seen.has(rel)) continue;
         seen.add(rel);
         out.push({ rel, why: '字面量 ' + m[1] });
     }
-    for (const j of extractJoinTails(src)) {
+    for (const j of extractJoinTails(work)) {
         for (const cand of ['tests/' + j.tail, j.tail]) {
             const rel = normalizeToRepoRel(cand);
             if (!rel || seen.has(rel)) continue;
@@ -110,6 +153,20 @@ export function extractPathLits(src) {
         }
     }
     return out;
+}
+
+/**
+ * 路径字面量抽取面三视图（第 122 轮立的锚点三视图规矩，本件为第七受体）。
+ *   raw         = 原样抽取（含自证探针与注释里的假料）
+ *   selfcheck   = 只剔自证区
+ *   truth(真值) = 剔自证区再剔注释
+ * ★ 单调性必须成立：truth ⊆ selfcheck ⊆ raw。
+ *   若 truth === raw，说明两道豁免一道都没咬到 —— 要么是今天确实干净，要么是机制坏了，
+ *   靠本函数的调用方把差集打出来，不许只看总数。
+ */
+export function pathLitViews(src) {
+    const at = mode => extractPathLits(src, { strip: mode }).map(x => x.rel);
+    return { raw: at(STRIP_NONE), selfcheck: at(STRIP_SELFCHECK), truth: at(STRIP_ALL) };
 }
 
 export function collectItems(src) {
@@ -160,6 +217,7 @@ export function enumerateFoundations(items, scanDir = TESTS_DIR) {
 // 自证：本件腐烂了要能被听见（第 143 轮 sample-sufficiency 的规矩：每个新件挂一条 selfCheck）。
 //   ★ 原则照抄第 148 轮：自证失败必须由**受体并入 fails 并影响退码** —— 只打印不计退码就是假绿。
 // ---------------------------------------------------------------------------
+// FOUNDATION-SELFCHECK-BEGIN
 export function selfCheck() {
     const fails = [];
     try {
@@ -185,8 +243,38 @@ export function selfCheck() {
         if (!items2.some(x => x.name === '合成项' && x.script === 'tests/synthetic-probe.mjs')) {
             fails.push('④ 清单配对抽取器失位：合成样本里的 name+script 没抠成配对 —— 依赖绑定会全线对不上号');
         }
+        // ⑤ 自证区豁免 + 注释豁免（第 150 轮新增，本件存在的理由）
+        //   合成一段源码：区外一条真依赖、区内一条自证探针、注释里一条假料。
+        //   真值口径必须**只剩区外那条** —— 多一条就是污染，少一条就是误杀真值。
+        const L = q => "'tests/.mut/" + q + "'";
+        const probeSrc = [
+            'const REAL_DEP = ' + L('real-dep.txt') + ';',
+            '// ' + SELFCHECK_BEGIN,
+            'const FAKE = ' + L('probe-fake.txt') + ';',
+            '// ' + SELFCHECK_END,
+            '// 注释里提一句 ' + L('comment-only.txt') + ' 也不该算',
+        ].join('\n');
+        const v = pathLitViews(probeSrc);
+        const REAL = 'tests/.mut/real-dep.txt';
+        if (!v.truth.includes(REAL)) {
+            fails.push('⑤ 抽取误杀真值：区外的真依赖 ' + REAL + ' 没抽出来（实得 ' + JSON.stringify(v.truth) + '）—— 剔注释或剔自证区把代码也吃掉了，依赖表会静默变空');
+        }
+        if (v.truth.includes('tests/.mut/probe-fake.txt')) {
+            fails.push('⑤b 自证区豁免失位：标记区内的合成探针混进真值（实得 ' + JSON.stringify(v.truth) + '）—— 这正是第 149 轮「地基普查 MATCH 变 DRIFT」的那款污染');
+        }
+        if (v.truth.includes('tests/.mut/comment-only.txt')) {
+            fails.push('⑤c 注释豁免失位：注释里的假料混进真值（实得 ' + JSON.stringify(v.truth) + '）—— 注释里提一句路径就会凭空多一条地基');
+        }
+        // ⑤d 三视图单调性 + 豁免确实咬到了东西（否则上面三条是拿空集自证的假绿）
+        if (!v.raw.includes('tests/.mut/probe-fake.txt') || !v.raw.includes('tests/.mut/comment-only.txt')) {
+            fails.push('⑤d 自证样本本身没生效：raw 视图里就没有探针（实得 ' + JSON.stringify(v.raw) + '）—— 样本写坏了，⑤⑤b⑤c 三条是空转的假绿');
+        }
+        if (v.truth.length >= v.raw.length) {
+            fails.push('⑤e 三视图失位：真值 ' + v.truth.length + ' 条未少于 raw ' + v.raw.length + ' 条 ⇒ 两道豁免一道都没咬到，机制形同虚设');
+        }
     } catch (e) {
         fails.push('地基枚举公共件自证自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 用地基枚举得到的任何结论一并作废');
     }
     return fails;
 }
+// FOUNDATION-SELFCHECK-END
