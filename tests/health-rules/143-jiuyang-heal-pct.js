@@ -1,3 +1,4 @@
+// V6.3.1 | 2026-10-28 | ~11KB | gap<=0（hp>maxHp 异常态）时落地回血夹 0，修 d8a9cea8 后 6 场「缺口为负」假红
 // 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
 //       heal = min(floor(unit.maxHp × pct), unit.maxHp - unit.hp)，heal > 0 才推 NINE_YANG_HEAL 事实
@@ -46,7 +47,7 @@
 //     · 期望值改为**落地口径** min(floor(maxHp×12%), 缺口)，抑疗档另算 round(落地值×0.5)，逐档精确比对；
 //     · 回退检测（12%→10%/8%）保留，且只在"夹取与抑疗都解释不了"时才报，杜绝拿旧比例冒充回退；
 //     · 截脉 ratio 取自 content（本规则读不到），命中该档时按"有抑疗信号且低于落地期望"降级不误报。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.3.0';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.3.1';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
@@ -158,10 +159,18 @@ export const rule90 = {
             //   原值 raw = floor(当时血上限 × 12%) → 抑疗打折 → 最后夹"血上限缺口"
             var raw = Math.floor(maxHpAt * NINE_YANG_PCT);
             var gap = maxHpAt - h.hpBefore;
+            // V6.3.1（d8a9cea8 后冒出的假红）：gap<=0 即 hpBefore >= maxHpAt —— 只可能是
+            //   ①hp 越上限（maxHp 下降后未夹取）或 ②maxHpAt 归因偏小（蝶变附身/变身把当时上限抬高）。
+            //   两种情形下「百分比回血」都不可测，按「宁漏勿误」跳过百分比比较（上方断言3 血线同步仍无条件跑）。
+            if (gap <= 0) continue;
             // 逐档都按引擎口径取整（core/13 出口 Math.floor）：期望值必须是整数，否则与整数 heal
             //   比会凭空多出 0.5~1.5 的偏差（实证 seed=4 stage=1 血上限 122.5 → 旧写法期望 13.5 误报）
-            var expectLanded = Math.floor(Math.min(raw, gap));                                   // ① 无抑疗（含被缺口夹小）
-            var expectReduced = Math.floor(Math.round(Math.min(raw, gap) * POISON_HEAL_REDUCE)); // ② 寒毒/玄冥毒抑疗 ×0.5
+            // V6.3.1 口径修正（d8a9cea8 后冒出的假红）：gap<=0（hpBefore > maxHpAt，即 maxHp 下降后
+            //   血未夹取，如蝶变附身 maxHp 加成移除）时，min(raw,gap) 为负 ⇒ 旧写法期望恒负（如 -51），
+            //   而引擎 heal 受 max(1,...) 下界恒 ≥1 ⇒ 假红。落地回血**定义上不可能为负**，故先夹 0 再取整。
+            var clamped = Math.max(0, Math.min(raw, gap));                                       // gap<=0 时落地必为 0
+            var expectLanded = Math.floor(clamped);                                              // ① 无抑疗（含被缺口夹小）
+            var expectReduced = Math.floor(Math.round(clamped * POISON_HEAL_REDUCE));            // ② 寒毒/玄冥毒抑疗 ×0.5
 
             if (Math.abs(h.heal - expectLanded) <= 1) continue;   // ① 干净条目 / 被缺口夹取 —— 通过
             if (Math.abs(h.heal - expectReduced) <= 1) continue;  // ② 抑疗打折后的落地值 —— 通过
