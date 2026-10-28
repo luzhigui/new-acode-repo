@@ -1,3 +1,5 @@
+// V1.20.0 | 2026-10-28 夜间第 151 轮：OBSERVES 挂「第二份快照普查」tests/second-source-scan.mjs
+//   （tests 下手写第二份剥注释实现的点名 + 棘轮；与第 147/148/149 轮同一取舍：挂观察项不改分母）。
 // V1.19.0 | 2026-10-28 夜间第 149 轮：OBSERVES 挂「地基可携化」tests/foundation-portability.mjs。
 //   第 148 轮只做到「地基缺失即报」，本件补上「缺失了能一键拿回来」：把地基分成有依赖方的可携化面
 //   与无人认领的纯产物（后者实测 1.8GB，不分级就谈导出等于打包 1.8GB，那件事谁也不会去做）。
@@ -78,7 +80,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.19.0';
+export const VER = 'tests/run-all.mjs V1.20.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -199,7 +201,11 @@ const OBSERVES = [
     { name: '沙箱易碎地基普查', script: 'tests/sandbox-fragility-scan.mjs', args: [] },
     // V1.19.0 | 2026-10-28 夜间第 149 轮：地基可携化（认领分级 + 快照导出/回灌/对账 + 枚举面三视图）。
     //   挂观察项不改分母，与孤儿普查、地基普查同一取舍（挂 CHECKS 会让分母 24 变 25，须拍板）。
-    { name: '地基可携化', script: 'tests/foundation-portability.mjs', args: [] }
+    { name: '地基可携化', script: 'tests/foundation-portability.mjs', args: [] },
+    // V1.20.0 | 2026-10-28 夜间第 151 轮：第二份快照普查（tests 下手写第二份「剥注释/串掩码」实现
+    //   的点名 + 棘轮；本轮已把 _lib/rule-branch-extract 与 rule-binding-drift-selftest 两份收口为
+    //   公共件唯一来源，123static-scan.js 因浏览器双用点名挂账）。挂观察项不改分母，理由同上。
+    { name: '第二份快照普查', script: 'tests/second-source-scan.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

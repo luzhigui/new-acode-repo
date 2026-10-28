@@ -34,7 +34,32 @@
 //   const a = auditSlice({ src, from: 'FACT_TYPES', to: 'MECHANIC_TYPES', owner: 'FACT_TYPES', truthKeys: Object.keys(FACT_TYPES) });
 //   const v = auditValueMap(blocks, 'FACT_TYPES');
 //   for (const bad of selfCheck()) fails.push('静态真值口径公共件自证：' + bad);
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.1.0';
+// V1.2.0 | 2026-10-28 夜间第 151 轮：新增 ⑥ stripCommentsMapped / auditStripCopies
+//   —— 收「手写第二份去注释」这一款病（本仓库第四次发作）：
+//     tests 下曾同时存在三份各写一遍的剥注释实现（_lib/rule-branch-extract 的
+//     stripCommentsKeepStrings、rule-binding-drift-selftest 的 stripComments（带行号映射）、
+//     123static-scan.js 的 stripComments）。三份口径互不相同：
+//       · rule-branch-extract 那份会把**多行块注释连同换行一起吃掉**（行结构塌陷）；
+//       · 只有 rule-binding-drift 那份识别**正则字面量**（公共件 stripComments 的已知边界）。
+//     ⇒ 一处收紧、另一处没跟，就是"同一份源码在两个自检里取样面不同"的幽灵事件，
+//       而两边都报绿，谁也看不出来。本轮把带映射+正则感知那一版上提为公共件唯一来源，
+//       两个 .mjs 受体改为复用；123static-scan.js 因被浏览器页面直接 import（121health-monitor
+//       跑在页面里），改 import 会影响线上页面，故**点名挂账待拍板**，不擅自收口。
+//   ★ 为什么不动 stripComments 让它也带正则感知：那会一次性改变 5 个既有受体的取样面，
+//     属"顺手改判据"。本轮只做收口，stripComments 一字未动（差异已实测并点名，见 audit 输出）。
+//
+// 本件提供的五样东西：
+//   ① stripComments / codeMask    —— 把注释从"写法=证据"的取样面里剔出去（保字符串与模板串不被误删）；
+//   ② parseEnumBlocks             —— **按所有权**解析 `export const X = Object.freeze({...})` 块；
+//   ③ attributeSlice / auditSlice —— 给"文本切片"做体检：构成归属、外来者、同名重复、与真值口径的差集、独立第三路径；
+//   ④ auditValueMap               —— 给"值→常量名"平铺映射做体检：跨枚举值冲突、外来条目、所有权真值表；
+//   ⑤ auditAnchorSites            —— 锚点落在真代码里还是只活在注释里；
+//   ⑥ stripCommentsMapped / auditStripCopies —— 带行号映射的剥注释（含正则字面量感知）+「第二份快照」点名与棘轮。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.2.0';
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ---------------------------------------------------------------------------
 // ① 注释清除：把注释原文清掉，但**保住字符串 / 模板串里长得像注释的东西**。
@@ -105,6 +130,126 @@ export function codeMask(code) {
     }
     // 单 '\n' 分支里 mode 重置发生在下一次循环，这里补齐最后一行的边界
     return marks;
+}
+
+// ---------------------------------------------------------------------------
+// ⑥-a 带映射的剥注释（唯一来源）：与 stripComments 只差两点
+//   ① 返回 { code, owner, lineOf }：调用方要按**原文行号**回指（报错行号、抽取行上下文窗口靠它）；
+//   ② 额外识别**正则字面量**，避免把正则里的 // 或 /* 当注释起点（stripComments 的已知边界）。
+//   ★ 来源 = tests/rule-binding-drift-selftest.mjs 那份手写实现，本轮原样上提、行为一字不变；
+//     该文件改为 import 本函数，手写第二份随之消失（由 auditStripCopies 守着不许再长回来）。
+//   ★ 保行结构：块注释里的换行**逐个保留**（out 里按原下标 push '\n'），
+//     这与 rule-branch-extract 旧手写版"连换行一起吃掉"不同 —— 那版会让多行块注释之后
+//     的行号整体塌陷一截，抽取侧按行号回指时就会指错行。
+export function stripCommentsMapped(src) {
+    let out = '';
+    const owner = [];
+    let i = 0; const n = src.length;
+    let state = 'code'; let prevSig = '';
+    const push = (ch, idx) => { out += ch; owner.push(idx); };
+    while (i < n) {
+        const c = src[i], d = src[i + 1];
+        if (state === 'code') {
+            if (c === '/' && d === '/') { state = 'line'; i += 2; continue; }
+            if (c === '/' && d === '*') { state = 'block'; i += 2; continue; }
+            if (c === "'" || c === '"' || c === '`') {
+                const q = c; push(c, i); i++;
+                while (i < n) {
+                    const ch = src[i];
+                    if (ch === '\\') { push(ch, i); if (i + 1 < n) push(src[i + 1], i + 1); i += 2; continue; }
+                    push(ch, i); i++;
+                    if (ch === q) break;
+                }
+                prevSig = ')';
+                continue;
+            }
+            if (c === '/' && '(,=:[!&|?{;'.includes(prevSig)) {
+                let j = i + 1; let inClass = false;
+                while (j < n) {
+                    const ch = src[j];
+                    if (ch === '\\') { j += 2; continue; }
+                    if (ch === '[') inClass = true;
+                    else if (ch === ']') inClass = false;
+                    else if (ch === '/' && !inClass) break;
+                    else if (ch === '\n') break;
+                    j++;
+                }
+                for (let k = i; k <= j && k < n; k++) push(src[k], k);
+                i = j + 1; prevSig = ')';
+                continue;
+            }
+            push(c, i); i++;
+            if (!' \t\r\n'.includes(c)) prevSig = c;
+            continue;
+        }
+        if (state === 'line') { if (c === '\n') { state = 'code'; push('\n', i); } i++; continue; }
+        if (c === '*' && d === '/') { state = 'code'; i += 2; continue; }
+        if (c === '\n') push('\n', i);
+        i++;
+    }
+    const lineStart = [0];
+    for (let k = 0; k < src.length; k++) if (src[k] === '\n') lineStart.push(k + 1);
+    const lineOf = (idx) => {
+        let lo = 0, hi = lineStart.length - 1;
+        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (lineStart[mid] <= idx) lo = mid; else hi = mid - 1; }
+        return lo + 1;
+    };
+    return { code: out, owner, lineOf };
+}
+
+// ---------------------------------------------------------------------------
+// ⑥-b 「第二份快照」点名与棘轮：把"以后还会不会再写一份"这件事关掉
+//   规则（机械可验，不靠自觉）：
+//     扫 tests/ 下所有 .js/.mjs，找**剥注释/串掩码类的本地函数定义**（按函数名匹配）；
+//     · 命中文件 == 本公共件 ⇒ 唯一来源本身，不计；
+//     · 命中文件 import 了本公共件 ⇒ 视为已收口（转发/复用），计入"已收口"；
+//     · 其余 ⇒ **第二份快照（未收口）**，逐条点名；条数受棘轮上限约束，新增即报。
+//   ★ 与第 150 轮同一句话：机制负责关掉污染，点名负责把关掉了什么（以及还剩什么）打印出来 ——
+//     否则哪天又抄一份，报告依旧绿，那就是静默复发。
+// ---------------------------------------------------------------------------
+const RE_STRIP_DEF = /^\s*(?:export\s+)?(?:async\s+)?function\s+(stripComments\w*|stripComment\w*|maskStrings\w*)\s*\(/gm;
+/** 已收口/豁免登记表（唯一来源）：改这里必须写 why，且条数只减不增 */
+export const STRIP_COPY_ALLOWLIST = [
+    { file: '123static-scan.js', why: '浏览器双用：tests/121health-monitor.js 在页面里 import 它，改成 import 本公共件会牵动线上页面加载路径，故点名挂账待拍板（第 151 轮）' }
+];
+/** 未收口条数棘轮上限（只降不抬；要抬须拍板并写明理由） */
+export const STRIP_COPY_RATCHET = 1;
+
+export function auditStripCopies(dir) {
+    const self = path.basename(fileURLToPath(import.meta.url));
+    const names = fs.readdirSync(dir).filter(f => f.endsWith('.js') || f.endsWith('.mjs'));
+    const closed = [], open = [];
+    for (const f of names) {
+        const src = fs.readFileSync(path.join(dir, f), 'utf8');
+        const hits = [...src.matchAll(RE_STRIP_DEF)].map(m => m[1]);
+        if (hits.length === 0) continue;
+        const rec = { file: f, fns: hits };
+        if (f === self) continue;
+        if (/static-truth-slice/.test(src)) { closed.push(rec); continue; }
+        open.push(rec);
+    }
+    for (const d of [dir + '/_lib', dir + '/health-rules']) {
+        if (!fs.existsSync(d)) continue;
+        for (const f of fs.readdirSync(d).filter(x => x.endsWith('.js') || x.endsWith('.mjs'))) {
+            const src = fs.readFileSync(path.join(d, f), 'utf8');
+            const hits = [...src.matchAll(RE_STRIP_DEF)].map(m => m[1]);
+            if (hits.length === 0) continue;
+            const rel = path.basename(d) + '/' + f;
+            if (rel === '_lib/' + self) continue;
+            const rec = { file: rel, fns: hits };
+            if (/static-truth-slice/.test(src)) closed.push(rec); else open.push(rec);
+        }
+    }
+    const allow = new Set(STRIP_COPY_ALLOWLIST.map(a => a.file));
+    const unnamed = open.filter(o => !allow.has(o.file));
+    const fails = [];
+    if (unnamed.length > 0) {
+        for (const o of unnamed) fails.push('发现未登记的第二份剥注释实现：' + o.file + '（' + o.fns.join('/') + '）—— 请改为复用本公共件，或登记进 STRIP_COPY_ALLOWLIST 并写 why');
+    }
+    if (open.length > STRIP_COPY_RATCHET) {
+        fails.push('第二份剥注释实现 ' + open.length + ' 条 > 棘轮上限 ' + STRIP_COPY_RATCHET + '（只降不抬；要抬须拍板）');
+    }
+    return { closed, open, allowlisted: open.filter(o => allow.has(o.file)), fails };
 }
 
 // ---------------------------------------------------------------------------
@@ -390,6 +535,61 @@ function runSelfChecks(fails) {
     }
     if (a8.rows[0].raw !== 2) {
         fails.push('auditAnchorSites 的 raw 视图漏数（应为 2，实为 ' + a8.rows[0].raw + '），三视图差值就失真了');
+    }
+
+    // ---- ⑥ stripCommentsMapped / auditStripCopies 自证（第 151 轮新增，五条） ----
+    // ⑪ 正则字面量里的 // 不能被当注释起点（本函数相对 stripComments 的核心增量，
+    //    牙一就是咬这里：删掉正则分支它会立刻报）
+    // ★ 样本取 /a\/*b/：正则字面量里不可能出现未转义的 //（那会先把正则终止掉，不构成风险），
+    //   真正会把剥注释带沟里的是正则里的 /* —— 无正则感知时被当块注释起点，一路吃到文件尾。
+    //   （第 151 轮牙B 实证：第一版样本写的是 \/\/，压根没有相邻的 //，断言形同虚设、咬不动）
+    const m1 = stripCommentsMapped("const re = /a\\/*b/; const x = 1;");
+    if (!m1.code.includes('/a\\/*b/')) {
+        fails.push('stripCommentsMapped 把正则字面量里的 // 当成了注释起点（正则会被整段吞掉 ⇒ 取样面少一大块）');
+    }
+    if (!m1.code.includes('const x = 1;')) {
+        fails.push('stripCommentsMapped 连正则后面的真代码也吞了（正则识别越界）');
+    }
+    // ⑫ 保行结构：多行块注释里的换行必须逐个保留（旧手写版会连换行一起吃掉 ⇒ 行号塌陷）
+    const m2 = stripCommentsMapped("const a = 1;\n/* 块注释\n   第二行\n   第三行 */\nconst b = 2;");
+    if ((m2.code.match(/\n/g) || []).length !== 4) {
+        fails.push('stripCommentsMapped 没有保留多行块注释里的换行（行数 ' + ((m2.code.match(/\n/g) || []).length + 1) + '，应为 5）⇒ 行号回指会整体错位');
+    }
+    if (!m2.code.includes('const b = 2;')) {
+        fails.push('stripCommentsMapped 把块注释后面的真代码删了（过度清除）');
+    }
+    // ⑬ lineOf 映射：剥注释后剩余字符必须能回指到原文的真实行号（受体靠它报"第几行"）
+    const m3 = stripCommentsMapped("// 注释行\nconst a = 'x';\n");
+    const at = m3.code.indexOf("const a");
+    if (at === -1 || m3.lineOf(m3.owner[at]) !== 2) {
+        fails.push('stripCommentsMapped 的 lineOf 回指错位（"const a" 应在第 2 行，实为 ' + (at === -1 ? '未找到' : m3.lineOf(m3.owner[at])) + '）⇒ 报出来的行号不可信');
+    }
+    // ⑭ 字符串里的 // 与转义引号不能被误伤（与 stripComments 同源的硬要求）
+    const m4 = stripCommentsMapped("const u = 'http://x.example/p'; const q = 'a\\'b//c';");
+    if (!m4.code.includes("http://x.example/p")) {
+        fails.push('stripCommentsMapped 把字符串里的 // 误删了（URL 类字面量会被切断）');
+    }
+    if (!m4.code.includes("a\\'b//c")) {
+        fails.push('stripCommentsMapped 没正确跳过转义引号（字符串边界判错 ⇒ 后面整段错位）');
+    }
+    // ⑮ auditStripCopies 必须能在"给一个无关文件加一份手写实现"时把它点出来
+    //    （牙二就是咬这里：把受体 A 改回手写版，本条必须报，否则机制形同虚设）
+    const testsDir = path.dirname(path.dirname(fileURLToPath(import.meta.url))); // tests/_lib -> tests
+    try {
+        const a9 = auditStripCopies(testsDir);
+        if (!Array.isArray(a9.closed) || a9.closed.length === 0) {
+            fails.push('auditStripCopies 一条"已收口"都没点出来（两个受体都已改用公共件，closed 应 ≥ 1；实为 0 说明 import 检测失灵）');
+        }
+        if (a9.open.length > STRIP_COPY_RATCHET) {
+            fails.push('auditStripCopies 未收口条数 ' + a9.open.length + ' 已超棘轮上限 ' + STRIP_COPY_RATCHET + '（有人在公共件之外又写了第二份）');
+        }
+        for (const o of a9.open) {
+            if (!STRIP_COPY_ALLOWLIST.some(x => x.file === o.file)) {
+                fails.push('auditStripCopies 发现未登记的第二份：' + o.file + '（' + o.fns.join('/') + '）');
+            }
+        }
+    } catch (e) {
+        fails.push('auditStripCopies 自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 第二份快照的守卫已失效');
     }
     return fails;
 }

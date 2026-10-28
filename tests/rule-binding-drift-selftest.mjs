@@ -32,6 +32,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
 
 export const VER = 'tests/rule-binding-drift-selftest.mjs V1.0.0';
 
@@ -57,61 +58,12 @@ function readIfAbs(p) {
 }
 
 // --- ① 剥注释：保留字符串与正则字面量原样 ---
+// ★ V1.1.0 起**不再是手写第二份**：转发公共件 tests/_lib/static-truth-slice.mjs 的
+//   stripCommentsMapped（唯一来源，第 151 轮上提）。原实现原样搬进公共件，行为一字未变；
+//   本文件只留薄封装，目的是让「口径只有一份」这件事被 auditStripCopies 机械守住。
 function stripComments(src) {
-    // 返回 { code, lineOf }：lineOf(i) = 该字符在原文中的行号（1 基）
-    let out = '';
-    const owner = []; // out 的每个字符对应原文下标
-    let i = 0; const n = src.length;
-    let state = 'code'; let prevSig = '';
-    const push = (ch, idx) => { out += ch; owner.push(idx); };
-    while (i < n) {
-        const c = src[i], d = src[i + 1];
-        if (state === 'code') {
-            if (c === '/' && d === '/') { state = 'line'; i += 2; continue; }
-            if (c === '/' && d === '*') { state = 'block'; i += 2; continue; }
-            if (c === "'" || c === '"' || c === '`') {
-                const q = c; push(c, i); i++;
-                while (i < n) {
-                    const ch = src[i];
-                    if (ch === '\\') { push(ch, i); if (i + 1 < n) push(src[i + 1], i + 1); i += 2; continue; }
-                    push(ch, i); i++;
-                    if (ch === q) break;
-                }
-                prevSig = ')';
-                continue;
-            }
-            if (c === '/' && '(,=:[!&|?{;'.includes(prevSig)) {
-                let j = i + 1; let inClass = false;
-                while (j < n) {
-                    const ch = src[j];
-                    if (ch === '\\') { j += 2; continue; }
-                    if (ch === '[') inClass = true;
-                    else if (ch === ']') inClass = false;
-                    else if (ch === '/' && !inClass) break;
-                    else if (ch === '\n') break;
-                    j++;
-                }
-                for (let k = i; k <= j && k < n; k++) push(src[k], k);
-                i = j + 1; prevSig = ')';
-                continue;
-            }
-            push(c, i); i++;
-            if (!' \t\r\n'.includes(c)) prevSig = c;
-            continue;
-        }
-        if (state === 'line') { if (c === '\n') { state = 'code'; push('\n', i); } i++; continue; }
-        if (c === '*' && d === '/') { state = 'code'; i += 2; continue; }
-        if (c === '\n') push('\n', i);
-        i++;
-    }
-    const lineStart = [0];
-    for (let k = 0; k < src.length; k++) if (src[k] === '\n') lineStart.push(k + 1);
-    const lineOf = (idx) => {
-        let lo = 0, hi = lineStart.length - 1;
-        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (lineStart[mid] <= idx) lo = mid; else hi = mid - 1; }
-        return lo + 1;
-    };
-    return { code: out, owner, lineOf };
+    const { code, owner, lineOf } = stripCommentsMapped(src);
+    return { code, owner, lineOf };
 }
 
 const HAS_CN = /[\u4e00-\u9fa5]/;
