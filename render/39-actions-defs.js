@@ -171,10 +171,14 @@ export const STAGE_ACTION_DEFS = {
             if (GlobalStore.get('fxDodgeBullet')) emitReboundFloat();
             // 开「闪避反击·子弹时间」→ 子弹时间；关着 → 气泡 + 冲撞
             if (GlobalStore.get('fxDodgeBullet') && attacker && dodger) {
+                // 冻结数据：在等 2.5 秒横幅之前，把当前人的信息和位置死锁，防止黑幕亮起时引擎已推进到下一组
+                const snapA = attacker.clone ? attacker.clone() : { ...attacker, state: { ...attacker.state } };
+                const snapD = dodger.clone ? dodger.clone() : { ...dodger, state: { ...dodger.state } };
+
                 await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
                 // 必须直接 await，不能走 eventBus（emit 同步不等待 Promise），否则动画并行战斗推进会踩踏
                 const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
-                await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
+                await showDodgeBulletTime(snapA, snapD, action.reboundDmg || 0);
             } else if (attacker) {
                 eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
                 // 简单模式闪避反击：补发 TRIGGER 给 fx/88 —— 远程与近战同款「冲过去被挡回」，

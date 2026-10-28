@@ -237,8 +237,8 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         }
 
         const st = stageBox();
-        // 基准从 innerHeight 换成 st.top + st.height（真实舞台矩形），比例保持原值 0.16 / 0.68 不变
-        const pos = { ax: st.left + st.width * 0.09, ay: st.top + st.height * 0.16, dx: st.left + st.width * 0.64, dy: st.top + st.height * 0.68 };
+        // 回归稳定基准：用视口高度算，保证不管日志多长，它的相对位置都是固定的
+        const pos = { ax: st.left + st.width * 0.09, ay: innerHeight * 0.16, dx: st.left + st.width * 0.64, dy: innerHeight * 0.68 };
 
         // 跳过按钮
         const skipBtn = document.createElement('div');
@@ -347,9 +347,10 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const glow = document.createElement('div');
         glow.className = 'breath-glow';
         cloneA.appendChild(glow);
-        const cloneDRect = cloneD.getBoundingClientRect();
-        const stormCX = cloneDRect.left + cloneDRect.width / 2;
-        const stormCY = cloneDRect.top - 10;
+        // 彻底抛弃 getBoundingClientRect（因为它会把动画缩放算进去导致偏移）
+        // 直接用我们之前算好的落点 pos.dx 和 pos.dy，再配合未缩放的初始高度 rectD.height
+        const stormCX = pos.dx + rectD.width / 2;
+        const stormCY = pos.dy - 10;
         const storm = createCounterStorm(stormCX, stormCY);
         storm.setAttribute('data-fx', 'temporary');
         cleanupElements.push(storm);
