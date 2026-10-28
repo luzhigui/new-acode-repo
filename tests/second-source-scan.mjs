@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// tests/second-source-scan.mjs | V1.1.0 | 2026-10-29 夜间第 152 轮：输出段扩到 ⑦「跨文件重复函数点名」
+//   （逐字重复 = 铁证如山的第二份；同名异体 = 待人工判定，后者更危险：改的那点就是口径分叉）。
+//   本件只**点名**、不收口 —— 与第 151 轮同一取舍：先看清还剩什么，再谈动刀。
 // tests/second-source-scan.mjs | V1.0.0 | 2026-10-28 夜间第 151 轮
 //
 // 「第二份快照」普查：tests 下凡是手写一份别人已经写过的东西（本轮先收"剥注释"这一款），
@@ -25,10 +28,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     VER as TRUTH_VER, selfCheck as truthSelfCheck,
-    auditStripCopies, STRIP_COPY_ALLOWLIST, STRIP_COPY_RATCHET
+    auditStripCopies, STRIP_COPY_ALLOWLIST, STRIP_COPY_RATCHET,
+    auditDupFnNames, DUP_FN_ALLOWLIST, DUP_FN_RATCHET
 } from './_lib/static-truth-slice.mjs';
 
-const VER = 'tests/second-source-scan.mjs V1.0.0';
+const VER = 'tests/second-source-scan.mjs V1.1.0';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 function main() {
@@ -46,10 +50,28 @@ function main() {
         console.log('    ' + (w ? '⚠ 已登记豁免 ' : '✗ 未登记 ') + o.file + '（' + o.fns.join(' / ') + '）'
             + (w ? ' —— ' + w.why : ' —— 请改为复用公共件'));
     }
-    const bad = scFails.length + a.fails.length;
+    const bad0 = scFails.length + a.fails.length;
     for (const f of a.fails) console.log('❌ ' + f);
+
+    // ⑦ 跨文件同名 / 逐字重复函数点名（第 152 轮新增的扩面：第二份不只"剥注释"一款）
+    const d = auditDupFnNames(here);
+    console.log('跨文件重复函数普查（同名函数 ≥2 处各定义一遍）：');
+    console.log('  【逐字重复 · 铁证如山的第二份】' + d.identical.length + ' 组 / 棘轮上限 ' + DUP_FN_RATCHET + '：');
+    for (const r of d.identical) {
+        console.log('    ✗ ' + r.name + ' ×' + r.copies + ' —— ' + r.files.join(' , ') + '：' + r.why);
+    }
+    console.log('  【同名但函数体不同 · 待人工判定】' + d.sameNameOnly.length + ' 组：');
+    for (const r of d.sameNameOnly) {
+        console.log('    ⚠ ' + r.name + ' ×' + r.copies + ' —— ' + r.files.join(' , '));
+    }
+    const skipNames = DUP_FN_ALLOWLIST.map(x => x.name).join(' / ');
+    console.log('  已按设计排除（本来就该各写一份）：' + skipNames);
+    for (const f of d.fails) console.log('❌ ' + f);
+
+    const bad = bad0 + d.fails.length;
     if (bad === 0) {
-        console.log('RESULT: PASS —— 第二份快照 ' + a.open.length + ' 条（均在豁免表内），已收口 ' + a.closed.length + ' 条');
+        console.log('RESULT: PASS —— 第二份快照 ' + a.open.length + ' 条（均在豁免表内），已收口 ' + a.closed.length + ' 条'
+            + '；逐字重复函数 ' + d.identical.length + ' 组（棘轮上限 ' + DUP_FN_RATCHET + '），同名异体 ' + d.sameNameOnly.length + ' 组待人工判定');
     } else {
         console.log('RESULT: FAIL —— ' + bad + ' 项');
     }

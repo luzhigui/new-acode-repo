@@ -34,6 +34,17 @@
 //   const a = auditSlice({ src, from: 'FACT_TYPES', to: 'MECHANIC_TYPES', owner: 'FACT_TYPES', truthKeys: Object.keys(FACT_TYPES) });
 //   const v = auditValueMap(blocks, 'FACT_TYPES');
 //   for (const bad of selfCheck()) fails.push('静态真值口径公共件自证：' + bad);
+// V1.3.0 | 2026-10-29 夜间第 152 轮：★ 收口判据**真正落盘**（isClosedOnTruth + RE_IMPORT_TRUTH）
+//   —— 第 151 轮在日志里写下"判据收紧为只认 import 语句"，但收紧**没进提交**：本轮开场
+//     git show d1dd14a0 复核，RE_IMPORT_TRUTH 只存在于日志散文，代码里仍是第一版宽口径
+//     /static-truth-slice/.test(src)（它自己诊断出的"形同虚设"那一版）。
+//     本轮开场牙A 复现：删掉受体A 的真 import、只在注释里留公共件路径 ⇒ 普查仍报
+//     "已收口 2 条 / PASS"，机制确实一路漏着。收紧后同一口牙报 4 项。
+//   ★ 判据 = 在**剥掉注释之后的源码**里存在 import ... from '...static-truth-slice...' 语句。
+//     两个条件各咬一款病：① 必须是 import 语句（不能只是"文件里出现过这个字样"）；
+//     ② 必须在剥注释之后匹配（否则注释里抄一句完整 import 照样骗过去）。
+//   ★ 并给判据本身加了自证⑯⑰⑱ —— 因为这一款的病不是"没想收紧"，而是"以为收紧了"：
+//     把口径钉进自证，谁把它退回宽口径，自证立刻报。
 // V1.2.0 | 2026-10-28 夜间第 151 轮：新增 ⑥ stripCommentsMapped / auditStripCopies
 //   —— 收「手写第二份去注释」这一款病（本仓库第四次发作）：
 //     tests 下曾同时存在三份各写一遍的剥注释实现（_lib/rule-branch-extract 的
@@ -55,7 +66,7 @@
 //   ④ auditValueMap               —— 给"值→常量名"平铺映射做体检：跨枚举值冲突、外来条目、所有权真值表；
 //   ⑤ auditAnchorSites            —— 锚点落在真代码里还是只活在注释里；
 //   ⑥ stripCommentsMapped / auditStripCopies —— 带行号映射的剥注释（含正则字面量感知）+「第二份快照」点名与棘轮。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.2.0';
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.3.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -208,6 +219,28 @@ export function stripCommentsMapped(src) {
 //     否则哪天又抄一份，报告依旧绿，那就是静默复发。
 // ---------------------------------------------------------------------------
 const RE_STRIP_DEF = /^\s*(?:export\s+)?(?:async\s+)?function\s+(stripComments\w*|stripComment\w*|maskStrings\w*)\s*\(/gm;
+
+// ---------------------------------------------------------------------------
+// ⑥-c 「已收口」判据（★ 第 152 轮收紧；第 151 轮**声称**已收紧、代码里却没落盘，见下）
+//   判据 = 在**剥掉注释之后的源码**里，存在 import ... from '...static-truth-slice...' 语句。
+//   两个条件缺一不可，各咬一款病：
+//     ① 必须是 import 语句，不能只是"文件里出现过这个字样"
+//        —— 否则注释里提一句公共件路径就被判成"已收口"（第 151 轮牙A 实证，本轮复现）；
+//     ② 必须在**剥注释之后**匹配
+//        —— 否则注释里抄一句完整 import 照样被判成"已收口"（同款病的变体）。
+//   ★ 这正是本件自己的老本行：第 149 轮立的规矩就是"注释里的东西不算真值"，
+//     而 auditStripCopies 第一版偏偏没给自己用上 —— 机制自己踩了机制要防的那款病。
+//   ★ 已知边界：剥注释用的是 stripCommentsMapped（带正则感知，公共件内的唯一来源）。
+//     若某文件的正则里含 // 且其后真 import 被误判进注释，本判据会判成"未收口"
+//     —— **少收不是错收**：表现为该收口的没计入 closed，属安全方向；
+//     绝不会把未收口误判成已收口（后者才是机制失效）。
+// ---------------------------------------------------------------------------
+const RE_IMPORT_TRUTH = /(?:^|\n)[ \t]*import\s[\s\S]{0,300}?\bfrom\s*['"][^'"]*static-truth-slice[^'"]*['"]/;
+/** 是否已在剥注释后的源码里 import 了本公共件（收口判据的唯一来源，改这里要同步改自证⑯⑰⑱） */
+export function isClosedOnTruth(src) {
+    return RE_IMPORT_TRUTH.test(stripCommentsMapped(src).code);
+}
+
 /** 已收口/豁免登记表（唯一来源）：改这里必须写 why，且条数只减不增 */
 export const STRIP_COPY_ALLOWLIST = [
     { file: '123static-scan.js', why: '浏览器双用：tests/121health-monitor.js 在页面里 import 它，改成 import 本公共件会牵动线上页面加载路径，故点名挂账待拍板（第 151 轮）' }
@@ -225,7 +258,7 @@ export function auditStripCopies(dir) {
         if (hits.length === 0) continue;
         const rec = { file: f, fns: hits };
         if (f === self) continue;
-        if (/static-truth-slice/.test(src)) { closed.push(rec); continue; }
+        if (isClosedOnTruth(src)) { closed.push(rec); continue; }
         open.push(rec);
     }
     for (const d of [dir + '/_lib', dir + '/health-rules']) {
@@ -237,7 +270,7 @@ export function auditStripCopies(dir) {
             const rel = path.basename(d) + '/' + f;
             if (rel === '_lib/' + self) continue;
             const rec = { file: rel, fns: hits };
-            if (/static-truth-slice/.test(src)) closed.push(rec); else open.push(rec);
+            if (isClosedOnTruth(src)) closed.push(rec); else open.push(rec);
         }
     }
     const allow = new Set(STRIP_COPY_ALLOWLIST.map(a => a.file));
@@ -250,6 +283,96 @@ export function auditStripCopies(dir) {
         fails.push('第二份剥注释实现 ' + open.length + ' 条 > 棘轮上限 ' + STRIP_COPY_RATCHET + '（只降不抬；要抬须拍板）');
     }
     return { closed, open, allowlisted: open.filter(o => allow.has(o.file)), fails };
+}
+
+// ---------------------------------------------------------------------------
+// ⑦ 跨文件同名 / 逐字重复函数点名（第 152 轮新增）
+//   第 151 轮只盯"剥注释"一款。本轮把"第二份"的检测**扩面**到机械可验的一般形态：
+//   同一函数名在 ≥2 个文件里各定义一遍。★ 分两桶，判据不同、处置不同：
+//     · identical     —— 函数体**逐字相同** ⇒ 铁证如山的第二份，须收口；
+//     · sameNameOnly  —— 同名但函数体不同 ⇒ 只点名、待人工判定。★ 后者比前者更值得看：
+//       "抄了一份又改了一点"，改的那一点就是**口径分叉**本身（一处收紧另一处没跟，
+//       两个自检都报绿，谁也看不出来 —— 第 133 轮立的原话）。
+//   ★ 排除名单里的不是"豁免第二份"，而是"本来就该各写一份"：
+//     main 是每个可执行脚本的入口；selfCheck / runSelfChecks 是各件自证 ——
+//     第 143 轮立的设计原则就是"一处坏多处喊"，刻意各写一份，收口反而违背设计。
+//   ★ 边界：extractFnSource 按花括号配对切函数体，不解析字符串/正则里的花括号。
+//     命中时会取到**偏大**的一段（多取不会误判成"不同"，只会让 identical 变难命中，
+//     属安全方向）；取不到时该处记为 null，按"无法判定"处理，不进 identical。
+// ---------------------------------------------------------------------------
+export const DUP_FN_ALLOWLIST = [
+    { name: 'main', why: '每个可执行脚本的入口函数，属命名约定而非重复实现（实测 22 处）' },
+    { name: 'selfCheck', why: '各件自证入口 —— 第 143 轮立的设计原则是「一处坏多处喊」，刻意各写一份，收口反而违背设计（3 处）' },
+    { name: 'runSelfChecks', why: 'selfCheck 的实现体，同上（3 处）' },
+];
+/**
+ * 逐字重复条数棘轮上限（只降不抬；要抬须拍板并写明理由）。
+ * ★ 4 = 第 152 轮**首次点名**的实测基线（fail×3 / collectFacts×2 / parentDmgOf×2 / readIfAbs×2）。
+ *   与第 151 轮同一取舍：**先点名、再谈收口** —— 首次普查不追求"一上来就红"，
+ *   先把"还剩什么"如实打印出来，收口一条棘轮就降一格。本轮一条没收（其中 fail /
+ *   parentDmgOf 两组落在 health-rules 规则文件里，收口须拍板），如实挂账。
+ */
+export const DUP_FN_RATCHET = 4;
+const RE_FN_DEF = /^[ \t]*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm;
+
+/** 从 `function name(` 的定义起点切出整个函数体（花括号配对；取不到返回 null） */
+function extractFnSource(src, idx) {
+    const open = src.indexOf('{', idx);
+    if (open === -1) return null;
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(idx, i + 1).replace(/\s+$/, ''); }
+    }
+    return null;
+}
+
+export function auditDupFnNames(dir) {
+    const dirs = [dir, dir + '/_lib', dir + '/health-rules'];
+    const groups = new Map();
+    for (const d of dirs) {
+        if (!fs.existsSync(d)) continue;
+        for (const f of fs.readdirSync(d).filter(x => x.endsWith('.js') || x.endsWith('.mjs'))) {
+            const rel = (d === dir ? '' : path.basename(d) + '/') + f;
+            const src = fs.readFileSync(path.join(d, f), 'utf8');
+            const seen = new Set();
+            for (const m of src.matchAll(RE_FN_DEF)) {
+                const name = m[1];
+                if (seen.has(name)) continue; // 同文件内重名只取第一处，避免把重载误算成"第二份"
+                seen.add(name);
+                if (!groups.has(name)) groups.set(name, []);
+                groups.get(name).push({ file: rel, body: extractFnSource(src, m.index) });
+            }
+        }
+    }
+    const skip = new Set(DUP_FN_ALLOWLIST.map(a => a.name));
+    const identical = [], sameNameOnly = [];
+    for (const [name, list] of groups) {
+        if (skip.has(name)) continue;
+        const files = list.map(x => x.file);
+        if (files.length < 2) continue;
+        const bodies = list.map(x => x.body);
+        const rec = {
+            name, files, copies: files.length,
+            why: bodies.every(b => b === null) ? '无法判定' : ''
+        };
+        const comparable = bodies.filter(b => b !== null);
+        const allSame = comparable.length === bodies.length && new Set(comparable).size === 1;
+        if (allSame) {
+            rec.why = '函数体逐字相同 —— 铁证如山的第二份，须收口为唯一来源';
+            identical.push(rec);
+        } else {
+            rec.why = '同名但函数体不同 —— 待人工判定：可能是巧合同名，也可能是「抄了一份又改了一点」（后者更危险：改的那点就是口径分叉）';
+            sameNameOnly.push(rec);
+        }
+    }
+    identical.sort((a, b) => b.copies - a.copies || a.name.localeCompare(b.name));
+    sameNameOnly.sort((a, b) => b.copies - a.copies || a.name.localeCompare(b.name));
+    const fails = [];
+    if (identical.length > DUP_FN_RATCHET) {
+        fails.push('逐字重复函数 ' + identical.length + ' 组 > 棘轮上限 ' + DUP_FN_RATCHET + '（只降不抬；要抬须拍板）');
+    }
+    return { identical, sameNameOnly, fails };
 }
 
 // ---------------------------------------------------------------------------
@@ -590,6 +713,89 @@ function runSelfChecks(fails) {
         }
     } catch (e) {
         fails.push('auditStripCopies 自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 第二份快照的守卫已失效');
+    }
+
+    // ---- ⑥-c 收口判据自证（第 152 轮新增，三条）----
+    // ★ 为什么必须给"判据"本身写自证：第 151 轮已经在日志里写下"判据收紧为只认 import 语句"，
+    //   但代码里落盘的仍是第一版宽口径 —— 收紧**没有进提交**（本轮开场 git show d1dd14a0 复核：
+    //   RE_IMPORT_TRUTH 四个字只存在于日志散文里，代码一处于 _lib/static-truth-slice.mjs 一处也没有）。
+    //   ⇒ 日志写了、报告也 PASS、牙A 也"报了 4 项"，可机制一直是漏的。这就是**验证态与交付态混淆**：
+    //     牙A 是在收紧后的工作区里咬出来的，而最后从备份还原时把收紧一起覆盖掉了，
+    //     日志撰写者把"验证时看到的现象"当成了"已落盘的改动"。
+    //   ⇒ 机制守护机制只有一条路可走：**把判据口径钉进自证**，谁把它退回宽口径，自证立刻报。
+    //     否则下一轮还会再"声称收紧一次"，再漏一次。
+    // ⑯ 只在注释里提到公共件路径、没有真 import ⇒ 必须判「未收口」
+    const c16 = 'function stripCommentsFake(src) { return src; }\n// 注释里提一句 tests/_lib/static-truth-slice.mjs 不算收口\n';
+    if (isClosedOnTruth(c16)) {
+        fails.push('收口判据把「注释里提到的公共件路径」当成了已收口（第 151 轮那款病原样复发：注释里的东西被当成真值）');
+    }
+    // ⑰ 注释里抄一句**完整 import 语句**、没有真 import ⇒ 必须判「未收口」
+    //    （这条专咬"只认 import 字样、但不剥注释"的退化 —— 那样的判据照样会被注释骗过去）
+    // ★ ★ 样本必须是**真风险形态**（第 151 轮牙B 的教训，本轮当场又踩一次）：
+    //     第一版写成 `// import { ... } from '...'` —— 行首是 // 不是 import，
+    //     而 RE_IMPORT_TRUTH 要求行首紧邻 import，(?:^|\n)[ \t]*import 压根匹配不到，
+    //     于是"不剥注释"的退化版本也照样判它未收口 ⇒ 断言形同虚设、牙B 咬不动。
+    //     真风险形态是**块注释内部换行后行首就是 import**：那种写法下
+    //     (?:^|\n) 之后正好紧邻 import，不剥注释必然误判成已收口。
+    const c17 = 'function stripCommentsFake(src) { return src; }\n/* 举个反例：\nimport { stripComments } from \'./static-truth-slice.mjs\';\n*/\n';
+    if (isClosedOnTruth(c17)) {
+        fails.push('收口判据把「注释里抄的完整 import 语句」当成了已收口（只认 import 字样却不剥注释，等于没收紧）');
+    }
+    // ⑱ 有真 import、且注释里也提 ⇒ 必须判「已收口」（反向，防剥注释误伤真 import）
+    const c18 = '// 参考 tests/_lib/static-truth-slice.mjs\nimport { stripComments } from \'./static-truth-slice.mjs\';\nfunction stripCommentsFake(src) { return stripComments(src); }\n';
+    if (!isClosedOnTruth(c18)) {
+        fails.push('收口判据把「真 import」漏判成未收口（剥注释过度 ⇒ 真 import 被一起删了，已收口的会凭空变红）');
+    }
+
+    // ---- ⑦ 跨文件重复函数点名自证（第 152 轮新增，两条）----
+    // ★ 与⑯⑰⑱同一句话：点名件自己也会腐烂（正则改坏、排除名单被删、目录不扫了），
+    //   它一坏就表现为"一条都不点名"，而报告依旧 PASS —— 那正是它存在的意义被静默抹掉。
+    // ⑲ 真实 tests 目录上必须点出已知的逐字重复（collectFacts / readIfAbs 两组，本轮实测存在）
+    try {
+        const d9 = auditDupFnNames(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
+        const names9 = new Set(d9.identical.map(x => x.name));
+        for (const must of ['collectFacts', 'readIfAbs']) {
+            if (!names9.has(must)) {
+                fails.push('auditDupFnNames 没点出已知的逐字重复函数 ' + must + '（两条铁证都丢了 ⇒ 重复检测已失灵，报告会静默变绿）');
+            }
+        }
+        if (d9.identical.length < 2) {
+            fails.push('auditDupFnNames 逐字重复只点出 ' + d9.identical.length + ' 组（应 ≥ 2）⇒ 重复检测覆盖面塌了');
+        }
+    } catch (e) {
+        fails.push('auditDupFnNames 自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 跨文件重复函数的守卫已失效');
+    }
+    // ⑳ 排除名单必须生效：main / selfCheck / runSelfChecks 一个都不许出现在两桶里。
+    // ★ ★ 必查清单必须**硬编码在这里**，绝不能写成遍历 DUP_FN_ALLOWLIST 本身 ——
+    //    本轮牙F 实证：第一版就是遍历 ALLOWLIST，于是"把 main 从名单里删掉"这个动作
+    //    同时把"检查 main"这件事也删掉了，自证一声不吭（牙F 咬不动）。
+    //    ⇒ 与 auditStripCopies 第一版"用注释里的字样证明已收口"是**同一款病**：
+    //      拿被检查的东西自己来证明自己，证据来源不可靠，机制必然形同虚设。
+    //    修法只有一条：自证持有**独立于被检查对象**的那份清单，两边互相盯着。
+    const MUST_SKIP = ['main', 'selfCheck', 'runSelfChecks'];
+    try {
+        const d10 = auditDupFnNames(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
+        const seen = [...d10.identical, ...d10.sameNameOnly].map(x => x.name);
+        for (const n of MUST_SKIP) {
+            if (seen.includes(n)) {
+                fails.push('auditDupFnNames 把「本来就该各写一份」的 ' + n + ' 点成了第二份（排除名单失效 ⇒ 报告会被噪音淹没）');
+            }
+        }
+        // ⑳-b 反向：硬编码清单与 ALLOWLIST 必须一一对应（防两边漂移：
+        //   有人往 ALLOWLIST 加了一条而自证不知道，或删了一条而自证还在查 —— 两边都盯住）
+        const allowNames = DUP_FN_ALLOWLIST.map(x => x.name);
+        for (const n of MUST_SKIP) {
+            if (!allowNames.includes(n)) {
+                fails.push('DUP_FN_ALLOWLIST 缺登记 ' + n + '（自证必查清单与排除名单已漂移，请同步并写明 why）');
+            }
+        }
+        for (const n of allowNames) {
+            if (!MUST_SKIP.includes(n)) {
+                fails.push('DUP_FN_ALLOWLIST 多出未受自证保护的条目 ' + n + '（新增排除项必须同步进本件 MUST_SKIP，否则它不受任何断言约束）');
+            }
+        }
+    } catch (e) {
+        fails.push('auditDupFnNames 排除名单校验抛异常（' + (e && e.message ? e.message : String(e)) + '）');
     }
     return fails;
 }
