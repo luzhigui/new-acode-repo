@@ -193,7 +193,28 @@ export function showBattleReport(battleResultForInfo) {
         enemy.forEach(u => {
             text += `${u.name}(${u.role}) 输出${Math.round(u.dmgDealt||0)} 承伤${Math.round(u.dmgTaken||0)} 治疗${Math.round(u.healDone||0)} 闪避${Math.round(u.dodgeCount||0)} 暴击${Math.round(u.critCount||0)} ${u.alive?'存活':'阵亡'}\n`;
         });
-        navigator.clipboard.writeText(text).then(() => showAlert('战报已复制'));
+        // 终极兼容方案：Clipboard API 失败则降级为 execCommand
+        const fallbackCopy = (txt) => {
+            const ta = document.createElement('textarea');
+            ta.value = txt;
+            ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                const ok = document.execCommand('copy');
+                if (ok) showAlert('战报已复制');
+                else showAlert('复制失败，请长按文本手动复制');
+            } catch (e) {
+                showAlert('复制失败，请长按文本手动复制');
+            }
+            document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => showAlert('战报已复制')).catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
     };
     btnDiv.appendChild(copyBtn);
     

@@ -154,7 +154,28 @@ export function copyLogToClipboard(choice) {
     });
     let text = lines.join('\n');
     if (!text.trim()) { showAlert('没有匹配的日志'); return; }
-    navigator.clipboard.writeText(text).then(() => showAlert('日志已复制'));
+    // 终极兼容方案：Clipboard API 失败则降级为 execCommand
+    const fallbackCopy = (txt) => {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            const ok = document.execCommand('copy');
+            if (ok) showAlert('日志已复制');
+            else showAlert('复制失败，请长按文本手动复制');
+        } catch (e) {
+            showAlert('复制失败，请长按文本手动复制');
+        }
+        document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showAlert('日志已复制')).catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
 }
 
 // 版本列表从 window.ALL_VERS 动态生成（61 启动时写入），避免各处版本号与硬编码列表脱节
