@@ -121,7 +121,24 @@ export function copyLogToClipboard(choice) {
         const recent = allDivs.slice(-15);
         let text = recent.map(div => (div.textContent || '').trim()).filter(t => t).join('\n');
         if (!text.trim()) { showAlert('没有匹配的日志'); return; }
-        navigator.clipboard.writeText(text).then(() => showAlert('最新15行日志已复制'));
+        const fallbackCopy = (txt) => {
+            const ta = document.createElement('textarea');
+            ta.value = txt;
+            ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            try {
+                const ok = document.execCommand('copy');
+                if (ok) showAlert('最新15行日志已复制');
+                else showAlert('复制失败，请长按文本手动复制');
+            } catch (e) { showAlert('复制失败，请长按文本手动复制'); }
+            document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => showAlert('最新15行日志已复制')).catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
         return;
     }
     const allChildren = Array.from(logDiv.children);

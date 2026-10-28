@@ -173,10 +173,30 @@ export function showBattleReport(battleResultForInfo) {
     copyAnalysisBtn.style.cssText = 'background:#37474f;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;display:none;';
     copyAnalysisBtn.onclick = () => {
         const text = analysisDiv.innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            copyAnalysisBtn.textContent = '✅ 已复制';
-            setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
-        }).catch(() => alert('复制失败，请手动选择文本'));
+        const fallbackCopy = (txt) => {
+            const ta = document.createElement('textarea');
+            ta.value = txt;
+            ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            if (ok) {
+                copyAnalysisBtn.textContent = '✅ 已复制';
+                setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
+            } else {
+                alert('复制失败，请手动选择文本');
+            }
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                copyAnalysisBtn.textContent = '✅ 已复制';
+                setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
+            }).catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
     };
     btnDiv.appendChild(copyAnalysisBtn);
 
