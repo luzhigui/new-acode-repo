@@ -1,8 +1,10 @@
 // modules/29battle-init.js — 双方阵容生成（精英分层 / 弱精英混入 / 站位锚点）
 // 明教精英分层：Boss（张无忌）独掷，出 Boss 最多再配 1 个（强 70%/弱 30%）；无 Boss 时强精英 90% 出 1、10% 出 2，
 //   弱精英独立 30% 混入。骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
+// V7.6.4 | 2026-10-29 | ~33500 bytes | 图鉴加成 ×5 → ×1.2（老板口径：20% → 24%）。原 ×5 占位把张无忌
+//        顶成 100% 必出；rate 当前仅 hasBoss 一掷消费，选韦一笑/小昭/谢逊/寒离飒今日实际无效果（挂账）
 // V7.6.3 | 2026-10-22 | ~33500 bytes
-export const VER = 'modules/29battle-init.js V7.6.3';
+export const VER = 'modules/29battle-init.js V7.6.4';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -45,11 +47,13 @@ export function initBattleTeams(currentStage, _rng) {
     const PICK_TO_ELITE = { zw: '张无忌', wy: '韦一笑', xz: '小昭', xm: '小昭' };
     const rate = { ...eliteRate };
     if (pickKey && PICK_TO_ELITE[pickKey]) {
-        rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 5;
+        // 2026-10-29 老板口径：图鉴加成 = 出场率 ×1.2（如张无忌 20% → 24%）。
+        //   原 ×5 占位会把张无忌顶成 100%（0.20×5=1.0，掷点必中）。rate 当前仅 hasBoss 一掷消费。
+        rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 1.2;
     }
 
     // ── 明教精英分层重写（老板口径：限强度、保趣味）──
-    //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（30%）独立掷；出 Boss 时最多再配 1 个（强 70% / 弱 30%）
+    //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（20%，content.roster.eliteRate）独立掷；出 Boss 时最多再配 1 个（强 70% / 弱 30%）
     //   无 Boss：强精英 90% 出 1 / 10% 出 2（绝不 3）；弱精英独立 WEAK_ELITE_MIX_RATE（30%）混入，总数 ≤ 3
     //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒由弱升强，与前者同级）
     //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
