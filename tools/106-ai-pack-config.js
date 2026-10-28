@@ -1,4 +1,4 @@
-// V6.0.45 | 2026-10-28 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-28 补登记 tools/138-elite-contrib.html（弱精英机制贡献评估单页，配 116 V1.15.0
+// V6.0.46 | 2026-10-28 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-28 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-28 补登记 tools/138-elite-contrib.html（弱精英机制贡献评估单页，配 116 V1.15.0
 //           kind:'weakContrib'；102 工具箱「🧬 弱精英机制贡献」按钮的实现，漏登则包内工具箱点开 404）
 // V6.0.43 | 2026-10-28 补登记 3 个 tests/_lib 公共件（清单↔磁盘 + import 链对账发现）：
 //           _lib/sample-sufficiency.mjs（contract-guard / contract-binding-drift / fact-emission-census / rule-idle 已 import）、
@@ -87,7 +87,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.45';
+export const VER = 'tools/106-ai-pack-config.js V6.0.46';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -290,6 +290,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/_lib/sample-sufficiency.mjs', '../tests/_lib/static-truth-slice.mjs', '../tests/_lib/foundation-scan.mjs',
     // 2026-10-28 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/second-source-scan.mjs',
+    // 2026-10-28 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/commit-claim-audit.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',

@@ -1,3 +1,7 @@
+// V1.21.0 | 2026-10-29 夜间第 153 轮：OBSERVES 挂「提交声称 vs 落盘对账」tests/commit-claim-audit.mjs
+//   （★ 把第 152 轮人工发现的那款病 —— 第 151 轮声称"判据收紧为 RE_IMPORT_TRUTH"却没进提交、
+//     验证态与交付态混淆 —— 变成机械点名：逐笔回溯夜间轮提交，把提交信息里点名的代码符号
+//     与该笔 diff 的新增代码行对账。只点名不改退码，挂观察项不改分母，理由同前几轮）。
 // V1.20.0 | 2026-10-28 夜间第 151 轮：OBSERVES 挂「第二份快照普查」tests/second-source-scan.mjs
 //   （tests 下手写第二份剥注释实现的点名 + 棘轮；与第 147/148/149 轮同一取舍：挂观察项不改分母）。
 // V1.19.0 | 2026-10-28 夜间第 149 轮：OBSERVES 挂「地基可携化」tests/foundation-portability.mjs。
@@ -80,7 +84,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.20.0';
+export const VER = 'tests/run-all.mjs V1.21.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -205,7 +209,12 @@ const OBSERVES = [
     // V1.20.0 | 2026-10-28 夜间第 151 轮：第二份快照普查（tests 下手写第二份「剥注释/串掩码」实现
     //   的点名 + 棘轮；本轮已把 _lib/rule-branch-extract 与 rule-binding-drift-selftest 两份收口为
     //   公共件唯一来源，123static-scan.js 因浏览器双用点名挂账）。挂观察项不改分母，理由同上。
-    { name: '第二份快照普查', script: 'tests/second-source-scan.mjs', args: [] }
+    { name: '第二份快照普查', script: 'tests/second-source-scan.mjs', args: [] },
+    // V1.21.0 | 2026-10-29 夜间第 153 轮：提交声称 vs 落盘对账（提交信息里点名的代码符号 vs
+    //   该笔提交实际 diff 的新增代码行；证据只认剥注释后的 .js/.mjs 代码，不认 .md 散文 ——
+    //   否则日志里写一句就把声称"兑现"了，正是第 149/151/152 三轮反复发作的那款病）。
+    //   挂观察项不改分母，与孤儿普查、地基普查、第二份快照同一取舍。
+    { name: '提交声称vs落盘对账', script: 'tests/commit-claim-audit.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
