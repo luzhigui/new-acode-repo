@@ -778,14 +778,14 @@ function simVsReal(hex, elit) {
         issues.push({
             sev: az >= TH.SIM_REAL_ALERT ? 'alert' : 'warn',
             title: `「${r.name}」模拟与实战差 ${signed(r.gap)}`,
-            detail: `模拟（112 自然表）${pct(r.sim)}（${r.simN} 场）vs 实战（生涯记录）${pct(r.real)}（${r.realN} 局），差 ${(az * 100).toFixed(1)}pp`
+            detail: `模拟（112 明教英雄个体胜率）${pct(r.sim)}（${r.simN} 场）vs 实战（生涯记录）${pct(r.real)}（${r.realN} 局），差 ${(az * 100).toFixed(1)}pp`
                 + `｜方向：${high
                     ? '模拟低估了这个英雄 → 跑批里敌方偏强或配置脱离实战，先核敌方成长曲线与阵容'
                     : '模拟高估了这个英雄 → 跑批里敌方偏弱，实战中没那么好打'}`
                 + `｜注意：差距含「玩家选人偏好 + 阵容组合」成分，不全是模拟误差。`
         });
     }
-    const compared = rows.filter(r => r.gap !== null).length;
+    const compared = rows.filter(r => r.gap !== null && r.simN >= TH.MIN_SAMPLE).length;
     return { rows, issues, compared, missing: null, overall, overallIssues, heroEffective: compared > 0 };
 }
 
@@ -1113,7 +1113,7 @@ function buildReport(d) {
     // 模拟 vs 实战对照
     if (d.simReal && (d.simReal.overall || d.simReal.rows)) {
         L.push('', '— 模拟 vs 实战对照 —');
-        L.push('说明：整体对照口径一致（都是明教胜率）可直接比；英雄层面对照目前不生效（见下）。');
+        L.push('说明：整体与英雄层面都是「明教胜率」同口径——整体比总量，英雄层面按同名英雄逐个对齐。');
         if (d.simReal.overall) {
             const o = d.simReal.overall;
             L.push(`【整体】模拟（108 常规榜）明教 ${pct(o.sim)}（${o.simN} 场） vs 实战（生涯）明教 ${pct(o.real)}（${o.realN} 局），差 ${signed(o.gap)}`
@@ -1121,7 +1121,7 @@ function buildReport(d) {
         }
         L.push(`【英雄层面】${d.simReal.compared} 个英雄两边都有足够样本`);
         if (!d.simReal.heroEffective) {
-            L.push('⚠️ 英雄层面对照当前不生效：112 自然表存的是「六大派精英带队胜率」，生涯记录默认只存「明教英雄在场胜率」，两边英雄池与含义都不重叠，同名匹配几乎不可能。要做真正的英雄层面对照，需 112 额外存「明教英雄个体胜率」（主代码改动）。');
+            L.push('⚠️ 英雄层面暂无可判读的英雄：模拟侧 6 名明教精英里，实战生涯记录中没有同名英雄、或同名英雄不足 8 局（样本少）。多打几局含精英的对局后再看；模拟侧数据本身已就绪。');
         }
         if (d.simReal.rows) {
             d.simReal.rows.forEach(r => {
@@ -1359,10 +1359,10 @@ function openBalanceAlert() {
                     + `<td class="${o.gap > 0 ? 'bal-weak' : 'bal-good'}">${signed(o.gap)}</td>`
                     + `<td class="${vc}">${v}</td></tr></table>`;
             }
-            // 英雄层面（诚实化：不生效时显示根因）
+            // 英雄层面（读 112 快照 hero 字段，逐英雄同名对照）
             html += '<h3 style="color:#9ad0f5;margin-top:10px">英雄层面（' + (d.simReal.compared || 0) + ' 个可比）</h3>';
             if (!d.simReal.heroEffective) {
-                html += '<p class="bal-no">⚠️ 英雄层面对照当前不生效：112 自然表存的是「六大派精英带队胜率」，生涯记录默认只存「明教英雄在场胜率」，两边英雄池与含义都不重叠，同名匹配几乎不可能。要做真正的英雄层面对照，需要 112 额外存「明教英雄个体胜率」（主代码改动，待授权）。</p>';
+                html += '<p class="bal-no">⚠️ 英雄层面暂无可判读的英雄：模拟侧 6 名明教精英里，实战生涯记录中没有同名英雄、或同名英雄不足 8 局（样本少）。多打几局含精英的对局后再看；模拟侧数据本身已就绪。</p>';
             }
             if (d.simReal.rows) {
                 html += '<table><tr><th>英雄</th><th>模拟（112）</th><th>实战（生涯）</th><th>差值</th><th>解读</th></tr>';
