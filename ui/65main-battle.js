@@ -1,8 +1,10 @@
+// V6.1.3 | 2026-10-28 | ~13.5 KB | showBuffSelection 补传 enemyTeam（filterAvailableBuffs + generateBuffChoices
+//        两处），修普通模式选卡恒剔惑人心智
 // V6.1.2 | 2026-10-28 | ~12800 bytes | 修 fa6f206f 两连炸：①用了 CAMP_TYPES.ALLY 却漏 import（选 Buff 点击即
 //        ReferenceError）；②删了 let duration 定义但日志行还引用（修完①后接着炸 duration is not defined）——
 //        时长改从 28 的 buff 对象取，永久 Buff 显示「永久」
 // V6.1.1 | 2026-10-04 | ~12500 bytes
-export const VER = 'ui/65main-battle.js V6.1.2';
+export const VER = 'ui/65main-battle.js V6.1.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
@@ -122,17 +124,18 @@ export { generateBuffChoices } from '../modules/28buff-tools.js';
 
 // Buff-弹窗：显示Buff选择界面（普通模式）
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
+    const ctx = getPlayerContext();
     // allyTeam 无效则从全局状态获取
     if (!allyTeam || !allyTeam.length || !allyTeam.some(u => u.alive)) {
-        const ctx = getPlayerContext();
         allyTeam = ctx?.UI?.allyTeam || [];
     }
-    const allKeys = Object.keys(C.BUFFS || {});
-    const existingKeys = activeBuffs.map(b => b.key);
-    const available = allKeys.filter(k => !existingKeys.includes(k));
+    // 对方阵营存活单位：28 的惑人心智门槛要它；此前两处都不传 → 该项恒被剔除
+    const enemyTeam = (ctx?.UI?.enemyTeam || []).filter(u => u && u.alive);
+    // 统一调 28 的过滤池（修补此处此前完全没有人数、职业限制的漏洞）
+    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: true, enemyTeam });
     const choices = (GlobalStore.get('bugMode'))
         ? available
-        : generateBuffChoices(activeBuffs, allyTeam, getBattleRng());
+        : generateBuffChoices(activeBuffs, allyTeam, getBattleRng(), enemyTeam);
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';
     const buttons = choices.map(key => ({
         text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),

@@ -1,6 +1,8 @@
+// V6.2.6 | 2026-10-28 | ~6.3 KB | generateBuffChoices 补第 4 参 enemyTeam 并透传给 filterAvailableBuffs
+//          （此前恒为 [] → 惑人心智门槛 enemyTeam.length<=2 永远成立，该项在所有选卡路径恒被剔除）
 // V6.2.5 | 2026-10-16 | ~5300 bytes
 //          （拒马/幼狮/雄鹰等召唤物都算人，与 core/04 applyUnityBonus 同口径）时才可能进入候选
-export const VER = 'modules/28buff-tools.js V6.2.5';
+export const VER = 'modules/28buff-tools.js V6.2.6';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -57,7 +59,7 @@ export function hasCarryTarget(team) {
 // opts.withFortifyRule：116 职业平衡 job 专用（无剩余 buff 时禁选严阵以待），默认关；116 hex job / 122 不开。
 // 注意：V6.2.4 已按老板拍板删掉 carry 过滤（无 5 号位时 core/04 会召唤雄鹰顶位），本函数同样不含。
 export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
-    const { withFortifyRule = false } = opts;
+    const { withFortifyRule = false, enemyTeam = [] } = opts;
     const ab = activeBuffs || [];
     const activeBuffKeys = ab.map(b => b.key);
     const alive = (team || []).filter(u => u && u.alive);
@@ -67,6 +69,12 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
         // 众志成城门槛（老板拍板）：只有本阵营「场上存活人数 < 4」时才可能出现——
         //   人数口径含拒马/幼狮/雄鹰等召唤物（与 core/04 applyUnityBonus 同口径）；满 4 人及以上不进候选
         if (k === BUFF_TYPES.UNITY && alive.length >= 4) return false;
+        // 圣火令：场上存活角色 < 3 时不再出现（包含召唤物）
+        if (k === BUFF_TYPES.HOLY_FLAME && alive.length < 3) return false;
+        // 背水一战：场上存活角色 < 3 时不再出现，避免残局选了纯占位
+        if (k === BUFF_TYPES.LAST_STAND && alive.length < 3) return false;
+        // 惑人心智：双方存活人数都必须大于 2（至少3人才能换位）
+        if (k === BUFF_TYPES.MIND_CONTROL && (alive.length <= 2 || enemyTeam.length <= 2)) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !alive.some(u => u.role === requiredRole)) return false;
         return true;
@@ -74,8 +82,9 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
 }
 
 // activeBuffs 传「本阵营已有 buff」：各阵营独立去重，明教与六大派可各选一次同名 buff
-export function generateBuffChoices(activeBuffs, team = [], rng = null) {
-    const available = filterAvailableBuffs(activeBuffs, team, { withFortifyRule: true });
+// enemyTeam：对方阵营存活单位——惑人心智门槛读它，不传等于恒剔除该项（V6.2.6 补参数）
+export function generateBuffChoices(activeBuffs, team = [], rng = null, enemyTeam = []) {
+    const available = filterAvailableBuffs(activeBuffs, team, { withFortifyRule: true, enemyTeam });
     const shuffled = [...available];
     const r = rng || getBattleRng();
     for (let i = shuffled.length - 1; i > 0; i--) {
