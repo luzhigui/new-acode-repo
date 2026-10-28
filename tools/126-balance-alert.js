@@ -1,4 +1,8 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V2.4.0 | 2026-10-28 优化：① 新增「规则五·扩展阵容模式间对比」——读 108 四套榜，
+//   自动比对 仅妹妹/仅姐姐 相对 常规 的总胜率，≥5pp 告警、≥10pp 显著，把「妹妹永久海克斯继承机制
+//   抬升整体胜率」这类异常从「手动切模式才看得到」变成自动红灯（用户此前指出的妹妹胜率异常即此）；
+//   ② 精英绝对值表合并 devByStage 二次遍历，一次循环同时算总数与「最偏关卡」。
 // V2.2.0 | 2026-10-27 判读更准确/更精细（用户提出）：
 //   ① 海克斯加 95% Wilson 置信区间 + 多重比较 BH-FDR 校正。同时检验 10+ 个海克斯时，
 //      单项 |z|≥2 本身约 5% 假阳性，以前会把噪声当信号天天报；现在每条标注「校正后是否仍成立」。
@@ -17,7 +21,7 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V2.3.0';
+export const VER = 'tools/126-balance-alert.js V2.4.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
@@ -29,6 +33,7 @@ const TH = {
     Z_WARN: 2.0,       // 海克斯表：|z| ≥ 2.0 判偏强/偏弱（约 95% 置信）
     Z_ALERT: 3.0,      // 海克斯表：|z| ≥ 3.0 判显著过强/过弱
     BAND: 0.05,        // 精英/整体：偏离理想线 ≥5pp 判过强/过弱、≥10pp 判显著（用户拍板）
+    MODE_GAP: 0.05,    // 模式间对比：扩展阵容（仅姐姐/仅妹妹）总胜率偏离常规 ≥5pp 判偏、≥10pp 判显著
     NATURAL: 0.35,     // 主表·自然出场 / 整体 7 关 的理想胜率
     SOLO: 0.15,        // 强精英（单核 M107）的理想胜率
     BOSS: 0.30,        // Boss·张无忌（单核 M115）的理想胜率
@@ -246,30 +251,22 @@ function eliteIssues() {
     // 绝对值表（自然 / 强精英 / Boss）：逐精英累加，对表理想线判偏离
     function absTable(part, names, target, label) {
         if (!part) { nodata.push(`${label}：快照里没有这张表，请到 112 跑一遍并重新「💾 存结果」。`); return null; }
-        const per = {}; names.forEach(n => per[n] = { runs: 0, wins: 0 });
+        const per = {}; const devByStage = {};
+        names.forEach(n => { per[n] = { runs: 0, wins: 0 }; devByStage[n] = []; });
         for (const st of part.stages) for (const v of VARIANTS) {
             const row = part.byStage && part.byStage[st] && part.byStage[st][v];
             if (!row) continue;
-            for (const n of names) { const d = row[n]; if (!d) continue; per[n].runs += d.runs; per[n].wins += d.wins; }
+            for (const n of names) {
+                const d = row[n]; if (!d) continue;
+                per[n].runs += d.runs; per[n].wins += d.wins;
+                // 按关卡拆解（V2.2.0）：找出每个精英偏离理想线最狠的那一关——与总数累加同一次遍历完成，不再二刷
+                if (d.runs > 0) devByStage[n].push({ stage: st, n: d.runs, rate: d.wins / d.runs, diff: d.wins / d.runs - target });
+            }
         }
         const rows = names.map(n => {
             const d = per[n], p = d.runs > 0 ? d.wins / d.runs : null;
             return { name: n, n: d.runs, p, diff: p === null ? null : p - target };
         }).sort((a, b) => (b.diff === null ? -9 : b.diff) - (a.diff === null ? -9 : a.diff));
-        // 按关卡拆解（V2.2.0）：找出每个精英偏离理想线最狠的那一关。
-        // 112 快照本来就存了 byStage，以前被累加成总数、看不出是「第5关崩了」还是每关都偏。
-        const devByStage = {};
-        for (const st of (part.stages || [])) {
-            for (const n of names) {
-                let rr = 0, ww = 0;
-                for (const v of VARIANTS) {
-                    const row = part.byStage && part.byStage[st] && part.byStage[st][v];
-                    const d = row && row[n];
-                    if (d) { rr += d.runs; ww += d.wins; }
-                }
-                if (rr > 0) (devByStage[n] = devByStage[n] || []).push({ stage: st, n: rr, rate: ww / rr, diff: ww / rr - target });
-            }
-        }
         rows.forEach(r => {
             const arr = devByStage[r.name];
             r.worstStage = (arr && arr.length) ? arr.reduce((a, b) => Math.abs(b.diff) > Math.abs(a.diff) ? b : a) : null;
@@ -357,6 +354,45 @@ function overallIssues(hex) {
     return { cur, target, n, diff, ok: az < TH.BAND, issues };
 }
 
+/* ========== 规则五：扩展阵容模式间对比（读 108 四套榜，跨模式判总胜率偏离） ========== */
+// 108 已分别落盘 常规 / 仅姐姐 / 仅妹妹 / 不带 四套榜，但旧判读只「逐模式内」比海克斯、或「单模式」对 35% 理想线。
+// 妹妹永久海克斯继承机制会让「仅妹妹」整体显著抬升（实测 ~53% vs 常规 ~34%）——这条异常旧版只在手动
+// 切到「仅妹妹」模式看整体胜率时才暴露。本规则自动比对四模式总胜率，把「扩展阵容系统性失衡」点出来。
+function modeGapIssues() {
+    const rates = {};
+    let any = false;
+    for (const m of HEX_MODES) {
+        const st = hexStatsOf(readJSON(hexKeyFor(m), []));
+        if (st.total >= TH.MIN_SAMPLE) { rates[m] = { rate: st.allyWins / st.total, n: st.total }; any = true; }
+    }
+    if (!any) return { missing: `模式间对比需要 108 海克斯榜把「常规 / 仅姐姐 / 仅妹妹 / 不带」四套都跑过（每套 ≥${TH.MIN_SAMPLE} 场），当前数据不足，跳过该对比。` };
+
+    // 关键对照：扩展阵容 vs 基准（常规 / 不带）。覆盖「妹妹相对常规」「姐姐相对常规」「妹妹相对不带」
+    const pairs = [
+        ['brother', 'normal', '妹妹模式相对常规'],
+        ['sister', 'normal', '姐姐模式相对常规'],
+        ['brother', 'none', '妹妹模式相对不带姐姐妹妹']
+    ];
+    const issues = [];
+    for (const [a, b, label] of pairs) {
+        if (!rates[a] || !rates[b]) continue;
+        const diff = rates[a].rate - rates[b].rate;
+        const az = Math.abs(diff);
+        // 加 1e-9 缓冲：浮点下正好 5.00% 会变成 4.999…% 被判为假阴性，丢失边界告警
+        if (az + 1e-9 < TH.MODE_GAP) continue;
+        const sev = az >= TH.MODE_GAP * 2 ? 'alert' : 'warn';
+        const dir = diff > 0 ? '偏高' : '偏低';
+        issues.push({
+            sev,
+            title: `${MODE_LABEL[a]} 整体胜率${dir}于${MODE_LABEL[b]}`,
+            detail: `${label}：${MODE_LABEL[a]} ${pct(rates[a].rate)}（${rates[a].n} 场）vs ${MODE_LABEL[b]} ${pct(rates[b].rate)}（${rates[b].n} 场），差值 ${signed(diff)}`
+                + `｜扩展阵容本应只改风格、不系统性抬升/压低总胜率；偏离 ≥${(TH.MODE_GAP * 100).toFixed(0)}pp 提示该阵容本身过强/过弱`
+                + (a === 'brother' ? '（妹妹永久海克斯继承机制是最常见元凶：详见 108「仅妹妹」榜整体胜率）。' : '。')
+        });
+    }
+    return { issues, rates, missing: null };
+}
+
 /* ========== 判读结果的文字表述（报告与界面共用） ========== */
 function absVerdict(sec, r) {
     if (!sec.canJudge(r)) return '样本不足';
@@ -411,17 +447,19 @@ function judgeAll(mode) {
     const hex = hexIssues(mode);
     const elit = eliteIssues();
     const ovr = overallIssues(hex.missing ? null : hex);
+    const modeGap = modeGapIssues();
     const alerts = [], warns = [], nojudge = [];
     const push = arr => arr.forEach(x => (x.sev === 'alert' ? alerts : warns).push(x));
     push(cov);
     if (hex.issues) push(hex.issues);
     if (elit.issues) push(elit.issues);
     if (ovr.issues) push(ovr.issues);
+    if (modeGap.issues) push(modeGap.issues);
     if (hex.nodata) nojudge.push(...hex.nodata);
     if (elit.nodata) nojudge.push(...elit.nodata);
-    [hex.missing, elit.missing, ovr.missing].filter(Boolean).forEach(m => nojudge.push(m));
+    [hex.missing, elit.missing, ovr.missing, modeGap.missing].filter(Boolean).forEach(m => nojudge.push(m));
     if (hex.invariant) alerts.push({ sev: 'alert', title: '判读基准口径自检未过', detail: hex.invariant });
-    return { cov, hex, elit, ovr, alerts, warns, nojudge, mode };
+    return { cov, hex, elit, ovr, modeGap, alerts, warns, nojudge, mode };
 }
 
 /* ========== 界面 ========== */
@@ -501,6 +539,14 @@ function buildReport(d) {
         d.elit.weak.rows.forEach(r => L.push(`${r.name}(${r.side === 'ally' ? '明教' : '六大派'})｜${r.n} 场｜${r.p === null ? '—' : pct(r.p)}｜对照 ${r.base === null ? '—' : pct(r.base)}｜Δ ${r.delta === null ? '—' : signed(r.delta)}｜${weakVerdict(d.elit.weak, r)}`));
     }
     if (d.elit.none) L.push('', `（背景）无精英基线 ${d.elit.none.rate === null ? '—' : pct(d.elit.none.rate)}（${d.elit.none.runs} 场）—— 不作参照，仅供了解明教不带精英时的下场。`);
+    if (d.modeGap && d.modeGap.rates) {
+        L.push('', '— 扩展阵容模式间对比（108 四套榜总胜率）—');
+        for (const m of HEX_MODES) if (d.modeGap.rates[m]) L.push(`${MODE_LABEL[m]}｜${d.modeGap.rates[m].n} 场｜${pct(d.modeGap.rates[m].rate)}`);
+    }
+    if (d.modeGap && d.modeGap.issues && d.modeGap.issues.length) {
+        L.push('', '— 模式间失衡 —');
+        d.modeGap.issues.forEach((x, i) => { L.push(`${i + 1}. ${x.title}`); L.push(`   ${x.detail}`); });
+    }
     if (d.ovr.cur !== undefined) {
         L.push('', '— 整体 7 关 —');
         L.push(`明教整体 ${pct(d.ovr.cur)}（${d.ovr.n} 场） vs 自然理想线 ${pct(d.ovr.target)}｜偏离 ${signed(d.ovr.diff)}｜${d.ovr.ok ? '在合理区间' : '需关注'}`);
@@ -634,6 +680,20 @@ function openBalanceAlert() {
         html += absTableHtml(d.elit.solo, '强精英（单核）', '单挑胜率');
         html += absTableHtml(d.elit.boss, 'Boss·张无忌（单核）', '单挑胜率');
         html += weakTableHtml(d.elit.weak);
+        // 模式间对比（规则五）：108 四套榜总胜率横向比，自动抓「扩展阵容系统性失衡」
+        if (d.modeGap && d.modeGap.rates) {
+            const rs = d.modeGap.rates;
+            html += '<div class="bal-sec"><h3 style="color:#4fc3f7">扩展阵容模式间对比（108 四套榜总胜率）</h3>'
+                + '<table><tr><th>模式</th><th>场次</th><th>明教整体胜率</th></tr>';
+            for (const m of HEX_MODES) if (rs[m]) html += `<tr><td class="l">${MODE_LABEL[m]}</td><td>${rs[m].n}</td><td>${pct(rs[m].rate)}</td></tr>`;
+            html += '</table></div>';
+        }
+        if (d.modeGap && d.modeGap.issues && d.modeGap.issues.length) {
+            html += '<div class="bal-sec"><h3 style="color:#ff6b6b">🚨 模式间失衡</h3>' + d.modeGap.issues.map(itemHtml).join('') + '</div>';
+        }
+        if (d.modeGap && d.modeGap.missing) {
+            html += '<div class="bal-sec"><h3 style="color:#888">⚪ 模式间对比</h3><p class="bal-no">· ' + d.modeGap.missing + '</p></div>';
+        }
         // 整体
         if (d.ovr.cur !== undefined) {
             html += '<div class="bal-sec"><h3 style="color:#4fc3f7">整体 7 关胜率</h3>'
