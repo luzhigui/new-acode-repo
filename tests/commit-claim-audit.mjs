@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/commit-claim-audit.mjs | V1.0.0 | 2026-10-29 夜间第 153 轮
+// tests/commit-claim-audit.mjs | V1.1.0 | 2026-10-29 夜间第 154 轮
 //
 // 「提交声称 vs 实际落盘」对账：把第 152 轮那款病从"人工发现"变成"机械点名"。
 //
@@ -39,7 +39,7 @@ import {
     VER as TRUTH_VER, selfCheck as truthSelfCheck, stripCommentsMapped
 } from './_lib/static-truth-slice.mjs';
 
-const VER = 'tests/commit-claim-audit.mjs V1.0.0';
+const VER = 'tests/commit-claim-audit.mjs V1.1.0';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 
@@ -72,6 +72,71 @@ const RE_PLAIN = /第(\d+)轮/;
  *   真的调用它"（第 152 轮牙F 那款病："拿被检查的东西自己来证明自己"的邻近形态）。
  */
 export const KNOWN_TRUTH = { round: 151, token: 'RE_IMPORT_TRUTH' };
+
+/**
+ * ★ 端到端守门人的两条通道（第 154 轮补上，专为第 153 轮牙K 那个洞）。
+ *   牙K 的实证：把端到端断言的计数整段关掉 ⇒ 不产生任何信号 ⇒ 守门者被关掉这件事
+ *   本身没人守。单条断言守不住"自己还在不在"，所以做成两条**物理分离**的通道，
+ *   各自把结果登记进 guard 对象，由第三个位置（guardCheck）统一校验：
+ *     · indep —— 独立复算：不读真漏桶，自己重新取那笔提交的 diff 再判一遍（置于扫描之前）；
+ *     · bucket —— 桶内命中：沿用原断言，在扫描产出的真漏桶里找（置于扫描之后）。
+ *   ★ 关掉任一条 ⇒ 该键缺失 ⇒ guardCheck 报"通道未执行"；两条都关 ⇒ 报两条。
+ *   残余边界（如实记）：连同 guardCheck 一起关掉则无人守 —— 这是任何自检的固有边界，
+ *   本件能做的是把三条语句放在文件三个不同位置，提高"一次全关掉"的代价。
+ */
+export const GUARD_CHANNELS = ['indep', 'bucket'];
+
+/**
+ * 通道 indep：独立复算已知真相（纯函数，样本由调用方注入，自证直接喂假数据）。
+ * opts = { known, getShow: (round)=>{msg,files}|null, headHas, isPreExisting }
+ * ★ 为什么要独立复算一遍，而不是只在结果桶里找：结果桶是"整条链的输出"，
+ *   链任一环被改坏它都会静默变空（第 153 轮牙E 已经实证过一次）。
+ */
+export function endToEndGuard(opts) {
+    const o = opts || {};
+    const know = o.known || KNOWN_TRUTH;
+    const getShow = o.getShow;
+    const headHas = o.headHas;
+    if (typeof getShow !== 'function' || typeof headHas !== 'function') {
+        return { ran: false, hit: false, why: '取样函数注入缺失 ⇒ 本通道没有真的跑' };
+    }
+    const c = getShow(know.round);
+    if (!c) return { ran: true, hit: false, why: '第' + know.round + '轮那笔提交取不到 diff' };
+    const r = auditCommitClaims({
+        msg: c.msg, files: c.files,
+        isPreExisting: typeof o.isPreExisting === 'function' ? o.isPreExisting : () => false
+    });
+    if (!r.miss.includes(know.token)) {
+        return { ran: true, hit: false, why: '独立复算时该符号被判为"已落盘/既有/删除侧" ⇒ 落盘判据或豁免被放宽' };
+    }
+    if (!headHas(know.token)) {
+        return { ran: true, hit: false, why: '独立复算时该符号在 HEAD 代码里不存在 ⇒ 分桶依据被改坏，真漏会被洗进打桩桶' };
+    }
+    return { ran: true, hit: true, why: '' };
+}
+
+/**
+ * 守门人校验（第三个位置）：两条通道都必须**执行过且命中**。
+ * ★ 缺键与未命中分开报：缺键 = 有人把断言整段关掉了（牙K 那款），
+ *   未命中 = 断言还在跑但链条断了（牙E 那款）—— 两款病的修法不同，不能混成一条。
+ */
+export function guardCheck(guard) {
+    const g = guard || {};
+    const fails = [];
+    for (const k of GUARD_CHANNELS) {
+        if (!(k in g)) {
+            fails.push('守门人通道「' + k + '」未执行 ⇒ 端到端断言被整段关掉却无人报（第 153 轮牙K 那款：守门者被关掉这件事本身没人守）');
+            continue;
+        }
+        const v = g[k];
+        if (!v || v.ran !== true) {
+            fails.push('守门人通道「' + k + '」没有真的跑（ran≠true）⇒ 取样环节被跳过');
+            continue;
+        }
+        if (v.hit !== true) fails.push('守门人通道「' + k + '」未命中：' + (v.why || '原因未知'));
+    }
+    return fails;
+}
 
 /** 从提交信息里提取"声称点"（去重、排序） */
 export function extractClaims(msg, opts) {
@@ -305,6 +370,45 @@ export function selfCheck() {
     r = auditCommitClaims({ msg: '收紧为 ZZZ_CLAIM_F，已落盘', files: [{ path: 'tests/baselines/x.json', added: ['"ZZZ_CLAIM_F": 1'], removed: [] }] });
     if (!r.miss.includes('ZZZ_CLAIM_F')) fails.push('自证⑩失效：非代码文件里的字样被当成已落盘');
 
+    // ⑭ 咬"守门人校验"本身：两条通道都**没登记** ⇒ 必须报两条"未执行"
+    //    （第 153 轮牙K：关掉端到端断言整段，实测零信号 ⇒ 守门者被关掉没人守）
+    for (const empty of [{}, { indep: { ran: true, hit: true } }, { bucket: { ran: true, hit: true } }]) {
+        const gf = guardCheck(empty);
+        const want = Object.keys(empty).length === 2 ? 0 : (Object.keys(empty).length === 1 ? 1 : 2);
+        if (gf.length !== want) {
+            fails.push('自证⑭失效：guardCheck 对 ' + JSON.stringify(Object.keys(empty))
+                + ' 报了 ' + gf.length + ' 条（应为 ' + want + ' 条）⇒ 守门人校验本身没咬住缺通道');
+        }
+    }
+
+    // ⑮ 咬"守门人不许恒绿"：通道登记了但没真跑（ran=false）⇒ 必须报
+    if (guardCheck({ indep: { ran: false, hit: true }, bucket: { ran: true, hit: true } }).length !== 1) {
+        fails.push('自证⑮失效：通道 ran=false 未被点名 ⇒ 光登记不算跑过');
+    }
+
+    // ⑯ 咬"独立复算不许恒命中"：把已知真相那笔喂成"符号其实已落盘" ⇒ 必须判未命中
+    //    ★ 这是防止有人把 endToEndGuard 改成 return { ran:true, hit:true } 抄近路
+    const gLanded = endToEndGuard({
+        known: KNOWN_TRUTH,
+        getShow: () => ({ msg: '收紧为 ' + KNOWN_TRUTH.token, files: [{ path: 'tests/x.mjs', added: ['const ' + KNOWN_TRUTH.token + ' = 1;'], removed: [] }] }),
+        headHas: () => true
+    });
+    if (gLanded.hit !== false) fails.push('自证⑯失效：已知真相被喂成"已落盘"仍判命中 ⇒ 独立复算恒真，形同虚设');
+
+    // ⑰ 咬"独立复算不许吞掉取样失败"：getShow 取不到那笔 ⇒ ran 仍为真但必须判未命中
+    const gNull = endToEndGuard({ known: KNOWN_TRUTH, getShow: () => null, headHas: () => true });
+    if (gNull.ran !== true || gNull.hit !== false) {
+        fails.push('自证⑰失效：取不到提交时独立复算未如实报未命中 ⇒ 断链被静默吞掉');
+    }
+
+    // ⑱ 咬"独立复算不许赖掉分桶依据"：符号确实未落盘但 HEAD 里也没有 ⇒ 必须判未命中
+    const gNoHead = endToEndGuard({
+        known: KNOWN_TRUTH,
+        getShow: () => ({ msg: '收紧为 ' + KNOWN_TRUTH.token, files: [{ path: 'tests/体检迭代日志.md', added: ['散文提到 ' + KNOWN_TRUTH.token], removed: [] }] }),
+        headHas: () => false
+    });
+    if (gNoHead.hit !== false) fails.push('自证⑱失效：HEAD 侧不存在时仍判命中 ⇒ 分桶依据被绕过，真漏会被洗进打桩桶');
+
     return fails;
 }
 
@@ -317,6 +421,27 @@ function main() {
 
     const commits = listNightCommits();
     const atHead = makeExisting('HEAD');
+
+    // ★ 守门人通道一（独立复算，置于扫描之前）：它不读扫描结果，自己重新取那笔提交的
+    //   diff 判一遍 ⇒ 扫描/分桶那整条链被改坏，这一条照样能独立复现第 151 轮那笔真漏。
+    const guard = {};
+    const mark = (k) => (guard[k] && guard[k].hit === true ? '命中' : (guard[k] ? '未命中' : '未执行'));
+    const knownCommit = commits.find(c => c.round === KNOWN_TRUTH.round);
+    const showOf = (round) => {
+        const c = commits.find(x => x.round === round);
+        if (!c) return null;
+        let out = '';
+        try {
+            out = git(['show', '--format=%B', '--unified=0', c.hash, '--', 'tests/', 'tools/']);
+        } catch (e) {
+            return null;
+        }
+        const p = parseShow(out);
+        return p.files.length ? { msg: p.msg, files: p.files } : null;
+    };
+    const preOfKnown = knownCommit ? makeExisting(knownCommit.hash + '^') : () => false;
+    guard.indep = endToEndGuard({ getShow: showOf, headHas: atHead, isPreExisting: preOfKnown });
+
     const missAll = [];
     let preCount = 0, removedCount = 0;
     for (const c of commits) {
@@ -355,14 +480,20 @@ function main() {
         + '；真漏 ' + real.length + ' 条 / 棘轮上限 ' + CLAIM_MISS_RATCHET
         + '；疑似打桩 ' + stub.length + ' 条'
         + '；引用既有符号 ' + preCount + ' 条；删除侧命中 ' + removedCount + ' 条（后二者均非漏落盘）');
-    // ★ 端到端断言：已知真漏必须仍在真漏桶里（钉住整条链，见 KNOWN_TRUTH 注释）
+    // ★ 守门人通道二（桶内命中，置于扫描之后）：已知真漏必须仍在真漏桶里（钉住整条链）。
     const knownHit = real.some(x => x.round === KNOWN_TRUTH.round && x.token === KNOWN_TRUTH.token);
-    if (!knownHit) {
-        console.log('❌ 端到端对账失效：已知真漏「第' + KNOWN_TRUTH.round + '轮 ' + KNOWN_TRUTH.token
-            + '」没落在真漏桶 ⇒ 扫描/提取/落盘判据/豁免/分桶任一环断了，本件等于没在抓它');
-    }
+    guard.bucket = {
+        ran: true, hit: knownHit,
+        why: '已知真漏「第' + KNOWN_TRUTH.round + '轮 ' + KNOWN_TRUTH.token
+            + '」没落在真漏桶 ⇒ 扫描/提取/落盘判据/豁免/分桶任一环断了，本件等于没在抓它'
+    };
+    // ★ 两通道的"都在且都命中"由第三个位置统一校验（见 guardCheck）：缺通道 = 断言被整段关掉。
+    const guardFails = guardCheck(guard);
+    for (const f of guardFails) console.log('❌ 端到端守门人：' + f);
+    console.log('端到端守门（两条通道必须都命中，缺一条即报）：独立复算=' + mark('indep')
+        + ' / 桶内命中=' + mark('bucket'));
 
-    let bad = scFails.length + truthFails.length + (knownHit ? 0 : 1);
+    let bad = scFails.length + truthFails.length + guardFails.length;
     if (real.length > CLAIM_MISS_RATCHET) {
         bad++;
         console.log('❌ 真漏 ' + real.length + ' 条 > 棘轮上限 ' + CLAIM_MISS_RATCHET + '（只降不抬，要抬须拍板）');
