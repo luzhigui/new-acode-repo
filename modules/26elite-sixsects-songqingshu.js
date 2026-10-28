@@ -130,7 +130,8 @@ export const chainClawHandler = {
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
                 const execThreshold = s.executeThreshold;
-                const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
+                // 免疫斩杀拦截
+                const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0 && !target.state._immuneExecute;
                 // hpAfter 出口洗一位小数：连锁是「累减→重算」循环，simulatedTargetHp 浮点减法会攒尾巴（7.8000…001），
                 //   不洗会渗进血条同步（player/46 HP_CHANGE）和下一爪的 lostHp 输入
                 const hpAfterClean = Math.round(simulatedTargetHp * 10) / 10;

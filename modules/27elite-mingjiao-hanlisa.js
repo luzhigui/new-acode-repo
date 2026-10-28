@@ -29,6 +29,8 @@ export function createHanLiSaComponent() {
 
             // 控制位移免疫·开局常驻（老板口径：被闪避反击/击退/换位只掉血不动窝；守卫在 core/12+13）
             hls.state._ctrlImmune = true;
+            // 免疫斩杀：无法被战士斩杀或白骨爪斩杀直接带走，只能被磨死
+            hls.state._immuneExecute = true;
             // 蓄意轰拳爆发序号（fx/93 引擎直发与回放桥重放按 seq 去重）
             let burstSeq = 0;
 

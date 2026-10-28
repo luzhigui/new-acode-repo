@@ -1,6 +1,6 @@
 {
   "ver": "tests/xinhun-death-targeted-case.mjs V1.0.2",
-  "generatedAt": "2026-10-28T12:05:15.408Z",
+  "generatedAt": "2026-10-28T14:03:57.618Z",
   "config": {
     "seeds": [
       1,
@@ -30,14 +30,14 @@
   "baseline": {
     "battles": 70,
     "zhouPresent": 25,
-    "songWithZhou": 11,
-    "songAttacks": 126,
-    "songAttacksAvg": 11.45,
-    "xinHunTriggers": 99,
+    "songWithZhou": 12,
+    "songAttacks": 141,
+    "songAttacksAvg": 11.75,
+    "xinHunTriggers": 115,
     "xinHunDeathHits": 0,
     "zhouMinHpOverall": 0,
     "zhouEverDeadByOtherDamage": true,
-    "xinHunMinZhouHpAfter": 52.7,
+    "xinHunMinZhouHpAfter": 45,
     "contradictions": 0
   },
   "targeted": {
@@ -46,13 +46,13 @@
       4
     ],
     "battles": 20,
-    "xinHunTriggers": 5,
-    "xinHunDeathHits": 5,
+    "xinHunTriggers": 8,
+    "xinHunDeathHits": 8,
     "contradictionSamples": [],
     "contradictions": 0
   },
   "conclusion": {
-    "rootCause": "新婚扣血 hpDeduct=1 恒定、周芷若满血 155，自然流需连扣 155 次才致死；宋青书场均出手 11.45 次 ⇒ 自然条件永远扣不死",
+    "rootCause": "新婚扣血 hpDeduct=1 恒定、周芷若满血 155，自然流需连扣 155 次才致死；宋青书场均出手 11.75 次 ⇒ 自然条件永远扣不死",
     "emissionPointProven": true,
     "deadFieldDefect": false,
     "deadFieldDetail": "XIN_HUN fact 的 isDead 读顶层 unit._pendingDeath（modules/26 L235），真值在 unit.state._pendingDeath（core/13 L226 写、core/17 登记）⇒ 恒 false。已挂主代码待转交，体检侧不代改。"

@@ -16,6 +16,10 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
     const cell = getCellElement(unit);
     if (!cell) return;
 
+    // 乘风突袭等击退表现：给目标套红框，增加视觉反馈
+    cell.style.boxShadow = '0 0 16px 4px rgba(255, 50, 50, 0.9)';
+    cell.style.border = '2px solid #ff3333';
+
     const oldPos = unit.pos;
 
     // 改为真位移：格子从旧位拱到新位，动画落定后才写数据
@@ -45,6 +49,9 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
     cell.style.transition = '';
     cell.style.transform = '';
     cell.style.zIndex = '';
+    // 清除击退红框
+    cell.style.boxShadow = '';
+    cell.style.border = '';
     const ctx = GlobalStore.get('playerContext') || c;
     if (ctx) ctx.updateUI();
 

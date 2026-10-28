@@ -67,9 +67,10 @@ export function renderFortifyShieldFact(fact) {
 
 // 乾坤大挪移
 export function renderQianKunUpgradedFact(fact) {
+    const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fact.absorbed} 伤害` : '';
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -77,9 +78,10 @@ export function renderQianKunUpgradedFact(fact) {
     };
 }
 export function renderQianKunBasicFact(fact) {
+    const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fact.absorbed} 伤害` : '';
     return {
         type:'info',
-        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,

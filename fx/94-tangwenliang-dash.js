@@ -23,6 +23,7 @@ import { getCellByPos } from './90fx-ref-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getPerfParam } from '../core/23perf-params.js';
 import { getRoleIcon } from '../render/37-role-cards.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 export const VER = 'fx/94-tangwenliang-dash.js V2.4.0';
 
@@ -126,6 +127,60 @@ async function removeBeam(b) {
         b.head.style.opacity = String(1 - p);
     });
     b.glow.remove(); b.core.remove(); b.head.remove();
+}
+
+// 终结一拳（融合平A视觉）
+async function performFinishingPunch(twEl, targetEl, T = (v) => v) {
+    const twR = twEl.getBoundingClientRect();
+    const tgR = targetEl.getBoundingClientRect();
+    const dx = tgR.left - twR.left;
+    const dy = tgR.top - twR.top;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist, ny = dy / dist;
+    const reach = Math.min(dist * 0.42, 54);
+
+    // 1. 蓄力后缩 (100ms)
+    await clock.animateReal(T(100), (p) => {
+        const e = 1 - Math.pow(1 - p, 3);
+        twEl.style.transform = `translate(${-nx * 10 * e}px, ${-ny * 10 * e}px) scale(${1 - 0.08 * e})`;
+    });
+
+    // 2. 冲刺 (110ms)
+    await clock.animateReal(T(110), (p) => {
+        const e = p * p * p; // easeInCubic
+        twEl.style.transform = `translate(${-nx * 10 + nx * (reach + 10) * e}px, ${-ny * 10 + ny * (reach + 10) * e}px) scale(1.05)`;
+    });
+
+    // 3. 命中爆发
+    const px = twR.left + twR.width / 2 + nx * reach;
+    const py = twR.top + twR.height / 2 + ny * reach;
+
+    // 白光爆闪
+    const flash = document.createElement('div');
+    flash.setAttribute('data-fx', 'temporary');
+    flash.style.cssText = `position:fixed;left:${tgR.left}px;top:${tgR.top}px;width:${tgR.width}px;height:${tgR.height}px;border-radius:6px;background:radial-gradient(circle at 50% 45%,#fff 0%,rgba(255,255,255,.9) 30%,rgba(255,240,180,.35) 68%,rgba(255,255,255,0) 100%);pointer-events:none;z-index:10080;`;
+    document.body.appendChild(flash);
+    clock.animateReal(T(230), (p) => {
+        flash.style.opacity = String(1 - p);
+        flash.style.transform = `scale(${1 + p * 0.18})`;
+    }).then(() => flash.remove());
+
+    // 目标抖动
+    targetEl.classList.add('shake');
+    setTimeout(() => targetEl.classList.remove('shake'), 420);
+
+    // 火花与冲击波
+    sparkBurstAt(px, py, '#fff2b0', 16);
+    sparkBurstAt(px, py, '#ff9f43', 10);
+    impactRing({ left: tgR.left, top: tgR.top, w: tgR.width, h: tgR.height, cx: tgR.left + tgR.width/2, cy: tgR.top + tgR.height/2 }, 'rgba(255,255,255,0.95)');
+    screenShake();
+
+    // 4. 退回 (200ms)
+    await clock.animateReal(T(200), (p) => {
+        const e = 1 - Math.pow(1 - p, 3);
+        twEl.style.transform = `translate(${nx * reach * (1 - e)}px, ${ny * reach * (1 - e)}px) scale(1)`;
+    });
+    twEl.style.transform = '';
 }
 
 // ---- 冲击环：从格子中心向外扩 + 淡出 ----
@@ -446,10 +501,20 @@ async function showTangWenLiangDashSlow(dash) {
 
     // ⑥ 真伤数字浮出（dash.hits 载荷里带 dmg）
     const hits = Array.isArray(dash.hits) ? dash.hits : [];
+    const store = GlobalStore.get('battleStore');
     hits.forEach((h, i) => {
         if (!(h.dmg > 0) || h.uid == null) return;
         realWait(T(120 + i * 90)).then(() => {
             if (skipped) return;
+            
+            // 实时扣血：在数字飘出的一瞬间同步给 store，血条立刻掉
+            if (store) {
+                const su = store.getState().units.find(u => u.uid === h.uid);
+                if (su) {
+                    store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: h.uid, payload: { hp: Math.max(0, su.hp - h.dmg) } });
+                }
+            }
+
             const el = document.querySelector(`[data-uid="${h.uid}"]`);
             const r = el ? el.getBoundingClientRect() : null;
             if (!r) return;
@@ -475,6 +540,13 @@ async function showTangWenLiangDashSlow(dash) {
     chainHead.style.opacity = '0';
     if (skipBtn.parentNode) skipBtn.remove();
     cleanupUi();
+
+    // ⑦.5 终结一拳（把平A融入冲刺）
+    const twEl = twGH ? twGH.g.el : twActorEl;
+    const tgtEl = tgtGH ? tgtGH.g.el : tgtActorEl;
+    if (twEl && tgtEl) {
+        await performFinishingPunch(twEl, tgtEl, T);
+    }
 
     return ghosts;
 }
@@ -547,7 +619,19 @@ export async function showTangWenLiangDash(dash, opts) {
 
     // ④ 落定：冲击环 + 火花 + 屏震（dash 本体最隆重；目标落点次之）
     const land = twG.toRect;
+    
+    // 实时扣血：在撞击的一瞬间同步给 store，血条立刻掉
     if (land) {
+        const hits = Array.isArray(dash.hits) ? dash.hits : [];
+        const store = GlobalStore.get('battleStore');
+        if (store) {
+            for (const h of hits) {
+                if (h.dmg > 0 && h.uid) {
+                    const su = store.getState().units.find(u => u.uid === h.uid);
+                    if (su) store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: h.uid, payload: { hp: Math.max(0, su.hp - h.dmg) } });
+                }
+            }
+        }
         impactRing(land, '#ffd166');
         sparkBurstAt(land.cx, land.cy, '#ffd166', 12);
         sparkBurstAt(land.cx, land.cy, '#ff9f43', 6);
@@ -555,6 +639,11 @@ export async function showTangWenLiangDash(dash, opts) {
     }
     if (tgG && tgG.toRect) impactRing(tgG.toRect, '#ff6b6b');
     if (beam) removeBeam(beam);   // 不 await，光束淡出与落定特效并行
+
+    // 终结一拳（把平A融入冲刺）
+    if (twG && twG.g.el && tgG && tgG.g.el) {
+        await performFinishingPunch(twG.g.el, tgG.g.el);
+    }
 
     return ghosts;
 }

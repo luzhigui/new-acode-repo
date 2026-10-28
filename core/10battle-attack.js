@@ -55,7 +55,8 @@ function tryAdvanceJavelin(unit, allySide, log) {
         skillName: '突进', note: `🥢 ${unit.name} 射程不及，向前压至 ${landPos} 号位`,
         // 前压是独立动作（本回合唯一一手），必须画分隔线自成一段 ——
         //   否则播放时 info 行无 needsSeparator，会紧贴上一单位攻击组末尾，读起来像那组的一部分。
-        needsSeparator: true
+        needsSeparator: true,
+        highlight: true // 标记需要给该单位格套框高亮
     } });
     return true;
 }
@@ -218,6 +219,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const immuneDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
+    // 引擎保底：空见死后其组件不再注册，但队友身上的护罩必须仍能消费，防 UI 残留
+    if (target.state && target.state._immuneShield && !immuneDeclarations.some(d => d.immune)) {
+        immuneDeclarations.push({ immune: true, reason: `🛡️ ${target.state._immuneShield.sourceName || '护罩'}：护罩挡下这一击` });
+        target.state._immuneShield = null;
+    }
+
     // 免疫回退只退「本次实际扣掉的血」（hpBeforeApply − 现血），不按 dmgCalc.dmg 全额补回：
     //   小昭·妹飞天时 core/13「天上无敌」已把这一击的 hp 扣减整段挡掉，全额补回会凭空加血顶满 maxHp。
     //   实际扣多少退多少：被挡掉时退 0，真正的免疫回退场景退真实损失。
@@ -252,6 +259,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             targetHp: fmtHp(target.hp),
             hpPctBefore: immuneHpPctBefore,
             hpPctAfter: immuneHpPctAfter,
+            dmgCalc: dmgCalc, // 透传伤害计算结果，供前端渲染波动与原始伤害行
             events: []
         };
         immuneFact.events = flushBattleEvents();

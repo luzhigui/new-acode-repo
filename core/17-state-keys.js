@@ -205,6 +205,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _neverMiss:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 行动过仍可闪避（韦一笑特权）：由组件声明，core 不再认 isWei
     _canAlwaysDodge:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 免疫斩杀（寒离飒常驻）：无法被战士斩杀或白骨爪斩杀带走，只能被普通伤害打死
+    _immuneExecute:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _bloodthirstStriked:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _xingFenExtraAttacking:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

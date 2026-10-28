@@ -230,6 +230,11 @@ function submitWarriorExecuteDeclaration(data) {
     const { unit, target, allySide, declarations } = data;
     if (!hasCombatSchool(unit, ROLE_TYPES.WARRIOR) || !unit.alive) return;
     if (!target || !target.alive || target.hp <= 0) return;
+    // 免疫斩杀拦截
+    if (target.state._immuneExecute) {
+        if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: target.name, unitUid: target.uid, camp: target.camp, skillName: '免疫斩杀', note: `🛡️ ${target.name} 无视了斩杀！`, line: false, floatText: '🛡️免疫斩杀', floatUid: target.uid } });
+        return;
+    }
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
     const threshold = hasBloodthirst ? C.EXEC_THRESHOLD_BLOODTHIRST : C.EXEC_THRESHOLD;

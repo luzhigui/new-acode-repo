@@ -1,4 +1,15 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V3.4.0 | 2026-10-28 新增「总览结论」(summarize)：把分散在各规则的判读汇成一句话——
+//   ① 整体偏向（明教实际胜率 vs 理想线 35%）；② 数据可信度（健康项有几处红/黄）；
+//   ③ 最该看的一条（按优先级排的第一条告警）。打开面板第一眼就能看懂，不要求懂统计。
+// V3.3.0 | 2026-10-28 规则八·逐海克斯对照（新增，无需主代码改动）：
+//   52 每局已记 hex（同 CONFIG.BUFFS key，108 模拟日志的 buffs 也是同 key），新增 52.getHexWinRates('single')
+//   取「单机·逐海克斯实战胜率」，与 108 常规榜「随机带该海克斯的胜率」按 key 匹配对照。
+//   差异显著（实战侧 95% 区间排除模拟值）才提示，且明确「模拟=随机带、实战=玩家主动选，差异含偏好不直接归因」。
+//   整体对照 + 英雄层面 + 逐海克斯三层，把「跑批到底准不准」从总量细化到每个海克斯。
+// V3.2.0 | 2026-10-28 数据健康新增「信号 vs 噪声」体检：108 榜里经 BH-FDR 校正后真显著的
+//   海克斯数 / 已判读数，若比例 <25% 直接标黄并提示「大部分差异是随机波动，别据此单调某海克斯」——
+//   把 108 模式对比的发现（15 个里常只有 2 个真差异）转成每次看告警都先看到的可靠性结论（无需主代码改动）。
 // V3.1.0 | 2026-10-28 规则八·英雄层面接通（配 112 V3.2.0）：
 //   ① 根因修正：V3.0.0 所说「112 自然表存的是六大派精英带队胜率」是误判——112 主表列名一直是明教
 //      6 名精英（NATURAL_ELITES）的在场胜率；英雄层面之所以「不生效」，是旧版没有独立字段、
@@ -73,12 +84,12 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.1.0';
+export const VER = 'tools/126-balance-alert.js V3.4.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
 // 规则八（V2.6.0）：拿真实对局和模拟跑批对照。52 是纯函数模块（只读 localStorage、无 DOM 副作用），可安全引入。
-import { getHeroAggregates, getCareerInsights } from './52-career-log.js';
+import { getHeroAggregates, getCareerInsights, getHexWinRates } from './52-career-log.js';
 
 (function () {
 // ==================== 判读阈值（集中一处，要调只改这里） ====================
@@ -747,6 +758,78 @@ function simVsReal(hex, elit) {
         }
     }
 
+    // ===== 逐海克斯对照（V3.3.0 新增）=====
+    // 模拟侧：108「常规」榜的逐海克斯明教胜率（跑批随机带该海克斯时的胜率）。
+    // 实战侧：52 生涯记录里「单机」模式逐海克斯明教胜率（玩家自选带该海克斯时的胜率）。
+    // 两边 key 同源（都是 CONFIG.BUFFS 的 key：108 来自 116 的 buffsPicked.map(b=>b.key)、
+    //   52 来自 player/42 的 c.activeBuffs.map(b=>b.key)），可直接按 key 匹配。
+    // 【诚实边界】模拟是「随机带 X」、实战是「玩家主动选 X」——玩家会专挑顺风的局带强海克斯，
+    //   所以实战胜率天然偏高、不能直接当「X 的真实强度」。本对照只描述「带 X 的胜率差多少」，
+    //   差异显著时才提示去查这个海克斯在实战里是否比跑批显示的更强/更弱，但不下因果结论。
+    // 注意：本段只依赖 52 生涯 + 108 常规榜，故放在英雄层面之前——即使 112 快照是旧格式（英雄层面对照不了），
+    //   逐海克斯对照仍照常产出，不被英雄层面的 early-return 吃掉。
+    let hexReal = null;
+    try { hexReal = getHexWinRates('single'); } catch (e) { hexReal = null; }
+    const simLogsN = readJSON(hexKeyFor('normal'), []);
+    const simStN = hexStatsOf(simLogsN);
+    const simHexMap = (simStN && simStN.per) ? simStN.per : {};
+    const hexRows = [];
+    let hexCompared = 0;
+    const nname = k => (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k;
+    if (hexReal && hexReal.length && simStN.total) {
+        const realMap = new Map(hexReal.map(a => [a.key, a]));
+        const allKeys = new Set([...Object.keys(simHexMap), ...realMap.keys()]);
+        for (const k of allKeys) {
+            const sim = simHexMap[k];
+            const m = realMap.get(k);
+            const simRate = sim ? sim.wins / sim.count : null;
+            const simN = sim ? sim.count : 0;
+            const realRate = m ? m.winRate / 100 : null;
+            const realN = m ? m.n : 0;
+            if (simRate === null) {
+                hexRows.push({ key: k, name: nname(k), sim: null, simN: 0, real: realRate, realN, gap: null, note: '模拟榜（108 常规）里没有这个海克斯的记录' });
+                continue;
+            }
+            if (realRate === null) {
+                hexRows.push({ key: k, name: nname(k), sim: simRate, simN, real: null, realN: 0, gap: null, note: '实战生涯里没带过这个海克斯（玩家没选），无法对照' });
+                continue;
+            }
+            if (m.reliable === false) {
+                hexRows.push({ key: k, name: nname(k), sim: simRate, simN, real: realRate, realN, gap: null, note: `实战仅 ${realN} 局（<8），样本少，不判` });
+                continue;
+            }
+            hexCompared++;
+            hexRows.push({ key: k, name: nname(k), sim: simRate, simN, real: realRate, realN, gap: realRate - simRate, note: null });
+        }
+    }
+    const hexIssues = [];
+    for (const r of hexRows) {
+        if (r.gap === null || r.sim === null || r.real === null) continue;
+        // 显著性：实战侧 Wilson 95% 区间是否把模拟值排除在外（模拟 n 极大，SE 可忽略）。
+        // 落在噪声内就不报——逐海克斯实战场次少，不卡显著性会满屏假阳。
+        const z = 1.96, p = r.real, n = r.realN;
+        const denom = 1 + z * z / n;
+        const center = (p + z * z / (2 * n)) / denom;
+        const half = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / denom;
+        const lo = Math.max(0, center - half), hi = Math.min(1, center + half);
+        const sig = (r.sim < lo) || (r.sim > hi);
+        const az = Math.abs(r.gap);
+        if (!sig) continue;                    // 噪声内，不报
+        if (az < TH.SIM_REAL_GAP) continue;    // 即便显著也太小，不报
+        const high = r.gap > 0;
+        hexIssues.push({
+            sev: az >= TH.SIM_REAL_ALERT ? 'alert' : 'warn',
+            title: `海克斯「${r.name}」模拟与实战差 ${signed(r.gap)}`,
+            detail: `模拟（108 常规·随机带该海克斯）${pct(r.sim)}（${r.simN} 场）vs 实战（生涯·单机带）${pct(r.real)}（${r.realN} 局），差 ${(az * 100).toFixed(1)}pp`
+                + `｜实战 95% 区间 ${Math.round(lo * 100)}–${Math.round(hi * 100)}%，模拟值${sig ? '落在区间外（显著）' : '在噪声内'}`
+                + `｜方向：${high
+                    ? '实战偏高 → 该海克斯在玩家手里比跑批随机带时更强（可能玩家专挑顺风的局带它，也可能它真被低估）'
+                    : '实战偏低 → 该海克斯在玩家手里比跑批随机带时更弱（可能玩家在不适合的局硬带它，也可能它真被高估）'}`
+                + `｜注意：实战是玩家主动选海克斯、模拟是随机带，两者配置不完全等价，差异不能直接归因到海克斯强弱。`
+        });
+    }
+    const hexEffective = hexCompared > 0;
+
     // ===== 英雄层面（V3.1.0 接通，配 112 V3.2.0）=====
     // 模拟侧数据源 = 112 快照的 hero 字段：「明教 6 名精英在场时明教胜率」，与 52 生涯记录的
     //   heroWins/appear 完全同口径（我方视角、同名同义），逐英雄同名对照即可。
@@ -754,10 +837,10 @@ function simVsReal(hex, elit) {
     let real = null;
     try { real = getHeroAggregates(); } catch (e) { real = null; }
     if (!real || !real.length) {
-        return { missing: '生涯记录里还没有实战数据 —— 打几局、并确认 dev-index「📊 生涯记录」里有内容后，这里才能拿实战和模拟对照。', overall, overallIssues, heroEffective: false };
+        return { missing: '生涯记录里还没有实战数据 —— 打几局、并确认 dev-index「📊 生涯记录」里有内容后，这里才能拿实战和模拟对照。', overall, overallIssues, heroEffective: false, hexRows, hexIssues, hexCompared, hexEffective };
     }
     const hero = elit && elit.hero;
-    if (!hero) return { missing: '112 快照是旧格式（没有「明教英雄个体胜率」hero 字段）——到 112 重跑主表·自然出场并「💾 存结果」后，英雄层面才能对照。', overall, overallIssues, heroEffective: false };
+    if (!hero) return { missing: '112 快照是旧格式（没有「明教英雄个体胜率」hero 字段）——到 112 重跑主表·自然出场并「💾 存结果」后，英雄层面才能对照。', overall, overallIssues, heroEffective: false, hexRows, hexIssues, hexCompared, hexEffective };
     const realMap = new Map(real.map(a => [a.name, a]));
     const rows = Object.entries(hero).map(([name, s]) => {
         const sim = s.runs > 0 ? s.wins / s.runs : null;
@@ -786,7 +869,8 @@ function simVsReal(hex, elit) {
         });
     }
     const compared = rows.filter(r => r.gap !== null && r.simN >= TH.MIN_SAMPLE).length;
-    return { rows, issues, compared, missing: null, overall, overallIssues, heroEffective: compared > 0 };
+
+    return { rows, issues, compared, missing: null, overall, overallIssues, heroEffective: compared > 0, hexRows, hexIssues, hexCompared, hexEffective };
 }
 
 /* ========== 数据健康总览（V2.8.0） ========== */
@@ -813,10 +897,22 @@ function dataHealth(hex, elit) {
             ageTxt = '，无时间戳';
             note = '这批榜是在 108 加时间戳（V6.4.0）之前跑的，判断不了新旧；重跑一次就会带上时间';
         }
+        // 信号 vs 噪声（V3.1.0）：前面 108 模式对比发现「15 个海克斯里常只有 2 个真差异」，
+        //   这里把同一结论转成数据健康提示——让用户在看任何单海克斯告警前先知道这份榜有多可信。
+        //   判读口径与规则二一致：对 n≥30 的海克斯算 z（带聚类校正）+ BH-FDR 校正，fdrSigCount 才是真显著数。
+        let sigTxt = '', sigNote = null;
+        if (hex.judgedCount && hex.judgedCount >= 5) {
+            const ratio = hex.fdrSigCount / hex.judgedCount;
+            sigTxt = `，真显著海克斯 ${hex.fdrSigCount}/${hex.judgedCount}`;
+            if (ratio < 0.25) {
+                state = state === 'bad' ? state : 'warn';
+                sigNote = `经 BH-FDR 校正后只有 ${hex.fdrSigCount}/${hex.judgedCount} 个海克斯的差异站得住（其余大概率是随机波动）——别据此单独调某个海克斯的强弱，先把榜跑厚再下结论`;
+            }
+        }
         rows.push({
             key: '108', label: '108 榜（模拟·海克斯）', state,
-            text: `${hex.total} 场，明教整体 ${pct(hex.allyRate)}${ageTxt}`,
-            note
+            text: `${hex.total} 场，明教整体 ${pct(hex.allyRate)}${ageTxt}${sigTxt}`,
+            note: note ? (sigNote ? note + '；' + sigNote : note) : sigNote
         });
     } else {
         rows.push({
@@ -1040,6 +1136,47 @@ function itemHtml(x) {
     return `<div class="bal-item ${x.sev === 'alert' ? 'a' : 'w'}"><div class="t">${tag}${x.title}</div><div class="d">${x.detail}</div></div>`;
 }
 
+/* ========== 总览结论（V3.4.0） ==========
+   把分散在各规则的判读汇成一句话，用户打开面板第一眼就能看懂，不要求懂统计。
+   返回 { overall, trust, top } 三项，每项 { t: 文字, s: 'ok'|'warn'|'bad' }。 */
+function summarize(d) {
+    // 1) 整体偏向：明教实际胜率 vs 理想线 35%
+    let overall = null;
+    if (d.ovr && !d.ovr.missing) {
+        if (d.ovr.ok) {
+            overall = { t: `整体正常：明教胜率 ${pct(d.ovr.cur)}，贴近理想线 ${pct(d.ovr.target)}`, s: 'ok' };
+        } else {
+            const hi = d.ovr.diff > 0;
+            const az = Math.abs(d.ovr.diff * 100).toFixed(0);
+            overall = {
+                t: `明教整体${hi ? '偏强' : '偏弱'}：胜率 ${pct(d.ovr.cur)}，比理想 ${pct(d.ovr.target)} ${hi ? '高' : '低'} ${az}pp`,
+                s: (d.ovr.diff >= TH.BAND * 2 || d.ovr.diff <= -TH.BAND * 2) ? 'bad' : 'warn'
+            };
+        }
+    }
+    // 2) 数据可信度：健康项有几处红/黄
+    let trust = null;
+    if (d.health && d.health.length) {
+        const red = d.health.filter(r => r.state === 'bad').length;
+        const yellow = d.health.filter(r => r.state === 'warn').length;
+        if (red) trust = { t: `数据有 ${red} 处硬伤（红），结论可能不可信，先看数据健康`, s: 'bad' };
+        else if (yellow) trust = { t: `数据基本可用，但 ${yellow} 处偏旧/偏薄，结论仅供参考`, s: 'warn' };
+        else trust = { t: '数据新鲜、样本充足，结论可信', s: 'ok' };
+    }
+    // 3) 最该看的一条：按优先级排的第一条告警
+    let top = null;
+    if (d.alerts && d.alerts.length) {
+        const a = d.alerts[0];
+        const tag = (a.rank && RANK_LABEL[a.rank]) ? `[${RANK_LABEL[a.rank]}] ` : '';
+        top = { t: `${tag}${a.title}`, s: a.sev === 'alert' ? 'bad' : 'warn' };
+    } else if (d.warns && d.warns.length) {
+        top = { t: `暂无告警，有 ${d.warns.length} 条可复核（如「${d.warns[0].title}」）`, s: 'warn' };
+    } else {
+        top = { t: '暂无告警，各项判读正常', s: 'ok' };
+    }
+    return { overall, trust, top };
+}
+
 function buildReport(d) {
     const L = [];
     L.push(`【光明顶5v5 平衡告警】海克斯：样本≥${TH.MIN_SAMPLE} 场、|z|≥${TH.Z_WARN} 偏 / ≥${TH.Z_ALERT} 显著；`
@@ -1047,6 +1184,12 @@ function buildReport(d) {
         + `（自然 ${pct(TH.NATURAL)} / 强精英 ${pct(TH.SOLO)} / Boss ${pct(TH.BOSS)} / 弱精英看 Δ）｜模式：${MODE_LABEL[d.mode]}`);
     L.push(`告警 ${d.alerts.length} 条 / 建议复核 ${d.warns.length} 条 / 未能判读 ${d.nojudge.length} 条`
         + `｜海克斯多重比较（BH-FDR q=${(TH.FDR_Q * 100).toFixed(0)}%）：${d.hex.fdrSigCount || 0}/${d.hex.judgedCount || 0} 项校正后仍显著`);
+    // 总览结论（V3.4.0）：一句话看懂
+    const S = summarize(d);
+    L.push('', '— 总览结论（一眼看懂）—');
+    if (S.overall) L.push(`· ${S.overall.t}`);
+    if (S.trust) L.push(`· ${S.trust.t}`);
+    if (S.top) L.push(`· 最该看：${S.top.t}`);
     // 数据健康（V2.8.0）：报告开头先交代「这份数据能不能信」
     if (d.health && d.health.length) {
         L.push('', '— 数据健康（先看这个）—');
@@ -1129,7 +1272,17 @@ function buildReport(d) {
                     + `｜差 ${r.gap === null ? '—' : signed(r.gap)}${r.note ? '（' + r.note + '）' : ''}`);
             });
         }
-        const allIssues = [].concat(d.simReal.overallIssues || [], d.simReal.issues || []);
+        L.push(`【逐海克斯】${d.simReal.hexCompared} 个海克斯两边都有足够样本（模拟=108 常规·随机带，实战=生涯·单机带）`);
+        if (!d.simReal.hexEffective) {
+            L.push('⚠️ 逐海克斯暂无可判读项：实战生涯里带过的海克斯不足 8 局、或 108 常规榜还没跑。');
+        }
+        if (d.simReal.hexRows) {
+            d.simReal.hexRows.forEach(r => {
+                L.push(`  ${r.name}｜模拟 ${r.sim === null ? '—' : pct(r.sim)}（${r.simN}）｜实战 ${r.real === null ? '—' : pct(r.real)}（${r.realN}）`
+                    + `｜差 ${r.gap === null ? '—' : signed(r.gap)}${r.note ? '（' + r.note + '）' : ''}`);
+            });
+        }
+        const allIssues = [].concat(d.simReal.overallIssues || [], d.simReal.issues || [], d.simReal.hexIssues || []);
         if (allIssues.length) allIssues.forEach(x => { L.push(`· ${x.title}`); L.push(`  ${x.detail}`); });
     } else if (d.simReal && d.simReal.missing) {
         L.push('', '— 模拟 vs 实战对照 —', d.simReal.missing);
@@ -1250,6 +1403,14 @@ function openBalanceAlert() {
             + `理想线：自然 ${pct(TH.NATURAL)} / 强精英 ${pct(TH.SOLO)} / Boss ${pct(TH.BOSS)}（弱精英看 Δ）｜判读：偏离 ≥${(TH.BAND * 100).toFixed(0)}pp 过强过弱、≥${(TH.BAND * 200).toFixed(0)}pp 显著<br>`
             + `海克斯多重比较：BH-FDR q=${(TH.FDR_Q * 100).toFixed(0)}%，${d.hex.fdrSigCount || 0}/${d.hex.judgedCount || 0} 项校正后仍显著（其余可能只是偶然）｜快照超 ${TH.FRESH_DAYS} 天会标「偏旧」<br>`
             + '本工具不重跑批：只读 108 落盘的榜与 112 存下的快照，故两者都需先各自跑一遍。</div>';
+        // 总览结论（V3.4.0）：打开面板第一眼就能看懂，不要求懂统计
+        const S = summarize(d);
+        const sc = s => s === 'bad' ? '#ff6b6b' : (s === 'warn' ? '#ffd700' : '#4caf50');
+        const sLine = (o, label) => o ? `<div style="margin:2px 0"><span style="color:${sc(o.s)};font-weight:bold">●</span> <b style="color:${sc(o.s)}">${label}：</b><span style="color:#ddd">${o.t}</span></div>` : '';
+        html += '<div class="bal-sec" style="margin-top:4px;background:#15152a;border:1px solid #4fc3f7;border-radius:8px;padding:10px 14px">'
+            + '<h3 style="color:#4fc3f7;margin:0 0 6px;font-size:14px">📌 总览结论（一眼看懂）</h3>'
+            + sLine(S.overall, '整体') + sLine(S.trust, '数据') + sLine(S.top, '最该看')
+            + '</div>';
         // 数据健康（V2.8.0）：先回答「这份数据能不能信」，再看下面的结论
         html += '<div class="bal-sec" style="margin-top:2px"><h3 style="color:#4fc3f7">📊 数据健康（先看这个）</h3>';
         for (const r of d.health) {
@@ -1380,7 +1541,28 @@ function openBalanceAlert() {
                 }
                 html += '</table>';
             }
-            html += '<p class="bal-no">整体对照 = 模拟误差 + 配置差异 + 玩家偏好，方向才有意义：实战明显高 → 跑批敌方偏强；反之偏弱。</p></div>';
+            // 逐海克斯对照（V3.3.0）：按 CONFIG.BUFFS key 匹配，模拟随机带 vs 实战主动带
+            html += '<h3 style="color:#9ad0f5;margin-top:10px">逐海克斯（' + (d.simReal.hexCompared || 0) + ' 个可比）</h3>';
+            if (!d.simReal.hexEffective) {
+                html += '<p class="bal-no">⚠️ 逐海克斯暂无可判读项：实战生涯里带过的海克斯不足 8 局、或 108 常规榜还没跑。</p>';
+            }
+            if (d.simReal.hexRows) {
+                html += '<table><tr><th>海克斯</th><th>模拟（108·随机带）</th><th>实战（生涯·单机带）</th><th>差值</th><th>解读</th></tr>';
+                for (const r of d.simReal.hexRows) {
+                    const az = r.gap === null ? 0 : Math.abs(r.gap);
+                    const v = r.gap === null ? `<span class="bal-dim">${r.note || '—'}</span>`
+                        : az < TH.SIM_REAL_GAP ? '<span class="bal-good">对得上</span>'
+                            : az >= TH.SIM_REAL_ALERT ? `<span class="bal-bad">显著偏离·${r.gap > 0 ? '实战偏高' : '实战偏低'}</span>`
+                                : `<span class="bal-weak">有偏差·${r.gap > 0 ? '实战偏高' : '实战偏低'}</span>`;
+                    html += `<tr><td class="l">${r.name}</td>`
+                        + `<td>${r.sim === null ? '—' : pct(r.sim)}<span class="bal-dim"> ${r.simN}</span></td>`
+                        + `<td>${r.real === null ? '—' : pct(r.real)}<span class="bal-dim"> ${r.realN}</span></td>`
+                        + `<td class="${r.gap !== null && r.gap > 0 ? 'bal-weak' : 'bal-good'}">${r.gap === null ? '—' : signed(r.gap)}</td>`
+                        + `<td>${v}</td></tr>`;
+                }
+                html += '</table>';
+            }
+            html += '<p class="bal-no">整体/英雄/逐海克斯：模拟=随机带、实战=玩家主动选，差异含选人偏好与配置差，方向才有意义；逐海克斯差异显著才提示，且不直接归因海克斯强弱。</p></div>';
         } else if (d.simReal && d.simReal.missing) {
             html += '<div class="bal-sec"><h3 style="color:#888">模拟 vs 实战对照</h3><p class="bal-no">· ' + d.simReal.missing + '</p></div>';
         }

@@ -17,7 +17,7 @@ import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, ge
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng } from './13battle-shared.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
@@ -311,8 +311,9 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
 
 function prepareRoundStart(A, B, state, ctx) {
     clearRoundEntries(A, B, state, ctx);
-    const ds = spawnHorsesAndPickDoubleStrike(A, B, state, ctx);
+    // 召唤物优先级：雄鹰(carry) > 众志成城补员 > 巨马(拒马)。必须保证雄鹰先占 5 号位，防被其他召唤物挤占。
     prepareRoundSpawns(A, B, state, ctx);
+    const ds = spawnHorsesAndPickDoubleStrike(A, B, state, ctx);
     const { roundComps } = installRoundMechanics(A, B, state, ctx, ds);
     linkPartners(A, B);
     prepareSoulDrain(A, B, ctx);
@@ -441,7 +442,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
             // 连击宿主（明教被选中者 / 拥有永久连击的妹妹）无视遮挡，强行参战
             const isDoubleStrikeHost = (Array.isArray(doubleStrikeUnitUids) && doubleStrikeUnitUids.includes(u.uid)) || (u.state && u.state._permanentBuffs && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE));
-            if (isBlocked(u, fullAllySide) && isMelee(u.role) && !isDoubleStrikeHost) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
+            
+            // 嗜血狂刀宿主：只要有团队版，或者妹妹永久版，且自身是战士，同样无视遮挡
+            const teamBuffs = fullAllySide._activeBuffs || [];
+            const hasTeamBloodthirst = hasBuff(teamBuffs, BUFF_TYPES.BLOODTHIRST);
+            const hasBrotherBloodthirst = fullAllySide.some(m => m.isXiaoZhaoBrother && m.alive && m.state?._permanentBuffs?.some(b => b.key === BUFF_TYPES.BLOODTHIRST));
+            const isBloodthirstHost = (hasTeamBloodthirst || hasBrotherBloodthirst) && u.role === ROLE_TYPES.WARRIOR;
+            
+            if (isBlocked(u, fullAllySide) && isMelee(u.role) && !isDoubleStrikeHost && !isBloodthirstHost) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
             // log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide, log });

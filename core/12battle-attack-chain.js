@@ -471,7 +471,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
             hpPctAfter,
             phantomFact,
             entries: pendingEntries,
-            snap
+            snap,
+            isDashStrikeFx: !!unit.state._isDashStrikeFx
         },
         _events: []
     };

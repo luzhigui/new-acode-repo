@@ -1,4 +1,6 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V1.8.0 | 2026-10-28 | 新增 getHexWinRates(mode)：逐海克斯实战胜率（mode='single' 与 108 常规榜口径对齐），
+//   供 126 规则八做「逐海克斯 模拟 vs 实战」对照。52 每局已记 hex（同 CONFIG.BUFFS key），可直接按 key 匹配。
 // V1.7.0 | 2026-10-28 | byMode 升级：原只数各模式场次（单机/联机），V1.6.0 加 byMode 的初衷是
 //   「单机可能挂机刷会稀释胜率」，但只显示「单机 N 局」用户仍无法判断它把胜率拉高还是压低 →
 //   现在 byMode 存 {n, wins, winRate, label}，界面/数据健康/Markdown 导出都按「N局(胜率%)」展示。
@@ -40,7 +42,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V1.7.0';
+export const VER = 'tools/52-career-log.js V1.8.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -422,6 +424,39 @@ export function getHeroAggregates(includeEnemy = false) {
             aliveRate: Math.round(a.alive / a.games * 100)
         };
     }).sort((a, b) => b.games - a.games);
+}
+
+// V1.8.0 新增：逐海克斯实战胜率——给 126 规则八做「逐海克斯 模拟 vs 实战」对照用。
+// 52 每局已经记了 hex（player/42player-core.js 写的是 c.activeBuffs.map(b=>b.key)），
+// 与 108 模拟日志的 buffs（116 写的是 buffsPicked.map(b=>b.key)）是同一套 CONFIG.BUFFS key，可直接按 key 匹配。
+// mode 可过滤：传 'single' 只取单机（vs AI）对局，与 108 常规榜（也是 vs AI、随机带海克斯）口径对齐；
+//   不传则汇总所有模式（含联机——联机是人与人，108 没有对应模拟，混进来会污染对照）。
+export function getHexWinRates(mode = null) {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const HEX_MIN_GAMES = 8;   // 逐海克斯门槛：玩家不会每局都带同一个，样本比英雄稀，仍给 ≥8 才判
+    const stat = {};
+    for (const r of arr) {
+        if (mode && r.mode !== mode) continue;
+        for (const k of (r.hex || [])) {
+            const rec = stat[k] || (stat[k] = { n: 0, w: 0 });
+            rec.n++;
+            if (r.winner === '明教') rec.w++;
+        }
+    }
+    if (!Object.keys(stat).length) return null;
+    const out = Object.entries(stat).map(([k, v]) => {
+        const ci = wilson95(v.w, v.n);
+        let name = k;
+        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
+        return {
+            key: k, name, n: v.n, wins: v.w,
+            winRate: Math.round(v.w / v.n * 100),
+            ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
+            reliable: v.n >= HEX_MIN_GAMES
+        };
+    }).sort((a, b) => b.n - a.n);
+    return out;
 }
 
 // V1.1.0 新增：CSV 导出——每行一个单位，表格软件（Excel/WPS）直接透视/排序。

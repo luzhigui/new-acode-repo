@@ -191,6 +191,7 @@ export function createTangWenLiangComponent() {
                 switchRole(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士', outLog);
                 // 回春延到「冲刺后那一拳」结算完再叠
                 tw.state._pendingDashHeal = true;
+                tw.state._isDashStrikeFx = true; // 标记本击跳过物理攻击动画
                 if (outLog) {
                     const moves = [...(enemyRes.ok ? enemyRes.moved : []), ...(allyRes.ok ? allyRes.moved : [])]
                         .map(m => ({ uid: m.unit.uid, camp: m.unit.camp, from: m.from, to: m.to, isDash: !!m.isDash }));
@@ -229,6 +230,7 @@ export function createTangWenLiangComponent() {
             const flushDashHeal = (data) => {
                 if (data.unit !== tw || !tw.alive || !tw.state._pendingDashHeal) return;
                 tw.state._pendingDashHeal = false;
+                tw.state._isDashStrikeFx = false; // 清理标记
                 addHuiChunStack(tw, data.log);
                 if (!tw.state._hcTickedThisTurn) {
                     tickHuiChun(tw, data.log);

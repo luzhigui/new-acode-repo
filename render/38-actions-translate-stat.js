@@ -217,6 +217,17 @@ function translateSkillAnnounce(data, index) {
             timing: 'afterText'
         };
     }
+    // 唐文亮突进高亮：返回专用的高亮动作，不飘字
+    if (data.highlight && data.unitUid != null) {
+        return {
+            kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
+            targetUid: data.unitUid,
+            text: null,
+            isHighlight: true,
+            factIndex: index,
+            timing: 'beforeText'
+        };
+    }
     if (!data.floatText || data.floatUid == null) return null;
     return {
         kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
