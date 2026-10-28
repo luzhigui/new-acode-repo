@@ -24,6 +24,28 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     const actions = step.stageActions || [];
     const log = step.log || [];
 
+    // 修复圣火不熄等「复活」在步首被 UI 忽略的问题：
+    // 引擎在回合开始已经把他改活，但 UI 步末才同步。若清尸 timer 先触发，画面会先变空、再变尸体、最后才活。
+    // 此处检测到「Store 里已死，但 step 里复活」的单位，立刻同步一次，让他当帧变成绿格。
+    if (c.store && (step.ally || step.enemy)) {
+        const storeUnits = c.store.getState().units || [];
+        const stepUnits = [...(step.ally || []), ...(step.enemy || [])];
+        let hasRevive = false;
+        for (const su of stepUnits) {
+            if (su.alive === true && su.state && !su.state._isDead) {
+                const st = storeUnits.find(x => x.uid === su.uid);
+                if (!st || st.alive === false || (st.state && st.state._isDead)) {
+                    hasRevive = true;
+                    break;
+                }
+            }
+        }
+        if (hasRevive) {
+            syncStoreFromStep(c, step);
+            if (typeof c.updateUI === 'function') c.updateUI(); // 强制重绘网格
+        }
+    }
+
     // 原始 fact 累积：供 ui/64 的走势分析直接消费（不经渲染层反推）
     const _bf = GlobalStore.get('battleFacts');
     if (Array.isArray(_bf)) { for (const _e of log) _bf.push(_e); }

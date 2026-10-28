@@ -48,42 +48,23 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c.state._stunned);
     if (target.camp !== CAMP_TYPES.ALLY || !zhang) return { modifiedDmg, entries };
 
+    let isProtected = false;
+    let reducePct, reboundPct, selfDmgPct;
+    let label;
+
     if (xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
         const s = getSkillParams('小昭', 'qianKunUpgraded');
         if (!s) throw new Error('缺技能参数: 小昭.qianKunUpgraded');
-        const reducePct = s.reducePct;
-        const reboundPct = s.reboundPct;
-        const selfDmgPct = s.selfDmgPct;
-        const reducedDmg = Math.round(dmg * (1 - reducePct));
-        const rebound = Math.floor(dmg * reboundPct);
-        const selfDmg = Math.max(1, Math.floor(dmg * selfDmgPct));
-
-        zhang.reboundDone += rebound;
-        applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
-        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤', false);
-
-        entries.push({
-            factType: FACT_TYPES.QIAN_KUN_UPGRADED,
-            data: {
-                attackerName: unit.name,
-                zhangName: zhang.name,
-                reducePct,
-                rebound,
-                selfDmg,
-                attackerUid: unit.uid,
-                zhangUid: zhang.uid
-            }
-        });
-
-        modifiedDmg = reducedDmg;
+        reducePct = s.reducePct; reboundPct = s.reboundPct; selfDmgPct = s.selfDmgPct;
+        isProtected = true; label = 'QIAN_KUN_UPGRADED';
     } else if (!xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
-        // 基础版保护域与升级版同口径（张无忌四邻格），两档只差数值。
-        // 张无忌保持远程（所在列有更靠前的活队友）才有乾坤；切近战 rangedForm=false 自动关闭——前排在时借力分担，前排倒了亲自顶上
         const s = getSkillParams('张无忌', 'qianKun');
         if (!s) throw new Error('缺技能参数: 张无忌.qianKun');
-        const reducePct = s.reducePct;
-        const reboundPct = s.reboundPct;
-        const selfDmgPct = s.selfDmgPct;
+        reducePct = s.reducePct; reboundPct = s.reboundPct; selfDmgPct = s.selfDmgPct;
+        isProtected = true; label = 'QIAN_KUN_BASIC';
+    }
+
+    if (isProtected) {
         const reducedDmg = Math.round(dmg * (1 - reducePct));
         const rebound = Math.floor(dmg * reboundPct);
         const selfDmg = Math.max(1, Math.floor(dmg * selfDmgPct));
@@ -92,20 +73,45 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤', false);
 
+        // 新增：张无忌如果有护盾，优先用护盾替队友全额挡下剩余伤害
+        let absorbed = 0;
+        let shieldLeft = (zhang.state._shield || 0) + (zhang.state._permShield || 0);
+        if (shieldLeft > 0 && reducedDmg > 0) {
+            absorbed = Math.min(shieldLeft, reducedDmg);
+            let remainAbsorb = absorbed;
+
+            // 先扣临时盾
+            if (zhang.state._shield > 0) {
+                const deduct = Math.min(zhang.state._shield, remainAbsorb);
+                zhang.state._shield -= deduct;
+                remainAbsorb -= deduct;
+            }
+            // 再扣永久盾
+            if (remainAbsorb > 0 && zhang.state._permShield > 0) {
+                const deduct = Math.min(zhang.state._permShield, remainAbsorb);
+                zhang.state._permShield -= deduct;
+                remainAbsorb -= deduct;
+            }
+
+            // 刷新张无忌的 UI（血量/护盾状态）
+            emitEvent(zhang, UNIT_EVENT_TYPES.HP_CHANGE, { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: getStat(zhang, 'atk'), def: getStat(zhang, 'def') });
+        }
+
         entries.push({
-            factType: FACT_TYPES.QIAN_KUN_BASIC,
+            factType: FACT_TYPES[label],
             data: {
                 attackerName: unit.name,
                 zhangName: zhang.name,
                 reducePct,
                 rebound,
                 selfDmg,
+                absorbed,
                 attackerUid: unit.uid,
                 zhangUid: zhang.uid
             }
         });
 
-        modifiedDmg = reducedDmg;
+        modifiedDmg = reducedDmg - absorbed;
     }
 
     return { modifiedDmg, entries };

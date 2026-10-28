@@ -1,4 +1,8 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V1.9.0 | 2026-10-28 | 新增 getHeroImpact()：每英雄「活到结束胜率 − 阵亡胜率」= 胜负手影响力，标 carry/包袱；
+//   接 exportCareerMarkdown 与 dev-index 面板。数据现成（每局已记 ally[].alive + winner），纯聚合不新增存储。
+// V1.8.0 | 2026-10-28 | 新增 getHexWinRates(mode)：逐海克斯实战胜率（mode='single' 与 108 常规榜口径对齐），
+//   供 126 规则八做「逐海克斯 模拟 vs 实战」对照。52 每局已记 hex（同 CONFIG.BUFFS key），可直接按 key 匹配。
 // V1.7.0 | 2026-10-28 | byMode 升级：原只数各模式场次（单机/联机），V1.6.0 加 byMode 的初衷是
 //   「单机可能挂机刷会稀释胜率」，但只显示「单机 N 局」用户仍无法判断它把胜率拉高还是压低 →
 //   现在 byMode 存 {n, wins, winRate, label}，界面/数据健康/Markdown 导出都按「N局(胜率%)」展示。
@@ -40,7 +44,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V1.7.0';
+export const VER = 'tools/52-career-log.js V1.9.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -222,6 +226,24 @@ export function exportCareerMarkdown() {
                     + `${a.ci ? a.ci[0] + '–' + a.ci[1] + '%' : '—'} | ${a.avgDmg} | ${a.avgTaken} | ${a.aliveRate}% |`);
             }
             lines.push('');
+        }
+    } catch (e) {}
+    try {
+        const hi = getHeroImpact();
+        if (hi && hi.length) {
+            const shown = hi.filter(h => h.reliable !== false);
+            if (shown.length) {
+                lines.push('## 英雄影响力（活到结束胜率 − 阵亡胜率，= 生死对胜负的拉动）');
+                lines.push('| 英雄 | 出场 | 活着胜率 | 阵亡胜率 | 影响力 | 判读 |');
+                lines.push('|---|---|---|---|---|---|');
+                for (const h of shown.slice(0, 15)) {
+                    lines.push(`| ${h.name} | ${h.games} | ${h.aliveWinRate}% | ${h.deadWinRate}% | `
+                        + `${h.impactPP > 0 ? '+' : ''}${h.impactPP}pp | ${h.verdict || '—'} |`);
+                }
+                lines.push('');
+                lines.push('> 这是相关不是因果：一个英雄总是最后才倒（因为他强），活着和赢自然相关。只看「拉动方向」，不归因。');
+                lines.push('');
+            }
         }
     } catch (e) {}
     try {
@@ -422,6 +444,85 @@ export function getHeroAggregates(includeEnemy = false) {
             aliveRate: Math.round(a.alive / a.games * 100)
         };
     }).sort((a, b) => b.games - a.games);
+}
+
+// V1.8.0 新增：逐海克斯实战胜率——给 126 规则八做「逐海克斯 模拟 vs 实战」对照用。
+// 52 每局已经记了 hex（player/42player-core.js 写的是 c.activeBuffs.map(b=>b.key)），
+// 与 108 模拟日志的 buffs（116 写的是 buffsPicked.map(b=>b.key)）是同一套 CONFIG.BUFFS key，可直接按 key 匹配。
+// mode 可过滤：传 'single' 只取单机（vs AI）对局，与 108 常规榜（也是 vs AI、随机带海克斯）口径对齐；
+//   不传则汇总所有模式（含联机——联机是人与人，108 没有对应模拟，混进来会污染对照）。
+export function getHexWinRates(mode = null) {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const HEX_MIN_GAMES = 8;   // 逐海克斯门槛：玩家不会每局都带同一个，样本比英雄稀，仍给 ≥8 才判
+    const stat = {};
+    for (const r of arr) {
+        if (mode && r.mode !== mode) continue;
+        for (const k of (r.hex || [])) {
+            const rec = stat[k] || (stat[k] = { n: 0, w: 0 });
+            rec.n++;
+            if (r.winner === '明教') rec.w++;
+        }
+    }
+    if (!Object.keys(stat).length) return null;
+    const out = Object.entries(stat).map(([k, v]) => {
+        const ci = wilson95(v.w, v.n);
+        let name = k;
+        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
+        return {
+            key: k, name, n: v.n, wins: v.w,
+            winRate: Math.round(v.w / v.n * 100),
+            ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
+            reliable: v.n >= HEX_MIN_GAMES
+        };
+    }).sort((a, b) => b.n - a.n);
+    return out;
+}
+
+// V1.9.0 新增：英雄影响力 getHeroImpact()（V1.9.0）
+//   每局都记了每个英雄的 alive（是否活到战斗结束）与胜负，却从没算过「这个英雄活着时 vs 阵亡时，
+//   明教胜率差多少」——这正是玩家最该知道的「胜负手」：活=carry、死=崩盘的是谁。
+//   数据现成（r.ally[].alive + r.winner），纯聚合、不新增存储。
+//   诚实边界：这是相关不是因果——一个英雄总是最后才倒（因为他强），活着和赢当然相关；
+//   结论只标「影响力方向」，不下「该英雄导致胜负」的因果断言。样本要求：总出场≥12 且
+//   存活/阵亡两边各≥5 局，否则只报「样本不足」避免小样本误读。
+export function getHeroImpact() {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const IMPACT_MIN_TOTAL = 12, IMPACT_MIN_SIDE = 5;
+    const M = {};
+    const touch = (name, alive, won) => {
+        const a = M[name] || (M[name] = { name, games: 0, aliveWins: 0, aliveGames: 0, deadWins: 0, deadGames: 0 });
+        a.games++;
+        if (alive) { a.aliveGames++; if (won) a.aliveWins++; }
+        else { a.deadGames++; if (won) a.deadWins++; }
+    };
+    for (const r of arr) {
+        const mWin = r.winner === '明教';
+        for (const u of (r.ally || [])) touch(u.name, !!u.alive, mWin);
+    }
+    return Object.values(M).map(a => {
+        const aliveWR = a.aliveGames ? a.aliveWins / a.aliveGames : null;
+        const deadWR = a.deadGames ? a.deadWins / a.deadGames : null;
+        const impact = (aliveWR !== null && deadWR !== null) ? aliveWR - deadWR : null;
+        const enough = a.games >= IMPACT_MIN_TOTAL && a.aliveGames >= IMPACT_MIN_SIDE && a.deadGames >= IMPACT_MIN_SIDE;
+        let verdict = null;
+        if (enough && impact !== null) {
+            const pp = Math.round(impact * 100);
+            if (pp >= 20) verdict = '胜负手·活着他赢面大涨';
+            else if (pp <= -20) verdict = '反向·他倒下时明教反而更稳（多半是别人在扛）';
+            else if (pp >= 5) verdict = '有正向影响力';
+            else if (pp <= -5) verdict = '略偏反向';
+            else verdict = '生灭对胜负影响不大';
+        }
+        return {
+            name: a.name, games: a.games,
+            aliveGames: a.aliveGames, aliveWinRate: aliveWR === null ? null : Math.round(aliveWR * 100),
+            deadGames: a.deadGames, deadWinRate: deadWR === null ? null : Math.round(deadWR * 100),
+            impactPP: impact === null ? null : Math.round(impact * 100),
+            reliable: enough, verdict
+        };
+    }).sort((a, b) => (b.impactPP === null ? -99 : b.impactPP) - (a.impactPP === null ? -99 : a.impactPP));
 }
 
 // V1.1.0 新增：CSV 导出——每行一个单位，表格软件（Excel/WPS）直接透视/排序。

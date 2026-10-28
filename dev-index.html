@@ -314,6 +314,32 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         }
                     } catch (e) {}
 
+                    // 英雄影响力（tools/52 V1.9.0）：活着胜率 vs 阵亡胜率，谁在 carry
+                    try {
+                        const hi = m.getHeroImpact();
+                        if (hi && hi.length) {
+                            const shown = hi.filter(h => h.reliable !== false).slice(0, 12);
+                            if (shown.length) {
+                                const t5 = document.createElement('div');
+                                t5.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                                let h5 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄影响力（活着胜率 − 阵亡胜率，越高越关键）</div>';
+                                h5 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+                                h5 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>活着胜率</th><th>阵亡胜率</th><th>影响力</th><th>判读</th></tr>';
+                                shown.forEach(h => {
+                                    const c = h.impactPP >= 20 ? '#4caf50' : (h.impactPP <= -20 ? '#ff6b6b' : (h.impactPP >= 5 ? '#9ad0f5' : '#888'));
+                                    const iw = h.impactPP > 0 ? '+' : '';
+                                    h5 += `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${h.name}</td>`
+                                        + `<td>${h.aliveWinRate}%</td><td>${h.deadWinRate}%</td>`
+                                        + `<td style="color:${c};font-weight:bold;">${iw}${h.impactPP}pp</td>`
+                                        + `<td style="color:#999;max-width:140px;white-space:normal;">${h.verdict || ''}</td></tr>`;
+                                });
+                                h5 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">相关非因果：强英雄总最后倒，活着与赢自然相关。只标方向，不归因。</div>';
+                                t5.innerHTML = h5;
+                                wrap.appendChild(t5);
+                            }
+                        }
+                    } catch (e) {}
+
                     // 英雄搭配（tools/52 V1.3.0）：谁和谁一起上更容易赢
                     try {
                         const pairs = m.getHeroPairs();

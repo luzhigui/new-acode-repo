@@ -269,11 +269,22 @@ export function renderImmuneFact(fact) {
         needsSeparator: true,
         _events: fact.events || []
     };
+    // 把波动行、伤害行照样补全（与命中战斗同款，只是结果被免疫）
+    if (fact.dmgCalc) {
+        const calc = fact.dmgCalc;
+        immuneGroup.entries.push({type:'detail', text:`<span class="gray small">波动：攻${calc.atkBase}→${calc.atkAct} 防${calc.defBase}→${calc.defAct} 减伤${calc.hpBonus}</span>`});
+        immuneGroup.entries.push({
+            type: 'damage-text',
+            dmg: 0,
+            text: `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">0</span> 伤害（原本可造成 ${Math.round(calc.dmg)} 伤害被吸收），<span class="${dc}">${campD} ${target.name}</span> ${fact.targetHp} → ${fact.targetHp}`
+        });
+    }
+
     if (fact.flyData) {
         // 跨域取小昭·妹飞天渲染器（实现住在精英域），走注册表查表以免 34 ↔ 37 互相 import
         immuneGroup.entries.push(getFactRenderer(FACT_TYPES.SPIDER_FLY)(fact.flyData));
     } else if (fact.reason) {
-        immuneGroup.entries.push({type:'info', text:`<span class="gold">${fact.reason}</span>`});
+        immuneGroup.entries.push({type:'info', text:`<span class="gold">🛡️ ${unit.name} 的攻击被 ${target.name} 完全挡下：${fact.reason}</span>`});
     }
     return immuneGroup;
 }

@@ -1,6 +1,6 @@
 // core/04buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.7.4 | 2026-10-27 | ~44090 bytes —— 背水一战声明 fact 的 ratio 改报实际上阵值 finalAtkBonus（姊强化 0.25 ≠ 基础 0.3，原报基础值致声明与实际不符）
-export const VER = 'core/04buff-system.js V6.7.4';
+// V6.7.5 | 2026-10-28 | ~44085 bytes —— 嗜血狂刀 fact 的 isBrother 改报「吸血者是否小昭·妹本人」（原按分支写死 false/true：队友走妹永久嗜血被标成蝶血、妹本人走普通分支反被标成普通，变量声明后一直是死码）
+export const VER = 'core/04buff-system.js V6.7.5';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -307,7 +307,7 @@ export function submitBloodthirstDeclaration(data) {
         //   这里若直接填 preview 值会被打两次折（50% 变 25%）；preview 只用于飘字/审计「实际落地值」
         const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const leechVal = previewHeal(unit, rawLeech);
-        const decl = { type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
+        const decl = { type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother, unitUid: unit.uid } };
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
             data.declarations.push(decl);
@@ -317,7 +317,7 @@ export function submitBloodthirstDeclaration(data) {
         if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
             unit.state._bloodthirstStriked = true;
             if (!data.extraRequests) data.extraRequests = [];
-            data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20 });
+            data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20, ignoreBlock: true });
         }
     } else if (hasBrotherPermanent(allySide, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         // 同主分支：声明量填原值，preview 只用于飘字/审计
@@ -325,7 +325,7 @@ export function submitBloodthirstDeclaration(data) {
         const leechVal = previewHeal(unit, rawLeech);
         if (!data.declarations) data.declarations = [];
         if (leechVal > 0) {
-            data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid } });
+            data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother, unitUid: unit.uid } });
             // 审计账本（同分支 1）：记进 unit._audit.hp，零游戏逻辑副作用
             recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
         }

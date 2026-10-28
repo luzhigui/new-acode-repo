@@ -163,6 +163,7 @@ function makeAttackAction(data, index) {
         isLinkAttack: data.snap?.isLinkAttack ?? false,
         // 被动出手原因：render/39 出手帧据此发头顶飘字徽章
         linkReason: data.snap?.linkReason ?? null,
+        isDashStrikeFx: data.isDashStrikeFx ?? false,
         // 灭绝师太：出手计数文本（壹/貳/參）与三击吸血量，由 render/39 在她出手演出帧消费
         miejueCountText: data.miejueCountText ?? null,
         miejueLeech: data.miejueLeech ?? 0,

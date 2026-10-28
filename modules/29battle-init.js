@@ -85,18 +85,30 @@ export function initBattleTeams(currentStage, _rng) {
     // eliteConfigs 保留旧名：下游「弱精英池排除固定精英」按名字过滤，Boss 与强精英一并纳入
     const eliteConfigs = [bossConfig, ...strongEliteConfigs];
 
-    // 骰子先掷后判（全部无条件消耗）
+    // 派生弱精英池（需提前定义，供概率推演和强制判定使用）
+    const fixedEliteNames = new Set(eliteConfigs.map(c => c.name));
+    const mingWeakPool = Object.entries(C.MING_M)
+        .filter(([n]) => HERO_FLAGS[n] && !fixedEliteNames.has(n))
+        .map(([n, m]) => ({ name: n, m }));
+    const forceWeakElite = GlobalStore.get('forceWeakElite') || localStorage.getItem('_forceWeakElite') || null;
+    if (forceWeakElite && !mingWeakPool.some(w => w.name === forceWeakElite) && ENEMY_M[forceWeakElite] == null) {
+        throw new Error(`forceWeakElite 无效（不在明教弱精英池、也不在 roster.enemyM）: ${forceWeakElite}`);
+    }
+    const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
+
+    // 骰子先掷后判（全部无条件消耗，保证联机双端 RNG 序列一致）
     const bossRoll = _rng.next();
     const bossPartnerRoll = _rng.next();
-    const strongCountRoll = _rng.next();
+    const noBossRouteRoll = _rng.next();
+    const subRouteRoll = _rng.next();
     const strongPickIdxA = _rng.nextInt(0, strongEliteConfigs.length - 1);
     const strongPickIdxB = _rng.nextInt(0, strongEliteConfigs.length - 1);
-    const hasBoss = bossRoll < (rate['张无忌'] ?? 0.30);
-    const bossWantStrong = bossPartnerRoll < 0.70;
-    const noBossStrongCount = strongCountRoll < 0.10 ? 2 : 1;
+    const weakPickIdxA = _rng.nextInt(0, Math.max(0, mingWeakPool.length - 1));
+    const weakPickIdxB = _rng.nextInt(0, Math.max(0, mingWeakPool.length - 1));
+
+    const hasBoss = bossRoll < (rate['张无忌'] ?? 0.20);
 
     let usedPower = 0;
-    let bossPartnerIsStrong = false;   // Boss 局搭档名额是否已用掉（弱精英块据此跳过）
 
     // 造精英单位（小昭走形态分支；其余 init+applyBonus）
     const pushElite = (c) => {
@@ -140,22 +152,58 @@ export function initBattleTeams(currentStage, _rng) {
 
     // V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
     //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
-    if (!anyForce) {
+    const pushWeakElite = (w) => {
+        const chWeak = getGameData()?.characters?.[w.name];
+        const tagRole = chWeak?.role || (chWeak?.tags || []).find(t => C.ROLES.includes(t));
+        if (!tagRole) throw new Error(`明教弱精英缺职业（characters.${w.name}.role / tags）`);
+        const unit = new Unit(w.name, w.m, tagRole, CAMP_TYPES.ALLY);
+        unit.init(_rng); unit.applyBonus();
+        unit.pos = null;
+        allyTeam.push(unit);
+        usedPower += elitePowerOf(w.name);
+        return unit;
+    };
+
+    if (weakAllyForced) {
+        pushWeakElite(mingWeakPool.find(w => w.name === forceWeakElite));
+    } else if (!anyForce) {
         if (hasBoss) {
+            // 出张无忌 (20%)：
+            // 20%带一强, 25%带一弱, 15%带两弱, 10%带一强一弱, 30%啥也不带
             pushElite(bossConfig);
-            // Boss 局最多再配 1 个：70% 配强精英，30% 名额留给下方弱精英混入块
-            if (bossWantStrong) {
+            if (noBossRouteRoll < 0.20) {
                 pushElite(strongEliteConfigs[strongPickIdxA]);
-                bossPartnerIsStrong = true;
+            } else if (noBossRouteRoll < 0.45) {
+                if (mingWeakPool.length > 0) pushWeakElite(mingWeakPool[weakPickIdxA]);
+            } else if (noBossRouteRoll < 0.60) {
+                if (mingWeakPool.length > 0) {
+                    pushWeakElite(mingWeakPool[weakPickIdxA]);
+                    if (mingWeakPool.length > 1) {
+                        const idxB = (weakPickIdxB === weakPickIdxA) ? (weakPickIdxB + 1) % mingWeakPool.length : weakPickIdxB;
+                        pushWeakElite(mingWeakPool[idxB]);
+                    }
+                }
+            } else if (noBossRouteRoll < 0.70) {
+                pushElite(strongEliteConfigs[strongPickIdxA]);
+                if (mingWeakPool.length > 0) pushWeakElite(mingWeakPool[weakPickIdxA]);
             }
         } else {
+            // 无张无忌 (80%)：必出1强精英。然后：
+            // 10%出双强, 40%出1弱, 10%出2弱, 剩下40%啥也不带
             pushElite(strongEliteConfigs[strongPickIdxA]);
-            if (noBossStrongCount >= 2) {
-                // 第二抽避开第一抽（index 相同时顺延一位，不额外消耗 RNG）
-                const idxB = (strongPickIdxB === strongPickIdxA)
-                    ? (strongPickIdxB + 1) % strongEliteConfigs.length
-                    : strongPickIdxB;
+            if (noBossRouteRoll < 0.10) {
+                const idxB = (strongPickIdxB === strongPickIdxA) ? (strongPickIdxB + 1) % strongEliteConfigs.length : strongPickIdxB;
                 pushElite(strongEliteConfigs[idxB]);
+            } else if (noBossRouteRoll < 0.50) {
+                if (mingWeakPool.length > 0) pushWeakElite(mingWeakPool[weakPickIdxA]);
+            } else if (noBossRouteRoll < 0.60) {
+                if (mingWeakPool.length > 0) {
+                    pushWeakElite(mingWeakPool[weakPickIdxA]);
+                    if (mingWeakPool.length > 1) {
+                        const idxB = (weakPickIdxB === weakPickIdxA) ? (weakPickIdxB + 1) % mingWeakPool.length : weakPickIdxB;
+                        pushWeakElite(mingWeakPool[idxB]);
+                    }
+                }
             }
         }
     }
@@ -219,41 +267,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
     }
 
-    // —— 弱精英随机混入（明教，定案）——
-    // 明教固定精英轮盘＝张无忌/韦一笑/小昭/谢逊；其余具名身份（杨逍/殷天正）属「弱精英」，
-    //   不进轮盘：按 WEAK_ELITE_MIX_RATE 概率随机替换一个普通位混入正常阵容（每局至多一名）。
-    // 弱精英池由名册派生（明教名册里带身份标记、且不在固定精英轮盘内），不另建清单。
-    const fixedEliteNames = new Set(eliteConfigs.map(c => c.name));
-    const mingWeakPool = Object.entries(C.MING_M)
-        .filter(([n]) => HERO_FLAGS[n] && !fixedEliteNames.has(n))
-        .map(([n, m]) => ({ name: n, m }));
-    // 弱精英锁定（dev 测试用）：GlobalStore/localStorage 传具名 → 该弱精英必出（明教侧走本块、六大派侧见数字空位锁定）
-    const forceWeakElite = GlobalStore.get('forceWeakElite') || localStorage.getItem('_forceWeakElite') || null;
-    if (forceWeakElite && !mingWeakPool.some(w => w.name === forceWeakElite) && ENEMY_M[forceWeakElite] == null) {
-        throw new Error(`forceWeakElite 无效（不在明教弱精英池、也不在 roster.enemyM）: ${forceWeakElite}`);
-    }
-    const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
-    // 寒离飒已升强精英：混入时不能再把他换掉；Boss 局搭档已配强精英则跳过（总数控在 Boss+1）
-    const mixSwappable = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun && !u.isHanLiSa);
-    // RNG 流纪律（PVP 双端同源）：抽签无条件消耗，锁定与否只改「是否应用」，不改消耗序列
-    const mixRoll = _rng.next();
-    const mixVictimIdx = mixSwappable.length > 0 ? _rand(0, mixSwappable.length - 1) : 0;
-    const mixPickIdx = mingWeakPool.length > 0 ? _rand(0, mingWeakPool.length - 1) : 0;
-    const weakMixAllowed = weakAllyForced || (!bossPartnerIsStrong && mixRoll < C.WEAK_ELITE_MIX_RATE);
-    if (mingWeakPool.length > 0 && mixSwappable.length > 0 && weakMixAllowed) {
-        const victim = mixSwappable[mixVictimIdx];
-        const pick = weakAllyForced
-            ? mingWeakPool.find(w => w.name === forceWeakElite)
-            : mingWeakPool[mixPickIdx];
-        // 职业解析优先级：content `role` 字段（可放非 CONFIG.ROLES 的职业，如标枪）> tags 命中 CONFIG.ROLES
-        const chWeak = getGameData()?.characters?.[pick.name];
-        const tagRole = chWeak?.role || (chWeak?.tags || []).find(t => C.ROLES.includes(t));
-        if (!tagRole) throw new Error(`明教弱精英缺职业（characters.${pick.name}.role / tags）`);
-        const unit = new Unit(pick.name, pick.m, tagRole, CAMP_TYPES.ALLY);
-        unit.init(_rng); unit.applyBonus();
-        unit.pos = null;
-        allyTeam.splice(allyTeam.indexOf(victim), 1, unit);
-    }
+    // （弱精英随机混入逻辑已删除：现由上方概率树统一调度，更精确直观）
 
     // 保证至少一个前排单位
     if (!allyTeam.some(u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR)) {

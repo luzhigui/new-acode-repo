@@ -79,7 +79,8 @@ export const STAGE_ACTION_DEFS = {
             if (attacker && action.pangClumsy && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.PANG_CLUMSY, { unit: attacker });
             }
-            if (attacker && target && action.attackerRole) {
+            // 如果是唐文亮冲刺后的那一下，已经有终结一拳特效了，不再播系统默认的飞撞/射箭
+            if (attacker && target && action.attackerRole && !action.isDashStrikeFx) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {
                     fxSnapshot: action.fx,
                     unitA: attacker,
@@ -125,6 +126,17 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.HEAL]: {
         grid: 'sync', log: 'sync',
         timing: (action) => (action && action.timing === 'afterText') ? 'afterText' : 'anchor',
+        store: (c, action) => {
+            // 回血瞬间同步：不等步末的 syncStoreFromStep，飘字飞出的瞬间血条立刻涨。
+            // 后续步末会全量覆盖，这里做表现层“预演”非常安全，不影响真实伤害计算。
+            if (c.store && action.targetUid && action.amount) {
+                const su = c.store.getState().units.find(u => u.uid === action.targetUid);
+                if (su) {
+                    const newHp = Math.min(su.maxHp, su.hp + action.amount);
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: action.targetUid, payload: { hp: newHp } });
+                }
+            }
+        },
         fx: (c, action) => {
             const healUnit = findUnitByUidLocal(c, action.targetUid);
             if (healUnit && action.amount) {
@@ -438,12 +450,19 @@ export const STAGE_ACTION_DEFS = {
                 if (!attacker) return;
                 Promise.all([
                     import('../fx/82fx-crash-5v5-test.js'),
+                    import('../fx/81fx-arrows-5v5-test.js'),
                     import('../fx/95-immune-shield-break.js')
-                ]).then(([crash, shield]) => {
-                    crash.showMeleeCrash(attacker, target, () => {
+                ]).then(([crash, arrows, shield]) => {
+                    const onHit = () => {
                         shield.showImmuneShieldBreak(target);
                         markGridShake(target.uid, 160);
-                    });
+                    };
+                    // 区分远程投射物（射箭/标枪/蝴蝶）与近战（飞撞）
+                    if (attacker.role === ROLE_TYPES.RANGED || attacker.role === ROLE_TYPES.JAVELIN || attacker.role === ROLE_TYPES.BUTTERFLY) {
+                        arrows.showRangedArrow(attacker, target, false, onHit);
+                    } else {
+                        crash.showMeleeCrash(attacker, target, onHit);
+                    }
                 }).catch(() => {});
             }
             // 飞天（flyData）走 core/10 原有分支：文本由 render/34 的 SPIDER_FLY 渲染，特效由飞行态 stageAction 负责
@@ -592,7 +611,17 @@ export const STAGE_ACTION_DEFS = {
         fx: (c, action) => {
             if (GlobalStore.get('fastForwardActive')) return;
             const unit = findUnitByUidLocal(c, action.targetUid);
-            if (unit && action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
+            if (unit) {
+                if (action.isHighlight) {
+                    // 唐文亮前压：复用现成的 cell-protected 呼吸框动画
+                    const cell = document.querySelector(`#${unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid'} [data-uid="${unit.uid}"]`);
+                    if (cell) {
+                        cell.classList.add('cell-protected');
+                        setTimeout(() => cell.classList.remove('cell-protected'), 600);
+                    }
+                }
+                if (action.text) eventBus.emit(FX_SIGNALS.SKILL_FLOAT, { unit, text: action.text });
+            }
         }
     },
     // 唐文亮冲刺：引擎侧位置已由 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 走 core/13 既有链），
