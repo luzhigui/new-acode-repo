@@ -298,7 +298,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 攻击者克隆体
         cloneA = buildClone(htmlA, rectA, `
             left: ${pos.ax - st.width*0.06}px;
-            top: ${pos.ay - st.height*0.06}px;
+            top: ${pos.ay - innerHeight*0.06}px;
             width: ${rectA.width}px;
             height: ${rectA.height}px;
             transform: scale(0.6);
@@ -309,7 +309,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cleanupElements.push(cloneA);
 
         const startAX = pos.ax - st.width*0.06;
-        const startAY = pos.ay - st.height*0.06;
+        const startAY = pos.ay - innerHeight*0.06;
 
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '');
         if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
@@ -536,7 +536,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const flyAwayStartX = parseFloat(cloneA.style.left);
         const flyAwayStartY = parseFloat(cloneA.style.top);
         const maxDistX = st.width * 0.10;
-        const maxDistY = st.height * 0.10;
+        const maxDistY = innerHeight * 0.10;
         await clock.animateReal(T(2000), (t) => {
             if (isSkipped) return;
             const ease = t * t;
