@@ -1,3 +1,11 @@
+// V1.22.0 | 2026-10-29 夜间第 155 轮：OBSERVES 挂「守门人的守门人」tests/guard-presence-scan.mjs
+//   （★ 第 154 轮给端到端断言补上了咬点（两通道 + 第三处 guardCheck），但那三处全在
+//     commit-claim-audit.mjs 同一个文件里 —— 改这个文件的人顺手就能连 guardCheck 一起关掉，
+//     关掉后本件自己也一起没了、谁也不报，正是第 153 轮牙K 那款病在上一层复发。本件把守门人的
+//     守门人放到**另一个文件**：不调用它的函数、不读它的结果，只把它的源码当文本静态点名七条
+//     不变量（定义 / 通道名单 / 两处登记 / 被调用 / 计进退码 / 结论行打印），且只在剥注释后的
+//     真代码里认 ⇒ 注释里写一句兑不了声称。★ 它把第 154 轮牙C2 实证的"退码计入是承重件"
+//     从挂账变成机械点名：维持现状口径不变，但谁也不许悄悄摘掉。挂观察项不改分母，理由同前几轮）。
 // V1.21.0 | 2026-10-29 夜间第 153 轮：OBSERVES 挂「提交声称 vs 落盘对账」tests/commit-claim-audit.mjs
 //   （★ 把第 152 轮人工发现的那款病 —— 第 151 轮声称"判据收紧为 RE_IMPORT_TRUTH"却没进提交、
 //     验证态与交付态混淆 —— 变成机械点名：逐笔回溯夜间轮提交，把提交信息里点名的代码符号
@@ -84,7 +92,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.21.0';
+export const VER = 'tests/run-all.mjs V1.22.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -214,7 +222,13 @@ const OBSERVES = [
     //   该笔提交实际 diff 的新增代码行；证据只认剥注释后的 .js/.mjs 代码，不认 .md 散文 ——
     //   否则日志里写一句就把声称"兑现"了，正是第 149/151/152 三轮反复发作的那款病）。
     //   挂观察项不改分母，与孤儿普查、地基普查、第二份快照同一取舍。
-    { name: '提交声称vs落盘对账', script: 'tests/commit-claim-audit.mjs', args: [] }
+    { name: '提交声称vs落盘对账', script: 'tests/commit-claim-audit.mjs', args: [] },
+    // V1.22.0 | 2026-10-29 夜间第 155 轮：守门人的守门人（静态点名第 154 轮那套端到端守门人还在不在）。
+    //   ★ 关键在"另一个文件"：本件不调用 commit-claim-audit 的任何函数、不读它的运行结果，只把它的
+    //     源码当文本扫一遍 ⇒ 那边被整段关掉，本件照样独立复现并报出来（第 154 轮残余边界的解法）。
+    //     七条不变量里第⑥条（guardFails 必须计进退码）即第 154 轮牙C2 实证的承重件，本轮从挂账变机械点名。
+    //     挂观察项不改分母，与孤儿普查 / 地基普查 / 第二份快照 / 提交对账同一取舍。
+    { name: '守门人的守门人', script: 'tests/guard-presence-scan.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
