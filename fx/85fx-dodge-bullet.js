@@ -348,9 +348,9 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         glow.className = 'breath-glow';
         cloneA.appendChild(glow);
         // 彻底抛弃 getBoundingClientRect（因为它会把动画缩放算进去导致偏移）
-        // 直接用我们之前算好的落点 pos.dx 和 pos.dy，再配合未缩放的初始高度 rectD.height
+        // 风暴的 Y 坐标：落点中心 pos.dy，减去原始高度的一半（即格子顶边），再往上抬 15px 留出呼吸感
         const stormCX = pos.dx + rectD.width / 2;
-        const stormCY = pos.dy - 10;
+        const stormCY = pos.dy - rectD.height / 2 - 15;
         const storm = createCounterStorm(stormCX, stormCY);
         storm.setAttribute('data-fx', 'temporary');
         cleanupElements.push(storm);
