@@ -312,15 +312,15 @@ export function registerFortifyShield(eventBus) {
     });
 }
 
-export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
-    if (!doubleStrikeUnitUid) return;
+export function registerDoubleStrike(eventBus, doubleStrikeUnitUids, allyTeam, activeBuffs) {
+    if (!Array.isArray(doubleStrikeUnitUids) || doubleStrikeUnitUids.length === 0) return;
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
-        // 连击转移：若轮盘选中的是姊，而她已经蝶变附身，则连击归宿主。
-        let matched = (unit.uid === doubleStrikeUnitUid);
+        // 连击转移：若轮盘选中的两人中有姊，而她已经蝶变附身，则连击归宿主（此时宿主、姊、另一人共3人触发）。
+        let matched = doubleStrikeUnitUids.includes(unit.uid);
         if (!matched) {
-            const sis = allyTeam.find(u => u.uid === doubleStrikeUnitUid);
-            if (sis && sis.isXiaoZhaoSister && sis.state._butterflyHost === unit.uid) {
+            const sis = allyTeam.find(u => doubleStrikeUnitUids.includes(u.uid) && u.isXiaoZhaoSister);
+            if (sis && sis.state._butterflyHost === unit.uid) {
                 matched = true;
             }
         }

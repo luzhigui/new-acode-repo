@@ -223,18 +223,18 @@
         .elite-config input[type="number"] { width: 90px; padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 14px; text-align: center; }
         .elite-stage-group { display: flex; gap: 6px; align-items: center; }
         .elite-stage-group label { color: #aaa; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 3px; }
-        #eliteStartBtn { background: #ffd700; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteStartBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteSoloBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteBossBtn { background: #ff9800; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteBossBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteNoEliteBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        /* 2026-10-15 精英评测结果快照（存/载/清历史，配 112 V2.6.0） */
-        #eliteSaveSnapBtn { background: #4caf50; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #eliteDropSnapBtn { background: #6d4c41; color: #ddd; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        /* 2026-10-28 统一精英评测全部按钮样式：原来 8 个按钮各配一色（金/蓝/橙/灰蓝/绿/蓝/棕），
+           且「弱精英评测」缺样式会退化成浏览器默认灰按钮，与其他区块不一致。
+           现统一为本页主色（金 #ffd700，同 .fc-config/.fnc-btn/.fang-btn 主按钮），形状/字号一致。 */
+        #eliteStartBtn, #eliteSoloBtn, #eliteBossBtn, #eliteNoEliteBtn, #eliteWeakBtn,
+        #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn {
+            background: #ffd700; color: #1a1a2e; border: none;
+            padding: 8px 16px; border-radius: 6px; font-weight: bold;
+            cursor: pointer; font-family: monospace; font-size: 13px;
+        }
+        #eliteStartBtn:disabled, #eliteSoloBtn:disabled, #eliteBossBtn:disabled,
+        #eliteNoEliteBtn:disabled, #eliteWeakBtn:disabled, #eliteSaveSnapBtn:disabled,
+        #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
         #eliteSnapStatus { color: #8bc34a; font-size: 12px; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
@@ -460,13 +460,13 @@
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
         <div class="elite-progress" id="eliteSoloProgress" style="margin-top:14px;"></div>
-        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方蓝按钮）</div></div>
+        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方「⚔ 强精英胜率」按钮）</div></div>
         <div class="elite-progress" id="eliteBossProgress" style="margin-top:14px;"></div>
-        <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方橙按钮）</div></div>
+        <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方「👑 Boss·张无忌」按钮）</div></div>
         <div class="elite-progress" id="eliteNoEliteProgress" style="margin-top:14px;"></div>
-        <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方灰按钮）</div></div>
+        <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方「🛡 无精英基线」按钮）</div></div>
         <div class="elite-progress" id="eliteWeakProgress" style="margin-top:14px;"></div>
-        <div id="eliteWeakResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方绿按钮）——明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮，同关同变体与自然对照比胜率 Δ</div></div>
+        <div id="eliteWeakResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方「🐦 弱精英评测」按钮）——明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮，同关同变体与自然对照比胜率 Δ</div></div>
     </div>
 
     <script>

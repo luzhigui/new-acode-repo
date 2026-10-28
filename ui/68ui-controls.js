@@ -133,16 +133,13 @@ export function bindPauseButton(getState, setState, updateButtons) {
         onAnyButtonClick();
         if (getState.gs() === 'RUNNING') {
             setState.gs('PAUSED');
-            setState.isPaused(true);
-            GlobalStore.set('bulletTimeActive', true);
-            document.body.classList.add('paused-animations');
         } else if (getState.gs() === 'PAUSED') {
             setState.gs('RUNNING');
-            setState.isPaused(false);
-            GlobalStore.set('bulletTimeActive', false);
-            document.body.classList.remove('paused-animations');
         }
-        updateButtons();
+        // 走统一的裁判逻辑
+        const fnSync = GlobalStore.getUIHandler('syncPauseState');
+        if (typeof fnSync === 'function') fnSync();
+        else updateButtons();
     });
 }
 

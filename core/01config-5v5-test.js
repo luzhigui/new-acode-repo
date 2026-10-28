@@ -359,7 +359,7 @@ const CONFIG = {
     HOT_BLOOD_CRIT_INTERVAL: 3,            // 热血奋战双倍吸血间隔（04）
     DEF_WAVE_THRESHOLD: 7,                 // 攻击波动「防御波动」台词阈值（12，defVar + hpBonus 达标）
 
-    SPIDER_MIND_CONTROL_CHANCE: 0.20,      // 永久惑心误伤概率（27）
+    SPIDER_MIND_CONTROL_CHANCE: 0.15,      // 永久惑心误伤概率（27）
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
     ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
     XUANMING_POISON_HEAL_REDUCE: 0.5,      // 寒毒抑疗：带寒毒目标受到的治疗再乘该系数（core/13，2026-10-22）

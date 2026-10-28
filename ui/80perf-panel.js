@@ -843,19 +843,13 @@ function makeBtn(text, bg, onClick) {
     return b;
 }
 
-let _wasPausedBeforeOpen = false;
-
 function openPanel() {
     const old = document.getElementById('perfPanelOverlay');
     if (old) old.remove();
 
-    // 记录打开前的真实暂停状态，若未暂停才强制暂停
-    _wasPausedBeforeOpen = GlobalStore.get('isPaused');
-    if (!_wasPausedBeforeOpen) {
-        GlobalStore.set('isPaused', true);
-        GlobalStore.set('bulletTimeActive', true);
-        document.body.classList.add('paused-animations');
-    }
+    // 启用面板专属暂停源
+    GlobalStore.set('panelPaused', true);
+    if (typeof syncPauseState === 'function') syncPauseState();
 
     const overlay = document.createElement('div');
     overlay.id = 'perfPanelOverlay';
@@ -988,12 +982,10 @@ function openPanel() {
 function closePanel() {
     const overlay = document.getElementById('perfPanelOverlay');
     if (overlay) overlay.remove();
-    // 只在本来没暂停的情况下才恢复运行
-    if (!_wasPausedBeforeOpen) {
-        GlobalStore.set('isPaused', false);
-        GlobalStore.set('bulletTimeActive', false);
-        document.body.classList.remove('paused-animations');
-    }
+
+    // 撤销面板专属暂停源（主按钮的暂停状态不受任何影响）
+    GlobalStore.set('panelPaused', false);
+    if (typeof syncPauseState === 'function') syncPauseState();
 }
 
 function exportJson() {

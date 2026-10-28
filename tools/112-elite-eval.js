@@ -1,3 +1,7 @@
+// V3.2.0 | 2026-10-28 主表快照新增「明教英雄个体胜率」字段 hero（126 规则八·英雄层面的模拟侧数据源）：
+//          runs = 该英雄在场局数、wins = 在场且明教胜的局数（即「在场时明教胜率」，与 52 生涯记录的
+//          heroWins/appear 同口径，可逐英雄同名对照）；由同一份 byStage 聚合得出，不额外跑批、
+//          不改采样与 RNG。其余四张表无此字段。
 // V3.1.0 | 2026-10-28 明教侧弱精英口径换「路C：建队后换名」（老板拍板）：强制臂不再走 29 forceWeakElite 混入
 //          （换入发生在建队流中段，自然臂掷失时两臂随机数流错位→站位全乱、Δ 混站位噪音），改 116 V1.14.0
 //          applyForcedWeakAlly 确定性替身换名——两臂建队随机数逐数一致、站位逐位全同，Δ 只剩精英本人；
@@ -48,7 +52,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.1.0';
+export const VER = 'tools/112-elite-eval.js V3.2.0';
 
 // 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
@@ -116,6 +120,8 @@ function saveSnap(keys) {
         if (!latest[k]) continue;
         // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
         parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
+        // V3.2.0：主表额外带上「明教英雄个体胜率」（126 规则八英雄层面的数据源；其余表没有该字段）
+        if (latest[k].hero) parts[k].hero = JSON.parse(JSON.stringify(latest[k].hero));
     }
     if (Object.keys(parts).length === 0) return { ok: false, msg: '⚠️ 还没跑过任何表，无可存' };
     const snaps = readSnaps();
@@ -205,7 +211,7 @@ startBtn.addEventListener('click', async () => {
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.elite = { stages, runs: RUNS, byStage };
+                latest.elite = { stages, runs: RUNS, byStage, hero: buildHeroRates(byStage, stages) };
                 renderResults(byStage, stages);
                 progressEl.textContent = `✅ 全部完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['elite']).msg;   // V2.9.0 跑完自动存（不必手点）
@@ -670,6 +676,19 @@ function renderResults(byStage, stages) {
     html += '</tr></table>';
     html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列六名精英、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
+}
+
+// 明教英雄个体胜率（V3.2.0）：126 规则八「英雄层面」的模拟侧数据源。
+// 语义 = 「该英雄在场时明教整体胜率」——与 52 生涯记录的 heroWins/appear 同口径，可逐英雄同名对照。
+// 与主表 byStage 同源聚合（复用 totalsOf），不额外跑批；runs=在场局数，wins=在场且明教胜的局数。
+function buildHeroRates(byStage, stages) {
+    const out = {};
+    for (const cfg of configs) {
+        const t = totalsOf(cfg, byStage, stages);
+        if (!t.runs) continue;
+        out[cfg.name] = { runs: t.runs, wins: t.wins, rate: t.wins / t.runs };
+    }
+    return out;
 }
 
 // 跨关跨变体累加某人数据（总评行与实战评分行共用）

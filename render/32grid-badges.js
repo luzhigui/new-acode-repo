@@ -84,7 +84,7 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
         case BUFF_TYPES.BLOODTHIRST: return unit.role === ROLE_TYPES.WARRIOR;
         case BUFF_TYPES.FORTIFY: return unit.role === ROLE_TYPES.DEFENDER;
         case BUFF_TYPES.WIND_ASSAULT: return unit.role === ROLE_TYPES.FLYER;
-        case BUFF_TYPES.CLOUD_BODY: return true;
+        case BUFF_TYPES.CLOUD_BODY: return !unit.state?._cloudBodySkip;
         case BUFF_TYPES.HOLY_FLAME: {
             if (!activeBuffs) return false;
             const holyBuffs = activeBuffs.filter(b => b.key === BUFF_TYPES.HOLY_FLAME);
@@ -95,7 +95,7 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
             });
         }
         case BUFF_TYPES.HOT_BLOOD: return true;
-        case BUFF_TYPES.DOUBLE_STRIKE: return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
+        case BUFF_TYPES.DOUBLE_STRIKE: return Array.isArray(doubleStrikeUid) ? doubleStrikeUid.includes(unit.uid) : (unit.uid === doubleStrikeUid && doubleStrikeUid != null);
         case BUFF_TYPES.HORSE_FORMATION: return false;
         case BUFF_TYPES.MIND_CONTROL: {
             if (!allyTeam) return false;

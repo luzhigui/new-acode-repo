@@ -158,9 +158,7 @@ function initSpeedButtons() {
             // 自定义档：时钟不再按 600/50=12 倍跑，改由「未进表倍率」决定第 B 类演出的速度。
             //   进表的项各自读参数表，与时钟无关。这样 8x 档下没有任何不受控的计时。
             clock.setTimescale(getNoTableScale());
-            setState.isPaused(true);
-            GlobalStore.set('bulletTimeActive', true);
-            document.body.classList.add('paused-animations');
+            // 不再在按钮层强行暂停，全部交给 openPanel 去判断和接管
             const fn = GlobalStore.getUIHandler('openPerfPanel');
             if (typeof fn === 'function') fn();
         });

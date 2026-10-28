@@ -71,6 +71,21 @@ function updateNetIdentity() {
 }
 
 // 更新按钮状态
+export function syncPauseState() {
+    const btnPaused = (GlobalStore.get('gs') === 'PAUSED');
+    const panelPaused = GlobalStore.get('panelPaused') || false;
+    const shouldPause = btnPaused || panelPaused;
+
+    GlobalStore.set('isPaused', shouldPause);
+    GlobalStore.set('bulletTimeActive', shouldPause);
+    if (shouldPause) {
+        document.body.classList.add('paused-animations');
+    } else {
+        document.body.classList.remove('paused-animations');
+    }
+    updateButtons();
+}
+
 function updateButtons() {
     updateNetIdentity();
     const gs = getState.gs();
