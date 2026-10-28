@@ -184,8 +184,25 @@ function makeExisting(treeish) {
         if (cache.has(token)) return cache.get(token);
         let hit = false;
         try {
-            const out = git(['grep', '-l', '-F', '-e', token, treeish]);
-            hit = out.split('\n').filter(Boolean).some(p => isCodeFile(p));
+            const files = git(['grep', '-l', '-F', '-e', token, treeish])
+                .split('\n').filter(Boolean).filter(isCodeFile);
+            for (const raw of files) {
+                // ★ git grep 在 tree-ish 上搜索时输出带 "<treeish>:" 前缀，必须剥掉再取文件内容
+                //   （第 153 轮当场自伤：没剥前缀 ⇒ git show 每个文件都失败 ⇒ 判据恒 false ⇒
+                //    既有符号豁免全废、真漏桶空，靠自证⑪-a 与端到端断言才被抓出来）
+                const p = raw.includes(':') ? raw.slice(raw.indexOf(':') + 1) : raw;
+                let src = '';
+                try {
+                    src = git(['show', treeish + ':' + p]);
+                } catch (e2) {
+                    continue; // 该文件在本 tree 里已不存在（或二进制），跳过
+                }
+                // ★ 存在性判据必须在**剥注释之后**的代码里找，不能在原文里找：
+                //   本件的注释/文案里会复述历史条目（第 153 轮当场自伤实证：脚本注释里写了
+                //   dupProbeFn152 / unityApplyOp，HEAD 侧判据立刻把它们从"疑似打桩"升格成
+                //   "真漏"——注释里的字样被当成代码里的存在，第 149 轮那款病的第三代变体）。
+                if (stripCommentsMapped(src).code.includes(token)) { hit = true; break; }
+            }
         } catch (e) {
             hit = false; // grep 无命中会退码 1，属正常
         }
@@ -262,9 +279,22 @@ export function selfCheck() {
     if (!headHas('DUP_FN_RATCHET')) {
         fails.push('自证⑪失效：HEAD 侧存在性判据说「HEAD 代码里没有 DUP_FN_RATCHET」⇒ 真漏会被静默归进打桩桶');
     }
-    if (headHas('ZZZ_NOT_EXIST_153')) {
-        fails.push('自证⑪失效：HEAD 侧存在性判据说「HEAD 代码里有 ZZZ_NOT_EXIST_153」⇒ 打桩桶形同虚设');
+    // ★ 不存在的样本必须**拼接**构造：整串写死在本件代码里的话，它自己就在 HEAD 代码里存在了
+    //   ⇒ 判据判"存在" ⇒ 自证自己把自己绊倒（第 153 轮当场自伤第二次；与第 152 轮牙F
+    //   "拿被检查的东西自己来证明自己"同一款）。拼接后源码里不出现完整串，样本依旧确定。
+    const NOT_EXIST = 'ZZZ_NOT_EXIST_' + String(153);
+    if (headHas(NOT_EXIST)) {
+        fails.push('自证⑪失效：HEAD 侧存在性判据说「HEAD 代码里有 ' + NOT_EXIST + '」⇒ 打桩桶形同虚设');
     }
+
+    // ⑬ 咬"存在性判据必须剥注释"：ZZZ_COMMENT_ONLY_153 只写在本件的注释里（见下方注释行），
+    //    代码里没有 ⇒ 必须判"不存在"。★ 否则注释里复述一句历史条目，就会把那条从
+    //    "疑似打桩"升格成"真漏"（第 153 轮当场自伤实证，元凶正是注释里的 dupProbeFn152）。
+    //    样本硬编码、独立于被检查对象 —— 第 152 轮牙F 立的规矩：不能拿被检查的东西自己证明自己。
+    if (headHas('ZZZ_COMMENT_ONLY_153')) {
+        fails.push('自证⑬失效：只写在注释里的 ZZZ_COMMENT_ONLY_153 被判为「HEAD 代码里存在」⇒ 存在性判据被注释污染');
+    }
+    // ZZZ_COMMENT_ONLY_153 —— 这就是那条自证样本本体：它只存在于本行注释里，代码里没有。
 
     // ⑩ 咬"代码文件限定"：.md 之外的非代码文件（如 .json）新增行命中不算落盘（少收不是错收）
     r = auditCommitClaims({ msg: '收紧为 ZZZ_CLAIM_F，已落盘', files: [{ path: 'tests/baselines/x.json', added: ['"ZZZ_CLAIM_F": 1'], removed: [] }] });
