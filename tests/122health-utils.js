@@ -1,3 +1,6 @@
+// V6.7.1 | 2026-10-28 第143轮续8：isSilentRelocate 判据③补「箭头起点 N===exp.pos」——单位曾在期望位、
+//          被登记机制（冲刺/两仪等）挪走也算合法改写（seed=6 stage=6 唐文亮(B) 惑心换位假红根因：换位落地后
+//          冲刺「唐文亮 1→2」立刻挪走，旧口径只认终点 M===exp.pos 故认不出）。
 // V6.7.0 | 2026-10-27 checkSpeedButtonStates 档位表跟齐 ui/77 V1.1.1「全局×2」（600→300、300→150、100→50、1600→800）：
 //          UI 侧 10-25 已把所有档位值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800），体检仍按旧值判
 //          ⇒ speed=300（新口径=原速 2x）时误报「btnSpeed4x 未高亮，实际高亮 btnSpeed2x」（2026-10-27 体检报告实测）；
@@ -65,7 +68,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.7.0';
+export const VER = 'tests/122health-utils.js V6.7.1';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -912,7 +915,13 @@ export function isSilentRelocate(mid, exp) {
     // ③ 箭头落位证据（名字锚定的「N→M」，覆盖不带「号位」二字的报幕写法）
     if (t && exp.pos != null && exp.name && hasMechanism(t)) {
         var am = t.match(new RegExp(exp.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*(\\d+)\\s*→\\s*(\\d+)'));
-        if (am && parseInt(am[2], 10) === exp.pos) return true;
+        // M === exp.pos：单位经该机制**落到**期望位（原口径）。
+        // N === exp.pos：单位**曾在**期望位、被该机制**挪走**（第 143 轮续8 补）——实证 seed=6 stage=6：
+        //   惑心把唐文亮换到 1 号位（L112 已落地），紧随的冲刺报幕「唐文亮 1→2」立刻把他挪到 2 号位，
+        //   此后 17 次快照都不在 1 号位 ⇒ 旧口径 M=2≠1 认不出、误判「换位未生效」。N===exp.pos 恰证
+        //   「换位确实落地过」，属该机制合法改写，归因到此为止（不冤枉惑心）。
+        //   仍名字锚定（避免同句「张松溪 4→1」误认）+ 需 hasMechanism，窄口径不放宽。
+        if (am && (parseInt(am[2], 10) === exp.pos || parseInt(am[1], 10) === exp.pos)) return true;
     }
     // ④ 载荷落位证据（无文本的纯 fact 位移，如蓄意轰拳）
     if (payloadLanding(mid, exp)) return true;
