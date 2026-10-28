@@ -1,5 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.3 | 2026-10-25 备用工具卡片四次定稿（修左右重叠 + 文字裁切）：
+<!-- V6.4.4 | 2026-10-28 顶部工具入口新增「🧬 弱精英机制贡献」按钮（配 138-elite-contrib.html / 116 V1.15.0）：
+     112 弱精英表只看胜率 Δ，138 补齐「机制触发次数」——同配对口径跑批，额外输出技能/fact/关键字探针频次。
+     V6.4.3 | 2026-10-25 备用工具卡片四次定稿（修左右重叠 + 文字裁切）：
      ① 根因是卡片缺 box-sizing:border-box——width:100% 再叠内边距/边框会撑出列宽，两列互相压住；已补；
      ② 卡内改竖排三行：icon + 完整名字（独占整卡宽）/ 说明两行 / 右下角固定 44×22「打开」；
      ③ 高度锁死 92px、说明由单行省略改为两行截断，标题不再被按钮挤掉；说明文案同步收短。
@@ -269,6 +271,7 @@
         <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
         <button class="tool-link-btn" id="btnOpenParamLab">🧪 参数实验台</button>
         <button class="tool-link-btn" id="btnOpenRoleRandom">⚖️ 全随机站位</button>
+        <button class="tool-link-btn" id="btnOpenEliteContrib">🧬 弱精英机制贡献</button>
         <button class="tool-link-btn" id="btnOpenBalanceAlert">🚨 平衡告警</button>
     </div>
 
@@ -515,6 +518,7 @@
         }
         document.getElementById('btnOpenParamLab').addEventListener('click', () => openInPage('120-param-lab.html', '🧪 参数实验台'));
         document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('110-role-balance-random.html', '⚖️ 全随机站位'));
+        document.getElementById('btnOpenEliteContrib').addEventListener('click', () => openInPage('138-elite-contrib.html', '🧬 弱精英机制贡献'));
         document.getElementById('btnOpenBalanceAlert').addEventListener('click', () => {
             window.openBalanceAlert();
         });

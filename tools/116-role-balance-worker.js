@@ -1,3 +1,6 @@
+// V1.15.0 | 2026-10-28 新增 kind:'weakContrib'（138 弱精英机制贡献）：沿用 weakElite 的配对臂与归因纪律，
+//          额外用 core/06 既有 onStep 逐条扫日志，聚合「该精英签名技能次数 / 自身 fact / 被指向 fact / 关键字探针」；
+//          纯观测，不改战斗逻辑与 RNG（runWholeBattle 加可选 opts 透传，旧调用零变化）。
 // V1.14.0 | 2026-10-28 明教侧弱精英强制臂改「路C：建队后换名」（老板拍板）：
 //           弃 29 forceWeakElite 混入（换入在建队流中段，自然臂掷失时两臂流错位→站位洗牌全乱、Δ 混站位噪音），
 //           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
@@ -92,7 +95,7 @@ import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
 import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30），V1.3.1 的 dotTick 漏装教训收口于此
-import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
+import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -122,12 +125,14 @@ function clearBattleGlobals() {
 // 共用：跑完整战斗（薄封装，保持调用点签名不变）。
 // 循环本体在 core/06battle-runner；原实现里的 allAllies 手工同步与 buff 双递减一并删除
 // （createRoundStepper 内部已自行处理，删掉后 18 场基线的 winner/rounds/factCount 逐条不变）。
-function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false) {
+function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = null) {
     return runBattle({
         ally: initAlly,
         enemy: initEnemy,
         seed,
-        hexPicker: hexEnabled ? pickHexBuff : null
+        hexPicker: hexEnabled ? pickHexBuff : null,
+        // V1.15.0：weakContrib 观测通道（onStep 只读日志，不参与结算）；旧调用 opts=null 行为不变
+        ...(opts || {})
     });
 }
 
@@ -370,6 +375,91 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
         if (me.alive) a.sumSurv++;
         a.sumDmg += me.dmgDealt || 0;
         a.sumTaken += me.dmgTaken || 0;
+    }
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (a.runs > 0) out[v] = a;
+    }
+    return { elite: arm === 'natural' ? null : elite, side, arm, variants: out };
+}
+
+// 138 弱精英机制贡献：与 runWeakEliteJob 同款配对臂/归因纪律（同种子、同剔「自然已在场」），
+//   差异只在观测：精英臂用 onStep 逐条扫日志，聚合——
+//     skills      该精英作为施法者发出的 SKILL_ANNOUNCE，按 skillName 计数（技能真触发次数）
+//     factsSelf   fact 里 unitName === 该精英的条目，按 factType 计数（如 TW_DASH_APPLY / HEAL）
+//     factsTarget fact 里 target.name === 该精英的条目（被打/被免疫/被治疗……）
+//     probes      在 note/reason/skillName/label 文本中命中 job 传入关键字的次数
+//   只读观测、不参与结算；自然臂不扫日志（保持对照臂开销与 weakElite 一致）。
+function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex = 0) {
+    const flag = WEAK_UNIT_FLAG[elite];
+    const newAgg = () => ({
+        runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0,
+        skills: {}, factsSelf: {}, factsTarget: {}, probes: {}
+    });
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const bump = (obj, key) => { if (key) obj[key] = (obj[key] || 0) + 1; };
+    const merge = (dst, src) => { for (const [k, v] of Object.entries(src)) dst[k] = (dst[k] || 0) + v; };
+    const probeList = Array.isArray(probes) ? probes.filter(Boolean) : [];
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();
+        if (arm !== 'natural' && side !== 'ally') GlobalStore.set('forceWeakElite', elite);
+        const battleSeed = seed + (startIndex + i) * 7919;
+        const initRng = new SeededRNG(battleSeed);
+        const teams = initBattleTeams(stage, initRng);
+        const ally = teams.allyTeam.map(u => u.clone());
+        if (!ally.length) continue;
+        let swappedIn = false;
+        if (arm !== 'natural' && side === 'ally') swappedIn = applyForcedWeakAlly(ally, elite, initRng);
+        GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
+        const tally = { skills: {}, factsSelf: {}, factsTarget: {}, probes: {} };
+        const onStep = arm === 'natural' ? null : (step) => {
+            const log = step && step.log;
+            if (!Array.isArray(log)) return;
+            for (const e of log) {
+                if (!e || !e.factType) continue;
+                const d = e.data || {};
+                const isSelf = d.unitName === elite || (d.unit && d.unit.name === elite) || (d.attacker && d.attacker.name === elite);
+                const isTarget = (d.target && d.target.name === elite) || (d.targetName === elite);
+                if (isSelf) bump(tally.factsSelf, e.factType);
+                if (isTarget) bump(tally.factsTarget, e.factType);
+                if (e.factType === FACT_TYPES.SKILL_ANNOUNCE && d.unitName === elite) bump(tally.skills, d.skillName);
+                if (probeList.length) {
+                    const text = `${d.note || ''}|${d.reason || ''}|${d.skillName || ''}|${d.label || ''}`;
+                    for (const p of probeList) if (text.includes(p)) bump(tally.probes, p);
+                }
+            }
+        };
+        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep } : null);
+        if (!res.winner) continue;
+        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
+        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        if (arm === 'natural') {
+            // 干净对照（与 runWeakEliteJob / 112 V3.0.3 同口径）：只剔「目标精英本人自然登场」的局，
+            //   其他弱精英保持自然分布（一起剔 = 对照凭空变强，Δ 被放大成假值）
+            const allyU = res.ally || [], enemyU = res.enemy || [];
+            const seen = flag
+                ? (allyU.some(u => u[flag]) || enemyU.some(u => u[flag]))
+                : (allyU.some(u => u.name === elite) || enemyU.some(u => u.name === elite));
+            if (seen) continue;
+            a.runs++;
+            if (res.winner === '明教') a.wins++;
+            continue;
+        }
+        const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
+            .find(u => flag ? u[flag] : u.name === elite);
+        if (!me) continue;
+        if (side === 'ally' && !swappedIn) continue;
+        a.runs++;
+        if (res.winner === '明教') a.wins++;
+        if (me.alive) a.sumSurv++;
+        a.sumDmg += me.dmgDealt || 0;
+        a.sumTaken += me.dmgTaken || 0;
+        a.sumHeal += me.healDone || 0;
+        merge(a.skills, tally.skills);
+        merge(a.factsSelf, tally.factsSelf);
+        merge(a.factsTarget, tally.factsTarget);
+        merge(a.probes, tally.probes);
     }
     const out = {};
     for (const [v, a] of Object.entries(variants)) {
@@ -754,6 +844,9 @@ self.onmessage = (e) => {
         } else if (kind === 'weakElite') {
             const { stage, seed, runs, elite, side, arm, startIndex } = e.data;
             result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0);
+        } else if (kind === 'weakContrib') {
+            const { stage, seed, runs, elite, side, arm, probes, startIndex } = e.data;
+            result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
