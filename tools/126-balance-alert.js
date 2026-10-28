@@ -126,6 +126,39 @@ const readJSON = (k, dft) => {
 };
 const pct = v => (v * 100).toFixed(1) + '%';
 const signed = v => (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+// 严重度：从告警文案里抓最大的 ±Npp（title 或 detail 中的 "6.5pp"），用于同级内排序。
+//   不依赖每条告警单独存字段，避免改动所有 issue 构造点。抓不到则记 0，仍按 rank 优先。
+function magOf(x) {
+    const s = (x && x.title || '') + ' ' + (x && x.detail || '');
+    const re = /(-?\d+(?:\.\d+)?)pp/g;
+    let m, best = 0;
+    while ((m = re.exec(s))) { const v = Math.abs(parseFloat(m[1])); if (v > best) best = v; }
+    return best;
+}
+// 读 138 弱精英贡献评估的落盘结果（ming_weak_elite_contrib，结构与 138 的 by 累加器一致），
+//   用于「弱精英判读」和 138 的配对实验互相印证。只读，不改它。
+function read138Contrib() {
+    try {
+        const raw = localStorage.getItem('ming_weak_elite_contrib');
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        if (!o || !o.by) return null;
+        return { by: o.by, ts: o.ts || 0 };
+    } catch (e) { return null; }
+}
+// 从 138 的 by 累加器反算某弱精英的「明教胜率 Δ」（精英臂 − 自然臂），与 126 弱精英判读同口径
+function contribDelta138(by, name) {
+    const sec = by && by[name];
+    if (!sec) return null;
+    let eRuns = 0, eWins = 0, nRuns = 0, nWins = 0;
+    for (const st of Object.keys(sec)) {
+        const e = sec[st] && sec[st].elite, n = sec[st] && sec[st].natural;
+        if (e && e.runs) { eRuns += e.runs; eWins += e.wins; }
+        if (n && n.runs) { nRuns += n.runs; nWins += n.wins; }
+    }
+    if (!eRuns || !nRuns) return null;
+    return (eWins / eRuns - nWins / nRuns) * 100;
+}
 
 /* ========== 统计工具：置信区间 + 多重比较校正（V2.2.0 新增） ========== */
 // 标准正态 CDF（Abramowitz-Stegun 26.2.17 近似，误差 <1e-7，足够判读用）
@@ -1077,9 +1110,10 @@ function judgeAll(mode) {
     push(elit.issues, RANK.elite);
     push(ovr.issues, RANK.elite);
     push(modeGap.issues, RANK.mode);
-    // 稳定排序：同级保持原有顺序（现代 V8 的 sort 是稳定的）
-    alerts.sort((a, b) => (a.rank || 9) - (b.rank || 9));
-    warns.sort((a, b) => (a.rank || 9) - (b.rank || 9));
+    // 排序：先按优先级 rank，同级再按严重度（detail/title 里最大的 ±Npp）降序，
+    //   这样「最该看的一条」永远顶在最前，不会被埋在同级的后面。
+    alerts.sort((a, b) => (a.rank || 9) - (b.rank || 9) || magOf(b) - magOf(a));
+    warns.sort((a, b) => (a.rank || 9) - (b.rank || 9) || magOf(b) - magOf(a));
     if (hex.nodata) nojudge.push(...hex.nodata);
     if (elit.nodata) nojudge.push(...elit.nodata);
     [hex.missing, elit.missing, ovr.missing, modeGap.missing].filter(Boolean).forEach(m => nojudge.push(m));
@@ -1344,10 +1378,12 @@ function absTableHtml(sec, title, colP) {
     return h + '</table></div>';
 }
 
-// 弱精英表渲染
-function weakTableHtml(sec) {
+// 弱精英表渲染（V3.5.0：cc138 来自 138 落盘，逐行标注「↔138 配对 Δ」做交叉印证）
+function weakTableHtml(sec, cc138) {
     if (!sec) return '';
-    let h = '<div class="bal-sec"><h3 style="color:#4fc3f7">弱精英（Δ = 弱精英臂 − 同种子自然对照）</h3>'
+    let h = '<div class="bal-sec"><h3 style="color:#4fc3f7">弱精英（Δ = 弱精英臂 − 同种子自然对照）'
+        + (cc138 ? `<span class="bal-dim" style="font-size:11px;font-weight:normal">　· 已与 138 配对实验交叉印证</span>` : '')
+        + '</h3>'
         + '<table><tr><th>弱精英</th><th>侧</th><th>场次</th><th>胜率</th><th>自然对照</th><th>Δ</th><th>判读</th></tr>';
     for (const r of sec.rows) {
         const ok = !sec.canJudge(r);
@@ -1357,10 +1393,22 @@ function weakTableHtml(sec) {
             : az < TH.BAND ? '<span class="bal-good">正常</span>'
                 : az >= TH.BAND * 2 ? `<span class="bal-bad">显著${over ? '过强' : '过弱'}</span>`
                     : `<span class="bal-weak">${over ? '过强' : '过弱'}</span>`;
+        // 138 交叉印证：同口径比 Δ，方向一致→结论更稳，方向相反→必有一方测错
+        let ccNote = '';
+        if (cc138) {
+            const d138 = contribDelta138(cc138.by, r.name);
+            if (d138 !== null) {
+                const over138 = r.side === 'ally' ? d138 > 0 : d138 < 0;
+                const consistent = over === over138;
+                const cls = consistent ? 'bal-good' : 'bal-bad';
+                const tag = consistent ? '一致' : '不一致⚠️';
+                ccNote = `<br><span class="${cls}" style="font-size:10px">↔138 ${d138 >= 0 ? '+' : ''}${d138.toFixed(1)}pp·${tag}</span>`;
+            }
+        }
         h += `<tr><td class="l">${r.name}</td><td>${r.side === 'ally' ? '明教' : '六大派'}</td><td>${r.n}</td>`
             + `<td>${r.p === null ? '—' : pct(r.p)}</td><td>${r.base === null ? '—' : pct(r.base)}</td>`
             + `<td class="${ok ? 'bal-dim' : (over ? 'bal-weak' : 'bal-good')}">${r.delta === null ? '—' : signed(r.delta)}</td>`
-            + `<td>${verdict}</td></tr>`;
+            + `<td>${verdict}${ccNote}</td></tr>`;
     }
     return h + '</table></div>';
 }

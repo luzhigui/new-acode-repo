@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tools/138-elite-contrib.html — 弱精英机制贡献评估（V1.1.0 | 2026-10-28）
+<!-- tools/138-elite-contrib.html — 弱精英机制贡献评估（V1.2.0 | 2026-10-28）
      目的：112「弱精英评测」只给胜率 Δ，看不出「机制到底触发了几次 / 精英本人干了什么」。
      本页复用 116 V1.15.0 的 kind:'weakContrib'：配对臂（精英臂 vs 自然臂）与 112 完全同口径
      （同种子公式 masterSeed + stage*131 + eliteIdx*7717、同 CHUNK/startIndex、同 clean 剔除），
@@ -44,6 +44,7 @@
   <label>每关每臂场次 <input type="number" id="runsInput" value="120" min="20" step="10"></label>
   <span class="sub">总样本 / 精英 = 场次 × 7 关（每只弱精英各跑一套）</span>
   <button id="runBtn">▶ 开始跑批</button>
+  <button id="loadBtn">📂 载入上次</button>
 </div>
 <div id="progress"></div>
 <div id="errBox"></div>
@@ -53,8 +54,9 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { WEAK_ELITES } from './127-tool-registry.js';
 
-const VERSION = '138-elite-contrib V1.1.0';
+const VERSION = '138-elite-contrib V1.2.0';
 const CHUNK = 50;
+const CONTRIB_KEY = 'ming_weak_elite_contrib';   // V1.2.0：跑批结果落盘，关页面后仍能「📂 载入上次」；126 报警也能读它做交叉印证
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
 const VARIANTS = ['胖远桥', '宋青书', '标准'];
 // 关键字探针（只做展示归类，不改判据）：note/reason 文本包含即计一次
@@ -135,9 +137,89 @@ function setErr(msg) {
   errBox.textContent = msg || '';
 }
 
-function render() {
-  let html = '<h2>总评（七关合计）</h2><table><tr><th>弱精英</th><th>侧</th><th>样本</th><th>精英胜率</th><th>对照胜率</th><th>Δ(明教)</th><th>对本方贡献</th><th>存活</th><th>输出/场</th><th>承伤/场</th><th>治疗/场</th><th>技能触发/场</th><th>关键事件/场</th></tr>';
+// V1.2.0：结果落盘（by 是纯嵌套对象，可直接 JSON 化）。关页面后仍能「📂 载入上次」，
+//   也供 126 报警读它做「138 独立配对实验 vs 112 弱精英 Δ」的交叉印证。
+function saveContrib() {
+  try {
+    localStorage.setItem(CONTRIB_KEY, JSON.stringify({ ts: Date.now(), by }));
+  } catch (e) { /* 配额满就放弃，不影响本次展示 */ }
+}
+function loadContrib() {
+  let raw;
+  try { raw = localStorage.getItem(CONTRIB_KEY); } catch (e) { raw = null; }
+  if (!raw) { setErr('没有上次结果（先跑一次批，会自动落盘）'); return false; }
+  try {
+    const o = JSON.parse(raw);
+    // 防御：结构损坏就清空，不让坏数据污染展示
+    if (!o || typeof o.by !== 'object' || !o.by) { setErr('上次结果已损坏，已忽略'); localStorage.removeItem(CONTRIB_KEY); return false; }
+    for (const k in by) delete by[k];
+    Object.assign(by, o.by);
+    const d = new Date(o.ts);
+    progressEl.textContent = `📂 已载入 ${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} 的结果（未重跑）`;
+    render();
+    return true;
+  } catch (e) { setErr('载入失败：' + (e && e.message ? e.message : e)); return false; }
+}
+
+// V1.2.0：与 112「弱精英评测」快照交叉印证——同一批弱精英，138 用配对实验、112 用自然配对对照，
+//   两份都是「精英臂 − 自然对照的明教胜率 Δ」，同口径。若方向/量级一致 → 结论站得住；方向相反 → 必有一方测量有误。
+//   只读 112 快照（ming_elite_eval_snaps），不改它。遍历快照里实际存在的变体键，避免与 112 变体命名不一致导致漏算。
+function crossCheck112() {
+  let snaps;
+  try { snaps = JSON.parse(localStorage.getItem('ming_elite_eval_snaps') || '[]'); } catch (e) { return null; }
+  if (!Array.isArray(snaps) || !snaps.length) return null;
+  const weak = snaps[0] && snaps[0].parts && snaps[0].parts.weak;
+  if (!weak || !weak.byStage || !weak.stages) return null;
+  const byStage = weak.byStage, stages = weak.stages;
+  const acc = {};
+  for (const w of WEAK_ELITES) acc[w.name] = { eRuns: 0, eWins: 0, nRuns: 0, nWins: 0 };
+  for (const st of stages) {
+    const stSec = byStage[st];
+    if (!stSec) continue;
+    for (const v of Object.keys(stSec)) {
+      const slot = stSec[v];
+      if (!slot) continue;
+      for (const w of WEAK_ELITES) {
+        const d = slot[w.name];
+        if (d && d.runs) { acc[w.name].eRuns += d.runs; acc[w.name].eWins += d.wins; }
+        const nb = slot.__natural && slot.__natural.clean && slot.__natural.clean[w.name];
+        if (nb && nb.runs) { acc[w.name].nRuns += nb.runs; acc[w.name].nWins += nb.wins; }
+      }
+    }
+  }
+  const rows = [];
   for (const w of WEAK_ELITES) {
+    const a = acc[w.name];
+    if (!a.eRuns || !a.nRuns) continue;
+    const d112 = (a.eWins / a.eRuns - a.nWins / a.nRuns) * 100;
+    const e = totals(w.name, 'elite'), n = totals(w.name, 'natural');
+    if (!e.runs || !n.runs) continue;
+    const d138 = (e.wins / e.runs - n.wins / n.runs) * 100;
+    const diff = d138 - d112;
+    let tag;
+    if (Math.abs(diff) <= 5) tag = '一致';
+    else if ((d138 > 0) === (d112 > 0)) tag = '同向·量级有差';
+    else tag = '方向相反⚠️';
+    rows.push({ name: w.name, side: w.side, d112, d138, diff, tag });
+  }
+  return rows.length ? { rows, snapAge: snaps[0].ts } : null;
+}
+
+function render() {
+  let html = '<h2>总评（七关合计，按对本方贡献排序）</h2><table><tr><th>弱精英</th><th>侧</th><th>样本</th><th>精英胜率</th><th>对照胜率</th><th>Δ(明教)</th><th>对本方贡献</th><th>存活</th><th>输出/场</th><th>承伤/场</th><th>治疗/场</th><th>技能触发/场</th><th>关键事件/场</th></tr>';
+  // V1.2.0：总表按「对本方贡献」从高到低排，最猛的弱精英一眼在最上；贡献计算与下行一致
+  const contribOf = w => {
+    const e = totals(w.name, 'elite'), n = totals(w.name, 'natural');
+    if (!e.runs || !n.runs) return null;
+    const d = (e.wins / e.runs - n.wins / n.runs) * 100;
+    return w.side === 'ally' ? d : -d;
+  };
+  const order = WEAK_ELITES
+    .map(w => ({ w, c: contribOf(w) }))
+    .filter(x => x.c !== null)
+    .sort((a, b) => b.c - a.c)
+    .map(x => x.w);
+  for (const w of order) {
     const e = totals(w.name, 'elite');
     const n = totals(w.name, 'natural');
     if (!e.runs) { html += `<tr><td>${w.name}</td><td>${w.side === 'ally' ? '明教' : '六大派'}</td><td colspan="11" class="dim">无数据（该精英未上场或未跑）</td></tr>`; continue; }
@@ -159,7 +241,7 @@ function render() {
       <td>${pctStr(e.sumSurv, e.runs)}</td><td>${Math.round(e.sumDmg / e.runs)}</td><td>${Math.round(e.sumTaken / e.runs)}</td><td>${Math.round(e.sumHeal / e.runs)}</td>
       <td>${topList(e.skills, e.runs, 6)}</td><td>${topList(e.probes, e.runs, 4)}</td></tr>`;
   }
-  html += '</table><div class="sub" style="margin-top:4px">Δ(明教)=精英臂−自然臂的明教胜率（负=明教更难赢）；<b>对本方贡献</b>=把他那一方的净胜率变化统一成同向（绿=帮他那方、红=拖他那方），免得把「六大派精英负Δ」误读成「弱」。✓=显著，≈=噪声。</div>';
+  html += '</table><div class="sub" style="margin-top:4px">Δ(明教)=精英臂−自然臂的明教胜率（负=明教更难赢）；<b>对本方贡献</b>=把他那一方的净胜率变化统一成同向（绿=帮他那方、红=拖他那方），免得把「六大派精英负Δ」误读成「弱」。✓=显著，≈=噪声。表按贡献从高到低排序。</div>';
 
   // 一句话结论（V1.1.0）：机制连到结果，免得只摆数字
   html += '<h2>一句话结论</h2><div class="detail">';
@@ -209,8 +291,26 @@ function render() {
       <span class="sub">被指向 fact → ${target}　｜　关键字探针 → ${topList(e.probes, e.runs, 6)}</span></div>`;
   }
   html += '</div><div class="sub" style="margin-top:8px">' + VERSION + ' · 观测口径 = 战斗日志逐条计数，不含任何估算或折算。</div>';
+
+  // 与 112 弱精英 Δ 交叉印证（V1.2.0）：两份独立测量互证，方向/量级一致才站得住
+  const cc = crossCheck112();
+  if (cc) {
+    html += '<h2>与 112 弱精英 Δ 交叉印证</h2><div class="detail">';
+    html += `<div class="sub">138 配对实验 vs 112 弱精英评测快照（${new Date(cc.snapAge).toLocaleDateString('zh-CN')}）同口径比 Δ，看是否互相印证。差 ≤5pp 算一致。</div>`;
+    for (const r of cc.rows) {
+      const cls = r.tag === '一致' ? 'pos' : (r.tag.indexOf('相反') >= 0 ? 'neg' : 'mid');
+      const diffTxt = Math.abs(r.diff) > 0.05 ? `（差 ${r.diff > 0 ? '+' : ''}${r.diff.toFixed(1)}pp）` : '';
+      html += `<div style="margin:4px 0">· <b>${r.name}</b>（${r.side === 'ally' ? '明教' : '六大派'}）：138 ${r.d138 >= 0 ? '+' : ''}${r.d138.toFixed(1)}pp / 112 ${r.d112 >= 0 ? '+' : ''}${r.d112.toFixed(1)}pp ｜ <span class="${cls}">${r.tag}</span>${diffTxt}</div>`;
+    }
+    html += '</div>';
+  }
+
   resultEl.innerHTML = html;
 }
+
+document.getElementById('loadBtn').addEventListener('click', () => {
+  loadContrib();
+});
 
 runBtn.addEventListener('click', async () => {
   const perStage = Math.max(20, parseInt(runsInput.value, 10) || 120);
@@ -256,6 +356,7 @@ runBtn.addEventListener('click', async () => {
       }
     });
     progressEl.textContent = `✅ 完成：${jobs.length} 片 · 用时 ${((Date.now() - t0) / 1000).toFixed(1)}s（${VERSION}）`;
+    saveContrib();
     render();
   } catch (err) {
     setErr(`跑批失败：${err && err.message ? err.message : err}\n（查浏览器控制台全栈；worker 抛错时 117 会终止整池）`);
