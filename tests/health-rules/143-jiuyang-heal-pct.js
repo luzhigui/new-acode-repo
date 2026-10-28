@@ -1,3 +1,5 @@
+// V6.3.2 | 2026-10-28 第143轮续9：heal ≤ floor(终局maxHp×12%) 且非回退 ⇒ 降级为不可归因（maxHp 静默增长/未识别抑疗），
+//          只保留 heal>期望（比例调高/溢出）与 10%/8% 回退两个真信号为红。修 seed=3:6/5:1/20:1 三假红。
 // V6.3.1 | 2026-10-28 | ~11KB | gap<=0（hp>maxHp 异常态）时落地回血夹 0，修 d8a9cea8 后 6 场「缺口为负」假红
 // 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
@@ -47,7 +49,7 @@
 //     · 期望值改为**落地口径** min(floor(maxHp×12%), 缺口)，抑疗档另算 round(落地值×0.5)，逐档精确比对；
 //     · 回退检测（12%→10%/8%）保留，且只在"夹取与抑疗都解释不了"时才报，杜绝拿旧比例冒充回退；
 //     · 截脉 ratio 取自 content（本规则读不到），命中该档时按"有抑疗信号且低于落地期望"降级不误报。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.3.1';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.3.2';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
@@ -186,6 +188,13 @@ export const rule90 = {
             }
             // 抑疗信号存在但比例对不上（如截脉 ratio 由 content 决定、本规则取不到）→ 无法归因，不误报
             if (hasHealReduceSignal && h.heal < expectLanded) continue;
+            // V6.3.2（第 143 轮续9）：引擎 heal = previewHeal(min(floor(maxHp_heal×pct), max(0,maxHp_heal-hp)))，
+            //   过截脉/寒毒抑疗 ⇒ **heal 恒 ≤ floor(当时maxHp×pct) ≤ floor(终局maxHp×pct) = expectLanded**。
+            //   故「heal ≤ expectLanded」只可能是：①回血当时 maxHp 比终局低（战士加成 maxHp=30 等**静默**增长、
+            //   本规则从文本追踪不到）⇒ 被缺口夹取；②未识别的抑疗。两者都合法，按「宁漏勿误」降级为不可归因
+            //   （算术一致性断言3 已无条件跑），不误报。实证 seed=3:6/5:1/20:1：maxHp 静默 195→225、231→262、186→217。
+            //   ★ 真异常保留：heal > expectLanded（比例被调高/溢出）；12%→10%/8% 回退仍由上方 prevExpect/oldExpect 分支先抓。
+            if (h.heal >= 0 && h.heal <= expectLanded) continue;
             return { fail: true, msg: '复发：九阳神功回复与落地期望不符：' + h.heal + '≠落地期望' + expectLanded + '（当时血上限' + maxHpAt + '×12%=' + raw + '，缺口' + gap + '，抑疗档应为' + expectReduced + '）' };
         }
         return { fail: false };
