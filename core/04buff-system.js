@@ -1,6 +1,6 @@
 // core/04buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.7.3 | 2026-10-26 | ~26000 bytes —— 众志成城首回合补员目标 5→4（姐姐强化仍补到 5，读 content recruitTarget）
-export const VER = 'core/04buff-system.js V6.7.3';
+// V6.7.4 | 2026-10-27 | ~44090 bytes —— 背水一战声明 fact 的 ratio 改报实际上阵值 finalAtkBonus（姊强化 0.25 ≠ 基础 0.3，原报基础值致声明与实际不符）
+export const VER = 'core/04buff-system.js V6.7.4';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -180,7 +180,7 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     }
 
     if (log) {
-        log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: cfg.atkBonus } });
+        log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: finalAtkBonus } });
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '背水一战', note: `🩸 背水一战：${unit.name} 永久获得攻击+50%，并获得一次战士加成`, line: false, floatText: '🩸背水一战！', floatUid: unit.uid } });
     }
 }
