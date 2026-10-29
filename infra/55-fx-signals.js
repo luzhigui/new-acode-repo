@@ -1,4 +1,3 @@
-// V6.1.5 | 2026-10-20 | ~2700 bytes
 export const VER = 'infra/55-fx-signals.js V6.1.5';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离

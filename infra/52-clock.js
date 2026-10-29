@@ -1,12 +1,4 @@
 // infra/52-clock.js
-// V1.2.1 | 2026-10-29 | ~6400 bytes | reset() 清场前把挂起的 animate/animateReal 逐帧动画走完最后一帧并
-//   resolve（原直接丢数组 = Promise 永不结算 → 一次性特效 DOM 残留，联机换关后特效越叠越多）
-// V1.2.0 | 2026-10-25 | ~6100 bytes | 新增 waitReal / animateReal 真实时间轴（按 _realNow 推进，不吃 timescale；
-//   暂停冻结、快进直接完成）——参数表 core/23perf-params 的消费点改用真实毫秒，表里填多少就是多少。
-//   原 wait/animate 保留不动（逻辑时间，仍受倍速缩放）
-// V1.1.1 | 2026-10-22 | ~4900 bytes
-// animate 支持 opts.minRealMs 最短真实时长保底（新增 _realNow 真实时间轴，
-// 暂停冻结、不受倍速/快进影响）：倍速下关键演出（冲刺/轰拳/打歪）也看得清
 // 消费方只调 wait()/animate()，不再自己判 fastForwardActive、不再传 getPausedFn、不再各自开 rAF
 export const VER = 'infra/52-clock.js V1.2.1';
 

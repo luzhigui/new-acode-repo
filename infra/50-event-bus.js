@@ -1,4 +1,3 @@
-// V6.9.8 | 2026-10-16 | ~8600 bytes
 import { GlobalStore } from './54-global-store.js';
 export const VER = 'infra/50-event-bus.js V6.9.8';
 

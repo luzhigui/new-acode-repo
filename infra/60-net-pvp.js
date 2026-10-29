@@ -1,11 +1,4 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// V7.4.3 | 2026-10-29 | ~20300 bytes
-//   从机 step 队列加防积压：积压超 MAX_STEP_BACKLOG(5) 条就清空旧账只播最新，修「从机越打越落后、
-//   和房主差好几回合」；step 自带全量阵容快照，跳过中间演出不影响画面状态。
-// V7.4.2 | 2026-10-29 | ~20200 bytes
-//   联机 mqtt.js 改「本地 vendor 优先 + 远端兜底」：cdn.jsdelivr.net 国内多地实测直连失败（000），
-//   原单源写法一点「创建房间」就报「下载失败」；现在读 ./vendor/mqtt-5.10.1.min.js（随仓库分发，零网络依赖），
-//   仅当本地缺失时才依次尝试 npmmirror / fastly.jsdelivr / unpkg。
 export const VER = 'infra/60-net-pvp.js V7.4.3';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；

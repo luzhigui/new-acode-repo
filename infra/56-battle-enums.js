@@ -1,5 +1,3 @@
-// V1.11.1 | 2026-10-27 | ~16961 bytes | ROLE_TYPES 恢复 JAVELIN:'标枪'（V1.11.0 改蝴蝶时把标枪误当替换而非新增，
-//   致 core/07、core/10、modules/29、render/32、fx/88 共 7 处 ROLE_TYPES.JAVELIN 引用变 undefined、分支静默失效）；蝴蝶同步保留
 export const VER = 'infra/56-battle-enums.js V1.11.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
