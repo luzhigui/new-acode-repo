@@ -27,6 +27,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
 
 export const VER = 'tests/layer-direction-scan.mjs V0.2.0-draft';
 
@@ -91,36 +92,18 @@ function layerOf(absFile) {
 const relOf = (abs) => path.relative(ROOT, abs).split(path.sep).join('/');
 
 // ---- 解析 ----
-// 剥注释但保留 \n，使 match 行号可直接换算（不用 index→line 反查）。
-function stripCommentsKeepLines(code) {
-    let out = '', i = 0, quote = null;
-    while (i < code.length) {
-        const c = code[i], next = code[i + 1];
-        if (quote) {
-            out += c;
-            if (c === '\\') { out += code[i + 1] || ''; i += 2; continue; }
-            if (c === quote) quote = null;
-            i++; continue;
-        }
-        if (c === '"' || c === "'" || c === '`') { quote = c; out += c; i++; continue; }
-        if (c === '/' && next === '/') {
-            while (i < code.length && code[i] !== '\n') { out += ' '; i++; }
-            continue;
-        }
-        if (c === '/' && next === '*') {
-            while (i < code.length && !(code[i] === '*' && code[i + 1] === '/')) {
-                out += code[i] === '\n' ? '\n' : ' '; i++;
-            }
-            out += '  '; i += 2; continue;
-        }
-        out += c; i++;
-    }
-    return out;
-}
+// 剥注释：**改用公共件唯一来源** stripCommentsMapped（第 157 轮收口）。
+//   此处原先手写了一份 stripCommentsKeepLines（剥注释但保留 \n 以对齐行号），被
+//   tests/_lib/static-truth-slice.mjs 的 auditStripCopies 判为「未登记的第二份」。
+//   ★ 第二份的存在本身就是风险：公共件修了「正则字面量感知」，这份不会跟着修，
+//     两边对同一份源码会剥出不同结果、结论静默分叉 —— 与本件正在查的依赖分叉是同一款病。
+//   公共件同样**保行结构**（行注释与块注释里的换行逐个保留，见公共件 ⑥-a 注释），
+//   故行号语义与旧手写版一致；额外多识别正则字面量，只会更准（不会把正则里的 // 当注释起点）。
+//   收口后 auditStripCopies 会把它计入「已收口」（判据：剥注释后确有 import 公共件语句）。
 
 // 静态依赖四形态：import{} / import x / import * as / import 'x' / export ... from
 function extractStaticDeps(code) {
-    const clean = stripCommentsKeepLines(code);
+    const clean = stripCommentsMapped(code).code;
     const patterns = [
         { re: /^\s*import\s*\{[^}]*\}\s*from\s*['"]([^'"]+)['"]/, kind: 'named' },
         { re: /^\s*import\s+\*\s+as\s+[\w$]+\s+from\s*['"]([^'"]+)['"]/, kind: 'namespace' },
