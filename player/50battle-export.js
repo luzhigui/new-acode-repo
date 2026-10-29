@@ -1,4 +1,9 @@
 // player/50battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
+// V1.5.0 | 2026-10-29 手机端改「同步原生下载」+ 弹窗文本框防卡死：手机实测（安卓 WebView）弹窗弹出后
+//           整页卡死——几十万字战报塞进 <textarea> 撑爆渲染。① isMobile 分支改在**任何 await 之前**同步
+//           blob + a.click()（此刻用户手势还活着，不会被拦，与 V1.3.0 死在 picker/share await 之后的
+//           后台点击是两回事）；② showManualCopyDialog 的 textarea 超 30 万字符只放提示语、高度 50vh→100px，
+//           保护桌面无 picker/share 落到 ③ 与极端兜底的场景。
 // V1.4.0 | 2026-10-29 手机端跳过原生 API 直奔弹窗：移动浏览器常偷偷带 showSaveFilePicker 但弹窗被系统
 //           拦截/根本没弹，却报 AbortError（被误读成「用户主动取消」）→ 直接 return 'cancel'，永远到不了
 //           手动弹窗。现按 UA 识别手机（含微信内置），跳过 ①picker ②share，直接弹带蓝色下载按钮的弹窗。
@@ -9,7 +14,7 @@
 //           <a download>（blob URL，不 revoke：弹窗存活期随时可点），手机浏览器不敢拦。
 //           代价：桌面 Firefox/Safari（无 picker/share）从自动下载变成多点一次，换手机端确定性（拍板接受）。
 // V1.2.0 | 2026-09-26 | ~18700 bytes
-export const VER = 'player/50battle-export.js V1.4.0';
+export const VER = 'player/50battle-export.js V1.5.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 import { copyAllStateFields } from '../core/17-state-keys.js';
@@ -218,11 +223,24 @@ export async function exportBattleReport(report) {
     }
     const name = makeFileName(report);
 
-    // 手机端直接跳过原生 API（极易被系统拦截或谎报 AbortError），直奔手动弹窗
+    // 手机端跳过原生 API（极易被系统拦截或谎报 AbortError），改在点击同步栈里直接原生下载
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (isMobile) {
-        showManualCopyDialog(text, name);
-        return 'manual';
+        // 手机端直接在点击事件同步触发下载，绝不卡手势，也绝不弹卡死的文本框
+        try {
+            const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+            const href = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = href;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(href), 10000);
+            return 'download';
+        } catch (e) {
+            console.error('[战报] 手机原生下载失败，走手动弹窗');
+        }
     }
 
     // ① File System Access API（桌面 Chrome / 安卓新 Chrome；手机端已在上方直接跳过）
@@ -303,9 +321,10 @@ function showManualCopyDialog(text, name) {
     title.textContent = '📌 自动保存都失败了，请手动复制（' + name + '）';
     title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:14px;';
     const ta = document.createElement('textarea');
-    ta.value = text;
+    // 防卡死：如果是超大文本，不要塞进框里让浏览器渲染
+    ta.value = text.length > 300000 ? '【战报过大，请直接点击下方下载按钮保存】' : text;
     ta.readOnly = true;
-    ta.style.cssText = 'width:100%;height:50vh;box-sizing:border-box;background:#111;color:#ccc;border:1px solid #444;border-radius:8px;font-size:10px;font-family:monospace;';
+    ta.style.cssText = 'width:100%;height:100px;box-sizing:border-box;background:#111;color:#ccc;border:1px solid #444;border-radius:8px;font-size:10px;font-family:monospace;';
     ta.onclick = () => ta.select();
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;';
