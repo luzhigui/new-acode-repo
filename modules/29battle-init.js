@@ -1,10 +1,14 @@
 // modules/29battle-init.js — 双方阵容生成（精英分层 / 弱精英混入 / 站位锚点）
 // 明教精英分层：Boss（张无忌）独掷，出 Boss 最多再配 1 个（强 70%/弱 30%）；无 Boss 时强精英 90% 出 1、10% 出 2，
 //   弱精英独立 30% 混入。骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
+// V7.6.5 | 2026-10-29 | ~33700 bytes | 何太冲双修：敌方主建队路径取消固定远程，远程/战士各 50% 摇
+//        （_rng.next() 走建队 RNG 保联机同步）。注意：含何太冲的固定 seed 局 RNG 流多消耗一次，
+//        旧跑批基线数字在相关关不可比；第 5 关玄冥凑数池（V7.6.4 的 L431 路径）未同改，
+//        抽到何太冲仍固定远程（挂账待拍板）。
 // V7.6.4 | 2026-10-29 | ~33500 bytes | 图鉴加成 ×5 → ×1.2（老板口径：20% → 24%）。原 ×5 占位把张无忌
 //        顶成 100% 必出；rate 当前仅 hasBoss 一掷消费，选韦一笑/小昭/谢逊/寒离飒今日实际无效果（挂账）
 // V7.6.3 | 2026-10-22 | ~33500 bytes
-export const VER = 'modules/29battle-init.js V7.6.4';
+export const VER = 'modules/29battle-init.js V7.6.5';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -401,7 +405,13 @@ export function initBattleTeams(currentStage, _rng) {
                 // 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
                 // 第二道防线：tags 里直接写「标枪」也认（role 字段丢失时不至于回落到随机四选一）
                 const chNamed = getGameData()?.characters?.[name];
-                const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+                let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+
+                // 何太冲双修：取消固定远程，在远程和战士之间随机摇（RNG 走 _rng，保联机同步）
+                if (name === '何太冲') {
+                    tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
+                }
+
                 if (tagRole) role = tagRole;
                 let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
