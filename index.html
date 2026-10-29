@@ -1,4 +1,5 @@
 <!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
+<!-- V7.6.78 | 2026-10-29 联机三修：①空见护罩碎裂类改原生 setTimeout 清理（clock.wait 在暂停/联机冻结时永不返回，金罩子赖着不走）②寒离飒蓄意轰拳瞄准去掉联网限制（只有房主跑引擎，从机只播 step）③从机 step 队列防积压（超 5 条丢旧账只播最新）；另 clock.reset 清场前先冲掉残留逐帧动画，一次性特效不再越叠越多。四个 module script 的 ?v= 抬到 3.5.1 破缓存 -->
 <!-- V7.6.77 | 2026-10-27 自定义档（8x）参数面板三修：①关闭面板不再强解暂停（记录开面板前的真实状态，只在本来没暂停时才恢复运行）②行间隔预览改 3 遍循环、遍间停 600ms（8x 下 5 行 50ms 一点就没，来不及看）③闪避反击子弹时间的克隆体/风暴位置基准从 innerHeight 改 st.top + st.height（手机地址栏与长日志区把演出算偏）。四个 module script 的 ?v= 抬到 3.5.0 破缓存 -->
 <!-- V7.6.75 | 2026-10-21 修原班再战跨局漏妹永久海克斯(拒马凭空出现案)——根因:ui/61开战把选完海克斯的UI队写进快照(当局合法),player/42又将其克隆成_originalSnapshot存档,原班再战恢复脏存档→妹开局带上局巨马阵→第1回合蛛变召拒马;修复:core/17 V2.9.25新增resetBattleTransientState(保留基础数值/落位锚,整场累计字段归零),ui/68 V7.9.2原班再战恢复出口统一清洗 -->
 <!-- V7.6.74 | 2026-10-20 宋青书落位修复(modules/29 V7.5.25)：周芷若不在时从4号(中后排)找起——旧版从1号找第一个空位,唐文亮占掉后排位就被顶到2号挨集火(探针:锁定臂75%落前排阵亡率22%→修复后100%落4/5号阵亡率12%,唐文亮Δ+4.2假增益→+1.6噪声级) -->
@@ -411,10 +412,10 @@
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
-<script type="module" src="./infra/54-global-store.js?v=3.5.0"></script>
-<script type="module" src="./fx/89fx-subscriber.js?v=3.5.0"></script>
-<script type="module" src="./ui/80perf-panel.js?v=3.5.0"></script>
-<script type="module" src="./ui/61main-5v5-test.js?v=3.5.0"></script>
+<script type="module" src="./infra/54-global-store.js?v=3.5.1"></script>
+<script type="module" src="./fx/89fx-subscriber.js?v=3.5.1"></script>
+<script type="module" src="./ui/80perf-panel.js?v=3.5.1"></script>
+<script type="module" src="./ui/61main-5v5-test.js?v=3.5.1"></script>
 
 
 

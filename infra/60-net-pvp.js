@@ -1,9 +1,12 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
+// V7.4.3 | 2026-10-29 | ~20300 bytes
+//   从机 step 队列加防积压：积压超 MAX_STEP_BACKLOG(5) 条就清空旧账只播最新，修「从机越打越落后、
+//   和房主差好几回合」；step 自带全量阵容快照，跳过中间演出不影响画面状态。
 // V7.4.2 | 2026-10-29 | ~20200 bytes
 //   联机 mqtt.js 改「本地 vendor 优先 + 远端兜底」：cdn.jsdelivr.net 国内多地实测直连失败（000），
 //   原单源写法一点「创建房间」就报「下载失败」；现在读 ./vendor/mqtt-5.10.1.min.js（随仓库分发，零网络依赖），
 //   仅当本地缺失时才依次尝试 npmmirror / fastly.jsdelivr / unpkg。
-export const VER = 'infra/60-net-pvp.js V7.4.2';
+export const VER = 'infra/60-net-pvp.js V7.4.3';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -28,6 +31,9 @@ const TOPIC_PREFIX = 'gmd5v5/';
 const HEARTBEAT_MS = 5000;        // 心跳间隔
 const HEARTBEAT_TIMEOUT = 16000;  // 这么久没收到对端任何消息 → 判定掉线（替代 WebRTC 的 conn.on('close')）
 const JOIN_TIMEOUT = 20000;       // 从机发 join 后等 accept 的上限（没人订阅这个房间就永远等不到）
+// 从机 step 积压上限：超过就丢旧账只播最新（step 自带 ally/enemy 全量快照，状态不丢，只跳过中间演出）。
+//   房主按「每步发一条」的速度推，从机演出慢一点就会无限滞后再也追不上——卡死队列长度是唯一的止血点。
+const MAX_STEP_BACKLOG = 5;
 
 const STATUS = {
     IDLE: 'idle',
@@ -115,8 +121,11 @@ export function reviveLineup(raw) {
 }
 
 function pushStep(step) {
-    if (_stepWaiter) { const w = _stepWaiter; _stepWaiter = null; w(step); }
-    else _stepQueue.push(step);
+    if (_stepWaiter) { const w = _stepWaiter; _stepWaiter = null; w(step); return; }
+    // 防积压：从机播放慢于房主时队列会无限增长，从机永远停在过去的回合。
+    //   超过上限直接清空旧账，只播最新一条，强行把进度对齐到现在。
+    if (_stepQueue.length > MAX_STEP_BACKLOG) _stepQueue = [];
+    _stepQueue.push(step);
 }
 
 // 断线时唤醒等待者（返回 null），避免从机主循环永久挂住

@@ -1,4 +1,6 @@
 // fx/95-immune-shield-break.js — 金刚不坏护罩碎裂（空见）
+// V1.0.1 | 2026-10-29 | ~2700 bytes | 护罩碎裂类改原生 setTimeout 清理：原 clock.wait(360) 在暂停/联机
+//        冻结时永不返回，金罩子类就留在格子上不消失（联机实测「护罩特效一直叠加」）
 // V1.0.0 | 2026-10-23 | ~2600 bytes
 // 撞上瞬间：格子罩子放大淡出（CSS class），同时中心白光闪 + 8 片金色碎片向外炸开。
 // 罩子本体由 render/32 按 _immuneShield 渲染（.has-immune-shield 伪元素），
@@ -6,7 +8,7 @@
 import { clock } from '../infra/52-clock.js';
 import { getUnitCell } from './90fx-ref-manager.js';
 
-export const VER = 'fx/95-immune-shield-break.js V1.0.0';
+export const VER = 'fx/95-immune-shield-break.js V1.0.1';
 
 function coreFlash(cx, cy, w, h) {
     const f = document.createElement('div');
@@ -57,7 +59,8 @@ export function showImmuneShieldBreak(unit) {
     // 罩子本体交给 CSS：换到碎裂 keyframes，320ms 放大淡出；步末重绘时 class 整体消失
     cell.classList.remove('has-immune-shield');
     cell.classList.add('immune-shield-breaking');
-    clock.wait(360).then(() => cell.classList.remove('immune-shield-breaking'));
+    // 联机或暂停时 clock 会冻结，改用原生 setTimeout 强拆特效残留
+    setTimeout(() => { if (cell) cell.classList.remove('immune-shield-breaking'); }, 360);
 
     coreFlash(cx, cy, r.width, r.height);
     shardBurst(cx, cy);
