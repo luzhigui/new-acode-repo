@@ -68,7 +68,12 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.7.1';
+// V6.7.2 | 2026-10-29 第 135 轮 checkBuffIcons 截断豁免改镜像渲染预算模型：格子 logo 预算 = 2 -（胶囊占 1），
+//          logoList 含 🔔/eliteSkillIcon/buff 图标/🎯☯🔻❌ 状态标记，超预算尾部优先截断 → buff 图标被挤出
+//          是设计行为（render/32 L328-356，何太冲标记压尾即老板拍板）。旧豁免只数受益 Buff 图标
+//          （>2 且名≥4字），没算其他占位 → 10-29 实测 5 条误报（流云💨×4、圣火🔥×1，张无忌 1/3 胶囊占位最典型）。
+//          新豁免：缺图标且格子预算已满（DOM emoji 数 + 胶囊占位 ≥ 2）→ 放过；格子未满仍缺 → 照常上报。
+export const VER = 'tests/122health-utils.js V6.7.2';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -378,11 +383,17 @@ export function checkBuffIcons(ctx, doc, liveAlly) {
         if (!nameEl) continue;
         const nameText = nameEl.textContent || '';
 
-        // 渲染侧图标截断（render/32 L398-405）：名字 ≥4 字时，图标多于 2 个只保留最后 2 个；
-        // 但只在"候选图标 > 2"时才截——长名 + 1~2 个图标仍应全在，跳了就是白丢信号。
-        // 故按单位算受益图标数：≥4 字 且 >2 个才放过，其余照常盯。
+        // 渲染预算模型豁免（第 135 轮重写，镜像 render/32 L328-356）：格子 logo 预算 = 2 -（计数胶囊占 1），
+        //   logoList = 🔔护罩 + eliteSkillIcon + buff 图标(按图标聚合) + 🎯☯🔻❌ 状态标记，超预算尾部优先截断
+        //   → buff 图标会被状态标记/胶囊挤出（设计如此）。旧豁免只数「受益 Buff 图标 >2 且名≥4 字」，
+        //   没算其他 logo 占位 → 张无忌(1/3 胶囊占位)等「图标被合法截断」场景全误报（10-29 实测 5 条）。
+        //   新豁免：缺图标且格子预算已满（DOM 已显示 emoji 数 + 胶囊占位 ≥ 2）→ 截断合法，放过；
+        //   格子未满仍缺图标 → 照常上报（真信号不丢）。emoji 用 Unicode 属性正则；胶囊按
+        //   buildCountBadge 的「N/M」计数文本识别（名字本身不含数字与斜杠，不会误匹配）。
         const benefitedIcons = activeBuffs.filter(b => BUFF_ICONS[b.key] && isBenefited(unit, b.key)).map(b => BUFF_ICONS[b.key]);
-        if ((unit.name || '').length >= 4 && benefitedIcons.length > 2) continue;
+        const shownLogos = (nameText.match(/\p{Extended_Pictographic}/gu) || []).length;
+        const hasCountBadge = /\d+\/\d+/.test(nameText);
+        if (benefitedIcons.length > 0 && shownLogos + (hasCountBadge ? 1 : 0) >= 2) continue;
 
         for (const buff of activeBuffs) {
             const icon = BUFF_ICONS[buff.key];

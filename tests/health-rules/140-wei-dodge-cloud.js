@@ -7,9 +7,13 @@
 //   剥离掉的顶层字段，全库已无写入源，规则因此必然报假（永远读到 0）；面板已改走
 //   computeBuffStats().dodgeBonus 现算。本规则改为直接调用被测函数本身，不再复制产品侧实现口径
 //   （复制实现 = 产品改了规则不改就一起假绿，正是本次漏检的成因）。
-export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.1.0';
+// V6.1.1（2026-10-29 第 135 轮）：加数据就绪防御 —— CONFIG.BUFFS getter 内部走 getGameData()，
+//   游戏数据未就绪时返回 null，getDodgeBreakdown 抛「Cannot read properties of null (reading 'buffs')」
+//   被 catch 吞成「面板函数异常」红条（10-29 关卡4实录）。147/148 都有同款防御，此处补齐：未就绪 skip 宁漏勿误。
+export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.1.1';
 
 import { getDodgeBreakdown } from '../../render/32-grid-render.js';
+import { getGameData } from '../../core/01config-5v5-test.js';
 
 export const rule87 = {
     group: '面板数据回归',
@@ -42,6 +46,11 @@ export const rule87 = {
             if (afterA[j] && afterA[j].alive) alive.push(afterA[j]);
         }
         if (alive.length === 0) return 'skip';
+
+        // 数据就绪防御（与 147/148 同款）：getDodgeBreakdown → computeBuffStats → CONFIG.BUFFS getter
+        //   内部走 getGameData()，未就绪返回 null 即抛 null.buffs，被下方 catch 吞成「面板函数异常」。
+        //   数据没就绪时本项判不了，skip 宁漏勿误。
+        if (!getGameData()) return 'skip';
 
         // 直接问面板自己的函数：面板看到了什么，这里就断言什么
         var shown = 0;
