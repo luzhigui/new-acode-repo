@@ -10,7 +10,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { markGridShake } from './32grid-cells.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
+import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/39-actions-defs.js V1.7.2';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
@@ -124,17 +124,6 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.HEAL]: {
         grid: 'sync', log: 'sync',
         timing: (action) => (action && action.timing === 'afterText') ? 'afterText' : 'anchor',
-        store: (c, action) => {
-            // 回血瞬间同步：不等步末的 syncStoreFromStep，飘字飞出的瞬间血条立刻涨。
-            // 后续步末会全量覆盖，这里做表现层“预演”非常安全，不影响真实伤害计算。
-            if (c.store && action.targetUid && action.amount) {
-                const su = c.store.getState().units.find(u => u.uid === action.targetUid);
-                if (su) {
-                    const newHp = Math.min(su.maxHp, su.hp + action.amount);
-                    c.store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: action.targetUid, payload: { hp: newHp } });
-                }
-            }
-        },
         fx: (c, action) => {
             const healUnit = findUnitByUidLocal(c, action.targetUid);
             if (healUnit && action.amount) {

@@ -11,6 +11,7 @@ import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHi
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
+import { triggerHpAnim } from '../render/32grid-cells.js';
 import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -90,9 +91,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
         if (entry2.type === 'damage-text') {
             // 伤害飘字改为「播到这行时打」，不再等飞撞动画的固定 1100ms。
-            //   原来的 1100 跟动画配，文字一加速就错位；现在文字和数字同帧。
             if (unitD && entry2.dmg > 0 && !GlobalStore.get('fastForwardActive')) {
                 try { showDamageFloat(unitD, Math.round(entry2.dmg)); } catch (e) {}
+            }
+            // 掉血提前预演：飘字一出，血条立刻开始渐变掉血
+            if (unitD && entry2.hpAfter !== undefined && c.store) {
+                const su = c.store.getState().units.find(u => u.uid === unitD.uid);
+                if (su) triggerHpAnim(unitD.uid, Math.floor((entry2.hpAfter / su.maxHp) * 100));
             }
             lastDiv = await playLogLine(entry2.text, 1200);
             continue;
@@ -113,6 +118,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const gap = getPerfParam(hasFx ? 'lineGapFx' : 'lineGap', GlobalStore.get('speed') || 300) || (hasFx ? 280 : 30);
             await clock.waitReal(gap);
             continue;
+        }
+
+        // 回血提前预演：播到带有回血数据的行时，血条立刻开始渐变回血（不用等组末）
+        if (entry2.isHealEntry && entry2.healAmount > 0 && entry2.healUnitUid && c.store) {
+            const su = c.store.getState().units.find(u => u.uid === entry2.healUnitUid);
+            if (su) {
+                const targetHp = Math.min(su.maxHp, su.hp + entry2.healAmount);
+                triggerHpAnim(su.uid, Math.floor((targetHp / su.maxHp) * 100));
+            }
         }
 
         // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）

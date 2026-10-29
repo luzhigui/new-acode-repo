@@ -7,7 +7,22 @@ import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
 //          是设计行为（render/32 L328-356，何太冲标记压尾即老板拍板）。旧豁免只数受益 Buff 图标
 //          （>2 且名≥4字），没算其他占位 → 10-29 实测 5 条误报（流云💨×4、圣火🔥×1，张无忌 1/3 胶囊占位最典型）。
 //          新豁免：缺图标且格子预算已满（DOM emoji 数 + 胶囊占位 ≥ 2）→ 放过；格子未满仍缺 → 照常上报。
-export const VER = 'tests/122health-utils.js V6.7.2';
+// V6.7.3 | 2026-10-29 第 135 轮续：死亡血条残留 + GAMEOVER 主按钮禁用两处误报修复（均不削弱真实缺陷捕获）。
+//          - checkDeathFxRetention #4：死者血条走 updateHpDisplay→tickHpAnim 平滑回落到 0（render/32 L222 死者目标 hpPct=0），
+//            动画约 0.7s；原判据见 barPct>0 即报，会把动画途中一帧（如 61.4125% = 72.25−0.15×72.25）误判为"残留"。
+//            改为追踪连续两次取样高度：仍下降=动画中跳过，不再下降且 >0=真·卡死才报。
+//          - checkBottomButtonStates GAMEOVER：auto 模式 GAMEOVER 后自动点击推进，点击→下一局开战之间 btnMain
+//            处于 RUNNING 禁用态而 gs 滞后为 GAMEOVER，形成瞬时禁用窗口（finishBattle 已同步 enableAllButtons）。
+//            加 GAMEOVER 稳定计时 >1200ms 才判主按钮禁用，跳过切换途中误报；真·卡死仍捕获。
+// V6.7.4（续迭代）：checkHpBarSync 同款修复——单位受击后引擎 hp 即时更新、DOM 血条动画回落约 0.7s，
+//   原判据见 |actual-expected|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
+//   改为追踪连续两次取样高度：仍变化=动画中跳过；稳定且仍偏离>5%=真·卡死/错位才报。
+export const VER = 'tests/122health-utils.js V6.7.4';
+
+// [模块级状态] 见 V6.7.3：死亡血条动画收敛追踪 + GAMEOVER 按钮稳定计时
+const _barPrev = new Map();      // uid -> 上次观测到的血条高度(%)，区分"动画回落中"与"卡死残留"
+let _gamoeverSeenAt = 0;         // GAMEOVER 首次观测时刻，跳过 auto 推进切换途中的瞬时禁用窗口
+const _hpSyncPrev = new Map();   // uid -> 上次观测到的血条高度(%)，区分"受击动画途中"与"真·高度错位"
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -63,6 +78,10 @@ export function checkUnitHpValidity(unit) {
 
 /**
  * 检查血条高度与引擎 hp/maxHp 是否同步
+ * 注意：血条高度走 updateHpDisplay→tickHpAnim 平滑回落（render/32 L222，约 0.7s）。
+ *   单位受击后引擎 hp 立即更新，但 DOM 高度仍动画中，瞬间 actualPct 滞后 expected 可达数十%，
+ *   原判据见 |diff|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
+ *   改为追踪连续两次取样高度：仍变化=动画中跳过；不再变化且仍偏离>5%=真·卡死/错位才报（保留真实缺陷捕获）。
  */
 export function checkHpBarSync(unit, doc) {
     const issues = [];
@@ -71,10 +90,20 @@ export function checkHpBarSync(unit, doc) {
     if (!cell) return issues;
     const bar = cell.querySelector('.hp-bar-inner');
     if (!bar) return issues;
-    const actualPct = parseFloat(bar.style.height);
+    const actualPct = parseFloat(bar.style.height) || 0;
     const expectedPct = Math.floor((unit.hp / unit.maxHp) * 100);
     if (Math.abs(actualPct - expectedPct) > 5) {
-        issues.push(unit.name + '血条高度异常：当前' + actualPct + '%, 预期' + expectedPct + '%');
+        const prev = _hpSyncPrev.get(unit.uid);
+        if (prev === undefined) {
+            _hpSyncPrev.set(unit.uid, actualPct);            // 首次观测：可能是动画刚开始，记录后再判
+        } else if (Math.abs(prev - actualPct) > 0.05) {
+            _hpSyncPrev.set(unit.uid, actualPct);            // 高度仍在变化（动画中）：正常，跳过
+        } else {
+            issues.push(unit.name + '血条高度异常：当前' + actualPct + '%, 预期' + expectedPct + '%');
+            _hpSyncPrev.set(unit.uid, actualPct);
+        }
+    } else {
+        _hpSyncPrev.delete(unit.uid);                        // 已对齐：清状态
     }
     return issues;
 }
@@ -159,14 +188,27 @@ export function checkDeathFxRetention(allUnits, doc) {
         }
 
         // 4. 已阵亡但血条不为0
+        //    死者血条走 updateHpDisplay→tickHpAnim 平滑回落到 0（render/32 L222 死者目标 hpPct=0），动画约 0.7s。
+        //    原判据见 barPct>0 即报，会把动画途中一帧（如 61.4125% = 72.25−0.15×72.25）误判为"残留"。
+        //    改为追踪连续两次取样高度：仍下降=动画中跳过；不再下降且 >0=真·卡死才报（保留真实缺陷捕获）。
         if (!u.alive && u.hp <= 0 && cell) {
             const bar = cell.querySelector('.hp-bar-inner');
-            if (bar) {
-                const barPct = parseFloat(bar.style.height);
-                if (barPct > 0) {
+            const barPct = bar ? (parseFloat(bar.style.height) || 0) : 0;
+            if (barPct > 0) {
+                const prev = _barPrev.get(u.uid);
+                if (prev === undefined) {
+                    _barPrev.set(u.uid, barPct);            // 首次观测：可能是动画刚开始，记录后再判
+                } else if (barPct < prev - 0.05) {
+                    _barPrev.set(u.uid, barPct);            // 仍在回落（动画中）：正常，跳过
+                } else {
                     issues.push(u.name + ' UI异常：已阵亡但血条残留，高度=' + barPct + '%');
+                    _barPrev.set(u.uid, barPct);
                 }
+            } else {
+                _barPrev.delete(u.uid);                     // 已归零：清状态
             }
+        } else if (!u.alive && u.hp <= 0 && !cell) {
+            _barPrev.delete(u.uid);                        // 死者已离场（格子移除）：清状态，避免复用 uid 串扰
         }
     }
     return issues;
@@ -385,6 +427,13 @@ export function checkBottomButtonStates(ctx, doc) {
     if (!doc || !ctx) return issues;
     const win = doc.defaultView || null;
     const gs = ctx.gs;
+    // GAMEOVER 主按钮稳定计时：auto 模式在 GAMEOVER 后会自动点击推进下一局，点击→下一局开战之间
+    // btnMain 处于 RUNNING 的禁用态而 gs 仍滞后为 GAMEOVER，形成"gs=GAMEOVER 但按钮禁用"瞬时窗口
+    // （可达数百毫秒）。主代码 finishBattle 已同步 enableAllButtons，窗口结束即恢复启用。
+    // 故仅当 GAMEOVER 稳定持续 >1200ms 后才判主按钮禁用，跳过切换途中误报；真·卡死仍会捕获。
+    if (gs !== 'GAMEOVER') _gamoeverSeenAt = 0;
+    else if (!_gamoeverSeenAt) _gamoeverSeenAt = Date.now();
+    const stableGamoever = (gs === 'GAMEOVER') && (_gamoeverSeenAt > 0) && (Date.now() - _gamoeverSeenAt > 1200);
     const btnMain = doc.getElementById('btnMain');
     const btnNext = doc.getElementById('btnNext');
     const btnSettle = doc.getElementById('btnSettle');
@@ -432,7 +481,8 @@ export function checkBottomButtonStates(ctx, doc) {
         expectText(btnPause, '暂停', '继续');
         if (btnPause && !btnPause.classList.contains('active')) issues.push('暂停按钮在PAUSED状态应高亮(active)');
     } else if (gs === 'GAMEOVER') {
-        expectDisabled(btnMain, '主按钮', false);
+        // 仅 GAMEOVER 稳定 >1200ms 才判主按钮禁用（跳过 auto 推进切换途中的瞬时禁用窗口，见上方计时）
+        if (stableGamoever) expectDisabled(btnMain, '主按钮', false);
         expectText(btnMain, '主按钮', stage >= 6 ? '重新' : '下一关');
         expectDisabled(btnNext, '下一回合', false);
         expectText(btnNext, '下一回合', '原班再战');

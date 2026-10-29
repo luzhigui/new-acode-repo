@@ -133,10 +133,29 @@ function tickHpAnim() {
 
 // renderGrid 里「推目标 pct、首帧直落、需要时启动动画、返回本帧展示 pct」四件事收口在此。
 // 与原内联版逐字等价（含 fastForwardActive 首帧直落、_hpAnimRunning 去重启动）。
+// 供播放器提前触发动效（不改变真实数据，只是让血条提前开始渐变）
+export function triggerHpAnim(uid, hpPct) {
+    if (!_hpDisplayPct.has(uid)) return;
+    _hpTargetPct.set(uid, hpPct);
+    if (!_hpAnimRunning) {
+        _hpAnimRunning = true;
+        requestAnimationFrame(tickHpAnim);
+    }
+}
+
 export function updateHpDisplay(unit, hpPct) {
     _hpTargetPct.set(unit.uid, hpPct);
     if (!_hpDisplayPct.has(unit.uid) || GlobalStore.get('fastForwardActive')) _hpDisplayPct.set(unit.uid, hpPct);
-    const displayPct = _hpDisplayPct.get(unit.uid) ?? hpPct;
+    
+    let displayPct = _hpDisplayPct.get(unit.uid) ?? hpPct;
+    
+    // 回血（目标血量大于当前显示血量）时，血条瞬间拉满，不再一截一截往上爬。
+    // 掉血（目标血量小于当前显示血量）依然走下方的 rAF 平滑动画，保留延迟感。
+    if (hpPct > displayPct) {
+        _hpDisplayPct.set(unit.uid, hpPct);
+        displayPct = hpPct;
+    }
+
     if (Math.abs(displayPct - hpPct) > 0.1 && !_hpAnimRunning) {
         _hpAnimRunning = true;
         requestAnimationFrame(tickHpAnim);
