@@ -1,7 +1,3 @@
-// V6.3.1 | 2026-10-25 | 全部等待/动画改真实时间（waitReal/animateReal），bulletDur 不再被倍速二次压缩；
-//   三处 CSS 时长同步跟 T()（防御者前顶 150 / 撞飞 220 / 真伤数字 800ms）
-// V6.3.2 | 2026-10-26 | triggerShake 震屏恢复 200ms 改回逻辑时间（waitReal→wait），跟随倍速
-// V6.3.0 | 2026-10-25 | ~25700 bytes | 子弹时间整段接表现参数表 bulletDur：各段原始总和 15470ms，
 //   按 bulletTotal 等比缩放（含撤退三段/返场/飞走/末段等待），屏息凝视单独保底 2000ms
 export const VER = 'fx/85fx-dodge-bullet.js V6.3.2';
 

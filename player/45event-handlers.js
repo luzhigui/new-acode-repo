@@ -1,5 +1,3 @@
-// V6.0.0 | 2026-08-26 | ~2700 bytes
-// V6.1.0 | 2026-10-26 | 去锚定化：取 entry._fxSpecs 传给 playLogLine（原 _anchorSpecs）
 export const VER = 'player/45event-handlers.js V6.1.0';
 
 import { isBlocked } from '../core/03battle-utils.js';

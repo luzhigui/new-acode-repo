@@ -1,4 +1,3 @@
-// V6.0.0 | 2026-08-14 | ~3900 bytes
 export const VER = 'ui/63main-state.js V6.0.0';
 
 import { STATE } from '../core/01config-5v5-test.js';

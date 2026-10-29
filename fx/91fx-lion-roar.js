@@ -1,4 +1,3 @@
-// V6.0.0 | 2026-09-24 | ~3300 bytes
 export const VER = 'fx/91fx-lion-roar.js V6.0.0';
 
 import { clock } from '../infra/52-clock.js';

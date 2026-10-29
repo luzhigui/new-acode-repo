@@ -1,4 +1,3 @@
-// V6.1.4 | 2026-10-20 | ~5400 bytes
 export const VER = 'fx/89fx-subscriber.js V6.1.4';
 
 import { eventBus } from '../infra/50-event-bus.js';

@@ -1,5 +1,4 @@
 // player/42player-step-sync.js — 引擎 step → battleStore 同步 + 阵亡摘格 timer + 回合号读写
-// V1.0.0 | 2026-10-18 | ~4500 bytes
 //   syncStoreFromStep / readRound / setRound / setupDeathTimers 整块迁入。
 //   readRound 仍对外（45 经 42 barrel 取），本文件 export。
 export const VER = 'player/42player-step-sync.js V1.0.1';

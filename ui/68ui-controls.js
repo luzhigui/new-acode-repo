@@ -1,5 +1,4 @@
 // ui/68ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
-// V7.9.2 | 2026-10-20 | ~25000 bytes
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
 export const VER = 'ui/68ui-controls.js V7.9.2';

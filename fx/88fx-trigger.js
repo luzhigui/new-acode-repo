@@ -1,6 +1,4 @@
 // fx/88fx-trigger.js
-// V6.2.0 | 2026-10-26 | ~5100 bytes | 伤害飘字移交 player/46（播到伤害行时同帧打），删除两处 wait(1100) 延后飘字
-// V6.2.1 | 2026-10-26 | 蝴蝶（小昭·姊）并入投射分支，保持射箭演出
 export const VER = 'fx/88fx-trigger.js V6.2.1';
 
 import { getKillTaunt } from '../core/03battle-utils.js';

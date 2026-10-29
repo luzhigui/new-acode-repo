@@ -1,5 +1,4 @@
 // ui/64main-dialogs.js — 主界面弹窗（战报 / 音乐 / 投票 / 倒计时 / 日志工具）
-// V6.5.0 | 2026-10-14 | ~30600 bytes
 // 「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取，不 import 76——
 //   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
 export const VER = 'ui/64main-dialogs.js V6.5.1';

@@ -2,7 +2,6 @@
 //   · 扇面顶点 = #allyGrid [data-pos=2] 格心，两翼 = #enemyGrid [data-pos=7] / [data-pos=9] 格心
 //   · 蓄力期间常驻扇面，由一个 clock tween 把浓度由 0.35 渐深到 1.0（描边同步加粗）
 //   · 扇面形制＝变体A（老板自 demo tools/126 选定）：弧边（非直边三角）+ 金→冰蓝线性渐变 + 柔光（feGaussianBlur）
-// V1.4.0 | 2026-10-19 | ~5600 bytes
 // 不给格子染色（与重绘打架会闪变），靠扇形表明蓄力；扇形形制＝变体 A（弧边 + 金→冰蓝渐变 + 柔光 + 金色描边）。
 import { clock } from '../infra/52-clock.js';
 

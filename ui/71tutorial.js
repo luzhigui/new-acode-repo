@@ -1,5 +1,4 @@
 // ui/71tutorial.js - 新手引导（日志区固定提示面板 + 浮动箭头，不遮挡操作）
-// V6.1.0 | 2026-10-07 | ~6700 bytes
 export const VER = 'ui/71tutorial.js V6.1.0';
 
 const DONE_KEY = 'ming_tutorial_done_5v5_test';

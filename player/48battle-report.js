@@ -1,4 +1,3 @@
-// V6.2.0 | 2026-09-24 | ~5500 bytes
 export const VER = 'player/48battle-report.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

@@ -7,9 +7,6 @@
 //   · 瞄 8 特例：中列速度线 + 撞边白闪（位移动画本体走 PUSH 舞台动作的 fx 收尾写入，此处只做点缀）
 //   · 吸血：顶点 ❤+N 上浮
 //   · 整块战场轻微震屏（8px / 420ms）+ 顶点升「轰」字 + 金/冰双环拳心脉冲
-// V2.3.0 | 2026-10-26 轰拳内部全部时长按 burstDur 等比缩放：加模块级 BT()（BASE=2300，2x 下 k=1），
-//   18 处固定真实毫秒全套 BT()，bodyDur 从 burstTotal*0.5 改 BT(1200)，整段只受 burstDur 一个旋钮控制
-// V2.2.0 | 2026-10-25 全部点缀改真实时间轴：clock.wait→waitReal（13 处）、clock.animate→animateReal（10 处）；
 //   例外保留：柔光弧扇主体带 { minRealMs: bodyDur }，仍走逻辑时间版 clock.animate。
 // 载荷 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp} 全 uid+数值可序列化；
 //   seq 去重防「引擎直发 + SKILL_ANNOUNCE 桥」双放。

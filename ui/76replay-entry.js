@@ -1,5 +1,4 @@
 // ui/76replay-entry.js — 战报回放入口（从 61main 拆出）
-// V1.1.0 | 2026-10-14 | ~6000 bytes
 export const VER = 'ui/76replay-entry.js V1.1.0';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getState, setState } from './63main-state.js';

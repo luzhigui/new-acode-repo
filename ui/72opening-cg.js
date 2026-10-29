@@ -1,5 +1,4 @@
 ﻿// ui/72opening-cg.js - 开场CG（三幕黑屏文字，首次进游戏播放）
-// V6.0.0 | 2026-09-09 | ~16000 bytes
 // 集成点：61main 的 bindCoverStart onStart 里。字号/元素锚 vmin（视口短边），360 宽长屏与电脑横屏同一构图。
 // 交互：全屏点击=快进/下一幕；右上角「跳过」随时结束；播完或跳过均记 localStorage。
 export const VER = 'ui/72opening-cg.js V6.0.0';

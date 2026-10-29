@@ -1,4 +1,3 @@
-// V6.2.0 | 2026-10-13 | ~12800 bytes
 // fx 只管演出、不收尾格子：飞行态格子统一交 render/32 按 _renderFlyMode 重绘占位（🦋/🕷️ dimmed）。
 //   收尾若把格子"长回"，会与缩小动画叠出"缩小后又变大"。
 export const VER = 'fx/86fx-butterfly-spider.js V6.2.0';

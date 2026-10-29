@@ -1,9 +1,3 @@
-// V6.3.3 | 2026-10-26 | 白骨爪收尾（500/300/600/100）+ 命中黄闪（180/150）+ 斩杀碎裂（300/1000）
-//   共 8 处 waitReal→wait，改回逻辑时间跟随倍速
-// V6.3.2 | 2026-10-26 | 流星溅射（showSplashArrows）改回逻辑时间：蓄力环/停顿 800/300、溅射箭 flyDuration、收尾 600
-//   全部 waitReal→wait / animateReal→animate，跟倍速走（上一轮批量改真实时间时误伤）。
-// V6.3.1 | 2026-10-26 | 飞箭/流星蓄力改半压缩 250+250/timescale（2x≈375ms、8x≈271ms），高倍速下不再固定 500ms
-// V6.3.0 | 2026-10-25 | ~18700 bytes | 全部演出改真实时间轴：clock.wait→waitReal（12 处）、clock.animate→animateReal（7 处），
 //   时长不再被 timescale 二次缩放（参数表填多少就是多少）
 export const VER = 'fx/81fx-arrows-5v5-test.js V6.3.3';
 

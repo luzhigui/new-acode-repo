@@ -1,19 +1,4 @@
 // player/50battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
-// V1.5.0 | 2026-10-29 手机端改「同步原生下载」+ 弹窗文本框防卡死：手机实测（安卓 WebView）弹窗弹出后
-//           整页卡死——几十万字战报塞进 <textarea> 撑爆渲染。① isMobile 分支改在**任何 await 之前**同步
-//           blob + a.click()（此刻用户手势还活着，不会被拦，与 V1.3.0 死在 picker/share await 之后的
-//           后台点击是两回事）；② showManualCopyDialog 的 textarea 超 30 万字符只放提示语、高度 50vh→100px，
-//           保护桌面无 picker/share 落到 ③ 与极端兜底的场景。
-// V1.4.0 | 2026-10-29 手机端跳过原生 API 直奔弹窗：移动浏览器常偷偷带 showSaveFilePicker 但弹窗被系统
-//           拦截/根本没弹，却报 AbortError（被误读成「用户主动取消」）→ 直接 return 'cancel'，永远到不了
-//           手动弹窗。现按 UA 识别手机（含微信内置），跳过 ①picker ②share，直接弹带蓝色下载按钮的弹窗。
-//           边界：iPadOS 新版 Safari UA 伪装 Macintosh 检测不到 → 走原链 → 最终仍落到 ③ 手动弹窗，兜得住。
-// V1.3.0 | 2026-10-29 下载链第③层改「弹窗手动下载」：手机上异步链（picker/share）走完用户手势已失效，
-//           后台 a.click() 被浏览器静默拦截、却误报 'download'「已保存」，用户手机里啥也没有。
-//           改为直接弹 showManualCopyDialog——弹窗里的「💾 点击下载文件」是用户真实手势点击的
-//           <a download>（blob URL，不 revoke：弹窗存活期随时可点），手机浏览器不敢拦。
-//           代价：桌面 Firefox/Safari（无 picker/share）从自动下载变成多点一次，换手机端确定性（拍板接受）。
-// V1.2.0 | 2026-09-26 | ~18700 bytes
 export const VER = 'player/50battle-export.js V1.5.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 

@@ -2,11 +2,6 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
-// V6.3.0 | 2026-10-26 | ~10800 bytes | 去锚定化：带 fx 的效果行走 lineGapFx 慢档（普通行走 lineGap 快档）；
-//   效果行整行直出并同帧触发 _fxSpecs 回调；伤害飘字改由 damage-text 行同帧打（不再等 fx/88 的 1100ms）
-// V6.2.2 | 2026-10-26 溢杀落地等待 600ms 改回逻辑时间（waitReal→wait），跟随倍速
-// V6.2.0 | 2026-10-25 无锚点 info/detail 改整行直出（不逐字），行间隔改 clock.waitReal 真实毫秒
-// V6.1.2 | 2026-10-25 | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
 export const VER = 'player/46attack-group.js V6.3.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';

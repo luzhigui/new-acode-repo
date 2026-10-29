@@ -1,5 +1,4 @@
 // ui/78button-state.js — 主界面按钮状态与 buff 槽刷新
-// V1.1.1 | 2026-10-19 | ~9300 bytes
 // 整局项（permanent，如圣火不熄）挂阵营名下方徽章 #campBadgesAlly/Enemy，不占底部 2 槽——
 //   轮换海克斯峰值本就 2 条，常驻项会把槽挤满导致最新那条看不见。
 // 关卡共 7 关：GAMEOVER 主按钮判据 currentStage>=7（否则第 6 关结束就显示「重新开始」丢掉第 7 关）。

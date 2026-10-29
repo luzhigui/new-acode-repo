@@ -1,4 +1,3 @@
-// V1.0.1 | 2026-09-26 | ~6900 bytes
 export const VER = 'fx/92fx-pang-antics.js V1.0.1';
 
 import { clock } from '../infra/52-clock.js';

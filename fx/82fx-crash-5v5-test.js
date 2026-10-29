@@ -1,7 +1,3 @@
-// V6.4.1 | 2026-10-26 | showMeleeDodge / showMeleeMiss 改回逻辑时间（animate/wait）：闪避反击与扑空跟着倍速走，
-//   2x 档 1.6s→0.8s、扑空 1.2s→0.6s。showMeleeCrash / showCloseRangeFX 不碰（由 crashSpeed 参数表控制）
-// V6.4.0 | 2026-10-25 | ~12600 bytes | 全部演出改真实时间轴：clock.wait→waitReal（3 处）、clock.animate→animateReal（8 处）
-// V6.3.0 | 2026-10-12 | ~12500 bytes
 // fx 层不直写账本语义字段 state._acted：起跳/收尾一律写视图表 _renderActed（步末引擎真值覆盖自愈）。
 export const VER = 'fx/82fx-crash-5v5-test.js V6.4.1';
 
