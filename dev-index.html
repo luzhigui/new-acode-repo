@@ -316,7 +316,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         if (agg && agg.length) {
                             const tbl = document.createElement('div');
                             tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
-                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（仅明教侧，按出场次数排序，前 12）</div>';
+                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（Boss + 强弱精英，按出场次数排序，前 12）</div>';
                             h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                             h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th>均输出</th><th>均承伤</th><th>均治疗</th><th>存活率</th></tr>';
                             agg.slice(0, 12).forEach(a => {
@@ -328,6 +328,16 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                                 h += `<tr style="border-top:1px solid #2a2a4e;color:${a.reliable === false ? '#666' : '#ccc'};"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}"${ciTxt}>${rateTxt}</td><td>${a.avgDmg}</td><td>${a.avgTaken}</td><td>${a.avgHeal}</td><td>${a.aliveRate}%</td></tr>`;
                             });
                             h += '</table>';
+                            // 交代被过滤掉的普通兵/召唤物：不写出来会让人以为它们没出过场
+                            try {
+                                const ex = m.getExcludedUnits();
+                                if (ex && ex.length) {
+                                    h += `<div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">已排除 ${ex.length} 个非英雄单位（普通兵/召唤物/三狮）：`
+                                        + ex.slice(0, 6).map(u => `${u.name} ${u.games}局`).join('、')
+                                        + (ex.length > 6 ? ' 等' : '')
+                                        + '。它们几乎每局都在场，胜率等于队伍胜率，会把真英雄挤下去。</div>';
+                                }
+                            } catch (e) {}
                             tbl.innerHTML = h;
                             wrap.appendChild(tbl);
                         }

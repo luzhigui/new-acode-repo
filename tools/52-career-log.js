@@ -1,4 +1,12 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V2.1.0 | 2026-10-29 | 英雄统计只算真英雄（用户提的：跨局表现该只有 Boss 和强弱精英）：
+//   生涯记录 ally[] 里混着普通兵（明教弟子1/2/3）、召唤物（拒马）、谢逊三狮（雄狮/幼狮/母狮）。
+//   这些单位几乎每局都在场，场次天然最高，而"胜率"就是队伍胜率——
+//   于是「明教弟子2 57 场 79%」霸占榜首，真正的英雄被挤到 12 名开外，读起来像小兵最强。
+//   现在 getHeroAggregates / getHeroImpact / getHeroPairs / 主力英雄 统一按 127 注册表过滤：
+//   Boss(张无忌) + 强精英(韦一笑/小昭姊妹/谢逊/寒离飒) + 明教侧弱精英(杨逍/殷天正)。
+//   小昭的 ·姊/·妹 按基础名归一以免漏人。新增 getExcludedUnits()，把被排除的单位和局数
+//   在界面/报告里明确交代——静默丢弃会让人以为它们没出过场。CSV 明细保持原样（那是逐单位原始数据）。
 // V2.0.0 | 2026-10-29 | 导出文件里的英文键名收口：
 //   ① 新增 hexLabel(k)：content 官名 → 127 单源 → 兜底英文 key，全文件只此一处取名。
 //      CSV 的「海克斯」列和 Markdown 逐局明细以前直接 join('/') 原始 key，
@@ -48,9 +56,9 @@ import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
-import { HEX_NAMES } from './127-tool-registry.js';
+import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.0.0';
+export const VER = 'tools/52-career-log.js V2.1.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -77,6 +85,19 @@ function hexLabel(k) {
 function modeLabel(k) {
     return k === 'single' ? '单机' : (k === 'pvp' ? '联机' : (k || '未知'));
 }
+
+// 明教侧「真英雄」名单（V2.1.0）：只算 Boss + 强精英 + 明教侧弱精英，名单全部取自 127 注册表，不另建副本。
+//   为什么必须过滤：生涯记录里的 ally[] 混着一堆非英雄单位——普通兵（明教弟子1/2/3）、召唤物（拒马）、
+//   谢逊的三狮（雄狮/幼狮/母狮）。这些单位几乎每局都在场，场次天然最高，
+//   而它们的「胜率」就是队伍胜率，于是「明教弟子2 57 场 79%」稳稳霸占榜首，
+//   真正该看的英雄被挤到 12 名开外。那不是英雄强度，是"跟着赢"。
+//   注意 小昭 的两个形态（·姊 / ·妹）按基础名归一后再比对，避免漏掉。
+const ALLY_HERO_BASE = new Set(
+    [...BOSS_ELITES, ...SOLO_ELITES, ...WEAK_ELITES.filter(w => w.side === 'ally').map(w => w.name)]
+        .map(n => String(n).split('·')[0])
+);
+function baseName(name) { return String(name || '').split('·')[0]; }
+function isAllyHero(name) { return ALLY_HERO_BASE.has(baseName(name)); }
 
 // 元信息：目前只存 dropped（累计被上限挤掉的局数）
 function readMeta() {
@@ -200,6 +221,8 @@ export function computeCareerStats(arr) {
     for (const r of arr) {
         const seen = new Set();
         for (const u of (r.ally || [])) {
+            // V2.1.0：主力英雄也只算真英雄，否则「主力」会被每局都在的普通兵抢走
+            if (!isAllyHero(u.name)) continue;
             if (seen.has(u.name)) continue;
             seen.add(u.name);
             appear[u.name] = (appear[u.name] || 0) + 1;
@@ -242,13 +265,23 @@ export function exportCareerMarkdown() {
     try {
         const agg = getHeroAggregates();
         if (agg && agg.length) {
-            lines.push('## 英雄表现（仅明教侧；<8 局标「样本少」）');
+            lines.push('## 英雄表现（Boss + 强弱精英；<8 局标「样本少」）');
             lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 均输出 | 均承伤 | 存活率 |');
             lines.push('|---|---|---|---|---|---|---|');
             for (const a of agg.slice(0, 15)) {
                 lines.push(`| ${a.name} | ${a.games} | ${a.winRate}%${a.reliable === false ? '（样本少）' : ''} | `
                     + `${a.ci ? a.ci[0] + '–' + a.ci[1] + '%' : '—'} | ${a.avgDmg} | ${a.avgTaken} | ${a.aliveRate}% |`);
             }
+            // 交代被排除的普通兵/召唤物（V2.1.0）：不写出来，看报告的人会以为它们没出过场
+            try {
+                const ex = getExcludedUnits();
+                if (ex && ex.length) {
+                    lines.push('> 本表只统计 Boss + 强弱精英。另有 ' + ex.length + ' 个非英雄单位未计入：'
+                        + ex.slice(0, 8).map(u => `${u.name}(${u.games}局)`).join('、') + (ex.length > 8 ? ' 等' : '')
+                        + '——它们几乎每局都在场，胜率就等于队伍胜率，混进来会把真英雄挤下去。');
+                    lines.push('');
+                }
+            } catch (e) {}
             lines.push('');
         }
     } catch (e) {}
@@ -440,7 +473,8 @@ export function getHeroAggregates(includeEnemy = false) {
     };
     for (const r of arr) {
         const mWin = r.winner === '明教', eWin = r.winner === '六大派';
-        for (const u of (r.ally || [])) touch(u, mWin);
+        // V2.1.0：只收真英雄（Boss + 强弱精英），普通兵/召唤物/三狮不进这张表
+        for (const u of (r.ally || [])) { if (!isAllyHero(u.name)) continue; touch(u, mWin); }
         // V1.3.0 修：默认只统计明教侧。旧版把敌方英雄也并进同一张表，
         //   而敌方英雄「胜率高」= 明教输得多，含义正好相反，极容易被读反
         //   （测试里就出现过「张无忌 100% 胜率」其实是明教必输的假象）。
@@ -505,6 +539,23 @@ export function getHexWinRates(mode = null) {
 //   诚实边界：这是相关不是因果——一个英雄总是最后才倒（因为他强），活着和赢当然相关；
 //   结论只标「影响力方向」，不下「该英雄导致胜负」的因果断言。样本要求：总出场≥12 且
 //   存活/阵亡两边各≥5 局，否则只报「样本不足」避免小样本误读。
+// 被过滤掉的非英雄单位（V2.1.0）：明教侧的普通兵 / 召唤物 / 谢逊三狮。
+//   静默丢弃会让人以为它们没出过场，所以界面和报告里把「排除了谁、各多少局」一并交代出来。
+export function getExcludedUnits() {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const M = {};
+    for (const r of arr) {
+        const seen = new Set();
+        for (const u of (r.ally || [])) {
+            if (isAllyHero(u.name) || seen.has(u.name)) continue;
+            seen.add(u.name);
+            M[u.name] = (M[u.name] || 0) + 1;
+        }
+    }
+    return Object.entries(M).sort((a, b) => b[1] - a[1]).map(([name, games]) => ({ name, games }));
+}
+
 export function getHeroImpact() {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
@@ -518,7 +569,7 @@ export function getHeroImpact() {
     };
     for (const r of arr) {
         const mWin = r.winner === '明教';
-        for (const u of (r.ally || [])) touch(u.name, !!u.alive, mWin);
+        for (const u of (r.ally || [])) { if (!isAllyHero(u.name)) continue; touch(u.name, !!u.alive, mWin); }
     }
     return Object.values(M).map(a => {
         const aliveWR = a.aliveGames ? a.aliveWins / a.aliveGames : null;
@@ -616,7 +667,7 @@ export function getHeroPairs(minGames = HERO_MIN_GAMES) {
     for (const r of arr) {
         const won = r.winner === '明教';
         // 先排序再拼 key，避免同一对因阵容站位顺序不同被拆成 "A␀B" / "B␀A" 两条
-        const names = [...new Set((r.ally || []).map(u => u.name))].sort();
+        const names = [...new Set((r.ally || []).filter(u => isAllyHero(u.name)).map(u => u.name))].sort();
         for (const n of names) bump(solo, n, won);
         for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
             bump(pair, names[i] + '\u0000' + names[j], won);
