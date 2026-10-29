@@ -2,6 +2,8 @@
 // 明教精英分层：Boss（张无忌）20% 独掷；Boss 局 30% 独走 / 20%带1强 / 25%带1弱 / 15%带2弱 / 10%带1强1弱；
 //   无 Boss：必出 1 强，40% 独走 / 40%带1弱 / 10%带2弱 / 10%双强。弱精英池 = 杨逍/殷天正。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
+// V7.6.6 | 2026-10-29 | ~33900 bytes | 何太冲双修补齐第 5 关凑数池：玄冥 extraM 抽到何太冲也 50/50 摇
+//        （主路径 V7.6.5 已改，老板拍板双路径口径一致）。RNG 漂移、均摊不落账两条老板已拍板「无需处理」。
 // V7.6.5 | 2026-10-29 | ~33700 bytes | 何太冲双修：敌方主建队路径取消固定远程，远程/战士各 50% 摇
 //        （_rng.next() 走建队 RNG 保联机同步）。注意：含何太冲的固定 seed 局 RNG 流多消耗一次，
 //        旧跑批基线数字在相关关不可比；第 5 关玄冥凑数池（V7.6.4 的 L431 路径）未同改，
@@ -9,7 +11,7 @@
 // V7.6.4 | 2026-10-29 | ~33500 bytes | 图鉴加成 ×5 → ×1.2（老板口径：20% → 24%）。原 ×5 占位把张无忌
 //        顶成 100% 必出；rate 当前仅 hasBoss 一掷消费，选韦一笑/小昭/谢逊/寒离飒今日实际无效果（挂账）
 // V7.6.3 | 2026-10-22 | ~33500 bytes
-export const VER = 'modules/29battle-init.js V7.6.5';
+export const VER = 'modules/29battle-init.js V7.6.6';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -440,7 +442,13 @@ export function initBattleTeams(currentStage, _rng) {
             //   （此前这里只掷 C.ROLES 随机四选一，M104 池抽到唐文亮会给错职业）
             const chNamed = getGameData()?.characters?.[name];
             let role = C.ROLES[_rand(0, 3)];
-            const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+            let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+
+            // 何太冲双修：与上方主建队路径同口径（V7.6.6 老板拍板补齐）——凑数池抽到也 50/50 摇
+            if (name === '何太冲') {
+                tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
+            }
+
             if (tagRole) role = tagRole;
             let extraUnit = new Unit(name, extraM, role, CAMP_TYPES.ENEMY);
             extraUnit.init(_rng); extraUnit.applyBonus();
