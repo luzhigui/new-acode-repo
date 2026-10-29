@@ -73,7 +73,24 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.9.1';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.10.0';
+// V3.10.0 | 2026-10-30 第 158 轮：新增「定向覆盖场次」通道（FORCED_CASES）。
+//   动因：METEOR_GROWTH 等 5 条契约在默认 132 场里恒零触发，mutation-teeth 据此把 5 颗牙判成
+//   「样本未覆盖（变异行零执行）」，T3/A5 的牙口结论长期无解。本轮引擎探针实测（/tmp 探针，未入库）：
+//   ★ 机制没坏，是**前置条件在随机阵容里凑不齐** —— METEOR_SPLASH_GROWTH 需「远程单位 + 流星赶月溅射
+//     + 小昭·姊存活 + 溅射有存活命中」四条同时成立（core/16effect-handlers.js L185-193），
+//     而默认样本里小昭·姊出场率仅 7/140 场（29battle-init L123 概率分支），且即便强制出姊仍只 5/420 场齐活。
+//   修法同第 113 轮扩样本口径：补一组**定向覆盖**场次（FORCED_CASES），沿用主代码现成的
+//     GlobalStore 'forceXiaoZhao'（29battle-init L245-262，xiaozhao-brother-leech-case.mjs 已在用），
+//     ★ 不改判据、不改契约、不降任何门禁，只把「没机会咬」的样本补齐，让它有机会被判。
+//   实测（强制姊模式 seed 21-40 × stage1-7 共 140 场）：命中 11 场 / 成长声明 35 条，
+//     其中 seed 23 在 stage 1/2/3/4 分别产出 3 / 5 / 4 / 5 条（合计 17 条，严格比对 17 条 / 偏差 0）；
+//     seed 33 stage 1/2/4 另有 5 / 2 / 6 条。⇒ 定向组取 seed 23 × stage 1-4（稳健且全在既有 stage 名单内）。
+//   ⚠️ 勘误备忘：首版探针漏了回合推进（重放同一回合），曾报出 seed 23 = 218 条 / seed 20:7 = 74 条等虚高数。
+//     ★ 已按对照器主循环口径（每回合用 lastStep 重建 battleState + 重新 tickAndPickBuffs）重写探针复核，
+//       真实数即上面的 17 条 —— 与本文件加入定向组后的实测输出逐条一致。取证数字一律以对照器实测为准。
+//   安全边界：定向组只**追加**在默认场次之后，默认 132 场一个不减；跑完即把 forceXiaoZhao 复位为 false，
+//     绝不让全局态泄漏到后续场次或其他体检入口。
 
 import { fileURLToPath } from 'node:url';
 
@@ -108,6 +125,18 @@ globalThis.self = globalThis;
 //   · 避坑记录：seed=6 命中瞬间最多（37 个）但**刻意不选**——它是 BREAK_DEF 的历史假红源（见上）。
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888, 17, 77, 103, 128, 142, 154, 43, 39, 15, 23, 31, 34];
 const STAGES = [1, 2, 3, 4, 5, 6]; // 第 74 轮加 5：stage 5 含鹿杖客/玄冥中毒（XUAN_MING_DOT 契约专属形态）；第 77 轮加 6：stage 6 含成昆·幻影伪装（PHANTOM_DISGUISE_HEAL 契约专属形态）
+
+// 第 158 轮新增：定向覆盖场次（默认随机阵容凑不齐的前置条件，靠主控开关补）。
+//   force 字段即 GlobalStore 'forceXiaoZhao' 的取值（'sister' / 'brother' / null=不强制）。
+//   ★ 为什么非要这一组：默认 132 场里小昭·姊出场率 7/140，METEOR_GROWTH 恒零触发 ⇒
+//     T3/A5 两颗牙永远拿不到「变异行到底执行没执行」的实证，牙口结论悬空。
+//   选取依据与实测数见文件头 V3.10.0 版本日志；后续若再发现恒空转契约，按同法补组并复测偏差必须为 0。
+const FORCED_CASES = [
+    { seed: 23, stage: 1, force: 'sister' },
+    { seed: 23, stage: 2, force: 'sister' },
+    { seed: 23, stage: 3, force: 'sister' },
+    { seed: 23, stage: 4, force: 'sister' }
+];
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 // 第 47 轮：以下 group 的 fact 与 addMod 在**同一 handler、用同一变量/同一值**发射，无跨步错位
@@ -1710,6 +1739,8 @@ async function main() {
         import('../infra/56-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
+    // 第 158 轮：定向覆盖组需要它来设 forceXiaoZhao（主代码 29battle-init 读它）。
+    const { GlobalStore } = await import('../infra/54-global-store.js');
 
     // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
     //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
@@ -1875,7 +1906,9 @@ async function main() {
     const cases = rawArgs.length > 0
         ? rawArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
         : SEEDS.flatMap(seed => STAGES
-            .map(stage => ({ seed, stage })));
+            .map(stage => ({ seed, stage })))
+            // 第 158 轮：默认场次之后**追加**定向覆盖组（默认 132 场一个不减）。
+            .concat(FORCED_CASES.map(f => ({ seed: f.seed, stage: f.stage, force: f.force })));
 
     const hits = [];
     const stat = {}; // contractId -> { declared, dup }
@@ -1884,7 +1917,12 @@ async function main() {
     //   mismatch = 其中「声明 ≠ 实际」的次数。干净树上恒为 0 的契约 ⇒ 可安全升级为严格判据。
     for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0, ambiguous: 0, checked: 0, mismatch: 0, mismatchEg: '' };
 
-    for (const { seed, stage } of cases) {
+    for (const { seed, stage, force } of cases) {
+        // 第 158 轮：定向覆盖组靠主代码现成的 forceXiaoZhao 开关凑齐前置条件。
+        //   ★ 必须逐场设置、跑完复位（默认 false）—— 全局态一旦泄漏到后续场次，
+        //     默认样本就不是「干净随机阵容」了，历史结论全部作废且极难察觉。
+        if (force) GlobalStore.set('forceXiaoZhao', force);
+        else GlobalStore.set('forceXiaoZhao', false);
         const rng = new SeededRNG(seed);
         const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
         let battleState = {
@@ -2081,6 +2119,10 @@ async function main() {
         }
         return;
     }
+
+    // 第 158 轮：场次循环结束，复位定向覆盖用的全局开关（默认 false）。
+    //   不复位的话，同进程内后续任何 initBattleTeams 都会被强制成小昭·姊阵容。
+    GlobalStore.set('forceXiaoZhao', false);
 
     console.log('\n=== 数值声明 vs 实际属性增量（逐步真值对照）===');
     let hardFail = false;
