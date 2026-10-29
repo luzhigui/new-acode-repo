@@ -318,16 +318,27 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                             tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
                             let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（Boss + 强弱精英，按出场次数排序，前 12）</div>';
                             h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
-                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th>均输出</th><th>均承伤</th><th>均治疗</th><th>存活率</th></tr>';
+                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th title="实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度）">较同关</th><th title="每存活回合的输出，跨局可比">输出/回合</th><th title="每存活回合的承伤">承伤/回合</th><th>存活率</th></tr>';
                             agg.slice(0, 12).forEach(a => {
                                 // 样本 <8 局 → 胜率不可信：整行变灰、加「样本少」，不参与红绿判色
                                 const trusted = a.reliable !== false && a.ci;
                                 const wc = trusted ? (a.winRate >= 55 ? '#4caf50' : (a.winRate <= 40 ? '#ff6b6b' : '#ccc')) : '#666';
                                 const rateTxt = a.winRate + '%' + (a.reliable === false ? ' <span style="color:#666">样本少</span>' : '');
-                                const ciTxt = a.ci ? ` title="95% 可信区间 ${a.ci[0]}%–${a.ci[1]}%"` : '';
-                                h += `<tr style="border-top:1px solid #2a2a4e;color:${a.reliable === false ? '#666' : '#ccc'};"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}"${ciTxt}>${rateTxt}</td><td>${a.avgDmg}</td><td>${a.avgTaken}</td><td>${a.avgHeal}</td><td>${a.aliveRate}%</td></tr>`;
+                                const ciTxt = a.ci ? ` title="95% 可信区间 ${a.ci[0]}%–${a.ci[1]}%；每存活回合治疗 ${a.healPerRound === null ? '—' : a.healPerRound}"` : '';
+                                // V2.2.0：较同关 = 扣掉关卡难度后的真实胜负影响力，±5pp 才上色（否则全是噪声）
+                                const vs = a.vsStagePP;
+                                const vc = !trusted ? '#666' : (vs >= 5 ? '#4caf50' : (vs <= -5 ? '#ff6b6b' : '#888'));
+                                const vTxt = (vs > 0 ? '+' : '') + vs + 'pp';
+                                const n1 = v => (v === null
+                                    ? '<span title="这些局的记录没有「存活回合数」（旧版本对局），无法折算成每回合" style="color:#555">—</span>'
+                                    : v);
+                                h += `<tr style="border-top:1px solid #2a2a4e;color:${a.reliable === false ? '#666' : '#ccc'};"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}"${ciTxt}>${rateTxt}</td><td style="color:${vc}">${vTxt}</td><td>${n1(a.dmgPerRound)}</td><td>${n1(a.takenPerRound)}</td><td>${a.aliveRate}%</td></tr>`;
                             });
                             h += '</table>';
+                            // V2.2.0：口径变了，必须写出来，否则「输出/回合」会被当成以前的整局累计
+                            h += '<div style="font-size:9px;color:#666;padding:4px 6px 0;line-height:1.5;">'
+                                + '较同关 = 实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度）；'
+                                + '输出/承伤按「每存活回合」计，不再用整局累计——否则第 3 回合就倒的人会被当成输出低。</div>';
                             // 交代被过滤掉的普通兵/召唤物：不写出来会让人以为它们没出过场
                             try {
                                 const ex = m.getExcludedUnits();

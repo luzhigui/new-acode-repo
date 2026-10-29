@@ -1,4 +1,11 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V2.2.0 | 2026-10-29 | 修英雄表三个数"不可横比"的口径问题：
+//   ① 「均输出/均承伤/均治疗」是整局累计，而每局 6~13 回合不等、有人第 3 回合就倒。
+//      整局 300 对 45 看着像完爆，换成「每存活回合」是 30 对 25 —— 前者是活得久，后者才是效率。
+//      现在只累加存活回合内的产出，分母用该英雄累计 survivedRounds；没记存活回合的旧记录单独计数不参与除法。
+//   ② 胜率没控制关卡分布：总在 s1 出场的人虚高，总在 s7 的相反。新增「较同关」=
+//      实际胜率 − 他在场那些关的整体胜率（直接标准化），扣掉关卡难度后才是英雄本身的影响。
+//   ③ 界面/Markdown 都把口径写在表下，避免把「输出/回合」当成以前的整局累计。
 // V2.1.0 | 2026-10-29 | 英雄统计只算真英雄（用户提的：跨局表现该只有 Boss 和强弱精英）：
 //   生涯记录 ally[] 里混着普通兵（明教弟子1/2/3）、召唤物（拒马）、谢逊三狮（雄狮/幼狮/母狮）。
 //   这些单位几乎每局都在场，场次天然最高，而"胜率"就是队伍胜率——
@@ -58,7 +65,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.1.0';
+export const VER = 'tools/52-career-log.js V2.2.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -266,11 +273,13 @@ export function exportCareerMarkdown() {
         const agg = getHeroAggregates();
         if (agg && agg.length) {
             lines.push('## 英雄表现（Boss + 强弱精英；<8 局标「样本少」）');
-            lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 均输出 | 均承伤 | 存活率 |');
-            lines.push('|---|---|---|---|---|---|---|');
+            lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 较同关 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
+            lines.push('|---|---|---|---|---|---|---|---|---|');
             for (const a of agg.slice(0, 15)) {
+                const f = v => (v === null ? '—' : v);
                 lines.push(`| ${a.name} | ${a.games} | ${a.winRate}%${a.reliable === false ? '（样本少）' : ''} | `
-                    + `${a.ci ? a.ci[0] + '–' + a.ci[1] + '%' : '—'} | ${a.avgDmg} | ${a.avgTaken} | ${a.aliveRate}% |`);
+                    + `${a.ci ? a.ci[0] + '–' + a.ci[1] + '%' : '—'} | ${a.vsStagePP > 0 ? '+' : ''}${a.vsStagePP}pp | `
+                    + `${f(a.dmgPerRound)} | ${f(a.takenPerRound)} | ${f(a.healPerRound)} | ${a.aliveRate}% |`);
             }
             // 交代被排除的普通兵/召唤物（V2.1.0）：不写出来，看报告的人会以为它们没出过场
             try {
@@ -282,6 +291,8 @@ export function exportCareerMarkdown() {
                     lines.push('');
                 }
             } catch (e) {}
+            lines.push('> 口径：胜率右边「较同关」= 实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度，正数说明比同关平均赢得更多）；'
+                + '输出/承伤/治疗按「每存活回合」计，不用整局累计——否则第 3 回合就倒的人会被当成输出低，其实是活得短。');
             lines.push('');
         }
     } catch (e) {}
@@ -452,35 +463,60 @@ export function getCareerInsights() {
     };
 }
 
-// V1.1.0 新增：英雄跨局聚合——看每个英雄的「出场次数 / 胜率 / 平均输出承伤」，
-// 直接喂平衡判断：谁长期虚高、谁长期划水一目了然。纯读已有记录，不新增存储。
+// V1.1.0 新增：英雄跨局聚合——看每个英雄的「出场次数 / 胜率 / 输出承伤」，直接喂平衡判断。
+// V2.2.0 改口径（原来三个数不可横比）：
+//   ① 「均输出/均承伤/均治疗」是**整局累计**，而每局回合数 6~13 不等、有人第 3 回合就倒，
+//      死得早的输出自然低——那不是弱，是活得短。改为「每存活回合」：分子只累加存活回合内的伤害，
+//      分母是该英雄累计存活回合数。没有 survivedRounds 的旧记录单独计数，不参与除法（否则会拉低均值）。
+//   ② 胜率没控制关卡分布：总在 s1 出场的人胜率虚高，总在 s7 的相反。
+//      用「直接标准化」扣掉关卡难度——对每一局累加该关整体胜率作期望值，
+//      实际胜率 − 期望胜率 = vsStagePP（正=他在场的那些关里比同关平均更好）。
 export function getHeroAggregates(includeEnemy = false) {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
+    // 先算每关的整体胜率（明教视角），作为「同关基准」
+    const stageStat = {};
+    for (const r of arr) {
+        const s = r.stage || 0;
+        const o = stageStat[s] || (stageStat[s] = { n: 0, w: 0 });
+        o.n++;
+        if (r.winner === '明教') o.w++;
+    }
+    const stageRateOf = (stage, mingSide) => {
+        const o = stageStat[stage || 0];
+        if (!o || !o.n) return 0.5;                    // 单关只有这一局时无基准，取 0.5 不夸大
+        const p = o.w / o.n;
+        return mingSide ? p : 1 - p;
+    };
     const M = {};
-    const touch = (u, won) => {
+    const touch = (u, won, stageRate) => {
         const a = M[u.name] || (M[u.name] = {
-            name: u.name, games: 0, wins: 0, dmgDealt: 0, dmgTaken: 0,
-            heal: 0, roundsSum: 0, alive: 0
+            name: u.name, games: 0, wins: 0, expWins: 0,
+            alive: 0, dmgAlive: 0, takenAlive: 0, healAlive: 0, survRounds: 0, noRoundData: 0
         });
         a.games++;
         if (won) a.wins++;
-        a.dmgDealt += Math.round(u.dmgDealt || 0);
-        a.dmgTaken += Math.round(u.dmgTaken || 0);
-        a.heal += Math.round(u.healDone || 0);
-        a.roundsSum += (u.survivedRounds || 0);
+        a.expWins += stageRate;                        // 该局所属关卡的整体胜率，作为期望值
         if (u.alive) a.alive++;
+        const sr = +u.survivedRounds || 0;
+        if (sr > 0) {
+            a.survRounds += sr;
+            a.dmgAlive += Math.round(u.dmgDealt || 0);
+            a.takenAlive += Math.round(u.dmgTaken || 0);
+            a.healAlive += Math.round(u.healDone || 0);
+        } else a.noRoundData++;                        // 旧记录没记存活回合，不能拿来除
     };
     for (const r of arr) {
         const mWin = r.winner === '明教', eWin = r.winner === '六大派';
         // V2.1.0：只收真英雄（Boss + 强弱精英），普通兵/召唤物/三狮不进这张表
-        for (const u of (r.ally || [])) { if (!isAllyHero(u.name)) continue; touch(u, mWin); }
+        for (const u of (r.ally || [])) { if (!isAllyHero(u.name)) continue; touch(u, mWin, stageRateOf(r.stage, true)); }
         // V1.3.0 修：默认只统计明教侧。旧版把敌方英雄也并进同一张表，
         //   而敌方英雄「胜率高」= 明教输得多，含义正好相反，极容易被读反
         //   （测试里就出现过「张无忌 100% 胜率」其实是明教必输的假象）。
         //   要看敌方英雄强度请走 112 精英评测，那里有正确的单核对照。
-        if (includeEnemy) for (const u of (r.enemy || [])) touch(u, eWin);
+        if (includeEnemy) for (const u of (r.enemy || [])) touch(u, eWin, stageRateOf(r.stage, false));
     }
+    const perRound = (num, a) => (a.survRounds > 0 ? Math.round(num / a.survRounds * 10) / 10 : null);
     return Object.values(M).map(a => {
         const ci = wilson95(a.wins, a.games);
         return {
@@ -492,10 +528,13 @@ export function getHeroAggregates(includeEnemy = false) {
             //   不再把运气当实力（和 126 对海克斯/精英的处理同一口径）。
             ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
             reliable: a.games >= HERO_MIN_GAMES,
-            avgDmg: Math.round(a.dmgDealt / a.games),
-            avgTaken: Math.round(a.dmgTaken / a.games),
-            avgHeal: Math.round(a.heal / a.games),
-            avgRounds: Math.round(a.roundsSum / a.games * 10) / 10,
+            // V2.2.0：关卡调整后的胜率差（pp）。正 = 他在场的那些关里，比同关平均赢得更多。
+            vsStagePP: Math.round((a.wins / a.games - a.expWins / a.games) * 100),
+            // V2.2.0：每存活回合的产出（不再是整局累计，跨局可比）
+            dmgPerRound: perRound(a.dmgAlive, a),
+            takenPerRound: perRound(a.takenAlive, a),
+            healPerRound: perRound(a.healAlive, a),
+            perRoundGames: a.games - a.noRoundData,     // 参与每回合计算的有效局数
             aliveRate: Math.round(a.alive / a.games * 100)
         };
     }).sort((a, b) => b.games - a.games);
