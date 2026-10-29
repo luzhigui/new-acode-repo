@@ -9,7 +9,10 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.4.0';
+export const VER = 'tools/52-career-log.js V2.5.0';
+// V2.5.0 | 2026-10-29 | 补完模块剩余朴素指标：① 败因分析 getLossAnalysis 四条结论从「均值阈值」改 Welch 两样本均值差 95% 区间，
+//   区间跨 0 即判噪声内（不再把小样本误判成「被速推/团灭/输出打不出/承伤偏高」）；突破口改用 Wilson 区间，下界过半才认。
+//   ② getCareerInsights 的 hardest/easiest 加 Wilson 区间 + sig，区间跨总体胜率才认「真偏难/偏易」。与 V2.3/V2.4 同一显著性口径。
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -329,6 +332,16 @@ export function getCareerInsights() {
     const stages = byStageAsc.map(s => ({ stage: +s, n: byStage[s].n, rate: byStage[s].w / byStage[s].n }));
     const hardest = stages.filter(x => x.n >= 3).sort((a, b) => a.rate - b.rate)[0] || null;
     const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] || null;
+    // V2.5.0：hardest/easiest 之前只按 n≥3 + 极值挑，没有「是否真偏难/偏易」的检验。
+    // 现在算 Wilson 区间，区间不跨总体胜率才认「真偏难/偏易」，否则标 sig=false（区间宽、可能只是样本少）。
+    const overallRate = total ? wins / total : 0.5;
+    const stageSig = (o) => {
+        if (!o) return null;
+        const c = wilson95(byStage[o.stage].w, byStage[o.stage].n);
+        const sig = o.rate < overallRate ? (c && c[1] < overallRate) : (c && c[0] > overallRate);
+        return { ci: c ? [c[0], c[1]] : null, sig: !!sig };
+    };
+    const hardestSig = stageSig(hardest), easiestSig = stageSig(easiest);
 
     // 主力英雄：明教侧出场次数最多
     const topEntry = Object.entries(appear).sort((a, b) => b[1] - a[1])[0];
@@ -404,8 +417,8 @@ export function getCareerInsights() {
 
     return {
         total, wins, winRate, avgRounds,
-        hardest: hardest ? { stage: hardest.stage, rate: Math.round(hardest.rate * 100), n: hardest.n } : null,
-        easiest: easiest ? { stage: easiest.stage, rate: Math.round(easiest.rate * 100), n: easiest.n } : null,
+        hardest: hardest ? { stage: hardest.stage, rate: Math.round(hardest.rate * 100), n: hardest.n, ci: hardestSig.ci, sig: hardestSig.sig } : null,
+        easiest: easiest ? { stage: easiest.stage, rate: Math.round(easiest.rate * 100), n: easiest.n, ci: easiestSig.ci, sig: easiestSig.sig } : null,
         topHero: topEntry
             ? { name: topEntry[0], games: topEntry[1], rate: Math.round((heroWins[topEntry[0]] || 0) / topEntry[1] * 100) }
             : null,
@@ -777,57 +790,91 @@ export function getLossAnalysis() {
     }
     const firstDeadTop = Object.entries(firstDead)
         .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => ({ name, count, share: losses.length ? count / losses.length : 0 }));
+        .map(([name, count]) => {
+            const share = losses.length ? count / losses.length : 0;
+            const c = wilson95(count, losses.length);
+            return {
+                name, count, share,
+                ci: c ? [c[0], c[1]] : null,
+                // 显著 = 样本够（≥10 局，小样本 Wilson 下界易虚高）且即便取区间下界仍过半（不是偶然当突破口）
+                sig: count >= 10 && c && c[0] >= 0.5
+            };
+        });
+
+    // 连续指标两样本均值差 95% 区间（Welch：SE=√(vL/nL + vW/nW)，正态近似 z=1.96）。
+    // diff = 输局均值 − 赢局均值；区间跨 0（lo<0<hi）即「噪声内、分不出真假」。
+    const meanVar = (list, fn) => {
+        const xs = list.map(fn).filter(v => typeof v === 'number' && !isNaN(v));
+        const n = xs.length; if (n < 2) return null;
+        const m = xs.reduce((s, v) => s + v, 0) / n;
+        const v = xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (n - 1);
+        return { n, m, v };
+    };
+    const diffCI = (LA, WA, fn) => {
+        const a = meanVar(LA, fn), b = meanVar(WA, fn);
+        if (!a || !b) return null;
+        const se = Math.sqrt(a.v / a.n + b.v / b.n);
+        const diff = a.m - b.m;
+        // 方差为 0（两组内部完全一样）→ 区间坍缩成点，仍按方向判显著（不丢结论）
+        if (!(se > 0)) return { diff, lo: diff, hi: diff, nL: a.n, nW: b.n };
+        return { diff, lo: diff - 1.96 * se, hi: diff + 1.96 * se, nL: a.n, nW: b.n };
+    };
+    const ci = {
+        rounds: diffCI(losses, wins, r => r.rounds || 0),
+        alive: diffCI(losses, wins, r => (r.ally || []).filter(u => u.alive).length),
+        dmg: diffCI(losses, wins, r => (r.ally || []).reduce((s, u) => s + (u.dmgDealt || 0), 0)),
+        taken: diffCI(losses, wins, r => (r.ally || []).reduce((s, u) => s + (u.dmgTaken || 0), 0))
+    };
 
     const findings = [];
     if (losses.length < LOSS_MIN) {
         findings.push({
-            kind: 'insufficient',
+            kind: 'insufficient', sig: false,
             text: `输局只有 ${losses.length} 局（需 ≥${LOSS_MIN} 局才归因），样本太少，现在说什么都是猜。多打几局再看。`
         });
     } else {
-        if (W.rounds && L.rounds !== null && L.rounds < W.rounds * 0.75) {
-            findings.push({
-                kind: 'rush',
-                text: `被速推：输的局平均 ${f1(L.rounds)} 回合就结束，赢的局要 ${f1(W.rounds)} 回合`
-                    + ` → 前期站不住，先补前排/减伤，堆输出救不了。`
-            });
-        }
-        if (W.alive !== null && L.alive !== null && L.alive < W.alive - 1.2) {
-            findings.push({
-                kind: 'wipe',
-                text: `团灭型失败：输的局平均只剩 ${f1(L.alive)} 人活下来（赢局剩 ${f1(W.alive)} 人）`
-                    + ` → 是整体崩盘，不是某一个英雄拖后腿。`
-            });
-        }
-        if (W.dmg && L.dmg !== null && L.dmg < W.dmg * 0.8) {
-            findings.push({
-                kind: 'dps',
-                text: `输出打不出来：输的局我方总输出 ${f0(L.dmg)}，赢局 ${f0(W.dmg)}（少了 ${Math.round((1 - L.dmg / W.dmg) * 100)}%）`
-                    + ` → 更像被控/被秒，不是单纯数值不够。`
-            });
-        }
-        if (W.taken && L.taken !== null && L.taken > W.taken * 1.2) {
-            findings.push({
-                kind: 'tank',
-                text: `承伤偏高：输的局我方总承伤 ${f0(L.taken)}，赢局 ${f0(W.taken)}`
-                    + ` → 挨打太多，先查减伤/治疗够不够。`
-            });
-        }
+        // 单一指标结论：dir='lt' 表示输局应显著更低（回合/存活/输出），'gt' 表示应显著更高（承伤）。
+        // effOk = 旧版「幅度足够大」阈值（避免显著但无操作意义的微小差）；
+        // sig = 区间不跨 0 且方向正确。两者都满足才下因果结论，否则压成「噪声内」。
+        const addMetric = (kind, dir, effOk, c, strongTxt, label) => {
+            if (!c) return;
+            const significant = dir === 'lt' ? c.hi < 0 : c.lo > 0;
+            if (effOk && significant) {
+                findings.push({ kind, sig: true, text: strongTxt });
+            } else if (significant && !effOk) {
+                findings.push({ kind, sig: false, noise: true,
+                    text: `「${label}」方向一致但幅度很小（差 ${c.diff >= 0 ? '+' : ''}${c.diff.toFixed(1)}，区间 ${c.lo.toFixed(1)}~${c.hi.toFixed(1)}），可能只是随机波动，先不动。` });
+            } else if (effOk && !significant) {
+                findings.push({ kind, sig: false, noise: true,
+                    text: `「${label}」看着像，但输赢差距的区间跨 0（${c.lo.toFixed(1)}~${c.hi.toFixed(1)}），分不出真假，样本够多再说。` });
+            }
+        };
+        addMetric('rush', 'lt', L.rounds !== null && W.rounds && L.rounds < W.rounds * 0.75, ci.rounds,
+            `被速推：输的局平均 ${f1(L.rounds)} 回合就结束，赢的局要 ${f1(W.rounds)} 回合 → 前期站不住，先补前排/减伤，堆输出救不了。`,
+            '回合数输赢差距');
+        addMetric('wipe', 'lt', L.alive !== null && W.alive !== null && L.alive < W.alive - 1.2, ci.alive,
+            `团灭型失败：输的局平均只剩 ${f1(L.alive)} 人活下来（赢局剩 ${f1(W.alive)} 人）→ 是整体崩盘，不是某一个英雄拖后腿。`,
+            '存活人数输赢差距');
+        addMetric('dps', 'lt', W.dmg && L.dmg !== null && L.dmg < W.dmg * 0.8, ci.dmg,
+            `输出打不出来：输的局我方总输出 ${f0(L.dmg)}，赢局 ${f0(W.dmg)}（少了 ${Math.round((1 - L.dmg / W.dmg) * 100)}%）→ 更像被控/被秒，不是单纯数值不够。`,
+            '总输出输赢差距');
+        addMetric('tank', 'gt', W.taken && L.taken !== null && L.taken > W.taken * 1.2, ci.taken,
+            `承伤偏高：输的局我方总承伤 ${f0(L.taken)}，赢局 ${f0(W.taken)} → 挨打太多，先查减伤/治疗够不够。`,
+            '总承伤输赢差距');
+
         const top = firstDeadTop[0];
-        if (top && top.count >= LOSS_MIN && top.share >= 0.5) {
-            findings.push({
-                kind: 'firstblood',
-                text: `${top.name} 是最常见的突破口：${losses.length} 局输局里有 ${top.count} 局（${Math.round(top.share * 100)}%）是他最先倒`
-                    + ` → 优先给他加血/减伤，或者调站位。`
-            });
+        if (top && top.sig) {
+            findings.push({ kind: 'firstblood', sig: true,
+                text: `${top.name} 是最常见的突破口：${losses.length} 局输局里有 ${top.count} 局（${Math.round(top.share * 100)}%）是他最先倒 → 优先给他加血/减伤，或者调站位。` });
+        } else if (top && top.count >= LOSS_MIN) {
+            const loPct = top.ci ? Math.round(top.ci[0] * 100) : 0, hiPct = top.ci ? Math.round(top.ci[1] * 100) : 100;
+            findings.push({ kind: 'firstblood', sig: false, noise: true,
+                text: `${top.name} 最早倒出现次数最多（${top.count} 局，${Math.round(top.share * 100)}%），但 95% 区间 ${loPct}%~${hiPct}% 跨过半数，分不出是真脆还是偶然，先别专门针对他改。` });
         }
+
         if (!findings.length) {
-            findings.push({
-                kind: 'even',
-                text: `输局和赢局在回合数、存活人数、输出承伤上都没明显差距（${L.n} 败 vs ${W.n} 胜）`
-                    + ` → 更像单局随机波动，或者问题出在没被记录的维度（站位/技能释放时机）。`
-            });
+            findings.push({ kind: 'even', sig: false,
+                text: `输局和赢局在回合数、存活人数、输出承伤上都没明显差距（${L.n} 败 vs ${W.n} 胜）→ 更像单局随机波动，或者问题出在没被记录的维度（站位/技能释放时机）。` });
         }
     }
     return {

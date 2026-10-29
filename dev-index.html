@@ -220,9 +220,10 @@
                     let html = mk(ins.total, '总场次') + mk(ins.winRate + '%', '明教胜率') + mk(ins.avgRounds, '平均回合');
                     // 最难 / 最易：同一关（或胜率相同且只有一关）时只显示一张，避免"最难=最易"的怪状
                     const sameStage = ins.hardest && ins.easiest && ins.hardest.stage === ins.easiest.stage;
-                    if (ins.hardest && !sameStage) html += mk(ins.hardest.rate + '%', '最难 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局)');
-                    if (ins.easiest && !sameStage) html += mk(ins.easiest.rate + '%', '最易 s' + ins.easiest.stage + ' (' + ins.easiest.n + '局)');
-                    if (ins.hardest && sameStage) html += mk(ins.hardest.rate + '%', '关卡 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局)');
+                    const sigNote = o => (o && o.sig === false) ? '·区间宽' : '';
+                    if (ins.hardest && !sameStage) html += mk(ins.hardest.rate + '%', '最难 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局' + sigNote(ins.hardest) + ')');
+                    if (ins.easiest && !sameStage) html += mk(ins.easiest.rate + '%', '最易 s' + ins.easiest.stage + ' (' + ins.easiest.n + '局' + sigNote(ins.easiest) + ')');
+                    if (ins.hardest && sameStage) html += mk(ins.hardest.rate + '%', '关卡 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局' + sigNote(ins.hardest) + ')');
                     if (ins.topHero) html += mk(ins.topHero.rate + '%', '主力 ' + ins.topHero.name + ' (' + ins.topHero.games + '局)');
                     if (ins.bestHit) html += mk(ins.bestHit.dmg, '单局最高 ' + ins.bestHit.name);
                     if (ins.hexTop) html += mk(ins.hexTop.rate + '%', '海克斯 ' + ins.hexTop.name + ' (' + ins.hexTop.n + '局)');
@@ -410,11 +411,12 @@
                         if (la && la.findings && la.findings.length) {
                             const t3 = document.createElement('div');
                             t3.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
-                            const colorOf = k => (k === 'insufficient' || k === 'even') ? '#888' : '#ffb74d';
+                            const colorOf = f => (f.kind === 'insufficient' || f.kind === 'even' || f.noise) ? '#888' : '#ffb74d';
                             let h3 = `<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">败因分析（${la.losses} 败 / ${la.wins} 胜）</div>`;
                             h3 += '<div style="padding:6px;">';
                             la.findings.forEach(f => {
-                                h3 += `<div style="font-size:10px;line-height:1.6;color:${colorOf(f.kind)};margin-bottom:4px;">· ${f.text}</div>`;
+                                const tag = f.noise ? '〔噪声内〕' : '';
+                                h3 += `<div style="font-size:10px;line-height:1.6;color:${colorOf(f)};margin-bottom:4px;">· ${tag}${f.text}</div>`;
                             });
                             h3 += '</div>';
                             t3.innerHTML = h3;
