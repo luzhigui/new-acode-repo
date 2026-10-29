@@ -37,7 +37,7 @@
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
 //   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
 //   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.24';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.25';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -192,12 +192,14 @@ export const rule95 = {
                 }
 
                 // 复发信号5：数值膨胀 —— 上界镜像引擎口径：对每个队友按「存活 ×1 / 死亡 ×deathMultiplier」
-                //   累加 getStat 属性，再乘配置比例，最后留 3 倍余量。旧版把整队和统一乘 deathMultiplier*2
-                //   且读的是基值属性，既算小了真值来源、又给错倍率，属口径错误（见 statOf 注释）。
-                // 2026-10-25 余量 2→3（第 3 次实测假阳性）：引擎按「出手当回合的实时队友」求和，本规则只能拿
-                //   终局快照 —— 快照上 getStat 取不到战斗中累积的词条、池子也比出手时小（召唤物消失等），
-                //   Σ 被系统性算小约 10~20%（实测攻+12/上界10、血+74/上界67，两次历史误报同量级）。
-                //   本判据要抓的是「比例/倍率被写大」这类 ≥2 倍量级错误，3 倍余量仍能抓住，故放宽换取不再误报。
+                //   累加 getStat 属性，再乘配置比例，留 K 倍余量（当前 K=5）。
+                //   根因（第 5 次实测假阳性，2026-10-29 第5关 张无忌 第1回合 carry 攻+6 防+6，cap 算得 攻≤6 防≤5，
+                //   防超 1 触发）：本规则只能用**终局快照**估算队友 Σ，而 carry 在第1回合应用时队友是满编实时属性，
+                //   终局快照比实时系统性算小——本次实测约 3.6 倍（快照 Σdef≈20.8 vs 实时≈75），远超早年估计的 10~20%。
+                //   旧 K=3 余量压不住，故提至 K=5（>3.6 留 40% 余）。
+                //   说明：cap 与引擎同乘 cfg 比例/倍率，故信号5 对「配置比例/倍率被写大」本身不敏感（actual/cap 比值
+                //   与参数无关）——其真实价值是捕获非参数类巨幅膨胀（如 carry 被重复累加、队友池异常膨胀），这类
+                //   bug 下 actual 远超正常的 K 倍，K=5 仍能抓住。提 K 不损失该能力，仅消除快照偏差误报。
                 if (mates.length > 0 && cfg.ok) {
                     // hp 项剔除（第 135 轮，根因见文件头信号 5 注释）：终局快照 _baseMaxHp 是战斗期保留键，
                     //   快照上取不到 → statOf 回落 getStat('maxHp') → Σ 被算小 3.67 倍（133 vs 引擎实时 490），
@@ -211,8 +213,8 @@ export const rule95 = {
                         if (a2 != null) sumAtk += a2 * mult;
                         if (d2 != null) sumDef += d2 * mult;
                     }
-                    var capAtk = sumAtk * cfg.atkBonus * 3;
-                    var capDef = sumDef * cfg.defBonus * 3;
+                    var capAtk = sumAtk * cfg.atkBonus * 5;
+                    var capDef = sumDef * cfg.defBonus * 5;
                     if (atk > capAtk || def > capDef) {
                         return { fail: true, msg: '复发：carry加成超出上界：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
                             + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
