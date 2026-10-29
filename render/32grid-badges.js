@@ -1,5 +1,4 @@
 // render/32grid-badges.js — 格子内展示计算（计数徽章 / 闪避分解 / buff 受益判定）
-// V1.0.0 | 2026-10-18 | ~5300 bytes
 //   buildCountBadge / getDodgeBreakdown / isUnitBenefitedByBuff 整块迁入。
 //   只依赖传入的 unit/team/buffs，不碰 DOM、不碰 store（渲染主循环调用它们取值）。
 export const VER = 'render/32grid-badges.js V1.0.0';

@@ -1,5 +1,4 @@
 // render/37-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
-// V1.3.5 | 2026-10-20 | ~11200 bytes
 export const VER = 'render/37-role-cards.js V1.3.5';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';

@@ -1,4 +1,31 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V2.3.0 | 2026-10-29 | 英雄影响力加显著性检验（不再把噪声当铁证）：
+//   影响力 = 活着胜率 − 阵亡胜率，但「阵亡」往往只几局，区间宽到 ±40pp，
+//   裸 +20pp 极可能是噪声。V2.3.0 用 Agresti-Caffo 校正的两比例差算 95% 区间：
+//   区间跨 0（不显著）→ 判读标「噪声内」、颜色压灰；只把显著项当真。
+//   界面把 95% 区间放进单元格悬浮提示；Markdown 表新增「95%区间」列与噪声内说明。
+//   诚实边界贯穿：这是相关不是因果，结论只标方向不归因。
+// V2.2.0 | 2026-10-29 | 修英雄表三个数"不可横比"的口径问题：
+//   ① 「均输出/均承伤/均治疗」是整局累计，而每局 6~13 回合不等、有人第 3 回合就倒。
+//      整局 300 对 45 看着像完爆，换成「每存活回合」是 30 对 25 —— 前者是活得久，后者才是效率。
+//      现在只累加存活回合内的产出，分母用该英雄累计 survivedRounds；没记存活回合的旧记录单独计数不参与除法。
+//   ② 胜率没控制关卡分布：总在 s1 出场的人虚高，总在 s7 的相反。新增「较同关」=
+//      实际胜率 − 他在场那些关的整体胜率（直接标准化），扣掉关卡难度后才是英雄本身的影响。
+//   ③ 界面/Markdown 都把口径写在表下，避免把「输出/回合」当成以前的整局累计。
+// V2.1.0 | 2026-10-29 | 英雄统计只算真英雄（用户提的：跨局表现该只有 Boss 和强弱精英）：
+//   生涯记录 ally[] 里混着普通兵（明教弟子1/2/3）、召唤物（拒马）、谢逊三狮（雄狮/幼狮/母狮）。
+//   这些单位几乎每局都在场，场次天然最高，而"胜率"就是队伍胜率——
+//   于是「明教弟子2 57 场 79%」霸占榜首，真正的英雄被挤到 12 名开外，读起来像小兵最强。
+//   现在 getHeroAggregates / getHeroImpact / getHeroPairs / 主力英雄 统一按 127 注册表过滤：
+//   Boss(张无忌) + 强精英(韦一笑/小昭姊妹/谢逊/寒离飒) + 明教侧弱精英(杨逍/殷天正)。
+//   小昭的 ·姊/·妹 按基础名归一以免漏人。新增 getExcludedUnits()，把被排除的单位和局数
+//   在界面/报告里明确交代——静默丢弃会让人以为它们没出过场。CSV 明细保持原样（那是逐单位原始数据）。
+// V2.0.0 | 2026-10-29 | 导出文件里的英文键名收口：
+//   ① 新增 hexLabel(k)：content 官名 → 127 单源 → 兜底英文 key，全文件只此一处取名。
+//      CSV 的「海克斯」列和 Markdown 逐局明细以前直接 join('/') 原始 key，
+//      导出来是 mindControl/meteorShower —— 用户在游戏里看到的是中文，导出文件却是英文。
+//   ② 新增 modeLabel(k)：CSV「模式」列从 single/pvp 改为 单机/联机，与同表其它中文列一致。
+//   （insights / getHexWinRates 里原本各抄一份的取名代码同步收口到 hexLabel）
 // V1.9.0 | 2026-10-28 | 新增 getHeroImpact()：每英雄「活到结束胜率 − 阵亡胜率」= 胜负手影响力，标 carry/包袱；
 //   接 exportCareerMarkdown 与 dev-index 面板。数据现成（每局已记 ally[].alive + winner），纯聚合不新增存储。
 // V1.8.0 | 2026-10-28 | 新增 getHexWinRates(mode)：逐海克斯实战胜率（mode='single' 与 108 常规榜口径对齐），
@@ -42,9 +69,9 @@ import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
-import { HEX_NAMES } from './127-tool-registry.js';
+import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V1.9.0';
+export const VER = 'tools/52-career-log.js V2.3.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -53,6 +80,37 @@ const MAX_RECORDS = 200;
 const HERO_MIN_GAMES = 8;
 // 败因归类至少要有这么多输局才下结论（少于这个数只报「样本太少」）
 const LOSS_MIN = 5;
+
+// 海克斯显示名单一出口（V2.0.0）：content 官名 → 127 单源 → 兜底英文 key。
+// 以前「取中文名」这段在 insights / getHexWinRates 里各抄一份，而 CSV 导出和 Markdown 逐局明细
+// 压根没走它——直接 join('/') 原始 key，于是导出的文件里是 mindControl/meteorShower。
+// 现在全部收口到这里，加新海克斯只改 content 或 127 一处。
+function hexLabel(k) {
+    if (!k) return '';
+    try {
+        const n = CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name;
+        if (n) return n;
+    } catch (e) { /* 配置没加载（纯导出场景）就退到 127 的表 */ }
+    return HEX_NAMES[k] || k;
+}
+
+// 模式显示名（V2.0.0）：CSV/报告里以前直接写 single / pvp，夹在一堆中文列里很突兀
+function modeLabel(k) {
+    return k === 'single' ? '单机' : (k === 'pvp' ? '联机' : (k || '未知'));
+}
+
+// 明教侧「真英雄」名单（V2.1.0）：只算 Boss + 强精英 + 明教侧弱精英，名单全部取自 127 注册表，不另建副本。
+//   为什么必须过滤：生涯记录里的 ally[] 混着一堆非英雄单位——普通兵（明教弟子1/2/3）、召唤物（拒马）、
+//   谢逊的三狮（雄狮/幼狮/母狮）。这些单位几乎每局都在场，场次天然最高，
+//   而它们的「胜率」就是队伍胜率，于是「明教弟子2 57 场 79%」稳稳霸占榜首，
+//   真正该看的英雄被挤到 12 名开外。那不是英雄强度，是"跟着赢"。
+//   注意 小昭 的两个形态（·姊 / ·妹）按基础名归一后再比对，避免漏掉。
+const ALLY_HERO_BASE = new Set(
+    [...BOSS_ELITES, ...SOLO_ELITES, ...WEAK_ELITES.filter(w => w.side === 'ally').map(w => w.name)]
+        .map(n => String(n).split('·')[0])
+);
+function baseName(name) { return String(name || '').split('·')[0]; }
+function isAllyHero(name) { return ALLY_HERO_BASE.has(baseName(name)); }
 
 // 元信息：目前只存 dropped（累计被上限挤掉的局数）
 function readMeta() {
@@ -176,6 +234,8 @@ export function computeCareerStats(arr) {
     for (const r of arr) {
         const seen = new Set();
         for (const u of (r.ally || [])) {
+            // V2.1.0：主力英雄也只算真英雄，否则「主力」会被每局都在的普通兵抢走
+            if (!isAllyHero(u.name)) continue;
             if (seen.has(u.name)) continue;
             seen.add(u.name);
             appear[u.name] = (appear[u.name] || 0) + 1;
@@ -218,13 +278,27 @@ export function exportCareerMarkdown() {
     try {
         const agg = getHeroAggregates();
         if (agg && agg.length) {
-            lines.push('## 英雄表现（仅明教侧；<8 局标「样本少」）');
-            lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 均输出 | 均承伤 | 存活率 |');
-            lines.push('|---|---|---|---|---|---|---|');
+            lines.push('## 英雄表现（Boss + 强弱精英；<8 局标「样本少」）');
+            lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 较同关 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
+            lines.push('|---|---|---|---|---|---|---|---|---|');
             for (const a of agg.slice(0, 15)) {
+                const f = v => (v === null ? '—' : v);
                 lines.push(`| ${a.name} | ${a.games} | ${a.winRate}%${a.reliable === false ? '（样本少）' : ''} | `
-                    + `${a.ci ? a.ci[0] + '–' + a.ci[1] + '%' : '—'} | ${a.avgDmg} | ${a.avgTaken} | ${a.aliveRate}% |`);
+                    + `${a.ci ? a.ci[0] + '–' + a.ci[1] + '%' : '—'} | ${a.vsStagePP > 0 ? '+' : ''}${a.vsStagePP}pp | `
+                    + `${f(a.dmgPerRound)} | ${f(a.takenPerRound)} | ${f(a.healPerRound)} | ${a.aliveRate}% |`);
             }
+            // 交代被排除的普通兵/召唤物（V2.1.0）：不写出来，看报告的人会以为它们没出过场
+            try {
+                const ex = getExcludedUnits();
+                if (ex && ex.length) {
+                    lines.push('> 本表只统计 Boss + 强弱精英。另有 ' + ex.length + ' 个非英雄单位未计入：'
+                        + ex.slice(0, 8).map(u => `${u.name}(${u.games}局)`).join('、') + (ex.length > 8 ? ' 等' : '')
+                        + '——它们几乎每局都在场，胜率就等于队伍胜率，混进来会把真英雄挤下去。');
+                    lines.push('');
+                }
+            } catch (e) {}
+            lines.push('> 口径：胜率右边「较同关」= 实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度，正数说明比同关平均赢得更多）；'
+                + '输出/承伤/治疗按「每存活回合」计，不用整局累计——否则第 3 回合就倒的人会被当成输出低，其实是活得短。');
             lines.push('');
         }
     } catch (e) {}
@@ -234,14 +308,18 @@ export function exportCareerMarkdown() {
             const shown = hi.filter(h => h.reliable !== false);
             if (shown.length) {
                 lines.push('## 英雄影响力（活到结束胜率 − 阵亡胜率，= 生死对胜负的拉动）');
-                lines.push('| 英雄 | 出场 | 活着胜率 | 阵亡胜率 | 影响力 | 判读 |');
-                lines.push('|---|---|---|---|---|---|');
+                lines.push('| 英雄 | 出场 | 活着胜率 | 阵亡胜率 | 影响力 | 95%区间 | 判读 |');
+                lines.push('|---|---|---|---|---|---|---|');
                 for (const h of shown.slice(0, 15)) {
+                    const ci = h.ciPP
+                        ? `[${h.ciPP[0] > 0 ? '+' : ''}${h.ciPP[0]}pp, ${h.ciPP[1] > 0 ? '+' : ''}${h.ciPP[1]}pp]`
+                        : '—';
                     lines.push(`| ${h.name} | ${h.games} | ${h.aliveWinRate}% | ${h.deadWinRate}% | `
-                        + `${h.impactPP > 0 ? '+' : ''}${h.impactPP}pp | ${h.verdict || '—'} |`);
+                        + `${h.impactPP > 0 ? '+' : ''}${h.impactPP}pp | ${ci} | ${h.verdict || '—'} |`);
                 }
                 lines.push('');
-                lines.push('> 这是相关不是因果：一个英雄总是最后才倒（因为他强），活着和赢自然相关。只看「拉动方向」，不归因。');
+                lines.push('> 这是相关不是因果：强英雄总最后倒，活着与赢自然相关；只看「拉动方向」，不归因。');
+                lines.push('> 判读为「噪声内」= 95% 区间跨过 0、阵亡局太少分不出真假——别把 +Npp 当强弱铁证。');
                 lines.push('');
             }
         }
@@ -281,7 +359,7 @@ export function exportCareerMarkdown() {
     lines.push('## 逐局明细');
     for (let i = arr.length - 1; i >= 0; i--) {
         const r = arr[i];
-        const hex = (r.hex && r.hex.length) ? ` ｜ 海克斯: ${r.hex.join('/')}` : '';
+        const hex = (r.hex && r.hex.length) ? ` ｜ 海克斯: ${r.hex.map(hexLabel).join('/')}` : '';
         // 降到 ### —— 上面已经有了 ## 逐局明细，同级会撞层级（V1.6.0 调整）
         lines.push(`### 第 ${i + 1} 局 ｜ s${r.stage} ｜ ${r.winner}胜 ｜ ${r.rounds} 回合${hex}`);
         lines.push('明教：' + (r.ally || []).map(u =>
@@ -340,10 +418,7 @@ export function getCareerInsights() {
     let hexTop = null;
     if (hexTopEntry) {
         const k = hexTopEntry[0], v = hexTopEntry[1];
-        // 中文名：优先取 CONFIG.BUFFS 配置名，其次 127 单源 HEX_NAMES，最后兜底英文 key
-        let name = k;
-        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
-        hexTop = { key: k, name, rate: Math.round(v.w / v.n * 100), n: v.n };
+        hexTop = { key: k, name: hexLabel(k), rate: Math.round(v.w / v.n * 100), n: v.n };
     }
 
     // 最近 10 局战绩（时间正序，老的在前）
@@ -383,7 +458,7 @@ export function getCareerInsights() {
     for (const k of Object.keys(byMode)) {
         const rec = byMode[k];
         rec.winRate = rec.n ? Math.round(rec.wins / rec.n * 100) : 0;
-        rec.label = k === 'single' ? '单机' : (k === 'pvp' ? '联机' : (k || '未知'));
+        rec.label = modeLabel(k);
     }
 
     return {
@@ -398,34 +473,60 @@ export function getCareerInsights() {
     };
 }
 
-// V1.1.0 新增：英雄跨局聚合——看每个英雄的「出场次数 / 胜率 / 平均输出承伤」，
-// 直接喂平衡判断：谁长期虚高、谁长期划水一目了然。纯读已有记录，不新增存储。
+// V1.1.0 新增：英雄跨局聚合——看每个英雄的「出场次数 / 胜率 / 输出承伤」，直接喂平衡判断。
+// V2.2.0 改口径（原来三个数不可横比）：
+//   ① 「均输出/均承伤/均治疗」是**整局累计**，而每局回合数 6~13 不等、有人第 3 回合就倒，
+//      死得早的输出自然低——那不是弱，是活得短。改为「每存活回合」：分子只累加存活回合内的伤害，
+//      分母是该英雄累计存活回合数。没有 survivedRounds 的旧记录单独计数，不参与除法（否则会拉低均值）。
+//   ② 胜率没控制关卡分布：总在 s1 出场的人胜率虚高，总在 s7 的相反。
+//      用「直接标准化」扣掉关卡难度——对每一局累加该关整体胜率作期望值，
+//      实际胜率 − 期望胜率 = vsStagePP（正=他在场的那些关里比同关平均更好）。
 export function getHeroAggregates(includeEnemy = false) {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
+    // 先算每关的整体胜率（明教视角），作为「同关基准」
+    const stageStat = {};
+    for (const r of arr) {
+        const s = r.stage || 0;
+        const o = stageStat[s] || (stageStat[s] = { n: 0, w: 0 });
+        o.n++;
+        if (r.winner === '明教') o.w++;
+    }
+    const stageRateOf = (stage, mingSide) => {
+        const o = stageStat[stage || 0];
+        if (!o || !o.n) return 0.5;                    // 单关只有这一局时无基准，取 0.5 不夸大
+        const p = o.w / o.n;
+        return mingSide ? p : 1 - p;
+    };
     const M = {};
-    const touch = (u, won) => {
+    const touch = (u, won, stageRate) => {
         const a = M[u.name] || (M[u.name] = {
-            name: u.name, games: 0, wins: 0, dmgDealt: 0, dmgTaken: 0,
-            heal: 0, roundsSum: 0, alive: 0
+            name: u.name, games: 0, wins: 0, expWins: 0,
+            alive: 0, dmgAlive: 0, takenAlive: 0, healAlive: 0, survRounds: 0, noRoundData: 0
         });
         a.games++;
         if (won) a.wins++;
-        a.dmgDealt += Math.round(u.dmgDealt || 0);
-        a.dmgTaken += Math.round(u.dmgTaken || 0);
-        a.heal += Math.round(u.healDone || 0);
-        a.roundsSum += (u.survivedRounds || 0);
+        a.expWins += stageRate;                        // 该局所属关卡的整体胜率，作为期望值
         if (u.alive) a.alive++;
+        const sr = +u.survivedRounds || 0;
+        if (sr > 0) {
+            a.survRounds += sr;
+            a.dmgAlive += Math.round(u.dmgDealt || 0);
+            a.takenAlive += Math.round(u.dmgTaken || 0);
+            a.healAlive += Math.round(u.healDone || 0);
+        } else a.noRoundData++;                        // 旧记录没记存活回合，不能拿来除
     };
     for (const r of arr) {
         const mWin = r.winner === '明教', eWin = r.winner === '六大派';
-        for (const u of (r.ally || [])) touch(u, mWin);
+        // V2.1.0：只收真英雄（Boss + 强弱精英），普通兵/召唤物/三狮不进这张表
+        for (const u of (r.ally || [])) { if (!isAllyHero(u.name)) continue; touch(u, mWin, stageRateOf(r.stage, true)); }
         // V1.3.0 修：默认只统计明教侧。旧版把敌方英雄也并进同一张表，
         //   而敌方英雄「胜率高」= 明教输得多，含义正好相反，极容易被读反
         //   （测试里就出现过「张无忌 100% 胜率」其实是明教必输的假象）。
         //   要看敌方英雄强度请走 112 精英评测，那里有正确的单核对照。
-        if (includeEnemy) for (const u of (r.enemy || [])) touch(u, eWin);
+        if (includeEnemy) for (const u of (r.enemy || [])) touch(u, eWin, stageRateOf(r.stage, false));
     }
+    const perRound = (num, a) => (a.survRounds > 0 ? Math.round(num / a.survRounds * 10) / 10 : null);
     return Object.values(M).map(a => {
         const ci = wilson95(a.wins, a.games);
         return {
@@ -437,10 +538,13 @@ export function getHeroAggregates(includeEnemy = false) {
             //   不再把运气当实力（和 126 对海克斯/精英的处理同一口径）。
             ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
             reliable: a.games >= HERO_MIN_GAMES,
-            avgDmg: Math.round(a.dmgDealt / a.games),
-            avgTaken: Math.round(a.dmgTaken / a.games),
-            avgHeal: Math.round(a.heal / a.games),
-            avgRounds: Math.round(a.roundsSum / a.games * 10) / 10,
+            // V2.2.0：关卡调整后的胜率差（pp）。正 = 他在场的那些关里，比同关平均赢得更多。
+            vsStagePP: Math.round((a.wins / a.games - a.expWins / a.games) * 100),
+            // V2.2.0：每存活回合的产出（不再是整局累计，跨局可比）
+            dmgPerRound: perRound(a.dmgAlive, a),
+            takenPerRound: perRound(a.takenAlive, a),
+            healPerRound: perRound(a.healAlive, a),
+            perRoundGames: a.games - a.noRoundData,     // 参与每回合计算的有效局数
             aliveRate: Math.round(a.alive / a.games * 100)
         };
     }).sort((a, b) => b.games - a.games);
@@ -467,10 +571,8 @@ export function getHexWinRates(mode = null) {
     if (!Object.keys(stat).length) return null;
     const out = Object.entries(stat).map(([k, v]) => {
         const ci = wilson95(v.w, v.n);
-        let name = k;
-        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
         return {
-            key: k, name, n: v.n, wins: v.w,
+            key: k, name: hexLabel(k), n: v.n, wins: v.w,
             winRate: Math.round(v.w / v.n * 100),
             ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
             reliable: v.n >= HEX_MIN_GAMES
@@ -486,6 +588,43 @@ export function getHexWinRates(mode = null) {
 //   诚实边界：这是相关不是因果——一个英雄总是最后才倒（因为他强），活着和赢当然相关；
 //   结论只标「影响力方向」，不下「该英雄导致胜负」的因果断言。样本要求：总出场≥12 且
 //   存活/阵亡两边各≥5 局，否则只报「样本不足」避免小样本误读。
+// 被过滤掉的非英雄单位（V2.1.0）：明教侧的普通兵 / 召唤物 / 谢逊三狮。
+//   静默丢弃会让人以为它们没出过场，所以界面和报告里把「排除了谁、各多少局」一并交代出来。
+export function getExcludedUnits() {
+    const arr = getCareerRecords();
+    if (arr.length === 0) return null;
+    const M = {};
+    for (const r of arr) {
+        const seen = new Set();
+        for (const u of (r.ally || [])) {
+            if (isAllyHero(u.name) || seen.has(u.name)) continue;
+            seen.add(u.name);
+            M[u.name] = (M[u.name] || 0) + 1;
+        }
+    }
+    return Object.entries(M).sort((a, b) => b[1] - a[1]).map(([name, games]) => ({ name, games }));
+}
+
+// 两比例差（独立样本）的 95% 区间 + 显著性（V2.3.0）。
+// 为什么必须做：英雄影响力 = 活着胜率 − 阵亡胜率，而「阵亡」往往只有几局——
+//   一个 84 局里只死 6 次的人，阵亡胜率基于 6 局，区间宽到 ±40pp，
+//   算出来的 +20pp 完全可能是噪声，却被当成「胜负手」。这跟 126/138 用 z 检验拦噪声是同一套口径。
+// 用 Agresti-Caffo 校正（各格 +1/+2）避免 p=0 或 p=1 时标准误为 0、区间退化成一个点。
+function twoPropDiff(w1, n1, w2, n2) {
+    if (!(n1 > 0) || !(n2 > 0)) return null;
+    const diff = w1 / n1 - w2 / n2;
+    const p1 = (w1 + 1) / (n1 + 2), p2 = (w2 + 1) / (n2 + 2);
+    const se = Math.sqrt(p1 * (1 - p1) / (n1 + 2) + p2 * (1 - p2) / (n2 + 2));
+    const z = se > 0 ? diff / se : 0;
+    return {
+        diff,
+        se,
+        z,
+        ci: [diff - 1.96 * se, diff + 1.96 * se],
+        sig: Math.abs(z) >= 1.96
+    };
+}
+
 export function getHeroImpact() {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
@@ -499,17 +638,20 @@ export function getHeroImpact() {
     };
     for (const r of arr) {
         const mWin = r.winner === '明教';
-        for (const u of (r.ally || [])) touch(u.name, !!u.alive, mWin);
+        for (const u of (r.ally || [])) { if (!isAllyHero(u.name)) continue; touch(u.name, !!u.alive, mWin); }
     }
     return Object.values(M).map(a => {
         const aliveWR = a.aliveGames ? a.aliveWins / a.aliveGames : null;
         const deadWR = a.deadGames ? a.deadWins / a.deadGames : null;
         const impact = (aliveWR !== null && deadWR !== null) ? aliveWR - deadWR : null;
         const enough = a.games >= IMPACT_MIN_TOTAL && a.aliveGames >= IMPACT_MIN_SIDE && a.deadGames >= IMPACT_MIN_SIDE;
+        // V2.3.0：显著才算数。阵亡局少时区间极宽，不显著就不下强弱结论。
+        const st = (a.aliveGames && a.deadGames) ? twoPropDiff(a.aliveWins, a.aliveGames, a.deadWins, a.deadGames) : null;
         let verdict = null;
         if (enough && impact !== null) {
             const pp = Math.round(impact * 100);
-            if (pp >= 20) verdict = '胜负手·活着他赢面大涨';
+            if (!st || !st.sig) verdict = '差异在噪声内（阵亡局太少，样本撑不起结论）';
+            else if (pp >= 20) verdict = '胜负手·活着他赢面大涨';
             else if (pp <= -20) verdict = '反向·他倒下时明教反而更稳（多半是别人在扛）';
             else if (pp >= 5) verdict = '有正向影响力';
             else if (pp <= -5) verdict = '略偏反向';
@@ -520,6 +662,9 @@ export function getHeroImpact() {
             aliveGames: a.aliveGames, aliveWinRate: aliveWR === null ? null : Math.round(aliveWR * 100),
             deadGames: a.deadGames, deadWinRate: deadWR === null ? null : Math.round(deadWR * 100),
             impactPP: impact === null ? null : Math.round(impact * 100),
+            // 95% 区间（pp）+ 是否显著；界面把它放进悬浮提示，避免「+20pp」被当成铁证
+            ciPP: st ? [Math.round(st.ci[0] * 100), Math.round(st.ci[1] * 100)] : null,
+            sig: st ? st.sig : null,
             reliable: enough, verdict
         };
     }).sort((a, b) => (b.impactPP === null ? -99 : b.impactPP) - (a.impactPP === null ? -99 : a.impactPP));
@@ -538,11 +683,11 @@ export function exportCareerCSV() {
     };
     const lines = [head.join(',')];
     arr.forEach((r, gi) => {
-        const hex = (r.hex || []).join('/');
+        const hex = (r.hex || []).map(hexLabel).join('/');
         const pushRow = (list, camp) => {
             for (const u of (list || [])) {
                 lines.push([
-                    gi + 1, r.stage, r.mode, r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
+                    gi + 1, r.stage, modeLabel(r.mode), r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
                     Math.round(u.dmgDealt || 0), Math.round(u.dmgTaken || 0), Math.round(u.healDone || 0),
                     u.alive ? 1 : 0, u.dodgeCount || 0, u.critCount || 0, u.survivedRounds || 0
                 ].map(cell).join(','));
@@ -597,7 +742,7 @@ export function getHeroPairs(minGames = HERO_MIN_GAMES) {
     for (const r of arr) {
         const won = r.winner === '明教';
         // 先排序再拼 key，避免同一对因阵容站位顺序不同被拆成 "A␀B" / "B␀A" 两条
-        const names = [...new Set((r.ally || []).map(u => u.name))].sort();
+        const names = [...new Set((r.ally || []).filter(u => isAllyHero(u.name)).map(u => u.name))].sort();
         for (const n of names) bump(solo, n, won);
         for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
             bump(pair, names[i] + '\u0000' + names[j], won);

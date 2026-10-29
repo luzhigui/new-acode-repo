@@ -1,5 +1,4 @@
 // core/04buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.7.5 | 2026-10-28 | ~44085 bytes —— 嗜血狂刀 fact 的 isBrother 改报「吸血者是否小昭·妹本人」（原按分支写死 false/true：队友走妹永久嗜血被标成蝶血、妹本人走普通分支反被标成普通，变量声明后一直是死码）
 export const VER = 'core/04buff-system.js V6.7.5';
 import {
     applyFortifyDef,

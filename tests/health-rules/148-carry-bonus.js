@@ -24,15 +24,20 @@
 //   3) 静默归零：队友属性明显够（按"除自己外最弱队友 × 配置比例"floor ≥ 1）却加成为 0
 //      —— _baseMaxHp 读不到 / bonus 未接上
 //   4) 门控失效：小昭·姊 / 小昭·弟 拿到了 carry（core/04 明确排除这两人）
-//   5) 数值膨胀：加成超过「Σ 队友 getStat(攻/防/血) × 存活1/死亡deathMultiplier × 比例 × 3 倍余量」
+//   5) 数值膨胀：加成超过「Σ 队友 getStat(攻/防) × 存活1/死亡deathMultiplier × 比例 × 3 倍余量」
 //      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
+//      **hp 项不判上界（第 135 轮）**：终局快照 _baseMaxHp 是战斗期保留键（core/17 BATTLE_STATE_PRESERVE_KEYS），
+//      快照上大面积取不到 → Σ 被系统性算小（实测 133 vs 引擎实时 490，差 3.67 倍）→ 3 倍余量兜不住，
+//      血+49 被误判超界（2026-10-29 浏览器体检实录）；hp 后果由 stat-decl-vs-actual 的 CARRY_APPLY 账本契约盯。
 //      队友池口径：名字唯一时剔自己；**同名时取整池**（引擎只按 uid 剔自己，同名个体照常计入——
 //      第 82 轮 seed=9 stage=7 雄狮×3 假阳性即旧口径全剔同名所致）。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.06/0.06/0.08/2，并在读不到时只跑 1/2/4 三条结构判据。
 //   第 82 轮：量级判据（3/5）的队友池在**同名**时取整池不剔名（引擎只按 uid 剔自己）——
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.23';
+//   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
+//   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.24';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -194,22 +199,24 @@ export const rule95 = {
                 //   Σ 被系统性算小约 10~20%（实测攻+12/上界10、血+74/上界67，两次历史误报同量级）。
                 //   本判据要抓的是「比例/倍率被写大」这类 ≥2 倍量级错误，3 倍余量仍能抓住，故放宽换取不再误报。
                 if (mates.length > 0 && cfg.ok) {
-                    var sumAtk = 0, sumDef = 0, sumHp = 0;
+                    // hp 项剔除（第 135 轮，根因见文件头信号 5 注释）：终局快照 _baseMaxHp 是战斗期保留键，
+                    //   快照上取不到 → statOf 回落 getStat('maxHp') → Σ 被算小 3.67 倍（133 vs 引擎实时 490），
+                    //   3 倍余量兜不住 → 「血+49 超上界 40」误报。攻/防走 getStat 偏差（词条未进快照）
+                    //   约 10~20% 被余量盖住，保留判上界。hp 后果由 stat-decl CARRY_APPLY 账本契约盯。
+                    var sumAtk = 0, sumDef = 0;
                     for (var s = 0; s < mates.length; s++) {
                         var mu = mates[s];
                         var mult = mu.alive ? 1 : cfg.deathMultiplier;
-                        var a2 = statOf(mu, 'atk'), d2 = statOf(mu, 'def'), h2 = statOf(mu, 'maxHp');
+                        var a2 = statOf(mu, 'atk'), d2 = statOf(mu, 'def');
                         if (a2 != null) sumAtk += a2 * mult;
                         if (d2 != null) sumDef += d2 * mult;
-                        if (h2 != null) sumHp += h2 * mult;
                     }
                     var capAtk = sumAtk * cfg.atkBonus * 3;
                     var capDef = sumDef * cfg.defBonus * 3;
-                    var capHp = sumHp * cfg.hpBonus * 3;
-                    if (atk > capAtk || def > capDef || hp > capHp) {
+                    if (atk > capAtk || def > capDef) {
                         return { fail: true, msg: '复发：carry加成超出上界：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
-                            + ' 血上限+' + hp + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
-                            + ' 血≤' + Math.round(capHp) + '，比例或死亡倍率被写大）' };
+                            + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
+                            + '，比例或死亡倍率被写大；hp 项不判上界——终局快照 _baseMaxHp 不可靠，由 stat-decl 账本契约盯）' };
                     }
                 }
             }

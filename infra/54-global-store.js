@@ -1,4 +1,3 @@
-// V6.0.1 | 2026-10-20 | ~12000 bytes
 export const VER = 'infra/54-global-store.js V6.0.1';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './51-core-utils.js';

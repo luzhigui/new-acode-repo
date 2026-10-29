@@ -1,5 +1,3 @@
-// V6.3.4 | 2026-10-21 | ~19400 bytes
-// V6.3.5 | 2026-10-26 | 蝴蝶并入远程公式：getMissBreakdown 远程基础未命中、远程成长（只改身份不改打人方式）
 export const VER = 'core/03battle-utils.js V6.3.5';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';

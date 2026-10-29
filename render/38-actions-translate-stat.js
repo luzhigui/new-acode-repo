@@ -1,7 +1,6 @@
 // render/38-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
-// V1.0.3 | 2026-10-22 | ~10000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/38-actions-translate-stat.js V1.1.0';   // V1.1.0 SKILL_ANNOUNCE 识别 shieldBreak → IMMUNE 动作（溅射破罩碎裂）
+export const VER = 'render/38-actions-translate-stat.js V1.1.0';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {

@@ -1,5 +1,4 @@
 // core/12battle-attack-edge.js — 攻击流程·边裁与纯工具（快照 / 闪避概率 / 免疫 / 后置效果 / 死亡结算）
-// V1.0.0 | 2026-10-18 | ~6800 bytes
 // 归属判据：这些函数被「攻击链之外」的调用方单独使用（modules/26-tangwenliang 取 computeDodgeChance +
 //   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
 //   攻击链内部流转留在 12battle-attack-chain.js，保持「一条攻击链一个文件」。

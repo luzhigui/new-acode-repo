@@ -1,6 +1,4 @@
 // modules/27elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
-// V1.2.0 | 2026-10-18 | ~7400 bytes
-//           📉鹰王威压！（pushSkillAnnounce + line:false，复用 SKILL_ANNOUNCE → SKILL_FLOAT 通道）
 export const VER = 'modules/27elite-mingjiao-yintianzheng.js V1.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, addMod } from '../core/13battle-shared.js';

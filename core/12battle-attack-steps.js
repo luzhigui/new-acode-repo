@@ -1,5 +1,4 @@
 // core/12battle-attack-steps.js — 攻击流程入口（装配 + 出口）
-// V7.0.0 | 2026-10-18 | ~1000 bytes
 export const VER = 'core/12battle-attack-steps.js V7.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';

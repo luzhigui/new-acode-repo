@@ -1,5 +1,4 @@
 // modules/26elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-// V6.27.1 | 2026-10-22 | ~16500 bytes
 export const VER = 'modules/26elite-sixsects-zhangsanfeng.js V6.27.1';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/13battle-shared.js';

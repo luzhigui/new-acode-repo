@@ -18,7 +18,7 @@ if (!document.getElementById('roleBalStyle')) {
     style.id = 'roleBalStyle';
     style.textContent = `
 .role-bal-mask{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center}
-.role-bal-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(920px,94vw);max-height:88vh;display:flex;flex-direction:column;padding:16px}
+.role-bal-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(920px,94vw);max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;padding:16px}
 .role-bal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .role-bal-head h1{color:#ffd700;font-size:20px;margin:0}
 .role-bal-close{background:#444;color:#ccc;border:none;border-radius:8px;padding:6px 14px;font-weight:bold;cursor:pointer;font-family:monospace}

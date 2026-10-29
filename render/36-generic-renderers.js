@@ -1,11 +1,9 @@
-﻿﻿// V1.0.2 | 2026-10-22 | ~3600 bytes
-// 设计约束：
+﻿﻿// 设计约束：
 //   ① 58 契约保持显式（requiredFields / renderFn 名不变）——体检对账粒度不降（外部AI 第四节第3条：此弊端可消）
 //   ② 工厂零依赖（纯函数，node 探针可直接 import 做金样对比）
 //   ③ 锚点逐字对齐（SKILL-飘字血泪：「回复+N」≠「回复 N 点」，子串匹配不上=飘字哑火）——anchorVerb 显式传参，
 //     模板产物与手写版逐字节一致，golden 探针保障
 //   ④ 加攻/加防族预留位：现无手写同款（飘字走 render/38 STAT_CHANGE 通道），出现第三遍再进工厂
-// V1.1.0 | 2026-10-26 | 去锚定化：回血族 fxAnchors → fx: [{ kind:'heal', amount }]，特效由播放器按行触发
 export const VER = 'render/36-generic-renderers.js V1.1.0';
 
 // —— 回血族：三种版式对应历史文案 ——

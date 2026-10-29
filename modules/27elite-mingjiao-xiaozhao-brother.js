@@ -1,5 +1,4 @@
 // modules/27elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-// V1.2.0 | 2026-10-19 | ~25700 bytes
 export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.2.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff } from '../core/03battle-utils.js';

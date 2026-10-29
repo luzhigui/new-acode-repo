@@ -1,4 +1,3 @@
-// V6.1.2 | 2026-10-16 | ~6800 bytes
 export const VER = 'infra/51-core-utils.js V6.1.2';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';

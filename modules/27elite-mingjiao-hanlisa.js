@@ -8,7 +8,6 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-// V2.2.3 | 2026-10-27 | ~28060 bytes —— 双拳齐出两个标量参数去掉字面量默认值（原写死 0.4 / 0.5），改 register 期显式抛错：缺参数直接暴露，不静默按老口径算
 export const VER = 'modules/27elite-mingjiao-hanlisa.js V2.2.3';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getFronts } from '../core/03battle-utils.js';

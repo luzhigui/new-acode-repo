@@ -1,5 +1,4 @@
 // modules/26elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.29.4 | 2026-10-22 | ~15100 bytes
 export const VER = 'modules/26elite-sixsects-pangyuanqiao.js V6.29.4';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/13battle-shared.js';

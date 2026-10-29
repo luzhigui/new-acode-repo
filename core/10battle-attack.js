@@ -1,5 +1,4 @@
 // core/10battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-// V6.4.8 | 2026-10-18 | ~25400 bytes
 export const VER = 'core/10battle-attack.js V6.4.8';
 
 import { CONFIG } from './01config-5v5-test.js';

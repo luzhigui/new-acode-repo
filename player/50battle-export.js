@@ -1,6 +1,20 @@
 // player/50battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
+// V1.5.0 | 2026-10-29 手机端改「同步原生下载」+ 弹窗文本框防卡死：手机实测（安卓 WebView）弹窗弹出后
+//           整页卡死——几十万字战报塞进 <textarea> 撑爆渲染。① isMobile 分支改在**任何 await 之前**同步
+//           blob + a.click()（此刻用户手势还活着，不会被拦，与 V1.3.0 死在 picker/share await 之后的
+//           后台点击是两回事）；② showManualCopyDialog 的 textarea 超 30 万字符只放提示语、高度 50vh→100px，
+//           保护桌面无 picker/share 落到 ③ 与极端兜底的场景。
+// V1.4.0 | 2026-10-29 手机端跳过原生 API 直奔弹窗：移动浏览器常偷偷带 showSaveFilePicker 但弹窗被系统
+//           拦截/根本没弹，却报 AbortError（被误读成「用户主动取消」）→ 直接 return 'cancel'，永远到不了
+//           手动弹窗。现按 UA 识别手机（含微信内置），跳过 ①picker ②share，直接弹带蓝色下载按钮的弹窗。
+//           边界：iPadOS 新版 Safari UA 伪装 Macintosh 检测不到 → 走原链 → 最终仍落到 ③ 手动弹窗，兜得住。
+// V1.3.0 | 2026-10-29 下载链第③层改「弹窗手动下载」：手机上异步链（picker/share）走完用户手势已失效，
+//           后台 a.click() 被浏览器静默拦截、却误报 'download'「已保存」，用户手机里啥也没有。
+//           改为直接弹 showManualCopyDialog——弹窗里的「💾 点击下载文件」是用户真实手势点击的
+//           <a download>（blob URL，不 revoke：弹窗存活期随时可点），手机浏览器不敢拦。
+//           代价：桌面 Firefox/Safari（无 picker/share）从自动下载变成多点一次，换手机端确定性（拍板接受）。
 // V1.2.0 | 2026-09-26 | ~18700 bytes
-export const VER = 'player/50battle-export.js V1.2.0';
+export const VER = 'player/50battle-export.js V1.5.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 import { copyAllStateFields } from '../core/17-state-keys.js';
@@ -209,7 +223,27 @@ export async function exportBattleReport(report) {
     }
     const name = makeFileName(report);
 
-    // ① File System Access API（桌面 Chrome / 安卓新 Chrome）
+    // 手机端跳过原生 API（极易被系统拦截或谎报 AbortError），改在点击同步栈里直接原生下载
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        // 手机端直接在点击事件同步触发下载，绝不卡手势，也绝不弹卡死的文本框
+        try {
+            const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+            const href = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = href;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(href), 10000);
+            return 'download';
+        } catch (e) {
+            console.error('[战报] 手机原生下载失败，走手动弹窗');
+        }
+    }
+
+    // ① File System Access API（桌面 Chrome / 安卓新 Chrome；手机端已在上方直接跳过）
     // v1.1.3：AbortError 不再终止——安卓 Chrome 也带 showSaveFilePicker（此前误判手机没有），
     //   且部分机型弹窗不显示秒抛 AbortError（与 canShare 同款谎报）。用户取消和环境谎报浏览器层无法分辨，
     //   统一降级到下载层；真想取消的用户在系统下载框里再取消一次。这是「已取消」病历的第一站，最后一块病灶。
@@ -246,33 +280,12 @@ export async function exportBattleReport(report) {
         console.error('[战报] 分享层未成（用户取消或环境谎报支持），降级到下载层:', e && e.message ? e.message : e);
     }
 
-    // ③ blob 下载（浏览器标准路；安卓 Chrome 手机版可靠）→ dataURL 下载（老 WebView 兼容）
-    for (const mode of ['blob', 'dataURL']) {
-        try {
-            let href;
-            if (mode === 'blob') {
-                href = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
-            } else {
-                const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
-                href = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-            }
-            const a = document.createElement('a');
-            a.href = href;
-            a.download = name;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            if (mode === 'blob') setTimeout(() => URL.revokeObjectURL(href), 10000);
-            console.log('[战报] 下载已触发(' + mode + ')：' + name + ' ' + (text.length / 1024).toFixed(0) + 'KB——若手机上没出现文件，请看下一条降级');
-            return 'download';
-        } catch (e) {
-            console.error('[战报] ' + mode + ' 下载失败，降级:', e);
-        }
+    // ③ 手机端绝境：异步后的 a.click() 会被拦截，改由弹窗让用户主动点击（真实手势）
+    try {
+        showManualCopyDialog(text, name);
+        return 'manual';
+    } catch (e) {
+        console.error('[战报] 手动弹窗失败:', e);
     }
 
     // ④ 剪贴板（APK WebView 里 navigator.clipboard 常不存在，必须先判存在）
@@ -301,19 +314,30 @@ function showManualCopyDialog(text, name) {
     if (old) old.remove();
     const overlay = document.createElement('div');
     overlay.id = 'battleExportManualOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom,0px);';
     const box = document.createElement('div');
-    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:16px;width:min(560px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:10px;';
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:16px;width:min(560px,92vw);max-height:80vh;max-height:80dvh;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;';
     const title = document.createElement('div');
     title.textContent = '📌 自动保存都失败了，请手动复制（' + name + '）';
     title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:14px;';
     const ta = document.createElement('textarea');
-    ta.value = text;
+    // 防卡死：如果是超大文本，不要塞进框里让浏览器渲染
+    ta.value = text.length > 300000 ? '【战报过大，请直接点击下方下载按钮保存】' : text;
     ta.readOnly = true;
-    ta.style.cssText = 'width:100%;height:50vh;box-sizing:border-box;background:#111;color:#ccc;border:1px solid #444;border-radius:8px;font-size:10px;font-family:monospace;';
+    ta.style.cssText = 'width:100%;height:100px;box-sizing:border-box;background:#111;color:#ccc;border:1px solid #444;border-radius:8px;font-size:10px;font-family:monospace;';
     ta.onclick = () => ta.select();
     const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;';
+
+    // 真正安全的下载链接：用户主动点击，手机绝对不会拦截
+    // blob URL 不 revoke：用户可能在弹窗停留几分钟后才点下载，提前回收会让链接失效
+    const dlBtn = document.createElement('a');
+    dlBtn.textContent = '💾 点击下载文件';
+    dlBtn.style.cssText = 'background:#1565c0;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;text-decoration:none;display:flex;align-items:center;';
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    dlBtn.href = URL.createObjectURL(blob);
+    dlBtn.download = name;
+
     const copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 全选复制';
     copyBtn.style.cssText = 'background:#4caf50;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;';
@@ -330,7 +354,8 @@ function showManualCopyDialog(text, name) {
     closeBtn.textContent = '关闭';
     closeBtn.style.cssText = 'background:#666;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;';
     closeBtn.onclick = () => overlay.remove();
-    btnRow.appendChild(copyBtn); btnRow.appendChild(closeBtn);
+
+    btnRow.appendChild(dlBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(closeBtn);
     box.appendChild(title); box.appendChild(ta); box.appendChild(btnRow);
     overlay.appendChild(box);
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };

@@ -1,10 +1,8 @@
 // modules/26elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-// V6.26.1 | 2026-10-22 | ~14300 bytes
-//   （swapUnitPositions 现返回布尔；体检 114 家族案第 4 口）
-export const VER = 'modules/26elite-sixsects-hetaichong.js V6.26.1';
+export const VER = 'modules/26elite-sixsects-hetaichong.js V6.27.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
-import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent } from '../core/13battle-shared.js';
+import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent, applyStatChange } from '../core/13battle-shared.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './23elite-helpers.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -156,9 +154,20 @@ export function createHeTaichongComponent() {
                     const posSwapped = swapUnitPositions(subject, partner, outLog);
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
                     switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
+
+                    // 血量均摊：互换职业后，两人血量相加除以2再各自分配（受各自新血量上限约束）
+                    const totalHp = subject.hp + partner.hp;
+                    const avgHp = Math.floor(totalHp / 2);
+                    const targetHp1 = Math.min(subject.maxHp, avgHp);
+                    const targetHp2 = Math.min(partner.maxHp, avgHp);
+                    const delta1 = targetHp1 - subject.hp;
+                    const delta2 = targetHp2 - partner.hp;
+                    if (delta1 !== 0) applyStatChange(subject, 'hp', delta1, null, '两仪血量均摊', false, false);
+                    if (delta2 !== 0) applyStatChange(partner, 'hp', delta2, null, '两仪血量均摊', false, false);
+
                     if (outLog) pushSkillAnnounce(outLog, subject, '两仪互换', posSwapped
-                        ? `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置）`
-                        : `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（职业已互换，位置被免疫挡下）`, { floatText: '☯', floatUid: subject.uid, swap: posSwapped ? { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos } : null, grants: pendingGrants });
+                        ? `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置，血量均摊至 ${Math.floor((targetHp1 + targetHp2) / 2)}）`
+                        : `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（职业已互换，位置被免疫挡下，血量均摊至 ${Math.floor((targetHp1 + targetHp2) / 2)}）`, { floatText: '☯', floatUid: subject.uid, swap: posSwapped ? { aUid: subject.uid, bUid: partner.uid, posA: myPos, posB: hisPos } : null, grants: pendingGrants });
                 } else if (subject.uid === he.uid) {
                     // ② 两人同时红血 / ③ 无连接 → 何太冲走单人红血规则
                     soloRedBlood(he, outLog);

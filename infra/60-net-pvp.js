@@ -1,6 +1,5 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// V7.4.1 | 2026-09-26 | ~19500 bytes
-export const VER = 'infra/60-net-pvp.js V7.4.1';
+export const VER = 'infra/60-net-pvp.js V7.4.3';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -11,13 +10,23 @@ export const VER = 'infra/60-net-pvp.js V7.4.1';
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
 
-const MQTT_CDN = 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js';
+// mqtt.js 加载源：本地 vendor 优先（已随仓库分发，零网络依赖），
+// 远端仅作兜底——cdn.jsdelivr.net 在国内多地实测直接失败（000），故不再作为首选。
+const MQTT_LOCAL = './vendor/mqtt-5.10.1.min.js';
+const MQTT_CDN_FALLBACK = [
+    'https://registry.npmmirror.com/mqtt/5.10.1/files/dist/mqtt.min.js',
+    'https://fastly.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js',
+    'https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js'
+];
 // EMQX 公共测试 broker（国内访问好、无需注册）。不保证长期可用；挂了可换该服务的其它节点或自建。
 const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
 const TOPIC_PREFIX = 'gmd5v5/';
 const HEARTBEAT_MS = 5000;        // 心跳间隔
 const HEARTBEAT_TIMEOUT = 16000;  // 这么久没收到对端任何消息 → 判定掉线（替代 WebRTC 的 conn.on('close')）
 const JOIN_TIMEOUT = 20000;       // 从机发 join 后等 accept 的上限（没人订阅这个房间就永远等不到）
+// 从机 step 积压上限：超过就丢旧账只播最新（step 自带 ally/enemy 全量快照，状态不丢，只跳过中间演出）。
+//   房主按「每步发一条」的速度推，从机演出慢一点就会无限滞后再也追不上——卡死队列长度是唯一的止血点。
+const MAX_STEP_BACKLOG = 5;
 
 const STATUS = {
     IDLE: 'idle',
@@ -105,8 +114,11 @@ export function reviveLineup(raw) {
 }
 
 function pushStep(step) {
-    if (_stepWaiter) { const w = _stepWaiter; _stepWaiter = null; w(step); }
-    else _stepQueue.push(step);
+    if (_stepWaiter) { const w = _stepWaiter; _stepWaiter = null; w(step); return; }
+    // 防积压：从机播放慢于房主时队列会无限增长，从机永远停在过去的回合。
+    //   超过上限直接清空旧账，只播最新一条，强行把进度对齐到现在。
+    if (_stepQueue.length > MAX_STEP_BACKLOG) _stepQueue = [];
+    _stepQueue.push(step);
 }
 
 // 断线时唤醒等待者（返回 null），避免从机主循环永久挂住
@@ -142,17 +154,29 @@ function setStatus(s, meta) {
     }
 }
 
-// 懒加载 mqtt.js（只下载一次，之后复用同一 Promise）
+// 懒加载 mqtt.js（只加载一次，之后复用同一 Promise）
+// 按 sources 顺序逐个尝试：本地 vendor 命中即用；缺失或加载报错才落到远端兜底。
 function ensureMqtt() {
     if (window.mqtt) return Promise.resolve();
     if (_loadPromise) return _loadPromise;
-    _loadPromise = new Promise((resolve, reject) => {
+    const sources = [MQTT_LOCAL, ...MQTT_CDN_FALLBACK];
+    const loadAt = (i) => new Promise((resolve, reject) => {
+        if (i >= sources.length) {
+            reject(new Error('mqtt.js 加载失败：本地 vendor 与 ' + MQTT_CDN_FALLBACK.length + ' 个 CDN 源均不可用'));
+            return;
+        }
         const s = document.createElement('script');
-        s.src = MQTT_CDN;
-        s.onload = () => (window.mqtt ? resolve() : reject(new Error('mqtt.js 加载后未挂载')));
-        s.onerror = () => { _loadPromise = null; reject(new Error('mqtt.js 下载失败，请检查网络')); };
+        s.src = sources[i];
+        s.onload = () => {
+            if (window.mqtt) { resolve(); return; }
+            s.remove();
+            loadAt(i + 1).then(resolve, reject);
+        };
+        s.onerror = () => { s.remove(); loadAt(i + 1).then(resolve, reject); };
         document.head.appendChild(s);
     });
+    // 全源失败时清掉缓存，允许玩家再点一次重试
+    _loadPromise = loadAt(0).catch((e) => { _loadPromise = null; throw e; });
     return _loadPromise;
 }
 

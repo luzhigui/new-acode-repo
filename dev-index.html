@@ -196,10 +196,29 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
             overlay.id = 'careerLogOverlay';
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
             const box = document.createElement('div');
-            box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:14px;width:min(760px,94vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;';
+            // max-height 同时给 86vh / 86dvh：手机浏览器地址栏收起时 dvh 才准，旧内核不认识 dvh 就用 vh
+            box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:12px;width:min(760px,100%);max-height:86vh;max-height:86dvh;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;overflow:hidden;';
+            // 标题栏：关闭改右上角 ✕（独立 34px 触控区）
+            //   原来关闭是底栏第 5 个按钮，手机上折行掉到「清空」正下方、紧贴屏幕底边，
+            //   想关窗口反而点到清空（不可撤销）或浏览器主页。
+            const header = document.createElement('div');
+            header.style.cssText = 'flex:0 0 auto;display:flex;align-items:center;gap:8px;';
             const title = document.createElement('div');
             title.textContent = '📊 生涯记录（' + count + ' 局）';
-            title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:15px;';
+            title.style.cssText = 'flex:1;min-width:0;color:#ffd700;font-weight:bold;font-size:15px;';
+            const closeX = document.createElement('button');
+            closeX.textContent = '✕';
+            closeX.setAttribute('aria-label', '关闭');
+            closeX.style.cssText = 'flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:#2a2a4e;color:#ddd;border:1px solid #444;cursor:pointer;font-size:15px;line-height:1;padding:0;';
+            closeX.onclick = () => overlay.remove();
+            header.appendChild(title);
+            header.appendChild(closeX);
+            // 中部滚动区：整块内容（卡片 + 各张表 + 文本框）都塞进这里
+            //   原来 box 是 flex 列却没有滚动容器，内容一多直接溢出屏幕，
+            //   手指在卡片上滑外层没东西可滚 → 手机端「滑不动」。
+            //   min-height:0 是 flex 子项能真正收缩的前提，缺了它 overflow 不生效。
+            const scroll = document.createElement('div');
+            scroll.style.cssText = 'flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;display:flex;flex-direction:column;gap:6px;padding-right:2px;';
             // 统计卡片 + 战绩条 + 一句话总结（读已有记录算，不新增存储）
             (async () => {
                 try {
@@ -271,7 +290,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         const tr = m.getCareerTrend(20);
                         if (tr && tr.enough) {
                             const t4 = document.createElement('div');
-                            t4.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                            t4.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
                             let h4 = `<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">最近 ${tr.window} 局 vs 之前 ${tr.window} 局</div>`;
                             h4 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                             h4 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">指标</th><th>之前</th><th>最近</th><th>变化</th></tr>';
@@ -296,19 +315,40 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         const agg = m.getHeroAggregates();
                         if (agg && agg.length) {
                             const tbl = document.createElement('div');
-                            tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
-                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（仅明教侧，按出场次数排序，前 12）</div>';
+                            tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
+                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（Boss + 强弱精英，按出场次数排序，前 12）</div>';
                             h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
-                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th>均输出</th><th>均承伤</th><th>均治疗</th><th>存活率</th></tr>';
+                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th title="实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度）">较同关</th><th title="每存活回合的输出，跨局可比">输出/回合</th><th title="每存活回合的承伤">承伤/回合</th><th>存活率</th></tr>';
                             agg.slice(0, 12).forEach(a => {
                                 // 样本 <8 局 → 胜率不可信：整行变灰、加「样本少」，不参与红绿判色
                                 const trusted = a.reliable !== false && a.ci;
                                 const wc = trusted ? (a.winRate >= 55 ? '#4caf50' : (a.winRate <= 40 ? '#ff6b6b' : '#ccc')) : '#666';
                                 const rateTxt = a.winRate + '%' + (a.reliable === false ? ' <span style="color:#666">样本少</span>' : '');
-                                const ciTxt = a.ci ? ` title="95% 可信区间 ${a.ci[0]}%–${a.ci[1]}%"` : '';
-                                h += `<tr style="border-top:1px solid #2a2a4e;color:${a.reliable === false ? '#666' : '#ccc'};"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}"${ciTxt}>${rateTxt}</td><td>${a.avgDmg}</td><td>${a.avgTaken}</td><td>${a.avgHeal}</td><td>${a.aliveRate}%</td></tr>`;
+                                const ciTxt = a.ci ? ` title="95% 可信区间 ${a.ci[0]}%–${a.ci[1]}%；每存活回合治疗 ${a.healPerRound === null ? '—' : a.healPerRound}"` : '';
+                                // V2.2.0：较同关 = 扣掉关卡难度后的真实胜负影响力，±5pp 才上色（否则全是噪声）
+                                const vs = a.vsStagePP;
+                                const vc = !trusted ? '#666' : (vs >= 5 ? '#4caf50' : (vs <= -5 ? '#ff6b6b' : '#888'));
+                                const vTxt = (vs > 0 ? '+' : '') + vs + 'pp';
+                                const n1 = v => (v === null
+                                    ? '<span title="这些局的记录没有「存活回合数」（旧版本对局），无法折算成每回合" style="color:#555">—</span>'
+                                    : v);
+                                h += `<tr style="border-top:1px solid #2a2a4e;color:${a.reliable === false ? '#666' : '#ccc'};"><td style="padding:3px;text-align:left;">${a.name}</td><td>${a.games}</td><td style="color:${wc}"${ciTxt}>${rateTxt}</td><td style="color:${vc}">${vTxt}</td><td>${n1(a.dmgPerRound)}</td><td>${n1(a.takenPerRound)}</td><td>${a.aliveRate}%</td></tr>`;
                             });
                             h += '</table>';
+                            // V2.2.0：口径变了，必须写出来，否则「输出/回合」会被当成以前的整局累计
+                            h += '<div style="font-size:9px;color:#666;padding:4px 6px 0;line-height:1.5;">'
+                                + '较同关 = 实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度）；'
+                                + '输出/承伤按「每存活回合」计，不再用整局累计——否则第 3 回合就倒的人会被当成输出低。</div>';
+                            // 交代被过滤掉的普通兵/召唤物：不写出来会让人以为它们没出过场
+                            try {
+                                const ex = m.getExcludedUnits();
+                                if (ex && ex.length) {
+                                    h += `<div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">已排除 ${ex.length} 个非英雄单位（普通兵/召唤物/三狮）：`
+                                        + ex.slice(0, 6).map(u => `${u.name} ${u.games}局`).join('、')
+                                        + (ex.length > 6 ? ' 等' : '')
+                                        + '。它们几乎每局都在场，胜率等于队伍胜率，会把真英雄挤下去。</div>';
+                                }
+                            } catch (e) {}
                             tbl.innerHTML = h;
                             wrap.appendChild(tbl);
                         }
@@ -321,19 +361,23 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                             const shown = hi.filter(h => h.reliable !== false).slice(0, 12);
                             if (shown.length) {
                                 const t5 = document.createElement('div');
-                                t5.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                                t5.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
                                 let h5 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄影响力（活着胜率 − 阵亡胜率，越高越关键）</div>';
                                 h5 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                                 h5 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>活着胜率</th><th>阵亡胜率</th><th>影响力</th><th>判读</th></tr>';
                                 shown.forEach(h => {
-                                    const c = h.impactPP >= 20 ? '#4caf50' : (h.impactPP <= -20 ? '#ff6b6b' : (h.impactPP >= 5 ? '#9ad0f5' : '#888'));
+                                    // V2.3.0：不显著就别上色。阵亡局少时区间能宽到 ±40pp，
+                                    //   把「+20pp」涂成绿色等于替噪声背书。
+                                    const sig = h.sig !== false;
+                                    const c = !sig ? '#777' : (h.impactPP >= 20 ? '#4caf50' : (h.impactPP <= -20 ? '#ff6b6b' : (h.impactPP >= 5 ? '#9ad0f5' : '#888')));
                                     const iw = h.impactPP > 0 ? '+' : '';
+                                    const ciT = h.ciPP ? ` title="95% 区间 ${h.ciPP[0]}pp ~ ${h.ciPP[1]}pp${sig ? '，差异显著' : '，跨 0 即可能在噪声内'}"` : '';
                                     h5 += `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${h.name}</td>`
                                         + `<td>${h.aliveWinRate}%</td><td>${h.deadWinRate}%</td>`
-                                        + `<td style="color:${c};font-weight:bold;">${iw}${h.impactPP}pp</td>`
+                                        + `<td style="color:${c};font-weight:bold;"${ciT}>${iw}${h.impactPP}pp</td>`
                                         + `<td style="color:#999;max-width:140px;white-space:normal;">${h.verdict || ''}</td></tr>`;
                                 });
-                                h5 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">相关非因果：强英雄总最后倒，活着与赢自然相关。只标方向，不归因。</div>';
+                                h5 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">相关非因果：强英雄总最后倒，活着与赢自然相关，只标方向不归因。灰色的「噪声内」=阵亡局太少，统计上分不出真假。</div>';
                                 t5.innerHTML = h5;
                                 wrap.appendChild(t5);
                             }
@@ -348,7 +392,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                             const bad = pairs.filter(p => p.delta <= -8).slice(-3).reverse();
                             if (good.length || bad.length) {
                                 const t2 = document.createElement('div');
-                                t2.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                                t2.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
                                 let h2 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄搭配（组合胜率 vs 两人单独胜率均值）</div>';
                                 h2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                                 h2 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">组合</th><th>场次</th><th>组合胜率</th><th>各自均值</th><th>差值</th></tr>';
@@ -367,7 +411,7 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         const la = m.getLossAnalysis();
                         if (la && la.findings && la.findings.length) {
                             const t3 = document.createElement('div');
-                            t3.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow:hidden;';
+                            t3.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
                             const colorOf = k => (k === 'insufficient' || k === 'even') ? '#888' : '#ffb74d';
                             let h3 = `<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">败因分析（${la.losses} 败 / ${la.wins} 胜）</div>`;
                             h3 += '<div style="padding:6px;">';
@@ -380,20 +424,33 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         }
                     } catch (e) {}
 
-                    box.insertBefore(wrap, box.querySelector('textarea'));
+                    // 统计块永远排最前（原始文本折叠条在它下面）
+                    if (scroll.firstChild) scroll.insertBefore(wrap, scroll.firstChild); else scroll.appendChild(wrap);
                 } catch (e) { /* 统计失败不影响文本导出 */ }
             })();
 
             const ta = document.createElement('textarea');
             ta.value = text;
-            ta.style.cssText = 'flex:1;min-height:46vh;width:100%;box-sizing:border-box;background:#0f0f1a;color:#d8d8d8;border:1px solid #444;border-radius:8px;padding:10px;font-size:11px;font-family:monospace;line-height:1.5;resize:vertical;';
+            // 原来是 flex:1 + min-height:46vh——手机上它一个人吃掉半屏，下面的表全被挤没了。
+            // 现在默认折叠：手机上主要看表，原始 Markdown 很少需要盯着看（复制按钮直接用变量，
+            // 不依赖它可见）。更重要的一点——文本框自己有滚动，占着 45% 的滚动区，
+            // 手指落在文本框上只会滚文本框、带不动整页，这正是「滑不动」的另一半来源。
+            ta.style.cssText = 'flex:0 0 auto;height:30vh;min-height:110px;width:100%;box-sizing:border-box;background:#0f0f1a;color:#d8d8d8;border:1px solid #444;border-radius:8px;padding:10px;font-size:11px;font-family:monospace;line-height:1.5;resize:vertical;';
+            const rawToggle = document.createElement('button');
+            rawToggle.style.cssText = 'flex:0 0 auto;text-align:left;background:#22223a;color:#9ad0f5;border:1px solid #333;border-radius:6px;padding:7px 10px;font-size:11px;cursor:pointer;min-height:36px;';
+            const setRaw = (open) => {
+                ta.style.display = open ? 'block' : 'none';
+                rawToggle.textContent = (open ? '▾ ' : '▸ ') + '原始文本（Markdown，' + text.length + ' 字）';
+            };
+            setRaw(false);
+            rawToggle.onclick = () => setRaw(ta.style.display === 'none');
             const row = document.createElement('div');
-            // 固定在弹窗底部，避免内容过多时按钮被推到屏幕外
-row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;position:sticky;bottom:0;background:#1a1a2e;padding:8px 0;margin-top:auto;';
+            // 底栏不再 sticky（外层已是 flex 列，它天然贴底），并给 iPhone 底部横条留安全区
+            row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;';
             const mkBtn = (label, bg, fn) => {
                 const b = document.createElement('button');
                 b.textContent = label;
-                b.style.cssText = 'background:' + bg + ';color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;';
+                b.style.cssText = 'background:' + bg + ';color:#fff;border:none;padding:9px 12px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;min-height:40px;';
                 b.onclick = fn;
                 return b;
             };
@@ -401,39 +458,59 @@ row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wra
                 try { await navigator.clipboard.writeText(text); alert('已复制'); }
                 catch (e) { ta.select(); document.execCommand('copy'); alert('已复制'); }
             }));
-            row.appendChild(mkBtn('💾 下载', '#1565c0', () => {
+            // 文案改成「报告 / 明细」：原来一个叫「下载」一个叫「CSV」，
+            // 看不出区别（用户原话：下载个 CSV 有啥区别？）。现在按钮名即内容形态。
+            const mdBtn = mkBtn('💾 报告', '#1565c0', () => {
                 const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = '生涯记录-' + new Date().toISOString().slice(0, 10) + '.md';
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-            }));
-            row.appendChild(mkBtn('📊 CSV', '#8e44ad', async () => {
+            });
+            mdBtn.title = '汇总报告 .md：统计数字 + 判读结论，人看，或直接喂给 AI';
+            row.appendChild(mdBtn);
+            const csvBtn = mkBtn('📊 明细', '#8e44ad', async () => {
                 try {
                     const m = await import('./tools/52-career-log.js');
                     const csv = m.exportCareerCSV();
                     if (!csv) { alert('还没有生涯记录'); return; }
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
                     a.download = '生涯记录-' + new Date().toISOString().slice(0, 10) + '.csv';
                     document.body.appendChild(a); a.click(); a.remove();
                     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-                } catch (e) { alert('导出 CSV 失败：' + (e && e.message ? e.message : e)); }
-            }));
-            row.appendChild(mkBtn('🗑 清空', '#7f8c8d', async () => {
+                } catch (e) { alert('导出明细失败：' + (e && e.message ? e.message : e)); }
+            });
+            csvBtn.title = '原始明细 .csv：每局每人一行，Excel/WPS 打开做透视、画图';
+            row.appendChild(csvBtn);
+            // 清空：推到最左、降视觉权重，与右侧三个导出键拉开距离，避免误触
+            const clearBtn = mkBtn('🗑 清空', '#2a2a4e', async () => {
                 if (!confirm('⚠️ 确认清空全部 ' + count + ' 局生涯记录？此操作不可撤销！')) return;
-if (!confirm('再次确认：真的要清空吗？')) return;
+                if (!confirm('再次确认：真的要清空吗？')) return;
                 try {
                     const m = await import('./tools/52-career-log.js');
                     m.clearCareerRecords();
                 } catch (e) {}
                 overlay.remove();
                 alert('已清空');
-            }));
-            row.appendChild(mkBtn('关闭', '#555', () => overlay.remove()));
-            box.appendChild(title); box.appendChild(ta); box.appendChild(row);
+            });
+            clearBtn.style.cssText += 'margin-right:auto;background:#2a2a4e;color:#c98b8b;border:1px solid #4a3a3a;font-weight:normal;';
+            row.insertBefore(clearBtn, row.firstChild);
+            // 两种导出的差别写在底栏上方——不用点开猜，也不用长按看 title。
+            // 拆成两行：一行塞两个说明在手机上会断在词中间（"原/始表"）
+            const note = document.createElement('div');
+            note.innerHTML = '<div><b style="color:#7fb3e8">💾 报告</b> = 汇总解读，人看或喂 AI</div>'
+                + '<div><b style="color:#c8a2e8">📊 明细</b> = 每局每人原始数据（约 ' + (count * 10) + ' 行），Excel 用</div>';
+            note.style.cssText = 'font-size:10px;color:#777;line-height:1.65;';
+            const footer = document.createElement('div');
+            footer.style.cssText = 'flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid #2a2a4e;padding-bottom:env(safe-area-inset-bottom,0px);';
+            footer.appendChild(note);
+            footer.appendChild(row);
+            scroll.appendChild(rawToggle);
+            scroll.appendChild(ta);
+            box.appendChild(header); box.appendChild(scroll); box.appendChild(footer);
             overlay.appendChild(box);
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
             document.body.appendChild(overlay);

@@ -1,4 +1,13 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V3.6.0 | 2026-10-29 海克斯表不再显示英文键：主列只放中文名，英文 key 挪进 title 悬浮提示。
+//   表格是给人看的，用户认的是「惑人心智」而不是 mindControl；要对照日志时停一下鼠标仍能看到 key。
+//   文本报告保留 key（喂 AI / 排障时有用），只有界面收干净。
+// V3.5.0 | 2026-10-29 两条「别让最该看的被埋掉」：
+//   ① 告警/复核同级内按严重度降序（magOf 取文案里最大 ±Npp）。以前同级只按规则序号排，
+//      同是「需要处理」时 3pp 和 30pp 一样重，真正的问题被一堆小偏差压在下面。
+//   ② 弱精英表逐行标注 138 的独立测量（↔138 +Npp·一致/不一致⚠️）。112 与 138 是同一件事
+//      的两份互不依赖的测量（都是配对实验），方向相反说明至少有一份的测量有问题——
+//      不交叉印证就等于把两个可能互相打脸的数字摆在两页纸上。
 // V3.4.0 | 2026-10-28 新增「总览结论」(summarize)：把分散在各规则的判读汇成一句话——
 //   ① 整体偏向（明教实际胜率 vs 理想线 35%）；② 数据可信度（健康项有几处红/黄）；
 //   ③ 最该看的一条（按优先级排的第一条告警）。打开面板第一眼就能看懂，不要求懂统计。
@@ -84,7 +93,7 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.4.0';
+export const VER = 'tools/126-balance-alert.js V3.6.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
@@ -348,7 +357,9 @@ function coverageIssues() {
         });
         if (missName.length) out.push({
             sev: 'warn', title: `108 缺「中文名」映射的海克斯 ${missName.length} 个`,
-            detail: missName.map(k => nameOf(k) + `（${k}）`).join('、') + ' —— 表里会直接显示英文 key。'
+            detail: missName.map(k => nameOf(k) + `（${k}）`).join('、') +
+                ' —— 108 的 HEX_NAME_MAP 是手工表；V6.6.4 起已用 content 官名兜底，表里不会显示英文，'
+                + '但漏登意味着该海克斯缺少手写的战术解读，建议补进 108 的 HEX_NAME_MAP / 127 的 HEX_NAMES。'
         });
     }
     return out;
@@ -1126,8 +1137,8 @@ if (!document.getElementById('balAlertStyle')) {
     const style = document.createElement('style');
     style.id = 'balAlertStyle';
     style.textContent = `
-.bal-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center}
-.bal-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(960px,95vw);max-height:90vh;display:flex;flex-direction:column;padding:14px}
+.bal-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom,0px)}
+.bal-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(960px,95vw);max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;padding:14px}
 .bal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .bal-head h1{color:#ffd700;font-size:19px;margin:0}
 .bal-box button{padding:8px 14px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:12px}
@@ -1351,7 +1362,7 @@ function buildJSON(d) {
 function absTableHtml(sec, title, colP) {
     if (!sec) return '';
     const cov = sec.coverage && sec.coverage.emptyCells > 0
-        ? `<span class="bal-weak" style="font-size:11px;font-weight:normal">　⚠️ 覆盖 ${sec.coverage.cells - sec.coverage.emptyCells}/${sec.coverage.cells} 格</span>`
+        ? `<span class="bal-weak" style="font-size:11px;font-weight:normal">&nbsp;⚠️ 覆盖 ${sec.coverage.cells - sec.coverage.emptyCells}/${sec.coverage.cells} 格</span>`
         : '';
     let h = `<div class="bal-sec"><h3 style="color:#4fc3f7">${title}（理想线 ${pct(sec.target)}）${cov}</h3>`
         + `<table><tr><th>精英</th><th>场次</th><th>${colP}</th><th>偏离</th><th>打法 活/打/吃</th><th>逐关走势</th><th>判读</th></tr>`;
@@ -1382,7 +1393,7 @@ function absTableHtml(sec, title, colP) {
 function weakTableHtml(sec, cc138) {
     if (!sec) return '';
     let h = '<div class="bal-sec"><h3 style="color:#4fc3f7">弱精英（Δ = 弱精英臂 − 同种子自然对照）'
-        + (cc138 ? `<span class="bal-dim" style="font-size:11px;font-weight:normal">　· 已与 138 配对实验交叉印证</span>` : '')
+        + (cc138 ? `<span class="bal-dim" style="font-size:11px;font-weight:normal">&nbsp;· 已与 138 配对实验交叉印证</span>` : '')
         + '</h3>'
         + '<table><tr><th>弱精英</th><th>侧</th><th>场次</th><th>胜率</th><th>自然对照</th><th>Δ</th><th>判读</th></tr>';
     for (const r of sec.rows) {
@@ -1491,7 +1502,9 @@ function openBalanceAlert() {
                     : az >= TH.Z_ALERT ? `<span class="bal-bad">显著${r.z > 0 ? '偏强' : '偏弱'}</span>`
                         : az >= TH.Z_WARN ? `<span class="bal-weak">${r.z > 0 ? '偏强' : '偏弱'}</span>`
                             : '<span class="bal-good">正常</span>';
-                html += `<tr><td class="l">${r.name}<span class="bal-dim"> ${r.key}</span></td><td>${r.n}</td><td>${pct(r.p)}</td>`
+                // V3.6.0：英文 key 从表里挪到悬浮提示。表格是给人看的，用户认的是「惑人心智」
+                //   不是 mindControl；要对照日志时鼠标停一下仍能看到 key。
+                html += `<tr><td class="l" title="内部键名：${r.key}">${r.name}</td><td>${r.n}</td><td>${pct(r.p)}</td>`
                     + `<td class="${r.diff > 0 ? 'bal-weak' : 'bal-good'}">${signed(r.diff)}</td>`
                     + `<td class="${ok ? 'bal-dim' : ''}">${ok ? '—' : r.z.toFixed(2)}</td><td>${verdict}</td></tr>`;
             }
@@ -1502,7 +1515,9 @@ function openBalanceAlert() {
         html += absTableHtml(d.elit.natural, '主表·自然出场', '带队胜率');
         html += absTableHtml(d.elit.solo, '强精英（单核）', '单挑胜率');
         html += absTableHtml(d.elit.boss, 'Boss·张无忌（单核）', '单挑胜率');
-        html += weakTableHtml(d.elit.weak);
+        // 弱精英表读 138 落盘的独立测量做交叉印证（V3.5.0）：两份互不依赖的测量同向才算数
+        const cc138 = read138Contrib();
+        html += weakTableHtml(d.elit.weak, cc138);
         // 海克斯两两组合（V2.5.0）
         if (d.pair) {
             html += '<div class="bal-sec"><h3 style="color:#4fc3f7">海克斯两两组合（共检验 ' + d.pair.tested + ' 个，'
@@ -1534,7 +1549,7 @@ function openBalanceAlert() {
                 + '<p class="bal-no">工具读不到你改了什么参数、什么时候改的。归因请对照「记录-更改履历.md」或 git 提交。</p>';
             for (const sec of d.trend.sections) {
                 html += `<h3 style="color:#9ad0f5;margin-top:10px">${sec.label}`
-                    + `<span class="bal-dim" style="font-weight:normal;font-size:11px">　${new Date(sec.prevTs).toLocaleString('zh-CN')} → ${new Date(sec.curTs).toLocaleString('zh-CN')}</span></h3>`;
+                    + `<span class="bal-dim" style="font-weight:normal;font-size:11px">&nbsp;${new Date(sec.prevTs).toLocaleString('zh-CN')} → ${new Date(sec.curTs).toLocaleString('zh-CN')}</span></h3>`;
                 html += '<table><tr><th>精英</th><th>上次</th><th>本次</th><th>变化</th><th>判读</th></tr>';
                 for (const r of sec.rows) {
                     const v = r.delta === null ? '<span class="bal-dim">缺数据</span>'

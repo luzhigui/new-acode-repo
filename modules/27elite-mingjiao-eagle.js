@@ -1,6 +1,4 @@
 // modules/27elite-mingjiao-eagle.js — 明教精英「雄鹰」：组件工厂（carry 海克斯召唤·飞行）
-// V1.0.1 | 2026-10-19 | ~4200 bytes
-//          让 render/39 把账本 _acted=false 同步进 store 并清 _renderActed 镜像（修「被恢复者格子不绿」）
 export const VER = 'modules/27elite-mingjiao-eagle.js V1.0.1';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { spawnUnit } from '../core/05battle-horse.js';

@@ -1,6 +1,4 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.5.8 | 2026-10-24 | ~33000 bytes
-//   V1.5.8：DASH 的 fx 步固定传 slowMotion:true（冲刺永远子弹时间，不受华丽/简单开关控制）
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
 // 并在 infra/56 的 STAGE_ACTION_TYPES 登记。
@@ -13,7 +11,7 @@ import { markGridShake } from './32grid-cells.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.7.2';   // V1.7.2 IMMUNE 破罩演出改不 await 并行加载（真机首载阻塞实锤）
+export const VER = 'render/39-actions-defs.js V1.7.2';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。

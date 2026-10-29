@@ -1,7 +1,3 @@
-// V6.2.6 | 2026-10-28 | ~6.3 KB | generateBuffChoices 补第 4 参 enemyTeam 并透传给 filterAvailableBuffs
-//          （此前恒为 [] → 惑人心智门槛 enemyTeam.length<=2 永远成立，该项在所有选卡路径恒被剔除）
-// V6.2.5 | 2026-10-16 | ~5300 bytes
-//          （拒马/幼狮/雄鹰等召唤物都算人，与 core/04 applyUnityBonus 同口径）时才可能进入候选
 export const VER = 'modules/28buff-tools.js V6.2.6';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

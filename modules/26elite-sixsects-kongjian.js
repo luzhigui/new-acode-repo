@@ -1,5 +1,4 @@
 // modules/26elite-sixsects-kongjian.js — 少林精英「空见」：金刚不坏 / 逗你玩
-// V1.0.0 | 2026-10-23 | ~4800 bytes
 // 五个条件各触发一次（共 5 次），每次为随机一名无护罩的友方（含自身）施加「免疫一次伤害」护罩；
 // 5 次用完后升级：此后每回合开始自动施加一次。
 // 触发时只入待发队列，AFTER_ATTACK（整组攻击含溅射/追击/双击全部打完）统一发出，避免被流星赶月二段打掉。
@@ -10,7 +9,7 @@ import { eventBus } from '../infra/50-event-bus.js';
 import { SIGNAL_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { pushSkillAnnounce } from './23elite-helpers.js';
 
-export const VER = 'modules/26elite-sixsects-kongjian.js V1.1.0';   // V1.1.0 reason 文案加长（fx 按前缀「金刚不坏」判断）
+export const VER = 'modules/26elite-sixsects-kongjian.js V1.1.0';
 
 // 触发监听排在常规 afterDamage 之后（吸血/嗜血/乘风等在 20~35），保证溅射受伤也记进待发队列
 const TRIGGER_PRIORITY = 55;

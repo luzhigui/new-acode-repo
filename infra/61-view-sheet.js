@@ -1,4 +1,3 @@
-// V1.2.0 | 2026-10-12 | ~2500 bytes
 // 视图表新增 _renderActed（已行动的视觉镜像，老板拍板收口）：fx/82、fx/85 起跳/收尾的「立即变灰」改写本表，不再直写账本语义字段 state._acted——步末 syncStoreFromStep 的引擎真值覆盖自愈机制保持，表现层零语义污染（09-19 裁决落地）
 // 写：dispatch hook 里 applyActionToView 按 action 类型写入；读：render/fx/player 走 getView
 export const VER = 'infra/61-view-sheet.js V1.2.0';

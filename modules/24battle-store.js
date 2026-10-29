@@ -1,6 +1,5 @@
 // modules/24battle-store.js — 战斗 Store（reducer + 单位事件应用）
 // 妆造字段不存 units：SET_FLASH / CLEAR_* 只换 units 引用触发重绘，妆造走 infra/61-view-sheet。
-// V6.1.0 | 2026-09-23 | ~7200 bytes
 export const VER = 'modules/24battle-store.js V6.1.0';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';

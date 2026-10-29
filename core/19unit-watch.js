@@ -1,4 +1,3 @@
-// V6.1.0 | 2026-09-10 | ~3800 bytes
 // 单位状态观察裁判：机制登记"关心谁+条件+回调"，状态一变统一重判
 // 用法：机制调用 watchUnit(unit, checkFn, onChange)，checkFn 返回布尔，条件翻转时触发 onChange。
 // 裁判内部只订阅 SIGNAL_TYPES.ON_UNIT_STATE_CHANGE 一个信号，所有状态变化源自动兜住。

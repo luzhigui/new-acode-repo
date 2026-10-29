@@ -1,6 +1,4 @@
 // modules/25elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
-// V6.1.1 | 2026-10-16 | ~10600 bytes
-//           修「鹤笔翁出手 → 鹿杖客不跟随」——两条 linkAttack 声明同源同优先级被误去重，只留了鹿杖客那条
 export const VER = 'modules/25elite-imperial.js V6.1.1';
 
 import { registerElite, registerLinkPartners } from '../core/08-registry-elite.js';

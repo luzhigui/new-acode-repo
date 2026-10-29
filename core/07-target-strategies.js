@@ -1,5 +1,4 @@
 // core/07-target-strategies.js
-// V1.2.0 | 2026-10-17 | ~4400 bytes
 // 与 registerDodgeRule 同模式：策略按注册顺序跑，第一个非 null 胜出。
 // 声明层（BEFORE_SELECT_TARGET）优先于本表——声明给出 targetResult 时根本不会进本表。
 export const VER = 'core/07-target-strategies.js V1.2.0';

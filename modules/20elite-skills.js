@@ -1,7 +1,6 @@
 // modules/20elite-skills.js — 精英技能公共实现（小昭蛛变/飞天/蛛袭、乾坤减伤、永久海克斯查询）
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
-// V6.3.2 | 2026-10-22 | ~15500 bytes
 export const VER = 'modules/20elite-skills.js V6.3.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';

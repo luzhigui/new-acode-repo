@@ -1,5 +1,4 @@
 // render/38-actions-translate-heal.js — fact → stageAction 翻译器·回血族（38 拆分）
-// V1.0.0 | 2026-10-13 | ~5000 bytes
 import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/38-actions-translate-heal.js V1.0.0';
 

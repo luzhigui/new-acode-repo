@@ -1,5 +1,4 @@
 // modules/27elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
-// V1.2.1 | 2026-10-21 | ~11500 bytes
 export const VER = 'modules/27elite-mingjiao-zhangwuji.js V1.2.1';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/03battle-utils.js';

@@ -1,4 +1,9 @@
 // ===== ../tools/108-hex-dashboard.js =====
+// V6.6.4 | 2026-10-29 海克斯名不再可能显示成英文：
+//   HEX_NAME_MAP 是本文件的手工表（与 127 的 HEX_NAMES 重复维护），漏登一个新海克斯，
+//   表头/下拉/模式对比就退化成 mindControl 这种英文键。新增 hexLabel(k)：content 官名 → 本表 → key，
+//   与 52 的 hexLabel、126 的 nameOf 同一条链。126「表里会直接显示英文 key」的告警仍看本表完整性，
+//   所以兜底不会把「忘记登记」这个信号藏掉。
 // V6.6.3 | 2026-10-28 模式对比表重做「尺子」（V6.6.2 那版拿全场总胜率当 Δ 基准 → 15 张全虚高、满屏 +，作废）：
 //   根因：拿过海克斯的局活得更久、天生更容易赢（常规 3500 场总胜率 39.9%，海克斯持有局平均 ~48%），
 //   总胜率当尺子必然全员为正。现在两把尺子各管各的问：
@@ -48,7 +53,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.6.3';
+export const VER = 'tools/108-hex-dashboard.js V6.6.4';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -75,7 +80,7 @@ if (!document.getElementById('hexDashStyle')) {
   style.id = 'hexDashStyle';
   style.textContent = `
 .hex-hex-mask{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center}
-.hex-hex-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(900px,94vw);max-height:88vh;display:flex;flex-direction:column;padding:16px}
+.hex-hex-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(900px,94vw);max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;padding:16px}
 .hex-hex-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .hex-hex-head h1{color:#ffd700;font-size:20px;margin:0}
 .hex-hex-close{background:#444;color:#ccc;border:none;border-radius:8px;padding:6px 14px;font-weight:bold;cursor:pointer;font-family:monospace}
@@ -99,7 +104,7 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-body{overflow:auto;flex:1}
 .hex-hex-link{color:#ffd700;cursor:pointer;text-decoration:underline;font-weight:bold}
 .hex-hex-detail-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10001;display:flex;align-items:center;justify-content:center}
-.hex-hex-detail-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(560px,92vw);max-height:86vh;display:flex;flex-direction:column;padding:16px}
+.hex-hex-detail-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(560px,92vw);max-height:86vh;max-height:86dvh;display:flex;flex-direction:column;padding:16px}
 .hex-hex-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .hex-hex-hero{display:flex;align-items:center;gap:12px}
 .hex-hex-hero .icon{font-size:40px}
@@ -274,6 +279,16 @@ const HEX_NAME_MAP = {
   lastStand: '背水一战',
   unity: '众志成城'
 };
+
+// V6.6.4：上面是手工表，漏登一个新海克斯就退化成英文 key（表里出现 mindControl）。
+//   补一层 content 官名兜底，与 52 的 hexLabel / 126 的 nameOf 走同一条链：
+//   content 官名 → 本表 → 兜底 key。126 那边「表里会直接显示英文 key」的告警仍看本表完整性，
+//   所以这层兜底不会把「忘记登记」这个信号藏掉。
+function hexLabel(k) {
+  if (!k) return '';
+  if (HEX_NAME_MAP[k]) return HEX_NAME_MAP[k];
+  try { return (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || k; } catch (e) { return k; }
+}
 
 // 版本卡片：kind 0=普通版 / 1=姐姐强化版 / 2=妹妹永久版
 //   文案统一由 HEX_DETAIL 按档给出；未登记的新海克斯退回 content 官方描述，绝不显示英文键名。
@@ -763,7 +778,7 @@ function renderModeCompare(box) {
     + `<td style="color:#888">尺子<div class="cell-sub">常规海克斯平均 ${modeHexAvg.normal !== null ? modeHexAvg.normal.toFixed(1) + '%' : '—'}</div></td>`
     + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
   for (const r of rows) {
-    html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${HEX_NAME_MAP[r.key] || r.key}</td>`
+    html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${hexLabel(r.key)}</td>`
       + CMP_MODES.map(m => rateTd(r.cell[m])).join('')
       + deltaTd(r.cell.normal, modeHexAvg.normal)
       + netTd(r.cell.sister, r.cell.normal, OFF.sister, '仅姐姐')
@@ -807,7 +822,7 @@ function renderCrossStage(box, keepKey) {
     box.innerHTML = '<p style="color:#888;margin-top:12px">还没有任何关卡/模式的榜数据。先跑一批再来。</p>';
     return;
   }
-  const name = k => HEX_NAME_MAP[k] || k;
+  const name = hexLabel;
   const keysArr = [...allKeys].sort((a, b) => name(a).localeCompare(name(b), 'zh'));
   const selKey = (keepKey && keysArr.includes(keepKey)) ? keepKey : keysArr[0];
 
@@ -934,7 +949,7 @@ function render(summary, stats) {
     const posPct = diff !== null && diff > 0 ? Math.min(diff / diffScale * 50, 50) : 0;
     const negPct = diff !== null && diff < 0 ? Math.min(Math.abs(diff) / diffScale * 50, 50) : 0;
 
-    rows.push({ key, name: HEX_NAME_MAP[key] || key, count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag });
+    rows.push({ key, name: hexLabel(key), count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag });
   }
 
   // 2026-10-14 按胜率从高到低排（同率时出场多的在前，次序稳定）

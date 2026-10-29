@@ -1,8 +1,8 @@
 // modules/29battle-init.js — 双方阵容生成（精英分层 / 弱精英混入 / 站位锚点）
-// 明教精英分层：Boss（张无忌）独掷，出 Boss 最多再配 1 个（强 70%/弱 30%）；无 Boss 时强精英 90% 出 1、10% 出 2，
-//   弱精英独立 30% 混入。骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-// V7.6.3 | 2026-10-22 | ~33500 bytes
-export const VER = 'modules/29battle-init.js V7.6.3';
+// 明教精英分层：Boss（张无忌）20% 独掷；Boss 局 30% 独走 / 20%带1强 / 25%带1弱 / 15%带2弱 / 10%带1强1弱；
+//   无 Boss：必出 1 强，40% 独走 / 40%带1弱 / 10%带2弱 / 10%双强。弱精英池 = 杨逍/殷天正。
+//   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
+export const VER = 'modules/29battle-init.js V7.6.6';
 
 import { CONFIG, getGameData } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -45,12 +45,14 @@ export function initBattleTeams(currentStage, _rng) {
     const PICK_TO_ELITE = { zw: '张无忌', wy: '韦一笑', xz: '小昭', xm: '小昭' };
     const rate = { ...eliteRate };
     if (pickKey && PICK_TO_ELITE[pickKey]) {
-        rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 5;
+        // 2026-10-29 老板口径：图鉴加成 = 出场率 ×1.2（如张无忌 20% → 24%）。
+        //   原 ×5 占位会把张无忌顶成 100%（0.20×5=1.0，掷点必中）。rate 当前仅 hasBoss 一掷消费。
+        rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 1.2;
     }
 
     // ── 明教精英分层重写（老板口径：限强度、保趣味）──
-    //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（30%）独立掷；出 Boss 时最多再配 1 个（强 70% / 弱 30%）
-    //   无 Boss：强精英 90% 出 1 / 10% 出 2（绝不 3）；弱精英独立 WEAK_ELITE_MIX_RATE（30%）混入，总数 ≤ 3
+    //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（20%，content.roster.eliteRate）独立掷；带人分布见文件头
+    //   无 Boss：必出 1 强，40% 独走 / 40%带1弱 / 10%带2弱 / 10%双强，总数 ≤ 3
     //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒由弱升强，与前者同级）
     //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
     //   RNG 流纪律（PVP 双端同源）：骰子全部无条件消耗，force 只改「是否应用」，不改消耗序列。
@@ -397,7 +399,13 @@ export function initBattleTeams(currentStage, _rng) {
                 // 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
                 // 第二道防线：tags 里直接写「标枪」也认（role 字段丢失时不至于回落到随机四选一）
                 const chNamed = getGameData()?.characters?.[name];
-                const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+                let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+
+                // 何太冲双修：取消固定远程，在远程和战士之间随机摇（RNG 走 _rng，保联机同步）
+                if (name === '何太冲') {
+                    tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
+                }
+
                 if (tagRole) role = tagRole;
                 let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
@@ -425,7 +433,13 @@ export function initBattleTeams(currentStage, _rng) {
             //   （此前这里只掷 C.ROLES 随机四选一，M104 池抽到唐文亮会给错职业）
             const chNamed = getGameData()?.characters?.[name];
             let role = C.ROLES[_rand(0, 3)];
-            const tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+            let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+
+            // 何太冲双修：与上方主建队路径同口径（V7.6.6 老板拍板补齐）——凑数池抽到也 50/50 摇
+            if (name === '何太冲') {
+                tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
+            }
+
             if (tagRole) role = tagRole;
             let extraUnit = new Unit(name, extraM, role, CAMP_TYPES.ENEMY);
             extraUnit.init(_rng); extraUnit.applyBonus();

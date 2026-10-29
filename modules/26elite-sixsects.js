@@ -1,5 +1,4 @@
 // modules/26elite-sixsects.js — 六大派精英注册入口（组件实现拆在 26elite-sixsects-*.js）
-// V6.26.1 | 2026-10-15 | ~2400 bytes
 export const VER = 'modules/26elite-sixsects.js V6.26.1';
 import { registerElite, registerLinkPartners } from '../core/08-registry-elite.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';

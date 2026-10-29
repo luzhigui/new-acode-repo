@@ -1,5 +1,4 @@
-﻿// V6.8.3 | 2026-10-22 | ~17500 bytes
-export const VER = 'core/15-skill-mechanisms.js V6.8.3';
+﻿export const VER = 'core/15-skill-mechanisms.js V6.8.3';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';

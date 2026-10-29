@@ -1,10 +1,12 @@
 // player/49battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
 // permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
+// V6.4.5 | 2026-10-29 | ~9.0 KB | 蓄意轰拳瞄准去掉联网限制（原 !netLinked 写死「联机不弹黑幕」）：
+//        本函数只在房主的引擎主循环里被调（player/42 L147），从机不跑引擎、不会弹窗；形参 netLinked 一并删除
 // V6.4.4 | 2026-10-28 | ~9.0 KB | handlePvpBuffSelection：六大派选卡补传「对方阵营(明教)存活」给
 //        generateBuffChoices，修惑人心智恒被剔除
 // V6.4.3 | 2026-10-19 | ~10600 bytes
-export const VER = 'player/49battle-flow.js V6.4.4';
+export const VER = 'player/49battle-flow.js V6.4.5';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -112,15 +114,15 @@ export async function handleFlyDirection(c, lastStep, currentRound) {
 //   旧版两个病根一并修掉：①华丽开关误读 c.dodgeEffectEnabled（不存在，恒 undefined）→ 改 GlobalStore.get；
 //   ②旧钩子搜 battleState（上一回合的旧克隆，_hlsCharging 停在 1）→ 弹窗永不触发 → 改搜 step.ally/enemy
 //   （本回合克隆，与引擎 generator 的 A/B 同引用——写入直达随后的 ON_ROUND_END 结算）。
-//   只在「华丽模式 + 玩家操控明教侧 + 非全自动/快进/联网」弹黑幕；其余一概跳过，引擎随机前排兜底。
-export async function handleHanlisaAimWindow(c, step, netLinked) {
+//   只在「华丽模式 + 玩家操控明教侧 + 非全自动/快进」弹黑幕；联网不再排除——只有房主跑引擎才进本函数，
+//   从机只播 step，瞄准结果随房主的 step 下发。其余一概跳过，引擎随机前排兜底。
+export async function handleHanlisaAimWindow(c, step) {
     try {
         if (!step || !step.hanlisaAimWindow) return;
         const pool = [...(step.ally || []), ...(step.enemy || [])];
         const hls = pool.find(u => u && u.isHanLiSa && u.alive && u.state && u.state._hlsCharging === 2);
         if (!hls) return;
         const interactive = hls.camp === CAMP_TYPES.ALLY
-            && !netLinked
             && !!GlobalStore.get('fxHanlisaAim')
             && !GlobalStore.get('fastForwardActive')
             && c.autoLevel !== 'full-auto'

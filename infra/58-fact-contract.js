@@ -1,4 +1,3 @@
-// V1.5.13 | 2026-10-20 | ~18900 bytes
 export const VER = 'infra/58-fact-contract.js V1.5.13';
 
 import { FACT_TYPES } from './56-battle-enums.js';

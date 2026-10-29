@@ -1,4 +1,3 @@
-// V6.4.5 | 2026-10-22 | ~19100 bytes
 export const VER = 'core/13battle-shared.js V6.4.5';
 
 import { CONFIG } from './01config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清

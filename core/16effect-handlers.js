@@ -1,5 +1,4 @@
-// V6.1.3 | 2026-10-21 | ~16900 bytes
-export const VER = 'core/16effect-handlers.js V6.2.0';   // V6.2.0 溅射破罩 SKILL_ANNOUNCE 捎带 shieldBreak/shieldTargetUid（碎裂演出通道）
+export const VER = 'core/16effect-handlers.js V6.2.0';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './13battle-shared.js';

@@ -1,5 +1,4 @@
 // render/38-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
-// V1.0.6 | 2026-10-19 | ~23600 bytes
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { makeHealAction } from './38-actions-translate-heal.js';

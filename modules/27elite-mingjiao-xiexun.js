@@ -1,6 +1,4 @@
 // modules/27elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
-// V1.2.0 | 2026-10-18 | ~13800 bytes
-//           复用 SKILL_ANNOUNCE → SKILL_FLOAT 通道；此前只有战报行、无任何飘字）
 export const VER = 'modules/27elite-mingjiao-xiexun.js V1.2.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';

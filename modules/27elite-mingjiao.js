@@ -2,7 +2,6 @@
 // 编号 27 = 「明教精英」模块族，不是单文件序号；族内拆文件共享父号、用语义后缀区分。
 // 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
-// V7.3.0 | 2026-10-17 | ~6000 bytes
 export const VER = 'modules/27elite-mingjiao.js V7.3.0';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-registry-elite.js';
