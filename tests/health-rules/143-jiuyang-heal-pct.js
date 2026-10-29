@@ -1,6 +1,3 @@
-// V6.3.2 | 2026-10-28 第143轮续9：heal ≤ floor(终局maxHp×12%) 且非回退 ⇒ 降级为不可归因（maxHp 静默增长/未识别抑疗），
-//          只保留 heal>期望（比例调高/溢出）与 10%/8% 回退两个真信号为红。修 seed=3:6/5:1/20:1 三假红。
-// V6.3.1 | 2026-10-28 | ~11KB | gap<=0（hp>maxHp 异常态）时落地回血夹 0，修 d8a9cea8 后 6 场「缺口为负」假红
 // 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
 //       heal = min(floor(unit.maxHp × pct), unit.maxHp - unit.hp)，heal > 0 才推 NINE_YANG_HEAL 事实

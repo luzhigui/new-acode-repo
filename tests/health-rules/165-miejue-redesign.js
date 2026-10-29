@@ -13,8 +13,6 @@
 //   1) SUMMON_UNIT fact byName==='灭绝师太'：pos 必须在 1~9；summonName 必须含「周芷若」→ 召唤越界/对象错
 //   2) 反击渲染「伤害×R」：R 必须 == counterAttack.dmgRatio（全角括号，保留小数位比对）
 //   3) 三击渲染「回复 K 点，生命 H1 → H2」：K==H2-H1（落地值自洽）+ K>=0；leechRatio 公式值(fact声明侧)交由 stat-decl LEECH 契约验
-// V1.1.0 | 2026-10-23 判据3 落地值化：三击文案经 5de0846 refactor 改格式，旧 regex「回复本次伤害P%=K」恒不匹配⇒空转；
-//   改匹配新格式「回复 K 点[（治疗被削减）]，生命 H1 → H2」并验 K==H2-H1 自洽。修 rule165 三击盲区。
 // 误报规避：本场灭绝未出场（无 SUMMON_UNIT fact 且无相关渲染文案）直接 skip；getSkillParams 取不到跳过对应判据。
 export const VER = 'tests/health-rules/165-miejue-redesign.js V1.1.0';
 import { getSkillParams } from '../../core/01config-5v5-test.js';

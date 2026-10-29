@@ -33,10 +33,6 @@
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-// V6.1.17（2026-10-16 第 96 轮）：删判据5「leech 不得超过终局 maxHp」——引擎 core/16 LEECH handler
-//   有 Math.min(value, maxHp-hp) 夹取，fact 的 leechVal 是**意图值**，超终局 maxHp 合法（按缺口落地）；
-//   855d52c 上 seed=16 stage=3「+235>152」即此类误报。真 bug（夹取被删⇒hp 溢出）由 122 不变量
-//   「血量溢出」逐单位每场检查，覆盖不丢。
 export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.17';
 import { collectNodes, plain } from '../122health-utils.js';
 

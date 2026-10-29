@@ -1,7 +1,4 @@
 // tools/134-fetch-pool.mjs — 创意摸奖的「外部词条池」维护脚本（手动跑，不自动执行）
-// V1.0.0 | 2026-10-22 新建。本脚本不联网搜索（无搜索 API 凭据），只做两件事：
-//   ① --keywords 按日期轮换打印本批该搜的关键词组，人/AI 拿去搜；
-//   ② --add / --promote / --archive / --list 管理搜回来的词条，写进 134-idea-pool-additions.json。
 // 词条去向：134-idea-lab.html 启动时 fetch 这个 JSON，合并进对应维度的池子。
 //   规则：source 固定 'web'；新词条 tag='待确认'；人工过目后 --promote 标 '可用' 或 --archive 标 '归档'。
 //   归档的不删，组合时权重降到 0.3。

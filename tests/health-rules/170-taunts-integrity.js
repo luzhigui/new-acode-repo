@@ -21,9 +21,7 @@
 //      **漏补 taunts.蝴蝶**，于是小昭·姊一开口就 throw（fuzz 2100 场实测 3 类硬伤全是这一条，
 //      账本对照器也因此整体崩掉）。而①②都盯的是"角色名"这一层，职业层完全没人守 —— 覆盖面有洞。
 //      同款未爆雷一并照出：content.roles 里的「标枪」同样没有顶层池，只因唐文亮有专用池才没炸。
-// V1.1.0 | 2026-10-27 夜间第 140 轮新增判据③（职业池覆盖：ROLE_TYPES ∪ content.roles → 顶层 taunts
 //   attack+kill 双向非空）+ 自证断言（职业清单 ≥5 种，抽取器腐烂则报，不许恒绿）
-// V1.0.0 | 2026-10-16 第 97 轮新建（唐文亮线上事故 + 4 个同款雷同批排后立此规则长效盯守）
 export const VER = 'tests/health-rules/170-taunts-integrity.js V1.1.0';
 
 import { getGameData, loadGameData } from '../../core/01config-5v5-test.js';

@@ -1,13 +1,6 @@
-// V6.1.12 | 2026-10-28 | ~5.4KB | 附身转移比例改从 content butterflyAttach 读取（atkRatioRight/defRatioLeft，当前 0.4），不再写死 1/2
 // 回归规则：姐姐附身属性叠加 — 修复后基于 _baseAtk/_baseDef 转移，不重复计算 Buff
 // 复发信号：附身转移值 atkTransfer/defTransfer != 方向对应基础值份额（含 Buff 加成，回退到直接操作 atk/def）
 // 对应已修 Bug：姐姐附身属性叠加（直接操作 atk/def 导致 Buff 重复计算）
-// V6.1.12 口径修正（d8a9cea8 调参导致判据漂移假红）：
-//   d8a9cea8 把 butterflyAttach 的 atkRatioRight/defRatioLeft 由 0.5 调到 0.4，旧判据写死
-//   floor(_base/2)=0.5 ⇒ 14 场「转移值 != 0.5 份额」假红。现改为**从 content 读比例**（单一真源）：
-//   content 再调参也不假红；若引擎仍用原始 atk/def（不回退到 _base*ratio）则依旧会抓。
-//   方向：(右向) 攻=floor(_baseAtk*atkRatioRight)、防=0；(左向) 攻=0、防=floor(_baseDef*defRatioLeft)。
-//   比例缺失（content 未配）即 return 'skip'（口径不明不硬判，避免拿默认值二次造数）。
 import { getSkillParams } from '../../core/01config-5v5-test.js';
 
 export const VER = 'tests/health-rules/127-butterfly-stack.js V6.1.12';

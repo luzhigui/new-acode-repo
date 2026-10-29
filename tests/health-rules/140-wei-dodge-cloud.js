@@ -3,13 +3,6 @@
 // 复发信号：战报出现"流云身法"且末年仍挂在我方，但面板函数返回的 sources 里没有「流云身法」
 //          → 闪避面板（含韦一笑详情面板）不显示流云加成，也不计入合计
 // 对应已报 Bug：韦一笑闪避面板没有考虑流云，有了流云也不显示不加
-// V6.1.0 口径重写（2026-09-25）：原实现断言 unit.buffDodgeBonus > 0 —— 该字段是 V6.1.1 词条化时
-//   剥离掉的顶层字段，全库已无写入源，规则因此必然报假（永远读到 0）；面板已改走
-//   computeBuffStats().dodgeBonus 现算。本规则改为直接调用被测函数本身，不再复制产品侧实现口径
-//   （复制实现 = 产品改了规则不改就一起假绿，正是本次漏检的成因）。
-// V6.1.1（2026-10-29 第 135 轮）：加数据就绪防御 —— CONFIG.BUFFS getter 内部走 getGameData()，
-//   游戏数据未就绪时返回 null，getDodgeBreakdown 抛「Cannot read properties of null (reading 'buffs')」
-//   被 catch 吞成「面板函数异常」红条（10-29 关卡4实录）。147/148 都有同款防御，此处补齐：未就绪 skip 宁漏勿误。
 export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.1.1';
 
 import { getDodgeBreakdown } from '../../render/32-grid-render.js';

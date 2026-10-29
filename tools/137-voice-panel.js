@@ -1,8 +1,6 @@
 // tools/137-voice-panel.js — 语音解说设置区（已从主游戏下线，存档待用）
 // 原路径 ui/73voice-panel.js，2026-10-25 从音乐面板移除。
 // 主游戏不再 import 本文件；日后若要重接入，在 tools 页面自行接线。
-// V1.2.0 | 2026-10-25 | 工具箱接线：补 openVoicePanel() 页内弹窗入口（配 102 语音卡片）
-// V1.1.0 | 2026-10-01 | ~5700 bytes
 import { getVoiceCfg, setVoiceCfg, listVoices, speakTest, stopCommentary, ttsAvailable } from './136-voice-commentary.js';
 
 export const VER = 'tools/137-voice-panel.js V1.2.0';

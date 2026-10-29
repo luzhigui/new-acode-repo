@@ -63,7 +63,7 @@ export async function showButterflyFlyOut(fromUnit, toUnit) {
     await clock.wait(300);
     butterfly.remove();
     toCell.classList.remove('pink-flash');
-    // 收尾不恢复 fromCell：保持缩小淡出的「离开态」，由 render/32 重绘接管画 🦋 占位格（见文件头 V6.2.0）
+    // 收尾不恢复 fromCell：保持缩小淡出的「离开态」，由 render/32 重绘接管画 🦋 占位格
 }
 
 /**
@@ -184,7 +184,7 @@ export async function showSpiderAscend(fromUnit) {
     spider.remove();
     ghost.remove();
     silks.forEach(s => s.remove());
-    // 收尾不恢复 fromCell：保持隐形「离开态」，由 render/32 重绘接管画 🕷️ 占位格（见文件头 V6.2.0）
+    // 收尾不恢复 fromCell：保持隐形「离开态」，由 render/32 重绘接管画 🕷️ 占位格
 }
 
 /**

@@ -5,7 +5,6 @@
 // 优势：readdirSync 自动遍历，不依赖任何手工清单（123 的 SCAN_FILES 需人工登记，新增文件易漏）。
 // 用法：node tools/118-import-export-check.mjs [仓库根目录]   （省略参数默认取本文件上一级）
 // 退出码：0 = 全部通过；1 = 存在问题
-// V1.0.0 | ~3700 bytes | 2026-09-22 由临时检查器收编进工具箱：补 export const VER、默认根目录与退出码
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';

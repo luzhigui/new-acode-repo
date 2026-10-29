@@ -2,7 +2,6 @@
 // 纯解析 + 字符串渲染，不碰 core、不读引擎状态：输入日志文本 / battleLog 条目，输出 HTML。
 //   样式统一 hex-log- 前缀，injectLogAnalyzeStyle() 幂等注入一次。
 // 两处消费：工具箱「日志复盘」（粘贴文本）、战报弹窗「走势分析」（直接喂内存 battleLog）。
-// V1.3.0 | 2026-10-13 | ~46400 bytes
 import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 export const VER = 'player/51-battle-log-analyze.js V1.4.0';

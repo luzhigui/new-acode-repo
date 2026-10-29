@@ -1,25 +1,4 @@
 // tests/param-read-guard.mjs V1.3.0 | 预估 ~12500 bytes
-// V1.3.0 | 2026-10-28 夜间第 146 轮：接 `_lib/static-truth-slice.mjs` V1.1.0（第四个受体）。
-//   ★ 本轮查出的取样面分叉（本文件内部就有两套口径，这是第 144 轮那条病换皮）：
-//     报「命中 getSkillParams 的文件 N 个」这一句，用的是
-//       `code.replace(/\/\/.*$/gm, '')`  —— 一条只认行注释、不认块注释、也不认字符串里 // 的野路子；
-//     而**真正在做抽取**的 extractFromFile 用的是 maskLiterals（保长度的注释+字符串屏蔽）。
-//     两处同一份口径两种算法 ⇒ 报出来的"命中"随时可能与抽取侧对不上：
-//       · 块注释里写了 `getSkillParams(` ⇒ 旧口径把它算成命中（虚高）；
-//       · 某行字符串里含 `//`（如 `const u = 'http://x'; getSkillParams(a,b);`）⇒ 旧口径把整行后半
-//         截掉，真读取点被吞（虚低）。
-//     修法：报的那一份改用公共件 auditAnchorSites 的真值口径（strip 视图），与抽取侧同源；
-//     同时把「注释里的伪写法」打成可打印的数字（今天实测 phantomLine=0 / phantomTail=0，
-//     旧口径 21 个 vs 真值口径 21 个 —— 两套口径今天恰好同数同集，属运气不是担保）。
-//   ★ 同时按第 145 轮给受体的接口挂 truthSelfCheck()：一处坏、多处喊。
-// V1.2.1 | 2026-10-18 第 101 轮：新增 ENGINE_READ_MANUAL 人工补充通道——params 作参数传进 helper 函数、
-//   在 helper 体内读字段的形态（实例：spiderFly.hpThresholds 经 decideSpiderTier(..., fp) 读），
-//   超出扫描器块作用域分析、会被误报「表陈旧」。比对按「扫描结果 ∪ 人工补充」算；每条人工登记须在
-//   glossary 注释里给出读取点文件:行 + 传递链。咬牙验证：删 eagleEye（非人工项）→ 报「表遗漏」EXIT=1；
-//   删 MANUAL 的 spiderFly → 精确冒回 hpThresholds 一条 stale-field EXIT=1（通道只静音那一个假阳性）。
-// V1.2.0 | 2026-09-29 参数单一真值源收口：新增第二侧校验 —— 复用 tests/health-rules/156 的
-//   checkDescTruth()，核对「技能说明里的数字 == mechanics 引擎真值」（core/01 DESC_TRUTH 映射）。
-//   两侧任一漂移都退出码 1。该侧需先垫 file:// fetch 并 loadGameData() 才能读到 content。
 // 2026-09-29 立；V1.1.0 增「孤儿登记」一侧：skills.params「引擎真读字段」漂移守卫 —— 静态扫全仓
 //   getSkillParams( 调用点，提取每个技能键被读的字段，与 tools/124-param-lab-glossary.js 的
 //   ENGINE_READ / ENGINE_READ_DYNAMIC / ENGINE_READ_NONE / ENGINE_READ_ORPHAN 双向比对。表一旦过时

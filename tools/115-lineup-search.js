@@ -1,9 +1,3 @@
-// V1.0.2 | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口
-// V1.1.0 | 2026-10-22 按 29 V7.6.x 现行规则重写：① 精英识别改从 127 ELITE_UNIT_META 取，
-//          补谢逊（29 2026-09-22 起在强精英池）与寒离飒（2026-10-22 由弱升强）；② 去掉写死的旧理论
-//          20/60/15/5（29 已删 eliteCount 轮盘），改为只报实际分布；③ 新增强制谢逊/强制寒离飒开关；
-//          ④ 弱精英（杨逍/殷天正）不再混进普通兵统计
-// V1.0.1 | 2026-10-02 补 import modules/30custom-effects（机制注册副作用），与其余战斗工具入口装配口径一致
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG } from '../infra/51-core-utils.js';

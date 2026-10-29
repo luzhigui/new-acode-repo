@@ -1,28 +1,4 @@
-// V6.7.3 | ~32400 bytes | 2026-10-25 第122轮（日间线合并）：tickAndPickBuffs 增加「小昭·妹永久海克斯继承」
-//   （对齐 player/49battle-flow.js L49-57 真路径）——此前回放不建永久副本，妹永久分支全不可达
-//   （isBrother=true 零发射实锤），详见 tickAndPickBuffs 内注释。叠加在夜间 129-133 轮成果之上。
-// V6.7.1 | ~32300 bytes | 2026-10-17 第97轮转交态修复：KNOWN_TRANSFERS 误用 fetch 垫片内的局部 fs
-//           变量（IIFE 作用域外未定义，try/catch 吞 ReferenceError → 空集 → ⚠️ 永不命中）→ 改 import
-//           node:fs 的 readFileSync 在模块作用域使用；张三丰×2 转交态现可正确标 ⚠️ 且不染红退出码。
-// V6.7.0 | ~32200 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
-//          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
-//          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 140/stat-decl 同口径。
-// V6.5.0 | 2026-10-02 第50轮·审核线：facts 映射缺口判据改为以 58 契约为准——spec.renderFn===null
-//          是契约明示「数值声明 fact 不进画面」（58:145，八卦阵/莽撞/雄狮振奋），旧判据只问
-//          getFactRenderer 把这 3 类合法 fact 误报 634 条；现仅「58 未登记」「声明渲染但未注册」算缺口。
-//          另把 render/33 启动自检的「死注册 / 声明未实现」（原只 console.error）收口计入退出码。
-// V6.4.1 | 2026-10-02 合并移植本机线第 24 轮：接入行动权不变量（122 checkActionRights）——每回合行动序列走完后核对，_acted=true 的活人必须有正常位记录；逐步/回合末「存活 hp<=0」对小昭附身态（state._butterflyHost 有值）精确豁免（与 _pendingDeath 豁免并行）
-// V6.4.0 | 2026-09-26 新增 fact 契约警告收集器：劫持 console.error 收 [fact契约] 缺字段警告，
-//          去重后计入不变量违规与退出码（此前这些警告只是控制台噪声，五件套全绿也看不到）。
-// V6.3.0 | 2026-09-26 生死/血量一致性改为按 `_pendingDeath` 对齐设计内中间态（依据见 assertInvariants 注释）：
-//          引擎致死统一挂 _pendingDeath 交 resolveDeaths 结算，「hp<=0 且 alive 仍 true」是**设计内中间态**
-//          而非缺陷，旧判据把该窗口当回归 → 5 条误报；现判据与引擎同源（alive && !state._pendingDeath），
-//          并新增「回合末仍存活但血空」兜底断言，覆盖"该结算的没结算"一类（不是放宽，覆盖面反而更准）。
-//          另修正头/码矛盾：此前这里写了"hp 整数"，但该断言早已因 11901 条假阳性被删除（自述见下）。
 // V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整，
-//          逐步断言（非终局快照），与机制规则分开报告并计入退出码。理由：中期越界后被修回的漂移
-//          终局快照抓不到，且不变量本就与具体机制无关、成本极低覆盖面最大。
-// V6.1.11 | 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）

@@ -1,14 +1,5 @@
 // tools/123-param-lab-worker.js — 参数对照实验台专属 Worker（不改 116，走 117 的 workerUrl 覆盖参数）
-// V1.3.0 | 2026-10-22 全局常量（CONFIG）补丁支持：135 扫「全局常量」时路径首段不在 gameData，
-//          原 applyPatchOps 必抛「路径不存在」；现按首段分流，CONFIG 就地改、换 arm 时还原。
-// V1.2.0 | 2026-10-22 供 135 参数扫描：lab-run 支持 stages 数组（一个 job 跑多关），
 //          arm 可为任意唯一串（换旋钮必还原重打补丁）；120 的 'base'/'patch' 用法不变。
-// V1.1.1 | 预估 2900 bytes | 2026-09-29 路径改名（原 120-param-lab-worker.js）；V1.1.0 补丁臂可切回：worker 池常驻，同一实例会先后跑基线臂与补丁臂，
-//          按 arm 变化决定「还原数据表」还是「还原后打补丁」，避免二次开跑时基线臂带着上一轮补丁。
-//          V1.0.0 | 2026-09-28 新建：结构照抄 116-role-balance-worker.js。
-//          两种 kind：
-//            · lab-sample → sampleStage 的精英组合列表（供页面取典型阵容）
-//            · lab-run    → 某阵容某区间的逐局胜负（基线臂 / 补丁臂）
 export const VER = 'tools/123-param-lab-worker.js V1.3.0';
 
 // Worker 环境兼容 shim：core 的模块体在无 DOM 全局时需 window/localStorage

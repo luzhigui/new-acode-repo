@@ -1,31 +1,3 @@
-// V1.7.0 | ~17200 bytes | 2026-10-19 参数护栏（同步夜间值班第 106 轮规格）：裸跑无参数曾把基线整盘重写
-//          （401 增/670 删 事故）——旧口径「无参数 = 全量重跑 + 写基线」，而全量重跑正是 --check 的日常用法，
-//          少打一个 --check 就毁基准。新口径：**写基线必须显式 --update**；无参数 = 打印用法 + exit 2（不跑不写）；
-//          --check 与 --update 互斥（一个只读比对、一个覆写）；--update 搭配场次过滤也拒（会写出不完整基线）。
-//          四分支实测：裸跑退 2 不写 / --check 退 1 正常 / --update 退 0 写入 / 互斥退 2。
-//          另修文档漂移：头部「18 场」→ 实际 24 场（6 种子 × 4 关）。
-// V1.6.1 | ~16400 bytes | 2026-10-13 镜像主代码「整局」海克斯口径：teardownPickBuffs 的 remaining 由
-//          def.duration||4 改为 def.permanent ? CONFIG.MAX_ROUND : (def.duration||CONFIG.BUFF_DURATION||4)，
-//          与 modules/28 createBuffObject 同源（圣火不熄 content permanent:true），免基线误判该 buff 过期。
-// V1.6.0 | ~16400 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
-//          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
-//          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 rules-replay/stat-decl 同口径。
-// V1.5.0 | ~13200 bytes | 2026-09-27 补团队 Buff 注入（经用户授权）：此前 activeBuffs 恒为 []，导致
-//          carry / 流星赶月 / 乘风突袭 / 流云身法等**由团队 Buff 门控的机制在 24 场基线里一场都跑不到**
-//          （覆盖缺口 —— 第 34 轮由 stat-decl-vs-actual-check.mjs 的 CARRY_APPLY 契约零触发而暴露）。
-//          现复刻回放器的确定性选 Buff（rules-replay.mjs L113-143：seed/round 轮转、**不消耗战斗 RNG**，
-//          故战斗随机序列不变、结果可复现）。BASELINE_NOBUFFS=1 可关回旧的无 Buff 行为以对照。
-//          ⚠ 口径说明：注入沿用回放器「明教/六大派各选一个」；而生产单机口径是**只给明教**
-//          （player/49 handleBuffSelection 默认 camp=ALLY）。该差异是历史遗留问题，不在本次改动范围内。
-// V1.4.0 | ~10800 bytes | 2026-09-25 修分类判据自身的缺陷：「预期变更」的依据提交原取**全部**提交
-//          （连 test(体检)/docs/chore 都算），基线后 266 条使判据恒真 → 分类形同虚设。现只取触达
-//          战斗代码（content/core/modules/render/fx/player/infra）的提交，并单列数值平衡类（content/）。
-// V1.3.0 | ~10200 bytes | 2026-09-25 --check 的 DIFF 改为二分：winner 翻转＝回归（红线，硬失败）；winner 未变
-//          且基线后业务侧确有提交可解释＝预期变更（单列提示重录，不硬失败）。旧版任何 DIFF 一律退码 1，
-//          导致每次有意调数值都被红线拦死，红线反而失去意义。
-// V1.2.0 | ~7600 bytes | 2026-09-22 修复 Windows 下 fetch file:// 路径（new URL(url).pathname → fileURLToPath）；新增 --check 模式（与基线逐场比对 winner/rounds/facts，有差异退出码 1）；吸收并取代临时 runner baseline-check.mjs / baseline-diff.mjs
-// V1.1.0 | 2026-09-上旬 曾短暂带 check 能力后回退（baseline-v1.json 内残留 version 字段为证），功能由临时 runner baseline-check.mjs 承担
-// V1.0.0 | 2026-08-26 建立 24 场（6 种子 × 4 关）确定性基线，供"零行为变化"重构做机器 diff
 // 运行：node tests/140-baseline.js --check       → 全量重跑并与基线比对，全部一致退出码 0，任一差异退出码 1（回归红线）
 //       node tests/140-baseline.js --update      → 全量重跑并重录基线文件 baseline-v1.json（业务有意变更后使用，需显式）
 //       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）

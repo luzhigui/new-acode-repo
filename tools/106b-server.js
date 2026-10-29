@@ -2,7 +2,6 @@
 // 无任何第三方依赖（仅 node 内置 http/fs/path），断网可用。把工具箱跑在 http://localhost 下，
 // 使 showDirectoryPicker 等需要 secure-context 的 API 正常工作（file:// 双击打开会被浏览器禁用）。
 // 启动后自动打开浏览器进入 102-toolkit.html。Ctrl+C 停止。
-// V1.0.0 | ~1600 bytes | 2026-09-13
 
 const http = require('http');
 const fs = require('fs');

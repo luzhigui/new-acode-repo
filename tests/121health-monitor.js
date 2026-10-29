@@ -1,45 +1,3 @@
-// V6.9.0 | 2026-10-27 订正 autoSpeedVal 与进体检默认倍速的注释口径（ui/77 V1.1.1 全局×2 后：4x 按钮=150、原速=300、
-//           8x=50、0.5x=800、取消档=400）；逻辑一行未动（仍点 btnSpeed4x）。档位判定本体已由 122 V6.7.0 跟齐。
-// V6.8.0 | 2026-10-26 撤销第 142 轮对规则 158 的退役：吸收夜间第 139 轮的重写版（fx:[{kind,amount}] 结构判据，
-//           同源性改为 fx.amount⊂正文 + kind 合法 + amount 有限正数），规则名更名「飘字fx数值对账(契约)」。
-//           重写优于退役——去锚定化只是把飘字从文本锚点换成数值结构，风险形态变了风险本身没消失。import+allRules 两处回填。
-// V6.7.0 | 2026-10-26 退役规则 158（飘字锚点对齐）：去锚定化重构后 fxAnchors 字段全仓清零，该规则因 anchored===0 恒返 'skip'（假绿）
-//           已从 import + allRules + 静态扫描注册三处摘除；防回归改由 123static-scan 的 deadFxAnchors 槽位真扫全仓（含 render/35-*），比恒 skip 更可靠。
-// V6.6.0 | 2026-10-26 接 facts 进浏览器体检：runRuleChecks 现把 battleLog 递归展平的原始 fact 流作为第 7 参传给 rule.test，
-//           消除 159/132/160-165 共 8 条事实级规则在浏览器侧静默降级到文案兜底（此前只传 6 参，facts=undefined）的缺口。
-// V6.5.0 | ~59300 bytes | 2026-10-18 新增全局运行时错误捕获：挂 iframe window 的 error / unhandledrejection，
-//           未捕获报错（漏 import / 未定义符号）当场写入体检报告，不再依赖肉眼看控制台。
-// V6.4.5 | ~57900 bytes | 2026-10-21 第 114 轮登记 171 唐文亮冲刺落地验证（rule171：import + allRules 两处同补）
-// V6.4.4 | ~57600 bytes | 2026-10-17 修「体检页进不去」：170 规则的 import 名单误用 rule114，而该文件
-//           导出名是 rule170（按文件号）——ESM 具名导入不存在 ⇒ 121 整模块链接失败 ⇒ initMonitor 不执行、
-//           「体检入口 / 实时跟跑」按钮全无监听、点了没反应。改别名导入（rule170 as rule114，同 156 先例）。
-// V6.4.3 | ~57500 bytes | 2026-10-09 进体检默认改「调试模式 + 4 倍速」，且改走游戏按钮路径（debugToggle.click + btnSpeed4x.click）：
-//          原直接写 GlobalStore 时，非调试模式下 4x/8x 按钮组 display:none → 高亮加在隐藏按钮上，界面「当前倍速」全灭且无报错；
-//          按钮路径顺带把 ui/68 的 manualSpeedValue 锁到 300（跨场保持）；配合 122 V6.1.19 新增 checkSpeedButtonStates 实时检查。
-// V6.4.2 | ~55200 bytes | 2026-10-07 并入本地未提交的 UI 类收口（配合 122 V6.1.18）：checkMeleeFxState 传实时队伍（teams.ally/enemy）、
-//          换位稳定性改用 getCellByUid 按 uid 定位（弃 getCellElement 的 pos 反查）。与远端 V6.4.1 合并时仅注释冲突，注释取远端口径。
-// V6.4.1 | ~48900 bytes | 2026-10-07 起始关默认 3→2、手动体检默认 4 倍速（300，老板拍板）；模式按钮同步改走 __DSH_TEST_API__.syncAutoModeButton
-//          （原 w.updateAutoModeButton 从未挂 window = 无效应，按钮一直显示旧文案）；设速后补调 updateSpeedButtons 让「4x」按钮高亮
-// V6.4.0 | ~48500 bytes | 2026-10-07 登记 158 飘字锚点对齐（rule105：import + allRules 两处同补）+ fact 契约红字收集进报告
-//          （劫持 iframe console.error——游戏跑在子窗口，顶层劫持够不着；infra/58 缺字段不再只是控制台噪声，
-//          与 node 侧 rules-replay V6.4.0 同口径，进 factContractWarns 与异常数）。
-// V6.3.2 | 2026-10-04 报告元数据：updateReport 顶部 + 复制文本均带「体检时间(本地) / 起始关 / 已跑关卡 / 异常总数」，区分不同批次报告（避免拿旧报告当新结果）。
-//          新增模块变量 runStartedAt(启动时间戳) / stagesRun(实际进入关号集合)，启动体检与每场 RUNNING/自动推进时记录；起始关仍走既有 start=N（已支持从第2关开始）。
-// V6.4.0 | ~47000 bytes | 2026-10-16 第 97 轮登记 170 台词池双向一致性（rule114：import + allRules 两处同补；
-//         唐文亮线上「台词池缺失」事故 + 同款 4 雷补齐后立规则长效盯守）
-// V6.3.1 | ~47000 bytes | 2026-10-02 登记 157 mechanics 安装对账（rule104：import + allRules 两处同补）
-// V6.3.0 | ~46400 bytes | 2026-10-02 第 50 轮：补 156 的 import + **allRules 数组长期停在 rule99 的静默缺口** ——
-//          153/154/155 三条只补了 import、从未进执行数组，浏览器侧体检**根本没跑它们**（node 侧
-//          rules-replay 自动扫目录，故一直没暴露）；本轮一并补 rule100~rule103。加新规则从此必须
-//          同时补 import 与数组两处，registration-check V1.1.0 起硬卡这条。
-// V6.2.1 | 2026-10-02 自动体检覆盖第7关：autoStageTarget 默认 6→7、起始关上限 min(6→7)（此前"全关检测"实际只跑到第6关）
-// V6.2.0 | ~46200 bytes | 2026-09-25 真值源统一：新增 teamsFromStore()，引擎/UI/规则/结算四组检查
-//          一律改取 battleStore 当前真值（原四组全吃 ctx.UI.allyTeam 开战副本＝系统性假绿）。
-//          采样循环中调用即中期真值 —— "中期溢出后被修回"这类漂移终局快照抓不到，改后能抓到。
-// V6.1.0 | ~42400 bytes | 2026-09-21 随机重开检查从轮询判据(checkRandomRestartState,122)改为事件驱动(hookRandomRestartWatch)：
-//          原判据在任意一局正常 GAMEOVER 都成立(UI.round 全程0/UI.currentResult 全程null/UI.allyTeam 是开战
-//          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
-//          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
 export const VER = 'tests/121health-monitor.js V6.9.0';
 
@@ -504,7 +462,7 @@ function periodicScan() {
 
     // [新增] 战报黑幕/特效池实时检查：须覆盖全部状态（GAMEOVER 后的残留与状态错位正是检查窗口）
     // 随机重开复位检查已改为事件驱动（hookRandomRestartWatch 挂 btnSettle），不再轮询——原轮询判据
-    // 在任意一局正常 GAMEOVER 都成立，每局必误报（详见文件头 V6.1.0）
+    // 在任意一局正常 GAMEOVER 都成立，每局必误报
     for (const msg of checkBattleReportOverlay(ctx, doc)) recordIssue(ctx, null, '战报弹窗', msg, 'UI');
     for (const msg of checkFxDomAccumulation(ctx, doc)) recordIssue(ctx, null, '特效池', msg, 'UI');
 
@@ -561,7 +519,7 @@ function periodicScan() {
 // 且 UI 已生成新局（currentResult=null/round=0/全员存活）时才上报。
 // 对照：原班再战(btnNext)正确 setState.gs('IDLE')；正常打完一局(没人点按钮)不触发本检查。
 // 为什么不用轮询：UI.round 全程停 0、UI.currentResult 全程 null、UI.allyTeam 是开战 clone 副本 alive 恒真，
-// 这三个量都不随战斗推进，任意一局正常 GAMEOVER 都满足 → 轮询必误报（详见文件头 V6.1.0）。
+// 这三个量都不随战斗推进，任意一局正常 GAMEOVER 都满足 → 轮询必误报。
 function hookRandomRestartWatch(doc) {
     if (!doc) return;
     const btn = doc.getElementById('btnSettle');

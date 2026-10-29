@@ -6,46 +6,6 @@
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
 // V1.4.9 | ~35000 bytes | 2026-10-26 第 143 轮吸收夜间140：新增第四类「枚举成员未定义」（parseEnumMembers 现场解析 infra/56 为唯一来源 + scanEnumMemberRefs + 三条自证断言），专抓「ENUM.KEY 被引用但键不存在」的静默死分支（正是上游 5818419a 用 BUTTERFLY 顶掉 JAVELIN 的 P0 形态）；回填 158 注册项
-// V1.4.8 | ~30300 bytes | 2026-10-26 第 142 轮退役规则 158：同步摘除 SCAN_FILES 注册项；新增 deadFxAnchors 槽位（FX_ANCHOR_WATCH_FILES 真扫 render/35-* 等，防去锚定化后 fxAnchors 残留回归）
-// V1.4.7 | ~29600 bytes | 2026-10-24 第 121 轮 SCAN_FILES 补登 ./health-rules/172-kongjian-jingang.js（空见金刚不坏，第 120 轮新建时漏登，注册一致性检查抓出）
-// V1.4.6 | ~29500 bytes | 2026-10-21 第 114 轮 SCAN_FILES 补登 ./health-rules/171-tangwenliang-dash.js（唐文亮冲刺落地，import 122health-utils）
-// V1.4.5 | ~29200 bytes | 2026-10-21 第 112 轮 SCAN_FILES 补登 ./xinhun-death-targeted-case.mjs、
-//          ./fact-dead-field-scan.mjs（第 113 轮沙箱交接规格的主线重写产物：XIN_HUN_DEATH 定向用例
-//          + 全 fact 载荷死字段普查；二者 import 引擎符号，漏登则 import 断裂扫不到）
-// V1.4.4 | ~29200 bytes | 2026-10-16 第 97 轮 SCAN_FILES 补登 ./health-rules/170-taunts-integrity.js（台词池
-//         双向一致性；唐文亮线上事故后新建，与 157 同属只读 content 的数据对账规则）
-// V1.4.3 | ~29200 bytes | 2026-10-16 注册面归位批：SCAN_FILES 里 core/08-elite-registry.js → core/08-registry-elite.js、
-//         infra/57-calc-modifier-registry.js → core/21-registry-calc.js；补登 core/20-registry-dodge.js
-//         （闪避规则表自 infra/51 迁入，被 core/11/12/15、render/32、ui/74 import，漏登则扫不到其 import 断裂）
-// V1.4.2 | ~29100 bytes | 2026-10-15 SCAN_FILES 补登 ui/69-role-cards.js、ui/73voice-panel.js、ui/75net-session.js、
-//         ui/76replay-entry.js（ui 家族漏登 4 员；漏登则本扫描不覆盖：这些文件 import 主代码符号/枚举，
-//         改名或删除即断裂，却扫不到）
-// V1.4.1 | ~28390 bytes | 2026-10-14 SCAN_FILES 补登 ui/77speed-controls.js、ui/78button-state.js（ui/68 三拆产物：
-//         倍速系统与按钮状态机各自独立成文件，68 入口 re-export 二者；漏登则本扫描不覆盖这两个文件，
-//         它们的 import 断裂/枚举缺失也扫不到）
-// V1.4.0 | 2026-10-13 体检第 84 轮修「共享符号 import 缺失」4 条假红（modules/26 拆分后组件文件被点名）：
-//   根因 = scanSharedSymbolImport 的 usage 正则只认 `sym.`/`sym(`，**不认形参遮蔽** ——
-//   `register(eventBus, A, B, log)` / `install({ eventBus, decl })` 由调用方注入，函数体内
-//   eventBus.emit/on 合法引用形参、无需 import，旧正则判成"使用未 import"（误报）。
-//   修法 = 三件套：①maskStrings 先掩码字符串/模板字面量（防内容带偏括号配平、防串内假使用）；
-//   ②collectParamScopes 括号栈追踪「形参表 → 块体」区间（排除 if/for/while/switch/catch/with 控制语句），
-//   解析形参绑定名（只取顶层项 `=` 前的名字 + 解构内名字，不吞默认值表达式）；
-//   ③usage 命中位置落在「绑定含该 sym 的函数体区间」内即遮蔽、不算缺失。
-//   口径：**宁误报不漏报** —— 箭头表达式体（`=> expr` 非块体）不做遮蔽；顶层/无绑定引用仍被抓（牙齿保住）。
-// V1.3.4 | 2026-10-13 SCAN_FILES 补登 render/38-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
-//         （-attack/-heal/-control/-stat，38 入口 import 它们）
-// V1.3.3 | 2026-10-13 SCAN_FILES 补登 modules/26elite-sixsects 拆分出的 6 个组件文件
-//         （-songqingshu/-zhouzhiruo/-zhangsanfeng/-pangyuanqiao/-miejueshitai/-hetaichong，26 入口 import 它们）
-// V1.3.2 | 2026-10-02 SCAN_FILES 补登 ./health-rules/157-mechanic-install-reconcile.js（mechanics 安装对账，
-//         import core/01、core/15、modules/26、modules/30；入册后本扫描可发现这些 import 路径断裂）
-// V1.3.1 | 2026-09-29 SCAN_FILES 补登 ./health-rules/156-desc-truth-drift.js（技能说明数字 == 引擎真值
-//         单源守卫，import core/01；入册后本扫描可发现该 import 路径断裂）
-// V1.3.0 | 2026-09-29 SCAN_FILES 补登 ./param-read-guard.mjs（skills.params 引擎真读字段漂移守卫，
-//         跨目录 import tools/124-param-lab-glossary.js；入册后本扫描可发现该 import 路径断裂）
-// V1.2.0 | 2026-09-26 补回 Node CLI 自举 —— 此前 node 下零输出＝**假绿**：本实例历史停在 V1.0.1
-//         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
-//         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
-//         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
 export const VER = 'tests/123static-scan.js V1.4.9';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）

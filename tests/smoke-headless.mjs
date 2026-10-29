@@ -1,5 +1,4 @@
 // tests/smoke-headless.mjs — 无头冒烟：真跑引擎，不靠"语法通过"糊弄
-// V1.2.0 | 2026-10-04 补 modules/30custom-effects.js 副作用 import（注册 dotTick/damageReflect，否则无头战斗遇玄冥中毒/反弹抛"未知机制 type"）
 export const VER = 'tests/smoke-headless.mjs V1.2.0';
 // 用法: node tests/smoke-headless.mjs [局数]
 // 退出码: 0 = 全部通过; 1 = 有失败

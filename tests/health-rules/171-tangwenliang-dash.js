@@ -25,9 +25,6 @@
 //   · 唐文亮强推挤压改站位不发位移事件 ⇒ checkLanding 中断判定须叠加 isOtherRelocate 白名单
 //     （后续任一「唐文亮冲刺·七伤齐发」报幕提到该单位名 = 位置被合法改写），
 //     否则把「之后又被挤走」误判成「这次没落地」（rule113 判据5 V6.1.3 已踩过同款）。
-// V2.0.0（2026-10-24 第 118 轮）：机制从「两人对调/拽位」重设计为「强推挤压/多单位前推」，
-//   报幕从「拽 X 至 N 号位 / 免疫纹丝不动」改为「name from→to 列表」，旧正则恒不匹配 ⇒ 整条空转。
-//   本版按新格式重写：解析所有宣告移动逐一验落地，落位断言复用原 checkLanding（补 isOtherRelocate）。
 export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.0';
 import { entryTextsDeep } from '../122health-utils.js';
 

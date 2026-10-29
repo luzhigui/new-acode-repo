@@ -1,17 +1,6 @@
 // 回归规则：张无忌近身切换时机 — 同列前排无存活队友才切（core/13battle-shared.js checkZhangSwitch）
 // 复发信号：同列前排队友存活却切换（时机过早）/ 前排阵亡后隔≥2回合才切换（时机过晚）/ 一场切换多次
 // 对应已报 Bug：张无忌切换近身时机不对
-// V6.2.0 | 2026-09-25 修两处规则侧误报（非引擎问题，取证见 体检迭代日志）：
-//   ① 死亡判定只认 uidD：isDead 标记的是 uidD 所指单位（攻击组=被攻击方；闪避反击组 uidD=被反击的出手方）。
-//      原写 `f.uidD === frontUid || f.uidA === frontUid`，把"前排队友**击杀**敌人"的 attack-group
-//      （uidA=前排队友、isDead 指敌人）误记成前排队友阵亡 → seed=5:4 谎报"第1回合阵亡"、seed=2:2 谎报"第3回合阵亡"。
-//   ② 张无忌本人被换位（惑人心智换位 / 乘风击退）时放弃时机判定：引擎 checkZhangSwitch 按**当前站位**算列，
-//      而换位 fact 可能晚于切换 fact 落日志（seed=8:6 首个 buff-swap 在切换 fact 之后才入 log，原 posChanged
-//      只扫 sw.idx 之前 → 漏判），开局列不再可信，故整体放弃（不判 ≠ 通过）。
-// V6.3.2 | 2026-10-20 第 111 轮：补「爪击处决致死」死亡信号。CLAW_EXECUTE fact 只带 targetUid、
-//   render/35 不写 isDead，故前排队友被九阴白骨爪斩杀后本规则仍当其存活 → 张无忌第1回合切换被判
-//   「时机过早」（seed=1 stage=4 实锤：pos5 张无忌的同列前排 pos2 明教弟子2 第31条被斩杀）。
-//   现认「九阴白骨爪斩杀！」渲染条目（按显示名匹配，同名宁可漏判）。引擎口径无需改：切换本身正确。
 export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.2';
 import { entryTextsDeep } from '../122health-utils.js';
 

@@ -1,4 +1,3 @@
-// V1.3.0 | ~8600 bytes | 2026-09-26 第 25 轮：把每轮靠「临时探针现写现删」做的四方登记核对，做成常驻检查。
 // 干什么：一条命令核对规则文件的四处登记是否齐全 ——
 //   tests/health-rules/*.js  ↔  121health-monitor.js（import 装载）
 //   ↔ 124rule-recipes.js（RULE_META 登记）↔ 123static-scan.js（SCAN_FILES）
@@ -11,21 +10,6 @@
 //      按用户定调（2026-10-02）本就有意不全，新体检规则/runner 不要求往里登记，
 //      重复登记也无害**。故 106 差异只输出一行中性说明，不算待办、不计硬失败、不要去补登。
 // 运行：node tests/registration-check.mjs
-// V1.1.1 | 2026-10-02 按用户定调更正 106 口径：从「工具侧待办提示」改为「复制包有意不全，差异不核对」，
-//   避免每出一条新规则（如 157）就刷一条"未登记"误导成漏登。
-// V1.1.0 | 2026-10-02 第 50 轮：补第五项检查 —— **121 内 import 了却没进 allRules 数组**。
-//   旧版只核「import 语句在不在」，而 import 只负责装载、真正执行靠 `allRules` 数组；
-//   153/154/155 三条就是只补了 import、数组长期停在 rule99，浏览器侧体检**从未跑过它们**
-//   （node 侧 rules-replay 是自动扫目录，所以一直没暴露）。只查 import = 检查器自己在放假绿。
-// V1.2.0 | 2026-10-08 修 import↔allRules 解析的别名盲区：121 用 `import { rule156 as rule103 }`（156 导出名按文件号），
-//   旧正则要求 `(rule\d+)\s*}` 紧邻花括号，别名项隔着 ` as ` 整条漏匹配，rule103 被误判「数组引用未 import」硬失败（假红）。
-//   改为拆分花括号逐项解析，取**本地绑定名**（as 后的别名优先，与 allRules 引用一致）。
-// V1.3.0 | 2026-10-13 体检第 84 轮：新增第六项检查 —— **modules/26 拆分结构对账**（26elite-sixsects.js
-//   2026-10-13 拆成「注册入口 + 6 个角色组件文件」后的新静默失效面）：(a) 死文件（组件存在但入口没 import）、
-//   (b) import 断裂（入口 import 的组件文件不存在）、(c) 死导出（组件导出了入口没引用 = 组件逻辑没挂上注册链）、
-//   (d) 漏 import（入口正文用 register* 却没 import）、(e) 漏导出（入口 import 的远端名组件里没 export）。
-//   判据是**源码级静态对账、非运行时**（入口/组件是浏览器代码，node 不加载）；
-//   解析出 0 条一律硬红（防零触发假绿），核心逻辑抽成 checkSixsectsStructure 纯函数供牙齿探针注入反例。
 export const VER = 'tests/registration-check.mjs V1.3.0';
 
 import { readdir, readFile } from 'node:fs/promises';

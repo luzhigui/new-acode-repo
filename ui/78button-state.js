@@ -13,7 +13,7 @@ import { updateSpeedButtons } from './77speed-controls.js';
 
 // buff 槽：联网从机显示自己（六大派）的海克斯，其余情况显示明教
 // 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
-// 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项（详见文件头 V1.1.0）
+// 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项
 const CAMP_BADGE_ID = { [CAMP_TYPES.ALLY]: 'campBadgesAlly', [CAMP_TYPES.ENEMY]: 'campBadgesEnemy' };
 function updateBuffSlots(activeBuffs, camp) {
     const role = GlobalStore.get('netRole');
