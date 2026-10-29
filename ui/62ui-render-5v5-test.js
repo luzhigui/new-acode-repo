@@ -1,4 +1,3 @@
-// V6.1.1 | 2026-10-04 | ~16800 bytes
 export const VER = 'ui/62ui-render-5v5-test.js V6.1.1';
 
 // getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用

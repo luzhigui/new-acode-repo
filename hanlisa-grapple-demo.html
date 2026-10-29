@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>寒离飒 · 抱摔 · 特效预览 V0.4</title>
+<style>
+body { background:#0d0906; font-family:'Segoe UI', monospace; max-width:560px; margin:0 auto; padding:8px 6px 20px; color:#d9c6a8; user-select:none; -webkit-user-select:none; }
+h1 { font-size:16px; color:#ffd27a; margin:4px 0 2px; text-shadow:0 0 10px rgba(255,150,40,.6); }
+.sub { font-size:11px; color:#9a8a6e; line-height:1.6; margin-bottom:8px; }
+.bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; background:#1c130a; border:2px solid #5c4033; border-radius:10px; padding:8px; margin-bottom:6px; }
+.bar button { background:#26190e; border:2px solid #8b7355; border-radius:8px; padding:6px 10px; font-size:11px; font-weight:700; color:#d9c6a8; cursor:pointer; font-family:inherit; }
+.bar button.on { background:#ffd700; color:#1a1a2e; border-color:#ffd700; }
+.bar button:active { background:#ffd700; }
+.bar button.fz { background:#1b3a5c; border-color:#4a90d9; color:#cfe6ff; }
+#btnRun { background:#c0392b; border-color:#e74c3c; color:#fff; }
+.bar .lab { font-size:10px; color:#5c4033; width:100%; text-align:center; margin-top:2px; }
+#nLabel { font-size:11px; font-weight:700; color:#ff8a3d; width:100%; }
+#nDetail { font-size:10px; color:#9a8a6e; width:100%; line-height:1.5; }
+.log { font-size:10px; line-height:1.55; background:#120c07; border:1px solid #3a2818; border-radius:8px; padding:5px 6px; margin-top:6px; height:120px; overflow:auto; }
+.log div { padding:1px 0; }
+.log .hl { color:#ffd27a; font-weight:700; }
+.log .dead { color:#e74c3c; font-weight:700; }
+.log .heavy { color:#ff8a3d; }
+.log .spill { color:#b8a882; }
+.log .pick { color:#9b59b6; font-weight:700; }
+.note { font-size:10.5px; color:#9a8a6e; line-height:1.65; background:#1c130a; border:2px solid #5c4033; border-radius:10px; padding:8px; margin-top:8px; }
+.note b { color:#ff8a3d; }
+.note .k { color:#ffd27a; }
+</style>
+</head>
+<body>
+<h1>🥋 寒离飒 · 抱摔 · 特效预览 V0.4</h1>
+<div class="sub">
+<b style="color:#ff8a3d">机制</b>：放完一次蓄意轰拳后，再集齐九阳+寒冰 → 不再蓄力，<b style="color:#ff8a3d">立即抱摔</b>。
+抓<b style="color:#ff8a3d">敌方 2 号位</b>（空则取离 2 号位最近者）→ 砸向敌方 <b style="color:#ff8a3d">5 号位</b>。<br>
+<b style="color:#ff8a3d">5 号有人</b> → 被抱的直接死、原地 5 号受大量真伤；<b style="color:#ff8a3d">5 号没人</b> → 被抱的落 5 号受大量真伤。<br>
+<span style="color:#7f8c8d">冲击波以 5 号位为中心：正交四格(2/4/6/8)巨额 · 斜角四格(1/3/7/9)溅射（数值待定，此处占位）</span>
+</div>
+
+<div class="bar">
+  <button id="btnRun">▶ 播放抱摔</button>
+  <button id="btnLoop">🔁 循环</button>
+  <button id="btnSlow">🐢 慢放</button>
+  <div class="lab">— 定格关键帧（可反复看同一帧） —</div>
+  <div id="freezeBar" style="display:flex;flex-wrap:wrap;gap:6px;width:100%"></div>
+  <div class="lab">— 5 号位 —</div>
+  <button data-scene="has5" class="on">5号有人</button>
+  <button data-scene="no5">5号没人</button>
+  <div class="lab">— 目标 —</div>
+  <button data-victim="near" class="on">2号位有人</button>
+  <button data-victim="nearest">2号空·取最近</button>
+  <div class="lab">— 基数 N —</div>
+  <button data-n="60">60</button>
+  <button data-n="120" class="on">120</button>
+  <button data-n="240">240</button>
+  <span id="nLabel"></span>
+  <span id="nDetail"></span>
+</div>
+
+<div class="log" id="log"></div>
+
+<div class="note">
+<b>要老板拍板的点</b>：<br>
+1. <span class="k">触发时机</span>——「轰拳放完后，下次集齐立即抱摔」，还是「轰拳本身变两段（先轰后摔）」？<br>
+2. <span class="k">「大量真伤」量级</span>——占位：2468=N×1.0、1379=N×0.5、受击者=N×1.5（真伤，不吃防不吃闪避）。<br>
+3. <span class="k">5 号有人时</span>——被抱的直接死（无上限）是否太狠？<br>
+4. <span class="k">被抱者算不算吃冲击波</span>——本版按「不算」：它被拎走时原格就腾空了，冲击波只打还在原位的人。是否照此办？<br>
+5. <span class="k">5 号位能不能当"被抱目标"</span>——本版排除：2 号空时若最近的人正好在 5 号（等于砸回自己脚下），会跳过 5 号另选。是否照此办？<br>
+6. <span class="k">控制免疫</span>——寒离飒免疫控制位移是"自己不受控"，抱走别人是"施加位移"，不该被自己的免疫挡。<br>
+7. <span class="k">视觉</span>：巨拳起手 → 突进 → 五指攥住 → 扛起高举 → 砸进地里（地面塌坑 + 放射裂纹 + 扬尘 + 镜头抖动 + 冲击波）。
+</div>
+
+<script>
+'use strict';
+/* ============================================================================
+   寒离飒 · 抱摔 · 特效预览 V0.4
+
+   V0.3 → V0.4 的改动（本轮唯一重点：把「抱」这个动作做出来）
+   ------------------------------------------------------------------
+   上一版的病根：寒离飒站着不动，目标只是"飘"过去 —— 全程没有"被抓住"这个状态，
+   所以看着像卡片在滑行，不像抱摔。
+
+   V0.4 按英雄联盟瑟提 R「泰坦弯击」的观感重排成四拍：
+     ① 起手    —— 寒离飒的巨拳在拳位凝聚（引擎 ui/79 的 FIST 图形 + 火焰渐变）
+     ② 突进    —— 巨拳从拳位冲到目标位，带残影与速度线
+     ③ 攥住    —— 五指从四周合拢，把目标卡片夹住（这一拍是"抱"的关键）
+     ④ 扛走    —— 拳头夹着卡片一起走（卡片贴在拳上，不是自由飘浮）
+     ⑤ 高举    —— 在 5 号位上方举到顶，蓄势环
+     ⑥ 砸落    —— 拳头把目标砸进地里：地面塌坑 + 放射裂纹 + 扬尘 + 碎石
+                  + 冲击环 + 白闪 + 镜头抖动
+     ⑦ 收势    —— 拳头缩回拳位，尘埃落定
+
+   其它：白闪 / 暗角 / 尘埃 / 震动全部改由虚拟时钟 VT 驱动，定格帧亮度正确。
+   ========================================================================== */
+
+const TAU=Math.PI*2, clamp=(v,a,b)=>v<a?a:(v>b?b:v), lerp=(a,b,t)=>a+(b-a)*t;
+const easeOut=t=>1-Math.pow(1-t,3), easeIn=t=>t*t, easeInOut=t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+function mulberry32b(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+const NUM={ heavyMul:1.0, spillMul:0.5, crushMul:1.5 };  // 占位数值（待拍板）
+
+function rc(p){const r=Math.ceil(p/3);return{r:r,c:p-(r-1)*3};}
+function manhattan(a,b){const A=rc(a),B=rc(b);return Math.abs(A.r-B.r)+Math.abs(A.c-B.c);}
+/* 敌方九宫格绘制顺序 [7,8,9,4,5,6,1,2,3] —— 5 号是正中心，
+   正交四格 = 2/4/6/8（十字臂），斜角四格 = 1/3/7/9（四角）。*/
+const ARMS=[2,4,6,8], CORNERS=[1,3,7,9];
+
+/* ---- 节拍表 ---- */
+const TIMING={ windEnd:340, dashEnd:760, graspEnd:1080, carryEnd:1480, raiseEnd:1880, slamT:2180, impactEnd:2360, total:2760 };
+const BEATS=[
+  {k:'wind',  label:'① 起手',   t:200},
+  {k:'dash',  label:'② 突进',   t:540},
+  {k:'grasp', label:'③ 攥住',   t:1050},
+  {k:'raise', label:'④ 高举',   t:1800},
+  {k:'slam',  label:'⑤ 砸落',   t:TIMING.slamT+130}
+];
+const FREEZE_AT={}; BEATS.forEach(b=>FREEZE_AT[b.k]=b.t);
+
+const NAMES=['张无忌','小昭','韦一笑','谢逊','杨逍','殷天正','鹿杖客','空见','何太冲'];
+function makeEnemy(pos){const i=pos-1;return{pos:pos,name:NAMES[i],icon:'⚔️',atk:40+i*3,def:30+i*2,hp:260+i*40,maxHp:260+i*40};}
+function buildEnemies(scene,victimMode){
+  const e={};[1,2,3,4,6,7,8,9].forEach(p=>e[p]=makeEnemy(p));
+  if(scene==='has5') e[5]=makeEnemy(5); else delete e[5];
+  if(victimMode==='nearest') delete e[2];
+  return e;
+}
+function pickVictim(enemies){
+  if(enemies[2]&&enemies[2].hp>0) return{u:enemies[2],how:'enemy2',d:0};
+  // 2 号位空 → 取离 2 号位最近者；5 号位是落点，不作为候选（否则等于把人砸回自己脚下）
+  let best=null,bd=99;
+  const cands=Object.values(enemies).filter(u=>u.hp>0&&u.pos!==5);
+  const pool=cands.length?cands:Object.values(enemies).filter(u=>u.hp>0);
+  for(const u of pool){const d=manhattan(2,u.pos); if(d<bd){bd=d;best=u;}}
+  return best?{u:best,how:'nearest',d:bd}:{u:null,how:'none'};
+}
+
+/* ---- 伤害归属 ----
+   冲击波以 5 号位为中心向外扩：正交四格巨额、斜角四格溅射。
+   被抱者被攥走的那一刻，它原来的格子就空了 —— 所以它不在冲击波范围内，
+   它的结局只由「5 号位有没有人」决定：
+     5 号有人 → 被抱的直接死；原地 5 号那人受大量真伤（不移动）。
+     5 号没人 → 被抱的落到 5 号位，受大量真伤。 */
+function resolveSlam(enemies,victim,N){
+  const hits=[], occ5=(enemies[5]&&enemies[5].hp>0)?enemies[5]:null, has5=!!occ5;
+  const board={};
+  for(const p in enemies) if(enemies[p]&&enemies[p].hp>0) board[p]=enemies[p];
+  if(victim) delete board[victim.pos];          // 被抱者被攥走 → 原格腾空
+  if(victim){
+    if(has5){ hits.push({kind:'dead',  name:victim.name, pos:5, from:victim.pos, dmg:null, dx:-24});
+                hits.push({kind:'crush', name:occ5.name,  pos:5, dmg:Math.floor(N*NUM.crushMul), dx:24}); }
+    else    { hits.push({kind:'crush', name:victim.name, pos:5, from:victim.pos, dmg:Math.floor(N*NUM.crushMul), movedTo:5, dx:-22}); }
+  }
+  for(const p of ARMS){ const u=board[p]; if(!u) continue;
+    hits.push({kind:'heavy', name:u.name, pos:p, dmg:Math.floor(N*NUM.heavyMul)}); }
+  for(const p of CORNERS){ const u=board[p]; if(!u) continue;
+    hits.push({kind:'spill', name:u.name, pos:p, dmg:Math.floor(N*NUM.spillMul)}); }
+  return{hits:hits,has5:has5};
+}
+
+const state={scene:'has5',victimMode:'near',N:120,loop:false,slow:false,running:false,raf:0,ov:null};
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(t,a){const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+
+function log(m,c){const b=document.getElementById('log'),d=document.createElement('div');if(c)d.className=c;d.textContent=m;b.appendChild(d);b.scrollTop=b.scrollHeight;}
+function clearLog(){document.getElementById('log').innerHTML='';}
+
+function cardHtml(u){const p=u.hp/u.maxHp;
+  const cls=p>0.5?'hp-text-green':(p>0.2?'hp-text-orange':'hp-text-red');
+  const bar=p>0.5?'#2e7d32':(p>0.2?'#daa520':'#c0392b');
+  return '<div class="cu"><span class="cell-icon">'+u.icon+'</span><div class="cell-info">'+
+    '<span class="cell-name">'+u.name+'</span><span class="cell-stats">攻<span>'+u.atk+
+    '</span> 防<span>'+u.def+'</span> <span class="'+cls+'">血'+Math.max(0,Math.round(u.hp))+'</span></span></div>'+
+    '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:'+Math.round(p*100)+'%;background:'+bar+';"></div></div></div>';}
+
+/* ================= 舞台 ================= */
+function buildStage(){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:10020;display:flex;flex-direction:column;justify-content:center;align-items:center;opacity:0;transition:opacity .2s;'+
+    'background:radial-gradient(ellipse 120% 90% at 50% 42%, #2b1d0e 0%, #17100a 55%, #0b0705 100%);';
+  ov.innerHTML='<style>'+
+  '#bsOv{--c-brown:#5c4033;--c-bb:#8b7355;--c-parch:#f5f0e0;display:flex;flex-direction:column;justify-content:center;align-items:center;}'+
+  '#bsOv *{box-sizing:border-box;}'+
+  '#bsOv .ttl{position:absolute;bottom:14px;left:0;right:0;font-size:14px;font-weight:900;color:rgba(255,210,122,.55);text-align:center;margin:0;letter-spacing:8px;text-shadow:0 0 12px rgba(255,150,40,.5);z-index:1;}'+
+  '#bsOv .bf{flex:0 0 42.5vh;flex:0 0 42.5dvh;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;padding:6px 8px 8px;position:relative;width:100%;max-width:520px;'+
+    'background:var(--c-parch);border:3px solid var(--c-bb);border-radius:14px;box-shadow:0 0 46px rgba(255,170,70,.28),0 18px 50px rgba(0,0,0,.85),inset 0 0 22px rgba(92,64,51,.18);}'+
+  '#bsOv .world{flex:1;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;min-height:0;}'+
+  '#bsOv .row{display:flex;align-items:center;gap:4px;flex:1;max-width:500px;margin:0 auto;width:100%;}'+
+  '#bsOv .side{display:flex;flex-direction:column;align-items:center;gap:3px;width:18px;flex-shrink:0;}'+
+  '#bsOv .lab{writing-mode:vertical-lr;font-weight:bold;font-size:13px;width:18px;text-align:center;}'+
+  '#bsOv .grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,6.2vh);grid-template-rows:repeat(3,6.2dvh);gap:2px;flex:1;background:#d9d0b5;padding:3px;border-radius:6px;}'+
+  '#bsOv .cell{background:#e8e6e0;border:2px solid #bbb;border-radius:5px;padding:2px 4px;display:flex;align-items:center;overflow:visible;position:relative;}'+
+  '#bsOv .cell.occ{background:#f2ece0;}'+
+  '#bsOv .cell.gone{background:#e0d8c8;}'+
+  '#bsOv .cell.dead{background:#d8c9b6;}'+
+  '#bsOv .cell-icon{font-size:13px;width:14px;text-align:center;flex-shrink:0;}'+
+  '#bsOv .cell-info{flex:1;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}'+
+  '#bsOv .cell-name{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;}'+
+  '#bsOv .cell-stats{font-size:7px;color:#555;display:flex;gap:2px;}'+
+  '#bsOv .hp-bar-wrap{width:8px;height:100%;background:#ccc;border-radius:3px;flex-shrink:0;align-self:stretch;position:relative;}'+
+  '#bsOv .hp-bar-inner{position:absolute;bottom:0;width:100%;border-radius:3px;}'+
+  '#bsOv .hp-text-green{color:#2e7d32;}#bsOv .hp-text-orange{color:#d2691e;}#bsOv .hp-text-red{color:#c0392b;}'+
+  '#bsOv .cu{display:flex;align-items:center;gap:4px;width:100%;min-width:0;}'+
+  '#bsOv .fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;}'+
+  '#bsOv .fxfront{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:7;}'+
+  '#bsOv .vig{position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0;background:radial-gradient(ellipse 58% 52% at 50% 74%,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 34%,rgba(14,5,2,.5) 76%,rgba(8,2,0,.9) 100%);}'+
+  '#bsOv .flash{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:0;background:#fff;}'+
+  '#bsOv .hint{width:100%;max-width:520px;text-align:center;font-size:14.5px;font-weight:700;color:#ffcf8a;margin-top:10px;letter-spacing:1px;text-shadow:0 0 10px rgba(255,140,40,.55),0 2px 3px #000;min-height:22px;}'+
+  '#bsOv .skip{position:absolute;bottom:12%;right:8%;z-index:8;color:rgba(255,255,255,.7);font-size:18px;font-weight:bold;cursor:pointer;background:none;border:none;padding:8px;font-family:inherit;}'+
+  '#bsOv .kbar{position:absolute;top:10px;left:10px;right:10px;z-index:9;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}'+
+  '#bsOv .kbar button{background:rgba(20,13,7,.85);border:2px solid #8b7355;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#ffd27a;cursor:pointer;font-family:inherit;}'+
+  '#bsOv .kbar button.on{background:#ffd700;color:#1a1a2e;border-color:#ffd700;}'+
+  '#bsOv .kbar button.close{border-color:#e74c3c;color:#ff9a8f;}'+
+  '</style>'+
+  '<div class="ttl">🥋 抱 摔</div>'+
+  '<div class="bf"><div class="world"></div><div class="vig"></div><svg class="fx"></svg><svg class="fxfront"></svg></div>'+
+  '<div class="hint"></div><div class="flash"></div><button class="skip">跳过</button>';
+  ov.id='bsOv';
+  document.body.appendChild(ov);
+  return ov;
+}
+
+function makeGrid(order,map){
+  const g=document.createElement('div'); g.className='grid';
+  order.forEach(pos=>{
+    const d=document.createElement('div'); const u=map[pos];
+    d.className='cell'+(u?' occ':''); d.dataset.pos=pos;
+    if(u) d.innerHTML=cardHtml(u);
+    g.appendChild(d);
+  });
+  return g;
+}
+
+/* ---- 能量巨手 ----
+   局部坐标：原点 = 掌心中心，+Y = 手指方向，-Y = 手腕方向。
+   角度约定：0 = 指尖朝下，PI = 指尖朝上，正值 = 偏向右。
+   o1/o2 = 张开时的两节关节角(度)，c1/c2 = 攥紧时的两节关节角(度)。 */
+const HAND_PALM='M -32,-58 C -48,-54 -56,-38 -55,-16 L -54,2 C -53,16 -40,24 -24,24 L 24,24 C 40,24 53,16 54,2 L 55,-16 C 56,-38 48,-54 32,-58 C 12,-64 -12,-64 -32,-58 Z';
+const HAND_WRIST='M -24,-56 C -30,-74 -28,-92 -21,-100 L 21,-100 C 28,-92 30,-74 24,-56 Z';
+const HAND_PALM_HI='M -34,-46 C -45,-38 -48,-24 -47,-8';
+const HAND_KNUCKLE='M -46,12 Q -36,5 -27,12 M -15,15 Q -5,8 5,15 M 15,15 Q 25,8 35,12';
+const HFINGERS=[
+  {x:-42, y:16, len:34, w:16, o1:-18, o2:-14, c1: -5, c2: 20},
+  {x:-14, y:18, len:38, w:17, o1: -7, o2: -6, c1: -2, c2: 22},
+  {x: 14, y:18, len:38, w:17, o1:  7, o2:  6, c1:  2, c2:-22},
+  {x: 42, y:16, len:34, w:16, o1: 18, o2: 14, c1:  5, c2:-20},
+  {x:-48, y: 4, len:40, w:18, o1:-52, o2:-18, c1: -6, c2: -8, thumb:true}
+];
+const CARD_ANCHOR=62;            // 卡片中心离掌心多远（局部单位，朝指尖方向）
+function handFingerPath(f,grip){
+  const a1=lerp(f.o1,f.c1,grip)*Math.PI/180, a2=lerp(f.o2,f.c2,grip)*Math.PI/180;
+  const L1=f.len*0.52, L2=f.len*0.48;
+  const x1=f.x+Math.sin(a1)*L1, y1=f.y+Math.cos(a1)*L1;
+  const x2=x1+Math.sin(a1+a2)*L2, y2=y1+Math.cos(a1+a2)*L2;
+  return 'M '+f.x.toFixed(1)+','+f.y.toFixed(1)+' L '+x1.toFixed(1)+','+y1.toFixed(1)+' L '+x2.toFixed(1)+','+y2.toFixed(1);
+}
+
+function play(freezeAt){
+  if(state.running) return;
+  state.running=true; clearLog();
+  try{ run(freezeAt); }catch(e){ log('【出错】'+((e&&e.message)||e),'dead'); console.error(e); state.running=false; }
+}
+
+function run(freezeAt){
+  if(state.ov){ state.ov.remove(); state.ov=null; }
+  const ov=buildStage();
+  state.ov=ov;
+  const bf=ov.querySelector('.bf'), world=ov.querySelector('.world'), svg=ov.querySelector('.fx');
+  const vig=ov.querySelector('.vig'), flash=ov.querySelector('.flash'), hint=ov.querySelector('.hint');
+
+  // 敌方行
+  const enemies=buildEnemies(state.scene,state.victimMode);
+  const eRow=document.createElement('div'); eRow.className='row';
+  const eSide=document.createElement('div'); eSide.className='side';
+  const eLab=document.createElement('span'); eLab.className='lab'; eLab.textContent='六大派'; eLab.style.color='#d2691e';
+  eSide.appendChild(eLab); eRow.appendChild(eSide);
+  const eg=makeGrid([7,8,9,4,5,6,1,2,3],enemies); eg.id='bsEg'; eRow.appendChild(eg); world.appendChild(eRow);
+
+  // 我方行
+  const aRow=document.createElement('div'); aRow.className='row';
+  const aSide=document.createElement('div'); aSide.className='side';
+  const aLab=document.createElement('span'); aLab.className='lab'; aLab.textContent='明 教'; aLab.style.color='#1e6bb8';
+  aSide.appendChild(aLab); aRow.appendChild(aSide);
+  const hls={pos:2,name:'寒离飒',icon:'👊',atk:120,def:90,hp:520,maxHp:520};
+  const amap={}; amap[2]=hls;
+  const ag=makeGrid([1,2,3,4,5,6,7,8,9],amap); ag.id='bsAg'; aRow.appendChild(ag); world.appendChild(aRow);
+
+  ov.style.opacity='1';
+
+  const bfr=bf.getBoundingClientRect();
+  // SVG 层（.fx / .fxfront）和卡片 div 都以 bf 的内边距框左上角为原点，这里必须对齐
+  const orgX=bfr.left+bf.clientLeft, orgY=bfr.top+bf.clientTop;
+  const cellRect=(grid,pos)=>{const e=grid.querySelector('[data-pos="'+pos+'"]');if(!e)return{x:0,y:0,w:10,h:10};
+    const r=e.getBoundingClientRect();return{x:r.left-orgX+r.width/2,y:r.top-orgY+r.height/2,w:r.width,h:r.height};};
+
+  // 预先量好所有格子的中心（镜头抖动时不能重新量，否则坐标会跟着抖）
+  const POS={}, APOS={};
+  for(let p=1;p<=9;p++) POS[p]=cellRect(eg,p);
+  APOS[2]=cellRect(ag,2);
+  const a2=APOS[2], e5=POS[5];
+
+  const pick=pickVictim(enemies);
+  if(!pick.u){ log('敌方无人可抱 —— 中止','hl'); ov.remove(); state.running=false; return; }
+  const vCell=POS[pick.u.pos];
+  const slam=resolveSlam(enemies,pick.u,state.N);
+
+  log('【选目标】'+(pick.how==='enemy2'
+    ? '敌方 2 号位有人 → 直接抱 2 号位（'+pick.u.name+'）'
+    : '敌方 2 号位空 → 取最近者 '+pick.u.name+'（'+pick.u.pos+' 号位，曼哈顿距离 '+pick.d+'）'),'pick');
+  log('【落点】'+(slam.has5?('5 号位有人（'+enemies[5].name+'）→ 被抱的直接死、原地 5 号受大量真伤'):'5 号位空 → 被抱的落 5 号受大量真伤'),'hl');
+  log('【伤害】N='+state.N+'（占位）：2468=N×'+NUM.heavyMul+' · 1379=N×'+NUM.spillMul+' · 受击=N×'+NUM.crushMul);
+
+  // ---------- SVG 层 ----------
+  const defs=svgEl('defs',{});
+  defs.innerHTML=
+    '<radialGradient id="glowG" cx="50%" cy="50%" r="50%">'+
+      '<stop offset="0%" stop-color="#fff8e6" stop-opacity="0.95"/>'+
+      '<stop offset="32%" stop-color="#ffb545" stop-opacity="0.72"/>'+
+      '<stop offset="68%" stop-color="#e0561f" stop-opacity="0.32"/>'+
+      '<stop offset="100%" stop-color="#5a1200" stop-opacity="0"/></radialGradient>'+
+    '<linearGradient id="fistG" x1="0.1" y1="0" x2="0.9" y2="1">'+
+      '<stop offset="0%" stop-color="#fff3cf"/>'+
+      '<stop offset="38%" stop-color="#ffb347"/>'+
+      '<stop offset="72%" stop-color="#e2561d"/>'+
+      '<stop offset="100%" stop-color="#7a1f08"/></linearGradient>'+
+    '<linearGradient id="fingerG" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" stop-color="#ffd9a0"/>'+
+      '<stop offset="60%" stop-color="#e07a2c"/>'+
+      '<stop offset="100%" stop-color="#8c2f0c"/></linearGradient>'+
+    '<radialGradient id="dustG" cx="50%" cy="50%" r="50%">'+
+      '<stop offset="0%" stop-color="#e8d3a8" stop-opacity="0.8"/>'+
+      '<stop offset="55%" stop-color="#b08c56" stop-opacity="0.42"/>'+
+      '<stop offset="100%" stop-color="#6a4a24" stop-opacity="0"/></radialGradient>'+
+    '<radialGradient id="craterG" cx="50%" cy="50%" r="50%">'+
+      '<stop offset="0%" stop-color="#2a1508" stop-opacity="0.92"/>'+
+      '<stop offset="55%" stop-color="#4a2a12" stop-opacity="0.72"/>'+
+      '<stop offset="100%" stop-color="#6a4a24" stop-opacity="0"/></radialGradient>'+
+    '<filter id="fistBlur" x="-60%" y="-60%" width="220%" height="220%">'+
+      '<feGaussianBlur stdDeviation="5"/></filter>';
+  svg.appendChild(defs);
+
+  const gCrater=svgEl('g',{}); svg.appendChild(gCrater);   // 地面塌坑
+  const gCrack=svgEl('g',{}); svg.appendChild(gCrack);       // 放射裂纹
+  const gGhost=svgEl('g',{}); svg.appendChild(gGhost);       // 拳/卡残影
+  const gHandBack=svgEl('g',{}); svg.appendChild(gHandBack);   // 手背（在卡片后面）
+  const gFx=svgEl('g',{}); svg.appendChild(gFx);             // 冲击环/线/碎石/尘/飘字
+
+  // 目标格标记
+  const mark=svgEl('rect',{x:vCell.x-vCell.w/2+1,y:vCell.y-vCell.h/2+1,width:vCell.w-2,height:vCell.h-2,rx:5,
+    fill:'none',stroke:'#e74c3c','stroke-width':'2.5',opacity:'0'});
+  svg.appendChild(mark);
+  // 落点标记（5 号）
+  const mark5=svgEl('rect',{x:e5.x-e5.w/2+1,y:e5.y-e5.h/2+1,width:e5.w-2,height:e5.h-2,rx:5,
+    fill:'none',stroke:'#ffcf6a','stroke-width':'2.5',opacity:'0','stroke-dasharray':'6 5'});
+  svg.appendChild(mark5);
+
+  // 被抱卡片（浮在 SVG 之上的 HTML div，用 transform 跟随）
+  const vw=vCell.w, vh=vCell.h;
+  const victimCard=document.createElement('div');
+  victimCard.className='cell occ';
+  victimCard.style.cssText='position:absolute;left:0;top:0;width:'+vw+'px;height:'+vh+'px;z-index:6;pointer-events:none;transform-origin:'+(vw/2)+'px '+(vh/2)+'px;';
+  victimCard.innerHTML=cardHtml(pick.u);
+  bf.appendChild(victimCard);
+
+  // 被攥走 → 原格腾空
+  const vCellEl=eg.querySelector('[data-pos="'+pick.u.pos+'"]');
+  if(vCellEl){ vCellEl.innerHTML=''; vCellEl.classList.remove('occ'); vCellEl.classList.add('gone'); }
+
+  // ---- 能量巨手：手背在卡片后（SVG .fx），五指在卡片前（SVG .fxfront）——
+  //   这样被抱的卡片是"攥在拳头里"，而不是被一只手盖住 ----
+  const svgFront=bf.querySelector('.fxfront');
+  const gHandFront=svgEl('g',{}); svgFront.appendChild(gHandFront);
+  const palmGlow=svgEl('path',{d:HAND_PALM,fill:'rgba(255,170,90,0.45)',filter:'url(#fistBlur)'});
+  const wristShape=svgEl('path',{d:HAND_WRIST,fill:'url(#fingerG)',stroke:'#6d2409','stroke-width':'2',opacity:'0.92'});
+  const palmShape=svgEl('path',{d:HAND_PALM,fill:'url(#fistG)',stroke:'#6d2409','stroke-width':'2.2'});
+  const palmHi=svgEl('path',{d:HAND_PALM_HI,stroke:'rgba(255,255,235,0.5)','stroke-width':'3.4','stroke-linecap':'round',fill:'none'});
+  const knuck=svgEl('path',{d:HAND_KNUCKLE,stroke:'rgba(70,22,5,0.5)','stroke-width':'2','stroke-linecap':'round',fill:'none'});
+  gHandBack.appendChild(palmGlow); gHandBack.appendChild(wristShape);
+  gHandBack.appendChild(palmShape); gHandBack.appendChild(palmHi); gHandBack.appendChild(knuck);
+  // 五指：每根 = 暗边 + 本体（SVG 描边，圆头圆角，自带关节）
+  const fingerPaths=HFINGERS.map(f=>{
+    const sh=svgEl('path',{d:'',stroke:'rgba(58,18,4,0.85)','stroke-width':f.w+2.4,'stroke-linecap':'round','stroke-linejoin':'round',fill:'none'});
+    gHandFront.appendChild(sh);
+    const p=svgEl('path',{d:'',stroke:'url(#fingerG)','stroke-width':f.w,'stroke-linecap':'round','stroke-linejoin':'round',fill:'none'});
+    gHandFront.appendChild(p);
+    return {sh:sh,p:p,f:f};
+  });
+
+  // ---- 残影池（固定池环形复用） ----
+  const GHOST_N=8;
+  const ghosts=[];
+  for(let i=0;i<GHOST_N;i++){
+    const r=svgEl('rect',{x:0,y:0,width:vw,height:vh,rx:5,fill:'rgba(255,160,70,0)',stroke:'rgba(255,200,120,0)','stroke-width':'2'});
+    gGhost.appendChild(r); ghosts.push({el:r,t0:-1e9});
+  }
+  let ghostIdx=0;
+
+  // 冲击环
+  const rings=[];
+  function spawnRing(x,y,r0,r1,dur,color,w){ const c=svgEl('circle',{cx:x,cy:y,r:r0,fill:'none',stroke:color,'stroke-width':w||3,opacity:0});
+    gFx.appendChild(c); rings.push({el:c,t0:VT,r0:r0,r1:r1,dur:dur}); }
+  // 冲击线
+  const lines=[];
+  // 尘（扬尘柱）
+  const dusts=[];
+  // 碎石
+  const debris=[];
+  function spawnDebris(x,y,n,seed){ const r2=mulberry32b(seed);
+    for(let i=0;i<n;i++){ const a=r2()*TAU, sp=100+r2()*300;
+      const el=svgEl('rect',{x:-2.2,y:-2.2,width:4.4,height:4.4,fill:r2()<0.5?'#8a5a2b':'#dcc79c',opacity:0});
+      gFx.appendChild(el);
+      debris.push({el:el,t0:VT,x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-120,rot:r2()*360,spin:(r2()*2-1)*720,dly:r2()*140,life:850+r2()*520}); } }
+  // 飘字
+  const floats=[];
+  function spawnFloat(x,y,txt,color,size){ const t=svgEl('text',{x:x,y:y,fill:color,'font-size':size||15,'font-weight':'900',
+    'text-anchor':'middle','font-family':'Segoe UI, monospace',opacity:0}); t.textContent=txt; gFx.appendChild(t);
+    floats.push({el:t,x:x,y:y,t0:VT,life:1150}); }
+  // 速度线（突进）
+  const streaks=[];
+  function spawnStreak(x,y,ang,len){ const el=svgEl('line',{x1:x,y1:y,x2:x,y2:y,stroke:'rgba(255,220,160,0.8)','stroke-width':2.5,'stroke-linecap':'round',opacity:0});
+    gFx.appendChild(el); streaks.push({el:el,t0:VT,x:x,y:y,dx:Math.cos(ang),dy:Math.sin(ang),len:len,dur:280}); }
+
+  // ---- 时序 ----
+  const SPEED = state.slow ? 0.55 : 1;
+  const T=TIMING;
+  let VT=0;                       // 虚拟时钟（ms，演出时间轴）
+  let lastReal=0, slammed=false, shakeT=0, shakeAmp=0;
+  let lastFx=0, lastFy=0;         // 巨拳当前位置（供速度线生成用）
+  let GRIP_DROP=40;               // 卡片垂在拳头下方的距离（随拳缩放变）
+
+  const PHASES=[
+    {t:0,                 txt:'寒离飒攥拳 —— 巨手凝聚'},
+    {t:T.windEnd,          txt:'巨手腾空 —— 直扑敌方 2 号位'},
+    {t:T.dashEnd,          txt:'手腕一翻 —— 五指合拢，抓住了！'},
+    {t:T.graspEnd,         txt:'扛着走 —— 带到敌方 5 号位'},
+    {t:T.carryEnd,         txt:'高举过头 —— 准备砸下'},
+    {t:T.slamT,            txt:'砸落！十字臂重击、四角溅射'}
+  ];
+
+  function setHp(cell,u,dmg){
+    u.hp=Math.max(0,u.hp-dmg);
+    if(u.hp<=0){ cell.innerHTML=''; cell.classList.remove('occ'); cell.classList.add('dead'); }
+    else cell.innerHTML=cardHtml(u);
+  }
+
+  function render(){
+    const el=VT;
+    let ph=PHASES[0]; for(const q of PHASES) if(el>=q.t) ph=q;
+    hint.textContent=ph.txt;
+
+    // ---- 白闪 / 暗角：虚拟时钟驱动 ----
+    const fl=el-T.slamT;
+    flash.style.transition='none';
+    flash.style.opacity = (fl>=0 && fl<130) ? (0.9*(1-fl/130)).toFixed(3) : '0';
+    vig.style.opacity = (fl>=0) ? (el<T.total ? '0.72' : (Math.max(0,0.72*(1-(el-T.total)/260))).toFixed(3)) : '0';
+
+    // ================= 被抱卡片（抓住之前在原格，抓住之后长在手上） =================
+    let cx,cy,crot=0,csc=1,cop=1;
+    if(el<T.graspEnd){
+      cx=vCell.x; cy=vCell.y;
+      csc=(el<T.windEnd)?1:1.06;
+    } else if(el<T.carryEnd){                 // 扛走
+      const k=easeInOut((el-T.graspEnd)/(T.carryEnd-T.graspEnd));
+      cx=lerp(vCell.x,e5.x,k); cy=lerp(vCell.y,e5.y,k);
+      crot=Math.sin(k*Math.PI*2)*7; csc=1.08;
+    } else if(el<T.raiseEnd){                 // 高举
+      const k=easeOut((el-T.carryEnd)/(T.raiseEnd-T.carryEnd));
+      cx=e5.x; cy=lerp(e5.y,e5.y-34,k);
+      crot=lerp(0,-9,k); csc=1.08;
+    } else if(el<T.slamT){                    // 抡下
+      const k=easeIn((el-T.raiseEnd)/(T.slamT-T.raiseEnd));
+      cx=e5.x; cy=lerp(e5.y-34,e5.y,k);
+      crot=lerp(-9,16,k); csc=lerp(1.08,1.14,k);
+    } else {                                  // 砸进地里
+      const k=clamp((el-T.slamT)/(T.impactEnd-T.slamT),0,1);
+      cx=e5.x; cy=e5.y-easeIn(k)*4;
+      crot=lerp(16,46,easeOut(k)); csc=lerp(1.14,0.5,easeOut(k));
+      cop=Math.max(0,1-k*1.35);
+    }
+    victimCard.style.transform='translate('+(cx-vw/2).toFixed(1)+'px,'+(cy-vh/2).toFixed(1)+'px) rotate('+crot.toFixed(1)+'deg) scale('+csc.toFixed(3)+')';
+    victimCard.style.opacity=cop.toFixed(3);
+    victimCard.style.zIndex = el>=T.slamT ? '4' : '6';   // 砸落时手压在卡片之上
+
+    // ================= 能量巨手 =================
+    // handAng：手指在屏幕上的指向角（0 = 指尖朝下，PI = 指尖朝上，正值 = 偏右）
+    // 抓住之后手掌位置由卡片反推 —— 卡片是"长在手上"的，不是自己飘的
+    const FSG=1.20;
+    let hx,hy,handAng=Math.PI,fsc=1,falpha=1,grip=1;
+    if(el<T.windEnd){                         // ① 起手：巨手在寒离飒头顶凝成拳
+      const k=el/T.windEnd;
+      hx=a2.x; hy=a2.y-48-Math.sin(k*Math.PI)*12;
+      handAng=Math.PI; fsc=0.42+easeOut(k)*0.72;
+      falpha=easeOut(clamp(k*1.6,0,1)); grip=1;
+    } else if(el<T.dashEnd){                  // ② 突进：腾空直扑敌方 2 号位
+      const k=easeIn((el-T.windEnd)/(T.dashEnd-T.windEnd));
+      hx=lerp(a2.x,vCell.x,k); hy=lerp(a2.y-48,vCell.y-96,k);
+      handAng=Math.PI; fsc=lerp(1.14,FSG,k); falpha=1;
+      grip=lerp(1,0.18,k);                   // 拳张开成"抓"的手
+    } else if(el<T.graspEnd){                 // ③ 攥住：手腕一翻，五指扣下来
+      const k=clamp((el-T.dashEnd)/(T.graspEnd-T.dashEnd),0,1), ge=easeInOut(k);
+      hx=vCell.x; hy=lerp(vCell.y-96, vCell.y-CARD_ANCHOR*FSG, ge);
+      handAng=lerp(Math.PI,0,ge);            // 招牌动作：翻腕
+      fsc=lerp(FSG*0.95,FSG,ge); falpha=1;
+      grip=lerp(0.18,1,easeOut(k));          // 五指合拢
+    } else {                                  // ④⑤⑥⑦ 抓住之后：手掌跟着卡片
+      handAng=0;
+      if(el<T.carryEnd) fsc=FSG;
+      else if(el<T.raiseEnd) fsc=lerp(FSG,1.42,easeOut((el-T.carryEnd)/(T.raiseEnd-T.carryEnd)));
+      else if(el<T.slamT) fsc=lerp(1.42,1.50,easeIn((el-T.raiseEnd)/(T.slamT-T.raiseEnd)));
+      else fsc=lerp(1.50,1.34,easeOut(clamp((el-T.slamT)/(T.impactEnd-T.slamT),0,1)));
+      hx=cx; hy=cy-CARD_ANCHOR*fsc;          // 卡片挂在指尖方向下方
+      falpha=1; grip=1;
+    }
+    const hTr='translate('+hx.toFixed(1)+','+hy.toFixed(1)+') rotate('+(-handAng*180/Math.PI).toFixed(1)+') scale('+fsc.toFixed(3)+')';
+    gHandBack.setAttribute('transform',hTr);
+    gHandFront.setAttribute('transform',hTr);
+    gHandBack.setAttribute('opacity',falpha.toFixed(3));
+    gHandFront.setAttribute('opacity',falpha.toFixed(3));
+    lastFx=hx; lastFy=hy;
+    // 五指逐帧算形（张 → 合）
+    for(const fp of fingerPaths){
+      const d=handFingerPath(fp.f,grip);
+      fp.p.setAttribute('d',d); fp.sh.setAttribute('d',d);
+    }
+
+    // 目标格脉冲 / 落点标记
+    mark.setAttribute('opacity', el<T.dashEnd ? String(0.55+0.45*Math.abs(Math.sin(el/80))) : '0');
+    mark5.setAttribute('opacity', (el>=T.graspEnd && el<T.slamT) ? String(0.5+0.4*Math.abs(Math.sin(el/90))) : '0');
+
+    // 突进残影（卡片拖影）
+    if(el>=T.windEnd && el<T.graspEnd){
+      ghostIdx=(ghostIdx+1)%GHOST_N;
+      const gh=ghosts[ghostIdx];
+      gh.el.setAttribute('x',(cx-vw/2).toFixed(1));
+      gh.el.setAttribute('y',(cy-vh/2).toFixed(1));
+      gh.t0=VT;
+    }
+
+    // ================= 砸落 =================
+    if(!slammed && el>=T.slamT){
+      slammed=true;
+      shakeT=VT; shakeAmp=1;
+      // 地面塌坑
+      const cr=svgEl('ellipse',{cx:e5.x,cy:e5.y+2,rx:8,ry:4,fill:'url(#craterG)',opacity:0});
+      gCrater.appendChild(cr);
+      cr.__grow=1;
+      // 放射裂纹
+      const rnd=mulberry32b(20261029);
+      let ch='';
+      for(let i=0;i<16;i++){ let ang=(i/16)*TAU+rnd()*0.3, r=6+rnd()*12, pts=[];
+        for(let s=0;s<5;s++){ pts.push([e5.x+Math.cos(ang)*r, e5.y+Math.sin(ang)*r]);
+          ang+=(rnd()*2-1)*0.30; r+=24*(0.5+rnd()*0.8); }
+        ch+='<polyline points="'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="none" stroke="rgba(96,44,14,0.9)" stroke-width="'+(0.8+rnd()*1.7).toFixed(2)+'" stroke-linecap="round"/>'; }
+      gCrack.innerHTML=ch;
+      // 冲击环
+      spawnRing(e5.x,e5.y,6,104,640,'#ffcf6a',5);
+      spawnRing(e5.x,e5.y,4,150,800,'#ff8a3d',3);
+      spawnRing(e5.x,e5.y,9,62,420,'#fff3d0',2);
+      // 十字臂粗冲击线 / 四角细溅射线
+      ARMS.forEach((p,i)=>{ const c=POS[p];
+        const dx=c.x-e5.x, dy=c.y-e5.y, L=Math.hypot(dx,dy)||1;
+        const ln=svgEl('line',{x1:e5.x,y1:e5.y,x2:e5.x,y2:e5.y,stroke:'#ff9a3d','stroke-width':7,'stroke-linecap':'round',opacity:0});
+        gFx.appendChild(ln); lines.push({el:ln,t0:VT+i*45,dur:400,dx:dx/L,dy:dy/L,len:74,x:e5.x,y:e5.y}); });
+      CORNERS.forEach((p,i)=>{ const c=POS[p];
+        const dx=c.x-e5.x, dy=c.y-e5.y, L=Math.hypot(dx,dy)||1;
+        const ln=svgEl('line',{x1:e5.x,y1:e5.y,x2:e5.x,y2:e5.y,stroke:'#c9b28a','stroke-width':2.5,'stroke-dasharray':'5 6',opacity:0});
+        gFx.appendChild(ln); lines.push({el:ln,t0:VT+100+i*45,dur:440,dx:dx/L,dy:dy/L,len:56,x:e5.x,y:e5.y}); });
+      // 扬尘柱（三团，向上升）
+      for(let i=0;i<3;i++){ const de=svgEl('ellipse',{cx:e5.x+(i-1)*10,cy:e5.y,rx:12,ry:7,fill:'url(#dustG)',opacity:0});
+        gFx.appendChild(de); dusts.push({el:de,t0:VT+i*60,dur:1100,y:e5.y,rise:60+i*22}); }
+      spawnDebris(e5.x,e5.y,32,4242);
+      // 伤害
+      for(const h of slam.hits){
+        const c=POS[h.pos];
+        const ox=h.dx||0;
+        if(h.kind==='dead'){ spawnFloat(c.x+ox,c.y-14,'摔死！','#e74c3c',17);
+          log('　'+h.name+' 被摔死（'+h.pos+' 号位）','dead');
+        } else if(h.kind==='crush'){ spawnFloat(c.x+ox,c.y-14,'-'+h.dmg,'#ffd27a',18);
+          log('　'+h.name+'（'+h.pos+' 号位）受大量真伤 -'+h.dmg,'hl');
+          if(h.movedTo){
+            const u=Object.assign({},pick.u); u.hp=Math.max(0,u.hp-h.dmg);
+            const tg=eg.querySelector('[data-pos="'+h.movedTo+'"]');
+            if(tg){ if(u.hp<=0){ tg.innerHTML=''; tg.classList.remove('occ'); tg.classList.add('dead'); }
+                    else { tg.classList.add('occ'); tg.innerHTML=cardHtml(u); } }
+            log('　　└ '+u.name+' 被摔到 '+h.movedTo+' 号位','hl');
+          } else {
+            const cell=eg.querySelector('[data-pos="'+h.pos+'"]'), u=enemies[h.pos];
+            if(cell&&u) setHp(cell,u,h.dmg);
+          }
+        } else if(h.kind==='heavy'){ spawnFloat(c.x,c.y-12,'-'+h.dmg,'#ff8a3d',15);
+          log('　'+h.name+'（'+h.pos+' 号位·十字臂）巨额伤害 -'+h.dmg,'heavy');
+          const cell=eg.querySelector('[data-pos="'+h.pos+'"]'), u=enemies[h.pos];
+          if(cell&&u) setHp(cell,u,h.dmg);
+        } else { spawnFloat(c.x,c.y-12,'-'+h.dmg,'#b8a882',13);
+          log('　'+h.name+'（'+h.pos+' 号位·四角）溅射伤害 -'+h.dmg,'spill');
+          const cell=eg.querySelector('[data-pos="'+h.pos+'"]'), u=enemies[h.pos];
+          if(cell&&u) setHp(cell,u,h.dmg);
+        }
+      }
+    }
+
+    // ---- 镜头抖动 ----
+    if(shakeAmp>0){
+      const k=clamp((VT-shakeT)/520,0,1);
+      shakeAmp=1-k;
+      const amp=7*shakeAmp*shakeAmp;
+      bf.style.transform='translate('+((Math.random()*2-1)*amp).toFixed(1)+'px,'+((Math.random()*2-1)*amp).toFixed(1)+'px)';
+    } else if(bf.style.transform){ bf.style.transform=''; }
+
+    // ---- 塌坑扩张 ----
+    for(const cr of gCrater.childNodes){ const k=clamp((VT-(T.slamT))/520,0,1);
+      cr.setAttribute('rx',(8+easeOut(k)*46).toFixed(1));
+      cr.setAttribute('ry',(4+easeOut(k)*20).toFixed(1));
+      cr.setAttribute('opacity',(0.92*(1-k*0.45)).toFixed(3)); }
+
+    // ---- 残影 ----
+    for(const gh of ghosts){
+      const k=(VT-gh.t0)/280;
+      if(k>=1||k<0){ gh.el.setAttribute('fill','rgba(255,160,70,0)'); gh.el.setAttribute('stroke','rgba(255,200,120,0)'); continue; }
+      gh.el.setAttribute('fill','rgba(255,160,70,'+(0.24*(1-k)).toFixed(3)+')');
+      gh.el.setAttribute('stroke','rgba(255,200,120,'+(0.42*(1-k)).toFixed(3)+')');
+    }
+
+    // ---- 速度线 ----
+    for(let i=streaks.length-1;i>=0;i--){ const s=streaks[i]; const k=clamp((VT-s.t0)/s.dur,0,1);
+      if(k<=0){ s.el.setAttribute('opacity','0'); continue; }
+      const len=easeOut(k)*s.len;
+      s.el.setAttribute('x1',s.x.toFixed(1)); s.el.setAttribute('y1',s.y.toFixed(1));
+      s.el.setAttribute('x2',(s.x-s.dx*len).toFixed(1)); s.el.setAttribute('y2',(s.y-s.dy*len).toFixed(1));
+      s.el.setAttribute('opacity',((1-k)*0.75).toFixed(3));
+      if(k>=1){ if(s.el.parentNode) s.el.remove(); streaks.splice(i,1); } }
+
+    // ---- 环 ----
+    for(let i=rings.length-1;i>=0;i--){ const r=rings[i]; const k=clamp((VT-r.t0)/r.dur,0,1);
+      r.el.setAttribute('r',lerp(r.r0,r.r1,easeOut(k)).toFixed(1));
+      r.el.setAttribute('opacity',(0.95*(1-k)).toFixed(3));
+      if(k>=1){ if(r.el.parentNode) r.el.remove(); rings.splice(i,1); } }
+
+    // ---- 冲击线 ----
+    for(let i=lines.length-1;i>=0;i--){ const L=lines[i]; const k=clamp((VT-L.t0)/L.dur,0,1);
+      if(k<=0){ L.el.setAttribute('opacity','0'); continue; }
+      const len=easeOut(k)*L.len;
+      L.el.setAttribute('x1',L.x); L.el.setAttribute('y1',L.y);
+      L.el.setAttribute('x2',(L.x+L.dx*len).toFixed(1)); L.el.setAttribute('y2',(L.y+L.dy*len).toFixed(1));
+      L.el.setAttribute('opacity',(1-k).toFixed(3));
+      if(k>=1){ if(L.el.parentNode) L.el.remove(); lines.splice(i,1); } }
+
+      // 扬尘：向上升 + 向外扩
+      for(let i=dusts.length-1;i>=0;i--){ const D=dusts[i]; const k=clamp((VT-D.t0)/D.dur,0,1);
+      D.el.setAttribute('cy',(D.y-D.rise*easeOut(k)).toFixed(1));
+      D.el.setAttribute('rx',(12+easeOut(k)*54).toFixed(1));
+      D.el.setAttribute('ry',(7+easeOut(k)*30).toFixed(1));
+      D.el.setAttribute('opacity',(0.85*(1-k)).toFixed(3));
+      if(k>=1){ if(D.el.parentNode) D.el.remove(); dusts.splice(i,1); } }
+
+    // ---- 碎石 ----
+    for(let i=debris.length-1;i>=0;i--){ const d=debris[i]; const k=clamp((VT-d.t0-d.dly)/d.life,0,1);
+      if(k<=0){ d.el.setAttribute('opacity','0'); continue; }
+      const x=d.x+d.vx*k/1000, y=d.y+d.vy*k/1000+340*k*k;
+      d.el.setAttribute('transform','translate('+x.toFixed(1)+','+y.toFixed(1)+') rotate('+(d.rot+d.spin*k).toFixed(0)+')');
+      d.el.setAttribute('opacity',(1-k).toFixed(3));
+      if(k>=1){ if(d.el.parentNode) d.el.remove(); debris.splice(i,1); } }
+
+    // ---- 飘字 ----
+    for(let i=floats.length-1;i>=0;i--){ const f=floats[i]; const k=clamp((VT-f.t0)/f.life,0,1);
+      f.el.setAttribute('y',(f.y-28*easeOut(k)).toFixed(1));
+      f.el.setAttribute('opacity',(k<0.14?k/0.14:Math.max(0,1-(k-0.14)/0.86)).toFixed(3));
+      if(k>=1){ if(f.el.parentNode) f.el.remove(); floats.splice(i,1); } }
+  }
+
+  function finish(){
+    state.raf=0;
+    log('【结束】抱摔演出完毕','hl');
+    vig.style.transition='opacity .4s'; vig.style.opacity='0';
+    setTimeout(()=>{ ov.style.opacity='0'; setTimeout(()=>{ ov.remove(); if(state.ov===ov) state.ov=null; state.running=false; if(state.loop) setTimeout(()=>play(),420); },260); },520);
+  }
+
+  function tick(ts){
+    if(lastReal) VT+=Math.min(60,ts-lastReal)*SPEED;
+    lastReal=ts;
+    render();
+    if(VT<T.total) state.raf=requestAnimationFrame(tick);
+    else finish();
+  }
+
+  if(freezeAt){                                   // 定格：虚拟时钟直接推到目标帧
+    const target=FREEZE_AT[freezeAt];
+    while(VT<target){ VT+=16*SPEED; render(); }
+    log('【定格】'+(BEATS.find(b=>b.k===freezeAt)||{label:freezeAt}).label+' —— 画面停在这一帧，可用顶部按钮切场景/切目标','hl');
+    state.raf=0;
+  } else {
+    state.raf=requestAnimationFrame(tick);
+  }
+
+  // 突进时补速度线（只在突进段生成）
+  const spdTimer=setInterval(()=>{
+    if(!state.raf||!state.ov) return;
+    if(VT<T.windEnd||VT>T.dashEnd) return;
+    const ang=Math.atan2(vCell.y-a2.y, vCell.x-a2.x)+Math.PI;
+    for(let i=0;i<2;i++) spawnStreak(lastFx+(Math.random()*2-1)*26, lastFy+(Math.random()*2-1)*26, ang, 40+Math.random()*46);
+  },40);
+
+  ov.querySelector('.skip').addEventListener('click',()=>{
+    clearInterval(spdTimer);
+    if(state.raf) cancelAnimationFrame(state.raf); state.raf=0; ov.remove(); if(state.ov===ov) state.ov=null; state.running=false;
+    if(state.loop) setTimeout(()=>play(),300);
+  });
+
+  // 覆盖层内自带关键帧切换（覆盖层全屏，外面的按钮点不到）
+  const kbar=document.createElement('div'); kbar.className='kbar';
+  BEATS.forEach(b=>{ const btn=document.createElement('button'); btn.dataset.kf=b.k; btn.textContent=b.label;
+    btn.onclick=()=>{ try{ location.hash=b.k+'|'+state.scene+'|'+state.victimMode; }catch(_){} switchTo(b.k); }; kbar.appendChild(btn); });
+  const playBtn=document.createElement('button'); playBtn.dataset.kf='play'; playBtn.textContent='▶ 播放';
+  playBtn.onclick=()=>switchTo('play');
+  const closeBtn=document.createElement('button'); closeBtn.dataset.kf='close'; closeBtn.className='close'; closeBtn.textContent='关闭';
+  closeBtn.onclick=()=>{ clearInterval(spdTimer); if(state.raf) cancelAnimationFrame(state.raf); state.raf=0; ov.remove(); if(state.ov===ov) state.ov=null; state.running=false; };
+  kbar.appendChild(playBtn); kbar.appendChild(closeBtn);
+  ov.appendChild(kbar);
+
+  const kbar2=document.createElement('div'); kbar2.className='kbar'; kbar2.style.top='46px';
+  [['scene:has5','5号有人'],['scene:no5','5号没人'],['vic:near','2号有人'],['vic:nearest','2号空·取最近']].forEach(([v,label])=>{
+    const btn=document.createElement('button'); btn.dataset.ov=v; btn.textContent=label;
+    btn.onclick=()=>{
+      if(v.indexOf('scene:')===0) state.scene=v.slice(6); else state.victimMode=v.slice(4);
+      kbar2.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      btn.classList.add('on');
+      try{ location.hash=(freezeAt||'slam')+'|'+state.scene+'|'+state.victimMode; }catch(_){}
+      switchTo(freezeAt||'slam');
+    };
+    kbar2.appendChild(btn);
+  });
+  ov.appendChild(kbar2);
+
+  function switchTo(key){
+    clearInterval(spdTimer);
+    if(state.raf) cancelAnimationFrame(state.raf); state.raf=0;
+    state.running=false;
+    clearLog();
+    try{ run(key==='play'?null:key); }catch(e){ log('【出错】'+((e&&e.message)||e),'dead'); console.error(e); state.running=false; }
+  }
+  return {ov:ov};
+}
+
+/* ================= UI ================= */
+function stopAll(){ if(state.raf) cancelAnimationFrame(state.raf); state.raf=0; state.running=false; }
+document.getElementById('btnRun').onclick=()=>{ stopAll(); play(null); };
+/* ---- URL 深链：#grasp 或 #grasp|no5|nearest → 打开页面即定格到该帧（抓帧用，省得靠点击） ---- */
+(function(){
+  const H=(location.hash||'').slice(1); if(!H) return;
+  const P=H.split('|'), k=P[0], sc=P[1], vic=P[2];
+  if(sc) state.scene=sc;
+  if(vic) state.victimMode=vic;
+  document.querySelectorAll('[data-scene]').forEach(x=>x.classList.toggle('on',x.dataset.scene===state.scene));
+  document.querySelectorAll('[data-victim]').forEach(x=>x.classList.toggle('on',x.dataset.victim===state.victimMode));
+  if(FREEZE_AT[k]){ try{ run(k); }catch(e){ console.error(e); } }
+})();
+document.getElementById('btnLoop').onclick=e=>{state.loop=!state.loop;e.target.classList.toggle('on',state.loop);};
+document.getElementById('btnSlow').onclick=e=>{state.slow=!state.slow;e.target.classList.toggle('on',state.slow);};
+// 页面上的定格按钮
+(function(){
+  const bar=document.getElementById('freezeBar');
+  BEATS.forEach(b=>{
+    const btn=document.createElement('button'); btn.className='fz'; btn.dataset.freeze=b.k; btn.textContent=b.label;
+    btn.onclick=()=>{ stopAll(); clearLog(); try{ location.hash=b.k+'|'+state.scene+'|'+state.victimMode; }catch(_){} try{ run(b.k); }catch(e){ log('【出错】'+((e&&e.message)||e),'dead'); console.error(e); state.running=false; } };
+    bar.appendChild(btn);
+  });
+})();
+document.querySelectorAll('[data-scene]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-scene]').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.scene=b.dataset.scene;});
+document.querySelectorAll('[data-victim]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-victim]').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.victimMode=b.dataset.victim;});
+document.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-n]').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.N=Number(b.dataset.n); updN();});
+function updN(){
+  document.getElementById('nLabel').textContent='基数 N = '+state.N;
+  document.getElementById('nDetail').textContent='占位：2468=N×'+NUM.heavyMul+'（巨额）· 1379=N×'+NUM.spillMul+'（溅射）· 受击=N×'+NUM.crushMul+'（真伤）';
+}
+updN();
+</script>
+</body>
+</html>

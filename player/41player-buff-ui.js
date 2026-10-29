@@ -1,4 +1,3 @@
-// V6.0.0 | 2026-08-26 | ~3800 bytes
 export const VER = 'player/41player-buff-ui.js V6.0.0';
 
 import { Unit } from '../core/02unit.js';

@@ -1,66 +1,4 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
-// V2.3.0 | 2026-10-29 | 英雄影响力加显著性检验（不再把噪声当铁证）：
-//   影响力 = 活着胜率 − 阵亡胜率，但「阵亡」往往只几局，区间宽到 ±40pp，
-//   裸 +20pp 极可能是噪声。V2.3.0 用 Agresti-Caffo 校正的两比例差算 95% 区间：
-//   区间跨 0（不显著）→ 判读标「噪声内」、颜色压灰；只把显著项当真。
-//   界面把 95% 区间放进单元格悬浮提示；Markdown 表新增「95%区间」列与噪声内说明。
-//   诚实边界贯穿：这是相关不是因果，结论只标方向不归因。
-// V2.2.0 | 2026-10-29 | 修英雄表三个数"不可横比"的口径问题：
-//   ① 「均输出/均承伤/均治疗」是整局累计，而每局 6~13 回合不等、有人第 3 回合就倒。
-//      整局 300 对 45 看着像完爆，换成「每存活回合」是 30 对 25 —— 前者是活得久，后者才是效率。
-//      现在只累加存活回合内的产出，分母用该英雄累计 survivedRounds；没记存活回合的旧记录单独计数不参与除法。
-//   ② 胜率没控制关卡分布：总在 s1 出场的人虚高，总在 s7 的相反。新增「较同关」=
-//      实际胜率 − 他在场那些关的整体胜率（直接标准化），扣掉关卡难度后才是英雄本身的影响。
-//   ③ 界面/Markdown 都把口径写在表下，避免把「输出/回合」当成以前的整局累计。
-// V2.1.0 | 2026-10-29 | 英雄统计只算真英雄（用户提的：跨局表现该只有 Boss 和强弱精英）：
-//   生涯记录 ally[] 里混着普通兵（明教弟子1/2/3）、召唤物（拒马）、谢逊三狮（雄狮/幼狮/母狮）。
-//   这些单位几乎每局都在场，场次天然最高，而"胜率"就是队伍胜率——
-//   于是「明教弟子2 57 场 79%」霸占榜首，真正的英雄被挤到 12 名开外，读起来像小兵最强。
-//   现在 getHeroAggregates / getHeroImpact / getHeroPairs / 主力英雄 统一按 127 注册表过滤：
-//   Boss(张无忌) + 强精英(韦一笑/小昭姊妹/谢逊/寒离飒) + 明教侧弱精英(杨逍/殷天正)。
-//   小昭的 ·姊/·妹 按基础名归一以免漏人。新增 getExcludedUnits()，把被排除的单位和局数
-//   在界面/报告里明确交代——静默丢弃会让人以为它们没出过场。CSV 明细保持原样（那是逐单位原始数据）。
-// V2.0.0 | 2026-10-29 | 导出文件里的英文键名收口：
-//   ① 新增 hexLabel(k)：content 官名 → 127 单源 → 兜底英文 key，全文件只此一处取名。
-//      CSV 的「海克斯」列和 Markdown 逐局明细以前直接 join('/') 原始 key，
-//      导出来是 mindControl/meteorShower —— 用户在游戏里看到的是中文，导出文件却是英文。
-//   ② 新增 modeLabel(k)：CSV「模式」列从 single/pvp 改为 单机/联机，与同表其它中文列一致。
-//   （insights / getHexWinRates 里原本各抄一份的取名代码同步收口到 hexLabel）
-// V1.9.0 | 2026-10-28 | 新增 getHeroImpact()：每英雄「活到结束胜率 − 阵亡胜率」= 胜负手影响力，标 carry/包袱；
-//   接 exportCareerMarkdown 与 dev-index 面板。数据现成（每局已记 ally[].alive + winner），纯聚合不新增存储。
-// V1.8.0 | 2026-10-28 | 新增 getHexWinRates(mode)：逐海克斯实战胜率（mode='single' 与 108 常规榜口径对齐），
-//   供 126 规则八做「逐海克斯 模拟 vs 实战」对照。52 每局已记 hex（同 CONFIG.BUFFS key），可直接按 key 匹配。
-// V1.7.0 | 2026-10-28 | byMode 升级：原只数各模式场次（单机/联机），V1.6.0 加 byMode 的初衷是
-//   「单机可能挂机刷会稀释胜率」，但只显示「单机 N 局」用户仍无法判断它把胜率拉高还是压低 →
-//   现在 byMode 存 {n, wins, winRate, label}，界面/数据健康/Markdown 导出都按「N局(胜率%)」展示。
-// V1.6.0 | 2026-10-28 |
-//   ① getCareerInsights 加 byMode（single 单机 / pvp 联机）。单机可能挂机刷或开调试，
-//      混进实战统计会让「模拟 vs 实战」对照失真 → 数据健康里分开显示。
-//   ② exportCareerMarkdown 从「只有原始数据」升级为「带分析结论」：英雄表现表（含 95% 区间）、
-//      英雄搭配（协同/拖累）、败因归类、最近 vs 之前趋势。丢给 AI 时不用它再从头算。
-// V1.5.0 | 2026-10-28 | getCareerTrend()：最近 20 局 vs 之前 20 局。
-//   200 局上限下唯一还能做的趋势。只摆数字、不判显著（20 局胜率的标准误差约 ±11pp，
-//   大多数「变化」都在噪声内）；也不知道用户何时改的数值，所以只说「先后差异」不说因果。
-// V1.4.0 | 2026-10-28 | 两条「数据可信度」：
-//   ① 上限丢数据不再静默：appendCareerRecord 把被 200 局上限挤掉的局数累加进 meta 键，
-//      getCareerInsights 返回 dropped。旧版超上限直接 shift，看的人不知道实际已打过多少局，
-//      会误以为「总共就 200 局」，趋势判断直接错。
-//   ② 生涯统计加数据覆盖时间 span（最早一局 / 最晚一局 / 跨度天数）。
-//      没有它，看到「200 局 62% 胜率」无法判断是最近三天还是两个月的，也不知道中间改没改过数值。
-// V1.3.0 | 2026-10-28 | 三条细化（用户拍板「按顺序全做」，接在 126 V2.5.0 之后）：
-//   ① 样本置信度：getHeroAggregates 新增 ci（Wilson 95%）+ reliable（≥8 局）。
-//      3 局 100% 胜率不再被当实力，和 126 对海克斯/精英的处理同口径。
-//   ② 英雄两两组合 getHeroPairs()：谁和谁一起上更容易赢。口径同 126 的海克斯组合
-//      （组合胜率 vs 两人各自胜率均值）。局限已知：5 人阵容只有 10 个对子、样本稀疏，
-//      且「第三个特别强」会被误算成这对的功劳 → 门槛 8 局，结论只当线索。
-//   ③ 败因归类 getLossAnalysis()：输局的共同点（被速推 / 团灭 / 输出打不出 / 承伤偏高 /
-//      谁最先倒）。只用量化数据，不猜走位操作；输局 <5 局直说「不下结论」。
-// V1.2.0 | 2026-10-28 | ① 海克斯中文名改从 127-tool-registry.js 单源取（与 108/126 同源，
-//           删掉本文件里那一份手写副本——holyFire 这类新海克斯若只在 127 加了、忘改本副本就会显示英文 key）；
-//         ② 抽出 computeCareerStats() 共享聚合，「各关胜率 / 主力英雄」两套循环不再在 markdown 与 insights 里各写一遍；
-//         ③ 修「最难关卡」误判：hardest 与 easiest 统一要求 ≥3 局样本，避免 1 局 100% 胜率被当成最难关
-// V1.1.0 | 2026-10-27 | 由 player/ 迁入 tools/（入口保留：战斗内写入在 42player-core、查看在 dev-index）
-//         新增 getHeroAggregates()（英雄跨局聚合）与 exportCareerCSV()（表格软件友好导出）
 // 只存摘要（阵容/结果/单位统计/回合走势），不存 steps——localStorage 约 5MB，
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
@@ -71,7 +9,10 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.3.0';
+export const VER = 'tools/52-career-log.js V2.5.0';
+// V2.5.0 | 2026-10-29 | 补完模块剩余朴素指标：① 败因分析 getLossAnalysis 四条结论从「均值阈值」改 Welch 两样本均值差 95% 区间，
+//   区间跨 0 即判噪声内（不再把小样本误判成「被速推/团灭/输出打不出/承伤偏高」）；突破口改用 Wilson 区间，下界过半才认。
+//   ② getCareerInsights 的 hardest/easiest 加 Wilson 区间 + sig，区间跨总体胜率才认「真偏难/偏易」。与 V2.3/V2.4 同一显著性口径。
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -327,12 +268,15 @@ export function exportCareerMarkdown() {
     try {
         const pairs = getHeroPairs();
         if (pairs && pairs.length) {
-            const good = pairs.filter(p => p.delta >= 8).slice(0, 5);
-            const bad = pairs.filter(p => p.delta <= -8).slice(-3).reverse();
-            if (good.length || bad.length) {
-                lines.push('## 英雄搭配（组合胜率 vs 两人单独胜率均值；只当线索）');
-                for (const p of good) lines.push(`- 协同：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，高于各自均值 ${p.delta}pp）`);
-                for (const p of bad) lines.push(`- 拖累：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，低于各自均值 ${-p.delta}pp）`);
+            // V2.4.0：只把「受控对照显著」的对子当协同/拖累；不显著的 delta≥8 也压住，不冒充结论。
+            const good = pairs.filter(p => p.verdict && p.verdict.startsWith('真协同')).slice(0, 5);
+            const bad = pairs.filter(p => p.verdict && p.verdict.startsWith('拖累')).slice(-3).reverse();
+            const noise = pairs.filter(p => p.verdict && p.verdict.startsWith('噪声内') && Math.abs(p.delta) >= 8).slice(0, 3);
+            if (good.length || bad.length || noise.length) {
+                lines.push('## 英雄搭配（组合胜率 vs 两人单独胜率均值；已做受控对照，只认显著项）');
+                for (const p of good) lines.push(`- 协同：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，高于各自均值 ${p.delta}pp；两人都在显著优于各自单上）`);
+                for (const p of bad) lines.push(`- 拖累：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，低于各自均值 ${-p.delta}pp；两人都在显著更差）`);
+                if (noise.length) lines.push(`- 噪声内（不列协同/拖累）：${noise.map(p => `${p.a}+${p.b}(${p.delta > 0 ? '+' : ''}${p.delta}pp)`).join('、')} —— 组合与各自单上对照不显著，可能是第三人强被冒领，别当结论。`);
                 lines.push('');
             }
         }
@@ -388,6 +332,16 @@ export function getCareerInsights() {
     const stages = byStageAsc.map(s => ({ stage: +s, n: byStage[s].n, rate: byStage[s].w / byStage[s].n }));
     const hardest = stages.filter(x => x.n >= 3).sort((a, b) => a.rate - b.rate)[0] || null;
     const easiest = stages.filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate)[0] || null;
+    // V2.5.0：hardest/easiest 之前只按 n≥3 + 极值挑，没有「是否真偏难/偏易」的检验。
+    // 现在算 Wilson 区间，区间不跨总体胜率才认「真偏难/偏易」，否则标 sig=false（区间宽、可能只是样本少）。
+    const overallRate = total ? wins / total : 0.5;
+    const stageSig = (o) => {
+        if (!o) return null;
+        const c = wilson95(byStage[o.stage].w, byStage[o.stage].n);
+        const sig = o.rate < overallRate ? (c && c[1] < overallRate) : (c && c[0] > overallRate);
+        return { ci: c ? [c[0], c[1]] : null, sig: !!sig };
+    };
+    const hardestSig = stageSig(hardest), easiestSig = stageSig(easiest);
 
     // 主力英雄：明教侧出场次数最多
     const topEntry = Object.entries(appear).sort((a, b) => b[1] - a[1])[0];
@@ -463,8 +417,8 @@ export function getCareerInsights() {
 
     return {
         total, wins, winRate, avgRounds,
-        hardest: hardest ? { stage: hardest.stage, rate: Math.round(hardest.rate * 100), n: hardest.n } : null,
-        easiest: easiest ? { stage: easiest.stage, rate: Math.round(easiest.rate * 100), n: easiest.n } : null,
+        hardest: hardest ? { stage: hardest.stage, rate: Math.round(hardest.rate * 100), n: hardest.n, ci: hardestSig.ci, sig: hardestSig.sig } : null,
+        easiest: easiest ? { stage: easiest.stage, rate: Math.round(easiest.rate * 100), n: easiest.n, ci: easiestSig.ci, sig: easiestSig.sig } : null,
         topHero: topEntry
             ? { name: topEntry[0], games: topEntry[1], rate: Math.round((heroWins[topEntry[0]] || 0) / topEntry[1] * 100) }
             : null,
@@ -729,23 +683,43 @@ export function getCareerTrend(recentN = 20) {
 
 // V1.3.0 新增：英雄两两组合——「谁和谁一起上更容易赢」。
 // 口径与 126 的海克斯组合一致：组合胜率 vs 两人各自胜率的均值（彼此无协同应接近该均值）。
-// 已知局限（写在这里也写在界面上）：一局 5 人只有 10 个对子，样本天然稀疏；
-//   而且「第三个人特别强」会被误算成这一对的功劳。所以门槛设 8 局，且结论只当线索看。
+// 已知局限（V2.4.0 已部分解决，写在这里也写在界面上）：一局 5 人只有 10 个对子，样本天然稀疏；
+//   而且「第三个人特别强」会被误算成这一对的功劳——V2.4.0 用「组合 vs 各自单上」受控对照把这条砍掉，
+//   只把两边都显著更好的对子当真协同。门槛仍设 8 局，结论仍只当线索看。
 export function getHeroPairs(minGames = HERO_MIN_GAMES) {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
-    const solo = {}, pair = {};
+    const solo = {}, pair = {}, ctrl = {};
     const bump = (m, k, won) => {
         const rec = m[k] || (m[k] = { n: 0, w: 0 });
         rec.n++; if (won) rec.w++;
     };
+    // V2.4.0：受控对照计数——每对记「两人都在 / 只 A 在 / 只 B 在」三态，
+    //   用来把组合和各自单上比，砍「第三人强被误算成这对功劳」的硬伤。
+    const bumpC = (m, k, slot, won) => {
+        const rec = m[k] || (m[k] = { ab: { n: 0, w: 0 }, aOnly: { n: 0, w: 0 }, bOnly: { n: 0, w: 0 } });
+        rec[slot].n++; if (won) rec[slot].w++;
+    };
+    const HEROES = [...ALLY_HERO_BASE];   // 所有明教英雄基名（用于受控对照的「对方不在场」判定）
     for (const r of arr) {
         const won = r.winner === '明教';
-        // 先排序再拼 key，避免同一对因阵容站位顺序不同被拆成 "A␀B" / "B␀A" 两条
-        const names = [...new Set((r.ally || []).filter(u => isAllyHero(u.name)).map(u => u.name))].sort();
-        for (const n of names) bump(solo, n, won);
-        for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
-            bump(pair, names[i] + '\u0000' + names[j], won);
+        // 取本局明教英雄的基名（小昭·姊/·妹 归一为 小昭），排序后拼 key 避免 "A␀B"/"B␀A" 分裂
+        const presentBase = [...new Set((r.ally || []).filter(u => isAllyHero(u.name)).map(u => baseName(u.name)))].sort();
+        const setB = new Set(presentBase);
+        const absent = HEROES.filter(h => !setB.has(h));   // 本局未上场的明教英雄全集
+        for (const n of presentBase) bump(solo, n, won);
+        for (let i = 0; i < presentBase.length; i++) for (let j = i + 1; j < presentBase.length; j++) {
+            const key = presentBase[i] + '\u0000' + presentBase[j];
+            bump(pair, key, won);
+            bumpC(ctrl, key, 'ab', won);   // 两人都在
+        }
+        // V2.4.0：受控对照——本局在场的每个人 × 本局缺席的每个人，累计「只 A 在 / 只 B 在」。
+        //   跨所有局累计，所以即便某对从不在同一局出场也能拿到对照基线（不会因 n=0 退化成 null）。
+        for (let i = 0; i < presentBase.length; i++) for (let k = 0; k < absent.length; k++) {
+            const a = presentBase[i], b = absent[k];
+            const key = [a, b].sort().join('\u0000');
+            const first = key.split('\u0000')[0];
+            bumpC(ctrl, key, a === first ? 'aOnly' : 'bOnly', won);
         }
     }
     const rows = [];
@@ -757,12 +731,28 @@ export function getHeroPairs(minGames = HERO_MIN_GAMES) {
         const p = d.w / d.n;
         const base = (sa.w / sa.n + sb.w / sb.n) / 2;
         const ci = wilson95(d.w, d.n);
+        // V2.4.0：受控对照显著性——组合 vs 各自单上，两边都显著更好才认真协同，都更差才认拖累。
+        const c = ctrl[key];
+        const stA = c && c.aOnly.n ? twoPropDiff(d.w, d.n, c.aOnly.w, c.aOnly.n) : null;
+        const stB = c && c.bOnly.n ? twoPropDiff(d.w, d.n, c.bOnly.w, c.bOnly.n) : null;
+        const upA = !!(stA && stA.sig && stA.diff > 0), upB = !!(stB && stB.sig && stB.diff > 0);
+        const dnA = !!(stA && stA.sig && stA.diff < 0), dnB = !!(stB && stB.sig && stB.diff < 0);
+        const sig = (upA && upB) || (dnA && dnB);
+        let verdict;
+        if (upA && upB) verdict = '真协同·两人都在显著优于各自单上';
+        else if (dnA && dnB) verdict = '拖累·两人都在显著更差';
+        else if ((upA || upB) || (dnA || dnB)) verdict = '对照显著但方向不一致（可能某一方单上就强）';
+        else verdict = '噪声内·对照不显著（分不出真假）';
         rows.push({
             a, b, n: d.n, wins: d.w,
             winRate: Math.round(p * 100),
             base: Math.round(base * 100),
             delta: Math.round((p - base) * 100),
             ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
+            // V2.4.0 新增：受控对照的 95% 区间 + 显著性（砍第三人冒领）
+            ciA: stA ? [Math.round(stA.ci[0] * 100), Math.round(stA.ci[1] * 100)] : null,
+            ciB: stB ? [Math.round(stB.ci[0] * 100), Math.round(stB.ci[1] * 100)] : null,
+            sig, verdict,
             reliable: d.n >= minGames
         });
     }
@@ -800,57 +790,91 @@ export function getLossAnalysis() {
     }
     const firstDeadTop = Object.entries(firstDead)
         .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => ({ name, count, share: losses.length ? count / losses.length : 0 }));
+        .map(([name, count]) => {
+            const share = losses.length ? count / losses.length : 0;
+            const c = wilson95(count, losses.length);
+            return {
+                name, count, share,
+                ci: c ? [c[0], c[1]] : null,
+                // 显著 = 样本够（≥10 局，小样本 Wilson 下界易虚高）且即便取区间下界仍过半（不是偶然当突破口）
+                sig: count >= 10 && c && c[0] >= 0.5
+            };
+        });
+
+    // 连续指标两样本均值差 95% 区间（Welch：SE=√(vL/nL + vW/nW)，正态近似 z=1.96）。
+    // diff = 输局均值 − 赢局均值；区间跨 0（lo<0<hi）即「噪声内、分不出真假」。
+    const meanVar = (list, fn) => {
+        const xs = list.map(fn).filter(v => typeof v === 'number' && !isNaN(v));
+        const n = xs.length; if (n < 2) return null;
+        const m = xs.reduce((s, v) => s + v, 0) / n;
+        const v = xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (n - 1);
+        return { n, m, v };
+    };
+    const diffCI = (LA, WA, fn) => {
+        const a = meanVar(LA, fn), b = meanVar(WA, fn);
+        if (!a || !b) return null;
+        const se = Math.sqrt(a.v / a.n + b.v / b.n);
+        const diff = a.m - b.m;
+        // 方差为 0（两组内部完全一样）→ 区间坍缩成点，仍按方向判显著（不丢结论）
+        if (!(se > 0)) return { diff, lo: diff, hi: diff, nL: a.n, nW: b.n };
+        return { diff, lo: diff - 1.96 * se, hi: diff + 1.96 * se, nL: a.n, nW: b.n };
+    };
+    const ci = {
+        rounds: diffCI(losses, wins, r => r.rounds || 0),
+        alive: diffCI(losses, wins, r => (r.ally || []).filter(u => u.alive).length),
+        dmg: diffCI(losses, wins, r => (r.ally || []).reduce((s, u) => s + (u.dmgDealt || 0), 0)),
+        taken: diffCI(losses, wins, r => (r.ally || []).reduce((s, u) => s + (u.dmgTaken || 0), 0))
+    };
 
     const findings = [];
     if (losses.length < LOSS_MIN) {
         findings.push({
-            kind: 'insufficient',
+            kind: 'insufficient', sig: false,
             text: `输局只有 ${losses.length} 局（需 ≥${LOSS_MIN} 局才归因），样本太少，现在说什么都是猜。多打几局再看。`
         });
     } else {
-        if (W.rounds && L.rounds !== null && L.rounds < W.rounds * 0.75) {
-            findings.push({
-                kind: 'rush',
-                text: `被速推：输的局平均 ${f1(L.rounds)} 回合就结束，赢的局要 ${f1(W.rounds)} 回合`
-                    + ` → 前期站不住，先补前排/减伤，堆输出救不了。`
-            });
-        }
-        if (W.alive !== null && L.alive !== null && L.alive < W.alive - 1.2) {
-            findings.push({
-                kind: 'wipe',
-                text: `团灭型失败：输的局平均只剩 ${f1(L.alive)} 人活下来（赢局剩 ${f1(W.alive)} 人）`
-                    + ` → 是整体崩盘，不是某一个英雄拖后腿。`
-            });
-        }
-        if (W.dmg && L.dmg !== null && L.dmg < W.dmg * 0.8) {
-            findings.push({
-                kind: 'dps',
-                text: `输出打不出来：输的局我方总输出 ${f0(L.dmg)}，赢局 ${f0(W.dmg)}（少了 ${Math.round((1 - L.dmg / W.dmg) * 100)}%）`
-                    + ` → 更像被控/被秒，不是单纯数值不够。`
-            });
-        }
-        if (W.taken && L.taken !== null && L.taken > W.taken * 1.2) {
-            findings.push({
-                kind: 'tank',
-                text: `承伤偏高：输的局我方总承伤 ${f0(L.taken)}，赢局 ${f0(W.taken)}`
-                    + ` → 挨打太多，先查减伤/治疗够不够。`
-            });
-        }
+        // 单一指标结论：dir='lt' 表示输局应显著更低（回合/存活/输出），'gt' 表示应显著更高（承伤）。
+        // effOk = 旧版「幅度足够大」阈值（避免显著但无操作意义的微小差）；
+        // sig = 区间不跨 0 且方向正确。两者都满足才下因果结论，否则压成「噪声内」。
+        const addMetric = (kind, dir, effOk, c, strongTxt, label) => {
+            if (!c) return;
+            const significant = dir === 'lt' ? c.hi < 0 : c.lo > 0;
+            if (effOk && significant) {
+                findings.push({ kind, sig: true, text: strongTxt });
+            } else if (significant && !effOk) {
+                findings.push({ kind, sig: false, noise: true,
+                    text: `「${label}」方向一致但幅度很小（差 ${c.diff >= 0 ? '+' : ''}${c.diff.toFixed(1)}，区间 ${c.lo.toFixed(1)}~${c.hi.toFixed(1)}），可能只是随机波动，先不动。` });
+            } else if (effOk && !significant) {
+                findings.push({ kind, sig: false, noise: true,
+                    text: `「${label}」看着像，但输赢差距的区间跨 0（${c.lo.toFixed(1)}~${c.hi.toFixed(1)}），分不出真假，样本够多再说。` });
+            }
+        };
+        addMetric('rush', 'lt', L.rounds !== null && W.rounds && L.rounds < W.rounds * 0.75, ci.rounds,
+            `被速推：输的局平均 ${f1(L.rounds)} 回合就结束，赢的局要 ${f1(W.rounds)} 回合 → 前期站不住，先补前排/减伤，堆输出救不了。`,
+            '回合数输赢差距');
+        addMetric('wipe', 'lt', L.alive !== null && W.alive !== null && L.alive < W.alive - 1.2, ci.alive,
+            `团灭型失败：输的局平均只剩 ${f1(L.alive)} 人活下来（赢局剩 ${f1(W.alive)} 人）→ 是整体崩盘，不是某一个英雄拖后腿。`,
+            '存活人数输赢差距');
+        addMetric('dps', 'lt', W.dmg && L.dmg !== null && L.dmg < W.dmg * 0.8, ci.dmg,
+            `输出打不出来：输的局我方总输出 ${f0(L.dmg)}，赢局 ${f0(W.dmg)}（少了 ${Math.round((1 - L.dmg / W.dmg) * 100)}%）→ 更像被控/被秒，不是单纯数值不够。`,
+            '总输出输赢差距');
+        addMetric('tank', 'gt', W.taken && L.taken !== null && L.taken > W.taken * 1.2, ci.taken,
+            `承伤偏高：输的局我方总承伤 ${f0(L.taken)}，赢局 ${f0(W.taken)} → 挨打太多，先查减伤/治疗够不够。`,
+            '总承伤输赢差距');
+
         const top = firstDeadTop[0];
-        if (top && top.count >= LOSS_MIN && top.share >= 0.5) {
-            findings.push({
-                kind: 'firstblood',
-                text: `${top.name} 是最常见的突破口：${losses.length} 局输局里有 ${top.count} 局（${Math.round(top.share * 100)}%）是他最先倒`
-                    + ` → 优先给他加血/减伤，或者调站位。`
-            });
+        if (top && top.sig) {
+            findings.push({ kind: 'firstblood', sig: true,
+                text: `${top.name} 是最常见的突破口：${losses.length} 局输局里有 ${top.count} 局（${Math.round(top.share * 100)}%）是他最先倒 → 优先给他加血/减伤，或者调站位。` });
+        } else if (top && top.count >= LOSS_MIN) {
+            const loPct = top.ci ? Math.round(top.ci[0] * 100) : 0, hiPct = top.ci ? Math.round(top.ci[1] * 100) : 100;
+            findings.push({ kind: 'firstblood', sig: false, noise: true,
+                text: `${top.name} 最早倒出现次数最多（${top.count} 局，${Math.round(top.share * 100)}%），但 95% 区间 ${loPct}%~${hiPct}% 跨过半数，分不出是真脆还是偶然，先别专门针对他改。` });
         }
+
         if (!findings.length) {
-            findings.push({
-                kind: 'even',
-                text: `输局和赢局在回合数、存活人数、输出承伤上都没明显差距（${L.n} 败 vs ${W.n} 胜）`
-                    + ` → 更像单局随机波动，或者问题出在没被记录的维度（站位/技能释放时机）。`
-            });
+            findings.push({ kind: 'even', sig: false,
+                text: `输局和赢局在回合数、存活人数、输出承伤上都没明显差距（${L.n} 败 vs ${W.n} 胜）→ 更像单局随机波动，或者问题出在没被记录的维度（站位/技能释放时机）。` });
         }
     }
     return {

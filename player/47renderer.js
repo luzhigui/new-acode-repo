@@ -1,4 +1,3 @@
-// V6.0.0 | 2026-08-14 | ~6500 bytes
 export const VER = 'player/47renderer.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

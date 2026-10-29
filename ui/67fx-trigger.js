@@ -4,9 +4,6 @@
 //   ③ 唐文亮·冲刺子弹时间。
 //   dodgeEffectEnabled 降级为派生值（= 任一项开着），只供按钮文案与体检读；
 //   运行时各特效一律读自己的细分 key，不再共用一个大开关。
-// V7.1.0 | 2026-10-24 | ~4200 bytes
-//   V7.1.0：改居中弹窗（复用 .modal-overlay/.modal-box 羊皮纸皮肤）+ 半透明遮罩；
-//           标题栏加 ✕；点遮罩可关；全开/全关生效后自动关闭（单项勾选不关，方便继续调）。
 export const VER = 'ui/67fx-trigger.js V7.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

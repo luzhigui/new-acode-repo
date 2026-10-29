@@ -1,71 +1,5 @@
-// V6.7.1 | 2026-10-28 第143轮续8：isSilentRelocate 判据③补「箭头起点 N===exp.pos」——单位曾在期望位、
-//          被登记机制（冲刺/两仪等）挪走也算合法改写（seed=6 stage=6 唐文亮(B) 惑心换位假红根因：换位落地后
-//          冲刺「唐文亮 1→2」立刻挪走，旧口径只认终点 M===exp.pos 故认不出）。
-// V6.7.0 | 2026-10-27 checkSpeedButtonStates 档位表跟齐 ui/77 V1.1.1「全局×2」（600→300、300→150、100→50、1600→800）：
-//          UI 侧 10-25 已把所有档位值减半（原速 600→300、快 300→150、极快 100→50、慢 1600→800），体检仍按旧值判
-//          ⇒ speed=300（新口径=原速 2x）时误报「btnSpeed4x 未高亮，实际高亮 btnSpeed2x」（2026-10-27 体检报告实测）；
-//          另补 400=取消档（ui/77 点已亮按钮回落 400，全按钮不亮）并入「应全灭」断言（原只认旧默认 1000）。
-// V6.6.0 | 2026-10-25 checkBuffIcons 缺图标缓冲改成真正的「连续缺失」语义：旧实现只在本次仍受益时清零
-//          时间戳，跨回合（概率连击 uid 每步重选）/buff 消失/单位阵亡时旧时间戳残留 ⇒ 再次受益的首次缺失
-//          即越过 1 秒阈值直接上报（体检报「张无忌有概率连击Buff但缺 ⚡（持续1秒）」实测假阳性）。
-//          现于进入检查时清理失效 key，并在本次不受益时立刻清零。
-// V6.5.0 | 2026-10-24 第 129 轮 checkActionRights 补「压进即行动」——同一批上游改动（唐文亮冲刺/
-//          压进重写）还让行动权不变量冒出 7 类新红（唐文亮(A) _acted=true 但本回合无正常位行动记录）。
-//          取证（DUMP=3:5 第 4 回合）：整回合唐文亮只留一条「🥢 唐文亮 射程不及，向前压至 5 号位」，
-//          core/10:150-158 实证「前压本身就是这一回合的行动——消耗行动力、本回合不再攻击（老板口径
-//          2026-10-23）」，代码只置 _acted=true 就 return，不发 attack/emptyTarget ⇒ 不是吞回合，
-//          是不变量口径缺了「移动也算一手」这支已登记机制。修法：把 SKILL_ANNOUNCE('突进'+射程不及)
-//          计入本人正常位行动，与 isSilentRelocate 判据⑤ 同为窄口径、不推广成「有公告即算行动」。
-// V6.4.0 | 2026-10-24 第 129 轮 isSilentRelocate 补判据⑤「具名位移改写」——合入上游 main（4f3abfe6，
-//          唐文亮冲刺/压进重写）后 166 冒出 2 条新红（seed=6 stage=6 / seed=20 stage=5，唐文亮(A)）：
-//          惑心换位把唐文亮 6→8 号位（同条武当弟子 8→6 已落地、实证换位确实生效），但**换完还没等到
-//          第一条带快照的出场**，唐文亮就被「🥢 唐文亮 射程不及，向前压至 5 号位」这条静默位移挪走了
-//          ⇒ 之后 11 次出场均在 5/3 号位，166 报「换位后位置未生效」= 假红。
-//          根因是判据①只认「落位号 === 期望位」：那是第 121 轮的保守口径，当时冲刺文案不点名位移者
-//          （只报被拽者），只能靠落位号认；而压进文案**点名**了位移者，落位号不等于期望位时 ① 认不出。
-//          修法：补判据⑤「压进位移」—— 只认 core/10:55 的「射程不及…向前压至 N 号位」这一支
-//          （点名位移者 + 已登记机制 + 落位号），与 ③④ 一样是按证据判定、按机制登记。
-//          ★ 同步否决了更宽的口径「点名即打断（不看落位号、不看机制）」：那个版本虽然也能消掉这 2 条红，
-//            但会推翻 silent-relocate-judge-selftest 的 ①反 / ③反 / 通反 三条既有反例
-//            （那三条按「宁漏勿误」立的），属判据放宽 ⇒ 本轮不采纳，留给用户拍板（见第 129 轮挂账）。
-//          只补证据通道、不碰数值与落地判据；验牙见第 129 轮日志（T11/T17/T18 复跑有牙不减）。
-// V6.3.0 | 2026-10-24 第 125 轮 isSilentRelocate 补两条证据判据（与上游第 118 轮 V6.1.4 关键词名单
-//          取并集后，实测本地 V6.2.0 的通用落位号判据有两类漏判）：
-//          ③ 箭头落位证据 —— 唐文亮冲刺报幕写「唐文亮 5→2」（tangwenliang.js L160 listText），
-//             只有「数字→数字」、不带「号位」二字 ⇒ V6.2.0 的 LANDING_POS_RE 认不出。
-//             判据：条目含已登记机制关键词 + 「单位名 N→M」且 M === exp.pos（名字锚定，避免
-//             同句里「张松溪 4→1」被误认成唐文亮落到 1 号位）。
-//          ④ 载荷落位证据 —— 蓄意轰拳（hanlisa.js L294/305/310）**全程无报幕文本**，只发
-//             WIND_ASSAULT_PUSH（behindPos）/ PUSH_STUN（pos）两个带落位号的 fact ⇒ 任何文本
-//             关键词判据（含上游名单里的「蓄意轰拳」）都够不着真实落位，只能靠名字粗匹配误放行。
-//             判据：条目 data（含嵌套 data.data）里 target.uid/name 与期望单位一致、
-//             且落位字段（behindPos/pos/land/to/newPos）之一 === exp.pos。
-//          两条都是**按证据**判定，比关键词名单更通用：今后任何机制只要报了落位号或落位载荷，
-//          无需再来这里登记关键词。
-// V6.1.20 | 2026-10-23 修 checkBuffIcons 阵营误报：未按 buff.target 过滤，敌方「热血奋战」等全队 Buff
-//          让 5 个己方单位被误报缺 ❤️（渲染侧 render/32 只给本阵营画图标）。现对齐渲染口径，
-//          只保留 target === ALLY 或历史无 target 的 Buff。
-// V6.1.19 | ~41800 bytes | 2026-10-09 新增 checkSpeedButtonStates（倍速按钮高亮一致性）：当前倍速必须落在「可见且高亮」的按钮上——
-//          非调试模式下 8x/4x 组 display:none，speed=300 时 ui/68 把 active 加在隐藏按钮上，界面「当前倍速」全灭且无报错
-//          （121 默认 4 倍速实测）；可见性按内联 display:none 祖先链判，不依赖 offsetParent（体检切报告视图时 iframe 整体隐藏会全量假红）。
-// V6.1.18 | 2026-10-07 收口 UI 类检查最后两处同根因（开战快照 + pos 反查）：① checkMeleeFxState 改吃实时 battleStore 队伍（原自带 ctx.UI 开战副本，与 checkBuffIcons 改前同病）；② checkHpBarSync / checkHpBarColor / checkBuffIcons 的单元定位全部由 getCellElement(pos反查) 改为 getCellByUid(uid精确)——换位/近战切换后 pos 偏移不再误报。至此 UI 类检查统一"实时队伍 + 按 data-uid 定位"，pos 反查与开战快照零残留。
-// V6.1.17 | 2026-10-04 修两条 UI 类误报：① 特效池 heal-float 阈值 8→12（healFloat4+atkBuffFloat4+defBuffFloat4 三池共用 .heal-float 类，稳态恒 12，旧阈值每局必误报"超池泄漏"）；
-//          ② 死亡血条残留/缺死亡特效改用 getCellByUid 按 uid 精确定位（render/32 L418 写死 data-uid），不再按 pos 反查——拒马等死后 pos 复用/尸体移除会误把同格存活单位血条算到死者头上（与 checkBuffIcons 同根因）。新增 getCellByUid 辅助。
 // V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现（合并移植：本条与远端并线第 24-49 轮共存）
 // V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
-//          rules-replay.mjs 的逐步断言改为直接调用它。此前两处各写一份且口径不一致 ——
-//          122 多一条「maxHp > _baseMaxHp×2.5 膨胀」判据（含 isWei 豁免），回放侧没有，
-//          等于同一批单位在浏览器体检和回放里跑出两套结论。（版本头顺序此前也乱了，已按降序重排）
-// V6.1.14 | ~25500 bytes | 2026-09-21 删除 checkRandomRestartState（随机重开复位检查）：该判据在任意一局
-//          正常 GAMEOVER 都成立（UI.round 全程0 / UI.currentResult 全程null / UI.allyTeam 是开战 clone 副本
-//          alive 恒真），每局必误报。已改为 121 的事件驱动 hookRandomRestartWatch（点击 btnSettle 后查 gs）。
-// V6.1.13 | checkBuffIcons 对齐渲染图标截断（render/32 L398-405）：名字 ≥4 字且候选图标 >2 时
-//          渲染只保留最后 2 个，体检原先朴素 indexOf 会把有意裁掉的图标判为缺失 → 长名单位跳过。
-//          注意条件是"长名 且 图标>2"，长名 + 1~2 个图标不截断，仍照常检查。
-// V6.1.12 | 补 getUnitCol / getUnitRow 的 import：圣火令命中判定(第226行起)用到这两个函数，
-//          但文件从未 import 过它们 —— 运行时抛 ReferenceError: getUnitCol is not defined，
-//          圣火令相关 buff 校验静默失效（体检报"通过"其实是异常被吞）。现从 infra/51 显式引入。
-// V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
 // V6.7.2 | 2026-10-29 第 135 轮 checkBuffIcons 截断豁免改镜像渲染预算模型：格子 logo 预算 = 2 -（胶囊占 1），
@@ -73,7 +7,22 @@ import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
 //          是设计行为（render/32 L328-356，何太冲标记压尾即老板拍板）。旧豁免只数受益 Buff 图标
 //          （>2 且名≥4字），没算其他占位 → 10-29 实测 5 条误报（流云💨×4、圣火🔥×1，张无忌 1/3 胶囊占位最典型）。
 //          新豁免：缺图标且格子预算已满（DOM emoji 数 + 胶囊占位 ≥ 2）→ 放过；格子未满仍缺 → 照常上报。
-export const VER = 'tests/122health-utils.js V6.7.2';
+// V6.7.3 | 2026-10-29 第 135 轮续：死亡血条残留 + GAMEOVER 主按钮禁用两处误报修复（均不削弱真实缺陷捕获）。
+//          - checkDeathFxRetention #4：死者血条走 updateHpDisplay→tickHpAnim 平滑回落到 0（render/32 L222 死者目标 hpPct=0），
+//            动画约 0.7s；原判据见 barPct>0 即报，会把动画途中一帧（如 61.4125% = 72.25−0.15×72.25）误判为"残留"。
+//            改为追踪连续两次取样高度：仍下降=动画中跳过，不再下降且 >0=真·卡死才报。
+//          - checkBottomButtonStates GAMEOVER：auto 模式 GAMEOVER 后自动点击推进，点击→下一局开战之间 btnMain
+//            处于 RUNNING 禁用态而 gs 滞后为 GAMEOVER，形成瞬时禁用窗口（finishBattle 已同步 enableAllButtons）。
+//            加 GAMEOVER 稳定计时 >1200ms 才判主按钮禁用，跳过切换途中误报；真·卡死仍捕获。
+// V6.7.4（续迭代）：checkHpBarSync 同款修复——单位受击后引擎 hp 即时更新、DOM 血条动画回落约 0.7s，
+//   原判据见 |actual-expected|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
+//   改为追踪连续两次取样高度：仍变化=动画中跳过；稳定且仍偏离>5%=真·卡死/错位才报。
+export const VER = 'tests/122health-utils.js V6.7.4';
+
+// [模块级状态] 见 V6.7.3：死亡血条动画收敛追踪 + GAMEOVER 按钮稳定计时
+const _barPrev = new Map();      // uid -> 上次观测到的血条高度(%)，区分"动画回落中"与"卡死残留"
+let _gamoeverSeenAt = 0;         // GAMEOVER 首次观测时刻，跳过 auto 推进切换途中的瞬时禁用窗口
+const _hpSyncPrev = new Map();   // uid -> 上次观测到的血条高度(%)，区分"受击动画途中"与"真·高度错位"
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -129,6 +78,10 @@ export function checkUnitHpValidity(unit) {
 
 /**
  * 检查血条高度与引擎 hp/maxHp 是否同步
+ * 注意：血条高度走 updateHpDisplay→tickHpAnim 平滑回落（render/32 L222，约 0.7s）。
+ *   单位受击后引擎 hp 立即更新，但 DOM 高度仍动画中，瞬间 actualPct 滞后 expected 可达数十%，
+ *   原判据见 |diff|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
+ *   改为追踪连续两次取样高度：仍变化=动画中跳过；不再变化且仍偏离>5%=真·卡死/错位才报（保留真实缺陷捕获）。
  */
 export function checkHpBarSync(unit, doc) {
     const issues = [];
@@ -137,10 +90,20 @@ export function checkHpBarSync(unit, doc) {
     if (!cell) return issues;
     const bar = cell.querySelector('.hp-bar-inner');
     if (!bar) return issues;
-    const actualPct = parseFloat(bar.style.height);
+    const actualPct = parseFloat(bar.style.height) || 0;
     const expectedPct = Math.floor((unit.hp / unit.maxHp) * 100);
     if (Math.abs(actualPct - expectedPct) > 5) {
-        issues.push(unit.name + '血条高度异常：当前' + actualPct + '%, 预期' + expectedPct + '%');
+        const prev = _hpSyncPrev.get(unit.uid);
+        if (prev === undefined) {
+            _hpSyncPrev.set(unit.uid, actualPct);            // 首次观测：可能是动画刚开始，记录后再判
+        } else if (Math.abs(prev - actualPct) > 0.05) {
+            _hpSyncPrev.set(unit.uid, actualPct);            // 高度仍在变化（动画中）：正常，跳过
+        } else {
+            issues.push(unit.name + '血条高度异常：当前' + actualPct + '%, 预期' + expectedPct + '%');
+            _hpSyncPrev.set(unit.uid, actualPct);
+        }
+    } else {
+        _hpSyncPrev.delete(unit.uid);                        // 已对齐：清状态
     }
     return issues;
 }
@@ -225,14 +188,27 @@ export function checkDeathFxRetention(allUnits, doc) {
         }
 
         // 4. 已阵亡但血条不为0
+        //    死者血条走 updateHpDisplay→tickHpAnim 平滑回落到 0（render/32 L222 死者目标 hpPct=0），动画约 0.7s。
+        //    原判据见 barPct>0 即报，会把动画途中一帧（如 61.4125% = 72.25−0.15×72.25）误判为"残留"。
+        //    改为追踪连续两次取样高度：仍下降=动画中跳过；不再下降且 >0=真·卡死才报（保留真实缺陷捕获）。
         if (!u.alive && u.hp <= 0 && cell) {
             const bar = cell.querySelector('.hp-bar-inner');
-            if (bar) {
-                const barPct = parseFloat(bar.style.height);
-                if (barPct > 0) {
+            const barPct = bar ? (parseFloat(bar.style.height) || 0) : 0;
+            if (barPct > 0) {
+                const prev = _barPrev.get(u.uid);
+                if (prev === undefined) {
+                    _barPrev.set(u.uid, barPct);            // 首次观测：可能是动画刚开始，记录后再判
+                } else if (barPct < prev - 0.05) {
+                    _barPrev.set(u.uid, barPct);            // 仍在回落（动画中）：正常，跳过
+                } else {
                     issues.push(u.name + ' UI异常：已阵亡但血条残留，高度=' + barPct + '%');
+                    _barPrev.set(u.uid, barPct);
                 }
+            } else {
+                _barPrev.delete(u.uid);                     // 已归零：清状态
             }
+        } else if (!u.alive && u.hp <= 0 && !cell) {
+            _barPrev.delete(u.uid);                        // 死者已离场（格子移除）：清状态，避免复用 uid 串扰
         }
     }
     return issues;
@@ -451,6 +427,13 @@ export function checkBottomButtonStates(ctx, doc) {
     if (!doc || !ctx) return issues;
     const win = doc.defaultView || null;
     const gs = ctx.gs;
+    // GAMEOVER 主按钮稳定计时：auto 模式在 GAMEOVER 后会自动点击推进下一局，点击→下一局开战之间
+    // btnMain 处于 RUNNING 的禁用态而 gs 仍滞后为 GAMEOVER，形成"gs=GAMEOVER 但按钮禁用"瞬时窗口
+    // （可达数百毫秒）。主代码 finishBattle 已同步 enableAllButtons，窗口结束即恢复启用。
+    // 故仅当 GAMEOVER 稳定持续 >1200ms 后才判主按钮禁用，跳过切换途中误报；真·卡死仍会捕获。
+    if (gs !== 'GAMEOVER') _gamoeverSeenAt = 0;
+    else if (!_gamoeverSeenAt) _gamoeverSeenAt = Date.now();
+    const stableGamoever = (gs === 'GAMEOVER') && (_gamoeverSeenAt > 0) && (Date.now() - _gamoeverSeenAt > 1200);
     const btnMain = doc.getElementById('btnMain');
     const btnNext = doc.getElementById('btnNext');
     const btnSettle = doc.getElementById('btnSettle');
@@ -498,7 +481,8 @@ export function checkBottomButtonStates(ctx, doc) {
         expectText(btnPause, '暂停', '继续');
         if (btnPause && !btnPause.classList.contains('active')) issues.push('暂停按钮在PAUSED状态应高亮(active)');
     } else if (gs === 'GAMEOVER') {
-        expectDisabled(btnMain, '主按钮', false);
+        // 仅 GAMEOVER 稳定 >1200ms 才判主按钮禁用（跳过 auto 推进切换途中的瞬时禁用窗口，见上方计时）
+        if (stableGamoever) expectDisabled(btnMain, '主按钮', false);
         expectText(btnMain, '主按钮', stage >= 6 ? '重新' : '下一关');
         expectDisabled(btnNext, '下一回合', false);
         expectText(btnNext, '下一回合', '原班再战');

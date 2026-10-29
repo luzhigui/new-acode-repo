@@ -1,14 +1,15 @@
 // render/32-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-export const VER = 'render/32-grid-render.js V7.1.1';
+export const VER = 'render/32-grid-render.js V7.1.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
+import { eventBus } from '../infra/50-event-bus.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';
 import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
-import { updateHanLiSaChargeFx } from '../fx/90-hanlisa-charge.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { getStat } from '../core/13battle-shared.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { clock } from '../infra/52-clock.js';
@@ -382,9 +383,12 @@ export function renderGrid(id, camp) {
 export function updateGridUI() {
     renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
     renderGrid('allyGrid', CAMP_TYPES.ALLY);
-    // 寒离飒蓄力扇形：两网格都渲完后按全局单位取格子坐标画（不含在单网格内，避免画两次）
+    // 寒离飒蓄力扇形：两网格都渲完后发信号，由 fx/89 订阅转给 fx/90 画（原先是本层直接 import fx/90）。
+    //   ① 本层不得直接调 fx：render → fx 是反向依赖（铁律第 6 条），改成发信号后方向变为 render → infra ← fx。
+    //   ② 触发点必须留在渲染之后（扇形读的是刚渲好的格子坐标），所以不能改成「fx 自己订阅 store」——
+    //      同一个 store 变化下多个订阅者的回调顺序不保证渲染先完成，会拿到 null 坐标。
     const st = getStore();
-    if (st && st.getState) updateHanLiSaChargeFx(st.getState().units);
+    if (st && st.getState) eventBus.emit(FX_SIGNALS.GRID_RENDERED, { units: st.getState().units });
 
     if (!_subscribed) {
         const store = getStore();

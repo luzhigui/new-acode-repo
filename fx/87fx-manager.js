@@ -1,4 +1,3 @@
-// V6.1.3 | 2026-10-20 | ~2000 bytes
 export const VER = 'fx/87fx-manager.js V6.1.3';
 
 import {

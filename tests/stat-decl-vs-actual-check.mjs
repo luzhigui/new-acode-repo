@@ -1,108 +1,6 @@
 // V3.9.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
-//   本文件此前自带一份拷贝（有 cols/rows、无永久继承），与 rules-replay 口径分叉；收口后样本
-//   含妹永久海克斯继承（与 rules-replay 自 V6.7.2 起一致）。验证：全部契约偏差 0、EXIT=0。
-// V3.8.0 | ~129000 bytes | 2026-10-17 第 98 轮：盲区闭环三契约（49→52）——unity / lastStand / twDash 长期裸奔
-// V3.8.2 | 2026-10-17 第 98 轮补：scan-groups 扫地闭环两 hp 盲区（52→54）——hlsJiuYangHeal / hlsHanDuDot（寒离飒九阳/寒毒，均零数值改动）
-// V3.8.5 | 2026-10-19 第 106 轮：闭环 hlsBurstDmg 盲区（56 契约）——轰拳真伤原无按机制 group（只落单位级
-//   dmgDealt/dmgTaken，scan-groups 因无 group 看不见；第 105 轮闭环 hlsVamp 后人工复核同技能其他数值时发现）。
-//   主代码 modules/27 V2.1.1 同处补 recordHpAudit(u,'hlsBurstDmg',-dmg)（纯记账）；契约读 hlsBurst.hits，
-//   44 条声明/偏差 0。dir=-1 镜像 XUAN_MING_DOT；天上无敌挡血不计实际（免疫效应如实呈现，已留档）。
-// V3.8.6 | 2026-10-20 第 110 轮：HE_TAICHONG_RED 声明口径对齐账本——extract 去掉 grants 的 >0 过滤。
-//   根因（探针实证 seed=88888 s5 r4）：何太冲红血同帧可叠 战士(+3)/远程(-2)/转远程(-2)/两仪互换(+3) 四套，
-//   远程职业 def 加成为负；旧口径只收正向声明（6）而账本 groupDelta 四套全算（净 2）⇒ 恒定假阳性 2 处。
-//   该形态由并行会话 RNG 流改动抖出（modules/26/23、core/13 addMod 自第 106 轮全绿以来零改动，非回归）。
-//   单场隔离跑 88888:5 不出现（只叠一套 +3）——全场序 60 场标准样本才复现，属跨场状态串场后的形态。
-// V3.8.4 | 2026-10-19 第 105 轮：scan-groups 扫地闭环 hlsVamp 盲区（55 契约）——寒离飒蓄意轰拳·吸血
-//   （modules/27 L266-269，vamp=总伤害1/3封顶缺失血；L268 ROUND_STAT_GRANT 声明 + L269 recordHpAudit 实际）。
-//   声明侧读 SKILL_ANNOUNCE 的 hlsBurst 载荷（apexUid/vamp，回放桥同源）；23 条声明/偏差 0，未覆盖清零。
-// V3.8.3 | 2026-10-18 第 99 轮修：NINE_YANG_HEAL 契约过期——引擎已迁通用 HEAL 通道（label='九阳神功回复'），契约曾绑旧专用九阳枚举致零触发假绿；改读通用 HEAL 事实
-//         （scan-groups 差集 3 个 group 无契约盯）。主代码补 3 个纯记账数值声明 fact（UNITY_APPLY / LAST_STAND_APPLY
-//         / TW_DASH_APPLY，renderFn:null 不进画面）+ infra/56 enum + infra/58 FACT_SPECS 登记（不渲染不抛错）；
-//         unity/lastStand 为 op:mul 乘法词条走 mulSum 比对（与 HOLY_FLAME/SOUL_DRAIN 同款），twDash 为 op:add
-//         永久词条走 sum 比对（与何太冲红血同款）。咬牙验证：把主代码 addMod value 翻倍 → 3 契约严格比对全命中 EXIT=1。
-// V3.6.0 | ~126000 bytes | 2026-10-15 第 94 轮：新增 PANG_HIT_HEAL 胖远桥命中蓄力回血契约（45→46）——
-//         scan-groups 扫地：主代码 a6ab497 蓄力改版（命中回血，走通用 HEAL 通道）后新盲区——
-//         emit 处无记账、无契约。声明侧可观测（HEAL entry data.label==='蓄力回复' 带 data.heal，
-//         core/10 只加 isHealEntry/healAmount/healUnitUid 不剥 data ⇒ 结构化读、不走文本解析）；
-//         实际侧需转交：emit 处补 recordHpAudit(pang,'pangHitHeal',healed,'蓄力回复')（九阳先例
-//         core/15 L248 同款）——未转交前账本空 ⇒ 零触发警告态（转交块见矩阵第 94 轮节）。
-// V3.5.0 | ~126000 bytes | 2026-10-15 胖远桥出手蓄力「上限成长」改「命中回血」（老板拍板）——本对照器撤除 PANG_ATK_HP 契约（46→45）：
-//         modules/26 的 addMod(maxHp, group 'pangAtkHp') 与 announce.maxHpDelta 已同步删除（蓄力改走通用 HEAL 声明，
-//         回血飘字由 render/38 攻击组白名单出）⇒ 契约声明侧/实际侧两侧皆空，撤除。
-// V3.3.1 | ~125000 bytes | 2026-10-15 第 91 轮：hp 记账类注释同步 recordHpAudit ——
-//         XUAN_MING_DOT / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_LAND_HEAL 等处的旧注
-//         「依赖主代码待补 addMod(u,'hp',{...})」已被主代码 V7.6.19（2de9895）用 recordHpAudit 落地取代，
-//         重校为 recordHpAudit(unit, group, value, source)。纯注释、零算法改动；读点仍走 _audit.hp，偏差 0 不变。
-// V3.4.0 | ~127400 bytes | 2026-10-15 第 91 轮：新增 PANG_ATK_HP 胖远桥出手蓄力契约（45→46）——
-//         scan-groups 扫地：group 'pangAtkHp' 41 条 maxHp（出手蓄力，modules/26pangyuanqiao L100）
-//         无契约盯（主代码 81105a8 新机制）。声明侧现只有 note 文本 ⇒ 走数值载荷转交
-//         （announce data 补 maxHpDelta，转交块见矩阵第 91 轮节；未转交前零触发警告态）。
-// V3.3.0 | ~124400 bytes | 2026-10-15 第 90 轮：账本读点跟随主代码 hp 审计迁移（_mods → unit._audit.hp）——
-//         主代码 V7.6.19（2de9895）把 hp 记账迁出 _mods（防污染真实属性容器）后，本对照器读点未同步
-//         ⇒ 17 条 hp 类契约集体降级「警告态(账本空)」：声明一大把（热血奋战 462 条）、账本一条读不到。
-//         snapLedger 的 hp 改读 _audit.hp 并与 _mods.hp 合并（防过渡期双写漏读；两条写入路径对象不同，
-//         不会重复计数）；按引用差集语义不变（core/02 clone 显式浅拷 _audit、元素引用共享）。
-//         复验：17 条 hp 契约全部回严格、偏差 0。另：第 88 轮 SPIDER_LAND_HEAL/SPIDER_EGG 转交已由
-//         主代码侧 e2fb757 正式落地（严格 34/4 偏差 0）。
-// V3.2.0 | ~119000 bytes | 2026-10-13 第 88 轮：新增 SPIDER_LAND_HEAL / SPIDER_EGG 两条小昭·妹契约（43→45）——
-//         scan-groups 盲区清零：group 'spiderLandHeal' 37 条 hp（飞天落地回血，modules/20 spiderReturn）
-//         + group 'spiderEgg' 4 条 atk/def（毒/反伤致死档结茧，modules/27 toSpiderEgg）——两者记账 addMod
-//         均已在主代码（注释"供数值对照器"），缺的只是 fact 侧数值 ⇒ 均走载荷转交（applyStatChange 不产 fact、
-//         note 文本非增量，纯 test-side 证死）：SPIDER_RETURN fact 补 landHeal；蜘蛛卵 announce 补
-//         eggAtkDelta/eggDefDelta（转交块见矩阵第 88 轮节）。
-//         SPIDER_EGG 用 dir=+1 + allowNeg（atk 归零为负、def 可升可降，真实符号逐字比对）。
-//         验证闭环：临时转交 → 严格比对 37/4 偏差 0 → 咬牙 addMod 值 ×2 双双命中（37 处 / 2 处 EXIT=1）→
-//         咬牙回滚后补丁态全红线绿。转交净版曾被并行会话 f2b4aed 全量提交扫入 HEAD；2026-10-14 用户立规
-//         「主代码不经我手落地」后授权改回（a8c1dda，两文件恢复 8630c51 打补丁前状态）；**后由主代码侧
-//         e2fb757 正式落地**（与转交块一字不差）⇒ 两契约严格态（实测 34/4 偏差 0）。
-// V3.1.1 | ~115300 bytes | 2026-10-13 第 85 轮：新增 HE_TAICHONG_RED 何太冲红血·职业加成契约（42→43）——
-//         scan-groups 盲区扫地续：group 'heTaichongRed' 48 条 atk/def/maxHp 词条（两仪互换/单人红血）无契约盯。
-//         fact 侧读 SKILL_ANNOUNCE（skillName '两仪互换'/'红血'）的 data.grants 数值载荷（主代码转交补，
-//         转交块见矩阵第 85 轮节；未转交前零触发警告态）。emitStateChange(ROLE_CHANGED) 不产 fact
-//         （infra/59 只发 eventBus 信号）⇒ 纯 test-side 路线证死，同 weiHeal.maxHpDelta/pangDefGain 先例走载荷转交。
-//         验证闭环：临时转交 → 严格比对 32/32 偏差 0（48 账本词条扣 16 个 0 值 stat）→ 咬牙引擎 atk×2
-//         命中 16 处 EXIT=1 → 回滚干净。补丁态全红线绿（rules-replay 0 fail / static-scan 0 / smoke 过 / 变异 44/44）。
-// V3.1.0 | ~111900 bytes | 2026-10-13 第 84 轮（续）：新增 QIAN_KUN_ATK / QIAN_KUN_HEAL 两条乾坤衍生契约——
-//         QIAN_KUN_ATK（group 'qianKunDerived'，atk，dir=+1，读 factData.atkGain/atkTargetUid）：--scan-groups
-//         盲区扫描挖出该 group 268 条 atk 词条无契约盯；addMod 与 fact 同 handler 同值 ⇒ **零主代码依赖，落地即严格态**
-//         （249 条偏差 0；咬牙 atkGain×2 命中 236 EXIT=1）。QIAN_KUN_HEAL（group 'qianKunHeal'，hp，dir=+1，读
-//         data.heal/healTargetUid）：治疗走 applyStatChange 即时 hp，需主代码补记账（转交见矩阵第 84 轮节，警告态 268 条；
-//         临时记账严格 248 偏差 0、咬牙 ×2 命中 248 EXIT=1）。溅射两条（V3.0.9）已随并行会话 ac34b34 入库。
-// V3.0.9 | 2026-10-13 第 84 轮：新增 METEOR_SHOWER_SPLASH / WIND_ASSAULT_SPLASH 两条溅射伤害契约（dir=-1，
-//         group='meteorSplash'/'windSplash'，读 factData.splashDmg，targets 逐目标 uid 归因）——core/16 SPLASH
 //         handler 是两条契约共用的唯一落地口，主代码记账一行同时激活两者（转交见矩阵第 84 轮节，补前警告态）；
-//         溅射减防部分不在本条范围（已由 STAT_CHANGE 契约经 group 'statChange' 覆盖）
-// V3.0.8 | ~106300 bytes | 2026-10-13 警告态显式化：声明>0 但严格比对 0 条时打 ⚠ 点名（账本空跳过≠比对通过，防"偏差 0"被误读）；
-//          同批主代码补 3 条 hp 记账（core/12 weiDodgeHeal + core/16 horseRebound/fortifyRebound），三契约警告态→严格态
-// V3.0.7 | ~107000 bytes | 2026-10-12 第 81 轮：新增 SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL 四条 HP 类契约——
-//          SPIDER_STRIKE（小昭蛛袭，dir=-1，group='spiderStrike'，读 data.totalDmg；主代码 modules/20 记账待补，警告态 41 条）；
-//          CLAW_HIT（九阴白骨爪，dir=-1，group='clawHit'，读回填后 data.dmg；记账在 core/16 CLAW_CHAIN handler 应用点）；
-//          KUAI_LE_HEAL（快乐回血，dir=+1，group='kuaiLeHeal'）/ CLAW_HEAL（爪击回血，dir=+1，group='clawHeal'，uid-only 归因）。
-//          后三者主代码记账已随 8544c03 全量提交进 HEAD ⇒ 激活态（71/80/27 · 偏差 0）；四条均咬牙验证通过（翻倍记账即命中）。
-// V3.0.6 | ~98800 bytes | 2026-10-12 第 80 轮：新增 BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN 三条即时治疗类契约
-//          （dir=+1；group='bloodthirstLeech'/'hotBloodHeal'/'flyerRegen'）——主代码记账已落地（core/04 V6.3.6）：三契约转严格态（60 场 168/394/531 · 偏差 0）。
-// V3.0.5 | ~88200 bytes | 2026-10-12 第 77 轮：新增 PHANTOM_DISGUISE_HEAL 契约（成昆·幻影伪装治疗，dir=+1，group='phantomDisguiseHeal'）——
-//          成昆只在 stage 6 出场，STAGES 扩 [1-6]；主代码记账条目待用户补（当前警告态）。
-//          【第 76 轮】新增 NINE_YANG_HEAL 契约（治疗类 dir=+1，group='nineYangHeal'）——用户已应用并提交（core/15 V6.6.0），激活态严格比对 369/偏差 0；
-//          另发现主代码 unit.hp 浮点根因（core/15 L278 Math.min 浮点项），契约因同源精确相等仍稳健，建议主代码独立排查 hp 取整。
-//          【第 74/71 轮】BREAK_DEF 契约 extract 加 factType 显式校验，修形状碰撞假偏差——
-//          小昭·姊「乾坤衍生」QIAN_KUN_DERIVED（modules/27 L303/354：data.reduce 是减伤值、无 attackerName）被
-//          `typeof data.reduce === 'number'` 形状判据吞成破防声明（seed=18 stage=2 r13 声明 10 = 破防 2+2 + 乾坤 3+3，
-//          账本 breakDef 仅 -4 ⇒ 干净树假偏差 1，即第 71 轮遗留项）。修后 40 局：声明 581 条 · 严格比对 544 条 / 偏差 0；
-//          BREAK_DEF 随之出保守名单升严格判据（复核证伪「跨步错位」旧归因）。
-// V3.0.1 | ~80200 bytes | 2026-10-11 SOUL_DRAIN 契约由警告态转严格（主代码 4 处补发 fact：core/04 V6.2.9 / core/11 V6.3.7 /
-//          infra/56 V1.4.4 / infra/58 V1.5.7）：声明 827 条 · 严格比对 799 条 / 偏差 0，全程 EXIT=0。
-// V3.0.0 | ~79800 bytes | 2026-10-09 账本对照补第 23 条契约 ENDLESS_BREATH_COST（生生不息「付费触发」扣攻：modules/26 L160
-//          addMod group 'endlessBreathCost' value -atkCost ↔ ENDLESS_BREATH fact data.cost；factType 守卫 + cost>0 排除免费/fail 形态）。
 //          scan-groups 由 22/23 → 23/23 零盲区（endlessBreathCost 曾是唯一账本出现却未绑契约的 group）。
-//          干净树 133 条声明严格比对偏差 0；牙齿测试（L160 实际扣攻翻倍、fact 不动）检出 69/69 重复应用 exit1，证明有牙。
-// V2.9.0 | ~77400 bytes | 2026-10-08 零触发守卫分两级，修固定样本对稀有形态的假红（BAGUA_DEF 默认 40 场零声明却 exit1，
-//          但它与加攻共用 group baguaArray、120 场有 59 条声明，契约没坏，只是加防形态在小样本不触发）：默认模式也记录账本
-//          group，契约零声明时——绑定 group 账本未出现=真空转仍硬红（保住 CARRY_APPLY 那类牙），group 已出现仅形态未触发=警告不红。
-// V2.8.0 | ~75600 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
-//          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
-//          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 140/rules-replay 同口径。
-// V2.7.0 | 2026-10-02 第 54 轮（覆盖率收官）：主代码 47b4d05 已为 aura/holyFlame/weiDodgeLeech 补发数值声明 fact，本轮补最后两条契约 —— AURA（读 AURA_APPLY 的 emptyCol/bloodAura，0 值不声明避假报；round 续期口径第 53 轮已修，走严格判据）/ HOLY_FLAME（圣火令是**乘法** op:'mul'，fact 声明的是乘率 ratio 而非加法增量，故 groupDelta 新增 mulSum 累加 + 契约 mul:true 让主循环改取 mulSum 比对，避免乘区 sum 恒 0 全判少加）。覆盖率 20/22 → **22/22，零盲区**。
 // 方法论首立于 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
 //
 // 立它的原因（第 33 轮的教训，务必先读）：
@@ -175,24 +73,6 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-// V3.9.0 | 2026-10-21 第 113 轮：固定样本扩 seed 17/77，闭合 HORSE_REBOUND（马形阵反弹）零触发硬红。
-//   该契约四条件齐发才触发（我方马形阵 buff + 小昭·姊 hexEnhance + 敌方打到本方拒马且 dmg>0），
-//   原 60 场里 42 个「打到拒马」瞬间中 buff 在的 15 个、姊活着的 3 个、同时 0 个 ⇒ 零触发。
-//   引擎探针实证机制没坏（560 场扫出 157 个齐发瞬间），是样本没覆盖 ⇒ 按第 40 轮同法扩样本。
-//   复测：HORSE_REBOUND 声明 47 条 / 严格比对 46 条 / 偏差 0；咬牙（recordHpAudit 记 3 倍）46/46 偏差 exit1。
-//   BAGUA_DEF 仍为 2026-10-08 改版后的有意哨兵（警告级，不影响退码），见契约内注释。
-// V3.9.1 | 2026-10-22 第 115 轮·补二：固定样本再扩 10 seed，闭合 6 个零触发契约。
-//   ① 蜘蛛系 5 契约（SPIDER_MASTERY/TRANSFORM/STRIKE/LAND_HEAL/EGG）+ HORSE_REBOUND 的根因不是
-//      「样本漂移」（第 115 轮正文误判），而是**结构性缺员**：探针实证固定样本 72 场里小昭·妹
-//      （brother）一场都没出场（只有姊 12 场）——蜘蛛系全是妹的机制（飞天/蛛变/精通/蛛卵），
-//      姊走蝶变附身/乾坤衍生不触发它们。加 seed 103/128/142/154（妹在场且活得久）后：
-//      精通 285 条 / 蛛变 828 条 / 蛛袭 49 条 / 落地回血 44 条 / 蛛卵 14 条，偏差全 0。
-//   ② HORSE_REBOUND（第 113 轮扩 seed 17/77 修过）随战斗流变化再次零触发，补加第 113 轮
-//      验证过命中的 43/39/15/23/31/34 ⇒ 20 条声明、偏差 0。
-//   ③ 新样本**实证了 HUI_CHUN 潜伏同型**（治疗家族转交块 12 处之一）：扩样本前 54 条声明零折扣
-//      所以契约绿，扩后 94 条里撞到 2 次截脉/寒毒 ⇒ 偏差 2——正是「fact 报落地值、账本记原值」
-//      同型缺陷，已在转交块【8/12】【9/12】覆盖（主代码落地后转绿）。
-//   ④ 当前 8 个治疗契约红全部属转交块范围（详见迭代日志「第 115 轮·补二」），无其他契约假阳性。
 export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.9.1';
 
 import { fileURLToPath } from 'node:url';

@@ -1,7 +1,5 @@
 // player/42player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
-// V1.0.0 | 2026-10-18 | ~9800 bytes
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
-// V1.1.0 | 2026-10-26 | 去锚定化：anchor 动作改挂 _fxSpecs（由 entry.fx 数据字段驱动，不再靠文字锚点）
 export const VER = 'player/42player-play-step.js V1.1.0';
 
 import { eventBus } from '../infra/50-event-bus.js';

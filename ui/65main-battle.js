@@ -1,9 +1,3 @@
-// V6.1.3 | 2026-10-28 | ~13.5 KB | showBuffSelection 补传 enemyTeam（filterAvailableBuffs + generateBuffChoices
-//        两处），修普通模式选卡恒剔惑人心智
-// V6.1.2 | 2026-10-28 | ~12800 bytes | 修 fa6f206f 两连炸：①用了 CAMP_TYPES.ALLY 却漏 import（选 Buff 点击即
-//        ReferenceError）；②删了 let duration 定义但日志行还引用（修完①后接着炸 duration is not defined）——
-//        时长改从 28 的 buff 对象取，永久 Buff 显示「永久」
-// V6.1.1 | 2026-10-04 | ~12500 bytes
 export const VER = 'ui/65main-battle.js V6.1.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

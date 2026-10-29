@@ -127,7 +127,7 @@ export const ALL_PROJECT_FILES = [
     '../core/12battle-attack-chain.js', '../core/12battle-attack-edge.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
     '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js', '../core/19unit-watch.js',
-    // 2026-10-16 注册面归位批：闪避规则表 / 计算修饰器表分别迁入 core/20、core/21（详见文件头 V6.0.28）
+    // 2026-10-16 注册面归位批：闪避规则表 / 计算修饰器表分别迁入 core/20、core/21
     '../core/20-registry-dodge.js', '../core/21-registry-calc.js',
     // 2026-10-25 补登记 23：表现参数表（倍速表现统一配置，core/15、player/40/46、fx/81/82/93、infra/56 等消费；
     // 漏登则包内这些消费点 import 断裂）

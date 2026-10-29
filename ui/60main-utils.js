@@ -1,4 +1,3 @@
-// V6.1.2 | 2026-10-22 | ~8400 bytes
 export const VER = 'ui/60main-utils.js V6.1.2';
 
 import { GlobalStore } from '../infra/54-global-store.js';

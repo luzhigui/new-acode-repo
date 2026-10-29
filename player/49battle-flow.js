@@ -1,11 +1,6 @@
 // player/49battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
 // permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
-// V6.4.5 | 2026-10-29 | ~9.0 KB | 蓄意轰拳瞄准去掉联网限制（原 !netLinked 写死「联机不弹黑幕」）：
-//        本函数只在房主的引擎主循环里被调（player/42 L147），从机不跑引擎、不会弹窗；形参 netLinked 一并删除
-// V6.4.4 | 2026-10-28 | ~9.0 KB | handlePvpBuffSelection：六大派选卡补传「对方阵营(明教)存活」给
-//        generateBuffChoices，修惑人心智恒被剔除
-// V6.4.3 | 2026-10-19 | ~10600 bytes
 export const VER = 'player/49battle-flow.js V6.4.5';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

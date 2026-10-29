@@ -1,8 +1,4 @@
 // tests/xinhun-death-targeted-case.mjs | V1.0.2 | 2026-10-21 第 112 轮
-// V1.0.2 | 2026-10-25 第 123 轮：构造 battleState 时不再直接调用 tickAndPickBuffs 预置 activeBuffs，
-//        | 改为空数组起步、由 GlobalStore 的 forceXiaoZhao='brother' 驱动走标准选 buff 流程，
-//        | 与 xiaozhao-brother-leech-case 的强制妹模式同口径。
-//        | ★ 本行由第 138 轮补登记当时只抬了常量、没留日志行，且旧写法不被版本漂移自检认得，故长期未被比对。
 // XIN_HUN_DEATH（宋青书·新婚致死）定向最小触发用例 —— 依据第 113 轮沙箱交接规格在主线重写。
 //
 // 背景（112 轮把 XIN_HUN_DEATH 定为「条件稀有」但只有定性；113 轮沙箱用定向用例把动作项做完）：

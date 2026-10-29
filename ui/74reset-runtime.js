@@ -1,4 +1,3 @@
-// V7.5.13 | 2026-10-14 | ~3600 bytes
 export const VER = 'ui/74reset-runtime.js V7.5.13';
 
 import { GlobalStore } from '../infra/54-global-store.js';

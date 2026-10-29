@@ -1,21 +1,6 @@
 // tests/contract-consistency.mjs — 静态一致性契约网：①门槛一致性 ②翻译器契约
-// V1.0.0 | ~9000 bytes | 2026-10-13 体检第 84 轮新建（补「写了不跑」类静默失效的三张契约网之二）
-//   定位：【静态一致性检查，非运行时体检】——不跑战斗、不产战报，只对源码/表做结构对账。
-//   检查① 门槛一致性：player/42player-core.js 的 hasStageWork(action) 执行门槛
-//     （fx / store / storeAfter 任一有活）vs render/39-actions-defs.js 的 STAGE_ACTION_DEFS 全表 ——
-//     凡带 store / storeAfter 的动作定义必须被门槛放行，凡 fx/store/storeAfter 全空的定义必须被挡。
-//     player 层是浏览器代码、node 测不进，故做源码级校验：从 player/42 源码**抽出 hasStageWork
 //     函数本体原文求值**（直接调被测函数，不复刻门槛实现——「规则不许复制产品旧实现」），
-//     对 39 真表（node 可 import）逐条对跑。背景 bug：ROUND_START 清场只有 store 无 fx，
-//     被只认 fx 的旧门槛整体跳过 5 周没人发现（player/42 V6.8.5 已修，本检查防复发）。
-//   检查② 翻译器契约：infra/58-fact-contract.js 的 FACT_SPECS.translateFn 登记 ↔
-//     render/38 家族 FACT_TRANSLATORS 表，双向对账（38 末尾校验循环只覆盖
-//     「58 登记 → 表内有」单向、且只 console.error 不硬红）：
-//     A. 58 登记 translateFn（非 null）→ 表内必须有条目（缺 = 静默丢动作）；
-//     B. 表内有产动作条目 → 58 必须登记（漏登记 = 契约说谎「不产生 stageAction」）；
 //     C. 58 登记 → 表内条目不许是 `() => null` 恒空形态（登记说产、表里恒空）。
-//     显式空转条目（`() => null`）与 58 translateFn:null 合法共存，不报。
-//   零触发守卫（防假绿）：defs / FACT_SPECS / 翻译表 任一为 0、或门槛源码抽取失败、或求值抛错，
 //     一律硬红——「解析失效 = 空跑出绿」不许有。
 // 退出码：任一硬红 exit 1。用法：node tests/contract-consistency.mjs
 export const VER = 'tests/contract-consistency.mjs V1.0.0';

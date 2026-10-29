@@ -1,5 +1,4 @@
-// V6.1.4 | 2026-10-20 | ~5400 bytes
-export const VER = 'fx/89fx-subscriber.js V6.1.4';
+export const VER = 'fx/89fx-subscriber.js V6.1.5';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -19,6 +18,7 @@ import {
 import { showLionRoar } from './91fx-lion-roar.js';
 import { showPangTaunt, showPangClumsy } from './92fx-pang-antics.js';
 import { showHanLiSaBurst } from './93-hanlisa-burst.js';
+import { updateHanLiSaChargeFx } from './90-hanlisa-charge.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 
 // 快进判断归位于表现层
@@ -94,3 +94,8 @@ eventBus.on(FX_SIGNALS.HANLISA_BURST, P, (d) => {
     if (inFastForward()) return;
     return showHanLiSaBurst(d);
 });
+// 九宫格渲完（render/32 在两网格渲染后 emit）：重算寒离飒蓄力扇形。
+//   原先由 render/32 直接 import fx/90 调用，属 render → fx 反向依赖（铁律第 6 条），
+//   2026-10-29 改为发信号。这里不做快进拦截——扇形是常驻指示物（蓄力期间要一直显示），
+//   与一次性演出不同，快进时也应保持可见。
+eventBus.on(FX_SIGNALS.GRID_RENDERED, P, (d) => { updateHanLiSaChargeFx(d.units); });

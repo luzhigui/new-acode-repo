@@ -6,16 +6,11 @@
 //   本段不回答"有没有差异"（那是原判据的事，一行未动），只回答"差异长什么样"，
 //   免得人按 1.27MB 的错觉去查一个字段的洞。分类逻辑另挂三条自证（插入/同行/无关文本）。
 // V1.0.1 | ~12200 bytes | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源（拷贝缺永久继承，与 rules-replay 口径分叉）；golden 输出随样本变化待业务侧重录
-// V1.0.0 | ~12200 bytes | 2026-10-13 新建：真跑引擎（SeededRNG + initBattleTeams + createRoundStepper）
-//          收集每一步日志，逐条走 translateFactsToStageActions（经 render/31 转出口取，顺带守住 re-export 契约），
-//          产出规范化 JSON 快照与 golden 基线逐字节比对。翻译器是纯函数（log → stageActions），
-//          拆分 render/38 前后输出必须零差异 —— 本文件就是那把尺子。
 // 用法：node tests/translate-golden.mjs            → 与 tests/golden-translate-stage-actions.json 比对（一致退 0，差异退 1）
 //       node tests/translate-golden.mjs --update   → 重录基线（翻译层有意变更后使用）
 //       SEEDS=1,2,3 STAGES=2 node tests/translate-golden.mjs   → 只跑小样本（先验证用）
 // 关键口径：对象键**递归排序**后再序列化 —— 拆文件后对象字面量键序可能变化，但字段值不变，
 //          不排序会制造假差异；数组顺序（fact 顺序 / 动作顺序）是行为本体，原样保留、绝不排序。
-// V1.0.1 归位说明（第 135 轮）：本文件头注释早已写到 V1.0.1（第 123 轮 tickAndPickBuffs 收口至
 //   tests/_lib/buff-picker.mjs 唯一来源），而 VER 常量一直停在 V1.0.0 —— 属漏改，本轮由
 //   ver-drift-selftest 自动绊线抓出后归位。VER 只归位到日志已有的 V1.0.1，未擅自升版。
 export const VER = 'tests/translate-golden.mjs V1.1.0';

@@ -1,4 +1,3 @@
-// V6.2.0 | 2026-10-13 | ~12800 bytes
 // fx 只管演出、不收尾格子：飞行态格子统一交 render/32 按 _renderFlyMode 重绘占位（🦋/🕷️ dimmed）。
 //   收尾若把格子"长回"，会与缩小动画叠出"缩小后又变大"。
 export const VER = 'fx/86fx-butterfly-spider.js V6.2.0';
@@ -64,7 +63,7 @@ export async function showButterflyFlyOut(fromUnit, toUnit) {
     await clock.wait(300);
     butterfly.remove();
     toCell.classList.remove('pink-flash');
-    // 收尾不恢复 fromCell：保持缩小淡出的「离开态」，由 render/32 重绘接管画 🦋 占位格（见文件头 V6.2.0）
+    // 收尾不恢复 fromCell：保持缩小淡出的「离开态」，由 render/32 重绘接管画 🦋 占位格
 }
 
 /**
@@ -185,7 +184,7 @@ export async function showSpiderAscend(fromUnit) {
     spider.remove();
     ghost.remove();
     silks.forEach(s => s.remove());
-    // 收尾不恢复 fromCell：保持隐形「离开态」，由 render/32 重绘接管画 🕷️ 占位格（见文件头 V6.2.0）
+    // 收尾不恢复 fromCell：保持隐形「离开态」，由 render/32 重绘接管画 🕷️ 占位格
 }
 
 /**

@@ -1,4 +1,3 @@
-// V6.1.0 | 2026-09-09 | ~3900 bytes
 export const VER = 'fx/90fx-ref-manager.js V6.1.0';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';

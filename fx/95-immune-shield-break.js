@@ -1,7 +1,4 @@
 // fx/95-immune-shield-break.js — 金刚不坏护罩碎裂（空见）
-// V1.0.1 | 2026-10-29 | ~2700 bytes | 护罩碎裂类改原生 setTimeout 清理：原 clock.wait(360) 在暂停/联机
-//        冻结时永不返回，金罩子类就留在格子上不消失（联机实测「护罩特效一直叠加」）
-// V1.0.0 | 2026-10-23 | ~2600 bytes
 // 撞上瞬间：格子罩子放大淡出（CSS class），同时中心白光闪 + 8 片金色碎片向外炸开。
 // 罩子本体由 render/32 按 _immuneShield 渲染（.has-immune-shield 伪元素），
 // 本函数只管碎裂表现，不碰状态——步末 syncStoreFromStep 重绘时罩子自然消失。

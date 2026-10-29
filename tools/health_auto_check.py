@@ -63,7 +63,11 @@ def main():
     print(f'[打开] {target_url}', flush=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # 优先用系统 Edge（免下载 chromium）；失败再退回 playwright 自带 chromium
+        try:
+            browser = p.chromium.launch(headless=True, channel='msedge')
+        except Exception:
+            browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.on('console', lambda m: print('[console]', m.text[:200], flush=True) if '[AUTO-HEALTH' in m.text else None)
         try:

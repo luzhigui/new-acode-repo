@@ -6,9 +6,6 @@
 //   漏注册、type 改名漏跟、字段缺失/类型错、未知 targetRule，体检立即报红。
 // 与战局无关：不读战报、每场均跑、只读 content（同 156）。node 侧 rules-replay 开局已 loadGameData；
 //   浏览器体检页是独立模块域，这里异步预热一次 loadGameData（core/01 有缓存，只拉一次）。
-// V1.1.0 | 2026-10-14 core/15 瘦身配套：linkAttack/followAttack/phantomDisguise 不再有本地例外名单，
-//   全量 type 都要在 core/18 注册表里查到 → 注册副作用 import 补 modules/25（原先只 import 26/30，
-//   漏了会把这三种判成"未注册"假红）
 export const VER = 'tests/health-rules/157-mechanic-install-reconcile.js V1.1.0';
 
 import { getGameData, loadGameData } from '../../core/01config-5v5-test.js';

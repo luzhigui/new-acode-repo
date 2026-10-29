@@ -1,5 +1,4 @@
 // ui/78button-state.js — 主界面按钮状态与 buff 槽刷新
-// V1.1.1 | 2026-10-19 | ~9300 bytes
 // 整局项（permanent，如圣火不熄）挂阵营名下方徽章 #campBadgesAlly/Enemy，不占底部 2 槽——
 //   轮换海克斯峰值本就 2 条，常驻项会把槽挤满导致最新那条看不见。
 // 关卡共 7 关：GAMEOVER 主按钮判据 currentStage>=7（否则第 6 关结束就显示「重新开始」丢掉第 7 关）。
@@ -14,7 +13,7 @@ import { updateSpeedButtons } from './77speed-controls.js';
 
 // buff 槽：联网从机显示自己（六大派）的海克斯，其余情况显示明教
 // 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
-// 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项（详见文件头 V1.1.0）
+// 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项
 const CAMP_BADGE_ID = { [CAMP_TYPES.ALLY]: 'campBadgesAlly', [CAMP_TYPES.ENEMY]: 'campBadgesEnemy' };
 function updateBuffSlots(activeBuffs, camp) {
     const role = GlobalStore.get('netRole');

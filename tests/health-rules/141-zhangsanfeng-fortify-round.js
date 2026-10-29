@@ -2,22 +2,6 @@
 //   ① 严阵以待触发回合提前（第10回合结束 → 第5回合结束，即第6回合开始）
 //   ② 取消如沐春风（删「队友行动后回 8% 已损失生命」分支）
 //   ③ 生生不息溢出转嫁（张三丰满血时，回不满的部分转给己方 hp/maxHp 最低的存活单位）
-// V6.1.24 重写：旧实现三处判据读 battleLog 里**不存在**的 e.factType / e.data（生产侧 player/42
-//   L316-324 渲染后显式剥离这两个字段；142 的文件头早已写明该行规）→ 120 场全 skip、全条空转。
-//   本版改为只认**渲染后条目**（type + text），与 142 同一行规：
-//   复发信号1（严阵以待·存在性+时机）：张三丰存活到终局且打满 ≥期望回合，战报却没有一条
-//            type='buff-summary' 且文本含「严阵以待：张三丰」的摘要 → tenRoundFortify 机制被撤/回退；
-//            首次出现的回合 ≠ 期望回合 → 触发点被改动（提前=round 被改小，推迟=round 被改大）。
-//            **期望回合取自配置、不硬编码**（V6.1.26）：modules/26:128-133 用
-//            `getSkillParams('张三丰','tenRoundFortify').params.round` 门控
-//            （`_roundCountForFortify > round` 才触发，摘要在 ON_ROUND_START 里 push），
-//            故「首现回合 = round + 1」。89baff6 把 round 由 10 改成 3（首现 6 → 4），
-//            硬编码 6 的旧判据当场假红 20/120 场 —— 判据必须跟配置走，不能跟历史值走。
-//   复发信号2（如沐春风）：战报出现"如沐春风"文本 → V6.1.7 已删的 springBreeze 分支被误加回。
-//   复发信号3（生生不息·溢出转嫁）：文本「☯ 生生不息：张三丰 …生命已满」且**不含**「溢出」
-//            → 满血触发却无溢出转嫁（render/30 renderEndlessBreathFact 的三种溢出文案都带「溢出」
-//            字样；纯回血回退后满血只会渲染"生命已满"无尾巴）。张三丰作为转接目标的他人行
-//            （「…转给张三丰（…）」）必带「溢出」，不会被误判。
 // 口径前提（回放侧保真度，rules-replay.mjs V6.1.24 同步修正）：
 //   - 张三丰属六大派（content enemySquads / elitePool，组件在 modules/26elite-sixsects.js），是敌方单位，
 //     扫 afterE；其「严阵以待」是自身专属（modules/26 直接 addMod group:fortify，不走 camp applyFortifyBonus）。
@@ -49,7 +33,7 @@ export const rule88 = {
             }
         }
 
-        // 2.5 期望触发回合取自配置（见文件头 V6.1.26）：首现回合 = tenRoundFortify.round + 1。
+        // 2.5 期望触发回合取自配置：首现回合 = tenRoundFortify.round + 1。
         //     取不到配置即判定为"无法断言"（modules/26:44 自身也会 throw，属配置缺失，非本规则职责）
         var expectedRound = null;
         try {

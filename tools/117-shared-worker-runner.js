@@ -1,6 +1,3 @@
-// V1.2.0 | 2026-09-27 池大小改为 getPoolSize() 统一口径：默认吃满 hardwareConcurrency（原核数-1 会空置一核）；
-//        localStorage 'battle_pool_size' 可覆盖。109/101/108/112/113/114 自动受益
-// V1.1.0 | 复用 116 通用战斗 Worker；worker 池按核数-1，ready 后派发，逐 job 回报
 // 用法：runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl })
 export const SHARED_WORKER_URL = new URL('./116-role-balance-worker.js', import.meta.url);
 

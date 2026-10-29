@@ -1,22 +1,4 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
-// V1.2.6 | 2026-10-28 补敌方存活进候选过滤（28 V6.2.5 起惑人心智门槛读 opts.enemyTeam；不传恒过滤 → 该 buff 永不入选）
-// V1.2.5 | 2026-10-22 ELITE_LABELS 改从 127-tool-registry.js 取（单一来源），本文件不再自建名单
-// V1.2.4 | 2026-10-22 ELITE_LABELS 补寒离飒（116 V1.12.0 已并入明教精英池）——此前含她的阵容被误并组、
-//          只有她的阵容被误判「无精英」，120 的典型阵容分组失真；注释同步 6 人池口径；VER 对齐（V1.2.2/V1.2.3 漏更）
-// V1.2.3 | 预估 22400 bytes | 2026-10-16 候选池同步 modules/28 的众志成城门槛（场上存活 <4 才进候选，含召唤物）
-// V1.2.2 | 预估 22300 bytes | 2026-10-13 镜像主代码整局海克斯口径：content permanent:true → remaining 取 CONFIG.MAX_ROUND（与 modules/28 同源）
-// V1.2.1 | 预估 21400 bytes | 2026-10-12 机制装配收口：散装 import 25/26/27 → 改为 import modules/00reg-mechanics.js
-//          （原散装三行漏 30，鹿杖客 dotTick 安装期直接抛错、整台实验跑不出结果）；modules/20elite-skills.js 单列保留（00reg 不含 20）。
-// V1.2.0 | 预估 21300 bytes | 2026-10-06 tickAndPickBuffs 补 carry 候选过滤：import modules/28buff-tools.hasCarryTarget，
-//          无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选，与主代码逐字同口径。
-// V1.1.1 | 预估 20800 bytes | 2026-09-29 路径改名（原 120-param-lab-core.js）；V1.1.0 参数实验台批 4：listNumericKnobs 从「只扫 characters」扩到参数四层——
-//          ① 角色技能表 ② 纯规则常量 CONFIG（跳 getter 与位次表）③ buffs/roles/encounters/roster/hexes 数据表；
-//          每个旋钮带 layer/owner/skill 三级信息，供页面做「归属 → 技能 → 字段」选择。
-//          V1.0.0 | 2026-09-28 新建：从 tools/121-param-lab.mjs 抽出可复用逻辑
-//          （seed 散列 / 固定海克斯 / 阵容采样与重建 / 逐局对战 / 逐阵容区间跑 / 路径式补丁 /
-//          数值旋钮扫描）。不 import 任何 node 内置模块，浏览器 worker 与 node 直跑通用。
-//          CLI 侧的 node 垫片（fetch / localStorage）由调用方在 import 本文件之前装好；
-//          本文件自带 window/localStorage 垫片，保证模块体在无 DOM 环境也能跑。
 export const VER = 'tools/122-param-lab-core.js V1.2.6';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---

@@ -2,11 +2,6 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
-// V6.3.0 | 2026-10-26 | ~10800 bytes | 去锚定化：带 fx 的效果行走 lineGapFx 慢档（普通行走 lineGap 快档）；
-//   效果行整行直出并同帧触发 _fxSpecs 回调；伤害飘字改由 damage-text 行同帧打（不再等 fx/88 的 1100ms）
-// V6.2.2 | 2026-10-26 溢杀落地等待 600ms 改回逻辑时间（waitReal→wait），跟随倍速
-// V6.2.0 | 2026-10-25 无锚点 info/detail 改整行直出（不逐字），行间隔改 clock.waitReal 真实毫秒
-// V6.1.2 | 2026-10-25 | 攻击组行间隔接表现参数表（lineGap，按当前 speed 档位）
 export const VER = 'player/46attack-group.js V6.3.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
@@ -16,6 +11,7 @@ import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHi
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
+import { triggerHpAnim } from '../render/32grid-cells.js';
 import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -95,9 +91,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
         if (entry2.type === 'damage-text') {
             // 伤害飘字改为「播到这行时打」，不再等飞撞动画的固定 1100ms。
-            //   原来的 1100 跟动画配，文字一加速就错位；现在文字和数字同帧。
             if (unitD && entry2.dmg > 0 && !GlobalStore.get('fastForwardActive')) {
                 try { showDamageFloat(unitD, Math.round(entry2.dmg)); } catch (e) {}
+            }
+            // 掉血提前预演：飘字一出，血条立刻开始渐变掉血
+            if (unitD && entry2.hpAfter !== undefined && c.store) {
+                const su = c.store.getState().units.find(u => u.uid === unitD.uid);
+                if (su) triggerHpAnim(unitD.uid, Math.floor((entry2.hpAfter / su.maxHp) * 100));
             }
             lastDiv = await playLogLine(entry2.text, 1200);
             continue;
@@ -118,6 +118,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const gap = getPerfParam(hasFx ? 'lineGapFx' : 'lineGap', GlobalStore.get('speed') || 300) || (hasFx ? 280 : 30);
             await clock.waitReal(gap);
             continue;
+        }
+
+        // 回血提前预演：播到带有回血数据的行时，血条立刻开始渐变回血（不用等组末）
+        if (entry2.isHealEntry && entry2.healAmount > 0 && entry2.healUnitUid && c.store) {
+            const su = c.store.getState().units.find(u => u.uid === entry2.healUnitUid);
+            if (su) {
+                const targetHp = Math.min(su.maxHp, su.hp + entry2.healAmount);
+                triggerHpAnim(su.uid, Math.floor((targetHp / su.maxHp) * 100));
+            }
         }
 
         // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）

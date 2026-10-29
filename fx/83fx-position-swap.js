@@ -1,5 +1,4 @@
 // fx/83fx-position-swap.js
-// V6.2.1 | 2026-10-13 | ~9700 bytes
 export const VER = 'fx/83fx-position-swap.js V6.2.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';

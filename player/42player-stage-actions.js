@@ -1,5 +1,4 @@
 // player/42player-stage-actions.js — fact 渲染 + stageAction 三阶段执行（store/fx/storeAfter）
-// V1.0.0 | 2026-10-18 | ~2600 bytes
 //   prepareLogEntry / getActionTiming / getActionFx / hasStageWork /
 //   applyStageActionTo{Store,FX,StoreAfter} 整块迁入。
 //   playStepInterleaved 是唯一消费方（42player-play-step.js）。

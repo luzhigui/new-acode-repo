@@ -1,6 +1,3 @@
-// V6.4.0 | 2026-10-26 | 去锚定化：不再按文字位置匹配锚点，特效回调改为整行开始即统一触发（fx 数据驱动）；
-//   删掉 pending / playedPlainLen / charMsAnchor，逐字统一读 charMs
-// V6.3.0 | 2026-10-25 | ~3900 bytes | 锚点行读 charMsAnchor、普通行读 charMs；逐字等待改 clock.waitReal（真实毫秒）
 export const VER = 'player/40player-text.js V6.4.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

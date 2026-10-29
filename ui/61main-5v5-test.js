@@ -1,5 +1,4 @@
 // ui/61main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-// V6.14.2 | 2026-10-14 | ~34800 bytes
 export const VER = 'ui/61main-5v5-test.js V6.14.2';
 
 import '../infra/54-global-store.js';

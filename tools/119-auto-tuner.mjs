@@ -1,7 +1,4 @@
 // tools/119-auto-tuner.mjs — 平衡参数敏感度分析（A 步：单参数扰动排行榜）
-// V1.0.0 | ~11300 bytes | 2026-09-28 新建：逐关对每个数值型技能参数做 ±delta 单点扰动，
-//          用固定 seed 集跑明教胜率，产出「参数→胜率变化」敏感度排行榜与「无显著影响参数」清单。
-//          只读 content/200game-data.json（内存改写 + try/finally 还原，绝不写回）。
 export const VER = 'tools/119-auto-tuner.mjs V1.0.0';
 //
 // 用法：

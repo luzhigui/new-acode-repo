@@ -1,4 +1,3 @@
-// V6.0.0 | 2026-08-26 | ~800 bytes
 export const VER = 'player/44battle-player-5v5-test.js V6.0.0';
 
 import { playBattle, clearAllEffects } from './42player-core.js';

@@ -25,53 +25,7 @@
 //   现行 render/30 里已不存在（现字段为 hpAfter / clawTargetUid），该判据恒空转，下一趟可照
 //   133 路径2 的口径改为校验斩杀条目带 isExecute + clawTargetUid。
 //
-// V6.1.16 修订（2026-09-25，主线侧同步轮）：补回**现行契约的斩杀判据**。
-//   第 21 轮删掉的"斩杀→hpAfter=0"是伪判据（斩杀的定义就是 hp>0 且跌破阈值，见下方注释块）；
-//   但"标记斩杀"本身有一条 core 保证的现行契约可校验：core/15 L407-413 中 isExecute 触发时
-//   executeInfo **必然**与 hits 同组产出（declaration = {hits, execute}，renderClawExecuteFact
-//   文本固定含「九阴白骨爪斩杀！」）。故新判据 2：标记斩杀的 hit → 同一 attack-group 内必须存在
-//   处决条目；缺失 = execute 声明被吞/丢失（回放器吞数组的历史 bug 正是这种形态）。
-//   实现：collectNodes 带组号 gi，组级收集两路信号，主循环结束后统一判定（处决条目与 hit
-//   的渲染先后顺序未证，不能在单遍循环里即时判定）。负向测试 6 例全过（含跨组不认的 C 例）。
 //
-// V6.1.17 取证（2026-09-26，验收轮补命中数）：判据 2' 是否真跑得起来、会不会又是恒空转，实测填上。
-//   · 真实战报（stage=4，seed 1~8 共 8 局，探针直接吃 render/30 的渲染产物）：
-//     爪击节点 220、处决条目 12、**带 isExecute+dmg 的爪击 12**，判据 2' 在 6/8 局被触发（12 次），
-//     与处决条目严格 1:1 → 非恒空转，且当前无缺失（fail=0）。
-//   · 全量回放 120 场（node tests/rules-replay.mjs）：本规则 pass=20 fail=0 skip=100
-//     （skip 全落在非第四关，无爪击，符合预期），恒 skip 规则 0 条。
-//   · 字段口径实证（为何判据 2' 读得到 isExecute）：爪击节点 keys =
-//     `type,hpAfter,clawTargetUid,dmg,text,isClawHit,clawAttackerUid,isExecute` —— 爪击是挂在
-//     attack-group 的 entries 子条目上，走 render/33:106 projectFactEntry 把 fact 附加字段并进渲染产物；
-//     顶层 renderLog 不带这些字段（回放器 L198 直接用 renderLog，故必须下钻 entries 才读得到）。
-//   · 判据内 `dmg !== undefined` 是**鉴别项**：处决条目自身也带 isExecute:true，靠 dmg 缺省把两者分开
-//     （处决条目已在文本分支 continue，这里是双保险）。
-//   · 负向测试 7 例全过：同组有处决→pass、缺处决→fail、处决在别组→fail（不跨组误认）、
-//     处决先于 hit 渲染→pass（验"先收集后判定"）、未标斩杀的爪击→pass（不被判据 2 误伤）、
-//     伤害 1.2→fail（判据 1 仍活）、无爪击→skip。
-// V6.1.19 | 2026-10-09/10 判据1 按引擎新契约重写：引擎 V6.0.8（core/16 L254-258）起爪击 fact 的
-//          data.dmg 回填**减伤后落地值** Math.max(0, designed-reduce)，不再是设计值 bonusDmg，
-//          「伤害<1.5 即回归」失效并误报（seed=6/stage=7 实测最低 0.7999999999999998）；
-//          改判「有限数且≥0」（仍抓 NaN/负数）。设计值未进 fact（原始流 clawHit 顶层 dmg 恒
-//          undefined，26/26），下限守护须引擎补 designedDmg 字段后方可重建 —— 已报业务侧。
-//          （V6.2.0 已随引擎 designedDmg 回填重建，本块的"暂时放宽"到此结束。）
-// V6.2.0 | 2026-10-11 重建「设计下限」守护（承接 core/16 V6.0.9 + render/35 V1.0.17）：
-//   引擎 V6.0.9 起 clawHit fact 的 data 同时带 dmg（减伤后落地值，源头收敛 1 位小数）与
-//   designedDmg（设计值 = modules/26 `floor((baseHit+ratioDmg)*10)/10`）；render/35 透传 designedDmg。
-//   本版新增三组判据：
-//   · 节点级（浏览器实时体检 + 回放通用）：designedDmg 必须存在、有限、无浮点尾巴、≥ 下限 floor，
-//     且落地 dmg ≤ designedDmg（减伤/回填写反即报）；
-//   · 源头级（仅回放器传第 7 参 facts 时）：原始 clawHit fact 的 data.dmg 必须无浮点尾巴
-//     （锁住源头收敛，回归"显示出口洗白、源头仍溢出尾巴"的旧形态）、data.designedDmg 合法；
-//     该段在"无爪击→skip"之前执行，即使本场战报无爪击节点也能对账（节点级 dmg 已被 render/35
-//     的 fmt1 洗过，无尾判据只在源头级才有效）。
-//   · floor 由 getDesignFloor() 从 content 现读（周芷若 chainClaw 取 min(baseDmg, jealous.baseDmg)
-//     的 10 分位下取整），取不到兜底 2。
-//   为什么不是放宽：V6.1.19 是因"设计值未进 fact"而只能暂判「有限且≥0」；字段到位后按原义恢复守护。
-// V6.3.0 | 2026-10-20 第 111 轮：判据 3「连锁不递减」改判 designedDmg（原比减伤后的落地 dmg，
-//   减伤层变厚即恒定假红）。实证 seed=20 stage=4：殷天正被小昭·姊蝶变附身，「乾坤衍生」逐爪
-//   给减伤 1→2，设计值 5.6→6.6 正常递增，落地值 5.2→4.3 恰少 1.0 ⇒ 假阳性。回血导致的合法
-//   下降按 content lostHpRatio×回血量 放行（+0.11 余量）；落地值越界仍由判据 1b 守。
 export const VER = 'tests/health-rules/132-claw-damage.js V6.3.0';
 // 用 as 保留原调用名 collectNodes：调用点（下方遍历）不改，避免"改名漏改调用点"这类回归。
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';

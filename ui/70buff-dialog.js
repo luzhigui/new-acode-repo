@@ -1,7 +1,4 @@
 // ui/70buff-dialog.js — 海克斯手选弹窗
-// V6.4.3 | 2026-10-28 | ~8500 bytes | 修 fa6f206f 同族雷：createBuffObject 的 team 参数引用了不存在的
-//   allyUnits（块内 const 对块外不可见），点确认即 ReferenceError——改 camp 自己的队伍（与 L34/49 同口径）
-// V6.4.2 | 2026-10-16 | ~8400 bytes
 // 候选门槛与 modules/28 generateBuffChoices、player/49 全自动同口径：众志成城要求本阵营存活 <4 人。
 //   本弹窗自建候选列表，门槛必须手动跟上，不能只改一处。
 export const VER = 'ui/70buff-dialog.js V6.4.3';

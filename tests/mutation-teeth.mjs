@@ -39,49 +39,7 @@
 // V2.9.7 | 2026-10-15 第 91 轮：A25 锚点重校（multi）—— 主代码 6f4c103/8073bbe 把圣火令拆成
 //   两条路径（基础 buff cols/rows + 妹永久 draw.cols/rows），atk addMod 行两处全同 ⇒ 单点锚点
 //   不再唯一。sed 单行替换不支持多行锚点，A25 改 multi（两处一起翻倍，语义不变）。
-// V2.9.6 | 2026-10-13 第 88 轮：新增 T17/T18 惑心换位（rule113，第 87 轮落地）变异牙——
-//   第 87 轮落 rule113 时未同步牙齿，构成 A28 式静默死亡缺口（主代码改 swap emit 写法 ⇒ 规则恒绿无人察）。
-//   T17 盯判据1（敌方 SWAP fact side 漂移 ⇒ 配对断链）、T18 盯判据5（fact 报反新旧位置 ⇒ 宣告位置未生效；
-//   判据2 自洽抓不到相异合法值，必须单独有牙）。预期双双「规则有牙」；若判装饰品即判据真盲区（硬发现）。
 // V2.9.5 | 2026-10-13 体检第 84 轮：A11 锚点重校（唯一性）—— 旧 from `"{ source: '韦一笑吸血', value: delta,"`
-//   在 core/12battle-attack-steps.js 命中 2 处（L594 weiLeech maxHp 上限提升 / L597 weiDodgeHeal hp 记账），
-//   违反 --verify「非 multi 的 from 必须恰好 1 次」；且 A11 语义「上限提升翻倍」只应打 maxHp 行。
-//   修法：from/to 各延长到含 `ttl: 'permanent', group: 'weiLeech',`，锚定 maxHp 行、与 hp 记账行区分。
-// V2.9.4 | 2026-10-13 第 83 轮：modules/26elite-sixsects.js 拆分联动 —— 14 处 26 系变异锚点的 file 字段
-//   改指 6 个组件文件（A6/A12/A13/A18/T5/T7→-songqingshu；A7/A9/T4→-zhangsanfeng；
-//   A10/A23/T15→-pangyuanqiao；A26/A27→-miejueshitai）；锚点 from/to 文本与缩进未动，仅换文件路径。
-// V2.9.3 | 2026-10-13 第 82 轮：A28 锚点重校准 —— 主代码摄魂再平衡（V6.3.3 逆风系数 perUnitBonus、
-//   V6.3.2/6.3.3 降防线性叠加）后，core/04 applySoulDrain 的 atk addMod 由直读
-//   `CONFIG.BUFFS.soulDrain.atkBonus` 改为先算 `ratio = cfg.atkBonus - cfg.perUnitBonus * extra`
-//   再挂 `value: ratio`，旧锚点 0 匹配 ⇒ 变异静默失效（树=干净树，"规则没牙"是假阴性）。
-//   新锚点对准现行 `value: ratio`，翻倍语义不变（实际侧 ×2、fact ratio 不动）。
-// V2.9.2 | 2026-10-11 第 71 轮：新增 A28 摄魂（SOUL_DRAIN）牙齿 —— 主代码 2424621 补发 SOUL_DRAIN_APPLY fact、
-//   契约升严格后，mirror A25 把 core/04 addMod 乘率翻倍（fact ratio 保持不动）⇒ 对照器应命中（ATTR 类"对照器兜住"）。
-// V2.9.0 | 2026-10-08 第 59 轮：给 harness 加**新鲜度守卫**（第 5 次栽在 harness，且是最隐蔽的一次）。
-//   现象：`--report` 拿 **9-29 16:25** 的 teeth-results.txt，配 10-02 两改过的判据（V2.7.0 判定顺序 /
-//   V2.8.0 baseline 增量口径）渲染 ⇒ 屏幕上写着「T2 ❌装饰品(真盲区)」，而该结论**根本不是当前代码跑出来的**。
-//   危害：连续多轮把 T2/T7 记成"真盲区留待后续"，实际是**陈旧数据的幽灵**——比判据写错更糟，
-//   因为它连"错在哪"都不显示，只显示一个看似新鲜的结论。
-//   修法：① `--emit-run` 把 VER / 变异表指纹 MUTFP / HEAD / 时间戳写进结果文件头部（#META 行）；
-//        ② `--report` 逐项比对（判据文件 mtime > 结果文件 mtime ⇒ 判据已更新 ⇒ 陈旧；MUTFP/VER 不符 ⇒ 陈旧；
-//           有变异表条目缺结果块 ⇒ 覆盖不全；变异树目录 mtime > 结果 mtime ⇒ 树已重建未重跑）。
-//        命中任一项 **硬失败退 1** 并逐条点名，`--allow-stale` 才能放行（且仍打印横幅）。
-//   同轮第二处：TEXT 变异（"日志写错、实际没变"）命中数只按 `检出重复应用 N 处` 计量，
-//   而该方向在对照器里落的是**「偏差（声明>实际，少加/多报）」**而非"重复应用" ⇒ 恒 0 ⇒ 误判装饰品。
-//   新增 `偏差` 汇总的**增量**计量（相对 _base 干净树），让 T2/T7 这类方向也能被判据看见。
-// V2.8.0 | 2026-10-02 第 58 轮：修baseline 段判定口径（第 4 次栽在 harness）—— `baselineChanged`原是
-//   「与**录制基线**比」，而主代码进行中的 dotTick 让**干净树自己**就报 3 场 winner 翻转红线
-//   ⇒ 干净树 changed=true ⇒ 任何变异的 changed 恒 true ⇒ no-op 变异也被算成「至少基线兜底」。
-//   实测 A8/A19/A13的 baseline 输出与_base **逐字节相同**，即变异压根没生效，却被误报为「仅基线兜底」。
-//   改为**相对 _base 干净树的增量**判定（baselineSig 整段文本指纹比对）；同时修3 条 no-op 变异锚点：
-//   A8/A19 原锚 `value: atkTransfer`（flyDirection 恒 'left' ⇒ atkRatio=0 ⇒ atkTransfer 恒 0，`*2` 仍是 0），
-//     改锚 `defTransfer`（left 时 defRatio=0.5，值非零）；A13 原锚 `xiaoZhaoCarry`（需特定海克斯，
-//     全场次 10seed×4stage 扫描**零出现**）⇒ 改锚 `rageOnHit`（73 词条，multi 两处同改）。
-// V2.7.0 | 2026-10-02 第 57 轮：修 judge 判定顺序缺陷 —— `kind==='TEXT'` 的「装饰品」判定排在 `S.total>0` 之前，
-//   使 TEXT 类变异无条件判装饰品、完全无视对照器实际命中。实测反例：T7 对照器命中 223 处、T2 命中 1308 处，
-//   两者都被误报成「装饰品(真盲区)」。改为与 ATTR 同序（规则 → 对照器 → 装饰品），并新增「fact 文本有牙」分类段落。
-//   修后真盲区 2 处 → 0 处（两个 TEXT 盲区都是假盲区，契约本来就有牙）。
-// V2.6.0 | 2026-10-02 第 55 轮：git archive 基树排除 .dsh/.trae（AI CLI 的 skill 目录被 git 跟踪，会随基树复制进每棵变异树，32 棵 × 4 文件纯白占空间）。
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
 //   跑「规则回放 + 基线 + 逐步真值对照」，看体检套件**能不能报红**。

@@ -1,5 +1,4 @@
 // fx/84fx-push-back.js
-// V6.1.0 | 2026-09-13 | ~5800 bytes
 export const VER = 'fx/84fx-push-back.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

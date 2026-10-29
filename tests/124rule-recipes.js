@@ -1,14 +1,4 @@
-// V1.2.4 | ~9800 bytes | 2026-10-24 第 121 轮 RULE_META 补登 172 空见金刚不坏次数与升级（第 120 轮新建时漏登，注册一致性检查抓出）
-// V1.2.3 | ~9700 bytes | 2026-10-21 第 114 轮 RULE_META 补登 171 唐文亮冲刺落地（enemy:唐文亮，条件稀有）
-// V1.2.2 | ~9400 bytes | 2026-10-13 第 87 轮 RULE_META 补登 166 惑心换位；2026-10-02 RULE_META 补登 157「mechanics 安装对账」（复用 core/15 真实安装期
-//          校验对 content 全量 mechanics 对账 type/字段/targetRule）。tag 归 generic:通用 —— 不读战报、
-//          只读 content，恒有结论，不依赖本局出阵角色。
-// V1.2.0 | ~7900 bytes | 2026-10-02 第 50 轮：RULE_META 补登 156「技能说明数字==引擎真值」（此前只
-//          在 123 的 SCAN_FILES 登记过，121/124 两处都漏）。tag 归 generic:通用 —— 它不读战报、
-//          只比 content/core 真值，恒有结论，不依赖本局出阵角色。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
-//          VER 对账会漏掉本文件）；删除死常量 TAG_PREFIX 与 getRuleGroups 里未使用的 prefix 变量。
-// V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
 export const VER = 'tests/124rule-recipes.js V1.2.4';
 

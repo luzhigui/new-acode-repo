@@ -1,5 +1,4 @@
 // ui/75net-session.js — 联网对战会话（消息分发 / 阵容下发 / 摆位同步 / 掉线收口）
-// V1.0.0 | 2026-10-10 | ~16200 bytes
 // 61 的模块级闭包变量经 installNetSession(ctx) 注入：applyNetLineup / hostEnterAdjust 定义在 install 闭包内，
 //   标志位写点走 ctx 回调（纯写无读点）。
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';

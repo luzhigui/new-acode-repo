@@ -1,12 +1,3 @@
-// V6.2.4 | ~38500 bytes | 2026-10-25 文件复制器加两个独立复制按钮（配 102 V6.3.3）：
-//   ①「📋 复制 04 网页端协议」——fetch 仓库根 `04 网页端协议.md`（失败回退 文件汇总20260730/12 协议与准则/ 同名文件）→ 剪贴板；
-//   ②「🔗 仓库网址 + 目录索引」——拼 GitHub/Gitee 地址 + 两套 raw 模板 + ALL_PROJECT_FILES 按 FILE_GROUPS 分组清单。
-//   两者都只进剪贴板，不改复制包内容、不进清单（中文名 md 仍按 106 口径不随包）。
-// V6.2.3 | ~34600 bytes | 2026-10-19 「单次复制上限(字符)」默认值 60000 → 80000（配 102 V6.1.3）：减少分包数，一次发更完整。
-// V6.2.2 | ~34500 bytes | 2026-09-22 文件复制器白名单补 .mjs（收录 tools/118-import-export-check.mjs，node 直跑的 ESM 脚本）
-// V6.2.1 | ~34000 bytes | 2026-09-13 修复：手机 WebView 选目录后误抛 AbortError 被当"取消"导致不下载，改为回退逐个下载
-// V6.2.0 | 2026-09-13 「一键全下」优先 File System Access API 选目录直写（只弹一次），不支持/失败回退逐个下载
-// V6.1.0 | 2026-09-12 新增「一键全下(txt)」：串行触发全部分包下载，自动跳过含读取失败的包
 export const VER = 'tools/103-toolkit.js V6.2.4';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
