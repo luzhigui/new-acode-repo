@@ -1,11 +1,15 @@
 // player/50battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
+// V1.4.0 | 2026-10-29 手机端跳过原生 API 直奔弹窗：移动浏览器常偷偷带 showSaveFilePicker 但弹窗被系统
+//           拦截/根本没弹，却报 AbortError（被误读成「用户主动取消」）→ 直接 return 'cancel'，永远到不了
+//           手动弹窗。现按 UA 识别手机（含微信内置），跳过 ①picker ②share，直接弹带蓝色下载按钮的弹窗。
+//           边界：iPadOS 新版 Safari UA 伪装 Macintosh 检测不到 → 走原链 → 最终仍落到 ③ 手动弹窗，兜得住。
 // V1.3.0 | 2026-10-29 下载链第③层改「弹窗手动下载」：手机上异步链（picker/share）走完用户手势已失效，
 //           后台 a.click() 被浏览器静默拦截、却误报 'download'「已保存」，用户手机里啥也没有。
 //           改为直接弹 showManualCopyDialog——弹窗里的「💾 点击下载文件」是用户真实手势点击的
 //           <a download>（blob URL，不 revoke：弹窗存活期随时可点），手机浏览器不敢拦。
 //           代价：桌面 Firefox/Safari（无 picker/share）从自动下载变成多点一次，换手机端确定性（拍板接受）。
 // V1.2.0 | 2026-09-26 | ~18700 bytes
-export const VER = 'player/50battle-export.js V1.3.0';
+export const VER = 'player/50battle-export.js V1.4.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 import { copyAllStateFields } from '../core/17-state-keys.js';
@@ -214,7 +218,14 @@ export async function exportBattleReport(report) {
     }
     const name = makeFileName(report);
 
-    // ① File System Access API（桌面 Chrome / 安卓新 Chrome）
+    // 手机端直接跳过原生 API（极易被系统拦截或谎报 AbortError），直奔手动弹窗
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        showManualCopyDialog(text, name);
+        return 'manual';
+    }
+
+    // ① File System Access API（桌面 Chrome / 安卓新 Chrome；手机端已在上方直接跳过）
     // v1.1.3：AbortError 不再终止——安卓 Chrome 也带 showSaveFilePicker（此前误判手机没有），
     //   且部分机型弹窗不显示秒抛 AbortError（与 canShare 同款谎报）。用户取消和环境谎报浏览器层无法分辨，
     //   统一降级到下载层；真想取消的用户在系统下载框里再取消一次。这是「已取消」病历的第一站，最后一块病灶。
