@@ -1,6 +1,11 @@
 // modules/26elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
+// V6.28.0 | 2026-10-29 周芷若召唤改「死亡当帧当场落位」：旧时序（记位置→下一个行动步 BEFORE_STATE_TRANSITION 落位）
+//           在两类场景漏召——① 回合最后一手死（寒离飒轰拳/最后一击团灭）：当回合无「下一个行动步」可挂，
+//           下一回合死者组件不再注册（core/11 只为存活单位 register）；② 模块级 ON_ROUND_START 兜底是死代码
+//           ——core/11 每回合 eventBus.clearAll()，顶层监听器第一回合就没了，从未生效。现改 ON_UNIT_DEATH
+//           记位后当场 flush（同格「尸体+新人」渲染由 render/32 尸体优先+3秒清尸保证不穿帮）。
 // V6.27.2 | 2026-10-22 | ~18700 bytes
-export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.27.2';
+export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.28.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { getBattleRng, previewHeal } from '../core/13battle-shared.js';
@@ -18,13 +23,11 @@ import { pushInfo } from './23elite-helpers.js';
 // 灭绝师太出手计数的繁体轮换表：第 1/2/3 次依次「壹/貳/參」，第 4 次回到「壹」
 const CN_NUM_TRA = ['壹', '貳', '參'];
 
-// 召唤周芷若的统一落位入口：阵亡当帧只记位置（state._pendingZhouPos），落位延到「下一个行动步」。
-//   落位与死亡特效的配合：同格「尸体 + 周芷若」由 render/32 保证「尸体优先渲、3 秒清尸后才露人」，
-//   所以这里只需避开阵亡当帧，不必等尸体被移除。
+// 召唤周芷若的统一落位入口：V6.28.0 起在死亡当帧（ON_UNIT_DEATH 记位后）当场调用；
+//   同格「尸体 + 周芷若」由 render/32 保证「尸体优先渲、3 秒清尸后才露人」，不必等尸体被移除。
 //   待落位标记写灭绝自己的 state（battle 级、跨回合克隆保留），不写队伍数组：
-//   队伍数组每回合都会重新 map 出来（core/11 createRoundStepper），数组级标记过不了回合边界；
-//   她本人在回合最后一手阵亡时下一回合组件不再注册（core/11 只为存活单位注册），
-//   所以另有一条模块级 ON_ROUND_START 兜底，靠扫描她的 state 把队列清掉。
+//   队伍数组每回合都会重新 map 出来（core/11 createRoundStepper），数组级标记过不了回合边界。
+//   组件级 BEFORE_STATE_TRANSITION 监听保留作兜底（正常路径当场已召、anchor=-1 直接 return）。
 function flushZhouSummon(miejue, team, log) {
     const anchor = miejue.state._pendingZhouPos;
     if (anchor == null || anchor < 0) return;
@@ -50,13 +53,8 @@ function flushZhouSummon(miejue, team, log) {
     }
 }
 
-// 跨回合兜底：灭绝本人在回合最后一手阵亡 → 当回合已无「下一个行动步」可挂，队列留到下一回合开始落位
-eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.MIEJUE_SUMMON, (data) => {
-    for (const team of [data.A, data.B]) {
-        // 多实例化：遍历全队灭绝（find 只处理第一个，补员灭绝的待落位队列会没人 flush）
-        for (const miejue of team.filter(u => u.isMieJueShiTai)) flushZhouSummon(miejue, team, data.log);
-    }
-});
+// （V6.28.0 已移除跨回合 ON_ROUND_START 兜底：core/11 每回合 clearAll()，模块顶层监听器活不过
+//   第一回合，从未生效过；改为在 ON_UNIT_DEATH 里当场召唤，避免回合末暴毙不触发）
 
 export function createMieJueShiTaiComponent() {
     return {
@@ -188,14 +186,16 @@ export function createMieJueShiTaiComponent() {
                 pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，回复 ${actualHeal} 点${mutedTag}，生命 ${hpBefore} → ${hpBefore + actualHeal}</span>`);
             });
 
-            // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，全场仅 1 次。
-            //   落位不在当帧（当帧会顶掉死亡特效），交给下一个行动步的 BEFORE_STATE_TRANSITION；
-            //   她本人在回合最后一手阵亡时没有下一步，由模块级 ON_ROUND_START 兜底。
+            // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，当场落位，全场仅 1 次。
+            //   当场召唤覆盖所有死法（普A/闪避反/寒离飒轰拳/最后一击团灭）——死亡结算发生在本回合内、
+            //   本回合组件监听器仍在（clearAll 只在回合开始），不存在「排到下回合没人 flush」的时序。
             eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, L.ON_UNIT_DEATH.MIEJUE_RECORD, (data) => {
                 if (myTeam.some(u => u.isMieJueShiTai && u.state._summonedZhou) || miejue.state._pendingZhouPos >= 0) return;   // 名额跨实例共享
                 const dead = (data.deadUnits || []).find(u => myTeam.includes(u));
                 if (!dead || dead.pos == null) return;
                 miejue.state._pendingZhouPos = dead.pos;
+                // 直接当场召唤：避免回合末死（寒离飒轰拳）或最后一击死时，因游戏结算提前清空事件导致漏召
+                flushZhouSummon(miejue, myTeam, data.log);
             });
 
             eventBus.on(SIGNAL_TYPES.BEFORE_STATE_TRANSITION, L.BEFORE_STATE_TRANSITION.MIEJUE_SUMMON, (data) => {
