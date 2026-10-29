@@ -384,25 +384,37 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                         }
                     } catch (e) {}
 
-                    // 英雄搭配（tools/52 V1.3.0）：谁和谁一起上更容易赢
+                    // 英雄搭配（tools/52 V1.3.0 / V2.4.0 加受控对照）：谁和谁一起上更容易赢
                     try {
                         const pairs = m.getHeroPairs();
                         if (pairs && pairs.length) {
-                            const good = pairs.filter(p => p.delta >= 8).slice(0, 5);
-                            const bad = pairs.filter(p => p.delta <= -8).slice(-3).reverse();
-                            if (good.length || bad.length) {
-                                const t2 = document.createElement('div');
-                                t2.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
-                                let h2 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄搭配（组合胜率 vs 两人单独胜率均值）</div>';
-                                h2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
-                                h2 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">组合</th><th>场次</th><th>组合胜率</th><th>各自均值</th><th>差值</th></tr>';
-                                const row = (p, hot) => `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${p.a} + ${p.b}</td><td>${p.n}</td><td>${p.winRate}%</td><td style="color:#888">${p.base}%</td><td style="color:${hot ? '#4caf50' : '#ff6b6b'};font-weight:bold;">${p.delta > 0 ? '+' : ''}${p.delta}pp</td></tr>`;
-                                good.forEach(p => { h2 += row(p, true); });
-                                bad.forEach(p => { h2 += row(p, false); });
-                                h2 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">≥8 局才统计。局限：5 人阵容只有 10 个对子、样本稀疏，且「第三个人强」会被误算成这一对的功劳，只当线索看。</div>';
-                                t2.innerHTML = h2;
-                                wrap.appendChild(t2);
-                            }
+                            // V2.4.0：展示按差值排序的前 8 对，不显著压灰、不当协同/拖累铁证
+                            const top = pairs.slice(0, 8);
+                            const t2 = document.createElement('div');
+                            t2.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
+                            let h2 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄搭配（组合胜率 vs 两人单独胜率均值，已做受控对照）</div>';
+                            h2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+                            h2 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">组合</th><th>场次</th><th>组合胜率</th><th>各自均值</th><th>差值</th><th>对照</th></tr>';
+                            top.forEach(p => {
+                                // V2.4.0：不显著就压灰——delta≥8 但对照不显著，多半是第三人强被冒领
+                                const c = !p.sig ? '#777'
+                                    : (p.verdict && p.verdict.startsWith('真协同') ? '#4caf50'
+                                        : (p.verdict && p.verdict.startsWith('拖累') ? '#ff6b6b' : '#888'));
+                                const tag = p.verdict
+                                    ? (p.verdict.startsWith('真协同') ? '真协同' : p.verdict.startsWith('拖累') ? '拖累'
+                                        : p.verdict.startsWith('噪声内') ? '噪声内' : '方向不一')
+                                    : '';
+                                const ciT = (p.ciA && p.ciB)
+                                    ? ` title="组合 vs 只${p.a}在 ${p.ciA[0]}~${p.ciA[1]}pp；组合 vs 只${p.b}在 ${p.ciB[0]}~${p.ciB[1]}pp${p.sig ? '，对照显著' : '，对照不显著'}"`
+                                    : '';
+                                h2 += `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${p.a} + ${p.b}</td>`
+                                    + `<td>${p.n}</td><td>${p.winRate}%</td><td style="color:#888">${p.base}%</td>`
+                                    + `<td style="color:${c};font-weight:bold;"${ciT}>${p.delta > 0 ? '+' : ''}${p.delta}pp</td>`
+                                    + `<td style="color:${c};max-width:120px;white-space:normal;font-size:9px;">${tag}</td></tr>`;
+                            });
+                            h2 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">≥8 局才统计。灰色「噪声内」=组合与各自单上对照不显著，可能是第三人强被冒领，别当协同/拖累铁证。</div>';
+                            t2.innerHTML = h2;
+                            wrap.appendChild(t2);
                         }
                     } catch (e) {}
 

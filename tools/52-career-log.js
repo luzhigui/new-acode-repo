@@ -1,4 +1,10 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V2.4.0 | 2026-10-29 | 英雄搭配加受控对照 + 显著性（砍「第三人强被冒领」）：
+//   getHeroPairs 原来只看「组合胜率 − 两人各自胜率均值」，delta≥8 就标协同/拖累——
+//   但 5 人阵容只有 10 个对子、样本稀疏，且「第三个人特别强」会被误算成这一对的功劳。
+//   V2.4.0 对每个对子额外统计「两人都在 / 只 A 在 / 只 B 在」三态胜率，用 twoPropDiff
+//   把「组合」分别和「各自单上」比：两边都显著更好才认「真协同」，两边都显著更差才认「拖累」，
+//   否则标「噪声内·对照不显著」。界面/导出只把显著项当协同/拖累，不显著的一律压灰不列结论。
 // V2.3.0 | 2026-10-29 | 英雄影响力加显著性检验（不再把噪声当铁证）：
 //   影响力 = 活着胜率 − 阵亡胜率，但「阵亡」往往只几局，区间宽到 ±40pp，
 //   裸 +20pp 极可能是噪声。V2.3.0 用 Agresti-Caffo 校正的两比例差算 95% 区间：
@@ -71,7 +77,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.3.0';
+export const VER = 'tools/52-career-log.js V2.4.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -327,12 +333,15 @@ export function exportCareerMarkdown() {
     try {
         const pairs = getHeroPairs();
         if (pairs && pairs.length) {
-            const good = pairs.filter(p => p.delta >= 8).slice(0, 5);
-            const bad = pairs.filter(p => p.delta <= -8).slice(-3).reverse();
-            if (good.length || bad.length) {
-                lines.push('## 英雄搭配（组合胜率 vs 两人单独胜率均值；只当线索）');
-                for (const p of good) lines.push(`- 协同：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，高于各自均值 ${p.delta}pp）`);
-                for (const p of bad) lines.push(`- 拖累：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，低于各自均值 ${-p.delta}pp）`);
+            // V2.4.0：只把「受控对照显著」的对子当协同/拖累；不显著的 delta≥8 也压住，不冒充结论。
+            const good = pairs.filter(p => p.verdict && p.verdict.startsWith('真协同')).slice(0, 5);
+            const bad = pairs.filter(p => p.verdict && p.verdict.startsWith('拖累')).slice(-3).reverse();
+            const noise = pairs.filter(p => p.verdict && p.verdict.startsWith('噪声内') && Math.abs(p.delta) >= 8).slice(0, 3);
+            if (good.length || bad.length || noise.length) {
+                lines.push('## 英雄搭配（组合胜率 vs 两人单独胜率均值；已做受控对照，只认显著项）');
+                for (const p of good) lines.push(`- 协同：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，高于各自均值 ${p.delta}pp；两人都在显著优于各自单上）`);
+                for (const p of bad) lines.push(`- 拖累：${p.a} + ${p.b} → ${p.winRate}%（${p.n} 局，低于各自均值 ${-p.delta}pp；两人都在显著更差）`);
+                if (noise.length) lines.push(`- 噪声内（不列协同/拖累）：${noise.map(p => `${p.a}+${p.b}(${p.delta > 0 ? '+' : ''}${p.delta}pp)`).join('、')} —— 组合与各自单上对照不显著，可能是第三人强被冒领，别当结论。`);
                 lines.push('');
             }
         }
@@ -729,23 +738,43 @@ export function getCareerTrend(recentN = 20) {
 
 // V1.3.0 新增：英雄两两组合——「谁和谁一起上更容易赢」。
 // 口径与 126 的海克斯组合一致：组合胜率 vs 两人各自胜率的均值（彼此无协同应接近该均值）。
-// 已知局限（写在这里也写在界面上）：一局 5 人只有 10 个对子，样本天然稀疏；
-//   而且「第三个人特别强」会被误算成这一对的功劳。所以门槛设 8 局，且结论只当线索看。
+// 已知局限（V2.4.0 已部分解决，写在这里也写在界面上）：一局 5 人只有 10 个对子，样本天然稀疏；
+//   而且「第三个人特别强」会被误算成这一对的功劳——V2.4.0 用「组合 vs 各自单上」受控对照把这条砍掉，
+//   只把两边都显著更好的对子当真协同。门槛仍设 8 局，结论仍只当线索看。
 export function getHeroPairs(minGames = HERO_MIN_GAMES) {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
-    const solo = {}, pair = {};
+    const solo = {}, pair = {}, ctrl = {};
     const bump = (m, k, won) => {
         const rec = m[k] || (m[k] = { n: 0, w: 0 });
         rec.n++; if (won) rec.w++;
     };
+    // V2.4.0：受控对照计数——每对记「两人都在 / 只 A 在 / 只 B 在」三态，
+    //   用来把组合和各自单上比，砍「第三人强被误算成这对功劳」的硬伤。
+    const bumpC = (m, k, slot, won) => {
+        const rec = m[k] || (m[k] = { ab: { n: 0, w: 0 }, aOnly: { n: 0, w: 0 }, bOnly: { n: 0, w: 0 } });
+        rec[slot].n++; if (won) rec[slot].w++;
+    };
+    const HEROES = [...ALLY_HERO_BASE];   // 所有明教英雄基名（用于受控对照的「对方不在场」判定）
     for (const r of arr) {
         const won = r.winner === '明教';
-        // 先排序再拼 key，避免同一对因阵容站位顺序不同被拆成 "A␀B" / "B␀A" 两条
-        const names = [...new Set((r.ally || []).filter(u => isAllyHero(u.name)).map(u => u.name))].sort();
-        for (const n of names) bump(solo, n, won);
-        for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
-            bump(pair, names[i] + '\u0000' + names[j], won);
+        // 取本局明教英雄的基名（小昭·姊/·妹 归一为 小昭），排序后拼 key 避免 "A␀B"/"B␀A" 分裂
+        const presentBase = [...new Set((r.ally || []).filter(u => isAllyHero(u.name)).map(u => baseName(u.name)))].sort();
+        const setB = new Set(presentBase);
+        const absent = HEROES.filter(h => !setB.has(h));   // 本局未上场的明教英雄全集
+        for (const n of presentBase) bump(solo, n, won);
+        for (let i = 0; i < presentBase.length; i++) for (let j = i + 1; j < presentBase.length; j++) {
+            const key = presentBase[i] + '\u0000' + presentBase[j];
+            bump(pair, key, won);
+            bumpC(ctrl, key, 'ab', won);   // 两人都在
+        }
+        // V2.4.0：受控对照——本局在场的每个人 × 本局缺席的每个人，累计「只 A 在 / 只 B 在」。
+        //   跨所有局累计，所以即便某对从不在同一局出场也能拿到对照基线（不会因 n=0 退化成 null）。
+        for (let i = 0; i < presentBase.length; i++) for (let k = 0; k < absent.length; k++) {
+            const a = presentBase[i], b = absent[k];
+            const key = [a, b].sort().join('\u0000');
+            const first = key.split('\u0000')[0];
+            bumpC(ctrl, key, a === first ? 'aOnly' : 'bOnly', won);
         }
     }
     const rows = [];
@@ -757,12 +786,28 @@ export function getHeroPairs(minGames = HERO_MIN_GAMES) {
         const p = d.w / d.n;
         const base = (sa.w / sa.n + sb.w / sb.n) / 2;
         const ci = wilson95(d.w, d.n);
+        // V2.4.0：受控对照显著性——组合 vs 各自单上，两边都显著更好才认真协同，都更差才认拖累。
+        const c = ctrl[key];
+        const stA = c && c.aOnly.n ? twoPropDiff(d.w, d.n, c.aOnly.w, c.aOnly.n) : null;
+        const stB = c && c.bOnly.n ? twoPropDiff(d.w, d.n, c.bOnly.w, c.bOnly.n) : null;
+        const upA = !!(stA && stA.sig && stA.diff > 0), upB = !!(stB && stB.sig && stB.diff > 0);
+        const dnA = !!(stA && stA.sig && stA.diff < 0), dnB = !!(stB && stB.sig && stB.diff < 0);
+        const sig = (upA && upB) || (dnA && dnB);
+        let verdict;
+        if (upA && upB) verdict = '真协同·两人都在显著优于各自单上';
+        else if (dnA && dnB) verdict = '拖累·两人都在显著更差';
+        else if ((upA || upB) || (dnA || dnB)) verdict = '对照显著但方向不一致（可能某一方单上就强）';
+        else verdict = '噪声内·对照不显著（分不出真假）';
         rows.push({
             a, b, n: d.n, wins: d.w,
             winRate: Math.round(p * 100),
             base: Math.round(base * 100),
             delta: Math.round((p - base) * 100),
             ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
+            // V2.4.0 新增：受控对照的 95% 区间 + 显著性（砍第三人冒领）
+            ciA: stA ? [Math.round(stA.ci[0] * 100), Math.round(stA.ci[1] * 100)] : null,
+            ciB: stB ? [Math.round(stB.ci[0] * 100), Math.round(stB.ci[1] * 100)] : null,
+            sig, verdict,
             reliable: d.n >= minGames
         });
     }
