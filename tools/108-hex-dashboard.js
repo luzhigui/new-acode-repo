@@ -80,7 +80,7 @@ if (!document.getElementById('hexDashStyle')) {
   style.id = 'hexDashStyle';
   style.textContent = `
 .hex-hex-mask{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center}
-.hex-hex-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(900px,94vw);max-height:88vh;display:flex;flex-direction:column;padding:16px}
+.hex-hex-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(900px,94vw);max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;padding:16px}
 .hex-hex-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .hex-hex-head h1{color:#ffd700;font-size:20px;margin:0}
 .hex-hex-close{background:#444;color:#ccc;border:none;border-radius:8px;padding:6px 14px;font-weight:bold;cursor:pointer;font-family:monospace}
@@ -104,7 +104,7 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-body{overflow:auto;flex:1}
 .hex-hex-link{color:#ffd700;cursor:pointer;text-decoration:underline;font-weight:bold}
 .hex-hex-detail-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10001;display:flex;align-items:center;justify-content:center}
-.hex-hex-detail-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(560px,92vw);max-height:86vh;display:flex;flex-direction:column;padding:16px}
+.hex-hex-detail-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(560px,92vw);max-height:86vh;max-height:86dvh;display:flex;flex-direction:column;padding:16px}
 .hex-hex-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .hex-hex-hero{display:flex;align-items:center;gap:12px}
 .hex-hex-hero .icon{font-size:40px}

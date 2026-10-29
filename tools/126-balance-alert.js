@@ -1137,8 +1137,8 @@ if (!document.getElementById('balAlertStyle')) {
     const style = document.createElement('style');
     style.id = 'balAlertStyle';
     style.textContent = `
-.bal-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center}
-.bal-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(960px,95vw);max-height:90vh;display:flex;flex-direction:column;padding:14px}
+.bal-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom,0px)}
+.bal-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(960px,95vw);max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;padding:14px}
 .bal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .bal-head h1{color:#ffd700;font-size:19px;margin:0}
 .bal-box button{padding:8px 14px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:12px}

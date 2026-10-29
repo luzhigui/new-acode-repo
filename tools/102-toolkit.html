@@ -214,7 +214,7 @@
         /* 页内 iframe 弹窗（2026-09-28）：独立工具页原用 window.open 开新窗口，内嵌 webview 会拦掉；
            前三个工具（107/108/109）本来就是页内 mask 弹窗所以不受影响。此处统一改成同源 iframe 嵌在工具箱里 */
         .tf-mask { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 9999; display: none; align-items: center; justify-content: center; }
-        .tf-box { background: #1a1a2e; border: 1px solid #444; border-radius: 12px; width: min(1280px, 96vw); height: 92vh; display: flex; flex-direction: column; padding: 10px; }
+        .tf-box { background: #1a1a2e; border: 1px solid #444; border-radius: 12px; width: min(1280px, 96vw); height: 92vh; height: 92dvh; display: flex; flex-direction: column; padding: 10px; }
         .tf-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
         .tf-title { color: #ffd700; font-weight: bold; font-family: monospace; font-size: 15px; }
         .tf-close { background: #444; color: #ccc; border: none; border-radius: 8px; padding: 6px 14px; font-weight: bold; cursor: pointer; font-family: monospace; }

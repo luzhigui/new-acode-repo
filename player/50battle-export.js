@@ -285,9 +285,9 @@ function showManualCopyDialog(text, name) {
     if (old) old.remove();
     const overlay = document.createElement('div');
     overlay.id = 'battleExportManualOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom,0px);';
     const box = document.createElement('div');
-    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:16px;width:min(560px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:10px;';
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:16px;width:min(560px,92vw);max-height:80vh;max-height:80dvh;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;';
     const title = document.createElement('div');
     title.textContent = '📌 自动保存都失败了，请手动复制（' + name + '）';
     title.style.cssText = 'color:#ffd700;font-weight:bold;font-size:14px;';
