@@ -1,8 +1,7 @@
 // render/32-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
-// V7.0.3 | 2026-10-22 | ~28500 bytes
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-export const VER = 'render/32-grid-render.js V7.1.1';   // V7.1.1 死亡格不画罩子（毒/反伤死时不外罩金圈）
+export const VER = 'render/32-grid-render.js V7.1.1';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/20-registry-dodge.js';

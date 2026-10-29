@@ -1,5 +1,4 @@
 // render/35-facts-control.js — 效果域·控制位移族 fact 渲染器
-// V1.0.0 | 2026-10-18 | ~9900 bytes
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/38-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
 export const VER = 'render/35-facts-control.js V1.0.0';

@@ -1,8 +1,4 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
-// V1.5.3 | 2026-10-26 | ~18400 bytes | damage-text 条目补 dmg 字段（player/46 播到伤害行时用它弹飘字，
-//   修复上一批把 fx/88 的 1100ms 飘字删掉后伤害数字全丢）
-// V1.5.2 | 2026-10-22 | ~18300 bytes
-//
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
 

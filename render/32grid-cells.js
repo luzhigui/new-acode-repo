@@ -1,5 +1,4 @@
 // render/32grid-cells.js — 格子 DOM 节点复用 + HP 条动画 + 抖动 + 拒马入场
-// V1.0.0 | 2026-10-18 | ~8300 bytes
 //   _cellNodes / _slotUnits / _hpTargetPct / _hpDisplayPct / _hpAnimRunning / _shakeUntil / _horseSpawnedUids
 //   + ensureGridCells / resetCell / tickHpAnim / createHorseSpawnAnim / markGridShake / applyGridShake
 //   整块迁入。对外接口：ensureGridCells / resetCell / getSlotUnits / markGridShake / applyGridShake /

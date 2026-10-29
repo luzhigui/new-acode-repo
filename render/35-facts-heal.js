@@ -1,9 +1,7 @@
 // render/35-facts-heal.js — 效果域·回血族 fact 渲染器
-// V1.0.0 | 2026-10-18 | ~8500 bytes
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-// V1.1.0 | 2026-10-26 | 去锚定化：吸血/热血/快活/乾坤/白骨爪回血 fxAnchors → fx: [{ kind:'heal'|'atk', amount }]
 export const VER = 'render/35-facts-heal.js V1.1.0';
 
 import { registerFactRenderer } from './33-fact-registry.js';

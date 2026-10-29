@@ -1,5 +1,4 @@
 // render/35-facts-stat.js — 效果域·属性召唤族 fact 渲染器
-// V1.0.1 | 2026-10-21 | ~14000 bytes
 export const VER = 'render/35-facts-stat.js V1.0.1';
 
 import { registerFactRenderer } from './33-fact-registry.js';
