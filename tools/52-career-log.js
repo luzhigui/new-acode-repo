@@ -1,4 +1,10 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V2.0.0 | 2026-10-29 | 导出文件里的英文键名收口：
+//   ① 新增 hexLabel(k)：content 官名 → 127 单源 → 兜底英文 key，全文件只此一处取名。
+//      CSV 的「海克斯」列和 Markdown 逐局明细以前直接 join('/') 原始 key，
+//      导出来是 mindControl/meteorShower —— 用户在游戏里看到的是中文，导出文件却是英文。
+//   ② 新增 modeLabel(k)：CSV「模式」列从 single/pvp 改为 单机/联机，与同表其它中文列一致。
+//   （insights / getHexWinRates 里原本各抄一份的取名代码同步收口到 hexLabel）
 // V1.9.0 | 2026-10-28 | 新增 getHeroImpact()：每英雄「活到结束胜率 − 阵亡胜率」= 胜负手影响力，标 carry/包袱；
 //   接 exportCareerMarkdown 与 dev-index 面板。数据现成（每局已记 ally[].alive + winner），纯聚合不新增存储。
 // V1.8.0 | 2026-10-28 | 新增 getHexWinRates(mode)：逐海克斯实战胜率（mode='single' 与 108 常规榜口径对齐），
@@ -44,7 +50,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V1.9.0';
+export const VER = 'tools/52-career-log.js V2.0.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -53,6 +59,24 @@ const MAX_RECORDS = 200;
 const HERO_MIN_GAMES = 8;
 // 败因归类至少要有这么多输局才下结论（少于这个数只报「样本太少」）
 const LOSS_MIN = 5;
+
+// 海克斯显示名单一出口（V2.0.0）：content 官名 → 127 单源 → 兜底英文 key。
+// 以前「取中文名」这段在 insights / getHexWinRates 里各抄一份，而 CSV 导出和 Markdown 逐局明细
+// 压根没走它——直接 join('/') 原始 key，于是导出的文件里是 mindControl/meteorShower。
+// 现在全部收口到这里，加新海克斯只改 content 或 127 一处。
+function hexLabel(k) {
+    if (!k) return '';
+    try {
+        const n = CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name;
+        if (n) return n;
+    } catch (e) { /* 配置没加载（纯导出场景）就退到 127 的表 */ }
+    return HEX_NAMES[k] || k;
+}
+
+// 模式显示名（V2.0.0）：CSV/报告里以前直接写 single / pvp，夹在一堆中文列里很突兀
+function modeLabel(k) {
+    return k === 'single' ? '单机' : (k === 'pvp' ? '联机' : (k || '未知'));
+}
 
 // 元信息：目前只存 dropped（累计被上限挤掉的局数）
 function readMeta() {
@@ -281,7 +305,7 @@ export function exportCareerMarkdown() {
     lines.push('## 逐局明细');
     for (let i = arr.length - 1; i >= 0; i--) {
         const r = arr[i];
-        const hex = (r.hex && r.hex.length) ? ` ｜ 海克斯: ${r.hex.join('/')}` : '';
+        const hex = (r.hex && r.hex.length) ? ` ｜ 海克斯: ${r.hex.map(hexLabel).join('/')}` : '';
         // 降到 ### —— 上面已经有了 ## 逐局明细，同级会撞层级（V1.6.0 调整）
         lines.push(`### 第 ${i + 1} 局 ｜ s${r.stage} ｜ ${r.winner}胜 ｜ ${r.rounds} 回合${hex}`);
         lines.push('明教：' + (r.ally || []).map(u =>
@@ -340,10 +364,7 @@ export function getCareerInsights() {
     let hexTop = null;
     if (hexTopEntry) {
         const k = hexTopEntry[0], v = hexTopEntry[1];
-        // 中文名：优先取 CONFIG.BUFFS 配置名，其次 127 单源 HEX_NAMES，最后兜底英文 key
-        let name = k;
-        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
-        hexTop = { key: k, name, rate: Math.round(v.w / v.n * 100), n: v.n };
+        hexTop = { key: k, name: hexLabel(k), rate: Math.round(v.w / v.n * 100), n: v.n };
     }
 
     // 最近 10 局战绩（时间正序，老的在前）
@@ -383,7 +404,7 @@ export function getCareerInsights() {
     for (const k of Object.keys(byMode)) {
         const rec = byMode[k];
         rec.winRate = rec.n ? Math.round(rec.wins / rec.n * 100) : 0;
-        rec.label = k === 'single' ? '单机' : (k === 'pvp' ? '联机' : (k || '未知'));
+        rec.label = modeLabel(k);
     }
 
     return {
@@ -467,10 +488,8 @@ export function getHexWinRates(mode = null) {
     if (!Object.keys(stat).length) return null;
     const out = Object.entries(stat).map(([k, v]) => {
         const ci = wilson95(v.w, v.n);
-        let name = k;
-        try { name = (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || HEX_NAMES[k] || k; } catch (e) {}
         return {
-            key: k, name, n: v.n, wins: v.w,
+            key: k, name: hexLabel(k), n: v.n, wins: v.w,
             winRate: Math.round(v.w / v.n * 100),
             ci: ci ? [Math.round(ci[0] * 100), Math.round(ci[1] * 100)] : null,
             reliable: v.n >= HEX_MIN_GAMES
@@ -538,11 +557,11 @@ export function exportCareerCSV() {
     };
     const lines = [head.join(',')];
     arr.forEach((r, gi) => {
-        const hex = (r.hex || []).join('/');
+        const hex = (r.hex || []).map(hexLabel).join('/');
         const pushRow = (list, camp) => {
             for (const u of (list || [])) {
                 lines.push([
-                    gi + 1, r.stage, r.mode, r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
+                    gi + 1, r.stage, modeLabel(r.mode), r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
                     Math.round(u.dmgDealt || 0), Math.round(u.dmgTaken || 0), Math.round(u.healDone || 0),
                     u.alive ? 1 : 0, u.dodgeCount || 0, u.critCount || 0, u.survivedRounds || 0
                 ].map(cell).join(','));
