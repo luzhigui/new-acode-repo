@@ -1,5 +1,4 @@
 // modules/23elite-helpers.js — 精英组件公共小工具（pushInfo / pushSkillAnnounce / 职业加成 / 换职业）
-// V1.2.0 | 2026-10-17 | ~3200 bytes
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, refreshMaxHp, emitEvent, getStat } from '../core/13battle-shared.js';
 import { UNIT_EVENT_TYPES, STATE_CHANGE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
