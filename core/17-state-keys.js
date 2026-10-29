@@ -1,4 +1,3 @@
-// V2.9.30 | 2026-10-22 | ~21000 bytes
 export const VER = 'core/17-state-keys.js V2.9.30';
 
 /** 字段类型：决定 clone 时的拷贝方式 */

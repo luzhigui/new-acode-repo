@@ -1,4 +1,3 @@
-// V6.3.1 | 2026-09-29 | ~5600 bytes
 export const VER = 'core/05battle-horse.js V6.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';

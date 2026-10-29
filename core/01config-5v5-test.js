@@ -1,4 +1,3 @@
-// V6.8.5 | 2026-10-22 | ~21100 bytes
 export const VER = 'core/01config-5v5-test.js V6.8.5';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';

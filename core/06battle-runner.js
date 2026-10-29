@@ -1,5 +1,4 @@
 // core/06battle-runner.js — 无头整局跑（headless full-battle runner）
-// V1.2.0 | 2026-09-29 | ~6600 bytes
 //
 // ⚠️⚠️ 三条死守（防止 UI 提前剧透 / 演出错序）——改本文件前先把这三条读完 ⚠️⚠️
 //

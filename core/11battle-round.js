@@ -1,5 +1,4 @@
 // core/11battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-// V6.3.31 | 2026-10-22 | ~35000 bytes
 export const VER = 'core/11battle-round.js V6.3.31';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';

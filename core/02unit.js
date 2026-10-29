@@ -1,5 +1,3 @@
-// V6.3.6 | 2026-10-20 | ~13400 bytes
-// V6.3.7 | 2026-10-26 | initXiaoZhao：姊形态 role 设为 ROLE_TYPES.BUTTERFLY（蝴蝶），妹不动
 export const VER = 'core/02unit.js V6.3.7';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';

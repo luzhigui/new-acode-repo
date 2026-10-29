@@ -1,7 +1,3 @@
-// V6.1.9 | 2026-10-28 | ~10300 bytes | 补 fa6f206f 漏的 import：emitEvent（core/13 别名）/
-//   emitStateChange（infra/59）/ UNIT_EVENT_TYPES、STATE_CHANGE_TYPES（infra/56）——姊强化眩晕分支
-//   一触发就是 ReferenceError。纯补 import，逻辑零改动
-// V6.1.8 | 2026-10-21 | ~10200 bytes
 export const VER = 'core/14buff-effects.js V6.1.9';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
