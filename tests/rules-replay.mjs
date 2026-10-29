@@ -44,7 +44,18 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.7.3';
+export const VER = 'tests/rules-replay.mjs V6.8.0';
+// V6.8.0 | 2026-10-30 第 159 轮：新增「定向覆盖场次」（DIRECTED_CASES），规则恒空转 3 条 → 0 条。
+//   动因：124rule-recipes.js 把四条小昭规则登记成「随机精英，**无法强制**，需连打多局碰出」——
+//     这句 know-how 已过期（主代码 29battle-init L245-262 的 forceXiaoZhao 开关一直在）
+//     ⇒ 依赖小昭形态的规则在 140 场里 pass=0 fail=0 skip=140，常年白挂。详见 DIRECTED_CASES 处注释。
+//   改法：默认 140 场一个不减，在其后**追加** 6 场定向组（brother×2 / sister×4），合计 146 场，
+//     沿用与体检对照器 V3.11.0 同一套安全边界（FORCE_KEYS 白名单 + 逐场复位 + 循环末复位）。
+//   ★ 补样本而非放宽：未改任何规则判据、未加跳过条件、未动 ANY_DEAD 以外的门槛。
+//   实测：三条恒空转规则全部真正执行并**全部通过**（129 飞天免疫 pass=2 / 155 流星成长形态 pass=4 /
+//     160 蛛变精通 pass=2）；45 条规则里 fail 增加 0、pass 下降 0。
+//   ⚠️ 后续注意：规则一旦被喂到样本就可能炸出真红（此前沉在 skip 里的 bug 浮出来），
+//     那是收益不是事故，不许为维绿加豁免；炸出来就走「登记转交 + 人工研判」的正常流程。
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -119,6 +130,34 @@ const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : 
 const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
 // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
 const NOBUFFS = process.env.NOBUFFS === '1';
+
+// 第 159 轮新增：定向覆盖场次（默认随机阵容凑不齐的前置条件，靠主代码现成的强制开关补）。
+//   与 tests/stat-decl-vs-actual-check.mjs V3.11.0 同款口径、同一条安全边界：逐场设置、开场全键复位、
+//   场次循环结束再复位一次，绝不让 GlobalStore 泄漏到后续场次或其他体检入口。
+//   ★ 动因（本轮最重要的取证）：tests/124rule-recipes.js 里四条小昭规则被登记为
+//     「小昭为随机精英，**无法强制**，需连打多局碰出」（L16 / L17 / L18 / L19 / L70）—— 这句 know-how **已过期**：
+//     主代码 modules/29battle-init.js L245-262 就有 GlobalStore 'forceXiaoZhao'（取值 'sister' / 'brother'），
+//     tests/xiaozhao-brother-leech-case.mjs 与体检对照器（自第 158 轮）都已在用它。
+//     「以为不能强制」直接导致依赖小昭形态的规则常年零执行：本轮改前 160-spider-transform-mastery
+//     与 129-spider-fly-count 在 140 场里 **pass=0 fail=0 skip=140**，规则恒空转自检常年挂红。
+//   ★ 方向是补样本让规则有机会跑，不改任何判据、不加任何豁免、不降任何人次下限。
+const FORCE_KEYS = ['forceXiaoZhao'];
+const DIRECTED_CASES = [
+    // 小昭·妹（brother）形态 → 蛛变 / 精通 / 飞天免疫 三条规则的唯一入口。
+    //   场次与对照器一致（seed 17 × stage 1 / 4），实测对照器侧能稳定产出 SPIDER_TRANSFORM / SPIDER_MASTERY 声明。
+    { seed: 17, stage: 1, force: 'brother' },
+    { seed: 17, stage: 4, force: 'brother' },
+    // 小昭·姊（sister）形态 → 流星溅射成长渲染形态（155）的守卫条件。
+    //   场次沿用第 158 轮已验证的组（seed 23 × stage 1-4，对照器侧 METEOR_GROWTH 声明 17 条 / 偏差 0）。
+    { seed: 23, stage: 1, force: 'sister' },
+    { seed: 23, stage: 2, force: 'sister' },
+    { seed: 23, stage: 3, force: 'sister' },
+    { seed: 23, stage: 4, force: 'sister' }
+];
+
+function resetForces() {
+    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
+}
 
 // --- 团队海克斯 Buff 注入 ---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
@@ -222,7 +261,10 @@ function collectFacts(arr, out) {
     return out;
 }
 
-function runCase(seed, stage) {
+function runCase(seed, stage, forces) {
+    // 第 159 轮：开场先把全部白名单开关复位，再按本场 forces 设置（双重复位，杜绝全局态泄漏）。
+    resetForces();
+    for (const k of Object.keys(forces || {})) GlobalStore.set(k, forces[k]);
     const rng = new SeededRNG(seed);
     const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
     GlobalStore.set('battleStore', store);
@@ -357,10 +399,11 @@ const agg = {}, kwHit = {};
 // 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
 const BRANCH_MSGS = process.env.RULE_MSGS_OUT ? new Map() : null;
 let cases = 0;
-for (const seed of SEEDS) {
-    for (const stage of STAGES) {
-        const c = runCase(seed, stage);
-        cases++;
+for (const { seed, stage, force } of [...SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage }))),
+    // 第 159 轮：默认场次之后**追加**定向覆盖组（默认场次一个不减）。
+    ...DIRECTED_CASES.map(c => ({ seed: c.seed, stage: c.stage, force: c.force }))]) {
+    const c = runCase(seed, stage, force ? { forceXiaoZhao: force } : null);
+    cases++;
         // DUMP=seed:stage 单场调试：打印该场 buff-push/buff-swap 及相邻的攻击快照位置
         if (process.env.DUMP && process.env.DUMP === seed + ':' + stage) {
             console.log('--- DUMP ' + process.env.DUMP + ' 共 ' + c.log.length + ' 条 ---');
@@ -395,8 +438,9 @@ for (const seed of SEEDS) {
                 if (s.size < 400) s.add(String((res && res.msg) || ''));
             }
         }
-    }
 }
+// 第 159 轮：场次循环结束统一复位（同进程内后续任何 initBattleTeams 都不该被强制成小昭阵容）。
+resetForces();
 
 // --- 不变量报告（与机制规则分开报，不混进规则 pass/fail 计数）---
 console.log('=== 不变量（逐步断言）===');

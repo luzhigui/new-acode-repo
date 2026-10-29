@@ -1,3 +1,11 @@
+// V1.2.5 | 2026-10-30 夜间第 159 轮：订正四条小昭规则的 note —— 原文「随机精英，**无法强制**，
+//   需连打多局碰出」是**过期 know-how**：主代码 modules/29battle-init.js L245-262 的 GlobalStore
+//   'forceXiaoZhao'（'brother' / 'sister'）一直在，只是此前没人拿来回放。这句判断失误直接让
+//   129 飞天免疫 / 160 蛛变精通两条规则在 140 场里 pass=0 恒空转。同轮 rules-replay 升 V6.8.0
+//   补了定向覆盖场次后，两条规则均已真正执行并通过。
+//   ⚠️ 本轮**未给这些条目补 force 字段**：force 字段会被 collectForceFlags 当作布尔强开关下发，
+//     而 forceXiaoZhao 取值是 'brother'/'sister' 字符串（下发 true 会被当作不强制，静默失效）。
+//     要不要给它加一个字符串取值的下发通道，属主代码/工具侧改造，留给白天拍板。
 // V1.2.4 | 2026-10-30 夜间第 157 轮：**只补登记，本文件逻辑一字未动**。
 //   ver-bump-selftest 抓到「头注最高 V1.1.0 ≠ VER 常量 V1.2.4」——VER 已被抬到 V1.2.4，
 //   而头注版本行没跟上，属「漏补登记」而非「漏抬 VER」。按双向棘轮「登记必须等于真值」补齐，
@@ -6,17 +14,17 @@
 //   也**不臆造**改动内容 —— 具体改了什么以抬升时的提交为准，待其补记。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.4';
+export const VER = 'tests/124rule-recipes.js V1.2.5';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '宋青书新婚快乐链路(回归)': { tag: 'enemy:宋青书', note: '需宋青书+周芷若同场，敌方随机出阵，需连打多局碰出' },
     '张无忌近身切换时机(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '流云身法闪避面板不生效(回归)': { tag: 'hero:韦一笑', force: 'forceWei' },
-    '小昭妹飞天免疫次数超限(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，无法强制，需连打多局碰出' },
-    '小昭妹/姐不可选期被打(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，无法强制，需连打多局碰出' },
-    '姐姐附身叠加(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，无法强制，需连打多局碰出' },
-    '姐姐飞回血量(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，无法强制，需连打多局碰出' },
+    '小昭妹飞天免疫次数超限(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '小昭妹/姐不可选期被打(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '姐姐附身叠加(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '姐姐飞回血量(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
     '宋青书未命中重试(回归)': { tag: 'enemy:宋青书', note: '敌方随机出阵，需连打多局碰出' },
     '白骨爪回血刷屏(回归)': { tag: 'enemy:宋青书', note: '敌方随机出阵，需连打多局碰出' },
     '九阴白骨爪伤害(回归)': { tag: 'enemy:周芷若', note: '敌方随机出阵，需连打多局碰出' },
@@ -67,7 +75,7 @@ export const RULE_META = {
     // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
     '飘字fx数值对账(契约)': { tag: 'generic:通用', note: 'fx 结构判据：kind 合法 + amount 有限正数 + 数值⊂正文（第143轮吸收夜间139重写版，原名「飘字锚点对齐」）' },
     '韦一笑蝠影汲血吸血(回归)': { tag: 'hero:韦一笑', force: 'forceWei', note: '韦一笑永久闪避，每次出手走闪避反击路径必触发吸血；基线 18/35 场大多有样本' },
-    '蛛变/精通数值(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，无法强制，需连打多局碰出' },
+    '蛛变/精通数值(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
     '幼狮成长数值(回归)': { tag: 'mechanic:幼狮成长', note: '明教幼狮成长永久词条；小昭·姊海克斯增强时才触发，需连打多局碰出' },
     '属性变更数值(回归)': { tag: 'generic:通用', note: '不依赖本局出阵角色；STAT_CHANGE_APPLY 此前在规则视野外（renderFn:null），Step 0 后可见' },
     '正义国字脸叠防数值(回归)': { tag: 'hero:胖远桥', note: '胖远桥招牌；落点 pangDefGain == 配置 defGain，规则侧此前看不到（嵌套在 ATTACK fact），Step 0 后可见' },
