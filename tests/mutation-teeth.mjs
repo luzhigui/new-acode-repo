@@ -1,3 +1,7 @@
+// V2.9.16 | 2026-10-29 夜间第 156 轮：A8 / A19 蝶变附身防御变异改为 multi。
+//   --verify 实测同一 addMod 已有宿主 + 额外队友两条真实路径，旧单点锚点各报「2 处、非 multi」而失效；
+//   两处同改才保持「蝶变附身防御 universally 翻倍/失效」的原牙语义（单场额外队友路径可能同时生效）。
+//   本轮会全量重建 47 棵变异树并重跑结果，故判据 VER 同步升 V2.9.16，旧 hold 正式核销。
 // V2.9.15 | 2026-10-24 第 126 轮：修「转交中（⚠️）规则 = 证据黑洞」—— 第 126 轮 46 颗牙全量重算时由 T16 暴露。
 //   现象：run.sh 的 REPLAY 过滤只抓 `❌`，而回放器把「已登记转交」的失败规则标 `⚠️`（rules-replay L476：
 //   fail>0 且命中 KNOWN_TRANSFERS ⇒ ⚠️ 不染退码）。于是这类规则的**规则头行与全部报红明细都进不了结果文件**，
@@ -126,18 +130,11 @@
 //   ② 不得作证：干净树 _base 里 命中>0 的契约（若有）列入 BASE_DIRTY_CONTRACTS，其命中不计入
 //     「有牙」证据，改记对照器侧 [掩盖×N]——道理同「基线已红的规则不得作证」。
 //     实测当前 _base 全部 56 条契约命中皆 0 ⇒ 本闸门当下为空操作（零判定迁移），纯属加固。
-// ★ VER 只钉**判据口径**：判据一改必须升（结果文件据此判陈旧）。
-//   守卫 / 输出通道 / 证据通道的升级**不升 VER**（V2.9.12 先例，V2.9.15 沿用）——
-//   故本文件头注释已到 V2.9.15 而 VER 仍为 V2.9.14，是刻意的，不是漏改：
-//   V2.9.15 只新增了新鲜度守卫第⑤项（RULEFP），判定逻辑一行未动，升 VER 会让全部旧结果被误判陈旧。
-// ★ VER-HOLD-DECL：上一段「VER 刻意不升」此前只是散文说明，机器读不出来，
-//   第 135 轮的 ver-drift-selftest 无法区分「刻意 hold」与「漏改」。本行把意图升级为可断言标记 ——
-//   hold 从此要同时在册（自检白名单）+ 在位（本行）+ 且真有落差（VER≠日志最新版）三者齐备才放行，
-//   落差消失（VER 归位）则本标记必须同步删除，否则自检转红。判据口径与 VER 值本身一行未动。
-//   （第 139 轮：上游把同一次改动里的 VER 顺手抬到 V2.9.15，其含义是"新增引擎指纹守卫"；
-//    本地口径认为守卫升级不升 VER —— 升了会让本轮刚重跑的 47 棵结果全部被误判陈旧，
-//    故裁决保留 V2.9.14 + 本标记，新增的⑥ ENGFP 属守卫升级，不改变判据口径。）
-export const VER = 'tests/mutation-teeth.mjs V2.9.14';
+// ★ VER 只钉**判据口径与变异表语义**：纯守卫 / 输出通道 / 证据通道升级可不升，
+//   但锚点、多路径注入范围或判定逻辑一改必须升，并重跑结果使新鲜度元数据归位。
+//   V2.9.12 / V2.9.15 属输出或守卫升级，历史上未单独抬 VER；本轮 A8 / A19 从单点改为
+//   宿主 + 额外队友双路径注入，直接改变两颗牙的生效面，故升到 V2.9.16 并核销旧 hold。
+export const VER = 'tests/mutation-teeth.mjs V2.9.16';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -197,10 +194,11 @@ const MUTATIONS = [
     // 第 58 轮修锚点：A8 原锚在 **atk** 那行，但 flyDirection 恒为 'left'（core/11 只写 `A._flyDirection = A._flyDirection || 'left'`，
     //   全仓无处设 'right'）⇒ atkRatio=0 ⇒ atkTransfer 恒 0 ⇒ `value: atkTransfer * 2` 是个 no-op，
     //   baseline 与 _base 逐字节相同。改锚 **def** 那行：left 时 defRatio=bp.defRatioLeft=0.5，值非零，变异真正生效。
-    { id: 'A8', kind: 'ATTR', desc: '蝶变附身防御转移翻倍',
+    { id: 'A8', kind: 'ATTR', desc: '蝶变附身防御转移翻倍（宿主+额外队友两条路径都改）',
       file: 'modules/27elite-mingjiao-xiaozhao-sister.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
-      to:   "{ source: '蝶变附身', value: defTransfer * 2," },
+      to:   "{ source: '蝶变附身', value: defTransfer * 2,",
+      multi: true },
     // V2.9.1 | 2026-10-08 第 60 轮：A9 锚点因 八卦阵机制重写（defGain 防御增益 → 付费触发扣 atkCost 攻击力）失效，
     //   旧 from 串 0 处 ⇒ 树=干净树 ⇒ 此前「待确认盲区」是假阴性。重新对准到现行机制：扣攻翻倍，
     //   声明 fact(BAGUA_ARRAY.atkDelta=-ba.atkCost) 不变 ⇒ BAGUA_ATK 契约出现偏差，真有牙。
@@ -264,10 +262,11 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects-songqingshu.js',
       from: "{ source: '苦练', value: atkDelta,",
       to:   "{ source: '苦练', value: atkDelta + 1," },
-    { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（改 0，非整数倍判据必漏）',
+    { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（宿主+额外队友两条路径都改 0，非整数倍判据必漏）',
       file: 'modules/27elite-mingjiao-xiaozhao-sister.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
-      to:   "{ source: '蝶变附身', value: 0," },
+      to:   "{ source: '蝶变附身', value: 0,",
+      multi: true },
     { id: 'T1', kind: 'TEXT', desc: '破防日志写 -（reduce+5）（实际仍只扣 reduce）',
       file: 'core/16effect-handlers.js',
       from: "targetName: target.name, reduce }",
