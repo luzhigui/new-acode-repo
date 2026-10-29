@@ -1,10 +1,4 @@
 // modules/26elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
-// V6.28.0 | 2026-10-29 周芷若召唤改「死亡当帧当场落位」：旧时序（记位置→下一个行动步 BEFORE_STATE_TRANSITION 落位）
-//           在两类场景漏召——① 回合最后一手死（寒离飒轰拳/最后一击团灭）：当回合无「下一个行动步」可挂，
-//           下一回合死者组件不再注册（core/11 只为存活单位 register）；② 模块级 ON_ROUND_START 兜底是死代码
-//           ——core/11 每回合 eventBus.clearAll()，顶层监听器第一回合就没了，从未生效。现改 ON_UNIT_DEATH
-//           记位后当场 flush（同格「尸体+新人」渲染由 render/32 尸体优先+3秒清尸保证不穿帮）。
-// V6.27.2 | 2026-10-22 | ~18700 bytes
 export const VER = 'modules/26elite-sixsects-miejueshitai.js V6.28.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';

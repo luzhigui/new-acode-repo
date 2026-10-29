@@ -1,10 +1,4 @@
 // modules/26elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-// V6.27.0 | 2026-10-29 两仪互换加「血量均摊」：互换职业后两人血量相加÷2 各自落回（受各自新上限约束，
-//           floor 不四舍五入、均摊不致死——avgHp ≥ 1）。走 applyStatChange(record=false, isHeal=false)：
-//           均摊非治疗（不吃杨逍截脉减疗）、不落战报账本（下方「红血加血」独立行的 healed 差值会吸收
-//           均摊变化，账本数字仍自洽；体检逐条对照看不到这条，属已知口径）。
-// V6.26.1 | 2026-10-22 | ~14300 bytes
-//   （swapUnitPositions 现返回布尔；体检 114 家族案第 4 口）
 export const VER = 'modules/26elite-sixsects-hetaichong.js V6.27.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';

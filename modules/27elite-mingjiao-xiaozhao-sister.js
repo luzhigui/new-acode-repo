@@ -1,5 +1,4 @@
 // modules/27elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
-// V1.0.1 | 2026-10-22 | ~22700 bytes
 export const VER = 'modules/27elite-mingjiao-xiaozhao-sister.js V1.0.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getBenefitTargets } from '../core/03battle-utils.js';

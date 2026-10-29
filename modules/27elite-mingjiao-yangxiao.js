@@ -1,7 +1,4 @@
 // modules/27elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
-// V1.1.0 | 2026-10-17 | ~7900 bytes
-//           register 增第 5 参 self 认自己；先机/点穴 hook 加 uid 守卫（防双掷骰 RNG 偏移）；
-//           JIN_MAI 全局递减仅首个存活杨逍实例挂载（防双倍递减）
 export const VER = 'modules/27elite-mingjiao-yangxiao.js V1.1.0';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/13battle-shared.js';

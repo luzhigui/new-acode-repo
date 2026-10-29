@@ -1,6 +1,4 @@
 // modules/27elite-mingjiao-weiyixiao.js — 明教精英「韦一笑」：组件工厂（青翼蝠王·吸血/轻功）
-// V1.1.0 | 2026-10-17 | ~3000 bytes
-//           register 增第 5 参 self 认自己；吸血声明加 target.uid 守卫，防双韦一笑对同一闪避双倍吸血
 export const VER = 'modules/27elite-mingjiao-weiyixiao.js V1.1.0';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';

@@ -2,9 +2,7 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-// V7.0.5 | 2026-10-22 | ~24300 bytes
-//   补挂同一条 flushDashHeal，「冲刺后必叠」在所有结算分支成立
-export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.1';   // V7.1.1 forceInsert 落点为空直接落、不再白推队友
+export const VER = 'modules/26elite-sixsects-tangwenliang.js V7.1.1';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/13battle-shared.js';
