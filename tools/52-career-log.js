@@ -1,4 +1,10 @@
 // tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// V2.3.0 | 2026-10-29 | 英雄影响力加显著性检验（不再把噪声当铁证）：
+//   影响力 = 活着胜率 − 阵亡胜率，但「阵亡」往往只几局，区间宽到 ±40pp，
+//   裸 +20pp 极可能是噪声。V2.3.0 用 Agresti-Caffo 校正的两比例差算 95% 区间：
+//   区间跨 0（不显著）→ 判读标「噪声内」、颜色压灰；只把显著项当真。
+//   界面把 95% 区间放进单元格悬浮提示；Markdown 表新增「95%区间」列与噪声内说明。
+//   诚实边界贯穿：这是相关不是因果，结论只标方向不归因。
 // V2.2.0 | 2026-10-29 | 修英雄表三个数"不可横比"的口径问题：
 //   ① 「均输出/均承伤/均治疗」是整局累计，而每局 6~13 回合不等、有人第 3 回合就倒。
 //      整局 300 对 45 看着像完爆，换成「每存活回合」是 30 对 25 —— 前者是活得久，后者才是效率。
@@ -65,7 +71,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.2.0';
+export const VER = 'tools/52-career-log.js V2.3.0';
 
 const LS_KEY = 'ming_career_log_5v5_test';
 const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
@@ -302,14 +308,18 @@ export function exportCareerMarkdown() {
             const shown = hi.filter(h => h.reliable !== false);
             if (shown.length) {
                 lines.push('## 英雄影响力（活到结束胜率 − 阵亡胜率，= 生死对胜负的拉动）');
-                lines.push('| 英雄 | 出场 | 活着胜率 | 阵亡胜率 | 影响力 | 判读 |');
-                lines.push('|---|---|---|---|---|---|');
+                lines.push('| 英雄 | 出场 | 活着胜率 | 阵亡胜率 | 影响力 | 95%区间 | 判读 |');
+                lines.push('|---|---|---|---|---|---|---|');
                 for (const h of shown.slice(0, 15)) {
+                    const ci = h.ciPP
+                        ? `[${h.ciPP[0] > 0 ? '+' : ''}${h.ciPP[0]}pp, ${h.ciPP[1] > 0 ? '+' : ''}${h.ciPP[1]}pp]`
+                        : '—';
                     lines.push(`| ${h.name} | ${h.games} | ${h.aliveWinRate}% | ${h.deadWinRate}% | `
-                        + `${h.impactPP > 0 ? '+' : ''}${h.impactPP}pp | ${h.verdict || '—'} |`);
+                        + `${h.impactPP > 0 ? '+' : ''}${h.impactPP}pp | ${ci} | ${h.verdict || '—'} |`);
                 }
                 lines.push('');
-                lines.push('> 这是相关不是因果：一个英雄总是最后才倒（因为他强），活着和赢自然相关。只看「拉动方向」，不归因。');
+                lines.push('> 这是相关不是因果：强英雄总最后倒，活着与赢自然相关；只看「拉动方向」，不归因。');
+                lines.push('> 判读为「噪声内」= 95% 区间跨过 0、阵亡局太少分不出真假——别把 +Npp 当强弱铁证。');
                 lines.push('');
             }
         }
@@ -595,6 +605,26 @@ export function getExcludedUnits() {
     return Object.entries(M).sort((a, b) => b[1] - a[1]).map(([name, games]) => ({ name, games }));
 }
 
+// 两比例差（独立样本）的 95% 区间 + 显著性（V2.3.0）。
+// 为什么必须做：英雄影响力 = 活着胜率 − 阵亡胜率，而「阵亡」往往只有几局——
+//   一个 84 局里只死 6 次的人，阵亡胜率基于 6 局，区间宽到 ±40pp，
+//   算出来的 +20pp 完全可能是噪声，却被当成「胜负手」。这跟 126/138 用 z 检验拦噪声是同一套口径。
+// 用 Agresti-Caffo 校正（各格 +1/+2）避免 p=0 或 p=1 时标准误为 0、区间退化成一个点。
+function twoPropDiff(w1, n1, w2, n2) {
+    if (!(n1 > 0) || !(n2 > 0)) return null;
+    const diff = w1 / n1 - w2 / n2;
+    const p1 = (w1 + 1) / (n1 + 2), p2 = (w2 + 1) / (n2 + 2);
+    const se = Math.sqrt(p1 * (1 - p1) / (n1 + 2) + p2 * (1 - p2) / (n2 + 2));
+    const z = se > 0 ? diff / se : 0;
+    return {
+        diff,
+        se,
+        z,
+        ci: [diff - 1.96 * se, diff + 1.96 * se],
+        sig: Math.abs(z) >= 1.96
+    };
+}
+
 export function getHeroImpact() {
     const arr = getCareerRecords();
     if (arr.length === 0) return null;
@@ -615,10 +645,13 @@ export function getHeroImpact() {
         const deadWR = a.deadGames ? a.deadWins / a.deadGames : null;
         const impact = (aliveWR !== null && deadWR !== null) ? aliveWR - deadWR : null;
         const enough = a.games >= IMPACT_MIN_TOTAL && a.aliveGames >= IMPACT_MIN_SIDE && a.deadGames >= IMPACT_MIN_SIDE;
+        // V2.3.0：显著才算数。阵亡局少时区间极宽，不显著就不下强弱结论。
+        const st = (a.aliveGames && a.deadGames) ? twoPropDiff(a.aliveWins, a.aliveGames, a.deadWins, a.deadGames) : null;
         let verdict = null;
         if (enough && impact !== null) {
             const pp = Math.round(impact * 100);
-            if (pp >= 20) verdict = '胜负手·活着他赢面大涨';
+            if (!st || !st.sig) verdict = '差异在噪声内（阵亡局太少，样本撑不起结论）';
+            else if (pp >= 20) verdict = '胜负手·活着他赢面大涨';
             else if (pp <= -20) verdict = '反向·他倒下时明教反而更稳（多半是别人在扛）';
             else if (pp >= 5) verdict = '有正向影响力';
             else if (pp <= -5) verdict = '略偏反向';
@@ -629,6 +662,9 @@ export function getHeroImpact() {
             aliveGames: a.aliveGames, aliveWinRate: aliveWR === null ? null : Math.round(aliveWR * 100),
             deadGames: a.deadGames, deadWinRate: deadWR === null ? null : Math.round(deadWR * 100),
             impactPP: impact === null ? null : Math.round(impact * 100),
+            // 95% 区间（pp）+ 是否显著；界面把它放进悬浮提示，避免「+20pp」被当成铁证
+            ciPP: st ? [Math.round(st.ci[0] * 100), Math.round(st.ci[1] * 100)] : null,
+            sig: st ? st.sig : null,
             reliable: enough, verdict
         };
     }).sort((a, b) => (b.impactPP === null ? -99 : b.impactPP) - (a.impactPP === null ? -99 : a.impactPP));

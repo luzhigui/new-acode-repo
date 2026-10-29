@@ -366,14 +366,18 @@ V6.3.13 | ~18600 bytes | 2026-10-18 修「demo 页 404」：两个寒离飒特�
                                 h5 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                                 h5 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>活着胜率</th><th>阵亡胜率</th><th>影响力</th><th>判读</th></tr>';
                                 shown.forEach(h => {
-                                    const c = h.impactPP >= 20 ? '#4caf50' : (h.impactPP <= -20 ? '#ff6b6b' : (h.impactPP >= 5 ? '#9ad0f5' : '#888'));
+                                    // V2.3.0：不显著就别上色。阵亡局少时区间能宽到 ±40pp，
+                                    //   把「+20pp」涂成绿色等于替噪声背书。
+                                    const sig = h.sig !== false;
+                                    const c = !sig ? '#777' : (h.impactPP >= 20 ? '#4caf50' : (h.impactPP <= -20 ? '#ff6b6b' : (h.impactPP >= 5 ? '#9ad0f5' : '#888')));
                                     const iw = h.impactPP > 0 ? '+' : '';
+                                    const ciT = h.ciPP ? ` title="95% 区间 ${h.ciPP[0]}pp ~ ${h.ciPP[1]}pp${sig ? '，差异显著' : '，跨 0 即可能在噪声内'}"` : '';
                                     h5 += `<tr style="border-top:1px solid #2a2a4e;color:#ccc;"><td style="padding:3px;text-align:left;">${h.name}</td>`
                                         + `<td>${h.aliveWinRate}%</td><td>${h.deadWinRate}%</td>`
-                                        + `<td style="color:${c};font-weight:bold;">${iw}${h.impactPP}pp</td>`
+                                        + `<td style="color:${c};font-weight:bold;"${ciT}>${iw}${h.impactPP}pp</td>`
                                         + `<td style="color:#999;max-width:140px;white-space:normal;">${h.verdict || ''}</td></tr>`;
                                 });
-                                h5 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">相关非因果：强英雄总最后倒，活着与赢自然相关。只标方向，不归因。</div>';
+                                h5 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">相关非因果：强英雄总最后倒，活着与赢自然相关，只标方向不归因。灰色的「噪声内」=阵亡局太少，统计上分不出真假。</div>';
                                 t5.innerHTML = h5;
                                 wrap.appendChild(t5);
                             }
