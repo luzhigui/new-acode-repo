@@ -3,9 +3,12 @@
 //   · 蓄力期间常驻扇面，由一个 clock tween 把浓度由 0.35 渐深到 1.0（描边同步加粗）
 //   · 扇面形制＝变体A（老板自 demo tools/126 选定）：弧边（非直边三角）+ 金→冰蓝线性渐变 + 柔光（feGaussianBlur）
 // 不给格子染色（与重绘打架会闪变），靠扇形表明蓄力；扇形形制＝变体 A（弧边 + 金→冰蓝渐变 + 柔光 + 金色描边）。
+// 调用方：fx/89 订阅 FX_SIGNALS.GRID_RENDERED 后调用（render/32 在两网格渲完时 emit）。
+//   本模块**不得**被 render 直接 import —— 那会造成 render → fx 反向依赖（铁律第 6 条）；
+//   2026-10-29 已拆掉 render/32 的原直接调用，改走信号。要新增触发点时同理：发信号，别反向 import。
 import { clock } from '../infra/52-clock.js';
 
-export const VER = 'fx/90-hanlisa-charge.js V1.4.0';
+export const VER = 'fx/90-hanlisa-charge.js V1.4.1';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const FAN_ID = 'hls-charge-fan';

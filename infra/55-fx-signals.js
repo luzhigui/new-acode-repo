@@ -1,4 +1,4 @@
-export const VER = 'infra/55-fx-signals.js V6.1.5';
+export const VER = 'infra/55-fx-signals.js V6.1.6';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
@@ -39,5 +39,10 @@ export const FX_SIGNALS = {
     PANG_TAUNT: 'fx:pangTaunt',          // 正义国字脸：扇形金锥 + 台词气泡 + 被嘲讽者红闪（快进跳过）
     PANG_CLUMSY: 'fx:pangClumsy',        // 年轻气盛：出手前侧倾甩歪 + 😵（快进跳过）
     SKILL_FLOAT: 'fx:skillFloat',        // 何太冲技能任意文本头顶飘字（破甲箭🛡-N% / 昆仑合击🎯×N；快进跳过）
-    HANLISA_BURST: 'fx:hanlisaBurst'     // 寒离飒蓄力轰拳爆发：扇形冲击波 + 真伤碎冰 + 半伤冲击（快进跳过）
+    HANLISA_BURST: 'fx:hanlisaBurst',    // 寒离飒蓄力轰拳爆发：扇形冲击波 + 真伤碎冰 + 半伤冲击（快进跳过）
+    // 渲染完成通知：render/32 在两网格都渲完后 emit，fx/89 订阅转给 fx/90 重算寒离飒蓄力扇形。
+    //   为什么需要这条「渲染层 → 表现层」的信号：扇形要读刚渲好的格子坐标（geometryOf），
+    //   所以触发点必须留在 renderGrid 之后；若改成 fx 自己订阅 store，多个订阅者的回调顺序
+    //   不保证渲染先完成 ⇒ 拿到 null 坐标。走信号则方向变为 render → infra ← fx，不再反向依赖。
+    GRID_RENDERED: 'fx:gridRendered'
 };
