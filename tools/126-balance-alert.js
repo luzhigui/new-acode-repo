@@ -1,4 +1,10 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// V3.5.0 | 2026-10-29 两条「别让最该看的被埋掉」：
+//   ① 告警/复核同级内按严重度降序（magOf 取文案里最大 ±Npp）。以前同级只按规则序号排，
+//      同是「需要处理」时 3pp 和 30pp 一样重，真正的问题被一堆小偏差压在下面。
+//   ② 弱精英表逐行标注 138 的独立测量（↔138 +Npp·一致/不一致⚠️）。112 与 138 是同一件事
+//      的两份互不依赖的测量（都是配对实验），方向相反说明至少有一份的测量有问题——
+//      不交叉印证就等于把两个可能互相打脸的数字摆在两页纸上。
 // V3.4.0 | 2026-10-28 新增「总览结论」(summarize)：把分散在各规则的判读汇成一句话——
 //   ① 整体偏向（明教实际胜率 vs 理想线 35%）；② 数据可信度（健康项有几处红/黄）；
 //   ③ 最该看的一条（按优先级排的第一条告警）。打开面板第一眼就能看懂，不要求懂统计。
@@ -84,7 +90,7 @@
 //   V1.0.0 初版：合并 108 海克斯榜 + 112 精英快照，含姊妹覆盖缺口、海克斯过强过弱两条规则。
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.4.0';
+export const VER = 'tools/126-balance-alert.js V3.5.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
@@ -1502,7 +1508,9 @@ function openBalanceAlert() {
         html += absTableHtml(d.elit.natural, '主表·自然出场', '带队胜率');
         html += absTableHtml(d.elit.solo, '强精英（单核）', '单挑胜率');
         html += absTableHtml(d.elit.boss, 'Boss·张无忌（单核）', '单挑胜率');
-        html += weakTableHtml(d.elit.weak);
+        // 弱精英表读 138 落盘的独立测量做交叉印证（V3.5.0）：两份互不依赖的测量同向才算数
+        const cc138 = read138Contrib();
+        html += weakTableHtml(d.elit.weak, cc138);
         // 海克斯两两组合（V2.5.0）
         if (d.pair) {
             html += '<div class="bal-sec"><h3 style="color:#4fc3f7">海克斯两两组合（共检验 ' + d.pair.tested + ' 个，'
