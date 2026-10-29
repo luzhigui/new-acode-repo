@@ -1,6 +1,9 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// V7.4.1 | 2026-09-26 | ~19500 bytes
-export const VER = 'infra/60-net-pvp.js V7.4.1';
+// V7.4.2 | 2026-10-29 | ~20200 bytes
+//   联机 mqtt.js 改「本地 vendor 优先 + 远端兜底」：cdn.jsdelivr.net 国内多地实测直连失败（000），
+//   原单源写法一点「创建房间」就报「下载失败」；现在读 ./vendor/mqtt-5.10.1.min.js（随仓库分发，零网络依赖），
+//   仅当本地缺失时才依次尝试 npmmirror / fastly.jsdelivr / unpkg。
+export const VER = 'infra/60-net-pvp.js V7.4.2';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -11,7 +14,14 @@ export const VER = 'infra/60-net-pvp.js V7.4.1';
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
 
-const MQTT_CDN = 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js';
+// mqtt.js 加载源：本地 vendor 优先（已随仓库分发，零网络依赖），
+// 远端仅作兜底——cdn.jsdelivr.net 在国内多地实测直接失败（000），故不再作为首选。
+const MQTT_LOCAL = './vendor/mqtt-5.10.1.min.js';
+const MQTT_CDN_FALLBACK = [
+    'https://registry.npmmirror.com/mqtt/5.10.1/files/dist/mqtt.min.js',
+    'https://fastly.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js',
+    'https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js'
+];
 // EMQX 公共测试 broker（国内访问好、无需注册）。不保证长期可用；挂了可换该服务的其它节点或自建。
 const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
 const TOPIC_PREFIX = 'gmd5v5/';
@@ -142,17 +152,29 @@ function setStatus(s, meta) {
     }
 }
 
-// 懒加载 mqtt.js（只下载一次，之后复用同一 Promise）
+// 懒加载 mqtt.js（只加载一次，之后复用同一 Promise）
+// 按 sources 顺序逐个尝试：本地 vendor 命中即用；缺失或加载报错才落到远端兜底。
 function ensureMqtt() {
     if (window.mqtt) return Promise.resolve();
     if (_loadPromise) return _loadPromise;
-    _loadPromise = new Promise((resolve, reject) => {
+    const sources = [MQTT_LOCAL, ...MQTT_CDN_FALLBACK];
+    const loadAt = (i) => new Promise((resolve, reject) => {
+        if (i >= sources.length) {
+            reject(new Error('mqtt.js 加载失败：本地 vendor 与 ' + MQTT_CDN_FALLBACK.length + ' 个 CDN 源均不可用'));
+            return;
+        }
         const s = document.createElement('script');
-        s.src = MQTT_CDN;
-        s.onload = () => (window.mqtt ? resolve() : reject(new Error('mqtt.js 加载后未挂载')));
-        s.onerror = () => { _loadPromise = null; reject(new Error('mqtt.js 下载失败，请检查网络')); };
+        s.src = sources[i];
+        s.onload = () => {
+            if (window.mqtt) { resolve(); return; }
+            s.remove();
+            loadAt(i + 1).then(resolve, reject);
+        };
+        s.onerror = () => { s.remove(); loadAt(i + 1).then(resolve, reject); };
         document.head.appendChild(s);
     });
+    // 全源失败时清掉缓存，允许玩家再点一次重试
+    _loadPromise = loadAt(0).catch((e) => { _loadPromise = null; throw e; });
     return _loadPromise;
 }
 
