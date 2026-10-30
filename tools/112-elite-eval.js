@@ -2,7 +2,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.2.0';
+export const VER = 'tools/112-elite-eval.js V3.3.0';
 
 // 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
@@ -411,7 +411,7 @@ function noEliteTotalsOf(byStage, stages) {
     return { runs, wins, sumSurv };
 }
 
-// ============ 2026-10-16 V2.8.0 弱精英评测：单弱精英强制上场 vs 自然配对对照 ============
+// ============ 2026-10-16 V2.8.0 弱精英评测：单弱精英强制上场 vs 自然配对对照（V3.3.0 末加「贡献排名总览」） ============
 // 口径（V3.1.0 路C，老板拍板）：明教侧 = 116 建队完成后「确定性替身换名」（两臂建队随机数逐数一致、
 //       站位逐位全同，Δ=纯精英贡献）；六大派侧 = M104 数字空位具名锁定（同「只换名」形态）；
 //       同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
@@ -525,7 +525,42 @@ function renderWeakResults(byStage, stages) {
         'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子）。V3.1.0 起换人发生在建队完成之后：两臂站位逐位全同，Δ 不含站位噪音，只剩精英本人 vs 被换的普通位。Δ>0 = 该弱精英给明教带来增益。「自然出现该精英」的局两臂同剔，样本逐场对应。');
     html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
         'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
+    html += renderWeakRanking(byStage, stages);
+    html += '<div style="font-size:11px;color:#999;margin-top:10px;">⚠️ 本模拟为单海克斯口径；双海克斯模式的弱精英模拟需改造 worker 战斗逻辑（主代码级），本轮未接入，故 Δ 暂不可直接套到双海克斯实战。</div>';
     weakResultEl.innerHTML = html;
+}
+
+// 弱精英贡献排名总览（V3.3.0）：把「每个精英各自的 Δ」收敛成一张横向排名，一眼看出谁贡献最大 / 威胁最高。
+// 明教侧 Δ 降序（越大越该上场）；六大派侧 Δ 升序（越负越难打）。样本 < 200 场标「(样本少)」提示 Δ 不可轻信。
+function renderWeakRanking(byStage, stages) {
+    const rowFor = (list) => list.map(w => {
+        const { t, baseRate } = weakArmTotals(w.name, byStage, stages);
+        const rate = t.runs ? t.wins / t.runs * 100 : null;
+        const dv = (rate != null && baseRate != null) ? rate - baseRate : null;
+        return { name: w.name, dv, runs: t.runs };
+    }).filter(x => x.dv != null);
+
+    const ally = rowFor(WEAK_ALLY).sort((a, b) => b.dv - a.dv);      // 友方：Δ 大 = 贡献大
+    const enemy = rowFor(WEAK_ENEMY).sort((a, b) => a.dv - b.dv);    // 敌方：Δ 小(更负) = 威胁大
+
+    const fmtCell = x => {
+        const thin = x.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+        const dc = x.dv > 0.05 ? '#4caf50' : x.dv < -0.05 ? '#ff5252' : '#888';
+        return `<td class="elite-cell"><span style="color:${dc};font-weight:bold;">${x.dv >= 0 ? '+' : ''}${x.dv.toFixed(1)}</span>${thin}</td><td class="elite-cell">${x.runs} 场</td>`;
+    };
+    const block = (title, arr, hint) => {
+        if (!arr.length) return `<div style="font-weight:bold;margin:14px 0 6px">${title}</div><div class="elite-empty">本次无可用 Δ（样本不足或无对照）</div>`;
+        let h = `<div style="font-weight:bold;margin:14px 0 6px">${title}</div><table class="elite-table elite-table-fit"><colgroup><col style="width:56px"><col><col style="width:90px"><col style="width:80px"></colgroup><tr><th>排名</th><th class="elite-th">弱精英</th><th class="elite-th">总评 Δ</th><th class="elite-th">样本</th></tr>`;
+        arr.forEach((x, i) => {
+            h += `<tr><td class="elite-stage">#${i + 1}</td><td class="elite-cell">${x.name}</td>${fmtCell(x)}</tr>`;
+        });
+        h += `</table><div style="font-size:11px;color:#999;margin-top:6px;">${hint}</div>`;
+        return h;
+    };
+    return block('🏆 明教弱精英贡献排名（Δ 降序，越靠前越该上场）', ally,
+            'Δ = 该弱精英臂总评胜率 − 同关同变体自然对照（同种子配对）。Δ>0 即上场比自然阵容多赢，排名越前越值得带。')
+        + block('⚔ 六大派弱精英威胁排名（Δ 升序，越负越难打）', enemy,
+            'Δ<0 表示该敌方弱精英让明教更难赢、威胁越大；正值反而说明它上场等于送分。');
 }
 
 // 弱精英表单元格：胜率 + Δ（相对自然对照）+ 场次/输出/承伤/存活
