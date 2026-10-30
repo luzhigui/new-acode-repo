@@ -5,14 +5,14 @@
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
 import { CONFIG } from '../core/01config-5v5-test.js';
 // 运行时读写唯一真源：modules/31-career-log.js（player/42 直接 import 它，不再经 tools）。
-import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS } from '../modules/31-career-log.js';
+import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCounts } from '../modules/31-career-log.js';
 // 兼容旧调用面（dev-index 动态 import 本文件）：运行时函数原样转出。
-export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords } from '../modules/31-career-log.js';
+export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/31-career-log.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.7.0';
+export const VER = 'tools/52-career-log.js V2.8.0';
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
@@ -22,6 +22,9 @@ export const VER = 'tools/52-career-log.js V2.7.0';
 // V2.5.0 | 2026-10-29 | 补完模块剩余朴素指标：① 败因分析 getLossAnalysis 四条结论从「均值阈值」改 Welch 两样本均值差 95% 区间,
 //   区间跨 0 即判噪声内（不再把小样本误判成「被速推/团灭/输出打不出/承伤偏高」）；突破口改用 Wilson 区间，下界过半才认。
 //   ② getCareerInsights 的 hardest/easiest 加 Wilson 区间 + sig，区间跨总体胜率才认「真偏难/偏易」。与 V2.3/V2.4 同一显著性口径。
+// V2.8.0 | 2026-10-31 | 双海克斯分库 + 只记人工对局：所有读取/导出函数加 hexMode 参数（'single'/'dual'/省略=合并）；
+//   写入端 modules/31 已按 hexMode 分库存、按 enemyAutoHex 判定、并排除全自动（full-auto）对局；
+//   报告/明细/界面均按所选模式呈现，不再把两种模式混在一起算胜率。
 
 // 英雄/组合少于此场次 → 标「样本少」，胜率仅供参考（3 局 100% 不等于这个英雄强）
 const HERO_MIN_GAMES = 8;
@@ -44,6 +47,14 @@ function hexLabel(k) {
 // 模式显示名（V2.0.0）：CSV/报告里以前直接写 single / pvp，夹在一堆中文列里很突兀
 function modeLabel(k) {
     return k === 'single' ? '单机' : (k === 'pvp' ? '联机' : (k || '未知'));
+}
+// 海克斯模式显示名（V2.8.0）：单海克斯 / 双海克斯，UI 与报告用
+function hexModeLabel(k) {
+    return k === 'dual' ? '双海克斯' : (k === 'single' ? '单海克斯' : '全部模式');
+}
+// 自动级别显示名（V2.8.0）：记录里存了 autoLevel，便于追溯这条是不是人工打的
+function autoLevelLabel(k) {
+    return k === 'manual' ? '手动' : (k === 'auto' ? '自动' : (k === 'full-auto' ? '全自动' : (k || '未知')));
 }
 
 // 明教侧「真英雄」名单（V2.1.0）：只算 Boss + 强精英 + 明教侧弱精英，名单全部取自 127 注册表，不另建副本。
@@ -101,12 +112,12 @@ export function computeCareerStats(arr) {
     return { total, winA, winE, byStage, byStageAsc, appear, heroWins };
 }
 
-// Markdown 导出（给 AI 分析：比 JSON 省 token 且可读）
-export function exportCareerMarkdown() {
-    const arr = getCareerRecords();
+// Markdown 导出（给 AI 分析：比 JSON 省 token 且可读）。hexMode: 'single'/'dual'/省略=合并
+export function exportCareerMarkdown(hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const lines = [];
-    lines.push(`# 光明顶 5v5 生涯记录（共 ${arr.length} 局）`, '');
+    lines.push(`# 光明顶 5v5 生涯记录（共 ${arr.length} 局${hexMode ? ' · ' + hexModeLabel(hexMode) : ''}）`, '');
 
     const { total, winA, winE, byStage, byStageAsc, appear, heroWins } = computeCareerStats(arr);
     lines.push('## 汇总');
@@ -114,7 +125,7 @@ export function exportCareerMarkdown() {
     // 模式分布（V1.6.0 加；V1.7.0 补各模式胜率）：单机/联机分开看，且给出各自胜率，
     //   才能判断「单机局是不是把整体胜率拉高/压低」而不是只数场次
     try {
-        const insM = getCareerInsights();
+        const insM = getCareerInsights(hexMode);
         if (insM && insM.byMode && Object.keys(insM.byMode).length) {
             lines.push('模式：' + Object.entries(insM.byMode).map(([k, v]) => `${v.label} ${v.n}局(${v.winRate}%)`).join(' ｜ '));
         }
@@ -132,7 +143,7 @@ export function exportCareerMarkdown() {
     // 分析结论（V1.6.0）：导出的 Markdown 不再只是原始数据，带上聚合/搭配/败因/趋势，
     //   直接丢给 AI 就能分析，不用它再从头算一遍。
     try {
-        const agg = getHeroAggregates();
+        const agg = getHeroAggregates(false, hexMode);
         if (agg && agg.length) {
             lines.push('## 英雄表现（Boss + 强弱精英；<8 局标「样本少」）');
             lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 较同关 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
@@ -145,7 +156,7 @@ export function exportCareerMarkdown() {
             }
             // 交代被排除的普通兵/召唤物（V2.1.0）：不写出来，看报告的人会以为它们没出过场
             try {
-                const ex = getExcludedUnits();
+                const ex = getExcludedUnits(hexMode);
                 if (ex && ex.length) {
                     lines.push('> 本表只统计 Boss + 强弱精英。另有 ' + ex.length + ' 个非英雄单位未计入：'
                         + ex.slice(0, 8).map(u => `${u.name}(${u.games}局)`).join('、') + (ex.length > 8 ? ' 等' : '')
@@ -159,7 +170,7 @@ export function exportCareerMarkdown() {
         }
     } catch (e) {}
     try {
-        const hi = getHeroImpact();
+        const hi = getHeroImpact(hexMode);
         if (hi && hi.length) {
             const shown = hi.filter(h => h.reliable !== false);
             if (shown.length) {
@@ -181,7 +192,7 @@ export function exportCareerMarkdown() {
         }
     } catch (e) {}
     try {
-        const pairs = getHeroPairs();
+        const pairs = getHeroPairs(HERO_MIN_GAMES, hexMode);
         if (pairs && pairs.length) {
             // V2.4.0：只把「受控对照显著」的对子当协同/拖累；不显著的 delta≥8 也压住，不冒充结论。
             const good = pairs.filter(p => p.verdict && p.verdict.startsWith('真协同')).slice(0, 5);
@@ -197,7 +208,7 @@ export function exportCareerMarkdown() {
         }
     } catch (e) {}
     try {
-        const la = getLossAnalysis();
+        const la = getLossAnalysis(hexMode);
         if (la && la.findings.length) {
             lines.push(`## 败因（${la.losses} 败 / ${la.wins} 胜）`);
             for (const f of la.findings) lines.push(`- ${f.text}`);
@@ -205,7 +216,7 @@ export function exportCareerMarkdown() {
         }
     } catch (e) {}
     try {
-        const tr = getCareerTrend(20);
+        const tr = getCareerTrend(20, hexMode);
         if (tr && tr.enough) {
             lines.push(`## 最近 ${tr.window} 局 vs 之前 ${tr.window} 局（只反映先后差异，不代表因果）`);
             lines.push(`- 胜率：${tr.earlier.winRate}% → ${tr.recent.winRate}%（${tr.delta.winRate > 0 ? '+' : ''}${tr.delta.winRate}pp，20 局波动约 ±11pp）`);
@@ -233,8 +244,8 @@ export function exportCareerMarkdown() {
 }
 
 // 生涯统计卡片：给弹窗顶部用。纯读已有记录，不新增存储。
-export function getCareerInsights() {
-    const arr = getCareerRecords();
+export function getCareerInsights(hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const total = arr.length;
     const wins = arr.filter(r => r.winner === '明教').length;
@@ -329,6 +340,20 @@ export function getCareerInsights() {
         rec.winRate = rec.n ? Math.round(rec.wins / rec.n * 100) : 0;
         rec.label = modeLabel(k);
     }
+    // 按海克斯模式分（V2.8.0）：单/双海克斯是两个不同游戏模式，胜率不可直接相加；
+    //   查看「全部」时这里给出各自局数与胜率，便于判断某模式是否把整体胜率拉高/压低。
+    const byHexMode = {};
+    for (const r of arr) {
+        const k = r.hexMode || 'single';
+        const rec = byHexMode[k] || (byHexMode[k] = { n: 0, wins: 0 });
+        rec.n++;
+        if (r.winner === '明教') rec.wins++;
+    }
+    for (const k of Object.keys(byHexMode)) {
+        const rec = byHexMode[k];
+        rec.winRate = rec.n ? Math.round(rec.wins / rec.n * 100) : 0;
+        rec.label = hexModeLabel(k);
+    }
 
     return {
         total, wins, winRate, avgRounds,
@@ -338,7 +363,7 @@ export function getCareerInsights() {
             ? { name: topEntry[0], games: topEntry[1], rate: Math.round((heroWins[topEntry[0]] || 0) / topEntry[1] * 100) }
             : null,
         bestHit, hexTop, recent, summaryLine,
-        span, dropped, maxRecords: CAREER_MAX_RECORDS, byMode
+        span, dropped, maxRecords: CAREER_MAX_RECORDS, byMode, byHexMode
     };
 }
 
@@ -350,8 +375,8 @@ export function getCareerInsights() {
 //   ② 胜率没控制关卡分布：总在 s1 出场的人胜率虚高，总在 s7 的相反。
 //      用「直接标准化」扣掉关卡难度——对每一局累加该关整体胜率作期望值，
 //      实际胜率 − 期望胜率 = vsStagePP（正=他在场的那些关里比同关平均更好）。
-export function getHeroAggregates(includeEnemy = false) {
-    const arr = getCareerRecords();
+export function getHeroAggregates(includeEnemy = false, hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     // 先算每关的整体胜率（明教视角），作为「同关基准」
     const stageStat = {};
@@ -424,13 +449,14 @@ export function getHeroAggregates(includeEnemy = false) {
 // 与 108 模拟日志的 buffs（116 写的是 buffsPicked.map(b=>b.key)）是同一套 CONFIG.BUFFS key，可直接按 key 匹配。
 // mode 可过滤：传 'single' 只取单机（vs AI）对局，与 108 常规榜（也是 vs AI、随机带海克斯）口径对齐；
 //   不传则汇总所有模式（含联机——联机是人与人，108 没有对应模拟，混进来会污染对照）。
-export function getHexWinRates(mode = null) {
-    const arr = getCareerRecords();
+export function getHexWinRates(mode = null, hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const HEX_MIN_GAMES = 8;   // 逐海克斯门槛：玩家不会每局都带同一个，样本比英雄稀，仍给 ≥8 才判
     const stat = {};
     for (const r of arr) {
         if (mode && r.mode !== mode) continue;
+        if (hexMode && r.hexMode !== hexMode) continue;
         for (const k of (r.hex || [])) {
             const rec = stat[k] || (stat[k] = { n: 0, w: 0 });
             rec.n++;
@@ -459,8 +485,8 @@ export function getHexWinRates(mode = null) {
 //   存活/阵亡两边各≥5 局，否则只报「样本不足」避免小样本误读。
 // 被过滤掉的非英雄单位（V2.1.0）：明教侧的普通兵 / 召唤物 / 谢逊三狮。
 //   静默丢弃会让人以为它们没出过场，所以界面和报告里把「排除了谁、各多少局」一并交代出来。
-export function getExcludedUnits() {
-    const arr = getCareerRecords();
+export function getExcludedUnits(hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const M = {};
     for (const r of arr) {
@@ -494,8 +520,8 @@ function twoPropDiff(w1, n1, w2, n2) {
     };
 }
 
-export function getHeroImpact() {
-    const arr = getCareerRecords();
+export function getHeroImpact(hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const IMPACT_MIN_TOTAL = 12, IMPACT_MIN_SIDE = 5;
     const M = {};
@@ -541,10 +567,10 @@ export function getHeroImpact() {
 
 // V1.1.0 新增：CSV 导出——每行一个单位，表格软件（Excel/WPS）直接透视/排序。
 // 列：局序/关卡/模式/胜方/回合/海克斯/阵营/角色名/定位/位置/输出/承伤/治疗/存活/闪避/暴击/生存回合
-export function exportCareerCSV() {
-    const arr = getCareerRecords();
+export function exportCareerCSV(hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
-    const head = ['局序', '关卡', '模式', '胜方', '回合', '海克斯', '阵营', '角色名', '定位', '位置',
+    const head = ['局序', '关卡', '模式', '海克斯模式', '胜方', '回合', '海克斯', '阵营', '角色名', '定位', '位置',
         '输出', '承伤', '治疗', '存活', '闪避', '暴击', '生存回合'];
     const cell = v => {
         const s = String(v == null ? '' : v);
@@ -556,7 +582,7 @@ export function exportCareerCSV() {
         const pushRow = (list, camp) => {
             for (const u of (list || [])) {
                 lines.push([
-                    gi + 1, r.stage, modeLabel(r.mode), r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
+                    gi + 1, r.stage, modeLabel(r.mode), hexModeLabel(r.hexMode), r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
                     Math.round(u.dmgDealt || 0), Math.round(u.dmgTaken || 0), Math.round(u.healDone || 0),
                     u.alive ? 1 : 0, u.dodgeCount || 0, u.critCount || 0, u.survivedRounds || 0
                 ].map(cell).join(','));
@@ -573,8 +599,8 @@ export function exportCareerCSV() {
 // 【诚实边界】只反映「先后差异」，不知道你什么时候改的数值、改了什么——
 //   两组各 20 局的差异本身噪声不小（20 局胜率的标准误差约 ±11pp），所以这里不做显著性判断，
 //   只把数字摆出来，方向由人判断。
-export function getCareerTrend(recentN = 20) {
-    const arr = getCareerRecords();
+export function getCareerTrend(recentN = 20, hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length < recentN * 2) {
         return { enough: false, need: recentN * 2, have: arr.length, window: recentN };
     }
@@ -601,8 +627,8 @@ export function getCareerTrend(recentN = 20) {
 // 已知局限（V2.4.0 已部分解决，写在这里也写在界面上）：一局 5 人只有 10 个对子，样本天然稀疏；
 //   而且「第三个人特别强」会被误算成这一对的功劳——V2.4.0 用「组合 vs 各自单上」受控对照把这条砍掉，
 //   只把两边都显著更好的对子当真协同。门槛仍设 8 局，结论仍只当线索看。
-export function getHeroPairs(minGames = HERO_MIN_GAMES) {
-    const arr = getCareerRecords();
+export function getHeroPairs(minGames = HERO_MIN_GAMES, hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const solo = {}, pair = {}, ctrl = {};
     const bump = (m, k, won) => {
@@ -677,8 +703,8 @@ export function getHeroPairs(minGames = HERO_MIN_GAMES) {
 // V1.3.0 新增：败因归类——输的局到底输在哪。
 // 只做「能量化的共同点」：回合数、剩余人数、总输出/承伤、最常见的「最先倒的人」。
 // 不猜走位和操作（记录里没有这些数据，猜就是编）。样本不足时直说不下结论。
-export function getLossAnalysis() {
-    const arr = getCareerRecords();
+export function getLossAnalysis(hexMode = null) {
+    const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
     const losses = arr.filter(r => r.winner === '六大派');
     const wins = arr.filter(r => r.winner === '明教');

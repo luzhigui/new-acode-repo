@@ -5,16 +5,25 @@
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
-export const VER = 'modules/31-career-log.js V1.0.0';
+export const VER = 'modules/31-career-log.js V1.1.0';
+// V1.1.0 | 2026-10-31 | 双海克斯模式分库存 + 只记人工对局：
+//   ① 双海克斯（运行态 enemyAutoHex）与单海克斯分两个 localStorage 库（ming_career_log_5v5_test / _dual），
+//      每条记录带 hexMode 字段，apppendCareerRecord 按 hexMode 路由，getCareerRecords(hexMode) 可单独取某模式；
+//   ② 全自动（full-auto，体检/无人值守）不写库（EXCLUDE_AUTO_LEVELS，想连 auto 也排除加一行即可）；
+//   ③ 新增 getCareerModeCounts() 供 UI 决定切换显示；clearCareerRecords(hexMode) 可只清某模式。
 
 import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 // V2.6.0 起写库前读 GlobalStore.careerLogSuppress（体检会话标记，tests/121 置位）；
 // infra/54 无 DOM 依赖，浏览器/node 两侧都能安全 import
 import { GlobalStore } from '../infra/54-global-store.js';
 
-const LS_KEY = 'ming_career_log_5v5_test';
-const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
+const LS_KEY = 'ming_career_log_5v5_test';          // 单海克斯（普通模式）记录库
+const LS_KEY_DUAL = 'ming_career_log_5v5_dual';     // 双海克斯（六大派海克斯）记录库，与单海克斯分库存
+const META_KEY = 'ming_career_log_5v5_meta';         // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
 export const CAREER_MAX_RECORDS = 200;
+// 自动/人工门槛：只收「有人在场」的对局，全自动（体检/无人值守）不记。
+// 想连 自动(auto) 也排除，把 'auto' 加进下面这个数组即可（一行改动，不碰别处）。
+const EXCLUDE_AUTO_LEVELS = ['full-auto'];
 
 // 元信息：目前只存 dropped（累计被上限挤掉的局数）
 function readMeta() {
@@ -57,10 +66,20 @@ function pickUnits(list) {
 }
 
 // roundSummary 为空 = 回放/从机路径（没有 careerRounds），返回 null 不写库
-export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, report, roundSummary }) {
+// hexMode：'single'（普通单海克斯）/ 'dual'（双海克斯）。优先用入参（测试可注入），
+//   否则读运行态 enemyAutoHex（btnGameEnemyHex 置位）。autoLevel 同理优先入参否则读运行态。
+export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, report, roundSummary, hexMode, autoLevel }) {
     if (!roundSummary || roundSummary.length === 0) return null;
-    // V2.6.0：联机局（人与人）与体检局（full-auto 无人值守，tests/121 置 careerLogSuppress）不写库。
-    //   两类对局与玩家实打不同源，混进生涯记录会把胜率/英雄/海克斯统计全部带歪。
+    // 双海克斯判定：运行态 enemyAutoHex 为 true = 双海克斯模式
+    const hexModeResolved = (hexMode === 'single' || hexMode === 'dual')
+        ? hexMode
+        : (GlobalStore.get('enemyAutoHex') ? 'dual' : 'single');
+    const autoLv = (autoLevel === 'manual' || autoLevel === 'auto' || autoLevel === 'full-auto')
+        ? autoLevel
+        : (GlobalStore.get('autoLevel') || 'auto');
+    // 全自动（体检/无人值守）不写库：与玩家实打不同源，混进来会污染全部统计。
+    // 联机局（人与人）同样不记；careerLogSuppress 仍兜底（tests/121 V6.9.1 置位）。
+    if (EXCLUDE_AUTO_LEVELS.includes(autoLv)) return null;
     if (mode === 'pvp') return null;
     try { if (GlobalStore.get('careerLogSuppress')) return null; } catch (e) {}
     return {
@@ -68,6 +87,8 @@ export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, 
         id: `s${stage}-${Date.now().toString(36)}`,
         ts: Date.now(),
         stage, mode, seed,
+        hexMode: hexModeResolved,
+        autoLevel: autoLv,
         winner, rounds,
         hex: (hexKeys || []).slice(),
         ally: pickUnits(report && report.ally),
@@ -76,26 +97,37 @@ export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, 
     };
 }
 
-export function getCareerRecords() {
+// hexMode：'single' / 'dual' / 省略=合并两库（兼容旧库 + 跨模式汇总视图）
+function readKey(key) {
     try {
-        const raw = localStorage.getItem(LS_KEY);
+        const raw = localStorage.getItem(key);
         if (!raw) return [];
         const arr = JSON.parse(raw);
-        // V2.6.0：存量联机局读取侧剔除（写入侧已停写，这里兜住历史库），所有统计/导出统一口径
+        // V2.6.0：存量联机局读取侧剔除（写入侧已停写，这里兜住历史库）
         return (Array.isArray(arr) ? arr : []).filter(r => r && r.mode !== 'pvp');
     } catch (e) { return []; }
+}
+export function getCareerRecords(hexMode) {
+    if (hexMode === 'single') return readKey(LS_KEY);
+    if (hexMode === 'dual') return readKey(LS_KEY_DUAL);
+    return readKey(LS_KEY).concat(readKey(LS_KEY_DUAL));
+}
+// 两个模式各自有多少局（供 UI 决定要不要显示「双海克斯」切换、各自标签）
+export function getCareerModeCounts() {
+    return { single: readKey(LS_KEY).length, dual: readKey(LS_KEY_DUAL).length };
 }
 
 export function appendCareerRecord(record) {
     if (!record) return false;
+    const key = (record.hexMode === 'dual') ? LS_KEY_DUAL : LS_KEY;  // 按模式分库存
     try {
-        const arr = getCareerRecords();
+        const arr = readKey(key);
         arr.push(record);
         // V1.4.0：超上限时把挤掉的局数记下来。旧版静默 shift，
         //   跑久了会以为「总共就 200 局」，而实际打过 600 局、丢了 400 局，趋势分析全错。
         let dropped = 0;
         while (arr.length > CAREER_MAX_RECORDS) { arr.shift(); dropped++; }
-        localStorage.setItem(LS_KEY, JSON.stringify(arr));
+        localStorage.setItem(key, JSON.stringify(arr));
         if (dropped) {
             const meta = readMeta();
             meta.dropped = (meta.dropped || 0) + dropped;
@@ -105,10 +137,11 @@ export function appendCareerRecord(record) {
     } catch (e) { return false; }
 }
 
-export function clearCareerRecords() {
+export function clearCareerRecords(hexMode) {
     try {
-        localStorage.removeItem(LS_KEY);
-        localStorage.removeItem(META_KEY);   // 清空时连「已丢弃计数」一起清，否则下次开始就带着旧账
+        if (hexMode === 'single' || hexMode == null) localStorage.removeItem(LS_KEY);
+        if (hexMode === 'dual' || hexMode == null) localStorage.removeItem(LS_KEY_DUAL);
+        if (hexMode == null) localStorage.removeItem(META_KEY);   // 全清时连「已丢弃计数」一起清
         return true;
     } catch (e) { return false; }
 }
