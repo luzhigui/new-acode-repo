@@ -1,3 +1,6 @@
+// V1.25.0 | 2026-10-31 夜间第 163 轮：OBSERVES 挂「信号通道守门（探针存活 + fact 藏匿点）」
+//     tests/signal-channel-guard.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
+//     新增/订正均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
 // V1.24.0 | 2026-10-31 夜间第 162 轮：OBSERVES 挂「海克斯分库启动链守门」tests/hex-boot-chain-guard.mjs
 //   （★ 上游把小昭.hexEnhance 从 content/200 整段迁到 content/201，并把 getSkillParams 改成
 //     「只认 201、缺段即抛、不允许回落」，但**没给任何消费方补 loadHexEnhanceData** —— 本轮开场
@@ -70,7 +73,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.24.0';
+export const VER = 'tests/run-all.mjs V1.25.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -225,7 +228,19 @@ const OBSERVES = [
     //     「干净树本就不发射」的结论；兄分支走 forceXiaoZhao=brother，根本不需要 forceChengKun。
     //     本件三段：静态自证发射点 + 定向扫描 + ★ 信号通道取证（信号零触发时结论一律判 UNKNOWN，
     //     不许拿零命中当"不可达"证据）。挂观察项不改分母，同上。
-    { name: '兄分支惑心定向取证', script: 'tests/phantom-confuse-brother-case.mjs', args: [] }
+    { name: '兄分支惑心定向取证', script: 'tests/phantom-confuse-brother-case.mjs', args: [] },
+    // V1.25.0 | 2026-10-31 夜间第 163 轮：node 侧信号通道守门 + fact 藏匿点体检（新增）。
+    //   ★ 本轮连挖两个「测量口径错误」，两个都差点变成「按死代码核销」的依据：
+    //     (1) 信号探针：上一次版在开头 eventBus.on 一次，而引擎每回合 eventBus.clearAll()
+    //         （core/11battle-round.js:142 + core/06battle-runner.js 顶部注释）⇒ 计数恒 0，
+    //         上轮据此推断「node 回放通道不发 BEFORE_SELECT_TARGET」（疑点乙）。本轮换成
+    //         tests/_lib/signal-probe.mjs 的跨回合存活探针后实测 42 场发 3443 次 ⇒ 疑点乙证伪、撤回。
+    //     (2) fact 藏匿点：幻影 fact 挂在 attackFact.data.phantomFact，与 data.entries 并列、
+    //         不在 entries 里 ⇒ 全仓库扫 fact 的脚本一条都没看见（本件 ③ 点名四个扫描器）。
+    //         补上前：兄分支/成昆分支皆「0 次」；补上后实测 **107 / 96 次** ⇒ 发射点活得好好的，
+    //         phantomConfuse 须由 ⑤b-2 挪进 ⑤b-3「定向已覆盖·严禁按死代码核销」。
+    //   本件防的是同一款病的复发面：**不是产品没有，是我们没接到**。挂观察项不改分母，同上。
+    { name: '信号通道守门(探针/fact藏匿点)', script: 'tests/signal-channel-guard.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

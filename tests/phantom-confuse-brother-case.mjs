@@ -25,9 +25,22 @@
 //                    即使信号真发了也恒假（与挂账一「兄永久海克斯」同源，属主代码待拍板项，本件不代改）。
 //         疑点乙 —— node 侧回放通道是否根本不发 BEFORE_SELECT_TARGET（若是，则所有走该信号的分支
 //                    在 node 侧都无法取证，覆盖面口径要重新评估）。
-//     棘轮：① 信号 > 0 且进入次数 ≥ 下限、命中 = 0 ⇒ 才允许下「不可达」结论（红，提核销）；
-//           ② 命中 > 0 ⇒ 链条成立，phantomConfuse 须从 ⑤b-2 挪进 ⑤b-3（本件只点名，不代改 census）。
-export const VER = 'tests/phantom-confuse-brother-case.mjs V1.0.0';
+//     棘轮：① 探针本体自检必过（不过 ⇒ 计数属测量错误，不许下任何结论）；
+//           ② 命中 > 0 ⇒ 链条成立，phantomConfuse 须从 ⑤b-2 挪进 ⑤b-3（本件只点名，不代改 census）；
+//           ③ 命中 = 0 且信号通道确认通 ⇒ **不许提核销**：先把进次数走到下限再说（见 V1.1.0 结论逻辑）。
+//
+// V1.1.0 | 2026-10-31 夜间第 163 轮：★ 段三重写 —— 上轮的「疑点乙」是**测量口径错误**，本轮证伪。
+//   上轮段三在 import 阶段 eventBus.on 注册一次，读出 BEFORE_SELECT_TARGET 零触发。
+//   但引擎 installRoundMechanics 每回合 eventBus.clearAll()（core/11battle-round.js:142；core/06battle-runner.js
+//   顶部注释明写「页面级 eventBus 监听器活不过第一回合」）⇒ 探针在**第一次攻击之前**就被清掉，计数恒为 0。
+//   换成 tests/_lib/signal-probe.mjs 的跨回合存活探针（每 step ensure 重登，on 自带去重）后：
+//   42 场实测该信号**发 3443 次**（均 82 次/场），探针被重登 566 次 —— 信号一直在发，被清掉的是探针自己。
+//   ⇒ 疑点乙不成立，撤回：node 侧回放通道正常发 BEFORE_SELECT_TARGET，⑤b 覆盖面口径不必重估。
+//   同一套装新增「逐层剥前置」计数（①②③⑤ 四道前置各数一层），于是首次能量化一个关键矛盾：
+//   全前置就绪 N 次而期望命中 ≈ 0.2N 次却恒 0 ⇒ 这是「该发没发」，不是「结构不可达」，
+//   **结论方向反转**：由「可提核销（当死代码删）」改为「疑似隐匿失效（疑点甲）」，
+//   删掉一条还在服役的发射点比留着它危险得多，故本件在这个最容易被误判的档位上选择把它**按住不核销**。
+export const VER = 'tests/phantom-confuse-brother-case.mjs V1.1.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -114,18 +127,54 @@ await loadHexEnhanceData();
 
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
-// 段三探针：独立数 BEFORE_SELECT_TARGET 信号（晚于兄组件注册 ⇒ 只观测，不干扰它的判定）
-let sigCount = 0, sigEnemy = 0, sigEnemyWithPerm = 0;
-let curBro = null;   // 本回合的兄单位（可能每回合 clone，故每回合重指）
-eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, 'PHANTOM_CONFUSE_PROBE', (data) => {
-    sigCount++;
-    if (data && data.unit && data.unit.camp === CAMP_TYPES.ENEMY) {
-        sigEnemy++;
-        const perm = !!(curBro && Array.isArray(curBro.state && curBro.state._permanentBuffs)
-            && curBro.state._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL));
-        if (perm) sigEnemyWithPerm++;
+// 段三探针 —— 第 163 轮用 tests/_lib/signal-probe.mjs 重写（★ 第 162 轮这一段的写法是错的）：
+//   ★ 老写法在开头 eventBus.on 一次。但引擎 installRoundMechanics 里每回合 eventBus.clearAll()
+//     （core/11battle-round.js:142，且 core/06battle-runner.js 顶部注释明写「页面级监听器活不过第一回合」）
+//     ⇒ 探针在第一次攻击之前就被清掉，计数**恒为 0**，于是读出「BEFORE_SELECT_TARGET 零触发」
+//     并推断「node 侧回放通道根本不发该信号」（第 162 轮疑点乙）。本轮已在 signal-channel-guard 里证伪：同一写法换成
+//     「每 step 重登」后实测 42 场发 3443 次（均 82 次/场）——信号一直在发，被清掉的是探针自己。
+//   现写法：每 step probe.ensure() 重登（on 自带按 priority+key 去重，同回合重复调用不堆积），主代码一行不改。
+const { createSignalProbe, isAliveProbe } = await import('./_lib/signal-probe.mjs');
+let curBro = null;   // 本回合的兄单位（每回合 clone，故每回合重指）—— 段二回合计数的兜底
+const cnt = { enemy: 0, permLive: 0, noEnemyMc: 0, hasFakeTarget: 0 };
+// 疑点甲的机制验证（本轮新增）：install 期捕获的引用 = 回合**开始时**那批对象里的兄。
+//   若信号时刻（同回合内）拿到的兄不是同一个对象 ⇒ 闭包读的确实是另一个对象的 _permanentBuffs。
+let roundStartBro = null;
+const idc = { refMismatch: 0, startNoPermButLiveYes: 0, startHasPerm: 0 };
+function permHas(u, key) {
+    return !!(u && Array.isArray(u.state && u.state._permanentBuffs)
+        && u.state._permanentBuffs.some(b => b.key === key));
+}
+const probe = createSignalProbe({
+    bus: eventBus, SIGNAL_TYPES,
+    signal: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
+    priority: 9999, key: 'PHANTOM_CONFUSE_PROBE_V2',
+    onData: (data) => {
+        if (!data || !data.unit || data.unit.camp !== CAMP_TYPES.ENEMY) return;
+        cnt.enemy++;
+        // 现场按发射点五道前置逐条数（用信号带出来的存活对象，**不复用 install 期闭包**）
+        //   发点源码 modules/27elite-mingjiao-xiaozhao-brother.js submitSpiderMindControlDeclaration：
+        //   ① data.unit.camp === ENEMY  ② brother.alive && _permanentBuffs 含 MIND_CONTROL
+        //   ③ 目标方 _activeBuffs 无 MIND_CONTROL  ④ rng.next() < hitChance(0.2)  ⑤ allySide 有误伤候选
+        const enemyTeamSide = data.enemySide || [];      // 兄所在方（敌方攻击时的"敌方"... 即受攻击的一方）
+        const bro = enemyTeamSide.find(u => u.isXiaoZhaoBrother && u.alive);
+        const perm = !!(bro && Array.isArray(bro.state && bro.state._permanentBuffs)
+            && bro.state._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL));
+        if (!perm) return;
+        cnt.permLive++;
+        // 机制取证：同回合内的兄 与 回合开始那批对象里的兄，是不是同一个对象？
+        if (bro && roundStartBro && bro !== roundStartBro) idc.refMismatch++;
+        if (bro && roundStartBro && !permHas(roundStartBro, BUFF_TYPES.MIND_CONTROL)) idc.startNoPermButLiveYes++;
+        if (bro && roundStartBro && permHas(roundStartBro, BUFF_TYPES.MIND_CONTROL)) idc.startHasPerm++;
+        if (hasActiveBuff(enemyTeamSide, BUFF_TYPES.MIND_CONTROL)) return;
+        cnt.noEnemyMc++;
+        const fakeTarget = (data.allySide || []).find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
+        if (!fakeTarget) return;
+        cnt.hasFakeTarget++;   // ★ ①②③⑤ 全过，只差 ④ 那一掷
     }
 });
+// 反向自检：探针本体能不能收到信号。收不到 ⇒ 下面任何「零触发」都属测量错误，不可采信。
+const probeAlive = isAliveProbe(eventBus, '__PHANTOM_CONFUSE_PROBE_SELFTEST__', 'PHANTOM_CONFUSE_PROBE_SELFTEST');
 
 function hasActiveBuff(side, key) {
     const arr = side && side._activeBuffs;
@@ -150,6 +199,7 @@ function runBattle(seed, stage) {
         // 进入次数（保守下界）：本回合「兄存活 + 持永久惑心 + 敌方无生效惑心」整回合只计 1 次
         const bro = battleState.ally.find(u => u.isXiaoZhaoBrother && u.alive);
         curBro = bro;
+        roundStartBro = bro;   // install 期捕获的就是这一批对象里的兄（每回合装机一次）
         const perm = !!(bro && Array.isArray(bro.state._permanentBuffs)
             && bro.state._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL));
         if (perm && !hasActiveBuff(battleState.enemy, BUFF_TYPES.MIND_CONTROL)) {
@@ -157,6 +207,7 @@ function runBattle(seed, stage) {
             if (permBattles === 0) permBattles = 1;
         }
         for (const step of createRoundStepper(battleState)) {
+            probe.ensure();          // ★ 每 step 重登，躲过引擎每回合的 eventBus.clearAll()
             lastStep = step;
             const collect = (f) => {
                 if (!f || !f.factType || !f.data) return;
@@ -169,12 +220,17 @@ function runBattle(seed, stage) {
                     }
                 }
             };
-            for (const f of (step.log || [])) {
-                collect(f);
-                if (f && f.factType === FT.ATTACK && f.data && Array.isArray(f.data.entries)) {
-                    for (const e of f.data.entries) collect(e);
+                for (const f of (step.log || [])) {
+                    collect(f);
+                    if (f && f.factType === FT.ATTACK && f.data) {
+                        // ★ 第 163 轮补的洞：幻影 fact 挂在 attackFact.data.phantomFact，
+                        //   **不在 data.entries 里**（core/12battle-attack-chain.js buildAttackGroup）。
+                        //   老口径只扫 log 顶层 + data.entries ⇒ phantom 类命中根本看不见，
+                        //   「兄分支 0 次 / 成昆分支 0 次」很可能是**没看到**，不是**没发生**。
+                        collect(f.data.phantomFact);
+                        if (Array.isArray(f.data.entries)) for (const e of f.data.entries) collect(e);
+                    }
                 }
-            }
             if (step.winner) winner = step.winner;
         }
         if (winner || !lastStep) break;
@@ -209,32 +265,40 @@ console.log('--- 段二 定向扫描（forceXiaoZhao=brother，' + battles + ' �
 console.log('  进入「兄持永久惑心且敌方无生效惑心」回合 ' + enter + ' 次（其中 ' + permBattles + ' 场真的拿到永久惑心）');
 console.log('  PHANTOM_CONFUSE：兄分支（deceiverIsSpider）命中 ' + hitsSpider + ' 次；其余（成昆分支）' + hitsOther + ' 次');
 if (allSamples.length) console.log('  兄分支样例 ' + JSON.stringify(allSamples.slice(0, 4)));
-console.log('--- 段三 信号通道取证 ---');
-console.log('  BEFORE_SELECT_TARGET 信号 ' + sigCount + ' 次（敌方攻击 ' + sigEnemy + ' 次，其中兄正持永久惑心 ' + sigEnemyWithPerm + ' 次）');
+console.log('--- 段三 信号通道取证（第 163 轮改用跨回合存活探针）---');
+console.log('  探针本体自检 ' + (probeAlive ? '✅ 可用' : '❌ 收不到自检信号 —— 下列计数全部不可采信'));
+console.log('  BEFORE_SELECT_TARGET 信号 ' + probe.count + ' 次（探针跨回合重登 ' + probe.registrations + ' 次 ⇒ 引擎每回合 clearAll 属实）');
+console.log('  逐层剥前置：敌方攻击 ' + cnt.enemy + ' 次 → 兄持永久惑心 ' + cnt.permLive
+    + ' 次 → 目标方无生效惑心 ' + cnt.noEnemyMc + ' 次 → 误伤候选存在（全前置就绪）' + cnt.hasFakeTarget + ' 次');
+console.log('  ★ 全前置就绪后只差 rng.next() < hitChance(0.2) 那一掷 ⇒ 期望命中约 '
+    + (cnt.hasFakeTarget * 0.2).toFixed(1) + ' 次，实测 ' + hitsSpider + ' 次');
+console.log('  疑点甲机制取证：信号时刻的兄与回合开始对象**不同引用** ' + idc.refMismatch + ' 次；'
+    + '回调时刻有永久惑心而回合开始对象**没有** ' + idc.startNoPermButLiveYes + ' 次；两边都有 ' + idc.startHasPerm + ' 次');
 
 if (SCAN_ONLY) {
     console.log('（--scan 模式：不做棘轮断言）');
 } else {
     const fails = [];
     if (!sp.ok) fails.push('段一 静态自证未通过（结论前提失效，须人工复核）：' + sp.reasons.join('；'));
+    if (!probeAlive) fails.push('段三 探针本体自检不过 ⇒ 信号计数属测量错误，不可据此下任何结论（先把探针接上再谈）');
 
     console.log('--- 结论 ---');
-    if (sigCount === 0) {
-        // ★ 通道缺口：发射点压根没被走到，零命中不构成任何结论（不许拿它当"不可达"证据）
-        console.log('  ⚠️ UNKNOWN（通道缺口，不提核销）：node 侧回放通道一次都没发 BEFORE_SELECT_TARGET，');
-        console.log('     兄分支发射点在本次扫描里**从未被走到** ⇒ 命中 0 既不能证死也不能证活（第 161 轮立的规矩）。');
-        console.log('     ★ 但第 160 轮给 phantomConfuse 下的「要成昆在队 ⇒ 干净树本就不发射」结论**已不成立一半**：');
-        console.log('       它有两个发射点，兄分支走 forceXiaoZhao=brother，不需要 forceChengKun —— 结论须订正为「双发射点」。');
-        console.log('     待拍板：疑点甲（安装期捕获 brother 引用，跨回合 clone ⇒ 判据可能恒假）；疑点乙（node 回放通道是否发此信号）。');
+    if (probe.count === 0) {
+        console.log('  ⚠️ UNKNOWN（通道缺口，不提核销）：本扫描里 BEFORE_SELECT_TARGET 一次没观测到 ⇒ 发射点从未被走到。');
+        console.log('     ★ 注意：若探针本体自检已过而计数仍 0，则这是**真的**通道缺口（与第 162 轮的不是一回事）。');
     } else if (hitsSpider > 0) {
-        console.log('  ✅ 兄分支链条成立：进入 ' + enter + ' 回合 / 敌方攻击 ' + sigEnemy + ' 次，命中 ' + hitsSpider + ' 次');
+        console.log('  ✅ 兄分支链条成立：全前置就绪 ' + cnt.hasFakeTarget + ' 次 / 命中 ' + hitsSpider + ' 次');
         console.log('     ⇒ phantomConfuse **不是死代码**，须从 fact-emission-census 的 ⑤b-2 挪进 ⑤b-3（本件只点名，不代改）');
-    } else if (sigEnemyWithPerm >= MIN_ENTER) {
-        fails.push('兄分支信号已走到（兄持永久惑心的敌方攻击 ' + sigEnemyWithPerm + ' 次 ≥ ' + MIN_ENTER
-            + '）却恒零命中 ⇒ 该发射点不可达成立，可按死代码提核销（只许删这一处，须拍板）');
+    } else if (cnt.hasFakeTarget >= MIN_ENTER) {
+        // ★★ 前置全服却零命中：与 0.2 的概率严重矛盾（期望 ' + n*0.2 + ' 次）
+        fails.push('★ 疑似隐匿失效，不是结构不可达：信号走到 ' + cnt.hasFakeTarget + ' 次且①②③⑤四道前置'
+            + '全部就绪，期望命中约 ' + (cnt.hasFakeTarget * 0.2).toFixed(1) + ' 次却恒为 0'
+            + ' ⇒ 只有两解：(甲) 发射点闭包用的是 install 期捕获的 brother 引用，其 _permanentBuffs 恒为空'
+            + '（即第 162 轮疑点甲成立）；(乙) 上游在更早处短路。**两解都禁止按死代码核销**，须先定位。');
+        console.log('  ❌ 见上：本是「该发没发」，不是「不可达」。详见 fail 明细。');
     } else {
-        fails.push('覆盖棘轮未达下限：兄持永久惑心的敌方攻击 ' + sigEnemyWithPerm + ' 次 < ' + MIN_ENTER
-            + ' ⇒ 零命中不构成「不可达」证据，须先补样本（不许拿零命中当结论）');
+        fails.push('覆盖棘轮未达下限：全前置就绪 ' + cnt.hasFakeTarget + ' 次 < ' + MIN_ENTER
+            + ' ⇒ 零命中不构成任何结论，须先补样本（第 161 轮立的规矩：不许拿零命中当结论）');
     }
     for (const f of fails) console.log('  ❌ ' + f);
     if (fails.length) process.exitCode = 1;

@@ -44,7 +44,7 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.9.0';
+export const VER = 'tests/rules-replay.mjs V6.10.0';
 // V6.9.0 | 2026-10-31 第 160 轮：定向覆盖通道从「只认 forceXiaoZhao」泛化为白名单多键，
 //   并新增 4 场 forceWei（韦一笑）定向场次 —— 补的是「判据分支级空转自检」那条挂了几十轮的老红。
 //   取证（/tmp 探针，不入库；结论以本文件实测为准）：
@@ -285,6 +285,10 @@ function assertInvariants(units, round, seed, stage) {
     }
 }
 
+// V6.10.0 | 2026-10-31 夜间第 163 轮：collectFacts 补 f.data.phantomFact（core/12 buildAttackGroup 挂点）。
+//   此前规则的第 7 参 facts 里根本没有幻影 fact ⇒ 任何靠 PHANTOM_* 认领战报的规则都**恒不可命中**，
+//   一旦这类规则存在，它就会以「对照器兜住」或压根不认领的面目悄悄假绿，没人察觉。本轮补的是同一款病：
+//   不是规则没长牙，是喂给它的战报少了半拉。
 // Step 0（2026-10-08）：把每场原始 fact 流（含嵌套 data.entries / entries）递归展平后也喂给规则，
 //   作为 rule.test 的第 7 参 facts。此前规则只看渲染文案（renderLog 产物），renderFn:null 的
 //   数值声明 fact 完全不可见 → 那 22 条「对照器兜底」的根因。喂入后规则可读 atkDelta/ratio/delta
@@ -293,6 +297,8 @@ function collectFacts(arr, out) {
     for (const f of arr || []) {
         if (!f || !f.factType) continue;
         out.push(f);
+        // ★ 第 163 轮补：幻影 fact 挂在 f.data.phantomFact（core/12 buildAttackGroup），与 entries 并列
+        if (f.data && f.data.phantomFact) collectFacts([f.data.phantomFact], out);
         collectFacts(f.data && f.data.entries, out);
         collectFacts(f.entries, out);
     }

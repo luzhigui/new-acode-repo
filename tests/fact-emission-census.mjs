@@ -44,7 +44,12 @@ import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
-const VER = 'tests/fact-emission-census.mjs V1.5.0';
+const VER = 'tests/fact-emission-census.mjs V1.6.0';
+// V1.6.0 | 2026-10-31 夜间第 163 轮：walkFacts 补第三处 fact 藏匿点 attackFact.data.phantomFact
+//   （core/12 buildAttackGroup 里它与 data.entries 并列，不在 entries 里）。★ 漏这一层的代价：
+//   PHANTOM_CONFUSE / PHANTOM_REVEAL 的发射次数恒读成 0 ⇒ 会被归进 ⑤b「稀有 spec」甚至顺手建议核销。
+//   本等量对比：兄分支补前 0 次 / 补后 107 次；成昆分支补前 0 次 / 补后 96 次 —— 发射点活得好好的。
+//   ⇒ phantomConfuse 由 ⑤b-2 移入 ⑤b-3「定向已覆盖·严禁按死代码核销」（见 DIRECTED_COVERED_SPECS）。
 // V1.5.0 | 2026-10-31 第 161 轮：⑤b 二分升三分——新增 ⑤b-3「定向已覆盖（有定向用例实证能发射，
 //   自然流仍不发射）」，并把 xinHunDeath 从 ⑤b-2 移入 ⑤b-3。★ 这不是放宽，是**纠错**：
 //   tests/xinhun-death-targeted-case.mjs 段二实测 XIN_HUN_DEATH 命中 5 次（钳血后链条成立），
@@ -107,11 +112,16 @@ const DIRECTED_CASES = [
 ];
 // 干净树下**结构性不发射**的 spec（前置非样本问题，补场次补不出来，需变异树定向用例兜底）。
 //   登记依据见各条注释里的主代码位置；★ 这份名单是白名单式收口：新增条目必须带主代码行号。
+// ★ 第 163 轮起的两条**摘牌记录**（别再登记回来 —— 登记当初的依据已作废）：
+//   · phantomReveal / phantomConfuse：此前之所以"零发射"，是**采集漏层**而非分支不通 ——
+//     幻影 fact 挂在 attackFact.data.phantomFact（core/12 buildAttackGroup），与 data.entries 并列、
+//     不在 entries 里，全仓库扫 fact 的脚本一条都没看那一层（本轮由 tests/signal-channel-guard.mjs ③ 守着）。
+//     补齐采集后：自然流（218 场 / 97781 fact）两个 spec 都正常发射，兄分支 107 次、成昆分支 96 次。
+//     ⇒ 既不是 ⑤b-2 的"结构性不发射"，也不是 ⑤b-3 的"定向才覆盖"，它们**压根不稀有**，
+//       按任何口径都不许进核销候选；若哪天再次零发射，先去查藏匿点，不要先疑心分支。
 const NON_SAMPLE_SPECS = new Map([
     ['xiaoZhaoHorse', '妹永久巨马阵（HORSE_FORMATION in _permanentBuffs）才召，modules/27elite-mingjiao-xiaozhao-brother.js L244-250'],
     ['xiaoZhaoCarryApply', '妹永久 carry（CARRY in _permanentBuffs）才挂，同文件 L257-267'],
-    ['phantomReveal', '成昆幻影（chengkun 在队），modules/25elite-imperial.js L187；29battle-init 无 forceChengKun'],
-    ['phantomConfuse', '同上 L196（另有小昭·妹分支 27elite-mingjiao-xiaozhao-brother.js L198）'],
     ['spiderDeadTarget', '蛛袭时目标已死才发，modules/20elite-skills.js L225，属收尾帧竞态；'
         + '第 161 轮已由 tests/spider-dead-target-case.mjs 实证：349 次进入目标池 / SPIDER_DEAD_TARGET 恒 0 次'
         + ' ⇒ 静态不可达成立（过滤式含 u.alive 且中途无人改 alive），可提核销']
@@ -121,7 +131,7 @@ const NON_SAMPLE_SPECS = new Map([
 const DIRECTED_COVERED_SPECS = new Map([
     ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226；'
         + '第 161 轮复核 tests/xinhun-death-targeted-case.mjs 段二（钳血 10 场 @ stage 4）实测：'
-        + 'XIN_HUN 触发 5 次 / XIN_HUN_DEATH 命中 5 次 ⇒ 链条成立，挂账一的「XIN_HUN 时序核销」应撤销']
+        + 'XIN_HUN 触发 5 次 / XIN_HUN_DEATH 命中 5 次 ⇒ 链条成立，挂账一的「XIN_HUN 时序核销」应撤销'],
 ]);
 
 // 取样规模闸门（2026-10-27 夜间第 143 轮新增）。实测基准：210 场 / 101869 条 fact（30 seeds × 7 stages）。
@@ -147,10 +157,14 @@ function hasField(fact, rf) {
 }
 
 // 递归收集 fact（顶层 + attack-group data.entries 嵌套层 —— 与死字段扫描器同口径，LEECH 声明在嵌套层）
+// ★ 第 163 轮补一层：幻影 fact 挂在 attackFact.data.phantomFact，与 entries **并列**、不在 entries 里
+//   （core/12battle-attack-chain.js buildAttackGroup）。漏这一层 ⇒ PHANTOM_CONFUSE / PHANTOM_REVEAL
+//   的发射次数恒读成 0，进而可能被当成死代码。 同一款病：不是产品没有，是我们没接到。
 function* walkFacts(nodes) {
     for (const n of (nodes || [])) {
         if (!n || typeof n !== 'object') continue;
         if (n.factType) yield n;
+        if (n.data && n.data.phantomFact) yield* walkFacts([n.data.phantomFact]);
         const inner = (n.data && Array.isArray(n.data.entries)) ? n.data.entries
             : (Array.isArray(n.entries) ? n.entries : null);
         if (inner) yield* walkFacts(inner);

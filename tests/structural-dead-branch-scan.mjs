@@ -1,4 +1,7 @@
-// tests/structural-dead-branch-scan.mjs | V1.0.1 | 2026-10-23 第 123 轮
+// tests/structural-dead-branch-scan.mjs | V1.1.0 | 2026-10-31 夜间第 163 轮
+//   V1.1.0：walkFacts 补 attackFact.data.phantomFact 藏匿点（同 fact-emission-census）。
+//   ★ 本件是「结构不可达 ⇒ 可按死代码核销」的唯一依据，漏看这一层就是拿零命中建议删活代码，
+//     故此处必须补；且此后若 phantomFact 再次挪位，本件的零命中结论同样自动作废（由 signal-channel-guard ③ 点名）。
 // V1.0.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 九份拷贝收口为唯一来源（_lib/buff-picker.mjs），
 // 结构不可达分支扫描（静态错位通道 + 动态零命中通道）——销挂账①「三条结构不可达结论」与挂账③的合流产物。
 //
@@ -34,7 +37,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/structural-dead-branch-scan.mjs V1.0.1';
+export const VER = 'tests/structural-dead-branch-scan.mjs V1.1.0';
 
 const argv = process.argv.slice(2);
 const argOf = (k, d) => { const i = argv.indexOf(k); return (i !== -1 && argv[i + 1]) ? Number(argv[i + 1]) : d; };
@@ -168,10 +171,14 @@ const BRANCH_FINGERPRINTS = [
 // 递归收集 fact：声明类 fact（嗜血狂刀 / 热血奋战 / 溅射 …）由 core/10 L303-305、L382-384
 //   塞进 attack-group 的 `data.entries` 里，**不在 step.log 顶层**。只看顶层会把整批嵌套声明全部漏掉
 //   （V1.0.0 首跑即因此把 bloodthirstLeech 判成「父 fact 从未发射」，实为收集漏层，非代码不可达）。
+// ★ 第 163 轮补第三处藏匿点：幻影 fact 挂在 attackFact.data.phantomFact（core/12 buildAttackGroup），
+//   与 entries 并列、不在 entries 里。★ 本件是「结构不可达 ⇒ 可按死代码核销」的唯一依据，
+//   漏这一层的代价是把一条活发射点读成零命中并建议删掉 —— 故必须在这里补上，而且不许补了又漏 —— phantomFact 位置一旦再挪，本件的零命中结论同样作废。
 function* walkFacts(nodes) {
     for (const n of (nodes || [])) {
         if (!n || typeof n !== 'object') continue;
         if (n.factType) yield n;
+        if (n.data && n.data.phantomFact) yield* walkFacts([n.data.phantomFact]);
         const inner = (n.data && Array.isArray(n.data.entries)) ? n.data.entries
             : (Array.isArray(n.entries) ? n.entries : null);
         if (inner) yield* walkFacts(inner);
