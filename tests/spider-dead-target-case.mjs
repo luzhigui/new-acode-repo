@@ -1,4 +1,4 @@
-// tests/spider-dead-target-case.mjs | V1.0.0 | 2026-10-31 夜间第 161 轮
+// tests/spider-dead-target-case.mjs | V1.1.0 | 2026-10-31 夜间第 161 轮 · 第 164 轮补层 （第 164 轮：fact 采集补 data.phantomFact 层 —— 幻影 fact 与 data.entries 并列、不在 entries 里，原两层口径对它恒不可见；只补视野、不缩面、不改判据）
 // SPIDER_DEAD_TARGET（蛛袭时目标已死 · 收尾帧竞态分支）定向取证用例
 //
 // 为什么单独为它写一个用例（第 160 轮的【最高·下轮】交办）：
@@ -39,7 +39,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/spider-dead-target-case.mjs V1.0.0';
+export const VER = 'tests/spider-dead-target-case.mjs V1.1.0';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 const SEEDS_N = Number(process.env.SEEDS_N || 20);
@@ -153,8 +153,12 @@ async function main() {
                 };
                 for (const f of (step.log || [])) {
                     collect(f);
-                    if (f && f.factType === FT.ATTACK && f.data && Array.isArray(f.data.entries)) {
-                        for (const e of f.data.entries) collect(e);
+                    if (f && f.factType === FT.ATTACK && f.data) {
+
+                        // ★ 第 164 轮补层：幻影类 fact 挂在 data.phantomFact，与 data.entries 并列**而不在 entries 里**
+                        //   ⇒ 只扫 entries 的写法对它恒不可见（第 163 轮在 census / rules-replay 里已实锤）
+                        if (f.data.phantomFact) collect(f.data.phantomFact);
+                        if (Array.isArray(f.data.entries)) for (const e of f.data.entries) collect(e);
                     }
                 }
                 if (step.winner) winner = step.winner;

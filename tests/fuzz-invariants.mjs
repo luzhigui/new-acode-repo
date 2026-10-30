@@ -11,7 +11,7 @@
 // 口径：硬伤（高可信）去重后逐条列、退出码 1；可疑项只计数+样本，需人工定性，不单独判红。
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/fuzz-invariants.mjs V1.0.1';
+export const VER = 'tests/fuzz-invariants.mjs V1.0.2';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
 globalThis.fetch = async (url) => {
@@ -65,6 +65,10 @@ function walkFacts(arr, cb, depth) {
         if (!f || typeof f !== 'object') continue;
         cb(f);
         if (depth < 6) {
+
+            // ★ 第 164 轮补层：幻影类 fact 挂在 data.phantomFact，与 data.entries 并列**而不在 entries 里**
+            //   ⇒ 只扫 entries 的写法对它恒不可见（第 163 轮在 census / rules-replay 里已实锤）
+            if (f.data && f.data.phantomFact) walkFacts([f.data.phantomFact], cb, depth + 1);
             walkFacts(f.data && f.data.entries, cb, depth + 1);
             walkFacts(f.entries, cb, depth + 1);
         }

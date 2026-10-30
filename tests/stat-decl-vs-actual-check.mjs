@@ -1,3 +1,4 @@
+// V3.12.0 | 2026-10-31 第 164 轮：嵌套 fact 采集收口：32 处 f.data.entries 递归统一改走 nestedFacts()，一并吐出 data.phantomFact 层
 // V3.9.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
 //         handler 是两条契约共用的唯一落地口，主代码记账一行同时激活两者（转交见矩阵第 84 轮节，补前警告态）；
 //          scan-groups 由 22/23 → 23/23 零盲区（endlessBreathCost 曾是唯一账本出现却未绑契约的 group）。
@@ -73,7 +74,20 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.11.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.12.0';
+
+// ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
+//   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
+//   本文件原本 30 处一律只扫 data.entries ⇒ 幻影 fact 恒不可见。本函数一次给出两层
+//   （phantomFact 在前），调用方一行不改即可补上，且**不缩小**原有任何覆盖面。
+function nestedFacts(f) {
+    const d = f && f.data;
+    if (!d) return [];
+    const out = [];
+    if (d.phantomFact) out.push(d.phantomFact);
+    if (Array.isArray(d.entries)) for (const e of d.entries) out.push(e);
+    return out;
+}
 // V3.11.0 | 2026-10-30 第 159 轮：定向覆盖通道泛化为「任意 GlobalStore 强制开关」，补齐 LION_INSPIRE /
 //   SPIDER_MASTERY / SPIDER_TRANSFORM 三条恒空转契约的样本覆盖（对应 A14 / A17 / A21 三颗牙）。
 //   动因：第 158 轮只填了 METEOR_GROWTH 一个洞，剩 3 颗牙的守卫契约仍零触发；该轮留下的判断
@@ -248,7 +262,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -431,7 +445,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -573,7 +587,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -719,7 +733,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -774,7 +788,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -801,7 +815,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -824,7 +838,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -851,7 +865,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -883,7 +897,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -912,7 +926,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -943,7 +957,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -970,7 +984,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1011,7 +1025,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1038,7 +1052,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1063,7 +1077,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1090,7 +1104,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1322,7 +1336,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1349,7 +1363,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1384,7 +1398,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1410,7 +1424,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1441,7 +1455,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1476,7 +1490,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1500,7 +1514,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1532,7 +1546,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1561,7 +1575,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1591,7 +1605,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1623,7 +1637,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1656,7 +1670,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1689,7 +1703,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1715,7 +1729,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1742,7 +1756,7 @@ const CONTRACTS = [
             const scan = (e) => {
                 if (!e) return;
                 if (e.type === 'info' && typeof e.text === 'string' && e.text.indexOf('鹰王威压') !== -1) scanText(e.text);
-                if (e.data && Array.isArray(e.data.entries)) for (const x of e.data.entries) scan(x);
+                for (const x of nestedFacts(e)) scan(x);
                 if (Array.isArray(e.entries)) for (const e2 of e.entries) scan(e2);
             };
             for (const f of stepLog || []) scan(f);
@@ -1769,7 +1783,7 @@ const CONTRACTS = [
                         out.push({ unit: '殷天正', stat: 'def', amount: Number(m[2]) });
                     }
                 }
-                if (e.data && Array.isArray(e.data.entries)) for (const x of e.data.entries) scan(x);
+                for (const x of nestedFacts(e)) scan(x);
                 if (Array.isArray(e.entries)) for (const e2 of e.entries) scan(e2);
             };
             for (const f of stepLog || []) scan(f);

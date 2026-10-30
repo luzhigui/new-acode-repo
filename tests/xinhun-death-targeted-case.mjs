@@ -1,5 +1,10 @@
-// tests/xinhun-death-targeted-case.mjs | V1.0.2 | 2026-10-21 第 112 轮
+// tests/xinhun-death-targeted-case.mjs | V1.0.3 | 2026-10-21 第 112 轮 · 2026-10-31 第 164 轮补层
 // XIN_HUN_DEATH（宋青书·新婚致死）定向最小触发用例 —— 依据第 113 轮沙箱交接规格在主线重写。
+//
+// 第 164 轮：本件的 fact 采集原本**只收 step.log 顶层**（连 data.entries 嵌套层都没进），
+//   幻影 fact（藏在 attackFact.data.phantomFact）与所有组内 fact 对它恒不可见 ⇒
+//   改走公共件 tests/_lib/fact-collect.mjs，顶层 + entries + phantomFact 一次收全。
+//   ★ 只补视野，不缩小任何覆盖面、不改任何判据。
 //
 // 背景（112 轮把 XIN_HUN_DEATH 定为「条件稀有」但只有定性；113 轮沙箱用定向用例把动作项做完）：
 //   自然流里 XIN_HUN_DEATH 几乎不可能命中——content 新婚扣血 hpDeduct 恒为 1，周芷若满血 155，
@@ -37,7 +42,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/xinhun-death-targeted-case.mjs V1.0.2';
+export const VER = 'tests/xinhun-death-targeted-case.mjs V1.0.3';
 
 // 与 stat-decl-vs-actual-check.mjs 同口径的 10 种子（含 12345：沙箱实测矛盾命中种子）
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
@@ -54,6 +59,7 @@ async function main() {
         import('../infra/56-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
+    const { collectFacts } = await import('./_lib/fact-collect.mjs');
     // carry 候选判据与主代码同口径（tickAndPickBuffs 需要，否则 buff 门控机制一场都跑不到）
     const { hasCarryTarget } = await import('../modules/28buff-tools.js');
     
@@ -110,12 +116,14 @@ async function main() {
             for (const step of stepper) {
                 lastStep = step;
                 for (const f of (step.log || [])) {
-                    facts.push(f);
                     if (f.factType === FT.ATTACK && f.data && f.data.attacker && f.data.attacker.uid === songUid) {
                         songAttacks++;
                         songActedThisRound = true;
                     }
                 }
+                // ★ 第 164 轮：改走公共件 —— 顶层 + data.entries + data.phantomFact 一次收全，
+                //   原写法只收顶层（连嵌套层都没进），幻影 fact 与组内 fact 对它恒不可见。
+                collectFacts(step.log, facts);
                 for (const team of [step.ally, step.enemy]) {
                     for (const u of (team || [])) {
                         if (!u) continue;

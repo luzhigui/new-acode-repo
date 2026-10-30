@@ -1,4 +1,4 @@
-// V1.0.0 | 2026-10-31 夜间第 163 轮：node 侧信号通道守门 —— 防「探针自己没接上，却下定论的通道不通」
+// V1.1.0 | 2026-10-31 夜间第 164 轮（③ 名单由 4 个扩到全量 14 个 + kind 分类 + 反向棘轮）：node 侧信号通道守门 —— 防「探针自己没接上，却下定论的通道不通」
 //   由来：第 162 轮 phantom-confuse-brother-case 的段三在 import 阶段注册了一次 BEFORE_SELECT_TARGET
 //   探针，读出「零触发」，据此推断「node 侧回放通道根本不发该信号」，并把「所有走该信号的分支在
 //   node 侧都无法取证、⑤b 那几条非样本缺口的结论都要重估」交人工拍板。
@@ -15,7 +15,7 @@
 //   ★ 这条红线是「测量方法」的红线，不是产品红线：它防的是**拿测量错误当产品缺陷**，
 //     与本轮是否放行任何核销建议无关——它决定的是「我们有没有资格下结论」。
 //   口径：只取证不放宽 —— 本件不改任何判据、不改任何基线、不替任何核销建议站台。
-export const VER = 'tests/signal-channel-guard.mjs V1.0.0';
+export const VER = 'tests/signal-channel-guard.mjs V1.1.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,6 +43,45 @@ const STAGES = [1, 2, 3, 4, 5, 6, 7];
 //   ② 每场下限 1 —— 某一场收 0 次而别场动辄上百，说明探针在那一局被别的东西清掉了（重登姿势仍不够硬）。
 const MIN_EMIT_TOTAL = 500;
 const MIN_EMIT_PER_BATTLE = 1;
+
+// ── ④ 藏匿点穷尽性普查（第 164 轮新增）──────────────────────────────────
+//   第 163 轮补了 phantomFact 一处，第 164 轮把另外 7 个脚本也补了。
+//   但「补了已知的两处」不等于「没有第三处」——★ 这正是同一款病复发的位置：
+//   每补一次都以为补完了，直到某个分支又被读成零命中。
+//   做法：不再假定字段名，运行期遍历每条 fact 的 data 的**每一个 key**，
+//   凡是值里藏着 factType 的（对象 / 数组元素），就把字段名记下来。
+//   ⇒ 若集合里出现 entries / phantomFact 之外的新名字 ⇒ 第三处藏匿点，当场报红点名。
+const KNOWN_SPOTS = new Set(['entries', 'phantomFact']);
+const spotHits = new Map();      // 字段名 -> 命中次数
+const spotSamples = new Map();   // 字段名 -> 样例 factType
+
+function scanHidingSpots(nodes, depth) {
+    if (!Array.isArray(nodes) || depth > 6) return;
+    for (const n of nodes) {
+        if (!n || typeof n !== 'object') continue;
+        const d = n.data;
+        if (d && typeof d === 'object') {
+            for (const k of Object.keys(d)) {
+                const v = d[k];
+                if (!v || typeof v !== 'object') continue;
+                const inner = Array.isArray(v) ? v : [v];
+                let got = 0, sample = '';
+                for (const e of inner) {
+                    if (e && typeof e === 'object' && e.factType) { got++; if (!sample) sample = String(e.factType); }
+                }
+                if (got > 0) {
+                    spotHits.set(k, (spotHits.get(k) || 0) + got);
+                    if (!spotSamples.has(k)) spotSamples.set(k, sample);
+                }
+            }
+        }
+        // 顺着已知两层继续往下翻，才有机会看见更深处的挂点
+        const next = [];
+        if (d && Array.isArray(d.entries)) next.push(...d.entries);
+        if (d && d.phantomFact) next.push(d.phantomFact);
+        if (next.length) scanHidingSpots(next, depth + 1);
+    }
+}
 
 const problems = [];
 const notes = [];
@@ -137,6 +176,7 @@ async function main() {
             while (battleState.round <= MAX_ROUND) {
                 for (const step of createRoundStepper(battleState)) {
                     probe.ensure();                 // ★ 躲过每回合 clearAll 的关键一行
+                    scanHidingSpots(step.log, 0);   // ④ 顺路普查 fact 藏匿点
                     lastStep = step;
                     if (step.winner) winner = step.winner;
                 }
@@ -184,19 +224,109 @@ async function main() {
         if (!ok) problems.push('③ core/12 buildAttackGroup 里找不到 attackFact.data.phantomFact ⇒ 幻影 fact 换了挂点，全仓库扫描口径须同步改');
         else notes.push('③ phantomFact 挂点仍未移位');
     }
+    // ★ 第 164 轮：名单由 4 个扩到全量。第 163 轮只修了四个 fact 扫描器，tests/ 下还有一批
+    //   同样只走「log 顶层 + data.entries」两层的脚本没核对（正是上轮留的【最高·下轮】）。
+    //   做法：把所有可能消费 fact 的脚本全部登记并标 kind，由守门自己判定，而不是靠人记：
+    //     · fact-input  ⇒ 必须认 phantomFact 层，或已接入 _lib/fact-collect 公共件，否则点名；
+    //     · static-only ⇒ 不消费战报（纯静态 / 纯加载），豁免，但须写清理由；
+    //     · ★ 反向棘轮：登记为 static-only 的脚本若其实在消费 step.log ⇒ 报「分类过期」，
+    //       与 census ⑤b-3 那条同款 —— 防「我随手标个豁免，把洞藏起来」。
     const SCANNERS = [
-        'tests/fact-emission-census.mjs',
-        'tests/structural-dead-branch-scan.mjs',
-        'tests/rules-replay.mjs',
-        'tests/phantom-confuse-brother-case.mjs'
+        { rel: 'tests/fact-emission-census.mjs',         kind: 'fact-input',  why: 'fact 发射普查，全量采集' },
+        { rel: 'tests/structural-dead-branch-scan.mjs',  kind: 'fact-input',  why: '结构不可达判定的唯一依据，漏层即误判死代码' },
+        { rel: 'tests/rules-replay.mjs',                 kind: 'fact-input',  why: '喂给规则的 facts，少一层即规则恒不命中' },
+        { rel: 'tests/phantom-confuse-brother-case.mjs', kind: 'fact-input',  why: '兄分支惑心定向取证' },
+        { rel: 'tests/fuzz-invariants.mjs',              kind: 'fact-input',  why: '大样本不变量，逐条查 fact 数值' },
+        { rel: 'tests/isdead-fix-guard.mjs',             kind: 'fact-input',  why: 'isDead 修复回归护栏' },
+        { rel: 'tests/fact-dead-field-scan.mjs',         kind: 'fact-input',  why: '载荷死字段普查（A/B 桶人工复核的上游）' },
+        { rel: 'tests/stat-decl-vs-actual-check.mjs',    kind: 'fact-input',  why: '声明 vs 实际账本对照' },
+        { rel: 'tests/spider-dead-target-case.mjs',      kind: 'fact-input',  why: '蛛袭死目标定向取证' },
+        { rel: 'tests/xiaozhao-brother-leech-case.mjs',  kind: 'fact-input',  why: '兄分支吸血定向取证' },
+        { rel: 'tests/xinhun-death-targeted-case.mjs',   kind: 'fact-input',  why: 'XIN_HUN_DEATH 定向用例' },
+        { rel: 'tests/mutation-teeth.mjs',               kind: 'static-only', why: '改源码注入变异、只看体检退码，不消费战报' },
+        { rel: 'tests/smoke-headless.mjs',               kind: 'static-only', why: '只加载合同与渲染器验证导出，不扫 fact' },
+        { rel: 'tests/contract-guard-selftest.mjs',      kind: 'static-only', why: '纯静态自检' }
     ];
-    for (const rel of SCANNERS) {
-        const p = path.join(root, rel);
-        if (!fs.existsSync(p)) { problems.push('③ 目标脚本不存在：' + rel); continue; }
+    const missLayer = [];
+    for (const s of SCANNERS) {
+        const p = path.join(root, s.rel);
+        if (!fs.existsSync(p)) { problems.push('③ 目标脚本不存在：' + s.rel); continue; }
         const t = fs.readFileSync(p, 'utf8');
-        const ok = t.includes('phantomFact');
-        console.log('  ' + (ok ? '✅' : '❌') + ' ' + rel + (ok ? ' 已认 phantomFact 层' : ' **不认** phantomFact ⇒ 本体型 fact 对它不可见'));
-        if (!ok) problems.push('③ ' + rel + ' 的 fact 采集没覆盖 data.phantomFact ⇒ 幻影 fact 恒读成零命中，可能误导核销建议');
+        const consumes = /(step\.log|stepLog|walkFacts|collectFacts)/.test(t);
+        const ok = t.includes('phantomFact') || t.includes('fact-collect');
+        if (s.kind === 'fact-input') {
+            console.log('  ' + (ok ? '✅' : '❌') + ' ' + s.rel + (ok ? ' 已认 phantomFact 层' : ' **不认** phantomFact ⇒ 幻影 fact 对它恒不可见'));
+            if (!ok) {
+                missLayer.push(s.rel);
+                problems.push('③ ' + s.rel + '（' + s.why + '）fact 采集没覆盖 data.phantomFact ⇒ 幻影 fact 恒读成零命中，可能误导核销建议');
+            }
+        } else {
+            if (consumes) {
+                console.log('  ❌ ' + s.rel + ' 登记为 static-only 却在消费 step.log ⇒ 分类过期');
+                problems.push('③ ' + s.rel + ' 登记为 static-only（理由：' + s.why + '）但源码里在消费 step.log ⇒ 分类过期，须改判 fact-input 并补 phantomFact 层');
+            } else {
+                console.log('  ⚪ ' + s.rel + ' 非 fact 输入（' + s.why + '），豁免');
+            }
+        }
+    }
+    if (missLayer.length) {
+        console.log('  ★ 本轮漏网 ' + missLayer.length + ' 个：' + missLayer.join(' / '));
+    }
+
+    // ── ④ 的样本先补自然流 ────────────────────────────────────────────
+    //   ★ 只用 ② 那批 forceXiaoZhao=brother 的样本做普查，本身就是「以偏概全」复发：
+    //     万一某个藏匿点只在别的模式出现，在这批样本里根本看不见，普查就会给出假的「已穷尽」。
+    //     所以这里再跑一批**不强制小昭模式的自然流**，两种样本合起来才敢说穷尽。
+    console.log('--- ④a 补采自然流样本（不强制 forceXiaoZhao，防止普查自己以偏概全）---');
+    GlobalStore.set('forceXiaoZhao', null);
+    let naturalBattles = 0;
+    for (let seed = 1; seed <= 3; seed++) {
+        for (const stage of STAGES) {
+            const rng = new SeededRNG(seed + 500);
+            const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
+            let bs = {
+                ally: allyTeam.map(u => u.clone()), enemy: enemyTeam.map(u => u.clone()),
+                round: 1, activeBuffs: [],
+                allAllies: allyTeam.map(u => u.clone()), _rng: rng
+            };
+            bs.activeBuffs = tickAndPickBuffs([], bs.ally, bs.enemy, 1, seed + 500, true);
+            let lastStep = null, winner = null;
+            while (bs.round <= MAX_ROUND) {
+                for (const step of createRoundStepper(bs)) {
+                    scanHidingSpots(step.log, 0);
+                    lastStep = step;
+                    if (step.winner) winner = step.winner;
+                }
+                if (winner || !lastStep) break;
+                const nextRoundNo = bs.round + 1;
+                const nextActiveBuffs = tickAndPickBuffs(bs.activeBuffs, lastStep.ally, lastStep.enemy,
+                    bs.round, seed + 500, bs.round % 3 === 0);
+                bs = {
+                    ally: lastStep.ally.map(u => u.clone()), enemy: lastStep.enemy.map(u => u.clone()),
+                    round: nextRoundNo, activeBuffs: nextActiveBuffs,
+                    allAllies: bs.allAllies, _rng: rng
+                };
+            }
+            naturalBattles++;
+        }
+    }
+    console.log('  自然流补采 ' + naturalBattles + ' 场完成，与 ② 的 ' + battles + ' 场 brother 样本合并统计');
+
+    // ── ④ 藏匿点穷尽性：还有没有第三处？ ──────────────────────────────
+    console.log('--- ④ fact 藏匿点穷尽性普查（不再假定字段名，逐 key 翻）---');
+    const spots = [...spotHits.entries()].sort((a, b) => b[1] - a[1]);
+    for (const [k, n] of spots) {
+        const known = KNOWN_SPOTS.has(k);
+        console.log('  ' + (known ? '✅' : '❌') + ' data.' + k + ' 里藏着 ' + n + ' 条 fact（样例 ' + spotSamples.get(k) + '）'
+            + (known ? ' —— 已知挂点，采集已覆盖' : ' —— ★ 第三处藏匿点'));
+        if (!known) problems.push('④ 发现新的 fact 藏匿点 data.' + k + '（样例 ' + spotSamples.get(k) + '，共 ' + n + ' 条）⇒ 全仓库扫描口径须再补一层，否则该处 fact 恒读成零命中');
+    }
+    if (spots.length === 0) {
+        console.log('  ❌ 一场都没扫到嵌套 fact ⇒ 普查本身可能没跑起来，结论不可采信');
+        problems.push('④ 藏匿点普查零结果 ⇒ 扫描没接上，本段结论不可采信（与 ① 同源的「测量本身先自证」要求）');
+    } else {
+        notes.push('④ 藏匿点普查覆盖 ' + spots.length + ' 个挂点字段（' + spots.map(s => s[0]).join(' / ')
+            + '）⇒ 未见第三处藏匿点，第 163/164 两轮的补层对当前样本是完备的');
     }
 
     // ── 结论 ─────────────────────────────────────────────────────────
