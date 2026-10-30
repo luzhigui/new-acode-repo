@@ -2,7 +2,11 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.6.4';
+export const VER = 'tools/108-hex-dashboard.js V6.6.5';
+// V6.6.5 | 2026-10-30 读侧容错（修「跑批中断：Cannot read properties of null (reading 'buffs')」）：
+//           存量榜数组里混进的 null 条目让 render 在 l.buffs 上抛 TypeError、跑完的批次一渲染就整场报错。
+//           过滤收口在 readLogs 一处（只挑 Array 里的真对象），render/统计/模式对比/跨关表全部免疫；
+//           非 Array 的坏值按空榜处理（原样返回会把 JSON.parse 出的字符串/数字当数组用，同样炸）。
 
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -18,7 +22,7 @@ const keyFor = (mode, stage) => {
   const base = mode === 'normal' ? KEY : `${KEY}_${mode}`;
   return (stage === 'all' || stage == null) ? base : `${base}_stage${stage}`;
 };
-const readLogs = (mode, stage) => { try { return JSON.parse(localStorage.getItem(keyFor(mode, stage)) || '[]'); } catch(e) { return []; } };
+const readLogs = (mode, stage) => { try { const a = JSON.parse(localStorage.getItem(keyFor(mode, stage)) || '[]'); return Array.isArray(a) ? a.filter(l => l && typeof l === 'object') : []; } catch(e) { return []; } };
 let curMode = 'normal';
 let curStage = 'all';
 let logs = [];
