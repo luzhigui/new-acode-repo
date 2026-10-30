@@ -1,4 +1,7 @@
-export const VER = 'tools/103-toolkit.js V6.2.5';
+export const VER = 'tools/103-toolkit.js V6.2.6';
+// V6.2.6 | 2026-10-30 HARD_LIMIT 去 90k 硬顶（真根因修复）：原公式让上限框 ≥6 万时恒封顶 9 万，
+//           填 20 万无效；改 max(charLimit, min(charLimit*1.5, 90000)) 后默认 80000 行为逐字节不变、
+//           填 20 万硬顶真到 20 万（配 102 V6.4.4 解锁 max）。
 // V6.2.5 | 2026-10-30 上限框 max 100000 → 200000（102 V6.4.4，仅解锁输入范围）；默认值与 JS 兜底 80000 均不动。
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
@@ -274,7 +277,11 @@ function escapeHtml(text) {
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
         const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 80000;
         const SOFT_LIMIT = charLimit;
-        const HARD_LIMIT = Math.min(charLimit * 1.5, 90000);
+        // V6.2.6：HARD_LIMIT 去 90k 硬顶——原 min(charLimit*1.5, 90000) 让输入 ≥6 万时恒封顶 9 万，
+        //   上限框填 20 万也照样按 9 万切包（老板反馈「上限改了咋没用」的真根因）。
+        //   改为 max(charLimit, min(charLimit*1.5, 90000))：默认 80000 时仍=90000（逐字节同旧行为），
+        //   填 20 万则硬顶真到 20 万；HUGE_THRESHOLD 随 HARD 抬高，>硬顶的巨型文件依旧独占一包不切分。
+        const HARD_LIMIT = Math.max(charLimit, Math.min(charLimit * 1.5, 90000));
         const HUGE_THRESHOLD = Math.max(HARD_LIMIT, 90000);
 
         const selectedFiles = Array.from(
