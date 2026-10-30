@@ -1,5 +1,8 @@
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.9.0';
+export const VER = 'tests/121health-monitor.js V6.9.1';
+// V6.9.1 | 2026-10-30 体检局打「生涯记录抑制」标记（careerLogSuppress，配 tools/52 V2.6.0）：
+//           体检无人值守局的胜率/阵容与玩家实打完全不同源，混进生涯记录会把英雄/海克斯统计全部带歪。
+//           游戏就绪时在 iframe 的 GlobalStore 上置真（会话期常驻），52 写库前读到即跳过；正常对局（顶层窗口）无此标记、照常记录。
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -340,6 +343,8 @@ export function initMonitor() {
                 } catch (e) {}
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
+                // V6.9.1：置「生涯记录抑制」标记——本 iframe 会话产生的对局一律不进 tools/52 生涯记录
+                try { if (w && w.GlobalStore) w.GlobalStore.set('careerLogSuppress', true); } catch (e) {}
                 // 同步右下角模式按钮显示"全自动"：改完 autoLevel 必须刷按钮。
                 // 原写法 w.updateAutoModeButton 是无效应——该函数从未挂 window，try/catch 静默吞，
                 // 按钮一直显示旧文案。现走 __DSH_TEST_API__.syncAutoModeButton（ui/61 V6.13.1 补挂）
