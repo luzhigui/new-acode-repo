@@ -54,7 +54,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { WEAK_ELITES } from './127-tool-registry.js';
 
-const VERSION = '138-elite-contrib V1.2.0';
+const VERSION = '138-elite-contrib V1.3.0';
 const CHUNK = 50;
 const CONTRIB_KEY = 'ming_weak_elite_contrib';   // V1.2.0：跑批结果落盘，关页面后仍能「📂 载入上次」；126 报警也能读它做交叉印证
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
@@ -168,7 +168,12 @@ function crossCheck112() {
   let snaps;
   try { snaps = JSON.parse(localStorage.getItem('ming_elite_eval_snaps') || '[]'); } catch (e) { return null; }
   if (!Array.isArray(snaps) || !snaps.length) return null;
-  const weak = snaps[0] && snaps[0].parts && snaps[0].parts.weak;
+  // V1.3.0：找最近一条「含弱精英表」的快照。112 任意一张表跑完都会自动存快照，
+  //   snaps[0] 未必是弱精英表（可能是 主表/强精英/Boss/无精英），旧写法会因此让交叉印证整个消失。
+  let snap = null, weak = null;
+  for (const s of snaps) {
+    if (s && s.parts && s.parts.weak) { snap = s; weak = s.parts.weak; break; }
+  }
   if (!weak || !weak.byStage || !weak.stages) return null;
   const byStage = weak.byStage, stages = weak.stages;
   const acc = {};
@@ -202,7 +207,7 @@ function crossCheck112() {
     else tag = '方向相反⚠️';
     rows.push({ name: w.name, side: w.side, d112, d138, diff, tag });
   }
-  return rows.length ? { rows, snapAge: snaps[0].ts } : null;
+  return rows.length ? { rows, snapAge: snap.ts } : null;
 }
 
 function render() {
