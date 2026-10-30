@@ -2,7 +2,9 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.6.6';
+export const VER = 'tools/108-hex-dashboard.js V6.6.7';
+// V6.6.7 | 2026-10-30 报错自证：异常块追加「版本 + 出错文件行号」，截图即可判定跑的是新版还是手机缓存旧版；
+//           清扫范围由「KEY 前缀」放宽到「全库所有数组型键」，老版本换过键名残留的脏榜也一并清掉。
 // V6.6.6 | 2026-10-30 脏榜根治（V6.6.5 只挡住读，旧代码仍在手机缓存里炸）：
 //           ① 模块加载时一次性清扫 localStorage 里 KEY/_KEY 开头的榜，把 null/非对象条目删掉并写回
 //              ——自愈后即便旧版代码读到同一批数据也不会再崩；② 三处 .buffs 取值全部补 l 空值守卫
@@ -34,16 +36,17 @@ let logs = [];
 
 // V6.6.6 脏数据自愈：历史榜里一旦混进 null/非对象条目，旧版 render 会在 l.buffs 上崩。
 //   加载时把所有相关键扫一遍、剔掉脏条目并写回——治本，不依赖「用户手动清空数据」。
+//   V6.6.7：范围从 KEY 前缀放宽到「全库数组型键」——老版本若换过键名，残留的脏榜同样会炸下游。
 (function sanitizeStoredLogs(){
   try {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k === KEY || k.startsWith(KEY + '_'))) keys.push(k);
+      if (k) keys.push(k);
     }
     for (const k of keys) {
       const raw = localStorage.getItem(k);
-      if (!raw) continue;
+      if (!raw || raw.charCodeAt(0) !== 91 /* '[' */) continue;
       let a; try { a = JSON.parse(raw); } catch (e) { continue; }
       if (!Array.isArray(a)) continue;
       const clean = a.filter(l => l && typeof l === 'object');
@@ -587,13 +590,18 @@ function openHexDashboard() {
     } catch (e) {
       const _msg = (e && e.message) ? e.message : String(e);
       status.textContent = '❌ 失败：' + _msg;
+      // V6.6.7：报错块带上「版本 + 出错位置」，下次截图就能直接指到是哪个文件哪一行（不再靠猜缓存）
+      const _stack = (e && e.stack ? String(e.stack) : '').split('\n').slice(0, 3).join(' ⏎ ');
+      const _loc = _stack.replace(/^[\s\S]*?\((.*?)\)/, '$1').slice(0, 220);
       // V6.3.6 页内显著报错块：红底白字摊在面板上，不受状态行刷新影响（TA 令：报错必须页面直接可见）
       try {
         const old = document.getElementById('hexRunErrBox'); if (old) old.remove();
         const box = document.createElement('div');
         box.id = 'hexRunErrBox';
         box.style.cssText = 'background:#c0392b;color:#fff;padding:12px 16px;border-radius:8px;font-weight:700;font-size:14px;margin:10px 0;white-space:pre-wrap;word-break:break-all;line-height:1.5';
-        box.textContent = '⚠️ 跑批中断：' + _msg;
+        box.textContent = '⚠️ 跑批中断：' + _msg
+          + `\n\n[版本] ${VER}`
+          + (_loc ? `\n[位置] ${_loc}` : '');
         status.insertAdjacentElement('afterend', box);
       } catch (e2) {}
       console.error('[108] 跑批失败（全栈）：', e);
