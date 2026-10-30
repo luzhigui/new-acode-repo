@@ -1,6 +1,6 @@
 export const VER = 'core/14buff-effects.js V6.1.9';
 
-import { CONFIG, getSkillParams } from './01config-5v5-test.js';
+import { CONFIG, getSkillParams, getBrotherHexEnhance } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { getBattleRng, swapUnitPositions, addMod, getStat, applyStatChange, emitEvent } from './13battle-shared.js';
@@ -18,8 +18,14 @@ export function applyFortifyDef(unit) {
 // 流云身法：闪避 +25%（闪避不走属性词条，返回比率给 computeBuffStats 用）
 export function applyCloudBodyDodge_Normal() { return CONFIG.BUFFS.cloudBody.dodgeBonus; }
 export function applyCloudBodyDodge_Sister() { return getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
-// 老板拍板：妹永久流云身法取团队版原值的 70%（content.buffs.cloudBody.brotherRatio），不再按「减惩罚值」计算
-export function applyCloudBodyDodge_Brother() { return CONFIG.BUFFS.cloudBody.dodgeBonus * CONFIG.BUFFS.cloudBody.brotherRatio; }
+// 妹永久流云身法：普通版闪避 × brother.cloudBody.dodgeRatio（唯一真源 201，缺则炸）
+export function applyCloudBodyDodge_Brother() {
+    const enh = getBrotherHexEnhance('cloudBody');
+    if (!enh || enh.dodgeRatio == null) {
+        throw new Error('201hex-enhance.json 缺 brother.cloudBody.dodgeRatio');
+    }
+    return CONFIG.BUFFS.cloudBody.dodgeBonus * enh.dodgeRatio;
+}
 
 // 圣火令：命中列 +30% 攻击，命中行 +30% 防御（mul 词条）
 // 数值声明 fact：乘法词条共享 getStat 的 (1+mulSum) 乘区、无独立增量，故只发乘率 ratio，供体检按乘率口径核对
@@ -92,6 +98,70 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
 }
 
+// 惑心 3 格重排：从 team 随机选 3 个格子（不管有没有人），把 3 格里的单位随机重排。
+//   控制免疫单位不动（剩下的格子随机 50% 换）；飞天/附身可换。
+//   返回实际发生变化的单位 [{ unit, fromPos, toPos }]（长度 0~3）。
+function shuffleThreeSlots(team, rng) {
+    const allPos = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const pick3 = [];
+    for (let i = 0; i < 3; i++) {
+        const idx = rng.nextInt(0, allPos.length - 1);
+        pick3.push(allPos[idx]);
+        allPos.splice(idx, 1);
+    }
+    const slotUnits = pick3.map(pos => ({
+        pos,
+        unit: team.find(u => u.pos === pos && u.alive && !u.state._pendingDeath) || null
+    }));
+    const immuneSlots = slotUnits.filter(s => s.unit && s.unit.state._ctrlImmune);
+    const swappableUnits = slotUnits.filter(s => s.unit && !s.unit.state._ctrlImmune).map(s => s.unit);
+    if (swappableUnits.length < 2) return [];
+    if (immuneSlots.length > 0) {
+        if (rng.nextInt(0, 1) === 0) return [];
+        const positions = swappableUnits.map(u => u.pos);
+        const units = swappableUnits.slice();
+        for (let i = units.length - 1; i > 0; i--) {
+            const j = rng.nextInt(0, i);
+            [units[i], units[j]] = [units[j], units[i]];
+        }
+        let changed = false;
+        for (let i = 0; i < units.length; i++) if (units[i] !== swappableUnits[i]) { changed = true; break; }
+        if (!changed) return [];
+        const result = [];
+        for (let i = 0; i < units.length; i++) {
+            const u = swappableUnits[i];
+            const fromPos = u.pos;
+            u.pos = positions[i];
+            result.push({ unit: u, fromPos, toPos: u.pos });
+        }
+        return result;
+    }
+    const units = slotUnits.filter(s => s.unit).map(s => s.unit);
+    if (units.length < 2) return [];
+    const shuffledUnits = units.slice();
+    for (let i = shuffledUnits.length - 1; i > 0; i--) {
+        const j = rng.nextInt(0, i);
+        [shuffledUnits[i], shuffledUnits[j]] = [shuffledUnits[j], shuffledUnits[i]];
+    }
+    const shuffledPos = pick3.slice();
+    for (let i = shuffledPos.length - 1; i > 0; i--) {
+        const j = rng.nextInt(0, i);
+        [shuffledPos[i], shuffledPos[j]] = [shuffledPos[j], shuffledPos[i]];
+    }
+    const finalPos = shuffledPos.slice(0, units.length);
+    let changed = false;
+    for (let i = 0; i < units.length; i++) if (units[i].pos !== finalPos[i]) { changed = true; break; }
+    if (!changed) return [];
+    const result = [];
+    for (let i = 0; i < units.length; i++) {
+        const u = units[i];
+        const fromPos = u.pos;
+        u.pos = finalPos[i];
+        result.push({ unit: u, fromPos, toPos: u.pos });
+    }
+    return result;
+}
+
 function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly, enhance = null) {
     const rng = getBattleRng();
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
@@ -99,57 +169,51 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
 
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ENEMY } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
-        let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying && !u.state._ctrlImmune);
-        if (enemies.length >= 2) {
-            let a = enemies[rng.nextInt(0, enemies.length-1)];
-            let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
-            let posA = a.pos, posB = b.pos;
-            swapUnitPositions(a, b, log);
-            // 姊强化：敌方换位两人各扣 dmgOnSwap 点血（source 传 null = 不记击杀者，走死亡结算由 core/10 统一处理）
-            let dmgOnSwap = 0;
-            if (enhance && enhance.dmgOnSwap) {
-                dmgOnSwap = enhance.dmgOnSwap;
-                applyStatChange(a, 'hp', -dmgOnSwap, null, '惑心换位');
-                applyStatChange(b, 'hp', -dmgOnSwap, null, '惑心换位');
+        const swaps = shuffleThreeSlots(enemySide, rng);
+        if (swaps.length > 0) {
+            const dmgOnSwap = (enhance && enhance.dmgOnSwap) || 0;
+            if (dmgOnSwap > 0) {
+                for (const s of swaps) {
+                    if (s.unit.alive && !s.unit.state._pendingDeath) applyStatChange(s.unit, 'hp', -dmgOnSwap, null, '惑心换位');
+                }
             }
-            // 姊强化·眩晕：敌方被换位者眩晕一回合（扣血若把目标直接打入待死，则不追加眩晕）
             if (enhance && enhance.stunOnSwap) {
-                if (a.alive && !a.state._pendingDeath) {
-                    a.state._stunned = true;
-                    emitEvent(a, UNIT_EVENT_TYPES.HP_CHANGE, { hp: a.hp, maxHp: a.maxHp, alive: a.alive, atk: getStat(a, 'atk'), def: getStat(a, 'def'), _stunned: true });
-                    emitStateChange(a, STATE_CHANGE_TYPES.STUNNED, {}, log);
-                }
-                if (b.alive && !b.state._pendingDeath) {
-                    b.state._stunned = true;
-                    emitEvent(b, UNIT_EVENT_TYPES.HP_CHANGE, { hp: b.hp, maxHp: b.maxHp, alive: b.alive, atk: getStat(b, 'atk'), def: getStat(b, 'def'), _stunned: true });
-                    emitStateChange(b, STATE_CHANGE_TYPES.STUNNED, {}, log);
+                for (const s of swaps) {
+                    if (s.unit.alive && !s.unit.state._pendingDeath) {
+                        s.unit.state._stunned = true;
+                        emitEvent(s.unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: s.unit.hp, maxHp: s.unit.maxHp, alive: s.unit.alive, atk: getStat(s.unit, 'atk'), def: getStat(s.unit, 'def'), _stunned: true });
+                        emitStateChange(s.unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
+                    }
                 }
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });
+            for (const s of swaps) {
+                emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
+                emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
+            }
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });
         } else {
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '可用单位不足' } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '无变化' } });
         }
     } else {
         log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '未触发' } });
     }
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ALLY } });
     if (rng.nextInt(1,100) <= swapChanceAlly) {
-        let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying && !u.state._ctrlImmune);
-        if (allies.length >= 2) {
-            let a = allies[rng.nextInt(0, allies.length-1)];
-            let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
-            let posA = a.pos, posB = b.pos;
-            swapUnitPositions(a, b, log);
-            // 姊强化：己方换位两人各回 healOnSwap 点血（治疗语义，吃杨逍截脉打折；产出记小昭）
-            let healOnSwap = 0;
-            if (enhance && enhance.healOnSwap) {
-                healOnSwap = enhance.healOnSwap;
-                applyStatChange(a, 'hp', healOnSwap, unit, '惑心换位');
-                applyStatChange(b, 'hp', healOnSwap, unit, '惑心换位');
+        const swaps = shuffleThreeSlots(allySide, rng);
+        if (swaps.length > 0) {
+            const healOnSwap = (enhance && enhance.healOnSwap) || 0;
+            if (healOnSwap > 0) {
+                for (const s of swaps) {
+                    if (s.unit.alive && !s.unit.state._pendingDeath) applyStatChange(s.unit, 'hp', healOnSwap, unit, '惑心换位');
+                }
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, heal: healOnSwap } });
+            for (const s of swaps) {
+                emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
+                emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
+            }
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), heal: healOnSwap } });
         } else {
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '可用单位不足' } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '无变化' } });
         }
     } else {
         log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '未触发' } });

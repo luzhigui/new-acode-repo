@@ -1,6 +1,6 @@
 // modules/27elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
 export const VER = 'modules/27elite-mingjiao-xiaozhao-brother.js V1.2.0';
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/01config-5v5-test.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spawnOneUnityRecruit } from '../core/04buff-system.js';
@@ -161,6 +161,8 @@ export function createXiaoZhaoBrotherComponent() {
             // 蛛化飞天免疫：落点判据三档（顺延见 decideSpiderTier 注释），免疫本次伤害
             function submitSpiderFlyDeclaration(data) {
                 if (data.target.uid !== brother.uid || !data.A) return;
+                // 妹永久背水触发后本局永久禁飞天（modules/31 置 _noFlyNoEgg）
+                if (brother.state._noFlyNoEgg) return;
                 if (fsm.is('flying') || fsm.is('dead')) return;
                 if (brother.state._spiderEgg) return;
                 const fp = getSkillParams('小昭', 'spiderFly');
@@ -189,7 +191,10 @@ export function createXiaoZhaoBrotherComponent() {
                 if (data.unit.camp !== CAMP_TYPES.ENEMY) return;
                 if (!brother || !brother.alive || !brother.state._permanentBuffs || !brother.state._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL)) return;
                 if (hasBuff(data.enemySide._activeBuffs, BUFF_TYPES.MIND_CONTROL)) return;
-                if (getBattleRng().next() < CONFIG.SPIDER_MIND_CONTROL_CHANCE) {
+                // 妹永久惑心误伤概率：读 201 brother.mindControl.hitChance，缺则回落 CONFIG
+                const mcEnh = getBrotherHexEnhance('mindControl');
+                if (!mcEnh || mcEnh.hitChance == null) throw new Error('201hex-enhance.json 缺 brother.mindControl.hitChance');
+                if (getBattleRng().next() < mcEnh.hitChance) {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
@@ -228,8 +233,12 @@ export function createXiaoZhaoBrotherComponent() {
                 if (bro.state._spiderEgg) return;
                 // 妹永久众志：团队众志不在场时，每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
                 if (!hasBuff(A._activeBuffs, BUFF_TYPES.UNITY) && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.UNITY)) {
-                    if (getBattleRng().next() < CONFIG.BUFFS.unity.brotherSummonChance) {
-                        spawnOneUnityRecruit(A, log, CONFIG.BUFFS.unity.recruitM, '小昭·妹');
+                    // 妹永久众志概率：读 content/201hex-enhance.json brother.unity.summonChance
+                    const unEnh = getBrotherHexEnhance('unity');
+                    if (!unEnh || unEnh.summonChance == null) throw new Error('201hex-enhance.json 缺 brother.unity.summonChance');
+                    if (unEnh.recruitM == null || unEnh.recruitM <= 0) throw new Error('201hex-enhance.json 缺 brother.unity.recruitM');
+                    if (getBattleRng().next() < unEnh.summonChance) {
+                        spawnOneUnityRecruit(A, log, unEnh.recruitM, '小昭·妹');
                     }
                 }
                 if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
@@ -241,8 +250,10 @@ export function createXiaoZhaoBrotherComponent() {
                 const teamHasHorse = hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
                 const hasPermanent = bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HORSE_FORMATION);
                 if (!teamHasHorse && hasPermanent) {
-                    // 老板拍板：妹永久巨马阵不再每回合必召，改 70% 概率（content.buffs.horseFormation.brotherSpawnChance）
-                    if (getBattleRng().next() < CONFIG.BUFFS.horseFormation.brotherSpawnChance) {
+                    // 妹永久巨马阵概率：读 content/201hex-enhance.json brother.horseFormation.spawnChance
+                    const hmEnh = getBrotherHexEnhance('horseFormation');
+                    if (!hmEnh || hmEnh.spawnChance == null) throw new Error('201hex-enhance.json 缺 brother.horseFormation.spawnChance');
+                    if (getBattleRng().next() < hmEnh.spawnChance) {
                         const xzHorse = spawnHorse(A, log, B, true);
                         if (xzHorse) {
                             log.push({ factType: FACT_TYPES.XIAO_ZHAO_HORSE, data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
@@ -257,7 +268,13 @@ export function createXiaoZhaoBrotherComponent() {
                 //   permanent 挂法特有问题，round 挂法天然消除。
                 if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY)) {
                     const d = bro.state._xiaoCarryDeaths;
-                    const layers = 1 + 1.5 * d.r1 + 0.5 * d.r2;
+                    const carryEnh = getBrotherHexEnhance('carry');
+                    if (!carryEnh || carryEnh.layersBase == null || carryEnh.layersPerR1 == null || carryEnh.layersPerR2 == null) {
+                        throw new Error('201hex-enhance.json 缺 brother.carry.layersBase/layersPerR1/layersPerR2');
+                    }
+                    const layers = carryEnh.layersBase
+                        + carryEnh.layersPerR1 * d.r1
+                        + carryEnh.layersPerR2 * d.r2;
                     const per = getSkillParams('小昭', 'mastery');
                     if (!per) throw new Error('缺技能参数: 小昭.mastery');
                     addMod(bro, 'atk', { source: '小昭·妹永久carry', value: per.atkPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
@@ -272,7 +289,9 @@ export function createXiaoZhaoBrotherComponent() {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit.state._xiaoZhaoDoubleStriked) return;
                 if (unit.state._doubleStriked) return;  // 团队连击已触发，不再重复
-                if (getBattleRng().nextInt(1, 100) <= 80) {
+                const dsEnh = getBrotherHexEnhance('doubleStrike');
+                if (!dsEnh || dsEnh.chance == null) throw new Error('201hex-enhance.json 缺 brother.doubleStrike.chance');
+                if (getBattleRng().nextInt(1, 100) <= Math.round(dsEnh.chance * 100)) {
                     Object.assign(unit.state, { _xiaoZhaoDoubleStriked: true });
                     log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
@@ -301,6 +320,8 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on(SIGNAL_TYPES.ON_BEFORE_DEATH, L.ON_BEFORE_DEATH.SPIDER_EGG, (data) => {
                 for (const u of data.units) {
                     if (!u.isXiaoZhaoBrother || !u.alive) continue;
+                    // 妹永久背水触发后本局永久禁变卵（modules/31 置 _noFlyNoEgg）
+                    if (u.state._noFlyNoEgg) continue;
                     if (u.state._spiderEgg || u.state._spiderEggUsed || u.state._spiderTriggeredDeath) continue;
                     toSpiderEgg(u, data.log);
                 }

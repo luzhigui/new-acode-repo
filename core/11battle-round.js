@@ -252,19 +252,25 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
     const casterAlive = isAlly ? alive.B : alive.A;
     const targetAlive = isAlly ? alive.A : alive.B;
     
-    // 摄魂随机影响：对方存活角色数 - 1（最少 1 人）
+    // 摄魂：普通版随机影响 N-1 人（最少 1 人）；姊强化版影响敌方所有人
     const hasTeamSoulDrain = hasBuff(enemyBuffs, BUFF_TYPES.SOUL_DRAIN);
+    const hasSisterSoulDrain = hasTeamSoulDrain && enemy.some(u => u.isXiaoZhaoSister && u.alive);
     let soulDrainTargets = null;
     if (hasTeamSoulDrain) {
         const aliveTeam = team.filter(u => u.alive && !u.isHorse);
-        const count = Math.max(1, aliveTeam.length - 1);
-        const shuffled = [...aliveTeam];
-        const rng = getBattleRng();
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = rng.nextInt(0, i);
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        if (hasSisterSoulDrain) {
+            // 姊强化：全体
+            soulDrainTargets = new Set(aliveTeam.map(u => u.uid));
+        } else {
+            const count = Math.max(1, aliveTeam.length - 1);
+            const shuffled = [...aliveTeam];
+            const rng = getBattleRng();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = rng.nextInt(0, i);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            soulDrainTargets = new Set(shuffled.slice(0, count).map(u => u.uid));
         }
-        soulDrainTargets = new Set(shuffled.slice(0, count).map(u => u.uid));
     }
 
     // 流云身法：团队版每回合随机少一人享受加成（若仅 1 人则正常享受）

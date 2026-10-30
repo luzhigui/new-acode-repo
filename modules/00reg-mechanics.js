@@ -5,4 +5,5 @@ import './25elite-imperial.js';
 import './26elite-sixsects.js';
 import './27elite-mingjiao.js';
 import './30custom-effects.js';
-export const VER = 'modules/00reg-mechanics.js V1.0.0';
+import './27elite-mingjiao-brother-laststand.js';
+export const VER = 'modules/00reg-mechanics.js V1.0.1';

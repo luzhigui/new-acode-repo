@@ -87,7 +87,10 @@ export function renderPassFact(fact) {
 // 惑心换位
 export function renderMindControlSwapFact(fact) {
     const sideLabel = fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方';
-    return {type:'buff-swap', uidA: fact.unitA.uid, uidB: fact.unitB.uid, oldPosA: fact.posA, oldPosB: fact.posB, buffType: BUFF_SUBTYPES.SWAP, text:`<span class="gold">🌀 惑人心智${sideLabel}：${fact.posA}号位${fact.unitA.name}与${fact.posB}号位${fact.unitB.name}互换位置！</span>`};
+    const swaps = fact.swaps || [];
+    if (swaps.length === 0) return null;
+    const parts = swaps.map(s => `${s.fromPos}号位${s.name}→${s.toPos}号位`).join('、');
+    return { type: 'buff-swap', swaps, buffType: BUFF_SUBTYPES.SWAP, text: `<span class="gold">🌀 惑人心智${sideLabel}：${parts} 位置重排！</span>` };
 }
 export function renderMindControlFailFact(fact) {
     const sideLabel = fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方';

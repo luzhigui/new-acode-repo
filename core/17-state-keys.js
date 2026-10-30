@@ -153,6 +153,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _lastStandLeechRatio:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 背水一战整局触发标记（每个人仅触发一次获得战士加成，之后永久保留）
     _lastStandTriggered:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 妹永久背水专属（modules/27elite-mingjiao-brother-laststand）：
+    //   一次性触发 / 永久吸血率 / 本局永久禁飞天禁变卵
+    _brotherLastStandTriggered: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _brotherLastStandLeech:     { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _noFlyNoEgg:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 背水一战易伤乘率（默认 1 无易伤，触发后设为 1.2 即多受 20% 伤害）
     _lastStandTakenMul:      { type: STATE_FIELD_TYPES.NUMBER,  default: 1 },
 

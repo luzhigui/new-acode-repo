@@ -24,20 +24,22 @@
 //   3) 静默归零：队友属性明显够（按"除自己外最弱队友 × 配置比例"floor ≥ 1）却加成为 0
 //      —— _baseMaxHp 读不到 / bonus 未接上
 //   4) 门控失效：小昭·姊 / 小昭·弟 拿到了 carry（core/04 明确排除这两人）
-//   5) 数值膨胀：加成超过「Σ 队友 getStat(攻/防) × 存活1/死亡deathMultiplier × 比例 × 3 倍余量」
-//      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
-//      **hp 项不判上界（第 135 轮）**：终局快照 _baseMaxHp 是战斗期保留键（core/17 BATTLE_STATE_PRESERVE_KEYS），
-//      快照上大面积取不到 → Σ 被系统性算小（实测 133 vs 引擎实时 490，差 3.67 倍）→ 3 倍余量兜不住，
-//      血+49 被误判超界（2026-10-29 浏览器体检实录）；hp 后果由 stat-decl-vs-actual 的 CARRY_APPLY 账本契约盯。
-//      队友池口径：名字唯一时剔自己；**同名时取整池**（引擎只按 uid 剔自己，同名个体照常计入——
-//      第 82 轮 seed=9 stage=7 雄狮×3 假阳性即旧口径全剔同名所致）。
+//   5) 数值膨胀（量级上界）—— **整条退役（2026-10-30 第 144 轮终定），atk/def/hp 均不判**：
+//      hp 项第 135 轮先退役（快照 _baseMaxHp 是大面积取不到的保留键，Σ 算小 3.67 倍误报）；
+//      本轮 atk/def 以同一病灶退役——上界依赖「终局快照 Σ 队友 stat」，无法复现「carry 应用当回合」真值
+//      （召唤物/临时增益在应用回合生效、终局已消失/衰减 ⇒ Σ 系统性算小 ⇒ 误报；雄鹰 stage4/6/7 三连报，
+//      溢出仅 1.1~1.4×，远低于重复应用应有的 ≥2×）。主代码 calcCarryBonus_Normal/_Sister（core/14 L75-99）
+//      已核实为单遍 forEach、按 uid 剔自己、各队友只累加一次、同一 getStat 真值源，无累加/翻倍。
+//      数值后果统一交给权威账本：stat-decl-vs-actual 的 CARRY_APPLY（声明 delta vs 实际属性 delta 严格比对，
+//      267 条偏差 0 才算绿），精确到每次应用，远胜快照量级启发式。
+//      队友池口径（信号 3 静默归零仍用）：名字唯一时剔自己；**同名时取整池**（引擎只按 uid 剔自己）。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.06/0.06/0.08/2，并在读不到时只跑 1/2/4 三条结构判据。
 //   第 82 轮：量级判据（3/5）的队友池在**同名**时取整池不剔名（引擎只按 uid 剔自己）——
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
 //   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
 //   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.26';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.28';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -191,22 +193,18 @@ export const rule95 = {
                     }
                 }
 
-                // 复发信号5：数值膨胀 —— 上界改用「单队友属性理论上限 × 队友数 × 配置比例 × 死亡倍率」，
-                //   不再用终局快照 Σ 估算（快照比实时系统性算小且随回合/死亡倍率波动，硬上界必误报——2026-10-29
-                //   张无忌、2026-10-30 雄鹰连续两例：cap 算小到 攻≤6/防≤8，而真实 carry 攻+6/防+6、攻+15/防+19 均合法）。
-                //   该上界只用于捕获「非参数类巨幅膨胀」（队友池异常膨胀 / carry 重复累加致单队友贡献远超物理可能），
-                //   这类真缺陷下 actual 远超此上界；对「配置比例/倍率写大」本身不敏感（cap 与 actual 同乘 cfg，比值
-                //   与参数无关，已知设计局限）。S_CEIL 取远高于实战峰值的 220，调大只更宽松、不会漏真实巨幅膨胀。
-                if (mates.length > 0 && cfg.ok) {
-                    var S_CEIL = 220; // 单队友攻/防属性理论上限（实战峰值约 150，留足余量）
-                    var capAtk = mates.length * S_CEIL * cfg.atkBonus * cfg.deathMultiplier;
-                    var capDef = mates.length * S_CEIL * cfg.defBonus * cfg.deathMultiplier;
-                    if (atk > capAtk || def > capDef) {
-                        return { fail: true, msg: '复发：carry加成超出上界：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
-                            + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
-                            + '，疑似队友池异常膨胀或重复累加；hp 项不判上界——终局快照 _baseMaxHp 不可靠，由 stat-decl 账本契约盯）' };
-                    }
-                }
+                // 复发信号5（atk/def 量级上界）—— **已退役（2026-10-30 第 144 轮终定）**：
+                //   与 hp 项（第 135 轮退役）同一病灶：上界依赖「终局快照 Σ 队友 stat」，而快照无法复现
+                //   「carry 应用当回合」的队友真值——召唤物（幼狮/狮群，高 atk）在快照时段可能已消失，
+                //   临时 atk 增益（ttl/团队 Buff）在应用回合生效、到终局已衰减/换人 ⇒ Σ 被系统性算小 ⇒ 误报。
+                //   本轮实证：雄鹰 stage4/6/7 三连报（攻+25 cap≤22、攻+17 cap≤12、攻+25 cap≤25），
+                //   溢出仅 1.1~1.4×（远低于「重复应用」应有的 ≥2×），且主代码 calcCarryBonus_Normal/_Sister
+                //   （core/14 L75-99）为**单遍 forEach、按 uid 剔自己、各队友只累加一次**，无累加/翻倍；
+                //   同一 getStat 真值源；故三连报全为快照噪声，非主代码缺陷。
+                //   数值后果改由权威账本契约裁定：tests/stat-decl-vs-actual-check.mjs 的 CARRY_APPLY
+                //   （严格比对「声明 atk/def/maxHp delta vs 单位实际属性 delta」，267 条偏差 0 才算绿），
+                //   精确到每次应用，远胜快照量级启发式。信号 1/2/3/4 仍保留管结构层（重复声明/非整数/静默归零/门控）。
+                //   刻意不做：不再用快照 Σ 造「量级上界」——它会把合法值当膨胀误杀，是伪判据（与 hp 同理）。
             }
         }
         if (checked === 0) return 'skip'; // 本场没选到「你就是carry」团队 Buff

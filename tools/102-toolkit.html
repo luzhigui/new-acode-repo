@@ -1,5 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
+<!-- V6.4.7 | 2026-10-30 预加载补 201hex-enhance.json（小昭 hexEnhance 迁出 200 后，建队/姐妹强化都读它）。
+     V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
      V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
      V6.4.4 | 2026-10-30 复制器「单次复制上限」框的 max 100000 → 200000（老板拍板）：默认值 80000 不动，
      只是解锁手动输入到 20 万（此前 max=10 万填不进 200000）。
@@ -535,10 +536,12 @@
         // 数据底座：112 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
         // 数据源是 content/200game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。
         // loadGameData 内部幂等（已加载直接返回），页面加载时调一次即可。
-        // V6.4.6：预加载失败不再留成未捕获的 promise rejection——各工具用前都会自己 await 加载并报错，
-        //   这里只记一条 warn（失败时 gameData 仍为 null，由使用方重试）。
-        import { loadGameData } from '../core/01config-5v5-test.js';
+        // V6.4.7：201hex-enhance.json 也要预加载——小昭 hexEnhance 已迁出 200（姐妹强化/妹永久数据在 201），
+        //   112/126/108 等工具与每次建队都会读，缺则整页相关功能抛「201hex-enhance.json 缺 sister 段」。
+        //   失败只 warn，由使用方各自重试（与 V6.4.6 同口径）。
+        import { loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
         loadGameData().catch(e => console.warn('游戏数据预加载失败（使用时各工具会重试）:', e));
+        loadHexEnhanceData().catch(e => console.warn('海克斯强化数据(201)预加载失败（使用时各工具会重试）:', e));
     </script>
     <script>
         // 页面更新时间戳：与 dev-index.html 同口径——读 GitHub 仓库最新提交时间（真值，一推代码就变），

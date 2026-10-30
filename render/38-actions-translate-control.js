@@ -32,24 +32,39 @@ export const CONTROL_TRANSLATORS = {
         timing: 'beforeText'
     }),
     [FACT_TYPES.MIND_CONTROL_SWAP]: (data, index) => {
-        const acts = [{
-            kind: STAGE_ACTION_TYPES.POS_SWAP,
-            actorUid: data.unitA?.uid ?? null,
-            targetUid: data.unitB?.uid ?? null,
-            oldPosA: data.posA,
-            oldPosB: data.posB,
-            factIndex: index,
-            timing: 'beforeText'
-        }];
+        const swaps = data.swaps || [];
+        if (swaps.length === 0) return null;
+        // 按单位追的方式生成 POS_SWAP 序列（冒泡式：每次把当前单位换到目标位置）
+        const posToUid = new Map();
+        for (const s of swaps) posToUid.set(s.fromPos, s.uid);
+        const acts = [];
+        for (const s of swaps) {
+            let curPos = null;
+            for (const [pos, uid] of posToUid) {
+                if (uid === s.uid) { curPos = pos; break; }
+            }
+            if (curPos === null || curPos === s.toPos) continue;
+            const otherUid = posToUid.get(s.toPos);
+            if (otherUid === undefined) continue;
+            acts.push({
+                kind: STAGE_ACTION_TYPES.POS_SWAP,
+                actorUid: s.uid,
+                targetUid: otherUid,
+                oldPosA: curPos,
+                oldPosB: s.toPos,
+                factIndex: index,
+                timing: 'beforeText'
+            });
+            posToUid.set(curPos, otherUid);
+            posToUid.set(s.toPos, s.uid);
+        }
         if (data.dmg > 0) {
-            acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: data.unitA.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
-            acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: data.unitB.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
+            for (const s of swaps) acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: s.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
         }
         if (data.heal > 0) {
-            acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: data.unitA.uid, targetUid: data.unitA.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
-            acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: data.unitB.uid, targetUid: data.unitB.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
+            for (const s of swaps) acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: s.uid, targetUid: s.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
         }
-        return acts;
+        return acts.length > 0 ? acts : null;
     },
     [FACT_TYPES.WIND_ASSAULT_PUSH]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.PUSH,

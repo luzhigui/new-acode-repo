@@ -14,12 +14,16 @@
 //   - 性奋代价有 `unit.maxHp > 1` 保底（core/15），宋青书上限被扣到 ≤2 时合法地不再扣 → 此时跳过配对校验
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
-export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.24';
+export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.25';
 // V6.1.24（2026-10-15 第 91 轮）跟随主代码 81105a8「性奋代价首攻免扣」：配对判据从 1:1 改为
 //   (新婚次数 − 1) : 1——第 1 次新婚 penalty=0 不渲染条目（modules/26 V6.26.0）。旧判据在新设计下
 //   每场必误报（实测 seed=1/2 stage=4：新婚 3 次、代价 2 次即合法）。步长/自洽判据不变。
 // V6.1.23（2026-10-12）修弱判据 hpIsCap：maxHp 是浮点、fact 文本走 fmtHp(floor)，旧严格相等漏认
 //   "回满截断" → seed=1/5 stage=4 两条误报；改为 Math.floor(maxHp) === hpAfter。判据强度不变。
+// V6.1.25（2026-10-30 第 144 轮续）：信号2 配对校验抗两类误报 —— ① 多实例（克隆/众志成城补员）时
+//   全局「新婚数 vs 性奋代价数」计数无意义（每个体各自记一套），改按 uid 数判定 cloneAmbiguous，多实例
+//   直接跳过信号2（宁漏勿误）；② 触底截断：末笔性奋代价 newMaxHp≤1 说明 core/15 `maxHp>1` 保底已停扣，
+//   其后新婚本就不该再出代价条目，不再判「漏扣」。单实例且未触底时信号2 原Logic不变，真漏扣/重复扣仍捕获。
 import { entryTexts } from '../122health-utils.js';
 import { getGameData } from '../../core/01config-5v5-test.js';
 
@@ -167,29 +171,43 @@ export const rule91 = {
         //   宋青书（性奋代价的承受者）在两侧阵容里找，取血上限判断"是否还有余量可扣"
         var song = null;
         var pools = [afterA || [], afterE || [], beforeA || [], beforeE || []];
-        for (var p = 0; p < pools.length && !song; p++) {
+        var songUids = {};
+        for (var p = 0; p < pools.length; p++) {
             var arr = pools[p] || [];
             for (var u = 0; u < arr.length; u++) {
                 var un = arr[u];
-                if (un && (un.isSongQingshu || un.name === '宋青书')) { song = un; break; }
+                if (un && (un.isSongQingshu || un.name === '宋青书')) {
+                    if (!song) song = un;
+                    if (un.uid != null) songUids[un.uid] = 1;
+                }
             }
         }
-        // maxHp ≤ 2 时 core/15 的 `unit.maxHp > 1` 保底会合法地停扣，此时不做配对校验避免误报
+        // 多实例（克隆/众志成城补员）时全局计数无意义（每个体各自记一套 新婚/性奋代价），
+        //   配对/步长判据会把不同个体的序列拼到一起误报 → 宁漏勿误跳过信号2（V6.1.25 第 144 轮续补）。
+        var songCount = 0; for (var su in songUids) songCount++;
+        var cloneAmbiguous = songCount > 1;
+        // 触底截断判定：core/15 submitXinHun 有 `unit.maxHp > 1` 保底，宋青书上限扣到 ≤1 后合法停扣。
+        //   若末笔性奋代价 newMaxHp ≤ 1，说明已触底，其后新婚本就不该再产生代价条目 → 容忍少于 新婚−1。
+        var lastNew = xingfen.length ? xingfen[xingfen.length - 1].newMaxHp : null;
+        var floorHit = (lastNew != null && lastNew <= 1);
+        // maxHp ≤ 2 时（终局快照）core 保底合法停扣，亦不做配对校验；多实例/触底时跳过计数与步长判据
         if (!song || (typeof song.maxHp === 'number' ? song.maxHp : 99) > 2) {
             // 2026-10-15 第 91 轮：主代码 81105a8（老板拍板）性奋代价首攻免扣——penalty = 累计攻击次数 − 1
             //   （modules/26elite-sixsects-songqingshu.js V6.26.0），第 1 次新婚 penalty=0、不进 `penalty > 0`
             //   门、不渲染条目 ⇒ 预期性奋代价条目数 = 新婚次数 − 1（下限 0）。旧 1:1 判据在新设计下每场必误报。
             var expectXf = Math.max(xinhun.length - 1, 0);
-            if (xingfen.length < expectXf) {
+            if (!cloneAmbiguous && !floorHit && xingfen.length < expectXf) {
                 return { fail: true, msg: '复发：性奋惩罚漏扣：新婚' + xinhun.length + '次但性奋代价仅' + xingfen.length + '次（首攻免扣后期望 ' + expectXf + ' 次；性奋惩罚漏扣，V5.x 同类问题复发）' };
             }
-            if (xingfen.length > expectXf) {
+            if (!cloneAmbiguous && xingfen.length > expectXf) {
                 return { fail: true, msg: '复发：性奋代价疑重复扣：' + xingfen.length + '次 > 新婚' + xinhun.length + '次（首攻免扣后期望 ' + expectXf + ' 次；疑重复扣）' };
             }
-            for (var f = 1; f < xingfen.length; f++) {
-                var step = xingfen[f].penalty - xingfen[f - 1].penalty;
-                if (step !== 1) {
-                    return { fail: true, msg: '复发：性奋代价步长异常，第' + f + '次 ' + xingfen[f - 1].penalty + ' → 第' + (f + 1) + '次 ' + xingfen[f].penalty + '（应每次 +1 递增）' };
+            if (!cloneAmbiguous) {
+                for (var f = 1; f < xingfen.length; f++) {
+                    var step = xingfen[f].penalty - xingfen[f - 1].penalty;
+                    if (step !== 1) {
+                        return { fail: true, msg: '复发：性奋代价步长异常，第' + f + '次 ' + xingfen[f - 1].penalty + ' → 第' + (f + 1) + '次 ' + xingfen[f].penalty + '（应每次 +1 递增）' };
+                    }
                 }
             }
         }

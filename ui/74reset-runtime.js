@@ -30,6 +30,7 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
 
     // 3. 清全局标记
     GlobalStore.set('battleHistory', null);
+    GlobalStore.set('usedBuffKeys', []);
     GlobalStore.set('fastForwardActive', false);
     GlobalStore.set('bulletTimeActive', false);
     GlobalStore.set('scrollSlowdown', false);

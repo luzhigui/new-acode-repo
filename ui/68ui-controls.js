@@ -19,8 +19,11 @@ export { updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, u
 
 // 按钮事件绑定
 
-export function bindCoverStart(gameStarted, updateSpeedButtons, onStart) {
-    document.getElementById('coverStartBtn').addEventListener('click', function () {
+// buttonId 可选：默认 coverStartBtn；传别的按钮 ID 即可复用同一套启动逻辑（如六大派海克斯模式）
+export function bindCoverStart(gameStarted, updateSpeedButtons, onStart, buttonId = 'coverStartBtn') {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
         document.getElementById('coverOverlay').style.display = 'none';
         gameStarted.val = true;
         if (typeof AudioManager.init === 'function') AudioManager.init();
@@ -29,20 +32,6 @@ export function bindCoverStart(gameStarted, updateSpeedButtons, onStart) {
         if (typeof AudioManager.setVolume === 'function') AudioManager.setVolume(0.5);
         updateSpeedButtons();
         if (typeof onStart === 'function') onStart();
-    });
-}
-
-// PVP 本地双人对战入口：只关封面 + 初始化音频，不走开场CG/精英图鉴/新手引导
-export function bindCoverPvp(onStartPvp) {
-    const btn = document.getElementById('coverPvpBtn');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-        document.getElementById('coverOverlay').style.display = 'none';
-        if (typeof AudioManager.init === 'function') AudioManager.init();
-        if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
-        if (typeof AudioManager.play === 'function') AudioManager.play();
-        if (typeof AudioManager.setVolume === 'function') AudioManager.setVolume(0.5);
-        if (typeof onStartPvp === 'function') onStartPvp();
     });
 }
 
@@ -388,7 +377,7 @@ function bindGrid(getState, setState, updateUI, gridId, camp) {
         const netRole = GlobalStore.get('netRole');
         if (netRole === 'host' && camp === CAMP_TYPES.ENEMY) return;
         if (netRole === 'guest' && camp === CAMP_TYPES.ALLY) return;
-        if (!netRole && camp === CAMP_TYPES.ENEMY && !GlobalStore.get('pvpMode')) return;
+        if (!netRole && camp === CAMP_TYPES.ENEMY) return;
         const cell = e.target.closest('.cell');
         if (!cell) return;
         const pos = parseInt(cell.dataset.pos);

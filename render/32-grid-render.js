@@ -82,7 +82,7 @@ export function renderGrid(id, camp) {
     let renderAdjust;
     if (netRole === 'host') renderAdjust = isAdjustMode && camp === CAMP_TYPES.ALLY;
     else if (netRole === 'guest') renderAdjust = isAdjustMode && camp === CAMP_TYPES.ENEMY;
-    else renderAdjust = isAdjustMode && (camp === CAMP_TYPES.ALLY || !!GlobalStore.get('pvpMode'));
+    else renderAdjust = isAdjustMode && camp === CAMP_TYPES.ALLY;
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
     let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : selectOrStore(ctx, 'allyTeam');
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;

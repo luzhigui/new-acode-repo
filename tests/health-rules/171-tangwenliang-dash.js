@@ -25,8 +25,14 @@
 //   · 唐文亮强推挤压改站位不发位移事件 ⇒ checkLanding 中断判定须叠加 isOtherRelocate 白名单
 //     （后续任一「唐文亮冲刺·七伤齐发」报幕提到该单位名 = 位置被合法改写），
 //     否则把「之后又被挤走」误判成「这次没落地」（rule113 判据5 V6.1.3 已踩过同款）。
-export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.0';
-import { entryTextsDeep } from '../122health-utils.js';
+export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.1';
+// V2.0.1（2026-10-30 第 144 轮续）：checkLanding 的「被打断」判定补齐通用静默位移白名单
+//   isSilentRelocate（122health-utils.js）。此前只认 唐文亮冲刺报幕(isOtherRelocate) 与
+//   buff-push/buff-swap，漏认「其它不发位移事件却改写站位」的机制（两仪互换/红血撤退/蓄意轰拳/
+//   标枪前压/压进）。实证：宋青书被冲刺·七伤齐发推到 6 号位后，被此类机制合法挤走，规则却因认不出
+//   中断而误报「未落到 6 号位」。现与 166 判据5 同口径——命中 isSilentRelocate 即视为合法改写、放弃
+//   该次落位对账（宁漏勿误）。机制本体未改，属测试侧覆盖缺口，非主代码缺陷。
+import { entryTextsDeep, isSilentRelocate } from '../122health-utils.js';
 
 // 位置改写白名单：唐文亮强推挤压改站位不发位移事件（moveUnitPosition），
 //   后续任一冲刺报幕提到该单位名 ⇒ 视为位置被合法改写，放弃其落位对账（宁漏勿误）。
@@ -123,6 +129,9 @@ export const rule171 = {
                         if (mid.pushTargetUid === uid || mid.behindUid === uid ||
                             mid.uidA === uid || mid.uidB === uid) { interrupted = true; break; }
                     }
+                    // 通用静默位移白名单（V2.0.1 补）：命中即该单位被其它「改站位却不发位移事件」机制
+                    //   合法改写，放弃本次落位对账（宁漏勿误），否则把「之后又被挤走」误判成「这次没落地」。
+                    if (isSilentRelocate(mid, { name: name, pos: expectPos })) { interrupted = true; break; }
                     if (isOtherRelocate(mid, name)) { interrupted = true; break; }
                 }
                 if (interrupted) break;

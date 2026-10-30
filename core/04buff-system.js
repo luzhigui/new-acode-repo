@@ -7,7 +7,7 @@ import {
     calcCarryBonus_Normal, calcCarryBonus_Sister,
     applyMindControl_Normal, applyMindControl_Sister
 } from './14buff-effects.js';
-import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
+import { CONFIG, getGameData, getSkillParams, getBrotherHexEnhance } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal } from './13battle-shared.js';
@@ -77,19 +77,23 @@ export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     if (ctx?.log) ctx.log.push({ factType: FACT_TYPES.SOUL_DRAIN_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: defRatio } });
 }
 
-// 妹永久摄魂：团队版在场时不启用（团队版全体削）；妹持永久摄魂时每回合随机点名 1 名敌方
-//   （非巨马、非召唤物），写 _soulDrainRounds=2。core/11 先对存量 -1 再点名，稳态约 2 人同削。
+// 妹永久摄魂：团队版在场时不启用（团队版全体削）；妹持永久摄魂时每回合按 pointChance 概率随机点名 1 名敌方
+//   （非巨马、非召唤物），写 _soulDrainRounds=pointRounds。core/11 先对存量 -1 再点名，稳态约 2 人同削。
 export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
     if (!casterSide || !targetSide) return;
     if (hasBuff(casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN)) return;
     const hasBrother = casterSide.some(u => u.isXiaoZhaoBrother && query('xiaoPermanentActive', u, casterSide._activeBuffs || [], BUFF_TYPES.SOUL_DRAIN));
     if (!hasBrother) return;
-    // 妹永久摄魂不再每回合必点名，改 60% 概率（content.buffs.soulDrain.brotherPointChance）
-    if (ctx.rng.next() >= CONFIG.BUFFS.soulDrain.brotherPointChance) return;
+    // 妹永久摄魂点名概率 / 持续回合：唯一真源 201 brother.soulDrain（缺则炸）
+    const enh = getBrotherHexEnhance('soulDrain');
+    if (!enh || enh.pointChance == null || enh.pointRounds == null) {
+        throw new Error('201hex-enhance.json 缺 brother.soulDrain.pointChance/pointRounds');
+    }
+    if (ctx.rng.next() >= enh.pointChance) return;
     const pool = targetSide.filter(u => u.alive && !u.isHorse && !u.isSummon);
     if (!pool.length) return;
     const pick = pool[ctx.rng.nextInt(0, pool.length - 1)];
-    pick.state._soulDrainRounds = 2;
+    pick.state._soulDrainRounds = enh.pointRounds;
 }
 
 // 受益面含拒马与狮子：门控不放 isHorse——拒马站受益位也吃加成。副作用：拒马吃到攻加成后 atk>0，
@@ -112,13 +116,10 @@ export function applyCarryBonus(unit, A, state, log) {
 //   随回合开始进场，故 core/11 组件工厂循环能当回合挂上雄鹰技能；数值读 content buffs.carry.params.eagle。
 export function spawnCarryEagle(team, log) {
     if (!team || !team.length) return null;
-    // 「先拿过 carry、之后再选一次 carry 就不出雄鹰」的修复：锁挂在 buff 对象上（_eagleDone），每张 carry 各判一次 5 号位。
-    //   buff 跨回合同一对象、只被 remaining 递减，且只出现在持有它的阵营列表里，天然按阵营隔离。
+    // carry 全场只能选一次后，雄鹰重召规则：carry 有效期内（buff 还在 remaining>0）每回合都检查，
+    //   5 号位空且场上无雄鹰 → 补一只。雄鹰死了后下一回合能再召，直到 carry 过期。
     const buff = (team._activeBuffs || []).find(b => b.key === BUFF_TYPES.CARRY);
     if (!buff) return null;
-    // 本次 carry 已判过 5 号位：当回合有人（不招）或已招（雄鹰阵亡也不补）后均不再判
-    if (buff._eagleDone) return null;
-    buff._eagleDone = true;
     if (team.some(u => u.alive && u.pos === 5)) return null;
     if (team.some(u => u.isCarryEagle)) return null;
     const spec = C.BUFFS?.carry?.params?.eagle;
@@ -152,11 +153,24 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const enh = (teamHas && Array.isArray(team) && team.some(u => u.isXiaoZhaoSister && u.alive))
         ? (getSkillParams('小昭', 'hexEnhance').lastStand || null) : null;
     const teamThreshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
-    const permThreshold = (cfg.hpThreshold ?? 0.35);
+    // 妹永久背水触发阈值：只在 permOwned 为真时才读 201——
+    //   团队版场景（teamHas=true, permOwned=false）的普通单位不碰 201，避免 worker 无 201 环境误炸
+    let permThreshold = null;
+    if (permOwned) {
+        const brotherLsEnh = getBrotherHexEnhance('lastStand');
+        if (!brotherLsEnh || brotherLsEnh.hpThreshold == null) {
+            throw new Error('201hex-enhance.json 缺 brother.lastStand.hpThreshold');
+        }
+        permThreshold = brotherLsEnh.hpThreshold;
+    }
     const teamLow = teamHas && unit.hp < unit.maxHp * teamThreshold;
     const permLow = permOwned && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * permThreshold);
     
     if (!teamLow && !permLow) return;
+
+    // 团队版不在场（纯妹永久场景）交给 modules/31 专属组件处理，避免双触发。
+    //   团队版在场时走本函数老逻辑（团队版覆盖所有人，含妹）。
+    if (!teamHas && permOwned) return;
     
     // 首次触发！
     unit.state._lastStandTriggered = true;
@@ -302,9 +316,12 @@ export function submitBloodthirstDeclaration(data) {
     const isBrother = unit.isXiaoZhaoBrother;
 
     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
+        // 姊强化：吸血率翻倍（普通 80% → 强化 160%，读 content hexEnhance.bloodthirst.leechRatio）
+        const enhanceBT = hasSister ? getSkillParams('小昭', 'hexEnhance').bloodthirst : null;
+        const leechRatio = (enhanceBT && enhanceBT.leechRatio != null) ? enhanceBT.leechRatio : C.BUFFS.bloodthirst.leechRatio;
         // 声明量必须填原值：core/16 LEECH handler 落账时还会再走一次截脉/寒毒打折，
         //   这里若直接填 preview 值会被打两次折（50% 变 25%）；preview 只用于飘字/审计「实际落地值」
-        const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+        const rawLeech = Math.floor(dmg * leechRatio);
         const leechVal = previewHeal(unit, rawLeech);
         const decl = { type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother, unitUid: unit.uid } };
         if (!data.declarations) data.declarations = [];
@@ -312,11 +329,6 @@ export function submitBloodthirstDeclaration(data) {
             data.declarations.push(decl);
             // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
             recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
-        }
-        if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
-            unit.state._bloodthirstStriked = true;
-            if (!data.extraRequests) data.extraRequests = [];
-            data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20, ignoreBlock: true });
         }
     } else if (hasBrotherPermanent(allySide, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         // 同主分支：声明量填原值，preview 只用于飘字/审计
@@ -434,19 +446,7 @@ export function submitWindAssaultDeclaration(data) {
     const pushProb = enhance ? Math.floor(enhance.pushProb * 100) : Math.floor(C.BUFFS.windAssault.pushProb * 100);
     const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
     if (rng.nextInt(1, 100) <= hitProb) {
-        // 姊强化：团队版乘风主目标额外承受 20% 伤害（妹妹永久版不生效）
-        if (enhance && target.alive && !target.state._pendingDeath) {
-            const extraDmg = Math.floor(dmg * 0.2);
-            if (extraDmg > 0) {
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push({
-                    type: EFFECT_TYPES.BONUS_DMG,
-                    value: extraDmg,
-                    target: target,
-                    label: '乘风突袭·强化'
-                });
-            }
-        }
+        // 姊强化不再额外加伤（改为持续 +1 回合，见 modules/28 createBuffObject）
         const row = getUnitRow(target.pos);
         const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
         if (rowTargets.length > 0) {
@@ -596,9 +596,20 @@ function reviveHolyFireUnit(u, team, log, slot) {
     const enhance = team.some(x => x.isXiaoZhaoSister && x.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
     // 妹永久名额（slot='self'）回血固定 30%（content.buffs.holyFire.brotherReviveRatio），
     //   不吃姊增强——与「永久版一律用团队基础值」的既定口径一致（圣火令/摄魂同款）
-    const ratio = slot === 'self'
-        ? (cfg.brotherReviveRatio != null ? cfg.brotherReviveRatio : cfg.reviveRatio)
-        : (enhance ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6) : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4));
+    // 妹独立名额（slot='self'）回血率唯一真源 = 201 brother.holyFire.reviveRatio（缺则炸）；
+    //   团队名额（slot 非 self）有姊强化走姊表，否则回落普通版
+    let ratio;
+    if (slot === 'self') {
+        const brotherHFEnh = getBrotherHexEnhance('holyFire');
+        if (!brotherHFEnh || brotherHFEnh.reviveRatio == null) {
+            throw new Error('201hex-enhance.json 缺 brother.holyFire.reviveRatio');
+        }
+        ratio = brotherHFEnh.reviveRatio;
+    } else {
+        ratio = enhance
+            ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6)
+            : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4);
+    }
     // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
     //   （findFreePos 只算 alive 占位、尸体不占格，故通常直接原地复活）
     let landPos = u.pos;
