@@ -21,8 +21,10 @@
 // 五条复发信号（只选"文本自身 + 攻击组 _dmg + 终局快照就能定性"的判据）：
 //   1) 吸血量必须是正整数：负数/小数 → 取整被改或结算改道；+0 仅父组 _dmg===1（floor(1×0.8)=0）合法容忍
 //      （2026-10-12 加固：原「+0 一律 fail」属误报），其余 +0 → dmg=0 仍登记（分支2 漏守）
-//   2) 比例哨兵：leechVal > 本次伤害 × 0.85 → 比例被写大或翻倍被重复叠加
-//      （合法上限就是 floor(dmg×0.8)/dmg ≤ 0.8，实测 120 场 ratioMax 恰为 0.800；留 0.85 给取整余量）
+//   2) 比例哨兵：leechVal > 本次伤害 × 上限 → 比例被写大或翻倍被重复叠加
+//      合法上限：普通 floor(dmg×0.8)/dmg ≤ 0.8；**小昭·姊在场时翻倍到 1.6**
+//      （core/04 L319-321 姊强化分支读 content/201hex-enhance bloodthirst.leechRatio=1.6）。
+//      实测 base 80% / 强化 160%，故按快照是否有小昭·姊取 0.85 或 1.65（含取整余量）。
 //   3) 同一次攻击（同一个 attack-group）内同一单位登记两次 → 吸血膨胀
 //   4) 摘要百分比与 CONFIG.BUFFS.bloodthirst.leechRatio 不符 → 渲染写死 / 配置未收口
 //   5) 吸血量越过该单位血量上限（终局 maxHp 兜底，取不到就跳过，只会漏报不会误报）
@@ -33,7 +35,7 @@
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.17';
+export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.18';
 import { collectNodes, plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -122,14 +124,27 @@ export const rule98 = {
                 }
             }
 
-            // 判据2：比例哨兵（合法上限 floor(dmg×0.8)/dmg ≤ 0.8，取 0.85 留取整余量）
+            // 判据2：比例哨兵（合法上限：普通 dmg×0.8；**小昭·姊在场时翻倍到 dmg×1.6**）。
+            //   根因（2026-10-30 第 144 轮）：core/04 L319-321 有姊强化分支 —— hasSister 时
+            //   leechRatio 读 content/201hex-enhance.json bloodthirst.leechRatio=1.6（普通 0.8 的 2 倍）。
+            //   旧版硬编码 0.8 上界，把合法的 155%（+20/12.9）当膨胀误报。现按「快照里是否有小昭·姊」判定：
+            //   有姊 → 上限 ×2（1.65 含余量）；无姊 → 0.85。取不到 side 池或判不出姊时按「有姊」放宽（宁漏勿误）。
             var dmg = parentDmgOf(e, log);
             if (dmg != null && dmg > 0) {
-                var cap = (cfg.ratio != null ? cfg.ratio : 0.8) + 0.05; // 配置现读 + 余量，配置上调也不会误报
+                var sisterPresent = false;
+                var sides = (afterA || []).concat(afterE || []);
+                for (var ss = 0; ss < sides.length; ss++) {
+                    var su = sides[ss];
+                    if (!su) continue;
+                    if (su.isXiaoZhaoSister || (typeof su.name === 'string' && su.name.indexOf('小昭') !== -1 && su.name.indexOf('姊') !== -1)) { sisterPresent = true; break; }
+                }
+                var baseRatio = (cfg.ratio != null ? cfg.ratio : 0.8);
+                var maxRatio = sisterPresent ? baseRatio * 2 : baseRatio; // 姊强化：core/04 翻倍
+                var cap = maxRatio + 0.05;
                 if (leech > dmg * cap) {
                     return { fail: true, msg: '复发：嗜血狂刀吸血 +' + leech + ' 超过本次伤害 ' + dmg
-                        + ' 的 ' + Math.round(leech / dmg * 100) + '%（合法上限 ' + Math.round((cfg.ratio != null ? cfg.ratio : 0.8) * 100)
-                        + '%，说明比例被写大或翻倍被重复叠加）' };
+                        + ' 的 ' + Math.round(leech / dmg * 100) + '%（合法上限 ' + Math.round(maxRatio * 100)
+                        + '%' + (sisterPresent ? '，含小昭·姊强化翻倍' : '') + '，说明比例被写大或翻倍被重复叠加）' };
                 }
             }
 
