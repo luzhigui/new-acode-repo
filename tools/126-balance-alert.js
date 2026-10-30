@@ -1,7 +1,10 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.6.0';
+export const VER = 'tools/126-balance-alert.js V3.6.1';
+// V3.6.1 | 2026-10-30 读 108 榜的两处循环补 null 守卫（同 108 V6.6.5 的脏条目问题，126 是同一批数据的消费端）：
+//           hexStatsOf / hexPairIssues 里 l 为 null 会分别在 l.winner / l.buffs 上抛 TypeError 整个告警面板崩掉；
+//           跳过脏条目继续统计，不再让一条 null 拖死全表。
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
@@ -201,6 +204,7 @@ function hexStatsOf(logs) {
     //   有了这个才能回答「这份榜是三小时前还是三周前跑的」。
     let minTs = null, maxTs = null, noTs = 0;
     for (const l of logs) {
+        if (!l || typeof l !== 'object') continue;   // V3.6.1：脏条目免疫（null 混进榜会让整面板崩）
         if (l.winner === '明教') allyWins++;
         if (typeof l.ts === 'number' && l.ts > 0) {
             if (minTs === null || l.ts < minTs) minTs = l.ts;
@@ -566,6 +570,7 @@ function hexPairIssues(mode) {
     if (!logs || !logs.length) return null;   // 单体规则已报缺数据，这里不重复报
     const solo = {}, pair = {};
     for (const l of logs) {
+        if (!l || typeof l !== 'object') continue;   // V3.6.1：脏条目免疫
         const bs = (l.buffs || []);
         if (bs.length < 2) { for (const k of bs) { (solo[k] || (solo[k] = { n: 0, w: 0 })).n++; if (l.winner === '明教') solo[k].w++; } continue; }
         const win = l.winner === '明教';

@@ -5,12 +5,21 @@
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
 import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
+// V2.6.0 起写库前读 GlobalStore.careerLogSuppress（体检会话标记，tests/121 置位）；
+// infra/54 无 DOM 依赖，浏览器/node 两侧都能安全 import
+import { GlobalStore } from '../infra/54-global-store.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.5.0';
-// V2.5.0 | 2026-10-29 | 补完模块剩余朴素指标：① 败因分析 getLossAnalysis 四条结论从「均值阈值」改 Welch 两样本均值差 95% 区间，
+export const VER = 'tools/52-career-log.js V2.6.0';
+// V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
+//   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
+//   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
+//     体检 iframe 的 GlobalStore 上置真，会话期常驻）——从源头不产生这两类记录；
+//   ② getCareerRecords 读取侧剔除存量联机局（历史库里有 mode:'pvp' 的旧记录）；
+//   ③ 历史体检局旧记录没有任何标记、无法事后区分，要清就走「清空历史」按钮。
+// V2.5.0 | 2026-10-29 | 补完模块剩余朴素指标：① 败因分析 getLossAnalysis 四条结论从「均值阈值」改 Welch 两样本均值差 95% 区间,
 //   区间跨 0 即判噪声内（不再把小样本误判成「被速推/团灭/输出打不出/承伤偏高」）；突破口改用 Wilson 区间，下界过半才认。
 //   ② getCareerInsights 的 hardest/easiest 加 Wilson 区间 + sig，区间跨总体胜率才认「真偏难/偏易」。与 V2.3/V2.4 同一显著性口径。
 
@@ -107,6 +116,10 @@ function pickUnits(list) {
 // roundSummary 为空 = 回放/从机路径（没有 careerRounds），返回 null 不写库
 export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, report, roundSummary }) {
     if (!roundSummary || roundSummary.length === 0) return null;
+    // V2.6.0：联机局（人与人）与体检局（full-auto 无人值守，tests/121 置 careerLogSuppress）不写库。
+    //   两类对局与玩家实打不同源，混进生涯记录会把胜率/英雄/海克斯统计全部带歪。
+    if (mode === 'pvp') return null;
+    try { if (GlobalStore.get('careerLogSuppress')) return null; } catch (e) {}
     return {
         v: 1,
         id: `s${stage}-${Date.now().toString(36)}`,
@@ -125,7 +138,8 @@ export function getCareerRecords() {
         const raw = localStorage.getItem(LS_KEY);
         if (!raw) return [];
         const arr = JSON.parse(raw);
-        return Array.isArray(arr) ? arr : [];
+        // V2.6.0：存量联机局读取侧剔除（写入侧已停写，这里兜住历史库），所有统计/导出统一口径
+        return (Array.isArray(arr) ? arr : []).filter(r => r && r.mode !== 'pvp');
     } catch (e) { return []; }
 }
 
