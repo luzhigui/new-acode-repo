@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "note": "分层依赖扫描的存量基线：只登记本文件生成时已知的 A 类反向边与 B 类环。新增问题由 tests/layer-direction-scan.mjs --enforce 拦截；还清旧账后用 --update-baseline 收缩本文件。边 ID 不含行号，避免改代码行数就失效。",
+  "knownReverse": [],
+  "knownCycles": []
+}

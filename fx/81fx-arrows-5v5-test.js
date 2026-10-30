@@ -7,6 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { snapshotUnitCell, snapshotUnitCellRobust } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
 import { getPerfParam } from '../core/23perf-params.js';
+import { isFxSkipped } from '../infra/62-fx-gate.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, onComplete) {
     clock.animateReal(durationMs, (p) => {
@@ -221,7 +222,7 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
 
 // 九阴白骨爪：🫳凝结 → 飞向目标 → 命中（斩杀走碎开）
 export function showBoneClaw(unitA, unitD, onHit, opts) {
-    if (GlobalStore.get('fastForwardActive')) { if (typeof onHit === 'function') onHit(); return; }
+    if (isFxSkipped()) { if (typeof onHit === 'function') onHit(); return; }
     opts = opts || {};
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);

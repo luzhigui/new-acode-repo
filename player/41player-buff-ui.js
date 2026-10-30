@@ -1,4 +1,4 @@
-export const VER = 'player/41player-buff-ui.js V6.0.0';
+export const VER = 'player/41player-buff-ui.js V6.0.1';
 
 import { Unit } from '../core/02unit.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -7,7 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { findUnitByUid } from './47renderer.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { clock } from '../infra/52-clock.js';
-import { getCellByPos } from '../fx/90fx-ref-manager.js';
+import { getCellByPos } from '../render/32grid-cells.js';
 
 // 清死码：getCtx（文内无人调）与 setBuffUIContext（44 转口 import 后无人调用）删除（外部AI清单#7）
 export async function handleHolyTokenDrop(c, entry) {
@@ -17,7 +17,7 @@ export async function handleHolyTokenDrop(c, entry) {
     GlobalStore.set('bulletTimeActive', true);
 
     const unit = findUnitByUid(c, entry.unitUid);
-    // 联网从机视角修复：格子查找走 90 的 dataset.pos 匹配（视角无关），
+    // 联网从机视角修复：格子查找走 render 的 dataset.pos 匹配（视角无关），
     // 原先本地背的固定顺序表在从机视角（行序镜像）下会把圣火令图标扔错格子
     const cell = unit ? getCellByPos(unit.camp, unit.pos) : null;
     const cellRect = cell ? cell.getBoundingClientRect() : null;

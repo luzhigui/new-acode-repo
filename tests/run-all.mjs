@@ -41,7 +41,7 @@
 // V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
 //   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
-// tests/run-all.mjs | ~4100 bytes | V1.3.0 | 2026-10-22 CHECKS 新增「蓄意轰拳数值口径对账」
+// tests/run-all.mjs | ~4400 bytes | V1.20.0 | 2026-10-31 CHECKS 新增「分层依赖方向(新增闸门)」
 //   （tests/hit-shapes-consistency.mjs，新检查，放在静态契约一致性之后——秒级、纯静态对账）
 // 一键全量体检：串行跑齐 node 侧全套红线（七项常规 + 大样本 fuzz），最后出一页「谁绿谁红」汇总，任一红则退出码 1。
 // 背景：浏览器 120test-runner.html 的「一键体检」只覆盖浏览器那一层（UI/规则/不变量）；
@@ -53,6 +53,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+// 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
+//   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
 export const VER = 'tests/run-all.mjs V1.22.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +64,7 @@ const node = process.execPath;
 // 十项红线（V1.1.0 起），顺序 = 从快到慢、从结构到数值
 const CHECKS = [
     { name: '静态扫描(import/枚举)', script: 'tests/123static-scan.js', args: [] },
+    { name: '分层依赖方向(新增闸门)', script: 'tests/layer-direction-scan.mjs', args: ['--enforce'] },
     { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
     { name: '蓄意轰拳数值口径对账', script: 'tests/hit-shapes-consistency.mjs', args: [] },
     // V1.15.0 | 2026-10-26 第 140 轮：挂「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs。
@@ -189,7 +192,10 @@ const OBSERVES = [
     //     源码当文本扫一遍 ⇒ 那边被整段关掉，本件照样独立复现并报出来（第 154 轮残余边界的解法）。
     //     七条不变量里第⑥条（guardFails 必须计进退码）即第 154 轮牙C2 实证的承重件，本轮从挂账变机械点名。
     //     挂观察项不改分母，与孤儿普查 / 地基普查 / 第二份快照 / 提交对账同一取舍。
-    { name: '守门人的守门人', script: 'tests/guard-presence-scan.mjs', args: [] }
+    { name: '守门人的守门人', script: 'tests/guard-presence-scan.mjs', args: [] },
+    // 第 161 轮冲突裁决：上游 V1.20.0 的闸门说明文字保留在注释里，实际闸门项已在 CHECKS 第 2 项
+    //   （tests/layer-direction-scan.mjs --enforce）落地，本线 V1.21.0/V1.22.0 三项观察一个不丢。
+    //   上游原注：存量基线 tests/layer-direction-baseline.json 目前为空；只拦新增反向边/环。
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

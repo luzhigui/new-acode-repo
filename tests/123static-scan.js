@@ -47,6 +47,7 @@ export const SCAN_FILES = [
     '../modules/26elite-sixsects-hetaichong.js',
     '../modules/27elite-mingjiao.js', '../modules/28buff-tools.js',
     '../modules/29battle-init.js', '../modules/30custom-effects.js',
+    '../modules/31-career-log.js',
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js',
     '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',

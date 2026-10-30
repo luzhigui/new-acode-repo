@@ -1,4 +1,4 @@
-// tests/layer-direction-scan.mjs | V0.2.0-draft | 2026-10-29
+// tests/layer-direction-scan.mjs | V0.3.0 | 2026-10-31
 // 职责：分层依赖方向扫描。把仓库所有 JS 的 static import / re-export 解析成「层 → 层」的边，
 //   按**既有架构铁律**判定，输出 ① 实测量矩阵 ② 反向依赖 ③ 层级循环依赖 ④ 合法但值得记录的隔层直连。
 //
@@ -16,23 +16,28 @@
 //   B 循环依赖：层图上的强连通分量（SCC）含 ≥2 层 ⇒ 成环。ESM 成环会踩「求值顺序 → 拿到 undefined」，
 //     即使每条边单看都朝下，也必须拆（这也是 03 原则 6「无环」的落地判据）。
 //
-// 设计约束（用户 2026-10-29 裁定）：
+// 设计约束（用户 2026-10-29 裁定，2026-10-31 升级为增量闸门）：
 //   ① **默认报告模式**（不带参数即 --report）：只打印清单，退出码恒 0。
-//      切 --enforce 才按判据退出 1。理由：一上来就红，团队第一反应是把规则关掉。
-//   ② 先出全量清单当基线，清零再切拦截。
-//   ③ 解析器自带 node 侧 fs 实现（tests/123static-scan.js 是浏览器 fetch + 白名单 SCAN_FILES，
+//      切 --enforce 才按「新增」判据退出 1。理由：一上来就红，团队第一反应是把规则关掉。
+//   ② 不要求清零才拦截：当前已知问题登记进 tests/layer-direction-baseline.json，
+//      --enforce 只拦**新增反向边 / 新增环 / 自证失败**，旧账可以逐条还。
+//   ③ 基线 ID 不含行号：A 类用「from 文件 -> to 文件」，B 类用「整组环边集合」。
+//      环只登记层对不够——往已有环里塞一条新边会被当成旧账放过去。
+//   ④ 解析器自带 node 侧 fs 实现（tests/123static-scan.js 是浏览器 fetch + 白名单 SCAN_FILES，
 //      不含 tools/，扫不出 player↔tools 那条）。本文件是**普查**，不是抽检。
 //
-// 退出码：--enforce 且有 A/B 类问题 → 1；否则 0。--json 输出机器可读结果。
+// 退出码：--enforce 且存在新增 A/B 类问题或自证失败 → 1；否则 0。--json 输出机器可读结果。
+// 维护：还清旧账后跑 --update-baseline 收缩基线；--no-baseline 可临时按全量判定。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/layer-direction-scan.mjs V0.2.0-draft';
+export const VER = 'tests/layer-direction-scan.mjs V0.3.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..');
+const BASELINE_FILE = path.join(here, 'layer-direction-baseline.json');
 
 // ---- 层序（rank 越小越底层；依赖只允许指向更小 rank）----
 // 与铁律第 6 条逐段对应：
@@ -80,7 +85,8 @@ const DIR_LAYER = {
 //   混居同一目录会让「render → modules」看起来像越界，实际只是设施住在机制目录里。
 const MODULE_FACILITY = new Set([
     '22audio-manager.js', // 音频播放：纯表现设施
-    '21error-capture.js'  // 错误面板：诊断设施，零 import（归此仅为语义清晰）
+    '21error-capture.js', // 错误面板：诊断设施，零 import（归此仅为语义清晰）
+    '31-career-log.js'    // 生涯记录运行时：本地存储读写设施，不属于英雄机制
 ]);
 
 function layerOf(absFile) {
@@ -231,6 +237,61 @@ function matrix(edges) {
     return cell;
 }
 
+// ---- 存量基线 ----
+// ID 必须与行号无关：同一文件里同一对 from→to 只算一条边。
+// 环按「整组边集合」比对，避免往已有环里加一条新边被当成旧账。
+function edgeId(e) { return `${e.from} -> ${e.to}`; }
+function cycleKey(c) { return c.edges.map(edgeId).sort().join(' | '); }
+function emptyBaseline() { return { version: 1, knownReverse: [], knownCycles: [] }; }
+
+function loadBaseline(file) {
+    if (!fs.existsSync(file)) return { data: emptyBaseline(), error: null, exists: false };
+    try {
+        const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+        return {
+            data: {
+                version: raw.version || 1,
+                knownReverse: Array.isArray(raw.knownReverse) ? raw.knownReverse.filter(x => typeof x === 'string') : [],
+                knownCycles: Array.isArray(raw.knownCycles)
+                    ? raw.knownCycles.filter(x => Array.isArray(x) && x.every(y => typeof y === 'string')).map(x => [...x].sort())
+                    : []
+            },
+            error: null,
+            exists: true
+        };
+    } catch (e) {
+        return { data: emptyBaseline(), error: e.message, exists: true };
+    }
+}
+
+function saveBaseline(file, rev, cycles) {
+    const knownReverse = [...new Set(rev.map(edgeId))].sort();
+    const knownCycles = [...new Set(cycles.map(cycleKey))]
+        .map(k => k.split(' | ').sort())
+        .sort((a, b) => a.join('|').localeCompare(b.join('|')));
+    const out = {
+        version: 1,
+        note: '分层依赖扫描的存量基线：只登记本文件生成时已知的 A 类反向边与 B 类环。新增问题由 tests/layer-direction-scan.mjs --enforce 拦截；还清旧账后用 --update-baseline 收缩本文件。边 ID 不含行号，避免改代码行数就失效。',
+        knownReverse,
+        knownCycles
+    };
+    fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n', 'utf8');
+    return out;
+}
+
+function diffAgainstBaseline(rev, cycles, baseline) {
+    const knownRev = new Set(baseline.knownReverse || []);
+    const currentRev = new Set(rev.map(edgeId));
+    const knownCycleKeys = new Set((baseline.knownCycles || []).map(ids => [...ids].sort().join(' | ')));
+    const currentCycleKeys = new Set(cycles.map(cycleKey));
+    return {
+        newReverse: rev.filter(e => !knownRev.has(edgeId(e))),
+        newCycles: cycles.filter(c => !knownCycleKeys.has(cycleKey(c))),
+        staleReverse: [...knownRev].filter(id => !currentRev.has(id)),
+        staleCycles: [...knownCycleKeys].filter(k => !currentCycleKeys.has(k))
+    };
+}
+
 // ---- 反向引用查询（搬家依据）----
 // 与方向检查共用同一解析器，但输出「谁引用了我」，覆盖三类引用点：
 //   ① JS static import / re-export（相对路径解析后比对绝对路径）
@@ -301,6 +362,8 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve
 if (isMain) {
     const enforce = process.argv.includes('--enforce');
     const asJson = process.argv.includes('--json');
+    const updateBaseline = process.argv.includes('--update-baseline');
+    const noBaseline = process.argv.includes('--no-baseline');
 
     // --refs <相对路径>：反向引用查询（搬家前必跑）。与方向判定互斥，查完即退出。
     const refsIdx = process.argv.indexOf('--refs');
@@ -328,11 +391,51 @@ if (isMain) {
     const cycles = findLayerCycles(edges);
     const cell = matrix(edges);
     const selfIssues = selfCheck(files, edges, cell);
-    // 自证失败时把结论污染成「有问题」，避免腐烂后静默变绿
-    const hasProblem = rev.length || cycles.length || selfIssues.length;
+
+    const baselineLoad = noBaseline
+        ? { data: emptyBaseline(), error: null, exists: false }
+        : loadBaseline(BASELINE_FILE);
+    const baseline = baselineLoad.data;
+    const diff = diffAgainstBaseline(rev, cycles, baseline);
+    const baselineIssues = baselineLoad.error
+        ? [`基线文件无法解析（${path.basename(BASELINE_FILE)}）：${baselineLoad.error}`]
+        : [];
+
+    if (updateBaseline) {
+        if (selfIssues.length) {
+            console.log('拒绝写基线：自证断言未通过，当前扫描结果不可信');
+            for (const s of selfIssues) console.log('  ✗ ' + s);
+            process.exit(1);
+        }
+        const saved = saveBaseline(BASELINE_FILE, rev, cycles);
+        console.log(`已写入基线 ${path.relative(ROOT, BASELINE_FILE)}：反向 ${saved.knownReverse.length} 条 / 环 ${saved.knownCycles.length} 组`);
+        process.exit(0);
+    }
+
+    // 自证失败、基线损坏都算「闸门 itself 不可信」；--enforce 下必须红。
+    const hasProblem = diff.newReverse.length || diff.newCycles.length || selfIssues.length || baselineIssues.length;
 
     if (asJson) {
-        console.log(JSON.stringify({ ver: VER, files: files.length, edges, reverse: rev, cycles, selfIssues, unresolved }, null, 2));
+        console.log(JSON.stringify({
+            ver: VER,
+            files: files.length,
+            edges,
+            reverse: rev,
+            cycles,
+            selfIssues,
+            unresolved,
+            baseline: {
+                file: noBaseline ? null : path.relative(ROOT, BASELINE_FILE),
+                loaded: !noBaseline && baselineLoad.exists && !baselineLoad.error,
+                knownReverse: baseline.knownReverse.length,
+                knownCycles: baseline.knownCycles.length,
+                newReverse: diff.newReverse.length,
+                newCycles: diff.newCycles.length,
+                staleReverse: diff.staleReverse,
+                staleCycles: diff.staleCycles,
+                error: baselineLoad.error
+            }
+        }, null, 2));
     } else {
         const order = ['infra', 'core', 'modules-mechanic', 'modules-facility', 'render', 'player', 'ui', 'fx', 'tools', 'tests', 'scripts'];
         const ABBR = { infra: 'inf', core: 'cor', 'modules-mechanic': 'mec', 'modules-facility': 'fac', render: 'ren', player: 'ply', ui: 'ui', fx: 'fx', tools: 'tol', tests: 'tst', scripts: 'scr' };
@@ -341,6 +444,9 @@ if (isMain) {
         console.log('=== ' + VER + ' ===');
         console.log(`扫描 ${files.length} 文件 / 静态依赖边 ${edges.length} 条 / 未解析路径 ${unresolved.length} 条`);
         console.log('判据真源：09 架构铁律 第6条 + 03 架构终态蓝图 原则6（ui/fx → player → render/modules → core → infra，无环无反向）');
+        console.log(noBaseline
+            ? '基线：已禁用（--no-baseline，按全量判定）'
+            : `基线：${path.relative(ROOT, BASELINE_FILE)}（${baselineLoad.exists ? (baselineLoad.error ? '解析失败' : `存量反向 ${baseline.knownReverse.length} / 环 ${baseline.knownCycles.length}`) : '不存在，按全量判定'}）`);
 
         console.log('\n=== 层间依赖矩阵（行 import 列）===');
         for (const a of order) {
@@ -351,14 +457,20 @@ if (isMain) {
         }
         console.log(''.padEnd(18) + order.map(b => ABBR[b].padStart(W)).join(''));
 
-        console.log(`\n=== A 类：反向依赖（下层 import 上层 / 链内读工具）共 ${rev.length} 条 ===`);
+        console.log(`\n=== A 类：反向依赖（下层 import 上层 / 链内读工具）共 ${rev.length} 条（存量 ${rev.length - diff.newReverse.length} / 新增 ${diff.newReverse.length}）===`);
         if (!rev.length) console.log('  （无）');
-        for (const v of rev) console.log(`  ${v.from}:${v.line}  →  ${v.to}   [${v.why}]`);
+        const newRevIds = new Set(diff.newReverse.map(edgeId));
+        for (const v of rev) {
+            const mark = newRevIds.has(edgeId(v)) ? '[新增]' : '[存量]';
+            console.log(`  ${mark} ${v.from}:${v.line}  →  ${v.to}   [${v.why}]`);
+        }
 
-        console.log(`\n=== B 类：层级循环依赖 共 ${cycles.length} 组 ===`);
+        console.log(`\n=== B 类：层级循环依赖 共 ${cycles.length} 组（存量 ${cycles.length - diff.newCycles.length} / 新增 ${diff.newCycles.length}）===`);
         if (!cycles.length) console.log('  （无）');
+        const newCycleKeys = new Set(diff.newCycles.map(cycleKey));
         for (const c of cycles) {
-            console.log(`  [${c.layers.join(' ↔ ')}] 环上共 ${c.edges.length} 条边`);
+            const mark = newCycleKeys.has(cycleKey(c)) ? '[新增]' : '[存量]';
+            console.log(`  ${mark} [${c.layers.join(' ↔ ')}] 环上共 ${c.edges.length} 条边`);
             for (const e of c.edges) console.log(`    ${e.from}:${e.line}  →  ${e.to}`);
         }
 
@@ -367,13 +479,20 @@ if (isMain) {
             for (const u of unresolved) console.log(`  ${u.from}:${u.line}  →  ${u.spec}`);
         }
 
-        console.log(`\n=== 自证断言 共 ${selfIssues.length} 条 ===`);
-        if (!selfIssues.length) console.log('  （通过：文件数/边数/跨层边对均在下限之上）');
+        if (diff.staleReverse.length || diff.staleCycles.length) {
+            console.log('\n=== 基线陈旧（代码里已不存在，建议 --update-baseline 收缩）===');
+            for (const id of diff.staleReverse) console.log(`  - 反向：${id}`);
+            for (const k of diff.staleCycles) console.log(`  - 环：${k}`);
+        }
+
+        console.log(`\n=== 自证断言 共 ${selfIssues.length + baselineIssues.length} 条 ===`);
+        if (!selfIssues.length && !baselineIssues.length) console.log('  （通过：文件数/边数/跨层边对均在下限之上，基线可解析）');
         for (const s of selfIssues) console.log('  ✗ ' + s);
+        for (const s of baselineIssues) console.log('  ✗ ' + s);
 
         console.log(enforce
-            ? '\n模式：ENFORCE（A/B 类或自证失败即退出码 1）'
-            : '\n模式：REPORT（只报不拦，退出码 0）—— 清单清零后再切 --enforce');
+            ? `\n模式：ENFORCE（只拦新增：反向 ${diff.newReverse.length} 条 / 环 ${diff.newCycles.length} 组；自证或基线损坏也红）`
+            : '\n模式：REPORT（只报不拦，退出码 0）—— 新增问题为 0 后切 --enforce');
     }
     if (enforce && hasProblem) process.exit(1);
 }

@@ -37,7 +37,7 @@
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
 //   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
 //   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.25';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.26';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -191,34 +191,20 @@ export const rule95 = {
                     }
                 }
 
-                // 复发信号5：数值膨胀 —— 上界镜像引擎口径：对每个队友按「存活 ×1 / 死亡 ×deathMultiplier」
-                //   累加 getStat 属性，再乘配置比例，留 K 倍余量（当前 K=5）。
-                //   根因（第 5 次实测假阳性，2026-10-29 第5关 张无忌 第1回合 carry 攻+6 防+6，cap 算得 攻≤6 防≤5，
-                //   防超 1 触发）：本规则只能用**终局快照**估算队友 Σ，而 carry 在第1回合应用时队友是满编实时属性，
-                //   终局快照比实时系统性算小——本次实测约 3.6 倍（快照 Σdef≈20.8 vs 实时≈75），远超早年估计的 10~20%。
-                //   旧 K=3 余量压不住，故提至 K=5（>3.6 留 40% 余）。
-                //   说明：cap 与引擎同乘 cfg 比例/倍率，故信号5 对「配置比例/倍率被写大」本身不敏感（actual/cap 比值
-                //   与参数无关）——其真实价值是捕获非参数类巨幅膨胀（如 carry 被重复累加、队友池异常膨胀），这类
-                //   bug 下 actual 远超正常的 K 倍，K=5 仍能抓住。提 K 不损失该能力，仅消除快照偏差误报。
+                // 复发信号5：数值膨胀 —— 上界改用「单队友属性理论上限 × 队友数 × 配置比例 × 死亡倍率」，
+                //   不再用终局快照 Σ 估算（快照比实时系统性算小且随回合/死亡倍率波动，硬上界必误报——2026-10-29
+                //   张无忌、2026-10-30 雄鹰连续两例：cap 算小到 攻≤6/防≤8，而真实 carry 攻+6/防+6、攻+15/防+19 均合法）。
+                //   该上界只用于捕获「非参数类巨幅膨胀」（队友池异常膨胀 / carry 重复累加致单队友贡献远超物理可能），
+                //   这类真缺陷下 actual 远超此上界；对「配置比例/倍率写大」本身不敏感（cap 与 actual 同乘 cfg，比值
+                //   与参数无关，已知设计局限）。S_CEIL 取远高于实战峰值的 220，调大只更宽松、不会漏真实巨幅膨胀。
                 if (mates.length > 0 && cfg.ok) {
-                    // hp 项剔除（第 135 轮，根因见文件头信号 5 注释）：终局快照 _baseMaxHp 是战斗期保留键，
-                    //   快照上取不到 → statOf 回落 getStat('maxHp') → Σ 被算小 3.67 倍（133 vs 引擎实时 490），
-                    //   3 倍余量兜不住 → 「血+49 超上界 40」误报。攻/防走 getStat 偏差（词条未进快照）
-                    //   约 10~20% 被余量盖住，保留判上界。hp 后果由 stat-decl CARRY_APPLY 账本契约盯。
-                    var sumAtk = 0, sumDef = 0;
-                    for (var s = 0; s < mates.length; s++) {
-                        var mu = mates[s];
-                        var mult = mu.alive ? 1 : cfg.deathMultiplier;
-                        var a2 = statOf(mu, 'atk'), d2 = statOf(mu, 'def');
-                        if (a2 != null) sumAtk += a2 * mult;
-                        if (d2 != null) sumDef += d2 * mult;
-                    }
-                    var capAtk = sumAtk * cfg.atkBonus * 5;
-                    var capDef = sumDef * cfg.defBonus * 5;
+                    var S_CEIL = 220; // 单队友攻/防属性理论上限（实战峰值约 150，留足余量）
+                    var capAtk = mates.length * S_CEIL * cfg.atkBonus * cfg.deathMultiplier;
+                    var capDef = mates.length * S_CEIL * cfg.defBonus * cfg.deathMultiplier;
                     if (atk > capAtk || def > capDef) {
                         return { fail: true, msg: '复发：carry加成超出上界：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
                             + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
-                            + '，比例或死亡倍率被写大；hp 项不判上界——终局快照 _baseMaxHp 不可靠，由 stat-decl 账本契约盯）' };
+                            + '，疑似队友池异常膨胀或重复累加；hp 项不判上界——终局快照 _baseMaxHp 不可靠，由 stat-decl 账本契约盯）' };
                     }
                 }
             }

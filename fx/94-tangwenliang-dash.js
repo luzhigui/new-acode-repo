@@ -11,6 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getPerfParam } from '../core/23perf-params.js';
 import { getRoleIcon } from '../render/37-role-cards.js';
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { isFxSkipped } from '../infra/62-fx-gate.js';
 
 export const VER = 'fx/94-tangwenliang-dash.js V2.4.0';
 
@@ -246,7 +247,7 @@ function edgeOf(r, tx, ty) {
 //   返回 ghosts 交 render/39 storeAfter 淡出（交棒顺序与快版一致：先清 fly 显真格，再淡出克隆体）。
 //   跳过 / 快进 / 无位移 → 返回 [] 或原 ghosts，不影响 store 步已写好的位置。
 async function showTangWenLiangDashSlow(dash) {
-    if (!dash || GlobalStore.get('fastForwardActive')) return [];
+    if (!dash || isFxSkipped()) return [];
 
     let moves = Array.isArray(dash.moves) ? dash.moves.filter(m => m && m.uid != null) : [];
     if (moves.length === 0 && dash.fromUid != null && dash.fromPos != null && dash.toPos != null) {
@@ -543,7 +544,7 @@ async function showTangWenLiangDashSlow(dash) {
 export async function showTangWenLiangDash(dash, opts) {
     // 「唐文亮·冲刺子弹时间」（fxDashSlow）开着走慢速档；关掉 / 快进走原快版
     if (opts && opts.slowMotion) return showTangWenLiangDashSlow(dash);
-    if (!dash || GlobalStore.get('fastForwardActive')) return [];
+    if (!dash || isFxSkipped()) return [];
 
     // moves 载荷（新）优先；旧档无 moves 按旧双单位字段拼两条（兼容老战报回放）
     let moves = Array.isArray(dash.moves) ? dash.moves.filter(m => m && m.uid != null) : [];

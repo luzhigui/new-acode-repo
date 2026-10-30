@@ -10,6 +10,7 @@ import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { clock } from '../infra/52-clock.js';
+import { isFxSkipped } from '../infra/62-fx-gate.js';
 
 // 唐文亮「标枪」抛出外观（老板指正：标枪该掷矛，不该近战飞撞）：
 //   起手图标沿用职业图标 🪠（与 render/37 同源），枪身木色更粗更长、枪头金属灰
@@ -17,7 +18,7 @@ const JAVELIN_SHOT_STYLE = { icon: '🪠', len: 54, thick: 4, color: '#6b4a2f', 
 
 // 颤动规则单一入口：目前仅远程飞箭命中触发，未来调整规则只改此处
 export function shakeTarget(uid, durationMs = 350) {
-    if (GlobalStore.get('fastForwardActive')) return;
+    if (isFxSkipped()) return;
     markGridShake(uid, durationMs);
 }
 
@@ -25,7 +26,7 @@ export function shakeTarget(uid, durationMs = 350) {
 //   伤害飘字不在此处负责：改由 player/46 播到 damage-text 行时同帧打（原先这里等 1100ms，
 //   与动画时长强绑，文字一加速就错位）。
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole, markBurst) {
-    if (GlobalStore.get('fastForwardActive')) return;
+    if (isFxSkipped()) return;
     if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
         let killTaunt = getKillTaunt(unitA);
         clock.wait(0).then(() => showDanmaku(unitA, killTaunt));
@@ -55,7 +56,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 showRangedArrow(unitA, unitD, false, null, true, shotStyle);
                 // 射偏箭飞到中段再弹气泡（对齐近战"撞到一半才弹"的节奏，不在起手就抢跑）
                 clock.wait(500).then(() => {
-                    if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
+                    if (!isFxSkipped()) showDodgeBubble(unitA, '未命中');
                 });
             } else {
                 showRangedArrow(unitA, unitD, false, () => {
@@ -68,7 +69,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             if (isMiss) {
                 // return：把动画 Promise 交给调用方 await
                 return showMeleeMiss(unitA, unitD, () => {
-                    if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
+                    if (!isFxSkipped()) showDodgeBubble(unitA, '未命中');
                 });
             } else {
                 showMeleeCrash(unitA, unitD, () => {

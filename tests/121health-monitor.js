@@ -72,6 +72,8 @@ let recipeNote = RECIPE_TAGS && RECIPE_TAGS.size > 0 ? ('配方规则 ' + RECIPE
 let rulePassCount = 0, ruleSkipCount = 0;
 // 未覆盖规则（skip）名单：体检不静默——哪些规则因当轮阵容/事件没出现而没跑到，报告里明说
 let ruleSkipNames = new Set();
+// 已覆盖规则（pass/skip 之外的命中）名单：多轮累计覆盖时用，避免 pass 计数跨轮重复累加失真
+let rulePassNames = new Set();
 
 // fact 契约红字收集（2026-10-07）：infra/58 validateFactContract 缺字段时打 console.error，
 // 浏览器侧此前只是控制台噪声（node 侧 rules-replay V6.4.0 已收进退出码）——这里同样劫持收集，
@@ -299,7 +301,7 @@ export function initMonitor() {
         btnStopMonitor.disabled = false; btnStopMonitor.textContent = '⏸️ 暂停';
         isPaused = false; monitorActive = true; gameLoaded = false;
         detectedIssues = []; issueKeys.clear(); pendingIssueCounts = {}; lastSampledStage = 0;
-        rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear();
+        rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear(); rulePassNames.clear();
         factContractWarns.clear();  // fact 契约红字计数随体检重启归零
         battleEnded = false; battleStartTime = 0;
         runStartedAt = Date.now(); stagesRun = new Set();  // 重置报告元数据（每次启动体检重新计时/记关）
@@ -688,6 +690,7 @@ function runRuleChecks(ctx, doc) {
                 ruleSkipNames.add(rule.name);
             } else {
                 rulePassCount++;
+                rulePassNames.add(rule.name);
             }
         } catch (e) {
             recordIssue(ctx, null, '规则异常', rule.name + ': ' + (e.message || '未知错误'), '系统');
@@ -974,6 +977,7 @@ function finalizeAutoReport(ctx, doc, reason) {
             issueCount: finalIssues.length,
             rulePass: rulePassCount,
             ruleSkip: ruleSkipCount,
+            rulePassNames: [...rulePassNames],
             ruleSkippedNames: [...ruleSkipNames],
             factContractWarns: contractList
         };

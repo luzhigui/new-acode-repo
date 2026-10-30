@@ -92,6 +92,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
+// 第 161 轮冲突裁决：VERSION 取本地更高的 V6.0.48（上游 V6.0.47 为并行线的旧号），版本履历一行不删。
 export const VER = 'tools/106-ai-pack-config.js V6.0.48';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
@@ -191,6 +192,7 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-24 补登记：空见组件文件（26 入口已 import createKongJianComponent）
     '../modules/26elite-sixsects-kongjian.js',
     '../modules/28buff-tools.js', '../modules/30custom-effects.js',
+    '../modules/31-career-log.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     // 2026-10-21 补登记 32 拆分件：格徽章/格单元（32-grid-render 的同批产物）
@@ -299,6 +301,9 @@ export const ALL_PROJECT_FILES = [
     '../tests/commit-claim-audit.mjs',
     // 2026-10-28 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/guard-presence-scan.mjs',
+    // 第 161 轮冲突裁决：上游登记的两个文件一并保留，两侧登记不删。
+    // 2026-10-30 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/layer-direction-scan.mjs', '../tests/layer-direction-baseline.json',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
