@@ -2,7 +2,12 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.6.5';
+export const VER = 'tools/108-hex-dashboard.js V6.6.6';
+// V6.6.6 | 2026-10-30 脏榜根治（V6.6.5 只挡住读，旧代码仍在手机缓存里炸）：
+//           ① 模块加载时一次性清扫 localStorage 里 KEY/_KEY 开头的榜，把 null/非对象条目删掉并写回
+//              ——自愈后即便旧版代码读到同一批数据也不会再崩；② 三处 .buffs 取值全部补 l 空值守卫
+//              （读侧过滤之外的第二道保险，任何来源的 null 都伤不到 render）；
+//           ③ 配 102 V6.4.5：108 改带时间戳动态加载，穿手机浏览器缓存。
 // V6.6.5 | 2026-10-30 读侧容错（修「跑批中断：Cannot read properties of null (reading 'buffs')」）：
 //           存量榜数组里混进的 null 条目让 render 在 l.buffs 上抛 TypeError、跑完的批次一渲染就整场报错。
 //           过滤收口在 readLogs 一处（只挑 Array 里的真对象），render/统计/模式对比/跨关表全部免疫；
@@ -26,6 +31,26 @@ const readLogs = (mode, stage) => { try { const a = JSON.parse(localStorage.getI
 let curMode = 'normal';
 let curStage = 'all';
 let logs = [];
+
+// V6.6.6 脏数据自愈：历史榜里一旦混进 null/非对象条目，旧版 render 会在 l.buffs 上崩。
+//   加载时把所有相关键扫一遍、剔掉脏条目并写回——治本，不依赖「用户手动清空数据」。
+(function sanitizeStoredLogs(){
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k === KEY || k.startsWith(KEY + '_'))) keys.push(k);
+    }
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      let a; try { a = JSON.parse(raw); } catch (e) { continue; }
+      if (!Array.isArray(a)) continue;
+      const clean = a.filter(l => l && typeof l === 'object');
+      if (clean.length !== a.length) localStorage.setItem(k, JSON.stringify(clean));
+    }
+  } catch (e) {}
+})();
 
 // 样式（一次性注入，带 hex-hex- 前缀避免污染宿主页）
 if (!document.getElementById('hexDashStyle')) {
@@ -599,8 +624,8 @@ function hexStatsOf(logs) {
   const per = {};
   let allyWins = 0;
   for (const l of logs) {
-    if (l.winner === '明教') allyWins++;
-    for (const k of (l.buffs || [])) {
+    if (l && l.winner === '明教') allyWins++;
+    for (const k of ((l && l.buffs) || [])) {
       if (!per[k]) per[k] = { count: 0, wins: 0 };
       per[k].count++;
       if (l.winner === '明教') per[k].wins++;
@@ -824,8 +849,8 @@ function render(summary, stats) {
   }
 
   const total = logs.length;
-  const allyWins = logs.filter(l => l.winner === '明教').length;
-  const enemyWins = logs.filter(l => l.winner === '六大派').length;
+  const allyWins = logs.filter(l => l && l.winner === '明教').length;
+  const enemyWins = logs.filter(l => l && l.winner === '六大派').length;
   const draws = total - allyWins - enemyWins;
   const stageLabel = curStage === 'all' ? '七关合计' : `第${curStage}关`;
 
@@ -856,13 +881,13 @@ function render(summary, stats) {
   summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine;
 
   const hexKeys = new Set();
-  logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));
+  logs.forEach(l => ((l && l.buffs) || []).forEach(b => hexKeys.add(b)));
 
   // 第一遍：先算出每个海克斯各自的胜率
   const perKey = [];
   for (const key of hexKeys) {
-    const withHex = logs.filter(l => (l.buffs || []).includes(key));
-    const winRate = (withHex.filter(l => l.winner === '明教').length / withHex.length) * 100;
+    const withHex = logs.filter(l => (l && (l.buffs || [])).includes(key));
+    const winRate = (withHex.filter(l => l && l.winner === '明教').length / withHex.length) * 100;
     perKey.push({ key, withHex, winRate });
   }
 
