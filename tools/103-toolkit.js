@@ -1,6 +1,5 @@
 export const VER = 'tools/103-toolkit.js V6.2.5';
-// V6.2.5 | 2026-10-30 单次复制上限兜底值 80000 → 200000（配 102 V6.4.4 默认值；HARD/HUGE 的 90k 单文件封顶
-//           语义不变——超大文件依旧整文件独占一包，不参与切分）。
+// V6.2.5 | 2026-10-30 上限框 max 100000 → 200000（102 V6.4.4，仅解锁输入范围）；默认值与 JS 兜底 80000 均不动。
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
 
@@ -273,7 +272,7 @@ function escapeHtml(text) {
     }
 
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
-        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 200000;
+        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 80000;
         const SOFT_LIMIT = charLimit;
         const HARD_LIMIT = Math.min(charLimit * 1.5, 90000);
         const HUGE_THRESHOLD = Math.max(HARD_LIMIT, 90000);

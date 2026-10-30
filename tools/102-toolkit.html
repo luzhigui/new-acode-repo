@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.4 | 2026-10-30 文件复制器默认单次复制上限 80000 → 200000 字符（老板拍板，配 103 V6.2.5）：
-     上限框 max 同步 100000 → 500000（否则默认值会被 max 截住），min/step 不动；分包数约减半。
+<!-- V6.4.4 | 2026-10-30 复制器「单次复制上限」框的 max 100000 → 200000（老板拍板）：默认值 80000 不动，
+     只是解锁手动输入到 20 万（此前 max=10 万填不进 200000）。
      历史版本说明（V6.4.3 及更早）已折叠省略。 -->
 <html lang="zh-CN">
 <head>
@@ -352,7 +352,7 @@
     <div class="tab-content active" id="tab-file-copier">
         <div class="fc-config">
             <label>📦 单次复制上限(字符)：</label>
-            <input type="number" id="fcCharLimit" value="200000" min="1000" max="500000" step="1000">
+            <input type="number" id="fcCharLimit" value="80000" min="1000" max="200000" step="1000">
             <div class="select-all">
                 <button id="fcBtnSelectAll">全选</button>
                 <button id="fcBtnDeselectAll">全不选</button>
