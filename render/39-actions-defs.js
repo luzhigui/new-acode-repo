@@ -8,6 +8,7 @@ import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 // markGridShake 从它的真身模块直取（不走 32-grid-render 全链，避开 37/90 依赖链——任务书坑1的稳妥解）
 import { markGridShake } from './32grid-cells.js';
+import { isFxSkipped } from '../infra/62-fx-gate.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -418,7 +419,7 @@ export const STAGE_ACTION_DEFS = {
         // 函数式：动作自带 timing 优先（溅射破罩要 afterText，跟箭雨同步）；不带的维持 beforeText 原行为
         timing: (action) => (action && action.timing) || 'beforeText',
         fx: async (c, action) => {
-            if (GlobalStore.get('fastForwardActive')) return;
+            if (isFxSkipped()) return;
             // 金刚不坏：飞撞照常，撞上瞬间罩子碎裂（不飘伤害、不闪红——免疫分支本就走不到受击特效）
             if (action.reason && action.reason.indexOf('金刚不坏') >= 0) {
                 const target = findUnitByUidLocal(c, action.targetUid);
@@ -461,7 +462,7 @@ export const STAGE_ACTION_DEFS = {
         timing: (action) => (action && action.timing) || 'afterText',
         // 生生不息攻防二选一加成飘字：atk=橙⚔左上、def=钢蓝🛡右上
         fx: (c, action) => {
-            if (GlobalStore.get('fastForwardActive')) return;
+            if (isFxSkipped()) return;
             const unit = findUnitByUidLocal(c, action.targetUid);
             if (!unit || !action.gain) return;
             if (action.statKind === 'atk') eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit, gain: action.gain });
@@ -497,7 +498,7 @@ export const STAGE_ACTION_DEFS = {
         // grid/log 都不碰——战报文本由原 fact 渲染行负责，这里只在头顶补一个 💥-N。
         grid: 'none', log: 'sync', timing: 'afterText',
         fx: (c, action) => {
-            if (GlobalStore.get('fastForwardActive')) return;
+            if (isFxSkipped()) return;
             const unit = findUnitByUidLocal(c, action.targetUid);
             if (unit && action.dmg > 0) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit, dmg: action.dmg });
         }
@@ -550,7 +551,7 @@ export const STAGE_ACTION_DEFS = {
                             clock.wait(i * 60).then(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED));
                             // 溅射掉血飘字：伤害 core/16 SPLASH 已实扣。随箭矢节奏错层飘；播放时已死的不飘。
                             if (st.alive) clock.wait(600 + i * 80).then(() => {
-                                if (GlobalStore.get('fastForwardActive')) return;
+                                if (isFxSkipped()) return;
                                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: st, dmg: action.splashDmg });
                                 // 溅射减防🛡与掉血💥同帧：右上镜像位 vs 右侧，天然错开不重叠
                                 if (action.splashDefReduce > 0) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit: st, gain: -action.splashDefReduce });
@@ -596,7 +597,7 @@ export const STAGE_ACTION_DEFS = {
         //   fx/89 复用「灭绝计数」的任意文本头顶上飘通道（showMiejueCountFloat），不另造字形。
         grid: 'none', log: 'sync', timing: 'afterText',
         fx: (c, action) => {
-            if (GlobalStore.get('fastForwardActive')) return;
+            if (isFxSkipped()) return;
             const unit = findUnitByUidLocal(c, action.targetUid);
             if (unit) {
                 if (action.isHighlight) {
@@ -650,7 +651,7 @@ export const STAGE_ACTION_DEFS = {
             }
         },
         fx: async (c, action) => {
-            if (GlobalStore.get('fastForwardActive')) return;
+            if (isFxSkipped()) return;
             if (!action.dash) return;
             const fx94 = await import('../fx/94-tangwenliang-dash.js');
             // 克隆体引用交给 storeAfter：落定 → storeAfter 清 fly 显格 → 克隆体才淡出
@@ -664,7 +665,7 @@ export const STAGE_ACTION_DEFS = {
         //   载荷全 uid+数值（可序列化），fx/93 内部自查 DOM。
         grid: 'sync', log: 'sync', timing: 'afterText',
         fx: (c, action) => {
-            if (GlobalStore.get('fastForwardActive')) return;
+            if (isFxSkipped()) return;
             if (action.hlsBurst) eventBus.emit(FX_SIGNALS.HANLISA_BURST, action.hlsBurst);
         }
     }

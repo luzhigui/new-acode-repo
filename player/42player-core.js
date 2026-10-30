@@ -1,5 +1,5 @@
 // player/42player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
-export const VER = 'player/42player-core.js V7.0.2';
+export const VER = 'player/42player-core.js V7.0.3';
 
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, setPresentationRng } from '../core/13battle-shared.js';
@@ -19,7 +19,7 @@ import { buildBattleReportData, computeVoteResult, grantClearRewards } from './4
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
-import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from '../tools/52-career-log.js';
+import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from '../modules/31-career-log.js';
 
 import { readRound, setupDeathTimers } from './42player-step-sync.js';
 import { playStepInterleaved } from './42player-play-step.js';

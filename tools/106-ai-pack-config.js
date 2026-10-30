@@ -1,5 +1,5 @@
 // V6.0.16 | ~13100 bytes | 2026-09-26 加本表用途口径备注（用户定案）：复制包清单不追求全量，体检脚本/本机工具/构建脚本不纳入属正常、不许补登；判断标准=网页端 DeepSeek 拿到包后运行或阅读是否需要它
-export const VER = 'tools/106-ai-pack-config.js V6.0.45';
+export const VER = 'tools/106-ai-pack-config.js V6.0.47';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -98,6 +98,7 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-24 补登记：空见组件文件（26 入口已 import createKongJianComponent）
     '../modules/26elite-sixsects-kongjian.js',
     '../modules/28buff-tools.js', '../modules/30custom-effects.js',
+    '../modules/31-career-log.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     // 2026-10-21 补登记 32 拆分件：格徽章/格单元（32-grid-render 的同批产物）
@@ -200,6 +201,8 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-28 补登记 3 个 tests/_lib 公共件：被上方多个已登记体检脚本 import，漏登则包内引用断裂
     //（sample-sufficiency 4 处 / static-truth-slice 6 处 / foundation-scan 2 处，同 V6.0.25 _lib 两件判据）
     '../tests/_lib/sample-sufficiency.mjs', '../tests/_lib/static-truth-slice.mjs', '../tests/_lib/foundation-scan.mjs',
+    // 2026-10-30 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/layer-direction-scan.mjs', '../tests/layer-direction-baseline.json',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',

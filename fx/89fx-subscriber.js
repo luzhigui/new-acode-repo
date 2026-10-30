@@ -20,11 +20,10 @@ import { showPangTaunt, showPangClumsy } from './92fx-pang-antics.js';
 import { showHanLiSaBurst } from './93-hanlisa-burst.js';
 import { updateHanLiSaChargeFx } from './90-hanlisa-charge.js';
 import { AudioManager } from '../modules/22audio-manager.js';
+import { isFxSkipped as inFastForward } from '../infra/62-fx-gate.js';
 
-// 快进判断归位于表现层
-function inFastForward() {
-    return !!GlobalStore.get('fastForwardActive');
-}
+// 快进判断归位于表现层：统一走 infra/62 的 isFxSkipped（顶部以同名别名 inFastForward 引入，
+//   本文件十几处 inFastForward() 调用点零改动）
 
 // fx: 信号空间内单订阅者，优先级取中位
 const P = 50;

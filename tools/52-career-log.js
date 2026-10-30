@@ -1,18 +1,18 @@
-// tools/52-career-log.js — 生涯记录（本地累积每局摘要，一键导出给 AI 分析）
+// tools/52-career-log.js — 生涯记录统计报表与导出（运行时记账已拆到 modules/31-career-log）
 // 只存摘要（阵容/结果/单位统计/回合走势），不存 steps——localStorage 约 5MB，
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
-import { FACT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
-// V2.6.0 起写库前读 GlobalStore.careerLogSuppress（体检会话标记，tests/121 置位）；
-// infra/54 无 DOM 依赖，浏览器/node 两侧都能安全 import
-import { GlobalStore } from '../infra/54-global-store.js';
+// 运行时读写唯一真源：modules/31-career-log.js（player/42 直接 import 它，不再经 tools）。
+import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS } from '../modules/31-career-log.js';
+// 兼容旧调用面（dev-index 动态 import 本文件）：运行时函数原样转出。
+export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords } from '../modules/31-career-log.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.6.0';
+export const VER = 'tools/52-career-log.js V2.7.0';
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
@@ -23,9 +23,6 @@ export const VER = 'tools/52-career-log.js V2.6.0';
 //   区间跨 0 即判噪声内（不再把小样本误判成「被速推/团灭/输出打不出/承伤偏高」）；突破口改用 Wilson 区间，下界过半才认。
 //   ② getCareerInsights 的 hardest/easiest 加 Wilson 区间 + sig，区间跨总体胜率才认「真偏难/偏易」。与 V2.3/V2.4 同一显著性口径。
 
-const LS_KEY = 'ming_career_log_5v5_test';
-const META_KEY = 'ming_career_log_5v5_meta';   // V1.4.0：记「已丢弃多少局」，避免上限到了悄悄扔数据
-const MAX_RECORDS = 200;
 // 英雄/组合少于此场次 → 标「样本少」，胜率仅供参考（3 局 100% 不等于这个英雄强）
 const HERO_MIN_GAMES = 8;
 // 败因归类至少要有这么多输局才下结论（少于这个数只报「样本太少」）
@@ -62,14 +59,6 @@ const ALLY_HERO_BASE = new Set(
 function baseName(name) { return String(name || '').split('·')[0]; }
 function isAllyHero(name) { return ALLY_HERO_BASE.has(baseName(name)); }
 
-// 元信息：目前只存 dropped（累计被上限挤掉的局数）
-function readMeta() {
-    try { return JSON.parse(localStorage.getItem(META_KEY) || '{}') || {}; } catch (e) { return {}; }
-}
-function writeMeta(m) {
-    try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* 配额满就放弃，不影响战斗 */ }
-}
-
 // Wilson 95% 区间（V1.3.0）：与 tools/126 平衡告警同口径。
 // 为什么不从 126 import：126 是带 DOM 副作用的 IIFE，为了十几行数学把整个告警面板拉进来不值得。
 // 公式是常数，不会漂；两端都按 z=1.96。
@@ -80,94 +69,6 @@ function wilson95(wins, n) {
     const center = (p + z * z / (2 * n)) / denom;
     const half = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / denom;
     return [Math.max(0, center - half), Math.min(1, center + half)];
-}
-
-// 一回合的轻量摘要：双方总伤害 + 本回合击杀名单。纯读 step.log，不碰引擎。
-export function summarizeRoundStep(step, round) {
-    const log = (step && step.log) || [];
-    let aDmg = 0, eDmg = 0;
-    const kills = [];
-    for (const e of log) {
-        if (!e || e.factType !== FACT_TYPES.ATTACK || !e.data) continue;
-        const d = e.data;
-        const dmg = Math.round((d.dmgResult && d.dmgResult.dmg) || 0);
-        if (d.attacker && d.attacker.camp === CAMP_TYPES.ALLY) aDmg += dmg;
-        else if (d.attacker && d.attacker.camp === CAMP_TYPES.ENEMY) eDmg += dmg;
-        if (d.dmgResult && (d.dmgResult.dead || d.dmgResult.executeKill) && d.target) {
-            kills.push(d.target.name);
-        }
-    }
-    return { r: round, aDmg, eDmg, kills };
-}
-
-function pickUnits(list) {
-    return (list || []).map(u => ({
-        name: u.name, m: u.m, role: u.role, pos: u.pos,
-        hp: Math.round(u.hp), maxHp: Math.round(u.maxHp), alive: !!u.alive,
-        dmgDealt: Math.round(u.dmgDealt || 0),
-        dmgTaken: Math.round(u.dmgTaken || 0),
-        healDone: Math.round(u.healDone || 0),
-        dodgeCount: u.dodgeCount || 0,
-        critCount: u.critCount || 0,
-        survivedRounds: u.survivedRounds || 0
-    }));
-}
-
-// roundSummary 为空 = 回放/从机路径（没有 careerRounds），返回 null 不写库
-export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, report, roundSummary }) {
-    if (!roundSummary || roundSummary.length === 0) return null;
-    // V2.6.0：联机局（人与人）与体检局（full-auto 无人值守，tests/121 置 careerLogSuppress）不写库。
-    //   两类对局与玩家实打不同源，混进生涯记录会把胜率/英雄/海克斯统计全部带歪。
-    if (mode === 'pvp') return null;
-    try { if (GlobalStore.get('careerLogSuppress')) return null; } catch (e) {}
-    return {
-        v: 1,
-        id: `s${stage}-${Date.now().toString(36)}`,
-        ts: Date.now(),
-        stage, mode, seed,
-        winner, rounds,
-        hex: (hexKeys || []).slice(),
-        ally: pickUnits(report && report.ally),
-        enemy: pickUnits(report && report.enemy),
-        roundsSummary: roundSummary
-    };
-}
-
-export function getCareerRecords() {
-    try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return [];
-        const arr = JSON.parse(raw);
-        // V2.6.0：存量联机局读取侧剔除（写入侧已停写，这里兜住历史库），所有统计/导出统一口径
-        return (Array.isArray(arr) ? arr : []).filter(r => r && r.mode !== 'pvp');
-    } catch (e) { return []; }
-}
-
-export function appendCareerRecord(record) {
-    if (!record) return false;
-    try {
-        const arr = getCareerRecords();
-        arr.push(record);
-        // V1.4.0：超上限时把挤掉的局数记下来。旧版静默 shift，
-        //   跑久了会以为「总共就 200 局」，而实际打过 600 局、丢了 400 局，趋势分析全错。
-        let dropped = 0;
-        while (arr.length > MAX_RECORDS) { arr.shift(); dropped++; }
-        localStorage.setItem(LS_KEY, JSON.stringify(arr));
-        if (dropped) {
-            const meta = readMeta();
-            meta.dropped = (meta.dropped || 0) + dropped;
-            writeMeta(meta);
-        }
-        return true;
-    } catch (e) { return false; }
-}
-
-export function clearCareerRecords() {
-    try {
-        localStorage.removeItem(LS_KEY);
-        localStorage.removeItem(META_KEY);   // 清空时连「已丢弃计数」一起清，否则下次开始就带着旧账
-        return true;
-    } catch (e) { return false; }
 }
 
 // 共享聚合：被 exportCareerMarkdown / getCareerInsights 复用，避免「各关胜率」「主力英雄」
@@ -411,7 +312,7 @@ export function getCareerInsights() {
         const from = Math.min(...tsList), to = Math.max(...tsList);
         span = { from, to, days: Math.max(0, Math.round((to - from) / 86400000)) };
     }
-    const dropped = readMeta().dropped || 0;
+    const dropped = getCareerMeta().dropped || 0;
     // 按模式分（V1.6.0 只数了场次，是半成品）：single=单机打 AI、pvp=联机。
     //   加 byMode 的初衷是「单机可能挂机刷/开调试，会稀释或抬高整体胜率」，
     //   但只显示「单机 N 局」用户仍无法判断它把胜率拉高还是压低 —— 必须给出各模式各自的胜率才用得上。
@@ -437,7 +338,7 @@ export function getCareerInsights() {
             ? { name: topEntry[0], games: topEntry[1], rate: Math.round((heroWins[topEntry[0]] || 0) / topEntry[1] * 100) }
             : null,
         bestHit, hexTop, recent, summaryLine,
-        span, dropped, maxRecords: MAX_RECORDS, byMode
+        span, dropped, maxRecords: CAREER_MAX_RECORDS, byMode
     };
 }
 

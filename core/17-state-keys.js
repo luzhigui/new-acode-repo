@@ -43,7 +43,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
 // 整场状态：跨回合持续，不重置
 export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 谢逊幼狮归属（多实例化）：召唤时写召唤者 uid，成长/振奋/随动按此认主——整场级，跨回合克隆保留
-    _lionOwnerUid:           { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // scope:'create' = 创建期字段（跨局复用时保留，不归零）
+    _lionOwnerUid:           { type: STATE_FIELD_TYPES.STRING,  default: null, scope: 'create' },
     _isDead:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _xuanmingPoison:         { type: STATE_FIELD_TYPES.OBJECT,  default: null },
@@ -187,14 +188,14 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _extraDmgRatio:          { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
 
     // 原顶层永久字段，迁入 state
-    _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _baseDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _baseMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _initAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _initDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _initMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _hpDmgRatio:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _originalPos:            { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
+    _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _baseDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _baseMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _initAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _initDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _initMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _hpDmgRatio:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0, scope: 'create' },
+    _originalPos:            { type: STATE_FIELD_TYPES.NUMBER,  default: -1, scope: 'create' },
 
     // 机制标记（原顶层临时字段，迁入 state 统一 clone）
     _deathTime:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -253,10 +254,12 @@ export function copyBattleStateFields(srcState, dstState) {
     return dstState;
 }
 
-// 跨局复用单位的「整场字段」保留集：这些字段是单位创建/入阵时写的（基础数值、落位锚、
-//   幼狮认主、召唤来源），重开恢复时必须原样保留；其余整场字段（永久海克斯/回春层/精通/死亡桶/计数器）
-//   都是「局内累计」，跨局复用时必须归零——ui/68 原班再战·随机重开恢复快照时统一走 resetBattleTransientState
-const BATTLE_STATE_PRESERVE_KEYS = Object.freeze(new Set(['_lionOwnerUid', '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_initMaxHp', '_hpDmgRatio', '_originalPos']));
+// 创建期字段不再用手工名单区分：BATTLE_STATE_SCHEMA 里 scope:'create' 的即为创建期字段
+//   （基础数值、落位锚、幼狮认主），其余整场字段一律「局内累计」，跨局复用时由
+//   resetBattleTransientState 按 schema 的 scope 判定归零。加新创建期字段只需在 schema 里标 scope。
+const BATTLE_STATE_CREATE_KEYS = Object.freeze(new Set(
+    Object.entries(BATTLE_STATE_SCHEMA).filter(([, s]) => s.scope === 'create').map(([k]) => k)
+));
 
 /** 跨局复用单位时的整场字段清洗：保留创建期字段，局内累计字段全部归零（防上局状态漏进新局）。
  *  挂在「原班再战 / 随机重开」的恢复出口：快照里可能带着上一局的永久海克斯/回春层/精通等
@@ -264,7 +267,7 @@ const BATTLE_STATE_PRESERVE_KEYS = Object.freeze(new Set(['_lionOwnerUid', '_bas
 export function resetBattleTransientState(unit) {
     if (!unit || !unit.state) return unit;
     for (const [key, spec] of Object.entries(BATTLE_STATE_SCHEMA)) {
-        if (BATTLE_STATE_PRESERVE_KEYS.has(key)) continue;
+        if (BATTLE_STATE_CREATE_KEYS.has(key)) continue;
         unit.state[key] = spec.default;
     }
     return unit;

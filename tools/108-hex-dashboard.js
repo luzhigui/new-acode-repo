@@ -2,7 +2,9 @@
 import { CONFIG, getSkillParams, loadGameData, getGameData } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.6.8';
+export const VER = 'tools/108-hex-dashboard.js V6.7.0';
+// V6.7.0 | 2026-10-30 模式对比表结构简化：删「强弱Δ常规」+ 三列「净」，改成四列胜率 + 四列差值
+//   （每个模式 = 该海克斯胜率 − 本模式全海克斯平均，四列各算各的，不跨模式相减）。
 // V6.6.8 | 2026-10-30 真根因修复（`Cannot read properties of null (reading 'buffs')`）：
 //           core/01 V6.8.5 的 BUFFS 是 getter（= getGameData().buffs），游戏数据未加载时读它必抛 TypeError。
 //           ① 自动跑原先「先 if (!CONFIG.BUFFS) 再 await loadGameData()」顺序写反 → getter 先炸、
@@ -653,13 +655,10 @@ function hexStatsOf(logs) {
   return { total: logs.length, allyWins, per };
 }
 
-// V6.6.0：模式对比表四项优化（都是这张表本身的毛病，不动数据结构）
-//   ① 补「Δ 不带」——原来 4 个模式列只给 3 个 Δ，最右边那列没有 Δ，不对称也不好横向比。
-//   ② Δ 改成按统计显著性着色——原来 |Δ|≥1pp 就上色，于是 332 场的 ±1pp 噪声和 874 场的 +6.6pp
-//      一样显眼，满屏黄蓝等于没重点。现在只有超过 1.96×标准误才上色并标 ▲/▼，否则灰显。
-//   ③ 表头可点排序——原来写死按「常规胜率」，想看「谁最吃姐姐」得自己横着扫 Δ 列。
-//   ④ 每格 title 给出该格的噪声线（±1.96×SE），让「这个数能不能当真」随手可查。
-let cmpSortMode = 'netSister';
+// 2026-10-30 V6.7.0：表结构回退成「四个模式各算各的平均当基准」——
+//   前半四列是各模式的胜率，后半四列 = 该模式胜率 − 本模式全海克斯平均。
+//   不做跨模式的复合（「净」）也不做显著性着色：四个 Δ 各管各的模式，直接横着看就行。
+let cmpSortMode = 'normal';
 
 function renderModeCompare(box) {
   const data = {};
@@ -675,123 +674,79 @@ function renderModeCompare(box) {
     return;
   }
 
-  // V6.6.3 两把尺子，各管各的问：
-  //   ① modeHexAvg[m] = 该模式各海克斯胜率的简单平均 —— 判「这枚海克斯本身强不强」（Δ常规）。
-  //      只能拿「同样拿过海克斯的局」当尺子：拿过海克斯的局活得久、天生更容易赢，全场总胜率
-  //      当尺子会让 15 张全部虚高（V6.6.2 就是这么错的，满屏 +）。
-  //   ② modeTotal[m] = 该模式真实总胜率（明教胜/总场）—— 判「姐姐/妹妹本人」带来的整体涨跌，
-  //      只在「净」列里当减项用。
-  const modeTotal = {}, modeHexAvg = {};
+  // 每个模式各算一个「本模式全海克斯平均胜率」当基准——同一模式内比，不跨模式相减，
+  //   所以不受「姐姐/妹妹本人带来的整体涨跌」干扰，四个 Δ 各管各的模式。
+  const modeHexAvg = {};
   for (const m of CMP_MODES) {
-    modeTotal[m] = data[m].total ? (data[m].allyWins / data[m].total) * 100 : null;
     const ks = Object.keys(data[m].per).filter(k => data[m].per[k].count > 0);
     modeHexAvg[m] = ks.length ? ks.reduce((a, k) => a + data[m].per[k].wins / data[m].per[k].count, 0) / ks.length * 100 : null;
   }
-  // 姐姐/妹妹本人带来的整体胜率变化 = 该模式总胜率 − 常规总胜率（净列要扣掉的就是这个）
-  const offOf = m => (modeTotal[m] !== null && modeTotal.normal !== null) ? modeTotal[m] - modeTotal.normal : null;
-  const OFF = { sister: offOf('sister'), brother: offOf('brother'), none: offOf('none') };
 
   const keys = new Set();
   CMP_MODES.forEach(m => Object.keys(data[m].per).forEach(k => keys.add(k)));
   const rows = [...keys].map(k => {
-    const cell = {};
+    const cell = {}, diff = {};
     for (const m of CMP_MODES) {
       const d = data[m].per[k];
       cell[m] = (d && d.count) ? { rate: d.wins / d.count * 100, count: d.count } : null;
+      diff[m] = (cell[m] && modeHexAvg[m] !== null) ? cell[m].rate - modeHexAvg[m] : null;
     }
-    const c0 = cell.normal;
-    // 强弱：常规模式下这枚海克斯相对「常规海克斯平均」高多少
-    const dNormal = (c0 && modeHexAvg.normal !== null) ? c0.rate - modeHexAvg.normal : null;
-    // 净 =（本模式胜率 − 常规胜率）−（本模式总胜率 − 常规总胜率）
-    const net = {};
-    for (const m of ['sister', 'brother', 'none']) {
-      const c = cell[m];
-      net[m] = (c && c0 && OFF[m] !== null) ? (c.rate - c0.rate) - OFF[m] : null;
-    }
-    return { key: k, cell, dNormal, net };
+    return { key: k, cell, diff };
   });
-  // 排序（V6.6.3）：默认按「姐姐净」降序——「姐姐强化到这枚海克斯到底有没有跑赢姐姐本人」是主问题
-  const SORT_KEYS = new Set([...CMP_MODES, 'deltaNormal', 'netSister', 'netBrother', 'netNone']);
+  // 排序：默认按常规胜率降序；表头可点，四列胜率与四列 Δ 都能排。
+  const SORT_KEYS = new Set([...CMP_MODES, 'diffNormal', 'diffSister', 'diffBrother', 'diffNone']);
   const sortVal = (r, k) => {
-    if (k === 'deltaNormal') return r.dNormal !== null ? r.dNormal : -9999;
-    if (k === 'netSister') return r.net.sister !== null ? r.net.sister : -9999;
-    if (k === 'netBrother') return r.net.brother !== null ? r.net.brother : -9999;
-    if (k === 'netNone') return r.net.none !== null ? r.net.none : -9999;
+    if (k === 'diffNormal') return r.diff.normal !== null ? r.diff.normal : -9999;
+    if (k === 'diffSister') return r.diff.sister !== null ? r.diff.sister : -9999;
+    if (k === 'diffBrother') return r.diff.brother !== null ? r.diff.brother : -9999;
+    if (k === 'diffNone') return r.diff.none !== null ? r.diff.none : -9999;
     return r.cell[k] ? r.cell[k].rate : -9999;
   };
-  const curSort = SORT_KEYS.has(cmpSortMode) ? cmpSortMode : 'netSister';
+  const curSort = SORT_KEYS.has(cmpSortMode) ? cmpSortMode : 'normal';
   rows.sort((a, b) => (sortVal(b, curSort) - sortVal(a, curSort)) || a.key.localeCompare(b.key));
 
   const rateTd = c => c
     ? `<td>${c.rate.toFixed(1)}%<div class="cell-sub">${c.count} 场</div></td>`
     : '<td style="color:#666">—</td>';
-  // Δ 格（V6.6.0）：只有超过 1.96×标准误才算真差异，否则灰显、不标箭头。
-  //   332 场和 874 场的噪声线差一倍多，只看数字正负会被噪声牵着改数值。
-  const paint = (dv, band, tip) => {
-    const sig = Math.abs(dv) >= band;
-    const col = sig ? (dv > 0 ? '#ffd700' : '#4fc3f7') : '#666';
-    const mark = sig ? (dv > 0 ? '▲' : '▼') : '';
-    return `<td style="color:${col}" title="${tip}｜噪声线 ±${band.toFixed(1)}%，${sig ? '超出 → 可信' : '未超出 → 可能只是随机波动'}">`
-      + `${mark}${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
-  };
-  const deltaTd = (c, base) => {
-    if (!c || base === null) return '<td style="color:#666">—</td>';
-    const dv = c.rate - base;
-    const se = Math.sqrt((c.rate / 100) * (1 - c.rate / 100) / c.count) * 100;
-    return paint(dv, 1.96 * se, `${c.count} 场`);
-  };
-  // 净格：两个比例之差，噪声 = 两格各自标准误合成（模式总胜率那半截是全场次共享常数，行间不影响排序）
-  const netTd = (c, c0, off, label) => {
-    if (!c || !c0 || off === null) return '<td style="color:#666">—</td>';
-    const dv = (c.rate - c0.rate) - off;
-    const se = Math.sqrt((c.rate / 100) * (1 - c.rate / 100) / c.count + (c0.rate / 100) * (1 - c0.rate / 100) / c0.count) * 100;
-    return paint(dv, 1.96 * se, `${label} ${c.rate.toFixed(1)}% − 常规 ${c0.rate.toFixed(1)}% = ${(c.rate - c0.rate >= 0 ? '+' : '')}${(c.rate - c0.rate).toFixed(1)}pp，再扣${label}本人 ${(off >= 0 ? '+' : '')}${off.toFixed(1)}pp`);
+  // Δ 格：正数金色、负数蓝色；|Δ|<1 灰显（看不出差别）。不再判显著性，数字自己看。
+  const diffTd = dv => {
+    if (dv === null) return '<td style="color:#666">—</td>';
+    const col = Math.abs(dv) < 1 ? '#888' : (dv > 0 ? '#ffd700' : '#4fc3f7');
+    return `<td style="color:${col}">${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
   };
 
   let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${stageLabel}）</div>`;
-  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。`
-    + `① 判「这枚海克斯本身强不强」看 <b>强弱Δ常规</b> = 常规胜率 − 常规模式海克斯平均（拿过海克斯的局活得更久、天生更容易赢，只能拿同口径的局当尺子）。<br>`
-    + `② 判「姐姐/妹妹的强化到没到位」看 <b>净</b>列 = （本模式胜率 − 常规胜率）−（本模式总胜率 − 常规总胜率）——后半截就是姐姐/妹妹本人带来的整体涨跌，扣掉它，剩下的才是这枚海克斯额外吃到的。`
-    + `<b style="color:#ffd700">净 &gt; 0 = 吃到了红利</b>，<b style="color:#4fc3f7">净 &lt; 0 = 增益没跑赢姐姐/妹妹本人</b>。<br>`
-    + `③ 自带校验：<b>不带净</b> 该 ≈ 0（没姐姐没妹妹，扣完就不该有变化）；这一列满屏 ±3% 就说明数据有别的偏差。`
-    + `<b style="color:#ffd700">▲ 黄</b>/<b style="color:#4fc3f7">▼ 蓝</b> = 超 ±1.96×标准误，<span style="color:#666">灰 = 噪声内别当真</span>。点表头排序。</p>`;
+  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。<br>`
+    + `前四列 = 该模式下的胜率与场次；后四列 = 该模式胜率 − <b>本模式全海克斯平均</b>。`
+    + `四个差值各算各的（同一模式内比，不跨模式相减），正数 = 这枚海克斯在本模式里比平均强，负数 = 比平均弱。点表头排序。</p>`;
   html += '<table><tr><th>海克斯</th>';
   for (const m of CMP_MODES) {
     const active = m === curSort;
     html += `<th data-sort="${m}" style="cursor:pointer;${active ? 'color:#4fc3f7' : ''}" title="点击按「${MODE_LABEL[m]}」胜率排序">${MODE_LABEL[m]}${active ? ' ▼' : ''}</th>`;
   }
-  const netHead = (k, label, off, active) => `<th data-sort="${k}" style="cursor:pointer;${active ? 'color:#4fc3f7' : ''}" title="点击按此列排序；扣掉${label}本人 ${off !== null ? (off >= 0 ? '+' : '') + off.toFixed(1) + 'pp' : '（无常规数据）'}">${label}${active ? ' ▼' : ''}</th>`;
-  html += `<th data-sort="deltaNormal" style="cursor:pointer;${curSort === 'deltaNormal' ? 'color:#4fc3f7' : ''}" title="点击按此列排序：常规模式胜率 − 常规海克斯平均">强弱Δ常规${curSort === 'deltaNormal' ? ' ▼' : ''}</th>`;
-  html += netHead('netSister', '姐姐净', OFF.sister, curSort === 'netSister');
-  html += netHead('netBrother', '妹妹净', OFF.brother, curSort === 'netBrother');
-  html += netHead('netNone', '不带净', OFF.none, curSort === 'netNone');
+  const diffHead = (k, label, active) => `<th data-sort="${k}" style="cursor:pointer;${active ? 'color:#4fc3f7' : ''}" title="点击按「Δ ${label}」排序">Δ ${label}${active ? ' ▼' : ''}</th>`;
+  html += diffHead('diffNormal', '常规', curSort === 'diffNormal');
+  html += diffHead('diffSister', '仅姐姐', curSort === 'diffSister');
+  html += diffHead('diffBrother', '仅妹妹', curSort === 'diffBrother');
+  html += diffHead('diffNone', '不带', curSort === 'diffNone');
   html += '</tr>';
-  // 基准行：各模式真实总胜率（净列要扣的那截）+ 常规的海克斯平均（强弱Δ的尺子）
-  html += '<tr><td style="color:#888">本模式总胜率</td>'
-    + CMP_MODES.map(m => {
-      const off = (m !== 'normal' && OFF[m] !== null) ? `｜较常规 ${OFF[m] >= 0 ? '+' : ''}${OFF[m].toFixed(1)}pp` : '';
-      return `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">明教胜 ${modeTotal[m] !== null ? modeTotal[m].toFixed(1) + '%' : '—'}${off}</div></td>`;
-    }).join('')
-    + `<td style="color:#888">尺子<div class="cell-sub">常规海克斯平均 ${modeHexAvg.normal !== null ? modeHexAvg.normal.toFixed(1) + '%' : '—'}</div></td>`
-    + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
+  // 基准行：各模式的「全海克斯平均」——就是后半四列减掉的那个数
+  html += '<tr><td style="color:#888">本模式全海克斯平均</td>'
+    + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">平均 ${modeHexAvg[m] !== null ? modeHexAvg[m].toFixed(1) + '%' : '—'}</div></td>`).join('')
+    + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
   for (const r of rows) {
     html += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${hexLabel(r.key)}</td>`
       + CMP_MODES.map(m => rateTd(r.cell[m])).join('')
-      + deltaTd(r.cell.normal, modeHexAvg.normal)
-      + netTd(r.cell.sister, r.cell.normal, OFF.sister, '仅姐姐')
-      + netTd(r.cell.brother, r.cell.normal, OFF.brother, '仅妹妹')
-      + netTd(r.cell.none, r.cell.normal, OFF.none, '不带')
+      + CMP_MODES.map(m => diffTd(r.diff[m])).join('')
       + '</tr>';
   }
   html += '</table>';
   box.innerHTML = html;
   box.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
-  // 点表头换排序（V6.6.0）
   box.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
     cmpSortMode = th.dataset.sort;
     renderModeCompare(box);
   }));
-  // 2026-10-15 V6.2.6：对比表插在统计表上方仍可能被统计表的滚动位置挤到视野外，渲染后主动滚进视口
   box.scrollIntoView({ block: 'nearest' });
 }
 

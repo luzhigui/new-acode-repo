@@ -5,11 +5,14 @@
 //   updateHpDisplay / getShakeRemain / tryHorseSpawnAnim / clearGridCells。
 //   两个抖动的分工：markGridShake(uid, ms) = 外部触发口（fx/88、fx/93 用，写 _shakeUntil + 播动画）；
 //   applyGridShake(el, ms) = 只播动画不续 deadline（renderGrid 消费时用，避免每帧续期导致抖动不停）。
-//   32-grid-render.js 保留 renderGrid 主循环；本文件不感知 camp/team/词条，只管格子与动画。
-export const VER = 'render/32grid-cells.js V1.0.0';
+//   32-grid-render.js 保留 renderGrid 主循环；本文件只做格子 DOM 查找与动画，不感知阵容/词条。
+//   2026-10-31：getGridId/getCellByPos 从 fx/90fx-ref-manager 下移到这里——按 dataset.pos 找格子
+//   本质是渲染层 DOM 查询，不该由播放器反向依赖特效层。
+export const VER = 'render/32grid-cells.js V1.1.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { clock } from '../infra/52-clock.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 const _hpTargetPct = new Map();
 const _hpDisplayPct = new Map();
@@ -23,6 +26,25 @@ const _horseSpawnedUids = new Set();
 //   使格子底色仍是「瞬切」，画面与改动前完全一致。
 const _cellNodes = new Map();   // gridId -> [div × 9]（按 displayOrder 槽位固定）
 const _slotUnits = new Map();   // gridId -> [unit|null × 9]（供一次性 click 取当前单位）
+
+// 营地 → grid 元素 id
+export function getGridId(camp) {
+    return camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
+}
+
+// 按营地+位置实时查找 cell DOM（不缓存，grid 重建后重新查找）。
+// 联网从机视角修复：按 dataset.pos 匹配而不是固定顺序表；renderGrid 给每个格子盖了 dataset.pos 戳，
+// 从机行序镜像时也不会把 7 号位指到 1 号格子上。
+export function getCellByPos(camp, pos) {
+    if (pos == null) return null;
+    const grid = document.getElementById(getGridId(camp));
+    if (!grid) return null;
+    const want = String(pos);
+    for (let i = 0; i < grid.children.length; i++) {
+        if (String(grid.children[i].dataset.pos) === want) return grid.children[i];
+    }
+    return null;
+}
 
 export function ensureGridCells(grid, id) {
     let nodes = _cellNodes.get(id);

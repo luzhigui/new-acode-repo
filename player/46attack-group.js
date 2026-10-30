@@ -1,15 +1,15 @@
 // player/46attack-group.js — 攻击组播放（文本逐行 + 格子闪示 + 血条/死亡态）
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
-// 特效已全部移交 stageActions，本文件只负责文本与格子闪示。
-export const VER = 'player/46attack-group.js V6.3.0';
+// 特效只发信号（FX_SIGNALS），不直接 import fx 实现；本文件保留文本、格子闪示与血条推进。
+export const VER = 'player/46attack-group.js V6.3.1';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
+import { eventBus } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { getPerfParam } from '../core/23perf-params.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
-import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
-import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { triggerHpAnim } from '../render/32grid-cells.js';
 import { clock } from '../infra/52-clock.js';
@@ -37,7 +37,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     // 生生不息：金圈闪 1.2s（区别于拒马 😴），复用 cell-cheer 类
     if (unitA && entry.isEndlessBreath) {
-        showMeditateEffect(unitA);
+        eventBus.emit(FX_SIGNALS.MEDITATE, { unit: unitA });
     }
 
     if (unitA && entry.isBlock && c.store) {
@@ -92,7 +92,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         if (entry2.type === 'damage-text') {
             // 伤害飘字改为「播到这行时打」，不再等飞撞动画的固定 1100ms。
             if (unitD && entry2.dmg > 0 && !GlobalStore.get('fastForwardActive')) {
-                try { showDamageFloat(unitD, Math.round(entry2.dmg)); } catch (e) {}
+                try { eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: unitD, dmg: Math.round(entry2.dmg) }); } catch (e) {}
             }
             // 掉血提前预演：飘字一出，血条立刻开始渐变掉血
             if (unitD && entry2.hpAfter !== undefined && c.store) {
@@ -140,10 +140,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const clawAttacker = findUnitByUid(c, entry2.clawAttackerUid);
             const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
             if (clawAttacker && clawTarget) {
-                showBoneClaw(clawAttacker, clawTarget, null, { isExecute: entry2.isExecute });
+                eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker: clawAttacker, target: clawTarget, opts: { isExecute: entry2.isExecute } });
                 // 爪击伤害飘字（快进跳过）——一位小数兜底，浮点尾巴不上面板
                 if (!GlobalStore.get('fastForwardActive') && entry2.dmg > 0) {
-                    showDamageFloat(clawTarget, Math.round(entry2.dmg * 10) / 10);
+                    eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: clawTarget, dmg: Math.round(entry2.dmg * 10) / 10 });
                 }
             }
         }
