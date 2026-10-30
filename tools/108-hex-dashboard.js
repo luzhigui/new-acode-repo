@@ -1,8 +1,14 @@
 // ===== ../tools/108-hex-dashboard.js =====
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, loadGameData, getGameData } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.6.7';
+export const VER = 'tools/108-hex-dashboard.js V6.6.8';
+// V6.6.8 | 2026-10-30 真根因修复（`Cannot read properties of null (reading 'buffs')`）：
+//           core/01 V6.8.5 的 BUFFS 是 getter（= getGameData().buffs），游戏数据未加载时读它必抛 TypeError。
+//           ① 自动跑原先「先 if (!CONFIG.BUFFS) 再 await loadGameData()」顺序写反 → getter 先炸、
+//             await 永远走不到（线上堆栈：at get BUFFS core/01:290 ← HTMLButtonElement click）；
+//             改为先查 getGameData()（未加载返回 null，不抛），再无脑 await loadGameData()（幂等）。
+//           ② 详情卡 openHexDetail 同样在「未加载就点海克斯名」时炸同一句，改为先确保加载。
 // V6.6.7 | 2026-10-30 报错自证：异常块追加「版本 + 出错文件行号」，截图即可判定跑的是新版还是手机缓存旧版；
 //           清扫范围由「KEY 前缀」放宽到「全库所有数组型键」，老版本换过键名残留的脏榜也一并清掉。
 // V6.6.6 | 2026-10-30 脏榜根治（V6.6.5 只挡住读，旧代码仍在手机缓存里炸）：
@@ -294,7 +300,10 @@ function renderVersion(title, key, base, enhance, kind, cls) {
   return `<div class="hex-hex-ver hex-hex-ver-${cls}"><h3>${title} <span class="tag">${tag}</span></h3><ul>${lines}</ul></div>`;
 }
 
-function openHexDetail(key) {
+async function openHexDetail(key) {
+  // V6.6.8：详情卡可能在「从没跑过、数据未加载」时被点开——此时 CONFIG.BUFFS getter 会抛
+  //   null.buffs，先确保加载（幂等），再取值。
+  if (!getGameData()) await loadGameData();
   const b = CONFIG.BUFFS[key];
   if (!b) return;
   const enhance = getSkillParams('小昭', 'hexEnhance')[key] || null;
@@ -463,8 +472,10 @@ function openHexDashboard() {
     const fmtSec = ms => (ms / 1000).toFixed(0) + 's';
     let timer = null;   // V6.3.6 提前声明：finally 也要能清（报错路径原来不清 → ❌ 被 tick 盖住成「卡死」）
     try {
-      const { loadGameData } = await import('../core/01config-5v5-test.js');
-      if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
+      // V6.6.8：不能先读 CONFIG.BUFFS 判断是否已加载——BUFFS 是 getter，未加载时等价于
+      //   getGameData().buffs，对 null 取属性直接抛 TypeError，await loadGameData() 永远走不到。
+      if (!getGameData()) status.textContent = '加载游戏数据…';
+      await loadGameData();
       let doneRuns = 0;
       const t0run = performance.now();
       const masterSeed = Date.now();

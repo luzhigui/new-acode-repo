@@ -1,5 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
+<!-- V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
+     V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
      V6.4.4 | 2026-10-30 复制器「单次复制上限」框的 max 100000 → 200000（老板拍板）：默认值 80000 不动，
      只是解锁手动输入到 20 万（此前 max=10 万填不进 200000）。
      历史版本说明（V6.4.3 及更早）已折叠省略。 -->
@@ -534,8 +535,10 @@
         // 数据底座：112 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
         // 数据源是 content/200game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。
         // loadGameData 内部幂等（已加载直接返回），页面加载时调一次即可。
+        // V6.4.6：预加载失败不再留成未捕获的 promise rejection——各工具用前都会自己 await 加载并报错，
+        //   这里只记一条 warn（失败时 gameData 仍为 null，由使用方重试）。
         import { loadGameData } from '../core/01config-5v5-test.js';
-        loadGameData();
+        loadGameData().catch(e => console.warn('游戏数据预加载失败（使用时各工具会重试）:', e));
     </script>
     <script>
         // 页面更新时间戳：与 dev-index.html 同口径——读 GitHub 仓库最新提交时间（真值，一推代码就变），
