@@ -1,3 +1,6 @@
+// V1.26.0 | 2026-10-31 夜间第 165 轮：OBSERVES 挂「巨马/carry 定向取证」
+//     tests/xiaozhao-horse-carry-case.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
+//     新增/订正均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
 // V1.25.0 | 2026-10-31 夜间第 163 轮：OBSERVES 挂「信号通道守门（探针存活 + fact 藏匿点）」
 //     tests/signal-channel-guard.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
 //     新增/订正均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
@@ -73,7 +76,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.25.0';
+export const VER = 'tests/run-all.mjs V1.26.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -240,7 +243,17 @@ const OBSERVES = [
     //         补上前：兄分支/成昆分支皆「0 次」；补上后实测 **107 / 96 次** ⇒ 发射点活得好好的，
     //         phantomConfuse 须由 ⑤b-2 挪进 ⑤b-3「定向已覆盖·严禁按死代码核销」。
     //   本件防的是同一款病的复发面：**不是产品没有，是我们没接到**。挂观察项不改分母，同上。
-    { name: '信号通道守门(探针/fact藏匿点)', script: 'tests/signal-channel-guard.mjs', args: [] }
+    { name: '信号通道守门(探针/fact藏匿点)', script: 'tests/signal-channel-guard.mjs', args: [] },
+    // V1.26.0 | 2026-10-31 夜间第 165 轮：xiaoZhaoHorse / xiaoZhaoCarryApply 定向取证（新增，
+    //   承接第 164 轮【最高·下轮】⑤b-2 剩 3 条逐个配定向用例；spiderDeadTarget 已由上上轮件覆盖）。
+    //   ★ 动手前先纠正登记口径：census 把这两条记成「要**妹**永久…」，读源码却都在**兄模块**
+    //     （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274）且读**兄**的 _permanentBuffs
+    //     ⇒ forceXiaoZhao=brother 这条现成通道即可取证，当初「需变异树」的定性不成立。
+    //     实测 140 场：巨马 454 就绪 / 211 命中，carry 167 就绪 / 101 命中 ⇒ 双双由 ⑤b-2 移入 ⑤b-3。
+    //     新增别处没有的**白名单自证**：addPermanentBuff 只认 CONFIG.XIAO_ZHAO_PERMANENT_BUFFS，
+    //     键不在白名单 ⇒ 永久表永不会有它 ⇒ 那才是**真·结构死代码**；这一条此前从没被数过。
+    //   挂观察项不改分母，同上。
+    { name: '巨马/carry定向取证', script: 'tests/xiaozhao-horse-carry-case.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

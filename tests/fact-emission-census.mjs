@@ -44,7 +44,17 @@ import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
-const VER = 'tests/fact-emission-census.mjs V1.6.0';
+const VER = 'tests/fact-emission-census.mjs V1.7.0';
+// V1.7.0 | 2026-10-31 夜间第 165 轮：xiaoZhaoHorse / xiaoZhaoCarryApply 由 ⑤b-2 移入 ⑤b-3（**摘牌**）。
+//   由 tests/xiaozhao-horse-carry-case.mjs（本轮新增）定向实证：forceXiaoZhao='brother' 140 场下
+//   xiaoZhaoHorse 全前置就绪 454 次 / 命中 211 次，xiaoZhaoCarryApply 167 次 / 命中 101 次
+//   ⇒ 两条**都活得好好的**，与 phantomConfuse 那条同款误判：当初归进 ⑤b-2「非样本缺口·需变异树」
+//   的理由不成立 —— 登记文案写的是「要**妹**永久…」，读源码却是两个发射点都在**兄模块**
+//   （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274），判据读 **bro.state._permanentBuffs**
+//   （兄自己的永久表），而 addPermanentBuff（modules/20elite-skills.js L258）的门槛也是 isXiaoZhaoBrother
+//   ⇒ 只需 forceXiaoZhao='brother' 这条第 162 轮就在用的现成通道，**根本不必等变异树**。
+//   ★ 教训固化：⑤b-2 登记前必须先确认「发射点在哪个模块、判据读谁的 state」，
+//     否则「妹/兄」一字之差就会把活发射点登记成死代码候选（第 162 轮「只数了一个发射点」的近亲）。
 // V1.6.0 | 2026-10-31 夜间第 163 轮：walkFacts 补第三处 fact 藏匿点 attackFact.data.phantomFact
 //   （core/12 buildAttackGroup 里它与 data.entries 并列，不在 entries 里）。★ 漏这一层的代价：
 //   PHANTOM_CONFUSE / PHANTOM_REVEAL 的发射次数恒读成 0 ⇒ 会被归进 ⑤b「稀有 spec」甚至顺手建议核销。
@@ -119,9 +129,14 @@ const DIRECTED_CASES = [
 //     补齐采集后：自然流（218 场 / 97781 fact）两个 spec 都正常发射，兄分支 107 次、成昆分支 96 次。
 //     ⇒ 既不是 ⑤b-2 的"结构性不发射"，也不是 ⑤b-3 的"定向才覆盖"，它们**压根不稀有**，
 //       按任何口径都不许进核销候选；若哪天再次零发射，先去查藏匿点，不要先疑心分支。
+//   · xiaoZhaoHorse / xiaoZhaoCarryApply（第 165 轮摘牌）：登记文案写「要**妹**永久巨马阵 / 妹永久 carry」，
+//     易读成「得先让妹在队 ⇒ 干净树没有 ⇒ 归 ⑤b-2」。但两个发射点都在**兄模块**
+//     （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274），判据读**兄**的 _permanentBuffs，
+//     而永久 buff 唯一入口 addPermanentBuff 的门槛是 isXiaoZhaoBrother ⇒ forceXiaoZhao='brother'
+//     这条现成通道即可取证。实测 140 场：巨马 454 就绪 / 211 命中，carry 167 就绪 / 101 命中。
+//     ★ 摘牌教训：登记 ⑤b-2 前先核「发射点在哪个模块、判据读谁的 state、通道现成不现成」，
+//       别拿一句「要某某在队」就下「需变异树」的定性。
 const NON_SAMPLE_SPECS = new Map([
-    ['xiaoZhaoHorse', '妹永久巨马阵（HORSE_FORMATION in _permanentBuffs）才召，modules/27elite-mingjiao-xiaozhao-brother.js L244-250'],
-    ['xiaoZhaoCarryApply', '妹永久 carry（CARRY in _permanentBuffs）才挂，同文件 L257-267'],
     ['spiderDeadTarget', '蛛袭时目标已死才发，modules/20elite-skills.js L225，属收尾帧竞态；'
         + '第 161 轮已由 tests/spider-dead-target-case.mjs 实证：349 次进入目标池 / SPIDER_DEAD_TARGET 恒 0 次'
         + ' ⇒ 静态不可达成立（过滤式含 u.alive 且中途无人改 alive），可提核销']
@@ -132,6 +147,12 @@ const DIRECTED_COVERED_SPECS = new Map([
     ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226；'
         + '第 161 轮复核 tests/xinhun-death-targeted-case.mjs 段二（钳血 10 场 @ stage 4）实测：'
         + 'XIN_HUN 触发 5 次 / XIN_HUN_DEATH 命中 5 次 ⇒ 链条成立，挂账一的「XIN_HUN 时序核销」应撤销'],
+    ['xiaoZhaoHorse', '妹永久巨马阵（HORSE_FORMATION in 兄的 _permanentBuffs）才召，'
+        + 'modules/27elite-mingjiao-xiaozhao-brother.js L249；第 165 轮由 tests/xiaozhao-horse-carry-case.mjs'
+        + ' 定向实证：forceXiaoZhao=brother 140 场，全前置就绪 454 次 / 命中 211 次（spawnChance 0.7）'
+        + ' ⇒ 活发射点，原「需变异树」的定性作废'],
+    ['xiaoZhaoCarryApply', '妹永久 carry（CARRY in 兄的 _permanentBuffs）才挂，同文件 L274；'
+        + '同上定向实证：全前置就绪 167 次 / 命中 101 次 ⇒ 活发射点，原「需变异树」的定性作废'],
 ]);
 
 // 取样规模闸门（2026-10-27 夜间第 143 轮新增）。实测基准：210 场 / 101869 条 fact（30 seeds × 7 stages）。
