@@ -1,7 +1,10 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.6.1';
+export const VER = 'tools/126-balance-alert.js V3.7.0';
+// V3.7.0 | 2026-10-31 | 真实对局对照不再混算单/双海克斯：getCareerInsights / getHeroAggregates
+//   改取 'single'（与 108「常规」模拟榜同口径）；双海克斯是另一套游戏（六大派也带海克斯），
+//   不混入本对照，有数据时给提示。呼应 52 V2.8.0「两种模式不可直接相加」。
 // V3.6.1 | 2026-10-30 读 108 榜的两处循环补 null 守卫（同 108 V6.6.5 的脏条目问题，126 是同一批数据的消费端）：
 //           hexStatsOf / hexPairIssues 里 l 为 null 会分别在 l.winner / l.buffs 上抛 TypeError 整个告警面板崩掉；
 //           跳过脏条目继续统计，不再让一条 null 拖死全表。
@@ -9,7 +12,7 @@ export const VER = 'tools/126-balance-alert.js V3.6.1';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
 // 规则八（V2.6.0）：拿真实对局和模拟跑批对照。52 是纯函数模块（只读 localStorage、无 DOM 副作用），可安全引入。
-import { getHeroAggregates, getCareerInsights, getHexWinRates } from './52-career-log.js';
+import { getHeroAggregates, getCareerInsights, getHexWinRates, getCareerModeCounts } from './52-career-log.js';
 
 (function () {
 // ==================== 判读阈值（集中一处，要调只改这里） ====================
@@ -691,8 +694,15 @@ function simVsReal(hex, elit) {
     // 两者都是「明教胜率」同一口径，能直接回答「跑批整体和真实整体差多少」——
     // 这是规则八真正能稳定产出结论的部分。
     // 注意：108 是带固定海克斯配置的跑批、生涯是玩家自选对局，配置不完全等价，故只作粗粒度校验。
+    // V3.7.0：生涯记录现已单/双海克斯分库。本对照只取单海克斯战绩（'single'）与 108「常规」模拟榜对齐；
+    //   双海克斯是另一套游戏（六大派也带海克斯），需另起一套模拟对照，不在此混入。
+    let modeCounts = { single: 0, dual: 0 };
+    try { modeCounts = getCareerModeCounts(); } catch (e) {}
+    const dualNote = modeCounts.dual > 0
+        ? `ⓘ 双海克斯战绩 ${modeCounts.dual} 局未纳入本对照（本对照只取单海克斯战绩与 108「常规」模拟榜对齐）。需要双海克斯专项对照时单独跑。`
+        : null;
     let ins = null;
-    try { ins = getCareerInsights(); } catch (e) { ins = null; }
+    try { ins = getCareerInsights('single'); } catch (e) { ins = null; }   // V3.7.0：只取单海克斯战绩，不再混算
     const overallSim = (hex && !hex.missing && typeof hex.allyRate === 'number') ? hex.allyRate : null;
     const overallReal = (ins && ins.total >= 20) ? ins.winRate / 100 : null;
     const overall = (overallSim !== null && overallReal !== null)
@@ -792,9 +802,9 @@ function simVsReal(hex, elit) {
     //   heroWins/appear 完全同口径（我方视角、同名同义），逐英雄同名对照即可。
     // 旧格式快照没有该字段 → 明确提示重跑，不拿 byStage 再算一遍（同一数值只留一条计算路径）。
     let real = null;
-    try { real = getHeroAggregates(); } catch (e) { real = null; }
+    try { real = getHeroAggregates(false, 'single'); } catch (e) { real = null; }   // V3.7.0：只取单海克斯战绩与 112 模拟英雄对照
     if (!real || !real.length) {
-        return { missing: '生涯记录里还没有实战数据 —— 打几局、并确认 dev-index「📊 生涯记录」里有内容后，这里才能拿实战和模拟对照。', overall, overallIssues, heroEffective: false, hexRows, hexIssues, hexCompared, hexEffective };
+        return { missing: '生涯记录里还没有实战数据 —— 打几局、并确认 dev-index「📊 生涯记录」里有内容后，这里才能拿实战和模拟对照。', overall, overallIssues, heroEffective: false, hexRows, hexIssues, hexCompared, hexEffective, dualNote };
     }
     const hero = elit && elit.hero;
     if (!hero) return { missing: '112 快照是旧格式（没有「明教英雄个体胜率」hero 字段）——到 112 重跑主表·自然出场并「💾 存结果」后，英雄层面才能对照。', overall, overallIssues, heroEffective: false, hexRows, hexIssues, hexCompared, hexEffective };
@@ -827,7 +837,7 @@ function simVsReal(hex, elit) {
     }
     const compared = rows.filter(r => r.gap !== null && r.simN >= TH.MIN_SAMPLE).length;
 
-    return { rows, issues, compared, missing: null, overall, overallIssues, heroEffective: compared > 0, hexRows, hexIssues, hexCompared, hexEffective };
+    return { rows, issues, compared, missing: null, overall, overallIssues, heroEffective: compared > 0, hexRows, hexIssues, hexCompared, hexEffective, dualNote };
 }
 
 /* ========== 数据健康总览（V2.8.0） ========== */
@@ -1214,6 +1224,7 @@ function buildReport(d) {
     // 模拟 vs 实战对照
     if (d.simReal && (d.simReal.overall || d.simReal.rows)) {
         L.push('', '— 模拟 vs 实战对照 —');
+        if (d.simReal.dualNote) L.push(d.simReal.dualNote);
         L.push('说明：整体与英雄层面都是「明教胜率」同口径——整体比总量，英雄层面按同名英雄逐个对齐。');
         if (d.simReal.overall) {
             const o = d.simReal.overall;

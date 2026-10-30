@@ -12,7 +12,7 @@ export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRec
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.8.0';
+export const VER = 'tools/52-career-log.js V2.8.1';
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
@@ -25,6 +25,8 @@ export const VER = 'tools/52-career-log.js V2.8.0';
 // V2.8.0 | 2026-10-31 | 双海克斯分库 + 只记人工对局：所有读取/导出函数加 hexMode 参数（'single'/'dual'/省略=合并）；
 //   写入端 modules/31 已按 hexMode 分库存、按 enemyAutoHex 判定、并排除全自动（full-auto）对局；
 //   报告/明细/界面均按所选模式呈现，不再把两种模式混在一起算胜率。
+// V2.8.1 | 2026-10-31 | 导出补「自动级别」列：记录里已存 autoLevel（手动/自动/全自动），但此前 CSV/报告没透出，
+//   无法追溯「这条是不是人工打的」。CSV 加「自动级别」列、Markdown 汇总加「人工对局构成」行。
 
 // 英雄/组合少于此场次 → 标「样本少」，胜率仅供参考（3 局 100% 不等于这个英雄强）
 const HERO_MIN_GAMES = 8;
@@ -129,6 +131,12 @@ export function exportCareerMarkdown(hexMode = null) {
         if (insM && insM.byMode && Object.keys(insM.byMode).length) {
             lines.push('模式：' + Object.entries(insM.byMode).map(([k, v]) => `${v.label} ${v.n}局(${v.winRate}%)`).join(' ｜ '));
         }
+    } catch (e) {}
+    // V2.8.1：人工对局构成——记录里已剔除全自动（full-auto），这里把手动/自动拆分出来，便于追溯「是不是人打的」
+    try {
+        const ac = {};
+        for (const r of arr) { const k = r.autoLevel || '未知'; ac[k] = (ac[k] || 0) + 1; }
+        if (Object.keys(ac).length) lines.push('人工对局构成：' + Object.entries(ac).map(([k, v]) => `${autoLevelLabel(k)} ${v}局`).join(' ｜ '));
     } catch (e) {}
 
     lines.push('各关明教胜率：' + byStageAsc
@@ -570,7 +578,7 @@ export function getHeroImpact(hexMode = null) {
 export function exportCareerCSV(hexMode = null) {
     const arr = getCareerRecords(hexMode);
     if (arr.length === 0) return null;
-    const head = ['局序', '关卡', '模式', '海克斯模式', '胜方', '回合', '海克斯', '阵营', '角色名', '定位', '位置',
+    const head = ['局序', '关卡', '模式', '海克斯模式', '自动级别', '胜方', '回合', '海克斯', '阵营', '角色名', '定位', '位置',
         '输出', '承伤', '治疗', '存活', '闪避', '暴击', '生存回合'];
     const cell = v => {
         const s = String(v == null ? '' : v);
@@ -582,7 +590,7 @@ export function exportCareerCSV(hexMode = null) {
         const pushRow = (list, camp) => {
             for (const u of (list || [])) {
                 lines.push([
-                    gi + 1, r.stage, modeLabel(r.mode), hexModeLabel(r.hexMode), r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
+                    gi + 1, r.stage, modeLabel(r.mode), hexModeLabel(r.hexMode), autoLevelLabel(r.autoLevel), r.winner, r.rounds, hex, camp, u.name, u.role, u.pos,
                     Math.round(u.dmgDealt || 0), Math.round(u.dmgTaken || 0), Math.round(u.healDone || 0),
                     u.alive ? 1 : 0, u.dodgeCount || 0, u.critCount || 0, u.survivedRounds || 0
                 ].map(cell).join(','));
