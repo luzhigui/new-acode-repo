@@ -50,7 +50,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: { requiredFields: ['unitName'], renderFn: 'renderDoubleStrikeSummaryFact', translateFn: null },
 
     // 惑心
-    [FACT_TYPES.MIND_CONTROL_SWAP]: { requiredFields: ['unitA', 'unitB'], renderFn: 'renderMindControlSwapFact', translateFn: 'translateMindControlSwap' },
+    [FACT_TYPES.MIND_CONTROL_SWAP]: { requiredFields: ['swaps'], renderFn: 'renderMindControlSwapFact', translateFn: 'translateMindControlSwap' },
     [FACT_TYPES.MIND_CONTROL_FAIL]: { requiredFields: ['side'], renderFn: 'renderMindControlFailFact', translateFn: null },
     [FACT_TYPES.MIND_CONTROL_BANNER]: { requiredFields: ['side'], renderFn: 'renderMindControlBannerFact', translateFn: 'translateMindControlBanner' },
 

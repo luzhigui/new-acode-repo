@@ -1,3 +1,5 @@
+// V1.17.0 | 2026-10-31 worker 自备 201hex-enhance.json（loadHexEnhanceData）：
+//           小昭 hexEnhance 已迁出 200，modules/27 每回合建队就读 201，缺则四种阵容 hex job 全炸。
 //           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex' | 'random'
 // hex 任务现为 101/108 共用：支持 preferredBuffs 偏好 + 小昭·妹永久继承，并回报胜负计数
@@ -19,7 +21,7 @@ if (typeof localStorage === 'undefined') {
         clear: () => { _ls.clear(); }
     };
 }
-import { CONFIG, loadGameData, getGameData } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, loadHexEnhanceData, getGameData } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './127-tool-registry.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
@@ -762,8 +764,11 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB) {
 
 // 入口
 // 模块顶层一次性加载游戏数据（幂等，worker 独立全局需自备）
+// V1.17.0：201hex-enhance.json 也必须加载——小昭 hexEnhance 已从 200 迁到 201，
+//   modules/27 在每次 prepareRoundSpawns 就读它（与是否带海克斯无关），
+//   只加载 200 时四模式 hex job 全部炸「201hex-enhance.json 缺 sister 段」。
 try {
-    await loadGameData();
+    await Promise.all([loadGameData(), loadHexEnhanceData()]);
     self.postMessage({ kind: 'worker-ready', ok: true });
 } catch (err) {
     self.postMessage({ kind: 'worker-ready', ok: false, error: String(err && err.message || err) });

@@ -1,5 +1,7 @@
 // V6.0.16 | ~13100 bytes | 2026-09-26 加本表用途口径备注（用户定案）：复制包清单不追求全量，体检脚本/本机工具/构建脚本不纳入属正常、不许补登；判断标准=网页端 DeepSeek 拿到包后运行或阅读是否需要它
-export const VER = 'tools/106-ai-pack-config.js V6.0.47';
+// V6.0.48 | 2026-10-31 补登记 2 项：content/201hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
+//           modules/27elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
+export const VER = 'tools/106-ai-pack-config.js V6.0.48';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -87,6 +89,8 @@ export const ALL_PROJECT_FILES = [
     '../modules/27elite-mingjiao-eagle.js', '../modules/27elite-mingjiao-hanlisa.js',
     '../modules/27elite-mingjiao-zhangwuji.js', '../modules/27elite-mingjiao-weiyixiao.js',
     '../modules/27elite-mingjiao-xiaozhao-sister.js', '../modules/27elite-mingjiao-xiaozhao-brother.js',
+    // 2026-10-31 补登记：妹永久背水专属组件（00reg-mechanics.js 已 import，漏登则包内装配断链）
+    '../modules/27elite-mingjiao-brother-laststand.js',
     '../modules/27elite-mingjiao-xiexun.js', '../modules/27elite-mingjiao-yangxiao.js',
     '../modules/27elite-mingjiao-yintianzheng.js',
     // 2026-10-13 补登记 26 六组件：26elite-sixsects.js 拆分出的组件文件（26 入口 import 它们，漏登则包内引用断裂）
@@ -115,6 +119,9 @@ export const ALL_PROJECT_FILES = [
     '../render/39-actions-defs.js',
     // content（游戏内容数据）
     '../content/200game-data.json',
+    // 2026-10-31 补登记 201：小昭 hexEnhance（姐妹强化/妹永久）已从 200 迁出到独立文件，
+    //   core/01 的 getSkillParams / getBrotherHexEnhance 与 modules/27、28 都读它，漏登则包内直接抛「缺 sister 段」。
+    '../content/201hex-enhance.json',
     // tests（体检规则与自动测试）
     '../tests/120test-runner.html', '../tests/121health-monitor.js', '../tests/122health-utils.js',
     '../tests/123static-scan.js', '../tests/124rule-recipes.js',

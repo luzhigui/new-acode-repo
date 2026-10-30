@@ -97,6 +97,11 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
             btn.textContent = b.text;
             btn.addEventListener('click', () => {
                 const newBuff = createBuffObject(b.value, null, camp, team);
+                // carry 全场只能选一次：记进 usedBuffKeys（跨关不清，整局有效；resetBattleRuntime 时清空）
+                if (b.value === 'carry') {
+                    const used = GlobalStore.get('usedBuffKeys') || [];
+                    if (!used.includes('carry')) GlobalStore.set('usedBuffKeys', [...used, 'carry']);
+                }
                 if (camp === CAMP_TYPES.ALLY) {
                     const xiaoZhao = team.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {

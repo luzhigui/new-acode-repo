@@ -37,7 +37,7 @@
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
 //   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
 //   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.26';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.27';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -191,16 +191,26 @@ export const rule95 = {
                     }
                 }
 
-                // 复发信号5：数值膨胀 —— 上界改用「单队友属性理论上限 × 队友数 × 配置比例 × 死亡倍率」，
-                //   不再用终局快照 Σ 估算（快照比实时系统性算小且随回合/死亡倍率波动，硬上界必误报——2026-10-29
-                //   张无忌、2026-10-30 雄鹰连续两例：cap 算小到 攻≤6/防≤8，而真实 carry 攻+6/防+6、攻+15/防+19 均合法）。
-                //   该上界只用于捕获「非参数类巨幅膨胀」（队友池异常膨胀 / carry 重复累加致单队友贡献远超物理可能），
-                //   这类真缺陷下 actual 远超此上界；对「配置比例/倍率写大」本身不敏感（cap 与 actual 同乘 cfg，比值
-                //   与参数无关，已知设计局限）。S_CEIL 取远高于实战峰值的 220，调大只更宽松、不会漏真实巨幅膨胀。
+                // 复发信号5：数值膨胀 —— 上界 = 队友属性总和 × 配置比例 × deathMultiplier × 安全余量。
+                //   每队友贡献 = floor(队友stat × bonus × mult)，mult = 存活?1 : deathMultiplier（配置值 2，即「死亡队友双倍」）
+                //   —— 故单队友最大贡献出现在「死亡」情形（mult=deathMultiplier=2），最坏上界须按 deathMultiplier 计，
+                //   而非存活的 mult=1。2026-10-30 第 144 轮续：范遥 攻+36 误报正是旧版漏乘 deathMultiplier——
+                //   含死亡队友时合法加成可达「存活口径」的 2 倍，未留这 2 倍就把合法值当膨胀误杀。
+                //   再叠 SAFE 余量吸收「实时 stat 高于终局快照」的战斗增益（临时加攻）与 floor 取整误差。
+                //   该上界只捕获「非参数类巨幅膨胀」（队友池异常膨胀 / carry 重复累加致 actual≫物理可能），
+                //   对「配置比例/倍率写大」本身不敏感（cap 与 actual 同乘 cfg，比值与参数无关，已知设计局限）。
                 if (mates.length > 0 && cfg.ok) {
-                    var S_CEIL = 220; // 单队友攻/防属性理论上限（实战峰值约 150，留足余量）
-                    var capAtk = mates.length * S_CEIL * cfg.atkBonus * cfg.deathMultiplier;
-                    var capDef = mates.length * S_CEIL * cfg.defBonus * cfg.deathMultiplier;
+                    var sumAtk = 0, sumDef = 0;
+                    for (var q5 = 0; q5 < mates.length; q5++) {
+                        var sa = statOf(mates[q5], 'atk'), sd = statOf(mates[q5], 'def');
+                        if (sa != null) sumAtk += sa;
+                        if (sd != null) sumDef += sd;
+                    }
+                    var SAFE = 1.6; // 安全余量：吸收实时 stat 高于终局快照的战斗增益（≤60%）与取整误差；
+                                    //   最坏上界已按 deathMultiplier=2 计，再叠 1.6× ⇒ 共约 3.2× 存活口径余量，
+                                    //   仅放大到 >3.2× 的「非参数巨幅膨胀」才触发（重复累加队友池会远超此线）。
+                    var capAtk = sumAtk * cfg.atkBonus * cfg.deathMultiplier * SAFE;
+                    var capDef = sumDef * cfg.defBonus * cfg.deathMultiplier * SAFE;
                     if (atk > capAtk || def > capDef) {
                         return { fail: true, msg: '复发：carry加成超出上界：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
                             + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)

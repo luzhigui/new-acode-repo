@@ -5,7 +5,7 @@ import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
 import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30 顶层副作用注册）
-import { CONFIG, STATE, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
+import { CONFIG, STATE, loadGameData, loadHexEnhanceData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
 import { VER as VER_UTILS } from '../core/03battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './62ui-render-5v5-test.js';
@@ -27,7 +27,7 @@ import {
 } from './65main-battle.js';
 import { setBGMVolume, fadeBGMTo, lowerBGM } from './66audio-control.js';
 import { toggleFxPanel, syncFxButton } from './67fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
 import { bindCopyLogButton } from './64main-dialogs.js';
 import * as net from '../infra/60-net-pvp.js';
 import { stepAdjustStart, stepAdjustMove, stepVoteOpen, stepCountdown, stepBuff, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
@@ -198,24 +198,22 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 按钮事件绑定 → 68ui-controls.js
     // 开场流程：首次未看过 → 开场CG（72）→ 精英图鉴选人 → 新手分步引导（71）；已看过CG → 图鉴 → 引导
-    bindCoverStart(coverRef, updateSpeedButtons, () => {
+    const coverStartFlow = () => {
         netSession.exitNetIdentity();
         const toGuide = () => showEliteGallery(() => stepAdjustStart());
         if (isOpeningCgDone()) { toGuide(); return; }
         showOpeningCg(() => toGuide());
+    };
+    // 普通开始：显式清 enemyAutoHex，防上一局新模式残留
+    bindCoverStart(coverRef, updateSpeedButtons, () => {
+        GlobalStore.set('enemyAutoHex', false);
+        coverStartFlow();
     });
-    // PVP 本地双人对战：跳过 CG/图鉴/引导，直接进入双方同屏调整站位
-    bindCoverPvp(() => {
-        netSession.exitNetIdentity();
-        gameStarted = true; coverRef.val = true;
-        GlobalStore.set('pvpMode', true);
-        setState.autoLevel('auto'); setState.autoMode(true);
-        setState.gs(S.IDLE); setState.isPaused(false);
-        setState.adjustMode(true); setState.selectedAdjustPos(null);
-        setState.activeBuffs([]); currentDoubleStrikeUid = null;
-        isBattleStarting = false; hasLoggedTeam = false;
-        updateButtons(); updateUI(); updateSpeedButtons();
-    });
+    // 六大派海克斯模式：同一套启动流程，只多一个标志位
+    bindCoverStart(coverRef, updateSpeedButtons, () => {
+        GlobalStore.set('enemyAutoHex', true);
+        coverStartFlow();
+    }, 'btnGameEnemyHex');
     bindPauseButton(getState, setState, updateButtons);
     // 联网对战：封面建房/加入房间（仅点击时才下载 mqtt.js 并连 broker，单机玩法全程离线）
     // 阶段3：连接成功 → 双方进摆位态（房主下发阵容）；收到 lineup / buffAsk / start 各走各的分支
@@ -270,8 +268,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (GlobalStore.get('netRole') === 'host') {
                 // 联网 PVP 阶段3：开局海克斯双向——房主统一发六大派选项，双方各选后合并
                 await handlePvpBuffSelection(getPlayerContext(), getState.activeBuffs());
-            } else if (GlobalStore.get('pvpMode')) {
-                // PVP 本地双人对战：跳过海克斯 Buff 选择，保证双方对等
             } else if (getState.autoLevel() === 'full-auto') {
                 const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
                 const newBuff = typeof showBuffPopup === 'function' ? await showBuffPopup(getPlayerContext(), CAMP_TYPES.ALLY, null, true, false) : null;
@@ -452,10 +448,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 stepAdjustMove();
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
-                if (GlobalStore.get('pvpMode')) {
-                    // PVP 本地双人对战：双方站位已调完，跳过投票直接开战
-                    startBattle('明教');
-                } else if (getState.autoLevel() === 'full-auto') {
+                if (getState.autoLevel() === 'full-auto') {
                     startBattle('明教');
                 } else {
                     stepVoteOpen();
@@ -569,7 +562,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
         setTimeout(() => updateCoverVersion(), 500);
-        await loadGameData();
+        await Promise.all([loadGameData(), loadHexEnhanceData()]);
         doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());

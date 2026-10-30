@@ -19,8 +19,34 @@ function getGameData() {
     return gameData;
 }
 
+// 海克斯强化数据（姊妹/妹永久），单独文件 content/201hex-enhance.json。
+//   缺字段代码回落到 CONFIG.BUFFS（普通版），不用在 201 里重复写。
+let hexEnhanceData = null;
+
+async function loadHexEnhanceData() {
+    if (hexEnhanceData) return hexEnhanceData;
+    const resp = await fetch(new URL('../content/201hex-enhance.json', import.meta.url));
+    if (!resp.ok) throw new Error(`海克斯强化数据加载失败：HTTP ${resp.status}`);
+    hexEnhanceData = await resp.json();
+    return hexEnhanceData;
+}
+
+function getHexEnhanceData() { return hexEnhanceData; }
+// 姊强化：团队 buff 生效中。返回 null 表示该海克斯没强化配置
+function getSisterHexEnhance(key) { return (hexEnhanceData && hexEnhanceData.sister && hexEnhanceData.sister[key]) || null; }
+// 妹永久：团队 buff 过期后生效。返回 null 表示没配置（代码回落普通版）
+function getBrotherHexEnhance(key) { return (hexEnhanceData && hexEnhanceData.brother && hexEnhanceData.brother[key]) || null; }
+
 // 从 gameData 读取角色技能参数，取不到返回 null（调用方按需 throw）
 function getSkillParams(characterName, skillKey) {
+    // 小昭.hexEnhance（姊强化）已整段迁出 200 → content/201hex-enhance.json 的 sister 段。
+    //   不设回落：201 缺失 = 启动加载失败，整个游戏本就起不来；运行期这里缺失说明有人绕过启动流程，必须炸。
+    if (characterName === '小昭' && skillKey === 'hexEnhance') {
+        if (!hexEnhanceData || !hexEnhanceData.sister) {
+            throw new Error('[getSkillParams] 201hex-enhance.json 缺 sister 段（小昭.hexEnhance 已迁出 200，不允许回落）');
+        }
+        return hexEnhanceData.sister;
+    }
     const ch = gameData?.characters?.[characterName];
     const skill = ch?.skills?.[skillKey];
     return skill?.params || null;
@@ -190,7 +216,7 @@ function getSkillDesc(characterName, skillKey, jealous) {
 }
 
 // 导出加载函数供外部使用
-export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter };
+export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter };
 
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。
@@ -358,7 +384,7 @@ const CONFIG = {
     HOT_BLOOD_CRIT_INTERVAL: 3,            // 热血奋战双倍吸血间隔（04）
     DEF_WAVE_THRESHOLD: 7,                 // 攻击波动「防御波动」台词阈值（12，defVar + hpBonus 达标）
 
-    SPIDER_MIND_CONTROL_CHANCE: 0.15,      // 永久惑心误伤概率（27）
+    SPIDER_MIND_CONTROL_CHANCE: 0.20,      // 永久惑心误伤概率（27）
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
     ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
     XUANMING_POISON_HEAL_REDUCE: 0.5,      // 寒毒抑疗：带寒毒目标受到的治疗再乘该系数（core/13，2026-10-22）

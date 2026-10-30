@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
-import { createBuffObject, buffsOfCamp, generateBuffChoices } from '../modules/28buff-tools.js';
+import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs } from '../modules/28buff-tools.js';
 import { appendLogHTML } from './47renderer.js';
 import * as net from '../infra/60-net-pvp.js';
 // 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
@@ -87,6 +87,35 @@ export async function handlePvpBuffSelection(c, nextActiveBuffs) {
         if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
     }
     return merged;
+}
+
+// 六大派自动选海克斯（「六大派海克斯」单机模式专用）：规则与明教手选同源——
+//   过滤可用池（同一套 filterAvailableBuffs：人数门槛/职业要求/惑心门槛）→ 洗牌取前 N 候选 →
+//   从 N 候选里随机 1 个。全程消耗战斗 RNG（同种子同结果）。
+export async function handleEnemyAutoBuffSelection(c, nextActiveBuffs) {
+    const enemyTeam = c.store
+        ? c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ENEMY && u.alive)
+        : ((c.UI && c.UI.enemyTeam) || []).filter(u => u.alive);
+    const allyTeam = c.store
+        ? c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY && u.alive)
+        : ((c.UI && c.UI.allyTeam) || []).filter(u => u.alive);
+    const activeEnemyBuffs = buffsOfCamp(nextActiveBuffs, CAMP_TYPES.ENEMY);
+    const available = filterAvailableBuffs(activeEnemyBuffs, enemyTeam, { withFortifyRule: true, enemyTeam: allyTeam });
+    if (available.length === 0) return nextActiveBuffs;
+
+    const rng = getBattleRng();
+    const shuffled = [...available];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = rng.nextInt(0, i);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+    const pick = choices[rng.nextInt(0, choices.length - 1)];
+    const newBuff = createBuffObject(pick, null, CAMP_TYPES.ENEMY, enemyTeam);
+    appendLogHTML(`<span class="gold">✨ 六大派 自动选择 Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
+    const mainCtx = getPlayerContext();
+    if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
+    return [...(nextActiveBuffs || []), newBuff];
 }
 
 // 蝶变方向弹窗（回合结束后、下一回合开始前调用）

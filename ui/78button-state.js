@@ -106,7 +106,7 @@ function updateButtons() {
                 mainBtn.innerHTML = peerReady ? '▶ 开战' : '⏳ 等待<br>对手';
                 mainBtn.disabled = !peerReady;
             }else{
-                mainBtn.innerHTML = GlobalStore.get('pvpMode')?'▶ 开战':'▶ 开始<br><span style="font-size:8px;">(投票)</span>';
+                mainBtn.innerHTML = '▶ 开始<br><span style="font-size:8px;">(投票)</span>';
                 mainBtn.disabled = false;
             }
         }else{

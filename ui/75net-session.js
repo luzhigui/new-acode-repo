@@ -181,6 +181,9 @@ export function installNetSession(ctx) {
         setState.adjustMode(true); setState.selectedAdjustPos(null);
         setState.activeBuffs([]);
         _resetFlags();
+        // 删本地双人后，pvpMode 只剩联机在用：房主进摆位态必须置 true，
+        //   否则房主 GAMEOVER 时走单机分支、不重发阵容，从机接不到下一关。
+        GlobalStore.set('pvpMode', true);
         const overlay = document.getElementById('coverOverlay');
         if (overlay) overlay.style.display = 'none';
         _markGameStarted();

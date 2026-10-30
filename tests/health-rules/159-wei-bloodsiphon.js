@@ -39,7 +39,7 @@
 //   闪避反击通道**不经 previewHeal**，heal = max(1, ...) 恒 ≥ 1，故该通道仍要求严格正整数（不变）。
 // 误报规避：本场没有青翼蝠王吸血条目直接 skip；父快照取不到（facts 不可用时）退回 V1.0.0 文案判据，
 //   不静默放行；配置读不到(getMechanicField 在数据未就绪时会抛)就跳过比例上限判据。
-export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.1';
+export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.2';
 import { collectNodes, plain } from '../122health-utils.js';
 import { getMechanicField } from '../../core/01config-5v5-test.js';
 import { MECHANIC_EFFECT_TYPES, FACT_TYPES } from '../../infra/56-battle-enums.js';
@@ -218,15 +218,12 @@ export const rule106 = {
             }
         }
 
-        // 兜底通道定性（2026-10-30 收窄，消除假阳性）：命中通道「+0」是 previewHeal 按缺口封顶的合法值——
-        //   韦一笑满血出手缺口为 0 ⇒ 落地 +0（core/13 previewHeal 已证实）。单条 +0 即属此情形，**不可判缺陷**。
-        //   仅当「本场吸血 ≥2 次且全部为 +0（从无正数）」才视为系统性缺失（max(1) 被删 / rate 归零）；
-        //   单条 +0 或混合（有正有零）一律放过，真缺陷由 通道A 原始 fact 判据（缺口存在却 +0）兜底。
-        if (textZeroCount >= 2 && textPosCount === 0) {
-            return { fail: true, msg: '复发：本场青翼蝠王吸血 ' + textZeroCount + ' 次，文案全为「+0」'
-                + '（≥2 次且从无正数，系统性缺失；引擎命中通道 rawHeal=max(1,...) 经 previewHeal 封顶，'
-                + '仅当每次出手均满血才可能全零，概率极低；判定 max(1) 被删或 rate 归零）' };
-        }
+        // 文案兜底「全+0=缺陷」通道已移除（2026-10-30 V1.2.2）：
+        //   previewHeal(core/13:211) 按「当前缺口」封顶，韦一笑满血出手缺口=0 ⇒ 落地恒为 +0，故「+0」是
+        //   设计内合法值，文案层无法区分「满血封顶」与「max(1) 被删」——前者在主代码中高频出现（韦一笑常满血坦，
+        //   本次 3 轮实测单场 4 次 +0 经核对全为满血封顶）。真缺陷（缺口存在却 +0，即 max(1) 被删 / 取整改道）
+        //   已由 通道A 原始 fact 判据（gap>0 且 heal=0）精确捕获，无需文案兜底；留它只会把合法满血封顶误报成缺陷。
+        //   故此处不再 return fail，直接落入下方 checked/skip 收尾。
 
         if (checked === 0) return 'skip'; // 本场韦一笑未出手 / 未触发吸血
         return { fail: false };

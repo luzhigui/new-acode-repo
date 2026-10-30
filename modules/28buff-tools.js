@@ -1,7 +1,8 @@
 export const VER = 'modules/28buff-tools.js V6.2.6';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
+import { CONFIG, getSisterHexEnhance } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // target 缺省为明教：单机路径行为不变；联网 PVP 下六大派传 CAMP_TYPES.ENEMY
@@ -15,6 +16,14 @@ export function createBuffObject(key, duration = null, target = CAMP_TYPES.ALLY,
             duration = CONFIG.MAX_ROUND;
         } else if (key === BUFF_TYPES.METEOR_SHOWER && team.some(u => u.isXiaoZhaoSister && u.alive)) {
             duration = 4;
+        } else if ((key === BUFF_TYPES.HOT_BLOOD || key === BUFF_TYPES.WIND_ASSAULT) && team.some(u => u.isXiaoZhaoSister && u.alive)) {
+            // 姊强化：热血奋战 / 乘风突袭 持续 +N 回合（201 sister.extraDuration，缺则炸）
+            const enhKey = key === BUFF_TYPES.HOT_BLOOD ? 'hotBlood' : 'windAssault';
+            const sisterEnh = getSisterHexEnhance(enhKey);
+            if (!sisterEnh || sisterEnh.extraDuration == null) {
+                throw new Error(`201hex-enhance.json 缺 sister.${enhKey}.extraDuration`);
+            }
+            duration = (cfg.duration || CONFIG.BUFF_DURATION || 4) + sisterEnh.extraDuration;
         } else {
             duration = cfg.duration || CONFIG.BUFF_DURATION || 4;
         }
@@ -58,9 +67,12 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
     const { withFortifyRule = false, enemyTeam = [] } = opts;
     const ab = activeBuffs || [];
     const activeBuffKeys = ab.map(b => b.key);
+    const usedKeys = opts.usedKeys || GlobalStore.get('usedBuffKeys') || [];
     const alive = (team || []).filter(u => u && u.alive);
     return Object.keys(CONFIG.BUFFS).filter(k => {
         if (activeBuffKeys.includes(k)) return false;
+        // carry 全场只能选一次：选过（不论是否过期）就不再进候选
+        if (k === BUFF_TYPES.CARRY && usedKeys.includes(k)) return false;
         if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !ab.some(b => b.remaining > 0)) return false;
         // 众志成城门槛（老板拍板）：只有本阵营「场上存活人数 < 4」时才可能出现——
         //   人数口径含拒马/幼狮/雄鹰等召唤物（与 core/04 applyUnityBonus 同口径）；满 4 人及以上不进候选

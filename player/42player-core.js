@@ -16,7 +16,7 @@ import { clock } from '../infra/52-clock.js';
 import { getNoTableScale } from '../core/23perf-params.js';
 import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
-import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
+import { handleBuffSelection, handlePvpBuffSelection, handleEnemyAutoBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
 import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from '../modules/31-career-log.js';
@@ -160,6 +160,11 @@ export async function playBattle() {
             nextActiveBuffs = netLinked
                 ? await handlePvpBuffSelection(c, nextActiveBuffs)
                 : await handleBuffSelection(c, nextActiveBuffs);
+            // 「六大派海克斯」单机模式：明教手选完，六大派再自动选一个。
+            //   联网不走（对手自己手选）；明教选完再选六大派，顺序固定，RNG 流可复现。
+            if (!netLinked && GlobalStore.get('enemyAutoHex')) {
+                nextActiveBuffs = await handleEnemyAutoBuffSelection(c, nextActiveBuffs);
+            }
         }
 
         await handleFlyDirection(c, lastStep, battleState.round);

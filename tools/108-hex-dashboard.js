@@ -1,8 +1,10 @@
 // ===== ../tools/108-hex-dashboard.js =====
-import { CONFIG, getSkillParams, loadGameData, getGameData } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, loadGameData, getGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.7.0';
+export const VER = 'tools/108-hex-dashboard.js V6.7.1';
+// V6.7.1 | 2026-10-30 详情卡补载 201hex-enhance.json：小昭 hexEnhance 已从 200 迁出，
+//   getSkillParams('小昭','hexEnhance') 在缺 201 时直接抛，详情卡一打开就炸。
 // V6.7.0 | 2026-10-30 模式对比表结构简化：删「强弱Δ常规」+ 三列「净」，改成四列胜率 + 四列差值
 //   （每个模式 = 该海克斯胜率 − 本模式全海克斯平均，四列各算各的，不跨模式相减）。
 // V6.6.8 | 2026-10-30 真根因修复（`Cannot read properties of null (reading 'buffs')`）：
@@ -305,7 +307,9 @@ function renderVersion(title, key, base, enhance, kind, cls) {
 async function openHexDetail(key) {
   // V6.6.8：详情卡可能在「从没跑过、数据未加载」时被点开——此时 CONFIG.BUFFS getter 会抛
   //   null.buffs，先确保加载（幂等），再取值。
+  // V6.7.1：201hex-enhance.json 也要加载——小昭 hexEnhance 已从 200 迁出，getSkillParams 缺 201 直接抛。
   if (!getGameData()) await loadGameData();
+  await loadHexEnhanceData();
   const b = CONFIG.BUFFS[key];
   if (!b) return;
   const enhance = getSkillParams('小昭', 'hexEnhance')[key] || null;
