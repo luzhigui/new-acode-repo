@@ -1,3 +1,10 @@
+// V1.23.0 | 2026-10-31 夜间第 161 轮：OBSERVES 挂「蛛袭死目标定向取证」tests/spider-dead-target-case.mjs
+//   （第 160 轮把稀有 spec 收口成 ⑤b-2「非样本缺口」6 条并点名 spiderDeadTarget / xinHunDeath
+//     「最容易被误判成死代码」—— 而挂账一正等着拍板核销。★ 光有「自然流零命中」不能下结论：
+//     零命中既可能是结构不可达，也可能是没喂样本，两者处置完全相反（一个可删、一个绝不能删）。
+//     本件双向取证：① 静态自证目标池过滤式含 u.alive 且取值与判空之间无人改 alive；② 定向
+//     扫描证明发射点真被走到（进入目标池次数可数，低于下限即红，不许拿零命中当结论）。
+//     挂观察项不改分母，理由同前几轮）。
 // V1.22.0 | 2026-10-29 夜间第 155 轮：OBSERVES 挂「守门人的守门人」tests/guard-presence-scan.mjs
 //   （★ 第 154 轮给端到端断言补上了咬点（两通道 + 第三处 guardCheck），但那三处全在
 //     commit-claim-audit.mjs 同一个文件里 —— 改这个文件的人顺手就能连 guardCheck 一起关掉，
@@ -55,7 +62,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.22.0';
+export const VER = 'tests/run-all.mjs V1.23.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -196,6 +203,9 @@ const OBSERVES = [
     // 第 161 轮冲突裁决：上游 V1.20.0 的闸门说明文字保留在注释里，实际闸门项已在 CHECKS 第 2 项
     //   （tests/layer-direction-scan.mjs --enforce）落地，本线 V1.21.0/V1.22.0 三项观察一个不丢。
     //   上游原注：存量基线 tests/layer-direction-baseline.json 目前为空；只拦新增反向边/环。
+    // V1.23.0 | 2026-10-31 夜间第 161 轮：蛛袭死目标定向取证（SPIDER_DEAD_TARGET 到底是不可达
+    //   还是没喂样本）。挂观察项不改分母，理由见头顶 V1.23.0 日志行。
+    { name: '蛛袭死目标定向取证', script: 'tests/spider-dead-target-case.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

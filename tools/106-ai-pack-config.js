@@ -1,4 +1,4 @@
-// V6.0.48 | 2026-10-29 合并上游注释清理与夜间线清单补登记：去掉 weakContrib 的单引号写法，保留三项 run-all 顶层脚本。
+// V6.0.49 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-29 合并上游注释清理与夜间线清单补登记：去掉 weakContrib 的单引号写法，保留三项 run-all 顶层脚本。
 // V6.0.47 | 2026-10-28 自动补全 3 项 run-all 引用但漏登的 tests 顶层脚本（second-source-scan / commit-claim-audit / guard-presence-scan）。
 // V6.0.45 | 2026-10-29 138 补登那行注释去掉单引号（纯注释改动，清单条目零变化）：原先写 weakContrib，
 //           会被「宽松提取单引号字符串」的外部对账脚本当成真实条目、报一条假缺失（项目自带
@@ -93,7 +93,7 @@
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
 // 第 161 轮冲突裁决：VERSION 取本地更高的 V6.0.48（上游 V6.0.47 为并行线的旧号），版本履历一行不删。
-export const VER = 'tools/106-ai-pack-config.js V6.0.48';
+export const VER = 'tools/106-ai-pack-config.js V6.0.49';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -304,6 +304,8 @@ export const ALL_PROJECT_FILES = [
     // 第 161 轮冲突裁决：上游登记的两个文件一并保留，两侧登记不删。
     // 2026-10-30 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/layer-direction-scan.mjs', '../tests/layer-direction-baseline.json',
+    // 2026-10-30 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/spider-dead-target-case.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',

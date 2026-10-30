@@ -44,7 +44,13 @@ import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
-const VER = 'tests/fact-emission-census.mjs V1.4.0';
+const VER = 'tests/fact-emission-census.mjs V1.5.0';
+// V1.5.0 | 2026-10-31 第 161 轮：⑤b 二分升三分——新增 ⑤b-3「定向已覆盖（有定向用例实证能发射，
+//   自然流仍不发射）」，并把 xinHunDeath 从 ⑤b-2 移入 ⑤b-3。★ 这不是放宽，是**纠错**：
+//   tests/xinhun-death-targeted-case.mjs 段二实测 XIN_HUN_DEATH 命中 5 次（钳血后链条成立），
+//   挂账一却把「XIN_HUN 时序」列为优先核销项——按 ⑤b-2 的口径会被当成死代码删掉，属误判。
+//   同时为 spiderDeadTarget 补了 tests/spider-dead-target-case.mjs（349 次进入目标池 / 0 命中），
+//   它留在 ⑤b-2 且结论升级为「已实证不可达」。判据、契约、门禁一行未改。
 // ───────────────────────────────────────────────────────────────────────────
 // V1.4.0 | 2026-10-30 第 160 轮：⑤b「稀有 spec」接定向覆盖通道 + 成因分类。
 //   背景：第 159 轮把「补样本」这套通道打通后，⑤b 仍报 13 条 —— 但普查脚本自己跑的是**默认随机
@@ -60,6 +66,9 @@ const VER = 'tests/fact-emission-census.mjs V1.4.0';
 //     新婚阵亡、phantomReveal 要成昆在队而 29battle-init 无 forceChengKun），干净树下**本就不该
 //     发射**，补样本补不出来，只能靠变异树定向用例；这类单独归为「非样本缺口·需变异树」，
 //     不再混在「有发射点但样本未触发」里误导下轮去瞎补场次。
+//   第 161 轮再分一桶（⑤b-3）：上面这些里若**已有定向用例实证逼出来过**（如 xinHunDeath 在
+//     xinhun-death-targeted-case 段二命中 5 次），就不再是死代码候选，必须单独标注「严禁核销」——
+//     否则「稀有 = 死」这个想当然会直接把活发射点删掉（挂账一的 XIN_HUN 核销建议即此类误判）。
 // ───────────────────────────────────────────────────────────────────────────
 const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun'];
 
@@ -101,10 +110,18 @@ const DIRECTED_CASES = [
 const NON_SAMPLE_SPECS = new Map([
     ['xiaoZhaoHorse', '妹永久巨马阵（HORSE_FORMATION in _permanentBuffs）才召，modules/27elite-mingjiao-xiaozhao-brother.js L244-250'],
     ['xiaoZhaoCarryApply', '妹永久 carry（CARRY in _permanentBuffs）才挂，同文件 L257-267'],
-    ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226'],
     ['phantomReveal', '成昆幻影（chengkun 在队），modules/25elite-imperial.js L187；29battle-init 无 forceChengKun'],
     ['phantomConfuse', '同上 L196（另有小昭·妹分支 27elite-mingjiao-xiaozhao-brother.js L198）'],
-    ['spiderDeadTarget', '蛛袭时目标已死才发，modules/20elite-skills.js L225，属收尾帧竞态']
+    ['spiderDeadTarget', '蛛袭时目标已死才发，modules/20elite-skills.js L225，属收尾帧竞态；'
+        + '第 161 轮已由 tests/spider-dead-target-case.mjs 实证：349 次进入目标池 / SPIDER_DEAD_TARGET 恒 0 次'
+        + ' ⇒ 静态不可达成立（过滤式含 u.alive 且中途无人改 alive），可提核销']
+]);
+// ⑤b-3「定向已覆盖」：自然流结构性不发射，但**已有定向用例实证它会发射** ⇒ 不是死代码，
+//   严禁按死代码核销。★ 与 ⑤b-2 的分界就是「有没有定向用例把它逼出来过」，不靠定性判断。
+const DIRECTED_COVERED_SPECS = new Map([
+    ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226；'
+        + '第 161 轮复核 tests/xinhun-death-targeted-case.mjs 段二（钳血 10 场 @ stage 4）实测：'
+        + 'XIN_HUN 触发 5 次 / XIN_HUN_DEATH 命中 5 次 ⇒ 链条成立，挂账一的「XIN_HUN 时序核销」应撤销']
 ]);
 
 // 取样规模闸门（2026-10-27 夜间第 143 轮新增）。实测基准：210 场 / 101869 条 fact（30 seeds × 7 stages）。
@@ -372,15 +389,25 @@ async function main() {
     if (!orphanSpec.length) console.log('  （无 —— 所有声明渲染的 fact 都实际发射过）');
     // 第 160 轮：⑤b 二分 —— 「样本缺口（补场次可救）」 vs 「非样本缺口（干净树结构性不发射，
     //   只能靠变异树定向用例）」。★ 不许再把两者混成一句「有发射点但样本未触发」误导下轮瞎补场次。
-    const rareSample = rareSpec.filter(r => !NON_SAMPLE_SPECS.has(r.v));
+    const rareSample = rareSpec.filter(r => !NON_SAMPLE_SPECS.has(r.v) && !DIRECTED_COVERED_SPECS.has(r.v));
     const rareNonSample = rareSpec.filter(r => NON_SAMPLE_SPECS.has(r.v));
-    console.log(`--- ⑤b 稀有 spec（有发射点但样本未触发）：${rareSpec.length} 条 —— 已分两桶 ---`);
+    const rareDirected = rareSpec.filter(r => DIRECTED_COVERED_SPECS.has(r.v));
+    console.log(`--- ⑤b 稀有 spec（有发射点但样本未触发）：${rareSpec.length} 条 —— 已分三桶 ---`);
     console.log(`  【⑤b-1 样本缺口 ${rareSample.length} 条｜补定向场次可救】`);
     for (const r of rareSample.slice(0, 15)) console.log('  · ' + r.v + '  引擎发射点 ' + r.sites);
     if (!rareSample.length) console.log('    （无 —— 样本面已覆盖全部可补 spec）');
     console.log(`  【⑤b-2 非样本缺口 ${rareNonSample.length} 条｜干净树结构性不发射，需变异树定向用例】`);
     for (const r of rareNonSample) console.log('  · ' + r.v + '  引擎发射点 ' + r.sites + '  ⟵ ' + NON_SAMPLE_SPECS.get(r.v));
     if (!rareNonSample.length) console.log('    （无）');
+    console.log(`  【⑤b-3 定向已覆盖 ${rareDirected.length} 条｜自然流不发射但定向用例逼出来过，**严禁按死代码核销**】`);
+    for (const r of rareDirected) console.log('  · ' + r.v + '  引擎发射点 ' + r.sites + '  ⟵ ' + DIRECTED_COVERED_SPECS.get(r.v));
+    if (!rareDirected.length) console.log('    （无）');
+    // 反向兜底：DIRECTED_COVERED_SPECS 里登记了却**已经能在自然流发射**的 ⇒ 分类过期，须摘除
+    for (const k of DIRECTED_COVERED_SPECS.keys()) {
+        if (!rareSpec.some(r => r.v === k)) {
+            console.log('  ⚠ ⑤b-3 登记项 ' + k + ' 已在自然流发射，分类过期，须从 DIRECTED_COVERED_SPECS 摘除');
+        }
+    }
     if (deadSilentSpec.length) {
         console.log(`--- ⑤c 纯僵尸规约（renderFn:false 且零发射点）：${deadSilentSpec.length} 条 ---`);
         for (const v of deadSilentSpec) console.log('  · ' + v + '  （无渲染无发射，纯死代码，建议删 spec）');
