@@ -56,7 +56,7 @@ const STAGES = [1, 3, 5, 7];
 
 async function main() {
     // mock 已就绪，动态加载引擎（顶层 import 会先于 mock 求值，故不能用静态 import）
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
            { CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -84,6 +84,8 @@ async function main() {
     //   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，基线开局即崩（同 tools/116 的坑）。
     await import('../modules/30custom-effects.js');
     await loadGameData(); // CONFIG getter/精英机制都依赖 gameData
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 

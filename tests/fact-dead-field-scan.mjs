@@ -208,7 +208,7 @@ function* walkFacts(nodes) {
 }
 
 async function main() {
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -224,6 +224,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
     // factType.field -> { n, boolN, boolTrue, distinct:Set, sample }

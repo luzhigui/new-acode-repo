@@ -45,7 +45,7 @@ const STAGES = [1, 2, 3, 4, 5, 6, 7];
 const JSON_ONLY = process.argv.includes('--json');
 
 async function main() {
-    const [{ CONFIG, loadGameData, getGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData, getGameData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { FACT_TYPES: FT, MECHANIC_TYPES: MT }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -62,6 +62,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     // content 真值：新婚扣血档位（宋青书 mechanics XIN_HUN.hpDeduct，当前恒 1）与周芷若满血
     const song = (getGameData()?.characters || {})['宋青书'] || {};

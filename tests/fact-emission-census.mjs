@@ -35,7 +35,7 @@ globalThis.self = globalThis;
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
@@ -197,6 +197,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     const { GlobalStore } = await import('../infra/54-global-store.js');
 

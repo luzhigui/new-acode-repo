@@ -63,7 +63,12 @@
 //   ④ auditValueMap               —— 给"值→常量名"平铺映射做体检：跨枚举值冲突、外来条目、所有权真值表；
 //   ⑤ auditAnchorSites            —— 锚点落在真代码里还是只活在注释里；
 //   ⑥ stripCommentsMapped / auditStripCopies —— 带行号映射的剥注释（含正则字面量感知）+「第二份快照」点名与棘轮。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.3.0';
+// V1.4.0 | 2026-10-31 夜间第 162 轮：⑲ 跨文件重复函数自证**由单向改双向**。
+//   老写法只盯「该点出的没点出 ⇒ 检测失灵」一个方向，本轮实测就栽在这上面：collectFacts 的第二份
+//   （tests/121health-monitor.js）被上游清掉、重复真消失了，老写法仍报「检测失灵」—— 拿一条已经
+//   不成立的前提当铁证，红得没有真因（与"地基缺失被读成代码退步"同一款病）。改为双向：仍在册的
+//   必须被点出；已核销的必须不被点出（又被点出 ⇒ 重复回归或当初核销是误判）。核销须写明理由与轮次。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.4.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -747,13 +752,27 @@ function runSelfChecks(fails) {
     // ---- ⑦ 跨文件重复函数点名自证（第 152 轮新增，两条）----
     // ★ 与⑯⑰⑱同一句话：点名件自己也会腐烂（正则改坏、排除名单被删、目录不扫了），
     //   它一坏就表现为"一条都不点名"，而报告依旧 PASS —— 那正是它存在的意义被静默抹掉。
-    // ⑲ 真实 tests 目录上必须点出已知的逐字重复（collectFacts / readIfAbs 两组，本轮实测存在）
+    // ⑲ 真实 tests 目录上必须点出已知的逐字重复（双向棘轮，第 162 轮由单向改双向）
+    // ★ 单向的老写法只盯一个方向「该点出的没点出 = 检测失灵」，于是另一侧烂掉没人管：
+    //    第 162 轮实测 collectFacts 的第二份（tests/121health-monitor.js）被上游清掉，重复真消失了，
+    //    老写法却报「检测失灵」—— 拿一条**已经不成立的前提**当铁证，红得没有真因（同"假退步"那款病）。
+    //   ⇒ 改双向：仍在册的必须被点出（缺 ⇒ 检测失灵）；已核销的必须**不被**点出（又被点出 ⇒ 重复回归，
+    //     或当初的核销依据失效）。两侧都要写清理由与轮次，谁改谁留痕。
+    const DUP_WITNESS = [
+        { name: 'readIfAbs', expect: true, why: '第 152 轮点名至今仍在（两份）' },
+        { name: 'parentDmgOf', expect: true, why: '第 152 轮点名至今仍在（两份，落在 health-rules）' },
+        { name: 'fail', expect: true, why: '第 152 轮点名至今仍在（三份自检入口）' },
+        { name: 'collectFacts', expect: false, why: '第 162 轮核销：另一份定义在 tests/121health-monitor.js 已被上游清掉，重复真消失（不是检测失灵）' }
+    ];
     try {
         const d9 = auditDupFnNames(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
         const names9 = new Set(d9.identical.map(x => x.name));
-        for (const must of ['collectFacts', 'readIfAbs']) {
-            if (!names9.has(must)) {
-                fails.push('auditDupFnNames 没点出已知的逐字重复函数 ' + must + '（两条铁证都丢了 ⇒ 重复检测已失灵，报告会静默变绿）');
+        for (const w of DUP_WITNESS) {
+            if (w.expect && !names9.has(w.name)) {
+                fails.push('auditDupFnNames 没点出已知的逐字重复函数 ' + w.name + '（' + w.why + ' ⇒ 重复检测已失灵，报告会静默变绿）');
+            }
+            if (!w.expect && names9.has(w.name)) {
+                fails.push('auditDupFnNames 又把已核销的重复函数 ' + w.name + ' 点出来了（核销依据：' + w.why + ' ⇒ 要么重复回归、要么当初核销是误判，两边都要查）');
             }
         }
         if (d9.identical.length < 2) {

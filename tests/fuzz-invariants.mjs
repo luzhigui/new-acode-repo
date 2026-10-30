@@ -23,7 +23,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
+const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { createStore, battleReducer }, { createInitialState }, { GlobalStore },
     { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }, { getStat }, { hasCarryTarget }] = await Promise.all([
     import('../core/01config-5v5-test.js'),
@@ -43,6 +43,8 @@ await import('../modules/26elite-sixsects.js');
 await import('../modules/27elite-mingjiao.js');
 await import('../modules/30custom-effects.js');
 await loadGameData();
+// 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+await loadHexEnhanceData();
 
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 const argv = process.argv.slice(2);

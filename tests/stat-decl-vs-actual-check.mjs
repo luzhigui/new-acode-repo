@@ -1779,7 +1779,7 @@ const CONTRACTS = [
 ];
 
 async function main() {
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES, FACT_TYPES: FT }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -1806,6 +1806,8 @@ async function main() {
     //   tools/101、115、116 均已补（116 注释明写"不 import 则第 5 关 worker 全灭"），体检三个入口此前漏了。
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
     FACT_TYPES = FT; // 供顶层契约 extract 的 factType 守卫使用
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;

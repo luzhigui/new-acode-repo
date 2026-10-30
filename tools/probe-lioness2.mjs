@@ -5,7 +5,7 @@ import { runBattle } from '../core/06battle-runner.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { flushBattleEvents, SeededRNG } from '../infra/51-core-utils.js';
-import { loadGameData } from '../core/01config-5v5-test.js';
+import { loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
 import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
 
 if (typeof localStorage === 'undefined') { globalThis.localStorage = { getItem: () => null, setItem: () => {} }; }
@@ -19,6 +19,8 @@ globalThis.fetch = async (input, init) => {
     return _origFetch(input, init);
 };
 await loadGameData();
+// 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+await loadHexEnhanceData();
 
 const stage = parseInt(process.argv[2] || '5', 10);
 const seedStart = parseInt(process.argv[3] || '1', 10);

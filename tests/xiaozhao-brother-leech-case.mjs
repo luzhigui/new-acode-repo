@@ -49,7 +49,7 @@ const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : 
 const MIN_HITS = 3;
 
 async function main() {
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { renderLog }, { GlobalStore },
            { CAMP_TYPES, FACT_TYPES: FT }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
@@ -66,6 +66,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     // 强制妹模式：29battle-init L130/L195 读 GlobalStore 'forceXiaoZhao'（'brother' ⇒ 换上一个
     //   小昭并锁定为妹态；顺带抑制随机精英轮盘 = 单精英局，阵容确定可复现）

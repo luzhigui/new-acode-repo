@@ -67,6 +67,8 @@ if (fail.length) { console.log(`\n加载阶段就挂了，中止。失败 ${fail
 
 console.log('\n=== 2. 数据 + 契约 ===');
 let game = null;
+try { await mods.cfg.loadHexEnhanceData(); ok('hexEnhance 数据加载 (content/201)'); }
+catch (e) { bad('hexEnhance 数据加载', e); }
 try { game = await mods.cfg.loadGameData(); ok(`gameData 加载 (${game.roster.mingAll.length} 明教 / ${Object.keys(game.characters).length} 角色)`); }
 catch (e) { bad('gameData 加载', e); }
 

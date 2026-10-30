@@ -67,7 +67,7 @@ export const VER = 'tests/rules-replay.mjs V6.9.0';
 //     那是收益不是事故，不许为维绿加豁免；炸出来就走「登记转交 + 人工研判」的正常流程。
 
 const HERE = new URL('.', import.meta.url);
-const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
+const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
     { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES },
     { tickAndPickBuffs: _sharedTickAndPickBuffs }] = await Promise.all([
@@ -97,6 +97,8 @@ await import('../modules/30custom-effects.js');
 const { eventBus } = await import('../infra/50-event-bus.js');
 eventBus.resetErrorTracker();
 await loadGameData();
+// 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+await loadHexEnhanceData();
 // 不变量用：查询某 factType 是否**注册了**渲染器（render/33:72）。
 // 注意别用"本次渲染有没有产出"当映射缺口判据 —— buffSummary/mindControlBanner 都有注册渲染器
 // （render/35:498/511），只是在无 buff / 无条件时合法地渲染为空（首版据此误报 929 条）。

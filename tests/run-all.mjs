@@ -1,3 +1,11 @@
+// V1.24.0 | 2026-10-31 夜间第 162 轮：OBSERVES 挂「海克斯分库启动链守门」tests/hex-boot-chain-guard.mjs
+//   （★ 上游把小昭.hexEnhance 从 content/200 整段迁到 content/201，并把 getSkillParams 改成
+//     「只认 201、缺段即抛、不允许回落」，但**没给任何消费方补 loadHexEnhanceData** —— 本轮开场
+//     25 项体检里 16 项以同一个 Error 崩掉（回放/基线/账本/fact普查/golden/fuzz…），红因一律写成
+//     「201 缺 sister 段」，看着像数据文件丢了，实则是启动链没跟上迁移。本轮在 tests/ 与 tools/
+//     共 20 个消费方补齐启动链，并立本件守门防复发：数据换了家、消费方没换钥匙这件事，从此有人点名。
+//     挂观察项不改分母（同孤儿普查取舍）；是否升 CHECKS 开红待拍板）。
+//     同轮一并挂「兄分支惑心定向取证」tests/phantom-confuse-brother-case.mjs（见 OBSERVES 末项注释）。
 // V1.23.0 | 2026-10-31 夜间第 161 轮：OBSERVES 挂「蛛袭死目标定向取证」tests/spider-dead-target-case.mjs
 //   （第 160 轮把稀有 spec 收口成 ⑤b-2「非样本缺口」6 条并点名 spiderDeadTarget / xinHunDeath
 //     「最容易被误判成死代码」—— 而挂账一正等着拍板核销。★ 光有「自然流零命中」不能下结论：
@@ -62,7 +70,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.23.0';
+export const VER = 'tests/run-all.mjs V1.24.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -205,7 +213,19 @@ const OBSERVES = [
     //   上游原注：存量基线 tests/layer-direction-baseline.json 目前为空；只拦新增反向边/环。
     // V1.23.0 | 2026-10-31 夜间第 161 轮：蛛袭死目标定向取证（SPIDER_DEAD_TARGET 到底是不可达
     //   还是没喂样本）。挂观察项不改分母，理由见头顶 V1.23.0 日志行。
-    { name: '蛛袭死目标定向取证', script: 'tests/spider-dead-target-case.mjs', args: [] }
+    { name: '蛛袭死目标定向取证', script: 'tests/spider-dead-target-case.mjs', args: [] },
+    // V1.24.0 | 2026-10-31 夜间第 162 轮：海克斯分库启动链守门（content/201hex-enhance.json 迁出 200 后，
+    //   ★ 上游迁移时没有任何消费方补 loadHexEnhanceData ⇒ 本轮开场 25 项体检里 16 项以同一个
+    //     「201 缺 sister 段」崩掉，红因看起来像数据丢了，实际是启动链没跟上迁移。本件三段取证：
+    //     ⓪ 数据面（201 两段键数棘轮 + 200 无副本）、① 启动链成对点名、② 运行期真取一次。
+    //     挂观察项不改分母（与孤儿普查同一取舍）—— 是否升 CHECKS 开红，留待拍板。
+    { name: '海克斯分库启动链守门', script: 'tests/hex-boot-chain-guard.mjs', args: [] },
+    // V1.24.0 | 2026-10-31 夜间第 162 轮：兄分支惑心定向取证（承接【最高·下轮】⑤b-2 逐个配定向用例）。
+    //   ★ 实测逼出一件被漏掉的事：phantomConfuse 有**两个**发射点，第 160 轮只数了成昆那个就下了
+    //     「干净树本就不发射」的结论；兄分支走 forceXiaoZhao=brother，根本不需要 forceChengKun。
+    //     本件三段：静态自证发射点 + 定向扫描 + ★ 信号通道取证（信号零触发时结论一律判 UNKNOWN，
+    //     不许拿零命中当"不可达"证据）。挂观察项不改分母，同上。
+    { name: '兄分支惑心定向取证', script: 'tests/phantom-confuse-brother-case.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
