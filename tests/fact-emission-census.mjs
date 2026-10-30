@@ -44,7 +44,68 @@ import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
-const VER = 'tests/fact-emission-census.mjs V1.3.0';
+const VER = 'tests/fact-emission-census.mjs V1.4.0';
+// ───────────────────────────────────────────────────────────────────────────
+// V1.4.0 | 2026-10-30 第 160 轮：⑤b「稀有 spec」接定向覆盖通道 + 成因分类。
+//   背景：第 159 轮把「补样本」这套通道打通后，⑤b 仍报 13 条 —— 但普查脚本自己跑的是**默认随机
+//     阵容**（30 seed × 7 stage = 210 场，一个强制开关都没下），所以 13 条里的蛛系 6 条其实
+//     第 159 轮在对照器里早就逼出来了，只是**普查脚本没跟上**。与第 159 轮同构的元凶：工具没接通道。
+//   改法（与对照器 V3.11.0 / 回放器 V6.8.0 同一套口径，三条安全边界照搬）：
+//     ① FORCE_KEYS 白名单（只许主代码 29battle-init 里真实存在的 force* 开关），白名单外直接抛错；
+//     ② 定向场次**追加**在默认 210 场之后（默认一场不减）；
+//     ③ 每场**开场先全键复位**再按本场设置，循环结束再全键复位一次，杜绝全局态泄漏。
+//   成因分类（本轮新增，★ 不许再把 13 条一律当「缺样本」）：
+//     ⑤b 现在按「干净树能否发射」二分 —— 前置是**永久 buff / 特定精英在队**的 spec（如
+//     xiaoZhaoHorse 要妹永久巨马阵、xiaoZhaoCarryApply 要妹永久 carry、xinHunDeath 要宋青书
+//     新婚阵亡、phantomReveal 要成昆在队而 29battle-init 无 forceChengKun），干净树下**本就不该
+//     发射**，补样本补不出来，只能靠变异树定向用例；这类单独归为「非样本缺口·需变异树」，
+//     不再混在「有发射点但样本未触发」里误导下轮去瞎补场次。
+// ───────────────────────────────────────────────────────────────────────────
+const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun'];
+
+function normalizeForces(entry) {
+    const out = {};
+    if (entry && entry.force) out.forceXiaoZhao = entry.force;
+    if (entry && entry.forces) {
+        for (const [k, v] of Object.entries(entry.forces)) {
+            if (!FORCE_KEYS.includes(k)) {
+                throw new Error(`定向覆盖场次用了未登记的强制开关 '${k}'（白名单：${FORCE_KEYS.join(', ')}）`);
+            }
+            out[k] = v;
+        }
+    }
+    return out;
+}
+function resetForces(GlobalStore) {
+    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
+}
+
+// 定向场次：全部经 /tmp 探针（30 seed × 7 stage 全扫）定量挑出，取证数字以本脚本实测输出为准。
+//   探针不入库，只用来**挑场次**，不用来**下结论**。
+const DIRECTED_CASES = [
+    // brother（小昭·妹）→ 蛛系 6 条：spiderTransform / spiderReturn / spiderStrike / spiderFly /
+    //   spiderDoubleStrike / flySkip。★ 9:2 一场即同时喂到前五条（探针实测 33 条），
+    //   flySkip 在 210 场 brother 全扫里**只有 1:7 一场**命中 1 条，故必收。
+    { seed: 9, stage: 2, force: 'brother' },
+    { seed: 1, stage: 7, force: 'brother' },
+    { seed: 23, stage: 1, force: 'brother' },
+    { seed: 22, stage: 1, force: 'brother' },
+    { seed: 20, stage: 1, force: 'brother' },
+    // sister（小昭·姊）→ meteorSplashGrowth（探针实测 210 场共 58 条，19:5 最强 6 条）。
+    { seed: 19, stage: 5, force: 'sister' },
+    { seed: 20, stage: 7, force: 'sister' },
+    { seed: 23, stage: 2, force: 'sister' }
+];
+// 干净树下**结构性不发射**的 spec（前置非样本问题，补场次补不出来，需变异树定向用例兜底）。
+//   登记依据见各条注释里的主代码位置；★ 这份名单是白名单式收口：新增条目必须带主代码行号。
+const NON_SAMPLE_SPECS = new Map([
+    ['xiaoZhaoHorse', '妹永久巨马阵（HORSE_FORMATION in _permanentBuffs）才召，modules/27elite-mingjiao-xiaozhao-brother.js L244-250'],
+    ['xiaoZhaoCarryApply', '妹永久 carry（CARRY in _permanentBuffs）才挂，同文件 L257-267'],
+    ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226'],
+    ['phantomReveal', '成昆幻影（chengkun 在队），modules/25elite-imperial.js L187；29battle-init 无 forceChengKun'],
+    ['phantomConfuse', '同上 L196（另有小昭·妹分支 27elite-mingjiao-xiaozhao-brother.js L198）'],
+    ['spiderDeadTarget', '蛛袭时目标已死才发，modules/20elite-skills.js L225，属收尾帧竞态']
+]);
 
 // 取样规模闸门（2026-10-27 夜间第 143 轮新增）。实测基准：210 场 / 101869 条 fact（30 seeds × 7 stages）。
 //   下限取实测的约六到八成（对局 180 / fact 60000），薄线由公共件按一半推出（90 场 / 30000 条）。
@@ -120,12 +181,23 @@ async function main() {
     await import('../modules/30custom-effects.js');
     await loadGameData();
 
+    const { GlobalStore } = await import('../infra/54-global-store.js');
+
     const ftCount = new Map();   // factType -> 出现次数（含嵌套）
     const contractGaps = new Map(); // factType -> Map(必填字段 -> 缺失次数)
     let battles = 0, facts = 0;
 
-    for (const seed of SEEDS) {
-        for (const stage of STAGES) {
+    // 默认 210 场一场不减，定向场次**追加**在后（第 159 轮同款安全边界）。
+    const CASES = [];
+    for (const seed of SEEDS) for (const stage of STAGES) CASES.push({ seed, stage, forces: {} });
+    for (const d of DIRECTED_CASES) CASES.push({ seed: d.seed, stage: d.stage, forces: normalizeForces(d) });
+
+    for (const cse of CASES) {
+        {
+            const seed = cse.seed, stage = cse.stage;
+            // 双重复位：开场先全键归零再按本场设置，杜绝全局态泄漏到后续场次或其他体检入口
+            resetForces(GlobalStore);
+            for (const [k, v] of Object.entries(cse.forces)) GlobalStore.set(k, v);
             const rng = new SeededRNG(seed);
             const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
             let battleState = {
@@ -175,6 +247,7 @@ async function main() {
             battles++;
         }
     }
+    resetForces(GlobalStore);   // 循环末再全键复位一次（第 159 轮同款边界）
 
     const emitKeys = new Set(ftCount.keys());           // 已发射的 factType 值（camelCase，如 'clawExecute'）
     const enumKeys = Object.keys(FACT_TYPES);           // 枚举键（UPPER_SNAKE，如 'CLAW_EXECUTE'）
@@ -297,8 +370,17 @@ async function main() {
     console.log(`\n--- ⑤ spec rot（FACT_SPECS 声明 renderFn:true 却从未发射）：${orphanSpec.length} 条 ---`);
     for (const v of orphanSpec) console.log('  ⚠ ' + v + '  （规约承诺渲染但引擎零发射点 = 渲染死代码）');
     if (!orphanSpec.length) console.log('  （无 —— 所有声明渲染的 fact 都实际发射过）');
-    console.log(`--- ⑤b 稀有 spec（有发射点但样本未触发）：${rareSpec.length} 条 ---`);
-    for (const r of rareSpec.slice(0, 15)) console.log('  · ' + r.v + '  引擎发射点 ' + r.sites);
+    // 第 160 轮：⑤b 二分 —— 「样本缺口（补场次可救）」 vs 「非样本缺口（干净树结构性不发射，
+    //   只能靠变异树定向用例）」。★ 不许再把两者混成一句「有发射点但样本未触发」误导下轮瞎补场次。
+    const rareSample = rareSpec.filter(r => !NON_SAMPLE_SPECS.has(r.v));
+    const rareNonSample = rareSpec.filter(r => NON_SAMPLE_SPECS.has(r.v));
+    console.log(`--- ⑤b 稀有 spec（有发射点但样本未触发）：${rareSpec.length} 条 —— 已分两桶 ---`);
+    console.log(`  【⑤b-1 样本缺口 ${rareSample.length} 条｜补定向场次可救】`);
+    for (const r of rareSample.slice(0, 15)) console.log('  · ' + r.v + '  引擎发射点 ' + r.sites);
+    if (!rareSample.length) console.log('    （无 —— 样本面已覆盖全部可补 spec）');
+    console.log(`  【⑤b-2 非样本缺口 ${rareNonSample.length} 条｜干净树结构性不发射，需变异树定向用例】`);
+    for (const r of rareNonSample) console.log('  · ' + r.v + '  引擎发射点 ' + r.sites + '  ⟵ ' + NON_SAMPLE_SPECS.get(r.v));
+    if (!rareNonSample.length) console.log('    （无）');
     if (deadSilentSpec.length) {
         console.log(`--- ⑤c 纯僵尸规约（renderFn:false 且零发射点）：${deadSilentSpec.length} 条 ---`);
         for (const v of deadSilentSpec) console.log('  · ' + v + '  （无渲染无发射，纯死代码，建议删 spec）');

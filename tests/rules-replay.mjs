@@ -44,7 +44,16 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.8.0';
+export const VER = 'tests/rules-replay.mjs V6.9.0';
+// V6.9.0 | 2026-10-31 第 160 轮：定向覆盖通道从「只认 forceXiaoZhao」泛化为白名单多键，
+//   并新增 4 场 forceWei（韦一笑）定向场次 —— 补的是「判据分支级空转自检」那条挂了几十轮的老红。
+//   取证（/tmp 探针，不入库；结论以本文件实测为准）：
+//     ① 默认随机阵容 140 场里**我方 0 场有韦一笑**，WEI_LEECH fact 仅 221 条、heal>0 仅 41 条，
+//        且 getStat 小数上限观测 0 次 ⇒ 规则 164 判据4（heal>0 ⇒ maxHpDelta===heal）根本没机会成立；
+//     ② 加 forceWei 后 140 场**场场有韦一笑**，WEI_LEECH 2004 条、heal>0 1474 条，
+//        其中 **77 条 maxHpDelta!==heal**，小数上限观测 1717 次 ⇒ 缺陷**仍在**，是样本被裁不是已修复。
+//   ⇒ 按自检给出的第三种处置「样本被裁或数据源错位则修」处理：**补样本**，不收缩基线、不放宽判据。
+//   主代码开关依据：modules/29battle-init.js L140 / L151（forceWei → pushElite(isWei)）。
 // V6.8.0 | 2026-10-30 第 159 轮：新增「定向覆盖场次」（DIRECTED_CASES），规则恒空转 3 条 → 0 条。
 //   动因：124rule-recipes.js 把四条小昭规则登记成「随机精英，**无法强制**，需连打多局碰出」——
 //     这句 know-how 已过期（主代码 29battle-init L245-262 的 forceXiaoZhao 开关一直在）
@@ -141,7 +150,9 @@ const NOBUFFS = process.env.NOBUFFS === '1';
 //     「以为不能强制」直接导致依赖小昭形态的规则常年零执行：本轮改前 160-spider-transform-mastery
 //     与 129-spider-fly-count 在 140 场里 **pass=0 fail=0 skip=140**，规则恒空转自检常年挂红。
 //   ★ 方向是补样本让规则有机会跑，不改任何判据、不加任何豁免、不降任何人次下限。
-const FORCE_KEYS = ['forceXiaoZhao'];
+// 第 160 轮：白名单加 forceWei（29battle-init L140 / L151 真实存在）。★ 仍是白名单制，
+//   未登记的开关直接抛错，防止拼错键导致「强制静默失效、规则继续空转」这种最难查的假象。
+const FORCE_KEYS = ['forceXiaoZhao', 'forceWei'];
 const DIRECTED_CASES = [
     // 小昭·妹（brother）形态 → 蛛变 / 精通 / 飞天免疫 三条规则的唯一入口。
     //   场次与对照器一致（seed 17 × stage 1 / 4），实测对照器侧能稳定产出 SPIDER_TRANSFORM / SPIDER_MASTERY 声明。
@@ -152,11 +163,36 @@ const DIRECTED_CASES = [
     { seed: 23, stage: 1, force: 'sister' },
     { seed: 23, stage: 2, force: 'sister' },
     { seed: 23, stage: 3, force: 'sister' },
-    { seed: 23, stage: 4, force: 'sister' }
+    { seed: 23, stage: 4, force: 'sister' },
+    // 第 160 轮新增：韦一笑（forceWei）定向场次 —— 喂规则 164「吸血上限提升数值(回归)」的判据4。
+    //   场次由 /tmp 探针定量挑出（取 WEI_LEECH 样本量最大的四场，保证稳定复现；四场失配各 1 条）：
+    //   seed=15 stage=6（43 条 / heal>0 36）、seed=14 stage=2（36 / 30）、
+    //   seed=20 stage=6（35 / 18）、seed=13 stage=6（16 / 12）。
+    { seed: 15, stage: 6, forces: { forceWei: true } },
+    { seed: 14, stage: 2, forces: { forceWei: true } },
+    { seed: 20, stage: 6, forces: { forceWei: true } },
+    { seed: 13, stage: 6, forces: { forceWei: true } }
 ];
 
 function resetForces() {
     for (const k of FORCE_KEYS) GlobalStore.set(k, false);
+}
+
+// 第 160 轮：定向开关归一化 + 白名单校验（与 tests/stat-decl-vs-actual-check.mjs V3.11.0 同口径）。
+//   ★ 白名单外的键直接抛错：拼错的开关不会报任何错，只会让「强制」静默失效、规则继续恒空转，
+//     这是本通道最难自查的失效模式，宁可当场炸掉。
+function forcesOfEntry(entry) {
+    const out = {};
+    if (entry && entry.force) out.forceXiaoZhao = entry.force;
+    if (entry && entry.forces) {
+        for (const k of Object.keys(entry.forces)) {
+            if (FORCE_KEYS.indexOf(k) === -1) {
+                throw new Error('定向覆盖场次用了未登记的强制开关 ' + k + '（白名单：' + FORCE_KEYS.join(', ') + '）');
+            }
+            out[k] = entry.forces[k];
+        }
+    }
+    return Object.keys(out).length ? out : null;
 }
 
 // --- 团队海克斯 Buff 注入 ---
@@ -399,10 +435,12 @@ const agg = {}, kwHit = {};
 // 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
 const BRANCH_MSGS = process.env.RULE_MSGS_OUT ? new Map() : null;
 let cases = 0;
-for (const { seed, stage, force } of [...SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage }))),
+for (const { seed, stage, force, forces: entryForces } of [...SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage }))),
     // 第 159 轮：默认场次之后**追加**定向覆盖组（默认场次一个不减）。
-    ...DIRECTED_CASES.map(c => ({ seed: c.seed, stage: c.stage, force: c.force }))]) {
-    const c = runCase(seed, stage, force ? { forceXiaoZhao: force } : null);
+    ...DIRECTED_CASES.map(c => ({ seed: c.seed, stage: c.stage, force: c.force, forces: c.forces }))]) {
+    // 第 160 轮：单值 force 仍向后兼容（等价 forces:{forceXiaoZhao:force}），新增的 forces 走白名单校验。
+    const forces = forcesOfEntry({ force, forces: entryForces });
+    const c = runCase(seed, stage, forces);
     cases++;
         // DUMP=seed:stage 单场调试：打印该场 buff-push/buff-swap 及相邻的攻击快照位置
         if (process.env.DUMP && process.env.DUMP === seed + ':' + stage) {
