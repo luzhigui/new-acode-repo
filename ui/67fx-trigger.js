@@ -97,9 +97,73 @@ function buildPanel() {
         p.appendChild(row);
     }
 
+    // ── 日志模式段（原 btnDetail 的详细/简要挪进来）──
+    const sep1 = document.createElement('div');
+    sep1.style.cssText = 'border-top:1px solid #e8d5b0;margin:12px 0;';
+    p.appendChild(sep1);
+    const logLabel = document.createElement('div');
+    logLabel.textContent = '日志模式';
+    logLabel.style.cssText = 'font-size:11px;color:#5c4033;font-weight:bold;margin-bottom:6px;';
+    p.appendChild(logLabel);
+    const logSeg = document.createElement('div');
+    logSeg.style.cssText = 'display:flex;gap:4px;margin-bottom:10px;';
+    const mkLogBtn = (label, val) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        const cur = GlobalStore.get('logLevel');
+        const on = (cur === val);
+        b.style.cssText = 'flex:1;padding:6px 0;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;border:1px solid ' + (on ? '#b8860b' : '#8b7355') + ';background:' + (on ? '#b8860b' : '#f5f0e0') + ';color:' + (on ? '#fff' : '#5c4033') + ';';
+        b.onclick = () => {
+            GlobalStore.set('logLevel', val);
+            logSeg.querySelectorAll('button').forEach(x => {
+                x.style.background = '#f5f0e0'; x.style.color = '#5c4033'; x.style.borderColor = '#8b7355';
+            });
+            b.style.background = '#b8860b'; b.style.color = '#fff'; b.style.borderColor = '#b8860b';
+        };
+        return b;
+    };
+    logSeg.appendChild(mkLogBtn('详细', 'detailed'));
+    logSeg.appendChild(mkLogBtn('简要', 'brief'));
+    p.appendChild(logSeg);
+
+    // ── 自动模式段（原 btnAuto 的手动/自动/全自动挪进来）──
+    const sep2 = document.createElement('div');
+    sep2.style.cssText = 'border-top:1px solid #e8d5b0;margin:12px 0;';
+    p.appendChild(sep2);
+    const autoLabel = document.createElement('div');
+    autoLabel.textContent = '自动模式';
+    autoLabel.style.cssText = 'font-size:11px;color:#5c4033;font-weight:bold;margin-bottom:6px;';
+    p.appendChild(autoLabel);
+    const autoSeg = document.createElement('div');
+    autoSeg.style.cssText = 'display:flex;gap:4px;margin-bottom:10px;';
+    const AUTO_LVLS = [['手动', 'manual'], ['自动', 'auto'], ['全自动', 'full-auto']];
+    const mkAutoBtn = (label, val) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        const cur = GlobalStore.get('autoLevel') || 'auto';
+        const on = (cur === val);
+        b.style.cssText = 'flex:1;padding:6px 0;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;border:1px solid ' + (on ? '#b8860b' : '#8b7355') + ';background:' + (on ? '#b8860b' : '#f5f0e0') + ';color:' + (on ? '#fff' : '#5c4033') + ';';
+        b.onclick = () => {
+            GlobalStore.set('autoLevel', val);
+            GlobalStore.set('autoMode', val !== 'manual');
+            autoSeg.querySelectorAll('button').forEach(x => {
+                x.style.background = '#f5f0e0'; x.style.color = '#5c4033'; x.style.borderColor = '#8b7355';
+            });
+            b.style.background = '#b8860b'; b.style.color = '#fff'; b.style.borderColor = '#b8860b';
+            if (val !== 'manual' && GlobalStore.get('waitingForNextRound')) GlobalStore.set('waitingForNextRound', false);
+        };
+        return b;
+    };
+    AUTO_LVLS.forEach(([l, v]) => autoSeg.appendChild(mkAutoBtn(l, v)));
+    p.appendChild(autoSeg);
+
+    // ── 底部特效全开/全关（只管 3 项特效开关，管不到日志/自动）──
+    const sep3 = document.createElement('div');
+    sep3.style.cssText = 'border-top:1px solid #e8d5b0;margin:12px 0;';
+    p.appendChild(sep3);
     const btns = document.createElement('div');
     btns.className = 'modal-buttons';
-    btns.style.cssText = 'display:flex;gap:10px;margin-top:16px;';
+    btns.style.cssText = 'display:flex;gap:10px;';
     const mkBtn = (text, val, cls) => {
         const b = document.createElement('button');
         b.textContent = text;

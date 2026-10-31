@@ -1,16 +1,6 @@
-import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.9.8';
+export const VER = 'infra/50-event-bus.js V6.9.9';
 
-// debug 模式在日志追加信号记录，非战斗路径
-function appendDebugSignalLog(signal, data) {
-    if (!data || !data.log || !data.unit) return;
-    const logLevel = GlobalStore.get('playerContext')?.logLevel;
-    if (logLevel !== 'debug') return;
-    const name = data.unit ? data.unit.name : '?';
-    const targetName = data.target ? data.target.name : '';
-    const dmgStr = data.dmg !== undefined ? ` 伤害=${data.dmg}` : '';
-    data.log.push({ type: 'signal', text: `<span class="gray">[信号] ${signal} → ${name}${targetName ? '→' + targetName : ''}${dmgStr}</span>` });
-}
+
 
 class EventBus {
     constructor() {
@@ -41,7 +31,6 @@ class EventBus {
     }
 
     emit(signal, data) {
-        appendDebugSignalLog(signal, data);
         const listeners = this._listeners[signal];
         if (!listeners || listeners.length === 0) return Promise.resolve();
         const promises = [];
@@ -101,8 +90,8 @@ export const eventBus = new EventBus();
  *   状态写入必须在本监听器主流程内完成
  */
 export const EXECUTION_LAYER = {
-    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, MIEJUE_SUMMON: 20, HE_TAICHONG_LINK: 30, JIN_MAI: 35, HOLY_FIRE: 40 },
-    ROUND_END:        { SPIDER_EGG: 5, BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10, HANLISA_BURST: 15 },
+    ROUND_START:      { SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, LION_GROW: 15, XIE_SUMMON: 16, JIN_MAI: 35, HOLY_FIRE: 40 },
+    ROUND_END:        { SPIDER_EGG: 5, BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10, HANLISA_BURST: 15, BAG_TRAP_RELEASE: 20 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10, YANGXIAO_JUMP: 11 },
     BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
@@ -162,8 +151,7 @@ export const EXECUTION_LAYER = {
     ON_BEFORE_DEATH: { SPIDER_EGG: 10 },
     // 白骨爪连锁逐爪广播：CLAW_CHAIN 处理器每结算一爪发一次（爪击不走伤害计算管线）
     CLAW_HIT_APPLIED: { XIAOZHAO_QIAN_KUN: 10 },
-    ON_UNIT_DEATH: { SWITCH: 10, MIEJUE_RECORD: 20, TONG_GUI: 25, XIAO_CARRY_COUNT: 30, HOLY_FIRE: 40 },
-    ON_POSITION_SWAP: { SWITCH: 10 },
+    ON_UNIT_DEATH: { MIEJUE_RECORD: 20, TONG_GUI: 25, XIAO_CARRY_COUNT: 30, HOLY_FIRE: 40 },
     BEFORE_STATE_TRANSITION: { MIEJUE_SUMMON: 20, HOLY_FIRE: 30 }
 };
 

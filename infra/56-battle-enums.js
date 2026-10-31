@@ -145,7 +145,8 @@ export const MECHANIC_TYPES = Object.freeze({
     FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击（modules/26）
     // 元朝朝廷（modules/25）
     LINK_ATTACK: 'linkAttack',         // 玄冥二老联动（modules/25）
-    PHANTOM_DISGUISE: 'phantomDisguise' // 成昆·幻影伪装（modules/25）
+    PHANTOM_DISGUISE: 'phantomDisguise', // 成昆·幻影伪装（modules/25）
+    BAG_TRAP: 'bagTrap'                // 说不得·布袋（普通兵机制，modules/27elite-mingjiao-shuobude）
 });
 
 /**

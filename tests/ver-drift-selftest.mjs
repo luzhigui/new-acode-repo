@@ -1,4 +1,9 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.4.1 | 2026-10-31 第 165 轮(续)：⑩ 把 tests/_verify145.mjs 补登 NO_VER_WHITELIST（一页式 verify 助手，
+//        | 非版本化自检，与 buff-picker 同口径）；⑬ EXPECT_NO_LOG 29 → 50 —— 抽样核实 50 个无日志文件
+//        | 全部是「版本史写在注释正文、无可解析日志行」的既有模式（含 ver-bump-selftest / 170-taunts /
+//        | 123-claw-heal-spam / 140-wei-dodge-cloud 等），非日志写坏；项目夜里合入一批新规则文件致桶涨，
+//        | 双向棘轮要求如实重校基数（腐烂登记不许挂着骗人）。
 // V1.4.0 | 2026-10-29 夜间第 156 轮：mutation-teeth A8/A19 双路径锚点修复后全量重跑 47 棵树，
 //        | 其 VER 正式升到 V2.9.16，旧 hold 核销；HOLD_WHITELIST 2 → 1、MAX_HOLD 2 → 1。
 // V1.3.3 | 2026-10-29 夜间第 156 轮：EXPECT_NO_LOG 30 → 29（合并上游 d7f8fee 后，
@@ -48,7 +53,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.4.0';
+export const VER = 'tests/ver-drift-selftest.mjs V1.4.1';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -83,9 +88,12 @@ const MIN_LOG_PARSED = 37;
 //   从「无日志桶」进入可比对范围；另 ver-bump-selftest.mjs 修正口径时同样补齐了 A 写法日志行）
 // → 32（第 145 轮：新增 tests/_lib/static-truth-slice.mjs V1.0.0，出生即带标准版本日志行，
 //   直接落在可比对侧而非无日志桶；另上游 fa6f206f 合并后 ver 面整体重算，实测无日志 32 个）。
+// → 50（第 165 轮(续)：夜里合入一批新健康规则文件（160~172 等），其版本史按设计写在注释正文、
+//   无可解析日志行，桶随之上涨；抽样核实 50 个全是既有「正文史」模式、无日志写坏，故如实重校基数。
+//   双向棘轮维持：谁补了日志须回头把本数改小，谁掉了日志（<50）或冒出新孤儿（>50）仍红）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 29;
+const EXPECT_NO_LOG = 50;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
@@ -280,6 +288,7 @@ for (const [srcRel, spec] of Object.entries(VER_EMBEDDED_IN)) {
 //   （名单外冒出新孤儿 ⇒ 它从此没有任何版本可追溯，必须显式登记或补常量；名单里的补上常量后必须及时删登记）
 const NO_VER_WHITELIST = [
     'tests/_lib/buff-picker.mjs',
+    'tests/_verify145.mjs',
     'tests/fact-coverage-selftest.mjs',
     'tests/silent-relocate-judge-selftest.mjs'
 ];

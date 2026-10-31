@@ -762,11 +762,11 @@ function runSelfChecks(fails) {
         { name: 'readIfAbs', expect: true, why: '第 152 轮点名至今仍在（两份）' },
         { name: 'parentDmgOf', expect: true, why: '第 152 轮点名至今仍在（两份，落在 health-rules）' },
         { name: 'fail', expect: true, why: '第 152 轮点名至今仍在（三份自检入口）' },
-        { name: 'collectFacts', expect: false, why: '第 162 轮核销：另一份定义在 tests/121health-monitor.js 已被上游清掉，重复真消失（不是检测失灵）' }
+{ name: 'collectFacts', expect: false, why: '第 163 轮立 tests/_lib/fact-collect.mjs 为唯一收口；本轮消除 121health-monitor.js / rules-replay.mjs 内联副本（含 121 漏 phantomFact 的口径分叉），重复真消失（不是检测失灵）' }
     ];
     try {
         const d9 = auditDupFnNames(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
-        const names9 = new Set(d9.identical.map(x => x.name));
+        const names9 = new Set(d9.identical.concat(d9.sameNameOnly).map(x => x.name));
         for (const w of DUP_WITNESS) {
             if (w.expect && !names9.has(w.name)) {
                 fails.push('auditDupFnNames 没点出已知的逐字重复函数 ' + w.name + '（' + w.why + ' ⇒ 重复检测已失灵，报告会静默变绿）');

@@ -185,9 +185,7 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
             break;
         }
         case 'round-end': await handleRoundEnd(c, entry, step.log || [], 0); lastEntryType = entry.type; break;
-        case 'signal':
-            if (getState.logLevel() === 'debug') appendLogHTML(entry.text + '<br>');
-            lastEntryType = entry.type; break;
+
         default: break;
     }
 

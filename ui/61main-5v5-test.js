@@ -13,7 +13,7 @@ import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX
 import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/82fx-crash-5v5-test.js';
 import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/44battle-player-5v5-test.js';   // 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
-import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
+import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initDevFlags } from './60main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 // 拆分模块
@@ -27,7 +27,7 @@ import {
 } from './65main-battle.js';
 import { setBGMVolume, fadeBGMTo, lowerBGM } from './66audio-control.js';
 import { toggleFxPanel, syncFxButton } from './67fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './68ui-controls.js';
 import { bindCopyLogButton } from './64main-dialogs.js';
 import * as net from '../infra/60-net-pvp.js';
 import { stepAdjustStart, stepAdjustMove, stepVoteOpen, stepCountdown, stepBuff, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
@@ -41,7 +41,7 @@ import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE } from '../player/42player-core.js';
 import { installNetSession, sendNetLineup, clearNetBadge } from './75net-session.js';
 import { installReplayEntry } from './76replay-entry.js';
-import { handlePvpBuffSelection } from '../player/49battle-flow.js';
+import { handlePvpBuffSelection, handleEnemyAutoBuffSelection } from '../player/49battle-flow.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/20elite-skills.js';
@@ -175,7 +175,7 @@ startApp();
 
 // 确保初始化代码总能执行，解决模块加载时序
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    initBugAndXiaoZhaoModes();
+    initDevFlags();
 } else {
     document.addEventListener('DOMContentLoaded', initBugAndXiaoZhaoModes);
 }
@@ -222,11 +222,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     //   消息分发本体已拆去 ui/75net-session.js（installNetSession 返回的回调）
     bindNetPvp(net, netSession.onNetMessage, netSession.onNetAccept);
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
-    bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
     bindBGButton(showMusicPanel);
     bindDodgeButton(toggleFxPanel);
-    bindAutoButton(getState, setState);
     bindSettleButton(() => getState.currentStage(), { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
     bindStageSelectButton(() => getState.currentStage(), getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
     bindVoteFloat();
@@ -282,6 +280,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                     logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`;
                     autoScrollLog();
                 }
+                // 双海克斯模式：明教选完后，六大派也自动选一次（开局）
+                if (GlobalStore.get('enemyAutoHex') && GlobalStore.get('netRole') !== 'host') {
+                    await handleEnemyAutoBuffSelection(getPlayerContext(), getState.activeBuffs());
+                }
             } else {
                 stepBuff();
                 // 统一走 70 弹窗（手选，且是战前状态）
@@ -300,6 +302,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                         logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`;
                         autoScrollLog();
                     }
+                }
+                // 双海克斯模式：明教选完后，六大派也自动选一次（开局）
+                if (GlobalStore.get('enemyAutoHex') && GlobalStore.get('netRole') !== 'host') {
+                    await handleEnemyAutoBuffSelection(getPlayerContext(), getState.activeBuffs());
                 }
             }
             await new Promise(r=>setTimeout(r,600));
@@ -444,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     startBattle('明教');
                     return;
                 }
-                setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
+                setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI();
                 stepAdjustMove();
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
@@ -568,7 +574,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         setState.snapshot(getState.snapshot());
         updateUI(); updateScoreBadge();
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
-        document.getElementById('btnDetail').classList.toggle('active', getState.logLevel() !== 'brief');
         updateAutoModeButton();
         syncFxButton();   // 按钮文案跟着「是否有任意特效开着」走（派生 dodgeEffectEnabled）
         // 虚影/飞走按钮已并入选关弹窗，此处不再刷新其文案

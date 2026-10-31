@@ -16,6 +16,7 @@ import { getRoleLogTag } from './69-role-cards.js';
 import { stepBuff } from './71tutorial.js';
 // 蓄意轰拳瞄准黑幕：模块加载即注册 showHanlisaAim UIHandler（player/49 回合末取用）
 import './79hanlisa-aim.js';
+import './81buff-tooltip.js';
 
 const C = CONFIG;
 
@@ -126,10 +127,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     // 对方阵营存活单位：28 的惑人心智门槛要它；此前两处都不传 → 该项恒被剔除
     const enemyTeam = (ctx?.UI?.enemyTeam || []).filter(u => u && u.alive);
     // 统一调 28 的过滤池（修补此处此前完全没有人数、职业限制的漏洞）
-    const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: true, enemyTeam });
-    const choices = (GlobalStore.get('bugMode'))
-        ? available
-        : generateBuffChoices(activeBuffs, allyTeam, getBattleRng(), enemyTeam);
+    const choices = generateBuffChoices(activeBuffs, allyTeam, getBattleRng(), enemyTeam);
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';
     const buttons = choices.map(key => ({
         text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),

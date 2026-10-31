@@ -54,6 +54,7 @@ const root = path.resolve(here, '..');
 import {
     judgeSample, checkThreshold, thinFloorOf, selfCheck
 } from './_lib/sample-sufficiency.mjs';
+import { readIfAbs } from './_lib/read-if-abs.mjs';
 
 const COMPARER = 'tests/stat-decl-vs-actual-check.mjs';
 const ENUM_FILE = path.join(root, 'infra', '56-battle-enums.js');
@@ -64,10 +65,6 @@ const MIN_CONTRACTS = 50;
 // ① 绑定键白名单：这些键在主代码里本就不是字面量（由配置/常量拼出），属已知的例外，
 //    逐个写明理由。白名单只允许收缩，不允许新增。
 const KNOWN_ABSENT_KEYS = [];
-
-function readIfAbs(p) {
-    try { return fs.readFileSync(p, 'utf8'); } catch (e) { return ''; }
-}
 
 function collectMainCorpus() {
     const parts = [];

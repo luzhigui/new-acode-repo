@@ -177,7 +177,11 @@ export function createZhangSanfengComponent() {
                     zhang.state._tenRoundFired = true;
                 }
                 // 防御 +50%（ttl: round，每回合开始重挂，跟明教同源参数）
-                addMod(zhang, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+                //   去重：若团队版严阵以待已挂（applyFortifyDef 先挂的），不再叠第二条
+                const zhangDefMods = (zhang._mods && zhang._mods.def) || [];
+                if (!zhangDefMods.some(m => m.group === 'fortify' && m.ttl === 'round')) {
+                    addMod(zhang, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+                }
                 if (data.log) {
                     data.log.push({
                         factType: FACT_TYPES.BUFF_SUMMARY,
@@ -196,6 +200,9 @@ export function createZhangSanfengComponent() {
                 if (!zhang.state._tenRoundFired || !zhang.alive) return;
                 if (data.target !== zhang) return;
                 if (!data.dmg || data.dmg <= 0) return;
+                // 去重：六大派有团队版严阵以待时，core/12 的通用逻辑已经弹一条，这里不再重复弹
+                const teamBuffs = (B || [])._activeBuffs || [];
+                if (teamBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === zhang) return;
                 if (typeof data.atkAct !== 'number' || typeof data.defAct !== 'number') return;

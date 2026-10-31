@@ -6,6 +6,7 @@ export const VER = 'tests/121health-monitor.js V6.9.1';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
+import { collectFacts } from './_lib/fact-collect.mjs';
 import { rule70 } from './health-rules/123-claw-heal-spam.js';
 import { rule71 } from './health-rules/124-aftermiss.js';
 import { rule72 } from './health-rules/125-fortify-timing.js';
@@ -624,15 +625,6 @@ function runUIChecks(ctx, doc) {
 // 浏览器侧 fact 流收集（与 node 侧 rules-replay.mjs Step 0 同口径）：递归展平 battleLog 中带 factType 的条目
 // （含 data.entries / entries 嵌套层），喂给规则第 7 参 facts。此前浏览器只传 6 参、facts=undefined，
 // 导致 159/132/160-165 八条事实级规则在浏览器里静默降级到文案兜底通道。纯递归、无 node API，浏览器可用。
-function collectFacts(arr, out) {
-    for (const f of arr || []) {
-        if (!f || !f.factType) continue;
-        out.push(f);
-        collectFacts(f.data && f.data.entries, out);
-        collectFacts(f.entries, out);
-    }
-    return out;
-}
 
 function runRuleChecks(ctx, doc) {
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];

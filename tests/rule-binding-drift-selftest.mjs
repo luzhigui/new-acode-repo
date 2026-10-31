@@ -33,6 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
+import { readIfAbs } from './_lib/read-if-abs.mjs';
 
 export const VER = 'tests/rule-binding-drift-selftest.mjs V1.0.0';
 
@@ -53,9 +54,11 @@ const SENTINEL_KEYS = [
     { key: '已叠0/', why: '125 坚盾计数的复发信号（_fortifyThisRound 未更新就读取）⇒ 出现即判复发，零命中才是正确状态' }
 ];
 
-function readIfAbs(p) {
-    try { return fs.readFileSync(p, 'utf8'); } catch (e) { return ''; }
-}
+// D 兼容 / 变异点保留键（只许收缩：条目必须仍在规则里出现，否则判失败）
+const COMPAT_KEYS = [
+    { key: '互换位置！', why: '166 mOld 旧格式分支：主代码 render 现行只发「位置重排！」，此键为兼容 + 变异牙齿回退变异点，零命中预期' },
+    { key: '可用单位不足', why: '166 failReason 白名单：core/14 现行只发 未触发/无变化，此 reason 已退役；兼容 + 变异点' }
+];
 
 // --- ① 剥注释：保留字符串与正则字面量原样 ---
 // ★ V1.1.0 起**不再是手写第二份**：转发公共件 tests/_lib/static-truth-slice.mjs 的
@@ -204,6 +207,8 @@ for (const [key, meta] of [...seen.entries()].sort()) {
     // C 反向哨兵白名单
     const s = SENTINEL_KEYS.find(x => x.key === key);
     if (s) { exempt.push(`C 反向哨兵「${key}」—— ${s.why}`); continue; }
+    const c2 = COMPAT_KEYS.find(x => x.key === key);
+    if (c2) { exempt.push('D 兼容/变异点保留「' + key + '」—— ' + c2.why); continue; }
     fails.push(`判据键「${key}」在主代码语料里**零命中**（${meta.how} · ${where}）`
         + ' —— 规则靠这个字面量认领战报，主代码文案已改名/撤除 ⇒ 该判据恒不命中（恒空转或恒绿），属真·假绿');
     checked++;
@@ -212,6 +217,9 @@ for (const [key, meta] of [...seen.entries()].sort()) {
 // 棘轮：白名单条目必须仍在规则里出现（防白名单腐烂）
 for (const s of SENTINEL_KEYS) {
     if (!seen.has(s.key)) fails.push(`⓪ 反向哨兵白名单里的「${s.key}」已在规则中消失 —— 条目已失效，请从白名单移除（白名单只许收缩）`);
+}
+for (const c of COMPAT_KEYS) {
+    if (!seen.has(c.key)) fails.push('⏭ 兼容/变异点键「' + c.key + '」已在规则中消失，请从 COMPAT_KEYS 移除（只许收缩）');
 }
 
 const cnKeys = seen.size;

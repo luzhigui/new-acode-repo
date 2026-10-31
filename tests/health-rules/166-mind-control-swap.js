@@ -24,7 +24,14 @@
 //   5) 宣告位置未生效：每条 swap 宣告 fromPos→toPos，被下一次换位打断前，该单位后续出场快照
 //      从未落到 toPos（复用 138 V6.1.12 口径：一拍时滞内任一快照命中即算生效；无后续快照不报）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.7';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.8';
+// V6.1.8（2026-10-31 第 145 轮续）：补静默位移白名单第 6 类——圣火不熄复活落格被占时的静默改位。
+//   core/04buff-system.js reviveHolyFireUnit 在复活落格被活人占时走 u.pos=findFreePos（≠原格）直接赋值，
+//   而 SKILL_ANNOUNCE.note 写「原地复活」掩盖了这次改位；原 isSilentRelocate ①②③④⑤ 全认不出，
+//   导致判据5 把「惑心换到 toPos→阵亡→圣火不熄静默挪走」误判成「换位没生效」（实证 明教弟子1→5号位）。
+//   今在 122health-utils.js isSilentRelocate 加 ⑥：SKILL_ANNOUNCE 且 skillName='圣火不熄' 且点名该单位
+//   ⇒ 视为合法改写、放弃本条归因（宁漏勿误）。swap 真实失效的 render/机制漂移极罕见，且本分支仅在
+//   "单位从未在 toPos 被观测到"时触发，不掩盖真 bug。机制清单见 122health-utils.js 调用点登记。
 // V6.1.7（2026-10-30 第 144 轮续）：适配 main 渲染模板漂移 —— 惑心换位由「2 单位互换位置」
 //   升级为「0~3 单位位置重排」（core/14 shuffleThreeSlots，fact.data.swaps 为变长数组）。
 //   渲染文本由 `🌀 惑人心智敌方：A号位X与B号位Y互换位置！` 变为
@@ -50,6 +57,7 @@ export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.7';
 //     - 两仪互换     ：何太冲/昆仑弟子红血互换职业+位置（swapUnitPositions + SKILL_ANNOUNCE，hetaichong.js L156）
 //     - 标枪前压     ：（core/10battle-attack.js L52）
 //     - 压进         ：远程够不着目标向前压（core/10battle-attack.js L55，skillName '突进'）
+//     - 圣火不熄     ：复活落格被占静默改位（core/04:624 直接 u.pos=findFreePos，note 写「原地复活」掩盖；第 145 轮续补 ⑥）
 import { isSilentRelocate } from '../122health-utils.js';
 
 function stripTags(s) { return (s == null ? '' : String(s)).replace(/<[^>]+>/g, ''); }

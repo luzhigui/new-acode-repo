@@ -113,9 +113,17 @@ export async function handleEnemyAutoBuffSelection(c, nextActiveBuffs) {
     const pick = choices[rng.nextInt(0, choices.length - 1)];
     const newBuff = createBuffObject(pick, null, CAMP_TYPES.ENEMY, enemyTeam);
     appendLogHTML(`<span class="gold">✨ 六大派 自动选择 Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
+    const merged = [...(nextActiveBuffs || []), newBuff];
     const mainCtx = getPlayerContext();
-    if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
-    return [...(nextActiveBuffs || []), newBuff];
+    if (mainCtx) {
+        // 与明教 handleBuffSelection 同款：更新 activeBuffs 让底部槽/格子 logo/camp 徽章读到
+        mainCtx.activeBuffs = merged;
+        if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
+    }
+    // 主动重绘：让六大派新 buff 的格子 logo 与阵营名下方全局徽章当回合就显示
+    const fn = GlobalStore.getUIHandler('updateUI');
+    if (typeof fn === 'function') fn();
+    return merged;
 }
 
 // 蝶变方向弹窗（回合结束后、下一回合开始前调用）

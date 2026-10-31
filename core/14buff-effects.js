@@ -3,7 +3,7 @@ export const VER = 'core/14buff-effects.js V6.1.9';
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
-import { getBattleRng, swapUnitPositions, addMod, getStat, applyStatChange, emitEvent } from './13battle-shared.js';
+import { getBattleRng, addMod, getStat, applyStatChange, emitEvent } from './13battle-shared.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -12,6 +12,9 @@ const C = CONFIG;
 // 清死重：原 _Normal/_Sister/_Brother 三函数体逐字相同（外部AI清单#2），
 //   且 04 只调 _Normal——收口成一个，_Sister/_Brother 全库无调用
 export function applyFortifyDef(unit) {
+    // 去重：同一单位本回合只挂一条严阵以待（团队 buff 与张三丰自挂版不叠加）
+    const mods = (unit._mods && unit._mods.def) || [];
+    if (mods.some(m => m.group === 'fortify' && m.ttl === 'round')) return;
     addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
 }
 

@@ -15,18 +15,12 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _stunned:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _resting:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _blocked:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _emptyColBonus:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _bloodAuraBonus:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _holyAtkBonus:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _holyDefBonus:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _fortifyDefBonus:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _isLinkAttack:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 被动出手原因：core/10 额外攻击执行期写入（counterAttack/followAttack/lionFollow/xuanmingLink/chaseAttack…），
     //   core/12 快照进 attack fact，render 层出【反击】等徽章与头顶飘字；结束即清。
     //   ⚠️ 已被 modules/27 当判定条件消费（鹰王威压/老当益壮仅在 _linkReason==='counterAttack' 时触发），不再是纯展示
     _linkReason:             { type: STATE_FIELD_TYPES.STRING,  default: null },
-    _spiderAttacked:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderFlying:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _fortifyThisRound:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -49,7 +43,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _xuanmingPoison:         { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _kuaiLeStack:            { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
-    _xingFenCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xingFenPenaltyCount:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _kuLianActive:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _masteredRoles:          { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
@@ -100,9 +93,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _kongJianPending:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _kongJianFlags:          { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _kongJianUpgraded:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _butterflyAtk:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _butterflyDef:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _butterflyHp:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyHpTransfer:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _spiderRemaining:        { type: STATE_FIELD_TYPES.NUMBER,  default: 3 },
     _linkedPartnerUid:       { type: STATE_FIELD_TYPES.STRING,  default: null },
@@ -135,7 +125,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _fortifyStacks:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyIncrement:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyCap:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _dodgeStack:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _flyMode:                { type: STATE_FIELD_TYPES.STRING,  default: null },
     // FSM 当前相位镜像（张无忌 ranged/near/ronghui、小昭·姊 attached、小昭·妹 flying）。
     //   由 infra/51 StateMachine 的 onChange 回调实时写入，随本 schema 走 clone/UI 同步，
@@ -218,6 +207,16 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 寒离飒·控制免疫标记（core/14 惑心换位 / core/12 攻击链 / core/13 控制判定读取；持久化与现状一致放 battle 级）
+    _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
+    _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 寒离飒·瞄准窗口状态（player/49 瞄准标记步写，hanlisa.js 消费后清零；持久化同现状放 battle 级）
+    _hlsAimChosen:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _hlsAim:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _hlsAimHoldMs:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 说不得·布袋：null 表示没装人；否则 { targetUid, mode: 'protect'|'capture', casterUid, casterName }
+    _inBag:                  { type: STATE_FIELD_TYPES.OBJECT,  default: null },
 });
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */

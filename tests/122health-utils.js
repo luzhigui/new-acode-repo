@@ -837,12 +837,15 @@ export function checkActionRights(roundFacts, units) {
 //   **不产** buff-push / buff-swap 条目 ⇒ 战报里没有任何「位置被改写」的标记。138 / 166 的
 //   「宣告位置是否真实生效」判据只认 buff-push/buff-swap 打断，于是把「已落地、之后被第三方挪走」
 //   误判成「没落地」。
-// 全库调用点（第 124 轮 grep 实证，6 处——今后再加务必登记，否则这里会静默漏判）：
+// 全库调用点（第 124 轮 grep 实证 + 第 145 轮续补 圣火不熄）——helper 5 处 + 圣火不熄 1 处直接赋值；
+//   今后再加务必登记，否则这里会静默漏判：
 //   core/10battle-attack.js:52           标枪射程不及前压  「🥢 X 射程不及，向前压至 N 号位」
 //   modules/26…-tangwenliang.js:115      唐文亮冲刺·七伤齐发（强推挤压，多单位 moveUnitPosition）
 //   modules/26…-hetaichong.js:128        何太冲红血撤退    「🩸 X 红血：撤退至 N 号位、转远程」
 //   modules/26…-hetaichong.js:156        两仪互换（swapUnitPositions）「☯ 两仪互换：A ⇄ B（互换职业与位置）」
 //   modules/27…-hanlisa.js:294 / 305     蓄意轰拳·崩飞 / 轰飞（WIND_ASSAULT_PUSH fact）
+//   core/04buff-system.js:624            圣火不熄复活落格被占（直接 u.pos=findFreePos，不发位移事件；
+//                                          SKILL_ANNOUNCE.note 写「原地复活」掩盖静默改位）⇒ ⑥ 单独识别
 // 两条判据（任一命中 ⇒ 期望位被合法改写，放弃本条归因；宁漏勿误，数值与落地判据一字未放宽）：
 //   ① 落位号证据（通用，不限机制）：条目宣告任意单位落到 N 号位且 N === exp.pos ⇒ 该格被重写，
 //      无法再归因（第 121 轮实证：冲刺文案只报被拽者，占位者的名字全程不出现，只能靠落位号认）；
@@ -932,5 +935,19 @@ export function isSilentRelocate(mid, exp) {
     //     ①反/③反/通反 三条反例的语义（那三条是第 121-125 轮按「宁漏勿误」立的），属判据放宽，
     //     本轮**否决**广口径、只补这一支漏判，并把广口径是否采纳留给用户拍板（见第 129 轮日志挂账）。
     if (t && exp.name && t.indexOf(exp.name) !== -1 && PRESS_FORWARD_RE.test(t) && LANDING_POS_RE.test(t)) return true;
+    // ⑥ 圣火不熄复活静默改位（core/04buff-system.js:624，第 145 轮续）：复活落格被活人占 →
+    //   u.pos = findFreePos(≠原格) 直接赋值，而 SKILL_ANNOUNCE.note 写「原地复活」掩盖了这次静默改位
+    //   （与 ⑤ 压进 同款"改站位却不发位移事件"，且文本只点名复活者、不报落位号 ⇒ ①②③④⑤ 全认不出）。
+    //   该机制合法改写站位，命中即放弃本条归因（宁漏勿误）。★ 仅在"单位从未在 toPos 被观测到"时才会触发本分支，
+    //   故不掩盖 swap 真实失效的 render/机制漂移（那种情况下单位本就不在 toPos、亦未必被复活）。
+    //   优先读 mid.data（SKILL_ANNOUNCE 的 unitName/skillName），文本缺失也能认；文本兜底再补一次名字匹配。
+    var d6 = mid.data;
+    if (d6) {
+        var d6in = (d6.data && typeof d6.data === 'object') ? d6.data : d6;
+        var hfSkill = d6.skillName || d6in.skillName || '';
+        var hfName = d6.unitName || d6in.unitName || '';
+        if ((hfSkill === '圣火不熄' || (t && t.indexOf('圣火不熄') !== -1)) &&
+            (hfName === exp.name || (t && exp.name && t.indexOf(exp.name) !== -1))) return true;
+    }
     return false;
 }

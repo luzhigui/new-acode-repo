@@ -34,17 +34,13 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
             const available = filterAvailableBuffs(activeBuffs, team, { withFortifyRule: true, enemyTeam });
             if (available.length === 0) { resolve(null); return; }
 
-            if (GlobalStore.get('bugMode')) {
-                choices = available;
-            } else {
-                const shuffled = [...available];
-                const rng = getBattleRng();
-                for (let i = shuffled.length - 1; i > 0; i--) {
-                    const j = rng.nextInt(0, i);
-                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                }
-                choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+            const shuffled = [...available];
+            const rng = getBattleRng();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = rng.nextInt(0, i);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
+            choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
         }
         if (choices.length === 0) { resolve(null); return; }
 

@@ -15,10 +15,14 @@ import { updateSpeedButtons } from './77speed-controls.js';
 // 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
 // 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项
 const CAMP_BADGE_ID = { [CAMP_TYPES.ALLY]: 'campBadgesAlly', [CAMP_TYPES.ENEMY]: 'campBadgesEnemy' };
+// 4 槽：明教 2 + 六大派 2，各自显示自己阵营的轮换 buff。永久 buff 仍走阵营徽章。
+//   点槽弹窗（ui/81buff-tooltip.js）读 DOM 上的 data-slot / data-camp 反查 buff，不需额外传参。
+const SLOT_IDS = {
+    [CAMP_TYPES.ALLY]: ['buffSlot0A', 'buffSlot1A'],
+    [CAMP_TYPES.ENEMY]: ['buffSlot0E', 'buffSlot1E'],
+};
 function updateBuffSlots(activeBuffs, camp) {
-    const role = GlobalStore.get('netRole');
-    const isCamp = camp === CAMP_TYPES.ALLY || camp === CAMP_TYPES.ENEMY;
-    // 整局徽章：两个阵营各挂自己那侧（底部槽只显示"自己这方"，徽章两边都要有）
+    // 整局徽章：两个阵营各挂自己那侧
     for (const c of [CAMP_TYPES.ALLY, CAMP_TYPES.ENEMY]) {
         const box = document.getElementById(CAMP_BADGE_ID[c]);
         if (!box) continue;
@@ -28,19 +32,22 @@ function updateBuffSlots(activeBuffs, camp) {
             return `<span class="camp-badge${c === CAMP_TYPES.ENEMY ? ' enemy' : ''}" title="${b.name}（整局）">${icon}</span>`;
         }).join('');
     }
-    // 底部 2 槽：只放轮换项（显示自己这方）
-    const target = isCamp ? camp : (role === 'guest' ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY);
-    const list = buffsOfCamp(activeBuffs, target).filter(b => !b.permanent);
-    for (let i = 0; i < 2; i++) {
-        let slot = document.getElementById('buffSlot' + i);
-        if (!slot) continue;
-        if (i < list.length) {
-            let buff = list[i];
-            slot.textContent = buff.name + '/' + buff.remaining + '回';
-            slot.classList.add('glow');
-        } else {
-            slot.textContent = 'buff' + (i + 1);
-            slot.classList.remove('glow');
+    // 4 槽轮换 buff：各阵营 2 个
+    for (const c of [CAMP_TYPES.ALLY, CAMP_TYPES.ENEMY]) {
+        const list = buffsOfCamp(activeBuffs, c).filter(b => !b.permanent);
+        const ids = SLOT_IDS[c];
+        for (let i = 0; i < 2; i++) {
+            const slot = document.getElementById(ids[i]);
+            if (!slot) continue;
+            if (i < list.length) {
+                const buff = list[i];
+                slot.textContent = `${buff.name}/${buff.remaining}回`;
+                slot.classList.remove('empty');
+            } else {
+                // 空槽保留占位文字（原来单方只有 2 槽时用 buff1/buff2，现在明教/六大派各 2 槽）
+                slot.textContent = c === CAMP_TYPES.ALLY ? `buff${i + 1}` : `敌buff${i + 1}`;
+                slot.classList.add('empty');
+            }
         }
     }
 }

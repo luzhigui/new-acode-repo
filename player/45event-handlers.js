@@ -53,7 +53,6 @@ export async function handleRoundEnd(c, entry, log, i) {
     appendLogHTML(entry.text + '<br>');
     updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
     if (c.updateBuffSlots) { c.updateBuffSlots(); }
-    if (window._refreshGlowCells) window._refreshGlowCells();
     await clock.wait(200);
 }
 

@@ -24,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/registry-cross-check.mjs V1.0.0';
+export const VER = 'tests/registry-cross-check.mjs V1.0.3';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..');
@@ -123,6 +123,12 @@ const PHASE_TO_SIGNAL = {
 };
 const signalOf = phase => PHASE_TO_SIGNAL[phase] || phase;
 
+// registerSettlementHook 的 when 可能是字符串字面量（'afterDamageApplied'）而非 SIGNAL_TYPES.X；
+//   转成 UPPER_SNAKE 才能对上 SIGNAL_TYPES 的键（AFTER_DAMAGE_APPLIED）。
+function signalFromWhenLiteral(lit) {
+    return lit.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+}
+
 // 变量名白名单：这些接收者几乎必然是「单位对象」，其 _xxx 必须在 schema 里
 //   刻意不含 a/b/x/y/t/cur 这类通用名——本仓里 A/B 常是「整队数组」，误判会淹掉真问题
 const UNIT_RECEIVERS = new Set([
@@ -193,7 +199,9 @@ function checkStateFields(files, allStateKeys) {
     const hits = new Map();     // field → [{rel, line, receiver}]（只装未登记字段）
     const allUsed = new Set();  // 全部被读写的字段名（用于反向对账）
     for (const f of files) {
-        for (const m of f.src.matchAll(/\b([A-Za-z_$][\w$]*)\.(_[A-Za-z]\w*)\b/g)) {
+        // 只认 unit.state._xxx（落在 state schema 上的访问）；顶层 unit._xxx（由 core/02unit.js
+        //   构造函数直接管理的字段，如 _mods/_audit/_fsm/_frozen）刻意不在 schema 里，误报成「漏登」会误导。
+        for (const m of f.src.matchAll(/\b([A-Za-z_$][\w$]*)\.state\.(_[A-Za-z]\w*)\b/g)) {
             const receiver = m[1];
             const field = m[2];
             allUsed.add(field);
@@ -201,16 +209,20 @@ function checkStateFields(files, allStateKeys) {
             if (!hits.has(field)) hits.set(field, []);
             hits.get(field).push({ rel: f.rel, line: lineOf(f.src, m.index), receiver });
         }
+        // Object.assign(unit.state, { _xxx: ... }) 动态键也计入「已读写」，否则 _butterflyHp
+        //   等经动态键写入的字段会被误判为死字段（2026-10-31 复核：_butterflyHp/_butterflyHpTransfer/
+        //   _linkedPartnerUid 均经此路径，确为活字段，非死残留）。
+        for (const m of f.src.matchAll(/Object\.assign\(\s*[^,]+,\s*\{([^}]*)\}/g)) {
+            for (const km of m[1].matchAll(/\b(_[A-Za-z]\w*)\s*:/g)) allUsed.add(km[1]);
+        }
     }
 
-    const sure = [];    // 接收者在单位白名单里 → 确定漏登记
-    const unsure = [];  // 其余 → 需人工确认（可能是 data._events 之类）
-    for (const [field, list] of hits) {
-        const certain = list.filter(h => UNIT_RECEIVERS.has(h.receiver));
-        if (certain.length) sure.push({ field, sites: certain });
-        const rest = list.filter(h => !UNIT_RECEIVERS.has(h.receiver));
-        if (rest.length) unsure.push({ field, sites: rest });
-    }
+    // 本扫描只匹配 `X.state._xxx` —— `.state.` 前缀本身就是「落在 state 账本（core/17）上」的权威信号，
+    // 不依赖接收者变量名。任何不在 schema 的 `.state._xxx` 都是确定漏登（不受 UNIT_RECEIVERS 白名单影响，
+    // 否则像 `hls`（寒离飒）这类模块内局部单位变量会被误丢进「待确认」而漏报；2026-10-31 实测漏掉 3 个真实字段）。
+    const sure = [];
+    const unsure = [];
+    for (const [field, list] of hits) sure.push({ field, sites: list });
     const byCount = (a, b) => b.sites.length - a.sites.length;
     sure.sort(byCount);
     unsure.sort(byCount);
@@ -245,7 +257,9 @@ function checkPriorities(files, layer, signals) {
         for (const m of f.src.matchAll(/registerSettlementHook\(\s*\{/g)) {
             const from = m.index;
             const window = f.src.slice(from, from + 600);
-            const when = window.match(/when\s*:\s*SIGNAL_TYPES\.([A-Z_]+)/);
+            const whenSig = window.match(/when\s*:\s*SIGNAL_TYPES\.([A-Z_]+)/);
+            const whenLit = window.match(/when\s*:\s*'([a-zA-Z]+)'/);
+            const when = whenSig ? whenSig : (whenLit ? { 1: signalFromWhenLiteral(whenLit[1]) } : null);
             const pr = window.match(/priority\s*:\s*([^,\n]+)/);
             if (when) {
                 entries.push({
@@ -257,7 +271,8 @@ function checkPriorities(files, layer, signals) {
         }
     }
 
-    const problems = { bareNumber: [], badRef: [], mismatched: [], unknownSignal: [] };
+    // crossSignal：跨信号复用优先级「数值」——合法定序手法，降级为软提示，不计入「确定需要处理」。
+    const problems = { bareNumber: [], badRef: [], crossSignal: [], unknownSignal: [] };
     const usedEvents = new Set();
 
     for (const e of entries) {
@@ -274,7 +289,10 @@ function checkPriorities(files, layer, signals) {
             } else if (!(ev in layer[phase])) {
                 problems.badRef.push({ ...e, why: `L.${phase}.${ev} 未登记` });
             } else if (expect !== e.signal) {
-                problems.mismatched.push({ ...e, why: `用了 L.${phase}（应由 ${expect} 消费），实际挂在 ${e.signal}` });
+                // 跨信号复用优先级常量：把 L.PHASE.EVENT 的「数值」借用到另一个信号上做相对定序，
+                // 本仓常见（如 weiyixiao 在 ON_DODGE 上复用 L.AFTER_DAMAGE_APPLIED.LEECH 的优先级值 40）。
+                // 这是合法做法，不是 bug —— 降级为「待确认」软提示，不计入硬数，避免误报狼来了。
+                problems.crossSignal.push({ ...e, why: `跨信号复用 L.${phase}.${ev} 的优先级数值（本应由 ${expect} 消费），实际挂在 ${e.signal}——疑似故意定序，需人工确认` });
             }
             continue;
         }
@@ -376,7 +394,8 @@ function main() {
     const selfIssues = selfCheck(reg, prio, rend);
 
     const sureCount = state.sure.length;
-    const prioProblemCount = prio.problems.badRef.length + prio.problems.mismatched.length + prio.problems.unknownSignal.length;
+    // 硬问题只算「表项不存在 / 未知信号」；crossSignal 是合法复用，不计入硬数。
+    const prioProblemCount = prio.problems.badRef.length + prio.problems.unknownSignal.length;
     const rendProblemCount = rend.missingRenderer.length + rend.contradicted.length;
 
     if (asJson) {
@@ -429,10 +448,13 @@ function main() {
         const bn = prio.problems.bareNumber;
         const bnCustom = bn.filter(e => e.custom);
         const bnNumber = bn.filter(e => !e.custom);
-        console.log(`  ✗ 引用不存在的表项 ${prio.problems.badRef.length} 处 / 阶段与信号不匹配 ${prio.problems.mismatched.length} 处 / 未知信号 ${prio.problems.unknownSignal.length} 处`);
+        console.log(`  ✗ 引用不存在的表项 ${prio.problems.badRef.length} 处 / 未知信号 ${prio.problems.unknownSignal.length} 处`);
         for (const e of prio.problems.badRef) console.log(`      ${e.rel}:${e.line}  ${e.via}(${e.signal}, ${e.priorityRaw}) — ${e.why}`);
-        for (const e of prio.problems.mismatched) console.log(`      ${e.rel}:${e.line}  ${e.via}(${e.signal}, ${e.priorityRaw}) — ${e.why}`);
         for (const e of prio.problems.unknownSignal) console.log(`      ${e.rel}:${e.line}  ${e.signal} 不在 SIGNAL_TYPES`);
+        if (prio.problems.crossSignal.length) {
+            console.log(`  · 跨信号复用优先级（合法定序，需人工确认，不计入硬数）${prio.problems.crossSignal.length} 处`);
+            for (const e of prio.problems.crossSignal) console.log(`      ${e.rel}:${e.line}  ${e.via}(${e.signal}, ${e.priorityRaw}) — ${e.why}`);
+        }
         console.log(`  · 裸数字优先级 ${bnNumber.length} 处（绕开中央表）`);
         for (const e of bnNumber.slice(0, 20)) {
             const extra = e.sameNum && e.sameNum.length ? `  同值: ${e.sameNum.join('/')}` : '';

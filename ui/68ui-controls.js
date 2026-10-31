@@ -178,24 +178,6 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
     });
 }
 
-export function bindDetailButton(getState, setState, showModal) {
-    document.getElementById('btnDetail').addEventListener('click', function () {
-        const currentLevel = getState.logLevel();
-        showModal('选择日志模式', [
-            { text: '📋 详细', value: 'detailed', cls: 'buff' },
-            { text: '📋 简要', value: 'brief', cls: 'buff' },
-            { text: '🩺 调试', value: 'debug', cls: 'buff' }
-        ], (choice) => {
-            setState.logLevel(choice);
-            this.textContent = choice === 'detailed' ? '详细' : (choice === 'brief' ? '简要' : '调试');
-            // 补同步高亮：原先只改文字不改 class，战斗中切「简要」按钮还是亮的（要开新一局才被 ui/61
-            //   重新同步）。判据与 ui/61:878、体检 122health-utils:459 一致——「不是简要就亮」（详细/调试都亮）。
-            this.classList.toggle('active', choice !== 'brief');
-            // _renderAllLogs 全库从未定义，删除无效调用
-        });
-    });
-}
-
 export function bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI) {
     document.getElementById('debugToggle').addEventListener('click', function () {
         onAnyButtonClick();
@@ -262,48 +244,6 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
         setState.waitingForNextRound(false);
         restoreSpeedFromScroll();
         updateButtons();
-    });
-}
-
-export function bindAutoButton(getState, setState) {
-    document.getElementById('btnAuto').addEventListener('click', function (e) {
-        e.stopPropagation();
-        const btn = this;
-        const rect = btn.getBoundingClientRect();
-        const existing = document.querySelector('.auto-menu-backdrop');
-        if (existing) { existing.remove(); return; }
-        const backdrop = document.createElement('div');
-        backdrop.className = 'auto-menu-backdrop';
-        backdrop.addEventListener('click', () => backdrop.remove());
-        const menu = document.createElement('div');
-        menu.className = 'auto-menu';
-        menu.style.left = (rect.left - 10) + 'px';
-        menu.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
-        const levels = [
-            { key: 'manual', label: '手动' },
-            { key: 'auto', label: '自动' },
-            { key: 'full-auto', label: '全自动' }
-        ];
-        const cur = getState.autoLevel?.() || 'auto';
-        levels.forEach(l => {
-            const mb = document.createElement('button');
-            mb.textContent = l.label;
-            if (cur === l.key) mb.classList.add('checked');
-            mb.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                setState.autoLevel(l.key);
-                const isManual = l.key === 'manual';
-                const isFullAuto = l.key === 'full-auto';
-                setState.autoMode(!isManual);
-                btn.textContent = isManual ? '手动' : (isFullAuto ? '全自动' : '自动');
-                btn.classList.toggle('active', !isManual);
-                            if (!isManual && getState.waitingForNextRound()) setState.waitingForNextRound(false);
-                backdrop.remove();
-            });
-            menu.appendChild(mb);
-        });
-        backdrop.appendChild(menu);
-        document.body.appendChild(backdrop);
     });
 }
 

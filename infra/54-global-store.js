@@ -7,7 +7,6 @@ const _state = {
     voteScore: null,
     voteChoice: null,
     battleHasZhang: false,
-    bugMode: false,
     crashMode: 'fly',
     currentBattleState: null,
     battleStore: null,

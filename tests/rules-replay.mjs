@@ -11,6 +11,7 @@
 // 注意：渲染 buff 阵营摘要依赖 GlobalStore.battleStore，本 runner 已按真实流程建 store 并每回合
 //       SET_UNITS 同步（否则所有 buff-summary 渲染不出来，会让 140/141 之类的规则假红）。
 import { readdir } from 'node:fs/promises';
+import { collectFacts } from './_lib/fact-collect.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -293,17 +294,6 @@ function assertInvariants(units, round, seed, stage) {
 //   作为 rule.test 的第 7 参 facts。此前规则只看渲染文案（renderLog 产物），renderFn:null 的
 //   数值声明 fact 完全不可见 → 那 22 条「对照器兜底」的根因。喂入后规则可读 atkDelta/ratio/delta
 //   等数值字段做重算对账，真正长牙。现有 37 条规则忽略多余参数，向后兼容。
-function collectFacts(arr, out) {
-    for (const f of arr || []) {
-        if (!f || !f.factType) continue;
-        out.push(f);
-        // ★ 第 163 轮补：幻影 fact 挂在 f.data.phantomFact（core/12 buildAttackGroup），与 entries 并列
-        if (f.data && f.data.phantomFact) collectFacts([f.data.phantomFact], out);
-        collectFacts(f.data && f.data.entries, out);
-        collectFacts(f.entries, out);
-    }
-    return out;
-}
 
 function runCase(seed, stage, forces) {
     // 第 159 轮：开场先把全部白名单开关复位，再按本场 forces 设置（双重复位，杜绝全局态泄漏）。

@@ -149,6 +149,29 @@ export function renderGrid(id, camp) {
                 slotUnits[i] = null;
                 continue;
             }
+            // 说不得·布袋：被装在袋里的单位显示布袋标记，不显示本体
+            const _bagInfo = (() => {
+                if (!store) return null;
+                const all = store.getState().units || [];
+                for (const u of all) {
+                    if (u.state && u.state._inBag && u.state._inBag.targetUid === unit.uid) return u.state._inBag;
+                }
+                return null;
+            })();
+            if (_bagInfo) {
+                const div = cells[i];
+                resetCell(div);
+                div.className = 'cell occupied';
+                div.dataset.pos = pos;
+                div.dataset.uid = unit.uid;
+                const bagLabel = _bagInfo.mode === 'protect' ? '布袋（保护）' : '布袋（装敌）';
+                div.innerHTML = `<span class="cell-icon">🛍️</span><div class="cell-info"><span class="cell-name">${bagLabel}</span></div>`;
+                div.style.opacity = '0.6';
+                div.style.background = 'rgba(139,90,43,0.18)';
+                div.style.border = '2px solid rgba(139,90,43,0.5)';
+                slotUnits[i] = null;
+                continue;
+            }
             if (unit.state && unit.state._isDead) {
                 unit = { ...unit, state: { ...(unit.state || {}), _resting: false, _acted: false, _blocked: false } };
             }

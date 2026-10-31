@@ -7,7 +7,7 @@ export const VER = 'modules/27elite-mingjiao.js V7.3.0';
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-registry-elite.js';
 import { registerTargetPoolFilter } from '../core/07-target-strategies.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
-import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, CAMP_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 import { createEagleComponent } from './27elite-mingjiao-eagle.js';
 import { createZhangWujiComponent } from './27elite-mingjiao-zhangwuji.js';
 import { createWeiYixiaoComponent } from './27elite-mingjiao-weiyixiao.js';
@@ -17,6 +17,8 @@ import { createXieXunComponent } from './27elite-mingjiao-xiexun.js';
 import { createYangXiaoComponent } from './27elite-mingjiao-yangxiao.js';
 import { createYinTianZhengComponent } from './27elite-mingjiao-yintianzheng.js';
 import { createHanLiSaComponent } from './27elite-mingjiao-hanlisa.js';
+import { bagTrapHandler } from './27elite-mingjiao-shuobude.js';
+import { registerMechanicHandler } from '../core/18mechanic-registry.js';
 
 // ========== 精英组件集中注册（core/08 注册表；逐字搬自原文件末尾，顺序严格保持） ==========
 registerElite('雄鹰', createEagleComponent);
@@ -30,6 +32,9 @@ registerElite('杨逍', createYangXiaoComponent);
 registerElite('殷天正', createYinTianZhengComponent);
 // 寒离飒（明教·战士·弱精英 M107，与韦一笑同池）：九阳/寒冰神掌/蓄力
 registerElite('寒离飒', createHanLiSaComponent);
+
+// 说不得·布袋：普通兵数据驱动机制（MECHANIC_TYPES.BAG_TRAP），注册进 core/18 注册表
+registerMechanicHandler(MECHANIC_TYPES.BAG_TRAP, bagTrapHandler);
 
 // 杨逍·选敌 pool-filter（core/07 通用飞行分支取目标前调用）：
 //   优先未行动且未被点穴的敌人（控到还有行动权的 target 才有意义）；非杨逍返回 null（不干预）；

@@ -202,6 +202,13 @@ export const ROLE_CARDS = [
         skills: () => []
     },
     {
+        // 说不得：M100 普通兵，没有身份标记（不登记 HERO_FLAGS，否则会被 modules/29 从普通兵候选池踢掉），
+        //   名片按名字匹配。走职业默认图标，只提供技能说明。
+        id: 'shuobude', name: '说不得',
+        match: u => u.name === '说不得',
+        skills: () => [`🛍️ ${getSkillDesc('说不得', 'bagTrap')}`]
+    },
+    {
         // 小昭·妹结茧：卵期职业是随机残留的（防战/远程…），按职业显示图标会误导成"还能出手"。
         //   放数组末尾：只参与 getRoleIcon 的图标选择（走 ICON_ORDER 遍历），不抢 firstCard 的
         //   logTag/skills（那两个仍由前面的「小昭·妹」卡提供，卵态详情弹窗照常显示她的技能说明）。

@@ -58,15 +58,11 @@ export function showAlert(text, onOk) { let overlay = document.createElement('di
 /**
  * 封面页传入的特殊模式初始化
  */
-export function initBugAndXiaoZhaoModes() {
+export function initDevFlags() {
     const xzMode = localStorage.getItem('_forceXiaoZhao');
     if (xzMode === 'sister' || xzMode === 'brother') {
         GlobalStore.set('forceXiaoZhao', xzMode);
         localStorage.removeItem('_forceXiaoZhao');
-    }
-    if (localStorage.getItem('_bugMode') === '1') {
-        GlobalStore.set('bugMode', true);
-        localStorage.removeItem('_bugMode');
     }
     if (localStorage.getItem('_forceZhang') === '1') {
         GlobalStore.set('forceZhang', true);
@@ -114,7 +110,7 @@ export function copyLogToClipboard(choice) {
     let seen = new Set();
     if (choice === 'detailed') choice = 'all';
     if (choice === 'brief') choice = 'normal';
-    if (choice === 'debug') choice = 'all';
+
     if (choice === 'recent15') {
         const allDivs = Array.from(logDiv.children);
         const recent = allDivs.slice(-15);
