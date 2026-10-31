@@ -223,6 +223,20 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
         log.push({ factType: FACT_TYPES.UNITY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: tier.atkBonus } });
         log.push({ factType: FACT_TYPES.UNITY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: tier.defBonus } });
     }
+
+    // 9人满员彩蛋：当队伍达到 9 人时，借用战斗横幅触发一次专属提示（整个阵营只弹一次）
+    if (aliveN >= 9 && unit.camp === CAMP_TYPES.ALLY && unit.pos === 5 && log) {
+        // 只在 5 号位（核心位）计算时触发一次，防刷屏
+        const hasBanner = log.some(l => l.data && l.data.text && l.data.text.includes('九人满员'));
+        if (!hasBanner) {
+            // 直接走战斗横幅通道（39 层会消费并阻塞播放）
+            log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '众志成城',
+                note: `🤝 众志成城 · 九人满员！全队攻防达到巅峰！`,
+                line: false, bannerText: '🤝 众志成城 · 九人满员！'
+            } });
+        }
+    }
 }
 
 // 众志成城补员：首回合场上有几人补到 4（姐姐强化补到 5；已达目标人数则不补），之后每回合 +1，
@@ -302,8 +316,9 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 
 export function logBuffSummary(allyTeam, ctx) {
     let buffs = allyTeam._activeBuffs || [];
+    const aliveUids = allyTeam.filter(u => u.alive).map(u => u.uid);
     buffs.forEach(b => {
-        ctx.log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeamUids: allyTeam.filter(u => u.alive).map(u => u.uid), doubleStrikeUid: ctx.doubleStrikeUid } });
+        ctx.log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeamUids: aliveUids, doubleStrikeUids: ctx.doubleStrikeUids } });
     });
 }
 

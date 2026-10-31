@@ -57,7 +57,7 @@ function openDetailPopup(unit) {
     detailPopupUnit = unit;
     detailPopup = document.createElement('div');
     detailPopup.className = 'detail-popup';
-    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--c-panel);border:3px solid var(--c-gold);border-radius:12px;padding:16px;z-index:10050;min-width:240px;max-width:300px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
+    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--c-panel);border:3px solid var(--c-gold);border-radius:12px;padding:16px;z-index:10050;min-width:240px;max-width:300px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
     let closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:var(--c-brown-border);font-weight:bold;';
@@ -191,7 +191,6 @@ function updateDetailPopupContent() {
             <span style="color:#888;">Buff</span><span>${buffText}</span>
             ${masteryText}
             ${(() => {
-                // 改查 ui/69-role-cards.js 名片表（原为本地 25 分支 if/else 链）
                 let skills = getRoleSkills(u);
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:var(--c-gold);">${skills.join('<br>')}</span>`;
@@ -199,7 +198,6 @@ function updateDetailPopupContent() {
                 return '';
             })()}
         </div>
-        <div style="text-align:center;margin-top:10px;color:#888;font-size:11px;">点击外部关闭</div>
     `;
     detailPopup.appendChild(content);
 }

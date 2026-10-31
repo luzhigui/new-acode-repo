@@ -6,6 +6,7 @@ import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
 import { readRound } from './42player-core.js';
 import { clock } from '../infra/52-clock.js';
+import { getPerfParam } from '../core/23perf-params.js';
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 // 收口（外部AI清单#15）：currentRound 与 42.readRound 逐字等价，删本地版改引单源
@@ -25,17 +26,26 @@ export async function handleInfo(c, entry) {
         return;
     }
 
-    // 飞行/附身动画已由 stageAction 触发
-    // 连击横幅/新婚爱心/白骨爪/死亡画笔/乾坤加攻飘字/张无忌台词弹幕等特效已全部移交导演 stageAction（见 31/42），此处只播文本
     const fxSpecs = entry._fxSpecs || null;
 
     if(entry.isZhangSwitch&&entry.unitUid){
         renderSeparator();
-        await playLogLine(entry.text, null, fxSpecs);
     }
-    else {
-        await playLogLine(entry.text, null, fxSpecs);
+
+    // 系统提示行：直接瞬间出整行文字，不逐字播放（解决字数多时过于拖沓的问题）
+    appendLogHTML(entry.text + '<br>');
+    
+    // 手动触发可能挂载的特效
+    if (fxSpecs) {
+        for (const spec of fxSpecs) {
+            if (spec && spec.cb) { try { spec.cb(); } catch (e) { console.error('[handleInfo] fx 回调出错:', e); } }
+        }
     }
+    
+    // 瞬间出完之后，给一个极短的系统行间隔（比普通计算行还要快）
+    const gap = getPerfParam('lineGapSys', GlobalStore.get('speed') || 300) || 20;
+    await clock.waitReal(gap);
+
     updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
 }
 

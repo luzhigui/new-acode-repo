@@ -160,6 +160,12 @@ export function fmtHp(v) {
     return Math.max(1, Math.floor(v));
 }
 
+// 显示层专用：保留最多 1 位小数，去掉浮点尾巴（如 20.0999 → 20.1）
+export function fmt1(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return v;
+    return Math.round(v * 10) / 10;
+}
+
 export function getUnitRow(pos) { return Math.ceil(pos / 3); }
 
 export function getUnitCol(pos) { return (pos - 1) % 3 + 1; }

@@ -37,13 +37,16 @@ function createZigzagLightning() {
     return svg;
 }
 
-function createFlameBehind(angle, offsetX, offsetY, parentLeft, parentTop) {
+function createFlameBehind(angle) {
     const container = document.createElement('div');
     container.className = 'flame-trail';
-    container.style.position = 'fixed'; container.style.zIndex = '10015'; container.style.pointerEvents = 'none';
+    container.style.position = 'absolute'; 
+    container.style.zIndex = '-1'; // 放到克隆体背后
+    container.style.pointerEvents = 'none';
     container.style.transform = `rotate(${angle}rad)`;
-    container.style.left = (parentLeft + offsetX) + 'px';
-    container.style.top = (parentTop + offsetY) + 'px';
+    container.style.left = '50%'; 
+    container.style.top = '50%';
+    container.style.transformOrigin = '0 0';
     const colors = ['#ff4500','#ff6600','#ff8800','#ffaa00','#ffcc00','#ffff00'];
     for (let i = 0; i < 10; i++) {
         const f = document.createElement('div');
@@ -55,39 +58,24 @@ function createFlameBehind(angle, offsetX, offsetY, parentLeft, parentTop) {
         f.style.animation = 'flameFlicker 0.2s infinite alternate';
         container.appendChild(f);
     }
-    document.body.appendChild(container);
     return container;
 }
 
-function updateFlamePosition(flame, parentLeft, parentTop, offsetX, offsetY) {
-    flame.style.left = (parentLeft + offsetX) + 'px';
-    flame.style.top = (parentTop + offsetY) + 'px';
-}
-
-function createWindSplit(x, y) {
+function createWindSplit() {
     const lines = [];
     for (let i = 0; i < 12; i++) {
         const line = document.createElement('div');
         line.className = 'wind-split';
         const offY = (i < 6) ? (-30 - i*5) : (10 + (i-6)*5);
-        line.style.left = (x - 60) + 'px'; line.style.top = (y + offY) + 'px';
-        line.style.position = 'fixed'; line.style.zIndex = '9998'; line.style.pointerEvents = 'none';
+        line.style.left = '-60px'; line.style.top = (offY) + 'px';
+        line.style.position = 'absolute'; line.style.zIndex = '-1'; line.style.pointerEvents = 'none';
         line.style.width = '80px'; line.style.height = '2px';
         line.style.background = 'linear-gradient(to right, white, transparent)';
         line.style.opacity = '0.6';
         line.style.animation = 'windMove 0.6s linear infinite';
-        document.body.appendChild(line);
         lines.push(line);
     }
     return lines;
-}
-
-function updateWindSplit(lines, cx, cy) {
-    lines.forEach((l, i) => {
-        const offY = (i < 6) ? (-30 - i*5) : (10 + (i-6)*5);
-        l.style.left = (cx - 60) + 'px';
-        l.style.top = (cy + offY) + 'px';
-    });
 }
 
 function createBgParticles(x, y) {
@@ -360,21 +348,25 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 阶段2：攻击者带着火焰和风压高速冲刺接近
         const attackAngle = Math.atan2(pos.dy - pos.ay, pos.dx - pos.ax);
-        const flameOffsetX = -25, flameOffsetY = -2;
-        const flame = createFlameBehind(attackAngle, flameOffsetX, flameOffsetY, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top));
+        // 火焰和风刃直接挂载到 cloneA 内部，利用 CSS 嵌套坐标系，绝对不会脱节
+        const flame = createFlameBehind(attackAngle);
+        flame.style.left = '30%'; // 对齐克隆体中心偏左
         if (flame) flame.setAttribute('data-fx', 'temporary');
         cleanupElements.push(flame);
+        cloneA.appendChild(flame);
 
-        const windLines = createWindSplit(pos.ax, pos.ay);
-        windLines.forEach(l => cleanupElements.push(l));
+        const windLines = createWindSplit();
+        windLines.forEach(l => {
+            l.setAttribute('data-fx', 'temporary');
+            cloneA.appendChild(l);
+        });
+
         const particles = createBgParticles(pos.ax, pos.ay);
         particles.forEach(p => cleanupElements.push(p));
         const shield = document.createElement('div');
         shield.className = 'wind-shield';
         cloneA.appendChild(shield);
         cleanupElements.push(shield);
-
-        const updateFlame = () => updateFlamePosition(flame, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top), flameOffsetX, flameOffsetY);
 
         // 抖动：900ms 内 scale 0.9→1.2 + 随机位移；冲刺开始时置 shakeStopped 停用
         let shakeStopped = false;
@@ -388,26 +380,27 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 快速冲刺
         const startX = parseFloat(cloneA.style.left);
         const startY = parseFloat(cloneA.style.top);
-        const dx = pos.dx - pos.ax;
-        const dy = pos.dy - pos.ay;
-        const midX = startX + dx * 0.65;
-        const midY = startY + dy * 0.65;
+        // 目标点 = 防御者中心点 - 攻击者半宽半高（绝对相撞）
+        const targetX = pos.dx + (rectD.width - rectA.width) / 2;
+        const targetY = pos.dy + (rectD.height - rectA.height) / 2;
+        
+        const dx = targetX - startX;
+        const dy = targetY - startY;
+        const midX = startX + dx * 0.75;
+        const midY = startY + dy * 0.75;
+        
         await clock.animateReal(T(1500), (t) => {
             if (isSkipped) return;
             const cx = startX + (midX - startX) * t;
             const cy = startY + (midY - startY) * t;
             cloneA.style.left = cx+'px';
             cloneA.style.top = cy+'px';
-            updateFlame();
-            const ccx = cx + cloneA.offsetWidth/2;
-            const ccy = cy + cloneA.offsetHeight/2;
-            updateWindSplit(windLines, ccx, ccy);
         });
         if (isSkipped) { cleanup(); return; }
 
         // 慢速接近
-        const slowX = midX + dx * 0.06;
-        const slowY = midY + dy * 0.06;
+        const slowX = targetX;
+        const slowY = targetY;
         shakeStopped = true;
         cloneA.style.transform = 'scale(1.1)';
         await clock.animateReal(T(600), (t) => {
@@ -416,10 +409,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             const cy = midY + (slowY - midY) * t;
             cloneA.style.left = cx+'px';
             cloneA.style.top = cy+'px';
-            updateFlame();
-            const ccx = cx + cloneA.offsetWidth/2;
-            const ccy = cy + cloneA.offsetHeight/2;
-            updateWindSplit(windLines, ccx, ccy);
         });
         if (isSkipped) { cleanup(); return; }
 

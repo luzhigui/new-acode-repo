@@ -142,6 +142,7 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
                 return;
             }
             resetBattleRuntime();
+            // 原班再战：阵容和站位直接继承上一局，进入可调整状态（主按钮直接显示「开始」）
             setState.adjustMode(true);
             setState.selectedAdjustPos(null);
             const snap = getState.snapshot();
@@ -214,8 +215,8 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             doInitBattle(stage, currentUI, snap, [], -1, null, true);
             setState.UI(currentUI);
             setState.snapshot(snap);
-            // 状态复位（此前漏调，gs 停 GAMEOVER 致主按钮仍是「下一关」）：与原班再战分支同构，落地进摆位态
-            setState.adjustMode(true);
+            // 状态复位：回到准备阶段（不直接进摆位态，让玩家先看阵容，点主按钮再调整）
+            setState.adjustMode(false);
             setState.selectedAdjustPos(null);
             setState.isPaused(false);
             setState.gs('IDLE');

@@ -298,7 +298,7 @@ function pvFly(stage, kind, x0, x1, y, dur, onEnd) {
 }
 
 // 标题是否带 ms 后缀：四个 px/ms 速度项不带
-const PV_MS = new Set(['charMs', 'lineGap', 'lineGapFx', 'floatLife', 'bubbleLife',
+const PV_MS = new Set(['charMs', 'lineGap', 'lineGapSys', 'lineGapFx', 'floatLife', 'bubbleLife',
     'moveDur', 'moveStart', 'clawStart', 'closeHitDur', 'dashDur', 'burstDur',
     'bulletDur', 'countdownTick', 'corpseDelay']);
 
@@ -354,6 +354,39 @@ const PV = {
         playOnce();
     },
 
+    /* ②-a 系统行停留 */
+    lineGapSys(stage, v, done) {
+        const box = pvLogbox(stage);
+        const L = [
+            ['✨ 获得Buff：圣火令（持续4回合）', 'gold'],
+            ['🐾 幼狮 出现在 3 号位（金毛狮王谢逊 召唤）', 'gray'],
+            ['☯ 生生不息：张三丰 消耗3点攻击力，回复14点生命', 'gray'],
+            ['🔥 圣火令：攻击第1列 +30%，防御第1、3行 +30%', 'gold'],
+        ];
+        let loop = 0;
+        const playOnce = () => {
+            box.innerHTML = '';
+            let i = 0;
+            const tick = () => {
+                if (i >= L.length) {
+                    loop++;
+                    if (loop < 3) {
+                        pvLater(playOnce, 600); // 播3遍，遍间停顿600ms
+                    } else {
+                        pvLater(done, 600);
+                    }
+                    return;
+                }
+                const d = pvEl(box, 'pv-logline ' + L[i][1]);
+                d.textContent = L[i][0];
+                i++;
+                pvLater(tick, v);
+            };
+            tick();
+        };
+        playOnce();
+    },
+
     /* ③ 效果行停留 */
     lineGapFx(stage, v, done) {
         const f = pvField(stage);
@@ -363,16 +396,29 @@ const PV = {
             ['⚔️ 乾坤衍生：攻击+2', '⚔+2', 'atk'],
             ['🛡️ 坚盾：防御+1（已叠1/4）', '🛡+1', 'atk'],
         ];
-        let i = 0;
-        const tick = () => {
-            if (i >= L.length) return pvLater(done, 200);
-            const d = pvEl(box, 'pv-logline green');
-            d.textContent = L[i][0];
-            pvFloat(stage, f.w - 45, 46, L[i][1], L[i][2], 1200);
-            i++;
-            pvLater(tick, v);
+        let loop = 0;
+        const playOnce = () => {
+            box.innerHTML = '';
+            let i = 0;
+            const tick = () => {
+                if (i >= L.length) {
+                    loop++;
+                    if (loop < 3) {
+                        pvLater(playOnce, 600); // 播3遍，遍间停顿600ms
+                    } else {
+                        pvLater(done, 600);
+                    }
+                    return;
+                }
+                const d = pvEl(box, 'pv-logline green');
+                d.textContent = L[i][0];
+                pvFloat(stage, f.w - 45, 46, L[i][1], L[i][2], 1200);
+                i++;
+                pvLater(tick, v);
+            };
+            tick();
         };
-        tick();
+        playOnce();
     },
 
     /* ④ 飘字存活 */
@@ -615,7 +661,8 @@ function pvSubtitle(k, v, stage) {
     switch (k) {
         case 'charMs':        return `每字 ${v}ms ｜ 28 字整行约 ${fmt(28 * v)}ms`;
         case 'lineGap':       return `每行停 ${v}ms ｜ 5 行共约 ${fmt(5 * v)}ms`;
-        case 'lineGapFx':     return `效果行停 ${v}ms ｜ 每行带飘字，比普通行慢约 9 倍`;
+        case 'lineGapSys':    return `系统提示行停 ${v}ms ｜ 播 3 遍演示`;
+        case 'lineGapFx':     return `效果行停 ${v}ms ｜ 每行带飘字，播 3 遍演示`;
         case 'floatLife':     return `飘字停留 ${v}ms ｜ 每 200ms 连出 3 个`;
         case 'bubbleLife':    return `气泡停留 ${v}ms ｜ 每 300ms 连出 2 个`;
         case 'moveDur':       return `总 ${v}ms = 起手 ${pvVal('moveStart')}ms + 飞行 ${fmt(Math.max(40, v - pvVal('moveStart')))}ms`;
@@ -696,7 +743,7 @@ const STOPS = [
 ];
 
 const LABELS = {
-    charMs: '每字时长', lineGap: '行间隔', lineGapFx: '效果行停留',
+    charMs: '每字时长', lineGap: '普通行间隔', lineGapSys: '系统行停留', lineGapFx: '攻击效果行',
     floatLife: '飘字存活', bubbleLife: '气泡存活',
     moveDur: '位移总时长', moveStart: '位移起手',
     crashSpeed: '飞撞速度', arrowSpeed: '飞箭速度', meteorSpeed: '流星速度',
@@ -718,39 +765,18 @@ const NO_TABLE_LIST = [
     'Buff 面板提示 / 事件提示（player/41 · player/45）',
 ];
 
-// 四档绝对值 [慢, 正常, 快, 极快]。
-//   中间 = 用户实机调定的那套；左右围绕中间重算：
-//     时长类（越大越慢）慢 ×2 / 快 ×0.6 / 极快 ×0.4
-//     速度类（越大越快）慢 ×0.4 / 快 ×1.6 / 极快 ×2.4
-//   为什么不再从 core 四列拼：core 的 '800'/'400'/'300'/'150' 是历史上逐项手调的散值，
-//   中间档落进去会与相邻档重复或反序（实测 7 项：行间隔/效果行停留/飘字存活/气泡存活/
-//   位移总时长/位移起手/清尸延迟），四档必须由一张表统一给出，保证严格单调。
-const PV_TIERS = Object.freeze({
-    charMs:        [48, 24, 14, 10],
-    lineGap:       [20, 10, 6, 4],
-    lineGapFx:     [224, 112, 67, 45],
-    floatLife:     [1300, 650, 390, 260],
-    bubbleLife:    [1400, 700, 420, 280],
-    moveDur:       [2000, 1000, 600, 400],
-    moveStart:     [180, 90, 54, 36],
-    crashSpeed:    [0.18, 0.45, 0.72, 1.08],
-    arrowSpeed:    [1.60, 4.00, 6.40, 9.60],
-    meteorSpeed:   [0.52, 1.30, 2.08, 3.12],
-    clawSpeed:     [0.52, 1.30, 2.08, 3.12],
-    clawStart:     [240, 120, 72, 48],
-    closeHitDur:   [1400, 700, 420, 280],
-    dashDur:       [3400, 1700, 1020, 680],
-    burstDur:      [4600, 2300, 1380, 920],
-    bulletDur:     [6000, 3000, 1800, 1200],
-    countdownTick: [800, 400, 240, 160],
-    corpseDelay:   [6000, 3000, 1800, 1200],
-});
+// 速度类参数（px/ms，越大越快）。其余参数都是时间类（ms，越大越慢）。
+// 不再维护写死的数值表：直接以 core/23 的 '300' 列（即外部 2x 档）为基准动态计算。
+// 时间类：慢 ×2 / 正常 ×1 / 快 ×0.6 / 极快 ×0.4
+// 速度类：慢 ×0.5 / 正常 ×1 / 快 ×1.6 / 极快 ×2.4
+const SPEED_KEYS = new Set(['crashSpeed', 'arrowSpeed', 'meteorSpeed', 'clawSpeed']);
 
 // 出厂默认刻度（用户实机调定）：0=慢 1=正常 2=快 3=极快
 //   与 core/23 的 '50' 列无关——面板加载时 applyAllStops() 会按这张表把 '50' 列写成对应档位的值。
 const DEFAULT_STOPS = Object.freeze({
     charMs: 1,
     lineGap: 1,
+    lineGapSys: 1,
     lineGapFx: 1,
     floatLife: 1,
     bubbleLife: 1,
@@ -804,12 +830,28 @@ function saveToStorage() {
     } catch (e) { return false; }
 }
 
-// 把某一项的刻度索引换算成参数表对应列的值，写进 '50' 列
+// 把某一项的刻度索引换算成参数表对应列的值，写进 '50' 列。
+// 基准值取自 getPerfParams()[key]['300']，确保无论何时，「正常」档都跟外部 2x 完全一致。
 function applyStop(key, idx) {
-    const tiers = PV_TIERS[key];
-    if (!tiers) return;
-    const v = tiers[idx];
-    if (typeof v !== 'number') return;
+    const baseVal = getPerfParams()[key]?.['300'];
+    if (typeof baseVal !== 'number') return;
+
+    const isSpeed = SPEED_KEYS.has(key);
+    let v = baseVal;
+
+    if (isSpeed) {
+        if (idx === 0) v = baseVal * 0.5;       // 慢
+        else if (idx === 2) v = baseVal * 1.6;  // 快
+        else if (idx === 3) v = baseVal * 2.4;  // 极快
+    } else {
+        if (idx === 0) v = baseVal * 2.0;       // 慢（时间变长）
+        else if (idx === 2) v = baseVal * 0.6;  // 快（时间变短）
+        else if (idx === 3) v = baseVal * 0.4;  // 极快
+    }
+
+    // 取整：速度类保留两位小数，时间类取整数
+    v = isSpeed ? Math.round(v * 100) / 100 : Math.round(v);
+
     const patch = {};
     patch[key] = {};
     patch[key][TIER] = v;

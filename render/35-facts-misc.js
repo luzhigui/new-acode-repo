@@ -28,61 +28,63 @@ export function renderHorseDestroyFact(fact) {
 }
 
 // Buff 摘要
-export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUid) {
+// 统一的海克斯摘要规则表
+const BUFF_SUMMARY_CFG = {
+    [BUFF_TYPES.BLOODTHIRST]: { role: ROLE_TYPES.WARRIOR, desc: (cfg) => `攻击吸血${Math.round(cfg.leechRatio*100)}%` },
+    [BUFF_TYPES.HOT_BLOOD]: { role: 'all', desc: (cfg) => `攻击回血${Math.round(cfg.leechRatio*100)}%（每3次翻倍）` },
+    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${Math.round(cfg.defBonus*100)}% 反弹50%` },
+    [BUFF_TYPES.CLOUD_BODY]: { role: 'all', desc: (cfg) => `闪避+${Math.round(cfg.dodgeBonus*100)}%` },
+    [BUFF_TYPES.WIND_ASSAULT]: { role: ROLE_TYPES.FLYER, desc: () => `80%波及同行 80%击退` },
+    [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${Math.round(cfg.bonusRatio*100)}% 溅射${Math.round(cfg.splashRatio*100)}%（主箭降2防，小箭降1防）` },
+    [BUFF_TYPES.CARRY]: { role: 'carry', desc: () => `获得队友属性加成` },
+    [BUFF_TYPES.MIND_CONTROL]: { role: 'none', desc: () => `最前排80%扰乱敌方换位，40%扰乱己方换位` },
+    [BUFF_TYPES.SOUL_DRAIN]: { role: 'none', desc: () => `敌方全体攻击力-30%，防御递减` },
+    [BUFF_TYPES.LAST_STAND]: { role: 'none', desc: () => `生命低于25%时攻击+10%防御-20%且受易伤` },
+    [BUFF_TYPES.UNITY]: { role: 'none', desc: () => `按存活人数阶梯提供攻防加成` },
+    [BUFF_TYPES.HOLY_FIRE]: { role: 'none', desc: () => `每局首次阵亡单位原地复活` },
+    [BUFF_TYPES.HOLY_FLAME]: { role: 'none', desc: (cfg, buff) => {
+        const cols = buff.cols || [];
+        const rows = buff.rows || [];
+        const colText = cols.length ? `第${cols.join('、')}列` : '无';
+        const rowText = rows.length ? `第${rows.join('、')}行` : '无';
+        return `攻击${colText} +${Math.round(cfg.atkBonus*100)}%，防御${rowText} +${Math.round(cfg.defBonus*100)}%`;
+    }},
+};
+
+export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids) {
+    const cfg = CONFIG.BUFFS?.[buff.key];
+    if (!cfg) return null;
+
     const allyTeam = (allyTeamUids || []).map(uid => findUnitSnapshotByUid(uid)).filter(u => u);
-    switch (buff.key) {
-        case BUFF_TYPES.BLOODTHIRST:
-            let btUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.WARRIOR);
-            if (btUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🗡️ 嗜血狂刀：${btUnits.map(u=>u.name).join('、')} 攻击吸血${Math.round(CONFIG.BUFFS.bloodthirst.leechRatio*100)}%</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            break;
-        case BUFF_TYPES.HOT_BLOOD:
-            let hbUnits = allyTeam.filter(u => u.alive);
-            if (hbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">❤️ 热血奋战：${hbUnits.map(u=>u.name).join('、')} 攻击回血${Math.round(CONFIG.BUFFS.hotBlood.leechRatio*100)}%（每3次翻倍）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            break;
-        case BUFF_TYPES.FORTIFY:
-            let ftUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.DEFENDER);
-            if (ftUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🛡️ 严阵以待：${ftUnits.map(u=>u.name).join('、')} 防御+${Math.round(CONFIG.BUFFS.fortify.defBonus*100)}% 反弹50%</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            break;
-        case BUFF_TYPES.CLOUD_BODY:
-            let cbUnits = allyTeam.filter(u => u.alive);
-            if (cbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">💨 流云身法：${cbUnits.map(u=>u.name).join('、')} 闪避+${Math.round(CONFIG.BUFFS.cloudBody.dodgeBonus*100)}%</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            break;
-        case BUFF_TYPES.WIND_ASSAULT:
-            let waUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.FLYER);
-            if (waUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🦅 乘风突袭：${waUnits.map(u=>u.name).join('、')} 80%波及同行 60%击退（持续3回合）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            break;
-        case BUFF_TYPES.METEOR_SHOWER:
-            let msUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.RANGED);
-            if (msUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(CONFIG.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(CONFIG.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            break;
-        case BUFF_TYPES.HOLY_FLAME:
-            {
-                const cols = buff.cols || [];
-                const rows = buff.rows || [];
-                if (cols.length > 0 || rows.length > 0) {
-                    const colText = cols.length ? `第${cols.join('、')}列` : '无';
-                    const rowText = rows.length ? `第${rows.join('、')}行` : '无';
-                    const atkPct = Math.round(CONFIG.BUFFS.holyFlame.atkBonus * 100);
-                    const defPct = Math.round(CONFIG.BUFFS.holyFlame.defBonus * 100);
-                    return {
-                        type:'buff-summary',
-                        text:`<span class="gold">🔥 圣火令：攻击${colText} +${atkPct}%，防御${rowText} +${defPct}%</span>`,
-                        buffType: BUFF_SUBTYPES.BUFF_STAT
-                    };
-                }
-            }
-            break;
-        case BUFF_TYPES.MIND_CONTROL:   // 清死码：DOUBLE_STRIKE 空分支删（连击无 buff 概要行，外部AI清单#6）
-            return {type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-        case BUFF_TYPES.CARRY:
-            let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
-            if (carryUnit) {
-                let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成`;
-                return {type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
-            }
-            break;
+
+    // 概率连击统一在此处理
+    if (buff.key === BUFF_TYPES.DOUBLE_STRIKE) {
+        if (!doubleStrikeUids || doubleStrikeUids.length === 0) return null;
+        const units = allyTeam.filter(u => doubleStrikeUids.includes(u.uid));
+        if (units.length === 0) return null;
+        return { type: 'buff-summary', text: `<span class="gold">⚡ 概率连击：${units.map(u=>u.name).join('、')} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT };
     }
-    return null;
+
+    const rule = BUFF_SUMMARY_CFG[buff.key];
+    if (!rule) return null;
+
+    let names = '';
+    if (rule.role === 'all') {
+        const units = allyTeam.filter(u => u.alive);
+        if (units.length === 0) return null;
+        names = units.map(u=>u.name).join('、') + ' ';
+    } else if (rule.role === 'carry') {
+        const unit = allyTeam.find(u => u.alive && (u.pos === 5 || u.isCarryEagle));
+        if (!unit) return null;
+        names = unit.name + ' ';
+    } else if (rule.role !== 'none') {
+        const units = allyTeam.filter(u => u.alive && u.role === rule.role);
+        if (units.length === 0) return null;
+        names = units.map(u=>u.name).join('、') + ' ';
+    }
+
+    const desc = rule.desc(cfg, buff);
+    return { type: 'buff-summary', text: `<span class="gold">${cfg.icon} ${cfg.name}：${names}${desc}</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT };
 }
 
 // 玄冥神掌
@@ -134,7 +136,7 @@ export function renderPhantomConfuseFact(fact) {
 
 // ── 注册 ────────────────────────────────────────────────
 registerFactRenderer(FACT_TYPES.HORSE_DESTROY, renderHorseDestroyFact);
-registerFactRenderer(FACT_TYPES.BUFF_SUMMARY, (data) => renderBuffSummaryFact(data.buff, data.allyTeamUids, data.doubleStrikeUid));
+registerFactRenderer(FACT_TYPES.BUFF_SUMMARY, (data) => renderBuffSummaryFact(data.buff, data.allyTeamUids, data.doubleStrikeUids));
 registerFactRenderer(FACT_TYPES.XUAN_MING_DOT, renderXuanmingDotFact);
 registerFactRenderer(FACT_TYPES.XUAN_MING_POISONED, renderXuanmingPoisonedFact);
 registerFactRenderer(FACT_TYPES.XUAN_MING_LINK_ATTACK, renderXuanmingLinkAttackFact);

@@ -2,7 +2,7 @@
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
 
-import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
+import { makeFXSnapshot, fmtHp, fmt1 } from '../infra/51-core-utils.js';
 import { getStat } from '../core/13battle-shared.js';
 import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
@@ -160,14 +160,14 @@ export function renderAttackFact(fact) {
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value !== 1);
     const fm = dmgCalc.formula;
     let runningRaw = fm ? fm.baseRaw : 0;
-    if (fm) formulaText = `${fm.terms.map(t => t.text).join(' + ')} = ${fm.baseRaw}`;
+    if (fm) formulaText = `${fm.terms.map(t => t.text).join(' + ')} = ${fmt1(fm.baseRaw)}`;
     for (const e of fmtBonusEntries) {
         runningRaw += e.value;
-        formulaText += ` + ${e.label}${e.value} = ${Math.round(runningRaw)}`;
+        formulaText += ` + ${e.label}${fmt1(e.value)} = ${fmt1(runningRaw)}`;
     }
     for (const e of fmtMultiplierEntries) {
-        runningRaw = Math.round(runningRaw * e.value);
-        formulaText += ` ×${e.value} ${e.label}=${runningRaw}`;
+        runningRaw = Math.round(runningRaw * e.value * 10) / 10;
+        formulaText += ` ×${e.value} ${e.label}=${fmt1(runningRaw)}`;
     }
     // 乾坤减伤进计算行（老板拍板格式「19.44-30% 减伤=14」）：乾坤走 query 通道
     // 不进上面两条链（不加成、不乘数，直接改最终值），此前公式与实际掉血对不上、中间差一块看不见。
@@ -177,20 +177,20 @@ export function renderAttackFact(fact) {
     for (const e of qkEntries) {
         const pct = Math.round((e.data && e.data.reducePct || 0) * 100);
         if (pct <= 0) continue;
-        runningRaw = Math.round(runningRaw * (1 - pct / 100));
-        formulaText += ` -${pct}% 减伤=${runningRaw}`;
+        runningRaw = Math.round(runningRaw * (1 - pct / 100) * 10) / 10;
+        formulaText += ` -${pct}% 减伤=${fmt1(runningRaw)}`;
     }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
     const damageText = directKill
         ? renderKillLineFact({
             ac, dc, campA, campD,
             unitName: unit.name,
-            dmg: Math.round(dmgResult.dmg),
+            dmg: fmt1(dmgResult.dmg),
             targetName: target.name,
             hpBefore: dmgResult.hpBefore,
             hpNow: targetHpAfter
         }).text
-        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
+        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
     // 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     // dmg：player/46 播到这行时用它弹伤害飘字（原先飘字由 fx/88 在命中后 1100ms 打，
     //   已改为「播到伤害行同帧打」，所以这里必须把数值带出来）。
@@ -298,7 +298,8 @@ export function renderDropFact(fact) {
 }
 
 export function renderBreakDefFact(fact) {
-    return {type:'detail', text:`<span class="purple small">🗡️ ${fact.attackerName} 破防：${fact.targetName} 防御 -${fact.reduce}</span>`};
+    // 补 fx 标记：破防有头顶飘字特效（🛡-2），应在播放时被认定为“效果行”，走较慢的停留时间
+    return { type: 'detail', text: `<span class="purple small">🗡️ ${fact.attackerName} 破防：${fact.targetName} 防御 -${fact.reduce}</span>`, fx: [{ kind: 'def', amount: fact.reduce }] };
 }
 
 // 何太冲技能报幕（连环箭·补射 / 昆仑合击 ×N）：note 为战报文本整行。

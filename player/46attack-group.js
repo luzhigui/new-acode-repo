@@ -12,6 +12,7 @@ import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '.
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { triggerHpAnim } from '../render/32grid-cells.js';
+import { fmt1 } from '../infra/51-core-utils.js';
 import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -51,12 +52,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     const textEntries = entry.entries || [];
-    // 受击黄闪不再单独猜时长——文字已改真实毫秒，猜出来的数必然对不上，
-    //   结果就是「文字还没播完、黄闪已经没了」。
-    //   现在的规则：非溢杀一路挂到本组文字播完（函数末尾统一 CLEAR_UNIT_FLASH）；
-    //   溢杀 = 本击直接把血打空，600ms 后提前上死亡态，不等战报播完。
-    const isOverkill = !!(unitD && entry.isDead === true
-        && typeof entry.hpAfter === 'number' && entry.hpAfter <= 0);
+    // 受击黄闪统一挂到本组文字播完（函数末尾处理），如果致死则直接切死亡态。
 
     await clock.wait(200);
     if (abortSig && abortSig.aborted) return { isBattleOver: false };
@@ -64,23 +60,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (unitD && !entry.isMiss && !entry.isDodge && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEFEND });
     }
-    // 受击方 flash：只有溢杀需要中途定时（600ms 后上死亡态）；
-    //   非溢杀不设定时器，黄闪挂到函数末尾统一清。
-    //   defTimerCancelled 保留：abort 或提前结束时让溢杀定时器失效（clock.waitReal 不可取消）。
-    let defTimerCancelled = false;
-    if (isOverkill && unitD && c.store) {
-        clock.wait(600).then(() => {
-            if (defTimerCancelled) return;
-            if (!c.store || !unitD) return;
-            // 与 player/42 步末落地同两条 dispatch；那里有 `!_isDead` 守卫，不会重复落地
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
-        });
-    }
 
     let lastDiv = null;
     for (const entry2 of textEntries) {
-        if (abortSig && abortSig.aborted) { defTimerCancelled = true; return { isBattleOver: false }; }
+        if (abortSig && abortSig.aborted) return { isBattleOver: false };
         // 畸形防御：裸 fact 条目（缺 text）或 null 不应让整场战斗播放崩溃；跳过并告警，便于定位上游漏渲染
         if (!entry2 || entry2.text == null) {
             console.warn('[handleAttackGroup] 跳过无法渲染的日志条目（缺 text）:', entry2);
@@ -89,16 +72,38 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         const logLevel = getState.logLevel();
         if (logLevel === 'brief' && entry2.type === 'detail') { appendHiddenDetail(entry2.text); continue; }
 
+        // ============================================================
+        // 统一伤害反馈（主攻击 / 白骨爪通用）：飘字 + 血条预演 + 同步真实血量
+        // ============================================================
+        let hitTarget = null;
+        let hitTargetUid = null;
         if (entry2.type === 'damage-text') {
-            // 伤害飘字改为「播到这行时打」，不再等飞撞动画的固定 1100ms。
-            if (unitD && entry2.dmg > 0 && !GlobalStore.get('fastForwardActive')) {
-                try { eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: unitD, dmg: Math.round(entry2.dmg) }); } catch (e) {}
+            hitTarget = unitD;
+            hitTargetUid = unitD ? unitD.uid : null;
+        } else if (entry2.isClawHit) {
+            hitTargetUid = entry2.clawTargetUid;
+            hitTarget = hitTargetUid ? findUnitByUid(c, hitTargetUid) : null;
+        }
+
+        if (hitTarget && entry2.dmg > 0 && entry2.hpAfter !== undefined) {
+            // 1. 伤害飘字
+            if (!GlobalStore.get('fastForwardActive')) {
+                try { eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: hitTarget, dmg: fmt1(entry2.dmg) }); } catch (e) {}
             }
-            // 掉血提前预演：飘字一出，血条立刻开始渐变掉血
-            if (unitD && entry2.hpAfter !== undefined && c.store) {
-                const su = c.store.getState().units.find(u => u.uid === unitD.uid);
-                if (su) triggerHpAnim(unitD.uid, Math.floor((entry2.hpAfter / su.maxHp) * 100));
+            // 2. 血条动画预演 + 立刻同步真实血量（防止连击时动画冲突）
+            if (c.store) {
+                const su = c.store.getState().units.find(u => u.uid === hitTargetUid);
+                if (su) triggerHpAnim(hitTargetUid, Math.floor((entry2.hpAfter / su.maxHp) * 100));
+                c.store.dispatch({
+                    type: STORE_ACTION_TYPES.HP_CHANGE,
+                    unitUid: hitTargetUid,
+                    payload: { hp: Math.max(0, entry2.hpAfter) }
+                });
             }
+        }
+        // ============================================================
+
+        if (entry2.type === 'damage-text') {
             lastDiv = await playLogLine(entry2.text, 1200);
             continue;
         }
@@ -141,30 +146,22 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
             if (clawAttacker && clawTarget) {
                 eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker: clawAttacker, target: clawTarget, opts: { isExecute: entry2.isExecute } });
-                // 爪击伤害飘字（快进跳过）——一位小数兜底，浮点尾巴不上面板
-                if (!GlobalStore.get('fastForwardActive') && entry2.dmg > 0) {
-                    eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: clawTarget, dmg: Math.round(entry2.dmg * 10) / 10 });
-                }
             }
         }
 
-        // combat-text/damage-text 基准 1200ms；爪击行 500ms（≈单爪动画时长，两者同步不互等）；
-        // 乾坤衍生随爪条目 350ms（无动画可等，比爪更快翻过——节奏"一条接一条"）；其他 600ms
-        const forcedSpeed = entry2.isClawHit ? 500
-            : entry2.clawFast ? 350
-            : (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;
-        await playLogLine(entry2.text, forcedSpeed);
+        // 白骨爪和随爪衍生：瞬间出整行文字，不走逐字（逐字会导致打字时间超过动画时间，节奏严重拖沓）
+        // 出完后精准停住对应时长，确保文字和飞爪动画完美同步。
+        if (entry2.isClawHit || entry2.clawFast) {
+            appendLogHTML(entry2.text + '<br>');
+            await clock.waitReal(entry2.isClawHit ? 500 : 350);
+        } else {
+            const forcedSpeed = (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;
+            await playLogLine(entry2.text, forcedSpeed);
+        }
         if (!c.userScrolled) autoScrollLog();
 
-        // 逐次更新目标血量：每击后立即同步 store，让血条跟着掉
-        if (entry2.isClawHit && entry2.hpAfter !== undefined && entry2.clawTargetUid && c.store) {
-            c.store.dispatch({
-                type: STORE_ACTION_TYPES.HP_CHANGE,
-                unitUid: entry2.clawTargetUid,
-                payload: { hp: Math.max(0, entry2.hpAfter) }
-            });
-            // 逐爪抖动：跟飞箭命中同一个函数（markGridShake），同一套观感。
-            //   必须在 dispatch 之后调——重绘会清掉内联 transform，先调等于白调。
+        // 逐爪抖动
+        if (entry2.isClawHit && entry2.clawTargetUid) {
             markGridShake(entry2.clawTargetUid, 250);
         }
 
@@ -184,15 +181,19 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     await clock.wait(200);
-    defTimerCancelled = true;
     if (unitA && !unitA.state._isDead && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
         if (!entry.isBlock && !entry.isDodge && !entry.isLinkAttack) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
         }
     }
-    if (unitD && !entry.isMiss && !entry.isDead && !unitD.state._isDead && c.store) {
+    if (unitD && !entry.isMiss && !unitD.state._isDead && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
+        if (entry.isDead) {
+            // 致死攻击：本组文字播完后，立刻切死亡态，不让连击的后段卡住视觉
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
+        }
     }
 
     updateRoundDisplay(`📜 日志（第${(c.store ? c.store.getState().round : (c.UI && c.UI.round)) || 1}回合）`);

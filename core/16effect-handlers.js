@@ -271,9 +271,21 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             //   reduce 是整数，但二进制浮点相减会出尾巴（2.8−2=0.7999999999999998）——
             //   必须在源头收敛，只在显示出口洗会让 fact / 规则读到尾巴值。
             const applied = Math.round(Math.max(0, hit.dmg - (clawPayload.reduce || 0)) * 10) / 10;
-            applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
+            // 护盾优先抵扣（白骨爪是独立结算管线，绕过了常规攻击的护盾扣除，需在此手写）
+            let hpLoss = applied;
+            if (chainTarget.state._shield > 0) {
+                const a = Math.min(chainTarget.state._shield, hpLoss);
+                chainTarget.state._shield -= a;
+                hpLoss -= a;
+            }
+            if (chainTarget.state._permShield > 0) {
+                const a = Math.min(chainTarget.state._permShield, hpLoss);
+                chainTarget.state._permShield -= a;
+                hpLoss -= a;
+            }
+            applyStatChange(chainTarget, 'hp', -hpLoss, chainSource, '九阴白骨爪');
             // 审计账本：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对
-            recordHpAudit(chainTarget, 'clawHit', -applied, '九阴白骨爪');
+            recordHpAudit(chainTarget, 'clawHit', -hpLoss, '九阴白骨爪');
             // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里；
             //   设计值另存 data.designedDmg —— 落地值被减伤后可为 0~设计值，体检靠它还原「设计下限」守护
             hit.data.designedDmg = hit.dmg;

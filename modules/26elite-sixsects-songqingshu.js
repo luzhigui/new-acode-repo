@@ -117,6 +117,8 @@ export const chainClawHandler = {
             let executeInfo = null;
             let totalHeal = 0;
             let simulatedTargetHp = target.hp;
+            let simulatedShield = target.state._shield || 0;
+            let simulatedPermShield = target.state._permShield || 0;
             let simulatedSongHp = song ? song.hp : 0;
             let depth = 0;
 
@@ -125,7 +127,18 @@ export const chainClawHandler = {
                 const lostHp = target.maxHp - simulatedTargetHp;
                 const ratioDmg = Math.floor((lostHp * s.lostHpRatio + target.maxHp * s.maxHpRatio) * 10) / 10;
                 const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
-                simulatedTargetHp -= bonusDmg;
+                let hpLoss = bonusDmg;
+                if (simulatedShield > 0) {
+                    const a = Math.min(simulatedShield, hpLoss);
+                    simulatedShield -= a;
+                    hpLoss -= a;
+                }
+                if (simulatedPermShield > 0) {
+                    const a = Math.min(simulatedPermShield, hpLoss);
+                    simulatedPermShield -= a;
+                    hpLoss -= a;
+                }
+                simulatedTargetHp -= hpLoss;
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
                 const execThreshold = s.executeThreshold;

@@ -106,7 +106,12 @@
 //   「⚠样本未覆盖(变异行零执行)」，与「真盲区」区分开：前者是**样本/锚点覆盖缺口**，
 //   后者才是「机制执行了却没人看见」。方向是把错的分类改对、把缺口显式报出来，
 //   **不是放宽**：真盲区（执行了仍无反应）该红照红，且新增的这一类是新的待办信号而非绿灯。
-export const VER = 'tests/mutation-teeth.mjs V2.9.17';
+// V2.9.18 | 2026-10-31 第 145 轮续：main 把惑心换位 fact 由「unitA/unitB/posA/posB」单 swap 重写为
+//   「swaps:[{uid,name,fromPos,toPos}]」变长数组（core/14 L196/L217，渲染 render/35-facts-control L92），
+//   T17/T18 锚点整行失效（--verify 报 0 处 ⇒ 静默失效=假绿制造机）。重锚：
+//   T17 翻转 SWAP fact 的 side（ENEMY→ALLY，文本变「己方」咬判据1）；T18 把 fact 内 fromPos/toPos 对调
+//   （文本报反位置咬判据5）。两者仍针对 rule113（166）惑心配对/落地，牙齿语义不变。
+export const VER = 'tests/mutation-teeth.mjs V2.9.18';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -425,20 +430,23 @@ const MUTATIONS = [
     //     敌方侧 roll 失败时该条不产生（FAIL 分支不动）⇒ 样本里需至少一次敌方 SWAP（概率 80%/95%，覆盖充足）。
     { id: 'T17', kind: 'TEXT', desc: '敌方惑心换位 fact 的 side 漂移成己方（⇒ 配对断链 → rule113 判据1应咬）',
       file: 'core/14buff-effects.js',
-      from: "data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });",
-      to:   "data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB, dmg: dmgOnSwap } });" },
+      // 2026-10-31 第 145 轮续：main 把惑心换位 fact 由「unitA/unitB/posA/posB」单 swap 重写为
+      //   「swaps:[{uid,name,fromPos,toPos}]」变长数组（core/14 applyMindControlCore L196/L217，渲染 render/35-facts-control L92）。
+      //   旧 from/to 锚定单行已不存在 ⇒ 重锚到 SWAP fact 发射行，只翻转其 side（BANNER/FAIL 行不含 MIND_CONTROL_SWAP 锚点，不会被误伤）。
+      from: "FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });",
+      to:   "FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });" },
     //   T18：SWAP fact 把两个旧位置报反（posA/posB 对调，multi 两分支同改）—— 实际换位照常发生，
     //     但宣告的 oldPosA/oldPosB 与真相对调 ⇒ 判据5「A 应落到 oldPosB」永远不命中 ⇒ 应咬。
     //     判据2（自洽）抓不到（uid/位置仍合法且相异）—— 正是要单独验证判据5 有牙。
     { id: 'T18', kind: 'TEXT', desc: '惑心换位 fact 报反新旧位置（⇒ 宣告位置未生效 → rule113 判据5应咬）',
       file: 'core/14buff-effects.js',
-      // 2026-10-15 第 93 轮重修（原设计是空操作！）：旧 from/to 把简写属性 `{ ..., posA, posB }` 换成
-      //   `{ ..., posB, posA }` —— ES6 简写只换**键顺序**不换值，生成的对象一模一样 ⇒ sed 注入成功
-      //   但行为零变化，树仍是干净树 ⇒ 第 92 轮首测 0 命中还害我误判"规则没牙"。真变异必须换**值**：
-      //   `posA: posB, posB: posA`（fact 的 posA 字段装 posB 的值、反之亦然）⇒ 渲染文本位置对调
-      //   ⇒ 判据5（含第 93 轮终局兜底）应咬。
-      from: "unitB: { uid: b.uid, name: b.name }, posA, posB",
-      to:   "unitB: { uid: b.uid, name: b.name }, posA: posB, posB: posA",
+      // 2026-10-31 第 145 轮续：main fact 结构重写后，报位置的字段由 posA/posB 变为 fromPos/toPos
+      //   （fact.swaps[i].fromPos/toPos，渲染 render/35-facts-control L92 照此出「X号位→Y号位」）。
+      //   T17 同款锚点失效：旧 `unitB:..., posA, posB` 单行已不存在。真变异必须换**值**——
+      //   `fromPos: s.toPos, toPos: s.fromPos`（fact 的 fromPos 装 toPos 的值、反之亦然）⇒ 渲染文本位置对调
+      //   ⇒ 判据5（宣告位置 vs 后续真实站位）应咬。multi：敌/己两条 SWAP 发射行都含此串，一并翻。
+      from: "fromPos: s.fromPos, toPos: s.toPos",
+      to:   "fromPos: s.toPos, toPos: s.fromPos",
       multi: true },
     { id: 'A29', kind: 'ATTR', desc: '空见金刚不坏加持计数器 +1→+2（跳号 → rule172 判据1「严格1,2,3」应咬）',
       file: 'modules/26elite-sixsects-kongjian.js',

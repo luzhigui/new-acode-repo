@@ -97,12 +97,7 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
 
     setBattleState('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
 
-    if (unitUids.length > 0) {
-        const dsUnits = A.filter(u => unitUids.includes(u.uid));
-        dsUnits.forEach(dsUnit => {
-            ctx.log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
-        });
-    }
+
 
     ctx.log.filter(l => l.factType === 'horseSummon').forEach(hl => {
         const horse = A.find(u => u.uid === hl.data.horseUid);
@@ -335,7 +330,8 @@ function prepareRoundStart(A, B, state, ctx) {
 
     computeDodgeChance(A, B);
 
-    logBuffSummary(A, { log: ctx.log, doubleStrikeUid: (ds.unitUids || [])[0] || null });
+    logBuffSummary(A, { log: ctx.log, doubleStrikeUids: ds.unitUids || [] });
+    logBuffSummary(B, { log: ctx.log, doubleStrikeUids: ds.enemyUids || [] });
 
     // 默认飞行方向由回合组件 register 设置（幂等）
 
