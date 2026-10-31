@@ -2,7 +2,13 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.2.0';
+export const VER = 'tools/112-elite-eval.js V3.3.0';
+// V3.3.0 | 2026-10-31 双海克斯：工具栏新增「双海克斯（六大派也选）」复选框（102 的 #eliteEnemyHex），
+//   勾选后五类 job 全部透传 enemyHex，116 用 core/06 V1.3.0 的 enemyHexPicker 让六大派也自动选。
+//   不勾 = 旧口径（只有明教选），历史基线可继续对比。
+
+// 双海克斯开关：102-toolkit.html 的 #eliteEnemyHex（缺失元素 = 不勾，向后兼容无 UI 的调用）
+const enemyHexOn = () => !!(document.getElementById('eliteEnemyHex') && document.getElementById('eliteEnemyHex').checked);
 
 // 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
@@ -145,7 +151,7 @@ startBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'elite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'elite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'elite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, enemyHex: enemyHexOn() }),
             onJobDone: (finished, total, job, part) => {
                 // part = { 变体名: { 角色名: {runs,wins,...} } }
                 for (const [variant, roles] of Object.entries(part || {})) {
@@ -222,7 +228,7 @@ async function runSoloGroup(list, ui) {
         await runParallel({
             jobs,
             kind: 'soloElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'soloElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'soloElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite, enemyHex: enemyHexOn() }),
             onJobDone: (finished, total, job, part) => {
                 // part = { 变体名: {runs,wins,...} }（单精英局只落一个桶，桶名 = 本局敌方是谁）
                 for (const [variant, d] of Object.entries(part && part.variants || {})) {
@@ -344,7 +350,7 @@ noEliteBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'noElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'noElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'noElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, enemyHex: enemyHexOn() }),
             onJobDone: (finished, total, job, part) => {
                 // part = { 变体名: {runs,wins,sumSurv} }（无精英局同样按敌方变体分桶）
                 for (const [variant, d] of Object.entries((part && part.variants) || {})) {
@@ -458,7 +464,7 @@ weakBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'weakElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite' }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite', enemyHex: enemyHexOn() }),
             onJobDone: (finished, total, job, part) => {
                 const key = (part && part.arm === 'natural') ? '__natural' : job.elite;
                 for (const [variant, d] of Object.entries((part && part.variants) || {})) {

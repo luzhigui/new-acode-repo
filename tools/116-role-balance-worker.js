@@ -1,3 +1,8 @@
+// V1.18.0 | 2026-10-31 双海克斯（六大派也带海克斯）：新增 pickEnemyHexBuff（逐字复刻 player/49 的纯逻辑）；
+//           11 个 job 全部接 enemyHex —— 原本带海克斯的（hex/elite 系列/balance/random/paired）由工具开关切换，
+//           本来不带海克斯的 stats/baseline 另加 hexEnabled 参数（默认关，旧基线不变）。
+//           敌方 buff 由 createBuffObject 带 target=ENEMY 创建，core/06 V1.3.0 起两侧续存
+//           （旧 runner 只捞 ally，敌方 buff 下一回合会被整批丢弃）。
 // V1.17.0 | 2026-10-31 worker 自备 201hex-enhance.json（loadHexEnhanceData）：
 //           小昭 hexEnhance 已迁出 200，modules/27 每回合建队就读 201，缺则四种阵容 hex job 全炸。
 //           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
@@ -27,7 +32,7 @@ import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from 
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
 import { runBattle } from '../core/06battle-runner.js';
 import { setBattleRng } from '../core/13battle-shared.js';
-import { createBuffObject, filterAvailableBuffs } from '../modules/28buff-tools.js';
+import { createBuffObject, buffsOfCamp, filterAvailableBuffs } from '../modules/28buff-tools.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
@@ -65,6 +70,8 @@ function clearBattleGlobals() {
 function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = null) {
     const user = opts || {};
     const userOnStep = user.onStep || null;
+    // V1.18.0：长尾参数走 opts.enemyHex（双海克斯＝六大派也带海克斯），默认 false 与原行为一致
+    const enemyHex = !!user.enemyHex;
     // V1.16.0：捕获引擎每步的实时敌方（step.enemy），供海克斯候选过滤的惑人心智门槛（敌方存活 >2）读取；
     //   core/06 的 hexPicker 签名只回传明教侧，不改主代码只能走 onStep 读引用。
     let liveEnemy = null;
@@ -79,6 +86,8 @@ function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = nu
         // V1.15.0：weakContrib 观测通道（onStep 只读日志，不参与结算）；旧调用 opts=null 行为不变
         ...user,
         hexPicker: hexEnabled ? ((ab, al, rng) => pickHexBuff(ab, al, rng, false, liveEnemy || initEnemy)) : null,
+        // V1.18.0 双海克斯：明教选完，六大派也选一个（同一 rng 流）
+        enemyHexPicker: (hexEnabled && enemyHex) ? ((ab, en, al, rng) => pickEnemyHexBuff(ab, en, al, rng)) : null,
         // 无海克斯、无观测调用时不上 onStep（保持旧路径零开销）
         onStep: (hexEnabled || userOnStep) ? onStep : undefined
     });
@@ -134,7 +143,27 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule, enemyTeam = []
     return nb;
 }
 
-function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
+// V1.18.0 双海克斯：六大派自动选一个（逐字复刻 player/49 handleEnemyAutoBuffSelection 的纯逻辑部分）。
+//   过滤口径同一套 filterAvailableBuffs（人数门槛 / 职业要求 / 惑心门槛，withFortifyRule=true 同主代码）；
+//   rng 必须用战斗 RNG（同 seed 同结果）。buff 由 createBuffObject 带 target=ENEMY 创建 ——
+//   主游戏正是这么做的，引擎按 b.target 拆进 B._activeBuffs，只有六大派吃到。
+function pickEnemyHexBuff(activeBuffs, enemySide, allySide, rng) {
+    const enemyTeam = (enemySide || []).filter(u => u && u.alive);
+    const allyTeam = (allySide || []).filter(u => u && u.alive);
+    const activeEnemyBuffs = buffsOfCamp(activeBuffs, CAMP_TYPES.ENEMY);
+    const available = filterAvailableBuffs(activeEnemyBuffs, enemyTeam, { withFortifyRule: true, enemyTeam: allyTeam });
+    if (available.length === 0) return null;
+    const shuffled = [...available];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = rng.nextInt(0, i);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+    const pick = choices[rng.nextInt(0, choices.length - 1)];
+    return createBuffObject(pick, null, CAMP_TYPES.ENEMY, enemyTeam);
+}
+
+function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled, enemyHex = false) {
     const rng = new SeededRNG(seed);
     setBattleRng(rng);
     // 开局 buff：原实现是"第 0 回合先补一个"（hexEnabled 时）。runner 用 initialBuffs 承接，
@@ -144,6 +173,11 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
         const first = pickHexBuff(initialBuffs, buildAlly, rng, true, buildEnemy);
         if (first) initialBuffs.push(first);
     }
+    // 双海克斯：主游戏开局是「明教选完 → 六大派自动选一次」，这里对称给敌方也补开局 buff
+    if (hexEnabled && enemyHex) {
+        const firstEnemy = pickEnemyHexBuff(initialBuffs, buildEnemy, buildAlly, rng);
+        if (firstEnemy) initialBuffs.push(firstEnemy);
+    }
     // V1.16.0：同 runWholeBattle——捕获实时敌方，供惑人心智门槛
     let liveEnemy = null;
     const res = runBattle({
@@ -152,6 +186,7 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
         seed,
         initialBuffs,
         hexPicker: hexEnabled ? ((ab, al, r) => pickHexBuff(ab, al, r, false, liveEnemy || buildEnemy)) : null,
+        enemyHexPicker: (hexEnabled && enemyHex) ? ((ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)) : null,
         onStep: hexEnabled ? ((step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }) : undefined,
         firstSide: CAMP_TYPES.ENEMY
     });
@@ -166,7 +201,7 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 2026-10-08 单英雄胜率（112「⚔ 单英雄胜率」按钮）：force 单精英 + 轮盘互锁（29 V7.5.16 起
 // 张/韦/谢逊/小昭四路 force 全部抑制随机轮盘）= 每局明教侧只有这一个精英。
 // 口径与普通评测一致：海克斯开、种子公式同款；胜 = 明教获胜。小昭姊/妹走 forceXiaoZhao 形态值。
-function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
+function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = false) {
     // 2026-10-22 V1.12.3：force 键映射统一由 127 的 SOLO_FORCE_KEY 提供（含寒离飒的 forceHanLiSa）
     const keyMap = SOLO_FORCE_KEY;
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
@@ -183,7 +218,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true);
+        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -205,7 +240,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0) {
 // 2026-10-22 V1.12.1：modules/29 V7.6.0 起「无 Boss 也必出 1 个强精英」，自然局已不存在无精英阵容，
 //   旧的纯拒绝采样会 200 次全空、整表静默 0 场。改用 forceSoloWeakElite 抑制随机精英块（该标志下不补任何精英），
 //   再拒绝采样排除 30% 的弱精英混入 → 得到真正「一个精英都没有」的 5 普通兵局。按敌方变体分桶，口径与上两表一致。
-function runNoEliteJob(stage, seed, runs, startIndex = 0) {
+function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
     const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun
         || u.isHanLiSa || u.isYangXiao || u.isYinTianZheng;
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0 });
@@ -222,7 +257,7 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0) {
         }
         if (!ally || !ally.length) continue;
         GlobalStore.set('battleHasZhang', false);
-        const res = runWholeBattle(ally, teams.enemyTeam, s, true);
+        const res = runWholeBattle(ally, teams.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -279,7 +314,7 @@ function applyForcedWeakAlly(ally, elite, rng) {
     return true;
 }
 
-function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
+function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, enemyHex = false) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
@@ -296,7 +331,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
         let swappedIn = false;
         if (arm !== 'natural' && side === 'ally') swappedIn = applyForcedWeakAlly(ally, elite, initRng);
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true);
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null);
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -343,7 +378,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0) {
 //     factsTarget fact 里 target.name === 该精英的条目（被打/被免疫/被治疗……）
 //     probes      在 note/reason/skillName/label 文本中命中 job 传入关键字的次数
 //   只读观测、不参与结算；自然臂不扫日志（保持对照臂开销与 weakElite 一致）。
-function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex = 0) {
+function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex = 0, enemyHex = false) {
     const flag = WEAK_UNIT_FLAG[elite];
     const newAgg = () => ({
         runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0,
@@ -382,7 +417,7 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
                 }
             }
         };
-        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep } : null);
+        const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep, enemyHex } : { enemyHex });
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -421,7 +456,7 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
     return { elite: arm === 'natural' ? null : elite, side, arm, variants: out };
 }
 
-function runEliteStageJob(stage, seed, runs, startIndex = 0) {
+function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
     // 2026-09-24 定稿：胖远桥/宋青书是"行"不是"列"——第3关阵容在两人间轮换，
     // 按"本局敌方是谁"把整局分进对应变体桶（胖远桥/宋青书/标准），112 端每个桶渲染一行。
     // 列仍是明教六名精英：谁在场记给谁，胜 = 明教获胜（同场共现是真实环境，不是污染）。
@@ -440,7 +475,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0) {
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true); // 带海克斯，对齐正式游戏节奏
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null); // 带海克斯，对齐正式游戏节奏
         if (!res.winner) continue;
         const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
         const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
@@ -474,7 +509,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0) {
 // 口径对齐正式游戏：支持海克斯偏好 preferredBuffs；所选 Buff 由小昭·妹永久继承（addPermanentBuff）。
 // 搬进 worker 是因为主线程一口气跑几百场会把页面占死（移动端弹「网页暂无响应」）。
 // seed 公式与 101 主线程版一致（Date.now() + i*7919），差异只在于是否并行，统计口径不受影响。
-function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex = 0, lineupMode = 'normal') {
+function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex = 0, lineupMode = 'normal', enemyHex = false) {
     const hexLog = []; // [{ stage, buffs: [key], winner }]
     const wins = { ally: 0, enemy: 0, draw: 0 };
     const C = CONFIG;
@@ -538,6 +573,8 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             enemy: teams.enemyTeam,
             seed,
             hexPicker,
+            // V1.18.0 双海克斯：明教选完，六大派也选一个（与主游戏 enemyAutoHex 同时机）
+            enemyHexPicker: enemyHex ? ((ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)) : null,
             // V1.16.0：捕获实时敌方（每场独立重置），供惑人心智门槛
             onStep: (step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }
         });
@@ -575,7 +612,7 @@ function buildRandomTeam(size, camp, rng, force) {
     return team;
 }
 
-function runRandomJob(size, baseSeed, startIndex, runs) {
+function runRandomJob(size, baseSeed, startIndex, runs, hexEnabled = false, enemyHex = false) {
     const stats = { allyCounts: {}, enemyCounts: {} };
     for (const role of RANDOM_ROLES) { stats.allyCounts[role] = {}; stats.enemyCounts[role] = {}; }
     const countRoles = (team) => { const c = {}; for (const u of team) c[u.role] = (c[u.role] || 0) + 1; return c; };
@@ -589,12 +626,16 @@ function runRandomJob(size, baseSeed, startIndex, runs) {
         const seed = baseSeed + (startIndex + i) * 7919;
         const allyTeam = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed));
         const enemyTeam = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
+        // V1.18.0：可选海克斯（默认关，保持原「纯职业对拍」口径）；开启时用独立 RNG 流保证同 seed 同结果
+        if (hexEnabled) setBattleRng(new SeededRNG(seed + 2));
         const res = runBattle({
             ally: allyTeam,
             enemy: enemyTeam,
             seed,
             maxRounds: 35,
-            firstSide: CAMP_TYPES.ENEMY
+            firstSide: CAMP_TYPES.ENEMY,
+            hexPicker: hexEnabled ? ((ab, al, r) => pickHexBuff(ab, al, r, false, enemyTeam)) : null,
+            enemyHexPicker: (hexEnabled && enemyHex) ? ((ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)) : null
         });
         const isAllyWin = (res.winner || '平局') === '明教';
         const ac = countRoles(allyTeam);
@@ -611,7 +652,7 @@ function runRandomJob(size, baseSeed, startIndex, runs) {
 //   role/slot 按 i 轮转。配对差 diff = 对照胜(0/1) − 基线胜(0/1)，按 role 累积 n/Σ/Σ²，
 //   主线程据 Δ=Σ/n、SE=√((Σ²−n·Δ²)/(n−1))/√n 出 95% CI——单职业因果净效应，噪声远小于独立采样。
 //   对照局敌队按同 seed+1 重建（不复用对象），站位/其余职业随机流与基线逐位一致。
-function runPairedJob(size, baseSeed, startIndex, runs) {
+function runPairedJob(size, baseSeed, startIndex, runs, hexEnabled = false, enemyHex = false) {
     const buckets = {};
     for (const role of RANDOM_ROLES) buckets[role] = { n: 0, sum: 0, sumSq: 0, baseWins: 0, pairWins: 0 };
     for (let i = 0; i < runs; i++) {
@@ -621,12 +662,22 @@ function runPairedJob(size, baseSeed, startIndex, runs) {
         clearBattleGlobals();
         const allyBase = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed));
         const enemyBase = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
-        const resBase = runBattle({ ally: allyBase, enemy: enemyBase, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY });
+        if (hexEnabled) setBattleRng(new SeededRNG(seed + 2));
+        const resBase = runBattle({
+            ally: allyBase, enemy: enemyBase, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY,
+            hexPicker: hexEnabled ? ((ab, al, r) => pickHexBuff(ab, al, r, false, enemyBase)) : null,
+            enemyHexPicker: (hexEnabled && enemyHex) ? ((ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)) : null
+        });
         const baseWin = (resBase.winner || '平局') === '明教' ? 1 : 0;
         clearBattleGlobals();
         const allyPair = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed), { slot, role });
         const enemyPair = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
-        const resPair = runBattle({ ally: allyPair, enemy: enemyPair, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY });
+        if (hexEnabled) setBattleRng(new SeededRNG(seed + 2));
+        const resPair = runBattle({
+            ally: allyPair, enemy: enemyPair, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY,
+            hexPicker: hexEnabled ? ((ab, al, r) => pickHexBuff(ab, al, r, false, enemyPair)) : null,
+            enemyHexPicker: (hexEnabled && enemyHex) ? ((ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)) : null
+        });
         const pairWin = (resPair.winner || '平局') === '明教' ? 1 : 0;
         const b = buckets[role];
         const diff = pairWin - baseWin;
@@ -637,7 +688,7 @@ function runPairedJob(size, baseSeed, startIndex, runs) {
 
 // 113 统计体检
 // 原主线程逻辑：initBattleTeams → hp-tracker 订阅 → runWholeBattle → record 进 agg（主线程聚合）
-function runStatsStageJob(stage, seed, runs) {
+function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = false) {
     const agg = {}; // worker 内自聚合，返回给主线程直接并入全局 agg
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
@@ -669,7 +720,7 @@ function runStatsStageJob(stage, seed, runs) {
         const ally = allyTeam.map(u => u.clone());
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
 
-        const res = runWholeBattle(ally, enemyTeam, seed + i * 7919);
+        const res = runWholeBattle(ally, enemyTeam, seed + i * 7919, hexEnabled, enemyHex ? { enemyHex } : null);
         off();
         if (res.winner) {
             for (const u of (res.ally || [])) record(agg, u, tracker[u.uid]);
@@ -728,7 +779,7 @@ function applyConfig(team, cfg, seed) {
     return eu;
 }
 
-function runBaselineStageJob(stage, seed, runs, cfgA, cfgB) {
+function runBaselineStageJob(stage, seed, runs, cfgA, cfgB, hexEnabled = false, enemyHex = false) {
     let vA = 0, wA = 0, dA = 0, tkA = 0, sA = 0;
     let vB = 0, wB = 0, dB = 0, tkB = 0, sB = 0;
     for (let i = 0; i < runs; i++) {
@@ -745,9 +796,9 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB) {
         const euB = applyConfig(teamB, cfgB, seedBase + 31);
         if (!euA || !euB) continue;
         GlobalStore.set('battleHasZhang', teamA.some(u => u.isZhang));
-        const resA = runWholeBattle(teamA, enemyTeam, seedBase);
+        const resA = runWholeBattle(teamA, enemyTeam, seedBase, hexEnabled, enemyHex ? { enemyHex } : null);
         GlobalStore.set('battleHasZhang', teamB.some(u => u.isZhang));
-        const resB = runWholeBattle(teamB, enemyTeam, seedBase);
+        const resB = runWholeBattle(teamB, enemyTeam, seedBase, hexEnabled, enemyHex ? { enemyHex } : null);
         if (resA.winner) {
             vA++; if (resA.winner === '明教') wA++;
             const e = (resA.ally || []).find(u => u[cfgA.flag]);
@@ -780,49 +831,49 @@ self.onmessage = (e) => {
     try {
         let result;
         if (kind === 'balance') {
-            const { ai, ei, allyRole, enemyRole, rounds, positions, hexEnabled, masterSeed } = e.data;
+            const { ai, ei, allyRole, enemyRole, rounds, positions, hexEnabled, masterSeed, enemyHex } = e.data;
             let wins = 0;
             for (let i = 0; i < rounds; i++) {
                 const seed = masterSeed + ai * 100000 + ei * 10000 + i * 7919;
                 const rng = new SeededRNG(seed);
                 const allyTeam = buildTeam(allyRole, CAMP_TYPES.ALLY, positions, rng);
                 const enemyTeam = buildTeam(enemyRole, CAMP_TYPES.ENEMY, positions, rng);
-                const r = runBalanceJob(allyTeam, enemyTeam, seed, hexEnabled);
+                const r = runBalanceJob(allyTeam, enemyTeam, seed, hexEnabled, !!enemyHex);
                 flushBattleEvents();
                 // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
                 if (r.winner === '明教') wins++;
             }
             result = { wins };
         } else if (kind === 'elite') {
-            const { stage, seed, runs, startIndex } = e.data;
-            result = runEliteStageJob(stage, seed, runs, startIndex || 0);
+            const { stage, seed, runs, startIndex, enemyHex } = e.data;
+            result = runEliteStageJob(stage, seed, runs, startIndex || 0, !!enemyHex);
         } else if (kind === 'soloElite') {
-            const { stage, seed, runs, elite, startIndex } = e.data;
-            result = runSoloEliteJob(stage, seed, runs, elite, startIndex || 0);
+            const { stage, seed, runs, elite, startIndex, enemyHex } = e.data;
+            result = runSoloEliteJob(stage, seed, runs, elite, startIndex || 0, !!enemyHex);
         } else if (kind === 'noElite') {
-            const { stage, seed, runs, startIndex } = e.data;
-            result = runNoEliteJob(stage, seed, runs, startIndex || 0);
+            const { stage, seed, runs, startIndex, enemyHex } = e.data;
+            result = runNoEliteJob(stage, seed, runs, startIndex || 0, !!enemyHex);
         } else if (kind === 'weakElite') {
-            const { stage, seed, runs, elite, side, arm, startIndex } = e.data;
-            result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0);
+            const { stage, seed, runs, elite, side, arm, startIndex, enemyHex } = e.data;
+            result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0, !!enemyHex);
         } else if (kind === 'weakContrib') {
-            const { stage, seed, runs, elite, side, arm, probes, startIndex } = e.data;
-            result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0);
+            const { stage, seed, runs, elite, side, arm, probes, startIndex, enemyHex } = e.data;
+            result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0, !!enemyHex);
         } else if (kind === 'stats') {
-            const { stage, seed, runs } = e.data;
-            result = runStatsStageJob(stage, seed, runs);
+            const { stage, seed, runs, hexEnabled, enemyHex } = e.data;
+            result = runStatsStageJob(stage, seed, runs, !!hexEnabled, !!enemyHex);
         } else if (kind === 'hex') {
-            const { stage, seed, runs, preferredBuffs, startIndex, lineupMode } = e.data;
-            result = runHexStageJob(stage, seed, runs, preferredBuffs, startIndex || 0, lineupMode || 'normal');
+            const { stage, seed, runs, preferredBuffs, startIndex, lineupMode, enemyHex } = e.data;
+            result = runHexStageJob(stage, seed, runs, preferredBuffs, startIndex || 0, lineupMode || 'normal', !!enemyHex);
         } else if (kind === 'random') {
-            const { size, seed, startIndex, runs } = e.data;
-            result = runRandomJob(size, seed, startIndex || 0, runs);
+            const { size, seed, startIndex, runs, hexEnabled, enemyHex } = e.data;
+            result = runRandomJob(size, seed, startIndex || 0, runs, !!hexEnabled, !!enemyHex);
         } else if (kind === 'paired') {
-            const { size, seed, startIndex, runs } = e.data;
-            result = runPairedJob(size, seed, startIndex || 0, runs);
+            const { size, seed, startIndex, runs, hexEnabled, enemyHex } = e.data;
+            result = runPairedJob(size, seed, startIndex || 0, runs, !!hexEnabled, !!enemyHex);
         } else if (kind === 'baseline') {
-            const { stage, seed, runs, cfgA, cfgB } = e.data;
-            result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB);
+            const { stage, seed, runs, cfgA, cfgB, hexEnabled, enemyHex } = e.data;
+            result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB, !!hexEnabled, !!enemyHex);
         } else {
             throw new Error(`未知 worker kind: ${kind}`);
         }

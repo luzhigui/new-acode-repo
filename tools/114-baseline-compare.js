@@ -1,4 +1,6 @@
 // 口径不变：同种子生成同一套阵容，A/B 两组精英配置各跑一遍；逐关对照 胜率/输出/承伤/存活 差异
+// 2026-10-31 V1.1.0 海克斯开关：面板新增 #bcHex / #bcEnemyHex（双海克斯需先勾海克斯）。
+//   默认都不勾 = 裸机对照（原口径、历史数不变）；勾海克斯后 A/B 两臂共用同一开关，保证对照公平。
 import { runParallel } from './117-shared-worker-runner.js';
 import { ELITE_UNIT_META } from './127-tool-registry.js';
 
@@ -13,6 +15,13 @@ const mBEl = document.getElementById('bcMB');
 const runsInput = document.getElementById('bcRunsInput');
 const progressEl = document.getElementById('bcProgress');
 const resultEl = document.getElementById('bcResult');
+const hexCb = document.getElementById('bcHex');
+const enemyHexCb = document.getElementById('bcEnemyHex');
+if (hexCb && enemyHexCb) {
+    const sync = () => { enemyHexCb.disabled = !hexCb.checked; };
+    hexCb.addEventListener('change', sync);
+    sync();
+}
 
 startBtn.addEventListener('click', async () => {
     const cfgA = { name: roleAEl.value, m: parseInt(mAEl.value) || 115 };
@@ -22,6 +31,8 @@ startBtn.addEventListener('click', async () => {
     if (!cfgA.flag || !cfgB.flag) { alert('A/B 精英配置缺失'); return; }
     const stages = Array.from(document.querySelectorAll('.bc-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(runsInput.value) || 20;
+    const hexEnabled = !!(hexCb && hexCb.checked);
+    const enemyHex = hexEnabled && !!(enemyHexCb && enemyHexCb.checked);
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     startBtn.disabled = true;
@@ -39,7 +50,7 @@ startBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'baseline',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'baseline', stage: job.stage, seed: job.seed, runs: job.runs, cfgA, cfgB }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'baseline', stage: job.stage, seed: job.seed, runs: job.runs, cfgA, cfgB, hexEnabled, enemyHex }),
             onJobDone: (finished, total, job, r) => {
                 rows[job.stage] = r;
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;

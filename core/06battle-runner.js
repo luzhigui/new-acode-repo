@@ -17,7 +17,12 @@
 //      要渲染的 fact 走 createRoundStepper 的 ui / translateFacts 参数，本文件不生成、
 //      也不应该被拿去生成。
 
-export const VER = 'core/06battle-runner.js V1.2.0';
+export const VER = 'core/06battle-runner.js V1.3.0';
+// V1.3.0 | 2026-10-31 双海克斯支持（工具跑批对齐主游戏 enemyAutoHex）：
+//           · ① 新增可选 enemyHexPicker：与 hexPicker 同时机给敌方也补一个 buff（明教选完后六大派自动选，同 player/49）。
+//           · ② buff 续存由「只捞 ally._activeBuffs」改为「两侧都捞」——旧版下一回合会把敌方 buff 整批丢弃，
+//             所以即使塞进去也只生效一回合，双海克斯在无头跑批里根本无法成立。
+//           · 两个新参数均为可选，不传时行为与 V1.2.0 完全一致（单海克斯/裸机基线不受影响）。
 
 import { createRoundStepper } from './11battle-round.js';
 import { CONFIG } from './01config-5v5-test.js';
@@ -34,6 +39,8 @@ import { SeededRNG } from '../infra/51-core-utils.js';
  * @param {Array}    [o.initialBuffs] 开局 buff 列表，默认空
  * @param {Function} [o.hexPicker]   每 hexInterval 回合补一个 buff 的回调：(activeBuffs, allySide, rng) => buff|null
  *                                   传 null 表示本局不补海克斯（裸机基线）
+ * @param {Function} [o.enemyHexPicker] 双海克斯专用：与 hexPicker 同一时机给敌方补一个：
+ *                                   (activeBuffs, enemySide, allySide, rng) => buff|null；传 null = 只有明教带海克斯
  * @param {number}   [o.hexInterval] 补海克斯的间隔，默认 3
  * @param {string}   [o.firstSide]   先手阵营，默认引擎规则（'ally' | 'enemy'）
  * @param {boolean}  [o.collectFacts] 是否收集 factType 序列，默认 false
@@ -51,6 +58,7 @@ export function runBattle(o) {
         maxRounds = CONFIG.MAX_ROUND,
         initialBuffs = [],
         hexPicker = null,
+        enemyHexPicker = null,
         hexInterval = CONFIG.HEX_INTERVAL,
         firstSide = null,
         collectFacts = false,
@@ -100,16 +108,25 @@ export function runBattle(o) {
 
         // buff 递减：引擎不递减（core/11 全文无 remaining），递减在消费方——
         // 真游戏 player/42 每回合 remaining-1，此处必须同口径，否则 buff 永不失效。
-        state.activeBuffs = (lastStep.ally._activeBuffs || [])
+        // 双海克斯（V1.3.0）：两侧 buff 都要续存。旧版只捞 ally._activeBuffs，
+        //   敌方 buff 会在下一回合被引擎整批丢弃（state.activeBuffs 重建时丢掉 B 那一份）。
+        state.activeBuffs = [...(lastStep.ally._activeBuffs || []), ...(lastStep.enemy._activeBuffs || [])]
             .filter(b => b && b.remaining > 0)
             .map(b => ({ ...b, remaining: b.remaining - 1 }))
             .filter(b => b.remaining > 0);
 
         // 补海克斯（可选）：按 hexInterval 间隔，用同一个 rng，保证同 seed 同序列
         let picked = null;
-        if (hexPicker && hexInterval > 0 && state.round % hexInterval === 0) {
-            picked = hexPicker(state.activeBuffs, lastStep.ally, rng);
-            if (picked) state.activeBuffs.push(picked);
+        if (hexInterval > 0 && state.round % hexInterval === 0) {
+            if (hexPicker) {
+                picked = hexPicker(state.activeBuffs, lastStep.ally, rng);
+                if (picked) state.activeBuffs.push(picked);
+            }
+            // 双海克斯：明教选完后给六大派也选一个（与主游戏 player/42 的 enemyAutoHex 时机一致）
+            if (enemyHexPicker) {
+                const enemyPicked = enemyHexPicker(state.activeBuffs, lastStep.enemy, lastStep.ally, rng);
+                if (enemyPicked) state.activeBuffs.push(enemyPicked);
+            }
         }
 
         if (onRoundEnd) {

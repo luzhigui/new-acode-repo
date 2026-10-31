@@ -1,4 +1,7 @@
-export const VER = 'tools/109-role-balance.js V6.1.0';
+export const VER = 'tools/109-role-balance.js V6.2.0';
+// V6.2.0 | 2026-10-31 双海克斯开关（双海克斯=六大派也自动选，与主游戏 enemyAutoHex 对齐）：
+//   新增「双海克斯」复选框，只在「海克斯」开启时可用；勾选后透传 enemyHex 给 116 balance job，
+//   116 由 core/06 V1.3.0 的 enemyHexPicker 在明教选完后对称给六大派补一个（同 seed 同结果）。
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { getPoolSize } from './117-shared-worker-runner.js';
@@ -61,11 +64,15 @@ window.openRoleBalance = function() {
                 <button class="role-bal-close">关闭</button>
             </div>
             <div class="role-bal-body">
-                <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。M=100，明教侧按全自动规则选海克斯（开局1个+每3回合1个，仅明教方）。统计明教视角胜率。</p>
+                <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。M=100，明教侧按全自动规则选海克斯（开局1个+每3回合1个，仅明教方）；勾选「双海克斯」则六大派也自动选。统计明教视角胜率。</p>
                 <div class="role-bal-pos-config">
                     <label class="role-bal-toggle" id="roleBalHexLabel">
                         <input type="checkbox" id="roleBalHex" checked>
                         <span class="switch"></span> 海克斯
+                    </label>
+                    <label class="role-bal-toggle" id="roleBalEnemyHexLabel">
+                        <input type="checkbox" id="roleBalEnemyHex">
+                        <span class="switch"></span> 双海克斯（六大派也选）
                     </label>
                     <label class="role-bal-toggle" id="roleBalToggleLabel">
                         <input type="checkbox" id="roleBalMeleeLimit">
@@ -117,6 +124,16 @@ window.openRoleBalance = function() {
     meleeLimitCb.addEventListener('change', updatePosConfig);
     posPoolInput.addEventListener('input', updatePosConfig);
 
+    // V6.2.0：双海克斯只在「海克斯」开启时可选（海克斯关闭 = 双方裸机，勾了也没意义）
+    const hexCb = mask.querySelector('#roleBalHex');
+    const enemyHexCb = mask.querySelector('#roleBalEnemyHex');
+    const syncEnemyHex = () => {
+        enemyHexCb.disabled = !hexCb.checked;
+        enemyHexCb.parentElement.style.opacity = hexCb.checked ? '1' : '.45';
+    };
+    hexCb.addEventListener('change', syncEnemyHex);
+    syncEnemyHex();
+
     mask.querySelector('#roleBalClear').addEventListener('click', () => {
         result.innerHTML = '';
         progress.textContent = '';
@@ -125,6 +142,7 @@ window.openRoleBalance = function() {
     mask.querySelector('#roleBalRun').addEventListener('click', async () => {
         const roundsPerGroup = parseInt(roundsInput.value) || 100;
         const hexEnabled = mask.querySelector('#roleBalHex').checked;
+        const enemyHex = hexEnabled && mask.querySelector('#roleBalEnemyHex').checked;
         const startT = performance.now();
         const matrix = {};
         const allyStats = {};
@@ -151,7 +169,7 @@ window.openRoleBalance = function() {
         renderResult(result, matrix, allyStats, enemyStats);
 
         try {
-            const results = await runJobsParallel(jobs, roundsPerGroup, positions, hexEnabled, masterSeed, poolSize, (msg) => {
+            const results = await runJobsParallel(jobs, roundsPerGroup, positions, hexEnabled, enemyHex, masterSeed, poolSize, (msg) => {
             const st = startT;
             const sec = ((performance.now() - st) / 1000).toFixed(1);
             if (msg.done) {
@@ -176,7 +194,7 @@ window.openRoleBalance = function() {
 };
 
 // Worker 池：并发派发 jobs，逐组回报进度，聚合结果
-function runJobsParallel(jobs, rounds, positions, hexEnabled, masterSeed, poolSize, progress) {
+function runJobsParallel(jobs, rounds, positions, hexEnabled, enemyHex, masterSeed, poolSize, progress) {
     return new Promise((resolve, reject) => {
         const workers = [];
         const doneResults = [];
@@ -252,7 +270,7 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, masterSeed, poolSi
                 jobId: { ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole, kind: 'run' },
                 kind: 'balance',
                 ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole,
-                rounds, positions, hexEnabled, masterSeed
+                rounds, positions, hexEnabled, enemyHex, masterSeed
             });
         };
 

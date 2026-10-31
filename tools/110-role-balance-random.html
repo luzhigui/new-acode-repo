@@ -31,12 +31,16 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 <body>
 <h1>⚖️ 职业平衡分析 · 全随机站位</h1>
 <p class="tip">
-双方全随机职业 + 全随机站位，固定六大派先手，无海克斯，全员 M=100。<br>
+双方全随机职业 + 全随机站位，固定六大派先手，默认无海克斯，全员 M=100（勾选「海克斯 / 双海克斯」即接入，双 = 六大派也自动选）。<br>
 统计口径：某方拥有该职业 0/1/2/3+ 个时该方胜率。5v5 与 6v6 独立跑，结果对比。
 </p>
 <div class="config">
 <label>每组场次：</label>
 <input type="number" id="roundsInput" value="200" min="50" max="1000" step="50">
+<label style="color:#4fc3f7">海克斯：</label>
+<input type="checkbox" id="hexCb" style="width:auto" title="明教侧自动选海克斯（开局1个+每3回合1个）">
+<label style="color:#4fc3f7">双海克斯：</label>
+<input type="checkbox" id="enemyHexCb" style="width:auto" title="六大派也自动选一次（需先勾选「海克斯」）">
 <button class="run5" id="run5Btn">▶ 跑 5v5</button>
 <button class="run6" id="run6Btn">▶ 跑 6v6</button>
 <button class="run5" id="runPaired5Btn" style="background:#4fc3f7">▶ 成对对照 5v5</button>
@@ -92,7 +96,7 @@ function mergeStats(dst, src) {
 
 const CHUNK = 10; // 分片场次：片越细 worker 空手越早领到下一片，长尾越短
 
-async function runAnalysis(size, rounds, progressEl) {
+async function runAnalysis(size, rounds, progressEl, hexEnabled = false, enemyHex = false) {
     const stats = initStats();
     const masterSeed = Date.now();
     const jobs = [];
@@ -107,7 +111,7 @@ async function runAnalysis(size, rounds, progressEl) {
         jobs,
         kind: 'random',
         poolSize,
-        nextJobMsg: (job, id) => ({ jobId: id, kind: 'random', size: job.size, seed: job.seed, startIndex: job.startIndex, runs: job.runs }),
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'random', size: job.size, seed: job.seed, startIndex: job.startIndex, runs: job.runs, hexEnabled, enemyHex }),
         onJobDone: (finished, jobTotal, job, result) => {
             if (result) mergeStats(stats, result);
             doneRuns += job.runs;
@@ -197,13 +201,24 @@ const run6Btn = document.getElementById('run6Btn');
 const result5 = document.getElementById('result5');
 const result6 = document.getElementById('result6');
 
+// 海克斯开关（V6.3.0 双海克斯）：双海克斯只在「海克斯」开启时可用
+const hexCb = document.getElementById('hexCb');
+const enemyHexCb = document.getElementById('enemyHexCb');
+const readHex = () => ({ hexEnabled: hexCb.checked, enemyHex: hexCb.checked && enemyHexCb.checked });
+const syncEnemyHex = () => {
+    enemyHexCb.disabled = !hexCb.checked;
+    enemyHexCb.style.opacity = hexCb.checked ? '1' : '.4';
+};
+hexCb.addEventListener('change', syncEnemyHex);
+syncEnemyHex();
+
 run5Btn.addEventListener('click', async () => {
     const rounds = parseInt(roundsInput.value) || 200;
     run5Btn.disabled = true;
     run6Btn.disabled = true;
     result5.innerHTML = '<div class="empty">运行中...</div>';
     try {
-        const stats = await runAnalysis(5, rounds, progressEl);
+        const stats = await runAnalysis(5, rounds, progressEl, readHex().hexEnabled, readHex().enemyHex);
         renderStats(result5, stats, 5);
     } catch (e) {
         result5.innerHTML = `<div class="empty">出错：${e.message}</div>`;
@@ -219,7 +234,7 @@ run6Btn.addEventListener('click', async () => {
     run6Btn.disabled = true;
     result6.innerHTML = '<div class="empty">运行中...</div>';
     try {
-        const stats = await runAnalysis(6, rounds, progressEl);
+        const stats = await runAnalysis(6, rounds, progressEl, readHex().hexEnabled, readHex().enemyHex);
         renderStats(result6, stats, 6);
     } catch (e) {
         result6.innerHTML = `<div class="empty">出错：${e.message}</div>`;
@@ -271,7 +286,7 @@ function renderPaired(container, buckets, size) {
     container.innerHTML = html;
 }
 
-async function runPairedAnalysis(size, pairs, progressEl) {
+async function runPairedAnalysis(size, pairs, progressEl, hexEnabled = false, enemyHex = false) {
     const buckets = {};
     const masterSeed = Date.now();
     const jobs = [];
@@ -284,7 +299,7 @@ async function runPairedAnalysis(size, pairs, progressEl) {
         jobs,
         kind: 'paired',
         poolSize,
-        nextJobMsg: (job, id) => ({ jobId: id, kind: 'paired', size: job.size, seed: job.seed, startIndex: job.startIndex, runs: job.runs }),
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'paired', size: job.size, seed: job.seed, startIndex: job.startIndex, runs: job.runs, hexEnabled, enemyHex }),
         onJobDone: (finished, jobTotal, job, result) => {
             if (result) mergePaired(buckets, result);
             donePairs += job.runs;
@@ -305,7 +320,7 @@ async function runPairedWrapper(size) {
     allBtns.forEach(b => b.disabled = true);
     resultPaired.innerHTML = '<div class="empty">运行中...</div>';
     try {
-        const buckets = await runPairedAnalysis(size, pairs, progressEl);
+        const buckets = await runPairedAnalysis(size, pairs, progressEl, readHex().hexEnabled, readHex().enemyHex);
         renderPaired(resultPaired, buckets, size);
     } catch (e) {
         resultPaired.innerHTML = `<div class="empty">出错：${e.message}</div>`;

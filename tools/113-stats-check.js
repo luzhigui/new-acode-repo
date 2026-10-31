@@ -1,14 +1,25 @@
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
+// 2026-10-31 V1.1.0 海克斯开关：面板新增 #scHex / #scEnemyHex（双海克斯需先勾海克斯）。
+//   默认都不勾 = 裸机记账（原口径、历史数不变）；勾海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
 import { runParallel } from './117-shared-worker-runner.js';
 
 const startBtn = document.getElementById('scStartBtn');
 const runsInput = document.getElementById('scRunsInput');
 const progressEl = document.getElementById('scProgress');
 const resultEl = document.getElementById('scResult');
+const hexCb = document.getElementById('scHex');
+const enemyHexCb = document.getElementById('scEnemyHex');
+if (hexCb && enemyHexCb) {
+    const sync = () => { enemyHexCb.disabled = !hexCb.checked; };
+    hexCb.addEventListener('change', sync);
+    sync();
+}
 
 startBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.sc-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(runsInput.value) || 20;
+    const hexEnabled = !!(hexCb && hexCb.checked);
+    const enemyHex = hexEnabled && !!(enemyHexCb && enemyHexCb.checked);
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     startBtn.disabled = true;
@@ -27,7 +38,7 @@ startBtn.addEventListener('click', async () => {
         await runParallel({
             jobs,
             kind: 'stats',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'stats', stage: job.stage, seed: job.seed, runs: job.runs }),
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'stats', stage: job.stage, seed: job.seed, runs: job.runs, hexEnabled, enemyHex }),
             onJobDone: (finished, total, job, part) => {
                 for (const [key, d] of Object.entries(part)) {
                     const t = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0 });

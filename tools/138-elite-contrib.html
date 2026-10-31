@@ -42,6 +42,7 @@
 </div>
 <div class="bar">
   <label>每关每臂场次 <input type="number" id="runsInput" value="120" min="20" step="10"></label>
+  <label style="color:#4fc3f7"><input type="checkbox" id="enemyHexCb"> 双海克斯（六大派也选）</label>
   <span class="sub">总样本 / 精英 = 场次 × 7 关（每只弱精英各跑一套）</span>
   <button id="runBtn">▶ 开始跑批</button>
   <button id="loadBtn">📂 载入上次</button>
@@ -56,7 +57,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { WEAK_ELITES } from './127-tool-registry.js';
 
-const VERSION = '138-elite-contrib V1.4.0';
+const VERSION = '138-elite-contrib V1.5.0';
 const CHUNK = 50;
 const CONTRIB_KEY = 'ming_weak_elite_contrib';   // V1.2.0：跑批结果落盘，关页面后仍能「📂 载入上次」；126 报警也能读它做交叉印证
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
@@ -456,7 +457,8 @@ runBtn.addEventListener('click', async () => {
       jobs,
       nextJobMsg: (job, id) => ({
         jobId: id, kind: 'weakContrib', stage: job.stage, seed: job.seed, startIndex: job.startIndex,
-        runs: job.runs, elite: job.elite, side: job.side, arm: job.arm, probes: job.probes
+        runs: job.runs, elite: job.elite, side: job.side, arm: job.arm, probes: job.probes,
+        enemyHex: !!(document.getElementById('enemyHexCb') || {}).checked
       }),
       onJobDone: (finished, total, job, part) => {
         for (const [v, agg] of Object.entries(part.variants || {})) {
