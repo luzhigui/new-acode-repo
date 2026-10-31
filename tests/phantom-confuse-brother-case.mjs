@@ -117,6 +117,10 @@ const { CAMP_TYPES } = await import('../infra/56-battle-enums.js');
 const { eventBus } = await import('../infra/50-event-bus.js');
 const { SIGNAL_TYPES } = await import('../infra/56-battle-enums.js');
 const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
+// ★ 第 171 轮：permHas / hasActiveBuff 收口为 tests/_lib/buff-state-query.mjs 唯一来源
+//   （本文件与 xiaozhao-horse-carry-case 各存一份逐字相同的副本，被 second-source-scan 判为
+//    「铁证如山的第二份」；纯搬迁，行为零变化 —— 详见公共件头部）。
+const { permHas, hasActiveBuff } = await import('./_lib/buff-state-query.mjs');
 await import('../modules/25elite-imperial.js');
 await import('../modules/26elite-sixsects.js');
 await import('../modules/27elite-mingjiao.js');
@@ -141,10 +145,6 @@ const cnt = { enemy: 0, permLive: 0, noEnemyMc: 0, hasFakeTarget: 0 };
 //   若信号时刻（同回合内）拿到的兄不是同一个对象 ⇒ 闭包读的确实是另一个对象的 _permanentBuffs。
 let roundStartBro = null;
 const idc = { refMismatch: 0, startNoPermButLiveYes: 0, startHasPerm: 0 };
-function permHas(u, key) {
-    return !!(u && Array.isArray(u.state && u.state._permanentBuffs)
-        && u.state._permanentBuffs.some(b => b.key === key));
-}
 const probe = createSignalProbe({
     bus: eventBus, SIGNAL_TYPES,
     signal: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
@@ -175,11 +175,6 @@ const probe = createSignalProbe({
 });
 // 反向自检：探针本体能不能收到信号。收不到 ⇒ 下面任何「零触发」都属测量错误，不可采信。
 const probeAlive = isAliveProbe(eventBus, '__PHANTOM_CONFUSE_PROBE_SELFTEST__', 'PHANTOM_CONFUSE_PROBE_SELFTEST');
-
-function hasActiveBuff(side, key) {
-    const arr = side && side._activeBuffs;
-    return !!(arr && arr.some(b => b && b.key === key));
-}
 
 function runBattle(seed, stage) {
     GlobalStore.set('forceXiaoZhao', 'brother');

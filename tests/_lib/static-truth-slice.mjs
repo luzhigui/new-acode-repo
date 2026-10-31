@@ -72,7 +72,11 @@
 //   contract-binding-drift / rule-binding-drift 两处内联 readIfAbs 收口为 tests/_lib/read-if-abs.mjs
 //   唯一来源（消除 second-source-scan 棘轮越界），重复真消失，故翻面守卫：今后 tests 下若再冒出
 //   第二份同体 readIfAbs 即判回归（与 collectFacts 同款双向核销）。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.4.1';
+// V1.5.0 | 2026-11-01 夜间第 171 轮：DUP_WITNESS 增两条「已核销」登记（hasActiveBuff / permHas）
+//   —— 第 171 轮把这两个函数收口为 tests/_lib/buff-state-query.mjs 唯一来源，两个 case 文件的
+//      内联副本真消失 ⇒ 登记为 expect:false：今后 tests 下若再冒出第二份同体实现即判回归
+//      （与第 165 轮 readIfAbs 同一写法）。★ 只增凭证、不动判据：DUP_FN_RATCHET 仍为 4 未抬。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.5.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -766,7 +770,9 @@ function runSelfChecks(fails) {
         { name: 'readIfAbs', expect: false, why: '第 165 轮(续) 收口为 tests/_lib/read-if-abs.mjs 唯一来源（contract-binding-drift / rule-binding-drift 两处内联副本消除，重复真消失；今后 tests 下若再冒出第二份同体 readIfAbs 即判回归）' },
         { name: 'parentDmgOf', expect: true, why: '第 152 轮点名至今仍在（两份，落在 health-rules）' },
         { name: 'fail', expect: true, why: '第 152 轮点名至今仍在（三份自检入口）' },
-{ name: 'collectFacts', expect: false, why: '第 163 轮立 tests/_lib/fact-collect.mjs 为唯一收口；本轮消除 121health-monitor.js / rules-replay.mjs 内联副本（含 121 漏 phantomFact 的口径分叉），重复真消失（不是检测失灵）' }
+{ name: 'collectFacts', expect: false, why: '第 163 轮立 tests/_lib/fact-collect.mjs 为唯一收口；本轮消除 121health-monitor.js / rules-replay.mjs 内联副本（含 121 漏 phantomFact 的口径分叉），重复真消失（不是检测失灵）' },
+{ name: 'hasActiveBuff', expect: false, why: '第 171 轮立 tests/_lib/buff-state-query.mjs 为唯一收口；消除 phantom-confuse-brother-case.mjs / xiaozhao-horse-carry-case.mjs 两处内联副本（逐字相同，纯搬迁零行为变化），重复真消失（不是检测失灵）' },
+{ name: 'permHas', expect: false, why: '第 171 轮立 tests/_lib/buff-state-query.mjs 为唯一收口；消除 phantom-confuse-brother-case.mjs / xiaozhao-horse-carry-case.mjs 两处内联副本（逐字相同，纯搬迁零行为变化），重复真消失（不是检测失灵）' }
     ];
     try {
         const d9 = auditDupFnNames(path.dirname(path.dirname(fileURLToPath(import.meta.url))));

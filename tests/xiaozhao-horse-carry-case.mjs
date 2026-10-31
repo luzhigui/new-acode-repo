@@ -144,16 +144,11 @@ const { collectFacts } = await import('./_lib/fact-collect.mjs');
 const { createSignalProbe } = await import('./_lib/signal-probe.mjs');
 void createSignalProbe;
 const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
+// ★ 第 171 轮：permHas / hasActiveBuff 收口为 tests/_lib/buff-state-query.mjs 唯一来源
+//   （本文件与 phantom-confuse-brother-case 各存一份逐字相同的副本，被 second-source-scan 判为
+//    「铁证如山的第二份」；纯搬迁，行为零变化 —— 详见公共件头部）。
+const { permHas, hasActiveBuff } = await import('./_lib/buff-state-query.mjs');
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
-
-function hasActiveBuff(side, key) {
-    const arr = side && side._activeBuffs;
-    return !!(arr && arr.some(b => b && b.key === key));
-}
-function permHas(u, key) {
-    return !!(u && Array.isArray(u.state && u.state._permanentBuffs)
-        && u.state._permanentBuffs.some(b => b.key === key));
-}
 
 // 逐层剥前置（回合级保守下界：一整回合只计 1 次）
 const L = {
