@@ -469,6 +469,28 @@
                         }
                     } catch (e) {}
 
+                    // 海克斯胜率（tools/52 getHexWinRates，带 Wilson 95% 区间）：哪个海克斯真带你赢
+                    //   双海克斯模式一局带俩，这块比单模式更关键——数据早就算好了，之前一直没摆出来。
+                    try {
+                        const hx = m.getHexWinRates(null, curMode);
+                        if (hx && hx.length) {
+                            const t6 = document.createElement('div');
+                            t6.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
+                            let h6 = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">海克斯胜率（带上该海克斯时的对局胜率，按出场次数排序）</div>';
+                            h6 += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+                            h6 += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">海克斯</th><th>出场</th><th>胜率</th><th title="95% 置信区间（Wilson）">区间</th></tr>';
+                            hx.slice(0, 14).forEach(x => {
+                                const trusted = x.reliable !== false;
+                                const c = !trusted ? '#666' : (x.winRate >= 55 ? '#4caf50' : (x.winRate <= 40 ? '#ff6b6b' : '#ccc'));
+                                const ciTxt = x.ci ? `${x.ci[0]}%–${x.ci[1]}%` : '—';
+                                h6 += `<tr style="border-top:1px solid #2a2a4e;color:${trusted ? '#ccc' : '#666'};"><td style="padding:3px;text-align:left;">${x.name}</td><td>${x.n}</td><td style="color:${c}">${x.winRate}%${trusted ? '' : ' <span style="color:#666">样本少</span>'}</td><td style="color:#888">${ciTxt}</td></tr>`;
+                            });
+                            h6 += '</table><div style="font-size:9px;color:#666;padding:4px 6px;line-height:1.5;">≥8 局才标「可靠」，样本少的海克斯胜率波动大、别当真；区间越窄越可信。这是「带上它更容易赢」的相关，不是因果——强海克斯也可能是因为你在优势局才选它。</div>';
+                            t6.innerHTML = h6;
+                            wrap.appendChild(t6);
+                        }
+                    } catch (e) {}
+
                     // 统计块排最前
                     contentHost.appendChild(wrap);
                 } catch (e) { /* 统计失败不影响文本导出 */ }
