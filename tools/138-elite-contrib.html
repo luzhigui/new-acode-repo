@@ -45,6 +45,8 @@
   <span class="sub">总样本 / 精英 = 场次 × 7 关（每只弱精英各跑一套）</span>
   <button id="runBtn">▶ 开始跑批</button>
   <button id="loadBtn">📂 载入上次</button>
+  <button id="copyBtn">📋 复制报告</button>
+  <button id="csvBtn">⬇ 导出CSV</button>
 </div>
 <div id="progress"></div>
 <div id="errBox"></div>
@@ -54,7 +56,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { WEAK_ELITES } from './127-tool-registry.js';
 
-const VERSION = '138-elite-contrib V1.3.0';
+const VERSION = '138-elite-contrib V1.4.0';
 const CHUNK = 50;
 const CONTRIB_KEY = 'ming_weak_elite_contrib';   // V1.2.0：跑批结果落盘，关页面后仍能「📂 载入上次」；126 报警也能读它做交叉印证
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
@@ -312,6 +314,111 @@ function render() {
 
   resultEl.innerHTML = html;
 }
+
+// ============ V1.4.0：复制报告 / 导出 CSV（结果带得走，能贴进聊天、能存档） ============
+const copyBtn = document.getElementById('copyBtn');
+const csvBtn = document.getElementById('csvBtn');
+
+// 把 by 累加器收敛成结构化行（总评口径与 render 一致：明教侧贡献=Δ，六大派侧贡献=−Δ）
+function contribRows() {
+  const rows = [];
+  for (const w of WEAK_ELITES) {
+    const e = totals(w.name, 'elite'), n = totals(w.name, 'natural');
+    if (!e.runs) continue;
+    const er = e.wins / e.runs, nr = n.runs ? n.wins / n.runs : NaN;
+    const deltaPP = isNaN(nr) ? NaN : (er - nr) * 100;
+    const contribPP = isNaN(deltaPP) ? NaN : (w.side === 'ally' ? deltaPP : -deltaPP);
+    const sig = sigOf(e.wins, e.runs, n.wins, n.runs);
+    const skillTop = Object.entries(e.skills || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0];
+    const probeTop = Object.entries(e.probes || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0];
+    rows.push({ w, e, n, er, nr, deltaPP, contribPP, sig, skillTop, probeTop });
+  }
+  return rows.sort((a, b) => (isNaN(b.contribPP) ? -1e9 : b.contribPP) - (isNaN(a.contribPP) ? -1e9 : a.contribPP));
+}
+
+function buildReport() {
+  const rows = contribRows();
+  const L = [];
+  L.push(`# 弱精英机制贡献评估（${VERSION}）`);
+  L.push(`生成时间：${new Date().toLocaleString('zh-CN')}`);
+  L.push('', '## 总评（按对本方贡献排序）');
+  for (const r of rows) {
+    const dpp = isNaN(r.deltaPP) ? '—' : (r.deltaPP > 0 ? '+' : '') + r.deltaPP.toFixed(1) + 'pp';
+    const cpp = isNaN(r.contribPP) ? '—' : (r.contribPP > 0 ? '+' : '') + r.contribPP.toFixed(1) + 'pp';
+    const sig = r.sig ? (r.sig.sig ? '✓显著' : '≈噪声') : '';
+    L.push(`- ${r.w.name}（${r.w.side === 'ally' ? '明教' : '六大派'}）｜${r.e.runs}场｜Δ(明教) ${dpp}｜对本方贡献 ${cpp} ${sig}`);
+  }
+  L.push('', '## 一句话结论');
+  for (const r of rows) {
+    if (isNaN(r.contribPP)) continue;
+    L.push('- ' + verdictOf(r.w, r.e, r.contribPP, r.sig && r.sig.sig).replace(/<[^>]+>/g, ''));
+  }
+  L.push('', '## 机制观测明细（精英臂，每场均值）');
+  for (const r of rows) {
+    const facts = Object.entries(r.e.factsSelf || {}).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([k, v]) => `${k} ${per(v, r.e.runs)}`).join('；') || '—';
+    const probe = Object.entries(r.e.probes || {}).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      .map(([k, v]) => `${k} ${per(v, r.e.runs)}`).join('；') || '—';
+    L.push(`- ${r.w.name}（${r.e.runs}场）：自身fact ${facts}｜探针 ${probe}`);
+  }
+  return L.join('\n');
+}
+
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* 落到下面兜底 */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
+function downloadCSV(name, text) {
+  const blob = new Blob(['\ufeff' + text], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+function exportCSV() {
+  const rows = contribRows();
+  if (!rows.length) { setErr('还没有结果，先跑一次批'); return; }
+  const q = x => `"${String(x).replace(/"/g, '""')}"`;
+  const head = ['弱精英', '侧', '样本', '精英胜率%', '对照胜率%', 'Δ明教pp', '对本方贡献pp', '显著性',
+    '存活%', '输出/场', '承伤/场', '治疗/场', '技能触发top', '关键事件top'];
+  const lines = [head.join(',')];
+  for (const r of rows) {
+    lines.push([
+      q(r.w.name), q(r.w.side === 'ally' ? '明教' : '六大派'), r.e.runs,
+      r.e.runs ? (r.er * 100).toFixed(1) : '',
+      r.n.runs ? (r.nr * 100).toFixed(1) : '',
+      isNaN(r.deltaPP) ? '' : r.deltaPP.toFixed(1),
+      isNaN(r.contribPP) ? '' : r.contribPP.toFixed(1),
+      r.sig ? (r.sig.sig ? '显著' : '噪声') : '',
+      (r.e.sumSurv / r.e.runs * 100).toFixed(1),
+      Math.round(r.e.sumDmg / r.e.runs), Math.round(r.e.sumTaken / r.e.runs), Math.round(r.e.sumHeal / r.e.runs),
+      q(r.skillTop ? `${r.skillTop[0]} ${per(r.skillTop[1], r.e.runs)}/场` : ''),
+      q(r.probeTop ? `${r.probeTop[0]} ${per(r.probeTop[1], r.e.runs)}/场` : '')
+    ].join(','));
+  }
+  downloadCSV(`弱精英机制贡献_${new Date().toISOString().slice(0, 10)}.csv`, lines.join('\r\n'));
+  setErr('');
+  progressEl.textContent = '⬇ 已导出 CSV';
+}
+
+copyBtn.addEventListener('click', async () => {
+  if (!contribRows().length) { setErr('还没有结果，先跑一次批'); return; }
+  const ok = await copyText(buildReport());
+  setErr('');
+  progressEl.textContent = ok ? '📋 报告已复制到剪贴板' : '复制失败，可改用「⬇ 导出CSV」';
+});
+csvBtn.addEventListener('click', exportCSV);
 
 document.getElementById('loadBtn').addEventListener('click', () => {
   loadContrib();
