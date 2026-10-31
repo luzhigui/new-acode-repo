@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <!-- tools/134-idea-lab.html — 创意摸奖：四类创意 × 三种摸法，随机抽元素拼成卡片，并按引擎现状标合法性
+     V1.1.0 | 2026-10-31 质量升级：①触发↔效果语义配对（TRIGGER_ALLOW，不再抽「死亡时得护盾」这类废话）；
+       ②同一把内去重（按一句话签名）；③每张卡加「玩法钩子」一行（按效果类别给怎么用的提示）。
      V1.0.0 | 2026-10-22 新建。纯前端、不跑战斗：只读 content/200game-data.json 提取引擎已有的 mechanics type，
        与 124 的 TYPE_GLOSSARY 合成白名单；扩展词条由 134-fetch-pool.mjs 写进 134-idea-pool-additions.json。 -->
 <html lang="zh-CN">
@@ -52,6 +54,8 @@
   .rows dd { margin: 0; }
   .one { background: #23262e; border-left: 2px solid #c9a227; padding: 6px 9px; border-radius: 4px;
     font-size: 12.5px; color: #e6e8ef; }
+  .hook { background: #1c2129; border-left: 2px solid #4a6d8c; padding: 5px 9px; border-radius: 4px;
+    font-size: 11.5px; color: #9aa0ad; }
   .card-foot { display: flex; justify-content: space-between; align-items: center; }
   .src { color: var(--dim); font-size: 11px; }
   .copy { background: transparent; border: 1px solid var(--line); color: var(--dim); cursor: pointer;
@@ -132,18 +136,51 @@ const TRIGGERS = [
     ['叠满N层时', 'stackFull'], ['首次受击', null], ['每回合首次', null]
 ];
 
+// 触发时机 → 说得通的效果类别（V1.1.0）。只抽这里列出的类别，避免「死亡时得护盾」这种废话；
+//   没列的时机（如扩展词条）不过滤，退回全池。
+const TRIGGER_ALLOW = {
+    '攻击前': ['buff', 'debuff', 'damage'],
+    '攻击后': ['damage', 'dot', 'debuff', 'mobility'],
+    '命中后': ['damage', 'dot', 'debuff', 'control'],
+    '被攻击前': ['defense', 'counter'],
+    '被攻击后': ['counter', 'defense', 'sustain'],
+    '闪避后': ['counter', 'mobility', 'buff'],
+    '暴击后': ['damage', 'buff', 'dot'],
+    '回合开始': ['buff', 'defense', 'sustain', 'debuff'],
+    '回合结束': ['dot', 'damage', 'debuff', 'buff'],
+    '行动前': ['buff', 'mobility'],
+    '行动后': ['mobility', 'buff'],
+    '死亡时': ['defense', 'counter', 'buff', 'damage'],
+    '击杀后': ['buff', 'damage', 'mobility', 'sustain', 'summon'],
+    '血量低于X%': ['defense', 'sustain', 'counter', 'damage'],
+    '队友阵亡时': ['buff', 'defense', 'damage'],
+    '获得护盾时': ['defense', 'counter'],
+    '护盾破碎时': ['defense', 'counter', 'damage'],
+    '被治疗时': ['sustain', 'buff'],
+    '治疗溢出时': ['sustain', 'buff'],
+    '位移后': ['mobility', 'buff', 'damage'],
+    '换位后': ['mobility', 'control', 'debuff'],
+    '召唤物出场时': ['summon', 'buff'],
+    '召唤物阵亡时': ['summon', 'damage', 'counter'],
+    '连锁第N次': ['damage', 'dot'],
+    '叠满N层时': ['buff', 'damage', 'control'],
+    '首次受击': ['defense', 'counter'],
+    '每回合首次': ['buff', 'damage', 'debuff']
+};
+
+// 第三列 = 效果类别（V1.1.0）：用于按触发时机过滤，避免抽到不搭的组合
 const EFFECTS = [
-    ['持续伤害（毒/灼烧/流血）', 'poison'], ['直接伤害', 'core:damage'], ['真实伤害', 'ignoreDef'],
-    ['吸血', 'leech'], ['反伤', 'damageReflect'], ['护盾', 'xuLi'], ['治疗', 'core:heal'],
-    ['禁疗', 'dianXueJieMai'], ['减攻', 'yingWangWeiYa'], ['减防', 'yingWangWeiYa'],
-    ['破防', 'core:breakDef'], ['眩晕', 'core:stun'], ['冰冻', 'hanBingShenZhang'],
-    ['沉默', null], ['缴械', null], ['减速', null], ['击退', 'core:push'],
-    ['换位', 'core:swap'], ['魅惑（误伤队友）', 'core:mindControl'], ['召唤', 'summonLion'],
-    ['成长（永久加属性）', 'rageOnHit'], ['叠加层数', 'fortifyIncrementMul'],
-    ['标记（被标记后受额外伤害）', 'targetMark'], ['斩杀', 'core:execute'],
-    ['复活', 'core:revive'], ['免死', null], ['反弹控制', null],
-    ['偷取属性', null], ['共享属性', 'butterflyAttach'], ['转移伤害', 'butterflyAttach'],
-    ['延迟结算', 'dotTick']
+    ['持续伤害（毒/灼烧/流血）', 'poison', 'dot'], ['直接伤害', 'core:damage', 'damage'], ['真实伤害', 'ignoreDef', 'damage'],
+    ['吸血', 'leech', 'sustain'], ['反伤', 'damageReflect', 'counter'], ['护盾', 'xuLi', 'defense'], ['治疗', 'core:heal', 'sustain'],
+    ['禁疗', 'dianXueJieMai', 'debuff'], ['减攻', 'yingWangWeiYa', 'debuff'], ['减防', 'yingWangWeiYa', 'debuff'],
+    ['破防', 'core:breakDef', 'debuff'], ['眩晕', 'core:stun', 'control'], ['冰冻', 'hanBingShenZhang', 'control'],
+    ['沉默', null, 'control'], ['缴械', null, 'control'], ['减速', null, 'control'], ['击退', 'core:push', 'control'],
+    ['换位', 'core:swap', 'mobility'], ['魅惑（误伤队友）', 'core:mindControl', 'control'], ['召唤', 'summonLion', 'summon'],
+    ['成长（永久加属性）', 'rageOnHit', 'buff'], ['叠加层数', 'fortifyIncrementMul', 'buff'],
+    ['标记（被标记后受额外伤害）', 'targetMark', 'debuff'], ['斩杀', 'core:execute', 'damage'],
+    ['复活', 'core:revive', 'defense'], ['免死', null, 'defense'], ['反弹控制', null, 'defense'],
+    ['偷取属性', null, 'debuff'], ['共享属性', 'butterflyAttach', 'buff'], ['转移伤害', 'butterflyAttach', 'defense'],
+    ['延迟结算', 'dotTick', 'damage']
 ];
 
 const FLAVORS = [
@@ -305,7 +342,38 @@ const EFFECTS_NEW = EFFECTS.filter(x => !x[1]).map(x => x[0]);
 const TRIG_ALL = TRIGGERS.map(x => x[0]);
 const EFF_ALL = EFFECTS.map(x => x[0]);
 const pickTrigger = mode => pickText(poolFor('trigger', mode, TRIGGERS_OLD, TRIGGERS_NEW, TRIG_ALL));
-const pickEffect = mode => pickText(poolFor('effect', mode, EFFECTS_OLD, EFFECTS_NEW, EFF_ALL));
+const EFF_CAT = new Map(EFFECTS.map(x => [x[0], x[2]]));
+
+// V1.1.0：按触发时机只抽「说得通」的效果类别（TRIGGER_ALLOW），过滤空了才退回全池
+function pickEffectFor(trig, mode) {
+    let poolText = mode === 'new' ? EFFECTS_NEW : mode === 'old' ? EFFECTS_OLD : EFF_ALL;
+    const allow = TRIGGER_ALLOW[trig];
+    if (allow) {
+        const filtered = poolText.filter(t => allow.includes(EFF_CAT.get(t)));
+        if (filtered.length) poolText = filtered;
+    }
+    if (!poolText.length) poolText = EFF_ALL;
+    return pickText(poolText);
+}
+
+const effCatOf = t => EFF_CAT.get(t) || 'buff';
+// V1.1.0：玩法钩子——按效果类别告诉玩家「这张卡能怎么用」，别只摆一行槽填
+function hookOf(cat, trig) {
+    const T = `「${trig}」`;
+    const map = {
+        control: `卡在对方核心出手节奏上，靠${T}打断一次就赚；配高攻速放大触发。`,
+        defense: `当保命窗用：把${T}拖成消耗战，越往后越难杀。`,
+        counter: `反制位：被压制时用${T}把伤害还回去，专治高攻速。`,
+        damage: `输出位：让${T}成为稳定伤害来源，堆连击/攻速放大。`,
+        dot: `磨血位：${T}持续压血线，拖回合越久越强。`,
+        sustain: `续航核心：把${T}做成滚雪球，用耐久换胜率。`,
+        buff: `成长位：${T}随回合累积，前期憋、后期爆。`,
+        mobility: `战术位：用${T}打乱对方站位/目标，制造以多打少。`,
+        summon: `运营位：靠${T}铺场，用数量换质量。`,
+        debuff: `压制位：用${T}持续削对方核心属性，滚出优势。`
+    };
+    return map[cat] || `围绕${T}做文章，把触发条件变成你的节奏点。`;
+}
 
 function makeElite(mode) {
     const camp = pickText(ELITE_CAMP);
@@ -313,8 +381,8 @@ function makeElite(mode) {
     const mPair = pick(ELITE_M);
     const pos = pickText(ELITE_POS);
     const trig = pickTrigger(mode);
-    const eff = pickEffect(mode);
-    const eff2 = Math.random() < 0.35 ? pickEffect(mode) : '';   // 核心机制 1-2 个
+    const eff = pickEffectFor(trig, mode);
+    const eff2 = Math.random() < 0.35 ? pickEffectFor(trig, mode) : '';   // 核心机制 1-2 个
     const flavor = Math.random() < 0.55 ? pickText(FLAVORS) : '';
     const effTxt = eff2 ? `${eff} + ${eff2}` : eff;
     const one = `${camp}的${role}，M${mPair[0]}（${mPair[1]}档），定位${pos}。${trig}时触发「${effTxt}」${flavor ? `，带${flavor}` : ''}。`;
@@ -323,6 +391,7 @@ function makeElite(mode) {
         title: `【${camp} · ${role} · M${mPair[0]} · ${pos}】`,
         rows: [['触发', trig], ['效果', effTxt], ['风味', flavor || '—'], ['定位', pos]],
         one,
+        hook: hookOf(effCatOf(eff), trig),
         legal: worseLegal(legality(eff, trig), eff2 ? legality(eff2, trig) : null),
         effect: effTxt, trigger: trig
     };
@@ -340,7 +409,7 @@ function makeHex(mode) {
     const dur = pickText(HEX_DURATION);
     const power = pickText(HEX_POWER);
     const trig = pickTrigger(mode);
-    const eff = pickEffect(mode);
+    const eff = pickEffectFor(trig, mode);
     const flavor = Math.random() < 0.35 ? pickText(FLAVORS) : '';
     const one = `${target}${trig}时获得「${eff}」${flavor ? `（${flavor}）` : ''}，${dur}。`;
     return {
@@ -348,6 +417,7 @@ function makeHex(mode) {
         title: `【海克斯 · ${target} · ${power}】`,
         rows: [['触发', trig], ['效果', eff], ['持续', dur], ['强度', power]],
         one,
+        hook: hookOf(effCatOf(eff), trig),
         legal: legality(eff, trig),
         effect: eff, trigger: trig
     };
@@ -358,13 +428,14 @@ function makeMech(mode) {
     const target = pickText(MECH_TARGET);
     const settle = pickText(MECH_SETTLE);
     const trig = pickTrigger(mode);
-    const eff = pickEffect(mode);
+    const eff = pickEffectFor(trig, mode);
     const one = `${target}的${rule}改为：${trig}时按「${eff}」处理，${settle}。`;
     return {
         type: '新机制',
         title: `【机制 · ${rule} · ${target}】`,
         rows: [['作用', target], ['结算', settle], ['触发', trig], ['效果', eff]],
         one,
+        hook: hookOf(effCatOf(eff), trig),
         legal: legality(eff, trig),
         effect: eff, trigger: trig
     };
@@ -380,11 +451,15 @@ function makeStage(mode) {
         ? { level: 'ok', text: '引擎支持', why: '无特殊规则，纯阵容关' }
         : { level: 'warn', text: '需扩展关卡规则', why: `特殊规则「${rule}」需关卡层新支持` };
     const one = `敌方${camp}，${cnt} 名精英，强度${power}${rule !== '无' ? `，特殊规则：${rule}` : '，无特殊规则'}。`;
+    const hook = rule === '无'
+        ? '纯阵容关：用来卡「精英数量 / 站位」的强度曲线，不引入新规则也能调难度。'
+        : `用「${rule}」逼玩家换阵容，测某类职业/机制在受限条件下的真实强度。`;
     return {
         type: '新关卡',
         title: `【关卡 · ${camp} · ${cnt}精英 · ${power}】`,
         rows: [['敌方', camp], ['精英', `${cnt} 名`], ['规则', rule], ['强度', power]],
         one,
+        hook,
         legal
     };
 }
@@ -396,8 +471,17 @@ function generate() {
     const mode = document.querySelector('#modeSeg button.on').dataset.v;
     const n = parseInt(document.getElementById('countSel').value, 10);
     const maker = MAKERS[type];
+    // V1.1.0：同一把内按「一句话」签名去重，尽量不撞车；池子实在抽不满再允许重复补足
     const cards = [];
-    for (let i = 0; i < n; i++) cards.push(maker(mode));
+    const seen = new Set();
+    let guard = n * 80;
+    while (cards.length < n && guard-- > 0) {
+        const c = maker(mode);
+        if (seen.has(c.one)) continue;
+        seen.add(c.one);
+        cards.push(c);
+    }
+    while (cards.length < n) cards.push(maker(mode));
     lastCards = cards;
     lastLabel = `${document.querySelector('#typeSeg button.on').textContent} · ${document.querySelector('#modeSeg button.on').textContent}`;
     render(cards);
@@ -416,6 +500,7 @@ function render(cards) {
           </div>
           <dl class="rows">${c.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v || '—')}</dd>`).join('')}</dl>
           <div class="one">${esc(c.one)}</div>
+          ${c.hook ? `<div class="hook">💡 ${esc(c.hook)}</div>` : ''}
           <div class="card-foot">
             <span class="src">${c.type}</span>
             <button class="copy" data-i="${i}">复制</button>
@@ -444,6 +529,7 @@ function toMd(cards) {
         lines.push(`- 合法性：**${c.legal.text}**（${c.legal.why}）`);
         for (const [k, v] of c.rows) lines.push(`- ${k}：${v || '—'}`);
         lines.push(`- 一句话：${c.one}`);
+        if (c.hook) lines.push(`- 玩法钩子：${c.hook}`);
         lines.push('');
     });
     return lines.join('\n');
