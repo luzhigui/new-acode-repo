@@ -1,4 +1,4 @@
-// tests/output-label-coupling-guard.mjs | V3.0.0 | 2026-11-01 夜间第 169 轮
+// tests/output-label-coupling-guard.mjs | V3.1.0 | 2026-11-01 夜间第 170 轮
 //   V2.0.0 | 2026-11-01 夜间第 168 轮：认领表 + 段零普查，线二（pickKeyLine）/ 线三（CRASH_RE）
 //   V3.0.0 | 2026-11-01 夜间第 169 轮：段零配对口径由「逐字相同」升级为「骨架归一后子串包含」
 //            —— 旧口径结构性扫不出任何生产者-消费者耦合（生产者带 ${} 插值、消费者带元字符，
@@ -6,6 +6,14 @@
 //            新口径当场扫出并认领**线四**：rules-replay.mjs 的「规则回放自检：N 场」行
 //            ⇄ coverage-report.mjs 的写死正则 /规则回放自检：(\d+)\s*场/。
 //            自证牙 25 → 34 条（新增线四牙 Y1~Y5、通道 B 牙 Z1~Z4）。
+//   V3.1.0 | 2026-11-01 夜间第 170 轮：★ 段零解析侧的地基换新 —— 原先用 RE_LITERAL 粗扫，
+//           会把**注释正文**与**字符串字面量里的路径斜杠**当成正则边界。后者最要命：打印侧那句
+//           'content/201hex-enhance.json 读取/解析失败: ' 里，"content" 后那个斜杠被当成正则
+//           起点、"读取" 后那个被当成终点 ⇒ **打印侧自己造出一个「解析侧」**，同一句话被配成
+//           一对假耦合 —— 第 169 轮留下的「候选要不要认领为线五」，答案是那是扫描器自产的。
+//           改法：新增 scanRegexLiterals（逐字符走：跳行注释/块注释/字符串与模板字面量，
+//           剩下的斜杠还要看前一记号是不是运算符或能引出表达式的关键字），通道 A/B 共用地基。
+//           自证牙 34 → 37 条（新增牙 Z5/Z6/Z7 把三款自产假候补钉死）。判据零放宽。
 //
 // ★ 立它的由头（第 166 轮留的备忘，第 167 轮动手时才发现它不是小事）：
 //   第 166 轮记下一条「只补标签不改判据」的备忘：账本对照（tests/stat-decl-vs-actual-check.mjs
@@ -77,7 +85,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/output-label-coupling-guard.mjs V3.0.0';
+export const VER = 'tests/output-label-coupling-guard.mjs V3.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -122,6 +130,95 @@ function literalBody(lit) {
     const m = new RegExp(RE_LITERAL.source, 'g').exec(String(lit));
     if (!m) return null;
     return m[0].slice(1, m[0].length - 1 - (m[1] || '').length);
+}
+
+// ---------- 正则字面量「安全扫描」（第 170 轮新增，段零解析侧的地基） ----------
+// ★ 为什么非它不可：RE_LITERAL 是**粗扫**，源码里只要有斜杠就当正则，实测会自产两种假正则：
+//   ① 注释正文 —— 多行块注释的内部行不带 // 前缀，stripCommentLines 剔不干净；
+//   ② **普通字符串字面量里的文件路径斜杠**，这是本轮抓到的那条：
+//        reasons.push('content/201hex-enhance.json 读取/解析失败: ' + e.message);
+//      "content" 后那个斜杠被当成正则起点、"读取" 后那个斜杠被当成终点 ⇒
+//      **打印侧自己造出一个「解析侧」**，通道 B 当场把它配成一条跨文件耦合。
+//      ⇒ 第 169 轮留下的「未认领候选 1 条要不要认领为线五」，答案是：那是扫描器自产的假候补，不是耦合。
+//   改法：逐字符走一遍，先跳注释、再跳字符串/模板字面量，剩下的斜杠还要看前一个记号是不是
+//   运算符或能引出表达式的关键字，才算正则起点。
+const RE_START_KEYWORDS = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new',
+    'delete', 'void', 'case', 'do', 'else', 'yield', 'await']);
+const RE_START_PUNCT = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';',
+    '+', '-', '*', '%', '~', '^', '<', '>', '\n']);
+
+function scanRegexLiterals(src) {
+    const s = String(src);
+    const out = [];
+    const n = s.length;
+    let i = 0;
+    let prev = '';                       // 上一个记号：标识符整词 / 单个标点 / 空串
+    const isIdStart = (c) => /[A-Za-z_$]/.test(c);
+    const isId = (c) => /[A-Za-z0-9_$]/.test(c);
+    while (i < n) {
+        const ch = s[i];
+        if (ch === '/' && s[i + 1] === '/') {            // 行注释
+            while (i < n && s[i] !== '\n') i++;
+            continue;
+        }
+        if (ch === '/' && s[i + 1] === '*') {            // 块注释
+            i += 2;
+            while (i < n && !(s[i] === '*' && s[i + 1] === '/')) i++;
+            i += 2;
+            continue;
+        }
+        if (ch === '"' || ch === "'" || ch === '`') {    // 字符串 / 模板字面量（整段跳过）
+            const q = ch;
+            i++;
+            while (i < n) {
+                if (s[i] === '\\') { i += 2; continue; }
+                if (s[i] === q) { i++; break; }
+                if (s[i] === '\n' && q !== '`') break;   // 未闭合的行内残余，交给下一行接着看
+                i++;
+            }
+            prev = '"';
+            continue;
+        }
+        if (isIdStart(ch)) {                             // 标识符整词吞掉（return / new 之后可以是正则）
+            let j = i;
+            while (j < n && isId(s[j])) j++;
+            prev = s.slice(i, j);
+            i = j;
+            continue;
+        }
+        if (ch === '/') {
+            const canStart = prev === '' || RE_START_PUNCT.has(prev) || RE_START_KEYWORDS.has(prev);
+            let j = i + 1;
+            let esc = false;
+            let cls = false;
+            let closed = false;
+            while (j < n) {
+                const c = s[j];
+                if (c === '\n') break;                   // 正则字面量不能跨行
+                if (esc) { esc = false; j++; continue; }
+                if (c === '\\') { esc = true; j++; continue; }
+                if (cls) { if (c === ']') cls = false; j++; continue; }
+                if (c === '[') { cls = true; j++; continue; }
+                if (c === '/') { closed = true; break; }
+                j++;
+            }
+            if (closed) {
+                const body = s.slice(i + 1, j);
+                let k = j + 1;
+                while (k < n && /[gimsuydv]/.test(s[k])) k++;
+                if (body.length) out.push({ body, flags: s.slice(j + 1, k), index: i });
+                i = k;
+                prev = '/';
+                continue;
+            }
+            i++;                                          // 除法 / 路径里的斜杠：不当正则
+            prev = '/';
+            continue;
+        }
+        if (!/\s/.test(ch)) prev = ch;
+        i++;
+    }
+    return out;
 }
 
 // ---------- 生产者侧：机械抽取列名 ----------
@@ -434,12 +531,13 @@ function collectParseSkeletons(src) {
         if (isRe) cur.re = true;
         out.set(sk, cur);
     };
-    const reL = new RegExp(RE_LITERAL.source, 'g');
-    let m;
-    while ((m = reL.exec(s))) add(m[0].slice(1, m[0].length - 1 - (m[1] || '').length), true);
+    // ★ 第 170 轮：这里原本用 RE_LITERAL 粗扫，会把注释正文与字符串里的路径斜杠当成正则，
+    //   最要命的是**打印侧的字面量自己造出一个"解析侧"**，于是同一句话被配成对（见 scanRegexLiterals 注释）。
+    for (const rx of scanRegexLiterals(s)) add(rx.body, true);
+    // ★ 切分原语同理：注释里的 includes('...') 不是真在切，先按行剔整行注释再扫。
     const reC = new RegExp(RE_CUT_CALL.source, 'g');
     let cm;
-    while ((cm = reC.exec(s))) {
+    while ((cm = reC.exec(stripCommentLines(s)))) {
         const raw = cm[2] !== undefined ? cm[2] : (cm[3] !== undefined ? cm[3] : cm[4]);
         add(raw, false);
     }
@@ -603,11 +701,10 @@ function verifyRulesReplayCoupling(proSrc, consumers) {
 function censusSharedRegexes(files, claimed) {
     const map = new Map();
     for (const c of files) {
-        const src = stripCommentLines(c.src);
-        const re = new RegExp(RE_LITERAL.source, 'g');
-        let m;
-        while ((m = re.exec(src))) {
-            const body = m[0].slice(1, m[0].length - 1 - (m[1] || '').length);
+        // ★ 第 170 轮：换安全扫描器（与通道 B 同一套地基）—— 剔注释 + 跳字符串后的真正则，
+        //   否则注释正文里那句「行形如 … 声明 610 条 · 命中 0 …」会被当成又一个"跨文件同文解析器"。
+        for (const rx of scanRegexLiterals(c.src)) {
+            const body = rx.body;
             if (body.length < MIN_SHARED_LEN) continue;
             if (!/[一-鿿]/.test(body)) continue;
             if (claimed.has(body)) continue;
@@ -862,6 +959,34 @@ function teeth() {
     t('牙Z4', censusSkeletonCouplings([{ file: 'p.mjs', src: 'console.log(`ok ${x}`);' },
     { file: 'q.mjs', src: 'out.match(/ok\\s+(\\d+)/);' }], none).length === 0,
         '通道B 骨架不含中文 ⇒ 不算耦合（防刷屏）');
+
+    // ---- 牙 Z5~Z7（第 170 轮）：地基本身的牙 —— 扫出来的必须是**真解析器**，不是斜杠巧合 ----
+    // ★ 由头：第 169 轮段零报的那条待认领候补（content/201hex-enhance.json 读取/解析失败），
+    //   本轮回核发现它是扫描器自产的 —— 打印侧那个字面量里的路径斜杠被当成正则边界，
+    //   于是"谁打印的"和"谁解析的"是同一句话 ⇒ 一个人配成一对假耦合。
+    const NOISE_PRINT = '// 缺口由 content/201hex-enhance.json 解析失败 这条点名\n'
+        + 'problems.push(`⓪ content/201hex-enhance.json 解析失败: ${e.message}`);\n';
+    t('牙Z5', censusSkeletonCouplings([{ file: 'p.mjs', src: NOISE_PRINT },
+    { file: 'q.mjs', src: NOISE_PRINT }], none).length === 0,
+        '通道B 注释正文/字符串里的路径斜杠 ⇒ 不得自产解析侧（第 169 轮那条假候补就是这么来的）');
+
+    // 同一份源码里既有噪声又有真正则：只许报真那条，且不得把噪声算进去（防"修完连真也看不见"）
+    const MIX_PRO = 'console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);';
+    const MIX_CON = '// 参考 content/201hex-enhance.json 读取 这条口径\n'
+        + '/* 多行块注释：content/201hex-enhance.json 读取 也要被剔干净 */\n'
+        + "reasons.push('content/201hex-enhance.json 读取/解析失败: ' + e.message);\n"
+        + 'const totalM = out.match(/规则回放自检：(\\d+)\\s*场/);';
+    const mixRows = censusSkeletonCouplings([{ file: 'p.mjs', src: MIX_PRO },
+    { file: 'q.mjs', src: MIX_CON }], none);
+    t('牙Z6', mixRows.length === 1 && mixRows[0].parse.indexOf('201hex') < 0
+        && mixRows[0].parse.indexOf('规则回放自检') >= 0,
+        '通道B 噪声与真正则混排 ⇒ 只报真那条 1 条，且不被路径斜杠掺进去（地基不许连真的也扫不出）');
+
+    // 通道 A 同款：两文件注释里同一句中文 ⇒ 不得算"跨文件同文正则"
+    const A_NOISE = '// 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData';
+    t('牙Z7', censusSharedRegexes([{ file: 'p.mjs', src: A_NOISE },
+    { file: 'q.mjs', src: A_NOISE }], new Set()).length === 0,
+        '通道A 两文件注释里同一句 ⇒ 不得算跨文件同文正则（剥注释后再扫，注释不是解析器）');
 
     return res;
 }
