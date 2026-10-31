@@ -206,10 +206,12 @@
         .buff-slot { width: 70px; height: 32px; padding: 2px 4px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; text-align: center; transition: all 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; }
         .buff-slot.ally { border-color: #1e6bb8; }
         .buff-slot.enemy { border-color: #d2691e; }
-        .buff-slot.empty { opacity: 0.35; border-style: dashed; cursor: default; }
+        .buff-slot.empty { cursor: default; }
         .buff-slot:hover:not(.empty) { box-shadow: 0 0 8px rgba(184,134,11,0.7); }
         .buff-slot:active:not(.empty) { transform: scale(0.96); }
         .buff-slot.active { background: var(--c-gold-bright); border-color: var(--c-gold); color: var(--c-brown); }
+        .buff-slot.glow { animation: buffGlow 2s ease-in-out infinite; }
+        @keyframes buffGlow { 0%,100%{ box-shadow: 0 0 4px rgba(184,134,11,0.3); } 50%{ box-shadow: 0 0 10px rgba(184,134,11,0.7); } }
         .camp-sep { width: 1px; height: 24px; background: #555; margin: 0 2px; flex-shrink: 0; }
         .flex-spacer { flex: 1; min-width: 4px; }
         .dodge-toggle { width: 56px; height: 32px; padding: 4px 8px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; margin-right: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
@@ -392,15 +394,15 @@
     </div></div>
     <div id="log"></div>
     <div class="log-bottom-bar">
+        <button id="btnDodgeToggle" class="dodge-toggle active" title="特效开关 / 日志模式 / 自动模式">华丽</button>
         <div class="buff-slots" id="buffSlots">
-            <button class="buff-slot ally" id="buffSlot0A" data-slot="0" data-camp="ally">—</button>
-            <button class="buff-slot ally" id="buffSlot1A" data-slot="1" data-camp="ally">—</button>
+            <button class="buff-slot ally empty" id="buffSlot0A" data-slot="0" data-camp="ally">buff1</button>
+            <button class="buff-slot ally empty" id="buffSlot1A" data-slot="1" data-camp="ally">buff2</button>
             <div class="camp-sep"></div>
-            <button class="buff-slot enemy" id="buffSlot0E" data-slot="0" data-camp="enemy">—</button>
-            <button class="buff-slot enemy" id="buffSlot1E" data-slot="1" data-camp="enemy">—</button>
+            <button class="buff-slot enemy empty" id="buffSlot0E" data-slot="0" data-camp="enemy">敌buff1</button>
+            <button class="buff-slot enemy empty" id="buffSlot1E" data-slot="1" data-camp="enemy">敌buff2</button>
         </div>
         <div class="flex-spacer"></div>
-        <button id="btnDodgeToggle" class="dodge-toggle active" title="特效开关 / 日志模式 / 自动模式">华丽</button>
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>

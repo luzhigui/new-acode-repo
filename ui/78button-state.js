@@ -43,10 +43,12 @@ function updateBuffSlots(activeBuffs, camp) {
                 const buff = list[i];
                 slot.textContent = `${buff.name}/${buff.remaining}回`;
                 slot.classList.remove('empty');
+                slot.classList.add('glow');
             } else {
                 // 空槽保留占位文字（原来单方只有 2 槽时用 buff1/buff2，现在明教/六大派各 2 槽）
                 slot.textContent = c === CAMP_TYPES.ALLY ? `buff${i + 1}` : `敌buff${i + 1}`;
                 slot.classList.add('empty');
+                slot.classList.remove('glow');
             }
         }
     }

@@ -68,7 +68,11 @@
 //   （tests/121health-monitor.js）被上游清掉、重复真消失了，老写法仍报「检测失灵」—— 拿一条已经
 //   不成立的前提当铁证，红得没有真因（与"地基缺失被读成代码退步"同一款病）。改为双向：仍在册的
 //   必须被点出；已核销的必须不被点出（又被点出 ⇒ 重复回归或当初核销是误判）。核销须写明理由与轮次。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.4.0';
+// V1.4.1 | 2026-10-31 第 165 轮(续)：⑲ 探针 readIfAbs 由 expect:true 翻为 expect:false —— 本轮把
+//   contract-binding-drift / rule-binding-drift 两处内联 readIfAbs 收口为 tests/_lib/read-if-abs.mjs
+//   唯一来源（消除 second-source-scan 棘轮越界），重复真消失，故翻面守卫：今后 tests 下若再冒出
+//   第二份同体 readIfAbs 即判回归（与 collectFacts 同款双向核销）。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.4.1';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -759,7 +763,7 @@ function runSelfChecks(fails) {
     //   ⇒ 改双向：仍在册的必须被点出（缺 ⇒ 检测失灵）；已核销的必须**不被**点出（又被点出 ⇒ 重复回归，
     //     或当初的核销依据失效）。两侧都要写清理由与轮次，谁改谁留痕。
     const DUP_WITNESS = [
-        { name: 'readIfAbs', expect: true, why: '第 152 轮点名至今仍在（两份）' },
+        { name: 'readIfAbs', expect: false, why: '第 165 轮(续) 收口为 tests/_lib/read-if-abs.mjs 唯一来源（contract-binding-drift / rule-binding-drift 两处内联副本消除，重复真消失；今后 tests 下若再冒出第二份同体 readIfAbs 即判回归）' },
         { name: 'parentDmgOf', expect: true, why: '第 152 轮点名至今仍在（两份，落在 health-rules）' },
         { name: 'fail', expect: true, why: '第 152 轮点名至今仍在（三份自检入口）' },
 { name: 'collectFacts', expect: false, why: '第 163 轮立 tests/_lib/fact-collect.mjs 为唯一收口；本轮消除 121health-monitor.js / rules-replay.mjs 内联副本（含 121 漏 phantomFact 的口径分叉），重复真消失（不是检测失灵）' }
