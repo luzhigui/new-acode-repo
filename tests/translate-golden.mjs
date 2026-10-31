@@ -1,4 +1,10 @@
 // tests/translate-golden.mjs — 翻译层 golden 输出对照器（render/38 拆分护栏）
+// V1.1.0 | 2026-10-28 夜间第 150 轮：新增「差异形态分类」诊断段（★ 只补诊断，判据/退码/结论一行未改）。
+//   起因是本轮实测：报告说「首个差异在字节 8735，长度 15304144 vs 14035467」，
+//   读者必然读成"有 1.27MB 的内容变了"，而真实差异只是**多了一个字段**导致后续整体错位一行。
+//   ★ 这正是第 148 轮那句话的同类病：红得没有真因，却看起来像真因（而且看起来很严重）。
+//   本段不回答"有没有差异"（那是原判据的事，一行未动），只回答"差异长什么样"，
+//   免得人按 1.27MB 的错觉去查一个字段的洞。分类逻辑另挂三条自证（插入/同行/无关文本）。
 // V1.0.1 | ~12200 bytes | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源（拷贝缺永久继承，与 rules-replay 口径分叉）；golden 输出随样本变化待业务侧重录
 // 用法：node tests/translate-golden.mjs            → 与 tests/golden-translate-stage-actions.json 比对（一致退 0，差异退 1）
 //       node tests/translate-golden.mjs --update   → 重录基线（翻译层有意变更后使用）
@@ -6,7 +12,8 @@
 // 关键口径：对象键**递归排序**后再序列化 —— 拆文件后对象字面量键序可能变化，但字段值不变，
 //          不排序会制造假差异；数组顺序（fact 顺序 / 动作顺序）是行为本体，原样保留、绝不排序。
 //   tests/_lib/buff-picker.mjs 唯一来源），而 VER 常量一直停在 V1.0.0 —— 属漏改，本轮由
-export const VER = 'tests/translate-golden.mjs V1.0.1';
+//   ver-drift-selftest 自动绊线抓出后归位。VER 只归位到日志已有的 V1.0.1，未擅自升版。
+export const VER = 'tests/translate-golden.mjs V1.1.0';
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -61,10 +68,74 @@ function normalize(value, seen) {
 
 const norm = (v) => normalize(v, new Set());
 
+// --- 第 150 轮新增：差异形态分类 -------------------------------------------
+//   从首个差异行开始，试探"基线第 i 行 == 本次第 i+offset 行"，取匹配率最高的 offset。
+//   offset = 0  ⇒ 同行内容差异（真变更）；offset ≠ 0 ⇒ 整体错位（实为插入/删除若干行）。
+//   ★ 为什么还要卡 0.9 匹配率：两份毫无共同行的文本，任何 offset 的匹配率都是 0，
+//     不卡阈值就会随便挑一个 offset 然后宣布"只是错位了" —— 那等于给所有差异发免罪牌。
+function classifyDiffShape(gLines, tLines, fromLine) {
+    const W = 200;
+    const start = Math.max(0, fromLine - 1);
+    let best = { offset: 0, hit: -1 };
+    for (let off = -5; off <= 5; off++) {
+        let hit = 0;
+        let tot = 0;
+        for (let k = 0; k < W; k++) {
+            const g = gLines[start + k];
+            const t = tLines[start + k + off];
+            if (g === undefined && t === undefined) continue;
+            tot++;
+            if (g === t) hit++;
+        }
+        const rate = tot ? hit / tot : 0;
+        if (rate > best.hit) best = { offset: off, hit: rate };
+    }
+    if (best.offset === 0 || best.hit < 0.9) return { kind: 'inline', offset: 0, onlyInOld: [], onlyInNew: [] };
+    // 点名"多出来 / 少掉的那一行"：先按**同索引**扫到第一个不等的位置，再按 offset 的方向
+    //   判定是本次多（插入）还是基线多（删除）。★ 只点名首处：多处插入时后续由人按上下文核对。
+    const slim = (s) => String(s).trim().replace(/,$/, '').replace(/"/g, '').slice(0, 60);
+    let onlyInOld = [];
+    let onlyInNew = [];
+    if (best.offset !== 0) {
+        let i = Math.max(0, start);
+        while (i < gLines.length && i < tLines.length && gLines[i] === tLines[i]) i++;
+        if (best.offset > 0 && tLines[i] !== undefined) onlyInNew = [slim(tLines[i])];
+        else if (best.offset < 0 && gLines[i] !== undefined) onlyInOld = [slim(gLines[i])];
+    }
+    return { kind: 'offset', offset: best.offset, onlyInOld, onlyInNew };
+}
+
+// 自证（第 143 轮规矩：新逻辑挂自证；★ 自证不过必须喊出来 —— 只打印不计退码就是假绿）
+function selfCheckShape() {
+    const fails = [];
+    try {
+        // ① 纯插入一行 ⇒ 必须判成整体错位，且能把插入的那行点名
+        const s1 = classifyDiffShape(['a', 'b', 'c'], ['a', 'b', 'X', 'c'], 3);
+        if (s1.kind !== 'offset') {
+            fails.push('① 差异形态分类失位：纯插入一行没被判成整体错位（实判 ' + s1.kind + '）');
+        } else if (s1.onlyInNew.indexOf('X') < 0) {
+            fails.push('①b 新增行点名失位：插入的那一行没被点名（实得 ' + JSON.stringify(s1.onlyInNew) + '）');
+        }
+        // ② 同行内容差异 ⇒ 必须判成 inline；误判成错位会把真内容变更说成"只是错位"
+        const s2 = classifyDiffShape(['a', 'b', 'c', 'd'], ['a', 'b', 'Z', 'd'], 3);
+        if (s2.kind !== 'inline') {
+            fails.push('② 差异形态分类失位：同行内容差异被误判成整体错位（实判 offset=' + s2.offset + '）');
+        }
+        // ③ 毫无共同行的两份文本 ⇒ 不许判成错位（否则分类器变成"什么都说是错位"的假绿）
+        const s3 = classifyDiffShape(['1', '2', '3', '4', '5', '6'], ['甲', '乙', '丙', '丁', '戊', '己'], 1);
+        if (s3.kind !== 'inline') {
+            fails.push('③ 差异形态分类失位：毫无共同行的两份文本被判成整体错位 —— 分类器会给所有差异发免罪牌');
+        }
+    } catch (e) {
+        fails.push('差异形态分类自证自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 形态结论一并作废');
+    }
+    return fails;
+}
+
 async function main() {
     const update = process.argv.includes('--update');
     // 引擎 import 放 main 内：垫片必须先就绪（同 tests/140-baseline.js 的做法）
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
         { CAMP_TYPES, BUFF_TYPES }, { translateFactsToStageActions }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -81,6 +152,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
     const SEEDS = process.env.SEEDS ? process.env.SEEDS.split(',').map(Number) : [1, 2, 3, 4, 5];
@@ -185,7 +258,13 @@ async function main() {
     const gLines = goldenN.split('\n');
     const tLines = text.split('\n');
     // 行号 = 首个差异字节之前的换行数 + 1
-    const ln2 = (goldenN.slice(0, pos).match(/\n/g) || []).length + 1;
+    // ★ 第 150 轮修一个定位 bug：pos 是**字节**偏移，而 slice(0, pos) 是**字符**索引 ——
+    //   golden 里有中文（单位名等），两者并不对齐，直接用字符索引数换行会把行号算大
+    //   （本轮实测：真实首差在第 294 行，旧算式报 296 行，偏 2 行）⇒ 按行号去查会查错地方。
+    const gBuf = Buffer.from(goldenN, 'utf8');
+    let nlCount = 0;
+    for (let k = 0; k < pos && k < gBuf.length; k++) if (gBuf[k] === 0x0a) nlCount++;
+    const ln2 = nlCount + 1;
     console.log(`RESULT: 有差异 ❌ 首个差异在字节 ${pos}（第 ${ln2} 行，长度 ${a.length} vs ${b.length}）`);
     for (let i = Math.max(0, ln2 - 3); i < Math.min(gLines.length, ln2 + 2); i++) {
         console.log(`  [基线] ${i + 1}: ${gLines[i]}`);
@@ -193,6 +272,23 @@ async function main() {
     for (let i = Math.max(0, ln2 - 3); i < Math.min(tLines.length, ln2 + 2); i++) {
         console.log(`  [本次] ${i + 1}: ${tLines[i]}`);
     }
+    // --- 第 150 轮新增：差异形态分类（★ 只补诊断，判据/退码/结论一行未改） ---
+    //   起因就是本轮这个数字：字节 8735 / 长度 15304144 vs 14035467 —— 看着像 1.27MB 的内容都变了，
+    //   真身却是「多了一个字段 ⇒ 后面整体错位一行」。不分类就会有人按 1.27MB 去查一个字段的洞。
+    const shape = classifyDiffShape(gLines, tLines, ln2);
+    if (shape.kind === 'offset') {
+        console.log(`  ★ 差异形态 = 整体错位（基线→本次偏移 ${shape.offset > 0 ? '+' : ''}${shape.offset} 行）：`
+            + `实为插入/删除 ${Math.abs(shape.offset)} 行，不是内容整体变更 —— `
+            + `长度差 ${b.length - a.length > 0 ? '+' : ''}${b.length - a.length} 字节是错位累积出来的假象，别按它估改动量`);
+        if (shape.onlyInOld.length) console.log('    [基线有/本次无] ' + shape.onlyInOld.join(' / '));
+        if (shape.onlyInNew.length) console.log('    [本次有/基线无] ' + shape.onlyInNew.join(' / '));
+    } else {
+        console.log('  · 差异形态 = 同行内容差异（非整体错位）：同一位置上的值变了，按上方上下文核对');
+    }
+    const shapeFails = selfCheckShape();
+    for (const bad of shapeFails) console.log('  ✗ ' + bad);
+    if (shapeFails.length) console.log('  ⇒ 自证未过 —— 上述差异形态分类不可信（有无差异的结论仍成立）');
+
     console.log('  → 若为翻译层有意变更：node tests/translate-golden.mjs --update 重录后复查');
     return 1;
 }

@@ -1,3 +1,4 @@
+// V3.12.0 | 2026-10-31 第 164 轮：嵌套 fact 采集收口：32 处 f.data.entries 递归统一改走 nestedFacts()，一并吐出 data.phantomFact 层
 // V3.9.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
 //         handler 是两条契约共用的唯一落地口，主代码记账一行同时激活两者（转交见矩阵第 84 轮节，补前警告态）；
 //          scan-groups 由 22/23 → 23/23 零盲区（endlessBreathCost 曾是唯一账本出现却未绑契约的 group）。
@@ -73,7 +74,48 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.9.1';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.12.0';
+
+// ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
+//   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
+//   本文件原本 30 处一律只扫 data.entries ⇒ 幻影 fact 恒不可见。本函数一次给出两层
+//   （phantomFact 在前），调用方一行不改即可补上，且**不缩小**原有任何覆盖面。
+function nestedFacts(f) {
+    const d = f && f.data;
+    if (!d) return [];
+    const out = [];
+    if (d.phantomFact) out.push(d.phantomFact);
+    if (Array.isArray(d.entries)) for (const e of d.entries) out.push(e);
+    return out;
+}
+// V3.11.0 | 2026-10-30 第 159 轮：定向覆盖通道泛化为「任意 GlobalStore 强制开关」，补齐 LION_INSPIRE /
+//   SPIDER_MASTERY / SPIDER_TRANSFORM 三条恒空转契约的样本覆盖（对应 A14 / A17 / A21 三颗牙）。
+//   动因：第 158 轮只填了 METEOR_GROWTH 一个洞，剩 3 颗牙的守卫契约仍零触发；该轮留下的判断
+//   「蛛系单位不在 29battle-init 的关卡名单里，光靠 forceXiaoZhao 补不出来」本轮实测**不成立**：
+//     ① SPIDER_TRANSFORM / SPIDER_MASTERY 的发射体是小昭·妹（isXiaoZhaoBrother，modules/20elite-skills.js
+//        L119-168），它就在 29battle-init 的小昭分支里 —— forceXiaoZhao:'brother' 可直接强制，无需另立阵容通道；
+//     ② LION_INSPIRE 的发射体是谢逊召唤的雄狮（modules/27elite-mingjiao-xiexun.js L85-113），
+//        主代码已备 forceXieXun 开关（29battle-init L141/L154），此前定向通道没泛化所以用不上。
+//   改法：新增 FORCE_KEYS 白名单 + normalizeForces，把原先只能传 forceXiaoZhao 单值的 `force` 字段
+//     泛化为 `forces` 对象（任意开关组合）；**逐场先全键复位再按场次设置**，字段 `force` 保持向后兼容。
+//   ★ 方向仍是补样本：判据、契约、门禁、VER 下限一行未改，没降任何阈值。
+// V3.10.0 | 2026-10-30 第 158 轮：新增「定向覆盖场次」通道（FORCED_CASES）。
+//   动因：METEOR_GROWTH 等 5 条契约在默认 132 场里恒零触发，mutation-teeth 据此把 5 颗牙判成
+//   「样本未覆盖（变异行零执行）」，T3/A5 的牙口结论长期无解。本轮引擎探针实测（/tmp 探针，未入库）：
+//   ★ 机制没坏，是**前置条件在随机阵容里凑不齐** —— METEOR_SPLASH_GROWTH 需「远程单位 + 流星赶月溅射
+//     + 小昭·姊存活 + 溅射有存活命中」四条同时成立（core/16effect-handlers.js L185-193），
+//     而默认样本里小昭·姊出场率仅 7/140 场（29battle-init L123 概率分支），且即便强制出姊仍只 5/420 场齐活。
+//   修法同第 113 轮扩样本口径：补一组**定向覆盖**场次（FORCED_CASES），沿用主代码现成的
+//     GlobalStore 'forceXiaoZhao'（29battle-init L245-262，xiaozhao-brother-leech-case.mjs 已在用），
+//     ★ 不改判据、不改契约、不降任何门禁，只把「没机会咬」的样本补齐，让它有机会被判。
+//   实测（强制姊模式 seed 21-40 × stage1-7 共 140 场）：命中 11 场 / 成长声明 35 条，
+//     其中 seed 23 在 stage 1/2/3/4 分别产出 3 / 5 / 4 / 5 条（合计 17 条，严格比对 17 条 / 偏差 0）；
+//     seed 33 stage 1/2/4 另有 5 / 2 / 6 条。⇒ 定向组取 seed 23 × stage 1-4（稳健且全在既有 stage 名单内）。
+//   ⚠️ 勘误备忘：首版探针漏了回合推进（重放同一回合），曾报出 seed 23 = 218 条 / seed 20:7 = 74 条等虚高数。
+//     ★ 已按对照器主循环口径（每回合用 lastStep 重建 battleState + 重新 tickAndPickBuffs）重写探针复核，
+//       真实数即上面的 17 条 —— 与本文件加入定向组后的实测输出逐条一致。取证数字一律以对照器实测为准。
+//   安全边界：定向组只**追加**在默认场次之后，默认 132 场一个不减；跑完即把 forceXiaoZhao 复位为 false，
+//     绝不让全局态泄漏到后续场次或其他体检入口。
 
 import { fileURLToPath } from 'node:url';
 
@@ -108,6 +150,57 @@ globalThis.self = globalThis;
 //   · 避坑记录：seed=6 命中瞬间最多（37 个）但**刻意不选**——它是 BREAK_DEF 的历史假红源（见上）。
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888, 17, 77, 103, 128, 142, 154, 43, 39, 15, 23, 31, 34];
 const STAGES = [1, 2, 3, 4, 5, 6]; // 第 74 轮加 5：stage 5 含鹿杖客/玄冥中毒（XUAN_MING_DOT 契约专属形态）；第 77 轮加 6：stage 6 含成昆·幻影伪装（PHANTOM_DISGUISE_HEAL 契约专属形态）
+
+// 第 158 轮新增：定向覆盖场次（默认随机阵容凑不齐的前置条件，靠主代码现成的强制开关补）。
+//   force 字段即 GlobalStore 'forceXiaoZhao' 的取值（'sister' / 'brother' / null=不强制）。
+//   ★ 为什么非要这一组：默认 132 场里小昭·姊出场率 7/140，METEOR_GROWTH 恒零触发 ⇒
+//     T3/A5 两颗牙永远拿不到「变异行到底执行没执行」的实证，牙口结论悬空。
+//   选取依据与实测数见文件头 V3.10.0 版本日志；后续若再发现恒空转契约，按同法补组并复测偏差必须为 0。
+//
+// 第 159 轮泛化：forces 字段可携带**任意** GlobalStore 强制开关（键必须在 FORCE_KEYS 白名单内），
+//   单值 force 字段向后兼容、等价于 forces:{ forceXiaoZhao: force }。
+//   ★ 白名单是硬边界：只允许填主代码 29battle-init 里真实存在的 force* 开关（L95 / L139-147），
+//     不许拿 GlobalStore 当后门改引擎行为；白名单外的键 normalizeForces 直接抛错，防写错键静默失效。
+const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun'];
+
+function normalizeForces(entry) {
+    const out = {};
+    if (entry && entry.force) out.forceXiaoZhao = entry.force;
+    if (entry && entry.forces) {
+        for (const [k, v] of Object.entries(entry.forces)) {
+            if (!FORCE_KEYS.includes(k)) {
+                throw new Error(`定向覆盖场次用了未登记的强制开关 '${k}'（白名单：${FORCE_KEYS.join(', ')}）`);
+            }
+            out[k] = v;
+        }
+    }
+    return out;
+}
+
+// 复位而且在每场**开始**时先全键归零，再按本场设置 —— 双重复位，杜绝全局态泄漏到后续场次或其他体检入口。
+function resetForces(GlobalStore) {
+    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
+}
+
+const FORCED_CASES = [
+    // 第 158 轮留下的：METEOR_GROWTH（T3 / A5 两颗牙的守卫契约）。
+    { seed: 23, stage: 1, force: 'sister' },
+    { seed: 23, stage: 2, force: 'sister' },
+    { seed: 23, stage: 3, force: 'sister' },
+    { seed: 23, stage: 4, force: 'sister' },
+    // 第 159 轮补：LION_INSPIRE（A14 雄狮振奋）—— 谢逊上场才会召唤幼狮、幼狮成形为雄狮、雄狮命中才发 fact。
+    //   场次实测（单 seed 单 stage 定点归因）：seed 17 stage 2 产出 102 条、seed 42 stage 1 产出 78 条，
+    //   两条均偏差 0；stage 4 在 seed 17 / 42 上恒为 0 条，故只收 1、2 两关。
+    { seed: 17, stage: 2, forces: { forceXieXun: true } },
+    { seed: 42, stage: 1, forces: { forceXieXun: true } },
+    // 第 159 轮补：SPIDER_MASTERY（A17 蛛变精通）/ SPIDER_TRANSFORM（A21 蛛变）/ 顺带 SPIDER_EGG。
+    //   三者同源，都是小昭·妹（isXiaoZhaoBrother）在 ON_ROUND_START 变身时分发的
+    //   （modules/20elite-skills.js L119-168），故同一组场次同时喂三条契约。
+    //   实测 seed 17 六个 stage 全覆盖（stage 1 最强：MASTERY 12 / TRANSFORM 57 / EGG 2，偏差 0），
+    //   取 stage 1 与 stage 4（stage 4 TRANSFORM 最高 60 条）。
+    { seed: 17, stage: 1, force: 'brother' },
+    { seed: 17, stage: 4, force: 'brother' }
+];
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 // 第 47 轮：以下 group 的 fact 与 addMod 在**同一 handler、用同一变量/同一值**发射，无跨步错位
@@ -169,7 +262,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -352,7 +445,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -494,7 +587,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -640,7 +733,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -695,7 +788,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -722,7 +815,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -745,7 +838,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -772,7 +865,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -804,7 +897,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -833,7 +926,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -864,7 +957,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -891,7 +984,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -932,7 +1025,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -959,7 +1052,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -984,7 +1077,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1011,7 +1104,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1243,7 +1336,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1270,7 +1363,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1305,7 +1398,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1331,7 +1424,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1362,7 +1455,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1397,7 +1490,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1421,7 +1514,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1453,7 +1546,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1482,7 +1575,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1512,7 +1605,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1544,7 +1637,7 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f) continue;
                 scan(f);
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1577,7 +1670,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1610,7 +1703,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1636,7 +1729,7 @@ const CONTRACTS = [
             };
             for (const f of stepLog || []) {
                 scan(f);
-                if (f && f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                for (const e of nestedFacts(f)) scan(e);
                 if (f && Array.isArray(f.entries)) for (const e of f.entries) scan(e);
             }
             return out;
@@ -1663,7 +1756,7 @@ const CONTRACTS = [
             const scan = (e) => {
                 if (!e) return;
                 if (e.type === 'info' && typeof e.text === 'string' && e.text.indexOf('鹰王威压') !== -1) scanText(e.text);
-                if (e.data && Array.isArray(e.data.entries)) for (const x of e.data.entries) scan(x);
+                for (const x of nestedFacts(e)) scan(x);
                 if (Array.isArray(e.entries)) for (const e2 of e.entries) scan(e2);
             };
             for (const f of stepLog || []) scan(f);
@@ -1690,7 +1783,7 @@ const CONTRACTS = [
                         out.push({ unit: '殷天正', stat: 'def', amount: Number(m[2]) });
                     }
                 }
-                if (e.data && Array.isArray(e.data.entries)) for (const x of e.data.entries) scan(x);
+                for (const x of nestedFacts(e)) scan(x);
                 if (Array.isArray(e.entries)) for (const e2 of e.entries) scan(e2);
             };
             for (const f of stepLog || []) scan(f);
@@ -1700,7 +1793,7 @@ const CONTRACTS = [
 ];
 
 async function main() {
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES, FACT_TYPES: FT }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -1710,6 +1803,8 @@ async function main() {
         import('../infra/56-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
+    // 第 158 轮：定向覆盖组需要它来设 forceXiaoZhao（主代码 29battle-init 读它）。
+    const { GlobalStore } = await import('../infra/54-global-store.js');
 
     // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
     //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
@@ -1725,6 +1820,8 @@ async function main() {
     //   tools/101、115、116 均已补（116 注释明写"不 import 则第 5 关 worker 全灭"），体检三个入口此前漏了。
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
     FACT_TYPES = FT; // 供顶层契约 extract 的 factType 守卫使用
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
@@ -1875,7 +1972,9 @@ async function main() {
     const cases = rawArgs.length > 0
         ? rawArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
         : SEEDS.flatMap(seed => STAGES
-            .map(stage => ({ seed, stage })));
+            .map(stage => ({ seed, stage })))
+            // 第 158 轮：默认场次之后**追加**定向覆盖组（默认 132 场一个不减）。
+            .concat(FORCED_CASES.map(f => ({ seed: f.seed, stage: f.stage, forces: normalizeForces(f) })));
 
     const hits = [];
     const stat = {}; // contractId -> { declared, dup }
@@ -1884,7 +1983,12 @@ async function main() {
     //   mismatch = 其中「声明 ≠ 实际」的次数。干净树上恒为 0 的契约 ⇒ 可安全升级为严格判据。
     for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0, ambiguous: 0, checked: 0, mismatch: 0, mismatchEg: '' };
 
-    for (const { seed, stage } of cases) {
+    for (const { seed, stage, forces } of cases) {
+        // 第 158 轮：定向覆盖组靠主代码现成的 forceXiaoZhao 开关凑齐前置条件；第 159 轮泛化为多开关。
+        //   ★ 必须逐场设置、且开场先把全部白名单键复位 —— 全局态一旦泄漏到后续场次，
+        //     默认样本就不是「干净随机阵容」了，历史结论全部作废且极难察觉。
+        resetForces(GlobalStore);
+        for (const [k, v] of Object.entries(forces || {})) GlobalStore.set(k, v);
         const rng = new SeededRNG(seed);
         const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
         let battleState = {
@@ -2081,6 +2185,11 @@ async function main() {
         }
         return;
     }
+
+    // 第 158 轮：场次循环结束，复位定向覆盖用的全局开关（默认 false）。
+    //   不复位的话，同进程内后续任何 initBattleTeams 都会被强制成小昭·姊阵容。
+    //   第 159 轮：改为按白名单全键复位（forceXieXun 同样会污染后续场次）。
+    resetForces(GlobalStore);
 
     console.log('\n=== 数值声明 vs 实际属性增量（逐步真值对照）===');
     let hardFail = false;

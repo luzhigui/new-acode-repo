@@ -57,7 +57,7 @@ function parseArgs(argv) {
 const ARGS = parseArgs(process.argv.slice(2));
 
 // --- 引擎加载（顺序同 tests/rules-replay.mjs）---
-const [{ CONFIG, loadGameData }, { initBattleTeams }, { SeededRNG }, { createRoundStepper }] =
+const [{ CONFIG, loadGameData, loadHexEnhanceData }, { initBattleTeams }, { SeededRNG }, { createRoundStepper }] =
     await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../modules/29battle-init.js'),
@@ -69,6 +69,7 @@ await import('../modules/25elite-imperial.js');
 await import('../modules/26elite-sixsects.js');
 await import('../modules/27elite-mingjiao.js');
 const game = await loadGameData();              // 返回的就是 01 的缓存本体，getSkillParams 读它
+await loadHexEnhanceData();                     // // 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
 // --- 关卡列表：读 content 的 encounters.enemySquads 键，自动跟随数据（默认 1..7）---

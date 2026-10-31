@@ -1,4 +1,4 @@
-// tests/isdead-fix-guard.mjs V1.0.0
+// tests/isdead-fix-guard.mjs V1.0.1 （第 164 轮：fact 采集补 data.phantomFact 层 —— 幻影 fact 与 data.entries 并列、不在 entries 里，原两层口径对它恒不可见；只补视野、不缩面、不改判据）
 // ───────────────────────────────────────────────────────────────────────────
 // isDead 修复回归护栏（第 125 轮·A 落地闭环）：
 //
@@ -30,14 +30,14 @@ globalThis.self = globalThis;
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
-const VER = 'tests/isdead-fix-guard.mjs V1.0.0';
+const VER = 'tests/isdead-fix-guard.mjs V1.0.1';
 const argv = process.argv.slice(2);
 const N_SEEDS = Number(process.env.SEEDS_N || (argv.includes('--seeds') ? argv[argv.indexOf('--seeds') + 1] : 30));
 const SEEDS = Array.from({ length: N_SEEDS }, (_, i) => i + 1);
@@ -53,6 +53,10 @@ function* walkFacts(nodes) {
     for (const n of (nodes || [])) {
         if (!n || typeof n !== 'object') continue;
         if (n.factType) yield n;
+
+        // ★ 第 164 轮补层：幻影类 fact 挂在 data.phantomFact，与 data.entries 并列**而不在 entries 里**
+        //   ⇒ 只扫 entries 的写法对它恒不可见（第 163 轮在 census / rules-replay 里已实锤）
+        if (n.data && n.data.phantomFact) yield* walkFacts([n.data.phantomFact]);
         const inner = (n.data && Array.isArray(n.data.entries)) ? n.data.entries
             : (Array.isArray(n.entries) ? n.entries : null);
         if (inner) yield* walkFacts(inner);
@@ -70,6 +74,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     const trueHits = [];                 // isDead===true 的命中明细
     const deadUids = new Set();          // 跨所有 step 累积的死亡 uid（一旦死即记）

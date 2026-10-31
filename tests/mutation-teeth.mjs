@@ -1,3 +1,43 @@
+// V2.9.16 | 2026-10-29 夜间第 156 轮：A8 / A19 蝶变附身防御变异改为 multi。
+//   --verify 实测同一 addMod 已有宿主 + 额外队友两条真实路径，旧单点锚点各报「2 处、非 multi」而失效；
+//   两处同改才保持「蝶变附身防御 universally 翻倍/失效」的原牙语义（单场额外队友路径可能同时生效）。
+//   本轮会全量重建 47 棵变异树并重跑结果，故判据 VER 同步升 V2.9.16，旧 hold 正式核销。
+// V2.9.15 | 2026-10-24 第 126 轮：修「转交中（⚠️）规则 = 证据黑洞」—— 第 126 轮 46 颗牙全量重算时由 T16 暴露。
+//   现象：run.sh 的 REPLAY 过滤只抓 `❌`，而回放器把「已登记转交」的失败规则标 `⚠️`（rules-replay L476：
+//   fail>0 且命中 KNOWN_TRANSFERS ⇒ ⚠️ 不染退码）。于是这类规则的**规则头行与全部报红明细都进不了结果文件**，
+//   而 parseBlock 的 curRule 又只由 ❌ 行设置 ⇒ 它们的明细**无归属**，既不进 newDetail 也不进 masked。
+//   后果（两面都坏）：① 判据其实咬住了，却显示「未观测到影响」（T16 实证：变异让 164 报出
+//   「newMaxHp=132.5 应为正整数目标上限」3 条新明细，屏幕上却一行不显）；② 反之若日后有人靠它们混进
+//   cleanPairs，又会拿「基线已红」的规则给变异作伪证（第 43 轮 153 那次教训）。
+//   修法（只补证据通道，判据一行未改）：
+//     a) --emit-run 的 grep 补 `⚠️`，让转交中规则的头行与明细一起落盘；
+//     b) parseBlock 识别 `⚠️` 规则行，设 curRule 并记入 warn（**不进 red**，转交态本就不计退码）；
+//     c) report 把 _base 的 warn 与 red 合并成「失去作证资格」集合传给 judge ⇒ 转交中规则与基线已红规则
+//        同等待遇：不能作证，但其新明细照旧记入 masked（[掩盖×N]）显式呈现，不静默吞掉。
+// V2.9.12 | 2026-10-24 第 126 轮：新增 `--matrix-out=<path>` —— 牙口矩阵 Markdown 落盘。
+//   起因：46 颗牙的结论此前**只活在 stdout**（--report 打印完即散），而 teeth-results.txt 一旦被新鲜度
+//   守卫判陈旧，矩阵就只剩零星几条 ⇒ 白天会话看不到「规则到底有没有牙」的全貌，也无法逐轮对照变化。
+//   本次仅新增**输出通道**（多写一个 md 文件），**判据口径一行未改**，故 VER（判据版本）不升 ——
+//   VER 只钉判据，判据一改必须升，见 V2.9.0 新鲜度守卫。
+// V2.9.11 | 2026-10-18 第 100 轮：faa6068 大拆分联动锚点重修（5 处 file 路径，from/to 文本未动）——
+//   core/12 拆 chain/edge ⇒ A11（韦一笑吸血上限提升）from 行随 weiLeech addMod 迁至
+//   core/12battle-attack-chain.js L479；render/35 拆 stat/heal 等 ⇒ T8/T9（坚盾已叠 current/cap，
+//   35-facts-stat.js L68）、T12（九阴白骨爪 fmt1 伤害，35-facts-stat.js L194）、
+//   T13（嗜血狂刀 leechVal，35-facts-heal.js L18）迁户。不修即「树内没有该行 ⇒ 变异静默失效、
+//   树木=干净树」= 假绿制造机（同 V2.9.4 拆分联动模式）。
+// V2.9.10 | 2026-10-15 第 94 轮：修 --merge-results 输出 bug（合并功能首次实际使用即暴露）——
+//   块拼接行 `[..., ...[...main.blocks.values()].join('\n'), ...]` 多写一个展开符：join 出来的大字符串被
+//   逐字符拆成数组元素，写出的结果文件整片逐字符换行 = 全损（本轮 29 棵旧结果被冲掉，靠重建树重跑恢复）。
+//   修法：去掉多余的 `...`。另补记：ONLY 模式每批跑完必须 `cp teeth-results-inc.txt <批次备份>`——
+//   inc 文件每次跑都会被覆盖（本轮 T18 的第 93 轮结果就是这样丢的）。
+// V2.9.9 | 2026-10-15 第 93 轮：T18 变异重修——旧版 `{ posA, posB }`→`{ posB, posA }` 是 ES6 简写
+//   换键顺序不换值的**空操作**（sed 注入成功但对象一模一样，树仍干净 ⇒ 首测 0 命中误导"规则没牙"）；
+//   改为真换值 `posA: posB, posB: posA`。教训入 skill：变异必须改变**行为/数值**，文本差异≠行为差异。
+// V2.9.8 | 2026-10-15 第 92 轮：新增 ONLY 增量过滤 + --merge-results 合并（用户立规"新增几颗牙只跑
+//   几棵树，别为 2 颗新牙跑 20-40 分钟全量"的落地）——ONLY=T17,T18 时 prep/run 只伺候这几棵树、
+//   结果落 teeth-results-inc.txt，--merge-results 按 id 合并回主文件并刷新 META（NOTE 记录来源）。
+// V2.9.7 | 2026-10-15 第 91 轮：A25 锚点重校（multi）—— 主代码 6f4c103/8073bbe 把圣火令拆成
+//   两条路径（基础 buff cols/rows + 妹永久 draw.cols/rows），atk addMod 行两处全同 ⇒ 单点锚点
 //   不再唯一。sed 单行替换不支持多行锚点，A25 改 multi（两处一起翻倍，语义不变）。
 // V2.9.5 | 2026-10-13 体检第 84 轮：A11 锚点重校（唯一性）—— 旧 from `"{ source: '韦一笑吸血', value: delta,"`
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
@@ -29,17 +69,44 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-// ★ VER 只钉**判据口径**：判据一改必须升（结果文件据此判陈旧）。
-//   守卫 / 输出通道 / 证据通道的升级**不升 VER**（V2.9.12 先例，V2.9.15 沿用）——
-//   故本文件头注释已到 V2.9.15 而 VER 仍为 V2.9.14，是刻意的，不是漏改：
-// ★ VER-HOLD-DECL：上一段「VER 刻意不升」此前只是散文说明，机器读不出来，
-//   第 135 轮的 ver-drift-selftest 无法区分「刻意 hold」与「漏改」。本行把意图升级为可断言标记 ——
-//   hold 从此要同时在册（自检白名单）+ 在位（本行）+ 且真有落差（VER≠日志最新版）三者齐备才放行，
-//   落差消失（VER 归位）则本标记必须同步删除，否则自检转红。判据口径与 VER 值本身一行未动。
-//   （第 139 轮：上游把同一次改动里的 VER 顺手抬到 V2.9.15，其含义是"新增引擎指纹守卫"；
-//    本地口径认为守卫升级不升 VER —— 升了会让本轮刚重跑的 47 棵结果全部被误判陈旧，
-//    故裁决保留 V2.9.14 + 本标记，新增的⑥ ENGFP 属守卫升级，不改变判据口径。）
-export const VER = 'tests/mutation-teeth.mjs V2.9.14';
+// V2.9.15 | 2026-10-25 第 134 轮：新鲜度守卫补第⑤项「判据（规则）文件指纹 RULEFP」——
+//   补的是第 129 / 132 轮各改 21 个规则文件、而四项守卫**一项都没响**那个洞（第 133 轮实测
+//   已有 3 条牙口结论对不上当前代码，牙口矩阵顶上却仍写着「新鲜度守卫：通过」⇒ 守卫在说谎）。
+//   ① 新增 ruleFingerprint()：tests/health-rules/*.js（47 个）+ tests/122health-utils.js 的**内容**哈希；
+//   ② --emit-run / --merge-results 把 RULEFP 写进 #META 头；③ --report 比对，不符即判陈旧（硬失败退 1）。
+//   用内容哈希而非 mtime：mtime 会被 touch / git checkout 刷新 ⇒ 假阳性，且说不出哪条结论作废。
+//   与 rule-teeth-evidence-selftest 分工：本项是粗粒度预警（判据整体变过没），后者是细粒度实质对账。
+//   ★ VER 不升：只加守卫/证据通道，判据口径一行未动（同 V2.9.12「VER 只钉判据」先例）。
+// V2.9.14 | 2026-10-24 第 127 轮：对照器侧补「归属 + 不得作证」两道闸门（只补证据通道，判据不放松）。
+//   背景：V2.9.13 及以前，对照器证据只有一个**汇总数**（grep「检出重复应用 N 处」），既不知道
+//   是哪条契约抓的，也没有「干净树本就命中 ⇒ 不得作证」这道闸门——与第 43 轮（153）、第 126 轮
+//   （转交中规则）在**规则侧**修的是同一类洞，只是对照器侧一直没补。
+//   ① 归属：STAT 段本来就逐条打印 `CONTRACT 声明 N 条 · 命中 M · …`，此前被丢弃。改为解析成
+//     statByContract，把「对照器兜住」写成「对照器兜住(LEECH_MAXHP×199)」——18 颗 ATTR 牙各自
+//     由哪条契约守着，从此可审计（第 126 轮下轮目标点名的 A20/A11/A5 分别对应
+//     LEECH_MAXHP / WEI_HEAL / METEOR_GROWTH，已实测 1:1 对应、无错配）。
+//   ② 不得作证：干净树 _base 里 命中>0 的契约（若有）列入 BASE_DIRTY_CONTRACTS，其命中不计入
+//     「有牙」证据，改记对照器侧 [掩盖×N]——道理同「基线已红的规则不得作证」。
+//     实测当前 _base 全部 56 条契约命中皆 0 ⇒ 本闸门当下为空操作（零判定迁移），纯属加固。
+// ★ VER 只钉**判据口径与变异表语义**：纯守卫 / 输出通道 / 证据通道升级可不升，
+//   但锚点、多路径注入范围或判定逻辑一改必须升，并重跑结果使新鲜度元数据归位。
+//   V2.9.12 / V2.9.15 属输出或守卫升级，历史上未单独抬 VER；第 156 轮 A8 / A19 从单点改为
+//   宿主 + 额外队友双路径注入，直接改变两颗牙的生效面，故升到 V2.9.16 并核销旧 hold。
+// V2.9.17 | 2026-10-30 夜间第 157 轮：★ 修「TEXT 变异无条件判已生效」导致的假真盲区。
+//   旧判据 `effective = mut.kind === 'TEXT' || ...` 对 TEXT 牙**无条件**认定「变异已生效」，
+//   理由是 TEXT 只改日志不改状态、属性指纹必不变，无法用指纹判生效。但它带来一个洞：
+//   TEXT 变异若注入的那行代码在样本里**一次都没执行**（fact 零发射），也会被判成
+//   「❌装饰品(真盲区)」—— 于是「规则没机会咬」被渲染成「规则咬不住」，冤枉规则、误导诊断。
+//   实证（第 156 轮 47 棵结果，m-T3 块 STAT 段）：T3 的守卫契约 METEOR_GROWTH 报
+//   「零触发：在 132 场未产生任何声明，且 group『meteorSplashGrowth』账本中完全没出现」。
+//   即变异行从未执行 —— 而同一契约下的 A5（ATTR，靠指纹判生效）却正确判为「未观测到影响」。
+//   **同一条契约零触发，两颗牙两种判定** ⇒ 判据不自洽，这个洞必须堵。
+//   修法：新增「执行级实证」通道 —— 取该牙的守卫契约（唯一来源：contract-guard-selftest.mjs
+//   的 TEETH_GUARDIAN 表，静态解析而非手写第二份），若它在本树报零触发 ⇒ 判
+//   「⚠样本未覆盖(变异行零执行)」，与「真盲区」区分开：前者是**样本/锚点覆盖缺口**，
+//   后者才是「机制执行了却没人看见」。方向是把错的分类改对、把缺口显式报出来，
+//   **不是放宽**：真盲区（执行了仍无反应）该红照红，且新增的这一类是新的待办信号而非绿灯。
+export const VER = 'tests/mutation-teeth.mjs V2.9.17';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -99,10 +166,11 @@ const MUTATIONS = [
     // 第 58 轮修锚点：A8 原锚在 **atk** 那行，但 flyDirection 恒为 'left'（core/11 只写 `A._flyDirection = A._flyDirection || 'left'`，
     //   全仓无处设 'right'）⇒ atkRatio=0 ⇒ atkTransfer 恒 0 ⇒ `value: atkTransfer * 2` 是个 no-op，
     //   baseline 与 _base 逐字节相同。改锚 **def** 那行：left 时 defRatio=bp.defRatioLeft=0.5，值非零，变异真正生效。
-    { id: 'A8', kind: 'ATTR', desc: '蝶变附身防御转移翻倍',
+    { id: 'A8', kind: 'ATTR', desc: '蝶变附身防御转移翻倍（宿主+额外队友两条路径都改）',
       file: 'modules/27elite-mingjiao-xiaozhao-sister.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
-      to:   "{ source: '蝶变附身', value: defTransfer * 2," },
+      to:   "{ source: '蝶变附身', value: defTransfer * 2,",
+      multi: true },
     // V2.9.1 | 2026-10-08 第 60 轮：A9 锚点因 八卦阵机制重写（defGain 防御增益 → 付费触发扣 atkCost 攻击力）失效，
     //   旧 from 串 0 处 ⇒ 树=干净树 ⇒ 此前「待确认盲区」是假阴性。重新对准到现行机制：扣攻翻倍，
     //   声明 fact(BAGUA_ARRAY.atkDelta=-ba.atkCost) 不变 ⇒ BAGUA_ATK 契约出现偏差，真有牙。
@@ -166,10 +234,11 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects-songqingshu.js',
       from: "{ source: '苦练', value: atkDelta,",
       to:   "{ source: '苦练', value: atkDelta + 1," },
-    { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（改 0，非整数倍判据必漏）',
+    { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（宿主+额外队友两条路径都改 0，非整数倍判据必漏）',
       file: 'modules/27elite-mingjiao-xiaozhao-sister.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
-      to:   "{ source: '蝶变附身', value: 0," },
+      to:   "{ source: '蝶变附身', value: 0,",
+      multi: true },
     { id: 'T1', kind: 'TEXT', desc: '破防日志写 -（reduce+5）（实际仍只扣 reduce）',
       file: 'core/16effect-handlers.js',
       from: "targetName: target.name, reduce }",
@@ -439,6 +508,34 @@ function checkFreshness(txt, resultsPath) {
     return why;
 }
 
+// 牙 → 守卫契约映射的**唯一来源读取**（V2.9.17 | 第 157 轮）。
+//   表本体住在 tests/contract-guard-selftest.mjs（TEETH_GUARDIAN），本文件绝不手写第二份 ——
+//   手写副本必然腐烂成第二真相（第 156 轮 A8/A19 双路径假牙、本轮体检正在抓的 stripComments 第二份，
+//   都是同一款病）。但该文件顶层有 `process.exit(0)`，**import 即退出**，不能 import。
+//   ⇒ 改为**静态解析其源码文本**：事实来源仍只有一处，本文件只是读取方。
+//   解析失败（表被删/改名/改结构）一律**硬报错**，绝不静默返回空表 —— 空表会让本轮新判据
+//   恒不成立，等于把刚补的通道又悄悄关掉（与「关掉守门人无人报」同一款病）。
+const TEETH_GUARDIAN_MIN = 25; // 第 127 轮实测 29 项归属；低于此值说明解析残缺或表被删
+let TEETH_GUARDIAN = null;     // --report 时由 loadTeethGuardian() 填入；未填即 null（判定通道关闭，靠下面的硬失败兜住）
+function loadTeethGuardian() {
+    const fp = path.join(HERE, 'contract-guard-selftest.mjs');
+    let src = '';
+    try { src = fs.readFileSync(fp, 'utf8'); } catch (e) {
+        throw new Error(`读不到守卫契约表唯一来源 ${fp}（${e && e.message}）`);
+    }
+    const m = src.match(/const\s+TEETH_GUARDIAN\s*=\s*\{([\s\S]*?)\};/);
+    if (!m) throw new Error(`守卫契约表唯一来源里找不到 TEETH_GUARDIAN 定义块（${fp}）——表被删或改名，本轮判据不能静默失效`);
+    const out = {};
+    const re = /(['"])?([AT]\d+)\1?\s*:\s*['"]([A-Z][A-Z_0-9]*)['"]/g;
+    let g;
+    while ((g = re.exec(m[1])) !== null) out[g[2]] = g[3];
+    const n = Object.keys(out).length;
+    if (n < TEETH_GUARDIAN_MIN) {
+        throw new Error(`守卫契约表解析残缺：只解出 ${n} 项（下限 ${TEETH_GUARDIAN_MIN}）——正则或表结构已漂移，禁止按空表继续判定`);
+    }
+    return out;
+}
+
 // 实证「变异串是否真落进那棵树」（V2.9.0）。--verify 只查**当前仓库**有没有 from，
 //   查的是"现在能不能注入"；这里查的是"当时那棵树里到底有没有 to" —— 只有后者能证明跑的是变异树而非干净树。
 //   （prep 之后主代码又被改过、或 from 在 prep 时已被改写，都只有这一步能抓到。）
@@ -599,11 +696,23 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
     // 兼容旧结果文件（无逐契约列）：退回归总数口径，不因解析缺口把「有牙」误判成「没牙」。
     if (Object.keys(byC).length === 0 && S.total > 0) { statClean = S.total; guardians.push('(未归属)×' + S.total); }
     const statHit = statClean > 0 || mismatchDelta > 0;
-    const effective = mut.kind === 'TEXT' || newDetail.length > 0 || newRed.length > 0
+    // ★★ V2.9.17：执行级实证 —— 这颗牙的守卫契约在本树是否**零触发**（fact 零发射 + 账本 group 从未出现）。
+    //   零触发 ⇒ 变异注入的那行代码在样本里一次都没跑 ⇒ 谁也咬不到它，不是"规则无牙"而是"没机会咬"。
+    //   旧判据把这种情况（TEXT 无条件 effective）一律渲染成「❌装饰品(真盲区)」，冤枉规则、误导诊断方向；
+    //   同一条契约零触发时 A5（ATTR，靠指纹判生效）却判「未观测到影响」——同一事实两种判定，不自洽。
+    //   ⇒ 统一判为「⚠样本未覆盖(变异行零执行)」：它是**覆盖缺口待办**（扩样本 / 换锚点 / 等机制出场），
+    //   不是绿灯；真盲区（机制执行了、规则+对照器+基线仍全无反应）照旧判红，两类不再混为一谈。
+    const zeroTrig = S.zeroTriggers || [];
+    const guardianContract = (typeof TEETH_GUARDIAN === 'object' && TEETH_GUARDIAN)
+        ? (TEETH_GUARDIAN[mut.id] || null) : null;
+    const guardianZero = !!guardianContract && zeroTrig.indexOf(guardianContract) !== -1;
+    // 旧口径 `mut.kind === 'TEXT'` 的无条件生效在此收口：TEXT 也必须有「机制真的执行过」的实证。
+    const effective = (mut.kind === 'TEXT' && !guardianZero) || newDetail.length > 0 || newRed.length > 0
         || baselineChanged || fpChanged || statHit;
     // V2.9.14：把守到它的契约名写进判定 —— 「对照器兜住」从此可审计（谁兜的、兜了几处）。
     const gbit = guardians.length ? `(${guardians.join('、')})` : '';
     if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+    if (guardianZero) return { verdict: '⚠样本未覆盖(变异行零执行·守卫契约' + guardianContract + '恒空转)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     // 规则侧：只认「基线不红的规则」报出的新红
     const bit = newDetail.length > 0 ? `(+${newDetail.length}条新明细)` : '';
@@ -745,6 +854,27 @@ async function main() {
         }
         console.log(bad === 0 ? `\n✅ ${MUTATIONS.length} 条变异锚点全部有效`
                              : `\n❌ ${bad} 条变异锚点失效 —— 不修就是「假绿制造机」，请更新 MUTATIONS 里的 from/to`);
+        // ===== V2.9.17 自证（两条，都咬本轮新补的执行级实证通道）=====
+        // 自证①：守卫契约表唯一来源**解析得出**。解析不出 ⇒ --report 里 guardianZero 恒 false ⇒
+        //   本轮新通道被悄悄关掉且不报错，正是「守门人自己被关掉没人守」那款病，故必须在自检里点名。
+        try {
+            const g = loadTeethGuardian();
+            console.log(`✅ 自证① 守卫契约表（唯一来源 contract-guard-selftest.mjs）解析出 ${Object.keys(g).length} 项牙→契约归属（下限 ${TEETH_GUARDIAN_MIN}）`);
+        } catch (e) {
+            console.log('❌ 自证① 守卫契约表解析失败：' + (e && e.message));
+            bad++;
+        }
+        // 自证②：STAT 段的「零触发」信号**认得出**。认不出 ⇒ 零触发牙仍会被判成「真盲区」，本轮修等于没修。
+        //   样本取真实形态（STAT 段内、带 ✗ 前缀与后续说明），不用理想化短串 —— 第 151 轮牙B /
+        //   第 153 轮自伤四的教训：样本自身必须是真风险形态，否则自证只是自欺。
+        const ztProbe = parseBlock('STAT:\n  ✗ 零触发：METEOR_GROWTH 在 132 场未产生任何声明，且 group「meteorSplashGrowth」账本中完全没出现——契约空转（装配/字段路径错误，覆盖度缺口）\n').zeroTriggers || [];
+        if (ztProbe.indexOf('METEOR_GROWTH') === -1) {
+            console.log('❌ 自证② 零触发信号解析失败（未识别出 METEOR_GROWTH）——新判据会形同虚设');
+            bad++;
+        } else {
+            console.log('✅ 自证② 零触发信号解析自证：识别出 ' + ztProbe.join('、'));
+        }
+        if (bad) process.exit(1);
         return;
     }
 
@@ -798,6 +928,11 @@ async function main() {
             console.log(`❌ 找不到结果文件 ${resultsPath} —— 请先跑 \`node tests/mutation-teeth.mjs --emit-run\` 输出的 Bash 脚本`);
             process.exit(1);
         }
+        // V2.9.17：牙 → 守卫契约映射（唯一来源静态解析，见 loadTeethGuardian 注释）。
+        //   解析不出来就**硬失败**，绝不让本轮新增的「变异行零执行」判定通道静默失效 ——
+        //   空表会让 guardianZero 恒 false，等于把刚补的通道悄悄关掉且无人报警。
+        try { TEETH_GUARDIAN = loadTeethGuardian(); }
+        catch (e) { console.log('❌ 守卫契约表加载失败：' + (e && e.message)); process.exit(1); }
         const txt = fs.readFileSync(resultsPath, 'utf8');
         // ===== V2.9.0 新鲜度守卫 =====
         // 旧结果 + 新判据 = 假结论（本轮实例：9-29 的结果配 10-02 的判据，屏幕上仍写着
@@ -870,7 +1005,7 @@ async function main() {
             if (!p) { console.log(`⏭ 缺 ${m.id} 结果`); continue; }
             const R = { red: p.red, details: p.details || [], pairs: p.pairs || [], crash: p.crash };
             const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig };
-            const S = { total: p.statTotal, statMismatch: p.statMismatch, statByContract: p.statByContract };
+            const S = { total: p.statTotal, statMismatch: p.statMismatch, statByContract: p.statByContract, zeroTriggers: p.zeroTriggers };
             const stf = { fp: p.fp };
             const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS, BASE_DIRTY_CONTRACTS);
             // V2.9.0：实证「变异到底注进树里没有」。锚点失效时（主代码改写了 from 串）sed 替换 0 处，
@@ -957,8 +1092,15 @@ function parseBlock(body) {
     //   `LEECH_MAXHP  声明  185 条 · 命中 199 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0`
     //   此前只取汇总数、丢弃归属 ⇒ 「对照器兜住」不显示是谁兜的，无从审计。
     //   只收 命中>0 的契约（0 命中的契约不构成证据，收进来只会稀释归属）。
+    // V2.9.17：STAT 段的「零触发」信号。行形如
+    //   `  ✗ 零触发：METEOR_GROWTH 在 132 场未产生任何声明，且 group「meteorSplashGrowth」账本中完全没出现`
+    //   —— 它同时说了两件事：声明侧 0 条（该 fact 一次都没发）+ 账本 group 从未出现（该机制从未执行）。
+    //   ★ 这正是判断「变异注入的那行代码有没有被执行过」的现成实证，此前被当成普通噪音整段丢弃。
+    const zeroTriggers = [];
     const statByContract = {};
     for (const line of stat.split('\n')) {
+        const z = line.match(/零触发：([A-Z][A-Z_0-9]*)\s/);
+        if (z && !zeroTriggers.includes(z[1])) zeroTriggers.push(z[1]);
         // stat-decl 汇总行：命中时 `✗ 检出重复应用 N 处`（N>0）；干净树为 `✅ 全部数值声明…（无重复应用）`（无此行）。
         // ⚠️ 旧正则 `重复应用命中\s+(\d+)` 与 stat-decl 实际文案「检出重复应用 N 处」不匹配，导致严格命中的契约
         //   （如 A20/A21/A22）在 harness 里被错算成 0、误判为「仅基线兜底」—— 此 bug 会让「有牙」结论失真，故改之。
@@ -978,7 +1120,7 @@ function parseBlock(body) {
         }
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, warn, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, statByContract, fp: fpM ? fpM[1] : null };
+    return { red, warn, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, statByContract, zeroTriggers, fp: fpM ? fpM[1] : null };
 }
 
 function summarize(rows, outPath, metaLines, staleCount) {

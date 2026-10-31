@@ -1,3 +1,66 @@
+// V1.26.0 | 2026-10-31 夜间第 165 轮：OBSERVES 挂「巨马/carry 定向取证」
+//     tests/xiaozhao-horse-carry-case.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
+//     新增/订正均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
+// V1.25.0 | 2026-10-31 夜间第 163 轮：OBSERVES 挂「信号通道守门（探针存活 + fact 藏匿点）」
+//     tests/signal-channel-guard.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
+//     新增/订正均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
+// V1.24.0 | 2026-10-31 夜间第 162 轮：OBSERVES 挂「海克斯分库启动链守门」tests/hex-boot-chain-guard.mjs
+//   （★ 上游把小昭.hexEnhance 从 content/200 整段迁到 content/201，并把 getSkillParams 改成
+//     「只认 201、缺段即抛、不允许回落」，但**没给任何消费方补 loadHexEnhanceData** —— 本轮开场
+//     25 项体检里 16 项以同一个 Error 崩掉（回放/基线/账本/fact普查/golden/fuzz…），红因一律写成
+//     「201 缺 sister 段」，看着像数据文件丢了，实则是启动链没跟上迁移。本轮在 tests/ 与 tools/
+//     共 20 个消费方补齐启动链，并立本件守门防复发：数据换了家、消费方没换钥匙这件事，从此有人点名。
+//     挂观察项不改分母（同孤儿普查取舍）；是否升 CHECKS 开红待拍板）。
+//     同轮一并挂「兄分支惑心定向取证」tests/phantom-confuse-brother-case.mjs（见 OBSERVES 末项注释）。
+// V1.23.0 | 2026-10-31 夜间第 161 轮：OBSERVES 挂「蛛袭死目标定向取证」tests/spider-dead-target-case.mjs
+//   （第 160 轮把稀有 spec 收口成 ⑤b-2「非样本缺口」6 条并点名 spiderDeadTarget / xinHunDeath
+//     「最容易被误判成死代码」—— 而挂账一正等着拍板核销。★ 光有「自然流零命中」不能下结论：
+//     零命中既可能是结构不可达，也可能是没喂样本，两者处置完全相反（一个可删、一个绝不能删）。
+//     本件双向取证：① 静态自证目标池过滤式含 u.alive 且取值与判空之间无人改 alive；② 定向
+//     扫描证明发射点真被走到（进入目标池次数可数，低于下限即红，不许拿零命中当结论）。
+//     挂观察项不改分母，理由同前几轮）。
+// V1.22.0 | 2026-10-29 夜间第 155 轮：OBSERVES 挂「守门人的守门人」tests/guard-presence-scan.mjs
+//   （★ 第 154 轮给端到端断言补上了咬点（两通道 + 第三处 guardCheck），但那三处全在
+//     commit-claim-audit.mjs 同一个文件里 —— 改这个文件的人顺手就能连 guardCheck 一起关掉，
+//     关掉后本件自己也一起没了、谁也不报，正是第 153 轮牙K 那款病在上一层复发。本件把守门人的
+//     守门人放到**另一个文件**：不调用它的函数、不读它的结果，只把它的源码当文本静态点名七条
+//     不变量（定义 / 通道名单 / 两处登记 / 被调用 / 计进退码 / 结论行打印），且只在剥注释后的
+//     真代码里认 ⇒ 注释里写一句兑不了声称。★ 它把第 154 轮牙C2 实证的"退码计入是承重件"
+//     从挂账变成机械点名：维持现状口径不变，但谁也不许悄悄摘掉。挂观察项不改分母，理由同前几轮）。
+// V1.21.0 | 2026-10-29 夜间第 153 轮：OBSERVES 挂「提交声称 vs 落盘对账」tests/commit-claim-audit.mjs
+//   （★ 把第 152 轮人工发现的那款病 —— 第 151 轮声称"判据收紧为 RE_IMPORT_TRUTH"却没进提交、
+//     验证态与交付态混淆 —— 变成机械点名：逐笔回溯夜间轮提交，把提交信息里点名的代码符号
+//     与该笔 diff 的新增代码行对账。只点名不改退码，挂观察项不改分母，理由同前几轮）。
+// V1.20.0 | 2026-10-28 夜间第 151 轮：OBSERVES 挂「第二份快照普查」tests/second-source-scan.mjs
+//   （tests 下手写第二份剥注释实现的点名 + 棘轮；与第 147/148/149 轮同一取舍：挂观察项不改分母）。
+// V1.19.0 | 2026-10-28 夜间第 149 轮：OBSERVES 挂「地基可携化」tests/foundation-portability.mjs。
+//   第 148 轮只做到「地基缺失即报」，本件补上「缺失了能一键拿回来」：把地基分成有依赖方的可携化面
+//   与无人认领的纯产物（后者实测 1.8GB，不分级就谈导出等于打包 1.8GB，那件事谁也不会去做）。
+// V1.18.0 | 2026-10-28 夜间第 148 轮：OBSERVES 挂「沙箱易碎地基普查」tests/sandbox-fragility-scan.mjs。
+//   由来见该脚本头注释：本轮开场沙箱工作区被整体重置，从 Gitee 重新克隆后体检由 13/24 变 12/24，
+//   少的那一项是「牙口证据链对账」—— 不是代码退步，是它的证据地基 tests/.mut/teeth-results.txt
+//   被 .gitignore 排除、不进 patch、换沙箱即归零。★ 挂它防的不是这一项红，而是「红得没有真因
+//   却看起来像真因」：只看总数会读成夜间轮把体检搞退步了，于是去查一个不存在的代码回归。
+//   与第 147 轮孤儿普查同一取舍：挂 OBSERVES 不改分母（24 不变），拍板开红再挪到 CHECKS。
+// V1.17.0 | 2026-10-28 夜间第 147 轮：OBSERVES 挂「孤儿自检普查」tests/orphan-selftest-sweep.mjs。
+//   由来见该脚本头注释：第 146 轮发现 tests/param-read-guard.mjs 今天是红的却不在本清单里
+//   ⇒ 它红了多久无人知晓。★ 挂在 OBSERVES 而非 CHECKS 是刻意的：挂 CHECKS 会让体检分母由
+//   24 变 25，属改既有结论须拍板（第 146 轮原话）；挂观察项则既不改分母、又天天在跑、结果可见。
+//   哪天拍板要开红，把它从 OBSERVES 挪到 CHECKS 即可，该脚本逻辑一个字不用改。
+// V1.16.1 | 2026-10-27 第143轮(续)：挂「打包清单完整性自检+自动补全」tests/pack-manifest-check.mjs（自动帮 106 补漏登的 tests 脚本，防包内套件缺文件）
+// V1.16.0 | 2026-10-26 第 142 轮：退役规则 158（去锚定化后恒 skip 假绿），158 的 import/allRules/静态注册/打包清单四处摘除，由 123static-scan 的 deadFxAnchors 槽位代防回归；rule-teeth-evidence-selftest 吸收夜检138 增断言⑧结果新鲜度门（牙口证据停更即退码 1）
+// V1.15.0 | 2026-10-26 第 140 轮：新增「版本号遗忘抬升绊线」tests/ver-bump-selftest.mjs（静态检查，防头注释与 VER 常量漂移，落下即退码 1）；fact 发射普查升为 CHECKS 守门项（第125轮）
+// V1.13.0 | 2026-10-26 第 135 轮：CHECKS 新增第 20 项「版本常量漂移自检」（tests/ver-drift-selftest.mjs，
+//   计退码）。动因：「头注释已写 Vx 而 VER 常量仍停在 Vy」这个漏改在本仓库已复发三次
+//   （第 130 轮 V1.7.0/V1.6.0、第 132 轮顺手归位、第 134 轮点名留办），本轮实测又抓出两处真漏改
+//   （本文件 V1.12.0 vs VER V1.10.0、translate-golden V1.0.1 vs VER V1.0.0）。
+//   ★ 性质：VER 不是装饰 —— mutation-teeth 拿它当结果文件新鲜度键、多份自检对外自报版本，
+//   数字说谎会让「我用的是哪一版判据」这个问题失去答案。故不再靠人眼，立自动绊线。
+//   （本轮一并归位：VER 常量 V1.10.0 → V1.12.0 → V1.13.0。）
+// V1.13.0 | 2026-10-25 第 125 轮：isDead 修复回归护栏（A 转交块落地闭环，heavy 采样项）
+// V1.11.0 | 2026-10-25 第 123 轮：挂蝶血分支定向用例（第19项，计退码，带 MIN_HITS 棘轮）
+// V1.10.0 | 2026-10-25 第 133 轮：CHECKS 新增第 15 项「牙口证据链对账」
+//   （tests/rule-teeth-evidence-selftest.mjs），体检项 17 → 18。
 //   动因：牙口矩阵是 154 条哨兵分支**唯一**的牙口证据来源，而这份证据正在悄悄腐烂且无人盯守
 // tests/run-all.mjs | ~4400 bytes | V1.20.0 | 2026-10-31 CHECKS 新增「分层依赖方向(新增闸门)」
 //   （tests/hit-shapes-consistency.mjs，新检查，放在静态契约一致性之后——秒级、纯静态对账）
@@ -11,7 +74,9 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/run-all.mjs V1.20.0';
+// 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
+//   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
+export const VER = 'tests/run-all.mjs V1.26.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -133,9 +198,62 @@ const OBSERVES = [
     { name: '沙箱易碎地基普查', script: 'tests/sandbox-fragility-scan.mjs', args: [] },
     // V1.19.0 | 2026-10-28 夜间第 149 轮：地基可携化（认领分级 + 快照导出/回灌/对账 + 枚举面三视图）。
     //   挂观察项不改分母，与孤儿普查、地基普查同一取舍（挂 CHECKS 会让分母 24 变 25，须拍板）。
-    { name: '地基可携化', script: 'tests/foundation-portability.mjs', args: [] }
-    // V1.20.0 | 2026-10-31：CHECKS 挂「分层依赖方向(新增闸门)」tests/layer-direction-scan.mjs --enforce。
-    //   存量基线 tests/layer-direction-baseline.json 目前为空；只拦新增反向边/环，不是全量清零后才启用。
+    { name: '地基可携化', script: 'tests/foundation-portability.mjs', args: [] },
+    // V1.20.0 | 2026-10-28 夜间第 151 轮：第二份快照普查（tests 下手写第二份「剥注释/串掩码」实现
+    //   的点名 + 棘轮；本轮已把 _lib/rule-branch-extract 与 rule-binding-drift-selftest 两份收口为
+    //   公共件唯一来源，123static-scan.js 因浏览器双用点名挂账）。挂观察项不改分母，理由同上。
+    { name: '第二份快照普查', script: 'tests/second-source-scan.mjs', args: [] },
+    // V1.21.0 | 2026-10-29 夜间第 153 轮：提交声称 vs 落盘对账（提交信息里点名的代码符号 vs
+    //   该笔提交实际 diff 的新增代码行；证据只认剥注释后的 .js/.mjs 代码，不认 .md 散文 ——
+    //   否则日志里写一句就把声称"兑现"了，正是第 149/151/152 三轮反复发作的那款病）。
+    //   挂观察项不改分母，与孤儿普查、地基普查、第二份快照同一取舍。
+    { name: '提交声称vs落盘对账', script: 'tests/commit-claim-audit.mjs', args: [] },
+    // V1.22.0 | 2026-10-29 夜间第 155 轮：守门人的守门人（静态点名第 154 轮那套端到端守门人还在不在）。
+    //   ★ 关键在"另一个文件"：本件不调用 commit-claim-audit 的任何函数、不读它的运行结果，只把它的
+    //     源码当文本扫一遍 ⇒ 那边被整段关掉，本件照样独立复现并报出来（第 154 轮残余边界的解法）。
+    //     七条不变量里第⑥条（guardFails 必须计进退码）即第 154 轮牙C2 实证的承重件，本轮从挂账变机械点名。
+    //     挂观察项不改分母，与孤儿普查 / 地基普查 / 第二份快照 / 提交对账同一取舍。
+    { name: '守门人的守门人', script: 'tests/guard-presence-scan.mjs', args: [] },
+    // 第 161 轮冲突裁决：上游 V1.20.0 的闸门说明文字保留在注释里，实际闸门项已在 CHECKS 第 2 项
+    //   （tests/layer-direction-scan.mjs --enforce）落地，本线 V1.21.0/V1.22.0 三项观察一个不丢。
+    //   上游原注：存量基线 tests/layer-direction-baseline.json 目前为空；只拦新增反向边/环。
+    // V1.23.0 | 2026-10-31 夜间第 161 轮：蛛袭死目标定向取证（SPIDER_DEAD_TARGET 到底是不可达
+    //   还是没喂样本）。挂观察项不改分母，理由见头顶 V1.23.0 日志行。
+    { name: '蛛袭死目标定向取证', script: 'tests/spider-dead-target-case.mjs', args: [] },
+    // V1.24.0 | 2026-10-31 夜间第 162 轮：海克斯分库启动链守门（content/201hex-enhance.json 迁出 200 后，
+    //   ★ 上游迁移时没有任何消费方补 loadHexEnhanceData ⇒ 本轮开场 25 项体检里 16 项以同一个
+    //     「201 缺 sister 段」崩掉，红因看起来像数据丢了，实际是启动链没跟上迁移。本件三段取证：
+    //     ⓪ 数据面（201 两段键数棘轮 + 200 无副本）、① 启动链成对点名、② 运行期真取一次。
+    //     挂观察项不改分母（与孤儿普查同一取舍）—— 是否升 CHECKS 开红，留待拍板。
+    { name: '海克斯分库启动链守门', script: 'tests/hex-boot-chain-guard.mjs', args: [] },
+    // V1.24.0 | 2026-10-31 夜间第 162 轮：兄分支惑心定向取证（承接【最高·下轮】⑤b-2 逐个配定向用例）。
+    //   ★ 实测逼出一件被漏掉的事：phantomConfuse 有**两个**发射点，第 160 轮只数了成昆那个就下了
+    //     「干净树本就不发射」的结论；兄分支走 forceXiaoZhao=brother，根本不需要 forceChengKun。
+    //     本件三段：静态自证发射点 + 定向扫描 + ★ 信号通道取证（信号零触发时结论一律判 UNKNOWN，
+    //     不许拿零命中当"不可达"证据）。挂观察项不改分母，同上。
+    { name: '兄分支惑心定向取证', script: 'tests/phantom-confuse-brother-case.mjs', args: [] },
+    // V1.25.0 | 2026-10-31 夜间第 163 轮：node 侧信号通道守门 + fact 藏匿点体检（新增）。
+    //   ★ 本轮连挖两个「测量口径错误」，两个都差点变成「按死代码核销」的依据：
+    //     (1) 信号探针：上一次版在开头 eventBus.on 一次，而引擎每回合 eventBus.clearAll()
+    //         （core/11battle-round.js:142 + core/06battle-runner.js 顶部注释）⇒ 计数恒 0，
+    //         上轮据此推断「node 回放通道不发 BEFORE_SELECT_TARGET」（疑点乙）。本轮换成
+    //         tests/_lib/signal-probe.mjs 的跨回合存活探针后实测 42 场发 3443 次 ⇒ 疑点乙证伪、撤回。
+    //     (2) fact 藏匿点：幻影 fact 挂在 attackFact.data.phantomFact，与 data.entries 并列、
+    //         不在 entries 里 ⇒ 全仓库扫 fact 的脚本一条都没看见（本件 ③ 点名四个扫描器）。
+    //         补上前：兄分支/成昆分支皆「0 次」；补上后实测 **107 / 96 次** ⇒ 发射点活得好好的，
+    //         phantomConfuse 须由 ⑤b-2 挪进 ⑤b-3「定向已覆盖·严禁按死代码核销」。
+    //   本件防的是同一款病的复发面：**不是产品没有，是我们没接到**。挂观察项不改分母，同上。
+    { name: '信号通道守门(探针/fact藏匿点)', script: 'tests/signal-channel-guard.mjs', args: [] },
+    // V1.26.0 | 2026-10-31 夜间第 165 轮：xiaoZhaoHorse / xiaoZhaoCarryApply 定向取证（新增，
+    //   承接第 164 轮【最高·下轮】⑤b-2 剩 3 条逐个配定向用例；spiderDeadTarget 已由上上轮件覆盖）。
+    //   ★ 动手前先纠正登记口径：census 把这两条记成「要**妹**永久…」，读源码却都在**兄模块**
+    //     （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274）且读**兄**的 _permanentBuffs
+    //     ⇒ forceXiaoZhao=brother 这条现成通道即可取证，当初「需变异树」的定性不成立。
+    //     实测 140 场：巨马 454 就绪 / 211 命中，carry 167 就绪 / 101 命中 ⇒ 双双由 ⑤b-2 移入 ⑤b-3。
+    //     新增别处没有的**白名单自证**：addPermanentBuff 只认 CONFIG.XIAO_ZHAO_PERMANENT_BUFFS，
+    //     键不在白名单 ⇒ 永久表永不会有它 ⇒ 那才是**真·结构死代码**；这一条此前从没被数过。
+    //   挂观察项不改分母，同上。
+    { name: '巨马/carry定向取证', script: 'tests/xiaozhao-horse-carry-case.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

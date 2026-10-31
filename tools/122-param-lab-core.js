@@ -14,7 +14,7 @@ if (typeof localStorage === 'undefined') {
 }
 
 // --- 引擎加载（顺序同 tests/rules-replay.mjs）---
-const [{ CONFIG, loadGameData }, { Unit, baseHeroName }, { initBattleTeams }, { SeededRNG },
+const [{ CONFIG, loadGameData, loadHexEnhanceData }, { Unit, baseHeroName }, { initBattleTeams }, { SeededRNG },
     { createRoundStepper }, { GlobalStore }, { CAMP_TYPES, BUFF_TYPES }, { eventBus },
     { filterAvailableBuffs }] =
     await Promise.all([
@@ -37,7 +37,10 @@ export const HEX_SEED = 7;                      // 固定海克斯：常量，�
 // loadGameData 的缓存本体就是「补丁要改的那个对象」，暴露给 worker / CLI / 页面共用一份。
 let _game = null;
 export async function ensureGameData() {
-    if (!_game) _game = await loadGameData();
+    if (!_game) {
+        _game = await loadGameData();
+        await loadHexEnhanceData(); // // 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    }
     return _game;
 }
 

@@ -1,3 +1,4 @@
+// tests/fact-dead-field-scan.mjs | V1.4.0 | 2026-10-31 夜间第 164 轮：fact 采集补 data.phantomFact 层（幻影 fact 与 data.entries 并列、不在 entries 里，原两层口径对它恒不可见；只补视野、不缩面）
 // tests/fact-dead-field-scan.mjs | V1.3.0 | 2026-10-27 夜间第 145 轮：接入静态真值口径公共件（tests/_lib/static-truth-slice.mjs V1.0.0），
 //   新增「取样面口径审计」段：①「值→常量名」平铺映射的所有权审计（实测收 213 条，真属 FACT_TYPES 仅 91 条、
 //   外来 122 条占 57.3%）②跨枚举同值冲突检测（今天 0 条，但同文件已有 24 个跨枚举同名键，属运气不是担保）
@@ -174,7 +175,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/fact-dead-field-scan.mjs V1.3.0';
+export const VER = 'tests/fact-dead-field-scan.mjs V1.4.0';
 
 const argv = process.argv.slice(2);
 const argOf = (k, d) => { const i = argv.indexOf(k); return (i !== -1 && argv[i + 1]) ? Number(argv[i + 1]) : d; };
@@ -201,6 +202,10 @@ function* walkFacts(nodes) {
     for (const n of (nodes || [])) {
         if (!n || typeof n !== 'object') continue;
         if (n.factType) yield n;
+
+        // ★ 第 164 轮补层：幻影类 fact 挂在 data.phantomFact，与 data.entries 并列**而不在 entries 里**
+        //   ⇒ 只扫 entries 的写法对它恒不可见（第 163 轮在 census / rules-replay 里已实锤）
+        if (n.data && n.data.phantomFact) yield* walkFacts([n.data.phantomFact]);
         const inner = (n.data && Array.isArray(n.data.entries)) ? n.data.entries
             : (Array.isArray(n.entries) ? n.entries : null);
         if (inner) yield* walkFacts(inner);
@@ -208,7 +213,7 @@ function* walkFacts(nodes) {
 }
 
 async function main() {
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
@@ -224,6 +229,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
     // factType.field -> { n, boolN, boolTrue, distinct:Set, sample }

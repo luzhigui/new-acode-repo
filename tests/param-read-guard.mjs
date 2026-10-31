@@ -238,8 +238,10 @@ async function checkDescTruthDrift() {
         const p = fileURLToPath(new URL(url));
         return { ok: true, json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) };
     };
-    const { loadGameData } = await import('../core/01config-5v5-test.js');
+    const { loadGameData, loadHexEnhanceData } = await import('../core/01config-5v5-test.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
     const { checkDescTruth } = await import('./health-rules/156-desc-truth-drift.js');
     return checkDescTruth();
 }

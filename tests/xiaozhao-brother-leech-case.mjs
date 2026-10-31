@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// tests/xiaozhao-brother-leech-case.mjs | V1.0.1 | 2026-10-27 夜间第 145 轮：新增「真因显形」诊断段——
+// tests/xiaozhao-brother-leech-case.mjs | V1.0.2 | 2026-10-27 夜间第 145 轮：新增「真因显形」诊断段——
+//   · 第 164 轮：fact 采集补 data.phantomFact 层（幻影 fact 与 data.entries 并列、不在 entries 里，原两层口径对它恒不可见；只补视野、不缩面、不改判据）
 //   上游把妹永久嗜血扩到全队战士后 isBrother 语义错位，15 条命中 unitName 非妹名；
 //   本轮只把两类命中分开数并点名上游改动，**判据与退码一行未动**（改判据须拍板）。
 // tests/xiaozhao-brother-leech-case.mjs — 小昭·妹「永久嗜血·蝶血分支」定向用例
@@ -38,7 +39,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.0.1';
+export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.0.2';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 // 默认 20 seeds × 7 stages = 140 场（run-all 每次跑的量）。实测命中率 ≈18.6%，
@@ -49,7 +50,7 @@ const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : 
 const MIN_HITS = 3;
 
 async function main() {
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
+    const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { renderLog }, { GlobalStore },
            { CAMP_TYPES, FACT_TYPES: FT }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
@@ -66,6 +67,8 @@ async function main() {
     await import('../modules/27elite-mingjiao.js');
     await import('../modules/30custom-effects.js');
     await loadGameData();
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    await loadHexEnhanceData();
 
     // 强制妹模式：29battle-init L130/L195 读 GlobalStore 'forceXiaoZhao'（'brother' ⇒ 换上一个
     //   小昭并锁定为妹态；顺带抑制随机精英轮盘 = 单精英局，阵容确定可复现）
@@ -117,8 +120,12 @@ async function main() {
                 };
                 for (const f of (step.log || [])) {
                     collect(f);
-                    if (f && f.factType === FT.ATTACK && f.data && Array.isArray(f.data.entries)) {
-                        for (const e of f.data.entries) collect(e);
+                    if (f && f.factType === FT.ATTACK && f.data) {
+
+                        // ★ 第 164 轮补层：幻影类 fact 挂在 data.phantomFact，与 data.entries 并列**而不在 entries 里**
+                        //   ⇒ 只扫 entries 的写法对它恒不可见（第 163 轮在 census / rules-replay 里已实锤）
+                        if (f.data.phantomFact) collect(f.data.phantomFact);
+                        if (Array.isArray(f.data.entries)) for (const e of f.data.entries) collect(e);
                     }
                 }
                 if (step.winner) winner = step.winner;

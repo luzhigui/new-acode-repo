@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-// tests/_lib/rule-branch-extract.mjs | V1.0.0 | 2026-10-25 第 133 轮
+// V1.1.0 | 2026-10-28 夜间第 151 轮：★ 手写第二份去注释**收口为公共件**
+//   旧版自带的 stripCommentsKeepStrings 与公共件 stripComments 口径不同：
+//   它把**多行块注释连同换行一起吃掉**（行结构塌陷），公共件则逐个保留换行。
+//   实测：tests/health-rules 47 个文件里 3 个受影响（132-claw-damage / 156-desc-truth-drift /
+//   170-taunts-integrity），tests 根目录 37 个里 11 个受影响。
+//   ⇒ 本轮改为 import 公共件，函数名保留（薄封装，受体无需改动）；
+//     行为等价性由本轮牙A 反证：改前改后 159 条判据分支抽取结果**逐字一致**（见迭代日志）。
+// V1.0.0 | 2026-10-25 第 133 轮
 //
 // 判据分支静态抽取的**唯一来源**（single source of truth）。
 //
@@ -18,8 +25,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './static-truth-slice.mjs';
 
-export const VER = 'tests/_lib/rule-branch-extract.mjs V1.0.0';
+export const VER = 'tests/_lib/rule-branch-extract.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,31 +37,11 @@ export const RULE_DIR = path.join(here, '..', 'health-rules');
 /** 最短可定位指纹长度（短于此视为"多分支共用短前缀"，不可定位） */
 export const MIN_FP_LEN = 4;
 
-/** 剥注释但保留字符串/正则字面量原样（指纹靠字符串字面量，注释里的字符串不能算） */
+/** 剥注释但保留字符串/正则字面量原样（指纹靠字符串字面量，注释里的字符串不能算）
+ *  ★ V1.1.0 起**不再是手写第二份**：转发公共件 tests/_lib/static-truth-slice.mjs 的 stripComments
+ *    （唯一来源）。保留导出名是为了不动受体；想改口径请改公共件，别在这里另写一份。 */
 export function stripCommentsKeepStrings(src) {
-    let out = '';
-    let i = 0;
-    const n = src.length;
-    while (i < n) {
-        const ch = src[i];
-        if (ch === '/' && src[i + 1] === '/') { while (i < n && src[i] !== '\n') i++; continue; }
-        if (ch === '/' && src[i + 1] === '*') { i += 2; while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++; i += 2; continue; }
-        if (ch === '"' || ch === "'" || ch === '`') {
-            const q = ch;
-            let j = i + 1;
-            while (j < n) {
-                if (src[j] === '\\') { j += 2; continue; }
-                if (src[j] === q) { j++; break; }
-                j++;
-            }
-            out += src.slice(i, j);
-            i = j;
-            continue;
-        }
-        out += ch;
-        i++;
-    }
-    return out;
+    return stripComments(src);
 }
 
 /** 抽取一个规则文件里的全部判据分支（按源码顺序） */

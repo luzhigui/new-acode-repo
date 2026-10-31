@@ -1,4 +1,10 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.4.0 | 2026-10-29 夜间第 156 轮：mutation-teeth A8/A19 双路径锚点修复后全量重跑 47 棵树，
+//        | 其 VER 正式升到 V2.9.16，旧 hold 核销；HOLD_WHITELIST 2 → 1、MAX_HOLD 2 → 1。
+// V1.3.3 | 2026-10-29 夜间第 156 轮：EXPECT_NO_LOG 30 → 29（合并上游 d7f8fee 后，
+//        | 140-wei-dodge-cloud.js V6.1.1 补上 D 类版本日志行，从无日志桶进入可比对范围；
+//        | 按双向棘轮「腐烂的登记不许挂着骗人」同步改小，未放宽任何判据）
+// V1.3.2 | 2026-10-28 第 143 轮(续5)：EXPECT_NO_LOG 32 → 30（本次给 127-butterfly-stack / 143-jiuyang-heal-pct
 //        | 两规则补了版本日志行 ⇒ 无日志桶再少两个；仍按「腐烂的登记不许挂着骗人」同步改小）
 //        | 出生即带版本日志行 ⇒ 无日志桶少一个；按第 133 轮通规「腐烂的登记不许挂着骗人」同步改小）
 //
@@ -42,7 +48,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.3.2';
+export const VER = 'tests/ver-drift-selftest.mjs V1.4.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -79,12 +85,10 @@ const MIN_LOG_PARSED = 37;
 //   直接落在可比对侧而非无日志桶；另上游 fa6f206f 合并后 ver 面整体重算，实测无日志 32 个）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 30;
+const EXPECT_NO_LOG = 29;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
-    'tests/mutation-teeth.mjs':
-        'VER 是变异树结果文件的新鲜度键：升 VER 会让全部旧结果被误判陈旧。第 134 轮 V2.9.15 只加新鲜度守卫第⑤项 RULEFP、判定逻辑一行未动，故刻意保持 V2.9.14。',
     'tests/140-baseline.js':
         'VER 会被 140-baseline.js 写进入库产物 tests/baselines/baseline-v1.json 的 version 字段（generatedAt 同批写入）。单抬 VER 到 V1.7.2 而不动该 json，会让「已入库基线的 version」与「脚本自报的 VER」脱节。是否允许连带刷新 json 的 version 字段属动基线范畴，须白天会话拍板，故本轮只登记 hold 并把耦合面交给断言⑨盯住。'
 };
@@ -93,7 +97,7 @@ const HOLD_WHITELIST = {
 // ★ 1→2 的理由（第 136 轮）：本轮覆盖面扩到 .js 后新浮出一处漂移除 140-baseline，它与 mutation-teeth
 //   是**两类不同性质的 hold**——前者是「抬 VER 会让 древ 旧结果判陈旧」，后者是「抬 VER 会与入库产物 version
 //   脱节且须先拍板」。用同一条 hold 兜不住两种口径，故显式上调上限并落理由，不偷偷加。
-const MAX_HOLD = 2;
+const MAX_HOLD = 1;
 
 // VER 耦合面：这些文件的 VER 会被写进某个**已入库产物**的字段里。抬 VER 时必须连带刷新产物，否则
 // 「脚本自报的版本」与「产物里留的版本」各说各话，事后无从追溯这份产物是按哪一版口径生成的。
