@@ -1,7 +1,9 @@
 // tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.7.0';
+export const VER = 'tools/126-balance-alert.js V3.7.1';
+// V3.7.1 | 2026-10-31 108 详情卡改数据驱动后 HEX_HINTS 已删：去掉「108 缺判断提示文案」这项告警
+//          （判断提示现在按 content desc + 201 差异自动生成，不再存在漏登），只保留中文名表检查。
 // V3.7.0 | 2026-10-31 | 真实对局对照不再混算单/双海克斯：getCareerInsights / getHeroAggregates
 //   改取 'single'（与 108「常规」模拟榜同口径）；双海克斯是另一套游戏（六大派也带海克斯），
 //   不混入本对照，有数据时给提示。呼应 52 V2.8.0「两种模式不可直接相加」。
@@ -260,16 +262,11 @@ function coverageIssues() {
         detail: orphanPerm.join('、') + ' —— permanentBuffKeys 里存在但 content buffs 已无此键。'
     });
 
-    // ④ 108 的文案登记漏投（提示级）：HEX_HINTS / HEX_NAME_MAP 是手工表，漏登则表里只显示 key
+    // ④ 108 的中文名登记漏投（提示级）：HEX_NAME_MAP 是手工表，漏登则表里只显示 key
+    //   V3.7.1：108 的判断提示已改自动生成（HEX_HINTS 删除），这一项不再检查。
     const doc = window.__hexDocKeys;
     if (doc) {
-        const missHint = keys.filter(k => !doc.hints.includes(k));
         const missName = keys.filter(k => !doc.names.includes(k));
-        if (missHint.length) out.push({
-            sev: 'warn', title: `108 缺「判断提示」文案的海克斯 ${missHint.length} 个`,
-            detail: missHint.map(k => `${nameOf(k)}（${k}）`).join('、') +
-                ' —— 108 的 HEX_HINTS 是手工表，漏登则表里只有 key、点开也没有判断提示。'
-        });
         if (missName.length) out.push({
             sev: 'warn', title: `108 缺「中文名」映射的海克斯 ${missName.length} 个`,
             detail: missName.map(k => nameOf(k) + `（${k}）`).join('、') +

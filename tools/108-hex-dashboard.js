@@ -1,8 +1,13 @@
 // ===== ../tools/108-hex-dashboard.js =====
-import { CONFIG, getSkillParams, loadGameData, getGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.7.1';
+export const VER = 'tools/108-hex-dashboard.js V6.7.2';
+// V6.7.2 | 2026-10-31 详情卡改数据驱动（老板：每次改海克斯都要手改一堆描述，太麻烦）：
+//           · 普通版直接读 content/200 的 buffs.<key>.desc；姐姐/妹妹由 201 与 200 逐字段自动比对，
+//             输出「旧 → 新 / 新增」——改数值零维护，也不会再出现「文案说 80%、配置是 160%」这类漂移。
+//           · 删掉手写 HEX_DETAIL 全表与 HEX_HINTS；只保留 HEX_NOTE 的少量纯行为机制句。
+//           · 适用提示改自动：受益对象取自 desc 关键词 + 强化项数实算；201 新字段未登记中文名时退回键名。
 // V6.7.1 | 2026-10-30 详情卡补载 201hex-enhance.json：小昭 hexEnhance 已从 200 迁出，
 //   getSkillParams('小昭','hexEnhance') 在缺 201 时直接抛，详情卡一打开就炸。
 // V6.7.0 | 2026-10-30 模式对比表结构简化：删「强弱Δ常规」+ 三列「净」，改成四列胜率 + 四列差值
@@ -115,141 +120,80 @@ if (!document.getElementById('hexDashStyle')) {
   document.head.appendChild(style);
 }
 
-// 海克斯详情文案（2026-10-21 V6.2.19 全量重写，老板指出详情卡「一大堆奇奇怪怪不对」）：
-//   不再把 content 参数逐条机翻成英文键名，改为每个海克斯按 普通/姐姐/妹妹 三档写人话；
-//   数字全部实时读 CONFIG.BUFFS / 小昭 hexEnhance / spiderFly / CONFIG 常量，文案与数值同源，改配置即同步。
+// 海克斯详情文案（V6.7.2，2026-10-31 起数据驱动，不再手写数值）：
+//   · 普通版 = content/200game-data.json 的 buffs.<key>.desc（普通版说明唯一真源）
+//   · 姐姐/妹妹 = content/201hex-enhance.json 的 sister/brother 段与 200 基础值逐字段比对，
+//     自动输出「旧 → 新 / 新增」；改 200/201 数值即同步，工具侧零维护。
+//   · 只有纯行为、数据里算不出来的机制句才写 HEX_NOTE（不写数字；要数字用函数形态读实参）。
+//   · 201 新增字段若没登记中文名，退回英文键名（仍显示、不崩、也不漏项）。
 const pct = v => Math.round(v * 100) + '%';
 const pct1 = v => (Math.round(v * 1000) / 10) + '%';
 
-const HEX_DETAIL = {
-  bloodthirst: {
-    normal: b => [`己方战士攻击时，按造成伤害的 ${pct(b.leechRatio)} 吸血回复生命`],
-    sister: b => [`吸血 ${pct(b.leechRatio)} 不变；战士每回合首次攻击命中后，额外追加 1 次攻击`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她作为战士攻击时按 ${pct(b.leechRatio)} 吸血`]
-  },
-  hotBlood: {
-    normal: b => [`己方单位攻击时，回复自身已损失生命的 ${pct(b.leechRatio)}；每第 ${b.critInterval} 次攻击回血翻倍`],
-    sister: (b, e) => {
-      const out = [];
-      const lp = e.leechPct != null ? e.leechPct : b.leechRatio;
-      if (Math.round(lp * 1000) !== Math.round(b.leechRatio * 1000)) out.push(`每次回复比例 ${pct(b.leechRatio)} → ${pct(lp)}`);
-      out.push(`翻倍间隔 第 ${b.critInterval} 次 → 第 ${e.critInterval} 次（翻倍那次按 ${pct(lp * 2)} 回）`);
-      return out;
-    },
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她攻击时按 ${pct(b.leechRatio)} 回复已损失生命，每第 ${b.critInterval} 次翻倍`]
-  },
-  fortify: {
-    normal: b => [`己方防战防御 +${pct(b.defBonus)}；受到伤害时，反弹 ${pct(b.reboundRatio)} 伤害差值给攻击者`],
-    sister: b => [`新增：反弹时，己方防战回复等量生命`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她作为防战时防御 +${pct(b.defBonus)}，受击反弹 ${pct(b.reboundRatio)} 伤害差值`]
-  },
-  cloudBody: {
-    normal: b => [`己方全体闪避概率 +${pct(b.dodgeBonus)}`],
-    sister: (b, e) => [`闪避加成 ${pct(b.dodgeBonus)} → ${pct(e.dodgeBonus)}`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：自身闪避 +${pct1(b.dodgeBonus * b.brotherRatio)}（团队版 ${pct(b.dodgeBonus)} 的 ${pct(b.brotherRatio)}）`]
-  },
-  windAssault: {
-    normal: b => [`己方飞行单位攻击时，${pct(b.hitProb)} 概率对同行敌人追加 100% 伤害，${pct(b.pushProb)} 概率将其击退 1 格`],
-    sister: (b, e) => [`追加伤害概率 ${pct(b.hitProb)} → ${pct(e.hitProb)}；击退概率 ${pct(b.pushProb)} → ${pct(e.pushProb)}`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她作为飞行单位时，按 ${pct(b.hitProb)} / ${pct(b.pushProb)} 概率追加伤害与击退`]
-  },
-  meteorShower: {
-    normal: b => [`己方远程攻击时：对目标追加 ${pct(b.bonusRatio)} 伤害并降低其 ${b.mainDefReduce} 点防御；对目标周围单位溅射 ${pct(b.splashRatio)} 伤害并降低 ${b.splashDefReduce} 点防御`],
-    sister: (b, e) => [`每次溅射命中 1 名存活目标，己方远程攻击力永久 +${e.atkPerSplash}（命中多名可叠加）`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她作为远程单位时，按 ${pct(b.bonusRatio)} 追加伤害、${pct(b.splashRatio)} 溅射并降防`]
-  },
-  carry: {
-    normal: b => {
-      const eg = (b.params && b.params.eagle) || {};
-      const st = (eg.atk != null) ? `攻 ${eg.atk}／防 ${eg.def}／血 ${eg.maxHp}` : '属性随内容表';
-      return [`5 号位按每名队友的基础属性分别累加：攻击 +${pct(b.atkBonus)}、防御 +${pct(b.defBonus)}、生命 +${pct(b.hpBonus)}`,
-        `已阵亡队友按 ${b.deathMultiplier} 倍计入`,
-        `5 号位空缺时召唤雄鹰顶位（${st}）：雄鹰命中后让一名已行动过的队友恢复行动力；若无人可恢复，改召白板雌鹰永久在场`];
-    },
-    sister: (b, e) => [`受益位从仅 5 号位，扩大到 ${e.targetPositions.join(' / ')} 号位（多目标）`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：每回合按近期阵亡队友数重新计算加成（阵亡越多加成越高，每层取精通参数）`]
-  },
-  holyFlame: {
-    normal: b => [`随机 ${b.atkCols} 列己方攻击 +${pct(b.atkBonus)}；随机 ${b.defRows} 行己方防御 +${pct(b.defBonus)}`],
-    sister: (b, e) => [`加攻列数 ${b.atkCols} → ${e.atkCols} 列；加防行数 ${b.defRows} → ${e.defRows} 行`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：每回合重新抽 ${b.atkCols} 列 ${b.defRows} 行，她站到命中列攻击 +${pct(b.atkBonus)}、命中行防御 +${pct(b.defBonus)}`]
-  },
-  doubleStrike: {
-    normal: b => [`己方随机 2 人：各自攻击后有 ${pct(b.prob)} 概率额外再攻击 1 次（持续 ${b.duration} 回合；存活不足 2 人时只点 1 人）`],
-    sister: (b, e) => [`额外攻击概率 ${pct(b.prob)} → ${pct(e.chance != null ? e.chance : 1)}（每击必追）`],
-    brother: b => {
-      const s = getSkillParams('小昭', 'spiderFly') || {};
-      return [`团队效果结束后，小昭·妹永久保留：她攻击后有 ${pct(s.xiaoZhaoDoubleStrikeChance ?? 0.5)} 概率额外再攻击 1 次`];
-    }
-  },
-  horseFormation: {
-    normal: b => [`每回合开始召唤 1 只巨马：生命 ${b.horseHp}、防御 ${b.horseDef}、攻击 ${b.horseAtk}（基础不攻击，吃到 carry 加攻后可出手）`,
-      `回合结束时 ${pct(b.destroyProb)} 概率消散；连续消散概率逐次减半，失败一次即恢复原概率`],
-    sister: (b, e) => [`巨马生命 ${b.horseHp} → ${e.horseHp}；巨马防御 ${b.horseDef} → ${e.horseDef}`,
-      `新增：巨马被攻击时，反弹 ${e.reboundDmg} 点伤害给攻击者`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：每回合开始 ${pct(b.brotherSpawnChance)} 概率额外召唤 1 只巨马（属性同普通版）`]
-  },
-  mindControl: {
-    normal: b => [`每回合己方最前排行动时：${pct(b.enemySwapProb)} 概率打乱敌方站位；${pct(b.allySwapProb)} 概率打乱己方站位（副作用）`],
-    sister: (b, e) => {
-      const out = [`扰乱敌方概率 ${pct(b.enemySwapProb)} → ${pct(e.enemySwapProb)}；扰乱己方概率 ${pct(b.allySwapProb)} → ${pct(e.allySwapProb)}`];
-      if (e.dmgOnSwap) out.push(`新增：被扰乱换位的 2 名敌方各扣 ${e.dmgOnSwap} 血${e.stunOnSwap ? '，并眩晕 1 回合' : ''}`);
-      if (e.healOnSwap) out.push(`新增：被我方扰乱换位的 2 人各回复 ${e.healOnSwap} 血（副作用反成收益）`);
-      return out;
-    },
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她在场时，敌方攻击有 ${pct(CONFIG.SPIDER_MIND_CONTROL_CHANCE)} 概率误伤自己人（幻象迷惑）`]
-  },
-  soulDrain: {
-    normal: b => [`敌方全体攻击力 ${pct(b.atkBonus)}（持续 ${b.duration || CONFIG.BUFF_DURATION} 回合、每回合刷新）；敌方每比我方多 1 个存活单位，再额外 ${pct(b.perUnitBonus)}（人数不少于敌方时保底 ${pct(b.atkBonus)}）`,
-      `敌方防御首次 ×${(1 + b.defBonus).toFixed(2)}，此后每回合再 ×${(1 + b.perRoundBonus).toFixed(2)}（乘法累积，越拖越脆）`],
-    sister: (b, e) => [`敌方减攻 ${pct(b.atkBonus)} → ${pct(e.atkBonus)}；逆风每多 1 人 ${pct(b.perUnitBonus)} → ${pct(e.perUnitBonus)}`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：每回合 ${pct(b.brotherPointChance)} 概率随机点名 1 名敌方（非巨马、非召唤物），按普通版数值继续削 2 回合（可重复点名刷新）`]
-  },
-  holyFire: {
-    normal: b => [`每局首次有己方非巨马、非召唤物单位阵亡时，该单位在下一个行动步原地复活并回复 ${pct(b.reviveRatio)} 生命（复活即可行动），每局仅 1 次`],
-    sister: (b, e) => [`复活回复生命 ${pct(b.reviveRatio)} → ${pct(e.reviveRatio)}`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：她阵亡时原地复活并回复 ${pct(b.brotherReviveRatio)} 生命（每局 1 次）`]
-  },
-  lastStand: {
-    normal: b => [`己方单位当前生命低于 ${pct(b.hpThreshold)} 时，攻击力 +${pct(b.atkBonus)}（每回合开始按当前血量重判，血回上去即失效）`],
-    sister: (b, e) => {
-      const out = [`触发血量阈值 ${pct(b.hpThreshold)} → ${pct(e.hpThreshold)}（团队版生效时）`];
-      if (e.leechRatio) out.push(`新增：触发者造成伤害的 ${pct(e.leechRatio)} 转化为吸血回血`);
-      return out;
-    },
-    brother: b => [`团队效果结束后，小昭·妹永久保留：任一队友生命低于 ${pct(b.hpThreshold)} 时，她也获得攻击力 +${pct(b.atkBonus)}`]
-  },
-  unity: {
-    normal: b => {
-      const ue = getSkillParams('小昭', 'hexEnhance').unity || {};
-      const t0 = b.recruitTarget ?? 4;
-      const t1 = ue.recruitTarget ?? t0;
-      const m1 = ue.recruitM ?? b.recruitM;
-      const sisterNote = t1 > t0 ? `姐姐强化补满到 ${t1} 人、M${m1}；` : '';
-      return [`按己方在场存活人数取档：${b.tiers.map(t => `${t.count} 人 攻+${pct(t.atkBonus)}/防+${pct(t.defBonus)}`).join('；')}`,
-        `获得当回合若不足 ${t0} 人，一次补满到 ${t0} 人（${sisterNote}M${b.recruitM}、含精英、技能全开；召唤落地钳属性下限：攻<1 归 0、防<5 补 5、血<25 补 25），此后每回合再补 1 人；补员永久存活`];
-    },
-    sister: (b, e) => [`补员 M 值 ${b.recruitM} → ${e.recruitM}；首回合补满人数 ${b.recruitTarget ?? 4} → ${e.recruitTarget ?? 5}`],
-    brother: b => [`团队效果结束后，小昭·妹永久保留：每回合开始 ${pct(b.brotherSummonChance)} 概率召唤 1 名 M${b.recruitM} 明教英雄（技能全开）`]
-  }
+// 201 字段 → [中文名, 显示格式]；201 加字段时在这里补一行即可
+const FIELD_META = {
+  leechRatio: ['吸血比例', 'pct'], leechPct: ['吸血比例', 'pct'],
+  critInterval: ['翻倍间隔（每 N 次）', 'num'], extraDuration: ['额外持续回合', 'num'],
+  hitProb: ['追加伤害概率', 'pct'], pushProb: ['击退概率', 'pct'],
+  atkPerSplash: ['每次溅射攻击加成', 'num'], duration: ['持续回合', 'num'],
+  enemySwapProb: ['扰乱敌方概率', 'pct'], allySwapProb: ['扰乱己方概率', 'pct'],
+  dmgOnSwap: ['换位扣血', 'num'], healOnSwap: ['换位治疗', 'num'], stunOnSwap: ['换位眩晕', 'bool'],
+  dodgeBonus: ['闪避加成', 'pct'], dodgeRatio: ['闪避比例', 'pct'],
+  healOnRebound: ['反弹回血', 'bool'],
+  horseAtk: ['巨马攻击', 'num'], horseDef: ['巨马防御', 'num'], horseHp: ['巨马生命', 'num'],
+  reboundDmg: ['巨马反弹伤害', 'num'],
+  multiTarget: ['多目标受益', 'bool'], targetPositions: ['受益位', 'list'],
+  atkCols: ['加攻列数', 'num'], defRows: ['加防行数', 'num'],
+  atkBonus: ['攻击加成', 'pct'], defBonus: ['防御加成', 'pct'],
+  perUnitBonus: ['每多 1 人额外减攻', 'pct'],
+  reviveRatio: ['复活回血', 'pct'], chance: ['触发概率', 'pct'],
+  hpThreshold: ['触发阈值', 'pct'],
+  recruitM: ['补员 M 值', 'num'], recruitTarget: ['补员目标人数', 'num'],
+  hitChance: ['误伤命中概率', 'pct'],
+  pointChance: ['点名概率', 'pct'], pointRounds: ['点名持续回合', 'num'],
+  spawnChance: ['招马概率', 'pct'], summonChance: ['招募概率', 'pct'],
+  layersBase: ['起始层数', 'num'], layersPerR1: ['每回合层数', 'num'], layersPerR2: ['每两回合层数', 'num']
 };
 
-const HEX_HINTS = {
-  doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑）：现在每回合随机点名 2 名宿主，触发机会比单人版明显变多；收益仍随机，对位前排密集时更稳。',
-  carry: '5 号位（张无忌常驻位）越强收益越高，队友阵亡越多加成越猛——偏保核打法，张无忌在场且被集火时收益最高。',
-  cloudBody: '对高频率多段攻击（普攻/连击多）的阵容克制明显；但对抗必中技能（如九阴白骨爪）无效。',
-  horseFormation: '稳定的前排肉盾：每回合白给一只巨马替队伍挡刀，姐姐强化后巨马还会反弹 5 点伤害；对面战士/防战突脸多时收益最大，巨马也能吃 carry 加攻后出手。',
-  meteorShower: '己方远程越多收益越高，溅射可顺带压低多目标血线；对面后排站位密集时效果拔群。',
-  bloodthirst: '战士越多收益越高，提供续航；适合需要顶住多回合拉锯的阵容。',
-  fortify: '防战是承伤核心时收益最高，反弹反制高攻脆皮输出；若己方无防战则几乎无用。',
-  windAssault: '己方飞行单位越多越强，击退可拆散敌方阵型、打乱换位；无飞行单位时无收益。',
-  holyFlame: '攻防兼备的万金油，覆盖到关键单位（张无忌/小昭）时收益最大；覆盖差时收益一般。',
-  hotBlood: '站得住才赚，适合高血量或被集火的单位；每第 3/6/9 次攻击回血翻倍，爆发可观。',
-  mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；姐姐强化后换位额外扣血并眩晕 1 回合、我方被换位反而回血，副作用变收益；但己方仍有 40% 被打乱的风险，站位紧密的阵容慎选。',
-  soulDrain: '目前唯一削弱型海克斯：敌方全体攻击力-30%（持续 4 回合，每回合刷新），且我方每比敌方少 1 个存活单位再 -5%（越逆风削得越狠）；敌方全体防御首次乘 0.9、此后每回合再乘 0.95（第 N 回合 = 防御×0.9×0.95^(N-1)，乘法累积越拖越脆）。姐姐强化：减攻 -45%、逆风每多 1 人 -10%；妹妹永久：团队效果结束后每回合 60% 点名 1 名敌方续削 2 回合。对面攻击手越多、越依赖普攻收益越高；对不吃攻击力的阵容（如张三丰纯续航、召唤物）收益低。',
-  holyFire: '死亡交互型：每局首次有己方单位（非巨马、非召唤物）阵亡时，该单位原地复活并回复 40% 生命（复活即可行动），每局仅 1 次。反制斩杀/清场（周芷若白骨爪、灭绝三击），与小昭·妹飞天/结茧互补——她防死，这张死后回场；己方阵亡越早收益越高。',
-  lastStand: '残血增伤型：己方单位血量低于 25% 时攻击力 +30%，每回合开始按当前血量重判（血回上去即失效），整局持有。适合换血流/带自损技能的角色（唐文亮七伤拳、嗜血狂刀），越到残局收益越高；纯续航阵容（张三丰）几乎吃不到。姐姐在场：阈值提到 40%，触发者造成伤害的 15% 转成吸血；妹妹永久：任一队友残血她也吃加成。',
-  unity: '滚雪球人数型：随在场人数阶梯加成（5 人攻+10%/防+20%，6 人 20%/30%，7 人 30%/40%，8 人 50%/60%，9 人彩蛋 100%/100%），存活单位含召唤物/巨马都算人。获得当回合若不足 4 人则一次补满到 4（姐姐强化补满到 5、M25；M15、含精英、技能全开；到手已达标则该回合不召；召唤落地即钳属性下限：攻<1 归 0、防<5 补到 5、血<25 补到 25），此后每回合再补 1 个、持续 3 回合（唯一上限是 9 格站位）；补员永久存活，不随 buff 到期消失。适合铺场/召唤流，人越多越猛；单位少的斩杀阵容收益低。',
+const fmtVal = (v, kind) => {
+  if (kind === 'pct') return typeof v === 'number' ? pct(v) : String(v);
+  if (kind === 'bool') return v ? '开启' : '关闭';
+  if (kind === 'list') return Array.isArray(v) ? v.join(' / ') + ' 号位' : String(v);
+  return String(v);
+};
+
+// 普通版 → 姐姐/妹妹 的差异行（全自动）
+function enhanceDiffLines(base, enh, mode) {
+  const out = [];
+  if (!enh || typeof enh !== 'object') return out;
+  for (const [f, v] of Object.entries(enh)) {
+    const meta = FIELD_META[f] || [f, /(Ratio|Prob|Chance|Bonus|Pct|Dodge)/i.test(f) ? 'pct' : 'num'];
+    const [label, kind] = meta;
+    // 妹妹版旧值：优先 200 的 brotherXxx 专用字段（如 brotherSpawnChance），没有才对齐普通版同名字段
+    const bf = 'brother' + f.charAt(0).toUpperCase() + f.slice(1);
+    const old = mode === 'sister' ? base[f] : (base[bf] !== undefined ? base[bf] : base[f]);
+    if (old !== undefined && old === v) continue;
+    out.push(old === undefined
+      ? `新增 ${label}：${fmtVal(v, kind)}`
+      : `${label}：${fmtVal(old, kind)} → ${fmtVal(v, kind)}`);
+  }
+  return out;
+}
+
+// 纯行为机制备注（算不出来的才写；数字一律不写，避免和 200/201 漂移）
+const HEX_NOTE = {
+  bloodthirst: { sister: '战士每回合首次攻击命中后再追加 1 次攻击' },
+  hotBlood: { sister: '回血翻倍那一次按 2 倍比例结算' },
+  cloudBody: { brother: (b, e) => `只作用于小昭·妹自身：闪避 = 团队版 ${pct(b.dodgeBonus)} 的 ${pct(e.dodgeRatio)}（约 ${pct1(b.dodgeBonus * e.dodgeRatio)}）` },
+  carry: { brother: '每回合按近期阵亡队友数重算层数，阵亡越多加成越高' },
+  doubleStrike: { sister: '两名宿主各自独立判定', brother: '只作用于小昭·妹本人：她攻击后按上列概率额外再攻击 1 次' },
+  holyFire: { brother: '只作用于小昭·妹本人：她阵亡时原地复活，每局 1 次' },
+  holyFlame: { brother: '每回合重新抽列/行，她站到命中列/行才吃到加成' },
+  horseFormation: { sister: '巨马被攻击时按上列点数反弹给攻击者' },
+  lastStand: { brother: '任一队友残血即触发；数值同上列' },
+  meteorShower: { sister: '每次溅射命中 1 名存活目标叠 1 层，命中多名可叠加' },
+  mindControl: { brother: '她在场时，敌方攻击有概率误伤自己人（幻象迷惑）' },
+  soulDrain: { brother: '随机点名 1 名敌方（非巨马、非召唤物），可重复点名刷新' },
+  unity: { brother: '召唤 1 名明教英雄（技能全开），属性随召唤表' }
 };
 
 // 海克斯中文名映射（2026-10-15 V6.2.5 从 render 内部提到模块级：模式对比视图共用）
@@ -282,26 +226,38 @@ function hexLabel(k) {
 }
 
 // 版本卡片：kind 0=普通版 / 1=姐姐强化版 / 2=妹妹永久版
-//   文案统一由 HEX_DETAIL 按档给出；未登记的新海克斯退回 content 官方描述，绝不显示英文键名。
-function renderVersion(title, key, base, enhance, kind, cls) {
+//   V6.7.2：普通版读 content 官 desc；姐姐/妹妹由 enhanceDiffLines 自动比对 201 与 200 得出，
+//   不再有手写文案，也就不存在「文案没跟上配置」这一种过期。
+function renderVersion(title, key, base, enh, kind, cls) {
   const tag = kind === 0 ? '选海克斯后生效' : kind === 1 ? '自带强化' : '永久生效 ∞';
-  const d = HEX_DETAIL[key];
+  const li = arr => arr.map(t => `<li>${t}</li>`).join('');
   let lines = '';
-  if (!d) {
-    lines = `<li>${base.desc || '该海克斯暂无说明'}</li>`;
-  } else if (kind === 1) {
-    // 防御：新海克斯可能只写了 normal/brother，缺 sister 时不能直接调用
-    lines = (enhance && typeof d.sister === 'function') ? (d.sister(base, enhance) || []).map(t => `<li>${t}</li>`).join('') : '';
+  if (kind === 0) {
+    lines = li([base.desc || '该海克斯暂无说明']);
+    lines += `<li><b>持续</b>：${base.permanent ? '整局' : (base.duration || CONFIG.BUFF_DURATION) + ' 回合'}</li>`;
   } else {
-    // 防御：缺 brother/normal 时退回 base.desc，不让整张详情卡抛 TypeError
-    const fn = kind === 2 ? d.brother : d.normal;
-    const arr = (typeof fn === 'function') ? fn.call(d, base, enhance) : null;
-    lines = (arr || []).map(t => `<li>${t}</li>`).join('');
-    if (!lines && base.desc) lines = `<li>${base.desc}</li>`;
-    lines += `<li><b>持续</b>：${kind === 2 ? '永久（无回合限制）' : (base.permanent ? '整局' : (base.duration || CONFIG.BUFF_DURATION) + ' 回合')}</li>`;
+    const mode = kind === 1 ? 'sister' : 'brother';
+    const diff = enhanceDiffLines(base, enh, mode);
+    const rawNote = HEX_NOTE[key] && HEX_NOTE[key][mode];
+    const note = typeof rawNote === 'function' ? rawNote(base, enh) : rawNote;
+    lines = li(kind === 2 ? ['团队效果结束后，小昭·妹永久保留（只作用于她自己）：', ...diff] : diff);
+    if (note) lines += `<li>${note}</li>`;
+    if (!diff.length && !note) lines = `<li>${base.desc || '该海克斯无强化配置'}</li>`;
   }
-  if (!lines) lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';
   return `<div class="hex-hex-ver hex-hex-ver-${cls}"><h3>${title} <span class="tag">${tag}</span></h3><ul>${lines}</ul></div>`;
+}
+
+// 适用提示（V6.7.2 自动化）：受益对象从 content desc 抓，强化项数从 201 差异实算，
+//   不再手写「适合什么阵容」的推荐语——那种话最容易和配置漂移。
+const SCOPE_KEYWORDS = [
+  ['飞行单位', '飞行单位'], ['防战', '防战'], ['战士', '战士'], ['远程', '远程'],
+  ['最前排', '最前排单位'], ['随机两人', '随机 2 人'], ['己方全体', '己方全体'],
+  ['敌方全体', '敌方全体'], ['巨马', '巨马'], ['己方在场人数', '站位人数'], ['己方单位', '己方单位']
+];
+function unitScope(desc) {
+  const d = desc || '';
+  for (const [kw, label] of SCOPE_KEYWORDS) if (d.includes(kw)) return label;
+  return '己方';
 }
 
 async function openHexDetail(key) {
@@ -312,7 +268,12 @@ async function openHexDetail(key) {
   await loadHexEnhanceData();
   const b = CONFIG.BUFFS[key];
   if (!b) return;
-  const enhance = getSkillParams('小昭', 'hexEnhance')[key] || null;
+  const sisEnh = getSisterHexEnhance(key);
+  const broEnh = getBrotherHexEnhance(key);
+  // 适用提示自动生成：受益对象取自 content desc，两个强化档的差异项数实算
+  const nS = enhanceDiffLines(b, sisEnh, 'sister').length;
+  const nB = enhanceDiffLines(b, broEnh, 'brother').length;
+  const hint = `受益：${unitScope(b.desc)}；姐姐强化 ${nS} 项、妹妹永久 ${nB} 项（数值随 200/201 自动同步）`;
   const mask = document.createElement('div');
   mask.className = 'hex-hex-detail-mask';
   mask.innerHTML = `
@@ -325,9 +286,9 @@ async function openHexDetail(key) {
       </div>
       <div class="hex-hex-detail-body">
         ${renderVersion('普通版', key, b, null, 0, 'a')}
-        ${renderVersion('姐姐强化版（小昭·姊）', key, b, enhance, 1, 'b')}
-        ${renderVersion('妹妹永久版（小昭·妹）', key, b, null, 2, 'c')}
-        ${HEX_HINTS[key] ? `<div class="hex-hex-hint">💡 判断：${HEX_HINTS[key]}</div>` : ''}
+        ${renderVersion('姐姐强化版（小昭·姊）', key, b, sisEnh, 1, 'b')}
+        ${renderVersion('妹妹永久版（小昭·妹）', key, b, broEnh, 2, 'c')}
+        <div class="hex-hex-hint">💡 适用：${hint}</div>
       </div>
     </div>`;
   document.body.appendChild(mask);
@@ -929,7 +890,9 @@ function render(summary, stats) {
 }
 
 // 2026-10-18 暴露文案登记表的 key 清单，供 126 平衡告警查「新增海克斯漏登记」
-//   （HEX_HINTS / HEX_NAME_MAP 是手工表，漏登则表里只显示 key、点开也没有判断提示）
-window.__hexDocKeys = { hints: Object.keys(HEX_HINTS), names: Object.keys(HEX_NAME_MAP) };
+//   V6.7.2：HEX_HINTS 已删（判断提示改自动生成，不再有「漏登」问题），这里只留手工的中文名表。
+window.__hexDocKeys = { names: Object.keys(HEX_NAME_MAP) };
+// 调试/自检钩子：详情卡渲染函数（表格里点海克斯名走同一个函数，供 node 无头自检调用）
+window.__hexOpenDetail = openHexDetail;
 window.openHexDashboard = openHexDashboard;
 })();
