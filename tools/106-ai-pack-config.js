@@ -95,7 +95,7 @@
 // V6.0.48 | 2026-10-31 补登记 2 项：content/201hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
 //           modules/27elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
-export const VER = 'tools/106-ai-pack-config.js V6.0.54';
+export const VER = 'tools/106-ai-pack-config.js V6.0.55';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -341,6 +341,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/signal-channel-guard.mjs',
     // 2026-10-30 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/xiaozhao-horse-carry-case.mjs',
+    // 2026-10-31 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/claw-hit-shield-split.mjs', '../tests/xiaozhao-naming-guard.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',

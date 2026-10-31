@@ -44,7 +44,19 @@ import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
-const VER = 'tests/fact-emission-census.mjs V1.7.0';
+const VER = 'tests/fact-emission-census.mjs V1.8.0';
+// V1.8.0 | 2026-10-31 夜间第 166 轮：**订正第 165 轮对「妹/兄」的归因** + ⑤b 登记文案改用机械指称。
+//   ★ 第 165 轮说「登记文案写妹、源码却在兄模块 ⇒ 记错了」，本轮翻主代码发现这话说反了半句：
+//     游戏侧叫「小昭·妹」的那个单位，代码侧就是 Brother ——
+//     modules/27elite-mingjiao.js L28 注册 registerElite('小昭·妹', createXiaoZhaoBrotherComponent)，
+//     modules/29battle-init.js L261 的显示名也写成 isXiaoZhaoSister ? '小昭·姊' : '小昭·妹'
+//     （即 isXiaoZhaoBrother 为真时显示名就是「妹」）。⇒ **「妹」与「兄（brother）」是同一实体的两个名字**，
+//     根本不存在谁记错谁。第 165 轮的摘牌**结论成立**（两条都活着、不该进 ⑤b-2），但**归因要更正**：
+//     当初进 ⑤b-2 的真因是「以为拿不到通道」，而 forceXiaoZhao='brother' 这条通道一直现成 ——
+//     与「妹/兄」指称无关，是双轨命名让我们以为自己在讲两个东西，于是没去找那条现成的通道。
+//   ⇒ 本轮把 ⑤b 三桶登记文案里的「妹/兄」口语指称全部换成机械可核的三件套
+//     （isXiaoZhaoBrother|Sister / forceXiaoZhao='brother'|'sister' / modules 路径 + L 行号），
+//     并由本轮新增的 tests/xiaozhao-naming-guard.mjs 逐条点名，缺点名。
 // V1.7.0 | 2026-10-31 夜间第 165 轮：xiaoZhaoHorse / xiaoZhaoCarryApply 由 ⑤b-2 移入 ⑤b-3（**摘牌**）。
 //   由 tests/xiaozhao-horse-carry-case.mjs（本轮新增）定向实证：forceXiaoZhao='brother' 140 场下
 //   xiaoZhaoHorse 全前置就绪 454 次 / 命中 211 次，xiaoZhaoCarryApply 167 次 / 命中 101 次
@@ -107,7 +119,10 @@ function resetForces(GlobalStore) {
 // 定向场次：全部经 /tmp 探针（30 seed × 7 stage 全扫）定量挑出，取证数字以本脚本实测输出为准。
 //   探针不入库，只用来**挑场次**，不用来**下结论**。
 const DIRECTED_CASES = [
-    // brother（小昭·妹）→ 蛛系 6 条：spiderTransform / spiderReturn / spiderStrike / spiderFly /
+    // ★ 先立口径再写通道（第 166 轮）：forceXiaoZhao 的取值 'brother' / 'sister' 是**代码侧**指称，
+    //   与游戏内显示名是**反的** —— 'brother' 对应的单位显示名是「小昭·妹」（sister 对应「小昭·姊」）。
+    //   故下面一律写 forceXiaoZhao='brother' 这种机械取值，不写「妹/兄」口语。
+    // brother（游戏显示名 小昭·妹，代码标志位 isXiaoZhaoBrother）→ 蛛系 6 条：spiderTransform / spiderReturn / spiderStrike / spiderFly /
     //   spiderDoubleStrike / flySkip。★ 9:2 一场即同时喂到前五条（探针实测 33 条），
     //   flySkip 在 210 场 brother 全扫里**只有 1:7 一场**命中 1 条，故必收。
     { seed: 9, stage: 2, force: 'brother' },
@@ -129,15 +144,19 @@ const DIRECTED_CASES = [
 //     补齐采集后：自然流（218 场 / 97781 fact）两个 spec 都正常发射，兄分支 107 次、成昆分支 96 次。
 //     ⇒ 既不是 ⑤b-2 的"结构性不发射"，也不是 ⑤b-3 的"定向才覆盖"，它们**压根不稀有**，
 //       按任何口径都不许进核销候选；若哪天再次零发射，先去查藏匿点，不要先疑心分支。
-//   · xiaoZhaoHorse / xiaoZhaoCarryApply（第 165 轮摘牌）：登记文案写「要**妹**永久巨马阵 / 妹永久 carry」，
-//     易读成「得先让妹在队 ⇒ 干净树没有 ⇒ 归 ⑤b-2」。但两个发射点都在**兄模块**
-//     （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274），判据读**兄**的 _permanentBuffs，
-//     而永久 buff 唯一入口 addPermanentBuff 的门槛是 isXiaoZhaoBrother ⇒ forceXiaoZhao='brother'
-//     这条现成通道即可取证。实测 140 场：巨马 454 就绪 / 211 命中，carry 167 就绪 / 101 命中。
-//     ★ 摘牌教训：登记 ⑤b-2 前先核「发射点在哪个模块、判据读谁的 state、通道现成不现成」，
-//       别拿一句「要某某在队」就下「需变异树」的定性。
+//   · xiaoZhaoHorse / xiaoZhaoCarryApply（第 165 轮摘牌、**第 166 轮订正归因**）：
+//     第 165 轮的原话是「登记文案写妹、源码却在兄模块」，本轮翻主代码发现**这话说反了半句** ——
+//     游戏侧叫「小昭·妹」的单位，代码侧就是 Brother（registerElite('小昭·妹', …BrotherComponent)，
+//     且 29battle-init 的显示名分支是 isXiaoZhaoSister ? '小昭·姊' : '小昭·妹'）⇒ **妹 ≡ brother 同一实体**，
+//     谁也没记错。★ 真因是**命名双轨**：同一个东西有两个名字，读到「妹」的人去找妹、读到「brother」的
+//     人去找兄，两边都以为对方讲的是另一个角色 ⇒ 于是没人发现 forceXiaoZhao='brother' 这条通道
+//     （第 162 轮就在用）**一直现成**。摘牌结论不变，进 ⑤b-2 的定性作废。
+//     ★ 订正后的教训：登记 ⑤b-2 前先核「发射点在哪个模块、判据读谁的 state、通道现成不现成」，
+//       并且**一律用机械指称**（isXiaoZhaoBrother|Sister / forceXiaoZhao='brother'|'sister' / 模块:行号），
+//       不许用「妹/兄」口语指称 —— 由 tests/xiaozhao-naming-guard.mjs 逐条点名守着。
 const NON_SAMPLE_SPECS = new Map([
-    ['spiderDeadTarget', '蛛袭时目标已死才发，modules/20elite-skills.js L225，属收尾帧竞态；'
+    ['spiderDeadTarget', '蛛袭时目标已死才发；发射点 modules/20elite-skills.js L225，'
+        + '判据读目标池过滤式里的 u.alive（目标死亡才进），属收尾帧竞态；'
         + '第 161 轮已由 tests/spider-dead-target-case.mjs 实证：349 次进入目标池 / SPIDER_DEAD_TARGET 恒 0 次'
         + ' ⇒ 静态不可达成立（过滤式含 u.alive 且中途无人改 alive），可提核销']
 ]);
@@ -147,12 +166,16 @@ const DIRECTED_COVERED_SPECS = new Map([
     ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226；'
         + '第 161 轮复核 tests/xinhun-death-targeted-case.mjs 段二（钳血 10 场 @ stage 4）实测：'
         + 'XIN_HUN 触发 5 次 / XIN_HUN_DEATH 命中 5 次 ⇒ 链条成立，挂账一的「XIN_HUN 时序核销」应撤销'],
-    ['xiaoZhaoHorse', '妹永久巨马阵（HORSE_FORMATION in 兄的 _permanentBuffs）才召，'
-        + 'modules/27elite-mingjiao-xiaozhao-brother.js L249；第 165 轮由 tests/xiaozhao-horse-carry-case.mjs'
-        + ' 定向实证：forceXiaoZhao=brother 140 场，全前置就绪 454 次 / 命中 211 次（spawnChance 0.7）'
-        + ' ⇒ 活发射点，原「需变异树」的定性作废'],
-    ['xiaoZhaoCarryApply', '妹永久 carry（CARRY in 兄的 _permanentBuffs）才挂，同文件 L274；'
-        + '同上定向实证：全前置就绪 167 次 / 命中 101 次 ⇒ 活发射点，原「需变异树」的定性作废'],
+    ['xiaoZhaoHorse', 'HORSE_FORMATION 在发射单位自身 _permanentBuffs 里才召（外部团队 buff 不算）；'
+        + '发射点 modules/27elite-mingjiao-xiaozhao-brother.js L249，判据读 isXiaoZhaoBrother 单位的'
+        + 'state._permanentBuffs，永久 buff 唯一入口 addPermanentBuff（modules/20elite-skills.js L258）'
+        + '门槛同为 isXiaoZhaoBrother ⇒ 取证通道 forceXiaoZhao=brother 现成；'
+        + '第 165 轮由 tests/xiaozhao-horse-carry-case.mjs 定向实证：140 场全前置就绪 454 次 / 命中 211 次'
+        + '（spawnChance 0.7）⇒ 活发射点，原「需变异树」的定性作废'],
+    ['xiaoZhaoCarryApply', 'CARRY 在发射单位自身 _permanentBuffs 里才挂（外部团队 buff 不算）；'
+        + '发射点同文件 L274，判据同上读 isXiaoZhaoBrother 单位的 state._permanentBuffs，'
+        + '取证通道 forceXiaoZhao=brother 现成；'
+        + '同上定向实证：140 场全前置就绪 167 次 / 命中 101 次 ⇒ 活发射点，原「需变异树」的定性作废'],
 ]);
 
 // 取样规模闸门（2026-10-27 夜间第 143 轮新增）。实测基准：210 场 / 101869 条 fact（30 seeds × 7 stages）。

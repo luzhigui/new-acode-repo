@@ -1,3 +1,6 @@
+// V1.27.0 | 2026-10-31 夜间第 166 轮：OBSERVES 挂「小昭命名指称守门」tests/xiaozhao-naming-guard.mjs
+//     ＋「九阴白骨爪三值同源取证」tests/claw-hit-shield-split.mjs（见 OBSERVES 末两项注释）。
+//     分母恒 25 不变：新增均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
 // V1.26.0 | 2026-10-31 夜间第 165 轮：OBSERVES 挂「巨马/carry 定向取证」
 //     tests/xiaozhao-horse-carry-case.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
 //     新增/订正均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
@@ -76,7 +79,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.26.0';
+export const VER = 'tests/run-all.mjs V1.27.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -253,7 +256,28 @@ const OBSERVES = [
     //     新增别处没有的**白名单自证**：addPermanentBuff 只认 CONFIG.XIAO_ZHAO_PERMANENT_BUFFS，
     //     键不在白名单 ⇒ 永久表永不会有它 ⇒ 那才是**真·结构死代码**；这一条此前从没被数过。
     //   挂观察项不改分母，同上。
-    { name: '巨马/carry定向取证', script: 'tests/xiaozhao-horse-carry-case.mjs', args: [] }
+    //   （第 166 轮勘误：上面「登记写妹、源码都在兄模块」这半句说反了 —— 见下条守门的头注释，
+    //    游戏侧叫「小昭·妹」的单位代码侧就是 Brother，两者同一实体，谁也没记错；
+    //    摘牌结论成立、归因更正，详见 tests/xiaozhao-naming-guard.mjs。）
+    { name: '巨马/carry定向取证', script: 'tests/xiaozhao-horse-carry-case.mjs', args: [] },
+    // V1.27.0 | 2026-10-31 夜间第 166 轮：挂两个件，都起因于「同一个东西有两个名字/两个值」。
+    //   ① 小昭命名指称守门（新增）—— 承接第 165 轮【最高·下轮】「回头重扫 ⑤b 登记文案里有没有
+    //     同款『妹/兄』记错的」。扫出来的答案是：**不存在谁记错，是这游戏对小昭用双轨命名**
+    //     （游戏名 小昭·妹 ≡ 代码标志位 isXiaoZhaoBrother；modules/27elite-mingjiao.js L28 的
+    //     registerElite 与 modules/29battle-init.js L261 的显示名三元可互证）。
+    //     ★ 双轨命名改不掉（要动主代码与全部文案，须拍板），但**它能造出来的误判可以机械拦住**：
+    //       段一从主代码机械抽取映射并交叉对账（哪天上游改了命名，本件立刻报 ⇒ 全库旧文案须重扫）；
+    //       段二逐条核 ⑤b 登记文案必须带机械指称（isXiaoZhaoBrother|Sister / forceXiaoZhao 取值 /
+    //       modules 路径+L行号），不许只写「妹/兄」口语指称。
+    //   ② 九阴白骨爪三值同源取证（新增）—— 本轮 merge 上游后**凭空多出两项红**（账本对照 CLAW_HIT
+    //     ＋ 对照器守卫 ②），追进去是同一根因：上游给九阴白骨爪加了护盾抵扣（core/16 L276-285），
+    //     只把结算与账本改成 hpLoss，**没同步 fact**（L292 仍是 applied）⇒ fact ≠ 账本 = 实际。
+    //     而 render/35-facts-stat.js L192 正拿 fact.dmg 拼玩家看到的伤害文本
+    //     ⇒ **玩家看到的伤害 ≠ 目标实际掉血**。这是产品对外承诺的数字与落地数字分叉，
+    //     不是体检测量口径问题（若 fact 只被体检读，改契约即可；它被对外显示读 ⇒ 须拍板）。
+    //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
+    { name: '小昭命名指称守门', script: 'tests/xiaozhao-naming-guard.mjs', args: [] },
+    { name: '九阴白骨爪三值同源取证', script: 'tests/claw-hit-shield-split.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
