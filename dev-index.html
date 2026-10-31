@@ -121,27 +121,31 @@
 
     <script>
         // ==================== 页面跳转 ====================
+        // 2026-11-01 老板手机实锤：存储写不进（配额满/隐私模式等）时 setItem 抛异常，
+        // 挡在 location.href 前面 → 按钮"点了没反应"。demo 标记是尽力而为的调试便利，
+        // 写不进就写不进，跳转必须照走。所以全部写点走 safeSet，吞掉存储异常。
+        function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { console.warn('[dev-index] 标记写入失败（不影响跳转）:', k, e); } }
         document.getElementById('btnGame').addEventListener('click', () => {
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXiaoZhaoSister').addEventListener('click', () => {
-            localStorage.setItem('_forceXiaoZhao', 'sister');
+            safeSet('_forceXiaoZhao', 'sister');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXiaoZhaoBrother').addEventListener('click', () => {
-            localStorage.setItem('_forceXiaoZhao', 'brother');
+            safeSet('_forceXiaoZhao', 'brother');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnZhangWuji').addEventListener('click', () => {
-            localStorage.setItem('_forceZhang', '1');
+            safeSet('_forceZhang', '1');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnWeiYixiao').addEventListener('click', () => {
-            localStorage.setItem('_forceWei', '1');
+            safeSet('_forceWei', '1');
 
             window.location.href = 'index.html';
         });
@@ -570,28 +574,30 @@
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
         function clearDemoFlags() {
-            localStorage.removeItem('_forcePang');
-            localStorage.removeItem('_forceXieXun');
-            localStorage.removeItem('_forceHanLiSa');
-            localStorage.removeItem('_forceWeakElite');
-            localStorage.removeItem('_startStage');
+            try {
+                localStorage.removeItem('_forcePang');
+                localStorage.removeItem('_forceXieXun');
+                localStorage.removeItem('_forceHanLiSa');
+                localStorage.removeItem('_forceWeakElite');
+                localStorage.removeItem('_startStage');
+            } catch (e) { console.warn('[dev-index] 清标记失败（不影响跳转）:', e); }
         }
         document.getElementById('btnPangYuanQiao').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
-            localStorage.setItem('_startStage', '3');
+            safeSet('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
+            safeSet('_startStage', '3');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnMieJue').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_startStage', '7');  // 第七关敌方主将就是灭绝师太
+            safeSet('_startStage', '7');  // 第七关敌方主将就是灭绝师太
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXieXun').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
+            safeSet('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
 
             window.location.href = 'index.html';
         });
@@ -599,32 +605,32 @@
         //   唐文亮走六大派侧 M104 数字空位锁定——两者都只占正常阵容 1 位，不整队替换
         document.getElementById('btnYinTianZheng').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '殷天正');
+            safeSet('_forceWeakElite', '殷天正');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnTangWenLiang').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '唐文亮');
+            safeSet('_forceWeakElite', '唐文亮');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnKongJian').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '空见');
+            safeSet('_forceWeakElite', '空见');
 
             window.location.href = 'index.html';
         });
         // 弱精英补齐（2026-10-16）：杨逍走明教侧弱精英池混入、何太冲走六大派 M104 数字空位锁定
         document.getElementById('btnYangXiao').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '杨逍');
+            safeSet('_forceWeakElite', '杨逍');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnHeTaichong').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '何太冲');
+            safeSet('_forceWeakElite', '何太冲');
 
             window.location.href = 'index.html';
         });
@@ -632,7 +638,7 @@
         //   改走 29 V7.6.1 新增的 _forceHanLiSa（强精英 force，与她同级的韦一笑/谢逊互斥轮盘）
         document.getElementById('btnHanLiSa').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceHanLiSa', '1');
+            safeSet('_forceHanLiSa', '1');
 
             window.location.href = 'index.html';
         });
