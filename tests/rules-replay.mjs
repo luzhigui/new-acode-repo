@@ -45,7 +45,12 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.10.0';
+export const VER = 'tests/rules-replay.mjs V6.11.0';
+// V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
+//   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
+//   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
+//   收口后本通道也能用 forceXieXun，两本事实账本也能用 forceWei。★ 零行为变化：
+//   forcesOfEntry 仍保留「无键时返 null」的原形态（统一成 {} 须单独拍板），白名单外的键照旧当场抛错。
 // V6.9.0 | 2026-10-31 第 160 轮：定向覆盖通道从「只认 forceXiaoZhao」泛化为白名单多键，
 //   并新增 4 场 forceWei（韦一笑）定向场次 —— 补的是「判据分支级空转自检」那条挂了几十轮的老红。
 //   取证（/tmp 探针，不入库；结论以本文件实测为准）：
@@ -155,7 +160,16 @@ const NOBUFFS = process.env.NOBUFFS === '1';
 //   ★ 方向是补样本让规则有机会跑，不改任何判据、不加任何豁免、不降任何人次下限。
 // 第 160 轮：白名单加 forceWei（29battle-init L140 / L151 真实存在）。★ 仍是白名单制，
 //   未登记的开关直接抛错，防止拼错键导致「强制静默失效、规则继续空转」这种最难查的假象。
-const FORCE_KEYS = ['forceXiaoZhao', 'forceWei'];
+// 第 172 轮收口：FORCE_KEYS / forcesOfEntry / resetForces 三件套搬去唯一来源
+//   tests/_lib/forced-case-normalize.mjs（本文件不再自带副本）。
+//   ★ 动因：本套白皮书写着「与 stat-decl-vs-actual-check V3.11.0 同一条安全边界」，实际却分叉了 ——
+//     本文件是 ['forceXiaoZhao','forceWei']（第 160 轮加 forceWei 时未同步给对照器），
+//     两本事实账本是 ['forceXiaoZhao','forceXieXun']（第 159 轮加 forceXieXun 时未同步给本文件）。
+//     三个开关在主代码 29battle-init L140/L141/L144 里全都真实存在 ⇒ 收口后并为三者交集之上的全集，
+//     本通道方才也能用 forceXieXun（喂谢逊系规则），两本账本方才也能用 forceWei。
+//   ★ 零行为变化：forcesOfEntry 仍保留「无键时返 null」的原形态（统一成 {} 须单独拍板）。
+import { forcesOfEntry, resetForces } from './_lib/forced-case-normalize.mjs';
+
 const DIRECTED_CASES = [
     // 小昭·妹（brother）形态 → 蛛变 / 精通 / 飞天免疫 三条规则的唯一入口。
     //   场次与对照器一致（seed 17 × stage 1 / 4），实测对照器侧能稳定产出 SPIDER_TRANSFORM / SPIDER_MASTERY 声明。
@@ -177,27 +191,7 @@ const DIRECTED_CASES = [
     { seed: 13, stage: 6, forces: { forceWei: true } }
 ];
 
-function resetForces() {
-    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
-}
-
-// 第 160 轮：定向开关归一化 + 白名单校验（与 tests/stat-decl-vs-actual-check.mjs V3.11.0 同口径）。
-//   ★ 白名单外的键直接抛错：拼错的开关不会报任何错，只会让「强制」静默失效、规则继续恒空转，
-//     这是本通道最难自查的失效模式，宁可当场炸掉。
-function forcesOfEntry(entry) {
-    const out = {};
-    if (entry && entry.force) out.forceXiaoZhao = entry.force;
-    if (entry && entry.forces) {
-        for (const k of Object.keys(entry.forces)) {
-            if (FORCE_KEYS.indexOf(k) === -1) {
-                throw new Error('定向覆盖场次用了未登记的强制开关 ' + k + '（白名单：' + FORCE_KEYS.join(', ') + '）');
-            }
-            out[k] = entry.forces[k];
-        }
-    }
-    return Object.keys(out).length ? out : null;
-}
-
+// （第 172 轮：下面 resetForces / forcesOfEntry / FORCE_KEYS 三件套已迁出至 tests/_lib/forced-case-normalize.mjs）
 // --- 团队海克斯 Buff 注入 ---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
 //   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
@@ -297,7 +291,7 @@ function assertInvariants(units, round, seed, stage) {
 
 function runCase(seed, stage, forces) {
     // 第 159 轮：开场先把全部白名单开关复位，再按本场 forces 设置（双重复位，杜绝全局态泄漏）。
-    resetForces();
+    resetForces(GlobalStore);
     for (const k of Object.keys(forces || {})) GlobalStore.set(k, forces[k]);
     const rng = new SeededRNG(seed);
     const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
@@ -476,7 +470,7 @@ for (const { seed, stage, force, forces: entryForces } of [...SEEDS.flatMap(seed
         }
 }
 // 第 159 轮：场次循环结束统一复位（同进程内后续任何 initBattleTeams 都不该被强制成小昭阵容）。
-resetForces();
+resetForces(GlobalStore);
 
 // --- 不变量报告（与机制规则分开报，不混进规则 pass/fail 计数）---
 console.log('=== 不变量（逐步断言）===');

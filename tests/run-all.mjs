@@ -1,3 +1,7 @@
+// V1.32.0 | 2026-11-01 夜间第 172 轮：三份定向开关白名单收口为 tests/_lib/forced-case-normalize.mjs
+//     唯一来源（fact-emission-census V1.4.0 / stat-decl-vs-actual-check V3.14.0 / rules-replay V6.11.0
+//     三处内联副本消除；此前 rules-replay 那份缺 forceXieXun、两本账本那份缺 forceWei，三条挂账被这条
+//     分叉卡住）。纯搬迁零行为变化，未动 CHECKS 一条判据、未放宽一项门槛。
 // V1.31.0 | 2026-11-01 夜间第 170 轮：输出标签耦合守门 V3.0.0 → V3.1.0（段零解析侧地基换 scanRegexLiterals：
 //     跳注释 + 跳字符串后抽真正则 ⇒ 剔除 153 条自产假正则、消掉第 169 轮那条「201hex 读取/解析失败」假候补；
 //     自证牙 34 → 37 条）。仍然只为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
@@ -88,7 +92,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.31.0';
+export const VER = 'tests/run-all.mjs V1.32.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');

@@ -76,7 +76,11 @@
 //   —— 第 171 轮把这两个函数收口为 tests/_lib/buff-state-query.mjs 唯一来源，两个 case 文件的
 //      内联副本真消失 ⇒ 登记为 expect:false：今后 tests 下若再冒出第二份同体实现即判回归
 //      （与第 165 轮 readIfAbs 同一写法）。★ 只增凭证、不动判据：DUP_FN_RATCHET 仍为 4 未抬。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.5.0';
+// V1.6.0 | 2026-11-01 夜间第 172 轮：DUP_WITNESS 增三条「已核销」登记（normalizeForces / resetForces /
+//   forcesOfEntry）—— 第 172 轮把这三件套收口为 tests/_lib/forced-case-normalize.mjs 唯一来源，
+//   fact-emission-census / stat-decl-vs-actual-check / rules-replay 三处内联副本真消失 ⇒ expect:false。
+//   ★ 与第 171 轮 hasActiveBuff 同一写法：只增凭证、不动判据，DUP_FN_RATCHET 仍为 4 未抬。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.6.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -772,7 +776,9 @@ function runSelfChecks(fails) {
         { name: 'fail', expect: true, why: '第 152 轮点名至今仍在（三份自检入口）' },
 { name: 'collectFacts', expect: false, why: '第 163 轮立 tests/_lib/fact-collect.mjs 为唯一收口；本轮消除 121health-monitor.js / rules-replay.mjs 内联副本（含 121 漏 phantomFact 的口径分叉），重复真消失（不是检测失灵）' },
 { name: 'hasActiveBuff', expect: false, why: '第 171 轮立 tests/_lib/buff-state-query.mjs 为唯一收口；消除 phantom-confuse-brother-case.mjs / xiaozhao-horse-carry-case.mjs 两处内联副本（逐字相同，纯搬迁零行为变化），重复真消失（不是检测失灵）' },
-{ name: 'permHas', expect: false, why: '第 171 轮立 tests/_lib/buff-state-query.mjs 为唯一收口；消除 phantom-confuse-brother-case.mjs / xiaozhao-horse-carry-case.mjs 两处内联副本（逐字相同，纯搬迁零行为变化），重复真消失（不是检测失灵）' }
+{ name: 'permHas', expect: false, why: '第 171 轮立 tests/_lib/buff-state-query.mjs 为唯一收口；消除 phantom-confuse-brother-case.mjs / xiaozhao-horse-carry-case.mjs 两处内联副本（逐字相同，纯搬迁零行为变化），重复真消失（不是检测失灵）' },
+{ name: 'normalizeForces', expect: false, why: '第 172 轮立 tests/_lib/forced-case-normalize.mjs 为唯一收口；消除 fact-emission-census.mjs / stat-decl-vs-actual-check.mjs 两处逐字相同副本，重复真消失（不是检测失灵）' },
+{ name: 'resetForces', expect: false, why: '第 172 轮同上：三处内联副本（fact-emission-census / stat-decl-vs-actual-check / rules-replay）一并消除；★ 第三处 rules-replay 那份连函数名与实现都不同体，重复普查的两把尺子（同名 ∪ 同体）都漏，已在本轮写进文件头作为结构性盲区备忘' }
     ];
     try {
         const d9 = auditDupFnNames(path.dirname(path.dirname(fileURLToPath(import.meta.url))));

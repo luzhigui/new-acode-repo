@@ -1,4 +1,9 @@
-// tests/fact-emission-census.mjs V1.3.0
+// tests/fact-emission-census.mjs V1.4.0
+// V1.4.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / normalizeForces / resetForces 三件套收口至
+//         tests/_lib/forced-case-normalize.mjs 唯一来源（本 Inventory 不再自带副本）。
+//         本轮实测三份白名单口径分叉：本件与对照器 ['forceXiaoZhao','forceXieXun']、
+//         规则回放 ['forceXiaoZhao','forceWei'] —— 并后立即全集，本处方才也能用 forceWei。
+//         ★ 纯搬迁 + 并集登记，现有场次只用 forceXiaoZhao，结论零变化。
 //       blind（盲区候选）是「没查到」类，取样不足时一律转「不成立」，不许它冒充"零盲区"。
 // ───────────────────────────────────────────────────────────────────────────
 // 样本驱动 fact 发射普查（第 124 轮·C → 第 125 轮扩为「契约腐烂检测器」）：
@@ -97,24 +102,14 @@ const VER = 'tests/fact-emission-census.mjs V1.8.0';
 //     xinhun-death-targeted-case 段二命中 5 次），就不再是死代码候选，必须单独标注「严禁核销」——
 //     否则「稀有 = 死」这个想当然会直接把活发射点删掉（挂账一的 XIN_HUN 核销建议即此类误判）。
 // ───────────────────────────────────────────────────────────────────────────
-const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun'];
-
-function normalizeForces(entry) {
-    const out = {};
-    if (entry && entry.force) out.forceXiaoZhao = entry.force;
-    if (entry && entry.forces) {
-        for (const [k, v] of Object.entries(entry.forces)) {
-            if (!FORCE_KEYS.includes(k)) {
-                throw new Error(`定向覆盖场次用了未登记的强制开关 '${k}'（白名单：${FORCE_KEYS.join(', ')}）`);
-            }
-            out[k] = v;
-        }
-    }
-    return out;
-}
-function resetForces(GlobalStore) {
-    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
-}
+// 第 172 轮收口：下面 FORCE_KEYS / normalizeForces / resetForces 三件套搬去唯一来源
+//   tests/_lib/forced-case-normalize.mjs（本文件不再自带副本）。
+//   ★ 动因：本轮实测 tests/ 下有三份各自维护的白名单，本处与对照器是
+//     ['forceXiaoZhao','forceXieXun']，而规则回放是 ['forceXiaoZhao','forceWei'] —— **口径分叉**。
+//     三个开关在主代码 29battle-init 里全都真实存在，收口后合并为三者并集，
+//     本处方才也能用 forceWei（挂账 164 吸血上限正是走它），规则回放方才也能用 forceXieXun。
+//   ★ zero behavior change：三件套行为逐字照搬，本处现有场次只用到 forceXiaoZhao，结论不变。
+import { normalizeForces, resetForces } from './_lib/forced-case-normalize.mjs';
 
 // 定向场次：全部经 /tmp 探针（30 seed × 7 stage 全扫）定量挑出，取证数字以本脚本实测输出为准。
 //   探针不入库，只用来**挑场次**，不用来**下结论**。

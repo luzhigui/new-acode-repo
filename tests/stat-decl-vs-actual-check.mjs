@@ -1,3 +1,7 @@
+// V3.14.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / normalizeForces / resetForces 三件套收口至
+//         tests/_lib/forced-case-normalize.mjs 唯一来源。本件原白名单缺 forceWei（其在主代码
+//         29battle-init L140 / L151 真实存在，第 160 轮规则回放侧已论证过却未同步给本件），
+//         此前想喂韦一笑场次会当场抛错 —— 挂账 164 吸血上限正是走这条路。★ 零行为变化。
 // V3.13.0 | 2026-11-01 夜间第 167 轮：契约汇总行列名「命中」→「重复应用」—— 该列装的是 s.dup
 //         （**重复应用**数），不是命中数（CLAW_HIT「命中 8」实为 8 处重复应用，第 166 轮备忘）。
 //         ★ 只补标签，判据与门槛一个字未动。★ 这一行是**机械契约**：两个消费者各自写死正则
@@ -81,7 +85,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.13.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.14.0';
 
 // ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
 //   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
@@ -168,26 +172,14 @@ const STAGES = [1, 2, 3, 4, 5, 6]; // 第 74 轮加 5：stage 5 含鹿杖客/玄
 //   单值 force 字段向后兼容、等价于 forces:{ forceXiaoZhao: force }。
 //   ★ 白名单是硬边界：只允许填主代码 29battle-init 里真实存在的 force* 开关（L95 / L139-147），
 //     不许拿 GlobalStore 当后门改引擎行为；白名单外的键 normalizeForces 直接抛错，防写错键静默失效。
-const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun'];
-
-function normalizeForces(entry) {
-    const out = {};
-    if (entry && entry.force) out.forceXiaoZhao = entry.force;
-    if (entry && entry.forces) {
-        for (const [k, v] of Object.entries(entry.forces)) {
-            if (!FORCE_KEYS.includes(k)) {
-                throw new Error(`定向覆盖场次用了未登记的强制开关 '${k}'（白名单：${FORCE_KEYS.join(', ')}）`);
-            }
-            out[k] = v;
-        }
-    }
-    return out;
-}
-
-// 复位而且在每场**开始**时先全键归零，再按本场设置 —— 双重复位，杜绝全局态泄漏到后续场次或其他体检入口。
-function resetForces(GlobalStore) {
-    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
-}
+// 第 172 轮收口：下面 FORCE_KEYS / normalizeForces / resetForces 三件套搬去唯一来源
+//   tests/_lib/forced-case-normalize.mjs（本文件不再自带副本）。
+//   ★ 动因：本处在第 159 轮加 forceXieXun 时论证了「主代码 29battle-init L95 / L139-147 真实存在」
+//     却没同步给规则回放；规则回放第 160 轮加 forceWei 时同样论证了「L140 / L151 真实存在」
+//     也没同步给本处 ⇒ 两份白名单长期各缺一个合法开关。收口后并为三者全集，
+//     本处方才也能用 forceWei（挂账 164 吸血上限正是走它）。
+//   ★ 零行为变化：行为逐字照搬，本处现有场次只用 forceXiaoZhao / forceXieXun，结论不变。
+import { normalizeForces, resetForces } from './_lib/forced-case-normalize.mjs';
 
 const FORCED_CASES = [
     // 第 158 轮留下的：METEOR_GROWTH（T3 / A5 两颗牙的守卫契约）。
