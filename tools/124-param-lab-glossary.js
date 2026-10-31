@@ -7,7 +7,10 @@
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 
-export const VER = 'tools/124-param-lab-glossary.js V2.8.0';
+// V2.8.1 | 2026-10-31 | ~46022 bytes —— ENGINE_READ.spiderFly 删 xiaoZhaoDoubleStrikeChance（死字段：
+//   引擎零读取点，小昭·妹双连击真值走 201hex-enhance.json 的 brother.doubleStrike.chance；
+//   守卫 param-read-guard 报「表陈旧」即此项，删表项=表与源码对齐）
+export const VER = 'tools/124-param-lab-glossary.js V2.8.1';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -85,7 +88,7 @@ export const ENGINE_READ = {
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunDerived:  ['defToHeal', 'defToAtk'],
     nearSwitch:      ['atkMul', 'defMul', 'maxHpMul'],
-    spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance', 'hpThresholds', 'landHealRatio', 'landHealRatioDeath', 'eggDef', 'eggHatchHpRatio'],
+    spiderFly:       ['maxTriggers', 'hpThresholds', 'landHealRatio', 'landHealRatioDeath', 'eggDef', 'eggHatchHpRatio'],
     butterflyAttach: ['atkRatioRight', 'defRatioLeft', 'hpRatio'],
     spiderStrike:    ['extraDmgMap'],
     mastery:         ['atkPer', 'defPer', 'hpPer'],
