@@ -1,3 +1,10 @@
+// V3.13.0 | 2026-11-01 夜间第 167 轮：契约汇总行列名「命中」→「重复应用」—— 该列装的是 s.dup
+//         （**重复应用**数），不是命中数（CLAW_HIT「命中 8」实为 8 处重复应用，第 166 轮备忘）。
+//         ★ 只补标签，判据与门槛一个字未动。★ 这一行是**机械契约**：两个消费者各自写死正则
+//           解析它（tests/mutation-teeth.mjs 取 statByContract 供牙口归属、
+//           tests/contract-guard-selftest.mjs 取 hit 列判「干净树脏契约」），已同步改；
+//           由本轮新增 tests/output-label-coupling-guard.mjs 把这个耦合钉死 ——
+//           漏改一边 = 那一边**静默解析出 0 行**（不报错、不变红，只是悄悄没看见）。
 // V3.12.0 | 2026-10-31 第 164 轮：嵌套 fact 采集收口：32 处 f.data.entries 递归统一改走 nestedFacts()，一并吐出 data.phantomFact 层
 // V3.9.1 | 2026-10-25 第 123 轮：tickAndPickBuffs 收口至 tests/_lib/buff-picker.mjs 唯一来源——
 //         handler 是两条契约共用的唯一落地口，主代码记账一行同时激活两者（转交见矩阵第 84 轮节，补前警告态）；
@@ -74,7 +81,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.12.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.13.0';
 
 // ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
 //   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
@@ -2195,7 +2202,11 @@ async function main() {
     let hardFail = false;
     for (const c of CONTRACTS) {
         const s = stat[c.id];
-        console.log(`${c.id.padEnd(12)} 声明 ${String(s.declared).padStart(4)} 条 · 命中 ${s.dup} · 歧义跳过 ${s.ambiguous} · 严格比对 ${String(s.checked).padStart(4)} 条 / 偏差 ${s.mismatch}`);
+        // 第 167 轮：列名「命中」→「重复应用」。它装的本来就是 s.dup（重复应用数），不是命中数
+        //   （第 166 轮备忘：CLAW_HIT「命中 8」实为 8 处重复应用）。★ 只补标签，判据一个字没动。
+        //   ★ 这一行是**机械契约**：tests/mutation-teeth.mjs 与 tests/contract-guard-selftest.mjs
+        //     各写死一条正则解析它。改标签必须两边同步，由 tests/output-label-coupling-guard.mjs 钉住。
+        console.log(`${c.id.padEnd(12)} 声明 ${String(s.declared).padStart(4)} 条 · 重复应用 ${s.dup} · 歧义跳过 ${s.ambiguous} · 严格比对 ${String(s.checked).padStart(4)} 条 / 偏差 ${s.mismatch}`);
         if (s.mismatch > 0) {
             console.log(`  ⚠ 首次偏差样例：${s.mismatchEg}`);
         }

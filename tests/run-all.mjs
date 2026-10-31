@@ -1,3 +1,9 @@
+// V1.28.0 | 2026-11-01 夜间第 167 轮：OBSERVES 挂「输出标签耦合守门」
+//     tests/output-label-coupling-guard.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
+//     新增为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
+//     ★ 起因是第 166 轮那条「只补标签不改判据」的备忘（账本对照里写「命中」的列其实是重复应用数），
+//       本轮真去改才发现：**那一行是机械契约，不是给人看的文案** —— 两个脚本各写死一条正则解析它。
+//       漏改一边，那一边**静默解析出 0 行**：不报错、不变红，只是悄悄没看见。
 // V1.27.0 | 2026-10-31 夜间第 166 轮：OBSERVES 挂「小昭命名指称守门」tests/xiaozhao-naming-guard.mjs
 //     ＋「九阴白骨爪三值同源取证」tests/claw-hit-shield-split.mjs（见 OBSERVES 末两项注释）。
 //     分母恒 25 不变：新增均为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
@@ -79,7 +85,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.27.0';
+export const VER = 'tests/run-all.mjs V1.28.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -277,7 +283,21 @@ const OBSERVES = [
     //     不是体检测量口径问题（若 fact 只被体检读，改契约即可；它被对外显示读 ⇒ 须拍板）。
     //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
     { name: '小昭命名指称守门', script: 'tests/xiaozhao-naming-guard.mjs', args: [] },
-    { name: '九阴白骨爪三值同源取证', script: 'tests/claw-hit-shield-split.mjs', args: [] }
+    { name: '九阴白骨爪三值同源取证', script: 'tests/claw-hit-shield-split.mjs', args: [] },
+    // V1.28.0 | 2026-11-01 夜间第 167 轮：输出标签耦合守门（新增）。
+    //   ★ 起因：第 166 轮留下一条「只补标签不改判据」的备忘 —— 账本对照逐契约打印的那一行里
+    //     列名写「命中」，装的却是 s.dup（**重复应用**数）。本轮照办，动手时才发现
+    //     **那一行是机械契约**：tests/mutation-teeth.mjs（取 statByContract 供牙口归属）与
+    //     tests/contract-guard-selftest.mjs（取 hit 列判「干净树脏契约」）各写死一条正则解析它。
+    //     ⇒ 只改生产者、漏改消费者，那一个就**静默解析出 0 行**：不是报错、不是变红，
+    //       是悄悄变成没看见（contract-guard 会因此把脏契约放过 = 真·假绿）。
+    //   ★ 这仓库已栽过两次同款：mutation-teeth L1113 自记的「旧正则与实际文案不匹配 ⇒ A20/A21/A22
+    //     被错算成 0」；第 162 轮「数据迁出 200、无一消费方补钥匙 ⇒ 16 项体检同因崩掉」。
+    //   ★ 本件把这个耦合钉成机械契约：段一从生产者源码机械抽列名，与扫出来的全部消费者正则对账
+    //     （真样本须匹配 + 换列名样本须不匹配防正则过宽 + 合成样本列名须一致 + 消费者数棘轮）；
+    //     段二真跑账本对照，断言逐行求和 == 汇总行「检出重复应用 N 处」且各消费者行数与真值相等。
+    //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
+    { name: '输出标签耦合守门', script: 'tests/output-label-coupling-guard.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

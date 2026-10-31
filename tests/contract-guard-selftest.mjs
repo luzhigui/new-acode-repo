@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// V1.4.1 | 2026-11-01 夜间第 167 轮：契约行正则的列名随生产者由「命中」改为「重复应用」
+//         （tests/stat-decl-vs-actual-check.mjs V3.13.0），合成样本 synthLine 同步。
+//         ★ 只改列名与样本，判据一条未动：② 仍如实报「干净树 CLAW_HIT 重复应用 8」。
+//         ★ 这个改名若漏掉本文件，② 会解析出 0 条契约 ⇒ 「干净树脏契约」变恒绿（真·假绿），
+//           故由 tests/output-label-coupling-guard.mjs 机械钉住，不许再靠人记。
 // tests/contract-guard-selftest.mjs | V1.4.0 | 2026-10-27 夜间第 143 轮：本文件的取样判定（空/薄/足 三档
 //   + 有罪豁免 + ⑥d 门槛自证）搬到公共件 tests/_lib/sample-sufficiency.mjs，改为 import 复用 ——
 //   判据松紧一字未改，只换存放位置（行为等价由验牙反证）。抽公共件的动因是本轮主攻：
@@ -37,7 +42,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const VER = 'tests/contract-guard-selftest.mjs V1.4.0';
+export const VER = 'tests/contract-guard-selftest.mjs V1.4.1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -97,10 +102,13 @@ function runComparer() {
 }
 
 function parseContracts(out) {
-    // 行形如：LEECH_MAXHP  声明  185 条 · 命中 0 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0
+    // 行形如：LEECH_MAXHP  声明  185 条 · 重复应用 0 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0
+    //   ★ 第 167 轮：生产者列名「命中」→「重复应用」（该列装的是 s.dup = 重复应用数，不是命中数）。
+    //     本正则与 tests/mutation-teeth.mjs 那一条同为该行的消费者，改标签必须两边同步，
+    //     由 tests/output-label-coupling-guard.mjs 机械钉住（漏改 = 静默解析 0 行 = 假绿）。
     const list = [];
     for (const line of out.split('\n')) {
-        const m = line.match(/^([A-Z][A-Z_0-9]*)\s+声明\s+(\d+)\s+条\s+·\s+命中\s+(\d+)\s+·\s+歧义跳过\s+(\d+)\s+·\s+严格比对\s+(\d+)\s+条\s*\/\s*偏差\s+(\d+)/);
+        const m = line.match(/^([A-Z][A-Z_0-9]*)\s+声明\s+(\d+)\s+条\s+·\s+重复应用\s+(\d+)\s+·\s+歧义跳过\s+(\d+)\s+·\s+严格比对\s+(\d+)\s+条\s*\/\s*偏差\s+(\d+)/);
         if (m) {
             list.push({
                 id: m[1], decl: Number(m[2]), hit: Number(m[3]),
@@ -275,7 +283,7 @@ if (v5 === VERDICT.VACUOUS) {
         notes.push(`⑥b 归属表 ${guardCount} 项（下限 ${MIN_GUARDIAN}）—— ④ 不会因表被清空而恒过`);
     }
 
-    const synthLine = 'LEECH_MAXHP  声明  185 条 · 命中 0 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0';
+    const synthLine = 'LEECH_MAXHP  声明  185 条 · 重复应用 0 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0';
     if (parseContracts(synthLine).length !== 1) {
         fails.push('⑥c 契约行解析器在合成样本上解析不出 1 条 —— 解析器已腐烂，'
             + '① 会恒红、②③⑤ 会恒空转，本线结论全不可信（先修本文件）');

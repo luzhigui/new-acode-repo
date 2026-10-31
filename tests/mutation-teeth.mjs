@@ -1,3 +1,9 @@
+// V2.9.19 | 2026-11-01 夜间第 167 轮：契约行归属正则的列名随生产者由「命中」改为「重复应用」
+//   （tests/stat-decl-vs-actual-check.mjs V3.13.0），注释里的三处行样例与 harness 的 STAT grep 同步。
+//   ★ 只改列名与文案，判据一条未动：statByContract 仍如实取「重复应用」列（即原 dup 列）供牙口归属。
+//   ★ 这个改名若漏掉本文件，statByContract 会**恒为空** ⇒ 牙口矩阵"对照器兜住"的归属整列消失，
+//     而它只影响归属显示、不报错 ⇒ 属最难发现的静默归零，故由
+//     tests/output-label-coupling-guard.mjs 机械钉住。
 // V2.9.16 | 2026-10-29 夜间第 156 轮：A8 / A19 蝶变附身防御变异改为 multi。
 //   --verify 实测同一 addMod 已有宿主 + 额外队友两条真实路径，旧单点锚点各报「2 处、非 multi」而失效；
 //   两处同改才保持「蝶变附身防御 universally 翻倍/失效」的原牙语义（单场额外队友路径可能同时生效）。
@@ -81,7 +87,7 @@
 //   背景：V2.9.13 及以前，对照器证据只有一个**汇总数**（grep「检出重复应用 N 处」），既不知道
 //   是哪条契约抓的，也没有「干净树本就命中 ⇒ 不得作证」这道闸门——与第 43 轮（153）、第 126 轮
 //   （转交中规则）在**规则侧**修的是同一类洞，只是对照器侧一直没补。
-//   ① 归属：STAT 段本来就逐条打印 `CONTRACT 声明 N 条 · 命中 M · …`，此前被丢弃。改为解析成
+//   ① 归属：STAT 段本来就逐条打印 `CONTRACT 声明 N 条 · 重复应用 M · …`，此前被丢弃。改为解析成
 //     statByContract，把「对照器兜住」写成「对照器兜住(LEECH_MAXHP×199)」——18 颗 ATTR 牙各自
 //     由哪条契约守着，从此可审计（第 126 轮下轮目标点名的 A20/A11/A5 分别对应
 //     LEECH_MAXHP / WEI_HEAL / METEOR_GROWTH，已实测 1:1 对应、无错配）。
@@ -111,7 +117,7 @@
 //   T17/T18 锚点整行失效（--verify 报 0 处 ⇒ 静默失效=假绿制造机）。重锚：
 //   T17 翻转 SWAP fact 的 side（ENEMY→ALLY，文本变「己方」咬判据1）；T18 把 fact 内 fromPos/toPos 对调
 //   （文本报反位置咬判据5）。两者仍针对 rule113（166）惑心配对/落地，牙齿语义不变。
-export const VER = 'tests/mutation-teeth.mjs V2.9.18';
+export const VER = 'tests/mutation-teeth.mjs V2.9.19';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -825,7 +831,7 @@ async function main() {
             '  echo "STAT:" >> "$OUT"',
             // V2.9.0：STAT 段补抓「偏差」汇总行 —— TEXT 变异（声明写大 ⇒ 少加/多报）在对照器里
             //   落的是**偏差**计数，不打「检出重复应用」；旧 grep 没抓它 ⇒ 命中恒 0 ⇒ 误判装饰品。
-            '  ( cd "$d" && node tests/stat-decl-vs-actual-check.mjs 2>/dev/null | grep -E "重复应用命中|命中明细|✅|✗|偏差" ) >> "$OUT" || true',
+            '  ( cd "$d" && node tests/stat-decl-vs-actual-check.mjs 2>/dev/null | grep -E "重复应用|命中明细|✅|✗|偏差" ) >> "$OUT" || true',
             '  echo "FP:" >> "$OUT"',
             '  ( cd "$d" && node tests/stat-decl-vs-actual-check.mjs --fingerprint 2>/dev/null | grep -E "FINGERPRINT" ) >> "$OUT" || true',
             '  echo "" >> "$OUT"',
@@ -1092,12 +1098,12 @@ function parseBlock(body) {
     const changed = !!baseline.match(/回归|场与基线不一致/) || (match !== null && match < 18);
     let statTotal = 0;
     // V2.9.0：对照器「偏差」方向（声明 > 实际 ⇒ 少加 / 多报）的**总条数**。
-    //   行形如 `BREAK_DEF    声明  610 条 · 命中 0 · 歧义跳过 8 · 严格比对  539 条 / 偏差 2`。
+    //   行形如 `BREAK_DEF    声明  610 条 · 重复应用 0 · 歧义跳过 8 · 严格比对  539 条 / 偏差 2`。
     //   与 statTotal（重复应用）互补：超应用抓 statTotal，少加/多报抓 statMismatch。
     //   ⚠️ 只看**相对 _base 的增量**（干净树本身就有 2 条 BREAK_DEF 跨子步偏差），绝对值无分辨力。
     let statMismatch = 0;
     // V2.9.14：逐契约归属。STAT 段每行形如
-    //   `LEECH_MAXHP  声明  185 条 · 命中 199 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0`
+    //   `LEECH_MAXHP  声明  185 条 · 重复应用 199 · 歧义跳过 0 · 严格比对  185 条 / 偏差 0`
     //   此前只取汇总数、丢弃归属 ⇒ 「对照器兜住」不显示是谁兜的，无从审计。
     //   只收 命中>0 的契约（0 命中的契约不构成证据，收进来只会稀释归属）。
     // V2.9.17：STAT 段的「零触发」信号。行形如
@@ -1119,9 +1125,11 @@ function parseBlock(body) {
         const mm = line.match(/^([A-Z][A-Z_0-9]*)\s+声明.*?偏差\s+(\d+)/);
         if (mm) statMismatch += Number(mm[2]);
         // V2.9.14：逐契约「命中」列（重复应用命中数）。注意与上面的「偏差」列是同一行的两个不同字段，
-        //   正则必须锚到 `声明\s+(\d+)\s+条\s+·\s+命中\s+(\d+)`，不能只写 `命中\s+(\d+)`——
-        //   汇总行「检出重复应用 199 处」里没有「命中」二字，但「歧义跳过」行等其他文案可能撞车。
-        const mc = line.match(/^([A-Z][A-Z_0-9]*)\s+声明\s+\d+\s+条\s+·\s+命中\s+(\d+)/);
+        //   正则必须锚到 `声明\s+(\d+)\s+条\s+·\s+重复应用\s+(\d+)`，不能只写 `重复应用\s+(\d+)`——
+        //   汇总行「检出重复应用 199 处」里也含「重复应用」二字，只写它会撞上汇总行。
+        //   ★ 第 167 轮：生产者列名由「命中」改为「重复应用」（它装的本来就是 s.dup），此处同步。
+        //     两边必须同改，由 tests/output-label-coupling-guard.mjs 机械钉住（漏改 = 静默解析 0 行）。
+        const mc = line.match(/^([A-Z][A-Z_0-9]*)\s+声明\s+\d+\s+条\s+·\s+重复应用\s+(\d+)/);
         if (mc) {
             const n = Number(mc[2]);
             if (n > 0) statByContract[mc[1]] = (statByContract[mc[1]] || 0) + n;
