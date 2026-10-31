@@ -503,7 +503,7 @@ function render(cards) {
     const empty = document.getElementById('empty');
     empty.style.display = 'none';
     box.innerHTML = cards.map((c, i) => `
-        <div class="card" data-i="${i}">
+        <div class="card${onlyOk && c.legal.level !== 'ok' ? ' hide' : ''}" data-i="${i}">
           <div class="card-head">
             <span class="card-title">${esc(c.title)}</span>
             <span class="tag ${LEVEL_CLS[c.legal.level]}" title="${esc(c.legal.why)}">${c.legal.text}</span>
@@ -513,7 +513,7 @@ function render(cards) {
           ${c.hook ? `<div class="hook">💡 ${esc(c.hook)}</div>` : ''}
           <div class="card-foot">
             <span class="src">${c.type}</span>
-            <button class="copy" data-i="${i}">复制</button>
+            <span class="foot-btns"><button class="copy" data-i="${i}">复制</button><button class="reroll" data-i="${i}">重摸</button></span>
           </div>
         </div>`).join('');
 
@@ -521,7 +521,7 @@ function render(cards) {
     const warn = cards.filter(c => c.legal.level === 'warn').length;
     const bad = cards.length - ok - warn;
     document.getElementById('statLine').textContent =
-        `${lastLabel} · 共 ${cards.length} 张：✅ 引擎支持 ${ok} · ⚠ 需扩机制 ${warn} · ❓ 待人工确认 ${bad}`;
+        `${lastLabel} · 共 ${cards.length} 张${onlyOk ? `（显示 ${ok} 张引擎支持）` : ''}：✅ 引擎支持 ${ok} · ⚠ 需扩机制 ${warn} · ❓ 待人工确认 ${bad}`;
 }
 
 function esc(s) {
@@ -564,6 +564,10 @@ for (const seg of ['typeSeg', 'modeSeg']) {
         for (const b of document.querySelectorAll(`#${seg} button`)) b.classList.toggle('on', b === btn);
     });
 }
+document.getElementById('onlyOk').addEventListener('change', e => {
+    onlyOk = e.target.checked;
+    if (lastCards.length) render(lastCards);   // 已有卡片就地筛选，不用重摸
+});
 document.getElementById('genBtn').addEventListener('click', generate);
 function fallbackCopy(text) {
     const ta = document.createElement('textarea');
@@ -576,6 +580,19 @@ function fallbackCopy(text) {
     ta.remove();
 }
 document.getElementById('cards').addEventListener('click', e => {
+    // V1.2.0：单卡重摸——只换这一张，尽量避开其他已出的卡
+    const rr = e.target.closest('.reroll');
+    if (rr) {
+        const i = parseInt(rr.dataset.i, 10);
+        if (!lastType || !lastMode || !lastCards[i]) return;
+        const maker = MAKERS[lastType];
+        const used = new Set(lastCards.filter((_, j) => j !== i).map(c => c.one));
+        let nc = null;
+        for (let g = 0; g < 80; g++) { const t = maker(lastMode); if (!used.has(t.one)) { nc = t; break; } }
+        lastCards[i] = nc || maker(lastMode);
+        render(lastCards);
+        return;
+    }
     const btn = e.target.closest('.copy');
     if (!btn) return;
     const c = lastCards[parseInt(btn.dataset.i, 10)];
