@@ -115,12 +115,12 @@
         </div>
 
         <!-- 手机存储急救（2026-11-01）：跑批日志把整站共用的 ~5MB localStorage 吃穿 → 商店购买/按钮标记全写不进（QuotaExceededError）。
-             这里只清「跑批评测日志」类键（ming_hex_battle_log 家族，重跑即再生），进度/解锁/生涯/设置全保。 -->
+             这里只清「跑批/评测日志」类键（108 跑批 + 112/135/138 评测，重跑即再生），进度/解锁/生涯/设置全保。 -->
         <div class="section">
             <div class="section-title">🚑 存储急救</div>
             <div class="btn-grid">
                 <button class="big-btn btn-tool" id="btnStorageCheck">📦 存储体检（看谁占地方）</button>
-                <button class="big-btn btn-health" id="btnStorageClean">🧹 一键清跑批日志（保留进度）</button>
+                <button class="big-btn btn-health" id="btnStorageClean">🧹 一键清跑批/评测日志（保留进度）</button>
             </div>
             <div id="storageReport" style="display:none;font-size:11px;line-height:1.7;color:#a8b4c0;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:10px;margin-top:8px;word-break:break-all;"></div>
         </div>
@@ -132,31 +132,36 @@
 
     <script>
         // ==================== 页面跳转 ====================
-        // 2026-11-01 老板手机实锤：存储写不进（配额满/隐私模式等）时 setItem 抛异常，
-        // 挡在 location.href 前面 → 按钮"点了没反应"。demo 标记是尽力而为的调试便利，
-        // 写不进就写不进，跳转必须照走。所以全部写点走 safeSet，吞掉存储异常。
-        function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { console.warn('[dev-index] 标记写入失败（不影响跳转）:', k, e); } }
+        // 2026-11-01 晚二改（老板令）：条件标记写不进时明报错误并取消跳转——静默失效不允许。
+        //   上午的 safeSet「吞异常保跳转」反而更坑：配额满时点唐文亮照样进游戏但锁定没生效，白打一整局看不出病。
+        function mustSet(k, v) {
+            try { localStorage.setItem(k, v); }
+            catch (e) {
+                alert('按钮条件写不进手机存储（' + ((e && e.name) || e) + '），已取消跳转。\n先去「存储急救」清跑批/评测日志，再回来点。');
+                throw e;   // 抛出去挡住后面的 location.href——写不进就不许跳（静默失效不允许）
+            }
+        }
         document.getElementById('btnGame').addEventListener('click', () => {
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXiaoZhaoSister').addEventListener('click', () => {
-            safeSet('_forceXiaoZhao', 'sister');
+            mustSet('_forceXiaoZhao', 'sister');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXiaoZhaoBrother').addEventListener('click', () => {
-            safeSet('_forceXiaoZhao', 'brother');
+            mustSet('_forceXiaoZhao', 'brother');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnZhangWuji').addEventListener('click', () => {
-            safeSet('_forceZhang', '1');
+            mustSet('_forceZhang', '1');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnWeiYixiao').addEventListener('click', () => {
-            safeSet('_forceWei', '1');
+            mustSet('_forceWei', '1');
 
             window.location.href = 'index.html';
         });
@@ -595,20 +600,20 @@
         }
         document.getElementById('btnPangYuanQiao').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
-            safeSet('_startStage', '3');
+            mustSet('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
+            mustSet('_startStage', '3');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnMieJue').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_startStage', '7');  // 第七关敌方主将就是灭绝师太
+            mustSet('_startStage', '7');  // 第七关敌方主将就是灭绝师太
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXieXun').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
+            mustSet('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
 
             window.location.href = 'index.html';
         });
@@ -616,32 +621,32 @@
         //   唐文亮走六大派侧 M104 数字空位锁定——两者都只占正常阵容 1 位，不整队替换
         document.getElementById('btnYinTianZheng').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceWeakElite', '殷天正');
+            mustSet('_forceWeakElite', '殷天正');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnTangWenLiang').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceWeakElite', '唐文亮');
+            mustSet('_forceWeakElite', '唐文亮');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnKongJian').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceWeakElite', '空见');
+            mustSet('_forceWeakElite', '空见');
 
             window.location.href = 'index.html';
         });
         // 弱精英补齐（2026-10-16）：杨逍走明教侧弱精英池混入、何太冲走六大派 M104 数字空位锁定
         document.getElementById('btnYangXiao').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceWeakElite', '杨逍');
+            mustSet('_forceWeakElite', '杨逍');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnHeTaichong').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceWeakElite', '何太冲');
+            mustSet('_forceWeakElite', '何太冲');
 
             window.location.href = 'index.html';
         });
@@ -649,7 +654,7 @@
         //   改走 29 V7.6.1 新增的 _forceHanLiSa（强精英 force，与她同级的韦一笑/谢逊互斥轮盘）
         document.getElementById('btnHanLiSa').addEventListener('click', () => {
             clearDemoFlags();
-            safeSet('_forceHanLiSa', '1');
+            mustSet('_forceHanLiSa', '1');
 
             window.location.href = 'index.html';
         });
@@ -783,10 +788,11 @@
         // 手机实锤 QuotaExceededError：整站共用一份 ~5MB localStorage，108 跑批日志（ming_hex_battle_log 家族）
         // 无上限堆积把它吃穿 → 商店购买/按钮标记全写不进。这里给出：①逐键占用清单 ②只清跑批日志（可重跑再生），
         // 进度/解锁/生涯/设置键一律不碰。
-        const LOG_KEY_PREFIX = 'ming_hex_battle_log';   // 108 仪表盘跑批日志全家桶（含 _模式/_stageN 后缀）
-        const PROTECTED_HINTS = ['ming_shop_data', 'ming_cultivated_heroes', 'ming_holy_token', 'ming_chest_count',
-            'ming_vote_score', 'ming_career_log', 'ming_elite_pick', 'ming_bgm_', 'ming_perf_custom',
-            'ming_tutorial', 'ming_opening_cg', 'ming_elite_gallery', 'battle_pool_size'];
+        // 可清的评测类键（都是重跑就能再生的数据）：108 海克斯跑批 / 112 精英评测快照 / 135 参数扫描+搜索 / 138 弱精英贡献
+        //   2026-11-01 二改：老板平时清的是 108 自带的清空按钮——只清它家，112/135/138 的账单独堆着没人清
+        const LOG_KEY_PREFIXES = ['ming_hex_battle_log', 'ming_elite_eval_snaps', 'ming_param_scan_result',
+            'ming_param_search_result', 'ming_weak_elite_contrib'];
+        const isCleanableLog = k => LOG_KEY_PREFIXES.some(p => k.startsWith(p));
         function storageUsage() {
             const rows = [];
             let total = 0;
@@ -802,7 +808,7 @@
             return { rows: rows, total: total };
         }
         function isProtected(k) {
-            return !k.startsWith(LOG_KEY_PREFIX) || PROTECTED_HINTS.some(h => k.startsWith(h));
+            return !isCleanableLog(k);   // 反向白名单：不在评测键名单里的一律不清（进度/解锁/生涯/设置）
         }
         function renderStorageReport(extraLine) {
             const u = storageUsage();
@@ -815,7 +821,7 @@
                 html += '<div>' + (prot ? '🔒' : '🗑') + ' ' + kb(r.size) + ' · ' + r.key + (prot ? '' : ' <span style="color:#888;">（可清）</span>') + '</div>';
             });
             if (u.rows.length > 15) html += '<div style="color:#888;">…其余 ' + (u.rows.length - 15) + ' 个小键略</div>';
-            html += '<div style="color:#888;margin-top:4px;">🔒=进度/设置（不清） 🗑=跑批日志（清了能重跑再生）</div>';
+            html += '<div style="color:#888;margin-top:4px;">🔒=进度/设置（不清） 🗑=跑批/评测日志（清了能重跑再生）</div>';
             el.innerHTML = html;
             el.style.display = '';
         }
@@ -828,14 +834,14 @@
                 const doomed = [];
                 for (let i = 0; i < localStorage.length; i++) {
                     const k = localStorage.key(i);
-                    if (k && k.startsWith(LOG_KEY_PREFIX) && !PROTECTED_HINTS.some(h => k.startsWith(h))) doomed.push(k);
+                    if (k && isCleanableLog(k)) doomed.push(k);
                 }
                 doomed.forEach(k => {
                     freed += (localStorage.getItem(k) || '').length;
                     localStorage.removeItem(k);
                     n++;
                 });
-                renderStorageReport('已清 ' + n + ' 个跑批日志键，腾出 ' + (freed / 1024).toFixed(1) + 'KB（进度/解锁/生涯全保留）');
+                renderStorageReport('已清 ' + n + ' 个跑批/评测日志键，腾出 ' + (freed / 1024).toFixed(1) + 'KB（进度/解锁/生涯全保留）');
             } catch (e) { alert('清理失败：' + e); }
         });
 
