@@ -1042,8 +1042,9 @@ function buyHero(name) {
     renderAll();
     showToast('已解锁 ' + name + '（花费 ' + price + ' 🔥）');
     } catch (e) {
-        console.warn('[shop] 购买写存储失败:', e);
-        showToast('存储写不进，购买没完成（手机网站存储满了，先清点空间）');
+        // 报真实错误而不是预设"存储满"——真凶可能是渲染层，写盘其实已成功
+        console.warn('[shop] 购买链异常:', e);
+        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
     }
 }
 
@@ -1062,8 +1063,8 @@ function buyPoint(type) {
     renderAll();
     showToast('已购买 ' + type.name + ' +' + FREE_POINT_VALUE[type.key] + '（花费 ' + price + ' 🔥），已进背包');
     } catch (e) {
-        console.warn('[shop] 购买写存储失败:', e);
-        showToast('存储写不进，购买没完成（手机网站存储满了，先清点空间）');
+        console.warn('[shop] 购买链异常:', e);
+        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
     }
 }
 
