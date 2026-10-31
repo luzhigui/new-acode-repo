@@ -202,8 +202,8 @@
         }
         .log-bottom-bar button { padding: 6px 12px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 11px; cursor: pointer; }
         .log-bottom-bar button.active { background: #007bff; color: white; border-color: #007bff; }
-        .buff-slots { display: flex; gap: 3px; align-items: center; flex-shrink: 0; }
-        .buff-slot { width: 70px; height: 32px; padding: 2px 4px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; text-align: center; transition: all 0.2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; }
+        .buff-slots { display: flex; gap: 3px; align-items: center; flex: 1; min-width: 0; }
+        .buff-slot { flex: 1 1 0; min-width: 0; height: 32px; padding: 2px 4px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; text-align: center; transition: all 0.2s; display: flex; align-items: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; }
         .buff-slot.ally { border-color: #1e6bb8; }
         .buff-slot.enemy { border-color: #d2691e; }
         .buff-slot.empty { cursor: default; }
@@ -402,7 +402,6 @@
             <button class="buff-slot enemy empty" id="buffSlot0E" data-slot="0" data-camp="enemy">敌buff1</button>
             <button class="buff-slot enemy empty" id="buffSlot1E" data-slot="1" data-camp="enemy">敌buff2</button>
         </div>
-        <div class="flex-spacer"></div>
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>

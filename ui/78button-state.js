@@ -15,6 +15,25 @@ import { updateSpeedButtons } from './77speed-controls.js';
 // 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
 // 整局项分流：permanent 走阵营侧徽章，底部 2 槽只留轮换项
 const CAMP_BADGE_ID = { [CAMP_TYPES.ALLY]: 'campBadgesAlly', [CAMP_TYPES.ENEMY]: 'campBadgesEnemy' };
+
+// buff 槽内的图标 + 短名映射（解决手机屏幕窄放不下的问题：简写 + 图标，保留“回”字）
+const BUFF_DISPLAY = {
+    bloodthirst: '🗡️吸血',
+    hotBlood: '❤️热血',
+    fortify: '🛡️严阵',
+    cloudBody: '💨流云',
+    windAssault: '🦅乘风',
+    meteorShower: '☄️流星',
+    carry: '👑carry',
+    holyFlame: '🔥圣火',
+    doubleStrike: '⚡连击',
+    horseFormation: '🐴巨马',
+    mindControl: '🌀惑心',
+    soulDrain: '👻摄魂',
+    holyFire: '🕯️圣火不熄',
+    lastStand: '🩸背水',
+    unity: '🤝众志'
+};
 // 4 槽：明教 2 + 六大派 2，各自显示自己阵营的轮换 buff。永久 buff 仍走阵营徽章。
 //   点槽弹窗（ui/81buff-tooltip.js）读 DOM 上的 data-slot / data-camp 反查 buff，不需额外传参。
 const SLOT_IDS = {
@@ -41,7 +60,9 @@ function updateBuffSlots(activeBuffs, camp) {
             if (!slot) continue;
             if (i < list.length) {
                 const buff = list[i];
-                slot.textContent = `${buff.name}/${buff.remaining}回`;
+                // 优先用短名映射表（带图标），找不到则回落完整名字
+                const label = BUFF_DISPLAY[buff.key] || buff.name;
+                slot.textContent = `${label}/${buff.remaining}回`;
                 slot.classList.remove('empty');
                 slot.classList.add('glow');
             } else {
