@@ -114,6 +114,15 @@
             <button class="big-btn btn-music muted" id="btnBGM">🔇 背景音乐：已暂停</button>
         </div>
 
+        <!-- 手机存储急救（2026-11-01）：跑批日志把整站共用的 ~5MB localStorage 吃穿 → 商店购买/按钮标记全写不进（QuotaExceededError）。
+             这里只清「跑批评测日志」类键（ming_hex_battle_log 家族，重跑即再生），进度/解锁/生涯/设置全保。 -->
+        <div class="section">
+            <div class="section-title">🚑 存储急救</div>
+            <button class="big-btn btn-tool" id="btnStorageCheck">📦 存储体检（看谁占地方）</button>
+            <button class="big-btn btn-health" id="btnStorageClean">🧹 一键清跑批日志（保留进度）</button>
+            <div id="storageReport" style="display:none;font-size:11px;line-height:1.7;color:#a8b4c0;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:10px;margin-top:8px;word-break:break-all;"></div>
+        </div>
+
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
         <div class="footer">光明顶5v5 · 开发集成入口 V6.3.17 <span id="devStamp2"></span></div>
@@ -766,6 +775,66 @@
                 btn.textContent = '🎵 背景音乐：播放中';
                 btn.classList.remove('muted');
             }
+        });
+
+        // ==================== 存储急救（2026-11-01）====================
+        // 手机实锤 QuotaExceededError：整站共用一份 ~5MB localStorage，108 跑批日志（ming_hex_battle_log 家族）
+        // 无上限堆积把它吃穿 → 商店购买/按钮标记全写不进。这里给出：①逐键占用清单 ②只清跑批日志（可重跑再生），
+        // 进度/解锁/生涯/设置键一律不碰。
+        const LOG_KEY_PREFIX = 'ming_hex_battle_log';   // 108 仪表盘跑批日志全家桶（含 _模式/_stageN 后缀）
+        const PROTECTED_HINTS = ['ming_shop_data', 'ming_cultivated_heroes', 'ming_holy_token', 'ming_chest_count',
+            'ming_vote_score', 'ming_career_log', 'ming_elite_pick', 'ming_bgm_', 'ming_perf_custom',
+            'ming_tutorial', 'ming_opening_cg', 'ming_elite_gallery', 'battle_pool_size'];
+        function storageUsage() {
+            const rows = [];
+            let total = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k) continue;
+                let size = 0;
+                try { size = (localStorage.getItem(k) || '').length; } catch (e) {}
+                total += size;
+                rows.push({ key: k, size: size });
+            }
+            rows.sort((a, b) => b.size - a.size);
+            return { rows: rows, total: total };
+        }
+        function isProtected(k) {
+            return !k.startsWith(LOG_KEY_PREFIX) || PROTECTED_HINTS.some(h => k.startsWith(h));
+        }
+        function renderStorageReport(extraLine) {
+            const u = storageUsage();
+            const el = document.getElementById('storageReport');
+            const kb = n => (n / 1024).toFixed(1) + 'KB';
+            let html = (extraLine ? '<div style="color:#4caf50;margin-bottom:6px;">' + extraLine + '</div>' : '') +
+                '<div style="margin-bottom:4px;">共 ' + u.rows.length + ' 个键 · 合计 <b style="color:#ffd700;">' + kb(u.total) + '</b>（配额约 5MB）</div>';
+            u.rows.slice(0, 15).forEach(r => {
+                const prot = isProtected(r.key);
+                html += '<div>' + (prot ? '🔒' : '🗑') + ' ' + kb(r.size) + ' · ' + r.key + (prot ? '' : ' <span style="color:#888;">（可清）</span>') + '</div>';
+            });
+            if (u.rows.length > 15) html += '<div style="color:#888;">…其余 ' + (u.rows.length - 15) + ' 个小键略</div>';
+            html += '<div style="color:#888;margin-top:4px;">🔒=进度/设置（不清） 🗑=跑批日志（清了能重跑再生）</div>';
+            el.innerHTML = html;
+            el.style.display = '';
+        }
+        document.getElementById('btnStorageCheck').addEventListener('click', () => {
+            try { renderStorageReport(''); } catch (e) { alert('读取失败：' + e); }
+        });
+        document.getElementById('btnStorageClean').addEventListener('click', () => {
+            try {
+                let freed = 0, n = 0;
+                const doomed = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith(LOG_KEY_PREFIX) && !PROTECTED_HINTS.some(h => k.startsWith(h))) doomed.push(k);
+                }
+                doomed.forEach(k => {
+                    freed += (localStorage.getItem(k) || '').length;
+                    localStorage.removeItem(k);
+                    n++;
+                });
+                renderStorageReport('已清 ' + n + ' 个跑批日志键，腾出 ' + (freed / 1024).toFixed(1) + 'KB（进度/解锁/生涯全保留）');
+            } catch (e) { alert('清理失败：' + e); }
         });
 
         // 2026-09-20 时间戳：改原来副标题/页脚里写死的"12:15"（共两处）为实时值——
