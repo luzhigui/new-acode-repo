@@ -1,4 +1,7 @@
-export const VER = 'tools/103-toolkit.js V6.2.6';
+export const VER = 'tools/103-toolkit.js V6.2.7';
+// V6.2.7 | 2026-10-31 配 106 V6.0.54「剔纯演出层」：目录索引（buildRepoInfo）与「完整文件路径清单」附录
+//           对被 AI_EXCLUDE 剔出的文件打 ⊘ 标记，头部计数改「随包 N / 剔除 M」，并在索引纪律与发文件规则里
+//           写明「⊘ 的缺失属预期，不必追问补发」——否则网页端会把包内 import 指向缺失文件当成 bug 反复追问。
 // V6.2.6 | 2026-10-30 HARD_LIMIT 去 90k 硬顶（真根因修复）：原公式让上限框 ≥6 万时恒封顶 9 万，
 //           填 20 万无效；改 max(charLimit, min(charLimit*1.5, 90000)) 后默认 80000 行为逐字节不变、
 //           填 20 万硬顶真到 20 万（配 102 V6.4.4 解锁 max）。
@@ -180,7 +183,7 @@ function escapeHtml(text) {
         const L = [];
         L.push('// ============================================================');
         L.push('// 光明顶5v5 · 仓库地址与目录索引');
-        L.push(`// 生成时间：${ts}（本地）｜清单文件数：${ALL_PROJECT_FILES.length}`);
+        L.push(`// 生成时间：${ts}（本地）｜清单文件数：${ALL_PROJECT_FILES.length}（随包 ${ALL_PROJECT_FILES.length - AI_EXCLUDE.size} / 已剔除 ${AI_EXCLUDE.size}）`);
         L.push('// ============================================================');
         L.push('');
         L.push('## 一、仓库地址');
@@ -193,7 +196,7 @@ function escapeHtml(text) {
         L.push('注意：中文/空格路径要 encodeURIComponent（空格变 %20）；按需单读，禁止全量拉取。');
         L.push('main 会随每次 push 变化；需要固定版本时以当次提交的 commit SHA 替换 main。');
         L.push('');
-        L.push(`## 三、目录索引（与复制包同源，共 ${ALL_PROJECT_FILES.length} 个文件）`);
+        L.push(`## 三、目录索引（与复制包同源，共 ${ALL_PROJECT_FILES.length} 个文件；⊘ = 已剔出复制包，需要时按 raw 单读）`);
         const buckets = FILE_GROUPS.map(g => ({ label: g.displayName, files: [] }));
         ALL_PROJECT_FILES.forEach(f => {
             let idx = 0;
@@ -201,7 +204,7 @@ function escapeHtml(text) {
                 const g = FILE_GROUPS[i];
                 if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) { idx = i; break; }
             }
-            buckets[idx].files.push(f.replace(/^\.\.\//, ''));
+            buckets[idx].files.push((AI_EXCLUDE.has(f) ? '⊘ ' : '  ') + f.replace(/^\.\.\//, ''));
         });
         buckets.forEach(b => {
             if (!b.files.length) return;
@@ -212,6 +215,8 @@ function escapeHtml(text) {
         L.push('');
         L.push('## 四、纪律');
         L.push('- 清单唯一真源 = tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES，与复制包同源；索引里没有的文件视为不随包。');
+        L.push(`- ⊘ 标记的 ${AI_EXCLUDE.size} 个文件（新手引导 / 开场CG / 角色名片·图鉴 / 海克斯手选弹窗）已按用户要求剔出复制包；`);
+        L.push('  主控源码里的 import 仍指向它们 → 包内「找不到该文件」属预期，不要当成 bug，也不要追问补发。');
         L.push('- 改动前按 raw 读原文，禁止凭索引摘写改代码。');
         return L.join('\n');
     }
@@ -221,7 +226,7 @@ function escapeHtml(text) {
         const text = buildRepoInfo();
         const ok = await copyText(text);
         statusDiv.textContent = ok
-            ? `✅ 已复制仓库网址 + 目录索引（${text.length} 字符，${ALL_PROJECT_FILES.length} 个文件）—— 粘在复制包前面用`
+            ? `✅ 已复制仓库网址 + 目录索引（${text.length} 字符，随包 ${ALL_PROJECT_FILES.length - AI_EXCLUDE.size} 个 / 剔除 ${AI_EXCLUDE.size} 个）—— 粘在复制包前面用`
             : '❌ 剪贴板写入失败，请重试';
         btn.textContent = ok ? '✅ 已复制' : '❌ 复制失败';
         setTimeout(() => { btn.textContent = BACK; }, 2000);
@@ -438,10 +443,11 @@ function escapeHtml(text) {
             '// 3. 发完整文件：',
             '//    单个文件改动超过 5 组时，发完整文件替换，发之前先问用户确认，严禁省略或截断。',
             '//',
-            '// 4. 收到文件后，请自动分析是否有缺失。',
+            '// 4. 收到文件后，请自动分析是否有缺失；但下方清单里标 ⊘ 的演出层文件本就剔出了包，',
+            '//    它们的缺失属预期，不要追问补发。',
             '// ============================================================'
         ].join('\n');
-        const fileListContent = ruleHint + '\n\n' + ALL_PROJECT_FILES.map(f => `// ${f}`).join('\n');
+        const fileListContent = ruleHint + '\n\n' + ALL_PROJECT_FILES.map(f => `// ${AI_EXCLUDE.has(f) ? '⊘ [已剔出复制包·纯演出层] ' : ''}${f}`).join('\n');
 
         // 尝试追加到最后一个包，放不下就独立成包
         const lastBatch = mergedBatches[mergedBatches.length - 1];
