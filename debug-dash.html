@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>唐文亮冲刺·100%原版UI+源码</title>
+<style>
+    /* ========================================================= */
+    /* 下面这部分 CSS 是从你的 index.html 逐字扒下来的，没动过 */
+    /* ========================================================= */
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+    :root{
+      --c-gold:#b8860b;
+      --c-gold-bright:#ffd700;
+      --c-gold-orange:#ffaa00;
+      --c-brown:#5c4033;
+      --c-brown-border:#8b7355;
+      --c-tan:#b8a88a;
+      --c-parchment:#f5f0e0;
+      --c-parchment-2:#e8d5b0;
+      --c-panel:#fdf5e6;
+      --c-ming-blue:#1e6bb8;
+      --c-sect-orange:#d2691e;
+      --c-danger:#c0392b;
+      --c-green:#2e7d32;
+      --c-dark:#1a1a2e;
+      --c-gain:#daa520;
+    }
+
+    html { background: #000; }
+    body { background: var(--c-parchment); font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; padding: 0 6px 4px 6px; color: #333; user-select: none; margin-top: calc(-1 * env(safe-area-inset-top, 0px)); }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; min-height: 36px; background: linear-gradient(135deg, var(--c-parchment) 0%, var(--c-parchment-2) 100%); border-radius: 6px; padding: 0 4px; margin-top: 7px; }
+    
+    .upper-area { flex: 0 0 52vh; flex: 0 0 52dvh; display: flex; flex-direction: column; overflow: hidden; }
+    .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; }
+    .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+    .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
+    .camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
+    
+    /* 核心网格布局 */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+    .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 6.2vh; height: 6.2dvh; position: relative; overflow: visible; }
+    .cell.ready { background: #d4edda; border-color: #28a745; }
+    .cell.acted { background: #e2e3e5; border-color: #aaa; }
+    
+    /* 格子内部结构 */
+    .cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+    .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+    .cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+    .cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+    .hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
+    .hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; background: #4caf50; }
+
+    /* 控制面板（加在下方方便你点） */
+    .debug-panel { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: #1a1a2e; border: 2px solid #ffd700; border-radius: 12px; padding: 16px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; color: #eee; }
+    .btn-row button { background: #007bff; color: #fff; border: 1px solid #0056b3; padding: 12px; border-radius: 6px; font-size: 14px; font-weight: bold; width: 100%; cursor: pointer; }
+
+    /* 动画特效原版 CSS */
+    @keyframes fx94Lock{0%,100%{box-shadow:0 0 0 2px rgba(255,90,40,.95),0 0 14px rgba(255,90,40,.55)} 50%{box-shadow:0 0 0 3px rgba(255,140,70,1),0 0 30px rgba(255,90,40,.95)}}
+    @keyframes fx94Tw{0%,100%{box-shadow:0 0 0 2px rgba(255,209,102,.95),0 0 22px rgba(255,209,102,.8)} 50%{box-shadow:0 0 0 3px rgba(255,255,255,1),0 0 34px rgba(255,215,0,1)}}
+    .fx94-lock{animation:fx94Lock .8s ease-in-out infinite !important;}
+    .fx94-tw{animation:fx94Tw .5s ease-in-out infinite !important;}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h2 style="color:var(--c-gold);font-size:0.85rem;">⚔️ 光明顶对战 5v5</h2>
+</div>
+
+<div class="upper-area">
+    <div class="battlefield" id="battlefield">
+        <!-- 六大派（上） -->
+        <div class="team-row">
+            <div class="camp-side"><span class="team-label orange" id="labelEnemy" style="color:var(--c-sect-orange);">六大派</span></div>
+            <div class="grid" id="enemyGrid"></div>
+        </div>
+        <!-- 明教（下） -->
+        <div class="team-row">
+            <div class="camp-side"><span class="team-label blue" id="labelAlly" style="color:var(--c-ming-blue);">明 教</span></div>
+            <div class="grid" id="allyGrid"></div>
+        </div>
+    </div>
+</div>
+
+<div class="debug-panel">
+    <div class="btn-row">
+        <button id="btnRun">▶ 播放真实冲刺（直接调本地 fx/94）</button>
+    </div>
+</div>
+
+<script type="module">
+// ==========================================
+// 1. 引入你本地真实的模块
+// ==========================================
+import { GlobalStore } from './infra/54-global-store.js';
+import { clock } from './infra/52-clock.js';
+import { showTangWenLiangDash } from './fx/94-tangwenliang-dash.js';
+import { STORE_ACTION_TYPES } from './infra/56-battle-enums.js';
+
+// 生成 18 个格子
+function initGrid(id) {
+    const grid = document.getElementById(id);
+    grid.innerHTML = '';
+    for (let i = 1; i <= 9; i++) {
+        const d = document.createElement('div');
+        d.className = 'cell';
+        d.dataset.pos = i;
+        grid.appendChild(d);
+    }
+}
+initGrid('allyGrid');
+initGrid('enemyGrid');
+
+// ==========================================
+// 2. 构造数据与 Store
+// ==========================================
+const unitsData = [
+    { uid: 'tw', name: '唐文亮', camp: 'ally', pos: 5, hp: 160, maxHp: 160, atk: 31, def: 26, alive: true, state: {} },
+    { uid: 'sqs', name: '宋青书', camp: 'enemy', pos: 6, hp: 152, maxHp: 152, atk: 34, def: 30, alive: true, state: {} }
+];
+
+const store = {
+    getState: () => ({ units: unitsData }),
+    dispatch: (act) => {
+        if (act.type === STORE_ACTION_TYPES.APPLY_EVENTS) {
+            act.events.forEach(ev => {
+                const u = unitsData.find(x => x.uid === ev.uid);
+                if (u && ev.eventType === 'POS_CHANGE') u.pos = ev.pos;
+            });
+        } else if (act.type === STORE_ACTION_TYPES.SET_VISUAL) {
+            const u = unitsData.find(x => x.uid === act.uid);
+            if (u) u.state._renderFlyMode = act._renderFlyMode;
+        }
+        render();
+    }
+};
+GlobalStore.set('battleStore', store);
+
+// ==========================================
+// 3. 100% 还原 render/32 的 DOM 结构
+// ==========================================
+function render() {
+    // 清空
+    document.querySelectorAll('.cell').forEach(c => {
+        c.innerHTML = '';
+        c.className = 'cell'; // 重置状态
+    });
+    
+    unitsData.forEach(u => {
+        const grid = document.getElementById(u.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+        const cell = Array.from(grid.children).find(c => c.dataset.pos == u.pos);
+        
+        if (cell) {
+            if (u.state._renderFlyMode === 'fly') {
+                cell.innerHTML = ''; // 隐身状态
+                return;
+            }
+            cell.className = 'cell ready'; // 加上 ready 绿色底色
+            // 完全按照 render/32 的 HTML 拼装
+            cell.innerHTML = `
+                <span class="cell-icon">${u.name === '唐文亮' ? '🪠' : '🛡️'}</span>
+                <div class="cell-info">
+                    <span class="cell-name">${u.name}</span>
+                    <span class="cell-stats">攻${u.atk} 防${u.def} <span class="hp-text-green" style="color:#2e7d32">血${u.hp}</span></span>
+                </div>
+                <div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:100%;"></div></div>
+            `;
+        }
+    });
+}
+render();
+
+// ==========================================
+// 4. 触发真实动画
+// ==========================================
+document.getElementById('btnRun').onclick = async () => {
+    // 重置状态
+    unitsData[0].pos = 5;
+    unitsData[1].pos = 6;
+    unitsData.forEach(u => u.state._renderFlyMode = null);
+    render();
+    
+    // 把时间放慢 5 倍，让你看清（正常是 1，你可以在控制台改）
+    clock.setTimescale(0.2);
+    clock.start();
+    
+    // 真实数据：唐文亮(明教) 5->3，宋青书(敌方) 6->3
+    const dashData = {
+        fromUid: 'tw', fromPos: 5, toPos: 3, toCamp: 'ally',
+        targetUid: 'sqs', targetFromPos: 6, targetToPos: 3, targetCamp: 'enemy',
+        moves: [
+            { uid: 'tw', camp: 'ally', from: 5, to: 3, isDash: true },
+            { uid: 'sqs', camp: 'enemy', from: 6, to: 3, isDash: false }
+        ],
+        hits: [{ uid: 'sqs', dmg: 45 }]
+    };
+
+    // 1. 数据更新：把位置改到终点
+    const moves = dashData.moves;
+    const events = moves.map(m => ({ eventType: 'POS_CHANGE', uid: m.uid, pos: m.to }));
+    store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events });
+    
+    // 2. 数据更新：把格子里的人隐身
+    for (const m of moves) store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+
+    // 3. 调用真实的 fx/94 动画
+    await showTangWenLiangDash(dashData);
+
+    // 4. 动画播完，解除隐身
+    for (const m of moves) store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: null });
+};
+</script>
+</body>
+</html>
