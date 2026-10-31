@@ -1,4 +1,4 @@
-// V1.29.0 | 2026-11-01 夜间第 168 轮：输出标签耦合守门 V1.0.0 → V2.0.0（扩为三线认领 + 未认领普查）
+// V1.30.0 | 2026-11-01 夜间第 169 轮：输出标签耦合守门 V2.0.0 → V3.0.0（段零配对口径由「逐字相同」升级为「骨架归一后子串包含」，据此认领线四「规则回放自检行场次标签 ⇄ coverage-report 正则」；自证牙 25 → 34 条）
 //     tests/output-label-coupling-guard.mjs（见 OBSERVES 末项注释）。分母恒 25 不变：
 //     新增为观察项，未动 CHECKS 一条判据、未放宽一项门槛。
 //     ★ 起因是第 166 轮那条「只补标签不改判据」的备忘（账本对照里写「命中」的列其实是重复应用数），
@@ -85,7 +85,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.29.0';
+export const VER = 'tests/run-all.mjs V1.30.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -284,7 +284,7 @@ const OBSERVES = [
     //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
     { name: '小昭命名指称守门', script: 'tests/xiaozhao-naming-guard.mjs', args: [] },
     { name: '九阴白骨爪三值同源取证', script: 'tests/claw-hit-shield-split.mjs', args: [] },
-    // V1.29.0 | 2026-11-01 夜间第 168 轮：输出标签耦合守门 V1.0.0 → V2.0.0（扩口径）。
+    // V1.30.0 | 2026-11-01 夜间第 169 轮：输出标签耦合守门 V2.0.0 → V3.0.0（段零口径升级 + 认领线四）。
     //   ★ 起因（第 167 轮）：第 166 轮留下一条「只补标签不改判据」的备忘 —— 账本对照逐契约打印的
     //     那一行里列名写「命中」，装的却是 s.dup（**重复应用**数）。照办时才发现**那一行是机械
     //     契约**：tests/mutation-teeth.mjs（取 statByContract 供牙口归属）与

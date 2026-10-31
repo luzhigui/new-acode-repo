@@ -1,4 +1,11 @@
-// tests/output-label-coupling-guard.mjs | V2.0.0 | 2026-11-01 夜间第 168 轮
+// tests/output-label-coupling-guard.mjs | V3.0.0 | 2026-11-01 夜间第 169 轮
+//   V2.0.0 | 2026-11-01 夜间第 168 轮：认领表 + 段零普查，线二（pickKeyLine）/ 线三（CRASH_RE）
+//   V3.0.0 | 2026-11-01 夜间第 169 轮：段零配对口径由「逐字相同」升级为「骨架归一后子串包含」
+//            —— 旧口径结构性扫不出任何生产者-消费者耦合（生产者带 ${} 插值、消费者带元字符，
+//               两边天然不同形），故稳定报「无候选」，那是「看不见」不是「没有」。
+//            新口径当场扫出并认领**线四**：rules-replay.mjs 的「规则回放自检：N 场」行
+//            ⇄ coverage-report.mjs 的写死正则 /规则回放自检：(\d+)\s*场/。
+//            自证牙 25 → 34 条（新增线四牙 Y1~Y5、通道 B 牙 Z1~Z4）。
 //
 // ★ 立它的由头（第 166 轮留的备忘，第 167 轮动手时才发现它不是小事）：
 //   第 166 轮记下一条「只补标签不改判据」的备忘：账本对照（tests/stat-decl-vs-actual-check.mjs
@@ -33,9 +40,21 @@
 //     · 段零（新增）：**未认领耦合普查** —— 机械扫出 tests/ 里跨文件逐字相同的中文正则，
 //       凡不在认领表里的逐条点名（观察，不开红）⇒ 下一条线不用等人想起来，机器会先列出来。
 //
+// ★ V3.0.0 修段零的盲区（本轮实测，不是推想）：
+//   段零上一版只认「跨文件**逐字相同**的中文正则」。可真实的耦合**不可能**逐字相同 ——
+//   生产者那边是模板字面量（带 ${...} 插值），消费者那边是正则（带 \s+ \d+ 元字符），
+//   两边天然不同形 ⇒ 逐字相同这个口径**结构性扫不出任何生产者-消费者耦合**，
+//   于是上一版稳定报「无未认领候选」—— 那是「看不见」，不是「没有」。
+//   ★ 这是「把没扫到直接当成一种结论」的又一款复现（第 166 轮牙 J / 上轮坑一同源）。
+//   改法：配对口径升级为**骨架归一后判子串包含** —— 去掉插值与元字符、抹掉全部空白后，
+//   解析侧骨架是否为打印侧骨架的子串。本轮据此当场扫出一条真耦合（线四），并当场认领。
+//
 // ★ 本件做什么（四段 + 普查，挂 OBSERVES 不改分母）：
-//   段零 普查：扫全部 .mjs 的正则字面量，挑**含中文且跨文件逐字相同**的，扣掉认领表已覆盖的，
-//        剩下的逐条点名（规模上限只截断打印，不截断判定）；一条都扫不到须报扫描器空转。
+//   段零 普查：扫全部 .mjs，两条通道 ——
+//        通道 A（原）：跨文件**逐字相同**的中文正则；
+//        通道 B（新）：打印侧骨架 ⊇ 解析侧骨架（骨架归一后子串包含），
+//          解析侧含正则字面量与 includes/indexOf/startsWith/split 等字符串切分原语。
+//        两通道各扣认领表后逐条点名（规模上限只截断打印，不截断判定）。
 //   段一 线一：机械抽取生产者的列名模板，与**扫出来的全部消费者正则**逐个对账：
 //        ① 真样本行（按生产者当前列名拼的）每个消费者正则都须匹配得上；
 //        ② 反向：换了列名的样本行每个消费者正则都须**匹配不上**（正则过宽 ⇒ 它根本没在核列名）；
@@ -51,18 +70,20 @@
 //   段四 自证（牙），全部在合成源码上跑同一套函数，证明本件不是恒红也不是恒绿。
 //
 // 用法：node tests/output-label-coupling-guard.mjs
-//   RESULT: PASS = 已认领的两条耦合线两边同步、未认领的已点名｜FAIL = 有消费者会静默归零
+//   RESULT: PASS = 已认领的耦合线两边同步、未认领的已点名｜FAIL = 有消费者会静默归零
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/output-label-coupling-guard.mjs V2.0.0';
+export const VER = 'tests/output-label-coupling-guard.mjs V3.0.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
 const F_PRODUCER = 'tests/stat-decl-vs-actual-check.mjs';
+// 线四生产者：规则回放自检那行的「场次数」被 coverage-report 写死正则解析
+const F_RR_PRODUCER = 'tests/rules-replay.mjs';
 const SELF = 'tests/output-label-coupling-guard.mjs';
 
 // 已知消费者下限（mutation-teeth + contract-guard-selftest）。少了即报：不是少了就没事，
@@ -80,6 +101,10 @@ const MIN_SHARED_LEN = 24;
 const MIN_TESTS_FILES = 20;
 // 段零：点名清单打印上限（只截断打印，不截断内部判定）
 const MAX_CENSUS_PRINT = 20;
+// 段零通道 B：骨架归一后的最小长度（骨架已抹掉插值与元字符，短于此不含信息）
+const MIN_SKEL_LEN = 8;
+// 线四：规则回放自检行的消费者下限（当前仅 coverage-report 一件；降为 0 即该口径无人兜）
+const MIN_RR_CONSUMERS = 1;
 
 // 列名抽取：形如 `... 条 · 命中 ${s.dup} ·` 或 `条 · 命中 8 ·`
 //   ${s.dup} 也要认 —— 生产者那行是模板字面量，列名后面跟的是插值不是数字。
@@ -342,10 +367,239 @@ function verifyPickKeyLine(files) {
     return verifyFamily(files, FAM_PICK);
 }
 
+// ---------- 骨架归一（段零通道 B 的地基，本轮新增） ----------
+// ★ 为什么非它不可：上一版段零要求「两边逐字相同」，可真实的耦合**天然不同形** ——
+//     生产者：console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`)
+//     消费者：out.match(/规则回放自检：(\d+)\s*场/)
+//   一个带 ${...} 插值、一个带 (\d+) 元字符，永远不可能逐字相同。⇒ 上一版段零稳定报
+//   「无未认领候选」，那是**扫描器看不见**，不是仓库里没有。
+//   ★ 同款病第三次（第 166 轮牙 J「扫描器自己以偏概全」、上轮坑一「0 条 = 空转」）：
+//     把「没扫到」直接当成一种结论，本身就是以偏概全。
+//   归一规则：插值 / 字符类 / 分组 / 转义 / 量词 / 锚点 一律抹成空白，再去掉全部空白。
+function skeletonOf(s) {
+    let t = String(s);
+    t = t.replace(/\$\{[^}]*\}/g, ' ');              // 模板插值
+    t = t.replace(/\[(?:\\.|[^\]\n])*\]/g, ' ');     // 字符类
+    let prev = null;                                   // 分组（反复剥最内层）
+    while (prev !== t) {
+        prev = t;
+        t = t.replace(/\(\?[:=!<(][^)]*\)/g, ' ');
+        t = t.replace(/\((?:[^()]|\\.)*\)/g, ' ');
+    }
+    t = t.replace(/\\[sSdDwWbBnrtfv0]/g, ' ');     // 预定义类
+    t = t.replace(/\\./g, ' ');                        // 其余转义
+    t = t.replace(/[+*?]\??/g, '');                   // 量词
+    t = t.replace(/\{[0-9]+(?:,[0-9]*)?\}\??/g, '');  // 区间量词
+    t = t.replace(/[\^\$\|\.◆]/g, ' ');              // 锚点 / 或 / 点 / 占位符
+    return t.replace(/\s+/g, '');
+}
+
+function hasHan(s) {
+    return /[一-鿿]/.test(String(s));
+}
+
+// 打印侧：console.log / process.stdout.write 里的模板字面量与字符串字面量
+const RE_PRINT_CALL = /(?:console\.log|process\.stdout\.write)\s*\(/g;
+const RE_STR_LIT = /`([^`\n]*)`|'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"/g;
+
+function collectPrintedSkeletons(src) {
+    const out = new Set();
+    const s = String(src);
+    const calls = new RegExp(RE_PRINT_CALL.source, 'g');
+    let cm;
+    while ((cm = calls.exec(s))) {
+        const seg = s.slice(cm.index, cm.index + 800);
+        const lits = new RegExp(RE_STR_LIT.source, 'g');
+        let lm;
+        while ((lm = lits.exec(seg))) {
+            const raw = lm[1] !== undefined ? lm[1] : (lm[2] !== undefined ? lm[2] : lm[3]);
+            const sk = skeletonOf(raw);
+            if (sk.length >= MIN_SKEL_LEN && hasHan(sk)) out.add(sk);
+        }
+    }
+    return out;
+}
+
+// 解析侧：正则字面量 + 字符串切分原语（includes / indexOf / startsWith / split 等）
+const RE_CUT_CALL = /\.(includes|indexOf|startsWith|endsWith|split|lastIndexOf|search|match|test)\s*\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`([^`\n]*)`)/g;
+
+function collectParseSkeletons(src) {
+    const out = new Map();
+    const s = String(src);
+    const add = (body, isRe) => {
+        const sk = skeletonOf(body);
+        if (sk.length < MIN_SKEL_LEN || !hasHan(sk)) return;
+        const cur = out.get(sk) || { n: 0, re: false };
+        cur.n++;
+        if (isRe) cur.re = true;
+        out.set(sk, cur);
+    };
+    const reL = new RegExp(RE_LITERAL.source, 'g');
+    let m;
+    while ((m = reL.exec(s))) add(m[0].slice(1, m[0].length - 1 - (m[1] || '').length), true);
+    const reC = new RegExp(RE_CUT_CALL.source, 'g');
+    let cm;
+    while ((cm = reC.exec(s))) {
+        const raw = cm[2] !== undefined ? cm[2] : (cm[3] !== undefined ? cm[3] : cm[4]);
+        add(raw, false);
+    }
+    return out;
+}
+
+// 段零通道 B：打印侧骨架 ⊇ 解析侧骨架（含相等），且跨文件
+function censusSkeletonCouplings(files, claimed) {
+    const printed = new Map();
+    const parsed = new Map();
+    for (const c of files) {
+        for (const sk of collectPrintedSkeletons(c.src)) {
+            if (!printed.has(sk)) printed.set(sk, new Set());
+            printed.get(sk).add(c.file);
+        }
+        for (const sk of collectParseSkeletons(c.src).keys()) {
+            if (!parsed.has(sk)) parsed.set(sk, new Set());
+            parsed.get(sk).add(c.file);
+        }
+    }
+    const rows = [];
+    for (const csk of Array.from(parsed.keys()).sort((a, b) => b.length - a.length)) {
+        if (claimed.has(csk)) continue;
+        let best = null;
+        for (const psk of printed.keys()) {
+            if (psk.indexOf(csk) < 0) continue;
+            if (!best || psk.length > best.length) best = psk;
+        }
+        if (!best) continue;
+        const pf = Array.from(printed.get(best) || []).sort();
+        const cf = Array.from(parsed.get(csk) || []).sort();
+        const cross = [];
+        for (const a of pf) for (const b of cf) if (a !== b) cross.push(a + ' → ' + b);
+        if (!cross.length) continue;
+        rows.push({ parse: csk, print: best, printFiles: pf, parseFiles: cf, cross: cross.sort() });
+    }
+    rows.sort((a, b) => (b.cross.length - a.cross.length) || (b.parse.length - a.parse.length));
+    return rows;
+}
+
+// ---------- 线四：规则回放自检行 ⇄ 覆盖率报告的场次正则 ----------
+// ★ 本轮段零通道 B 扫出的第 1 条未认领耦合（第 167 轮交办里点名怀疑过 rules-replay 的输出行，
+//   当时没人钉死）。实证链条：
+//     生产者 tests/rules-replay.mjs L512
+//       console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
+//     消费者 tests/coverage-report.mjs L28-29
+//       const totalM = out.match(/规则回放自检：(\d+)\s*场/);
+//       const total = totalM ? Number(totalM[1]) : 0;
+//   ★ 危害在 L44-46：
+//       const rate = total ? (x.trig / total * 100).toFixed(1) + '%' : '-';
+//       const flag = x.trig === 0 ? ' ❌' : (total && x.trig / total < WARN_RATE ? ' ⚠' : '');
+//     total 为 0 ⇒ `total && ...` 恒短路为 0 ⇒ **所有低覆盖规则的 ⚠ 标记静默消失**，
+//     覆盖率报告看着一片干净（真·假绿），且该文件里那段 `if (!rows.length)` 保护只管行数、
+//     管不到场数。
+//   ⇒ 与本件线一同款：改一行「给人看的文案」，消费者悄悄变成没看见。
+// ★ 生产者行的识别**不能用标签字面**，只能用结构锚点：
+//   若按「含『规则回放自检』」去认这一行，那改标签的第一后果是「连行都找不到了」，
+//   报出来的是「找不到」而不是「标签改了 ⇒ 旧解析器静默取 0」——
+//   真正要抓的形态被"没找到"这三个字吞掉（又一款「没扫到 = 没有」）。
+//   ⇒ 结构锚点：`===` 开头 + 含「场」+ 带 ${...} 插值（真模板，不是死字符串）。
+const RE_RR_LOG = /console\.log\(\s*`([^`]*)`\s*\)/g;
+
+function extractRrTemplate(src) {
+    const re = new RegExp(RE_RR_LOG.source, 'g');
+    let m;
+    while ((m = re.exec(String(src)))) {
+        const tpl = m[1];
+        if (tpl.indexOf('===') !== 0) continue;
+        if (tpl.indexOf('场') < 0) continue;
+        if (!/\$\{[^}]*\}/.test(tpl)) continue;
+        return { tpl, line: m[0], skeleton: skeletonOf(tpl) };
+    }
+    return null;
+}
+
+// 按生产者模板现造一行真样本（插值换成真数字），拿去问消费者
+function rrSampleLine(tpl, cases, nrules) {
+    let i = 0;
+    return String(tpl).replace(/\$\{[^}]*\}/g, () => String(i++ === 0 ? cases : nrules));
+}
+
+// 反向样本：把「=== 之后的第一段中文」改一个字，消费者须匹配不上。
+//   ★ 同样不写死标签字面 —— 写死了就只会核那一个字面，改别的字照样不喊。
+function rrWrongLine(tpl, cases, nrules) {
+    const line = rrSampleLine(tpl, cases, nrules);
+    const m = /===\s*([一-鿿]+)/.exec(line);
+    if (!m) return line + '（无中文标签，无从造反向样本）';
+    const head = m[1];
+    return line.replace(head, head.slice(0, head.length - 1) + '囧');
+}
+
+// 候选消费者的识别口径：**宁宽勿漏**。
+//   ★ 不能按「含某个标签字面」筛 —— 正则一旦过宽到把标签去掉，就恰好扫不到了，
+//     而那正是本件要抓的形态之一（第 166 轮牙 J「扫描器自己以偏概全」的又一种写法）。
+//   ⇒ 这里只设「含中文」一条粗筛（本仓耦合几乎都在面向文案的行上）；
+//     是不是真消费者，交给后面「必须匹配上按生产者模板造的样本行」来判定 ——
+//     用**能不能匹配**当筛子，比用**长得像不像**当筛子靠谱。
+function pickRrParsers(src) {
+    const out = [];
+    const re = new RegExp(RE_LITERAL.source, 'g');
+    let m;
+    while ((m = re.exec(String(src)))) {
+        const body = m[0].slice(1, m[0].length - 1 - (m[1] || '').length);
+        if (!hasHan(body)) continue;
+        out.push({ body, flags: m[1] || '', index: m.index });
+    }
+    return out;
+}
+
+function verifyRulesReplayCoupling(proSrc, consumers) {
+    const f = [];
+    const prod = extractRrTemplate(proSrc);
+    if (!prod) {
+        f.push('生产者（' + F_RR_PRODUCER + '）里找不到「规则回放自检」汇总行模板'
+            + ' ⇒ 无从对账，不许拿「没找到 = 没问题」当结论');
+        return { fails: f, prod: null, nParsers: 0, files: [] };
+    }
+    const sample = rrSampleLine(prod.tpl, 120, 94);
+    const wrong = rrWrongLine(prod.tpl, 120, 94);
+    const files = [];
+    const usedParsers = [];
+    const usedSkeletons = new Set();
+    let nHit = 0;
+    for (const c of consumers) {
+        let mine = false;
+        for (const rx of pickRrParsers(c.src)) {
+            let re = null;
+            // ★ 编译不过 ⇒ 静默跳过：RE_LITERAL 是粗扫，必然会把除法、字符串里的斜杠
+            //   误当成正则（实测 23 处）。把它们报成"解析器腐坏"是纯噪声，反而淹掉真信号
+            //   （又一款「扫到什么就报什么」的以偏概全）。真腐坏走另一条路：连样本行都匹配不上
+            //   ⇒ 它不再被算作消费者 ⇒ 由下面的下限闸门报出。
+            try { re = new RegExp(rx.body, rx.flags); } catch { continue; }
+            // 匹配不上 ⇒ 它解析的不是这一行，不是本线的消费者，跳过
+            if (!re.test(sample)) continue;
+            mine = true;
+            nHit++;
+            usedParsers.push(rx);
+            const sk = skeletonOf(rx.body);
+            if (sk.length >= MIN_SKEL_LEN && hasHan(sk)) usedSkeletons.add(sk);
+            if (re.test(wrong)) {
+                f.push(c.file + ' 的场次解析正则过宽：标签被改掉一字（…'
+                    + '自检囧…）的样本行也匹配'
+                    + ' ⇒ 它根本没在核标签，标签改了也不会喊，对账形同虚设');
+            }
+        }
+        if (mine) files.push(c.file);
+    }
+    if (files.length < MIN_RR_CONSUMERS) {
+        f.push('线四 消费者只剩 ' + files.length + ' 个（下限 ' + MIN_RR_CONSUMERS + '）'
+            + ' ⇒ 生产者这行的标签/格式已变，既有解析器会**静默取 0**，'
+            + ' 覆盖率报告所有 ⚠ 判定被短路（假绿）');
+    }
+    return { fails: f, prod, files, nHit, sample, wrong, usedParsers, usedSkeletons };
+}
+
 // ---------- 段零：未认领耦合普查（纯函数） ----------
-// ★ 目的：把「哪两边是配对的」从人记改成机器列。扫 tests/ 里跨文件逐字相同的**中文**正则，
-//   扣掉认领表已覆盖的，其余逐条点名。含中文是刻意的：本仓的耦合几乎都发生在「面向文案的行」
-//   上（第 167 轮线一、本轮线二都是），纯 ASCII 的通用正则不含信息、只会刷屏。
+// ★ 目的：把「哪两边是配对的」从人记改成机器列。含中文是刻意的：本仓的耦合几乎都发生在
+//   「面向文案的行」上（线一线四都是），纯 ASCII 的通用正则不含信息、只会刷屏。
+// ★ 通道 A（原）：跨文件**逐字相同**的中文正则 —— 只能抓「同一份口径抄两遍」的重复实现族；
+//   通道 B（本轮新增）：骨架归一后判子串包含 —— 能抓「A 打印、B 写死正则解析」的真耦合。
 function censusSharedRegexes(files, claimed) {
     const map = new Map();
     for (const c of files) {
@@ -432,6 +686,15 @@ const PICK_B = PICK_A.replace('s => s.trim()', '(s) => s.trim()'); // 形参写�
 
 // 段零自证素材：一条含中文的长正则
 const SHARED = '/结果：(\\d+)\\/(\\d+) 通过，耗时 [\\d.]+s/';
+
+// 线四自证素材：生产者打印含插值的汇总行，消费者写死正则解析
+const RR_PRO = 'console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);';
+const RR_CON = "const totalM = out.match(/规则回放自检：(\\d+)\\s*场/);";
+const RR_CON2 = "const m2 = out.match(/规则回放自检：\\s*(\\d+)\\s*场\\s*\\/\\s*(\\d+)\\s*条规则/);";
+
+// 通道 B 自证素材：打印侧带插值、解析侧带元字符（两边天然不同形，正是上一版的盲区）
+const SKEL_PRO = 'console.log(`第 ${n} 轮体检收官：${x} 项红 / ${y} 项绿`);';
+const SKEL_CON = "const m = out.match(/第\\s+(\\d+)\\s+轮体检收官：(\\d+)\\s+项红/);";
 
 function teeth() {
     const res = [];
@@ -557,6 +820,49 @@ function teeth() {
     t('牙S', censusSharedRegexes([{ file: 'a.mjs', src: 'const r = /^\\s*$/g;' },
     { file: 'b.mjs', src: 'const r = /^\\s*$/g;' }], none).length === 0,
         '段零 短且不含中文的通用正则 ⇒ 不算耦合（防刷屏、防以偏概全）');
+
+    // ---- 线四（规则回放自检行场次标签）的牙 ----
+    const rrStd = [{ file: 'coverage-report.mjs', src: RR_CON }];
+    t('牙Y1', verifyRulesReplayCoupling(RR_PRO, rrStd).fails.length === 0,
+        '线四 正常态（标签一致）须零报，不得把判据写成恒红');
+
+    // 牙Y2：生产者改标签、消费者没跟 ⇒ 须报静默取 0（本轮实测形态）
+    const rrProBad = RR_PRO.replace('规则回放自检：', '规则回放核查：');
+    t('牙Y2', verifyRulesReplayCoupling(rrProBad, rrStd).fails.some(x => x.indexOf('静默取 0') >= 0),
+        '线四 生产者改标签、消费者没跟 ⇒ 须报 total 静默取 0（⚠ 标记全被短路）');
+
+    // 牙Y3：消费者正则过宽（不带标签也匹配）⇒ 须报过宽，不许拿「能匹配上」当已同步
+    t('牙Y3', verifyRulesReplayCoupling(RR_PRO, [{ file: 'x.mjs', src: "out.match(/(\\d+)\\s*场/);" }])
+        .fails.some(x => x.indexOf('过宽') >= 0),
+        '线四 消费者正则过宽（换成别的标签也匹配）⇒ 须报，不许拿「匹配得上」当同步');
+
+    // 牙Y4：生产者那行整段删掉 ⇒ 须报无从对账（0 条 ≠ 没问题）
+    t('牙Y4', verifyRulesReplayCoupling('console.log("done");', rrStd)
+        .fails.some(x => x.indexOf('找不到') >= 0),
+        '线四 生产者汇总行消失 ⇒ 须报无从对账（不许「没找到 = 没事」）');
+
+    // 牙Y5：消费者一个都没有 ⇒ 须报下限
+    t('牙Y5', verifyRulesReplayCoupling(RR_PRO, []).fails.some(x => x.indexOf('消费者只剩') >= 0),
+        '线四 消费者归零 ⇒ 须报（该场次口径从此没人兜）');
+
+    // ---- 段零通道 B（骨架配对）的牙：证明新口径**能咬**，否则「0 条」不可采信 ----
+    t('牙Z1', censusSkeletonCouplings([{ file: 'p.mjs', src: SKEL_PRO },
+    { file: 'q.mjs', src: SKEL_CON }], none).length === 1,
+        '通道B 打印侧带插值、解析侧带元字符（两边天然不同形）⇒ 须扫出 1 条（上一版口径扫不出）');
+
+    t('牙Z2', censusSkeletonCouplings([{ file: 'p.mjs', src: SKEL_PRO }], none).length === 0,
+        '通道B 只有一个文件 ⇒ 0 条（不许拿单文件凑数）');
+
+    // 认领集合必须与 collectParseSkeletons 同一套归一口径，否则扣不中
+    const rrSkelClaimed = new Set([skeletonOf('第\\s+(\\d+)\\s+轮体检收官：(\\d+)\\s+项红')]);
+    t('牙Z3', censusSkeletonCouplings([{ file: 'p.mjs', src: SKEL_PRO },
+    { file: 'q.mjs', src: SKEL_CON }], rrSkelClaimed).length === 0,
+        '通道B 已认领的骨架 ⇒ 不重复点名（认领过的不刷屏）');
+
+    t('牙Z4', censusSkeletonCouplings([{ file: 'p.mjs', src: 'console.log(`ok ${x}`);' },
+    { file: 'q.mjs', src: 'out.match(/ok\\s+(\\d+)/);' }], none).length === 0,
+        '通道B 骨架不含中文 ⇒ 不算耦合（防刷屏）');
+
     return res;
 }
 
@@ -591,6 +897,25 @@ function main() {
     }
     for (const x of v.fails) fails.push('段一 ' + x);
 
+    // ---------- 段一B 线四：规则回放自检行 ⇄ coverage-report 场次正则 ----------
+    console.log('--- 段一B 线四：规则回放自检行的「场次」标签 ⇄ 覆盖率报告解析正则 ---');
+    let rrSrc = '';
+    const rrConsumers = all.filter(c => c.file !== F_RR_PRODUCER);
+    if (!fs.existsSync(path.join(root, F_RR_PRODUCER))) {
+        fails.push('段一B 缺 ' + F_RR_PRODUCER + ' —— 线四生产者不存在，耦合无从对账');
+    } else {
+        rrSrc = stripCommentLines(fs.readFileSync(path.join(root, F_RR_PRODUCER), 'utf8'));
+    }
+    const rv = verifyRulesReplayCoupling(rrSrc, rrConsumers);
+    if (rv.prod) {
+        console.log('  生产者模板        ' + rv.prod.line.trim());
+        console.log('  样本行            ' + rv.sample);
+        console.log('  反向样本行        ' + rv.wrong);
+        console.log('  消费者            ' + rv.files.length + ' 个（下限 ' + MIN_RR_CONSUMERS + '）：'
+            + rv.files.join('、'));
+    }
+    for (const x of rv.fails) fails.push('段一B ' + x);
+
     // ---------- 段二 线二 ----------
     console.log('--- 段二 重复实现族：同一份口径在 tests/ 里落了两遍，逐字比对 ---');
     const famRes = [];
@@ -608,35 +933,73 @@ function main() {
         for (const x of pv.fails) fails.push('段二 ' + x);
     }
 
-    // ---------- 段零 未认领耦合普查 ----------
-    // 认领表 = 线一已认领的消费者正则 + 线二的结论关键词正则（已认领的不重复点名）
+    // ---------- 段零 未认领耦合普查（双通道） ----------
+    // 认领表：线一消费者正则 + 线二结论关键词正则 + 线四场次正则（已认领的不重复点名）
+    // ★ 通道 B 的认领口径与通道 A 不同：通道 A 认「正则原文」，通道 B 认「骨架」，
+    //   故分两套集合，别混 —— 混了会互相漏扣/误扣（第 149 轮「自证样本自指」那款病）。
     const claimed = new Set();
+    const claimedSkel = new Set();
     for (const c of consumers) for (const rx of pickParsers(c.src)) claimed.add(rx.body);
     for (const fr of famRes) {
         if (!fr.pv.base) continue;
         const b = literalBody(fr.pv.base.facets.kw);
         if (b) claimed.add(b);
     }
-    console.log('--- 段零 未认领跨文件同文正则普查（含中文 / 长度≥' + MIN_SHARED_LEN + ' / 跨≥2 文件）---');
+    // ★ 只认领**被判定为真消费者**的那几条 —— 若把「所有含中文的正则」一律认领，
+    //   段零通道 B 就恒为 0 条，普查等于自废（第 149 轮「自证样本自指」那款病）。
+    for (const rx of rv.usedParsers) claimed.add(rx.body);
+    for (const sk of rv.usedSkeletons) claimedSkel.add(sk);
+    // 同理，线一/线二/线三的正则原文进了 claimed，它们的骨架也要进 claimedSkel，
+    //   否则通道 B 会把三条已认领的老线当成"未认领"反复点名。
+    for (const c of consumers) for (const rx of pickParsers(c.src)) {
+        const sk = skeletonOf(rx.body);
+        if (sk.length >= MIN_SKEL_LEN && hasHan(sk)) claimedSkel.add(sk);
+    }
+    for (const fr of famRes) {
+        if (!fr.pv.base) continue;
+        const b = literalBody(fr.pv.base.facets.kw);
+        if (!b) continue;
+        const sk = skeletonOf(b);
+        if (sk.length >= MIN_SKEL_LEN && hasHan(sk)) claimedSkel.add(sk);
+    }
+    console.log('--- 段零 未认领耦合普查（通道A 逐字同文正则 / 通道B 骨架子串包含）---');
     // ★ 规模闸门（不是「0 条就报空转」）：扫描器**能不能咬**由段四的牙 P~S 证明（同一套函数），
     //   段零真跑扫出 0 条是合法状态 —— 说明当前没有未认领的候选。这里只防「普查面本身不完整」。
     if (all.length < MIN_TESTS_FILES) {
         fails.push('段零 tests/ 只读到 ' + all.length + ' 个 .mjs（规模闸门 ' + MIN_TESTS_FILES + '）'
             + ' ⇒ 普查面不完整，扫出的「没有耦合」不可采信');
     }
-    const cen = censusSharedRegexes(all, claimed);
-    if (cen.length === 0) {
-        console.log('  当前无未认领候选（已认领 ' + claimed.size + ' 条，全部对上了）'
-            + ' ★ 这不是空转：扫描器还能不能咬，由段四牙 P~S 用合成样本单独证明');
+    // 通道 A：跨文件逐字同文正则（抓「同一份口径抄两遍」的重复实现族）
+    const cenA = censusSharedRegexes(all, claimed);
+    console.log('  [通道A] 跨文件逐字同文中文正则：待认领 ' + cenA.length + ' 条'
+        + (cenA.length ? '，打印前 ' + Math.min(cenA.length, MAX_CENSUS_PRINT) + ' 条：' : ''));
+    for (const r of cenA.slice(0, MAX_CENSUS_PRINT)) {
+        console.log('     · ' + r.files.length + ' 文件 ' + r.files.join('、') + '  ⇒  ' + r.body.slice(0, 90));
+    }
+
+    // 通道 B：骨架归一后判子串包含（抓「A 打印、B 写死正则解析」的真耦合）
+    //   ★ 这一条是上一版的盲区：生产者带插值、消费者带元字符，两边天然不同形，
+    //     逐字相同这个口径结构性扫不出来 ⇒ 上一版稳定报「无候选」是「看不见」不是「没有」。
+    const cenB = censusSkeletonCouplings(all, claimedSkel);
+    console.log('  [通道B] 打印骨架 ⊇ 解析骨架（长度≥' + MIN_SKEL_LEN + '）：待认领 ' + cenB.length + ' 条'
+        + (cenB.length ? '，打印前 ' + Math.min(cenB.length, MAX_CENSUS_PRINT) + ' 条：' : ''));
+    for (const r of cenB.slice(0, MAX_CENSUS_PRINT)) {
+        console.log('     · ' + r.printFiles.join('、') + ' 打印 → ' + r.parseFiles.join('、') + ' 解析');
+        console.log('         解析骨架 ' + r.parse);
+        console.log('         打印骨架 ' + r.print);
+    }
+
+    const cen = cenA.length + cenB.length;
+    if (cen === 0) {
+        console.log('  当前无未认领候选（通道A 已认领 ' + claimed.size + ' 条 / 通道B 已认领 '
+            + claimedSkel.size + ' 条，全部对上了）'
+            + ' ★ 这不是空转：扫描器还能不能咬，由段四牙 P~S + 牙 Z 用合成样本单独证明');
     } else {
-        console.log('  待认领 ' + cen.length + ' 条，打印前 ' + Math.min(cen.length, MAX_CENSUS_PRINT) + ' 条：');
-        for (const r of cen.slice(0, MAX_CENSUS_PRINT)) {
-            console.log('   · ' + r.files.length + ' 文件 ' + r.files.join('、') + '  ⇒  ' + r.body.slice(0, 90));
-        }
         console.log('  ★ 观察项：这一栏是「机器列出来、人去认领」的候选，不是红；'
             + ' 下一条耦合线不必等人想起来。');
     }
-    console.log('  （认领表已覆盖 ' + claimed.size + ' 条：线一消费者正则 + 线二结论关键词正则）');
+    console.log('  （认领表：通道A ' + claimed.size + ' 条 = 线一消费者正则 + 线二结论关键词正则 + 线四场次正则；'
+        + ' 通道B ' + claimedSkel.size + ' 条骨架）');
 
     // ---------- 段三 真跑 ----------
     console.log('--- 段三 真跑账本对照并对账 ---');
@@ -669,8 +1032,9 @@ function main() {
 
     console.log('--- 结论 ---');
     if (fails.length === 0) {
-        console.log('  RESULT: PASS —— 三条已认领耦合线两边同步（线一列名 / 线二结论行口径 / 线三崩溃判定），'
-            + '真跑对账一致，未认领候选 ' + cen.length + ' 条已点名，自证 ' + ts.length + ' 条全咬住');
+        console.log('  RESULT: PASS —— 四条已认领耦合线两边同步（线一列名 / 线二结论行口径'
+            + ' / 线三崩溃判定 / 线四场次标签），真跑对账一致，未认领候选 ' + cen + ' 条已点名，'
+            + '自证 ' + ts.length + ' 条全咬住');
     } else {
         console.log('  RESULT: FAIL —— ' + fails.length + ' 条：');
         for (const f of fails) console.log('     · ' + f);
