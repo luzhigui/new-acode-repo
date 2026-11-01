@@ -53,3 +53,8 @@ export function openLogViewer() {
     }
   });
 }
+
+// 2026-11-01：暴露到 window 供 102 工具箱（普通脚本）调用。
+//   此前只 export、没挂 window —— 108/109/126/137 都挂了，就 107 漏了，
+//   导致「日志复盘」不管放顶部按钮还是备用卡片，点了都毫无反应。
+window.openLogViewer = openLogViewer;
