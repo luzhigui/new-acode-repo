@@ -2,7 +2,9 @@
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.8.1';
+export const VER = 'tools/108-hex-dashboard.js V6.8.2';
+// V6.8.2 | 2026-11-01 结果能带走：加「📋 复制结果」——把弹窗里当前所有表转 Markdown 复制
+//           （此前 108 有表却 0 导出，126 有复制报告、110/134/135/138 也都有，就它和 112 缺）。
 // V6.8.1 | 2026-11-01 UI 收拾（老板看截图提的）：
 //           · 模式对比表改 table-layout:fixed，第一列钉死 104px（原 width 建议被自动布局撑开，占掉一大条）；
 //             基准行「本模式全海克斯平均」缩成「海克斯平均」（title 保留全称）。
@@ -317,6 +319,25 @@ async function openHexDetail(key) {
   mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
 }
 
+// V6.8.2：表 → Markdown（「复制结果」用）
+function tableRowsMd(tbl) {
+  return [...tbl.querySelectorAll('tr')].map((tr, i) => {
+    const cells = [...tr.children].map(td => (td.textContent || '').trim().replace(/\s+/g, ' ').replace(/\|/g, '\\|') || ' ');
+    let line = '| ' + cells.join(' | ') + ' |';
+    if (i === 0) line += '\n| ' + cells.map(() => '---').join(' | ') + ' |';
+    return line;
+  }).join('\n');
+}
+function copyFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
+}
+
 // 界面
 function openHexDashboard() {
   const mask = document.createElement('div');
@@ -360,6 +381,7 @@ function openHexDashboard() {
         <button class="hex-hex-load hex-hex-run" style="margin-left:10px">⚡ 自动跑</button>
         <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（按当前关卡读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e;margin-left:6px">🔀 模式对比</button>
         <button class="hex-hex-cross" title="选一个海克斯，看它在 1–7 关 × 四种阵容模式的表现（跨关读全部已存榜，不重跑）" style="background:#81c784;color:#1a1a2e;margin-left:6px">📈 跨关对比</button>
+        <button class="hex-hex-copy" title="把弹窗里当前显示的所有表复制成 Markdown（能贴进聊天/存档）" style="background:#4fc3f7;color:#1a1a2e;margin-left:6px">📋 复制结果</button>
         <button class="hex-hex-clear" style="margin-left:6px">清空数据</button>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
@@ -378,6 +400,34 @@ function openHexDashboard() {
     if (!body) return;
     const open = body.classList.toggle('open');
     m.textContent = open ? '▾ 收起' : '▸ 说明';
+  });
+
+  // V6.8.2：复制结果——把弹窗里当前所有表转 Markdown（带表前最近的标题）
+  const copyBtn = mask.querySelector('.hex-hex-copy');
+  copyBtn.addEventListener('click', async () => {
+    const body = mask.querySelector('.hex-hex-body');
+    const tables = [...body.querySelectorAll('table')];
+    if (!tables.length) {
+      copyBtn.textContent = '还没结果';
+      setTimeout(() => { copyBtn.textContent = '📋 复制结果'; }, 1200);
+      return;
+    }
+    const parts = ['# 海克斯仪表盘 · ' + new Date().toLocaleString('zh-CN'), ''];
+    tables.forEach((tbl, i) => {
+      let title = '表 ' + (i + 1);
+      let el = tbl.previousElementSibling, hops = 0;
+      while (el && hops++ < 4) {
+        const t = (el.textContent || '').trim().replace(/\s+/g, ' ');
+        if (t && t.length <= 60 && /🔀|📈|📊|模式对比|跨关|统计|排名|平均/.test(t) && !el.querySelector('table')) { title = t; break; }
+        el = el.previousElementSibling;
+      }
+      parts.push('## ' + title, tableRowsMd(tbl), '');
+    });
+    const md = parts.join('\n');
+    let ok = true;
+    try { await navigator.clipboard.writeText(md); } catch (e) { ok = copyFallback(md); }
+    copyBtn.textContent = ok ? '✅ 已复制' : '复制失败';
+    setTimeout(() => { copyBtn.textContent = '📋 复制结果'; }, 1200);
   });
 
   // 打开即按当前关卡/模式加载对应榜单（模式记忆在模块级 curMode/curStage，弹窗重开不丢）；

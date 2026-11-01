@@ -287,6 +287,7 @@ function renderSoloResults(byStage, stages, list, resultEl, note) {
     html += '</table>';
     html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
     resultEl.innerHTML = html;
+    attachCopyBtn(resultEl);
 }
 
 // 单英雄表单元格：胜率/场次/存活（逐关行与总评行共用）
@@ -390,6 +391,7 @@ function renderNoEliteResults(byStage, stages) {
     html += '</table>';
     html += '<div style="font-size:11px;color:#999;margin-top:6px;">无精英基线 = 明教侧一个精英都不出（重掷阵容凑无精英局；海克斯开、胜=明教）。作精英价值对照：与上面两张表同关比，差额就是精英带来的胜率增益。无精英局没有「主英雄」，第三列改记全队平均存活人数。</div>';
     noEliteResultEl.innerHTML = html;
+    attachCopyBtn(noEliteResultEl);
 }
 
 // 无精英表一行：胜率/场次 + 全队平均存活人数（无精英时"存活率"没意义，改看剩几人）
@@ -532,6 +534,7 @@ function renderWeakResults(byStage, stages) {
     html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
         'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
     weakResultEl.innerHTML = html;
+    attachCopyBtn(weakResultEl);
 }
 
 // 弱精英表单元格：胜率 + Δ（相对自然对照）+ 场次/输出/承伤/存活
@@ -632,6 +635,7 @@ function renderResults(byStage, stages) {
     html += '</tr></table>';
     html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列六名精英、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
+    attachCopyBtn(resultEl);
 }
 
 // 明教英雄个体胜率（V3.2.0）：126 规则八「英雄层面」的模拟侧数据源。
@@ -677,4 +681,40 @@ function cellHtml(d) {
         <div class="cell-sub">输出 ${avgDmg}</div>
         <div class="cell-sub">承伤 ${avgTaken}</div>
         <div class="cell-sub">存活 ${surv}</div></td>`;
+}
+
+// ============ V3.3.0：复制结果表（此前 112 有表却 0 导出，与 108 同类缺口） ============
+function fallbackCopyElite(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+}
+function attachCopyBtn(resultEl) {
+    if (!resultEl) return;
+    const old = resultEl.querySelector('.elite-copy');
+    if (old) old.remove();
+    if (!resultEl.querySelector('table')) return;
+    const btn = document.createElement('button');
+    btn.className = 'elite-copy';
+    btn.textContent = '📋 复制这张表';
+    btn.style.cssText = 'display:block;margin:8px 0 4px;background:#4fc3f7;color:#1a1a2e;border:0;border-radius:6px;padding:6px 12px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:12px';
+    btn.addEventListener('click', async () => {
+        const md = [...resultEl.querySelectorAll('table')].map(tbl =>
+            [...tbl.querySelectorAll('tr')].map((tr, i) => {
+                const cells = [...tr.children].map(td => (td.textContent || '').trim().replace(/\s+/g, ' ').replace(/\|/g, '\\|') || ' ');
+                let line = '| ' + cells.join(' | ') + ' |';
+                if (i === 0) line += '\n| ' + cells.map(() => '---').join(' | ') + ' |';
+                return line;
+            }).join('\n')
+        ).join('\n\n');
+        let ok = true;
+        try { await navigator.clipboard.writeText(md); } catch (e) { ok = fallbackCopyElite(md); }
+        btn.textContent = ok ? '✅ 已复制' : '复制失败';
+        setTimeout(() => { btn.textContent = '📋 复制这张表'; }, 1200);
+    });
+    resultEl.appendChild(btn);
 }
