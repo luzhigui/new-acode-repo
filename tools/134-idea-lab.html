@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <!-- tools/134-idea-lab.html — 创意摸奖：四类创意 × 三种摸法，随机抽元素拼成卡片，并按引擎现状标合法性
+     V1.3.0 | 2026-11-01 内容加厚 + 收藏：①效果池加 10 条（易伤/净化/反击/连击/嘲讽等，都基于现有类别）、风味池加 10 条、
+       海克斯/机制/关卡维度扩充；②单卡「☆ 收藏」，摸一大把只留想要的几条，⭐ 导出收藏（localStorage 持久化）。
      V1.2.0 | 2026-10-31 手感升级：①单卡「重摸」（不满意只换那一张，尽量不与其他卡撞）；②「只看引擎支持」筛选（一键藏掉需扩机制的）。
      V1.1.0 | 2026-10-31 质量升级：①触发↔效果语义配对（TRIGGER_ALLOW，不再抽「死亡时得护盾」这类废话）；
        ②同一把内去重（按一句话签名）；③每张卡加「玩法钩子」一行（按效果类别给怎么用的提示）。
@@ -59,10 +61,11 @@
     font-size: 11.5px; color: #9aa0ad; }
   .card-foot { display: flex; justify-content: space-between; align-items: center; }
   .src { color: var(--dim); font-size: 11px; }
-  .foot-btns { display: flex; gap: 6px; }
-  .copy, .reroll { background: transparent; border: 1px solid var(--line); color: var(--dim); cursor: pointer;
+  .foot-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .copy, .reroll, .pin { background: transparent; border: 1px solid var(--line); color: var(--dim); cursor: pointer;
     font-size: 11px; padding: 3px 10px; border-radius: 6px; }
-  .copy:hover, .reroll:hover { color: var(--gold); border-color: #5c4a20; }
+  .copy:hover, .reroll:hover, .pin:hover { color: var(--gold); border-color: #5c4a20; }
+  .pin.on { color: var(--gold); border-color: #5c4a20; background: #2a2410; }
   .chk { display: flex; align-items: center; gap: 5px; color: var(--dim); font-size: 12px; cursor: pointer; user-select: none; }
   .chk input { accent-color: var(--gold); }
   .empty { color: var(--dim); padding: 40px 0; text-align: center; }
@@ -120,6 +123,7 @@
 
 <footer>
   <button class="ghost" id="exportBtn">导出全部为 md</button>
+  <button class="ghost" id="exportPin">⭐ 导出收藏 (0)</button>
   <span class="hint" id="poolHint"></span>
 </footer>
 
@@ -187,14 +191,22 @@ const EFFECTS = [
     ['标记（被标记后受额外伤害）', 'targetMark', 'debuff'], ['斩杀', 'core:execute', 'damage'],
     ['复活', 'core:revive', 'defense'], ['免死', null, 'defense'], ['反弹控制', null, 'defense'],
     ['偷取属性', null, 'debuff'], ['共享属性', 'butterflyAttach', 'buff'], ['转移伤害', 'butterflyAttach', 'defense'],
-    ['延迟结算', 'dotTick', 'damage']
+    ['延迟结算', 'dotTick', 'damage'],
+    // V1.3.0 加厚：都基于现有类别（控制/减益/防御/反击/输出），引擎键留空=需新写，合法性照实标
+    ['易伤（受额外伤害）', null, 'debuff'], ['净化（清除负面）', null, 'defense'], ['免疫控制（一次）', null, 'defense'],
+    ['反击（受击后反打）', null, 'counter'], ['连击（追加一击）', null, 'damage'], ['团队吸血光环', null, 'sustain'],
+    ['提速（行动提前）', null, 'mobility'], ['嘲讽（强制目标）', null, 'control'], ['诅咒（叠满后爆发）', null, 'debuff'],
+    ['护盾反噬（破盾伤敌）', null, 'counter']
 ];
 
 const FLAVORS = [
     '点穴（定身+禁疗）', '擒拿（定身+卸武器）', '震（内伤+眩晕）', '缠（无法出招）',
     '吸纳（吸攻击）', '化功（削成长）', '挪移（改目标）', '经脉逆行（免疫控制）',
     '护体罡气（吸收+反伤）', '以彼之道还施彼身（反弹）', '走火入魔（自伤增伤）',
-    '龟息（假死）', '借力打力（反伤成长）', '隔山打牛（穿透）', '声东击西（误导）'
+    '龟息（假死）', '借力打力（反伤成长）', '隔山打牛（穿透）', '声东击西（误导）',
+    '卸力（化招减伤）', '缠丝（拉扯定身）', '震脉（破招眩晕）', '燃血（自损增伤）',
+    '闭气（免疫毒/灼烧）', '移穴（免控换位）', '卸甲（连击破防）', '回气（行动后回血）',
+    '摄魂（迷乱改目标）', '御风（提速抢先手）'
 ];
 
 const ELITE_CAMP = ['明教', '六大派', '朝廷'];
@@ -202,18 +214,18 @@ const ELITE_ROLE = ['战士', '防战', '远程', '飞行', '标枪'];
 const ELITE_M = [['104', '弱精英'], ['107', '强精英'], ['112', 'Boss'], ['115', '大Boss']];
 const ELITE_POS = ['输出核心', '承伤核心', '辅助', '控制', '召唤', '成长型', '反制型', '滚雪球'];
 
-const HEX_TARGET = ['己方全体', '己方某职业', '己方某位置', '己方精英', '敌方全体', '敌方某职业'];
-const HEX_DURATION = ['整局永久', 'N回合', '一次性触发', '每回合刷新', '叠层无上限'];
+const HEX_TARGET = ['己方全体', '己方某职业', '己方某位置', '己方精英', '己方某角色', '敌方全体', '敌方某职业', '敌方某位置'];
+const HEX_DURATION = ['整局永久', 'N回合', '一次性触发', '每回合刷新', '叠层无上限', '阵亡后仍生效', '战斗开始前生效'];
 const HEX_POWER = ['弱（≤5% 胜率影响）', '中（5-10%）', '强（10-20%）', '极强（>20%）'];
 
-const MECH_RULE = ['站位规则', '行动顺序', '伤害计算', '状态叠加', '资源系统', '回合限制', '胜利条件'];
+const MECH_RULE = ['站位规则', '行动顺序', '伤害计算', '状态叠加', '资源系统', '回合限制', '胜利条件', '能量/怒气', '冷却时间', '连击/连锁'];
 const MECH_TARGET = ['全体', '单方', '某职业', '某位置', '特定角色'];
 const MECH_SETTLE = ['立即生效', '回合末结算', '延迟N回合', '条件触发', '累计后爆发'];
 
 const STAGE_CAMP = ['六大派', '朝廷', '混编'];
 const STAGE_ELITES = ['0', '1', '2', '3'];
 const STAGE_RULES = ['无', '地形限制', '回合限制', '强化某职业', '削弱某职业', '增援波次',
-    'Boss阶段', '环境伤害', '禁选某机制', '双Boss', '限时击杀'];
+    'Boss阶段', '环境伤害', '禁选某机制', '双Boss', '限时击杀', '地形增益', '阶段变身'];
 const STAGE_POWER = ['普通（当前1-3关）', '困难（当前4-5关）', '极难（当前6-7关）', '超纲（新上限）'];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -225,6 +237,11 @@ let lastCards = [];
 let lastLabel = '';
 let lastType = '', lastMode = '';   // V1.2.0：单卡重摸要知道当前类型/摸法
 let onlyOk = false;                 // V1.2.0：只看引擎支持的筛选开关
+// V1.3.0：收藏清单——摸一大把只留想要的几条，单独导出；持久化到 localStorage
+const PIN_KEY = 'ming_idea_pinned';
+let pinned = [];
+try { const raw = JSON.parse(localStorage.getItem(PIN_KEY) || '[]'); if (Array.isArray(raw)) pinned = raw; } catch (e) { /* 坏数据就当空 */ }
+function savePinned() { try { localStorage.setItem(PIN_KEY, JSON.stringify(pinned)); } catch (e) { /* 配额满就算了 */ } }
 
 async function loadEngineTypes() {
     // 白名单 = 124 的 TYPE_GLOSSARY（引擎已登记的机制类型）+ content 里出现过的 mechanics.type
@@ -502,7 +519,9 @@ function render(cards) {
     const box = document.getElementById('cards');
     const empty = document.getElementById('empty');
     empty.style.display = 'none';
-    box.innerHTML = cards.map((c, i) => `
+    box.innerHTML = cards.map((c, i) => {
+      const pin = pinned.some(p => p.one === c.one);
+      return `
         <div class="card${onlyOk && c.legal.level !== 'ok' ? ' hide' : ''}" data-i="${i}">
           <div class="card-head">
             <span class="card-title">${esc(c.title)}</span>
@@ -513,15 +532,17 @@ function render(cards) {
           ${c.hook ? `<div class="hook">💡 ${esc(c.hook)}</div>` : ''}
           <div class="card-foot">
             <span class="src">${c.type}</span>
-            <span class="foot-btns"><button class="copy" data-i="${i}">复制</button><button class="reroll" data-i="${i}">重摸</button></span>
+            <span class="foot-btns"><button class="copy" data-i="${i}">复制</button><button class="pin${pin ? ' on' : ''}" data-i="${i}">${pin ? '★ 已收藏' : '☆ 收藏'}</button><button class="reroll" data-i="${i}">重摸</button></span>
           </div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 
     const ok = cards.filter(c => c.legal.level === 'ok').length;
     const warn = cards.filter(c => c.legal.level === 'warn').length;
     const bad = cards.length - ok - warn;
     document.getElementById('statLine').textContent =
         `${lastLabel} · 共 ${cards.length} 张${onlyOk ? `（显示 ${ok} 张引擎支持）` : ''}：✅ 引擎支持 ${ok} · ⚠ 需扩机制 ${warn} · ❓ 待人工确认 ${bad}`;
+    document.getElementById('exportPin').textContent = `⭐ 导出收藏 (${pinned.length})`;
 }
 
 function esc(s) {
@@ -531,8 +552,8 @@ function esc(s) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 五、导出
 // ─────────────────────────────────────────────────────────────────────────────
-function toMd(cards) {
-    const lines = [`# 创意摸奖 · ${lastLabel}`, `生成时间：${new Date().toLocaleString()}`,
+function toMd(cards, label) {
+    const lines = [`# 创意摸奖 · ${label || lastLabel}`, `生成时间：${new Date().toLocaleString()}`,
         `共 ${cards.length} 张`, ''];
     cards.forEach((c, i) => {
         lines.push(`## ${i + 1}. ${c.title}`);
@@ -593,6 +614,18 @@ document.getElementById('cards').addEventListener('click', e => {
         render(lastCards);
         return;
     }
+    // V1.3.0：收藏 / 取消收藏（按一句话签名去重 + 持久化）
+    const pb = e.target.closest('.pin');
+    if (pb) {
+        const i = parseInt(pb.dataset.i, 10);
+        const card = lastCards[i];
+        if (!card) return;
+        const idx = pinned.findIndex(p => p.one === card.one);
+        if (idx >= 0) pinned.splice(idx, 1); else pinned.push(card);
+        savePinned();
+        render(lastCards);
+        return;
+    }
     const btn = e.target.closest('.copy');
     if (!btn) return;
     const c = lastCards[parseInt(btn.dataset.i, 10)];
@@ -611,6 +644,10 @@ document.getElementById('cards').addEventListener('click', e => {
 document.getElementById('exportBtn').addEventListener('click', () => {
     if (!lastCards.length) { alert('先摸一把再导出'); return; }
     download(`创意摸奖_${Date.now()}.md`, toMd(lastCards));
+});
+document.getElementById('exportPin').addEventListener('click', () => {
+    if (!pinned.length) { alert('还没收藏任何卡（点卡片上的「☆ 收藏」）'); return; }
+    download(`创意摸奖_收藏_${Date.now()}.md`, toMd(pinned, '⭐ 收藏清单'));
 });
 
 // 启动：先读引擎类型白名单与外部词条，再允许生成
