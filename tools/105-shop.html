@@ -1018,6 +1018,9 @@ function openBag() {
 
 // ==================== 购买 / 分配 ====================
 function buyHero(name) {
+    // 2026-11-01 老板手机实锤：存储写不进（配额满等）时 setItem 抛异常，购买静默失败
+    // 连"圣火令不足"以外任何提示都没有 → 按"点了没反应"。至少要让失败看得见。
+    try {
     const price = finalPrice(unlockPrice(), 'unlock');
     const token = getToken();
     if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
@@ -1038,9 +1041,16 @@ function buyHero(name) {
     saveShop();
     renderAll();
     showToast('已解锁 ' + name + '（花费 ' + price + ' 🔥）');
+    } catch (e) {
+        // 报真实错误而不是预设"存储满"——真凶可能是渲染层，写盘其实已成功
+        console.warn('[shop] 购买链异常:', e);
+        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+    }
 }
 
 function buyPoint(type) {
+    // 同 buyHero：存储异常不再静默（2026-11-01）
+    try {
     const base = pointPrice();
     const price = finalPrice(base, type.id);
     const token = getToken();
@@ -1052,6 +1062,10 @@ function buyPoint(type) {
     saveShop();
     renderAll();
     showToast('已购买 ' + type.name + ' +' + FREE_POINT_VALUE[type.key] + '（花费 ' + price + ' 🔥），已进背包');
+    } catch (e) {
+        console.warn('[shop] 购买链异常:', e);
+        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+    }
 }
 
 function allocatePoint(name, key) {

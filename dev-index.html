@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -114,6 +114,17 @@
             <button class="big-btn btn-music muted" id="btnBGM">🔇 背景音乐：已暂停</button>
         </div>
 
+        <!-- 手机存储急救（2026-11-01）：跑批日志把整站共用的 ~5MB localStorage 吃穿 → 商店购买/按钮标记全写不进（QuotaExceededError）。
+             这里只清「跑批/评测日志」类键（108 跑批 + 112/135/138 评测，重跑即再生），进度/解锁/生涯/设置全保。 -->
+        <div class="section">
+            <div class="section-title">🚑 存储急救</div>
+            <div class="btn-grid">
+                <button class="big-btn btn-tool" id="btnStorageCheck">📦 存储体检（看谁占地方）</button>
+                <button class="big-btn btn-health" id="btnStorageClean">🧹 一键清跑批/评测日志（保留进度）</button>
+            </div>
+            <div id="storageReport" style="display:none;font-size:11px;line-height:1.7;color:#a8b4c0;background:#0f0f1a;border:1px solid #333;border-radius:8px;padding:10px;margin-top:8px;word-break:break-all;"></div>
+        </div>
+
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
         <div class="footer">光明顶5v5 · 开发集成入口 V6.3.17 <span id="devStamp2"></span></div>
@@ -121,27 +132,36 @@
 
     <script>
         // ==================== 页面跳转 ====================
+        // 2026-11-01 晚二改（老板令）：条件标记写不进时明报错误并取消跳转——静默失效不允许。
+        //   上午的 safeSet「吞异常保跳转」反而更坑：配额满时点唐文亮照样进游戏但锁定没生效，白打一整局看不出病。
+        function mustSet(k, v) {
+            try { localStorage.setItem(k, v); }
+            catch (e) {
+                alert('按钮条件写不进手机存储（' + ((e && e.name) || e) + '），已取消跳转。\n先去「存储急救」清跑批/评测日志，再回来点。');
+                throw e;   // 抛出去挡住后面的 location.href——写不进就不许跳（静默失效不允许）
+            }
+        }
         document.getElementById('btnGame').addEventListener('click', () => {
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXiaoZhaoSister').addEventListener('click', () => {
-            localStorage.setItem('_forceXiaoZhao', 'sister');
+            mustSet('_forceXiaoZhao', 'sister');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXiaoZhaoBrother').addEventListener('click', () => {
-            localStorage.setItem('_forceXiaoZhao', 'brother');
+            mustSet('_forceXiaoZhao', 'brother');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnZhangWuji').addEventListener('click', () => {
-            localStorage.setItem('_forceZhang', '1');
+            mustSet('_forceZhang', '1');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnWeiYixiao').addEventListener('click', () => {
-            localStorage.setItem('_forceWei', '1');
+            mustSet('_forceWei', '1');
 
             window.location.href = 'index.html';
         });
@@ -570,28 +590,30 @@
         // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
         // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
         function clearDemoFlags() {
-            localStorage.removeItem('_forcePang');
-            localStorage.removeItem('_forceXieXun');
-            localStorage.removeItem('_forceHanLiSa');
-            localStorage.removeItem('_forceWeakElite');
-            localStorage.removeItem('_startStage');
+            try {
+                localStorage.removeItem('_forcePang');
+                localStorage.removeItem('_forceXieXun');
+                localStorage.removeItem('_forceHanLiSa');
+                localStorage.removeItem('_forceWeakElite');
+                localStorage.removeItem('_startStage');
+            } catch (e) { console.warn('[dev-index] 清标记失败（不影响跳转）:', e); }
         }
         document.getElementById('btnPangYuanQiao').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
-            localStorage.setItem('_startStage', '3');
+            mustSet('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
+            mustSet('_startStage', '3');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnMieJue').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_startStage', '7');  // 第七关敌方主将就是灭绝师太
+            mustSet('_startStage', '7');  // 第七关敌方主将就是灭绝师太
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnXieXun').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
+            mustSet('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
 
             window.location.href = 'index.html';
         });
@@ -599,32 +621,32 @@
         //   唐文亮走六大派侧 M104 数字空位锁定——两者都只占正常阵容 1 位，不整队替换
         document.getElementById('btnYinTianZheng').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '殷天正');
+            mustSet('_forceWeakElite', '殷天正');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnTangWenLiang').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '唐文亮');
+            mustSet('_forceWeakElite', '唐文亮');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnKongJian').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '空见');
+            mustSet('_forceWeakElite', '空见');
 
             window.location.href = 'index.html';
         });
         // 弱精英补齐（2026-10-16）：杨逍走明教侧弱精英池混入、何太冲走六大派 M104 数字空位锁定
         document.getElementById('btnYangXiao').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '杨逍');
+            mustSet('_forceWeakElite', '杨逍');
 
             window.location.href = 'index.html';
         });
         document.getElementById('btnHeTaichong').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceWeakElite', '何太冲');
+            mustSet('_forceWeakElite', '何太冲');
 
             window.location.href = 'index.html';
         });
@@ -632,7 +654,7 @@
         //   改走 29 V7.6.1 新增的 _forceHanLiSa（强精英 force，与她同级的韦一笑/谢逊互斥轮盘）
         document.getElementById('btnHanLiSa').addEventListener('click', () => {
             clearDemoFlags();
-            localStorage.setItem('_forceHanLiSa', '1');
+            mustSet('_forceHanLiSa', '1');
 
             window.location.href = 'index.html';
         });
@@ -760,6 +782,67 @@
                 btn.textContent = '🎵 背景音乐：播放中';
                 btn.classList.remove('muted');
             }
+        });
+
+        // ==================== 存储急救（2026-11-01）====================
+        // 手机实锤 QuotaExceededError：整站共用一份 ~5MB localStorage，108 跑批日志（ming_hex_battle_log 家族）
+        // 无上限堆积把它吃穿 → 商店购买/按钮标记全写不进。这里给出：①逐键占用清单 ②只清跑批日志（可重跑再生），
+        // 进度/解锁/生涯/设置键一律不碰。
+        // 可清的评测类键（都是重跑就能再生的数据）：108 海克斯跑批 / 112 精英评测快照 / 135 参数扫描+搜索 / 138 弱精英贡献
+        //   2026-11-01 二改：老板平时清的是 108 自带的清空按钮——只清它家，112/135/138 的账单独堆着没人清
+        const LOG_KEY_PREFIXES = ['ming_hex_battle_log', 'ming_elite_eval_snaps', 'ming_param_scan_result',
+            'ming_param_search_result', 'ming_weak_elite_contrib'];
+        const isCleanableLog = k => LOG_KEY_PREFIXES.some(p => k.startsWith(p));
+        function storageUsage() {
+            const rows = [];
+            let total = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k) continue;
+                let size = 0;
+                try { size = (localStorage.getItem(k) || '').length; } catch (e) {}
+                total += size;
+                rows.push({ key: k, size: size });
+            }
+            rows.sort((a, b) => b.size - a.size);
+            return { rows: rows, total: total };
+        }
+        function isProtected(k) {
+            return !isCleanableLog(k);   // 反向白名单：不在评测键名单里的一律不清（进度/解锁/生涯/设置）
+        }
+        function renderStorageReport(extraLine) {
+            const u = storageUsage();
+            const el = document.getElementById('storageReport');
+            const kb = n => (n / 1024).toFixed(1) + 'KB';
+            let html = (extraLine ? '<div style="color:#4caf50;margin-bottom:6px;">' + extraLine + '</div>' : '') +
+                '<div style="margin-bottom:4px;">共 ' + u.rows.length + ' 个键 · 合计 <b style="color:#ffd700;">' + kb(u.total) + '</b>（配额约 5MB）</div>';
+            u.rows.slice(0, 15).forEach(r => {
+                const prot = isProtected(r.key);
+                html += '<div>' + (prot ? '🔒' : '🗑') + ' ' + kb(r.size) + ' · ' + r.key + (prot ? '' : ' <span style="color:#888;">（可清）</span>') + '</div>';
+            });
+            if (u.rows.length > 15) html += '<div style="color:#888;">…其余 ' + (u.rows.length - 15) + ' 个小键略</div>';
+            html += '<div style="color:#888;margin-top:4px;">🔒=进度/设置（不清） 🗑=跑批/评测日志（清了能重跑再生）</div>';
+            el.innerHTML = html;
+            el.style.display = '';
+        }
+        document.getElementById('btnStorageCheck').addEventListener('click', () => {
+            try { renderStorageReport(''); } catch (e) { alert('读取失败：' + e); }
+        });
+        document.getElementById('btnStorageClean').addEventListener('click', () => {
+            try {
+                let freed = 0, n = 0;
+                const doomed = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && isCleanableLog(k)) doomed.push(k);
+                }
+                doomed.forEach(k => {
+                    freed += (localStorage.getItem(k) || '').length;
+                    localStorage.removeItem(k);
+                    n++;
+                });
+                renderStorageReport('已清 ' + n + ' 个跑批/评测日志键，腾出 ' + (freed / 1024).toFixed(1) + 'KB（进度/解锁/生涯全保留）');
+            } catch (e) { alert('清理失败：' + e); }
         });
 
         // 2026-09-20 时间戳：改原来副标题/页脚里写死的"12:15"（共两处）为实时值——

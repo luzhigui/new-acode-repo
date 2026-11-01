@@ -79,7 +79,9 @@ function createDmgFloatEl() { let d = document.createElement('div'); d.className
 initPool('dmgFloat', createDmgFloatEl);
 // 同单位掉血飘字短时错位（与 healFloat 同方案）：主攻击数字与流星加深等 afterText 数字近窗连飘时分层上移
 const _dmgFloatStack = new Map();
-const DMG_STACK_WINDOW = 1200;  // ms：同单位在此窗口内的第 N 条上移（放宽时间窗，覆盖白骨爪 500ms 连击）
+const DMG_STACK_WINDOW = 350;   // ms：同单位在此窗口内的第 N 条上移——只错位真正同帧的近窗连飘；
+                                // 以前 1200ms 是想覆盖白骨爪 500ms 连击，结果每爪 +30px 越飞越高（老板拍板收回），
+                                // 收窄到 < 爪间隔后爪击各自归位，主攻+afterText 连飘（几百 ms 内）仍被覆盖
 const DMG_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
 const DMG_STACK_STEP = 30;      // 每层上移像素（从 20 加大到 30，强行拉开视觉距离）
 export function showDamageFloat(unit, dmg) {
