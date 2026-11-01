@@ -39,7 +39,7 @@
 //   闪避反击通道**不经 previewHeal**，heal = max(1, ...) 恒 ≥ 1，故该通道仍要求严格正整数（不变）。
 // 误报规避：本场没有青翼蝠王吸血条目直接 skip；父快照取不到（facts 不可用时）退回 V1.0.0 文案判据，
 //   不静默放行；配置读不到(getMechanicField 在数据未就绪时会抛)就跳过比例上限判据。
-export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.2';
+export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.3';
 import { collectNodes, plain } from '../122health-utils.js';
 import { getMechanicField } from '../../core/201-config-5v5-test.js';
 import { MECHANIC_EFFECT_TYPES, FACT_TYPES } from '../../infra/106-battle-enums.js';
@@ -152,6 +152,31 @@ export const rule106 = {
                     return { fail: true, msg: '复发：青翼蝠王命中吸血超上限：+' + heal + ' 超过本次伤害 ' + sn.dmg
                         + ' 的 ' + Math.round(heal / sn.dmg * 100) + '%（合法上限 floor(dmg×' + maxRatio
                         + ')，说明 leechMax 被写大或 rate 公式越界）' };
+                }
+            }
+        }
+
+        // —— 通道C（2026-11-01 第 144 轮新增）：渲染文本数值 vs 底层 fact 一致性守卫 ——
+        //   消灭 T14 真盲区：T14 变异把 render/413 plusMaxHp 文本写成「吸血+{heal*2}」，但底层 WEI_LEECH
+        //   fact（fx.amount=heal）没动。通道A 读 fact 全过、常规文案分支因 snaps>0 被 L197 continue 跳过
+        //   ⇒ 文本漂移完全无人察觉。本通道不依赖文案分支，直接对每场所有「吸血+数值」文本校验其数值
+        //   是否能在 WEI_LEECH fact.heal 集合中找到（文本展示值应 == 落地 fact 值）。找不着 ⇒ 渲染层
+        //   把展示数值写错（如 *2），必报红。
+        //   关联用整场集合包含（不强行按序配对，避开多实例错位）；只在有 fact（snaps>0）时启用，无 fact
+        //   时退回 V1.0.0 文案判据，不重复、不静默放行。负向前瞻 (?!) 排除「闪避反击吸血」（由通道B 管）。
+        if (snaps.length > 0) {
+            var healSet = snaps.map(function (s) { return s.fact.heal; })
+                .filter(function (v) { return typeof v === 'number'; });
+            for (var ci = 0; ci < nodes.length; ci++) {
+                var ct = plain(nodes[ci] && nodes[ci].text);
+                if (!ct) continue;
+                var cm = ct.match(/青翼蝠王[·.]?(?!闪避反击)吸血\+(-?\d+(?:\.\d+)?)/);
+                if (!cm) continue;
+                var cv = parseFloat(cm[1]);
+                if (!healSet.some(function (h) { return Math.abs(h - cv) < 1e-6; })) {
+                    return { fail: true, msg: '复发：青翼蝠王吸血渲染文本显示「+' + cv + '」，但本场 WEI_LEECH 事实流中'
+                        + '无 heal=' + cv + ' 记录（渲染文本数值与底层 fact 不一致；fact.heal 集合为 ['
+                        + healSet.join(', ') + ']，疑似 render 层把展示数值写错，如「吸血+{heal*2}」）' };
                 }
             }
         }

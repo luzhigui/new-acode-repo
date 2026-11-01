@@ -465,7 +465,7 @@ function toPosix(p) {
     return p.replace(/^([A-Za-z]):/, (m, d) => '/' + d.toLowerCase()).replace(/\\/g, '/');
 }
 
-// 新鲜度守卫（V2.9.0，第 139 轮起扩为六项；V2.9.21 第 144 轮把 ① 从「硬拒」降级为「仅判定逻辑改动时的非阻塞警告」）：
+// 新鲜度守卫（V2.9.0，第 139 轮起扩为六项；第 144 轮把 ① 从「硬拒」降级为「仅判定逻辑改动时的非阻塞警告」，VER 维持 V2.9.19）：
 //   返回 { why: 阻塞原因[], warn: 非阻塞警告[] }。why 非空 = 结果配不上当前代码（数据真陈旧），必须重跑；
 //   warn 非空 = 仅判定逻辑/解析逻辑改动、48 树原始数据仍有效，结论按新逻辑解析，放行并提示。
 //   —— 关键修正：旧版 ① 用「本文件 mtime > 结果 mtime」一刀切硬拒，导致只改 judge() 解释逻辑（变异表/规则/引擎指纹全不变）
@@ -965,15 +965,21 @@ async function main() {
         // 旧结果 + 新判据 = 假结论（本轮实例：9-29 的结果配 10-02 的判据，屏幕上仍写着
         // 「T2 ❌装饰品(真盲区)」，而那根本不是当前代码跑出来的）。宁可硬失败，也不让陈旧结论冒充真值。
         const stale = checkFreshness(txt, resultsPath);
-        if (stale.length) {
+        if (stale.why.length) {
             console.log('❌❌ 结果文件已陈旧 —— 下述结论**不代表当前代码**，请勿据此下判断：');
-            for (const s of stale) console.log('   · ' + s);
+            for (const s of stale.why) console.log('   · ' + s);
             if (!argv.includes('--allow-stale')) {
                 console.log('\n处置：重跑 `node tests/mutation-teeth.mjs --emit-prep` / `--emit-run` 生成新结果；'
                     + '确需先看旧结论请加 `--allow-stale`（仍会打横幅）。');
                 process.exit(1);
             }
             console.log('   （--allow-stale 已放行：以下为陈旧结果，仅供参考）\n');
+        }
+        // 非阻塞警告：仅判定逻辑/judge 改动（变异表/规则/引擎指纹全匹配 ⇒ 48 树原始数据仍有效），自动放行并提示，不再硬拒。
+        if (stale.warn.length) {
+            console.log('⚠️ 结果时间戳偏旧（仅判定逻辑改动，数据仍有效，结论按新逻辑解析）：');
+            for (const s of stale.warn) console.log('   · ' + s);
+            console.log('');
         }
         const blocks = txt.split(/^##### MUT (\S+) #####$/m).slice(1); // [id, body, id, body, ...]
         const parsed = {};
@@ -1051,7 +1057,7 @@ async function main() {
         const mo = argv.find(a => a.startsWith('--matrix-out='));
         const outPath = mo ? mo.slice('--matrix-out='.length) : null;
         const metaLines = txt.split('\n').filter(l => l.startsWith('#META'));
-        summarize(rows, outPath, metaLines, stale.length);
+        summarize(rows, outPath, metaLines, stale.why.length);
         return;
     }
 

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>唐文亮 · 冲刺·七伤齐发 · 逐帧演示</title>
+<!-- 唐文亮冲刺 demo V2.1.0 ｜ 约 29.6 KB ｜ 仅演示页，不进主代码链。
+     一整条动画 + 逐帧拖动核对：把 performance.now / requestAnimationFrame 的时间源接管成虚拟时间，
+     clock（infra/103）就变成完全可控——拖到第 N 帧 = 从头确定性重放到第 N 帧并停住。
+     演出全走主代码 fx/616-tangwenliang-dash.js；网格 render/403；store modules/306；
+     枚举 infra/106；技能数值 core/201；血量格式 infra/102；样式运行时从 index.html 注入（同一份 CSS）。
+     打开方式（必须本地服务器，ES module 不支持 file://）：
+       python -m http.server 8123  →  http://127.0.0.1:8123/tangwenliang-dash-demo.html -->
+<style>
+  /* demo 外壳：只加控制条 / 时间轴 / 计划面板。战场、格子、血条外观全部来自 index.html 注入 */
+  #demoTop { max-width:520px; margin:0 auto; padding:8px 6px 0; font-family:'Segoe UI',monospace; }
+  #demoTop .title { font-size:15px; font-weight:800; color:var(--c-gold,#b8860b); letter-spacing:-.4px; }
+  #demoTop .sub { font-size:10px; color:#777; line-height:1.6; margin-top:2px; }
+  #demoBar { display:flex; flex-wrap:wrap; gap:5px; align-items:center; max-width:520px; margin:6px auto 0; padding:6px; background:var(--c-panel,#fdf5e6); border:2px solid var(--c-tan,#b8a88a); border-radius:8px; }
+  #demoBar button { flex:0 0 auto; padding:5px 8px; font-size:11px; font-weight:700; font-family:inherit; color:#4b3621; background:#efe4c8; border:1px solid var(--c-brown-border,#8b7355); border-radius:6px; cursor:pointer; }
+  #demoBar button:hover { background:#e6d7b4; }
+  #demoBar button.on { background:#ffd700; border-color:#c9a227; color:#3a2a00; }
+  #demoBar button.hot { background:#c0392b; border-color:#e74c3c; color:#fff; }
+  #demoBar button:disabled { opacity:.45; cursor:not-allowed; }
+  #demoBar .chk { display:inline-flex; align-items:center; gap:3px; font-size:10px; color:#5c4033; margin-left:auto; }
+  /* 时间轴 */
+  #tlWrap { max-width:520px; margin:6px auto 0; padding:6px 8px 4px; background:#fffdf6; border:2px solid var(--c-tan,#b8a88a); border-radius:8px; }
+  #tlRow { display:flex; align-items:center; gap:6px; }
+  #tl { flex:1; -webkit-appearance:none; appearance:none; height:16px; background:linear-gradient(90deg,#c0392b 0%,#c0392b 2%,#ffd700 2%,#ffd700 30%,#e8d5b0 30%,#e8d5b0 100%); border-radius:8px; outline:none; cursor:pointer; }
+  #tl::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:20px; border-radius:4px; background:#5c4033; border:2px solid #ffd700; cursor:grab; }
+  #frameInput { width:46px; padding:2px 3px; font-size:10px; font-family:inherit; text-align:center; border:1px solid var(--c-brown-border,#8b7355); border-radius:4px; background:#fffdf6; color:#4b3621; }
+  #tlRow button { padding:2px 7px; font-size:11px; font-weight:700; font-family:inherit; color:#4b3621; background:#efe4c8; border:1px solid var(--c-brown-border,#8b7355); border-radius:5px; cursor:pointer; }
+  #tlInfo { font-size:10px; color:#5c4033; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  #tlInfo b { color:#c0392b; font-size:11px; }
+  #tlMarks { display:flex; justify-content:space-between; font-size:9px; color:#999; margin:1px 2px 0; }
+  #planPanel { max-width:520px; margin:6px auto 0; padding:6px 8px; background:#fffdf6; border:1px solid var(--c-tan,#b8a88a); border-left:4px solid var(--c-gold,#b8860b); border-radius:6px; font-size:11px; line-height:1.65; color:#3d3d3d; min-height:56px; }
+  #planPanel .ph { font-weight:800; color:var(--c-brown,#5c4033); }
+  #planPanel .num { color:#c0392b; font-weight:700; }
+  #demoLog { max-width:520px; margin:6px auto 16px; padding:5px 7px; background:var(--c-parchment,#f5f0e0); border:2px solid var(--c-tan,#b8a88a); border-radius:6px; font-size:10px; line-height:1.6; height:86px; overflow:auto; color:#333; }
+  #demoLog .ph1 { color:#1e6bb8; font-weight:700; }
+  #demoLog .warn { color:#8e44ad; }
+  /* 前段高亮：唐文亮金框 / 目标橙框（与 fx/616 慢速档 fx94-tw / fx94-lock 同观感） */
+  .tw-pick { outline:3px solid rgba(255,209,102,.95); outline-offset:-3px; box-shadow:0 0 22px rgba(255,209,102,.8) !important; }
+  .tg-pick { outline:3px dashed rgba(255,107,61,.95); outline-offset:-3px; box-shadow:0 0 18px rgba(255,107,61,.75) !important; }
+  #demoErr { position:fixed; left:0; right:0; bottom:0; max-height:40vh; overflow:auto; background:rgba(40,0,0,.94); color:#ff9c9c; font:11px monospace; padding:6px 10px; z-index:99999; display:none; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div id="demoTop">
+  <div class="title">⚡ 唐文亮 · 冲刺·七伤齐发 — 一整条动画 · 逐帧核对</div>
+  <div class="sub">
+    主代码全量参与：演出 fx/616、网格 render/403、store modules/306、时间轴 infra/103（已接管时间源 → 可逐帧定位）。
+    拖动时间轴 = 从头确定性重放到该帧并停住（Math.random 固定种子，同一帧每次画面一致）。
+  </div>
+</div>
+
+<div id="demoBar">
+  <button id="btnSceneA" class="on">① 普通挤位</button>
+  <button id="btnSceneB">② 免疫挡列</button>
+  <button id="btnPlay" class="hot">▶ 播放</button>
+  <button id="btnReset">↺ 回到第0帧</button>
+  <label class="chk"><input type="checkbox" id="chkSlow" checked> 子弹时间</label>
+</div>
+
+<div class="battlefield" id="battlefield">
+  <div class="team-row"><div class="camp-side"><span class="team-label orange">六大派</span></div><div class="grid" id="enemyGrid"></div></div>
+  <div class="team-row"><div class="camp-side"><span class="team-label blue">明 教</span></div><div class="grid" id="allyGrid"></div></div>
+</div>
+
+<div id="tlWrap">
+  <div id="tlRow">
+    <button id="btnPrev" title="上一帧（←）">◀</button>
+    <input id="tl" type="range" min="0" max="160" step="1" value="0">
+    <button id="btnNext" title="下一帧（→）">▶</button>
+    <input id="frameInput" type="number" min="0" max="160" step="1" value="0" title="输入帧号后点「跳」">
+    <button id="btnJump" title="跳到指定帧">跳</button>
+  </div>
+  <div id="tlMarks"></div>
+  <div id="tlInfo">帧 <b>0</b> / 160　·　t = 0 ms　·　<span id="tlPhase">未开始</span></div>
+</div>
+
+<div id="planPanel"><span style="color:#999">拖动时间轴开始逐帧查看；也可点绿框目标格换目标。</span></div>
+<div id="demoLog"></div>
+<div id="demoErr"></div>
+
+<script type="module">
+// ============================== 主代码 import ==============================
+import { GlobalStore } from './infra/104-global-store.js';
+import { clock } from './infra/103-clock.js';
+import { createStore, battleReducer } from './modules/306-battle-store.js';
+import { updateGridUI, setGridStore } from './render/403-grid-render.js';
+import { showTangWenLiangDash } from './fx/616-tangwenliang-dash.js';
+import { getCellByPos } from './fx/611-fx-ref-manager.js';
+import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from './infra/106-battle-enums.js';
+import { getSkillParams } from './core/201-config-5v5-test.js';
+import { fmtHp } from './infra/102-core-utils.js';
+import { getPerfParam } from './core/223-perf-params.js';
+import { getRoleIcon } from './render/414-role-cards.js';
+
+const $ = (id) => document.getElementById(id);
+
+// 错误统一打到页面底部（不污染主代码）
+const errBox = $('demoErr');
+function showErr(msg) { errBox.style.display = 'block'; errBox.textContent += msg + '\n'; }
+window.addEventListener('error', (e) => showErr('[加载错误] ' + (e.message || e.filename || '未知')));
+window.addEventListener('unhandledrejection', (e) => showErr('[Promise错误] ' + String(e.reason)));
+
+// ============================== 官方样式注入（战场/格子/血条同一份 CSS） ==============================
+(async () => {
+  try {
+    const html = await fetch('./index.html', { cache: 'no-store' }).then((r) => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    });
+    const m = html.match(/<style>[\s\S]*?<\/style>/i);
+    if (!m) throw new Error('index.html 里没找到 <style> 块');
+    const st = document.createElement('style');
+    st.id = 'main-index-style';
+    st.textContent = m[0].replace(/<\/?style>/gi, '');
+    document.head.appendChild(st);
+  } catch (e) {
+    showErr('[样式注入失败] ' + e.message + '（请用本地服务器打开：python -m http.server 8123）');
+  }
+})();
+
+// ============================== 虚拟时间：接管 clock 的时间源（一帧一帧可控） ==============================
+const FRAME_MS = 1000 / 60;
+const TOTAL_FRAMES = 160;                 // ≈2.67s（慢速档总时长约 2.1s，留一段收势尾巴）
+const MAX_T = TOTAL_FRAMES * FRAME_MS;
+
+const realPerfNow = performance.now.bind(performance);
+const realRAF = window.requestAnimationFrame.bind(window);
+const realCAF = window.cancelAnimationFrame.bind(window);
+let vt = 0;                               // 虚拟时间（ms）：performance.now 与 rAF 时间戳都取它
+let playing = false;
+let seeking = false;
+
+performance.now = () => vt;
+window.requestAnimationFrame = (cb) => realRAF(() => cb(vt));
+window.cancelAnimationFrame = (id) => realCAF(id);
+
+// 真实时间驱动：只有「播放」时才推进虚拟时间；拖动/暂停时时间冻结
+let lastReal = realPerfNow();
+function driver() {
+  const r = realPerfNow();
+  const d = Math.min(r - lastReal, 100);
+  lastReal = r;
+  if (playing && !seeking) {
+    vt += d;
+    if (vt >= MAX_T) { vt = MAX_T; playing = false; updatePlayBtn(); }
+    syncReadout();
+  }
+  guardTick();
+  realRAF(driver);
+}
+
+// 快速让出一次宏任务（比 rAF 快得多；拖动时 260 次让出也只要几十 ms）
+const mc = new MessageChannel();
+const yieldQueue = [];
+mc.port1.onmessage = () => { const r = yieldQueue.shift(); if (r) r(); };
+const yieldMacro = () => new Promise((res) => { yieldQueue.push(res); mc.port2.postMessage(0); });
+
+// 手动推进 clock（与 infra/103 的 _loop 同口径：now/realNow/realLast 一起走）
+function stepClock(dt) {
+  if (dt <= 0) return;
+  vt += dt;
+  clock._realLast = vt;
+  clock._realNow += dt;
+  clock.now += dt * clock.timescale;
+  clock._flush();
+}
+
+// 固定种子的 Math.random（同一帧每次重放画面一致；火花/屏震位置可复现）
+let seed = 20261023;
+function seedRandom(s) { seed = s; }
+Math.random = () => {
+  seed = (seed * 16807) % 2147483647;
+  return (seed - 1) / 2147483646;
+};
+
+// ============================== 场景数据 ==============================
+function mkUnit(camp, uid, pos, name, role, atk, def, hp, extra) {
+  return Object.assign({
+    uid, camp, pos, name, role, atk, def, hp, maxHp: hp, alive: true,
+    dmgDealt: 0, dmgTaken: 0, healDone: 0, reboundDone: 0, leechDone: 0,
+    dodgeCount: 0, critCount: 0, survivedRounds: 0, state: {}
+  }, extra || {});
+}
+
+const SCENES = {
+  A: {
+    label: '① 普通挤位（第3关 seed11 实拍阵容）',
+    targetUid: 'a9',
+    ally: [
+      mkUnit(CAMP_TYPES.ALLY, 'a2', 2, '明教弟子1', ROLE_TYPES.RANGED, 29.1, 13.9, 105),
+      mkUnit(CAMP_TYPES.ALLY, 'a5', 5, '张无忌', ROLE_TYPES.WARRIOR, 41, 28, 100, { isZhang: true }),
+      mkUnit(CAMP_TYPES.ALLY, 'a6', 6, '韦一笑', ROLE_TYPES.FLYER, 35.5, 26.5, 88, { isWei: true }),
+      mkUnit(CAMP_TYPES.ALLY, 'a7', 7, '明教岳山', ROLE_TYPES.RANGED, 35, 21, 88),
+      mkUnit(CAMP_TYPES.ALLY, 'a9', 9, '明教洪午', ROLE_TYPES.WARRIOR, 34, 25, 140)
+    ],
+    enemy: [
+      mkUnit(CAMP_TYPES.ENEMY, 'e1', 1, '清风', ROLE_TYPES.DEFENDER, 14, 41, 153),
+      mkUnit(CAMP_TYPES.ENEMY, 'e3', 3, '昆仑弟子', ROLE_TYPES.DEFENDER, 7.9, 33.1, 178),
+      mkUnit(CAMP_TYPES.ENEMY, 'e4', 4, '宋青书', ROLE_TYPES.RANGED, 31.9, 15.1, 125, { isSongQingShu: true }),
+      mkUnit(CAMP_TYPES.ENEMY, 'e8', 8, '峨眉慧明', ROLE_TYPES.RANGED, 28.4, 15.6, 118),
+      mkUnit(CAMP_TYPES.ENEMY, 'e9', 9, '唐文亮', ROLE_TYPES.JAVELIN, 36.5, 28.5, 142.5, { isTangWenLiang: true })
+    ]
+  },
+  B: {
+    label: '② 免疫挡列（seed15：寒离飒控免，挡掉目标同列 → 自动换列）',
+    targetUid: 'a5',
+    ally: [
+      mkUnit(CAMP_TYPES.ALLY, 'a1', 1, '明教弟子1', ROLE_TYPES.RANGED, 34.9, 19.1, 78),
+      mkUnit(CAMP_TYPES.ALLY, 'a2', 2, '寒离飒', ROLE_TYPES.WARRIOR, 29.5, 22.5, 182.5, { isHanLiSa: true, state: { _ctrlImmune: true } }),
+      mkUnit(CAMP_TYPES.ALLY, 'a3', 3, '明教弟子3', ROLE_TYPES.RANGED, 32.5, 21.5, 78),
+      mkUnit(CAMP_TYPES.ALLY, 'a5', 5, '张无忌', ROLE_TYPES.WARRIOR, 36.1, 19.9, 132.5, { isZhang: true }),
+      mkUnit(CAMP_TYPES.ALLY, 'a6', 6, '赵敏妹妹', ROLE_TYPES.RANGED, 30, 20, 100, { isXiaoZhaoSister: true }),
+      mkUnit(CAMP_TYPES.ALLY, 'a9', 9, '明教弟子2', ROLE_TYPES.RANGED, 36.5, 24.5, 70)
+    ],
+    enemy: [
+      mkUnit(CAMP_TYPES.ENEMY, 'e1', 1, '崆峒弟子', ROLE_TYPES.DEFENDER, 11.1, 32.9, 170),
+      mkUnit(CAMP_TYPES.ENEMY, 'e3', 3, '崆峒唐文亮', ROLE_TYPES.DEFENDER, 11.3, 35.7, 155),
+      mkUnit(CAMP_TYPES.ENEMY, 'e4', 4, '宋青书', ROLE_TYPES.RANGED, 32.8, 20.2, 110, { isSongQingShu: true }),
+      mkUnit(CAMP_TYPES.ENEMY, 'e5', 5, '唐文亮', ROLE_TYPES.JAVELIN, 30.6, 25.4, 165, { isTangWenLiang: true }),
+      mkUnit(CAMP_TYPES.ENEMY, 'e8', 8, '宗维侠', ROLE_TYPES.RANGED, 39.6, 25.4, 82.5)
+    ]
+  }
+};
+
+// ============================== 状态 ==============================
+let sceneKey = 'A';
+let store = null;
+let plan = null;
+let targetUid = null;
+let runId = 0;             // 每次重放自增；旧链即使侥幸继续也写不到新画面
+let seekToken = 0;
+let curFrame = 0;
+let runReady = false;
+let guard = null;          // 演出看护：克隆体 → 终位的映射（demo 层补丁，见「演出补丁」段）
+const previews = [];       // 终位半透明预览卡
+let SEG_B = null;          // 段位边界（ms），启动时算一次
+
+function logLine(text, cls) {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.innerHTML = text;
+  const box = $('demoLog');
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ============================== store 装配 ==============================
+function buildStore(key) {
+  const sc = SCENES[key];
+  const units = [...sc.enemy, ...sc.ally].map((u) => ({ ...u, state: { ...(u.state || {}) } }));
+  const s = createStore({ units, round: 1 }, battleReducer);
+  GlobalStore.set('battleStore', s);
+  setGridStore(s);
+  targetUid = sc.targetUid;
+  return s;
+}
+
+// ============================== 前段规划（照抄 modules/315 forceInsert / forceInsertAnyColumn） ==============================
+const PUSH_PATH = {
+  0: [1, 4, 7, 2, 5, 8, 3, 6, 9],
+  1: [2, 5, 8, 1, 4, 7, 3, 6, 9],
+  2: [3, 6, 9, 2, 5, 8, 1, 4, 7]
+};
+const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost ||
+  u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly'));
+const immuneOf = (u) => !!(u.state && u.state._ctrlImmune);
+
+function forceInsert(team, unit, targetPos) {
+  if (unit.pos === targetPos) return { ok: true, moved: [] };
+  const occAtTarget = team.find((u) => u !== unit && u.pos === targetPos && u.alive);
+  if (occAtTarget) {
+    if (immuneOf(occAtTarget)) return { ok: false, reason: 'blocked-target-immune', blocked: occAtTarget, moved: [] };
+    if (isAirborne(occAtTarget)) return { ok: false, reason: 'blocked-target-airborne', blocked: occAtTarget, moved: [] };
+  }
+  if (!occAtTarget) return { ok: true, moved: [{ unit, from: unit.pos, to: targetPos, isDash: true }] };
+
+  const col = (targetPos - 1) % 3;
+  const path = PUSH_PATH[col];
+  const startIdx = path.indexOf(targetPos);
+  if (startIdx === -1) return { ok: false, reason: 'bad-pos', moved: [] };
+
+  let emptyIdx = -1, blocked = null;
+  for (let i = startIdx + 1; i < path.length; i++) {
+    const p = path[i];
+    const occ = team.find((u) => u !== unit && u.pos === p && u.alive);
+    if (occ) {
+      if (immuneOf(occ)) { blocked = occ; break; }
+      if (isAirborne(occ)) continue;
+      continue;
+    }
+    emptyIdx = i; break;
+  }
+  if (blocked) return { ok: false, reason: 'blocked-path-immune', blocked, moved: [] };
+  if (emptyIdx === -1) return { ok: false, reason: 'full', moved: [] };
+
+  const moved = [];
+  for (let i = emptyIdx; i > startIdx; i--) {
+    const curr = path[i], prev = path[i - 1];
+    const mover = team.find((u) => u !== unit && u.pos === prev && u.alive);
+    if (mover && !isAirborne(mover)) moved.push({ unit: mover, from: prev, to: curr });
+  }
+  moved.push({ unit, from: unit.pos, to: targetPos, isDash: true });
+  return { ok: true, moved };
+}
+
+function forceInsertAnyColumn(team, unit, preferredPos) {
+  const r0 = forceInsert(team, unit, preferredPos);
+  if (r0.ok) return r0;
+  const prefCol = (preferredPos - 1) % 3;
+  const altCols = prefCol === 1 ? [0, 2] : (prefCol === 0 ? [1, 2] : [0, 1]);
+  for (const c of altCols) {
+    const r = forceInsert(team, unit, c + 1);
+    if (r.ok) return r;
+  }
+  return { ok: false, reason: 'all-blocked', moved: [] };
+}
+
+function blockText(res) {
+  if (res.reason === 'full') return '无空位';
+  if (res.reason === 'all-blocked') return '全部列被免疫/飞天挡下、整侧不动';
+  const b = res.blocked;
+  return `被 ${b ? b.name : '?'}${b && isAirborne(b) ? '（飞天/附身）' : '免疫'} 挡下、整侧不动`;
+}
+
+function planDash(uid) {
+  const units = store.getState().units;
+  const tw = units.find((u) => u.isTangWenLiang && u.alive);
+  const target = units.find((u) => u.uid === uid && u.alive);
+  if (!tw || !target) return null;
+
+  const cfg = getSkillParams('唐文亮', 'chongCi') || {};
+  const dmgRatio = cfg.dmgRatio != null ? cfg.dmgRatio : 0.45;
+  const selfDmgRatio = cfg.selfDmgRatio != null ? cfg.selfDmgRatio : 0.45;
+
+  const frontPos = ((target.pos - 1) % 3) + 1;
+  const twFrom = tw.pos;
+  const targetFrom = target.pos;
+  const allyTeam = units.filter((u) => u.camp === target.camp && u.alive);
+  const enemyTeam = units.filter((u) => u.camp === tw.camp && u.alive);
+
+  const allyRes = target.pos > 3 ? forceInsertAnyColumn(allyTeam, target, frontPos) : { ok: true, moved: [] };
+  const enemyRes = forceInsertAnyColumn(enemyTeam, tw, frontPos);
+
+  const twTo = enemyRes.ok ? (enemyRes.moved.find((m) => m.unit === tw) || {}).to : tw.pos;
+  const targetTo = allyRes.ok ? (allyRes.moved.find((m) => m.unit === target) || {}).to : target.pos;
+
+  const toFoe = Math.max(0, Math.min(Math.round(target.hp * dmgRatio), Math.floor(target.hp) - 1));
+  const toSelf = Math.max(0, Math.min(Math.round(tw.hp * selfDmgRatio), Math.floor(tw.hp) - 1));
+
+  const moves = [...(enemyRes.ok ? enemyRes.moved : []), ...(allyRes.ok ? allyRes.moved : [])]
+    .map((m) => ({ uid: m.unit.uid, camp: m.unit.camp, from: m.from, to: m.to, isDash: !!m.isDash }));
+  const hits = [
+    toFoe > 0 ? { uid: target.uid, dmg: toFoe } : null,
+    toSelf > 0 ? { uid: tw.uid, dmg: toSelf } : null
+  ].filter(Boolean);
+
+  const dash = {
+    fromUid: tw.uid, fromPos: twFrom, toPos: twTo, fromCamp: tw.camp,
+    targetUid: target.uid, targetFromPos: targetFrom, targetToPos: targetTo, targetCamp: target.camp,
+    moves, hits
+  };
+  return { tw, target, dash, enemyRes, allyRes, toFoe, toSelf, dmgRatio };
+}
+
+function renderPlan(p) {
+  if (!p) { $('planPanel').innerHTML = '<span style="color:#999">规划失败：找不到唐文亮或目标。</span>'; return; }
+  const listText = (res) => res.moved.map((m) => `${m.unit.name} ${m.from}→${m.to}`).join('、');
+  const enemyText = p.enemyRes.ok ? (listText(p.enemyRes) || '唐文亮原地未动') : `唐文亮无法落位（${blockText(p.enemyRes)}）`;
+  const allyText = p.target.pos > 3
+    ? (p.allyRes.ok ? (listText(p.allyRes) || `${p.target.name} 原地未动`) : `目标侧${blockText(p.allyRes)}`)
+    : `${p.target.name} 已在前排（不被推）`;
+  $('planPanel').innerHTML =
+    `<span class="ph">【规划】</span>唐文亮 ${p.tw.pos} → ${p.dash.toPos}（目标列 ${((p.target.pos - 1) % 3) + 1} 的前排位）<br>` +
+    `冲方：${enemyText}<br>目标侧：${allyText}<br>` +
+    `真伤（当前生命 ${Math.round(p.dmgRatio * 100)}%，不吃防、不致死）：目标 <span class="num">-${p.toFoe}</span>、自身 <span class="num">-${p.toSelf}</span>`;
+}
+
+// ============================== 演出补丁（只在 demo 层兜，不改主代码） ==============================
+// 主代码 fx/616 在 demo 场景里露出的三处既有行为，这里做兜底：
+//   ① 终位格被 fly 清空 → 起手/走位期间格子全空（补一张半透明预览卡）
+//   ② 终结一拳直接覆盖克隆体 transform，而克隆体 left/top 钉在起点格 → 人弹回起点
+//   ③ 飘字扣血后克隆体血条是静态副本 → 不跟着掉（按 store 实际血量重绘）
+function cardInner(u) {
+  const pct = Math.max(0, Math.floor((u.hp / u.maxHp) * 100));
+  const hpCls = pct > 50 ? 'hp-text-green' : (pct > 20 ? 'hp-text-orange' : 'hp-text-red');
+  const bar = pct > 50 ? '#2e7d32' : (pct > 20 ? '#daa520' : '#c0392b');
+  const icon = getRoleIcon(u, { isStunned: false, isDead: false, pangTaunting: false });
+  return `<span class="cell-icon">${icon}</span>` +
+    `<div class="cell-info"><span class="cell-name">${u.name}</span>` +
+    `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${fmtHp(u.hp)}</span></span></div>` +
+    `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar};"></div></div>`;
+}
+
+function cellRect(camp, pos) {
+  const el = getCellByPos(camp, pos);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { left: r.left, top: r.top, w: r.width, h: r.height };
+}
+
+// 克隆体是「起点格 rect + left/top」造出来的，用起点格 rect 就能和 moves 一一对上
+function buildGuard(p) {
+  const els = [...document.querySelectorAll('[data-fx="temporary"].cell')];
+  const list = [];
+  for (const m of p.dash.moves) {
+    if (m.uid == null || m.from == null || m.to == null) continue;
+    const s = cellRect(m.camp, m.from), d = cellRect(m.camp, m.to);
+    if (!s || !d) continue;
+    let best = null, bestD = 1e9;
+    for (const el of els) {
+      const dd = Math.abs(parseFloat(el.style.left) - s.left) + Math.abs(parseFloat(el.style.top) - s.top);
+      if (dd < bestD) { bestD = dd; best = el; }
+    }
+    if (best && bestD < 4) list.push({ el: best, from: s, to: d, uid: m.uid });
+  }
+  guard = { list, punchAt: SEG_B[5], squashAt: SEG_B[1], squashed: false, hp: new Map() };
+}
+
+function buildPreviews(p) {
+  for (const m of p.dash.moves) {
+    if (m.uid == null || m.to == null) continue;
+    const r = cellRect(m.camp, m.to);
+    const u = store.getState().units.find((x) => x.uid === m.uid);
+    if (!r || !u) continue;
+    const d = document.createElement('div');
+    d.className = 'cell';
+    d.setAttribute('data-fx', 'temporary');
+    d.innerHTML = cardInner(u);
+    d.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.w}px;height:${r.h}px;margin:0;z-index:10050;pointer-events:none;box-sizing:border-box;opacity:.34;transition:none;`;
+    document.body.appendChild(d);
+    previews.push({ el: d, uid: m.uid });
+  }
+}
+
+function clearPreviews() {
+  while (previews.length) previews.pop().el.remove();
+}
+
+function dropGhosts(ghosts) {
+  if (!Array.isArray(ghosts)) return;
+  for (const g of ghosts) {
+    const el = g && g.g && g.g.el;
+    if (el && el.parentNode) el.remove();
+  }
+}
+
+// 路径擦身：同列 from→to 之间的中间格有人，就让他缩一下（虚拟时间驱动，可逐帧复现）
+function squashPassBy() {
+  const moves = plan ? plan.dash.moves : [];
+  const taken = new Set(moves.map((m) => m.uid));
+  for (const m of moves) {
+    if (m.from === m.to || m.from == null || m.to == null) continue;
+    const path = PUSH_PATH[(m.to - 1) % 3] || [];
+    const i0 = path.indexOf(m.from), i1 = path.indexOf(m.to);
+    if (i0 < 0 || i1 < 0) continue;
+    const lo = Math.min(i0, i1), hi = Math.max(i0, i1);
+    for (let i = lo + 1; i < hi; i++) {
+      const occ = store.getState().units.find((u) => u.camp === m.camp && u.pos === path[i] && u.alive && !taken.has(u.uid));
+      if (!occ) continue;
+      const cell = getCellByPos(occ.camp, occ.pos);
+      if (!cell) continue;
+      clock.animate(560, (pp) => {
+        const k = Math.sin(Math.min(1, pp * 1.4) * Math.PI);
+        cell.style.transform = `scale(${1 - 0.16 * k})`;
+      }).then(() => { cell.style.transform = ''; });
+    }
+  }
+}
+
+function guardTick() {
+  if (!guard) return;
+  // ③ 血量：飘字扣血那一刻 store 已变，把克隆体/预览卡按新血量重绘
+  for (const g of guard.list) {
+    if (!g.el.parentNode) continue;
+    const u = store.getState().units.find((x) => x.uid === g.uid);
+    if (!u) continue;
+    if (guard.hp.get(g.uid) !== u.hp) { guard.hp.set(g.uid, u.hp); g.el.innerHTML = cardInner(u); }
+  }
+  for (const pv of previews) {
+    const u = store.getState().units.find((x) => x.uid === pv.uid);
+    if (!u) continue;
+    const k = 'pv' + pv.uid;
+    if (guard.hp.get(k) !== u.hp) { guard.hp.set(k, u.hp); pv.el.innerHTML = cardInner(u); }
+  }
+  // ② 走位开始 → 被路过的人缩一下
+  if (!guard.squashed && vt >= guard.squashAt) { guard.squashed = true; squashPassBy(); }
+  // ② 终结一拳起 → 克隆体钉在终位（主代码那一拳会把 transform 清回起点）
+  if (vt >= guard.punchAt) {
+    clearPreviews();
+    for (const g of guard.list) {
+      if (!g.el.parentNode) continue;
+      const sm = (g.el.style.transform || '').match(/scale\([^)]*\)/);
+      g.el.style.transform = `translate(${(g.to.left - g.from.left).toFixed(1)}px, ${(g.to.top - g.from.top).toFixed(1)}px) ${sm ? sm[0] : ''}`;
+    }
+  }
+}
+
+// ============================== 清场 ==============================
+function removeTempFx() {
+  guard = null;
+  previews.length = 0;
+  document.querySelectorAll('[data-fx="temporary"]').forEach((el) => el.remove());
+  document.querySelectorAll('.fx94-lock,.fx94-tw').forEach((el) => el.classList.remove('fx94-lock', 'fx94-tw'));
+  document.querySelectorAll('#allyGrid .cell,#enemyGrid .cell').forEach((el) => {
+    el.style.transform = '';
+    el.style.opacity = '';
+    el.style.visibility = '';
+    el.classList.remove('shake');
+  });
+}
+
+// ============================== 一次重放：重建场景 → 写位置/fly → 起 fx（与 render/420 DASH 同序） ==============================
+async function restartRun() {
+  const my = ++runId;
+  // ① 杀掉旧链：reset 让挂起的 tween 走完并 resolve，真正的 wait 被清空 → 旧链自然挂死
+  vt = 0;
+  clock.reset();
+  await yieldMacro();
+  removeTempFx();
+
+  // ② 重建 store 与网格（每次重放都从原始血量/位置开始）
+  store = buildStore(sceneKey);
+  updateGridUI();
+  plan = planDash(targetUid);
+  renderPlan(plan);
+  if (!plan) return false;
+
+  // ③ 固定随机种子 + 重置时钟
+  seedRandom(20261023);
+  vt = 0;
+  clock.reset();
+
+  // ④ 位置写 store → 新格 fly 隐身 → 演出
+  const moves = plan.dash.moves.filter((m) => m.uid != null && m.to != null);
+  const events = moves.map((m) => ({ eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: m.uid, pos: m.to }));
+  if (events.length > 0) store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events });
+  for (const m of moves) store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+
+  runFx(my, plan);
+  runReady = true;
+  return true;
+}
+
+async function runFx(my, p) {
+  // showTangWenLiangDash 同步跑到第一个 await 前就已建好克隆体 → 这里同步接管看护
+  const pending = showTangWenLiangDash(p.dash, { slowMotion: !!$('chkSlow').checked });
+  buildGuard(p);
+  buildPreviews(p);
+  const ghosts = await pending;
+  if (my !== runId) { guard = null; clearPreviews(); return; }
+  // ⑤ 后段交棒：清 fly 与移除克隆体放在同一 tick，避免「9 号位和 3 号位都有唐文亮」
+  guard = null;
+  clearPreviews();
+  for (const m of p.dash.moves) {
+    if (m.uid != null) store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: null });
+  }
+  dropGhosts(ghosts);
+  // ⑥ 冲方转战士（modules/315 里带 applyRoleBonusMods；demo 只演示演出，不掺数值）
+  store.dispatch({
+    type: STORE_ACTION_TYPES.SET_UNITS,
+    units: store.getState().units.map((u) => (u.uid === p.tw.uid ? { ...u, role: ROLE_TYPES.WARRIOR } : u))
+  });
+  const tw = store.getState().units.find((u) => u.uid === p.tw.uid);
+  const tg = store.getState().units.find((u) => u.uid === p.target.uid);
+  if (tw && tg) logLine(`演出结束：唐文亮 ${fmtHp(tw.hp)}/${fmtHp(tw.maxHp)}，${tg.name} ${fmtHp(tg.hp)}/${fmtHp(tg.maxHp)}，转战士`, 'ph1');
+}
+
+// ============================== 逐帧定位 ==============================
+function fmtT(ms) { return Math.round(ms) + ' ms'; }
+
+// 段位边界：与 fx/616 慢速档内部编排逐段对齐（350 遮罩 → 240 锁链 → 620 走位 → 400 白闪/环 → 900 定格 → 400 遮罩淡出 → 终结一拳）
+//   T(v) 与 fx/616 的缩放口径一致，段位标注才不会和真实画面错位
+function segBounds() {
+  const dashTotal = getPerfParam('dashDur', GlobalStore.get('speed') || 300) || 1700;
+  const s = dashTotal / 2910;
+  const T = (v) => Math.max(60, Math.round(v * s));
+  let t = 0;
+  const b = [];
+  [350, 240, 620, 400, 900, 400, 100 + 110 + 200].forEach((v) => { t += T(v); b.push(t); });
+  return b;
+}
+const SEG_LABELS = [
+  '遮罩渐暗（起手）', '锁链展开', '克隆体冲刺 / 落定', '白闪 · 冲击环 · 火花',
+  '子弹时间定格（真伤飘字）', '遮罩淡出', '终结一拳'
+];
+
+function phaseText(t) {
+  const b = segBounds();
+  for (let i = 0; i < b.length; i++) if (t < b[i]) return SEG_LABELS[i];
+  return '收势 / 交棒';
+}
+
+// 时间轴段位刻度（帧号 = 段位边界；逐帧核对时先看这段该出什么）
+function renderMarks() {
+  const b = segBounds().map((ms) => Math.round(ms / FRAME_MS));
+  const short = ['遮罩', '锁链', '走位', '环·闪', '定格', '淡出', '拳'];
+  const parts = ['<span>0 起手</span>'];
+  short.forEach((n, i) => parts.push(`<span>${n} ${b[i]}</span>`));
+  parts.push(`<span>${TOTAL_FRAMES} 收尾</span>`);
+  $('tlMarks').innerHTML = parts.join('');
+}
+
+function syncReadout() {
+  const frame = Math.round(vt / FRAME_MS);
+  curFrame = Math.min(TOTAL_FRAMES, frame);
+  $('tl').value = String(curFrame);
+  if (document.activeElement !== $('frameInput')) $('frameInput').value = String(curFrame);
+  $('tlInfo').innerHTML = `帧 <b>${curFrame}</b> / ${TOTAL_FRAMES}　·　t = ${fmtT(vt)}　·　<span id="tlPhase">${runReady ? phaseText(vt) : '未开始'}</span>`;
+}
+
+function updatePlayBtn() {
+  $('btnPlay').textContent = playing ? '⏸ 暂停' : '▶ 播放';
+}
+
+async function seekTo(frame) {
+  const target = Math.max(0, Math.min(TOTAL_FRAMES, Math.round(frame)));
+  const my = ++seekToken;
+  seeking = true;
+  playing = false;
+  updatePlayBtn();
+
+  const T = target * FRAME_MS;
+  // 后退（或还没起过）→ 必须从头重放；前进 → 从当前虚拟时间继续推进，省时间
+  if (!runReady || vt > T + 0.5) {
+    if (!(await restartRun())) { seeking = false; return; }
+    if (my !== seekToken) return;
+  }
+  let acc = vt;
+  while (acc < T) {
+    const dt = Math.min(FRAME_MS, T - acc);
+    stepClock(dt);
+    acc += dt;
+    await yieldMacro();
+  }
+  vt = T;
+  curFrame = target;
+  seeking = false;
+  syncReadout();
+}
+
+// 拖动中只保留最新目标，避免排队
+let pendingSeek = null;
+let queueRunning = false;
+function requestSeek(frame) {
+  pendingSeek = frame;
+  runSeekQueue();
+}
+async function runSeekQueue() {
+  if (queueRunning) return;
+  queueRunning = true;
+  while (pendingSeek != null) {
+    const f = pendingSeek;
+    pendingSeek = null;
+    await seekTo(f);
+  }
+  queueRunning = false;
+}
+
+// ============================== 播放 ==============================
+async function togglePlay() {
+  if (playing) { playing = false; updatePlayBtn(); return; }
+  if (!runReady || vt >= MAX_T - 1) { if (!(await restartRun())) return; curFrame = 0; }
+  playing = true;
+  lastReal = realPerfNow();
+  updatePlayBtn();
+}
+
+// ============================== 目标可点 ==============================
+function markTargetsClickable() {
+  document.querySelectorAll('.cell.dashable').forEach((el) => el.classList.remove('dashable'));
+  const tgt = store.getState().units.find((u) => u.uid === targetUid);
+  if (!tgt) return;
+  store.getState().units.forEach((u) => {
+    if (u.camp !== tgt.camp || !u.alive) return;
+    const el = getCellByPos(u.camp, u.pos);
+    if (el) { el.classList.add('dashable'); el.dataset.pickUid = u.uid; }
+  });
+}
+document.addEventListener('click', (e) => {
+  const cell = e.target.closest && e.target.closest('.cell');
+  if (!cell || !cell.classList.contains('dashable')) return;
+  const uid = cell.dataset.pickUid;
+  if (!uid) return;
+  targetUid = uid;
+  playing = false; updatePlayBtn();
+  runReady = false;
+  markTargetsClickable();
+  const u = store.getState().units.find((x) => x.uid === uid);
+  logLine(`目标切换 → ${u.name}（${u.pos} 号位）`, 'ph1');
+  plan = planDash(uid);
+  renderPlan(plan);
+});
+
+// ============================== 场景 ==============================
+function switchScene(key) {
+  sceneKey = key;
+  playing = false; seeking = false; updatePlayBtn();
+  runId++;
+  runReady = false;
+  vt = 0;
+  clock.reset();
+  removeTempFx();
+  store = buildStore(sceneKey);
+  updateGridUI();
+  plan = planDash(targetUid);
+  renderPlan(plan);
+  runReady = false;
+  $('demoLog').innerHTML = '';
+  logLine('场景：' + SCENES[key].label, 'ph1');
+  markTargetsClickable();
+  syncReadout();
+  requestSeek(0);
+}
+
+// ============================== 绑定 ==============================
+$('btnSceneA').addEventListener('click', () => {
+  $('btnSceneA').classList.add('on'); $('btnSceneB').classList.remove('on'); switchScene('A');
+});
+$('btnSceneB').addEventListener('click', () => {
+  $('btnSceneB').classList.add('on'); $('btnSceneA').classList.remove('on'); switchScene('B');
+});
+$('btnPlay').addEventListener('click', () => { if (!seeking) togglePlay(); });
+$('btnPrev').addEventListener('click', () => requestSeek(curFrame - 1));
+$('btnNext').addEventListener('click', () => requestSeek(curFrame + 1));
+$('btnReset').addEventListener('click', () => requestSeek(0));
+$('tl').addEventListener('input', (e) => { playing = false; updatePlayBtn(); requestSeek(Number(e.target.value)); });
+$('btnJump').addEventListener('click', () => { playing = false; updatePlayBtn(); requestSeek(Number($('frameInput').value || 0)); });
+$('frameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('btnJump').click(); } });
+$('chkSlow').addEventListener('change', () => { playing = false; updatePlayBtn(); runReady = false; requestSeek(curFrame); });
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); requestSeek(curFrame - 1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); requestSeek(curFrame + 1); }
+  else if (e.key === ' ') { e.preventDefault(); if (!seeking) togglePlay(); }
+});
+
+// ============================== 启动 ==============================
+clock.start();
+GlobalStore.set('speed', 300);          // 标准档：dashDur=1700（core/223 参数表）
+GlobalStore.set('fxDashSlow', true);
+SEG_B = segBounds();
+$('tl').max = String(TOTAL_FRAMES);
+renderMarks();
+store = buildStore('A');
+updateGridUI();
+plan = planDash(targetUid);
+renderPlan(plan);
+markTargetsClickable();
+syncReadout();
+realRAF(driver);
+logLine('场景：' + SCENES.A.label, 'ph1');
+logLine('拖动时间轴即可逐帧定位（←/→ 单帧步进，空格播放/暂停）', 'warn');
+
+// 调试探针（只读；排查逐帧定位是否同步用）
+window.__tw = () => ({
+  vt, curFrame, seeking, queueRunning, pendingSeek, runReady, runId,
+  clockNow: clock.now, realNow: clock._realNow, tweens: clock._tweens.length,
+  realTweens: clock._realTweens.length, waits: clock._waits.length
+});
+</script>
+</body>
+</html>
