@@ -2,7 +2,11 @@
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/01config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.8.0';
+export const VER = 'tools/108-hex-dashboard.js V6.8.1';
+// V6.8.1 | 2026-11-01 UI 收拾（老板看截图提的）：
+//           · 模式对比表改 table-layout:fixed，第一列钉死 104px（原 width 建议被自动布局撑开，占掉一大条）；
+//             基准行「本模式全海克斯平均」缩成「海克斯平均」（title 保留全称）。
+//           · 长说明折叠：顶部说明 + 模式对比说明都只留一行，蓝色「▸ 说明」点开/「▾ 收起」收回（默认收起）。
 // V6.8.0 | 2026-10-31 双海克斯档位（主游戏 enemyAutoHex 对齐）：
 //           · 新增「海克斯：单/双/单+双一起跑」下拉。双档跑批通过 116 的 enemyHex 让六大派也自动选海克斯
 //             （core/06 V1.3.0 起两侧 buff 续存，旧 runner 只捞明教会把敌方 buff 下一回合丢掉）。
@@ -107,6 +111,13 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-box .cell-sub{color:#888;font-size:11px}
 /* 2026-10-14 V6.2.3：第一列（海克斯名）收窄固定，别让「你就是carry」这类长名把列撑开 */
 .hex-hex-box th:first-child,.hex-hex-box td:first-child{width:92px;white-space:nowrap;padding-right:4px}
+/* V6.8.1：模式对比表用固定布局，第一列钉死 104px（自动布局会把 width 建议撑开，白占一大条） */
+.hex-hex-box .hex-cmp{table-layout:fixed}
+.hex-hex-box .hex-cmp th:first-child,.hex-hex-box .hex-cmp td:first-child{width:104px;white-space:normal;word-break:break-word;line-height:1.25}
+/* V6.8.1：长说明折叠——默认只留一行，点蓝色「▸ 说明」展开 */
+.hex-more{color:#4fc3f7;cursor:pointer;user-select:none;font-weight:bold;white-space:nowrap}
+.hex-more-body{display:none;color:#999;font-size:12px;margin:0 0 8px;line-height:1.5}
+.hex-more-body.open{display:block}
 .hex-hex-body{overflow:auto;flex:1}
 .hex-hex-link{color:#ffd700;cursor:pointer;text-decoration:underline;font-weight:bold}
 .hex-hex-detail-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10001;display:flex;align-items:center;justify-content:center}
@@ -317,7 +328,8 @@ function openHexDashboard() {
         <button class="hex-hex-close">关闭</button>
       </div>
       <div class="hex-hex-body">
-        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。<br>三个选择器：① 关卡 —— 默认「七关一起」，也可单跑某一关（单关结果单独存，切到该关即自动显示历史）；② 场次 —— 每关跑多少场；③ 阵容 —— 默认「全部4种（一起跑）」：一次把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式都跑完（各模式分键存储、共用同一批 seed，便于横向配对比较），跑完自动展开「模式对比」；也可只选某一种单跑。「清空数据」一次清掉四种模式 ×（七关 + 7 个单关）。</p>
+        <p class="hex-hex-tip">点「⚡ 自动跑」直接在弹窗里批量战斗，跑完自动出表：统计每个海克斯的出场次数、胜率，以及与「所有海克斯平均胜率」的差值。<span class="hex-more">▸ 说明</span></p>
+        <p class="hex-hex-tip hex-more-body">三个选择器：① 关卡 —— 默认「七关一起」，也可单跑某一关（单关结果单独存，切到该关即自动显示历史）；② 场次 —— 每关跑多少场；③ 阵容 —— 默认「全部4种（一起跑）」：一次把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式都跑完（各模式分键存储、共用同一批 seed，便于横向配对比较），跑完自动展开「模式对比」；也可只选某一种单跑。「清空数据」一次清掉四种模式 ×（七关 + 7 个单关）。</p>
         <select class="hex-hex-stage" title="关卡：七关一起 = 长期榜；单关 = 只看这一关（单独存，切到该关即显示）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px">
           <option value="all">关卡：七关一起</option>
           <option value="1">关卡：第1关</option>
@@ -357,6 +369,16 @@ function openHexDashboard() {
       </div>
     </div>`;
   document.body.appendChild(mask);
+
+  // V6.8.1：长说明折叠——点「▸ 说明」展开、点「▾ 收起」收回；委托到弹窗，动态渲染的模式对比说明同样生效
+  mask.querySelector('.hex-hex-box').addEventListener('click', e => {
+    const m = e.target.closest('.hex-more');
+    if (!m) return;
+    const body = m.closest('p').nextElementSibling;
+    if (!body) return;
+    const open = body.classList.toggle('open');
+    m.textContent = open ? '▾ 收起' : '▸ 说明';
+  });
 
   // 打开即按当前关卡/模式加载对应榜单（模式记忆在模块级 curMode/curStage，弹窗重开不丢）；
   // 阵容下拉默认停在「全部4种（一起跑）」——只是跑批范围，不切榜
@@ -719,10 +741,9 @@ function renderModeCompare(box) {
   };
 
   let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${HEXMODE_LABEL[curHex]}｜${stageLabel}）</div>`;
-  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）。<br>`
-    + `前四列 = 该模式下的胜率与场次；后四列 = 该模式胜率 − <b>本模式全海克斯平均</b>。`
-    + `四个差值各算各的（同一模式内比，不跨模式相减），正数 = 这枚海克斯在本模式里比平均强，负数 = 比平均弱。点表头排序。</p>`;
-  html += '<table><tr><th>海克斯</th>';
+  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）· 前四列 = 胜率/场次，后四列 = 胜率 − <b>本模式海克斯平均</b>。<span class="hex-more">▸ 说明</span></p>`
+    + `<p class="hex-more-body">四个差值各算各的（同一模式内比，不跨模式相减）：正数 = 这枚海克斯在本模式里比平均强，负数 = 比平均弱。点表头排序。</p>`;
+  html += '<table class="hex-cmp"><tr><th>海克斯</th>';
   for (const m of CMP_MODES) {
     const active = m === curSort;
     html += `<th data-sort="${m}" style="cursor:pointer;${active ? 'color:#4fc3f7' : ''}" title="点击按「${MODE_LABEL[m]}」胜率排序">${MODE_LABEL[m]}${active ? ' ▼' : ''}</th>`;
@@ -734,7 +755,7 @@ function renderModeCompare(box) {
   html += diffHead('diffNone', '不带', curSort === 'diffNone');
   html += '</tr>';
   // 基准行：各模式的「全海克斯平均」——就是后半四列减掉的那个数
-  html += '<tr><td style="color:#888">本模式全海克斯平均</td>'
+  html += '<tr><td style="color:#888" title="本模式全海克斯平均胜率（后半四列 Δ 的基准）">海克斯平均</td>'
     + CMP_MODES.map(m => `<td style="color:#ccc">${data[m].total} 场<div class="cell-sub">平均 ${modeHexAvg[m] !== null ? modeHexAvg[m].toFixed(1) + '%' : '—'}</div></td>`).join('')
     + '<td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td><td style="color:#666">—</td></tr>';
   for (const r of rows) {

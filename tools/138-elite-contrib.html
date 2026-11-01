@@ -16,6 +16,9 @@
   body { background:#14141f; color:#e8e8ef; font-family:monospace; margin:0; padding:18px; }
   h1 { color:#ffd700; font-size:20px; margin:0 0 6px; }
   .tip { color:#999; font-size:12px; line-height:1.7; margin-bottom:12px; }
+  .tip-more { color:#4fc3f7; cursor:pointer; font-weight:bold; user-select:none; }
+  .tip-more-body { display:none; }
+  .tip-more-body.open { display:block; }
   .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#1b1b2b; border:1px solid #333; border-radius:10px; padding:12px; }
   .bar label { font-size:13px; color:#ccc; }
   input[type=number] { width:80px; background:#0e0e17; color:#ffd700; border:1px solid #444; border-radius:6px; padding:6px 8px; font-family:monospace; }
@@ -35,11 +38,8 @@
 </head>
 <body>
 <h1>🧬 弱精英机制贡献评估</h1>
-<div class="tip">
-  配对口径与 112「🐦 弱精英评测」完全一致：同一关同一片，精英臂与自然臂共用种子，Δ = 精英臂 − 自然臂（明教胜率）；<br>
-  自然臂只剔除「目标精英本人自然登场」的局（其他弱精英保持自然分布）。精英臂额外观测技能/事实触发次数——这是 112 表上没有的那一半。<br>
-  <span class="dim">观测项说明：技能触发 = 该精英发出的 SKILL_ANNOUNCE（按技能名计数）；关键字探针 = 日志 note/reason 命中指定关键字（如空见的「护罩挡下这一击」）。</span>
-</div>
+<div class="tip">配对口径与 112「🐦 弱精英评测」一致：Δ = 精英臂 − 自然臂（明教胜率），精英臂额外观测技能/事实触发次数。<span class="tip-more">▸ 说明</span></div>
+<div class="tip tip-more-body">同一关同一片，精英臂与自然臂共用种子；自然臂只剔除「目标精英本人自然登场」的局（其他弱精英保持自然分布）。观测项：技能触发 = 该精英发出的 SKILL_ANNOUNCE（按技能名计数）；关键字探针 = 日志 note/reason 命中指定关键字（如空见的「护罩挡下这一击」）。</div>
 <div class="bar">
   <label>每关每臂场次 <input type="number" id="runsInput" value="120" min="20" step="10"></label>
   <label style="color:#4fc3f7"><input type="checkbox" id="enemyHexCb"> 双海克斯（六大派也选）</label>
@@ -57,7 +57,7 @@
 import { runParallel } from './117-shared-worker-runner.js';
 import { WEAK_ELITES } from './127-tool-registry.js';
 
-const VERSION = '138-elite-contrib V1.5.0';
+const VERSION = '138-elite-contrib V1.5.1';
 const CHUNK = 50;
 const CONTRIB_KEY = 'ming_weak_elite_contrib';   // V1.2.0：跑批结果落盘，关页面后仍能「📂 载入上次」；126 报警也能读它做交叉印证
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
@@ -420,6 +420,14 @@ copyBtn.addEventListener('click', async () => {
   progressEl.textContent = ok ? '📋 报告已复制到剪贴板' : '复制失败，可改用「⬇ 导出CSV」';
 });
 csvBtn.addEventListener('click', exportCSV);
+
+// V1.4.1：长说明折叠——默认收起，点「▸ 说明」展开 / 「▾ 收起」收回
+document.querySelectorAll('.tip-more').forEach(el => el.addEventListener('click', () => {
+  const body = el.closest('.tip').nextElementSibling;
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  el.textContent = open ? '▾ 收起' : '▸ 说明';
+}));
 
 document.getElementById('loadBtn').addEventListener('click', () => {
   loadContrib();
