@@ -10,6 +10,9 @@
 body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:1000px;margin:0 auto}
 h1{color:#ffd700;font-size:20px;margin-bottom:8px}
 .tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.6}
+.tip-more{color:#4fc3f7;cursor:pointer;font-weight:bold;user-select:none}
+.tip-more-body{display:none}
+.tip-more-body.open{display:block}
 .config{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 .config label{color:#ffd700;font-weight:bold}
 .config input{width:90px;padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:14px;text-align:center}
@@ -30,10 +33,8 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 </head>
 <body>
 <h1>⚖️ 职业平衡分析 · 全随机站位</h1>
-<p class="tip">
-双方全随机职业 + 全随机站位，固定六大派先手，默认无海克斯，全员 M=100（勾选「海克斯 / 双海克斯」即接入，双 = 六大派也自动选）。<br>
-统计口径：某方拥有该职业 0/1/2/3+ 个时该方胜率。5v5 与 6v6 独立跑，结果对比。
-</p>
+<p class="tip">双方全随机职业 + 全随机站位，固定六大派先手，默认无海克斯，全员 M=100。<span class="tip-more">▸ 说明</span></p>
+<p class="tip tip-more-body">勾选「海克斯 / 双海克斯」即接入（双 = 六大派也自动选）。统计口径：某方拥有该职业 0/1/2/3+ 个时该方胜率；5v5 与 6v6 独立跑，结果对比。</p>
 <div class="config">
 <label>每组场次：</label>
 <input type="number" id="roundsInput" value="200" min="50" max="1000" step="50">
@@ -45,6 +46,7 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 <button class="run6" id="run6Btn">▶ 跑 6v6</button>
 <button class="run5" id="runPaired5Btn" style="background:#4fc3f7">▶ 成对对照 5v5</button>
 <button class="run6" id="runPaired6Btn" style="background:#81c784">▶ 成对对照 6v6</button>
+<button id="copyAllBtn" style="background:#4fc3f7;color:#1a1a2e">📋 复制结果</button>
 </div>
 <div class="progress" id="progress"></div>
 
@@ -330,6 +332,53 @@ async function runPairedWrapper(size) {
 }
 runPaired5Btn.addEventListener('click', () => runPairedWrapper(5));
 runPaired6Btn.addEventListener('click', () => runPairedWrapper(6));
+
+// ==================== 2026-11-01：长说明折叠 + 复制结果 ====================
+// 110 是工具箱里唯一「有结果表但没导出」的页——补一个复制（把已跑出的表转成 Markdown）。
+document.querySelectorAll('.tip-more').forEach(el => el.addEventListener('click', () => {
+    const body = el.closest('.tip').nextElementSibling;
+    if (!body) return;
+    const open = body.classList.toggle('open');
+    el.textContent = open ? '▾ 收起' : '▸ 说明';
+}));
+
+function tableToMd(tbl) {
+    return [...tbl.querySelectorAll('tr')].map((tr, i) => {
+        const cells = [...tr.children].map(td => (td.textContent || '').trim().replace(/\s+/g, ' ').replace(/\|/g, '\\|') || ' ');
+        let line = '| ' + cells.join(' | ') + ' |';
+        if (i === 0) line += '\n| ' + cells.map(() => '---').join(' | ') + ' |';
+        return line;
+    }).join('\n');
+}
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+}
+function copyAllResults() {
+    const parts = [];
+    for (const sec of document.querySelectorAll('.section')) {
+        const tables = sec.querySelectorAll('table');
+        if (!tables.length) continue;
+        const h2 = sec.querySelector('h2');
+        parts.push('## ' + (h2 ? h2.textContent.trim() : '结果'));
+        tables.forEach(t => parts.push(tableToMd(t)));
+    }
+    const btn = document.getElementById('copyAllBtn');
+    const done = ok => { btn.textContent = ok ? '✅ 已复制' : '复制失败'; setTimeout(() => { btn.textContent = '📋 复制结果'; }, 1200); };
+    if (!parts.length) { alert('还没有结果，先跑一次'); return; }
+    const text = '# 职业平衡分析（全随机站位）· ' + new Date().toLocaleString('zh-CN') + '\n\n' + parts.join('\n\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(fallbackCopy(text)));
+    } else {
+        done(fallbackCopy(text));
+    }
+}
+document.getElementById('copyAllBtn').addEventListener('click', copyAllResults);
 </script>
 </body>
 </html>
