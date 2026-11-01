@@ -1,4 +1,4 @@
-export const VER = 'core/217-effect-handlers.js V6.2.0';
+export const VER = 'core/217-effect-handlers.js V6.2.1';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './214-battle-shared.js';
@@ -283,6 +283,7 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
                 chainTarget.state._permShield -= a;
                 hpLoss -= a;
             }
+            hpLoss = Math.round(hpLoss * 10) / 10;   // ★ 源头收敛：护盾抵扣后的浮点减法仍出尾巴，fact/审计/掉血三方必须同源且收敛
             applyStatChange(chainTarget, 'hp', -hpLoss, chainSource, '九阴白骨爪');
             // 审计账本：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对
             recordHpAudit(chainTarget, 'clawHit', -hpLoss, '九阴白骨爪');

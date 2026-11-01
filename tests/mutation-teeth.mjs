@@ -465,9 +465,13 @@ function toPosix(p) {
     return p.replace(/^([A-Za-z]):/, (m, d) => '/' + d.toLowerCase()).replace(/\\/g, '/');
 }
 
-// 新鲜度守卫（V2.9.0，第 139 轮起扩为六项）：返回陈旧原因数组；空数组 = 结果配得上当前代码。
-// 六项检查，任一项命中即判陈旧：
-//   ① 判据文件（本文件）mtime 晚于结果文件 ⇒ 判定代码已更新，结果没重跑
+// 新鲜度守卫（V2.9.0，第 139 轮起扩为六项；V2.9.21 第 144 轮把 ① 从「硬拒」降级为「仅判定逻辑改动时的非阻塞警告」）：
+//   返回 { why: 阻塞原因[], warn: 非阻塞警告[] }。why 非空 = 结果配不上当前代码（数据真陈旧），必须重跑；
+//   warn 非空 = 仅判定逻辑/解析逻辑改动、48 树原始数据仍有效，结论按新逻辑解析，放行并提示。
+//   —— 关键修正：旧版 ① 用「本文件 mtime > 结果 mtime」一刀切硬拒，导致只改 judge() 解释逻辑（变异表/规则/引擎指纹全不变）
+//      也被挡住必须加 --allow-stale 才能看结论，属误报。V2.9.21 改为：先跑 ②⑤⑥③④ 指纹/覆盖/树 四项数据守卫，
+//      仅当它们全过时（why 仍空），mtime 差才只可能是 judge/parse 解释层改动 ⇒ 降级为 warn 自动放行。
+//   ① 判据文件（本文件）mtime 晚于结果文件，但变异表(MUTFP)/规则(RULEFP)/引擎(ENGFP)指纹全匹配 ⇒ 仅判定逻辑改过，数据有效（warn）
 //   ② 结果头部的 VER / 变异表指纹 MUTFP 与当前不符
 //   ③ 当前 MUTATIONS 里有条目在结果里没有结果块（覆盖不全）
 //   ④ 任一变异树目录 mtime 晚于结果文件 ⇒ 树已重建（叠加了新工作树/新注入）却没重跑
@@ -479,19 +483,13 @@ function toPosix(p) {
 //      两边第 134 / 139 轮各补了一项、都编为⑤，本轮合并时按"两个盲区都真、都要守"并成⑤⑥，不删任何一边。
 function checkFreshness(txt, resultsPath) {
     const why = [];
+    const warn = [];
     const meta = {};
     for (const line of txt.split('\n')) {
         const m = line.match(/^#META\s+(\w+)=(.*)$/);
         if (m) meta[m[1]] = m[2].trim();
     }
     const resMtime = fs.statSync(resultsPath).mtimeMs;
-    // ① 判据文件比结果新
-    try {
-        const selfMtime = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs;
-        if (selfMtime > resMtime) {
-            why.push(`判据文件 mutation-teeth.mjs 比结果文件新（${fmt(selfMtime)} > ${fmt(resMtime)}）—— 判定逻辑改过，结果没重跑`);
-        }
-    } catch (e) { /* 拿不到 mtime 不拦 */ }
     // ② VER / MUTFP
     if (!meta.VER) why.push('结果文件缺少 #META VER 头（V2.9.0 之前的旧结果，无法证明配得上当前判据）');
     else if (meta.VER !== VER) why.push(`判据版本不符：结果由 ${meta.VER} 生成，当前 ${VER}`);
@@ -520,7 +518,16 @@ function checkFreshness(txt, resultsPath) {
         } catch (e) { /* ignore */ }
     }
     if (newerTrees.length) why.push(`变异树已重建但未重跑（${newerTrees.length} 棵 mtime 晚于结果）：${newerTrees.slice(0, 8).join('、')}${newerTrees.length > 8 ? '…' : ''}`);
-    return why;
+    // ① 判据文件 mtime 晚于结果：仅当上面所有数据守卫都通过（why 仍空）时，mtime 差才只可能是 judge/parse 解释层改动。
+    //   ⇒ 降级为非阻塞 warn 自动放行（原始 48 树数据对当前引擎/变异表/规则仍有效，结论按新解释逻辑解析）。
+    //   若 why 非空（指纹已判数据真陈旧），mtime 差是冗余信号，不再重复报。
+    try {
+        const selfMtime = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs;
+        if (selfMtime > resMtime && why.length === 0) {
+            warn.push(`判据文件 mutation-teeth.mjs 比结果文件新（${fmt(selfMtime)} > ${fmt(resMtime)}），但变异表/规则/引擎指纹均匹配 —— 仅判定逻辑（judge）改动，48 树原始数据仍有效，结论按新逻辑解析；如需时间戳洁净请重跑 --emit-prep/--emit-run`);
+        }
+    } catch (e) { /* 拿不到 mtime 不拦 */ }
+    return { why, warn };
 }
 
 // 牙 → 守卫契约映射的**唯一来源读取**（V2.9.17 | 第 157 轮）。
@@ -748,6 +755,11 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
             return { verdict: '对照器有牙' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
         }
         if (baselineChanged) return { verdict: '❌装饰品(仅基线能察觉)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+        // V2.9.20 修「真盲区」误判：TEXT 变异让基线已红规则报出新明细（被掩盖的真牙），原逻辑直接判
+        //   「真盲区」会掩盖真牙——典型如 T12 白骨爪随 _base 浮点尾巴红被掩盖、T17/T18 惑心换位随 rule113
+        //   基线红被掩盖。仅对 TEXT（专测 fact 文本/数值，不改战斗轨迹）放行：masked 非空即变异确有观测
+        //   效应，按有牙记并标注掩盖数，与「未观测到影响」（变异行零执行，masked 必空）严格区分。
+        if (masked.length > 0) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
         return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     }
     if (statClean > 0) return { verdict: '规则无牙·对照器兜住' + gbit, effective, baselineChanged, fpChanged, newDetail, newRed, statMasked };
