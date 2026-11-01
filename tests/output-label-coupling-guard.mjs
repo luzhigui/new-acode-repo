@@ -1,4 +1,15 @@
-// tests/output-label-coupling-guard.mjs | V3.2.0 | 2026-11-02 夜间第 174 轮
+// tests/output-label-coupling-guard.mjs | V3.3.0 | 2026-11-02 夜间第 175 轮
+//   V3.3.0 | 2026-11-02 夜间第 175 轮：★ 線一（pickParsers）的候选识别与段零/段一B**统一地基** ——
+//           第 174 轮只收口了段一B 的 pickRrParsers，线一仍挂在旧粗扫 RE_LITERAL 上。
+//           实测守门自己身上就有三条假候选：段四自证素材 CON_OK / CON_FULL / conC 是"合成样本源码"
+//           字符串，里面的 /^([A-Z]…)\\s+声明…/ 被旧粗扫整条切出当消费者；它们编译后 \\s 匹配
+//           字面反斜杠 ⇒ 必然匹配不上真样本行 ⇒ 一旦 SELF 进清单，线一立刻挂三条假红。
+//           改法：pickParsers 改走 scanRegexLiterals，与通道 A/B、段一B 同一套。判据零放宽
+//           （四重筛子一条不减、真正则过宽照报、消费者下限闸门照旧），换地基前后线一结论逐条一致。
+//           新增段五「旧地基残留普查」：每轮自动列出 ①还有几处解析侧仍在用 RE_LITERAL 旧粗扫
+//           （含守门自己）②旧粗扫比新地基多扫出几条（全是自产假候选）⇒ 把第 174 轮
+//           「换地基必须全仓搜一遍」这句人话变成机制。仍只点名不收口。
+//           自证牙 39 → 44 条（新增 Z10/Z11 线一双向 + Z12~Z14 段五能咬与不恒红）。
 //   V3.2.0 | 2026-11-02 夜间第 174 轮：★ 段一B（线四）的候选识别与段零**统一地基** ——
 //           第 170 轮给通道 A/B 换 scanRegexLiterals 时漏了 pickRrParsers 这一处，
 //           同一份守门里留下两套地基，通道 B 已治好的那款病在段一B 继续活着：
@@ -94,7 +105,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/output-label-coupling-guard.mjs V3.2.0';
+export const VER = 'tests/output-label-coupling-guard.mjs V3.3.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -254,19 +265,27 @@ function stripCommentLines(src) {
 }
 
 // ---------- 消费者侧：扫正则字面量与合成样本行 ----------
+// ★ V3.3.0（第 175 轮）：粗筛的**地基**换新 —— 与第 174 轮段一B 那款病同源，只是病在线一。
+//   旧写法拿 RE_LITERAL 粗扫：源码里任意两撇斜杠都当正则边界。实测守门**自己**身上就有三条：
+//   段四自证牙的素材 CON_OK / CON_FULL / conC 是"合成样本源码"**字符串**，里面写着
+//   /^([A-Z][A-Z_0-9]*)\\s+声明\\s+(\\d+)\\s+条\\s+·…/，被粗扫整条切出来当候选消费者。
+//   它们编译后 \\s 匹配的是字面反斜杠，必然匹配不上真样本行 ⇒ 一旦被扫进线一，
+//   立刻挂三条「该消费者会静默解析出 0 行」的**假红**（假候选 → 假红，与段一B 同一条链路）。
+//   今天没挂，只是因为 all 里 `if (rel === SELF) continue;` 把守门自己剔掉了 —— 那是运气，不是机制。
+//   改法：改走 scanRegexLiterals（与通道 A/B、段一B 同一套地基）：字符串与模板字面量整段跳过。
+//   ★ 判据零放宽：四重筛子（含声明 / 含条 / 含· / 带 \s\d 元字符）一条不减，
+//     真正则过宽照报、消费者下限闸门照旧。实测换地基前后线一结论逐条一致（2 个文件 2 条）。
 function pickParsers(src) {
     const out = [];
-    const re = new RegExp(RE_LITERAL.source, 'g');
-    let m;
-    while ((m = re.exec(String(src)))) {
-        const body = m[0].slice(1, m[0].length - 1 - (m[1] || '').length);
+    for (const rx of scanRegexLiterals(String(src))) {
+        const body = rx.body;
         if (body.indexOf('声明') < 0) continue;
         if (body.indexOf('条') < 0) continue;
         if (body.indexOf('·') < 0) continue;
         // ★ 必须是真正则（含 \s / \d 这类元字符）：否则注释正文里那句
         //   「行形如 BREAK_DEF 声明 610 条 · 命中 0 …」也会被当成一条解析器。
         if (!/\\[sd]\+?/.test(body)) continue;
-        out.push({ body, flags: m[1] || '', index: m.index });
+        out.push({ body, flags: rx.flags || '', index: rx.index });
     }
     return out;
 }
@@ -735,6 +754,126 @@ function censusSharedRegexes(files, claimed) {
     return rows;
 }
 
+// ---------- 段五：旧地基残留普查（第 175 轮新增，只点名、不收口） ----------
+// ★ 由头（第 174 轮备忘的原话，本轮把它从"人话"变成机制）：
+//   守门内部曾长期住着两套正则地基 —— 第 170 轮给通道 A/B 换了 scanRegexLiterals，
+//   第 174 轮补上段一B 的 pickRrParsers，却**仍漏了线一的 pickParsers 与线二的 pickFacets**。
+//   ⇒ "换地基必须全仓搜一遍还有谁在用旧的那套，只换一半等于把病留半边"。
+//   那一轮是靠人翻出来的。本段每轮自动打两件事：
+//     ① 还有几处解析侧仍挂在旧粗扫 RE_LITERAL 上（含守门自己 —— 残留最爱住在自己身上）；
+//     ② 旧粗扫比新地基多扫出几条候选（多出来的**全是自产的假候选**，真候选两边都有）。
+// ★ 只点名、不收口（沿用第 152 / 173 轮的取舍）：把某处解析侧换到新地基 ＝ 动那一线的候选识别
+//   口径，须拍板。本段只负责让「还剩几处、多扫出几条」每轮自动打出来，别再靠人翻。
+const RE_STALE_FOUNDATION = /new\s+RegExp\(\s*RE_LITERAL\.source/;
+// 点名打印上限（只截断打印，不截断内部判定与牙）
+const MAX_STALE_PRINT = 10;
+// 假候选明细打印上限：实测每扫一遍全仓旧地基就自产 500 多条，逐条打印是纯噪音
+const MAX_GAP_PRINT = 3;
+// 豁免表：这 2 处是**刻意**留着旧粗扫的，不是"换地基漏了一半"，不进残留数。
+//   ① literalBody（段二 线二用）：它不扫源码 —— 输入已经是**一条**正则字面量，
+//      只负责把首尾斜杠去掉还原成 body ⇒ 根本不存在"两撇斜杠之间切出假正则"的路径。
+//   ② foundationGap（本段自己）：它拿旧粗扫当**对照组**，专用来数"旧地基比新地基多扫出几条"。
+//      把它换成新地基 ⇒ 本段把自己的尺子折了，第 ② 栏这条证据从此消失。
+//   ★ 豁免表要在册、不许改个数吞（沿用第 173 轮第三份强制开关白名单的口径）：
+//     冒出第 3 处只能走拍板进表，不许直接把上限抬一格。牙 Z15/Z16 双向钉住这两条。
+const STALE_ALLOW = new Set([
+    'tests/output-label-coupling-guard.mjs@literalBody',
+    'tests/output-label-coupling-guard.mjs@foundationGap'
+]);
+const MAX_STALE_ALLOW = 2;
+const RE_FN_DECL = /^(?:export\s+)?function\s+([A-Za-z_$][\w$]*)/;
+
+// ★ 把字符串 / 模板字面量的内容抹成等长空格（不删换行 ⇒ 行号不变，可以直接报行号）。
+//   不抹会怎样：守门自己身上就有一处 —— 段四牙 Z12 的素材字符串里写着
+//   'const re = new RegExp(RE_LITERAL.source, "g");'，被本段整条扫出来当"残留点"。
+//   ⇒ 那是本段**自己自产的候选**，第 169/170 轮那款病（扫描器造出一个解析侧）换个壳又来了。
+//   取舍沿用本线一贯方向：**宁可漏报，绝不自产**。模板字面量整段抹掉 ⇒ 里面 ${} 插值里
+//   万一真有一处旧地基，本段会漏 —— 但漏报是"没看见"，自产是"看见了个不存在的东西"，
+//   后者会直接把人引到假红上。
+function blankStrings(src) {
+    const s = String(src);
+    const out = s.split('');
+    const n = s.length;
+    let i = 0;
+    while (i < n) {
+        const ch = s[i];
+        if (ch === '/' && s[i + 1] === '/') {
+            while (i < n && s[i] !== '\n') { out[i] = ' '; i++; }
+            continue;
+        }
+        if (ch === '/' && s[i + 1] === '*') {
+            while (i < n && !(s[i] === '*' && s[i + 1] === '/')) { out[i] = ' '; i++; }
+            if (i < n) { out[i] = ' '; i++; }
+            if (i < n) { out[i] = ' '; i++; }
+            continue;
+        }
+        if (ch === '"' || ch === "'" || ch === '`') {
+            const q = ch;
+            out[i] = ' ';
+            i++;
+            while (i < n) {
+                if (s[i] === '\\') { out[i] = ' '; if (i + 1 < n) out[i + 1] = ' '; i += 2; continue; }
+                if (s[i] === q) { out[i] = ' '; i++; break; }
+                // ★ 换行符一律保留（模板字面量可以跨行）：抹掉它行数就少了 300 多行，
+                //   报出来的行号整体偏移 ⇒ 拿行号当坐标的普查立刻作废（本轮实测 1385 → 1079）。
+                if (s[i] === '\n') {
+                    if (q !== '`') break;
+                    i++;
+                    continue;
+                }
+                out[i] = ' ';
+                i++;
+            }
+            continue;
+        }
+        i++;
+    }
+    return out.join('');
+}
+
+// ① 旧地基残留点：谁还在 new RegExp(RE_LITERAL.source, ...) 当解析侧地基
+//   ★ 归属到**函数**再判豁免：同一个文件里既住着刻意的对照组、也可能住着漏换的解析侧，
+//     只看文件名会把两者一起豁免掉（第 173 轮「只看取值不看名字」那条线索的反向应用）。
+function findStaleSites(rawList) {
+    const sites = [];
+    for (const f of rawList) {
+        const rawLines = String(f.raw).split('\n');
+        const lines = blankStrings(String(f.raw)).split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            if (!RE_STALE_FOUNDATION.test(lines[i])) continue;
+            let owner = '';
+            for (let j = i; j >= 0; j--) {
+                const m = RE_FN_DECL.exec(lines[j]);
+                if (m) { owner = m[1]; break; }
+            }
+            const key = f.file + '@' + owner;
+            if (STALE_ALLOW.has(key)) continue;
+            sites.push({ file: f.file, line: i + 1, owner, text: (rawLines[i] || '').trim() });
+        }
+    }
+    return sites;
+}
+
+// ② 同一份源码上，旧粗扫比新地基多扫出哪些候选（多余的即自产假候选）
+function foundationGap(src) {
+    const s = String(src);
+    const oldBodies = [];
+    const re = new RegExp(RE_LITERAL.source, 'g');
+    let m;
+    while ((m = re.exec(s))) {
+        const lit = m[0];
+        // 空 body（`//` 之类）不算，也不许它把 lastIndex 卡住
+        if (lit.length <= 2) continue;
+        oldBodies.push(lit.slice(1, lit.length - 1 - (m[1] || '').length));
+    }
+    const newSet = new Set(scanRegexLiterals(s).map(r => r.body));
+    const extra = [];
+    for (const b of oldBodies) {
+        if (b.length && !newSet.has(b)) extra.push(b);
+    }
+    return { oldN: oldBodies.length, newN: newSet.size, extra };
+}
+
 // ---------- 段三：真跑对账（纯函数：给定输出文本 + 列名 + 消费者列表） ----------
 function crossCheck(out, prod, consumers) {
     const f = [];
@@ -1016,6 +1155,51 @@ function teeth() {
     t('牙Z9', z9.length === 1 && z9[0].body.indexOf('规则回放自检') >= 0,
         '线四 真正的消费者正则（在字符串外）⇒ 换地基后仍须扫得出（不许连真也一起看不见）');
 
+    // ---- 牙 Z10/Z11（第 175 轮）：线一地基换新的**双向**牙 ----
+    //   由头：与 Z8/Z9 同一款病，只是这次病在线一。守门自己的自证素材 CON_OK / CON_FULL /
+    //   conC 是"合成样本源码"**字符串**，里面的 /^([A-Z][A-Z_0-9]*)\\s+声明…/ 被旧粗扫整条切出来
+    //   当候选消费者；它们编译后 \\s 匹配字面反斜杠 ⇒ 必然匹配不上真样本行 ⇒ 假红。
+    //   ⇒ 今天没挂只是因为 all 剔了 SELF。本轮把线一换到新地基，并钉死这两条。
+    const L1_STR_PROSE = 'const CON_OK = "        const mc = line.match(/^([A-Z][A-Z_0-9]*)\\\\s+声明'
+        + '\\\\s+\\\\d+\\\\s+条\\\\s+·\\\\s+重复应用\\\\s+(\\\\d+)/);";';
+    t('牙Z10', pickParsers(L1_STR_PROSE).length === 0,
+        '线一 字符串字面量里的合成样本源码 ⇒ 不得自产解析侧（本轮抓到的三条假候选就是这么来的）');
+
+    const L1_TRUE_CON = 'const m = line.match(/^([A-Z][A-Z_0-9]*)\\s+声明\\s+(\\d+)\\s+条\\s+·\\s+重复应用\\s+(\\d+)/);';
+    const z11 = pickParsers(L1_TRUE_CON);
+    t('牙Z11', z11.length === 1 && z11[0].body.indexOf('声明') >= 0,
+        '线一 真正的消费者正则（在字符串外）⇒ 换地基后仍须扫得出（不许连真也一起看不见）');
+
+    // ---- 牙 Z12/Z13（第 175 轮）：段五**能不能咬**的双向牙 ----
+    //   ★ 没有这两条，段五报「残留 1 处 / 多扫出 0 条」时无从分辨是"真干净"还是"检测器失灵"。
+    const staleRows = findStaleSites([{
+        file: 't.mjs',
+        raw: 'function zz() {\n    const re = new RegExp(RE_LITERAL.source, "g");\n}\n'
+    }]);
+    t('牙Z12', staleRows.length === 1 && staleRows[0].line === 2,
+        '段五 源码里有一处 new RegExp(RE_LITERAL.source) ⇒ 须点名 1 处且报对行号（缺 ⇒ 残留普查失灵）');
+
+    // 同一个合成源码上，旧粗扫多扫出的假候补须被段五数出来（多的是自产的，真候选两边都有）
+    // ★ 噪声必须带**两撇**斜杠才切得出假正则：只有一撇时旧粗扫自己也凑不出正则边界
+    //   （这条是牙 Z13 上一版没咬住的真因 —— 拿单斜杠当噪声，等于拿空气当地基喂）
+    const GAP_SRC = "const p = 'content/002-hex-enhance.json 读取/解析失败';\n"
+        + 'const q = out.match(/ok\\s+(\\d+)/);\n';
+    const gap = foundationGap(GAP_SRC);
+    t('牙Z13', gap.extra.length >= 1 && gap.newN === 1,
+        '段五 噪声多、真正则 1 条 ⇒ 须报旧地基多扫出 ≥1 条、新地基仍扫得出那 1 条真候选');
+
+    t('牙Z14', foundationGap('const q = out.match(/ok\\s+(\\d+)/);').extra.length === 0,
+        '段五 纯代码无字符串噪声 ⇒ 差异 0 条（不许把旧地基的账算到新地基头上、也不许恒红）');
+
+    // 豁免表的双向牙（第 173 轮第三份强制开关白名单同款口径）
+    const ALLOW_FN = 'function literalBody() {\n    const re = new RegExp(RE_LITERAL.source, "g");\n}\n';
+    t('牙Z15', findStaleSites([{ file: 'tests/output-label-coupling-guard.mjs', raw: ALLOW_FN }]).length === 0,
+        '段五 豁免表在册的刻意对照组 ⇒ 不计数（缺 ⇒ 每轮刷屏，真残留被自己的对照组淹掉）');
+
+    const FAKE_FN = ALLOW_FN.replace('literalBody', 'zzFake');
+    t('牙Z16', findStaleSites([{ file: 'tests/output-label-coupling-guard.mjs', raw: FAKE_FN }]).length === 1,
+        '段五 豁免表在册之外的同款写法 ⇒ 仍须点名（不许把豁免表当万能、改个数就能吞）');
+
     return res;
 }
 
@@ -1151,8 +1335,56 @@ function main() {
         console.log('  ★ 观察项：这一栏是「机器列出来、人去认领」的候选，不是红；'
             + ' 下一条耦合线不必等人想起来。');
     }
-    console.log('  （认领表：通道A ' + claimed.size + ' 条 = 线一消费者正则 + 线二结论关键词正则 + 线四场次正则；'
+    console.log('  （认领表：通道A ' + claimed.size + ' 条 = 线一消费者正则 + 线二结论关键词正则 + 四场次正则；'
         + ' 通道B ' + claimedSkel.size + ' 条骨架）');
+
+    // ---------- 段五 旧地基残留普查（第 175 轮新增，只点名不收口） ----------
+    // ★ 段零/段一都把守门自己剔掉了（SELF），但旧地基的残留**最爱住在守门自己身上**
+    //   ⇒ 本段刻意把 SELF 收进来一起扫，否则普查面本身就是残缺的（第 173 轮「扫哪些目录」那款病）。
+    console.log('--- 段五 旧地基残留普查（只点名、不收口）---');
+    const rawList = [];
+    for (const f of fs.readdirSync(here)) {
+        if (!f.endsWith('.mjs')) continue;
+        rawList.push({ file: 'tests/' + f, raw: fs.readFileSync(path.join(here, f), 'utf8') });
+    }
+    if (rawList.length < MIN_TESTS_FILES) {
+        fails.push('段五 tests/ 只读到 ' + rawList.length + ' 个 .mjs（规模闸门 ' + MIN_TESTS_FILES + '）'
+            + ' ⇒ 残留普查面不完整，扫出的「没有残留」不可采信');
+    }
+    const staleSites = findStaleSites(rawList);
+    console.log('  仍在用 RE_LITERAL 旧粗扫的解析侧  ' + staleSites.length + ' 处'
+        + (staleSites.length ? '：' : ' ⇒ 全仓已统一到 scanRegexLiterals')
+        + '（豁免在册 ' + STALE_ALLOW.size + '/' + MAX_STALE_ALLOW + ' 处：literalBody 还原器 / foundationGap 对照组，'
+        + '第 3 处只能走拍板进表）');
+    for (const s of staleSites.slice(0, MAX_STALE_PRINT)) {
+        console.log('     · ' + s.file + ' L' + s.line + '  ' + s.text.slice(0, 96));
+    }
+    // 豁免表棘轮：上限不许被直接抬一格吞掉新残留（第 173 轮第三份强制开关白名单同款口径）
+    if (STALE_ALLOW.size > MAX_STALE_ALLOW) {
+        fails.push('段五 豁免表 ' + STALE_ALLOW.size + ' 条 > 上限 ' + MAX_STALE_ALLOW
+            + ' ⇒ 有人直接抬了上限把新残留吞掉，不许；第 3 处须走拍板进表');
+    }
+    let oldN = 0;
+    let newN = 0;
+    const extras = [];
+    for (const f of rawList) {
+        const g = foundationGap(stripCommentLines(f.raw));
+        oldN += g.oldN;
+        newN += g.newN;
+        for (const b of g.extra) extras.push({ file: f.file, body: b });
+    }
+    console.log('  旧粗扫 vs scanRegexLiterals 全仓候选数：旧 ' + oldN + ' 条 / 新 ' + newN
+        + ' 条 ⇒ 旧地基多扫出 ' + extras.length + ' 条（全是自产假候选，打印前 '
+        + Math.min(extras.length, MAX_GAP_PRINT) + ' 条）');
+    for (const e of extras.slice(0, MAX_GAP_PRINT)) {
+        console.log('     · ' + e.file + '  ' + e.body.slice(0, 72));
+    }
+    console.log('  ★ 这 ' + extras.length + ' 条不是"旧地基少扫了"，是它每扫一遍全仓就造出 '
+        + extras.length + ' 个不存在的正则 —— 换地基前，本仓的解析侧就是在这堆噪声里挑候选。');
+    if (staleSites.length) {
+        console.log('  ★ 只点名不收口：换地基须全仓，只换一半等于把病留半边（第 174 轮备忘）。'
+            + ' 把某处解析侧换到新地基＝动那一线的候选识别口径，须拍板。');
+    }
 
     // ---------- 段三 真跑 ----------
     console.log('--- 段三 真跑账本对照并对账 ---');
