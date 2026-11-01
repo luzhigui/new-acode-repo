@@ -215,6 +215,17 @@
         .cell-rate { font-weight: bold; }
         .cell-sub { color: #aaa; font-size: 11px; }
         .elite-v-th { writing-mode: vertical-rl; text-orientation: upright; height: 70px; white-space: nowrap; vertical-align: bottom; }
+        /* 2026-11-01：长说明折叠（一句 + 「略」点开） */
+        .tip-more { color: #4fc3f7; cursor: pointer; font-weight: bold; user-select: none; }
+        .tip-more-body { display: none; }
+        .tip-more-body.open { display: block; }
+        /* 2026-11-01：工具数据总览 */
+        .do-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+        .do-table th { background: #2a2a4e; color: #ffd700; padding: 6px 8px; text-align: left; }
+        .do-table td { padding: 6px 8px; border-bottom: 1px solid #333; color: #ccc; }
+        .do-kb { color: #4fc3f7; font-weight: bold; }
+        .do-clear { background: #f44336; color: #fff; border: 0; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+        .do-clear:disabled { background: #444; color: #888; cursor: default; }
     </style>
 </head>
 <body>
@@ -228,12 +239,9 @@
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
     </div>
     <div class="tool-links">
-        <button class="tool-link-btn" id="btnOpenLogViewer">🕹️ 日志复盘</button>
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
         <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
-        <button class="tool-link-btn" id="btnOpenParamLab">🧪 参数实验台</button>
         <button class="tool-link-btn" id="btnOpenRoleRandom">⚖️ 全随机站位</button>
-        <button class="tool-link-btn" id="btnOpenEliteContrib">🧬 弱精英机制贡献</button>
         <button class="tool-link-btn" id="btnOpenBalanceAlert">🚨 平衡告警</button>
     </div>
 
@@ -273,6 +281,34 @@
                 <span class="tc-desc">已下线存档，仅试听</span>
                 <button class="tc-open">打开</button>
             </div>
+            <!-- 2026-11-01：日志复盘 / 参数实验台 / 弱精英机制贡献 从顶部按钮收进备用区（老板要求） -->
+            <div class="tc-card" data-tool="logviewer">
+                <span class="tc-head"><span class="tc-icon">🕹️</span><span class="tc-title">日志复盘</span></span>
+                <span class="tc-desc">逐回合回放战报</span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="paramlab">
+                <span class="tc-head"><span class="tc-icon">🧪</span><span class="tc-title">参数实验台</span></span>
+                <span class="tc-desc">固定阵容改参数对照</span>
+                <button class="tc-open">打开</button>
+            </div>
+            <div class="tc-card" data-tool="elitecontrib">
+                <span class="tc-head"><span class="tc-icon">🧬</span><span class="tc-title">弱精英机制贡献</span></span>
+                <span class="tc-desc">配对测机制触发与胜率 Δ</span>
+                <button class="tc-open">打开</button>
+            </div>
+            <!-- 2026-11-01：工具数据总览——各工具占用 + 分项清空（只碰工具结果，不动游戏存档） -->
+            <div class="tc-card" data-tool="dataoverview">
+                <span class="tc-head"><span class="tc-icon">🗄️</span><span class="tc-title">工具数据总览</span></span>
+                <span class="tc-desc">各工具占用 + 分项清空</span>
+                <button class="tc-open">打开</button>
+            </div>
+        </div>
+
+        <div class="tc-panel" id="tcPanel-dataoverview" hidden>
+            <div style="color:#ffd700;font-size:13px;font-weight:bold;margin-bottom:6px;">🗄️ 工具数据总览</div>
+            <div style="color:#888;font-size:11px;margin-bottom:8px;">只统计 / 清理<b>工具跑批产生的结果</b>；游戏进度、解锁、设置、商店等存档一律不动。</div>
+            <div id="dataOverviewBody"></div>
         </div>
 
         <div class="tc-panel" id="tcPanel-stats" hidden>
@@ -388,13 +424,13 @@
 
     <div class="tab-content" id="tab-elite-eval">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            自动跑各关 × N 场<b>普通对局</b>，输出各明教精英带队胜率、场均输出、场均承伤、存活率。<br>
+            自动跑各关 × N 场普通对局，输出各明教精英带队胜率、场均输出/承伤/存活。<span class="tip-more">▸ 略</span>
+        </p>
+        <p class="tip-more-body" style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             列 = 明教六名精英：张无忌（M115 boss）/ 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒（M107 强精英，按 30% 概率混入）——谁在场记给谁，胜 = 明教获胜。<br>
-            行 = 关卡，按敌方阵容拆行：第3关轮换阵容拆成「·胖远桥」「·宋青书」两行分开看胜率——遇到谁更难打一眼分明。<br>
-            纯走引擎原逻辑（出率 / 站位 / 每 3 回合海克斯），不做强制上场，同场共现是真实环境。<br>
-            因此各精英样本量不同：张无忌约 40% 的局在场、韦一笑约 33%、姐妹各约 17%、寒离飒约 30%。<b>每关 1200 局</b> ≈ 张无忌 480 场 / 韦一笑 400 场 / 姐妹各 200 场。<br>
-            另有四张<b>控制变量表</b>（共用右侧「单英雄/无精英场数」）：⚔ 强精英（韦一笑/小昭姊妹/谢逊/寒离飒逐一单核）、👑 Boss·张无忌、
-            🛡 无精英基线（明教一个精英不出）、🐦 弱精英评测（明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮单测，同关同变体配自然对照臂、直接出胜率 Δ）。
+            行 = 关卡，按敌方阵容拆行：第3关轮换阵容拆成「·胖远桥」「·宋青书」两行分开看胜率。<br>
+            纯走引擎原逻辑（出率 / 站位 / 每 3 回合海克斯），不做强制上场，同场共现是真实环境。样本量因此不同：张无忌约 40%、韦一笑约 33%、姐妹各约 17%、寒离飒约 30%；每关 1200 局 ≈ 张无忌 480 / 韦一笑 400 / 姐妹各 200。<br>
+            另有四张控制变量表（共用「控制变量场数」）：⚔ 强精英、👑 Boss·张无忌、🛡 无精英基线、🐦 弱精英评测。
         </p>
         <div class="elite-config">
             <label>每关总场次：</label>
@@ -456,9 +492,6 @@
             });
         }
 
-        document.getElementById('btnOpenLogViewer').addEventListener('click', () => {
-            window.openLogViewer();
-        });
         document.getElementById('btnOpenHexDashboard').addEventListener('click', () => {
             window.openHexDashboard();
         });
@@ -483,9 +516,7 @@
             mask.querySelector('.tf-frame').src = url;
             mask.style.display = 'flex';
         }
-        document.getElementById('btnOpenParamLab').addEventListener('click', () => openInPage('120-param-lab.html', '🧪 参数实验台'));
         document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('110-role-balance-random.html', '⚖️ 全随机站位'));
-        document.getElementById('btnOpenEliteContrib').addEventListener('click', () => openInPage('138-elite-contrib.html', '🧬 弱精英机制贡献'));
         document.getElementById('btnOpenBalanceAlert').addEventListener('click', () => {
             window.openBalanceAlert();
         });
@@ -495,7 +526,7 @@
         (function () {
             const grid = document.querySelector('.tc-grid');
             if (!grid) return;
-            const PANELS = { stats: 'tcPanel-stats', baseline: 'tcPanel-baseline', lineup: 'tcPanel-lineup' };
+            const PANELS = { stats: 'tcPanel-stats', baseline: 'tcPanel-baseline', lineup: 'tcPanel-lineup', dataoverview: 'tcPanel-dataoverview' };
             function closeAll() {
                 document.querySelectorAll('.tc-panel').forEach(p => { p.hidden = true; });
                 document.querySelectorAll('.tc-card').forEach(c => c.classList.remove('active'));
@@ -506,6 +537,10 @@
                     if (key === 'idea') { openInPage('134-idea-lab.html', '🎲 创意摸奖'); return; }
                     if (key === 'param') { openInPage('135-param-scan.html', '📊 参数扫描'); return; }
                     if (key === 'voice') { window.openVoicePanel(); return; }
+                    if (key === 'logviewer') { window.openLogViewer(); return; }
+                    if (key === 'paramlab') { openInPage('120-param-lab.html', '🧪 参数实验台'); return; }
+                    if (key === 'elitecontrib') { openInPage('138-elite-contrib.html', '🧬 弱精英机制贡献'); return; }
+                    if (key === 'dataoverview') { renderDataOverview(); }
                     const panel = document.getElementById(PANELS[key]);
                     if (!panel) return;
                     const wasOpen = !panel.hidden;
@@ -517,6 +552,61 @@
                 });
             });
         })();
+
+        // ==================== 2026-11-01：长说明折叠（一句 + 「略」点开） ====================
+        document.addEventListener('click', e => {
+            const m = e.target.closest('.tip-more');
+            if (!m) return;
+            const body = m.closest('p').nextElementSibling;
+            if (!body) return;
+            const open = body.classList.toggle('open');
+            m.textContent = open ? '▾ 收起' : '▸ 略';
+        });
+
+        // ==================== 2026-11-01：工具数据总览 ====================
+        // 只统计 / 清理工具跑批结果；游戏存档（进度/解锁/设置/商店/宝箱/token）一律不进这张表。
+        const DATA_GROUPS = [
+            { label: '生涯记录 · 单海克斯', keys: ['ming_career_log_5v5_test'] },
+            { label: '生涯记录 · 双海克斯', keys: ['ming_career_log_5v5_dual'] },
+            { label: '生涯记录 · 元信息（丢弃计数）', keys: ['ming_career_log_5v5_meta'] },
+            { label: '108 海克斯跑批日志', prefix: 'ming_hex_battle_log' },
+            { label: '112 精英评测快照', keys: ['ming_elite_eval_snaps'] },
+            { label: '134 创意摸奖 · 收藏', keys: ['ming_idea_pinned'] },
+            { label: '135 参数扫描结果', keys: ['ming_param_scan_result', 'ming_param_search_result'] },
+            { label: '138 弱精英机制贡献', keys: ['ming_weak_elite_contrib'] },
+            { label: '137 语音解说存档', keys: ['ming_voice_commentary'] }
+        ];
+        const lsAllKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+        const lsSizeOf = k => { try { return (localStorage.getItem(k) || '').length; } catch (e) { return 0; } };
+        function groupKeys(g) {
+            if (g.keys) return g.keys.filter(k => localStorage.getItem(k) !== null);
+            return lsAllKeys().filter(k => k.startsWith(g.prefix));
+        }
+        function renderDataOverview() {
+            const host = document.getElementById('dataOverviewBody');
+            if (!host) return;
+            let rows = '';
+            let totalChars = 0;
+            DATA_GROUPS.forEach((g, gi) => {
+                const ks = groupKeys(g);
+                const chars = ks.reduce((a, k) => a + lsSizeOf(k), 0);
+                totalChars += chars;
+                rows += `<tr><td>${g.label}</td><td>${ks.length} 项</td>`
+                    + `<td class="do-kb">${ks.length ? (chars / 1024).toFixed(1) + ' KB' : '—'}</td>`
+                    + `<td><button class="do-clear" data-g="${gi}" ${ks.length ? '' : 'disabled'}>清空</button></td></tr>`;
+            });
+            host.innerHTML = `<div style="color:#aaa;font-size:12px;margin-bottom:6px;">工具结果合计 <span class="do-kb">${(totalChars / 1024).toFixed(1)} KB</span>（按字符数估算，中文约 3 字节/字）</div>`
+                + '<table class="do-table"><tr><th>来源</th><th>条目</th><th>占用</th><th>操作</th></tr>' + rows + '</table>';
+            host.querySelectorAll('.do-clear').forEach(b => b.addEventListener('click', () => {
+                const g = DATA_GROUPS[parseInt(b.dataset.g, 10)];
+                const ks = groupKeys(g);
+                if (!ks.length) return;
+                const kb = (ks.reduce((a, k) => a + lsSizeOf(k), 0) / 1024).toFixed(1);
+                if (!confirm(`清空「${g.label}」的 ${ks.length} 项（${kb} KB）？只清工具结果，不动游戏存档。`)) return;
+                ks.forEach(k => localStorage.removeItem(k));
+                renderDataOverview();
+            }));
+        }
     </script>
 
     <script type="module" src="./107-battle-log-viewer.js"></script>
