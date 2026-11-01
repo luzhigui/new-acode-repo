@@ -102,7 +102,7 @@ export const VER = 'tools/106-ai-pack-config.js V6.0.57';
 // 2026-09-16 73/74 两版备选CG 已从仓库删净（无引用），排除表清空。
 // 2026-10-31 用户拍板：新手引导 / 开场CG / 角色名片（图鉴）/ 海克斯手选弹窗属纯演出层，
 //   网页端改战斗逻辑用不上 → 剔出复制包（共省约 42 KB）。游戏运行不受影响（只影响发包）。
-//   ⚠️ 这些文件被主控 import（ui/61/62/63/64/65/75/76、render/32），包内会出现「import 指向缺失文件」，
+//   ⚠️ 这些文件被主控 import（ui/702/703/704/705/706/716/717、render/414），包内会出现「import 指向缺失文件」，
 //   属预期而非 bug；AI_INTERFACE_NOTE 与 103 的索引/路径清单都从本集合自动生成说明，改这里不用改文案。
 export const AI_EXCLUDE = new Set([
     '../ui/712-tutorial.js',        // 新手引导（日志区提示面板 + 浮动箭头）
@@ -187,6 +187,8 @@ export const ALL_PROJECT_FILES = [
     '../ui/721-perf-panel.js',
     // 2026-10-31 补登记 81：buff 提示浮层（漏登则包内 import 断裂）
     '../ui/722-buff-tooltip.js',
+    // 2026-11-01 补登记 714：联网从机 / 战报回放共用的会话初始化件（716、717 已 import，漏登则包内断链）
+    '../ui/714-session-common.js',
     // fx（特效）
     '../fx/601-fx-common-5v5-test.js', '../fx/602-fx-arrows-5v5-test.js', '../fx/603-fx-crash-5v5-test.js',
     '../fx/604-fx-position-swap.js', '../fx/605-fx-push-back.js', '../fx/606-fx-dodge-bullet.js',
