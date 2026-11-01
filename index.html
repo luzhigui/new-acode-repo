@@ -112,14 +112,19 @@
         .cell[data-flash="defend"] { background: #f1c40f !important; border-color: #b8960a !important; box-shadow: 0 0 20px #f1c40f; z-index: 999 !important; transform: scale(1.1); }
         .cell[data-flash="defend"] .cell-name, .cell[data-flash="defend"] .cell-stats { color: #333 !important; }
         .cell[data-flash="dead"] { background: #e74c3c !important; border-color: var(--c-danger) !important; z-index: 1000 !important; }
-        /* 金刚不坏护罩（空见）：淡金色半透明罩子扣在格子上，数据源 unit.state._immuneShield */
+        /* 金刚不坏护罩（空见）：淡金色半透明罩子扣在格子上，数据源 unit.state._immuneShield
+           2026-11-02 修「贴膜糊字」：原版 ::after z3 / ::before z4 压在攻血文字上方（普通流内容比定位伪元素低）
+           → 空见的攻防血全程被金膜+白高光罩着读不清（老板手机实锤）。
+           改法：格子 isolation:isolate 圈出层叠域，两层膜负压到格子背景之上、文字之下——
+           边框光晕呼吸感全保留，字从膜底下解放出来永远清晰。 */
+        .cell.has-immune-shield { isolation: isolate; }
         .cell.has-immune-shield::after {
             content: '';
             position: absolute;
             inset: -3px;
             border-radius: 9px;
             pointer-events: none;
-            z-index: 3;
+            z-index: -2;
             background: radial-gradient(ellipse at 50% 28%,
                 rgba(255,246,210,0.30) 0%,
                 rgba(255,226,140,0.16) 46%,
@@ -131,7 +136,7 @@
                 0 0 9px rgba(255,200,80,0.42);
             animation: immuneShieldBreath 2.6s ease-in-out infinite;
         }
-        /* 罩子顶面高光：倒扣感 */
+        /* 罩子顶面高光：倒扣感（-1 垫在 ::after(-2) 之上，保住原版高光在罩上的层序） */
         .cell.has-immune-shield::before {
             content: '';
             position: absolute;
@@ -139,7 +144,7 @@
             height: 44%;
             border-radius: 50% 50% 0 0 / 100% 100% 0 0;
             pointer-events: none;
-            z-index: 4;
+            z-index: -1;
             background: linear-gradient(180deg,
                 rgba(255,255,255,0.42) 0%,
                 rgba(255,255,255,0.10) 62%,
