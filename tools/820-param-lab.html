@@ -1,5 +1,5 @@
-<!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- 底层口径不变：批量战斗仍在 123-param-lab-worker.js，走 117 workerUrl 覆盖并行；配对 seed 同序同种子。 -->
+<!-- tools/820-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
+<!-- 底层口径不变：批量战斗仍在 823-param-lab-worker.js，走 117 workerUrl 覆盖并行；配对 seed 同序同种子。 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -162,13 +162,13 @@ table.dump td.left{text-align:left}
 <div class="row" id="exportRow"></div>
 
 <script type="module">
-import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-core.js';
-import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
+import { ensureGameData, listNumericKnobs, pickTypicals } from './822-param-lab-core.js';
+import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
     charSkillGroups, charGroupKeyOf, isMirroredSkillField, knobWhatIf,
-    isOrphanField, humanToStored, inputHint, isUnreadSkillGroup } from './124-param-lab-glossary.js';
+    isOrphanField, humanToStored, inputHint, isUnreadSkillGroup } from './824-param-lab-glossary.js';
 
-const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
+const WORKER_URL = new URL('./823-param-lab-worker.js', import.meta.url);
 const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
 const COMPARE_BASE = 1;      // 对照 seed 起点（与 CLI 默认一致）
 const SAMPLE_RUNS = 1000;    // 采样次数固定：用来定出「15 套典型阵容」

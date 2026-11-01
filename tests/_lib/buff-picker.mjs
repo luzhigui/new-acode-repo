@@ -25,7 +25,7 @@
 //     团队 Buff 4 回合过期后妹仍持有 ⇒ isXiaoZhaoPermanentActive 各分支可达
 //     （此前回放不建模 ⇒ 妹永久分支全不可达，isBrother=true 零发射实锤）
 //
-// 注意：tools/122-param-lab-core.js 另有一份**有意不合并**的变体（参数实验室自有口径：
+// 注意：tools/822-param-lab-core.js 另有一份**有意不合并**的变体（参数实验室自有口径：
 //   无 carry 门、自带永久处理）——tools/ 是独立域，不随本模块；若两域口径需对齐再单开轮次。
 
 import { CONFIG } from '../../core/201-config-5v5-test.js';

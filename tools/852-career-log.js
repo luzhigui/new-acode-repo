@@ -1,4 +1,4 @@
-// tools/52-career-log.js — 生涯记录统计报表与导出（运行时记账已拆到 modules/332-career-log）
+// tools/852-career-log.js — 生涯记录统计报表与导出（运行时记账已拆到 modules/332-career-log）
 // 只存摘要（阵容/结果/单位统计/回合走势），不存 steps——localStorage 约 5MB，
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
@@ -8,11 +8,11 @@ import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCounts } from '../modules/332-career-log.js';
 // 兼容旧调用面（dev-index 动态 import 本文件）：运行时函数原样转出。
 export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/332-career-log.js';
-// 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
+// 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 827-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
-import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
+import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './827-tool-registry.js';
 
-export const VER = 'tools/52-career-log.js V2.8.1';
+export const VER = 'tools/852-career-log.js V2.8.1';
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在

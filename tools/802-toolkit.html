@@ -516,7 +516,7 @@
             mask.querySelector('.tf-frame').src = url;
             mask.style.display = 'flex';
         }
-        document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('110-role-balance-random.html', '⚖️ 全随机站位'));
+        document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('810-role-balance-random.html', '⚖️ 全随机站位'));
         document.getElementById('btnOpenBalanceAlert').addEventListener('click', () => {
             window.openBalanceAlert();
         });
@@ -534,12 +534,12 @@
             grid.querySelectorAll('.tc-card').forEach(card => {
                 card.addEventListener('click', () => {
                     const key = card.dataset.tool;
-                    if (key === 'idea') { openInPage('134-idea-lab.html', '🎲 创意摸奖'); return; }
-                    if (key === 'param') { openInPage('135-param-scan.html', '📊 参数扫描'); return; }
+                    if (key === 'idea') { openInPage('834-idea-lab.html', '🎲 创意摸奖'); return; }
+                    if (key === 'param') { openInPage('835-param-scan.html', '📊 参数扫描'); return; }
                     if (key === 'voice') { window.openVoicePanel(); return; }
                     if (key === 'logviewer') { window.openLogViewer(); return; }
-                    if (key === 'paramlab') { openInPage('120-param-lab.html', '🧪 参数实验台'); return; }
-                    if (key === 'elitecontrib') { openInPage('138-elite-contrib.html', '🧬 弱精英机制贡献'); return; }
+                    if (key === 'paramlab') { openInPage('820-param-lab.html', '🧪 参数实验台'); return; }
+                    if (key === 'elitecontrib') { openInPage('838-elite-contrib.html', '🧬 弱精英机制贡献'); return; }
                     if (key === 'dataoverview') { renderDataOverview(); }
                     const panel = document.getElementById(PANELS[key]);
                     if (!panel) return;
@@ -609,7 +609,7 @@
         }
     </script>
 
-    <script type="module" src="./107-battle-log-viewer.js"></script>
+    <script type="module" src="./807-battle-log-viewer.js"></script>
     <!-- V6.4.5：108 改「带时间戳动态加载」。手机/Alook 会把 module 缓存住，只推代码不穿缓存 = 没修
          （旧版 108 遇到榜里的 null 条目就抛 Cannot read properties of null (reading 'buffs')）。
          查询串每帧变化，确保每次开工具箱都拿最新 108；108 暴露的是 window.openHexDashboard，
@@ -617,17 +617,17 @@
     <script type="module">
         const s = document.createElement('script');
         s.type = 'module';
-        s.src = './108-hex-dashboard.js?t=' + Date.now();
+        s.src = './808-hex-dashboard.js?t=' + Date.now();
         document.body.appendChild(s);
     </script>
-    <script type="module" src="./109-role-balance.js"></script>
-    <script type="module" src="./103-toolkit.js"></script>
-    <script type="module" src="./112-elite-eval.js"></script>
-    <script type="module" src="./113-stats-check.js"></script>
-    <script type="module" src="./114-baseline-compare.js"></script>
-    <script type="module" src="./115-lineup-search.js"></script>
-    <script type="module" src="./126-balance-alert.js"></script>
-    <script type="module" src="./137-voice-panel.js"></script>
+    <script type="module" src="./809-role-balance.js"></script>
+    <script type="module" src="./803-toolkit.js"></script>
+    <script type="module" src="./812-elite-eval.js"></script>
+    <script type="module" src="./813-stats-check.js"></script>
+    <script type="module" src="./814-baseline-compare.js"></script>
+    <script type="module" src="./815-lineup-search.js"></script>
+    <script type="module" src="./826-balance-alert.js"></script>
+    <script type="module" src="./837-voice-panel.js"></script>
     <script type="module">
         // 数据底座：112 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
         // 数据源是 content/001-game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。

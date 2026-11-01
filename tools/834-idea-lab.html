@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- tools/134-idea-lab.html — 创意摸奖：四类创意 × 三种摸法，随机抽元素拼成卡片，并按引擎现状标合法性
+<!-- tools/834-idea-lab.html — 创意摸奖：四类创意 × 三种摸法，随机抽元素拼成卡片，并按引擎现状标合法性
      V1.3.0 | 2026-11-01 内容加厚 + 收藏：①效果池加 10 条（易伤/净化/反击/连击/嘲讽等，都基于现有类别）、风味池加 10 条、
        海克斯/机制/关卡维度扩充；②单卡「☆ 收藏」，摸一大把只留想要的几条，⭐ 导出收藏（localStorage 持久化）。
      V1.2.0 | 2026-10-31 手感升级：①单卡「重摸」（不满意只换那一张，尽量不与其他卡撞）；②「只看引擎支持」筛选（一键藏掉需扩机制的）。
      V1.1.0 | 2026-10-31 质量升级：①触发↔效果语义配对（TRIGGER_ALLOW，不再抽「死亡时得护盾」这类废话）；
        ②同一把内去重（按一句话签名）；③每张卡加「玩法钩子」一行（按效果类别给怎么用的提示）。
      V1.0.0 | 2026-10-22 新建。纯前端、不跑战斗：只读 content/001-game-data.json 提取引擎已有的 mechanics type，
-       与 124 的 TYPE_GLOSSARY 合成白名单；扩展词条由 134-fetch-pool.mjs 写进 134-idea-pool-additions.json。 -->
+       与 124 的 TYPE_GLOSSARY 合成白名单；扩展词条由 834-fetch-pool.mjs 写进 834-idea-pool-additions.json。 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -128,7 +128,7 @@
 </footer>
 
 <script type="module">
-import { TYPE_GLOSSARY } from './124-param-lab-glossary.js';
+import { TYPE_GLOSSARY } from './824-param-lab-glossary.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 一、元素池
@@ -232,7 +232,7 @@ const STAGE_POWER = ['普通（当前1-3关）', '困难（当前4-5关）', '�
 // 二、引擎现状（白名单）
 // ─────────────────────────────────────────────────────────────────────────────
 let ENGINE_TYPES = new Set();     // content 里出现过的 mechanics.type
-let WEB_POOL = [];                // 134-fetch-pool.mjs 追加的扩展词条
+let WEB_POOL = [];                // 834-fetch-pool.mjs 追加的扩展词条
 let lastCards = [];
 let lastLabel = '';
 let lastType = '', lastMode = '';   // V1.2.0：单卡重摸要知道当前类型/摸法
@@ -263,7 +263,7 @@ async function loadEngineTypes() {
 
 async function loadWebPool() {
     try {
-        const res = await fetch(new URL('./134-idea-pool-additions.json', import.meta.url));
+        const res = await fetch(new URL('./834-idea-pool-additions.json', import.meta.url));
         if (!res.ok) return;
         const json = await res.json();
         WEB_POOL = Array.isArray(json.items) ? json.items : [];

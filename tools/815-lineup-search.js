@@ -2,7 +2,7 @@ import { initBattleTeams } from '../modules/330-battle-init.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { GlobalStore } from '../infra/104-global-store.js';
-import { ELITE_UNIT_META, WEAK_UNIT_FLAG } from './127-tool-registry.js';
+import { ELITE_UNIT_META, WEAK_UNIT_FLAG } from './827-tool-registry.js';
 import '../modules/301-reg-mechanics.js';   // 机制装配统一入口（25/26/27/30 顶层副作用注册）
 
 const FIXED_ELITES = Object.entries(ELITE_UNIT_META).map(([name, m]) => ({ name, ...m }));

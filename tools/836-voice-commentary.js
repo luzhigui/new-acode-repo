@@ -1,4 +1,4 @@
-// tools/136-voice-commentary.js — 语音解说引擎（实时朗读版，已从主游戏下线，存档待用）
+// tools/836-voice-commentary.js — 语音解说引擎（实时朗读版，已从主游戏下线，存档待用）
 // 原路径 modules/31voice-commentary.js，2026-10-25 从主游戏移除（语音达不到理想效果）。
 // 主游戏不再 import 本文件；本文件保留完整实现，日后若要重接入，在 tools 页面自行接线。
 // 注意：本文件目前无任何调用方，仅作存档；改路径后未跑过验证。
@@ -6,7 +6,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 
-export const VER = 'tools/136-voice-commentary.js V1.1.0';
+export const VER = 'tools/836-voice-commentary.js V1.1.0';
 
 const LS_KEY = 'ming_voice_commentary';
 

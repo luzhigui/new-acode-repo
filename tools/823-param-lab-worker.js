@@ -1,6 +1,6 @@
-// tools/123-param-lab-worker.js — 参数对照实验台专属 Worker（不改 116，走 117 的 workerUrl 覆盖参数）
+// tools/823-param-lab-worker.js — 参数对照实验台专属 Worker（不改 116，走 117 的 workerUrl 覆盖参数）
 //          arm 可为任意唯一串（换旋钮必还原重打补丁）；120 的 'base'/'patch' 用法不变。
-export const VER = 'tools/123-param-lab-worker.js V1.3.0';
+export const VER = 'tools/823-param-lab-worker.js V1.3.0';
 
 // Worker 环境兼容 shim：core 的模块体在无 DOM 全局时需 window/localStorage
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -14,7 +14,7 @@ if (typeof localStorage === 'undefined') {
     };
 }
 
-import { ensureGameData, sampleStage, runLineupRange, statSeedOf, concreteKey, applyPatchOps, restoreGameData } from './122-param-lab-core.js';
+import { ensureGameData, sampleStage, runLineupRange, statSeedOf, concreteKey, applyPatchOps, restoreGameData } from './822-param-lab-core.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
 let _arm = null;   // 当前数据表状态：null = 未定 / 'base' = 原始 / 'patch' = 已打补丁

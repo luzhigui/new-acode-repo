@@ -5,36 +5,36 @@
 // V6.0.45 | 2026-10-29 138 补登那行注释去掉单引号（纯注释改动，清单条目零变化）：原先写 weakContrib，
 //           会被「宽松提取单引号字符串」的外部对账脚本当成真实条目、报一条假缺失（项目自带
 //           pack-manifest-check.mjs 只认 '../ 前缀，不受影响）。
-// V6.0.44 | 2026-10-28 补登记 tools/138-elite-contrib.html（弱精英机制贡献评估单页，配 116 V1.15.0
+// V6.0.44 | 2026-10-28 补登记 tools/838-elite-contrib.html（弱精英机制贡献评估单页，配 116 V1.15.0
 //           weakContrib；102 工具箱「🧬 弱精英机制贡献」按钮的实现，漏登则包内工具箱点开 404）
 // V6.0.43 | 2026-10-28 补登记 3 个 tests/_lib 公共件（清单↔磁盘 + import 链对账发现）：
 //           _lib/sample-sufficiency.mjs（contract-guard / contract-binding-drift / fact-emission-census / rule-idle 已 import）、
 //           _lib/static-truth-slice.mjs（param-read-guard / fact-dead-field-scan / hit-shapes-consistency / foundation-portability /
 //           orphan-selftest-sweep / sandbox-fragility-scan 已 import）、_lib/foundation-scan.mjs（foundation-portability /
 //           sandbox-fragility-scan 已 import）—— 漏登则包内这些已登记体检脚本 import 断裂（同 V6.0.25 _lib 两件判据）。
-//           其余磁盘未登记项均为口径外：包/工程配置（package*.json、capacitor）、构建脚本（100build-5v5.TXT）、
+//           其余磁盘未登记项均为口径外：包/工程配置（package*.json、capacitor）、构建脚本（800build-5v5.TXT）、
 //           demo 页（tangwenliang-demo.html、tests/141/142 语音页）、产物（tools/output/）与文档/归档。
 // V6.0.42 | 2026-10-27 自动补全 4 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-27 自动补全 17 项 run-all 引用但漏登的 tests 顶层脚本 | ~27900 bytes | 2026-10-25 补登记 10 项（清单↔磁盘双向对账发现，均在引用链上）：
 //           core/223-perf-params.js（表现参数表，core/216-skill-mechanisms、player/501-player-text/509-attack-group、fx/602-fx-arrows-5v5-test/603-fx-crash-5v5-test/615-fx-hanlisa-burst 等消费）、
 //           ui/721-perf-panel.js（8x 参数面板）、tests/_lib/buff-picker.mjs + _lib/rule-branch-extract.mjs
 //           （测试 harness 单源库，rules-replay 等已登记文件 import）、tests/health-rules/171/172
 //           （121health-monitor 已列，同 160-166 判据）、tests/fact-dead-field-scan.mjs（static-scan 已列）、
-//           tests/run-all.mjs + tools/119-auto-tuner.mjs + tools/121-param-lab.mjs（文档引用的 node 直跑入口）。
+//           tests/run-all.mjs + tools/819-auto-tuner.mjs + tools/821-param-lab.mjs（文档引用的 node 直跑入口）。
 //           顺手修 VER 忘抬：头部已写 V6.0.39 但 export VER 仍停 V6.0.38。
 // V6.0.39 | ~27400 bytes | 2026-10-25 语音解说从主游戏下线、搬到 tools 存档：移除 ui/73voice-panel.js 与
-//           modules/31voice-commentary.js，补登记 tools/136-voice-commentary.js + tools/137-voice-panel.js
+//           modules/31voice-commentary.js，补登记 tools/836-voice-commentary.js + tools/837-voice-panel.js
 //           （不登记则新档漏包、删档会让包内出现「读取失败」）
 // V6.0.38 | ~27200 bytes | 2026-10-24 补登记 3 个运行必需文件（全仓清单↔磁盘比对发现，均在主代码引用链上）：
-//           tools/52-career-log.js（503-player-core 已 import，dev-index 生涯记录按钮也动态 import）、
+//           tools/852-career-log.js（503-player-core 已 import，dev-index 生涯记录按钮也动态 import）、
 //           fx/617-immune-shield-break.js（render/420-actions-defs 空见护罩碎裂的动态 import）、
 //           modules/316-elite-sixsects-kongjian.js（26 入口已 import 的空见组件）；漏登则包内引用断裂。
 // V6.0.37 | ~26900 bytes | 2026-10-23 补登记 fx/616-tangwenliang-dash.js（render/39 动态 import 的唐文亮冲刺
 //           演出；漏登导致 URL 直读索引里没有该文件、网页端读它 404）
-// V6.0.36 | ~26700 bytes | 2026-10-22 补登记 tools/134-idea-lab.html（创意摸奖）+ 134-fetch-pool.mjs +
-//   134-idea-pool-additions.json（外部词条池）+ 135-param-scan.html（参数扫描 A/B）
-// V6.0.35 | ~26300 bytes | 2026-10-22 补登记 tools/127-tool-registry.js（工具箱共用名单与文案表的单一来源，
+// V6.0.36 | ~26700 bytes | 2026-10-22 补登记 tools/834-idea-lab.html（创意摸奖）+ 834-fetch-pool.mjs +
+//   834-idea-pool-additions.json（外部词条池）+ 835-param-scan.html（参数扫描 A/B）
+// V6.0.35 | ~26300 bytes | 2026-10-22 补登记 tools/827-tool-registry.js（工具箱共用名单与文案表的单一来源，
 //           112/126/122/116/108 将改从这里 import；漏登则包内这些工具引用断裂）
-// V6.0.34 | ~26100 bytes | 2026-10-19 补登记 tools/133-md-reader.html（dev-index V6.3.17「📖 文档与准则」
+// V6.0.34 | ~26100 bytes | 2026-10-19 补登记 tools/833-md-reader.html（dev-index V6.3.17「📖 文档与准则」
 //           文本入口的起点读书式 MD 阅读器；漏登则包内 dev-index 文档按钮点开 404）
 // V6.0.33 | ~24450 bytes | 2026-10-19 移除了 5 个寒离飒·瑟提特效 demo 页（126/127/128/129/131）的清单登记：
 //           这几页已移出仓库（搬去同级 _仓库外产物\），按旧名 fetch 必 404，包内出现 3 组「读取失败(0 字符)」；
@@ -42,7 +42,7 @@
 // V6.0.32 | ~24580 bytes | 2026-10-18 修「复制包读取失败」：根目录两个寒离飒特效 demo 页已加序号改名，
 //           清单里仍写旧名 → 按旧名 fetch 404（Failed to fetch）。改为 128hanlisa-atk-fx-candidates.html /
 //           129hanlisa-fx-compare.html，dev-index 入口 href 同步（原按钮跳旧名同样 404）
-// V6.0.31 | ~24350 bytes | 2026-10-18 登记 tools/126-balance-alert.js（工具箱「🚨 平衡告警」入口按钮的
+// V6.0.31 | ~24350 bytes | 2026-10-18 登记 tools/826-balance-alert.js（工具箱「🚨 平衡告警」入口按钮的
 //           实现文件，102 V6.1.3 已挂 type=module 脚本；漏登则包内工具箱点开无工具）
 // V6.0.30 | ~24207 bytes | 2026-10-17 补登记 14 项（import 对账）：modules/27 明教按角色拆分的 9 个组件文件
 //           （eagle/zhangwuji/weiyixiao/xiaozhao-sister/xiaozhao-brother/xiexun/yangxiao/yintianzheng/hanlisa，27 barrel 已 import 它们，
@@ -68,7 +68,7 @@
 // V6.0.21 | ~17800 bytes | 2026-10-08 补登记 9 个新文件（全仓比对清单与磁盘，补「被已登记文件 import 却漏登」的断裂链）：
 //           ui/710-role-cards.js（62/65/32 查名片表）、modules/301-reg-mechanics.js（61 机制装配单入口）、
 //           player/513-battle-export.js（42/61/64/68 战报导出）、player/514-battle-log-analyze.js（64 战报分析）、
-//           tools/124-param-lab-glossary.js（120 页面与 param-read-guard 共用参数表）、
+//           tools/824-param-lab-glossary.js（120 页面与 param-read-guard 共用参数表）、
 //           tests/health-rules/157-159（121health-monitor 已 import）、tests/mutation-teeth.mjs（变异测试主力）
 // V6.0.20 | ~11800 bytes | 2026-09-29 补登记 tests/health-rules/156-desc-truth-drift.js（参数单一真值源收口：
 //           技能说明数字 == 引擎真值的单源守卫，随包发给 AI 以便网页端也能看到该守卫）
@@ -86,20 +86,20 @@
 // V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/110-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
-// V6.0.9 | ~10900 bytes | 2026-09-22 登记 tools/118-import-export-check.mjs（node 直跑：import/export 具名绑定对账，配合 103 白名单新增 .mjs）
+// V6.0.9 | ~10900 bytes | 2026-09-22 登记 tools/818-import-export-check.mjs（node 直跑：import/export 具名绑定对账，配合 103 白名单新增 .mjs）
 // V6.0.8 | ~10800 bytes | 2026-09-22 补登记漏登 3 个运行必需文件：core/220-unit-watch.js、infra/103-clock.js、infra/108-state-change.js（103 复制器与分包脚本均派生自本表，三者长期未随包发出）；顺带删掉 core/206-battle-runner.js 重复行
 // V6.0.7 | ~10700 bytes | 2026-09-22 补登记 render/33-35+38-39（渲染层拆分）与 tests/health-rules/147-149（夜间体检新增）
 // V6.0.6 | ~9300 bytes | 2026-09-16 删净 73/74 两版备选CG（无引用，git rm 同步删除）；排除表/契约说明/清单一并清理
 // V6.0.5 | 2026-09-15 踢除未接线备选CG：ui/73opening-cg-epic.js、ui/74opening-cg-shadow.js 加入 AI_EXCLUDE（每包省 63KB）
-// V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
+// V6.0.4 | 2026-09-13 登记 tools/806b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
 // V6.0.48 | 2026-10-31 补登记 2 项：content/002-hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
 //           modules/324-elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
-export const VER = 'tools/106-ai-pack-config.js V6.0.58';
+export const VER = 'tools/806-ai-pack-config.js V6.0.58';
 
-// AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
+// AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
 // 2026-09-16 73/74 两版备选CG 已从仓库删净（无引用），排除表清空。
 // 2026-10-31 用户拍板：新手引导 / 开场CG / 角色名片（图鉴）/ 海克斯手选弹窗属纯演出层，
@@ -164,7 +164,7 @@ export const ALL_PROJECT_FILES = [
     // player（播放器）
     '../player/501-player-text.js', '../player/502-player-buff-ui.js', '../player/503-player-core.js',
     // 2026-10-24 补登记：生涯记录（42player-core 已 import；dev-index 生涯按钮也动态 import）
-    '../tools/52-career-log.js',
+    '../tools/852-career-log.js',
     // 2026-10-21 补登记 42 拆分件：播放步/阶段动作/步同步（42player-core 的同批产物）
     '../player/504-player-play-step.js', '../player/505-player-stage-actions.js', '../player/506-player-step-sync.js',
     '../player/507-battle-player-5v5-test.js', '../player/508-event-handlers.js', '../player/509-attack-group.js', '../player/510-renderer.js',
@@ -312,7 +312,7 @@ export const ALL_PROJECT_FILES = [
     '../tests/coverage-report.mjs', '../tests/stat-decl-vs-actual-check.mjs',
     // 2026-10-08 补登记：变异测试主力（stat-decl-vs-actual-check 与 153/157 规则注释均引用它）
     '../tests/mutation-teeth.mjs',
-    // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/124-param-lab-glossary.js 的 ENGINE_READ 表）
+    // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/824-param-lab-glossary.js 的 ENGINE_READ 表）
     '../tests/param-read-guard.mjs',
     // 2026-10-25 补登记 5 项：测试单源库 + node 直跑入口（第 122-124 轮体检产物；
     // rules-replay/translate-golden/structure 扫描器等已登记文件 import _lib 两件，漏登则包内 harness 断裂；
@@ -358,32 +358,32 @@ export const ALL_PROJECT_FILES = [
     // 2026-11-01 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/hls-playback-ownership-guard.mjs',
     // tools（开发工具箱）
-    '../tools/102-toolkit.html', '../tools/103-toolkit.js',
-    '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
-    '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
-    '../tools/109-role-balance.js', '../tools/116-role-balance-worker.js', '../tools/117-shared-worker-runner.js', '../tools/110-role-balance-random.html',
-    '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
-    '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
-    '../tools/118-import-export-check.mjs',
-    '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js', '../tools/124-param-lab-glossary.js',
+    '../tools/802-toolkit.html', '../tools/803-toolkit.js',
+    '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',
+    '../tools/807-battle-log-viewer.js', '../tools/808-hex-dashboard.js',
+    '../tools/809-role-balance.js', '../tools/816-role-balance-worker.js', '../tools/817-shared-worker-runner.js', '../tools/810-role-balance-random.html',
+    '../tools/812-elite-eval.js', '../tools/813-stats-check.js',
+    '../tools/814-baseline-compare.js', '../tools/815-lineup-search.js',
+    '../tools/818-import-export-check.mjs',
+    '../tools/820-param-lab.html', '../tools/822-param-lab-core.js', '../tools/823-param-lab-worker.js', '../tools/824-param-lab-glossary.js',
     // 2026-10-25 补登记 119/121：TOOL-AI 与工具箱文档引用的 node 直跑入口（参数 A/B 调优器 / 参数实验室主脚本）
-    '../tools/119-auto-tuner.mjs', '../tools/121-param-lab.mjs',
+    '../tools/819-auto-tuner.mjs', '../tools/821-param-lab.mjs',
     // 2026-10-18 补登记 126：工具箱「🚨 平衡告警」按钮的实现（102 V6.1.3 挂 module 脚本）
-    '../tools/126-balance-alert.js',
+    '../tools/826-balance-alert.js',
     // 2026-10-22 补登记 127：工具箱共用名单与文案表（112/126/122/116/108 的单一来源；
     // 漏登则包内这些工具 import 断裂）
-    '../tools/127-tool-registry.js',
+    '../tools/827-tool-registry.js',
     // 2026-10-19 补登记 133：dev-index V6.3.17「📖 文档与准则」文本入口的 MD 阅读器
     //（起点读书式阅读页，漏登则包内 dev-index 文档按钮点开 404）
-    '../tools/133-md-reader.html',
+    '../tools/833-md-reader.html',
     // 2026-10-22 补登记 134/135：创意摸奖（自带元素池 + 手动维护的外部词条池）与参数扫描
     //（135 依赖 123 V1.2.0 的 stages 多关支持；134 只读 content，不跑战斗）
-    '../tools/134-idea-lab.html', '../tools/134-fetch-pool.mjs', '../tools/134-idea-pool-additions.json',
-    '../tools/135-param-scan.html',
+    '../tools/834-idea-lab.html', '../tools/834-fetch-pool.mjs', '../tools/834-idea-pool-additions.json',
+    '../tools/835-param-scan.html',
     // 2026-10-25 补登记：语音解说从主游戏下线，搬到 tools 存档（136 引擎 / 137 设置面板）
-    '../tools/136-voice-commentary.js', '../tools/137-voice-panel.js',
+    '../tools/836-voice-commentary.js', '../tools/837-voice-panel.js',
     // 2026-10-28 补登记 138：弱精英机制贡献评估（116 V1.15.0 weakContrib 的消费端）
-    '../tools/138-elite-contrib.html',
+    '../tools/838-elite-contrib.html',
     // 2026-11-01 补登记：GitHub Pages 版本化构建 + 复制包清单自检（都是纯 Node 脚本，随包供网页端核对清单完整性）
     '../tools/build-versioned-site.mjs', '../tools/check-manifest.mjs',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；

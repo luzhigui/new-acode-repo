@@ -1,8 +1,8 @@
 // 口径不变：同种子生成同一套阵容，A/B 两组精英配置各跑一遍；逐关对照 胜率/输出/承伤/存活 差异
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #bcHex / #bcEnemyHex（双海克斯需先勾海克斯）。
 //   默认都不勾 = 裸机对照（原口径、历史数不变）；勾海克斯后 A/B 两臂共用同一开关，保证对照公平。
-import { runParallel } from './117-shared-worker-runner.js';
-import { ELITE_UNIT_META } from './127-tool-registry.js';
+import { runParallel } from './817-shared-worker-runner.js';
+import { ELITE_UNIT_META } from './827-tool-registry.js';
 
 // 角色配置表（单一来源：127 的 ELITE_UNIT_META：flag / stdPos / role）
 const ROLE_CFG = ELITE_UNIT_META;

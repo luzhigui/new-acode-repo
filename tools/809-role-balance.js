@@ -1,4 +1,4 @@
-export const VER = 'tools/109-role-balance.js V6.2.3';
+export const VER = 'tools/809-role-balance.js V6.2.3';
 // V6.2.3 | 2026-11-01 修「表读不懂」的真因：海克斯默认单边（明教有/六大派无）→ 明教胜率被拉到 ~95%，
 //   四职业数字全被压平。① 默认关海克斯；开海克斯时自动勾「双海克斯」保证对称；
 //   ② 四职业总评加「整体偏差自检」：明教整体胜率 <35% 或 >65% 时红框告警「不可判平衡」；
@@ -14,7 +14,7 @@ export const VER = 'tools/109-role-balance.js V6.2.3';
 //   116 由 core/206-battle-runner V1.3.0 的 enemyHexPicker 在明教选完后对称给六大派补一个（同 seed 同结果）。
 
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
-import { getPoolSize } from './117-shared-worker-runner.js';
+import { getPoolSize } from './817-shared-worker-runner.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
@@ -229,7 +229,7 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, enemyHex, masterSe
         };
 
         const spawn = (workerIdx) => {
-            const w = new Worker(new URL('./116-role-balance-worker.js', import.meta.url), { type: 'module' });
+            const w = new Worker(new URL('./816-role-balance-worker.js', import.meta.url), { type: 'module' });
             console.log(`[109-parallel] spawn worker#${workerIdx}, poolSize=${poolSize}`);
             w.onmessage = (e) => {
                 const msg = e.data;

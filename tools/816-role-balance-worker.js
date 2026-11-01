@@ -28,7 +28,7 @@ if (typeof localStorage === 'undefined') {
 }
 import { CONFIG, loadGameData, loadHexEnhanceData, getGameData } from '../core/201-config-5v5-test.js';
 import { Unit } from '../core/202-unit.js';
-import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './127-tool-registry.js';
+import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './827-tool-registry.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/102-core-utils.js';
 import { runBattle } from '../core/206-battle-runner.js';
 import { setBattleRng } from '../core/214-battle-shared.js';
@@ -50,7 +50,7 @@ function clearBattleGlobals() {
     GlobalStore.set('forceXiaoZhao', null);
     // 2026-10-09 V1.7.1 补漏：forceXieXun / forcePang 原先没清——跑完谢逊单英雄后 forceXieXun 常驻 worker，
     // 之后任何 job 都会变成「本 job 精英 + 谢逊」双精英（elite/noElite 两个 job 根本不设 force，同样被污染）。
-    // 对照 122-param-lab-core.js 的完整清单（五项）补齐。
+    // 对照 822-param-lab-core.js 的完整清单（五项）补齐。
     GlobalStore.set('forceXieXun', null);
     GlobalStore.set('forcePang', null);
     // 2026-10-22 V1.12.2：寒离飒强精英 force（29 V7.6.1 新增）——漏清会让后续 job 全部带寒离飒

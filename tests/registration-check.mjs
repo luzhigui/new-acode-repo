@@ -1,7 +1,7 @@
 // 干什么：一条命令核对规则文件的四处登记是否齐全 ——
 //   tests/health-rules/*.js  ↔  121health-monitor.js（import 装载）
 //   ↔ 124rule-recipes.js（RULE_META 登记）↔ 123static-scan.js（SCAN_FILES）
-//   ↔ tools/106-ai-pack-config.js（打包清单，**只读核对**）
+//   ↔ tools/806-ai-pack-config.js（打包清单，**只读核对**）
 // 为什么要有它：历次复盘都靠 `tests/_tmp-check.mjs` 现写、跑完即删 —— 结论随探针一起消失，
 //   下一次重新踩同样的坑（147~152 就曾整批漏登打包清单）。常驻化之后，漏登是**机器报的**不是人想起来的。
 // 退出码二分（与基线同思路，别让"我无权修的事"把红线永远染红）：
@@ -102,7 +102,7 @@ async function main() {
     const t123 = stripLineComments(await read('./123static-scan.js'));
     const t124 = stripLineComments(await read('./124rule-recipes.js'));
     // 只读：tools/ 按官方协议不改，这里仅核对
-    const t106 = await read('../tools/106-ai-pack-config.js');
+    const t106 = await read('../tools/806-ai-pack-config.js');
 
     const miss121 = [], miss123 = [], miss124 = [], miss106 = [], noName = [];
     for (const f of ruleFiles) {

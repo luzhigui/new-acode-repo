@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tools/135-param-scan.html — 参数扫描：A 敏感度扫描（含死参数清单）/ B 定向搜索（贪心叠加 + 过拟合标注）
+<!-- tools/835-param-scan.html — 参数扫描：A 敏感度扫描（含死参数清单）/ B 定向搜索（贪心叠加 + 过拟合标注）
      V1.0.0 | 2026-10-22 新建。复用 122 的 listNumericKnobs / sampleStage / pickTypicals 与 123 worker 的 lab-run；
        不写新的跑批逻辑，只做循环 + 聚合。配对 seed（基线与补丁逐局同种子），阵容取每关最高频精英组合的 medoid。 -->
 <html lang="zh-CN">
@@ -131,15 +131,15 @@
 </section>
 
 <script type="module">
-import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-core.js';
-import { runParallel } from './117-shared-worker-runner.js';
+import { ensureGameData, listNumericKnobs, pickTypicals } from './822-param-lab-core.js';
+import { runParallel } from './817-shared-worker-runner.js';
 import {
     describeKnob, FIELD_GLOSSARY, charGroupKeyOf, isOrphanField, skillFieldVerdict, UNIT
-} from './124-param-lab-glossary.js';
+} from './824-param-lab-glossary.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { NATURAL_ELITES } from './127-tool-registry.js';
+import { NATURAL_ELITES } from './827-tool-registry.js';
 
-const WORKER_URL = new URL('./123-param-lab-worker.js?v=135-1', import.meta.url);
+const WORKER_URL = new URL('./823-param-lab-worker.js?v=135-1', import.meta.url);
 const SAMPLE_BASE = 20000;      // 阵容采样 seed 起点（与 120 一致）
 const SAMPLE_RUNS = 300;        // 每关采样次数（只为定出高频阵容）
 const BASE_SEED = 1;            // 扫描 / 搜索用种子批次 A

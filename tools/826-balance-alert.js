@@ -1,7 +1,7 @@
-// tools/126-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
+// tools/826-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/126-balance-alert.js V3.7.1';
+export const VER = 'tools/826-balance-alert.js V3.7.1';
 // V3.7.1 | 2026-10-31 108 详情卡改数据驱动后 HEX_HINTS 已删：去掉「108 缺判断提示文案」这项告警
 //          （判断提示现在按 content desc + 201 差异自动生成，不再存在漏登），只保留中文名表检查。
 // V3.7.0 | 2026-10-31 | 真实对局对照不再混算单/双海克斯：getCareerInsights / getHeroAggregates
@@ -12,9 +12,9 @@ export const VER = 'tools/126-balance-alert.js V3.7.1';
 //           跳过脏条目继续统计，不再让一条 null 拖死全表。
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
-import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
+import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './827-tool-registry.js';
 // 规则八（V2.6.0）：拿真实对局和模拟跑批对照。52 是纯函数模块（只读 localStorage、无 DOM 副作用），可安全引入。
-import { getHeroAggregates, getCareerInsights, getHexWinRates, getCareerModeCounts } from './52-career-log.js';
+import { getHeroAggregates, getCareerInsights, getHexWinRates, getCareerModeCounts } from './852-career-log.js';
 
 (function () {
 // ==================== 判读阈值（集中一处，要调只改这里） ====================
@@ -38,11 +38,11 @@ const TH = {
     SIM_REAL_ALERT: 0.25  // 模拟 vs 实战：≥25pp 算严重偏离
 };
 
-// 108 榜的四套阵容模式（与 108-hex-dashboard.js 同键同口径）
+// 108 榜的四套阵容模式（与 808-hex-dashboard.js 同键同口径）
 const HEX_MODES = ['normal', 'sister', 'brother', 'none'];
 const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
 const hexKeyFor = m => m === 'normal' ? 'ming_hex_battle_log' : 'ming_hex_battle_log_' + m;
-// 名单与海克斯中文名统一由 127-tool-registry.js 提供（ELITES / SOLO_ELITES / BOSS_ELITES /
+// 名单与海克斯中文名统一由 827-tool-registry.js 提供（ELITES / SOLO_ELITES / BOSS_ELITES /
 // VARIANTS / WEAK_SIDE / HEX_NAMES）；本文件不再持有副本，112 改档位时自动跟上。
 const SNAP_KEY = 'ming_elite_eval_snaps';
 

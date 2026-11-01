@@ -81,7 +81,7 @@ export const SCAN_FILES = [
     //   fact-dead-field-scan.mjs（全 fact 载荷死字段普查）。二者 import 引擎符号，漏登则其
     //   import 断裂扫不到。
     './xinhun-death-targeted-case.mjs', './fact-dead-field-scan.mjs',
-    // 2026-09-29 新增：skills.params 引擎真读字段漂移守卫。它跨目录 import tools/124-param-lab-glossary.js，
+    // 2026-09-29 新增：skills.params 引擎真读字段漂移守卫。它跨目录 import tools/824-param-lab-glossary.js，
     //   入册以便本扫描能发现该 import 路径断裂（改名/删除即断裂）。
     './param-read-guard.mjs',
     './health-rules/123-claw-heal-spam.js', './health-rules/124-aftermiss.js',

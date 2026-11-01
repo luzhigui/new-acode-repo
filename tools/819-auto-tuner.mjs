@@ -1,10 +1,10 @@
-// tools/119-auto-tuner.mjs — 平衡参数敏感度分析（A 步：单参数扰动排行榜）
-export const VER = 'tools/119-auto-tuner.mjs V1.0.0';
+// tools/819-auto-tuner.mjs — 平衡参数敏感度分析（A 步：单参数扰动排行榜）
+export const VER = 'tools/819-auto-tuner.mjs V1.0.0';
 //
 // 用法：
-//   node tools/119-auto-tuner.mjs                                  # 全关卡 / 40 seed / ±20%
-//   node tools/119-auto-tuner.mjs --stages 2,3 --seeds 60 --delta 0.25
-//   node tools/119-auto-tuner.mjs --json                           # 表后追加机器可读 JSON
+//   node tools/819-auto-tuner.mjs                                  # 全关卡 / 40 seed / ±20%
+//   node tools/819-auto-tuner.mjs --stages 2,3 --seeds 60 --delta 0.25
+//   node tools/819-auto-tuner.mjs --json                           # 表后追加机器可读 JSON
 //
 // 口径：
 //   · 基线 = 无团队海克斯（裸机），每关用同一批固定 seed（默认 1000..1039）各跑一局，统计明教胜率。
@@ -50,7 +50,7 @@ function parseArgs(argv) {
         else if (a === '--seeds') o.seeds = Math.max(1, Number(argv[++i]) || o.seeds);
         else if (a === '--delta') o.delta = Math.abs(Number(argv[++i]) || o.delta);
         else if (a === '--base') o.base = Number(argv[++i]) || o.base;
-        else if (a === '--help' || a === '-h') { console.log('用法: node tools/119-auto-tuner.mjs [--stages 2,3] [--seeds 40] [--delta 0.20] [--base 1000] [--json]'); process.exit(0); }
+        else if (a === '--help' || a === '-h') { console.log('用法: node tools/819-auto-tuner.mjs [--stages 2,3] [--seeds 40] [--delta 0.20] [--base 1000] [--json]'); process.exit(0); }
     }
     return o;
 }

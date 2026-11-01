@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // tools/check-manifest.mjs — 检查「AI 复制包清单」和磁盘实际文件对不对得上
 //
-// 背景：tools/106-ai-pack-config.js 里的 ALL_PROJECT_FILES 是发给 AI 的代码包的唯一来源。
+// 背景：tools/806-ai-pack-config.js 里的 ALL_PROJECT_FILES 是发给 AI 的代码包的唯一来源。
 // 每次新建/改名/移动文件，都得手动往里加。忘加了，包里那个文件就变成空的（显示「读取失败」）。
 // 这个脚本自动对比「清单里写了啥」和「磁盘上真有啥」，用大白话告诉你哪里对不上。
 //
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..'); // 仓库根目录（tools 的上一级）
-const MANIFEST = path.join(__dirname, '106-ai-pack-config.js');
+const MANIFEST = path.join(__dirname, '806-ai-pack-config.js');
 
 // 只扫这些引擎目录里的 .js/.mjs（用来发现「新文件没登记」）
 const SCAN_DIRS = ['core', 'ui', 'render', 'modules', 'player', 'fx', 'infra', 'content'];
@@ -31,7 +31,7 @@ const src = fs.readFileSync(MANIFEST, 'utf8');
 // 只取 ALL_PROJECT_FILES = [ ... ] 这一段
 const m = src.match(/ALL_PROJECT_FILES\s*=\s*\[([\s\S]*?)\n\];/);
 if (!m) {
-  console.error('❌ 没在 106-ai-pack-config.js 里找到 ALL_PROJECT_FILES 数组，检查脚本需要更新。');
+  console.error('❌ 没在 806-ai-pack-config.js 里找到 ALL_PROJECT_FILES 数组，检查脚本需要更新。');
   process.exit(1);
 }
 const block = m[1];
@@ -78,7 +78,7 @@ for (const d of SCAN_DIRS) walk(path.join(ROOT, d));
 // ---------- 4. 打印报告 ----------
 const line = '─'.repeat(56);
 console.log('\n' + line);
-console.log('  AI 复制包清单检查（106-ai-pack-config.js ↔ 磁盘）');
+console.log('  AI 复制包清单检查（806-ai-pack-config.js ↔ 磁盘）');
 console.log(line);
 console.log(`  清单登记文件数：${manifestList.length}（去重后 ${manifestSet.size}）`);
 

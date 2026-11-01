@@ -1,6 +1,6 @@
-// tools/127-tool-registry.js — 工具箱共用名单与文案表（只读常量，不跑逻辑）
+// tools/827-tool-registry.js — 工具箱共用名单与文案表（只读常量，不跑逻辑）
 // 维护：新增精英/海克斯时只改本文件；各工具的表头、判读、force 通道会自动跟上。
-export const VER = 'tools/127-tool-registry.js V1.2.1';
+export const VER = 'tools/827-tool-registry.js V1.2.1';
 
 // 自然出场归因表的列（112 主表 / 126 判读），顺序即表头顺序
 export const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];

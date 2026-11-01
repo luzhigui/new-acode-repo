@@ -1,5 +1,5 @@
 // tests/pack-manifest-check.mjs | V1.0.0 | 2026-10-27 第143轮(续)：打包清单(106)完整性自检 + 自动补全
-// 职责：自动帮「工具文件复制器」(tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES 清单) 检测漏登并补上。
+// 职责：自动帮「工具文件复制器」(tools/806-ai-pack-config.js 的 ALL_PROJECT_FILES 清单) 检测漏登并补上。
 //   必打包集（遗漏 = 包内真问题）：
 //     ① 全部 tests/health-rules/*.js —— rules-replay 走 readdir 自动加载，漏登 ⇒ 包内静默丢弃该规则、无报错无覆盖。
 //     ② run-all.mjs 的 CHECKS/OBSERVES 里 `script:` 指向的 tests/* —— spawnSync 直跑，漏登 ⇒ 包内找不到文件即跳过/报错。
@@ -15,7 +15,7 @@ export const VER = 'tests/pack-manifest-check.mjs V1.0.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
-const MANIFEST = path.join(repoRoot, 'tools/106-ai-pack-config.js');
+const MANIFEST = path.join(repoRoot, 'tools/806-ai-pack-config.js');
 const RUNALL = path.join(repoRoot, 'tests/run-all.mjs');
 const HR_DIR = path.join(repoRoot, 'tests/health-rules');
 
@@ -102,8 +102,8 @@ out = out.replace(
   `// V${next} | ${today} 自动补全 ${missing.length} 项 run-all 引用但漏登的 tests 顶层脚本 `
 );
 out = out.replace(
-  "export const VER = 'tools/106-ai-pack-config.js V" + cur + "';",
-  "export const VER = 'tools/106-ai-pack-config.js V" + next + "';"
+  "export const VER = 'tools/806-ai-pack-config.js V" + cur + "';",
+  "export const VER = 'tools/806-ai-pack-config.js V" + next + "';"
 );
 
 try {
@@ -124,6 +124,6 @@ if (stillMissing.length) {
   process.exit(1);
 }
 console.log(
-  `✅ 已自动补全 ${missing.length} 项进入 tools/106-ai-pack-config.js（V6.0.40→V6.0.41），请提交。`
+  `✅ 已自动补全 ${missing.length} 项进入 tools/806-ai-pack-config.js（V6.0.40→V6.0.41），请提交。`
 );
 process.exit(0);

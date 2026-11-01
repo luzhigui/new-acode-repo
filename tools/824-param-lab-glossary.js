@@ -1,4 +1,4 @@
-// tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// tools/824-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
 //   唯一那份真值也藏起来。另：export const VER 长期滞后在 V2.4.0（V2.5.0/V2.5.1 漏更），本次一并对齐。
 // 判定口径：沿路径逐段下钻，取「最靠内层那个带 type 的对象」的 type —— 因为具体效果类型都写在
 //   onHitEffects / beforeDamageEffects / attributeMods 的元素上（如 poison / ignoreDef / bonusLostHp），
@@ -10,7 +10,7 @@ import { getSkillDesc } from '../core/201-config-5v5-test.js';
 // V2.8.1 | 2026-10-31 | ~46022 bytes —— ENGINE_READ.spiderFly 删 xiaoZhaoDoubleStrikeChance（死字段：
 //   引擎零读取点，小昭·妹双连击真值走 002-hex-enhance.json 的 brother.doubleStrike.chance；
 //   守卫 param-read-guard 报「表陈旧」即此项，删表项=表与源码对齐）
-export const VER = 'tools/124-param-lab-glossary.js V2.8.1';
+export const VER = 'tools/824-param-lab-glossary.js V2.8.1';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {

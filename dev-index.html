@@ -167,13 +167,13 @@
         });
 
         document.getElementById('btnShop').addEventListener('click', () => {
-            window.location.href = 'tools/105-shop.html';
+            window.location.href = 'tools/805-shop.html';
         });
         document.getElementById('btnHealthCheck').addEventListener('click', () => {
             window.location.href = 'tests/120test-runner.html';
         });
         document.getElementById('btnTools').addEventListener('click', () => {
-            window.location.href = 'tools/102-toolkit.html';
+            window.location.href = 'tools/802-toolkit.html';
         });
         // 生涯记录：读本地累积的单局摘要，导出 Markdown（可直接喂 AI 分析）
         document.getElementById('btnCareerLog').addEventListener('click', () => {
@@ -254,7 +254,7 @@
             async function buildBody() {
                 setModeActive();
                 try {
-                    const m = await import('./tools/52-career-log.js');
+                    const m = await import('./tools/852-career-log.js');
                     try { const c = m.getCareerModeCounts(); bDual.style.display = (c && c.dual > 0) ? '' : 'none'; } catch (e) {}
                     const text = m.exportCareerMarkdown(curMode);
                     lastMd = text || '';
@@ -545,7 +545,7 @@
             row.appendChild(mdBtn);
             const csvBtn = mkBtn('📊 明细', '#8e44ad', async () => {
                 try {
-                    const m = await import('./tools/52-career-log.js');
+                    const m = await import('./tools/852-career-log.js');
                     const csv = m.exportCareerCSV(curMode);
                     if (!csv) { alert('还没有生涯记录'); return; }
                     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
@@ -563,7 +563,7 @@
                 if (!confirm('⚠️ 确认清空' + (curMode ? (curMode === 'dual' ? '双海克斯' : '单海克斯') : '全部') + ' ' + lastCount + ' 局生涯记录？此操作不可撤销！')) return;
                 if (!confirm('再次确认：真的要清空吗？')) return;
                 try {
-                    const m = await import('./tools/52-career-log.js');
+                    const m = await import('./tools/852-career-log.js');
                     m.clearCareerRecords(curMode);
                 } catch (e) {}
                 overlay.remove();
@@ -658,9 +658,9 @@
 
             window.location.href = 'index.html';
         });
-        // 文档入口统一走 tools/133-md-reader.html（起点读书式阅读器）：手机上直跳 *.md 原文会缩成小字白底
+        // 文档入口统一走 tools/833-md-reader.html（起点读书式阅读器）：手机上直跳 *.md 原文会缩成小字白底
         function openDoc(f) {
-            location.href = 'tools/133-md-reader.html?f=' + encodeURIComponent(f);
+            location.href = 'tools/833-md-reader.html?f=' + encodeURIComponent(f);
         }
         document.getElementById('btnReadme').addEventListener('click', () => {
             openDoc('README.md');

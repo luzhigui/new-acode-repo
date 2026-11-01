@@ -1,8 +1,8 @@
-// ===== ../tools/108-hex-dashboard.js =====
+// ===== ../tools/808-hex-dashboard.js =====
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
-import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
+import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 
-export const VER = 'tools/108-hex-dashboard.js V6.8.2';
+export const VER = 'tools/808-hex-dashboard.js V6.8.2';
 // V6.8.2 | 2026-11-01 结果能带走：加「📋 复制结果」——把弹窗里当前所有表转 Markdown 复制
 //           （此前 108 有表却 0 导出，126 有复制报告、110/134/135/138 也都有，就它和 112 缺）。
 // V6.8.1 | 2026-11-01 UI 收拾（老板看截图提的）：

@@ -195,7 +195,7 @@ const DIRECTED_CASES = [
 // --- 团队海克斯 Buff 注入 ---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
 //   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
-// 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/512-battle-flow.js 的全自动选 Buff
+// 口径来源：tools/816-role-balance-worker.js 的跑批写法 + player/512-battle-flow.js 的全自动选 Buff
 //   口径（过滤已有 key 与 BUFF_ROLE_REQUIREMENTS 的职业要求，duration 取 buff 自带或 BUFF_DURATION）。
 //   每回合递减 remaining（过期淘汰），每 3 回合为明教/六大派各补选一个（与 player/42 的
 //   `round % 3 === 0` 补选节奏一致），并按「已选轮次」轮转键名，让 11 个 Buff 都能轮到。

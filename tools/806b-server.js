@@ -1,7 +1,7 @@
 // 光明顶5v5 工具链本地静态服务器
 // 无任何第三方依赖（仅 node 内置 http/fs/path），断网可用。把工具箱跑在 http://localhost 下，
 // 使 showDirectoryPicker 等需要 secure-context 的 API 正常工作（file:// 双击打开会被浏览器禁用）。
-// 启动后自动打开浏览器进入 102-toolkit.html。Ctrl+C 停止。
+// 启动后自动打开浏览器进入 802-toolkit.html。Ctrl+C 停止。
 
 const http = require('http');
 const fs = require('fs');
@@ -30,7 +30,7 @@ const MIME = {
 function resolvePath(urlPath) {
     const decoded = decodeURIComponent(urlPath.split('?')[0]);
     // 空路径默认进工具箱
-    if (decoded === '/' || decoded === '') return path.join(ROOT, 'tools', '102-toolkit.html');
+    if (decoded === '/' || decoded === '') return path.join(ROOT, 'tools', '802-toolkit.html');
     // 防穿越：联合后必须仍在 ROOT 内
     const target = path.normalize(path.join(ROOT, decoded));
     if (!target.startsWith(ROOT + path.sep) && target !== ROOT) return null;
@@ -59,7 +59,7 @@ const server = http.createServer((req, res) => {
 
 const { exec } = require('child_process');
 server.listen(PORT, () => {
-    const url = `http://localhost:${PORT}/tools/102-toolkit.html`;
+    const url = `http://localhost:${PORT}/tools/802-toolkit.html`;
     console.log(`\n  光明顶5v5 工具链已启动:`);
     console.log(`  ${url}`);
     console.log(`  按 Ctrl+C 停止服务\n`);

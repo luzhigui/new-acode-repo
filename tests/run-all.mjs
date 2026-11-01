@@ -195,7 +195,7 @@ const CHECKS = [
     { name: '大样本fuzz(300seed×7关)', script: 'tests/fuzz-invariants.mjs', args: [], tier: 'heavy' },
     { name: '翻译层golden对照', script: 'tests/translate-golden.mjs', args: [], tier: 'heavy' },
     // V1.16.1 | 2026-10-27 第143轮(续)：挂「打包清单完整性自检+自动补全」tests/pack-manifest-check.mjs。
-    //   自动帮「工具文件复制器」(tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES) 检测漏登：
+    //   自动帮「工具文件复制器」(tools/806-ai-pack-config.js 的 ALL_PROJECT_FILES) 检测漏登：
     //     ① 全部 tests/health-rules/*.js（rules-replay 走 readdir 自动加载，漏登=包内静默丢弃该规则）
     //     ② run-all CHECKS/OBSERVES 里 script: 指向的 tests/*（spawnSync 直跑，漏登=包内找不到文件即跳过/报错）
     //   任何磁盘有、清单漏登的，它自行补进 106 的 tests 段并抬版本号；反向陈旧条目仅告警不删。

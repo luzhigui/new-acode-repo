@@ -1,16 +1,16 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
-import { runParallel } from './117-shared-worker-runner.js';
-import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './127-tool-registry.js';
+import { runParallel } from './817-shared-worker-runner.js';
+import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './827-tool-registry.js';
 
-export const VER = 'tools/112-elite-eval.js V3.3.0';
+export const VER = 'tools/812-elite-eval.js V3.3.0';
 // V3.3.0 | 2026-10-31 双海克斯：工具栏新增「双海克斯（六大派也选）」复选框（102 的 #eliteEnemyHex），
 //   勾选后五类 job 全部透传 enemyHex，116 用 core/206-battle-runner V1.3.0 的 enemyHexPicker 让六大派也自动选。
 //   不勾 = 旧口径（只有明教选），历史基线可继续对比。
 
-// 双海克斯开关：102-toolkit.html 的 #eliteEnemyHex（缺失元素 = 不勾，向后兼容无 UI 的调用）
+// 双海克斯开关：802-toolkit.html 的 #eliteEnemyHex（缺失元素 = 不勾，向后兼容无 UI 的调用）
 const enemyHexOn = () => !!(document.getElementById('eliteEnemyHex') && document.getElementById('eliteEnemyHex').checked);
 
-// 名单统一由 127-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
+// 名单统一由 827-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
 const configs = NATURAL_ELITES.map(name => ({ name }));
 const SOLO_ELITES = SOLO_ELITE_NAMES.map(name => ({ name }));

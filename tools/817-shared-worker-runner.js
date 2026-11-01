@@ -1,5 +1,5 @@
 // 用法：runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl })
-export const SHARED_WORKER_URL = new URL('./116-role-balance-worker.js', import.meta.url);
+export const SHARED_WORKER_URL = new URL('./816-role-balance-worker.js', import.meta.url);
 
 // 统一池大小口径：默认用满全部逻辑核（用户要求「尽量快」；战场计算全在 worker，主线程 UI 不受影响）。
 // 想给系统留核时，控制台执行 localStorage.setItem('battle_pool_size', 6) 即可，下次点击生效。

@@ -1,4 +1,4 @@
-export const VER = 'tools/103-toolkit.js V6.2.8';
+export const VER = 'tools/803-toolkit.js V6.2.8';
 // V6.2.8 | 2026-10-31 单次复制上限默认 8 万 → 16 万（老板拍板），并把上限公式收成「填多少就是多少」：
 //           旧 min(charLimit*1.5, 90000) 在默认 8 万时产出 9 万包、填 16 万也被夹回 9 万（V6.2.6 只改了一半）。
 //           HARD_LIMIT = charLimit、HUGE_THRESHOLD = charLimit：>16 万的文件独占一包并按字符上限切片。
@@ -10,7 +10,7 @@ export const VER = 'tools/103-toolkit.js V6.2.8';
 //           填 20 万硬顶真到 20 万（配 102 V6.4.4 解锁 max）。
 // V6.2.5 | 2026-10-30 上限框 max 100000 → 200000（102 V6.4.4，仅解锁输入范围）；默认值与 JS 兜底 80000 均不动。
 
-import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
+import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './806-ai-pack-config.js';
 
 // 标签页切换
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -217,7 +217,7 @@ function escapeHtml(text) {
         });
         L.push('');
         L.push('## 四、纪律');
-        L.push('- 清单唯一真源 = tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES，与复制包同源；索引里没有的文件视为不随包。');
+        L.push('- 清单唯一真源 = tools/806-ai-pack-config.js 的 ALL_PROJECT_FILES，与复制包同源；索引里没有的文件视为不随包。');
         L.push(`- ⊘ 标记的 ${AI_EXCLUDE.size} 个文件（新手引导 / 开场CG / 角色名片·图鉴 / 海克斯手选弹窗）已按用户要求剔出复制包；`);
         L.push('  主控源码里的 import 仍指向它们 → 包内「找不到该文件」属预期，不要当成 bug，也不要追问补发。');
         L.push('- 改动前按 raw 读原文，禁止凭索引摘写改代码。');

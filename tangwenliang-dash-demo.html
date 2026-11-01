@@ -453,6 +453,7 @@ function dropGhosts(ghosts) {
 function squashPassBy() {
   const moves = plan ? plan.dash.moves : [];
   const taken = new Set(moves.map((m) => m.uid));
+  const hit = [];
   for (const m of moves) {
     if (m.from === m.to || m.from == null || m.to == null) continue;
     const path = PUSH_PATH[(m.to - 1) % 3] || [];
@@ -461,15 +462,17 @@ function squashPassBy() {
     const lo = Math.min(i0, i1), hi = Math.max(i0, i1);
     for (let i = lo + 1; i < hi; i++) {
       const occ = store.getState().units.find((u) => u.camp === m.camp && u.pos === path[i] && u.alive && !taken.has(u.uid));
-      if (!occ) continue;
+      if (!occ) { hit.push('空@' + path[i]); continue; }
       const cell = getCellByPos(occ.camp, occ.pos);
-      if (!cell) continue;
+      if (!cell) { hit.push('无格:' + occ.name); continue; }
+      hit.push(occ.name + '@' + path[i]);
       clock.animate(560, (pp) => {
         const k = Math.sin(Math.min(1, pp * 1.4) * Math.PI);
         cell.style.transform = `scale(${1 - 0.16 * k})`;
       }).then(() => { cell.style.transform = ''; });
     }
   }
+  if (guard) guard.sqHit = hit;
 }
 
 function guardTick() {
@@ -760,7 +763,10 @@ logLine('拖动时间轴即可逐帧定位（←/→ 单帧步进，空格播放
 window.__tw = () => ({
   vt, curFrame, seeking, queueRunning, pendingSeek, runReady, runId,
   clockNow: clock.now, realNow: clock._realNow, tweens: clock._tweens.length,
-  realTweens: clock._realTweens.length, waits: clock._waits.length
+  realTweens: clock._realTweens.length, waits: clock._waits.length,
+  guard: !!guard, pv: previews.length, seg: SEG_B,
+  sq: guard ? guard.squashed : null, sqHit: guard ? (guard.sqHit || null) : null,
+  hps: store ? store.getState().units.map((u) => u.uid + ':' + u.hp + '/' + u.maxHp) : null
 });
 </script>
 </body>

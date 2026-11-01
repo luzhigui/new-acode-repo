@@ -296,7 +296,7 @@ function diffAgainstBaseline(rev, cycles, baseline) {
 // 与方向检查共用同一解析器，但输出「谁引用了我」，覆盖三类引用点：
 //   ① JS static import / re-export（相对路径解析后比对绝对路径）
 //   ② HTML 的 <script src> / <link href>（条带 query string，如 721-perf-panel.js?v=3.5.1）
-//   ③ tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES 清单条目（字符串形式，非 import）
+//   ③ tools/806-ai-pack-config.js 的 ALL_PROJECT_FILES 清单条目（字符串形式，非 import）
 // 为什么必须三类齐全：2026-10-29 实测 ui/79 只有 ①类引用，ui/80 只有 ②③类引用——
 //   只做 import 反查会漏掉入口脚本，搬家时正是这类漏项导致线上白屏。
 export function findRefs(targetRel) {
@@ -337,10 +337,10 @@ export function findRefs(targetRel) {
         });
     }
 
-    const manifest = path.join(ROOT, 'tools/106-ai-pack-config.js');
+    const manifest = path.join(ROOT, 'tools/806-ai-pack-config.js');
     if (fs.existsSync(manifest)) {
         fs.readFileSync(manifest, 'utf8').split('\n').forEach((ln, i) => {
-            if (ln.includes(stem)) hits.manifest.push({ file: 'tools/106-ai-pack-config.js', line: i + 1, text: ln.trim() });
+            if (ln.includes(stem)) hits.manifest.push({ file: 'tools/806-ai-pack-config.js', line: i + 1, text: ln.trim() });
         });
     }
     return hits;

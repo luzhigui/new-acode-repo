@@ -1,4 +1,4 @@
-<!-- tools/110-role-balance-random.html - 光明顶5v5 职业平衡分析（全随机站位） -->
+<!-- tools/810-role-balance-random.html - 光明顶5v5 职业平衡分析（全随机站位） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -67,7 +67,7 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 
 <script type="module">
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
-import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
+import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };

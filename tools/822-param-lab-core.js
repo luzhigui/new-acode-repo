@@ -1,5 +1,5 @@
-// tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
-export const VER = 'tools/122-param-lab-core.js V1.2.6';
+// tools/822-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+export const VER = 'tools/822-param-lab-core.js V1.2.6';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -123,8 +123,8 @@ export function specOfUnit(u) {
         label: u.name
     };
 }
-// 精英名单统一由 127-tool-registry.js 提供；本文件继续对外导出同名绑定（调用方无需改动）
-import { ELITE_LABELS } from './127-tool-registry.js';
+// 精英名单统一由 827-tool-registry.js 提供；本文件继续对外导出同名绑定（调用方无需改动）
+import { ELITE_LABELS } from './827-tool-registry.js';
 export { ELITE_LABELS };
 const byPos = (a, b) => a.pos - b.pos;
 export const concreteKey = spec => spec.slice().sort(byPos).map(e => `${e.label}(${e.role})@${e.pos}`).join(' '); // 含职业+站位

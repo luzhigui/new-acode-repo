@@ -1,20 +1,20 @@
-// tools/134-fetch-pool.mjs — 创意摸奖的「外部词条池」维护脚本（手动跑，不自动执行）
-// 词条去向：134-idea-lab.html 启动时 fetch 这个 JSON，合并进对应维度的池子。
+// tools/834-fetch-pool.mjs — 创意摸奖的「外部词条池」维护脚本（手动跑，不自动执行）
+// 词条去向：834-idea-lab.html 启动时 fetch 这个 JSON，合并进对应维度的池子。
 //   规则：source 固定 'web'；新词条 tag='待确认'；人工过目后 --promote 标 '可用' 或 --archive 标 '归档'。
 //   归档的不删，组合时权重降到 0.3。
 //
 // 用法（在仓库根目录跑）：
-//   node tools/134-fetch-pool.mjs --keywords
-//   node tools/134-fetch-pool.mjs --add "血祭（自损换爆发）,天罚（延迟雷击）" --dim effect
-//   node tools/134-fetch-pool.mjs --list
-//   node tools/134-fetch-pool.mjs --promote "血祭（自损换爆发）"
-//   node tools/134-fetch-pool.mjs --archive "天罚（延迟雷击）"
+//   node tools/834-fetch-pool.mjs --keywords
+//   node tools/834-fetch-pool.mjs --add "血祭（自损换爆发）,天罚（延迟雷击）" --dim effect
+//   node tools/834-fetch-pool.mjs --list
+//   node tools/834-fetch-pool.mjs --promote "血祭（自损换爆发）"
+//   node tools/834-fetch-pool.mjs --archive "天罚（延迟雷击）"
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const POOL_FILE = join(HERE, '134-idea-pool-additions.json');
+const POOL_FILE = join(HERE, '834-idea-pool-additions.json');
 
 // 关键词组分 10 批，按日期轮换（每天换一批，10 天一轮）
 const KEYWORD_BATCHES = [
@@ -70,7 +70,7 @@ if (process.argv.includes('--keywords')) {
     console.log(`【本批关键词 · 第 ${idx + 1}/${KEYWORD_BATCHES.length} 组 · ${today()}】\n`);
     batch.forEach((k, i) => console.log(`  ${i + 1}. ${k}`));
     console.log(`\n搜回来的词条用下面这条登记（dim 选 ${Object.keys(DIMS).join(' / ')}）：`);
-    console.log(`  node tools/134-fetch-pool.mjs --add "词条A,词条B" --dim effect`);
+    console.log(`  node tools/834-fetch-pool.mjs --add "词条A,词条B" --dim effect`);
     console.log(`\n筛选标准：能用一句话说清机制；纯数值调整（"攻击+10%"）不要。`);
     process.exit(0);
 }
@@ -124,4 +124,4 @@ console.log(`创意摸奖 · 外部词条池维护 v1.0.0
   --archive "A"           归档（不删，组合权重降到 0.3）
 
   词条池文件：${POOL_FILE}
-  消费方：tools/134-idea-lab.html`);
+  消费方：tools/834-idea-lab.html`);
