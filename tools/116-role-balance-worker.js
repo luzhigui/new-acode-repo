@@ -831,10 +831,12 @@ self.onmessage = (e) => {
     try {
         let result;
         if (kind === 'balance') {
-            const { ai, ei, allyRole, enemyRole, rounds, positions, hexEnabled, masterSeed, enemyHex } = e.data;
+            const { ai, ei, allyRole, enemyRole, rounds, positions, hexEnabled, masterSeed, enemyHex, pairedSeed } = e.data;
             let wins = 0;
             for (let i = 0; i < rounds; i++) {
-                const seed = masterSeed + ai * 100000 + ei * 10000 + i * 7919;
+                // 2026-11-01：pairedSeed=true 时去掉 ai 分量 —— 同一 (ei,i) 下四个职业共用同一批基底种子，
+                //   只换第 6 弹性格的职业，Δ 更干净（109 职业平衡用）。不传则维持原来按 ai 分流。
+                const seed = masterSeed + (pairedSeed ? 0 : ai * 100000) + ei * 10000 + i * 7919;
                 const rng = new SeededRNG(seed);
                 const allyTeam = buildTeam(allyRole, CAMP_TYPES.ALLY, positions, rng);
                 const enemyTeam = buildTeam(enemyRole, CAMP_TYPES.ENEMY, positions, rng);

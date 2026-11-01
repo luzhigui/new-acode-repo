@@ -1,4 +1,6 @@
-export const VER = 'tools/109-role-balance.js V6.2.1';
+export const VER = 'tools/109-role-balance.js V6.2.2';
+// V6.2.2 | 2026-11-01 配对采样：109 派发 balance job 时带 pairedSeed=true，116 去掉 ai 分量 →
+//   同一 (敌职业, 场次序号) 下四个职业共用完全相同的基底种子，只在第 6 弹性格换职业；点差更干净。
 // V6.2.1 | 2026-11-01 四职业平衡总评：用同一份 4×4 结果推导（不额外跑）——
 //   每职业合并「在我方弹性格 / 在敌方弹性格」两视角的所在方胜率，带 Wilson 95% 区间、
 //   偏离 50% 幅度、判定（噪声内/偏强/偏弱）、最好打/最难打对手，并给出最强-最弱差距与区间是否重叠。
@@ -274,7 +276,8 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, enemyHex, masterSe
                 jobId: { ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole, kind: 'run' },
                 kind: 'balance',
                 ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole,
-                rounds, positions, hexEnabled, enemyHex, masterSeed
+                rounds, positions, hexEnabled, enemyHex, masterSeed,
+                pairedSeed: true   // V6.2.2：四职业共用同一批基底种子（同 (ei,i) 同 seed，只换第 6 弹性格职业）
             });
         };
 
@@ -351,7 +354,9 @@ function renderResult(container, matrix, allyStats, enemyStats) {
                 : '两者 95% 区间<b>不重叠</b> → 差距是真的，不是样本波动。')
             + `</div>`;
         html += '<div style="color:#888;font-size:11px;margin-top:6px;line-height:1.6">口径：基底 5 人固定（1防战 / 2战士 / 5飞行 / 7远程 / 9远程），只换第 6 个弹性格位；'
+            + '四职业共用同一批基底种子（同敌职业、同场次序号跑完全相同的基底，只换弹性格职业），所以点差更干净。'
             + '「综合强度」= 该职业在我方 / 在敌方两种视角合并后的所在方胜率（50% = 不偏不倚）。'
+            + '区间仍按独立样本近似，因为配对后样本正相关，比较时偏保守（不会夸大差异）。'
             + '因此它衡量的是「多带或撞上某职业时的边际强弱」，不是抽象的机制平衡；且职业与具体角色绑定，结论应读作「职业池强度」。</div>';
         html += '</div>';
     }
