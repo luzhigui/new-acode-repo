@@ -4,7 +4,7 @@
   描述：圣火令为唯一货币；角色解锁 / 属性点购买 / 背包分配 / 宝箱掉落 / 每日折扣 / 串码导入导出
   数据：本页写 ming_shop_data（背包·购买计数·经验进度）、ming_cultivated_heroes（养成角色，游戏本体只读）、
         ming_holy_token_5v5_test（圣火令余额）、ming_chest_count（宝箱）、ming_vote_score_5v5_test（积分，只读展示）
-  版本：V2.6.1（2026-10-26：HERO_META 小昭·姊 role → 蝴蝶，与 core/02、infra/56 同步）
+  版本：V2.6.1（2026-10-26：HERO_META 小昭·姊 role → 蝴蝶，与 core/202-unit、infra/106-battle-enums 同步）
   预估字节数：约 68 KB
   日期：2026-10-18
   改动：角色卡按档位配色「弱精英蓝 / 强精英紫 / boss 金」——对齐战斗格子名字分档（m≥112 金 / m≥107 紫 / m≥104 蓝）
@@ -818,7 +818,7 @@ function renderDiscount() {
         ' <span class="dim">（买完即恢复原价，每日刷新）</span>';
 }
 
-// 2026-10-18 角色档位（对齐 render/32「黑蓝紫金」名字分档）：m≥112 boss 金 / m≥107 强精英紫 / m≥104 弱精英蓝
+// 2026-10-18 角色档位（对齐 render/403「黑蓝紫金」名字分档）：m≥112 boss 金 / m≥107 强精英紫 / m≥104 弱精英蓝
 function tierOf(m) {
     return m >= 112 ? 'gold' : m >= 107 ? 'purple' : m >= 104 ? 'blue' : 'normal';
 }

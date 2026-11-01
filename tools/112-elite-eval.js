@@ -4,7 +4,7 @@ import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_EL
 
 export const VER = 'tools/112-elite-eval.js V3.3.0';
 // V3.3.0 | 2026-10-31 双海克斯：工具栏新增「双海克斯（六大派也选）」复选框（102 的 #eliteEnemyHex），
-//   勾选后五类 job 全部透传 enemyHex，116 用 core/06 V1.3.0 的 enemyHexPicker 让六大派也自动选。
+//   勾选后五类 job 全部透传 enemyHex，116 用 core/206-battle-runner V1.3.0 的 enemyHexPicker 让六大派也自动选。
 //   不勾 = 旧口径（只有明教选），历史基线可继续对比。
 
 // 双海克斯开关：102-toolkit.html 的 #eliteEnemyHex（缺失元素 = 不勾，向后兼容无 UI 的调用）

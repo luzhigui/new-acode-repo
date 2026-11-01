@@ -18,8 +18,8 @@ export const VER = 'tools/121-param-lab.mjs V1.1.1';
 //   · 六大派：仍走 initBattleTeams 随机生成；同一 seed 在基线与补丁两遍里完全同源。
 //   · 海克斯：固定 —— tickAndPickBuffs 用常量 HEX_SEED（不消耗战斗 RNG），
 //     第 1 回合预注入、其后每 3 回合补选（照抄 rules-replay 的节奏）。
-//     小昭·妹「永久继承本队海克斯」按 player/49 口径补上（引擎 modules/27、core/12 会读）。
-//   · 未复刻：player/49 是用战斗 RNG 抽 Buff（本工具改成确定性轮转，否则谈不上「固定」）；
+//     小昭·妹「永久继承本队海克斯」按 player/512-battle-flow 口径补上（引擎 modules/317-328、core/211-213 会读）。
+//   · 未复刻：player/512-battle-flow 是用战斗 RNG 抽 Buff（本工具改成确定性轮转，否则谈不上「固定」）；
 //     UI/动画/战报 Store 同步均不参与。
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';

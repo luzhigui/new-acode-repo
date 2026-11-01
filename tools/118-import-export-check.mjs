@@ -1,6 +1,6 @@
 // tools/118-import-export-check.mjs — 静态对账：每个 import { 名字 } 的具名绑定，目标文件是否真的导出
 // 背景：目标没导出该名字时，浏览器在模块加载期抛 SyntaxError、整个模块不执行（硬挂，非静默失效）。
-//       2026-09-22 fx/89 从 87 取 showMeditateEffect 未导出，导致所有走信号的特效全灭——本脚本专治此类事故。
+//       2026-09-22 fx/610-fx-subscriber 从 87 取 showMeditateEffect 未导出，导致所有走信号的特效全灭——本脚本专治此类事故。
 // 分工：tests/123static-scan.js 查「import 路径是否存在 / 是否漏 import」；本脚本查「目标是否导出该名字」，互补不重复。
 // 优势：readdirSync 自动遍历，不依赖任何手工清单（123 的 SCAN_FILES 需人工登记，新增文件易漏）。
 // 用法：node tools/118-import-export-check.mjs [仓库根目录]   （省略参数默认取本文件上一级）

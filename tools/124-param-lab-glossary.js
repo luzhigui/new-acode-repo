@@ -44,7 +44,7 @@ export { UNIT };
 //   nineYang.healPct/healRatio、bloodSiphon.leechMin/leechMax、bloodDodge.minRatio/maxRatio、
 //   qianKun.*、qianKunUpgraded.*、qianKunDerived.*、spiderFly.xiaoZhaoDoubleStrikeChance、
 //   rebelStrike.dmgBonus、WARRIOR_BREAK_DEF_TIERS.chance，以及 FIELD_GLOSSARY 里 roles.fortify 的两项。
-//   这批数据已按 ÷100 改写（content/200 + core/01 CONFIG），引擎读取点同步改成直接使用或 ×100 还原，
+//   这批数据已按 ÷100 改写（content/001-game-data + core/201-config-5v5-test CONFIG），引擎读取点同步改成直接使用或 ×100 还原，
 //   白名单因此删除 —— 现在任何百分数字段都按 pct（1 = 100%）显示、按 ÷100 落盘。
 //   若将来又冒出「10 = 10%」的字段，就在此处重建白名单，并让 unitOf 重新查它。
 
@@ -60,11 +60,11 @@ export { UNIT };
 // 值 = 被读的字段路径（点号表示子字段；登记父对象即其子字段一并算被读，
 //   因为引擎是整包取子对象后按动态键索引，如 extraDmgMap / grow / cub）。
 // 读取点（改本表时同步复核）：
-//   core/11:89-91、core/13:187-189、core/14:24 / 121-123
-//   modules/20:20 / 39-41 / 67-69 / 132-134 / 176 / 223-225
+//   core/210-battle-round:89-91、core/214-battle-shared:187-189、core/215-buff-effects:24 / 121-123
+//   modules/302-elite-skills:20 / 39-41 / 67-69 / 132-134 / 176 / 223-225
 //   modules/26:151-158 / 167 / 239-251 / 280 / 287-308 / 353 / 400-451 / 492
 //   modules/27:136-147 / 215 / 443 / 571 / 673-709 / 721
-//   render/39:93（render/34 原先的 rebelStrike 读取点已于 2026-09-29 收口改读 mechanics 真值，故移除）
+//   render/420-actions-defs:93（render/407-facts-attack 原先的 rebelStrike 读取点已于 2026-09-29 收口改读 mechanics 真值，故移除）
 // 不在此表 = 仅供 desc 插值（改了不改变战斗结果）。
 // 注：鹿杖客 xuanmingPalm 的 duration 不登记在本表（实际不生效），但源码里确实有读取点 ——
 //   挪到下面的 ENGINE_READ_ORPHAN（孤儿登记），供守卫双向对齐，不假装它不存在。
@@ -140,8 +140,8 @@ export const ENGINE_READ_NONE = new Set(['lionFollow']);
 //   会报「表遗漏」；登记在 ENGINE_READ 里又等于谎报「引擎真读」。故单列一张表：
 //     · 登记在案 → 守卫不算漂移；
 //     · 源码里这个读取点消失（例如以后有人删掉那个孤儿函数）→ 守卫报「孤儿登记已失效」，请从本表删掉。
-// 鹿杖客 xuanmingPalm.duration：唯一读取点 modules/20:18 tickXuanmingPoison（读 s.duration 算 dot 索引），
-//   该函数全仓无调用点 —— 中毒 tick 实际走 modules/30 读 mechanics 写进 state 的数据。
+// 鹿杖客 xuanmingPalm.duration：唯一读取点 modules/302-elite-skills:18 tickXuanmingPoison（读 s.duration 算 dot 索引），
+//   该函数全仓无调用点 —— 中毒 tick 实际走 modules/331-custom-effects 读 mechanics 写进 state 的数据。
 export const ENGINE_READ_ORPHAN = {
     xuanmingPalm: ['duration'],
 };

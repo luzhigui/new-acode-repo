@@ -101,7 +101,7 @@ function renderResult(stats, runs, stage, fz, fw, fx, fh) {
 
     let html = `<div class="hex-log-verdict">采样 ${runs} 场 · 第${stage}关${flag}</div>`;
 
-    // 精英数量分布（规则见 modules/29：Boss 30%；无 Boss 时强精英 1 个 90% / 2 个 10%；Boss 局 70% 带搭档）
+    // 精英数量分布（规则见 modules/330-battle-init：Boss 30%；无 Boss 时强精英 1 个 90% / 2 个 10%；Boss 局 70% 带搭档）
     html += `<h3 style="color:#ffd700;margin:12px 0 6px;">精英数量分布（只数六名固定精英，未计弱精英混入）</h3>
     <table class="elite-table"><tr><th>0 个</th><th>1 个</th><th>2 个</th><th>3 个</th></tr><tr>
         <td>${stats.eliteCount[0]}（${pct(stats.eliteCount[0])}）</td>

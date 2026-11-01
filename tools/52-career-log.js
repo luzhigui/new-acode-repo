@@ -1,10 +1,10 @@
-// tools/52-career-log.js — 生涯记录统计报表与导出（运行时记账已拆到 modules/31-career-log）
+// tools/52-career-log.js — 生涯记录统计报表与导出（运行时记账已拆到 modules/332-career-log）
 // 只存摘要（阵容/结果/单位统计/回合走势），不存 steps——localStorage 约 5MB，
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
 import { CONFIG } from '../core/201-config-5v5-test.js';
-// 运行时读写唯一真源：modules/332-career-log.js（player/42 直接 import 它，不再经 tools）。
+// 运行时读写唯一真源：modules/332-career-log.js（player/503-player-core 直接 import 它，不再经 tools）。
 import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCounts } from '../modules/332-career-log.js';
 // 兼容旧调用面（dev-index 动态 import 本文件）：运行时函数原样转出。
 export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/332-career-log.js';
@@ -23,7 +23,7 @@ export const VER = 'tools/52-career-log.js V2.8.1';
 //   区间跨 0 即判噪声内（不再把小样本误判成「被速推/团灭/输出打不出/承伤偏高」）；突破口改用 Wilson 区间，下界过半才认。
 //   ② getCareerInsights 的 hardest/easiest 加 Wilson 区间 + sig，区间跨总体胜率才认「真偏难/偏易」。与 V2.3/V2.4 同一显著性口径。
 // V2.8.0 | 2026-10-31 | 双海克斯分库 + 只记人工对局：所有读取/导出函数加 hexMode 参数（'single'/'dual'/省略=合并）；
-//   写入端 modules/31 已按 hexMode 分库存、按 enemyAutoHex 判定、并排除全自动（full-auto）对局；
+//   写入端 modules/332-career-log 已按 hexMode 分库存、按 enemyAutoHex 判定、并排除全自动（full-auto）对局；
 //   报告/明细/界面均按所选模式呈现，不再把两种模式混在一起算胜率。
 // V2.8.1 | 2026-10-31 | 导出补「自动级别」列：记录里已存 autoLevel（手动/自动/全自动），但此前 CSV/报告没透出，
 //   无法追溯「这条是不是人工打的」。CSV 加「自动级别」列、Markdown 汇总加「人工对局构成」行。

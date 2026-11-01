@@ -242,12 +242,12 @@ function coverageIssues() {
             ' —— 小昭·姊在场时这几个海克斯不获得任何增强。若是有意保留，可忽略本条。'
     });
 
-    // ② 缺妹永久（告警级）：modules/20 addPermanentBuff 会直接 return，漏加即该海克斯永久效果失效
+    // ② 缺妹永久（告警级）：modules/302-elite-skills addPermanentBuff 会直接 return，漏加即该海克斯永久效果失效
     const noPerm = keys.filter(k => !permKeys.includes(k));
     if (noPerm.length) out.push({
         sev: 'alert', title: `缺「妹妹永久版」的海克斯 ${noPerm.length} 个`,
         detail: noPerm.map(k => `${nameOf(k)}（${k}）`).join('、') +
-            ' —— 不在 permanentBuffKeys 里时 modules/20 的 addPermanentBuff 直接 return，小昭·妹续不上这个海克斯。'
+            ' —— 不在 permanentBuffKeys 里时 modules/302-elite-skills 的 addPermanentBuff 直接 return，小昭·妹续不上这个海克斯。'
     });
 
     // ③ 孤儿登记（告警级）：登记了但海克斯本体已不存在 → 增强/永久挂空
@@ -726,7 +726,7 @@ function simVsReal(hex, elit) {
     // 模拟侧：108「常规」榜的逐海克斯明教胜率（跑批随机带该海克斯时的胜率）。
     // 实战侧：52 生涯记录里「单机」模式逐海克斯明教胜率（玩家自选带该海克斯时的胜率）。
     // 两边 key 同源（都是 CONFIG.BUFFS 的 key：108 来自 116 的 buffsPicked.map(b=>b.key)、
-    //   52 来自 player/42 的 c.activeBuffs.map(b=>b.key)），可直接按 key 匹配。
+    //   52 来自 player/503-player-core 的 c.activeBuffs.map(b=>b.key)），可直接按 key 匹配。
     // 【诚实边界】模拟是「随机带 X」、实战是「玩家主动选 X」——玩家会专挑顺风的局带强海克斯，
     //   所以实战胜率天然偏高、不能直接当「X 的真实强度」。本对照只描述「带 X 的胜率差多少」，
     //   差异显著时才提示去查这个海克斯在实战里是否比跑批显示的更强/更弱，但不下因果结论。

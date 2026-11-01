@@ -1,6 +1,6 @@
 ﻿// tools/107-battle-log-viewer.js — 战报文件复盘（数据源与游戏内走势分析完全一致）
 // 粘贴文本入口已删：文本没有 fact 结构，只能正则反推，精度差且新机制识别不到。
-// 现在只吃「🎬 保存战报」导出的 .json（含 steps），与 ui/64 共用 analyzeBattleFacts。
+// 现在只吃「🎬 保存战报」导出的 .json（含 steps），与 ui/705-main-dialogs 共用 analyzeBattleFacts。
 import { injectLogAnalyzeStyle, analyzeBattleFacts, collectFactsFromReport } from '../player/514-battle-log-analyze.js';
 import { rehydrateReport, migrateReport } from '../player/513-battle-export.js';
 

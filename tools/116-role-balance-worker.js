@@ -1,19 +1,19 @@
-// V1.18.0 | 2026-10-31 双海克斯（六大派也带海克斯）：新增 pickEnemyHexBuff（逐字复刻 player/49 的纯逻辑）；
+// V1.18.0 | 2026-10-31 双海克斯（六大派也带海克斯）：新增 pickEnemyHexBuff（逐字复刻 player/512-battle-flow 的纯逻辑）；
 //           11 个 job 全部接 enemyHex —— 原本带海克斯的（hex/elite 系列/balance/random/paired）由工具开关切换，
 //           本来不带海克斯的 stats/baseline 另加 hexEnabled 参数（默认关，旧基线不变）。
-//           敌方 buff 由 createBuffObject 带 target=ENEMY 创建，core/06 V1.3.0 起两侧续存
+//           敌方 buff 由 createBuffObject 带 target=ENEMY 创建，core/206-battle-runner V1.3.0 起两侧续存
 //           （旧 runner 只捞 ally，敌方 buff 下一回合会被整批丢弃）。
 // V1.17.0 | 2026-10-31 worker 自备 002-hex-enhance.json（loadHexEnhanceData）：
-//           小昭 hexEnhance 已迁出 200，modules/27 每回合建队就读 201，缺则四种阵容 hex job 全炸。
+//           小昭 hexEnhance 已迁出 001，modules/317 每回合建队就读 002，缺则四种阵容 hex job 全炸。
 //           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex' | 'random'
 // hex 任务现为 101/108 共用：支持 preferredBuffs 偏好 + 小昭·妹永久继承，并回报胜负计数
 // 每个 job 在 worker 内完成 N 场战斗并回报聚合；独立模块实例，天然隔离 _eliteStates/_eventBuffer
 // Worker 环境兼容 shim：
-//  - 战斗链 15-skill-mechanisms 白骨爪结算读 window.GlobalStore（运行时访问），globalThis 即 window 等价物
+//  - 战斗链 216-skill-mechanisms 白骨爪结算读 window.GlobalStore（运行时访问），globalThis 即 window 等价物
 //  - 24（内容18流程）无 localStorage，圣火令/宝箱记账为运行时访问，补内存实现（模拟战斗不需要真持久化）
 //
-// ⚠️ 整局循环已全部收口到 core/06battle-runner（runBattle）。
+// ⚠️ 整局循环已全部收口到 core/206-battle-runner（runBattle）。
 //    本文件不再自写 while 回合循环——历史上这里有 3 份（runWholeBattle / runBalanceJob / runHexStageJob），
 //    任何一处改错都不会被别人发现。新增需要"跑一局"的场景，一律调 runBattle，不要再抄循环。
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -55,7 +55,7 @@ function clearBattleGlobals() {
     GlobalStore.set('forcePang', null);
     // 2026-10-22 V1.12.2：寒离飒强精英 force（29 V7.6.1 新增）——漏清会让后续 job 全部带寒离飒
     GlobalStore.set('forceHanLiSa', null);
-    // 2026-10-16 V1.9.1 补漏：forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——漏清会跨场污染弱精英出场率
+    // 2026-10-16 V1.9.1 补漏：forceWeakElite（弱精英锁定，modules/330-battle-init V7.5.22 新增）——漏清会跨场污染弱精英出场率
     GlobalStore.set('forceWeakElite', null);
     // 2026-10-21 V1.12.0：寒离飒强精英单挑的轮盘抑制标志，漏清会让后续 job 全部少一个随机精英
     GlobalStore.set('forceSoloWeakElite', null);
@@ -65,7 +65,7 @@ function clearBattleGlobals() {
 }
 
 // 共用：跑完整战斗（薄封装，保持调用点签名不变）。
-// 循环本体在 core/06battle-runner；原实现里的 allAllies 手工同步与 buff 双递减一并删除
+// 循环本体在 core/206-battle-runner；原实现里的 allAllies 手工同步与 buff 双递减一并删除
 // （createRoundStepper 内部已自行处理，删掉后 18 场基线的 winner/rounds/factCount 逐条不变）。
 function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = null) {
     const user = opts || {};
@@ -73,7 +73,7 @@ function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false, opts = nu
     // V1.18.0：长尾参数走 opts.enemyHex（双海克斯＝六大派也带海克斯），默认 false 与原行为一致
     const enemyHex = !!user.enemyHex;
     // V1.16.0：捕获引擎每步的实时敌方（step.enemy），供海克斯候选过滤的惑人心智门槛（敌方存活 >2）读取；
-    //   core/06 的 hexPicker 签名只回传明教侧，不改主代码只能走 onStep 读引用。
+    //   core/206-battle-runner 的 hexPicker 签名只回传明教侧，不改主代码只能走 onStep 读引用。
     let liveEnemy = null;
     const onStep = (step) => {
         if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy;
@@ -122,16 +122,16 @@ function buildTeam(extraRole, camp, positions, rng) {
 }
 
 function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule, enemyTeam = []) {
-    // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径）；
+    // 2026-10-22 V1.12.4：候选池过滤统一由 modules/329-buff-tools filterAvailableBuffs 提供（与主代码同口径）；
     //   withFortifyRule 原样透传给 opts（职业平衡 job 专用：无剩余 buff 时禁选严阵以待）。
-    // V1.16.0：enemyTeam 透传（惑人心智门槛要读敌方存活数）；按 ui/70 同口径先滤 alive
+    // V1.16.0：enemyTeam 透传（惑人心智门槛要读敌方存活数）；按 ui/711-buff-dialog 同口径先滤 alive
     const enemyAlive = (enemyTeam || []).filter(u => u && u.alive);
     const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule, enemyTeam: enemyAlive });
     if (available.length === 0) return null;
     const pick = available[rng.nextInt(0, available.length - 1)];
     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
     const nb = createBuffObject(pick, duration);
-    // 2026-10-21 口径统一（老板「我不信胜率那么高」案）：正式服四个入口（ui/61/65/70、player/49）选完海克斯
+    // 2026-10-21 口径统一（老板「我不信胜率那么高」案）：正式服四个入口（ui/702-main-5v5-test/706-main-battle/711-buff-dialog、player/512-battle-flow）选完海克斯
     //   都调 addPermanentBuff 给妹永久继承——此前只有 108 hex job 的内联 picker 有、本共享 picker 漏了，
     //   112 精英评测跑的是「妹无永久海克斯」的平行世界，系统性低估妹（22:28 那张表妹总评 30.1% 即此口径）。
     //   补上后与正式服同规则；无妹阵容天然 no-op（职业平衡/无精英基线不受影响）。
@@ -143,7 +143,7 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule, enemyTeam = []
     return nb;
 }
 
-// V1.18.0 双海克斯：六大派自动选一个（逐字复刻 player/49 handleEnemyAutoBuffSelection 的纯逻辑部分）。
+// V1.18.0 双海克斯：六大派自动选一个（逐字复刻 player/512-battle-flow handleEnemyAutoBuffSelection 的纯逻辑部分）。
 //   过滤口径同一套 filterAvailableBuffs（人数门槛 / 职业要求 / 惑心门槛，withFortifyRule=true 同主代码）；
 //   rng 必须用战斗 RNG（同 seed 同结果）。buff 由 createBuffObject 带 target=ENEMY 创建 ——
 //   主游戏正是这么做的，引擎按 b.target 拆进 B._activeBuffs，只有六大派吃到。
@@ -194,7 +194,7 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled, enemyHex = false
 }
 
 // 112 精英评测：跑普通局，按"谁在场"归因
-// 不再 force 上场 —— force 会抑制随机抽取（29battle-init 的 `if (eliteCount > 0 && !forceZhang && !forceWei)`），
+// 不再 force 上场 —— force 会抑制随机抽取（330-battle-init 的 `if (eliteCount > 0 && !forceZhang && !forceWei)`），
 // 导致被 force 的精英按"单精英"评、未 force 的按"多精英"评，四列不同尺子不可比。
 // 现改为：每关跑 runs 局普通对局（出率/站位/海克斯全走引擎原逻辑），
 // 一局结束看谁在场，就把这局的结果记给谁（同场共现是真实环境，不是污染）。
@@ -237,7 +237,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = fa
 }
 
 // 112「🛡 无精英基线」：明教侧一个精英都不出的胜率（精英价值的对照组）。
-// 2026-10-22 V1.12.1：modules/29 V7.6.0 起「无 Boss 也必出 1 个强精英」，自然局已不存在无精英阵容，
+// 2026-10-22 V1.12.1：modules/330-battle-init V7.6.0 起「无 Boss 也必出 1 个强精英」，自然局已不存在无精英阵容，
 //   旧的纯拒绝采样会 200 次全空、整表静默 0 场。改用 forceSoloWeakElite 抑制随机精英块（该标志下不补任何精英），
 //   再拒绝采样排除 30% 的弱精英混入 → 得到真正「一个精英都没有」的 5 普通兵局。按敌方变体分桶，口径与上两表一致。
 function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
@@ -516,7 +516,7 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
         // 2026-10-14 V1.9.0 阵容模式（108 仪表盘选择器透传）统一走「拒绝采样重掷自然阵容」，一律不设 forceXiaoZhao：
-        //   force 会触发 modules/29 V7.5.16 的轮盘互锁——队里只剩小昭这一个精英（张/韦/谢逊/杨逍全不出现），
+        //   force 会触发 modules/330-battle-init V7.5.16 的轮盘互锁——队里只剩小昭这一个精英（张/韦/谢逊/杨逍全不出现），
         //   且 20% 本该无精英的局也会被强塞一个小昭；得到的是「单小昭局」，与「其他精英照常轮盘」的自然局不可横向比。
         //   四个模式要能放在同一张表里比，必须同一把尺子，所以这里只筛选、不强制：
         //   none = 阵容里无小昭；sister = 阵容里含小昭·姊；brother = 阵容里含小昭·妹；normal = 自然（不筛选）。
@@ -542,7 +542,7 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
         // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
         const hexPicker = (activeBuffs, allySide, rng) => {
-            // 2026-10-22 V1.12.4：候选池过滤统一由 modules/28 filterAvailableBuffs 提供；
+            // 2026-10-22 V1.12.4：候选池过滤统一由 modules/329-buff-tools filterAvailableBuffs 提供；
             //   hex job 不开 withFortifyRule（与原行为一致）。
             // V1.16.0：实时敌方透传（惑人心智门槛）
             const available = filterAvailableBuffs(activeBuffs, allySide,
@@ -553,7 +553,7 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             const pool = preferred.length > 0 ? preferred : available;
             const pick = pool[rng.nextInt(0, pool.length - 1)];
             const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
-            // 2026-10-14 口径收口：原在此手工造 buff——圣火令只抽 1列1行（正式 modules/28 抽 2列2行）、
+            // 2026-10-14 口径收口：原在此手工造 buff——圣火令只抽 1列1行（正式 modules/329-buff-tools 抽 2列2行）、
             //   permanent 整局映射不生效（圣火不熄被当 4 回合 buff 测），两者胜率系统性低估。
             //   现直接调 createBuffObject，抽签数值与时长口径永远跟随正式服（pickHexBuff 同先例）。
             const nb = createBuffObject(pick, duration);
@@ -815,9 +815,9 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB, hexEnabled = false, 
 
 // 入口
 // 模块顶层一次性加载游戏数据（幂等，worker 独立全局需自备）
-// V1.17.0：002-hex-enhance.json 也必须加载——小昭 hexEnhance 已从 200 迁到 201，
-//   modules/27 在每次 prepareRoundSpawns 就读它（与是否带海克斯无关），
-//   只加载 200 时四模式 hex job 全部炸「002-hex-enhance.json 缺 sister 段」。
+// V1.17.0：002-hex-enhance.json 也必须加载——小昭 hexEnhance 已从 001 迁到 002，
+//   modules/317 在每次 prepareRoundSpawns 就读它（与是否带海克斯无关），
+//   只加载 001 时四模式 hex job 全部炸「002-hex-enhance.json 缺 sister 段」。
 try {
     await Promise.all([loadGameData(), loadHexEnhanceData()]);
     self.postMessage({ kind: 'worker-ready', ok: true });

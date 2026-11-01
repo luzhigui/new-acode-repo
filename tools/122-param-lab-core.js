@@ -84,7 +84,7 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
     for (const s of sides) {
         const mine = next.filter(b => (b.target || CAMP_TYPES.ALLY) === s.camp);
         const alive = (s.team || []).filter(u => u && u.alive);
-        // 2026-10-22 V1.2.5：候选池过滤统一由 modules/28 filterAvailableBuffs 提供（与主代码同口径，
+        // 2026-10-22 V1.2.5：候选池过滤统一由 modules/329-buff-tools filterAvailableBuffs 提供（与主代码同口径，
         //   含 unity 门槛；carry 过滤已随 28 V6.2.4 删除）。.sort() 保持确定性选取不变。
         // V1.2.6：补敌方存活（28 V6.2.5 起惑人心智门槛读 opts.enemyTeam；不传则恒过滤、该 buff 永不入选）
         const other = (sides[1 - s.off].team || []).filter(u => u && u.alive);
@@ -99,7 +99,7 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
             nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort((a, b) => a - b);
         }
         next.push(nb);
-        // 小昭·妹永久继承明教海克斯（player/49 L40-47 口径；modules/27、core/12 会读 state._permanentBuffs）
+        // 小昭·妹永久继承明教海克斯（player/512-battle-flow L40-47 口径；modules/317-328、core/211-213 会读 state._permanentBuffs）
         if (s.camp === CAMP_TYPES.ALLY) {
             const bro = alive.find(u => u.isXiaoZhaoBrother);
             if (bro) bro.state._permanentBuffs.push({ ...nb, remaining: Infinity });

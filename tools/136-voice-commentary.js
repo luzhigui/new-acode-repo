@@ -160,7 +160,7 @@ function mutedNow() {
     return false;
 }
 
-// ── 对外播报口（player/42 逐条日志收尾时调用；防剧透铁律：动画播完才开口）──
+// ── 对外播报口（player/503-player-core 逐条日志收尾时调用；防剧透铁律：动画播完才开口）──
 let _lastFactRef = null;   // 一个 fact 可能拆多条日志播（引用相同），去重防复读
 let _lastText = '';        // 连续相同文本去重（全文模式）
 

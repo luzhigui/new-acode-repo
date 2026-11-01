@@ -11,22 +11,22 @@ export const VER = 'tools/108-hex-dashboard.js V6.8.2';
 //           · 长说明折叠：顶部说明 + 模式对比说明都只留一行，蓝色「▸ 说明」点开/「▾ 收起」收回（默认收起）。
 // V6.8.0 | 2026-10-31 双海克斯档位（主游戏 enemyAutoHex 对齐）：
 //           · 新增「海克斯：单/双/单+双一起跑」下拉。双档跑批通过 116 的 enemyHex 让六大派也自动选海克斯
-//             （core/06 V1.3.0 起两侧 buff 续存，旧 runner 只捞明教会把敌方 buff 下一回合丢掉）。
+//             （core/206-battle-runner V1.3.0 起两侧 buff 续存，旧 runner 只捞明教会把敌方 buff 下一回合丢掉）。
 //           · 榜键加 _dual 后缀：单档沿用旧键（历史数据不丢），双档独立成榜，两档互不污染；
 //             清空数据一次清两档 × 四模式 ×（七关+7 单关）。
 // V6.7.2 | 2026-10-31 详情卡改数据驱动（老板：每次改海克斯都要手改一堆描述，太麻烦）：
-//           · 普通版直接读 content/200 的 buffs.<key>.desc；姐姐/妹妹由 201 与 200 逐字段自动比对，
+//           · 普通版直接读 content/001-game-data 的 buffs.<key>.desc；姐姐/妹妹由 002 与 001 逐字段自动比对，
 //             输出「旧 → 新 / 新增」——改数值零维护，也不会再出现「文案说 80%、配置是 160%」这类漂移。
 //           · 删掉手写 HEX_DETAIL 全表与 HEX_HINTS；只保留 HEX_NOTE 的少量纯行为机制句。
-//           · 适用提示改自动：受益对象取自 desc 关键词 + 强化项数实算；201 新字段未登记中文名时退回键名。
-// V6.7.1 | 2026-10-30 详情卡补载 002-hex-enhance.json：小昭 hexEnhance 已从 200 迁出，
-//   getSkillParams('小昭','hexEnhance') 在缺 201 时直接抛，详情卡一打开就炸。
+//           · 适用提示改自动：受益对象取自 desc 关键词 + 强化项数实算；002 新字段未登记中文名时退回键名。
+// V6.7.1 | 2026-10-30 详情卡补载 002-hex-enhance.json：小昭 hexEnhance 已从 001 迁出，
+//   getSkillParams('小昭','hexEnhance') 在缺 002 时直接抛，详情卡一打开就炸。
 // V6.7.0 | 2026-10-30 模式对比表结构简化：删「强弱Δ常规」+ 三列「净」，改成四列胜率 + 四列差值
 //   （每个模式 = 该海克斯胜率 − 本模式全海克斯平均，四列各算各的，不跨模式相减）。
 // V6.6.8 | 2026-10-30 真根因修复（`Cannot read properties of null (reading 'buffs')`）：
-//           core/01 V6.8.5 的 BUFFS 是 getter（= getGameData().buffs），游戏数据未加载时读它必抛 TypeError。
+//           core/201-config-5v5-test V6.8.5 的 BUFFS 是 getter（= getGameData().buffs），游戏数据未加载时读它必抛 TypeError。
 //           ① 自动跑原先「先 if (!CONFIG.BUFFS) 再 await loadGameData()」顺序写反 → getter 先炸、
-//             await 永远走不到（线上堆栈：at get BUFFS core/01:290 ← HTMLButtonElement click）；
+//             await 永远走不到（线上堆栈：at get BUFFS core/201-config-5v5-test:290 ← HTMLButtonElement click）；
 //             改为先查 getGameData()（未加载返回 null，不抛），再无脑 await loadGameData()（幂等）。
 //           ② 详情卡 openHexDetail 同样在「未加载就点海克斯名」时炸同一句，改为先确保加载。
 // V6.6.7 | 2026-10-30 报错自证：异常块追加「版本 + 出错文件行号」，截图即可判定跑的是新版还是手机缓存旧版；
@@ -52,7 +52,7 @@ const ALL_STAGES = [1, 2, 3, 4, 5, 6, 7];
 // 2026-10-25 V6.3.0：存储键加关卡维——七关沿用旧键（历史数据不丢），单关加 _stageN 后缀，
 // 各关/各模式互不污染。单关结果也落盘（老板定：切到该关就能看到历史，不必重跑）。
 // 2026-10-31 V6.8.0 双海克斯维：单海克斯沿用旧键（历史数据不丢），双海克斯全部加 _dual 后缀，
-//   两档互不污染。跑批时 enemyHex 透传给 116（六大派也自动选一次海克斯，见 core/06 V1.3.0）。
+//   两档互不污染。跑批时 enemyHex 透传给 116（六大派也自动选一次海克斯，见 core/206-battle-runner V1.3.0）。
 const HEXMODE_LABEL = { single: '单海克斯（仅明教）', dual: '双海克斯（六大派也带）' };
 const keyFor = (mode, stage, hexMode = 'single') => {
   let base = mode === 'normal' ? KEY : `${KEY}_${mode}`;

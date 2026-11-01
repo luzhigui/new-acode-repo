@@ -1,7 +1,7 @@
 // 探针：胖远桥（六大派精英·第3关）改前/改后胜率对比——force 胖远桥阵容变体，逐 seed 跑第3关，统计明教胜率。
 // 用法：node tools/probe-pang-balance.mjs [runs=600] [baseSeed=20261013]
 //   · 改前：git stash（回到 HEAD）跑一次；改后：git stash pop（工作树）跑一次，比较两行「明教胜率」。
-//   · 只读：不写任何文件；forcePang 走 GlobalStore（modules/29 轮盘互锁，强制第3关出胖远桥变体），无海克斯（裸机）口径。
+//   · 只读：不写任何文件；forcePang 走 GlobalStore（modules/330-battle-init 轮盘互锁，强制第3关出胖远桥变体），无海克斯（裸机）口径。
 import { initBattleTeams } from '../modules/330-battle-init.js';
 import { runBattle } from '../core/206-battle-runner.js';
 import { GlobalStore } from '../infra/104-global-store.js';

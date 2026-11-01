@@ -47,7 +47,7 @@ function mkSlider(value, min, max, step, onChange, fmt) {
     return wrap;
 }
 
-// 供音乐面板（ui/64 showMusicPanel）尾部嵌入的解说设置区
+// 供音乐面板（ui/705-main-dialogs showMusicPanel）尾部嵌入的解说设置区
 export function buildVoiceControls(box) {
     const cfg = getVoiceCfg();
 
