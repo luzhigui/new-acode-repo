@@ -15,7 +15,7 @@
 //   第 127 轮把「恒空转契约 2 条（178 条账本词条无人比对）」立成待办，定性是"样本未覆盖该形态"，
 //   由白名单棘轮钉住等拍板。本轮取证发现：**其中一条根本不是样本问题，是契约自己过期了**——
 //     HLS_JIUYANG_HEAL 绑定 label === '九阳神拳回复'，而主代码实际发的是 '左拳·九阳回复'
-//     （modules/27elite-mingjiao-hanlisa.js L80）。全库检索 '九阳神拳回复' **零命中**。
+//     （modules/319-elite-mingjiao-hanlisa.js L80）。全库检索 '九阳神拳回复' **零命中**。
 //     ⇒ 声明侧恒 0 ⇒ 严格比对恒 0 ⇒ 那个"偏差 0"是**没得比**，不是"比过了没偏差"：
 //     账本 group「hlsJiuYangHeal」的 61 条词条一条都没被盯住，改错也查不出 —— 真·假绿。
 //   这与第 99 轮 NINE_YANG_HEAL 是**同一款缺陷**（引擎迁通道后契约仍绑旧键），
@@ -57,7 +57,7 @@ import {
 import { readIfAbs } from './_lib/read-if-abs.mjs';
 
 const COMPARER = 'tests/stat-decl-vs-actual-check.mjs';
-const ENUM_FILE = path.join(root, 'infra', '56-battle-enums.js');
+const ENUM_FILE = path.join(root, 'infra', '106-battle-enums.js');
 // 主代码口径：tests/ 之外的一切 js（含 core / modules / render / player / ui / fx / infra）
 const MAIN_DIRS = ['core', 'modules', 'render', 'player', 'ui', 'fx', 'infra'];
 // ① 规模下限：低于此值说明 CONTRACTS 切块失败或契约被批量删除，自检结果不可信

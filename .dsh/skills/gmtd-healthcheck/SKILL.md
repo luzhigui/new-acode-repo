@@ -56,7 +56,7 @@ pass=120 / fail=0 不等于有牙——规则可能因判据写错、字段路�
 写法（`kind: 'ATTR'`）:
 ```js
 { id: 'A24', kind: 'ATTR', desc: '空列光环 atk 增量翻倍（AURA 严格判据）',
-  file: 'core/11battle-round.js',
+  file: 'core/210-battle-round.js',
   from: "value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });",
   to:   "value: auraBonuses.emptyCol * 2, ttl: 'round', group: 'aura', op: 'add' });",
   multi: true },
@@ -119,11 +119,11 @@ if (S.total > 0)         return '对照器兜住';  // ← 永远轮不到
 
 **症状**：对照器/基线/回放开局即崩，报 `[core/15] 未知顶层机制 type "dotTick"（角色 XX）：未在 core/18 注册，也不在本地安装器名单内`。
 
-**根因**：机制（dotTick / damageReflect 等）注册在 `modules/30custom-effects.js` 的**模块顶层副作用**——不是 `export` 函数，是 **`import 即注册`**。漏 import ⇒ `core/18` 注册表为空 ⇒ `core/15` 安装期校验抛错。
+**根因**：机制（dotTick / damageReflect 等）注册在 `modules/331-custom-effects.js` 的**模块顶层副作用**——不是 `export` 函数，是 **`import 即注册`**。漏 import ⇒ `core/18` 注册表为空 ⇒ `core/15` 安装期校验抛错。
 
 **修法**：三个入口 `tests/stat-decl-vs-actual-check.mjs`、`tests/rules-replay.mjs`、`tests/140-baseline.js` 各补一行：
 ```js
-await import('../modules/30custom-effects.js');
+await import('../modules/331-custom-effects.js');
 ```
 （第 56 轮已补。`tools/101`、`115`、`116` 早补过——`116` 注释明写「不 import 则第 5 关 worker 全灭」。）
 

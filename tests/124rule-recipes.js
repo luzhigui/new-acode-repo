@@ -1,5 +1,5 @@
 // V1.2.5 | 2026-10-30 夜间第 159 轮：订正四条小昭规则的 note —— 原文「随机精英，**无法强制**，
-//   需连打多局碰出」是**过期 know-how**：主代码 modules/29battle-init.js L245-262 的 GlobalStore
+//   需连打多局碰出」是**过期 know-how**：主代码 modules/330-battle-init.js L245-262 的 GlobalStore
 //   'forceXiaoZhao'（'brother' / 'sister'）一直在，只是此前没人拿来回放。这句判断失误直接让
 //   129 飞天免疫 / 160 蛛变精通两条规则在 140 场里 pass=0 恒空转。同轮 rules-replay 升 V6.8.0
 //   补了定向覆盖场次后，两条规则均已真正执行并通过。

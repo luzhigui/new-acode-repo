@@ -4,7 +4,7 @@
 //
 // 优化（V6.1.15，第 9 趟）：修「整条规则恒空转」—— 数据源与 129/132/133/150/151 同源同病（第 5 例）。
 //   探针实测（120 场）：`isClawHit` 顶层命中 **0**、摊平后命中 **450**；文本含「九阴白骨爪」
-//   顶层 0 / 摊平后 482。源码依据：core/10battle-attack.js L255-272 —— 爪击/斩杀条目是
+//   顶层 0 / 摊平后 482。源码依据：core/209-battle-attack.js L255-272 —— 爪击/斩杀条目是
 //   `group.data.entries.push(e)` 挂进攻击组的（render/35 renderClawHitFact / renderClawExecuteFact
 //   渲染后仍带 isClawHit），顶层只有不带标记的 attack-group 自身 → 旧写法扫 log 顶层，
 //   120 场一次没真跑过（恒 skip120）。

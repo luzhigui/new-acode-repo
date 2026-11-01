@@ -1,5 +1,5 @@
 // 回归规则：惑人心智（mindControl）换位链路 — 矩阵「剩余待攻」pos/状态类最后一项。
-// 机制源（core/14buff-effects.js applyMindControlCore，core/04buff-system.js L254-268 注册 AFTER_ATTACK）：
+// 机制源（core/215-buff-effects.js applyMindControlCore，core/204-buff-system.js L254-268 注册 AFTER_ATTACK）：
 //   - 门控：unit.alive + 队伍带 MIND_CONTROL buff + unit 是己方最前排（pos 最小、非拒马存活单位）
 //     —— AFTER_ATTACK 每次攻击都跑 handler，但非最前排单位在 core 内被 return，不产生任何条目；
 //   - 一次完整执行 = 「敌方一条 + 己方一条」（SWAP 或 FAIL），中间夹两条恒空的 MIND_CONTROL_BANNER
@@ -26,7 +26,7 @@
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
 export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.8';
 // V6.1.8（2026-10-31 第 145 轮续）：补静默位移白名单第 6 类——圣火不熄复活落格被占时的静默改位。
-//   core/04buff-system.js reviveHolyFireUnit 在复活落格被活人占时走 u.pos=findFreePos（≠原格）直接赋值，
+//   core/204-buff-system.js reviveHolyFireUnit 在复活落格被活人占时走 u.pos=findFreePos（≠原格）直接赋值，
 //   而 SKILL_ANNOUNCE.note 写「原地复活」掩盖了这次改位；原 isSilentRelocate ①②③④⑤ 全认不出，
 //   导致判据5 把「惑心换到 toPos→阵亡→圣火不熄静默挪走」误判成「换位没生效」（实证 明教弟子1→5号位）。
 //   今在 122health-utils.js isSilentRelocate 加 ⑥：SKILL_ANNOUNCE 且 skillName='圣火不熄' 且点名该单位
@@ -55,8 +55,8 @@ export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.8';
 //     - 红血：撤退至  ：何太冲低血撤退（moveUnitPosition，hetaichong.js L128）
 //     - 蓄意轰拳     ：寒离飒崩飞/轰飞（moveUnitPosition + WIND_ASSAULT_PUSH fact，hanlisa.js L294/305）
 //     - 两仪互换     ：何太冲/昆仑弟子红血互换职业+位置（swapUnitPositions + SKILL_ANNOUNCE，hetaichong.js L156）
-//     - 标枪前压     ：（core/10battle-attack.js L52）
-//     - 压进         ：远程够不着目标向前压（core/10battle-attack.js L55，skillName '突进'）
+//     - 标枪前压     ：（core/209-battle-attack.js L52）
+//     - 压进         ：远程够不着目标向前压（core/209-battle-attack.js L55，skillName '突进'）
 //     - 圣火不熄     ：复活落格被占静默改位（core/04:624 直接 u.pos=findFreePos，note 写「原地复活」掩盖；第 145 轮续补 ⑥）
 import { isSilentRelocate } from '../122health-utils.js';
 
@@ -189,7 +189,7 @@ export const rule113 = {
             }
 
             // 判据 5：宣告位置真实生效（复用 138 V6.1.12 口径，逐单位 fromPos→toPos）
-            //   控制位移免疫方参与的换位不落地——swapUnitPositions（core/13battle-shared.js L135）任一方
+            //   控制位移免疫方参与的换位不落地——swapUnitPositions（core/214-battle-shared.js L135）任一方
             //   state._ctrlImmune 即静默 return（不动、不发 buff-swap），而 core/14 仍发 SWAP 宣告 ⇒
             //   「宣告换了但没换」是该免疫的**设计后果**（寒离飒·开局常驻，modules/27 L30-31；引擎侧
             //   宣告未跟上免疫的问题已上报主代码）。免疫状态在开局快照里可查，规则侧精确识别后跳过。

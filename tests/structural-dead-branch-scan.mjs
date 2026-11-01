@@ -10,7 +10,7 @@
 //   这类缺陷覆盖率查不到（"文件被扫到"一直答是），必须分两路查：
 //     A. 静态：同一变量名 + 同一字段名，文件里既写 `obj.field` 又写 `obj.state.field`
 //        ⇒ 两处读的不是同一个对象层级，其中顶层那处恒 undefined/false（死守卫）。
-//        实证：modules/26elite-sixsects-songqingshu.js L225 `isDead: !!zhou._pendingDeath`
+//        实证：modules/310-elite-sixsects-songqingshu.js L225 `isDead: !!zhou._pendingDeath`
 //        与紧邻 L226 `if (zhou.state._pendingDeath)` 并存 —— 真值在 state 上，顶层读恒假。
 //     B. 动态：给分支打"指纹"（factType + 载荷取值判据），跑全样本统计命中数；
 //        父 fact 发生 N 次而分支 0 次 ⇒ 结构性不可达（不是没跑到，是进不去）。
@@ -188,13 +188,13 @@ function* walkFacts(nodes) {
 async function scanDynamicZeroHit() {
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
-    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
     const forceInto = (list) => {
         if (!FORCE_BUFF) return list;
         const next = (list || []).slice();
@@ -205,12 +205,12 @@ async function scanDynamicZeroHit() {
     };
 
     
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 

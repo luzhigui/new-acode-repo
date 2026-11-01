@@ -84,9 +84,9 @@ const DIR_LAYER = {
 // modules/ 内部二分。**不影响 rank**（两者都是 2），只用于语义清点与「表现层依赖设施」的可读性：
 //   混居同一目录会让「render → modules」看起来像越界，实际只是设施住在机制目录里。
 const MODULE_FACILITY = new Set([
-    '22audio-manager.js', // 音频播放：纯表现设施
-    '21error-capture.js', // 错误面板：诊断设施，零 import（归此仅为语义清晰）
-    '31-career-log.js'    // 生涯记录运行时：本地存储读写设施，不属于英雄机制
+    '304-audio-manager.js', // 音频播放：纯表现设施
+    '303-error-capture.js', // 错误面板：诊断设施，零 import（归此仅为语义清晰）
+    '332-career-log.js'    // 生涯记录运行时：本地存储读写设施，不属于英雄机制
 ]);
 
 function layerOf(absFile) {
@@ -295,7 +295,7 @@ function diffAgainstBaseline(rev, cycles, baseline) {
 // ---- 反向引用查询（搬家依据）----
 // 与方向检查共用同一解析器，但输出「谁引用了我」，覆盖三类引用点：
 //   ① JS static import / re-export（相对路径解析后比对绝对路径）
-//   ② HTML 的 <script src> / <link href>（条带 query string，如 80perf-panel.js?v=3.5.1）
+//   ② HTML 的 <script src> / <link href>（条带 query string，如 721-perf-panel.js?v=3.5.1）
 //   ③ tools/106-ai-pack-config.js 的 ALL_PROJECT_FILES 清单条目（字符串形式，非 import）
 // 为什么必须三类齐全：2026-10-29 实测 ui/79 只有 ①类引用，ui/80 只有 ②③类引用——
 //   只做 import 反查会漏掉入口脚本，搬家时正是这类漏项导致线上白屏。

@@ -8,7 +8,7 @@
 //            自证牙 25 → 34 条（新增线四牙 Y1~Y5、通道 B 牙 Z1~Z4）。
 //   V3.1.0 | 2026-11-01 夜间第 170 轮：★ 段零解析侧的地基换新 —— 原先用 RE_LITERAL 粗扫，
 //           会把**注释正文**与**字符串字面量里的路径斜杠**当成正则边界。后者最要命：打印侧那句
-//           'content/201hex-enhance.json 读取/解析失败: ' 里，"content" 后那个斜杠被当成正则
+//           'content/002-hex-enhance.json 读取/解析失败: ' 里，"content" 后那个斜杠被当成正则
 //           起点、"读取" 后那个被当成终点 ⇒ **打印侧自己造出一个「解析侧」**，同一句话被配成
 //           一对假耦合 —— 第 169 轮留下的「候选要不要认领为线五」，答案是那是扫描器自产的。
 //           改法：新增 scanRegexLiterals（逐字符走：跳行注释/块注释/字符串与模板字面量，
@@ -136,7 +136,7 @@ function literalBody(lit) {
 // ★ 为什么非它不可：RE_LITERAL 是**粗扫**，源码里只要有斜杠就当正则，实测会自产两种假正则：
 //   ① 注释正文 —— 多行块注释的内部行不带 // 前缀，stripCommentLines 剔不干净；
 //   ② **普通字符串字面量里的文件路径斜杠**，这是本轮抓到的那条：
-//        reasons.push('content/201hex-enhance.json 读取/解析失败: ' + e.message);
+//        reasons.push('content/002-hex-enhance.json 读取/解析失败: ' + e.message);
 //      "content" 后那个斜杠被当成正则起点、"读取" 后那个斜杠被当成终点 ⇒
 //      **打印侧自己造出一个「解析侧」**，通道 B 当场把它配成一条跨文件耦合。
 //      ⇒ 第 169 轮留下的「未认领候选 1 条要不要认领为线五」，答案是：那是扫描器自产的假候补，不是耦合。
@@ -961,20 +961,20 @@ function teeth() {
         '通道B 骨架不含中文 ⇒ 不算耦合（防刷屏）');
 
     // ---- 牙 Z5~Z7（第 170 轮）：地基本身的牙 —— 扫出来的必须是**真解析器**，不是斜杠巧合 ----
-    // ★ 由头：第 169 轮段零报的那条待认领候补（content/201hex-enhance.json 读取/解析失败），
+    // ★ 由头：第 169 轮段零报的那条待认领候补（content/002-hex-enhance.json 读取/解析失败），
     //   本轮回核发现它是扫描器自产的 —— 打印侧那个字面量里的路径斜杠被当成正则边界，
     //   于是"谁打印的"和"谁解析的"是同一句话 ⇒ 一个人配成一对假耦合。
-    const NOISE_PRINT = '// 缺口由 content/201hex-enhance.json 解析失败 这条点名\n'
-        + 'problems.push(`⓪ content/201hex-enhance.json 解析失败: ${e.message}`);\n';
+    const NOISE_PRINT = '// 缺口由 content/002-hex-enhance.json 解析失败 这条点名\n'
+        + 'problems.push(`⓪ content/002-hex-enhance.json 解析失败: ${e.message}`);\n';
     t('牙Z5', censusSkeletonCouplings([{ file: 'p.mjs', src: NOISE_PRINT },
     { file: 'q.mjs', src: NOISE_PRINT }], none).length === 0,
         '通道B 注释正文/字符串里的路径斜杠 ⇒ 不得自产解析侧（第 169 轮那条假候补就是这么来的）');
 
     // 同一份源码里既有噪声又有真正则：只许报真那条，且不得把噪声算进去（防"修完连真也看不见"）
     const MIX_PRO = 'console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);';
-    const MIX_CON = '// 参考 content/201hex-enhance.json 读取 这条口径\n'
-        + '/* 多行块注释：content/201hex-enhance.json 读取 也要被剔干净 */\n'
-        + "reasons.push('content/201hex-enhance.json 读取/解析失败: ' + e.message);\n"
+    const MIX_CON = '// 参考 content/002-hex-enhance.json 读取 这条口径\n'
+        + '/* 多行块注释：content/002-hex-enhance.json 读取 也要被剔干净 */\n'
+        + "reasons.push('content/002-hex-enhance.json 读取/解析失败: ' + e.message);\n"
         + 'const totalM = out.match(/规则回放自检：(\\d+)\\s*场/);';
     const mixRows = censusSkeletonCouplings([{ file: 'p.mjs', src: MIX_PRO },
     { file: 'q.mjs', src: MIX_CON }], none);
@@ -983,7 +983,7 @@ function teeth() {
         '通道B 噪声与真正则混排 ⇒ 只报真那条 1 条，且不被路径斜杠掺进去（地基不许连真的也扫不出）');
 
     // 通道 A 同款：两文件注释里同一句中文 ⇒ 不得算"跨文件同文正则"
-    const A_NOISE = '// 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData';
+    const A_NOISE = '// 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData';
     t('牙Z7', censusSharedRegexes([{ file: 'p.mjs', src: A_NOISE },
     { file: 'q.mjs', src: A_NOISE }], new Set()).length === 0,
         '通道A 两文件注释里同一句 ⇒ 不得算跨文件同文正则（剥注释后再扫，注释不是解析器）');

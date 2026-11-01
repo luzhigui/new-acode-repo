@@ -40,21 +40,21 @@ globalThis.self = globalThis;
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
-import { createRoundStepper } from '../core/11battle-round.js';
-import { initBattleTeams } from '../modules/29battle-init.js';
+import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
+import { SeededRNG } from '../infra/102-core-utils.js';
+import { createRoundStepper } from '../core/210-battle-round.js';
+import { initBattleTeams } from '../modules/330-battle-init.js';
 import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
-import { FACT_SPECS } from '../infra/58-fact-contract.js';
+import { FACT_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_SPECS } from '../infra/107-fact-contract.js';
 import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficiency.mjs';
 
 const VER = 'tests/fact-emission-census.mjs V1.8.0';
 // V1.8.0 | 2026-10-31 夜间第 166 轮：**订正第 165 轮对「妹/兄」的归因** + ⑤b 登记文案改用机械指称。
 //   ★ 第 165 轮说「登记文案写妹、源码却在兄模块 ⇒ 记错了」，本轮翻主代码发现这话说反了半句：
 //     游戏侧叫「小昭·妹」的那个单位，代码侧就是 Brother ——
-//     modules/27elite-mingjiao.js L28 注册 registerElite('小昭·妹', createXiaoZhaoBrotherComponent)，
-//     modules/29battle-init.js L261 的显示名也写成 isXiaoZhaoSister ? '小昭·姊' : '小昭·妹'
+//     modules/317-elite-mingjiao.js L28 注册 registerElite('小昭·妹', createXiaoZhaoBrotherComponent)，
+//     modules/330-battle-init.js L261 的显示名也写成 isXiaoZhaoSister ? '小昭·姊' : '小昭·妹'
 //     （即 isXiaoZhaoBrother 为真时显示名就是「妹」）。⇒ **「妹」与「兄（brother）」是同一实体的两个名字**，
 //     根本不存在谁记错谁。第 165 轮的摘牌**结论成立**（两条都活着、不该进 ⑤b-2），但**归因要更正**：
 //     当初进 ⑤b-2 的真因是「以为拿不到通道」，而 forceXiaoZhao='brother' 这条通道一直现成 ——
@@ -67,8 +67,8 @@ const VER = 'tests/fact-emission-census.mjs V1.8.0';
 //   xiaoZhaoHorse 全前置就绪 454 次 / 命中 211 次，xiaoZhaoCarryApply 167 次 / 命中 101 次
 //   ⇒ 两条**都活得好好的**，与 phantomConfuse 那条同款误判：当初归进 ⑤b-2「非样本缺口·需变异树」
 //   的理由不成立 —— 登记文案写的是「要**妹**永久…」，读源码却是两个发射点都在**兄模块**
-//   （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274），判据读 **bro.state._permanentBuffs**
-//   （兄自己的永久表），而 addPermanentBuff（modules/20elite-skills.js L258）的门槛也是 isXiaoZhaoBrother
+//   （modules/323-elite-mingjiao-xiaozhao-brother.js L249 / L274），判据读 **bro.state._permanentBuffs**
+//   （兄自己的永久表），而 addPermanentBuff（modules/302-elite-skills.js L258）的门槛也是 isXiaoZhaoBrother
 //   ⇒ 只需 forceXiaoZhao='brother' 这条第 162 轮就在用的现成通道，**根本不必等变异树**。
 //   ★ 教训固化：⑤b-2 登记前必须先确认「发射点在哪个模块、判据读谁的 state」，
 //     否则「妹/兄」一字之差就会把活发射点登记成死代码候选（第 162 轮「只数了一个发射点」的近亲）。
@@ -150,7 +150,7 @@ const DIRECTED_CASES = [
 //       并且**一律用机械指称**（isXiaoZhaoBrother|Sister / forceXiaoZhao='brother'|'sister' / 模块:行号），
 //       不许用「妹/兄」口语指称 —— 由 tests/xiaozhao-naming-guard.mjs 逐条点名守着。
 const NON_SAMPLE_SPECS = new Map([
-    ['spiderDeadTarget', '蛛袭时目标已死才发；发射点 modules/20elite-skills.js L225，'
+    ['spiderDeadTarget', '蛛袭时目标已死才发；发射点 modules/302-elite-skills.js L225，'
         + '判据读目标池过滤式里的 u.alive（目标死亡才进），属收尾帧竞态；'
         + '第 161 轮已由 tests/spider-dead-target-case.mjs 实证：349 次进入目标池 / SPIDER_DEAD_TARGET 恒 0 次'
         + ' ⇒ 静态不可达成立（过滤式含 u.alive 且中途无人改 alive），可提核销']
@@ -158,12 +158,12 @@ const NON_SAMPLE_SPECS = new Map([
 // ⑤b-3「定向已覆盖」：自然流结构性不发射，但**已有定向用例实证它会发射** ⇒ 不是死代码，
 //   严禁按死代码核销。★ 与 ⑤b-2 的分界就是「有没有定向用例把它逼出来过」，不靠定性判断。
 const DIRECTED_COVERED_SPECS = new Map([
-    ['xinHunDeath', '宋青书新婚阵亡时序，modules/26elite-sixsects-songqingshu.js L226；'
+    ['xinHunDeath', '宋青书新婚阵亡时序，modules/310-elite-sixsects-songqingshu.js L226；'
         + '第 161 轮复核 tests/xinhun-death-targeted-case.mjs 段二（钳血 10 场 @ stage 4）实测：'
         + 'XIN_HUN 触发 5 次 / XIN_HUN_DEATH 命中 5 次 ⇒ 链条成立，挂账一的「XIN_HUN 时序核销」应撤销'],
     ['xiaoZhaoHorse', 'HORSE_FORMATION 在发射单位自身 _permanentBuffs 里才召（外部团队 buff 不算）；'
-        + '发射点 modules/27elite-mingjiao-xiaozhao-brother.js L249，判据读 isXiaoZhaoBrother 单位的'
-        + 'state._permanentBuffs，永久 buff 唯一入口 addPermanentBuff（modules/20elite-skills.js L258）'
+        + '发射点 modules/323-elite-mingjiao-xiaozhao-brother.js L249，判据读 isXiaoZhaoBrother 单位的'
+        + 'state._permanentBuffs，永久 buff 唯一入口 addPermanentBuff（modules/302-elite-skills.js L258）'
         + '门槛同为 isXiaoZhaoBrother ⇒ 取证通道 forceXiaoZhao=brother 现成；'
         + '第 165 轮由 tests/xiaozhao-horse-carry-case.mjs 定向实证：140 场全前置就绪 454 次 / 命中 211 次'
         + '（spawnChance 0.7）⇒ 活发射点，原「需变异树」的定性作废'],
@@ -197,7 +197,7 @@ function hasField(fact, rf) {
 
 // 递归收集 fact（顶层 + attack-group data.entries 嵌套层 —— 与死字段扫描器同口径，LEECH 声明在嵌套层）
 // ★ 第 163 轮补一层：幻影 fact 挂在 attackFact.data.phantomFact，与 entries **并列**、不在 entries 里
-//   （core/12battle-attack-chain.js buildAttackGroup）。漏这一层 ⇒ PHANTOM_CONFUSE / PHANTOM_REVEAL
+//   （core/212-battle-attack-chain.js buildAttackGroup）。漏这一层 ⇒ PHANTOM_CONFUSE / PHANTOM_REVEAL
 //   的发射次数恒读成 0，进而可能被当成死代码。 同一款病：不是产品没有，是我们没接到。
 function* walkFacts(nodes) {
     for (const n of (nodes || [])) {
@@ -245,15 +245,15 @@ function ruleRefs(key) {
 }
 
 async function main() {
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
-    const { GlobalStore } = await import('../infra/54-global-store.js');
+    const { GlobalStore } = await import('../infra/104-global-store.js');
 
     const ftCount = new Map();   // factType -> 出现次数（含嵌套）
     const contractGaps = new Map(); // factType -> Map(必填字段 -> 缺失次数)

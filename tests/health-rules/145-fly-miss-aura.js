@@ -1,5 +1,5 @@
 // 回归规则：飞行未命中光环数值（V6.1.10）— 覆盖此前完全没有体检项盯的一条数值公式。
-// 机制源：core/03battle-utils.js getMissBreakdown（2026-09-16 起为攻击未命中率的唯一算法源，
+// 机制源：core/203-battle-utils.js getMissBreakdown（2026-09-16 起为攻击未命中率的唯一算法源，
 //   12battle-attack-steps 与详情弹窗同源调用），飞行单位未命中率由三部分组成：
 //     飞行基础 6%（C.FLY_MISS_CHANCE）
 //   + 场上每个存活且 hp/maxHp < 40% 的单位 × 6%（C.FLY_MISS_LOWHP_BONUS，V6.1.10 由 12 → 6）
@@ -16,9 +16,9 @@
 //   - 本场无存活飞行单位直接 skip（韦一笑为我方随机精英，敌方飞行亦随关卡浮动）
 export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.11';
 
-import { ROLE_TYPES } from '../../infra/56-battle-enums.js';
-import { getMissBreakdown, countEnemyEmptyCols } from '../../core/03battle-utils.js';
-import { CONFIG, getSkillParams } from '../../core/01config-5v5-test.js';
+import { ROLE_TYPES } from '../../infra/106-battle-enums.js';
+import { getMissBreakdown, countEnemyEmptyCols } from '../../core/203-battle-utils.js';
+import { CONFIG, getSkillParams } from '../../core/201-config-5v5-test.js';
 
 // V6.1.11 两处修正：
 //   ① 常量不再硬编码，一律从 CONFIG 读（口径与 core/03 getMissBreakdown 同源，CONFIG 按

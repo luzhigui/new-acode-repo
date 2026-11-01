@@ -24,9 +24,9 @@
 //   attack+kill 双向非空）+ 自证断言（职业清单 ≥5 种，抽取器腐烂则报，不许恒绿）
 export const VER = 'tests/health-rules/170-taunts-integrity.js V1.1.0';
 
-import { getGameData, loadGameData } from '../../core/01config-5v5-test.js';
+import { getGameData, loadGameData } from '../../core/201-config-5v5-test.js';
 // 职业清单的唯一来源：infra/56 的 ROLE_TYPES 本体（不另抄一份；谁加职业这里自动跟着长）
-import { ROLE_TYPES } from '../../infra/56-battle-enums.js';
+import { ROLE_TYPES } from '../../infra/106-battle-enums.js';
 
 // 浏览器体检域异步预热（node 回放器在跑规则前已同步加载过，这里 catch 防未捕获 rejection）
 loadGameData().catch(() => { });

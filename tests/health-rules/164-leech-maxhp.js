@@ -1,5 +1,5 @@
 // 回归规则：吸血上限提升数值（WEI_LEECH fact 的 maxHpDelta / newMaxHp）
-// 机制源（core/16effect-handlers.js L119-141 LEECH 处理器）：每次吸血把"当前上限→目标上限"增量词条化加
+// 机制源（core/217-effect-handlers.js L119-141 LEECH 处理器）：每次吸血把"当前上限→目标上限"增量词条化加
 //   永久 maxHp；增量 delta = decl.maxHp - cur（>0 才加），回写 factData.maxHpDelta（core/16 L133）；
 //   fact 另带 newMaxHp（绝对目标上限，Math.floor，core/15 L243）。
 // 此前该 group 只有对照器（stat-decl LEECH_MAXHP）盯"声明 maxHpDelta==实际 addMod 增量"，规则侧看不到
@@ -27,7 +27,7 @@
 //   （这条能抓"上限抬多/抬少"，V1.0.0 完全没验）。
 // 误报规避：本场无 WEI_LEECH fact 直接 skip；同单位相邻比对只在确有前序事实时进行；韦一笑为唯一 emit 方。
 export const VER = 'tests/health-rules/164-leech-maxhp.js V1.1.0';
-import { FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule111 = {
     group: '数值回归',

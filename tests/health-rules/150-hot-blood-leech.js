@@ -1,5 +1,5 @@
 // 回归规则：热血奋战（hotBlood）攻击回血链路 — 此前完全没有体检项盯这条链路。
-// 机制源（core/04buff-system.js L98-118 submitHotBloodDeclaration）：
+// 机制源（core/204-buff-system.js L98-118 submitHotBloodDeclaration）：
 //   - 触发：单位存活 且 hp < maxHp 且（持有 HOT_BLOOD 团队 Buff 或 小昭·弟永久海克斯激活）
 //   - 比例：leechPct = 小昭·姊在场 ? (小昭.hexEnhance.hotBlood.leechPct 0.20 : 0.15) : 0.15
 //   - 翻倍：_hotBloodCount 每次攻击 +1，critInterval = 小昭·姊在场 ? (hexEnhance.critInterval 2 : 3) : 3，
@@ -28,7 +28,7 @@
 // 误报规避：本场没有热血奋战条目直接 skip；maxHp 取不到就跳过判据2/4、配置读不到（CONFIG.BUFFS 是
 //   getter，数据未就绪会抛）就跳过判据5；文案形态变了匹配不上就当 skip，绝不硬报。
 //   2026-10-14 第 89 轮（误报修复，V6.1.17）：判据2/4 的 maxHp 参照加「开战快照与终局一致才比」门
-//   （mhStable）——宋青书性奋代价（modules/26elite-sixsects-songqingshu.js L214，**有意设计**：新婚
+//   （mhStable）——宋青书性奋代价（modules/310-elite-sixsects-songqingshu.js L214，**有意设计**：新婚
 //   每次永久 -N 上限，履历有调价记录）让 maxHp 越打越缩：seed=17 stage=4 实测回血那一刻 maxHp=117、
 //   缺口 73.2、翻倍 ratio 0.30 → leech=21 完全合法（min 保险正常），终局却只剩 12（-1-2-…-15 累积 -120），
 //   原判据拿终局值当参照当场误报。战中 maxHp 会变（变大或变小）的单位一律跳过上限/占比判据（宁漏勿误）；
@@ -43,7 +43,7 @@
 export const VER = 'tests/health-rules/150-hot-blood-leech.js V6.1.17';
 import { collectNodes, maxHpOf, plain } from '../122health-utils.js';
 
-import { CONFIG } from '../../core/01config-5v5-test.js';
+import { CONFIG } from '../../core/201-config-5v5-test.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 147/148/149 同款处理）
 function hotBloodCfg() {

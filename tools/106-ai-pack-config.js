@@ -13,8 +13,8 @@
 //           其余磁盘未登记项均为口径外：包/工程配置（package*.json、capacitor）、构建脚本（100build-5v5.TXT）、
 //           demo 页（tangwenliang-demo.html、tests/141/142 语音页）、产物（tools/output/）与文档/归档。
 // V6.0.42 | 2026-10-27 自动补全 4 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-27 自动补全 17 项 run-all 引用但漏登的 tests 顶层脚本 | ~27900 bytes | 2026-10-25 补登记 10 项（清单↔磁盘双向对账发现，均在引用链上）：
-//           core/23perf-params.js（表现参数表，core/15、player/40/46、fx/81/82/93 等消费）、
-//           ui/80perf-panel.js（8x 参数面板）、tests/_lib/buff-picker.mjs + _lib/rule-branch-extract.mjs
+//           core/223-perf-params.js（表现参数表，core/15、player/40/46、fx/81/82/93 等消费）、
+//           ui/721-perf-panel.js（8x 参数面板）、tests/_lib/buff-picker.mjs + _lib/rule-branch-extract.mjs
 //           （测试 harness 单源库，rules-replay 等已登记文件 import）、tests/health-rules/171/172
 //           （121health-monitor 已列，同 160-166 判据）、tests/fact-dead-field-scan.mjs（static-scan 已列）、
 //           tests/run-all.mjs + tools/119-auto-tuner.mjs + tools/121-param-lab.mjs（文档引用的 node 直跑入口）。
@@ -24,9 +24,9 @@
 //           （不登记则新档漏包、删档会让包内出现「读取失败」）
 // V6.0.38 | ~27200 bytes | 2026-10-24 补登记 3 个运行必需文件（全仓清单↔磁盘比对发现，均在主代码引用链上）：
 //           tools/52-career-log.js（42player-core 已 import，dev-index 生涯记录按钮也动态 import）、
-//           fx/95-immune-shield-break.js（render/39 空见护罩碎裂的动态 import）、
-//           modules/26elite-sixsects-kongjian.js（26 入口已 import 的空见组件）；漏登则包内引用断裂。
-// V6.0.37 | ~26900 bytes | 2026-10-23 补登记 fx/94-tangwenliang-dash.js（render/39 动态 import 的唐文亮冲刺
+//           fx/617-immune-shield-break.js（render/39 空见护罩碎裂的动态 import）、
+//           modules/316-elite-sixsects-kongjian.js（26 入口已 import 的空见组件）；漏登则包内引用断裂。
+// V6.0.37 | ~26900 bytes | 2026-10-23 补登记 fx/616-tangwenliang-dash.js（render/39 动态 import 的唐文亮冲刺
 //           演出；漏登导致 URL 直读索引里没有该文件、网页端读它 404）
 // V6.0.36 | ~26700 bytes | 2026-10-22 补登记 tools/134-idea-lab.html（创意摸奖）+ 134-fetch-pool.mjs +
 //   134-idea-pool-additions.json（外部词条池）+ 135-param-scan.html（参数扫描 A/B）
@@ -44,28 +44,28 @@
 //           实现文件，102 V6.1.3 已挂 type=module 脚本；漏登则包内工具箱点开无工具）
 // V6.0.30 | ~24207 bytes | 2026-10-17 补登记 14 项（import 对账）：modules/27 明教按角色拆分的 9 个组件文件
 //           （eagle/zhangwuji/weiyixiao/xiaozhao-sister/xiaozhao-brother/xiexun/yangxiao/yintianzheng/hanlisa，27 barrel 已 import 它们，
-//           漏登则包内明教精英全部引用断裂）、modules/26elite-sixsects-tangwenliang.js（26 入口已 registerElite，V6.0.23 六组件批漏掉它）、
-//           fx/90-hanlisa-charge.js（render/32 已 import 的寒离飒蓄力特效）、tests/health-rules/170-taunts-integrity.js
+//           漏登则包内明教精英全部引用断裂）、modules/315-elite-sixsects-tangwenliang.js（26 入口已 registerElite，V6.0.23 六组件批漏掉它）、
+//           fx/612-hanlisa-charge.js（render/32 已 import 的寒离飒蓄力特效）、tests/health-rules/170-taunts-integrity.js
 //           （121 已 import rule114 + 123 SCAN_FILES 已列，同 160-166 判据）、根目录两个寒离飒 demo 页
-//           （126-hanlisa-fx-demo.html / hanlisa-atk-fx-candidates.html / hanlisa-fx-compare.html，dev-index「UI 效果 demo」区入口按钮跳它们，同 125 判据；compare 页为 V2.5.x 新加）：core/08-elite-registry.js → core/08-registry-elite.js；
-//           新增 core/20-registry-dodge.js（闪避规则表，自 infra/51 迁入）、core/21-registry-calc.js
+//           （126-hanlisa-fx-demo.html / hanlisa-atk-fx-candidates.html / hanlisa-fx-compare.html，dev-index「UI 效果 demo」区入口按钮跳它们，同 125 判据；compare 页为 V2.5.x 新加）：core/08-elite-registry.js → core/208-registry-elite.js；
+//           新增 core/221-registry-dodge.js（闪避规则表，自 infra/51 迁入）、core/222-registry-calc.js
 //           （计算修饰器表，自 infra/57 迁入）；删 infra/57-calc-modifier-registry.js 登记
 // V6.0.27 | ~21250 bytes | 2026-10-15 补登记 tools/125-buff-badge-demo.html（dev-index.html 已登记的
 //           「UI 效果 demo」入口按钮跳它；漏登则包内入口页点开无页面，同 demo-stage3 先例）
-// V6.0.26 | ~21040 bytes | 2026-10-14 补登记 ui/77speed-controls.js、ui/78button-state.js（ui/68 三拆产物，
+// V6.0.26 | ~21040 bytes | 2026-10-14 补登记 ui/718-speed-controls.js、ui/719-button-state.js（ui/68 三拆产物，
 //           68 入口 re-export 二者；漏登则包内 ui/68 引用断裂）
 // V6.0.25 | ~20200 bytes | 2026-10-13 补登记 tests/health-rules/160-166 共 7 条（121health-monitor.js 已 import
 //           rule107-113、123static-scan.js SCAN_FILES 已列；漏登则包内体检页引用断裂）
-// V6.0.24 | ~19600 bytes | 2026-10-13 补登记 render/38-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
+// V6.0.24 | ~19600 bytes | 2026-10-13 补登记 render/415-actions-translate.js 拆分出的 4 个 fact 族翻译器文件
 //           （-attack/-heal/-control/-stat，38 入口 import 它们）
-// V6.0.23 | ~19100 bytes | 2026-10-13 补登记 modules/26elite-sixsects.js 拆分出的 6 个组件文件
+// V6.0.23 | ~19100 bytes | 2026-10-13 补登记 modules/308-elite-sixsects.js 拆分出的 6 个组件文件
 //           （-songqingshu/-zhouzhiruo/-zhangsanfeng/-pangyuanqiao/-miejueshitai/-hetaichong，26 入口 import 它们）
 // V6.0.22 | ~18200 bytes | 2026-10-11 补登记 3 个主代码新文件（packcheck 双向 diff B 类归零）：
-//           ui/75net-session.js、ui/76replay-entry.js（ui/61 减负批拆出，61/68 已 import）、
-//           render/37-role-cards.js（从 ui/69 迁入 render，62/65/32 已 import）
+//           ui/716-net-session.js、ui/717-replay-entry.js（ui/61 减负批拆出，61/68 已 import）、
+//           render/414-role-cards.js（从 ui/69 迁入 render，62/65/32 已 import）
 // V6.0.21 | ~17800 bytes | 2026-10-08 补登记 9 个新文件（全仓比对清单与磁盘，补「被已登记文件 import 却漏登」的断裂链）：
-//           ui/69-role-cards.js（62/65/32 查名片表）、modules/00reg-mechanics.js（61 机制装配单入口）、
-//           player/50battle-export.js（42/61/64/68 战报导出）、player/51-battle-log-analyze.js（64 战报分析）、
+//           ui/710-role-cards.js（62/65/32 查名片表）、modules/301-reg-mechanics.js（61 机制装配单入口）、
+//           player/513-battle-export.js（42/61/64/68 战报导出）、player/514-battle-log-analyze.js（64 战报分析）、
 //           tools/124-param-lab-glossary.js（120 页面与 param-read-guard 共用参数表）、
 //           tests/health-rules/157-159（121health-monitor 已 import）、tests/mutation-teeth.mjs（变异测试主力）
 // V6.0.20 | ~11800 bytes | 2026-09-29 补登记 tests/health-rules/156-desc-truth-drift.js（参数单一真值源收口：
@@ -80,22 +80,22 @@
 //          依据：tests/registration-check.mjs 的机器核对结果（漏登 2 项、重复 2 项）。
 // V6.0.18 | ~11250 bytes | 2026-09-29 补登记 tests/health-rules/153-155（夜间体检第 43 轮新增：流星成长数值 / 生生不息回血加成 / 流星成长渲染形态）
 // V6.0.16 | ~13100 bytes | 2026-09-26 加本表用途口径备注（用户定案）：复制包清单不追求全量，体检脚本/本机工具/构建脚本不纳入属正常、不许补登；判断标准=网页端 DeepSeek 拿到包后运行或阅读是否需要它
-// V6.0.17 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
-// V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
+// V6.0.17 | ~11150 bytes | 2026-09-26 登记 fx/614-fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/207-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
+// V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/110-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
 // V6.0.9 | ~10900 bytes | 2026-09-22 登记 tools/118-import-export-check.mjs（node 直跑：import/export 具名绑定对账，配合 103 白名单新增 .mjs）
-// V6.0.8 | ~10800 bytes | 2026-09-22 补登记漏登 3 个运行必需文件：core/19unit-watch.js、infra/52-clock.js、infra/59-state-change.js（103 复制器与分包脚本均派生自本表，三者长期未随包发出）；顺带删掉 core/06battle-runner.js 重复行
+// V6.0.8 | ~10800 bytes | 2026-09-22 补登记漏登 3 个运行必需文件：core/220-unit-watch.js、infra/103-clock.js、infra/108-state-change.js（103 复制器与分包脚本均派生自本表，三者长期未随包发出）；顺带删掉 core/206-battle-runner.js 重复行
 // V6.0.7 | ~10700 bytes | 2026-09-22 补登记 render/33-35+38-39（渲染层拆分）与 tests/health-rules/147-149（夜间体检新增）
 // V6.0.6 | ~9300 bytes | 2026-09-16 删净 73/74 两版备选CG（无引用，git rm 同步删除）；排除表/契约说明/清单一并清理
 // V6.0.5 | 2026-09-15 踢除未接线备选CG：ui/73opening-cg-epic.js、ui/74opening-cg-shadow.js 加入 AI_EXCLUDE（每包省 63KB）
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-// V6.0.48 | 2026-10-31 补登记 2 项：content/201hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
-//           modules/27elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
+// V6.0.48 | 2026-10-31 补登记 2 项：content/002-hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
+//           modules/324-elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
-export const VER = 'tools/106-ai-pack-config.js V6.0.56';
+export const VER = 'tools/106-ai-pack-config.js V6.0.57';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -105,11 +105,11 @@ export const VER = 'tools/106-ai-pack-config.js V6.0.56';
 //   ⚠️ 这些文件被主控 import（ui/61/62/63/64/65/75/76、render/32），包内会出现「import 指向缺失文件」，
 //   属预期而非 bug；AI_INTERFACE_NOTE 与 103 的索引/路径清单都从本集合自动生成说明，改这里不用改文案。
 export const AI_EXCLUDE = new Set([
-    '../ui/71tutorial.js',        // 新手引导（日志区提示面板 + 浮动箭头）
-    '../ui/72opening-cg.js',      // 开场 CG（三幕黑屏文字）
-    '../ui/70buff-dialog.js',     // 海克斯手选弹窗
-    '../ui/69-role-cards.js',     // 角色名片转口（真身 render/37）
-    '../render/37-role-cards.js'  // 角色名片（图鉴）：格子图标 / 技能说明 / 日志标签
+    '../ui/712-tutorial.js',        // 新手引导（日志区提示面板 + 浮动箭头）
+    '../ui/713-opening-cg.js',      // 开场 CG（三幕黑屏文字）
+    '../ui/711-buff-dialog.js',     // 海克斯手选弹窗
+    '../ui/710-role-cards.js',     // 角色名片转口（真身 render/37）
+    '../render/414-role-cards.js'  // 角色名片（图鉴）：格子图标 / 技能说明 / 日志标签
 ]);
 
 // AI 上下文契约
@@ -140,108 +140,108 @@ ${[...AI_EXCLUDE].map(f => `//   ⊘ ${f.replace(/^\.\.\//, '')}`).join('\n')}
 // 新增/删除项目文件时只需改这一处，无需再同步 104。
 export const ALL_PROJECT_FILES = [
     // core（核心战斗引擎）
-    '../infra/50-event-bus.js',
-    '../core/01config-5v5-test.js', '../core/02unit.js',
-    '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../infra/51-core-utils.js', '../infra/52-clock.js', '../infra/56-battle-enums.js', '../infra/58-fact-contract.js', '../infra/59-state-change.js', '../infra/60-net-pvp.js', '../infra/61-view-sheet.js',
+    '../infra/101-event-bus.js',
+    '../core/201-config-5v5-test.js', '../core/202-unit.js',
+    '../core/203-battle-utils.js', '../core/204-buff-system.js', '../core/205-battle-horse.js',
+    '../infra/102-core-utils.js', '../infra/103-clock.js', '../infra/106-battle-enums.js', '../infra/107-fact-contract.js', '../infra/108-state-change.js', '../infra/109-net-pvp.js', '../infra/110-view-sheet.js',
     // 2026-10-31 补登记 62：特效门控（订阅链改造产物，fx 层统一入口判定；漏登则包内 import 断裂）
-    '../infra/62-fx-gate.js',
-    '../core/08-registry-elite.js',
-    '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
+    '../infra/111-fx-gate.js',
+    '../core/208-registry-elite.js',
+    '../core/209-battle-attack.js', '../core/210-battle-round.js', '../core/211-battle-attack-steps.js',
     // 2026-10-21 补登记 12 拆分件：攻击链/攻击边（12battle-attack-steps 的同批产物，包内引用）
-    '../core/12battle-attack-chain.js', '../core/12battle-attack-edge.js',
-    '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js', '../core/19unit-watch.js',
+    '../core/212-battle-attack-chain.js', '../core/213-battle-attack-edge.js',
+    '../core/214-battle-shared.js', '../core/215-buff-effects.js', '../core/216-skill-mechanisms.js',
+    '../core/217-effect-handlers.js', '../core/218-state-keys.js', '../core/219-mechanic-registry.js', '../core/220-unit-watch.js',
     // 2026-10-16 注册面归位批：闪避规则表 / 计算修饰器表分别迁入 core/20、core/21
-    '../core/20-registry-dodge.js', '../core/21-registry-calc.js',
+    '../core/221-registry-dodge.js', '../core/222-registry-calc.js',
     // 2026-10-25 补登记 23：表现参数表（倍速表现统一配置，core/15、player/40/46、fx/81/82/93、infra/56 等消费；
     // 漏登则包内这些消费点 import 断裂）
-    '../core/23perf-params.js',
-    '../core/06battle-runner.js',
-    '../core/07-target-strategies.js',
+    '../core/223-perf-params.js',
+    '../core/206-battle-runner.js',
+    '../core/207-target-strategies.js',
     // player（播放器）
-    '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
+    '../player/501-player-text.js', '../player/502-player-buff-ui.js', '../player/503-player-core.js',
     // 2026-10-24 补登记：生涯记录（42player-core 已 import；dev-index 生涯按钮也动态 import）
     '../tools/52-career-log.js',
     // 2026-10-21 补登记 42 拆分件：播放步/阶段动作/步同步（42player-core 的同批产物）
-    '../player/42player-play-step.js', '../player/42player-stage-actions.js', '../player/42player-step-sync.js',
-    '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
-    '../player/48battle-report.js', '../player/49battle-flow.js',
+    '../player/504-player-play-step.js', '../player/505-player-stage-actions.js', '../player/506-player-step-sync.js',
+    '../player/507-battle-player-5v5-test.js', '../player/508-event-handlers.js', '../player/509-attack-group.js', '../player/510-renderer.js',
+    '../player/511-battle-report.js', '../player/512-battle-flow.js',
     // 2026-10-08 补登记 50/51：玩家层战报导出（42/61/64/68 已 import）与战报日志分析（64 已 import）
-    '../player/50battle-export.js', '../player/51-battle-log-analyze.js',
+    '../player/513-battle-export.js', '../player/514-battle-log-analyze.js',
     // ui（UI 主控）
-    '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
-    '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
-    '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
+    '../ui/701-main-utils.js', '../ui/702-main-5v5-test.js', '../ui/703-ui-render-5v5-test.js',
+    '../ui/704-main-state.js', '../ui/705-main-dialogs.js', '../ui/706-main-battle.js',
+    '../ui/707-audio-control.js', '../ui/708-fx-trigger.js', '../ui/709-ui-controls.js',
     // 2026-10-04 补登记 69-role-cards：角色名片表（ui/62、ui/65、render/32 已 import）
-    '../ui/69-role-cards.js',
-    '../ui/74reset-runtime.js', '../ui/70buff-dialog.js',
-    '../ui/71tutorial.js', '../ui/72opening-cg.js',
+    '../ui/710-role-cards.js',
+    '../ui/715-reset-runtime.js', '../ui/711-buff-dialog.js',
+    '../ui/712-tutorial.js', '../ui/713-opening-cg.js',
     // 2026-10-11 补登记 75/76：ui/61 减负批拆出的联网会话与战报回放入口（ui/61、ui/68 已 import）
-    '../ui/75net-session.js', '../ui/76replay-entry.js',
+    '../ui/716-net-session.js', '../ui/717-replay-entry.js',
     // 2026-10-14 补登记 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者；漏登则包内引用断裂）
-    '../ui/77speed-controls.js', '../ui/78button-state.js',
+    '../ui/718-speed-controls.js', '../ui/719-button-state.js',
     // 2026-10-19 补登记 79：蓄意轰拳瞄准黑幕（ui/65 已 import；漏登则包内引用断裂）
-    '../ui/79hanlisa-aim.js',
+    '../ui/720-hanlisa-aim.js',
     // 2026-10-25 补登记 80：8x 参数面板（表现参数表 core/23 的调参面板；漏登则包内引用断裂）
-    '../ui/80perf-panel.js',
+    '../ui/721-perf-panel.js',
     // 2026-10-31 补登记 81：buff 提示浮层（漏登则包内 import 断裂）
-    '../ui/81buff-tooltip.js',
+    '../ui/722-buff-tooltip.js',
     // fx（特效）
-    '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
-    '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
-    '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
-    '../fx/90fx-ref-manager.js', '../fx/90-hanlisa-charge.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js', '../fx/93-hanlisa-burst.js', '../fx/94-tangwenliang-dash.js',
+    '../fx/601-fx-common-5v5-test.js', '../fx/602-fx-arrows-5v5-test.js', '../fx/603-fx-crash-5v5-test.js',
+    '../fx/604-fx-position-swap.js', '../fx/605-fx-push-back.js', '../fx/606-fx-dodge-bullet.js',
+    '../fx/607-fx-butterfly-spider.js', '../fx/608-fx-manager.js', '../fx/609-fx-trigger.js', '../fx/610-fx-subscriber.js',
+    '../fx/611-fx-ref-manager.js', '../fx/612-hanlisa-charge.js', '../fx/613-fx-lion-roar.js', '../fx/614-fx-pang-antics.js', '../fx/615-fx-hanlisa-burst.js', '../fx/616-tangwenliang-dash.js',
     // 2026-10-24 补登记：render/39 动态 import 的空见护罩碎裂特效
-    '../fx/95-immune-shield-break.js',
+    '../fx/617-immune-shield-break.js',
     // modules（通用系统 + 精英角色组件）
     // 2026-10-02 补登记 00reg-mechanics：机制装配统一入口（ui/61 唯一 import 点，25/26/27/30 经它装载）
-    '../modules/00reg-mechanics.js',
-    '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
+    '../modules/301-reg-mechanics.js',
+    '../modules/302-elite-skills.js', '../modules/303-error-capture.js', '../modules/304-audio-manager.js',
     // 2026-10-21 补登记 23：精英通用助手（26/27 组件共用）
-    '../modules/23elite-helpers.js',
-    '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
-    '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
-    // 2026-10-17 补登记 27 九组件：27elite-mingjiao.js 拆成 barrel + 8 角色文件（V7.2.0 纯搬零行为）后新增
+    '../modules/305-elite-helpers.js',
+    '../infra/104-global-store.js', '../infra/105-fx-signals.js', '../modules/330-battle-init.js', '../modules/306-battle-store.js',
+    '../modules/307-elite-imperial.js', '../modules/308-elite-sixsects.js', '../modules/317-elite-mingjiao.js',
+    // 2026-10-17 补登记 27 九组件：317-elite-mingjiao.js 拆成 barrel + 8 角色文件（V7.2.0 纯搬零行为）后新增
     //   寒离飒（新精英）——27 barrel 逐字 import 它们，漏登则包内明教精英全部引用断裂
-    '../modules/27elite-mingjiao-eagle.js', '../modules/27elite-mingjiao-hanlisa.js',
-    '../modules/27elite-mingjiao-zhangwuji.js', '../modules/27elite-mingjiao-weiyixiao.js',
-    '../modules/27elite-mingjiao-xiaozhao-sister.js', '../modules/27elite-mingjiao-xiaozhao-brother.js',
-    // 2026-10-31 补登记：妹永久背水专属组件（00reg-mechanics.js 已 import，漏登则包内装配断链）
-    '../modules/27elite-mingjiao-brother-laststand.js',
+    '../modules/318-elite-mingjiao-eagle.js', '../modules/319-elite-mingjiao-hanlisa.js',
+    '../modules/320-elite-mingjiao-zhangwuji.js', '../modules/321-elite-mingjiao-weiyixiao.js',
+    '../modules/322-elite-mingjiao-xiaozhao-sister.js', '../modules/323-elite-mingjiao-xiaozhao-brother.js',
+    // 2026-10-31 补登记：妹永久背水专属组件（301-reg-mechanics.js 已 import，漏登则包内装配断链）
+    '../modules/324-elite-mingjiao-brother-laststand.js',
     // 2026-10-31 补登记说不得：明教精英（26/27 同批落地，漏登则包内 import 断裂）
-    '../modules/27elite-mingjiao-shuobude.js',
-    '../modules/27elite-mingjiao-xiexun.js', '../modules/27elite-mingjiao-yangxiao.js',
-    '../modules/27elite-mingjiao-yintianzheng.js',
-    // 2026-10-13 补登记 26 六组件：26elite-sixsects.js 拆分出的组件文件（26 入口 import 它们，漏登则包内引用断裂）
-    '../modules/26elite-sixsects-songqingshu.js', '../modules/26elite-sixsects-zhouzhiruo.js',
-    '../modules/26elite-sixsects-zhangsanfeng.js', '../modules/26elite-sixsects-pangyuanqiao.js',
-    '../modules/26elite-sixsects-miejueshitai.js', '../modules/26elite-sixsects-hetaichong.js',
+    '../modules/325-elite-mingjiao-shuobude.js',
+    '../modules/326-elite-mingjiao-xiexun.js', '../modules/327-elite-mingjiao-yangxiao.js',
+    '../modules/328-elite-mingjiao-yintianzheng.js',
+    // 2026-10-13 补登记 26 六组件：308-elite-sixsects.js 拆分出的组件文件（26 入口 import 它们，漏登则包内引用断裂）
+    '../modules/310-elite-sixsects-songqingshu.js', '../modules/309-elite-sixsects-zhouzhiruo.js',
+    '../modules/311-elite-sixsects-zhangsanfeng.js', '../modules/312-elite-sixsects-pangyuanqiao.js',
+    '../modules/313-elite-sixsects-miejueshitai.js', '../modules/314-elite-sixsects-hetaichong.js',
     // 2026-10-17 补登记：唐文亮组件文件（26 入口已 registerElite，V6.0.23 六组件批时它尚未拆出、后拆时漏登）
-    '../modules/26elite-sixsects-tangwenliang.js',
+    '../modules/315-elite-sixsects-tangwenliang.js',
     // 2026-10-24 补登记：空见组件文件（26 入口已 import createKongJianComponent）
-    '../modules/26elite-sixsects-kongjian.js',
-    '../modules/28buff-tools.js', '../modules/30custom-effects.js',
-    '../modules/31-career-log.js',
+    '../modules/316-elite-sixsects-kongjian.js',
+    '../modules/329-buff-tools.js', '../modules/331-custom-effects.js',
+    '../modules/332-career-log.js',
     // render（渲染层）
-    '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
+    '../render/401-fact-renderer.js', '../render/402-stage-actions.js', '../render/403-grid-render.js',
     // 2026-10-21 补登记 32 拆分件：格徽章/格单元（32-grid-render 的同批产物）
-    '../render/32grid-badges.js', '../render/32grid-cells.js',
-    '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js', '../render/36-generic-renderers.js',
+    '../render/404-grid-badges.js', '../render/405-grid-cells.js',
+    '../render/406-fact-registry.js', '../render/407-facts-attack.js', '../render/408-facts-effect.js', '../render/413-generic-renderers.js',
     // 2026-10-21 补登记 35 拆分件：控制/治疗/杂项/属性四族（35-facts-effect 的同批产物）
-    '../render/35-facts-control.js', '../render/35-facts-heal.js', '../render/35-facts-misc.js', '../render/35-facts-stat.js',
+    '../render/409-facts-control.js', '../render/410-facts-heal.js', '../render/411-facts-misc.js', '../render/412-facts-stat.js',
     // 2026-10-11 补登记 37：角色名片表从 ui/69 迁入 render（消除 render→ui 反向依赖；ui/62、ui/65、render/32 已 import）
-    '../render/37-role-cards.js',
-    '../render/38-actions-translate.js',
-    // 2026-10-13 补登记 38 四族：38-actions-translate.js 拆分出的 fact 族翻译器文件（38 入口 import 它们，漏登则包内引用断裂）
-    '../render/38-actions-translate-attack.js', '../render/38-actions-translate-heal.js',
-    '../render/38-actions-translate-control.js', '../render/38-actions-translate-stat.js',
-    '../render/39-actions-defs.js',
+    '../render/414-role-cards.js',
+    '../render/415-actions-translate.js',
+    // 2026-10-13 补登记 38 四族：415-actions-translate.js 拆分出的 fact 族翻译器文件（38 入口 import 它们，漏登则包内引用断裂）
+    '../render/416-actions-translate-attack.js', '../render/418-actions-translate-heal.js',
+    '../render/417-actions-translate-control.js', '../render/419-actions-translate-stat.js',
+    '../render/420-actions-defs.js',
     // content（游戏内容数据）
-    '../content/200game-data.json',
+    '../content/001-game-data.json',
     // 2026-10-31 补登记 201：小昭 hexEnhance（姐妹强化/妹永久）已从 200 迁出到独立文件，
     //   core/01 的 getSkillParams / getBrotherHexEnhance 与 modules/27、28 都读它，漏登则包内直接抛「缺 sister 段」。
-    '../content/201hex-enhance.json',
+    '../content/002-hex-enhance.json',
     // tests（体检规则与自动测试）
     '../tests/120test-runner.html', '../tests/121health-monitor.js', '../tests/122health-utils.js',
     '../tests/123static-scan.js', '../tests/124rule-recipes.js',
@@ -351,6 +351,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/claw-hit-shield-split.mjs', '../tests/xiaozhao-naming-guard.mjs',
     // 2026-10-31 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/output-label-coupling-guard.mjs',
+    // 2026-11-01 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/hls-playback-ownership-guard.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',

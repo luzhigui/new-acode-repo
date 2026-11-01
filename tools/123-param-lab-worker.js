@@ -15,7 +15,7 @@ if (typeof localStorage === 'undefined') {
 }
 
 import { ensureGameData, sampleStage, runLineupRange, statSeedOf, concreteKey, applyPatchOps, restoreGameData } from './122-param-lab-core.js';
-import { CONFIG } from '../core/01config-5v5-test.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 
 let _arm = null;   // 当前数据表状态：null = 未定 / 'base' = 原始 / 'patch' = 已打补丁
 

@@ -1,0 +1,372 @@
+export const VER = 'core/214-battle-shared.js V6.4.5';
+
+import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
+import { pushBattleEvent } from '../infra/102-core-utils.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { emitStateChange } from '../infra/108-state-change.js';
+const C = CONFIG;
+
+// 战斗统计统一记账入口（唯一入口）。承伤记 rawAmount（减免前全额），
+// 输出记 actualAmount（clamp 后）。禁止绕过此函数直接改统计字段。
+function recordCombatStat(source, target, type, opts = {}) {
+    if (!target || !target.alive) return;
+    const rawAmount = opts.rawAmount ?? opts.actualAmount ?? 0;
+    const actualAmount = opts.actualAmount ?? 0;
+
+    switch (type) {
+        case 'damage':
+            // 承伤 = 来袭全额（防御减免前总量）；输出 = 实际损血量（clamp 后）
+            target.dmgTaken += Math.abs(rawAmount);
+            if (actualAmount > 0 && source) {
+                source.dmgDealt = (source.dmgDealt || 0) + actualAmount;
+            }
+            break;
+
+        case 'heal':
+            // 治疗记产出者（source 优先，无 source 记自己），溢出治疗不记
+            if (actualAmount > 0) {
+                (source || target).healDone += actualAmount;
+            }
+            break;
+
+        case 'rebound':
+            // 反弹：source 记 reboundDone，target 记承伤
+            if (source) {
+                source.reboundDone = (source.reboundDone || 0) + Math.abs(rawAmount);
+            }
+            target.dmgTaken += Math.abs(rawAmount);
+            break;
+
+        case 'leech':
+            // 吸血：治疗记 source，leechDone 也记 source
+            if (source) {
+                source.healDone += actualAmount;
+                source.leechDone = (source.leechDone || 0) + actualAmount;
+            }
+            break;
+
+        case 'dodge':
+            // 闪避：承伤 = 来袭攻击力（rawAmount），无实际输出
+            target.dmgTaken += Math.abs(rawAmount);
+            break;
+
+        case 'immuneRollback':
+            // 免疫回退：承伤已记，只退输出
+            if (source && actualAmount > 0) {
+                source.dmgDealt = Math.max(0, (source.dmgDealt || 0) - actualAmount);
+            }
+            break;
+
+        default:
+            break;
+    }
+    if (source && source.uid !== target.uid && (type === 'damage' || type === 'heal' || type === 'rebound' || type === 'leech')) {
+        emitCoreEvent(source, UNIT_EVENT_TYPES.HP_CHANGE, {
+            hp: source.hp, maxHp: source.maxHp, alive: source.alive,
+            atk: source.atk, def: source.def, _isDead: source.state?._isDead || false,
+            dmgDealt: source.dmgDealt, healDone: source.healDone,
+            reboundDone: source.reboundDone, leechDone: source.leechDone
+        });
+    }
+}
+
+function emitFullUnitState(unit, eventType) {
+    emitCoreEvent(unit, eventType, {
+        uid: unit.uid,
+        name: unit.name,
+        role: unit.role,
+        camp: unit.camp,
+        pos: unit.pos,
+        hp: unit.hp,
+        maxHp: unit.maxHp,
+        atk: unit.atk,
+        def: unit.def,
+        alive: unit.alive,
+        isHorse: unit.isHorse || false,
+        _isDead: unit.state._isDead || false,
+        _baseAtk: unit.state._baseAtk,
+        _baseDef: unit.state._baseDef,
+        _baseMaxHp: unit.state._baseMaxHp,
+        _initAtk: unit.state._initAtk,
+        _initDef: unit.state._initDef,
+        _initMaxHp: unit.state._initMaxHp,
+        _hpDmgRatio: unit.state._hpDmgRatio,
+        _originalPos: unit.state._originalPos
+    });
+}
+
+let _battleRng = null;
+export function setBattleRng(rng) { _battleRng = rng; }
+export function getBattleRng() { return _battleRng; }
+
+// 表现 RNG：只服务台词/击杀台词这类纯表演，与战斗 RNG 独立序列。
+// 由 createRoundStepper 用同一 seed 派生注入，改台词池大小不再污染战斗随机流。
+// 未注入时回退到战斗 RNG，保证老调用路径不崩。
+let _presentationRng = null;
+export function setPresentationRng(rng) { _presentationRng = rng; }
+export function getPresentationRng() { return _presentationRng || _battleRng; }
+
+function finalizeDeaths(team) {
+    for (const u of team) {
+        if (u.hp <= 0 && u.alive) {
+            applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
+            u.alive = false;
+            u.state._isDead = true;
+            if (!u.state._deathTime) u.state._deathTime = Date.now();
+            emitCoreEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+        }
+    }
+}
+
+function getNextAvailableUnit(team) {
+    return team.filter(c => c.alive && !c.state._acted).sort((a, b) => a.pos - b.pos)[0] || null;
+}
+
+function swapUnitPositions(unitA, unitB, log) {
+    if (!unitA || !unitB) return false;
+    // 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
+    // 返回布尔：原静默 return 让调用方在换位失败时照发"换位成功"战报（体检 114 家族案）。
+    if ((unitA.state && unitA.state._ctrlImmune) || (unitB.state && unitB.state._ctrlImmune)) return false;
+    const posA = unitA.pos;
+    const posB = unitB.pos;
+    unitA.pos = posB;
+    unitB.pos = posA;
+    // emitEvent 只是导出别名，模块内部必须用真实函数名 emitCoreEvent
+    emitCoreEvent(unitA, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posB });
+    emitCoreEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
+    emitStateChange(unitA, STATE_CHANGE_TYPES.POSITION, { fromPos: posA, toPos: posB }, log);
+    emitStateChange(unitB, STATE_CHANGE_TYPES.POSITION, { fromPos: posB, toPos: posA }, log);
+    return true;
+}
+
+function moveUnitPosition(unit, newPos, log) {
+    if (!unit || newPos == null) return false;
+    // 免疫也挡"移动"分支：原只挡 swap，唐文亮拽免疫者且前排空着时走 move 分支 → 硬拽走、免疫破功
+    //   （体检 114 家族案的反向洞）。返回布尔供调用方照实报幕。
+    if (unit.state && unit.state._ctrlImmune) return false;
+    const oldPos = unit.pos;
+    unit.pos = newPos;
+    // 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
+    emitCoreEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
+    emitStateChange(unit, STATE_CHANGE_TYPES.POSITION, { fromPos: oldPos, toPos: newPos }, log);
+    return true;
+}
+
+// 击退 / 眩晕统一判定（乘风突袭、胖远桥·年轻气盛共用）：
+//   目标后方一格（pos+3）可用 → 击退：有人则换位、无人则移动；
+//   越界（7/8/9 号位往后推）→ 退无可退，改为眩晕一回合（_stunned 回合级，回合开始自动清）。
+//   V7.5.15 身后格被「天上/附身单位」占着 → 同样退无可退 → 眩晕（老板定调：飞天/附身
+//   期间原格保留、不被换位——旧版 find 只查 pos+alive，会把天上的蝶蛛拽去换位。判据与核心循环
+//   getFronts / 惑心换位同口径：_spiderFlying / _flyMode 蝶蛛 / _butterflyHost / FSM attached·flying）。
+// team 必须是目标自己那一队（换位/落点判断都在本队内找）。
+function resolvePushOrStun(target, team, log, label) {
+    if (!target || !target.alive) return;
+    // 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
+    if (target.state && target.state._ctrlImmune) return;
+    const behindPos = target.pos + 3;
+    const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
+    const behindBlockedByAir = behindPos <= 9 && team.some(u => u.alive && u.pos === behindPos && isAirborne(u));
+    if (behindPos <= 9 && !behindBlockedByAir) {
+        const behindUnit = team.find(u => u.pos === behindPos && u.alive);
+        const oldPos = target.pos;
+        if (behindUnit) {
+            const behindOldPos = behindUnit.pos;
+            // 身后格站着免疫者 = 推不动 → 与"退无可退"同语义，落到下面眩晕分支，不写假 PUSH 战报
+            if (swapUnitPositions(target, behindUnit, log)) {
+                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
+                return;
+            }
+        } else if (moveUnitPosition(target, behindPos, log)) {
+            log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: null, oldPos, behindPos } });
+            return;
+        }
+    }
+    target.state._stunned = true;
+    emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), _stunned: true });
+    emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, log);
+    log.push({ factType: FACT_TYPES.PUSH_STUN, data: { label, target: { uid: target.uid, name: target.name }, pos: target.pos } });
+}
+
+function emitCoreEvent(unit, eventType, payload) {
+    pushBattleEvent({ unitUid: unit.uid, eventType, payload });
+}
+
+// 治疗预演：返回「这次治疗实际能落多少」，口径与 applyStatChange 内部完全一致
+//   （截脉 → 寒毒抑疗 → maxHp 溢出夹取）。所有治疗类 factData / 文案 / 飘字都该用它，
+//   否则声明值会被打折落地，出现「战报写 +42、血条只跳 +21」的假账。
+// 注意：同一帧连续多次治疗时，后一次的可用空间按「前一次已落」计算——调用方按声明顺序调即可。
+function previewHeal(target, raw, rawOnly = false) {
+    if (!target || !(raw > 0)) return 0;
+    let applied = raw;
+    const st = target.state;
+    if (st && st._jinMai && st._jinMai.rounds > 0) applied = Math.round(applied * st._jinMai.ratio);
+    if (st) {
+        const xp = st._xuanmingPoison, hd = st._hlsHanDu;
+        const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+            || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+        if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+    }
+    // rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
+    if (rawOnly) return Math.max(0, Math.floor(applied));
+    return Math.max(0, Math.floor(Math.min(applied, target.maxHp - target.hp)));
+}
+
+// isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），
+//   不吃杨逍截脉的减疗。默认 true = 正常治疗语义。
+function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true) {
+    if (delta === 0 || !target || !target.alive) return false;
+    // 天上无敌：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
+    //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
+    if (field === 'hp' && delta < 0 && target.state && target.state._spiderFlying) return false;
+    // 杨逍·点穴截脉（反治疗）：被点穴目标眩晕解除后 rounds 回合内，受到的治疗/吸血回复按 ratio 打折。
+    //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
+    //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。
+    let applied = delta;
+    // 打折口径收口到 previewHeal（公式单点维护，文案/飘字同源）。
+    //   注意这里不夹 maxHp 溢出——applyStatChange 下面本来就会夹，重复夹会改变「溢出前」的中间值。
+    if (isHeal && field === 'hp' && delta > 0) {
+        applied = delta;
+        if (target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
+            applied = Math.round(applied * target.state._jinMai.ratio);
+        }
+        if (target.state) {
+            const xp = target.state._xuanmingPoison;
+            const hd = target.state._hlsHanDu;
+            const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+                || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+            if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+        }
+    }
+    const oldVal = target[field];
+    const stepped = Math.floor((target[field] + applied) * 10) / 10;
+    target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
+    if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
+    if (field === 'hp' && record) {
+        // 承伤记全额，输出记实际值；治疗记产出者，溢出不记
+        const actualDelta = target.hp - oldVal;
+        if (delta < 0) {
+            recordCombatStat(source, target, 'damage', {
+                rawAmount: Math.abs(delta),
+                actualAmount: Math.abs(actualDelta)
+            });
+        } else if (actualDelta > 0) {
+            recordCombatStat(source, target, 'heal', {
+                actualAmount: actualDelta
+            });
+        }
+    }
+    if (field === 'hp' && target.hp <= 0) {
+        target.state._pendingDeath = true;
+        if (!target.state._deathTime) target.state._deathTime = Date.now();
+        // 击杀者记账（唐文亮·同归于尽反噬击杀者用）：存 uid 不存引用（战报快照深拷/JSON 序列化会炸引用）。
+        //   source 为空（死亡结算/自损）不写入；有 source 即覆盖 = 补刀者算最后一击的凶手
+        if (source && source.uid) target.state._killerUid = source.uid;
+    }
+    emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
+        hp: target.hp, maxHp: target.maxHp, alive: target.alive,
+        atk: target.atk, def: target.def, _isDead: target.state._isDead || false,
+        dmgDealt: target.dmgDealt, dmgTaken: target.dmgTaken,
+        healDone: target.healDone, reboundDone: target.reboundDone,
+        leechDone: target.leechDone, dodgeCount: target.dodgeCount,
+        critCount: target.critCount, survivedRounds: target.survivedRounds,
+        _baseAtk: target.state._baseAtk, _baseDef: target.state._baseDef, _baseMaxHp: target.state._baseMaxHp
+    });
+    return target.state._pendingDeath || false;
+}
+
+// maxHp 词条化：所有 maxHp 变更走 addMod('maxHp')，本函数把 unit.maxHp 从 getStat 同步过来，
+// 并按"升则等量加、降则等比降"缩放 hp。addMod 后 / 移除词条后都应调用本函数。
+function refreshMaxHp(target, source, reason) {
+    if (!target || !target.alive) return;
+    const oldMaxHp = target.maxHp;
+    if (oldMaxHp <= 0) return;
+    const newMaxHp = Math.max(1, Math.floor(getStat(target, 'maxHp')));
+    if (newMaxHp === oldMaxHp) return;
+    const oldHp = target.hp;
+    target.maxHp = newMaxHp;
+    let newHp;
+    if (newMaxHp > oldMaxHp) {
+        newHp = oldHp + (newMaxHp - oldMaxHp);
+    } else {
+        newHp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
+    }
+    newHp = Math.min(newHp, target.maxHp);
+    const delta = newHp - oldHp;
+    if (newHp <= 0) {
+        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死', false);
+    } else if (delta !== 0) {
+        applyStatChange(target, 'hp', delta, source, reason, false, false);
+    }
+}
+
+const _queries = {};
+export function registerQuery(name, fn) { _queries[name] = fn; }
+export function query(name, ...args) { return _queries[name] ? _queries[name](...args) : undefined; }
+
+// ========== 属性词条系统 ==========
+// 属性只算不存：所有加成登记为词条，getStat 现算。
+// 词条结构：{ source, value, ttl, group, op }
+//   ttl: 'permanent' | 'round' | 'attached'
+//   op:  'add'（默认）| 'mul'（百分比，存 0.3 表示 +30%）
+// 计算规则：所有 add 求和，所有 mul 求和后统一乘：(base + addSum) × (1 + mulSum)
+export function addMod(unit, stat, mod) {
+    if (!unit) return;
+    if (!unit._mods) unit._mods = { atk: [], def: [], maxHp: [] };
+    if (!unit._mods[stat]) unit._mods[stat] = [];
+    unit._mods[stat].push(mod);
+}
+
+// hp 审计账本：体检对照器要核对「声明 heal/dot vs 实际落账」，此前这些纯记账条目
+//   混在 _mods['hp'] 里（全库无 getStat('hp') 调用点，故零行为副作用），但污染了词条容器——
+//   一旦将来 hp 上词条系统，这些审计账会变成真实加成。现物理隔离到 unit._audit.hp：
+//   条目形状与 _mods 同构（{source,value,ttl:'permanent',group,op:'add'}），对照器按 group 累加的算法不变。
+//   注意：clone() 必须浅拷该数组（共享元素引用），对照器的逐步按引用差集依赖这一点。
+export function recordHpAudit(unit, group, value, source) {
+    if (!unit || !group) return;
+    if (!unit._audit) unit._audit = { hp: [] };
+    if (!unit._audit.hp) unit._audit.hp = [];
+    unit._audit.hp.push({ source: source || '审计', value, ttl: 'permanent', group, op: 'add' });
+}
+
+export function removeModsByTTL(unit, ttl) {
+    if (!unit || !unit._mods) return;
+    for (const stat of Object.keys(unit._mods)) {
+        unit._mods[stat] = unit._mods[stat].filter(m => m.ttl !== ttl);
+    }
+}
+
+export function removeModsByGroup(unit, group) {
+    if (!unit || !unit._mods) return;
+    for (const stat of Object.keys(unit._mods)) {
+        unit._mods[stat] = unit._mods[stat].filter(m => m.group !== group);
+    }
+}
+
+export function getStat(unit, stat) {
+    if (!unit) return 0;
+    const baseKey = '_base' + stat.charAt(0).toUpperCase() + stat.slice(1);
+    const base = unit.state?.[baseKey] ?? unit[stat] ?? 0;
+    const mods = (unit._mods && unit._mods[stat]) || [];
+    let addSum = 0;
+    let mulSum = 0;
+    for (const m of mods) {
+        if (m.op === 'mul') mulSum += m.value;
+        else addSum += m.value;
+    }
+    const result = (base + addSum) * (1 + mulSum);
+    return Math.max(0, Math.floor(result * 10) / 10);
+}
+
+export {
+    emitCoreEvent as emitEvent,
+    emitFullUnitState,
+    finalizeDeaths,
+    getNextAvailableUnit,
+    swapUnitPositions,
+    moveUnitPosition,
+    resolvePushOrStun,
+    applyStatChange,
+    previewHeal,
+    refreshMaxHp,
+    recordCombatStat
+};

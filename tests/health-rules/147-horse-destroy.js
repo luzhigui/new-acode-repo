@@ -1,5 +1,5 @@
 // 回归规则：拒马阵（巨马）生成/销毁判据 — 此前完全没有任何体检项盯这条链路。
-// 机制源（core/05battle-horse.js · spawnHorse / destroyHorse，core/11 L46/L50/L509 调用）：
+// 机制源（core/205-battle-horse.js · spawnHorse / destroyHorse，core/11 L46/L50/L509 调用）：
 //   - 生成：回合开始在己方**空位**随机放一只拒马（atk0，def/血 = C.BUFFS.horseFormation.horseDef/horseHp）
 //   - 销毁：回合结束按 `horses.sort(pos 降序)` 逐只判定 ──
 //       baseProb = Math.round(C.BUFFS.horseFormation.destroyProb × 100)   （配置值 0.5 → 50）
@@ -22,7 +22,7 @@
 // 误报规避：本场没有拒马销毁条目直接 skip（拒马只在己方抽到「巨马阵」团队 Buff 时才生成）。
 export const VER = 'tests/health-rules/147-horse-destroy.js V6.1.16';
 
-import { CONFIG } from '../../core/01config-5v5-test.js';
+import { CONFIG } from '../../core/201-config-5v5-test.js';
 
 // 销毁概率基值：唯一来源是配置 destroyProb（0.5）× 100。注意必须**在每次 test() 里现读**
 //   （CONFIG.BUFFS 来自 loadGameData() 异步填充，模块加载时可能还没就位），这样才能在

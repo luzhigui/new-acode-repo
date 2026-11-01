@@ -3,7 +3,7 @@
 //           本来不带海克斯的 stats/baseline 另加 hexEnabled 参数（默认关，旧基线不变）。
 //           敌方 buff 由 createBuffObject 带 target=ENEMY 创建，core/06 V1.3.0 起两侧续存
 //           （旧 runner 只捞 ally，敌方 buff 下一回合会被整批丢弃）。
-// V1.17.0 | 2026-10-31 worker 自备 201hex-enhance.json（loadHexEnhanceData）：
+// V1.17.0 | 2026-10-31 worker 自备 002-hex-enhance.json（loadHexEnhanceData）：
 //           小昭 hexEnhance 已迁出 200，modules/27 每回合建队就读 201，缺则四种阵容 hex job 全炸。
 //           改 initBattleTeams 建完后 applyForcedWeakAlly 确定性替身换名（非锚点/非弱精英/非唯一前排，取 pos 最小）
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex' | 'random'
@@ -26,20 +26,20 @@ if (typeof localStorage === 'undefined') {
         clear: () => { _ls.clear(); }
     };
 }
-import { CONFIG, loadGameData, loadHexEnhanceData, getGameData } from '../core/01config-5v5-test.js';
-import { Unit } from '../core/02unit.js';
+import { CONFIG, loadGameData, loadHexEnhanceData, getGameData } from '../core/201-config-5v5-test.js';
+import { Unit } from '../core/202-unit.js';
 import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './127-tool-registry.js';
-import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
-import { runBattle } from '../core/06battle-runner.js';
-import { setBattleRng } from '../core/13battle-shared.js';
-import { createBuffObject, buffsOfCamp, filterAvailableBuffs } from '../modules/28buff-tools.js';
-import { addPermanentBuff } from '../modules/20elite-skills.js';
-import { initBattleTeams } from '../modules/29battle-init.js';
-import '../infra/54-global-store.js';
-import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30），V1.3.1 的 dotTick 漏装教训收口于此
-import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
-import { eventBus } from '../infra/50-event-bus.js';
-import { GlobalStore } from '../infra/54-global-store.js';
+import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/102-core-utils.js';
+import { runBattle } from '../core/206-battle-runner.js';
+import { setBattleRng } from '../core/214-battle-shared.js';
+import { createBuffObject, buffsOfCamp, filterAvailableBuffs } from '../modules/329-buff-tools.js';
+import { addPermanentBuff } from '../modules/302-elite-skills.js';
+import { initBattleTeams } from '../modules/330-battle-init.js';
+import '../infra/104-global-store.js';
+import '../modules/301-reg-mechanics.js';   // 机制装配统一入口（25/26/27/30），V1.3.1 的 dotTick 漏装教训收口于此
+import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
+import { eventBus } from '../infra/101-event-bus.js';
+import { GlobalStore } from '../infra/104-global-store.js';
 
 // 共用：清场
 // 每个 job 开始与每场之间调用（与各工具主线程原逻辑一致）
@@ -815,9 +815,9 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB, hexEnabled = false, 
 
 // 入口
 // 模块顶层一次性加载游戏数据（幂等，worker 独立全局需自备）
-// V1.17.0：201hex-enhance.json 也必须加载——小昭 hexEnhance 已从 200 迁到 201，
+// V1.17.0：002-hex-enhance.json 也必须加载——小昭 hexEnhance 已从 200 迁到 201，
 //   modules/27 在每次 prepareRoundSpawns 就读它（与是否带海克斯无关），
-//   只加载 200 时四模式 hex job 全部炸「201hex-enhance.json 缺 sister 段」。
+//   只加载 200 时四模式 hex job 全部炸「002-hex-enhance.json 缺 sister 段」。
 try {
     await Promise.all([loadGameData(), loadHexEnhanceData()]);
     self.postMessage({ kind: 'worker-ready', ok: true });

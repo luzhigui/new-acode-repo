@@ -34,10 +34,10 @@
 //   1. BREAK_DEF  破防：目标 def 应下降 reduce（core/16 L76-81 裁定器 addMod permanent）
 //   2. CARRY_APPLY carry：单位 atk/def/maxHp 应上升声明值（core/04 L37-42，ttl:'round'）
 //   3. BUTTERFLY  蝶变附身：host 的 atk/def/maxHp 应上升 atkTransfer/defTransfer/hpTransfer
-//                        （modules/27elite-mingjiao.js L292-294 addMod + L309-321 BUTTERFLY_ATTACH fact 带三项 transfer）
+//                        （modules/317-elite-mingjiao.js L292-294 addMod + L309-321 BUTTERFLY_ATTACH fact 带三项 transfer）
 //   4. ENDLESS_BREATH 生生不息：张三丰 回血转永久攻防，自身那笔 atkGain→atk / defGain→def
-//                        （modules/26elite-sixsects.js L91-92 addMod + L116-130 ENDLESS_BREATH fact 带 atkGain/defGain）
-//   5. XING_FEN_COST  性奋代价：宋青书 maxHp 应下降 penalty（modules/26elite-sixsects.js L634 addMod + L636 XING_FEN_COST fact 带 penalty）
+//                        （modules/308-elite-sixsects.js L91-92 addMod + L116-130 ENDLESS_BREATH fact 带 atkGain/defGain）
+//   5. XING_FEN_COST  性奋代价：宋青书 maxHp 应下降 penalty（modules/308-elite-sixsects.js L634 addMod + L636 XING_FEN_COST fact 带 penalty）
 //                        —— 4/5 两条是第 40 轮后发现的：对应 fact 早已携带数值，只是缺契约 → 零主代码改动即可补牙。
 //   ✗ 第 42 轮曾用**净增量**模型试过这条并撤回（不加守卫误报 16 处、加守卫零覆盖，两条路都死）——
 //     根因是流星成长(atk)与本机制同一步必然同作用于同一单位 atk，净增量分不清份额。
@@ -103,9 +103,9 @@ function nestedFacts(f) {
 //   SPIDER_MASTERY / SPIDER_TRANSFORM 三条恒空转契约的样本覆盖（对应 A14 / A17 / A21 三颗牙）。
 //   动因：第 158 轮只填了 METEOR_GROWTH 一个洞，剩 3 颗牙的守卫契约仍零触发；该轮留下的判断
 //   「蛛系单位不在 29battle-init 的关卡名单里，光靠 forceXiaoZhao 补不出来」本轮实测**不成立**：
-//     ① SPIDER_TRANSFORM / SPIDER_MASTERY 的发射体是小昭·妹（isXiaoZhaoBrother，modules/20elite-skills.js
+//     ① SPIDER_TRANSFORM / SPIDER_MASTERY 的发射体是小昭·妹（isXiaoZhaoBrother，modules/302-elite-skills.js
 //        L119-168），它就在 29battle-init 的小昭分支里 —— forceXiaoZhao:'brother' 可直接强制，无需另立阵容通道；
-//     ② LION_INSPIRE 的发射体是谢逊召唤的雄狮（modules/27elite-mingjiao-xiexun.js L85-113），
+//     ② LION_INSPIRE 的发射体是谢逊召唤的雄狮（modules/326-elite-mingjiao-xiexun.js L85-113），
 //        主代码已备 forceXieXun 开关（29battle-init L141/L154），此前定向通道没泛化所以用不上。
 //   改法：新增 FORCE_KEYS 白名单 + normalizeForces，把原先只能传 forceXiaoZhao 单值的 `force` 字段
 //     泛化为 `forces` 对象（任意开关组合）；**逐场先全键复位再按场次设置**，字段 `force` 保持向后兼容。
@@ -114,7 +114,7 @@ function nestedFacts(f) {
 //   动因：METEOR_GROWTH 等 5 条契约在默认 132 场里恒零触发，mutation-teeth 据此把 5 颗牙判成
 //   「样本未覆盖（变异行零执行）」，T3/A5 的牙口结论长期无解。本轮引擎探针实测（/tmp 探针，未入库）：
 //   ★ 机制没坏，是**前置条件在随机阵容里凑不齐** —— METEOR_SPLASH_GROWTH 需「远程单位 + 流星赶月溅射
-//     + 小昭·姊存活 + 溅射有存活命中」四条同时成立（core/16effect-handlers.js L185-193），
+//     + 小昭·姊存活 + 溅射有存活命中」四条同时成立（core/217-effect-handlers.js L185-193），
 //     而默认样本里小昭·姊出场率仅 7/140 场（29battle-init L123 概率分支），且即便强制出姊仍只 5/420 场齐活。
 //   修法同第 113 轮扩样本口径：补一组**定向覆盖**场次（FORCED_CASES），沿用主代码现成的
 //     GlobalStore 'forceXiaoZhao'（29battle-init L245-262，xiaozhao-brother-leech-case.mjs 已在用），
@@ -194,7 +194,7 @@ const FORCED_CASES = [
     { seed: 42, stage: 1, forces: { forceXieXun: true } },
     // 第 159 轮补：SPIDER_MASTERY（A17 蛛变精通）/ SPIDER_TRANSFORM（A21 蛛变）/ 顺带 SPIDER_EGG。
     //   三者同源，都是小昭·妹（isXiaoZhaoBrother）在 ON_ROUND_START 变身时分发的
-    //   （modules/20elite-skills.js L119-168），故同一组场次同时喂三条契约。
+    //   （modules/302-elite-skills.js L119-168），故同一组场次同时喂三条契约。
     //   实测 seed 17 六个 stage 全覆盖（stage 1 最强：MASTERY 12 / TRANSFORM 57 / EGG 2，偏差 0），
     //   取 stage 1 与 stage 4（stage 4 TRANSFORM 最高 60 条）。
     { seed: 17, stage: 1, force: 'brother' },
@@ -297,7 +297,7 @@ const CONTRACTS = [
         label: '蝶变附身',
         group: 'butterfly',
         dir: +1,
-        // 声明（modules/27elite-mingjiao.js L309-321）：BUTTERFLY_ATTACH fact，
+        // 声明（modules/317-elite-mingjiao.js L309-321）：BUTTERFLY_ATTACH fact，
         //   data.{ hostName, atkTransfer, defTransfer, hpTransfer }；L292-294 把这三项分别加给 host 的 atk/def/maxHp。
         //   干净树：host 实际增量恰等于三项 transfer ⇒ 恒真。A8 变异（三项 *2）⇒ 实际=2×声明 ⇒ 命中。
         //   第 38 轮 A8 指纹变但三侧无反应，根因就是对照器缺这条契约——fact 本就带数值，补契约即兜住。
@@ -321,7 +321,7 @@ const CONTRACTS = [
         label: '生生不息',
         group: 'endlessBreath',
         dir: +1,
-        // 声明（modules/26elite-sixsects.js L116-130）：FACT_TYPES.ENDLESS_BREATH fact，
+        // 声明（modules/308-elite-sixsects.js L116-130）：FACT_TYPES.ENDLESS_BREATH fact，
         //   data.{ unitName, atkGain, defGain }（回血转永久攻防的自身那笔，二选一方向）。
         //   L91-92 把 selfAtkGain/defGain 用 addMod 实际加到 unit 的 atk/def（group:'endlessBreath'）。
         //   干净树：实际增量恰等于 atkGain/defGain ⇒ 恒真。A7 变异（defGain*2）⇒ 实际=2×声明 ⇒ 命中。
@@ -348,7 +348,7 @@ const CONTRACTS = [
         label: '生生不息·付费消耗',
         group: 'endlessBreathCost',
         dir: -1,
-        // 声明（modules/26elite-sixsects.js L160-161）：张三丰轮到自己行动且 atk≥atkCost 时「付费触发」——
+        // 声明（modules/308-elite-sixsects.js L160-161）：张三丰轮到自己行动且 atk≥atkCost 时「付费触发」——
         //   addMod(actor,'atk',{value:-s.atkCost, ttl:'permanent', group:'endlessBreathCost'})，
         //   随后 triggerEndlessBreath(actor, log, s.atkCost) 发 ENDLESS_BREATH fact，data.cost=atkCost(3)。
         //   干净树：该步 endlessBreathCost 组仅此一笔、atk 净减恰 == cost ⇒ 恒真；把 -atkCost 翻倍变异 ⇒ 实际=2×cost 命中。
@@ -374,7 +374,7 @@ const CONTRACTS = [
         label: '性奋代价',
         group: 'xingFenCost',
         dir: -1,
-        // 声明（modules/26elite-sixsects.js L632-636）：addMod(unit,'maxHp',{source:'性奋代价',value:-penalty,...})
+        // 声明（modules/308-elite-sixsects.js L632-636）：addMod(unit,'maxHp',{source:'性奋代价',value:-penalty,...})
         //   同处 fact XING_FEN_COST 带 {unitName, oldMaxHp, newMaxHp: floor(maxHp), penalty}。
         //   penalty = 实际扣减量（正数）；干净树 实际 maxHp 降 == penalty ⇒ 恒真。
         //   A12 变异（penalty*2）⇒ 实际降 2×penalty ⇒ 命中。
@@ -402,7 +402,7 @@ const CONTRACTS = [
         label: '流星溅射成长',
         group: 'meteorSplashGrowth',
         dir: +1,
-        // 声明（core/16effect-handlers.js L175，V6.0.3 起补发）：
+        // 声明（core/217-effect-handlers.js L175，V6.0.3 起补发）：
         //   { factType: METEOR_SPLASH_GROWTH, data: { unitName, growth } }
         //   growth = 溅射存活命中人数 × atkPerSplash(2)
         extract(stepLog) {
@@ -429,7 +429,7 @@ const CONTRACTS = [
         label: '坚盾',
         group: 'fortify',
         dir: +1,
-        // 声明（core/03battle-utils.js L239）：FORTIFY_SHIELD fact
+        // 声明（core/203-battle-utils.js L239）：FORTIFY_SHIELD fact
         //   data: { unitName, label, increment, current: fortifyThisRound + increment, cap }
         //   注意：防守路径（L252）把 fact 塞进攻击组的 group.data.entries（嵌套一层），须递归扫描。
         extract(stepLog) {
@@ -454,7 +454,7 @@ const CONTRACTS = [
         // 第 47 轮接入（主代码批 1 补发 fact）：八卦阵**削攻**分支。
         //   一次触发同时动 atk(减) 与 def(加)，而 dir 是**契约级**的、两属性账本符号相反
         //   ⇒ 必须拆两条契约；且判据要求 sum>0，故负的 atkDelta 取**绝对值**当声明幅度。
-        //   声明（modules/26elite-sixsects.js L154-159）：
+        //   声明（modules/308-elite-sixsects.js L154-159）：
         //     addMod(zhang,'atk',{value:-ba.atkCost,group:'baguaArray'})
         //     + fact BAGUA_ARRAY { unitName: zhang.name, atkDelta: -ba.atkCost, defDelta: ba.defGain }
         id: 'BAGUA_ATK',
@@ -477,7 +477,7 @@ const CONTRACTS = [
     },
     {
         // 第 47 轮：八卦阵·加防。2026-10-08 改版（老板拍板）已删除「-1攻+1防」对冲、不再加防
-        //   （modules/26elite-sixsects-zhangsanfeng.js L140/L156：defDelta 恒发 0 保住三字段）⇒ 本契**永远零触发**，
+        //   （modules/311-elite-sixsects-zhangsanfeng.js L140/L156：defDelta 恒发 0 保住三字段）⇒ 本契**永远零触发**，
         //   属历史契约残留而非缺陷：保留作回归哨兵——未来改版若恢复加防则自动激活；atk 消耗侧由 BAGUA_ATK（dir:-1）盯。
         id: 'BAGUA_DEF',
         label: '八卦阵·加防',
@@ -519,7 +519,7 @@ const CONTRACTS = [
     },
     {
         // 雄狮振奋：**一条 fact 覆盖多目标**（targets 名单），extract 必须展开数组，不能只取 unitName。
-        //   声明（modules/27elite-mingjiao.js L725-740）：data:{ targets:[{unitName, atkDelta}] }（无顶层 unitName）
+        //   声明（modules/317-elite-mingjiao.js L725-740）：data:{ targets:[{unitName, atkDelta}] }（无顶层 unitName）
         id: 'LION_INSPIRE',
         label: '雄狮振奋',
         group: 'lionInspire',
@@ -620,7 +620,7 @@ const CONTRACTS = [
     },
     {
         // 第 48 轮补（零主代码）：小昭·弟「精通」—— 排查 9 个未覆盖 group 后，**唯一有现成增量 fact** 的一个。
-        //   fact（modules/20elite-skills.js L144）：SPIDER_TRANSFORM 的 `data.masteryGain = { atk, def, hp }`，
+        //   fact（modules/302-elite-skills.js L144）：SPIDER_TRANSFORM 的 `data.masteryGain = { atk, def, hp }`，
         //   正是 L133-135 三处 addMod(gAtk/gDef/gHp, group:'spiderMastery') 用的同三个变量 ⇒ 干净树恒等。
         //   ⚠️ 该 fact 是**蛛变与精通共用**的：只有本次真吃到精通层数时才带 masteryGain，
         //      纯变身场景该字段为 undefined ⇒ 必须判存在性，否则拿到 undefined 当声明量。
@@ -651,7 +651,7 @@ const CONTRACTS = [
         label: '幼狮成长',
         group: 'lionGrow',
         dir: +1,
-        // 声明（modules/27elite-mingjiao.js L703-717，V6.4.4 / commit 12a5808）：ON_ROUND_START 幼狮成形，
+        // 声明（modules/317-elite-mingjiao.js L703-717，V6.4.4 / commit 12a5808）：ON_ROUND_START 幼狮成形，
         //   addMod 三条（group:'lionGrow'，value=atkDelta/defDelta/maxHpDelta）后发 LION_GROW fact，
         //   data 带 unitUid 与三个 delta（2026-10-02 主代码补齐；此前 fact 只有目标值，无法比对，头部 L60 旧结论已作废）。
         //   fact 与 addMod 在同一循环、同一变量、同一 step ⇒ 干净树恒等，走默认严格判据（不进 LOOSE/SAME_STEP 名单）。
@@ -677,7 +677,7 @@ const CONTRACTS = [
     },
     {
         // 第 52 轮补（零主代码，commit 12a5808 已补发增量字段）：小昭蛛变 —— 与 LION_GROW 同模式。
-        //   声明（modules/20elite-skills.js L119-121，V6.0.4）：addMod 三条（group:'spiderTransform'，
+        //   声明（modules/302-elite-skills.js L119-121，V6.0.4）：addMod 三条（group:'spiderTransform'，
         //     value=newStats.atk/def/maxHp）后发 SPIDER_TRANSFORM fact，data 带 unitUid + atkDelta/defDelta/maxHpDelta
         //     （= newStats.*，与 addMod 入参同源）。fact 与 addMod 同函数同变量同 step ⇒ 干净树恒等，走默认严格判据。
         //   ⚠️ factType 守卫必备：12a5808 给 SPIDER_TRANSFORM 补 unitUid+三 delta 后，形状与 LION_GROW 撞车
@@ -1310,7 +1310,7 @@ const CONTRACTS = [
     },
     {
         // 第 74 轮（阶段二·fact全覆盖）：玄冥中毒 DoT 伤害 xuanMingDot —— 首个 HP 类数值契约（治"声明对、做错"核心洞）。
-        //   emit（modules/30custom-effects.js L45 dotTick）：{ factType:XUAN_MING_DOT, data:{ unitName, dot, uidD, isDead } }
+        //   emit（modules/331-custom-effects.js L45 dotTick）：{ factType:XUAN_MING_DOT, data:{ unitName, dot, uidD, isDead } }
         //     dot = Math.floor(u.maxHp * pct)；同处已 push ROUND_STAT_GRANT { field:'hp', delta:-dot } 实际扣血。
         //   镜像 BREAK_DEF（dir:-1：声明 dot 为正、hp 下降）：group='xuanMingDot'，比对「玄冥中毒」自身贡献，不受同步其他 hp 来源干扰。
         //   ✅ 记账已落地（主代码 V7.6.19 / 2de9895）：modules/30 dotTick 走 recordHpAudit(u,'xuanMingDot',-dot,'玄冥中毒')
@@ -1376,7 +1376,7 @@ const CONTRACTS = [
         //
         //   ⚠ 第 128 轮修（契约绑定键漂移，第 127 轮恒空转白名单的直接根因之一）：
         //     原绑定键写作 label === '九阳神拳回复'，而主代码实际发的是 '左拳·九阳回复'
-        //     （modules/27elite-mingjiao-hanlisa.js L80）。全库检索 '九阳神拳回复' **零命中**
+        //     （modules/319-elite-mingjiao-hanlisa.js L80）。全库检索 '九阳神拳回复' **零命中**
         //     ⇒ 声明侧恒 0 ⇒ 严格比对恒 0 ⇒ 「偏差 0」是**没得比**，不是「比过了没偏差」：
         //     账本 group「hlsJiuYangHeal」的 61 条词条一条都没被盯住，改错也查不出 —— 真·假绿。
         //     与第 99 轮 NINE_YANG_HEAL 同款（旧专用 FACT 通道过期），本轮改为按主代码实际 label 精确绑定。
@@ -1430,7 +1430,7 @@ const CONTRACTS = [
         }
     },
     {
-        // 第 105 轮（scan-groups 扫地）：寒离飒蓄意轰拳·吸血 hlsVamp —— modules/27elite-mingjiao-hanlisa.js L262-279
+        // 第 105 轮（scan-groups 扫地）：寒离飒蓄意轰拳·吸血 hlsVamp —— modules/319-elite-mingjiao-hanlisa.js L262-279
         //   vamp = Math.min(Math.floor(totalDealt / vampDiv), Math.max(0, hls.maxHp - hls.hp))（吸血=总伤害1/3、封顶缺失生命）；
         //   L268 推 ROUND_STAT_GRANT 声明（field:'hp', delta:vamp, reason:'蓄意轰拳·吸血'，走 core/16 applyStatChange
         //   治疗语义、吃截脉打折）；L269 recordHpAudit(hls,'hlsVamp',vamp,'蓄意轰拳吸血') 纯记账实际侧。
@@ -1611,7 +1611,7 @@ const CONTRACTS = [
         }
     },
     {
-        // 第 88 轮：飞天落地回血（小昭·妹 spiderReturn，modules/20elite-skills.js L188-198）——
+        // 第 88 轮：飞天落地回血（小昭·妹 spiderReturn，modules/302-elite-skills.js L188-198）——
         //   --scan-groups 盲区扫地：group 'spiderLandHeal' 33 条 hp 词条无契约盯（"落地回血改错数值也查不出"）。
         //   emit 点：applyStatChange(unit,'hp',heal) 只发 eventBus 事件**不产 fact**（core/13 L222-230 无 log.push），
         //   同函数的 SPIDER_RETURN fact 又只带 pos ⇒ 声明侧无数值 ⇒ 纯 test-side 路线证死，走载荷转交：
@@ -1643,7 +1643,7 @@ const CONTRACTS = [
         }
     },
     {
-        // 第 88 轮：蜘蛛卵结茧属性（小昭·妹 toSpiderEgg，modules/27elite-mingjiao.js L566-576）——
+        // 第 88 轮：蜘蛛卵结茧属性（小昭·妹 toSpiderEgg，modules/317-elite-mingjiao.js L566-576）——
         //   --scan-groups 盲区扫地：group 'spiderEgg' 4 条 atk/def 词条无契约盯（毒/反伤致死档结茧，
         //   "卵属性写错也查不出"）。emit 点：SKILL_ANNOUNCE note 只有文本「0 攻 / eggDef 防」（最终值、非增量，
         //   且 atk 实际增量 = eggModValue 逆算值，依赖当前 atk/乘法词条，无法从文本推 declared delta）⇒
@@ -1677,7 +1677,7 @@ const CONTRACTS = [
     },
     {
         // 第 94 轮：胖远桥出手蓄力改版（老板拍板，主代码 a6ab497）——每次出手**命中后**自身回血
-        //   min(healPerAttack, maxHp-hp)（modules/26elite-sixsects-pangyuanqiao.js AFTER_DAMAGE_APPLIED →
+        //   min(healPerAttack, maxHp-hp)（modules/312-elite-sixsects-pangyuanqiao.js AFTER_DAMAGE_APPLIED →
         //   通用 HEAL 声明 → core/10 落 ATTACK 组 data.entries）。scan-groups 扫地揪出的新盲区：零契约盯。
         //   声明侧：HEAL entry 的 data.label==='蓄力回复' 带 data.heal 数值（core/10 只加 isHealEntry/
         //   healAmount/healUnitUid 不剥 data ⇒ 结构化可读，不走文本解析；label 区分胖远桥——通用 HEAL
@@ -1794,32 +1794,32 @@ const CONTRACTS = [
 async function main() {
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES, FACT_TYPES: FT }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../core/13battle-shared.js'),
-        import('../infra/56-battle-enums.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../core/214-battle-shared.js'),
+        import('../infra/106-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     // 第 158 轮：定向覆盖组需要它来设 forceXiaoZhao（主代码 29battle-init 读它）。
-    const { GlobalStore } = await import('../infra/54-global-store.js');
+    const { GlobalStore } = await import('../infra/104-global-store.js');
 
-    // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
+    // carry 候选判据与主代码同口径：直接复用 modules/329-buff-tools.js 的 hasCarryTarget
     //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
-    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
 
     
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
     // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠modules/30 **模块顶层副作用**注册进 core/18
     //   （不是export函数，是 import 即注册）。漏 import ⇒ core/18 无该处理器 ⇒ core/15 安装期校验
     //   对鹿杖客 dotTick 直接抛错「未知顶层机制 type "dotTick"」⇒ 对照器开局即崩。
     //   tools/101、115、116 均已补（116 注释明写"不 import 则第 5 关 worker 全灭"），体检三个入口此前漏了。
-    await import('../modules/30custom-effects.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
     FACT_TYPES = FT; // 供顶层契约 extract 的 factType 守卫使用
 

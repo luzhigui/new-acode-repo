@@ -1,7 +1,7 @@
 // 回归规则：幼狮成长数值（LION_GROW fact）— 此前该 group 只有对照器（stat-decl）盯"声明==实际"，
 //   规则侧看不到（LION_GROW 虽渲染，但规则只看渲染文案、且增量字段散在 fact.data，无独立校验）。
 //   2026-10-08 Step 0 后规则能读原始 fact（rule.test 第 7 参 facts），本规则据此对账。
-// 机制源（modules/27elite-mingjiao.js L720-741 幼狮成长）：cub 原地改名 + 永久词条叠加 atk/def/maxHp，
+// 机制源（modules/317-elite-mingjiao.js L720-741 幼狮成长）：cub 原地改名 + 永久词条叠加 atk/def/maxHp，
 //   atkDelta/defDelta/maxHpDelta = 目标值 − cub 原值，fact 携带 绝对值 atk/def/maxHp + 增量 + pos + name。
 // 为什么值得盯：成长是**永久词条**，增量算错（如 tgtAtk 取错角色基础、或 delta 漏减 cub 原值）会让狮子
 //   终身属性失真，对照器只验"声明==实际落地"，本规则额外验"声明值本身合理 + 渲染文案与 fact 一致"。
@@ -12,7 +12,7 @@
 // 误报规避：本场无 LION_GROW fact 直接 skip；渲染文案匹配不上就跳过判据3（不硬报）。
 export const VER = 'tests/health-rules/161-lion-grow.js V1.0.0';
 import { plain } from '../122health-utils.js';
-import { FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule108 = {
     group: '数值回归',

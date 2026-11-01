@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url';
 const read = (rel) => readFile(new URL(rel, import.meta.url), 'utf8');
 
 // ============ V1.3.0：modules/26 拆分结构对账（纯函数，供牙齿探针注入反例）============
-// 入参：entryCode = 26elite-sixsects.js 源码（已剥行注释）；compSources = { '26elite-sixsects-xxx.js': 源码 }
+// 入参：entryCode = 308-elite-sixsects.js 源码（已剥行注释）；compSources = { '26elite-sixsects-xxx.js': 源码 }
 // 返回：问题字符串数组（空 = 一致）。判据 (a)~(e) 见文件头 V1.3.0；判据是静态源码级、非运行时。
 export function checkSixsectsStructure(entryCode, compSources) {
     const problems = [];
@@ -29,7 +29,7 @@ export function checkSixsectsStructure(entryCode, compSources) {
 
     // 解析入口里对组件文件的 named import：远端名（as 前）+ 本地绑定名
     const imports = new Map(); // 组件文件名 -> [{ remote, local }]
-    for (const im of entryCode.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\/(26elite-sixsects-[^']+)'/g)) {
+    for (const im of entryCode.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\/(3\d{2}-elite-sixsects-[^']+)'/g)) {
         const list = [];
         for (const part of im[1].split(',')) {
             const mm = part.trim().match(/^(\w+)(?:\s+as\s+(\w+))?$/);
@@ -150,10 +150,10 @@ async function main() {
 
     // ============ V1.3.0：modules/26 拆分结构对账（源码级静态，非运行时）============
     const modDir = new URL('../modules/', import.meta.url);
-    const modFiles = (await readdir(modDir)).filter(f => /^26elite-sixsects-.+\.js$/.test(f)).sort();
+    const modFiles = (await readdir(modDir)).filter(f => /^3\d{2}-elite-sixsects-.+\.js$/.test(f)).sort();
     const compSources = {};
     for (const f of modFiles) compSources[f] = stripLineComments(await readFile(new URL(f, modDir), 'utf8'));
-    const entry26 = stripLineComments(await read('../modules/26elite-sixsects.js'));
+    const entry26 = stripLineComments(await read('../modules/308-elite-sixsects.js'));
     const sixProblems = checkSixsectsStructure(entry26, compSources);
 
     const hard = [];

@@ -4,9 +4,9 @@
 // 为什么需要这个探针（第 162 轮的教训，本轮已证实为测量口径错误）：
 //   ★ 关键约束：引擎在 installRoundMechanics 里每回合调用 eventBus.clearAll()，
 //   把上一回合的裁判登记连同**我们自己的观测探针**一起清掉。这一点主代码里是白纸黑字写着的：
-//     - core/06battle-runner.js 顶部注释：「引擎每回合会 eventBus.clearAll()，页面级 eventBus
+//     - core/206-battle-runner.js 顶部注释：「引擎每回合会 eventBus.clearAll()，页面级 eventBus
 //       监听器活不过第一回合，所以『读日志』必须走本回调，不能自己在页面里 eventBus.on。」
-//     - core/11battle-round.js:142 就是那句 eventBus.clearAll()。
+//     - core/210-battle-round.js:142 就是那句 eventBus.clearAll()。
 //   ⇒ 探针若在 import 阶段「注册一次」，它在第一回合 any attack 之前就已被清掉，计数恒为 0。
 //   第 162 轮的 phantom-confuse-brother-case 段三正是这么写的，于是读出「BEFORE_SELECT_TARGET
 //   零触发」，进而推断「node 侧回放通道根本不发该信号」，并把「所有走该信号的分支在 node 侧都
@@ -97,22 +97,22 @@ export function isAliveProbe(bus, probeSignal, key) {
  */
 export function verifyClearAllContract(root) {
     const out = { ok: true, reasons: [], files: {} };
-    const runnerpy = path.join(root, 'core', '11battle-round.js');
-    const runner = path.join(root, 'core', '06battle-runner.js');
+    const runnerpy = path.join(root, 'core', '210-battle-round.js');
+    const runner = path.join(root, 'core', '206-battle-runner.js');
     if (!fs.existsSync(runnerpy)) {
-        out.ok = false; out.reasons.push('找不到 core/11battle-round.js，无法核对 clearAll 契约');
+        out.ok = false; out.reasons.push('找不到 core/210-battle-round.js，无法核对 clearAll 契约');
         return out;
     }
     const src = fs.readFileSync(runnerpy, 'utf8');
     const hasClearAll = /eventBus\.clearAll\(\s*\)/.test(src);
-    out.files['core/11battle-round.js'] = { clearAll: hasClearAll };
+    out.files['core/210-battle-round.js'] = { clearAll: hasClearAll };
     if (!hasClearAll) {
         out.ok = false;
-        out.reasons.push('core/11battle-round.js 里找不到 eventBus.clearAll() —— 每回合清监听器的契约已变，探针登记姿势须复核');
+        out.reasons.push('core/210-battle-round.js 里找不到 eventBus.clearAll() —— 每回合清监听器的契约已变，探针登记姿势须复核');
     }
     if (fs.existsSync(runner)) {
         const rs = fs.readFileSync(runner, 'utf8');
-        out.files['core/06battle-runner.js'] = { documented: /clearAll/.test(rs) };
+        out.files['core/206-battle-runner.js'] = { documented: /clearAll/.test(rs) };
     }
     return out;
 }

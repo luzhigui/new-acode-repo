@@ -1,12 +1,12 @@
-// 回归规则：流云身法闪避面板数据源 — 直接调面板函数 render/32-grid-render.js 的 getDodgeBreakdown，
+// 回归规则：流云身法闪避面板数据源 — 直接调面板函数 render/403-grid-render.js 的 getDodgeBreakdown，
 // 断言「流云身法」这行能读出来（值 > 0）。
 // 复发信号：战报出现"流云身法"且末年仍挂在我方，但面板函数返回的 sources 里没有「流云身法」
 //          → 闪避面板（含韦一笑详情面板）不显示流云加成，也不计入合计
 // 对应已报 Bug：韦一笑闪避面板没有考虑流云，有了流云也不显示不加
 export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.1.1';
 
-import { getDodgeBreakdown } from '../../render/32-grid-render.js';
-import { getGameData } from '../../core/01config-5v5-test.js';
+import { getDodgeBreakdown } from '../../render/403-grid-render.js';
+import { getGameData } from '../../core/201-config-5v5-test.js';
 
 export const rule87 = {
     group: '面板数据回归',
@@ -19,7 +19,7 @@ export const rule87 = {
         }
         if (!hasCloud) return 'skip';
 
-        // 阵营口径（保留 2026-09-03 修正）：引擎按 buff.target 分流（core/11battle-round.js：
+        // 阵营口径（保留 2026-09-03 修正）：引擎按 buff.target 分流（core/210-battle-round.js：
         //   A._activeBuffs = target==='ally' 或无 target；B._activeBuffs = target==='enemy'）。
         // ctx.activeBuffs 是双方合计表；流云挂在敌方时我方本就该是 0，只在确属我方时才继续判。
         var allyBuffs = [];

@@ -40,24 +40,24 @@ const bad = (name, e) => { fail.push(name); console.log(`  ❌ ${name}\n     ${e
 console.log('\n=== 1. 模块加载 ===');
 let mods = {};
 const toLoad = {
-    enums: 'infra/56-battle-enums.js',
-    bus: 'infra/50-event-bus.js',
-    utils: 'infra/51-core-utils.js',
-    clock: 'infra/52-clock.js',
-    contract: 'infra/58-fact-contract.js',
-    cfg: 'core/01config-5v5-test.js',
-    unit: 'core/02unit.js',
-    round: 'core/11battle-round.js',
-    stateKeys: 'core/17-state-keys.js',
-    store: 'modules/24battle-store.js',
-    elites: 'modules/20elite-skills.js',       // 副作用 import：注册 damageModifiers / xiaoHexEnhance 等 query
-    emp: 'modules/25elite-imperial.js',
-    six: 'modules/26elite-sixsects.js',
-    ming: 'modules/27elite-mingjiao.js',
-    custom: 'modules/30custom-effects.js',     // 副作用 import：注册 dotTick/damageReflect 等通用机制 handler（真实战斗的玄冥中毒/反弹依赖，漏导会致无头战斗抛"未知机制 type"）
-    renderer: 'player/47renderer.js',
-    stageActions: 'render/31-stage-actions.js',
-    factRenderer: 'render/30-fact-renderer.js'
+    enums: 'infra/106-battle-enums.js',
+    bus: 'infra/101-event-bus.js',
+    utils: 'infra/102-core-utils.js',
+    clock: 'infra/103-clock.js',
+    contract: 'infra/107-fact-contract.js',
+    cfg: 'core/201-config-5v5-test.js',
+    unit: 'core/202-unit.js',
+    round: 'core/210-battle-round.js',
+    stateKeys: 'core/218-state-keys.js',
+    store: 'modules/306-battle-store.js',
+    elites: 'modules/302-elite-skills.js',       // 副作用 import：注册 damageModifiers / xiaoHexEnhance 等 query
+    emp: 'modules/307-elite-imperial.js',
+    six: 'modules/308-elite-sixsects.js',
+    ming: 'modules/317-elite-mingjiao.js',
+    custom: 'modules/331-custom-effects.js',     // 副作用 import：注册 dotTick/damageReflect 等通用机制 handler（真实战斗的玄冥中毒/反弹依赖，漏导会致无头战斗抛"未知机制 type"）
+    renderer: 'player/510-renderer.js',
+    stageActions: 'render/402-stage-actions.js',
+    factRenderer: 'render/401-fact-renderer.js'
 };
 for (const [k, rel] of Object.entries(toLoad)) {
     try { mods[k] = await import(`../${rel}`); ok(rel); }

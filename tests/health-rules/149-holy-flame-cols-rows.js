@@ -1,5 +1,5 @@
 // 回归规则：圣火令（holyFlame）行列选取 — 此前完全没有体检项盯这条链路。
-// 机制源（core/11battle-round.js L86-103 每回合重掷 + core/14buff-effects.js L27-48 施加）：
+// 机制源（core/210-battle-round.js L86-103 每回合重掷 + core/215-buff-effects.js L27-48 施加）：
 //   - 每回合开始对本阵营的 holyFlame buff 重掷 cols / rows：
 //       holyColCount = 小昭·姊在场 ? 小昭.hexEnhance.holyFlame.atkCols : 1   （基础版只给 1 列）
 //       holyRowCount = 小昭·姊在场 ? 小昭.hexEnhance.holyFlame.defRows : 2   （基础版给 2 行）
@@ -28,7 +28,7 @@
 export const VER = 'tests/health-rules/149-holy-flame-cols-rows.js V6.1.15';
 import { plain } from '../122health-utils.js';
 
-import { CONFIG } from '../../core/01config-5v5-test.js';
+import { CONFIG } from '../../core/201-config-5v5-test.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 147/148 同款处理）
 function holyCfg() {

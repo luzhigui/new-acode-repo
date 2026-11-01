@@ -137,22 +137,22 @@ async function main() {
     // 引擎 import 放 main 内：垫片必须先就绪（同 tests/140-baseline.js 的做法）
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
         { CAMP_TYPES, BUFF_TYPES }, { translateFactsToStageActions }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../infra/56-battle-enums.js'),
-        import('../render/31-stage-actions.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../infra/106-battle-enums.js'),
+        import('../render/402-stage-actions.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
-    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
     // 精英组件 + custom-effects 靠模块顶层副作用注册（漏 import 则 initBattleTeams/装配期即崩）
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;

@@ -5,7 +5,7 @@
      V1.2.0 | 2026-10-31 手感升级：①单卡「重摸」（不满意只换那一张，尽量不与其他卡撞）；②「只看引擎支持」筛选（一键藏掉需扩机制的）。
      V1.1.0 | 2026-10-31 质量升级：①触发↔效果语义配对（TRIGGER_ALLOW，不再抽「死亡时得护盾」这类废话）；
        ②同一把内去重（按一句话签名）；③每张卡加「玩法钩子」一行（按效果类别给怎么用的提示）。
-     V1.0.0 | 2026-10-22 新建。纯前端、不跑战斗：只读 content/200game-data.json 提取引擎已有的 mechanics type，
+     V1.0.0 | 2026-10-22 新建。纯前端、不跑战斗：只读 content/001-game-data.json 提取引擎已有的 mechanics type，
        与 124 的 TYPE_GLOSSARY 合成白名单；扩展词条由 134-fetch-pool.mjs 写进 134-idea-pool-additions.json。 -->
 <html lang="zh-CN">
 <head>
@@ -247,7 +247,7 @@ async function loadEngineTypes() {
     // 白名单 = 124 的 TYPE_GLOSSARY（引擎已登记的机制类型）+ content 里出现过的 mechanics.type
     for (const t of Object.keys(TYPE_GLOSSARY)) ENGINE_TYPES.add(t);
     try {
-        const res = await fetch(new URL('../content/200game-data.json', import.meta.url));
+        const res = await fetch(new URL('../content/001-game-data.json', import.meta.url));
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
         const walk = o => {

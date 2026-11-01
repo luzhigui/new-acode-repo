@@ -3,11 +3,11 @@
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
-import { CONFIG } from '../core/01config-5v5-test.js';
-// 运行时读写唯一真源：modules/31-career-log.js（player/42 直接 import 它，不再经 tools）。
-import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCounts } from '../modules/31-career-log.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
+// 运行时读写唯一真源：modules/332-career-log.js（player/42 直接 import 它，不再经 tools）。
+import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCounts } from '../modules/332-career-log.js';
 // 兼容旧调用面（dev-index 动态 import 本文件）：运行时函数原样转出。
-export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/31-career-log.js';
+export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/332-career-log.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 127-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './127-tool-registry.js';
@@ -453,7 +453,7 @@ export function getHeroAggregates(includeEnemy = false, hexMode = null) {
 }
 
 // V1.8.0 新增：逐海克斯实战胜率——给 126 规则八做「逐海克斯 模拟 vs 实战」对照用。
-// 52 每局已经记了 hex（player/42player-core.js 写的是 c.activeBuffs.map(b=>b.key)），
+// 52 每局已经记了 hex（player/503-player-core.js 写的是 c.activeBuffs.map(b=>b.key)），
 // 与 108 模拟日志的 buffs（116 写的是 buffsPicked.map(b=>b.key)）是同一套 CONFIG.BUFFS key，可直接按 key 匹配。
 // mode 可过滤：传 'single' 只取单机（vs AI）对局，与 108 常规榜（也是 vs AI、随机带海克斯）口径对齐；
 //   不传则汇总所有模式（含联机——联机是人与人，108 没有对应模拟，混进来会污染对照）。

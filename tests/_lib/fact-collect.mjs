@@ -4,7 +4,7 @@
 // 由来（本轮主线二，两处洞一起挖出来）：
 //   洞一（位置）：幻影类 fact（PHANTOM_CONFUSE / PHANTOM_REVEAL）不是塞进 attack-group 的
 //     `data.entries`，而是挂在 **attackFact.data.phantomFact** 这个独立字段上
-//     （core/12battle-attack-chain.js buildAttackGroup：attackFact.data 里有 phantomFact 与 entries 并列）。
+//     （core/212-battle-attack-chain.js buildAttackGroup：attackFact.data 里有 phantomFact 与 entries 并列）。
 //     全仓库的采集口径一律只走「step.log 顶层 + data.entries 嵌套」⇒ **一条幻影 fact 都没看见过**。
 //     后果：详见本次 commit message 与迭代日志 —— 它一度把一条活得好好的发射点读成「零命中」，
 //     再往上就可能被写成「结构不可达 ⇒ 可按死代码核销」。删活代码比留着误导严重得多。

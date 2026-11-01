@@ -52,23 +52,23 @@ const JSON_ONLY = process.argv.includes('--json');
 async function main() {
     const [{ CONFIG, loadGameData, loadHexEnhanceData, getGameData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { FACT_TYPES: FT, MECHANIC_TYPES: MT }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../infra/56-battle-enums.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../infra/106-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     const { collectFacts } = await import('./_lib/fact-collect.mjs');
     // carry 候选判据与主代码同口径（tickAndPickBuffs 需要，否则 buff 门控机制一场都跑不到）
-    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
     
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
     // content 真值：新婚扣血档位（宋青书 mechanics XIN_HUN.hpDeduct，当前恒 1）与周芷若满血

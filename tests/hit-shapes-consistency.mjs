@@ -12,12 +12,12 @@ import { auditAnchorSites, selfCheck as truthSelfCheck } from './_lib/static-tru
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
-// ---- 真值源：content/200game-data.json ----
+// ---- 真值源：content/001-game-data.json ----
 function loadTruth() {
-    const raw = JSON.parse(read('../content/200game-data.json'));
+    const raw = JSON.parse(read('../content/001-game-data.json'));
     const ch = raw?.characters?.['寒离飒'];
     const skill = ch?.skills?.['xuLi'];
-    if (!skill || !skill.params) throw new Error('真值读取失败：content/200game-data.json 里找不到 寒离飒.skills.xuLi.params');
+    if (!skill || !skill.params) throw new Error('真值读取失败：content/001-game-data.json 里找不到 寒离飒.skills.xuLi.params');
     return { params: skill.params, desc: skill.desc || '' };
 }
 
@@ -175,7 +175,7 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
     // 零触发守卫
     if (!truth || !truth.params) problems.push('真值读取失败（content 里找不到 寒离飒.skills.xuLi.params）');
     if (!settleBlock) problems.push('modules/27 结算块抽取失败（tierOf/取格分档 锚点变了或代码被重构）');
-    if (!uiSrc) problems.push('ui/79hanlisa-aim.js 读取失败');
+    if (!uiSrc) problems.push('ui/720-hanlisa-aim.js 读取失败');
     if (problems.length) return { problems, stats };
 
     const xl = truth.params;
@@ -434,8 +434,8 @@ function main() {
         process.exit(1);
     }
 
-    const settleSrc = read('../modules/27elite-mingjiao-hanlisa.js');
-    const uiSrc = read('../ui/79hanlisa-aim.js');
+    const settleSrc = read('../modules/319-elite-mingjiao-hanlisa.js');
+    const uiSrc = read('../ui/720-hanlisa-aim.js');
     const settleBlock = extractSettlementBlock(settleSrc);
 
     const { problems, stats } = checkConsistency({ truth, settleBlock, uiSrc, settleSrc });

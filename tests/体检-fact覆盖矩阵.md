@@ -172,7 +172,7 @@
 >
 > 1. **XUAN_MING_DOT 契约已写**（test-only，`tests/stat-decl-vs-actual-check.mjs` V3.0.3）：`group='xuanMingDot'`、`stat='hp'`、`dir=-1`（声明 `dot` 为正、hp 下降），extract 抓 `data.dot`。`LEDGER_STATS` 扩 `['atk','def','maxHp','hp']`；`STAGES` 加 `5`（玄冥中毒只在 stage 5 出现，否则契约零触发）。
 > 2. **验证**（临时补主代码记账条目跑、再回滚）：激活后严格比对 **116 条 / 偏差 0**；把 `addMod value` 故意翻倍 → **命中 116 处、EXIT=1**。证明契约有牙、引擎正确。
-> 3. **主代码改动极简且零行为副作用**：在 `modules/30custom-effects.js` dotTick 处额外 `addMod(u,'hp',{source:'玄冥中毒',value:-dot,ttl:'permanent',group:'xuanMingDot',op:'add'})` —— `core/13 addMod` 只 push 到 `_mods` 纯记账，真实扣血仍由既有 `ROUND_STAT_GRANT` 负责。其余 23 个 HP/pos 候选照此模式逐站点补 `_mods` 记账条目即可批量 test-only 落地。
+> 3. **主代码改动极简且零行为副作用**：在 `modules/331-custom-effects.js` dotTick 处额外 `addMod(u,'hp',{source:'玄冥中毒',value:-dot,ttl:'permanent',group:'xuanMingDot',op:'add'})` —— `core/13 addMod` 只 push 到 `_mods` 纯记账，真实扣血仍由既有 `ROUND_STAT_GRANT` 负责。其余 23 个 HP/pos 候选照此模式逐站点补 `_mods` 记账条目即可批量 test-only 落地。
 
 ### 第 75 轮更新（NINE_YANG_HEAL 契约落地 + 发现主代码 hp 浮点根因）
 
@@ -180,7 +180,7 @@
 > 2. **验证**（临时补 `core/15` 记账条目跑、再回滚）：激活后严格比对 **303 条 / 偏差 0**（基线样本张无忌常驻明教阵营，九阳每击非满血即触发）；把 `addMod value` 故意翻倍 → **命中 303 处、EXIT=1**。证明契约有牙、引擎正确。
 > 3. **⚠ 根因发现（主代码潜在 bug，非契约问题）**：验证中发现 NINE_YANG_HEAL 的 `heal` 是浮点（如 15.8、17.5），追到 `core/15` L278 `heal = Math.min(Math.floor(maxHp*pct), maxHp - hp)`——`floorRes` 恒为整数，但 `unit.hp` **在战斗中是浮点**（实测 176.2 / 207.3 / …），`Math.min(整数, 浮点)` 返回浮点。即**主代码 `unit.hp` 出现了非整数**（疑似某按比例扣血/治疗路径未取整）。契约本身因 `声明 heal` 与 `addMod value=heal` **同源精确相等**仍稳健（303/偏差 0），不阻塞落地；但 hp 浮点本身建议主代码排查取整（属独立问题，见下方「需主代码配合」第二项）。
 > 4. 主代码转交（NINE_YANG_HEAL 记账条目）见 `tests/体检迭代日志.md` 第 75 轮「主代码改动 START/END」。
-> 5. **已落地（第 77 轮）**：主代码 `core/15-skill-mechanisms.js` V6.6.0 已提交 —— 重跑红线：`NINE_YANG_HEAL 声明 362 条 · 严格比对 354 条 / 偏差 0`、EXIT=0（全契约偏差 0，含 XUAN_MING_DOT 109/109）。
+> 5. **已落地（第 77 轮）**：主代码 `core/216-skill-mechanisms.js` V6.6.0 已提交 —— 重跑红线：`NINE_YANG_HEAL 声明 362 条 · 严格比对 354 条 / 偏差 0`、EXIT=0（全契约偏差 0，含 XUAN_MING_DOT 109/109）。
 
 ### 第 77 轮更新（PHANTOM_DISGUISE_HEAL 契约落地 + XUAN_MING_LINK_ATTACK 重分类）
 
@@ -189,7 +189,7 @@
 > 3. **验证**（临时补 `core/15` 记账条目跑、再回滚）：激活态严格比对 **106 条 / 偏差 0**；翻倍 `addMod value` → **命中 104 处、EXIT=1**。证明契约有牙、引擎正确。已回滚，当前警告态（声明 109 条）。
 > 4. **XUAN_MING_LINK_ATTACK 重分类**：读码确认其 factData 仅 `{partnerName, unitName}`（`core/15` L436），**无任何数值字段**，是纯事件通知（非伤害）——从「量化候选」移入「纯事件/文案」类，订正此前误列。
 > 5. 主代码转交（成昆幻影伪装记账条目）见 `tests/体检迭代日志.md` 第 77 轮「主代码改动 START/END」。
-> 6. **已落地（第 79 轮）**：主代码 `core/15-skill-mechanisms.js` V6.7.0 已提交 —— 重跑红线：`PHANTOM_DISGUISE_HEAL 声明 109 条 · 严格比对 106 条 / 偏差 0`、EXIT=0（全契约偏差 0；NINE_YANG_HEAL 369/369、XUAN_MING_DOT 106/106 不变）。
+> 6. **已落地（第 79 轮）**：主代码 `core/216-skill-mechanisms.js` V6.7.0 已提交 —— 重跑红线：`PHANTOM_DISGUISE_HEAL 声明 109 条 · 严格比对 106 条 / 偏差 0`、EXIT=0（全契约偏差 0；NINE_YANG_HEAL 369/369、XUAN_MING_DOT 106/106 不变）。
 
 ### 第 80 轮更新（HP 治疗/吸血组 3 契约落地〔BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN〕· 警告态）
 
@@ -260,7 +260,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 > 3. **rules-replay 报 1 例真实失败并已定根因（主代码缺陷，非体检误报）**：`嗜血狂刀吸血(回归)` rule151 seed=18 stage=2「吸血量 +0」。探针实证：该例 **isBrother=false（分支 1）**，`dmg>0` 守卫通过，但 `Math.floor(dmg×0.8)=0`（**dmg=1 时 floor(0.8)=0**）仍登记 ⇒ 战报多一行「吸血+0」噪声。rule151 注释原判"+0 只来自分支 2 dmg=0"不完整——分支 1 低伤害同样产 +0（r13-r15 大量出现：雄狮/谢逊 dmg=1 频繁）。**修法见下方主代码转交**（分支 1 push 前加 `leechVal > 0` 守卫，语义无损；分支 2 的 dmg=0 问题规则注释已述、同批可修）。
 > 4. **本轮三条契约均未提交**：工作区被并行会话第 80 轮（BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三条即时治疗契约，V3.0.6）占用中（其 22:46 仍在跑红线收尾），为避免提交撞车，本批契约留在工作区（已验证 EXIT=0），待其收尾后随下一笔 tests 提交一并落库。迭代日志第 80 轮章节亦留待并行会话写毕再补第 81 轮，避免锚点冲突。
 
-===== 主代码改动 START（core/04buff-system.js L104-108，submitBloodthirstDeclaration 分支 1）=====
+===== 主代码改动 START（core/204-buff-system.js L104-108，submitBloodthirstDeclaration 分支 1）=====
 // 现状（dmg>0 但 dmg=1 时 floor(1×0.8)=0 ⇒ 登记「吸血+0」噪声行）：
 //     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
 //         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
@@ -277,7 +277,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 
 说明：`leechRatio=0.8`（content L514），dmg=1 时 floor 得 0；吸 0 血 = 不吸血，加 `>0` 守卫后 rule151 判据 1 恢复绿（当前 62 pass/1 fail）。分支 2（L114-117，小昭·弟永久海克斯、无 dmg 守卫）建议同批处理：把 `const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);` 后的 push 也加 `if (leechVal > 0)`（分支 2 的 push 是单行 `data.declarations.push({...})`，把整行包进 if 即可）。
 
-> ✅ **第 80 轮已核销**：主代码 `core/04buff-system.js` V6.3.6（commit `c5fca17`）已落地双分支 `leechVal>0` 守卫 + 热血奋战/飞行再生记账——rule151 复跑 **pass=61 fail=0**，BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三契约转严格态（168/394/531 · 偏差 0）。
+> ✅ **第 80 轮已核销**：主代码 `core/204-buff-system.js` V6.3.6（commit `c5fca17`）已落地双分支 `leechVal>0` 守卫 + 热血奋战/飞行再生记账——rule151 复跑 **pass=61 fail=0**，BLOOD_THIRST_LEECH/HOT_BLOOD_HEAL/FLYER_REGEN 三契约转严格态（168/394/531 · 偏差 0）。
 
 ---
 
@@ -292,7 +292,7 @@ roundStart / roundEnd / pass / immune / miss / buffSummary 等只承担战报可
 > 7. **量化候选覆盖进度**：24 个候选中已落地 **13 条契约**（XUAN_MING_DOT / NINE_YANG_HEAL / PHANTOM_DISGUISE_HEAL / WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND / BLOOD_THIRST_LEECH / HOT_BLOOD_HEAL / FLYER_REGEN / SPIDER_STRIKE / CLAW_HIT / KUAI_LE_HEAL / CLAW_HEAL，其中 **10 条当时已激活**（SPIDER_STRIKE 于 2026-10-13 随 `modules/20` V6.1.1 落地）；**【第 83 轮订正】**原写「13 条全部已激活」不实——WEI_DODGE_HEAL / HORSE_REBOUND / FORTIFY_REBOUND 三条当时仍是警告态（账本空、严格比对 0 非真比对），至第 83 轮记账落地才转严格；重分类纯事件 5 个（WARRIOR_EXECUTE / XUAN_MING_LINK_ATTACK / CLAW_EXECUTE / XING_FEN_GRANT / XING_FEN_EXTRA_ATTACK / XING_FEN_RETRY——后三个第 79 轮已判定、量化列表条目待清理）；**剩余待攻**：METEOR_SHOWER_SPLASH（伤害+减防，减防部分或已被 STAT_CHANGE 契约覆盖，下轮核）、HORSE_DESTROY（prob/roll 概率一致性，非属性增量）、pos/状态类 5 个（MIND_CONTROL_SWAP / PUSH_STUN / WIND_ASSAULT_PUSH / WIND_ASSAULT_SPLASH / ZHANG_TAUNT——位移/嘲讽无可账本化属性，需另设计检验法）、PHANTOM_CONFUSE / XUAN_MING_POISONED（状态施加事件）。
 > 8. **本轮未跑全量红线外的改动**：仅 tests/ 三文件（检查器 V3.0.7 + 本矩阵 + 迭代日志）。当前红线快照（23:57）：stat-decl EXIT=0（12 契约激活偏差 0 + SPIDER_STRIKE 警告态）；static-scan EXIT=0；rules-replay **1 条失败**（`carry五号位队友加成量(回归)` pass=39 fail=1——并行会话 23:36 carry 改动 `86de191` 引入，非本轮范围，已在其收尾视野内）；baseline 5 场 winner 翻转（何太冲重做预期项，待用户拍板重录）。
 
-### ===== 主代码改动 START（modules/20elite-skills.js，蛛落落地打击段）=====
+### ===== 主代码改动 START（modules/302-elite-skills.js，蛛落落地打击段）=====
 // import 区已含 addMod（L5），无需改 import。
 // 在 L203 `applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');` 之后加一条纯记账：
 addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', group: 'spiderStrike', op: 'add' });
@@ -300,7 +300,7 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 
 说明：`core/13 addMod` 只 push 到 `_mods['hp']` 纯记账，真实扣血仍由上方 `applyStatChange` 负责，零游戏逻辑副作用。**已应用（2026-10-13，`modules/20` V6.1.1）**：实测 `SPIDER_STRIKE 声明 41 条 · 严格比对 40 条 / 偏差 0 · EXIT=0`（激活态）。
 
-### 可选清理 START（core/16effect-handlers.js + modules/26elite-sixsects.js，注释措辞）=====
+### 可选清理 START（core/217-effect-handlers.js + modules/308-elite-sixsects.js，注释措辞）=====
 // 8544c03 扫入的 3 条记账条目注释带着"【临时验证用，验证后回滚】"字样，建议改为正式措辞，例如：
 //   core/16 L260：// 体检记账（V6.x.x）：爪击自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按 group='clawHit' 比对「声明 dmg vs 实际扣血」
 //   modules/26 L631 后：// 体检记账（V6.x.x）：快乐回血自身 hp 贡献以独立 group 隔离进账本，供 stat-decl 对照器按 group='kuaiLeHeal' 比对
@@ -339,7 +339,7 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >     咬牙→回滚」闭环（133/68/236/248 命中，EXIT=1）。剩余盲区：heTaichongRed（两仪互换 48 词条，下轮攻）；
 >     乾坤衍生 reduce（减伤值）无属性账本，归伤害侧检测。转交 2 处见下方 START/END 块。
 
-### ===== 主代码改动 START（core/16effect-handlers.js，SPLASH handler 逐目标循环内，applyStatChange 那一行之后）=====
+### ===== 主代码改动 START（core/217-effect-handlers.js，SPLASH handler 逐目标循环内，applyStatChange 那一行之后）=====
 // 激活 METEOR_SHOWER_SPLASH + WIND_ASSAULT_SPLASH 两条契约（第 84 轮转交）。原样保留第一行，在它后面插入：
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
             // 纯记账（体检对照 meteorSplash/windSplash group，2026-10-13 第 84 轮）：只 push _mods['hp']，零行为副作用；
@@ -350,10 +350,10 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 // 预期效果：两契约警告态→严格态（临时记账实测 METEOR 133 条 / WIND 68 条偏差 0；本改动落地后红线 stat-decl EXIT=0）。
 ===== 主代码改动 END =====
 
-**已应用（2026-10-13，`core/16effect-handlers.js` V6.1.1）**：实测 `METEOR_SHOWER_SPLASH 139 声明 · 严格比对 133`、
+**已应用（2026-10-13，`core/217-effect-handlers.js` V6.1.1）**：实测 `METEOR_SHOWER_SPLASH 139 声明 · 严格比对 133`、
 `WIND_ASSAULT_SPLASH 71 声明 · 严格比对 68` · **偏差 0 · EXIT=0**（警告态→严格态；缺口 = 目标离场未记账的合理损耗）。
 
-### ===== 主代码改动 START（modules/27elite-mingjiao.js，乾坤衍生治疗两处 applyStatChange 之后）=====
+### ===== 主代码改动 START（modules/317-elite-mingjiao.js，乾坤衍生治疗两处 applyStatChange 之后）=====
 // 激活 QIAN_KUN_HEAL 契约（第 84 轮转交）。共两处，缩进不同，逐处插入：
 // 处一（常规路径，submitXiaoZhaoQianKunDerivedDeclaration 内，20 空格缩进）：
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
@@ -366,7 +366,7 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 // addMod 已在 modules/27 头部 import，无需加。预期效果：QIAN_KUN_HEAL 警告态→严格态（临时记账实测 248 条偏差 0）。
 ===== 主代码改动 END =====
 
-**已应用（2026-10-13，`modules/27elite-mingjiao.js` V6.7.4）**：实测 `QIAN_KUN_HEAL 268 声明 · 严格比对 248 条 · 偏差 0`、
+**已应用（2026-10-13，`modules/317-elite-mingjiao.js` V6.7.4）**：实测 `QIAN_KUN_HEAL 268 声明 · 严格比对 248 条 · 偏差 0`、
 `QIAN_KUN_ATK 268 声明 · 严格比对 249 条 · 偏差 0` · EXIT=0（前者警告态→严格态；后者本就零主代码依赖）。
 回归：`rules-replay` 0 fail / 0 空转、`smoke-headless` 全过。
 
@@ -389,9 +389,9 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 >    对渲染/翻译/规则零影响。附带侦查：另一条零触发 **BAGUA_DEF** 定性为**历史契约残留非缺陷**——2026-10-08
 >    改版有意删除「-1攻+1防」对冲（defDelta 恒 0），atk 侧本就有 BAGUA_ATK（dir:-1）盯；已在契约补注释防误读、
 >    保留作回归哨兵。契约总数 42→**43**；scan-groups 属性盲区清零（heTaichongRed 契约已建，**已随转交落地转严格**——
->    `modules/26elite-sixsects-hetaichong.js` V6.25.1，实测 44/44 偏差 0）。
+>    `modules/314-elite-sixsects-hetaichong.js` V6.25.1，实测 44/44 偏差 0）。
 
-### ===== 主代码改动 START（modules/26elite-sixsects-hetaichong.js，红血机制③，激活 HE_TAICHONG_RED 契约）=====
+### ===== 主代码改动 START（modules/314-elite-sixsects-hetaichong.js，红血机制③，激活 HE_TAICHONG_RED 契约）=====
 // 第 85 轮转交。共 3 处插入 + 3 行替换，全部为纯记账/挂载，零行为副作用（战报文本与渲染输出不变）。
 // ── 插入①：addRoleBonus 定义前（「只登记职业加成」注释行与 function 行之间），加收集器声明 ──
             // 红血加成 grants 收集器（2026-10-13 第 85 轮体检转交）：每套加成记一条 {uid, atk, def, maxHp}，
@@ -411,8 +411,8 @@ addMod(target, 'hp', { source: '蛛袭', value: -totalDmg, ttl: 'permanent', gro
 // （临时转交实测 32 声明全命中/偏差 0；落地后红线 stat-decl EXIT=0 维持）。
 ===== 主代码改动 END =====
 
-**已应用（2026-10-13，`modules/26elite-sixsects-hetaichong.js` V6.25.1）**：6 处全部落地（该文件当日已由 V6.25.0 拆分自
-`modules/26elite-sixsects.js`，锚点逐一核对无漂移）。实测 `HE_TAICHONG_RED 声明 44 条 · 严格比对 44 条 · 偏差 0` ·
+**已应用（2026-10-13，`modules/314-elite-sixsects-hetaichong.js` V6.25.1）**：6 处全部落地（该文件当日已由 V6.25.0 拆分自
+`modules/308-elite-sixsects.js`，锚点逐一核对无漂移）。实测 `HE_TAICHONG_RED 声明 44 条 · 严格比对 44 条 · 偏差 0` ·
 **EXIT=0**（警告态→严格态，44 = 48 词条扣 4 个 0 值 stat，与 `>0` 守卫吻合）。回归：`smoke-headless` 全过；
 `rules-replay` 唯一失败项 `小昭妹/姐不可选期被打` 经 **git stash 单文件回退复跑证实与我方无关**（并行会话
 modules/27 小昭·妹飞天重做在途）。
@@ -431,7 +431,7 @@ modules/27 小昭·妹飞天重做在途）。
 >     附带：`baseline --check` 又翻 7 场（6 场六大派→明教，与杨逍新落地同向；履历 V7.6.5/V7.6.7 有登记）
 >     ——按基线保护红线待用户拍板，未擅动。
 
-### ===== 主代码改动 START（core/04buff-system.js，reviveHolyFireUnit 函数内，if (withStun) 那一行）=====
+### ===== 主代码改动 START（core/204-buff-system.js，reviveHolyFireUnit 函数内，if (withStun) 那一行）=====
 // 第 86 轮转交：修圣火不熄 ON_ROUND_START 兜底复活吞行动权。原行：
     if (withStun) u.state._stunned = true;
 // 改为（加 else 分支）：
@@ -503,8 +503,8 @@ modules/27 小昭·妹飞天重做在途）。
 >     scan-groups 未覆盖 0；static/smoke/stat-decl/registration/contract-consistency 全退 0；
 >     mutation --verify 46/46；baseline 仍 3 场翻转（另案挂账）。提交 8d228e1。
 
-### ===== 主代码改动 START（modules/20elite-skills.js · spiderReturn）=====
-// 【位置】modules/20elite-skills.js 的 spiderReturn 函数内；定位锚点：搜 `factType: FACT_TYPES.SPIDER_RETURN`（全文件仅此一处 push）。把该 push 行及其下方「落地回血 if 块」整段替换为下面代码。
+### ===== 主代码改动 START（modules/302-elite-skills.js · spiderReturn）=====
+// 【位置】modules/302-elite-skills.js 的 spiderReturn 函数内；定位锚点：搜 `factType: FACT_TYPES.SPIDER_RETURN`（全文件仅此一处 push）。把该 push 行及其下方「落地回血 if 块」整段替换为下面代码。
 // 【原状】push 在段首（data 只带 unitName/spiderUid/pos）；heal 在 if 块内直接 applyStatChange + addMod(heal)。
 // 【改法】① push 挪到段尾；② heal 提为 landHeal 局部变量；③ fact data 加 landHeal 字段；④ addMod 改引 landHeal。
 // 【效果】零行为差异；SPIDER_LAND_HEAL 契约转严格比对。（第 88 轮转交；曾被 f2b4aed 扫入 HEAD、a8c1dda 授权改回、e2fb757 正式落地，实测 34 条偏差 0。）
@@ -530,8 +530,8 @@ modules/27 小昭·妹飞天重做在途）。
 ```
 ===== 主代码改动 END =====
 
-### ===== 主代码改动 START（modules/27elite-mingjiao.js · toSpiderEgg）=====
-// 【位置】modules/27elite-mingjiao.js 的 toSpiderEgg 函数内；定位锚点：搜 `group: 'spiderEgg'`（addMod 两行）。把从这两个 addMod 到 outLog.push（announce）的整段替换为下面代码。
+### ===== 主代码改动 START（modules/317-elite-mingjiao.js · toSpiderEgg）=====
+// 【位置】modules/317-elite-mingjiao.js 的 toSpiderEgg 函数内；定位锚点：搜 `group: 'spiderEgg'`（addMod 两行）。把从这两个 addMod 到 outLog.push（announce）的整段替换为下面代码。
 // 【原状】两个 addMod 内联 eggModValue(...)；announce data 只带 unitName/unitUid/camp/skillName/note/floatText/floatUid。
 // 【改法】① 两个 eggModValue 提为 eggAtkDelta/eggDefDelta 局部；② addMod 改引局部；③ announce data 补两个数值字段。
 // 【效果】零行为差异；SPIDER_EGG 契约转严格比对。（第 88 轮转交；曾被 f2b4aed 扫入 HEAD、a8c1dda 授权改回、e2fb757 正式落地，实测 4 条偏差 0。）
@@ -547,9 +547,9 @@ modules/27 小昭·妹飞天重做在途）。
 ```
 ===== 主代码改动 END =====
 
-### 【已落地】主代码改动（modules/26elite-sixsects-pangyuanqiao.js · PANG_DECLARE 出手声明）
+### 【已落地】主代码改动（modules/312-elite-sixsects-pangyuanqiao.js · PANG_DECLARE 出手声明）
 > 2026-10-15 `3e78c4e` 正式落地（modules/26-pangyuanqiao V6.28.0）。实测 41/41 偏差 0，PANG_ATK_HP 转严格。
-// 【位置】modules/26elite-sixsects-pangyuanqiao.js 的 PANG_DECLARE handler（AFTER_SELECT_TARGET 出手声明）内；定位锚点：搜 `skillName: decl.kind === 'clumsy'`。把该 SKILL_ANNOUNCE 的 data 对象替换为下面代码（只加一个字段）。
+// 【位置】modules/312-elite-sixsects-pangyuanqiao.js 的 PANG_DECLARE handler（AFTER_SELECT_TARGET 出手声明）内；定位锚点：搜 `skillName: decl.kind === 'clumsy'`。把该 SKILL_ANNOUNCE 的 data 对象替换为下面代码（只加一个字段）。
 // 【原状】data 只有 unitName/unitUid/camp/skillName/note 五个字段；蓄力数值只写在 note 文本里（「蓄力生命上限+N」）。
 // 【改法】data 补 `maxHpDelta: face.hpPerAttack`——与 BEFORE_SELECT_TARGET 里 addMod group 'pangAtkHp' 同源同值（同一 face 参数对象），零行为差异。
 // 【效果】PANG_ATK_HP 契约从零触发警告态转严格比对（41 条 maxHp 词条逐一核对；数值写错当场报红）。
@@ -600,13 +600,13 @@ modules/27 小昭·妹飞天重做在途）。
 
 ### 四、转交块（PANG_HIT_HEAL 实际侧记账——**已落地 855d52c**，modules/26 V6.29.1，实测 27/27 偏差 0）
 
-### 【已落地】主代码改动（modules/26elite-sixsects-pangyuanqiao.js · import 行 + AFTER_DAMAGE_APPLIED 记账）
+### 【已落地】主代码改动（modules/312-elite-sixsects-pangyuanqiao.js · import 行 + AFTER_DAMAGE_APPLIED 记账）
 ```js
-// 【位置】modules/26elite-sixsects-pangyuanqiao.js 两处：① 文件头 import 行（第 6 行）；② AFTER_DAMAGE_APPLIED 命中回血 handler 内（定位锚点：搜 `if (healed <= 0) return;`，全文件仅此一处）。
-// 【原状】① import { addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';  ② healed 算好后只推进 HEAL 声明（data.declarations.push），无记账。
+// 【位置】modules/312-elite-sixsects-pangyuanqiao.js 两处：① 文件头 import 行（第 6 行）；② AFTER_DAMAGE_APPLIED 命中回血 handler 内（定位锚点：搜 `if (healed <= 0) return;`，全文件仅此一处）。
+// 【原状】① import { addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/214-battle-shared.js';  ② healed 算好后只推进 HEAL 声明（data.declarations.push），无记账。
 // 【改法】① import 末尾补 `, recordHpAudit`；② 在 `if (healed <= 0) return;` 之后、`if (!data.declarations)` 之前插一行 recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复');。
 // 【效果】零行为差异（recordHpAudit 只 push unit._audit.hp，不碰任何游戏逻辑；healed 为 min 截断后实际值，与声明侧 factData.heal 同表达式同值）；PANG_HIT_HEAL 契约从零触发警告态转严格比对（27 条逐一核对，数值写错当场报红）。闭环已验证：临时记账严格 27/27 偏差 0、咬牙 ×2 命中 27 EXIT=1。
-import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from '../core/13battle-shared.js';
+import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from '../core/214-battle-shared.js';
 
 // 以下为 AFTER_DAMAGE_APPLIED handler 内片段（替换 `const healed = ...` 到 `if (!data.declarations) ...` 之间）：
                 const healed = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
@@ -633,9 +633,9 @@ import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit } from 
   本回合无正常位行动记录」）→ 带改动 **0 类**；张三丰 2 条规则失败（核心机制回归 / 生生不息触发缺失）
   **两边都在 = 老账**，与本改动无因果。PASS fact 载荷特征（不带数值字段）⇒ 只计入 baseline factsSame 翻转（预期变更）。
 
-### 【已落地】主代码改动（core/11battle-round.js · resolveActionOrder skip 分支）
+### 【已落地】主代码改动（core/210-battle-round.js · resolveActionOrder skip 分支）
 ```js
-// 【位置】core/11battle-round.js 的 resolveActionOrder 函数内；定位锚点：搜 `if (decl.skip)`（全文件仅此一处）。
+// 【位置】core/210-battle-round.js 的 resolveActionOrder 函数内；定位锚点：搜 `if (decl.skip)`（全文件仅此一处）。
 // 【原状】if (decl.skip) { u.state._acted = true; continue; } —— 只置行动标记，不产任何 fact。
 // 【改法】skip 时补一条同款 PASS fact（reason 按状态区分）——与下方 passEntry 的 passFact 同结构（unit/reason/hpBefore/hpAfter/actualHeal/events），checkActionRights 与 renderPassFact 都认。
 // 【效果】① 修「行动权被吞」报警：小昭·妹结茧每回合走 skip 通道，_acted=true 但无 fact ⇒ 回合末不变量必报（855d52c 上 4 类）；补 PASS 后违规消除（实测 replay 0 违规）。② 战报多一行「蜘蛛卵结茧」可见性提升。③ 落地后结茧回合战斗日志多一条 PASS 条目 ⇒ baseline factsSame 会翻（预期变更，随下一批一起重录）。

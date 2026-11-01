@@ -1,12 +1,12 @@
 // 回归规则：嗜血狂刀（bloodthirst）战士攻击吸血链路 — 此前完全没有体检项盯这条链路。
-// 机制源（core/04buff-system.js L65-95 submitBloodthirstDeclaration）：
+// 机制源（core/204-buff-system.js L65-95 submitBloodthirstDeclaration）：
 //   - 分支1（团队 Buff）：hasBuff(单元 Buff, BLOODTHIRST) && unit.role === WARRIOR && dmg > 0
 //       → leechVal = Math.floor(dmg × CONFIG.BUFFS.bloodthirst.leechRatio)，配置现为 **0.8**
 //       → 小昭·姊在场且本回合未追击过（_bloodthirstStriked，core/11 L211/228 每回合重置）
 //         再追加一条 extraRequests 追击（bloodthirst / priority 20）
 //   - 分支2（小昭·弟永久海克斯）：isBrother && query('xiaoPermanentActive') && role === WARRIOR
 //       → 同样按 leechRatio 计算，渲染走「🕷️ 蝶血：」形态
-//   - 渲染：render/35-facts-effect.js L97-103 renderBloodthirstLeechFact
+//   - 渲染：render/408-facts-effect.js L97-103 renderBloodthirstLeechFact
 //           「🗡️ 甲 的嗜血狂刀吸血+30」/「🕷️ 蝶血：小昭·妹 嗜血狂刀吸血+25」
 //           摘要：renderBuffSummaryFact（BLOODTHIRST 分支）顶层 buff-summary
 //           「🗡️ 嗜血狂刀：甲、乙 攻击吸血80%」
@@ -38,7 +38,7 @@
 export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.18';
 import { collectNodes, plain } from '../122health-utils.js';
 
-import { CONFIG } from '../../core/01config-5v5-test.js';
+import { CONFIG } from '../../core/201-config-5v5-test.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 149/150 同款处理）
 function bloodthirstCfg() {
@@ -126,7 +126,7 @@ export const rule98 = {
 
             // 判据2：比例哨兵（合法上限：普通 dmg×0.8；**小昭·姊在场时翻倍到 dmg×1.6**）。
             //   根因（2026-10-30 第 144 轮）：core/04 L319-321 有姊强化分支 —— hasSister 时
-            //   leechRatio 读 content/201hex-enhance.json bloodthirst.leechRatio=1.6（普通 0.8 的 2 倍）。
+            //   leechRatio 读 content/002-hex-enhance.json bloodthirst.leechRatio=1.6（普通 0.8 的 2 倍）。
             //   旧版硬编码 0.8 上界，把合法的 155%（+20/12.9）当膨胀误报。现按「快照里是否有小昭·姊」判定：
             //   有姊 → 上限 ×2（1.65 含余量）；无姊 → 0.85。取不到 side 池或判不出姊时按「有姊」放宽（宁漏勿误）。
             var dmg = parentDmgOf(e, log);

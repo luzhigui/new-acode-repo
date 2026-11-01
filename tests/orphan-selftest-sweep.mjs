@@ -128,6 +128,10 @@ function collectImportedBases() {
 }
 
 function classify(rel, importedBases, registry) {
+    // ★ 临时验证脚本（_verify 前缀）豁免：它们是一次性验证工具，需完整引擎 + 网络
+    //   （loadGameData / loadHexEnhanceData 走 fetch 本地资源，在无网或旧 Node 环境必崩），
+    //   不是守门 / 自检，不应被本件当孤儿 spawnSync 直跑 ⇒ 否则污染整轮普查（exit≠0 误报红）。
+    if (/^tests\/_verify.*\.mjs$/.test(rel)) return { kind: 'verify', why: '临时验证脚本，需完整引擎+网络（loadGameData 走 fetch 本地资源），node 直跑在无网/旧 Node 环境必崩，属环境不匹配非缺陷；手动在有网环境运行' };
     if (rel === RUN_ALL) return { kind: 'entry', why: '总入口本身，跑它会无限递归' };
     if (rel === SELF) return { kind: 'self', why: '本件自身，跑它会无限递归' };
     // ★ 在册优先于 library：一个脚本可以同时是"被别处 import 的库"和"清单里的自检"

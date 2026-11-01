@@ -1,29 +1,29 @@
 // 探针：母狮联动死亡剧透——dump 每步的 fact 序列与目标死活状态
 // 用法：node tools/probe-lioness.mjs [stage] [seedStart] [seedCount]
-import { initBattleTeams } from '../modules/29battle-init.js';
-import { runBattle } from '../core/06battle-runner.js';
-import { GlobalStore } from '../infra/54-global-store.js';
-import { eventBus } from '../infra/50-event-bus.js';
-import { flushBattleEvents } from '../infra/51-core-utils.js';
-import { loadGameData, loadHexEnhanceData, getGameData } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
-import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
+import { initBattleTeams } from '../modules/330-battle-init.js';
+import { runBattle } from '../core/206-battle-runner.js';
+import { GlobalStore } from '../infra/104-global-store.js';
+import { eventBus } from '../infra/101-event-bus.js';
+import { flushBattleEvents } from '../infra/102-core-utils.js';
+import { loadGameData, loadHexEnhanceData, getGameData } from '../core/201-config-5v5-test.js';
+import { SeededRNG } from '../infra/102-core-utils.js';
+import '../modules/301-reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
 
-// node 探针补丁：node 的 fetch 不认相对 URL，把 content/200game-data.json 映射成 file:// 读取
+// node 探针补丁：node 的 fetch 不认相对 URL，把 content/001-game-data.json 映射成 file:// 读取
 if (typeof localStorage === 'undefined') { globalThis.localStorage = { getItem: () => null, setItem: () => {} }; }
 const _origFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
     const u = String(input);
-    if (u.includes('200game-data.json')) {
+    if (u.includes('001-game-data.json')) {
         const fs = await import('node:fs');
-        const path = new URL('../content/200game-data.json', import.meta.url);
+        const path = new URL('../content/001-game-data.json', import.meta.url);
         const buf = fs.readFileSync(path);
         return { ok: true, status: 200, json: async () => JSON.parse(buf.toString('utf-8')) };
     }
     return _origFetch(input, init);
 };
 await loadGameData();
-// 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+// 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 await loadHexEnhanceData();
 if (!getGameData()) throw new Error('游戏数据装载失败');
 

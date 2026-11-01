@@ -1,5 +1,5 @@
 // 回归规则：苦练提示 — 设计为宋青书每回合行动前给全队叠加 +攻+防+血上限（自身倍率放大）
-// 当前版本数值（content/200game-data.json 宋青书 mechanics[1] type=kuLian：atkBonus=1、defBonus=2、
+// 当前版本数值（content/001-game-data.json 宋青书 mechanics[1] type=kuLian：atkBonus=1、defBonus=2、
 //   hpBonus=5；2026-09-29 单一真值源收口后为唯一出处，技能说明亦从 core/01 DESC_TRUTH 取真值）：
 // 复发信号：
 //   1. 出现"+0攻/+0防"占位提示（占位 fact 未过滤，数值不对）

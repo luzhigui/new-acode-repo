@@ -117,23 +117,23 @@ async function main() {
 
     const [{ STAGE_ACTION_DEFS }, { FACT_SPECS }, { FACT_TYPES }, { ATTACK_TRANSLATORS },
         { HEAL_TRANSLATORS }, { CONTROL_TRANSLATORS }, { STAT_TRANSLATORS }] = await Promise.all([
-            import('../render/39-actions-defs.js'),
-            import('../infra/58-fact-contract.js'),
-            import('../infra/56-battle-enums.js'),
-            import('../render/38-actions-translate-attack.js'),
-            import('../render/38-actions-translate-heal.js'),
-            import('../render/38-actions-translate-control.js'),
-            import('../render/38-actions-translate-stat.js')
+            import('../render/420-actions-defs.js'),
+            import('../infra/107-fact-contract.js'),
+            import('../infra/106-battle-enums.js'),
+            import('../render/416-actions-translate-attack.js'),
+            import('../render/418-actions-translate-heal.js'),
+            import('../render/417-actions-translate-control.js'),
+            import('../render/419-actions-translate-stat.js')
         ]);
 
     console.log('=== 静态一致性契约网（静态检查，非运行时体检）===');
 
     // ① 门槛一致性
-    // 2026-10-21 第 112 轮：并行会话把 stageActions 家族从 42player-core.js 拆出为
-    //   42player-stage-actions.js（prepareLogEntry/getActionTiming/getActionFx/hasStageWork/
+    // 2026-10-21 第 112 轮：并行会话把 stageActions 家族从 503-player-core.js 拆出为
+    //   505-player-stage-actions.js（prepareLogEntry/getActionTiming/getActionFx/hasStageWork/
     //   applyStageActionTo{Store,FX,StoreAfter} 全家搬入）⇒ 旧抽取路径只剩 core，恒失败、检查空转假绿。
     //   改为**多文件轮询抽取**：新文件优先、旧 core 兜底，都不中才报抽取失败（守卫语义不变）。
-    const gateFiles = ['../player/42player-stage-actions.js', '../player/42player-core.js'];
+    const gateFiles = ['../player/505-player-stage-actions.js', '../player/503-player-core.js'];
     let gateSrc = null, gateFrom = '';
     for (const gf of gateFiles) {
         const src = extractFunctionSource(read(gf), 'hasStageWork');
@@ -147,15 +147,15 @@ async function main() {
     // ② 翻译器契约
     const translators = new Set([...Object.keys(ATTACK_TRANSLATORS), ...Object.keys(HEAL_TRANSLATORS),
         ...Object.keys(CONTROL_TRANSLATORS), ...Object.keys(STAT_TRANSLATORS)]);
-    const famSrc = ['38-actions-translate-attack', '38-actions-translate-heal',
-        '38-actions-translate-control', '38-actions-translate-stat', '38-actions-translate']
+    const famSrc = ['416-actions-translate-attack', '418-actions-translate-heal',
+        '417-actions-translate-control', '419-actions-translate-stat', '415-actions-translate']
         .map(f => read('../render/' + f + '.js')).join('\n');
     // 38 入口的回合族三条是内联 [FACT_TYPES.X]: 键，文本提取补进合成表；恒空条目同源识别
     const stubKeys = new Set();
     for (const m of famSrc.matchAll(/\[FACT_TYPES\.(\w+)\]:\s*\(\s*\)\s*=>\s*null/g)) {
         stubKeys.add(FACT_TYPES[m[1]]);
     }
-    for (const m of read('../render/38-actions-translate.js').matchAll(/\[FACT_TYPES\.(\w+)\]:/g)) {
+    for (const m of read('../render/415-actions-translate.js').matchAll(/\[FACT_TYPES\.(\w+)\]:/g)) {
         translators.add(FACT_TYPES[m[1]]);
     }
     const r2 = checkTranslators(FACT_SPECS, translators, stubKeys);

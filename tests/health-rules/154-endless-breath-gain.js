@@ -5,7 +5,7 @@
 //   战报上也渲染出来了，可**没有任何一条体检规则校验这些数算得对不对** —— 显示多少就是多少，错 5 点没人知道。
 //   本规则把这笔账**按 content 公式反推**做精确校验，是 T4 的补牙。
 //
-// 机制源（modules/26elite-sixsects.js L78-92 + L116-130，content 张三丰.skills.endlessBreath.params）：
+// 机制源（modules/308-elite-sixsects.js L78-92 + L116-130，content 张三丰.skills.endlessBreath.params）：
 //   gainOf(amount, div) = amount > 0 ? Math.max(minBonus, amount / div) : 0   ← 注意是**除法不是 floor**，可能是小数
 //   side = 战斗 RNG 二选一（V6.14.7 改版：一次触发只给一边，另一边恒 0）
 //   selfAtkGain = side==='atk' ? gainOf(healed, healAtkDiv)    + gainOf(overflow, overflowAtkDiv)    : 0

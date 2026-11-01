@@ -4,8 +4,8 @@
 //   扫出来的答案不是「有人记错」，而是**这游戏对小昭用的是双轨命名** ——
 //     · 游戏内显示名：小昭·妹 / 小昭·姊
 //     · 代码侧标志位：isXiaoZhaoBrother / isXiaoZhaoSister
-//     · modules/27elite-mingjiao.js L28：registerElite('小昭·妹', createXiaoZhaoBrotherComponent)
-//     · modules/29battle-init.js L261：xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹'
+//     · modules/317-elite-mingjiao.js L28：registerElite('小昭·妹', createXiaoZhaoBrotherComponent)
+//     · modules/330-battle-init.js L261：xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹'
 //   ⇒ **「妹」≡ Brother 是同一个单位的两个名字**（显示名与标志位是反着来的）。
 //   第 165 轮把两条 spec 从 ⑤b-2 摘牌时说的是「登记写妹、源码却在兄模块」，那半句说反了 ——
 //   摘牌结论成立（两条都活着），但真因是**双轨命名让两拨人以为在讲两个角色，于是没人去找那条
@@ -30,8 +30,8 @@ import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-
 export const VER = 'tests/xiaozhao-naming-guard.mjs V1.0.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const F_ELITE = path.join(here, '..', 'modules', '27elite-mingjiao.js');
-const F_INIT = path.join(here, '..', 'modules', '29battle-init.js');
+const F_ELITE = path.join(here, '..', 'modules', '317-elite-mingjiao.js');
+const F_INIT = path.join(here, '..', 'modules', '330-battle-init.js');
 const F_CENSUS = path.join(here, 'fact-emission-census.mjs');
 
 // 登记条目数棘轮（本轮实测 4 条 = ⑤b-2 的 1 条 + ⑤b-3 的 3 条）。
@@ -250,12 +250,12 @@ function main() {
     console.log('--- 段一 小昭命名映射（游戏名 ↔ 代码标志位）+ 别名普查，从主代码机械抽取 ---');
     let elite = [], disp = [];
     if (!fs.existsSync(F_ELITE)) {
-        fails.push('段一 缺主代码文件 modules/27elite-mingjiao.js —— 映射无从抽取，不许沿用旧结论');
+        fails.push('段一 缺主代码文件 modules/317-elite-mingjiao.js —— 映射无从抽取，不许沿用旧结论');
     } else {
         elite = extractEliteMap(stripComments(fs.readFileSync(F_ELITE, 'utf8')));
     }
     if (!fs.existsSync(F_INIT)) {
-        fails.push('段一 缺主代码文件 modules/29battle-init.js —— 映射无从抽取，不许沿用旧结论');
+        fails.push('段一 缺主代码文件 modules/330-battle-init.js —— 映射无从抽取，不许沿用旧结论');
     } else {
         disp = extractDisplayMap(stripComments(fs.readFileSync(F_INIT, 'utf8')));
     }

@@ -1,0 +1,170 @@
+// ui/712-tutorial.js - 新手引导（日志区固定提示面板 + 浮动箭头，不遮挡操作）
+export const VER = 'ui/712-tutorial.js V6.1.0';
+
+const DONE_KEY = 'ming_tutorial_done_5v5_test';
+
+export function isTutorialDone() {
+    try { return localStorage.getItem(DONE_KEY) === '1'; } catch { return true; }
+}
+export function markTutorialDone() {
+    try { localStorage.setItem(DONE_KEY, '1'); } catch {}
+}
+export function resetTutorialDone() {
+    try { localStorage.removeItem(DONE_KEY); } catch {}
+}
+
+// 浮动箭头管理
+let _arrows = [];
+
+function clearArrows() {
+    _arrows.forEach(a => { a.el.remove(); window.removeEventListener('resize', a.onResize); });
+    _arrows = [];
+}
+
+function arrowTo(target) {
+    if (!target) return;
+    const el = document.createElement('div');
+    el.className = 'tutorial-arrow';
+    el.textContent = '▼';
+    document.body.appendChild(el);
+    const place = () => {
+        const r = target.getBoundingClientRect();
+        el.style.left = (r.left + r.width / 2 - 20) + 'px';
+        el.style.top = (r.top - 42) + 'px';
+    };
+    place();
+    const onResize = place;
+    window.addEventListener('resize', onResize);
+    _arrows.push({ el, onResize });
+}
+
+// 固定提示面板：absolute 定位在日志区顶部，pointer-events:none 完全不遮挡
+function ensurePanel() {
+    let p = document.getElementById('tutorialPanel');
+    if (p) return p;
+    const c = document.querySelector('.log-container');
+    if (!c) return null;
+    p = document.createElement('div');
+    p.id = 'tutorialPanel';
+    c.appendChild(p);
+    return p;
+}
+
+function setGuide({ title, lines, targets }) {
+    const p = ensurePanel();
+    clearArrows();
+    document.body.classList.add('tut-active'); // 引导期间显示队伍边框（明教蓝/六大派橙）
+    if (p) {
+        p.innerHTML = (title ? `<b class="tut-title">${title}</b><br>` : '') +
+            (lines || []).map(l => `<span>${l}</span>`).join('<br>');
+    }
+    (targets || []).forEach(t => arrowTo(t));
+}
+
+// (1) 封面关闭：指「调整站位」按钮
+export function stepAdjustStart() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '🔧 调整站位',
+        lines: ['点击下方「调整站位」按钮，可调整明教队站位。'],
+        targets: [document.getElementById('btnMain')]
+    });
+}
+
+// (2) 进入站位模式：指绿色格子，说明交换规则 + 可跳过
+export function stepAdjustMove() {
+    if (isTutorialDone()) return;
+    const cells = document.querySelectorAll('#allyGrid .cell.adjustable, #allyGrid .cell.swappable');
+    const targets = cells.length ? Array.from(cells).slice(0, 2) : [document.getElementById('allyGrid')];
+    setGuide({
+        title: '🔧 交换站位',
+        lines: ['点击两个绿色格子（或绿格+空格）交换位置，灰色格子不可调。', '也可直接点「开始投票」跳过调整。'],
+        targets
+    });
+}
+
+// (3) 投票窗口弹出后：说明选队规则
+export function stepVoteOpen() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '🗳️ 投票',
+        lines: ['你看好哪个队伍赢？选「六大派」或「明教」为它助威。', '猜对有积分（张无忌在场双倍），也可选「放弃」。'],
+        targets: []
+    });
+}
+
+// (4) 倒计时：等待 + 垃圾话
+export function stepCountdown() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '⏳ 倒计时',
+        lines: ['请稍候，倒计时结束战斗开始，双方先放几句狠话～'],
+        targets: []
+    });
+}
+
+// (5) 海克斯窗口：三选一说明（战前首次）
+export function stepBuff() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '✨ 选择海克斯',
+        lines: ['三选一增强明教队（只对明教生效），最多叠加两个。', '战斗中每隔3回合还会再弹一次，同样三选一。'],
+        targets: []
+    });
+}
+
+// (5b) 战中首次海克斯弹窗：一次性提示（独立于主引导流程，看过一次不再打扰；只挂面板几秒，不加边框不指箭头）
+// 挂点：ui/711-buff-dialog.js showBuffPopup（player/49 经 GlobalStore UIHandler 通道调用，不跨层）
+const BATTLE_BUFF_KEY = 'ming_tutorial_battlebuff_done_5v5_test';
+export function stepBattleBuff() {
+    let done = true;
+    try { done = localStorage.getItem(BATTLE_BUFF_KEY) === '1'; } catch {}
+    if (done) return;
+    try { localStorage.setItem(BATTLE_BUFF_KEY, '1'); } catch {}
+    const p = ensurePanel();
+    if (!p) return;
+    p.innerHTML = '<b class="tut-title">✨ 战中海克斯</b><br><span>战斗每隔3回合会再弹一次三选一，和战前一样，最多叠加两个。</span>';
+    setTimeout(() => { if (p.parentNode) p.remove(); }, 6000);
+}
+
+// 隐藏引导：移除面板、箭头与队伍边框
+function hideGuide() {
+    clearArrows();
+    const p = document.getElementById('tutorialPanel');
+    if (p) p.remove();
+    document.body.classList.remove('tut-active');
+}
+
+// (6) 战斗开始：清除全部引导（面板/箭头/队伍边框），日志恢复原样
+export function stepBattleStart() {
+    markTutorialDone();
+    hideGuide();
+}
+
+// ❓ 按钮：战斗中显示规则总览（不指向站位按钮），战斗外重播分步引导（不重看 CG/图鉴）
+export function initTutorial(onReplay) {
+    const btn = document.getElementById('btnTutorial');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const mainBtn = document.getElementById('btnMain');
+        // 战斗中「调整站位」按钮禁用，重播站位引导会指到点不了的地方，改为纯文字规则总览
+        if (mainBtn && mainBtn.disabled) {
+            setGuide({
+                title: '⚔️ 规则一览',
+                lines: [
+                    '调整站位：战斗开始前，选两个明教绿色格子（或绿格+空格）交换位置。',
+                    '投票：开战前猜哪队赢，猜对有积分，张无忌在场积分双倍。',
+                    '海克斯：战前选一次，战斗中每隔3回合还会再弹；三选一，最多叠加两个。',
+                    '战斗：回合制，可调速(0.5x~8x)、暂停、快进到底。'
+                ],
+                targets: []
+            });
+            return;
+        }
+        if (typeof onReplay === 'function') { onReplay(); return; }
+        resetTutorialDone();
+        stepAdjustStart();
+    });
+}

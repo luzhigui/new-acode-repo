@@ -126,7 +126,7 @@ function getWin() { try { return gameFrame.contentWindow; } catch (e) { return n
 function getDoc() { try { return gameFrame.contentDocument || getWin().document; } catch (e) { return null; } }
 // 取游戏侧玩家上下文。
 // 历史：原走 window._getPlayerContext()，但引擎 2026-09-14「去 window 桥」重构把该挂载点删了
-// （infra/54-global-store.js 注释明写），此后 getCtx() 恒返回 null —— 实时体检永远卡在
+// （infra/104-global-store.js 注释明写），此后 getCtx() 恒返回 null —— 实时体检永远卡在
 // "正在加载游戏..."，health-rules/ 下 18 条规则一条都跑不到，体检静默失效。
 // 兜底：infra/54 的 getPlayerContext() 末尾会把 ctx 写进全局 store 的 'playerContext' 键，
 // 而该全局 store 对象本身是引擎保留的公开桥（挂在 iframe 的 window 上，54 第 115 行），
@@ -557,8 +557,8 @@ function hookRandomRestartWatch(doc) {
 }
 
 // —— 真值源统一（V6.2.0）——
-// ① 根因：ctx.UI.allyTeam 是 ui/65main-battle.js 开战时 clone 的一份副本，战斗全程不再更新；
-//    2026-09-14「状态三轨收敛」后单位真值的唯一账本已迁到 battleStore（ui/62ui-render-5v5-test.js:36
+// ① 根因：ctx.UI.allyTeam 是 ui/706-main-battle.js 开战时 clone 的一份副本，战斗全程不再更新；
+//    2026-09-14「状态三轨收敛」后单位真值的唯一账本已迁到 battleStore（ui/703-ui-render-5v5-test.js:36
 //    明写「战斗期一律读 battleStore，不再读 c.UI 的冗余拷贝」）。把开战副本当"当前/终局"喂给检查
 //    = 数据源错位，引擎/UI/结算三组至今仍吃该副本，是同根因的系统性假绿。
 // ② 证据：第 19 轮双喂探针——同一批 180 场战报，真值喂 143/144 全绿；改喂开战副本冒充 →

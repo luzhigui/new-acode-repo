@@ -1,0 +1,313 @@
+// fx 层不直写账本语义字段 state._acted：起跳/收尾一律写视图表 _renderActed（步末引擎真值覆盖自愈）。
+export const VER = 'fx/603-fx-crash-5v5-test.js V6.4.1';
+
+import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
+import { GlobalStore } from '../infra/104-global-store.js';
+import { markGridShake } from '../render/403-grid-render.js';
+import { snapshotUnitCellRobust, getUnitCell } from './611-fx-ref-manager.js';
+import { clock } from '../infra/103-clock.js';
+import { getPerfParam } from '../core/223-perf-params.js';
+
+function finishCrash(clone, unitA) {
+    if (clone && clone.parentNode) clone.remove();
+    const ctx = GlobalStore.get('playerContext');
+    if (ctx && ctx.store) {
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _renderActed: true });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+    }
+    if (ctx) ctx.updateUI();
+}
+
+function showCloseRangeFX(unitA, unitD, role) {
+    const rectA = snapshotUnitCellRobust(unitA);
+    const rectD = snapshotUnitCellRobust(unitD);
+    if (!rectA || !rectD) return;
+    const ax = rectA.x, ay = rectA.y, bx = rectD.x, by = rectD.y;
+
+    const icon = document.createElement('div');
+    icon.setAttribute('data-fx', 'temporary');
+    icon.style.cssText = `position:fixed;left:${ax}px;top:${ay}px;font-size:36px;z-index:99999;pointer-events:none;transform:translate(-50%,-50%);`;
+    if (role === ROLE_TYPES.WARRIOR) icon.textContent = '⚔️';
+    else if (role === ROLE_TYPES.DEFENDER) icon.textContent = '🛡️';
+    else if (role === ROLE_TYPES.FLYER) icon.textContent = '🦅';
+    document.body.appendChild(icon);
+
+    // 三段总时长读参数表（closeHitDur），内部飞 / 停 / 淡出各占 1/3
+    const closeTotal = getPerfParam('closeHitDur', GlobalStore.get('speed') || 300) || 900;
+    const closeSeg = Math.max(40, Math.round(closeTotal / 3));
+    clock.animateReal(closeSeg, (p) => {
+        icon.style.left = (ax + (bx - ax) * p) + 'px';
+        icon.style.top = (ay + (by - ay) * p) + 'px';
+        if (p >= 1) {
+            clock.waitReal(closeSeg).then(() => {
+                icon.style.transition = `opacity ${closeSeg}ms ease-out`;
+                icon.style.opacity = '0';
+                clock.waitReal(closeSeg).then(() => { if (icon.parentNode) icon.remove(); });
+            });
+        }
+    });
+}
+
+export function showMeleeCrash(unitA, unitD, onCrash) {
+    const rectA = snapshotUnitCellRobust(unitA);
+    const rectD = snapshotUnitCellRobust(unitD);
+    if (!rectA || !rectD) return;
+    const cellA = getUnitCell(unitA);
+    if (!cellA) return;
+
+    const sx = rectA.x, sy = rectA.y;
+    const ex = rectD.x, ey = rectD.y;
+    const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const aPos = unitA.pos, dPos = unitD.pos;
+    const isClose = (aPos === 1 && dPos === 1) || (aPos === 2 && dPos === 2) || (aPos === 3 && dPos === 3) ||
+                  (aPos === 1 && dPos === 2) || (aPos === 2 && dPos === 1) || (aPos === 2 && dPos === 3) || (aPos === 3 && dPos === 2);
+    if (isClose) {
+        showCloseRangeFX(unitA, unitD, unitA.role);
+        if (onCrash) onCrash();
+        return;
+    }
+
+    const nx = dx / dist, ny = dy / dist;
+    const flyDist = dist - rectD.width * 0.28;
+    const flyMode = GlobalStore.get('crashMode') || 'ghost';
+    const ctx = GlobalStore.get('playerContext');
+
+    // 先 clone 原 cell（此时内容正常），再设置 _flyMode 触发重绘
+    const clone = cellA.cloneNode(true);
+    clone.setAttribute('data-fx', 'temporary');
+    clone.classList.remove('ready', 'acted');
+    clone.removeAttribute('data-flash');
+    clone.classList.add('crash-clone');
+    clone.style.cssText = `
+        position: fixed;
+        left: ${rectA.left}px;
+        top: ${rectA.top}px;
+        width: ${rectA.width}px;
+        height: ${rectA.height}px;
+        z-index: 99999;
+        margin: 0;
+        transition: none;
+        opacity: 1;
+        visibility: visible;
+        display: flex;
+        transform: scale(1.15);
+        transform-origin: center center;
+        background: #1e6bb8;
+        border: 3px solid #0d47a1;
+        border-radius: 5px;
+        box-sizing: border-box;
+        pointer-events: none;
+    `;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
+    document.body.appendChild(clone);
+
+    // 设置 _renderFlyMode，renderGrid 自动处理原格子（fly=透明，ghost=虚影）
+    if (ctx && ctx.store) {
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
+    }
+
+    // 飞撞速度从参数表读（按当前 speed 档位），飞行时长 = 距离 / 速度；
+    //   起手 / 回弹按飞行时长的 0.9 比例算（内部编排，不进表）
+    const speedKey = GlobalStore.get('speed') || 300;
+    const crashSpeed = getPerfParam('crashSpeed', speedKey) || 0.8;
+    const crashDur = Math.max(280, Math.min(1500, flyDist / crashSpeed));
+    const chargeDur = Math.round(crashDur * 0.9);
+    const returnDur = Math.round(crashDur * 0.9);
+
+    // ghost 模式蓄力缩放 clone
+    const startFly = () => {
+        clock.animateReal(crashDur, (p) => {
+            const ease = 1 - Math.pow(1 - p, 3);
+            const flown = flyDist * ease;
+            clone.style.left = (rectA.left + nx * flown) + 'px';
+            clone.style.top = (rectA.top + ny * flown) + 'px';
+            if (p >= 1) {
+                if (onCrash) onCrash();
+                const crashX = rectA.left + nx * flyDist, crashY = rectA.top + ny * flyDist;
+                clock.animateReal(returnDur, (p2) => {
+                    const ease2 = 1 - Math.pow(1 - p2, 4);
+                    clone.style.left = (crashX + (rectA.left - crashX) * ease2) + 'px';
+                    clone.style.top = (crashY + (rectA.top - crashY) * ease2) + 'px';
+                    if (p2 >= 1) finishCrash(clone, unitA);
+                });
+            }
+        });
+    };
+
+    if (flyMode === 'ghost') {
+        clone.style.transition = 'transform 0.3s ease-out';
+        clone.style.transform = 'scale(1.35)';
+        clock.animateReal(chargeDur, (p) => {
+            if (p >= 1) {
+                clone.style.transition = '';
+                clone.style.transform = 'scale(1.15)';
+                startFly();
+            }
+        });
+    } else {
+        startFly();
+    }
+}
+
+export function showMeleeDodge(unitA, unitD) {
+    const rectA = snapshotUnitCellRobust(unitA);
+    const rectD = snapshotUnitCellRobust(unitD);
+    if (!rectA || !rectD) return;
+    const cellA = getUnitCell(unitA);
+    if (!cellA) return;
+
+    const sx = rectA.x, sy = rectA.y;
+    const ex = rectD.x, ey = rectD.y;
+    const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const nx = dx / dist, ny = dy / dist;
+    const approachDist = dist - rectD.width * 0.35;
+
+    const clone = cellA.cloneNode(true);
+    clone.classList.remove('ready', 'acted');
+    clone.removeAttribute('data-flash');
+    clone.classList.add('crash-clone');
+    clone.setAttribute('data-fx', 'temporary');
+    clone.style.cssText = `
+        position: fixed;
+        left: ${rectA.left}px;
+        top: ${rectA.top}px;
+        width: ${rectA.width}px;
+        height: ${rectA.height}px;
+        z-index: 99999;
+        margin: 0;
+        transition: none;
+        opacity: 1;
+        visibility: visible;
+        display: flex;
+        transform: none;
+        background: #1e6bb8;
+        border: 3px solid #0d47a1;
+        border-radius: 5px;
+        box-sizing: border-box;
+        pointer-events: none;
+    `;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
+    document.body.appendChild(clone);
+
+    // 补齐与 Crash/Miss 一致的 flyMode：原先漏设，闪避时原格全程可见，出现"人变两个"
+    const flyMode = GlobalStore.get('crashMode') || 'fly';
+    const ctx = GlobalStore.get('playerContext');
+    if (ctx && ctx.store) {
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
+    }
+
+    // 简单模式闪避反击提速过猛（原 350+500=850ms，仅命中 2500ms 的 1/3）
+    const flyDur = 700;
+    const returnDur = 900;
+    let blocked = false;
+
+    clock.animate(flyDur, (p) => {
+        const flown = approachDist * (1 - Math.pow(1 - p, 3));
+        clone.style.left = (rectA.left + nx * flown) + 'px';
+        clone.style.top = (rectA.top + ny * flown) + 'px';
+        if (!blocked && p >= 0.85) {
+            blocked = true;
+            clone.style.transition = 'transform 0.1s ease';
+            clone.style.transform = 'scale(0.9)';
+            clock.wait(100).then(() => { clone.style.transform = 'scale(1)'; });
+        }
+        if (p >= 1) {
+            const contactX = rectA.left + nx * approachDist;
+            const contactY = rectA.top + ny * approachDist;
+            clock.animate(returnDur, (p2) => {
+                const ease2 = 1 - Math.pow(1 - p2, 2);
+                const perpX = -ny, perpY = nx;
+                const offsetMag = Math.sin(p2 * Math.PI) * 35;
+                const retreatDist = 50 * ease2;
+                clone.style.left = (contactX - nx * retreatDist + perpX * offsetMag) + 'px';
+                clone.style.top = (contactY - ny * retreatDist + perpY * offsetMag) + 'px';
+                clone.style.transform = `rotate(${8 * (1 - p2)}deg) scale(1.05)`;
+                clone.style.opacity = 0.6 + 0.4 * (1 - p2);
+                if (p2 >= 1) finishCrash(clone, unitA);
+            });
+        }
+    });
+}
+
+export function showMeleeMiss(unitA, unitD, onMiss) {
+    const rectA = snapshotUnitCellRobust(unitA);
+    const rectD = snapshotUnitCellRobust(unitD);
+    if (!rectA || !rectD) return;
+    const cellA = getUnitCell(unitA);
+    if (!cellA) return;
+
+    const dx = rectD.x - rectA.x, dy = rectD.y - rectA.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+    const nx = dx / dist, ny = dy / dist;
+    const approach = dist - rectD.width * 0.5;
+
+    // 配色改与命中一致的蓝色放大版（原灰底虚线"扑空感"太弱且显透明）
+    const clone = cellA.cloneNode(true);
+    clone.classList.remove('ready', 'acted');
+    clone.removeAttribute('data-flash');
+    clone.classList.add('crash-clone');
+    clone.setAttribute('data-fx', 'temporary');
+    clone.style.cssText = `
+        position: fixed;
+        left: ${rectA.left}px;
+        top: ${rectA.top}px;
+        width: ${rectA.width}px;
+        height: ${rectA.height}px;
+        z-index: 99999;
+        margin: 0;
+        transition: none;
+        opacity: 1;
+        visibility: visible;
+        display: flex;
+        transform: scale(1.15);
+        transform-origin: center center;
+        background: #1e6bb8;
+        border: 3px solid #0d47a1;
+        border-radius: 5px;
+        box-sizing: border-box;
+        pointer-events: none;
+    `;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
+    document.body.appendChild(clone);
+
+    // 原格进入扑空态：隐藏原格，避免"人变两个"
+    const flyMode = GlobalStore.get('crashMode') || 'fly';
+    const ctx = GlobalStore.get('playerContext');
+    if (ctx && ctx.store) {
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderActed: true, _renderFlyMode: flyMode });
+    }
+
+    const flyDur = 700;
+    const returnDur = 500;
+    let missFired = false;
+
+    // 返回 Promise：调用方可 await 动画播完再推下一组（原先同步返回，日志抢跑）
+    return new Promise(resolve => {
+        clock.animate(flyDur, (p) => {
+            const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            clone.style.transform = `translate(${nx * approach * ease}px, ${ny * approach * ease}px) scale(1.15)`;
+            if (p >= 1) {
+                clock.animate(returnDur, (p2) => {
+                    clone.style.transform = `translate(${nx * approach * (1 - p2)}px, ${ny * approach * (1 - p2)}px) scale(1.15)`;
+                    // 气泡在返回中段（撞了一半往回走）才弹，不再飞撞前抢跑
+                    if (!missFired && p2 >= 0.5) {
+                        missFired = true;
+                        if (typeof onMiss === 'function') onMiss();
+                    }
+                    if (p2 >= 1) {
+                        if (clone.parentNode) clone.remove();
+                        if (ctx && ctx.store) {
+                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _renderActed: null });
+                        }
+                        resolve();
+                    }
+                });
+            }
+        });
+    });
+}

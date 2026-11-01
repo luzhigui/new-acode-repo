@@ -1,3 +1,7 @@
+// V1.33.0 | 2026-11-01 专项：OBSERVES 挂「蓄意轰拳演出归属守门」tests/hls-playback-ownership-guard.mjs。
+//   用户实报「玩家手动时 79 黑幕与 93 战场两个都演，回放/从机/自动只有 93 正好」。本件不判时长，
+//   机械核对每条路径的演出者必须恰好 1：手动完整由 79 负责且 93 载荷短路，跳过/回放由 93 全套。
+//   当前主代码仍是时间窗降级（79 全套 + 93 轻量 = 2），故本件如实报红；挂观察项不改分母。
 // V1.32.0 | 2026-11-01 夜间第 172 轮：三份定向开关白名单收口为 tests/_lib/forced-case-normalize.mjs
 //     唯一来源（fact-emission-census V1.4.0 / stat-decl-vs-actual-check V3.14.0 / rules-replay V6.11.0
 //     三处内联副本消除；此前 rules-replay 那份缺 forceXieXun、两本账本那份缺 forceWei，三条挂账被这条
@@ -92,7 +96,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.32.0';
+export const VER = 'tests/run-all.mjs V1.33.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -236,7 +240,7 @@ const OBSERVES = [
     // V1.23.0 | 2026-10-31 夜间第 161 轮：蛛袭死目标定向取证（SPIDER_DEAD_TARGET 到底是不可达
     //   还是没喂样本）。挂观察项不改分母，理由见头顶 V1.23.0 日志行。
     { name: '蛛袭死目标定向取证', script: 'tests/spider-dead-target-case.mjs', args: [] },
-    // V1.24.0 | 2026-10-31 夜间第 162 轮：海克斯分库启动链守门（content/201hex-enhance.json 迁出 200 后，
+    // V1.24.0 | 2026-10-31 夜间第 162 轮：海克斯分库启动链守门（content/002-hex-enhance.json 迁出 200 后，
     //   ★ 上游迁移时没有任何消费方补 loadHexEnhanceData ⇒ 本轮开场 25 项体检里 16 项以同一个
     //     「201 缺 sister 段」崩掉，红因看起来像数据丢了，实际是启动链没跟上迁移。本件三段取证：
     //     ⓪ 数据面（201 两段键数棘轮 + 200 无副本）、① 启动链成对点名、② 运行期真取一次。
@@ -251,7 +255,7 @@ const OBSERVES = [
     // V1.25.0 | 2026-10-31 夜间第 163 轮：node 侧信号通道守门 + fact 藏匿点体检（新增）。
     //   ★ 本轮连挖两个「测量口径错误」，两个都差点变成「按死代码核销」的依据：
     //     (1) 信号探针：上一次版在开头 eventBus.on 一次，而引擎每回合 eventBus.clearAll()
-    //         （core/11battle-round.js:142 + core/06battle-runner.js 顶部注释）⇒ 计数恒 0，
+    //         （core/210-battle-round.js:142 + core/206-battle-runner.js 顶部注释）⇒ 计数恒 0，
     //         上轮据此推断「node 回放通道不发 BEFORE_SELECT_TARGET」（疑点乙）。本轮换成
     //         tests/_lib/signal-probe.mjs 的跨回合存活探针后实测 42 场发 3443 次 ⇒ 疑点乙证伪、撤回。
     //     (2) fact 藏匿点：幻影 fact 挂在 attackFact.data.phantomFact，与 data.entries 并列、
@@ -263,7 +267,7 @@ const OBSERVES = [
     // V1.26.0 | 2026-10-31 夜间第 165 轮：xiaoZhaoHorse / xiaoZhaoCarryApply 定向取证（新增，
     //   承接第 164 轮【最高·下轮】⑤b-2 剩 3 条逐个配定向用例；spiderDeadTarget 已由上上轮件覆盖）。
     //   ★ 动手前先纠正登记口径：census 把这两条记成「要**妹**永久…」，读源码却都在**兄模块**
-    //     （modules/27elite-mingjiao-xiaozhao-brother.js L249 / L274）且读**兄**的 _permanentBuffs
+    //     （modules/323-elite-mingjiao-xiaozhao-brother.js L249 / L274）且读**兄**的 _permanentBuffs
     //     ⇒ forceXiaoZhao=brother 这条现成通道即可取证，当初「需变异树」的定性不成立。
     //     实测 140 场：巨马 454 就绪 / 211 命中，carry 167 就绪 / 101 命中 ⇒ 双双由 ⑤b-2 移入 ⑤b-3。
     //     新增别处没有的**白名单自证**：addPermanentBuff 只认 CONFIG.XIAO_ZHAO_PERMANENT_BUFFS，
@@ -276,8 +280,8 @@ const OBSERVES = [
     // V1.27.0 | 2026-10-31 夜间第 166 轮：挂两个件，都起因于「同一个东西有两个名字/两个值」。
     //   ① 小昭命名指称守门（新增）—— 承接第 165 轮【最高·下轮】「回头重扫 ⑤b 登记文案里有没有
     //     同款『妹/兄』记错的」。扫出来的答案是：**不存在谁记错，是这游戏对小昭用双轨命名**
-    //     （游戏名 小昭·妹 ≡ 代码标志位 isXiaoZhaoBrother；modules/27elite-mingjiao.js L28 的
-    //     registerElite 与 modules/29battle-init.js L261 的显示名三元可互证）。
+    //     （游戏名 小昭·妹 ≡ 代码标志位 isXiaoZhaoBrother；modules/317-elite-mingjiao.js L28 的
+    //     registerElite 与 modules/330-battle-init.js L261 的显示名三元可互证）。
     //     ★ 双轨命名改不掉（要动主代码与全部文案，须拍板），但**它能造出来的误判可以机械拦住**：
     //       段一从主代码机械抽取映射并交叉对账（哪天上游改了命名，本件立刻报 ⇒ 全库旧文案须重扫）；
     //       段二逐条核 ⑤b 登记文案必须带机械指称（isXiaoZhaoBrother|Sister / forceXiaoZhao 取值 /
@@ -285,7 +289,7 @@ const OBSERVES = [
     //   ② 九阴白骨爪三值同源取证（新增）—— 本轮 merge 上游后**凭空多出两项红**（账本对照 CLAW_HIT
     //     ＋ 对照器守卫 ②），追进去是同一根因：上游给九阴白骨爪加了护盾抵扣（core/16 L276-285），
     //     只把结算与账本改成 hpLoss，**没同步 fact**（L292 仍是 applied）⇒ fact ≠ 账本 = 实际。
-    //     而 render/35-facts-stat.js L192 正拿 fact.dmg 拼玩家看到的伤害文本
+    //     而 render/412-facts-stat.js L192 正拿 fact.dmg 拼玩家看到的伤害文本
     //     ⇒ **玩家看到的伤害 ≠ 目标实际掉血**。这是产品对外承诺的数字与落地数字分叉，
     //     不是体检测量口径问题（若 fact 只被体检读，改契约即可；它被对外显示读 ⇒ 须拍板）。
     //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
@@ -294,7 +298,7 @@ const OBSERVES = [
     // V1.31.0 | 2026-11-01 夜间第 170 轮：输出标签耦合守门 V3.0.0 → V3.1.0
     //   —— 段零的**解析侧地基**换新：原先拿 RE_LITERAL 粗扫，源码里任意两个斜杠都当正则，于是
     //      注释正文和字符串里的路径斜杠能自产「解析侧」。第 169 轮留下的那条待认领候补
-    //      （content/201hex-enhance.json 读取/解析失败）就是这么来的：**打印侧自己配对自己**。
+    //      （content/002-hex-enhance.json 读取/解析失败）就是这么来的：**打印侧自己配对自己**。
     //       ⇒ 本轮给它判了无罪：那不是耦合，是扫描器的假候补（已由牙 Z5/Z6/Z7 三种形态钉死）。
     //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
     // V1.30.0 | 2026-11-01 夜间第 169 轮：输出标签耦合守门 V2.0.0 → V3.0.0（段零口径升级 + 认领线四）。
@@ -317,7 +321,11 @@ const OBSERVES = [
     //       逐条点名 ⇒ 下一条线不用等人想起来。★ 认领线三后本轮扫出 0 条，已如实打印并说明
     //       「扫描器还能不能咬由段四牙 P~S 单独证明」，不把「0 条」当空转也不当没事。
     //   挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
-    { name: '输出标签耦合守门', script: 'tests/output-label-coupling-guard.mjs', args: [] }
+    { name: '输出标签耦合守门', script: 'tests/output-label-coupling-guard.mjs', args: [] },
+    // V1.33.0 | 2026-11-01 专项：蓄意轰拳「一次爆发只能有一个演出者」。
+    //   ① 手动完整：79 全套、93 必须 0（不是轻量）；② 跳过/回放/从机/自动：只有 93 全套。
+    //   只读源码、不 import 主代码；当前是「79 + 93轻量=2」故报红，挂观察项不计退码。
+    { name: '蓄意轰拳演出归属守门', script: 'tests/hls-playback-ownership-guard.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行

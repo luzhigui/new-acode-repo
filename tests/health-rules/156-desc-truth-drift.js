@@ -1,8 +1,8 @@
 // 回归规则：技能说明数字 == 引擎真值（参数「单一真值源」守卫）
-//   背景：content/200game-data.json 的 skills.<键>.params 曾与 characters.<角色>.mechanics 各存一份
+//   背景：content/001-game-data.json 的 skills.<键>.params 曾与 characters.<角色>.mechanics 各存一份
 //   同一个数 —— 技能说明的 {占位符} 从 params 取、引擎战斗从 mechanics 读，改一处另一处不跟，
 //   面板数字与实战就会漂移。2026-09-29 收口：真值只在 mechanics，技能说明里的这些占位符由
-//   core/01config-5v5-test.js 的 DESC_TRUTH 查表取真值，params 里的死副本已整批删除。
+//   core/201-config-5v5-test.js 的 DESC_TRUTH 查表取真值，params 里的死副本已整批删除。
 //
 // 判据：对 DESC_TRUTH 里每个 (角色, 技能, 占位符)，从 mechanics 求真值文本，断言 getSkillDesc()
 //   渲染出的说明文字里**确实含这个数字**；真值取不到（登记了却查不到）也报红。
@@ -14,7 +14,7 @@
 //   不依赖 log，恒返回 pass/fail（不会恒 skip 空转）。
 //
 export const VER = 'tests/health-rules/156-desc-truth-drift.js V1.2.0';
-import { getSkillDesc, resolveDescValue, DESC_TRUTH, getGameData } from '../../core/01config-5v5-test.js';
+import { getSkillDesc, resolveDescValue, DESC_TRUTH, getGameData } from '../../core/201-config-5v5-test.js';
 
 /**
  * 检查「技能说明数字 == 引擎真值」。

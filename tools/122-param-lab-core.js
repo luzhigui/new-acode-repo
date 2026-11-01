@@ -18,18 +18,18 @@ const [{ CONFIG, loadGameData, loadHexEnhanceData }, { Unit, baseHeroName }, { i
     { createRoundStepper }, { GlobalStore }, { CAMP_TYPES, BUFF_TYPES }, { eventBus },
     { filterAvailableBuffs }] =
     await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../core/02unit.js'),
-        import('../modules/29battle-init.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js'),
-        import('../infra/50-event-bus.js'),
-        import('../modules/28buff-tools.js')   // filterAvailableBuffs：候选池过滤与主代码同口径
+        import('../core/201-config-5v5-test.js'),
+        import('../core/202-unit.js'),
+        import('../modules/330-battle-init.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../infra/104-global-store.js'),
+        import('../infra/106-battle-enums.js'),
+        import('../infra/101-event-bus.js'),
+        import('../modules/329-buff-tools.js')   // filterAvailableBuffs：候选池过滤与主代码同口径
     ]);
-await import('../modules/20elite-skills.js');   // 副作用：注册 damageModifiers / xiaoHexEnhance 等 query
-await import('../modules/00reg-mechanics.js');  // 机制统一装配入口（25/26/27/30）：原散装三行漏 30，鹿杖客 dotTick 直接抛错、整台实验跑不出结果
+await import('../modules/302-elite-skills.js');   // 副作用：注册 damageModifiers / xiaoHexEnhance 等 query
+await import('../modules/301-reg-mechanics.js');  // 机制统一装配入口（25/26/27/30）：原散装三行漏 30，鹿杖客 dotTick 直接抛错、整台实验跑不出结果
 
 export const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 export const HEX_SEED = 7;                      // 固定海克斯：常量，不随局数变
@@ -39,7 +39,7 @@ let _game = null;
 export async function ensureGameData() {
     if (!_game) {
         _game = await loadGameData();
-        await loadHexEnhanceData(); // // 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+        await loadHexEnhanceData(); // // 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     }
     return _game;
 }
@@ -60,7 +60,7 @@ GlobalStore.set('currentBattleState', null);
 // ---------------------------------------------------------------------------
 // 局序 i → 真正的 RNG seed。**必须走这个散列**：xorshift32 的「第一个随机数」与 seed 强相关，
 // 直接用连续小整数（如 20000+i）会让首个 next() 全挤在 [0.19,0.32] 这条窄带里
-// ——modules/29battle-init.js 第一抽就是精英人数骰，于是「0 精英 / 3 精英」永远抽不到，
+// ——modules/330-battle-init.js 第一抽就是精英人数骰，于是「0 精英 / 3 精英」永远抽不到，
 // 阵容分布直接失真（探针实测：raw 827:173:0:0 vs hashed 599:151:50:200，后者才对上 60/15/5/20）。
 export function mixSeed(i) {
     let x = (i >>> 0) + 0x9E3779B9;
@@ -129,7 +129,7 @@ export { ELITE_LABELS };
 const byPos = (a, b) => a.pos - b.pos;
 export const concreteKey = spec => spec.slice().sort(byPos).map(e => `${e.label}(${e.role})@${e.pos}`).join(' '); // 含职业+站位
 
-// 按描述重建一个明教单位（与 modules/29battle-init.js 的两条建造路径同口径）
+// 按描述重建一个明教单位（与 modules/330-battle-init.js 的两条建造路径同口径）
 export function makeAllyUnit(e, rng) {
     let u;
     if (e.n === '小昭') {

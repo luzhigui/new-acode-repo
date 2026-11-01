@@ -1,0 +1,301 @@
+// fx 只管演出、不收尾格子：飞行态格子统一交 render/32 按 _renderFlyMode 重绘占位（🦋/🕷️ dimmed）。
+//   收尾若把格子"长回"，会与缩小动画叠出"缩小后又变大"。
+export const VER = 'fx/607-fx-butterfly-spider.js V6.2.0';
+
+import { GlobalStore } from '../infra/104-global-store.js';
+import { CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { snapshotUnitCellRobust, getUnitCell } from './611-fx-ref-manager.js';
+import { clock } from '../infra/103-clock.js';
+
+function getCellElement(unit) {
+    return getUnitCell(unit);
+}
+
+function getCellCenter(unit) {
+    return snapshotUnitCellRobust(unit);
+}
+
+/**
+ * 🦋 蝴蝶飞出 — 姐姐附身到宿主
+ */
+export async function showButterflyFlyOut(fromUnit, toUnit) {
+    const fromCell = getCellElement(fromUnit);
+    const toCell = getCellElement(toUnit);
+    if (!fromCell || !toCell) return;
+    const fromCenter = getCellCenter(fromUnit);
+    const toCenter = getCellCenter(toUnit);
+    if (!fromCenter || !toCenter) return;
+
+    fromCell.style.transition = 'transform 0.3s ease, opacity 0.3s';
+    fromCell.style.transform = 'scale(0.8)';
+    fromCell.style.opacity = '0.4';
+
+    const butterfly = document.createElement('div');
+    butterfly.setAttribute('data-fx', 'temporary');
+    butterfly.style.cssText = 'position:fixed;z-index:10010;pointer-events:none;font-size:32px;filter:drop-shadow(0 0 8px rgba(255,105,180,0.8));';
+    butterfly.textContent = '🦋';
+    butterfly.style.left = fromCenter.x + 'px';
+    butterfly.style.top = fromCenter.y + 'px';
+    butterfly.style.transform = 'translate(-50%, -50%)';
+    document.body.appendChild(butterfly);
+
+    const startX = fromCenter.x, startY = fromCenter.y;
+    const endX = toCenter.x, endY = toCenter.y;
+    const dx = endX - startX, dy = endY - startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const duration = 600;
+
+    await clock.animate(duration, (t) => {
+        const perpX = -dy / dist, perpY = dx / dist;
+        const waveAmplitude = 12 * Math.sin(t * Math.PI * 4);
+        const curX = startX + dx * t + perpX * waveAmplitude;
+        const curY = startY + dy * t + perpY * waveAmplitude;
+        butterfly.style.left = curX + 'px';
+        butterfly.style.top = curY + 'px';
+        const scale = 1 + 0.15 * Math.sin(t * duration * 0.03);
+        butterfly.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    });
+
+    butterfly.style.transition = 'transform 0.2s ease, opacity 0.2s';
+    butterfly.style.transform = 'translate(-50%, -50%) scale(0.8)';
+    butterfly.style.opacity = '0.6';
+    toCell.classList.add('pink-flash');
+    await clock.wait(300);
+    butterfly.remove();
+    toCell.classList.remove('pink-flash');
+    // 收尾不恢复 fromCell：保持缩小淡出的「离开态」，由 render/32 重绘接管画 🦋 占位格
+}
+
+/**
+ * 🦋 蝴蝶飞回 — 回合结束姐姐从宿主飞回原位
+ */
+export async function showButterflyFlyBack(hostUnit, toUnit) {
+    const hostCell = getCellElement(hostUnit);
+    const toCell = getCellElement(toUnit);
+    if (!hostCell || !toCell) return;
+    const hostCenter = getCellCenter(hostUnit);
+    const toCenter = getCellCenter(toUnit);
+    if (!hostCenter || !toCenter) return;
+
+    hostCell.classList.add('pink-flash');
+    clock.wait(600).then(() => hostCell.classList.remove('pink-flash'));
+
+    const butterfly = document.createElement('div');
+    butterfly.setAttribute('data-fx', 'temporary');
+    butterfly.style.cssText = 'position:fixed;z-index:10010;pointer-events:none;font-size:32px;filter:drop-shadow(0 0 8px rgba(255,105,180,0.8));';
+    butterfly.textContent = '🦋';
+    butterfly.style.left = hostCenter.x + 'px';
+    butterfly.style.top = hostCenter.y + 'px';
+    butterfly.style.transform = 'translate(-50%, -50%)';
+    document.body.appendChild(butterfly);
+
+    const startX = hostCenter.x, startY = hostCenter.y;
+    const endX = toCenter.x, endY = toCenter.y;
+    const dx = endX - startX, dy = endY - startY;
+    const duration = 700;
+
+    await clock.animate(duration, (t) => {
+        const curX = startX + dx * t;
+        const curY = startY + dy * t - 8 * Math.sin(t * Math.PI * 3);
+        butterfly.style.left = curX + 'px';
+        butterfly.style.top = curY + 'px';
+        const scale = 1 + 0.1 * Math.sin(t * duration * 0.04);
+        butterfly.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    });
+
+    butterfly.style.transition = 'opacity 0.2s';
+    butterfly.style.opacity = '0';
+    await clock.wait(200);
+    butterfly.remove();
+}
+
+/**
+ * 🕷️ 蜘蛛升天 — 妹妹飞天
+ */
+// 飞天先克隆原格残影(ghost)占位再让蜘蛛升空：原格瞬间变空，残影保持视觉位置，蜘蛛实体上浮到画面上方
+export async function showSpiderAscend(fromUnit) {
+    const fromCell = getCellElement(fromUnit);
+    if (!fromCell) return;
+    const fromCenter = getCellCenter(fromUnit);
+    if (!fromCenter) return;
+
+    fromCell.classList.add('purple-flash');
+    clock.wait(600).then(() => fromCell.classList.remove('purple-flash'));
+
+    fromCell.style.opacity = '0';
+    fromCell.style.transform = 'scale(0.8)';
+
+    const ghost = fromCell.cloneNode(true);
+    ghost.setAttribute('data-fx', 'temporary');
+    ghost.style.cssText = `
+        position: fixed; left: ${fromCenter.x - fromCenter.width/2}px; top: ${fromCenter.y - fromCenter.height/2}px;
+        width: ${fromCenter.width}px; height: ${fromCenter.height}px;
+        z-index: 10008; pointer-events: none;
+        display: flex; align-items: center; gap: 4px;
+        background: #e8e6e0; border: 2px solid #9b59b6; border-radius: 5px;
+        opacity: 1; transform: scale(1);
+    `;
+    ghost.innerHTML = fromCell.innerHTML;
+    document.body.appendChild(ghost);
+
+    const spider = document.createElement('div');
+    spider.setAttribute('data-fx', 'temporary');
+    spider.style.cssText = 'position:fixed;z-index:10010;pointer-events:none;font-size:32px;filter:drop-shadow(0 0 8px rgba(155,89,182,0.8));';
+    spider.textContent = '🕷️';
+    spider.style.left = fromCenter.x + 'px';
+    spider.style.top = fromCenter.y + 'px';
+    spider.style.transform = 'translate(-50%, -50%)';
+    document.body.appendChild(spider);
+
+    const silks = [];
+    for (let i = 0; i < 2; i++) {
+        const silk = document.createElement('div');
+        silk.setAttribute('data-fx', 'temporary');
+        silk.style.cssText = 'position:fixed;z-index:10009;pointer-events:none;background:rgba(255,255,255,0.5);width:1.5px;';
+        silk.style.left = (fromCenter.x - 1 + i * 2) + 'px';
+        silk.style.top = (fromCenter.y - 150) + 'px';
+        silk.style.height = '150px';
+        document.body.appendChild(silk);
+        silks.push(silk);
+    }
+
+    const startX = fromCenter.x;
+    const startY = fromCenter.y;
+    const duration = 800;
+
+    await clock.animate(duration, (t) => {
+        const curX = startX + 1 * t;
+        const curY = startY - 20 * t;
+        const scale = 1 - t * 0.9;
+        const opacity = 1 - t * 0.8;
+        spider.style.left = curX + 'px';
+        spider.style.top = curY + 'px';
+        spider.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        spider.style.opacity = opacity;
+        ghost.style.transform = `scale(${scale})`;
+        ghost.style.opacity = opacity * 0.8;
+        silks.forEach(silk => {
+            silk.style.left = (curX - 1) + 'px';
+            silk.style.top = (curY - 150) + 'px';
+            silk.style.height = '150px';
+        });
+    });
+
+    spider.remove();
+    ghost.remove();
+    silks.forEach(s => s.remove());
+    // 收尾不恢复 fromCell：保持隐形「离开态」，由 render/32 重绘接管画 🕷️ 占位格
+}
+
+/**
+ * 🕷️ 蜘蛛降下 — 回合结束妹妹落下
+ */
+// 降落：蜘蛛从空中落回原格并放大，丝线随之下垂，完成后移除残影并闪烁原格，闭合飞天-落地
+export async function showSpiderDescend(toUnit) {
+    const toCell = getCellElement(toUnit);
+    if (!toCell) return;
+    const toCenter = getCellCenter(toUnit);
+    if (!toCenter) return;
+
+    const startX = toCenter.x + 20;
+    const startY = toCenter.y - 100;
+    const spider = document.createElement('div');
+    spider.setAttribute('data-fx', 'temporary');
+    spider.style.cssText = 'position:fixed;z-index:10010;pointer-events:none;font-size:32px;filter:drop-shadow(0 0 8px rgba(155,89,182,0.8));';
+    spider.textContent = '🕷️';
+    spider.style.left = startX + 'px';
+    spider.style.top = startY + 'px';
+    spider.style.transform = 'translate(-50%, -50%) scale(0.25)';
+    spider.style.opacity = '0.6';
+    document.body.appendChild(spider);
+
+    const silk = document.createElement('div');
+    silk.setAttribute('data-fx', 'temporary');
+    silk.style.cssText = 'position:fixed;z-index:10009;pointer-events:none;background:rgba(255,255,255,0.5);width:1.5px;';
+    silk.style.left = startX + 'px';
+    silk.style.top = startY + 'px';
+    silk.style.height = '0px';
+    document.body.appendChild(silk);
+
+    const endY = toCenter.y;
+    const duration = 600;
+
+    await clock.animate(duration, (t) => {
+        const curX = startX + (toCenter.x - startX) * t;
+        const curY = startY + (endY - startY) * t;
+        const scale = 0.25 + t * 0.75;
+        spider.style.left = curX + 'px';
+        spider.style.top = curY + 'px';
+        spider.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        silk.style.left = curX + 'px';
+        silk.style.top = startY + 'px';
+        silk.style.height = (curY - startY) + 'px';
+    });
+
+    spider.remove();
+    silk.remove();
+    toCell.classList.add('purple-flash');
+    clock.wait(600).then(() => toCell.classList.remove('purple-flash'));
+}
+
+/**
+ * 🕷️ 蜘蛛爆炸 — 妹妹落地后发射蜘蛛到目标头上爆炸
+ */
+export async function showSpiderStrike(fromUnit, toUnit) {
+    const fromCell = getCellElement(fromUnit);
+    const toCell = getCellElement(toUnit);
+    if (!fromCell || !toCell) return;
+    const fromCenter = getCellCenter(fromUnit);
+    const toCenter = getCellCenter(toUnit);
+    if (!fromCenter || !toCenter) return;
+
+    const spider = document.createElement('div');
+    spider.setAttribute('data-fx', 'temporary');
+    spider.style.cssText = 'position:fixed;z-index:10020;pointer-events:none;font-size:28px;filter:drop-shadow(0 0 6px rgba(200,50,50,0.9));transition:none;';
+    spider.textContent = '🕷️';
+    spider.style.left = fromCenter.x + 'px';
+    spider.style.top = fromCenter.y + 'px';
+    spider.style.transform = 'translate(-50%, -50%)';
+    document.body.appendChild(spider);
+
+    const startX = fromCenter.x, startY = fromCenter.y;
+    const endX = toCenter.x, endY = toCenter.y;
+    const duration = 700;
+
+    await clock.animate(duration, (t) => {
+        const curX = startX + (endX - startX) * t;
+        const curY = startY + (endY - startY) * t - 30 * Math.sin(t * Math.PI);
+        spider.style.left = curX + 'px';
+        spider.style.top = curY + 'px';
+        spider.style.transform = `translate(-50%, -50%) scale(${1 + t * 0.3})`;
+    });
+
+    // 爆炸：放大变红碎开
+    spider.style.transition = 'transform 0.3s ease-out, opacity 0.3s';
+    spider.style.transform = 'translate(-50%, -50%) scale(2.5)';
+    spider.style.filter = 'drop-shadow(0 0 15px rgba(255,0,0,1)) brightness(0.4) sepia(1) saturate(3) hue-rotate(-20deg)';
+    spider.style.opacity = '0';
+    toCell.classList.add('red-flash');
+    clock.wait(500).then(() => toCell.classList.remove('red-flash'));
+
+    // 碎片粒子
+    const cx = endX, cy = endY;
+    const shards = [];
+    for (let i = 0; i < 10; i++) {
+        const shard = document.createElement('div');
+        const angle = (i / 10) * Math.PI * 2;
+        const dist = 25 + Math.random() * 35;
+        shard.setAttribute('data-fx', 'temporary');
+        shard.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:6px;height:6px;background:#ff2020;z-index:10021;pointer-events:none;border-radius:1px;box-shadow:0 0 6px rgba(255,0,0,0.8);transition:transform 0.6s ease-out, opacity 0.6s;`;
+        document.body.appendChild(shard);
+        requestAnimationFrame(() => {
+            shard.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px) scale(0.2)`;
+            shard.style.opacity = '0';
+        });
+        shards.push(shard);
+    }
+
+    await clock.wait(600);
+    spider.remove();
+    shards.forEach(s => { if (s.parentNode) s.remove(); });
+}

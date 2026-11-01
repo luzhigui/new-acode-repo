@@ -1,25 +1,25 @@
 // 探针2：母狮随动的 step 切分——随动多头是一个 step 还是各占一步；目标死后续打
 // 用法：node tools/probe-lioness2.mjs [stage] [seedStart] [seedCount]
-import { initBattleTeams } from '../modules/29battle-init.js';
-import { runBattle } from '../core/06battle-runner.js';
-import { GlobalStore } from '../infra/54-global-store.js';
-import { eventBus } from '../infra/50-event-bus.js';
-import { flushBattleEvents, SeededRNG } from '../infra/51-core-utils.js';
-import { loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
-import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
+import { initBattleTeams } from '../modules/330-battle-init.js';
+import { runBattle } from '../core/206-battle-runner.js';
+import { GlobalStore } from '../infra/104-global-store.js';
+import { eventBus } from '../infra/101-event-bus.js';
+import { flushBattleEvents, SeededRNG } from '../infra/102-core-utils.js';
+import { loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
+import '../modules/301-reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
 
 if (typeof localStorage === 'undefined') { globalThis.localStorage = { getItem: () => null, setItem: () => {} }; }
 const _origFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
-    if (String(input).includes('200game-data.json')) {
+    if (String(input).includes('001-game-data.json')) {
         const fs = await import('node:fs');
-        const buf = fs.readFileSync(new URL('../content/200game-data.json', import.meta.url));
+        const buf = fs.readFileSync(new URL('../content/001-game-data.json', import.meta.url));
         return { ok: true, status: 200, json: async () => JSON.parse(buf.toString('utf-8')) };
     }
     return _origFetch(input, init);
 };
 await loadGameData();
-// 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+// 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 await loadHexEnhanceData();
 
 const stage = parseInt(process.argv[2] || '5', 10);

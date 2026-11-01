@@ -1,8 +1,8 @@
 // 回归规则：概率连击（doubleStrike）— 覆盖此前完全没有体检项盯的一条团队 Buff 机制。
-// 机制源：core/11battle-round.js prepareRoundStart（每回合为持 Buff 方挑一名存活单位登记
+// 机制源：core/210-battle-round.js prepareRoundStart（每回合为持 Buff 方挑一名存活单位登记
 //   doubleStrikeUnitUid，明教/六大派各一人）+ core/03 registerDoubleStrike（80% 概率再打一次），
 //   渲染侧见 render/30 renderDoubleStrikeSummaryFact（回合开始宣告）与 renderDoubleStrikeFact
-//   （成功 banner / 失败文案）。content/200game-data.json buffs.doubleStrike.prob = 0.8。
+//   （成功 banner / 失败文案）。content/001-game-data.json buffs.doubleStrike.prob = 0.8。
 // 为什么值得盯：连击是「额外攻击次数」，一旦被重复登记（同回合同人触发两次）或越界作用到
 //   未被宣告的单位，攻击次数会静默膨胀，战报上看不出来，只有把「回合开始宣告名单」与
 //   「实际触发者」对齐才能发现。
@@ -16,7 +16,7 @@
 //     render/35 透传），直接读，不再反推；只有 小昭·妹「蝶击」banner（无该字段）才退回
 //     「banner 之后第一条 attack-group 的攻击者」旧推断。解析不到就跳过那条（不猜）
 //   - 本回合没有任何宣告（如 Buff 已过期但残留登记）时不做事后比对，只统计重复触发
-//   - **单位会被原地改名**：幼狮成长是同一 unit 对象改 `cub.name`（modules/27elite-mingjiao.js:665），
+//   - **单位会被原地改名**：幼狮成长是同一 unit 对象改 `cub.name`（modules/317-elite-mingjiao.js:665），
 //     uid / 位置都不变，而连击登记按 uid（core/11:61 `chosen.uid` → core/03:371 `unit.uid !==
 //     doubleStrikeUnitUid`），所以「回合开始宣告[幼狮] → 成长 → 触发者[雄狮]」是**同一单位**，不是越界。
 //     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记

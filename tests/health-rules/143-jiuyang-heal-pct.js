@@ -1,7 +1,7 @@
 // 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
 //       heal = min(floor(unit.maxHp × pct), unit.maxHp - unit.hp)，heal > 0 才推 NINE_YANG_HEAL 事实
-//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12）——
+//   pct 实际来自 content/001-game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12）——
 //   2026-09-29 参数单一真值源收口后，这是**唯一**出处（skills.nineYang.params.healPct 已删，
 //   技能说明的 {healPct} 也改由 core/01 DESC_TRUTH 从这里取真值）。
 // 复发信号1（历史值回退）：未满回复量恰好等于 floor(血上限×10%)（V6.1.8~V6.1.11 的旧值）

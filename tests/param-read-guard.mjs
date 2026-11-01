@@ -238,9 +238,9 @@ async function checkDescTruthDrift() {
         const p = fileURLToPath(new URL(url));
         return { ok: true, json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) };
     };
-    const { loadGameData, loadHexEnhanceData } = await import('../core/01config-5v5-test.js');
+    const { loadGameData, loadHexEnhanceData } = await import('../core/201-config-5v5-test.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
     const { checkDescTruth } = await import('./health-rules/156-desc-truth-drift.js');
     return checkDescTruth();
@@ -359,7 +359,7 @@ async function main() {
     if (descProblems.length) {
         console.log('\n技能说明数字 vs 引擎真值 漂移：');
         for (const d of descProblems) console.log(`  ✗ ${d}`);
-        console.log(`\n✗ 共 ${descProblems.length} 项 —— 请同步 content/200game-data.json 与 core/01 DESC_TRUTH`);
+        console.log(`\n✗ 共 ${descProblems.length} 项 —— 请同步 content/001-game-data.json 与 core/01 DESC_TRUTH`);
     }
     process.exit(1);
 }

@@ -1,0 +1,163 @@
+// fx/605-fx-push-back.js
+export const VER = 'fx/605-fx-push-back.js V6.1.0';
+
+import { GlobalStore } from '../infra/104-global-store.js';
+import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { getUnitCell, snapshotCellByPos } from './611-fx-ref-manager.js';
+import { clock } from '../infra/103-clock.js';
+
+function getCellElement(unit) {
+    return getUnitCell(unit);
+}
+
+export async function animatePushBack(unit, c, targetPos, options = {}) {
+    const { skipDataChange } = options;
+    const cell = getCellElement(unit);
+    if (!cell) return;
+
+    // 乘风突袭等击退表现：给目标套红框，增加视觉反馈
+    cell.style.boxShadow = '0 0 16px 4px rgba(255, 50, 50, 0.9)';
+    cell.style.border = '2px solid #ff3333';
+
+    const oldPos = unit.pos;
+
+    // 改为真位移：格子从旧位拱到新位，动画落定后才写数据
+    const oldRect = snapshotCellByPos(unit.camp, oldPos);
+    const newRect = snapshotCellByPos(unit.camp, targetPos);
+    if (oldRect && newRect) {
+        const dx = newRect.x - oldRect.x;
+        const dy = newRect.y - oldRect.y;
+        cell.style.transition = 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        cell.style.zIndex = '99999';
+        cell.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
+        await clock.wait(450);
+        cell.style.transition = 'transform 0.15s ease-out';
+        cell.style.transform = `translate(${dx}px, ${dy}px) scale(1)`;
+        await clock.wait(150);
+    }
+
+    if (!skipDataChange) {
+        if (c.store) {
+            c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: unit.uid, pos: targetPos }
+            ]});
+        } else {
+            unit.pos = targetPos;
+        }
+    }
+    cell.style.transition = '';
+    cell.style.transform = '';
+    cell.style.zIndex = '';
+    // 清除击退红框
+    cell.style.boxShadow = '';
+    cell.style.border = '';
+    const ctx = GlobalStore.get('playerContext') || c;
+    if (ctx) ctx.updateUI();
+
+    const newCell = getCellElement(unit);
+    if (newCell) {
+        newCell.style.transition = 'transform 0.15s ease';
+        newCell.style.transform = 'scale(0.85)';
+        requestAnimationFrame(() => {
+            newCell.style.transform = 'scale(1)';
+            clock.wait(200).then(() => {
+                if (newCell) newCell.style.transform = '';
+            });
+        });
+    }
+}
+
+export async function animatePushSwap(frontUnit, rearUnit, c) {
+    const cellF = getCellElement(frontUnit);
+    const cellR = getCellElement(rearUnit);
+    if (!cellF || !cellR) return;
+
+    const posF = frontUnit.pos, posR = rearUnit.pos;
+    const rectF = cellF.getBoundingClientRect();
+    const rectR = cellR.getBoundingClientRect();
+    const dx = rectR.left + rectR.width/2 - (rectF.left + rectF.width/2);
+    const dy = rectR.top + rectR.height/2 - (rectF.top + rectF.height/2);
+
+    // 被击退者套红色光圈
+    cellF.style.boxShadow = '0 0 16px 4px rgba(255, 50, 50, 0.9)';
+    cellF.style.border = '2px solid #ff3333';
+
+    // 被挤位者套黄色光圈
+    cellR.style.boxShadow = '0 0 16px 4px rgba(255, 215, 0, 0.9)';
+    cellR.style.border = '2px solid #ffd700';
+
+    await clock.wait(400);
+
+    cellF.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    cellF.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    const rotateDir = (frontUnit.camp === CAMP_TYPES.ALLY) ? 1 : -1;
+    cellR.style.transition = 'transform 0.35s ease-out';
+    cellR.style.transform = `translate(${dx * 0.3}px, ${dy * 0.3}px) rotate(${15 * rotateDir}deg)`;
+    await clock.wait(350);
+
+    cellR.style.transition = 'transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+    cellR.style.transform = `translate(${-dx * 0.8}px, ${-dy * 0.8}px) rotate(${-10 * rotateDir}deg)`;
+    await clock.wait(400);
+
+    // 清除光圈
+    cellF.style.boxShadow = '';
+    cellF.style.border = '';
+    cellR.style.boxShadow = '';
+    cellR.style.border = '';
+
+    cellF.style.transition = 'none';
+    cellR.style.transition = 'none';
+    for (let i = 0; i < 2; i++) {
+        cellF.style.visibility = 'hidden';
+        cellR.style.visibility = 'hidden';
+        await clock.wait(100);
+        cellF.style.visibility = 'visible';
+        cellR.style.visibility = 'visible';
+        await clock.wait(100);
+    }
+
+    cellF.style.opacity = '0';
+    cellR.style.opacity = '0';
+    await clock.wait(200);
+
+    if (c.store) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
+            { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: frontUnit.uid, pos: posR },
+            { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: rearUnit.uid, pos: posF }
+        ]});
+    } else {
+        frontUnit.pos = posR;
+        rearUnit.pos = posF;
+    }
+
+    cellF.style.transition = '';
+    cellF.style.transform = '';
+    cellF.style.opacity = '1';
+    cellF.style.visibility = 'visible';
+    cellR.style.transition = '';
+    cellR.style.transform = '';
+    cellR.style.opacity = '1';
+    cellR.style.visibility = 'visible';
+
+    c.updateUI();
+
+    const newCellF = getCellElement(frontUnit);
+    const newCellR = getCellElement(rearUnit);
+    if (newCellF) {
+        newCellF.style.transition = 'transform 0.2s ease';
+        newCellF.style.transform = 'scale(0.8)';
+        requestAnimationFrame(() => {
+            newCellF.style.transform = 'scale(1)';
+            clock.wait(250).then(() => { if (newCellF) newCellF.style.transform = ''; });
+        });
+    }
+    if (newCellR) {
+        newCellR.style.transition = 'transform 0.2s ease';
+        newCellR.style.transform = 'scale(0.8)';
+        requestAnimationFrame(() => {
+            newCellR.style.transform = 'scale(1)';
+            clock.wait(250).then(() => { if (newCellR) newCellR.style.transform = ''; });
+        });
+    }
+}

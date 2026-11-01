@@ -1,7 +1,7 @@
 // V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现（合并移植：本条与远端并线第 24-49 轮共存）
 // V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
-import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
-import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
+import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
+import { getUnitCol, getUnitRow } from '../infra/102-core-utils.js';
 // V6.7.2 | 2026-10-29 第 135 轮 checkBuffIcons 截断豁免改镜像渲染预算模型：格子 logo 预算 = 2 -（胶囊占 1），
 //          logoList 含 🔔/eliteSkillIcon/buff 图标/🎯☯🔻❌ 状态标记，超预算尾部优先截断 → buff 图标被挤出
 //          是设计行为（render/32 L328-356，何太冲标记压尾即老板拍板）。旧豁免只数受益 Buff 图标
@@ -631,10 +631,10 @@ export function checkBattleReportOverlay(ctx, doc) {
 
 /**
  * [新增] 特效DOM/弹幕池检查 — 对象池容量泄漏与池失效
- * 池容量（fx/80fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 /
+ * 池容量（fx/601-fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 /
  *   healFloat 4 + atkBuffFloat 4 + defBuffFloat 4 = 12（三池共用 .heal-float 类，V6.2.3 新增 defBuffFloat 池）
  * 复发信号：元素数超池容量（泄漏累积→多局后弹幕卡顿）/
- *          RUNNING 中弹幕DOM为0（ui/74reset-runtime.js（原69）重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
+ *          RUNNING 中弹幕DOM为0（ui/715-reset-runtime.js（原69）重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
  * 对应已报 Bug：多打几局，弹幕特别卡
  * 注意：.heal-float 阈值须用 12（三池之和），不是 8 —— 池元素常驻 DOM（隐藏+激活），稳态恒为 12，
  *   只有出现第 13 个游离元素才真泄漏。旧阈值 8 会把稳态池误报成"泄漏"（每局必误报）。
@@ -833,18 +833,18 @@ export function checkActionRights(roundFacts, units) {
 
 // ===== 静默位移白名单（第 124 轮：138 / 166 各写一份的重复实现收口为唯一来源）=====
 // 背景（第 115 / 121 轮实证，本轮在合并上游 main 后复发一次）：
-//   moveUnitPosition / swapUnitPositions（core/13battle-shared.js）只发 ON_UNIT_STATE_CHANGE 信号，
+//   moveUnitPosition / swapUnitPositions（core/214-battle-shared.js）只发 ON_UNIT_STATE_CHANGE 信号，
 //   **不产** buff-push / buff-swap 条目 ⇒ 战报里没有任何「位置被改写」的标记。138 / 166 的
 //   「宣告位置是否真实生效」判据只认 buff-push/buff-swap 打断，于是把「已落地、之后被第三方挪走」
 //   误判成「没落地」。
 // 全库调用点（第 124 轮 grep 实证 + 第 145 轮续补 圣火不熄）——helper 5 处 + 圣火不熄 1 处直接赋值；
 //   今后再加务必登记，否则这里会静默漏判：
-//   core/10battle-attack.js:52           标枪射程不及前压  「🥢 X 射程不及，向前压至 N 号位」
+//   core/209-battle-attack.js:52           标枪射程不及前压  「🥢 X 射程不及，向前压至 N 号位」
 //   modules/26…-tangwenliang.js:115      唐文亮冲刺·七伤齐发（强推挤压，多单位 moveUnitPosition）
 //   modules/26…-hetaichong.js:128        何太冲红血撤退    「🩸 X 红血：撤退至 N 号位、转远程」
 //   modules/26…-hetaichong.js:156        两仪互换（swapUnitPositions）「☯ 两仪互换：A ⇄ B（互换职业与位置）」
 //   modules/27…-hanlisa.js:294 / 305     蓄意轰拳·崩飞 / 轰飞（WIND_ASSAULT_PUSH fact）
-//   core/04buff-system.js:624            圣火不熄复活落格被占（直接 u.pos=findFreePos，不发位移事件；
+//   core/204-buff-system.js:624            圣火不熄复活落格被占（直接 u.pos=findFreePos，不发位移事件；
 //                                          SKILL_ANNOUNCE.note 写「原地复活」掩盖静默改位）⇒ ⑥ 单独识别
 // 两条判据（任一命中 ⇒ 期望位被合法改写，放弃本条归因；宁漏勿误，数值与落地判据一字未放宽）：
 //   ① 落位号证据（通用，不限机制）：条目宣告任意单位落到 N 号位且 N === exp.pos ⇒ 该格被重写，
@@ -935,7 +935,7 @@ export function isSilentRelocate(mid, exp) {
     //     ①反/③反/通反 三条反例的语义（那三条是第 121-125 轮按「宁漏勿误」立的），属判据放宽，
     //     本轮**否决**广口径、只补这一支漏判，并把广口径是否采纳留给用户拍板（见第 129 轮日志挂账）。
     if (t && exp.name && t.indexOf(exp.name) !== -1 && PRESS_FORWARD_RE.test(t) && LANDING_POS_RE.test(t)) return true;
-    // ⑥ 圣火不熄复活静默改位（core/04buff-system.js:624，第 145 轮续）：复活落格被活人占 →
+    // ⑥ 圣火不熄复活静默改位（core/204-buff-system.js:624，第 145 轮续）：复活落格被活人占 →
     //   u.pos = findFreePos(≠原格) 直接赋值，而 SKILL_ANNOUNCE.note 写「原地复活」掩盖了这次静默改位
     //   （与 ⑤ 压进 同款"改站位却不发位移事件"，且文本只点名复活者、不报落位号 ⇒ ①②③④⑤ 全认不出）。
     //   该机制合法改写站位，命中即放弃本条归因（宁漏勿误）。★ 仅在"单位从未在 toPos 被观测到"时才会触发本分支，

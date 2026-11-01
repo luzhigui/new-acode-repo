@@ -3,9 +3,9 @@
 //   探针，读出「零触发」，据此推断「node 侧回放通道根本不发该信号」，并把「所有走该信号的分支在
 //   node 侧都无法取证、⑤b 那几条非样本缺口的结论都要重估」交人工拍板。
 //   ★ 本轮查证：这个结论是假的。引擎在 installRoundMechanics 里**每回合 eventBus.clearAll()**
-//   （core/11battle-round.js:142，且 core/06battle-runner.js 顶部注释白纸黑字写了「页面级监听器
+//   （core/210-battle-round.js:142，且 core/206-battle-runner.js 顶部注释白纸黑字写了「页面级监听器
 //   活不过第一回合」）。探针只在开头注册一次 ⇒ 它在第一次攻击之前就被清掉了，计数**恒为 0**。
-//   而 BEFORE_SELECT_TARGET 本身在 core/12battle-attack-chain.js:29 无条件发射，且有 6 处真实订阅方
+//   而 BEFORE_SELECT_TARGET 本身在 core/212-battle-attack-chain.js:29 无条件发射，且有 6 处真实订阅方
 //   （胖笨拙 / 胖嘲讽 / 幻影清除 / 伪装 / 反贼 / 兄永久惑心）—— 它们天天在跑，信号不可能不发。
 //
 //   本件守两件事：
@@ -102,7 +102,7 @@ async function main() {
     for (const r of contract.reasons) { problems.push('⓪ ' + r); console.log('  ❌ ' + r); }
 
     const signals = [
-        { name: 'BEFORE_SELECT_TARGET', src: 'core/12battle-attack-chain.js' },
+        { name: 'BEFORE_SELECT_TARGET', src: 'core/212-battle-attack-chain.js' },
         { name: 'AFTER_SELECT_TARGET', src: null },
         { name: 'BEFORE_DAMAGE_CALC', src: null }
     ];
@@ -116,16 +116,16 @@ async function main() {
         if (emitters === 0) problems.push('⓪ 信号 ' + s.name + ' 在主代码里已经没有任何引用（发射点被删）⇒ 相关定向用例的前提已作废');
         else console.log('  ✅ 信号 ' + s.name + ' 在 ' + emitters + ' 个文件里出现（含发射与订阅）');
     }
-    if (fs.existsSync(path.join(root, 'core/12battle-attack-chain.js'))) {
-        const t = fs.readFileSync(path.join(root, 'core/12battle-attack-chain.js'), 'utf8');
+    if (fs.existsSync(path.join(root, 'core/212-battle-attack-chain.js'))) {
+        const t = fs.readFileSync(path.join(root, 'core/212-battle-attack-chain.js'), 'utf8');
         const ok = /eventBus\.emit\(SIGNAL_TYPES\.BEFORE_SELECT_TARGET/.test(t);
-        console.log('  ' + (ok ? '✅' : '❌') + ' BEFORE_SELECT_TARGET 发射点仍在 core/12battle-attack-chain.js（selectAttackTarget 内无条件发射）');
+        console.log('  ' + (ok ? '✅' : '❌') + ' BEFORE_SELECT_TARGET 发射点仍在 core/212-battle-attack-chain.js（selectAttackTarget 内无条件发射）');
         if (!ok) problems.push('⓪ BEFORE_SELECT_TARGET 发射点消失 ⇒ 第 162 轮那条「通道不通」由假变态真，须立刻重估所有走该信号的分支');
     }
 
     // ── ① 反向自检：探针本体能不能收到信号 ─────────────────────────────
-    const { eventBus } = await import('../infra/50-event-bus.js');
-    const { SIGNAL_TYPES } = await import('../infra/56-battle-enums.js');
+    const { eventBus } = await import('../infra/101-event-bus.js');
+    const { SIGNAL_TYPES } = await import('../infra/106-battle-enums.js');
     const { isAliveProbe } = await import('./_lib/signal-probe.mjs');
     console.log('--- ① 探针本体自检（收不到 ⇒ 任何「零触发」结论不可采信）---');
     const selfSig = '__SIGNAL_PROBE_SELFTEST__';
@@ -137,18 +137,18 @@ async function main() {
     console.log('--- ② 运行期实证（跨回合存活探针，' + SEEDS_N + ' seed × 7 stage）---');
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { GlobalStore }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../infra/54-global-store.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../infra/104-global-store.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     const { createSignalProbe } = await import('./_lib/signal-probe.mjs');
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
     await loadHexEnhanceData();
 
@@ -216,7 +216,7 @@ async function main() {
     //   与 data.entries **并列**、不在 entries 里 ⇒ 全仓库扫 Fact 的脚本一条都没看见过。
     //   这里把「藏匿点还在」与「扫描脚本都认这一层」做成闸门，防它改回来。
     console.log('--- ③ fact 藏匿点（phantomFact 是否还在各位扫描器的视野里）---');
-    const CHAIN_SRC = path.join(root, 'core/12battle-attack-chain.js');
+    const CHAIN_SRC = path.join(root, 'core/212-battle-attack-chain.js');
     if (fs.existsSync(CHAIN_SRC)) {
         const t = fs.readFileSync(CHAIN_SRC, 'utf8');
         const ok = /data:\s*\{[\s\S]{0,400}?phantomFact,/.test(t) || /phantomFact,\s*\n\s*entries:/.test(t);

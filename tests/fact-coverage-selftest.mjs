@@ -11,7 +11,7 @@
 //   共同点：**没有任何东西回答「这个 fact/机制有没有规则盯」**。157 只对账 mechanics 安装
 //   （类型↔注册表↔schema），不查消费侧；coverage-report 只报「规则有没有触发」，不报
 //   「fact 有没有规则引用」。本检查补这个面：
-//     ① 从 infra/56-battle-enums.js 取 FACT_TYPES 全表；
+//     ① 从 infra/106-battle-enums.js 取 FACT_TYPES 全表；
 //     ② 引擎侧引用（core/+modules/ 里 push/factType 行）= 发射面；
 //     ③ 体检侧消费（tests/health-rules/ 规则 + stat-decl 契约）= 盯梢面；
 //     ④ 渲染侧登记（render/ 的 registerFactRenderer）= UI 面（只报告，不算盯梢）；
@@ -48,7 +48,7 @@ import { judgeSample, checkThreshold, selfCheck } from './_lib/sample-sufficienc
 import { auditSlice, soloBlockKeys, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 // 真值口径的枚举来源：与 fact-emission-census 同一取法（直接 import 对象，不做文本切片）。
 //   两套自称同源的面（本文件的文本切片 vs 这个 import）若不一致，就是取样面口径错位 —— 本轮要显形的对象。
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES } from '../infra/106-battle-enums.js';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -72,7 +72,7 @@ function walk(dir, exts, out = []) {
 }
 
 // ① FACT_TYPES 全表
-const enumsSrc = readFileSync(path.join(ROOT, 'infra/56-battle-enums.js'), 'utf8');
+const enumsSrc = readFileSync(path.join(ROOT, 'infra/106-battle-enums.js'), 'utf8');
 const factBlock = enumsSrc.slice(enumsSrc.indexOf('FACT_TYPES'), enumsSrc.indexOf('MECHANIC_TYPES'));
 const FACT_KEYS = [...factBlock.matchAll(/([A-Z][A-Z0-9_]+)\s*:\s*'([^']+)'/g)].map(m => ({ key: m[1], val: m[2] }));
 

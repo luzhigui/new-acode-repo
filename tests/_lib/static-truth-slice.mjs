@@ -80,7 +80,11 @@
 //   forcesOfEntry）—— 第 172 轮把这三件套收口为 tests/_lib/forced-case-normalize.mjs 唯一来源，
 //   fact-emission-census / stat-decl-vs-actual-check / rules-replay 三处内联副本真消失 ⇒ expect:false。
 //   ★ 与第 171 轮 hasActiveBuff 同一写法：只增凭证、不动判据，DUP_FN_RATCHET 仍为 4 未抬。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.6.0';
+// V1.7.0 | 2026-11-01 夜间第 172 轮(吸收后)：⑲ DUP_WITNESS 自证下界从「identical ≥ 2」收到「≥ 1」。
+//   原下界是 nightly 收口前的旧假设（hasActiveBuff/permHas/normalizeForces 等还在册，真实 identical ≥2 组）；
+//   171/172 收口核销后 tests 下逐字相同副本只剩 fail×3 一组，硬 ≥2 假红。新下界与「仍在册 expect:true
+//   的逐字重复组数」对齐：至少点出 1 组证明检测器没失灵，0 组才判覆盖面塌（届时须把 fail 也翻 expect:false）。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.7.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -791,8 +795,10 @@ function runSelfChecks(fails) {
                 fails.push('auditDupFnNames 又把已核销的重复函数 ' + w.name + ' 点出来了（核销依据：' + w.why + ' ⇒ 要么重复回归、要么当初核销是误判，两边都要查）');
             }
         }
-        if (d9.identical.length < 2) {
-            fails.push('auditDupFnNames 逐字重复只点出 ' + d9.identical.length + ' 组（应 ≥ 2）⇒ 重复检测覆盖面塌了');
+        // ★ 下界与「仍在册 expect:true 的逐字重复」对齐：nightly 171/172 收口后 tests 下真实 identical
+        //   只剩 fail×3 一组（parentDmgOf 落在 sameNameOnly 异体桶，不计入此口径）。0 组才判覆盖面塌。
+        if (d9.identical.length < 1) {
+            fails.push('auditDupFnNames 逐字重复只点出 ' + d9.identical.length + ' 组（应 ≥ 1）⇒ 重复检测覆盖面塌了');
         }
     } catch (e) {
         fails.push('auditDupFnNames 自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 跨文件重复函数的守卫已失效');

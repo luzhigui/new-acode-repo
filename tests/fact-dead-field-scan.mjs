@@ -89,7 +89,7 @@ function maskOf(f) {
 function factConstMap() {
     const m = new Map();
     try {
-        const txt = fs.readFileSync('infra/56-battle-enums.js', 'utf8');
+        const txt = fs.readFileSync('infra/106-battle-enums.js', 'utf8');
         for (const mm of txt.matchAll(/([A-Z0-9_]+)\s*:\s*'([A-Za-z0-9_]+)'/g)) m.set(mm[2], mm[1]);
     } catch (e) { /* 读不到则退回猜名 */ }
     return m;
@@ -131,7 +131,7 @@ function triageOne(key, value, src, constMap, clean = false) {
     // 只看**发射点附近**（fact 常量所在行 ±12 行）的同名字段写法，避免把文件里别处的
     //   `type:` / `op:` 算进来（实测会把 dodge.type、unityApply.op 这类真常量错判成 B）。
     //   同一发射文件里该字段有 ≥2 种写法 ⇒ 不是结构常量（多分支 / 变量），一律进 B：
-    //   实证 core/04buff-system.js 的 isBrother 有 `false`（主分支 L266）与 `true`（兄线 L284）两支，
+    //   实证 core/204-buff-system.js 的 isBrother 有 `false`（主分支 L266）与 `true`（兄线 L284）两支，
     //   兄线永不触发 ⇒ 这正是挂账①「小昭兄永久海克斯从未转移」，绝不能按 A 降级放走。
     const near = [];
     const nearAll = [];   // 第 145 轮：含注释行的全量写法（用于标注"多写法是否来自注释"）
@@ -193,7 +193,7 @@ const EXEMPT_CONST = new Set([
 ]);
 
 // 候选① 白名单（永假布尔）：已知合法设计字段。
-//   skillAnnounce.line —— infra/58-fact-contract.js L33 明注「line:false 时不落行、只走 floatText 飘字」，
+//   skillAnnounce.line —— infra/107-fact-contract.js L33 明注「line:false 时不落行、只走 floatText 飘字」，
 //   当前样本全是飘字形态 ⇒ 永假是设计使然，不是死字段（第 112 轮首扫定性后登记）。
 const EXEMPT_BOOL = new Set(['skillAnnounce.line']);
 
@@ -215,21 +215,21 @@ function* walkFacts(nodes) {
 async function main() {
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
-    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
 
     
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
@@ -348,7 +348,7 @@ async function main() {
 //     ② triageOne 把**注释里出现的同名写法**也算成"第二种写法" ⇒ 本该 A 的候选被推去 B；
 //   两处都不修改既有分桶（切换 = 改既有结论 = 须拍板），只把口径、占比、差额摆到桌面上。
 function printTruthCaliber(src, constMap, candidates, buckets) {
-    const infraSrc = fs.readFileSync('infra/56-battle-enums.js', 'utf8');
+    const infraSrc = fs.readFileSync('infra/106-battle-enums.js', 'utf8');
     const A = truthCaliberAudit(infraSrc, constMap, candidates);
     const selfFails = truthSelfCheck();
     console.log('\n--- 取样面口径审计（第 145 轮新增 · 走 tests/_lib/static-truth-slice.mjs V1.0.0）---');

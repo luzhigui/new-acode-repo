@@ -27,7 +27,7 @@ globalThis.window = globalThis;
 globalThis.self = globalThis;
 
 // --- fact 契约警告收集（V6.4.0）---
-// infra/58-fact-contract.js 的 validateFactContract 在缺字段时打 console.error，
+// infra/107-fact-contract.js 的 validateFactContract 在缺字段时打 console.error，
 // 但回放器此前不收集 → 契约违规只是控制台噪声，五件套全绿也看不到。
 // 劫持 console.error 只收 [fact契约] 前缀，按 type|field 去重，计入不变量违规与退出码。
 const factContractWarns = new Map(); // key: "type|field" -> count
@@ -59,7 +59,7 @@ export const VER = 'tests/rules-replay.mjs V6.11.0';
 //     ② 加 forceWei 后 140 场**场场有韦一笑**，WEI_LEECH 2004 条、heal>0 1474 条，
 //        其中 **77 条 maxHpDelta!==heal**，小数上限观测 1717 次 ⇒ 缺陷**仍在**，是样本被裁不是已修复。
 //   ⇒ 按自检给出的第三种处置「样本被裁或数据源错位则修」处理：**补样本**，不收缩基线、不放宽判据。
-//   主代码开关依据：modules/29battle-init.js L140 / L151（forceWei → pushElite(isWei)）。
+//   主代码开关依据：modules/330-battle-init.js L140 / L151（forceWei → pushElite(isWei)）。
 // V6.8.0 | 2026-10-30 第 159 轮：新增「定向覆盖场次」（DIRECTED_CASES），规则恒空转 3 条 → 0 条。
 //   动因：124rule-recipes.js 把四条小昭规则登记成「随机精英，**无法强制**，需连打多局碰出」——
 //     这句 know-how 已过期（主代码 29battle-init L245-262 的 forceXiaoZhao 开关一直在）
@@ -77,39 +77,39 @@ const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoun
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
     { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES },
     { tickAndPickBuffs: _sharedTickAndPickBuffs }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../render/30-fact-renderer.js'),
-        import('../modules/24battle-store.js'),
-        import('../core/17-state-keys.js'),
-        import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js'),
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../render/401-fact-renderer.js'),
+        import('../modules/306-battle-store.js'),
+        import('../core/218-state-keys.js'),
+        import('../infra/104-global-store.js'),
+        import('../infra/106-battle-enums.js'),
         import('./_lib/buff-picker.mjs')
     ]);
-// carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
+// carry 候选判据与主代码同口径：直接复用 modules/329-buff-tools.js 的 hasCarryTarget
 //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
-const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
 // 精英组件需先注册（initBattleTeams 依赖其组件安装）
-await import('../modules/25elite-imperial.js');
-await import('../modules/26elite-sixsects.js');
-await import('../modules/27elite-mingjiao.js');
+await import('../modules/307-elite-imperial.js');
+await import('../modules/308-elite-sixsects.js');
+await import('../modules/317-elite-mingjiao.js');
 // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
 //   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，回放开局即崩（同 tools/116 的坑）。
-await import('../modules/30custom-effects.js');
+await import('../modules/331-custom-effects.js');
 // DOM 无关的 hook 运行时错误通道（V6.5.0）：页面端靠 modules/21 劫持 console.error 弹弱面板，
 //   node/worker 无 DOM，这里开局清零，跑完读计数——任何监听器抛错都计入退出码，不再被静默吞掉。
-const { eventBus } = await import('../infra/50-event-bus.js');
+const { eventBus } = await import('../infra/101-event-bus.js');
 eventBus.resetErrorTracker();
 await loadGameData();
-// 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+// 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 await loadHexEnhanceData();
 // 不变量用：查询某 factType 是否**注册了**渲染器（render/33:72）。
 // 注意别用"本次渲染有没有产出"当映射缺口判据 —— buffSummary/mindControlBanner 都有注册渲染器
 // （render/35:498/511），只是在无 buff / 无条件时合法地渲染为空（首版据此误报 929 条）。
-const { getFactRenderer, allFactRenderers } = await import('../render/33-fact-registry.js');
-const { FACT_SPECS } = await import('../infra/58-fact-contract.js');
+const { getFactRenderer, allFactRenderers } = await import('../render/406-fact-registry.js');
+const { FACT_SPECS } = await import('../infra/107-fact-contract.js');
 // 注册一致性（V6.5.0）：render/33 的 validateRegistry 只 console.error、不影响退出码，
 //   「死注册」（如 FLYER_REGEN 曾漏登 58）会被五件套漏掉。注册副作用现已完成，对**渲染器层**
 //   做一次双向核对：① 58 声明 renderFn 但 33 没人注册（声明了不实现）；② 注册了但 58 无 spec（死注册）。
@@ -153,7 +153,7 @@ const NOBUFFS = process.env.NOBUFFS === '1';
 //   场次循环结束再复位一次，绝不让 GlobalStore 泄漏到后续场次或其他体检入口。
 //   ★ 动因（本轮最重要的取证）：tests/124rule-recipes.js 里四条小昭规则被登记为
 //     「小昭为随机精英，**无法强制**，需连打多局碰出」（L16 / L17 / L18 / L19 / L70）—— 这句 know-how **已过期**：
-//     主代码 modules/29battle-init.js L245-262 就有 GlobalStore 'forceXiaoZhao'（取值 'sister' / 'brother'），
+//     主代码 modules/330-battle-init.js L245-262 就有 GlobalStore 'forceXiaoZhao'（取值 'sister' / 'brother'），
 //     tests/xiaozhao-brother-leech-case.mjs 与体检对照器（自第 158 轮）都已在用它。
 //     「以为不能强制」直接导致依赖小昭形态的规则常年零执行：本轮改前 160-spider-transform-mastery
 //     与 129-spider-fly-count 在 140 场里 **pass=0 fail=0 skip=140**，规则恒空转自检常年挂红。
@@ -195,7 +195,7 @@ const DIRECTED_CASES = [
 // --- 团队海克斯 Buff 注入 ---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
 //   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
-// 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/49battle-flow.js 的全自动选 Buff
+// 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/512-battle-flow.js 的全自动选 Buff
 //   口径（过滤已有 key 与 BUFF_ROLE_REQUIREMENTS 的职业要求，duration 取 buff 自带或 BUFF_DURATION）。
 //   每回合递减 remaining（过期淘汰），每 3 回合为明教/六大派各补选一个（与 player/42 的
 //   `round % 3 === 0` 补选节奏一致），并按「已选轮次」轮转键名，让 11 个 Buff 都能轮到。
@@ -408,7 +408,7 @@ function runCase(seed, stage, forces) {
     const ctx = {
         gs: 'GAMEOVER', currentStage: stage,
         activeBuffs: battleState.activeBuffs || [],
-        // 开局快照：语义务必取自 ui/61main-5v5-test.js:392-393 的注释 ——
+        // 开局快照：语义务必取自 ui/702-main-5v5-test.js:392-393 的注释 ——
         //   「战斗进行中 snapshot 不反映当前态」、snapshot.enemy 是 Object.freeze 的定稿。
         //   故这里喂**开战定稿**（beforeA/beforeE），**不是**终局单位 —— 喂终局会伪造口径。
         //   补充动机：回放原先根本没造 snapshot，导致 134/139 里依赖它的判据全程静默不执行

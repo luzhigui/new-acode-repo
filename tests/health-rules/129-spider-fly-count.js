@@ -1,4 +1,4 @@
-// 回归规则：小昭妹妹飞天免疫次数 — 每单位每场限 3 次（27elite-mingjiao.js 的 state._spiderRemaining||3）
+// 回归规则：小昭妹妹飞天免疫次数 — 每单位每场限 3 次（317-elite-mingjiao.js 的 state._spiderRemaining||3）
 //   计数口径：每次飞天由 core/17 将 _spiderRemaining = Math.max(0, 原值-1) 扣减，故首飞剩 2、终飞剩 0，且永不为负。
 // 复发信号（三层）：
 //   1) 单单位飞天超过 3 次（次数未正确递减 / 飞天误触发）；
@@ -10,7 +10,7 @@
 //
 // 优化（V6.1.15，第 8 趟）：修「整条规则恒空转」—— 数据源与 132/133 同源同病。
 //   实测（120 场）：战报顶层「🕷️ 飞天」命中 **0**，摊平到 attack-group 的 entries 后命中 **74**（52 场）。
-//   根因：飞天那条不是独立顶层条目，而是由 render/34-facts-attack.js L231-233 在**免疫攻击组**
+//   根因：飞天那条不是独立顶层条目，而是由 render/407-facts-attack.js L231-233 在**免疫攻击组**
 //   （renderImmuneFact 的 immuneGroup）里 `entries.push(getFactRenderer(SPIDER_FLY)(fact.flyData))`
 //   挂成子条目的（顶层只有 immuneGroup 自身，而它不带 .text）。旧写法 `if (!e.text) continue`
 //   把所有攻击组直接跳过 → 120 场一次都没真正跑过。
@@ -27,7 +27,7 @@ export const rule76 = {
     group: '精英技能回归',
     name: '小昭妹飞天免疫次数超限(回归)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
-        var cap = 3; // 与 27elite-mingjiao.js 的 _spiderRemaining||3 一致（每单位每场限 3 次）
+        var cap = 3; // 与 317-elite-mingjiao.js 的 _spiderRemaining||3 一致（每单位每场限 3 次）
         var perUnit = {}; // uid -> { count, lastRem }
         var nodes = collectNodes(log);
         for (var j = 0; j < nodes.length; j++) {

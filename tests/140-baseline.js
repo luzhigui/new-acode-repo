@@ -58,17 +58,17 @@ async function main() {
     // mock 已就绪，动态加载引擎（顶层 import 会先于 mock 求值，故不能用静态 import）
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
            { CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../infra/56-battle-enums.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../infra/106-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
 
-    // carry 候选判据与主代码同口径：直接 import modules/28buff-tools.js 的 hasCarryTarget 复用，
+    // carry 候选判据与主代码同口径：直接 import modules/329-buff-tools.js 的 hasCarryTarget 复用，
     //   不另写一份（避免与主代码漂移）。「carry 位」= 5 号；小昭·姊在场放宽 4/5/6；全空则 carry 不进候选。
-    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
     // 团队 Buff 注入（V1.5.0 新增）—— 复刻自 tests/rules-replay.mjs L113-143 的 tickAndPickBuffs。
     //   该函数是回放器本地函数、不可导入（rules-replay.mjs 属他人并行维护，不改它）。
     //   口径一致：seed/round 确定性轮转，**不消耗战斗 RNG**，故不改变战斗随机序列、结果可复现。
@@ -77,14 +77,14 @@ async function main() {
 
     
     // 精英模块副作用注册（createRoundStepper 的 getEliteFactories 依赖）
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
     // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
     //   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，基线开局即崩（同 tools/116 的坑）。
-    await import('../modules/30custom-effects.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData(); // CONFIG getter/精英机制都依赖 gameData
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;

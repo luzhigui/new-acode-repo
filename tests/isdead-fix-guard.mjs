@@ -30,12 +30,12 @@ globalThis.self = globalThis;
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
-import { createRoundStepper } from '../core/11battle-round.js';
-import { initBattleTeams } from '../modules/29battle-init.js';
+import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
+import { SeededRNG } from '../infra/102-core-utils.js';
+import { createRoundStepper } from '../core/210-battle-round.js';
+import { initBattleTeams } from '../modules/330-battle-init.js';
 import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES } from '../infra/106-battle-enums.js';
 
 const VER = 'tests/isdead-fix-guard.mjs V1.0.1';
 const argv = process.argv.slice(2);
@@ -68,13 +68,13 @@ function uidOf(fact) {
 }
 
 async function main() {
-    await import('../modules/20elite-skills.js');
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/302-elite-skills.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
     const trueHits = [];                 // isDead===true 的命中明细

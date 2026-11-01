@@ -1,5 +1,5 @@
 // 回归规则：空见「金刚不坏 / 逗你玩」免疫护罩机制 — 次数纪律 + 升级时机 + 消费 sanity
-// 机制源（modules/26elite-sixsects-kongjian.js createKongJianComponent）：
+// 机制源（modules/316-elite-sixsects-kongjian.js createKongJianComponent）：
 //   五个条件各触发一次（开局/友方受伤/友方阵亡/自身受伤/自身血量≤lowHpThreshold），
 //     触发只入待发队列 _kongJianPending（开局条件直接发）；
 //   AFTER_ATTACK 统一 flush → grantOneShield 给随机一名「存活且无护罩」友方施加一次免伤护罩
@@ -22,7 +22,7 @@
 //   - 空见阵亡即时 flush pending（selfDead 分支逐个人工 +1 再 checkUpgrade），计数仍严格递增，不影响判据；
 //   - 免伤消费允许 ≤ 加持（单位带罩阵亡则罩永不消费），只抓「消费>加持」的越界。
 export const VER = 'tests/health-rules/172-kongjian-jingang.js V1.0.0';
-import { getSkillParams } from '../../core/01config-5v5-test.js';
+import { getSkillParams } from '../../core/201-config-5v5-test.js';
 import { entryTextsDeep, plain } from '../122health-utils.js';
 
 export const rule172 = {

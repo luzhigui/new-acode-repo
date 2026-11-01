@@ -21,16 +21,16 @@
 //   · 过滤：已有 key / carry 需有 carry 目标（hasCarryTarget）/ BUFF_ROLE_REQUIREMENTS 职业门槛
 //   · HOLY_FLAME（圣火令）需 cols/rows；核心引擎只给明教重算，敌方快照得自带
 //   · 妹永久海克斯继承（V6.7.2，2026-10-24 第 122 轮）：明教侧新 Buff 给存活妹塞一份
-//     remaining=Infinity 永久副本（带查重）——对齐 player/49battle-flow.js L49-57 真路径。
+//     remaining=Infinity 永久副本（带查重）——对齐 player/512-battle-flow.js L49-57 真路径。
 //     团队 Buff 4 回合过期后妹仍持有 ⇒ isXiaoZhaoPermanentActive 各分支可达
 //     （此前回放不建模 ⇒ 妹永久分支全不可达，isBrother=true 零发射实锤）
 //
 // 注意：tools/122-param-lab-core.js 另有一份**有意不合并**的变体（参数实验室自有口径：
 //   无 carry 门、自带永久处理）——tools/ 是独立域，不随本模块；若两域口径需对齐再单开轮次。
 
-import { CONFIG } from '../../core/01config-5v5-test.js';
-import { CAMP_TYPES, BUFF_TYPES } from '../../infra/56-battle-enums.js';
-import { hasCarryTarget } from '../../modules/28buff-tools.js';
+import { CONFIG } from '../../core/201-config-5v5-test.js';
+import { CAMP_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
+import { hasCarryTarget } from '../../modules/329-buff-tools.js';
 
 export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })

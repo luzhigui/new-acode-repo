@@ -1,5 +1,5 @@
 // 回归规则：第四关 BOSS 周芷若·九阴白骨爪 伤害/调血是否符合设计
-// 设计（content/200game-data.json 周芷若 mechanics[0] type=chainClaw；2026-09-29 单一真值源收口后
+// 设计（content/001-game-data.json 周芷若 mechanics[0] type=chainClaw；2026-09-29 单一真值源收口后
 //   这是唯一出处，core/01 的 DESC_TRUTH 也从这里取真值插值技能说明）：
 //   baseDmg=2（jealous.baseDmg=2，张无忌在场走 jealous 档）、lostHpRatio=0.015（按已损失生命）、
 //   maxHpRatio=0.01（按最大生命）、executeThreshold=0.15（斩杀线）、连锁 chainProcChance=0.8。
@@ -29,8 +29,8 @@
 export const VER = 'tests/health-rules/132-claw-damage.js V6.3.0';
 // 用 as 保留原调用名 collectNodes：调用点（下方遍历）不改，避免"改名漏改调用点"这类回归。
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
-import { getGameData } from '../../core/01config-5v5-test.js';
-import { MECHANIC_TYPES, FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { getGameData } from '../../core/201-config-5v5-test.js';
+import { MECHANIC_TYPES, FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 // 设计下限 floor（V6.2.0）：真心值在 content —— 张无忌在场走 jealous.baseDmg、否则 baseDmg
 //   （modules/26 chainClaw：`baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg`）。
@@ -151,7 +151,7 @@ export const rule79 = {
                     + '（减伤/回填写反，落地不可大于设计）' };
             }
             // 2.（已删除，第 21 轮）原判据「标记斩杀则目标血量应为 0」是**自相矛盾的伪判据**：
-            //    modules/26elite-sixsects.js:534 的斩杀定义就是
+            //    modules/308-elite-sixsects.js:534 的斩杀定义就是
             //      isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0
             //    —— 即"没被打死、但血量跌破阈值且仍 > 0"才叫斩杀。所以 isExecute 为真时
             //    hpAfter ≠ 0 是**设计使然**，该判据一复活就必然误报（实测 15/120 场全假红）。
@@ -159,7 +159,7 @@ export const rule79 = {
             //    不猜，记待确认：见体检迭代日志第 21 轮「报业务侧」。
             // 3. 连锁调血：同一目标「同一次连锁序列内」的伤害应按"已损失生命比例"递增（不可递减）。
             //    为什么必须限定在同一次序列内（V6.1.15 第 7 趟修正，旧写法一复活就误报 3/120 场）：
-            //    core/15-skill-mechanisms.js L358 的伤害 = baseHit + floor((已损失生命×lostHpRatio
+            //    core/216-skill-mechanisms.js L358 的伤害 = baseHit + floor((已损失生命×lostHpRatio
             //    + 最大生命×maxHpRatio)×10)/10。只要两次爪击之间目标**回过血**（九阳/快乐/热血/carry
             //    抬血上限等），已损失生命变小 → 伤害合法变小。实测 seed=6 stage=4：张无忌在两爪之间
             //    被九阳回血 17 点（血 62→79 再挨打回 55），于是 6.9→6.7，属设计使然而非回归。

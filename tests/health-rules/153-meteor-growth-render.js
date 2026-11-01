@@ -1,7 +1,7 @@
 // 回归规则：流星赶月「溅射成长」在战报里的渲染形态 —— 单位名 / 唯一性 / 成长量
 //
 // 立它的原因（第 43 轮实证，务必先读）：
-//   主代码 V6.0.3（core/16effect-handlers.js L175）补发了 METEOR_SPLASH_GROWTH fact（此前枚举/契约/
+//   主代码 V6.0.3（core/217-effect-handlers.js L175）补发了 METEOR_SPLASH_GROWTH fact（此前枚举/契约/
 //   渲染/翻译链早已接好却零 emit）。补发本身是对的，但**没有同步收口老的渲染出口**，导致两处旧疾：
 //     ① 老路径（core/16 L173 `decl.factData.growth = growth` → render/35 L143 挂在溅射行尾）里
 //        `fact.unitName` **从未被赋值**，渲染出 `⚡ undefined 攻击+8` —— 单位名长期显示为 undefined。

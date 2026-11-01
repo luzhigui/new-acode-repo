@@ -5,10 +5,10 @@
 //   mechanics[i] 顶层的 type 只是机制大类（如 dotTick / linkAttack）。内层没有才退回顶层。
 // 维护：新增 mechanics type、新字段或新 CONFIG 键时在这里补一条，没登记的类型/字段会退化成显示原文，不报错。
 
-import { getSkillDesc } from '../core/01config-5v5-test.js';
+import { getSkillDesc } from '../core/201-config-5v5-test.js';
 
 // V2.8.1 | 2026-10-31 | ~46022 bytes —— ENGINE_READ.spiderFly 删 xiaoZhaoDoubleStrikeChance（死字段：
-//   引擎零读取点，小昭·妹双连击真值走 201hex-enhance.json 的 brother.doubleStrike.chance；
+//   引擎零读取点，小昭·妹双连击真值走 002-hex-enhance.json 的 brother.doubleStrike.chance；
 //   守卫 param-read-guard 报「表陈旧」即此项，删表项=表与源码对齐）
 export const VER = 'tools/124-param-lab-glossary.js V2.8.1';
 
@@ -53,7 +53,7 @@ export { UNIT };
 //
 // 为什么要这张表：skills.params 是双用途的——同一个对象既供 desc 占位符插值（{xxx}），
 //   也可能被引擎 getSkillParams() 取出来算数；而 tools/120 是浏览器页面，只加载
-//   content/200game-data.json，看不到引擎 JS 源码，所以它自己永远无法判断某字段读没读。
+//   content/001-game-data.json，看不到引擎 JS 源码，所以它自己永远无法判断某字段读没读。
 //   唯一可靠出处是「代码里怎么用」——本表由静态扫描全仓 getSkillParams( 的调用点、
 //   逐个追踪返回对象的字段使用得出，就是把源码里的事实固化下来给工具用。
 //
@@ -115,10 +115,10 @@ export const ENGINE_READ = {
 //   会被误报「表陈旧」。已逐案人工追溯调用链确认真读的，登记在此；守卫比对时按「扫描结果 ∪ 本表」计算。
 //   登记义务：每条必须能在注释里给出「读取点文件:行 + 传递链」；传递链断了（helper 改名/删参）要同步删。
 // 现两条：
-//   spiderFly.hpThresholds —— modules/27elite-mingjiao-xiaozhao-brother.js L161/L320 `const fp = getSkillParams('小昭','spiderFly')`
+//   spiderFly.hpThresholds —— modules/323-elite-mingjiao-xiaozhao-brother.js L161/L320 `const fp = getSkillParams('小昭','spiderFly')`
 //     → L164/L324 `decideSpiderTier(..., fp)` → L25-26 `fp.hpThresholds[0]/[1]` 当飞天血量阈值（0.7/0.4）。
 //     （cfa2e10 小昭重写前是块内直读，V2.5.1 曾按直读登记；重写后改为参数传递，扫描器归不到 spiderFly 键上。）
-//   qianKunDerived.defToReduce —— modules/27elite-mingjiao-xiaozhao-sister.js L78/L140 `const s = getSkillParams('小昭','qianKunDerived')`
+//   qianKunDerived.defToReduce —— modules/322-elite-mingjiao-xiaozhao-sister.js L78/L140 `const s = getSkillParams('小昭','qianKunDerived')`
 //     → L80/L148 `calcQianKunReduce(dmg, defStat, s)` → L14 `s.defToReduce` 算乾坤衍生减伤分母。
 //     （defToHeal/defToAtk 是块内直读，扫描器能看见，故仍留在 ENGINE_READ；defToReduce 走 helper 传参，扫描器看不见。）
 export const ENGINE_READ_MANUAL = {
@@ -183,7 +183,7 @@ export function isUnreadSkillGroup(skillKey) {
 // 镜像对照表（2026-09-29 建，同日收口后退役为空表）。
 //   历史用途：skills.<键>.params 里这些字段与战斗参数（mechanics）里的等价数值是同一个数，
 //   渲染层只显示战斗参数那一份、技能面板那份跳过，免得同一数值在表里出现两行。
-//   为什么清空：这批「两处登记」的死副本已从 content/200game-data.json 整个删除 —— 同一数值现在
+//   为什么清空：这批「两处登记」的死副本已从 content/001-game-data.json 整个删除 —— 同一数值现在
 //   只有一处真值（mechanics），不再需要跳过任何一份。本表留空；将来若又出现两处登记，就在此重新
 //   登记，tests/health-rules/156-desc-truth-drift.js 与 tests/param-read-guard.mjs 会同步报警。
 export const MIRRORED_SKILL_FIELDS = {};

@@ -1,7 +1,7 @@
 // 回归规则：姐姐附身属性叠加 — 修复后基于 _baseAtk/_baseDef 转移，不重复计算 Buff
 // 复发信号：附身转移值 atkTransfer/defTransfer != 方向对应基础值份额（含 Buff 加成，回退到直接操作 atk/def）
 // 对应已修 Bug：姐姐附身属性叠加（直接操作 atk/def 导致 Buff 重复计算）
-import { getSkillParams } from '../../core/01config-5v5-test.js';
+import { getSkillParams } from '../../core/201-config-5v5-test.js';
 
 export const VER = 'tests/health-rules/127-butterfly-stack.js V6.1.12';
 
@@ -42,7 +42,7 @@ export const rule74 = {
         }
         if (!sister) return 'skip';
         // 字段路径修正（第 22 轮）：_baseAtk/_baseDef **不在单位顶层**，在 `unit.state` 下 ——
-        //   core/02unit.js:177 `this.state._baseAtk = this.atk`；core/13:89 取用时写的也是 unit.state._baseAtk。
+        //   core/202-unit.js:177 `this.state._baseAtk = this.atk`；core/13:89 取用时写的也是 unit.state._baseAtk。
         //   原写法读顶层 → 恒 undefined → 本规则 120 场**全部**卡在这条 skip（恒 skip 空转）。
         var st = sister.state || {};
         var baseAtk = st._baseAtk, baseDef = st._baseDef;

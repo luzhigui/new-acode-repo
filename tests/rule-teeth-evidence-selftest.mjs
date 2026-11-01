@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/rule-teeth-evidence-selftest.mjs | V1.0.2 | 2026-10-26 第142轮（吸收夜检138 · 前版 V1.0.1@第133轮）
+// tests/rule-teeth-evidence-selftest.mjs | V1.0.3 | 2026-11-01（断言⑦加单条聚合度峰值硬上限 SINGLE_AGG_CAP，堵“合并分支骗过总数”绕过；报告增严重度标注 · 前版 V1.0.2@第142轮）
 // 补断言⑧结果新鲜度闸门：直接调 mutation-teeth --report 人机关口，陈旧即 EXIT 1，七条断言全绿也拦下
 //
 // 盯的是**牙口取证结论配不配得上当前代码**（证据链 · 分支级）。
@@ -67,6 +67,8 @@ const MIN_EVID_MSGS = 400;    // 证据 msg 条数
 const MIN_PARSE_RATE = 0.95;  // 证据可解析率（能匹配到当前静态指纹的比例）
 const MIN_TEETH_BITTEN = 15;  // 变异树证出有牙的分支数
 const MAX_AGG_BRANCHES = 6;   // 聚合型分支数（棘轮：只许收缩，详见断言⑦）
+const SINGLE_AGG_CAP = 20;    // 单条聚合度硬上限（防“合并分支骗过总数”的绕过：把多条聚合分支并成 1 条超大分支，
+                              //   总数可降到 6 以内转绿，但单条黑洞反而更严重；166 当前已 19，留 1 档缓冲）
 
 // --- 牙口证据腐烂白名单（棘轮：只许收缩）---
 // 每条 = 证据里**对不上当前静态分支指纹**的 (规则名|归一化msg)。
@@ -256,13 +258,23 @@ function main() {
             ' ⇒ 日常样本里它在咬，变异树却没证到它 ⇒ 两套口径已分叉，必有一套是假的'));
     }
 
-    // ⑦ 聚合型分支棘轮（只许收缩）：本轮实测 6 条，最严重的 166 一条指纹承载 7 种子病因
-    if (aggBranches.length > MAX_AGG_BRANCHES) problems.push(fail('聚合型分支数涨到 ' + aggBranches.length +
-        ' 条（上限 ' + MAX_AGG_BRANCHES + '，棘轮只许收缩）⇒ 新出现的聚合型判据会把多种子病因' +
-        '塞进一条指纹，掉其中任何一种都看不出来。须把子病因拆成各自独立的 fail 分支'));
-    // ★ 单条聚合度只作**取证信息**输出、不判红：拆不拆、怎么拆属规则设计决策，须由用户拍板
-    //   （拆了会改动 158 条分支的计数口径与既有基线的键，本自检不擅自替用户做这个决定）。
+    // ★ 单条聚合度峰值（最严重那条）先算：断言⑦双闸与报告段都要用（须置于断言⑦之前，避免 TDZ）
     const worstAgg = [...aggBranches].sort((a, b) => b[1].size - a[1].size)[0];
+
+    // ⑦ 聚合型分支棘轮（只许收缩）：本轮实测 6 条，最严重的 166 一条指纹承载 7 种子病因
+    //   ★ 双闸：总数超限 OR 单条峰值超限。后者堵“合并分支骗过总数”的绕过——
+    //     有人把多条聚合分支并成 1 条超大分支，总数可降到 6 以内转绿，但单条黑洞反而更严重。
+    const aggTotalOver = aggBranches.length > MAX_AGG_BRANCHES;
+    const aggPeakOver = worstAgg && worstAgg[1].size > SINGLE_AGG_CAP;
+    if (aggTotalOver || aggPeakOver) {
+        let why = '聚合型分支';
+        if (aggTotalOver) why += '数涨到 ' + aggBranches.length + ' 条（上限 ' + MAX_AGG_BRANCHES + '，棘轮只许收缩）';
+        if (aggPeakOver) why += (aggTotalOver ? '；' : '') + '单条聚合度峰值达 ' + worstAgg[1].size
+            + ' 种（上限 ' + SINGLE_AGG_CAP + '，堵“合并分支骗过总数”的绕过：把多条并成 1 条超大分支，总数可压到 6 内转绿但黑洞更严重）';
+        problems.push(fail(why + ' ⇒ 多种子病因塞进一条指纹，掉其中任何一种都看不出来。须把子病因拆成各自独立的 fail 分支'));
+    }
+    // ★ 单条聚合度原则上只作取证信息输出；仅当超过硬上限 SINGLE_AGG_CAP 时才作为防绕过双闸判红。
+    //   拆不拆、怎么拆属规则设计决策，须由用户拍板（拆了会改动 158 条分支的计数口径与既有基线的键，本自检不擅自替用户做这个决定）。
 
     // --- 报告 ---
     console.log('  · 证出有牙分支 ' + byRuleFp.size + ' 条（棘轮下限 ' + MIN_TEETH_BITTEN + '）：');
@@ -274,9 +286,13 @@ function main() {
         console.log('      ⚠️ ' + r.rule + '  「' + r.norm.slice(0, 60) + (r.norm.length > 60 ? '…' : '') + '」×' + r.n);
     }
     console.log('  · 聚合型分支（一条指纹承载 ≥2 种子病因 ⇒ 掉其中任何一种都看不出来）' + aggBranches.length +
-        ' 条 / 棘轮上限 ' + MAX_AGG_BRANCHES +
+        ' 条 / 棘轮总数上限 ' + MAX_AGG_BRANCHES + ' / 单条峰值上限 ' + SINGLE_AGG_CAP +
         (worstAgg ? '，最严重 ' + worstAgg[1].size + ' 种：' + worstAgg[0] : '') + '：');
-    for (const [k, s] of aggBranches) console.log('      ⚠️ ' + k + '  承载 ' + s.size + ' 种子病因');
+    const sortedAgg = [...aggBranches].sort((a, b) => b[1].size - a[1].size);
+    for (const [k, s] of sortedAgg) {
+        const sev = s.size >= 10 ? '严重黑洞·优先拆' : (s.size >= 4 ? '需拆' : '观察');
+        console.log('      ⚠️ ' + k + '  承载 ' + s.size + ' 种子病因 [' + sev + ']');
+    }
     console.log('  · 证据规模：变异体 ' + mutBlocks.size + ' / 有牙证据条目 ' + evid.length + ' / 证据 msg ' + totalMsg +
         '；可解析 ' + parsedMsg + ' 条（' + (parseRate * 100).toFixed(1) + '%）');
     console.log('  · 运行时有牙基线 ' + BITTEN_BASELINE.length + ' 条，其中被牙口证据佐证 ' +

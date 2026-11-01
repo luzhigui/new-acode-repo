@@ -3,7 +3,7 @@
 //   ② 取消如沐春风（删「队友行动后回 8% 已损失生命」分支）
 //   ③ 生生不息溢出转嫁（张三丰满血时，回不满的部分转给己方 hp/maxHp 最低的存活单位）
 // 口径前提（回放侧保真度，rules-replay.mjs V6.1.24 同步修正）：
-//   - 张三丰属六大派（content enemySquads / elitePool，组件在 modules/26elite-sixsects.js），是敌方单位，
+//   - 张三丰属六大派（content enemySquads / elitePool，组件在 modules/308-elite-sixsects.js），是敌方单位，
 //     扫 afterE；其「严阵以待」是自身专属（modules/26 直接 addMod group:fortify，不走 camp applyFortifyBonus）。
 //   - 回放器只给明教注入团队 Buff（player/49 handleBuffSelection 默认 camp=ALLY，单机生产口径），
 //     故「严阵以待：张三丰」这条摘要的产出点唯一 = 张三丰自身组件；若回放恢复双方注入，
@@ -12,7 +12,7 @@
 //     round-start 条目之后出现，按"当前回合"归因可靠（ally-only 批次实测 19/19 场首现回合全=6）。
 export const VER = 'tests/health-rules/141-zhangsanfeng-fortify-round.js V6.1.26';
 
-import { getSkillParams } from '../../core/01config-5v5-test.js';
+import { getSkillParams } from '../../core/201-config-5v5-test.js';
 
 export const rule88 = {
     group: '精英技能回归',
@@ -37,7 +37,7 @@ export const rule88 = {
         //     取不到配置即判定为"无法断言"（modules/26:44 自身也会 throw，属配置缺失，非本规则职责）
         var expectedRound = null;
         try {
-            // 注意口径（core/01config-5v5-test.js:24-28）：getSkillParams 返回的**就是** params 对象
+            // 注意口径（core/201-config-5v5-test.js:24-28）：getSkillParams 返回的**就是** params 对象
             //   本身（`return skill?.params`），不是 `{name,desc,params}` 外层壳 —— 与 modules/26:43-44
             //   的 `tf.round` 同款写法，别再套一层 .params（首版就套错，取不到值 → 全场 skip 空转）
             var tf = getSkillParams('张三丰', 'tenRoundFortify');

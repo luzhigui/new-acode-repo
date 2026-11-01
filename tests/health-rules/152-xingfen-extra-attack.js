@@ -1,5 +1,5 @@
 // 回归规则：宋青书「性奋」授予/消耗的配额守恒 — 每回合最多授予 1 次、消耗 1 次，且消耗不得多于授予
-// 机制（core/15-skill-mechanisms.js L476-523、L546-595）：
+// 机制（core/216-skill-mechanisms.js L476-523、L546-595）：
 //   · 授予 applyXingFenGrant（ON_ROUND_START）：周芷若与宋青书**均存活**才 `_xingFenActive = true`，
 //     并 push XING_FEN_GRANT → 渲染「💗 性奋：宋青书 受周芷若激励，本回合每次攻击后可再次攻击！」
 //   · 消耗 submitXingFenExtra（AFTER_ATTACK，攻击命中后）/ submitXingFenRetry（AFTER_MISS，miss 后）：

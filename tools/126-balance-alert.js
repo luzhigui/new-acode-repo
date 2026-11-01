@@ -11,7 +11,7 @@ export const VER = 'tools/126-balance-alert.js V3.7.1';
 //           hexStatsOf / hexPairIssues 里 l 为 null 会分别在 l.winner / l.buffs 上抛 TypeError 整个告警面板崩掉；
 //           跳过脏条目继续统计，不再让一条 null 拖死全表。
 
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './127-tool-registry.js';
 // 规则八（V2.6.0）：拿真实对局和模拟跑批对照。52 是纯函数模块（只读 localStorage、无 DOM 副作用），可安全引入。
 import { getHeroAggregates, getCareerInsights, getHexWinRates, getCareerModeCounts } from './52-career-log.js';

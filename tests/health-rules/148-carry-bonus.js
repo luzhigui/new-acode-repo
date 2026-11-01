@@ -1,5 +1,5 @@
 // 回归规则：carry「你就是carry」五号位队友属性加成 — 此前完全没有体检项盯这条链路。
-// 机制源（core/14buff-effects.js calcCarryBonus_Normal / _Sister，core/04buff-system.js L34-42 应用）：
+// 机制源（core/215-buff-effects.js calcCarryBonus_Normal / _Sister，core/204-buff-system.js L34-42 应用）：
 //   - 门控：单位存活、**非小昭·姊/弟**；站位 = 5 号位（有小昭·姊出阵时放宽到 4/5/6）——2026-10-12 起拒马也在此范围内（吃加成）
 //   - 公式（对每个「队友」= 同阵营除自己外的单位，逐个累加；2026-10-12 起拒马也计入——core/14 去掉 !u.isHorse）：
 //       mult      = 队友存活 ? 1 : CONFIG.BUFFS.carry.deathMultiplier   （配置值 2，即"死亡队友双倍"）
@@ -42,8 +42,8 @@
 export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.28';
 import { plain } from '../122health-utils.js';
 
-import { CONFIG } from '../../core/01config-5v5-test.js';
-import { getStat } from '../../core/13battle-shared.js';
+import { CONFIG } from '../../core/201-config-5v5-test.js';
+import { getStat } from '../../core/214-battle-shared.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 147 同款处理）
 function carryCfg() {

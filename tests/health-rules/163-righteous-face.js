@@ -1,5 +1,5 @@
 // 回归规则：正义国字脸·叠防数值（ATTACK fact 的 data.pangDefGain）
-// 机制源（modules/26elite-sixsects.js L334 addMod def，group:'righteousFace'；L365 把 defGain 写进本击
+// 机制源（modules/308-elite-sixsects.js L334 addMod def，group:'righteousFace'；L365 把 defGain 写进本击
 //   ATTACK fact 的 data.pangDefGain，render/38 据此产 STAT_CHANGE(def) 飘「🛡+N」）。
 // 此前该 group 只有对照器（stat-decl RIGHTEOUS_FACE）盯"声明==实际"，规则侧看不到——
 //   pangDefGain 挂在攻击 fact 嵌套数据里，规则只看渲染文案根本看不见。2026-10-08 Step 0 后规则能读
@@ -13,8 +13,8 @@
 //   3) 带 pangDefGain 的攻击 attacker 非胖远桥 → 字段串味
 // 误报规避：本场无带 pangDefGain 的 ATTACK fact 直接 skip；config 取不到就跳过对应判据。
 export const VER = 'tests/health-rules/163-righteous-face.js V1.0.0';
-import { getSkillParams } from '../../core/01config-5v5-test.js';
-import { FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { getSkillParams } from '../../core/201-config-5v5-test.js';
+import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule110 = {
     group: '数值回归',

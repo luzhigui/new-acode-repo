@@ -8,15 +8,15 @@
 //   浏览器体检页是独立模块域，这里异步预热一次 loadGameData（core/01 有缓存，只拉一次）。
 export const VER = 'tests/health-rules/157-mechanic-install-reconcile.js V1.1.0';
 
-import { getGameData, loadGameData } from '../../core/01config-5v5-test.js';
-import { buildMechanicDeclarations, validateMechanicDeclarations } from '../../core/15-skill-mechanisms.js';
+import { getGameData, loadGameData } from '../../core/201-config-5v5-test.js';
+import { buildMechanicDeclarations, validateMechanicDeclarations } from '../../core/216-skill-mechanisms.js';
 // 注册副作用：全部顶层 type（chainClaw/kuLian/xinHun/xingFen/dotTick/damageReflect/linkAttack/
 //   followAttack/phantomDisguise）的 handler 由 modules 模块顶层副作用注册进 core/18。
 //   宿主（体检页/回放器）若没装它们，hasMechanicHandler 会误判"未注册"，故本规则显式 import 自足
 //   （ES 模块缓存去重，与宿主已加载的是同一份）。
-import '../../modules/25elite-imperial.js';
-import '../../modules/26elite-sixsects.js';
-import '../../modules/30custom-effects.js';
+import '../../modules/307-elite-imperial.js';
+import '../../modules/308-elite-sixsects.js';
+import '../../modules/331-custom-effects.js';
 
 // 浏览器体检域异步预热（node 回放器在跑规则前已同步加载过，这里 catch 防未捕获 rejection）
 loadGameData().catch(() => {});

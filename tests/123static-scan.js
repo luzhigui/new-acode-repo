@@ -1,14 +1,14 @@
 // 不跑游戏，直接 fetch 核心文件做结构性检查：
-//   1. 枚举 import 缺失：代码使用了枚举常量（infra/56-battle-enums.js 导出的 13 个）但 import 行缺失
+//   1. 枚举 import 缺失：代码使用了枚举常量（infra/106-battle-enums.js 导出的 13 个）但 import 行缺失
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 //   3. 枚举成员未定义：ENUM.KEY 被引用但 infra/56 的枚举表里没有该键（运行时恒 undefined ⇒ 分支静默失效）
 //   4. 去锚定化残留：render/特效层若重新出现已废弃的 fxAnchors 字段即报红（防去锚定化重构回潮）
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
-// 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// 2026-09-24 补登 core/207-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
 // V1.4.9 | ~35000 bytes | 2026-10-26 第 143 轮吸收夜间140：新增第四类「枚举成员未定义」（parseEnumMembers 现场解析 infra/56 为唯一来源 + scanEnumMemberRefs + 三条自证断言），专抓「ENUM.KEY 被引用但键不存在」的静默死分支（正是上游 5818419a 用 BUTTERFLY 顶掉 JAVELIN 的 P0 形态）；回填 158 注册项
 export const VER = 'tests/123static-scan.js V1.4.9';
 
-// 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
+// 枚举常量名列表（来自 infra/106-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
     'FACT_TYPES', 'BUFF_TYPES', 'BUFF_SUBTYPES', 'STAGE_ACTION_TYPES',
     'BUFF_EFFECT_TYPES', 'FLY_MODE_TYPES', 'UNIT_EVENT_TYPES',
@@ -18,57 +18,57 @@ export const ENUM_NAMES = [
 
 // 跨文件共享符号清单（非枚举、由特定文件导出、被大量模块消费的全局引用）。
 // 来源：主代码侧诊断确认的两类高频缺 import 符号；新增共享容器时在此追加。
-// 追加 getUnitCol / getUnitRow：二者由 infra/51-core-utils.js 导出、被 core/03/11/12/14、
+// 追加 getUnitCol / getUnitRow：二者由 infra/102-core-utils.js 导出、被 core/03/11/12/14、
 // render/32 等广泛消费。2026-09-21 实测 tests/122health-utils.js 用了却没 import，
 // 运行时抛 ReferenceError 让圣火令校验静默失效——属同一类"缺 import"隐患，纳入扫描。
 export const SHARED_SYMBOLS = ['eventBus', 'GlobalStore', 'getUnitCol', 'getUnitRow'];
 
 // 核心文件清单（相对 tests/ 页面路径；不含 tests/ tools/ 自身）
 export const SCAN_FILES = [
-    '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
-    '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-runner.js',
-    '../core/07-target-strategies.js',
-    '../core/08-registry-elite.js',
-    '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
-    '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js',
-    '../core/19unit-watch.js',
+    '../core/201-config-5v5-test.js', '../core/202-unit.js', '../core/203-battle-utils.js',
+    '../core/204-buff-system.js', '../core/205-battle-horse.js', '../core/206-battle-runner.js',
+    '../core/207-target-strategies.js',
+    '../core/208-registry-elite.js',
+    '../core/209-battle-attack.js', '../core/210-battle-round.js', '../core/211-battle-attack-steps.js',
+    '../core/214-battle-shared.js', '../core/215-buff-effects.js', '../core/216-skill-mechanisms.js',
+    '../core/217-effect-handlers.js', '../core/218-state-keys.js', '../core/219-mechanic-registry.js',
+    '../core/220-unit-watch.js',
     // 2026-10-16 补登 20/21：闪避规则表（自 infra/51 迁入）与计算修饰器表（自 infra/57 迁入）。
     //   二者被 core/11/12/15/16、render/32、ui/74 import，漏登则本扫描不覆盖其 import 断裂。
-    '../core/20-registry-dodge.js', '../core/21-registry-calc.js',
-    '../infra/50-event-bus.js', '../infra/52-clock.js', '../infra/54-global-store.js',
-    '../infra/55-fx-signals.js', '../infra/56-battle-enums.js',
-    '../infra/58-fact-contract.js',
-    '../infra/59-state-change.js', '../infra/60-net-pvp.js',
-    '../modules/20elite-skills.js', '../modules/24battle-store.js', '../modules/25elite-imperial.js',
-    '../modules/26elite-sixsects.js', '../modules/26elite-sixsects-songqingshu.js',
-    '../modules/26elite-sixsects-zhouzhiruo.js', '../modules/26elite-sixsects-zhangsanfeng.js',
-    '../modules/26elite-sixsects-pangyuanqiao.js', '../modules/26elite-sixsects-miejueshitai.js',
-    '../modules/26elite-sixsects-hetaichong.js',
-    '../modules/27elite-mingjiao.js', '../modules/28buff-tools.js',
-    '../modules/29battle-init.js', '../modules/30custom-effects.js',
-    '../modules/31-career-log.js',
-    '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/42player-core.js',
-    '../player/44battle-player-5v5-test.js',
-    '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
-    '../player/48battle-report.js', '../player/49battle-flow.js',
-    '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
-    '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js', '../render/36-generic-renderers.js',
-    '../render/38-actions-translate.js',
-    '../render/38-actions-translate-attack.js', '../render/38-actions-translate-heal.js',
-    '../render/38-actions-translate-control.js', '../render/38-actions-translate-stat.js',
-    '../render/39-actions-defs.js',
-    '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
-    '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
-    '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
+    '../core/221-registry-dodge.js', '../core/222-registry-calc.js',
+    '../infra/101-event-bus.js', '../infra/103-clock.js', '../infra/104-global-store.js',
+    '../infra/105-fx-signals.js', '../infra/106-battle-enums.js',
+    '../infra/107-fact-contract.js',
+    '../infra/108-state-change.js', '../infra/109-net-pvp.js',
+    '../modules/302-elite-skills.js', '../modules/306-battle-store.js', '../modules/307-elite-imperial.js',
+    '../modules/308-elite-sixsects.js', '../modules/310-elite-sixsects-songqingshu.js',
+    '../modules/309-elite-sixsects-zhouzhiruo.js', '../modules/311-elite-sixsects-zhangsanfeng.js',
+    '../modules/312-elite-sixsects-pangyuanqiao.js', '../modules/313-elite-sixsects-miejueshitai.js',
+    '../modules/314-elite-sixsects-hetaichong.js',
+    '../modules/317-elite-mingjiao.js', '../modules/329-buff-tools.js',
+    '../modules/330-battle-init.js', '../modules/331-custom-effects.js',
+    '../modules/332-career-log.js',
+    '../player/501-player-text.js', '../player/502-player-buff-ui.js', '../player/503-player-core.js',
+    '../player/507-battle-player-5v5-test.js',
+    '../player/508-event-handlers.js', '../player/509-attack-group.js', '../player/510-renderer.js',
+    '../player/511-battle-report.js', '../player/512-battle-flow.js',
+    '../render/401-fact-renderer.js', '../render/402-stage-actions.js', '../render/403-grid-render.js',
+    '../render/406-fact-registry.js', '../render/407-facts-attack.js', '../render/408-facts-effect.js', '../render/413-generic-renderers.js',
+    '../render/415-actions-translate.js',
+    '../render/416-actions-translate-attack.js', '../render/418-actions-translate-heal.js',
+    '../render/417-actions-translate-control.js', '../render/419-actions-translate-stat.js',
+    '../render/420-actions-defs.js',
+    '../ui/701-main-utils.js', '../ui/702-main-5v5-test.js', '../ui/703-ui-render-5v5-test.js',
+    '../ui/704-main-state.js', '../ui/705-main-dialogs.js', '../ui/706-main-battle.js',
+    '../ui/707-audio-control.js', '../ui/708-fx-trigger.js', '../ui/709-ui-controls.js',
     // 2026-10-15 补登 69/73/75/76：ui 家族漏登 4 员（角色卡渲染 / 语音面板 / 联机会话 / 回放入口）。
     //   入册后本扫描才覆盖它们——这些文件 import 主代码符号与枚举，改名/删除即断裂却扫不到。
-    '../ui/69-role-cards.js',
-    '../ui/74reset-runtime.js', '../ui/70buff-dialog.js', '../ui/71tutorial.js', '../ui/72opening-cg.js',
-    '../ui/75net-session.js', '../ui/76replay-entry.js',
+    '../ui/710-role-cards.js',
+    '../ui/715-reset-runtime.js', '../ui/711-buff-dialog.js', '../ui/712-tutorial.js', '../ui/713-opening-cg.js',
+    '../ui/716-net-session.js', '../ui/717-replay-entry.js',
     // 2026-10-14 补登 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者）
-    '../ui/77speed-controls.js', '../ui/78button-state.js',
-    '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js', '../fx/93-hanlisa-burst.js',
+    '../ui/718-speed-controls.js', '../ui/719-button-state.js',
+    '../fx/608-fx-manager.js', '../fx/609-fx-trigger.js', '../fx/610-fx-subscriber.js', '../fx/615-fx-hanlisa-burst.js',
     // 2026-09-21 扩到体检代码自身：tests/122health-utils.js 曾漏 import getUnitCol 导致
     // 圣火令校验运行时抛错却静默"通过"——体检代码同样是 JS，同样会缺 import，必须一并扫。
     './121health-monitor.js', './122health-utils.js', './123static-scan.js',
@@ -142,10 +142,10 @@ export const SCAN_FILES = [
 // 此处用一条硬扫取代它：专门盯历史持有 fxAnchors 的渲染/特效层，一旦出现该字段即报红，比 158 的恒 skip 更可靠。
 //   不并入上方 SCAN_FILES 的 3 项 import 检查，以免对渲染层引入无关误报。
 const FX_ANCHOR_WATCH_FILES = [
-    '../render/35-facts-heal.js', '../render/35-facts-misc.js', '../render/35-facts-effect.js',
-    '../render/35-facts-control.js', '../render/35-facts-stat.js', '../render/36-generic-renderers.js',
-    '../player/40player-text.js', '../player/42player-core.js', '../player/45event-handlers.js', '../player/46attack-group.js',
-    '../core/23perf-params.js'
+    '../render/410-facts-heal.js', '../render/411-facts-misc.js', '../render/408-facts-effect.js',
+    '../render/409-facts-control.js', '../render/412-facts-stat.js', '../render/413-generic-renderers.js',
+    '../player/501-player-text.js', '../player/503-player-core.js', '../player/508-event-handlers.js', '../player/509-attack-group.js',
+    '../core/223-perf-params.js'
 ];
 export function scanDeadFxAnchors(code) {
     // 剥注释后扫，避免注释里提一句触发假红（同 stripComments 口径）
@@ -330,7 +330,7 @@ export async function detectWindowMounts() {
     if (_mountsCache) return _mountsCache;
     _mountsCache = {};
     const baseUrl = new URL('./', window.location.href).href;
-    for (const rel of ['../infra/54-global-store.js', '../infra/50-event-bus.js']) {
+    for (const rel of ['../infra/104-global-store.js', '../infra/101-event-bus.js']) {
         try {
             const resp = await fetch(new URL(rel, baseUrl).href + '?t=' + Date.now());
             if (!resp.ok) continue;
@@ -501,7 +501,7 @@ export async function runStaticScan() {
     // 第四类前置：先取 infra/56 源码解析枚举成员表（唯一来源），失败则自证报红而非静默跳过
     let enumMembers = {};
     try {
-        const enumResp = await fetch(new URL('../infra/56-battle-enums.js', baseUrl).href + '?t=' + t0);
+        const enumResp = await fetch(new URL('../infra/106-battle-enums.js', baseUrl).href + '?t=' + t0);
         if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
     } catch (e) { /* 落空由 selfCheckEnumMembers 接管报红 */ }
     for (const rel of SCAN_FILES) {

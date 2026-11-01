@@ -6,9 +6,9 @@
 //   ★ 动手前先纠正登记口径本身的一处错（这正是第 162 轮那款「只数了一个发射点」的近亲）：
 //     fact-emission-census 把这两条记成「要**妹**永久巨马阵 / 妹永久 carry」，
 //     易读成「得先让小昭·妹在队 ⇒ 干净树里没有 ⇒ 归 ⑤b-2 非样本缺口」。
-//     但读源码：两个发射点都在 **modules/27elite-mingjiao-xiaozhao-brother.js**（L249 / L274 附近），
+//     但读源码：两个发射点都在 **modules/323-elite-mingjiao-xiaozhao-brother.js**（L249 / L274 附近），
 //     判据读的是 **bro.state._permanentBuffs**（兄自己的永久表），而 addPermanentBuff
-//     （modules/20elite-skills.js L258）的门槛也是 `xiaoZhao.isXiaoZhaoBrother`。
+//     （modules/302-elite-skills.js L258）的门槛也是 `xiaoZhao.isXiaoZhaoBrother`。
 //     ⇒ 也就是说这两条**不需要妹在队**，forceXiaoZhao='brother' 这条第 162 轮就在用的现成通道
 //     直接适用，**根本不必等变异树**。⇒ 它们当初被归进 ⑤b-2 的理由，很可能是没找对通道。
 //
@@ -53,7 +53,7 @@ const MIN_ENTER = 10;                                    // 全前置就绪下�
 const SCAN_ONLY = process.argv.includes('--scan');
 
 // ── 段一 静态自证（不跑战斗，直接读源码）────────────────────────────────
-const SRC = path.join(root, 'modules/27elite-mingjiao-xiaozhao-brother.js');
+const SRC = path.join(root, 'modules/323-elite-mingjiao-xiaozhao-brother.js');
 const src = fs.readFileSync(SRC, 'utf8').split(/\r?\n/);
 const reasons = [];
 
@@ -61,7 +61,7 @@ function auditPoint(label, factConst, buffConst, cfgPath, extraNeed) {
     const out = { label, line: -1, need: [] };
     const idx = src.findIndex(l => l.includes(factConst));
     if (idx < 0) {
-        reasons.push('modules/27elite-mingjiao-xiaozhao-brother.js 里找不到 ' + factConst + ' 发射点（分支被删 / 改名）');
+        reasons.push('modules/323-elite-mingjiao-xiaozhao-brother.js 里找不到 ' + factConst + ' 发射点（分支被删 / 改名）');
         return out;
     }
     out.line = idx + 1;
@@ -85,7 +85,7 @@ const aCarry = auditPoint('妹永久carry', 'FACT_TYPES.XIAO_ZHAO_CARRY_APPLY', 
     ['层数按 r1/r2 阵亡数换算', /layersPerR1/.test(src.join('\n'))]
 ]);
 
-console.log('--- 段一 静态自证（modules/27elite-mingjiao-xiaozhao-brother.js）---');
+console.log('--- 段一 静态自证（modules/323-elite-mingjiao-xiaozhao-brother.js）---');
 for (const a of [aHorse, aCarry]) {
     console.log('  [' + a.label + '] 发射点 L' + a.line);
     for (const [name, ok] of a.need) console.log('    ' + (ok ? '✅' : '❌') + ' ' + name);
@@ -93,10 +93,10 @@ for (const a of [aHorse, aCarry]) {
 // ★ 本轮新增：白名单自证 —— 决定这两条到底是「真死代码」还是「样本问题」
 let whitelist = [];
 try {
-    const gd = JSON.parse(fs.readFileSync(path.join(root, 'content/200game-data.json'), 'utf8'));
+    const gd = JSON.parse(fs.readFileSync(path.join(root, 'content/001-game-data.json'), 'utf8'));
     whitelist = (gd && gd.hexes && gd.hexes.permanentBuffKeys) || [];
 } catch (e) {
-    reasons.push('content/200game-data.json 读取/解析失败: ' + e.message);
+    reasons.push('content/001-game-data.json 读取/解析失败: ' + e.message);
 }
 const wlHas = { horseFormation: whitelist.includes('horseFormation'), carry: whitelist.includes('carry') };
 console.log('  ③ 永久 buff 白名单（addPermanentBuff 的唯一入口，共 ' + whitelist.length + ' 键）：'
@@ -107,33 +107,33 @@ if (!wlHas.carry) reasons.push('carry 不在永久白名单 ⇒ 永久表永不�
 // 数据面：201 配置必须有值（缺则主代码直接抛错，不是"概率为 0"）
 let spawnChance = null, carryCfg = null;
 try {
-    const hex201 = JSON.parse(fs.readFileSync(path.join(root, 'content/201hex-enhance.json'), 'utf8'));
+    const hex201 = JSON.parse(fs.readFileSync(path.join(root, 'content/002-hex-enhance.json'), 'utf8'));
     spawnChance = hex201?.brother?.horseFormation?.spawnChance;
     carryCfg = hex201?.brother?.carry || null;
-    if (spawnChance == null) reasons.push('content/201hex-enhance.json 缺 brother.horseFormation.spawnChance（主代码会直接抛错）');
+    if (spawnChance == null) reasons.push('content/002-hex-enhance.json 缺 brother.horseFormation.spawnChance（主代码会直接抛错）');
     else console.log('  ✅ 201 brother.horseFormation.spawnChance = ' + spawnChance);
-    if (!carryCfg || carryCfg.layersBase == null) reasons.push('content/201hex-enhance.json 缺 brother.carry.layersBase');
+    if (!carryCfg || carryCfg.layersBase == null) reasons.push('content/002-hex-enhance.json 缺 brother.carry.layersBase');
     else console.log('  ✅ 201 brother.carry.layersBase = ' + carryCfg.layersBase);
 } catch (e) {
-    reasons.push('content/201hex-enhance.json 读取/解析失败: ' + e.message);
+    reasons.push('content/002-hex-enhance.json 读取/解析失败: ' + e.message);
 }
 const sp = { ok: reasons.length === 0, reasons };
 
 // ── 段二 定向扫描 ────────────────────────────────────────────────────────
 const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
     { initBattleTeams }, { GlobalStore }, { FACT_TYPES: FT }, { BUFF_TYPES }] = await Promise.all([
-    import('../core/01config-5v5-test.js'),
-    import('../infra/51-core-utils.js'),
-    import('../core/11battle-round.js'),
-    import('../modules/29battle-init.js'),
-    import('../infra/54-global-store.js'),
-    import('../infra/56-battle-enums.js'),
-    import('../infra/56-battle-enums.js')
+    import('../core/201-config-5v5-test.js'),
+    import('../infra/102-core-utils.js'),
+    import('../core/210-battle-round.js'),
+    import('../modules/330-battle-init.js'),
+    import('../infra/104-global-store.js'),
+    import('../infra/106-battle-enums.js'),
+    import('../infra/106-battle-enums.js')
 ]);
-await import('../modules/25elite-imperial.js');
-await import('../modules/26elite-sixsects.js');
-await import('../modules/27elite-mingjiao.js');
-await import('../modules/30custom-effects.js');
+await import('../modules/307-elite-imperial.js');
+await import('../modules/308-elite-sixsects.js');
+await import('../modules/317-elite-mingjiao.js');
+await import('../modules/331-custom-effects.js');
 await loadGameData();
 await loadHexEnhanceData();
 

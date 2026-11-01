@@ -9,7 +9,7 @@
 //      - 契约：newMaxHp = maxHp + heal（core/16 L119-141 按增量 addMod 抬永久上限）
 //      - fact：FACT_TYPES.WEI_LEECH { heal, newMaxHp, maxHpDelta }
 //        渲染（render/35:66 / 36 plusMaxHp）：「🦇 青翼蝠王·吸血+{heal}，上限→{newMaxHp}」
-//   B) 闪避反击吸血（ON_DODGE，modules/27elite-mingjiao-weiyixiao.js L20-43）：
+//   B) 闪避反击吸血（ON_DODGE，modules/321-elite-mingjiao-weiyixiao.js L20-43）：
 //      - heal = max(1, floor(reboundDmg × leechRate))，**不经 previewHeal**（core/12 L491 直接落地）
 //      - 渲染（render/34:61-62）：「🦇 青翼蝠王·闪避反击吸血+{heal}，上限{old}→{new}」
 // 为什么值得盯：
@@ -41,8 +41,8 @@
 //   不静默放行；配置读不到(getMechanicField 在数据未就绪时会抛)就跳过比例上限判据。
 export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.2';
 import { collectNodes, plain } from '../122health-utils.js';
-import { getMechanicField } from '../../core/01config-5v5-test.js';
-import { MECHANIC_EFFECT_TYPES, FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { getMechanicField } from '../../core/201-config-5v5-test.js';
+import { MECHANIC_EFFECT_TYPES, FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 // 配置现读（会随版本调的数从配置读，别硬编码；getMechanicField 在数据未就绪时抛，包一层）
 function weiLeechField(field) {

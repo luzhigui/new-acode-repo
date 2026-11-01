@@ -1,4 +1,10 @@
-// tests/claw-hit-shield-split.mjs | V1.0.0 | 2026-10-31 夜间第 166 轮
+// tests/claw-hit-shield-split.mjs | V1.1.0 | 2026-11-01
+//   V1.1.0（2026-11-01）：拍板落地 —— 按 (a) 的语义走，同时保留护盾抵挡量供渲染补充：
+//     · core/217-effect-handlers.js：hit.data.dmg = hpLoss（实际掉血）；另记 data.shieldAbsorb = applied - hpLoss；
+//     · render/412-facts-stat.js：absorb>0 时在文本后补「，护盾抵挡 X 点」，全抵挡时改「伤害被护盾全部抵挡」。
+//     效果：三值同源成立（fact = 账本 = 实际），账本对照 CLAW_HIT 偏差/重复应用同时归零；
+//     没选 (b)，因为 (b) 要让账本对照的取值口径和本件判据一起改，等于把「三值同源」这条约束作废。
+//     本件判据一个字没改，靠代码对齐转绿。
 //
 // ★ 立它的由头：本轮 merge 上游（9c1529bd → 90e5bcbb）后，体检凭空多出两项红，
 //   追进去发现它们是**同一个根因的两副面孔**：
@@ -6,7 +12,7 @@
 //     · 对照器守卫自检 ②：干净树上有 1 条契约命中>0（CLAW_HIT:8）
 //   （第 165 轮 CLAW_HIT 组严格比对 178 条 / 偏差 **0**，账本对照整项绿）
 //
-// ★ 根因钉到行号（core/16effect-handlers.js L273-292，上游本轮加的护盾抵扣）：
+// ★ 根因钉到行号（core/217-effect-handlers.js L273-292，上游本轮加的护盾抵扣）：
 //     L273  const applied = Math.round(Math.max(0, hit.dmg - reduce) * 10) / 10;   ← 减伤后、护盾前
 //     L275  let hpLoss = applied;
 //     L276  if (_shield > 0)     { a = min(_shield, hpLoss);     _shield -= a;     hpLoss -= a; }
@@ -19,30 +25,29 @@
 //    **上游加了护盾抵扣却没同步 fact，把自己注释里那句承诺打破了**。
 //
 // ★ 为什么这是产品缺陷而不是「体检测量口径问题」（第 163 轮「先疑测量口径再疑产品」的规矩）：
-//   render/35-facts-stat.js L192 拿 fact.dmg 拼玩家看到的文本
+//   render/412-facts-stat.js L192 拿 fact.dmg 拼玩家看到的文本
 //   「🐾 九阴白骨爪…！A 对 B 造成 {fmt1(fact.dmg)} 点伤害」。
 //   ⇒ 玩家看到的伤害数字是**护盾抵扣前**的，目标血条掉的却是**护盾抵扣后**的。
 //   这不是体检自己读错了数，是产品对外承诺的数字与落地的数字不是同一个。
 //   （若 fact 只被体检读，改契约即可；它被玩家可见的渲染读 ⇒ 属产品口径，须拍板后才动。）
 //
-// ★ 本件只做取证与防复发，**一行主代码都不改**：
-//   修它只有两条路（任选其一，都要动主代码，故转交拍板）：
-//     (a) core/16 L292 改 hit.data.dmg = hpLoss（fact 回到注释承诺的「实际落地值」，
-//         但玩家会看到"造成 0 点伤害"，需同时决定显示口径）；
-//     (b) 保留 fact=applied，把护盾抵扣量也写进 fact（如 data.shieldAbsorb），
-//         由渲染与体检各自决定加不加回去。
+// ★ 历史：本件立起时只做取证与防复发，一行主代码都不改（两条修法都要动主代码，故转交拍板）：
+//     (a) core/217 L292 改 hit.data.dmg = hpLoss（fact 回到注释承诺的「实际落地值」）；
+//     (b) 保留 fact=applied，把护盾抵扣量也写进 fact（如 data.shieldAbsorb），由渲染与体检各自决定加不加回去。
+//   2026-11-01 已拍板：
+//     (a) 的语义 + (b) 的附带字段（shieldAbsorb 只供显示，不参与任何判据）——详见文件头 V1.1.0。
 //
 // 用法：node tests/claw-hit-shield-split.mjs
-//   RESULT: PASS = 三值同源（fact/账本/实际三个变量是同一个）｜FAIL = 已分叉（待拍板）
+//   RESULT: PASS = 三值同源（fact/账本/实际三个变量是同一个）｜FAIL = 已分叉（回归）
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/claw-hit-shield-split.mjs V1.0.0';
+export const VER = 'tests/claw-hit-shield-split.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const F_HANDLER = path.join(here, '..', 'core', '16effect-handlers.js');
+const F_HANDLER = path.join(here, '..', 'core', '217-effect-handlers.js');
 
 // 取值变量的三处机械锚点（全部要求变量是**标识符**，不接受数字常量：
 //   若有人把它写成 `hit.data.dmg = 13.4`，抽取器读不到变量 ⇒ 报「无从判定同源」，不许静默放过）
@@ -163,7 +168,7 @@ function main() {
     console.log('--- 段一 九阴白骨爪三值同源取证（fact / 账本 / 实际扣血）---');
     let info = null;
     if (!fs.existsSync(F_HANDLER)) {
-        fails.push('段一 缺 core/16effect-handlers.js —— 三值无从抽取，不许沿用旧结论');
+        fails.push('段一 缺 core/217-effect-handlers.js —— 三值无从抽取，不许沿用旧结论');
     } else {
         info = analyze(stripComments(fs.readFileSync(F_HANDLER, 'utf8')));
         console.log('  fact 回填值变量      ' + (info.factVar || '(未找到)'));

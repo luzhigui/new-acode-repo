@@ -16,7 +16,7 @@
 //      fact-emission-census 的 NON_SAMPLE_SPECS 白名单里摘除**，不得继续按死代码对待。
 //      这条是双向的：既不许把活的说成死的，也不许把死的表现成活的。
 //
-// 段一 静态自证（不跑战斗）：直接读 modules/20elite-skills.js 源码，断言三件事仍成立——
+// 段一 静态自证（不跑战斗）：直接读 modules/302-elite-skills.js 源码，断言三件事仍成立——
 //   目标池过滤式里带 `u.alive`、判空分支紧跟其后、判的就是同一个 target 的 alive。
 //   源码形状一变（比如过滤式去掉 alive、或中间插入了会改 alive 的调用），本用例**立刻红**，
 //   因为「结构不可达」这个结论的前提没了，必须人工复核，不许静默沿用旧结论。
@@ -50,7 +50,7 @@ const MIN_ENTER = 5;
 const DEAD_TARGET_BASELINE = 0;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const SKILLS_SRC = path.join(here, '..', 'modules', '20elite-skills.js');
+const SKILLS_SRC = path.join(here, '..', 'modules', '302-elite-skills.js');
 
 // ---------- 段一：静态自证 ----------
 function staticSelfProof() {
@@ -93,7 +93,7 @@ async function main() {
     console.log('=== SPIDER_DEAD_TARGET 定向取证用例 ' + VER + ' ===');
     // ---------- 段一 ----------
     const sp = staticSelfProof();
-    console.log('--- 段一 静态自证（modules/20elite-skills.js）---');
+    console.log('--- 段一 静态自证（modules/302-elite-skills.js）---');
     if (sp.ok) {
         console.log('  ✅ 过滤式第 ' + (sp.filterIdx + 1) + ' 行（含 u.alive）→ 取值第 ' + (sp.pickIdx + 1)
             + ' 行 → 判空第 ' + (sp.guardIdx + 1) + ' 行；三者之间无改写 alive 的调用');
@@ -105,20 +105,20 @@ async function main() {
 
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { GlobalStore }, { FACT_TYPES: FT }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../infra/104-global-store.js'),
+        import('../infra/106-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
@@ -214,7 +214,7 @@ async function main() {
     console.log('--- 结论 ---');
     if (fails.length === 0) {
         console.log('  ✅ 结构不可达成立：' + enter + ' 次进入目标池，SPIDER_DEAD_TARGET 恒 ' + dead
-            + ' 次 ⇒ modules/20elite-skills.js L225 的收尾帧竞态分支在干净树下不可达，可提核销（主代码改动仍待拍板）');
+            + ' 次 ⇒ modules/302-elite-skills.js L225 的收尾帧竞态分支在干净树下不可达，可提核销（主代码改动仍待拍板）');
         console.log('  ★ 核销口径：只许删这一处判空分支及其 fact 枚举，不许顺手放宽落地蛛袭的任何判据');
     } else {
         console.log('  ❌ ' + fails.length + ' 条未过：');

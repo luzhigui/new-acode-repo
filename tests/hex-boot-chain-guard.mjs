@@ -1,9 +1,9 @@
 // V1.0.0 | 2026-10-31 夜间第 162 轮：海克斯分库「迁出 200 → 201」的启动链守门（新增）
-//   由来：上游把 content/200game-data.json 里的小昭.hexEnhance 整段迁到新文件 content/201hex-enhance.json，
-//   并把 core/01config-5v5-test.js 的 getSkillParams('小昭','hexEnhance') 改成「只认 201、缺段即抛、不允许回落」。
+//   由来：上游把 content/001-game-data.json 里的小昭.hexEnhance 整段迁到新文件 content/002-hex-enhance.json，
+//   并把 core/201-config-5v5-test.js 的 getSkillParams('小昭','hexEnhance') 改成「只认 201、缺段即抛、不允许回落」。
 //   但迁出时**没有任何体检脚本（tests/）跟着补 loadHexEnhanceData()** —— 一夜之间 25 项体检里 16 项
 //   以同一个 Error 崩掉（规则回放 / 胜负基线 / 账本对照 / fact 普查 / golden / fuzz …），而红因全都写成
-//   「201hex-enhance.json 缺 sister 段」，看上去像数据文件丢了，实际是**启动链没跟上迁移**。
+//   「002-hex-enhance.json 缺 sister 段」，看上去像数据文件丢了，实际是**启动链没跟上迁移**。
 //   ★ 本件防的就是这一类病：数据换了家，消费方没换钥匙，且没有任何一条红线会点名这件事。
 //   三段取证：
 //     ⓪ 数据面（离线读文件）：201 存在且可解析、sister/brother 两段都在且键数不低于棘轮下限、
@@ -43,16 +43,16 @@ function walk(dir, out) {
 }
 
 // ── ⓪ 数据面 ───────────────────────────────────────────────────────────
-const P201 = path.join(root, 'content/201hex-enhance.json');
-const P200 = path.join(root, 'content/200game-data.json');
+const P201 = path.join(root, 'content/002-hex-enhance.json');
+const P200 = path.join(root, 'content/001-game-data.json');
 let hex = null;
 if (!fs.existsSync(P201)) {
-    problems.push('⓪ content/201hex-enhance.json 不存在 —— 小昭.hexEnhance 已迁出 200，这份文件是唯一真值，丢了游戏起不来');
+    problems.push('⓪ content/002-hex-enhance.json 不存在 —— 小昭.hexEnhance 已迁出 200，这份文件是唯一真值，丢了游戏起不来');
 } else {
     try {
         hex = JSON.parse(fs.readFileSync(P201, 'utf8'));
     } catch (e) {
-        problems.push(`⓪ content/201hex-enhance.json 解析失败: ${e.message}`);
+        problems.push(`⓪ content/002-hex-enhance.json 解析失败: ${e.message}`);
     }
 }
 if (hex) {
@@ -67,12 +67,12 @@ if (hex) {
 try {
     const g200 = JSON.parse(fs.readFileSync(P200, 'utf8'));
     if (Object.prototype.hasOwnProperty.call(g200, 'hexEnhance')) {
-        problems.push('⓪ content/200game-data.json 仍留着 hexEnhance 副本 —— 迁移必须净，两份真值必然漂移');
+        problems.push('⓪ content/001-game-data.json 仍留着 hexEnhance 副本 —— 迁移必须净，两份真值必然漂移');
     } else {
         notes.push('⓪ 200 已无 hexEnhance 副本（迁移干净，201 是唯一真值）');
     }
 } catch (e) {
-    problems.push(`⓪ content/200game-data.json 解析失败: ${e.message}`);
+    problems.push(`⓪ content/001-game-data.json 解析失败: ${e.message}`);
 }
 
 // ── ① 启动链静态点名 ────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ globalThis.fetch = async (url) => {
     const p = fileURLToPath(new URL(url));
     return { ok: true, json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) };
 };
-const cfg = await import('../core/01config-5v5-test.js');
+const cfg = await import('../core/201-config-5v5-test.js');
 await cfg.loadGameData();
 await cfg.loadHexEnhanceData();
 try {

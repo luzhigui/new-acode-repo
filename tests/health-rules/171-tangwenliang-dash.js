@@ -1,5 +1,5 @@
 // 回归规则：唐文亮「冲刺·七伤齐发」落地验证 — 强推挤压制（2026-10-23 重设计）
-// 机制源（modules/26elite-sixsects-tangwenliang.js doDash / forceInsert）：
+// 机制源（modules/315-elite-sixsects-tangwenliang.js doDash / forceInsert）：
 //   满 7 次出手冲到「目标同列」己方前排位 frontPos=((target.pos-1)%3)+1，
 //   沿 PUSH_PATH（本列自上而下、满了邻列顺延）把挡路单位整列前推到空位——
 //   forceInsert 只读算路返回 moved=[{unit,from,to}...]（dasher 带 isDash），applyMoves 逐个 moveUnitPosition 落地。

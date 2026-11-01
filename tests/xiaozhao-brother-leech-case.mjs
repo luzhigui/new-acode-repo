@@ -7,7 +7,7 @@
 //
 // 背景（第 122-123 轮日间线）：
 //   结构扫描器通道 B 报 `BLOOD_THIRST_LEECH.isBrother=true` 父 196/分支 0。第 123 轮实证：
-//   真路径 player/49battle-flow.js L49-57 全自动选 Buff 会给明教侧存活妹写 _permanentBuffs
+//   真路径 player/512-battle-flow.js L49-57 全自动选 Buff 会给明教侧存活妹写 _permanentBuffs
 //   永久副本；回放器缺建模（已由 _lib/buff-picker.mjs 统一收口补上）。补建模后 140 场标准
 //   样本写入 94 个永久副本，但 isBrother=true 仍零发射——前置条件（战士妹+永久嗜血+团队
 //   已过期）仅在 seed=7 s4 r20 出现过一次，且该回合妹的行动被「蛛变」占掉没出手
@@ -53,21 +53,21 @@ async function main() {
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
            { initBattleTeams }, { renderLog }, { GlobalStore },
            { CAMP_TYPES, FACT_TYPES: FT }] = await Promise.all([
-        import('../core/01config-5v5-test.js'),
-        import('../infra/51-core-utils.js'),
-        import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js'),
-        import('../render/30-fact-renderer.js'),
-        import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js')
+        import('../core/201-config-5v5-test.js'),
+        import('../infra/102-core-utils.js'),
+        import('../core/210-battle-round.js'),
+        import('../modules/330-battle-init.js'),
+        import('../render/401-fact-renderer.js'),
+        import('../infra/104-global-store.js'),
+        import('../infra/106-battle-enums.js')
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
-    await import('../modules/25elite-imperial.js');
-    await import('../modules/26elite-sixsects.js');
-    await import('../modules/27elite-mingjiao.js');
-    await import('../modules/30custom-effects.js');
+    await import('../modules/307-elite-imperial.js');
+    await import('../modules/308-elite-sixsects.js');
+    await import('../modules/317-elite-mingjiao.js');
+    await import('../modules/331-custom-effects.js');
     await loadGameData();
-    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/201hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+    // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
     // 强制妹模式：29battle-init L130/L195 读 GlobalStore 'forceXiaoZhao'（'brother' ⇒ 换上一个
@@ -216,7 +216,7 @@ async function main() {
             + otherNames.slice(0, 6).join('、') + '）⇒ 上游 fa6f206f（core/04 submitBloodthirstDeclaration）把判据由'
             + '「unit.isXiaoZhaoBrother && 本人永久嗜血」改为「hasBrotherPermanent(allySide) && 任一战士」，'
             + '即妹永久嗜血已扩到全队战士，而 factData.unitName 仍填出手者 ⇒ isBrother 语义由「本人是妹」变为「来源=妹永久」；'
-            + 'render/35-facts-heal.js 也是看 fact.isBrother 走 🕷️ 蝶血文案，故非妹单位同样会被渲染成蝶血，属同款语义错位。'
+            + 'render/410-facts-heal.js 也是看 fact.isBrother 走 🕷️ 蝶血文案，故非妹单位同样会被渲染成蝶血，属同款语义错位。'
             + '★ 本用例判据一行未动、照旧判失败（exit 1）：改判据须拍板；若认定新行为正确，'
             + '应把 factData 的 isBrother 换成 fromBrotherPermanent 一类字段并把渲染侧一并改掉。');
     }

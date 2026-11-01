@@ -150,10 +150,10 @@ function collect() {
 }
 
 function loadRegistries() {
-    const src17 = readNorm(path.join(ROOT, 'core/17-state-keys.js'));
-    const src50 = readNorm(path.join(ROOT, 'infra/50-event-bus.js'));
-    const src56 = readNorm(path.join(ROOT, 'infra/56-battle-enums.js'));
-    const src58 = readNorm(path.join(ROOT, 'infra/58-fact-contract.js'));
+    const src17 = readNorm(path.join(ROOT, 'core/218-state-keys.js'));
+    const src50 = readNorm(path.join(ROOT, 'infra/101-event-bus.js'));
+    const src56 = readNorm(path.join(ROOT, 'infra/106-battle-enums.js'));
+    const src58 = readNorm(path.join(ROOT, 'infra/107-fact-contract.js'));
 
     // ① 状态 schema：两个块，key 一律 _ 开头
     const schemas = {};
@@ -199,7 +199,7 @@ function checkStateFields(files, allStateKeys) {
     const hits = new Map();     // field → [{rel, line, receiver}]（只装未登记字段）
     const allUsed = new Set();  // 全部被读写的字段名（用于反向对账）
     for (const f of files) {
-        // 只认 unit.state._xxx（落在 state schema 上的访问）；顶层 unit._xxx（由 core/02unit.js
+        // 只认 unit.state._xxx（落在 state schema 上的访问）；顶层 unit._xxx（由 core/202-unit.js
         //   构造函数直接管理的字段，如 _mods/_audit/_fsm/_frozen）刻意不在 schema 里，误报成「漏登」会误导。
         for (const m of f.src.matchAll(/\b([A-Za-z_$][\w$]*)\.state\.(_[A-Za-z]\w*)\b/g)) {
             const receiver = m[1];

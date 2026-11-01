@@ -7,7 +7,7 @@
 //         这是**设计如此** —— 它的价值是「盯住这个 bug 直到被修好」，不是参与牙口判定。
 //
 // 立它的原因（第 43 轮探针实证，tests/.mut/probe-meteor.mjs，seed=37 stage=1 r1）：
-//   主代码 V6.0.3（core/16effect-handlers.js L175）补发了 METEOR_SPLASH_GROWTH fact（此前枚举/契约/
+//   主代码 V6.0.3（core/217-effect-handlers.js L175）补发了 METEOR_SPLASH_GROWTH fact（此前枚举/契约/
 //   渲染/翻译链早已接好却零 emit）。补发本身是对的，但**没有收口老的渲染出口**，于是：
 //     ① 老路径（core/16 L173 `decl.factData.growth = growth` → render/35 L143 挂在溅射行尾）
 //        `fact.unitName` **从未被赋值** → 渲染成 `⚡ undefined 攻击+8`（单位名长期显示 undefined）

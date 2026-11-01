@@ -1,10 +1,10 @@
 // 回归规则：死亡特效缺失 —— 目标被斩杀/白骨爪/闪避反击杀死时，日志必须带 isDead/deadFlag 死亡标记，
 // 否则播放器不渲染死亡特效（刷子红色底 + 尸体不消失）。
 // 已定位的三条复发路径：
-//   1. 战士斩杀：core/10battle-attack.js 补丁条件 `!target.alive` 在斩杀瞬间不成立（alive 要等 resolveDeaths 才置 false），
+//   1. 战士斩杀：core/209-battle-attack.js 补丁条件 `!target.alive` 在斩杀瞬间不成立（alive 要等 resolveDeaths 才置 false），
 //      导致攻击组 isDead 未标记、damage-text 无 brush-red。
-//   2. 周芷若白骨爪斩杀：modules/26elite-sixsects.js 日志 `isDead:!target.alive` 在斩杀瞬间 alive 仍为 true → isDead 恒为 false。
-//   3. 闪避反击击杀：player/46attack-group.js 死亡特效渲染条件带 `!entry.isDodge`，而反击组 isDodge+isDead 并存 → 特效被拦截。
+//   2. 周芷若白骨爪斩杀：modules/308-elite-sixsects.js 日志 `isDead:!target.alive` 在斩杀瞬间 alive 仍为 true → isDead 恒为 false。
+//   3. 闪避反击击杀：player/509-attack-group.js 死亡特效渲染条件带 `!entry.isDodge`，而反击组 isDodge+isDead 并存 → 特效被拦截。
 // 对应已修 Bug：战士斩杀/白骨爪斩杀/闪避反击击杀 无死亡特效回归
 //
 // 优化（V6.1.15，第 6 趟）：修「整条规则恒空转 + 两条判据过时」—— 数据源部分与 130/134/143 同源同病。

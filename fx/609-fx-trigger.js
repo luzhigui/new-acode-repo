@@ -1,0 +1,86 @@
+// fx/609-fx-trigger.js
+export const VER = 'fx/609-fx-trigger.js V6.2.1';
+
+import { getKillTaunt } from '../core/203-battle-utils.js';
+import { GlobalStore } from '../infra/104-global-store.js';
+import { AudioManager } from '../modules/304-audio-manager.js';
+import { ROLE_TYPES } from '../infra/106-battle-enums.js';
+import { showDanmaku, showDodgeBubble, showMarkBurst } from './601-fx-common-5v5-test.js';
+import { showRangedArrow } from './602-fx-arrows-5v5-test.js';
+import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './603-fx-crash-5v5-test.js';
+import { markGridShake } from '../render/403-grid-render.js';
+import { clock } from '../infra/103-clock.js';
+import { isFxSkipped } from '../infra/111-fx-gate.js';
+
+// 唐文亮「标枪」抛出外观（老板指正：标枪该掷矛，不该近战飞撞）：
+//   起手图标沿用职业图标 🪠（与 render/37 同源），枪身木色更粗更长、枪头金属灰
+const JAVELIN_SHOT_STYLE = { icon: '🪠', len: 54, thick: 4, color: '#6b4a2f', headSize: 10, headColor: '#b9c1c9' };
+
+// 颤动规则单一入口：目前仅远程飞箭命中触发，未来调整规则只改此处
+export function shakeTarget(uid, durationMs = 350) {
+    if (isFxSkipped()) return;
+    markGridShake(uid, durationMs);
+}
+
+// 统一视觉特效入口：弹幕/箭矢/飞撞/死亡
+//   伤害飘字不在此处负责：改由 player/46 播到 damage-text 行时同帧打（原先这里等 1100ms，
+//   与动画时长强绑，文字一加速就错位）。
+export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole, markBurst) {
+    if (isFxSkipped()) return;
+    if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
+        let killTaunt = getKillTaunt(unitA);
+        clock.wait(0).then(() => showDanmaku(unitA, killTaunt));
+    } else if (waveTaunt && waveUnit && !isBlock && !isMiss && !isDodge) {
+        let delay = 0;
+        if (dmg !== undefined && dmg >= 30) delay = 0;
+        else if (dmg !== undefined && dmg >= 20) delay = 200;
+        else delay = 400;
+        clock.wait(delay).then(() => showDanmaku(waveUnit, waveTaunt));
+    }
+    if (unitA && unitD) {
+        // 攻击音效与飞撞/箭矢同步触发
+        if (!isBlock && !isMiss && !isDodge && unitA) {
+            AudioManager.playSfx(unitA.role);
+        }
+        // 被闪避优先于「远程/近战」分流：远程被闪避与近战同款——克隆体冲过去被挡回。
+        //   原先远程走 showRangedArrow(isMiss=true) 演成「箭射偏」，读作未命中而非闪避。
+        //   开着「闪避反击·子弹时间」时子弹时间在 render/39 的 DODGE stage action 里演，这里只管关着的情况。
+        if (!isBlock && isDodge) {
+            if (!GlobalStore.get('fxDodgeBullet')) {
+                showMeleeDodge(unitA, unitD);
+            }
+        // 标枪并入投射分支（老板指正：标枪该掷矛，不该近战飞撞）；蝴蝶同远程（小昭·姊保持射箭演出）
+        } else if ((attackerRole === ROLE_TYPES.RANGED || attackerRole === ROLE_TYPES.JAVELIN || attackerRole === ROLE_TYPES.BUTTERFLY) && !isBlock) {
+            const shotStyle = attackerRole === ROLE_TYPES.JAVELIN ? JAVELIN_SHOT_STYLE : null;
+            if (isMiss) {
+                showRangedArrow(unitA, unitD, false, null, true, shotStyle);
+                // 射偏箭飞到中段再弹气泡（对齐近战"撞到一半才弹"的节奏，不在起手就抢跑）
+                clock.wait(500).then(() => {
+                    if (!isFxSkipped()) showDodgeBubble(unitA, '未命中');
+                });
+            } else {
+                showRangedArrow(unitA, unitD, false, () => {
+                    shakeTarget(unitD.uid, 350);
+                    // 箭靶碎裂：命中帧炸 🎯（飘字已移交 player/46，此处不再延后）
+                    if (markBurst) showMarkBurst(unitD);
+                }, false, shotStyle);
+            }
+        } else if (!isBlock) {
+            if (isMiss) {
+                // return：把动画 Promise 交给调用方 await
+                return showMeleeMiss(unitA, unitD, () => {
+                    if (!isFxSkipped()) showDodgeBubble(unitA, '未命中');
+                });
+            } else {
+                showMeleeCrash(unitA, unitD, () => {
+                    // 箭靶碎裂：命中帧炸 🎯（飘字已移交 player/46，此处不再延后）
+                    if (markBurst) showMarkBurst(unitD);
+                    // 死亡态不再由这里派发：原先在撞完 1100ms 后才发 DEAD flash（远程分支压根不发），
+                    //   与「死亡特效不能延后」冲突，且替死/免疫回退取消死亡时会把格子错标成尸体。
+                    //   现在死亡态只认引擎状态（resolveDeaths 写 alive/_isDead），UI 当帧就上红底 ✕。
+                });
+            }
+        }
+    }
+    // 伤害飘字由 player/46 播到 damage-text 行时打出，此处不重复
+}

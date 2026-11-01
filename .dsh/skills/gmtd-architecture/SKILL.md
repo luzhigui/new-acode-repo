@@ -19,7 +19,7 @@ whenToUse: 要改 core/ infra/ modules/ player/ 的战斗逻辑、新增精英/�
 ## 二、硬约束（违反即返工）
 
 1. 精英模块必须经 `core/08-elite-registry.js` 的 `registerElite` 注册；核心战斗逻辑**不得**直接 import 精英模块具体函数。精英编号 25 朝廷 / 26 六大派 / 27 明教。
-2. 效果声明的 `type` 必须用 `infra/50-event-bus.js` 的 `EFFECT_TYPES` 常量，禁止裸字符串。
+2. 效果声明的 `type` 必须用 `infra/101-event-bus.js` 的 `EFFECT_TYPES` 常量，禁止裸字符串。
 3. 战斗 RNG 在开战前通过 `snapshot._rngSeed` 注入；战前操作（如选 Buff）要能取到有效 RNG。
 4. 播放器上下文统一走 `window._getPlayerContext`，不依赖未初始化的 GlobalStore 状态。
 5. 生命上限调整唯一入口是 `applyMaxHpChange`：增加加差额、减少等比缩放；不得重复调整当前生命值。

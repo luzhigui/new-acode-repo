@@ -24,7 +24,7 @@
 //   两条挂账（164 吸血上限 / 谢逊系规则）被这条分叉卡住，因为「这条路开不通」看不出来在哪报错。
 //
 // ═══ 白名单为什么取这三个（并集），是谁批的 ═══
-//   三个开关在**主代码 modules/29battle-init.js 里全都真实存在**：
+//   三个开关在**主代码 modules/330-battle-init.js 里全都真实存在**：
 //     forceXiaoZhao L144-145 / L245 ；forceWei L140 / L151 ；forceXieXun L141 / L152。
 //   ★ 关键是：当初两边**各自论证过对方那份的合法性，只是都没同步给对方** ——
 //     第 159 轮在两本账本加 forceXieXun 时写「主代码 29battle-init L95 / L139-147 真实存在」；
@@ -48,7 +48,7 @@ export const VER = 'tests/_lib/forced-case-normalize.mjs V1.0.0';
 
 /**
  * 允许出现在定向覆盖场次里的 GlobalStore 强制开关键。
- * ★ 每个都必须在 modules/29battle-init.js 里真实存在才可登记（见文件头论证），
+ * ★ 每个都必须在 modules/330-battle-init.js 里真实存在才可登记（见文件头论证），
  *   不许拿 GlobalStore 当后门改引擎行为。
  */
 export const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun', 'forceWei'];
@@ -72,7 +72,7 @@ export function forcesOfEntry(entry) {
 
 /**
  * 逐场跑之前把全部白名单开关复位为 false —— 闲置，用来杜绝全局态泄漏。
- * @param {object} GlobalStore infra/54-global-store.js 的实例
+ * @param {object} GlobalStore infra/104-global-store.js 的实例
  */
 export function resetForces(GlobalStore) {
     for (const k of FORCE_KEYS) GlobalStore.set(k, false);

@@ -1,6 +1,6 @@
 // 回归规则：灭绝师太 重设计(2026-10-09) 行为数值 — 此前灭绝无专门体检覆盖（只有"技能说明数字==引擎真值"
 //   单源守卫覆盖了 desc 里的数字，但反击/三击/召唤这三条行为层数值不在 desc，规则侧盲区）。
-// 机制源（modules/26elite-sixsects.js L427-543 createMieJueShiTaiComponent）：
+// 机制源（modules/308-elite-sixsects.js L427-543 createMieJueShiTaiComponent）：
 //   - 反击：被攻击后 prob 概率反击，伤害 ×counterAttack.dmgRatio（可闪避）；
 //           渲染「🗡 灭绝师太反击 X！（伤害×R）」（全角括号）
 //   - 三击：每第三次出手 伤害 ×thirdStrike.dmgMultiplier + 吸血 thirdStrike.leechRatio 倍本次伤害；
@@ -15,9 +15,9 @@
 //   3) 三击渲染「回复 K 点，生命 H1 → H2」：K==H2-H1（落地值自洽）+ K>=0；leechRatio 公式值(fact声明侧)交由 stat-decl LEECH 契约验
 // 误报规避：本场灭绝未出场（无 SUMMON_UNIT fact 且无相关渲染文案）直接 skip；getSkillParams 取不到跳过对应判据。
 export const VER = 'tests/health-rules/165-miejue-redesign.js V1.1.0';
-import { getSkillParams } from '../../core/01config-5v5-test.js';
+import { getSkillParams } from '../../core/201-config-5v5-test.js';
 import { plain } from '../122health-utils.js';
-import { FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule112 = {
     group: '数值回归',

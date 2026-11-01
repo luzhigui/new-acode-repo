@@ -13,7 +13,7 @@ export const VER = 'tools/109-role-balance.js V6.2.3';
 //   新增「双海克斯」复选框，只在「海克斯」开启时可用；勾选后透传 enemyHex 给 116 balance job，
 //   116 由 core/06 V1.3.0 的 enemyHexPicker 在明教选完后对称给六大派补一个（同 seed 同结果）。
 
-import { ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { getPoolSize } from './117-shared-worker-runner.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];

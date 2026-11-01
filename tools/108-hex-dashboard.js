@@ -1,5 +1,5 @@
 // ===== ../tools/108-hex-dashboard.js =====
-import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/01config-5v5-test.js';
+import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
 export const VER = 'tools/108-hex-dashboard.js V6.8.2';
@@ -19,7 +19,7 @@ export const VER = 'tools/108-hex-dashboard.js V6.8.2';
 //             输出「旧 → 新 / 新增」——改数值零维护，也不会再出现「文案说 80%、配置是 160%」这类漂移。
 //           · 删掉手写 HEX_DETAIL 全表与 HEX_HINTS；只保留 HEX_NOTE 的少量纯行为机制句。
 //           · 适用提示改自动：受益对象取自 desc 关键词 + 强化项数实算；201 新字段未登记中文名时退回键名。
-// V6.7.1 | 2026-10-30 详情卡补载 201hex-enhance.json：小昭 hexEnhance 已从 200 迁出，
+// V6.7.1 | 2026-10-30 详情卡补载 002-hex-enhance.json：小昭 hexEnhance 已从 200 迁出，
 //   getSkillParams('小昭','hexEnhance') 在缺 201 时直接抛，详情卡一打开就炸。
 // V6.7.0 | 2026-10-30 模式对比表结构简化：删「强弱Δ常规」+ 三列「净」，改成四列胜率 + 四列差值
 //   （每个模式 = 该海克斯胜率 − 本模式全海克斯平均，四列各算各的，不跨模式相减）。
@@ -144,8 +144,8 @@ if (!document.getElementById('hexDashStyle')) {
 }
 
 // 海克斯详情文案（V6.7.2，2026-10-31 起数据驱动，不再手写数值）：
-//   · 普通版 = content/200game-data.json 的 buffs.<key>.desc（普通版说明唯一真源）
-//   · 姐姐/妹妹 = content/201hex-enhance.json 的 sister/brother 段与 200 基础值逐字段比对，
+//   · 普通版 = content/001-game-data.json 的 buffs.<key>.desc（普通版说明唯一真源）
+//   · 姐姐/妹妹 = content/002-hex-enhance.json 的 sister/brother 段与 200 基础值逐字段比对，
 //     自动输出「旧 → 新 / 新增」；改 200/201 数值即同步，工具侧零维护。
 //   · 只有纯行为、数据里算不出来的机制句才写 HEX_NOTE（不写数字；要数字用函数形态读实参）。
 //   · 201 新增字段若没登记中文名，退回英文键名（仍显示、不崩、也不漏项）。
@@ -286,7 +286,7 @@ function unitScope(desc) {
 async function openHexDetail(key) {
   // V6.6.8：详情卡可能在「从没跑过、数据未加载」时被点开——此时 CONFIG.BUFFS getter 会抛
   //   null.buffs，先确保加载（幂等），再取值。
-  // V6.7.1：201hex-enhance.json 也要加载——小昭 hexEnhance 已从 200 迁出，getSkillParams 缺 201 直接抛。
+  // V6.7.1：002-hex-enhance.json 也要加载——小昭 hexEnhance 已从 200 迁出，getSkillParams 缺 201 直接抛。
   if (!getGameData()) await loadGameData();
   await loadHexEnhanceData();
   const b = CONFIG.BUFFS[key];

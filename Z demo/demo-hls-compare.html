@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蓄意轰拳 · 华丽版(79) vs 简单版(93) 对比 demo</title>
+<!--
+  ============================================================
+  demo-hls-compare.html — 蓄意轰拳「华丽版 vs 简单版」观感对比 demo
+  ------------------------------------------------------------
+  用途：让老板直观看到 79（华丽版）和 93（简单版）的观感差异，
+        以及「华丽模式下两个都演」的当前问题。
+
+  说明：本 demo 是观感复刻，不 import 主代码。原因：
+    主代码 ui/79hanlisa-aim.js 与 fx/93-hanlisa-burst.js 依赖 20+ 模块，
+    且 render/32-grid-render → render/37-role-cards（已剔除）会直接炸。
+    为保证「单文件、零依赖、双击即开」：
+      · 战场 9 宫格结构从 index.html 抄
+      · 79 的蓄力环/准星/黑幕/爆发/碎石/伤害数字/吸血尾巴结构从 ui/79 抄
+      · 93 的扇形冲击波/涟漪/粒子/分档格效/大号数字/吸血从 fx/93 抄
+      · 时长参数从 core/23perf-params 的 '300' 档（= 1x）抄
+      · 伤害数值从 content 寒离飒.xuLi（tierDen/eightDen/vampDiv）真实计算
+    实际代码路径：ui/79hanlisa-aim.js、fx/93-hanlisa-burst.js。
+
+  三个按钮：
+    ① 华丽版（79）  — 黑幕 + 玩家蓄力 + 拖动瞄准 + 爆发全套
+    ② 简单版（93）  — 无黑幕，战场直接爆发全套
+    ③ 华丽 + 战场  — 先演 79，再演 93 轻量版（这就是当前实际观感）
+  ============================================================
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #000; height: 100%; }
+  body {
+    background: #1a1a2e; color: #eee;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 16px;
+  }
+  .stage { width: 100%; max-width: 560px; }
+
+  .title {
+    color: #ffd700; font-size: 20px; font-weight: 900; text-align: center;
+    margin-bottom: 4px; letter-spacing: 1px;
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+  }
+  .subtitle {
+    color: #8b7355; font-size: 12px; text-align: center; margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .btn-row button {
+    flex: 1; padding: 12px 4px; border-radius: 8px; border: 1px solid #444;
+    background: #2a2a4e; color: #eee; font-size: 12px; font-weight: bold;
+    cursor: pointer; white-space: nowrap; transition: 0.15s;
+  }
+  .btn-row button:hover { background: #3a3a6e; border-color: #ffd700; }
+  .btn-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-row button.huali { border-color: #ffd700; color: #ffd700; }
+  .btn-row button.jiandan { border-color: #4fc3f7; color: #4fc3f7; }
+  .btn-row button.overlay { border-color: #ff6b6b; color: #ff6b6b; }
+
+  /* ===== 战场 9 宫格（从 index.html 抄，尺寸按 demo 缩小） ===== */
+  .battlefield {
+    position: relative;
+    background: #fdf5e6;
+    border: 3px solid #8b7355;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    user-select: none; -webkit-user-select: none;
+    overflow: visible;
+  }
+  .team-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  .team-row:last-child { margin-bottom: 0; }
+  .team-label {
+    width: 20px; font-size: 11px; font-weight: bold; text-align: center;
+    writing-mode: vertical-lr; padding: 4px 0; flex-shrink: 0;
+  }
+  .team-label.ally { color: #1e6bb8; }
+  .team-label.enemy { color: #d2691e; }
+  .grid {
+    flex: 1; display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 52px);
+    gap: 3px; background: #d9d0b5; padding: 3px; border-radius: 6px;
+  }
+  .cell {
+    background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px;
+    padding: 2px 4px; display: flex; align-items: center; gap: 3px;
+    position: relative; overflow: visible; font-size: 9px;
+  }
+  .cell.empty::after {
+    content: '空'; color: #999; font-size: 10px; margin: auto;
+  }
+  .cell .cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+  .cell .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+  .cell .cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+  .cell .cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+  .cell .hp-bar-wrap {
+    width: 6px; height: 100%; background: #ccc; border-radius: 3px;
+    flex-shrink: 0; align-self: stretch; position: relative; overflow: hidden;
+  }
+  .cell .hp-bar-inner {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    border-radius: 3px; background: #4caf50;
+  }
+  .cell.name-blue .cell-name { color: #2e6fb7; }
+  .cell.name-purple .cell-name { color: #8e44ad; }
+  .cell.name-gold .cell-name { color: #b8860b; }
+
+  /* ===== 日志区 ===== */
+  .log-box {
+    margin-top: 12px; background: #16213e; border: 1px solid #333;
+    border-radius: 8px; padding: 10px 14px; min-height: 100px;
+    font-size: 12px; line-height: 1.7; color: #ccc;
+    max-height: 180px; overflow-y: auto;
+  }
+  .log-box .log-line { margin-bottom: 4px; }
+  .log-box .log-line.dim { color: #888; font-size: 11px; }
+  .log-box .log-line.gold { color: #ffd700; }
+  .log-box .log-line.blue { color: #4fc3f7; }
+  .log-box .log-line.red { color: #ff6b6b; }
+  .log-box .log-line b { color: #fff; }
+
+  /* ===== 79 华丽版专属 CSS ===== */
+  #hualiCurtain {
+    position: fixed; inset: 0; z-index: 10020;
+    display: none; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse 120% 90% at 50% 42%, #2b1d0e 0%, #17100a 55%, #0b0705 100%);
+    flex-direction: column;
+    font-family: inherit;
+  }
+  #hualiCurtain.show { display: flex; }
+  #hualiCurtain .hls-title {
+    color: #ffd27a; font-size: 16px; font-weight: 900; letter-spacing: 6px;
+    text-shadow: 0 0 14px rgba(255, 150, 40, 0.75), 0 2px 3px #000;
+    margin-bottom: 12px;
+  }
+  #hualiCurtain .hls-hint {
+    color: #ffcf8a; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    margin-top: 14px; text-align: center;
+    text-shadow: 0 0 10px rgba(255, 140, 40, 0.55), 0 2px 3px #000;
+  }
+  #hualiCurtain .hls-field {
+    position: relative; width: 100%; max-width: 440px;
+    background: #f5f0e0; border: 3px solid #8b7355; border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 0 46px rgba(255,170,70,0.28), 0 18px 50px rgba(0,0,0,0.85);
+    touch-action: none;
+  }
+  #hualiCurtain .hls-field .team-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  #hualiCurtain .hls-field .team-row:last-child { margin-bottom: 0; }
+  #hualiCurtain .hls-field .team-label {
+    width: 20px; font-size: 11px; font-weight: bold; text-align: center;
+    writing-mode: vertical-lr; padding: 4px 0; flex-shrink: 0;
+  }
+  #hualiCurtain .hls-field .team-label.ally { color: #1e6bb8; }
+  #hualiCurtain .hls-field .team-label.enemy { color: #d2691e; }
+  #hualiCurtain .hls-field .grid {
+    flex: 1; display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 52px);
+    gap: 3px; background: #d9d0b5; padding: 3px; border-radius: 6px;
+  }
+  #hualiCurtain .hls-field .cell {
+    background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px;
+    padding: 2px 4px; display: flex; align-items: center; gap: 3px;
+    position: relative; overflow: visible; font-size: 9px;
+  }
+  #hualiCurtain .hls-field .cell .cell-icon { font-size: 13px; width: 14px; text-align: center; }
+  #hualiCurtain .hls-field .cell .cell-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+  #hualiCurtain .hls-field .cell .cell-name { font-weight: bold; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hualiCurtain .hls-field .cell .cell-stats { font-size: 7px; color: #555; }
+  #hualiCurtain .hls-field .cell .hp-bar-wrap { width: 6px; height: 100%; background: #ccc; border-radius: 3px; position: relative; overflow: hidden; }
+  #hualiCurtain .hls-field .cell .hp-bar-inner { position: absolute; bottom: 0; left: 0; right: 0; background: #4caf50; }
+  #hualiCurtain .hls-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+  #hualiCurtain .hls-charge-ring { position: absolute; pointer-events: none; z-index: 6; }
+  #hualiCurtain .hls-hud {
+    position: absolute; left: 0; right: 0; top: 4px; z-index: 7;
+    text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.1s;
+  }
+  #hualiCurtain .hls-hud .tier {
+    display: block; font-size: 12px; font-weight: 900; letter-spacing: 3px;
+    color: #ff8a3d; text-shadow: 0 0 9px rgba(255,90,20,0.95), 0 1px 2px #000;
+  }
+  #hualiCurtain .hls-hud .pct { display: block; font-size: 9px; color: #ffd9b0; margin-top: 1px; }
+  #hualiCurtain .hls-hud .bar {
+    width: 130px; height: 4px; margin: 3px auto 0;
+    background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden;
+  }
+  #hualiCurtain .hls-hud .bar > i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #ffd36e, #ff6a1e, #ff2d0d);
+  }
+  #hualiCurtain .hls-skip {
+    position: absolute; bottom: 8%; right: 8%; z-index: 8;
+    color: rgba(255,255,255,0.7); font-size: 16px; font-weight: bold;
+    cursor: pointer; letter-spacing: 2px; transform: rotate(-30deg);
+    background: none; border: none; padding: 8px; font-family: inherit;
+  }
+  #hualiCurtain .hls-whiteflash {
+    position: fixed; inset: 0; background: #fff; opacity: 0;
+    pointer-events: none; z-index: 10030;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="title">👊 蓄意轰拳 · 华丽版 vs 简单版</div>
+  <div class="subtitle">
+    三个按钮演示三种场景。<br>
+    点「华丽 + 战场」= 你现在实际游戏里看到的观感。
+  </div>
+
+  <div class="btn-row">
+    <button class="huali" id="btnHuali">▶ 华丽版（79）</button>
+    <button class="jiandan" id="btnJiandan">▶ 简单版（93）</button>
+  </div>
+  <div class="btn-row">
+    <button class="overlay" id="btnOverlay">▶ 华丽 + 战场（当前问题）</button>
+    <button id="btnClear">↺ 清空日志</button>
+  </div>
+
+  <div class="battlefield" id="battlefield">
+    <div class="team-row">
+      <div class="team-label ally">明 教</div>
+      <div class="grid" id="allyGrid"></div>
+    </div>
+    <div class="team-row">
+      <div class="team-label enemy">六大派</div>
+      <div class="grid" id="enemyGrid"></div>
+    </div>
+  </div>
+
+  <div class="log-box" id="logBox">
+    <div class="log-line dim">↑ 点上面三个按钮之一，观察三种场景的观感差异。</div>
+  </div>
+</div>
+
+<!-- 79 华丽版黑幕 -->
+<div id="hualiCurtain">
+  <div class="hls-title">👊 蓄意轰拳</div>
+  <div class="hls-field" id="hlsField">
+    <div class="team-row">
+      <div class="team-label enemy">六大派</div>
+      <div class="grid" id="hlsEnemyGrid"></div>
+    </div>
+    <div class="team-row">
+      <div class="team-label ally">明 教</div>
+      <div class="grid" id="hlsAllyGrid"></div>
+    </div>
+    <div class="hls-canvas" id="hlsCanvas"></div>
+    <div class="hls-charge-ring" id="hlsChargeRing"></div>
+    <div class="hls-hud" id="hlsHud">
+      <span class="tier">蓄 势</span>
+      <span class="pct">0%</span>
+      <div class="bar"><i></i></div>
+    </div>
+  </div>
+  <div class="hls-hint" id="hlsHint">按住战场蓄力 · 拖动瞄准 · 松手轰出</div>
+  <button class="hls-skip" id="hlsSkip">跳过</button>
+</div>
+<div class="hls-whiteflash" id="hlsWhiteFlash"></div>
+
+<script>
+/* ============================================================
+   数据初始化
+   ============================================================ */
+const UNITS = {
+  ally: [
+    { uid: 'a_hls', pos: 2, name: '寒离飒', role: '战士', icon: '⚔️', atk: 42, def: 30, hp: 138, maxHp: 138, tier: 'name-purple' },
+    { uid: 'a_zwj', pos: 5, name: '张无忌', role: '远程', icon: '🏹', atk: 38, def: 22, hp: 120, maxHp: 120, tier: 'name-purple' },
+    { uid: 'a_wyx', pos: 6, name: '韦一笑', role: '飞行', icon: '🦅', atk: 36, def: 18, hp: 95,  maxHp: 95,  tier: 'name-purple' },
+    { uid: 'a_xz',  pos: 4, name: '小昭',   role: '远程', icon: '🏹', atk: 32, def: 20, hp: 110, maxHp: 110, tier: 'name-purple' },
+    { uid: 'a_zd',  pos: 8, name: '周颠',   role: '战士', icon: '⚔️', atk: 28, def: 24, hp: 130, maxHp: 130, tier: '' }
+  ],
+  enemy: [
+    { uid: 'e_zsf', pos: 1, name: '张三丰',   role: '防战', icon: '🛡️', atk: 20, def: 55, hp: 200, maxHp: 200, tier: 'name-purple' },
+    { uid: 'e_sqs', pos: 2, name: '宋青书',   role: '飞行', icon: '🦅', atk: 34, def: 20, hp: 115, maxHp: 115, tier: 'name-purple' },
+    { uid: 'e_ck',  pos: 3, name: '成昆',     role: '防战', icon: '🛡️', atk: 26, def: 40, hp: 160, maxHp: 160, tier: 'name-purple' },
+    { uid: 'e_zzr', pos: 5, name: '周芷若',   role: '战士', icon: '⚔️', atk: 35, def: 22, hp: 108, maxHp: 108, tier: 'name-purple' },
+    { uid: 'e_mj',  pos: 7, name: '灭绝师太', role: '战士', icon: '⚔️', atk: 40, def: 24, hp: 125, maxHp: 125, tier: 'name-purple' }
+  ]
+};
+
+// 寒离飒的伤害真值（从 content 寒离飒.xuLi 抄）
+const XULI = {
+  tierDen: { direct: 1.25, near: 4, far: 6 },
+  eightDen: 2.5,
+  fullDen: { row123: 3, row456: 4, row789: 5 },
+  vampDiv: 3,
+  hitShapes: {
+    1: [1, 2, 4, 7], 2: [2, 4, 5, 6], 3: [2, 3, 6, 9],
+    4: [1, 2, 4, 5], 5: [2, 5, 7, 8, 9], 6: [2, 3, 5, 6],
+    7: [2, 4, 5, 7], 8: [2, 5, 8], 9: [2, 5, 6, 9]
+  }
+};
+// N = 最近 3 回合承伤总和（demo 固定 450，约等于 3 回合共吃 450 伤）
+const N_TAKEN = 450;
+
+/* 计算某次瞄准的每格伤害 */
+function calcDmgMap(aimPos) {
+  const shape = XULI.hitShapes[aimPos] || [];
+  const map = {};
+  for (const p of shape) {
+    const tier = tierOf(aimPos, p);
+    const den = (aimPos === 8 && p !== 8) ? XULI.eightDen : (XULI.tierDen[tier] ?? 6);
+    map[p] = { dmg: Math.floor(N_TAKEN / den), tier };
+  }
+  return map;
+}
+function tierOf(a, p) {
+  const r1 = Math.ceil(a / 3), c1 = a - (r1 - 1) * 3;
+  const r2 = Math.ceil(p / 3), c2 = p - (r2 - 1) * 3;
+  const d = Math.abs(r1 - r2) + Math.abs(c1 - c2);
+  return d <= 0 ? 'direct' : (d === 1 ? 'near' : 'far');
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+function renderGrid(gridId, team) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  // 按 pos 排序：1~9
+  const byPos = {};
+  team.forEach(u => { byPos[u.pos] = u; });
+  for (let p = 1; p <= 9; p++) {
+    const d = document.createElement('div');
+    d.className = 'cell';
+    d.dataset.pos = p;
+    const u = byPos[p];
+    if (!u) {
+      d.classList.add('empty');
+    } else {
+      d.dataset.uid = u.uid;
+      if (u.tier) d.classList.add(u.tier);
+      const pct = Math.round(u.hp / u.maxHp * 100);
+      const hpCls = pct > 50 ? '#4caf50' : (pct > 20 ? '#daa520' : '#c0392b');
+      d.innerHTML =
+        '<span class="cell-icon">' + u.icon + '</span>' +
+        '<div class="cell-info">' +
+          '<span class="cell-name">' + u.name + '</span>' +
+          '<span class="cell-stats">攻' + u.atk + ' 防' + u.def + ' 血' + u.hp + '</span>' +
+        '</div>' +
+        '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:' + pct + '%;background:' + hpCls + ';"></div></div>';
+    }
+    grid.appendChild(d);
+  }
+}
+function renderAll() {
+  renderGrid('allyGrid', UNITS.ally);
+  renderGrid('enemyGrid', UNITS.enemy);
+}
+
+/* 单位数据查询 */
+function findUnit(uid) {
+  return [...UNITS.ally, ...UNITS.enemy].find(u => u.uid === uid);
+}
+function findCellByPos(camp, pos) {
+  const gridId = camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+  const grid = document.getElementById(gridId);
+  if (!grid) return null;
+  return grid.querySelector('[data-pos="' + pos + '"]');
+}
+function rectOfCell(cell) {
+  if (!cell) return null;
+  const r = cell.getBoundingClientRect();
+  return { left: r.left, top: r.top, w: r.width, h: r.height, cx: r.left + r.width/2, cy: r.top + r.height/2 };
+}
+
+/* ============================================================
+   日志
+   ============================================================ */
+function log(text, cls) {
+  const box = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + (cls || '');
+  line.innerHTML = text;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ============================================================
+   ============ 79 华丽版（黑幕 + 交互 + 爆发）============
+   ============================================================ */
+
+// 全局状态（79 用）
+const HLS = {
+  stage: 'idle',   // idle | charge | burst | vamp
+  chargeStart: 0,
+  level: 0,
+  aimPos: 5,
+  chargeMax: 2000,  // 蓄满 ms（1x）
+  burstMs: 2400,    // 爆发总时长
+  vampMs: 800,      // 吸血尾巴
+  rafId: 0,
+  pointerDown: false,
+  /** 79 演完置 true：用来让「叠加模式」判断要不要再接一段 93 轻量版 */
+  justPlayed: false,
+  onFinish: null
+};
+
+function showCurtain() {
+  document.getElementById('hualiCurtain').classList.add('show');
+  // 渲染黑幕内的两份战场（和外面同步，但尺寸独立）
+  renderGrid('hlsAllyGrid', UNITS.ally);
+  renderGrid('hlsEnemyGrid', UNITS.enemy);
+  // 加 pointer 交互
+  bindCurtainEvents();
+  HLS.stage = 'idle';
+  HLS.level = 0;
+  HLS.aimPos = 5;
+  document.getElementById('hlsHint').textContent = '按住战场蓄力 · 拖动瞄准 · 松手轰出';
+  updateHlsHud(0);
+  document.getElementById('hlsCanvas').innerHTML = '';
+}
+function hideCurtain() {
+  document.getElementById('hualiCurtain').classList.remove('show');
+  cancelAnimationFrame(HLS.rafId);
+  HLS.rafId = 0;
+  unbindCurtainEvents();
+}
+function updateHlsHud(level) {
+  const hud = document.getElementById('hlsHud');
+  hud.style.opacity = level > 0.02 ? '1' : '0';
+  hud.querySelector('.tier').textContent = level < 0.3 ? '蓄 势' : (level < 0.62 ? '聚 力' : (level < 0.92 ? '蓄 猛' : '极 限'));
+  hud.querySelector('.pct').textContent = Math.round(level * 100) + '%';
+  hud.querySelector('.bar > i').style.width = (level * 100).toFixed(0) + '%';
+}
+
+// 蓄力主循环
+function tickHls() {
+  if (HLS.stage !== 'charge') return;
+  const now = performance.now();
+  const el = now - HLS.chargeStart;
+  const lvl = Math.min(1, el / HLS.chargeMax);
+  HLS.level = lvl;
+  updateHlsHud(lvl);
+  drawChargeRing(lvl);
+  drawAimReticle();
+  HLS.rafId = requestAnimationFrame(tickHls);
+}
+
+function drawChargeRing(level) {
+  const ring = document.getElementById('hlsChargeRing');
+  const field = document.getElementById('hlsField');
+  const fr = field.getBoundingClientRect();
+  const cell = document.querySelector('#hlsAllyGrid [data-pos="2"]');
+  if (!cell) return;
+  const cr = cell.getBoundingClientRect();
+  const cx = cr.left - fr.left + cr.width / 2;
+  const cy = cr.top - fr.top + cr.height / 2;
+  const rr = 20 + 14 * level;
+  const circ = 2 * Math.PI * rr;
+  ring.innerHTML =
+    '<svg width="' + (fr.width) + '" height="' + (fr.height) + '" style="position:absolute;left:0;top:0;pointer-events:none;">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + rr + '" fill="none" stroke="rgba(0,0,0,0.42)" stroke-width="5"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + rr + '" fill="none" stroke="rgba(255,' + Math.round(206 - 136*level) + ',' + Math.round(110 - 80*level) + ',0.95)" stroke-width="5" stroke-linecap="round" ' +
+        'stroke-dasharray="' + (circ * level) + ' ' + circ + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"/>' +
+    '</svg>';
+}
+
+function drawAimReticle() {
+  const canvas = document.getElementById('hlsCanvas');
+  const field = document.getElementById('hlsField');
+  const fr = field.getBoundingClientRect();
+  const aimCell = document.querySelector('#hlsEnemyGrid [data-pos="' + HLS.aimPos + '"]');
+  if (!aimCell) return;
+  const ar = aimCell.getBoundingClientRect();
+  const cx = ar.left - fr.left + ar.width / 2;
+  const cy = ar.top - fr.top + ar.height / 2;
+  const rr = Math.min(ar.width, ar.height) * (0.55 + 0.1 * HLS.level);
+  let html = '<svg width="' + fr.width + '" height="' + fr.height + '" style="position:absolute;left:0;top:0;pointer-events:none;">';
+  // 准星圆
+  html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + rr + '" fill="none" stroke="rgba(255,120,50,0.9)" stroke-width="2"/>';
+  // 四向刻度
+  const t1 = rr * 0.6, t2 = rr * 1.3;
+  [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy]) => {
+    html += '<line x1="' + (cx + dx*t1) + '" y1="' + (cy + dy*t1) + '" x2="' + (cx + dx*t2) + '" y2="' + (cy + dy*t2) + '" stroke="rgba(255,120,50,0.9)" stroke-width="1.5" stroke-linecap="round"/>';
+  });
+  // 九位九形预警凸包（简化：只画命中格描边 + 顶点连线）
+  const apexCell = document.querySelector('#hlsAllyGrid [data-pos="2"]');
+  if (apexCell) {
+    const apr = apexCell.getBoundingClientRect();
+    const ax = apr.left - fr.left + apr.width / 2;
+    const ay = apr.top - fr.top + apr.height / 2;
+    const shape = XULI.hitShapes[HLS.aimPos] || [];
+    for (const p of shape) {
+      const c = document.querySelector('#hlsEnemyGrid [data-pos="' + p + '"]');
+      if (!c) continue;
+      const cr = c.getBoundingClientRect();
+      const px = cr.left - fr.left + cr.width/2;
+      const py = cr.top - fr.top + cr.height/2;
+      html += '<line x1="' + ax + '" y1="' + ay + '" x2="' + px + '" y2="' + py + '" stroke="rgba(255,120,50,' + (0.2 + 0.35*HLS.level) + ')" stroke-width="1" stroke-dasharray="4 4"/>';
+    }
+  }
+  html += '</svg>';
+  canvas.innerHTML = html;
+}
+
+// 交互事件
+let _onPointerDown = null, _onPointerMove = null, _onPointerUp = null;
+function bindCurtainEvents() {
+  const field = document.getElementById('hlsField');
+  _onPointerDown = (e) => {
+    if (HLS.stage !== 'idle') return;
+    e.preventDefault();
+    HLS.pointerDown = true;
+    startCharge();
+    aimFromPointer(e);
+  };
+  _onPointerMove = (e) => {
+    if (!HLS.pointerDown) return;
+    aimFromPointer(e);
+  };
+  _onPointerUp = () => {
+    if (!HLS.pointerDown) return;
+    HLS.pointerDown = false;
+    if (HLS.stage === 'charge') doBurst();
+  };
+  field.addEventListener('pointerdown', _onPointerDown);
+  field.addEventListener('pointermove', _onPointerMove);
+  window.addEventListener('pointerup', _onPointerUp);
+}
+function unbindCurtainEvents() {
+  const field = document.getElementById('hlsField');
+  if (_onPointerDown) field.removeEventListener('pointerdown', _onPointerDown);
+  if (_onPointerMove) field.removeEventListener('pointermove', _onPointerMove);
+  if (_onPointerUp) window.removeEventListener('pointerup', _onPointerUp);
+  _onPointerDown = _onPointerMove = _onPointerUp = null;
+}
+
+function startCharge() {
+  HLS.stage = 'charge';
+  HLS.chargeStart = performance.now();
+  HLS.level = 0;
+  document.getElementById('hlsHint').textContent = '蓄力中… 拖动瞄准，松手轰出';
+  if (!HLS.rafId) HLS.rafId = requestAnimationFrame(tickHls);
+}
+
+function aimFromPointer(e) {
+  const field = document.getElementById('hlsField');
+  const fr = field.getBoundingClientRect();
+  const px = e.clientX - fr.left;
+  const py = e.clientY - fr.top;
+  // 遍历敌方 9 格找最近的
+  let best = 5, bd = Infinity;
+  for (let p = 1; p <= 9; p++) {
+    const c = document.querySelector('#hlsEnemyGrid [data-pos="' + p + '"]');
+    if (!c) continue;
+    const cr = c.getBoundingClientRect();
+    const cx = cr.left - fr.left + cr.width/2;
+    const cy = cr.top - fr.top + cr.height/2;
+    const d = Math.hypot(cx - px, cy - py);
+    if (d < bd) { bd = d; best = p; }
+  }
+  if (best !== HLS.aimPos) {
+    HLS.aimPos = best;
+    document.getElementById('hlsHint').textContent = '瞄准 ' + best + ' 号位 → 命中 ' + (XULI.hitShapes[best] || []).length + ' 格';
+    drawAimReticle();
+  }
+}
+
+// 爆发
+async function doBurst() {
+  HLS.stage = 'burst';
+  cancelAnimationFrame(HLS.rafId);
+  HLS.rafId = 0;
+  const level = HLS.level;
+  const aimPos = HLS.aimPos;
+  const dmgMap = calcDmgMap(aimPos);
+  const field = document.getElementById('hlsField');
+  const fr = field.getBoundingClientRect();
+
+  // 顶点（施术者格）
+  const apexCell = document.querySelector('#hlsAllyGrid [data-pos="2"]');
+  const ar = apexCell.getBoundingClientRect();
+  const ax = ar.left - fr.left + ar.width/2;
+  const ay = ar.top - fr.top + ar.height/2;
+
+  // 目标格中心
+  const targetCell = document.querySelector('#hlsEnemyGrid [data-pos="' + aimPos + '"]');
+  const tr = targetCell.getBoundingClientRect();
+  const tx = tr.left - fr.left + tr.width/2;
+  const ty = tr.top - fr.top + tr.height/2;
+
+  // 白闪
+  const flash = document.getElementById('hlsWhiteFlash');
+  flash.style.opacity = '0.88';
+  setTimeout(() => { flash.style.opacity = '0'; }, 180);
+
+  // 冲击波 + 碎石 + 伤害数字 + 吸血
+  const canvas = document.getElementById('hlsCanvas');
+  const t0 = performance.now();
+  const BURST = HLS.burstMs;
+  const VAMP = HLS.vampMs;
+
+  let finalFlashLevel = level;
+  function burstFrame() {
+    const tb = performance.now() - t0;
+    const field2 = document.getElementById('hlsField');
+    const fr2 = field2.getBoundingClientRect();
+    let svg = '<svg width="' + fr2.width + '" height="' + fr2.height + '" style="position:absolute;left:0;top:0;pointer-events:none;">';
+
+    // 扇形（简化：从 apex 出发的弧形扇）
+    if (tb < 1250) {
+      const p = Math.min(1, tb / 400);
+      const e = 1 - Math.pow(1 - p, 3);
+      // 用目标格方向作为扇形中轴
+      const ang = Math.atan2(ty - ay, tx - ax);
+      const R = Math.hypot(tx - ax, ty - ay) * (0.3 + 0.8 * e);
+      const half = 0.55;
+      const a1 = ang - half, a2 = ang + half;
+      const x1 = ax + Math.cos(a1) * R, y1 = ay + Math.sin(a1) * R;
+      const x2 = ax + Math.cos(a2) * R, y2 = ay + Math.sin(a2) * R;
+      const op = 1 - tb / 1250;
+      svg += '<path d="M ' + ax + ' ' + ay + ' L ' + x1 + ' ' + y1 + ' A ' + R + ' ' + R + ' 0 0 1 ' + x2 + ' ' + y2 + ' Z" fill="rgba(255,180,70,' + (0.35 * op) + ')" stroke="rgba(255,255,255,' + (0.8*op) + ')" stroke-width="2"/>';
+    }
+
+    // 命中格：冰蓝碎裂 / 红棕凹痕 / 轻凹痕
+    for (const [p, info] of Object.entries(dmgMap)) {
+      const c = document.querySelector('#hlsEnemyGrid [data-pos="' + p + '"]');
+      if (!c) continue;
+      const cr = c.getBoundingClientRect();
+      const cx = cr.left - fr2.left + cr.width/2;
+      const cy = cr.top - fr2.top + cr.height/2;
+      const lt = tb - 200 - Math.hypot(cx - ax, cy - ay) * 0.1;
+      if (lt < 0) continue;
+      if (info.tier === 'direct' || info.tier === 'eight') {
+        const op = Math.max(0, 1 - lt / 800);
+        svg += '<rect x="' + (cr.left - fr2.left - 2) + '" y="' + (cr.top - fr2.top - 2) + '" width="' + (cr.width + 4) + '" height="' + (cr.height + 4) + '" rx="6" fill="none" stroke="rgba(127,199,255,' + (0.9 * op) + ')" stroke-width="3"/>';
+        // 白裂纹
+        if (lt < 400) {
+          const op2 = 1 - lt / 400;
+          svg += '<line x1="' + (cx - 12) + '" y1="' + (cy - 8) + '" x2="' + (cx + 12) + '" y2="' + (cy + 10) + '" stroke="rgba(255,255,255,' + op2 + ')" stroke-width="2"/>';
+          svg += '<line x1="' + (cx + 10) + '" y1="' + (cy - 12) + '" x2="' + (cx - 8) + '" y2="' + (cy + 14) + '" stroke="rgba(255,255,255,' + op2 + ')" stroke-width="2"/>';
+        }
+      } else if (info.tier === 'near') {
+        const op = Math.max(0, 1 - lt / 700);
+        svg += '<rect x="' + (cr.left - fr2.left) + '" y="' + (cr.top - fr2.top) + '" width="' + cr.width + '" height="' + cr.height + '" rx="5" fill="rgba(139,58,30,' + (0.55 * op) + ')"/>';
+      } else {
+        const op = Math.max(0, 1 - lt / 500);
+        svg += '<rect x="' + (cr.left - fr2.left) + '" y="' + (cr.top - fr2.top) + '" width="' + cr.width + '" height="' + cr.height + '" rx="5" fill="rgba(139,58,30,' + (0.28 * op) + ')"/>';
+      }
+      // 伤害数字
+      if (lt > 100 && lt < 1500) {
+        const dOp = lt < 300 ? (lt - 100) / 200 : Math.max(0, 1 - (lt - 300) / 1200);
+        const dy = -30 * Math.min(1, lt / 800);
+        svg += '<text x="' + cx + '" y="' + (cy + dy) + '" text-anchor="middle" font-size="' + (info.tier === 'direct' ? 28 : (info.tier === 'near' ? 22 : 18)) + '" font-weight="900" fill="#ffe9a8" stroke="rgba(110,18,0,0.92)" stroke-width="2" paint-order="stroke" style="opacity:' + dOp + '">−' + info.dmg + '</text>';
+      }
+    }
+
+    // 碎石（简化：12 颗从 apex 飞散）
+    if (tb < 1200) {
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const dist = 40 + (i * 11 % 40);
+        const lt2 = tb - 300;
+        if (lt2 < 0 || lt2 > 900) continue;
+        const t = lt2 / 1000;
+        const px = ax + Math.cos(a) * dist * (t * 4);
+        const py = ay + Math.sin(a) * dist * (t * 4) + 100 * t * t;
+        svg += '<circle cx="' + px + '" cy="' + py + '" r="2.5" fill="' + (i % 2 ? '#8a5a2b' : '#dcc79c') + '" opacity="' + (1 - lt2/900) + '"/>';
+      }
+    }
+
+    canvas.innerHTML = svg;
+
+    if (tb < BURST) {
+      HLS.rafId = requestAnimationFrame(burstFrame);
+    } else {
+      // 吸血尾巴
+      HLS.stage = 'vamp';
+      const vampT0 = performance.now();
+      const totalDmg = Object.values(dmgMap).reduce((s, x) => s + x.dmg, 0);
+      const vamp = Math.floor(totalDmg / XULI.vampDiv);
+      function vampFrame() {
+        const vt = performance.now() - vampT0;
+        const canvas2 = document.getElementById('hlsCanvas');
+        const fr3 = field.getBoundingClientRect();
+        let svg2 = '<svg width="' + fr3.width + '" height="' + fr3.height + '" style="position:absolute;left:0;top:0;pointer-events:none;">';
+        if (vt < VAMP) {
+          const p = Math.min(1, vt / VAMP);
+          const op = 1 - p * p;
+          const dy = -30 * (1 - Math.pow(1 - p, 3));
+          svg2 += '<text x="' + ax + '" y="' + (ay + dy) + '" text-anchor="middle" font-size="20" font-weight="900" fill="#9ff0b0" stroke="rgba(6,40,16,0.92)" stroke-width="2" paint-order="stroke" style="opacity:' + op + '">🩸+' + vamp + '</text>';
+          canvas2.innerHTML = svg2;
+          HLS.rafId = requestAnimationFrame(vampFrame);
+        } else {
+          canvas2.innerHTML = '';
+          finishHls();
+        }
+      }
+      vampFrame();
+    }
+  }
+  burstFrame();
+}
+
+function finishHls() {
+  HLS.stage = 'idle';
+  HLS.justPlayed = true;
+  hideCurtain();
+  if (typeof HLS.onFinish === 'function') {
+    const cb = HLS.onFinish; HLS.onFinish = null; cb();
+  }
+}
+
+// 89 联动：玩家没操作时 3 秒自动蓄满
+let _hlsAutoTimer = null;
+function armAutoBurst() {
+  if (_hlsAutoTimer) clearTimeout(_hlsAutoTimer);
+  _hlsAutoTimer = setTimeout(() => {
+    if (HLS.stage === 'idle') {
+      HLS.pointerDown = true;
+      startCharge();
+      // 1.6 秒后自动松手
+      setTimeout(() => {
+        if (HLS.stage === 'charge') { HLS.pointerDown = false; doBurst(); }
+      }, 1600);
+    }
+  }, 3000);
+}
+function disarmAutoBurst() {
+  if (_hlsAutoTimer) { clearTimeout(_hlsAutoTimer); _hlsAutoTimer = null; }
+}
+
+/* ============================================================
+   ============ 93 简单版（战场直接爆发）============
+   ============================================================ */
+
+async function burstJianDan(aimPos, opts) {
+  const lite = !!(opts && opts.lite);
+  const dmgMap = calcDmgMap(aimPos);
+  const totalDmg = Object.values(dmgMap).reduce((s, x) => s + x.dmg, 0);
+  const vamp = Math.floor(totalDmg / XULI.vampDiv);
+
+  const bf = document.getElementById('battlefield');
+  const bfRect = bf.getBoundingClientRect();
+  const apexCell = document.querySelector('#allyGrid [data-pos="2"]');
+  const ar = apexCell.getBoundingClientRect();
+  const ax = ar.left + ar.width/2;
+  const ay = ar.top + ar.height/2;
+
+  // 全屏 SVG 层
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:10009;overflow:visible;';
+  document.body.appendChild(svg);
+
+  // 震屏
+  shakeScreen(420, lite ? 3 : 8);
+
+  if (lite) {
+    // 轻量版：只震屏 + 格闪（这就是当前华丽模式下 93 演的那一点）
+    for (const [p, info] of Object.entries(dmgMap)) {
+      const c = document.querySelector('#enemyGrid [data-pos="' + p + '"]');
+      if (!c) continue;
+      flashCell(c, info.tier);
+    }
+    await sleep(420);
+    svg.remove();
+    return;
+  }
+
+  // 全套：扇形 + 涟漪 + 粒子 + 格效 + 伤害数字 + 吸血
+  const t0 = performance.now();
+  const totalMs = 2200;
+  // 命中格中心（供绘制）
+  const hits = [];
+  for (const [p, info] of Object.entries(dmgMap)) {
+    const c = document.querySelector('#enemyGrid [data-pos="' + p + '"]');
+    if (!c) continue;
+    const cr = c.getBoundingClientRect();
+    hits.push({ pos: +p, info, x: cr.left + cr.width/2, y: cr.top + cr.height/2, w: cr.width, h: cr.height, el: c });
+  }
+  // 扇形中轴：目标格方向
+  const aimCell = document.querySelector('#enemyGrid [data-pos="' + aimPos + '"]');
+  let aimAngle = -Math.PI / 2;
+  if (aimCell) {
+    const tr = aimCell.getBoundingClientRect();
+    aimAngle = Math.atan2(tr.top + tr.height/2 - ay, tr.left + tr.width/2 - ax);
+  }
+
+  // 涟漪 SVG path
+  let ringPath1 = '', ringPath2 = '';
+  if (hits.length) {
+    const leftHit = hits.reduce((a, b) => b.x < a.x ? b : a);
+    const rightHit = hits.reduce((a, b) => b.x > a.x ? b : a);
+    const c1x = leftHit.x, c1y = leftHit.y, c2x = rightHit.x, c2y = rightHit.y;
+    const R0 = Math.max(Math.hypot(c1x-ax, c1y-ay), Math.hypot(c2x-ax, c2y-ay), 1);
+    ringPath1 = { ax, ay, c1x, c1y, c2x, c2y, R0 };
+  }
+
+  function frame() {
+    const tb = performance.now() - t0;
+    let html = '<defs><radialGradient id="hlsGrad2" gradientUnits="userSpaceOnUse" cx="' + ax + '" cy="' + ay + '" r="' + (ringPath1 ? ringPath1.R0 : 100) + '">' +
+      '<stop offset="0%" stop-color="rgba(255,215,0,0.55)"/>' +
+      '<stop offset="50%" stop-color="rgba(255,170,60,0.28)"/>' +
+      '<stop offset="100%" stop-color="rgba(127,199,255,0.04)"/>' +
+      '</radialGradient></defs>';
+
+    // 扇形主体（从顶点铺开）
+    if (ringPath1 && tb < 1200) {
+      const p = Math.min(1, tb / 400);
+      const e = 1 - Math.pow(1 - p, 3);
+      const s = 0.12 + 1.15 * e;
+      const a = { x: ax + (ringPath1.c1x - ax) * s, y: ay + (ringPath1.c1y - ay) * s };
+      const b = { x: ax + (ringPath1.c2x - ax) * s, y: ay + (ringPath1.c2y - ay) * s };
+      const R = ringPath1.R0 * s;
+      const op = 1 - tb / 1200;
+      html += '<path d="M ' + ax + ' ' + ay + ' L ' + a.x + ' ' + a.y + ' A ' + R + ' ' + R + ' 0 0 1 ' + b.x + ' ' + b.y + ' Z" fill="url(#hlsGrad2)" opacity="' + op + '" stroke="rgba(255,200,80,0.7)" stroke-width="2"/>';
+    }
+
+    // 两道涟漪
+    [['rgba(255,200,80,0.85)', 0, 1.18, 0], ['rgba(127,199,255,0.7)', 240, 1.28, 0.15]].forEach(([col, delay, to, fromOff]) => {
+      const t = tb - delay;
+      if (t < 0 || t > 950 || !ringPath1) return;
+      const p = Math.min(1, t / 950);
+      const s = (0.2 + fromOff) + (to - 0.2 - fromOff) * p;
+      const a = { x: ax + (ringPath1.c1x - ax) * s, y: ay + (ringPath1.c1y - ay) * s };
+      const b = { x: ax + (ringPath1.c2x - ax) * s, y: ay + (ringPath1.c2y - ay) * s };
+      const R = ringPath1.R0 * s;
+      html += '<path d="M ' + a.x + ' ' + a.y + ' A ' + R + ' ' + R + ' 0 0 1 ' + b.x + ' ' + b.y + '" fill="none" stroke="' + col + '" stroke-width="2.5" opacity="' + (1 - p) + '"/>';
+    });
+
+    // 粒子
+    if (tb < 1400) {
+      for (let i = 0; i < 30; i++) {
+        const hit = hits[i % hits.length];
+        if (!hit) continue;
+        const delay = (i % hits.length) * 40 + (i * 12) % 200;
+        const lt = tb - delay;
+        if (lt < 0 || lt > 580) continue;
+        const p = Math.min(1, lt / 580);
+        const e = 1 - Math.pow(1 - p, 2.4);
+        const dx = (hit.x + (i * 7 % 30) - 15) - ax;
+        const dy = (hit.y + (i * 13 % 20) - 10) - ay;
+        const px = ax + dx * e, py = ay + dy * e;
+        const col = i % 2 ? '#ffd36e' : '#bfe4ff';
+        html += '<circle cx="' + px + '" cy="' + py + '" r="' + (3.5 * (1 - p)) + '" fill="' + col + '" opacity="' + (1 - p) + '"/>';
+      }
+    }
+
+    // 命中格效果
+    for (const h of hits) {
+      const lt = tb - 200;
+      if (lt < 0) continue;
+      const heavy = h.info.tier === 'direct' || h.info.tier === 'eight';
+      const mid = h.info.tier === 'near';
+      const op = Math.max(0, 1 - lt / 800);
+      if (heavy) {
+        html += '<rect x="' + (h.x - h.w/2 - 2) + '" y="' + (h.y - h.h/2 - 2) + '" width="' + (h.w + 4) + '" height="' + (h.h + 4) + '" rx="6" fill="none" stroke="rgba(127,199,255,' + (0.9 * op) + ')" stroke-width="3"/>';
+      } else if (mid) {
+        html += '<rect x="' + (h.x - h.w/2) + '" y="' + (h.y - h.h/2) + '" width="' + h.w + '" height="' + h.h + '" rx="5" fill="rgba(139,58,30,' + (0.55 * op) + ')"/>';
+      } else {
+        html += '<rect x="' + (h.x - h.w/2) + '" y="' + (h.y - h.h/2) + '" width="' + h.w + '" height="' + h.h + '" rx="5" fill="rgba(139,58,30,' + (0.28 * op) + ')"/>';
+      }
+    }
+    svg.innerHTML = html;
+
+    if (tb < totalMs) {
+      requestAnimationFrame(frame);
+    } else {
+      svg.remove();
+    }
+  }
+  frame();
+
+  // 逐格弹出伤害数字（DOM 层，避免和 SVG 抢）
+  hits.forEach((h, i) => {
+    setTimeout(() => {
+      const d = document.createElement('div');
+      d.setAttribute('data-fx', 'temporary');
+      d.textContent = '−' + h.info.dmg;
+      const heavy = h.info.tier === 'direct' || h.info.tier === 'eight';
+      const mid = h.info.tier === 'near';
+      const size = heavy ? 32 : (mid ? 26 : 20);
+      const col = heavy ? '#ffe9a8' : (mid ? '#ffc9a0' : '#d9c6b8');
+      d.style.cssText = 'position:fixed;left:' + h.x + 'px;top:' + (h.y - h.h*0.3) + 'px;transform:translate(-50%,0);font-size:' + size + 'px;font-weight:900;color:' + col + ';text-shadow:0 0 10px rgba(255,180,60,0.9),0 3px 6px rgba(0,0,0,0.95);z-index:10013;pointer-events:none;opacity:0;transition:opacity 0.1s;';
+      document.body.appendChild(d);
+      requestAnimationFrame(() => { d.style.opacity = '1'; d.style.transform = 'translate(-50%,-40px)'; });
+      setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 300); }, 1200);
+    }, 250 + i * 80);
+  });
+
+  // 吸血飘字
+  setTimeout(() => {
+    const d = document.createElement('div');
+    d.setAttribute('data-fx', 'temporary');
+    d.textContent = '🩸 +' + vamp;
+    d.style.cssText = 'position:fixed;left:' + ax + 'px;top:' + (ay - 20) + 'px;transform:translate(-50%,0);font-size:22px;font-weight:900;color:#9ff0b0;text-shadow:0 0 10px rgba(80,220,130,0.8),0 2px 4px rgba(0,0,0,0.9);z-index:10013;pointer-events:none;opacity:0;transition:opacity 0.15s, transform 0.6s;';
+    document.body.appendChild(d);
+    requestAnimationFrame(() => { d.style.opacity = '1'; d.style.transform = 'translate(-50%,-50px)'; });
+    setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 300); }, 1300);
+  }, 800);
+}
+
+function flashCell(cell, tier) {
+  const heavy = tier === 'direct' || tier === 'eight';
+  const mid = tier === 'near';
+  const color = heavy ? 'rgba(127,199,255,0.85)' : (mid ? 'rgba(139,58,30,0.7)' : 'rgba(139,58,30,0.4)');
+  cell.style.transition = 'box-shadow 0.1s';
+  cell.style.boxShadow = 'inset 0 0 20px 6px ' + color;
+  setTimeout(() => {
+    cell.style.transition = 'box-shadow 0.4s';
+    cell.style.boxShadow = '';
+  }, 200);
+}
+function shakeScreen(ms, amp) {
+  const bf = document.getElementById('battlefield');
+  const t0 = performance.now();
+  function f() {
+    const t = performance.now() - t0;
+    if (t >= ms) { bf.style.transform = ''; return; }
+    const m = amp * (1 - t / ms);
+    bf.style.transform = 'translate(' + ((Math.random()-0.5)*2*m) + 'px,' + ((Math.random()-0.5)*2*m) + 'px)';
+    requestAnimationFrame(f);
+  }
+  f();
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ============================================================
+   ============ 三个按钮 handler ============
+   ============================================================ */
+
+document.getElementById('btnHuali').addEventListener('click', async () => {
+  log('<b>【华丽版（79）】</b>黑幕已拉起。请在黑幕里的战场上按住蓄力、拖动瞄准、松手轰出。', 'gold');
+  log('（若 3 秒内不操作，会自动蓄力并瞄准敌方 5 号位）', 'dim');
+  setBtnsDisabled(true);
+  HLS.onFinish = () => {
+    log('✅ 华丽版演完。此时玩家看到的是完整的黑幕演出。<b>实际游戏里，此刻战场还会再演一次 93 的轻量版。</b>', 'gold');
+    log('想看「那一刻战场演了什么」——请点【华丽 + 战场】。', 'dim');
+    setBtnsDisabled(false);
+  };
+  showCurtain();
+  armAutoBurst();
+});
+
+document.getElementById('btnJiandan').addEventListener('click', async () => {
+  log('<b>【简单版（93）】</b>无黑幕，战场直接爆发。这就是回放 / 从机 / 快进 / 全自动看到的观感。', 'blue');
+  setBtnsDisabled(true);
+  await burstJianDan(5);
+  await sleep(300);
+  log('✅ 简单版演完。战场上的扇形、涟漪、粒子、格效、伤害数字、吸血飘字，一套完整。', 'blue');
+  setBtnsDisabled(false);
+});
+
+document.getElementById('btnOverlay').addEventListener('click', async () => {
+  log('<b>【华丽 + 战场（当前问题）】</b>先演 79（自动蓄力 2 秒 + 瞄准敌方 5 号位），再演 93 轻量版。', 'red');
+  setBtnsDisabled(true);
+  HLS.onFinish = async () => {
+    log('黑幕演完了。现在看战场——', 'red');
+    log('注意战场：会<b>震一下 + 敌方命中格闪一下</b>。这就是华丽模式下 93 演的那点东西。', 'red');
+    await sleep(300);
+    await burstJianDan(5, { lite: true });
+    await sleep(200);
+    log('两段都跑完了。这就是你在游戏里实际看到的观感——因为 93 被降级得很轻，你可能一直没注意到黑幕关掉后战场还动了一下。', 'red');
+    log('<b>为啥要改：</b>现在降不降级靠一个全局时间戳（79 演完写时间，93 读到 3.5 秒内就轻量）。时序一偏（比如黑幕里多看了一会儿字），93 就演全套——观感变成「黑幕演完，战场又演一遍」。', 'red');
+    setBtnsDisabled(false);
+  };
+  showCurtain();
+  // 自动蓄满：3 秒后自动按、5 秒后自动松
+  setTimeout(() => {
+    if (HLS.stage === 'idle') {
+      HLS.pointerDown = true;
+      startCharge();
+      setTimeout(() => {
+        if (HLS.stage === 'charge') { HLS.pointerDown = false; doBurst(); }
+      }, 2200);
+    }
+  }, 800);
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  const box = document.getElementById('logBox');
+  box.innerHTML = '<div class="log-line dim">↑ 点上面三个按钮之一，观察三种场景的观感差异。</div>';
+});
+
+function setBtnsDisabled(dis) {
+  ['btnHuali', 'btnJiandan', 'btnOverlay'].forEach(id => {
+    document.getElementById(id).disabled = dis;
+  });
+}
+
+/* 79 跳过按钮 */
+document.getElementById('hlsSkip').addEventListener('click', (e) => {
+  e.stopPropagation();
+  disarmAutoBurst();
+  if (HLS.stage === 'charge' || HLS.stage === 'burst' || HLS.stage === 'vamp') {
+    cancelAnimationFrame(HLS.rafId);
+    HLS.rafId = 0;
+    HLS.stage = 'idle';
+    hideCurtain();
+    if (typeof HLS.onFinish === 'function') {
+      const cb = HLS.onFinish; HLS.onFinish = null; cb();
+    }
+  }
+});
+
+/* ============================================================
+   启动
+   ============================================================ */
+renderAll();
+log('<b>欢迎。</b>上面三个按钮，分别演示三种场景。建议按顺序点：① 华丽版 → ② 简单版 → ③ 华丽 + 战场（当前问题）。', 'gold');
+</script>
+</body>
+</html>

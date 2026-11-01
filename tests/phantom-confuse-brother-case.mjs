@@ -2,8 +2,8 @@
 //   承接第 161 轮【最高·下轮】：⑤b-2「非样本缺口」那 5 条要逐个配定向用例，phantomReveal /
 //   phantomConfuse 优先（两条都被记成「要成昆在队，而 29battle-init 无 forceChengKun」）。
 //   ★ 本轮先在源码里翻出一件被漏掉的事：PHANTOM_CONFUSE 有**两个**发射点 —— 除了成昆那条
-//     （modules/25elite-imperial.js L196），还有「小昭·兄永久惑心」这条
-//     （modules/27elite-mingjiao-xiaozhao-brother.js L203，fact 带 deceiverIsSpider 标记）。
+//     （modules/307-elite-imperial.js L196），还有「小昭·兄永久惑心」这条
+//     （modules/323-elite-mingjiao-xiaozhao-brother.js L203，fact 带 deceiverIsSpider 标记）。
 //     ⇒ 也就是说第 160 轮给 phantomConfuse 下的「要成昆在队 ⇒ 干净树本就不发射」这个结论
 //       **只看了一个发射点**，而另一条发射点走的是 forceXiaoZhao='brother' —— 现成的定向通道，
 //       根本不需要 forceChengKun。若这条能打出 fact，phantomConfuse 就不是死代码，
@@ -31,7 +31,7 @@
 //
 // V1.1.0 | 2026-10-31 夜间第 163 轮：★ 段三重写 —— 上轮的「疑点乙」是**测量口径错误**，本轮证伪。
 //   上轮段三在 import 阶段 eventBus.on 注册一次，读出 BEFORE_SELECT_TARGET 零触发。
-//   但引擎 installRoundMechanics 每回合 eventBus.clearAll()（core/11battle-round.js:142；core/06battle-runner.js
+//   但引擎 installRoundMechanics 每回合 eventBus.clearAll()（core/210-battle-round.js:142；core/206-battle-runner.js
 //   顶部注释明写「页面级 eventBus 监听器活不过第一回合」）⇒ 探针在**第一次攻击之前**就被清掉，计数恒为 0。
 //   换成 tests/_lib/signal-probe.mjs 的跨回合存活探针（每 step ensure 重登，on 自带去重）后：
 //   42 场实测该信号**发 3443 次**（均 82 次/场），探针被重登 566 次 —— 信号一直在发，被清掉的是探针自己。
@@ -65,12 +65,12 @@ const MIN_ENTER = 10;                                    // 进入（兄持永�
 const SCAN_ONLY = process.argv.includes('--scan');
 
 // ── 段一 静态自证（不跑战斗，直接读源码）────────────────────────────────
-const SRC = path.join(root, 'modules/27elite-mingjiao-xiaozhao-brother.js');
+const SRC = path.join(root, 'modules/323-elite-mingjiao-xiaozhao-brother.js');
 const src = fs.readFileSync(SRC, 'utf8').split(/\r?\n/);
 const reasons = [];
 const idxFact = src.findIndex(l => l.includes('PHANTOM_CONFUSE'));
 if (idxFact < 0) {
-    reasons.push('modules/27elite-mingjiao-xiaozhao-brother.js 里找不到 PHANTOM_CONFUSE 发射点（分支被删 / 改名）');
+    reasons.push('modules/323-elite-mingjiao-xiaozhao-brother.js 里找不到 PHANTOM_CONFUSE 发射点（分支被删 / 改名）');
 } else {
     const win = src.slice(Math.max(0, idxFact - 14), idxFact + 1).join('\n');
     const need = [
@@ -82,7 +82,7 @@ if (idxFact < 0) {
         ['兄分支标记 deceiverIsSpider', /deceiverIsSpider:\s*true/.test(src[idxFact])]
     ];
     for (const [name, ok] of need) if (!ok) reasons.push('兄分支前置「' + name + '」在源码里对不上（形状已变，旧结论作废）');
-    console.log('--- 段一 静态自证（modules/27elite-mingjiao-xiaozhao-brother.js L' + (idxFact + 1) + ' 兄分支发射点）---');
+    console.log('--- 段一 静态自证（modules/323-elite-mingjiao-xiaozhao-brother.js L' + (idxFact + 1) + ' 兄分支发射点）---');
     for (const [name, ok] of need) console.log('  ' + (ok ? '✅' : '❌') + ' ' + name);
 }
 // 疑点甲（只点名不下结论）：发射点用的是安装期捕获的 brother 引用，还是每次 data 里现取
@@ -93,47 +93,47 @@ if (idxCap >= 0 && usesCaptured) {
 }
 // 数据面：201 brother.mindControl.hitChance 必须有值（缺则主代码直接抛错，不是"概率为 0"）
 try {
-    const hex201 = JSON.parse(fs.readFileSync(path.join(root, 'content/201hex-enhance.json'), 'utf8'));
+    const hex201 = JSON.parse(fs.readFileSync(path.join(root, 'content/002-hex-enhance.json'), 'utf8'));
     const hc = hex201?.brother?.mindControl?.hitChance;
-    if (hc == null) reasons.push('content/201hex-enhance.json 缺 brother.mindControl.hitChance（主代码会直接抛错）');
+    if (hc == null) reasons.push('content/002-hex-enhance.json 缺 brother.mindControl.hitChance（主代码会直接抛错）');
     else console.log('  ✅ 201 brother.mindControl.hitChance = ' + hc);
 } catch (e) {
-    reasons.push('content/201hex-enhance.json 读取/解析失败: ' + e.message);
+    reasons.push('content/002-hex-enhance.json 读取/解析失败: ' + e.message);
 }
 const sp = { ok: reasons.length === 0, reasons };
 
 // ── 段二 定向扫描 ────────────────────────────────────────────────────────
 const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
        { initBattleTeams }, { GlobalStore }, { FACT_TYPES: FT }, { BUFF_TYPES }] = await Promise.all([
-    import('../core/01config-5v5-test.js'),
-    import('../infra/51-core-utils.js'),
-    import('../core/11battle-round.js'),
-    import('../modules/29battle-init.js'),
-    import('../infra/54-global-store.js'),
-    import('../infra/56-battle-enums.js'),
-    import('../infra/56-battle-enums.js')
+    import('../core/201-config-5v5-test.js'),
+    import('../infra/102-core-utils.js'),
+    import('../core/210-battle-round.js'),
+    import('../modules/330-battle-init.js'),
+    import('../infra/104-global-store.js'),
+    import('../infra/106-battle-enums.js'),
+    import('../infra/106-battle-enums.js')
 ]);
-const { CAMP_TYPES } = await import('../infra/56-battle-enums.js');
-const { eventBus } = await import('../infra/50-event-bus.js');
-const { SIGNAL_TYPES } = await import('../infra/56-battle-enums.js');
+const { CAMP_TYPES } = await import('../infra/106-battle-enums.js');
+const { eventBus } = await import('../infra/101-event-bus.js');
+const { SIGNAL_TYPES } = await import('../infra/106-battle-enums.js');
 const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
 // ★ 第 171 轮：permHas / hasActiveBuff 收口为 tests/_lib/buff-state-query.mjs 唯一来源
 //   （本文件与 xiaozhao-horse-carry-case 各存一份逐字相同的副本，被 second-source-scan 判为
 //    「铁证如山的第二份」；纯搬迁，行为零变化 —— 详见公共件头部）。
 const { permHas, hasActiveBuff } = await import('./_lib/buff-state-query.mjs');
-await import('../modules/25elite-imperial.js');
-await import('../modules/26elite-sixsects.js');
-await import('../modules/27elite-mingjiao.js');
-await import('../modules/30custom-effects.js');
+await import('../modules/307-elite-imperial.js');
+await import('../modules/308-elite-sixsects.js');
+await import('../modules/317-elite-mingjiao.js');
+await import('../modules/331-custom-effects.js');
 await loadGameData();
-// 第 162 轮：小昭.hexEnhance 已迁到 content/201hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
+// 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 await loadHexEnhanceData();
 
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
 // 段三探针 —— 第 163 轮用 tests/_lib/signal-probe.mjs 重写（★ 第 162 轮这一段的写法是错的）：
 //   ★ 老写法在开头 eventBus.on 一次。但引擎 installRoundMechanics 里每回合 eventBus.clearAll()
-//     （core/11battle-round.js:142，且 core/06battle-runner.js 顶部注释明写「页面级监听器活不过第一回合」）
+//     （core/210-battle-round.js:142，且 core/206-battle-runner.js 顶部注释明写「页面级监听器活不过第一回合」）
 //     ⇒ 探针在第一次攻击之前就被清掉，计数**恒为 0**，于是读出「BEFORE_SELECT_TARGET 零触发」
 //     并推断「node 侧回放通道根本不发该信号」（第 162 轮疑点乙）。本轮已在 signal-channel-guard 里证伪：同一写法换成
 //     「每 step 重登」后实测 42 场发 3443 次（均 82 次/场）——信号一直在发，被清掉的是探针自己。
@@ -153,7 +153,7 @@ const probe = createSignalProbe({
         if (!data || !data.unit || data.unit.camp !== CAMP_TYPES.ENEMY) return;
         cnt.enemy++;
         // 现场按发射点五道前置逐条数（用信号带出来的存活对象，**不复用 install 期闭包**）
-        //   发点源码 modules/27elite-mingjiao-xiaozhao-brother.js submitSpiderMindControlDeclaration：
+        //   发点源码 modules/323-elite-mingjiao-xiaozhao-brother.js submitSpiderMindControlDeclaration：
         //   ① data.unit.camp === ENEMY  ② brother.alive && _permanentBuffs 含 MIND_CONTROL
         //   ③ 目标方 _activeBuffs 无 MIND_CONTROL  ④ rng.next() < hitChance(0.2)  ⑤ allySide 有误伤候选
         const enemyTeamSide = data.enemySide || [];      // 兄所在方（敌方攻击时的"敌方"... 即受攻击的一方）
@@ -219,7 +219,7 @@ function runBattle(seed, stage) {
                     collect(f);
                     if (f && f.factType === FT.ATTACK && f.data) {
                         // ★ 第 163 轮补的洞：幻影 fact 挂在 attackFact.data.phantomFact，
-                        //   **不在 data.entries 里**（core/12battle-attack-chain.js buildAttackGroup）。
+                        //   **不在 data.entries 里**（core/212-battle-attack-chain.js buildAttackGroup）。
                         //   老口径只扫 log 顶层 + data.entries ⇒ phantom 类命中根本看不见，
                         //   「兄分支 0 次 / 成昆分支 0 次」很可能是**没看到**，不是**没发生**。
                         collect(f.data.phantomFact);

@@ -1,7 +1,7 @@
 // 回归规则：蛛变 / 精通 数值 — 此前这两条 group 只有对照器（stat-decl）盯"声明==实际"，
 //   规则侧完全看不到（SPIDER_TRANSFORM fact 虽发射，但规则只看渲染文案）。2026-10-08 Step 0 后
 //   规则能读原始 fact（rule.test 第 7 参 facts），本规则据此重算对账，真正长牙。
-// 机制源（modules/20elite-skills.js L130-161 spiderTransform）：
+// 机制源（modules/302-elite-skills.js L130-161 spiderTransform）：
 //   - 蛛变：每次变身叠加新职业加成（newRole），atkDelta/defDelta/maxHpDelta
 //     = newStats.atk/def/maxHp = getRoleBonus(newRole).{atk,def,maxHp}；不扣旧。
 //   - 精通：首次精通（isNewMastery）按层数差结算 masteryGain = { atk:gained*m.atkPer, def:gained*m.defPer, hp:gained*m.hpPer }
@@ -15,9 +15,9 @@
 //   3) data.mastered < 1 → 已掌握角色数异常
 // 误报规避：本场无 SPIDER_TRANSFORM fact 直接 skip；getRoleBonus / getSkillParams 取不到配置就跳过对应判据。
 export const VER = 'tests/health-rules/160-spider-transform-mastery.js V1.0.0';
-import { getRoleBonus } from '../../core/02unit.js';
-import { getSkillParams } from '../../core/01config-5v5-test.js';
-import { FACT_TYPES } from '../../infra/56-battle-enums.js';
+import { getRoleBonus } from '../../core/202-unit.js';
+import { getSkillParams } from '../../core/201-config-5v5-test.js';
+import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule107 = {
     group: '数值回归',

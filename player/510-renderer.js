@@ -1,0 +1,170 @@
+export const VER = 'player/510-renderer.js V6.0.0';
+
+import { GlobalStore } from '../infra/104-global-store.js';
+import { playLineText } from './501-player-text.js';
+
+let _ctx = null;
+export function setRenderCtx(c) { _ctx = c; }
+function ctx() { return _ctx || GlobalStore.get('playerContext'); }
+
+// 从 battleStore 实时查找，未就绪回退 UI 快照
+export function findUnitByUid(c, uid) {
+    if (!uid) return null;
+    if (c && c.store) {
+        const su = c.store.getState().units.find(u => u.uid === uid);
+        if (su) return su;
+    }
+    const ui = (c && c.UI) || {};
+    const all = (ui.allyTeam || []).concat(ui.enemyTeam || []);
+    return all.find(u => u.uid === uid) || null;
+}
+
+// 日志区 DOM 操作
+
+export function getLogDiv() { return document.getElementById('log'); }
+
+export function appendLogHTML(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    getLogDiv().appendChild(div);
+    autoScrollLog();
+}
+
+export function appendLogElement(el) {
+    getLogDiv().appendChild(el);
+    autoScrollLog();
+}
+
+export async function playLogLine(text, forcedSpeed = null, anchorSpecs = null) {
+    let div = document.createElement('div');
+    appendLogElement(div);
+    await playLineText(text, div, forcedSpeed, anchorSpecs);
+    return div;
+}
+
+// 简要模式下隐藏 detail 日志
+export function appendHiddenDetail(text) {
+    const div = document.createElement('div');
+    div.className = 'detail-hidden';
+    div.innerHTML = text + '<br>';
+    appendLogElement(div);
+}
+
+export function autoScrollLog() {
+    const c = ctx();
+    if (c && c.userScrolled) return;
+    const log = getLogDiv();
+    if (log) log.scrollTop = log.scrollHeight;
+}
+
+// V7.5.12 从 infra/54 迁入（外部AI复核稿 ②「infra 去 UI」，老板批）：徽章 DOM 渲染归日志渲染层。
+//   _state.voteScore 直读改为 GlobalStore.get('voteScore')（同一份 _state，口径不变）；
+//   holyToken 保持 GlobalStore.get（战斗态 key 路由，54 原注释的坑照旧成立）。
+export function updateScoreBadge() {
+    if (typeof document === 'undefined') return;   // node 无头守卫（54 原版自带，迁移保留）
+    const badge = document.getElementById('scoreBadge');
+    if (!badge) return;
+    const score = GlobalStore.get('voteScore');
+    const token = GlobalStore.get('holyToken');
+    const displayScore = (score === null || score === undefined) ? 0 : score;
+    const displayToken = (token === null || token === undefined) ? 0 : token;
+    badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
+}
+
+// 顶层注册（与 ui/61 的 setUIHandler 同款打法）：playerContext 两项走 UIHandler 通道落到这里。
+//   player/47 首次被 import 即生效（player/42/45/46 战斗初始化必引；battle 前误调=静默 no-op，与 updateUI 兄弟行为一致）。
+GlobalStore.setUIHandler('autoScrollLog', autoScrollLog);
+GlobalStore.setUIHandler('updateScoreBadge', updateScoreBadge);
+
+export function updateRoundDisplay(text) {
+    const el = document.getElementById('roundDisplay');
+    if (el) el.innerText = text;
+}
+
+
+export function renderSeparator() {
+    const div = document.createElement('div');
+    div.innerHTML = '<span class="separator">- - - - -</span><br>';
+    getLogDiv().appendChild(div);
+    autoScrollLog();
+}
+
+
+export function renderVictoryLine(html) {
+    getLogDiv().innerHTML += html;
+    getLogDiv().scrollTop = getLogDiv().scrollHeight;
+}
+
+
+export function setBtnDisabled(id, disabled) {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = disabled;
+}
+
+export function setBtnText(id, text) {
+    const btn = document.getElementById(id);
+    if (btn) {
+        if (text.includes('<br>')) btn.innerHTML = text;
+        else btn.textContent = text;
+    }
+}
+
+
+export function initRenderer(c) {
+    setRenderCtx(c);
+}
+
+
+export function clearAllEffects() {
+    document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+    document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
+    document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
+}
+
+// 滚动回底按钮 + 用户滚动暂停
+
+export function initLogScrollControls(c) {
+    const logDiv = getLogDiv();
+    if (!logDiv) return;
+    const btn = document.createElement('div');
+    btn.id = 'backToBottomBtn';
+    btn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;';
+    btn.innerHTML = '↓';
+    btn.addEventListener('click', () => {
+        logDiv.scrollTop = logDiv.scrollHeight;
+        c.userScrolled = false;
+        btn.style.display = 'none';
+        const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
+        const mainCtx = ctx();
+        if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
+        else c.speed = 500;
+    });
+    logDiv.parentElement.appendChild(btn);
+    logDiv.addEventListener('scroll', () => {
+        const distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
+        if (distToBottom > 50) {
+            c.userScrolled = true;
+            btn.style.display = 'flex';
+            GlobalStore.set('scrollSlowdown', true);
+            const fn = GlobalStore.getUIHandler('activateScrollSlowdown'); if (fn) fn();
+        } else {
+            c.userScrolled = false;
+            btn.style.display = 'none';
+            const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
+        }
+    });
+}
+
+// 积分变动浮动提示
+
+export function showScoreFloat(earnPoints) {
+    const badge = document.getElementById('scoreBadge');
+    if (!badge) return;
+    const floatEl = document.createElement('span');
+    floatEl.className = 'score-float';
+    floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆';
+    badge.appendChild(floatEl);
+    setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
+    const c = ctx();
+    if (c && c.updateScoreBadge) setTimeout(() => c.updateScoreBadge(), 3500);
+}
