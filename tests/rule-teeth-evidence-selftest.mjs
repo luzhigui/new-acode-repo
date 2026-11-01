@@ -55,7 +55,11 @@ import { execFileSync } from 'node:child_process';
 import { scanAllBranches, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mjs';
 
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.2';
+// ★ V1.0.3 的 VER 常量由本轮（夜间第 173 轮）补齐：上游 dd099cb0「全仓文件按目录重编号」把本件
+//   头版本日志抬到 V1.0.3（加了断言⑦单条聚合度峰值硬上限 SINGLE_AGG_CAP），却漏抬本 VER 常量，
+//   于是「版本常量漂移自检」与「版本号遗忘抬升绊线」双双报红。★ 这与本线第 172 轮自踩同款
+//   （抬了日志漏了常量），区别只是这次是上游会话犯的 —— 绊线照样当场咬住，不是只盯自己人。
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.3';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');

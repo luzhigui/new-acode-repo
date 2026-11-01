@@ -84,7 +84,12 @@
 //   原下界是 nightly 收口前的旧假设（hasActiveBuff/permHas/normalizeForces 等还在册，真实 identical ≥2 组）；
 //   171/172 收口核销后 tests 下逐字相同副本只剩 fail×3 一组，硬 ≥2 假红。新下界与「仍在册 expect:true
 //   的逐字重复组数」对齐：至少点出 1 组证明检测器没失灵，0 组才判覆盖面塌（届时须把 fail 也翻 expect:false）。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.7.0';
+// V1.8.0 | 2026-11-01 夜间第 173 轮：新增第三条线索 auditSharedLiteralSets（补第 172 轮点名的结构性盲区）。
+//   ★ 病根：原两把尺子是「同名 ∪ 同体」，盖不住「换个名字重写一遍」—— 第 172 轮第三份强制开关白名单
+//     叫 forcesOfEntry、用 indexOf 不用 includes，两把尺子同时漏掉它，最后是人工翻出来的。本条换尺子：
+//     看**元素取值**（共享 ≥2 且重叠度 ≥50% 即进网），与名字、写法都无关。只点名不收口（改覆盖面＝改行为，
+//     须拍板）。自证 ㉑ 双向必查：已知仍在册的 MAIN_DIRS ⇄ SCAN_DIRS 这一对必须被点出（缺 ⇒ 检测器失灵）。
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.8.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -391,6 +396,99 @@ export function auditDupFnNames(dir) {
         fails.push('逐字重复函数 ' + identical.length + ' 组 > 棘轮上限 ' + DUP_FN_RATCHET + '（只降不抬；要抬须拍板）');
     }
     return { identical, sameNameOnly, fails };
+}
+
+// ---------------------------------------------------------------------------
+// ⓷ 第三条线索：换个名字重写一遍（第 173 轮新增，补第 172 轮点名的结构性盲区）
+//    ★ 病根：重复普查原有的两把尺子是「同名 ∪ 同体」，盖不住**换个名字重写一遍**。
+//      第 172 轮第三份强制开关白名单就是活证：它叫 forcesOfEntry、用 indexOf 不用
+//      includes —— 既不同名也不同体，两把尺子**同时漏掉它**，最后是人工翻出来的。
+//      那轮备忘写的是「机器没兜住，今天这条是人工翻出来的」，本条线索就是来兜它的。
+//    ⇒ 换一把尺子：不看名字、不看函数体，看**元素取值**。
+//      两个常量若共享同一批字符串字面量（共享 ≥ LITERAL_MIN_SHARED 且重叠度
+//      ≥ LITERAL_MIN_JACCARD），八成就是同一份口径的各写一遍 —— 无论叫什么名字、
+//      用什么写法（includes 还是 indexOf 都不影响它进网）。
+//    ★ 与 auditDupFnNames 的关系：它抓「抄函数」，本条抓「抄清单」，互补不重叠。
+//    ★ 只点名、不收口（沿用第 152 轮取舍）：改覆盖面＝改行为，须拍板。
+//      本件负责让「还有几份、各自写了什么」每周自动打印出来，别再靠人翻。
+// ---------------------------------------------------------------------------
+export const LITERAL_MIN_SHARED = 2;    // 至少共享几个元素才进网（1 个太容易巧合）
+export const LITERAL_MIN_JACCARD = 0.5; // 元素重叠度下限（交集 / 并集）
+export const LITERAL_MAX_LEN = 12;      // 单条常量元素数上限：更长的属"大名单"，按设计各异，不进普查
+const RE_ARR_DECL = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\[/g;
+const RE_QUOTED_ELEM = /^\s*(['"])([^'"]*)\1\s*$/;
+
+/** 从 `[` 处按配对切出数组字面量内容（取不到返回 null） */
+function extractArrBody(src, openIdx) {
+    let depth = 0;
+    for (let i = openIdx; i < src.length; i++) {
+        if (src[i] === '[') depth++;
+        else if (src[i] === ']') { depth--; if (depth === 0) return src.slice(openIdx + 1, i); }
+    }
+    return null;
+}
+
+/**
+ * 第三条线索普查：tests 下所有**取值相同的 / 高度重叠的字符串清单常量**。
+ * 返回 renamed（取值全等但名字不同 = 铁证的"换个名字重写一遍"）
+ *   与 divergent（部分重叠 = 疑似同一题材各写一遍，且口径已经分叉）。
+ */
+export function auditSharedLiteralSets(dir) {
+    const dirs = [dir, dir + '/_lib', dir + '/health-rules'];
+    const items = [];
+    for (const d of dirs) {
+        if (!fs.existsSync(d)) continue;
+        for (const f of fs.readdirSync(d).filter(x => x.endsWith('.js') || x.endsWith('.mjs'))) {
+            const rel = (d === dir ? '' : path.basename(d) + '/') + f;
+            // ★ 先剥注释：注释里的示例清单不是真代码，混进来会产出假候选
+            const src = stripComments(fs.readFileSync(path.join(d, f), 'utf8'));
+            for (const m of src.matchAll(RE_ARR_DECL)) {
+                const body = extractArrBody(src, m.index + m[0].length - 1);
+                if (body === null) continue;
+                const parts = body.split(',');
+                if (parts.length < 2 || parts.length > LITERAL_MAX_LEN) continue;
+                const vals = [];
+                let pure = true;
+                for (const p of parts) {
+                    const t = p.trim();
+                    if (!t) continue;
+                    const mm = RE_QUOTED_ELEM.exec(t);
+                    if (!mm) { pure = false; break; }
+                    vals.push(mm[2]);
+                }
+                // 只收**纯字符串字面量**清单：掺了变量/表达式的取值静态定不了，按"无法判定"跳过（同 extractFnSource 的安全方向）
+                if (!pure || vals.length < 2) continue;
+                items.push({ file: rel, name: m[1], vals: [...new Set(vals)] });
+            }
+        }
+    }
+    const renamed = [], divergent = [];
+    for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+            const a = items[i], b = items[j];
+            const sa = new Set(a.vals), sb = new Set(b.vals);
+            let shared = 0;
+            for (const v of sa) if (sb.has(v)) shared++;
+            if (shared < LITERAL_MIN_SHARED) continue;
+            const jac = shared / new Set([...sa, ...sb]).size;
+            if (jac < LITERAL_MIN_JACCARD) continue;
+            const exact = sa.size === sb.size && shared === sa.size;
+            const rec = {
+                a: { file: a.file, name: a.name, vals: a.vals },
+                b: { file: b.file, name: b.name, vals: b.vals },
+                shared, jac: Math.round(jac * 100) / 100, exact,
+                // ★ 差异面写清楚：不写"两边差不多"，要写"多/少了哪几个" —— 口径分叉的伤口就在这几个上
+                onlyA: a.vals.filter(v => !sb.has(v)),
+                onlyB: b.vals.filter(v => !sa.has(v)),
+            };
+            (exact ? renamed : divergent).push(rec);
+        }
+    }
+    const bySize = (x, y) => y.shared - x.shared || y.jac - x.jac
+        || (x.a.name + x.a.file).localeCompare(y.a.name + y.a.file);
+    renamed.sort(bySize);
+    divergent.sort(bySize);
+    return { items, renamed, divergent, fails: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -834,6 +932,36 @@ function runSelfChecks(fails) {
         }
     } catch (e) {
         fails.push('auditDupFnNames 排除名单校验抛异常（' + (e && e.message ? e.message : String(e)) + '）');
+    }
+    // ㉑ 第三条线索（auditSharedLiteralSets）双向自证 —— 与 ⑲ 同一款双向写法。
+    //   ★ 单向的老写法只盯「该点出的没点出」，于是另一侧（检测器把什么都算成重复）烂掉没人管。
+    //   ⇒ 两侧都要：仍在册的已知改名对**必须**被点出（缺 ⇒ 检测器失灵，盲区又回来了）；
+    //     检测器又必须**不是**把全部 36 条清单都判成重复（那等于噪音淹没，点名没人看）。
+    const LITERAL_WITNESS = [
+        { a: 'MAIN_DIRS', b: 'SCAN_DIRS', why: '第 173 轮实测仍在册：contract-binding-drift-selftest 的 MAIN_DIRS 与 structural-dead-branch-scan 的 SCAN_DIRS 取值全等（core/modules/render/player/ui/fx/infra，仅顺序不同）却各叫各的名字 —— 第三条线索要兜的就是这一款' },
+    ];
+    try {
+        const d11 = auditSharedLiteralSets(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
+        const pairKey = r => r.a.name + '|' + r.b.name;
+        const hit = new Set(d11.renamed.concat(d11.divergent).map(pairKey));
+        for (const w of LITERAL_WITNESS) {
+            if (!hit.has(w.a + '|' + w.b) && !hit.has(w.b + '|' + w.a)) {
+                fails.push('auditSharedLiteralSets 没点出已知的改名重复常量 ' + w.a + ' ⇄ ' + w.b
+                    + '（' + w.why + ' ⇒ 第三条线索的检测已失灵，第 172 轮那个盲区又回来了）');
+            }
+        }
+        // 反向：检测器不许退化成"什么都算重复"。实测 36 条清单 → 30 对（全等 3 对）；
+        //   若改名对（renamed）多到把候选总数吞掉，说明阈值被放宽成噪音，点名没人看得下去。
+        if (d11.renamed.length > 12) {
+            fails.push('auditSharedLiteralSets 取值全等的改名对点出 ' + d11.renamed.length
+                + ' 对（> 12）⇒ 阈值疑似被放宽成噪音，点名会淹没在巧合里，请复核 LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD');
+        }
+        if (d11.items.length < 10) {
+            fails.push('auditSharedLiteralSets 只扫到 ' + d11.items.length
+                + ' 条字符串清单常量（应 ≥ 10）⇒ 扫描覆盖面塌了，第三条线索等于没装');
+        }
+    } catch (e) {
+        fails.push('auditSharedLiteralSets 自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 第三条线索的守卫已失效');
     }
     return fails;
 }
