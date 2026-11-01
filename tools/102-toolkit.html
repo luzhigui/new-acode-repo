@@ -2,6 +2,7 @@
 <!-- V6.4.7 | 2026-10-30 预加载补 201hex-enhance.json（小昭 hexEnhance 迁出 200 后，建队/姐妹强化都读它）。
      V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
      V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
+     V6.4.8 | 2026-10-31 单次复制上限默认 80000 → 160000（老板拍板）；配合 103 V6.2.8 去掉 90k 硬顶，填多少切多少。
      V6.4.4 | 2026-10-30 复制器「单次复制上限」框的 max 100000 → 200000（老板拍板）：默认值 80000 不动，
      只是解锁手动输入到 20 万（此前 max=10 万填不进 200000）。
      历史版本说明（V6.4.3 及更早）已折叠省略。 -->
@@ -359,7 +360,7 @@
     <div class="tab-content active" id="tab-file-copier">
         <div class="fc-config">
             <label>📦 单次复制上限(字符)：</label>
-            <input type="number" id="fcCharLimit" value="80000" min="1000" max="200000" step="1000">
+            <input type="number" id="fcCharLimit" value="160000" min="1000" max="200000" step="1000">
             <div class="select-all">
                 <button id="fcBtnSelectAll">全选</button>
                 <button id="fcBtnDeselectAll">全不选</button>

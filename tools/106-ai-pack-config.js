@@ -144,6 +144,8 @@ export const ALL_PROJECT_FILES = [
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
     '../infra/51-core-utils.js', '../infra/52-clock.js', '../infra/56-battle-enums.js', '../infra/58-fact-contract.js', '../infra/59-state-change.js', '../infra/60-net-pvp.js', '../infra/61-view-sheet.js',
+    // 2026-10-31 补登记 62：特效门控（订阅链改造产物，fx 层统一入口判定；漏登则包内 import 断裂）
+    '../infra/62-fx-gate.js',
     '../core/08-registry-elite.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     // 2026-10-21 补登记 12 拆分件：攻击链/攻击边（12battle-attack-steps 的同批产物，包内引用）
@@ -183,6 +185,8 @@ export const ALL_PROJECT_FILES = [
     '../ui/79hanlisa-aim.js',
     // 2026-10-25 补登记 80：8x 参数面板（表现参数表 core/23 的调参面板；漏登则包内引用断裂）
     '../ui/80perf-panel.js',
+    // 2026-10-31 补登记 81：buff 提示浮层（漏登则包内 import 断裂）
+    '../ui/81buff-tooltip.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
@@ -205,6 +209,8 @@ export const ALL_PROJECT_FILES = [
     '../modules/27elite-mingjiao-xiaozhao-sister.js', '../modules/27elite-mingjiao-xiaozhao-brother.js',
     // 2026-10-31 补登记：妹永久背水专属组件（00reg-mechanics.js 已 import，漏登则包内装配断链）
     '../modules/27elite-mingjiao-brother-laststand.js',
+    // 2026-10-31 补登记说不得：明教精英（26/27 同批落地，漏登则包内 import 断裂）
+    '../modules/27elite-mingjiao-shuobude.js',
     '../modules/27elite-mingjiao-xiexun.js', '../modules/27elite-mingjiao-yangxiao.js',
     '../modules/27elite-mingjiao-yintianzheng.js',
     // 2026-10-13 补登记 26 六组件：26elite-sixsects.js 拆分出的组件文件（26 入口 import 它们，漏登则包内引用断裂）
@@ -372,6 +378,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/136-voice-commentary.js', '../tools/137-voice-panel.js',
     // 2026-10-28 补登记 138：弱精英机制贡献评估（116 V1.15.0 weakContrib 的消费端）
     '../tools/138-elite-contrib.html',
+    // 2026-11-01 补登记：GitHub Pages 版本化构建 + 复制包清单自检（都是纯 Node 脚本，随包供网页端核对清单完整性）
+    '../tools/build-versioned-site.mjs', '../tools/check-manifest.mjs',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；
     // 用途与复用场景见 TOOL-AI.md「四、历史探针」节）
     '../tools/TOOL-AI.md',
@@ -386,6 +394,7 @@ export const ALL_PROJECT_FILES = [
     '../assets/icon-source.webp',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
+    // 有意不收录：debug-dash.html / hanlisa-grapple-demo.html（本地调试页）、tools/output/*（脚本产物）
     '../index.html', '../dev-index.html'
     // 2026-10-19 移除了 126/127/128/129/131 五个寒离飒·瑟提特效 demo 页的登记：
     //   这五页已移出仓库（搬去同级 _仓库外产物\），清单按旧名 fetch 必 404 → 包内 3 组「读取失败(0 字符)」；

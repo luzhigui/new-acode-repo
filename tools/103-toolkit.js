@@ -1,4 +1,7 @@
-export const VER = 'tools/103-toolkit.js V6.2.7';
+export const VER = 'tools/103-toolkit.js V6.2.8';
+// V6.2.8 | 2026-10-31 单次复制上限默认 8 万 → 16 万（老板拍板），并把上限公式收成「填多少就是多少」：
+//           旧 min(charLimit*1.5, 90000) 在默认 8 万时产出 9 万包、填 16 万也被夹回 9 万（V6.2.6 只改了一半）。
+//           HARD_LIMIT = charLimit、HUGE_THRESHOLD = charLimit：>16 万的文件独占一包并按字符上限切片。
 // V6.2.7 | 2026-10-31 配 106 V6.0.54「剔纯演出层」：目录索引（buildRepoInfo）与「完整文件路径清单」附录
 //           对被 AI_EXCLUDE 剔出的文件打 ⊘ 标记，头部计数改「随包 N / 剔除 M」，并在索引纪律与发文件规则里
 //           写明「⊘ 的缺失属预期，不必追问补发」——否则网页端会把包内 import 指向缺失文件当成 bug 反复追问。
@@ -280,14 +283,12 @@ function escapeHtml(text) {
     }
 
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
-        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 80000;
+        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 160000;
         const SOFT_LIMIT = charLimit;
-        // V6.2.6：HARD_LIMIT 去 90k 硬顶——原 min(charLimit*1.5, 90000) 让输入 ≥6 万时恒封顶 9 万，
-        //   上限框填 20 万也照样按 9 万切包（老板反馈「上限改了咋没用」的真根因）。
-        //   改为 max(charLimit, min(charLimit*1.5, 90000))：默认 80000 时仍=90000（逐字节同旧行为），
-        //   填 20 万则硬顶真到 20 万；HUGE_THRESHOLD 随 HARD 抬高，>硬顶的巨型文件依旧独占一包不切分。
-        const HARD_LIMIT = Math.max(charLimit, Math.min(charLimit * 1.5, 90000));
-        const HUGE_THRESHOLD = Math.max(HARD_LIMIT, 90000);
+        // V6.2.8：上限就是上限——去掉 1.5 倍余量与 90k 硬顶，默认 16 万就切 16 万的包
+        //   （>上限的巨型文件由 splitLargeFile 按字符上限切片，不再依赖「独占一包」的额外余量）
+        const HARD_LIMIT = charLimit;
+        const HUGE_THRESHOLD = charLimit;
 
         const selectedFiles = Array.from(
             document.querySelectorAll('#tab-file-copier input[type=checkbox]:checked')
