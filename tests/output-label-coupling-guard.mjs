@@ -1,4 +1,13 @@
-// tests/output-label-coupling-guard.mjs | V3.1.0 | 2026-11-01 夜间第 170 轮
+// tests/output-label-coupling-guard.mjs | V3.2.0 | 2026-11-02 夜间第 174 轮
+//   V3.2.0 | 2026-11-02 夜间第 174 轮：★ 段一B（线四）的候选识别与段零**统一地基** ——
+//           第 170 轮给通道 A/B 换 scanRegexLiterals 时漏了 pickRrParsers 这一处，
+//           同一份守门里留下两套地基，通道 B 已治好的那款病在段一B 继续活着：
+//           mutation-teeth.mjs L527 模板字符串里「但变异表/规则/引擎指纹均匹配」的两撇斜杠
+//           被粗扫切成假正则 /规则/ ⇒ 既被判成消费者，又被判「标签改一字也匹配、核不出标签」
+//           ⇒ 段一B 自第 173 轮起稳定挂 1 条**假红**（真消费者 coverage-report 那条是好的）。
+//           改法：pickRrParsers 改走 scanRegexLiterals，与通道 A/B 同一套；判据零放宽
+//           （不带标签的真正则仍报过宽、消费者下限闸门仍在）。自证牙 37 → 39 条（新增 Z8/Z9 双向）。
+//   V3.1.0 | 2026-11-01 夜间第 170 轮
 //   V2.0.0 | 2026-11-01 夜间第 168 轮：认领表 + 段零普查，线二（pickKeyLine）/ 线三（CRASH_RE）
 //   V3.0.0 | 2026-11-01 夜间第 169 轮：段零配对口径由「逐字相同」升级为「骨架归一后子串包含」
 //            —— 旧口径结构性扫不出任何生产者-消费者耦合（生产者带 ${} 插值、消费者带元字符，
@@ -85,7 +94,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/output-label-coupling-guard.mjs V3.1.0';
+export const VER = 'tests/output-label-coupling-guard.mjs V3.2.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -635,14 +644,20 @@ function rrWrongLine(tpl, cases, nrules) {
 //   ⇒ 这里只设「含中文」一条粗筛（本仓耦合几乎都在面向文案的行上）；
 //     是不是真消费者，交给后面「必须匹配上按生产者模板造的样本行」来判定 ——
 //     用**能不能匹配**当筛子，比用**长得像不像**当筛子靠谱。
+//
+// ★ V3.2.0（第 174 轮）：粗筛的**地基**换新 —— 原先与通道 A/B 不同步，仍用 RE_LITERAL 粗扫。
+//   第 170 轮给段零换 scanRegexLiterals 时漏了这一处（同一份守门里两套地基），于是通道 B 已治好的
+//   那款病在段一B 活着：mutation-teeth.mjs L527 的模板字符串里那句
+//   「但变异表/规则/引擎指纹均匹配」被两撇斜杠切出一条假正则 /规则/，
+//   它恰好多含中文、又恰好匹配样本行里的「条规则」⇒ 被判成消费者，还因「核不出标签」判过宽
+//   ⇒ 段一B 稳定挂 1 条假红（第 173 轮起）。
+//   改法：地基换成 scanRegexLiterals（跳行注释/块注释/字符串与模板字面量后剩下的斜杠才算正则），
+//   与通道 A/B 同一套。判据零放宽：真过宽（如 /(\d+)\s*场/ 这种不带标签的）照样报。
 function pickRrParsers(src) {
     const out = [];
-    const re = new RegExp(RE_LITERAL.source, 'g');
-    let m;
-    while ((m = re.exec(String(src)))) {
-        const body = m[0].slice(1, m[0].length - 1 - (m[1] || '').length);
-        if (!hasHan(body)) continue;
-        out.push({ body, flags: m[1] || '', index: m.index });
+    for (const rx of scanRegexLiterals(src)) {
+        if (!hasHan(rx.body)) continue;
+        out.push(rx);
     }
     return out;
 }
@@ -987,6 +1002,19 @@ function teeth() {
     t('牙Z7', censusSharedRegexes([{ file: 'p.mjs', src: A_NOISE },
     { file: 'q.mjs', src: A_NOISE }], new Set()).length === 0,
         '通道A 两文件注释里同一句 ⇒ 不得算跨文件同文正则（剥注释后再扫，注释不是解析器）');
+
+    // ---- 牙 Z8/Z9（第 174 轮）：线四地基换新的**双向**牙 ----
+    //   由头：段一B 那条假红的来源是 mutation-teeth L527 模板字符串里的
+    //   「但变异表/规则/引擎指纹均匹配」—— 两撇斜杠被粗扫当成正则边界，自产出一条假正则 /规则/。
+    //   ⇒ 与 Z5/Z6 同一款病，只是病在另一个段里（守门内部两套地基，第 170 轮只换了一套）。
+    const SLASH_PROSE = 'warn.push(`但变异表/规则/引擎指纹均匹配 —— 仅判定逻辑改动`);';
+    t('牙Z8', pickRrParsers(SLASH_PROSE).length === 0,
+        '线四 模板字符串里带斜杠的中文文案 ⇒ 不得自产解析侧（第 173 轮那条假红就是这么来的）');
+
+    const RR_TRUE_CON = 'const totalM = out.match(/规则回放自检：(\\d+)\\s*场/);';
+    const z9 = pickRrParsers(RR_TRUE_CON);
+    t('牙Z9', z9.length === 1 && z9[0].body.indexOf('规则回放自检') >= 0,
+        '线四 真正的消费者正则（在字符串外）⇒ 换地基后仍须扫得出（不许连真也一起看不见）');
 
     return res;
 }
