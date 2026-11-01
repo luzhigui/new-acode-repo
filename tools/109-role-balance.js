@@ -1,4 +1,8 @@
-export const VER = 'tools/109-role-balance.js V6.2.0';
+export const VER = 'tools/109-role-balance.js V6.2.1';
+// V6.2.1 | 2026-11-01 四职业平衡总评：用同一份 4×4 结果推导（不额外跑）——
+//   每职业合并「在我方弹性格 / 在敌方弹性格」两视角的所在方胜率，带 Wilson 95% 区间、
+//   偏离 50% 幅度、判定（噪声内/偏强/偏弱）、最好打/最难打对手，并给出最强-最弱差距与区间是否重叠。
+//   口径写死在界面：基底 5 人固定、只换第 6 弹性格 → 测的是「职业池边际强度」，不是抽象机制平衡。
 // V6.2.0 | 2026-10-31 双海克斯开关（双海克斯=六大派也自动选，与主游戏 enemyAutoHex 对齐）：
 //   新增「双海克斯」复选框，只在「海克斯」开启时可用；勾选后透传 enemyHex 给 116 balance job，
 //   116 由 core/06 V1.3.0 的 enemyHexPicker 在明教选完后对称给六大派补一个（同 seed 同结果）。
@@ -279,8 +283,78 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, enemyHex, masterSe
     });
 }
 
+// Wilson 95% 置信区间（比例）——与 52/138 同口径，判「差距是否只是噪声」
+function wilson95(w, n) {
+    if (!n) return null;
+    const z = 1.96, p = w / n;
+    const d = 1 + z * z / n;
+    const c = p + z * z / (2 * n);
+    const s = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+    return [(c - s) / d, (c + s) / d];
+}
+
 function renderResult(container, matrix, allyStats, enemyStats) {
     let html = '';
+
+    // ===== 2026-11-01：四职业平衡总评（用同一份 4×4 结果推导，不额外跑） =====
+    // 口径：基底 5 人固定（1防战/2战士/5飞行/7远程/9远程），只换第 6 个弹性格位。
+    //   综合强度 = 该职业「在我方弹性格」与「在敌方弹性格」两种视角合并后的该方胜率（50% = 不偏不倚）。
+    //   所以这测的是「多带/少带某职业的边际平衡」，不是抽象机制平衡。
+    const bal = ROLES.map(role => {
+        const aw = (allyStats[role] && allyStats[role].wins) || 0;
+        const at = (allyStats[role] && allyStats[role].total) || 0;
+        const ew = (enemyStats[role] && enemyStats[role].wins) || 0;
+        const et = (enemyStats[role] && enemyStats[role].total) || 0;
+        const allyPct = at ? aw / at * 100 : null;
+        const enemyPct = et ? ew / et * 100 : null;          // 敌方差位时「明教」胜率：越低=该职业对敌方越强
+        const poolW = aw + (et - ew), poolN = at + et;       // 统一成「该职业所在方获胜」的场次
+        const poolPct = poolN ? poolW / poolN * 100 : null;
+        const ci = wilson95(poolW, poolN);
+        return { role, allyPct, enemyPct, poolPct, poolN, ci };
+    }).filter(x => x.poolPct !== null).sort((a, b) => b.poolPct - a.poolPct);
+
+    if (bal.length) {
+        const best = bal[0], worst = bal[bal.length - 1];
+        const spread = best.poolPct - worst.poolPct;
+        const overlap = (best.ci && worst.ci) ? !(best.ci[0] > worst.ci[1] || worst.ci[0] > best.ci[1]) : true;
+        html += '<div class="role-bal-section"><h2>⚖ 四职业平衡总评（同一份结果推导 · 不额外跑）</h2>';
+        html += '<table><tr><th>排名</th><th>职业</th><th>作为我方弹性格</th><th>作为敌方弹性格</th><th>综合强度</th><th>95% 区间</th><th>偏离 50%</th><th>判定</th><th>最好打 / 最难打</th></tr>';
+        bal.forEach((x, i) => {
+            const dev = x.poolPct - 50;
+            const ciTxt = x.ci ? `${(x.ci[0] * 100).toFixed(1)}–${(x.ci[1] * 100).toFixed(1)}%` : '—';
+            const includes50 = x.ci ? (x.ci[0] <= 0.5 && x.ci[1] >= 0.5) : true;
+            const verdict = includes50 ? '噪声内（与均衡无差）' : (dev > 0 ? '偏强' : '偏弱');
+            const vCls = includes50 ? '' : (dev > 0 ? 'role-bal-strong' : 'role-bal-weak');
+            // 最好打 / 最难打：从 4×4 行里挑该职业作我方时胜率最高/最低的敌职业
+            let hiR = null, hiV = -1, loR = null, loV = 999;
+            for (const er of ROLES) {
+                const d = matrix[`${x.role}_${er}`];
+                if (!d || !d.total) continue;
+                const v = d.wins / d.total * 100;
+                if (v > hiV) { hiV = v; hiR = er; }
+                if (v < loV) { loV = v; loR = er; }
+            }
+            const mm = hiR ? `${ROLE_ICONS[hiR]}${hiR}(${hiV.toFixed(0)}%) / ${ROLE_ICONS[loR]}${loR}(${loV.toFixed(0)}%)` : '—';
+            html += `<tr><td>#${i + 1}</td><td>${ROLE_ICONS[x.role]}${x.role}</td>`
+                + `<td>${x.allyPct !== null ? x.allyPct.toFixed(1) + '%' : '—'}</td>`
+                + `<td>${x.enemyPct !== null ? x.enemyPct.toFixed(1) + '%' : '—'}</td>`
+                + `<td class="${vCls}"><b>${x.poolPct.toFixed(1)}%</b><div class="cell-sub" style="color:#888;font-size:11px">${x.poolN} 场</div></td>`
+                + `<td>${ciTxt}</td>`
+                + `<td>${dev > 0 ? '+' : ''}${dev.toFixed(1)}pp</td>`
+                + `<td class="${vCls}">${verdict}</td><td style="font-size:11px">${mm}</td></tr>`;
+        });
+        html += '</table>';
+        html += `<div style="color:#aaa;font-size:12px;margin-top:8px;line-height:1.7">`
+            + `最强 <b>${ROLE_ICONS[best.role]}${best.role}</b> ${best.poolPct.toFixed(1)}% vs 最弱 <b>${ROLE_ICONS[worst.role]}${worst.role}</b> ${worst.poolPct.toFixed(1)}% ，差距 <b>${spread.toFixed(1)}pp</b>。`
+            + (overlap
+                ? '两者 95% 区间<b>有重叠</b> → 这点差距可能只是噪声，加大「每组场次」再看。'
+                : '两者 95% 区间<b>不重叠</b> → 差距是真的，不是样本波动。')
+            + `</div>`;
+        html += '<div style="color:#888;font-size:11px;margin-top:6px;line-height:1.6">口径：基底 5 人固定（1防战 / 2战士 / 5飞行 / 7远程 / 9远程），只换第 6 个弹性格位；'
+            + '「综合强度」= 该职业在我方 / 在敌方两种视角合并后的所在方胜率（50% = 不偏不倚）。'
+            + '因此它衡量的是「多带或撞上某职业时的边际强弱」，不是抽象的机制平衡；且职业与具体角色绑定，结论应读作「职业池强度」。</div>';
+        html += '</div>';
+    }
 
     html += '<div class="role-bal-section"><h2>📊 4×4 对阵矩阵（明教视角胜率）</h2>';
     html += '<table class="role-bal-matrix"><tr><th>明教额外 \\ 六大派额外</th>';
