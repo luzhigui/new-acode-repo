@@ -1,4 +1,8 @@
-export const VER = 'tools/109-role-balance.js V6.2.2';
+export const VER = 'tools/109-role-balance.js V6.2.3';
+// V6.2.3 | 2026-11-01 修「表读不懂」的真因：海克斯默认单边（明教有/六大派无）→ 明教胜率被拉到 ~95%，
+//   四职业数字全被压平。① 默认关海克斯；开海克斯时自动勾「双海克斯」保证对称；
+//   ② 四职业总评加「整体偏差自检」：明教整体胜率 <35% 或 >65% 时红框告警「不可判平衡」；
+//   ③ 表头改成大白话（我方第6格是它 / 敌方第6格是它 / 净强度），并加一句「只看净强度离 50% 多远」。
 // V6.2.2 | 2026-11-01 配对采样：109 派发 balance job 时带 pairedSeed=true，116 去掉 ai 分量 →
 //   同一 (敌职业, 场次序号) 下四个职业共用完全相同的基底种子，只在第 6 弹性格换职业；点差更干净。
 // V6.2.1 | 2026-11-01 四职业平衡总评：用同一份 4×4 结果推导（不额外跑）——
@@ -73,11 +77,11 @@ window.openRoleBalance = function() {
                 <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。M=100，明教侧按全自动规则选海克斯（开局1个+每3回合1个，仅明教方）；勾选「双海克斯」则六大派也自动选。统计明教视角胜率。</p>
                 <div class="role-bal-pos-config">
                     <label class="role-bal-toggle" id="roleBalHexLabel">
-                        <input type="checkbox" id="roleBalHex" checked>
+                        <input type="checkbox" id="roleBalHex">
                         <span class="switch"></span> 海克斯
                     </label>
                     <label class="role-bal-toggle" id="roleBalEnemyHexLabel">
-                        <input type="checkbox" id="roleBalEnemyHex">
+                        <input type="checkbox" id="roleBalEnemyHex" checked>
                         <span class="switch"></span> 双海克斯（六大派也选）
                     </label>
                     <label class="role-bal-toggle" id="roleBalToggleLabel">
@@ -137,7 +141,12 @@ window.openRoleBalance = function() {
         enemyHexCb.disabled = !hexCb.checked;
         enemyHexCb.parentElement.style.opacity = hexCb.checked ? '1' : '.45';
     };
-    hexCb.addEventListener('change', syncEnemyHex);
+    hexCb.addEventListener('change', () => {
+        // V6.2.3：开海克斯默认「双方都开」，否则明教单边白拿海克斯会把胜率拉到 ~95%，
+        //   四职业对比全被这个偏差淹没（老板看到的就是这张读不懂的表）。
+        if (hexCb.checked) enemyHexCb.checked = true;
+        syncEnemyHex();
+    });
     syncEnemyHex();
 
     mask.querySelector('#roleBalClear').addEventListener('click', () => {
@@ -320,8 +329,22 @@ function renderResult(container, matrix, allyStats, enemyStats) {
         const best = bal[0], worst = bal[bal.length - 1];
         const spread = best.poolPct - worst.poolPct;
         const overlap = (best.ci && worst.ci) ? !(best.ci[0] > worst.ci[1] || worst.ci[0] > best.ci[1]) : true;
-        html += '<div class="role-bal-section"><h2>⚖ 四职业平衡总评（同一份结果推导 · 不额外跑）</h2>';
-        html += '<table><tr><th>排名</th><th>职业</th><th>作为我方弹性格</th><th>作为敌方弹性格</th><th>综合强度</th><th>95% 区间</th><th>偏离 50%</th><th>判定</th><th>最好打 / 最难打</th></tr>';
+        // V6.2.3：整体偏差自检——明教整体胜率严重偏离 50% 时，四职业数字全被单边优势淹没，不能当平衡结论
+        const _allW = Object.keys(matrix).reduce((a, k) => a + ((matrix[k] && matrix[k].total) ? matrix[k].wins : 0), 0);
+        const _allN = Object.keys(matrix).reduce((a, k) => a + ((matrix[k] && matrix[k].total) ? matrix[k].total : 0), 0);
+        const overall = _allN ? _allW / _allN * 100 : null;
+        const biased = overall !== null && (overall > 65 || overall < 35);
+
+        html += '<div class="role-bal-section"><h2>⚖ 四职业平衡总评</h2>';
+        if (biased) {
+            html += `<div style="background:#4a1010;border:1px solid #f44336;color:#ffb4b4;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.6;margin-bottom:8px;">`
+                + `⚠️ 本局明教整体胜率 <b>${overall.toFixed(1)}%</b>，严重偏向一方。最常见原因：<b>只给明教开了海克斯</b>（六大派没有）。`
+                + `这个偏差会把四职业数字全压平，<b>此刻不能判断职业平衡</b>。请关掉「海克斯」，或勾上「双海克斯」让双方都吃，再重跑。</div>`;
+        }
+        html += '<div style="color:#aaa;font-size:12px;margin-bottom:6px;line-height:1.6">'
+            + '看这一列就够了：<b>净强度</b>离 50% 有多远。50% = 四职业一样强；'
+            + '若 95% 区间跨过 50%，就是「分不出强弱」（可能只是样本波动）。</div>';
+        html += '<table><tr><th>排名</th><th>职业</th><th>我方第6格是它</th><th>敌方第6格是它<br>（我方胜率）</th><th>净强度</th><th>95% 区间</th><th>偏离 50%</th><th>判定</th><th>最好打 / 最难打</th></tr>';
         bal.forEach((x, i) => {
             const dev = x.poolPct - 50;
             const ciTxt = x.ci ? `${(x.ci[0] * 100).toFixed(1)}–${(x.ci[1] * 100).toFixed(1)}%` : '—';
@@ -349,9 +372,11 @@ function renderResult(container, matrix, allyStats, enemyStats) {
         html += '</table>';
         html += `<div style="color:#aaa;font-size:12px;margin-top:8px;line-height:1.7">`
             + `最强 <b>${ROLE_ICONS[best.role]}${best.role}</b> ${best.poolPct.toFixed(1)}% vs 最弱 <b>${ROLE_ICONS[worst.role]}${worst.role}</b> ${worst.poolPct.toFixed(1)}% ，差距 <b>${spread.toFixed(1)}pp</b>。`
-            + (overlap
-                ? '两者 95% 区间<b>有重叠</b> → 这点差距可能只是噪声，加大「每组场次」再看。'
-                : '两者 95% 区间<b>不重叠</b> → 差距是真的，不是样本波动。')
+            + (biased
+                ? '⚠️ 但当前存在系统性单边偏差（见上方红框），这个差距<b>不可信</b>。'
+                : (overlap
+                    ? '两者 95% 区间<b>有重叠</b> → 这点差距可能只是噪声，加大「每组场次」再看。'
+                    : '两者 95% 区间<b>不重叠</b> → 差距是真的，不是样本波动。'))
             + `</div>`;
         html += '<div style="color:#888;font-size:11px;margin-top:6px;line-height:1.6">口径：基底 5 人固定（1防战 / 2战士 / 5飞行 / 7远程 / 9远程），只换第 6 个弹性格位；'
             + '四职业共用同一批基底种子（同敌职业、同场次序号跑完全相同的基底，只换弹性格职业），所以点差更干净。'
