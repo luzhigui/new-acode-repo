@@ -1,3 +1,17 @@
+// V1.35.0 | 2026-11-02 夜间第 177 轮：OBSERVES 挂「强制开关登记漂移守门」
+//     tests/force-switch-registry-drift-guard.mjs（新增 V1.0.0）。
+//   ★ 立它的由头是同一份清单在 tools 侧已经漂移过三次、每次都靠人读注释时顺手发现：
+//     tools/122-param-lab-core.js L47-49 注释自陈「原缺 forceHanLiSa / forceWeakElite /
+//     forceSoloWeakElite（116 各补一项时这里没跟着同步）…暂不暴发」⇒ 不炸是因为当前没人走
+//     那条通道，不是因为清单对。而 tests 侧这份（FORCE_KEYS）停在 3 条、主代码实读 8 条，
+//     第 172 轮收口时就如实列为待办，挂了五轮仍是靠人翻日志才看得见。
+//   ★ 四面：① 主代码读取面（剥注释后 GlobalStore.get / localStorage.getItem 双通道归一，8 条）
+//     ② 轮盘抑制面 anyForce（6 条）③ tests 登记面 FORCE_KEYS（3 条，import 唯一来源不抄副本）
+//     ④ 写入面 ui/701-main-utils.js（7 条，只报不判）。
+//   ★ 两个差集只有一条判红：未登记（读而不认，5 条）= 能力缺口，逐条点名 + 棘轮上限 5 只许降；
+//     幽灵（认而不读，0 条）= 拿 GlobalStore 当后门、喂进定向场次静默无效，判红。
+//   ★ 本件不改 FORCE_KEYS 一个字（补登记=扩能力会改结论，须拍板），不抄第二份剥注释实现。
+//     挂观察项不改分母（分母恒 25），理由同前几轮；是否升 CHECKS 开红待拍板。
 // V1.34.0 | 2026-11-02 夜间第 176 轮：OBSERVES 挂「变异树新鲜度绊线」
 //     tests/mutation-freshness-tripwire.mjs（新增 V1.0.0）。
 //   ★ 立它的由头是第 174 轮那条备忘、第 175 轮原样沿用的：「变异树每四轮没跑就没人喊 —— 它是
@@ -106,7 +120,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.34.0';
+export const VER = 'tests/run-all.mjs V1.35.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -343,7 +357,15 @@ const OBSERVES = [
     //   带双向牙 Z1~Z7（老 HEAD 必报 / 当前 HEAD 不报 / 缺 HEAD 不放行 / 空文件不放行 /
     //   日志轮差大必报 / 「未跑」不得认成产出 / 正负同现取负面），跑 --selftest 可复核。
     //   挂观察项不改分母，理由同前几轮。
-    { name: '变异树新鲜度绊线', script: 'tests/mutation-freshness-tripwire.mjs', args: [] }
+    { name: '变异树新鲜度绊线', script: 'tests/mutation-freshness-tripwire.mjs', args: [] },
+    // V1.35.0 | 2026-11-02 夜间第 177 轮：强制开关登记漂移守门（新增 V1.0.0），详见头顶 V1.35.0 日志行。
+    //   四面：① 主代码读取面（双通道归一，8 条）② 轮盘抑制面 anyForce（6 条）③ tests 登记面
+    //   FORCE_KEYS（3 条）④ 写入面 dev 通道（7 条，只报不判）。
+    //   未登记 5 条不判红（补登记属扩能力须拍板）+ 棘轮上限 5 只许降不许升；幽灵（认而不读）判红。
+    //   带双向牙 Z1~Z10（多读必进未登记 / 幽灵必判红 / 一致必 PASS / 缺 anyForce 不放行 / 零解析
+    //   不放行 / 注释不算数 / 双通道归一 / 超棘轮必 TRIP / 规模缩水必报 / 写入面只报不判），
+    //   跑 --selftest 可复核。挂观察项不改分母，理由同前几轮。
+    { name: '强制开关登记漂移守门', script: 'tests/force-switch-registry-drift-guard.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
