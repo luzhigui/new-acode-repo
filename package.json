@@ -9,7 +9,8 @@
     "android:build": "cd android && gradlew.bat assembleDebug",
     "lint": "eslint .",
     "lint:warn": "eslint . --max-warnings=-1",
-    "test:health": "node tests/run-all.mjs"
+    "test:health": "node tests/run-all.mjs",
+    "verify:tools": "node tools/828-verify-registry.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0",

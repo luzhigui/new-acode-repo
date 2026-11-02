@@ -68,6 +68,23 @@ function whereFrom(name) {
   return '未归类';
 }
 
+// 已知差异白名单：主代码有、但工具侧【有意不单列 / 有意分档】的项。
+// 这些是设计选择，不算漂移；但若未来主代码真改了这些项，仍需人工复核（输出中仍列出，仅不计为告警）。
+const KNOWN_DIFFS = {
+  // A 类：明教核心评测以己方为主，敌方强精英随阵容出场，不在 827 精选名单单列
+  '周芷若': '六大派强精英，随敌方阵容出场（eliteConfigs），112 以明教侧为核心不强求单列',
+  '张三丰': '六大派强精英，随敌方阵容出场',
+  '灭绝师太': '六大派强精英，随敌方阵容出场',
+  '成昆': '朝廷强精英，随敌方阵容出场',
+  '鹿杖客': '朝廷强精英，随敌方阵容出场',
+  '鹤笔翁': '朝廷强精英，随敌方阵容出场',
+  '胖远桥': '六大派强精英，随敌方阵容出场',
+  '宋青书': '六大派强精英，随敌方阵容出场',
+  '雄鹰': 'carry 海克斯召唤物（317 注册），由 108 海克斯仪表盘覆盖',
+  // B 类：小昭·姊 805 有意分档 ±2（主代码小昭统一 107，805 拆姊 105/妹 107）
+  '小昭·姊': '805 有意分档：姊 105 / 妹 107（主代码小昭统一 107，±2 属设计性）',
+};
+
 // ===== 输出 =====
 console.log('══════════════════════════════════════════════════════════════');
 console.log(' 工具数据护栏 · 主代码精英池 vs 工具名单/HERO_META');
@@ -79,21 +96,41 @@ console.log(`[805 HERO_META] ${Object.keys(heroMeta).length} 项`);
 console.log('\n── A. 主代码有、但 827 注册表未覆盖的精英 ──');
 const uncovered = [...eliteNames].filter(n => !covered827.has(n)).sort();
 if (!uncovered.length) console.log('  （无，827 已覆盖全部注册精英）');
+const newProblems = [];
 for (const n of uncovered) {
   const ms = mSrc[n] || [];
   const sameAs805 = heroMeta[n] ? `  805.baseM=${heroMeta[n].baseM}` : '  805:无此英雄';
-  console.log(`  • ${n}  [${whereFrom(n)}]  主代码m=${ms.join('/') || '?'}  ${sameAs805}`);
+  const known = KNOWN_DIFFS[n];
+  if (known) {
+    console.log(`  • ${n}  [${whereFrom(n)}]  主代码m=${ms.join('/') || '?'}  ${sameAs805}`);
+    console.log(`      ↳ 已知差异(白名单)：${known}`);
+  } else {
+    console.log(`  ⚠ ${n}  [${whereFrom(n)}]  主代码m=${ms.join('/') || '?'}  ${sameAs805}`);
+    console.log(`      → 建议补进 827 对应名单（NATURAL / SOLO / WEAK / BOSS）`);
+    newProblems.push(n);
+  }
 }
 
 console.log('\n── B. 805 HERO_META 数值漂移（vs 主代码 m 权威源）──');
 const drift = [];
 for (const [n, v] of Object.entries(heroMeta)) {
-  const ms = (mSrc[n] || []).map(s => Number(s.split(':')[1]));
+  const norm = n.replace(/·[一-龥]+$/, '');            // 归一化：小昭·姊/妹 → 小昭，对齐 roster.eliteConfigs 的键
+  const ms = (mSrc[norm] || mSrc[n] || []).map(s => Number(s.split(':')[1]));
   const ok = ms.length && ms.includes(v.baseM);
   if (!ok) drift.push({ n, shopM: v.baseM, src: ms.length ? ms.join('/') : '主代码无记录' });
 }
 if (!drift.length) console.log('  （无漂移，805 全部 baseM 与主代码一致）');
-for (const d of drift) console.log(`  • ${d.n}: 805=${d.shopM}  主代码=${d.src}`);
+for (const d of drift) {
+  const known = KNOWN_DIFFS[d.n];
+  if (known) {
+    console.log(`  • ${d.n}: 805=${d.shopM}  主代码=${d.src}`);
+    console.log(`      ↳ 已知差异(白名单)：${known}`);
+  } else {
+    console.log(`  ⚠ ${d.n}: 805=${d.shopM}  主代码=${d.src}`);
+    console.log(`      → 建议改 805 HERO_META.baseM 对齐主代码`);
+    newProblems.push(d.n);
+  }
+}
 
 console.log('\n── C. 805 有、但主代码未注册的英雄（可能是商店设计性收录）──');
 const extra805 = Object.keys(heroMeta).filter(n => !eliteNames.has(n));
@@ -101,6 +138,9 @@ if (!extra805.length) console.log('  （无）');
 else for (const n of extra805) console.log(`  • ${n}  baseM=${heroMeta[n].baseM}`);
 
 console.log('\n══════════════════════════════════════════════════════════════');
-const problems = uncovered.length + drift.length;
-console.log(problems === 0 ? ' ✅ 工具数据与主代码一致，无需同步' : ` ⚠️ 发现 ${problems} 处需关注（见上）`);
+const problems = newProblems.length;
+const knownCount = uncovered.filter(n => KNOWN_DIFFS[n]).length + drift.filter(d => KNOWN_DIFFS[d.n]).length;
+console.log(problems === 0
+  ? ` ✅ 无新漂移（已知差异 ${knownCount} 处，均为有意不单列/分档，白名单已记录）`
+  : ` ⚠️ 发现 ${problems} 处新漂移需关注（见上 ⚠ 项；已知差异 ${knownCount} 处不计）`);
 console.log('══════════════════════════════════════════════════════════════');
