@@ -20,6 +20,16 @@ const forceHanCb = document.getElementById('lsForceHanLiSa');
 const progressEl = document.getElementById('lsProgress');
 const resultEl = document.getElementById('lsResult');
 
+// 📋 复制结果：渲染后把结果区表格刮成 Markdown（一次性委托，跨重渲染有效）
+let lastStats = null;
+resultEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.copy-res-btn');
+    if (!btn) return;
+    if (!lastStats) { progressEl.textContent = '⚠️ 先跑一次采样再复制'; return; }
+    const ok = await copyText(tablesToMd(resultEl));
+    progressEl.textContent = ok ? '📋 结果已复制到剪贴板' : '复制失败，可手动选中表格复制';
+});
+
 startBtn.addEventListener('click', async () => {
     const RUNS = parseInt(runsInput.value) || 200;
     const stage = parseInt(stageSelect.value) || 1;
@@ -96,10 +106,12 @@ startBtn.addEventListener('click', async () => {
 });
 
 function renderResult(stats, runs, stage, fz, fw, fx, fh) {
+    lastStats = stats;
     const pct = n => (n / runs * 100).toFixed(1) + '%';
     const flag = `${fz ? ' · 强制张无忌' : ''}${fw ? ' · 强制韦一笑' : ''}${fx ? ' · 强制谢逊' : ''}${fh ? ' · 强制寒离飒' : ''}`;
 
-    let html = `<div class="hex-log-verdict">采样 ${runs} 场 · 第${stage}关${flag}</div>`;
+    let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
+        + `<div class="hex-log-verdict">采样 ${runs} 场 · 第${stage}关${flag}</div>`;
 
     // 精英数量分布（规则见 modules/330-battle-init：Boss 30%；无 Boss 时强精英 1 个 90% / 2 个 10%；Boss 局 70% 带搭档）
     html += `<h3 style="color:#ffd700;margin:12px 0 6px;">精英数量分布（只数六名固定精英，未计弱精英混入）</h3>
@@ -143,4 +155,41 @@ function renderResult(stats, runs, stage, fz, fw, fx, fh) {
     }
     html += '</table>';
     resultEl.innerHTML = html;
+}
+
+// 把容器内所有 <table> 刮成 Markdown（带就近标题），用于「📋 复制结果」
+function prevHeading(table) {
+    let n = table.previousElementSibling;
+    while (n) { if (/^H[1-6]$/.test(n.tagName)) return n.textContent.trim(); n = n.previousElementSibling; }
+    return '';
+}
+function tablesToMd(container) {
+    const tables = Array.from(container.querySelectorAll('table'));
+    if (!tables.length) return '';
+    const lines = [];
+    for (const t of tables) {
+        const h = prevHeading(t);
+        if (h) lines.push('## ' + h);
+        const mdRows = Array.from(t.querySelectorAll('tr')).map(r => Array.from(r.children)
+            .map(c => c.textContent.replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim())
+            .join(' | '));
+        if (mdRows.length) {
+            lines.push(mdRows[0]);
+            lines.push(mdRows[0].split(' | ').map(() => '---').join(' | '));
+            for (let i = 1; i < mdRows.length; i++) lines.push(mdRows[i]);
+        }
+        lines.push('');
+    }
+    return lines.join('\n').trim();
+}
+async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* 落到下面兜底 */ }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (e) { return false; }
 }

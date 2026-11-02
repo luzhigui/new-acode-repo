@@ -17,6 +17,16 @@ const progressEl = document.getElementById('bcProgress');
 const resultEl = document.getElementById('bcResult');
 const hexCb = document.getElementById('bcHex');
 const enemyHexCb = document.getElementById('bcEnemyHex');
+
+// 📋 复制结果：渲染后把结果区表格刮成 Markdown（一次性委托，跨重渲染有效）
+let lastRows = null;
+resultEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.copy-res-btn');
+    if (!btn) return;
+    if (!lastRows) { progressEl.textContent = '⚠️ 先跑一次对比再复制'; return; }
+    const ok = await copyText(tablesToMd(resultEl));
+    progressEl.textContent = ok ? '📋 结果已复制到剪贴板' : '复制失败，可手动选中表格复制';
+});
 if (hexCb && enemyHexCb) {
     const sync = () => { enemyHexCb.disabled = !hexCb.checked; };
     hexCb.addEventListener('change', sync);
@@ -71,11 +81,13 @@ startBtn.addEventListener('click', async () => {
 
 // 双列对照表：A/B 胜率并排，胜差按方向着色；末行总评
 function renderResult(rows, stages, cfgA, cfgB) {
+    lastRows = rows;
     const allStages = stages.filter(st => rows[st]);
     let twA = 0, tvA = 0, tdA = 0, ttA = 0, tsA = 0;
     let twB = 0, tvB = 0, tdB = 0, ttB = 0, tsB = 0;
 
-    let html = `<table class="elite-table"><tr>
+    let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
+        + `<table class="elite-table"><tr>
         <th>关卡</th>
         <th>${cfgA.name} 胜率</th><th>${cfgB.name} 胜率</th><th>胜差(B−A)</th>
         <th>${cfgA.name} 输出</th><th>${cfgB.name} 输出</th>
@@ -129,6 +141,43 @@ function renderResult(rows, stages, cfgA, cfgB) {
 
     html += `<p style="color:#888;font-size:11px;margin-top:8px;">胜差 = B 胜率 − A 胜率；≥+5 绿色（B 更优）、≤−5 红色（A 更优）。A/B 共享同一阵容种子与战斗种子，差异仅来自配置。</p>`;
     resultEl.innerHTML = html;
+}
+
+// 把容器内所有 <table> 刮成 Markdown（带就近标题），用于「📋 复制结果」
+function prevHeading(table) {
+    let n = table.previousElementSibling;
+    while (n) { if (/^H[1-6]$/.test(n.tagName)) return n.textContent.trim(); n = n.previousElementSibling; }
+    return '';
+}
+function tablesToMd(container) {
+    const tables = Array.from(container.querySelectorAll('table'));
+    if (!tables.length) return '';
+    const lines = [];
+    for (const t of tables) {
+        const h = prevHeading(t);
+        if (h) lines.push('## ' + h);
+        const mdRows = Array.from(t.querySelectorAll('tr')).map(r => Array.from(r.children)
+            .map(c => c.textContent.replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim())
+            .join(' | '));
+        if (mdRows.length) {
+            lines.push(mdRows[0]);
+            lines.push(mdRows[0].split(' | ').map(() => '---').join(' | '));
+            for (let i = 1; i < mdRows.length; i++) lines.push(mdRows[i]);
+        }
+        lines.push('');
+    }
+    return lines.join('\n').trim();
+}
+async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* 落到下面兜底 */ }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (e) { return false; }
 }
 
 function rateColor(r) {

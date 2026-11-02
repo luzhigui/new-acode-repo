@@ -33,6 +33,8 @@ if (!document.getElementById('roleBalStyle')) {
 .role-bal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .role-bal-head h1{color:#ffd700;font-size:20px;margin:0}
 .role-bal-close{background:#444;color:#ccc;border:none;border-radius:8px;padding:6px 14px;font-weight:bold;cursor:pointer;font-family:monospace}
+.role-bal-copy{background:#444;color:#eee;border:none;border-radius:8px;padding:6px 14px;font-weight:bold;cursor:pointer;font-family:monospace;margin-right:8px}
+.role-bal-copy:hover{background:#5a5a7e;color:#fff}
 .role-bal-tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.5}
 .role-bal-config{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .role-bal-config label{color:#ffd700;font-weight:bold}
@@ -71,7 +73,10 @@ window.openRoleBalance = function() {
         <div class="role-bal-box">
             <div class="role-bal-head">
                 <h1>⚖️ 职业平衡分析</h1>
-                <button class="role-bal-close">关闭</button>
+                <div style="display:flex;align-items:center">
+                    <button class="role-bal-copy" id="roleBalCopy">📋 复制结果</button>
+                    <button class="role-bal-close">关闭</button>
+                </div>
             </div>
             <div class="role-bal-body">
                 <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。M=100，明教侧按全自动规则选海克斯（开局1个+每3回合1个，仅明教方）；勾选「双海克斯」则六大派也自动选。统计明教视角胜率。</p>
@@ -105,6 +110,14 @@ window.openRoleBalance = function() {
 
     mask.querySelector('.role-bal-close').addEventListener('click', () => mask.remove());
     mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
+
+    // 📋 复制结果：把渲染出的四张表刮成 Markdown（与 838 复制兜底同口径）
+    mask.querySelector('#roleBalCopy').addEventListener('click', async () => {
+        const md = tablesToMd(result);
+        if (!md) { progress.textContent = '⚠️ 先跑一次分析再复制'; return; }
+        const ok = await copyText(md);
+        progress.textContent = ok ? '📋 结果已复制到剪贴板' : '复制失败，可手动选中表格复制';
+    });
 
     const roundsInput = mask.querySelector('#roleBalRounds');
     const progress = mask.querySelector('#roleBalProgress');
@@ -444,4 +457,44 @@ function renderResult(container, matrix, allyStats, enemyStats) {
     html += '</table></div>';
 
     container.innerHTML = html;
+}
+
+// 把容器内所有 <table> 刮成 Markdown（带就近标题），用于「📋 复制结果」
+function prevHeading(table) {
+    let n = table.previousElementSibling;
+    while (n) { if (/^H[1-6]$/.test(n.tagName)) return n.textContent.trim(); n = n.previousElementSibling; }
+    return '';
+}
+function tablesToMd(container) {
+    const tables = Array.from(container.querySelectorAll('table'));
+    if (!tables.length) return '';
+    const lines = [];
+    for (const t of tables) {
+        const h = prevHeading(t);
+        if (h) lines.push('## ' + h);
+        const rows = Array.from(t.querySelectorAll('tr'));
+        const mdRows = rows.map(r => Array.from(r.children)
+            .map(c => c.textContent.replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim())
+            .join(' | '));
+        if (mdRows.length) {
+            lines.push(mdRows[0]);
+            lines.push(mdRows[0].split(' | ').map(() => '---').join(' | '));
+            for (let i = 1; i < mdRows.length; i++) lines.push(mdRows[i]);
+        }
+        lines.push('');
+    }
+    return lines.join('\n').trim();
+}
+
+// 复制：优先 clipboard API，失败回退 textarea+execCommand
+async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* 落到下面兜底 */ }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (e) { return false; }
 }

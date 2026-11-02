@@ -9,6 +9,16 @@ const progressEl = document.getElementById('scProgress');
 const resultEl = document.getElementById('scResult');
 const hexCb = document.getElementById('scHex');
 const enemyHexCb = document.getElementById('scEnemyHex');
+
+// 📋 复制结果：渲染后把结果区表格刮成 Markdown（一次性委托，跨重渲染有效）
+let lastAgg = null;
+resultEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.copy-res-btn');
+    if (!btn) return;
+    if (!lastAgg) { progressEl.textContent = '⚠️ 先跑一次体检再复制'; return; }
+    const ok = await copyText(tablesToMd(resultEl));
+    progressEl.textContent = ok ? '📋 结果已复制到剪贴板' : '复制失败，可手动选中表格复制';
+});
 if (hexCb && enemyHexCb) {
     const sync = () => { enemyHexCb.disabled = !hexCb.checked; };
     hexCb.addEventListener('change', sync);
@@ -70,6 +80,7 @@ startBtn.addEventListener('click', async () => {
 function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 
 function renderResult(agg, stages, runs) {
+    lastAgg = agg;
     const rows = Object.entries(agg).sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
 
     // 只校负差额：差额 < 0 表示真实 hp 变化比记账多 = 漏记。
@@ -84,7 +95,8 @@ function renderResult(agg, stages, runs) {
         ? `校核 ✓：${rows.length} 个单位均无负差额，记账未少于真实 hp 变化。`
         : `校核 ✗：${badDmg} 个单位承伤负差额、${badHeal} 个单位治疗负差额 —— 有真实 hp 变化未进记账，需查。`;
 
-    let html = `<div class="hex-log-verdict">${verdict}</div>
+    let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
+        + `<div class="hex-log-verdict">${verdict}</div>
     <p style="color:#888;font-size:11px;margin:8px 0;">
       记账口径：承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
       全局 dmgTaken 与 dmgDealt <span style="color:#ffa726;">本就不同</span>（承伤记全额、输出记实伤，闪避/反弹只记承伤侧），不做守恒校验。<br>
@@ -129,4 +141,41 @@ function renderResult(agg, stages, runs) {
     }
     html += '</table>';
     resultEl.innerHTML = html;
+}
+
+// 把容器内所有 <table> 刮成 Markdown（带就近标题），用于「📋 复制结果」
+function prevHeading(table) {
+    let n = table.previousElementSibling;
+    while (n) { if (/^H[1-6]$/.test(n.tagName)) return n.textContent.trim(); n = n.previousElementSibling; }
+    return '';
+}
+function tablesToMd(container) {
+    const tables = Array.from(container.querySelectorAll('table'));
+    if (!tables.length) return '';
+    const lines = [];
+    for (const t of tables) {
+        const h = prevHeading(t);
+        if (h) lines.push('## ' + h);
+        const mdRows = Array.from(t.querySelectorAll('tr')).map(r => Array.from(r.children)
+            .map(c => c.textContent.replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim())
+            .join(' | '));
+        if (mdRows.length) {
+            lines.push(mdRows[0]);
+            lines.push(mdRows[0].split(' | ').map(() => '---').join(' | '));
+            for (let i = 1; i < mdRows.length; i++) lines.push(mdRows[i]);
+        }
+        lines.push('');
+    }
+    return lines.join('\n').trim();
+}
+async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* 落到下面兜底 */ }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (e) { return false; }
 }
