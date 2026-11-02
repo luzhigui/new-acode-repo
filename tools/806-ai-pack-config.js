@@ -1,4 +1,4 @@
-// V6.0.58 | 2026-11-01 重编号后统一注释里的旧编号（tools/ + 100build 全局替换，纯注释/路径，零逻辑改动）：
+// V6.0.60 | 2026-11-01 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-11-01 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-11-01 重编号后统一注释里的旧编号（tools/ + 100build 全局替换，纯注释/路径，零逻辑改动）：
 //           core/06→206-battle-runner、modules/28→329-buff-tools、ui/61→702-main-5v5-test、content/200→001-game-data 等。
 // V6.0.53 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-29 合并上游注释清理与夜间线清单补登记：去掉 weakContrib 的单引号写法，保留三项 run-all 顶层脚本。
 // V6.0.47 | 2026-10-28 自动补全 3 项 run-all 引用但漏登的 tests 顶层脚本（second-source-scan / commit-claim-audit / guard-presence-scan）。
@@ -97,7 +97,8 @@
 // V6.0.48 | 2026-10-31 补登记 2 项：content/002-hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
 //           modules/324-elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
-export const VER = 'tools/806-ai-pack-config.js V6.0.58';
+// 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
+export const VER = 'tools/806-ai-pack-config.js V6.0.60';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -357,6 +358,10 @@ export const ALL_PROJECT_FILES = [
     '../tests/output-label-coupling-guard.mjs',
     // 2026-11-01 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/hls-playback-ownership-guard.mjs',
+    // 2026-11-01 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/mutation-freshness-tripwire.mjs',
+    // 2026-11-01 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/force-switch-registry-drift-guard.mjs',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',

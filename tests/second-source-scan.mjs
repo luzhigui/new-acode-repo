@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// tests/second-source-scan.mjs | V1.2.0 | 2026-11-01 夜间第 173 轮：输出段扩到 ⑧「第三条线索 · 换个名字重写一遍」
+//   —— 补第 172 轮点名的结构性盲区：原两把尺子「同名 ∪ 同体」盖不住改名重写（那轮第三份强制开关
+//   白名单叫 forcesOfEntry、用 indexOf 不用 includes，两把尺子同时漏掉，是人工翻出来的）。本条改看
+//   元素取值：共享 ≥2 且重叠度 ≥50% 即进网，与名字、写法都无关。★ 只点名不收口：改覆盖面＝改行为，须拍板。
 // tests/second-source-scan.mjs | V1.1.0 | 2026-10-29 夜间第 152 轮：输出段扩到 ⑦「跨文件重复函数点名」
 //   （逐字重复 = 铁证如山的第二份；同名异体 = 待人工判定，后者更危险：改的那点就是口径分叉）。
 //   本件只**点名**、不收口 —— 与第 151 轮同一取舍：先看清还剩什么，再谈动刀。
@@ -29,10 +33,11 @@ import { fileURLToPath } from 'node:url';
 import {
     VER as TRUTH_VER, selfCheck as truthSelfCheck,
     auditStripCopies, STRIP_COPY_ALLOWLIST, STRIP_COPY_RATCHET,
-    auditDupFnNames, DUP_FN_ALLOWLIST, DUP_FN_RATCHET
+    auditDupFnNames, DUP_FN_ALLOWLIST, DUP_FN_RATCHET,
+    auditSharedLiteralSets, LITERAL_MIN_SHARED, LITERAL_MIN_JACCARD
 } from './_lib/static-truth-slice.mjs';
 
-const VER = 'tests/second-source-scan.mjs V1.1.0';
+const VER = 'tests/second-source-scan.mjs V1.2.0';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 function main() {
@@ -68,10 +73,35 @@ function main() {
     console.log('  已按设计排除（本来就该各写一份）：' + skipNames);
     for (const f of d.fails) console.log('❌ ' + f);
 
-    const bad = bad0 + d.fails.length;
+    // ⑧ 第三条线索：换个名字重写一遍（第 173 轮新增，补第 172 轮点名的结构性盲区）
+    //   ★ 前两把尺子是「同名 ∪ 同体」，盖不住「换个名字重写一遍」—— 第 172 轮第三份强制开关
+    //     白名单叫 forcesOfEntry、用 indexOf 不用 includes，两把尺子同时漏掉它，是人工翻出来的。
+    //   ⇒ 本条看**元素取值**：共享 ≥2 且重叠度 ≥50% 即进网，与名字、写法都无关。
+    const s = auditSharedLiteralSets(here);
+    console.log('第三条线索普查（不看名字不看函数体，只看取值 —— 兜「换个名字重写一遍」）：');
+    console.log('  扫到字符串清单常量 ' + s.items.length + ' 条 ⇒ 命中 '
+        + (s.renamed.length + s.divergent.length) + ' 对（进网门槛：共享 ≥'
+        + LITERAL_MIN_SHARED + ' 且重叠度 ≥' + LITERAL_MIN_JACCARD + '）');
+    console.log('  【取值全等但名字不同 · 铁证的改名重写】' + s.renamed.length + ' 对：');
+    for (const r of s.renamed) {
+        console.log('    ✗ ' + r.a.name + '@' + r.a.file + ' ⇄ ' + r.b.name + '@' + r.b.file
+            + '（' + r.shared + ' 元素全等，仅顺序或名字不同）');
+    }
+    console.log('  【取值高度重叠 · 疑似同一题材各写一遍且口径已分叉】' + s.divergent.length + ' 对：');
+    for (const r of s.divergent) {
+        const diff = (r.onlyA.length ? ' 前者多 ' + r.onlyA.join(',') : '')
+            + (r.onlyB.length ? '；后者多 ' + r.onlyB.join(',') : '');
+        console.log('    ⚠ ' + r.a.name + '@' + r.a.file + '（' + r.a.vals.length + '）⇄ '
+            + r.b.name + '@' + r.b.file + '（' + r.b.vals.length + '）'
+            + ' —— 共享 ' + r.shared + ' / 重叠度 ' + r.jac + '：' + (diff || '元素相同但条数不同'));
+    }
+    for (const f of s.fails) console.log('❌ ' + f);
+
+    const bad = bad0 + d.fails.length + s.fails.length;
     if (bad === 0) {
         console.log('RESULT: PASS —— 第二份快照 ' + a.open.length + ' 条（均在豁免表内），已收口 ' + a.closed.length + ' 条'
-            + '；逐字重复函数 ' + d.identical.length + ' 组（棘轮上限 ' + DUP_FN_RATCHET + '），同名异体 ' + d.sameNameOnly.length + ' 组待人工判定');
+            + '；逐字重复函数 ' + d.identical.length + ' 组（棘轮上限 ' + DUP_FN_RATCHET + '），同名异体 ' + d.sameNameOnly.length + ' 组待人工判定'
+            + '；第三条线索改名对 ' + s.renamed.length + ' 组 / 分叉对 ' + s.divergent.length + ' 组（只点名不收口，改覆盖面须拍板）');
     } else {
         console.log('RESULT: FAIL —— ' + bad + ' 项');
     }
