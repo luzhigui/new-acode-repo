@@ -2,7 +2,10 @@
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.8.2';
+export const VER = 'tools/808-hex-dashboard.js V6.8.3';
+// V6.8.3 | 2026-11-02 修手机端「模式对比」表字重叠（老板截图）：9 列挤进 ~400px 屏，每列只剩 ~30px、
+//           数字竖排叠字。改成表体横向滚动：套 .hex-cmp-wrap（overflow-x:auto），表 min-width:720px、
+//           单元格 white-space:nowrap（第一列名字保持可换行），窄屏左右滑动看全 8 列，不再挤压。
 // V6.8.2 | 2026-11-01 结果能带走：加「📋 复制结果」——把弹窗里当前所有表转 Markdown 复制
 //           （此前 108 有表却 0 导出，126 有复制报告、110/134/135/138 也都有，就它和 112 缺）。
 // V6.8.1 | 2026-11-01 UI 收拾（老板看截图提的）：
@@ -114,7 +117,10 @@ if (!document.getElementById('hexDashStyle')) {
 /* 2026-10-14 V6.2.3：第一列（海克斯名）收窄固定，别让「你就是carry」这类长名把列撑开 */
 .hex-hex-box th:first-child,.hex-hex-box td:first-child{width:92px;white-space:nowrap;padding-right:4px}
 /* V6.8.1：模式对比表用固定布局，第一列钉死 104px（自动布局会把 width 建议撑开，白占一大条） */
-.hex-hex-box .hex-cmp{table-layout:fixed}
+/* V6.8.3：手机端 9 列挤不开 → 表 min-width + 外层横向滚动（.hex-cmp-wrap），窄屏左右滑看全 */
+.hex-cmp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.hex-hex-box .hex-cmp{table-layout:fixed;min-width:720px}
+.hex-hex-box .hex-cmp th,.hex-hex-box .hex-cmp td{white-space:nowrap}
 .hex-hex-box .hex-cmp th:first-child,.hex-hex-box .hex-cmp td:first-child{width:104px;white-space:normal;word-break:break-word;line-height:1.25}
 /* V6.8.1：长说明折叠——默认只留一行，点蓝色「▸ 说明」展开 */
 .hex-more{color:#4fc3f7;cursor:pointer;user-select:none;font-weight:bold;white-space:nowrap}
@@ -793,7 +799,7 @@ function renderModeCompare(box) {
   let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${HEXMODE_LABEL[curHex]}｜${stageLabel}）</div>`;
   html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）· 前四列 = 胜率/场次，后四列 = 胜率 − <b>本模式海克斯平均</b>。<span class="hex-more">▸ 说明</span></p>`
     + `<p class="hex-more-body">四个差值各算各的（同一模式内比，不跨模式相减）：正数 = 这枚海克斯在本模式里比平均强，负数 = 比平均弱。点表头排序。</p>`;
-  html += '<table class="hex-cmp"><tr><th>海克斯</th>';
+  html += '<div class="hex-cmp-wrap"><table class="hex-cmp"><tr><th>海克斯</th>';
   for (const m of CMP_MODES) {
     const active = m === curSort;
     html += `<th data-sort="${m}" style="cursor:pointer;${active ? 'color:#4fc3f7' : ''}" title="点击按「${MODE_LABEL[m]}」胜率排序">${MODE_LABEL[m]}${active ? ' ▼' : ''}</th>`;
@@ -814,7 +820,7 @@ function renderModeCompare(box) {
       + CMP_MODES.map(m => diffTd(r.diff[m])).join('')
       + '</tr>';
   }
-  html += '</table>';
+  html += '</table></div>';
   box.innerHTML = html;
   box.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
   box.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
