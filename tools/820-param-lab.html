@@ -196,6 +196,16 @@ const win = w => w === '明教';
 const isErr = w => w && String(w).startsWith('ERROR');
 const fmtPct = x => (x * 100).toFixed(1) + '%';
 const fmtDelta = d => (d >= 0 ? '+' : '') + (d * 100).toFixed(1) + ' 个百分点';
+// 复制兜底：clipboard API 在 file:// 或受限浏览器下会 reject，回退到 textarea + execCommand（与 838/803/805 同口径）
+async function copyText(text) {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; } } catch (e) {}
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; ta.style.top = '-1000px';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+}
 const baseName = n => { const i = String(n).indexOf('·'); return i >= 0 ? String(n).slice(0, i) : String(n); };
 // 阵容标签：'张无忌+小昭·姊+韦一笑' → '3 精英：张无忌 + 小昭·姊 + 韦一笑'（光看加号不知道是几个）
 const niceLabel = l => {
@@ -795,8 +805,9 @@ function renderAll(stages, runs, hasPatch, baseResults, patchResults) {
         URL.revokeObjectURL(a.href);
     });
     $('copyBtn').addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(lastMd); runMsg.className = 'msg ok'; runMsg.textContent = '报告已复制（可以直接粘给我）'; }
-        catch (err) { runMsg.className = 'msg err'; runMsg.textContent = `复制失败：${err.message}`; }
+        const ok = await copyText(lastMd);
+        if (ok) { runMsg.className = 'msg ok'; runMsg.textContent = '报告已复制（可以直接粘给我）'; }
+        else { runMsg.className = 'msg err'; runMsg.textContent = '复制失败，请手动选中文本复制'; }
     });
 }
 function buildMd(all, runs, hasPatch, patchText) {
