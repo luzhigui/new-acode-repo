@@ -1,6 +1,19 @@
 // tools/827-tool-registry.js — 工具箱共用名单与文案表（只读常量，不跑逻辑）
 // 维护：新增精英/海克斯时只改本文件；各工具的表头、判读、force 通道会自动跟上。
-export const VER = 'tools/827-tool-registry.js V1.2.1';
+// 数据护栏：本文件名单与主代码精英池是否同步，跑 `node tools/828-verify-registry.mjs` 自动比对。
+//
+// ── 覆盖边界声明（主代码 registerElite 共 20 个精英，本文件精选覆盖）──
+//   明教自然核心(6，NATURAL_ELITES + ELITE_UNIT_META)：张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒
+//   强精英单挑(5，SOLO_ELITES)：韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒
+//   Boss(1，BOSS_ELITES)：张无忌
+//   弱精英(5，WEAK_ELITES + WEAK_UNIT_FLAG)：杨逍(ally) / 殷天正(ally) / 何太冲(enemy) / 唐文亮(enemy) / 空见(enemy)
+//   敌方阵容变体(ENEMY_VARIANTS)：胖远桥 / 宋青书 / 标准（基线）
+//   —— 以下为「设计性不单列」，非遗漏：
+//      · 随敌方阵容出场的六大派/朝廷强精英（112 评测以明教侧为核心、敌方为基线，不强求单列）：
+//        周芷若 / 张三丰 / 灭绝师太 / 成昆 / 鹿杖客 / 鹤笔翁
+//      · carry 海克斯召唤物（由 108 海克斯仪表盘覆盖，不单列于精英评测）：雄鹰
+//   若主代码新增精英，按上述归类补入对应名单即可；跑 828 校验脚本可发现本文件与主代码漂移。
+export const VER = 'tools/827-tool-registry.js V1.3.0';
 
 // 自然出场归因表的列（112 主表 / 126 判读），顺序即表头顺序
 export const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
