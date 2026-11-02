@@ -24,7 +24,13 @@
 //   5) 宣告位置未生效：每条 swap 宣告 fromPos→toPos，被下一次换位打断前，该单位后续出场快照
 //      从未落到 toPos（复用 138 V6.1.12 口径：一拍时滞内任一快照命中即算生效；无后续快照不报）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.8';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.9';
+// V6.1.9（2026-11-02 收尾）：修判据5「被打断」识别的误报根因 —— 渲染后的 buff-swap 条目
+//   不带 uidA/uidB（render/409 返回的是 swaps 数组），原逻辑 `mid.uidA===uid||mid.uidB===uid` 恒 false，
+//   致「该单位随后又被惑心换走」永远识别不出，规则一路扫到战斗末尾只看到它在 1/4 号位出场，
+//   误报「没落到 toPos」。今加 isRelocationOf：buff-swap 改读 mid.swaps(带 uid) 判定，
+//   buff-push 仍认 pushTargetUid/behindUid。引擎侧换位经实测自洽（swap 事实 from 位互相印证），属规则误报。
+//   同时撤销 V6.1.8 时期的 MCDEBUG 临时诊断。
 // V6.1.8（2026-10-31 第 145 轮续）：补静默位移白名单第 6 类——圣火不熄复活落格被占时的静默改位。
 //   core/204-buff-system.js reviveHolyFireUnit 在复活落格被活人占时走 u.pos=findFreePos（≠原格）直接赋值，
 //   而 SKILL_ANNOUNCE.note 写「原地复活」掩盖了这次改位；原 isSilentRelocate ①②③④⑤ 全认不出，
@@ -82,6 +88,20 @@ function isImmune(uid, pools) {
             var u = arr[k];
             if (u && u.uid === uid && u.state && u.state._ctrlImmune) return true;
         }
+    }
+    return false;
+}
+
+// 判据5「被打断」辅助：某条日志条目是否把 exp.uid 这个单位做了位置改写。
+//   关键：渲染后的 buff-swap 条目【不含 uidA/uidB】（render/409 返回的是 swaps 数组），
+//   故必须改读 mid.swaps 才能识别惑心自身的后续换位；buff-push（乘风击退等）仍认 pushTargetUid/behindUid。
+function isRelocationOf(entry, uid) {
+    if (!entry || uid == null) return false;
+    if (entry.type === 'buff-swap' && Array.isArray(entry.swaps)) {
+        return entry.swaps.some(function (s) { return s && s.uid === uid; });
+    }
+    if (entry.type === 'buff-push') {
+        return entry.pushTargetUid === uid || entry.behindUid === uid;
     }
     return false;
 }
@@ -213,10 +233,7 @@ export const rule113 = {
                         var mid = log[s];
                         if (!mid) continue;
                         if (isSilentRelocate(mid, exp)) { interrupted = true; break; }
-                        if (mid.type === 'buff-push' || mid.type === 'buff-swap') {
-                            if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
-                                mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
-                        }
+                        if (isRelocationOf(mid, exp.uid)) { interrupted = true; break; }
                     }
                     if (interrupted) break;
                     seen++;
@@ -234,10 +251,7 @@ export const rule113 = {
                         var mid2 = log[s2];
                         if (!mid2) continue;
                         if (isSilentRelocate(mid2, exp)) { interruptedAll = true; break; }
-                        if (mid2.type === 'buff-push' || mid2.type === 'buff-swap') {
-                            if (mid2.pushTargetUid === exp.uid || mid2.behindUid === exp.uid ||
-                                mid2.uidA === exp.uid || mid2.uidB === exp.uid) { interruptedAll = true; break; }
-                        }
+                        if (isRelocationOf(mid2, exp.uid)) { interruptedAll = true; break; }
                     }
                     if (!interruptedAll) {
                         var endU = null;

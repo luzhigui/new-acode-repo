@@ -1,8 +1,23 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
+// V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.0';
+// V3.0.0 | 2026-11-02 | 视觉整体对齐 demo 逐帧演示（用户拍板「能替换全部替换」）：
+//   ① makeGhost 改为一律从 store 自绘卡片 —— DASH 的 store 步会先把终点格 resetCell 成空壳
+//      （_renderFlyMode='fly' 走 render/32 的 fly 分支），cloneNode 那条路在回放/联机从机上必然拿 null，
+//      整个位移/锁链/慢速档会被静默跳过（老板实机「动画完全不对」的根因）。
+//   ② 位置只写 left/top、transform 只放 scale —— 修「双算位移冲出格子」（原慢速档走位写 transform）。
+//   ③ 新增 freezeGhosts：碰撞帧把 left/top 固化到终点 —— 修「克隆体在 finishing punch 时弹回起点」
+//      （原版 finishing punch 把位移写进 transform，与 left/top 双算）。
+//   ④ performFinishingPunch 改为 CSS 标枪（shaft 64×8 + head 22px 三角），飞 400ms、扎中停留 200ms。
+//      语义说明：原版是「近战一拳」；主代码唐文亮冲刺后转战士、拳头语义更贴；但用户拍板标枪更精致，
+//      且标枪本就是唐文亮招牌——按用户指令改标枪，快版与慢速档统一。
+//   ⑤ 血条防剧透：引擎 doDash 先扣血，fx 拿到 dash 时 store 已是 hpAfter。入口按 hits 反推 hpBefore，
+//      克隆体用 hpBefore 初始化；碰撞帧 revealGhostHp 后再切到 store 当前值。
+//      同时删掉原版慢速档/快版里「碰撞帧 store.dispatch(HP_CHANGE) 再扣一次」的双扣血
+//      （syncStoreFromStep 最终会覆盖回引擎值，但演出瞬态会显示多扣一次的血条）。
+//   ⑥ 卡片血条颜色阈值 50/20 → 70/40，与 render/403-grid-render 的格子色档对齐（原版两者不一致）。
 // 强推挤压版：单目标双克隆 → moves 多人克隆 + 金线对拉 + 冲击环/火花/屏震。
 //   纯装饰：位置由引擎 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 事件走 core/13 既有链）。
-//   step 回放起点 store 位置已是终值——单位渲染在「终点格」、DASH store 步用 fly 模式藏住等交棒，
-//   所以克隆体内容取终点格 DOM、从起点格 rect 起跑（必须带 .cell 类，否则布局丢——fx/82 cloneCellEl 同口径）。
 //   交接顺序（别搞反，否则旧格闪回一帧）：克隆体落定 → storeAfter 清 fly 显真格 → 克隆体才淡出。
 //   快进：入口直接 return。
 import { clock } from '../infra/103-clock.js';
@@ -12,8 +27,7 @@ import { getPerfParam } from '../core/223-perf-params.js';
 import { getRoleIcon } from '../render/414-role-cards.js';
 import { STORE_ACTION_TYPES } from '../infra/106-battle-enums.js';
 import { isFxSkipped } from '../infra/111-fx-gate.js';
-
-export const VER = 'fx/616-tangwenliang-dash.js V2.4.0';
+import { fmtHp } from '../infra/102-core-utils.js';
 
 // 真实时间等待：clock.wait 会被倍速压缩，子弹时间档不能用它——
 //   用一个空 animate + minRealMs 同值，保证真实时钟走满 ms 才 resolve（暂停时同样冻结）。
@@ -29,55 +43,108 @@ function rectOf(camp, pos) {
     return { left: r.left, top: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
 }
 
-// 单位数据 → 格子卡片 HTML（与 render/32 的格子同款结构；自绘用，解决 fly 空壳拿不到内容）
-function cardHtmlFromUnit(u) {
-    const pct = Math.max(0, Math.floor((u.hp / u.maxHp) * 100));
-    const hpCls = pct > 50 ? 'hp-text-green' : (pct > 20 ? 'hp-text-orange' : 'hp-text-red');
-    const bar = pct > 50 ? '#2e7d32' : (pct > 20 ? '#daa520' : '#c0392b');
+// ============================== 血条防剧透 ==============================
+// 引擎 doDash 先 applyStatChange 扣血，fx 拿到 dash 时 store 已是 hpAfter。
+//   不处理的话克隆体开场就显示扣完的血 = 剧透。做法：入口按 hits 反推 hpBefore，
+//   克隆体用 hpBefore 初始化；碰撞帧 revealGhostHp 后放开给 guardTick 跟随 store。
+const _hpSnapshot = new Map();   // uid -> hpBefore
+const _hpRevealed = new Set();   // 已解密 uid（guardTick 可以跟随 store）
+const _hpShown = new Map();      // uid -> 当前克隆体显示的血量
+
+function snapshotHpBefore(dash) {
+    _hpSnapshot.clear();
+    _hpRevealed.clear();
+    _hpShown.clear();
+    const store = GlobalStore.get('battleStore');
+    if (!store) return;
+    const units = store.getState().units;
+    for (const h of ((dash && dash.hits) || [])) {
+        if (!h || h.uid == null || !(h.dmg > 0)) continue;
+        const u = units.find(x => x.uid === h.uid);
+        if (!u) continue;
+        const before = u.hp + h.dmg;   // store 已是扣完的，加回 dmg 就是演出前
+        _hpSnapshot.set(h.uid, before);
+        _hpShown.set(h.uid, before);
+    }
+}
+
+function revealGhostHp(uids) {
+    for (const uid of (uids || [])) {
+        if (!_hpSnapshot.has(uid)) continue;
+        _hpRevealed.add(uid);
+        _hpShown.delete(uid);   // 下一帧 guardTick 强制重绘为 store 当前值
+    }
+}
+
+// ============================== 卡片 / 克隆体 ==============================
+// 单位数据 → 格子卡片 HTML（与 render/403-grid-render 同款结构与色档）
+//   hpOverride：演出前血量；缺省用 store 当前值
+function cardHtmlFromUnit(u, hpOverride) {
+    const hp = (hpOverride != null) ? hpOverride : u.hp;
+    const pct = Math.max(0, Math.floor((hp / u.maxHp) * 100));
+    const hpCls = pct > 70 ? 'hp-text-green' : (pct > 40 ? 'hp-text-orange' : 'hp-text-red');
+    const bar = pct > 70 ? '#4caf50' : (pct > 40 ? '#ff9800' : '#f44336');
     const icon = getRoleIcon(u, { isStunned: false, isDead: false, pangTaunting: false });
     return `<span class="cell-icon">${icon}</span>` +
         `<div class="cell-info"><span class="cell-name">${u.name}</span>` +
-        `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${Math.floor(u.hp)}</span></span></div>` +
+        `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${fmtHp(hp)}</span></span></div>` +
         `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar};"></div></div>`;
 }
 
-// 克隆体：摆到「起点格」rect 起跑。
-//   内容来源两级：① 终点格 DOM 有内容就克隆（最省事、样式完全一致）；
-//   ② 终点格是空壳 → 从 battleStore 按 uid 自绘卡片。
-//   为什么需要 ②：DASH 的 store 步先把位置写进 store、再设 _renderFlyMode='fly'，而 render/32 的 fly 分支
-//   会 resetCell 清空内容只留透明样式 —— 终点格必然是空壳，只靠 ① 会导致所有克隆体 null、
-//   整个位移/锁链/慢速档全部跳过（老板实机「动画完全不对」的根因）。
+// 克隆体：一律从 store 自绘（不再 clone 终点格 DOM）。
+//   内容取 fromPos 格的 rect 起跑、单位数据从 store 按 uid 现取。
 function makeGhost(camp, fromPos, toPos, z, uid) {
     const r = rectOf(camp, fromPos);
     if (!r) return null;
-    const src = getCellByPos(camp, toPos);
-    let g = null;
-    if (src && (src.querySelector('.cell-icon') || src.textContent.trim())) {
-        g = src.cloneNode(true);
-        g.classList.remove('ready', 'acted');
-        g.removeAttribute('data-flash');
-    }
-    if (!g) {
-        const store = GlobalStore.get('battleStore');
-        const u = store ? store.getState().units.find(x => x.uid === uid) : null;
-        if (!u) return null;
-        g = document.createElement('div');
-        g.className = 'cell';
-        g.innerHTML = cardHtmlFromUnit(u);
-    }
+    const store = GlobalStore.get('battleStore');
+    const u = store ? store.getState().units.find(x => x.uid === uid) : null;
+    if (!u) return null;
+    const hpOverride = _hpSnapshot.has(uid) ? _hpSnapshot.get(uid) : null;
+    const g = document.createElement('div');
+    g.className = 'cell';
+    g.innerHTML = cardHtmlFromUnit(u, hpOverride);
     g.setAttribute('data-fx', 'temporary');
-    // 只覆盖定位/显隐，保留 .cell 类自带的外观样式（背景/边框/圆角）
     g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.w}px;height:${r.h}px;
         margin:0;z-index:${z};pointer-events:none;box-sizing:border-box;opacity:1;visibility:visible;transition:none;`;
-    // fly 模式的隐藏可能落在任一层内联样式上，克隆体全部还原成可见
-    g.querySelectorAll('*').forEach(el => {
-        if (el.style && (el.style.opacity === '0' || el.style.visibility === 'hidden')) { el.style.opacity = ''; el.style.visibility = ''; }
-    });
     document.body.appendChild(g);
     return { el: g, from: r };
 }
 
-// ---- 金线：glow(9px 模糊) + core(3px 实线) + head(11px 光点)，从两端向中间收拢（clock 版，别用 rAF） ----
+// 落定：把 left/top 固化到终点（后续标枪/收势不再动位置，不会弹回起点）
+//   transform 保持创建时的 scale（不写死，避免抹掉队友的 0.82）
+function freezeGhosts(ghosts) {
+    for (const gh of (ghosts || [])) {
+        if (!gh || !gh.toRect || !gh.g) continue;
+        gh.g.el.style.left = gh.toRect.left + 'px';
+        gh.g.el.style.top = gh.toRect.top + 'px';
+    }
+}
+
+// ============================== 血条单一时间线 ==============================
+// 每帧对比「克隆体当前显示血量」与 store 当前血量，不同才重绘。
+//   未解密的 uid 跳过（克隆体保持演出前的 hpBefore，不跟随 store，防剧透）。
+let maskEl = null;
+let chainEl = null;
+let chainHead = null;
+let activeGhosts = [];
+
+function guardTick() {
+    const store = GlobalStore.get('battleStore');
+    if (!store) return;
+    const units = store.getState().units;
+    for (const gh of activeGhosts) {
+        if (!gh.g || !gh.g.el) continue;
+        if (!_hpRevealed.has(gh.uid)) continue;
+        const u = units.find(x => x.uid === gh.uid);
+        if (!u) continue;
+        const shown = _hpShown.get(gh.uid);
+        if (shown === u.hp) continue;
+        _hpShown.set(gh.uid, u.hp);
+        gh.g.el.innerHTML = cardHtmlFromUnit(u, null);
+    }
+}
+
+// ============================== 金线（快版用） ==============================
 function createBeam(container) {
     const glow = document.createElement('div');
     glow.setAttribute('data-fx', 'temporary');
@@ -117,61 +184,7 @@ async function removeBeam(b) {
     b.glow.remove(); b.core.remove(); b.head.remove();
 }
 
-// 终结一拳（融合平A视觉）
-async function performFinishingPunch(twEl, targetEl, T = (v) => v) {
-    const twR = twEl.getBoundingClientRect();
-    const tgR = targetEl.getBoundingClientRect();
-    const dx = tgR.left - twR.left;
-    const dy = tgR.top - twR.top;
-    const dist = Math.hypot(dx, dy) || 1;
-    const nx = dx / dist, ny = dy / dist;
-    const reach = Math.min(dist * 0.42, 54);
-
-    // 1. 蓄力后缩 (100ms)
-    await clock.animateReal(T(100), (p) => {
-        const e = 1 - Math.pow(1 - p, 3);
-        twEl.style.transform = `translate(${-nx * 10 * e}px, ${-ny * 10 * e}px) scale(${1 - 0.08 * e})`;
-    });
-
-    // 2. 冲刺 (110ms)
-    await clock.animateReal(T(110), (p) => {
-        const e = p * p * p; // easeInCubic
-        twEl.style.transform = `translate(${-nx * 10 + nx * (reach + 10) * e}px, ${-ny * 10 + ny * (reach + 10) * e}px) scale(1.05)`;
-    });
-
-    // 3. 命中爆发
-    const px = twR.left + twR.width / 2 + nx * reach;
-    const py = twR.top + twR.height / 2 + ny * reach;
-
-    // 白光爆闪
-    const flash = document.createElement('div');
-    flash.setAttribute('data-fx', 'temporary');
-    flash.style.cssText = `position:fixed;left:${tgR.left}px;top:${tgR.top}px;width:${tgR.width}px;height:${tgR.height}px;border-radius:6px;background:radial-gradient(circle at 50% 45%,#fff 0%,rgba(255,255,255,.9) 30%,rgba(255,240,180,.35) 68%,rgba(255,255,255,0) 100%);pointer-events:none;z-index:10080;`;
-    document.body.appendChild(flash);
-    clock.animateReal(T(230), (p) => {
-        flash.style.opacity = String(1 - p);
-        flash.style.transform = `scale(${1 + p * 0.18})`;
-    }).then(() => flash.remove());
-
-    // 目标抖动
-    targetEl.classList.add('shake');
-    setTimeout(() => targetEl.classList.remove('shake'), 420);
-
-    // 火花与冲击波
-    sparkBurstAt(px, py, '#fff2b0', 16);
-    sparkBurstAt(px, py, '#ff9f43', 10);
-    impactRing({ left: tgR.left, top: tgR.top, w: tgR.width, h: tgR.height, cx: tgR.left + tgR.width/2, cy: tgR.top + tgR.height/2 }, 'rgba(255,255,255,0.95)');
-    screenShake();
-
-    // 4. 退回 (200ms)
-    await clock.animateReal(T(200), (p) => {
-        const e = 1 - Math.pow(1 - p, 3);
-        twEl.style.transform = `translate(${nx * reach * (1 - e)}px, ${ny * reach * (1 - e)}px) scale(1)`;
-    });
-    twEl.style.transform = '';
-}
-
-// ---- 冲击环：从格子中心向外扩 + 淡出 ----
+// ============================== 冲击环 / 火花 / 屏震 ==============================
 function impactRing(rect, color) {
     const d = document.createElement('div');
     d.setAttribute('data-fx', 'temporary');
@@ -184,7 +197,6 @@ function impactRing(rect, color) {
     }).then(() => d.remove());
 }
 
-// ---- 火花：n 个粒子径向炸开，带重力下坠（26*p*p 那项） ----
 function sparkBurstAt(cx, cy, color, n) {
     for (let i = 0; i < n; i++) {
         const a = (Math.PI * 2 * i) / n + Math.random() * 0.6;
@@ -203,7 +215,6 @@ function sparkBurstAt(cx, cy, color, n) {
     }
 }
 
-// ---- 屏震：battlefield ±2px，220ms 衰减 ----
 function screenShake() {
     const bf = document.getElementById('battlefield');
     if (!bf) return;
@@ -213,7 +224,7 @@ function screenShake() {
     }).then(() => { bf.style.transform = ''; });
 }
 
-// 慢速档专用样式（目标锁框脉冲 / 唐文亮金边）：只注入一次
+// ============================== 慢速档专用样式 ==============================
 function injectSlowStyle() {
     if (document.getElementById('fx94-slow-style')) return;
     const st = document.createElement('style');
@@ -229,7 +240,7 @@ function injectSlowStyle() {
     document.head.appendChild(st);
 }
 
-// 卡边取点：把「卡中心 → 对方中心」的射线裁到本卡边框上（demo 的 edgeOf）
+// 卡边取点：把「卡中心 → 对方中心」的射线裁到本卡边框上
 function edgeOf(r, tx, ty) {
     const cx = r.left + r.w / 2, cy = r.top + r.h / 2;
     const dx = tx - cx, dy = ty - cy;
@@ -240,12 +251,86 @@ function edgeOf(r, tx, ty) {
     return { x: cx + dx * k, y: cy + dy * k };
 }
 
-// —— 子弹时间档（老板口径 2026-10-23）：遮罩内慢速完整演出 ——
-//   时长用真实时钟（每段 minRealMs），倍速 2x/4x 压不短；快进/自动入口直接返回 []。
-//   与快版共用 makeGhost/rectOf；慢版自己造粗锁链与高 z 环/火花（快版 createBeam 的 z 写死 10/11/12、
-//   impactRing/sparkBurstAt 的 z 写死 20/35，都会被遮罩盖住）。
+// ============================== 标枪收尾（原 finishing punch 替身） ==============================
+// 从唐文亮位置向目标飞一根 CSS 标枪（shaft 64×8 + head 22px 三角），
+//   飞 400ms、扎中停留 200ms；随后白光+火花+冲击环+屏震；最后唐文亮回到原位。
+// 位置只动 left/top（transform 只放枪身旋转），不碰唐文亮克隆体的 transform（保留 baseScale）。
+async function performFinishingPunch(twEl, targetEl, T = (v) => v) {
+    const twR = twEl.getBoundingClientRect();
+    const tgR = targetEl.getBoundingClientRect();
+    const dx = (tgR.left + tgR.width / 2) - (twR.left + twR.width / 2);
+    const dy = (tgR.top + tgR.height / 2) - (twR.top + twR.height / 2);
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist, ny = dy / dist;
+    const baseLeft = parseFloat(twEl.style.left) || twR.left;
+    const baseTop = parseFloat(twEl.style.top) || twR.top;
+
+    // 1. 蓄力后缩（120ms）
+    await clock.animateReal(T(120), (p) => {
+        const e = 1 - Math.pow(1 - p, 3);
+        twEl.style.left = (baseLeft - nx * 8 * e).toFixed(1) + 'px';
+        twEl.style.top = (baseTop - ny * 8 * e).toFixed(1) + 'px';
+    });
+
+    // 2. 标枪飞行（400ms）
+    const jv = document.createElement('div');
+    jv.setAttribute('data-fx', 'temporary');
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    jv.style.cssText = `position:fixed;z-index:10080;pointer-events:none;transform:translate(-100%, -50%) rotate(${angle}deg);transform-origin: 100% 50%;display:flex;align-items:center;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));`;
+    const shaft = document.createElement('div');
+    shaft.style.cssText = 'width:64px;height:8px;background:linear-gradient(180deg, #8b6f4b, #5c4033);border-radius:4px 0 0 4px;box-shadow:inset 0 2px 2px rgba(255,255,255,0.2);';
+    const head = document.createElement('div');
+    head.style.cssText = 'width:0;height:0;border-left:22px solid #e0e0e0;border-top:8px solid transparent;border-bottom:8px solid transparent;filter:drop-shadow(0 0 6px rgba(255,255,255,0.9));';
+    jv.appendChild(shaft);
+    jv.appendChild(head);
+    document.body.appendChild(jv);
+
+    const startX = baseLeft + twR.width / 2;
+    const startY = baseTop + twR.height / 2;
+    const endX = tgR.left + tgR.width / 2;
+    const endY = tgR.top + tgR.height / 2;
+
+    await clock.animateReal(T(400), (p) => {
+        const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        jv.style.left = (startX + (endX - startX) * e).toFixed(1) + 'px';
+        jv.style.top = (startY + (endY - startY) * e).toFixed(1) + 'px';
+    });
+    // 扎中后停留 200ms
+    await clock.waitReal(T(200));
+    jv.remove();
+
+    // 3. 命中爆发（白光 + 火花 + 冲击环 + 屏震）
+    const flash = document.createElement('div');
+    flash.setAttribute('data-fx', 'temporary');
+    flash.style.cssText = `position:fixed;left:${tgR.left}px;top:${tgR.top}px;width:${tgR.width}px;height:${tgR.height}px;border-radius:6px;background:radial-gradient(circle,#fff 0%,rgba(255,240,180,0.4) 60%,rgba(255,255,255,0) 100%);pointer-events:none;z-index:10080;`;
+    document.body.appendChild(flash);
+    clock.animateReal(T(230), (p) => {
+        flash.style.opacity = (1 - p).toFixed(3);
+        flash.style.transform = `scale(${(1 + p * 0.18).toFixed(2)})`;
+    }).then(() => flash.remove());
+    targetEl.classList.add('shake');
+    setTimeout(() => targetEl.classList.remove('shake'), 420);
+    const cx = tgR.left + tgR.width / 2, cy = tgR.top + tgR.height / 2;
+    sparkBurstAt(cx, cy, '#fff2b0', 16);
+    sparkBurstAt(cx, cy, '#ff9f43', 10);
+    impactRing({ left: tgR.left, top: tgR.top, w: tgR.width, h: tgR.height, cx, cy }, 'rgba(255,255,255,0.95)');
+    screenShake();
+
+    // 4. 回到原位（left/top 回 base）
+    await clock.animateReal(T(200), (p) => {
+        const e = 1 - Math.pow(1 - p, 3);
+        twEl.style.left = (baseLeft - nx * 8 * (1 - e)).toFixed(1) + 'px';
+        twEl.style.top = (baseTop - ny * 8 * (1 - e)).toFixed(1) + 'px';
+    });
+    twEl.style.left = baseLeft + 'px';
+    twEl.style.top = baseTop + 'px';
+}
+
+// ============================== 慢速档（子弹时间） ==============================
+// 时长用真实时钟（每段 minRealMs），倍速 2x/4x 压不短；快进/自动入口直接返回 []。
+//   与快版共用 makeGhost / freezeGhosts / performFinishingPunch；慢版自己造粗锁链与高 z 环/火花
+//   （快版 createBeam 的 z 写死 10/11/12、impactRing/sparkBurstAt 的 z 写死 20/35，都会被遮罩盖住）。
 //   返回 ghosts 交 render/39 storeAfter 淡出（交棒顺序与快版一致：先清 fly 显真格，再淡出克隆体）。
-//   跳过 / 快进 / 无位移 → 返回 [] 或原 ghosts，不影响 store 步已写好的位置。
 async function showTangWenLiangDashSlow(dash) {
     if (!dash || isFxSkipped()) return [];
 
@@ -264,7 +349,7 @@ async function showTangWenLiangDashSlow(dash) {
     const ghosts = [];
     let clearHl = () => {};
     let staticCell = null;
-    // 2026-10-25 总时长读参数表（dashDur），按当前 speed 档位；取不到回落 1700。
+    // 总时长读参数表（dashDur），按当前 speed 档位；取不到回落 1700。
     //   内部编排 350+240+620+400+900+400 = 2910ms，按 dashTotal 等比缩放，各段 minRealMs 同值跟随。
     const dashTotal = getPerfParam('dashDur', GlobalStore.get('speed') || 300) || 1700;
     const s = dashTotal / 2910;
@@ -277,6 +362,9 @@ async function showTangWenLiangDashSlow(dash) {
         cleanupUi();
         for (const gh of ghosts) if (gh && gh.g && gh.g.el && gh.g.el.parentNode) gh.g.el.remove();
     };
+
+    // 血条快照：入口记 hpBefore，克隆体用它初始化（碰撞帧 reveal 后切到 store 当前值）
+    snapshotHpBefore(dash);
 
     // ① 遮罩 + 跳过按钮（轻压暗：0.86 黑幕会把「原地不动的目标」埋掉，高亮看不见）
     const mask = track(document.createElement('div'));
@@ -292,7 +380,7 @@ async function showTangWenLiangDashSlow(dash) {
     document.body.appendChild(skipBtn);
 
     // ② 克隆体：只给「唐文亮 + 目标」主角权重（z 高于遮罩、原尺寸）；
-    //   被挤队友压暗缩小、z 更低，只作背景（老板口径 2026-10-24：挤走是自然结果，别抢戏）
+    //   被挤队友压暗缩小、z 更低，只作背景
     const targetUid = dash.targetUid;
     for (const m of moves) {
         const isMain = !!m.isDash || (targetUid != null && m.uid === targetUid);
@@ -304,13 +392,14 @@ async function showTangWenLiangDashSlow(dash) {
     }
     if (ghosts.length === 0) { cleanupAll(); return []; }
 
+    // 把 activeGhosts 指过去，让 guardTick 跟随 store 重绘血条
+    activeGhosts = ghosts;
+
     const twGH = ghosts.find(x => x.isDash) || null;
     const tgtGH = targetUid != null ? (ghosts.find(x => x.uid === targetUid) || null) : null;
-    // 队友 = 既不是唐文亮（没动时为空）也不是目标的其余克隆体
     const minorGhosts = ghosts.filter(x => !x.isDash && x.uid !== targetUid);
 
-    // 锚点 = 克隆体（动了）或真格（没动）。目标在前排原地不动时也要高亮 + 连线（老板 2026-10-24 指正：
-    //   旧版只认 moves，目标不动就没有 tgG → 既没金线也没高亮，看着像什么都没发生）
+    // 锚点 = 克隆体（动了）或真格（没动）
     const twActorEl = twGH ? twGH.g.el
         : (dash.fromCamp != null && dash.toPos != null ? getCellByPos(dash.fromCamp, dash.toPos) : null);
     const tgtActorEl = tgtGH ? tgtGH.g.el
@@ -343,7 +432,7 @@ async function showTangWenLiangDashSlow(dash) {
     }
 
     await clock.animate(T(350), (p) => { mask.style.opacity = String(0.34 * p); }, { minRealMs: T(350) });
-    if (skipped) { cleanupAll(); return []; }
+    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
 
     // ③ 粗锁链展开（唐文亮 → 目标），双层发光
     const chainGlow = track(document.createElement('div'));
@@ -359,7 +448,6 @@ async function showTangWenLiangDashSlow(dash) {
     chainHead.style.cssText = 'position:fixed;width:11px;height:11px;border-radius:50%;pointer-events:none;opacity:0;z-index:10074;background:radial-gradient(circle,#fff 0%,#ffe9a8 35%,rgba(255,170,60,0) 72%);';
     document.body.appendChild(chainHead);
 
-    // 卡边 → 卡边，且 z(10072~10074) 高于克隆体(10070)：旧版中心线压在卡片底下，实机等于看不见
     const chainSet = (p) => {
         const ra = actorRect(twActorEl), rb = actorRect(tgtActorEl);
         if (!ra || !rb) return;
@@ -385,10 +473,9 @@ async function showTangWenLiangDashSlow(dash) {
             chainHead.style.opacity = String(p);
         }, { minRealMs: T(240) });
     }
-    if (skipped) { cleanupAll(); return []; }
+    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
 
-    // ④ 走位（对齐 demo 节奏）：唐文亮 620ms 超冲回弹 + 残影；目标延迟 16% 跟上；
-    //   目标原地不动 → 被「顶」一下；队友只快速让位，不抢戏
+    // ④ 走位：left/top 写位置、transform 只放 scale（避免双算位移冲出格子）
     const twFrom = twGH ? twGH.g.from : null, twTo = twGH ? twGH.toRect : null;
     const tgtFrom = tgtGH ? tgtGH.g.from : null, tgtTo = tgtGH ? tgtGH.toRect : null;
     await clock.animate(T(620), (p) => {
@@ -402,17 +489,20 @@ async function showTangWenLiangDashSlow(dash) {
             if (p < 0.68) { const q = p / 0.68; e = easeOut(q); ov = ovMax * easeOut(q); }
             else { const q = (p - 0.68) / 0.32; e = 1; ov = ovMax * (1 - easeOut(q)); }
             const x = dx * e + ux * ov, y = dy * e + uy * ov;
-            twGH.g.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+            twGH.g.el.style.left = (twFrom.left + x).toFixed(1) + 'px';
+            twGH.g.el.style.top = (twFrom.top + y).toFixed(1) + 'px';
             afterImgs.forEach((im, i) => {
                 const k = (i + 1) * 6 * Math.min(1, e * 3);
-                im.style.transform = `translate(${(x - ux * k).toFixed(1)}px,${(y - uy * k).toFixed(1)}px)`;
+                im.style.left = (twFrom.left + x - ux * k).toFixed(1) + 'px';
+                im.style.top = (twFrom.top + y - uy * k).toFixed(1) + 'px';
                 im.style.opacity = String((0.26 / (i + 1)) * Math.min(1, e * 2.6));
             });
         }
         if (tgtFrom && tgtTo) {
             const q = Math.max(0, (p - 0.16) / 0.84);
             const e2 = 1 - Math.pow(1 - q, 3);
-            tgtGH.g.el.style.transform = `translate(${((tgtTo.left - tgtFrom.left) * e2).toFixed(1)}px,${((tgtTo.top - tgtFrom.top) * e2).toFixed(1)}px)`;
+            tgtGH.g.el.style.left = (tgtFrom.left + (tgtTo.left - tgtFrom.left) * e2).toFixed(1) + 'px';
+            tgtGH.g.el.style.top = (tgtFrom.top + (tgtTo.top - tgtFrom.top) * e2).toFixed(1) + 'px';
         }
         if (minorGhosts.length > 0) {
             const q = Math.min(1, p * 1.4);
@@ -420,10 +510,11 @@ async function showTangWenLiangDashSlow(dash) {
             for (const gh of minorGhosts) {
                 const t = gh.toRect; if (!t) continue;
                 const f = gh.g.from;
-                gh.g.el.style.transform = `translate(${((t.left - f.left) * e3).toFixed(1)}px,${((t.top - f.top) * e3).toFixed(1)}px) scale(0.82)`;
+                gh.g.el.style.left = (f.left + (t.left - f.left) * e3).toFixed(1) + 'px';
+                gh.g.el.style.top = (f.top + (t.top - f.top) * e3).toFixed(1) + 'px';
             }
         }
-        // 原地不动的目标被顶一下（沿唐文亮→目标方向 ±6px，撞完回弹）
+        // 原地不动的目标被顶一下（沿唐文亮→目标方向 ±6px，撞完回弹）——真格用 transform 是「相对偏移」，不用改
         if (staticCell) {
             const ra = actorRect(twActorEl), rb = actorRect(tgtActorEl);
             if (ra && rb) {
@@ -435,9 +526,12 @@ async function showTangWenLiangDashSlow(dash) {
         chainSet(1);
     }, { minRealMs: T(620) });
     if (staticCell) staticCell.style.transform = '';
-    if (skipped) { cleanupAll(); return []; }
+    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
 
-    // ⑤ 碰撞：白闪 + 高 z 冲击环 + 火花 + 屏震
+    // 走位落定：把 left/top 固化到终点（后续标枪/收势不再动位置，不会弹回起点）
+    freezeGhosts(ghosts);
+
+    // ⑤ 碰撞：白闪 + 高 z 冲击环 + 火花 + 屏震 + 解密血条
     const ringAt = (rect, color, z) => {
         if (!rect) return;
         const d = track(document.createElement('div'));
@@ -472,6 +566,8 @@ async function showTangWenLiangDashSlow(dash) {
     flash.setAttribute('data-fx', 'temporary');
     flash.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:10080;pointer-events:none;opacity:0;';
     document.body.appendChild(flash);
+    // 解密命中目标血条：碰撞帧才切到 store 当前值（之前一直显示 hpBefore，防剧透）
+    revealGhostHp((dash.hits || []).map(h => h && h.uid).filter(uid => uid != null));
     await clock.animate(T(400), (p) => {
         flash.style.opacity = p < 0.35 ? String(0.75 * (p / 0.35)) : String(Math.max(0, 0.75 * (1 - (p - 0.35) / 0.65)));
     }, { minRealMs: T(400) });
@@ -479,32 +575,22 @@ async function showTangWenLiangDashSlow(dash) {
     const tgtRectNow = actorRect(tgtActorEl);
     if (tgtRectNow) { ringAt(tgtRectNow, 'rgba(255,120,80,0.95)', 10062); sparksAt(tgtRectNow.cx, tgtRectNow.cy, '#ff6b3d', 10, 10063); }
     screenShake();
-    // 撞击即断链 + 清高亮：此刻还在白闪里，断得看不出来；
-    //   留到 ⑦ 才断，会出现「两人已经落位、金线还连着」持续 1.3 秒（实机「怪怪的」主因）。
     chainGlow.style.opacity = '0';
     chainCore.style.opacity = '0';
     chainHead.style.opacity = '0';
     clearHl();
-    if (skipped) { cleanupAll(); return []; }
+    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
 
     // ⑥ 真伤数字浮出（dash.hits 载荷里带 dmg）
+    //   注意：不 store.dispatch(HP_CHANGE) —— 引擎 doDash 已经扣过血（syncStoreFromStep 会用引擎权威值覆盖回去，
+    //   但演出瞬态会显示多扣一次的血条）。这里只解密血条 + 飘数字。
     const hits = Array.isArray(dash.hits) ? dash.hits : [];
-    const store = GlobalStore.get('battleStore');
     hits.forEach((h, i) => {
         if (!(h.dmg > 0) || h.uid == null) return;
         realWait(T(120 + i * 90)).then(() => {
             if (skipped) return;
-            
-            // 实时扣血：在数字飘出的一瞬间同步给 store，血条立刻掉
-            if (store) {
-                const su = store.getState().units.find(u => u.uid === h.uid);
-                if (su) {
-                    store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: h.uid, payload: { hp: Math.max(0, su.hp - h.dmg) } });
-                }
-            }
-
-            const el = document.querySelector(`[data-uid="${h.uid}"]`);
-            const r = el ? el.getBoundingClientRect() : null;
+            const gh = ghosts.find(g => g.uid === h.uid);
+            const r = gh && gh.g && gh.g.el ? gh.g.el.getBoundingClientRect() : null;
             if (!r) return;
             const d = track(document.createElement('div'));
             d.setAttribute('data-fx', 'temporary');
@@ -519,7 +605,7 @@ async function showTangWenLiangDashSlow(dash) {
         });
     });
     await realWait(T(900));
-    if (skipped) { cleanupAll(); return []; }
+    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
 
     // ⑦ 遮罩淡出（真格已在终位，克隆体留给 storeAfter 淡出）
     await clock.animate(T(400), (p) => { mask.style.opacity = String(0.34 * (1 - p)); }, { minRealMs: T(400) });
@@ -529,7 +615,7 @@ async function showTangWenLiangDashSlow(dash) {
     if (skipBtn.parentNode) skipBtn.remove();
     cleanupUi();
 
-    // ⑦.5 终结一拳（把平A融入冲刺）
+    // ⑦.5 标枪收尾（快慢版统一视觉）
     const twEl = twGH ? twGH.g.el : twActorEl;
     const tgtEl = tgtGH ? tgtGH.g.el : tgtActorEl;
     if (twEl && tgtEl) {
@@ -539,8 +625,7 @@ async function showTangWenLiangDashSlow(dash) {
     return ghosts;
 }
 
-// 主演出：克隆多人 → 金线对拉 → 位移动画（dash 本体超冲回弹）→ 落定特效。
-// 返回克隆体数组交给 39 的 storeAfter（交棒：清 fly 显格后才淡出）。
+// ============================== 快版（主路径） ==============================
 export async function showTangWenLiangDash(dash, opts) {
     // 「唐文亮·冲刺子弹时间」（fxDashSlow）开着走慢速档；关掉 / 快进走原快版
     if (opts && opts.slowMotion) return showTangWenLiangDashSlow(dash);
@@ -557,16 +642,19 @@ export async function showTangWenLiangDash(dash, opts) {
     moves = moves.filter(m => m.from !== m.to && m.to != null);   // 原地未动（被挡侧 from=to）不克隆
     if (moves.length === 0) return [];
 
-    // ① 克隆体（内容取终点格、起点 rect 起跑；dash 本体 z=70，其余 50）
+    // 血条快照：入口记 hpBefore，克隆体用它初始化（落定帧 reveal 后切到 store 当前值）
+    snapshotHpBefore(dash);
+
+    // ① 克隆体（内容一律从 store 自绘、起点 rect 起跑；dash 本体 z=70，其余 50）
     const ghosts = [];
     for (const m of moves) {
         const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 70 : 50, m.uid);
         if (g) ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
     }
     if (ghosts.length === 0) return [];
+    activeGhosts = ghosts;
 
     // ② 金线锁定：连「唐文亮克隆体当前位置」与「目标克隆体当前位置」，随动画实时跟随
-    //   （demo 口径：线是锁在两人身上的，不是画在两个未来落点之间——老板实机指出的视觉偏差）
     const twG = ghosts.find(x => x.isDash) || ghosts[0];
     const tgG = ghosts.find(x => !x.isDash);
     const beam = (twG && tgG) ? createBeam(document.body) : null;
@@ -574,14 +662,14 @@ export async function showTangWenLiangDash(dash, opts) {
         const a0 = twG.g.el.getBoundingClientRect();
         const b0 = tgG.g.el.getBoundingClientRect();
         await clock.animate(240, (p) => {
-            setBeam(beam, a0.left + a0.width/2, a0.top + a0.height/2, b0.left + b0.width/2, b0.top + b0.height/2, p);
+            setBeam(beam, a0.left + a0.width / 2, a0.top + a0.height / 2, b0.left + b0.width / 2, b0.top + b0.height / 2, p);
             beam.glow.style.opacity = String(0.85 * p);
             beam.core.style.opacity = String(p);
             beam.head.style.opacity = String(p);
         });
     }
 
-    // ③ 位移动画 560ms easeOutCubic；dash 本体直线 + 轻微超冲回弹（0.68 处最远、末端收回）
+    // ③ 位移动画 560ms easeOutCubic（left/top 写位置）；dash 本体直线 + 轻微超冲回弹（0.68 处最远、末端收回）
     await clock.animate(560, (p) => {
         const e = 1 - Math.pow(1 - p, 3);
         for (const gh of ghosts) {
@@ -601,25 +689,19 @@ export async function showTangWenLiangDash(dash, opts) {
         if (beam && twG && tgG) {
             const a1 = twG.g.el.getBoundingClientRect();
             const b1 = tgG.g.el.getBoundingClientRect();
-            setBeam(beam, a1.left + a1.width/2, a1.top + a1.height/2, b1.left + b1.width/2, b1.top + b1.height/2, 1);
+            setBeam(beam, a1.left + a1.width / 2, a1.top + a1.height / 2, b1.left + b1.width / 2, b1.top + b1.height / 2, 1);
         }
     });
 
+    // 走位落定：left/top 固化到终点（后续标枪/收势不再动位置，不会弹回起点）
+    freezeGhosts(ghosts);
+    // 解密命中目标血条：落定帧切到 store 当前值（之前一直显示 hpBefore，防剧透）
+    revealGhostHp((dash.hits || []).map(h => h && h.uid).filter(uid => uid != null));
+
     // ④ 落定：冲击环 + 火花 + 屏震（dash 本体最隆重；目标落点次之）
+    //   注意：不 store.dispatch(HP_CHANGE) —— 引擎 doDash 已扣过血，这里只飘数字。
     const land = twG.toRect;
-    
-    // 实时扣血：在撞击的一瞬间同步给 store，血条立刻掉
     if (land) {
-        const hits = Array.isArray(dash.hits) ? dash.hits : [];
-        const store = GlobalStore.get('battleStore');
-        if (store) {
-            for (const h of hits) {
-                if (h.dmg > 0 && h.uid) {
-                    const su = store.getState().units.find(u => u.uid === h.uid);
-                    if (su) store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: h.uid, payload: { hp: Math.max(0, su.hp - h.dmg) } });
-                }
-            }
-        }
         impactRing(land, '#ffd166');
         sparkBurstAt(land.cx, land.cy, '#ffd166', 12);
         sparkBurstAt(land.cx, land.cy, '#ff9f43', 6);
@@ -628,7 +710,7 @@ export async function showTangWenLiangDash(dash, opts) {
     if (tgG && tgG.toRect) impactRing(tgG.toRect, '#ff6b6b');
     if (beam) removeBeam(beam);   // 不 await，光束淡出与落定特效并行
 
-    // 终结一拳（把平A融入冲刺）
+    // ⑤ 标枪收尾（快慢版统一视觉）
     if (twG && twG.g.el && tgG && tgG.g.el) {
         await performFinishingPunch(twG.g.el, tgG.g.el);
     }
@@ -643,5 +725,6 @@ export function fadeOutDashGhosts(ghosts) {
         for (const gh of ghosts) if (gh && gh.g && gh.g.el) gh.g.el.style.opacity = String(1 - p);
     }).then(() => {
         for (const gh of ghosts) if (gh && gh.g && gh.g.el && gh.g.el.parentNode) gh.g.el.remove();
+        activeGhosts = [];
     });
 }

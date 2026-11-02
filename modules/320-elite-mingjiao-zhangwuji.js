@@ -16,6 +16,7 @@ function checkZhangSwitch(zhang, A, log) {
     // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && !c.isLionCub && c.uid !== zhang.uid
         && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
+    if (process.env.ZWDEBUG) console.error('ZWDBG', zhang.uid, 'pos=' + zhang.pos, 'hasFrontAlly=' + hasFrontAlly, 'A=[' + (A||[]).map(c => c.uid + '@' + c.pos + (c.alive?'+':'-') + (c.isHorse?'H':'') + (c.isLionCub?'L':'')).join(',') + ']');
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
         // 加成倍率走内容表（相对战士职业加成），缺失即抛错

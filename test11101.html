@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>唐文亮 · 冲刺·七伤齐发 · 逐帧演示 V3.0.0</title>
-<!-- 唐文亮冲刺 demo V3.0.0 ｜ 仅演示页，不进主代码链。
+<title>唐文亮 · 冲刺·七伤齐发 · 逐帧演示 V3.1.0</title>
+<!-- 唐文亮冲刺 demo V3.1.0 ｜ 仅演示页，不进主代码链。
      演出链完全在 demo 内自写，不 import fx/616。
+     位移 / 缩放彻底分离：位置只写 left/top（moveGhosts），transform 只放 scale（createGhosts）。
      修正：起点格不空 / 队友只缩小不透明 / 掉血即刷血条 / 克隆体不弹回起点 /
            冲刺后上回春 + 接普攻 + 回春再叠层回血 / 收势统一交棒防双份。
      打开方式（必须本地服务器，ES module 不支持 file://）：
@@ -600,17 +601,35 @@ function createGhosts(p) {
     if (!isTw && !isTarget) {
       baseScale = 0.82;
       g.el.style.opacity = '0.55';
-      g.el.style.transform = `scale(${baseScale})`;
     } else if (isTw) {
       g.el.classList.add('tw-hl'); // 唐文亮：金边
     } else {
       g.el.classList.add('tg-hl'); // 目标：橙红锁框
     }
+    // 初始位移为 0（位移全部走 left/top），这里只带缩放
+    g.el.style.transform = `scale(${baseScale})`;
     
     activeGhosts.push({ ...m, g, toRect: getCellRect(m.camp, m.to), baseScale });
     zMap[m.uid] = g;
   }
   return activeGhosts;
+}
+
+// 超冲不许越出九宫格内容区：贴边冲刺（如 5→1 向左）会把克隆体甩到格子外面
+function clipToGrid(camp, x, y, w, h) {
+  const el = document.getElementById(camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
+  if (!el) return { x, y };
+  const r = el.getBoundingClientRect();
+  const cs = getComputedStyle(el);
+  const n = (v) => parseFloat(v) || 0;
+  const x0 = r.left + n(cs.borderLeftWidth) + n(cs.paddingLeft);
+  const y0 = r.top + n(cs.borderTopWidth) + n(cs.paddingTop);
+  const x1 = r.right - n(cs.borderRightWidth) - n(cs.paddingRight) - w;
+  const y1 = r.bottom - n(cs.borderBottomWidth) - n(cs.paddingBottom) - h;
+  return {
+    x: Math.min(Math.max(x, x0), Math.max(x0, x1)),
+    y: Math.min(Math.max(y, y0), Math.max(y0, y1))
+  };
 }
 
 function moveGhosts(pp) {
@@ -626,8 +645,9 @@ function moveGhosts(pp) {
       const over = pp < 0.68 ? ovMax * (1 - Math.pow(1 - pp / 0.68, 3)) : ovMax * (1 - (1 - Math.pow(1 - (pp - 0.68) / 0.32, 3)));
       const px = dx * e + (dx / dist) * over;
       const py = dy * e + (dy / dist) * over;
-      gh.g.el.style.left = (f.left + px).toFixed(1) + 'px';
-      gh.g.el.style.top = (f.top + py).toFixed(1) + 'px';
+      const pos = clipToGrid(gh.camp, f.left + px, f.top + py, f.w, f.h);
+      gh.g.el.style.left = pos.x.toFixed(1) + 'px';
+      gh.g.el.style.top = pos.y.toFixed(1) + 'px';
     } else if (gh.uid === (plan && plan.target && plan.target.uid)) {
       const q = Math.max(0, (pp - 0.16) / 0.84);
       const e2 = 1 - Math.pow(1 - q, 3);
@@ -646,9 +666,10 @@ function moveGhosts(pp) {
 function freezeGhosts() {
   for (const gh of activeGhosts) {
     if (!gh.toRect || !gh.g) continue;
+    // 落定：位置收进 left/top，transform 只保留缩放（再叠 translate 会双算位移，冲出格子）
     gh.g.el.style.left = gh.toRect.left + 'px';
     gh.g.el.style.top = gh.toRect.top + 'px';
-    gh.g.el.style.transform = gh.el_scale || '';
+    gh.g.el.style.transform = `scale(${gh.baseScale || 1})`;
   }
 }
 

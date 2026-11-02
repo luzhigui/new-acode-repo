@@ -1,4 +1,6 @@
-export const VER = 'core/215-buff-effects.js V6.1.9';
+export const VER = 'core/215-buff-effects.js V6.1.10';
+// V6.1.10（2026-11-02 收尾）：撤销 applyMindControlCore 内三处 MCDEBUG 临时诊断（MCSIDE/MC_E/MC_A），
+//   排查惑心换位回放误报用，已确认引擎换位真实生效、属规则166 误报，诊断代码无保留价值。
 
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from './201-config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './203-battle-utils.js';
