@@ -600,14 +600,12 @@ function createGhosts(p) {
     if (!isTw && !isTarget) {
       baseScale = 0.82;
       g.el.style.opacity = '0.55';
+      g.el.style.transform = `scale(${baseScale})`;
     } else if (isTw) {
       g.el.classList.add('tw-hl'); // 唐文亮：金边
     } else {
       g.el.classList.add('tg-hl'); // 目标：橙红锁框
     }
-    
-    // 初始偏移为 0，缩放靠 transform
-    g.el.style.transform = `translate(0px, 0px) scale(${baseScale})`;
     
     activeGhosts.push({ ...m, g, toRect: getCellRect(m.camp, m.to), baseScale });
     zMap[m.uid] = g;
@@ -628,15 +626,18 @@ function moveGhosts(pp) {
       const over = pp < 0.68 ? ovMax * (1 - Math.pow(1 - pp / 0.68, 3)) : ovMax * (1 - (1 - Math.pow(1 - (pp - 0.68) / 0.32, 3)));
       const px = dx * e + (dx / dist) * over;
       const py = dy * e + (dy / dist) * over;
-      gh.g.el.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px) scale(${gh.baseScale})`;
+      gh.g.el.style.left = (f.left + px).toFixed(1) + 'px';
+      gh.g.el.style.top = (f.top + py).toFixed(1) + 'px';
     } else if (gh.uid === (plan && plan.target && plan.target.uid)) {
       const q = Math.max(0, (pp - 0.16) / 0.84);
       const e2 = 1 - Math.pow(1 - q, 3);
-      gh.g.el.style.transform = `translate(${(dx * e2).toFixed(1)}px, ${(dy * e2).toFixed(1)}px) scale(${gh.baseScale})`;
+      gh.g.el.style.left = (f.left + dx * e2).toFixed(1) + 'px';
+      gh.g.el.style.top = (f.top + dy * e2).toFixed(1) + 'px';
     } else {
       const q = Math.min(1, pp * 1.4);
       const e3 = 1 - Math.pow(1 - q, 3);
-      gh.g.el.style.transform = `translate(${(dx * e3).toFixed(1)}px, ${(dy * e3).toFixed(1)}px) scale(${gh.baseScale})`;
+      gh.g.el.style.left = (f.left + dx * e3).toFixed(1) + 'px';
+      gh.g.el.style.top = (f.top + dy * e3).toFixed(1) + 'px';
     }
   }
 }
@@ -892,10 +893,10 @@ async function runSequence(p, my) {
   await clock.waitReal(T(350));
   if (my !== runId) return;
 
-  const chainLen = computeChainLen(p);
+  // 直接让已经算好边缘长度的线渐显，绝不使用中心距！
+  placeChain(p);
   await clock.animateReal(T(240), (pp) => {
     if (!chainEl) return;
-    chainEl.style.width = (chainLen * pp).toFixed(1) + 'px';
     chainEl.style.opacity = (0.9 * pp).toFixed(3);
     if (chainHead) chainHead.style.opacity = (0.9 * pp).toFixed(3);
   });
