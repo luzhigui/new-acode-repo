@@ -189,6 +189,11 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (hitResult.skipped) {
         if (hitResult.missFact) {
             log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
+            // 未命中声明类 fact（连击 / 连蛛 / 性奋重试）紧跟 MISS 之后落账：
+            //   它们在 AFTER_MISS 期间先暂存进 deferredFacts，避免排到 MISS 之前
+            if (Array.isArray(hitResult.pendingMissFacts)) {
+                for (const f of hitResult.pendingMissFacts) log.push(f);
+            }
         }
         if (hitResult.dodgeFact) {
             const dodgeFact = hitResult.dodgeFact;

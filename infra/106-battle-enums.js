@@ -55,7 +55,7 @@ export const FACT_TYPES = Object.freeze({
     WEI_DODGE_LEECH: 'weiDodgeLeech',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',
     ROUND_START: 'roundStart', ROUND_END: 'roundEnd',
-    DOUBLE_STRIKE_SUMMARY: 'doubleStrikeSummary', ZHANG_TAUNT: 'zhangTaunt',
+    ZHANG_TAUNT: 'zhangTaunt',
     XING_FEN_EXTRA_ATTACK: 'xingFenExtraAttack', XIN_HUN_DEATH: 'xinHunDeath',
     CLAW_NO_HEAL: 'clawNoHeal', CLAW_HIT: 'clawHit',
     CLAW_EXECUTE: 'clawExecute', CLAW_HEAL: 'clawHeal',

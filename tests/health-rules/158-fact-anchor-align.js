@@ -7,12 +7,13 @@
 //   正文渲染成「回复 N 点」，一个空格之差子串永不匹配，飘字回调永不触发，数值正常加、
 //   不报任何错，纯静默失效。这类坑靠人眼四天后才逮到，此规则让体检当场报红。
 //
-export const VER = 'tests/health-rules/158-fact-anchor-align.js V2.0.0';
+export const VER = 'tests/health-rules/158-fact-anchor-align.js V2.0.1';
 
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 
 // 播放器认得的 fx 类型。新增 kind 必须同时改这里与本文件 VER —— 否则新 kind 会被当未知静默丢弃。
-var FX_KINDS = ['heal', 'atk', 'dmg'];
+// 'def' = 破防飘字（右侧族），播放器 fx/601 dynamicBuffLeft(kind='def') 已实装，此前本清单漏登记 → 假红。
+var FX_KINDS = ['heal', 'atk', 'dmg', 'def'];
 
 // amount 在正文里的等价文本形态：原值 / 整数四舍五入 / 一位小数。
 // 渲染侧对同一数值可能取 Math.round（如 Math.round(fact.totalHeal)），任一形态命中即算同源，

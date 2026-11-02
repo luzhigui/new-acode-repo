@@ -332,12 +332,15 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUids, allyTeam, a
         if (!matched || !unit.alive || unit.state._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : C.BUFFS.doubleStrike.prob;
+        // AFTER_MISS 期间有 deferredFacts（暂存，待 MISS fact 落账后再出，顺序才对）；
+        //   AFTER_ATTACK 期间没有该字段，直接进 log（原行为）
+        const sink = Array.isArray(data.deferredFacts) ? data.deferredFacts : log;
         if (getBattleRng().next() < missChainChance) {
             // 补 unitName：原成功分支不带单位，而渲染出的 banner 也没有单位字段，
             //   体检 146 只能靠「banner 之后第一条 attack-group 的攻击者」反推触发者 ——
             //   母狮随动链、其他单位自己的回合插在 banner 之后时必然误报（seed=10 stage=2 实测）。
             //   失败分支本就带 unitName，这里补齐对称，判据即可直接读单位、不再推断。
-            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true, unitName: unit.name } });
+            sink.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true, unitName: unit.name } });
             Object.assign(unit.state, { _doubleStriked: true });
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
@@ -353,7 +356,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUids, allyTeam, a
                 ignoreBlock: true
             });
         } else {
-            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
+            sink.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
         }
     }
     registerSettlementHook({

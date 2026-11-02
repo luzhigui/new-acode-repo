@@ -9,12 +9,13 @@
 // 三条复发信号：
 //   1) total 与按同一快照重算的公式值不符 —— 光环系数被回退（12/6 写回旧值）或漏算一项
 //   2) sources 明细里的残血/空列项数或单条数值与公式不符 —— 计数口径漂移（如把死亡单位计入残血）
-//   3) 非飞行单位的 sources 里出现残血光环/空列项 —— 光环越界作用到地面/远程单位
+//   3) 非飞行单位的 sources 里出现「残血光环」项 —— 残血光环仍为飞行专属，越界即回归
+//      （注：空列自 2026-11-02 起全局所有职业生效，非飞行单位出现「空列×N」属正常，不再判红）
 // 误报规避：
 //   - unit.state._neverMiss（必中）时 getMissBreakdown 直接返回 0/必中，不参与公式校验
 //   - 只校验存活单位（死亡单位不计入残血统计，与引擎口径一致）
 //   - 本场无存活飞行单位直接 skip（韦一笑为我方随机精英，敌方飞行亦随关卡浮动）
-export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.11';
+export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.12';
 
 import { ROLE_TYPES } from '../../infra/106-battle-enums.js';
 import { getMissBreakdown, countEnemyEmptyCols } from '../../core/203-battle-utils.js';
@@ -65,13 +66,13 @@ export const rule92 = {
             for (var i = 0; i < side.length; i++) {
                 var u = side[i];
                 if (!u || !u.alive) continue;
-                // 复发信号3：光环只应作用于飞行单位，地面/远程不得出现残血/空列项
+                // 复发信号3：残血光环仍只作用于飞行单位；空列自 2026-11-02 起全局，非飞行允许
                 if (u.role !== ROLE_TYPES.FLYER) {
                     var otherBd = getMissBreakdown(u, side, other);
                     for (var s = 0; s < (otherBd.sources || []).length; s++) {
                         var lb = otherBd.sources[s].label || '';
-                        if (lb.indexOf('残血光环') !== -1 || lb.indexOf('空列') !== -1) {
-                            return { fail: true, msg: '复发：非飞行单位' + (u.name || '?') + '的未命中率出现「' + lb + '」（飞行光环越界作用到非飞行单位）' };
+                        if (lb.indexOf('残血光环') !== -1) {
+                            return { fail: true, msg: '复发：非飞行单位' + (u.name || '?') + '的未命中率出现「' + lb + '」（残血光环越界作用到非飞行单位）' };
                         }
                     }
                     continue;

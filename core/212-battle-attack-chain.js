@@ -84,12 +84,19 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
         if (eventBus) {
             let afterMissExtraRequests = [];
+            // 未命中期间的声明类 fact（连击 / 连蛛 / 性奋重试）走这里暂存：
+            //   AFTER_MISS 在 MISS fact 入 log 之前广播，监听器直接 log.push 会让声明行排到「未命中！」之前。
+            //   core/10 收到 pendingMissFacts 后紧跟在 MISS fact 之后落账，顺序才对。
+            const pendingMissFacts = [];
             const allySide = unit.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
             const enemySide = unit.camp === CAMP_TYPES.ALLY ? ctx.B : ctx.A;
-            let afterMissData = { unit, target, log: ctx.log, extraRequests: afterMissExtraRequests, allySide, enemySide, A: ctx.A, B: ctx.B, state: ctx.state };
+            let afterMissData = { unit, target, log: ctx.log, extraRequests: afterMissExtraRequests, deferredFacts: pendingMissFacts, allySide, enemySide, A: ctx.A, B: ctx.B, state: ctx.state };
             eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
             if (afterMissExtraRequests.length > 0) {
                 missData.extraRequests = afterMissExtraRequests;
+            }
+            if (pendingMissFacts.length > 0) {
+                missData.pendingMissFacts = pendingMissFacts;
             }
         }
 

@@ -47,7 +47,6 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.DOUBLE_STRIKE]: { requiredFields: ['success', 'unitName'], renderFn: 'renderDoubleStrikeFact', translateFn: 'translateDoubleStrike' },
     [FACT_TYPES.RANGED_GROWTH]: { requiredFields: ['unitName'], renderFn: 'renderRangedGrowthFact', translateFn: 'translateStatChange' },
     [FACT_TYPES.FORTIFY_SHIELD]: { requiredFields: ['unitName'], renderFn: 'renderFortifyShieldFact', translateFn: 'translateStatChange' },
-    [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: { requiredFields: ['unitName'], renderFn: 'renderDoubleStrikeSummaryFact', translateFn: null },
 
     // 惑心
     [FACT_TYPES.MIND_CONTROL_SWAP]: { requiredFields: ['swaps'], renderFn: 'renderMindControlSwapFact', translateFn: 'translateMindControlSwap' },

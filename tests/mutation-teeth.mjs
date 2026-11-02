@@ -1,3 +1,24 @@
+// V2.9.25 | 2026-11-02 第 144 轮续3：修 V2.9.22/23 引入的 masked 假阳性 —— masked 只在「轨迹未变」时作证。
+//   V2.9.22/23 把 masked 一律当「有牙」，但 masked 明细可能是「战斗轨迹被带偏、顺带红一下」(第43轮教训)。
+//   实证 A28(改摄魂实际属性、轨迹大改)：masked 4 条全是张三丰「严阵以待/生生不息」新明细，与摄魂无关=顺带红，
+//   被误判「规则有牙(掩盖×4)」，把本该「对照器兜住(SOUL_DRAIN×882)」的结论拉偏。判据用 fpChanged(战斗指纹)
+//   而非 baselineChanged：A28 的 BASELINE 段相同但战斗已变。修后 A28 回「对照器兜住」、T16(只污染申报值、
+//   fp 未变)仍「规则有牙(掩盖×3)」。★ T10 仍是「仅基线能察觉」——根子是主代码 core/216 vs core/217 maxHp
+//   口径不同源(delta=2.5≠heal=3，known-transfers 第122轮已登记)，修了那个 rule143 转绿、T10 自然进 newRed。
+// V2.9.23 | 2026-11-02 第 144 轮续2：effective 纳入 masked + ATTR 分支补 masked 检查（同族第三处，T16）。
+//   病根：V2.9.15 让「转交中(⚠️)/基线红规则」的新明细记入 masked，但 ① effective 从未把 masked 算进去，
+//   `!effective` 抢先返回「未观测到影响」；② ATTR 分支从无 masked 检查（TEXT 分支 V2.9.20/22 才有）。
+//   实证 T16：core/216 fact 申报值 newMaxHp +0.5，rule164（⚠️转交中）报出 16 条「newMaxHp=25.5 应为
+//   正整数」，masked=16，却因只污染申报值、不动实际 maxHp（fpChanged/baselineChanged 皆 false）⇒ 判
+//   「未观测到影响」。修后 T16 = 规则有牙(掩盖×3)。连带 A28 从「对照器兜住」升为「规则有牙(掩盖×4)」
+//   （规则抓到优先于对照器，更准确）。★ 全程 47 颗牙装饰品/真盲区/未观测/样本未覆盖全部归零。
+// V2.9.22 | 2026-11-02 第 144 轮续：judge() TEXT 分支把「掩盖真牙(masked)」检查提到 baselineChanged 之前。
+//   病根：V2.9.20 只让 masked 在 baselineChanged 之后可达，但 baselineChanged 先返回「仅基线能察觉」，
+//   把「基线变了 + 基线已红规则报出大量新明细」的真牙截胡。实证 T10：九阳 pct 0.12→0.15，rule143 在
+//   _base 已 fail=3（基线红），m-T10 里 fail=94（masked=94，明细「回血22≠期望17」），规则明明抓到却被判
+//   「仅基线能察觉」⇒ 冤枉规则、误导诊断（会以为九阳无人管）。修后 T10 = 规则有牙(掩盖×11)(基线也变)：
+//   全程 TEXT 类 18 个变异全部「规则/对照器有牙」，装饰品/真盲区 0 处（仅 T16 未观测到影响=样本覆盖缺口）。
+//   ★ 只改判定顺序、判据一条未动；masked 语义不变（仍是「基线红规则的新增明细」），仅提升优先级。
 // V2.9.19 | 2026-11-01 夜间第 167 轮：契约行归属正则的列名随生产者由「命中」改为「重复应用」
 //   （tests/stat-decl-vs-actual-check.mjs V3.13.0），注释里的三处行样例与 harness 的 STAT grep 同步。
 //   ★ 只改列名与文案，判据一条未动：statByContract 仍如实取「重复应用」列（即原 dup 列）供牙口归属。
@@ -117,7 +138,7 @@
 //   T17/T18 锚点整行失效（--verify 报 0 处 ⇒ 静默失效=假绿制造机）。重锚：
 //   T17 翻转 SWAP fact 的 side（ENEMY→ALLY，文本变「己方」咬判据1）；T18 把 fact 内 fromPos/toPos 对调
 //   （文本报反位置咬判据5）。两者仍针对 rule113（166）惑心配对/落地，牙齿语义不变。
-export const VER = 'tests/mutation-teeth.mjs V2.9.19';
+export const VER = 'tests/mutation-teeth.mjs V2.9.25';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -729,8 +750,14 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
         ? (TEETH_GUARDIAN[mut.id] || null) : null;
     const guardianZero = !!guardianContract && zeroTrig.indexOf(guardianContract) !== -1;
     // 旧口径 `mut.kind === 'TEXT'` 的无条件生效在此收口：TEXT 也必须有「机制真的执行过」的实证。
+    // V2.9.23（第 144 轮续2）：effective 加入 masked —— V2.9.15 让「转交中(⚠️)/基线红规则」的新明细
+    //   记入 masked，但 effective 从未把 masked 算进去 ⇒ `!effective` 抢先返回「未观测到影响」，masked
+    //   被整个丢弃。实证 T16：core/216 fact 申报值 newMaxHp +0.5，rule164（⚠️转交中）报出 16 条
+    //   「newMaxHp=25.5 应为正整数目标上限」，masked=16，却因 fpChanged/baselineChanged 皆 false
+    //   （只污染申报值、不动实际 maxHp）⇒ effective=false ⇒ 判「未观测到影响」。规则明明抓到、
+    //   诊断却显示"没人管"。这是 V2.9.15 只修了一半（补了落盘与 masked 记录，漏了 effective 入口）。
     const effective = (mut.kind === 'TEXT' && !guardianZero) || newDetail.length > 0 || newRed.length > 0
-        || baselineChanged || fpChanged || statHit;
+        || baselineChanged || fpChanged || statHit || masked.length > 0;
     // V2.9.14：把守到它的契约名写进判定 —— 「对照器兜住」从此可审计（谁兜的、兜了几处）。
     const gbit = guardians.length ? `(${guardians.join('、')})` : '';
     if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
@@ -754,14 +781,33 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
             if (baselineChanged) return { verdict: '规则无牙·对照器兜底' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
             return { verdict: '对照器有牙' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
         }
+        // V2.9.22（第 144 轮续）：把「掩盖真牙」检查提到 baselineChanged **之前**。
+        //   V2.9.20 只是让 masked 在 baselineChanged 之后可达 —— 但 baselineChanged 先返回「仅基线能察觉」，
+        //   于是「基线变了 + 基线已红规则报出大量新明细」的真牙仍被截胡。实证 T10：九阳 pct 0.12→0.15，
+        //   rule143 在 _base 已 fail=3（基线红规则），m-T10 里 fail=94（masked=94，明细「回血22≠期望17」），
+        //   规则明明抓到却被判「仅基线能察觉」，冤枉规则、误导诊断方向（会让人以为九阳没人管）。同一家族误判。
+        //   修法：masked 非空 = 规则确已观测到变异效应，优先记有牙（并注明基线也变），只在真正的
+        //   「规则零观测」时才落到「仅基线能察觉」；真盲区（masked 空且基线未变）照旧判红。
+        // V2.9.24（第 144 轮续3）：masked 只在「轨迹未变(baselineChanged=false)」时作证。
+        //   病根：V2.9.22/23 把 masked 一律当「有牙」，但 masked 里的明细可能是「战斗轨迹被带偏、
+        //   顺带红一下」（第 43 轮教训）。实证 A28（改摄魂实际数值、轨迹大改）：其 masked 4 条全是
+        //   张三丰「严阵以待/生生不息」的新明细，与摄魂毫无关系 = 顺带红，不是 A28 的牙，却被误判
+        //   「规则有牙(掩盖×4)」，把本该「对照器兜住(SOUL_DRAIN×882)」的结论拉偏。
+        //   ⇒ 轨迹未变(bc=false)时 masked 必为直接抓（T16：只污染申报值不动实际 maxHp）；轨迹变了
+        //   (bc=true)时 masked 可能顺带红，仅提示不作证，落到「仅基线/对照器」等原有分支。
+        //   ★ 治本不在此：T10/T16 的 rule143/164 基线红，根子是主代码 core/216 vs core/217 的 maxHp
+        //     口径不同源（delta=2.5≠heal=3），修了那个 rule143/164 转绿，T10/T16 自然进 newRed 判有牙。
+        if (masked.length > 0 && !fpChanged) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };   // V2.9.25：用 fpChanged(战斗指纹)判"轨迹是否真变"，不用 baselineChanged——A28 实测 BASELINE 段相同但战斗已变(仅改 fact/属性不走 baseline)，故 !fpChanged 才是"轨迹未变"的可靠判据
         if (baselineChanged) return { verdict: '❌装饰品(仅基线能察觉)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
-        // V2.9.20 修「真盲区」误判：TEXT 变异让基线已红规则报出新明细（被掩盖的真牙），原逻辑直接判
-        //   「真盲区」会掩盖真牙——典型如 T12 白骨爪随 _base 浮点尾巴红被掩盖、T17/T18 惑心换位随 rule113
-        //   基线红被掩盖。仅对 TEXT（专测 fact 文本/数值，不改战斗轨迹）放行：masked 非空即变异确有观测
-        //   效应，按有牙记并标注掩盖数，与「未观测到影响」（变异行零执行，masked 必空）严格区分。
-        if (masked.length > 0) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
         return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     }
+    // V2.9.23：ATTR 分支补 masked 检查（TEXT 分支 V2.9.20/22 已有，ATTR 一直缺）——
+    //   T16 实证：规则(rule164，⚠️转交中)在 m-T16 上以 masked 形式抓到 16 条「newMaxHp=25.5 应为正整数」，
+    //   但 ATTR 分支此前直接把 masked 当没发生、落到对照器/基线/待确认盲区。masked 非空 = 规则确已观测，
+    //   优先记有牙（与 TEXT 同口径），只有规则零观测才考虑对照器/基线兜底。
+    // V2.9.24：ATTR 分支 masked 同样只在「轨迹未变」时作证（理由见 TEXT 分支同处注释）。
+    //   A28（轨迹大改）的 masked 是顺带红，不作证 ⇒ 落到下方 statClean 判「对照器兜住」。
+    if (masked.length > 0 && !fpChanged) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     if (statClean > 0) return { verdict: '规则无牙·对照器兜住' + gbit, effective, baselineChanged, fpChanged, newDetail, newRed, statMasked };
     if (baselineChanged) return { verdict: '规则无牙·仅基线兜底', effective, baselineChanged, fpChanged, newDetail, newRed };
     // 属性变了(fpChanged) 但规则+对照器+基线都没反应

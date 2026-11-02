@@ -110,11 +110,6 @@ export function renderRoundStartFact(fact) {
 export function renderRoundEndFact(fact) {
     return { type:'round-end', text:`<div class="separator">———— 第${fact.round}回合结束 ————</div>` };
 }
-export function renderDoubleStrikeSummaryFact(fact) {
-    return { type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${fact.unitName} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT };
-}
-
-// 张无忌台词
 export function renderZhangTauntFact(fact) {
     return { type:'info', text:`<span class="gold">🗣️ ${fact.unitName}：${fact.taunt}</span>` };
 }
@@ -143,7 +138,6 @@ registerFactRenderer(FACT_TYPES.XUAN_MING_LINK_ATTACK, renderXuanmingLinkAttackF
 registerFactRenderer(FACT_TYPES.XIN_HUN_DEATH, renderXinHunDeathFact);
 registerFactRenderer(FACT_TYPES.ROUND_START, renderRoundStartFact);
 registerFactRenderer(FACT_TYPES.ROUND_END, renderRoundEndFact);
-registerFactRenderer(FACT_TYPES.DOUBLE_STRIKE_SUMMARY, renderDoubleStrikeSummaryFact);
 registerFactRenderer(FACT_TYPES.ZHANG_TAUNT, renderZhangTauntFact);
 registerFactRenderer(FACT_TYPES.NO_CONTEND, renderNoContendFact);
 registerFactRenderer(FACT_TYPES.PHANTOM_REVEAL, renderPhantomRevealFact);

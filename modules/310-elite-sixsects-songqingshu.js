@@ -274,13 +274,24 @@ export const xingFenHandler = {
         //   走专用信号让性奋额外攻击照发并重新选敌——第一下打妹妹飞天 → 第二下改打别人
         eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, L.AFTER_ATTACK_IMMUNE.XINGFEN_EXTRA, (data) => xingFenExtraAttack(data, decl));
         eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.XINGFEN_RETRY, (data) => {
-            const { unit, allySide, enemySide, log } = data;
+            const { unit, target } = data;
             if (!unit || unit.name !== decl.name || !unit.isSongQingshu || !unit.alive) return;
-            if (canXingFenTrigger(unit)) {
-                consumeXingFen(unit);
-                log.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
-                processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
-            }
+            if (!canXingFenTrigger(unit)) return;
+            consumeXingFen(unit);
+            // 改走 extraRequests：AFTER_MISS 期间同步 processUnitAttack 会让整段「重试攻击组」排到 MISS 之前；
+            //   交给 core/10 在 MISS fact + 声明类 fact 落账之后统一执行，顺序才对。
+            const sink = Array.isArray(data.deferredFacts) ? data.deferredFacts : (data.log || []);
+            sink.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
+            // 目标：原目标还活着就再打同一个
+            const tgtUid = (target && target.alive && !target.state._pendingDeath) ? target.uid : null;
+            if (!data.extraRequests) data.extraRequests = [];
+            data.extraRequests.push({
+                unit,
+                targetUid: tgtUid,
+                reason: 'xingFenRetry',
+                actedMode: 'allow',
+                priority: 50
+            });
         });
     }
 };

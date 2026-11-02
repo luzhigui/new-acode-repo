@@ -127,8 +127,7 @@ export const ATTACK_TRANSLATORS = {
         ? { kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText', nonBlocking: true }
         : null,
     [FACT_TYPES.SPIDER_DOUBLE_STRIKE]: (data, index) => ({ kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' }),
-    [FACT_TYPES.XING_FEN_GRANT]: () => null,
-    [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: () => null
+    [FACT_TYPES.XING_FEN_GRANT]: () => null
 };
 
 function makeAttackAction(data, index) {

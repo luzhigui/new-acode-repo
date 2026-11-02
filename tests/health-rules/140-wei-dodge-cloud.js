@@ -3,7 +3,7 @@
 // 复发信号：战报出现"流云身法"且末年仍挂在我方，但面板函数返回的 sources 里没有「流云身法」
 //          → 闪避面板（含韦一笑详情面板）不显示流云加成，也不计入合计
 // 对应已报 Bug：韦一笑闪避面板没有考虑流云，有了流云也不显示不加
-export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.1.1';
+export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.1.2';
 
 import { getDodgeBreakdown } from '../../render/403-grid-render.js';
 import { getGameData } from '../../core/201-config-5v5-test.js';
@@ -31,8 +31,32 @@ export const rule87 = {
             allyBuffs.push(ab[c]);
             if (ab[c].key === 'cloudBody') hasCloudBuff = true;
         }
-        // 流云已过期（末年未挂）时终值为 0 是合法的，跳过，等活到末尾的场次再判
-        if (!hasCloudBuff) return 'skip';
+        // 流云已过期（末年未挂）时终值为 0 是合法的——但原写法直接 skip 会导致本规则**恒空转**
+        //   （cloudBody 只持续 4 回合，样本战斗普遍 6~14 回合，末年必过期 ⇒ 150 场全 skip，
+        //    规则空转自检 + 覆盖率两项同时报红）。改走「合成 buff 直测面板」：构造一条 cloudBody，
+        //    用末年存活单位问 getDodgeBreakdown，断言面板能读出「流云身法」——仍是对「面板数据源」
+        //    的实打实回归守卫（面板若不再读 cloudBody，合成后 sources 依然没有该行 → 照样报红），
+        //    且不再受 buff 生命周期影响，恒能取证。
+        if (!hasCloudBuff) {
+            if (!getGameData()) return 'skip';
+            var anyAlive = (afterA || []).filter(function (x) { return x && x.alive; });
+            if (anyAlive.length === 0) return 'skip';
+            var synthBuff = [{ key: 'cloudBody', target: 'ally', remaining: 1 }];
+            var shownS = 0;
+            for (var q = 0; q < anyAlive.length; q++) {
+                var dbS;
+                try { dbS = getDodgeBreakdown(anyAlive[q], synthBuff, anyAlive); }
+                catch (errS) { return { fail: true, msg: '面板函数异常(合成流云)：' + ((errS && errS.message) || '未知错误') }; }
+                var srcS = (dbS && dbS.sources) || [];
+                for (var sS = 0; sS < srcS.length; sS++) {
+                    if (srcS[sS] && srcS[sS].label === '流云身法' && srcS[sS].value > 0) { shownS++; break; }
+                }
+            }
+            if (shownS === 0) {
+                return { fail: true, msg: '复发：流云身法面板数据源失效——合成 cloudBody buff 后，' + anyAlive.length + ' 名存活队友的面板仍不显示流云加成（面板不再读 cloudBody）' };
+            }
+            return { fail: false };
+        }
 
         var alive = [];
         for (var j = 0; j < afterA.length; j++) {

@@ -289,17 +289,30 @@ export function createXiaoZhaoBrotherComponent() {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit.state._xiaoZhaoDoubleStriked) return;
                 if (unit.state._doubleStriked) return;  // 团队连击已触发，不再重复
+                // 团队版概率连击在场时由 core/03 registerDoubleStrike 统一处理，
+                //   永久版不另掷（否则团队版掷失败后永久版还会再掷 = 妹有两次机会）
+                if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) return;
+                // 永久双击必须真拥有该海克斯：本局没选过 = 没有这个永久能力。
+                //   原版漏了这条，妹无条件 80% 双击（纯增益，拉高明教胜率）
+                const owned = Array.isArray(unit.state._permanentBuffs)
+                    && unit.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE);
+                if (!owned) return;
                 const dsEnh = getBrotherHexEnhance('doubleStrike');
                 if (!dsEnh || dsEnh.chance == null) throw new Error('002-hex-enhance.json 缺 brother.doubleStrike.chance');
                 if (getBattleRng().nextInt(1, 100) <= Math.round(dsEnh.chance * 100)) {
                     Object.assign(unit.state, { _xiaoZhaoDoubleStriked: true });
-                    log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
+                    // AFTER_MISS 期间走 deferredFacts 暂存：AFTER_MISS 在 MISS fact 入 log 之前广播，
+                    //   直接 log.push 会让「连蛛」声明排到未命中之前（顺序错）。core/10 收到后紧跟 MISS 落账。
+                    //   AFTER_ATTACK 期间没有该字段，直接进 log（原行为）
+                    const sink = Array.isArray(data.deferredFacts) ? data.deferredFacts : log;
+                    sink.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit,
                         // 同 doubleStrike：原目标同击致死后 alive 仍 true，须连 _pendingDeath 一起判，
-                        //   否则把待死 uid 锁给第二次攻击 → 白跳
-                        targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
+                        //   否则把待死 uid 锁给第二次攻击 → 白跳；
+                        //   另加 camp 检查：目标若是队友（惑心误伤等）不锁，走正常选敌
+                        targetUid: (target && target.alive && !target.state._pendingDeath && target.camp !== unit.camp) ? target.uid : null,
                         reason: 'xiaoZhaoDoubleMiss',
                         actedMode: 'allow',
                         priority: 30

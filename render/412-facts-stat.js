@@ -129,7 +129,7 @@ export function renderXiaoZhaoHorseFact(fact) {
     return {type:'buff-summon', text:`<span class="gold">🐴 小昭·妹的拒马在${fact.pos}号位出现！</span>`, buffType: BUFF_SUBTYPES.SUMMON, horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: '嗷——！'};
 }
 export function renderSpiderDoubleStrikeFact(fact) {
-    return {type:'info', text:`<span class="gold">🕷️ 蝶击：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true};
+    return {type:'info', text:`<span class="gold">🕷️ 连蛛：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true};
 }
 
 // 战士斩杀

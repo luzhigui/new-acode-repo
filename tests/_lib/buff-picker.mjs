@@ -56,9 +56,14 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
         var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
         if (pick === BUFF_TYPES.HOLY_FLAME) {
             // 圣火令需要 cols/rows；核心引擎只给明教重算，敌方快照得自带，否则面板取不到值
+            // ★ 修正：真游戏里敌方 buff 由 modules/329 创建（单列+2 行已去重排序）、必要时再过
+            //   modules/317 变换器（排序去重），口径恒为「列/行均去重 + 升序」。此前本夹具的
+            //   兜底分支漏了排序（c1===c2 时出 [3,1]）和去重（rows 两值相等时出 [2,2]），
+            //   造成规则 149「圣火令行列选取」24/150 假红（夹具与真引擎口径脱钩，非主代码缺陷）。
             var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
-            nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
-            nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
+            nb.cols = (c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2]).sort(function (a, b) { return a - b; });
+            var r1 = ((seed * 2 + round + s.off) % 3) + 1, r2 = ((seed * 3 + round + s.off) % 3) + 1;
+            nb.rows = (r1 === r2 ? [r1, (r1 % 3) + 1] : [r1, r2]).sort(function (a, b) { return a - b; });
         }
         next.push(nb);
         // V6.7.2 永久继承（2026-10-24 第 122 轮，口径见文件头）：明教侧新 Buff 给存活妹塞永久副本。

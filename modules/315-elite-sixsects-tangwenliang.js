@@ -2,7 +2,7 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.1';
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.2';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -229,9 +229,15 @@ export function createTangWenLiangComponent() {
                 if (data.unit !== tw || !tw.alive || !tw.state._pendingDashHeal) return;
                 tw.state._pendingDashHeal = false;
                 tw.state._isDashStrikeFx = false; // 清理标记
-                addHuiChunStack(tw, data.log);
+                // AFTER_MISS 期间 MISS fact 尚未入 log（AFTER_MISS 在 MISS 落账前广播），
+                //   回春的叠层播报/HEAL 若直接写 data.log 会排到「未命中」之前。
+                //   与 core/203、modules/310、modules/323 同一修法：有 deferredFacts 就走暂存，
+                //   由 core/209 在 MISS fact 落账后统一补出；AFTER_ATTACK/AFTER_MISS_IMMUNE/ON_DODGE
+                //   无该字段，回落 data.log（原行为）。
+                const sink = Array.isArray(data.deferredFacts) ? data.deferredFacts : data.log;
+                addHuiChunStack(tw, sink);
                 if (!tw.state._hcTickedThisTurn) {
-                    tickHuiChun(tw, data.log);
+                    tickHuiChun(tw, sink);
                     tw.state._hcTickedThisTurn = true;
                 }
             };

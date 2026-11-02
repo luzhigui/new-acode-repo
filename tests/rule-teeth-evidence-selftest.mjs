@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// tests/rule-teeth-evidence-selftest.mjs | V1.0.5 | 2026-11-02（聚合型分支报告增强：对「需拆/严重」分支逐类列出结构模板与代表样本，使「拆哪几条」有凭有据；修正 V1.0.4 报告里残留的「166 仅 1 类换单位」错误旧注；新增 fmtAggBranch 共用打印，主路径与陈旧诊断段形态统一 · 前版 V1.0.4）
+// tests/rule-teeth-evidence-selftest.mjs | V1.0.4 | 2026-11-02（断言⑧ 证据陈旧时也打印「聚合型分支清单」诊断：此前一陈旧就 EXIT 1、看不到哪 12 条在聚合/最严重那条塞 19 种子病因，用户无从拍板拆；四张表抽成 computeTeethMaps 与主判定共用，杜绝两处复算漂移 · 前版 V1.0.3@第173轮）
 // tests/rule-teeth-evidence-selftest.mjs | V1.0.3 | 2026-11-01（断言⑦加单条聚合度峰值硬上限 SINGLE_AGG_CAP，堵“合并分支骗过总数”绕过；报告增严重度标注 · 前版 V1.0.2@第142轮）
 // 补断言⑧结果新鲜度闸门：直接调 mutation-teeth --report 人机关口，陈旧即 EXIT 1，七条断言全绿也拦下
 //
@@ -59,7 +61,7 @@ import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mj
 //   头版本日志抬到 V1.0.3（加了断言⑦单条聚合度峰值硬上限 SINGLE_AGG_CAP），却漏抬本 VER 常量，
 //   于是「版本常量漂移自检」与「版本号遗忘抬升绊线」双双报红。★ 这与本线第 172 轮自踩同款
 //   （抬了日志漏了常量），区别只是这次是上游会话犯的 —— 绊线照样当场咬住，不是只盯自己人。
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.3';
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.5';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
@@ -100,6 +102,70 @@ const ROTTEN_WHITELIST = [
 function normMsg(m) { return m.replace(/\d+/g, '#'); }
 function rottenKey(e) { return e.rule + '|' + normMsg(e.msg); }
 
+// V1.0.4：结构模板归一 —— 中文串与数字都抹成占位符，用来区分「多种子病因」到底是哪一种：
+//   · 抹完只剩 1 类 = 同一句话换了单位/数量（疑似实例差异，拆了也只多几条无关分支）；
+//   · 抹完仍多类 = 真的结构不同的病因（该拆）。
+//   典型 166：19 种按 structKey 归并后是 **7 类**（真多种病因，该拆；不是「换单位」造成的虚高）—— 详见报告段逐类输出。
+function structKey(m) { return m.replace(/[\u4e00-\u9fa5]+/g, '◆').replace(/\d+/g, '#'); }
+
+// V1.0.5：把一个聚合分支的「结构模板类」渲染成多行文本 —— main 报告段与「陈旧诊断」段共用，避免两处各写一套导致输出形态分叉。
+//   对「需拆/严重」(sset>=3) 分支：逐类列出结构模板 + 代表样本（此前只混排 3 条，看不出 166 的 7 类各自长什么样，拆哪条无据可依）；
+//   其余（观察/实例差异）：仍给 3 条混排样本。marker 默认 ⚠️，陈旧诊断段传 '·' 以区别主路径。
+function fmtAggBranch(k, s, indent, marker) {
+    marker = marker || '⚠️';
+    const ss = [...s];
+    const structMap = new Map(); // structKey 模板 -> 代表样本（取首次出现）
+    for (const m of ss) { const t = structKey(m); if (!structMap.has(t)) structMap.set(t, m); }
+    const sset = new Set(structMap.keys());
+    const sev = sset.size >= 10 ? '严重黑洞·优先拆' : (sset.size >= 3 ? '需拆' : (sset.size >= 2 ? '观察' : '实例差异·不必拆'));
+    const lines = [];
+    lines.push(indent + marker + ' ' + k + ' —— ' + s.size + ' 种子病因 [结构模板 ' + sset.size + ' 类] [' + sev + ']');
+    if (sset.size >= 3) {
+        let i = 0;
+        for (const [t, m] of structMap) {
+            i++;
+            lines.push(indent + '   类' + i + ' [' + t + '] ← 「' + m.slice(0, 50) + (m.length > 50 ? '…' : '') + '」');
+        }
+    } else if (ss.length) {
+        lines.push(indent + '   样本：' + ss.slice(0, 3).map(x => '「' + x.slice(0, 42) + (x.length > 42 ? '…' : '') + '」').join(' / '));
+    }
+    return lines.join('\n');
+}
+
+// 从证据 msg 算出四张表 —— main 与「陈旧诊断」共用（提取出来避免两处复刻漂移）。
+// ★ V1.0.4（2026-11-02）：抽出来是为了让断言⑧（结果新鲜度闸门）在**证据陈旧**时也能把
+//   「聚合型分支清单」打印出来。此前证据一陈旧，断言⑧ 直接 EXIT 1，连哪 12 条在聚合、
+//   最严重那条塞了 19 种子病因都看不到 ⇒ 用户无从拍板拆哪条，只能先花 30 分钟重跑取证。
+//   诊断与主判定共用同一份计算，杜绝「两处各算一套、结论分叉」。（提取自 main 原 L183-209，逻辑逐字照搬）
+function computeTeethMaps(evid, branches) {
+    const byRuleFp = new Map();   // 证出有牙的分支 (file|rule|fp) -> 证据条数
+    const rotten = new Map();     // 对不上号的证据 (规则|归一化msg) -> {rule,msg,n}
+    const aggLoad = new Map();    // 聚合型分支 (file|rule|fp) -> 承载的归一化子病因集合
+    let totalMsg = 0, parsedMsg = 0;
+    for (const e of evid) {
+        const cands = branches.filter(b => b.rule === e.rule);
+        for (const raw of e.msgs) {
+            totalMsg++;
+            const msg = stripLoc(raw);
+            const hit = findBranchByMsg(cands, msg);
+            if (hit) {
+                parsedMsg++;
+                const k = bittenKeyOf(hit);
+                byRuleFp.set(k, (byRuleFp.get(k) || 0) + 1);
+                // 聚合型检测：同一条分支指纹承载了多条**不同**的归一化子病因
+                if (!aggLoad.has(k)) aggLoad.set(k, new Set());
+                aggLoad.get(k).add(normMsg(msg));
+            } else {
+                const rk = rottenKey({ rule: e.rule, msg });
+                if (!rotten.has(rk)) rotten.set(rk, { rule: e.rule, msg, norm: normMsg(msg), n: 0 });
+                rotten.get(rk).n++;
+            }
+        }
+    }
+    const aggBranches = [...aggLoad.entries()].filter(([, s]) => s.size >= 2);
+    return { byRuleFp, rotten, aggLoad, aggBranches, totalMsg, parsedMsg };
+}
+
 // ⑧ 结果新鲜度闸门（第139轮 item ③ 延伸 / 第138轮夜检点名）：
 //    本自检七条断言对账的"证据地基" teeth-results.txt，若比当前判据/引擎源码陈旧，
 //    则七条全绿也是假的（证据是旧的）。mutation-teeth --report 自带 ENGFP/MUTFP 鲜度守卫，
@@ -123,6 +189,20 @@ function checkEvidenceFreshness() {
         }
         console.log('❌ 牙口证据结果已陈旧，须重跑变异树取证刷新 ' + EVIDENCE + '：');
         console.log(errTxt.split('\n').slice(0, 14).map(l => '    ' + l).join('\n'));
+        // V1.0.4 诊断增强：即使证据陈旧，也把「聚合型分支清单」打出来——否则断言⑧ 一拦就看不到哪几条该拆。
+        //   只在陈旧路径额外算一遍（证据仍可读，只是配不上当前代码），不污染主路径；算不出就静默跳过，不阻断闸门。
+        try {
+            const evid = parseEvidence(fs.readFileSync(EVIDENCE, 'utf8')).filter(e => e.mut && e.mut !== '_base' && e.fail > 0);
+            const { branches } = scanAllBranches();
+            const { aggBranches } = computeTeethMaps(evid, branches);
+            const sorted = [...aggBranches].sort((a, b) => b[1].size - a[1].size);
+            if (sorted.length) {
+                console.log('    [诊断·陈旧证据下仍可用] 聚合型分支（一条指纹承载多种病因，掉任一种都看不出）共 ' + sorted.length + ' 条：');
+                for (const [k, s] of sorted.slice(0, 20)) {
+                    console.log(fmtAggBranch(k, s, '      ', '·'));
+                }
+            }
+        } catch (_) { /* 证据不可读/结构异常时跳过诊断，不阻断主闸门 */ }
         console.log('    处置：node tests/mutation-teeth.mjs --emit-prep > tests/.mut/prep.sh && bash tests/.mut/prep.sh && node tests/mutation-teeth.mjs --emit-run > tests/.mut/run.sh && bash tests/.mut/run.sh');
         process.exit(1);
     }
@@ -179,34 +259,9 @@ function main() {
     // _base 报的红是"本来就有"的红（转交中规则），不证明"变异能被咬住"，故不计入有牙证据。
     const evid = all.filter(e => e.mut && e.mut !== '_base' && e.fail > 0);
 
-    // --- 逐条对账：证据 msg -> 当前静态分支指纹 ---
-    const byRuleFp = new Map();   // 证出有牙的分支 (file|rule|fp) -> 证据条数
-    const rotten = new Map();     // 对不上号的证据 (规则|归一化msg) -> {rule,msg,n}
-    const aggLoad = new Map();    // 聚合型分支 (file|rule|fp) -> 承载的归一化子病因数
-    let totalMsg = 0, parsedMsg = 0;
-    for (const e of evid) {
-        const cands = branches.filter(b => b.rule === e.rule);
-        for (const raw of e.msgs) {
-            totalMsg++;
-            const msg = stripLoc(raw);
-            const hit = findBranchByMsg(cands, msg);
-            if (hit) {
-                parsedMsg++;
-                const k = bittenKeyOf(hit);
-                byRuleFp.set(k, (byRuleFp.get(k) || 0) + 1);
-                // 聚合型检测：同一条分支指纹承载了多条**不同**的归一化子病因
-                const gk = k;
-                if (!aggLoad.has(gk)) aggLoad.set(gk, new Set());
-                aggLoad.get(gk).add(normMsg(msg));
-            } else {
-                const rk = rottenKey({ rule: e.rule, msg });
-                if (!rotten.has(rk)) rotten.set(rk, { rule: e.rule, msg, norm: normMsg(msg), n: 0 });
-                rotten.get(rk).n++;
-            }
-        }
-    }
+    // --- 逐条对账：证据 msg -> 当前静态分支指纹（四张表由 computeTeethMaps 统一算，与陈旧诊断共用） ---
+    const { byRuleFp, rotten, aggLoad, aggBranches, totalMsg, parsedMsg } = computeTeethMaps(evid, branches);
     const parseRate = totalMsg ? parsedMsg / totalMsg : 0;
-    const aggBranches = [...aggLoad.entries()].filter(([, s]) => s.size >= 2);
 
     console.log('=== 牙口证据链对账（' + mutBlocks.size + ' 变异体 / ' + evid.length + ' 条有牙证据 / ' +
         totalMsg + ' 条证据 msg ⇒ 证出有牙分支 ' + byRuleFp.size + ' 条，对不上号 ' + rotten.size + ' 条）===');
@@ -294,8 +349,8 @@ function main() {
         (worstAgg ? '，最严重 ' + worstAgg[1].size + ' 种：' + worstAgg[0] : '') + '：');
     const sortedAgg = [...aggBranches].sort((a, b) => b[1].size - a[1].size);
     for (const [k, s] of sortedAgg) {
-        const sev = s.size >= 10 ? '严重黑洞·优先拆' : (s.size >= 4 ? '需拆' : '观察');
-        console.log('      ⚠️ ' + k + '  承载 ' + s.size + ' 种子病因 [' + sev + ']');
+        // V1.0.5：需拆/严重分支逐类列结构模板与代表样本（此前只混排 3 条，看不出 166 的 7 类各自长什么样，拆哪条无据可依）。
+        console.log(fmtAggBranch(k, s, '      '));
     }
     console.log('  · 证据规模：变异体 ' + mutBlocks.size + ' / 有牙证据条目 ' + evid.length + ' / 证据 msg ' + totalMsg +
         '；可解析 ' + parsedMsg + ' 条（' + (parseRate * 100).toFixed(1) + '%）');
