@@ -1,4 +1,4 @@
-export const VER = 'infra/102-core-utils.js V6.1.2';
+export const VER = 'infra/102-core-utils.js V6.1.3';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';
 
@@ -203,12 +203,13 @@ export function getBloodAuraBonus(allUnits) {
 }
 
 export function getAuraBonuses(unit, allySide, enemySide) {
-    if (unit.role !== ROLE_TYPES.FLYER || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
+    if (unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
     const isAlly = unit.camp === CAMP_TYPES.ALLY;
     const mySide = isAlly ? allySide : enemySide;
     const oppSide = isAlly ? enemySide : allySide;
-    const emptyCols = countEnemyEmptyCols(oppSide);
-    const allUnits = mySide.concat(oppSide);
-    const bloodBonus = getBloodAuraBonus(allUnits);
-    return { emptyCol: emptyCols * 5, bloodAura: bloodBonus };
+    // 空列光环：2026-11-02 起全局所有职业生效（原飞行专属）；每空一列 +2 攻（原 +5）
+    const emptyCol = countEnemyEmptyCols(oppSide) * 2;
+    // 残血光环：仍为飞行专属；全场每个 <40% 存活单位 +3 攻
+    const bloodAura = unit.role === ROLE_TYPES.FLYER ? getBloodAuraBonus(mySide.concat(oppSide)) : 0;
+    return { emptyCol, bloodAura };
 }

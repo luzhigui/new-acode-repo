@@ -53,7 +53,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.3.17 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.3.18 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -91,6 +91,7 @@
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
                 <button class="big-btn btn-tool" id="btnCareerLog">📊 生涯记录</button>
+                <button class="big-btn btn-tool" id="btnDashDemo" title="唐文亮冲刺特效逐帧演示（fx/616 全量主代码参与）">⚡冲刺demo</button>
             </div>
         </div>
 
@@ -127,7 +128,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.17 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.18 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -174,6 +175,10 @@
         });
         document.getElementById('btnTools').addEventListener('click', () => {
             window.location.href = 'tools/802-toolkit.html';
+        });
+        // 唐文亮冲刺逐帧 demo（2026-11-02）：独立演示页，全量 import 主代码（fx/616 等）
+        document.getElementById('btnDashDemo').addEventListener('click', () => {
+            window.location.href = 'tangwenliang-dash-demo.html';
         });
         // 生涯记录：读本地累积的单局摘要，导出 Markdown（可直接喂 AI 分析）
         document.getElementById('btnCareerLog').addEventListener('click', () => {

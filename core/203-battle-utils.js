@@ -1,4 +1,4 @@
-export const VER = 'core/203-battle-utils.js V6.3.5';
+export const VER = 'core/203-battle-utils.js V6.3.6';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
@@ -111,16 +111,17 @@ export function getMissBreakdown(unit, allySide, enemySide) {
             total += v;
             sources.push({ label: '残血光环×' + lowHpCount, value: v });
         }
-        const emptyCols = countEnemyEmptyCols(enemySide || []);
-        if (emptyCols > 0) {
-            const v = -emptyCols * (C.FLY_MISS_EMPTYCOL_REDUCE * PCT);
-            total += v;
-            sources.push({ label: '空列×' + emptyCols, value: v });
-        }
     } else {
         const base = C.GROUND_MISS_CHANCE * PCT;
         total = base;
         sources.push({ label: '地面基础', value: base });
+    }
+    // 空列光环：2026-11-02 起全局所有职业生效（原仅飞行）；每空一列 −FLY_MISS_EMPTYCOL_REDUCE 个百分点（0.06）
+    const emptyCols = countEnemyEmptyCols(enemySide || []);
+    if (emptyCols > 0) {
+        const v = -emptyCols * (C.FLY_MISS_EMPTYCOL_REDUCE * PCT);
+        total += v;
+        sources.push({ label: '空列×' + emptyCols, value: v });
     }
     // 杨逍·鹰眼被动：未命中 −missReduce 个百分点（值在 content eagleEye.params，单源），
     //   对残血光环等附加项同样生效；末尾 Math.max(0,…) 封底，不会减成负数

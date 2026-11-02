@@ -1,4 +1,4 @@
-export const VER = 'core/201-config-5v5-test.js V6.8.5';
+export const VER = 'core/201-config-5v5-test.js V6.8.6';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 
@@ -243,7 +243,9 @@ const CONFIG = {
     FLY_MISS_CHANCE: 0.06,
     GROUND_MISS_CHANCE: 0.01,
     FLY_MISS_LOWHP_BONUS: 0.06,
-    FLY_MISS_EMPTYCOL_REDUCE: 0.12,
+    // 空列未命中减免：2026-11-02 起全局所有职业生效（原飞行专属），0.12 → 0.06。
+    //   键名保留 FLY_ 前缀：改名会断 core/03 引用与体检 145 断言，语义看本注释
+    FLY_MISS_EMPTYCOL_REDUCE: 0.06,
     FANG_LEVELS: [0.150, 0.200, 0.240, 0.270, 0.290, 0.310, 0.330, 0.350, 0.370, 0.390, 0.410, 0.430, 0.460, 0.490, 0.530, 0.570, 0.620, 0.670, 0.730, 0.800],
     FANG_K: [0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.11, 0.12, 0.14, 0.16, 0.19, 0.22, 0.26, 0.30, 0.35, 0.46, 0.66, 0.88, 1.16, 2.66],
     // 防战血量伤害系数（z 值）分档表：按初始血量占比锁档，占比越高档位越高（core/02 getHpDmgRatio）
