@@ -1,5 +1,6 @@
 // modules/320-elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
-export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.2.1';
+// V1.2.2 | 2026-11-02 | 撤销 ZWDEBUG 诊断行——浏览器无 process 全局，ReferenceError 会让张无忌近战切换当场炸（node 侧体检/replay 测不出：node 里 process 恒存在）
+export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.2.2';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/203-battle-utils.js';
 import { getRoleBonus } from '../core/202-unit.js';
@@ -16,7 +17,6 @@ function checkZhangSwitch(zhang, A, log) {
     // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && !c.isLionCub && c.uid !== zhang.uid
         && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
-    if (process.env.ZWDEBUG) console.error('ZWDBG', zhang.uid, 'pos=' + zhang.pos, 'hasFrontAlly=' + hasFrontAlly, 'A=[' + (A||[]).map(c => c.uid + '@' + c.pos + (c.alive?'+':'-') + (c.isHorse?'H':'') + (c.isLionCub?'L':'')).join(',') + ']');
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
         // 加成倍率走内容表（相对战士职业加成），缺失即抛错
