@@ -1,9 +1,10 @@
-﻿export const VER = 'core/216-skill-mechanisms.js V6.8.3';
+﻿// V6.8.4 | 2026-11-02 | ~17937 bytes —— 吸血上限提升 newMaxHp 改 getStat 口径（与 217 L123 同源，消 0.5 永久丢失）
+export const VER = 'core/216-skill-mechanisms.js V6.8.4';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
 import { registerDodgeRule } from './221-registry-dodge.js';
-import { recordHpAudit, getBattleRng, previewHeal } from './214-battle-shared.js';
+import { recordHpAudit, getBattleRng, previewHeal, getStat } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/106-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './219-mechanic-registry.js';
@@ -237,7 +238,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 // 吸血量与飘字都取实际落地值（截脉/寒毒打折后；上限提升按实际回血等量加）
                 const rawHeal = Math.max(1, Math.floor(dmg * ratio));
                 const heal = previewHeal(unit, rawHeal);
-                const newMaxHp = unit.maxHp + heal;
+                const newMaxHp = getStat(unit, 'maxHp') + heal;   // 与 core/217 L123 的 getStat 同源：unit.maxHp 已被 refreshMaxHp floor 成整数、getStat 保留 1 位小数，两者差 0.5 ⇒ heal=+3 但 delta=2.5，少抬的 0.5 永久丢失
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawHeal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT) {

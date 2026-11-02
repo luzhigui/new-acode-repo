@@ -1,4 +1,5 @@
-export const VER = 'core/217-effect-handlers.js V6.2.1';
+// V6.2.2 | 2026-11-02 | ~19584 bytes —— LEECH maxHp 分支补 delta<0 显式告警（原静默置 0 = 悄悄没抬上限）
+export const VER = 'core/217-effect-handlers.js V6.2.2';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './214-battle-shared.js';
@@ -125,6 +126,10 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
             if (delta > 0) {
                 addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
                 refreshMaxHp(decl.source, null, '吸血上限提升');
+            } else if (delta < 0) {
+                // 声明目标上限 < 当前上限（cur 被别处抬高了），旧实现静默置 0 = 悄悄没抬上限；
+                //   显式告警，避免「战报写抬了、实际上限没动」的静默失真（known-transfers 第 122 轮登记）
+                console.warn('[LEECH] maxHpDelta<0 被静默吞：decl.maxHp=' + decl.maxHp + ' cur=' + cur + ' unit=' + (decl.source && decl.source.name));
             }
             // 体检对照增量字段：把实际登记的词条增量回写 factData
             //   （core/10 随后按引用落 WEI_LEECH fact；fact 原有 newMaxHp 是目标绝对值，体检无法反推增量）
