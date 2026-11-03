@@ -1,4 +1,4 @@
-export const VER = 'modules/329-buff-tools.js V6.2.6';
+export const VER = 'modules/329-buff-tools.js V6.2.7';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -111,4 +111,18 @@ export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlot
 
 export function getActiveBuffList(activeBuffs) {
     return activeBuffs.map(b => b.name + '(' + (b.permanent ? '整局' : b.remaining + '回') + ')').join('、') || '无';
+}
+
+// 妹永久账本写入：开局选 buff（ui/702）与每 3 回合选 buff（player/512）共用。
+//   写到 GlobalStore 独立账本，不写 store 里妹的 state（会被 syncStoreFromStep 整份覆盖），
+//   也不依赖 activeBuffs（remaining 归零即删）。账本只增不减，回合末由 player/503 覆盖进引擎。
+//   幂等：同 key 不重复写。target 强制 ALLY——防双海克斯模式下六大派 buff 混进妹账本。
+export function recordXiaoZhaoPermanentBuff(buff) {
+    if (!buff || !buff.key) return;
+    const white = CONFIG.XIAO_ZHAO_PERMANENT_BUFFS || [];
+    if (!white.includes(buff.key)) return;
+    const ledger = GlobalStore.get('xiaoZhaoPermanentBuffs') || [];
+    if (ledger.some(b => b.key === buff.key)) return;
+    ledger.push({ key: buff.key, name: buff.name, target: CAMP_TYPES.ALLY, remaining: Infinity });
+    GlobalStore.set('xiaoZhaoPermanentBuffs', ledger);
 }

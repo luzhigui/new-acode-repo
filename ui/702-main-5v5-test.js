@@ -45,6 +45,8 @@ import { handlePvpBuffSelection, handleEnemyAutoBuffSelection } from '../player/
 import { VER as VER_TEXT } from '../player/501-player-text.js';
 import { VER as VER_BUFF_UI } from '../player/502-player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/302-elite-skills.js';
+// 妹永久账本写入：开局选 buff 在这里，每 3 回合选 buff 在 player/512，两条路径共用同一函数
+import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
 // 精英组件注册已并入 ../modules/301-reg-mechanics.js（registerElite 副作用统一装配）
 import { VER as VER_MAIN_UTILS } from './701-main-utils.js';
 // 去 window 桥：直接 import，不再经 window.AudioManager
@@ -276,6 +278,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                         buffs.splice(buffs.indexOf(shortest), 1);
                     }
                     buffs.push(newBuff);
+                    // 妹永久账本：开局选的 buff 也要记。原来只有每 3 回合那条路径（512）记，
+                    //   开局这条完全不写——妹账本永远空、永久机制从开局就死。
+                    recordXiaoZhaoPermanentBuff(newBuff);
                     updateBuffSlots(getState.activeBuffs());
                     logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`;
                     autoScrollLog();
@@ -296,6 +301,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         buffs.splice(buffs.indexOf(shortest), 1);
                     }
                     buffs.push(newBuff);
+                    // 妹永久账本：同上，开局手选这条路径也必须写
+                    recordXiaoZhaoPermanentBuff(newBuff);
                     updateBuffSlots(getState.activeBuffs());
                     let logDiv = document.getElementById('log');
                     if (logDiv) {

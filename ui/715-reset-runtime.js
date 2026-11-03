@@ -40,7 +40,7 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     GlobalStore.set('adjustMode', false);
     GlobalStore.set('selectedAdjustPos', null);
     GlobalStore.set('activeBuffs', []);
-    // 妹永久账本（503 recordXiaoZhaoPermanentBuff 写、playBattle 读）必须每局清空，
+    // 妹永久账本（329 recordXiaoZhaoPermanentBuff 写、503 playBattle 读）必须每局清空，
     //   否则新局一开场妹就带着上局的永久海克斯
     GlobalStore.set('xiaoZhaoPermanentBuffs', []);
     GlobalStore.set('selectedBuffIndex', -1);

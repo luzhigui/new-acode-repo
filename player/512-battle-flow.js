@@ -1,14 +1,13 @@
 // player/512-battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
 // permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
-export const VER = 'player/512-battle-flow.js V6.4.6';
+export const VER = 'player/512-battle-flow.js V6.4.7';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
-import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs } from '../modules/329-buff-tools.js';
-import { recordXiaoZhaoPermanentBuff } from './503-player-core.js';
+import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs, recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
 import { appendLogHTML } from './510-renderer.js';
 import * as net from '../infra/109-net-pvp.js';
 import { eventBus } from '../infra/101-event-bus.js';

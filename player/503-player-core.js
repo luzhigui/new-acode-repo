@@ -2,6 +2,7 @@
 export const VER = 'player/503-player-core.js V7.0.3';
 
 import { SeededRNG } from '../infra/102-core-utils.js';
+import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
 import { setBattleRng, setPresentationRng } from '../core/214-battle-shared.js';
 import { createRoundStepper } from '../core/210-battle-round.js';
 import { GlobalStore, getState, setState, getPlayerContext } from '../infra/104-global-store.js';
@@ -169,10 +170,19 @@ export async function playBattle() {
 
         await handleFlyDirection(c, lastStep, battleState.round);
 
-        const uiXiaoZhao = c.store ? c.store.getState().units.find(u => u.isXiaoZhaoBrother) : null;
-        if (uiXiaoZhao && uiXiaoZhao.state._permanentBuffs && lastStep && lastStep.ally) {
+        // 妹永久 buff 写入引擎：只读 GlobalStore 账本（702 开局选 buff / 512 每 3 回合选 buff 时写入），
+        //   不读 store（会被 syncStoreFromStep 整份覆盖）、不读 activeBuffs（remaining 归零即删，
+        //   且双海克斯模式下会混进六大派 buff——之前 carry/cloudBody(target=enemy) 出现在妹账本里就是这个原因）。
+        //   recordXiaoZhaoPermanentBuff 写入时强制 target=ALLY，读口再滤一次双保险。
+        if (lastStep && lastStep.ally) {
             const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);
-            if (engineXiaoZhao) Object.assign(engineXiaoZhao.state, { _permanentBuffs: uiXiaoZhao.state._permanentBuffs.map(b => ({ ...b })) });
+            if (engineXiaoZhao) {
+                const ledger = GlobalStore.get('xiaoZhaoPermanentBuffs') || [];
+                const allyOnly = ledger.filter(b => b && (b.target === CAMP_TYPES.ALLY || !b.target));
+                if (allyOnly.length > 0) {
+                    engineXiaoZhao.state._permanentBuffs = allyOnly.map(b => ({ ...b }));
+                }
+            }
         }
         // 回合定稿：此刻 lastStep 是整回合的最终态，nextActiveBuffs 是下回合将要生效的 buff
         roundHistory.push({
