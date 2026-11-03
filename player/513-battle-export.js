@@ -350,15 +350,15 @@ function showManualCopyDialog(text, name) {
 // ---- 战报弹窗按钮挂载（ui/64 调用）----
 
 /**
- * 在战报弹窗按钮区加「保存战报」按钮。
+ * 在战报弹窗按钮区加「保存录像」按钮。
  * reportProvider：点按时现取战报对象。按钮话术分结果，失败去控制台看 [战报] 前缀日志。
  */
 export function attachSaveBattleReportButton(btnDiv, reportProvider) {
     if (!btnDiv) return;
     const btn = document.createElement('button');
-    btn.textContent = '🎬 保存战报';
+    btn.textContent = '🎬 保存录像';
     btn.style.cssText = 'background:#6a1b9a;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
-    const reset = (msg, ms) => { btn.disabled = false; btn.textContent = msg; if (ms) setTimeout(() => { btn.textContent = '🎬 保存战报'; }, ms); };
+    const reset = (msg, ms) => { btn.disabled = false; btn.textContent = msg; if (ms) setTimeout(() => { btn.textContent = '🎬 保存录像'; }, ms); };
     btn.onclick = async () => {
         try {
             const report = typeof reportProvider === 'function' ? reportProvider() : reportProvider;
