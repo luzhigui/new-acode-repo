@@ -12,7 +12,13 @@ function finishCrash(clone, unitA) {
     if (clone && clone.parentNode) clone.remove();
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _renderActed: true });
+        // 按账本 _acted 决定镜像，不再写死 true。
+        //   反击/随动/联动等 actedMode:'restore' 路径：账本恢复成 false，但动画收尾原先无条件写
+        //   _renderActed:true → 判灰双路取或（账本 || 镜像）把格子画灰（殷天正鹰爪功反击、灭绝反击实测）。
+        //   现查 store（不读旧快照——dispatch 后 unitA 对象已过期）：账本 true 才写 true，否则写 null 清镜像。
+        const cur = ctx.store.getState().units.find(u => u.uid === unitA.uid);
+        const actedNow = !!(cur && cur.state && cur.state._acted);
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _renderActed: actedNow ? true : null });
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
     }
     if (ctx) ctx.updateUI();

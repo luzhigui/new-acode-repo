@@ -217,6 +217,14 @@ export function initBattleTeams(currentStage, _rng) {
         if (HERO_FLAGS[name]) continue;
         if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPowerOf(m) });
     }
+    // 同分公平竞争：8 个 M100 并列时，稳定排序会保持数组原序、slice(0,3) 永远取前 3 个
+    //   → 说不得/冷谦/彭莹玉几乎不出场（老板实锤「从来没见过」）。
+    //   先用战斗 RNG 洗一次牌，同分档在洗牌后的顺序里随机排，每个 M100 都有机会进 above 前 3。
+    //   用 _rng 而不是 Math.random：PVP 双端同源、同种子可复现。
+    for (let i = candidatePool.length - 1; i > 0; i--) {
+        const j = _rng.nextInt(0, i);
+        [candidatePool[i], candidatePool[j]] = [candidatePool[j], candidatePool[i]];
+    }
     candidatePool.sort((a, b) => a.power - b.power);
 
     const remainingCandidates = [...candidatePool];

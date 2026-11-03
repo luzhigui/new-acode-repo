@@ -1,4 +1,4 @@
-// tests/health-rules/_mech-handler-bundle.mjs
+// tests/health-rules/_mech-handler-bundle.mjs | V1.0.0 | 2026-11-03（机制 handler 注册总入口 301 的副作用绑定；rule157 经它装载全部 handler，根除漏导假阳一族）
 // 单一真相源：本文件 import 生产机制装配总入口 modules/301-reg-mechanics.js，
 // 即 ui/702-main-5v5-test.js 加载全部机制 handler 的总入口（307/308/317/331/324，
 // 其中 308 再拉 310）。全部 registerMechanicHandler 调用点（307/308/317/331）都在这条链上。

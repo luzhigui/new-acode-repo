@@ -4,7 +4,7 @@ export const VER = 'core/210-battle-round.js V6.3.31';
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './203-battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, installBuffMechanics, onUnitDeathFlyerRegen } from './204-buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, installBuffMechanics, onUnitDeathFlyerRegen } from './204-buff-system.js';
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
 import { Unit } from './202-unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './221-registry-dodge.js';
@@ -130,6 +130,10 @@ function prepareRoundSpawns(A, B, state, ctx) {
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
     spawnUnityRecruits(A, ctx.log);
     spawnUnityRecruits(B, ctx.log);
+    // 妹永久众志：团队众志不在场时也在本阶段补召（与团队版同时机，早于工厂循环，
+    //   召出来的单位当回合就能被注册面挂上精英技能；原挂在 ON_ROUND_START 会当回合白板）。
+    spawnBrotherPermanentUnityRecruit(A, ctx.log);
+    spawnBrotherPermanentUnityRecruit(B, ctx.log);
 }
 
 // 阶段4：清裁判登记 → 注册本回合战斗机制 → 工厂循环实例化回合组件 → 装声明技能/数据表。

@@ -15,6 +15,7 @@ import { runTargetStrategies } from './207-target-strategies.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { computeDodgeChance, snapshotUnitForFact } from './213-battle-attack-edge.js';
+import { hasBrotherPermanent } from './204-buff-system.js';
 
 const C = CONFIG;
 
@@ -391,9 +392,11 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let reboundEntry = null;
     let fortifyDeclarations = null;
     let allyBuffs_fortify = (target.camp === CAMP_TYPES.ALLY ? ctx.A._activeBuffs : ctx.B._activeBuffs) || [];
-    // 妹永久补 fortify 反弹：团队严阵以待过期后，妹（防战形态）被击仍反弹
-    //   （xiaoPermanentActive 在团队 buff 在场时返回 false，两分支不重复）
-    const fortifyActive = hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) || query('xiaoPermanentActive', target, allyBuffs_fortify, BUFF_TYPES.FORTIFY);
+    // 妹永久补 fortify 反弹：团队严阵以待过期后，队里任一防战被击都反弹（不只妹自己）。
+    //   原判据 query('xiaoPermanentActive', target, ...) 要求 target 自己是妹，与 applyFortifyBonus 的
+    //   hasBrotherPermanent(team, ...) 不一致——「全队加防、只有妹反弹」。现统一用 hasBrotherPermanent。
+    const targetTeamForFortify = target.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
+    const fortifyActive = hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) || hasBrotherPermanent(targetTeamForFortify, BUFF_TYPES.FORTIFY);
     if (fortifyActive && target.role === ROLE_TYPES.DEFENDER && dmg > 0) {
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
         if (reboundDmg > 0) {

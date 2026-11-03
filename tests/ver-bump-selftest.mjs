@@ -14,7 +14,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/ver-bump-selftest.mjs V1.1.0';
+export const VER = 'tests/ver-bump-selftest.mjs V1.2.0';
 const here = dirname(fileURLToPath(import.meta.url));
 const testDir = here;
 
@@ -119,6 +119,23 @@ check('⑨', HOLD_WHITELIST.length > 0,
 check('⑩', LOG_PATTERNS.length >= 4 && HEAD_LOG_WINDOW > 0,
     `从 ver-drift-selftest.mjs 解析 LOG_PATTERNS 得到 ${LOG_PATTERNS.length} 条 / HEAD_LOG_WINDOW=${HEAD_LOG_WINDOW}（应 ≥4 条且窗口 >0）`);
 
+// 递归收集 tests/ 下所有 .mjs/.js（含子目录 health-rules/、_lib/ 等），
+// 但排除 .mut/（变异冻结副本，扫它会把冻结旧版的 VER 头当漂移炮制一堆假红）。
+//   此前只扫 tests/ 顶层 ⇒ health-rules/ 下 48 个健康规则 + _lib/ 10 个辅助文件
+//   完全不在版本绊线守护范围内（守护守护者自己漏守）—— 第 177+ 轮迭代发现，V1.2.0 修正。
+function walk(dir, rel, out) {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+        const name = ent.name;
+        if (ent.isDirectory()) {
+            if (name === '.mut') continue; // 变异冻结副本，跳过
+            walk(join(dir, name), rel ? rel + '/' + name : name, out);
+        } else if (ent.isFile() && (name.endsWith('.mjs') || name.endsWith('.js'))) {
+            out.push(rel ? rel + '/' + name : name);
+        }
+    }
+    return out;
+}
+
 function main() {
     if (SELF.length) {
         console.log('=== 版本号遗忘抬升绊线 ' + VER + ' ===');
@@ -126,9 +143,7 @@ function main() {
         for (const x of SELF) console.log('  ⚠ ' + x);
         return 1;
     }
-    const files = readdirSync(testDir)
-        .filter(f => f.endsWith('.mjs') || f.endsWith('.js'))
-        .sort();
+    const files = walk(testDir, '', []).sort();
     const fail = [], warn = [], holdOk = [];
     for (const f of files) {
         const src = readFileSync(join(testDir, f), 'utf8');

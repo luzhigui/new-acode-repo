@@ -47,12 +47,14 @@ function rectOf(camp, pos) {
 // 引擎 doDash 先 applyStatChange 扣血，fx 拿到 dash 时 store 已是 hpAfter。
 //   不处理的话克隆体开场就显示扣完的血 = 剧透。做法：入口按 hits 反推 hpBefore，
 //   克隆体用 hpBefore 初始化；碰撞帧 revealGhostHp 后放开给 guardTick 跟随 store。
-const _hpSnapshot = new Map();   // uid -> hpBefore
-const _hpRevealed = new Set();   // 已解密 uid（guardTick 可以跟随 store）
+const _hpSnapshot = new Map();   // uid -> hpBefore（演出前血量）
+const _hpAfter = new Map();      // uid -> hpAfter（碰撞帧才揭晓的扣血后血量）
+const _hpRevealed = new Set();   // 已解密 uid（碰撞帧后可以显示扣血后）
 const _hpShown = new Map();      // uid -> 当前克隆体显示的血量
 
 function snapshotHpBefore(dash) {
     _hpSnapshot.clear();
+    _hpAfter.clear();
     _hpRevealed.clear();
     _hpShown.clear();
     const store = GlobalStore.get('battleStore');
@@ -62,9 +64,13 @@ function snapshotHpBefore(dash) {
         if (!h || h.uid == null || !(h.dmg > 0)) continue;
         const u = units.find(x => x.uid === h.uid);
         if (!u) continue;
-        const before = u.hp + h.dmg;   // store 已是扣完的，加回 dmg 就是演出前
+        // DASH 是 beforeText 动作：执行时 syncStoreFromStep 还没跑，store 里的 hp 本来就是扣血前，
+        //   直接用它当演出前血量。原来写 u.hp + h.dmg 是把这一刀算了两次——克隆体血条凭空涨一截。
+        const before = u.hp;
         _hpSnapshot.set(h.uid, before);
         _hpShown.set(h.uid, before);
+        // 扣血后血量预存一份：碰撞帧 revealGhostHp 时用它重绘，否则 store 此刻仍是扣血前，血条不降。
+        _hpAfter.set(h.uid, Math.max(0, before - h.dmg));
     }
 }
 
@@ -72,7 +78,21 @@ function revealGhostHp(uids) {
     for (const uid of (uids || [])) {
         if (!_hpSnapshot.has(uid)) continue;
         _hpRevealed.add(uid);
-        _hpShown.delete(uid);   // 下一帧 guardTick 强制重绘为 store 当前值
+        _hpShown.delete(uid);
+    }
+    // 碰撞帧直接重绘成「扣血后」：store 此刻仍是扣血前（步末才 sync），
+    //   靠 guardTick 跟随 store 会让血条一直不降；这里用 _hpAfter 预存的扣血后血量手动重绘。
+    const store = GlobalStore.get('battleStore');
+    if (!store) return;
+    const units = store.getState().units;
+    for (const gh of activeGhosts) {
+        if (!gh.g || !gh.g.el) continue;
+        if (!_hpRevealed.has(gh.uid)) continue;
+        const after = _hpAfter.get(gh.uid);
+        const u = units.find(x => x.uid === gh.uid);
+        if (!u || after == null) continue;
+        _hpShown.set(gh.uid, after);
+        gh.g.el.innerHTML = cardHtmlFromUnit(u, after);
     }
 }
 

@@ -231,16 +231,8 @@ export function createXiaoZhaoBrotherComponent() {
                     Object.assign(bro.state, { _xiaoHolyFlame: { cols: cols.sort((x, y) => x - y), rows: rows.sort((x, y) => x - y) } });
                 }
                 if (bro.state._spiderEgg) return;
-                // 妹永久众志：团队众志不在场时，每回合开始 70% 概率召唤 1 个 M15 明教英雄（技能全开）
-                if (!hasBuff(A._activeBuffs, BUFF_TYPES.UNITY) && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.UNITY)) {
-                    // 妹永久众志概率：读 content/002-hex-enhance.json brother.unity.summonChance
-                    const unEnh = getBrotherHexEnhance('unity');
-                    if (!unEnh || unEnh.summonChance == null) throw new Error('002-hex-enhance.json 缺 brother.unity.summonChance');
-                    if (unEnh.recruitM == null || unEnh.recruitM <= 0) throw new Error('002-hex-enhance.json 缺 brother.unity.recruitM');
-                    if (getBattleRng().next() < unEnh.summonChance) {
-                        spawnOneUnityRecruit(A, log, unEnh.recruitM, '小昭·妹');
-                    }
-                }
+                // 妹永久众志的召唤已挪到 core/204 的 spawnBrotherPermanentUnityRecruit（prepareRoundSpawns 阶段），
+                //   早于工厂循环，召出来的单位当回合就能挂上精英技能（原在此处 ON_ROUND_START 会当回合白板）。
                 if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
                 if (bro._fsm && bro._fsm.is('transforming')) bro._fsm.transition('normal');
                 if (bro.state._spiderTriggeredHit === undefined) Object.assign(bro.state, { _spiderTriggeredHit: false });

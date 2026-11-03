@@ -285,34 +285,13 @@ export async function animateMindSwap(swaps, camp, c) {
         await clock.wait(FLICKER_INTERVAL);
     }
 
-    // ③ 凝固：红锁 + 中央「凝」（挂在三格几何中心）
+    // ③ 凝固：红锁（与两格 animatePositionSwap 同款，不加任何中央文字）
     for (const p of positions) {
         const cell = getCellByPos(camp, p);
         if (cell) {
             cell.classList.remove('swap-flash');
             cell.classList.add('swap-lock');
         }
-    }
-    let cxSum = 0, cySum = 0, cnt = 0;
-    for (const p of positions) {
-        const cell = getCellByPos(camp, p);
-        if (!cell) continue;
-        const r = cell.getBoundingClientRect();
-        cxSum += r.left + r.width / 2;
-        cySum += r.top + r.height / 2;
-        cnt++;
-    }
-    let freezeMark = null;
-    if (cnt > 0) {
-        freezeMark = document.createElement('div');
-        freezeMark.setAttribute('data-fx', 'temporary');
-        freezeMark.textContent = '凝';
-        freezeMark.style.cssText = `position:fixed;left:${(cxSum / cnt).toFixed(1)}px;top:${(cySum / cnt).toFixed(1)}px;transform:translate(-50%,-50%) scale(0.4);font-size:52px;font-weight:900;color:#ff4500;text-shadow:0 0 18px rgba(255,69,0,1),0 0 50px rgba(255,69,0,.5);opacity:0;pointer-events:none;z-index:10030;transition:opacity .15s,transform .25s cubic-bezier(.2,.9,.3,1.3);`;
-        document.body.appendChild(freezeMark);
-        requestAnimationFrame(() => {
-            freezeMark.style.opacity = '1';
-            freezeMark.style.transform = 'translate(-50%,-50%) scale(1)';
-        });
     }
     await clock.wait(1200);
 
@@ -326,10 +305,6 @@ export async function animateMindSwap(swaps, camp, c) {
         if (!cell) continue;
         cell.classList.remove('swap-lock');
         if (final.has(p)) cell.innerHTML = final.get(p);
-    }
-    if (freezeMark) {
-        freezeMark.style.opacity = '0';
-        setTimeout(() => { if (freezeMark.parentNode) freezeMark.remove(); }, 300);
     }
     flashCells();
     await clock.wait(250);

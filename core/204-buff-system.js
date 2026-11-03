@@ -30,8 +30,8 @@ export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
     else applyHolyFlame_Normal(unit, null, activeBuffs, ctx.log);
 }
 
-// 妹妹永久：全队同职业共享
-function hasBrotherPermanent(team, buffKey) {
+// 妹妹永久：全队同职业共享（导出：core/212 严阵反弹要与 applyFortifyBonus 同判据，否则「全队加防、只有妹反弹」）
+export function hasBrotherPermanent(team, buffKey) {
     if (!Array.isArray(team)) return false;
     return team.some(u => u.isXiaoZhaoBrother && u.alive && u.state?._permanentBuffs?.some(b => b.key === buffKey));
 }
@@ -300,6 +300,23 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
     recruit.isUnityRecruit = true;
     if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城' } });
     return recruit;
+}
+
+// 妹永久众志：团队众志不在场时，早于组件工厂循环补召 1 人（技能全开）。
+//   原逻辑挂在 323 的 ON_ROUND_START（prepareSoulDrain 阶段），晚于 installRoundMechanics 的工厂循环，
+//   召出来的单位当回合是白板、下回合才挂上组件。挪到 prepareRoundSpawns 阶段（与团队版 spawnUnityRecruits 同时机）。
+export function spawnBrotherPermanentUnityRecruit(team, log) {
+    if (!team || !team.length) return;
+    if (hasBuff(team._activeBuffs || [], BUFF_TYPES.UNITY)) return;   // 团队版在场：走 spawnUnityRecruits
+    const bro = team.find(u => u.isXiaoZhaoBrother && u.alive);
+    if (!bro) return;
+    if (!bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.UNITY)) return;
+    const unEnh = getBrotherHexEnhance('unity');
+    if (!unEnh || unEnh.summonChance == null) throw new Error('002-hex-enhance.json 缺 brother.unity.summonChance');
+    if (unEnh.recruitM == null || unEnh.recruitM <= 0) throw new Error('002-hex-enhance.json 缺 brother.unity.recruitM');
+    if (getBattleRng().next() < unEnh.summonChance) {
+        spawnOneUnityRecruit(team, log, unEnh.recruitM, '小昭·妹');
+    }
 }
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
