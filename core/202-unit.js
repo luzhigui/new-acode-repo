@@ -93,8 +93,11 @@ export function applyHeroFlags(unit) {
 }
 
 // 职业初始加成：唯一来源 content/001-game-data.json 的 roles.*.bonus
+// 标枪是身份职业（不进随机职业池），加成与战士同口径——这里直接映射到战士，
+// 不另存一份数值（第二数据源改一处漏一处）。
 export function getRoleBonus(role) {
-    const bonus = getGameData().roles[role]?.bonus;
+    const key = role === ROLE_TYPES.JAVELIN ? ROLE_TYPES.WARRIOR : role;
+    const bonus = getGameData().roles[key]?.bonus;
     if (!bonus) throw new Error(`缺职业加成: ${role}`);
     return bonus;
 }
