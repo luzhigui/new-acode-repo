@@ -191,13 +191,13 @@ export function countEnemyEmptyCols(enemySide) {
     return count;
 }
 
-// 全员血量低于 40% 时每单位给飞行单位 +3 攻
+// 全员血量低于 40% 时每单位给飞行单位 +2 攻
 export function getBloodAuraBonus(allUnits) {
     let totalBonus = 0;
     allUnits.forEach(u => {
         if (!u.alive) return;
         const pct = u.hp / u.maxHp;
-        if (pct < 0.4) totalBonus += 3;
+        if (pct < 0.4) totalBonus += 2;
     });
     return totalBonus;
 }
@@ -209,7 +209,7 @@ export function getAuraBonuses(unit, allySide, enemySide) {
     const oppSide = isAlly ? enemySide : allySide;
     // 空列光环：2026-11-02 起全局所有职业生效（原飞行专属）；每空一列 +2 攻（原 +5）
     const emptyCol = countEnemyEmptyCols(oppSide) * 2;
-    // 残血光环：仍为飞行专属；全场每个 <40% 存活单位 +3 攻
+    // 残血光环：仍为飞行专属；全场每个 <40% 存活单位 +2 攻
     const bloodAura = unit.role === ROLE_TYPES.FLYER ? getBloodAuraBonus(mySide.concat(oppSide)) : 0;
     return { emptyCol, bloodAura };
 }

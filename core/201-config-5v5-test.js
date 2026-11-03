@@ -242,7 +242,7 @@ const CONFIG = {
     RANGED_MISS_CHANCE: 0.03,
     FLY_MISS_CHANCE: 0.06,
     GROUND_MISS_CHANCE: 0.01,
-    FLY_MISS_LOWHP_BONUS: 0.06,
+    FLY_MISS_LOWHP_BONUS: 0.12,
     // 空列未命中减免：2026-11-02 起全局所有职业生效（原飞行专属），0.12 → 0.06。
     //   键名保留 FLY_ 前缀：改名会断 core/03 引用与体检 145 断言，语义看本注释
     FLY_MISS_EMPTYCOL_REDUCE: 0.06,
