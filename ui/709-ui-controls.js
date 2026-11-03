@@ -29,7 +29,7 @@ export function bindCoverStart(gameStarted, updateSpeedButtons, onStart, buttonI
         if (typeof AudioManager.init === 'function') AudioManager.init();
         if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
         if (typeof AudioManager.play === 'function') AudioManager.play();
-        // 音量不再硬写 0.5：AudioManager 自己按 localStorage['ming_bgm_volume'] 恢复（init→_loadBgmAudio→_applyVolume），
+        // 音量不再硬写 0.5：AudioManager 起播时自己读 localStorage['ming_bgm_volume']，
         //   否则每次开局都把用户调好的音量打回 50%
         updateSpeedButtons();
         if (typeof onStart === 'function') onStart();
