@@ -1,4 +1,7 @@
-export const VER = 'modules/304-audio-manager.js V6.1.2';
+// V6.3.0 | 2026-10-25 | BGM 收口三件：①play() 被自动播放策略拒后挂一次性手势重试（pointerdown/keydown/touchstart）；
+//   ②恢复响度归一（用户音量 × 每曲 trim，trim 由 measureTrims() 一次性按 RMS 0.07 量出写 localStorage）；
+//   ③setVolume/fadeTo 统一走 _applyVolume，淡入淡出加 token 防交叠
+export const VER = 'modules/304-audio-manager.js V6.3.0';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
@@ -15,19 +18,33 @@ function getAudioCtx() {
 // 预加载的音效缓冲区
 const sfxBuffers = {};
 
-// BGM 缓存与播放控制
-const bgmBuffers = {};   // trackId -> AudioBuffer
-let bgmBuffer = null;    // 当前曲目 buffer
-let bgmSource = null;
-let bgmGainNode = null;
-let bgmStartedAt = 0;
-let bgmPausedAt = 0;
-// 播完自动切歌用：每次主动停播都自增，让在飞的 onended 失效
-// （AudioBufferSourceNode.stop() 也会触发 onended，不挡会把"暂停"误判成"播完"）
+// BGM 播放：改用 HTMLAudioElement。
+//   旧方案 fetch + decodeAudioData 每次页面加载都要把整首 mp3 解成 PCM，手机上是几秒到十几秒的静音；
+//   改用 <audio> 后由浏览器 HTTP/媒体缓存接管，刷新后几乎立刻有声。
+let _bgmAudio = null;
 let _bgmGen = 0;
-// 目标响度（RMS）。三首 mp3 母带响度不同——另两首偏大、心爱偏小，
-// 加载后按各自 RMS 把样本烘焙到同一目标，下游（滑杆/淡入淡出）无需感知。
-const BGM_TARGET_RMS = 0.07;
+
+// 一次性手势重试：浏览器禁止无用户手势的 play()，被拒后不重试就是永久静音。
+//   失败时挂 pointerdown/keydown/touchstart（capture，一次性），首次交互再试一次。
+let _gestureArmed = false;
+function _armGestureRetry() {
+    if (_gestureArmed || typeof document === 'undefined') return;
+    _gestureArmed = true;
+    const fire = () => {
+        _gestureArmed = false;
+        document.removeEventListener('pointerdown', fire, true);
+        document.removeEventListener('keydown', fire, true);
+        document.removeEventListener('touchstart', fire, true);
+        if (!_bgmAudio) return;
+        try {
+            const p = _bgmAudio.play();
+            if (p && p.catch) p.catch(() => {});
+        } catch (e) {}
+    };
+    document.addEventListener('pointerdown', fire, true);
+    document.addEventListener('keydown', fire, true);
+    document.addEventListener('touchstart', fire, true);
+}
 
 // 预加载所有 mp3 音效文件到内存
 async function loadSfxBuffer(key, url) {
@@ -52,42 +69,6 @@ export async function initSfx() {
     await Promise.all(promises);
 }
 
-// 响度归一化：按 RMS 把整首样本缩放。直接改采样数据而非乘 gainNode，
-// 这样 setVolume / fadeTo / 音乐面板滑杆三处都不必知道 trim。
-// 每首只在首次加载时做一次；改参数需刷新页面（buffer 已缓存）。
-function normalizeBgmBuffer(buf) {
-    try {
-        const d0 = buf.getChannelData(0);
-        let sum = 0, n = 0;
-        for (let i = 0; i < d0.length; i += 500) { sum += d0[i] * d0[i]; n++; }
-        const rms = Math.sqrt(sum / Math.max(1, n));
-        if (rms < 0.0001) return;
-        let g = BGM_TARGET_RMS / rms;
-        g = Math.max(0.35, Math.min(2.5, g));   // 限幅，避免把安静的曲子放到失真
-        if (Math.abs(g - 1) < 0.05) return;     // 本来就接近目标，不动
-        for (let c = 0; c < buf.numberOfChannels; c++) {
-            const d = buf.getChannelData(c);
-            for (let i = 0; i < d.length; i++) d[i] *= g;
-        }
-    } catch (e) { /* 归一化失败就用原始响度，不影响播放 */ }
-}
-
-// 预加载BGM文件到内存（多曲目缓存）
-async function loadBgmBuffer(trackId, url) {
-    try {
-        const ctx = getAudioCtx();
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const buf = await ctx.decodeAudioData(arrayBuffer);
-        normalizeBgmBuffer(buf);
-        bgmBuffers[trackId] = buf;
-        if (trackId === AudioManager.currentBgmId) bgmBuffer = buf;
-    } catch (e) {
-        console.warn('BGM加载失败:', url, e);
-        if (trackId === AudioManager.currentBgmId) bgmBuffer = null;
-    }
-}
-
 // 播放已预加载的 mp3 音效（应用独立音量）
 function playBufferSfx(key, volume) {
     const buffer = sfxBuffers[key];
@@ -107,8 +88,6 @@ function playBufferSfx(key, volume) {
         // 播放失败不影响游戏
     }
 }
-
-
 
 // 狮吼合成音效：双锯齿低吼滑落 + 颤音 LFO + 气息噪声，低通收尾（无 mp3 素材，走合成路线）
 function playLionRoar(volume = 0.3) {
@@ -179,16 +158,14 @@ export const AudioManager = {
     enabled: true,
     currentSource: 'local',
     sourceBeforeMute: 'network',
-    sfxVolume: 0.3,   // 音效独立音量
+    sfxVolume: 0.3,
     currentBgmId: null,
 
     init() {
         this._bgmFailed = false;
         this.audio = null;
-        // 恢复用户手动选择的曲目；无保存时从前两首默认曲目随机，避免每次都听第一首
         let trackId = 'bgm_a';
         try {
-            // 每次启动都从前两首默认曲目随机，不读历史选择
             const defaultTracks = (CONFIG.BGM_TRACKS || []).slice(0, 2);
             if (defaultTracks.length > 0) {
                 trackId = defaultTracks[Math.floor(Math.random() * defaultTracks.length)].id;
@@ -196,76 +173,131 @@ export const AudioManager = {
         } catch (e) {}
         this.currentBgmId = trackId;
         const track = (CONFIG.BGM_TRACKS || []).find(t => t.id === trackId) || {};
-        loadBgmBuffer(trackId, track.file || CONFIG.BGM_LOCAL).then(() => {
-            if (bgmBuffer && this.enabled && this.currentSource !== 'mute') {
-                this._playBgm();
-            }
-        });
-        // 其余曲目后台静默预载——否则第一次自动切歌要现 fetch+decode，会卡一下
-        for (const t of (CONFIG.BGM_TRACKS || [])) {
-            if (t.id === trackId || bgmBuffers[t.id]) continue;
-            loadBgmBuffer(t.id, t.file || CONFIG.BGM_LOCAL);
-        }
+        this._loadBgmAudio(trackId, track.file || CONFIG.BGM_LOCAL);
         initSfx();
     },
-    
-    // 切换 BGM 曲目（id 来自 CONFIG.BGM_TRACKS）
+
+    // 创建/切换 BGM <audio> 元素：src 指向 mp3，浏览器自己管 HTTP 缓存与流式播放。
+    //   刷新后 src 命中缓存，play() 几乎立刻有声，不再走 fetch + decodeAudioData（那是每次整页加载的静音根源）。
+    _loadBgmAudio(trackId, url) {
+        this._stopBgm();
+        _bgmAudio = new Audio();
+        _bgmAudio.src = url;
+        _bgmAudio.preload = 'auto';
+        _bgmAudio.loop = false;
+        this._applyVolume();
+        const gen = _bgmGen;
+        _bgmAudio.addEventListener('ended', () => {
+            if (gen !== _bgmGen) return;
+            if (!this.enabled || this.currentSource === 'mute') return;
+            this._nextTrack();
+        });
+        if (this.enabled && this.currentSource !== 'mute') {
+            const p = _bgmAudio.play();
+            // 被自动播放策略拒 → 挂一次性手势重试，否则首个用户手势前永久静音
+            if (p && p.catch) p.catch(() => { if (this.enabled) _armGestureRetry(); });
+        }
+    },
+
     switchBgm(trackId) {
         const track = (CONFIG.BGM_TRACKS || []).find(t => t.id === trackId);
         if (!track) return;
         const prev = this.currentBgmId;
         this.currentBgmId = trackId;
-        bgmPausedAt = 0;
-        if (bgmBuffers[trackId]) {
-            bgmBuffer = bgmBuffers[trackId];
-            if (this.enabled && this.currentSource !== 'mute' && prev !== trackId) {
-                this._stopBgm();
-                this._playBgm();
-            }
-        } else {
-            bgmBuffer = null;
-            if (this.enabled && this.currentSource !== 'mute' && prev !== trackId) {
-                this._stopBgm();
-            }
-            loadBgmBuffer(trackId, track.file).then(() => {
-                if (this.currentBgmId === trackId && this.enabled && this.currentSource !== 'mute' && bgmBuffer) {
-                    this._playBgm();
-                }
-            });
-        }
         try { localStorage.setItem('ming_bgm_track', trackId); } catch (e) {}
+        if (prev === trackId) return;
+        this._loadBgmAudio(trackId, track.file || CONFIG.BGM_LOCAL);
     },
-    
+
     play() {
-        if (this.enabled && bgmBuffer && !this._bgmFailed) {
+        if (this.enabled && _bgmAudio && !this._bgmFailed) {
             this._playBgm();
         }
     },
-    
+
     pause() {
-        if (bgmSource) {
-            const ctx = getAudioCtx();
-            bgmPausedAt = ctx.currentTime - bgmStartedAt;
-            this._stopBgm();
+        if (_bgmAudio) {
+            try { _bgmAudio.pause(); } catch (e) {}
         }
     },
-    
-    // 响度已在加载时烘焙进 buffer，此处只需设用户音量，不必再乘 trim
+
+    // 用户音量（0..1，不含 trim）：滑杆/淡入淡出的唯一刻度
+    _userVol() {
+        let v = 0.5;
+        try { v = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5'); } catch (e) {}
+        if (!isFinite(v)) v = 0.5;
+        return Math.max(0, Math.min(1, v));
+    },
+
+    // 每首响度补偿倍数：旧方案按 RMS 把样本烘焙到同一目标（BGM_TARGET_RMS 0.07，限幅 0.35~2.5）。
+    //   改 <audio> 后拿不到 PCM，改由 measureTrims() 一次性量出并写 localStorage（缺省 1 = 不补偿）。
+    _trackTrim() {
+        let map = null;
+        try { map = JSON.parse(localStorage.getItem('ming_bgm_trim') || 'null'); } catch (e) {}
+        const fromStore = map && typeof map[this.currentBgmId] === 'number' ? map[this.currentBgmId] : null;
+        const t = (CONFIG.BGM_TRACKS || []).find(x => x.id === this.currentBgmId);
+        const cfg = t && typeof t.trim === 'number' ? t.trim : null;
+        const v = fromStore != null ? fromStore : (cfg != null ? cfg : 1);
+        return Math.max(0.35, Math.min(2.5, v));
+    },
+
+    // 一次性响度测量：按旧方案同一目标（RMS 0.07，限幅 0.35~2.5）算出每首的补偿倍数，写 localStorage。
+    //   控制台手动调一次即可：AudioManager.measureTrims()。之后不再解码，只读倍数。
+    async measureTrims() {
+        const all = CONFIG.BGM_TRACKS || [];
+        const out = {};
+        let ctx = null;
+        try { ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100); } catch (e) {}
+        for (const t of all) {
+            try {
+                const ab = await (await fetch(t.file)).arrayBuffer();
+                const buf = await ctx.decodeAudioData(ab.slice(0));
+                let sum = 0, n = 0;
+                for (let c = 0; c < buf.numberOfChannels; c++) {
+                    const d = buf.getChannelData(c);
+                    for (let i = 0; i < d.length; i += 4) { sum += d[i] * d[i]; n++; }   // 每 4 采样取 1，够准且快
+                }
+                const rms = Math.sqrt(sum / Math.max(1, n));
+                const g = rms > 0.0001 ? 0.07 / rms : 1;
+                out[t.id] = Math.round(Math.max(0.35, Math.min(2.5, g)) * 100) / 100;
+            } catch (e) { out[t.id] = 1; }
+        }
+        try { localStorage.setItem('ming_bgm_trim', JSON.stringify(out)); } catch (e) {}
+        this._applyVolume();
+        return out;
+    },
+
+    // 真实音量 = 用户音量 × 该曲 trim（volume 上限 1，超出截断）
+    _applyVolume(userVol) {
+        if (!_bgmAudio) return;
+        const v = typeof userVol === 'number' ? userVol : this._userVol();
+        _bgmAudio.volume = Math.max(0, Math.min(1, v * this._trackTrim()));
+    },
+
     setVolume(v) {
-        if (bgmGainNode) {
-            const ctx = getAudioCtx();
-            bgmGainNode.gain.setValueAtTime(v, ctx.currentTime);
-        }
+        // 手动设音量 = 取消正在跑的淡入淡出
+        this._fadeVol = null;
+        this._fadeToken = (this._fadeToken || 0) + 1;
+        this._applyVolume(v);
     },
-    
+
     fadeTo(targetVol, durationMs) {
-        if (!bgmGainNode) return;
-        const ctx = getAudioCtx();
-        const now = ctx.currentTime;
-        bgmGainNode.gain.setValueAtTime(bgmGainNode.gain.value, now);
-        bgmGainNode.gain.linearRampToValueAtTime(targetVol, now + durationMs / 1000);
+        if (!_bgmAudio) return;
+        const startVol = this._fadeVol != null ? this._fadeVol : this._userVol();
+        const startT = performance.now();
+        const dur = Math.max(1, durationMs);
+        const token = (this._fadeToken = (this._fadeToken || 0) + 1);
+        const tick = () => {
+            if (!_bgmAudio || token !== this._fadeToken) return;   // 被新的淡入淡出/手动设音量接管
+            const p = Math.min(1, (performance.now() - startT) / dur);
+            this._fadeVol = startVol + (targetVol - startVol) * p;
+            this._applyVolume(this._fadeVol);
+            if (p < 1) requestAnimationFrame(tick);
+            else this._fadeVol = null;
+        };
+        requestAnimationFrame(tick);
     },
-    
+
     switchSource(source) {
         if (source === this.currentSource) return;
         this._stopBgm();
@@ -274,43 +306,22 @@ export const AudioManager = {
             this.enabled = false;
         } else {
             this.enabled = true;
-            if (bgmBuffer) {
-                this._playBgm();
-            } else if (this.currentBgmId) {
+            if (this.currentBgmId) {
                 const track = (CONFIG.BGM_TRACKS || []).find(t => t.id === this.currentBgmId) || {};
-                loadBgmBuffer(this.currentBgmId, track.file || CONFIG.BGM_LOCAL).then(() => {
-                    if (bgmBuffer && this.enabled) this._playBgm();
-                });
+                this._loadBgmAudio(this.currentBgmId, track.file || CONFIG.BGM_LOCAL);
             }
         }
     },
-    
+
     _playBgm() {
-        if (!bgmBuffer) return;
-        const ctx = getAudioCtx();
-        if (ctx.state === 'suspended') ctx.resume();
-        this._stopBgm();
-        const gen = _bgmGen;              // 记下本代编号，停播后自增即作废
-        bgmSource = ctx.createBufferSource();
-        bgmSource.buffer = bgmBuffer;
-        bgmSource.loop = false;           // 不再单曲循环——播完自动随机切下一首
-        bgmGainNode = ctx.createGain();
-        let initVol = 0.5;
-        try { initVol = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5'); } catch (e) {}
-        bgmGainNode.gain.setValueAtTime(initVol, ctx.currentTime);
-        bgmSource.connect(bgmGainNode);
-        bgmGainNode.connect(ctx.destination);
-        bgmSource.onended = () => {
-            if (gen !== _bgmGen) return;                  // 被暂停/切歌停掉，不是自然播完
-            if (!this.enabled || this.currentSource === 'mute') return;
-            this._nextTrack();
-        };
-        bgmSource.start(0, bgmPausedAt);
-        bgmStartedAt = ctx.currentTime - bgmPausedAt;
-        bgmPausedAt = 0;
+        if (!_bgmAudio) return;
+        this._fadeVol = null;
+        this._applyVolume();
+        const p = _bgmAudio.play();
+        // 被自动播放策略拒 → 挂一次性手势重试
+        if (p && p.catch) p.catch(() => { if (this.enabled) _armGestureRetry(); });
     },
 
-    // 播完自动切下一首：只在默认曲目（前两首）之间轮；隐藏曲需手动选中，播完自动回轮播池
     _nextTrack() {
         const all = CONFIG.BGM_TRACKS || [];
         const pool = all.slice(0, 2);
@@ -319,29 +330,18 @@ export const AudioManager = {
         const list = cands.length > 0 ? cands : pool;
         const next = list[Math.floor(Math.random() * list.length)];
         this.currentBgmId = next.id;
-        bgmPausedAt = 0;
-        if (bgmBuffers[next.id]) {
-            bgmBuffer = bgmBuffers[next.id];
-            if (this.enabled && this.currentSource !== 'mute') this._playBgm();
-        } else {
-            bgmBuffer = null;
-            loadBgmBuffer(next.id, next.file || CONFIG.BGM_LOCAL).then(() => {
-                if (this.enabled && this.currentSource !== 'mute' && bgmBuffer) this._playBgm();
-            });
-        }
+        this._loadBgmAudio(next.id, next.file || CONFIG.BGM_LOCAL);
     },
 
     _stopBgm() {
-        _bgmGen++;                                    // 作废在飞的 onended
-        if (bgmSource) {
-            try { bgmSource.onended = null; } catch (e) {}
-            try { bgmSource.stop(); } catch (e) {}
-            bgmSource.disconnect();
-            bgmSource = null;
-        }
-        if (bgmGainNode) {
-            bgmGainNode.disconnect();
-            bgmGainNode = null;
+        _bgmGen++;
+        this._fadeVol = null;
+        this._fadeToken = (this._fadeToken || 0) + 1;   // 让在跑的淡入淡出立刻失效
+        if (_bgmAudio) {
+            try { _bgmAudio.pause(); } catch (e) {}
+            try { _bgmAudio.src = ''; } catch (e) {}
+            try { _bgmAudio.load(); } catch (e) {}
+            _bgmAudio = null;
         }
     },
 

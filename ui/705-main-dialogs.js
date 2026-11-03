@@ -368,20 +368,8 @@ export function showMusicPanel() {
     bgmSlider.style.width = '100%';
     bgmSlider.oninput = () => {
         const vol = parseInt(bgmSlider.value) / 100;
-        // 优先操作 AudioManager 节点
-        if (AudioManager && AudioManager.bgmGainNode) {
-            const ctx = AudioManager.bgmGainNode.context;
-            AudioManager.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
-        } else if (AudioManager.setVolume) {
-            AudioManager.setVolume(vol);
-        }
-        // 兜底：操作全局 bgmGainNode
-        if (typeof window.bgmGainNode !== 'undefined' && window.bgmGainNode) {
-            try {
-                const ctx = window.bgmGainNode.context;
-                window.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
-            } catch (e) {}
-        }
+        // BGM 已改 <audio>，只有 AudioManager.setVolume 一条路径（旧的 bgmGainNode/window 兜底已不存在）
+        if (AudioManager && AudioManager.setVolume) AudioManager.setVolume(vol);
         try { localStorage.setItem('ming_bgm_volume', String(vol)); } catch (e) {}
         const label = document.getElementById('musicBgmLabel');
         if (label) label.textContent = Math.round(vol * 100) + '%';
