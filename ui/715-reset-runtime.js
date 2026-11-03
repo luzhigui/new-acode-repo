@@ -1,4 +1,4 @@
-export const VER = 'ui/715-reset-runtime.js V7.5.13';
+export const VER = 'ui/715-reset-runtime.js V7.5.14';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { setRenderStore } from './703-ui-render-5v5-test.js';
@@ -40,6 +40,9 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     GlobalStore.set('adjustMode', false);
     GlobalStore.set('selectedAdjustPos', null);
     GlobalStore.set('activeBuffs', []);
+    // 妹永久账本（503 recordXiaoZhaoPermanentBuff 写、playBattle 读）必须每局清空，
+    //   否则新局一开场妹就带着上局的永久海克斯
+    GlobalStore.set('xiaoZhaoPermanentBuffs', []);
     GlobalStore.set('selectedBuffIndex', -1);
     GlobalStore.set('currentDoubleStrikeUid', null);
     // 79/93 联动标记：跨局防残留。从机/回放/简单模式下 79 不弹，标记必须干净；

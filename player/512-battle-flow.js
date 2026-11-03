@@ -1,13 +1,14 @@
 // player/512-battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
 // permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
-export const VER = 'player/512-battle-flow.js V6.4.5';
+export const VER = 'player/512-battle-flow.js V6.4.6';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs } from '../modules/329-buff-tools.js';
+import { recordXiaoZhaoPermanentBuff } from './503-player-core.js';
 import { appendLogHTML } from './510-renderer.js';
 import * as net from '../infra/109-net-pvp.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -39,6 +40,11 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
     if (newBuff) {
         nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
         appendLogHTML(`<span class="gold">✨ ${label}方获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
+        // 妹永久海克斯写入：记进 GlobalStore 独立账本（回合末由 503 playBattle 覆盖进引擎）。
+        //   不再直接写 store 里妹的 state——那会被 syncStoreFromStep 整份覆盖；
+        //   也不写 activeBuffs——remaining 归零即删，双海克斯模式下还会混进六大派 buff。
+        //   recordXiaoZhaoPermanentBuff 内部强制 target=ALLY 且按 key 幂等去重。
+        if (camp === CAMP_TYPES.ALLY) recordXiaoZhaoPermanentBuff(newBuff);
         const mainCtx = getPlayerContext();
         if (mainCtx) {
             mainCtx.activeBuffs = nextActiveBuffs;
