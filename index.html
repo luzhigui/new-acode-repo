@@ -414,6 +414,15 @@
 <script type="module" src="./fx/610-fx-subscriber.js?v=3.5.1"></script>
 <script type="module" src="./ui/721-perf-panel.js?v=3.5.1"></script>
 <script type="module" src="./ui/702-main-5v5-test.js?v=3.5.1"></script>
+<script>
+// 本地管家注册（2026-11-04）：JS/音乐入本地账本——秒开 + 只更新改动的文件 + BGM 一次下载终身保管
+// 失败静默：老浏览器/特殊环境照旧走网络；绕过管家在任意 URL 加 ?nosw=1
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+}
+</script>
 
 
 
