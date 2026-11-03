@@ -879,9 +879,13 @@ function openPanel() {
     const old = document.getElementById('perfPanelOverlay');
     if (old) old.remove();
 
-    // 启用面板专属暂停源
+    // 启用面板专属暂停源。
+    //   原先写裸变量 syncPauseState：本文件从未 import 它，typeof 对未声明变量静默返回 'undefined'，
+    //   等于永远不调，panelPaused 设了但 isPaused 没设、clock 不暂停。改走 UIHandler 通道
+    //   （702 顶层已注册 'syncPauseState' → 719 的 syncPauseState），与 722-buff-tooltip 同款写法。
     GlobalStore.set('panelPaused', true);
-    if (typeof syncPauseState === 'function') syncPauseState();
+    const fnPause = GlobalStore.getUIHandler('syncPauseState');
+    if (typeof fnPause === 'function') fnPause();
 
     const overlay = document.createElement('div');
     overlay.id = 'perfPanelOverlay';
@@ -1015,9 +1019,10 @@ function closePanel() {
     const overlay = document.getElementById('perfPanelOverlay');
     if (overlay) overlay.remove();
 
-    // 撤销面板专属暂停源（主按钮的暂停状态不受任何影响）
+    // 撤销面板专属暂停源（主按钮的暂停状态不受任何影响）。同上：改走 UIHandler 通道。
     GlobalStore.set('panelPaused', false);
-    if (typeof syncPauseState === 'function') syncPauseState();
+    const fnResume = GlobalStore.getUIHandler('syncPauseState');
+    if (typeof fnResume === 'function') fnResume();
 }
 
 function exportJson() {

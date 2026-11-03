@@ -224,6 +224,17 @@ export const STAGE_ACTION_DEFS = {
             }
         }
     },
+    // 惑心换位·三格原地闪换：不滑行、不两两互换，三格内容原地反复闪换 → 红锁凝固 → 一次落到引擎给的终态。
+    //   载荷 swaps: [{uid, fromPos, toPos}]，camp 从翻译层带过来（data.side）。
+    //   落定后 fx 内部 dispatch POS_CHANGE，后续 syncStoreFromStep 会用引擎权威值重绘覆盖手动内容。
+    [STAGE_ACTION_TYPES.MIND_SWAP]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        fx: async (c, action) => {
+            if (isFxSkipped()) return;
+            const { animateMindSwap } = await import('../fx/608-fx-manager.js');
+            await animateMindSwap(action.swaps || [], action.camp, c);
+        }
+    },
     [STAGE_ACTION_TYPES.PUSH]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         // 位置变更交给 fx 内的动画收尾（store 先改 = 格子瞬移后才播拱动画）
@@ -429,6 +440,9 @@ export const STAGE_ACTION_DEFS = {
                 if (action.splashBreak) {
                     // 溅射破罩：箭雨演出已由 fx/81 播完（同组 afterText），只补碎裂不叠飞撞
                     import('../fx/617-immune-shield-break.js').then((m) => {
+                        // 音效：溅射破罩也放攻击者职业音效——此前整个免疫分支完全静音，读起来像卡帧
+                        const atk = findUnitByUidLocal(c, action.actorUid);
+                        if (atk) AudioManager.playSfx(atk.role);
                         m.showImmuneShieldBreak(target);
                         markGridShake(target.uid, 160);
                     }).catch(() => {});
@@ -442,6 +456,9 @@ export const STAGE_ACTION_DEFS = {
                     import('../fx/617-immune-shield-break.js')
                 ]).then(([crash, arrows, shield]) => {
                     const onHit = () => {
+                        // 音效：撞上罩子碎裂那一刻放攻击者职业音效（近战碰撞声/箭矢声）。
+                        //   此前 IMMUNE 分支只播动画不发声——金刚不坏挡下攻击时全程静音。
+                        AudioManager.playSfx(attacker.role);
                         shield.showImmuneShieldBreak(target);
                         markGridShake(target.uid, 160);
                     };

@@ -10,6 +10,8 @@ import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs } from '../modules/329-buff-tools.js';
 import { appendLogHTML } from './510-renderer.js';
 import * as net from '../infra/109-net-pvp.js';
+import { eventBus } from '../infra/101-event-bus.js';
+import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 // 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
 // （注册方见 ui/704-main-state.js；对应 rules 原则 6：依赖方向 ui/fx → player → render/modules → core → infra）
 
@@ -113,6 +115,17 @@ export async function handleEnemyAutoBuffSelection(c, nextActiveBuffs) {
     const pick = choices[rng.nextInt(0, choices.length - 1)];
     const newBuff = createBuffObject(pick, null, CAMP_TYPES.ENEMY, enemyTeam);
     appendLogHTML(`<span class="gold">✨ 六大派 自动选择 Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
+    // 六大派自动选对玩家不可见，补一条气泡明示。
+    //   位置：钉在敌 8 号位格子正上方（7/8/9 后排三格的中间列）——位置固定不动，
+    //   不再绑「第一个存活单位」（那个落到哪号位是随机的，飘来飘去没意义）。
+    //   信号走 PINNED_BUBBLE（fx/601 的 showPinnedBubble：定点淡入停留淡出，不飘不移）。
+    const icon = CONFIG.BUFFS?.[pick]?.icon || '🎴';
+    eventBus.emit(FX_SIGNALS.PINNED_BUBBLE, {
+        camp: CAMP_TYPES.ENEMY,
+        pos: 8,
+        text: `⚔️ 六大派选择：${icon}${newBuff.name}`,
+        opts: { fontSize: '16px' }
+    });
     const merged = [...(nextActiveBuffs || []), newBuff];
     const mainCtx = getPlayerContext();
     if (mainCtx) {

@@ -34,37 +34,25 @@ export const CONTROL_TRANSLATORS = {
     [FACT_TYPES.MIND_CONTROL_SWAP]: (data, index) => {
         const swaps = data.swaps || [];
         if (swaps.length === 0) return null;
-        // 按单位追的方式生成 POS_SWAP 序列（冒泡式：每次把当前单位换到目标位置）
-        const posToUid = new Map();
-        for (const s of swaps) posToUid.set(s.fromPos, s.uid);
-        const acts = [];
-        for (const s of swaps) {
-            let curPos = null;
-            for (const [pos, uid] of posToUid) {
-                if (uid === s.uid) { curPos = pos; break; }
-            }
-            if (curPos === null || curPos === s.toPos) continue;
-            const otherUid = posToUid.get(s.toPos);
-            if (otherUid === undefined) continue;
-            acts.push({
-                kind: STAGE_ACTION_TYPES.POS_SWAP,
-                actorUid: s.uid,
-                targetUid: otherUid,
-                oldPosA: curPos,
-                oldPosB: s.toPos,
-                factIndex: index,
-                timing: 'beforeText'
-            });
-            posToUid.set(curPos, otherUid);
-            posToUid.set(s.toPos, s.uid);
-        }
+        // 三格原地闪换：不再冒泡拆成两两 POS_SWAP（那样视觉上会连做两次两格互换，
+        //   每次都带「闪 3 下 → 瞬移来回 → 红锁」，与惑心三格语义对不上）。
+        //   引擎（core/215 shuffleThreeSlots）已经算好最终排列，原样交给 fx 做视觉：
+        //   高亮 → 闪换 N 次 → 红锁凝固 → 落定终态 → dispatch POS_CHANGE。
+        //   camp 从 data.side 取（applyMindControlCore 里就是按 side 归阵营的）。
+        const acts = [{
+            kind: STAGE_ACTION_TYPES.MIND_SWAP,
+            camp: data.side,
+            swaps: swaps.map(s => ({ uid: s.uid, fromPos: s.fromPos, toPos: s.toPos })),
+            factIndex: index,
+            timing: 'beforeText'
+        }];
         if (data.dmg > 0) {
             for (const s of swaps) acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: s.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
         }
         if (data.heal > 0) {
             for (const s of swaps) acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: s.uid, targetUid: s.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
         }
-        return acts.length > 0 ? acts : null;
+        return acts;
     },
     [FACT_TYPES.WIND_ASSAULT_PUSH]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.PUSH,

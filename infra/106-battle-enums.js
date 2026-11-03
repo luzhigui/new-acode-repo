@@ -110,7 +110,10 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     SKILL_FLOAT: 'skillFloat',
     HANLISA_BURST: 'hanlisaBurst',
     RESTORE_ACTED: 'restoreActed',
-    DASH: 'dash'
+    DASH: 'dash',
+    // 惑心换位·三格原地闪换：不滑行、不两两互换，三格内容原地反复闪换后一次落到终态。
+    //   原先走「冒泡拆成两两 POS_SWAP」降维路径，视觉上是连做两次两格互换，每次都是闪 3 下 + 瞬移来回 + 红锁。
+    MIND_SWAP: 'mindSwap'
 });
 
 /** Buff 特效子类型：BUFF_EFFECT stageAction 的 effectType 唯一来源（不再用裸字符串） */

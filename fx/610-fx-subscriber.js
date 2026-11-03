@@ -9,7 +9,7 @@ import {
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
     showKuLianEffect, showWindClaw, showSplashArrows, showBoneClaw, showMeditateEffect,
     animatePushBack, animatePushSwap, showMiejueCountFloat,
-    showHorseDissolve
+    showHorseDissolve, showPinnedBubble
 } from './608-fx-manager.js';
 import {
     showButterflyFlyOut, showButterflyFlyBack,
@@ -36,7 +36,9 @@ eventBus.on(FX_SIGNALS.TRIGGER, P, (d) => {
 
 eventBus.on(FX_SIGNALS.BANNER, P, (d) => showBuffBanner(d.text));
 eventBus.on(FX_SIGNALS.CRITICAL_BANNER, P, (d) => showCriticalBanner(d.text));
-eventBus.on(FX_SIGNALS.DANMAKU, P, (d) => showDanmaku(d.unit, d.text));
+eventBus.on(FX_SIGNALS.DANMAKU, P, (d) => showDanmaku(d.unit, d.text, d.opts));
+// 定点气泡：钉在指定阵营某个格子正上方（如六大派选海克斯 → 敌 8 号位上方），不飘不位移
+eventBus.on(FX_SIGNALS.PINNED_BUBBLE, P, (d) => showPinnedBubble(d.camp, d.pos, d.text, d.opts));
 
 // 伤害飘字快进判断留在 emit 侧，此处纯转发
 eventBus.on(FX_SIGNALS.DAMAGE_FLOAT, P, (d) => showDamageFloat(d.unit, d.dmg));

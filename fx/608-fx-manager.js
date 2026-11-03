@@ -16,7 +16,8 @@ import {
     showKuLianEffect,
     showWindClaw,
     showMeditateEffect,
-    showMiejueCountFloat
+    showMiejueCountFloat,
+    showPinnedBubble
 } from './601-fx-common-5v5-test.js';
 
 import {
@@ -31,7 +32,7 @@ import {
     showMeleeMiss
 } from './603-fx-crash-5v5-test.js';
 
-import { animatePositionSwap } from './604-fx-position-swap.js';
+import { animatePositionSwap, animateMindSwap } from './604-fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from './605-fx-push-back.js';
 import { showDodgeBulletTime } from './606-fx-dodge-bullet.js';
 
@@ -63,6 +64,7 @@ export {
     showWindClaw,
     showMeditateEffect,
     showMiejueCountFloat,
+    showPinnedBubble,
     showRangedArrow,
     showSplashArrows,
     showBoneClaw,
@@ -70,6 +72,7 @@ export {
     showMeleeDodge,
     showMeleeMiss,
     animatePositionSwap,
+    animateMindSwap,
     animatePushBack,
     animatePushSwap,
     showDodgeBulletTime,

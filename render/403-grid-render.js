@@ -328,10 +328,11 @@ export function renderGrid(id, camp) {
         let hpStyle = '';
         // 小昭姊/妹的身份已由左侧 roleIcon（🦋/🕷️）承担，名字后不再重复挂
         // 张三丰：进入严阵以待阶段后挂图标——他的严阵以待是组件自身 addMod（不走团队 buff），
-        // activeBuffs 里没有 fortify，格子上原本毫无提示
+        // activeBuffs 里没有 fortify，格子上原本毫无提示。
+        // 去重：团队严阵以待在场时他作为防战已吃到团队版，buffIcons 里必有 🛡️，此处不再重复出。
         let eliteSkillIcon = (unit.isZhouZhiruo && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
             : (unit.isSongQingshu && getView(unit.uid, '_hasXingFen')) ? ' 💗'
-            : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
+            : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired && !buffIcons.includes('🛡️')) ? ' 🛡️'
             // 寒离飒蓄力：格子挂沙漏标记（蓄力中/已起手两态同图标）
             : (unit.isHanLiSa && (unit.state._hlsCharging || 0) > 0) ? ' ⏳'
             : '';

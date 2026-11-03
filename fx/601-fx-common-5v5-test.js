@@ -2,7 +2,7 @@
 export const VER = 'fx/601-fx-common-5v5-test.js V6.3.14';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
-import { snapshotUnitCell } from './611-fx-ref-manager.js';
+import { snapshotUnitCell, snapshotCellByPos } from './611-fx-ref-manager.js';
 import { clock } from '../infra/103-clock.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
@@ -59,7 +59,7 @@ export function resetDanmakuPool() {
         POOL['danmaku'].available.push(el);
     }
 }
-export function showDanmaku(unit, text) {
+export function showDanmaku(unit, text, opts) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     // 存活时长读参数表（bubbleLife），按当前 speed 档位；取不到回落 3500
@@ -69,6 +69,9 @@ export function showDanmaku(unit, text) {
         bubble.textContent = text;
         bubble.className = 'danmaku-bubble';
         bubble.classList.add(unit.camp===CAMP_TYPES.ALLY?'ally':'enemy');
+        // 可选字号（调用方要更大时传 opts.fontSize，如 '17px'）；不传清掉 inline，
+        //   否则池化对象下次复用会把上次的大字号带给别的弹幕。
+        bubble.style.fontSize = (opts && opts.fontSize) ? String(opts.fontSize) : '';
         bubble.style.left=(rect.left-4)+'px';
         bubble.style.top=(rect.top+rect.height*0.35)+'px';
         bubble.style.transform='translate(-100%, -50%)';
@@ -366,6 +369,59 @@ export function showMarkBurst(unit) {
             shard.style.transform = `translate(-50%,-50%) rotate(${(p * 260).toFixed(0)}deg)`;
         }).then(() => { if (shard.parentNode) shard.parentNode.removeChild(shard); });
     }
+}
+
+// 定点气泡：钉在指定阵营某个格子正上方，不飘、不位移——原地淡入 → 停留 → 淡出。
+//   与 showDanmaku 的区别：那个绑单位、带 danmakuPop 飘动，位置取决于单位当前所在格；
+//   本函数只吃 (camp, pos)，拿固定格子的 rect 算位置，位置在任何视角下都一致（按 dataset.pos 找格，不背顺序表）。
+//   时长走参数表 bubbleLife（与弹幕同口径），字号可传 opts.fontSize。
+export function showPinnedBubble(camp, pos, text, opts) {
+    const rect = snapshotCellByPos(camp, pos);
+    if (!rect) return;
+    const speedKey = GlobalStore.get('speed') || 300;
+    const life = getPerfParam('bubbleLife', speedKey) || 3500;
+    const fontSize = (opts && opts.fontSize) ? String(opts.fontSize) : '15px';
+
+    const el = document.createElement('div');
+    el.setAttribute('data-fx', 'temporary');
+    el.textContent = text;
+    el.style.cssText = `
+        position:fixed;
+        left:${rect.x}px;
+        top:${rect.top - 10}px;
+        transform:translate(-50%, -100%) scale(0.86);
+        font-size:${fontSize};
+        font-weight:bold;
+        font-family:inherit;
+        color:#fff;
+        background:linear-gradient(180deg, rgba(210,105,30,0.96), rgba(170,72,16,0.96));
+        border:1.5px solid rgba(255,185,90,0.9);
+        border-radius:8px;
+        padding:5px 12px;
+        white-space:nowrap;
+        z-index:10030;
+        pointer-events:none;
+        opacity:0;
+        box-shadow:0 3px 12px rgba(0,0,0,0.42), 0 0 14px rgba(255,160,60,0.5);
+        transition:opacity .2s ease, transform .2s ease;
+    `;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+        el.style.opacity = '1';
+        el.style.transform = 'translate(-50%, -100%) scale(1)';
+    });
+    // 用 setTimeout 而不是 clock.waitReal：
+    //   clock 在「暂停 / 每场战斗开始 reset() / 战斗结束 stop()」这三种情况下都不推进真实时间轴，
+    //   挂起的 waitReal 永远不 resolve——临时 DOM 元素就永久挂屏上（六大派选海克斯气泡实测「一直不消失」）。
+    //   纯表现层一次性元素不需要跟游戏时间轴同步，用墙钟计时，1~3 秒必消；
+    //   暂停时气泡照常走完消失也更合理（不会越堆越多）。
+    //   holdMs 夹在 800~3000ms：bubbleLife 2x 档 1400ms → 扣掉淡出 200ms = 1200ms，正好在区间内。
+    const holdMs = Math.max(800, Math.min(3000, life - 200));
+    setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translate(-50%, -100%) scale(0.9)';
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 220);
+    }, holdMs);
 }
 
 // 死亡画笔：600ms 展开覆盖层，clock 驱动

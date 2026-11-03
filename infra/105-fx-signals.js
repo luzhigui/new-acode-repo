@@ -44,5 +44,11 @@ export const FX_SIGNALS = {
     //   为什么需要这条「渲染层 → 表现层」的信号：扇形要读刚渲好的格子坐标（geometryOf），
     //   所以触发点必须留在 renderGrid 之后；若改成 fx 自己订阅 store，多个订阅者的回调顺序
     //   不保证渲染先完成 ⇒ 拿到 null 坐标。走信号则方向变为 render → infra ← fx，不再反向依赖。
-    GRID_RENDERED: 'fx:gridRendered'
+    GRID_RENDERED: 'fx:gridRendered',
+    // 定点气泡：钉在指定阵营某个格子正上方、不飘不位移的小气泡。
+    //   与 DANMAKU 的区别：DANMAKU 绑单位、带飘动动画（danmakuPop）；本信号只给「阵营+格子号」，
+    //   拿格子 rect 算好位置后原地淡入停留淡出，位置固定。
+    //   用途：六大派选海克斯提示——原来绑「第一个存活单位」位置随机（5/8/几号都有可能），
+    //   改成钉在敌方 8 号位上方（后排中央），一眼知道是六大派的选择。
+    PINNED_BUBBLE: 'fx:pinnedBubble'
 };

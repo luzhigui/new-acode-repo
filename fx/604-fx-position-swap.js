@@ -214,3 +214,139 @@ async function animateLiangyiSwap(unit1, unit2, c, options = {}) {
     popInCell(getCellByPos(unit1.camp, pos2));
     popInCell(getCellByPos(unit2.camp, pos1));
 }
+
+// ========== 惑心换位·三格原地闪换 ==========
+// 与两格 animatePositionSwap 的关键区别：不做任何滑行动画，三个格子的内容原地反复闪换，
+//   凝固片刻后一次性落到引擎算好的最终排列。
+//   引擎（core/215 shuffleThreeSlots）已经给出 swaps 载荷 [{uid, fromPos, toPos}]；
+//   本函数只负责视觉，落定后 dispatch POS_CHANGE 让 store 变到终态，
+//   后续 syncStoreFromStep 用引擎权威值重绘时，手动改过的 innerHTML 自然被覆盖掉。
+export async function animateMindSwap(swaps, camp, c) {
+    if (!Array.isArray(swaps) || swaps.length === 0) return;
+
+    // 建立原格引用 + 「起始内容」快照（uid 在 fromPos 时的格内 HTML）
+    const items = [];
+    for (const s of swaps) {
+        const cell = getCellByPos(camp, s.fromPos);
+        if (!cell) return;   // 数据异常（找不到格子）→ 整段跳过，不静默乱播
+        items.push({ s, startHtml: cell.innerHTML });
+    }
+    const positions = items.map(it => it.s.fromPos);
+    const startByPos = new Map(items.map(it => [it.s.fromPos, it.startHtml]));
+
+    // 闪换：把当前 3 份内容随机重排回 3 个格子（保证与当前排列不同；内容用 HTML 字符串当身份判重）
+    const shuffleContent = (current) => {
+        const pool = positions.map(p => current[p]);
+        if (pool.length < 2) return current;
+        for (let tries = 0; tries < 20; tries++) {
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            const next = {};
+            positions.forEach((p, i) => next[p] = pool[i]);
+            if (positions.some(p => next[p] !== current[p])) return next;
+        }
+        const next = {};
+        positions.forEach((p, i) => next[p] = pool[i]);
+        return next;
+    };
+    const applyContent = (map) => {
+        for (const p of positions) {
+            const cell = getCellByPos(camp, p);
+            if (cell) cell.innerHTML = map[p];
+        }
+    };
+    const flashCells = () => {
+        for (const p of positions) {
+            const cell = getCellByPos(camp, p);
+            if (!cell) continue;
+            cell.classList.remove('swap-flash');
+            void cell.offsetWidth;   // 强制重排触发动画重启
+            cell.classList.add('swap-flash');
+        }
+    };
+
+    // 起始排列 = 原格内容原样
+    let current = {};
+    positions.forEach(p => current[p] = startByPos.get(p));
+
+    // ① 高亮
+    flashCells();
+    await clock.wait(800);
+
+    // ② 原地闪换 N 次（内容随机重排，每格金闪）
+    const FLICKER_COUNT = 5;
+    const FLICKER_INTERVAL = 400;
+    for (let i = 0; i < FLICKER_COUNT; i++) {
+        current = shuffleContent(current);
+        applyContent(current);
+        flashCells();
+        await clock.wait(FLICKER_INTERVAL);
+    }
+
+    // ③ 凝固：红锁 + 中央「凝」（挂在三格几何中心）
+    for (const p of positions) {
+        const cell = getCellByPos(camp, p);
+        if (cell) {
+            cell.classList.remove('swap-flash');
+            cell.classList.add('swap-lock');
+        }
+    }
+    let cxSum = 0, cySum = 0, cnt = 0;
+    for (const p of positions) {
+        const cell = getCellByPos(camp, p);
+        if (!cell) continue;
+        const r = cell.getBoundingClientRect();
+        cxSum += r.left + r.width / 2;
+        cySum += r.top + r.height / 2;
+        cnt++;
+    }
+    let freezeMark = null;
+    if (cnt > 0) {
+        freezeMark = document.createElement('div');
+        freezeMark.setAttribute('data-fx', 'temporary');
+        freezeMark.textContent = '凝';
+        freezeMark.style.cssText = `position:fixed;left:${(cxSum / cnt).toFixed(1)}px;top:${(cySum / cnt).toFixed(1)}px;transform:translate(-50%,-50%) scale(0.4);font-size:52px;font-weight:900;color:#ff4500;text-shadow:0 0 18px rgba(255,69,0,1),0 0 50px rgba(255,69,0,.5);opacity:0;pointer-events:none;z-index:10030;transition:opacity .15s,transform .25s cubic-bezier(.2,.9,.3,1.3);`;
+        document.body.appendChild(freezeMark);
+        requestAnimationFrame(() => {
+            freezeMark.style.opacity = '1';
+            freezeMark.style.transform = 'translate(-50%,-50%) scale(1)';
+        });
+    }
+    await clock.wait(1200);
+
+    // ④ 落定：一次性切到引擎给的最终排列。
+    //   shuffleThreeSlots 只重排选中的 3 个格子内部，{fromPos 集合} == {toPos 集合}，
+    //   所以每个 toPos 都能在 startByPos 里找到对应的原内容。
+    const final = new Map();
+    for (const it of items) final.set(it.s.toPos, it.startHtml);
+    for (const p of positions) {
+        const cell = getCellByPos(camp, p);
+        if (!cell) continue;
+        cell.classList.remove('swap-lock');
+        if (final.has(p)) cell.innerHTML = final.get(p);
+    }
+    if (freezeMark) {
+        freezeMark.style.opacity = '0';
+        setTimeout(() => { if (freezeMark.parentNode) freezeMark.remove(); }, 300);
+    }
+    flashCells();
+    await clock.wait(250);
+    for (const p of positions) {
+        const cell = getCellByPos(camp, p);
+        if (cell) cell.classList.remove('swap-flash');
+    }
+
+    // 交回 store：dispatch POS_CHANGE 让 store 与视觉终态一致
+    if (c && c.store) {
+        c.store.dispatch({
+            type: STORE_ACTION_TYPES.APPLY_EVENTS,
+            events: swaps.map(s => ({
+                eventType: UNIT_EVENT_TYPES.POS_CHANGE,
+                uid: s.uid,
+                pos: s.toPos
+            }))
+        });
+    }
+}

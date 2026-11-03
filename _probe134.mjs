@@ -1,0 +1,26 @@
+globalThis.fetch = async (url) => {
+    const fs = await import('node:fs');
+    const p = fileURLToPath(new URL(url));
+    const text = fs.readFileSync(p, 'utf8');
+    return { ok: true, json: async () => JSON.parse(text) };
+};
+globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+globalThis.window = globalThis;
+globalThis.self = globalThis;
+import { fileURLToPath } from 'node:url';
+import { SeededRNG } from './infra/102-core-utils.js';
+import { initBattleTeams } from './modules/330-battle-init.js';
+import { loadGameData, loadHexEnhanceData } from './core/201-config-5v5-test.js';
+import { createStore, battleReducer } from './modules/306-battle-store.js';
+import { createInitialState } from './core/218-state-keys.js';
+import { GlobalStore } from './infra/104-global-store.js';
+await loadGameData();
+await loadHexEnhanceData();
+const rng = new SeededRNG(9);
+const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
+GlobalStore.set('battleStore', store);
+const { allyTeam, enemyTeam } = initBattleTeams(3, rng);
+console.log('=== ALLY (opening) ===');
+allyTeam.slice().sort((a,b)=>a.pos-b.pos).forEach(u=>console.log(`pos=${u.pos} uid=${u.uid} name=${u.name} alive=${u.alive} isHorse=${!!u.isHorse} isLionCub=${!!u.isLionCub} isZhang=${!!u.isZhang}`));
+console.log('=== ENEMY (opening) ===');
+enemyTeam.slice().sort((a,b)=>a.pos-b.pos).forEach(u=>console.log(`pos=${u.pos} uid=${u.uid} name=${u.name} alive=${u.alive}`));
