@@ -1,7 +1,7 @@
 // ui/709-ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
-export const VER = 'ui/709-ui-controls.js V7.9.2';
+export const VER = 'ui/709-ui-controls.js V7.9.3';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -29,7 +29,8 @@ export function bindCoverStart(gameStarted, updateSpeedButtons, onStart, buttonI
         if (typeof AudioManager.init === 'function') AudioManager.init();
         if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
         if (typeof AudioManager.play === 'function') AudioManager.play();
-        if (typeof AudioManager.setVolume === 'function') AudioManager.setVolume(0.5);
+        // 音量不再硬写 0.5：AudioManager 自己按 localStorage['ming_bgm_volume'] 恢复（init→_loadBgmAudio→_applyVolume），
+        //   否则每次开局都把用户调好的音量打回 50%
         updateSpeedButtons();
         if (typeof onStart === 'function') onStart();
     });
