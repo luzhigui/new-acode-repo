@@ -101,7 +101,8 @@ const SKILL_ICONS = {
     endlessBreath: '☯', baguaArray: '🔮', noContend: '🚫', tenRoundFortify: '🛡️',
     summonLion: '🦁', lionInspire: '⚔️', lionFollow: '🏹',
     rageOnHit: '💢', righteousFace: '🐷', youngBlood: '🔥',
-    normalAttack: '✋', counterAttack: '⚔️', thirdStrike: '🗡️', summonZhou: '👭'
+    normalAttack: '✋', counterAttack: '⚔️', thirdStrike: '🗡️', summonZhou: '👭',
+    bagTrap: '🧳', damageReflect: '⚡'
 };
 
 // 某些角色需要额外追加的固定排版（比如联动机制不是技能，是常驻被动）

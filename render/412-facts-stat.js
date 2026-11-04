@@ -142,6 +142,10 @@ export function renderWarriorExecuteFact(fact) {
 export function renderHorseReboundFact(fact) {
     return { type:'info', text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fact.rebound} 点反伤</span>` };
 }
+// 反伤弟子·反伤护盾（2026-11-04 补弹幕）：unitName=挨反弹的攻击者，sourceName=反弹来源
+export function renderDiscipleReboundFact(fact) {
+    return { type:'info', text:`<span class="red">⚡ 反伤护盾：${fact.sourceName}反弹 ${fact.rebound} 点给 ${fact.unitName}</span>` };
+}
 export function renderFortifyReboundFact(fact) {
     if (fact.hasSister) {
         const heal = Math.floor(fact.reboundDmg / 3);

@@ -82,6 +82,9 @@ registerMechanicHandler(MECHANIC_TYPES.DAMAGE_REFLECT, {
                     value,
                     source: target,         // 反弹来源=反伤弟子
                     target: unit,            // 承受反弹者=进攻者
+                    // 2026-11-04 补弹幕：factType 驱动 416 翻译 → REBOUND 舞台（飘字落攻击者头上）
+                    factType: FACT_TYPES.DISCIPLE_REBOUND,
+                    factData: { unitName: unit ? unit.name : '攻击者', sourceName: target.name, unitUid: unit ? unit.uid : null, rebound: value },
                     logText: `⚡ 反伤护盾：${target.name}反弹 ${value} 点伤害给 ${unit ? unit.name : '攻击者'}`
                 });
             }

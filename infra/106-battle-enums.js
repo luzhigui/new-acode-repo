@@ -26,6 +26,8 @@ export const FACT_TYPES = Object.freeze({
     SPIDER_DOUBLE_STRIKE: 'spiderDoubleStrike',
     STUN_SKIP: 'stunSkip', FLY_SKIP: 'flySkip',
     HORSE_REBOUND: 'horseRebound', FORTIFY_REBOUND: 'fortifyRebound',
+    // 反伤弟子·反伤护盾（2026-11-04 补弹幕）：{ unitUid=攻击者(飘字落点), sourceName=反伤弟子, rebound }
+    DISCIPLE_REBOUND: 'discipleRebound',
     METEOR_SPLASH_GROWTH: 'meteorSplashGrowth',
     WARRIOR_EXECUTE: 'warriorExecute',
     BLOOD_THIRST_LEECH: 'bloodthirstLeech', HOT_BLOOD_HEAL: 'hotBloodHeal', FLYER_REGEN: 'flyerRegen',

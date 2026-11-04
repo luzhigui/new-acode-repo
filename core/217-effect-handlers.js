@@ -210,8 +210,8 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
         // 审计账本：按 decl.factType 分组记进 unit._audit.hp
-        //   （马形阵 HORSE_REBOUND / 张无忌反击 FORTIFY_REBOUND），无 factType 的闪避反击不进契约、不记账
-        const reboundGroup = decl.factType === FACT_TYPES.HORSE_REBOUND ? 'horseRebound' : decl.factType === FACT_TYPES.FORTIFY_REBOUND ? 'fortifyRebound' : null;
+        //   （马形阵 HORSE_REBOUND / 张无忌反击 FORTIFY_REBOUND / 反伤弟子 DISCIPLE_REBOUND），无 factType 的闪避反击不进契约、不记账
+        const reboundGroup = decl.factType === FACT_TYPES.HORSE_REBOUND ? 'horseRebound' : decl.factType === FACT_TYPES.FORTIFY_REBOUND ? 'fortifyRebound' : decl.factType === FACT_TYPES.DISCIPLE_REBOUND ? 'discipleRebound' : null;
         if (reboundGroup) recordHpAudit(decl.target, reboundGroup, -(decl.value || 0), '反弹');
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
         // 严阵回血已改为 core/12 的独立 HEAL 声明，此处删掉旧的全额回血逻辑

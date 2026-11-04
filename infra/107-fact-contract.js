@@ -108,6 +108,8 @@ export const FACT_SPECS = Object.freeze({
     // 巨马反伤 / 严阵以待反弹
     [FACT_TYPES.HORSE_REBOUND]: { requiredFields: ['unitName', 'rebound'], renderFn: 'renderHorseReboundFact', translateFn: 'translateRebound' },
     [FACT_TYPES.FORTIFY_REBOUND]: { requiredFields: ['unitName', 'reboundDmg'], renderFn: 'renderFortifyReboundFact', translateFn: 'translateFortifyRebound' },
+    // 反伤弟子·反伤护盾（飘字落点=攻击者本人，与巨马同款 REBOUND 舞台）
+    [FACT_TYPES.DISCIPLE_REBOUND]: { requiredFields: ['unitName', 'sourceName', 'rebound'], renderFn: 'renderDiscipleReboundFact', translateFn: 'translateDiscipleRebound' },
 
     // 乘风 / 流星溅射
     [FACT_TYPES.WIND_ASSAULT_SPLASH]: { requiredFields: ['targets', 'splashDmg'], renderFn: 'renderWindAssaultSplashFact', translateFn: 'translateSplash' },

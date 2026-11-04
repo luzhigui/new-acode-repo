@@ -83,7 +83,17 @@ export const ATTACK_TRANSLATORS = {
     [FACT_TYPES.HORSE_REBOUND]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.REBOUND,
         actorUid: data.attackerUid ?? null,
-        targetUid: data.unitUid ?? null,
+        // 2026-11-04 修飘字落点：反弹伤害打在攻击者身上，须飘在攻击者（data.attackerUid）头顶；
+        //   原写 data.unitUid（巨马自己）——巨马没掉血却冒数字、攻击者掉血没字
+        targetUid: data.attackerUid ?? null,
+        dmg: Math.round(data.rebound ?? 0),
+        factIndex: index,
+        timing: 'afterText'
+    }),
+    [FACT_TYPES.DISCIPLE_REBOUND]: (data, index) => ({
+        kind: STAGE_ACTION_TYPES.REBOUND,
+        actorUid: data.unitUid ?? null,
+        targetUid: data.unitUid ?? null,     // 飘字落攻击者（unitUid=挨反弹者），sourceName 仅进日志
         dmg: Math.round(data.rebound ?? 0),
         factIndex: index,
         timing: 'afterText'
