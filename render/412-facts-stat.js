@@ -234,6 +234,7 @@ registerFactRenderer(FACT_TYPES.XIAO_ZHAO_HORSE, renderXiaoZhaoHorseFact);
 registerFactRenderer(FACT_TYPES.SPIDER_DOUBLE_STRIKE, renderSpiderDoubleStrikeFact);
 registerFactRenderer(FACT_TYPES.WARRIOR_EXECUTE, renderWarriorExecuteFact);
 registerFactRenderer(FACT_TYPES.HORSE_REBOUND, renderHorseReboundFact);
+registerFactRenderer(FACT_TYPES.DISCIPLE_REBOUND, renderDiscipleReboundFact);
 registerFactRenderer(FACT_TYPES.FORTIFY_REBOUND, renderFortifyReboundFact);
 registerFactRenderer(FACT_TYPES.SUMMON_UNIT, renderSummonUnitFact);
 registerFactRenderer(FACT_TYPES.LION_GROW, renderLionGrowFact);
