@@ -367,7 +367,8 @@ export function renderGrid(id, camp) {
 
         // 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
         //   蓝档加「具名」门槛（老板：蓝色只给弱精英，不该给所有 104）：无名杂兵（空闻/班淑娴等）落黑
-        const nameTier = displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : (displayTierM >= 104 && isNamedCharacter(displayName)) ? 'name-blue' : '';
+        //   绿档=说不得（2026-11-04 老板拍板普通绿 --c-green；demo 十状态验过：休息深绿底仍可读，亮绿不可读被毙）
+        const nameTier = displayName === '说不得' ? 'name-green' : displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : (displayTierM >= 104 && isNamedCharacter(displayName)) ? 'name-blue' : '';
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) compressName = true;
