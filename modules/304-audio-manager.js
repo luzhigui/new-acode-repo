@@ -1,8 +1,8 @@
-// modules/304-audio-manager.js — 音频总控（BGM 走 HTMLAudioElement，音效走 WebAudio）
-// V6.5.0 | 2026-11-04 | BGM 回到历史实现（new Audio(url)，见 5a6d0a87 的 modules/28audio-manager.js）：
-//   file:// 直开时浏览器把 fetch 一律拦成 net::ERR_FAILED，而 <audio> 允许加载 —— 这是 file:// 与 http 都通吃的唯一途径。
-//   音效仍走 fetch + decodeAudioData（与历史一致；file:// 下同样会被拦，属浏览器限制）。
-export const VER = 'modules/304-audio-manager.js V6.5.0';
+// modules/304-audio-manager.js — 音频总控（BGM 与音效均走 HTMLAudioElement，WebAudio 只留合成音）
+// V6.5.1 | 2026-11-04 | 音效也改走 <audio>：BGM 修好后 file:// 下剩下的 4 条「音效加载失败/Failed to fetch」
+//   全是 fetch 被拦导致；音效改为建元素预热 + 播放时新建一份（可叠放），彻底不碰 fetch。
+//   合成音（狮吼）仍用 WebAudio，不依赖文件。
+export const VER = 'modules/304-audio-manager.js V6.5.1';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
@@ -16,8 +16,10 @@ function getAudioCtx() {
     return audioCtx;
 }
 
-// 预加载的音效缓冲区
-const sfxBuffers = {};
+// 音效：同样走 HTMLAudioElement，不走 fetch。
+//   每个 role 预建一个元素暖缓存（浏览器自己记），播放时按同 URL 新建一份——同音效可叠放，
+//   且 file:// 直开时不会被 fetch 的同源策略拦掉。
+const sfxEls = {};
 
 // BGM 播放：单个 HTMLAudioElement（与历史实现同款）。浏览器自己管加载/缓存/解码，
 // 不走 fetch —— file:// 下 fetch 会被浏览器安全策略直接拦死。
@@ -25,44 +27,33 @@ let _bgmAudio = null;
 // 播完自动切歌用：每次主动停播都自增，让在飞的 ended 回调失效（否则「暂停/切歌」会被误判成「播完」）
 let _bgmGen = 0;
 
-// 预加载所有 mp3 音效文件到内存
-async function loadSfxBuffer(key, url) {
+// 预热一个音效文件：只建元素，不播；浏览器据此把文件读进缓存
+function preloadSfx(key, url) {
     try {
-        const ctx = getAudioCtx();
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        sfxBuffers[key] = audioBuffer;
+        const el = new Audio(url);
+        el.preload = 'auto';
+        sfxEls[key] = el;
     } catch (e) {
-        console.warn('音效加载失败:', url, e);
+        // 拿不到文件就静音，不影响游戏
     }
 }
 
-// 初始化：预加载所有 mp3 音效
+// 初始化：预热所有 mp3 音效
 export async function initSfx() {
-    const sfxConfig = CONFIG.SFX || {};
-    const promises = [];
-    for (const [role, path] of Object.entries(sfxConfig)) {
-        promises.push(loadSfxBuffer(role, path));
+    for (const [role, path] of Object.entries(CONFIG.SFX || {})) {
+        preloadSfx(role, path);
     }
-    await Promise.all(promises);
 }
 
-// 播放已预加载的 mp3 音效（应用独立音量）
-function playBufferSfx(key, volume) {
-    const buffer = sfxBuffers[key];
-    if (!buffer) return;
+// 播放一个音效（每次新建元素：可叠放，音量独立）
+function playSfxFile(key, volume) {
+    const base = sfxEls[key];
+    if (!base || !base.src) return;
     try {
-        const ctx = getAudioCtx();
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-
-        const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        source.start();
+        const el = new Audio(base.src);
+        el.volume = Math.max(0, Math.min(1, volume));
+        const p = el.play();
+        if (p && p.catch) p.catch(() => {});
     } catch (e) {
         // 播放失败不影响游戏
     }
@@ -306,7 +297,7 @@ export const AudioManager = {
 
             const ctx = getAudioCtx();
             if (ctx.state === 'suspended') { ctx.resume(); }
-            playBufferSfx(role, this.sfxVolume);
+            playSfxFile(role, this.sfxVolume);
         } catch (e) {
             // 音效播放失败不影响游戏
         }
