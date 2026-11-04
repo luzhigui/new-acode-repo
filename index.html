@@ -412,10 +412,12 @@
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
-<script type="module" src="./infra/104-global-store.js"></script>
-<script type="module" src="./fx/610-fx-subscriber.js"></script>
-<script type="module" src="./ui/721-perf-panel.js"></script>
-<script type="module" src="./ui/702-main-5v5-test.js"></script>
+<!-- 代码指纹：只挂 4 个入口 script，发版时把 3.5.2 这个数字 +1 即可让 http 端立刻拿新代码。
+     只影响 js 缓存，mp3/图片由 sw.js 永久账本管，与这里无关；file:// 下浏览器不吃 HTTP 缓存，照常可开。 -->
+<script type="module" src="./infra/104-global-store.js?v=3.5.2"></script>
+<script type="module" src="./fx/610-fx-subscriber.js?v=3.5.2"></script>
+<script type="module" src="./ui/721-perf-panel.js?v=3.5.2"></script>
+<script type="module" src="./ui/702-main-5v5-test.js?v=3.5.2"></script>
 <script>
 // 本地管家注册（2026-11-04 晚收缩版）：只管音乐/图片永久账本（BGM 一次下载终身秒响）；
 // 代码已撤出管家回指纹刷新——白天全托管版的零散对账在慢网下产出半新半旧拼盘，已老实。
