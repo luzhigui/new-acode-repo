@@ -420,7 +420,11 @@
 // 本地管家注册（2026-11-04 晚收缩版）：只管音乐/图片永久账本（BGM 一次下载终身秒响）；
 // 代码已撤出管家回指纹刷新——白天全托管版的零散对账在慢网下产出半新半旧拼盘，已老实。
 // 失败静默：老浏览器/特殊环境照旧走网络；绕过管家在任意 URL 加 ?nosw=1
-if ('serviceWorker' in navigator) {
+// 仅 http(s) 注册：file:// 直开（VS Code 预览 / 双击 html）下注册会异常，
+// 把 fetch 与 <audio> 的本地媒体请求全拦成 net::ERR_FAILED（BGM、音效全灭）。
+const _swAllowed = (location.protocol === 'http:' || location.protocol === 'https:')
+    && !new URLSearchParams(location.search).has('nosw');
+if (_swAllowed && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
