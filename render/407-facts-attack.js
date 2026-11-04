@@ -199,6 +199,9 @@ export function renderAttackFact(fact) {
         type:'damage-text',
         deadFlag: directKill,
         dmg: Math.round(dmgResult.dmg),
+        // 2026-11-04 补丢字段：player/46 发飘字与血条预演的门槛是 dmg>0 且 hpAfter!==undefined——
+        //   飘字从 fx 层搬到 player 层时只带出了 dmg，hpAfter 忘带 → 全仓普攻掉血飘字集体哑火（老板实锤三轮）
+        hpAfter: targetHpAfter,
         text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {
