@@ -2,12 +2,12 @@
 export const VER = 'fx/601-fx-common-5v5-test.js V6.3.14';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
-import { snapshotUnitCell, snapshotCellByPos } from './611-fx-ref-manager.js';
+import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
 import { clock } from '../infra/103-clock.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 
-const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2 };
+const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 12, dodge: 4, healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2 };  // dmgFloat 6→12：反伤/连击高频小值下防池满抢位挤兑（2026-11-04）
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
 
 function acquireFromPool(type, setupFn, duration) {
@@ -88,8 +88,11 @@ const DMG_STACK_WINDOW = 350;   // ms：同单位在此窗口内的第 N 条上�
 const DMG_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
 const DMG_STACK_STEP = 30;      // 每层上移像素（从 20 加大到 30，强行拉开视觉距离）
 export function showDamageFloat(unit, dmg) {
-    const rect = snapshotUnitCell(unit);
-    if (!rect) return;
+    // 2026-11-04 换 Robust 版：格子重绘瞬间 rect 全 0 → 飘字钉死屏幕左上角 (0,0) 常驻不消失，
+    //   且 dmgFloat 池仅 6 个名额被僵尸占坑后正常飘字被抢位挤兑（老板实锤"普攻掉血弹幕有问题"）。
+    //   Robust 版对全 0 rect 用 grid 按行列推算，落点正确。
+    const rect = snapshotUnitCellRobust(unit);
+    if (!rect || !(rect.width > 0)) return;
     const now = Date.now();
     let rec = _dmgFloatStack.get(unit.uid);
     if (!rec || now - rec.lastAt > DMG_STACK_WINDOW) rec = { count: 0, lastAt: now };

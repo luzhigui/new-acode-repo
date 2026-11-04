@@ -101,7 +101,9 @@ export const ATTACK_TRANSLATORS = {
     [FACT_TYPES.FORTIFY_REBOUND]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.REBOUND,
         actorUid: data.attackerUid ?? null,
-        targetUid: data.unitUid ?? null,
+        // 2026-11-04 修落点（与巨马同病）：反弹伤害扣在攻击者身上，须飘攻击者（attackerUid）头顶；
+        //   原写 data.unitUid（防战自己）——防战没掉血却冒数字、攻击者掉血没字
+        targetUid: data.attackerUid ?? null,
         dmg: Math.round(data.reboundDmg ?? 0),
         bannerText: '🛡️ 严阵以待！',
         factIndex: index,
