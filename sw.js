@@ -28,6 +28,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // file:// 等非 http(s) 载体下一律不拦截：管家内部 fetch(key) 会被协议直接拦死，
+    //   只会把每个 mp3/图片回成 Response.error()，媒体元素遂报 Format error（BGM/音效全灭）。
+    if (self.location.protocol !== 'http:' && self.location.protocol !== 'https:') return;
     const req = event.request;
     if (req.method !== 'GET') return;
     const url = new URL(req.url);
