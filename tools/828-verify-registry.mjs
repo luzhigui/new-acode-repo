@@ -28,6 +28,23 @@ const game = JSON.parse(read('content/001-game-data.json'));
 const r = game.roster || {};
 const mSrc = {}; // name -> [where:m]
 const addM = (name, m, where) => { if (name && m != null) (mSrc[name] = mSrc[name] || []).push(`${where}:${m}`); };
+// 折叠 A 段「主代码m=」的重复来源：按 [来源, 值] 计数，同来源同值只留一个并标 ×N。
+// 例：enemyM:107/enc:107×5  —— 值和来源都保留，重复次数一眼可见。
+// 只影响显示，不参与任何判据（B 段比较走的是自己的 ms，不经过这里）。
+const fmtM = (arr = []) => {
+  if (!arr.length) return '?';
+  const counts = new Map();
+  for (const s of arr) {
+    const i = s.lastIndexOf(':');
+    const key = `${s.slice(0, i)}:${s.slice(i + 1)}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts].map(([key, n]) => {
+    if (n === 1) return key;
+    const i = key.lastIndexOf(':');
+    return `${key.slice(0, i)}:${key.slice(i + 1)}×${n}`;
+  }).join('/');
+};
 for (const [k, v] of Object.entries(r.mingM || {})) addM(k, v, 'mingM');
 for (const [k, v] of Object.entries(r.enemyM || {})) addM(k, v, 'enemyM');
 for (const e of (r.eliteConfigs || [])) addM(e.name, e.m, 'eliteConfigs');
@@ -102,10 +119,10 @@ for (const n of uncovered) {
   const sameAs805 = heroMeta[n] ? `  805.baseM=${heroMeta[n].baseM}` : '  805:无此英雄';
   const known = KNOWN_DIFFS[n];
   if (known) {
-    console.log(`  • ${n}  [${whereFrom(n)}]  主代码m=${ms.join('/') || '?'}  ${sameAs805}`);
+    console.log(`  • ${n}  [${whereFrom(n)}]  主代码m=${fmtM(ms)}  ${sameAs805}`);
     console.log(`      ↳ 已知差异(白名单)：${known}`);
   } else {
-    console.log(`  ⚠ ${n}  [${whereFrom(n)}]  主代码m=${ms.join('/') || '?'}  ${sameAs805}`);
+    console.log(`  ⚠ ${n}  [${whereFrom(n)}]  主代码m=${fmtM(ms)}  ${sameAs805}`);
     console.log(`      → 建议补进 827 对应名单（NATURAL / SOLO / WEAK / BOSS）`);
     newProblems.push(n);
   }
@@ -115,7 +132,7 @@ console.log('\n── B. 805 HERO_META 数值漂移（vs 主代码 m 权威源�
 const drift = [];
 for (const [n, v] of Object.entries(heroMeta)) {
   const norm = n.replace(/·[一-龥]+$/, '');            // 归一化：小昭·姊/妹 → 小昭，对齐 roster.eliteConfigs 的键
-  const ms = (mSrc[norm] || mSrc[n] || []).map(s => Number(s.split(':')[1]));
+  const ms = [...new Set((mSrc[norm] || mSrc[n] || []).map(s => Number(s.split(':')[1])))];
   const ok = ms.length && ms.includes(v.baseM);
   if (!ok) drift.push({ n, shopM: v.baseM, src: ms.length ? ms.join('/') : '主代码无记录' });
 }

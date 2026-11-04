@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V6.4.7 | 2026-10-30 预加载补 002-hex-enhance.json（小昭 hexEnhance 迁出 200 后，建队/姐妹强化都读它）。
      V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
      V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
@@ -569,12 +569,12 @@
             { label: '生涯记录 · 单海克斯', keys: ['ming_career_log_5v5_test'] },
             { label: '生涯记录 · 双海克斯', keys: ['ming_career_log_5v5_dual'] },
             { label: '生涯记录 · 元信息（丢弃计数）', keys: ['ming_career_log_5v5_meta'] },
-            { label: '108 海克斯跑批日志', prefix: 'ming_hex_battle_log' },
-            { label: '112 精英评测快照', keys: ['ming_elite_eval_snaps'] },
-            { label: '134 创意摸奖 · 收藏', keys: ['ming_idea_pinned'] },
-            { label: '135 参数扫描结果', keys: ['ming_param_scan_result', 'ming_param_search_result'] },
-            { label: '138 弱精英机制贡献', keys: ['ming_weak_elite_contrib'] },
-            { label: '137 语音解说存档', keys: ['ming_voice_commentary'] }
+            { label: '808 海克斯跑批日志', prefix: 'ming_hex_battle_log' },
+            { label: '812 精英评测快照', keys: ['ming_elite_eval_snaps'] },
+            { label: '834 创意摸奖 · 收藏', keys: ['ming_idea_pinned'] },
+            { label: '835 参数扫描结果', keys: ['ming_param_scan_result', 'ming_param_search_result'] },
+            { label: '838 弱精英机制贡献', keys: ['ming_weak_elite_contrib'] },
+            { label: '837 语音解说存档', keys: ['ming_voice_commentary'] }
         ];
         const lsAllKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
         const lsSizeOf = k => { try { return (localStorage.getItem(k) || '').length; } catch (e) { return 0; } };

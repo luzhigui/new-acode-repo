@@ -2,7 +2,9 @@
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.8.3';
+export const VER = 'tools/808-hex-dashboard.js V6.8.4';
+// V6.8.4 | 2026-11-04 按钮区排版（老板截图：模式对比与复制结果贴着且同色）：
+//           四个操作按钮收进独立一行 flex（gap 8px），「复制结果」改紫色 #b39ddb 与模式对比的蓝色区分。
 // V6.8.3 | 2026-11-02 修手机端「模式对比」表字重叠（老板截图）：9 列挤进 ~400px 屏，每列只剩 ~30px、
 //           数字竖排叠字。改成表体横向滚动：套 .hex-cmp-wrap（overflow-x:auto），表 min-width:720px、
 //           单元格 white-space:nowrap（第一列名字保持可换行），窄屏左右滑动看全 8 列，不再挤压。
@@ -385,10 +387,12 @@ function openHexDashboard() {
           <option value="all">海克斯：单+双（一起跑）</option>
         </select>
         <button class="hex-hex-load hex-hex-run" style="margin-left:10px">⚡ 自动跑</button>
-        <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（按当前关卡读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e;margin-left:6px">🔀 模式对比</button>
-        <button class="hex-hex-cross" title="选一个海克斯，看它在 1–7 关 × 四种阵容模式的表现（跨关读全部已存榜，不重跑）" style="background:#81c784;color:#1a1a2e;margin-left:6px">📈 跨关对比</button>
-        <button class="hex-hex-copy" title="把弹窗里当前显示的所有表复制成 Markdown（能贴进聊天/存档）" style="background:#4fc3f7;color:#1a1a2e;margin-left:6px">📋 复制结果</button>
-        <button class="hex-hex-clear" style="margin-left:6px">清空数据</button>
+        <div class="hex-hex-actions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+          <button class="hex-hex-cmp" title="四种阵容模式并排比同一批海克斯的胜率（按当前关卡读各模式已存榜，不重跑）" style="background:#4fc3f7;color:#1a1a2e">🔀 模式对比</button>
+          <button class="hex-hex-cross" title="选一个海克斯，看它在 1–7 关 × 四种阵容模式的表现（跨关读全部已存榜，不重跑）" style="background:#81c784;color:#1a1a2e">📈 跨关对比</button>
+          <button class="hex-hex-copy" title="把弹窗里当前显示的所有表复制成 Markdown（能贴进聊天/存档）" style="background:#b39ddb;color:#1a1a2e">📋 复制结果</button>
+          <button class="hex-hex-clear" style="background:#f44336;color:#fff;margin-left:0">清空数据</button>
+        </div>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
         <div id="hexDashCompare"></div>

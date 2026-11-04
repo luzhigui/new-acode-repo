@@ -3,7 +3,7 @@
 > **写给后续 AI 助手**：本目录的工具有两类受众——给人用的浏览器页面、给你（AI）用的 node 直跑工具。
 > 动手造轮子之前，**先查这张表**；多数「跑一批战斗看数据」的需求都有现成口径可借，别自写骨架。
 > 借用原则：**口径必须与既有工具逐字对齐**（清场、种子公式、海克斯开关、归因方式），跑出来的数字才和已有报表可比。
-> 最后核对：2026-11-01（表内命令均在仓库根目录执行）。
+> 最后核对：2026-11-03（表内命令均在仓库根目录执行）。
 
 ---
 
@@ -12,10 +12,17 @@
 | 工具 | 干什么 | 怎么跑 | 借用注意 |
 |---|---|---|---|
 | `818-import-export-check.mjs` | 静态对账：每个 `import { 名字 }` 的具名绑定，目标文件是否真的导出 | `node tools/818-import-export-check.mjs` | 改完 import/export 后必跑，秒级 |
-| `819-auto-tuner.mjs` | 平衡参数敏感度分析（单参数扰动排行榜） | `node tools/819-auto-tuner.mjs` | 动 content 数值前后跑，看敏感度方向 |
-| `821-param-lab.mjs` | 参数对照实验台（固定关×固定阵容×固定海克斯×配对 seed） | `node tools/821-param-lab.mjs` | 逻辑核心在 `822-param-lab-core.js`（浏览器/node 共用），CLI 只是薄壳 |
+| `828-verify-registry.mjs` | 数据护栏：主代码精英池/数值 vs 工具名单（827）与 805 HERO_META 是否漂移 | `node tools/828-verify-registry.mjs`（= `npm run verify:tools`） | 加精英、改 m 值、改出场方式后必跑；已知差异走白名单 |
+| `819-auto-tuner.mjs` | 平衡参数敏感度分析（单参数扰动排行榜） | `node tools/819-auto-tuner.mjs` | 动 content 数值前后跑，看敏感度方向。**全崩会退出码 1**（历史坑见下） |
+| `821-param-lab.mjs` | 参数对照实验台（固定关×固定阵容×固定海克斯×配对 seed） | `node tools/821-param-lab.mjs --sample --stage 3` 先出阵容清单，再跑对照 | 逻辑核心在 `822-param-lab-core.js`（浏览器/node 共用），CLI 只是薄壳 |
 | `806-ai-pack-config.js` | 生成给 AI 的代码包（文件清单登记处） | 由 `803-toolkit.js` 消费 | **新加/改文件号后要同步登记**，否则 AI 包漏文件 |
 | `806b-server.js` | 工具链本地静态服务器 | `node tools/806b-server.js` | 浏览器工具页的本地宿主 |
+
+> ⚠️ **机制装配铁律（2026-11-03 修 819 时确立）**：node 侧任何要跑战斗的脚本，机制注册
+> **只 import `modules/301-reg-mechanics.js` 这一行**，不要手装 307/308/317/331 ——
+> 手装必漏。819 当年手装三行漏了 331（dotTick/damageReflect），鹿杖客一出场就抛
+> `未知顶层机制 type "dotTick"`，异常被 `catch` 吞成「异常局=280」，表现为全关基线 0.0%、
+> 参数项 0、看起来像「没有敏感参数」——整台工具静默失效且没人发现。
 
 ## 二、AI 写探针时的标准骨架（抄这三处，别从零写）
 
@@ -26,13 +33,13 @@
 
 ## 三、浏览器页面（人用，AI 只读逻辑别执行）
 
-`802-toolkit.html`（工具箱主页，含文件复制器 103、精英评测 112、底部的「🧰 备用工具」折叠区：统计一致性体检 113 / 精英基线对比 114 / 阵容分布搜索 115）、`805-shop.html`、`107-battle-log-viewer`（战报查看）、`108-hex-dashboard`（海克斯看板）、`109-role-balance`（职业平衡）、`810-role-balance-random.html`、`820-param-lab.html`（参数实验室 UI）。
-- `834-idea-lab.html`（创意摸奖：四类创意 × 三种摸法，自带元素池；合法性标签按 content 的 mechanics.type + 124 的 TYPE_GLOSSARY 判定。外部词条由 `node tools/834-fetch-pool.mjs` 手动维护进 `834-idea-pool-additions.json`）。
-- `835-param-scan.html`（参数扫描：A 敏感度扫描 + 死参数清单，B 定向搜索贪心叠加；复用 122/123，阵容取每关最高频精英组合的 medoid，基线与补丁逐局同 seed 配对）。
-- `838-elite-contrib.html`（弱精英机制贡献：`kind:'weakContrib'` 的消费端，配对臂口径同 112「弱精英评测」，额外观测技能/fact/探针逐场触发数；带 95% 显著性、与 112 交叉印证，可复制报告/导出 CSV）。
+`802-toolkit.html`（工具箱主页，含文件复制器 803、精英评测 812、底部「🧰 备用工具」折叠区共 10 张卡片：统计一致性体检 813 / 精英基线对比 814 / 阵容分布搜索 815 / 创意摸奖 834 / 参数扫描 835 / 语音解说存档 836+837 / 日志复盘 807 / 参数实验台 820 / 弱精英机制贡献 838 / 工具数据总览）、`805-shop.html`、`807-battle-log-viewer`（战报复盘）、`808-hex-dashboard`（海克斯看板）、`809-role-balance`（职业平衡）、`810-role-balance-random.html`、`820-param-lab.html`（参数实验室 UI）。
+- `834-idea-lab.html`（创意摸奖：四类创意 × 三种摸法，自带元素池；合法性标签按 content 的 mechanics.type + 824 的 TYPE_GLOSSARY 判定。外部词条由 `node tools/834-fetch-pool.mjs` 手动维护进 `834-idea-pool-additions.json`）。
+- `835-param-scan.html`（参数扫描：A 敏感度扫描 + 死参数清单，B 定向搜索贪心叠加；复用 822/823，阵容取每关最高频精英组合的 medoid，基线与补丁逐局同 seed 配对）。
+- `838-elite-contrib.html`（弱精英机制贡献：`kind:'weakContrib'` 的消费端，配对臂口径同 812「弱精英评测」，额外观测技能/fact/探针逐场触发数；带 95% 显著性、与 812 交叉印证，可复制报告/导出 CSV）。
 - `833-md-reader.html`（MD 阅读器：dev-index「文档与准则」的文本入口，用法 `?f=<仓库根相对路径>`，手机上看长文档不缩字）。
-- 这些页面背后的**战斗引擎逻辑在 116/122/123 worker 里**，node 侧可直接 import 复用，不用起浏览器。
-- 112 的「⚔ 强精英胜率」按钮（2026-10-08 新增）走的 `kind:'soloElite'` 就是第一节单英雄口径的 worker 版。
+- 这些页面背后的**战斗引擎逻辑在 816/822/823 worker 里**，node 侧可直接 import 复用，不用起浏览器。
+- 812 的「⚔ 强精英胜率」按钮（2026-10-08 新增）走的 `kind:'soloElite'` 就是第一节单英雄口径的 worker 版。
 
 ## 四、历史探针（留档，遇到同类症状先读再用）
 

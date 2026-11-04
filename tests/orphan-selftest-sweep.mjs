@@ -1,3 +1,8 @@
+// tests/orphan-selftest-sweep.mjs | V1.1.0 | 2026-11-04 迭代：collectScripts 改递归扫描（跳过
+//     .mut 变异冻结树与 node_modules），把 tests/health-rules/（48 个运行时规则）与 tests/_lib/
+//     （10 个辅助库）纳入普查视野。旧版只 readdirSync(tests) 顶层，使这两个子目录完全不在「孤儿
+//     普查」里 —— 专抓盲区的脚本自己有盲区，与第 147 轮后 ver-bump 只扫顶层同族。health-rules/
+//     归 runtimeRule 免跑但点名计入免跑面（浏览器宿主运行时规则，由 120test-runner 体检层盯守）。
 // tests/orphan-selftest-sweep.mjs | V1.0.0 | 2026-10-28 夜间第 147 轮：新增「孤儿自检普查」。
 //
 //
@@ -29,7 +34,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditAnchorSites, stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/orphan-selftest-sweep.mjs V1.0.0';
+export const VER = 'tests/orphan-selftest-sweep.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -102,17 +107,31 @@ function auditRegistry() {
 // ---------------------------------------------------------------------------
 // ② 孤儿枚举与分类
 // ---------------------------------------------------------------------------
+// 递归收集 tests/ 下所有 .mjs/.js（相对路径形如 tests/health-rules/157-...js）。
+// ★ 跳过 .mut（变异冻结树：含陈旧版本号与主代码副本，会炮制假孤儿/假漂移）与 node_modules。
+// ★ 旧版只 readdirSync(tests) 顶层 → 漏掉 health-rules/ 与 _lib/ 整个子目录，使专抓盲区的
+//   本件自己有盲区（与 ver-bump 只扫顶层同族）。递归后子目录文件经 classify 按前缀分发。
 function collectScripts() {
-    let names = [];
-    try {
-        names = fs.readdirSync(path.join(root, 'tests'));
-    } catch (e) {
-        return [];
+    const out = [];
+    const seen = new Set();
+    function walk(rel) {
+        let ents;
+        try {
+            ents = fs.readdirSync(path.join(root, rel), { withFileTypes: true });
+        } catch (e) {
+            return;
+        }
+        for (const e of ents) {
+            if (e.name === '.mut' || e.name === 'node_modules' || e.name === '.git') continue;
+            const full = rel + '/' + e.name;
+            if (e.isDirectory()) { walk(full); continue; }
+            if (e.isFile() && (e.name.endsWith('.mjs') || e.name.endsWith('.js'))) {
+                if (!seen.has(full)) { seen.add(full); out.push(full); }
+            }
+        }
     }
-    return names
-        .filter((n) => n.endsWith('.mjs') || n.endsWith('.js'))
-        .map((n) => 'tests/' + n)
-        .sort();
+    walk('tests');
+    return out.sort();
 }
 
 // 库文件判据：tests/ 下有没有别的文件 import 它（按 basename 匹配 import 路径尾段）
@@ -138,6 +157,13 @@ function classify(rel, importedBases, registry) {
     //   （rule-branch-idle-selftest 就是两兼），先判在册才不会把在册自检误当孤儿。
     if (registry.has(rel)) return { kind: 'registered', why: '已在 run-all 清单（CHECKS 或 OBSERVES）里，有人盯' };
     if (HEAVY_SKIP[rel]) return { kind: 'heavy', why: HEAVY_SKIP[rel] };
+    // ★ 2026-11-04 迭代：tests/health-rules/ 是浏览器宿主运行时规则（tests/121health-monitor.js
+    //   经 readdir 自动加载进 47 条运行时规则套件），node 直跑无意义，由浏览器体检层
+    //   （120test-runner.html?auto=1）盯守，不在 run-all 清单属正常。归 runtimeRule 免跑但点名计入
+    //   免跑面（旧版因只扫 tests 顶层，这 48 个文件连"免跑面"都进不去，彻底隐形）。
+    if (rel.startsWith('tests/health-rules/')) {
+        return { kind: 'runtimeRule', why: '浏览器宿主运行时规则（tests/121health-monitor.js 经 readdir 自动加载进运行时规则套件），node 直跑无意义；由浏览器体检层（120test-runner.html?auto=1）盯守，不在 run-all 清单属正常' };
+    }
     const base = path.basename(rel);
     if (importedBases.has(base)) return { kind: 'library', why: '被 tests/ 下别的文件 import，是库不是自检' };
     const src = readIfExists(rel);

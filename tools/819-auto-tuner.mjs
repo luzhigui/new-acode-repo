@@ -1,5 +1,9 @@
 // tools/819-auto-tuner.mjs — 平衡参数敏感度分析（A 步：单参数扰动排行榜）
-export const VER = 'tools/819-auto-tuner.mjs V1.0.0';
+export const VER = 'tools/819-auto-tuner.mjs V1.1.0';
+// V1.1.0 | 2026-11-03 修复「整个工具静默失效」：机制装配改为唯一的 modules/301-reg-mechanics 入口
+//   （原手装 307/308/317 漏 331-custom-effects，鹿杖客 dotTick 让每局安装期抛错，被 catch 吞成
+//   「异常局=280」，表现为全关基线 0.0% / 参数项 0 / 无显著参数——即假绿）。
+//   同时补异常留档：首个异常的类型/消息/栈 + 全崩时退出码 1、部分崩退出码 2，杜绝再次静默。
 //
 // 用法：
 //   node tools/819-auto-tuner.mjs                                  # 全关卡 / 40 seed / ±20%
@@ -12,6 +16,13 @@ export const VER = 'tools/819-auto-tuner.mjs V1.0.0';
 //     characters.<名>.skills.<技能>.params.<键> 里 typeof === 'number' 的项。
 //   · 一次只动一个参数，× (1+delta) 与 × (1-delta) 各跑同一批 seed；Δ = 两方向 |新胜率-基线| 的最大值。
 //   · 参数注入走内存改写（loadGameData 返回的就是缓存本体，getSkillParams 读它），跑完立即还原。
+//   · ⚠ 已知口径缺陷（V1.1.0 记录，未改，等拍板）：seed 直接用 1000+i 连续小整数，没有走
+//     822-param-lab-core 的 mixSeed 散列。xorshift32 首个随机数与 seed 强相关，而
+//     modules/330-battle-init 第一抽就是精英人数骰 —— 实测第3关 500 局：
+//     本工具 raw 种子 单精英 69.8% / 双精英 30.2%；822 散列 单 83.6% / 双 16.4%。
+//     即本工具的阵容分布系统性偏「双精英」，胜率绝对值与 108/112/120 等工具不可直接横比。
+//     因参数扰动是对同一批 seed 做的配对比较（Δ/方向仍可用），故暂不改；若要横比绝对值，
+//     改成 mixSeed(seed) 即可，但历史报表会断代。
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -65,9 +76,11 @@ const [{ CONFIG, loadGameData, loadHexEnhanceData }, { initBattleTeams }, { Seed
         import('../core/210-battle-round.js')
     ]);
 await import('../modules/302-elite-skills.js');   // 副作用：注册 damageModifiers / xiaoHexEnhance 等 query
-await import('../modules/307-elite-imperial.js');
-await import('../modules/308-elite-sixsects.js');
-await import('../modules/317-elite-mingjiao.js');
+// 机制装配统一入口（V1.0.1 收口，与 816/822/815/probe-* 同口径）：
+//   原散装三行 307/308/317 漏了 331-custom-effects（dotTick / damageReflect），
+//   鹿杖客一旦出场，core/15 安装期校验抛「未知顶层机制 type "dotTick"」，
+//   runOne 的 catch 把异常吞成 err++，于是每关胜率恒 0.0%、参数项恒 0、报表全空——整个工具静默失效。
+await import('../modules/301-reg-mechanics.js');
 const game = await loadGameData();              // 返回的就是 01 的缓存本体，getSkillParams 读它
 await loadHexEnhanceData();                     // // 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
@@ -124,12 +137,22 @@ function runOne(seed, stage) {
     return { winner, names };
 }
 
+// 首个异常留档：本工具历史上曾被「异常局=280 但一个字原因都不打」坑过——
+// 漏装 modules/301 导致每局安装期抛错，被 catch 吞掉后报表全 0，看起来只是「参数没影响」。
+const firstErr = { msg: null, stack: null, where: null };
+function recordErr(e, where) {
+    if (firstErr.msg) return;
+    firstErr.msg = e && e.message ? e.message : String(e);
+    firstErr.stack = (e && e.stack) || '';
+    firstErr.where = where;
+}
+
 // 跑一批 seed，返回明教胜率
 function winRate(stage) {
     let w = 0, err = 0;
     for (const seed of SEEDS) {
         try { if (runOne(seed, stage).winner === '明教') w++; }
-        catch (e) { err++; }
+        catch (e) { err++; recordErr(e, `扰动 seed=${seed} 关=${stage}`); }
     }
     return { rate: w / SEEDS.length, err };
 }
@@ -145,7 +168,7 @@ for (const stage of STAGES) {
             const r = runOne(seed, stage);
             if (r.winner === '明教') mingWins++;
             r.names.forEach(n => nameSet.add(n));
-        } catch (e) { err++; }
+        } catch (e) { err++; recordErr(e, `基线 seed=${seed} 关=${stage}`); }
     }
     baseline[stage] = { rate: mingWins / SEEDS.length, wins: mingWins, names: [...nameSet], err };
 }
@@ -220,7 +243,25 @@ if (flat.length === 0) console.log('- （无）');
 else for (const r of flat) console.log(`- 关卡${r.stage} / ${r.char} / ${r.skill} / ${r.key}（原值 ${num(r.value)}，|Δ|=${pct(r.delta)}）`);
 
 const totalErr = rows.reduce((s, r) => s + r.err, 0) + STAGES.reduce((s, st) => s + baseline[st].err, 0);
+const totalRuns = rows.length * SEEDS.length * 2 + STAGES.length * SEEDS.length;
 console.log(`\n运行参数：stages=${STAGES.join(',')}，seeds=${SEEDS.length}（${SEEDS[0]}..${SEEDS[SEEDS.length - 1]}），delta=±${(DELTA * 100).toFixed(0)}%，参数项=${rows.length}，异常局=${totalErr}，总耗时=${elapsed.toFixed(1)}s`);
+
+// 异常局必须显式暴雷：全崩时上面的「基线 0.0% / 参数项 0 / 无显著参数」看起来像是
+// 「这个关没有敏感参数」，而不是「工具根本没跑起来」——这两种结论天差地别，不能靠人猜。
+if (totalErr > 0) {
+    console.error(`\n⚠️ 异常局 ${totalErr}/${totalRuns} 局（首个异常：${firstErr.where || '?'}）`);
+    if (firstErr.msg) {
+        console.error(`   ${firstErr.msg}`);
+        if (firstErr.stack) console.error(firstErr.stack.split('\n').slice(0, 6).map(l => '   ' + l.trim()).join('\n'));
+    }
+    if (totalErr === totalRuns) {
+        console.error('   ❌ 全部对局均抛错，本表数据无效（请不要据此判断「无敏感参数」）。');
+        process.exitCode = 1;
+    } else {
+        console.error('   部分对局抛错，胜率与 Δ 可能失真，判读前先修异常。');
+        process.exitCode = 2;
+    }
+}
 
 if (ARGS.json) {
     console.log('\n```json');

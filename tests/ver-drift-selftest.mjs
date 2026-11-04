@@ -170,7 +170,9 @@ const SCAN_EXTS = ['.mjs', '.js'];
 
 function collect(dir, out) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (e.name === '.mut' || e.name === 'node_modules' || e.name.startsWith('.')) continue;
+        // 跳过：.mut（变异冻结副本）/ node_modules / 隐藏项 / _tmp-* _verify-*（并行会话临时残留，无版本可追溯，扫进来会让断言⑩自爆）
+        if (e.name === '.mut' || e.name === 'node_modules' || e.name.startsWith('.')
+            || e.name.startsWith('_tmp') || e.name.startsWith('_verify')) continue;
         const p = path.join(dir, e.name);
         if (e.isDirectory()) collect(p, out);
         else if (SCAN_EXTS.some(ext => e.name.endsWith(ext))) out.push(p);
@@ -286,9 +288,11 @@ for (const [srcRel, spec] of Object.entries(VER_EMBEDDED_IN)) {
 
 // ⑩ 无 VER 名单棘轮：这批文件里到底哪些没有 VER 常量，必须逐条在册，且**双向相等**
 //   （名单外冒出新孤儿 ⇒ 它从此没有任何版本可追溯，必须显式登记或补常量；名单里的补上常量后必须及时删登记）
+//   ★ 2026-11-04 迭代：删 tests/_verify145.mjs —— 它是并行会话落下的未追踪临时 verify 助手，
+//     现已被并行走上 VER 常量，按本断言自身通规「腐烂条目不许挂着骗人」应删登记；且 _verify-*/_tmp-*
+//     临时文件已从 collect 扫描面整体排除（转瞬即逝、无版本可追溯），不再需要逐名登记进白名单。
 const NO_VER_WHITELIST = [
     'tests/_lib/buff-picker.mjs',
-    'tests/_verify145.mjs',
     'tests/fact-coverage-selftest.mjs',
     'tests/silent-relocate-judge-selftest.mjs'
 ];

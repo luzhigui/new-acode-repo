@@ -120,12 +120,14 @@ check('⑩', LOG_PATTERNS.length >= 4 && HEAD_LOG_WINDOW > 0,
     `从 ver-drift-selftest.mjs 解析 LOG_PATTERNS 得到 ${LOG_PATTERNS.length} 条 / HEAD_LOG_WINDOW=${HEAD_LOG_WINDOW}（应 ≥4 条且窗口 >0）`);
 
 // 递归收集 tests/ 下所有 .mjs/.js（含子目录 health-rules/、_lib/ 等），
-// 但排除 .mut/（变异冻结副本，扫它会把冻结旧版的 VER 头当漂移炮制一堆假红）。
+// 但排除：① .mut/（变异冻结副本，扫它会把冻结旧版的 VER 头当漂移炮制一堆假红）；
+//   ② _tmp-* / _verify-*（并行会话落下的临时验证脚本，转瞬即逝、无版本可追溯，扫进来自爆）。
 //   此前只扫 tests/ 顶层 ⇒ health-rules/ 下 48 个健康规则 + _lib/ 10 个辅助文件
 //   完全不在版本绊线守护范围内（守护守护者自己漏守）—— 第 177+ 轮迭代发现，V1.2.0 修正。
 function walk(dir, rel, out) {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
         const name = ent.name;
+        if (name.startsWith('_tmp') || name.startsWith('_verify')) continue; // 并行会话临时残留，跳过
         if (ent.isDirectory()) {
             if (name === '.mut') continue; // 变异冻结副本，跳过
             walk(join(dir, name), rel ? rel + '/' + name : name, out);
