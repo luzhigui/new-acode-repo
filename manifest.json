@@ -1,5 +1,5 @@
 {
- "ver": "64d3ea9b8ab20e19166376db0b7e71e1fd9b8c0ece63801b6bc70eeca9e01f36",
+ "ver": "58157f51d139418258d3333e5ed6b3d760ea481f31223b6d048fee56254d8098",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 147,
  "files": [
@@ -13,7 +13,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "bfacd0e1c1974731d6d510700ca2a96709a71e6243bc9eba171699d0de7c8f2a"
+   "41f6aa5b1699c51f5899f3903c4db40a817431b3c968f1e80cc554728ec9e6b7"
   ],
   [
    "core/202-unit.js",
@@ -21,7 +21,7 @@
   ],
   [
    "core/203-battle-utils.js",
-   "9ebb57e1aa05c12001afc57a7895018e1302fdb559218c91ac7f780a3a5dd5bc"
+   "9b3f8184eea6ede1c5e06a4a889a5efc42eef9b803025da4da360496f96a108e"
   ],
   [
    "core/204-buff-system.js",
@@ -193,7 +193,7 @@
   ],
   [
    "infra/102-core-utils.js",
-   "d777882923769cfa35126e5979436ac73523113483abd1bbfff508811b3500e7"
+   "1f427a1e0f46857123dc940b109ba4ca5acb24ea823ce56159d50681746fc3cd"
   ],
   [
    "infra/103-clock.js",
@@ -513,7 +513,7 @@
   ],
   [
    "ui/703-ui-render-5v5-test.js",
-   "760778c6fdfd76c0e7d36f7f225df12b4302ef4b483dbadd2d5bced23c46cfe3"
+   "9da23398850fbb57df40f4ce2d4ee6e46de1ffdea3b9106296cce1d1b594ba25"
   ],
   [
    "ui/704-main-state.js",

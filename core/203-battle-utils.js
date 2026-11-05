@@ -90,12 +90,15 @@ export function getBenefitTargets(team, opts = {}) {
 // 返回 { total, sources }，total 为百分点，sources 为 { label, value } 明细
 // V6.5.0 口径统一：CONFIG 里未命中率改按「1 = 100%」存（0.06 = 6%），本函数在此 ×100 还原，
 //   对外契约（total / sources.value 均为百分点）不变，日志、详情弹窗、体检 145 无需跟改。
-export function getMissBreakdown(unit, allySide, enemySide) {
+// 形参语义（2026-11-05 修正）：mySide = 本队，oppSide = 对方队。
+//   原形参名为 allySide/enemySide，弹窗调用时写死传 (明教, 六大派)，
+//   导致六大派单位的未命中永远按「六大派的空列」算。
+export function getMissBreakdown(unit, mySide, oppSide) {
     if (!unit) return { total: 0, sources: [] };
     if (unit.state && unit.state._neverMiss) return { total: 0, sources: [{ label: '必中', value: 0 }] };
     const sources = [];
     let total = 0;
-    const PCT = 100;   // 比例 → 百分点（写成单独一次乘法，与统一前的字面量逐位一致）
+    const PCT = 100;   // 比例 → 百分点
     if (unit.role === ROLE_TYPES.RANGED || unit.role === ROLE_TYPES.BUTTERFLY) {
         const base = C.RANGED_MISS_CHANCE * PCT;
         total = base;
@@ -104,7 +107,7 @@ export function getMissBreakdown(unit, allySide, enemySide) {
         const base = C.FLY_MISS_CHANCE * PCT;
         total = base;
         sources.push({ label: '飞行基础', value: base });
-        const allUnits = [...(allySide || []), ...(enemySide || [])];
+        const allUnits = [...(mySide || []), ...(oppSide || [])];
         const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < C.LOW_HP_THRESHOLD).length;
         if (lowHpCount > 0) {
             const v = lowHpCount * (C.FLY_MISS_LOWHP_BONUS * PCT);
@@ -116,15 +119,14 @@ export function getMissBreakdown(unit, allySide, enemySide) {
         total = base;
         sources.push({ label: '地面基础', value: base });
     }
-    // 空列光环：2026-11-02 起全局所有职业生效（原仅飞行）；每空一列 −FLY_MISS_EMPTYCOL_REDUCE 个百分点（0.06）
-    const emptyCols = countEnemyEmptyCols(enemySide || []);
+    // 空列光环：看对方队伍空列；每空一列 −FLY_MISS_EMPTYCOL_REDUCE 个百分点（0.06）
+    const emptyCols = countEnemyEmptyCols(oppSide || []);
     if (emptyCols > 0) {
         const v = -emptyCols * (C.FLY_MISS_EMPTYCOL_REDUCE * PCT);
         total += v;
         sources.push({ label: '空列×' + emptyCols, value: v });
     }
-    // 杨逍·鹰眼被动：未命中 −missReduce 个百分点（值在 content eagleEye.params，单源），
-    //   对残血光环等附加项同样生效；末尾 Math.max(0,…) 封底，不会减成负数
+    // 杨逍·鹰眼被动
     if (unit.isYangXiao) {
         const ee = getSkillParams('杨逍', 'eagleEye');
         if (ee && ee.missReduce) {

@@ -180,7 +180,14 @@ function updateDetailPopupContent() {
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHp(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, unitCampBuffs, sameCampTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
-            <span style="color:#888;">未命中</span><span>${(() => { const mb = getMissBreakdown(u, allyTeam, enemyTeam); return mb.total + '%' + (mb.sources.length > 0 ? ' (' + mb.sources.map(s => s.label + (s.value >= 0 ? '+' : '') + s.value + '%').join(' ') + ')' : ''); })()}</span>
+            <span style="color:#888;">未命中</span><span>${(() => {
+                // 按单位阵营取对应的 mySide/oppSide（原先写死传 allyTeam/enemyTeam，
+                // 导致六大派弹窗里读到的永远是六大派自己的空列）
+                const mySide = u.camp === CAMP_TYPES.ALLY ? allyTeam : enemyTeam;
+                const oppSide = u.camp === CAMP_TYPES.ALLY ? enemyTeam : allyTeam;
+                const mb = getMissBreakdown(u, mySide, oppSide);
+                return mb.total + '%' + (mb.sources.length > 0 ? ' (' + mb.sources.map(s => s.label + (s.value >= 0 ? '+' : '') + s.value + '%').join(' ') + ')' : '');
+            })()}</span>
             <span style="color:#888;">攻击</span><span>${renderStatDetail(u, 'atk')}</span>
             <span style="color:#888;">防御</span><span>${renderStatDetail(u, 'def')}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>

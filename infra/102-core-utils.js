@@ -202,14 +202,14 @@ export function getBloodAuraBonus(allUnits) {
     return totalBonus;
 }
 
-export function getAuraBonuses(unit, allySide, enemySide) {
+// 形参语义（2026-11-05 修正）：mySide = 本队，oppSide = 对方队。
+//   原形参名为 allySide/enemySide，内部又按 unit.camp 做了一次翻转——
+//   但 core/210 传进来时已经是 (自己队伍, 对方队伍)，二次翻转导致六大派看自己的空列。
+export function getAuraBonuses(unit, mySide, oppSide) {
     if (unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
-    const isAlly = unit.camp === CAMP_TYPES.ALLY;
-    const mySide = isAlly ? allySide : enemySide;
-    const oppSide = isAlly ? enemySide : allySide;
-    // 空列光环：2026-11-02 起全局所有职业生效（原飞行专属）；每空一列 +2 攻（原 +5）
+    // 空列光环：2026-11-02 起全局所有职业生效；看对方队伍空列，每空一列 +2 攻
     const emptyCol = countEnemyEmptyCols(oppSide) * 2;
-    // 残血光环：仍为飞行专属；全场每个 <40% 存活单位 +2 攻
+    // 残血光环：飞行专属；全场每个 <40% 存活单位 +2 攻
     const bloodAura = unit.role === ROLE_TYPES.FLYER ? getBloodAuraBonus(mySide.concat(oppSide)) : 0;
     return { emptyCol, bloodAura };
 }
