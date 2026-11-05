@@ -1,5 +1,5 @@
 {
- "ver": "f622e0d0a30eaa3bd5292ccad78425a5710760eaf01647bd5911cf3ef60a2ed8",
+ "ver": "082d36bfb4657fbfd51491bf5c32e7b54b02fbc94a5a9394e487a3df7cd40893",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 147,
  "files": [
@@ -245,7 +245,7 @@
   ],
   [
    "modules/304-audio-manager.js",
-   "379d0649dcf08ec0dc51d1d74c9ccfd81340a6069198ecbee24335b8578c1690"
+   "387093a93debd89b0bf0b52793b9197f620fbc30fc444d572368e2eaeea553aa"
   ],
   [
    "modules/305-elite-helpers.js",
