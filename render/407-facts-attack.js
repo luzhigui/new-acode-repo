@@ -126,7 +126,8 @@ export function renderAttackFact(fact) {
         isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true,
         isKuLianAttack,
         isLinkAttack,
-        linkReason
+        linkReason,
+        isDashStrikeFx: fact.isDashStrikeFx
     };
     // 被动出手行内徽章：普攻无前缀，反击/跟随等带金色【标签】——不用翻日志也知道这一手是什么
     const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击', doubleStrike: '连击', bloodthirst: '嗜血', xiaoZhaoDoubleMiss: '双击' };
@@ -202,6 +203,8 @@ export function renderAttackFact(fact) {
         // 2026-11-04 补丢字段：player/46 发飘字与血条预演的门槛是 dmg>0 且 hpAfter!==undefined——
         //   飘字从 fx 层搬到 player 层时只带出了 dmg，hpAfter 忘带 → 全仓普攻掉血飘字集体哑火（老板实锤三轮）
         hpAfter: targetHpAfter,
+        _shield: dmgResult._shield,
+        _permShield: dmgResult._permShield,
         text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {

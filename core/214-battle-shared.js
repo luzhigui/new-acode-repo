@@ -269,7 +269,8 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
         healDone: target.healDone, reboundDone: target.reboundDone,
         leechDone: target.leechDone, dodgeCount: target.dodgeCount,
         critCount: target.critCount, survivedRounds: target.survivedRounds,
-        _baseAtk: target.state._baseAtk, _baseDef: target.state._baseDef, _baseMaxHp: target.state._baseMaxHp
+        _baseAtk: target.state._baseAtk, _baseDef: target.state._baseDef, _baseMaxHp: target.state._baseMaxHp,
+        _shield: target.state._shield || 0, _permShield: target.state._permShield || 0
     });
     return target.state._pendingDeath || false;
 }

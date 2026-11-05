@@ -46,7 +46,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     // 生生不息不闪蓝（它不是攻击，走自己的金圈）
-    if (unitA && !entry.isBlock && !entry.isDodge && !entry.isEndlessBreath) {
+    // 冲刺（Dash）时不闪蓝，因为冲刺特效（标枪/火花）里已经演过了
+    if (unitA && !entry.isBlock && !entry.isDodge && !entry.isEndlessBreath && !entry.isDashStrikeFx) {
         // 闪避反击时攻击者只显示眩晕，由 DODGE stage action 处理
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.ATTACK });
     }
@@ -57,7 +58,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     await clock.wait(200);
     if (abortSig && abortSig.aborted) return { isBattleOver: false };
 
-    if (unitD && !entry.isMiss && !entry.isDodge && c.store) {
+    if (unitD && !entry.isMiss && !entry.isDodge && !entry.isDashStrikeFx && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEFEND });
     }
 
@@ -94,10 +95,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             if (c.store) {
                 const su = c.store.getState().units.find(u => u.uid === hitTargetUid);
                 if (su) triggerHpAnim(hitTargetUid, Math.floor((entry2.hpAfter / su.maxHp) * 100));
+                const payload = { hp: Math.max(0, entry2.hpAfter) };
+                if (entry2._shield !== undefined) payload._shield = entry2._shield;
+                if (entry2._permShield !== undefined) payload._permShield = entry2._permShield;
                 c.store.dispatch({
                     type: STORE_ACTION_TYPES.HP_CHANGE,
                     unitUid: hitTargetUid,
-                    payload: { hp: Math.max(0, entry2.hpAfter) }
+                    payload
                 });
             }
         }

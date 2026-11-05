@@ -301,6 +301,8 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             hit.data.dmg = hpLoss;
             if (shieldAbsorb > 0) hit.data.shieldAbsorb = shieldAbsorb;
             hit.data.hpAfter = chainTarget.hp;
+            hit.data._shield = chainTarget.state._shield || 0;
+            hit.data._permShield = chainTarget.state._permShield || 0;
             hit._events = flushBattleEvents();
             if (hit._events && hit._events.length) decl._events.push(...hit._events);
         }

@@ -124,7 +124,8 @@ export function createHanLiSaComponent() {
                 // core/12 写在本击的 absorbed 量：谁的日志归谁——护盾吸收是寒离飒的承伤反应，
                 //   不再插进攻击者的攻击组（pushInfo），改为紧跟本击攻击组之后的独立播报行
                 if (hls.state._shieldAbsorbed > 0) {
-                    pushSkillAnnounce(data.log, hls, '护盾吸收', `🛡️ 寒离飒护盾吸收 ${hls.state._shieldAbsorbed} 点伤害（剩余 ${Math.floor(hls.state._shield || 0)}）`);
+                    const absVal = Math.round(hls.state._shieldAbsorbed);
+                    pushSkillAnnounce(data.log, hls, '护盾吸收', `🛡️ 寒离飒护盾吸收 ${absVal} 点伤害（剩余 ${Math.floor(hls.state._shield || 0)}）`);
                 }
             });
 
