@@ -2,7 +2,7 @@
 //   系统行（回合开始/结束/台词/不争/连击摘要）+ 离散精英项（幻影识破迷惑/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）13 条整块迁入。
 //   「misc」不是垃圾桶：它是「不归回血/控制位移/属性召唤三族」的剩余——系统行与跨族离散事件。
 //   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
-export const VER = 'render/411-facts-misc.js V1.1.0';
+export const VER = 'render/411-facts-misc.js V1.1.1';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -62,7 +62,10 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids) {
         if (!doubleStrikeUids || doubleStrikeUids.length === 0) return null;
         const units = allyTeam.filter(u => doubleStrikeUids.includes(u.uid));
         if (units.length === 0) return null;
-        return { type: 'buff-summary', text: `<span class="gold">⚡ 概率连击：${units.map(u=>u.name).join('、')} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT };
+        // doubleStrikeNames：结构化宣告名单（原始单位名，未经任何别名/展示替换），供体检按名字核对，
+        //   不必再从下面这行中文拼串里按「、」反解。text 保持原样，只加字段、不改既有语义。
+        //   明教（里侧）与六大派（外侧）都走本函数，故两侧都带。
+        return { type: 'buff-summary', text: `<span class="gold">⚡ 概率连击：${units.map(u=>u.name).join('、')} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT, doubleStrikeNames: units.map(u => u.name) };
     }
 
     const rule = BUFF_SUMMARY_CFG[buff.key];
