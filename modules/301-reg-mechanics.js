@@ -6,4 +6,7 @@ import './308-elite-sixsects.js';
 import './317-elite-mingjiao.js';
 import './331-custom-effects.js';
 import './324-elite-mingjiao-brother-laststand.js';
-export const VER = 'modules/301-reg-mechanics.js V1.0.1';
+import './333-elite-mingjiao-crazy.js';
+import './334-common-absorb.js';
+import './335-common-heal-ally.js';
+export const VER = 'modules/301-reg-mechanics.js V1.0.4';

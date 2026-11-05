@@ -27,7 +27,7 @@
           "chainProcMax": 1.00,
           "chainProcRampAt": 1.00,
           "songDeadBonus": 0.10,
-          "chainProcDecay": 0.01,
+          "chainProcDecay": 0.02,
           "jealous": {
             "baseDmg": 2,
             "lostHpRatio": 0.015,
@@ -350,6 +350,41 @@
         }
       }
     },
+    "武当莲舟": {
+      "tags": ["六大派", "武当"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "type": "statAbsorb",
+          "prob": 0.5,
+          "ratio": 0.01
+        }
+      ],
+      "skills": {
+        "absorb": {
+          "name": "吸星大法",
+          "desc": "每次回合开始时有 {prob}% 概率，从场上所有其他角色身上吸取 1% 的攻击、防御和生命上限。"
+        }
+      }
+    },
+
+    "峨眉素问": {
+      "tags": ["六大派", "峨眉"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "type": "healAllyOnHit",
+          "healAmount": 10
+        }
+      ],
+      "skills": {
+        "healAlly": {
+          "name": "妙手回春",
+          "desc": "每次攻击或被攻击后，随机一名友方回复 10 点生命值。"
+        }
+      }
+    },
+
     "何太冲": {
       "tags": ["六大派", "昆仑", "远程", "精英"],
       "skills": {
@@ -630,6 +665,21 @@
       }
     },
 
+    "周颠": {
+      "tags": ["明教", "普通"],
+      "mechanics": [
+        {
+          "camp": "ally",
+          "type": "crazy"
+        }
+      ],
+      "skills": {
+        "crazy": {
+          "name": "癫",
+          "desc": "初始携带「癫」：攻击目标随机（不分敌友），攻击后将「癫」传递给被攻击者。持有者阵亡时，「癫」传给攻击者；若找不到攻击者则回到周颠身上；若周颠已死则随机传递。"
+        }
+      }
+    },
     "说不得": {
       "tags": ["明教", "普通"],
       "skills": {

@@ -83,6 +83,10 @@
                     <button class="big-btn btn-play" id="btnHeTaichong" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #9575cd, #4527a0);">🗡 何太冲</button>
                 </div>
                 <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnShuoBuDe" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #9e9e9e, #424242);">🛍️ 说不得</button>
+                    <button class="big-btn btn-play" id="btnZhouDian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffb74d, #e65100);">🤪 周颠</button>
+                </div>
+                <div style="display:flex;gap:0;margin-bottom:10px;">
                     <button class="big-btn btn-play" id="btnYinTianZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #8d6e63, #3e2723);">🦅 殷天正</button>
                     <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
                     <button class="big-btn btn-play" id="btnKongJian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
@@ -91,7 +95,6 @@
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
                 <button class="big-btn btn-tool" id="btnCareerLog">📊 生涯记录</button>
-                <button class="big-btn btn-tool" id="btnDashDemo" title="唐文亮冲刺特效逐帧演示（fx/616 全量主代码参与）">⚡冲刺demo</button>
             </div>
         </div>
 
@@ -176,10 +179,7 @@
         document.getElementById('btnTools').addEventListener('click', () => {
             window.location.href = 'tools/802-toolkit.html';
         });
-        // 唐文亮冲刺逐帧 demo（2026-11-02）：独立演示页，全量 import 主代码（fx/616 等）
-        document.getElementById('btnDashDemo').addEventListener('click', () => {
-            window.location.href = 'tangwenliang-dash-demo.html';
-        });
+
         // 生涯记录：读本地累积的单局摘要，导出 Markdown（可直接喂 AI 分析）
         document.getElementById('btnCareerLog').addEventListener('click', () => {
             showCareerDialog();
@@ -661,6 +661,16 @@
             clearDemoFlags();
             mustSet('_forceHanLiSa', '1');
 
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnShuoBuDe').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceMingUnit', '说不得');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnZhouDian').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceMingUnit', '周颠');
             window.location.href = 'index.html';
         });
         // 文档入口统一走 tools/833-md-reader.html（起点读书式阅读器）：手机上直跳 *.md 原文会缩成小字白底

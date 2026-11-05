@@ -217,6 +217,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsAimHoldMs:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 说不得·布袋：null 表示没装人；否则 { targetUid, mode: 'protect'|'capture', casterUid, casterName }
     _inBag:                  { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 周颠·癫：全场唯一持有，攻击随机不分敌友，命中/死亡转移
+    _isCrazy:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */

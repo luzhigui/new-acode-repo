@@ -457,7 +457,10 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const hasBrotherBloodthirst = fullAllySide.some(m => m.isXiaoZhaoBrother && m.alive && m.state?._permanentBuffs?.some(b => b.key === BUFF_TYPES.BLOODTHIRST));
             const isBloodthirstHost = (hasTeamBloodthirst || hasBrotherBloodthirst) && u.role === ROLE_TYPES.WARRIOR;
             
-            if (isBlocked(u, fullAllySide) && isMelee(u.role) && !isDoubleStrikeHost && !isBloodthirstHost) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
+            // 带「癫」的角色无视遮挡，强行参战
+            const isCrazyHost = !!(u.state && u.state._isCrazy);
+
+            if (isBlocked(u, fullAllySide) && isMelee(u.role) && !isDoubleStrikeHost && !isBloodthirstHost && !isCrazyHost) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false, jumpConsume: false };
             // log 随载荷下发：先机插队公告由组件（modules/27）推 SKILL_ANNOUNCE，core 不认识杨逍
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide, log });

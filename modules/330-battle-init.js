@@ -249,6 +249,20 @@ export function initBattleTeams(currentStage, _rng) {
         remainingPower -= pick.power;
     }
 
+    // 强制指定普通兵（如说不得、周颠）出场
+    const forceMingUnit = GlobalStore.get('forceMingUnit');
+    if (forceMingUnit) {
+        if (!allyTeam.some(u => u.name === forceMingUnit)) {
+            const mVal = C.MING_M[forceMingUnit] || 100;
+            const role = C.ROLES[_rand(0, 3)];
+            const unit = new Unit(forceMingUnit, mVal, role, CAMP_TYPES.ALLY);
+            unit.init(_rng); unit.applyBonus();
+            unit.pos = null;
+            if (allyTeam.length >= 5) allyTeam.pop(); // 满 5 人则挤掉最后一个
+            allyTeam.push(unit);
+        }
+    }
+
     // 强制小昭模式：如有小昭则修正标志，如无则添加
     const forceXzMode = GlobalStore.get('forceXiaoZhao');
     if (forceXzMode === 'sister' || forceXzMode === 'brother') {

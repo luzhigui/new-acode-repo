@@ -102,6 +102,11 @@ export function initDevFlags() {
         GlobalStore.set('currentStage', startStage);
         localStorage.removeItem('_startStage');
     }
+    const forceMingUnit = localStorage.getItem('_forceMingUnit');
+    if (forceMingUnit) {
+        GlobalStore.set('forceMingUnit', forceMingUnit);
+        localStorage.removeItem('_forceMingUnit');
+    }
 }
 
 export function copyLogToClipboard(choice) {

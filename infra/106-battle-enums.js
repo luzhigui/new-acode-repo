@@ -151,7 +151,10 @@ export const MECHANIC_TYPES = Object.freeze({
     // 元朝朝廷（modules/25）
     LINK_ATTACK: 'linkAttack',         // 玄冥二老联动（modules/25）
     PHANTOM_DISGUISE: 'phantomDisguise', // 成昆·幻影伪装（modules/25）
-    BAG_TRAP: 'bagTrap'                // 说不得·布袋（普通兵机制，modules/27elite-mingjiao-shuobude）
+    BAG_TRAP: 'bagTrap',               // 说不得·布袋（普通兵机制，modules/27elite-mingjiao-shuobude）
+    CRAZY: 'crazy',                    // 周颠·癫（普通兵机制，modules/333-elite-mingjiao-crazy）
+    STAT_ABSORB: 'statAbsorb',         // 武当莲舟·吸星（普通兵机制，modules/334-common-absorb）
+    HEAL_ALLY_ON_HIT: 'healAllyOnHit'  // 峨眉素问·妙手回春（普通兵机制，modules/335-common-heal-ally）
 });
 
 /**
