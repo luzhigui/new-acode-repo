@@ -6,7 +6,7 @@ export const VER = 'render/403-grid-render.js V7.1.2';
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { getDodgeRules } from '../core/221-registry-dodge.js';
-import { CONFIG, getSkillDesc, isNamedCharacter } from '../core/201-config-5v5-test.js';
+import { CONFIG, getSkillDesc, isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
@@ -357,6 +357,9 @@ export function renderGrid(id, camp) {
         let logoList = [];
         // 金刚不坏护罩优先占位（状态性，可挂在任意单位身上；放最前避免被 buff 图标挤掉）
         if (unit.state && unit.state._immuneShield) logoList.push('🔔');
+        // 周颠·癫：强制置顶（只要预算>0就绝对能看到）
+        if (unit.state._isCrazy) logoList.push('🤪');
+        
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         // 何太冲重做 V3：两个「状态标记」压到 logoList 末尾——V6.5.5 的「最多留最新 2 个」按尾部优先，
@@ -370,10 +373,20 @@ export function renderGrid(id, camp) {
         // 杨逍改版：点穴眩晕走角色图标 😵（getRoleIcon），此处只挂 ❌ 禁疗（截脉中：治疗/吸血回复减半）
         if (unit.state._jinMai && unit.state._jinMai.rounds > 0) logoList.push('❌');
 
-        // 名字颜色分档收口：nameGold 特判（张无忌/灭绝描金）由 m 档位规则天然覆盖
-        //   蓝档加「具名」门槛（老板：蓝色只给弱精英，不该给所有 104）：无名杂兵（空闻/班淑娴等）落黑
-        //   绿档=说不得（2026-11-04 老板拍板普通绿 --c-green；demo 十状态验过：休息深绿底仍可读，亮绿不可读被毙）
-        const nameTier = displayName === '说不得' ? 'name-green' : displayTierM >= 112 ? 'gold' : displayTierM >= 107 ? 'name-purple' : (displayTierM >= 104 && isNamedCharacter(displayName)) ? 'name-blue' : '';
+        // 名字颜色分档收口：
+        //   绿档 = 带有技能的 M100 角色（说不得、周颠、武当莲舟、峨眉素问等）
+        //   金/紫/蓝 = 对应的精英/弱精英档位
+        //   黑 = 无技能普通杂兵
+        let nameTier = '';
+        if (unit.m === 100 && hasSkills(displayName)) {
+            nameTier = 'name-green';
+        } else if (displayTierM >= 112) {
+            nameTier = 'gold';
+        } else if (displayTierM >= 107) {
+            nameTier = 'name-purple';
+        } else if (displayTierM >= 104 && isNamedCharacter(displayName)) {
+            nameTier = 'name-blue';
+        }
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) compressName = true;
@@ -383,7 +396,10 @@ export function renderGrid(id, camp) {
         const countBadgeHtml = buildCountBadge(unit);
         const logoBudget = 2 - (countBadgeHtml ? 1 : 0);
         if (logoBudget <= 0) displayLogos = [];
-        else if (displayLogos.length > logoBudget) displayLogos = displayLogos.slice(-logoBudget);
+        else if (displayLogos.length > logoBudget) {
+            // 因为前面已经按优先级（精英 M 值大小 → 海克斯 → 杂项）排好了序，直接保留最前面的 N 个即可。
+            displayLogos = displayLogos.slice(0, logoBudget);
+        }
         let nameHtml;
         if (compressName) {
             let logoHtml = displayLogos.slice().reverse().join(' ');

@@ -64,6 +64,12 @@ function isNamedCharacter(name) {
     return !!(gameData?.characters?.[name]);
 }
 
+// 是否带有技能/机制（用来判定 M100 普通兵里的「特殊角色」）
+function hasSkills(name) {
+    const ch = gameData?.characters?.[name];
+    return !!(ch && (Array.isArray(ch.mechanics) || ch.skills));
+}
+
 function getSkillName(characterName, skillKey) {
     const ch = gameData?.characters?.[characterName];
     const skill = ch?.skills?.[skillKey];
@@ -216,7 +222,7 @@ function getSkillDesc(characterName, skillKey, jealous) {
 }
 
 // 导出加载函数供外部使用
-export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter };
+export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter, hasSkills };
 
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。
