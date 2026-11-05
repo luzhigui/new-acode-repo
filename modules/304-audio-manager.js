@@ -1,12 +1,12 @@
 // modules/304-audio-manager.js — 音频总控（Web Audio 优先，file:// 退回 <audio>）
-// V7.0.0 | 2026-11-05 | 全切 Web Audio（http 下 BGM + 音效）：
+// V7.0.1 | 2026-11-05 | http(s) 一律 Web Audio（去掉「仅移动端」UA 判断，桌面 http 预览/线上同走一套）：
 //   · 小米等浏览器对 <audio> 播放的媒体指示器（喇叭/通知栏）不再弹；WebAudio 走 AudioBufferSourceNode，不被监测
 //   · 环境探测 location.protocol：http(s) → WebAudio（fetch+decode+node）；file:// → 退回 <audio>（fetch 被安全策略拦死）
 //   · BGM：fetch+decode 缓存 AudioBuffer，播放走 AudioBufferSourceNode；pause = stop+记 offset，resume 从 offset 重建
 //   · 音效：所有 role 的 mp3 并发 fetch+decode 预热缓存，每次播放新建 source（可叠放）
 //   · 合成音（狮吼）不变，仍走 WebAudio；对外 API 签名一字不改
 //   · <audio> 实现整段保留（file:// 分支），两套后端并存、入口按环境选择
-export const VER = 'modules/304-audio-manager.js V7.0.0';
+export const VER = 'modules/304-audio-manager.js V7.0.1';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
@@ -85,9 +85,12 @@ function playLionRoar(volume = 0.3) {
     noise.stop(now + 1.0);
 }
 
-// ─── 环境探测：http(s) → WebAudio；其余（file:// 直开）→ <audio> ───
+// ─── 环境探测：http(s) → WebAudio；file:// → <audio> ───
 // file:// 下 fetch 会被浏览器安全策略直接拦死（这正是 V6.5.1 把音效改 <audio> 的起因），
-//   所以 WebAudio 只在 http(s) 下可用；其余环境退回 <audio>，声音保底，喇叭保底弹（物理限制）。
+//   所以 WebAudio 只在 http(s) 下可用；file:// 退回 <audio>，声音保底。
+// 反过来的收益：http(s)（含手机线上站、VSCode 的 http://127.0.0.1 预览、桌面浏览器）
+//   一律走 WebAudio —— decodeAudioData 对本仓 mp3 更宽容，且不受媒体元素错误牵连，
+//   桌面预览与线上不再出现「没声音 + BGM 加载失败」。仅 file:// 才用 <audio>。
 const _isHttp = typeof location !== 'undefined'
     && (location.protocol === 'http:' || location.protocol === 'https:');
 
