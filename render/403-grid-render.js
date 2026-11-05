@@ -85,7 +85,12 @@ export function renderGrid(id, camp) {
     else renderAdjust = isAdjustMode && camp === CAMP_TYPES.ALLY;
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
     let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : selectOrStore(ctx, 'allyTeam');
-    let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
+    // 概率连击 uid 按阵营取：明教读 currentDoubleStrikeUid（step.doubleStrikeUid），
+    //   六大派读 currentEnemyDoubleStrikeUid（step.enemyDoubleStrikeUid，player/504 写入）。
+    //   原先两侧共用 currentDoubleStrikeUid（只含明教 uid），六大派连击永远不显示 ⚡。
+    let doubleStrikeUid = ctx
+        ? (camp === CAMP_TYPES.ALLY ? ctx.currentDoubleStrikeUid : ctx.currentEnemyDoubleStrikeUid)
+        : null;
     // 胖远桥·正义国字脸生效期间：本回合有敌人被锁定 → 他头顶换 🐷 嘲讽脸（回合级标记，回合开始自清）
     const pangTauntUnits = (store && store.getState) ? store.getState().units : allyTeam.concat(selectOrStore(ctx, 'enemyTeam'));
     const pangTaunting = pangTauntUnits.some(u => u && u.alive && u.state && u.state._tauntedByPang);

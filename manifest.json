@@ -1,5 +1,5 @@
 {
- "ver": "082d36bfb4657fbfd51491bf5c32e7b54b02fbc94a5a9394e487a3df7cd40893",
+ "ver": "64d3ea9b8ab20e19166376db0b7e71e1fd9b8c0ece63801b6bc70eeca9e01f36",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 147,
  "files": [
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "b3f9fdd3250b12e1865d6694c9f0dff57affcd384f71ff6fc4cb9dfe2e3469db"
+   "eadfb092b1d90d6cf1825d5db075ab2691397cf4a8d1d6a317ab614d65d4b308"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -69,7 +69,7 @@
   ],
   [
    "core/215-buff-effects.js",
-   "497a8b63fec4dd5b336a8e06dcab929976fe31108fcacba6a040b53a94f847c9"
+   "4334bdb9a28faf73bdbb1454cd2ebca1eb36c5266ce4b0a91034ea2b8fa7c875"
   ],
   [
    "core/216-skill-mechanisms.js",
@@ -381,7 +381,7 @@
   ],
   [
    "player/504-player-play-step.js",
-   "e9bb014867314ce84eb14d5c367c5f8c27055e7fd55cacd735a5cc77c49ff8bf"
+   "7e09df3037555691aa57c246b033403f2568c663f018f03cb660a6c75d044aed"
   ],
   [
    "player/505-player-stage-actions.js",
@@ -433,11 +433,11 @@
   ],
   [
    "render/403-grid-render.js",
-   "6c876ada7b05a56a6f727b5ed4beb39382cf3b0a041b23b0d3806dc8b7089cd2"
+   "08157e4253e464b74b1cb161e7baf74c7b9ff5de9e9160c3c4e373a2f06a65fa"
   ],
   [
    "render/404-grid-badges.js",
-   "d67723b128dd0ed93317c397011cbff5678825b36b275464e11c0ca258922c88"
+   "6bfcb01197f5f1465fbe80783d46901c2e26d5dde75f993ce68c6b735d45ea78"
   ],
   [
    "render/405-grid-cells.js",

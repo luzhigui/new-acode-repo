@@ -101,6 +101,11 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
             let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a, b) => a.pos - b.pos)[0];
             return frontUnit && unit.uid === frontUnit.uid;
         }
+        // 众志成城：持有方全队受益（core/204 applyUnityBonus 给全队每人 addMod）。
+        //   此前缺此 case → 无论明教/六大派持有，全队格子都不显示 🤝；两边都缺 = 漏项，补齐。
+        case BUFF_TYPES.UNITY: {
+            return unit.alive && !!(activeBuffs && activeBuffs.some(b => b.key === BUFF_TYPES.UNITY));
+        }
         default: return false;
     }
 }

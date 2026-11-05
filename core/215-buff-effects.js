@@ -169,10 +169,18 @@ function shuffleThreeSlots(team, rng) {
 
 function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly, enhance = null) {
     const rng = getBattleRng();
+    // side 相对持有者视角派生（原写死 ENEMY/ALLY 只对明教持有正确）：
+    //   明教持有 → 第一次 oppSide=ENEMY（六大派）、第二次 selfSide=ALLY（明教）；
+    //   六大派持有 → 第一次 oppSide=ALLY（明教）、第二次 selfSide=ENEMY（六大派）。
+    //   该值直接翻成 MIND_SWAP 的 camp（render/417）→ 604 animateMindSwap 的 getCellByPos 用。
+    //   allySide 恒为持有者队伍（core/204 事件信号的 buff 挂在 allySide._activeBuffs 上），
+    //   故 unit.camp 与 allySide 阵营一致，派生成立。
+    const oppSide = unit.camp === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
+    const selfSide = unit.camp;
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
-    log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ENEMY } });
+    log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: oppSide } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
         const swaps = shuffleThreeSlots(enemySide, rng);
         if (swaps.length > 0) {
@@ -195,14 +203,14 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
                 emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
                 emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });
         } else {
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '无变化' } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: oppSide, reason: '无变化' } });
         }
     } else {
-        log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '未触发' } });
+        log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: oppSide, reason: '未触发' } });
     }
-    log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ALLY } });
+    log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: selfSide } });
     if (rng.nextInt(1,100) <= swapChanceAlly) {
         const swaps = shuffleThreeSlots(allySide, rng);
         if (swaps.length > 0) {
@@ -216,12 +224,12 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
                 emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
                 emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), heal: healOnSwap } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: selfSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), heal: healOnSwap } });
         } else {
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '无变化' } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: selfSide, reason: '无变化' } });
         }
     } else {
-        log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '未触发' } });
+        log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: selfSide, reason: '未触发' } });
     }
 
     eventBus.emit(SIGNAL_TYPES.ON_POSITION_SWAP, { allySide, enemySide, log });

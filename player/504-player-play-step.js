@@ -177,6 +177,8 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
             }
             await handleRoundStart(c, entry, isFirstAttackRef);
             if (step.doubleStrikeUid) c.currentDoubleStrikeUid = step.doubleStrikeUid;
+            // 六大派概率连击 uid：与明教分开存（render/403 按阵营取值），让六大派格子也能出 ⚡
+            if (step.enemyDoubleStrikeUid) c.currentEnemyDoubleStrikeUid = step.enemyDoubleStrikeUid;
             lastEntryType = entry.type; break;
         case 'attack-group': {
             let result = await handleAttackGroup(c, entry, step, abortSig, isFirstAttackRef);

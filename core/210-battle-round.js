@@ -340,7 +340,9 @@ function prepareRoundStart(A, B, state, ctx) {
     // 默认飞行方向由回合组件 register 设置（幂等）
 
     const roundStartEvents = flushBattleEvents();
-    return { doubleStrikeUnitUids: ds.unitUids, roundStartEvents, roundComps };
+    // enemyDoubleStrikeUids 一并传出：原先只传 ds.unitUids（明教），六大派连击者 uid 被丢弃，
+    //   一路断到 render/403，六大派格子永不显示 ⚡。
+    return { doubleStrikeUnitUids: ds.unitUids, enemyDoubleStrikeUids: ds.enemyUids, roundStartEvents, roundComps };
 }
 
 export function* createRoundStepper(state, { ui = true, translateFacts = null } = {}) {
@@ -391,12 +393,13 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             winner,
             done,
             doubleStrikeUid: doubleStrikeUnitUids,
+            enemyDoubleStrikeUid: enemyDoubleStrikeUids,
             frozenValues,
             stageActions: ui && translateFacts ? translateFacts(logs) : []
         };
     };
 
-    const { doubleStrikeUnitUids, roundStartEvents, roundComps } = prepareRoundStart(A, B, state, { log, round, rng });
+    const { doubleStrikeUnitUids, enemyDoubleStrikeUids, roundStartEvents, roundComps } = prepareRoundStart(A, B, state, { log, round, rng });
 
     yield makeStep(log, roundStartEvents);
     log = [];
