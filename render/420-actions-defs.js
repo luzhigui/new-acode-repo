@@ -652,8 +652,7 @@ export const STAGE_ACTION_DEFS = {
                 .filter(m => m.uid != null && m.to != null && m.to !== undefined)
                 .map(m => ({ eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: m.uid, pos: m.to }));
             if (events.length > 0) c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events });
-            // ② 再让新位置格隐身（等 storeAfter 清 fly 让真格显出来）
-            for (const m of moves) if (m.uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+            // ② 隐身已移至 fx/616 克隆体就位后（此处设 fly 会在克隆体建好前造成「原地消失」空窗期）
         },
         storeAfter: (c, action) => {
             if (!c.store || !action.dash) return;

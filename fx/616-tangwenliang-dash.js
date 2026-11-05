@@ -415,6 +415,14 @@ async function showTangWenLiangDashSlow(dash) {
     // 把 activeGhosts 指过去，让 guardTick 跟随 store 重绘血条
     activeGhosts = ghosts;
 
+    // 克隆体已画上 DOM，此时再隐藏真格（无缝替换，杜绝 store 阶段的提前隐身空窗期）
+    {
+        const _store = GlobalStore.get('battleStore');
+        if (_store) {
+            for (const m of moves) _store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+        }
+    }
+
     const twGH = ghosts.find(x => x.isDash) || null;
     const tgtGH = targetUid != null ? (ghosts.find(x => x.uid === targetUid) || null) : null;
     const minorGhosts = ghosts.filter(x => !x.isDash && x.uid !== targetUid);
@@ -673,6 +681,14 @@ export async function showTangWenLiangDash(dash, opts) {
     }
     if (ghosts.length === 0) return [];
     activeGhosts = ghosts;
+
+    // 克隆体已画上 DOM，此时再隐藏真格（无缝替换，杜绝 store 阶段的提前隐身空窗期）
+    {
+        const _store = GlobalStore.get('battleStore');
+        if (_store) {
+            for (const m of moves) _store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+        }
+    }
 
     // ② 金线锁定：连「唐文亮克隆体当前位置」与「目标克隆体当前位置」，随动画实时跟随
     const twG = ghosts.find(x => x.isDash) || ghosts[0];

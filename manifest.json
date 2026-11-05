@@ -1,5 +1,5 @@
 {
- "ver": "9ab2debcd5bc35f935e74c3cbb3e61ca633e2615446bb80900cd7f22b00a8bd4",
+ "ver": "85839ec75915841da5929d3faafdf37c5f273bac0b97c0e695c571a21b01e048",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 147,
  "files": [
@@ -177,7 +177,7 @@
   ],
   [
    "fx/616-tangwenliang-dash.js",
-   "65d9d0b99efb08e886144b6d0e672c436bcb5e555cdec39498f46fd135eaf3ff"
+   "3e5818e57effd88488ff0f31cd362077ab6f2c826648a2bfb0ccf3751491d29b"
   ],
   [
    "fx/617-immune-shield-break.js",
@@ -501,7 +501,7 @@
   ],
   [
    "render/420-actions-defs.js",
-   "4b20b5a7870dcd2cf3c4fc2ea4b05fe273f27a7c6049b0be7f612c3098cf9e82"
+   "17926b1d2740bc020e6c2fd67745cf9bffeaf8c4c9edeb9c1e31641e60f46f6d"
   ],
   [
    "ui/701-main-utils.js",
