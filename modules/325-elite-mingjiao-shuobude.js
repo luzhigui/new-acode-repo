@@ -73,9 +73,15 @@ function onShuobudeHit(data) {
     if (!data.dmg || data.dmg <= 0) return;
     const rng = getBattleRng();
     // 50% 触发布袋
-    if (rng.next() >= 0.5) return;
+    if (rng.next() >= 0.5) {
+        if (log) pushSkillAnnounce(log, unit, '布袋', `🛍️ 布袋：触发判定失败`);
+        return;
+    }
     // 已装人 → 本次作废
-    if (unit.state._inBag) return;
+    if (unit.state._inBag) {
+        if (log) pushSkillAnnounce(log, unit, '布袋', `🛍️ 布袋：袋中已有人，本次作废`);
+        return;
+    }
     const allyTeam = A || [];
     const enemyTeam = B || [];
     // 触发后掷二选一：保护 / 抓敌各一半
