@@ -232,7 +232,7 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             if (isFxSkipped()) return;
             const { animateMindSwap } = await import('../fx/608-fx-manager.js');
-            await animateMindSwap(action.swaps || [], action.camp, c);
+            await animateMindSwap(action.swaps || [], action.camp, c, action.allPositions || []);
         }
     },
     [STAGE_ACTION_TYPES.PUSH]: {

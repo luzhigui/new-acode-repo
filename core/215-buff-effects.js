@@ -120,9 +120,9 @@ function shuffleThreeSlots(team, rng) {
     }));
     const immuneSlots = slotUnits.filter(s => s.unit && s.unit.state._ctrlImmune);
     const swappableUnits = slotUnits.filter(s => s.unit && !s.unit.state._ctrlImmune).map(s => s.unit);
-    if (swappableUnits.length < 2) return [];
+    if (swappableUnits.length < 2) return { swaps: [], pick3 };
     if (immuneSlots.length > 0) {
-        if (rng.nextInt(0, 1) === 0) return [];
+        if (rng.nextInt(0, 1) === 0) return { swaps: [], pick3 };
         const positions = swappableUnits.map(u => u.pos);
         const units = swappableUnits.slice();
         for (let i = units.length - 1; i > 0; i--) {
@@ -131,7 +131,7 @@ function shuffleThreeSlots(team, rng) {
         }
         let changed = false;
         for (let i = 0; i < units.length; i++) if (units[i] !== swappableUnits[i]) { changed = true; break; }
-        if (!changed) return [];
+        if (!changed) return { swaps: [], pick3 };
         const result = [];
         for (let i = 0; i < units.length; i++) {
             const u = swappableUnits[i];
@@ -139,10 +139,10 @@ function shuffleThreeSlots(team, rng) {
             u.pos = positions[i];
             result.push({ unit: u, fromPos, toPos: u.pos });
         }
-        return result;
+        return { swaps: result, pick3 };
     }
     const units = slotUnits.filter(s => s.unit).map(s => s.unit);
-    if (units.length < 2) return [];
+    if (units.length < 2) return { swaps: [], pick3 };
     const shuffledUnits = units.slice();
     for (let i = shuffledUnits.length - 1; i > 0; i--) {
         const j = rng.nextInt(0, i);
@@ -156,7 +156,7 @@ function shuffleThreeSlots(team, rng) {
     const finalPos = shuffledPos.slice(0, units.length);
     let changed = false;
     for (let i = 0; i < units.length; i++) if (units[i].pos !== finalPos[i]) { changed = true; break; }
-    if (!changed) return [];
+    if (!changed) return { swaps: [], pick3 };
     const result = [];
     for (let i = 0; i < units.length; i++) {
         const u = units[i];
@@ -164,7 +164,9 @@ function shuffleThreeSlots(team, rng) {
         u.pos = finalPos[i];
         result.push({ unit: u, fromPos, toPos: u.pos });
     }
-    return result;
+    // 返回 pick3（被选中的 3 个格子）：fx 层落定时需要用它完整遍历 3 个格子，
+    //   否则「原本空着但被分配了人」和「原本有人但被移空」两种情况都会演错。
+    return { swaps: result, pick3 };
 }
 
 function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly, enhance = null) {
@@ -182,7 +184,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
 
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: oppSide } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
-        const swaps = shuffleThreeSlots(enemySide, rng);
+        const { swaps, pick3 } = shuffleThreeSlots(enemySide, rng);
         if (swaps.length > 0) {
             const dmgOnSwap = (enhance && enhance.dmgOnSwap) || 0;
             if (dmgOnSwap > 0) {
@@ -203,7 +205,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
                 emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
                 emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, dmg: dmgOnSwap } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: oppSide, reason: '无变化' } });
         }
@@ -212,7 +214,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     }
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: selfSide } });
     if (rng.nextInt(1,100) <= swapChanceAlly) {
-        const swaps = shuffleThreeSlots(allySide, rng);
+        const { swaps, pick3 } = shuffleThreeSlots(allySide, rng);
         if (swaps.length > 0) {
             const healOnSwap = (enhance && enhance.healOnSwap) || 0;
             if (healOnSwap > 0) {
@@ -224,7 +226,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
                 emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
                 emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: selfSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), heal: healOnSwap } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: selfSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, heal: healOnSwap } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: selfSide, reason: '无变化' } });
         }

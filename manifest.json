@@ -1,5 +1,5 @@
 {
- "ver": "58157f51d139418258d3333e5ed6b3d760ea481f31223b6d048fee56254d8098",
+ "ver": "9ab2debcd5bc35f935e74c3cbb3e61ca633e2615446bb80900cd7f22b00a8bd4",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 147,
  "files": [
@@ -69,7 +69,7 @@
   ],
   [
    "core/215-buff-effects.js",
-   "4334bdb9a28faf73bdbb1454cd2ebca1eb36c5266ce4b0a91034ea2b8fa7c875"
+   "7c56f861772ec755ba5f0c9f7a584b24e0aa5b4688dd4c7dab887e21e76ef4e9"
   ],
   [
    "core/216-skill-mechanisms.js",
@@ -129,7 +129,7 @@
   ],
   [
    "fx/604-fx-position-swap.js",
-   "916e5749586fcc1d7289c390608dc09fb6df3380cfc7890a19566f722ed758e7"
+   "035be96cd2c83cbf8f9a55ef02854bb16012fcd4dfe55d35d62f2d928265440b"
   ],
   [
    "fx/605-fx-push-back.js",
@@ -289,7 +289,7 @@
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "53cbd0ae9ed271f5219d84b2ae5842fc96afb5dff056768e264d7190ee82e5c0"
+   "8dcc67a539b8d7d14beda9bdae393268b0bd56d4f673fc09a68accc195e5f996"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",
@@ -489,7 +489,7 @@
   ],
   [
    "render/417-actions-translate-control.js",
-   "5cbfd1321ec18958175c9a20885296d56c2666a0f1c03a10e53ae1cb4f48f4cc"
+   "8c5a074170e4479dd857892d2b7aae761b7c2e44b484bb9544b898257e006f5b"
   ],
   [
    "render/418-actions-translate-heal.js",
@@ -501,7 +501,7 @@
   ],
   [
    "render/420-actions-defs.js",
-   "45bf49ec3e930e09fe6059627e03084435197deb9a4cba5bf3afedee031ba2fd"
+   "4b20b5a7870dcd2cf3c4fc2ea4b05fe273f27a7c6049b0be7f612c3098cf9e82"
   ],
   [
    "ui/701-main-utils.js",

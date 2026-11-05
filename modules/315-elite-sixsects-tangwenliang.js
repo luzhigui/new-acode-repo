@@ -81,11 +81,18 @@ export function createTangWenLiangComponent() {
             //    沿 PUSH_PATH（本列自上而下，满了往邻列顺延）把挡路队友整列前推到空位
             //    （2026-10-23 拍板：换位制两人对调 → 强推挤压制）；
             //    双方各受当前生命 dmgRatio / selfDmgRatio 真伤；之后叠一套战士加成、转「战士」近战
-            // 列路径（key=frontPos 所在列 0/1/2）：先本列 1→4→7，满了按邻列顺序顺延
-            const PUSH_PATH = {
+            // 列路径（key=列 0/1/2）：
+            //   PUSH_PATH_A 供明教（前排 1/2/3，从前往后推：1→4→7）
+            //   PUSH_PATH_B 供六大派（前排 7/8/9，也是从前往后推：7→4→1，注意 7 才是六大派前排）
+            const PUSH_PATH_A = {
                 0: [1, 4, 7, 2, 5, 8, 3, 6, 9],
                 1: [2, 5, 8, 1, 4, 7, 3, 6, 9],
                 2: [3, 6, 9, 2, 5, 8, 1, 4, 7]
+            };
+            const PUSH_PATH_B = {
+                0: [7, 4, 1, 8, 5, 2, 9, 6, 3],
+                1: [8, 5, 2, 7, 4, 1, 9, 6, 3],
+                2: [9, 6, 3, 8, 5, 2, 7, 4, 1]
             };
             // 飞天/附身原格不可推——判据照抄 core/13 resolvePushOrStun（2026-10-23 拍板），别另造
             const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
@@ -112,7 +119,9 @@ export function createTangWenLiangComponent() {
                 if (!occAtTarget) return { ok: true, moved: [{ unit, from: unit.pos, to: targetPos, isDash: true }] };
 
                 const col = (targetPos - 1) % 3;
-                const path = PUSH_PATH[col];
+                // 按队伍阵营选正向 / 反向推挤路径：明教从 1 往 7 推，六大派从 7 往 1 推
+                const isAllyTeam = team.some(u => u.camp === CAMP_TYPES.ALLY);
+                const path = isAllyTeam ? PUSH_PATH_A[col] : PUSH_PATH_B[col];
                 const startIdx = path.indexOf(targetPos);
                 if (startIdx === -1) return { ok: false, reason: 'bad-pos', moved: [] };
 
@@ -147,9 +156,10 @@ export function createTangWenLiangComponent() {
                 const r0 = forceInsert(team, unit, preferredPos);
                 if (r0.ok) return r0;
                 const prefCol = (preferredPos - 1) % 3;
-                // 另两列（col 0/1/2 映射到 pos 1/2/3）
+                // 另两列的前排基点按阵营取：明教前排 1/2/3、六大派前排 7/8/9（col 0/1/2 → 基点+c）
                 const altCols = prefCol === 1 ? [0, 2] : (prefCol === 0 ? [1, 2] : [0, 1]);
-                const altPos = altCols.map(c => c + 1);
+                const frontBase = team.some(u => u.camp === CAMP_TYPES.ALLY) ? 1 : 7;
+                const altPos = altCols.map(c => frontBase + c);
                 // 随机顺序（老板口径「1 或 3 随机」）
                 if (getBattleRng().nextInt(0, 1) === 0) altPos.reverse();
                 for (const pos of altPos) {
@@ -165,14 +175,19 @@ export function createTangWenLiangComponent() {
             }
 
             function doDash(target, outLog) {
-                const frontPos = ((target.pos - 1) % 3) + 1;   // 目标同列的前排位（首选）
+                // 明教前排是 1/2/3、六大派前排是 7/8/9（两人在各自阵营的同列前排「面对面」）。
+                //   原代码只算 ((target.pos - 1) % 3) + 1 拿到 1/2/3 直接给六大派的唐文亮用，
+                //   导致他冲向六大派的后排（2 号位）、离明教目标最远。
+                const col = (target.pos - 1) % 3;
+                const targetFrontPos = (target.camp === CAMP_TYPES.ALLY ? 1 : 7) + col;
+                const twFrontPos = (tw.camp === CAMP_TYPES.ALLY ? 1 : 7) + col;
                 const twFromPos = tw.pos;
                 const targetFromPos = target.pos;
                 const allyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
                 const enemyTeam = tw.camp === CAMP_TYPES.ALLY ? A : B;
                 // 多列尝试（首选同列前排；被免疫/飞天占或路径被免疫挡 → 随机换 1/3 列）
-                const allyRes = target.pos > 3 ? forceInsertAnyColumn(allyTeam, target, frontPos) : { ok: true, moved: [] };
-                const enemyRes = forceInsertAnyColumn(enemyTeam, tw, frontPos);
+                const allyRes = target.pos > 3 ? forceInsertAnyColumn(allyTeam, target, targetFrontPos) : { ok: true, moved: [] };
+                const enemyRes = forceInsertAnyColumn(enemyTeam, tw, twFrontPos);
                 // 先落冲方、再落目标方
                 if (enemyRes.ok) applyMoves(enemyRes.moved, outLog);
                 if (allyRes.ok) applyMoves(allyRes.moved, outLog);

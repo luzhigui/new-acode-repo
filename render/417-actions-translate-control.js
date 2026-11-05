@@ -43,6 +43,7 @@ export const CONTROL_TRANSLATORS = {
             kind: STAGE_ACTION_TYPES.MIND_SWAP,
             camp: data.side,
             swaps: swaps.map(s => ({ uid: s.uid, fromPos: s.fromPos, toPos: s.toPos })),
+            allPositions: data.allPositions || [],
             factIndex: index,
             timing: 'beforeText'
         }];

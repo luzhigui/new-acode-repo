@@ -221,7 +221,7 @@ async function animateLiangyiSwap(unit1, unit2, c, options = {}) {
 //   引擎（core/215 shuffleThreeSlots）已经给出 swaps 载荷 [{uid, fromPos, toPos}]；
 //   本函数只负责视觉，落定后 dispatch POS_CHANGE 让 store 变到终态，
 //   后续 syncStoreFromStep 用引擎权威值重绘时，手动改过的 innerHTML 自然被覆盖掉。
-export async function animateMindSwap(swaps, camp, c) {
+export async function animateMindSwap(swaps, camp, c, allPositions) {
     if (!Array.isArray(swaps) || swaps.length === 0) return;
 
     // 建立原格引用 + 「起始内容」快照（uid 在 fromPos 时的格内 HTML）
@@ -231,7 +231,11 @@ export async function animateMindSwap(swaps, camp, c) {
         if (!cell) return;   // 数据异常（找不到格子）→ 整段跳过，不静默乱播
         items.push({ s, startHtml: cell.innerHTML });
     }
-    const positions = items.map(it => it.s.fromPos);
+    // positions 优先使用引擎传的 pick3（被选中的 3 个格子），确保落定时
+    //   「原本空着但被分配了人」和「原本有人但被移空」两种格子都被正确处理。
+    const positions = (Array.isArray(allPositions) && allPositions.length === 3)
+        ? allPositions
+        : items.map(it => it.s.fromPos);
     const startByPos = new Map(items.map(it => [it.s.fromPos, it.startHtml]));
 
     // 闪换：把当前 3 份内容随机重排回 3 个格子（保证与当前排列不同；内容用 HTML 字符串当身份判重）
@@ -267,9 +271,9 @@ export async function animateMindSwap(swaps, camp, c) {
         }
     };
 
-    // 起始排列 = 原格内容原样
+    // 起始排列 = 原格内容原样；空格兜底成「空」字样，避免 shuffleContent 把它当成 undefined 丢进 DOM
     let current = {};
-    positions.forEach(p => current[p] = startByPos.get(p));
+    positions.forEach(p => current[p] = startByPos.get(p) || '<span style="color:#999;">空</span>');
 
     // ① 高亮
     flashCells();
@@ -304,7 +308,12 @@ export async function animateMindSwap(swaps, camp, c) {
         const cell = getCellByPos(camp, p);
         if (!cell) continue;
         cell.classList.remove('swap-lock');
-        if (final.has(p)) cell.innerHTML = final.get(p);
+        if (final.has(p)) {
+            cell.innerHTML = final.get(p);
+        } else {
+            // 这个位置现在没人（原本有人被移走 / 原本空着且没被选中），补个空格文案
+            cell.innerHTML = '<span style="color:#999;">空</span>';
+        }
     }
     flashCells();
     await clock.wait(250);
