@@ -279,17 +279,31 @@ export async function animateMindSwap(swaps, camp, c, allPositions) {
     flashCells();
     await clock.wait(800);
 
-    // ② 原地闪换 N 次（内容随机重排，每格金闪）
-    const FLICKER_COUNT = 5;
-    const FLICKER_INTERVAL = 400;
-    for (let i = 0; i < FLICKER_COUNT; i++) {
+    // ② 原地闪换（节奏：先慢后快再慢，直到戛然而止）
+    const intervals = [700, 450, 250, 120, 120, 250, 450, 700];
+    for (let i = 0; i < intervals.length; i++) {
         current = shuffleContent(current);
         applyContent(current);
         flashCells();
-        await clock.wait(FLICKER_INTERVAL);
+        await clock.wait(intervals[i]);
     }
 
-    // ③ 凝固：红锁（与两格 animatePositionSwap 同款，不加任何中央文字）
+    // ③ 落定最终结果：在凝固之前先切好，让红锁锁住的就是真正的答案
+    const final = new Map();
+    for (const it of items) final.set(it.s.toPos, it.startHtml);
+    for (const p of positions) {
+        const cell = getCellByPos(camp, p);
+        if (!cell) continue;
+        if (final.has(p)) {
+            cell.innerHTML = final.get(p);
+        } else {
+            cell.innerHTML = '<span style="color:#999;">空</span>';
+        }
+    }
+    flashCells();
+    await clock.wait(150); // 最终结果闪最后一下，然后进入凝固
+
+    // ④ 凝固：红锁（此时画面已经是最终结果，不再改变）
     for (const p of positions) {
         const cell = getCellByPos(camp, p);
         if (cell) {
@@ -297,29 +311,12 @@ export async function animateMindSwap(swaps, camp, c, allPositions) {
             cell.classList.add('swap-lock');
         }
     }
-    await clock.wait(1200);
+    await clock.wait(1500); // 凝滞时间拉长，让玩家看清
 
-    // ④ 落定：一次性切到引擎给的最终排列。
-    //   shuffleThreeSlots 只重排选中的 3 个格子内部，{fromPos 集合} == {toPos 集合}，
-    //   所以每个 toPos 都能在 startByPos 里找到对应的原内容。
-    const final = new Map();
-    for (const it of items) final.set(it.s.toPos, it.startHtml);
+    // ⑤ 解除红锁（内容不再变化）
     for (const p of positions) {
         const cell = getCellByPos(camp, p);
-        if (!cell) continue;
-        cell.classList.remove('swap-lock');
-        if (final.has(p)) {
-            cell.innerHTML = final.get(p);
-        } else {
-            // 这个位置现在没人（原本有人被移走 / 原本空着且没被选中），补个空格文案
-            cell.innerHTML = '<span style="color:#999;">空</span>';
-        }
-    }
-    flashCells();
-    await clock.wait(250);
-    for (const p of positions) {
-        const cell = getCellByPos(camp, p);
-        if (cell) cell.classList.remove('swap-flash');
+        if (cell) cell.classList.remove('swap-lock');
     }
 
     // 交回 store：dispatch POS_CHANGE 让 store 与视觉终态一致
