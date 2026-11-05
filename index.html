@@ -429,6 +429,25 @@ const _swAllowed = (location.protocol === 'http:' || location.protocol === 'http
 if (_swAllowed && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
+        // 整套预装：每次打开让管家对一次清单版本；装齐切版后弹「发现新版本」横幅，点击立即刷新
+        navigator.serviceWorker.ready.then(reg => {
+            if (reg.active) reg.active.postMessage({ type: 'mf-check' });
+        }).catch(() => {});
+        navigator.serviceWorker.addEventListener('message', (e) => {
+            if (!e.data || e.data.type !== 'mf-ready') return;
+            let b = document.getElementById('mfBanner');
+            if (!b) {
+                b = document.createElement('div');
+                b.id = 'mfBanner';
+                b.textContent = '发现新版本 · 点此立即更新';
+                b.style.cssText = 'display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);'
+                    + 'z-index:99999;background:rgba(20,24,32,.92);color:#ffd166;padding:10px 18px;border-radius:20px;'
+                    + 'font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);user-select:none';
+                b.onclick = () => location.reload();
+                document.body.appendChild(b);
+            }
+            b.style.display = 'block';
+        });
     });
 }
 </script>
