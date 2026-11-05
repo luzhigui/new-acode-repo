@@ -568,6 +568,59 @@ document.addEventListener('DOMContentLoaded', async function() {
         syncAutoModeButton: () => updateAutoModeButton()
     };
 
+    // Bug 快照：303 错误捕获面板的「🐞」/「复制Bug报告」会调用它，
+    // 截取当前后台记录供 AI 分析。
+    //
+    // ⚠️ 2026-11-05 实测：默认全量太肥（200 条 battleLog + 200 条 facts + 3 万字符 DOM 日志
+    //    ≈ 10 万字符 / 100KB），剪贴板和聊天框都吃不下。所以改成按 opts 限量：
+    //      精简档（默认）：日志 25 条 / 6 千字符 DOM 文本 ≈ 3 万字符，够定位问题
+    //      全量档（opts.full）：保留原来的 200 条 / 3 万字符，只在「下载Bug报告」时用
+    window.__BUG_CONTEXT__ = (opts) => {
+        const full = !!(opts && opts.full);
+        const limit = (opts && Number(opts.limit)) || (full ? 200 : 25);
+        const domChars = full ? 30000 : 6000;
+        const ui = getState.UI();
+        const snap = getState.snapshot();
+        // 单位只留排查必需的字段：原版把整个 u.state 塞进来，里面全是 buff 数组，最占体积
+        const slimUnit = (u) => u ? ({
+            uid: u.uid, name: u.name, camp: u.camp, pos: u.pos,
+            hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, role: u.role,
+            // 只留状态里"有值"的键，空数组/0 全丢弃 —— 一个单位能从 ~300 字符压到 ~120
+            state: (() => {
+                const s = u.state || {};
+                const o = {};
+                for (const k of Object.keys(s)) {
+                    const v = s[k];
+                    if (v === null || v === undefined || v === 0 || v === false) continue;
+                    if (Array.isArray(v) && !v.length) continue;
+                    o[k] = v;
+                }
+                return o;
+            })()
+        }) : null;
+        const take = (arr, n) => (Array.isArray(arr) ? arr.slice(-n) : []);
+        const out = {
+            stage: getState.currentStage(),
+            round: ui && ui.round,
+            gs: getState.gs(),
+            autoLevel: getState.autoLevel(),
+            netRole: GlobalStore.get('netRole'),
+            adjustMode: getState.adjustMode(),
+            activeBuffs: take(getState.activeBuffs(), 10),
+            ally: (ui.allyTeam || []).map(slimUnit),
+            enemy: (ui.enemyTeam || []).map(slimUnit),
+            battleLog: take(GlobalStore.get('battleLog'), limit),
+            battleFacts: take(GlobalStore.get('battleFacts'), limit),
+            domLogText: (() => { const el = document.getElementById('log'); return el ? el.innerText.slice(-domChars) : ''; })()
+        };
+        // 快照只在全量档附带：95% 的情况和 ally/enemy 重复，白占一半体积
+        if (full) {
+            out.snapshotAlly = take(snap && snap.ally, 12).map(slimUnit);
+            out.snapshotEnemy = take(snap && snap.enemy, 12).map(slimUnit);
+        }
+        return out;
+    };
+
 
 
 
