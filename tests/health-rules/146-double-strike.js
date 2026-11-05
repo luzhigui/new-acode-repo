@@ -1,18 +1,24 @@
 // 回归规则：概率连击（doubleStrike）— 覆盖此前完全没有体检项盯的一条团队 Buff 机制。
-// 机制源：core/210-battle-round.js prepareRoundStart（每回合为持 Buff 方挑一名存活单位登记
-//   doubleStrikeUnitUid，明教/六大派各一人）+ core/03 registerDoubleStrike（80% 概率再打一次），
+// 机制源：core/210-battle-round.js prepareRoundStart（每回合为持 Buff 方挑**两名**存活单位登记
+//   doubleStrikeUnitUid，明教/六大派各 2 人 —— 本轮已由 1 人扩到 2 人，渲染把同侧两人拼成「A、B」）
+//   + core/03 registerDoubleStrike（80% 概率再打一次），
 //   渲染侧见 render/30 renderDoubleStrikeSummaryFact（回合开始宣告）与 renderDoubleStrikeFact
 //   （成功 banner / 失败文案）。content/001-game-data.json buffs.doubleStrike.prob = 0.8。
 // 为什么值得盯：连击是「额外攻击次数」，一旦被重复登记（同回合同人触发两次）或越界作用到
 //   未被宣告的单位，攻击次数会静默膨胀，战报上看不出来，只有把「回合开始宣告名单」与
 //   「实际触发者」对齐才能发现。
-// 三条复发信号：
+// 四条复发信号：
+//   0) 单侧宣告人数 >2 —— 登记面重复挂载（2026-11-05 新增）
 //   1) 同一回合内同一单位触发连击 ≥2 次 —— 额外攻击被重复登记（攻击次数膨胀）
 //   2) 实际触发者不在本回合的宣告名单里 —— 连击越界作用到未被挑中的单位
 //   3) 「触发失败」文案里的单位同样必须是本回合宣告过的那一个
 // 误报规避：
 //   - 只有本场真的出现连击宣告/触发才校验，否则 skip
-//   - 触发者名字：成功 banner 条目自带 `doubleStrikeName`（引擎 core/03 发 fact 时报单位名，
+//   - **宣告条目是同侧 2 人拼串**：render/411-facts-misc.js renderDoubleStrikeSummaryFact 把该侧
+//     被挑中的 2 人用「、」拼成一条「概率连击：A、B 80%概率额外攻击一次」。必须按「、」拆成独立名字
+//     入册，否则整串成为一个键，renames 查不到 ⇒ 蝶变宿主转移、幼狮成长两条别名通道同时失效。
+//     （2026-11-05 实测：关卡3 两条 + 关卡7 一条假阳性，全因旧实现未拆分）
+//   - 触发者名字：成功 banner 条目自带 `doubleStrikeName`（引擎发 fact 时报单位名，
 //     render/35 透传），直接读，不再反推；只有 小昭·妹「连蛛」banner（无该字段）才退回
 //     「banner 之后第一条 attack-group 的攻击者」旧推断。解析不到就跳过那条（不猜）
 //   - 本回合没有任何宣告（如 Buff 已过期但残留登记）时不做事后比对，只统计重复触发
@@ -21,7 +27,7 @@
 //     doubleStrikeUnitUid`），所以「回合开始宣告[幼狮] → 成长 → 触发者[雄狮]」是**同一单位**，不是越界。
 //     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记
 //     别名后再比对；不做这层就会把谢逊狮群的正常回合误报成连击越界（2026-09-24 实测 2 条红全是这个形态）。
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.16';
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.17';
 import { plain } from '../122health-utils.js';
 
 const PROB_PCT = 80; // content buffs.doubleStrike.prob = 0.8，仅用于文案口径核对
@@ -53,9 +59,20 @@ function inferNextAttacker(log, i) {
 }
 
 // 宣告名单：回合开始的 buff-summary「⚡ 概率连击：洪午 80%概率额外攻击一次」
+// 2026-11-05 修假阳性：render/411-facts-misc.js 把**同侧被选中的 2 人**拼成一条「A、B」，
+//   旧实现把整串当成一个名字塞进 declared ⇒ renames 的键被拼串污染（'小昭·姊' 永远查不到），
+//   蝶变宿主转移 / 幼狮成长两条合法别名通道**同时失效**，实测关卡3（2 条）、关卡7（1 条）共 3 条假阳性。
+//   现按「、」拆成独立名字逐个入册，别名对每个名字独立生效；整串不再作为键。
 function declaredNameOf(text) {
     var m = plain(text).match(/概率连击：(.+?)\s*80%概率/);
-    return m ? String(m[1]).trim() : null;
+    if (!m) return null;
+    var parts = String(m[1]).split('、');
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+        var n = parts[i].trim();
+        if (n) out.push(n);
+    }
+    return out.length ? out : null;
 }
 
 // 失败文案：「⚡ 概率连击触发失败，洪午 未能再次攻击」
@@ -109,14 +126,14 @@ export const rule93 = {
         //   只在「附身当回合」登记别名会让下一回合「宣告[姊]→触发[宿主]」误判越界（2026-10-23 报告）。
         //   butterfly: 姊名 → [宿主名]，attach 登记，「飞回恢复原形」「宿主阵亡被迫返回」解除。
         var butterfly = {};
-        var cur = { declared: [], fires: [], fails: [], renames: copyOf(butterfly) };
+        var cur = { declared: [], fires: [], fails: [], overDeclared: [], renames: copyOf(butterfly) };
         var touched = false;
         for (var i = 0; i < log.length; i++) {
             var e = log[i];
             if (!e) continue;
             if (e.type === 'round-start') {
-                if (touched || cur.declared.length || cur.fires.length || cur.fails.length) rounds.push(cur);
-                cur = { declared: [], fires: [], fails: [], renames: copyOf(butterfly) };
+                if (touched || cur.declared.length || cur.fires.length || cur.fails.length || cur.overDeclared.length) rounds.push(cur);
+                cur = { declared: [], fires: [], fails: [], overDeclared: [], renames: copyOf(butterfly) };
                 continue;
             }
             var txt = plain(e.text);
@@ -154,8 +171,16 @@ export const rule93 = {
                 continue;
             }
             if (e.type === 'buff-summary' && txt.indexOf('概率连击：') !== -1) {
-                var dn = declaredNameOf(e.text);
-                if (dn) { cur.declared.push(dn); touched = true; }
+                var dns = declaredNameOf(e.text);
+                if (dns) {
+                    // 同侧宣告上限 2 人：core/210-battle-round.js prepareRoundStart 每侧最多 push 两次
+                    //   （candidates[idx1] / candidates[idx2]）。超过 2 说明登记面被重复挂载。
+                    if (dns.length > 2) {
+                        cur.overDeclared.push('本回合单侧宣告 ' + dns.length + ' 人[' + dns.join('、') + ']（每侧上限 2，疑似登记面重复挂载）');
+                    }
+                    for (var di = 0; di < dns.length; di++) cur.declared.push(dns[di]);
+                    touched = true;
+                }
                 continue;
             }
             if (e.isDoubleStrikeBanner === true) {
@@ -176,13 +201,16 @@ export const rule93 = {
                 touched = true;
             }
         }
-        if (touched || cur.declared.length || cur.fires.length || cur.fails.length) rounds.push(cur);
+        if (touched || cur.declared.length || cur.fires.length || cur.fails.length || cur.overDeclared.length) rounds.push(cur);
         if (!touched) return 'skip'; // 本场没有连击 Buff 出场
 
         var problems = [];
         for (var r = 0; r < rounds.length; r++) {
             var rd = rounds[r];
             var named = rd.fires.filter(function(n) { return !!n; });
+
+            // 复发信号0（2026-11-05 新增）：单侧宣告人数超上限 2
+            for (var od = 0; od < rd.overDeclared.length; od++) problems.push(rd.overDeclared[od]);
 
             // 复发信号1：同一回合同一单位连击 ≥2 次
             var seen = [];
@@ -201,7 +229,8 @@ export const rule93 = {
 
             if (rd.declared.length === 0) continue; // 无宣告可比对（Buff 过期残留），跳过信号2/3
 
-            // 复发信号2：触发者必须是本回合宣告过的单位
+            // 复发信号2：触发者必须是本回合宣告过的单位（逐名比对，别名对每个名字独立生效）
+            //   拆分后仍能抓真越界：宣告[张无忌、X] 却由「雄狮」出手 → 两个名字都比不上雄狮 → 照报。
             for (var m2 = 0; m2 < named.length; m2++) {
                 var ok = false;
                 for (var d = 0; d < rd.declared.length; d++) { if (sameNameAfterRename(rd.declared[d], named[m2], rd.renames)) { ok = true; break; } }

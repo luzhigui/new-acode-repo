@@ -2,9 +2,12 @@
 // 机制源（core/215-buff-effects.js applyMindControlCore，core/204-buff-system.js L254-268 注册 AFTER_ATTACK）：
 //   - 门控：unit.alive + 队伍带 MIND_CONTROL buff + unit 是己方最前排（pos 最小、非拒马存活单位）
 //     —— AFTER_ATTACK 每次攻击都跑 handler，但非最前排单位在 core 内被 return，不产生任何条目；
-//   - 一次完整执行 = 「敌方一条 + 己方一条」（SWAP 或 FAIL），中间夹两条恒空的 MIND_CONTROL_BANNER
+//   - 一次完整执行 = 「敌方一条 + 己方一条」（SWAP 或 FAIL，侧序见下），中间夹两条恒空的 MIND_CONTROL_BANNER
 //     （render/35 L99 renderMindControlBannerFact 恒返回 null——有意设计，横幅在 stageAction 显示），
-//     故文本流里 ENEMY 结果与 ALLY 结果必然相邻；
+//     故文本流里两次结果必然相邻；
+//   - **侧别次序相对持有者而定，不是恒「敌方在前」**：applyMindControlCore 先按持有者选首侧 ——
+//     明教持有 → 敌方先；六大派持有 → 己方先。惑心登记在 content/001-game-data.json
+//     `hexes.permanentBuffKeys`，可挂敌方，故「己,敌,己,敌」合法（2026-11-05 修正，旧判据按敌方恒前写死）。
 //   - 敌方概率 = CONFIG.BUFFS.mindControl.enemySwapProb×100（0.8→80；小昭·姊在场走 hexEnhance 0.95→95），
 //     己方概率 = allySwapProb×100（0.4→40；增强 0.50→50）；
 //   - 实际换位由 shuffleThreeSlots 对「最前排 3 槽」洗牌，swaps 为变长数组（长度 0~3），
@@ -15,8 +18,8 @@
 //   3) swapUnitPositions 与实际 pos 写入曾经分家过（V6.1.3 参数三源收敛那一轮改过 core/14 多处），
 //     需要「宣告位置 vs 后续真实站位」对账——与 138 乘风击退同款病灶。
 // 五条复发信号：
-//   1) 配对断链：一条「敌方」惑心条目之后紧邻的惑心条目不是「己方」（或首条惑心条目就是「己方」）
-//      —— 一侧分支漏 push / 两侧顺序被改写；
+//   1) 配对断链：条目总数为奇数、某两条一组同为「敌方」或同为「己方」、或各组首侧不一致
+//      —— 一侧分支漏 push / 两侧顺序被改写（侧序可随持有者变，但同场必须一致）；
 //   2) SWAP 自洽破坏：任一条 swap 的 fromPos===toPos（自己换自己）、位置越界 1~9、
 //      或同一条目内两条 swap 共用来源位/目标位（洗牌退化）；
 //   3) FAIL 理由越界：不在 {未触发, 可用单位不足, 无变化}（main 当前合法理由集；无变化 = roll 命中但洗牌净位移为 0）—— 渲染/机制漂移；
@@ -24,7 +27,7 @@
 //   5) 宣告位置未生效：每条 swap 宣告 fromPos→toPos，被下一次换位打断前，该单位后续出场快照
 //      从未落到 toPos（复用 138 V6.1.12 口径：一拍时滞内任一快照命中即算生效；无后续快照不报）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.9';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.10';
 // V6.1.9（2026-11-02 收尾）：修判据5「被打断」识别的误报根因 —— 渲染后的 buff-swap 条目
 //   不带 uidA/uidB（render/409 返回的是 swaps 数组），原逻辑 `mid.uidA===uid||mid.uidB===uid` 恒 false，
 //   致「该单位随后又被惑心换走」永远识别不出，规则一路扫到战斗末尾只看到它在 1/4 号位出场，
@@ -166,16 +169,25 @@ export const rule113 = {
 
         var problems = [];
 
-        // 判据 1：配对完整性 —— 一次执行 = 敌方一条 + 己方一条，两条必然相邻
-        for (var k = 0; k < mc.length; k++) {
-            if (mc[k].side === '敌方') {
-                if (k + 1 >= mc.length || mc[k + 1].side !== '己方') {
-                    problems.push('第' + (k + 1) + '条惑心（敌方）之后未紧跟己方条目（一次执行被截断/两侧顺序改写）');
-                }
-            } else { // 己方
-                if (k === 0 || mc[k - 1].side !== '敌方') {
-                    problems.push('第' + (k + 1) + '条惑心（己方）之前不是敌方条目（首条即为己方/敌方条目丢失）');
-                }
+        // 判据 1：配对完整性 —— 一次执行产出**两条**（一条敌方 + 一条己方），两次执行按组相邻。
+        // 2026-11-05 修假阳性：侧别次序**相对持有者**而定，不是恒定「敌方在前」——
+        //   core/14 applyMindControlCore 先按持有者选首侧：明教持有 → 敌方先，六大派持有 → 己方先
+        //   （该函数注释原文如此）。惑心登记在 content/001-game-data.json `hexes.permanentBuffKeys`，
+        //   可挂敌方 ⇒ 己,敌,己,敌 是完全合法的序列。
+        //   旧判据按「敌必在己之前」写死，实测关卡5 把 己,敌,己,敌 误报成 2 条（首条己方 + 末条敌方断链）。
+        //   新判据：① 总数必须偶数（奇数=断链/丢失）② 每两条一组必为一敌一己
+        //          ③ 同场所有组的首侧必须一致（持有者固定，次序不可能中途翻转）
+        //   回归样例：己,敌,己,敌 通过；敌,己,己,敌 因「组首侧不一致」仍报错。
+        if (mc.length % 2 !== 0) {
+            problems.push('惑心条目数为 ' + mc.length + '（奇数）：一次执行应产出「敌方+己方」两条，出现断链/丢失');
+        }
+        var leadSide = mc.length >= 2 ? mc[0].side : null;
+        for (var k = 0; k + 1 < mc.length; k += 2) {
+            if (mc[k].side === mc[k + 1].side) {
+                problems.push('第' + (k + 1) + '、' + (k + 2) + '条惑心同为「' + mc[k].side + '」（一次执行应为一条敌方 + 一条己方）');
+            } else if (leadSide && mc[k].side !== leadSide) {
+                problems.push('第' + (k + 1) + '、' + (k + 2) + '条惑心组首侧为「' + mc[k].side
+                    + '」，与首组「' + leadSide + '」不一致（持有者固定，一次执行的侧序不应中途翻转）');
             }
         }
 

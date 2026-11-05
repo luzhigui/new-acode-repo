@@ -294,6 +294,7 @@ for (const [srcRel, spec] of Object.entries(VER_EMBEDDED_IN)) {
 const NO_VER_WHITELIST = [
     'tests/_lib/buff-picker.mjs',
     'tests/fact-coverage-selftest.mjs',
+    'tests/manifest-fresh-selftest.mjs',
     'tests/silent-relocate-judge-selftest.mjs'
 ];
 const noVerSet = new Set(noVerFiles);

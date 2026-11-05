@@ -1,5 +1,8 @@
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.9.1';
+export const VER = 'tests/121health-monitor.js V6.10.0';
+// V6.10.0 | 2026-11-04 双海克斯体检默认开启：开局点「六大派海克斯模式」按钮（btnGameEnemyHex）置 enemyAutoHex=true，
+//           六大派也自动选海克斯，覆盖双海克斯路径；?hexMode=single 退回单海克斯（点普通开始）。游戏本体双海克斯由
+//           ui/702 的 btnGameEnemyHex 触发（V1.3.0 core/206 的 enemyHexPicker），此前体检只走单海克斯，双海克斯路径从未被体检覆盖。
 // V6.9.1 | 2026-10-30 体检局打「生涯记录抑制」标记（careerLogSuppress，配 tools/52 V2.6.0）：
 //           体检无人值守局的胜率/阵容与玩家实打完全不同源，混进生涯记录会把英雄/海克斯统计全部带歪。
 //           游戏就绪时在 iframe 的 GlobalStore 上置真（会话期常驻），52 写库前读到即跳过；正常对局（顶层窗口）无此标记、照常记录。
@@ -105,6 +108,7 @@ let pendingIssueCounts = {};
 // start=起始关：默认从第2关开始（第1关无精英无机制，跑了白跑；第2关起有内容），可用 start=1..7 覆盖
 let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 7, autoSpeedVal = 300;
 let autoStartStage = 2;
+let hexModeResolved = 'dual'; // 双海克斯体检默认开启（2026-11-04 起）；?hexMode=single 退回单海克斯
 let autoStartedAt = 0, autoTargetReached = false, autoDone = false, maxStageSeen = 0, autoTargetDoneAt = 0;
 try {
     const _p = new URLSearchParams(window.location.search);
@@ -116,6 +120,10 @@ try {
     }
     // 起始关：手动体检与一键自动体检统一生效；默认第2关（2026-10-07 老板拍板 3→2），可用 start=1..7 覆盖
     autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 2));
+    // 双海克斯体检（2026-11-04 起默认开启）：?hexMode=single / s 退回单海克斯；
+    //   其余（dual/double/省略）一律双海克斯——开局点「六大派海克斯模式」按钮，六大派也自动选海克斯。
+    const _hm = (_p.get('hexMode') || '').toLowerCase();
+    if (_hm === 'single' || _hm === 's') hexModeResolved = 'single';
 } catch (e) {}
 // 报告元数据：本次体检启动时间戳 + 实际进入过的关卡号集合，供报告展示"何时跑的/跑了哪些关"（区分不同批次报告）
 let runStartedAt = 0;
@@ -329,7 +337,13 @@ export function initMonitor() {
                     };
                 }
             } catch (e2) {}
-            if (doc && doc.getElementById('coverStartBtn')) doc.getElementById('coverStartBtn').click();
+            // 双海克斯体检（默认）：开局点「六大派海克斯模式」按钮（btnGameEnemyHex，置 enemyAutoHex=true），
+            // 让六大派也自动选海克斯，覆盖双海克斯路径；?hexMode=single 退回单海克斯（点普通开始 coverStartBtn）。
+            const hexDual = (hexModeResolved === 'dual');
+            const _startBtn = hexDual
+                ? (doc.getElementById('btnGameEnemyHex') || doc.getElementById('coverStartBtn'))
+                : doc.getElementById('coverStartBtn');
+            if (_startBtn) _startBtn.click();
             const ctx = getCtx();
             if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.allyTeam.length >= 1) {
                 clearInterval(waitReady); gameLoaded = true;
@@ -862,7 +876,8 @@ function updateReport() {
         const stages = [...stagesRun].sort((a, b) => a - b).join('、') || '—';
         const metaDiv = document.createElement('div');
         metaDiv.style.cssText = 'color:#9c8cff;font-size:11px;padding:6px 8px;border:1px solid #9c8cff;border-radius:6px;margin-bottom:8px;background:rgba(156,140,255,0.08);';
-        metaDiv.textContent = '🕒 体检时间：' + runTime + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + detectedIssues.length + ' 项';
+        const _hexLabel = (hexModeResolved === 'dual') ? '双海克斯' : '单海克斯';
+        metaDiv.textContent = '🕒 体检时间：' + runTime + ' ｜ 模式：' + _hexLabel + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + detectedIssues.length + ' 项';
         reportArea.appendChild(metaDiv);
     } catch (e) {}
     const order = { '手动': 0, '规则': 1, '引擎': 2, 'UI': 3 };

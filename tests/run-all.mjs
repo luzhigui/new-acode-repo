@@ -1,3 +1,24 @@
+// V1.38.0 | 2026-11-05 迭代：修 run-all 观察项(OBSERVES)执行段的「假绿」——此前该段只 pickKeyLine
+//   一行文字、把 r.status（退出码）整个丢掉，任一项 exit≠0 也统一打 🔎、汇总不点名，
+//   等于「看得见但不拦」还看不清：确定型守门（如语法扫描 exit 1）被静默吞成噪声。
+//   现补：读退出码 → 非 0 打 ❌ exit=N、收进 observeFails、末尾汇总点名；
+//   确定型守门由条目自带 hard: true 声明（不另列名单，防第二份清单漂移），汇总时额外标注「建议升 CHECKS」。
+//   ★ 边界：failed / process.exit / CHECKS 分母一律不动 —— 「拦不拦（计不计退码）」是拍板权，
+//     本修复只补「看不看得见」，不擅自把观察项升红线、不改既有结论。
+// V1.37.0 | 2026-11-05 迭代：挂「体检模块语法扫描守门」tests/health-rules-syntax-sweep.mjs（新建 V1.0.0）。
+//   盲区：单个体检文件（尤其 health-rules/ 下 47 条浏览器运行时规则）若写出语法/解析错误，
+//   整个 120/121 harness 会加载即崩、47 条规则全灭，而 registration-check 只核对登记不解析内容——
+//   此前没有任何自检提前发现。本件 node --check 递归扫 tests/ 下所有 .js/.mjs（排除 .mut），零执行只解析，
+//   负路径已实测（故意写坏文件→exit=1 报出）。挂 OBSERVES 不改分母，是否升 CHECKS 开红待拍板。
+// V1.36.0 | 2026-11-05 迭代：补齐编排器漏接的三件真·node 自检（手写清单制盲区）。
+//   程序化比对 run-all 登记清单(45) vs 磁盘 tests/*.mjs/*.js(54 候选) → 9 个在盘不在册；
+//   其中 121/122/124 是浏览器 harness/工具、mutation-teeth 按注释故意单列、param-read-guard
+//   历史上故意不接、run-all 自身——这 6 个排除合理；剩 3 个真·node 自检被漏在调度外：
+//     · fact-coverage-selftest —— 引擎发射 factType ↔ 体检消费侧交叉覆盖（防新增机制静默瞎）
+//     · manifest-fresh-selftest —— manifest.json 指纹新鲜度（防改代码忘跑 manifest-gen）
+//     · registry-cross-check —— 三本中央登记簿交叉对账（只报不改）
+//   三者 node 直跑均 exit=0（已验证），挂 OBSERVES 而非 CHECKS：不改分母（CHECKS 26 不变），
+//   是否升 CHECKS 开红待拍板。本件让这三件守卫自此随体检秒级自动跑，不再靠人记得手动跑。
 // V1.35.0 | 2026-11-02 夜间第 177 轮：OBSERVES 挂「强制开关登记漂移守门」
 //     tests/force-switch-registry-drift-guard.mjs（新增 V1.0.0）。
 //   ★ 立它的由头是同一份清单在 tools 侧已经漂移过三次、每次都靠人读注释时顺手发现：
@@ -120,7 +141,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.35.0';
+export const VER = 'tests/run-all.mjs V1.38.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -365,7 +386,18 @@ const OBSERVES = [
     //   带双向牙 Z1~Z10（多读必进未登记 / 幽灵必判红 / 一致必 PASS / 缺 anyForce 不放行 / 零解析
     //   不放行 / 注释不算数 / 双通道归一 / 超棘轮必 TRIP / 规模缩水必报 / 写入面只报不判），
     //   跑 --selftest 可复核。挂观察项不改分母，理由同前几轮。
-    { name: '强制开关登记漂移守门', script: 'tests/force-switch-registry-drift-guard.mjs', args: [] }
+    { name: '强制开关登记漂移守门', script: 'tests/force-switch-registry-drift-guard.mjs', args: [] },
+    // V1.36.0 | 2026-11-05 迭代：补编排器漏接的三件真·node 自检（详见头顶 V1.36.0 日志行）。
+    //   三者纯 node、exit=0、不依赖浏览器；挂观察项不改分母，是否升 CHECKS 开红待拍板。
+    { name: 'fact 覆盖交叉自检', script: 'tests/fact-coverage-selftest.mjs', args: [] },
+    { name: '清单新鲜度自检', script: 'tests/manifest-fresh-selftest.mjs', args: [] },
+    { name: '中央登记簿交叉对账', script: 'tests/registry-cross-check.mjs', args: [] },
+    // V1.37.0 | 2026-11-05 迭代：挂「体检模块语法扫描守门」（详见头顶 V1.37.0 日志行）。
+    //   纯 node、零执行只解析；单文件坏→整 harness 崩溃这类盲区自此随体检秒级自动扫，不再靠人开浏览器才发现。
+    // hard: true = 确定型守门：exit≠0 即 100% 是体检域自身的确定性缺陷（语法错/解析失败），无「待主代码转交」
+    //   的研判灰度。由条目作者自称，汇总时额外标注「建议升 CHECKS 开红」；默认不写 = 取证项，红了供人工研判。
+    //   ★ 不开第二份名单：属性跟条目走，新增守门不会再有「名单与清单失同步」的漂移面。
+    { name: '体检模块语法扫描守门', script: 'tests/health-rules-syntax-sweep.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
@@ -412,10 +444,14 @@ console.log('---------------------------------------------------------');
 console.log('结果：' + pass + '/' + activeChecks.length + ' 通过，耗时 ' + ((Date.now() - tStart) / 1000).toFixed(1) + 's'
     + (failed ? '，X ' + failed + ' 项红（见上方对应行）' : (QUICK ? '（--quick 精简态）' : '，全套全绿')));
 
-// 观察项（V1.2.0）：只跑只报，不计退码
+// 观察项（V1.2.0）：只跑只报，不计退码。
+// V1.38.0：补「显形」——不再丢弃 r.status。非 0 项打 ❌ exit=N 并收进 observeFails，末尾汇总点名。
+//   ★ 仍不计入 failed / 不改 process.exit / 不动 CHECKS 分母：开红与否留待拍板（见头顶 V1.38.0）。
+// 确定型守门由条目自带 hard: true 声明（见 OBSERVES 末项注释），不在本处再列名单，避免第二份清单漂移。
 if (OBSERVES.length) {
     console.log('---------------------------------------------------------');
     console.log('观察项（取证类探针，结果供人工研判、不计退码）：');
+    const observeFails = [];
     for (const c of OBSERVES) {
         const t0 = Date.now();
         let r;
@@ -425,8 +461,18 @@ if (OBSERVES.length) {
         } catch (e) {
             r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
         }
+        const code = (typeof r.status === 'number') ? r.status : 1;
         const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''));
-        console.log('  🔎 ' + c.name.padEnd(22) + ' ' + (Date.now() - t0) + 'ms  ' + key);
+        const ms = Date.now() - t0;
+        if (code !== 0) observeFails.push({ name: c.name, code, key, hard: !!c.hard });
+        console.log('  ' + (code === 0 ? '🔎' : '❌ exit=' + code) + ' ' + c.name.padEnd(22) + ' ' + ms + 'ms  ' + key);
+    }
+    if (observeFails.length) {
+        console.log('---------------------------------------------------------');
+        console.log('⚠ 观察项 ' + observeFails.length + ' 项退出非 0（按现行 OBSERVES 口径不计退码，待人工研判）：');
+        for (const f of observeFails) {
+            console.log('   · ' + (f.hard ? '[确定型守门·建议升 CHECKS 开红] ' : '') + f.name + '  exit=' + f.code + '  ' + f.key);
+        }
     }
 }
 process.exit(failed ? 1 : 0);

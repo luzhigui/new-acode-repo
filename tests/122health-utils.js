@@ -1,3 +1,7 @@
+// V6.7.5 | 2026-11-05 checkFxDomAccumulation 阈值改为从 FX_POOL_SIZES 派生（镜像 fx/601 POOL_SIZES）：
+//          dmgFloat 6→12、.heal-float 12、DOM 总量 30→36。旧数字写死已随 2026-11-04 扩池过期，
+//          关卡2 实测「伤害飘字12个超池容量6」「特效DOM总量36个异常累积」两条均为假阳性（36 就是满编）。
+//          总量刻意不含 buffBanner（该池元素无 className，不被四个选择器统计，算进去会永不触发）。
 // V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现（合并移植：本条与远端并线第 24-49 轮共存）
 // V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
@@ -17,7 +21,7 @@ import { getUnitCol, getUnitRow } from '../infra/102-core-utils.js';
 // V6.7.4（续迭代）：checkHpBarSync 同款修复——单位受击后引擎 hp 即时更新、DOM 血条动画回落约 0.7s，
 //   原判据见 |actual-expected|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
 //   改为追踪连续两次取样高度：仍变化=动画中跳过；稳定且仍偏离>5%=真·卡死/错位才报。
-export const VER = 'tests/122health-utils.js V6.7.4';
+export const VER = 'tests/122health-utils.js V6.7.5';
 
 // [模块级状态] 见 V6.7.3：死亡血条动画收敛追踪 + GAMEOVER 按钮稳定计时
 const _barPrev = new Map();      // uid -> 上次观测到的血条高度(%)，区分"动画回落中"与"卡死残留"
@@ -629,15 +633,29 @@ export function checkBattleReportOverlay(ctx, doc) {
     return issues;
 }
 
+// fx/601-fx-common-5v5-test.js `POOL_SIZES` 的镜像（真源在该文件，改容量时须同步此处）。
+// 2026-11-05：不再散落硬编码 —— dmgFloat 已于 2026-11-04 从 6 扩到 12（反伤/连击高频小值下
+//   防池满抢位挤兑），旧阈值 6 把稳态 12 个池元素误报成「对象池泄漏」（实测关卡2 假阳性）。
+const FX_POOL_SIZES = {
+    danmaku: 8, dmgFloat: 12, dodge: 4,
+    healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2
+};
+// .heal-float 类由 healFloat + atkBuffFloat + defBuffFloat 三池共用（各自独占名额、共用样式类）
+const FX_HEAL_FLOAT_CLASS_TOTAL = FX_POOL_SIZES.healFloat + FX_POOL_SIZES.atkBuffFloat + FX_POOL_SIZES.defBuffFloat;
+// DOM 稳态总量 = **被本检查统计的四个类**之和。注意 buffBanner 池（2 个）刻意不计入：
+//   createBuffBannerEl 只设 style 不设 className，永远不会被 .danmaku-bubble/.dmg-float/
+//   .dodge-bubble/.heal-float 匹配到。若把它算进阈值（=38），实测上限只有 36 ⇒ 判据永不触发（假绿）。
+const FX_DOM_TOTAL = FX_POOL_SIZES.danmaku + FX_POOL_SIZES.dmgFloat + FX_POOL_SIZES.dodge
+    + FX_HEAL_FLOAT_CLASS_TOTAL;
+
 /**
  * [新增] 特效DOM/弹幕池检查 — 对象池容量泄漏与池失效
- * 池容量（fx/601-fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 /
- *   healFloat 4 + atkBuffFloat 4 + defBuffFloat 4 = 12（三池共用 .heal-float 类，V6.2.3 新增 defBuffFloat 池）
+ * 阈值全部由 FX_POOL_SIZES（fx/601 POOL_SIZES 的镜像）派生，不再写死数字：
+ *   danmaku 8 / dmgFloat 12 / dodge 4 / .heal-float 12（三池合计）/ DOM 总量 36（不含 buffBanner）
  * 复发信号：元素数超池容量（泄漏累积→多局后弹幕卡顿）/
  *          RUNNING 中弹幕DOM为0（ui/715-reset-runtime.js（原69）重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
  * 对应已报 Bug：多打几局，弹幕特别卡
- * 注意：.heal-float 阈值须用 12（三池之和），不是 8 —— 池元素常驻 DOM（隐藏+激活），稳态恒为 12，
- *   只有出现第 13 个游离元素才真泄漏。旧阈值 8 会把稳态池误报成"泄漏"（每局必误报）。
+ * 注意：池元素常驻 DOM（隐藏+激活），稳态恒为池容量之和，只有出现超出容量的游离元素才真泄漏。
  */
 export function checkFxDomAccumulation(ctx, doc) {
     const issues = [];
@@ -646,12 +664,12 @@ export function checkFxDomAccumulation(ctx, doc) {
     const dmgFloat = doc.querySelectorAll('.dmg-float').length;
     const dodgeBubble = doc.querySelectorAll('.dodge-bubble').length;
     const healFloat = doc.querySelectorAll('.heal-float').length;
-    if (danmaku > 8) issues.push('弹幕元素' + danmaku + '个超池容量8（对象池泄漏，多局后卡顿）');
-    if (dmgFloat > 6) issues.push('伤害飘字' + dmgFloat + '个超池容量6（对象池泄漏）');
-    if (dodgeBubble > 4) issues.push('闪避气泡' + dodgeBubble + '个超池容量4（对象池泄漏）');
-    if (healFloat > 12) issues.push('治疗/加攻飘字' + healFloat + '个超池容量12（对象池泄漏）');
+    if (danmaku > FX_POOL_SIZES.danmaku) issues.push('弹幕元素' + danmaku + '个超池容量' + FX_POOL_SIZES.danmaku + '（对象池泄漏，多局后卡顿）');
+    if (dmgFloat > FX_POOL_SIZES.dmgFloat) issues.push('伤害飘字' + dmgFloat + '个超池容量' + FX_POOL_SIZES.dmgFloat + '（对象池泄漏）');
+    if (dodgeBubble > FX_POOL_SIZES.dodge) issues.push('闪避气泡' + dodgeBubble + '个超池容量' + FX_POOL_SIZES.dodge + '（对象池泄漏）');
+    if (healFloat > FX_HEAL_FLOAT_CLASS_TOTAL) issues.push('治疗/加攻飘字' + healFloat + '个超池容量' + FX_HEAL_FLOAT_CLASS_TOTAL + '（对象池泄漏）');
     const total = danmaku + dmgFloat + dodgeBubble + healFloat;
-    if (total > 30) issues.push('特效DOM总量' + total + '个异常累积（弹幕卡顿来源）');
+    if (total > FX_DOM_TOTAL) issues.push('特效DOM总量' + total + '个异常累积（容量' + FX_DOM_TOTAL + '，弹幕卡顿来源）');
     if (ctx && ctx.gs === 'RUNNING' && danmaku === 0) {
         issues.push('战斗进行中弹幕DOM为0（重置摧毁弹幕池：DOM被移除但对象池仍持有游离引用，弹幕已失效）');
     }
