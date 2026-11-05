@@ -1,4 +1,4 @@
-export const VER = 'ui/706-main-battle.js V6.1.3';
+export const VER = 'ui/706-main-battle.js V6.1.4';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/102-core-utils.js';
@@ -94,12 +94,13 @@ export function showFlyDirectionPopup(callback) {
     box.appendChild(btnDiv);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-    // 弹窗已显示时快进则自动关闭
+    // 弹窗已显示时快进则自动关闭：同样按 2026-10-02 定案落「向左」（防+血），
+    //   不能写 right——早退分支已改左，此处漏改会造成「体检/全自动时序稍差 → 自动落向右」。
     const unsub = GlobalStore.on('fastForwardActive', (val) => {
         if (val) {
             unsub();
             if (overlay.parentNode) overlay.remove();
-            callback('right');
+            callback('left');
         }
     });
     // 包装 callback，确保清理监听
