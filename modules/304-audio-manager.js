@@ -1,12 +1,12 @@
-// modules/304-audio-manager.js — 音频总控（Web Audio 优先，file:// 退回 <audio>）
-// V7.0.1 | 2026-11-05 | http(s) 一律 Web Audio（去掉「仅移动端」UA 判断，桌面 http 预览/线上同走一套）：
+// modules/304-audio-manager.js — 音频总控（全环境统一 Web Audio，<audio> 路径仅保留不再命中）
+// V7.0.2 | 2026-11-05 | file:// 也纳入 Web Audio（实测本机 fetch+decode 可用，<audio> 对坏 mp3 静默失败）：
 //   · 小米等浏览器对 <audio> 播放的媒体指示器（喇叭/通知栏）不再弹；WebAudio 走 AudioBufferSourceNode，不被监测
-//   · 环境探测 location.protocol：http(s) → WebAudio（fetch+decode+node）；file:// → 退回 <audio>（fetch 被安全策略拦死）
+//   · 环境探测：http(s) 与 file:// 均走 WebAudio（fetch+decode+node）；不再按协议分流
 //   · BGM：fetch+decode 缓存 AudioBuffer，播放走 AudioBufferSourceNode；pause = stop+记 offset，resume 从 offset 重建
 //   · 音效：所有 role 的 mp3 并发 fetch+decode 预热缓存，每次播放新建 source（可叠放）
 //   · 合成音（狮吼）不变，仍走 WebAudio；对外 API 签名一字不改
-//   · <audio> 实现整段保留（file:// 分支），两套后端并存、入口按环境选择
-export const VER = 'modules/304-audio-manager.js V7.0.1';
+//   · <audio> 实现整段保留（历史路径/应急参考），不再被任何环境命中
+export const VER = 'modules/304-audio-manager.js V7.0.2';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
@@ -85,16 +85,14 @@ function playLionRoar(volume = 0.3) {
     noise.stop(now + 1.0);
 }
 
-// ─── 环境探测：http(s) → WebAudio；file:// → <audio> ───
-// file:// 下 fetch 会被浏览器安全策略直接拦死（这正是 V6.5.1 把音效改 <audio> 的起因），
-//   所以 WebAudio 只在 http(s) 下可用；file:// 退回 <audio>，声音保底。
-// 反过来的收益：http(s)（含手机线上站、VSCode 的 http://127.0.0.1 预览、桌面浏览器）
-//   一律走 WebAudio —— decodeAudioData 对本仓 mp3 更宽容，且不受媒体元素错误牵连，
-//   桌面预览与线上不再出现「没声音 + BGM 加载失败」。仅 file:// 才用 <audio>。
-const _isHttp = typeof location !== 'undefined'
-    && (location.protocol === 'http:' || location.protocol === 'https:');
+// ─── 环境探测：http(s) 与 file:// 一律走 WebAudio ───
+// file:// 下 <audio> 对结构损坏的 bgm-chinese.mp3 报 NotSupportedError，且 file 分支把 play() 的
+//   rejection 整段吞掉（.catch(()=>{})），表现为「无日志、无声」；同一环境实测 fetch(本地 mp3)+
+//   decodeAudioData 正常（bgm-chinese 时长 137.04s、全曲 RMS 0.2783），所以不再按协议分流。
+// 变量名沿用 _isHttp（全文件多处引用），语义已变为「是否走 WebAudio」，恒真；<audio> 代码保留但不再命中。
+const _isHttp = true;
 
-// ─── WebAudio 缓存与状态（http 下用） ───
+// ─── WebAudio 缓存与状态（全环境用） ───
 const _bgmBuffers = new Map();      // trackId -> AudioBuffer
 const _sfxBuffers = new Map();      // role    -> AudioBuffer
 let _bgmNode = null;                // 当前播放的 AudioBufferSourceNode
@@ -197,7 +195,7 @@ export const AudioManager = {
         initSfx();
     },
 
-    // 挂载曲目：http 走 WebAudio（fetch+decode 缓存），file 走 <audio> 元素
+    // 挂载曲目：一律 WebAudio（fetch+decode 缓存）；<audio> 分支保留但恒不命中
     _mountBgm(trackId, url) {
         if (_isHttp) this._mountBgmWebAudio(trackId, url);
         else this._mountBgmAudio(trackId, url);
