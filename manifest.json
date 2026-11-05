@@ -1,5 +1,5 @@
 {
- "ver": "85839ec75915841da5929d3faafdf37c5f273bac0b97c0e695c571a21b01e048",
+ "ver": "83cf48326826858a83258f80c5a642f5595ad0e27ea6211d8ff8d359f4fbdee3",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 147,
  "files": [
@@ -289,7 +289,7 @@
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "8dcc67a539b8d7d14beda9bdae393268b0bd56d4f673fc09a68accc195e5f996"
+   "e4bc95ae615c98bb9064f5803248734ceaf26ee8b6f32f8fd760d4a2a4d77e55"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",
