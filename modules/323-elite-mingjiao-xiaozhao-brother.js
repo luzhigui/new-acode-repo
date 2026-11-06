@@ -1,5 +1,5 @@
 // modules/323-elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.0';
+export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.1';
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { spawnHorse } from '../core/205-battle-horse.js';
@@ -11,14 +11,6 @@ import { StateMachine } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
-registerSettlementHook({ when: SIGNAL_TYPES.ON_UNIT_DEATH, priority: L.ON_UNIT_DEATH.XIAO_CARRY_COUNT, handler: (data) => {
-    const bro = (data.allySide || []).find(u => u.isXiaoZhaoBrother && u.alive);
-    if (!bro) return;
-    const deaths = (data.deadUnits || []).filter(u => u.camp === CAMP_TYPES.ALLY).length;
-    if (deaths <= 0) return;
-    const d = bro.state._xiaoCarryDeaths || { cur: 0, r1: 0, r2: 0 };
-    Object.assign(bro.state, { _xiaoCarryDeaths: { cur: d.cur + deaths, r1: d.r1, r2: d.r2 } });
-}});
 const SPIDER_TIER_REASON = { '70': '血量即将低于70%', '40': '血量即将低于40%', 'death': '即将阵亡', hatch: '蜘蛛孵化' };
 function decideSpiderTier(state, maxHp, hpAfter, fp) {
     if (!state._spiderTriggered70 && hpAfter <= maxHp * fp.hpThresholds[0]) return '70';
@@ -347,6 +339,19 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.PERMANENT_DOUBLE_RETRY, (data) => {
                 submitXiaoZhaoDoubleStrikeDeclaration(data);
             });
+            // 永久 carry 死亡计数：ON_UNIT_DEATH 累加本回合己方阵亡数（蛛变声明处滚动 cur→r1→r2）。
+            //   必须挂在 register() 内：core/210 installRoundMechanics 每回合先 eventBus.clearAll()，
+            //   顶层注册只在模块首次 import 时挂一次、第一回合就被清掉，计数恒 0（层数公式 r1/r2 永远为 0）。
+            //   挂这里与其它钩子同一时机、同一签名（registerSettlementHook 内部即 eventBus.on），
+            //   register() 每回合唯一一次，不累积监听。
+            registerSettlementHook({ when: SIGNAL_TYPES.ON_UNIT_DEATH, priority: L.ON_UNIT_DEATH.XIAO_CARRY_COUNT, handler: (data) => {
+                const bro = (data.allySide || []).find(u => u.isXiaoZhaoBrother && u.alive);
+                if (!bro) return;
+                const deaths = (data.deadUnits || []).filter(u => u.camp === CAMP_TYPES.ALLY).length;
+                if (deaths <= 0) return;
+                const d = bro.state._xiaoCarryDeaths || { cur: 0, r1: 0, r2: 0 };
+                Object.assign(bro.state, { _xiaoCarryDeaths: { cur: d.cur + deaths, r1: d.r1, r2: d.r2 } });
+            }});
         },
         executeFly(unit, incomingDmg, A, log) {
             if (!unit.isXiaoZhaoBrother || !unit.alive || unit.state._spiderEgg) return false;
