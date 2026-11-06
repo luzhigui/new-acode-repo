@@ -6,12 +6,14 @@ name: Health Check
 #   那条禁的是每轮新建会话 + 非 hy4 模型 + 按会话计费；Actions 走 GitHub 免费额度，不占对话积分。
 #   技术上无障碍：tests/run-all.mjs 已是一键总入口（10 项 node 红线，任一红退 1，零 playwright）。
 #
-# 触发策略：先只留手动按钮（与 build-apk.yml 同款，零风险），跑稳了再放开 push 自动触发。
-#   目前是批次制（攒一波推送 → 手动跑一轮），所以默认不自动。
-#   要转「每笔推送必须绿了才算完」的节奏时，把下面注释的两行 on.push 打开即可。
+# 触发策略：2026-10-28 开 push 自动门禁（老板拍板）：每笔推 main 自动跑，跑不绿不算推完。
+#   动因：fa6f206f 的 CAMP_TYPES 漏 import（选 Buff 点击才炸、上线当晚被老板撞上）——ESLint no-undef
+#   一跑一个准（实测 144/154 两行全标中），但手动批次制下根本没跑。
+#   Actions 走 GitHub 免费额度，不占对话积分；红了会邮件通知推送者。
+#   失败排查：Actions 页看是哪项红（node 红线 / ESLint），别只看邮件标题。
 on:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -26,8 +28,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: 跑体检红线（node-only，零浏览器）
+      # 2026-10-28 push 门禁先只挂 ESLint：run-all 当前 8 项真红（fa6f206f 蝴蝶批的行为性破坏，分诊中）
+      #   + 1 项环境红（牙口证据链读本地 tests/.mut/ 变异树产物，CI checkout 里永远没有）——现在挂着
+      #   就是每笔必红、邮件轰炸。红项清完把 if 行删掉，push 也跑全量 node 红线。手动按钮始终跑全量。
+      - name: 跑体检红线（node-only，零浏览器；暂仅手动触发）
+        if: github.event_name == 'workflow_dispatch'
         run: node tests/run-all.mjs
+
+      # 2026-11-06 push 门禁加挂两个秒级守门（清单新鲜度+规则语法扫）——11-05 三个新模块漏登清单
+      #   就是「最后一笔没跑 run-all」漏的，这两个挂上后漏登/语法雷在 push 当场拦截。
+      - name: 秒级守门（清单新鲜度 + 规则语法扫）
+        run: |
+          node tests/manifest-fresh-selftest.mjs
+          node tests/health-rules-syntax-sweep.mjs
 
       - name: 跑 ESLint（代码本身写没写错，与体检互补）
         run: |
