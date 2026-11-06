@@ -4,7 +4,8 @@ import { CONFIG } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/102-core-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
-import { updateUI } from './703-ui-render-5v5-test.js';
+import { updateUI, renderGrid } from './703-ui-render-5v5-test.js';
+import { Unit, applyHeroFlags } from '../core/202-unit.js';
 import { showModal } from './701-main-utils.js';
 import { getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { initBattleTeams } from '../modules/330-battle-init.js';
@@ -163,6 +164,99 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
 }
 
 // Buff 槽
+
+// ========== 小昭姊/妹摆位切换（2026-11-06） ==========
+// 开局抽到小昭时，摆位阶段允许在姊/妹之间切换。
+// 实现：两个独立单位各生成一次，切到哪个就把哪个放进 UI.allyTeam，另一个存 GlobalStore 备份。
+// 为什么不在同一个 unit 上改标记：initXiaoZhao() 会重算血/攻/防，同一个对象改来改去
+//   属性会互相污染；两个独立对象各自算，职业/属性天然独立（姊 = 蝴蝶、妹 = 随机四职业之一）。
+// 为什么不点格子：摆位阶段点格子走的是「选/换位」（ui/709 bindGrid），不是开详情弹窗；
+//   硬塞进去会破坏换位交互。改用右侧悬浮按钮，只在摆位阶段显示。
+const XIAOZHAO_BACKUP_KEY = 'xiaoZhaoBackup';
+
+function createXiaoZhaoForm(form, pos) {
+    // 与 modules/330 pushElite 里小昭那段同口径：先给随机职业，initXiaoZhao 会把姊改成蝴蝶
+    const unit = new Unit('小昭', 107, CONFIG.ROLES[Math.floor(Math.random() * 4)], CAMP_TYPES.ALLY);
+    if (form === 'sister') unit.isXiaoZhaoSister = true;
+    else unit.isXiaoZhaoBrother = true;
+    unit.name = form === 'sister' ? '小昭·姊' : '小昭·妹';
+    applyHeroFlags(unit);
+    unit.initXiaoZhao();
+    unit.applyBonus(true);   // true = 不吃职业加成（与 pushElite 一致）
+    unit.state._baseMaxHp = unit.maxHp;
+    unit.state._baseAtk = unit.atk;
+    unit.state._baseDef = unit.def;
+    unit.pos = pos;
+    unit.state._originalPos = pos;
+    return unit;
+}
+
+export function switchXiaoZhaoForm() {
+    const UI = GlobalStore.get('UI');
+    if (!UI || !Array.isArray(UI.allyTeam)) return;
+    const team = UI.allyTeam;
+    const cur = team.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother);
+    if (!cur) return;
+    const curForm = cur.isXiaoZhaoSister ? 'sister' : 'brother';
+    const targetForm = curForm === 'sister' ? 'brother' : 'sister';
+
+    // 查备份：有同形态备份就取，没有就新建（新建只发生一次，之后都从备份取，职业稳定）
+    const backup = GlobalStore.get(XIAOZHAO_BACKUP_KEY);
+    let nextUnit;
+    if (backup && backup.form === targetForm && backup.unit) {
+        nextUnit = backup.unit;
+        GlobalStore.set(XIAOZHAO_BACKUP_KEY, null);   // 先清，防同一对象两处引用
+    } else {
+        nextUnit = createXiaoZhaoForm(targetForm, cur.pos);
+    }
+    // 保持位置与锁定标记（小昭在 modules/330 里是固定位，切换不能丢）
+    nextUnit.pos = cur.pos;
+    nextUnit.state._originalPos = cur.pos;
+    nextUnit.fixed = cur.fixed;
+
+    // 当前存备份，替换进 team
+    GlobalStore.set(XIAOZHAO_BACKUP_KEY, { form: curForm, unit: cur });
+    const idx = team.indexOf(cur);
+    if (idx >= 0) team[idx] = nextUnit;
+    GlobalStore.set('UI', UI);
+
+    updateUI();
+    renderGrid('allyGrid', CAMP_TYPES.ALLY);
+
+    const fn = GlobalStore.getUIHandler('syncXiaoZhaoSwitchBtn');
+    if (typeof fn === 'function') fn();
+}
+
+export function syncXiaoZhaoSwitchBtn() {
+    const btn = document.getElementById('xiaoZhaoSwitchBtn');
+    if (!btn) return;
+    const UI = GlobalStore.get('UI');
+    const isAdjust = !!GlobalStore.get('adjustMode');
+    const xz = (UI && Array.isArray(UI.allyTeam)) ? UI.allyTeam.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother) : null;
+    if (!isAdjust || !xz) {
+        btn.style.display = 'none';
+        return;
+    }
+    // 定位：贴小昭格子右上角外侧。取不到格子（渲染未完成）就先隐藏，下一次 updateButtons 会再对齐。
+    const cell = document.querySelector(`#allyGrid [data-uid="${xz.uid}"]`);
+    if (!cell) {
+        btn.style.display = 'none';
+        return;
+    }
+    const r = cell.getBoundingClientRect();
+    // 32x32 按钮，中心钉在格子右上角（右边缘 - 6px、顶边 + 6px），往格内偏一点避免压到相邻列
+    btn.style.left = Math.round(r.right - 38) + 'px';
+    btn.style.top = Math.round(r.top - 6) + 'px';
+    btn.style.display = 'flex';
+    const isSister = !!xz.isXiaoZhaoSister;
+    // 按钮显示「点击后会变成什么」：当前姊 → 显示 🕷️（点它切妹）
+    btn.textContent = isSister ? '🕷️' : '🦋';
+    btn.title = isSister ? '点击切换为小昭·妹' : '点击切换为小昭·姊';
+}
+
+// 注册到 UIHandler 通道：ui/719 的 updateButtons 末尾调它同步显示状态
+GlobalStore.setUIHandler('syncXiaoZhaoSwitchBtn', syncXiaoZhaoSwitchBtn);
+GlobalStore.setUIHandler('switchXiaoZhaoForm', switchXiaoZhaoForm);
 
 // Buff-计时：回合结束后递减Buff持续时间 —— 实现已移至 modules/329-buff-tools.js
 export { tickBuffDurations } from '../modules/329-buff-tools.js';

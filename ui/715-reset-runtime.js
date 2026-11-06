@@ -48,6 +48,9 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     // 79/93 联动标记：跨局防残留。从机/回放/简单模式下 79 不弹，标记必须干净；
     //   华丽模式下上一发 79 演完、93 被快进跳过时标记会残留 true，靠这里在新局开始前清掉。
     GlobalStore.set('hlsAimPlayedThisTurn', false);
+    // 小昭姊/妹摆位切换的备份单位：跨局必须清，否则新局开局若抽到小昭，
+    //   第一次切形态会取到上一局的旧单位（属性/职业全是上一局的）
+    GlobalStore.set('xiaoZhaoBackup', null);
 
     // 4. 清弹窗和浮动按钮
     ['battleReportOverlay', 'battleReportFloat', 'buffFloatBtn', 'voteModalOverlay'].forEach(removeIfExists);

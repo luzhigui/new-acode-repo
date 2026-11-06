@@ -179,6 +179,9 @@ function updateButtons() {
         if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=GlobalStore.get('netRole')==='guest';}else{settleBtn.disabled=true;}
     }
     if(GlobalStore.get('bulletTimeActive') && gs !== S.GAMEOVER && gs !== S.PAUSED){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
+    // 小昭姊/妹切换按钮：显示状态跟着 adjustMode + 队里有无小昭走（实现与 DOM 在 ui/706 / ui/709）
+    const fnXz = GlobalStore.getUIHandler('syncXiaoZhaoSwitchBtn');
+    if (typeof fnXz === 'function') fnXz();
 }
 
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }

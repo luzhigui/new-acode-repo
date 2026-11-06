@@ -1,11 +1,11 @@
 {
- "ver": "de59518cd145fea163f4560fdbf5c99d6f37577f264b6b2202756bdb3aff850c",
+ "ver": "e7d8fdbb9a44ed8c11bb475956b12caf2dcf26d9878f68e751b0a2f1b550a54a",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
   [
    "content/001-game-data.json",
-   "d96a68458d0428e1189326fc9f4a38693d74d075b3d7a17342af268416eb76bd"
+   "40f426f4a74100948c4a9ffe799a23ca8910764cf895a3f3f2b4252b840f9e66"
   ],
   [
    "content/002-hex-enhance.json",
@@ -33,7 +33,7 @@
   ],
   [
    "core/206-battle-runner.js",
-   "b44358750092df6bbf123136f518bb5aa66394cf728997b155429ffdfcec87f1"
+   "b5d6ca6e79f8912961a15d291d033e667a1ef2779d7fa91ca2b42c968d6fa5fb"
   ],
   [
    "core/207-target-strategies.js",
@@ -173,11 +173,11 @@
   ],
   [
    "index.html",
-   "9b61bb8582d758669182ee215f8a1264255ab70867bb672c3d4ea5a475567428"
+   "fd27509d159f9e642e6c690e5c7362df94283ab8573732b9d8788432e8d44f37"
   ],
   [
    "infra/101-event-bus.js",
-   "36867fdd8a1735993d3c4c2a35a4546c89ea3353672702f96183c22994cc5077"
+   "70cb281352d659bc0929361b67cfef739da1680759f03aa4def5050ff65dd345"
   ],
   [
    "infra/102-core-utils.js",
@@ -457,7 +457,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "40119e899f833313c4756bd3804bae058b84f4b3f690aa0979b6dadfb56aa1fe"
+   "5e33e717718ff76660a8bfdcc41e03a8c4a17d688282ae6bd0abf1d76989d128"
   ],
   [
    "render/412-facts-stat.js",
@@ -501,7 +501,7 @@
   ],
   [
    "ui/702-main-5v5-test.js",
-   "33ba0d82a09d33ad40deeaf4170f1b5d4019c0ae21a6149e94c4491321426855"
+   "bd0166092f54d01cd241d6b38ae52fe7f05d24f5428a682aad0bfd88c6d979da"
   ],
   [
    "ui/703-ui-render-5v5-test.js",
@@ -517,7 +517,7 @@
   ],
   [
    "ui/706-main-battle.js",
-   "f980a32b52ec4bba4cbddd70f7d44d235955e217a9b94e3235476e34c36b52ff"
+   "12ae10028c00c08db4852ddd094fa933b6ee29d225681d0c0d8bd08ee9091f41"
   ],
   [
    "ui/707-audio-control.js",
@@ -529,7 +529,7 @@
   ],
   [
    "ui/709-ui-controls.js",
-   "0b5891537131d38779899cc2490fed233a3bb0598171d42f8f266fbeae51cb87"
+   "c675892137aff82a599a339395b1cf4cb89d4ef93130620fa35bd067b2e5c6ea"
   ],
   [
    "ui/710-role-cards.js",
@@ -553,7 +553,7 @@
   ],
   [
    "ui/715-reset-runtime.js",
-   "9f5857f5985603c875917ad8160ae825741eba315e1f1306fb2d1bbce98b329f"
+   "b75a7f4d1324877cc3cef7a6eb8ef297f4e89c50358b775f9fbd0541ebb67787"
   ],
   [
    "ui/716-net-session.js",
@@ -569,7 +569,7 @@
   ],
   [
    "ui/719-button-state.js",
-   "79ba8700663aee8f9f7b80dc75eafdf146895e45895e9387a425a1f24e453937"
+   "68c34777025ecd3056cd409df93713390df7a80d527d7af450c093f7dd023ebb"
   ],
   [
    "ui/720-hanlisa-aim.js",

@@ -27,7 +27,7 @@ import {
 } from './706-main-battle.js';
 import { setBGMVolume, fadeBGMTo, lowerBGM } from './707-audio-control.js';
 import { toggleFxPanel, syncFxButton } from './708-fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, initSpeedButtons } from './709-ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindXiaoZhaoSwitchButton, bindGridClick, initSpeedButtons } from './709-ui-controls.js';
 import { bindCopyLogButton } from './705-main-dialogs.js';
 import * as net from '../infra/109-net-pvp.js';
 import { stepAdjustStart, stepAdjustMove, stepVoteOpen, stepCountdown, stepBuff, stepBattleStart, initTutorial, resetTutorialDone } from './712-tutorial.js';
@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindSettleButton(() => getState.currentStage(), { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
     bindStageSelectButton(() => getState.currentStage(), getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
     bindVoteFloat();
+    bindXiaoZhaoSwitchButton();   // 小昭姊/妹摆位切换悬浮按钮（只在摆位阶段显示）
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
     // ❓ 战斗外重播：只重看分步引导（重看 CG/图鉴属于低频需求，不再强制捆绑）

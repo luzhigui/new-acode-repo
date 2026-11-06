@@ -302,6 +302,37 @@ export function bindVoteFloat() {
     });
 }
 
+// 小昭姊/妹摆位切换按钮：贴着小昭格子右上角外侧（2026-11-06 二改）。
+//   原先固定在右侧中部，会飘在格子区与日志区之间、偶尔压到相邻格；
+//   改成动态定位到小昭格子的右上角外侧，无论她在几号位、无论从机视角行序镜像，都贴着她。
+//   显示/隐藏与位置更新都由 ui/706 的 syncXiaoZhaoSwitchBtn 统一处理（updateButtons 末尾调它），
+//   本函数只负责「建 DOM + 绑点击 + 绑窗口尺寸变化重算位置」。
+export function bindXiaoZhaoSwitchButton() {
+    if (document.getElementById('xiaoZhaoSwitchBtn')) return;   // 幂等
+    const btn = document.createElement('button');
+    btn.id = 'xiaoZhaoSwitchBtn';
+    // position:fixed + JS 设 left/top；初始 left/top 写 0，syncXiaoZhaoSwitchBtn 会立刻覆盖
+    btn.style.cssText = 'position:fixed;left:0;top:0;width:32px;height:32px;border-radius:50%;'
+        + 'background:rgba(30,30,30,0.88);border:2px solid #ffd700;font-size:16px;line-height:1;'
+        + 'display:none;align-items:center;justify-content:center;z-index:9999;cursor:pointer;'
+        + 'box-shadow:0 2px 10px rgba(0,0,0,0.45);color:#fff;padding:0;'
+        + 'touch-action:manipulation;';
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();   // 防冒泡到格子 click（虽然按钮不在格子里，保险）
+        const fn = GlobalStore.getUIHandler('switchXiaoZhaoForm');
+        if (typeof fn === 'function') fn();
+    });
+    document.body.appendChild(btn);
+    // 窗口尺寸变（移动端地址栏收起/横竖屏切换）→ 格子 rect 变，按钮要跟着重新对齐
+    if (!window.__xzSwitchBtnResizeBound) {
+        window.__xzSwitchBtnResizeBound = true;
+        window.addEventListener('resize', () => {
+            const fn = GlobalStore.getUIHandler('syncXiaoZhaoSwitchBtn');
+            if (typeof fn === 'function') fn();
+        });
+    }
+}
+
 // 站位交换权限：
 //   单机           → 只有明教网格可调
 //   本地双人 PVP   → 两队都可调（同屏排兵）
