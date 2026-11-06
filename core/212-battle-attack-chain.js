@@ -1,7 +1,7 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
-export const VER = 'core/212-battle-attack-chain.js V1.0.4';
+export const VER = 'core/212-battle-attack-chain.js V1.0.5';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';

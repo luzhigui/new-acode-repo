@@ -9,4 +9,7 @@ import './324-elite-mingjiao-brother-laststand.js';
 import './333-elite-mingjiao-crazy.js';
 import './334-common-absorb.js';
 import './335-common-heal-ally.js';
-export const VER = 'modules/301-reg-mechanics.js V1.0.4';
+import './337-elite-mingjiao-zhuangzheng.js';
+import './338-elite-mingjiao-pengyingyu.js';
+import './339-elite-mingjiao-zhangzhong.js';
+export const VER = 'modules/301-reg-mechanics.js V1.0.5';

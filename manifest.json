@@ -1,8 +1,56 @@
 {
- "ver": "b136bcc7b2a8cdfb3a4054c06e3dede9e93209afa7b0d6677bb9779faf1e659c",
+ "ver": "dd1d56f2a8e3bd762eaaf07b419785c38dea090d9f56bb5fc154fe083c7faf6f",
  "gen": "tools/830-manifest-gen.mjs",
- "count": 145,
+ "count": 158,
  "files": [
+  [
+   "001-game-data.json",
+   "30ae1d04a06147ac3c1ed9947fedbfc89a5c32126e96a8a03ea51b1a1d2c9adc"
+  ],
+  [
+   "106-battle-enums.js",
+   "a8882d40f7912398b449c4eae9e4703cddb885d04e374da5410ed3f296832aa4"
+  ],
+  [
+   "201-config-5v5-test.js",
+   "6b17c30c8d0e967c8f6df83ba1ef8e22fd5ecc30c9beaeaff9947441fdbb9f76"
+  ],
+  [
+   "212-battle-attack-chain.js",
+   "4c21b3908e8469283cd54cc9ddca244daaf1cdfdb08ae5b6020cc10160fa6051"
+  ],
+  [
+   "214-battle-shared.js",
+   "4aef889d89e3da371ef5a026c69936393a73980468b091e36acd9f6625179404"
+  ],
+  [
+   "218-state-keys.js",
+   "3457ec739548717defb7362184696d48671be7f2143d6f018d13b4346feb1bf0"
+  ],
+  [
+   "301-reg-mechanics.js",
+   "2a605aa4855a7ad0ba623e69cd199c4c651d1d7c5b7debb73b7a9b03c45f661e"
+  ],
+  [
+   "308-elite-sixsects.js",
+   "35a3273606a10fb2a90fb665c686e5a55d6dc554b032e2c7feb20a009cb8b554"
+  ],
+  [
+   "336-elite-sixsects-yuanzhen.js",
+   "7720ebdd293cf0b40ec25668e38c767062bdb3449759e82f19975346de43af22"
+  ],
+  [
+   "337-elite-mingjiao-zhuangzheng.js",
+   "47d4fa0d195f444ac8ba50d3c74e9b7a3c9e577e522f72de0ec11560c447379f"
+  ],
+  [
+   "338-elite-mingjiao-pengyingyu.js",
+   "3f6cc21b831923ba09b48b000630f98c4fe430e9c43c1974cb0edfd9444c1439"
+  ],
+  [
+   "339-elite-mingjiao-zhangzhong.js",
+   "21b2156fa95dd03000da424309dcbd755692081c0df49837d5d3e3478f3ca30f"
+  ],
   [
    "content/001-game-data.json",
    "d96a68458d0428e1189326fc9f4a38693d74d075b3d7a17342af268416eb76bd"
@@ -37,7 +85,7 @@
   ],
   [
    "core/207-target-strategies.js",
-   "55c20aa4c6fb9155388118b0da1ba2766cec34c3676759820a5d5606d115cb58"
+   "f15faf1c611d44116247f7834452bbe6ce5ce9f23a4d8a2546fae114618c5c7d"
   ],
   [
    "core/208-registry-elite.js",
@@ -49,7 +97,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "152e9e0996f9ba0bd32865215ca64bb0036dd722a0385034c7012c71959c3d96"
+   "b341ac49eef473aa0651f93bf71d6bd4925b8967ec2e0f6ce50c978bbc787717"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -57,7 +105,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "a0d70f43386ced3d622bfe4ea194215f3f24be943b61833cb00bcd141b5f3682"
+   "aec4125388e2737d45625ded616e029631791cbd5a77647ba57b87b2e076e8c0"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -161,7 +209,7 @@
   ],
   [
    "fx/615-fx-hanlisa-burst.js",
-   "344788c9d11f8be03ce9cb7e9a0b6cda83d34d165a00be363153a2e4f4643072"
+   "0ec655788e99cf5456f7adeddb69d7e12674f803c29a18a003a57b5a63d79de7"
   ],
   [
    "fx/616-tangwenliang-dash.js",
@@ -170,6 +218,10 @@
   [
    "fx/617-immune-shield-break.js",
    "0ed5f5adff716babf7f8e2ed87b75974412db38dd4a6e30f5d3d09a1f6e320cf"
+  ],
+  [
+   "fx/618-fx-timeline.js",
+   "97fd56ce2be85adedd289de672415578cc405921d377b9591687e7accaf28c29"
   ],
   [
    "index.html",
@@ -189,7 +241,7 @@
   ],
   [
    "infra/104-global-store.js",
-   "db3b195687e853c88ce8b374b63e709f040adb7bd2d7ffa9f29f5d4651518e6c"
+   "9f1ba369c01f14a9d2f0671b40a697b0e956e4f04a1f0796e9bc1a0de50bbec7"
   ],
   [
    "infra/105-fx-signals.js",
@@ -197,7 +249,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "fc7dbacde3bd419c4f0a249daa510c89800cdff518c04252448f99b6fce19939"
+   "525ab536ae0dca5785ba05048fd6246051a6b2be666d1e0362041cf8106ef259"
   ],
   [
    "infra/107-fact-contract.js",
@@ -337,7 +389,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "6ed6a5aaf2db391ec201491ecf05d8969ecafe10c91f24d7f2e32628c78ace56"
+   "00409c5bdf174adf7f286f68999c628c708e001a615ae7ba6ec6985620db774b"
   ],
   [
    "modules/331-custom-effects.js",
@@ -497,7 +549,7 @@
   ],
   [
    "ui/701-main-utils.js",
-   "13fbc993b71ba2f4c59d5a0245050fbad03eacd0a9437a7b46c356e76c90baa5"
+   "b4e1a871f8f5891b83806f81cc8844f2783cd55b8c925764a2b9e47b5ff39d13"
   ],
   [
    "ui/702-main-5v5-test.js",

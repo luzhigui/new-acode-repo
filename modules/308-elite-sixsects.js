@@ -1,5 +1,5 @@
 // modules/308-elite-sixsects.js — 六大派精英注册入口（组件实现拆在 26elite-sixsects-*.js）
-export const VER = 'modules/308-elite-sixsects.js V6.26.1';
+export const VER = 'modules/308-elite-sixsects.js V6.27.0';
 import { registerElite, registerLinkPartners } from '../core/208-registry-elite.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { MECHANIC_TYPES } from '../infra/106-battle-enums.js';
@@ -13,6 +13,8 @@ import { createHeTaichongComponent } from './314-elite-sixsects-hetaichong.js';
 import { createKongJianComponent } from './316-elite-sixsects-kongjian.js';
 // 唐文亮（崆峒·战士·精英 m107）：七伤拳自损增伤 / 同归于尽反噬
 import { createTangWenLiangComponent } from './315-elite-sixsects-tangwenliang.js';
+// 少林圆真（少林·防战 m100）：现原形 → 继承成昆三件套
+import { yuanzhenRevealHandler } from './336-elite-sixsects-yuanzhen.js';
 
 // ========== 机制 handler 集中注册（core/18 注册表；handler 对象实现分别在各角色文件） ==========
 registerMechanicHandler(MECHANIC_TYPES.CHAIN_CLAW, chainClawHandler);
@@ -21,6 +23,7 @@ registerMechanicHandler(MECHANIC_TYPES.XIN_HUN, xinHunHandler);
 registerMechanicHandler(MECHANIC_TYPES.XING_FEN, xingFenHandler);
 // core/15 迁移：跟随攻击（灭绝师太）改走注册表
 registerMechanicHandler(MECHANIC_TYPES.FOLLOW_ATTACK, followAttackHandler);
+registerMechanicHandler(MECHANIC_TYPES.YUANZHEN_REVEAL, yuanzhenRevealHandler);
 
 // ========== 精英组件集中注册（core/08 注册表） ==========
 registerElite('宋青书', createSongQingshuComponent);

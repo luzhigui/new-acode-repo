@@ -1,4 +1,4 @@
-export const VER = 'core/214-battle-shared.js V6.4.5';
+export const VER = 'core/214-battle-shared.js V6.4.6';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -222,6 +222,12 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
     //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。
     let applied = delta;
+    // 单次受伤上限（庄铮·断锤三式，字段 _dmgCap 单一来源）：收口所有直扣血出口
+    //   （毒/反弹/真伤/自伤）。正规攻击路径会先在 core/12 applyAttackResult 截断 hpLoss，
+    //   那里必须在死亡标记之前截，故两处都读同一字段、只各截一次。
+    if (field === 'hp' && delta < 0 && target.state && target.state._dmgCap > 0) {
+        applied = Math.max(delta, -target.state._dmgCap);
+    }
     // 打折口径收口到 previewHeal（公式单点维护，文案/飘字同源）。
     //   注意这里不夹 maxHp 溢出——applyStatChange 下面本来就会夹，重复夹会改变「溢出前」的中间值。
     if (isHeal && field === 'hp' && delta > 0) {

@@ -1,4 +1,4 @@
-export const VER = 'core/218-state-keys.js V2.9.31';
+export const VER = 'core/218-state-keys.js V2.9.32';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -222,6 +222,18 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _inBag:                  { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 周颠·癫：全场唯一持有，攻击随机不分敌友，命中/死亡转移
     _isCrazy:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+
+    // 少林圆真·现原形（modules/336）：已现形 / 开局那一次概率已掷过（整场级，跨回合克隆保留）
+    _yuanzhenRevealed:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _yuanzhenOpenRolled:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 庄铮·断锤三式（modules/337）：保命已触发 / 反击重入锁
+    _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 单次受伤上限（0 = 不限）：core/13 直扣血与 core/12 攻击扣血两条出口共读这一个字段
+    _dmgCap:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 彭莹玉·双面观音（modules/338）：假身剩余回合 / 是否已进入过假身
+    _crossdressRounds:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _crossdressRolled:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */

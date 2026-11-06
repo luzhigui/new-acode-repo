@@ -1,4 +1,4 @@
-export const VER = 'core/201-config-5v5-test.js V6.8.6';
+export const VER = 'core/201-config-5v5-test.js V6.8.7';
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 
@@ -194,7 +194,8 @@ const PCT_PARAM_KEYS = new Set(['reducePct', 'reboundPct', 'selfDmgPct', 'leechM
     'procChance', 'healPct', 'prob',
     'atkRatioRight', 'defRatioLeft', 'hpRatio',           // 小昭·蝶变附身三项
     'landHealRatio', 'landHealRatioDeath', 'eggHatchHpRatio',   // 小昭·飞天落地回血档位比（70/40 1% / 致死 5%）+ 孵化保留血量比 30%
-    'lostHpRatio', 'maxHpRatio', 'executeThreshold']);    // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）
+    'lostHpRatio', 'maxHpRatio', 'executeThreshold',
+    'openChance', 'hitChance', 'disguiseChance', 'openingChance']);    // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）；本轮圆真/彭莹玉的触发概率
 
 function getSkillDesc(characterName, skillKey, jealous) {
     const ch = gameData?.characters?.[characterName];

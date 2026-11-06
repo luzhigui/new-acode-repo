@@ -1,4 +1,4 @@
-export const VER = 'infra/106-battle-enums.js V1.11.1';
+export const VER = 'infra/106-battle-enums.js V1.11.2';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -154,7 +154,12 @@ export const MECHANIC_TYPES = Object.freeze({
     BAG_TRAP: 'bagTrap',               // 说不得·布袋（普通兵机制，modules/27elite-mingjiao-shuobude）
     CRAZY: 'crazy',                    // 周颠·癫（普通兵机制，modules/333-elite-mingjiao-crazy）
     STAT_ABSORB: 'statAbsorb',         // 武当莲舟·吸星（普通兵机制，modules/334-common-absorb）
-    HEAL_ALLY_ON_HIT: 'healAllyOnHit'  // 峨眉素问·妙手回春（普通兵机制，modules/335-common-heal-ally）
+    HEAL_ALLY_ON_HIT: 'healAllyOnHit', // 峨眉素问·妙手回春（普通兵机制，modules/335-common-heal-ally）
+    // 本轮新增四角色（modules/336~339）
+    YUANZHEN_REVEAL: 'yuanzhenReveal', // 少林圆真·现原形（modules/336）
+    DUAN_CHUI: 'duanChui',             // 庄铮·断锤三式（modules/337）
+    DOUBLE_FACE: 'doubleFace',         // 彭莹玉·双面观音（modules/338）
+    SUMMON_BENGBENG: 'summonBengBeng'  // 张中·召唤蹦蹦（modules/339）
 });
 
 /**
