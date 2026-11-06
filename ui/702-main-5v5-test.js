@@ -1,5 +1,5 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-export const VER = 'ui/702-main-5v5-test.js V6.14.2';
+export const VER = 'ui/702-main-5v5-test.js V6.14.3';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -175,12 +175,9 @@ startApp();
 // DOM 初始化
 
 
-// 确保初始化代码总能执行，解决模块加载时序
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    initDevFlags();
-} else {
-    document.addEventListener('DOMContentLoaded', initBugAndXiaoZhaoModes);
-}
+// 模块脚本（deferred）求值时 readyState 必为 complete/interactive，直接初始化；
+//   原 else 分支引用的旧名 initBugAndXiaoZhaoModes 已在 60main-utils→701 改名时漏改，且该分支不可达，删除。
+initDevFlags();
 
 document.addEventListener('DOMContentLoaded', async function() {
     const controls = document.querySelector('.controls');
