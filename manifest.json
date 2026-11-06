@@ -1,5 +1,5 @@
 {
- "ver": "dd9f7469e13965c207bff824c23206674a851258580f11dcecfe359ed3460a40",
+ "ver": "200bc5bcb12e0e9b06936d2755d5f6ef5402788bdff3bf82bf133e6d0e67213c",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -225,7 +225,7 @@
   ],
   [
    "modules/302-elite-skills.js",
-   "c503b018e4654b7922ef9341e23fd2863a5ce155d43413cf1f636d557c34b73b"
+   "523e661085bf1bde48c17acf40f77ce5d83659f8373d86562ba76db70442e060"
   ],
   [
    "modules/303-error-capture.js",

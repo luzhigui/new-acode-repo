@@ -1,12 +1,11 @@
 // modules/302-elite-skills.js — 精英技能公共实现（小昭蛛变/飞天/蛛袭、乾坤减伤、永久海克斯查询）
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
-// 2026-11-06 蛛袭前排修复（V6.3.4）：近战妹的落地打击改打前排，不再从全体可选中随机。
-export const VER = 'modules/302-elite-skills.js V6.3.4';
+export const VER = 'modules/302-elite-skills.js V6.3.3';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
-import { hasBuff, canBeTargeted, getFronts } from '../core/203-battle-utils.js';
+import { hasBuff, canBeTargeted } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
@@ -236,13 +235,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     // 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
     const aliveEnemies = enemySide.filter(u => u.alive && canBeTargeted(u));
     if (aliveEnemies.length > 0) {
-        // 近战职业（WARRIOR/DEFENDER）的蛛袭必须与 core/07 近战策略同口径打前排：
-        //   旧写法在全体可选中随机，妹蛛变成近战后照样绕过列前站着的前排（如被众志召唤到 1~3 号位的张无忌），
-        //   观感就是「穿人打后排」。FLYER/JAVELIN/RANGED 保持随机——它们各自的策略本就允许跨排。
-        //   注意不能用 isMelee()：它把 FLYER 也算近战，会把飞行蛛袭一起锁死在前排。
-        const meleeRole = unit.role === ROLE_TYPES.WARRIOR || unit.role === ROLE_TYPES.DEFENDER;
-        const pool = meleeRole ? getFronts(aliveEnemies) : aliveEnemies;
-        const target = pool[rng.nextInt(0, pool.length - 1)];
+        const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
         const atk = getStat(unit, 'atk');
         const def = getStat(target, 'def');
