@@ -1,10 +1,11 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
 // 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）进入假身，持续 {duration} 回合；
 //   假身期间自身造成的伤害 ×1.5。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.0';
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.1';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
+import { registerTargetFilter } from '../core/207-target-strategies.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -21,6 +22,7 @@ export const doubleFaceHandler = {
 
         const params = getSkillParams(decl.name, 'doubleFace');
         if (!params) throw new Error(`缺技能参数: ${decl.name}.doubleFace`);
+        const selfName = decl.name;
         const disguiseChance = params.disguiseChance;
         const openingChance = params.openingChance;
         const duration = params.duration;
@@ -60,9 +62,16 @@ export const doubleFaceHandler = {
             }
         });
 
-        // 待接线位（本轮不做）：彭莹玉的「敌人不打他」属于选敌池过滤，需要 core/212 的
-        //   registerTargetFilter 注册面（另一条线在加）。本文件在此留位，等该注册面落地后
-        //   「假身期间把本单位从敌方候选池剔除」接在这里；不许 splice core 的目标数组，也不另造过滤器。
+        // 「敌人不打他」：假身期间把本单位从敌方候选池里剔除（core/07 注册面，core/10 每回合清场，
+        //   故必须在这里用固定 id 重挂，同 id 覆盖＝幂等）。filter 本体无状态：只读调用时传入的
+        //   attacker / candidates 与候选实例自身的 state，不闭包回合快照、不 splice 引擎数组；
+        //   全被剔除＝返回空数组，引擎按「本轮无目标」处理，不做兜底。
+        const FILTER_ID = 'modules/338:doubleFace';
+        registerTargetFilter(FILTER_ID, (attacker, candidates) => {
+            const kept = candidates.filter(c =>
+                !(c.name === selfName && c.state && c.state._crossdressRounds > 0));
+            return kept.length === candidates.length ? null : kept;
+        });
     }
 };
 

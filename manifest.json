@@ -1,59 +1,11 @@
 {
- "ver": "dd1d56f2a8e3bd762eaaf07b419785c38dea090d9f56bb5fc154fe083c7faf6f",
+ "ver": "69fdc4691c323793ab935f9eaea33dc27800df9e5d125d07dbdf3715ec7d43b7",
  "gen": "tools/830-manifest-gen.mjs",
- "count": 158,
+ "count": 150,
  "files": [
   [
-   "001-game-data.json",
-   "30ae1d04a06147ac3c1ed9947fedbfc89a5c32126e96a8a03ea51b1a1d2c9adc"
-  ],
-  [
-   "106-battle-enums.js",
-   "a8882d40f7912398b449c4eae9e4703cddb885d04e374da5410ed3f296832aa4"
-  ],
-  [
-   "201-config-5v5-test.js",
-   "6b17c30c8d0e967c8f6df83ba1ef8e22fd5ecc30c9beaeaff9947441fdbb9f76"
-  ],
-  [
-   "212-battle-attack-chain.js",
-   "4c21b3908e8469283cd54cc9ddca244daaf1cdfdb08ae5b6020cc10160fa6051"
-  ],
-  [
-   "214-battle-shared.js",
-   "4aef889d89e3da371ef5a026c69936393a73980468b091e36acd9f6625179404"
-  ],
-  [
-   "218-state-keys.js",
-   "3457ec739548717defb7362184696d48671be7f2143d6f018d13b4346feb1bf0"
-  ],
-  [
-   "301-reg-mechanics.js",
-   "2a605aa4855a7ad0ba623e69cd199c4c651d1d7c5b7debb73b7a9b03c45f661e"
-  ],
-  [
-   "308-elite-sixsects.js",
-   "35a3273606a10fb2a90fb665c686e5a55d6dc554b032e2c7feb20a009cb8b554"
-  ],
-  [
-   "336-elite-sixsects-yuanzhen.js",
-   "7720ebdd293cf0b40ec25668e38c767062bdb3449759e82f19975346de43af22"
-  ],
-  [
-   "337-elite-mingjiao-zhuangzheng.js",
-   "47d4fa0d195f444ac8ba50d3c74e9b7a3c9e577e522f72de0ec11560c447379f"
-  ],
-  [
-   "338-elite-mingjiao-pengyingyu.js",
-   "3f6cc21b831923ba09b48b000630f98c4fe430e9c43c1974cb0edfd9444c1439"
-  ],
-  [
-   "339-elite-mingjiao-zhangzhong.js",
-   "21b2156fa95dd03000da424309dcbd755692081c0df49837d5d3e3478f3ca30f"
-  ],
-  [
    "content/001-game-data.json",
-   "d96a68458d0428e1189326fc9f4a38693d74d075b3d7a17342af268416eb76bd"
+   "d19bc1d8561d120d243e98e6273a4f058acd78bd8ca5b925f0e0091e2d65a14d"
   ],
   [
    "content/002-hex-enhance.json",
@@ -61,7 +13,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "ae93c999776b2c2cc57e1e91f0e21fffd42a7469808e4ca930cdfcb90a14d1dc"
+   "6b17c30c8d0e967c8f6df83ba1ef8e22fd5ecc30c9beaeaff9947441fdbb9f76"
   ],
   [
    "core/202-unit.js",
@@ -105,7 +57,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "aec4125388e2737d45625ded616e029631791cbd5a77647ba57b87b2e076e8c0"
+   "4c21b3908e8469283cd54cc9ddca244daaf1cdfdb08ae5b6020cc10160fa6051"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -113,7 +65,7 @@
   ],
   [
    "core/214-battle-shared.js",
-   "3517513559e8d3244cd27105eb90fd699373a2f2dd2c225fb2e2129fcc8725f1"
+   "4aef889d89e3da371ef5a026c69936393a73980468b091e36acd9f6625179404"
   ],
   [
    "core/215-buff-effects.js",
@@ -129,7 +81,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "2e7c6993eac67ddfbea4545770a8d08b8a7e1af227c9fea5d7a969ca14201737"
+   "3457ec739548717defb7362184696d48671be7f2143d6f018d13b4346feb1bf0"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -249,7 +201,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "525ab536ae0dca5785ba05048fd6246051a6b2be666d1e0362041cf8106ef259"
+   "a8882d40f7912398b449c4eae9e4703cddb885d04e374da5410ed3f296832aa4"
   ],
   [
    "infra/107-fact-contract.js",
@@ -273,7 +225,7 @@
   ],
   [
    "modules/301-reg-mechanics.js",
-   "fedff8c9785ee40f6dd90206df4c09a209b28ef4fde68e6c3439d9f2ffb9057c"
+   "2a605aa4855a7ad0ba623e69cd199c4c651d1d7c5b7debb73b7a9b03c45f661e"
   ],
   [
    "modules/302-elite-skills.js",
@@ -301,7 +253,7 @@
   ],
   [
    "modules/308-elite-sixsects.js",
-   "5c7edc2f22f47852436d60cebc0e868b7f4bcf6e329f95c1ad64c91719bc1580"
+   "35a3273606a10fb2a90fb665c686e5a55d6dc554b032e2c7feb20a009cb8b554"
   ],
   [
    "modules/309-elite-sixsects-zhouzhiruo.js",
@@ -410,6 +362,22 @@
   [
    "modules/335-common-heal-ally.js",
    "0b89e6f9082b143e6e53344832428e16775ef5dc02333228b6cda2dd209bd336"
+  ],
+  [
+   "modules/336-elite-sixsects-yuanzhen.js",
+   "7720ebdd293cf0b40ec25668e38c767062bdb3449759e82f19975346de43af22"
+  ],
+  [
+   "modules/337-elite-mingjiao-zhuangzheng.js",
+   "47d4fa0d195f444ac8ba50d3c74e9b7a3c9e577e522f72de0ec11560c447379f"
+  ],
+  [
+   "modules/338-elite-mingjiao-pengyingyu.js",
+   "72472ea49e79adc343a2595a2fc293bf76f374a70c934c5317180dbf34f7a4c2"
+  ],
+  [
+   "modules/339-elite-mingjiao-zhangzhong.js",
+   "21b2156fa95dd03000da424309dcbd755692081c0df49837d5d3e3478f3ca30f"
   ],
   [
    "player/501-player-text.js",
