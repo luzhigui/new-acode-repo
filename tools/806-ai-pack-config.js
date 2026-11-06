@@ -366,6 +366,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/mutation-freshness-tripwire.mjs',
     // 2026-11-01 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/force-switch-registry-drift-guard.mjs',
+    // 2026-11-05 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/fact-coverage-selftest.mjs', '../tests/health-rules-syntax-sweep.mjs', '../tests/manifest-fresh-selftest.mjs', '../tests/registry-cross-check.mjs',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',
