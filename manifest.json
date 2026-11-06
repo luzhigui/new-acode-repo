@@ -1,5 +1,5 @@
 {
- "ver": "4ec55e78f7e3ed593728ed68808f050dbfba91f28f51030b416e1b383d9dee93",
+ "ver": "3adf7be5c6446cd297121f5a8d8d417871e0157ced96a40b461cfb8fc27d0f80",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -209,7 +209,7 @@
   ],
   [
    "infra/109-net-pvp.js",
-   "ab6a913443c7d4d8645bd1b85303beb8d629e8f28b5e168b0d0ce9bfa96691ea"
+   "971b0310a25965af35e7f7da967b93f1e7e03f876a7b432b4943e3e041c3153e"
   ],
   [
    "infra/110-view-sheet.js",
@@ -517,7 +517,7 @@
   ],
   [
    "ui/706-main-battle.js",
-   "e3ee5964e95157699110e5daa12f6e48a7d86ea9dd5ab84defc315b321379103"
+   "e979be405a5236673ace583d6d4b158b61b74b8ff3b31e1fa0cf0528e994b160"
   ],
   [
    "ui/707-audio-control.js",
@@ -557,7 +557,7 @@
   ],
   [
    "ui/716-net-session.js",
-   "b035cf7cf0f7929b938a43cdc52196272bf3f7292cd131b73baf1642ee762d20"
+   "6cff93ad3a10019c24d6876ec6b5ee8abce8a75c1b82d7eff2742d81e5b0503b"
   ],
   [
    "ui/717-replay-entry.js",

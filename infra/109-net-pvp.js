@@ -379,8 +379,9 @@ export function clearSteps() { failPendingStep(); }
 
 // ---- 阶段3 对外 API ----
 // 房主 → 从机：下发双方阵容（从机据此进摆位态，只摆六大派）
-export function sendLineup(stage, allyTeam, enemyTeam) {
-    return netSend({ t: 'lineup', lineup: plainLineup(stage, allyTeam, enemyTeam) });
+export function sendLineup(stage, allyTeam, enemyTeam, keepReady = false) {
+    // keepReady：摆位阶段切小昭形态的重发，不算新一局——从机已「准备」的状态不能被退回
+    return netSend({ t: 'lineup', lineup: plainLineup(stage, allyTeam, enemyTeam), keepReady: !!keepReady });
 }
 // 从机 → 房主：回传六大派站位（[{uid, pos}]），房主据此合并进自己的 UI.enemyTeam
 export function sendLineupReady(positions) { return netSend({ t: 'lineupReady', positions: positions || [] }); }

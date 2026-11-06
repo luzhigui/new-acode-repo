@@ -225,9 +225,10 @@ export function switchXiaoZhaoForm() {
     renderGrid('allyGrid', CAMP_TYPES.ALLY);
 
     // 联机房主：切形态后必须重发阵容，否则对手端手里还是旧形态/旧属性（从机摆位看到的也不对）。
+    //   传 true = 保留双方「已准备」状态（这不是新一局，只是同一个摆位里的形态切换，不该让对手重按准备）。
     //   sendNetLineup 首句 netRole!=='host' 直接 return，单机/从机不会多发任何请求。
     const fnLineup = GlobalStore.getUIHandler('sendNetLineup');
-    if (typeof fnLineup === 'function') fnLineup();
+    if (typeof fnLineup === 'function') fnLineup(true);
 
     const fn = GlobalStore.getUIHandler('syncXiaoZhaoSwitchBtn');
     if (typeof fn === 'function') fn();

@@ -94,13 +94,14 @@ function applyPosUpdate(msg) {
 // 房主：下发当前双方阵容（连接成功时、以及房主换关后都要重发）
 // 重发即视为「对端准备失效」：换关后从机要重新摆位，开战按钮需再次等回传
 // export：61 的 btnNext 从机分支直接调（不走 UIHandler 的路径）
-export function sendNetLineup() {
+// keepReady=true：摆位阶段切换小昭形态触发的重发，不是「新一局」，双方已准备的状态保留
+export function sendNetLineup(keepReady = false) {
     if (GlobalStore.get('netRole') !== 'host') return;
-    GlobalStore.set('netPeerReady', false);
+    if (!keepReady) GlobalStore.set('netPeerReady', false);
     // 重发阵容 = 新一局：从机「本局播完」回执随之作废，房主「▶ 下一关」重新锁上
     GlobalStore.set('netGuestDone', false);
     const UI = getState.UI();
-    net.sendLineup(getState.currentStage(), UI.allyTeam, UI.enemyTeam);
+    net.sendLineup(getState.currentStage(), UI.allyTeam, UI.enemyTeam, keepReady);
     updateButtons();
 }
 
@@ -116,7 +117,7 @@ export function installNetSession(ctx) {
     const _markGameStarted = ctx.markGameStarted || (() => {});
 
     // 房主下发的阵容灌进从机：abort 旧循环 + UI/快照/store 全套重建 + 进摆位态
-    function applyNetLineup(lineup) {
+    function applyNetLineup(lineup, keepReady = false) {
         // 房主换关/开下一局重发阵容时，从机可能还卡在上一局的 playBattleGuest 循环里。
         // 直接 abort 旧循环 + 清残留 step，否则旧循环会接着播上一局的 step，最后还把 gs 打回 GAMEOVER
         const curCtx = getPlayerContext();
@@ -144,7 +145,8 @@ export function installNetSession(ctx) {
         setState.currentStage(lineup.stage || 1);
         setGuestStageLabel(lineup.stage);
         GlobalStore.set('pvpMode', true);
-        GlobalStore.set('netGuestReady', false);
+        // keepReady=true（切小昭形态的重发）：从机已点过「准备」的不退回，否则对手白点一次
+        if (!keepReady) GlobalStore.set('netGuestReady', false);
         setState.autoLevel('auto'); setState.autoMode(true);
         setState.gs(S.IDLE); setState.isPaused(false);
         setState.adjustMode(true); setState.selectedAdjustPos(null);
@@ -201,7 +203,7 @@ export function installNetSession(ctx) {
             hostEnterAdjust();
             return;
         }
-        if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {})); return; }
+        if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {}), !!msg.keepReady); return; }
         // 摆位实时同步：对面挪了人 → 只搬位置重渲染，不动准备状态（准备握手仍走 lineupReady）
         if (msg.t === 'posUpdate') { applyPosUpdate(msg); return; }
         if (msg.t === 'buffAsk') {
