@@ -1,11 +1,11 @@
 {
- "ver": "69fdc4691c323793ab935f9eaea33dc27800df9e5d125d07dbdf3715ec7d43b7",
+ "ver": "f123a3c1008cea23f05e33d810707ffaf88f204ef879d56d5ec58f702a037a65",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
   [
    "content/001-game-data.json",
-   "d19bc1d8561d120d243e98e6273a4f058acd78bd8ca5b925f0e0091e2d65a14d"
+   "30ae1d04a06147ac3c1ed9947fedbfc89a5c32126e96a8a03ea51b1a1d2c9adc"
   ],
   [
    "content/002-hex-enhance.json",
