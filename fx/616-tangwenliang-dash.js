@@ -1,6 +1,15 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
-export const VER = 'fx/616-tangwenliang-dash.js V3.0.0';
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.1';
+// V3.0.1 | 2026-11-06 | 修「冲刺特效只显示一部分」：
+//   ① 快版锚点从「ghosts.find(x => !x.isDash)」改成按 targetUid 找克隆体，找不到用真格 ——
+//      目标本来就在前排（target.pos<=3）不会产生克隆体，旧写法必抓到「被挤队友」，
+//      金线/冲击环/标枪全打在队友身上，目标一次都没被演出；`_isDashStrikeFx` 又把默认攻击动画跳过，
+//      所以玩家看到的就是「后半段没了」。
+//   ② 快版/慢版去掉「moves 为空 / ghosts 为空就 return」——双方原地未动也照常用真格演完
+//      锁链→冲击→标枪，只有 dash 连 from/to 都没有才放弃。
+//   ③ performFinishingPunch 的基线按 position 分口径：克隆体是 fixed（left/top=视口坐标），
+//      真格 .cell 是 relative（left/top=相对偏移），否则拿真格当唐文亮锚点时整格会被 left=视口 x 顶飞。
 // V3.0.0 | 2026-11-02 | 视觉整体对齐 demo 逐帧演示（用户拍板「能替换全部替换」）：
 //   ① makeGhost 改为一律从 store 自绘卡片 —— DASH 的 store 步会先把终点格 resetCell 成空壳
 //      （_renderFlyMode='fly' 走 render/32 的 fly 分支），cloneNode 那条路在回放/联机从机上必然拿 null，
@@ -38,6 +47,13 @@ function realWait(ms) {
 function rectOf(camp, pos) {
     if (camp == null || pos == null) return null;
     const el = getCellByPos(camp, pos);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+}
+
+// 元素 → 同结构 rect（真格锚点用；克隆体与真格共用同一套字段）
+function rectOfEl(el) {
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return { left: r.left, top: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
@@ -284,12 +300,17 @@ async function performFinishingPunch(twEl, targetEl, T = (v) => v) {
     const nx = dx / dist, ny = dy / dist;
     const baseLeft = parseFloat(twEl.style.left) || twR.left;
     const baseTop = parseFloat(twEl.style.top) || twR.top;
+    // 克隆体是 position:fixed（left/top = 视口坐标）；真格 .cell 是 position:relative
+    //   （left/top = 相对偏移，基线必须从 0 起，否则把整格顶到 left=视口x 的位置回不来）
+    const isRel = getComputedStyle(twEl).position !== 'fixed';
+    const baseL = isRel ? (parseFloat(twEl.style.left) || 0) : baseLeft;
+    const baseT = isRel ? (parseFloat(twEl.style.top) || 0) : baseTop;
 
     // 1. 蓄力后缩（120ms）
     await clock.animateReal(T(120), (p) => {
         const e = 1 - Math.pow(1 - p, 3);
-        twEl.style.left = (baseLeft - nx * 8 * e).toFixed(1) + 'px';
-        twEl.style.top = (baseTop - ny * 8 * e).toFixed(1) + 'px';
+        twEl.style.left = (baseL - nx * 8 * e).toFixed(1) + 'px';
+        twEl.style.top = (baseT - ny * 8 * e).toFixed(1) + 'px';
     });
 
     // 2. 标枪飞行（400ms）
@@ -339,11 +360,11 @@ async function performFinishingPunch(twEl, targetEl, T = (v) => v) {
     // 4. 回到原位（left/top 回 base）
     await clock.animateReal(T(200), (p) => {
         const e = 1 - Math.pow(1 - p, 3);
-        twEl.style.left = (baseLeft - nx * 8 * (1 - e)).toFixed(1) + 'px';
-        twEl.style.top = (baseTop - ny * 8 * (1 - e)).toFixed(1) + 'px';
+        twEl.style.left = (baseL - nx * 8 * (1 - e)).toFixed(1) + 'px';
+        twEl.style.top = (baseT - ny * 8 * (1 - e)).toFixed(1) + 'px';
     });
-    twEl.style.left = baseLeft + 'px';
-    twEl.style.top = baseTop + 'px';
+    twEl.style.left = baseL + 'px';
+    twEl.style.top = baseT + 'px';
 }
 
 // ============================== 慢速档（子弹时间） ==============================
@@ -362,7 +383,9 @@ async function showTangWenLiangDashSlow(dash) {
         }
     }
     moves = moves.filter(m => m.from !== m.to && m.to != null);
-    if (moves.length === 0) return [];
+    // 双方原地未动（唐文亮已在该列前排 / 目标本来就在前排 / 全部落位失败）不放弃演出：
+    //   克隆体为空时下面回落到真格锚点，锁链→冲击→标枪照常演完；只有 payload 连 from/to 都缺才走空
+    if (moves.length === 0 && dash.fromCamp == null) return [];
 
     let skipped = false;
     const created = [];
@@ -668,7 +691,8 @@ export async function showTangWenLiangDash(dash, opts) {
         }
     }
     moves = moves.filter(m => m.from !== m.to && m.to != null);   // 原地未动（被挡侧 from=to）不克隆
-    if (moves.length === 0) return [];
+    // 无人位移也照常演：克隆体为空时下面全部回落到真格锚点（旧版这里直接 return，冲刺整段消失）
+    if (moves.length === 0 && dash.fromCamp == null) return [];
 
     // 血条快照：入口记 hpBefore，克隆体用它初始化（落定帧 reveal 后切到 store 当前值）
     snapshotHpBefore(dash);
@@ -679,7 +703,7 @@ export async function showTangWenLiangDash(dash, opts) {
         const g = makeGhost(m.camp, m.from, m.to, m.isDash ? 70 : 50, m.uid);
         if (g) ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
     }
-    if (ghosts.length === 0) return [];
+    // 没有克隆体（双方原地未动）不放弃：后面全部回落到真格锚点
     activeGhosts = ghosts;
 
     // 克隆体已画上 DOM，此时再隐藏真格（无缝替换，杜绝 store 阶段的提前隐身空窗期）
@@ -690,13 +714,17 @@ export async function showTangWenLiangDash(dash, opts) {
         }
     }
 
-    // ② 金线锁定：连「唐文亮克隆体当前位置」与「目标克隆体当前位置」，随动画实时跟随
-    const twG = ghosts.find(x => x.isDash) || ghosts[0];
-    const tgG = ghosts.find(x => !x.isDash);
-    const beam = (twG && tgG) ? createBeam(document.body) : null;
+    // ② 金线锁定：锚点按 uid 取克隆体，取不到（原地未动）就用真格。
+    //   旧写法 ghosts.find(x => !x.isDash) 会把「被挤队友」当成目标——目标本来就在前排时没有克隆体，
+    //   金线/冲击环/标枪全部打在队友身上，目标一次都没被演出（「只显示一部分」的断点就在这一行）。
+    const twG = (dash.fromUid != null ? ghosts.find(x => x.uid === dash.fromUid) : ghosts.find(x => x.isDash)) || null;
+    const tgG = dash.targetUid != null ? (ghosts.find(x => x.uid === dash.targetUid) || null) : (ghosts.find(x => !x.isDash) || null);
+    const twAnchorEl = twG ? twG.g.el : (dash.fromCamp != null && dash.toPos != null ? getCellByPos(dash.fromCamp, dash.toPos) : null);
+    const tgAnchorEl = tgG ? tgG.g.el : (dash.targetCamp != null && dash.targetToPos != null ? getCellByPos(dash.targetCamp, dash.targetToPos) : null);
+    const beam = (twAnchorEl && tgAnchorEl) ? createBeam(document.body) : null;
     if (beam) {
-        const a0 = twG.g.el.getBoundingClientRect();
-        const b0 = tgG.g.el.getBoundingClientRect();
+        const a0 = twAnchorEl.getBoundingClientRect();
+        const b0 = tgAnchorEl.getBoundingClientRect();
         await clock.animate(240, (p) => {
             setBeam(beam, a0.left + a0.width / 2, a0.top + a0.height / 2, b0.left + b0.width / 2, b0.top + b0.height / 2, p);
             beam.glow.style.opacity = String(0.85 * p);
@@ -722,9 +750,9 @@ export async function showTangWenLiangDash(dash, opts) {
             gh.g.el.style.left = x.toFixed(1) + 'px';
             gh.g.el.style.top = y.toFixed(1) + 'px';
         }
-        if (beam && twG && tgG) {
-            const a1 = twG.g.el.getBoundingClientRect();
-            const b1 = tgG.g.el.getBoundingClientRect();
+        if (beam && twAnchorEl && tgAnchorEl) {
+            const a1 = twAnchorEl.getBoundingClientRect();
+            const b1 = tgAnchorEl.getBoundingClientRect();
             setBeam(beam, a1.left + a1.width / 2, a1.top + a1.height / 2, b1.left + b1.width / 2, b1.top + b1.height / 2, 1);
         }
     });
@@ -736,19 +764,21 @@ export async function showTangWenLiangDash(dash, opts) {
 
     // ④ 落定：冲击环 + 火花 + 屏震（dash 本体最隆重；目标落点次之）
     //   注意：不 store.dispatch(HP_CHANGE) —— 引擎 doDash 已扣过血，这里只飘数字。
-    const land = twG.toRect;
+    const land = twG ? twG.toRect : (twAnchorEl ? rectOfEl(twAnchorEl) : null);
     if (land) {
         impactRing(land, '#ffd166');
         sparkBurstAt(land.cx, land.cy, '#ffd166', 12);
         sparkBurstAt(land.cx, land.cy, '#ff9f43', 6);
         screenShake();
     }
-    if (tgG && tgG.toRect) impactRing(tgG.toRect, '#ff6b6b');
+    const tgtLand = tgG ? tgG.toRect : (tgAnchorEl ? rectOfEl(tgAnchorEl) : null);
+    if (tgtLand) impactRing(tgtLand, '#ff6b6b');
     if (beam) removeBeam(beam);   // 不 await，光束淡出与落定特效并行
 
-    // ⑤ 标枪收尾（快慢版统一视觉）
-    if (twG && twG.g.el && tgG && tgG.g.el) {
-        await performFinishingPunch(twG.g.el, tgG.g.el);
+    // ⑤ 标枪收尾（快慢版统一视觉）：两个锚点（克隆体或真格）齐了必播，
+    //   旧写法要求「唐文亮和目标都有克隆体」，目标原地不动时整段收尾直接没了
+    if (twAnchorEl && tgAnchorEl) {
+        await performFinishingPunch(twAnchorEl, tgAnchorEl);
     }
 
     return ghosts;
