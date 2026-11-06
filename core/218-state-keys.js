@@ -1,4 +1,4 @@
-export const VER = 'core/218-state-keys.js V2.9.30';
+export const VER = 'core/218-state-keys.js V2.9.31';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -46,6 +46,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _xingFenPenaltyCount:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _kuLianActive:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _masteredRoles:          { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
+    // 小昭·妹蛛变：各职业被抽中的累计次数（modules/302 动态排除候选池用——
+    //   与抽得最少的职业相差 ≥4 次的职业不再进池，抽中后 +1）
+    _roleCounts:             { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _permanentBuffs:         { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 妹永久carry死亡计数桶 {cur,r1,r2}（modules/27 计数钩子累 cur、回合初蛛变滚动；层数=1+2×r1+r2）
     _xiaoCarryDeaths:        { type: STATE_FIELD_TYPES.OBJECT,  default: null },

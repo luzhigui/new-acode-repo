@@ -1,5 +1,5 @@
 {
- "ver": "008680a32ef6c917b8093354cedb34517dd256bceb582b01675c8f06c96f94bd",
+ "ver": "d12c926b5c7287083499a74130324fefc53a8c4cc4cd24af23d601090074715b",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -81,7 +81,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "d4e321dd2ba26b57e8ebf38e79dce4c8500d10ab8e2fab6bcd30d5f3f134606a"
+   "2e7c6993eac67ddfbea4545770a8d08b8a7e1af227c9fea5d7a969ca14201737"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -225,7 +225,7 @@
   ],
   [
    "modules/302-elite-skills.js",
-   "5e585a5c0f5b36876b1a25f0f417439469ef1d2cd5c21c1892d850e9b4c5eb67"
+   "523e661085bf1bde48c17acf40f77ce5d83659f8373d86562ba76db70442e060"
   ],
   [
    "modules/303-error-capture.js",

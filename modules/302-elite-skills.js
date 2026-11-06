@@ -1,7 +1,7 @@
 // modules/302-elite-skills.js — 精英技能公共实现（小昭蛛变/飞天/蛛袭、乾坤减伤、永久海克斯查询）
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
-export const VER = 'modules/302-elite-skills.js V6.3.2';
+export const VER = 'modules/302-elite-skills.js V6.3.3';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -128,9 +128,20 @@ export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const rng = getBattleRng();
     const roles = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER];
-    let availableRoles = roles.filter(r => r !== unit.role);
+
+    // 动态排除候选池（2026-11-06）：按各职业被抽中的累计次数剔除「用过多」的职业——
+    //   与抽得最少的职业相差 ≥4 次的职业不进池（而非旧口径「超过 4 次就永久不给加成」）。
+    //   选池顺序：动态池里先排除当前职业 → 空则退回动态池 → 再空退回全职业。
+    if (!unit.state._roleCounts) Object.assign(unit.state, { _roleCounts: {} });
+    const counts = unit.state._roleCounts;
+    const minCount = Math.min(...roles.map(r => counts[r] || 0));
+    const allowedRoles = roles.filter(r => (counts[r] || 0) - minCount < 4);
+    let availableRoles = allowedRoles.filter(r => r !== unit.role);
+    if (availableRoles.length === 0) availableRoles = allowedRoles;
     if (availableRoles.length === 0) availableRoles = roles;
     const newRole = availableRoles[rng.nextInt(0, availableRoles.length - 1)];
+    // OBJECT 字段是浅拷贝，就地改内容会漏到 UI 镜像——按项目惯例整对象换新
+    unit.state._roleCounts = { ...counts, [newRole]: (counts[newRole] || 0) + 1 };
     unit.state._lastRole = newRole;
 
     if (!unit.state._masteredRoles) Object.assign(unit.state, { _masteredRoles: [] });
