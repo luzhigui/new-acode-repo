@@ -179,7 +179,7 @@ startApp();
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     initDevFlags();
 } else {
-    document.addEventListener('DOMContentLoaded', initBugAndXiaoZhaoModes);
+    document.addEventListener('DOMContentLoaded', initDevFlags);
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
