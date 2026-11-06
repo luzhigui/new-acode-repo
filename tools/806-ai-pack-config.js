@@ -1,3 +1,5 @@
+// V6.0.61 | 2026-11-06 补登记新普通兵三机制（301-reg-mechanics.js 已 import，漏登则包内装配断链）：
+//           modules/333-elite-mingjiao-crazy.js、334-common-absorb.js、335-common-heal-ally.js。
 // V6.0.60 | 2026-11-01 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-11-01 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-11-01 重编号后统一注释里的旧编号（tools/ + 100build 全局替换，纯注释/路径，零逻辑改动）：
 //           core/06→206-battle-runner、modules/28→329-buff-tools、ui/61→702-main-5v5-test、content/200→001-game-data 等。
 // V6.0.53 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-30 自动补全 1 项 run-all 引用但漏登的 tests 顶层脚本 | 2026-10-29 合并上游注释清理与夜间线清单补登记：去掉 weakContrib 的单引号写法，保留三项 run-all 顶层脚本。
@@ -98,7 +100,7 @@
 //           modules/324-elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
 // 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
-export const VER = 'tools/806-ai-pack-config.js V6.0.60';
+export const VER = 'tools/806-ai-pack-config.js V6.0.61';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -228,6 +230,8 @@ export const ALL_PROJECT_FILES = [
     '../modules/316-elite-sixsects-kongjian.js',
     '../modules/329-buff-tools.js', '../modules/331-custom-effects.js',
     '../modules/332-career-log.js',
+    // 2026-11-06 补登记：新普通兵三机制（301-reg-mechanics.js L9-11 已 import，漏登则包内装配断链）
+    '../modules/333-elite-mingjiao-crazy.js', '../modules/334-common-absorb.js', '../modules/335-common-heal-ally.js',
     // render（渲染层）
     '../render/401-fact-renderer.js', '../render/402-stage-actions.js', '../render/403-grid-render.js',
     // 2026-10-21 补登记 32 拆分件：格徽章/格单元（403-grid-render 的同批产物）
