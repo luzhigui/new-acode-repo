@@ -6,7 +6,15 @@
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/207-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
 // V1.4.9 | ~35000 bytes | 2026-10-26 第 143 轮吸收夜间140：新增第四类「枚举成员未定义」（parseEnumMembers 现场解析 infra/56 为唯一来源 + scanEnumMemberRefs + 三条自证断言），专抓「ENUM.KEY 被引用但键不存在」的静默死分支（正是上游 5818419a 用 BUTTERFLY 顶掉 JAVELIN 的 P0 形态）；回填 158 注册项
-export const VER = 'tests/123static-scan.js V1.4.9';
+// V1.5.0 | 2026-11-06 D3：SCAN_FILES 退役主代码段——core/infra/modules/player/render/ui/fx 七个目录改为
+//   运行期自动发现（Node 走 fs 遍历、浏览器走 manifest.json 全量清单），显式排除 tools/ tests/ content/ 与 dev 页。
+//   实测七个目录共 142 个 js/mjs，旧手写清单只覆盖 87 个、漏 55 个（fx/60x-61x、modules/31x-33x、
+//   player/504-506/513-514、render/404/405/409-412/414、ui/714/720-722、infra/102/110/111、core/212/213/223 等），
+//   这些文件的 import 断裂 / 枚举漏 import 一路都扫不到。tests/ 侧仍保留字面量登记（registration-check.mjs 靠文本对账）。
+export const VER = 'tests/123static-scan.js V1.5.0';
+
+// Node / 浏览器双用判定：自动发现的两套实现（fs 遍历 / manifest.json）与文末 CLI 自举共用这一个开关
+export const IS_NODE = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
 
 // 枚举常量名列表（来自 infra/106-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -23,52 +31,20 @@ export const ENUM_NAMES = [
 // 运行时抛 ReferenceError 让圣火令校验静默失效——属同一类"缺 import"隐患，纳入扫描。
 export const SHARED_SYMBOLS = ['eventBus', 'GlobalStore', 'getUnitCol', 'getUnitRow'];
 
-// 核心文件清单（相对 tests/ 页面路径；不含 tests/ tools/ 自身）
+// ============================ 扫描面：主代码自动发现 + tests/ 显式登记 ============================
+// 为什么不再手写主代码清单（V1.5.0）：那是一場「补登长跑」——每加一个文件就要人肉往数组里补一行，
+//   漏一次就永久静默失覆盖，且没人会回头核对。2026-11-06 实测：七个源码目录共 142 个 js/mjs，
+//   旧清单只覆盖 87 个，漏 55 个。
+export const SCAN_DIRS = ['core', 'infra', 'modules', 'player', 'render', 'ui', 'fx'];
+export const SCAN_EXT = /\.(?:js|mjs)$/;
+// 显式排除名单：工具链（tools/）、体检自身（tests/）、非代码数据（content/）、构建产物、开发页（dev-*）
+export const SCAN_EXCLUDE = /^(?:tools|tests|content|node_modules|_site|\.git|\.github|dev-|debug)/;
+const isExcludedSeg = (s) => SCAN_EXCLUDE.test(s);
+
+// 显式登记项（相对 tests/ 页面路径）：tests/ 自身的 runner / 探针 / 体检规则。
+//   registration-check.mjs 靠「本文件文本里是否存在 './health-rules/xxx.js'」对账，
+//   故这些路径必须保持字面量，不能改成运行期拼串。
 export const SCAN_FILES = [
-    '../core/201-config-5v5-test.js', '../core/202-unit.js', '../core/203-battle-utils.js',
-    '../core/204-buff-system.js', '../core/205-battle-horse.js', '../core/206-battle-runner.js',
-    '../core/207-target-strategies.js',
-    '../core/208-registry-elite.js',
-    '../core/209-battle-attack.js', '../core/210-battle-round.js', '../core/211-battle-attack-steps.js',
-    '../core/214-battle-shared.js', '../core/215-buff-effects.js', '../core/216-skill-mechanisms.js',
-    '../core/217-effect-handlers.js', '../core/218-state-keys.js', '../core/219-mechanic-registry.js',
-    '../core/220-unit-watch.js',
-    // 2026-10-16 补登 20/21：闪避规则表（自 infra/51 迁入）与计算修饰器表（自 infra/57 迁入）。
-    //   二者被 core/11/12/15/16、render/32、ui/74 import，漏登则本扫描不覆盖其 import 断裂。
-    '../core/221-registry-dodge.js', '../core/222-registry-calc.js',
-    '../infra/101-event-bus.js', '../infra/103-clock.js', '../infra/104-global-store.js',
-    '../infra/105-fx-signals.js', '../infra/106-battle-enums.js',
-    '../infra/107-fact-contract.js',
-    '../infra/108-state-change.js', '../infra/109-net-pvp.js',
-    '../modules/302-elite-skills.js', '../modules/306-battle-store.js', '../modules/307-elite-imperial.js',
-    '../modules/308-elite-sixsects.js', '../modules/310-elite-sixsects-songqingshu.js',
-    '../modules/309-elite-sixsects-zhouzhiruo.js', '../modules/311-elite-sixsects-zhangsanfeng.js',
-    '../modules/312-elite-sixsects-pangyuanqiao.js', '../modules/313-elite-sixsects-miejueshitai.js',
-    '../modules/314-elite-sixsects-hetaichong.js',
-    '../modules/317-elite-mingjiao.js', '../modules/329-buff-tools.js',
-    '../modules/330-battle-init.js', '../modules/331-custom-effects.js',
-    '../modules/332-career-log.js',
-    '../player/501-player-text.js', '../player/502-player-buff-ui.js', '../player/503-player-core.js',
-    '../player/507-battle-player-5v5-test.js',
-    '../player/508-event-handlers.js', '../player/509-attack-group.js', '../player/510-renderer.js',
-    '../player/511-battle-report.js', '../player/512-battle-flow.js',
-    '../render/401-fact-renderer.js', '../render/402-stage-actions.js', '../render/403-grid-render.js',
-    '../render/406-fact-registry.js', '../render/407-facts-attack.js', '../render/408-facts-effect.js', '../render/413-generic-renderers.js',
-    '../render/415-actions-translate.js',
-    '../render/416-actions-translate-attack.js', '../render/418-actions-translate-heal.js',
-    '../render/417-actions-translate-control.js', '../render/419-actions-translate-stat.js',
-    '../render/420-actions-defs.js',
-    '../ui/701-main-utils.js', '../ui/702-main-5v5-test.js', '../ui/703-ui-render-5v5-test.js',
-    '../ui/704-main-state.js', '../ui/705-main-dialogs.js', '../ui/706-main-battle.js',
-    '../ui/707-audio-control.js', '../ui/708-fx-trigger.js', '../ui/709-ui-controls.js',
-    // 2026-10-15 补登 69/73/75/76：ui 家族漏登 4 员（角色卡渲染 / 语音面板 / 联机会话 / 回放入口）。
-    //   入册后本扫描才覆盖它们——这些文件 import 主代码符号与枚举，改名/删除即断裂却扫不到。
-    '../ui/710-role-cards.js',
-    '../ui/715-reset-runtime.js', '../ui/711-buff-dialog.js', '../ui/712-tutorial.js', '../ui/713-opening-cg.js',
-    '../ui/716-net-session.js', '../ui/717-replay-entry.js',
-    // 2026-10-14 补登 77/78：ui/68 三拆产物（77 倍速系统、78 按钮状态+buff 槽，68 入口 re-export 二者）
-    '../ui/718-speed-controls.js', '../ui/719-button-state.js',
-    '../fx/608-fx-manager.js', '../fx/609-fx-trigger.js', '../fx/610-fx-subscriber.js', '../fx/615-fx-hanlisa-burst.js',
     // 2026-09-21 扩到体检代码自身：tests/122health-utils.js 曾漏 import getUnitCol 导致
     // 圣火令校验运行时抛错却静默"通过"——体检代码同样是 JS，同样会缺 import，必须一并扫。
     './121health-monitor.js', './122health-utils.js', './123static-scan.js',
@@ -481,6 +457,52 @@ export async function scanImportRefs(code, fileUrl) {
     return broken;
 }
 
+// 扫描面解析：主代码七个目录自动发现 + tests/ 显式登记项。
+//   Node：fs 直接遍历（不依赖 manifest 新鲜度）；
+//   浏览器：列不了目录，改读 manifest.json（全量文件唯一清单）再按同口径过滤。
+//   发现失败不静默吞掉：把错误交给调用方报红，绝不用「扫不到」伪装成「全绿」。
+export async function collectScanFiles(baseUrl) {
+    const files = [];
+    try {
+        if (IS_NODE) {
+            const nodeFs = await import('node:fs');
+            const nodePath = await import('node:path');
+            const { fileURLToPath } = await import('node:url');
+            const root = nodePath.dirname(fileURLToPath(String(baseUrl)));
+            for (const d of SCAN_DIRS) {
+                const dp = nodePath.join(root, d);
+                if (!nodeFs.existsSync(dp)) continue;
+                (function walk(p) {
+                    for (const f of nodeFs.readdirSync(p)) {
+                        if (isExcludedSeg(f)) continue;
+                        const fp = nodePath.join(p, f);
+                        if (nodeFs.statSync(fp).isDirectory()) walk(fp);
+                        else if (SCAN_EXT.test(f)) {
+                            files.push('../' + nodePath.relative(root, fp).split(nodePath.sep).join('/'));
+                        }
+                    }
+                })(dp);
+            }
+        } else {
+            const resp = await fetch(new URL('../manifest.json', baseUrl).href + '?t=' + Date.now());
+            if (!resp.ok) throw new Error('manifest.json HTTP ' + resp.status);
+            const mf = await resp.json();
+            for (const ent of (mf.files || [])) {
+                const p = String(Array.isArray(ent) ? ent[0] : ent);
+                if (!SCAN_EXT.test(p)) continue;
+                const segs = p.split('/');
+                if (!SCAN_DIRS.includes(segs[0])) continue;
+                if (segs.some(isExcludedSeg)) continue;
+                files.push('../' + p);
+            }
+        }
+    } catch (e) {
+        return { files: SCAN_FILES.slice(), error: '扫描面自动发现失败：' + (e.message || e) };
+    }
+    files.sort();
+    return { files: files.concat(SCAN_FILES), error: null };
+}
+
 // 一键静态扫描：返回结构化结果，供体检中心渲染
 export async function runStaticScan() {
     const t0 = Date.now();
@@ -498,13 +520,16 @@ export async function runStaticScan() {
     };
     const baseUrl = new URL('./', window.location.href).href; // tests/ 目录
     const mounts = await detectWindowMounts();
+    // 扫描面先解析出来：自动发现失败必须报红（扫不到 ≠ 没问题）
+    const scan = await collectScanFiles(baseUrl);
+    if (scan.error) result.slots.importRef.issues.push(scan.error);
     // 第四类前置：先取 infra/56 源码解析枚举成员表（唯一来源），失败则自证报红而非静默跳过
     let enumMembers = {};
     try {
         const enumResp = await fetch(new URL('../infra/106-battle-enums.js', baseUrl).href + '?t=' + t0);
         if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
     } catch (e) { /* 落空由 selfCheckEnumMembers 接管报红 */ }
-    for (const rel of SCAN_FILES) {
+    for (const rel of scan.files) {
         const fileUrl = new URL(rel, baseUrl).href;
         let code;
         try {
@@ -572,7 +597,7 @@ export async function runStaticScan() {
 //   本文件所在 tests/ 目录，SCAN_FILES 的相对路径正是相对它解析），再跑全量扫描并打印。
 //   **有 issue 必须退出码 1**，否则 CLI 形同虚设，等于换个姿势继续假绿。
 // 浏览器侧不受影响：整段包在 isNode 分支内，并用 async IIFE 而非顶层 await，模块语义不变。
-const isNode = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
+const isNode = IS_NODE;
 if (isNode) {
     (async () => {
         const nodeFs = await import('node:fs');

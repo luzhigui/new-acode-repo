@@ -72,7 +72,9 @@ export function renderQianKunDerivedFact(fact) {
         isHealEntry: true,
         healAmount: fact.heal,
         healUnitUid: fact.healTargetUid,
-        buffType: BUFF_SUBTYPES.QIAN_KUN_ATK,
+        // 枚举真名是 QIANKUN_ATK（infra/106:300）。旧写法 QIAN_KUN_ATK 恒 undefined，
+        //   而 render/416 按 e.buffType === 'qiankun_atk' 分流乾坤衍生加成 ⇒ 分支整条静默失效
+        buffType: BUFF_SUBTYPES.QIANKUN_ATK,
         atkGain: fact.atkGain,
         atkTargetUid: fact.atkTargetUid
     };
