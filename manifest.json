@@ -1,5 +1,5 @@
 {
- "ver": "36853ee8cde6139524e881c5e1e2c50228931c105f71ff9534be2d2959f03791",
+ "ver": "008680a32ef6c917b8093354cedb34517dd256bceb582b01675c8f06c96f94bd",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "758f3719106fd57ba3b50f55bca377551b340d96453c309d14079d62c9746f52"
+   "152e9e0996f9ba0bd32865215ca64bb0036dd722a0385034c7012c71959c3d96"
   ],
   [
    "core/211-battle-attack-steps.js",

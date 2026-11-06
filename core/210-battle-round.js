@@ -1,5 +1,5 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-export const VER = 'core/210-battle-round.js V6.3.31';
+export const VER = 'core/210-battle-round.js V6.3.32';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -592,13 +592,15 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         let done = false;
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
-        // 不争（防拖平局）：敌方仅剩「不争」单位 → 明教直接获胜；noContend 由 content 技能声明驱动
-        //   （applyHeroFlags 自动设），引擎不认英雄
+        // 不争（防拖平局）：敌方活着的人全都有「不争」属性（如召唤了多个张三丰）→ 明教直接获胜；
+        //   noContend 由 content 技能声明驱动（applyHeroFlags 自动设），引擎不认英雄
         else {
             const bAlive = B.filter(u => u.alive);
-            if (bAlive.length === 1 && bAlive[0].noContend) {
+            if (bAlive.length > 0 && bAlive.every(u => u.noContend)) {
                 winner = '明教'; done = true;
-                log.push({ factType: FACT_TYPES.NO_CONTEND, data: { unitName: bAlive[0].name } });
+                // 名字去重，防止日志里出现「张三丰、张三丰」的滑稽画面
+                const names = [...new Set(bAlive.map(u => u.name))].join('、');
+                log.push({ factType: FACT_TYPES.NO_CONTEND, data: { unitName: names } });
             }
         }
 
