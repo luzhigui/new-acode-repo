@@ -1,5 +1,5 @@
 {
- "ver": "200bc5bcb12e0e9b06936d2755d5f6ef5402788bdff3bf82bf133e6d0e67213c",
+ "ver": "1979f825ee81147a56e545436c3eec476f6e647e7c6d5551a819f876c64bf8dc",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -381,7 +381,7 @@
   ],
   [
    "player/506-player-step-sync.js",
-   "b97c647087656098639d75dd9873c956729c32953a3aae43da5a9e758b0e1eab"
+   "c9860d41cc2c3e188a5ef5acc5ae4ceac7e7e6c166f28f3909990614f1c209ec"
   ],
   [
    "player/507-battle-player-5v5-test.js",

@@ -1,10 +1,11 @@
 // player/506-player-step-sync.js — 引擎 step → battleStore 同步 + 阵亡摘格 timer + 回合号读写
 //   syncStoreFromStep / readRound / setRound / setupDeathTimers 整块迁入。
 //   readRound 仍对外（45 经 42 barrel 取），本文件 export。
-export const VER = 'player/506-player-step-sync.js V1.0.1';
+export const VER = 'player/506-player-step-sync.js V1.0.2';
 
-import { STORE_ACTION_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
+import { getView } from '../infra/110-view-sheet.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 
 export function syncStoreFromStep(c, step) {
@@ -18,6 +19,13 @@ export function syncStoreFromStep(c, step) {
         if (u.alive === true && !(u.state && u.state._isDead)) {
             if (c._deathTimers && c._deathTimers[u.uid]) { clearTimeout(c._deathTimers[u.uid]); delete c._deathTimers[u.uid]; }
             if (c._removedUids) c._removedUids.delete(u.uid);
+            // 圣火不熄复活：引擎报活，但妆造层 _flash 还挂着 'dead'（死亡红叉是视图表数据，
+            //   复活路径从不清它）。后果：复活后格子一直顶红叉，直到他出手/挨打
+            //   （player/509 attack-group 收尾清闪）才消失。
+            //   只清 DEAD 态：attack/defend/cheer 闪由各自收尾负责，不抢。
+            if (getView(u.uid, '_flash') === FLASH_TYPES.DEAD) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: u.uid });
+            }
         }
     }
     // 状态源唯一：格子数据不再从 _mods 词条原料现算、也不再从日志 snap 单点捞（那是补丁），
