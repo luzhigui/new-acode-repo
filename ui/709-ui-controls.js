@@ -307,10 +307,19 @@ export function bindVoteFloat() {
 //   改成动态定位到小昭格子的右上角外侧，无论她在几号位、无论从机视角行序镜像，都贴着她。
 //   显示/隐藏与位置更新都由 ui/706 的 syncXiaoZhaoSwitchBtn 统一处理（updateButtons 末尾调它），
 //   本函数只负责「建 DOM + 绑点击 + 绑窗口尺寸变化重算位置」。
+// 按钮 DOM 缓存：按钮只建一次，ui/706 的 syncXiaoZhaoSwitchBtn 每轮 updateButtons 都要用它，
+//   走缓存就不必每次 getElementById；缓存为空（还没 bind）时才回查 DOM。
+let _xzSwitchBtn = null;
+export function getXiaoZhaoSwitchBtn() {
+    if (!_xzSwitchBtn) _xzSwitchBtn = document.getElementById('xiaoZhaoSwitchBtn');
+    return _xzSwitchBtn;
+}
+
 export function bindXiaoZhaoSwitchButton() {
     if (document.getElementById('xiaoZhaoSwitchBtn')) return;   // 幂等
     const btn = document.createElement('button');
     btn.id = 'xiaoZhaoSwitchBtn';
+    _xzSwitchBtn = btn;
     // position:fixed + JS 设 left/top；初始 left/top 写 0，syncXiaoZhaoSwitchBtn 会立刻覆盖
     btn.style.cssText = 'position:fixed;left:0;top:0;width:32px;height:32px;border-radius:50%;'
         + 'background:rgba(30,30,30,0.88);border:2px solid #ffd700;font-size:16px;line-height:1;'

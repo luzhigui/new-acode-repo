@@ -11,6 +11,7 @@ import { getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { initBattleTeams } from '../modules/330-battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/329-buff-tools.js';
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';   // fa6f206f 用了 CAMP_TYPES.ALLY 却漏 import，选 Buff 点击即炸（V6.1.2 补）
+import { getXiaoZhaoSwitchBtn } from './709-ui-controls.js';   // 小昭切换按钮的 DOM 缓存（709 建按钮时写入）
 import { resetBattleRuntime } from './715-reset-runtime.js';
 // 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
 import { getRoleLogTag } from './710-role-cards.js';
@@ -223,12 +224,17 @@ export function switchXiaoZhaoForm() {
     updateUI();
     renderGrid('allyGrid', CAMP_TYPES.ALLY);
 
+    // 联机房主：切形态后必须重发阵容，否则对手端手里还是旧形态/旧属性（从机摆位看到的也不对）。
+    //   sendNetLineup 首句 netRole!=='host' 直接 return，单机/从机不会多发任何请求。
+    const fnLineup = GlobalStore.getUIHandler('sendNetLineup');
+    if (typeof fnLineup === 'function') fnLineup();
+
     const fn = GlobalStore.getUIHandler('syncXiaoZhaoSwitchBtn');
     if (typeof fn === 'function') fn();
 }
 
 export function syncXiaoZhaoSwitchBtn() {
-    const btn = document.getElementById('xiaoZhaoSwitchBtn');
+    const btn = getXiaoZhaoSwitchBtn();
     if (!btn) return;
     const UI = GlobalStore.get('UI');
     const isAdjust = !!GlobalStore.get('adjustMode');

@@ -1,5 +1,5 @@
 {
- "ver": "1a3e0c6d65acc6ec70522ec2131a454f813abefe7ff54ed4de3d1f21c0eb8dd9",
+ "ver": "4ec55e78f7e3ed593728ed68808f050dbfba91f28f51030b416e1b383d9dee93",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -517,7 +517,7 @@
   ],
   [
    "ui/706-main-battle.js",
-   "12ae10028c00c08db4852ddd094fa933b6ee29d225681d0c0d8bd08ee9091f41"
+   "e3ee5964e95157699110e5daa12f6e48a7d86ea9dd5ab84defc315b321379103"
   ],
   [
    "ui/707-audio-control.js",
@@ -529,7 +529,7 @@
   ],
   [
    "ui/709-ui-controls.js",
-   "c675892137aff82a599a339395b1cf4cb89d4ef93130620fa35bd067b2e5c6ea"
+   "814c066444bc2656d01e7ad1e043bd40fc83480e8e4c70427dd6bc18f0201414"
   ],
   [
    "ui/710-role-cards.js",
