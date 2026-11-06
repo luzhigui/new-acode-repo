@@ -292,7 +292,7 @@
                     if (ins.hardest && sameStage) html += mk(ins.hardest.rate + '%', '关卡 s' + ins.hardest.stage + ' (' + ins.hardest.n + '局' + sigNote(ins.hardest) + ')');
                     if (ins.topHero) html += mk(ins.topHero.rate + '%', '主力 ' + ins.topHero.name + ' (' + ins.topHero.games + '局)');
                     if (ins.bestHit) html += mk(ins.bestHit.dmg, '单局最高 ' + ins.bestHit.name);
-                    if (ins.hexTop) html += mk(ins.hexTop.rate + '%', '海克斯 ' + ins.hexTop.name + ' (' + ins.hexTop.n + '局)');
+                    if (ins.hexTop) html += mk(ins.hexTop.rate + '%', '最赢海克斯 ' + ins.hexTop.name + ' (' + ins.hexTop.n + '局)');
                     cards.innerHTML = html;
                     wrap.appendChild(cards);
 

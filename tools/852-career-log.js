@@ -10,9 +10,9 @@ import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCount
 export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/332-career-log.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 827-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
-import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES } from './827-tool-registry.js';
+import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES, M100_SKILL_ALLIES } from './827-tool-registry.js';
 
-export const VER = 'tools/852-career-log.js V2.8.1';
+export const VER = 'tools/852-career-log.js V2.9.0';
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
@@ -27,6 +27,10 @@ export const VER = 'tools/852-career-log.js V2.8.1';
 //   报告/明细/界面均按所选模式呈现，不再把两种模式混在一起算胜率。
 // V2.8.1 | 2026-10-31 | 导出补「自动级别」列：记录里已存 autoLevel（手动/自动/全自动），但此前 CSV/报告没透出，
 //   无法追溯「这条是不是人工打的」。CSV 加「自动级别」列、Markdown 汇总加「人工对局构成」行。
+// V2.9.0 | 2026-11-06 | ① 生涯记录面板九宫格「海克斯」卡片改按胜率最高选（原按出场次数最高，回答的是"最常选"而非"最赢"）；
+//   门槛 8 局防 2 局全胜假冠军，无达标时回退≥2局里胜率最高保证不空；dev-index 卡片标签改为「最赢海克斯」。
+//   ② 英雄跨局表现纳入明教侧 M100 带技能角色（说不得/周颠/反伤弟子，见 827 M100_SKILL_ALLIES），与精英同列；
+//   六大派侧带技能(俞莲舟/素问)是敌方、不计入明教英雄表。
 
 // 英雄/组合少于此场次 → 标「样本少」，胜率仅供参考（3 局 100% 不等于这个英雄强）
 const HERO_MIN_GAMES = 8;
@@ -65,8 +69,11 @@ function autoLevelLabel(k) {
 //   而它们的「胜率」就是队伍胜率，于是「明教弟子2 57 场 79%」稳稳霸占榜首，
 //   真正该看的英雄被挤到 12 名开外。那不是英雄强度，是"跟着赢"。
 //   注意 小昭 的两个形态（·姊 / ·妹）按基础名归一后再比对，避免漏掉。
+// V2.9.0：纳入明教侧 M100 普通兵·带技能角色（说不得/周颠/反伤弟子，见 827 M100_SKILL_ALLIES）。
+//   它们有 mechanics/skills、是真英雄，却因不是精英被旧口径当成「普通兵」挤出英雄表；
+//   实际出场率不低，混在 hero 表才对得起战斗数据。六大派侧带技能角色(俞莲舟/素问)是敌方不在此列。
 const ALLY_HERO_BASE = new Set(
-    [...BOSS_ELITES, ...SOLO_ELITES, ...WEAK_ELITES.filter(w => w.side === 'ally').map(w => w.name)]
+    [...BOSS_ELITES, ...SOLO_ELITES, ...WEAK_ELITES.filter(w => w.side === 'ally').map(w => w.name), ...M100_SKILL_ALLIES]
         .map(n => String(n).split('·')[0])
 );
 function baseName(name) { return String(name || '').split('·')[0]; }
@@ -153,7 +160,7 @@ export function exportCareerMarkdown(hexMode = null) {
     try {
         const agg = getHeroAggregates(false, hexMode);
         if (agg && agg.length) {
-            lines.push('## 英雄表现（Boss + 强弱精英；<8 局标「样本少」）');
+            lines.push('## 英雄表现（Boss + 强弱精英 + 明教M100带技能；<8 局标「样本少」）');
             lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 较同关 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
             lines.push('|---|---|---|---|---|---|---|---|---|');
             for (const a of agg.slice(0, 15)) {
@@ -299,10 +306,15 @@ export function getCareerInsights(hexMode = null) {
             if (r.winner === '明教') hexStat[k].w++;
         }
     }
-    // 改为按出场次数排序，反映“最常选”而不是“胜率最高”
-    const hexTopEntry = Object.entries(hexStat)
-        .filter(([, v]) => v.n >= 2)
-        .sort((a, b) => b[1].n - a[1].n)[0];
+    // V2.9.0：海克斯卡片改为按「胜率最高」选，而非「出场次数最高」。
+    //   原来按出场次数排，回答的是"最常选哪个"，但卡片大数字已是胜率——选错对象就自相矛盾。
+    //   用户要看的是"最赢哪个"：一个海克斯可能人人都选(出场高)却胜率平平。
+    //   门槛 8 局（与 getHexWinRates 的 HEX_MIN_GAMES 同口径），避免 2 局全胜=100% 的假冠军；
+    //   没有任何海克斯达 8 局时，回退到「≥2 局里胜率最高」保证卡片不空（仍按胜率，不按出场）。
+    const pickHexByRate = (minN) => Object.entries(hexStat)
+        .filter(([, v]) => v.n >= minN)
+        .sort((a, b) => (b[1].w / b[1].n) - (a[1].w / a[1].n))[0];
+    const hexTopEntry = pickHexByRate(8) || pickHexByRate(2);
     let hexTop = null;
     if (hexTopEntry) {
         const k = hexTopEntry[0], v = hexTopEntry[1];

@@ -13,7 +13,10 @@
 //        周芷若 / 张三丰 / 灭绝师太 / 成昆 / 鹿杖客 / 鹤笔翁
 //      · carry 海克斯召唤物（由 108 海克斯仪表盘覆盖，不单列于精英评测）：雄鹰
 //   若主代码新增精英，按上述归类补入对应名单即可；跑 828 校验脚本可发现本文件与主代码漂移。
-export const VER = 'tools/827-tool-registry.js V1.3.0';
+//   明教侧 M100 普通兵·带技能（绿档，非精英，纳入「英雄跨局表现」与精英同列）：说不得 / 周颠 / 反伤弟子。
+//     注意：武当莲舟(俞莲舟)/峨眉素问(素问)虽带技能、也被网格标绿，但属六大派侧（进 r.enemy），
+//     不在明教英雄表内；冷谦/彭莹玉等无 mechanics/skills 的纯 M100 杂兵不算「带技能」，亦不纳入。
+export const VER = 'tools/827-tool-registry.js V1.4.0';
 
 // 自然出场归因表的列（112 主表 / 126 判读），顺序即表头顺序
 export const NATURAL_ELITES = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊', '寒离飒'];
@@ -32,6 +35,11 @@ export const WEAK_ELITES = [
     { name: '唐文亮', side: 'enemy' },
     { name: '空见', side: 'enemy' }
 ];
+
+// 明教侧 M100 普通兵·带技能角色（绿档）。生涯记录「英雄跨局表现」纳入，与精英同列统计。
+//   不含六大派侧的俞莲舟(武当莲舟)/素问(峨眉素问)（敌方，进 r.enemy 不进 r.ally）；
+//   不含冷谦/彭莹玉等无 mechanics/skills 的纯 M100 杂兵。名单需随战斗初始化强制出场名单同步（见 modules/330）。
+export const M100_SKILL_ALLIES = ['说不得', '周颠', '反伤弟子'];
 
 // 弱精英名字 → 所属侧（126 判读「过强方向」用，由 WEAK_ELITES 派生，勿另建副本）
 export const WEAK_SIDE = Object.fromEntries(WEAK_ELITES.map(w => [w.name, w.side]));
