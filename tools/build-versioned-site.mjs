@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
+import { createHash } from 'node:crypto';
 
 const HERE = path.dirname(url.fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -90,5 +91,41 @@ walk(ROOT, (src) => {
     }
 });
 
+// ============================== 镜像清单（_site/manifest.json） ==============================
+// 为什么必须在构建器里重生成，而不是把仓库 manifest.json 原样拷过去：
+//   本脚本会给 _site 里每个 JS 的 import 加 ?v=，字节变了——而仓库清单是源码指纹。
+//   sw.js 的 stageVersion 拿「下载回来的文本」重算 sha256 与清单比对，原地拷清单会让每个
+//   带 import 的文件都对不上 → 整套预装永远装不齐 → 生效账本永不切换 → 离线/免网全是假的。
+// 所以镜像自带一份「描述镜像字节」的清单：仓库清单给本地自检与门禁，镜像清单给 sw.js。
+const MANIFEST_DIRS = ['core', 'modules', 'player', 'ui', 'fx', 'render', 'infra', 'content'];
+const MANIFEST_EXT = /\.(?:html?|js|mjs|json|css)$/i;
+
+function collectMirrorFiles() {
+    const out = [];
+    // 根目录只收入口页：debug_mc.mjs / package-lock.json / _probe 之类的开发残留不该进预装清单
+    if (fs.existsSync(path.join(OUT, 'index.html'))) out.push('index.html');
+    for (const d of MANIFEST_DIRS) {
+        const dp = path.join(OUT, d);
+        if (!fs.existsSync(dp)) continue;
+        (function walk(p) {
+            for (const f of fs.readdirSync(p)) {
+                const fp = path.join(p, f);
+                if (fs.statSync(fp).isDirectory()) walk(fp);
+                else if (MANIFEST_EXT.test(f)) out.push(path.relative(OUT, fp).split(path.sep).join('/'));
+            }
+        })(dp);
+    }
+    return out.sort();
+}
+
+const shaOf = (p) => createHash('sha256')
+    .update(fs.readFileSync(path.join(OUT, p), 'utf8').replace(/\r\n/g, '\n')).digest('hex');
+
+const mirrorFiles = collectMirrorFiles().map(p => [p, shaOf(p)]);
+const mirrorVer = createHash('sha256').update(JSON.stringify(mirrorFiles)).digest('hex');
+fs.writeFileSync(path.join(OUT, 'manifest.json'),
+    JSON.stringify({ ver: mirrorVer, gen: 'tools/build-versioned-site.mjs', count: mirrorFiles.length, files: mirrorFiles }, null, 1));
+
 console.log(`[build] v=${VER} files=${stats.files} js=${stats.js} html=${stats.html} imports=${stats.imports} scripts=${stats.scripts}`);
+console.log(`[build] 镜像清单：${mirrorFiles.length} 个文件 · ver ${mirrorVer.slice(0, 8)}（指纹按镜像字节，不是源码）`);
 console.log(`[build] 输出：${OUT}`);
