@@ -1,4 +1,4 @@
-export const VER = 'core/203-battle-utils.js V6.3.6';
+export const VER = 'core/203-battle-utils.js V6.3.7';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
@@ -49,7 +49,9 @@ export function isBlocked(unit, allies) {
     if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
     let col = (unit.pos - 1) % 3;
     let poses = [1+col, 4+col, 7+col];
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !a.isLionCub && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider')));
+    // 前排口径必须与 getFronts 完全同源：飞天/附身的队友不算「前排占位」，
+    //   否则近战会被一个根本打不到也挡不住的队友判成「被遮挡」而整回合不出手（getFronts 已排除这几种）
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !a.isLionCub && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider') && !a.state._spiderFlying && !(a._fsm && (a._fsm.is('attached') || a._fsm.is('flying')))));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;
