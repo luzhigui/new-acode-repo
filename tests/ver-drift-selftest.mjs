@@ -4,6 +4,10 @@
 //        | 全部是「版本史写在注释正文、无可解析日志行」的既有模式（含 ver-bump-selftest / 170-taunts /
 //        | 123-claw-heal-spam / 140-wei-dodge-cloud 等），非日志写坏；项目夜里合入一批新规则文件致桶涨，
 //        | 双向棘轮要求如实重校基数（腐烂登记不许挂着骗人）。
+// V1.5.0 | 2026-11-06 D4：扫描面从 tests/ 扩到主代码七目录（core/infra/modules/player/render/ui/fx），
+//        | 凡文件头有 `export const VER` 即纳管（实测 251 个带 VER：tests 109 + 主代码 142）。
+//        | 主代码 142 个里 133 个没有可解析版本日志行（版本史写在注释正文），故无日志桶 50 → 183；
+//        | 主代码漂移实测 0 处（VER 与日志口径一致），VER 路径自证 0 处串号。规模闸门按实测量重校。
 // V1.4.0 | 2026-10-29 夜间第 156 轮：mutation-teeth A8/A19 双路径锚点修复后全量重跑 47 棵树，
 //        | 其 VER 正式升到 V2.9.16，旧 hold 核销；HOLD_WHITELIST 2 → 1、MAX_HOLD 2 → 1。
 // V1.3.3 | 2026-10-29 夜间第 156 轮：EXPECT_NO_LOG 30 → 29（合并上游 d7f8fee 后，
@@ -46,6 +50,9 @@
 //   外加棘轮：白名单条数只许收缩（MAX_HOLD）。
 //
 // 【★ 覆盖面：为什么从「只扫 .mjs」扩到「.js 与 .mjs 全扫」】
+//   V1.1.0 起两种后缀都扫（旧版只收 .mjs，52 个 .js 的 VER 全在盲区）。
+//   V1.5.0 再扩到主代码七目录：主代码每个文件头顶同样有 `export const VER`，
+//   旧口径只扫 tests/ ⇒ 那些 VER 与日志是否一致、路径是否串号，从来没被任何断言看过。
 //
 // 【断言清单】①规模闸门 ②漂移零容忍 ③hold 在册 ④hold 在位 ⑤hold 棘轮 ⑥hold 必有落差 ⑦VER 路径自证
 //   ⑧覆盖面（两种后缀都必须在册）⑨VER 耦合入库存产物（见 VER_EMBEDDED_IN）⑩无 VER 名单双向棘轮
@@ -53,7 +60,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.4.1';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -62,24 +69,26 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
 const testsDir = here;
+// V1.5.0 起的采集面：tests/ + 主代码七目录。主代码文件头顶同样有 `export const VER`，
+//   旧口径只扫 tests/ ⇒ 主代码 142 个文件的 VER 与日志脱节永远无人对账。
+const SCAN_ROOT_DIRS = ['tests', 'core', 'infra', 'modules', 'player', 'render', 'ui', 'fx'];
 
 // --- 常量（改这些数就是改判据，必须升 VER 并在头顶补日志行）---
 
-// 规模闸门：带 VER 常量的文件数下限。实测 77（25 个 .mjs + 52 个 .js）。
+// 规模闸门：带 VER 常量的文件数下限。实测 251（tests 109 + 主代码七目录 142）。
 // 防止抽取器失效（如正则写错、目录没扫到、后缀漏收）时「0 个文件、0 处漂移」假装全绿。
-const MIN_VER_FILES = 70;
+const MIN_VER_FILES = 200;
 
-// 覆盖面副闸门：其中 .js 侧带 VER 的文件数下限。实测 52（121/122/123/124/140 五个 + health-rules 47 个）。
+// 覆盖面副闸门：其中 .js 侧带 VER 的文件数下限。实测 194（tests 52 + 主代码 142）。
 // 单独拎出来是因为 V1.0.0 的教训：总数够不代表每类都采到，只看总数会被「只扫 .mjs」蒙混过关。
-const MIN_JS_VER_FILES = 45;
+const MIN_JS_VER_FILES = 170;
 
-// 可解析日志闸门：带 VER 的文件里，**真正有版本日志可比对的**那部分的下限。实测 26。
-// ★ 为什么①守不住这个口子：①数的是「带 VER 的文件数」（77），而②比对的前提是 logMax 非空。
-//   实测 77 个带 VER 的文件里只有 26 个有可解析的版本日志，另外 51 个被②整体跳过。
-//   若版本日志正则腐烂，logMax 全空 ⇒ ②零命中 ⇒ ①仍以 77≥70 放行 ⇒ 打印全绿而实际比对 0 个文件。
+// 可解析日志闸门：带 VER 的文件里，**真正有版本日志可比对的**那部分的下限。实测 68（251 − 183）。
+// ★ 为什么①守不住这个口子：①数的是「带 VER 的文件数」（251），而②比对的前提是 logMax 非空。
+//   实测 251 个带 VER 的文件里只有 68 个有可解析的版本日志，另外 183 个被②整体跳过。
+//   若版本日志正则腐烂，logMax 全空 ⇒ ②零命中 ⇒ ①仍以 251≥200 放行 ⇒ 打印全绿而实际比对 0 个文件。
 //   这正是①当初要防的「空集出绿」，只是它量的是另一个口径，故必须另立一根线。
-// 实测 43（V1.3.0 认全四种版本行写法后，由 26 涨到这里）。
-const MIN_LOG_PARSED = 37;
+const MIN_LOG_PARSED = 60;
 
 // 无日志名单规模：当前「有 VER 但没有可解析版本日志」的文件数。
 // 沿革：51（第 137 轮，只认标准约定时）→ 34（第 138 轮，认全四种写法后；剩下 34 个的头顶压根没有
@@ -91,9 +100,11 @@ const MIN_LOG_PARSED = 37;
 // → 50（第 165 轮(续)：夜里合入一批新健康规则文件（160~172 等），其版本史按设计写在注释正文、
 //   无可解析日志行，桶随之上涨；抽样核实 50 个全是既有「正文史」模式、无日志写坏，故如实重校基数。
 //   双向棘轮维持：谁补了日志须回头把本数改小，谁掉了日志（<50）或冒出新孤儿（>50）仍红）。
+// → 183（V1.5.0 第 D4 轮：采集面扩到主代码七目录，新增 133 个「有 VER 但版本史写在注释正文、
+//   无可解析日志行」的主代码文件 —— 主代码沿用既有习惯，不是写坏；双向棘轮维持原口径）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 50;
+const EXPECT_NO_LOG = 183;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
@@ -191,7 +202,12 @@ function cmpVer(a, b) {
     return 0;
 }
 
-const files = collect(testsDir, []).sort();
+const files = [];
+for (const d of SCAN_ROOT_DIRS) {
+    const dp = d === 'tests' ? testsDir : path.join(repoRoot, d);
+    if (fs.existsSync(dp)) collect(dp, files);
+}
+files.sort();
 const recs = [];
 const noVerFiles = [];
 const noLogFiles = [];
