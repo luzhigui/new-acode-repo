@@ -166,7 +166,11 @@ async function serveCode(url, req) {
         : url.pathname.slice(1);
     if (!meta.map.has(rel)) return fetch(req);         // 清单外（tools/dev-index 等）直通
     const c = await caches.open(meta.cacheName);
-    const hit = await c.match(url.href, { ignoreSearch: true });
+    // 精确键匹配（不带查询串）：账本里的键一律是 ABS(rel)，版本靠 x-ver 头 + 账本核对，
+    //   不再 ignoreSearch —— 旧写法会让任意 ?v= 都命中同一条目，「指纹不对但照样返回」永远发现不了。
+    //   升级路径：老用户的账本键本来就是无查询串的 ABS(p)，本改动不改键名，
+    //   下次 install 拉起新 ver 时命中同一批条目，无需清缓存、不会多下一次。
+    const hit = await c.match(ABS(rel));
     if (hit) return hit;
     return fetch(req);                                 // 万一缺文件：网络兜底，不污染账本
 }
