@@ -92,7 +92,7 @@ export function initBattleTeams(currentStage, _rng) {
     const mingWeakPool = Object.entries(C.MING_M)
         .filter(([n]) => HERO_FLAGS[n] && !fixedEliteNames.has(n))
         .map(([n, m]) => ({ name: n, m }));
-    const forceWeakElite = GlobalStore.get('forceWeakElite') || localStorage.getItem('_forceWeakElite') || null;
+    const forceWeakElite = GlobalStore.get('forceWeakElite') || null;
     if (forceWeakElite && !mingWeakPool.some(w => w.name === forceWeakElite) && ENEMY_M[forceWeakElite] == null) {
         throw new Error(`forceWeakElite 无效（不在明教弱精英池、也不在 roster.enemyM）: ${forceWeakElite}`);
     }
@@ -136,13 +136,12 @@ export function initBattleTeams(currentStage, _rng) {
     };
 
     // 强制精英（dev）：任一 force 命中 = 单精英局，抑制随机轮盘
-    const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
-    const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
-    const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
+    const forceZhang = GlobalStore.get('forceZhang');
+    const forceWei = GlobalStore.get('forceWei');
+    const forceXieXun = GlobalStore.get('forceXieXun');
     // V7.6.1：寒离飒已升强精英，需独立 force 通道（走 forceWeakElite 会撞下方入池校验抛错）
-    const forceHanLiSa = GlobalStore.get('forceHanLiSa') || localStorage.getItem('_forceHanLiSa') === '1';
-    const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother'
-        || localStorage.getItem('_forceXiaoZhao') === 'sister' || localStorage.getItem('_forceXiaoZhao') === 'brother');
+    const forceHanLiSa = GlobalStore.get('forceHanLiSa');
+    const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother');
     // V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
     const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
     const anyForce = forceZhang || forceWei || forceXieXun || forceHanLiSa || _forceXzEarly || forceSoloWeak;
@@ -349,7 +348,7 @@ export function initBattleTeams(currentStage, _rng) {
     if (squadVariants && squadVariants.length > 0) {
         // 先抽再判：forcePang 时即使覆盖结果也照抽一次，保证 RNG 流与不强制时一致（PVP 双端同源）
         const roll = _rng.nextInt(0, squadVariants.length - 1);
-        const forcePang = GlobalStore.get('forcePang') || localStorage.getItem('_forcePang') === '1';
+        const forcePang = GlobalStore.get('forcePang');
         let variant = squadVariants[roll];
         if (forcePang) {
             const target = squadVariants.find(v => v.squad.some(it => it && it.name === '胖远桥'));

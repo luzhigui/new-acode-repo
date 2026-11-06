@@ -73,7 +73,7 @@ export function initDevFlags() {
         localStorage.removeItem('_forceWei');
     }
     // 新角色实战 demo（dev-index 三按钮）：
-    // _forceXieXun 之前只有 29battle-init 直读 localStorage 的路径，不清除会一直生效，这里补上一次性消费
+    // _forceXieXun：dev-index 写 localStorage，这里一次性消费进 GlobalStore 后清除，避免残留一直生效
     if (localStorage.getItem('_forceXieXun') === '1') {
         GlobalStore.set('forceXieXun', true);
         localStorage.removeItem('_forceXieXun');
@@ -88,8 +88,8 @@ export function initDevFlags() {
         GlobalStore.set('forcePang', true);
         localStorage.removeItem('_forcePang');
     }
-    // 补漏：_forceWeakElite（弱精英锁定，modules/29 V7.5.22 新增）——与上面几个同口径一次性消费。
-    //   它的值是具名（如 '唐文亮'），不是 '1'；原先只有 29 直读 localStorage 的路径，不清除会一直生效。
+    // 补漏：_forceWeakElite（弱精英锁定）——与上面几个同口径一次性消费。
+    //   它的值是具名（如 '唐文亮'），不是 '1'；不清除会一直生效。
     const weakElite = localStorage.getItem('_forceWeakElite');
     if (weakElite) {
         GlobalStore.set('forceWeakElite', weakElite);

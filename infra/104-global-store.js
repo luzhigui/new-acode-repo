@@ -1,6 +1,16 @@
 export const VER = 'infra/104-global-store.js V6.0.1';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './102-core-utils.js';
+import { UI_HANDLER_KEYS } from './106-battle-enums.js';
+
+// UIHandler 键校验：非法键立即抛错（不再靠拼写正确才生效）；合法但尚未注册仍返回 undefined，
+//   保留调用点 `const fn = getUIHandler(k); if (fn) fn()` 的加载时序语义。
+const _uiHandlerKeys = new Set(Object.values(UI_HANDLER_KEYS));
+function assertUIHandlerKey(name, api) {
+    if (!_uiHandlerKeys.has(name)) {
+        throw new Error(`[GlobalStore.${api}] 非法 UIHandler key='${String(name)}'（须为 infra/106 UI_HANDLER_KEYS 之一）`);
+    }
+}
 
 const _state = {
     fastForwardActive: false,
@@ -101,9 +111,11 @@ export const GlobalStore = {
         _state.currentBattleState = state;
     },
     setUIHandler(name, fn) {
+        assertUIHandlerKey(name, 'setUIHandler');
         _uiHandlers[name] = fn;
     },
     getUIHandler(name) {
+        assertUIHandlerKey(name, 'getUIHandler');
         return _uiHandlers[name];
     }
 };

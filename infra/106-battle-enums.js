@@ -315,3 +315,40 @@ export const STORE_ACTION_TYPES = Object.freeze({
     // 状态三轨收敛：回合数由 battleStore 持有（原先散在 c.UI.round）
     SET_ROUND: 'SET_ROUND'
 });
+
+/** UIHandler 键：GlobalStore.setUIHandler / getUIHandler 的唯一合法取值来源（set/get 入口校验） */
+export const UI_HANDLER_KEYS = Object.freeze({
+    // 主状态 / 渲染（ui/704-main-state.js、player/510-renderer.js 注册）
+    UPDATE_UI: 'updateUI',
+    SET_RENDER_STORE: 'setRenderStore',
+    SPAWN_VICTORY_EFFECTS: 'spawnVictoryEffects',
+    UPDATE_BUFF_SLOTS: 'updateBuffSlots',
+    TICK_BUFF_DURATIONS: 'tickBuffDurations',
+    FADE_BGM_TO: 'fadeBGMTo',
+    SHOW_BATTLE_REPORT: 'showBattleReport',
+    SHOW_BUFF_POPUP: 'showBuffPopup',
+    UPDATE_BUTTONS: 'updateButtons',
+    ENABLE_ALL_BUTTONS: 'enableAllButtons',
+    UPDATE_SPEED_BUTTONS: 'updateSpeedButtons',
+    ACTIVATE_SCROLL_SLOWDOWN: 'activateScrollSlowdown',
+    RESTORE_SPEED_FROM_SCROLL: 'restoreSpeedFromScroll',
+    AUTO_SCROLL_LOG: 'autoScrollLog',
+    UPDATE_SCORE_BADGE: 'updateScoreBadge',
+    // 战斗流程：弹窗 / 瞄准 / 小昭形态 / 暂停态
+    SHOW_FLY_DIRECTION_POPUP: 'showFlyDirectionPopup',
+    SHOW_HANLISA_AIM: 'showHanlisaAim',
+    SWITCH_XIAO_ZHAO_FORM: 'switchXiaoZhaoForm',
+    SYNC_XIAO_ZHAO_SWITCH_BTN: 'syncXiaoZhaoSwitchBtn',
+    SYNC_PAUSE_STATE: 'syncPauseState',
+    ON_ANY_BUTTON_CLICK: 'onAnyButtonClick',
+    RESET_IS_BATTLE_STARTING: 'resetIsBattleStarting',
+    OPEN_DETAIL_POPUP: 'openDetailPopup',
+    OPEN_PERF_PANEL: 'openPerfPanel',
+    // 联机 / 回放 / 会话
+    SYNC_NET_POSITIONS: 'syncNetPositions',
+    SEND_NET_LINEUP: 'sendNetLineup',
+    START_REPLAY_FROM_FILE: 'startReplayFromFile',
+    GO_BACK_TO_COVER: 'goBackToCover',
+    HOST_WAIT_RECONNECT: 'hostWaitReconnect',
+    SWAP_ALLY_POSITIONS: 'swapAllyPositions'
+});
