@@ -1,5 +1,5 @@
 {
- "ver": "52daf979f44c8a424c33f973b80bd6f0086536521bea0ba3612f27bc11e5fb28",
+ "ver": "e2a083c3d1c88467f04349b5a631dc62ea65d63de074a0ae80d70b1a36a386f3",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -501,7 +501,7 @@
   ],
   [
    "ui/702-main-5v5-test.js",
-   "de50153173cb76748476222ed2e3c8f61654a34c77912358b0c61829d02410c0"
+   "67d344c3e090db7115b518b177cbbdb034311a4575863eb84af15cfed72d04a5"
   ],
   [
    "ui/703-ui-render-5v5-test.js",
