@@ -1,7 +1,7 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
-export const VER = 'core/212-battle-attack-chain.js V1.0.3';
+export const VER = 'core/212-battle-attack-chain.js V1.0.4';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -11,7 +11,7 @@ import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, per
 import { getDodgeRules } from './221-registry-dodge.js';
 import { validateCalcModifierFields } from './217-effect-handlers.js';
 import { getCalcModifier } from './222-registry-calc.js';
-import { runTargetStrategies } from './207-target-strategies.js';
+import { runTargetStrategies, runTargetFilters } from './207-target-strategies.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { computeDodgeChance, snapshotUnitForFact } from './213-battle-attack-edge.js';
@@ -41,12 +41,14 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     }
 
     if (!target) {
+        const chainCtx = { rng, isMelee: isMelee(unit.role) || unit.isHorse };
+        // 选目标前过滤（core/07 注册面）：模块按注册序裁候选池，结果原地写回同一 validTargets 引用
+        //   （emit payload 与策略看到的是同一份）。全被排除＝本次无目标，直接返回、不兜底。
+        runTargetFilters(unit, validTargets, chainCtx);
+        if (validTargets.length === 0) return { target: null, phantomFact: null };
         // 默认选敌策略表（core/07）：飞行低血优先 → 近战打前排 → 兜底随机。
         // abort 表示策略主动放弃本次选敌（近战无前排），不走兜底。
-        const result = runTargetStrategies(unit, validTargets, {
-            rng,
-            isMelee: isMelee(unit.role) || unit.isHorse
-        });
+        const result = runTargetStrategies(unit, validTargets, chainCtx);
         if (result && result.abort) return { target: null, phantomFact: null };
         target = result ? result.target : null;
     }
@@ -326,6 +328,10 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         hpLoss -= a;
     }
     target.state._shieldAbsorbed = shieldAbsorbed;
+    // 单次受伤上限（庄铮·断锤三式）：必须截在 dead 判定之前——core/13 的 hp 截断只改落账值，
+    //   这里不改 hpLoss 的话，致死伤害照样把 hpAfter 算成 ≤0、死亡标记照样落下（上限形同虚设）。
+    //   上限只有 _dmgCap 一个来源；core/13 直扣血出口读同一字段。
+    if (target.state._dmgCap > 0) hpLoss = Math.min(hpLoss, target.state._dmgCap);
     let hpAfter = Math.floor(target.hp) - hpLoss;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');

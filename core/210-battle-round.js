@@ -1,5 +1,5 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-export const VER = 'core/210-battle-round.js V6.3.32';
+export const VER = 'core/210-battle-round.js V6.3.33';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -8,6 +8,7 @@ import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonu
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
 import { Unit } from './202-unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './221-registry-dodge.js';
+import { clearTargetFilters } from './207-target-strategies.js';
 import { installDeclaredSkills, installFromGameData } from './216-skill-mechanisms.js';
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 import { clearAllWatchers } from './220-unit-watch.js';
@@ -145,6 +146,8 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     const declaredSkills = [];
 
     clearEliteDodgeRules();
+    // 选目标过滤器同上：挂在旧回合闭包上的 filter 本回合作废，必须清空后由模块在各自 register() 里重挂
+    clearTargetFilters();
 
     registerWarriorBreakDefense(eventBus);
     registerRangedGrowth(eventBus);

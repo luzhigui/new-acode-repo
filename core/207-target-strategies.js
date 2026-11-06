@@ -1,7 +1,7 @@
 // core/207-target-strategies.js
 // 与 registerDodgeRule 同模式：策略按注册顺序跑，第一个非 null 胜出。
 // 声明层（BEFORE_SELECT_TARGET）优先于本表——声明给出 targetResult 时根本不会进本表。
-export const VER = 'core/207-target-strategies.js V1.2.0';
+export const VER = 'core/207-target-strategies.js V1.3.0';
 
 import { getFronts } from './203-battle-utils.js';
 import { getGameData } from './201-config-5v5-test.js';
@@ -9,6 +9,8 @@ import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
 const _strategies = [];
 const _poolFilters = [];
+// 选目标前的引擎级过滤器：id → fn（Map 保序，同 id 覆盖＝幂等重挂，不堆积）
+const _targetFilters = new Map();
 
 // 注册一条默认选敌策略。
 // fn(unit, validTargets, ctx) => { target } | { abort: true } | null
@@ -31,6 +33,40 @@ export function registerTargetPoolFilter(fn) {
         throw new Error('[07-target-strategies] registerTargetPoolFilter: fn 必须是函数');
     }
     _poolFilters.push(fn);
+}
+
+// 注册一条「选目标前」的引擎级候选池过滤器（作用于 core/12 selectAttackTarget 的 validTargets）。
+// fn(unit, candidates, ctx) => 数组 | null
+//   返回数组 = 保留集，引擎原地写回同一 validTargets 引用（length=0 + push，绝不换数组）
+//   返回 null = 本过滤器不干预
+// 清场时机：core/10 每回合 eventBus.clearAll() 之后，与 clearEliteDodgeRules() 同一处调用
+//   ——模块必须在自己的组件 register() 里用固定 id 重挂（同 id 覆盖＝幂等）；
+//   挂在模块顶层（import 期）的过滤器第 2 回合起会被清掉且无人重挂，等于静默失效。
+export function registerTargetFilter(id, fn) {
+    if (!id || typeof id !== 'string') {
+        throw new Error('[07-target-strategies] registerTargetFilter: id 必须是非空字符串');
+    }
+    if (typeof fn !== 'function') {
+        throw new Error(`[07-target-strategies] registerTargetFilter: "${id}" 的 fn 必须是函数`);
+    }
+    _targetFilters.set(id, fn);
+}
+
+// 每回合 / 跨局清场：清掉所有已挂过滤器，等模块在 register() 里重挂
+export function clearTargetFilters() {
+    _targetFilters.clear();
+}
+
+// 按注册顺序跑完所有过滤器，结果原地写回 candidates（emit payload 与策略必须看到同一份）
+export function runTargetFilters(unit, candidates, ctx) {
+    for (const fn of _targetFilters.values()) {
+        const kept = fn(unit, candidates, ctx);
+        // 返回输入本身＝池已被过滤器自行原地改过，无需再写回（避免清空后再 push 自己）
+        if (!Array.isArray(kept) || kept === candidates) continue;
+        candidates.length = 0;
+        candidates.push(...kept);
+    }
+    return candidates;
 }
 
 // 依次过所有过滤器；只有返回非空数组的才替换池
