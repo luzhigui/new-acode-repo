@@ -12,7 +12,7 @@ export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRec
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
 import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES, M100_SKILL_ALLIES } from './827-tool-registry.js';
 
-export const VER = 'tools/852-career-log.js V2.9.0';
+export const VER = 'tools/852-career-log.js V2.9.1';
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
@@ -27,6 +27,11 @@ export const VER = 'tools/852-career-log.js V2.9.0';
 //   报告/明细/界面均按所选模式呈现，不再把两种模式混在一起算胜率。
 // V2.8.1 | 2026-10-31 | 导出补「自动级别」列：记录里已存 autoLevel（手动/自动/全自动），但此前 CSV/报告没透出，
 //   无法追溯「这条是不是人工打的」。CSV 加「自动级别」列、Markdown 汇总加「人工对局构成」行。
+// V2.9.1 | 2026-11-06 | ① 败因分析重写：旧版每个指标都要「区间不跨0 且 幅度够大」才下结论，小样本下全被压成
+//   「噪声内/随机波动」车轱辘话，看了等于没看。改为按 |输局−赢局差距| 排序挑主因/次因（带置信度），并补
+//   「输局最集中关卡」「突破口英雄」两条可直接落地的结论。② getCareerInsights 的 recent 改按 ts 排序，
+//   修「全部模式」下两库拼接非时间序导致「最近」取到错乱尾巴、看起来全灰的 bug。③ 「较同关」列改名「难度校准」，
+//   表头提示与报告脚注改用大白话（去掉「扣掉关卡难度」这类黑话）。
 // V2.9.0 | 2026-11-06 | ① 生涯记录面板九宫格「海克斯」卡片改按胜率最高选（原按出场次数最高，回答的是"最常选"而非"最赢"）；
 //   门槛 8 局防 2 局全胜假冠军，无达标时回退≥2局里胜率最高保证不空；dev-index 卡片标签改为「最赢海克斯」。
 //   ② 英雄跨局表现纳入明教侧 M100 带技能角色（说不得/周颠/反伤弟子，见 827 M100_SKILL_ALLIES），与精英同列；
@@ -161,7 +166,7 @@ export function exportCareerMarkdown(hexMode = null) {
         const agg = getHeroAggregates(false, hexMode);
         if (agg && agg.length) {
             lines.push('## 英雄表现（Boss + 强弱精英 + 明教M100带技能；<8 局标「样本少」）');
-            lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 较同关 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
+            lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 难度校准 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
             lines.push('|---|---|---|---|---|---|---|---|---|');
             for (const a of agg.slice(0, 15)) {
                 const f = v => (v === null ? '—' : v);
@@ -179,7 +184,7 @@ export function exportCareerMarkdown(hexMode = null) {
                     lines.push('');
                 }
             } catch (e) {}
-            lines.push('> 口径：胜率右边「较同关」= 实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度，正数说明比同关平均赢得更多）；'
+            lines.push('> 口径：胜率右边「难度校准」= 这个英雄的胜率，比他出场的那些关的平均胜率高/低多少个百分点（正数=比同关平均更常赢，负数=在难一点的关就拉胯；用来去掉「只在简单关出场」的虚高）；'
                 + '输出/承伤/治疗按「每存活回合」计，不用整局累计——否则第 3 回合就倒的人会被当成输出低，其实是活得短。');
             lines.push('');
         }
@@ -321,8 +326,9 @@ export function getCareerInsights(hexMode = null) {
         hexTop = { key: k, name: hexLabel(k), rate: Math.round(v.w / v.n * 100), n: v.n };
     }
 
-    // 最近 10 局战绩（时间正序，老的在前）
-    const recent = arr.slice(-10).map(r => r.winner || '平局');
+    // 最近 10 局战绩（按时间排序，老的在前）。注意 getCareerRecords 在「全部模式」下是单/双两库拼接、
+    //   不是时间序，这里统一按 ts 排，保证「最近」是真·最近，不会在全部模式里取到错乱的尾巴（曾导致全灰）。
+    const recent = [...arr].sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-10).map(r => r.winner || '平局');
 
     // 一句话总结（纯规则，不打分）
     let summaryLine = '';
@@ -794,48 +800,62 @@ export function getLossAnalysis(hexMode = null) {
             text: `输局只有 ${losses.length} 局（需 ≥${LOSS_MIN} 局才归因），样本太少，现在说什么都是猜。多打几局再看。`
         });
     } else {
-        // 单一指标结论：dir='lt' 表示输局应显著更低（回合/存活/输出），'gt' 表示应显著更高（承伤）。
-        // effOk = 旧版「幅度足够大」阈值（避免显著但无操作意义的微小差）；
-        // sig = 区间不跨 0 且方向正确。两者都满足才下因果结论，否则压成「噪声内」。
-        const addMetric = (kind, dir, effOk, c, strongTxt, label) => {
+        // 败因分析重写（V2.9.1）：旧版对每个指标都要「区间不跨 0 且 幅度够大」才下结论，
+        //   小样本下几乎全被压成「噪声内/随机波动」——于是永远只蹦那三句车轱辘话，看了等于没看。
+        //   新口径：4 个指标统一量出「输局−赢局差距 + 95% 区间」，按 |差距| 排序挑最强信号当主因/次因，
+        //   显著才标高置信、否则标「中/低·可能波动」但照样报出来（方向本身就有参考价值）；
+        //   另补「输局关卡集中」「突破口英雄」两条可直接落地的结论，让分析真的能指导调整。
+        const metrics = [];
+        const consider = (key, dir, c, label, strongTxt, weakTxt) => {
             if (!c) return;
             const significant = dir === 'lt' ? c.hi < 0 : c.lo > 0;
-            if (effOk && significant) {
-                findings.push({ kind, sig: true, text: strongTxt });
-            } else if (significant && !effOk) {
-                findings.push({ kind, sig: false, noise: true,
-                    text: `「${label}」方向一致但幅度很小（差 ${c.diff >= 0 ? '+' : ''}${c.diff.toFixed(1)}，区间 ${c.lo.toFixed(1)}~${c.hi.toFixed(1)}），可能只是随机波动，先不动。` });
-            } else if (effOk && !significant) {
-                findings.push({ kind, sig: false, noise: true,
-                    text: `「${label}」看着像，但输赢差距的区间跨 0（${c.lo.toFixed(1)}~${c.hi.toFixed(1)}），分不出真假，样本够多再说。` });
-            }
+            metrics.push({ key, c, significant, mag: Math.abs(c.diff), label, strongTxt, weakTxt });
         };
-        addMetric('rush', 'lt', L.rounds !== null && W.rounds && L.rounds < W.rounds * 0.75, ci.rounds,
-            `被速推：输的局平均 ${f1(L.rounds)} 回合就结束，赢的局要 ${f1(W.rounds)} 回合 → 前期站不住，先补前排/减伤，堆输出救不了。`,
-            '回合数输赢差距');
-        addMetric('wipe', 'lt', L.alive !== null && W.alive !== null && L.alive < W.alive - 1.2, ci.alive,
-            `团灭型失败：输的局平均只剩 ${f1(L.alive)} 人活下来（赢局剩 ${f1(W.alive)} 人）→ 是整体崩盘，不是某一个英雄拖后腿。`,
-            '存活人数输赢差距');
-        addMetric('dps', 'lt', W.dmg && L.dmg !== null && L.dmg < W.dmg * 0.8, ci.dmg,
-            `输出打不出来：输的局我方总输出 ${f0(L.dmg)}，赢局 ${f0(W.dmg)}（少了 ${Math.round((1 - L.dmg / W.dmg) * 100)}%）→ 更像被控/被秒，不是单纯数值不够。`,
-            '总输出输赢差距');
-        addMetric('tank', 'gt', W.taken && L.taken !== null && L.taken > W.taken * 1.2, ci.taken,
-            `承伤偏高：输的局我方总承伤 ${f0(L.taken)}，赢局 ${f0(W.taken)} → 挨打太多，先查减伤/治疗够不够。`,
-            '总承伤输赢差距');
-
-        const top = firstDeadTop[0];
-        if (top && top.sig) {
-            findings.push({ kind: 'firstblood', sig: true,
-                text: `${top.name} 是最常见的突破口：${losses.length} 局输局里有 ${top.count} 局（${Math.round(top.share * 100)}%）是他最先倒 → 优先给他加血/减伤，或者调站位。` });
-        } else if (top && top.count >= LOSS_MIN) {
-            const loPct = top.ci ? Math.round(top.ci[0] * 100) : 0, hiPct = top.ci ? Math.round(top.ci[1] * 100) : 100;
-            findings.push({ kind: 'firstblood', sig: false, noise: true,
-                text: `${top.name} 最早倒出现次数最多（${top.count} 局，${Math.round(top.share * 100)}%），但 95% 区间 ${loPct}%~${hiPct}% 跨过半数，分不出是真脆还是偶然，先别专门针对他改。` });
+        consider('rush', 'lt', ci.rounds, '回合',
+            `被速推——输局平均 ${f1(L.rounds)} 回合就崩，赢局要 ${f1(W.rounds)} 回合`,
+            `输局回合偏短（${f1(L.rounds)} vs 赢局 ${f1(W.rounds)}）`);
+        consider('wipe', 'lt', ci.alive, '存活',
+            `团灭型——输局平均只剩 ${f1(L.alive)} 人，赢局剩 ${f1(W.alive)} 人`,
+            `输局存活人数偏少（${f1(L.alive)} vs 赢局 ${f1(W.alive)}）`);
+        consider('dps', 'lt', ci.dmg, '输出',
+            `输出打不出——输局我方总输出 ${f0(L.dmg)}，赢局 ${f0(W.dmg)}（少 ${W.dmg ? Math.round((1 - L.dmg / W.dmg) * 100) : 0}%）`,
+            `输局输出偏低（${f0(L.dmg)} vs 赢局 ${f0(W.dmg)}）`);
+        consider('tank', 'gt', ci.taken, '承伤',
+            `挨打太多——输局我方总承伤 ${f0(L.taken)}，赢局 ${f0(W.taken)}`,
+            `输局承伤偏高（${f0(L.taken)} vs 赢局 ${f0(W.taken)}）`);
+        metrics.sort((a, b) => b.mag - a.mag);
+        const primary = metrics[0];
+        if (primary) {
+            const conf = primary.significant ? '（高置信）' : '（中·样本有限，方向参考）';
+            const advice = primary.key === 'rush' ? '前期站不住，先补前排/减伤，堆输出救不了。'
+                : primary.key === 'wipe' ? '是整体崩盘，不是某一个英雄拖后腿，查整体减伤/治疗。'
+                : primary.key === 'dps' ? '更像被控/被秒，不是单纯数值不够。'
+                : '先查减伤/治疗够不够，别只堆输出。';
+            findings.push({ kind: primary.key, sig: primary.significant, text: `主因${conf}：${primary.strongTxt}。${advice}` });
         }
-
-        if (!findings.length) {
-            findings.push({ kind: 'even', sig: false,
-                text: `输局和赢局在回合数、存活人数、输出承伤上都没明显差距（${L.n} 败 vs ${W.n} 胜）→ 更像单局随机波动，或者问题出在没被记录的维度（站位/技能释放时机）。` });
+        const secondary = metrics[1];
+        if (secondary && primary && secondary.mag >= 0.3 * primary.mag) {
+            const conf = secondary.significant ? '（高置信）' : '（低·可能波动）';
+            findings.push({ kind: secondary.key, sig: secondary.significant, text: `次因${conf}：${secondary.weakTxt}。` });
+        }
+        // 输局关卡集中：直接可行动（这些关重点调阵容/海克斯）
+        const lossByStage = {};
+        for (const r of losses) lossByStage[r.stage || 0] = (lossByStage[r.stage || 0] || 0) + 1;
+        const topStages = Object.entries(lossByStage).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        if (topStages.length) {
+            const txt = topStages.map(([s, n]) => `s${s}（${n}局·${Math.round(n / losses.length * 100)}%）`).join('、');
+            findings.push({ kind: 'stage', sig: false, text: `输局最集中关卡：${txt} —— 这几关优先调阵容/海克斯。` });
+        }
+        // 突破口英雄：最常最先倒的人
+        const top = firstDeadTop[0];
+        if (top && top.count >= LOSS_MIN) {
+            const conf = top.sig ? '（高置信）' : '（待观察）';
+            findings.push({ kind: 'firstblood', sig: top.sig, text: `突破口${conf}：${top.name} 最常最先倒（${top.count} 局·${Math.round(top.share * 100)}%），优先保他血量/站位。` });
+        }
+        // 兜底：四项指标 + 关卡 + 突破口全没信号 → 真·随机
+        const hard = findings.filter(f => f.kind !== 'stage' && f.kind !== 'firstblood');
+        if (hard.length === 0) {
+            findings.push({ kind: 'even', sig: false, text: `输赢在回合/存活/输出/承伤上没有稳定差距（${losses.length} 败 vs ${wins.length} 胜）→ 更像单局随机波动，或问题在没被记录的维度（站位/技能时机）。` });
         }
     }
     return {

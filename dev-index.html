@@ -6,6 +6,10 @@
     <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.18</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+        /* 生涯记录面板内的表格：表头/数字单元格禁止换行，避免窄屏下表头与内容错行；
+           带 inline white-space:normal 的「判读/对照」列仍按原样换行。 */
+        #careerLogOverlay table { border-collapse: collapse; width: 100%; }
+        #careerLogOverlay th, #careerLogOverlay td { white-space: nowrap; }
         body {
             background: #1a1a2e; font-family: 'Segoe UI', monospace;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -301,7 +305,10 @@
                         const bar = document.createElement('div');
                         bar.style.cssText = 'display:flex;gap:3px;align-items:center;';
                         const tag = document.createElement('span');
-                        tag.textContent = '最近：';
+                        tag.textContent = (() => {
+                            const rc = ins.recent.reduce((a, w) => { if (w === '明教') a.w++; else if (w === '六大派') a.l++; else a.d++; return a; }, { w: 0, l: 0, d: 0 });
+                            return `最近${ins.recent.length}局：${rc.w}胜${rc.l}负${rc.d ? rc.d + '平' : ''}`;
+                        })();
                         tag.style.cssText = 'font-size:10px;color:#888;';
                         bar.appendChild(tag);
                         ins.recent.forEach((w, i) => {
@@ -375,7 +382,7 @@
                             tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
                             let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（Boss + 强弱精英，按出场次数排序，前 12）</div>';
                             h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
-                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th title="实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度）">较同关</th><th title="每存活回合的输出，跨局可比">输出/回合</th><th title="每存活回合的承伤">承伤/回合</th><th>存活率</th></tr>';
+                            h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th title="这个英雄的胜率，比他出场的那些关的平均胜率高/低多少个百分点：正=比同关平均更常赢，负=在难一点的关就拉胯（去掉「只在简单关出场」的虚高）">难度校准</th><th title="每存活回合的输出，跨局可比">输出/回合</th><th title="每存活回合的承伤">承伤/回合</th><th>存活率</th></tr>';
                             agg.slice(0, 12).forEach(a => {
                                 // 样本 <8 局 → 胜率不可信：整行变灰、加「样本少」，不参与红绿判色
                                 const trusted = a.reliable !== false && a.ci;
@@ -394,7 +401,7 @@
                             h += '</table>';
                             // V2.2.0：口径变了，必须写出来，否则「输出/回合」会被当成以前的整局累计
                             h += '<div style="font-size:9px;color:#666;padding:4px 6px 0;line-height:1.5;">'
-                                + '较同关 = 实际胜率 − 他在场那些关的整体胜率（扣掉关卡难度）；'
+                                + '难度校准 = 这个英雄的胜率，比他出场的那些关的平均胜率高/低多少个百分点（正=比同关平均更常赢；用来去掉「只在简单关出场」的虚高）；'
                                 + '输出/承伤按「每存活回合」计，不再用整局累计——否则第 3 回合就倒的人会被当成输出低。</div>';
                             // 交代被过滤掉的普通兵/召唤物：不写出来会让人以为它们没出过场
                             try {
