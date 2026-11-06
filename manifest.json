@@ -1,5 +1,5 @@
 {
- "ver": "e7d8fdbb9a44ed8c11bb475956b12caf2dcf26d9878f68e751b0a2f1b550a54a",
+ "ver": "1a3e0c6d65acc6ec70522ec2131a454f813abefe7ff54ed4de3d1f21c0eb8dd9",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -309,7 +309,7 @@
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
-   "f667dd718e3b7dcbd182155578e6d3cc3aa71989f5211f65c48a5497ff6a05ee"
+   "42e4d464eaf24c9c32cf6404ddd6ecbf76a8532ee4f8cafdde5ab1a16ce1ba23"
   ],
   [
    "modules/324-elite-mingjiao-brother-laststand.js",

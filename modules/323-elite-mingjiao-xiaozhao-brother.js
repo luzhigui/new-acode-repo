@@ -1,5 +1,5 @@
 // modules/323-elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.1';
+export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.2';
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { spawnHorse } from '../core/205-battle-horse.js';
@@ -246,7 +246,8 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
                 // 永久 carry 改「每回合刷新一轮」（老板拍板）：不再一次性常驻 +3/+4/+20——
-                //   层数 = 1 + 1.5×(上回合己方阵亡数) + 0.5×(上上回合阵亡数)，每层调用精通参数
+                //   层数 = 1 + 1×(上回合己方阵亡数) + 0.5×(上上回合阵亡数)（系数以 002-hex-enhance.json 为准，
+                //   layersBase=1 / layersPerR1=1 / layersPerR2=0.5），每层调用精通参数
                 //   （小昭.mastery 的 atkPer/defPer/hpPer，不写死）。ttl:'round' 由回合开始清理、此处重挂
                 //   （清理先于蛛变声明，无空窗）。原 V7.0.3 carryApplied 去重门控作废——无限叠加是
                 //   permanent 挂法特有问题，round 挂法天然消除。
