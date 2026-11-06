@@ -1,5 +1,5 @@
 {
- "ver": "1979f825ee81147a56e545436c3eec476f6e647e7c6d5551a819f876c64bf8dc",
+ "ver": "87b673437c7b90ba266a01ff43d484a757e171382f51427348886d4a10f96c52",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
@@ -105,7 +105,7 @@
   ],
   [
    "fx/601-fx-common-5v5-test.js",
-   "abd2e78d6683c9dd518b3ae63a3a42c31aaec24142d0eab7d09f5fe9659bcf97"
+   "6e202841e9f11c8f22c525802af79bade85e9119b315863edc867fe625a52892"
   ],
   [
    "fx/602-fx-arrows-5v5-test.js",
@@ -553,7 +553,7 @@
   ],
   [
    "ui/715-reset-runtime.js",
-   "93ce237254a9822d38a10c4de175195c292517a6e966419509d167dacae8abbd"
+   "9f5857f5985603c875917ad8160ae825741eba315e1f1306fb2d1bbce98b329f"
   ],
   [
    "ui/716-net-session.js",

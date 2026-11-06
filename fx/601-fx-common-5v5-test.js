@@ -1,5 +1,5 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.14';
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.15';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -176,6 +176,14 @@ const _healFloatStack = new Map();
 const HEAL_STACK_WINDOW = 900;   // ms：同单位在此窗口内的第 N 条上移
 const HEAL_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
 const HEAL_STACK_STEP = 20;      // 每层上移像素
+
+// 统一清场（ui/715 resetBattleRuntime 调用）：三张浮动表按 uid 记账，DOM 删除不会连带失效，
+//   跨局必须清空——否则新局沿用上局的避让/叠层记录，首条飘字位置会偏。
+export function resetFloatTables() {
+    _dmgFloatStack.clear();
+    _activeFloats.clear();
+    _healFloatStack.clear();
+}
 
 export function showHealFloat(unit, heal) {
     const rect = snapshotUnitCell(unit);
