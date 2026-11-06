@@ -1,11 +1,11 @@
 {
- "ver": "3adf7be5c6446cd297121f5a8d8d417871e0157ced96a40b461cfb8fc27d0f80",
+ "ver": "b136bcc7b2a8cdfb3a4054c06e3dede9e93209afa7b0d6677bb9779faf1e659c",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 145,
  "files": [
   [
    "content/001-game-data.json",
-   "40f426f4a74100948c4a9ffe799a23ca8910764cf895a3f3f2b4252b840f9e66"
+   "d96a68458d0428e1189326fc9f4a38693d74d075b3d7a17342af268416eb76bd"
   ],
   [
    "content/002-hex-enhance.json",
@@ -33,7 +33,7 @@
   ],
   [
    "core/206-battle-runner.js",
-   "b5d6ca6e79f8912961a15d291d033e667a1ef2779d7fa91ca2b42c968d6fa5fb"
+   "b44358750092df6bbf123136f518bb5aa66394cf728997b155429ffdfcec87f1"
   ],
   [
    "core/207-target-strategies.js",
@@ -173,11 +173,11 @@
   ],
   [
    "index.html",
-   "fd27509d159f9e642e6c690e5c7362df94283ab8573732b9d8788432e8d44f37"
+   "9b61bb8582d758669182ee215f8a1264255ab70867bb672c3d4ea5a475567428"
   ],
   [
    "infra/101-event-bus.js",
-   "70cb281352d659bc0929361b67cfef739da1680759f03aa4def5050ff65dd345"
+   "36867fdd8a1735993d3c4c2a35a4546c89ea3353672702f96183c22994cc5077"
   ],
   [
    "infra/102-core-utils.js",
@@ -457,7 +457,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "5e33e717718ff76660a8bfdcc41e03a8c4a17d688282ae6bd0abf1d76989d128"
+   "40119e899f833313c4756bd3804bae058b84f4b3f690aa0979b6dadfb56aa1fe"
   ],
   [
    "render/412-facts-stat.js",
