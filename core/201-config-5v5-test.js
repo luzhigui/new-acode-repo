@@ -1,4 +1,7 @@
-export const VER = 'core/201-config-5v5-test.js V6.9.2';
+export const VER = 'core/201-config-5v5-test.js V6.9.3';
+// V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
+//        | 缺字段不再靠默认值兜着，改由 tests/smoke-headless.mjs 的数据卫生断言报错。
+//        | roster 旧表已于 7f04f450 删除，角色池唯一派生口 = getHeroPools()。
 // V6.9.2 | 2026-11-07 修 {prob} 残留：DESC_TRUTH 补登 absorb→statAbsorb.prob（scale 100）。
 //        | 俞莲舟 absorb 技能无 params，概率只存 mechanics，getSkillDesc 回落 params 取不到 ⇒ 说明原样
 //        | 印出 {prob}（规则回放 150/150 全红）；PCT_PARAM_KEYS 早已含 prob，缺的是真值入口，不是注册。
@@ -65,10 +68,11 @@ function getSkillParamsJealous(characterName, skillKey) {
     return skill?.paramsJealous || null;
 }
 
-// 是否「具名角色」：唯一真源 = characters[name].named（显式声明，不从「键在不在 characters 里」反推）。
-//   用途：名字颜色分档里「蓝=弱精英（104 档具名）」的判据——只按 m 值判会把所有 104 无名兵一起涂蓝。
-//   收纳进 characters 用来推导池子的无名杂兵（如范遥/空闻/班淑娴）必须显式写 "named": false，
-//   否则会被误判成具名而刷蓝。新增条目同理：要蓝档就写 true，不写即按非具名处理。
+// 是否「具名角色」：唯一真源 = characters[name].named（每条必填的显式布尔，不从「键在不在 characters 里」反推）。
+//   用途：名字颜色分档里「蓝=弱精英（104 档具名）」的唯一判据——只按 m 值判会把所有 104 无名兵一起涂蓝。
+//   契约：characters 每条都必须写 "named"（具名 true / 杂兵 false）；缺失即数据缺陷，由
+//   tests/smoke-headless.mjs「数据 + 契约」段的数据卫生断言报错——不靠默认值兜底，也不按「键在不在表里」猜。
+//   新增角色照字段表填即可，本文件不用改。
 function isNamedCharacter(name) {
     return gameData?.characters?.[name]?.named === true;
 }

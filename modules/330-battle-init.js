@@ -56,33 +56,33 @@ export function initBattleTeams(currentStage, _rng) {
     //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒由弱升强，与前者同级）
     //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
     //   RNG 流纪律（PVP 双端同源）：骰子全部无条件消耗，force 只改「是否应用」，不改消耗序列。
-    // 精英配置从 content.roster.eliteConfigs 读（数据化）——加精英只改 content，本文件不动
+    // 精英配置由 characters 派生（core/201 getHeroPools：camp=明教 && tier∈{boss,strong}）——加精英只改 content，本文件不动
     //   tier='boss'   明教 Boss（独一档，Boss 局最多再配 1 个搭档）
     //   tier='strong' 强精英池（Boss 局可配、无 Boss 局走轮盘）
-    //   flag          与 core/02 HERO_FLAGS 的名字映射对应（加新精英时那边也要补一行）
+    //   flag          直接取 characters[name].flag（core/02 HERO_FLAGS 已是该字段的 proxy，无第二份映射可补）
     //   power         仍从 content.roster.elitePower 查（数值唯一源不变）
     // 无兜底：配置缺失一律抛错，避免静默按老口径算
     const allEliteConfigs = C.ELITE_CONFIGS;
     if (!Array.isArray(allEliteConfigs) || allEliteConfigs.length === 0) {
-        throw new Error('缺配置: content.roster.eliteConfigs（应为非空数组）');
+        throw new Error('缺配置: characters 派生的 eliteConfigs 为空（camp=明教 && tier∈{boss,strong} 至少 1 条）');
     }
     const toEliteConfig = (c) => {
         if (!c || !c.name || !c.m || !c.role || !c.flag || !c.tier) {
-            throw new Error(`缺字段: content.roster.eliteConfigs 项 ${JSON.stringify(c)}（须含 name/m/role/flag/tier）`);
+            throw new Error(`缺字段: characters 派生精英项 ${JSON.stringify(c)}（须含 name/m/role/flag/tier）`);
         }
         if (!Object.values(ROLE_TYPES).includes(c.role)) {
-            throw new Error(`非法 role: content.roster.eliteConfigs 项 ${c.name} 的 role='${c.role}'（须为 ROLE_TYPES 之一）`);
+            throw new Error(`非法 role: characters 派生精英项 ${c.name} 的 role='${c.role}'（须为 ROLE_TYPES 之一）`);
         }
         return { name: c.name, m: c.m, role: c.role, [c.flag]: true, power: elitePowerOf(c.name) };
     };
     const bossConfigs = allEliteConfigs.filter(c => c.tier === 'boss').map(toEliteConfig);
     if (bossConfigs.length !== 1) {
-        throw new Error(`content.roster.eliteConfigs 里 tier='boss' 必须恰好 1 项（当前实现不支持多 Boss），实际 ${bossConfigs.length} 项`);
+        throw new Error(`characters 里 tier='boss' 必须恰好 1 项（当前实现不支持多 Boss），实际 ${bossConfigs.length} 项`);
     }
     const bossConfig = bossConfigs[0];
     const strongEliteConfigs = allEliteConfigs.filter(c => c.tier === 'strong').map(toEliteConfig);
     if (strongEliteConfigs.length === 0) {
-        throw new Error(`content.roster.eliteConfigs 里 tier='strong' 至少 1 项`);
+        throw new Error(`characters 里 tier='strong' 至少 1 项`);
     }
     // eliteConfigs 保留旧名：下游「弱精英池排除固定精英」按名字过滤，Boss 与强精英一并纳入
     const eliteConfigs = [bossConfig, ...strongEliteConfigs];

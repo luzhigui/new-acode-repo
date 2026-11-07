@@ -200,3 +200,12 @@ B 方案落法：
 - **读取路径**：`core/201` 新增 `getHeroPools()`；`MING_M/ENEMY_M/MING_ALL/ELITE_CONFIGS/ENEMY_TITLES/BUFFS.unity.recruitPool` 全部改为推导。`core/202` `HERO_FLAGS` 字面量删除，改 proxy 读 `characters[name].flag`；小昭/三狮/反伤标记统一走 `unitFlags`。
 - **验证**：`node tests/smoke-headless.mjs 8` → 8/8 分胜负，冒烟全通过。
 - **废弃**：`roster` 与 `buffs.unity.recruitPool` 已加 `_deprecated` 说明，运行期不再读取，仅留作 829 对账快照；**下一轮删除这些旧表**并把 829 改为「断言旧键不存在」。
+
+### 十·续（2026-11-07 收口三笔）
+
+- **`3d07d9cc` 名字色档回归**：`isNamedCharacter` 改读 `characters[name].named`（不再按「键在不在表里」反推）；当轮只显式化了 27 具名 + 5 个 104 杂兵（范遥/空闻/空智/空性/班淑娴）= false，其余 50 条靠 `undefined` 兜着。
+- **`7f04f450` 删旧表**：`roster` 删到只剩 `enemySects/enemyElitePos/elitePower/eliteRate/normalPower`，`buffs.unity.recruitPool` 删除；`tools/829` 改为「生产 getter vs 独立重算 + 旧键 7 项不存在」双断言（11/11 + 旧键清除）。
+- **本轮 `named` 必填收口**：82 条全部显式写（**30 true / 52 false**，三狮按 `flag=isXieXunLion` 判具名）；`content` 版本 5.19.0 → 5.20.0；`core/201` VER V6.9.3（注释与实现同口径：缺失即数据缺陷，不靠默认值）。
+- **数据卫生断言落点**：`tests/smoke-headless.mjs` V1.3.0「数据 + 契约」段——`characters` 每条必须有 `named`，缺失即失败（不新开 tests 文件，避免 run-all 注册与 orphan 扫描碎片化）。
+- **828 去假绿**：三条 `r.* || {}` 软读改读生产 `CONFIG.MING_M / ENEMY_M / ELITE_CONFIGS`，读不到直接 throw；并补 `process.exit(problems ? 1 : 0)`。咬合验证：删 1 条 `named` → smoke 红（命中「缺 named 字段 1 条」）；改错 `张无忌.m 115→116` → 828 红（命中漂移行）；两次均逐字节还原。
+

@@ -1,5 +1,7 @@
 // tests/smoke-headless.mjs — 无头冒烟：真跑引擎，不靠"语法通过"糊弄
-export const VER = 'tests/smoke-headless.mjs V1.2.0';
+export const VER = 'tests/smoke-headless.mjs V1.3.0';
+// V1.3.0 | 2026-11-07 数据卫生：characters 每条必须显式写 named（缺字段即判失败）；
+//        | 该字段是 isNamedCharacter 的唯一判据，缺省会被静默当成杂兵（104 档刷蓝回归同源）。
 // 用法: node tests/smoke-headless.mjs [局数]
 // 退出码: 0 = 全部通过; 1 = 有失败
 //
@@ -70,6 +72,16 @@ try { await mods.cfg.loadHexEnhanceData(); ok('hexEnhance 数据加载 (content/
 catch (e) { bad('hexEnhance 数据加载', e); }
 try { game = await mods.cfg.loadGameData(); ok(`gameData 加载 (${mods.cfg.CONFIG.MING_ALL.length} 明教 / ${Object.keys(game.characters).length} 角色)`); }
 catch (e) { bad('gameData 加载', e); }
+
+// 数据卫生：characters 每条必须显式写 named（true=具名 / false=杂兵），缺字段即失败。
+//   缺省会被 isNamedCharacter 的 `named === true` 静默判成杂兵——正是 104 档刷蓝回归那类坑。
+if (game) {
+    const names = Object.keys(game.characters);
+    const missingNamed = names.filter(n => game.characters[n].named === undefined);
+    if (missingNamed.length) bad(`characters 缺 named 字段 ${missingNamed.length} 条`,
+        `${missingNamed.slice(0, 10).join(', ')}${missingNamed.length > 10 ? ' …' : ''}（每条必须显式写 true/false）`);
+    else ok(`characters ${names.length} 条 named 字段齐全（true ${names.filter(n => game.characters[n].named === true).length} / false ${names.filter(n => game.characters[n].named === false).length}）`);
+}
 
 try {
     const specs = Object.keys(mods.contract.FACT_SPECS);
