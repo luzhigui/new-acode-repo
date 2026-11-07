@@ -12,7 +12,7 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.2';
+export const VER = 'render/420-actions-defs.js V1.7.3';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -630,15 +630,14 @@ export const STAGE_ACTION_DEFS = {
         }
     },
     // 唐文亮冲刺：引擎侧位置已由 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 走 core/13 既有链），
-    //   演出层只在 store 步把终位同步进 store（供克隆体取终点格内容）+ 设 fly 隐身，storeAfter 清 fly 交棒。
-    //   多人版：遍历 moves 全部 uid 写位置、设/清 fly。
+    //   演出层只在 storeAfter 把终位同步进 store + 清 fly 交棒。
+    //   演出顺序（老板口径 2026-11-07）：克隆体从旧格飞到落点 → 收尾标枪 → 位置才写进 store 显真格 → 克隆体淡出。
+    //   位置必须等演完再落：store 步先写位置，整张网格会当场跳到终位；而 fx 要先 await 动态 import
+    //   （首次加载慢）才造克隆体，于是首帧先看到「已在前排」、克隆体再从旧格飞一遍——
+    //   首次冲刺「瞬移后又重演」的根因。回放/从机同样按这个顺序，不依赖模块加载快慢。
     [STAGE_ACTION_TYPES.DASH]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
-        // 演出顺序（老板口径 2026-10-23）：①先把位置写进 store（供克隆体取终点格内容）→
-        //   ②再设 fly 让终点格隐身 → fx 播克隆体从旧格飞向新格 → storeAfter 清 fly 显格。
-        //   此前只设 fly 不写位置：makeGhost 取终点格是空壳、返回 null，整个动画跳过，
-        //   位置更新延后到 step 末尾 → 表现为「先攻击后瞬移」（老板实机指出的病根）。
-        store: (c, action) => {
+        storeAfter: (c, action) => {
             if (!c.store || !action.dash) return;
             const moves = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
                 ? action.dash.moves
@@ -646,21 +645,15 @@ export const STAGE_ACTION_DEFS = {
                     action.dash.fromUid != null ? { uid: action.dash.fromUid, to: action.dash.toPos } : null,
                     action.dash.targetUid != null ? { uid: action.dash.targetUid, to: action.dash.targetToPos } : null
                 ].filter(Boolean);
-            if (moves.length === 0) return;
-            // ① 先把位置写进 store（APPLY_EVENTS 走 reducer 正规通道）
+            // ① 演出结束才落位（APPLY_EVENTS 走 reducer 正规通道）
             const events = moves
                 .filter(m => m.uid != null && m.to != null && m.to !== undefined)
                 .map(m => ({ eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: m.uid, pos: m.to }));
             if (events.length > 0) c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events });
-            // ② 隐身已移至 fx/616 克隆体就位后（此处设 fly 会在克隆体建好前造成「原地消失」空窗期）
-        },
-        storeAfter: (c, action) => {
-            if (!c.store || !action.dash) return;
-            const ids = (Array.isArray(action.dash.moves) && action.dash.moves.length > 0)
-                ? action.dash.moves.map(m => m.uid)
-                : [action.dash.fromUid, action.dash.targetUid];
+            // ② 清 fly：真格在克隆体下面显形（此时已在终位，不会出现位移闪回）
+            const ids = moves.length > 0 ? moves.map(m => m.uid) : [action.dash.fromUid, action.dash.targetUid];
             for (const uid of ids) if (uid != null) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid, _renderFlyMode: null });
-            // 交棒顺序（fx/82 口径）：先清 fly 让真格子显出来（在克隆体下面），克隆体随后才淡出——
+            // ③ 交棒顺序（fx/82 口径）：先清 fly 让真格子显出来（在克隆体下面），克隆体随后才淡出——
             //   顺序反了会出现「旧格闪回一帧」
             if (action._dashGhosts && action._dashGhosts.length > 0) {
                 import('../fx/616-tangwenliang-dash.js').then(m => m.fadeOutDashGhosts(action._dashGhosts)).catch(() => {});

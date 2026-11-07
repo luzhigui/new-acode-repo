@@ -1,6 +1,9 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
-export const VER = 'fx/616-tangwenliang-dash.js V3.0.1';
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.2';
+// V3.0.2 | 2026-11-07 | 修「标枪飞行期间名字不变蓝、飞完才变蓝」：
+//   克隆体卡片没带名字色档（真格 render/403 对唐文亮是 name-blue），演出时看到的是白名克隆体，
+//   收尾后 storeAfter 显真格才变蓝。cardHtmlFromUnit 补上同一套色档（绿/金/紫/蓝），克隆体与真格一致。
 // V3.0.1 | 2026-11-06 | 修「冲刺特效只显示一部分」：
 //   ① 快版锚点从「ghosts.find(x => !x.isDash)」改成按 targetUid 找克隆体，找不到用真格 ——
 //      目标本来就在前排（target.pos<=3）不会产生克隆体，旧写法必抓到「被挤队友」，
@@ -34,6 +37,7 @@ import { getCellByPos } from './611-fx-ref-manager.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 import { getRoleIcon } from '../render/414-role-cards.js';
+import { isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
 import { STORE_ACTION_TYPES } from '../infra/106-battle-enums.js';
 import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { fmtHp } from '../infra/102-core-utils.js';
@@ -113,6 +117,18 @@ function revealGhostHp(uids) {
 }
 
 // ============================== 卡片 / 克隆体 ==============================
+// 名字色档：与 render/403-grid-render 同一套判据（绿=M100带技能 / 金≥112 / 紫≥107 / 蓝≥104且具名）。
+//   克隆体必须带同款色档，否则演出中是白名、收尾显真格才「变蓝」。
+function nameTierOf(u) {
+    const displayName = (u.state && u.state._displayName) || u.name || '';
+    const m = u.m || 0;
+    if (m === 100 && hasSkills(displayName)) return 'name-green';
+    if (m >= 112) return 'gold';
+    if (m >= 107) return 'name-purple';
+    if (m >= 104 && isNamedCharacter(displayName)) return 'name-blue';
+    return '';
+}
+
 // 单位数据 → 格子卡片 HTML（与 render/403-grid-render 同款结构与色档）
 //   hpOverride：演出前血量；缺省用 store 当前值
 function cardHtmlFromUnit(u, hpOverride) {
@@ -121,8 +137,9 @@ function cardHtmlFromUnit(u, hpOverride) {
     const hpCls = pct > 70 ? 'hp-text-green' : (pct > 40 ? 'hp-text-orange' : 'hp-text-red');
     const bar = pct > 70 ? '#4caf50' : (pct > 40 ? '#ff9800' : '#f44336');
     const icon = getRoleIcon(u, { isStunned: false, isDead: false, pangTaunting: false });
+    const nameTier = nameTierOf(u);
     return `<span class="cell-icon">${icon}</span>` +
-        `<div class="cell-info"><span class="cell-name">${u.name}</span>` +
+        `<div class="cell-info"><span class="cell-name ${nameTier}">${u.name}</span>` +
         `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${fmtHp(hp)}</span></span></div>` +
         `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar};"></div></div>`;
 }
