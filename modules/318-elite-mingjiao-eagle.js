@@ -1,8 +1,10 @@
 // modules/318-elite-mingjiao-eagle.js — 明教精英「雄鹰」：组件工厂（carry 海克斯召唤·飞行）
-export const VER = 'modules/318-elite-mingjiao-eagle.js V1.0.1';
+// V1.0.2 | 2026-11-07 第 184 轮：飞天判据改调 core/203 isAirborne（全库唯一一份，行为不变）
+export const VER = 'modules/318-elite-mingjiao-eagle.js V1.0.2';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { spawnUnit } from '../core/205-battle-horse.js';
 import { getBattleRng, addMod } from '../core/214-battle-shared.js';
+import { isAirborne } from '../core/203-battle-utils.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
 export function createEagleComponent() {
@@ -15,14 +17,12 @@ export function createEagleComponent() {
             const spec = CONFIG.BUFFS?.carry?.params?.eagle;
             if (!spec || !spec.female) return;
             const femSpec = spec.female;
-            // 飞天态（蝶/蛛/FSM flying）不可被当作正常队友：与 core/11 行动跳过口径一致
-            const isFlying = (u) => !!(u.state && (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))));
-
+            // 飞天态（蝶/蛛/FSM attached·flying）不可被当作正常队友：与 core/11 行动跳过口径一致
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.EAGLE_RESTORE, (data) => {
                 const u = data.unit;
                 if (!u || !u.isCarryEagle || !u.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                const pool = myTeam.filter(t => t.alive && t.uid !== u.uid && t.state._acted && !t.isHorse && !isFlying(t));
+                const pool = myTeam.filter(t => t.alive && t.uid !== u.uid && t.state._acted && !t.isHorse && !isAirborne(t));
                 if (pool.length > 0) {
                     const pick = pool[getBattleRng().nextInt(0, pool.length - 1)];
                     pick.state._acted = false;

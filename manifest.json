@@ -1,11 +1,11 @@
 {
- "ver": "1a9579b9a286d346097fadb7ad2c29d34a32b1858dc33d646b1de88c09cb30a7",
+ "ver": "a713b67aef22b1274021762824766aacbf711eb8b433b43cbb89f285e53c7504",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
   [
    "content/001-game-data.json",
-   "2f7425c2115fe3531561fe8974b36ffd3699b2072b83641560617ab87063c8d9"
+   "5d8d128da9f4bf1dff5a4de05c8108e5ae826b728398fd65c87eb904f67da571"
   ],
   [
    "content/002-hex-enhance.json",
@@ -13,7 +13,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "aea156841a1dbb8bef32fabf4eadd36ae49b7d17846df8781121abf26a17c38d"
+   "0fa3ebcdedac04205ada53f9cee9ea2cb72a504b22bdb31039e934064ac68846"
   ],
   [
    "core/202-unit.js",
@@ -21,7 +21,7 @@
   ],
   [
    "core/203-battle-utils.js",
-   "bf44f55414014c316724811b21346bc59ab95421717e4a759d0532a6f9669d98"
+   "7394a5b1323542fcc9cbe7b002d6b5680b685015741b172d1e4828a0599a2064"
   ],
   [
    "core/204-buff-system.js",
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "2c3bde1e18ba24d86ebd34bc374e71a73f77d2abd87f4f3ffee09eeaa09118b1"
+   "567019fda665f5ac65824dbdde9f9f75beba7bb27b5adb4f6bde857dd2e74b1b"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -57,15 +57,15 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "4c21b3908e8469283cd54cc9ddca244daaf1cdfdb08ae5b6020cc10160fa6051"
+   "386dc626632ebbf6c330913fb00774e74601bdbec4c841eec032705c681e2257"
   ],
   [
    "core/213-battle-attack-edge.js",
-   "e2757cb6fc61489eb0d3e274a64b05ab56b68a767f57b8d8c98905ced12eca04"
+   "7bc4210a3c2d10ef6710d8a69af8c908bd6ce83afffdc2589dc5c9e3a4ff886f"
   ],
   [
    "core/214-battle-shared.js",
-   "808194d3bbefe2e3f52982970fecc2fd128c7c8e97d1259d0a81cc6b7d3abb95"
+   "51f201f7ba660bdee52fd5f1837322cf9d8d25a1a8cfda6946327e13a9177cd2"
   ],
   [
    "core/215-buff-effects.js",
@@ -77,7 +77,7 @@
   ],
   [
    "core/217-effect-handlers.js",
-   "b4765c4631590c505d860ba7a099047a150c77f63df6f3fe71fe70221fbda03e"
+   "0d3532600014268075235b93915f34979b4608d9ed93d73091bdf280b78256b1"
   ],
   [
    "core/218-state-keys.js",
@@ -281,7 +281,7 @@
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "a4073e9531b9e8103c7ba4feb22d50e8959165a6cff8c458760bb2a65fed48fd"
+   "abfa00122ac3739f2aecf003fd0906aaa13e06e9cd8a3df441a18d467a4d56b6"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",
@@ -293,7 +293,7 @@
   ],
   [
    "modules/318-elite-mingjiao-eagle.js",
-   "c3b4bb187b678ef0589bb5cb4c76ad1c3a4a974eaa4d8d478c5cb9f8bb00fbc6"
+   "7030ec128029d60685cf02505ed80d2bd492de2166ccb31a9e8a077a538e5241"
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
@@ -341,7 +341,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "00409c5bdf174adf7f286f68999c628c708e001a615ae7ba6ec6985620db774b"
+   "ada0bb0eece38116526146097a9ff1caa1c171797e77a591119599106a173c04"
   ],
   [
    "modules/331-custom-effects.js",
@@ -445,7 +445,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "d659b00dc063038832428f85435cdeb356f96a28c697c600559abab643678c21"
+   "53b9ea84f074c373ea5d70f7795dc748df03ff8e6f3555966c06be8b334741c8"
   ],
   [
    "render/404-grid-badges.js",

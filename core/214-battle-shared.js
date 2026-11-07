@@ -1,9 +1,13 @@
-export const VER = 'core/214-battle-shared.js V6.4.6';
+// V6.4.7 | 2026-11-07 第 184 轮：① 新增 killUnit —— 死亡收口唯一出口（ignoreCap=true + recordHpAudit
+//          group='death' + _pendingDeath），finalizeDeaths / maxHp 变更致死改调它；applyStatChange 的
+//          ignoreCap 变成 killUnit 专用。② 飞天/附身判据改调 core/203 isAirborne（本地内联删除）。
+export const VER = 'core/214-battle-shared.js V6.4.7';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
+import { isAirborne } from './203-battle-utils.js';   // 飞天/附身判据全库唯一一份（第 184 轮收口）
 const C = CONFIG;
 
 // 战斗统计统一记账入口（唯一入口）。承伤记 rawAmount（减免前全额），
@@ -164,7 +168,6 @@ function resolvePushOrStun(target, team, log, label) {
     // 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
     if (target.state && target.state._ctrlImmune) return;
     const behindPos = target.pos + 3;
-    const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
     const behindBlockedByAir = behindPos <= 9 && team.some(u => u.alive && u.pos === behindPos && isAirborne(u));
     if (behindPos <= 9 && !behindBlockedByAir) {
         const behindUnit = team.find(u => u.pos === behindPos && u.alive);

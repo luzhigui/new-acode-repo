@@ -1,7 +1,9 @@
 // V6.2.3 | 2026-11-07 | 修战士斩杀被 _dmgCap 截断：EXECUTE 归零血改 ignoreCap=true（处决不是受伤）
 //        | 庄铮·断锤三式把每次受伤截到 cap 点，斩杀走同一 applyStatChange 也被截 → 血不归零、不挂
 //        | _pendingDeath → core/209 的 executeKill 不置位 → 攻击组 isDead=false（死亡特效缺失），且斩杀实际没杀死人。
-export const VER = 'core/217-effect-handlers.js V6.2.3';
+// V6.2.4 | 2026-11-07 第 184 轮：EXECUTE 与白骨爪斩杀都改调 killUnit（死亡收口唯一出口）；
+//        | 白骨爪此前直调 applyStatChange 漏传 ignoreCap → 庄铮 _dmgCap 下只掉 1 点血、fact 却写「斩杀」。
+export const VER = 'core/217-effect-handlers.js V6.2.4';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';

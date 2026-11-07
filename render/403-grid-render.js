@@ -1,7 +1,9 @@
 // render/403-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-export const VER = 'render/403-grid-render.js V7.1.2';
+// V7.1.3 | 2026-11-07 第 184 轮：补记 V7.1.2 未升版的实质改动——格子显示名优先读
+//          unit.state._displayName（圆真现形成昆：渲染/战报显示成昆，内部匹配键 self.name 不动）
+export const VER = 'render/403-grid-render.js V7.1.3';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';

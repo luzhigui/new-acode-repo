@@ -1,5 +1,7 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-export const VER = 'core/210-battle-round.js V6.3.33';
+// V6.3.34 | 2026-11-07 第 184 轮：finalizeRoundEnd 败方归零改调 killUnit（死亡收口统一出口，
+//          补记 V6.3.33 未升版的实质改动——此前直调 applyStatChange 带 ignoreCap，绕开了单一出口）
+export const VER = 'core/210-battle-round.js V6.3.34';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';

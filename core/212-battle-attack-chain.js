@@ -1,7 +1,9 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
-export const VER = 'core/212-battle-attack-chain.js V1.0.5';
+// V1.0.6 | 2026-11-07 第 184 轮：补记 V1.0.5 未升版的实质改动——命中落地后对 hp<=0 目标补挂
+//          _pendingDeath（死亡标记唯一的正路出口，避免「血归零但待死标记没挂」的中间态）
+export const VER = 'core/212-battle-attack-chain.js V1.0.6';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';

@@ -1,4 +1,7 @@
-export const VER = 'core/203-battle-utils.js V6.3.7';
+// V6.3.8 | 2026-11-07 第 184 轮：飞天/附身判据收口为 export isAirborne（全库唯一一份），
+//          getFronts / isBlocked 两处内联改调；203 侧补上 _butterflyHost（蝶附身必同时置 _flyMode，
+//          实际行为逐字不变）。214 / 315 / 318 的另四份同源实现同步改为调用本函数。
+export const VER = 'core/203-battle-utils.js V6.3.8';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
@@ -27,11 +30,24 @@ export function getFangLevel(def, m) {
 
 export function isMelee(role) { return role === ROLE_TYPES.WARRIOR || role === ROLE_TYPES.DEFENDER || role === ROLE_TYPES.FLYER; }
 
+// 飞天/附身统一判据（第 184 轮收口）：全库只此一份，禁止模块再内联。
+// 口径与 214/315 原实现逐字一致（蝶/蛛飞行 + 蛛飞天 + 附身宿主 + FSM attached/flying）；
+// 203 原来两处内联漏了 _butterflyHost，但蝶附身必然同时置 _flyMode='butterfly'，实际行为不变。
+export function isAirborne(unit) {
+    if (!unit) return false;
+    const st = unit.state || {};
+    if (st._flyMode === 'butterfly' || st._flyMode === 'spider') return true;
+    if (st._spiderFlying) return true;
+    if (st._butterflyHost) return true;
+    if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return true;
+    return false;
+}
+
 export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
         let poses = [1+col, 4+col, 7+col];
-        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c.state._flyMode === 'butterfly') && !(c.state._flyMode === 'spider') && !c.state._spiderFlying && !(c._fsm && (c._fsm.is('attached') || c._fsm.is('flying')))).sort((a, b) => a.pos - b.pos);
+        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !isAirborne(c)).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
     if (fronts.length === 0) {
@@ -51,7 +67,7 @@ export function isBlocked(unit, allies) {
     let poses = [1+col, 4+col, 7+col];
     // 前排口径必须与 getFronts 完全同源：飞天/附身的队友不算「前排占位」，
     //   否则近战会被一个根本打不到也挡不住的队友判成「被遮挡」而整回合不出手（getFronts 已排除这几种）
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !a.isLionCub && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider') && !a.state._spiderFlying && !(a._fsm && (a._fsm.is('attached') || a._fsm.is('flying')))));
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !a.isLionCub && !isAirborne(a)));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;

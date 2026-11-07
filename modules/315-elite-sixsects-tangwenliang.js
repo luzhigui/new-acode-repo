@@ -2,13 +2,16 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.2';
+// V7.1.3 | 2026-11-07 第 184 轮：① 飞天/附身判据改调 core/203 isAirborne（本地内联删除，行为不变）；
+//          ② 补记 V7.1.2 未升版的实质改动——forceInsert 把「飞天/附身占格」从旧口径「视同空位继续
+//          往后找」改成「当墙、换列」（fuzz s127/r8 同格病根：9 号被推进小昭·姊附身腾空的 2 号格）。
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.3';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance, snapshotUnitForFact } from '../core/211-battle-attack-steps.js';
-import { getMissBreakdown, makeFXSnapshot } from '../core/203-battle-utils.js';
+import { getMissBreakdown, makeFXSnapshot, isAirborne } from '../core/203-battle-utils.js';
 import { flushBattleEvents, fmtHp } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './305-elite-helpers.js';
@@ -88,8 +91,7 @@ export function createTangWenLiangComponent() {
                 1: [2, 5, 8, 1, 4, 7, 3, 6, 9],
                 2: [3, 6, 9, 2, 5, 8, 1, 4, 7]
             };
-            // 飞天/附身原格不可推——判据照抄 core/13 resolvePushOrStun（2026-10-23 拍板），别另造
-            const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
+            // 飞天/附身原格不可推——判据统一调 core/203 isAirborne（第 184 轮收口，全库唯一一份）
 
             // 只读扫描：算「unit 落到 targetPos」的推挤路径，不改任何 pos——
             //   落地必须走 applyMoves→moveUnitPosition（免疫守卫/POS_CHANGE 事件/战报行全在接口里，不许绕过 core/13）。

@@ -2,7 +2,9 @@
 // 归属判据：这些函数被「攻击链之外」的调用方单独使用（modules/26-tangwenliang 取 computeDodgeChance +
 //   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
 //   攻击链内部流转留在 212-battle-attack-chain.js，保持「一条攻击链一个文件」。
-export const VER = 'core/213-battle-attack-edge.js V1.0.0';
+// V1.0.1 | 2026-11-07 第 184 轮：resolveDeaths 归零改调 killUnit（死亡收口统一出口，ignoreCap=true
+//          与审计账/待死标记一次做完；补记 V1.0.0 未升版的 ignoreCap 改动）
+export const VER = 'core/213-battle-attack-edge.js V1.0.1';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';
