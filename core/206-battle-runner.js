@@ -17,7 +17,12 @@
 //      要渲染的 fact 走 createRoundStepper 的 ui / translateFacts 参数，本文件不生成、
 //      也不应该被拿去生成。
 
-export const VER = 'core/206-battle-runner.js V1.3.0';
+export const VER = 'core/206-battle-runner.js V1.4.0';
+// V1.4.0 | 2026-11-07 修 collectFacts 漏采嵌套 fact（热血奋战等「攻击组内 fact」此前恒 0 条）：
+//           audit 后台跑批量出 4 口径 4200 场 hotBloodHeal=0，但同局实测真实回血 1769 次 ——
+//           根因是这里只扫 step.log 顶层，而 ATTACK 组内的结算 fact 挂在 data.entries 嵌套层。
+//           采集口径对齐 tests/_lib/fact-collect.mjs（三处藏匿点：顶层 / data.entries / phantomFact）。
+//           只改采集，不改任何机制与判定。
 // V1.3.0 | 2026-10-31 双海克斯支持（工具跑批对齐主游戏 enemyAutoHex）：
 //           · ① 新增可选 enemyHexPicker：与 hexPicker 同时机给敌方也补一个 buff（明教选完后六大派自动选，同 player/49）。
 //           · ② buff 续存由「只捞 ally._activeBuffs」改为「两侧都捞」——旧版下一回合会把敌方 buff 整批丢弃，
@@ -27,6 +32,22 @@ export const VER = 'core/206-battle-runner.js V1.3.0';
 import { createRoundStepper } from './210-battle-round.js';
 import { CONFIG } from './201-config-5v5-test.js';
 import { SeededRNG } from '../infra/102-core-utils.js';
+
+// factType 递归采集：ATTACK 组的结算 fact（回血/吸血/溅射……）挂在 data.entries 嵌套层，
+//   只扫顶层会让这些机制的「实测产出」恒为 0 条。口径与 tests/_lib/fact-collect.mjs 一致。
+function collectFactTypes(log, out, depth = 0) {
+    if (!Array.isArray(log) || depth > 8) return out;
+    for (const node of log) {
+        if (!node || !node.factType) continue;
+        out.push(node.factType);
+        const d = node.data;
+        if (!d) continue;
+        if (d.phantomFact) collectFactTypes([d.phantomFact], out, depth + 1);
+        const inner = Array.isArray(d.entries) ? d.entries : (Array.isArray(node.entries) ? node.entries : null);
+        if (inner) collectFactTypes(inner, out, depth + 1);
+    }
+    return out;
+}
 
 /**
  * 跑完一整局（无头）。
@@ -94,7 +115,7 @@ export function runBattle(o) {
                 catch (e) { console.error('[06battle-runner] onStep 回调出错:', e); }
             }
             if (collectFacts && step.log) {
-                for (const e of step.log) if (e && e.factType) facts.push(e.factType);
+                collectFactTypes(step.log, facts);
             }
             if (step.winner) break;
         }
