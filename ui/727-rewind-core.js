@@ -242,7 +242,11 @@ function syncReviewLog(stepIdx, upto, adopt) {
         return true;
     };
     let cur = S.logKeys || [];
-    if (S.logDirty || !isPrefix(cur, keys)) {
+    // 账本必须与 DOM 实况对得上（cur + 本段真播新增 = 当前子节点数）：
+    //   重建刚清空、外部清过 #log、真播写入行数与预期不符 → 账本作废，整块重画。
+    //   否则「清空后 adopt 恰好等于 keys 总长」会被误认领：记账有行、屏幕空白。
+    const domRows = el.children.length;
+    if (S.logDirty || !isPrefix(cur, keys) || domRows !== cur.length + Math.max(0, adopt || 0)) {
         el.innerHTML = '';
         cur = [];
         S.logKeys = [];
@@ -255,8 +259,8 @@ function syncReviewLog(stepIdx, upto, adopt) {
         }
         // 兜底：真播可能留下未记账的行（FX 直接写 #log），一并裁掉，保证不回串到前一段
         while (el.children.length > keys.length && el.lastElementChild) el.lastElementChild.remove();
-    } else if (adopt > 0 && keys.length - cur.length === adopt) {
-        S.logKeys = keys;                   // 本段的行已由真播写入，认领即可
+    } else if (adopt > 0 && keys.length - cur.length === adopt && el.children.length === keys.length) {
+        S.logKeys = keys;                   // 本段的行已由真播写入 DOM，认领即可（先确认 DOM 真有了）
     } else if (adopt > 0) {
         // 真播写的行数与我们模型对不上（被打断/FX 额外写行）→ 整块重建对齐，避免重复
         el.innerHTML = '';
