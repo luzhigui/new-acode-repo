@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>流星赶月 · 音效节奏试听</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 14px 12px 28px;
+    background: radial-gradient(120% 80% at 50% 0%, #1d2433 0%, #0d1018 60%, #080a0f 100%);
+    color: #e8ecf4;
+    font: 15px/1.55 "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, sans-serif;
+  }
+  .wrap { width: 100%; max-width: 420px; margin: 0 auto; }
+  h1 { font-size: 19px; margin: 4px 0 6px; letter-spacing: .5px; }
+  .sub { font-size: 12.5px; color: #9aa7bd; margin: 0 0 14px; }
+  .card {
+    background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09);
+    border-radius: 12px; padding: 12px; margin-bottom: 10px;
+  }
+  .card.on { border-color: #ffb74d; background: rgba(255,183,77,.09); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .tag {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px;
+    display: grid; place-items: center; font-weight: 700; font-size: 13px;
+    background: #2b3446; color: #cfd8e6;
+  }
+  .card.on .tag { background: #ffb74d; color: #201400; }
+  .name { flex: 1 1 auto; font-size: 14.5px; font-weight: 600; }
+  .ms { flex: 0 0 auto; font-size: 12px; color: #ffcc80; font-variant-numeric: tabular-nums; }
+  .desc { font-size: 12px; color: #93a0b5; margin: 6px 0 0; }
+  .btns { display: flex; gap: 10px; margin-top: 10px; }
+  button {
+    flex: 1 1 0; min-height: 44px; border-radius: 10px; border: 1px solid #3b4760;
+    background: #1b2334; color: #dde6f5; font-size: 15px; font-weight: 600;
+    padding: 10px 8px; cursor: pointer; touch-action: manipulation;
+  }
+  button:active { transform: scale(.985); background: #243049; }
+  button.primary { background: #e08a2e; border-color: #ffab52; color: #1a1004; }
+  button.ghost { background: transparent; }
+  .bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,.08); margin-top: 10px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg,#ffd180,#ff8f00); transition: width .06s linear; }
+  .hint { font-size: 12px; color: #8692a8; margin: 4px 0 0; }
+  .warn { color: #ff8a80; }
+  .ticks { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .tick { width: 22px; height: 22px; border-radius: 50%; background: #2a3345; border: 1px solid #3b4760; display: grid; place-items: center; font-size: 11px; color: #8d99ae; }
+  .tick.hit { background: #ffb74d; border-color: #ffcc80; color: #201400; }
+  .tick.mute { background: transparent; color: #566179; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>流星赶月 · 音效节奏试听</h1>
+  <p class="sub">同一串真实时序：1 个主目标 + 3 个溅射目标 = 4 发音效；音源就是游戏里的
+    <code>assets/sfx_arrow.mp3</code>。代码里「每发间隔」= i × gap，箭落点后 600ms 收尾。</p>
+
+  <div class="card" id="cardAll">
+    <div class="row"><span class="tag">▶</span><span class="name">顺序连放 A → G</span><span class="ms" id="allMs">约 4.5 秒</span></div>
+    <div class="desc">先统一听一遍差异，再单点某个方案反复对比。</div>
+    <div class="btns">
+      <button class="primary" id="btnAll">开始连放</button>
+      <button class="ghost" id="btnStop">停止</button>
+    </div>
+    <div class="hint" id="status">点上面的按钮开始（浏览器要求先有一次点击才允许出声）。</div>
+  </div>
+
+  <div id="list"></div>
+
+  <p class="hint">说明：100ms = 当前 line 578 的值（本次已从 60 改成 100）；60ms = 改前的值。
+    实机播放时音频不随倍速缩放，只有等待节奏随 <code>clock.wait</code> 缩放，所以这里给的是 1 倍速原速。</p>
+</div>
+
+<script>
+  var SRC = '../assets/sfx_arrow.mp3';   // 相对本文件（Z demo/）→ new-acode-repo/assets/
+  var HITS = 4;                          // 1 主目标 + 3 溅射
+  var BASE_MS = 100;                     // 现状
+
+  // 每个方案：gap=每发间隔；vol=每发音量；rate=每发音高；mute=哪几发不响
+  var SCHEMES = [
+    { id:'A', name:'A 现状 100ms（等强连发）', gap:100,
+      desc:'当前代码口径：4 发等强、每 100ms 一发。' },
+    { id:'B', name:'B 改前 60ms（更密的哒哒哒）', gap:60,
+      desc:'改前的值：密度最高，容易糊成一片。' },
+    { id:'C', name:'C 140ms（略拉开）', gap:140,
+      desc:'每发之间留一点呼吸，连击感还在。' },
+    { id:'D', name:'D 180ms（稀疏连击）', gap:180,
+      desc:'更接近「一发一发」的听感。' },
+    { id:'E', name:'E 音量递减 1.0 / 0.7 / 0.7 / 0.5', gap:100,
+      vol:[1.0,0.7,0.7,0.5], volOn:true,
+      desc:'同 100ms，但越往后越轻：嗖——嗖—嗖。' },
+    { id:'F', name:'F 音高上移 1.0 / 1.06 / 1.12 / 1.18', gap:100,
+      rate:[1.0,1.06,1.12,1.18], rateOn:true,
+      desc:'同 100ms，音高逐发上抬，制造连贯的推进感。' },
+    { id:'G', name:'G 只留首尾 2 发（中间静音）', gap:100,
+      mute:[1,2], muteOn:true,
+      desc:'4 个时间点只响第 1、第 4 发：嗖……嗖。' }
+  ];
+
+  var pool = [], timers = [], rafId = null, playing = null;
+
+  function buildPool() {
+    for (var i = 0; i < HITS; i++) {
+      var a = new Audio(SRC);
+      a.preload = 'auto';
+      a.volume = 1.0;
+      pool.push(a);
+    }
+  }
+
+  function clearTimers() {
+    timers.forEach(function (t) { clearTimeout(t); });
+    timers = [];
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    pool.forEach(function (a) { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+  }
+
+  function stopAll() {
+    clearTimers();
+    playing = null;
+    document.querySelectorAll('.card.on').forEach(function (el) { el.classList.remove('on'); });
+    document.querySelectorAll('.tick.hit').forEach(function (el) { el.classList.remove('hit'); el.textContent = ''; });
+    document.getElementById('status').classList.remove('warn');
+    document.getElementById('status').textContent = '已停止。';
+  }
+
+  function playScheme(sc, done) {
+    clearTimers();
+    playing = sc.id;
+    var card = document.getElementById('card-' + sc.id);
+    document.querySelectorAll('.card.on').forEach(function (el) { el.classList.remove('on'); });
+    if (card) card.classList.add('on');
+
+    var totalMs = sc.gap * (HITS - 1) + 260;
+    var ticks = card ? card.querySelectorAll('.tick') : [];
+    var t0 = performance.now();
+    var bar = card ? card.querySelector('.bar > i') : null;
+
+    function frame() {
+      if (bar) {
+        var p = Math.min(100, ((performance.now() - t0) / totalMs) * 100);
+        bar.style.width = p + '%';
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+
+    for (var i = 0; i < HITS; i++) {
+      (function (idx) {
+        var mute = sc.muteOn && sc.mute && sc.mute.indexOf(idx) !== -1;
+        if (mute) return;
+        var t = setTimeout(function () {
+          var a = pool[idx];
+          a.volume = sc.volOn ? sc.vol[idx] : 1.0;
+          a.playbackRate = sc.rateOn ? sc.rate[idx] : 1.0;
+          try { a.currentTime = 0; } catch (e) {}
+          var p = a.play();
+          if (p && p.catch) p.catch(function () {
+            var st = document.getElementById('status');
+            st.classList.add('warn');
+            st.textContent = '播放被浏览器拦截：请再点一次按钮（或检查 audio 源路径）。';
+          });
+          if (ticks[idx]) { ticks[idx].classList.add('hit'); ticks[idx].textContent = idx + 1; }
+        }, idx * sc.gap);
+        timers.push(t);
+      })(i);
+    }
+
+    var endTimer = setTimeout(function () {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (bar) bar.style.width = '100%';
+      if (card) card.classList.remove('on');
+      playing = null;
+      if (done) done();
+    }, totalMs);
+    timers.push(endTimer);
+  }
+
+  function renderList() {
+    var list = document.getElementById('list');
+    SCHEMES.forEach(function (sc) {
+      var el = document.createElement('div');
+      el.className = 'card';
+      el.id = 'card-' + sc.id;
+      var ticks = '';
+      for (var i = 0; i < HITS; i++) {
+        var muted = sc.muteOn && sc.mute && sc.mute.indexOf(i) !== -1;
+        ticks += '<span class="tick' + (muted ? ' mute' : '') + '">' + (muted ? '×' : '') + '</span>';
+      }
+      el.innerHTML =
+        '<div class="row">' +
+          '<span class="tag">' + sc.id + '</span>' +
+          '<span class="name">' + sc.name + '</span>' +
+          '<span class="ms">' + sc.gap + ' ms/发</span>' +
+        '</div>' +
+        '<div class="desc">' + sc.desc + '</div>' +
+        '<div class="btns"><button data-id="' + sc.id + '">试听 ' + sc.id + '</button></div>' +
+        '<div class="ticks">' + ticks + '</div>' +
+        '<div class="bar"><i></i></div>';
+      list.appendChild(el);
+      el.querySelector('button').addEventListener('click', function () { playScheme(sc); });
+    });
+  }
+
+  function playAll() {
+    var i = 0;
+    function next() {
+      if (i >= SCHEMES.length) { document.getElementById('status').textContent = '连放结束，可单点方案反复对比。'; return; }
+      var sc = SCHEMES[i++];
+      document.getElementById('status').textContent = '正在播放：' + sc.name;
+      setTimeout(function () { playScheme(sc, function () { next(); }); }, 420);
+    }
+    next();
+  }
+
+  buildPool();
+  renderList();
+  document.getElementById('btnAll').addEventListener('click', playAll);
+  document.getElementById('btnStop').addEventListener('click', stopAll);
+</script>
+</body>
+</html>
