@@ -687,5 +687,16 @@ export const STAGE_ACTION_DEFS = {
             if (isFxSkipped()) return;
             if (action.hlsBurst) eventBus.emit(FX_SIGNALS.HANLISA_BURST, action.hlsBurst);
         }
+    },
+    [STAGE_ACTION_TYPES.SKILL_CUE]: {
+        // 轻量技能演出（吸星连线 / 现形换脸 / 断锤数字 / 双面观音变装 / 蹦蹦挪位）：
+        //   一条 cue 只投一条信号 → 一个演出者；fx 同步发出、不阻塞日志。
+        //   快进由 fx/610 订阅侧统一拦（fastForwardActive），这里不再重复判。
+        grid: 'none', log: 'sync',
+        timing: (action) => (action && action.timing) || 'beforeText',
+        fx: (c, action) => {
+            if (isFxSkipped()) return;
+            if (action && action.cue) eventBus.emit(FX_SIGNALS.SKILL_CUE, action.cue);
+        }
     }
 };

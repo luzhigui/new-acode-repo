@@ -216,6 +216,15 @@ function translateSkillAnnounce(data, index) {
             timing: 'afterText'
         };
     }
+    // 轻量技能演出载荷（cue）：只出演出、不落行、不改数值；line:false 的缺口报幕也靠这里播出。
+    //   一条 cue 只经这一条舞台动作 → 保证「同一动作只有一个演出者」。
+    if (data.cue) {
+        const acts = [{ kind: STAGE_ACTION_TYPES.SKILL_CUE, cue: data.cue, factIndex: index, timing: 'beforeText' }];
+        if (data.floatText && data.floatUid != null) {
+            acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
+        }
+        return acts;
+    }
     // 唐文亮突进高亮：返回专用的高亮动作，不飘字
     if (data.highlight && data.unitUid != null) {
         return {

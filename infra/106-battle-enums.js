@@ -115,7 +115,21 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     DASH: 'dash',
     // 惑心换位·三格原地闪换：不滑行、不两两互换，三格内容原地反复闪换后一次落到终态。
     //   原先走「冒泡拆成两两 POS_SWAP」降维路径，视觉上是连做两次两格互换，每次都是闪 3 下 + 瞬移来回 + 红锁。
-    MIND_SWAP: 'mindSwap'
+    MIND_SWAP: 'mindSwap',
+    // 轻量技能演出（吸星 / 现形 / 断锤 / 双面观音 / 蹦蹦挪位）：一条 cue 一个演出者，只表现不改数值
+    SKILL_CUE: 'skillCue'
+});
+
+/** 轻量技能演出 cue 子类型：SKILL_CUE 载荷 kind 的唯一来源（fx/619 按此分派；不许裸字符串） */
+export const SKILL_CUE_KINDS = Object.freeze({
+    ABSORB: 'absorb',           // 俞莲舟·吸星大法：细线收向他 + 被吸数值飘字 + 自身加深
+    REVEAL: 'reveal',           // 圆真·现原形：碎裂环 + 换脸白闪 + 名字牌翻一下
+    ATK_HALVE: 'atkHalve',      // 庄铮·断锤三式：攻击数字剥走一半
+    ATK_GROW: 'atkGrow',        // 庄铮·断锤三式：每次出手回涨一格
+    DISGUISE: 'disguise',       // 彭莹玉·双面观音：薄纱扫过 + 名字牌换女装名
+    UNVEIL: 'unveil',           // 彭莹玉·双面观音：褪装 / 妆容碎屑
+    MASK_PEEL: 'maskPeel',      // 彭莹玉·双面观音：被迷惑时面具揭落
+    SUMMON_MOVE: 'summonMove'   // 张中·召唤蹦蹦：挪空位残影 + 落点轻闪
 });
 
 /** Buff 特效子类型：BUFF_EFFECT stageAction 的 effectType 唯一来源（不再用裸字符串） */

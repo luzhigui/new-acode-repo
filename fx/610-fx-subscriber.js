@@ -18,6 +18,7 @@ import {
 import { showLionRoar } from './613-fx-lion-roar.js';
 import { showPangTaunt, showPangClumsy } from './614-fx-pang-antics.js';
 import { showHanLiSaBurst } from './615-fx-hanlisa-burst.js';
+import { showSkillCue } from './619-skill-cues.js';
 import { updateHanLiSaChargeFx } from './612-hanlisa-charge.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { isFxSkipped as inFastForward } from '../infra/111-fx-gate.js';
@@ -94,6 +95,12 @@ eventBus.on(FX_SIGNALS.SKILL_FLOAT, P, (d) => {
 eventBus.on(FX_SIGNALS.HANLISA_BURST, P, (d) => {
     if (inFastForward()) return;
     return showHanLiSaBurst(d);
+});
+// 轻量技能演出（吸星连线 / 现形换脸 / 断锤数字 / 双面观音变装 / 蹦蹦挪位）：
+//   一条 cue 只有一个演出者；快进统一在这里拦，不阻塞战斗节奏。
+eventBus.on(FX_SIGNALS.SKILL_CUE, P, (d) => {
+    if (inFastForward()) return;
+    return showSkillCue(d);
 });
 // 九宫格渲完（render/32 在两网格渲染后 emit）：重算寒离飒蓄力扇形。
 //   原先由 render/32 直接 import fx/90 调用，属 render → fx 反向依赖（铁律第 6 条），

@@ -15,7 +15,7 @@ export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.1';
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { applyStatChange, addMod, getStat } from '../core/214-battle-shared.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -52,7 +52,11 @@ export const duanChuiHandler = {
                     addMod(self, 'atk', { source: '断锤三式·减半', value: -n, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
                     self.state._duanChuiN = n;
                 }
-                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${keepHp} 点生命，攻击减半（N=${n}）！`);
+                // 演出：攻击数字被剥走一半往上飘（fx/619），只表现，减半数值仍以上面 addMod 为准
+                const halveCue = (self.pos != null && n > 0)
+                    ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
+                    : null;
+                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${keepHp} 点生命，攻击减半（N=${n}）！`, { cue: halveCue });
                 data.declarations.push({ immune: true, reason: `🔨 断锤三式：${self.name} 屹立不倒` });
             }
         });
@@ -92,7 +96,16 @@ export const duanChuiHandler = {
                 if (data.unit !== self || !self.alive) return;
                 if (!self.state._duanChuiTriggered) return;
                 const n = self.state._duanChuiN;
-                if (n > 0) addMod(self, 'atk', { source: '断锤三式', value: n, ttl: 'permanent', group: 'duanChuiGrow', op: 'add' });
+                if (n > 0) {
+                    addMod(self, 'atk', { source: '断锤三式', value: n, ttl: 'permanent', group: 'duanChuiGrow', op: 'add' });
+                    // 演出：每次出手后攻击数字回补一格（⚔+N 飘字），只表现、不改回涨数值
+                    if (data.log && self.pos != null) {
+                        pushSkillAnnounce(data.log, self, '断锤三式', '', {
+                            line: false,
+                            cue: { kind: SKILL_CUE_KINDS.ATK_GROW, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
+                        });
+                    }
+                }
                 if (self.hp > 1) applyStatChange(self, 'hp', -selfCost, null, '断锤·耗血', false, false);
             }
         });

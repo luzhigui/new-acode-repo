@@ -6,7 +6,7 @@ export const VER = 'modules/334-common-absorb.js V1.2.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { getBattleRng, addMod, getStat, refreshMaxHp } from '../core/214-battle-shared.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -26,6 +26,8 @@ export const statAbsorbHandler = {
                 if (getBattleRng().next() >= decl.prob) return;
 
                 let totalAtk = 0, totalDef = 0, totalMaxHp = 0;
+                // 演出用：每个被吸者吸走多少（攻/防/上限），只给 fx/619 画连线与飘字，不进任何结算
+                const absorbed = [];
 
                 // 遍历全场其他人
                 allUnits.forEach(u => {
@@ -48,6 +50,10 @@ export const statAbsorbHandler = {
                     totalAtk += absorbAtk;
                     totalDef += absorbDef;
                     totalMaxHp += absorbHp;
+
+                    if (absorbAtk > 0 || absorbDef > 0 || absorbHp > 0) {
+                        absorbed.push({ uid: u.uid, camp: u.camp, pos: u.pos, atk: absorbAtk, def: absorbDef, hp: absorbHp });
+                    }
                 });
 
                 // 结算给自己（至少吸到一点属性才提示，防止0收益满屏飘字）
@@ -60,7 +66,10 @@ export const statAbsorbHandler = {
                     }
                     
                     if (data.log) {
-                        pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 发动吸星：全场吸取 攻+${fmtNum(totalAtk)} 防+${fmtNum(totalDef)} 血+${fmtNum(totalMaxHp)}`, { floatText: '🌀', floatUid: self.uid });
+                        const cue = (self.pos != null && absorbed.length > 0)
+                            ? { kind: SKILL_CUE_KINDS.ABSORB, self: { uid: self.uid, camp: self.camp, pos: self.pos }, targets: absorbed }
+                            : null;
+                        pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 发动吸星：全场吸取 攻+${fmtNum(totalAtk)} 防+${fmtNum(totalDef)} 血+${fmtNum(totalMaxHp)}`, { floatText: '🌀', floatUid: self.uid, cue });
                     }
                 }
             }

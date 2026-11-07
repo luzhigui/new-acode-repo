@@ -15,7 +15,7 @@ import { installDeclaredSkills, buildMechanicDeclarations } from '../core/216-sk
 import { getGameData, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, rebasePanel } from '../core/214-battle-shared.js';
 import { Unit } from '../core/202-unit.js';
-import { SIGNAL_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, CAMP_TYPES, ROLE_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 // 现原形 = 变回成昆：模板角色名即数据源，改角色时只改这里与 content
@@ -58,7 +58,11 @@ function reveal(eventBus, A, B, log, self) {
     if (self.state._yuanzhenRevealed) return;
     self.state._yuanzhenRevealed = true;
     transformToChengkun(self);
-    pushSkillAnnounce(log, self, '现原形', `${self.name} 撕下人皮面具——原来是成昆！`);
+    // 演出：原地碎裂环 + 换脸白闪 + 名字牌翻一下（少林圆真 → 成昆），只走 fx/619，不改面板
+    const cue = self.pos != null
+        ? { kind: SKILL_CUE_KINDS.REVEAL, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: self.name, toName: REVEAL_TEMPLATE }
+        : null;
+    pushSkillAnnounce(log, self, '现原形', `${self.name} 撕下人皮面具——原来是成昆！`, { cue });
     installChengkunPackage(eventBus, A, B, log, self);
 }
 

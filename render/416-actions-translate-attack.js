@@ -1,6 +1,6 @@
 // render/416-actions-translate-attack.js — fact → stageAction 翻译器·攻击族（38 拆分）
 import { makeFXSnapshot } from '../infra/102-core-utils.js';
-import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES } from '../infra/106-battle-enums.js';
+import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { makeHealAction } from './418-actions-translate-heal.js';
 // 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/107-fact-contract.js';
@@ -448,6 +448,20 @@ function makeAttackAction(data, index) {
         afterTextEffects.push({
             kind: STAGE_ACTION_TYPES.BANNER,
             text: data.qiShangBanner,
+            factIndex: index,
+            timing: 'afterText'
+        });
+    }
+
+    // 彭莹玉·双面观音：假身把敌方唯一目标拐去误攻队友那一下，在彭莹玉格上揭面具（只表现，不改数值）
+    const phantomData = data.phantomFact && data.phantomFact.data;
+    if (phantomData && phantomData.sourceSkill === '双面观音' && phantomData.deceiverUid != null) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.SKILL_CUE,
+            cue: {
+                kind: SKILL_CUE_KINDS.MASK_PEEL,
+                unit: { uid: phantomData.deceiverUid, camp: phantomData.deceiverCamp, pos: phantomData.deceiverPos }
+            },
             factIndex: index,
             timing: 'afterText'
         });

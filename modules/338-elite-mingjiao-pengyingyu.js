@@ -9,7 +9,7 @@ export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.3';
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { registerTargetFilter } from '../core/207-target-strategies.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -30,6 +30,9 @@ export const doubleFaceHandler = {
         const disguiseChance = params.disguiseChance;
         const openingChance = params.openingChance;
         const duration = params.duration;
+        // 变装期的显示名：只影响格子名字牌（render/403 单点读取），日志/机制仍按 self.name；
+        //   用「彭莹玉♀」而不是另编一个女名——4 字不触发长名压缩，也一眼看出是女装状态
+        const DISGUISE_NAME = '彭莹玉♀';
 
         // 假身轮转：每回合开始先递减剩余回合，到 0 再掷骰进入；首回合用更高的 openingChance。
         registerSettlementHook({
@@ -39,13 +42,28 @@ export const doubleFaceHandler = {
                 if (!self.alive) return;
                 if (self.state._crossdressRounds > 0) {
                     self.state._crossdressRounds -= 1;
+                    // 刚褪装（进入 0）：妆容碎屑往下散 + 名字牌翻回本名（line:false 不落战报行）
+                    if (self.state._crossdressRounds === 0) {
+                        self.state._displayName = null;
+                        if (data.log && self.pos != null) {
+                            pushSkillAnnounce(data.log, self, '双面观音', '', {
+                                line: false,
+                                cue: { kind: SKILL_CUE_KINDS.UNVEIL, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: DISGUISE_NAME, toName: self.name }
+                            });
+                        }
+                    }
                     return;
                 }
                 const chance = self.state._crossdressRolled ? disguiseChance : openingChance;
                 self.state._crossdressRolled = true;
                 if (getBattleRng().next() >= chance) return;
                 self.state._crossdressRounds = duration;
-                pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 化出假身，真身隐去 ${duration} 回合。`);
+                self.state._displayName = DISGUISE_NAME;
+                // 变装：薄纱扫过 + 名字牌换成女装名（只表现，不改数值与目标规则）
+                const cue = self.pos != null
+                    ? { kind: SKILL_CUE_KINDS.DISGUISE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: self.name, toName: DISGUISE_NAME, rounds: duration }
+                    : null;
+                pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 化出假身，真身隐去 ${duration} 回合。`, { cue });
             }
         });
 
@@ -98,7 +116,11 @@ export const doubleFaceHandler = {
                     factType: FACT_TYPES.PHANTOM_CONFUSE,
                     // sourceSkill 是这条事实的「来源词」：渲染按它打「双面观音」，
                     //   战绩/体检也按它归因（不再和成昆的 PHANTOM_CONFUSE 混算）。
-                    data: { unitName: data.unit.name, deceiver: self.name, targetName: victim.name, sourceSkill: '双面观音' }
+                    data: {
+                        unitName: data.unit.name, deceiver: self.name, targetName: victim.name, sourceSkill: '双面观音',
+                        // 演出定位：识破/被迷惑那一下，在彭莹玉格上揭面具（fx/619 只读这些定位字段）
+                        deceiverUid: self.uid, deceiverCamp: self.camp, deceiverPos: self.pos
+                    }
                 };
             }
         });

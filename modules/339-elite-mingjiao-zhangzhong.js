@@ -4,7 +4,7 @@ export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.0.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, ROLE_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -32,7 +32,13 @@ export const summonBengBengHandler = {
                     { atk: params.atk, def: params.def, maxHp: params.maxHp, skipRoleBonus: true });
                 data.log.push({
                     factType: FACT_TYPES.SUMMON_UNIT,
-                    data: { summonName: unit.name, summonUid: unit.uid, pos, byName: self.name }
+                    data: {
+                        summonName: unit.name, summonUid: unit.uid, pos, byName: self.name,
+                        // 演出：从张中格到空位留一串残影、落点轻闪（fx/619 只读定位，不影响召唤）
+                        cue: (self.pos != null)
+                            ? { kind: SKILL_CUE_KINDS.SUMMON_MOVE, from: { uid: self.uid, camp: self.camp, pos: self.pos }, to: { uid: unit.uid, camp: unit.camp, pos } }
+                            : null
+                    }
                 });
             }
         });

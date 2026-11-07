@@ -50,5 +50,8 @@ export const FX_SIGNALS = {
     //   拿格子 rect 算好位置后原地淡入停留淡出，位置固定。
     //   用途：六大派选海克斯提示——原来绑「第一个存活单位」位置随机（5/8/几号都有可能），
     //   改成钉在敌方 8 号位上方（后排中央），一眼知道是六大派的选择。
-    PINNED_BUBBLE: 'fx:pinnedBubble'
+    PINNED_BUBBLE: 'fx:pinnedBubble',
+    // 轻量技能演出（吸星连线 / 现形换脸 / 断锤数字 / 双面观音变装 / 蹦蹦挪位）：
+    //   统一一条信号，按载荷 kind 分派到 fx/619；一条 cue 只有一个演出者，只表现不改结算。
+    SKILL_CUE: 'fx:skillCue'
 };

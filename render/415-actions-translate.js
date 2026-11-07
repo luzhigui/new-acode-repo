@@ -29,6 +29,10 @@ const FACT_TRANSLATORS = {
     ...CONTROL_TRANSLATORS,
     ...STAT_TRANSLATORS,
     [FACT_TYPES.ROUND_START]: (data, index) => ({ kind: STAGE_ACTION_TYPES.ROUND_START, round: data.round, factIndex: index, timing: 'beforeText' }),
+    // 张中·召唤蹦蹦：只有带 cue 的召唤才出演出（从张中格到空位的残影 + 落点轻闪），其余召唤物不受影响
+    [FACT_TYPES.SUMMON_UNIT]: (data, index) => (data && data.cue)
+        ? { kind: STAGE_ACTION_TYPES.SKILL_CUE, cue: data.cue, factIndex: index, timing: 'beforeText' }
+        : null,
     [FACT_TYPES.ROUND_END]: (data, index) => ({ kind: STAGE_ACTION_TYPES.ROUND_END, round: data.round, factIndex: index, timing: 'afterText' }),
     [FACT_TYPES.PASS]: (data, index) => {
         const actions = [{
