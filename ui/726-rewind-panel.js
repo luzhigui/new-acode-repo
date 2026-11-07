@@ -1,6 +1,7 @@
 // ui/726-rewind-panel.js — 倒针面板（调试用，默认关）：入口按钮 + 底部小面板
 //   开关：地址栏 ?rewind=1 或 localStorage.gmd_rewind='1'；关着时本文件不建任何 DOM、不注册监听。
 import { GlobalStore } from '../infra/104-global-store.js';
+import { STATE } from '../core/201-config-5v5-test.js';
 import {
     isRewindEnabled, isActive, getView, enterReview, exitReview,
     prevStep, nextStep, prevCue, nextCue, pausePlay, resumePlay, fastForward
@@ -44,6 +45,7 @@ function makeEntry() {
     _entry.id = 'rewind-entry';
     _entry.textContent = '⏪ 倒针';
     _entry.title = '回看本局已打的步骤（调试）';
+    _entry.style.display = 'none';   // 首次 tick 前先藏住，避免 IDLE 闪一下
     stopEvent(_entry);
     _entry.addEventListener('click', onEnter);
     document.body.appendChild(_entry);
@@ -107,15 +109,22 @@ function renderStatus() {
     if (!_status) return;
     const v = getView();
     if (!v.active) { hideBar(); return; }
-    _status.textContent = `第 ${v.stepIdx + 1}/${v.stepCount} 步 · 段 ${v.cueIdx + 1}/${v.cueCount} · ${v.label || ''}`;
+    const cueNo = Math.min(v.cueIdx + 1, Math.max(1, v.cueCount));
+    _status.textContent = `第 ${v.stepIdx + 1}/${v.stepCount} 步 · 段 ${cueNo}/${v.cueCount} · ${v.label || ''}`;
     if (_playBtn) _playBtn.textContent = v.playing ? '⏸ 停' : '▶ 播放';
 }
 
+function inBattle() {
+    const gs = GlobalStore.get('gs');
+    return gs === STATE.RUNNING || gs === STATE.PAUSED;
+}
+
 function tick() {
-    const battleOn = GlobalStore.get('gs') === 'BATTLE';
+    const battleOn = inBattle();
     if (_entry) _entry.style.display = battleOn && !isActive() ? 'block' : 'none';
     if (!battleOn && isActive()) { exitReview({ resume: false }); hideBar(); }
     if (isActive()) renderStatus();
+    else hideBar();
 }
 
 export function initRewindPanel() {

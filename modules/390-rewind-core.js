@@ -5,6 +5,7 @@ export const VER = 'modules/390-rewind-core.js V1.0.0';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
+import { STATE } from '../core/201-config-5v5-test.js';
 import { getLiveRecordedSteps } from '../player/513-battle-export.js';
 import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
 import { playStepInterleaved } from '../player/504-player-play-step.js';
@@ -213,7 +214,7 @@ export async function enterReview() {
     if (S.active) return { ok: true };
     const c = ctx();
     if (!c || !c.store) return { ok: false, msg: '还没开局' };
-    if (GlobalStore.get('gs') !== 'BATTLE') return { ok: false, msg: '不在战斗中' };
+    if (GlobalStore.get('gs') !== STATE.RUNNING && GlobalStore.get('gs') !== STATE.PAUSED) return { ok: false, msg: '不在战斗中' };
     const steps = getLiveRecordedSteps();
     if (!steps || steps.length === 0) return { ok: false, msg: '还没打出手，暂无可回看内容' };
 
@@ -228,7 +229,8 @@ export async function enterReview() {
         logHTML: logEl ? logEl.innerHTML : '',
         logScroll: logEl ? logEl.scrollTop : 0,
         paused: !!GlobalStore.get('isPaused'),
-        speed: GlobalStore.get('speed')
+        speed: GlobalStore.get('speed'),
+        gs: GlobalStore.get('gs')
     };
 
     S.steps = steps.slice();
@@ -247,6 +249,7 @@ export async function enterReview() {
 
     // 主循环让路：挂闸门 → 放开时钟让它跑到步首 → 再冻住
     c._rewindGate = () => new Promise((resolve) => { S.gateResolve = resolve; });
+    GlobalStore.set('gs', STATE.RUNNING);
     GlobalStore.set('isPaused', false);
     await waitForGate(2500);
     GlobalStore.set('isPaused', true);
@@ -292,6 +295,8 @@ export function exitReview(opts) {
     if (c.updateUI) c.updateUI();
 
     GlobalStore.set('speed', S.snap.speed);
+    // 回看期间战斗其实没停（主循环停在步首闸门），gs 统一按「在打」呈现；退出时还原或继续
+    GlobalStore.set('gs', opts && opts.resume ? STATE.RUNNING : S.snap.gs);
     GlobalStore.set('isPaused', opts && opts.resume ? false : S.snap.paused);
 
     S.active = false;
