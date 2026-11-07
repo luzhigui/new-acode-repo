@@ -1,4 +1,6 @@
-export const VER = 'core/215-buff-effects.js V6.1.10';
+export const VER = 'core/215-buff-effects.js V6.1.11';
+// V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
+//   控制免疫单位不进候选（删除免疫 50% 拦截与「洗完回原位」两条空结果路径）。
 // V6.1.10（2026-11-02 收尾）：撤销 applyMindControlCore 内三处 MCDEBUG 临时诊断（MCSIDE/MC_E/MC_A），
 //   排查惑心换位回放误报用，已确认引擎换位真实生效、属规则166 误报，诊断代码无保留价值。
 
@@ -103,70 +105,61 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
 }
 
-// 惑心 3 格重排：从 team 随机选 3 个格子（不管有没有人），把 3 格里的单位随机重排。
-//   控制免疫单位不动（剩下的格子随机 50% 换）；飞天/附身可换。
-//   返回实际发生变化的单位 [{ unit, fromPos, toPos }]（长度 0~3）。
+// 惑心 3 格重排（保证有效）：抽中的 3 格至少 1 格有存活单位，且参与换位的单位全部必然挪位。
+//   控制免疫单位不进候选（不再出现「被挡住 → 无变化」）；飞天/附身可换。
+//   返回实际发生变化的单位 [{ unit, fromPos, toPos }]（正常路径长度 ≥1，且每个单位 toPos ≠ fromPos）。
 function shuffleThreeSlots(team, rng) {
     const allPos = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // 候选 = 存活、非待死、非控制免疫；全灭/全免疫时保持空结果（保留分支，正常路径不命中）
+    const cands = team.filter(u => u.alive && !u.state._pendingDeath && !u.state._ctrlImmune);
+    if (cands.length === 0) return { swaps: [], pick3: [] };
+
     const pick3 = [];
-    for (let i = 0; i < 3; i++) {
-        const idx = rng.nextInt(0, allPos.length - 1);
-        pick3.push(allPos[idx]);
-        allPos.splice(idx, 1);
+    const take = (pool) => {
+        const idx = rng.nextInt(0, pool.length - 1);
+        pick3.push(pool[idx]);
+        pool.splice(idx, 1);
+    };
+    if (cands.length >= 2) {
+        // 抽 2 个有候选的格子 + 1 个杂格：候选 ≥2 ⇒ 至少 2 个单位参与，且必然互换成环
+        const candPos = cands.map(u => u.pos);
+        take(candPos);
+        take(candPos);
+        take(allPos.filter(p => !pick3.includes(p)));
+    } else {
+        // 只剩 1 个候选：它必须挪去空格（第 2 格取空格，第 3 格随便补）
+        pick3.push(cands[0].pos);
+        const emptyPos = allPos.filter(p => !team.some(u => u.pos === p));
+        if (emptyPos.length === 0) return { swaps: [], pick3 };   // 九格全占（保留分支，正常路径不命中）
+        take(emptyPos);
+        take(allPos.filter(p => !pick3.includes(p)));
     }
-    const slotUnits = pick3.map(pos => ({
-        pos,
-        unit: team.find(u => u.pos === pos && u.alive && !u.state._pendingDeath) || null
-    }));
-    const immuneSlots = slotUnits.filter(s => s.unit && s.unit.state._ctrlImmune);
-    const swappableUnits = slotUnits.filter(s => s.unit && !s.unit.state._ctrlImmune).map(s => s.unit);
-    if (swappableUnits.length < 2) return { swaps: [], pick3 };
-    if (immuneSlots.length > 0) {
-        if (rng.nextInt(0, 1) === 0) return { swaps: [], pick3 };
-        const positions = swappableUnits.map(u => u.pos);
-        const units = swappableUnits.slice();
-        for (let i = units.length - 1; i > 0; i--) {
+
+    const units = cands.filter(u => pick3.includes(u.pos));
+    if (units.length >= 2) {
+        // 随机顺序串成环：每个单位挪到下一个单位的原位 ⇒ 全员必动、来源/目标互不冲突、无定点
+        const order = units.slice();
+        for (let i = order.length - 1; i > 0; i--) {
             const j = rng.nextInt(0, i);
-            [units[i], units[j]] = [units[j], units[i]];
+            [order[i], order[j]] = [order[j], order[i]];
         }
-        let changed = false;
-        for (let i = 0; i < units.length; i++) if (units[i] !== swappableUnits[i]) { changed = true; break; }
-        if (!changed) return { swaps: [], pick3 };
-        const result = [];
-        for (let i = 0; i < units.length; i++) {
-            const u = swappableUnits[i];
-            const fromPos = u.pos;
-            u.pos = positions[i];
-            result.push({ unit: u, fromPos, toPos: u.pos });
-        }
+        const fromPositions = order.map(u => u.pos);
+        const result = order.map((u, i) => ({
+            unit: u,
+            fromPos: fromPositions[i],
+            toPos: fromPositions[(i + 1) % order.length]
+        }));
+        for (const s of result) s.unit.pos = s.toPos;
         return { swaps: result, pick3 };
     }
-    const units = slotUnits.filter(s => s.unit).map(s => s.unit);
-    if (units.length < 2) return { swaps: [], pick3 };
-    const shuffledUnits = units.slice();
-    for (let i = shuffledUnits.length - 1; i > 0; i--) {
-        const j = rng.nextInt(0, i);
-        [shuffledUnits[i], shuffledUnits[j]] = [shuffledUnits[j], shuffledUnits[i]];
-    }
-    const shuffledPos = pick3.slice();
-    for (let i = shuffledPos.length - 1; i > 0; i--) {
-        const j = rng.nextInt(0, i);
-        [shuffledPos[i], shuffledPos[j]] = [shuffledPos[j], shuffledPos[i]];
-    }
-    const finalPos = shuffledPos.slice(0, units.length);
-    let changed = false;
-    for (let i = 0; i < units.length; i++) if (units[i].pos !== finalPos[i]) { changed = true; break; }
-    if (!changed) return { swaps: [], pick3 };
-    const result = [];
-    for (let i = 0; i < units.length; i++) {
-        const u = units[i];
-        const fromPos = u.pos;
-        u.pos = finalPos[i];
-        result.push({ unit: u, fromPos, toPos: u.pos });
-    }
+    // 单个候选：直接挪到那个空格（位置必然不同）
+    const u = units[0];
+    const fromPos = u.pos;
+    const toPos = pick3.find(p => !team.some(x => x.pos === p));
+    u.pos = toPos;
     // 返回 pick3（被选中的 3 个格子）：fx 层落定时需要用它完整遍历 3 个格子，
     //   否则「原本空着但被分配了人」和「原本有人但被移空」两种情况都会演错。
-    return { swaps: result, pick3 };
+    return { swaps: [{ unit: u, fromPos, toPos }], pick3 };
 }
 
 function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly, enhance = null) {

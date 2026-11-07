@@ -95,9 +95,9 @@ export function renderMindControlSwapFact(fact) {
 export function renderMindControlFailFact(fact) {
     const sideLabel = fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方';
     const text = `🌀 惑人心智${sideLabel}：换位失败（${fact.reason}）`;
-    // 「无变化」= roll 命中但 3 格洗牌没换动（可换单位不足 2 个 / 洗牌恰好回到原位 / 控制免疫拦下）。
-    //   位置确实一点没变，玩家看到「换位失败（无变化）」只会莫名其妙 ⇒ 当噪音处理：
-    //   条目照发（体检 166 靠它做敌方/己方配对），但标记 quiet，player/504 不把它落进战斗日志。
+    // 「无变化」只剩引擎保留分支（全灭/全免疫/九格全占）才会发；core/215 已改成保证有效，
+    //   正常路径必定有单位换位。真走到保留分支时也别刷屏（体检 166 靠条目做配对，照发）：
+    //   标记 quiet，player/504 不把它落进战斗日志。
     if (fact.reason === '无变化') return { type:'info', text:`<span class="gray">${text}</span>`, quiet:true };
     return {type:'info', text:`<span class="gray">${text}</span>`};
 }
