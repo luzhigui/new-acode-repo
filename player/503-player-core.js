@@ -138,6 +138,8 @@ export async function playBattle() {
 
         for (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
+            // 倒针闸门：回看模式挂上时，主循环在步首停住，回看结束后放行（未挂时零开销）
+            if (c._rewindGate) await c._rewindGate();
             lastStep = step;
             // 蓄意轰拳瞄准窗口：core/11 回合收尾前 yield 的空标记步——不播不录不发从机，
             //   在此弹黑幕收瞄准（写进 step 的单位，与引擎 generator 的 A/B 同引用），随后收尾结算即读到
@@ -147,6 +149,7 @@ export async function playBattle() {
             if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));
             feedBattleStep(step, c.activeBuffs);   // 战报导出：与联机同源同净化
             await playStepInterleaved(c, step, isFirstAttackRef);
+            c._rewindLastStep = step;   // 倒针：记「最后播完的一步」，一键回最新从这里还原
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
         }

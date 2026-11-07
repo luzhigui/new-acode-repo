@@ -22,6 +22,11 @@ export function startBattleRecording(meta) {
     };
 }
 
+/** 倒针调试只读出口：本局已录制的完整步（未瘦身，未开局返回空数组）。 */
+export function getLiveRecordedSteps() {
+    return _recording ? _recording.steps : [];
+}
+
 /** 每一步喂进来（与联机 sendStep 同源：同一 step 对象，净化后再存）。 */
 export function feedBattleStep(step, activeBuffs) {
     if (!_recording) return;

@@ -95,6 +95,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
                     if (action.nonBlocking) applyStageActionToFX(c, action);
                     else await applyStageActionToFX(c, action);
                     applyStageActionToStoreAfter(c, action, pendingDeaths);
+                    if (c._rewindCue) await c._rewindCue('beforeText', action);   // 倒针停点：文字前动作后
                 }
             }
 
@@ -114,11 +115,15 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
             }
 
             await playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex);
+            if (c._rewindCue) await c._rewindCue('anchor', entry);   // 倒针停点：图中锚点动作后
 
             if (!processedAfterIndexes.has(factIndex)) {
                 processedAfterIndexes.add(factIndex);
                 const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'afterText');
-                for (const action of afterActions) await runAction(action);
+                for (const action of afterActions) {
+                    await runAction(action);
+                    if (c._rewindCue) await c._rewindCue('afterText', action);   // 倒针停点：文字后动作后
+                }
             }
         }
     }
@@ -135,6 +140,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     //   syncStoreFromStep 是整步血量/生死的唯一权威落账点，必须排在死亡红叉之前：
     //   先 SET_UNITS（hp=0 + alive=false），再切 DEAD 态，避免「特效先播、血条还没归零」。
     syncStoreFromStep(c, step);
+    if (c._rewindCue) await c._rewindCue('settle', step);   // 倒针停点：整步落账后
 
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
@@ -146,6 +152,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     }
 
     const hasDeathAction = actions.some(a => a.dead && (a.kind === STAGE_ACTION_TYPES.ATTACK || a.kind === STAGE_ACTION_TYPES.DEATH || a.kind === STAGE_ACTION_TYPES.DOT));
+    if (c._rewindCue) await c._rewindCue('death', step);   // 倒针停点：死亡红叉后
     if (hasDeathAction) {
         const logDiv = document.getElementById('log');
         if (logDiv && logDiv.lastElementChild) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
