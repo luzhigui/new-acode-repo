@@ -20,7 +20,7 @@ import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES, STAGE_ACTION_TYPES } from '../infra/106-battle-enums.js';
-import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './510-renderer.js';
+import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, renderStaticLogEntry, findUnitByUid } from './510-renderer.js';
 import { markGridShake } from '../render/403-grid-render.js';
 import { triggerHpAnim } from '../render/405-grid-cells.js';
 import { fmt1 } from '../infra/102-core-utils.js';
@@ -82,7 +82,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             continue;
         }
         const logLevel = getState.logLevel();
-        if (logLevel === 'brief' && entry2.type === 'detail') { appendHiddenDetail(entry2.text); continue; }
+        if (logLevel === 'brief' && entry2.type === 'detail') { renderStaticLogEntry(entry2); continue; }
 
         // ============================================================
         // 统一伤害反馈（主攻击 / 白骨爪通用）：飘字 + 血条预演 + 同步真实血量
@@ -134,7 +134,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                     if (spec && spec.cb) { try { spec.cb(); } catch (e) { console.error('[handleAttackGroup] fx 回调出错:', e); } }
                 }
             }
-            appendLogHTML(entry2.text + '<br>');
+            renderStaticLogEntry(entry2);
             const gap = getPerfParam(hasFx ? 'lineGapFx' : 'lineGap', GlobalStore.get('speed') || 300) || (hasFx ? 280 : 30);
             await clock.waitReal(gap);
             continue;

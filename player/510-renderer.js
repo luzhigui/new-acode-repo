@@ -1,6 +1,7 @@
-export const VER = 'player/510-renderer.js V6.0.0';
+export const VER = 'player/510-renderer.js V6.1.0';
+// V6.1.0 | 2026-11-07 | 新增 renderStaticLogEntry：info/detail 静态渲染共用出口（真播 509 与倒针 727 同套）
 
-import { GlobalStore } from '../infra/104-global-store.js';
+import { GlobalStore, getState } from '../infra/104-global-store.js';
 import { playLineText } from './501-player-text.js';
 
 let _ctx = null;
@@ -48,6 +49,17 @@ export function appendHiddenDetail(text) {
     div.className = 'detail-hidden';
     div.innerHTML = text + '<br>';
     appendLogElement(div);
+}
+
+// info/detail 行的静态渲染出口：真播（509）与倒针回看（727）共用同一套口径/排版。
+//   折叠判据与真播一致：只有 logLevel === 'brief' 时 detail 才进折叠区，其余正文整行直接出。
+export function renderStaticLogEntry(entry) {
+    if (!entry || entry.text == null) return;
+    if (getState.logLevel() === 'brief' && entry.type === 'detail') {
+        appendHiddenDetail(entry.text);
+        return;
+    }
+    appendLogHTML(entry.text + '<br>');
 }
 
 export function autoScrollLog() {

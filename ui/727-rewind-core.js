@@ -1,7 +1,7 @@
 // ui/727-rewind-core.js — 倒针回看（调试）：按步/按演出段回拨，复用本局战报录制，不碰引擎
 //   开关默认关：只有地址栏带 ?rewind=1 或 localStorage.gmd_rewind='1' 才生效。
 //   数据源：player/513 的在录步（每步自带两队快照 + 日志 + 演出动作清单），不额外存快照。
-export const VER = 'ui/727-rewind-core.js V1.0.0';
+export const VER = 'ui/727-rewind-core.js V1.2.0';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
@@ -9,7 +9,8 @@ import { STATE } from '../core/201-config-5v5-test.js';
 import { getLiveRecordedSteps } from '../player/513-battle-export.js';
 import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
 import { playStepInterleaved, playSingleLogEntry } from '../player/504-player-play-step.js';
-import { appendLogHTML, appendHiddenDetail, clearAllEffects } from '../player/510-renderer.js';
+import { appendLogHTML, renderSeparator, renderStaticLogEntry, clearAllEffects } from '../player/510-renderer.js';
+import { shouldStartNewGroup } from '../player/508-event-handlers.js';
 import {
     prepareLogEntry, getActionTiming, getActionFx, hasStageWork,
     applyStageActionToStore, applyStageActionToFX, applyStageActionToStoreAfter
@@ -57,7 +58,10 @@ const S = {
     gateResolve: null,
     parked: false, parkOff: null, cueToken: 0,
     cancelToken: 0, stopPlay: false, playRelease: null,
-    watchdog: null
+    watchdog: null,
+    logKeys: [],                // 已渲染日志行的 key 序列（增量追加/回退用）
+    logLastType: null,          // 已渲染行的最后类型（= 真播 c._lastLogType，分隔符判据）
+    logDirty: false             // 真播接管过 #log，下次同步必须整块重建
 };
 
 export function isRewindEnabled() {
@@ -158,20 +162,31 @@ function applyCueStore(c, step, cue, pendingDeaths) {
     applyStageActionToStoreAfter(c, cue.action, pendingDeaths);
 }
 
-// 把渲染结果（可能有嵌套 entries）摊平成一行行日志原文
-function collectLogTexts(entry, out) {
+// ---------- 回看日志：与 player/504 同一套口径，逐段增量追加 ----------
+// 一行 = 一个渲染条目；key 用「第几步:第几条 fact:条目路径」定位，保证同一段不会重复追加。
+function flattenEntry(entry, stepIdx, factIdx, path, out) {
     if (!entry || entry.quiet) return;
     if (Array.isArray(entry.entries)) {
-        for (const sub of entry.entries) collectLogTexts(sub, out);
+        entry.entries.forEach((sub, k) => flattenEntry(sub, stepIdx, factIdx, path + '.' + k, out));
         return;
     }
-    if (entry.text) out.push({ t: String(entry.text), detail: entry.type === 'detail' });
+    if (entry.text == null) return;         // 与 509 一致：缺 text 的条目真播不渲染
+    out.push({ key: stepIdx + ':' + factIdx + ':' + path, entry: entry });
 }
 
-function renderReviewLog(stepIdx, upto, includeCurrent) {
-    const el = document.getElementById('log');
-    if (!el) return;
-    const lines = [];
+// 顶层条目类型白名单：与 player/504 playSingleLogEntry 的 switch 同口径。
+//   未登记的类型（如顶层 detail：攻盾/远程熟练）真播本就不上屏，回看也必须一致，不能多出行。
+const TOP_RENDER_TYPES = new Set([
+    'info', 'buff-summon', 'buff-destroy', 'buff-leech', 'buff-splash',
+    'buff-bonus', 'buff-swap', 'buff-push', 'buff-summary', 'buff-rebound-fortify',
+    'round-start', 'attack-group', 'round-end'
+]);
+
+// 收集「第 0 步 ~ stepIdx 步、第 upto 段之前」应出现的全部日志行（upto=null 表示本步全部）
+//   返回 { items, lastType }：lastType 供真播前把 c._lastLogType 对齐到同一口径。
+function collectLinesUpTo(stepIdx, upto) {
+    const items = [];
+    let lastType = null;                    // 与 504 的 c._lastLogType 同口径：分组分隔符判据
     for (let i = 0; i <= stepIdx; i++) {
         const st = S.steps[i];
         if (!st) continue;
@@ -180,23 +195,76 @@ function renderReviewLog(stepIdx, upto, includeCurrent) {
         for (let j = 0; j < log.length; j++) {
             const fact = log[j];
             if (!fact) continue;
-            if (includeCurrent && i === stepIdx) {
+            if (upto != null && i === stepIdx) {
                 const tc = cues.textCueOf[j];
-                if (tc == null || tc > upto) continue;
+                if (tc == null || tc > upto) continue;   // 这一段还没到，不出行
             }
-            // step.log 里存的是原始 fact（{factType,data}），必须过 504 同款渲染器才有 text；
-            //   直接读 fact.text 会永远为空 —— 这就是倒针日志区一片空白的根因。
+            // step.log 存的是原始 fact（{factType,data}），必须过 504 同款渲染器才有 text
             let prepared = null;
             try { prepared = prepareLogEntry(fact); } catch (err) { prepared = null; }
             const list = Array.isArray(prepared) ? prepared : (prepared ? [prepared] : []);
-            for (const en of list) collectLogTexts(en, lines);
+            for (let k = 0; k < list.length; k++) {
+                const en = list[k];
+                if (!en || en.quiet) continue;
+                if (!TOP_RENDER_TYPES.has(en.type)) continue;   // 真播不上屏的类型，回看一样不出
+                if (shouldStartNewGroup(en, lastType)) items.push({ key: i + ':' + j + ':' + k + ':sep', sep: true });
+                // 508 handleInfo 对「张无忌切换」额外补一条分隔符：真播有，回看也得有
+                if (en.type === 'info' && en.isZhangSwitch && en.unitUid) items.push({ key: i + ':' + j + ':' + k + ':zsep', sep: true });
+                flattenEntry(en, i, j, String(k), items);
+                lastType = en.type;
+            }
         }
     }
-    // 只写一次 DOM：同序、逐行，不闪烁
-    el.innerHTML = '';
-    for (const item of lines.slice(-40)) {
-        if (item.detail) appendHiddenDetail(item.t);
-        else appendLogHTML(item.t + '<br>');
+    return { items, lastType };
+}
+
+function renderLogItem(item) {
+    if (item.sep) { renderSeparator(); return; }
+    const en = item.entry;
+    // info/detail 与真播共用 510 的静态出口（brief 才折叠，其余正文整行直接出）
+    if (en.type === 'info' || en.type === 'detail') renderStaticLogEntry(en);
+    else appendLogHTML(en.text + '<br>');
+}
+
+// 增量同步：目标行是已渲染的前缀 → 只删尾巴（后退）；已渲染是目标的前缀 → 只追加（前进）；
+//   两者都不是（跳步换支）或真播刚接管过 → 整块重建。
+//   adopt：本段真播已经往 #log 里写了几行；数量与目标新增行数一致时直接认领，不再重复追加。
+function syncReviewLog(stepIdx, upto, adopt) {
+    const el = document.getElementById('log');
+    if (!el) return;
+    const collected = collectLinesUpTo(stepIdx, upto);
+    const items = collected.items;
+    S.logLastType = collected.lastType;
+    const keys = items.map(x => x.key);
+    const isPrefix = (a, b) => {
+        if (a.length > b.length) return false;
+        for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return false;
+        return true;
+    };
+    let cur = S.logKeys || [];
+    if (S.logDirty || !isPrefix(cur, keys)) {
+        el.innerHTML = '';
+        cur = [];
+        S.logKeys = [];
+        S.logDirty = false;
+    }
+    if (isPrefix(keys, cur)) {
+        while (cur.length > keys.length) {
+            if (el.lastElementChild) el.lastElementChild.remove();
+            cur.pop();
+        }
+        // 兜底：真播可能留下未记账的行（FX 直接写 #log），一并裁掉，保证不回串到前一段
+        while (el.children.length > keys.length && el.lastElementChild) el.lastElementChild.remove();
+    } else if (adopt > 0 && keys.length - cur.length === adopt) {
+        S.logKeys = keys;                   // 本段的行已由真播写入，认领即可
+    } else if (adopt > 0) {
+        // 真播写的行数与我们模型对不上（被打断/FX 额外写行）→ 整块重建对齐，避免重复
+        el.innerHTML = '';
+        for (const item of items) renderLogItem(item);
+        S.logKeys = keys;
+    } else {
+        for (let k = cur.length; k < items.length; k++) renderLogItem(items[k]);
+        S.logKeys = keys;
     }
     el.scrollTop = el.scrollHeight;
 }
@@ -243,7 +311,8 @@ function paintAt(stepIdx, cueIdx) {
     S.cueIdx = upto;
     S.showFlag = hasShow(cues[upto], stepIdx);
     S.label = labelOf(cues[upto]);
-    renderReviewLog(stepIdx, upto, true);
+    // 日志不在这里画：段拨时由调用方在「这一段的动作演完」后调 syncReviewLog，
+    //   避免同一段被 paintAt 与 scrubToCue 各重绘一次。
     if (c.updateUI) c.updateUI();
 }
 
@@ -338,6 +407,10 @@ export async function enterReview() {
     S.stepIdx = Math.max(0, S.steps.length - 1);
     S.cueIdx = buildCuesFor(S.stepIdx).list.length - 1;
     paintAt(S.stepIdx, S.cueIdx);
+    S.logKeys = [];
+    S.logLastType = null;
+    S.logDirty = false;
+    syncReviewLog(S.stepIdx, S.cueIdx);
     return { ok: true };
 }
 
@@ -403,6 +476,9 @@ export function exitReview(opts) {
     S.cueCache.clear();
     S.snap = null;
     S.label = '';
+    S.logKeys = [];
+    S.logLastType = null;
+    S.logDirty = false;
 }
 
 // ---------- 对外：粗拨 ----------
@@ -412,6 +488,7 @@ export function prevStep() {
     const i = Math.max(0, S.stepIdx - 1);
     S.cueIdx = buildCuesFor(i).list.length - 1;
     paintAt(i, S.cueIdx);
+    syncReviewLog(i, S.cueIdx);
 }
 
 export function nextStep() {
@@ -420,6 +497,7 @@ export function nextStep() {
     const i = Math.min(S.steps.length - 1, S.stepIdx + 1);
     S.cueIdx = buildCuesFor(i).list.length - 1;
     paintAt(i, S.cueIdx);
+    syncReviewLog(i, S.cueIdx);
 }
 
 // ---------- 对外：细拨（逐段重演） ----------
@@ -466,8 +544,11 @@ async function scrubToCue(stepIdx, cueIdx) {
     S.label = labelOf(cue);
 
     const c = ctx();
+    const logEl = document.getElementById('log');
+    const rowsBefore = logEl ? logEl.children.length : 0;   // 本段真播前已渲染的行数
     if (c && c.store && cue) {
         clearAllEffects();              // 上一段的残留特效不叠加到这一段
+        c._lastLogType = S.logLastType; // 分隔符判据对齐到「这一段之前」，与真播同口径
         const pending = [];
         if (cue.kind === 'settle') {
             syncStoreFromStep(c, step);
@@ -493,7 +574,9 @@ async function scrubToCue(stepIdx, cueIdx) {
         }
     }
     if (token !== S.cueToken) return;
-    renderReviewLog(stepIdx, idx, true);
+    // 这一段演完，日志只追加「本段该有的行」；真播刚写进来的行直接认领，不重复追加
+    const adopt = logEl ? logEl.children.length - rowsBefore : 0;
+    syncReviewLog(stepIdx, idx, adopt);
     if (c && c.updateUI) c.updateUI();
 }
 
@@ -533,9 +616,22 @@ export async function startPlay() {
     S.stopPlay = false;
     S.playRelease = null;
 
-    // 从当前这一步开始重演（真播：有特效、有声音）；日志先回到当前步之前，避免重复行
-    if (S.stepIdx > 0) renderReviewLog(S.stepIdx - 1, 0, false);
-    else { const el = document.getElementById('log'); if (el) el.innerHTML = ''; }
+    // 从当前这一步开始重演（真播：有特效、有声音）。日志与 store 都先回到「本步之前」：
+    //   只回日志不回 store，会把本步动作叠在段拨留下的中间态上（buff 叠层翻倍 / 目标已不存在），
+    //   导致回看与真播同一步的日志对不上。
+    if (S.stepIdx > 0) {
+        paintAt(S.stepIdx, -1);             // store/画面摆到上一步终态（不画日志）
+        clearAllEffects();
+        syncReviewLog(S.stepIdx - 1, null);
+        c._lastLogType = S.logLastType;     // 分隔符判据与真播同一口径
+    } else {
+        const el = document.getElementById('log');
+        if (el) el.innerHTML = '';
+        S.logKeys = [];
+        S.logLastType = null;
+        c._lastLogType = null;
+    }
+    S.logDirty = true;                  // 真播会直接往 #log 里写，后续段拨必须整块重建对齐
     GlobalStore.set('isPaused', false);
 
     let playCue = 0;
