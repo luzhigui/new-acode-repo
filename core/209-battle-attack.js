@@ -1,5 +1,5 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-export const VER = 'core/209-battle-attack.js V6.4.8';
+export const VER = 'core/209-battle-attack.js V6.4.9';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -415,7 +415,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 打完后的连锁（双击、玄冥联动、跟随攻击）：双击判遮挡；forceUnact 保留旧账——请求者出手前先清行动权
     runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, group, checkBlock: true, forceUnact: true });
 
-    resolveDeaths(allySide, enemySide, log);
+    // 死亡结算恒传固定阵营 A/B：allySide/enemySide 是「出手者视角」，敌方出手时两侧被对调，
+    //   ON_UNIT_DEATH 的 data.allySide 会变成敌方队伍（圣火记账等钩子按阵营认领会取错人）。
+    resolveDeaths(A, B, log);
     // 本帧死亡结算后立刻把事件缓冲收进本组（谁打死的，死亡事件跟谁走）：
     //   留在全局缓冲会被上层攻击帧的 flush 捞走，播放层逐组 APPLY_EVENTS 就会演成死→活→死三段剧透。
     group._events = (group._events || []).concat(flushBattleEvents());

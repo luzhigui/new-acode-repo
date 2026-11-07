@@ -1,5 +1,5 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.7.5';
+export const VER = 'core/204-buff-system.js V6.7.6';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -599,12 +599,15 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
 //   ON_UNIT_DEATH），所以「能保命就保命、保不住（真死）才轮到海克斯」——两者不会同帧抢触发。
 export function submitHolyFireRecord(data) {
     const teams = [data.allySide, data.enemySide].filter(Boolean);
-    const owner = teams.find(t => hasBuff(t._activeBuffs || [], BUFF_TYPES.HOLY_FIRE));
+    // 按死者认领名额：先确定死的是谁、属于哪支队伍，再查那支队伍有没有圣火。
+    //   不能取「第一个持有圣火的队伍」——双方都持有时会取到敌方，己方死者永远认领不到（判负照走）。
+    // 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
+    //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板。
+    const owner = teams.find(t => (data.deadUnits || []).some(u => u && t.includes(u) && !u.isHorse && !u.isSummon && u.pos != null)
+        && hasBuff(t._activeBuffs || [], BUFF_TYPES.HOLY_FIRE));
     if (owner) {
         // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
         if (!owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) {
-            // 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
-            //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板。
             const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse && !u.isSummon);
             if (victim && victim.pos != null) victim.state._holyFire = 'pending';
         }
