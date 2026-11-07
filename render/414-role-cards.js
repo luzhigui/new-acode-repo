@@ -119,7 +119,7 @@ const SKILL_ICONS = {
     hornStrike: '🦌',
     butterflyAttach: '🦋', qianKunDerived: '🦋', qianKunUpgraded: '🛡️', permanentHex: '♾️',
     spiderTransform: '🕷️', spiderFly: '🕷️', mastery: '🏆',
-    jinGangBuHuai: '🛡️', douNiWan: '🎭',
+    jinGangBuHuai: '🔔', douNiWan: '🎭',
     liangyiLink: '☯', targetMark: '🎯', redBlood: '🩸',
     endlessBreath: '☯', baguaArray: '🔮', noContend: '🚫', tenRoundFortify: '🛡️',
     summonLion: '🦁', lionInspire: '⚔️', lionFollow: '🏹',

@@ -70,7 +70,7 @@ export function createKongJianComponent() {
                 kj.state._kongJianFlags[flagKey] = true;
                 kj.state._kongJianPending = (kj.state._kongJianPending || 0) + 1;
                 if (outLog) {
-                    pushSkillAnnounce(outLog, kj, '金刚不坏', `🛡️ ${reason}：金刚不坏神功发动`, { line: false, floatText: '🛡️', floatUid: kj.uid });
+                    pushSkillAnnounce(outLog, kj, '金刚不坏', `🛡️ ${reason}：金刚不坏神功发动`, { line: false, floatText: '🔔', floatUid: kj.uid });
                 }
             }
 
@@ -117,7 +117,7 @@ export function createKongJianComponent() {
                     }
                     checkUpgrade(data.log);
                 } else if (data.log) {
-                    pushSkillAnnounce(data.log, kj, '金刚不坏', `🛡️ ${myDead.map(u => u.name).join('、')} 阵亡：金刚不坏神功发动`, { line: false, floatText: '🛡️', floatUid: kj.uid });
+                    pushSkillAnnounce(data.log, kj, '金刚不坏', `🛡️ ${myDead.map(u => u.name).join('、')} 阵亡：金刚不坏神功发动`, { line: false, floatText: '🔔', floatUid: kj.uid });
                 }
             });
 
