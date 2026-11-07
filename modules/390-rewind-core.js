@@ -37,10 +37,12 @@ const S = {
 };
 
 export function isRewindEnabled() {
+    // 默认开：手机上从收藏/桌面图标/GitHub Pages 打开时地址参数经常丢，
+    //   不能靠 ?rewind=1 才能用。只有显式写 0 才关（?rewind=0 或 localStorage gmd_rewind='0'）。
     try {
-        if (new URLSearchParams(location.search).get('rewind') === '1') return true;
-        return localStorage.getItem('gmd_rewind') === '1';
-    } catch (e) { return false; }
+        if (new URLSearchParams(location.search).get('rewind') === '0') return false;
+        return localStorage.getItem('gmd_rewind') !== '0';
+    } catch (e) { return true; }
 }
 
 export function isActive() { return S.active; }

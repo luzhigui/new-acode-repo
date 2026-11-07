@@ -1,5 +1,5 @@
-// ui/726-rewind-panel.js — 倒针面板（调试用，默认关）：入口按钮 + 底部小面板
-//   开关：地址栏 ?rewind=1 或 localStorage.gmd_rewind='1'；关着时本文件不建任何 DOM、不注册监听。
+// ui/726-rewind-panel.js — 倒针面板（默认开，暂停时才露入口）：入口按钮 + 底部小面板
+//   默认不需要任何地址参数；?rewind=0 或 localStorage.gmd_rewind='0' 可彻底关掉（不建 DOM、不起定时器）。
 import { GlobalStore } from '../infra/104-global-store.js';
 import { STATE } from '../core/201-config-5v5-test.js';
 import {
@@ -21,12 +21,17 @@ function injectStyle() {
     const st = document.createElement('style');
     st.id = 'rewind-style';
     st.textContent = `
-      #rewind-entry{position:fixed;left:8px;bottom:96px;z-index:9998;${BTN_STYLE}opacity:.85}
-      #rewind-bar{position:fixed;left:6px;right:6px;bottom:6px;z-index:9999;display:none;
+      /* 手机竖屏：入口浮在底部操作条上方居中，避开浏览器地址栏/安全区；z-index 压过所有 FX 层 */
+      #rewind-entry{position:fixed;left:50%;transform:translateX(-50%);
+        bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:2147483000;
+        ${BTN_STYLE}min-width:96px;min-height:44px;font-size:15px;opacity:.92}
+      #rewind-bar{position:fixed;left:6px;right:6px;
+        bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:2147483001;display:none;
+        box-sizing:border-box;max-width:calc(100vw - 12px);max-height:42vh;overflow:auto;
         background:rgba(18,18,22,.96);border:1px solid #c9a227;border-radius:10px;
         padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 4px 18px rgba(0,0,0,.6);}
       #rewind-bar .rw-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-      #rewind-bar button{${BTN_STYLE}}
+      #rewind-bar button{${BTN_STYLE}min-width:52px;min-height:42px}
       #rewind-status{color:#e8e8e8;font-size:12px;text-align:center;margin:2px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       #rewind-bar .rw-close{background:#3a1414;color:#ff9c9c;border-color:#7a2a2a}
     `;
@@ -119,9 +124,15 @@ function inBattle() {
     return gs === STATE.RUNNING || gs === STATE.PAUSED;
 }
 
+function pausedNow() {
+    return GlobalStore.get('gs') === STATE.PAUSED || GlobalStore.get('isPaused') === true;
+}
+
 function tick() {
     const battleOn = inBattle();
-    if (_entry) _entry.style.display = battleOn && !isActive() ? 'block' : 'none';
+    // 入口只在「战斗中 + 已暂停」露头：不暂停不打扰正常游玩
+    const showEntry = battleOn && !isActive() && pausedNow();
+    if (_entry) _entry.style.display = showEntry ? 'block' : 'none';
     if (!battleOn && isActive()) { exitReview({ resume: false }); hideBar(); }
     if (isActive()) renderStatus();
     else hideBar();
