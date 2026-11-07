@@ -33,6 +33,7 @@ function getEnemyElitePosFlags() {
 // 战斗-初始化：生成明教+六大派阵容（纯逻辑，无 DOM）
 export function initBattleTeams(currentStage, _rng) {
     const ENEMY_M = CONFIG.ENEMY_M;
+    const ENEMY_POOL_TIER = CONFIG.ENEMY_POOL_TIER;  // 池表整场不变，先取一次，别在 filter 里逐角色读 getter
     const _rand = (min, max) => _rng.nextInt(min, max);
     let allyTeam = [], enemyTeam = [];
     const mingSquadTemplate = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
@@ -395,7 +396,7 @@ export function initBattleTeams(currentStage, _rng) {
             } else {
                 let mVal = item;
                 // 筛池按池档 poolTier（入池资格），不再拿数值档 m 当条件；取出的 m 仍用于建单位
-                let pool = Object.entries(ENEMY_M).filter(([n]) => C.ENEMY_POOL_TIER[n] === mVal);
+                let pool = Object.entries(ENEMY_M).filter(([n]) => ENEMY_POOL_TIER[n] === mVal);
                 let name = null;
                 const squadDefs = Object.values(C.ENEMY_SQUADS).flat();
                 for (let def of squadDefs) { if (typeof def === 'object' && def.m === mVal && !usedEnemyNames.includes(def.name)) { name = def.name; break; } }
@@ -412,7 +413,7 @@ export function initBattleTeams(currentStage, _rng) {
                 // 弱精英锁定：命中名册且 M 值对上
                 //   本数字空位时锁定该具名——六大派弱精英「混入正常阵容占 1 位」，每局至多一名；
                 //   本关若无对应 M 空位则不生效（如第 3 关胖远桥组全对象项）
-                if (!weakLockUsed && weakLockName && C.ENEMY_POOL_TIER[weakLockName] === mVal && !usedEnemyNames.includes(weakLockName)) {
+                if (!weakLockUsed && weakLockName && ENEMY_POOL_TIER[weakLockName] === mVal && !usedEnemyNames.includes(weakLockName)) {
                     name = weakLockName;
                     weakLockUsed = true;
                 }
@@ -439,7 +440,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
         if (currentStage === 5 && xuanmingPairCount === 2) {
             let extraM = C.XUANMING_EXTRA_M;
-            let pool = Object.entries(ENEMY_M).filter(([n]) => C.ENEMY_POOL_TIER[n] === extraM);
+            let pool = Object.entries(ENEMY_M).filter(([n]) => ENEMY_POOL_TIER[n] === extraM);
             let usedNames = enemyUnits.map(u => u.name);
             let name = null;
             while ((!name || usedNames.includes(name)) && pool.length > 0) {

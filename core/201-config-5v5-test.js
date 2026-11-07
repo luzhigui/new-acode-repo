@@ -1,4 +1,6 @@
-export const VER = 'core/201-config-5v5-test.js V6.9.3';
+export const VER = 'core/201-config-5v5-test.js V6.9.4';
+// V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
+//        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 // V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
 //        | 缺字段不再靠默认值兜着，改由 tests/smoke-headless.mjs 的数据卫生断言报错。
 //        | roster 旧表已于 7f04f450 删除，角色池唯一派生口 = getHeroPools()。
@@ -21,6 +23,7 @@ async function loadGameData() {
     const resp = await fetch(new URL('../content/001-game-data.json', import.meta.url));
     if (!resp.ok) throw new Error(`游戏数据加载失败：HTTP ${resp.status}`);
     gameData = await resp.json();
+    invalidateConfigCache();  // 数据整体替换后，派生缓存必须作废（防「改了配置读到旧结果」）
     return gameData;
 }
 
@@ -241,7 +244,7 @@ function getSkillDesc(characterName, skillKey, jealous) {
 }
 
 // 导出加载函数供外部使用
-export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter, hasSkills };
+export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter, hasSkills, invalidateConfigCache };
 
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。
@@ -251,7 +254,20 @@ export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSi
 const HERO_ROLE_TAGS = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER,
     ROLE_TYPES.JAVELIN, ROLE_TYPES.BUTTERFLY];
 
+// 派生结果缓存：每场战斗要读几百次池表（330 建队 + 204 每回合读 BUFFS），
+//   不缓存就是每次重扫一遍 characters 82 条（实测 0.15 ms/次 → 单场 90 ms）。
+//   content 运行期不可变；若外部（故障注入 / 参数实验）原地改写 characters 或 buffs，
+//   必须调用 invalidateConfigCache()，否则会读到旧结果。
+let heroPoolsCache = null;
+let buffsCache = null;
+
+function invalidateConfigCache() {
+    heroPoolsCache = null;
+    buffsCache = null;
+}
+
 function getHeroPools() {
+    if (heroPoolsCache) return heroPoolsCache;
     const data = getGameData();
     if (!data) throw new Error('gameData 未加载：角色池为 characters 推导，不能为空');
     const H = data.characters;
@@ -278,7 +294,7 @@ function getHeroPools() {
     titles.default = data.roster.enemySects.map(s => `${s}弟子`);
     const recruit = (camp) => pick(n => H[n].camp === camp && H[n].summon)
         .sort(order('recruitOrder')).map(n => ({ name: n, role: roleOf(n) }));
-    return {
+    heroPoolsCache = {
         mingAll: pick(n => H[n].mingAll).sort(order('mingOrder')),
         mingM: mapOf(mingEveryday),
         enemyM: mapOf(enemyEveryday),
@@ -290,6 +306,7 @@ function getHeroPools() {
         enemyTitles: titles,
         recruitPool: { ally: recruit('明教'), enemy: recruit('六大派') }
     };
+    return heroPoolsCache;
 }
 
 const CONFIG = {
@@ -391,10 +408,12 @@ const CONFIG = {
         [ROLE_TYPES.WARRIOR]: 'assets/sfx_melee.mp3'
     },
     get BUFFS() {
+        if (buffsCache) return buffsCache;
         const b = getGameData().buffs;
         if (!b || !b.unity) return b;
         // 众志召唤池由 characters.summon 推导；其余 buff 配置原样透传
-        return { ...b, unity: { ...b.unity, recruitPool: getHeroPools().recruitPool } };
+        buffsCache = { ...b, unity: { ...b.unity, recruitPool: getHeroPools().recruitPool } };
+        return buffsCache;
     },
     BUFF_ROLE_REQUIREMENTS: {
         bloodthirst: ROLE_TYPES.WARRIOR,
