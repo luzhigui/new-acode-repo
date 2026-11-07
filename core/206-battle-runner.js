@@ -141,7 +141,9 @@ export function runBattle(o) {
         winner,
         ally: (lastStep && lastStep.ally) || state.ally,
         enemy: (lastStep && lastStep.enemy) || state.enemy,
-        rounds: round,
+        // 循环正常跑满 maxRounds 后 round 已自增到 maxRounds+1，不能直接回传；
+        // winner 提前 break 时 round 是当前轮次，用 min 兜住两种路径
+        rounds: Math.min(round, maxRounds),
         facts,
         meta: { seed, maxRounds, firstSide: firstSide || null }
     };

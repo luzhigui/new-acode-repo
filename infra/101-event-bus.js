@@ -37,8 +37,15 @@ class EventBus {
         for (const { callback } of listeners) {
             try {
                 const result = callback(data);
-                // 异步监听器（返回 Promise）会被收集并等待
-                if (result && typeof result.then === 'function') promises.push(result);
+                // 异步监听器（返回 Promise）会被收集并等待；reject 也要进 _recordError，
+                // 否则 Promise.all 只把拒绝抛给调用方，无 DOM 跑批读不到这条错误
+                if (result && typeof result.then === 'function') {
+                    promises.push(result.catch(err => {
+                        this._recordError(signal, err);
+                        console.error(`[EventBus] 信号 "${signal}" 的异步监听器执行出错:`, err);
+                        throw err;
+                    }));
+                }
             } catch (e) {
                 this._recordError(signal, e);
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);

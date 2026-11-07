@@ -10,7 +10,8 @@
             var p = document.createElement('div');
             p.id = 'errorCapturePanel';
             p.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:25vh;overflow-y:auto;background:rgba(20,0,0,0.92);color:#f88;font-size:10px;z-index:99999;padding:4px 8px;font-family:monospace;display:none;';
-            document.body.appendChild(p);
+            // head 内脚本在 body 解析前就可能被模块加载错误触发；body 为 null 时挂到 documentElement 上
+            (document.body || document.documentElement).appendChild(p);
             return p;
         })();
         panel.style.display = 'block';
