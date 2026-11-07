@@ -3,7 +3,8 @@
 //   clock.animate 逻辑时间 + z-index 10004~10011），不引新配色体系。
 //   载荷全部是可序列化的 uid/camp/pos/数值 → 回放、联机从机都能播同一份演出。
 //   一条 cue 只在这里演出一次；快进由 fx/610 订阅侧统一拦（不阻塞战斗）。
-export const VER = 'fx/619-skill-cues.js V1.0.0';
+export const VER = 'fx/619-skill-cues.js V1.1.0';
+// V1.1.0 | 2026-11-07 吸星演出放慢到可读：连线 1000ms、数值 1700ms、目标间隔 180ms（逻辑时间，不阻塞）。
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
@@ -54,7 +55,8 @@ export function showSkillCue(cue) {
     }
 }
 
-// ── 俞莲舟·吸星大法：每个被吸者一格细线收向他 + 头顶飘「攻/防/上限」被吸掉的数 + 自身轻微加深 ──
+// ── 俞莲舟·吸星大法：每个被吸者一格细线收向他 + 头顶飘「攻/防/血」被吸掉的数 + 自身轻微加深 ──
+//   节奏按「第一次看的人能读出来」定：连线 1000ms、数值 1700ms 停留、目标间隔 180ms（全部逻辑时间、不阻塞）。
 function showAbsorb(cue) {
     const self = cellOf(cue.self);
     if (!self) return;
@@ -62,17 +64,18 @@ function showAbsorb(cue) {
     const shade = jot(`position:fixed;left:${self.x}px;top:${self.y}px;width:${self.width}px;height:${self.height}px;
         transform:translate(-50%,-50%);border-radius:8px;pointer-events:none;z-index:10003;opacity:0;
         background:radial-gradient(ellipse at center, rgba(96,58,148,0.40) 0%, rgba(96,58,148,0.12) 62%, rgba(96,58,148,0) 78%);`);
-    clock.animate(900, p => {
-        shade.style.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78).toFixed(2);
+    clock.animate(1400, p => {
+        shade.style.opacity = (p < 0.16 ? p / 0.16 : 1 - (p - 0.16) / 0.84).toFixed(2);
     }).then(() => drop(shade));
 
     const targets = Array.isArray(cue.targets) ? cue.targets : [];
     targets.forEach((t, i) => {
         const tr = cellOf(t);
         if (!tr) return;
-        clock.wait(i * 70).then(() => {
+        clock.wait(i * 180).then(() => {
             absorbLine(tr, self);
-            absorbNumbers(tr, t);
+            // 线飞出去一点点后再出数，先看「吸谁」、再读「吸多少」
+            clock.wait(140).then(() => absorbNumbers(tr, t));
         });
     });
 }
@@ -86,27 +89,29 @@ function absorbLine(from, to) {
         transform-origin:0 50%;transform:rotate(${ang}deg) scaleX(0);pointer-events:none;z-index:10005;opacity:0;
         background:linear-gradient(90deg, rgba(196,150,255,0.05) 0%, rgba(186,140,255,0.55) 58%, rgba(255,214,130,0.9) 100%);
         box-shadow:0 0 6px rgba(160,110,255,0.45);`);
-    clock.animate(520, p => {
-        const grow = p < 0.45 ? p / 0.45 : 1;
+    clock.animate(1000, p => {
+        // 0~50% 长到对方身上，50~62% 停住可看清，62~100% 淡出
+        const grow = p < 0.5 ? p / 0.5 : 1;
         line.style.transform = `rotate(${ang}deg) scaleX(${grow.toFixed(3)})`;
-        const op = p < 0.12 ? p / 0.12 : (p < 0.55 ? 1 : 1 - (p - 0.55) / 0.45);
+        const op = p < 0.08 ? p / 0.08 : (p < 0.62 ? 1 : 1 - (p - 0.62) / 0.38);
         line.style.opacity = Math.max(0, op).toFixed(2);
     }).then(() => drop(line));
 }
 
 function absorbNumbers(rect, t) {
     const bits = [];
-    if (t.atk > 0) bits.push('⚔-' + numText(t.atk));
-    if (t.def > 0) bits.push('🛡-' + numText(t.def));
-    if (t.hp > 0) bits.push('❤-' + numText(t.hp));
+    if (t.atk > 0) bits.push('攻-' + numText(t.atk));
+    if (t.def > 0) bits.push('防-' + numText(t.def));
+    if (t.hp > 0) bits.push('血-' + numText(t.hp));
     if (bits.length === 0) return;
     const el = jot(`position:fixed;left:${rect.x}px;top:${rect.top - 4}px;transform:translate(-50%,0);
-        font-size:13px;font-weight:700;color:#e9dcff;white-space:nowrap;pointer-events:none;z-index:10006;opacity:0;
+        font-size:14px;font-weight:700;color:#efe4ff;white-space:nowrap;pointer-events:none;z-index:10006;opacity:0;
         text-shadow:0 0 8px rgba(120,70,200,0.9),0 1px 3px rgba(0,0,0,0.85);`);
     el.textContent = bits.join(' ');
-    clock.animate(880, p => {
-        const op = p < 0.14 ? p / 0.14 : (p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3);
-        const rise = -26 * (1 - Math.pow(1 - p, 2));
+    clock.animate(1700, p => {
+        // 14% 淡入 → 72% 前保持满亮可读 → 最后淡出；上浮 34px
+        const op = p < 0.14 ? p / 0.14 : (p < 0.72 ? 1 : 1 - (p - 0.72) / 0.28);
+        const rise = -34 * (1 - Math.pow(1 - Math.min(1, p / 0.85), 2));
         el.style.opacity = Math.max(0, op).toFixed(2);
         el.style.transform = `translate(-50%, ${rise.toFixed(1)}px)`;
     }).then(() => drop(el));

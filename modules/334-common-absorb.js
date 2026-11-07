@@ -2,7 +2,8 @@
 // V1.2.0 | 2026-11-07 面板为 0 的属性不吸（否则被吸方扣不动、吸方白得 0.1）；面板 > 0 时仍 max(面板 × ratio, 0.1)。
 // V1.1.0 | 2026-11-07 吸取量不再取整：每目标实数扣 = max(面板值 × ratio, 0.1)，攻/防/血上限同精度；
 //          旧版 floor 把 1% 不足 1 点的目标抹成 0（30 攻吸 0），那不是需求。
-export const VER = 'modules/334-common-absorb.js V1.2.0';
+export const VER = 'modules/334-common-absorb.js V1.3.0';
+// V1.3.0 | 2026-11-07 未触发/无可吸目标时补一行「🌀 吸星：本次未触发」回合开始提示（每回合最多一行，不飘字）。
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -22,8 +23,11 @@ export const statAbsorbHandler = {
                 const self = allUnits.find(u => u.name === decl.name && u.alive);
                 if (!self) return;
 
-                // 概率判定
-                if (getBattleRng().next() >= decl.prob) return;
+                // 概率判定：没触发也留一行提示（每回合最多这一行），避免玩家以为机制坏了
+                if (getBattleRng().next() >= decl.prob) {
+                    if (data.log) pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 吸星：本次未触发`);
+                    return;
+                }
 
                 let totalAtk = 0, totalDef = 0, totalMaxHp = 0;
                 // 演出用：每个被吸者吸走多少（攻/防/上限），只给 fx/619 画连线与飘字，不进任何结算
@@ -71,6 +75,9 @@ export const statAbsorbHandler = {
                             : null;
                         pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 发动吸星：全场吸取 攻+${fmtNum(totalAtk)} 防+${fmtNum(totalDef)} 血+${fmtNum(totalMaxHp)}`, { floatText: '🌀', floatUid: self.uid, cue });
                     }
+                } else if (data.log) {
+                    // 掷中了但全场没有可吸属性（例如只剩 0 面板的召唤物）：也算未触发，同样只留一行
+                    pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 吸星：本次无可吸目标`);
                 }
             }
         });
