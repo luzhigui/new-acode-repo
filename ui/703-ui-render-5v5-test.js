@@ -1,5 +1,7 @@
 // V6.1.2 | 2026-11-07 #13：小昭详情面板补「变身次数/职业 + 变身/精通属性累计」两行，读引擎 _mods/_roleCounts
-export const VER = 'ui/703-ui-render-5v5-test.js V6.1.2';
+// V6.1.3 | 2026-11-07 #13 收口：成长/精通两行只在妹妹（isXiaoZhaoBrother）分支显示，姐姐只保留永久海克斯那行
+//          #16 面板表头吸顶：标题+关闭叉常驻不滚，只有内容区独立 overflow-y:auto
+export const VER = 'ui/703-ui-render-5v5-test.js V6.1.3';
 
 // getSkillDesc 已下沉到 ui/710-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/214-battle-shared.js';
@@ -52,18 +54,35 @@ function selectOrStore(ctx, key) {
 let detailPopup = null;
 let detailPopupUnit = null;
 let detailPopupInterval = null;
+// 表头吸顶：标题与关闭叉是常驻节点（不参与滚动），刷新时只重写 detailBody
+let detailHeaderTitle = null;
+let detailBody = null;
 
 function openDetailPopup(unit) {
     closeDetailPopup();
     detailPopupUnit = unit;
     detailPopup = document.createElement('div');
     detailPopup.className = 'detail-popup';
-    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--c-panel);border:3px solid var(--c-gold);border-radius:12px;padding:16px;z-index:10050;min-width:240px;max-width:300px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
-    let closeBtn = document.createElement('span');
+    // #16 表头吸顶：外层只负责定位/边框，自己绝不滚动；表头 flex:0 0 auto + 内容区独立滚动两段式。
+    //   原写法把 ✕ 和内容一起塞进同一个 overflow-y:auto 盒子，滚到哪表头和叉就跟到哪消失。
+    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;background:var(--c-panel);border:3px solid var(--c-gold);border-radius:12px;z-index:10050;min-width:240px;max-width:300px;max-height:min(60vh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px));overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
+    const header = document.createElement('div');
+    // 不透明底 + z-index：内容只在自己的滚动盒里，物理上不会从表头下透出；再留边线做视觉分界
+    header.style.cssText = 'position:relative;z-index:2;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:6px 4px 6px 16px;background:var(--c-panel);border-bottom:1px solid rgba(0,0,0,0.18);';
+    detailHeaderTitle = document.createElement('div');
+    detailHeaderTitle.style.cssText = 'flex:1 1 auto;min-width:0;font-weight:bold;font-size:15px;color:var(--c-brown);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    const closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:var(--c-brown-border);font-weight:bold;';
+    // 触控热区 ≥40px：44×44，且因为表头不滚，滑到最底也能直接点
+    closeBtn.style.cssText = 'flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;font-size:20px;font-weight:bold;color:var(--c-brown-border);';
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDetailPopup(); });
-    detailPopup.appendChild(closeBtn);
+    header.appendChild(detailHeaderTitle);
+    header.appendChild(closeBtn);
+    detailBody = document.createElement('div');
+    // 独立滚动容器：min-height:0 才能真滚；iOS 惯性滚动 + 滚动链不外溢 + 底部 eat 安全区
+    detailBody.style.cssText = 'flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 16px calc(16px + env(safe-area-inset-bottom, 0px));';
+    detailPopup.appendChild(header);
+    detailPopup.appendChild(detailBody);
     updateDetailPopupContent();
     document.body.appendChild(detailPopup);
     setTimeout(() => { document.addEventListener('click', closeDetailPopupOnClick); }, 100);
@@ -151,10 +170,17 @@ function updateDetailPopupContent() {
     if (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) {
         const perms = u.state._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
+    } else if (unitBuffs.length > 0) {
+        buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
+    }
+    // #13 成长/精通只给妹妹面板（老板 2026-11-07 纠正：姐姐那侧不要）。
+    //   数据本身也是妹专有：modules/302 `spiderTransform` 首行 `if (!unit.isXiaoZhaoBrother || !unit.alive) return;`
+    //   ⇒ `_roleCounts`/`_masteredRoles` 只有妹会写。这里按人收口，不再与姐姐共用同一分支。
+    if (u.isXiaoZhaoBrother) {
         const mastered = u.state._masteredRoles || [];
         if (mastered.length > 0) {
             // 精通加成必须读 content 的 mastery 参数 + CONFIG.MASTERY_FULL_BONUS_LAYERS，
-            //   与 modules/20 spiderTransform 的 masteryLayers 同口径（写死数字会与引擎真值漂移）。
+            //   与 modules/302 spiderTransform 的 masteryLayers 同口径（写死数字会与引擎真值漂移）。
             const m = getSkillParams('小昭', 'mastery') || {};
             const layers = mastered.length >= 4
                 ? mastered.length + (CONFIG.MASTERY_FULL_BONUS_LAYERS ?? 2)
@@ -180,19 +206,18 @@ function updateDetailPopupContent() {
             growthText = `<span style="color:#888;">变身</span><span>共 ${transformN} 次（${roleCntText}），已变 ${mastered.length}/4 职业</span>`
                 + `<span style="color:#888;">成长</span><span>精通 ${layers} 层；变身 +${fmtNum(tAtk)}攻+${fmtNum(tDef)}防+${fmtNum(tHp)}血，精通 +${fmtNum(mAtk)}攻+${fmtNum(mDef)}防+${fmtNum(mHp)}血</span>`;
         }
-    } else if (unitBuffs.length > 0) {
-        buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
     let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
     let hpColor = hpPct > 70 ? 'var(--c-green)' : (hpPct > 40 ? 'var(--c-sect-orange)' : 'var(--c-danger)');
 
-    let closeBtn = detailPopup.querySelector('span');
-    detailPopup.innerHTML = '';
-    if (closeBtn) detailPopup.appendChild(closeBtn);
-
-    let content = document.createElement('div');
-    content.innerHTML = `
-        <div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:var(--c-brown);">${u.name} ${u.isHorse ? '🐴' : ''}${u.isZhang ? '[无忌]' : ''}${u.isWei ? '[韦一笑]' : ''}</div>
+    // 只重写内容区：表头（标题+关闭叉）是常驻节点，不参与滚动，也不随每秒刷新重建。
+    //   先存 scrollTop 再还原，避免 1s 定时刷新把用户滑到的位置弹回顶部。
+    const keepScroll = detailBody ? detailBody.scrollTop : 0;
+    if (detailHeaderTitle) {
+        detailHeaderTitle.textContent = `${u.name} ${u.isHorse ? '🐴' : ''}${u.isZhang ? '[无忌]' : ''}${u.isWei ? '[韦一笑]' : ''}`;
+    }
+    if (!detailBody) return;
+    detailBody.innerHTML = `
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
@@ -225,13 +250,14 @@ function updateDetailPopupContent() {
             })()}
         </div>
     `;
-    detailPopup.appendChild(content);
+    detailBody.scrollTop = keepScroll;
 }
 
 function closeDetailPopup() {
     if (detailPopupInterval) { clearInterval(detailPopupInterval); detailPopupInterval = null; }
     if (detailPopup && detailPopup.parentNode) { detailPopup.parentNode.removeChild(detailPopup); }
     detailPopup = null; detailPopupUnit = null;
+    detailHeaderTitle = null; detailBody = null;
     document.removeEventListener('click', closeDetailPopupOnClick);
 }
 
