@@ -334,6 +334,37 @@ function refreshMaxHp(target, source, reason) {
     }
 }
 
+// 面板换底唯一出口（形态变换类：336 现原形→成昆；以后的换面板机制同走这里）。
+//   只换「底数」——m / _baseAtk / _baseDef / _baseMaxHp / _initAtk / _initDef / _initMaxHp；
+//   已有 _mods（addMod/buff/光环）一格不动，新底数由 getStat 现算叠加。
+//   血量口径：ratio 是调用方算好的「换底瞬间 hp/maxHp」，换算到新上限，不引入固定百分比常量。
+//   _hpDmgRatio 刻意不跟随模板（沿用换底前的比例），与 336 现状逐位一致；要跟随模板须先拍板。
+//   不套 applyStatChange：形态换算不是受伤/治疗语义，且它的 floor 落账会把 tenth 差值丢 0.1
+//   （实测 13% 的 (旧血, 新血) 组合会少一格），故在同一出口内精确落血 + 记 hp 审计。
+function rebasePanel(target, tpl, ratio, reason) {
+    if (!target || !tpl || !target.alive) return false;
+    const beforeHp = target.hp;
+    target.m = tpl.m;
+    target.state._baseAtk = tpl.state._baseAtk;
+    target.state._baseDef = tpl.state._baseDef;
+    target.state._baseMaxHp = tpl.state._baseMaxHp;
+    target.state._initAtk = tpl.state._initAtk;
+    target.state._initDef = tpl.state._initDef;
+    target.state._initMaxHp = tpl.state._initMaxHp;
+    target.atk = tpl.state._baseAtk;
+    target.def = tpl.state._baseDef;
+    target.maxHp = getStat(target, 'maxHp');
+    target.hp = Math.max(1, Math.round(ratio * target.maxHp * 10) / 10);
+    emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
+        hp: target.hp, maxHp: target.maxHp, alive: target.alive, role: target.role,
+        atk: target.atk, def: target.def,
+        _baseAtk: target.state._baseAtk, _baseDef: target.state._baseDef, _baseMaxHp: target.state._baseMaxHp
+    });
+    const delta = target.hp - beforeHp;
+    if (delta !== 0) recordHpAudit(target, 'panelRebase', delta, reason || '面板换底');
+    return true;
+}
+
 const _queries = {};
 export function registerQuery(name, fn) { _queries[name] = fn; }
 export function query(name, ...args) { return _queries[name] ? _queries[name](...args) : undefined; }
@@ -404,5 +435,6 @@ export {
     killUnit,
     previewHeal,
     refreshMaxHp,
+    rebasePanel,
     recordCombatStat
 };

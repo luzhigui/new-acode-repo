@@ -13,7 +13,7 @@ export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.0.2';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { installDeclaredSkills, buildMechanicDeclarations } from '../core/216-skill-mechanisms.js';
 import { getGameData, getSkillParams } from '../core/201-config-5v5-test.js';
-import { getStat, getBattleRng } from '../core/214-battle-shared.js';
+import { getBattleRng, rebasePanel } from '../core/214-battle-shared.js';
 import { Unit } from '../core/202-unit.js';
 import { SIGNAL_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -46,20 +46,10 @@ function transformToChengkun(self) {
     tpl.init(getBattleRng());
     tpl.applyBonus();
 
-    // 先记比例（旧上限 = 现形瞬间的有效最大血），再换底数；换算后 hp = 比例 × 新上限，不取 min(旧血) 截断
+    // 先记比例（旧上限 = 现形瞬间的有效最大血），再换底数；换算后 hp = 比例 × 新上限，不取 min(旧血) 截断。
+    //   换底（m/_base*/_init* + maxHp + hp 落账 + hp 审计）统一走 core/214 rebasePanel，本文件不再直写面板字段。
     const ratio = self.maxHp > 0 ? self.hp / self.maxHp : 1;
-
-    self.m = tpl.m;
-    self.state._baseAtk = tpl.state._baseAtk;
-    self.state._baseDef = tpl.state._baseDef;
-    self.state._baseMaxHp = tpl.state._baseMaxHp;
-    self.atk = tpl.state._baseAtk;
-    self.def = tpl.state._baseDef;
-    self.maxHp = getStat(self, 'maxHp');
-    self.hp = Math.max(1, Math.round(ratio * self.maxHp * 10) / 10);
-    self.state._initAtk = tpl.state._initAtk;
-    self.state._initDef = tpl.state._initDef;
-    self.state._initMaxHp = tpl.state._initMaxHp;
+    rebasePanel(self, tpl, ratio, '现原形');
     // 显示名单独一层：渲染 403 读 state._displayName，日志/机制仍按 self.name
     self.state._displayName = REVEAL_TEMPLATE;
 }
