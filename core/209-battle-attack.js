@@ -71,7 +71,9 @@ function runExtraAttackRequests(requests, opts) {
         // 「待死」= 本击已把他打到 0 血、死亡结算在更后面（resolveDeaths）——此时不得再出手。
         //   殷天正的反击请求在 AFTER_DAMAGE_APPLIED 入队，若同一击的白骨爪连锁（AFTER_ATTACK 之后才落地）
         //   把他斩了，只判 alive 仍会放行 →「已经死了还能反击」。这里与锁定目标判据同口径补严判据。
-        if (req.unit.state._pendingDeath) continue;
+        //   hp<=0 与 processUnitAttack 入口（L112）同口径：alive 尚未置 false 但血已归零的窗口也拦掉
+        //   （唐文亮冲刺的赠送攻击就是在这个窗口里被执行成「死了还冲刺」）。
+        if (req.unit.state._pendingDeath || req.unit.hp <= 0) continue;
         if (checkBlock && req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
         executedUids.add(req.unit.uid);
         if (forceUnact) req.unit.state._acted = false;

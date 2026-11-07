@@ -170,6 +170,9 @@ export function createTangWenLiangComponent() {
             }
 
             function doDash(target, outLog) {
+                // 执行处兜底判据（与 core/209 行动入口同口径）：排队时还活着、执行时可能已被本击打死。
+                //   两个入口都已判过，这里再判一次，保证「不冲刺 / 不扣真伤 / 不写事实」三件一起停。
+                if (!tw.alive || tw.hp <= 0 || tw.state._pendingDeath) return;
                 // 在引擎坐标系中，1/2/3 始终是前排（不论明教还是六大派）。
                 //   所以目标所在列的前排永远是 1 + col。
                 const frontPos = ((target.pos - 1) % 3) + 1;
