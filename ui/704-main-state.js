@@ -2,6 +2,7 @@ export const VER = 'ui/704-main-state.js V6.0.0';
 
 import { STATE } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext, getState, setState } from '../infra/104-global-store.js';
+import { getStoreDefault } from '../infra/107-store-schema.js';
 
 import { updateUI, spawnVictoryEffects, setRenderStore } from './703-ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './706-main-battle.js';
@@ -37,9 +38,10 @@ GlobalStore.set('fxDashSlow', true);
 GlobalStore.set('dodgeEffectEnabled', true);
 GlobalStore.set('selectedBuffIndex', -1);
 GlobalStore.set('currentDoubleStrikeUid', null);
-GlobalStore.set('activeBuffs', []);
-GlobalStore.set('snapshot', { ally: [], enemy: [] });
-GlobalStore.set('UI', { allyTeam: [], enemyTeam: [], currentResult: null, round: 0 });
+// 结构键缺省值统一取 infra/107，避免 704 与 schema 各维护一份
+GlobalStore.set('activeBuffs', getStoreDefault('activeBuffs'));
+GlobalStore.set('snapshot', getStoreDefault('snapshot'));
+GlobalStore.set('UI', getStoreDefault('UI'));
 
 // gs 已统一由 GlobalStore 管理，不再需要模块级变量和同步函数
 

@@ -42,6 +42,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     UI.currentResult = null;
     UI.round = 0;
     GlobalStore.set('battleLog', []); // V5.7.8 战报累积日志随新局重置（体检规则数据源）
+    GlobalStore.set('battleFacts', []); // 原始 fact 同局重置，避免跨局累积（原主路径漏清）
     GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
     snapshot._rngSeed = _rng.getState();
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;

@@ -1,6 +1,7 @@
 export const VER = 'infra/102-core-utils.js V6.1.3';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';
+import { validateStoreValue } from './107-store-schema.js';
 
 // StateMachine
 // 通用有限状态机，transition 校验目标状态和转换表
@@ -113,6 +114,8 @@ export function getBattleState(key) {
 }
 
 export function setBattleState(key, value) {
+    // battle 桶的唯一写入点：schema 校验在这里做，104 的 set 直接委托过来
+    validateStoreValue(key, value);
     _battleState[key] = value;
 }
 

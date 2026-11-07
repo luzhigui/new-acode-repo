@@ -1,7 +1,8 @@
-export const VER = 'infra/104-global-store.js V6.0.1';
+export const VER = 'infra/104-global-store.js V6.1.0';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './102-core-utils.js';
 import { UI_HANDLER_KEYS } from './106-battle-enums.js';
+import { validateStoreValue, isStoreKey } from './107-store-schema.js';
 
 // UIHandler 键校验：非法键立即抛错（不再靠拼写正确才生效）；合法但尚未注册仍返回 undefined，
 //   保留调用点 `const fn = getUIHandler(k); if (fn) fn()` 的加载时序语义。
@@ -18,7 +19,6 @@ const _state = {
     voteChoice: null,
     battleHasZhang: false,
     crashMode: 'fly',
-    currentBattleState: null,
     battleStore: null,
     forceXiaoZhao: false,
     skipBuffPopup: false
@@ -35,6 +35,10 @@ export const GlobalStore = {
     },
 
     setState(partial) {
+        // 逐键校验后再落库；battle 桶的键不在这里写（统一走 set 的路由）
+        for (const key of Object.keys(partial || {})) {
+            if (!isBattleStateKey(key)) validateStoreValue(key, partial[key]);
+        }
         Object.assign(_state, partial);
         _listeners.forEach(fn => { try { fn(_state, partial); } catch(e) {} });
     },
@@ -53,8 +57,10 @@ export const GlobalStore = {
     },
     set(key, value) {
         if (isBattleStateKey(key)) {
+            // 102 的 setBattleState 内部做同一套 schema 校验（单一校验点，避免双报）
             setBattleState(key, value);
         } else {
+            validateStoreValue(key, value);
             _state[key] = value;
         }
         if (_effects[key]) {
@@ -93,6 +99,10 @@ export const GlobalStore = {
     dispatch(action) {
         if (!action || !action.type) return;
         if (action.payload) {
+            // 只校验已注册的 store 键；非 store 字段沿用原行为（dispatch 当前无调用点）
+            for (const key of Object.keys(action.payload)) {
+                if (isStoreKey(key) && !isBattleStateKey(key)) validateStoreValue(key, action.payload[key]);
+            }
             Object.assign(_state, action.payload);
         }
         _listeners.forEach(fn => { try { fn(_state, action); } catch(e) {} });
@@ -108,7 +118,8 @@ export const GlobalStore = {
     },
 
     updateBattleState(state) {
-        _state.currentBattleState = state;
+        // 真值只在 _battleState（102），不再留 _state 死副本
+        setBattleState('currentBattleState', state);
     },
     setUIHandler(name, fn) {
         assertUIHandlerKey(name, 'setUIHandler');
