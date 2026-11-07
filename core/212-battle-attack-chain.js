@@ -3,9 +3,10 @@
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
 // V1.0.6 | 2026-11-07 第 184 轮：补记 V1.0.5 未升版的实质改动——命中落地后对 hp<=0 目标补挂
 //          _pendingDeath（死亡标记唯一的正路出口，避免「血归零但待死标记没挂」的中间态）
-// V1.0.7 | 2026-11-08 出手攻击值下限：atkAct 取 max(1, atkBase+波动)，负攻（众志补员吃防战 -8）不再算出负伤害；
-//          普攻/反击/连击/严阵反弹全走这一处，属性与显示层仍保留负值/按 0 印
-export const VER = 'core/212-battle-attack-chain.js V1.0.7';
+// V1.0.8 | 2026-11-08 修正 V1.0.7（撤回攻击值下限，攻击力不动）：改为伤害出口 dmg = max(1, dmg)，
+//          只兜真打中的最终伤害；闪避/免疫/完全挡下不经过这里，不给 1
+// V1.0.7 | 2026-11-08 出手攻击值下限 atkAct=max(1, atkBase+波动)（已撤回，见 V1.0.8）
+export const VER = 'core/212-battle-attack-chain.js V1.0.8';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -226,9 +227,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let atkBase = Math.floor(getStat(unit, 'atk'));
     const rng = getBattleRng();
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
-    // 出手攻击值下限（老板定案 2026-11-08）：属性可以是负攻（众志补员吃防战 atk-8），但参与公式的攻击值取 max(1, …)，
-    //   否则 atk×atk/(atk+def) 会算出负伤害（等价给敌人回血）。普攻/反击/连击/严阵反弹都走这一个 atkAct。
-    let atkAct = Math.max(1, atkBase + atkVar), defAct = defBase + defVar;
+    let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
     // hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣（不能「先回血再加」——满血时被 maxHp 夹掉＝白给）。
     //   按 dmg 计数的链路（吸血/反伤/破防/统计）不受影响。
@@ -281,6 +280,10 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     if (lastStandTakenMul && lastStandTakenMul > 1) {
         dmg = Math.floor(dmg * lastStandTakenMul * 10) / 10;
     }
+
+    // 伤害出口下限（老板定案 2026-11-08）：真打中（未被闪避/免疫/完全挡下）的最终伤害至少 1，
+    //   负攻（众志补员吃防战 -8）也不再算出负伤害。被挡下/免疫的路径不进本函数，不会凭空给 1。
+    dmg = Math.max(1, dmg);
 
     // 计算明细（结构化，不是字符串）：渲染层照着排版，不再自己重算一遍。
     // 历史问题：render/30 为拼"计算：…"那行，又调了一次 calcDamage + 查了一次 FANG_K，
