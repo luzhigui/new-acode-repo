@@ -39,7 +39,12 @@
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
 //   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
 //   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.29';
+// V6.1.30（2026-11-07 第二棒）：给「重复应用」的两条分支各补可区分的静态前缀。
+//   病由：uid 路径与「同名唯一」路径两条分支的 msg 首个静态字面量完全相同
+//   （都是「复发：carry重复应用：第」），而分支级命中判定是「fired msg 以某分支指纹为前缀」
+//   ⇒ 两条分支互相抢匹配，被抢的那条**永久不可判定**（判据分支级空转自检断言⑥点名）。
+//   改法：只改「怎么报」，各补一个静态前缀（uid 路径 / 同名唯一路径），判定口径与阈值一字未改。
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.30';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/201-config-5v5-test.js';
@@ -157,14 +162,14 @@ export const rule95 = {
                 }
                 if (uid != null) {
                     if (seenThisRound['u:' + uid]) {
-                        return { fail: true, msg: '复发：carry重复应用：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（uid=' + uid + ' 同回合被应用两次；重复执行本身是缺陷）' };
+                        return { fail: true, msg: '复发：carry重复应用(uid 路径)：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（uid=' + uid + ' 同回合被应用两次；重复执行本身是缺陷）' };
                     }
                     seenThisRound['u:' + uid] = true;
                 } else {
                     if (nameCount > 1) {
                         ambiguousNames++; // 同名，无法归因到个体，跳过
                     } else if (seenThisRound[who]) {
-                        return { fail: true, msg: '复发：carry重复应用：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
+                        return { fail: true, msg: '复发：carry重复应用(同名唯一路径)：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
                     }
                     seenThisRound[who] = true;
                 }

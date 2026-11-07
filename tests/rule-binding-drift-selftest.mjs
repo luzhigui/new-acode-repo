@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/rule-binding-drift-selftest.mjs | V1.0.0 | 2026-10-24 第 129 轮
+// tests/rule-binding-drift-selftest.mjs | V1.1.0 | 2026-11-07 第 186 棒（体检侧·MiniMax）：名表补收 content/characters 的角色名键（修「附身于 张无忌」误报）
 //
 // 背景（为什么要有它，务必先读）：
 //   第 128 轮在**账本契约侧**抓出一个真·假绿：HLS_JIUYANG_HEAL 绑的 label 在主代码里零命中，
@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
 import { readIfAbs } from './_lib/read-if-abs.mjs';
 
-export const VER = 'tests/rule-binding-drift-selftest.mjs V1.0.0';
+export const VER = 'tests/rule-binding-drift-selftest.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -133,7 +133,43 @@ function collectCorpus() {
     return parts.join('\n');
 }
 
-// --- A 模板拼装：配置名表（content / core 的 name / character 字段，含角色名与机制名）---
+// --- A 模板拼装：配置名表 ---
+//   = ① content / core 里 "name" / "character" 字段的**值**（机制名、技能名）
+//   + ② content/*.json 里 characters 对象的**键**（角色名）
+// V1.1.0 补 ②：病由是「角色名在 content 里是对象的键，不是字段的值」。
+//   content/001-game-data.json 的 characters 长这样：{ "周芷若": {...}, "张无忌": {...} } ——
+//   角色名挂在键上；而旧口径只收 "name"/"character" 字段的**值** ⇒ 名表实测 100 条里
+//   **一个角色名都没有**（张无忌 / 殷天正 / 小昭 全查不到）。
+//   后果：像 143 的「附身于 张无忌」这种「主代码拼 前缀+角色名」的判据键，零命中会被自检
+//   当成「真·假绿」报红。可主代码并没改名 —— render/409-facts-control.js 的文案是
+//   `化为蝴蝶附身于 ${fact.hostName}！`，运行时确实会拼出「附身于 张无忌」，规则没写错。
+//   ⇒ 是名表漏了角色名，不是判据失守。这条红是**自检自己误报**，必须从名表这边修。
+//   实测（补进 67 个角色名后）：新增免检 2 条（143 的 carry：张无忌 / 附身于 张无忌，
+//   都是真·模板拼装）、**误伤 0 条**、其余零命中全被既有免检兜住。
+function collectRoleNames() {
+    const names = new Set();
+    const base = path.join(root, 'content');
+    if (!fs.existsSync(base)) return names;
+    const stack = [base];
+    while (stack.length) {
+        const cur = stack.pop();
+        let ents = [];
+        try { ents = fs.readdirSync(cur, { withFileTypes: true }); } catch (e) { continue; }
+        for (const e of ents) {
+            const full = path.join(cur, e.name);
+            if (e.isDirectory()) { stack.push(full); continue; }
+            if (!/\.json$/.test(e.name)) continue;
+            const raw = readIfAbs(full);
+            if (!raw) continue;
+            let j;
+            try { j = JSON.parse(raw); } catch { continue; }
+            const chars = j && j.characters;
+            if (!chars || typeof chars !== 'object' || Array.isArray(chars)) continue;
+            for (const k of Object.keys(chars)) if (HAS_CN.test(k) && k.length >= 2) names.add(k);
+        }
+    }
+    return names;
+}
 function collectCharNames() {
     const names = new Set();
     const dirs = ['content', 'core'];
@@ -156,6 +192,7 @@ function collectCharNames() {
             }
         }
     }
+    for (const k of collectRoleNames()) names.add(k);
     return names;
 }
 
@@ -223,12 +260,24 @@ for (const c of COMPAT_KEYS) {
 }
 
 const cnKeys = seen.size;
+// 角色名表下限：名表漏了角色名 ⇒ 免检 A 失效 ⇒ 模板拼装型判据键被误报成「真·假绿」。
+//   （V1.1.0 修的就是这个：旧名表 100 条、一个角色名都没有。）这道闸门防它再悄悄塌回去 ——
+//   content 的 characters 结构若改名/搬家，角色名会静默变 0 条 ⇒ 免检 A 整片失效 ⇒
+//   误报会以「判据失守」的名义卷土重来，而那时没人知道是名表空了。
+const MIN_ROLE_NAMES = 50;
+const roleNames = collectRoleNames();
+if (roleNames.size < MIN_ROLE_NAMES) {
+    fails.push(`⓪ 角色名表只收到 ${roleNames.size} 条（下限 ${MIN_ROLE_NAMES}）—— content 的 characters 段`
+        + '可能改名/搬家/格式变了 ⇒ 免检 A（模板拼装）整片失效，模板拼装型判据键会被误报成「真·假绿」');
+}
 if (files.length < MIN_RULE_FILES) fails.push(`⓪ 只扫到 ${files.length} 个规则文件，低于下限 ${MIN_RULE_FILES} —— 目录可能变了，本自检结果不可信`);
 if (cnKeys < MIN_KEYS) fails.push(`⓪ 只抽到 ${cnKeys} 个中文判据键，低于下限 ${MIN_KEYS} —— 抽取口径可能失效（静默恒绿），本自检结果不可信`);
 
 if (!fails.length) {
     notes.push(`抽取口径：${files.length} 个规则文件 → ${cnKeys} 个中文判据键（匹配位 ${rawCount} 处），逐键到主代码语料核存在性 —— 无一漂移`);
     notes.push(`免检 ${exempt.length} 条（A 模板拼装 / B 规则自身文案 / C 反向哨兵），逐条留痕如下`);
+    notes.push(`模板拼装免检用的名表：共 ${charNames.length} 条（其中角色名 ${roleNames.size} 条来自 content/*.json 的 characters 键`
+        + ' —— 不收这批，143 的「附身于 张无忌」类键会被误报成「真·假绿」）');
     notes.push(`棘轮：反向哨兵白名单 ${SENTINEL_KEYS.length} 条全部仍在规则中出现（只许收缩，不得新增）`);
 }
 

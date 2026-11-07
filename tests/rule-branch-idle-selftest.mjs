@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/rule-branch-idle-selftest.mjs | V1.1.2 | 2026-10-28 第 143 轮续6
+// tests/rule-branch-idle-selftest.mjs | V1.1.3 | 2026-11-07 第 186 棒（体检侧·MiniMax）：收缩 142 的「有牙」基线（证据见 BITTEN_BASELINE 下方留痕）
 //
 //
 //   而两边都报绿，谁都看不出来）。属第 122 轮「收口为唯一来源」通规的同款应用。
@@ -55,7 +55,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scanAllBranches, keyOf, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 
-export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.2';
+export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.3';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -83,19 +83,25 @@ export const BITTEN_BASELINE = [
         rule: '张三丰核心机制回归(严阵以待/如沐春风/生生不息)',
         fp: '复发：严阵以待首次出现在第',
         why: '转交中（挂账③）：同上规则的另一条分支（触发回合数不符），两条分支各自独立，须各登记一条'
-    },
-    {
-        file: '142-zhangsanfeng-endless-roundstart.js',
-        rule: '张三丰生生不息回合开始触发缺失(回归)',
-        fp: '复发：张三丰存活到终局，但第',
-        why: '转交中（挂账③）：ON_ROUND_START 触发点缺失，本分支持续报错 ⇒ 确实在咬'
     }
-    // 2026-11-02 显式收缩：移除原「164-leech-maxhp.js / 复发：吸血上限 heal=+」条目。
-    //   本次修正 tests/_lib/buff-picker.mjs 敌方圣火令行列（原夹具在 c1===c2 时出 [3,1] 未排序、
-    //   rows 两值相等时出 [2,2] 未去重，与真游戏 modules/329 创建→modules/317 变换后的「排序去重」
-    //   口径脱钩）后，敌方圣火令变强 → 战局偏移，164 规则现 16/0 全过，该边缘分支（maxHpDelta≠heal）
-    //   在本样本里不再复现。按本基线自述「缺陷不再触发须显式收缩」移除。
-    //   164 规则本体仍照跑（未禁跑）；若该缺陷复现，分支会重新咬住，本自检无「禁止新增有牙」上限，届时不会误红。
+    // 2026-11-07 第二棒显式收缩：移除原「142-zhangsanfeng-endless-roundstart.js /
+    //   复发：张三丰存活到终局，但第」条目（该条目 why 写的是「本分支持续报错 ⇒ 确实在咬」）。
+    //   ★ 它当初登记的「持续报错」**全是假阳性**——不是缺陷复现，是规则自己的口径错。
+    //   证据（仓库外独立 worktree D:/_hc_probe_20261107 实测，与主仓零接触）：
+    //     ① 旧版 142（e5db701e 之前，V6.1.9，无 activeFrom）在本样本里报出的 msg 全是
+    //        「第1/2/3/4/5/6/7回合开始环节缺少生生不息」「第1/2/3/4/5/6/7/8回合…」这一类，
+    //        **缺席回合一律从第 1 回合起算**；
+    //     ② 新版 142（e5db701e V6.1.11 补了在场起算回合 activeFrom）**同一份样本一条都不报**；
+    //     ③ 两者唯一差别就是「排除 curRoundNo < activeFrom 的回合」⇒ 那批缺席回合 100% 是
+    //        张三丰**进场前**的回合（众志成城可中途召唤，content characters 带 summon:true）。
+    //        他还没上场，自然没有「回合开始即回血」可缺 ⇒ 报「缺少生生不息」是**误报**。
+    //   ⇒ 这条分支在样本里从来没有过真牙：真缺陷（进场后仍缺生生不息）从未出现过。
+    //     本基线自述「缺陷不再触发须显式收缩」，故移除；判定口径一字未改（missing>0 仍只对进场后回合计）。
+    //   ★ 遗留盲区（须补牙，不许就此遗忘）：142 这条分支目前**无牙齿证据**，
+    //     要证明它有牙，需要一颗针对 modules/311 张三丰 ON_ROUND_START 触发点的变异牙
+    //     （故意删/改该触发点 ⇒ 进场后回合缺生生不息 ⇒ 142 应报红）。变异树现有 47 棵里
+    //     A7/T4 只改生生不息的**数值**（转防翻倍 / atkGain 多写 5），不碰触发点 ⇒ 证不了这条。
+    //   规则 142 本体仍照跑（未禁跑）；若真缺陷复现，分支会重新咬住，本自检无「禁止新增有牙」上限，届时不会误红。
 ];
 
 // --- 无指纹分支白名单（棘轮：**恒空**，只许保持空）---
