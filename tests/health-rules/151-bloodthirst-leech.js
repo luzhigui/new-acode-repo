@@ -19,8 +19,10 @@
 //   3) 它与 150 热血奋战是**两条不同的吸血链路**（热血按已损失生命比例回血、嗜血按本次伤害比例吸血），
 //      共用一套 EFFECT_TYPES.LEECH 结算，重复登记会让回血翻倍膨胀。
 // 五条复发信号（只选"文本自身 + 攻击组 _dmg + 终局快照就能定性"的判据）：
-//   1) 吸血量必须是正整数：负数/小数 → 取整被改或结算改道；+0 仅父组 _dmg===1（floor(1×0.8)=0）合法容忍
+//   1) 吸血量非法：负数/非有限数/超过一位小数 → 结算改道；+0 仅父组 _dmg===1（floor(1×0.8)=0）合法容忍
 //      （2026-10-12 加固：原「+0 一律 fail」属误报），其余 +0 → dmg=0 仍登记（分支2 漏守）
+//      V6.1.20（2026-11-07）：引擎血量是实数，实落值 = min(意图, maxHp-hp) 夹取后合法带一位小数
+//      （+11.5 / +9.8），旧「正整数」判据属口径过时。
 //   2) 比例哨兵：leechVal > 本次伤害 × 上限 → 比例被写大或翻倍被重复叠加
 //      合法上限：普通 floor(dmg×0.8)/dmg ≤ 0.8；**小昭·姊在场时翻倍到 1.6**
 //      （core/04 L319-321 姊强化分支读 content/201hex-enhance bloodthirst.leechRatio=1.6）。
@@ -35,7 +37,16 @@
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.18';
+export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.20';
+// V6.1.20（2026-11-07 第 186 轮）：判据1 由「正整数」改为「非负数 + 0.1 精度」——口径过时修正。
+//   病由：引擎内部血量一律实数（infra/102 fmtNum「只有显示层取整、绝不回写」），core/217 L142-147
+//   实落值 = min(意图, maxHp-hp)，缺口带小数时合法落成 +11.5 / +9.8。判据强度不变：
+//   负数/非有限/超过一位小数照旧报红；+0 容忍仍只限父组 _dmg===1；判据2 比例哨兵、判据3 重复登记、
+//   判据4 摘要比例漂移全部保留 —— 「吸血没落地 / 吸血量算错 / 翻倍叠加」仍抓得到。
+// V6.1.19（2026-11-07 第 184 轮）：拆聚合型分支 —— 判据2 的 msg 改固定骨架。
+//   病由：msg 里拼了 leech / dmg / 实际百分比，整数伤害与小数伤害换算出的文本结构不同 ⇒ 分支级
+//   被归一化成两个模板。判定（leech > dmg×(上限+0.05 容差)）与阈值一字未改。
+
 import { collectNodes, plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/201-config-5v5-test.js';
@@ -109,12 +120,16 @@ export const rule98 = {
             var raw = lm[1];
             var leech = parseFloat(raw);
 
-            // 判据1：必须是正整数（Math.floor 的必然结果）。
+            // 判据1：非负数且落在显示精度内（V6.1.20）。
+            //   引擎血量是实数，实落值 = min(意图, maxHp-hp)：缺口 11.5 时合法落成 +11.5；
+            //   显示层只到 0.1 精度（infra/102 fmtNum / render/413 healDisplay），故「小数」本身不是缺陷。
+            //   负数/非有限/超过一位小数 → 结算改道，照旧报红。
             //   2026-10-12 加固（误报修复）：`+0` 有一个合法边缘——父组 _dmg===1 时 floor(1×0.8)=0 是引擎正确输出，
-            //   原先一律判 fail 属误报；仅此场景容忍，其余 0/负数/小数照旧报红。
-            if (!/^\d+$/.test(raw)) {
-                return { fail: true, msg: '复发：嗜血狂刀吸血量为「+' + raw + '」（引擎是 Math.floor(dmg×ratio) '
-                    + '的整数，负数/小数说明取整被改或结算改道）' };
+            //   原先一律判 fail 属误报；仅此场景容忍，其余 0/负数照旧报红。
+            var decOk2 = isFinite(leech) && Math.abs(leech * 10 - Math.round(leech * 10)) <= 1e-6;
+            if (!(leech >= 0) || !decOk2) {
+                return { fail: true, msg: '复发：嗜血狂刀吸血量为「+' + raw + '」（引擎实落值是 0 或正数、0.1 精度，'
+                    + '负数/超过一位小数说明夹取被改或结算改道）' };
             }
             if (!(leech > 0)) {
                 var _pd = parentDmgOf(e, log);
@@ -142,9 +157,9 @@ export const rule98 = {
                 var maxRatio = sisterPresent ? baseRatio * 2 : baseRatio; // 姊强化：core/04 翻倍
                 var cap = maxRatio + 0.05;
                 if (leech > dmg * cap) {
-                    return { fail: true, msg: '复发：嗜血狂刀吸血 +' + leech + ' 超过本次伤害 ' + dmg
-                        + ' 的 ' + Math.round(leech / dmg * 100) + '%（合法上限 ' + Math.round(maxRatio * 100)
-                        + '%' + (sisterPresent ? '，含小昭·姊强化翻倍' : '') + '，说明比例被写大或翻倍被重复叠加）' };
+                    // ★ 第 184 轮：msg 固定骨架 —— 原先把 leech/dmg 写进 msg（整数伤害 vs 小数伤害即换结构模板）。
+                    //   判定（leech > dmg×(上限+容差) 即失败）一字未改，阈值 cap 计算未动。
+                    return { fail: true, msg: '复发：嗜血狂刀吸血 +N 超过本次伤害的合法上限（上限 = 配置比例×100%（含小昭·姊强化翻倍时再乘 2）＋0.05 容差，说明比例被写大或翻倍被重复叠加）' };
                 }
             }
 
