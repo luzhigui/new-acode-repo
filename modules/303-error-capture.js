@@ -1,4 +1,6 @@
-export const VER = 'modules/303-error-capture.js V6.2.1';
+export const VER = 'modules/303-error-capture.js V6.3.0';
+// V6.3.0 | 2026-11-07 | 🐞 切片带上报错点附近的战斗日志原文（前 8 行 + 后到最新，逐字不摘要），
+//                     附「出事单位 + 日志里出现的单位」；整条切片 ≤3KB，超了先砍更早日志、再砍单位字段
 // V6.2.1 | 2026-11-07 | 详细数据改为对症裁剪：只带相关 1~2 单位 + 活跃状态 + 最近 5 步日志（约 1~2KB）
 // V6.2.0 | 2026-11-07 | 🐞 改为轻量记录器：弹面板挑条目 + 备注 + 本地列表 + 清爽复制；全量导出收进列表
 
@@ -25,6 +27,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
     const BUG_STORE_KEY = 'dsh_bug_records_v1';
     const MAX_SAVED = 60;                       // 本地列表上限，超出丢最老的
     const MAX_DETAIL_CHARS = 200000;            // 单条详细数据上限，防止撑爆 localStorage
+
+    // 现场切片：报错点附近的战斗日志原文（逐字，不摘要、不截半句）
+    const SLICE_MAX_BYTES = 3072;               // 整条切片上限 3KB（UTF-8）
+    const LOG_CTX_BEFORE = 8;                   // 报错点之前最多带 8 行
+    const LOG_CTX_AFTER = 2;                    // 报错点之后最多带 2 行
+    const LOG_CTX_MIN_KEEP = 3;                 // 最近 3 行永不砍
+    const LOG_TAIL_LIMIT = 12;                  // 自动报错当场快照的行数（存内存，不落 localStorage）
 
     function nowIso() { return new Date().toISOString(); }
     function safeJson(v, maxLen) {
@@ -95,6 +104,144 @@ import { GlobalStore } from '../infra/104-global-store.js';
         }
     }
 
+    // ---------- 战场日志原文：切片的核心证据 ----------
+    // 日志正文是 HTML（带 <span> 高亮），这里只去标签、保原文，不做摘要、不截半句。
+    function stripLogHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/<br\s*\/?>/gi, ' ')
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/[ \t\u00a0]+/g, ' ')
+            .trim();
+    }
+    function flattenLogEntry(e) {
+        if (!e) return '';
+        if (typeof e === 'string') return stripLogHtml(e);
+        if (e.quiet) return '';                       // 「只记账不上屏」的条目不算日志正文
+        if (Array.isArray(e.entries)) {
+            return e.entries.map(x => (x && x.text ? stripLogHtml(x.text) : '')).filter(Boolean).join(' ');
+        }
+        return e.text ? stripLogHtml(e.text) : '';
+    }
+    // 当前战斗日志的末尾若干行（逐字）；from 是该段首行在 battleLog 里的 0 基下标。
+    //   从尾部倒着取，console.error/warn 每次都调用也不会把整本战报扫一遍。
+    function captureLogTail(limit) {
+        let entries = [];
+        try { entries = GlobalStore.get('battleLog') || []; } catch (e) { entries = []; }
+        const need = limit > 0 ? limit : entries.length;
+        const lines = [];
+        for (let i = entries.length - 1; i >= 0 && lines.length < need; i--) {
+            const t = flattenLogEntry(entries[i]);
+            if (t) lines.unshift(t);
+        }
+        return { total: entries.length, from: entries.length - lines.length, lines: lines };
+    }
+    function getBattleRoster() {
+        try {
+            const fn = window.__BUG_UNITS__;
+            const list = typeof fn === 'function' ? fn() : [];
+            if (Array.isArray(list) && list.length) return list;
+        } catch (e) { /* 下面再取一次 */ }
+        try {
+            const ui = GlobalStore.get('UI') || {};
+            return [...(ui.allyTeam || []), ...(ui.enemyTeam || [])]
+                .filter(Boolean).map(u => ({ uid: u.uid, name: u.name, camp: u.camp }));
+        } catch (e) { return []; }
+    }
+    // 建「报错点附近的日志原文」：前 8 行 + 报错点 + 之后最多 2 行，原顺序、逐字。
+    //   tail 为空时现取当前日志末尾；自动报错用报错当场的快照，避免记录时日志早就跑远了。
+    function buildLogContext(source, hintText, pickedNames, tail) {
+        const base = (tail && Array.isArray(tail.lines) && tail.lines.length) ? tail : captureLogTail(LOG_TAIL_LIMIT);
+        const lines = base.lines || [];
+        if (!lines.length) return null;
+
+        const roster = getBattleRoster();
+        const allNames = roster.map(u => u.name).filter(Boolean);
+        const hint = String(hintText || '');
+        const len = lines.length;
+
+        // 报错点：点选/点名/最近日志里出现的单位名 → 最后一次出现的位置；都没有就落在最新一行
+        let focus = (pickedNames || []).filter(Boolean).slice();
+        if (!focus.length) focus = allNames.filter(n => hint.includes(n));
+        const findLast = (names) => {
+            if (!names.length) return -1;
+            for (let i = len - 1; i >= 0; i--) {
+                if (names.some(n => lines[i].includes(n))) return i;
+            }
+            return -1;
+        };
+        let anchor = findLast(focus);
+        if (anchor < 0) {
+            const recentNames = allNames.filter(n => lines.slice(-3).some(l => l.includes(n)));
+            if (recentNames.length) { focus = recentNames; anchor = findLast(recentNames); }
+        }
+        if (anchor < 0) { focus = []; anchor = len - 1; }
+
+        // 前 8 行 + 报错点 + 之后 2 行；日志不足 3 行时全带，保证「冲刺前一行血是多少」这类现场不缺
+        let start = Math.max(0, anchor - LOG_CTX_BEFORE);
+        if (start > len - LOG_CTX_MIN_KEEP) start = Math.max(0, len - LOG_CTX_MIN_KEEP);
+        const end = Math.max(anchor, Math.min(len - 1, anchor + LOG_CTX_AFTER));
+        const body = lines.slice(start, end + 1);
+
+        const names = allNames.filter(n => body.some(l => l.includes(n)));
+        const unit = focus.find(n => names.includes(n)) || names[0] || null;
+        return {
+            src: source === 'manual' ? 'manual' : 'auto',   // 自证：这条切片是自动抓的还是手动写的
+            unit: unit,
+            names: names,
+            from: base.from + start,                        // 0 基全局行号
+            total: base.total,
+            anchor: anchor - start,                         // 报错点在 log 数组里的位置
+            log: body
+        };
+    }
+    function sliceBytes(ctx) {
+        try { return new Blob([JSON.stringify(ctx)]).size; }
+        catch (e) { return JSON.stringify(ctx).length; }
+    }
+    // 降级顺序：① 先砍更早的日志行（最近 3 行不动）② 再砍单位字段 ③ 最后才压其它旁证
+    function enforceSliceBudget(ctx) {
+        let guard = 400;
+        while (sliceBytes(ctx) > SLICE_MAX_BYTES && guard-- > 0) {
+            const lc = ctx.logCtx;
+            if (lc && Array.isArray(lc.log) && lc.log.length > LOG_CTX_MIN_KEEP) {
+                lc.log.shift();
+                lc.from += 1;
+                if (lc.anchor > 0) lc.anchor -= 1;
+                continue;
+            }
+            // ② 单位字段：先丢非出事单位，再丢状态明细
+            if (lc && Array.isArray(lc.names) && lc.names.length > 1) { lc.names.pop(); continue; }
+            if (Array.isArray(ctx.units) && ctx.units.length > 1) {
+                const keep = lc && lc.unit;
+                const idx = ctx.units.findIndex(u => {
+                    const n = Array.isArray(u) ? u[0] : (u && u.name);
+                    return n !== keep;
+                });
+                if (idx >= 0) { ctx.units.splice(idx, 1); continue; }
+            }
+            if (Array.isArray(ctx.units) && ctx.units.length === 1) {
+                const u0 = ctx.units[0];
+                if (u0 && typeof u0 === 'object' && !Array.isArray(u0) && u0.state) {
+                    delete u0.state; continue;
+                }
+            }
+            if (Array.isArray(ctx.buffs) && ctx.buffs.length > 2) { ctx.buffs.pop(); continue; }
+            if (ctx.domLogText) { delete ctx.domLogText; continue; }
+            if (ctx.log) { delete ctx.log; continue; }          // 旧的「5 行 × 60 字」精简档，已被 logCtx 取代
+            if (Array.isArray(ctx.actions) && ctx.actions.length > 6) {
+                ctx.actions = ctx.actions.slice(-6); continue;
+            }
+            if (lc && Array.isArray(lc.names) && lc.names.length) { lc.names = []; continue; }
+            if (Array.isArray(ctx.units) && ctx.units.length) { ctx.units = []; continue; }
+            break;                                              // 已经没得砍了
+        }
+        return ctx;
+    }
+
     // opts: { hint, mode: 'manual'|'auto', picked: [uid] }
     // 带 opts 时走「对症切片」：不再带 URL/UA，只留出错相关的现场证据。
     function collectBugContext(full, opts) {
@@ -114,6 +261,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                 if (extra && typeof extra === 'object') Object.assign(ctx, extra);
             }
         } catch (e) { ctx._contextError = String((e && e.stack) || e); }
+        if (targeted) ctx.mode = opts.mode === 'manual' ? 'manual' : 'auto';
         return ctx;
     }
     function buildBugReport(kind, full) {
@@ -392,9 +540,10 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'padding:8px;border:1px dashed #5a4630;border-radius:8px;margin-bottom:12px;cursor:pointer;';
         const detailCb = document.createElement('input');
         detailCb.type = 'checkbox';
+        detailCb.checked = true;                    // 默认带：没有日志原文的切片没有排查价值
         detailCb.style.cssText = 'width:18px;height:18px;accent-color:#ffd700;flex:0 0 auto;';
         const detailTxt = document.createElement('span');
-        detailTxt.textContent = '自动记录时附带现场切片（手动记录默认就带，约 1~2KB）';
+        detailTxt.textContent = '附带现场切片：报错点前后战斗日志原文（逐字，≤3KB）';
         detailRow.appendChild(detailCb); detailRow.appendChild(detailTxt);
         box.appendChild(detailRow);
 
@@ -449,15 +598,21 @@ import { GlobalStore } from '../infra/104-global-store.js';
                 units: unitNames,
                 hasDetail: false
             };
-            // 手动记录默认就抓现场切片；自动记录按勾选
+            // 手动记录默认就抓现场切片；自动记录默认也带（现场日志原文是排查主证据）
             if (mode === 'manual' || detailCb.checked) {
                 rec.hasDetail = true;
                 try {
-                    const ctx = collectBugContext(false, {
-                        hint: [selected.map(r => r.text).join('\n'), noteVal].filter(Boolean).join('\n'),
-                        mode,
-                        picked: unitUids
-                    });
+                    const hint = [selected.map(r => r.text).join('\n'), noteVal].filter(Boolean).join('\n');
+                    const ctx = collectBugContext(false, { hint, mode, picked: unitUids });
+                    // 自动报错优先用「报错当场」的日志快照，避免记录时日志已经跑远
+                    const tail = mode === 'auto' && selected.length
+                        ? (selected[selected.length - 1].logTail || null) : null;
+                    const logCtx = buildLogContext(mode, hint, unitNames, tail);
+                    if (logCtx) {
+                        delete ctx.log;                  // 旧的 5 行 × 60 字精简档，换成逐字原文
+                        ctx.logCtx = logCtx;
+                    }
+                    enforceSliceBudget(ctx);
                     rec.detail = ctx;
                     if (JSON.stringify(ctx).length > MAX_DETAIL_CHARS) {
                         rec.detail = {
@@ -485,6 +640,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
     // ---------- 已记录列表 ----------
     function buildSavedCopyText(list) {
         const lines = ['【Bug 记录】共 ' + list.length + ' 条', ''];
+        let logBudget = 16000;                       // 复制档总量封顶，避免几十条把剪贴板撑爆
         list.forEach((r, i) => {
             const t = fmtTime(r.createdAt);
             const manual = r.mode === 'manual';
@@ -496,6 +652,21 @@ import { GlobalStore } from '../infra/104-global-store.js';
             } else {
                 lines.push((i + 1) + '. ' + t + ' ｜ [自动] ' + (sums || r.note || '（无摘要）'));
                 if (sums && r.note) lines.push('   备注：' + r.note);
+            }
+            // 日志原文：报错点前后逐字带出（▶ 为报错点/出事单位最后一次出现处）
+            const lc = r.detail && r.detail.logCtx;
+            if (lc && Array.isArray(lc.log) && lc.log.length) {
+                const block = [];
+                block.push('   ── 战斗日志原文（' + (lc.src === 'manual' ? '手动记录' : '自动抓取') +
+                    ' · 第 ' + (lc.from + 1) + '~' + (lc.from + lc.log.length) + ' 行 / 共 ' + lc.total +
+                    ' 行 · 出事单位：' + (lc.unit || '未识别') +
+                    ((lc.names || []).length > 1 ? ' · 出现：' + lc.names.join('、') : '') + '）');
+                lc.log.forEach((txt, k) => {
+                    block.push('   ' + (lc.from + k + 1) + ' │ ' + (k === lc.anchor ? '▶ ' : '  ') + txt);
+                });
+                const cost = block.join('\n').length;
+                if (cost <= logBudget) { lines.push(...block); logBudget -= cost; }
+                else lines.push('   （本条日志原文见列表「详情」）');
             }
         });
         return lines.join('\n');
@@ -776,7 +947,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
         };
         line.appendChild(copyBtn);
 
-        bugRecords.push({ time: nowIso(), type: type || 'info', text, summary: summarizeError(text, type) });
+        // logTail：报错当场的日志末尾快照（只在内存里，跟着这条错误走）。
+        //   记录时日志往往已经跑远几十步，只用「保存那一刻」的日志会丢现场。
+        bugRecords.push({
+            time: nowIso(), type: type || 'info', text,
+            summary: summarizeError(text, type),
+            logTail: captureLogTail(LOG_TAIL_LIMIT)
+        });
         if (bugRecords.length > 200) bugRecords.shift();
         errorPanel.appendChild(line);
         errorPanel.style.display = 'block';
