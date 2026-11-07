@@ -591,22 +591,25 @@ export const STAGE_ACTION_DEFS = {
                     } else {
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
                         await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets });
-                        applyDeferredHp(); // 小飞箭落点后才掉血，飞行途中不剧透
+                        // SPLASH_ARROWS 只等了 300ms 蓄力就返回，小飞箭此时才起飞（fx/602 flyDuration=350）；
+                        //   这里补等飞行段，让落账与箭落点(=onHit 抖动)同帧，飞行途中血条不动、不剧透。
+                        await clock.wait(350);
+                        applyDeferredHp(); // 小飞箭落点后才掉血，与抖动/飘字同帧
                         splashTargets.forEach((st, i) => {
                             // 音高逐发抬升（老板拍板 F 方案）：第 i 发取 1.0/1.06/1.12/1.18，
                             //   超过 4 发的沿用最后一级（不回落、不循环）；间隔仍是 100ms，音源/音量不动
                             const RATE_STEPS = [1.0, 1.06, 1.12, 1.18];
                             const rate = RATE_STEPS[Math.min(i, RATE_STEPS.length - 1)];
                             clock.wait(i * 100).then(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED, { playbackRate: rate }));
-                            // 溅射掉血飘字：伤害 core/16 SPLASH 已实扣。随箭矢节奏错层飘；播放时已死的不飘。
-                            if (st.alive) clock.wait(600 + i * 80).then(() => {
+                            // 溅射掉血飘字：落账已在命中帧完成，这里只按落点错层 80ms 出数（不再额外晚 600ms）
+                            if (st.alive) clock.wait(i * 80).then(() => {
                                 if (isFxSkipped()) return;
                                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: st, dmg: action.splashDmg });
                                 // 溅射减防🛡与掉血💥同帧：右上镜像位 vs 右侧，天然错开不重叠
                                 if (action.splashDefReduce > 0) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit: st, gain: -action.splashDefReduce });
                             });
                         });
-                        await clock.wait(600);
+                        await clock.wait(450);
                     }
                 }
             } else if (action.effectType === BUFF_EFFECT_TYPES.BONE_CLAW && attacker && target) {
