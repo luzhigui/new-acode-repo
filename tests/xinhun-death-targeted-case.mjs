@@ -63,10 +63,7 @@ async function main() {
     // carry 候选判据与主代码同口径（tickAndPickBuffs 需要，否则 buff 门控机制一场都跑不到）
     const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
     
-    await import('../modules/307-elite-imperial.js');
-    await import('../modules/308-elite-sixsects.js');
-    await import('../modules/317-elite-mingjiao.js');
-    await import('../modules/331-custom-effects.js');
+    await import('./_lib/install-mechanics.mjs');
     await loadGameData();
     // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();

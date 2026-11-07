@@ -76,13 +76,9 @@ async function main() {
     const NO_BUFFS = process.env.BASELINE_NOBUFFS === '1';
 
     
-    // 精英模块副作用注册（createRoundStepper 的 getEliteFactories 依赖）
-    await import('../modules/307-elite-imperial.js');
-    await import('../modules/308-elite-sixsects.js');
-    await import('../modules/317-elite-mingjiao.js');
-    // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
-    //   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，基线开局即崩（同 tools/116 的坑）。
-    await import('../modules/331-custom-effects.js');
+    // 精英/机制模块副作用注册统一走生产总入口（tests/_lib/install-mechanics.mjs）。
+    //   手抄 307/308/317/331 会漏 333/334/335，开局 installDeclaredSkills 抛「未在 core/18 注册」。
+    await import('./_lib/install-mechanics.mjs');
     await loadGameData(); // CONFIG getter/精英机制都依赖 gameData
     // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();

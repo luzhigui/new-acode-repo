@@ -1,4 +1,9 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.5.2 | 2026-11-07 校准：⑬ EXPECT_NO_LOG 185 → 182。依据：modules/336-338 三件补上行首版本日志行后，
+//        | 无日志桶由 185 降到 182（这 3 个是真补日志、不是写坏，故登记数按实测下调；双向棘轮维持）。
+// V1.5.1 | 2026-11-06 校准：⑬ EXPECT_NO_LOG 183 → 185。依据：183 为 11-06 21:41（ee3289a9）实测值，
+//        | 其后入库的无日志文件（含 11-06 23:51 新增的 modules/336-338 三件）使实际值升至 185；
+//        | 本轮同时给 4 个 tests 孤儿文件补了行首日志行，它们已不再计入本桶。
 // V1.4.1 | 2026-10-31 第 165 轮(续)：⑩ 把 tests/_verify145.mjs 补登 NO_VER_WHITELIST（一页式 verify 助手，
 //        | 非版本化自检，与 buff-picker 同口径）；⑬ EXPECT_NO_LOG 29 → 50 —— 抽样核实 50 个无日志文件
 //        | 全部是「版本史写在注释正文、无可解析日志行」的既有模式（含 ver-bump-selftest / 170-taunts /
@@ -60,7 +65,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.5.0';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.2';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -104,7 +109,7 @@ const MIN_LOG_PARSED = 60;
 //   无可解析日志行」的主代码文件 —— 主代码沿用既有习惯，不是写坏；双向棘轮维持原口径）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 183;
+const EXPECT_NO_LOG = 182;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {

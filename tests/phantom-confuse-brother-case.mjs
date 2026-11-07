@@ -121,10 +121,7 @@ const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
 //   （本文件与 xiaozhao-horse-carry-case 各存一份逐字相同的副本，被 second-source-scan 判为
 //    「铁证如山的第二份」；纯搬迁，行为零变化 —— 详见公共件头部）。
 const { permHas, hasActiveBuff } = await import('./_lib/buff-state-query.mjs');
-await import('../modules/307-elite-imperial.js');
-await import('../modules/308-elite-sixsects.js');
-await import('../modules/317-elite-mingjiao.js');
-await import('../modules/331-custom-effects.js');
+await import('./_lib/install-mechanics.mjs');
 await loadGameData();
 // 第 162 轮：小昭.hexEnhance 已迁到 content/002-hex-enhance.json，启动链一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
 await loadHexEnhanceData();

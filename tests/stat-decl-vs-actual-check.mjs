@@ -1,3 +1,13 @@
+// V3.16.0 | 2026-11-06 迭代：装配再收口一层——由直接 import 301 改为走 tests/_lib/install-mechanics.mjs
+//   （与其余十几个宿主同一入口；由 mechanics-install-selftest 禁止绕过）。零行为变化：
+//   仍只绑定同一份生产总入口，stdout 头三行/契约行格式逐字不变。
+// V3.15.0 | 2026-11-06 迭代：机制装配由四行手抄清单改用生产唯一总入口 modules/301-reg-mechanics.js。
+//   根因（实跑取证，非推断）：4230eb9a 新增 333/334/335 三机制并在 content/001 给俞莲舟加了
+//   type:"statAbsorb"，301 已同步 import 334，本宿主却仍手抄 307/308/317/331 ⇒
+//   installDeclaredSkills 校验抛「未知顶层机制 type "statAbsorb"：未在 core/18 注册」⇒
+//   main().catch 只往 stderr 打、stdout 全 0 字节 ⇒ output-label-coupling-guard 段三解析 0 行，
+//   极易被误读成「列名失配／改正则」，实则是生产者开局就崩。
+//   ★ 与 ui/702、tools/815|816|819|822 同一装配口径；零判据变化，只补齐宿主装载面。
 // V3.14.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / normalizeForces / resetForces 三件套收口至
 //         tests/_lib/forced-case-normalize.mjs 唯一来源。本件原白名单缺 forceWei（其在主代码
 //         29battle-init L140 / L151 真实存在，第 160 轮规则回放侧已论证过却未同步给本件），
@@ -85,7 +95,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.14.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.16.0';
 
 // ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
 //   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
@@ -1810,14 +1820,10 @@ async function main() {
     const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
 
     
-    await import('../modules/307-elite-imperial.js');
-    await import('../modules/308-elite-sixsects.js');
-    await import('../modules/317-elite-mingjiao.js');
-    // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠modules/30 **模块顶层副作用**注册进 core/18
-    //   （不是export函数，是 import 即注册）。漏 import ⇒ core/18 无该处理器 ⇒ core/15 安装期校验
-    //   对鹿杖客 dotTick 直接抛错「未知顶层机制 type "dotTick"」⇒ 对照器开局即崩。
-    //   tools/101、115、116 均已补（116 注释明写"不 import 则第 5 关 worker 全灭"），体检三个入口此前漏了。
-    await import('../modules/331-custom-effects.js');
+    // V3.16.0：机制装配统一走 tests/_lib/install-mechanics.mjs（→ 生产唯一总入口 301）。
+    //   原四行手抄 307/308/317/331 会随 301 新增模块持续腐烂 —— 11-05 加 333/334/335 后当场崩。
+    //   301 内已含这四者 + 324/333/334/335；ES 模块缓存去重，不会重复注册。
+    await import('./_lib/install-mechanics.mjs');
     await loadGameData();
     // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();

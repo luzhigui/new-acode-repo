@@ -1,4 +1,11 @@
-// tests/output-label-coupling-guard.mjs | V3.3.0 | 2026-11-02 夜间第 175 轮
+// tests/output-label-coupling-guard.mjs | V3.4.0 | 2026-11-06 迭代：段三先判生产者有无产出
+//   V3.4.0 | 2026-11-06：段三「解析 0 行」此前把两种成因混为一谈。实跑取证：生产者
+//           stat-decl-vs-actual-check.mjs 因漏装 334 开局抛「未知顶层机制 statAbsorb」，
+//           stdout 0 字节 / stderr 9 行堆栈 / exit=1，本件只报「只解析出 0 行」⇒ 曾被据此
+//           错判成「列名失配、对齐正则就复绿」。现 spawn 后先检出「stdout 空 / stderr 带异常标记」
+//           并明确点名「生产者挂了，不是列名问题」。★ 只加显形，不删任何既有判据：异常时
+//           仍继续跑 crossCheck，原 0 行信号保留。注意生产者 exit=1 是业务红（有重复应用 /
+//           契约零触发，见其文件头运行说明），不可单凭 exit≠0 判崩溃。
 //   V3.3.0 | 2026-11-02 夜间第 175 轮：★ 線一（pickParsers）的候选识别与段零/段一B**统一地基** ——
 //           第 174 轮只收口了段一B 的 pickRrParsers，线一仍挂在旧粗扫 RE_LITERAL 上。
 //           实测守门自己身上就有三条假候选：段四自证素材 CON_OK / CON_FULL / conC 是"合成样本源码"
@@ -105,7 +112,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/output-label-coupling-guard.mjs V3.3.0';
+export const VER = 'tests/output-label-coupling-guard.mjs V3.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -1394,7 +1401,21 @@ function main() {
         const r = spawnSync(process.execPath, [F_PRODUCER], {
             cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024
         });
-        const out = (r.stdout || '') + '\n' + (r.stderr || '');
+        // V3.4.0：0 行有两种完全不同的成因，先分清楚再谈列名（详见头顶版本日志）。
+        //   ★ 不用 exit≠0 判崩溃：生产者的 exit=1 是正常业务红（有重复应用 / 契约零触发）。
+        //     真正的崩溃标记 = stdout 一个字都没有，或 stderr 带异常堆栈 / 未注册 / 模块找不到。
+        const prodExit = (typeof r.status === 'number') ? r.status : -1;
+        const prodStdout = r.stdout || '';
+        const prodErr = (r.stderr || '').trim();
+        const crashMark = /对照器异常|未在 core\/18 注册|Cannot find module|SyntaxError|TypeError|ReferenceError|ERR_MODULE_NOT_FOUND/i.test(prodErr);
+        const noOutput = prodStdout.trim() === '';
+        if (noOutput || crashMark) {
+            const head = prodErr ? ' / stderr 首行「' + prodErr.split('\n')[0].slice(0, 120) + '」' : '';
+            console.log('  ⚠ 生产者 exit=' + prodExit + ' / stdout ' + prodStdout.length + ' 字节' + head);
+            fails.push('段三 生产者无有效产出：exit=' + prodExit + '，stdout ' + prodStdout.length + ' 字节' + head
+                + ' ⇒ 这是生产者挂了/被跳过，不是列名失配；此时「解析 0 行」不得作为改正则的依据');
+        }
+        const out = prodStdout + '\n' + (r.stderr || '');
         const cc = crossCheck(out, v.prod, consumers);
         console.log('  解析契约行        ' + cc.rows.length + ' 条（下限 ' + MIN_ROWS + '）');
         console.log('  逐行 dup 求和     ' + cc.sum);

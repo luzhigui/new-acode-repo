@@ -1,3 +1,36 @@
+// V1.42.0 | 2026-11-06 迭代：挂「机制装配收口守门」tests/mechanics-install-selftest.mjs（新建 V1.0.0）。
+//   上游 4230eb9a 新增 333/334/335 + content 的 statAbsorb 后，tests/ 下 15 个宿主各自手抄
+//   307/308/317/331 四行装配集体漏装 ⇒ 开局抛「未在 core/18 注册」、stdout 全 0 字节，
+//   下游消费者解析 0 行（极易被误读成「列名失配、对齐正则就好」）。本轮全部收口到
+//   tests/_lib/install-mechanics.mjs（→ 生产唯一总入口 modules/301-reg-mechanics.js），
+//   并常驻守门：动态读 301 清单递归扫 tests/、覆盖逐行 import 与字符串表两种形态、
+//   真装配验 handler 齐全、待迁移清单自收敛、负路径自证。守门首跑即抓出人工清单漏掉的
+//   smoke-headless.mjs（字符串表驱动），已一并收口。
+//   ★ 零主代码改动、零既有判据变化；rules-replay.mjs 属他人并行维护，登记待迁移不擅改。
+//   挂 OBSERVES + hard: true，不改 CHECKS 分母、不改退码口径。
+// V1.41.0 | 2026-11-06 迭代：挂「结论行挑选口径行为守门」tests/pick-key-line-selftest.mjs（新建 V1.0.0）。
+//   V1.40.0 的修复只是「调用点多传一个 known-red 参数」，删掉就静默退回红说成绿；
+//   线二只比三要素（正则/取行/截断），比不出参数在不在、行为对不对。本守门真身抽两处
+//   pickKeyLine 喂合成输出（红 3 样本 / 绿 2 样本）+ 扫调用点实参数 + 负路径自证，
+//   正负路径均已实测（删参→报第 462 行、删负向分支→报 4 条、恢复→绿）。
+//   挂 OBSERVES + hard: true，不改 CHECKS 分母、不改退码口径。
+// V1.40.0 | 2026-11-06 迭代：修 pickKeyLine「把变红的检查显示成通过」。
+//   根因：调用方已算出 code（子进程退出码），却没告诉 pickKeyLine，它只取「最后一条命中词行」。
+//   真实红脚本常先打 ❌ 明细行、末尾再打统计尾巴（「统计 100 项全过」/「exit=0」/「✅ 子项通过」），
+//   而关键词表含 通过/全过/exit ⇒ 末条命中词行反倒是报喜行 ⇒ 夜间只看摘要行时红被说成绿。
+//   真身负路径实测：喂「❌ 规则123 致命 + ✅ 子项通过 + exit=0」旧口径挑出「exit=0」。
+//   修法：新增可选第二参 failed（=code!==0），为 true 时优先从命中词行里挑负向结论行；
+//   绿路径（含一切不传参的旧调用）行为一字不变。★ 只改「显示哪一行」，不动 failed 计数 /
+//   process.exit / CHECKS 分母 / 任何判据。两处实现（本件 + orphan-sweep）三要素保持同步，
+//   供 output-label-coupling-guard 线二继续对账。
+// V1.39.0 | 2026-11-06 迭代：挂「编排器自身完整性守门」tests/run-all-integrity-selftest.mjs（新建 V1.0.0）。
+//   盲区（由 11-04/11-05 两晚夜间失败引出）：云端沙箱 /workspace/repo 被回收，任务连着两轮
+//   在开头读日志就挂；任务书 11-06 实测「以 GitHub main 为基底只有 9/25、以 nightly/第179轮 为基底 22/25」
+//   ⇒ 基底不对时体检会静默跑出一大片红，而整套体检没有任何一条守门检查「编排器自己还完不完整」。
+//   本件三面：① 清单→磁盘断链（orphan-sweep 只盯反向）② V1.38.0 观察项显形不腐烂
+//   ③ 拍板边界不被越（OBSERVES 段不许自增 failed）。★ 段内不变量必须在 OBSERVES 段内命中：
+//   首版在全文里找 `typeof r.status` 被 CHECKS 段顶成假绿，真身负路径当场抓到并修，已固化为自证负路径 F。
+//   挂 OBSERVES + hard: true（exit 1 = 体检域确定性缺陷），不改 CHECKS 分母，开红与否仍待拍板。
 // V1.38.0 | 2026-11-05 迭代：修 run-all 观察项(OBSERVES)执行段的「假绿」——此前该段只 pickKeyLine
 //   一行文字、把 r.status（退出码）整个丢掉，任一项 exit≠0 也统一打 🔎、汇总不点名，
 //   等于「看得见但不拦」还看不清：确定型守门（如语法扫描 exit 1）被静默吞成噪声。
@@ -141,7 +174,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.38.0';
+export const VER = 'tests/run-all.mjs V1.42.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -397,15 +430,33 @@ const OBSERVES = [
     // hard: true = 确定型守门：exit≠0 即 100% 是体检域自身的确定性缺陷（语法错/解析失败），无「待主代码转交」
     //   的研判灰度。由条目作者自称，汇总时额外标注「建议升 CHECKS 开红」；默认不写 = 取证项，红了供人工研判。
     //   ★ 不开第二份名单：属性跟条目走，新增守门不会再有「名单与清单失同步」的漂移面。
-    { name: '体检模块语法扫描守门', script: 'tests/health-rules-syntax-sweep.mjs', args: [], hard: true }
+    { name: '体检模块语法扫描守门', script: 'tests/health-rules-syntax-sweep.mjs', args: [], hard: true },
+    // V1.39.0 | 2026-11-06 迭代：编排器自身完整性守门（详见头顶 V1.39.0 日志行）。
+    //   纯 node 只读、零执行被扫脚本；正反路径均已实测（含真身源码副本），不是纸面文章。
+    { name: '编排器自身完整性守门', script: 'tests/run-all-integrity-selftest.mjs', args: [], hard: true },
+    // V1.41.0 | 2026-11-06 迭代：结论行挑选口径行为守门（详见头顶 V1.41.0 日志行）。
+    //   真身抽函数 + 合成输出，纯 node 零子进程；防 V1.40.0 修复被重构时静默删掉。
+    { name: '结论行挑选口径守门', script: 'tests/pick-key-line-selftest.mjs', args: [], hard: true },
+    // V1.42.0 | 2026-11-06 迭代：机制装配收口守门（详见头顶 V1.42.0 日志行）。
+    //   纯 node 只读 + 一次轻量装配；防「上游增机制模块 ⇒ 体检宿主从开局就整片静默崩」重演。
+    { name: '机制装配收口守门', script: 'tests/mechanics-install-selftest.mjs', args: [], hard: true }
 ];
 
-// 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行
-function pickKeyLine(out) {
+// 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
+// V1.40.0：failed=true（调用方已知子进程退出码非 0）时改为优先挑「负向结论行」——
+//   红脚本常先打 ❌ 明细、末尾再打报喜统计行，旧取法会把红显示成绿。绿路径行为一字不变。
+function pickKeyLine(out, failed) {
     const lines = out.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const hit = lines.filter(l =>
         /RESULT|MATCH|✅|❌|通过|无失败|issue|偏差|未覆盖|未触发|全过|失败|Error|exit/i.test(l));
-    return (hit[hit.length - 1] || lines[lines.length - 1] || '').slice(0, 100);
+    let chosen = hit[hit.length - 1] || lines[lines.length - 1] || '';
+    if (failed === true) {
+        const neg = hit.filter(l =>
+            /❌|\bFAIL\b|Error|异常|致命|偏差|未覆盖|未触发|未通过|不一致|漂移|断链|红项|失败/i.test(l)
+            && !/无失败|零失败/.test(l));
+        if (neg.length) chosen = neg[neg.length - 1];
+    }
+    return chosen.slice(0, 100);
 }
 
 const QUICK = process.argv.includes('--quick');
@@ -430,7 +481,7 @@ for (const c of activeChecks) {
     const code = (typeof r.status === 'number') ? r.status : 1;
     const ok = code === 0;
     if (!ok) failed++;
-    const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''));
+    const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''), !ok);
     rows.push({ ok, name: c.name, ms, code, key });
     console.log((ok ? '✅' : '❌') + ' (' + ms + 'ms)  ' + key);
 }
@@ -462,7 +513,7 @@ if (OBSERVES.length) {
             r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
         }
         const code = (typeof r.status === 'number') ? r.status : 1;
-        const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''));
+        const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''), code !== 0);
         const ms = Date.now() - t0;
         if (code !== 0) observeFails.push({ name: c.name, code, key, hard: !!c.hard });
         console.log('  ' + (code === 0 ? '🔎' : '❌ exit=' + code) + ' ' + c.name.padEnd(22) + ' ' + ms + 'ms  ' + key);

@@ -1,3 +1,13 @@
+// V1.3.0 | 2026-11-06 迭代：pickKeyLine 与 run-all.mjs V1.40.0 同步——新增可选 failed 参数，
+//   调用方已知子进程 exit≠0 时优先挑负向结论行，避免「红脚本末尾打统计尾巴」把孤儿红项
+//   摘要显示成通过。绿路径（含不传参）行为一字不变。三要素（关键词正则 / hit[hit.length-1] /
+//   .slice(0,100)）与 run-all 保持同步，供 output-label-coupling-guard 线二继续对账。
+// V1.2.0 | 2026-11-06 迭代：临时探针（_tmp-*）归 tempProbe 免跑面并点名，与 ver-bump/ver-drift
+//   已统一的「排除 _tmp-*/_verify*」口径对齐。由头：11-04 起并行会话「全量入库」把一次性探针
+//   tests/_tmp-probe-meteor.mjs 收进了仓库，本件把它当真孤儿 spawn 后 exit≠0，整轮普查报「1 个孤儿红
+//   且不在清单」——红的是一次性探针输出，不是缺陷，却把真信号淹了。★ 免跑但不静默跳过：
+//   归入免跑面逐条点名 + 单独汇总「临时探针残留 N 个（建议清理出 tests/）」，与 health-rules/
+//   48 个 runtimeRule 同一套显形纪律。
 // tests/orphan-selftest-sweep.mjs | V1.1.0 | 2026-11-04 迭代：collectScripts 改递归扫描（跳过
 //     .mut 变异冻结树与 node_modules），把 tests/health-rules/（48 个运行时规则）与 tests/_lib/
 //     （10 个辅助库）纳入普查视野。旧版只 readdirSync(tests) 顶层，使这两个子目录完全不在「孤儿
@@ -34,7 +44,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditAnchorSites, stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/orphan-selftest-sweep.mjs V1.1.0';
+export const VER = 'tests/orphan-selftest-sweep.mjs V1.3.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -77,11 +87,18 @@ function matchAll(text, re) {
 }
 
 // 从一行输出里挑最能代表结论的那条（口径照抄 run-all 的 pickKeyLine，两处保持一致）
-function pickKeyLine(out) {
+function pickKeyLine(out, failed) {
     const lines = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     const hit = lines.filter((l) =>
         /RESULT|MATCH|✅|❌|通过|无失败|issue|偏差|未覆盖|未触发|全过|失败|Error|exit/i.test(l));
-    return (hit[hit.length - 1] || lines[lines.length - 1] || '').slice(0, 100);
+    let chosen = hit[hit.length - 1] || lines[lines.length - 1] || '';
+    if (failed === true) {
+        const neg = hit.filter((l) =>
+            /❌|\bFAIL\b|Error|异常|致命|偏差|未覆盖|未触发|未通过|不一致|漂移|断链|红项|失败/i.test(l)
+            && !/无失败|零失败/.test(l));
+        if (neg.length) chosen = neg[neg.length - 1];
+    }
+    return chosen.slice(0, 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +168,10 @@ function classify(rel, importedBases, registry) {
     //   （loadGameData / loadHexEnhanceData 走 fetch 本地资源，在无网或旧 Node 环境必崩），
     //   不是守门 / 自检，不应被本件当孤儿 spawnSync 直跑 ⇒ 否则污染整轮普查（exit≠0 误报红）。
     if (/^tests\/_verify.*\.mjs$/.test(rel)) return { kind: 'verify', why: '临时验证脚本，需完整引擎+网络（loadGameData 走 fetch 本地资源），node 直跑在无网/旧 Node 环境必崩，属环境不匹配非缺陷；手动在有网环境运行' };
+    // ★ 2026-11-06 迭代：一次性取证/打桩探针（_tmp- 前缀）。ver-bump / ver-drift 早已统一排除
+    //   此前缀（无版本可追溯的转瞬文件），本件旧版只特判 _verify*，于是把并行会话误入库的
+    //   _tmp-probe-meteor.mjs 当真孤儿跑出红。免跑但点名（见 main 的临时探针汇总），不静默跳过。
+    if (/^tests\/_tmp.*\.mjs$/.test(rel)) return { kind: 'tempProbe', why: '一次性取证/打桩探针，非守门非自检；node 直跑的 exit≠0 是探针输出而非缺陷（与 ver-bump/ver-drift 已排除 _tmp-* 同口径）。★ 若已被 git 追踪，属并行会话全量入库误收，应清理出 tests/' };
     if (rel === RUN_ALL) return { kind: 'entry', why: '总入口本身，跑它会无限递归' };
     if (rel === SELF) return { kind: 'self', why: '本件自身，跑它会无限递归' };
     // ★ 在册优先于 library：一个脚本可以同时是"被别处 import 的库"和"清单里的自检"
@@ -219,6 +240,9 @@ function main() {
     // 免跑面必须点名 —— 免跑面是可以静默扩大的东西
     console.log('· 免跑面（每类都给理由，不许静默跳过）：');
     for (const c of skipped) console.log('    [' + c.kind + '] ' + c.rel + ' —— ' + c.why);
+    // V1.2.0：临时探针单独汇总显形 —— 免跑不等于可以悄悄留在仓库里
+    const tempProbes = classified.filter((c) => c.kind === 'tempProbe');
+    if (tempProbes.length) console.log('· ⚠ 临时探针残留 ' + tempProbes.length + ' 个（免跑，但建议清理出 tests/，勿让一次性文件长期挂在仓库里）：' + tempProbes.map((c) => c.rel).join('、'));
     if (stale.length) console.log('· ⚠ 清单有、磁盘无（陈旧条目）：' + stale.join('、'));
 
     console.log('· 逐个跑孤儿：');
@@ -240,7 +264,7 @@ function main() {
         //   混在一起会让"最后一行"落在告警上 —— 实测 param-read-guard 的红因曾被这句话盖住。
         const key = killed
             ? '超过 ' + (CHILD_TIMEOUT_MS / 1000) + 's 未退出（已杀）'
-            : (pickKeyLine(r.stdout || '') || pickKeyLine(r.stderr || ''));
+            : (pickKeyLine(r.stdout || '', code !== 0) || pickKeyLine(r.stderr || '', code !== 0));
         const ok = code === 0;
         if (!ok) reds.push({ rel: c.rel, code, key });
         console.log('    ' + (ok ? '✅' : '❌') + ' ' + c.rel + ' exit=' + code + ' (' + (Date.now() - t0) + 'ms)  ' + key);

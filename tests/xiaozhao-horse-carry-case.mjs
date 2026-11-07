@@ -130,10 +130,7 @@ const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoun
     import('../infra/106-battle-enums.js'),
     import('../infra/106-battle-enums.js')
 ]);
-await import('../modules/307-elite-imperial.js');
-await import('../modules/308-elite-sixsects.js');
-await import('../modules/317-elite-mingjiao.js');
-await import('../modules/331-custom-effects.js');
+await import('./_lib/install-mechanics.mjs');
 await loadGameData();
 await loadHexEnhanceData();
 

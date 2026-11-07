@@ -145,10 +145,7 @@ async function main() {
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     const { createSignalProbe } = await import('./_lib/signal-probe.mjs');
-    await import('../modules/307-elite-imperial.js');
-    await import('../modules/308-elite-sixsects.js');
-    await import('../modules/317-elite-mingjiao.js');
-    await import('../modules/331-custom-effects.js');
+    await import('./_lib/install-mechanics.mjs');
     await loadGameData();
     await loadHexEnhanceData();
 
