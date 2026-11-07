@@ -51,6 +51,16 @@ export function findFreePos(allyTeam, positions) {
     return null;
 }
 
+// 随机空位（召唤/落点类机制的唯一样式）：占位集合 → 1~9 差集 → rng 取一格；全被占返回 null。
+//   1~9 是「每方各自」的格号：传进来的必须是召唤方自己那支队伍。
+//   只消耗一次 nextInt（无空位时不消耗），与各调用方原先手写的取格序列逐位一致。
+export function pickFreePos(allyTeam, rng) {
+    const occupied = new Set(allyTeam.filter(u => u.alive).map(u => u.pos));
+    const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
+    if (free.length === 0) return null;
+    return free[rng.nextInt(0, free.length - 1)];
+}
+
 // 指定格召唤：在 pos 生成一个单位（pos 由调用方用 findFreePos 确认空闲）。
 // 走 Unit.init + applyBonus，与开局单位同口径（含 _base/_init 数值与 _hpDmgRatio 分档）；
 // 打 isSummon 标记便于日志/UI 区分召唤物；拒马不走这里（它有独立的随机格 + 固定数值逻辑）。

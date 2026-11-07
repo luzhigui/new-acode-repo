@@ -6,7 +6,7 @@ import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
-import { spawnUnit } from '../core/205-battle-horse.js';
+import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 
 export const summonBengBengHandler = {
@@ -25,11 +25,9 @@ export const summonBengBengHandler = {
             handler: (data) => {
                 if (!self.alive || self.state._pendingDeath) return;
                 const myTeam = self.camp === CAMP_TYPES.ALLY ? data.A : data.B;
-                // 落位只看己方空位（每方各自占 1-9，与灭绝召唤周芷若同口径）
-                const occupied = new Set(myTeam.filter(u => u.alive).map(u => u.pos));
-                const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
-                if (free.length === 0) return;
-                const pos = free[getBattleRng().nextInt(0, free.length - 1)];
+                // 落位走 core/205 pickFreePos（每方各自占 1-9，随机取一格；无空位返回 null）
+                const pos = pickFreePos(myTeam, getBattleRng());
+                if (pos == null) return;
                 const unit = spawnUnit(myTeam, '蹦蹦', params.m, ROLE_TYPES.WARRIOR, pos,
                     { atk: params.atk, def: params.def, maxHp: params.maxHp, skipRoleBonus: true });
                 data.log.push({

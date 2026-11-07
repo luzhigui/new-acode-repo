@@ -2,7 +2,7 @@
 export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.0';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
-import { spawnUnit } from '../core/205-battle-horse.js';
+import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
 import { applyHeroFlags, getRoleBonus } from '../core/202-unit.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -68,10 +68,8 @@ export function createXieXunComponent() {
                 if (!xiexun.alive) return;
                 const rng = getBattleRng();
                 if (rng.next() >= summon.prob) return;
-                const occupied = new Set(myTeam.filter(u => u.alive).map(u => u.pos));
-                const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
-                if (free.length === 0) return;
-                const pos = free[rng.nextInt(0, free.length - 1)];
+                const pos = pickFreePos(myTeam, rng);
+                if (pos == null) return;
                 const cub = spawnUnit(myTeam, summon.cub.name, summon.cub.m, summon.cub.role, pos,
                     { atk: summon.cub.atk, def: summon.cub.def, maxHp: summon.cub.maxHp, skipRoleBonus: summon.cub.skipRoleBonus });
                 cub.state._lionOwnerUid = xiexun.uid;   // 狮子归属标记：成长/振奋/随动按此认主
