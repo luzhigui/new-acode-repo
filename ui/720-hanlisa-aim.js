@@ -4,11 +4,12 @@
 // shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）必须拆开——
 //   预警按九位九形画全格（空位也罩住），命中只对有人的格。
 // 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
-export const VER = 'ui/720-hanlisa-aim.js V3.5.1';
+export const VER = 'ui/720-hanlisa-aim.js V3.5.2';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
+import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 
 /* ================= 音效（Web Audio 合成，蓄力轰鸣 → 轰出重低音） =================
    · 经 AudioManager 门控（enabled / sfxVolume），独立惰性 AudioContext（用户手势内创建）
@@ -170,9 +171,15 @@ function hpCls(p) { return p > 0.5 ? 'hp-text-green' : (p > 0.2 ? 'hp-text-orang
 function hpBar(p) { return p > 0.5 ? '#2e7d32' : (p > 0.2 ? '#daa520' : '#c0392b'); }
 function cardHtml(u) {
     const p = u.hp / u.max;
+    // 2026-11-07 修手机窄屏挤爆，两处：
+    //   ① 原先直接印原始浮点（132.40000000000003），改用显示层统一取整入口 fmtNum/fmtHp
+    //      （只影响显示，不回写任何战斗数值）；
+    //   ② 原先「攻/23/防/43/血/xxx」拆成多个 span = 多个 flex 子项，最小宽度按整排相加，
+    //      把 grid 的 1fr 列顶宽、整块棋盘溢出手机屏。改成与主页面同款的整句写法，
+    //      最小宽度只算最长的一个词，窄屏下自然换行。
     return '<div class="cu"><span class="cell-icon">' + u.icon + '</span><div class="cell-info">' +
         '<span class="cell-name ' + (u.tier || '') + '">' + u.name + '</span>' +
-        '<span class="cell-stats">攻<span>' + u.atk + '</span> 防<span>' + u.def + '</span> <span class="' + hpCls(p) + '">血' + u.hp + '</span></span></div>' +
+        '<span class="cell-stats">攻' + fmtNum(u.atk) + ' 防' + fmtNum(u.def) + ' <span class="' + hpCls(p) + '">血' + fmtHp(u.hp) + '</span></span></div>' +
         '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:' + Math.round(p * 100) + '%;background:' + hpBar(p) + ';"></div></div></div>';
 }
 
@@ -811,15 +818,17 @@ export function showHanlisaAim(c, hls, payload, resolve) {
   background: var(--c-parchment); border: 3px solid var(--c-brown-border); border-radius: 14px;
   box-shadow: 0 0 46px rgba(255,170,70,.28), 0 18px 50px rgba(0,0,0,.85), inset 0 0 22px rgba(92,64,51,.18); }
 #hlsAimOv .world { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; min-height: 0; will-change: filter; }
-#hlsAimOv .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+#hlsAimOv .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; min-width: 0; }
 #hlsAimOv .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
 #hlsAimOv .camp-side { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 18px; flex-shrink: 0; }
-#hlsAimOv .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
-#hlsAimOv .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; overflow: visible; position: relative; }
+/* 手机窄屏（360~430px）：1fr 列的自动最小宽度=内容最小宽度，任一格内容偏宽就会顶开整列。
+   min-width:0 让三列严格等分并允许内容收缩，绝不再把第三列挤出卡面。 */
+#hlsAimOv .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; min-width: 0; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+#hlsAimOv .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; overflow: visible; position: relative; min-width: 0; }
 #hlsAimOv .cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
-#hlsAimOv .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+#hlsAimOv .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; min-width: 0; }
 #hlsAimOv .cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
-#hlsAimOv .cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+#hlsAimOv .cell-stats { font-size: 7px; color: #555; display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; overflow: hidden; }
 #hlsAimOv .hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
 #hlsAimOv .hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; }
 #hlsAimOv .cell-name.name-blue { color: #2e6fb7; } #hlsAimOv .cell-name.name-purple { color: #8e44ad; } #hlsAimOv .cell-name.name-gold { color: #b8860b; }
@@ -850,6 +859,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
   border:3px solid rgba(255,196,80,.85); box-shadow:0 0 18px rgba(255,160,50,.7), inset 0 0 12px rgba(255,160,50,.4);
   animation: hlsFistRing 1.15s ease-out infinite; }
 #hlsAimOv .fistGuide .fgText { margin-top:6px; font-size:12px; font-weight:900; color:#fff3d6; white-space:nowrap;
+  padding:2px 7px; border-radius:9px; background:rgba(24,12,2,.78); border:1px solid rgba(255,196,80,.55);
   text-shadow:0 0 8px rgba(255,140,40,.8), 0 1px 2px #000; animation: hlsFistFloat 1.15s ease-in-out infinite; }
 @keyframes hlsFistFloat { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-7px); } }
 @keyframes hlsFistRing { 0% { transform:scale(.72); opacity:.95; } 100% { transform:scale(1.32); opacity:0; } }
