@@ -3,7 +3,9 @@
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
 // V7.1.3 | 2026-11-07 第 184 轮：补记 V7.1.2 未升版的实质改动——格子显示名优先读
 //          unit.state._displayName（圆真现形成昆：渲染/战报显示成昆，内部匹配键 self.name 不动）
-export const VER = 'render/403-grid-render.js V7.1.3';
+// V7.1.4 | 2026-11-07 背水一战已触发单位在名字后挂 🩸（复用 logoList 标记位；优先级最低，
+//          排在技能图标/海克斯之后，名额不足自然省略，绝不挤掉技能图标）
+export const VER = 'render/403-grid-render.js V7.1.4';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -376,6 +378,13 @@ export function renderGrid(id, camp) {
         if ((unit._mods && unit._mods.atk ? unit._mods.atk : []).some(m => m.group === 'soulDrain')) logoList.push('🔻');
         // 杨逍改版：点穴眩晕走角色图标 😵（getRoleIcon），此处只挂 ❌ 禁疗（截脉中：治疗/吸血回复减半）
         if (unit.state._jinMai && unit.state._jinMai.rounds > 0) logoList.push('❌');
+        // 背水一战已触发（整局仅一次，含妹永久版）：挂 🩸。
+        //   复用本标记位，优先级最低——压在整个 logoList 末尾，名额不够时先省略它，
+        //   绝不挤掉前面的技能图标/海克斯图标。图标读 content 配置，避免与 BUFFS 漂移。
+        if (unit.state._lastStandTriggered || unit.state._brotherLastStandTriggered) {
+            const lsIcon = (CONFIG.BUFFS && CONFIG.BUFFS.lastStand && CONFIG.BUFFS.lastStand.icon) || '🩸';
+            logoList.push(lsIcon);
+        }
 
         // 名字颜色分档收口：
         //   绿档 = 带有技能的 M100 角色（说不得、周颠、武当莲舟、峨眉素问等）

@@ -1,4 +1,5 @@
-export const VER = 'ui/703-ui-render-5v5-test.js V6.1.1';
+// V6.1.2 | 2026-11-07 #13：小昭详情面板补「变身次数/职业 + 变身/精通属性累计」两行，读引擎 _mods/_roleCounts
+export const VER = 'ui/703-ui-render-5v5-test.js V6.1.2';
 
 // getSkillDesc 已下沉到 ui/710-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/214-battle-shared.js';
@@ -146,6 +147,7 @@ function updateDetailPopupContent() {
     }
     let buffText = '无';
     let masteryText = '';
+    let growthText = '';
     if (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) {
         const perms = u.state._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
@@ -161,6 +163,22 @@ function updateDetailPopupContent() {
             const gDef = layers * (m.defPer ?? 0);
             const gHp = layers * (m.hpPer ?? 0);
             masteryText = `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${gAtk}攻+${gDef}防+${gHp}血）</span>`;
+        }
+        // #13 成长流水：变身次数/职业 + 属性累计，全部读引擎自己的账本，不另算一套——
+        //   ① 次数：`_roleCounts` 是 modules/302 蛛变的抽中计数；
+        //   ② 加成：变身/精通在蛛变时就作为 spiderTransform / spiderMastery 词条写进 _mods，
+        //     这里按 group 求和即引擎累计值。显示统一走 fmtNum（≥10 取整、<10 留一位）。
+        const roleCounts = u.state._roleCounts || {};
+        const transformN = CONFIG.ROLES.reduce((n, r) => n + (roleCounts[r] || 0), 0);
+        if (transformN > 0) {
+            const roleCntText = CONFIG.ROLES.map(r => `${r}×${roleCounts[r] || 0}`).join(' ');
+            const sumGroup = (stat, group) => ((u._mods && u._mods[stat]) || [])
+                .reduce((s, m) => s + (m.group === group && m.op !== 'mul' ? m.value : 0), 0);
+            const tAtk = sumGroup('atk', 'spiderTransform'), tDef = sumGroup('def', 'spiderTransform'), tHp = sumGroup('maxHp', 'spiderTransform');
+            const mAtk = sumGroup('atk', 'spiderMastery'), mDef = sumGroup('def', 'spiderMastery'), mHp = sumGroup('maxHp', 'spiderMastery');
+            const layers = mastered.length >= 4 ? mastered.length + (CONFIG.MASTERY_FULL_BONUS_LAYERS ?? 2) : mastered.length;
+            growthText = `<span style="color:#888;">变身</span><span>共 ${transformN} 次（${roleCntText}），已变 ${mastered.length}/4 职业</span>`
+                + `<span style="color:#888;">成长</span><span>精通 ${layers} 层；变身 +${fmtNum(tAtk)}攻+${fmtNum(tDef)}防+${fmtNum(tHp)}血，精通 +${fmtNum(mAtk)}攻+${fmtNum(mDef)}防+${fmtNum(mHp)}血</span>`;
         }
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
@@ -197,6 +215,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">暴击次数</span><span>${u.critCount || 0}</span>
             <span style="color:#888;">Buff</span><span>${buffText}</span>
             ${masteryText}
+            ${growthText}
             ${(() => {
                 let skills = getRoleSkills(u);
                 if (skills.length > 0) {
