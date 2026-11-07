@@ -168,9 +168,14 @@ function resolvePushOrStun(target, team, log, label) {
     // 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
     if (target.state && target.state._ctrlImmune) return;
     const behindPos = target.pos + 3;
-    const behindBlockedByAir = behindPos <= 9 && team.some(u => u.alive && u.pos === behindPos && isAirborne(u));
+    const behindUnit = behindPos <= 9 ? team.find(u => u.pos === behindPos && u.alive) : null;
+    // 附身占位可被挤开（老板 2026-11 定调）：蝶形态（_flyMode='butterfly' / _butterflyHost 有值）
+    //   虽算 isAirborne，但她那一格是「附身占位」不是实心人墙 → 走换位，占位被挤到目标原格，
+    //   附身结束飞回正好落在被挤到的位置。其余飞天态（蛛飞 / FSM flying）仍视为实心、不给换位。
+    const behindIsAttachPlaceholder = !!(behindUnit && behindUnit.state
+        && (behindUnit.state._butterflyHost || behindUnit.state._fsmPhase === 'attached'));
+    const behindBlockedByAir = behindPos <= 9 && !!behindUnit && isAirborne(behindUnit) && !behindIsAttachPlaceholder;
     if (behindPos <= 9 && !behindBlockedByAir) {
-        const behindUnit = team.find(u => u.pos === behindPos && u.alive);
         const oldPos = target.pos;
         if (behindUnit) {
             const behindOldPos = behindUnit.pos;

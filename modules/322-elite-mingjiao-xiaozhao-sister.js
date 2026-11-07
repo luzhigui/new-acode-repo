@@ -1,5 +1,8 @@
 // modules/322-elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.1';
+// V1.0.2 | 2026-11-07 | ① 附身占位可被击退挤开（core/214 同步放行脉冲格）——占位与目标互换；
+//          ② 宿主死亡立刻飞回当前格（watchUnit 观察 host.alive），并复位 A._butterflyTriggered，
+//             让下一位队友出手前按原有左右取序重新附身（旧版要等回合末声明）。
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.2';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -7,6 +10,10 @@ import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event
 import { StateMachine } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
+import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
+
+// 宿主死亡观察：sister.uid -> token。宿主一死立刻触发飞回（不必等回合末的 BUTTERFLY_RETURN 声明）
+const _hostWatchers = new Map();
 // 乾坤衍生减伤：dmg × 目标def / defToReduce%，保留一位小数，不低于 minReduce。
 // 普通攻击路径与白骨爪逐爪路径共用同一份公式，改公式只改这里；改保底值去 content 的 minReduce。
 function calcQianKunReduce(dmg, defStat, s) {
@@ -200,6 +207,7 @@ export function createXiaoZhaoSisterComponent() {
             });
         },
         _executeAttach(sister, A, log) {
+            const comp = this;
             if (sister.state._butterflyHost) return null;
             const flyDirection = A._flyDirection || 'left';
             const order = flyDirection === 'left' ? [3,2,1,9,8,7,6,5] : [5,6,7,8,9,1,2,3];
@@ -263,9 +271,22 @@ export function createXiaoZhaoSisterComponent() {
                 }
             });
             emitStateChange(sister, STATE_CHANGE_TYPES.ATTACHED, { hostUid: host.uid }, log);
+            // 宿主死亡 → 立刻飞回她当前所在的格子（不等回合末声明），并把 core/210 的
+            //   「首个友方回合已触发附身」标记复位：下一位队友出手前，主循环会再跑一次
+            //   onFirstAllyTurn，按原有左右取序重新挑宿主（规则不新增）。
+            const prevToken = _hostWatchers.get(sister.uid);
+            if (prevToken) unwatchUnit(prevToken);
+            _hostWatchers.set(sister.uid, watchUnit(host, () => !host.alive, (dead, trigger) => {
+                if (!dead || !sister.alive) return;
+                comp.executeReturn(sister, A, (trigger && trigger.log) ? trigger.log : log);
+                A._butterflyTriggered = false;
+            }));
             return sister;
         },
         _executeReturn(sister, A, log) {
+            // 正常飞回/宿主死亡飞回都走这里：注销宿主观察，避免重复触发
+            const token = _hostWatchers.get(sister.uid);
+            if (token) { unwatchUnit(token); _hostWatchers.delete(sister.uid); }
             if (!sister.alive || !sister.state._butterflyHost) return;
             const host = A.find(u => u.uid === sister.state._butterflyHost && u.alive);
             if (!host || !host.alive) {
@@ -284,6 +305,11 @@ export function createXiaoZhaoSisterComponent() {
                 sister._fsm.transition('normal');
                 emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
                 log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid } });
+                // 让格子当帧退出蝶形态（与下面正常飞回同款），宿主一死就立刻看到人回来，不等步末 sync
+                emitEvent(sister, UNIT_EVENT_TYPES.HP_CHANGE, {
+                    hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
+                    atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
+                });
                 return;
             }
             const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
