@@ -1,4 +1,9 @@
-export const VER = 'modules/303-error-capture.js V6.3.0';
+export const VER = 'modules/303-error-capture.js V6.5.0';
+// V6.5.0 | 2026-11-07 | 🎯 点选态不再改日志行距（去掉 min-height，只留光标+选中高亮）；记 Bug 面板
+//                     「去日志里点选锚点」收缩成屏幕顶部一条（标题+返回编辑+锚点提示），日志整块露出可点
+//                     可滚，点中日志行后面板自动恢复原位原高度
+// V6.4.0 | 2026-11-07 | 🎯 日志区每行可点选（≥32px、金色高亮）；记 Bug 时以用户点的那行为锚取
+//                     前 8 + 该行 + 后 2 行逐字原文，没点才自动推测；切片标「锚点来源」（撤掉全程时间线）
 // V6.3.0 | 2026-11-07 | 🐞 切片带上报错点附近的战斗日志原文（前 8 行 + 后到最新，逐字不摘要），
 //                     附「出事单位 + 日志里出现的单位」；整条切片 ≤3KB，超了先砍更早日志、再砍单位字段
 // V6.2.1 | 2026-11-07 | 详细数据改为对症裁剪：只带相关 1~2 单位 + 活跃状态 + 最近 5 步日志（约 1~2KB）
@@ -34,6 +39,91 @@ import { GlobalStore } from '../infra/104-global-store.js';
     const LOG_CTX_AFTER = 2;                    // 报错点之后最多带 2 行
     const LOG_CTX_MIN_KEEP = 3;                 // 最近 3 行永不砍
     const LOG_TAIL_LIMIT = 12;                  // 自动报错当场快照的行数（存内存，不落 localStorage）
+
+    // ---------- 日志行点选：用户手指指定锚点（不靠猜） ----------
+    // 点选态只加「可点光标 + 选中高亮」：行高／行距／字体与常态逐像素一致，不撑高。
+    const LOG_PICK_CLASS = 'dsh-log-pick';
+    let pickedLogEl = null;                     // 当前高亮的日志行 DOM；null = 未点选
+    let anchorPickedHook = null;                // 面板开着时的回调：日志里点中一行 → 填锚点并弹回面板
+    (function injectLogPickStyle() {
+        if (document.getElementById('dshBugAnchorStyle')) return;
+        const st = document.createElement('style');
+        st.id = 'dshBugAnchorStyle';
+        st.textContent =
+            /* 只改光标与颜色，不碰 min-height / padding / line-height */
+            'body.dsh-log-pick #log > div{cursor:pointer;}' +
+            /* 高亮：金色左边条 + 背景，只作用在被点中的那一行（box-shadow 不占布局） */
+            'body.dsh-log-pick #log > div.dsh-log-anchor{background:rgba(255,215,0,.22)!important;box-shadow:inset 3px 0 0 #ffd700;}' +
+            'body.dsh-log-pick #log > div.dsh-log-anchor,body.dsh-log-pick #log > div.dsh-log-anchor *{color:#ffe9a8!important;}';
+        document.head.appendChild(st);
+    })();
+    function setLogPickMode(on) {
+        // 只切点选态的样式作用域；锚点数据保留（退出点选态只是不显示高亮，保存时仍以它为准）
+        document.body.classList.toggle(LOG_PICK_CLASS, !!on);
+        const b = document.getElementById('dshLogPickBtn');
+        if (b) {
+            b.textContent = on ? '📌 点选态：点日志行' : '📌 选锚点';
+            b.style.borderColor = on ? '#ffe066' : '#ffd700';
+            b.style.background = on ? 'rgba(255,215,0,.26)' : 'rgba(30,20,10,.9)';
+        }
+    }
+    function clearLogAnchor() {
+        if (pickedLogEl) pickedLogEl.classList.remove('dsh-log-anchor');
+        pickedLogEl = null;
+    }
+    function logLineEls() {
+        const logEl = document.getElementById('log');
+        if (!logEl) return { logEl: null, kids: [] };
+        return { logEl: logEl, kids: Array.from(logEl.children).filter(el => String(el.textContent || '').trim()) };
+    }
+    function getLogAnchorInfo() {
+        if (!pickedLogEl || !pickedLogEl.isConnected) return null;
+        const { logEl, kids } = logLineEls();
+        if (!logEl || pickedLogEl.parentElement !== logEl) return null;
+        const i = kids.indexOf(pickedLogEl);
+        if (i < 0) return null;
+        return { el: pickedLogEl, lineNo: i + 1, index: i, total: kids.length };
+    }
+    function readDomAnchor() {
+        const info = getLogAnchorInfo();
+        if (!info) return null;
+        const { kids } = logLineEls();
+        const start = Math.max(0, info.index - LOG_CTX_BEFORE);
+        const end = Math.min(kids.length - 1, info.index + LOG_CTX_AFTER);
+        const lines = [];
+        const nos = [];
+        for (let k = start; k <= end; k++) {
+            lines.push(String(kids[k].textContent || '').replace(/\s+/g, ' ').trim());
+            nos.push(k);                        // 0 基，展示时 +1 = 日志区第 N 行
+        }
+        return { total: kids.length, from: start, anchor: info.index - start, nos: nos, lines: lines };
+    }
+    function setLogAnchor(el) {
+        if (pickedLogEl === el) {               // 再点同一行 = 取消锚点
+            clearLogAnchor();
+            showToast('已取消锚点（记录时回到自动推测）');
+            return;
+        }
+        clearLogAnchor();
+        pickedLogEl = el;
+        el.classList.add('dsh-log-anchor');
+        const info = getLogAnchorInfo();
+        showToast('已选锚点：日志第 ' + (info ? info.lineNo : '?') + ' 行（记 Bug 时以此行为中心）');
+        if (anchorPickedHook) { try { anchorPickedHook(); } catch (e) { /* 面板已关则忽略 */ } }
+    }
+    // 捕获阶段拦点击：只有点选态（记 Bug 面板开着）才接管日志区点击；链接/按钮等交互元素不抢
+    document.addEventListener('click', (e) => {
+        if (!document.body.classList.contains(LOG_PICK_CLASS)) return;
+        const logEl = document.getElementById('log');
+        if (!logEl || !logEl.contains(e.target)) return;
+        if (e.target.closest && e.target.closest('a,button,input,textarea,select')) return;
+        let line = e.target;
+        while (line && line.parentElement !== logEl) line = line.parentElement;
+        if (!line || line === logEl) return;
+        if (!String(line.textContent || '').trim()) return;
+        if (e.stopPropagation) e.stopPropagation();
+        setLogAnchor(line);
+    }, true);
 
     function nowIso() { return new Date().toISOString(); }
     function safeJson(v, maxLen) {
@@ -126,19 +216,21 @@ import { GlobalStore } from '../infra/104-global-store.js';
         }
         return e.text ? stripLogHtml(e.text) : '';
     }
-    // 当前战斗日志的末尾若干行（逐字）；from 是该段首行在 battleLog 里的 0 基下标。
+    // 当前战斗日志的末尾若干行（逐字）；nos 是每行在 battleLog 里的原始下标。
     //   从尾部倒着取，console.error/warn 每次都调用也不会把整本战报扫一遍。
     function captureLogTail(limit) {
         let entries = [];
         try { entries = GlobalStore.get('battleLog') || []; } catch (e) { entries = []; }
         const need = limit > 0 ? limit : entries.length;
         const lines = [];
+        const nos = [];
         for (let i = entries.length - 1; i >= 0 && lines.length < need; i--) {
             const t = flattenLogEntry(entries[i]);
-            if (t) lines.unshift(t);
+            if (t) { lines.unshift(t); nos.unshift(i); }
         }
-        return { total: entries.length, from: entries.length - lines.length, lines: lines };
+        return { total: entries.length, from: nos.length ? nos[0] : entries.length, lines: lines, nos: nos };
     }
+    // 出事单位全程时间线：已按老板要求撤掉（会抄进大量无关行），只保留用户点选锚点。
     function getBattleRoster() {
         try {
             const fn = window.__BUG_UNITS__;
@@ -152,9 +244,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
         } catch (e) { return []; }
     }
     // 建「报错点附近的日志原文」：前 8 行 + 报错点 + 之后最多 2 行，原顺序、逐字。
-    //   tail 为空时现取当前日志末尾；自动报错用报错当场的快照，避免记录时日志早就跑远了。
-    function buildLogContext(source, hintText, pickedNames, tail) {
-        const base = (tail && Array.isArray(tail.lines) && tail.lines.length) ? tail : captureLogTail(LOG_TAIL_LIMIT);
+    //   domAnchor 有值 = 用户手指点的那一行（不猜，窗口已由 readDomAnchor 切好）；
+    //   为空才退回自动推测（勾选角色 → 报错文字点名 → 最近出现的角色 → 最新行）。
+    function buildLogContext(source, hintText, pickedNames, tail, domAnchor) {
+        const userAnchor = (domAnchor && Array.isArray(domAnchor.lines) && domAnchor.lines.length) ? domAnchor : null;
+        const base = userAnchor
+            ? userAnchor
+            : ((tail && Array.isArray(tail.lines) && tail.lines.length) ? tail : captureLogTail(LOG_TAIL_LIMIT));
         const lines = base.lines || [];
         if (!lines.length) return null;
 
@@ -163,7 +259,6 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const hint = String(hintText || '');
         const len = lines.length;
 
-        // 报错点：点选/点名/最近日志里出现的单位名 → 最后一次出现的位置；都没有就落在最新一行
         let focus = (pickedNames || []).filter(Boolean).slice();
         if (!focus.length) focus = allNames.filter(n => hint.includes(n));
         const findLast = (names) => {
@@ -173,28 +268,39 @@ import { GlobalStore } from '../infra/104-global-store.js';
             }
             return -1;
         };
-        let anchor = findLast(focus);
-        if (anchor < 0) {
-            const recentNames = allNames.filter(n => lines.slice(-3).some(l => l.includes(n)));
-            if (recentNames.length) { focus = recentNames; anchor = findLast(recentNames); }
-        }
-        if (anchor < 0) { focus = []; anchor = len - 1; }
 
-        // 前 8 行 + 报错点 + 之后 2 行；日志不足 3 行时全带，保证「冲刺前一行血是多少」这类现场不缺
-        let start = Math.max(0, anchor - LOG_CTX_BEFORE);
-        if (start > len - LOG_CTX_MIN_KEEP) start = Math.max(0, len - LOG_CTX_MIN_KEEP);
-        const end = Math.max(anchor, Math.min(len - 1, anchor + LOG_CTX_AFTER));
-        const body = lines.slice(start, end + 1);
+        let body, bodyNos, anchorInSlice;
+        if (userAnchor) {
+            body = lines;
+            bodyNos = base.nos;
+            anchorInSlice = base.anchor;
+        } else {
+            let anchor = findLast(focus);
+            if (anchor < 0) {
+                const recentNames = allNames.filter(n => lines.slice(-3).some(l => l.includes(n)));
+                if (recentNames.length) { focus = recentNames; anchor = findLast(recentNames); }
+            }
+            if (anchor < 0) { focus = []; anchor = len - 1; }
+            // 前 8 行 + 报错点 + 之后 2 行；日志不足 3 行时全带
+            let start = Math.max(0, anchor - LOG_CTX_BEFORE);
+            if (start > len - LOG_CTX_MIN_KEEP) start = Math.max(0, len - LOG_CTX_MIN_KEEP);
+            const end = Math.max(anchor, Math.min(len - 1, anchor + LOG_CTX_AFTER));
+            body = lines.slice(start, end + 1);
+            bodyNos = Array.isArray(base.nos) ? base.nos.slice(start, end + 1) : null;
+            anchorInSlice = anchor - start;
+        }
 
         const names = allNames.filter(n => body.some(l => l.includes(n)));
-        const unit = focus.find(n => names.includes(n)) || names[0] || null;
+        const unit = focus.find(n => names.includes(n)) || names[0] || focus[0] || null;
         return {
-            src: source === 'manual' ? 'manual' : 'auto',   // 自证：这条切片是自动抓的还是手动写的
+            src: source === 'manual' ? 'manual' : 'auto',     // 自证：这条切片是自动抓的还是手动写的
+            anchorSrc: userAnchor ? 'user' : 'auto',          // 自证：锚点是用户点的还是自动推测的
             unit: unit,
             names: names,
-            from: base.from + start,                        // 0 基全局行号
+            from: bodyNos && bodyNos.length ? bodyNos[0] : base.from,
             total: base.total,
-            anchor: anchor - start,                         // 报错点在 log 数组里的位置
+            anchor: anchorInSlice,                            // 报错点在 log 数组里的位置
+            nos: bodyNos,
             log: body
         };
     }
@@ -209,11 +315,12 @@ import { GlobalStore } from '../infra/104-global-store.js';
             const lc = ctx.logCtx;
             if (lc && Array.isArray(lc.log) && lc.log.length > LOG_CTX_MIN_KEEP) {
                 lc.log.shift();
+                if (Array.isArray(lc.nos)) lc.nos.shift();
                 lc.from += 1;
                 if (lc.anchor > 0) lc.anchor -= 1;
                 continue;
             }
-            // ② 单位字段：先丢非出事单位，再丢状态明细
+            // ③ 单位字段：先丢非出事单位，再丢状态明细
             if (lc && Array.isArray(lc.names) && lc.names.length > 1) { lc.names.pop(); continue; }
             if (Array.isArray(ctx.units) && ctx.units.length > 1) {
                 const keep = lc && lc.unit;
@@ -338,6 +445,9 @@ import { GlobalStore } from '../infra/104-global-store.js';
 
     // ---------- 弹层壳（复用 index.html 的 .modal-overlay 皮肤）----------
     function closePanels() {
+        anchorPickedHook = null;
+        setLogPickMode(false);                  // 关面板即退出点选态：日志行样式立刻还原
+        clearLogAnchor();                       // 面板关了，锚点数据一并清掉（下次重来）
         ['bugRecorderOverlay', 'bugListOverlay'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.remove();
@@ -399,8 +509,9 @@ import { GlobalStore } from '../infra/104-global-store.js';
     // ---------- 记录面板：挑错误 + 写备注 + 保存 ----------
     function openRecorder() {
         closePanels();
-        const { box } = makeOverlay('bugRecorderOverlay');
+        const { overlay, box } = makeOverlay('bugRecorderOverlay');
         makeTitle(box, '🐞 记录 Bug');
+        const titleRow = box.firstElementChild;      // 收缩成顶部一条时只留标题行
 
         let manualMode = false;
         const chips = new Map();       // uid -> { btn, name }
@@ -478,6 +589,86 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'background:#0e0a06;border:1px solid #5a4630;color:#f2e6c9;border-radius:8px;' +
             'padding:8px;font-size:14px;line-height:1.4;margin-bottom:10px;';
         box.appendChild(note);
+
+        // ---------- 锚点状态：日志区点过哪一行（点选在 #log 上完成，这里只显示/清除） ----------
+        const anchorSec = document.createElement('div');
+        anchorSec.style.cssText =
+            'display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;' +
+            'padding:7px 9px;border:1px solid #5a4630;border-radius:8px;background:#140f09;';
+        const anchorTip = document.createElement('div');
+        anchorTip.style.cssText = 'font-size:11px;color:#cbb98f;flex:1;min-width:0;word-break:break-word;';
+        const anchorClear = makeSmallBtn('清除锚点');
+        anchorClear.onclick = (e) => { e.stopPropagation(); clearLogAnchor(); updateAnchorTip(); };
+        // 一键收缩：面板整体贴到屏幕最顶部、缩成一条（标题 + 返回编辑 + 锚点提示），
+        //   战斗区和日志区整块露出来可点可滚；再点一次恢复原位原高度。
+        const pickModeBtn = makeSmallBtn('📌 去日志里点选锚点');
+        pickModeBtn.style.flexShrink = '0';
+        let mini = false;
+        function setMini(on) {
+            mini = !!on;
+            if (mini) {
+                // 除标题行与锚点栏外的内容先收起来，面板只剩一条
+                for (const ch of box.children) {
+                    if (ch === titleRow || ch === anchorSec) continue;
+                    ch.dataset.dshMiniDisplay = ch.style.display;
+                    ch.style.display = 'none';
+                }
+                overlay.style.top = '0';
+                overlay.style.bottom = 'auto';
+                overlay.style.height = 'auto';
+                overlay.style.alignItems = 'flex-start';
+                overlay.style.padding = '0 8px';
+                overlay.style.background = 'transparent';   // 遮罩不压日志
+                overlay.style.pointerEvents = 'none';       // 面板以外全部点击穿透到战斗区/日志
+                box.style.pointerEvents = 'auto';
+                box.style.maxHeight = 'none';
+                box.style.width = '100%';
+                box.style.padding = '8px 10px';
+                box.style.borderRadius = '0 0 12px 12px';
+                pickModeBtn.textContent = '↩ 返回编辑';
+                setLogPickMode(true);
+            } else {
+                for (const ch of box.children) {
+                    if (ch.dataset.dshMiniDisplay === undefined) continue;
+                    ch.style.display = ch.dataset.dshMiniDisplay;
+                    delete ch.dataset.dshMiniDisplay;
+                }
+                overlay.style.top = '0';
+                overlay.style.bottom = '';
+                overlay.style.height = '100%';
+                overlay.style.alignItems = 'flex-start';
+                overlay.style.padding = '6vh 8px 12px';
+                overlay.style.background = 'rgba(0,0,0,.72)';
+                overlay.style.pointerEvents = '';
+                box.style.pointerEvents = '';
+                box.style.maxHeight = '84vh';
+                box.style.width = '';
+                box.style.padding = '14px';
+                box.style.borderRadius = '';
+                pickModeBtn.textContent = '📌 去日志里点选锚点';
+                // 锚点数据不丢：只撤点选态样式（高亮/光标），保存时仍用用户点的那一行
+                setLogPickMode(false);
+            }
+            updateAnchorTip();
+            anchorClear.style.display = (mini || !getLogAnchorInfo()) ? 'none' : '';
+        }
+        pickModeBtn.onclick = (e) => { e.stopPropagation(); setMini(!mini); };
+        anchorSec.appendChild(anchorTip); anchorSec.appendChild(pickModeBtn); anchorSec.appendChild(anchorClear);
+        // 点锚点那一栏也能收缩（手不用瞄准小按钮）
+        anchorSec.onclick = () => { if (!mini) setMini(true); };
+        box.appendChild(anchorSec);
+        // 日志里点中一行 → 锚点写进面板 + 面板自动弹回原高度
+        anchorPickedHook = () => {
+            if (mini) setMini(false); else updateAnchorTip();
+        };
+        function updateAnchorTip() {
+            const info = getLogAnchorInfo();
+            anchorTip.textContent = info
+                ? '锚点：日志第 ' + info.lineNo + ' 行（用户点选，取前 8 + 该行 + 后 2 行原文）'
+                : '锚点：自动推测（未点选日志行；可在战斗日志区点一行指定）';
+            anchorClear.style.display = info ? '' : 'none';
+        }
+        updateAnchorTip();
 
         // 手动记录：可选点一下涉及的角色（不点也行）
         const unitBar = document.createElement('div');
@@ -607,7 +798,9 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     // 自动报错优先用「报错当场」的日志快照，避免记录时日志已经跑远
                     const tail = mode === 'auto' && selected.length
                         ? (selected[selected.length - 1].logTail || null) : null;
-                    const logCtx = buildLogContext(mode, hint, unitNames, tail);
+                    // 用户在日志区点过哪一行，就以那行为锚；没点过才自动推测
+                    const domAnchor = readDomAnchor();
+                    const logCtx = buildLogContext(mode, hint, unitNames, tail, domAnchor);
                     if (logCtx) {
                         delete ctx.log;                  // 旧的 5 行 × 60 字精简档，换成逐字原文
                         ctx.logCtx = logCtx;
@@ -653,16 +846,18 @@ import { GlobalStore } from '../infra/104-global-store.js';
                 lines.push((i + 1) + '. ' + t + ' ｜ [自动] ' + (sums || r.note || '（无摘要）'));
                 if (sums && r.note) lines.push('   备注：' + r.note);
             }
-            // 日志原文：报错点前后逐字带出（▶ 为报错点/出事单位最后一次出现处）
+            // 日志原文：报错点前后逐字带出（▶ 为锚点行）
             const lc = r.detail && r.detail.logCtx;
             if (lc && Array.isArray(lc.log) && lc.log.length) {
                 const block = [];
+                const noAt = (k) => (Array.isArray(lc.nos) && typeof lc.nos[k] === 'number') ? lc.nos[k] + 1 : lc.from + k + 1;
                 block.push('   ── 战斗日志原文（' + (lc.src === 'manual' ? '手动记录' : '自动抓取') +
-                    ' · 第 ' + (lc.from + 1) + '~' + (lc.from + lc.log.length) + ' 行 / 共 ' + lc.total +
+                    ' · 锚点来源：' + (lc.anchorSrc === 'user' ? '用户点选' : '自动推测（未点选）') +
+                    ' · 第 ' + noAt(0) + '~' + noAt(lc.log.length - 1) + ' 行 / 共 ' + lc.total +
                     ' 行 · 出事单位：' + (lc.unit || '未识别') +
                     ((lc.names || []).length > 1 ? ' · 出现：' + lc.names.join('、') : '') + '）');
                 lc.log.forEach((txt, k) => {
-                    block.push('   ' + (lc.from + k + 1) + ' │ ' + (k === lc.anchor ? '▶ ' : '  ') + txt);
+                    block.push('   ' + noAt(k) + ' │ ' + (k === lc.anchor ? '▶ ' : '  ') + txt);
                 });
                 const cost = block.join('\n').length;
                 if (cost <= logBudget) { lines.push(...block); logBudget -= cost; }
@@ -863,19 +1058,44 @@ import { GlobalStore } from '../infra/104-global-store.js';
         'box-shadow:0 2px 8px rgba(0,0,0,.4);';
     bugQuickBtn.onclick = openRecorder;
 
-    function syncBugBtn() {
-        // 直接读 store：比 window.GlobalStore 可靠（ES module 里 window 上不一定挂）
-        try {
-            bugQuickBtn.style.display = GlobalStore.get('isPaused') ? 'block' : 'none';
-        } catch (e) { bugQuickBtn.style.display = 'none'; }
-    }
-
     // 重复执行 init 时先清掉上一颗（开发热重载 / SPA 重进都会再跑一遍）
     try {
         const old = document.getElementById('dshBugQuickBtn');
         if (old && old !== bugQuickBtn) old.remove();
     } catch (e) { /* 忽略 */ }
     document.body.appendChild(bugQuickBtn);
+
+    // ---------- 📌 选锚点：点选态开关（常态行距一像素不动，开了只加可点光标 + 高亮） ----------
+    const pickBtn = document.createElement('button');
+    pickBtn.id = 'dshLogPickBtn';
+    pickBtn.textContent = '📌 选锚点';
+    pickBtn.title = '进入点选态：点日志任意一行作为 Bug 切片锚点（再点一次关闭）';
+    pickBtn.style.cssText =
+        'position:fixed;right:8px;bottom:calc(32vh + 42px);z-index:99999;' +
+        'display:none;padding:6px 12px;border-radius:18px;' +
+        'border:1px solid #ffd700;background:rgba(30,20,10,.9);color:#ffd700;' +
+        'font-size:12px;line-height:1;cursor:pointer;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.4);';
+    pickBtn.onclick = () => {
+        const on = !document.body.classList.contains(LOG_PICK_CLASS);
+        setLogPickMode(on);
+        showToast(on ? '点选态已开：点日志任意一行当锚点' : '点选态已关：日志行距已还原');
+    };
+    try {
+        const oldPick = document.getElementById('dshLogPickBtn');
+        if (oldPick && oldPick !== pickBtn) oldPick.remove();
+    } catch (e) { /* 忽略 */ }
+    document.body.appendChild(pickBtn);
+
+    function syncBugBtn() {
+        // 直接读 store：比 window.GlobalStore 可靠（ES module 里 window 上不一定挂）
+        let paused = false;
+        try { paused = !!GlobalStore.get('isPaused'); } catch (e) { paused = false; }
+        bugQuickBtn.style.display = paused ? 'block' : 'none';
+        pickBtn.style.display = paused ? 'block' : 'none';
+        // 继续游戏就退出点选态，日志立刻恢复正常行距
+        if (!paused && document.body.classList.contains(LOG_PICK_CLASS)) setLogPickMode(false);
+    }
 
     // 跟 GlobalStore.isPaused 联动（含面板暂停：719 的 syncPauseState 会把它一起置位）
     try { GlobalStore.on('isPaused', syncBugBtn); } catch (e) { /* 轮询兜底 */ }
