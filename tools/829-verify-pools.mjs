@@ -135,7 +135,28 @@ check(7, '明教全员 MING_M（含顺序/m）', mingMProd, mingMDerive,
     () => mingMProd.every((n, i) => mingMDerive[i] === n && CONFIG.MING_M[n] === H[n].m));
 check(8, '六大派全员 ENEMY_M（含顺序/m）', enemyMProd, enemyMDerive,
     () => enemyMProd.every((n, i) => enemyMDerive[i] === n && CONFIG.ENEMY_M[n] === H[n].m));
-check(9, 'MING_ALL', prod.mingAll(), derive.mingAll());
+// [9] MING_ALL：旧版是 prod.mingAll() vs derive.mingAll() —— 两边都从 characters.mingAll 推导、
+//   且 check() 用 eqSet（忽略顺序），属自比自，永远通过。改为对照**删除前的历史冻结表**
+//   （roster.mingAll，取自 7f04f450^:content/001-game-data.json），逐位、顺序敏感。
+//   任何增删/换位都会红；顺序不承诺稳定的前提下，这条就是「历史顺序漂移」的唯一回归锚。
+const MING_ALL_FROZEN = ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草',
+    '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教洪午', '明教岳山', '明教石虎',
+    '反伤弟子', '明教弟子1', '明教弟子2', '明教弟子3'];
+const mingAllProd = prod.mingAll();
+const mingAllDrift = [];
+if (mingAllProd.length !== MING_ALL_FROZEN.length) {
+    mingAllDrift.push(`长度 实际${mingAllProd.length} ≠ 冻结${MING_ALL_FROZEN.length}`);
+}
+for (let i = 0; i < Math.max(mingAllProd.length, MING_ALL_FROZEN.length); i++) {
+    if (mingAllProd[i] !== MING_ALL_FROZEN[i]) {
+        mingAllDrift.push(`#${i}: 实际=${mingAllProd[i] ?? '(无)'} 冻结=${MING_ALL_FROZEN[i] ?? '(无)'}`);
+    }
+}
+const ok9 = mingAllDrift.length === 0;
+if (ok9) pass++;
+console.log(`\n[9] MING_ALL（对照历史冻结表，逐位/顺序敏感） ${ok9 ? '✅ 一致' : '❌ 顺序漂移'}`);
+console.log(`  实际 ${mingAllProd.length}：${mingAllProd.join(' / ')}`);
+if (!ok9) console.log('  ' + mingAllDrift.join('\n  '));
 
 // HERO_FLAGS：名字→标记 逐键一致
 const fNew = derive.flags(), fOld = Object.fromEntries(names.filter(n => HERO_FLAGS[n]).map(n => [n, HERO_FLAGS[n]]));
