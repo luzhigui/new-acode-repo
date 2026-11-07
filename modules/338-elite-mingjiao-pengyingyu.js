@@ -72,6 +72,8 @@ export const doubleFaceHandler = {
         //   全被剔除＝返回空数组，引擎按「本轮无目标」处理，不做兜底。
         const FILTER_ID = 'modules/338:doubleFace';
         registerTargetFilter(FILTER_ID, (attacker, candidates) => {
+            // 只剔敌方候选：友方选友方（治疗/增益/内讧）走同一选敌面时，彭莹玉不该被误滤掉
+            if (attacker.camp === self.camp) return null;
             const kept = candidates.filter(c =>
                 !(c.name === selfName && c.state && c.state._crossdressRounds > 0));
             return kept.length === candidates.length ? null : kept;
