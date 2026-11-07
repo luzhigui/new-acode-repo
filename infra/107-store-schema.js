@@ -90,7 +90,10 @@ export const STORE_SCHEMA = Object.freeze({
             enemy: { type: S.ARRAY, item: 'UNIT', required: true }
         }
     },
-    currentDoubleStrikeUid: { type: S.STRING, nullable: true },
+    // 真实写入是 core/210 的 doubleStrikeUid（= doubleStrikeUnitUids 数组），
+    //   player/504:179 原样透传；render/404:97 也按 Array.isArray + includes 读。
+    //   定成 string 会在第 1 回合写 step.doubleStrikeUid 时直接抛错（线上 v=6535f8a3 P0）。
+    currentDoubleStrikeUid: { type: S.ARRAY, item: S.STRING, nullable: true },
     currentStage: { type: S.NUMBER },
     debugMode: { type: S.BOOLEAN },
     dodgeEffectEnabled: { type: S.BOOLEAN },
