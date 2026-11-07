@@ -28,7 +28,8 @@ export function renderMeteorShowerSplashFact(fact) {
 
 // Carry 应用
 export function renderCarryApplyFact(fact) {
-    return { type:'info', text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fmtNum(fact.atk)} 防+${fmtNum(fact.def)} 血上限+${fmtNum(fact.hp)}</span>` };
+    // unitUid 透传（第 185 轮）：体检 148 的「同回合重复应用」判据要按 uid 归因，显示名做不到
+    return { type:'info', unitUid: fact.unitUid, text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fmtNum(fact.atk)} 防+${fmtNum(fact.def)} 血上限+${fmtNum(fact.hp)}</span>` };
 }
 
 // Buff 召唤

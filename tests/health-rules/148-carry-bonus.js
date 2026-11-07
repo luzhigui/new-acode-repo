@@ -39,7 +39,7 @@
 //   修 seed=9 stage=7「雄狮×3」假阳性；信号1 重复判据同名仍跳过。
 //   第 135 轮（2026-10-29）：信号 5 剔除 hp 项 —— 终局快照 _baseMaxHp 是战斗期保留键、快照上取不到，
 //   Σ 被算小 3.67 倍误报「血超界」（10-29 关卡4实录）；hp 后果归 stat-decl CARRY_APPLY 账本契约盯。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.28';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.29';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/201-config-5v5-test.js';
@@ -143,17 +143,31 @@ export const rule95 = {
                 //   → 同名一律**跳过**本判据（宁漏勿误）；只有该名在场唯一时才判重复。
                 //   另：第 34 轮"实测实际属性增量为 0、故属性翻倍不成立"的结论，同样源于同名 artifact
                 //   （逐步真值对照器按名字匹配，取到了不同的雄狮个体），**已作废**，勿再引用。
+                //   ★ 第 185 轮（第 36 轮判据的补强，仍是判据误报修正）：CARRY_APPLY 现在带 unitUid
+                //   （core/204:113 + render/412:32 透传），优先**按 uid 归因**：
+                //   关卡3 第7回合「雄鹰」同回合 2 条声明即属此列——同名单位可以同时存在（两侧阵营各 1 只雄鹰；
+                //   死掉那只在终局结算快照里可能已不计入 ⇒ 旧「终局快照同名数==1」判成"在场唯一"而误报）。
+                //   引擎 applyCarryBonus 是 per-unit 单遍、每单位每回合至多 1 条：uid 相同才算真·重复。
+                //   无 uid 的旧战报退回原「同名一律跳过、唯一才判重」口径（宁漏勿误）。
+                var uid = (it.unitUid != null) ? String(it.unitUid) : null;
                 var nameCount = 0;
                 var namePool = poolOf(who, afterA, afterE);
                 for (var np = 0; np < namePool.length; np++) {
                     if (namePool[np] && namePool[np].name === who) nameCount++;
                 }
-                if (nameCount > 1) {
-                    ambiguousNames++; // 同名，无法归因到个体，跳过
-                } else if (seenThisRound[who]) {
-                    return { fail: true, msg: '复发：carry重复应用：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
+                if (uid != null) {
+                    if (seenThisRound['u:' + uid]) {
+                        return { fail: true, msg: '复发：carry重复应用：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（uid=' + uid + ' 同回合被应用两次；重复执行本身是缺陷）' };
+                    }
+                    seenThisRound['u:' + uid] = true;
+                } else {
+                    if (nameCount > 1) {
+                        ambiguousNames++; // 同名，无法归因到个体，跳过
+                    } else if (seenThisRound[who]) {
+                        return { fail: true, msg: '复发：carry重复应用：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
+                    }
+                    seenThisRound[who] = true;
                 }
-                seenThisRound[who] = true;
 
                 var pool = poolOf(who, afterA, afterE);
                 // 队友池 = 同池单位（终局快照；只用于"量级"定性，不做精确重算）。

@@ -1,3 +1,11 @@
+// V6.7.7 | 2026-11-07 第 185 轮 两处口径修正（均为判据读错源，不改任何判定强度）：
+//   ① checkUnitHpValidity 改读**同一步的引擎冻结真值** unit._frozen（core/11 makeStep 同时刻采的 hp/maxHp）。
+//      病由：battleStore 的 unit 是混合时点样本——maxHp 由 SET_UNITS（step 起点）冻结，hp 却会被播放期
+//      player/509 的 HP_CHANGE（payload 只写 hp，见 509:109）改写成 step 中段值；上限在 step 内变更
+//      （如张无忌「乾坤大挪移变身」addMod maxHp，render/412 ZHANG_SWITCH）时便出现 hp>maxHp 的瞬时假象。
+//      引擎真值不越界：1200 seed × 关卡 3/4/5/6 回放共 4800 场，hp>maxHp 0 命中（26/25 即此假阳性）。
+//   ② 新增 firstActiveRoundOf：定位「可中途召唤」单位（如张三丰 summon:true，众志成城进场）首次在场回合，
+//      供 141/142 把期望回合/缺席窗口锚到进场回合，避免把「进场前的回合」算成机制缺失。
 // V6.7.6 | 2026-11-07 第 184 轮 checkActionRights 正常位名单补一项：唐文亮「冲刺·七伤齐发」声明即行动。
 //          病由：冲刺先 moveUnitPosition 改站位、再转近战战士，本回合剩下一拳走额外攻击通道（core/11 不再
 //          emit ON_UNIT_ACTED），战报只有一条 SKILL_ANNOUNCE('冲刺·七伤齐发') + TW_DASH_APPLY ⇒ 按旧口径
@@ -26,7 +34,7 @@ import { getUnitCol, getUnitRow } from '../infra/102-core-utils.js';
 // V6.7.4（续迭代）：checkHpBarSync 同款修复——单位受击后引擎 hp 即时更新、DOM 血条动画回落约 0.7s，
 //   原判据见 |actual-expected|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
 //   改为追踪连续两次取样高度：仍变化=动画中跳过；稳定且仍偏离>5%=真·卡死/错位才报。
-export const VER = 'tests/122health-utils.js V6.7.6';
+export const VER = 'tests/122health-utils.js V6.7.7';
 
 // [模块级状态] 见 V6.7.3：死亡血条动画收敛追踪 + GAMEOVER 按钮稳定计时
 const _barPrev = new Map();      // uid -> 上次观测到的血条高度(%)，区分"动画回落中"与"卡死残留"
@@ -58,29 +66,62 @@ export function getCellByUid(uid, doc) {
         || doc.querySelector('#enemyGrid .cell[data-uid="' + uid + '"]') || null;
 }
 
+// 「可中途召唤」单位在场回合定位（第 185 轮新增，141/142 共用）。
+//   张三丰/张无忌等 content characters 带 summon:true ⇒ 可由「众志成城」在战斗中途召唤进场；
+//   这类单位并非第 1 回合就在场，按绝对回合数结算「第 N 回合应触发」必然误报。
+//   口径：某回合的 round-start 之后、本回合首个 attack-group 之前已出现该名 ⇒ 该回合起在场；
+//        若首次出现在 attack-group 之后（本回合开始时还不在场）⇒ 从下一回合起才吃回合开始机制。
+//   战报全程无该名 ⇒ 返回 0（调用方按「是否出现在开战快照」决定 fallback）。
+export function firstActiveRoundOf(log, name) {
+    if (!name) return 0;
+    let round = 0, sawAction = false;
+    for (const e of (log || [])) {
+        if (!e) continue;
+        if (e.type === 'round-start' && typeof e.text === 'string') {
+            const m = e.text.match(/第(\d+)回合开始/);
+            round = m ? parseInt(m[1], 10) : round + 1;
+            sawAction = false;
+            continue;
+        }
+        if (e.type === 'attack-group') sawAction = true;
+        if (typeof e.text === 'string' && e.text.indexOf(name) !== -1) {
+            return sawAction ? round + 1 : round;
+        }
+    }
+    return 0;
+}
+
 /**
  * 检查单位血量合法性（负数、溢出、膨胀）
  * 韦一笑(isWei)豁免膨胀检查：闪避反击吸血涨上限是设计机制(applyMaxHpChange 只涨 maxHp 不涨 _baseMaxHp，无上限)
  */
 export function checkUnitHpValidity(unit) {
     const issues = [];
+    // 采样源唯一（第 185 轮）：battleStore 的 unit 是**混合时点**样本——maxHp 由 SET_UNITS（step 起点）
+    //   冻结，hp 却会被播放期 player/509:109 的 HP_CHANGE 改写成 step 中段值；上限在 step 内变更
+    //   （张无忌「乾坤大挪移变身」等 addMod maxHp）时就出现 hp>maxHp 的瞬时假象（关卡4 张无忌 26/25）。
+    //   引擎真值（core/11 makeStep 的 frozenValues 同刻采 hp/maxHp）从不越界：1200 seed × 关卡3/4/5/6
+    //   共 4800 场回放 0 命中。故判据优先读 unit._frozen；无冻结值（store 尚未 SET_UNITS）才退回字段。
+    const fv = unit._frozen;
+    const hp = (fv && typeof fv.hp === 'number' && !Number.isNaN(fv.hp)) ? fv.hp : unit.hp;
+    const maxHp = (fv && typeof fv.maxHp === 'number' && !Number.isNaN(fv.maxHp)) ? fv.maxHp : unit.maxHp;
     // 血上限自身必须先合法（第 21 轮补）：maxHp 非数值 / ≤0 会让下面所有钳制判据失去意义，
     //   且会静默把"上限被写成 0"这类回归放过去。上限都不合法时后续钳制无从判断，直接返回。
-    if (typeof unit.maxHp !== 'number' || Number.isNaN(unit.maxHp) || unit.maxHp <= 0) {
-        issues.push(unit.name + '血上限非法：' + unit.maxHp);
+    if (typeof maxHp !== 'number' || Number.isNaN(maxHp) || maxHp <= 0) {
+        issues.push(unit.name + '血上限非法：' + maxHp);
         return issues;
     }
-    if (typeof unit.hp !== 'number' || Number.isNaN(unit.hp)) {
-        issues.push(unit.name + '血量非数值：' + unit.hp);
+    if (typeof hp !== 'number' || Number.isNaN(hp)) {
+        issues.push(unit.name + '血量非数值：' + hp);
         return issues;
     }
-    if (unit.hp < 0) issues.push(unit.name + '血量负数：' + Math.floor(unit.hp));
-    if (unit.maxHp > 0 && unit.hp > unit.maxHp) {
-        issues.push(unit.name + '血量溢出：' + Math.floor(unit.hp) + '/' + Math.floor(unit.maxHp));
+    if (hp < 0) issues.push(unit.name + '血量负数：' + Math.floor(hp));
+    if (maxHp > 0 && hp > maxHp) {
+        issues.push(unit.name + '血量溢出：' + Math.floor(hp) + '/' + Math.floor(maxHp));
     }
-    if (!unit.isWei && unit._baseMaxHp && unit._baseMaxHp > 0 && unit.maxHp > unit._baseMaxHp * 2.5) {
-        issues.push(unit.name + '血量异常膨胀：maxHp=' + Math.floor(unit.maxHp) +
-            '，初始=' + Math.floor(unit._baseMaxHp) + '，膨胀' + Math.floor(unit.maxHp / unit._baseMaxHp * 100) + '%');
+    if (!unit.isWei && unit._baseMaxHp && unit._baseMaxHp > 0 && maxHp > unit._baseMaxHp * 2.5) {
+        issues.push(unit.name + '血量异常膨胀：maxHp=' + Math.floor(maxHp) +
+            '，初始=' + Math.floor(unit._baseMaxHp) + '，膨胀' + Math.floor(maxHp / unit._baseMaxHp * 100) + '%');
     }
     return issues;
 }

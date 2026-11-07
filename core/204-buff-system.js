@@ -108,7 +108,9 @@ export function applyCarryBonus(unit, A, state, log) {
         if (bonus.atkAbs) addMod(unit, 'atk', { source: 'carry', value: bonus.atkAbs, ttl: 'round', op: 'add', group: 'carry' });
         if (bonus.defAbs) addMod(unit, 'def', { source: 'carry', value: bonus.defAbs, ttl: 'round', op: 'add', group: 'carry' });
         if (bonus.hpAbs) { addMod(unit, 'maxHp', { source: 'carry', value: bonus.hpAbs, ttl: 'round', op: 'add', group: 'carry' }); refreshMaxHp(unit, null, 'carry'); }
-        log.push({ factType: FACT_TYPES.CARRY_APPLY, data: { unitName: unit.name, atk: bonus.atkAbs, def: bonus.defAbs, hp: bonus.hpAbs } });
+        // unitUid（第 185 轮补）：单靠显示名无法区分同名单位（如两侧各 1 只「雄鹰」），
+        //   体检 148 的同回合重复判据与 render/419 的属性动画都按 uid 归因（419 早已读 data.unitUid ?? data.unit?.uid）。
+        log.push({ factType: FACT_TYPES.CARRY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, atk: bonus.atkAbs, def: bonus.defAbs, hp: bonus.hpAbs } });
     }
 }
 

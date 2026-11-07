@@ -1,5 +1,12 @@
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.10.0';
+export const VER = 'tests/121health-monitor.js V6.11.1';
+// V6.11.1 | 2026-11-07 第 185 轮：体检报告带现场切片（第 4 项需求）。
+//   ① 每条异常在 recordIssue 时抓一份精简切片 buildIssueSlice：复用游戏内 Bug 记录器同一入口
+//     ui/702 window.__BUG_CONTEXT__（modules/303 也走它，不另写一套）。口径：关卡/回合/seed/版本指纹
+//     + 十人一行（名/阵营/血/血上限/攻/防/站位/存活）+ 点名单位相关 state（≤5）+ 最近事实类型 + 最近日志；
+//     单条硬上限 2KB（逐级降级：砍日志→砍动作→砍聚焦→砍十人）。
+//   ② 报告里以 <details> 折叠展示；「📋 复制报告」文本与 __healthResult.issues[].sliceText 都带完整切片，
+//     可一键复制/导出。切片纯取证、只读，不参与任何判定（recordIssue 仍只按原 detail 去重）。
 // V6.10.0 | 2026-11-04 双海克斯体检默认开启：开局点「六大派海克斯模式」按钮（btnGameEnemyHex）置 enemyAutoHex=true，
 //           六大派也自动选海克斯，覆盖双海克斯路径；?hexMode=single 退回单海克斯（点普通开始）。游戏本体双海克斯由
 //           ui/702 的 btnGameEnemyHex 触发（V1.3.0 core/206 的 enemyHexPicker），此前体检只走单海克斯，双海克斯路径从未被体检覆盖。
@@ -772,6 +779,72 @@ function checkPositionAfterSwap(ctx, attackEntry, unit, expectedPos) {
     }
 }
 
+// 体检现场切片（V6.11.0）：复用游戏内 Bug 记录器的同一套入口 window.__BUG_CONTEXT__
+//   （modules/303-error-capture.js 也只调它，不另写一套切片逻辑）。
+//   口径：整场十人一行（名/阵营/血/上限/攻/防/位置/存活）+ 与报错点名单位的状态字段
+//   + 最近 6 条战斗日志 + 最近 10 个事实类型 + 版本/配置指纹/关卡/回合/seed。
+//   体积：单条约 1~2KB；切片只读，纯取证，不参与任何判定。
+function buildIssueSlice(detail, unitUid) {
+    const win = getWin();
+    if (!win || typeof win.__BUG_CONTEXT__ !== 'function') return null;
+    try {
+        const base = win.__BUG_CONTEXT__({ targeted: true, mode: 'manual', hint: detail });
+        if (!base) return null;
+        // 点名单位：auto 档按报错文字里的单位名自动聚焦，带出与报错相关的 state 字段（≤2 个）
+        let focus = [];
+        try {
+            const f = win.__BUG_CONTEXT__({ targeted: true, mode: 'auto', hint: detail });
+            focus = (f && f.units) || [];
+        } catch (e) { focus = []; }
+        let seed = null;
+        try {
+            const snap = win.GlobalStore && win.GlobalStore.get('snapshot');
+            seed = snap ? snap._rngSeed : null;
+        } catch (e) {}
+        const sl = {
+            ver: base.ver, cfgVer: base.cfgVer,
+            stage: base.stage, round: base.round, gs: base.gs, seed: seed,
+            where: base.where,
+            unitFields: base.unitFields || ['名字', '阵营', '血', '血上限', '攻', '防', '站位', '存活'],
+            units: base.units || [],
+            focus: focus,
+            acts: (base.actions || []).slice(-10),
+            log: (base.log || []).slice(-6)
+        };
+        // 硬上限 2KB（逐级降级：先砍日志尾部 → 再砍动作列表 → 只留点名单位的第一个 → 全砍 → 截断）
+        let txt = formatIssueSlice(sl);
+        while (txt.length > 2048 && sl.log.length > 2) { sl.log.shift(); txt = formatIssueSlice(sl); }
+        while (txt.length > 2048 && sl.acts.length > 4) { sl.acts.shift(); txt = formatIssueSlice(sl); }
+        while (txt.length > 2048 && sl.focus.length > 1) { sl.focus.pop(); txt = formatIssueSlice(sl); }
+        if (txt.length > 2048) { sl.focus = []; txt = formatIssueSlice(sl); }
+        if (txt.length > 2048) { sl.log = []; sl.acts = []; txt = formatIssueSlice(sl); }
+        if (txt.length > 2048) { sl.units = sl.units.slice(0, 5); txt = formatIssueSlice(sl); }
+        return sl;
+    } catch (e) { return null; }
+}
+
+function formatIssueSlice(s) {
+    if (!s) return '';
+    const lines = [];
+    lines.push('【切片】ver=' + (s.ver || '?') + ' cfg=' + (s.cfgVer || '?') +
+        ' 关' + (s.stage != null ? s.stage : '?') + ' 回合' + (s.round != null ? s.round : '?') +
+        ' gs=' + (s.gs != null ? s.gs : '?') + ' seed=' + (s.seed != null ? s.seed : '?'));
+    if (s.units && s.units.length) {
+        lines.push('  十人（' + (s.unitFields || []).join('/') + '）:');
+        for (const u of s.units) lines.push('    ' + (Array.isArray(u) ? u.join('/') : JSON.stringify(u)));
+    }
+    if (s.focus && s.focus.length) {
+        lines.push('  点名单位:');
+        for (const u of s.focus) lines.push('    ' + JSON.stringify(u));
+    }
+    if (s.acts && s.acts.length) lines.push('  最近动作: ' + s.acts.join(' → '));
+    if (s.log && s.log.length) {
+        lines.push('  最近日志:');
+        for (const l of s.log) lines.push('    ' + String(l).replace(/\s+/g, ' ').slice(0, 120));
+    }
+    return lines.join('\n');
+}
+
 function recordIssue(ctx, unitUid, type, detail, source, immediate) {
     const key = (unitUid || 'global') + '|' + type + '|' + detail.substring(0, 60);
     if (issueKeys.has(key)) return;
@@ -785,7 +858,7 @@ function recordIssue(ctx, unitUid, type, detail, source, immediate) {
     }
     issueKeys.add(key);
     const stage = detectStage(getDoc()) || (ctx ? ctx.currentStage : 0) || 0;
-    detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString() });
+    detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString(), slice: buildIssueSlice(detail, unitUid) });
     updateReport();
     updateStatusLine();
 }
@@ -908,6 +981,19 @@ function updateReport() {
             timeDiv.style.cssText = 'color:#888;font-size:10px;margin-left:24px;';
             timeDiv.textContent = `     ⮑ ${iss.timestamp}`;
             reportArea.appendChild(timeDiv);
+            if (iss.slice) {
+                const det = document.createElement('details');
+                det.style.cssText = 'margin-left:24px;margin-bottom:4px;';
+                const sum = document.createElement('summary');
+                sum.style.cssText = 'color:#9c8cff;font-size:10px;cursor:pointer;';
+                sum.textContent = '切片（关' + iss.slice.stage + ' 回合' + iss.slice.round + ' seed=' + iss.slice.seed + '）';
+                det.appendChild(sum);
+                const pre = document.createElement('pre');
+                pre.style.cssText = 'color:#bbb;font-size:10px;white-space:pre-wrap;margin:4px 0 0 0;padding:6px;border-left:2px solid #9c8cff;background:rgba(156,140,255,0.05);';
+                pre.textContent = formatIssueSlice(iss.slice);
+                det.appendChild(pre);
+                reportArea.appendChild(det);
+            }
         }
     }
     if (backBtn) {
@@ -938,7 +1024,9 @@ function updateReport() {
         const stages = [...stagesRun].sort((a, b) => a - b).join('、') || '—';
         text += '【体检报告】时间：' + runTime + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + sorted.length + ' 项\n\n';
         for (const iss of sorted) {
-            text += `关卡${iss.stage} - ${iss.source} - ${iss.type}\n  ❌ ${iss.detail.replace(/<br>/g, '\n  ')}\n\n`;
+            text += `关卡${iss.stage} - ${iss.source} - ${iss.type}\n  ❌ ${iss.detail.replace(/<br>/g, '\n  ')}\n`;
+            if (iss.slice) text += formatIssueSlice(iss.slice) + '\n';
+            text += '\n';
         }
         navigator.clipboard.writeText(text).then(() => {
             copyBtn.textContent = '✅ 已复制';
@@ -973,7 +1061,12 @@ function finalizeAutoReport(ctx, doc, reason) {
                 detectedIssues.push({ stage: '-', type: 'fact契约', detail: `缺字段 ${c.key} ×${c.count}（infra/58 FACT_SPECS）`, source: '系统', timestamp: new Date().toLocaleTimeString() });
             }
         }
-        const finalIssues = detectedIssues.map(i => ({ stage: i.stage, type: i.type, detail: i.detail, source: i.source }));
+        // sliceText：无头/导出档也带现场切片（V6.11.1）。此前 export 映射把 slice 丢掉，
+        //   tools/health_auto_check.py 读到的 JSON 只有结论文字，无法复盘；文本已按 2KB 硬上限裁剪。
+        const finalIssues = detectedIssues.map(i => ({
+            stage: i.stage, type: i.type, detail: i.detail, source: i.source,
+            sliceText: i.slice ? formatIssueSlice(i.slice) : undefined
+        }));
         const report = {
             status: 'completed',
             reason: reason,
