@@ -260,6 +260,14 @@ function getHeroPools() {
     const pick = (fn) => names.filter(fn);
     const roleOf = (n) => (H[n].tags || []).find(t => HERO_ROLE_TAGS.includes(t)) || null;
     const mapOf = (list) => Object.fromEntries(list.map(n => [n, H[n].m]));
+    // 池档与数值档分离：入池资格只看 poolTier（= 拆字段时冻结的原 m 值），面板数值仍走 m。
+    //   everyday 角色缺 poolTier 直接抛错——不做「缺了就用 m」的静默回落，否则等于没拆。
+    const poolTierOf = (n) => {
+        const t = H[n].poolTier;
+        if (typeof t !== 'number') throw new Error(`characters.${n} 缺 poolTier（everyday 入池角色必填，与数值档 m 解耦）`);
+        return t;
+    };
+    const poolTierMap = (list) => Object.fromEntries(list.map(n => [n, poolTierOf(n)]));
     const mingEveryday = pick(n => H[n].camp === '明教' && H[n].everyday).sort(order('mingOrder'));
     const enemyEveryday = pick(n => H[n].camp === '六大派' && H[n].everyday).sort(order('enemyOrder'));
     const titles = {};
@@ -274,6 +282,8 @@ function getHeroPools() {
         mingAll: pick(n => H[n].mingAll).sort(order('mingOrder')),
         mingM: mapOf(mingEveryday),
         enemyM: mapOf(enemyEveryday),
+        mingPoolTier: poolTierMap(mingEveryday),
+        enemyPoolTier: poolTierMap(enemyEveryday),
         eliteConfigs: pick(n => H[n].camp === '明教' && (H[n].tier === 'boss' || H[n].tier === 'strong'))
             .sort(order('eliteOrder'))
             .map(n => ({ name: n, m: H[n].m, role: roleOf(n), flag: H[n].flag ?? H[n].forms?.brother?.flag ?? null, tier: H[n].tier })),
@@ -288,6 +298,10 @@ const CONFIG = {
     },
     get MING_M() {
         return getHeroPools().mingM;
+    },
+    // 池档（入池资格）与 MING_M（数值档）分离；不要拿 MING_M 的值当筛池条件
+    get MING_POOL_TIER() {
+        return getHeroPools().mingPoolTier;
     },
     get ENEMY_SECTS() {
         return getGameData().roster.enemySects;
@@ -417,6 +431,10 @@ const CONFIG = {
     },
     get ENEMY_M() {
         return getHeroPools().enemyM;
+    },
+    // 池档（入池资格）与 ENEMY_M（数值档）分离；槽位筛池一律读本表，不再比对 ENEMY_M 的 m 值
+    get ENEMY_POOL_TIER() {
+        return getHeroPools().enemyPoolTier;
     },
     get ENEMY_SQUADS() {
         return getGameData().encounters.enemySquads;
