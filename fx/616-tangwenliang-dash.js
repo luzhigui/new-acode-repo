@@ -149,7 +149,10 @@ function makeGhost(camp, fromPos, toPos, z, uid) {
     const store = GlobalStore.get('battleStore');
     const u = store ? store.getState().units.find(x => x.uid === uid) : null;
     if (!u) return null;
-    const hpOverride = _hpSnapshot.has(uid) ? _hpSnapshot.get(uid) : null;
+    // 开场血量取「store 当前值」与扣前值的较小者：被动冲刺时 store 已是扣后值，
+    //   若仍按 hpBefore 开场，血条会先跳满再掉回去（空→满→掉三跳）
+    const hpBeforeSnap = _hpSnapshot.has(uid) ? _hpSnapshot.get(uid) : null;
+    const hpOverride = (hpBeforeSnap != null) ? Math.min(u.hp, hpBeforeSnap) : null;
     const g = document.createElement('div');
     g.className = 'cell';
     g.innerHTML = cardHtmlFromUnit(u, hpOverride);
