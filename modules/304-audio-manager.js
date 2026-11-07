@@ -140,8 +140,10 @@ export async function initSfx() {
 }
 
 // 播放一个音效（http: 新建 AudioBufferSourceNode，可叠放；file: 每次新建 <audio>，可叠放）
-function playSfxFile(key, volume) {
+//   opts.playbackRate：音高倍率（缺省 1.0）。只给「逐发抬升」的演出用（流星赶月 F 方案 1.0/1.06/1.12/1.18）
+function playSfxFile(key, volume, opts) {
     const v = Math.max(0, Math.min(1, volume));
+    const rawRate = (opts && opts.playbackRate > 0) ? opts.playbackRate : 1.0;
     if (_isHttp) {
         const buf = _sfxBuffers.get(key);
         if (!buf) return;
@@ -150,6 +152,7 @@ function playSfxFile(key, volume) {
             if (ctx.state === 'suspended') ctx.resume();
             const src = ctx.createBufferSource();
             src.buffer = buf;
+            src.playbackRate.value = rawRate;
             const g = ctx.createGain();
             g.gain.value = v;
             src.connect(g);
@@ -163,6 +166,12 @@ function playSfxFile(key, volume) {
     try {
         const el = new Audio(base.src);
         el.volume = v;
+        el.playbackRate = rawRate;
+        // 浏览器若把音高夹掉（超出其支持区间），如实报出来，不静默降级
+        if (Math.abs(el.playbackRate - rawRate) > 1e-3 && !playSfxFile._rateWarned) {
+            playSfxFile._rateWarned = true;
+            console.warn('[audio] playbackRate 被浏览器夹到', el.playbackRate, '（请求', rawRate, '）');
+        }
         const p = el.play();
         if (p && p.catch) p.catch(() => {});
     } catch (e) {}
@@ -432,7 +441,7 @@ export const AudioManager = {
         } catch (e) {}
     },
 
-    playSfx(role) {
+    playSfx(role, opts) {
         if (!this.enabled) return;
         try {
             if (role === ROLE_TYPES.DEFENDER) role = ROLE_TYPES.WARRIOR;
@@ -443,7 +452,7 @@ export const AudioManager = {
             if (!sfx) return;
             const ctx = getAudioCtx();
             if (ctx.state === 'suspended') { ctx.resume(); }
-            playSfxFile(role, this.sfxVolume);
+            playSfxFile(role, this.sfxVolume, opts);
         } catch (e) {}
     }
 };

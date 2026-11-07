@@ -575,7 +575,11 @@ export const STAGE_ACTION_DEFS = {
                         await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets });
                         applyDeferredHp(); // 小飞箭落点后才掉血，飞行途中不剧透
                         splashTargets.forEach((st, i) => {
-                            clock.wait(i * 100).then(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED));
+                            // 音高逐发抬升（老板拍板 F 方案）：第 i 发取 1.0/1.06/1.12/1.18，
+                            //   超过 4 发的沿用最后一级（不回落、不循环）；间隔仍是 100ms，音源/音量不动
+                            const RATE_STEPS = [1.0, 1.06, 1.12, 1.18];
+                            const rate = RATE_STEPS[Math.min(i, RATE_STEPS.length - 1)];
+                            clock.wait(i * 100).then(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED, { playbackRate: rate }));
                             // 溅射掉血飘字：伤害 core/16 SPLASH 已实扣。随箭矢节奏错层飘；播放时已死的不飘。
                             if (st.alive) clock.wait(600 + i * 80).then(() => {
                                 if (isFxSkipped()) return;
