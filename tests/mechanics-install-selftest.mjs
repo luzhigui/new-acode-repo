@@ -1,5 +1,7 @@
+// V1.0.1 | 2026-11-07 迭代：最后一个待迁移宿主 tests/rules-replay.mjs 已收口 ⇒ PENDING 清空。
+//   守门机制保留（Map 为空时 ④ 自然空转，输出如实打「待迁移 无」），下次谁再手抄仍当场报红。
 // V1.0.0 | 2026-11-06 新建：机制装配收口常驻守门（301 动态扩面 + 宿主扫描 + 装配探针 + 待迁移自收敛）
-// tests/mechanics-install-selftest.mjs | V1.0.0 | 2026-11-06 体检迭代：机制装配收口常驻守门
+// tests/mechanics-install-selftest.mjs | V1.0.1 | 2026-11-07 体检迭代：机制装配收口常驻守门
 //   V1.0.0 | 2026-11-06 新建。守住「离线宿主一律走 tests/_lib/install-mechanics.mjs」这条收口：
 //     ① 从生产总入口 modules/301-reg-mechanics.js **动态读** import 清单（不手抄，301 增模块自动扩面），
 //        递归扫 tests/ 下所有 .js/.mjs，凡直接装配这些模块的 import 语句一律报红；
@@ -13,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/mechanics-install-selftest.mjs V1.0.0';
+export const VER = 'tests/mechanics-install-selftest.mjs V1.0.1';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SELF = 'tests/mechanics-install-selftest.mjs';
@@ -26,7 +28,8 @@ const DIRECT_301_ALLOWED = new Set([HELPER, BUNDLE]);
 
 // 待迁移登记：他人并行维护，不擅改，只在报告里点名。★ 清单会自收敛，见下方 ④。
 const PENDING = new Map([
-    ['tests/rules-replay.mjs', '他人并行维护，装配四行仍手抄（转交中）']
+    // 2026-11-07 清空：rules-replay.mjs 已改走 helper（V6.12.0）。
+    // 若再有「他人并行维护、暂不擅改」的宿主，照原格式登记；改好后必须删行，否则 ④ 报清单腐烂。
 ]);
 
 const read = p => fs.readFileSync(path.isAbsolute(p) ? p : path.join(root, p), 'utf8');
@@ -163,5 +166,5 @@ if (fails.length) {
 }
 console.log('✅ 机制装配收口守门：' + installed.size + ' 个生产机制模块统一由 ' + PROD + ' 装载');
 console.log('  已收口宿主 ' + helperHosts + ' 个 · 无手抄装配 · 装配后 handler 齐全 · 待迁移 '
-    + [...PENDING.keys()].join(', ') + '（他人维护，转交中）');
+    + ([...PENDING.keys()].join(', ') || '无'));
 console.log('RESULT: PASS');

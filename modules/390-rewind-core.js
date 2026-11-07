@@ -11,8 +11,8 @@ import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
 import { playStepInterleaved } from '../player/504-player-play-step.js';
 import { appendLogHTML } from '../player/510-renderer.js';
 import {
-    getActionTiming, hasStageWork,
-    applyStageActionToStore, applyStageActionToStoreAfter
+    getActionTiming, getActionFx, hasStageWork,
+    applyStageActionToStore, applyStageActionToFX, applyStageActionToStoreAfter
 } from '../player/505-player-stage-actions.js';
 
 const CANCEL = Symbol('rewind-cancel');
@@ -25,6 +25,21 @@ const KIND_LABEL = {
     text: '日志'
 };
 
+// 这一段有没有真演出：有 action 且 fx 不是 none，或死亡红叉
+function hasShow(cue) {
+    if (!cue) return false;
+    if (cue.kind === 'death') return true;
+    if (cue.action) return getActionFx(cue.action) !== 'none';
+    return false;
+}
+function labelOf(cue) {
+    if (!cue) return '';
+    const base = KIND_LABEL[cue.kind] || '';
+    if (!base) return '';
+    if (cue.kind === 'text' || cue.kind === 'settle') return base + ' · 纯数据';
+    return base + (hasShow(cue) ? ' · 有演出' : ' · 纯数据');
+}
+
 const S = {
     active: false, busy: false, playing: false,
     steps: [], stepIdx: 0, cueIdx: 0,
@@ -32,6 +47,7 @@ const S = {
     label: '',
     snap: null,
     gateResolve: null,
+    parked: false, parkOff: null, cueToken: 0,
     cancelToken: 0, stopPlay: false, playRelease: null,
     watchdog: null
 };
@@ -169,7 +185,9 @@ function paintAt(stepIdx, cueIdx) {
 
     const cues = buildCuesFor(stepIdx).list;
     const pendingDeaths = [];
+    // cueIdx = -1 表示「本段之前」的基底态（段拨时先摆到这里，再真演那一段）
     let upto = Math.min(cueIdx, cues.length - 1);
+    if (upto < -1) upto = -1;
 
     if (stepIdx > 0) {
         const prev = S.steps[stepIdx - 1];
@@ -195,7 +213,7 @@ function paintAt(stepIdx, cueIdx) {
 
     S.stepIdx = stepIdx;
     S.cueIdx = upto;
-    S.label = KIND_LABEL[(cues[upto] && cues[upto].kind) || 'text'] || '';
+    S.label = labelOf(cues[upto]);
     renderReviewLog(stepIdx, upto, true);
     if (c.updateUI) c.updateUI();
 }
@@ -209,6 +227,26 @@ function waitForGate(ms) {
         };
         tick();
     });
+}
+
+// 「停泊」：退出回看但把主循环钉在步首闸门上，画面静止；等用户点主按钮「继续」再放行。
+//   只监听 isPaused / gs，不改 ui/709；闸门本身就是 503 里已有的断点。
+function armPark() {
+    S.parked = true;
+    const offPause = GlobalStore.on('isPaused', (v) => { if (v === false) releaseParked(); });
+    const offGs = GlobalStore.on('gs', (v) => { if (v === STATE.IDLE || v === STATE.GAMEOVER) releaseParked(); });
+    S.parkOff = () => { try { offPause(); } catch (e) {} try { offGs(); } catch (e) {} };
+}
+function unarmPark() {
+    S.parked = false;
+    if (S.parkOff) { try { S.parkOff(); } catch (e) { /* ignore */ } S.parkOff = null; }
+}
+function releaseParked() {
+    if (!S.parked) return;
+    unarmPark();
+    const c = ctx();
+    if (c && c._rewindGate) c._rewindGate = null;
+    if (S.gateResolve) { const r = S.gateResolve; S.gateResolve = null; r(); }
 }
 
 // ---------- 对外：进入 / 退出 ----------
@@ -250,11 +288,19 @@ export async function enterReview() {
     clearDeathTimers(c);
 
     // 主循环让路：挂闸门 → 放开时钟让它跑到步首 → 再冻住
-    c._rewindGate = () => new Promise((resolve) => { S.gateResolve = resolve; });
-    GlobalStore.set('gs', STATE.RUNNING);
-    GlobalStore.set('isPaused', false);
-    await waitForGate(2500);
-    GlobalStore.set('isPaused', true);
+    const wasParked = S.parked && !!S.gateResolve;
+    unarmPark();
+    if (wasParked) {
+        // 上次「到底」后主循环就钉在闸门上：直接接管，别重装闸门/别放行
+        GlobalStore.set('gs', STATE.RUNNING);
+        GlobalStore.set('isPaused', true);
+    } else {
+        c._rewindGate = () => new Promise((resolve) => { S.gateResolve = resolve; });
+        GlobalStore.set('gs', STATE.RUNNING);
+        GlobalStore.set('isPaused', false);
+        await waitForGate(2500);
+        GlobalStore.set('isPaused', true);
+    }
 
     // 回看期间尸体要留着：定时清掉摘格计时器
     S.watchdog = setInterval(() => clearDeathTimers(c), 800);
@@ -272,10 +318,8 @@ export function exitReview(opts) {
     if (S.playRelease) { const r = S.playRelease; S.playRelease = null; r(); }
     if (S.watchdog) { clearInterval(S.watchdog); S.watchdog = null; }
 
-    // 先拆闸门再放行，避免主循环又停在闸门上
-    c._rewindGate = null;
+    // 闸门不在这里无条件拆：继续播才拆；停泊时留着钉住主循环（见 armPark）
     c._rewindCue = null;
-    if (S.gateResolve) { const r = S.gateResolve; S.gateResolve = null; r(); }
 
     clearDeathTimers(c);
     GlobalStore.set('battleLog', S.snap.battleLog);
@@ -296,10 +340,28 @@ export function exitReview(opts) {
     if (S.snap.buffs) { c.activeBuffs = S.snap.buffs; if (c.updateBuffSlots) c.updateBuffSlots(); }
     if (c.updateUI) c.updateUI();
 
+    const resume = !!(opts && opts.resume);
+    const gsNow = GlobalStore.get('gs');
+    const inBattle = gsNow === STATE.RUNNING || gsNow === STATE.PAUSED;
     GlobalStore.set('speed', S.snap.speed);
-    // 回看期间战斗其实没停（主循环停在步首闸门），gs 统一按「在打」呈现；退出时还原或继续
-    GlobalStore.set('gs', opts && opts.resume ? STATE.RUNNING : S.snap.gs);
-    GlobalStore.set('isPaused', opts && opts.resume ? false : S.snap.paused);
+
+    if (resume) {
+        unarmPark();
+        c._rewindGate = null;
+        if (S.gateResolve) { const r = S.gateResolve; S.gateResolve = null; r(); }
+        GlobalStore.set('gs', STATE.RUNNING);
+        GlobalStore.set('isPaused', false);
+    } else {
+        // 必须「真暂停」：时钟停 + 主循环钉在步首闸门（画面不会再往下走），点「继续」才放行
+        GlobalStore.set('gs', STATE.PAUSED);
+        GlobalStore.set('isPaused', true);
+        if (inBattle) armPark();
+        else {
+            unarmPark();
+            c._rewindGate = null;
+            if (S.gateResolve) { const r = S.gateResolve; S.gateResolve = null; r(); }
+        }
+    }
 
     S.active = false;
     S.playing = false;
@@ -327,24 +389,81 @@ export function nextStep() {
     paintAt(i, S.cueIdx);
 }
 
-// ---------- 对外：细拨 ----------
-export function prevCue() {
+// ---------- 对外：细拨（逐段重演） ----------
+// 拨到某段 = 先静摆到「这段之前」，再把这段的 stageAction 走 505 的真 fx 入口演一次（与 504 同一入口）。
+function deathsOf(stepIdx) {
+    const step = S.steps[stepIdx];
+    const prev = S.steps[stepIdx - 1];
+    if (!step) return [];
+    const before = new Set(prev ? [...(prev.ally || []), ...(prev.enemy || [])].filter(u => u.alive !== false).map(u => u.uid) : []);
+    return [...(step.ally || []), ...(step.enemy || [])]
+        .filter(u => u.alive === false && (!prev || before.has(u.uid)))
+        .map(u => u.uid);
+}
+
+function flushDeathFlashes(c, uids) {
+    if (!c || !c.store) return;
+    for (const uid of uids || []) {
+        const du = c.store.getState().units.find(u => u.uid === uid);
+        if (du && du.alive !== false && !(du.state && du.state._isDead)) {
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: FLASH_TYPES.DEAD });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });
+        }
+    }
+}
+
+async function scrubToCue(stepIdx, cueIdx) {
     if (!S.active) return;
     cancelRun();
-    if (S.cueIdx > 0) paintAt(S.stepIdx, S.cueIdx - 1);
+    const token = ++S.cueToken;
+    const step = S.steps[stepIdx];
+    if (!step) return;
+    const cues = buildCuesFor(stepIdx).list;
+    const idx = Math.max(0, Math.min(cueIdx, cues.length - 1));
+    const cue = cues[idx];
+
+    paintAt(stepIdx, idx - 1);
+    if (token !== S.cueToken) return;
+
+    S.cueIdx = idx;
+    S.label = labelOf(cue);
+
+    const c = ctx();
+    if (c && c.store && cue) {
+        const pending = [];
+        if (cue.kind === 'settle') {
+            syncStoreFromStep(c, step);
+        } else if (cue.kind === 'death') {
+            flushDeathFlashes(c, deathsOf(stepIdx));
+        } else if (cue.action) {
+            applyStageActionToStore(c, cue.action, pending);
+            if (hasShow(cue)) {
+                try { await applyStageActionToFX(c, cue.action); } catch (e) { /* 单段特效失败不影响回看 */ }
+            }
+            if (token !== S.cueToken) return;
+            applyStageActionToStoreAfter(c, cue.action, pending);
+            flushDeathFlashes(c, pending);
+        }
+    }
+    if (token !== S.cueToken) return;
+    renderReviewLog(stepIdx, idx, true);
+    if (c && c.updateUI) c.updateUI();
+}
+
+export function prevCue() {
+    if (!S.active) return;
+    if (S.cueIdx > 0) scrubToCue(S.stepIdx, S.cueIdx - 1);
     else if (S.stepIdx > 0) {
         const i = S.stepIdx - 1;
-        const n = buildCuesFor(i).list.length;
-        paintAt(i, n - 1);
+        scrubToCue(i, buildCuesFor(i).list.length - 1);
     }
 }
 
 export function nextCue() {
     if (!S.active) return;
-    cancelRun();
     const n = buildCuesFor(S.stepIdx).list.length;
-    if (S.cueIdx < n - 1) paintAt(S.stepIdx, S.cueIdx + 1);
-    else if (S.stepIdx < S.steps.length - 1) paintAt(S.stepIdx + 1, 0);
+    if (S.cueIdx < n - 1) scrubToCue(S.stepIdx, S.cueIdx + 1);
+    else if (S.stepIdx < S.steps.length - 1) scrubToCue(S.stepIdx + 1, 0);
 }
 
 // ---------- 对外：真播 ----------
@@ -453,6 +572,7 @@ export async function fastForward() {
         paintAt(last, buildCuesFor(last).list.length - 1);
     } finally {
         S.busy = false;
-        exitReview({ resume: true });
+        // 到底后必须真暂停（不能 resume）：画面钉住，点主按钮「继续」才恢复推进
+        exitReview({ resume: false });
     }
 }

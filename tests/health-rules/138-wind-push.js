@@ -1,7 +1,11 @@
 // 回归规则：乘风破浪击退换位 — 击退恰一行(+3)、有身后单位时双方换位、位置随后真实生效
 // 复发信号：击退距离≠+3 / 换位描述缺失 / 击退后单位站位与战报宣告不一致（换位未生效或特效错位）
 // 对应已报 Bug：乘风破浪击退换位特效不对
-export const VER = 'tests/health-rules/138-wind-push.js V6.2.2';
+export const VER = 'tests/health-rules/138-wind-push.js V6.2.3';
+// V6.2.3（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改判定口径与阈值）。
+//   病由：三类子病因（击退距离异常 / 缺身后单位移位描述 / 击退后位置未生效）全 push 进 problems，
+//   末尾 slice(0,3).join(' | ') 合成一条 msg ⇒ 分支级只见一个聚合外壳指纹，丢其中任一类都看不出来。
+//   今三类各存一格、按次序命中首因返回；同一场同时命中多类时只报最靠前的一类（与运行期表现一致）。
 
 // 静默位移识别（第 121 轮取证）：唐文亮冲刺 / 何太冲撤退 / 寒离飒位移都走 core/13 moveUnitPosition，
 //   它**只发 ON_UNIT_STATE_CHANGE 信号、不产 buff-push/buff-swap 条目**（第 115 轮实证），
@@ -42,18 +46,20 @@ export const rule85 = {
             return !(typeof t === 'string' && t.indexOf('蓄意轰拳') !== -1);
         });
         if (windPushes.length === 0) return 'skip';
-        var problems = [];
+        // ★ 第 184 轮（拆聚合型分支）：子病因各存一格、各自独立上报（命中首因即返回），
+        //   不再 slice(0,3).join(' | ') 合并成一条聚合外壳。判定口径与阈值一字未改。
+        var pDist = null, pDesc = null, pLand = null;
         for (var p = 0; p < windPushes.length; p++) {
             var pu = windPushes[p].entry;
             var oldPos = pu.oldPos, newPos = pu.newPos;
             // 1. 击退距离：应恰为一行（pos+3）
             if (oldPos != null && newPos != null && newPos !== oldPos + 3) {
-                problems.push('击退距离异常：' + oldPos + '→' + newPos + '号位（应+3）');
+                if (!pDist) pDist = '击退距离异常：' + oldPos + '→' + newPos + '号位（应+3）';
                 continue;
             }
             // 2. 换位描述：有身后单位时应含双方移位描述
             if (pu.behindUid != null && pu.text && pu.text.indexOf('移至') === -1) {
-                problems.push('击退换位缺身后单位移位描述');
+                if (!pDesc) pDesc = '击退换位缺身后单位移位描述';
             }
             // 3. 位置一致性：击退后该单位下次参与攻击时站位应为宣告位置（中途再换位则跳过）
             //    V6.1.12 修正：此前只看「击退后的第一条」攻击快照，而 fxSnapshot 是攻击动作开
@@ -93,11 +99,13 @@ export const rule85 = {
                     if (actual === exp.pos) { hit = true; break; } // 落到宣告位置即算生效
                 }
                 if (seen > 0 && !hit) {
-                    problems.push(exp.tag + '击退后位置未生效：预期' + exp.pos + '号位（' + seen + '次出场均未落到该位）');
+                    if (!pLand) pLand = exp.tag + '击退后位置未生效：预期' + exp.pos + '号位（' + seen + '次出场均未落到该位）';
                 }
             }
         }
-        if (problems.length > 0) return { fail: true, msg: '复发：乘风击退换位异常 — ' + problems.slice(0, 3).join(' | ') };
+        if (pDist) return { fail: true, msg: '复发：乘风击退距离异常 — ' + pDist };
+        if (pDesc) return { fail: true, msg: '复发：乘风击退缺移位描述 — ' + pDesc };
+        if (pLand) return { fail: true, msg: '复发：乘风击退未落地 — ' + pLand };
         return { fail: false };
     }
 };

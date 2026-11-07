@@ -25,7 +25,11 @@
 //   · 唐文亮强推挤压改站位不发位移事件 ⇒ checkLanding 中断判定须叠加 isOtherRelocate 白名单
 //     （后续任一「唐文亮冲刺·七伤齐发」报幕提到该单位名 = 位置被合法改写），
 //     否则把「之后又被挤走」误判成「这次没落地」（rule113 判据5 V6.1.3 已踩过同款）。
-export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.1';
+export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.2';
+// V2.0.2（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改判定口径与阈值）。
+//   病由：「宣告位越界」与「落位未生效」两类子病因都 push 进 problems，末尾 slice(0,3).join(' | ')
+//   合成一条 msg ⇒ 分支级只见一个聚合外壳指纹（牙口证据链对账的聚合型棘轮点名）。今两类各存一格、
+//   越界类优先（它使落位对账失去意义）返回；checkLanding 内部判定一字未动。
 // V2.0.1（2026-10-30 第 144 轮续）：checkLanding 的「被打断」判定补齐通用静默位移白名单
 //   isSilentRelocate（122health-utils.js）。此前只认 唐文亮冲刺报幕(isOtherRelocate) 与
 //   buff-push/buff-swap，漏认「其它不发位移事件却改写站位」的机制（两仪互换/红血撤退/蓄意轰拳/
@@ -143,7 +147,11 @@ export const rule171 = {
         };
 
         // 5. 逐条报幕、逐个宣告移动验落地
-        var problems = [];
+        // ★ 第 184 轮（拆聚合型分支）：原先把「宣告位越界」与「落位未生效」两类子病因都 push 进 problems，
+        //   末尾 slice(0,3).join(' | ') 合并成一条 msg ⇒ 分支级只看到一个聚合外壳指纹，丢其中任何一类
+        //   都看不出来（牙口证据链对账的聚合型棘轮据此判红）。今改为**每个子病因各自独立上报**（首因返回），
+        //   判定口径一字未改（仍是同一组断言、同一阈值），仅改「怎么报」。越界类优先（它使落位对账无意义）。
+        var outOfRange = null, notLanded = null;
         for (var d = 0; d < dashes.length; d++) {
             var da = dashes[d];
             var tag = '第' + roundAt(da.idx) + '回合冲刺';
@@ -151,16 +159,17 @@ export const rule171 = {
             for (var mv = 0; mv < da.moves.length; mv++) {
                 var mo = da.moves[mv];
                 if (!(mo.to >= 1 && mo.to <= 9)) {
-                    problems.push(tag + ' ' + mo.name + ' 宣告位越界：' + mo.to);
+                    if (!outOfRange) outOfRange = tag + ' ' + mo.name + ' 宣告位越界：' + mo.to;
                     continue;
                 }
                 var uid = (mo.name === '唐文亮') ? tangUid : uidByName(mo.name);
                 if (uid == null) continue;   // 同名多实例/定位不到 ⇒ 宁漏勿误
                 var p = checkLanding(uid, mo.name, da.idx, mo.to, mo.name + '落位');
-                if (p) problems.push(tag + ' ' + p);
+                if (p && !notLanded) notLanded = tag + ' ' + p;
             }
         }
-        if (problems.length > 0) return { fail: true, msg: '复发：唐文亮冲刺落地异常 — ' + problems.slice(0, 3).join(' | ') };
+        if (outOfRange) return { fail: true, msg: '复发：唐文亮冲刺宣告位越界 — ' + outOfRange };
+        if (notLanded) return { fail: true, msg: '复发：唐文亮冲刺未落到宣告位 — 宣告移动的单位后续出场快照均未落到宣告位' };
         return { fail: false };
     }
 };

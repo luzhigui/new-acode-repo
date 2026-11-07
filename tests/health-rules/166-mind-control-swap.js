@@ -27,7 +27,11 @@
 //   5) 宣告位置未生效：每条 swap 宣告 fromPos→toPos，被下一次换位打断前，该单位后续出场快照
 //      从未落到 toPos（复用 138 V6.1.12 口径：一拍时滞内任一快照命中即算生效；无后续快照不报）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.10';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.11';
+// V6.1.11（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改任何判定口径与阈值）。
+//   病由：12 类子病因全 push 进 problems、末尾 slice(0,3).join(' | ') 合并成一条 msg ⇒ 分支级只看到一个
+//   「聚合外壳」指纹，掉其中任何一类都看不出来；牙口证据链对账据此点名「166 一条指纹 12 种子病因 /
+//   8 类结构模板」，是 10 条聚合型分支里最严重的黑洞。今每类各占一格、按严重度次序命中首因返回。
 // V6.1.10（2026-11-05）：判据1 假阳性修复 —— 惑心侧序**相对持有者**而定（明教持有→敌先、六大派持有→己先），
 //   旧判据按「敌恒在己之前」写死，把合法的「己,敌,己,敌」误报成断链；改为「总数偶数 + 每两条一敌一己 + 同场组首侧一致」。
 //   （本条日志为 2026-11-06 补写：原提交只抬了 VER 常量、漏写日志行，ver-drift-selftest 断言② 报出。）
@@ -170,7 +174,13 @@ export const rule113 = {
         }
         if (mc.length === 0) return 'skip'; // 本场没抽到「惑人心智」团队 Buff
 
-        var problems = [];
+        // ★ 第 184 轮（拆「严重黑洞」聚合型分支）：原先 12 类子病因全 push 进 problems，
+        //   末尾 slice(0,3).join(' | ') 合并成一条 msg ⇒ 分支级只看到一个聚合外壳指纹，
+        //   掉其中任何一类都看不出来（牙口证据链对账点名「166 一条指纹 12 种子病因 / 8 类结构模板」）。
+        //   今改为**每个子病因各占一格、各自独立上报**（按严重度次序：配对完整性 → FAIL 理由 → SWAP 自洽 →
+        //   落地生效 → 终局兜底），命中即返回该类的首条。判定口径、阈值、跳过条件一字未改，仅改「怎么报」。
+        var pOdd = null, pSame = null, pLead = null, pReason = null, pName = null,
+            pRange = null, pFrom = null, pTo = null, pLandSeen = null, pLandEnd = null;
 
         // 判据 1：配对完整性 —— 一次执行产出**两条**（一条敌方 + 一条己方），两次执行按组相邻。
         // 2026-11-05 修假阳性：侧别次序**相对持有者**而定，不是恒定「敌方在前」——
@@ -182,15 +192,15 @@ export const rule113 = {
         //          ③ 同场所有组的首侧必须一致（持有者固定，次序不可能中途翻转）
         //   回归样例：己,敌,己,敌 通过；敌,己,己,敌 因「组首侧不一致」仍报错。
         if (mc.length % 2 !== 0) {
-            problems.push('惑心条目数为 ' + mc.length + '（奇数）：一次执行应产出「敌方+己方」两条，出现断链/丢失');
+            pOdd = '惑心条目数为 ' + mc.length + '（奇数）：一次执行应产出「敌方+己方」两条，出现断链/丢失';
         }
         var leadSide = mc.length >= 2 ? mc[0].side : null;
         for (var k = 0; k + 1 < mc.length; k += 2) {
             if (mc[k].side === mc[k + 1].side) {
-                problems.push('第' + (k + 1) + '、' + (k + 2) + '条惑心同为「' + mc[k].side + '」（一次执行应为一条敌方 + 一条己方）');
+                if (!pSame) pSame = '第' + (k + 1) + '、' + (k + 2) + '条惑心同为「' + mc[k].side + '」（一次执行应为一条敌方 + 一条己方）';
             } else if (leadSide && mc[k].side !== leadSide) {
-                problems.push('第' + (k + 1) + '、' + (k + 2) + '条惑心组首侧为「' + mc[k].side
-                    + '」，与首组「' + leadSide + '」不一致（持有者固定，一次执行的侧序不应中途翻转）');
+                if (!pLead) pLead = '第' + (k + 1) + '、' + (k + 2) + '条惑心组首侧为「' + mc[k].side
+                    + '」，与首组「' + leadSide + '」不一致（持有者固定，一次执行的侧序不应中途翻转）';
             }
         }
 
@@ -202,7 +212,7 @@ export const rule113 = {
                 //   core/14 applyMindControlCore 当 roll 命中但 shuffleThreeSlots 净位移为 0 时发 '无变化'，
                 //   取代旧注释里的 '可用单位不足'；后者保留以兼容旧回放）。其它任何理由一律判越界。
                 if (it.failReason !== '未触发' && it.failReason !== '可用单位不足' && it.failReason !== '无变化') {
-                    problems.push(tag + ' FAIL 理由越界：「' + it.failReason + '」（应为 未触发/可用单位不足/无变化）');
+                    if (!pReason) pReason = tag + ' FAIL 理由越界：「' + it.failReason + '」（应为 未触发/可用单位不足/无变化）';
                 }
                 continue;
             }
@@ -211,16 +221,16 @@ export const rule113 = {
             var seenFrom = {}, seenTo = {};
             for (var w = 0; w < it.swaps.length; w++) {
                 var sw = it.swaps[w];
-                if (!sw.name) problems.push(tag + ' SWAP 单位名为空');
+                if (!sw.name) { if (!pName) pName = tag + ' SWAP 单位名为空'; }
                 if (!(sw.fromPos >= 1 && sw.fromPos <= 9) || !(sw.toPos >= 1 && sw.toPos <= 9)) {
-                    problems.push(tag + ' SWAP 位置越界：' + sw.fromPos + '→' + sw.toPos + '（应在 1~9）');
+                    if (!pRange) pRange = tag + ' SWAP 位置越界：' + sw.fromPos + '→' + sw.toPos + '（应在 1~9）';
                 }
                 // 注：fromPos===toPos 不再是缺陷 —— 3 格随机重排允许「不动点」（某单位恰好停在原位），
                 //   属随机置换的正常结果（core/14 shuffleThreeSlots 在洗牌净位移为 0 时返回 0 变化；单槽
                 //   不动点也合法）。真正的错位（单位被宣告到 toPos 却落到别处）由判据5 落地核查捕获。
                 //   （2026-10-30 第 144 轮续：实测 小昭·妹 4→4 即此不动点，旧判据误报自己换自己。）
-                if (sw.fromPos != null) { if (seenFrom[sw.fromPos]) problems.push(tag + ' 多条 swap 共用来源位 ' + sw.fromPos + '号位'); else seenFrom[sw.fromPos] = 1; }
-                if (sw.toPos != null) { if (seenTo[sw.toPos]) problems.push(tag + ' 多条 swap 共用目标位 ' + sw.toPos + '号位'); else seenTo[sw.toPos] = 1; }
+                if (sw.fromPos != null) { if (seenFrom[sw.fromPos]) { if (!pFrom) pFrom = tag + ' 多条 swap 共用来源位 ' + sw.fromPos + '号位'; } else seenFrom[sw.fromPos] = 1; }
+                if (sw.toPos != null) { if (seenTo[sw.toPos]) { if (!pTo) pTo = tag + ' 多条 swap 共用目标位 ' + sw.toPos + '号位'; } else seenTo[sw.toPos] = 1; }
             }
 
             // 判据 5：宣告位置真实生效（复用 138 V6.1.12 口径，逐单位 fromPos→toPos）
@@ -255,7 +265,7 @@ export const rule113 = {
                     if (actual === exp.pos) { hit = true; break; }
                 }
                 if (seen > 0 && !hit) {
-                    problems.push(tag + ' ' + exp.name + ' 换位后位置未生效：预期' + exp.pos + '号位（' + seen + '次出场均未落到该位）');
+                    if (!pLandSeen) pLandSeen = tag + ' ' + exp.name + ' 换位后位置未生效：预期' + exp.pos + '号位（' + seen + '次出场均未落到该位）';
                 }
                 // 终局快照兜底 —— 原口径只认「后续 attack-group 的 _fxSnapshot」，换位单位若此后再没有带快照的
                 //   出场（战斗即终 / 未再出手），seen=0 不报 ⇒ 「宣告位置造假」类变异恒哑火。补：无后续快照、
@@ -278,15 +288,26 @@ export const rule113 = {
                             }
                         }
                         if (endU && typeof endU.pos === 'number' && endU.pos !== exp.pos) {
-                            problems.push(tag + ' ' + exp.name + ' 换位后位置未生效：预期' + exp.pos
-                                + '号位（无后续出场快照，终局站位为 ' + endU.pos + '）');
+                            if (!pLandEnd) pLandEnd = tag + ' ' + exp.name + ' 换位后位置未生效：预期' + exp.pos
+                                + '号位（无后续出场快照，终局站位为 ' + endU.pos + '）';
                         }
                     }
                 }
             }
         }
 
-        if (problems.length > 0) return { fail: true, msg: '复发：惑心换位异常 — ' + problems.slice(0, 3).join(' | ') };
+        // 各子病因独立上报（严重度次序，命中首因即返回）。
+        // 注意：落地两类（pLandSeen / pLandEnd）在语义上是同一判据的两种取证路径，故各自成表但仍分两条返回。
+        if (pOdd) return { fail: true, msg: '复发：惑心配对断链 — ' + pOdd };
+        if (pSame) return { fail: true, msg: '复发：惑心组内同侧 — ' + pSame };
+        if (pLead) return { fail: true, msg: '复发：惑心组首侧翻转 — 某组首侧与首组不一致（持有者固定，一次执行的侧序不应中途翻转）' };
+        if (pReason) return { fail: true, msg: '复发：惑心失败理由越界 — ' + pReason };
+        if (pName) return { fail: true, msg: '复发：惑心换位单位名为空 — ' + pName };
+        if (pRange) return { fail: true, msg: '复发：惑心换位位置越界 — ' + pRange };
+        if (pFrom) return { fail: true, msg: '复发：惑心多条共用来源位 — ' + pFrom };
+        if (pTo) return { fail: true, msg: '复发：惑心多条共用目标位 — ' + pTo };
+        if (pLandSeen) return { fail: true, msg: '复发：惑心换位未落地 — ' + pLandSeen };
+        if (pLandEnd) return { fail: true, msg: '复发：惑心换位未落地（终局兜底）— ' + pLandEnd };
         return { fail: false };
     }
 };

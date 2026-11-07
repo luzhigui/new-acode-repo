@@ -1,3 +1,8 @@
+// V6.12.0 | 2026-11-07 迭代：机制装配由四行手抄清单改走 tests/_lib/install-mechanics.mjs
+//   （→ 生产唯一总入口 modules/301-reg-mechanics.js），与其余十几个离线宿主同口径。
+//   上游 4230eb9a 增 333/334/335 + content 的 statAbsorb 后，本件仍只装 307/308/317/331，
+//   回放开局即抛「未在 core/18 注册」、stdout 全空；夜间第180轮以「补一行 301 import」点修，
+//   白天侧统一收口到 helper 并由 mechanics-install-selftest 常驻禁止绕过。零判定口径变化。
 // V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整，
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
@@ -45,7 +50,7 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.11.0';
+export const VER = 'tests/rules-replay.mjs V6.12.0';
 // V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
 //   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
 //   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
@@ -91,13 +96,8 @@ const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoun
 // carry 候选判据与主代码同口径：直接复用 modules/329-buff-tools.js 的 hasCarryTarget
 //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
 const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
-// 精英组件需先注册（initBattleTeams 依赖其组件安装）
-await import('../modules/307-elite-imperial.js');
-await import('../modules/308-elite-sixsects.js');
-await import('../modules/317-elite-mingjiao.js');
-// 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
-//   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，回放开局即崩（同 tools/116 的坑）。
-await import('../modules/331-custom-effects.js');
+// 精英组件需先注册（initBattleTeams 依赖其组件安装）。V6.12.0：统一走 helper，勿再手抄模块清单。
+await import('./_lib/install-mechanics.mjs');
 // DOM 无关的 hook 运行时错误通道（V6.5.0）：页面端靠 modules/21 劫持 console.error 弹弱面板，
 //   node/worker 无 DOM，这里开局清零，跑完读计数——任何监听器抛错都计入退出码，不再被静默吞掉。
 const { eventBus } = await import('../infra/101-event-bus.js');

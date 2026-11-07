@@ -46,7 +46,11 @@
 //     · 期望值改为**落地口径** min(floor(maxHp×12%), 缺口)，抑疗档另算 round(落地值×0.5)，逐档精确比对；
 //     · 回退检测（12%→10%/8%）保留，且只在"夹取与抑疗都解释不了"时才报，杜绝拿旧比例冒充回退；
 //     · 截脉 ratio 取自 content（本规则读不到），命中该档时按"有抑疗信号且低于落地期望"降级不误报。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.3.2';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.3.3';
+// V6.3.3（2026-11-07 第 184 轮）：拆聚合型分支 —— 报错文案里的血上限改取整（Math.round）。
+//   病由：maxHp 带小数时 msg 出现「血上限195.0」，不带小数时「血上限195」，同一病因被归一化成
+//   两个结构模板 ⇒ 分支级计成聚合型。判定与阈值（12% / 10% / 8% 三档比对）一字未改。
+
 import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
@@ -181,7 +185,7 @@ export const rule90 = {
                 var pctTxt = (h.heal === prevExpect) ? '×10%' : '×8%';
                 // ★ 第 132 轮：本条与下一条曾共用同一指纹「复发：九阳神功回复」，且它俩又是另两条分支指纹的
                 //   前缀 ⇒ 四条分支互相抢匹配，分支级判定失效。补独立前缀（只改报错文案，判据一行未动）。
-                return { fail: true, msg: '复发：九阳神功回复疑似被回退：' + h.heal + '=floor(血上限' + maxHpAt + pctTxt + ')，疑似 V6.1.12 提高的 12% 被回退（落地应为 ' + expectLanded + '）' };
+                return { fail: true, msg: '复发：九阳神功回复疑似被回退：' + h.heal + '=floor(血上限' + Math.round(maxHpAt) + pctTxt + ')，疑似 V6.1.12 提高的 12% 被回退（落地应为 ' + expectLanded + '）' };
             }
             // 抑疗信号存在但比例对不上（如截脉 ratio 由 content 决定、本规则取不到）→ 无法归因，不误报
             if (hasHealReduceSignal && h.heal < expectLanded) continue;
@@ -192,7 +196,7 @@ export const rule90 = {
             //   （算术一致性断言3 已无条件跑），不误报。实证 seed=3:6/5:1/20:1：maxHp 静默 195→225、231→262、186→217。
             //   ★ 真异常保留：heal > expectLanded（比例被调高/溢出）；12%→10%/8% 回退仍由上方 prevExpect/oldExpect 分支先抓。
             if (h.heal >= 0 && h.heal <= expectLanded) continue;
-            return { fail: true, msg: '复发：九阳神功回复与落地期望不符：' + h.heal + '≠落地期望' + expectLanded + '（当时血上限' + maxHpAt + '×12%=' + raw + '，缺口' + gap + '，抑疗档应为' + expectReduced + '）' };
+            return { fail: true, msg: '复发：九阳神功回复与落地期望不符：' + h.heal + '≠落地期望' + expectLanded + '（当时血上限' + Math.round(maxHpAt) + '×12%=' + raw + '，缺口' + gap + '，抑疗档应为' + expectReduced + '）' };
         }
         return { fail: false };
     }

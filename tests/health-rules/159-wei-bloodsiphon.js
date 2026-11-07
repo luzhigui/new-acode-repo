@@ -39,7 +39,11 @@
 //   闪避反击通道**不经 previewHeal**，heal = max(1, ...) 恒 ≥ 1，故该通道仍要求严格正整数（不变）。
 // 误报规避：本场没有青翼蝠王吸血条目直接 skip；父快照取不到（facts 不可用时）退回 V1.0.0 文案判据，
 //   不静默放行；配置读不到(getMechanicField 在数据未就绪时会抛)就跳过比例上限判据。
-export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.3';
+export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.4';
+// V1.2.4（2026-11-07 第 184 轮）：拆聚合型分支 —— 「渲染值不在 fact.heal 集合」分支的 msg 改固定骨架。
+//   病由：msg 里拼了 fact.heal 数组（长度随战况变化）⇒ 长度 3 / 7 / 21 被归一化成三个结构模板。
+//   判定（渲染显示值不在 fact.heal 集合内即失败）一字未改。
+
 import { collectNodes, plain } from '../122health-utils.js';
 import { getMechanicField } from '../../core/201-config-5v5-test.js';
 import { MECHANIC_EFFECT_TYPES, FACT_TYPES } from '../../infra/106-battle-enums.js';
@@ -174,9 +178,9 @@ export const rule106 = {
                 if (!cm) continue;
                 var cv = parseFloat(cm[1]);
                 if (!healSet.some(function (h) { return Math.abs(h - cv) < 1e-6; })) {
-                    return { fail: true, msg: '复发：青翼蝠王吸血渲染文本显示「+' + cv + '」，但本场 WEI_LEECH 事实流中'
-                        + '无 heal=' + cv + ' 记录（渲染文本数值与底层 fact 不一致；fact.heal 集合为 ['
-                        + healSet.join(', ') + ']，疑似 render 层把展示数值写错，如「吸血+{heal*2}」）' };
+                    // ★ 第 184 轮：msg 固定骨架 —— 原先把 cv 与 fact.heal 集合长度写进 msg，集合长短不一即换结构
+                    //   模板（分支级被计成聚合型）。判定（渲染值不在 fact.heal 集合内即失败）一字未改。
+                    return { fail: true, msg: '复发：青翼蝠王吸血渲染文本显示「+N」，但本场 WEI_LEECH 事实流中无对应 heal=N 记录（渲染文本数值与底层 fact 不一致，疑似 render 层把展示数值写错，如「吸血+{heal*2}」）' };
                 }
             }
         }

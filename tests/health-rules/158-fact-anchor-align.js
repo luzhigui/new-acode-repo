@@ -7,7 +7,12 @@
 //   正文渲染成「回复 N 点」，一个空格之差子串永不匹配，飘字回调永不触发，数值正常加、
 //   不报任何错，纯静默失效。这类坑靠人眼四天后才逮到，此规则让体检当场报红。
 //
-export const VER = 'tests/health-rules/158-fact-anchor-align.js V2.0.1';
+export const VER = 'tests/health-rules/158-fact-anchor-align.js V2.0.2';
+// V2.0.2（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改判定口径与判定顺序）。
+//   病由：五类子病因（fx 项非法 / kind 未知 / amount 非有限 / amount 为负 / 数值不在正文）全 push 进
+//   breaks，末尾 slice(0,5).join(' | ') 合成一条 msg ⇒ 一条指纹下挤 6 类结构模板，掉任一类都看不出。
+//   今五类各存一格、按原判定顺序命中首因返回（非法 → kind → NaN → 负 → 不同源），并统一用「1 处」
+//   计数以固定模板。判定仍是同一组断言、同一 FX_KINDS 白名单、同一 amount 同源形态表。
 
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 
@@ -33,7 +38,10 @@ export const rule105 = {
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         var nodes = collectNodes(log || []);
         var fxEntries = 0;
-        var breaks = [];
+        // ★ 第 184 轮（拆聚合型分支）：5 类子病因各自独立上报（首因返回），不再 slice(0,5).join(' | ')
+        //   合并成一条聚合外壳——原先一条指纹下挤了 6 类结构模板，掉其中任何一类都看不出来。
+        //   判定口径与顺序一字未改（仍是同一组断言），只改「怎么报」。
+        var bBad = null, bKind = null, bNaN = null, bNeg = null, bSync = null;
         for (var i = 0; i < nodes.length; i++) {
             var e = nodes[i] && nodes[i].e;
             if (!e || typeof e !== 'object') continue;
@@ -44,25 +52,25 @@ export const rule105 = {
             for (var k = 0; k < fx.length; k++) {
                 var item = fx[k];
                 if (!item || typeof item !== 'object') {
-                    breaks.push('fx#' + k + ' 非法(空/非对象): ' + text.slice(0, 40));
+                    if (!bBad) bBad = 'fx#' + k + ' 非法(空/非对象): ' + text.slice(0, 40);
                     continue;
                 }
                 // ① kind 合法性：播放器只按已知 kind 分派，写错的 kind 被静默丢弃（特效不播）
                 if (FX_KINDS.indexOf(item.kind) === -1) {
-                    breaks.push('fx#' + k + ' kind 未知「' + item.kind + '」(认得: ' + FX_KINDS.join('/') + ')，特效将静默不播: ' + text.slice(0, 50));
+                    if (!bKind) bKind = 'fx#' + k + ' kind 未知「' + item.kind + '」(认得: ' + FX_KINDS.join('/') + ')，特效将静默不播: ' + text.slice(0, 50);
                     continue;
                 }
                 // ② amount 有限正数：NaN / undefined / 0 / 负数 都让飘字哑火（数值照算、不报错）
                 var amt = item.amount;
                 if (typeof amt !== 'number' || !isFinite(amt)) {
-                    breaks.push('fx#' + k + '(' + item.kind + ') amount 非有限数「' + amt + '」，飘字将哑火: ' + text.slice(0, 50));
+                    if (!bNaN) bNaN = 'fx#' + k + '(' + item.kind + ') amount 非有限数「' + amt + '」，飘字将哑火: ' + text.slice(0, 50);
                     continue;
                 }
                 //   0 是合法空操作（如「回复0点生命」本就无事发生，不该飘字），不算失效 ⇒ 跳过不报；
                 //   负数才是异常（飘字会飘出「-N」），保留为红。
                 if (amt === 0) continue;
                 if (amt < 0) {
-                    breaks.push('fx#' + k + '(' + item.kind + ') amount 为负「' + amt + '」，飘字将飘出负数值: ' + text.slice(0, 50));
+                    if (!bNeg) bNeg = 'fx#' + k + '(' + item.kind + ') amount 为负「' + amt + '」，飘字将飘出负数值: ' + text.slice(0, 50);
                     continue;
                 }
                 // ③ 同源性（旧「锚文本⊂正文」在新结构下的等价形态）：数值必须在正文里出现
@@ -72,14 +80,16 @@ export const rule105 = {
                     if (text.indexOf(forms[f]) !== -1) { hit = true; break; }
                 }
                 if (!hit) {
-                    breaks.push('fx#' + k + '(' + item.kind + ') 数值 ' + amt + ' 不在正文（文案与特效不同源，飘字数值将对不上）: ' + text.slice(0, 60));
+                    if (!bSync) bSync = 'fx 数值不在正文（文案与特效不同源，飘字数值将对不上）: ' + text.slice(0, 60);
                 }
             }
         }
         if (fxEntries === 0) return 'skip';
-        if (breaks.length > 0) {
-            return { fail: true, msg: '飘字 fx 与正文错位 ' + breaks.length + ' 处（特效将静默失效）: ' + breaks.slice(0, 5).join(' | ') };
-        }
+        if (bBad) return { fail: true, msg: '飘字 fx 条目非法（特效将静默失效）: ' + bBad };
+        if (bKind) return { fail: true, msg: '飘字 fx kind 未知（特效将静默不播）: ' + bKind };
+        if (bNaN) return { fail: true, msg: '飘字 fx amount 非有限数（特效将哑火）: ' + bNaN };
+        if (bNeg) return { fail: true, msg: '飘字 fx amount 为负（特效将飘负值）: ' + bNeg };
+        if (bSync) return { fail: true, msg: '飘字 fx 数值不在正文（不同源）: ' + bSync };
         return { fail: false };
     }
 };
