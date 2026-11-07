@@ -1,7 +1,7 @@
-// modules/390-rewind-core.js — 倒针回看（调试）：按步/按演出段回拨，复用本局战报录制，不碰引擎
+// ui/727-rewind-core.js — 倒针回看（调试）：按步/按演出段回拨，复用本局战报录制，不碰引擎
 //   开关默认关：只有地址栏带 ?rewind=1 或 localStorage.gmd_rewind='1' 才生效。
 //   数据源：player/513 的在录步（每步自带两队快照 + 日志 + 演出动作清单），不额外存快照。
-export const VER = 'modules/390-rewind-core.js V1.0.0';
+export const VER = 'ui/727-rewind-core.js V1.0.0';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
@@ -9,7 +9,7 @@ import { STATE } from '../core/201-config-5v5-test.js';
 import { getLiveRecordedSteps } from '../player/513-battle-export.js';
 import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
 import { playStepInterleaved, playSingleLogEntry } from '../player/504-player-play-step.js';
-import { appendLogHTML, clearAllEffects } from '../player/510-renderer.js';
+import { appendLogHTML, appendHiddenDetail, clearAllEffects } from '../player/510-renderer.js';
 import {
     prepareLogEntry, getActionTiming, getActionFx, hasStageWork,
     applyStageActionToStore, applyStageActionToFX, applyStageActionToStoreAfter
@@ -158,6 +158,16 @@ function applyCueStore(c, step, cue, pendingDeaths) {
     applyStageActionToStoreAfter(c, cue.action, pendingDeaths);
 }
 
+// 把渲染结果（可能有嵌套 entries）摊平成一行行日志原文
+function collectLogTexts(entry, out) {
+    if (!entry || entry.quiet) return;
+    if (Array.isArray(entry.entries)) {
+        for (const sub of entry.entries) collectLogTexts(sub, out);
+        return;
+    }
+    if (entry.text) out.push({ t: String(entry.text), detail: entry.type === 'detail' });
+}
+
 function renderReviewLog(stepIdx, upto, includeCurrent) {
     const el = document.getElementById('log');
     if (!el) return;
@@ -168,17 +178,26 @@ function renderReviewLog(stepIdx, upto, includeCurrent) {
         const log = st.log || [];
         const cues = buildCuesFor(i);
         for (let j = 0; j < log.length; j++) {
-            const e = log[j];
-            if (!e || !e.text) continue;
+            const fact = log[j];
+            if (!fact) continue;
             if (includeCurrent && i === stepIdx) {
                 const tc = cues.textCueOf[j];
                 if (tc == null || tc > upto) continue;
             }
-            lines.push(String(e.text));
+            // step.log 里存的是原始 fact（{factType,data}），必须过 504 同款渲染器才有 text；
+            //   直接读 fact.text 会永远为空 —— 这就是倒针日志区一片空白的根因。
+            let prepared = null;
+            try { prepared = prepareLogEntry(fact); } catch (err) { prepared = null; }
+            const list = Array.isArray(prepared) ? prepared : (prepared ? [prepared] : []);
+            for (const en of list) collectLogTexts(en, lines);
         }
     }
+    // 只写一次 DOM：同序、逐行，不闪烁
     el.innerHTML = '';
-    for (const t of lines.slice(-40)) appendLogHTML(t + '<br>');
+    for (const item of lines.slice(-40)) {
+        if (item.detail) appendHiddenDetail(item.t);
+        else appendLogHTML(item.t + '<br>');
+    }
     el.scrollTop = el.scrollHeight;
 }
 

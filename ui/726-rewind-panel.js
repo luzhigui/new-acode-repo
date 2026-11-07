@@ -1,11 +1,13 @@
+// V1.0.0 | 2026-11-07 倒针面板落地：入口按钮 + 底部小面板（默认开、暂停时才露入口）
 // ui/726-rewind-panel.js — 倒针面板（默认开，暂停时才露入口）：入口按钮 + 底部小面板
 //   默认不需要任何地址参数；?rewind=0 或 localStorage.gmd_rewind='0' 可彻底关掉（不建 DOM、不起定时器）。
+export const VER = 'ui/726-rewind-panel.js V1.0.0';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { STATE } from '../core/201-config-5v5-test.js';
 import {
     isRewindEnabled, isActive, getView, enterReview, exitReview,
     prevStep, nextStep, prevCue, nextCue, pausePlay, resumePlay, fastForward
-} from '../modules/390-rewind-core.js';
+} from './727-rewind-core.js';
 
 const BTN_STYLE = 'min-width:44px;min-height:40px;padding:6px 8px;border-radius:8px;border:1px solid #c9a227;background:#1e1e22;color:#f5d76e;font-size:14px;line-height:1;';
 
