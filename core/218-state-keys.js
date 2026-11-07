@@ -41,6 +41,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _lionOwnerUid:           { type: STATE_FIELD_TYPES.STRING,  default: null, scope: 'create' },
     _isDead:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 显示名覆盖（圆真现原形→成昆）：内部 name 仍按机制声明克隆用，渲染层只读这一层
+    _displayName:            { type: STATE_FIELD_TYPES.STRING,  default: null },
     _xuanmingPoison:         { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _kuaiLeStack:            { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     _xingFenPenaltyCount:    { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

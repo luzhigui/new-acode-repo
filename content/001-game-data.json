@@ -380,7 +380,7 @@
       "skills": {
         "yuanzhenReveal": {
           "name": "现原形",
-          "desc": "开局 {openChance}% 概率、或此后每次受击 {hitChance}% 概率现出原形：变回成昆，原样继承其混元霹雳劲、坚盾增幅与幻影伪装（属性不变）。",
+          "desc": "开局 {openChance}% 概率、或此后每次受击 {hitChance}% 概率现出原形：变回成昆——面板（m/攻/防/最大血）换成成昆、血量按现形瞬间的比例折算、已有增益保留，并原样继承其混元霹雳劲、坚盾增幅与幻影伪装。",
           "params": { "openChance": 0.10, "hitChance": 0.02 }
         }
       }

@@ -1,11 +1,11 @@
 {
- "ver": "4e4e32b2475fe2e6394ef6bb5e8f1cb2a1f0577ba748fde5272bde168a9c8f3d",
+ "ver": "052919b2bf28b0e6e9cdf47f8087f2d9482fc0f0db185246ff9a4304676054e5",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
   [
    "content/001-game-data.json",
-   "cfb45db927a467b690059aeb107eea01aee4e6aceaac0de4d2d261b33acab871"
+   "2f7425c2115fe3531561fe8974b36ffd3699b2072b83641560617ab87063c8d9"
   ],
   [
    "content/002-hex-enhance.json",
@@ -33,7 +33,7 @@
   ],
   [
    "core/206-battle-runner.js",
-   "b44358750092df6bbf123136f518bb5aa66394cf728997b155429ffdfcec87f1"
+   "b5d6ca6e79f8912961a15d291d033e667a1ef2779d7fa91ca2b42c968d6fa5fb"
   ],
   [
    "core/207-target-strategies.js",
@@ -81,7 +81,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "67fe8e3ea53f904828fd16896a13355fb09965f30467d20d465f71eaaf3153f3"
+   "04fcb20fc698520d53e056c70a097c34ee24986ae336152a8509b2dd3f705d6a"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -177,11 +177,11 @@
   ],
   [
    "index.html",
-   "9b61bb8582d758669182ee215f8a1264255ab70867bb672c3d4ea5a475567428"
+   "fd27509d159f9e642e6c690e5c7362df94283ab8573732b9d8788432e8d44f37"
   ],
   [
    "infra/101-event-bus.js",
-   "36867fdd8a1735993d3c4c2a35a4546c89ea3353672702f96183c22994cc5077"
+   "c3dc4d4849f785bb4c0a40eadfd27dac96cdc568a9f58800d378bcc39ffa4a8c"
   ],
   [
    "infra/102-core-utils.js",
@@ -365,7 +365,7 @@
   ],
   [
    "modules/336-elite-sixsects-yuanzhen.js",
-   "bb1f3ca8a4695d673abf0a1704054dfbb00041423101314e55dcf68560ad1f96"
+   "34d68cc0082689bc65c8d715032f7f21817b46a579b4966555c8cc97ace9c79a"
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
@@ -445,7 +445,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "95e99fc19691f5d311d9441a88f8a2bb0b74deec3ea12b24427df88f872939df"
+   "d659b00dc063038832428f85435cdeb356f96a28c697c600559abab643678c21"
   ],
   [
    "render/404-grid-badges.js",
