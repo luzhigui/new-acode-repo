@@ -1,5 +1,6 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-export const VER = 'ui/702-main-5v5-test.js V6.14.4';
+// V6.14.5 | 2026-11-07 封面版本列表补 render/403 指纹：真机可一眼确认格子渲染 JS 是否已更新
+export const VER = 'ui/702-main-5v5-test.js V6.14.5';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -9,6 +10,7 @@ import { CONFIG, STATE, loadGameData, loadHexEnhanceData, VER as CFG_VER } from 
 import { Unit, VER as VER_UNIT } from '../core/202-unit.js';
 import { VER as VER_UTILS } from '../core/203-battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './703-ui-render-5v5-test.js';
+import { VER as VER_RENDER } from '../render/403-grid-render.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/601-fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/602-fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/603-fx-crash-5v5-test.js';
@@ -166,6 +168,7 @@ window.ALL_VERS = {
     core: VER_CORE,
     player_core: VER_PLAYER_CORE,
     ui: UI_VER,
+    render: VER_RENDER,
     fx_common: FX_VER
 };
 

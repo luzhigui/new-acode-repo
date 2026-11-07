@@ -5,7 +5,10 @@
 //          unit.state._displayName（圆真现形成昆：渲染/战报显示成昆，内部匹配键 self.name 不动）
 // V7.1.4 | 2026-11-07 背水一战已触发单位在名字后挂 🩸（复用 logoList 标记位；优先级最低，
 //          排在技能图标/海克斯之后，名额不足自然省略，绝不挤掉技能图标）
-export const VER = 'render/403-grid-render.js V7.1.4';
+// V7.1.5 | 2026-11-07 修 V7.1.4 真机不可见：🩸 原来追加在 logoList 末尾，被 logoBudget=2（带计数胶囊=1）
+//          的 slice 截掉——实战角色几乎都有 ≥2 个海克斯图标，所以永远看不见。改挂到技能图标之后、
+//          海克斯图标之前，保证触发者在常见情况下占住前两格；技能图标仍排第一。
+export const VER = 'render/403-grid-render.js V7.1.5';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -367,6 +370,14 @@ export function renderGrid(id, camp) {
         if (unit.state._isCrazy) logoList.push('🤪');
         
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
+        // 背水一战已触发（整局仅一次，含妹永久版）：紧跟在技能图标之后、海克斯图标之前。
+        //   ⚠️ 不能追加到末尾：logoBudget 只留前 2 个（带计数胶囊只留 1 个），实战角色普遍有
+        //   ≥2 个海克斯图标，追加末尾 100% 被 slice 截掉（V7.1.4 真机不可见的根因）。
+        //   技能图标仍排第一；🩸 只挤海克斯/杂项，不反过来挤技能图标。图标读 content 配置防漂移。
+        if (unit.state._lastStandTriggered || unit.state._brotherLastStandTriggered) {
+            const lsIcon = (CONFIG.BUFFS && CONFIG.BUFFS.lastStand && CONFIG.BUFFS.lastStand.icon) || '🩸';
+            logoList.push(lsIcon);
+        }
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         // 何太冲重做 V3：两个「状态标记」压到 logoList 末尾——V6.5.5 的「最多留最新 2 个」按尾部优先，
         //   放末尾才能保证这两个老板点名要看的标记不会被 buff 图标挤掉：
@@ -378,13 +389,6 @@ export function renderGrid(id, camp) {
         if ((unit._mods && unit._mods.atk ? unit._mods.atk : []).some(m => m.group === 'soulDrain')) logoList.push('🔻');
         // 杨逍改版：点穴眩晕走角色图标 😵（getRoleIcon），此处只挂 ❌ 禁疗（截脉中：治疗/吸血回复减半）
         if (unit.state._jinMai && unit.state._jinMai.rounds > 0) logoList.push('❌');
-        // 背水一战已触发（整局仅一次，含妹永久版）：挂 🩸。
-        //   复用本标记位，优先级最低——压在整个 logoList 末尾，名额不够时先省略它，
-        //   绝不挤掉前面的技能图标/海克斯图标。图标读 content 配置，避免与 BUFFS 漂移。
-        if (unit.state._lastStandTriggered || unit.state._brotherLastStandTriggered) {
-            const lsIcon = (CONFIG.BUFFS && CONFIG.BUFFS.lastStand && CONFIG.BUFFS.lastStand.icon) || '🩸';
-            logoList.push(lsIcon);
-        }
 
         // 名字颜色分档收口：
         //   绿档 = 带有技能的 M100 角色（说不得、周颠、武当莲舟、峨眉素问等）
