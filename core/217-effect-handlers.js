@@ -140,7 +140,15 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
             if (decl.factData) decl.factData.maxHpDelta = delta > 0 ? delta : 0;
         }
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
+        const hpBefore = decl.source.hp;
         applyStatChange(decl.source, 'hp', capped, null, '吸血');
+        // 显示口径（不改数值）：吸血同受截脉/寒毒打折，实落值与原因回写 factData
+        if (decl.factData && capped > 0) {
+            decl.factData.healActual = Math.max(0, decl.source.hp - hpBefore);
+            decl.factData.healNominal = capped;
+            const mods = healModReasons(decl.source);
+            if (mods.length > 0) decl.factData.healMods = mods;
+        }
         decl.source.leechDone = (decl.source.leechDone || 0) + capped;
         executed.push(decl);
     }
@@ -152,13 +160,38 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.source || !decl.source.alive) continue;
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
+        const hpBefore = decl.source.hp;
         if (capped > 0) {
             applyStatChange(decl.source, 'hp', capped, null, '回血');
+        }
+        // 显示口径（不改数值）：被点穴截脉/寒毒打折时，实落值通常小于声明值，把实落值与原因回写 factData，
+        //   战报据此写「实际值（原因，原 N）」，不再把声明值当成回血量。
+        if (decl.factData && capped > 0) {
+            const actual = Math.max(0, decl.source.hp - hpBefore);
+            decl.factData.healActual = actual;
+            decl.factData.healNominal = capped;
+            const mods = healModReasons(decl.source);
+            if (mods.length > 0) decl.factData.healMods = mods;
         }
         executed.push(decl);
     }
     return { executed };
 });
+
+// 回血被修正的原因清单（只在状态里查，不重算数值）：供战报「实际值（原因，原 N）」后缀用。
+function healModReasons(unit) {
+    const st = (unit && unit.state) || {};
+    const mods = [];
+    if (st._jinMai && st._jinMai.rounds > 0) {
+        const pct = Math.round((1 - (st._jinMai.ratio ?? 1)) * 100);
+        mods.push(`点穴截脉（回复-${pct}%）`);
+    }
+    const xp = st._xuanmingPoison, hd = st._hlsHanDu;
+    const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+        || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+    if (poisoned) mods.push('寒毒抑疗削减');
+    return mods;
+}
 
 registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
     const executed = [];

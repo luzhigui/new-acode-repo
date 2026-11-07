@@ -4,7 +4,28 @@
 //   ③ 锚点逐字对齐（SKILL-飘字血泪：「回复+N」≠「回复 N 点」，子串匹配不上=飘字哑火）——anchorVerb 显式传参，
 //     模板产物与手写版逐字节一致，golden 探针保障
 //   ④ 加攻/加防族预留位：现无手写同款（飘字走 render/38 STAT_CHANGE 通道），出现第三遍再进工厂
-export const VER = 'render/413-generic-renderers.js V1.1.0';
+export const VER = 'render/413-generic-renderers.js V1.2.0';
+
+import { fmtNum } from '../infra/102-core-utils.js';
+
+// 回血/吸血显示口径（只改文案，不改数值）：被点穴截脉/寒毒打折时，factData 由 core/217 回写
+//   healActual / healNominal / healMods → 显示「实际值（原因，原 N）」；无修正保持原样，不给正常回血加噪音。
+//   declared = 该渲染器原本要显示的数值（各 fact 字段名不同：heal / leechVal / leech / totalHeal）。
+export function healDisplay(fact, declared) {
+    const mods = Array.isArray(fact.healMods) ? fact.healMods : [];
+    const nominal = typeof fact.healNominal === 'number' ? fact.healNominal : declared;
+    const actual = typeof fact.healActual === 'number' ? fact.healActual : declared;
+    // 有修正时必须让玩家看见「被砍掉了多少」：按 0.1 精度显示（19.5 不能按整数口径吞成 20）；
+    //   无修正沿用全局显示口径 fmtNum。
+    const text = mods.length > 0
+        ? (Number.isInteger(actual) ? String(actual) : String(Math.round(actual * 10) / 10))
+        : fmtNum(actual);
+    return {
+        num: actual,
+        text,
+        note: mods.length > 0 ? `（${mods.join('+')}，原 ${fmtNum(nominal)}）` : ''
+    };
+}
 
 // —— 回血族：三种版式对应历史文案 ——
 // mode 'plusTrail'  ：`{icon} {label}+{heal}，{hpBefore}→{hpAfter}`（九阳：label 含动词，如「九阳神功回复」）
@@ -14,17 +35,21 @@ export const VER = 'render/413-generic-renderers.js V1.1.0';
 // isHealEntry：true = 战报行参与「回血飘字锚点」链（isHealEntry/healAmount/healUnitUid 三件套）
 export function makeHealRenderer({ icon, label, mode, anchorVerb = null, isHealEntry = true, suffix = null }) {
     return function renderHealFact(fact) {
-        const heal = fact.heal;
+        // 有截脉/寒毒修正 → 显示实落值 + 原因（note），无修正时 heal 与原显示值等价、note 为空
+        const d = healDisplay(fact, fact.heal);
+        const heal = d.text;
+        const healNum = d.num;
+        const note = d.note;
         if (mode === 'plusTrail') {
-            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, fx: [{ kind: 'heal', amount: heal }], isHealEntry: true, healAmount: heal, healUnitUid: fact.unitUid };
+            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，${fact.hpBefore}→${fact.hpAfter}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
         }
         if (mode === 'plusMaxHp') {
-            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}，上限→${fact.newMaxHp}</span>`, fx: [{ kind: 'heal', amount: heal }], isHealEntry: true, healAmount: heal, healUnitUid: fact.unitUid };
+            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，上限→${fact.newMaxHp}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
         }
         // colonPlain：效果由 fx 数据字段驱动（不再靠文字锚点匹配）
         const tail = suffix ? suffix(fact) : '';
-        const out = { type: 'info', text: `<span class="green">${icon} ${label}：${fact.unitName} 回复 ${heal} 点生命${tail}</span>`, fx: [{ kind: 'heal', amount: heal }] };
-        if (isHealEntry) { out.isHealEntry = true; out.healAmount = heal; out.healUnitUid = fact.unitUid; }
+        const out = { type: 'info', text: `<span class="green">${icon} ${label}：${fact.unitName} 回复 ${heal} 点生命${note}${tail}</span>`, fx: [{ kind: 'heal', amount: healNum }] };
+        if (isHealEntry) { out.isHealEntry = true; out.healAmount = healNum; out.healUnitUid = fact.unitUid; }
         return out;
     };
 }

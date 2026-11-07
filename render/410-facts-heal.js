@@ -2,23 +2,25 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/410-facts-heal.js V1.1.0';
+export const VER = 'render/410-facts-heal.js V1.2.0';
 
 import { registerFactRenderer } from './406-fact-registry.js';
-import { makeHealRenderer } from './413-generic-renderers.js';
+import { makeHealRenderer, healDisplay } from './413-generic-renderers.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
 
 // Buff 衍生效果（嗜血/热血）
 export function renderBloodthirstLeechFact(fact) {
-    const fx = [{ kind: 'heal', amount: fact.leechVal }];
+    const d = healDisplay(fact, fact.leechVal);
+    const fx = [{ kind: 'heal', amount: d.num }];
     if (fact.isBrother) {
-        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>`, fx };
+        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${d.text}${d.note}</span>`, fx };
     }
-    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>`, fx };
+    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${d.text}${d.note}</span>`, fx };
 }
 
 export function renderHotBloodHealFact(fact) {
-    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>`, fx: [{ kind: 'heal', amount: fact.leech }] };
+    const d = healDisplay(fact, fact.leech);
+    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${d.text}${d.note}</span>`, fx: [{ kind: 'heal', amount: d.num }] };
 }
 
 // 快乐回血
@@ -117,7 +119,10 @@ export function renderEndlessBreathFact(fact) {
 }
 
 export function renderClawHealFact(fact) {
-    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>`, fx: [{ kind: 'heal', amount: Math.round(fact.totalHeal) }] };
+    // 白骨爪回血：声明值 totalHeal 可能被点穴截脉/寒毒打折，core/217 回写 healActual/healMods
+    //   → 显示实落值并注明原因（例：19.5（点穴截脉（回复-50%），原 39））
+    const d = healDisplay(fact, fact.totalHeal);
+    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${d.text}点生命${d.note}</span>`, fx: [{ kind: 'heal', amount: d.num }] };
 }
 
 // ── 注册 ────────────────────────────────────────────────
