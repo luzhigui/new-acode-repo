@@ -44,7 +44,7 @@ export function makeHealRenderer({ icon, label, mode, anchorVerb = null, isHealE
             return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，${fact.hpBefore}→${fact.hpAfter}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
         }
         if (mode === 'plusMaxHp') {
-            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，上限→${fact.newMaxHp}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
+            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，上限→${fmtNum(fact.newMaxHp)}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
         }
         // colonPlain：效果由 fx 数据字段驱动（不再靠文字锚点匹配）
         const tail = suffix ? suffix(fact) : '';

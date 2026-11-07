@@ -56,8 +56,8 @@ export function renderDodgeFact(fact) {
 
     if (fact.weiHeal) {
         const healText = fact.weiHeal.oldMaxHp !== undefined
-            ? `<span class="green">🦇 青翼蝠王·闪避反击吸血+${fact.weiHeal.heal}，上限${fact.weiHeal.oldMaxHp}→${fact.weiHeal.newMaxHp}</span>`
-            : `<span class="green">🦇 青翼蝠王·闪避反击吸血+${fact.weiHeal.heal}，上限→${fact.weiHeal.newMaxHp}</span>`;
+            ? `<span class="green">🦇 青翼蝠王·闪避反击吸血+${fmtNum(fact.weiHeal.heal)}，上限${fmtNum(fact.weiHeal.oldMaxHp)}→${fmtNum(fact.weiHeal.newMaxHp)}</span>`
+            : `<span class="green">🦇 青翼蝠王·闪避反击吸血+${fmtNum(fact.weiHeal.heal)}，上限→${fmtNum(fact.weiHeal.newMaxHp)}</span>`;
         dodgeGroup.entries.push({type:'info', text:healText, isHealEntry:true, healAmount:fact.weiHeal.heal, healUnitUid:target.uid});
     }
 

@@ -334,7 +334,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     //   这里不改 hpLoss 的话，致死伤害照样把 hpAfter 算成 ≤0、死亡标记照样落下（上限形同虚设）。
     //   上限只有 _dmgCap 一个来源；core/13 直扣血出口读同一字段。
     if (target.state._dmgCap > 0) hpLoss = Math.min(hpLoss, target.state._dmgCap);
-    let hpAfter = Math.floor(target.hp) - hpLoss;
+    let hpAfter = target.hp - hpLoss;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');
     if (dmgCalc.blockValue > dmg) {

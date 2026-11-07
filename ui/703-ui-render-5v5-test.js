@@ -99,7 +99,7 @@ function renderStatDetail(u, stat) {
     const rnd = delta(g.round);
     if (Math.abs(rnd) >= 0.01) parts.push(`<span style="color:#ff8c00;">${rnd > 0 ? '+' : ''}${Math.floor(rnd)}临</span>`);
     if (parts.length === 1) return String(Math.floor(base));
-    return parts.join(' ') + ' = <span style="color:var(--c-gain);font-weight:bold;">' + final + '</span>';
+    return parts.join(' ') + ' = <span style="color:var(--c-gain);font-weight:bold;">' + fmtNum(final) + '</span>';
 }
 
 function updateDetailPopupContent() {
@@ -190,9 +190,9 @@ function updateDetailPopupContent() {
             })()}</span>
             <span style="color:#888;">攻击</span><span>${renderStatDetail(u, 'atk')}</span>
             <span style="color:#888;">防御</span><span>${renderStatDetail(u, 'def')}</span>
-            <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
-            <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
-            <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
+            <span style="color:#888;">造成伤害</span><span>${fmtNum(u.dmgDealt || 0)}</span>
+            <span style="color:#888;">承受伤害</span><span>${fmtNum(u.dmgTaken || 0)}</span>
+            <span style="color:#888;">治疗</span><span>${fmtNum(u.healDone || 0)}</span>
             <span style="color:#888;">闪避次数</span><span>${u.dodgeCount || 0}</span>
             <span style="color:#888;">暴击次数</span><span>${u.critCount || 0}</span>
             <span style="color:#888;">Buff</span><span>${buffText}</span>
