@@ -7,7 +7,7 @@ export const VER = 'core/213-battle-attack-edge.js V1.0.0';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';
 import { getEffectHandler, hasEffectHandler, validateDeclarationFields } from './217-effect-handlers.js';
-import { emitEvent, applyStatChange, getStat } from './214-battle-shared.js';
+import { emitEvent, killUnit, getStat } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { UNIT_EVENT_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
@@ -131,8 +131,9 @@ export function resolveDeaths(allySide, enemySide, log) {
     const died = [];
     for (const u of pending) {
         if (!u.state._pendingDeath) continue;
-        // ignoreCap=true：死亡结算把血归零不是一次受伤，不许被 _dmgCap 截在 0 以上（否则 alive=false 却 hp>0）
-        applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false, true, true);
+        // 死亡收口统一走 killUnit（内部 ignoreCap=true：归零血不是一次受伤，不许被 _dmgCap 截在 0 以上，
+        //   否则 alive=false 却 hp>0）
+        killUnit(u, null, '死亡结算');
         u.alive = false;
         u.state._isDead = true;
         // 修字段 bug：标记时写的是 state._pendingDeath，清理时写成了顶层

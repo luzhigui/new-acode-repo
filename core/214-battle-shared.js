@@ -109,7 +109,7 @@ export function getPresentationRng() { return _presentationRng || _battleRng; }
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {
-            applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false, true, true);
+            killUnit(u, null, '死亡结算');
             u.alive = false;
             u.state._isDead = true;
             if (!u.state._deathTime) u.state._deathTime = Date.now();
@@ -213,8 +213,9 @@ function previewHeal(target, raw, rawOnly = false) {
 
 // isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），
 //   不吃杨逍截脉的减疗。默认 true = 正常治疗语义。
-// ignoreCap=true：死亡结算类的「把血归零」不是一次受伤，不吃 _dmgCap（否则被截在 0 以上 →
-//   出现 alive=false 却 hp=97 的分裂状态；fuzz s76/r35 平局清算即此路径）。
+// ignoreCap=true：**只由 killUnit 使用**——死亡收口的「把血归零」不是一次受伤，不吃 _dmgCap
+//   （否则被截在 0 以上 → 出现 alive=false 却 hp=97 的分裂状态；fuzz s76/r35 平局清算即此路径）。
+//   任何其它直扣血出口都不得传 true，否则 _dmgCap 形同废止。
 function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false) {
     if (delta === 0 || !target || !target.alive) return false;
     // 天上无敌：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
@@ -283,6 +284,28 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     return target.state._pendingDeath || false;
 }
 
+// 死亡收口唯一出口（第 184 轮）：所有「直接把血归零」的调用点都必须走这里，禁止各自
+//   applyStatChange(..., ignoreCap=true)（今天已经漏过一处：白骨爪斩杀被 _dmgCap 截成 1 点血）。
+// 内部固定三件事：
+//   ① ignoreCap=true —— 归零血不是一次受伤，不吃 _dmgCap（庄铮·断锤三式）；
+//   ② recordHpAudit(group='death') —— 账本记实际落地值，逐步真值对照可核对「归零」这笔；
+//   ③ _pendingDeath=true —— 只标待死，善后（alive=false / 死亡信号）仍由 resolveDeaths /
+//      finalizeDeaths 统一裁定（保留「替死」清标记取消死亡的语义）。
+// record 沿用旧口径：有击杀者（真伤/斩杀）记战斗统计，无 source（死亡结算清场）不记。
+// 飞天无敌（_spiderFlying）会让归零扣血失效：此时 hp 仍 >0，绝不挂 _pendingDeath
+//   （否则又造出 alive=false 却 hp>0 的分裂状态）。
+function killUnit(target, source, reason) {
+    if (!target || !target.alive) return false;
+    const before = target.hp;
+    if (before > 0) {
+        applyStatChange(target, 'hp', -before, source || null, reason || '死亡结算', !!source, true, true);
+        if (target.hp > 0) return false;
+        recordHpAudit(target, 'death', target.hp - before, reason || '死亡结算');
+    }
+    target.state._pendingDeath = true;
+    return true;
+}
+
 // maxHp 词条化：所有 maxHp 变更走 addMod('maxHp')，本函数把 unit.maxHp 从 getStat 同步过来，
 // 并按"升则等量加、降则等比降"缩放 hp。addMod 后 / 移除词条后都应调用本函数。
 function refreshMaxHp(target, source, reason) {
@@ -302,7 +325,7 @@ function refreshMaxHp(target, source, reason) {
     newHp = Math.min(newHp, target.maxHp);
     const delta = newHp - oldHp;
     if (newHp <= 0) {
-        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死', false, true, true);
+        killUnit(target, null, 'maxHp变更致死');
     } else if (delta !== 0) {
         applyStatChange(target, 'hp', delta, source, reason, false, false);
     }
@@ -375,6 +398,7 @@ export {
     moveUnitPosition,
     resolvePushOrStun,
     applyStatChange,
+    killUnit,
     previewHeal,
     refreshMaxHp,
     recordCombatStat

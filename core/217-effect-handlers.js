@@ -4,7 +4,7 @@
 export const VER = 'core/217-effect-handlers.js V6.2.3';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './214-battle-shared.js';
+import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
 import { flushBattleEvents } from '../infra/102-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { registerCalcModifier } from './222-registry-calc.js';
@@ -252,9 +252,9 @@ registerEffectHandler(EFFECT_TYPES.EXECUTE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
-        // ignoreCap=true：处决是「把血归零」不是一次受伤，不许被 _dmgCap 截在 0 以上
-        //   （庄铮·断锤三式），否则斩杀不致死、_pendingDeath 不挂、攻击组 isDead 也不标。
-        applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀', true, true, true);
+        // 死亡收口统一走 killUnit：处决是「把血归零」不是一次受伤，内部固定 ignoreCap=true
+        //   （庄铮·断锤三式），并记审计账 + 挂 _pendingDeath（攻击组 isDead 据此标记）。
+        killUnit(decl.target, decl.source, '斩杀');
         decl._events = flushBattleEvents();
         executed.push(decl);
     }
@@ -317,7 +317,9 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             if (execPayload.derivedEntries.length > 0) decl.execute._derivedEntries = execPayload.derivedEntries;
             // 斩杀伤害取广播后的血量（衍生治疗可能落在被爪者身上），保证 fact 数字 = 实际扣掉的量
             if (decl.execute.data) decl.execute.data.dmg = Math.round(chainTarget.hp);
-            applyStatChange(chainTarget, 'hp', -chainTarget.hp, chainSource, '白骨爪斩杀');
+            // 白骨爪斩杀同样走 killUnit（此前直调 applyStatChange 漏了 ignoreCap → 庄铮 _dmgCap 下
+            //   只掉 1 点血、fact 却写「斩杀」；这是漏传的第二个调用点，收口后不会再漏）
+            killUnit(chainTarget, chainSource, '白骨爪斩杀');
             decl.execute._events = flushBattleEvents();
             if (decl.execute._events && decl.execute._events.length) decl._events.push(...decl.execute._events);
         }

@@ -16,7 +16,7 @@ import { clearAllWatchers } from './220-unit-watch.js';
 import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced } from './208-registry-elite.js';
 import { processUnitAttack } from './209-battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/101-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng } from './214-battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng } from './214-battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/102-core-utils.js';
 import { SeededRNG } from '../infra/102-core-utils.js';
@@ -674,8 +674,8 @@ function finalizeRoundEnd(A, B, ctx) {
     if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => {
-            // ignoreCap=true：战斗结束/平局清算是状态收口而非受伤，不能被 _dmgCap 截断（否则死者 hp>0）
-            applyStatChange(u, 'hp', -u.hp, null, '战斗结束', false, true, true);
+            // 死亡收口统一走 killUnit（内部 ignoreCap=true：这是状态收口而非受伤，不能被 _dmgCap 截断，否则死者 hp>0）
+            killUnit(u, null, '战斗结束');
             u.alive = false;
             u.state._isDead = true;
             emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });

@@ -1,5 +1,5 @@
 {
- "ver": "9b21057923eed0861524c9ab9935586e00fb6aaef665d65294683f3456e66658",
+ "ver": "1a9579b9a286d346097fadb7ad2c29d34a32b1858dc33d646b1de88c09cb30a7",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
@@ -13,7 +13,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "8940c77dc084eeecd81330dffd74f37538c652d02499a9c302c7c255bac04a64"
+   "aea156841a1dbb8bef32fabf4eadd36ae49b7d17846df8781121abf26a17c38d"
   ],
   [
    "core/202-unit.js",
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "ccacca1a8e651ecdb5363e33d5151bab2673bcc052754199ed7a9e27b0ba5746"
+   "2c3bde1e18ba24d86ebd34bc374e71a73f77d2abd87f4f3ffee09eeaa09118b1"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -61,11 +61,11 @@
   ],
   [
    "core/213-battle-attack-edge.js",
-   "13f9d1d4f3aed8c0b6b4394226b59f7f4fb059a7878572be7cc82991368541a9"
+   "e2757cb6fc61489eb0d3e274a64b05ab56b68a767f57b8d8c98905ced12eca04"
   ],
   [
    "core/214-battle-shared.js",
-   "e498cf3ee153779979835bc32cfbee945bbce34fd714e2d4e280c3dd6abc6d42"
+   "808194d3bbefe2e3f52982970fecc2fd128c7c8e97d1259d0a81cc6b7d3abb95"
   ],
   [
    "core/215-buff-effects.js",
@@ -77,7 +77,7 @@
   ],
   [
    "core/217-effect-handlers.js",
-   "a5b5cd3de7ef9e971a7cd208af150e1d13cc8760b9c30fd8cfffa8902c234ea2"
+   "b4765c4631590c505d860ba7a099047a150c77f63df6f3fe71fe70221fbda03e"
   ],
   [
    "core/218-state-keys.js",
