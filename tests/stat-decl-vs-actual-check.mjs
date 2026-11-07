@@ -192,11 +192,19 @@ const STAGES = [1, 2, 3, 4, 5, 6]; // 第 74 轮加 5：stage 5 含鹿杖客/玄
 import { normalizeForces, resetForces } from './_lib/forced-case-normalize.mjs';
 
 const FORCED_CASES = [
-    // 第 158 轮留下的：METEOR_GROWTH（T3 / A5 两颗牙的守卫契约）。
-    { seed: 23, stage: 1, force: 'sister' },
-    { seed: 23, stage: 2, force: 'sister' },
-    { seed: 23, stage: 3, force: 'sister' },
-    { seed: 23, stage: 4, force: 'sister' },
+    // METEOR_GROWTH（T3 / A5 两颗牙的守卫契约）。
+    //   第 158 轮用 seed 23 × stage 1-4，当时能产出 17 条声明；第 175 轮实测已退化到 0。
+    //   根因不是 force 开关失效（小昭·姊照常上场/蝶变），也不是 002 hexEnhance 取不到，
+    //   而是 _lib/buff-picker 的 `(seed + turn + off) % avail.length` 轮转**依赖角色过滤后的键表长度**：
+    //   阵容/职业构成一变（M 档重排等）或新增海克斯键，取模落点就漂，seed 23 现在轮到
+    //   摄魂/嗜血/惑心，明教侧抽不到 meteorShower ⇒ 远程没有溅射 ⇒ 契约零触发。
+    //   第 175 轮实测重新标定：seed 8 × stage 1-4，小昭·姊存活且明教远程（石虎/弟子3）稳定带
+    //   meteorShower，逐关都有 METEOR_SPLASH_GROWTH 样本（1-4 关分别 3/2/2/1 条）。
+    //   ★ 以后若 buff 键表再增删导致这里回零，同法重标定（探针看「sister=小昭·姊 且 buff=meteorShower」）。
+    { seed: 8, stage: 1, force: 'sister' },
+    { seed: 8, stage: 2, force: 'sister' },
+    { seed: 8, stage: 3, force: 'sister' },
+    { seed: 8, stage: 4, force: 'sister' },
     // 第 159 轮补：LION_INSPIRE（A14 雄狮振奋）—— 谢逊上场才会召唤幼狮、幼狮成形为雄狮、雄狮命中才发 fact。
     //   场次实测（单 seed 单 stage 定点归因）：seed 17 stage 2 产出 102 条、seed 42 stage 1 产出 78 条，
     //   两条均偏差 0；stage 4 在 seed 17 / 42 上恒为 0 条，故只收 1、2 两关。

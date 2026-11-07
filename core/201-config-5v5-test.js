@@ -1,4 +1,7 @@
-export const VER = 'core/201-config-5v5-test.js V6.9.1';
+export const VER = 'core/201-config-5v5-test.js V6.9.2';
+// V6.9.2 | 2026-11-07 修 {prob} 残留：DESC_TRUTH 补登 absorb→statAbsorb.prob（scale 100）。
+//        | 俞莲舟 absorb 技能无 params，概率只存 mechanics，getSkillDesc 回落 params 取不到 ⇒ 说明原样
+//        | 印出 {prob}（规则回放 150/150 全红）；PCT_PARAM_KEYS 早已含 prob，缺的是真值入口，不是注册。
 // V6.9.1 | 2026-11-07 修复杂兵刷蓝回归：isNamedCharacter 不再靠「键在不在 characters 里」反推，
 //        | 改读 characters[name].named 显式标记（27 条具名=true / 5 条原无名 104 杂兵=false）。
 // V6.9.0 | 2026-11-07 优化二·B 方案落地：角色池（mingM/enemyM/mingAll/eliteConfigs/enemyTitles/recruitPool）
@@ -144,6 +147,11 @@ export const DESC_TRUTH = {
     } },
     bloodDodge: { character: '韦一笑', fields: {
         maxRatio: { type: MECHANIC_EFFECT_TYPES.DODGE_RULES.LOST_HP_PERCENT, field: 'max', scale: 100 }
+    } },
+    // 武当俞莲舟·吸星大法：absorb 技能无 params，概率只存在于 mechanics(statAbsorb).prob，
+    //   故必须走 DESC_TRUTH 取真值；否则 desc 原样渲染出 {prob}（156 卫生扫描会红）。
+    absorb: { character: '俞莲舟', fields: {
+        prob: { type: MECHANIC_TYPES.STAT_ABSORB, field: 'prob', scale: 100 }
     } }
 };
 

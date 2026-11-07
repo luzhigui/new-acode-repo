@@ -176,11 +176,13 @@ const DIRECTED_CASES = [
     { seed: 17, stage: 1, force: 'brother' },
     { seed: 17, stage: 4, force: 'brother' },
     // 小昭·姊（sister）形态 → 流星溅射成长渲染形态（155）的守卫条件。
-    //   场次沿用第 158 轮已验证的组（seed 23 × stage 1-4，对照器侧 METEOR_GROWTH 声明 17 条 / 偏差 0）。
-    { seed: 23, stage: 1, force: 'sister' },
-    { seed: 23, stage: 2, force: 'sister' },
-    { seed: 23, stage: 3, force: 'sister' },
-    { seed: 23, stage: 4, force: 'sister' },
+    //   第 175 轮重标定：第 158 轮的 seed 23 × stage 1-4 已零触发——buff 轮转按角色过滤后的
+    //   键表取模，阵容/键表一变落点就漂；实测 seed 8 × stage 1-4 小昭·姊存活且明教远程带
+    //   meteorShower，逐关都有 METEOR_SPLASH_GROWTH 样本。
+    { seed: 8, stage: 1, force: 'sister' },
+    { seed: 8, stage: 2, force: 'sister' },
+    { seed: 8, stage: 3, force: 'sister' },
+    { seed: 8, stage: 4, force: 'sister' },
     // 第 160 轮新增：韦一笑（forceWei）定向场次 —— 喂规则 164「吸血上限提升数值(回归)」的判据4。
     //   场次由 /tmp 探针定量挑出（取 WEI_LEECH 样本量最大的四场，保证稳定复现；四场失配各 1 条）：
     //   seed=15 stage=6（43 条 / heal>0 36）、seed=14 stage=2（36 / 30）、

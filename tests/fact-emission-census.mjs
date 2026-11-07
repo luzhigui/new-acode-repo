@@ -125,10 +125,13 @@ const DIRECTED_CASES = [
     { seed: 23, stage: 1, force: 'brother' },
     { seed: 22, stage: 1, force: 'brother' },
     { seed: 20, stage: 1, force: 'brother' },
-    // sister（小昭·姊）→ meteorSplashGrowth（探针实测 210 场共 58 条，19:5 最强 6 条）。
-    { seed: 19, stage: 5, force: 'sister' },
-    { seed: 20, stage: 7, force: 'sister' },
-    { seed: 23, stage: 2, force: 'sister' }
+    // sister（小昭·姊）→ meteorSplashGrowth。
+    //   第 175 轮重标定：原 19:5 / 20:7 / 23:2 已零触发（buff 轮转随键表/阵容漂移，明教侧抽不到
+    //   meteorShower）；现 seed 8 × stage 1/5/6 实测小昭·姊存活 + 明教远程带 meteorShower，
+    //   分别产出 3 / 3 / 3 条以上溅射成长。
+    { seed: 8, stage: 1, force: 'sister' },
+    { seed: 8, stage: 5, force: 'sister' },
+    { seed: 8, stage: 6, force: 'sister' }
 ];
 // 干净树下**结构性不发射**的 spec（前置非样本问题，补场次补不出来，需变异树定向用例兜底）。
 //   登记依据见各条注释里的主代码位置；★ 这份名单是白名单式收口：新增条目必须带主代码行号。

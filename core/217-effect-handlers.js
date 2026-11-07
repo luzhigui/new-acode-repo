@@ -1,5 +1,7 @@
-// V6.2.2 | 2026-11-02 | ~19584 bytes —— LEECH maxHp 分支补 delta<0 显式告警（原静默置 0 = 悄悄没抬上限）
-export const VER = 'core/217-effect-handlers.js V6.2.2';
+// V6.2.3 | 2026-11-07 | 修战士斩杀被 _dmgCap 截断：EXECUTE 归零血改 ignoreCap=true（处决不是受伤）
+//        | 庄铮·断锤三式把每次受伤截到 cap 点，斩杀走同一 applyStatChange 也被截 → 血不归零、不挂
+//        | _pendingDeath → core/209 的 executeKill 不置位 → 攻击组 isDead=false（死亡特效缺失），且斩杀实际没杀死人。
+export const VER = 'core/217-effect-handlers.js V6.2.3';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit } from './214-battle-shared.js';
@@ -250,7 +252,9 @@ registerEffectHandler(EFFECT_TYPES.EXECUTE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀');
+        // ignoreCap=true：处决是「把血归零」不是一次受伤，不许被 _dmgCap 截在 0 以上
+        //   （庄铮·断锤三式），否则斩杀不致死、_pendingDeath 不挂、攻击组 isDead 也不标。
+        applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀', true, true, true);
         decl._events = flushBattleEvents();
         executed.push(decl);
     }
