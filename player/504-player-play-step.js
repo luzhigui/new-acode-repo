@@ -1,6 +1,6 @@
 // player/504-player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
-export const VER = 'player/504-player-play-step.js V1.1.0';
+export const VER = 'player/504-player-play-step.js V1.1.1';
 
 import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
@@ -151,6 +151,10 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
 async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     let lastEntryType = c._lastLogType || null;
     let abortSig = c.abortController ? c.abortController.signal : null;
+
+    // 「只记账、不上屏」的条目（如惑心「无变化」）：条目已进 battleLog 供体检/复盘读取，
+    //   但战斗日志不刷这一行；直接返回、不更新 _lastLogType，分组/分隔符表现与没有这条一样。
+    if (entry.quiet) return { isBattleOver: false };
 
     if (shouldStartNewGroup(entry, lastEntryType)) renderSeparator();
 

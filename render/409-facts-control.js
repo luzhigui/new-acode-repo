@@ -1,7 +1,7 @@
 // render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
-export const VER = 'render/409-facts-control.js V1.0.0';
+export const VER = 'render/409-facts-control.js V1.0.1';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeFXSnapshot, fmtHp } from '../infra/102-core-utils.js';
@@ -94,7 +94,12 @@ export function renderMindControlSwapFact(fact) {
 }
 export function renderMindControlFailFact(fact) {
     const sideLabel = fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方';
-    return {type:'info', text:`<span class="gray">🌀 惑人心智${sideLabel}：换位失败（${fact.reason}）</span>`};
+    const text = `🌀 惑人心智${sideLabel}：换位失败（${fact.reason}）`;
+    // 「无变化」= roll 命中但 3 格洗牌没换动（可换单位不足 2 个 / 洗牌恰好回到原位 / 控制免疫拦下）。
+    //   位置确实一点没变，玩家看到「换位失败（无变化）」只会莫名其妙 ⇒ 当噪音处理：
+    //   条目照发（体检 166 靠它做敌方/己方配对），但标记 quiet，player/504 不把它落进战斗日志。
+    if (fact.reason === '无变化') return { type:'info', text:`<span class="gray">${text}</span>`, quiet:true };
+    return {type:'info', text:`<span class="gray">${text}</span>`};
 }
 export function renderMindControlBannerFact(fact) {
     return null; // 横幅特效已在 stageAction 中显示，此处不再输出冗余日志
