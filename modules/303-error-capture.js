@@ -1,5 +1,5 @@
-export const VER = 'modules/303-error-capture.js V6.1.0';
-// V6.1.0 | 2026-11-05 | Bug 报告改两档（复制精简 ≤2万字符 / 下载全量）；🐞 改为「仅暂停时出现」
+export const VER = 'modules/303-error-capture.js V6.2.0';
+// V6.2.0 | 2026-11-07 | 🐞 改为轻量记录器：弹面板挑条目 + 备注 + 本地列表 + 清爽复制；全量导出收进列表
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -9,7 +9,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
     const errorPanel = document.getElementById('errorCapturePanel') || (() => {
         const p = document.createElement('div');
         p.id = 'errorCapturePanel';
-        p.style.cssText = 
+        p.style.cssText =
             'position:fixed;bottom:0;left:0;right:0;max-height:25vh;overflow-y:auto;' +
             'background:rgba(20,0,0,0.92);color:#f88;font-size:10px;z-index:99999;' +
             'padding:4px 8px;font-family:monospace;display:none;';
@@ -17,10 +17,14 @@ import { GlobalStore } from '../infra/104-global-store.js';
         return p;
     })();
 
-    // ---------- Bug 报告：内存记录 + 当前后台上下文截取 ----------
+    // ---------- Bug 记录：本会话错误 + 本地已保存列表 ----------
     const bugRecords = [];
-    // 复制用精简档 / 下载用全量档：2026-11-05 实测全量约 20 万字符，剪贴板根本吃不下
-    const REPORT_MAX_CHARS = 20000;                 // 复制版硬上限
+    // 复制用精简档 / 下载用全量档：全量约 20 万字符，剪贴板根本吃不下
+    const REPORT_MAX_CHARS = 20000;
+    const BUG_STORE_KEY = 'dsh_bug_records_v1';
+    const MAX_SAVED = 60;                       // 本地列表上限，超出丢最老的
+    const MAX_DETAIL_CHARS = 200000;            // 单条详细数据上限，防止撑爆 localStorage
+
     function nowIso() { return new Date().toISOString(); }
     function safeJson(v, maxLen) {
         try {
@@ -29,6 +33,67 @@ import { GlobalStore } from '../infra/104-global-store.js';
             return s;
         } catch (e) { return String(v); }
     }
+    function pad2(n) { return (n < 10 ? '0' : '') + n; }
+    function fmtTime(iso) {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso || '');
+        return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+            ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    }
+    function fmtClock(iso) {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+    }
+
+    // 把一坨原始报错压成一句人话（面板一行一条用）
+    function summarizeError(text, type) {
+        const raw = String(text == null ? '' : text).replace(/\r/g, '');
+        const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+        let head = '';
+        for (const l of lines) {
+            if (/^at\s/.test(l) || /^Caused by/.test(l)) continue;   // 跳过堆栈行
+            head = l;
+            break;
+        }
+        head = head || raw.trim() || '（空白内容）';
+        head = head.replace(/^[A-Za-z]:\\[^\s:]+\s*/, '');           // 去掉绝对路径
+        head = head.replace(/\(\S+:\d+:\d+\)$/, '');                // 去掉 (file:line:col)
+        head = head.replace(/^[\[【][^\]】]{0,30}[\]】]\s*/, '');     // 去掉 [模块名] 前缀
+        head = head.replace(/\s{2,}/g, ' ').trim();
+        if (head.length > 60) head = head.slice(0, 58) + '…';
+
+        const rules = [
+            [/数据|格式|解析|schema|parse|JSON|列表|类型不对/i, '战斗数据格式报错'],
+            [/网络|fetch|websocket|socket|连接|断线|超时|房间/i, '网络异常'],
+            [/加载|load|资源|图片|音频|纹理|404|找不到文件/i, '资源加载失败'],
+            [/undefined|null|is not a function|TypeError|类型|未定义/i, '脚本类型错误'],
+            [/内存|溢出|卡死|性能|崩溃/i, '运行异常']
+        ];
+        let kind = type === 'warn' ? '告警' : '脚本报错';
+        for (const [re, label] of rules) { if (re.test(head)) { kind = label; break; } }
+        // 首行本身已经写了「报错/异常/失败」，不再叠前缀
+        if (/报错|异常|失败|Error|error/.test(head)) return head;
+        return kind + '：' + head;
+    }
+
+    function loadSaved() {
+        try {
+            const raw = localStorage.getItem(BUG_STORE_KEY);
+            const arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+    }
+    function writeSaved(arr) {
+        try {
+            localStorage.setItem(BUG_STORE_KEY, JSON.stringify(arr));
+            return true;
+        } catch (e) {
+            showToast('本地存储写入失败（空间可能已满）');
+            return false;
+        }
+    }
+
     function collectBugContext(full) {
         const ctx = { capturedAt: nowIso(), location: location.href, userAgent: navigator.userAgent };
         try {
@@ -41,7 +106,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
     }
     function buildBugReport(kind, full) {
         const lines = [];
-        lines.push('# 游戏 Bug 记录');
+        lines.push('# 游戏 Bug 记录（完整版）');
         lines.push('');
         lines.push('- 记录时间：' + nowIso());
         lines.push('- 触发方式：' + (kind || '手动记录'));
@@ -58,12 +123,11 @@ import { GlobalStore } from '../infra/104-global-store.js';
         lines.push('');
         lines.push('## 记录时后台上下文');
         lines.push('```json');
-        // 复制版整体封顶两万字符；下载版不封顶（用户可以看完整文件）
         lines.push(safeJson(collectBugContext(full), full ? 0 : REPORT_MAX_CHARS));
         lines.push('```');
         let text = lines.join('\n');
         if (!full && text.length > REPORT_MAX_CHARS) {
-            text = text.slice(0, REPORT_MAX_CHARS) + '\n\n…(已截断，完整版请点「下载Bug报告」)';
+            text = text.slice(0, REPORT_MAX_CHARS) + '\n\n…(已截断，完整版请点「下载完整报告」)';
         }
         return text;
     }
@@ -90,45 +154,389 @@ import { GlobalStore } from '../infra/104-global-store.js';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(href), 10000);
     }
-    function recordCurrentBug(kind) {
-        // ⚠️ 不要把上下文 push 进 bugRecords：
-        //    buildBugReport 里已经会现采一份「记录时后台上下文」，
-        //    再存一份的话，每点一次 🐞 报告就多叠一层全量日志，越点越大。
-        //    bugRecords 只装真正的错误/告警行。
-        // 复制走精简档（≤2 万字符）；完整版用面板里的「下载Bug报告」。
-        const text = buildBugReport(kind || '手动记录', false);
-        copyText(text).then(() => {
-            addLine(`🐞 已记录并复制（${Math.round(text.length / 1024)}KB，可直接粘贴给 AI）`, 'warn');
-        }).catch(() => {
-            downloadText(text, 'bug-report-' + Date.now() + '.md');
-            addLine('🐞 已记录当前 Bug，剪贴板不可用，已下载 .md 文件', 'warn');
-        });
+
+    // ---------- 轻提示 ----------
+    function showToast(msg) {
+        let el = document.getElementById('dshBugToast');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'dshBugToast';
+            el.style.cssText =
+                'position:fixed;left:50%;bottom:14vh;transform:translateX(-50%);z-index:100080;' +
+                'background:rgba(30,20,10,.95);border:1px solid #ffd700;border-radius:10px;' +
+                'color:#ffd700;font-size:13px;padding:8px 14px;max-width:80vw;text-align:center;' +
+                'display:none;box-shadow:0 4px 16px rgba(0,0,0,.5);';
+            document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.display = 'block';
+        try {
+            if (window.__dshBugToastTimer) clearTimeout(window.__dshBugToastTimer);
+            window.__dshBugToastTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
+        } catch (e) {}
     }
 
-    // 按钮栏
+    // ---------- 弹层壳（复用 index.html 的 .modal-overlay 皮肤）----------
+    function closePanels() {
+        ['bugRecorderOverlay', 'bugListOverlay'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        });
+    }
+    function makeOverlay(id) {
+        const overlay = document.createElement('div');
+        overlay.id = id;
+        overlay.className = 'modal-overlay';
+        overlay.style.cssText =
+            'position:fixed;top:0;left:0;width:100%;height:100%;box-sizing:border-box;' +
+            'display:flex;justify-content:center;align-items:flex-start;' +
+            'background:rgba(0,0,0,.72);padding:6vh 8px 12px;z-index:100060;';
+        const box = document.createElement('div');
+        box.style.cssText =
+            'background:#1d140c;border:2px solid #ffd700;border-radius:14px;color:#f2e6c9;' +
+            'width:min(94vw,430px);max-height:84vh;overflow-y:auto;-webkit-overflow-scrolling:touch;' +
+            'padding:14px;box-sizing:border-box;text-align:left;font-size:14px;line-height:1.5;' +
+            'box-shadow:0 8px 28px rgba(0,0,0,.7);position:relative;';
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        return { overlay, box };
+    }
+    function makeTitle(box, text) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;';
+        const h = document.createElement('div');
+        h.textContent = text;
+        h.style.cssText = 'font-size:16px;font-weight:bold;color:#ffd700;';
+        const close = document.createElement('button');
+        close.textContent = '✕';
+        close.title = '关闭';
+        close.style.cssText =
+            'width:36px;height:36px;border-radius:50%;border:1px solid #7a5c2e;' +
+            'background:#2a1d10;color:#d8c08a;font-size:16px;line-height:1;cursor:pointer;';
+        close.onclick = closePanels;
+        row.appendChild(h); row.appendChild(close);
+        box.appendChild(row);
+    }
+    function makeBtn(text, primary) {
+        const b = document.createElement('button');
+        b.textContent = text;
+        b.style.cssText =
+            'min-height:38px;padding:7px 12px;border-radius:9px;font-size:13px;font-weight:bold;' +
+            'cursor:pointer;' + (primary
+                ? 'background:linear-gradient(135deg,#ffd700,#e3a21a);color:#3a2508;border:1px solid #ffd700;'
+                : 'background:#2a1d10;color:#e8d9b5;border:1px solid #7a5c2e;');
+        return b;
+    }
+    function makeSmallBtn(text) {
+        const b = document.createElement('button');
+        b.textContent = text;
+        b.style.cssText =
+            'padding:2px 8px;border-radius:6px;font-size:11px;cursor:pointer;' +
+            'background:#2a1d10;color:#cbb98f;border:1px solid #5a4630;';
+        return b;
+    }
+
+    // ---------- 记录面板：挑错误 + 写备注 + 保存 ----------
+    function openRecorder() {
+        closePanels();
+        const { box } = makeOverlay('bugRecorderOverlay');
+        makeTitle(box, '🐞 记录 Bug');
+
+        const candidates = bugRecords.filter(r => r.type === 'error' || r.type === 'warn');
+
+        // 小标题 + 全选/全不选
+        const sec = document.createElement('div');
+        sec.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;';
+        const secTitle = document.createElement('div');
+        secTitle.textContent = '本次会话错误/告警（' + candidates.length + '）';
+        secTitle.style.cssText = 'font-size:12px;color:#cbb98f;';
+        const tools = document.createElement('div');
+        const allBtn = makeSmallBtn('全选');
+        const noneBtn = makeSmallBtn('全不选');
+        tools.appendChild(allBtn); tools.appendChild(noneBtn);
+        sec.appendChild(secTitle); sec.appendChild(tools);
+        box.appendChild(sec);
+
+        const listBox = document.createElement('div');
+        listBox.style.cssText =
+            'max-height:32vh;overflow-y:auto;-webkit-overflow-scrolling:touch;' +
+            'border:1px solid #5a4630;border-radius:8px;background:#140f09;margin-bottom:10px;';
+        box.appendChild(listBox);
+
+        const picks = [];
+        if (!candidates.length) {
+            const empty = document.createElement('div');
+            empty.textContent = '本次会话没有错误/告警，可以直接写备注保存。';
+            empty.style.cssText = 'padding:12px;font-size:12px;color:#9a8a6a;text-align:center;';
+            listBox.appendChild(empty);
+        } else {
+            const defaultFrom = Math.max(0, candidates.length - 3);   // 默认勾最近 3 条
+            candidates.forEach((rec, idx) => {
+                const row = document.createElement('label');
+                row.style.cssText =
+                    'display:flex;align-items:flex-start;gap:9px;padding:9px 10px;cursor:pointer;' +
+                    'border-bottom:1px solid #2a1f12;font-size:13px;';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = idx >= defaultFrom;
+                cb.style.cssText = 'width:18px;height:18px;margin-top:2px;flex:0 0 auto;accent-color:#ffd700;';
+                const textWrap = document.createElement('div');
+                textWrap.style.cssText = 'flex:1;min-width:0;';
+                const sum = document.createElement('div');
+                sum.textContent = (rec.type === 'warn' ? '⚠️ ' : '❌ ') + rec.summary;
+                sum.style.cssText = 'word-break:break-word;color:' + (rec.type === 'warn' ? '#e8c26a' : '#ff9a8a') + ';';
+                const tm = document.createElement('div');
+                tm.textContent = fmtClock(rec.time);
+                tm.style.cssText = 'font-size:10px;color:#7f735e;margin-top:2px;';
+                textWrap.appendChild(sum); textWrap.appendChild(tm);
+                row.appendChild(cb); row.appendChild(textWrap);
+                listBox.appendChild(row);
+                picks.push({ rec, input: cb });
+            });
+        }
+        allBtn.onclick = () => picks.forEach(p => { p.input.checked = true; });
+        noneBtn.onclick = () => picks.forEach(p => { p.input.checked = false; });
+
+        // 用户备注
+        const noteLabel = document.createElement('div');
+        noteLabel.textContent = '我当时在干什么？（可不填）';
+        noteLabel.style.cssText = 'font-size:12px;color:#cbb98f;margin-bottom:5px;';
+        box.appendChild(noteLabel);
+        const note = document.createElement('textarea');
+        note.placeholder = '例如：点了加速后，第 3 回合放技能时报错';
+        note.style.cssText =
+            'width:100%;height:62px;box-sizing:border-box;resize:vertical;' +
+            'background:#0e0a06;border:1px solid #5a4630;color:#f2e6c9;border-radius:8px;' +
+            'padding:8px;font-size:14px;line-height:1.4;margin-bottom:10px;';
+        box.appendChild(note);
+
+        // 附带详细数据
+        const detailRow = document.createElement('label');
+        detailRow.style.cssText =
+            'display:flex;align-items:center;gap:8px;font-size:12px;color:#cbb98f;' +
+            'padding:8px;border:1px dashed #5a4630;border-radius:8px;margin-bottom:12px;cursor:pointer;';
+        const detailCb = document.createElement('input');
+        detailCb.type = 'checkbox';
+        detailCb.style.cssText = 'width:18px;height:18px;accent-color:#ffd700;flex:0 0 auto;';
+        const detailTxt = document.createElement('span');
+        detailTxt.textContent = '附带详细数据（单位/状态/战斗日志，体积较大）';
+        detailRow.appendChild(detailCb); detailRow.appendChild(detailTxt);
+        box.appendChild(detailRow);
+
+        // 状态一行
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size:11px;color:#ff9a8a;min-height:16px;margin-bottom:6px;';
+        box.appendChild(status);
+
+        // 底部按钮
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+        const saveBtn = makeBtn('保存', true);
+        saveBtn.style.flex = '1';
+        const listBtn = makeBtn('打开列表');
+        const closeBtn = makeBtn('关闭');
+        btnRow.appendChild(saveBtn); btnRow.appendChild(listBtn); btnRow.appendChild(closeBtn);
+        box.appendChild(btnRow);
+
+        // 全量导出入口保留（收在面板底部，不放主操作区）
+        const fullLink = makeSmallBtn('下载完整报告（全量 .md）');
+        fullLink.style.cssText += 'margin-top:10px;width:100%;';
+        fullLink.onclick = () => {
+            downloadText(buildBugReport('手动导出', true), 'bug-report-' + Date.now() + '.md');
+            showToast('已开始下载完整报告');
+        };
+        box.appendChild(fullLink);
+
+        saveBtn.onclick = () => {
+            const selected = picks.filter(p => p.input.checked).map(p => p.rec);
+            const noteVal = note.value.trim();
+            if (!selected.length && !noteVal) {
+                status.textContent = '至少勾一条错误，或者写一句备注';
+                return;
+            }
+            const rec = {
+                id: String(Date.now()) + '-' + Math.floor(Math.random() * 1000),
+                createdAt: nowIso(),
+                entries: selected.map(r => ({ time: r.time, type: r.type, summary: r.summary })),
+                note: noteVal,
+                hasDetail: false
+            };
+            if (detailCb.checked) {
+                rec.hasDetail = true;
+                try {
+                    const ctx = collectBugContext(false);          // 精简档：够排查，体积可控
+                    rec.detail = ctx;
+                    if (JSON.stringify(ctx).length > MAX_DETAIL_CHARS) {
+                        rec.detail = {
+                            capturedAt: ctx.capturedAt,
+                            note: '详细数据超过 ' + Math.round(MAX_DETAIL_CHARS / 10000) + ' 万字符，已省略',
+                            location: ctx.location
+                        };
+                    }
+                } catch (e) { rec.detail = { error: String(e) }; }
+            }
+            const arr = loadSaved();
+            arr.push(rec);
+            while (arr.length > MAX_SAVED) arr.shift();
+            if (!writeSaved(arr)) return;
+            closePanels();
+            showToast('已保存到本地列表（共 ' + arr.length + ' 条）');
+        };
+        listBtn.onclick = openSavedList;
+        closeBtn.onclick = closePanels;
+    }
+
+    // ---------- 已记录列表 ----------
+    function buildSavedCopyText(list) {
+        const lines = ['【Bug 记录】共 ' + list.length + ' 条', ''];
+        list.forEach((r, i) => {
+            const sums = (r.entries || []).map(e => e.summary).filter(Boolean).join('；');
+            lines.push((i + 1) + '. ' + fmtTime(r.createdAt) + ' ｜ ' + (sums || '（只写了备注）'));
+            if (r.note) lines.push('   备注：' + r.note);
+        });
+        return lines.join('\n');
+    }
+
+    function openSavedList() {
+        closePanels();
+        const list = loadSaved();
+        const { box } = makeOverlay('bugListOverlay');
+        makeTitle(box, '🐞 已记录 ' + list.length + ' 条');
+
+        const listBox = document.createElement('div');
+        listBox.style.cssText = 'max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px;';
+        box.appendChild(listBox);
+
+        if (!list.length) {
+            const empty = document.createElement('div');
+            empty.textContent = '还没有记录。点「继续记录」挑一条错误保存。';
+            empty.style.cssText = 'padding:18px;font-size:12px;color:#9a8a6a;text-align:center;';
+            listBox.appendChild(empty);
+        } else {
+            // 新的排前面
+            list.slice().reverse().forEach((rec) => {
+                const card = document.createElement('div');
+                card.style.cssText =
+                    'border:1px solid #5a4630;border-radius:9px;background:#140f09;' +
+                    'padding:9px 10px;margin-bottom:8px;';
+                const head = document.createElement('div');
+                head.textContent = fmtTime(rec.createdAt) + ' ｜ ' + (rec.entries || []).length + ' 条错误';
+                head.style.cssText = 'font-size:11px;color:#8d7d5f;margin-bottom:5px;';
+                card.appendChild(head);
+
+                if ((rec.entries || []).length) {
+                    const ul = document.createElement('div');
+                    (rec.entries || []).forEach(e => {
+                        const line = document.createElement('div');
+                        line.textContent = (e.type === 'warn' ? '⚠️ ' : '❌ ') + e.summary;
+                        line.style.cssText = 'font-size:13px;color:#e8d9b5;word-break:break-word;margin-bottom:2px;';
+                        ul.appendChild(line);
+                    });
+                    card.appendChild(ul);
+                }
+                if (rec.note) {
+                    const n = document.createElement('div');
+                    n.textContent = '备注：' + rec.note;
+                    n.style.cssText = 'font-size:12px;color:#b8d48a;word-break:break-word;margin-top:4px;';
+                    card.appendChild(n);
+                }
+
+                // 详情（默认收起）
+                const detailBox = document.createElement('pre');
+                detailBox.style.cssText =
+                    'display:none;max-height:30vh;overflow:auto;background:#0b0803;' +
+                    'border:1px solid #3a2c1a;border-radius:6px;padding:8px;margin-top:8px;' +
+                    'font-size:10px;line-height:1.35;color:#b8ad96;white-space:pre-wrap;word-break:break-all;';
+                if (rec.hasDetail && rec.detail) {
+                    try { detailBox.textContent = JSON.stringify(rec.detail, null, 2); }
+                    catch (e) { detailBox.textContent = String(rec.detail); }
+                } else {
+                    detailBox.textContent = '（保存时未勾选详细数据）';
+                }
+                card.appendChild(detailBox);
+
+                const ops = document.createElement('div');
+                ops.style.cssText = 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;';
+                const detailBtn = makeSmallBtn('详情');
+                detailBtn.onclick = () => {
+                    const open = detailBox.style.display !== 'none';
+                    detailBox.style.display = open ? 'none' : 'block';
+                    detailBtn.textContent = open ? '详情' : '收起';
+                };
+                const delBtn = makeSmallBtn('删除');
+                delBtn.style.color = '#ff9a8a';
+                delBtn.onclick = () => {
+                    const arr = loadSaved().filter(x => x.id !== rec.id);
+                    if (!writeSaved(arr)) return;
+                    showToast('已删除，剩 ' + arr.length + ' 条');
+                    openSavedList();
+                };
+                ops.appendChild(detailBtn); ops.appendChild(delBtn);
+                card.appendChild(ops);
+                listBox.appendChild(card);
+            });
+        }
+
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+        const copyAll = makeBtn('一键复制全部', true);
+        copyAll.style.flex = '1';
+        const addBtn = makeBtn('继续记录');
+        const closeBtn = makeBtn('关闭');
+        btnRow.appendChild(copyAll); btnRow.appendChild(addBtn); btnRow.appendChild(closeBtn);
+        box.appendChild(btnRow);
+
+        const secondRow = document.createElement('div');
+        secondRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;';
+        const fullBtn = makeSmallBtn('下载完整报告（全量）');
+        const clearBtn = makeSmallBtn('清空列表');
+        clearBtn.style.color = '#ff9a8a';
+        secondRow.appendChild(fullBtn); secondRow.appendChild(clearBtn);
+        box.appendChild(secondRow);
+
+        copyAll.onclick = () => {
+            const arr = loadSaved();
+            if (!arr.length) { showToast('列表还是空的'); return; }
+            copyText(buildSavedCopyText(arr)).then(() => {
+                showToast('已复制 ' + arr.length + ' 条记录');
+            }).catch(() => {
+                downloadText(buildSavedCopyText(arr), 'bug-records-' + Date.now() + '.txt');
+                showToast('剪贴板不可用，已下载 .txt');
+            });
+        };
+        addBtn.onclick = openRecorder;
+        closeBtn.onclick = closePanels;
+        fullBtn.onclick = () => {
+            downloadText(buildBugReport('手动导出', true), 'bug-report-' + Date.now() + '.md');
+            showToast('已开始下载完整报告');
+        };
+        clearBtn.onclick = () => {
+            if (!list.length) { showToast('列表已经是空的'); return; }
+            if (!window.confirm('清空全部已记录条目？')) return;
+            if (!writeSaved([])) return;
+            showToast('已清空列表');
+            openSavedList();
+        };
+    }
+
+    // ---------- 底部按钮栏（原始日志面板旁）----------
     const btnBar = document.createElement('div');
     btnBar.style.cssText = 'position:fixed;bottom:25vh;right:4px;z-index:99999;display:none;';
     const copyAllBtn = document.createElement('button');
-    copyAllBtn.textContent = '复制全部';
+    copyAllBtn.textContent = '复制原文';
+    copyAllBtn.title = '复制上方原始日志（体积可能很大，慎用）';
     copyAllBtn.style.cssText = 'font-size:10px;padding:2px 6px;margin-right:4px;';
     copyAllBtn.onclick = () => {
         const text = errorPanel.innerText;
-        navigator.clipboard.writeText(text).catch(() => {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-        });
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
     };
-    const copyReportBtn = document.createElement('button');
-    copyReportBtn.textContent = '复制Bug报告';
-    copyReportBtn.title = '精简版（约 2 万字符以内），可直接粘给 AI';
-    copyReportBtn.style.cssText = 'font-size:10px;padding:2px 6px;margin-right:4px;';
-    copyReportBtn.onclick = () => copyText(buildBugReport('手动导出', false));
+    const recordBtn = document.createElement('button');
+    recordBtn.textContent = '记录Bug';
+    recordBtn.title = '弹出面板，挑本次会话的错误并保存';
+    recordBtn.style.cssText = 'font-size:10px;padding:2px 6px;margin-right:4px;';
+    recordBtn.onclick = openRecorder;
     const downloadReportBtn = document.createElement('button');
-    downloadReportBtn.textContent = '下载Bug报告';
+    downloadReportBtn.textContent = '下载完整报告';
     downloadReportBtn.title = '完整版（不截断，适合存档后自己挑重点）';
     downloadReportBtn.style.cssText = 'font-size:10px;padding:2px 6px;margin-right:4px;';
     downloadReportBtn.onclick = () => downloadText(buildBugReport('手动导出', true), 'bug-report-' + Date.now() + '.md');
@@ -142,7 +550,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         bugRecords.length = 0;
     };
     btnBar.appendChild(copyAllBtn);
-    btnBar.appendChild(copyReportBtn);
+    btnBar.appendChild(recordBtn);
     btnBar.appendChild(downloadReportBtn);
     btnBar.appendChild(clearBtn);
     document.body.appendChild(btnBar);
@@ -150,18 +558,18 @@ import { GlobalStore } from '../infra/104-global-store.js';
     // ---------- 🐞 快捷记录按钮：只在「暂停」时出现 ----------
     // 2026-11-05 用户反馈：常驻在右下角一直挂着不好看，而且平时也不该误点。
     // 改成跟 isPaused 联动：暂停（含面板暂停）时才显形，继续游戏就自动隐藏。
-    // 位置也避开右下角操作区，挪到右侧中部偏下。
+    // 2026-11-07 点击不再直接复制，改为弹出挑选面板。
     const bugQuickBtn = document.createElement('button');
     bugQuickBtn.id = 'dshBugQuickBtn';                    // 固定 id：重复执行 init 时先清旧的，免得多颗
     bugQuickBtn.textContent = '🐞 记录Bug';
-    bugQuickBtn.title = '把当前错误 + 后台战斗日志复制到剪贴板，直接粘给 AI';
+    bugQuickBtn.title = '弹出面板，挑本次会话的错误并保存到本地列表';
     bugQuickBtn.style.cssText =
         'position:fixed;right:8px;bottom:32vh;z-index:99999;' +
         'display:none;padding:6px 12px;border-radius:18px;' +
         'border:1px solid #ffd700;background:rgba(30,20,10,.9);color:#ffd700;' +
         'font-size:12px;line-height:1;cursor:pointer;' +
         'box-shadow:0 2px 8px rgba(0,0,0,.4);';
-    bugQuickBtn.onclick = () => recordCurrentBug('暂停时记录');
+    bugQuickBtn.onclick = openRecorder;
 
     function syncBugBtn() {
         // 直接读 store：比 window.GlobalStore 可靠（ES module 里 window 上不一定挂）
@@ -238,23 +646,16 @@ import { GlobalStore } from '../infra/104-global-store.js';
         // 单条复制按钮
         const copyBtn = document.createElement('button');
         copyBtn.textContent = '复制';
-        copyBtn.style.cssText = 
+        copyBtn.style.cssText =
             'position:absolute;top:4px;right:4px;font-size:9px;padding:0 4px;' +
             'background:#333;color:#ccc;border:1px solid #555;border-radius:2px;cursor:pointer;';
         copyBtn.onclick = (e) => {
             e.stopPropagation();
-            navigator.clipboard.writeText(text).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-            });
+            navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
         };
         line.appendChild(copyBtn);
 
-        bugRecords.push({ time: nowIso(), type: type || 'info', text });
+        bugRecords.push({ time: nowIso(), type: type || 'info', text, summary: summarizeError(text, type) });
         if (bugRecords.length > 200) bugRecords.shift();
         errorPanel.appendChild(line);
         errorPanel.style.display = 'block';
@@ -265,16 +666,16 @@ import { GlobalStore } from '../infra/104-global-store.js';
     // ---------- 全局错误 ----------
 window.addEventListener('error', function(e) {
     const loc = e.filename ? `${e.filename}:${e.lineno}` : '';
-    const msg = e.error && e.error.stack 
-        ? loc + '\n' + e.error.stack 
+    const msg = e.error && e.error.stack
+        ? loc + '\n' + e.error.stack
         : (e.message ? loc + ' ' + e.message : loc);
     addLine(msg, 'error');
 });
     // ---------- Promise 拒绝 ----------
     window.addEventListener('unhandledrejection', function(e) {
         const reason = e.reason;
-        const msg = reason && reason.stack 
-            ? reason.stack 
+        const msg = reason && reason.stack
+            ? reason.stack
             : (reason ? (reason.message || JSON.stringify(reason)) : '未处理的 Promise 拒绝');
         addLine(msg, 'error');
     });
