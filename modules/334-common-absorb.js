@@ -1,10 +1,13 @@
 // modules/334-common-absorb.js — 武当莲舟·吸星（普通兵机制）
-export const VER = 'modules/334-common-absorb.js V1.0.0';
+// V1.1.0 | 2026-11-07 吸取量不再取整：每目标实数扣 = max(面板值 × ratio, 0.1)，攻/防/血上限同精度；
+//          旧版 floor 把 1% 不足 1 点的目标抹成 0（30 攻吸 0），那不是需求。
+export const VER = 'modules/334-common-absorb.js V1.1.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
 import { getBattleRng, addMod, getStat, refreshMaxHp } from '../core/214-battle-shared.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 export const statAbsorbHandler = {
@@ -27,9 +30,10 @@ export const statAbsorbHandler = {
                 allUnits.forEach(u => {
                     if (!u.alive || u.uid === self.uid) return;
                     
-                    const absorbAtk = Math.max(0, Math.floor(getStat(u, 'atk') * decl.ratio));
-                    const absorbDef = Math.max(0, Math.floor(getStat(u, 'def') * decl.ratio));
-                    const absorbHp = Math.max(0, Math.floor(getStat(u, 'maxHp') * decl.ratio));
+                    // 实数吸取，保底 0.1：不做 floor/round/toFixed（面板值 × 1% = 0.3 就真吸 0.3）
+                    const absorbAtk = Math.max(getStat(u, 'atk') * decl.ratio, 0.1);
+                    const absorbDef = Math.max(getStat(u, 'def') * decl.ratio, 0.1);
+                    const absorbHp = Math.max(getStat(u, 'maxHp') * decl.ratio, 0.1);
 
                     if (absorbAtk > 0) addMod(u, 'atk', { source: '被吸星', value: -absorbAtk, ttl: 'permanent', group: 'absorbed', op: 'add' });
                     if (absorbDef > 0) addMod(u, 'def', { source: '被吸星', value: -absorbDef, ttl: 'permanent', group: 'absorbed', op: 'add' });
@@ -53,7 +57,7 @@ export const statAbsorbHandler = {
                     }
                     
                     if (data.log) {
-                        pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 发动吸星：全场吸取 攻+${totalAtk} 防+${totalDef} 血+${totalMaxHp}`, { floatText: '🌀', floatUid: self.uid });
+                        pushSkillAnnounce(data.log, self, '吸星大法', `🌀 ${self.name} 发动吸星：全场吸取 攻+${fmtNum(totalAtk)} 防+${fmtNum(totalDef)} 血+${fmtNum(totalMaxHp)}`, { floatText: '🌀', floatUid: self.uid });
                     }
                 }
             }

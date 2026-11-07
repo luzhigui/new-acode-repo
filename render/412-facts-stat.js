@@ -3,6 +3,7 @@ export const VER = 'render/412-facts-stat.js V1.0.1';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 export function renderZhangSwitchFact(fact) {
     return [
@@ -27,7 +28,7 @@ export function renderMeteorShowerSplashFact(fact) {
 
 // Carry 应用
 export function renderCarryApplyFact(fact) {
-    return { type:'info', text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fact.atk} 防+${fact.def} 血上限+${fact.hp}</span>` };
+    return { type:'info', text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fmtNum(fact.atk)} 防+${fmtNum(fact.def)} 血上限+${fmtNum(fact.hp)}</span>` };
 }
 
 // Buff 召唤
@@ -90,7 +91,7 @@ export function renderQianKunBasicFact(fact) {
 
 // 小昭蛛变
 export function renderSpiderTransformFact(fact) {
-    const gain = fact.masteryGain ? `，精通+${fact.masteryGain.atk}攻+${fact.masteryGain.def}防+${fact.masteryGain.hp}血` : '';
+    const gain = fact.masteryGain ? `，精通+${fmtNum(fact.masteryGain.atk)}攻+${fmtNum(fact.masteryGain.def)}防+${fmtNum(fact.masteryGain.hp)}血` : '';
     return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4${gain}）</span>` };
 }
 
@@ -162,7 +163,7 @@ export function renderSummonUnitFact(fact) {
 
 // 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
 export function renderLionGrowFact(fact) {
-    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fact.atk} / 防 ${fact.def} / 血 ${fact.maxHp}</span>` };
+    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fmtNum(fact.atk)} / 防 ${fmtNum(fact.def)} / 血 ${fmtNum(fact.maxHp)}</span>` };
 }
 
 // 流星溅射成长

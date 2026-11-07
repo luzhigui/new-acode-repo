@@ -4,7 +4,7 @@ export const VER = 'ui/703-ui-render-5v5-test.js V6.1.1';
 import { getStat } from '../core/214-battle-shared.js';
 import { getSkillParams, CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleSkills } from './710-role-cards.js';   // 漏 import 补上（详情弹窗技能栏查名片表）
-import { fmtHp } from '../infra/102-core-utils.js';
+import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { getMissBreakdown } from '../core/203-battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -178,7 +178,7 @@ function updateDetailPopupContent() {
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
-            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHp(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
+            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHp(u.hp)} / ${fmtNum(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, unitCampBuffs, sameCampTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">未命中</span><span>${(() => {
                 // 按单位阵营取对应的 mySide/oppSide（原先写死传 allyTeam/enemyTeam，

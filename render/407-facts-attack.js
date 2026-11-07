@@ -2,7 +2,7 @@
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
 
-import { makeFXSnapshot, fmtHp, fmt1 } from '../infra/102-core-utils.js';
+import { makeFXSnapshot, fmtHp, fmt1, fmtNum } from '../infra/102-core-utils.js';
 import { getStat } from '../core/214-battle-shared.js';
 import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
@@ -21,7 +21,7 @@ export function renderMissFact(fact) {
         uidD: fact.target.uid,
         entries: [
             // 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
-            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${Math.floor(fact.attacker.atk)} 血${fmtHp(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${Math.floor(fact.target.def)} 血${fmtHp(fact.target.hp)})`},
+            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtNum(fact.attacker.atk)} 血${fmtHp(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHp(fact.target.hp)})`},
             {type:'info', text:`<span class="gray">未命中！</span>`}
         ],
         isMiss:true,

@@ -156,17 +156,24 @@ export function makeFXSnapshot(attacker, defender) {
     return { attackerPos: attacker ? attacker.pos : null, defenderPos: defender ? defender.pos : null };
 }
 
-// 渲染层血量显示统一入口：0 < hp < 1 时至少显示 1（0.051 显示成 0 看着像死了）。
+// 显示层统一取整入口（引擎内部一律实数；只有这里取整，且绝不回写数据）：
+//   数值 ≥10 → 显示整数（四舍五入）；数值 <10 → 显示一位小数（四舍五入）。
+//   例：15.899999999999999 → 16；0.30000000000000004 → 0.3。
+export function fmtNum(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return v;
+    return v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
+}
+
+// 血量显示入口 = fmtNum；0 仍显示 0（不再强抬成 1，<10 的一位小数已能表达「还剩一点」）。
 // 已接入：render/30、render/32、ui/62、ui/65，以及引擎 fact 构造处 core/10、core/12、core/15。
 export function fmtHp(v) {
     if (!(v > 0)) return 0;
-    return Math.max(1, Math.floor(v));
+    return fmtNum(v);
 }
 
-// 显示层专用：保留最多 1 位小数，去掉浮点尾巴（如 20.0999 → 20.1）
+// 兼容旧名：所有 fmt1 调用点自动走统一取整规则
 export function fmt1(v) {
-    if (typeof v !== 'number' || !isFinite(v)) return v;
-    return Math.round(v * 10) / 10;
+    return fmtNum(v);
 }
 
 export function getUnitRow(pos) { return Math.ceil(pos / 3); }

@@ -239,18 +239,19 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     if (isHeal && field === 'hp' && delta > 0) {
         applied = delta;
         if (target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
-            applied = Math.round(applied * target.state._jinMai.ratio);
+            applied = applied * target.state._jinMai.ratio;
         }
         if (target.state) {
             const xp = target.state._xuanmingPoison;
             const hd = target.state._hlsHanDu;
             const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
                 || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
-            if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+            if (poisoned) applied = applied * C.XUANMING_POISON_HEAL_REDUCE;
         }
     }
     const oldVal = target[field];
-    const stepped = Math.floor((target[field] + applied) * 10) / 10;
+    // 实数累加：内部不再截到 0.1 格（面板只显示取整值，见 infra/102 fmtNum）
+    const stepped = target[field] + applied;
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     if (field === 'hp' && record) {
@@ -315,15 +316,17 @@ function refreshMaxHp(target, source, reason) {
     if (!target || !target.alive) return;
     const oldMaxHp = target.maxHp;
     if (oldMaxHp <= 0) return;
-    const newMaxHp = Math.max(1, Math.floor(getStat(target, 'maxHp')));
+    // 上限保留实数（旧实现在此 floor 到整数，把 0.3 血上限加成直接抹平）
+    const newMaxHp = Math.max(1, getStat(target, 'maxHp'));
     if (newMaxHp === oldMaxHp) return;
     const oldHp = target.hp;
     target.maxHp = newMaxHp;
     let newHp;
+    // 等比缩放保留实数；oldMaxHp>0 已由上方守卫，不会除零
     if (newMaxHp > oldMaxHp) {
         newHp = oldHp + (newMaxHp - oldMaxHp);
     } else {
-        newHp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
+        newHp = oldHp * (newMaxHp / oldMaxHp);
     }
     newHp = Math.min(newHp, target.maxHp);
     const delta = newHp - oldHp;
@@ -419,8 +422,10 @@ export function getStat(unit, stat) {
         if (m.op === 'mul') mulSum += m.value;
         else addSum += m.value;
     }
+    // 引擎内部一律实数：不在此处截到 0.1 格（旧实现 floor 会吃掉吸取/加成的小数尾巴）。
+    //   显示层统一取整见 infra/102 fmtNum；显示结果不回写数据。
     const result = (base + addSum) * (1 + mulSum);
-    return Math.max(0, Math.floor(result * 10) / 10);
+    return Math.max(0, result);
 }
 
 export {
