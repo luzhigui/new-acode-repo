@@ -4,7 +4,7 @@
 // 单一来源：三件套的数值与实现全部来自 content/001 里成昆的 mechanics 声明，
 //   本文件只做「克隆成昆声明 → 改名换阵营 → 交给 core/15 installDeclaredSkills」，
 //   不在模块里重写第二份 0.20 伤害 / ×2 坚盾。
-export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.0.0';
+export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.0.1';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { installDeclaredSkills, buildMechanicDeclarations } from '../core/216-skill-mechanisms.js';
@@ -70,7 +70,7 @@ export const yuanzhenRevealHandler = {
             priority: L.AFTER_DAMAGE_APPLIED.DISGUISE + 6,
             handler: (data) => {
                 if (!self.alive || self.state._yuanzhenRevealed) return;
-                if (data.target !== self && data.unit !== self) return;
+                if (data.target !== self) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 if (getBattleRng().next() >= hitChance) return;
                 reveal(eventBus, data.A, data.B, data.log, self);

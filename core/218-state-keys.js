@@ -226,9 +226,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 少林圆真·现原形（modules/336）：已现形 / 开局那一次概率已掷过（整场级，跨回合克隆保留）
     _yuanzhenRevealed:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _yuanzhenOpenRolled:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 庄铮·断锤三式（modules/337）：保命已触发 / 反击重入锁
+    // 庄铮·断锤三式（modules/337）：保命已触发 / 反击重入锁 / 触发瞬间攻击力减半量 N（此后每出手 +N）
     _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _duanChuiN:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 单次受伤上限（0 = 不限）：core/13 直扣血与 core/12 攻击扣血两条出口共读这一个字段
     _dmgCap:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 彭莹玉·双面观音（modules/338）：假身剩余回合 / 是否已进入过假身

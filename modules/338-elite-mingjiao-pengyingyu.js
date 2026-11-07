@@ -1,12 +1,13 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
 // 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）进入假身，持续 {duration} 回合；
 //   假身期间自身造成的伤害 ×1.5。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.1';
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.2';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { registerTargetFilter } from '../core/207-target-strategies.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
+import { canBeTargeted } from '../core/203-battle-utils.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -71,6 +72,28 @@ export const doubleFaceHandler = {
             const kept = candidates.filter(c =>
                 !(c.name === selfName && c.state && c.state._crossdressRounds > 0));
             return kept.length === candidates.length ? null : kept;
+        });
+
+        // 「唯一目标」：假身中他是敌方唯一可选目标时，敌方改为误攻自己的队友（走 phantomFact 既有路径），
+        //   而不是空过。这一条放在「选目标声明层」（core/12 先读 targetResult、命中就不再跑过滤器），
+        //   所以不改 core/12 的空池＝无目标语义；也没有把攻击者队友塞进敌方候选池。
+        registerSettlementHook({
+            when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
+            priority: L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL - 1,
+            handler: (data) => {
+                if (!self.alive || self.state._crossdressRounds <= 0) return;
+                if (data.unit.camp === self.camp) return;
+                const valid = data.validTargets;
+                if (!valid || valid.length !== 1 || valid[0] !== self) return;
+                const mates = data.allySide.filter(u => u.alive && canBeTargeted(u) && u.uid !== data.unit.uid);
+                if (mates.length === 0) return;
+                const victim = mates[getBattleRng().nextInt(0, mates.length - 1)];
+                data.declaration.targetResult = victim;
+                data.declaration.phantomFact = {
+                    factType: FACT_TYPES.PHANTOM_CONFUSE,
+                    data: { unitName: data.unit.name, deceiver: self.name, targetName: victim.name }
+                };
+            }
         });
     }
 };
