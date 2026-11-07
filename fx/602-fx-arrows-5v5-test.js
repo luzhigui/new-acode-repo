@@ -1,5 +1,5 @@
 //   时长不再被 timescale 二次缩放（参数表填多少就是多少）
-export const VER = 'fx/602-fx-arrows-5v5-test.js V6.3.3';
+export const VER = 'fx/602-fx-arrows-5v5-test.js V6.3.4';
 
 import { markGridShake } from '../render/403-grid-render.js';
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -31,12 +31,16 @@ function applyWholeShake(elements, durationMs, basePositions, angle, onComplete)
 }
 
 export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, isMiss = false, style = null) {
+    // 返回「接触帧」Promise：飞天免疫等需要按 剑气接近→接触→后续演出 排时序的调用方
+    //   可 await 到箭/枪抵达目标那一刻；起手条件不满足时立即 resolve，绝不悬挂调用方。
+    let resolveContact;
+    const contact = new Promise((resolve) => { resolveContact = resolve; });
     const rectA = snapshotUnitCell(unitA);
     const rectD = snapshotUnitCell(unitD);
-    if (!rectA || !rectD) return;
+    if (!rectA || !rectD) return contact;
     const sx = rectA.x, sy = rectA.y, ex = rectD.x, ey = rectD.y;
     const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
-    if (dist < 1) return;
+    if (dist < 1) return contact;
     const angle = Math.atan2(dy, dx);
 
     // 流星赶月参数；时长均为 1x 基准毫秒，clock 统一缩放
@@ -127,6 +131,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
             if (p >= 1) {
                 // 命中颤动由 88fx-trigger 统一决策，本函数只负责动画
                 if (onHit) onHit();
+                resolveContact();
 
                 if (isMiss) {
                     // 未命中收尾：失势翻倒下坠 + 淡出（不抖动——抖动读作命中颤动）
@@ -152,6 +157,7 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
             }
         });
     }
+    return contact;
 }
 
 // 流星赶月分裂飞箭：向被溅射单位发射小型橙色飞箭

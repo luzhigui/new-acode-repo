@@ -1,6 +1,6 @@
 // render/417-actions-translate-control.js — fact → stageAction 翻译器·控制位移族（38 拆分）
 import { STAGE_ACTION_TYPES, FACT_TYPES, FLY_MODE_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/417-actions-translate-control.js V1.1.0';
+export const VER = 'render/417-actions-translate-control.js V1.1.1';
 
 // 控制位移族翻译器表（键=factType）
 export const CONTROL_TRANSLATORS = {
@@ -10,6 +10,9 @@ export const CONTROL_TRANSLATORS = {
             actorUid: data.attacker?.uid ?? null,
             targetUid: data.target?.uid ?? null,
             reason: data.reason ?? null,   // 免疫原因透传（core/10 immuneFact 自带 reason），金刚不坏碎裂特效按前缀判断
+            // 飞天免疫（小昭·妹）标记：reason 在带 flyData 时为 null，只有靠它才能让 IMMUNE
+            //   动作认出「先演攻击到接触帧、再起飞」，见 render/420 的 IMMUNE 分支
+            flyData: data.flyData ?? null,
             factIndex: index,
             timing: 'beforeText'
         }];

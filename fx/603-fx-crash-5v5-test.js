@@ -1,5 +1,5 @@
 // fx 层不直写账本语义字段 state._acted：起跳/收尾一律写视图表 _renderActed（步末引擎真值覆盖自愈）。
-export const VER = 'fx/603-fx-crash-5v5-test.js V6.4.1';
+export const VER = 'fx/603-fx-crash-5v5-test.js V6.4.2';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -55,16 +55,20 @@ function showCloseRangeFX(unitA, unitD, role) {
 }
 
 export function showMeleeCrash(unitA, unitD, onCrash) {
+    // 返回「接触帧」Promise：需要按 冲击→接触→后续演出 排时序的调用方（小昭·妹飞天免疫）
+    //   可 await 到撞上那一刻；起手条件不满足时立即 resolve，绝不悬挂调用方。
+    let resolveContact;
+    const contact = new Promise((resolve) => { resolveContact = resolve; });
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
-    if (!rectA || !rectD) return;
+    if (!rectA || !rectD) return contact;
     const cellA = getUnitCell(unitA);
-    if (!cellA) return;
+    if (!cellA) return contact;
 
     const sx = rectA.x, sy = rectA.y;
     const ex = rectD.x, ey = rectD.y;
     const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 1) return;
+    if (dist < 1) return contact;
 
     const aPos = unitA.pos, dPos = unitD.pos;
     const isClose = (aPos === 1 && dPos === 1) || (aPos === 2 && dPos === 2) || (aPos === 3 && dPos === 3) ||
@@ -72,7 +76,8 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
     if (isClose) {
         showCloseRangeFX(unitA, unitD, unitA.role);
         if (onCrash) onCrash();
-        return;
+        resolveContact();
+        return contact;
     }
 
     const nx = dx / dist, ny = dy / dist;
@@ -131,6 +136,7 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
             clone.style.top = (rectA.top + ny * flown) + 'px';
             if (p >= 1) {
                 if (onCrash) onCrash();
+                resolveContact();
                 const crashX = rectA.left + nx * flyDist, crashY = rectA.top + ny * flyDist;
                 clock.animateReal(returnDur, (p2) => {
                     const ease2 = 1 - Math.pow(1 - p2, 4);
@@ -155,6 +161,7 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
     } else {
         startFly();
     }
+    return contact;
 }
 
 export function showMeleeDodge(unitA, unitD) {

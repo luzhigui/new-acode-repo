@@ -12,7 +12,7 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.4';
+export const VER = 'render/420-actions-defs.js V1.7.5';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -431,9 +431,28 @@ export const STAGE_ACTION_DEFS = {
         timing: (action) => (action && action.timing) || 'beforeText',
         fx: async (c, action) => {
             if (isFxSkipped()) return;
+            const target = findUnitByUidLocal(c, action.targetUid);
+            const attacker = findUnitByUidLocal(c, action.actorUid);
+            // 飞天免疫（小昭·妹）：飞天在结算前（BEFORE_DAMAGE_APPLY）就写入，本击于是产出 IMMUNE
+            //   而不是 ATTACK；此前这里只认「金刚不坏」，飞天免疫直接空返回 → 攻击者的飞撞/飞剑
+            //   整段没演，只剩战报行蓝光，读作「攻击演出被掐断」。
+            //   老板 2026-11 定调时序：冲击/剑气接近 → 接触帧 → 妹妹起飞。此处只把进攻段演到接触帧，
+            //   随后紧接着的 FLY_MODE（SPIDER_FLY）才开始升天；伤害与飞天判定一律不动。
+            if (action.flyData && attacker && target) {
+                const [crash, arrows] = await Promise.all([
+                    import('../fx/603-fx-crash-5v5-test.js'),
+                    import('../fx/602-fx-arrows-5v5-test.js')
+                ]);
+                const isRanged = attacker.role === ROLE_TYPES.RANGED
+                    || attacker.role === ROLE_TYPES.JAVELIN
+                    || attacker.role === ROLE_TYPES.BUTTERFLY;
+                const onContact = () => AudioManager.playSfx(attacker.role);
+                if (isRanged) await arrows.showRangedArrow(attacker, target, false, onContact);
+                else await crash.showMeleeCrash(attacker, target, onContact);
+                return;
+            }
             // 金刚不坏：飞撞照常，撞上瞬间罩子碎裂（不飘伤害、不闪红——免疫分支本就走不到受击特效）
             if (action.reason && action.reason.indexOf('金刚不坏') >= 0) {
-                const target = findUnitByUidLocal(c, action.targetUid);
                 if (!target) return;
                 // 真机实锤（2026-10-23 手机端）：首次 await import 在慢网络下阻塞播放主循环——「卡一下才继续」。
                 //   所以这里一律不 await：双模块并行加载，加载完再播；首载期间碎裂晚一拍可接受，卡场不可接受
@@ -448,7 +467,6 @@ export const STAGE_ACTION_DEFS = {
                     }).catch(() => {});
                     return;
                 }
-                const attacker = findUnitByUidLocal(c, action.actorUid);
                 if (!attacker) return;
                 Promise.all([
                     import('../fx/603-fx-crash-5v5-test.js'),
