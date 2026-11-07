@@ -12,7 +12,7 @@
      演出全走主代码 fx/616-tangwenliang-dash.js；网格 render/403；store modules/306；
      枚举 infra/106；技能数值 core/201；血量格式 infra/102；样式运行时从 index.html 注入（同一份 CSS）。
      打开方式（必须本地服务器，ES module 不支持 file://）：
-       python -m http.server 8123  →  http://127.0.0.1:8123/tangwenliang-dash-demo.html -->
+       python -m http.server 8123  →  http://127.0.0.1:8123/Z%20demo/tangwenliang-dash-demo.html -->
 <style>
   /* demo 外壳：只加控制条 / 时间轴 / 计划面板。战场、格子、血条外观全部来自 index.html 注入 */
   #demoTop { max-width:520px; margin:0 auto; padding:8px 6px 0; font-family:'Segoe UI',monospace; }
@@ -87,17 +87,17 @@
 
 <script type="module">
 // ============================== 主代码 import ==============================
-import { GlobalStore } from './infra/104-global-store.js';
-import { clock } from './infra/103-clock.js';
-import { createStore, battleReducer } from './modules/306-battle-store.js';
-import { updateGridUI, setGridStore } from './render/403-grid-render.js';
-import { showTangWenLiangDash } from './fx/616-tangwenliang-dash.js';
-import { getCellByPos } from './fx/611-fx-ref-manager.js';
-import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from './infra/106-battle-enums.js';
-import { getSkillParams } from './core/201-config-5v5-test.js';
-import { fmtHp } from './infra/102-core-utils.js';
-import { getPerfParam } from './core/223-perf-params.js';
-import { getRoleIcon } from './render/414-role-cards.js';
+import { GlobalStore } from '../infra/104-global-store.js';
+import { clock } from '../infra/103-clock.js';
+import { createStore, battleReducer } from '../modules/306-battle-store.js';
+import { updateGridUI, setGridStore } from '../render/403-grid-render.js';
+import { showTangWenLiangDash } from '../fx/616-tangwenliang-dash.js';
+import { getCellByPos } from '../fx/611-fx-ref-manager.js';
+import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
+import { getSkillParams } from '../core/201-config-5v5-test.js';
+import { fmtHp } from '../infra/102-core-utils.js';
+import { getPerfParam } from '../core/223-perf-params.js';
+import { getRoleIcon } from '../render/414-role-cards.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -110,7 +110,7 @@ window.addEventListener('unhandledrejection', (e) => showErr('[Promise错误] ' 
 // ============================== 官方样式注入（战场/格子/血条同一份 CSS） ==============================
 (async () => {
   try {
-    const html = await fetch('./index.html', { cache: 'no-store' }).then((r) => {
+    const html = await fetch('../index.html', { cache: 'no-store' }).then((r) => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
     });
@@ -351,14 +351,20 @@ function planDash(uid) {
   const twTo = enemyRes.ok ? (enemyRes.moved.find((m) => m.unit === tw) || {}).to : tw.pos;
   const targetTo = allyRes.ok ? (allyRes.moved.find((m) => m.unit === target) || {}).to : target.pos;
 
+  // 真伤真值（与 modules/315 一致）：616 靠 hits 里的 hpBefore/hpAfter 画克隆体血条覆盖，
+  //   demo 的 store 只演示演出、不落账，所以 hpAfter 在这里 = 当前血 − 本次真伤
+  const targetHpBefore = target.hp;
   const toFoe = Math.max(0, Math.min(Math.round(target.hp * dmgRatio), Math.floor(target.hp) - 1));
+  const targetHpAfter = target.hp - toFoe;
+  const twHpBefore = tw.hp;
   const toSelf = Math.max(0, Math.min(Math.round(tw.hp * selfDmgRatio), Math.floor(tw.hp) - 1));
+  const twHpAfter = tw.hp - toSelf;
 
   const moves = [...(enemyRes.ok ? enemyRes.moved : []), ...(allyRes.ok ? allyRes.moved : [])]
     .map((m) => ({ uid: m.unit.uid, camp: m.unit.camp, from: m.from, to: m.to, isDash: !!m.isDash }));
   const hits = [
-    toFoe > 0 ? { uid: target.uid, dmg: toFoe } : null,
-    toSelf > 0 ? { uid: tw.uid, dmg: toSelf } : null
+    toFoe > 0 ? { uid: target.uid, dmg: toFoe, hpBefore: targetHpBefore, hpAfter: targetHpAfter } : null,
+    toSelf > 0 ? { uid: tw.uid, dmg: toSelf, hpBefore: twHpBefore, hpAfter: twHpAfter } : null
   ].filter(Boolean);
 
   const dash = {
