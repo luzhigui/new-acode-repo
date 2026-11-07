@@ -1,6 +1,6 @@
 // player/504-player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
-export const VER = 'player/504-player-play-step.js V1.1.1';
+export const VER = 'player/504-player-play-step.js V1.1.2';
 
 import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
@@ -131,9 +131,15 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
         }
     }
 
+    // 顺序铁律（2026-11-07）：血归零 → 死亡特效 → 结算。
+    //   syncStoreFromStep 是整步血量/生死的唯一权威落账点，必须排在死亡红叉之前：
+    //   先 SET_UNITS（hp=0 + alive=false），再切 DEAD 态，避免「特效先播、血条还没归零」。
+    syncStoreFromStep(c, step);
+
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
-        if (du && !(du.state && du.state._isDead)) {
+        // 复活（圣火不熄）：引擎本步已报活，不再补死亡态
+        if (du && du.alive !== false && !(du.state && du.state._isDead)) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: FLASH_TYPES.DEAD });
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });
         }
@@ -144,8 +150,6 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
         const logDiv = document.getElementById('log');
         if (logDiv && logDiv.lastElementChild) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
     }
-
-    syncStoreFromStep(c, step);
 }
 
 async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {

@@ -2,13 +2,24 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效只发信号（FX_SIGNALS），不直接 import fx 实现；本文件保留文本、格子闪示与血条推进。
-export const VER = 'player/509-attack-group.js V6.3.1';
+export const VER = 'player/509-attack-group.js V6.3.2';
+
+// 本组涉及的溅射目标 uid（buff-splash 条目在 core/209 上挂着 splashUids）
+function collectSplashUids(entry) {
+    const set = new Set();
+    const entries = (entry && entry.data && Array.isArray(entry.data.entries)) ? entry.data.entries : [];
+    for (const e of entries) {
+        if (!e || !Array.isArray(e.splashUids)) continue;
+        for (const uid of e.splashUids) if (uid != null) set.add(uid);
+    }
+    return set;
+}
 
 import { GlobalStore, getState } from '../infra/104-global-store.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { getPerfParam } from '../core/223-perf-params.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES, STAGE_ACTION_TYPES } from '../infra/106-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './510-renderer.js';
 import { markGridShake } from '../render/403-grid-render.js';
 import { triggerHpAnim } from '../render/405-grid-cells.js';
@@ -194,9 +205,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (unitD && !entry.isMiss && !unitD.state._isDead && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
         if (entry.isDead) {
-            // 致死攻击：本组文字播完后，立刻切死亡态，不让连击的后段卡住视觉
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
+            // 致死攻击：本组文字播完后立刻切死亡态，不让连击的后段卡住视觉。
+            //   前提是「血已归零」——伤害文本行已把 hpAfter 落账。若本击没把血打空
+            //   （如溅射/后续效果补刀），这里不许抢播死亡红叉，交给步末 syncStoreFromStep
+            //   先落血量再落死亡态，保证「血归零 → 死亡特效」的顺序。
+            const curD = c.store.getState().units.find(u => u.uid === unitD.uid);
+            if (curD && curD.hp <= 0) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
+            }
         }
     }
 
@@ -206,8 +223,28 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     // 修击退剧透：POS_CHANGE 不随攻击组提前落账——原先是攻击组末尾就把击退/换位的位置写进
     // store（格子瞬移），随后的 PUSH/POS_SWAP 特效纯属重播 = 剧透。位置的唯一即时写入点=对应 fx 动画
     // 收尾（fx/83/84 落定后自 dispatch POS_CHANGE）；无专属动画的路径由步末 syncStoreFromStep 兜底。
+    // 修溅射剧透（2026-11-07）：溅射目标的血账也不能在攻击组末尾落——流星赶月的小飞箭还没飞、
+    //   血条就先掉。把溅射目标的 HP_CHANGE 摘出来挂到溅射演出动作上，由箭矢落点后再落账；
+    //   找不到溅射动作才退回旧路径（步末 sync 兜底也能保证最终值正确）。
     if (entry._events && entry._events.length > 0) {
-        const evts = entry._events.filter(ev => ev.eventType !== UNIT_EVENT_TYPES.POS_CHANGE);
+        const splashUids = collectSplashUids(entry);
+        const deferredHp = [];
+        const evts = entry._events.filter(ev => {
+            if (ev.eventType === UNIT_EVENT_TYPES.POS_CHANGE) return false;
+            if (splashUids.size > 0 && ev.eventType === UNIT_EVENT_TYPES.HP_CHANGE && splashUids.has(ev.unitUid != null ? ev.unitUid : ev.uid)) {
+                deferredHp.push(ev);
+                return false;
+            }
+            return true;
+        });
+        if (deferredHp.length > 0) {
+            const acts = (roundResult && roundResult.stageActions) || [];
+            const splashAct = acts.find(a => a.kind === STAGE_ACTION_TYPES.BUFF_EFFECT &&
+                Array.isArray(a.splashUids) && a.splashUids.length > 0 &&
+                a.splashUids.every(uid => splashUids.has(uid)));
+            if (splashAct) splashAct._deferredHpEvents = (splashAct._deferredHpEvents || []).concat(deferredHp);
+            else c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: deferredHp });
+        }
         if (evts.length > 0) c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: evts });
     }
 

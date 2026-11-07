@@ -12,7 +12,7 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.3';
+export const VER = 'render/420-actions-defs.js V1.7.4';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -548,6 +548,14 @@ export const STAGE_ACTION_DEFS = {
             const attacker = findUnitByUidLocal(c, action.attackerUid);
             const target = findUnitByUidLocal(c, action.targetUid);
             const primary = findUnitByUidLocal(c, action.primaryUid);
+            // 溅射血账延迟落点（attack-group 摘出来挂在这里）：箭矢/风爪真正命中后才掉血，
+            //   8 倍速/快进下动画被跳过时也保证落账（无动作入口的路径由步末 sync 兜底）。
+            const applyDeferredHp = () => {
+                if (action._deferredHpEvents && action._deferredHpEvents.length > 0 && c.store) {
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: action._deferredHpEvents });
+                    action._deferredHpEvents = null;
+                }
+            };
             if (action.effectType === BUFF_EFFECT_TYPES.SPLASH && attacker && primary && action.splashUids && action.splashUids.length > 0) {
                 const splashTargets = action.splashUids.map(uid => findUnitByUidLocal(c, uid)).filter(u => u);
                 if (splashTargets.length > 0) {
@@ -561,9 +569,11 @@ export const STAGE_ACTION_DEFS = {
                             // 溅射减防（乘风配置无 defReduce 时为 null，不飘）
                             if (u.alive && action.splashDefReduce > 0 && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit: u, gain: -action.splashDefReduce });
                         });
+                        applyDeferredHp(); // 风爪同帧落点 → 同帧掉血
                     } else {
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
                         await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets });
+                        applyDeferredHp(); // 小飞箭落点后才掉血，飞行途中不剧透
                         splashTargets.forEach((st, i) => {
                             clock.wait(i * 60).then(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED));
                             // 溅射掉血飘字：伤害 core/16 SPLASH 已实扣。随箭矢节奏错层飘；播放时已死的不飘。
