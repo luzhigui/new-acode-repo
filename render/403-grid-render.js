@@ -8,11 +8,12 @@
 // V7.1.5 | 2026-11-07 修 V7.1.4 真机不可见：🩸 原来追加在 logoList 末尾，被 logoBudget=2（带计数胶囊=1）
 //          的 slice 截掉——实战角色几乎都有 ≥2 个海克斯图标，所以永远看不见。改挂到技能图标之后、
 //          海克斯图标之前，保证触发者在常见情况下占住前两格；技能图标仍排第一。
+// V7.1.7 | 2026-11-07 血量显示下限：格子血量文本改 fmtHpText（存活 <1 显示 1），hpPct/血条宽度仍用原始 hp
 // V7.1.6 | 2026-11-07 #16 显示名收口 render/414（displayNameOf）：本体与成昆幻影同走同一别名（金毛狮王谢逊 →
 //          「金毛狮王」），残影格同步；归属判据 / 数据名 / 日志结构化字段一律不动
-export const VER = 'render/403-grid-render.js V7.1.6';
+export const VER = 'render/403-grid-render.js V7.1.7';
 
-import { getUnitCol, getUnitRow, getAuraBonuses, fmtHp } from '../infra/102-core-utils.js';
+import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { getDodgeRules } from '../core/221-registry-dodge.js';
 import { CONFIG, getSkillDesc, isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
@@ -130,7 +131,7 @@ export function renderGrid(id, camp) {
                     let roleIcon = getRoleIcon(unit, { isStunned: false, isDead: false, pangTaunting });
                     const ghostAtk = unit._frozen?.atk !== undefined ? Math.floor(unit._frozen.atk) : Math.floor(getStat(unit,'atk'));
                     const ghostDef = unit._frozen?.def !== undefined ? Math.floor(unit._frozen.def) : Math.floor(getStat(unit,'def'));
-                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${displayNameOf(unit)}</span><span class="cell-stats">攻${ghostAtk} 防${ghostDef} 血${fmtHp(unit.hp)}</span></div>`;
+                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${displayNameOf(unit)}</span><span class="cell-stats">攻${ghostAtk} 防${ghostDef} 血${fmtHpText(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
@@ -265,9 +266,10 @@ export function renderGrid(id, camp) {
         const shieldVal = (unit.state._shield || 0) + (unit.state._permShield || 0);
         const shieldPct = unit.alive && shieldVal > 0 ? Math.min(100, Math.round((shieldVal / unit.maxHp) * 100)) : 0;
         const shieldHtml = shieldPct > 0 ? `<div style="position:absolute;left:0;right:0;bottom:0;height:${shieldPct}%;background:rgba(255,255,255,0.55);border-top:1px solid rgba(255,255,255,0.85);pointer-events:none;"></div>` : '';
-        let hpDisplayHtml = `${fmtHp(unit.hp)}`;
+        // 血量文本走 fmtHpText（存活下限 1）；hpPct 仍用引擎原始 hp，宽度不被夹
+        let hpDisplayHtml = `${fmtHpText(unit.hp)}`;
         if ((latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp)) {
-            hpDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${fmtHp(unit.hp)}</span>`;
+            hpDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${fmtHpText(unit.hp)}</span>`;
         }
 
         // HP 条动画状态更新（目标 pct / 首帧直落 / 需要时启动 tick），返回本帧展示 pct —— 与原先内联段等价

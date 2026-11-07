@@ -1,13 +1,14 @@
+// V6.1.4 | 2026-11-07 血量显示下限：面板血量文本改 fmtHpText（存活 <1 显示 1），百分比/血条仍用原始 hp
 // V6.1.2 | 2026-11-07 #13：小昭详情面板补「变身次数/职业 + 变身/精通属性累计」两行，读引擎 _mods/_roleCounts
 // V6.1.3 | 2026-11-07 #13 收口：成长/精通两行只在妹妹（isXiaoZhaoBrother）分支显示，姐姐只保留永久海克斯那行
 //          #16 面板表头吸顶：标题+关闭叉常驻不滚，只有内容区独立 overflow-y:auto
-export const VER = 'ui/703-ui-render-5v5-test.js V6.1.3';
+export const VER = 'ui/703-ui-render-5v5-test.js V6.1.4';
 
 // getSkillDesc 已下沉到 ui/710-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/214-battle-shared.js';
 import { getSkillParams, CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleSkills } from './710-role-cards.js';   // 漏 import 补上（详情弹窗技能栏查名片表）
-import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
+import { fmtHpText, fmtNum } from '../infra/102-core-utils.js';
 import { getMissBreakdown } from '../core/203-battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -221,7 +222,7 @@ function updateDetailPopupContent() {
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
-            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHp(u.hp)} / ${fmtNum(u.maxHp)} (${hpPct}%)</span>
+            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHpText(u.hp)} / ${fmtNum(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, unitCampBuffs, sameCampTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">未命中</span><span>${(() => {
                 // 按单位阵营取对应的 mySide/oppSide（原先写死传 allyTeam/enemyTeam，

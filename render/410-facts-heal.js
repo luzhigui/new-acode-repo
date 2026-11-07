@@ -2,10 +2,11 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/410-facts-heal.js V1.2.0';
+export const VER = 'render/410-facts-heal.js V1.2.1';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeHealRenderer, healDisplay } from './413-generic-renderers.js';
+import { fmtHpText } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
 
 // Buff 衍生效果（嗜血/热血）
@@ -27,7 +28,7 @@ export function renderHotBloodHealFact(fact) {
 export function renderKuaiLeHealFact(fact) {
     return {
         type:'info',
-        text:`<span class="green">💚 快乐回血：${fact.unitName} 回复${fact.heal}点生命（${fact.layers}层触发），血量 ${fact.hpBefore} → ${fact.hpAfter}</span>`,
+        text:`<span class="green">💚 快乐回血：${fact.unitName} 回复${fact.heal}点生命（${fact.layers}层触发），血量 ${fmtHpText(fact.hpBefore)} → ${fmtHpText(fact.hpAfter)}</span>`,
         fx: [{ kind: 'heal', amount: fact.heal }],
         buffType: BUFF_SUBTYPES.ELITE_KUAILE_HEAL,
         zhouUid: fact.unitUid,

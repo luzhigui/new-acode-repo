@@ -1,6 +1,7 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
-export const VER = 'fx/616-tangwenliang-dash.js V3.0.2';
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.3';
+// V3.0.3 | 2026-11-07 | 血量显示下限：演出克隆卡血量文本改 fmtHpText（存活 <1 显示 1），血条宽度仍用原始 hp
 // V3.0.2 | 2026-11-07 | 修「标枪飞行期间名字不变蓝、飞完才变蓝」：
 //   克隆体卡片没带名字色档（真格 render/403 对唐文亮是 name-blue），演出时看到的是白名克隆体，
 //   收尾后 storeAfter 显真格才变蓝。cardHtmlFromUnit 补上同一套色档（绿/金/紫/蓝），克隆体与真格一致。
@@ -41,7 +42,7 @@ import { getRoleIcon } from '../render/414-role-cards.js';
 import { isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
 import { STORE_ACTION_TYPES } from '../infra/106-battle-enums.js';
 import { isFxSkipped } from '../infra/111-fx-gate.js';
-import { fmtHp } from '../infra/102-core-utils.js';
+import { fmtHpText } from '../infra/102-core-utils.js';
 
 // 真实时间等待：clock.wait 会被倍速压缩，子弹时间档不能用它——
 //   用一个空 animate + minRealMs 同值，保证真实时钟走满 ms 才 resolve（暂停时同样冻结）。
@@ -135,7 +136,7 @@ function cardHtmlFromUnit(u, hpOverride) {
     const nameTier = nameTierOf(u);
     return `<span class="cell-icon">${icon}</span>` +
         `<div class="cell-info"><span class="cell-name ${nameTier}">${u.name}</span>` +
-        `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${fmtHp(hp)}</span></span></div>` +
+        `<span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${hpCls}">血${fmtHpText(hp)}</span></span></div>` +
         `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar};"></div></div>`;
 }
 

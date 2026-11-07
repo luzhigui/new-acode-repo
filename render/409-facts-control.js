@@ -1,10 +1,10 @@
 // render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
-export const VER = 'render/409-facts-control.js V1.0.1';
+export const VER = 'render/409-facts-control.js V1.0.2';
 
 import { registerFactRenderer } from './406-fact-registry.js';
-import { makeFXSnapshot, fmtHp } from '../infra/102-core-utils.js';
+import { makeFXSnapshot, fmtHpText } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_SUBTYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 
 // 乘风突袭波及 / 击退 / 失败
@@ -52,8 +52,8 @@ export function renderPassFact(fact) {
         };
     }
     if (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击') {
-        const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : fmtHp(unit.hp);
-        const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : fmtHp(unit.hp);
+        const hpBefore = fmtHpText(fact.hpBefore !== undefined ? fact.hpBefore : unit.hp, unit.alive);
+        const hpAfter = fmtHpText(fact.hpAfter !== undefined ? fact.hpAfter : unit.hp, unit.alive);
         const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;
         const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
         const headText = reason === '幼狮休息'

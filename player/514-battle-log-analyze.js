@@ -3,8 +3,9 @@
 //   样式统一 hex-log- 前缀，injectLogAnalyzeStyle() 幂等注入一次。
 // 两处消费：工具箱「日志复盘」（粘贴文本）、战报弹窗「走势分析」（直接喂内存 battleLog）。
 import { FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { fmtHpText } from '../infra/102-core-utils.js';
 
-export const VER = 'player/514-battle-log-analyze.js V1.4.0';
+export const VER = 'player/514-battle-log-analyze.js V1.4.1';
 
 // ───────────────────────── 样式（幂等注入） ─────────────────────────
 const STYLE_ID = 'hexLogStyle';
@@ -400,7 +401,7 @@ function renderRounds(roundInfo) {
 function renderDetail(events) {
   let html = '<table><tr><th>回合</th><th>攻击者</th><th>目标</th><th>伤害</th><th>血线</th><th>结果</th></tr>';
   for (const e of events) {
-    const hpText = e.hpBefore !== null ? `${e.hpBefore} → ${e.hpAfter ?? '?'}${e.overkill > 0 ? ` <span class="hex-log-miss">(溢出${e.overkill})</span>` : ''}` : '-';
+    const hpText = e.hpBefore !== null ? `${fmtHpText(e.hpBefore)} → ${e.hpAfter != null ? fmtHpText(e.hpAfter) : '?'}${e.overkill > 0 ? ` <span class="hex-log-miss">(溢出${e.overkill})</span>` : ''}` : '-';
     const dmgText = e.type === 'heal' ? `+${e.heal ?? 0}` : (e.dmg ?? '-');
     const typeText = e.type === 'kill' ? '<span class="hex-log-kill">💀击杀</span>'
       : e.type === 'dodge' ? '<span class="hex-log-dodge">🦅闪避</span>'

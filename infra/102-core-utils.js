@@ -1,4 +1,4 @@
-export const VER = 'infra/102-core-utils.js V6.1.3';
+export const VER = 'infra/102-core-utils.js V6.1.4';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';
 import { validateStoreValue } from './107-store-schema.js';
@@ -164,11 +164,19 @@ export function fmtNum(v) {
     return v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
 }
 
-// 血量显示入口 = fmtNum；0 仍显示 0（不再强抬成 1，<10 的一位小数已能表达「还剩一点」）。
-// 已接入：render/30、render/32、ui/62、ui/65，以及引擎 fact 构造处 core/10、core/12、core/15。
+// 血量数值快照入口（fact 字段 / 血条 / 动效目标值）：只取整，不加下限。
 export function fmtHp(v) {
     if (!(v > 0)) return 0;
     return fmtNum(v);
+}
+
+// 玩家可见的血量数字文本（老板规则 2026-11-07）：存活单位最少显示 1 —— 0.6 血显示「1」、0.4 也显示「1」；
+//   0 仍显示 0（死亡单位归零后不会被抬成 1）。叠在 fmtNum「<10 一位小数 / ≥10 取整」之上，只改文本，不回写引擎数值。
+//   第二参 alive 只给「上游已把 hp 取整成 0」的老数据用（如 PASS fact 的 Math.floor）：存活 → 仍显示 1，死亡 → 0。
+export function fmtHpText(v, alive = false) {
+    if (!(v > 0)) return alive ? 1 : 0;
+    const n = fmtNum(v);
+    return n < 1 ? 1 : n;
 }
 
 // 兼容旧名：所有 fmt1 调用点自动走统一取整规则

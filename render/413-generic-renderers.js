@@ -4,9 +4,9 @@
 //   ③ 锚点逐字对齐（SKILL-飘字血泪：「回复+N」≠「回复 N 点」，子串匹配不上=飘字哑火）——anchorVerb 显式传参，
 //     模板产物与手写版逐字节一致，golden 探针保障
 //   ④ 加攻/加防族预留位：现无手写同款（飘字走 render/38 STAT_CHANGE 通道），出现第三遍再进工厂
-export const VER = 'render/413-generic-renderers.js V1.2.0';
+export const VER = 'render/413-generic-renderers.js V1.2.1';
 
-import { fmtNum } from '../infra/102-core-utils.js';
+import { fmtNum, fmtHpText } from '../infra/102-core-utils.js';
 
 // 回血/吸血显示口径（只改文案，不改数值）：被点穴截脉/寒毒打折时，factData 由 core/217 回写
 //   healActual / healNominal / healMods → 显示「实际值（原因，原 N）」；无修正保持原样，不给正常回血加噪音。
@@ -41,7 +41,7 @@ export function makeHealRenderer({ icon, label, mode, anchorVerb = null, isHealE
         const healNum = d.num;
         const note = d.note;
         if (mode === 'plusTrail') {
-            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，${fact.hpBefore}→${fact.hpAfter}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
+            return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，${fmtHpText(fact.hpBefore)}→${fmtHpText(fact.hpAfter)}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };
         }
         if (mode === 'plusMaxHp') {
             return { type: 'info', text: `<span class="green">${icon} ${label}+${heal}${note}，上限→${fmtNum(fact.newMaxHp)}</span>`, fx: [{ kind: 'heal', amount: healNum }], isHealEntry: true, healAmount: healNum, healUnitUid: fact.unitUid };

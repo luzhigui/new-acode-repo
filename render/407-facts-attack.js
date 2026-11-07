@@ -2,12 +2,12 @@
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
 
-import { makeFXSnapshot, fmtHp, fmt1, fmtNum } from '../infra/102-core-utils.js';
+import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum } from '../infra/102-core-utils.js';
 import { getStat } from '../core/214-battle-shared.js';
 import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-export const VER = 'render/407-facts-attack.js V1.5.3';
+export const VER = 'render/407-facts-attack.js V1.5.4';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -21,7 +21,7 @@ export function renderMissFact(fact) {
         uidD: fact.target.uid,
         entries: [
             // 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
-            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtNum(fact.attacker.atk)} 血${fmtHp(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHp(fact.target.hp)})`},
+            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtNum(fact.attacker.atk)} 血${fmtHpText(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHpText(fact.target.hp)})`},
             {type:'info', text:`<span class="gray">未命中！</span>`}
         ],
         isMiss:true,
@@ -51,8 +51,8 @@ export function renderDodgeFact(fact) {
         _events: fact.events || []
     };
 
-    dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fact.attackerAtk} 血${fact.attackerHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.dodgerDef} 血${fact.dodgerHp})`});
-    dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fact.reboundDmg} 真实伤害（${fact.attackerHpBefore} → ${fact.attackerHpAfter}）</span>`});
+    dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fact.attackerAtk} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.dodgerDef} 血${fmtHpText(fact.dodgerHp)})`});
+    dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fact.reboundDmg} 真实伤害（${fmtHpText(fact.attackerHpBefore)} → ${fmtHpText(fact.attackerHpAfter)}）</span>`});
 
     if (fact.weiHeal) {
         const healText = fact.weiHeal.oldMaxHp !== undefined
@@ -132,7 +132,7 @@ export function renderAttackFact(fact) {
     // 被动出手行内徽章：普攻无前缀，反击/跟随等带金色【标签】——不用翻日志也知道这一手是什么
     const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击', doubleStrike: '连击', bloodthirst: '嗜血', xiaoZhaoDoubleMiss: '双击' };
     const linkTag = LINK_TAGS[linkReason] ? `<span class="gold">【${LINK_TAGS[linkReason]}】</span>` : '';
-    group.entries.push({type:'combat-text', text:`${linkTag}<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
+    group.entries.push({type:'combat-text', text:`${linkTag}<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${fmtHpText(unitHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${fmtHpText(dmgResult.hpBefore)})`});
     // 破防日志前置到攻击组最前
     const breakDefEntries = [];
     if (fact.entries) {
@@ -188,10 +188,10 @@ export function renderAttackFact(fact) {
             unitName: unit.name,
             dmg: fmt1(dmgResult.dmg),
             targetName: target.name,
-            hpBefore: dmgResult.hpBefore,
-            hpNow: targetHpAfter
+            hpBefore: fmtHpText(dmgResult.hpBefore),
+            hpNow: fmtHpText(targetHpAfter)
         }).text
-        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
+        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${fmtHpText(dmgResult.hpBefore)} → ${fmtHpText(targetHpAfter)} ${dmgResult.dead?'💀阵亡':''}`;
     // 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     // dmg：player/46 播到这行时用它弹伤害飘字（原先飘字由 fx/88 在命中后 1100ms 打，
     //   已改为「播到伤害行同帧打」，所以这里必须把数值带出来）。
@@ -252,7 +252,7 @@ export function renderImmuneFact(fact) {
         uidD:target.uid,
         entries:[{
             type:'combat-text',
-            text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fact.attackerAtk} 血${fact.attackerHp}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.targetDef} 血${fact.targetHp})`
+            text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fact.attackerAtk} 血${fmtHpText(fact.attackerHp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.targetDef} 血${fmtHpText(fact.targetHp)})`
         }],
         hpAfter: target.hp,
         alive: target.alive,
