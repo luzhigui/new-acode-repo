@@ -1,8 +1,10 @@
 // modules/322-elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
+// V1.0.3 | 2026-11-07 #17 按文档口径删掉「额外再选一个队友加同等属性」的第二受益者（附身只对主宿主生效；
+//           `_extraButterflyHost` 的写入与飞回清理一并移除）。
 // V1.0.2 | 2026-11-07 | ① 附身占位可被击退挤开（core/214 同步放行脉冲格）——占位与目标互换；
 //          ② 宿主死亡立刻飞回当前格（watchUnit 观察 host.alive），并复位 A._butterflyTriggered，
 //             让下一位队友出手前按原有左右取序重新附身（旧版要等回合末声明）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.2';
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.3';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -234,17 +236,7 @@ export function createXiaoZhaoSisterComponent() {
             refreshMaxHp(host, sister, '蝶变附身血上限');
             emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:getStat(host, 'atk'), def:getStat(host, 'def'), _phantomTarget:sister.uid });
             
-            // 额外再选一个存活队友（排除宿主和姐姐自己），转移同等属性
-            const extraHostCands = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid && a.uid !== host.uid);
-            if (extraHostCands.length > 0) {
-                const extraHost = extraHostCands[getBattleRng().nextInt(0, extraHostCands.length - 1)];
-                Object.assign(sister.state, { _extraButterflyHost: extraHost.uid });
-                addMod(extraHost, 'atk', { source: '蝶变附身', value: atkTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
-                addMod(extraHost, 'def', { source: '蝶变附身', value: defTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
-                addMod(extraHost, 'maxHp', { source: '蝶变附身', value: hpTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
-                refreshMaxHp(extraHost, sister, '蝶变附身血上限');
-                emitEvent(extraHost, UNIT_EVENT_TYPES.HP_CHANGE, { hp:extraHost.hp, maxHp:extraHost.maxHp, alive:extraHost.alive, atk:getStat(extraHost, 'atk'), def:getStat(extraHost, 'def') });
-            }
+            // 附身只对主宿主生效（文档口径：转移给宿主一个人，不设第二个受益者）
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
             if (totalMaxHp > 0) {
@@ -330,18 +322,6 @@ export function createXiaoZhaoSisterComponent() {
                     atk: host.atk, def: host.def
                 });
             }
-            
-            // 清除额外选中的队友的转移属性
-            const extraHost = sister.state._extraButterflyHost ? A.find(a => a.uid === sister.state._extraButterflyHost) : null;
-            if (extraHost && extraHost.alive) {
-                removeModsByGroup(extraHost, 'butterfly');
-                refreshMaxHp(extraHost, sister, '蝶变飞回血上限');
-                emitEvent(extraHost, UNIT_EVENT_TYPES.HP_CHANGE, {
-                    hp: extraHost.hp, maxHp: extraHost.maxHp, alive: extraHost.alive,
-                    atk: extraHost.atk, def: extraHost.def
-                });
-            }
-            sister.state._extraButterflyHost = null;
             // 补清 _untargetable（对齐下方"宿主已死"路径）：此前宿主存活飞回漏清，
             //   姐姐整场不可被选 → 敌方越过的假前排同列队友，也是体检139"姐姐零承伤"的真根因
             Object.assign(sister.state, { _flyMode: null, _untargetable: false, _butterflyHost: null });

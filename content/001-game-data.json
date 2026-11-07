@@ -690,7 +690,7 @@
         "butterflyAttach": {
           "name": "蝶变附身",
           "desc": "明教首次攻击前附身到4号位后最近队友：向右飞转移攻击的{atkRatioRight}%、向左飞转移防御的{defRatioLeft}%、血量转移{hpRatio}%",
-          "params": { "atkRatioRight": 0.4, "defRatioLeft": 0.4, "hpRatio": 0.4 }
+          "params": { "atkRatioRight": 0.5, "defRatioLeft": 0.5, "hpRatio": 0.5 }
         },
         "butterflyReturn": {
           "name": "蝶变飞回",
