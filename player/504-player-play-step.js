@@ -159,7 +159,8 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     }
 }
 
-async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
+// 倒针逐段重演复用点：单条日志走与主流程完全相同的播放（掉血飘字/血条/黄闪/日志打字）
+export async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     let lastEntryType = c._lastLogType || null;
     let abortSig = c.abortController ? c.abortController.signal : null;
 

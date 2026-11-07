@@ -8,10 +8,10 @@ import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
 import { STATE } from '../core/201-config-5v5-test.js';
 import { getLiveRecordedSteps } from '../player/513-battle-export.js';
 import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
-import { playStepInterleaved } from '../player/504-player-play-step.js';
-import { appendLogHTML } from '../player/510-renderer.js';
+import { playStepInterleaved, playSingleLogEntry } from '../player/504-player-play-step.js';
+import { appendLogHTML, clearAllEffects } from '../player/510-renderer.js';
 import {
-    getActionTiming, getActionFx, hasStageWork,
+    prepareLogEntry, getActionTiming, getActionFx, hasStageWork,
     applyStageActionToStore, applyStageActionToFX, applyStageActionToStoreAfter
 } from '../player/505-player-stage-actions.js';
 
@@ -25,26 +25,34 @@ const KIND_LABEL = {
     text: '日志'
 };
 
-// 这一段有没有真演出：有 action 且 fx 不是 none，或死亡红叉
-function hasShow(cue) {
+// 这一段有没有真演出：有 action 且 fx 不是 none、攻击日志（掉血飘字/黄闪）、真有死亡红叉
+function cueEntry(stepIdx, cue) {
+    if (!cue || cue.kind !== 'text' || cue.logIndex == null) return null;
+    const raw = (S.steps[stepIdx] || {}).log;
+    const fact = raw ? raw[cue.logIndex] : null;
+    return fact ? prepareLogEntry(fact) : null;
+}
+function hasShow(cue, stepIdx) {
     if (!cue) return false;
-    if (cue.kind === 'death') return true;
+    if (cue.kind === 'death') return deathsOf(stepIdx).length > 0;
+    if (cue.kind === 'settle') return false;
+    if (cue.kind === 'text') {
+        const e = cueEntry(stepIdx, cue);
+        return !!(e && (e.type === 'attack-group' || (Array.isArray(e.fx) && e.fx.length > 0)));
+    }
     if (cue.action) return getActionFx(cue.action) !== 'none';
     return false;
 }
 function labelOf(cue) {
     if (!cue) return '';
-    const base = KIND_LABEL[cue.kind] || '';
-    if (!base) return '';
-    if (cue.kind === 'text' || cue.kind === 'settle') return base + ' · 纯数据';
-    return base + (hasShow(cue) ? ' · 有演出' : ' · 纯数据');
+    return KIND_LABEL[cue.kind] || '';
 }
 
 const S = {
     active: false, busy: false, playing: false,
     steps: [], stepIdx: 0, cueIdx: 0,
     cueCache: new Map(),
-    label: '',
+    label: '', showFlag: false,
     snap: null,
     gateResolve: null,
     parked: false, parkOff: null, cueToken: 0,
@@ -74,7 +82,8 @@ export function getView() {
         stepCount: total,
         cueIdx: S.cueIdx,
         cueCount: cues ? cues.list.length : 0,
-        label: S.label
+        label: S.label,
+        show: S.showFlag
     };
 }
 
@@ -213,6 +222,7 @@ function paintAt(stepIdx, cueIdx) {
 
     S.stepIdx = stepIdx;
     S.cueIdx = upto;
+    S.showFlag = hasShow(cues[upto], stepIdx);
     S.label = labelOf(cues[upto]);
     renderReviewLog(stepIdx, upto, true);
     if (c.updateUI) c.updateUI();
@@ -287,20 +297,21 @@ export async function enterReview() {
     if (c._removedUids) c._removedUids.clear();
     clearDeathTimers(c);
 
-    // 主循环让路：挂闸门 → 放开时钟让它跑到步首 → 再冻住
+    // 主循环让路：挂闸门 → 放开时钟让它跑到步首 → 停在门口（时钟保持运行，演出才能播）
     const wasParked = S.parked && !!S.gateResolve;
     unarmPark();
-    if (wasParked) {
-        // 上次「到底」后主循环就钉在闸门上：直接接管，别重装闸门/别放行
-        GlobalStore.set('gs', STATE.RUNNING);
-        GlobalStore.set('isPaused', true);
-    } else {
-        c._rewindGate = () => new Promise((resolve) => { S.gateResolve = resolve; });
-        GlobalStore.set('gs', STATE.RUNNING);
-        GlobalStore.set('isPaused', false);
+    document.body.classList.remove('paused-animations');   // 回看要看 FX，别被「暂停动画」类冻住
+    if (!wasParked) c._rewindGate = () => new Promise((resolve) => { S.gateResolve = resolve; });
+    GlobalStore.set('gs', STATE.RUNNING);
+    // 时钟保持运行：掉血飘字/飞撞/打字全挂在 clock 上；战斗推进由 503 的步首闸门挡住
+    GlobalStore.set('isPaused', false);
+    if (!wasParked) {
         await waitForGate(2500);
-        GlobalStore.set('isPaused', true);
+        // 没能在步首停住（当前这一步超过 2.5s）：冻住时钟兜住，避免战斗在面板背后偷跑
+        if (!S.gateResolve) GlobalStore.set('isPaused', true);
     }
+    const fnSync0 = GlobalStore.getUIHandler('syncPauseState');
+    if (typeof fnSync0 === 'function') fnSync0();   // 主按钮同步成「⏸️ 暂停」，别停在旧文案
 
     // 回看期间尸体要留着：定时清掉摘格计时器
     S.watchdog = setInterval(() => clearDeathTimers(c), 800);
@@ -351,10 +362,13 @@ export function exitReview(opts) {
         if (S.gateResolve) { const r = S.gateResolve; S.gateResolve = null; r(); }
         GlobalStore.set('gs', STATE.RUNNING);
         GlobalStore.set('isPaused', false);
+        document.body.classList.remove('paused-animations');
     } else {
         // 必须「真暂停」：时钟停 + 主循环钉在步首闸门（画面不会再往下走），点「继续」才放行
         GlobalStore.set('gs', STATE.PAUSED);
-        GlobalStore.set('isPaused', true);
+        const fnSync = GlobalStore.getUIHandler('syncPauseState');
+        if (typeof fnSync === 'function') fnSync();   // 走统一裁判：isPaused=true + 主按钮切「▶ 继续」
+        else { GlobalStore.set('isPaused', true); document.body.classList.add('paused-animations'); }
         if (inBattle) armPark();
         else {
             unarmPark();
@@ -422,22 +436,36 @@ async function scrubToCue(stepIdx, cueIdx) {
     const idx = Math.max(0, Math.min(cueIdx, cues.length - 1));
     const cue = cues[idx];
 
-    paintAt(stepIdx, idx - 1);
+    // 演出必须在「时钟运行」下播：主循环已被步首闸门钉住，放开时钟只放 FX，不会推进战斗
+    GlobalStore.set('isPaused', false);
+
+    paintAt(stepIdx, idx - 1);          // 先静摆到「这段之前」
     if (token !== S.cueToken) return;
 
     S.cueIdx = idx;
+    S.showFlag = hasShow(cue, stepIdx);
     S.label = labelOf(cue);
 
     const c = ctx();
     if (c && c.store && cue) {
+        clearAllEffects();              // 上一段的残留特效不叠加到这一段
         const pending = [];
         if (cue.kind === 'settle') {
             syncStoreFromStep(c, step);
         } else if (cue.kind === 'death') {
             flushDeathFlashes(c, deathsOf(stepIdx));
+        } else if (cue.kind === 'text') {
+            // 日志段走 504 的同一条单条播放：掉血飘字 / 血条 / 黄闪 / 逐字，与主流程一致
+            const fact = (step.log || [])[cue.logIndex];
+            const prepared = fact ? prepareLogEntry(fact) : null;
+            const list = Array.isArray(prepared) ? prepared : (prepared ? [prepared] : []);
+            for (const en of list) {
+                if (token !== S.cueToken) return;
+                if (en) await playSingleLogEntry(c, en, step, { value: true }, cue.logIndex);
+            }
         } else if (cue.action) {
             applyStageActionToStore(c, cue.action, pending);
-            if (hasShow(cue)) {
+            if (hasShow(cue, stepIdx)) {
                 try { await applyStageActionToFX(c, cue.action); } catch (e) { /* 单段特效失败不影响回看 */ }
             }
             if (token !== S.cueToken) return;

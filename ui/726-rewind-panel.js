@@ -115,7 +115,9 @@ function renderStatus() {
     const v = getView();
     if (!v.active) { hideBar(); return; }
     const cueNo = Math.min(v.cueIdx + 1, Math.max(1, v.cueCount));
-    _status.textContent = `第 ${v.stepIdx + 1}/${v.stepCount} 步 · 段 ${cueNo}/${v.cueCount} · ${v.label || ''}`;
+    const tag = v.show ? '🎬 有演出' : '·  纯数据';
+    _status.textContent = `第 ${v.stepIdx + 1}/${v.stepCount} 步 · 段 ${cueNo}/${v.cueCount} · ${v.label || ''} · ${tag}`;
+    _status.style.color = v.show ? '#f5d76e' : '#9aa0a6';   // 有演出=金色，纯数据=灰色
     if (_playBtn) _playBtn.textContent = v.playing ? '⏸ 停' : '▶ 播放';
 }
 
