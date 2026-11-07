@@ -185,10 +185,17 @@ export function createTangWenLiangComponent() {
                 if (allyRes.ok) applyMoves(allyRes.moved, outLog);
 
                 // 真伤：当前生命 45%，上限「当前血 - 1」（冲刺不会致死，老板口径）
+                //   血量真值成对记下来（hpBefore/hpAfter）随 dash.hits 交给 fx/616：
+                //   演出层不许再从 store 反推——被动冲刺时 ATTACK 动作收尾已把这一刀写进 store，
+                //   反推等于二次扣血（老板报的「对方血条忽空忽满忽掉」）。
+                const targetHpBefore = target.hp;
                 const toFoe = Math.max(0, Math.min(Math.round(target.hp * dash.dmgRatio), Math.floor(target.hp) - 1));
                 if (toFoe > 0) applyStatChange(target, 'hp', -toFoe, tw, '冲刺·七伤齐发');
+                const targetHpAfter = target.hp;
+                const twHpBefore = tw.hp;
                 const toSelf = Math.max(0, Math.min(Math.round(tw.hp * dash.selfDmgRatio), Math.floor(tw.hp) - 1));
                 if (toSelf > 0) applyStatChange(tw, 'hp', -toSelf, null, '冲刺·七伤齐发自损', false);
+                const twHpAfter = tw.hp;
 
                 addRoleBonus(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士');
                 const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
@@ -220,10 +227,11 @@ export function createTangWenLiangComponent() {
                           dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: tw.pos, fromCamp: tw.camp,
                                   targetUid: target.uid, targetFromPos, targetToPos: target.pos, targetCamp: target.camp,
                                   moves,
-                                  // 子弹时间慢速档 ⑥ 伤害数字数据源（fx/94 按 uid 找格子浮字）
+                                  // 子弹时间慢速档 ⑥ 伤害数字数据源（fx/94 按 uid 找格子浮字）；
+                                  //   hpBefore/hpAfter 是引擎真值，fx/616 克隆体血条只认这两个值
                                   hits: [
-                                      toFoe > 0 ? { uid: target.uid, dmg: toFoe } : null,
-                                      toSelf > 0 ? { uid: tw.uid, dmg: toSelf } : null
+                                      toFoe > 0 ? { uid: target.uid, dmg: toFoe, hpBefore: targetHpBefore, hpAfter: targetHpAfter } : null,
+                                      toSelf > 0 ? { uid: tw.uid, dmg: toSelf, hpBefore: twHpBefore, hpAfter: twHpAfter } : null
                                   ].filter(Boolean) } });
                 }
             }
@@ -265,7 +273,8 @@ export function createTangWenLiangComponent() {
             //   优先级裸数字 12（晚于胖远桥出手声明 10；模块侧允许裸数字，同 AFTER_DAMAGE_APPLIED:55 先例）
             eventBus.on(SIGNAL_TYPES.AFTER_SELECT_TARGET, 12, (data) => {
                 if (data.unit !== tw || !tw.alive) return;
-                if (tw.state._pendingDeath) return;
+                // 与 core/209 行动入口同口径：已归零 / 待死 都不许再触发冲刺
+                if (tw.hp <= 0 || tw.state._pendingDeath) return;
                 const n = (tw.state._qiShangCount || 0) + 1;
                 tw.state._qiShangCount = n;
                 const idx = ((n - 1) % dash.cycle) + 1;
@@ -309,7 +318,8 @@ export function createTangWenLiangComponent() {
             //   优先级裸数字 60（晚于 55 的「自损量搬进攻击组」；AFTER_DAMAGE_APPLIED 无 QISHANG 键，故不引用层键）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
                 if (data.target !== tw || !tw.alive) return;
-                if (tw.state._pendingDeath) return;
+                // 与 core/209 行动入口同口径：hp 已归零（含本击刚打到 0、alive 尚未落地的窗口）不许再冲刺
+                if (tw.hp <= 0 || tw.state._pendingDeath) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === tw) return;

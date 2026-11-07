@@ -23,8 +23,9 @@ export const VER = 'fx/616-tangwenliang-dash.js V3.0.2';
 //   ④ performFinishingPunch 改为 CSS 标枪（shaft 64×8 + head 22px 三角），飞 400ms、扎中停留 200ms。
 //      语义说明：原版是「近战一拳」；主代码唐文亮冲刺后转战士、拳头语义更贴；但用户拍板标枪更精致，
 //      且标枪本就是唐文亮招牌——按用户指令改标枪，快版与慢速档统一。
-//   ⑤ 血条防剧透：引擎 doDash 先扣血，fx 拿到 dash 时 store 已是 hpAfter。入口按 hits 反推 hpBefore，
-//      克隆体用 hpBefore 初始化；碰撞帧 revealGhostHp 后再切到 store 当前值。
+//   ⑤ 血条防剧透：血量真值由引擎 modules/315 随 dash.hits 直接带过来（hpBefore/hpAfter），
+//      克隆体用 hpBefore 开场，碰撞帧 revealGhostHp 切到 hpAfter。
+//      不再从 store 反推——被动冲刺时 store 已被 ATTACK 收尾写成扣血后，反推等于二次扣血（血条忽空）。
 //      同时删掉原版慢速档/快版里「碰撞帧 store.dispatch(HP_CHANGE) 再扣一次」的双扣血
 //      （syncStoreFromStep 最终会覆盖回引擎值，但演出瞬态会显示多扣一次的血条）。
 //   ⑥ 卡片血条颜色阈值 50/20 → 70/40，与 render/403-grid-render 的格子色档对齐（原版两者不一致）。
@@ -64,9 +65,10 @@ function rectOfEl(el) {
 }
 
 // ============================== 血条防剧透 ==============================
-// 引擎 doDash 先 applyStatChange 扣血，fx 拿到 dash 时 store 已是 hpAfter。
-//   不处理的话克隆体开场就显示扣完的血 = 剧透。做法：入口按 hits 反推 hpBefore，
-//   克隆体用 hpBefore 初始化；碰撞帧 revealGhostHp 后放开给 guardTick 跟随 store。
+// 引擎 modules/315 doDash 在 dash.hits 里给出真值：hpBefore（冲刺前）/ hpAfter（applyStatChange 扣完后的实际值）。
+//   克隆体开场用 hpBefore（不剧透），碰撞帧 revealGhostHp 切到 hpAfter。
+//   不能从 store 反推：主动冲刺时 store 还没落账（是扣血前）、被动冲刺时 store 已是扣血后，
+//   同一个「反推公式」在两种触发时机必错一种。
 const _hpSnapshot = new Map();   // uid -> hpBefore（演出前血量）
 const _hpAfter = new Map();      // uid -> hpAfter（碰撞帧才揭晓的扣血后血量）
 const _hpRevealed = new Set();   // 已解密 uid（碰撞帧后可以显示扣血后）
@@ -77,20 +79,13 @@ function snapshotHpBefore(dash) {
     _hpAfter.clear();
     _hpRevealed.clear();
     _hpShown.clear();
-    const store = GlobalStore.get('battleStore');
-    if (!store) return;
-    const units = store.getState().units;
+    // 只搬运引擎给的真值，不再从 store 反推（那会把同一刀扣两次，见上）。
     for (const h of ((dash && dash.hits) || [])) {
         if (!h || h.uid == null || !(h.dmg > 0)) continue;
-        const u = units.find(x => x.uid === h.uid);
-        if (!u) continue;
-        // DASH 是 beforeText 动作：执行时 syncStoreFromStep 还没跑，store 里的 hp 本来就是扣血前，
-        //   直接用它当演出前血量。原来写 u.hp + h.dmg 是把这一刀算了两次——克隆体血条凭空涨一截。
-        const before = u.hp;
-        _hpSnapshot.set(h.uid, before);
-        _hpShown.set(h.uid, before);
-        // 扣血后血量预存一份：碰撞帧 revealGhostHp 时用它重绘，否则 store 此刻仍是扣血前，血条不降。
-        _hpAfter.set(h.uid, Math.max(0, before - h.dmg));
+        if (h.hpBefore == null || h.hpAfter == null) continue;
+        _hpSnapshot.set(h.uid, h.hpBefore);
+        _hpShown.set(h.uid, h.hpBefore);
+        _hpAfter.set(h.uid, h.hpAfter);
     }
 }
 
@@ -100,8 +95,8 @@ function revealGhostHp(uids) {
         _hpRevealed.add(uid);
         _hpShown.delete(uid);
     }
-    // 碰撞帧直接重绘成「扣血后」：store 此刻仍是扣血前（步末才 sync），
-    //   靠 guardTick 跟随 store 会让血条一直不降；这里用 _hpAfter 预存的扣血后血量手动重绘。
+    // 碰撞帧直接重绘成 payload 的 hpAfter：两种触发时机 store 的值不一样（主动=扣血前 / 被动=扣血后），
+    //   只有引擎真值可靠，所以这里不读 store 的血量。
     const store = GlobalStore.get('battleStore');
     if (!store) return;
     const units = store.getState().units;
@@ -452,7 +447,8 @@ async function showTangWenLiangDashSlow(dash) {
     }
     if (ghosts.length === 0) { cleanupAll(); return []; }
 
-    // 把 activeGhosts 指过去，让 guardTick 跟随 store 重绘血条
+    // 把 activeGhosts 指过去；注意 guardTick 在主链路没有调用点（只有 Z demo 演示页调用自己的副本），
+    //   生产里的血条揭晓由 revealGhostHp 完成，这里是给 demo 留的口子
     activeGhosts = ghosts;
 
     // 克隆体已画上 DOM，此时再隐藏真格（无缝替换，杜绝 store 阶段的提前隐身空窗期）
