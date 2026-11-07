@@ -674,7 +674,8 @@ function finalizeRoundEnd(A, B, ctx) {
     if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => {
-            applyStatChange(u, 'hp', -u.hp, null, '战斗结束', false);
+            // ignoreCap=true：战斗结束/平局清算是状态收口而非受伤，不能被 _dmgCap 截断（否则死者 hp>0）
+            applyStatChange(u, 'hp', -u.hp, null, '战斗结束', false, true, true);
             u.alive = false;
             u.state._isDead = true;
             emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });

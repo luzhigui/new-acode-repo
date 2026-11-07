@@ -93,8 +93,10 @@ export function createTangWenLiangComponent() {
 
             // 只读扫描：算「unit 落到 targetPos」的推挤路径，不改任何 pos——
             //   落地必须走 applyMoves→moveUnitPosition（免疫守卫/POS_CHANGE 事件/战报行全在接口里，不许绕过 core/13）。
-            //   落点被免疫/飞天占 → 失败（外层换列）；路径中间遇免疫 → 失败（外层换列）；
-            //   路径中间遇飞天/附身 → 穿过（视同空位继续往后找）。
+            //   落点被免疫/飞天占 → 失败（外层换列）；路径中间遇免疫/飞天 → 也失败（外层换列）。
+            //   修（fuzz s127/r8）：飞天/附身单位的格子不能当「推挤目的地」——旧口径「穿过、视同空位继续往后找」
+            //     会让 9 号队友被推进 2 号（小昭·姊正附身腾空在那格），她一落地就和本格地面单位同占格。
+            //     她的 pos 在场期间始终保留、仍是活人，所以这一格只能当墙，不能当空格。
             function forceInsert(team, unit, targetPos) {
                 if (unit.pos === targetPos) return { ok: true, moved: [] };
 
@@ -117,19 +119,19 @@ export function createTangWenLiangComponent() {
                 const startIdx = path.indexOf(targetPos);
                 if (startIdx === -1) return { ok: false, reason: 'bad-pos', moved: [] };
 
-                let emptyIdx = -1, blocked = null;
+                let emptyIdx = -1, blocked = null, blockedReason = '';
                 for (let i = startIdx + 1; i < path.length; i++) {
                     const p = path[i];
                     const occ = team.find(u => u !== unit && u.pos === p && u.alive);
                     if (occ) {
-                        if (occ.state && occ.state._ctrlImmune) { blocked = occ; break; }  // 路径中间免疫 → 换列
-                        if (isAirborne(occ)) continue;   // 飞天/附身 → 穿过（视同空位）
+                        if (occ.state && occ.state._ctrlImmune) { blocked = occ; blockedReason = 'blocked-path-immune'; break; }  // 路径中间免疫 → 换列
+                        if (isAirborne(occ)) { blocked = occ; blockedReason = 'blocked-path-airborne'; break; }  // 飞天/附身格 → 当墙（推进入她格 = 落地同格）
                         continue;                        // 活人 → 继续往后
                     }
                     emptyIdx = i; break;
                 }
 
-                if (blocked) return { ok: false, reason: 'blocked-path-immune', blocked, moved: [] };
+                if (blocked) return { ok: false, reason: blockedReason, blocked, moved: [] };
                 if (emptyIdx === -1) return { ok: false, reason: 'full', moved: [] };
 
                 const moved = [];

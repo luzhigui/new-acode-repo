@@ -131,7 +131,8 @@ export function resolveDeaths(allySide, enemySide, log) {
     const died = [];
     for (const u of pending) {
         if (!u.state._pendingDeath) continue;
-        applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
+        // ignoreCap=true：死亡结算把血归零不是一次受伤，不许被 _dmgCap 截在 0 以上（否则 alive=false 却 hp>0）
+        applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false, true, true);
         u.alive = false;
         u.state._isDead = true;
         // 修字段 bug：标记时写的是 state._pendingDeath，清理时写成了顶层

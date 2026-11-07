@@ -1,5 +1,5 @@
 {
- "ver": "052919b2bf28b0e6e9cdf47f8087f2d9482fc0f0db185246ff9a4304676054e5",
+ "ver": "9b21057923eed0861524c9ab9935586e00fb6aaef665d65294683f3456e66658",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "b341ac49eef473aa0651f93bf71d6bd4925b8967ec2e0f6ce50c978bbc787717"
+   "ccacca1a8e651ecdb5363e33d5151bab2673bcc052754199ed7a9e27b0ba5746"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -61,11 +61,11 @@
   ],
   [
    "core/213-battle-attack-edge.js",
-   "845aa43bfb388d299e7db85a08890461cfe533866d151ca5535e008ff34789fb"
+   "13f9d1d4f3aed8c0b6b4394226b59f7f4fb059a7878572be7cc82991368541a9"
   ],
   [
    "core/214-battle-shared.js",
-   "4aef889d89e3da371ef5a026c69936393a73980468b091e36acd9f6625179404"
+   "e498cf3ee153779979835bc32cfbee945bbce34fd714e2d4e280c3dd6abc6d42"
   ],
   [
    "core/215-buff-effects.js",
@@ -281,7 +281,7 @@
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "e4bc95ae615c98bb9064f5803248734ceaf26ee8b6f32f8fd760d4a2a4d77e55"
+   "a4073e9531b9e8103c7ba4feb22d50e8959165a6cff8c458760bb2a65fed48fd"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",

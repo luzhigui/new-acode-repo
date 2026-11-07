@@ -109,7 +109,7 @@ export function getPresentationRng() { return _presentationRng || _battleRng; }
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {
-            applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
+            applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false, true, true);
             u.alive = false;
             u.state._isDead = true;
             if (!u.state._deathTime) u.state._deathTime = Date.now();
@@ -213,7 +213,9 @@ function previewHeal(target, raw, rawOnly = false) {
 
 // isHeal=false：本次 hp 抬升不是「治疗/吸血回复」语义（形态变换、生命上限同步、伤害回退、复活落账），
 //   不吃杨逍截脉的减疗。默认 true = 正常治疗语义。
-function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true) {
+// ignoreCap=true：死亡结算类的「把血归零」不是一次受伤，不吃 _dmgCap（否则被截在 0 以上 →
+//   出现 alive=false 却 hp=97 的分裂状态；fuzz s76/r35 平局清算即此路径）。
+function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false) {
     if (delta === 0 || !target || !target.alive) return false;
     // 天上无敌：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
     //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
@@ -225,7 +227,7 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     // 单次受伤上限（庄铮·断锤三式，字段 _dmgCap 单一来源）：收口所有直扣血出口
     //   （毒/反弹/真伤/自伤）。正规攻击路径会先在 core/12 applyAttackResult 截断 hpLoss，
     //   那里必须在死亡标记之前截，故两处都读同一字段、只各截一次。
-    if (field === 'hp' && delta < 0 && target.state && target.state._dmgCap > 0) {
+    if (field === 'hp' && delta < 0 && !ignoreCap && target.state && target.state._dmgCap > 0) {
         applied = Math.max(delta, -target.state._dmgCap);
     }
     // 打折口径收口到 previewHeal（公式单点维护，文案/飘字同源）。
@@ -300,7 +302,7 @@ function refreshMaxHp(target, source, reason) {
     newHp = Math.min(newHp, target.maxHp);
     const delta = newHp - oldHp;
     if (newHp <= 0) {
-        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死', false);
+        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死', false, true, true);
     } else if (delta !== 0) {
         applyStatChange(target, 'hp', delta, source, reason, false, false);
     }
