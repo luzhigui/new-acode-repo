@@ -1,5 +1,5 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-export const VER = 'ui/702-main-5v5-test.js V6.14.3';
+export const VER = 'ui/702-main-5v5-test.js V6.14.4';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -566,15 +566,162 @@ document.addEventListener('DOMContentLoaded', async function() {
         syncAutoModeButton: () => updateAutoModeButton()
     };
 
-    // Bug 快照：303 错误捕获面板的「🐞」/「复制Bug报告」会调用它，
-    // 截取当前后台记录供 AI 分析。
-    //
-    // ⚠️ 2026-11-05 实测：默认全量太肥（200 条 battleLog + 200 条 facts + 3 万字符 DOM 日志
-    //    ≈ 10 万字符 / 100KB），剪贴板和聊天框都吃不下。所以改成按 opts 限量：
-    //      精简档（默认）：日志 25 条 / 6 千字符 DOM 文本 ≈ 3 万字符，够定位问题
-    //      全量档（opts.full）：保留原来的 200 条 / 3 万字符，只在「下载Bug报告」时用
+    // Bug 现场切片（对症精简，目标 1~2KB）：
+    //   自动记录 → 只带报错涉及的 1~2 个单位 + 相关状态字段；
+    //   手动记录 → 带场上十人一行简表（名字/血/攻/防/站位/存活）。
+    //   两种都带：回合、当前 buff、最近 5 条战斗日志、播放进度、面板/加速状态、版本、时间。
+    function flattenBugLog(entries) {
+        return (entries || []).map(e => {
+            if (!e) return '';
+            if (typeof e === 'string') return e;
+            const parts = [];
+            if (Array.isArray(e.entries)) {
+                e.entries.forEach(x => { if (x && x.text) parts.push(stripTags(String(x.text))); });
+            } else if (e.text) {
+                parts.push(stripTags(String(e.text)));
+            }
+            return parts.join(' ').replace(/\s+/g, ' ').trim();
+        }).filter(Boolean);
+    }
+
+    function buildTargetedBugContext(hintText, opts) {
+        const hint = String(hintText || '');
+        const manual = !!(opts && opts.mode === 'manual');
+        const pickedUids = Array.isArray(opts && opts.picked) ? opts.picked : [];
+        const ui = getState.UI();
+        const all = [...((ui && ui.allyTeam) || []), ...((ui && ui.enemyTeam) || [])].filter(Boolean);
+        const byUid = new Map(all.map(u => [u.uid, u]));
+        const facts = (GlobalStore.get('battleFacts') || []).slice(-5);
+        const battleLog = GlobalStore.get('battleLog') || [];
+        const recentLog = flattenBugLog(battleLog.slice(-5)).map(s => s.slice(0, 60));
+
+        // 自动记录：报错文字点名的单位 → 最近 fact 里出现过的单位 → 最近日志点名的单位 → 前两个存活
+        let picked = all.filter(u => u.name && hint.includes(u.name)).slice(0, 2);
+        if (!picked.length) {
+            const uids = new Set();
+            const collect = (o, depth) => {
+                if (!o || typeof o !== 'object' || depth > 3) return;
+                if (typeof o.uid === 'string' && o.uid && byUid.has(o.uid)) uids.add(o.uid);
+                if (Array.isArray(o)) { o.forEach(v => collect(v, depth + 1)); return; }
+                for (const k of Object.keys(o)) {
+                    const v = o[k];
+                    if (v && typeof v === 'object') collect(v, depth + 1);
+                }
+            };
+            facts.forEach(f => collect(f && f.data, 0));
+            picked = [...uids].map(uid => byUid.get(uid)).filter(Boolean).slice(0, 2);
+        }
+        if (!picked.length) {
+            const logText = recentLog.join(' ');
+            picked = all.filter(u => u.name && logText.includes(u.name)).slice(0, 2);
+        }
+        if (!picked.length) picked = all.filter(u => u.alive).slice(0, 2);
+        const focused = pickedUids.map(uid => byUid.get(uid)).filter(Boolean);
+        if (manual && focused.length) picked = focused.slice(0, 2);
+        picked = picked.filter(Boolean);
+
+        // 只留与报错相关的状态字段；没命中就取前 5 个活跃字段
+        const activeKeysOf = (u) => Object.keys(u.state || {}).filter(k => {
+            const v = u.state[k];
+            if (v === null || v === undefined || v === 0 || v === false) return false;
+            return !(Array.isArray(v) && !v.length);
+        });
+        const activeKeys = new Set();
+        picked.forEach(u => activeKeysOf(u).forEach(k => activeKeys.add(k)));
+        const related = [...activeKeys].filter(k => hint.includes(k));
+        const compactVal = (v) => {
+            if (v === null || v === undefined || typeof v === 'number' || typeof v === 'boolean') return v;
+            if (typeof v === 'string') return v.length > 40 ? v.slice(0, 40) + '…' : v;
+            let s;
+            try { s = JSON.stringify(v); } catch (e) { s = String(v); }
+            if (s && s.length <= 60) return v;                 // 小对象/小数组保持结构，避免转义后更肥
+            return s ? s.slice(0, 60) + '…' : v;
+        };
+        const compactUnit = (u, withState) => {
+            const out = {
+                name: u.name, camp: u.camp, pos: u.pos,
+                hp: u.hp, maxHp: u.maxHp, alive: !!u.alive
+            };
+            if (withState) {
+                const keys = activeKeysOf(u);
+                const use = (related.length ? related.filter(k => keys.includes(k)) : keys).slice(0, 5);
+                const st = {};
+                use.forEach(k => { st[k] = compactVal(u.state[k]); });
+                out.state = st;
+            }
+            return out;
+        };
+
+        const units = manual
+            ? all.slice(0, 10).map(u => [
+                u.name, u.camp === 'ally' ? '明' : '六',
+                u.hp, u.maxHp, u.atk, u.def, u.pos, u.alive ? 1 : 0
+            ])
+            : picked.slice(0, 2).map(u => compactUnit(u, true));
+
+        const buffs = (getState.activeBuffs() || []).slice(-8).map(b => ({
+            key: b.key, name: b.name, target: b.target, remaining: b.remaining
+        }));
+
+        // 出错位置：报错文字里点到过的 buff/技能名；没有就退回最近一条日志
+        let skill = null;
+        try {
+            const buffCfg = CONFIG.BUFFS || {};
+            for (const k of Object.keys(buffCfg)) {
+                const cfg = buffCfg[k];
+                if (cfg && cfg.name && hint.includes(cfg.name)) { skill = cfg.name; break; }
+            }
+        } catch (e) { skill = null; }
+        if (!skill && related.length) {
+            const cfg = CONFIG.BUFFS && CONFIG.BUFFS[related[0]];
+            skill = (cfg && cfg.name) || related[0];
+        }
+
+        const out = {
+            ver: VER,
+            cfgVer: CFG_VER,
+            stage: getState.currentStage(),
+            round: ui && ui.round,
+            gs: getState.gs(),
+            paused: !!GlobalStore.get('isPaused'),
+            speed: GlobalStore.get('speed'),
+            nextRound: !!getState.waitingForNextRound(),
+            adjustMode: !!getState.adjustMode(),
+            buffIndex: GlobalStore.get('selectedBuffIndex'),
+            playStep: battleLog.length,
+            factTotal: (GlobalStore.get('battleFacts') || []).length,
+            mode: manual ? 'manual' : 'auto',
+            where: { skill: skill, lastAction: recentLog[recentLog.length - 1] || null },
+            actions: facts.map(f => f && f.factType).filter(Boolean),
+            log: recentLog,
+            buffs: buffs,
+            units: units,
+            autoLevel: getState.autoLevel()
+        };
+        if (manual) {
+            out.unitFields = ['名字', '阵营', '血', '血上限', '攻', '防', '站位', '存活'];
+            if (focused.length) out.focus = focused.map(u => u.name);
+        }
+        return out;
+    }
+
+    // 手动记录的角色选择：把场上十人（名字/阵营/站位）发给 303 面板
+    window.__BUG_UNITS__ = () => {
+        try {
+            const ui = getState.UI();
+            return [...((ui && ui.allyTeam) || []), ...((ui && ui.enemyTeam) || [])]
+                .filter(Boolean).slice(0, 10)
+                .map(u => ({ uid: u.uid, name: u.name, camp: u.camp, pos: u.pos, alive: !!u.alive }));
+        } catch (e) { return []; }
+    };
+
+    // Bug 快照：303 错误捕获面板的「🐞」会调用它。
+    //   默认 opts.targeted → 对症切片（1~2KB）；opts.full → 旧的全量档，只在「下载完整报告」时用。
     window.__BUG_CONTEXT__ = (opts) => {
         const full = !!(opts && opts.full);
+        if (opts && opts.targeted) {
+            return buildTargetedBugContext(opts.hint, { mode: opts.mode, picked: opts.picked });
+        }
         const limit = (opts && Number(opts.limit)) || (full ? 200 : 25);
         const domChars = full ? 30000 : 6000;
         const ui = getState.UI();

@@ -1,4 +1,5 @@
-export const VER = 'modules/303-error-capture.js V6.2.0';
+export const VER = 'modules/303-error-capture.js V6.2.1';
+// V6.2.1 | 2026-11-07 | 详细数据改为对症裁剪：只带相关 1~2 单位 + 活跃状态 + 最近 5 步日志（约 1~2KB）
 // V6.2.0 | 2026-11-07 | 🐞 改为轻量记录器：弹面板挑条目 + 备注 + 本地列表 + 清爽复制；全量导出收进列表
 
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -94,11 +95,22 @@ import { GlobalStore } from '../infra/104-global-store.js';
         }
     }
 
-    function collectBugContext(full) {
-        const ctx = { capturedAt: nowIso(), location: location.href, userAgent: navigator.userAgent };
+    // opts: { hint, mode: 'manual'|'auto', picked: [uid] }
+    // 带 opts 时走「对症切片」：不再带 URL/UA，只留出错相关的现场证据。
+    function collectBugContext(full, opts) {
+        const targeted = !!(opts && (opts.hint || opts.mode));
+        const ctx = targeted ? { capturedAt: nowIso() }
+            : { capturedAt: nowIso(), location: location.href, userAgent: navigator.userAgent };
         try {
             if (typeof window.__BUG_CONTEXT__ === 'function') {
-                const extra = window.__BUG_CONTEXT__(full ? { full: true } : undefined);
+                const pass = full ? { full: true }
+                    : (targeted ? {
+                        targeted: true,
+                        hint: String(opts.hint || ''),
+                        mode: opts.mode === 'manual' ? 'manual' : 'auto',
+                        picked: Array.isArray(opts.picked) ? opts.picked : []
+                    } : undefined);
+                const extra = window.__BUG_CONTEXT__(pass);
                 if (extra && typeof extra === 'object') Object.assign(ctx, extra);
             }
         } catch (e) { ctx._contextError = String((e && e.stack) || e); }
@@ -242,6 +254,15 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const { box } = makeOverlay('bugRecorderOverlay');
         makeTitle(box, '🐞 记录 Bug');
 
+        let manualMode = false;
+        const chips = new Map();       // uid -> { btn, name }
+
+        // 手动入口：程序自己没报错、但肉眼看出不对时，也能直接新建
+        const manualBtn = makeBtn('✚ 我发现了问题（手动新建）', false);
+        manualBtn.style.cssText +=
+            'width:100%;margin-bottom:10px;border-color:#d48a2a;color:#ffcf7a;background:#2a1a08;';
+        box.appendChild(manualBtn);
+
         const candidates = bugRecords.filter(r => r.type === 'error' || r.type === 'warn');
 
         // 小标题 + 全选/全不选
@@ -266,7 +287,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const picks = [];
         if (!candidates.length) {
             const empty = document.createElement('div');
-            empty.textContent = '本次会话没有错误/告警，可以直接写备注保存。';
+            empty.textContent = '本次会话没有错误/告警，点「我发现了问题」直接写。';
             empty.style.cssText = 'padding:12px;font-size:12px;color:#9a8a6a;text-align:center;';
             listBox.appendChild(empty);
         } else {
@@ -297,7 +318,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         allBtn.onclick = () => picks.forEach(p => { p.input.checked = true; });
         noneBtn.onclick = () => picks.forEach(p => { p.input.checked = false; });
 
-        // 用户备注
+        // 用户备注 / 手动问题描述
         const noteLabel = document.createElement('div');
         noteLabel.textContent = '我当时在干什么？（可不填）';
         noteLabel.style.cssText = 'font-size:12px;color:#cbb98f;margin-bottom:5px;';
@@ -310,6 +331,60 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'padding:8px;font-size:14px;line-height:1.4;margin-bottom:10px;';
         box.appendChild(note);
 
+        // 手动记录：可选点一下涉及的角色（不点也行）
+        const unitBar = document.createElement('div');
+        unitBar.style.cssText = 'display:none;margin:-2px 0 10px;';
+        const unitLabel = document.createElement('div');
+        unitLabel.textContent = '涉及角色（可选，点一下选中）';
+        unitLabel.style.cssText = 'font-size:12px;color:#cbb98f;margin-bottom:5px;';
+        const chipWrap = document.createElement('div');
+        chipWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+        unitBar.appendChild(unitLabel); unitBar.appendChild(chipWrap);
+        box.appendChild(unitBar);
+
+        const buildUnitChips = () => {
+            chipWrap.innerHTML = '';
+            chips.clear();
+            let list = [];
+            try { list = (typeof window.__BUG_UNITS__ === 'function' ? window.__BUG_UNITS__() : []) || []; }
+            catch (e) { list = []; }
+            if (!list.length) {
+                const none = document.createElement('div');
+                none.textContent = '当前没有可点的角色（没开打也能直接写描述保存）';
+                none.style.cssText = 'font-size:11px;color:#8d7d5f;';
+                chipWrap.appendChild(none);
+                return;
+            }
+            list.forEach(u => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = u.name;
+                b.style.cssText =
+                    'min-height:32px;padding:4px 10px;border-radius:16px;font-size:12px;cursor:pointer;' +
+                    'background:#2a1d10;color:#e8d9b5;border:1px solid #7a5c2e;';
+                b.onclick = () => {
+                    const on = b.dataset.on === '1';
+                    b.dataset.on = on ? '0' : '1';
+                    b.style.background = on ? '#2a1d10' : '#6b4a12';
+                    b.style.borderColor = on ? '#7a5c2e' : '#ffd700';
+                    b.style.color = on ? '#e8d9b5' : '#ffe9a8';
+                };
+                b.title = (u.camp === 'ally' ? '明教' : '六大派') + ' · 站位 ' + (u.pos || '?');
+                chipWrap.appendChild(b);
+                chips.set(u.uid, { btn: b, name: u.name });
+            });
+        };
+
+        manualBtn.onclick = () => {
+            manualMode = true;
+            noteLabel.textContent = '问题描述（手动记录，必填）';
+            note.placeholder = '一句话说清哪里不对，例如：张三丰放大招时特效没出来';
+            unitBar.style.display = 'block';
+            if (!chips.size) buildUnitChips();
+            status.textContent = '手动记录：写一句问题描述即可，0 报错也能存';
+            try { note.focus(); } catch (e) {}
+        };
+
         // 附带详细数据
         const detailRow = document.createElement('label');
         detailRow.style.cssText =
@@ -319,7 +394,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         detailCb.type = 'checkbox';
         detailCb.style.cssText = 'width:18px;height:18px;accent-color:#ffd700;flex:0 0 auto;';
         const detailTxt = document.createElement('span');
-        detailTxt.textContent = '附带详细数据（单位/状态/战斗日志，体积较大）';
+        detailTxt.textContent = '自动记录时附带现场切片（手动记录默认就带，约 1~2KB）';
         detailRow.appendChild(detailCb); detailRow.appendChild(detailTxt);
         box.appendChild(detailRow);
 
@@ -350,29 +425,48 @@ import { GlobalStore } from '../infra/104-global-store.js';
         saveBtn.onclick = () => {
             const selected = picks.filter(p => p.input.checked).map(p => p.rec);
             const noteVal = note.value.trim();
-            if (!selected.length && !noteVal) {
-                status.textContent = '至少勾一条错误，或者写一句备注';
+            const mode = (manualMode || !selected.length) ? 'manual' : 'auto';
+            if (mode === 'manual' && !noteVal) {
+                status.textContent = '请写一句问题描述（哪里不对、你本来期待什么）';
+                try { note.focus(); } catch (e) {}
                 return;
             }
+            if (!selected.length && !noteVal) {
+                status.textContent = '至少勾一条错误，或者点「我发现了问题」写一句描述';
+                return;
+            }
+            const unitNames = [];
+            const unitUids = [];
+            chips.forEach((v, uid) => {
+                if (v.btn.dataset.on === '1') { unitUids.push(uid); unitNames.push(v.name); }
+            });
             const rec = {
                 id: String(Date.now()) + '-' + Math.floor(Math.random() * 1000),
                 createdAt: nowIso(),
+                mode,
                 entries: selected.map(r => ({ time: r.time, type: r.type, summary: r.summary })),
                 note: noteVal,
+                units: unitNames,
                 hasDetail: false
             };
-            if (detailCb.checked) {
+            // 手动记录默认就抓现场切片；自动记录按勾选
+            if (mode === 'manual' || detailCb.checked) {
                 rec.hasDetail = true;
                 try {
-                    const ctx = collectBugContext(false);          // 精简档：够排查，体积可控
+                    const ctx = collectBugContext(false, {
+                        hint: [selected.map(r => r.text).join('\n'), noteVal].filter(Boolean).join('\n'),
+                        mode,
+                        picked: unitUids
+                    });
                     rec.detail = ctx;
                     if (JSON.stringify(ctx).length > MAX_DETAIL_CHARS) {
                         rec.detail = {
                             capturedAt: ctx.capturedAt,
-                            note: '详细数据超过 ' + Math.round(MAX_DETAIL_CHARS / 10000) + ' 万字符，已省略',
-                            location: ctx.location
+                            note: '详细数据超过 ' + Math.round(MAX_DETAIL_CHARS / 10000) + ' 万字符，已省略'
                         };
                     }
+                    try { rec.detailBytes = new Blob([JSON.stringify(rec.detail)]).size; }
+                    catch (e) { rec.detailBytes = JSON.stringify(rec.detail).length; }
                 } catch (e) { rec.detail = { error: String(e) }; }
             }
             const arr = loadSaved();
@@ -380,7 +474,9 @@ import { GlobalStore } from '../infra/104-global-store.js';
             while (arr.length > MAX_SAVED) arr.shift();
             if (!writeSaved(arr)) return;
             closePanels();
-            showToast('已保存到本地列表（共 ' + arr.length + ' 条）');
+            showToast('已保存' +
+                (rec.hasDetail ? '（现场切片 ' + (rec.detailBytes / 1024).toFixed(1) + 'KB）' : '') +
+                '，列表共 ' + arr.length + ' 条');
         };
         listBtn.onclick = openSavedList;
         closeBtn.onclick = closePanels;
@@ -390,9 +486,17 @@ import { GlobalStore } from '../infra/104-global-store.js';
     function buildSavedCopyText(list) {
         const lines = ['【Bug 记录】共 ' + list.length + ' 条', ''];
         list.forEach((r, i) => {
+            const t = fmtTime(r.createdAt);
+            const manual = r.mode === 'manual';
             const sums = (r.entries || []).map(e => e.summary).filter(Boolean).join('；');
-            lines.push((i + 1) + '. ' + fmtTime(r.createdAt) + ' ｜ ' + (sums || '（只写了备注）'));
-            if (r.note) lines.push('   备注：' + r.note);
+            if (manual) {
+                lines.push((i + 1) + '. ' + t + ' ｜ [手动] ' + (r.note || '（无描述）'));
+                if ((r.units || []).length) lines.push('   角色：' + r.units.join('、'));
+                if (sums) lines.push('   同时选中报错：' + sums);
+            } else {
+                lines.push((i + 1) + '. ' + t + ' ｜ [自动] ' + (sums || r.note || '（无摘要）'));
+                if (sums && r.note) lines.push('   备注：' + r.note);
+            }
         });
         return lines.join('\n');
     }
@@ -409,7 +513,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
 
         if (!list.length) {
             const empty = document.createElement('div');
-            empty.textContent = '还没有记录。点「继续记录」挑一条错误保存。';
+            empty.textContent = '还没有记录。点「继续记录」，挑错误或点「我发现了问题」手动新建。';
             empty.style.cssText = 'padding:18px;font-size:12px;color:#9a8a6a;text-align:center;';
             listBox.appendChild(empty);
         } else {
@@ -420,9 +524,26 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     'border:1px solid #5a4630;border-radius:9px;background:#140f09;' +
                     'padding:9px 10px;margin-bottom:8px;';
                 const head = document.createElement('div');
-                head.textContent = fmtTime(rec.createdAt) + ' ｜ ' + (rec.entries || []).length + ' 条错误';
+                const manual = rec.mode === 'manual';
+                const errCount = (rec.entries || []).length;
+                head.textContent = fmtTime(rec.createdAt) +
+                    ' ｜ ' + (manual ? '手动记录' : (errCount + ' 条错误')) +
+                    (rec.hasDetail && rec.detailBytes ? ' · 切片 ' + (rec.detailBytes / 1024).toFixed(1) + 'KB' : '');
                 head.style.cssText = 'font-size:11px;color:#8d7d5f;margin-bottom:5px;';
                 card.appendChild(head);
+
+                if (manual) {
+                    const n = document.createElement('div');
+                    n.textContent = (rec.note || '（无描述）');
+                    n.style.cssText = 'font-size:13px;color:#ffcf7a;word-break:break-word;margin-bottom:3px;';
+                    card.appendChild(n);
+                    if ((rec.units || []).length) {
+                        const u = document.createElement('div');
+                        u.textContent = '角色：' + rec.units.join('、');
+                        u.style.cssText = 'font-size:12px;color:#cbb98f;margin-bottom:3px;';
+                        card.appendChild(u);
+                    }
+                }
 
                 if ((rec.entries || []).length) {
                     const ul = document.createElement('div');
@@ -434,7 +555,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     });
                     card.appendChild(ul);
                 }
-                if (rec.note) {
+                if (!manual && rec.note) {
                     const n = document.createElement('div');
                     n.textContent = '备注：' + rec.note;
                     n.style.cssText = 'font-size:12px;color:#b8d48a;word-break:break-word;margin-top:4px;';
