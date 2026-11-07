@@ -2,7 +2,9 @@
 //   系统行（回合开始/结束/台词/不争/连击摘要）+ 离散精英项（幻影识破迷惑/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）13 条整块迁入。
 //   「misc」不是垃圾桶：它是「不归回血/控制位移/属性召唤三族」的剩余——系统行与跨族离散事件。
 //   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
-export const VER = 'render/411-facts-misc.js V1.1.1';
+// V1.1.2 | 2026-11-07 第 184 轮：幻影迷惑来源词按 fact.sourceSkill 取（幻影伪装 / 蝶舞迷心 / 双面观音），
+//         | 成昆文案逐字不变；旧 fact 仍按 deceiverIsSpider 兜底。
+export const VER = 'render/411-facts-misc.js V1.1.2';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -123,13 +125,22 @@ export function renderNoContendFact(fact) {
 }
 
 // 成昆幻影伪装
+const PHANTOM_CONFUSE_TITLES = {
+    '幻影伪装': '🎭 幻影伪装！',
+    '蝶舞迷心': '🕷️ 蝶舞迷心！',
+    '双面观音': '🎭 双面观音！'
+};
 export function renderPhantomRevealFact(fact) {
     return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>`, phantomFlashUid: fact.deceiverUid };
 }
 export function renderPhantomConfuseFact(fact) {
-    // 来源由 modules/27 显式打标（deceiverIsSpider），渲染层不比英雄名。
-    const isSpider = fact.deceiverIsSpider === true;
-    return { type:'info', text:`<span class="gold">${isSpider ? '🕷️ 蝶舞迷心！' : '🎭 幻影伪装！'}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
+    // 来源词按事实自带的 sourceSkill 取（每个发射点必须打标），渲染层不猜英雄名：
+    //   成昆「幻影伪装」/ 小昭·兄「蝶舞迷心」/ 彭莹玉「双面观音」——同一条 PHANTOM_CONFUSE 三个来源，
+    //   战绩与体检也按 sourceSkill 区分归因，不再统统算到成昆头上。
+    //   兜底保留旧行为：只带 deceiverIsSpider 的旧 fact → 蝶舞迷心；其余 → 幻影伪装（成昆文案逐字不变）。
+    const title = PHANTOM_CONFUSE_TITLES[fact.sourceSkill]
+        || (fact.deceiverIsSpider === true ? PHANTOM_CONFUSE_TITLES['蝶舞迷心'] : PHANTOM_CONFUSE_TITLES['幻影伪装']);
+    return { type:'info', text:`<span class="gold">${title}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
 }
 
 // ── 注册 ────────────────────────────────────────────────

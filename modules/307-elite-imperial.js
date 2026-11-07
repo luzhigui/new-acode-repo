@@ -1,5 +1,7 @@
 // modules/307-elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
-export const VER = 'modules/307-elite-imperial.js V6.1.1';
+// V6.1.2 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='幻影伪装'（显式来源归因，
+//         渲染文案逐字不变——同一条事实另有小昭·兄/彭莹玉两个来源）
+export const VER = 'modules/307-elite-imperial.js V6.1.2';
 
 import { registerElite, registerLinkPartners } from '../core/208-registry-elite.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -193,7 +195,7 @@ function submitPhantomDisguiseTarget(data, decl) {
     const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u.state._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
     if (phantomTarget) {
         declaration.targetResult = phantomTarget;
-        declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name } };
+        declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name, sourceSkill: '幻影伪装' } };
     }
 }
 

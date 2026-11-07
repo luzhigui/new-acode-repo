@@ -1,5 +1,7 @@
 // modules/323-elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.2';
+// V1.2.3 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='蝶舞迷心'（显式来源归因，
+//         渲染文案逐字不变；deceiverIsSpider 保留给旧消费方）
+export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.3';
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { spawnHorse } from '../core/205-battle-horse.js';
@@ -190,9 +192,9 @@ export function createXiaoZhaoBrotherComponent() {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
-                        // 去名字字面量：deceiver 用本人名，另打 deceiverIsSpider 供渲染层分支
-                        //   （render/35 原先拿 fact.deceiver === '小昭·妹' 判蝶舞迷心，渲染层不该认英雄名）
-                        data.declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: data.unit.name, deceiver: brother.name, deceiverIsSpider: true, targetName: fakeTarget.name } };
+                        // deceiver 用本人名；sourceSkill 是渲染/归因的来源词（蝶舞迷心），
+                        //   deceiverIsSpider 保留给旧消费方（tests/phantom-confuse-brother-case 按它分分支）。
+                        data.declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: data.unit.name, deceiver: brother.name, deceiverIsSpider: true, targetName: fakeTarget.name, sourceSkill: '蝶舞迷心' } };
                     }
                 }
             }

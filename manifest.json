@@ -1,5 +1,5 @@
 {
- "ver": "a713b67aef22b1274021762824766aacbf711eb8b433b43cbb89f285e53c7504",
+ "ver": "8c4c683020f08c9b5031837bf4cb80a78016f25a1a47e7848ff2e9a7b033b291",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
@@ -249,7 +249,7 @@
   ],
   [
    "modules/307-elite-imperial.js",
-   "88a4a3d319f5cb326cdfd61ff09f4ba2152defbb5f0b8d32a89400e2e6a07601"
+   "3a350e168e48763f6b4989a2ebc5ce2df443e99abc6c8815d93ded3e56735512"
   ],
   [
    "modules/308-elite-sixsects.js",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
-   "42e4d464eaf24c9c32cf6404ddd6ecbf76a8532ee4f8cafdde5ab1a16ce1ba23"
+   "f16a00904db886ffb1101aaa057afdec99d4d4bf2bdf816c67cac87381d39f42"
   ],
   [
    "modules/324-elite-mingjiao-brother-laststand.js",
@@ -373,7 +373,7 @@
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
-   "69c7e1cea41f073ec8ade816e0e2f3addb07e2f11b98b2ab2afd6b775d9e3467"
+   "ff98ff2d34668e2f99ce47688c68687d7ea906727710814eea553181c27fc401"
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
@@ -477,7 +477,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "40119e899f833313c4756bd3804bae058b84f4b3f690aa0979b6dadfb56aa1fe"
+   "7b17ec25ae00238d6cbd33e803f53b33c162ad48f0b63e5d5174c8f87df2912b"
   ],
   [
    "render/412-facts-stat.js",

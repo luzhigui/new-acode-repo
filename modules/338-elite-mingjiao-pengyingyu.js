@@ -1,8 +1,10 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
+// V1.0.3 | 2026-11-07 | 误攻队友的 PHANTOM_CONFUSE fact 补 sourceSkill='双面观音'：
+//   渲染打「双面观音」、战绩/体检按来源区分归因（不再复用成昆的「幻影伪装」文案）
 // V1.0.2 | 2026-11-07 | 概率回调 disguiseChance 0.10 / openingChance 0.20；新增「假身是敌方唯一可选目标」→ 误攻队友
 // 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）进入假身，持续 {duration} 回合；
 //   假身期间自身造成的伤害 ×1.5。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.2';
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.3';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -92,7 +94,9 @@ export const doubleFaceHandler = {
                 data.declaration.targetResult = victim;
                 data.declaration.phantomFact = {
                     factType: FACT_TYPES.PHANTOM_CONFUSE,
-                    data: { unitName: data.unit.name, deceiver: self.name, targetName: victim.name }
+                    // sourceSkill 是这条事实的「来源词」：渲染按它打「双面观音」，
+                    //   战绩/体检也按它归因（不再和成昆的 PHANTOM_CONFUSE 混算）。
+                    data: { unitName: data.unit.name, deceiver: self.name, targetName: victim.name, sourceSkill: '双面观音' }
                 };
             }
         });
