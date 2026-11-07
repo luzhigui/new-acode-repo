@@ -13,7 +13,8 @@
 import { FACT_SPECS, validateFactContract } from '../infra/107-fact-contract.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/406-fact-registry.js V1.0.0';
+import { normalizeDisplayText } from './414-role-cards.js';
+export const VER = 'render/406-fact-registry.js V1.0.1';
 
 // 从 battleStore 按 uid 查单位快照（渲染端不持有活体引用，按需查询）
 // buff 摘要、成昆幻影等多处都要用，故放在本文件当公共设施
@@ -95,5 +96,18 @@ export function renderLog(type, data) {
     if (spec && !spec.renderFn) return null;   // 58 显式声明"无渲染"
     const renderer = getFactRenderer(type);
     if (!renderer) throw new Error(`未知渲染类型: ${type}`);
-    return renderer(data);
+    return applyDisplayNames(renderer(data));
+}
+
+// 战报/日志显示名统一出口（render/421）：只替换展示文本里的全名，
+//   结构化字段（doubleStrikeName / doubleStrikeNames 等体检判据用的原始名）保持原样。
+function applyDisplayNames(entry) {
+    if (!entry || typeof entry !== 'object') return entry;
+    if (typeof entry.text === 'string') entry.text = normalizeDisplayText(entry.text);
+    if (Array.isArray(entry.entries)) {
+        for (const it of entry.entries) {
+            if (it && typeof it.text === 'string') it.text = normalizeDisplayText(it.text);
+        }
+    }
+    return entry;
 }

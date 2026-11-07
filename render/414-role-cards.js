@@ -1,9 +1,32 @@
 // render/414-role-cards.js — 角色名片表（渲染层）：一张表管「格子图标 / 弹窗标记 / 日志标签 / 技能说明」四处显示
-export const VER = 'render/414-role-cards.js V2.0.0';
-
 import { getSkillDesc, getGameData } from '../core/201-config-5v5-test.js';
 import { baseHeroName } from '../core/202-unit.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
+
+export const VER = 'render/414-role-cards.js V2.0.1';
+
+// 显示名唯一出口（#16，老板 2026-11 定调）：数据名 / 机制键 / 归属判据一律不动，
+//   只把展示用的全名换算成短名 —— 金毛狮王谢逊 →「金毛狮王」（格子、幻影、战报/日志同源）。
+const SHORT_DISPLAY = {
+    '金毛狮王谢逊': '金毛狮王'
+};
+
+export function displayNameOf(unitOrName) {
+    const raw = (typeof unitOrName === 'string')
+        ? unitOrName
+        : ((unitOrName && unitOrName.name) || '');
+    return SHORT_DISPLAY[raw] || raw;
+}
+
+// 战报/日志文本出口：只替换展示文本，结构化字段（doubleStrikeName 等体检判据用的原始名）不动
+export function normalizeDisplayText(text) {
+    if (typeof text !== 'string') return text;
+    let out = text;
+    for (const full in SHORT_DISPLAY) {
+        if (out.indexOf(full) >= 0) out = out.split(full).join(SHORT_DISPLAY[full]);
+    }
+    return out;
+}
 
 // ctx 说明（由调用方 render/32 传入，都是「渲染时的临时状态」，不是身份）：
 //   isStunned / isDead —— 眩晕、死亡；pangTaunting —— 胖远桥本回合已锁敌
