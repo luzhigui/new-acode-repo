@@ -232,7 +232,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiN:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 单次受伤上限（0 = 不限）：core/13 直扣血与 core/12 攻击扣血两条出口共读这一个字段
+    // 单次受伤上限（0 = 不限）：core/13 直扣血与 core/12 攻击扣血两条出口共读这一个字段。
+    // 例外清单（`applyStatChange` 第 8 参 ignoreCap=true 的唯一合法调用方）：**只有 `killUnit`**——
+    //   「死亡收口把血归零」不是一次受伤，不吃本上限（否则会截在 0 以上，造出 alive=false 却 hp>0 的分裂状态）。
+    //   任何其它直扣血出口都不得传 true，否则本字段形同废止；契约正文见 core/214 applyStatChange 注释。
     _dmgCap:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 彭莹玉·双面观音（modules/338）：假身剩余回合 / 是否已进入过假身
     _crossdressRounds:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
