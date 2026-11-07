@@ -4,12 +4,12 @@
 // shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）必须拆开——
 //   预警按九位九形画全格（空位也罩住），命中只对有人的格。
 // 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
-export const VER = 'ui/720-hanlisa-aim.js V3.5.3';
+export const VER = 'ui/720-hanlisa-aim.js V3.5.4';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
-import { fmtHpText, fmtNum } from '../infra/102-core-utils.js';
+import { fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 
 /* ================= 音效（Web Audio 合成，蓄力轰鸣 → 轰出重低音） =================
    · 经 AudioManager 门控（enabled / sfxVolume），独立惰性 AudioContext（用户手势内创建）
@@ -179,7 +179,7 @@ function cardHtml(u) {
     //      最小宽度只算最长的一个词，窄屏下自然换行。
     return '<div class="cu"><span class="cell-icon">' + u.icon + '</span><div class="cell-info">' +
         '<span class="cell-name ' + (u.tier || '') + '">' + u.name + '</span>' +
-        '<span class="cell-stats">攻' + fmtNum(u.atk) + ' 防' + fmtNum(u.def) + ' <span class="' + hpCls(p) + '">血' + fmtHpText(u.hp) + '</span></span></div>' +
+        '<span class="cell-stats">攻' + fmtNum(fmtAtk(u.atk)) + ' 防' + fmtNum(u.def) + ' <span class="' + hpCls(p) + '">血' + fmtHpText(u.hp) + '</span></span></div>' +
         '<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:' + Math.round(p * 100) + '%;background:' + hpBar(p) + ';"></div></div></div>';
 }
 

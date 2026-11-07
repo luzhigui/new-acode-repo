@@ -1,9 +1,10 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
-export const VER = 'render/412-facts-stat.js V1.0.1';
+// V1.0.2 | 2026-11-08 攻击力显示下限：幼狮成长行攻文本包 fmtAtk（<0 显示 0），引擎负数真值不回写
+export const VER = 'render/412-facts-stat.js V1.0.2';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
-import { fmtNum } from '../infra/102-core-utils.js';
+import { fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 
 export function renderZhangSwitchFact(fact) {
     return [
@@ -164,7 +165,7 @@ export function renderSummonUnitFact(fact) {
 
 // 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
 export function renderLionGrowFact(fact) {
-    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fmtNum(fact.atk)} / 防 ${fmtNum(fact.def)} / 血 ${fmtNum(fact.maxHp)}</span>` };
+    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fmtAtk(fmtNum(fact.atk))} / 防 ${fmtNum(fact.def)} / 血 ${fmtNum(fact.maxHp)}</span>` };
 }
 
 // 流星溅射成长

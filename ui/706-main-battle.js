@@ -1,7 +1,7 @@
-export const VER = 'ui/706-main-battle.js V6.1.5';
+export const VER = 'ui/706-main-battle.js V6.1.6';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { SeededRNG, fmtHpText } from '../infra/102-core-utils.js';
+import { SeededRNG, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
 import { updateUI, renderGrid } from './703-ui-render-5v5-test.js';
@@ -298,7 +298,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
                 `${u.name}(${u.role} M${u.m})`,
                 u.isHorse ? getRoleLogTag(u) : '',
                 `站位${displayPos}`,
-                `攻${Math.floor(getStat(u, 'atk'))} 防${Math.floor(getStat(u, 'def'))}`,
+                `攻${fmtAtk(Math.floor(getStat(u, 'atk')))} 防${Math.floor(getStat(u, 'def'))}`,
                 `血${fmtHpText(u.hp)}/${fmtHpText(u.maxHp)}`,
                 aliveText,
                 (u.isZhang || u.isWei) ? getRoleLogTag(u) : ''

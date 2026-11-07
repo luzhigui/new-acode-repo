@@ -2,12 +2,13 @@
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
 
-import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum } from '../infra/102-core-utils.js';
+import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 import { getStat } from '../core/214-battle-shared.js';
 import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-export const VER = 'render/407-facts-attack.js V1.5.4';
+// V1.5.5 | 2026-11-08 攻击力显示下限：命中/闪避/免疫/波动行攻文本一律包 fmtAtk（<0 显示 0），引擎负数真值不回写
+export const VER = 'render/407-facts-attack.js V1.5.5';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -21,7 +22,7 @@ export function renderMissFact(fact) {
         uidD: fact.target.uid,
         entries: [
             // 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
-            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtNum(fact.attacker.atk)} 血${fmtHpText(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHpText(fact.target.hp)})`},
+            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtAtk(fmtNum(fact.attacker.atk))} 血${fmtHpText(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHpText(fact.target.hp)})`},
             {type:'info', text:`<span class="gray">未命中！</span>`}
         ],
         isMiss:true,
@@ -51,7 +52,7 @@ export function renderDodgeFact(fact) {
         _events: fact.events || []
     };
 
-    dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fact.attackerAtk} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.dodgerDef} 血${fmtHpText(fact.dodgerHp)})`});
+    dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.dodgerDef} 血${fmtHpText(fact.dodgerHp)})`});
     dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fact.reboundDmg} 真实伤害（${fmtHpText(fact.attackerHpBefore)} → ${fmtHpText(fact.attackerHpAfter)}）</span>`});
 
     if (fact.weiHeal) {
@@ -90,7 +91,7 @@ export function renderAttackFact(fact) {
     const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const campD = target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
-    const displayAtk = snap.attackerAtkDisplay !== undefined ? snap.attackerAtkDisplay : Math.floor(getStat(unit, 'atk'));
+    const displayAtk = fmtAtk(snap.attackerAtkDisplay !== undefined ? snap.attackerAtkDisplay : Math.floor(getStat(unit, 'atk')));
     const displayDef = snap.targetDefDisplay !== undefined ? snap.targetDefDisplay : Math.floor(getStat(target, 'def'));
     const unitHpBefore = snap.attackerHp !== undefined ? snap.attackerHp : fmtHp(unit.hp);
     const targetHpAfter = snap.targetHpAfter !== undefined ? snap.targetHpAfter : fmtHp(target.hp);
@@ -144,7 +145,7 @@ export function renderAttackFact(fact) {
         if (b) group.entries.unshift(b);
     }
     if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) group.entries.push(_pf); }
-    group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 减伤${dmgCalc.hpBonus}</span>`});
+    group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(dmgCalc.atkBase)}→${fmtAtk(dmgCalc.atkAct)} 防${dmgCalc.defBase}→${dmgCalc.defAct} 减伤${dmgCalc.hpBonus}</span>`});
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     if (dmgCalc.trueDmg > 0) {
@@ -252,7 +253,7 @@ export function renderImmuneFact(fact) {
         uidD:target.uid,
         entries:[{
             type:'combat-text',
-            text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fact.attackerAtk} 血${fmtHpText(fact.attackerHp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.targetDef} 血${fmtHpText(fact.targetHp)})`
+            text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.targetDef} 血${fmtHpText(fact.targetHp)})`
         }],
         hpAfter: target.hp,
         alive: target.alive,
@@ -274,7 +275,7 @@ export function renderImmuneFact(fact) {
     // 把波动行、伤害行照样补全（与命中战斗同款，只是结果被免疫）
     if (fact.dmgCalc) {
         const calc = fact.dmgCalc;
-        immuneGroup.entries.push({type:'detail', text:`<span class="gray small">波动：攻${calc.atkBase}→${calc.atkAct} 防${calc.defBase}→${calc.defAct} 减伤${calc.hpBonus}</span>`});
+        immuneGroup.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(calc.atkBase)}→${fmtAtk(calc.atkAct)} 防${calc.defBase}→${calc.defAct} 减伤${calc.hpBonus}</span>`});
         immuneGroup.entries.push({
             type: 'damage-text',
             dmg: 0,

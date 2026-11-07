@@ -1,5 +1,5 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.7.6';
+export const VER = 'core/204-buff-system.js V6.7.7';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -272,8 +272,9 @@ export function spawnUnityRecruits(team, log) {
 }
 
 // 众志成城·单次补员（团队补员与妹永久召唤共用）：随机空位 + 池内随机 + 精英技能全开 + 属性下限钳制。
-//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开）；属性下限：攻 <1 归 0
-//   （0 攻走 core/11 pass 不攻击）、防 <5 补到 5、生命上限 <25 补到 25；口径同 spawnHorse/spawnUnit(stats)：
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开）；属性下限：防 <5 补到 5、
+//   生命上限 <25 补到 25。攻击力不钳制（老板定案 2026-11-08）：吃职业加成后为负就照实数存 atk/_baseAtk/_initAtk，
+//   只在显示层把 <0 显示成 0；≤0 攻仍走 core/11 pass 不攻击。口径同 spawnHorse/spawnUnit(stats)：
 //   建人阶段直接写基础值并同步 state._base* / _init*（getStat 只认 _base*，不回写则加成后仍读旧值）+ 满血 hp。
 //   重名保护取消（定案「完全真技能」）：补员精英不降级白板，组件多实例化由 core/11 传 self 支撑。
 export function spawnOneUnityRecruit(team, log, m, byName) {
@@ -291,7 +292,6 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
     if (landPos == null) return null;   // 9 格全被活人占：放弃本次落位
     const pick = pool[rng.nextInt(0, pool.length - 1)];
     const recruit = spawnUnit(team, pick.name, m, pick.role, landPos);
-    if (recruit.atk < 1) { recruit.atk = 0; recruit.state._baseAtk = 0; recruit.state._initAtk = 0; }
     if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
     if (recruit.maxHp < 25) {
         recruit.maxHp = 25;

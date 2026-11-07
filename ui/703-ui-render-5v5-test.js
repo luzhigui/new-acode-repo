@@ -1,14 +1,15 @@
 // V6.1.4 | 2026-11-07 血量显示下限：面板血量文本改 fmtHpText（存活 <1 显示 1），百分比/血条仍用原始 hp
+// V6.1.5 | 2026-11-08 攻击力显示下限：详情面板攻分解文本改 fmtAtk（<0 显示 0），底数/词条计算仍用实数
 // V6.1.2 | 2026-11-07 #13：小昭详情面板补「变身次数/职业 + 变身/精通属性累计」两行，读引擎 _mods/_roleCounts
 // V6.1.3 | 2026-11-07 #13 收口：成长/精通两行只在妹妹（isXiaoZhaoBrother）分支显示，姐姐只保留永久海克斯那行
 //          #16 面板表头吸顶：标题+关闭叉常驻不滚，只有内容区独立 overflow-y:auto
-export const VER = 'ui/703-ui-render-5v5-test.js V6.1.4';
+export const VER = 'ui/703-ui-render-5v5-test.js V6.1.5';
 
 // getSkillDesc 已下沉到 ui/710-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/214-battle-shared.js';
 import { getSkillParams, CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleSkills } from './710-role-cards.js';   // 漏 import 补上（详情弹窗技能栏查名片表）
-import { fmtHpText, fmtNum } from '../infra/102-core-utils.js';
+import { fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 import { getMissBreakdown } from '../core/203-battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -103,7 +104,10 @@ function renderStatDetail(u, stat) {
     const base = u.state?.[baseKey] ?? u[stat] ?? 0;
     const mods = (u._mods && u._mods[stat]) || [];
     const final = getStat(u, stat);
-    if (mods.length === 0) return String(Math.floor(base));
+    // 攻文本走显示下限（<0 显示 0），底数/delta 仍用实数；其它属性不受影响
+    const baseText = String(stat === 'atk' ? fmtAtk(Math.floor(base)) : Math.floor(base));
+    const finalText = stat === 'atk' ? fmtNum(fmtAtk(final)) : fmtNum(final);
+    if (mods.length === 0) return baseText;
 
     const g = { permanent: { add: 0, mul: 0 }, round: { add: 0, mul: 0 }, attached: { add: 0, mul: 0 } };
     for (const m of mods) {
@@ -112,15 +116,15 @@ function renderStatDetail(u, stat) {
         else b.add += m.value;
     }
     const delta = (b) => b.add + base * b.mul;
-    const parts = [String(Math.floor(base))];
+    const parts = [baseText];
     const perm = delta(g.permanent);
     if (Math.abs(perm) >= 0.01) parts.push(`<span style="color:${perm > 0 ? 'var(--c-green)' : 'var(--c-danger)'};">${perm > 0 ? '+' : ''}${Math.floor(perm)}永</span>`);
     const att = delta(g.attached);
     if (Math.abs(att) >= 0.01) parts.push(`<span style="color:var(--c-gain);">${att > 0 ? '+' : ''}${Math.floor(att)}附身</span>`);
     const rnd = delta(g.round);
     if (Math.abs(rnd) >= 0.01) parts.push(`<span style="color:#ff8c00;">${rnd > 0 ? '+' : ''}${Math.floor(rnd)}临</span>`);
-    if (parts.length === 1) return String(Math.floor(base));
-    return parts.join(' ') + ' = <span style="color:var(--c-gain);font-weight:bold;">' + fmtNum(final) + '</span>';
+    if (parts.length === 1) return baseText;
+    return parts.join(' ') + ' = <span style="color:var(--c-gain);font-weight:bold;">' + finalText + '</span>';
 }
 
 function updateDetailPopupContent() {

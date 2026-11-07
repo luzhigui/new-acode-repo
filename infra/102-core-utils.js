@@ -1,4 +1,4 @@
-export const VER = 'infra/102-core-utils.js V6.1.4';
+export const VER = 'infra/102-core-utils.js V6.1.5';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';
 import { validateStoreValue } from './107-store-schema.js';
@@ -162,6 +162,12 @@ export function makeFXSnapshot(attacker, defender) {
 export function fmtNum(v) {
     if (typeof v !== 'number' || !isFinite(v)) return v;
     return v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
+}
+
+// 攻击力显示下限（老板规则 2026-11-08）：引擎保留负数攻击力真值（如众志补员吃防战 atk-8 加成后为负），
+//   只在显示出口把 <0 钳成 0，别让玩家看到「攻-7」。只做下限，不改调用点原有的取整口径（Math.floor/round/fmtNum）。
+export function fmtAtk(v) {
+    return typeof v === 'number' && v < 0 ? 0 : v;
 }
 
 // 血量数值快照入口（fact 字段 / 血条 / 动效目标值）：只取整，不加下限。

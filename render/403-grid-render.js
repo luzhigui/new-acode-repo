@@ -9,11 +9,12 @@
 //          的 slice 截掉——实战角色几乎都有 ≥2 个海克斯图标，所以永远看不见。改挂到技能图标之后、
 //          海克斯图标之前，保证触发者在常见情况下占住前两格；技能图标仍排第一。
 // V7.1.7 | 2026-11-07 血量显示下限：格子血量文本改 fmtHpText（存活 <1 显示 1），hpPct/血条宽度仍用原始 hp
+// V7.1.8 | 2026-11-08 攻击力显示下限：格子攻/虚影攻文本改 fmtAtk（<0 显示 0），引擎负数真值不回写
 // V7.1.6 | 2026-11-07 #16 显示名收口 render/414（displayNameOf）：本体与成昆幻影同走同一别名（金毛狮王谢逊 →
 //          「金毛狮王」），残影格同步；归属判据 / 数据名 / 日志结构化字段一律不动
-export const VER = 'render/403-grid-render.js V7.1.7';
+export const VER = 'render/403-grid-render.js V7.1.8';
 
-import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText } from '../infra/102-core-utils.js';
+import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { getDodgeRules } from '../core/221-registry-dodge.js';
 import { CONFIG, getSkillDesc, isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
@@ -129,7 +130,7 @@ export function renderGrid(id, camp) {
                 } else if (effectiveFlyMode === 'ghost') {
                     // 虚影分支不判眩晕/死亡（与原逻辑一致），只带嘲讽态
                     let roleIcon = getRoleIcon(unit, { isStunned: false, isDead: false, pangTaunting });
-                    const ghostAtk = unit._frozen?.atk !== undefined ? Math.floor(unit._frozen.atk) : Math.floor(getStat(unit,'atk'));
+                    const ghostAtk = fmtAtk(unit._frozen?.atk !== undefined ? Math.floor(unit._frozen.atk) : Math.floor(getStat(unit,'atk')));
                     const ghostDef = unit._frozen?.def !== undefined ? Math.floor(unit._frozen.def) : Math.floor(getStat(unit,'def'));
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${displayNameOf(unit)}</span><span class="cell-stats">攻${ghostAtk} 防${ghostDef} 血${fmtHpText(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
@@ -244,8 +245,8 @@ export function renderGrid(id, camp) {
         // 状态源唯一：攻/防都优先读引擎随 step 下发的本步真值（core/11 frozenValues →
         //   player/42 挂到 store 单位 _frozen），读不到才回落到 getStat 现算（老回放文件无 frozenValues 时）。
         //   原 def 走 _displayDef（从日志 snap 单点捞的补丁）已删——frozenValues 是它的正主。
-        const displayAtk = latestUnit._frozen?.atk !== undefined ? Math.round(latestUnit._frozen.atk) : Math.round(getStat(latestUnit, 'atk'));
-        const initAtk = latestUnit.state._initAtk !== undefined ? Math.round(latestUnit.state._initAtk) : displayAtk;
+        const displayAtk = fmtAtk(latestUnit._frozen?.atk !== undefined ? Math.round(latestUnit._frozen.atk) : Math.round(getStat(latestUnit, 'atk')));
+        const initAtk = fmtAtk(latestUnit.state._initAtk !== undefined ? Math.round(latestUnit.state._initAtk) : displayAtk);
         const totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
         if (totalChange > 0) atkDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${displayAtk}</span>`;
