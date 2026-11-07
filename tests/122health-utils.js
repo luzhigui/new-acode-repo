@@ -1,3 +1,8 @@
+// V6.7.6 | 2026-11-07 第 184 轮 checkActionRights 正常位名单补一项：唐文亮「冲刺·七伤齐发」声明即行动。
+//          病由：冲刺先 moveUnitPosition 改站位、再转近战战士，本回合剩下一拳走额外攻击通道（core/11 不再
+//          emit ON_UNIT_ACTED），战报只有一条 SKILL_ANNOUNCE('冲刺·七伤齐发') + TW_DASH_APPLY ⇒ 按旧口径
+//          被判「_acted=true 却查无出手」。修法与「突进」同款：只认**这一支具名机制**（skillName 精确匹配 +
+//          其专属 factType），**不**放宽成「有任一 fact/公告就算行动」，真·吞回合仍可抓。
 // V6.7.5 | 2026-11-05 checkFxDomAccumulation 阈值改为从 FX_POOL_SIZES 派生（镜像 fx/601 POOL_SIZES）：
 //          dmgFloat 6→12、.heal-float 12、DOM 总量 30→36。旧数字写死已随 2026-11-04 扩池过期，
 //          关卡2 实测「伤害飘字12个超池容量6」「特效DOM总量36个异常累积」两条均为假阳性（36 就是满编）。
@@ -21,7 +26,7 @@ import { getUnitCol, getUnitRow } from '../infra/102-core-utils.js';
 // V6.7.4（续迭代）：checkHpBarSync 同款修复——单位受击后引擎 hp 即时更新、DOM 血条动画回落约 0.7s，
 //   原判据见 |actual-expected|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
 //   改为追踪连续两次取样高度：仍变化=动画中跳过；稳定且仍偏离>5%=真·卡死/错位才报。
-export const VER = 'tests/122health-utils.js V6.7.5';
+export const VER = 'tests/122health-utils.js V6.7.6';
 
 // [模块级状态] 见 V6.7.3：死亡血条动画收敛追踪 + GAMEOVER 按钮稳定计时
 const _barPrev = new Map();      // uid -> 上次观测到的血条高度(%)，区分"动画回落中"与"卡死残留"
@@ -835,6 +840,17 @@ export function checkActionRights(roundFacts, units) {
         //   「有技能公告就算行动」——那会让「被打断/被吞回合」的真红也被放行，属判据放宽。
         if (f.factType === FACT_TYPES.SKILL_ANNOUNCE && d.skillName === '突进' && d.unitUid != null &&
             PRESS_FORWARD_RE.test(String(d.note || ''))) {
+            actedNormal.add(d.unitUid);
+        }
+        // 冲刺·七伤齐发即行动（第 184 轮，V6.7.6）：唐文亮的独立一手——先整列推挤落地（moveUnitPosition
+        //   只发 ON_UNIT_STATE_CHANGE、不发位移事件），再转近战战士；随后那一拳走额外攻击通道，
+        //   战报只留 SKILL_ANNOUNCE('冲刺·七伤齐发') 与其专属 TW_DASH_APPLY ⇒ 旧名单判「查无出手」。
+        //   ★ 与「突进」同款：只认 skillName 精确匹配的具名机制 + 它专属的位移事实，
+        //   **不**推广成「有公告就算行动」（否则被打断/被吞的真红全被放行）。
+        if (f.factType === FACT_TYPES.SKILL_ANNOUNCE && d.skillName === '冲刺·七伤齐发' && d.unitUid != null) {
+            actedNormal.add(d.unitUid);
+        }
+        if (f.factType === FACT_TYPES.TW_DASH_APPLY && d.unitUid != null) {
             actedNormal.add(d.unitUid);
         }
     }
