@@ -7,6 +7,8 @@ export const VER = 'tests/121health-monitor.js V6.11.1';
 //     单条硬上限 2KB（逐级降级：砍日志→砍动作→砍聚焦→砍十人）。
 //   ② 报告里以 <details> 折叠展示；「📋 复制报告」文本与 __healthResult.issues[].sliceText 都带完整切片，
 //     可一键复制/导出。切片纯取证、只读，不参与任何判定（recordIssue 仍只按原 detail 去重）。
+//   ③ 回合号兜底：规则多在 GAMEOVER 触发，UI.round 此时多为 0 —— 从 battleLog 末尾回溯最后一条
+//     「第N回合」分隔符，保证切片带真实回合；取不到才退回 ctx.UI.round。
 // V6.10.0 | 2026-11-04 双海克斯体检默认开启：开局点「六大派海克斯模式」按钮（btnGameEnemyHex）置 enemyAutoHex=true，
 //           六大派也自动选海克斯，覆盖双海克斯路径；?hexMode=single 退回单海克斯（点普通开始）。游戏本体双海克斯由
 //           ui/702 的 btnGameEnemyHex 触发（V1.3.0 core/206 的 enemyHexPicker），此前体检只走单海克斯，双海克斯路径从未被体检覆盖。
@@ -784,12 +786,30 @@ function checkPositionAfterSwap(ctx, attackEntry, unit, expectedPos) {
 //   口径：整场十人一行（名/阵营/血/上限/攻/防/位置/存活）+ 与报错点名单位的状态字段
 //   + 最近 6 条战斗日志 + 最近 10 个事实类型 + 版本/配置指纹/关卡/回合/seed。
 //   体积：单条约 1~2KB；切片只读，纯取证，不参与任何判定。
-function buildIssueSlice(detail, unitUid) {
+function buildIssueSlice(detail, unitUid, ctx) {
     const win = getWin();
     if (!win || typeof win.__BUG_CONTEXT__ !== 'function') return null;
     try {
         const base = win.__BUG_CONTEXT__({ targeted: true, mode: 'manual', hint: detail });
         if (!base) return null;
+        // 回合号（V6.11.1）：规则在 GAMEOVER 时触发，此时 UI.round 多为 0 —— 从战斗日志末尾
+        //   回溯最后一条「第N回合」分隔符，保证切片带的是本局真实回合而不是 0。只读，不改判定。
+        let roundNo = base.round;
+        if (!roundNo) {
+            try {
+                const bl = win.GlobalStore && win.GlobalStore.get('battleLog');
+                for (let bi = (bl && bl.length || 0) - 1; bi >= 0; bi--) {
+                    const e = bl[bi];
+                    let t = '';
+                    if (typeof e === 'string') t = e;
+                    else if (e && Array.isArray(e.entries)) t = e.entries.map(x => (x && x.text) || '').join(' ');
+                    else if (e && e.text) t = String(e.text);
+                    const m = t.match(/第(\d+)回合/);
+                    if (m) { roundNo = parseInt(m[1], 10); break; }
+                }
+            } catch (e) {}
+        }
+        if (!roundNo && ctx && ctx.UI && typeof ctx.UI.round === 'number') roundNo = ctx.UI.round;
         // 点名单位：auto 档按报错文字里的单位名自动聚焦，带出与报错相关的 state 字段（≤2 个）
         let focus = [];
         try {
@@ -803,7 +823,7 @@ function buildIssueSlice(detail, unitUid) {
         } catch (e) {}
         const sl = {
             ver: base.ver, cfgVer: base.cfgVer,
-            stage: base.stage, round: base.round, gs: base.gs, seed: seed,
+            stage: base.stage, round: roundNo, gs: base.gs, seed: seed,
             where: base.where,
             unitFields: base.unitFields || ['名字', '阵营', '血', '血上限', '攻', '防', '站位', '存活'],
             units: base.units || [],
@@ -858,7 +878,7 @@ function recordIssue(ctx, unitUid, type, detail, source, immediate) {
     }
     issueKeys.add(key);
     const stage = detectStage(getDoc()) || (ctx ? ctx.currentStage : 0) || 0;
-    detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString(), slice: buildIssueSlice(detail, unitUid) });
+    detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString(), slice: buildIssueSlice(detail, unitUid, ctx) });
     updateReport();
     updateStatusLine();
 }
