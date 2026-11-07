@@ -3,7 +3,9 @@
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
 // V1.0.6 | 2026-11-07 第 184 轮：补记 V1.0.5 未升版的实质改动——命中落地后对 hp<=0 目标补挂
 //          _pendingDeath（死亡标记唯一的正路出口，避免「血归零但待死标记没挂」的中间态）
-export const VER = 'core/212-battle-attack-chain.js V1.0.6';
+// V1.0.7 | 2026-11-08 出手攻击值下限：atkAct 取 max(1, atkBase+波动)，负攻（众志补员吃防战 -8）不再算出负伤害；
+//          普攻/反击/连击/严阵反弹全走这一处，属性与显示层仍保留负值/按 0 印
+export const VER = 'core/212-battle-attack-chain.js V1.0.7';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -224,7 +226,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let atkBase = Math.floor(getStat(unit, 'atk'));
     const rng = getBattleRng();
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
-    let atkAct = atkBase + atkVar, defAct = defBase + defVar;
+    // 出手攻击值下限（老板定案 2026-11-08）：属性可以是负攻（众志补员吃防战 atk-8），但参与公式的攻击值取 max(1, …)，
+    //   否则 atk×atk/(atk+def) 会算出负伤害（等价给敌人回血）。普攻/反击/连击/严阵反弹都走这一个 atkAct。
+    let atkAct = Math.max(1, atkBase + atkVar), defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
     // hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣（不能「先回血再加」——满血时被 maxHp 夹掉＝白给）。
     //   按 dmg 计数的链路（吸血/反伤/破防/统计）不受影响。
