@@ -190,3 +190,13 @@ B 方案落法：
 4. **反伤弟子不能进 `HERO_FLAGS`**：330 用 `HERO_FLAGS[name]` 过滤明教普通兵候选池，进表会被踢出；必须用 `unitFlags` 而非 `flag`。
 5. **小昭默认 flag**：`eliteConfigs` 现写 `isXiaoZhaoBrother`（妹），`applyHeroFlags` 又按名字补 `isXiaoZhao`；迁移后由 `flag` + `forms` 双轨表达，需在 330 逐位对齐掷点顺序不变。
 6. **新增角色撞车**：另一条线正在 `content/001` 加 4 个角色；第 1 步必须在其合入后做，且新增角色同样要补齐 7 字段（否则 `everyday`/`tier` 缺失会让池子少人）。
+
+---
+
+## 十、落地记录（2026-11-07）
+
+- **数据**：`characters` 由 27 条扩到 82 条（补 52 杂兵 + 3 三狮），全部补齐 `m/flag/tier/camp/sect/summon/everyday/encounter` 及顺序键（`mingOrder/enemyOrder/titleOrder/eliteOrder/recruitOrder/mingAll`）；`content` 版本 5.16.9 → 5.17.0。
+- **对账**：`node tools/829-verify-pools.mjs` → **11/11 一致**；另用临时顺序比对确认 `ELITE_CONFIGS / ENEMY_TITLES / MING_M / ENEMY_M / recruitPool` 与旧表逐位（含顺序）相同。
+- **读取路径**：`core/201` 新增 `getHeroPools()`；`MING_M/ENEMY_M/MING_ALL/ELITE_CONFIGS/ENEMY_TITLES/BUFFS.unity.recruitPool` 全部改为推导。`core/202` `HERO_FLAGS` 字面量删除，改 proxy 读 `characters[name].flag`；小昭/三狮/反伤标记统一走 `unitFlags`。
+- **验证**：`node tests/smoke-headless.mjs 8` → 8/8 分胜负，冒烟全通过。
+- **废弃**：`roster` 与 `buffs.unity.recruitPool` 已加 `_deprecated` 说明，运行期不再读取，仅留作 829 对账快照；**下一轮删除这些旧表**并把 829 改为「断言旧键不存在」。

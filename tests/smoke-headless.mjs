@@ -51,10 +51,9 @@ const toLoad = {
     stateKeys: 'core/218-state-keys.js',
     store: 'modules/306-battle-store.js',
     elites: 'modules/302-elite-skills.js',       // 副作用 import：注册 damageModifiers / xiaoHexEnhance 等 query
-    emp: 'modules/307-elite-imperial.js',
-    six: 'modules/308-elite-sixsects.js',
-    ming: 'modules/317-elite-mingjiao.js',
-    custom: 'modules/331-custom-effects.js',     // 副作用 import：注册 dotTick/damageReflect 等通用机制 handler（真实战斗的玄冥中毒/反弹依赖，漏导会致无头战斗抛"未知机制 type"）
+    // 机制装配统一走生产总入口 301（见 tests/_lib/install-mechanics.mjs）：
+    //   手抄 307/308/317/331 会漏 333/334/335，开局抛「未知顶层机制 type 未在 core/18 注册」。
+    mechanics: 'tests/_lib/install-mechanics.mjs',
     renderer: 'player/510-renderer.js',
     stageActions: 'render/402-stage-actions.js',
     factRenderer: 'render/401-fact-renderer.js'
@@ -69,7 +68,7 @@ console.log('\n=== 2. 数据 + 契约 ===');
 let game = null;
 try { await mods.cfg.loadHexEnhanceData(); ok('hexEnhance 数据加载 (content/201)'); }
 catch (e) { bad('hexEnhance 数据加载', e); }
-try { game = await mods.cfg.loadGameData(); ok(`gameData 加载 (${game.roster.mingAll.length} 明教 / ${Object.keys(game.characters).length} 角色)`); }
+try { game = await mods.cfg.loadGameData(); ok(`gameData 加载 (${mods.cfg.CONFIG.MING_ALL.length} 明教 / ${Object.keys(game.characters).length} 角色)`); }
 catch (e) { bad('gameData 加载', e); }
 
 try {
@@ -112,7 +111,7 @@ for (let seed = 1; seed <= rounds; seed++) {
     try {
         const rng = new SeededRNG(seed * 7919);
         // 明教：MING_M 里有的前 5 个；六大派：ENEMY_M 里取 5 个（含精英）
-        const allyNames = game.roster.mingAll.filter(n => mods.cfg.CONFIG.MING_M[n]).slice(0, 5);
+        const allyNames = mods.cfg.CONFIG.MING_ALL.filter(n => mods.cfg.CONFIG.MING_M[n]).slice(0, 5);
         const enemyNames = Object.keys(mods.cfg.CONFIG.ENEMY_M).slice(-9, -4);
         const ally = makeTeam(allyNames, CAMP_TYPES.ALLY, rng, mods.cfg.CONFIG.MING_M);
         const enemy = makeTeam(enemyNames, CAMP_TYPES.ENEMY, rng, mods.cfg.CONFIG.ENEMY_M);

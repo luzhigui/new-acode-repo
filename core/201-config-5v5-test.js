@@ -1,4 +1,6 @@
-export const VER = 'core/201-config-5v5-test.js V6.8.7';
+export const VER = 'core/201-config-5v5-test.js V6.9.0';
+// V6.9.0 | 2026-11-07 优化二·B 方案落地：角色池（mingM/enemyM/mingAll/eliteConfigs/enemyTitles/recruitPool）
+//        | 全部改由 characters 运行时推导，roster 旧表仅作对账快照（tools/829-verify-pools.mjs），不再被读取。
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 
@@ -228,18 +230,54 @@ export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSi
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。
 
+// ── 角色池推导：characters 是唯一真源（B 方案，2026-11-07）──
+//   规则/字段口径见 tools/829-verify-pools.mjs 与 05 迁移清单；roster 旧表不再被运行期读取。
+const HERO_ROLE_TAGS = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER,
+    ROLE_TYPES.JAVELIN, ROLE_TYPES.BUTTERFLY];
+
+function getHeroPools() {
+    const data = getGameData();
+    if (!data) throw new Error('gameData 未加载：角色池为 characters 推导，不能为空');
+    const H = data.characters;
+    const names = Object.keys(H);
+    const order = (key) => (a, b) => ((H[a][key] ?? 1e9) - (H[b][key] ?? 1e9));
+    const pick = (fn) => names.filter(fn);
+    const roleOf = (n) => (H[n].tags || []).find(t => HERO_ROLE_TAGS.includes(t)) || null;
+    const mapOf = (list) => Object.fromEntries(list.map(n => [n, H[n].m]));
+    const mingEveryday = pick(n => H[n].camp === '明教' && H[n].everyday).sort(order('mingOrder'));
+    const enemyEveryday = pick(n => H[n].camp === '六大派' && H[n].everyday).sort(order('enemyOrder'));
+    const titles = {};
+    for (const sect of data.roster.enemySects) {
+        // 门派名册 = enemyTitles 原成员（含何太冲这类「在名册里的弱精英」）；靠 titleOrder 标记，不按 tier 猜
+        titles[sect] = enemyEveryday.filter(n => H[n].sect === sect && H[n].titleOrder != null).sort(order('titleOrder'));
+    }
+    titles.default = data.roster.enemySects.map(s => `${s}弟子`);
+    const recruit = (camp) => pick(n => H[n].camp === camp && H[n].summon)
+        .sort(order('recruitOrder')).map(n => ({ name: n, role: roleOf(n) }));
+    return {
+        mingAll: pick(n => H[n].mingAll).sort(order('mingOrder')),
+        mingM: mapOf(mingEveryday),
+        enemyM: mapOf(enemyEveryday),
+        eliteConfigs: pick(n => H[n].camp === '明教' && (H[n].tier === 'boss' || H[n].tier === 'strong'))
+            .sort(order('eliteOrder'))
+            .map(n => ({ name: n, m: H[n].m, role: roleOf(n), flag: H[n].flag ?? H[n].forms?.brother?.flag ?? null, tier: H[n].tier })),
+        enemyTitles: titles,
+        recruitPool: { ally: recruit('明教'), enemy: recruit('六大派') }
+    };
+}
+
 const CONFIG = {
     get MING_ALL() {
-        return getGameData().roster.mingAll;
+        return getHeroPools().mingAll;
     },
     get MING_M() {
-        return getGameData().roster.mingM;
+        return getHeroPools().mingM;
     },
     get ENEMY_SECTS() {
         return getGameData().roster.enemySects;
     },
     get ENEMY_TITLES() {
-        return getGameData().roster.enemyTitles;
+        return getHeroPools().enemyTitles;
     },
     ROLES: [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
@@ -323,7 +361,10 @@ const CONFIG = {
         [ROLE_TYPES.WARRIOR]: 'assets/sfx_melee.mp3'
     },
     get BUFFS() {
-        return getGameData().buffs;
+        const b = getGameData().buffs;
+        if (!b || !b.unity) return b;
+        // 众志召唤池由 characters.summon 推导；其余 buff 配置原样透传
+        return { ...b, unity: { ...b.unity, recruitPool: getHeroPools().recruitPool } };
     },
     BUFF_ROLE_REQUIREMENTS: {
         bloodthirst: ROLE_TYPES.WARRIOR,
@@ -346,10 +387,9 @@ const CONFIG = {
     get ELITE_RATE() {
         return getGameData().roster.eliteRate;
     },
-    // 明教精英出场配置（name/m/role/flag/tier）——数据源 content.roster.eliteConfigs
-    // 加新精英：只改 content，不动代码
+    // 明教精英出场配置（name/m/role/flag/tier）——由 characters 推导（tier=boss/strong）
     get ELITE_CONFIGS() {
-        return getGameData().roster.eliteConfigs || [];
+        return getHeroPools().eliteConfigs;
     },
     // 六大派精英身份 → 站位优先数组（{ flag: [优先级数组] }）——数据源 content.roster.enemyElitePos
     // 加新精英：若需要固定站位就在 content 加一行
@@ -360,7 +400,7 @@ const CONFIG = {
         return getGameData().roster.normalPower;
     },
     get ENEMY_M() {
-        return getGameData().roster.enemyM;
+        return getHeroPools().enemyM;
     },
     get ENEMY_SQUADS() {
         return getGameData().encounters.enemySquads;

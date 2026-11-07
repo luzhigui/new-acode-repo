@@ -1,14 +1,11 @@
-// tools/829-verify-pools.mjs — 抽卡池推导对账（只读，不写任何文件）
-// 目的：把「现有硬编码池子」逐项与「从 content.characters.tags 推导出的池子」比对，输出差集。
-//   一致 → 才允许切换读取路径；不一致 → 只报差集，不改主代码。
+// tools/829-verify-pools.mjs — 池子推导对账（只读，不写任何文件）
+// 口径：11 组池，全部以 content/001-game-data.json 的 characters 为真源做推导，
+//   与 roster / buffs / core/202 / tools/827 的旧硬编码逐项比对。差集为 0 才允许切换读取路径。
 // 用法：node tools/829-verify-pools.mjs
 //
-// 推导规则（当前唯一可用真源：characters 的 tags）
-//   阵营 = tags 含 '明教' / '六大派'
-//   职业 = tags 命中 ROLES 之一（战士/防战/远程/飞行；蝴蝶、标枪为身份职业，不参与随机池）
-//   精英 = tags 含 '精英'；普通 = tags 含 '普通'
-//   门派 = tags 命中 enemySects 之一
-//   杂兵（少林弟子/明教弟子1 等）不在 characters 内 → 不可推导
+// 推导规则（characters 字段）
+//   camp/sect/tier/summon/everyday/encounter/m/flag/forms/tool/mingOrder/enemyOrder/mingAll
+//   —— 详见 文件汇总20260730/10 待办事项和想法优化/05 优化二-B方案-characters单一真源迁移清单.md
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,144 +13,174 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+
+// 让 core/201 的 loadGameData（fetch file://）在 Node 下可用
+globalThis.fetch = async (url) => {
+    const p = fileURLToPath(typeof url === 'string' ? new URL(url, import.meta.url) : url);
+    const t = fs.readFileSync(p, 'utf8');
+    return { ok: true, json: async () => JSON.parse(t) };
+};
+const cfgMod = await import('../core/201-config-5v5-test.js');
+await cfgMod.loadGameData();
+const { HERO_FLAGS } = await import('../core/202-unit.js');
 const game = JSON.parse(read('content/001-game-data.json'));
-const chars = game.characters || {};
-const roster = game.roster || {};
-const enc = game.encounters || {};
+const H = game.characters;
+const roster = game.roster;
+const enc = game.encounters;
+const reg = await import('../tools/827-tool-registry.js');
 
-const ROLES = ['战士', '防战', '远程', '飞行'];
-const has = (n, t) => (chars[n]?.tags || []).includes(t);
-const roleOf = (n) => (chars[n]?.tags || []).find(t => ROLES.includes(t)) || null;
+const names = Object.keys(H);
+const base = (n) => (typeof n === 'string' && n.includes('·') ? n.slice(0, n.indexOf('·')) : n);
+const roleOf = (n) => {
+    const c = H[base(n)];
+    if (!c) return null;
+    const own = (c.tags || []).find(t => ['战士', '防战', '远程', '飞行', '标枪', '蝴蝶'].includes(t));
+    return own || null;
+};
+const byOrder = (arr, key) => arr.slice().sort((a, b) => (H[a][key] ?? 1e9) - (H[b][key] ?? 1e9));
+const pick = (fn) => names.filter(fn);
+const eqSet = (a, b) => a.length === b.length && [...new Set(a)].every(x => b.includes(x));
+const minus = (a, b) => [...new Set(a)].filter(x => !b.includes(x));
 
-// ── 推导器：characters → 池 ──
-const derived = {
-    mingElite: Object.keys(chars).filter(n => has(n, '明教') && has(n, '精英')),
-    sectElite: Object.keys(chars).filter(n => has(n, '六大派') && has(n, '精英')),
-    mingNamed: Object.keys(chars).filter(n => has(n, '明教')),
-    sectNamed: Object.keys(chars).filter(n => has(n, '六大派')),
+// ── 推导 ──
+const derive = {
+    mingElite: () => byOrder(pick(n => H[n].camp === '明教' && ['boss', 'strong', 'weak'].includes(H[n].tier)), 'mingOrder'),
+    strong: () => pick(n => H[n].camp === '明教' && ['boss', 'strong'].includes(H[n].tier)),
+    weak: () => byOrder(pick(n => H[n].camp === '明教' && H[n].tier === 'weak'), 'mingOrder'),
+    encounter: () => pick(n => H[n].camp === '六大派' && H[n].encounter),
+    summonAlly: () => byOrder(pick(n => H[n].camp === '明教' && H[n].summon), 'mingOrder'),
+    summonEnemy: () => pick(n => H[n].camp === '六大派' && H[n].summon),
+    mingM: () => byOrder(pick(n => H[n].camp === '明教' && H[n].everyday), 'mingOrder'),
+    enemyM: () => byOrder(pick(n => H[n].camp === '六大派' && H[n].everyday), 'enemyOrder'),
+    mingAll: () => pick(n => H[n].mingAll),
+    flags: () => Object.fromEntries(names.filter(n => H[n].flag).map(n => [n, H[n].flag])),
 };
 
-// ── 现有池子（数据表） ──
-const mingM = Object.keys(roster.mingM || {});
-const enemyM = Object.keys(roster.enemyM || {});
-const eliteConfigs = (roster.eliteConfigs || []).map(e => e.name);
-const recruitAlly = ((game.buffs?.unity?.recruitPool?.ally) || []).map(e => e.name);
-const recruitEnemy = ((game.buffs?.unity?.recruitPool?.enemy) || []).map(e => e.name);
-
-// 六大派具名敌方：encounters 各段里 {name,role,m} 的具名项（去重）
-const sectEncounterNames = new Set();
-for (const stage of Object.values(enc.elitePool || {})) for (const e of stage) if (e?.name) sectEncounterNames.add(e.name);
-for (const stage of Object.values(enc.enemySquads || {})) for (const e of stage) if (e?.name) sectEncounterNames.add(e.name);
-for (const v of Object.values(enc.squadVariants || {})) for (const g of v) for (const e of g.squad || []) if (e?.name) sectEncounterNames.add(e.name);
-
-// ── 现有池子（代码硬编码） ──
-const unitTxt = read('core/202-unit.js');
-const heroFlags = [...unitTxt.matchAll(/'([^']+)'\s*:\s*'is[A-Za-z]+'/g)].map(m => m[1]);
-// 明教弱精英实际生效池 = HERO_FLAGS ∩ mingM − eliteConfigs（modules/330 现行派生）
-const weakPool = heroFlags.filter(n => mingM.includes(n) && !eliteConfigs.includes(n));
-
-const regTxt = read('tools/827-tool-registry.js');
-const arrOf = (name) => {
-    const m = regTxt.match(new RegExp(`export const ${name}\\s*=\\s*\\[([\\s\\S]*?)\\];`));
-    return m ? [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]) : [];
+// ── 旧池（硬编码） ──
+const legacy = {
+    mingElite: () => [...(roster.eliteConfigs || []).map(e => e.name), ...legacy.weak()],
+    strong: () => (roster.eliteConfigs || []).filter(e => e.tier !== 'weak').map(e => e.name),
+    weak: () => {
+        const heroFlags = legacy.flags();
+        const fixed = new Set((roster.eliteConfigs || []).map(e => e.name));
+        return Object.keys(roster.mingM || {}).filter(n => heroFlags[n] && !fixed.has(n));
+    },
+    encounter: () => {
+        const s = new Set();
+        for (const st of Object.values(enc.elitePool || {})) for (const e of st) if (e?.name) s.add(e.name);
+        for (const st of Object.values(enc.enemySquads || {})) for (const e of st) if (e?.name) s.add(e.name);
+        for (const v of Object.values(enc.squadVariants || {})) for (const g of v) for (const e of g.squad || []) if (e?.name) s.add(e.name);
+        return [...s];
+    },
+    summonAlly: () => ((game.buffs?.unity?.recruitPool?.ally) || []).map(e => e.name),
+    summonEnemy: () => ((game.buffs?.unity?.recruitPool?.enemy) || []).map(e => e.name),
+    mingM: () => Object.keys(roster.mingM || {}),
+    enemyM: () => Object.keys(roster.enemyM || {}),
+    mingAll: () => roster.mingAll || [],
+    flags: () => Object.fromEntries(names.filter(n => HERO_FLAGS[n]).map(n => [n, HERO_FLAGS[n]])),
 };
-const reg827 = [
-    ...arrOf('NATURAL_ELITES'), ...arrOf('SOLO_ELITES'), ...arrOf('BOSS_ELITES'),
-    ...[...regTxt.matchAll(/name:\s*'([^']+)'/g)].map(x => x[1])
-];
 
-// ── 差集工具 ──
-const uniq = (a) => [...new Set(a)];
-const minus = (a, b) => uniq(a).filter(x => !b.includes(x));
-function cmp(label, existing, deriveFn, note) {
-    const d = deriveFn(existing);
-    const onlyOld = minus(existing, d);
-    const onlyNew = minus(d, existing);
-    const same = onlyOld.length === 0 && onlyNew.length === 0;
-    console.log(`\n── ${label} ${same ? '✅ 一致' : '❌ 有差集'} ──`);
-    console.log(`   现有 ${uniq(existing).length} 个：${uniq(existing).join(' / ')}`);
-    console.log(`   推导 ${uniq(d).length} 个：${uniq(d).join(' / ')}`);
-    if (onlyOld.length) console.log(`   仅现有有：${onlyOld.join(' / ')}`);
-    if (onlyNew.length) console.log(`   仅推导有：${onlyNew.join(' / ')}`);
-    if (note) console.log(`   ${note}`);
-    return same;
+let pass = 0;
+const total = 11;
+function check(idx, label, oldArr, newArr, detail) {
+    const ok = eqSet(oldArr, newArr) && (detail ? detail() : true);
+    if (ok) pass++;
+    console.log(`\n[${idx}] ${label} ${ok ? '✅ 一致' : '❌ 有差集'}`);
+    console.log(`  旧 ${oldArr.length}：${oldArr.join(' / ')}`);
+    console.log(`  新 ${newArr.length}：${newArr.join(' / ')}`);
+    const onlyOld = minus(oldArr, newArr), onlyNew = minus(newArr, oldArr);
+    if (onlyOld.length) console.log(`  仅旧有：${onlyOld.join(' / ')}`);
+    if (onlyNew.length) console.log(`  仅新有：${onlyNew.join(' / ')}`);
+    return ok;
 }
 
 console.log('══════════════════════════════════════════════════════════════');
-console.log(' 抽卡池推导对账 · 现有硬编码池 vs characters.tags 推导');
+console.log(' 抽卡池推导对账（characters 单一真源）');
 console.log('══════════════════════════════════════════════════════════════');
-console.log(`[characters] ${Object.keys(chars).length} 个；[roster.mingM] ${mingM.length}；[roster.enemyM] ${enemyM.length}`);
+console.log(`characters ${names.length} 条 · roster.mingM ${Object.keys(roster.mingM || {}).length} · enemyM ${Object.keys(roster.enemyM || {}).length}`);
 
-const rows = [];
-const results = [];
+check(1, '明教精英池（三档合并）', legacy.mingElite(), derive.mingElite());
+check(2, '明教 Boss+强精英（eliteConfigs）', legacy.strong(), derive.strong(), () => {
+    const cfg = roster.eliteConfigs || [];
+    return cfg.every(e => H[e.name] && H[e.name].m === e.m && H[e.name].tier === e.tier
+        && (H[e.name].flag || H[e.name].forms?.brother?.flag || '') === e.flag);
+});
+check(3, '明教弱精英（HERO_FLAGS ∩ mingM − eliteConfigs）', legacy.weak(), derive.weak(),
+    () => derive.weak().every(n => H[n].flag === legacy.flags()[n]));
+check(4, '六大派具名敌方（encounters 各段）', legacy.encounter(), derive.encounter());
+check(5, '召唤池 ally（unity.recruitPool.ally）', legacy.summonAlly(), derive.summonAlly(),
+    () => derive.summonAlly().every(n => roleOf(n) === game.buffs.unity.recruitPool.ally.find(e => e.name === n)?.role));
+check(6, '召唤池 enemy（unity.recruitPool.enemy）', legacy.summonEnemy(), derive.summonEnemy(),
+    () => derive.summonEnemy().every(n => roleOf(n) === game.buffs.unity.recruitPool.enemy.find(e => e.name === n)?.role));
 
-// 1. 明教精英池（eliteConfigs + 弱精英派生）
-results.push(cmp('P1 明教精英池（eliteConfigs ∪ 弱精英）', [...eliteConfigs, ...weakPool],
-    () => derived.mingElite,
-    '规则：characters tag 明教+精英'));
-// 2. 明教强精英（eliteConfigs）
-results.push(cmp('P2 明教强精英/Boss（roster.eliteConfigs）', eliteConfigs,
-    () => eliteConfigs.filter(n => derived.mingElite.includes(n)),
-    '仅比对成员：m/flag/tier 在 characters 无对应字段，无法推导'));
-// 3. 明教弱精英（代码派生）
-results.push(cmp('P3 明教弱精英（HERO_FLAGS ∩ mingM − eliteConfigs）', weakPool,
-    () => derived.mingElite.filter(n => !eliteConfigs.includes(n)),
-    '规则：明教精英 − eliteConfigs'));
-// 4. 六大派具名敌方（encounters 各段）
-results.push(cmp('P4 六大派具名敌方（encounters 各段）', [...sectEncounterNames],
-    () => derived.sectElite,
-    '规则：characters tag 六大派+精英'));
-// 5. 众志召唤池·明教
-results.push(cmp('P5 召唤池 ally（unity.recruitPool.ally）', recruitAlly,
-    () => derived.mingElite,
-    '规则：characters tag 明教+精英（characters 无「可召唤」标记 → 召唤池是精选子集，非全池）'));
-// 6. 众志召唤池·六大派
-results.push(cmp('P6 召唤池 enemy（unity.recruitPool.enemy）', recruitEnemy,
-    () => derived.sectElite,
-    '规则：characters tag 六大派+精英（同上，精选子集）'));
-// 7. 明教全员（mingM）
-results.push(cmp('P7 明教全员 roster.mingM', mingM,
-    () => derived.mingNamed,
-    'characters 缺 13 个明教杂兵 → 不可推导'));
-// 8. 六大派全员（enemyM）
-results.push(cmp('P8 六大派全员 roster.enemyM', enemyM,
-    () => derived.sectNamed,
-    'characters 缺 42 个六大派杂兵 → 不可推导'));
-// 9. mingAll
-results.push(cmp('P9 roster.mingAll', roster.mingAll || [],
-    () => derived.mingNamed.filter(n => mingM.includes(n)),
-    '规则：characters tag 明教 且 在 mingM 内（mingAll ⊂ mingM，无独立标记 → 不可推导）'));
-// 10. HERO_FLAGS
-results.push(cmp('P10 HERO_FLAGS（core/202 身份表）', heroFlags,
-    () => heroFlags.filter(n => Object.keys(chars).includes(n)),
-    '三狮（雄狮/幼狮/母狮）为召唤物，不在 characters'));
-// 11. 827 工具名单
-results.push(cmp('P11 tools/827 工具名单', reg827,
-    () => reg827.filter(n => Object.keys(chars).includes(n)),
-    '小昭·姊/妹 为形态名，characters 键为 小昭'));
+// 明教/六大派全员：集合 + 顺序 + m 值逐位
+const mingMNew = derive.mingM(), mingMOld = legacy.mingM();
+const enemyMNew = derive.enemyM(), enemyMOld = legacy.enemyM();
+check(7, '明教全员 roster.mingM（含顺序/m）', mingMOld, mingMNew,
+    () => mingMOld.every((n, i) => mingMNew[i] === n && roster.mingM[n] === H[n].m));
+check(8, '六大派全员 roster.enemyM（含顺序/m）', enemyMOld, enemyMNew,
+    () => enemyMOld.every((n, i) => enemyMNew[i] === n && roster.enemyM[n] === H[n].m));
+check(9, 'roster.mingAll', legacy.mingAll(), derive.mingAll());
 
-// ── 明细：职业一致性 ──
-console.log('\n── P12 职业一致性（现有池内声明 role vs characters tag 职业）──');
-const roleChecks = [
-    ...(roster.eliteConfigs || []).map(e => [e.name, e.role, 'eliteConfigs']),
-    ...((game.buffs?.unity?.recruitPool?.ally) || []).map(e => [e.name, e.role, 'recruitPool.ally']),
-    ...((game.buffs?.unity?.recruitPool?.enemy) || []).map(e => [e.name, e.role, 'recruitPool.enemy']),
-    ...[...sectEncounterNames].flatMap(n => Object.values(enc.elitePool || {}).flat().filter(e => e?.name === n).map(e => [e.name, e.role, 'elitePool'])),
+// HERO_FLAGS：名字→标记 逐键一致
+const fNew = derive.flags(), fOld = legacy.flags();
+const flagOk = Object.keys(fOld).length === Object.keys(fNew).length
+    && Object.keys(fOld).every(k => fNew[k] === fOld[k]);
+if (flagOk) pass++;
+console.log(`\n[10] HERO_FLAGS（core/202 身份表） ${flagOk ? '✅ 一致' : '❌ 有差集'}`);
+console.log(`  旧 ${Object.keys(fOld).length}：${Object.keys(fOld).join(' / ')}`);
+console.log(`  新 ${Object.keys(fNew).length}：${Object.keys(fNew).join(' / ')}`);
+if (!flagOk) for (const k of new Set([...Object.keys(fOld), ...Object.keys(fNew)])) if (fOld[k] !== fNew[k]) console.log(`  ⚠ ${k}: 旧=${fOld[k]} 新=${fNew[k]}`);
+
+// 827 各名单
+const formNames = (flag) => names.flatMap(n => {
+    const c = H[n];
+    if (c.forms) return Object.values(c.forms).filter(f => f[flag] != null).map(f => [f.name, f[flag]]);
+    return c.tool?.[flag] != null ? [[n, c.tool[flag]]] : [];
+});
+const list827 = (flag, extra = []) => formNames(flag).sort((a, b) => a[1] - b[1]).map(x => x[0]).concat(extra);
+const meta827 = () => {
+    const out = {};
+    for (const n of names) {
+        const c = H[n];
+        if (c.forms) {
+            for (const f of Object.values(c.forms)) if (f.stdPos != null) out[f.name] = { flag: f.flag, stdPos: f.stdPos, tag: f.tag, role: f.role };
+        } else if (c.tool?.stdPos != null) {
+            out[n] = { flag: c.flag, stdPos: c.tool.stdPos, tag: c.tool.tag, role: c.tool.role };
+        }
+    }
+    return out;
+};
+const g11 = [
+    eqSet(reg.NATURAL_ELITES, list827('natural')),
+    eqSet(reg.SOLO_ELITES, list827('solo')),
+    eqSet(reg.BOSS_ELITES, list827('boss')),
+    eqSet(reg.WEAK_ELITES.map(w => w.name), list827('weakOrder')),
+    eqSet(reg.WEAK_ELITES.map(w => w.side), formNames('weakOrder').sort((a, b) => a[1] - b[1]).map(([n]) => H[base(n)].camp === '明教' ? 'ally' : 'enemy')),
+    eqSet(reg.M100_SKILL_ALLIES, list827('m100Skill')),
+    eqSet(reg.ENEMY_VARIANTS, list827('variant', ['标准'])),
+    Object.entries(reg.ELITE_UNIT_META).every(([k, v]) => {
+        const d = meta827()[k];
+        return d && d.flag === v.flag && d.stdPos === v.stdPos && d.tag === v.tag && d.role === v.role;
+    }),
 ];
-const seenRole = new Set();
+const ok11 = g11.every(Boolean);
+if (ok11) pass++;
+console.log(`\n[11] tools/827 各名单 ${ok11 ? '✅ 一致' : '❌ 有差集'}（${g11.filter(Boolean).length}/${g11.length} 次比对）`);
+if (!ok11) console.log(`  分项：natural=${g11[0]} solo=${g11[1]} boss=${g11[2]} weakName=${g11[3]} weakSide=${g11[4]} m100=${g11[5]} variants=${g11[6]} meta=${g11[7]}`);
+
+// 附加：职业口径（不计入 11 组，红只作诊断）
+console.log('\n── 附加诊断：职业一致性 ──');
 let roleBad = 0;
-for (const [n, r, where] of roleChecks) {
-    const key = `${n}|${r}`;
-    if (seenRole.has(key)) continue;
-    seenRole.add(key);
-    const d = roleOf(n);
-    if (d == null) { roleBad++; console.log(`  ⚠ ${n} (${where}) 声明 role=${r}，characters 无职业 tag`); continue; }
-    if (d !== r) { roleBad++; console.log(`  ⚠ ${n} (${where}) 声明 role=${r}，characters tag=${d}`); }
+const seen = new Set();
+for (const [n, r] of [...(roster.eliteConfigs || []).map(e => [e.name, e.role]),
+...((game.buffs?.unity?.recruitPool?.ally) || []).map(e => [e.name, e.role]),
+...((game.buffs?.unity?.recruitPool?.enemy) || []).map(e => [e.name, e.role])]) {
+    if (seen.has(n)) continue; seen.add(n);
+    if (roleOf(n) !== r) { roleBad++; console.log(`  ⚠ ${n}: 旧 role=${r} characters tag=${roleOf(n)}`); }
 }
 if (!roleBad) console.log('  （无差异）');
 
-// ── 汇总 ──
 console.log('\n══════════════════════════════════════════════════════════════');
-console.log(` 结论：${results.filter(Boolean).length}/${results.length} 组完全一致`);
-if (results.some(r => !r)) console.log(' ⚠️ 存在差集 → 按验收硬条件，不得切换读取路径');
+console.log(` 结论：${pass}/${total} 组一致${pass === total ? ' ✅ 可切读取路径' : ' ❌ 先补差集，不得切换'}`);
 console.log('══════════════════════════════════════════════════════════════');

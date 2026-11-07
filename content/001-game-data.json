@@ -1,6 +1,6 @@
 {
-  "version": "5.16.9",
-  "updated": "2026-10-23",
+  "version": "5.17.0",
+  "updated": "2026-11-07",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -15,6 +15,7 @@
   "characters": {
     "周芷若": {
       "tags": ["六大派", "战士", "精英"],
+      "recruitOrder": 1, "m": 107, "flag": "isZhouZhiruo", "tier": "strong", "camp": "六大派", "sect": "峨眉", "summon": true, "everyday": true, "encounter": true, "enemyOrder": 48,
       "mechanics": [
         {
           "camp": "enemy",
@@ -58,6 +59,7 @@
 
     "宋青书": {
       "tags": ["六大派", "飞行", "精英"],
+      "m": 107, "flag": "isSongQingshu", "tier": "strong", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 47, "tool": {"variant":2},
       "mechanics": [
         {
           "camp": "enemy",
@@ -110,6 +112,7 @@
 
     "胖远桥": {
       "tags": ["六大派", "武当", "战士", "精英"],
+      "m": 107, "flag": "isPangYuanQiao", "tier": "strong", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 52, "tool": {"variant":1},
       "skills": {
         "rageOnHit": {
           "name": "莽撞",
@@ -135,6 +138,7 @@
 
     "灭绝师太": {
       "tags": ["六大派", "峨眉", "战士", "精英"],
+      "recruitOrder": 2, "m": 115, "flag": "isMieJueShiTai", "tier": "strong", "camp": "六大派", "sect": "峨眉", "summon": true, "everyday": true, "encounter": true, "enemyOrder": 53,
       "skills": {
         "normalAttack": {
           "name": "峨眉掌法",
@@ -173,6 +177,7 @@
 
     "唐文亮": {
       "tags": ["六大派", "崆峒", "标枪", "精英"],
+      "m": 104, "flag": "isTangWenLiang", "tier": "weak", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 12, "tool": {"weakSide":"enemy","weakOrder":4},
       "role": "标枪",
       "skills": {
         "qiShangQuan": {
@@ -204,6 +209,7 @@
 
     "金毛狮王谢逊": {
       "tags": ["明教", "战士", "精英"],
+      "eliteOrder": 3, "recruitOrder": 4, "m": 107, "flag": "isXieXun", "tier": "strong", "camp": "明教", "sect": "明教", "summon": true, "everyday": true, "encounter": false, "mingOrder": 21, "tool": {"natural":5,"solo":4,"tag":"谢","stdPos":7,"role":"战士"},
       "skills": {
         "summonLion": {
           "name": "召唤狮子",
@@ -238,6 +244,7 @@
 
     "成昆": {
       "tags": ["六大派", "防战", "精英"],
+      "recruitOrder": 3, "m": 112, "flag": "isChengKun", "tier": "strong", "camp": "六大派", "sect": "朝廷", "summon": true, "everyday": true, "encounter": true, "enemyOrder": 49,
       "mechanics": [
         {
           "camp": "enemy",
@@ -274,6 +281,7 @@
 
     "鹿杖客": {
       "tags": ["六大派", "远程", "精英"],
+      "recruitOrder": 4, "m": 112, "flag": "isLuZhangKe", "tier": "strong", "camp": "六大派", "sect": "朝廷", "summon": true, "everyday": true, "encounter": true, "enemyOrder": 50,
       "mechanics": [
         {
           "camp": "enemy",
@@ -309,6 +317,7 @@
 
     "鹤笔翁": {
       "tags": ["六大派", "飞行", "精英"],
+      "recruitOrder": 5, "m": 112, "flag": "isHeBiWeng", "tier": "strong", "camp": "六大派", "sect": "朝廷", "summon": true, "everyday": true, "encounter": true, "enemyOrder": 51,
       "mechanics": [
         {
           "camp": "enemy",
@@ -337,6 +346,7 @@
 
     "空见": {
       "tags": ["六大派", "少林", "防战", "精英"],
+      "m": 104, "flag": "isKongJian", "tier": "weak", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 11, "tool": {"weakSide":"enemy","weakOrder":5},
       "skills": {
         "jinGangBuHuai": {
           "name": "金刚不坏神功",
@@ -352,6 +362,7 @@
     },
     "少林圆真": {
       "tags": ["六大派", "少林", "防战"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 15, "titleOrder": 3,
       "mechanics": [
         { "camp": "enemy", "type": "yuanzhenReveal" }
       ],
@@ -365,6 +376,7 @@
     },
     "庄铮": {
       "tags": ["明教", "天鹰教", "战士"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 6, "mingAll": true,
       "mechanics": [
         { "camp": "ally", "type": "duanChui" }
       ],
@@ -378,6 +390,7 @@
     },
     "彭莹玉": {
       "tags": ["明教", "五散人"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 13, "mingAll": true,
       "mechanics": [
         { "camp": "ally", "type": "doubleFace" }
       ],
@@ -385,12 +398,13 @@
         "doubleFace": {
           "name": "双面观音",
           "desc": "每回合开始 {disguiseChance}% 概率（首回合 {openingChance}%）进入假身，持续 {duration} 回合；假身期间自身造成的伤害 ×1.5。",
-          "params": { "disguiseChance": 0.30, "openingChance": 0.50, "duration": 2 }
+          "params": { "disguiseChance": 0.10, "openingChance": 0.20, "duration": 2 }
         }
       }
     },
     "张中": {
       "tags": ["明教", "五散人"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 10, "mingAll": true,
       "mechanics": [
         { "camp": "ally", "type": "summonBengBeng" }
       ],
@@ -404,6 +418,7 @@
     },
     "俞莲舟": {
       "tags": ["六大派", "武当"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 32, "titleOrder": 5,
       "mechanics": [
         {
           "camp": "enemy",
@@ -422,6 +437,7 @@
 
     "素问": {
       "tags": ["六大派", "峨眉"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 33, "titleOrder": 8,
       "mechanics": [
         {
           "camp": "enemy",
@@ -439,6 +455,7 @@
 
     "何太冲": {
       "tags": ["六大派", "昆仑", "远程", "精英"],
+      "m": 104, "flag": "isHeTaichong", "tier": "weak", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 9, "titleOrder": 0, "tool": {"weakSide":"enemy","weakOrder":3},
       "skills": {
         "liangyiLink": {
           "name": "两仪双修",
@@ -464,6 +481,7 @@
 
     "张三丰": {
       "tags": ["六大派", "防战", "精英"],
+      "recruitOrder": 0, "m": 107, "flag": "isZhangSanfeng", "tier": "strong", "camp": "六大派", "sect": "武当", "summon": true, "everyday": false, "encounter": true,
       "cannotAttack": true,
       "skills": {
         "endlessBreath": {
@@ -491,6 +509,7 @@
 
     "张无忌": {
       "tags": ["明教", "远程", "精英"],
+      "eliteOrder": 0, "recruitOrder": 0, "m": 115, "flag": "isZhang", "tier": "boss", "camp": "明教", "sect": "明教", "summon": true, "everyday": true, "encounter": false, "mingOrder": 0, "mingAll": true, "tool": {"natural":1,"boss":true,"tag":"张","stdPos":5,"role":"远程"},
       "mechanics": [
         {
           "camp": "ally",
@@ -528,6 +547,7 @@
 
     "韦一笑": {
       "tags": ["明教", "飞行", "精英"],
+      "eliteOrder": 1, "recruitOrder": 1, "m": 107, "flag": "isWei", "tier": "strong", "camp": "明教", "sect": "明教", "summon": true, "everyday": true, "encounter": false, "mingOrder": 1, "mingAll": true, "tool": {"natural":2,"solo":1,"tag":"韦","stdPos":6,"role":"飞行"},
       "mechanics": [
         {
           "camp": "ally",
@@ -558,6 +578,7 @@
 
     "杨逍": {
       "tags": ["明教", "飞行", "精英"],
+      "recruitOrder": 2, "m": 104, "flag": "isYangXiao", "tier": "weak", "camp": "明教", "sect": "明教", "summon": true, "everyday": true, "encounter": false, "mingOrder": 4, "mingAll": true, "tool": {"weakSide":"ally","weakOrder":1},
       "skills": {
         "dianXueShenTong": {
           "name": "弹指神通",
@@ -588,6 +609,7 @@
 
     "殷天正": {
       "tags": ["明教", "防战", "精英"],
+      "recruitOrder": 3, "m": 104, "flag": "isYinTianZheng", "tier": "weak", "camp": "明教", "sect": "明教", "summon": true, "everyday": true, "encounter": false, "mingOrder": 3, "mingAll": true, "tool": {"weakSide":"ally","weakOrder":2},
       "skills": {
         "yingZhuaGong": {
           "name": "鹰爪功",
@@ -613,6 +635,7 @@
 
     "寒离飒": {
       "tags": ["明教", "战士", "精英"],
+      "eliteOrder": 4, "m": 107, "flag": "isHanLiSa", "tier": "strong", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 2, "tool": {"natural":6,"solo":5,"tag":"寒","stdPos":2,"role":"战士"},
       "skills": {
         "jiuYangQuan": {
           "name": "左拳·九阳",
@@ -638,6 +661,7 @@
 
     "小昭": {
       "tags": ["明教", "远程", "精英"],
+      "eliteOrder": 2, "m": 107, "flag": null, "tier": "strong", "camp": "明教", "sect": "明教", "summon": false, "everyday": false, "encounter": false, "unitFlags": ["isXiaoZhao"], "forms": {"sister": {"name": "小昭·姊", "role": "蝴蝶", "flag": "isXiaoZhaoSister", "tag": "昭姊", "stdPos": 4, "natural": 3, "solo": 2}, "brother": {"name": "小昭·妹", "role": "远程", "flag": "isXiaoZhaoBrother", "tag": "昭妹", "stdPos": 4, "natural": 4, "solo": 3}},
       "skills": {
         "butterflyAttach": {
           "name": "蝶变附身",
@@ -697,6 +721,7 @@
 
     "反伤弟子": {
       "tags": ["明教", "战士", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 17, "mingAll": true, "unitFlags": ["isReflectDisciple"], "tool": {"m100Skill":3},
       "skills": {
         "basicStrike": {
           "name": "基础挥砍",
@@ -719,6 +744,7 @@
 
     "周颠": {
       "tags": ["明教", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 9, "mingAll": true, "tool": {"m100Skill":2},
       "mechanics": [
         {
           "camp": "ally",
@@ -734,6 +760,7 @@
     },
     "说不得": {
       "tags": ["明教", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 11, "mingAll": true, "tool": {"m100Skill":1},
       "skills": {
         "bagTrap": {
           "name": "布袋",
@@ -746,6 +773,226 @@
           "type": "bagTrap"
         }
       ]
+    },
+    "范遥": {
+      "tags": ["明教", "普通"],
+      "m": 104, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 5, "mingAll": true
+    },
+    "颜垣": {
+      "tags": ["明教", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 7, "mingAll": true
+    },
+    "吴劲草": {
+      "tags": ["明教", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 8, "mingAll": true
+    },
+    "冷谦": {
+      "tags": ["明教", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 12, "mingAll": true
+    },
+    "明教洪午": {
+      "tags": ["明教", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 14, "mingAll": true
+    },
+    "明教岳山": {
+      "tags": ["明教", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 15, "mingAll": true
+    },
+    "明教石虎": {
+      "tags": ["明教", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 16, "mingAll": true
+    },
+    "明教弟子1": {
+      "tags": ["明教", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 18, "mingAll": true
+    },
+    "明教弟子2": {
+      "tags": ["明教", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 19, "mingAll": true
+    },
+    "明教弟子3": {
+      "tags": ["明教", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 20, "mingAll": true
+    },
+    "空闻": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 0, "titleOrder": 0
+    },
+    "空智": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 1, "titleOrder": 1
+    },
+    "空性": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 2, "titleOrder": 2
+    },
+    "清虚": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 3, "titleOrder": 0
+    },
+    "清风": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 4, "titleOrder": 1
+    },
+    "明月": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 5, "titleOrder": 2
+    },
+    "静玄": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 6, "titleOrder": 0
+    },
+    "静虚": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 7, "titleOrder": 1
+    },
+    "静照": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 8, "titleOrder": 2
+    },
+    "班淑娴": {
+      "tags": ["六大派", "昆仑", "普通"],
+      "m": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 10, "titleOrder": 1
+    },
+    "宗维侠": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 13, "titleOrder": 0
+    },
+    "常敬之": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 14, "titleOrder": 1
+    },
+    "少林圆音": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 16, "titleOrder": 4
+    },
+    "少林圆业": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 17, "titleOrder": 5
+    },
+    "少林慧轮": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 18, "titleOrder": 6
+    },
+    "少林慧净": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 19, "titleOrder": 7
+    },
+    "少林虚竹": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 20, "titleOrder": 8
+    },
+    "少林虚清": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 21, "titleOrder": 9
+    },
+    "凌云": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 22, "titleOrder": 3
+    },
+    "张松溪": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 23, "titleOrder": 4
+    },
+    "俞岱岩": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 24, "titleOrder": 6
+    },
+    "莫声谷": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 25, "titleOrder": 7
+    },
+    "峨眉慧静": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 26, "titleOrder": 3
+    },
+    "峨眉慧心": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 27, "titleOrder": 4
+    },
+    "峨眉慧明": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 28, "titleOrder": 5
+    },
+    "峨眉妙清": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 29, "titleOrder": 6
+    },
+    "峨眉妙音": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 30, "titleOrder": 7
+    },
+    "峨眉灵枢": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 31, "titleOrder": 9
+    },
+    "昆仑白鹿子": {
+      "tags": ["六大派", "昆仑", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 34, "titleOrder": 2
+    },
+    "昆仑灵宝": {
+      "tags": ["六大派", "昆仑", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 35, "titleOrder": 3
+    },
+    "昆仑玉清": {
+      "tags": ["六大派", "昆仑", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 36, "titleOrder": 4
+    },
+    "昆仑紫阳": {
+      "tags": ["六大派", "昆仑", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 37, "titleOrder": 5
+    },
+    "崆峒唐文亮": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 38, "titleOrder": 2
+    },
+    "崆峒胡豹": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 39, "titleOrder": 3
+    },
+    "崆峒简捷": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 40, "titleOrder": 4
+    },
+    "崆峒赵明": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 41, "titleOrder": 5
+    },
+    "少林弟子": {
+      "tags": ["六大派", "少林", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 42, "titleOrder": 10
+    },
+    "武当弟子": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 43, "titleOrder": 8
+    },
+    "峨眉弟子": {
+      "tags": ["六大派", "峨眉", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "六大派", "sect": "峨眉", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 44, "titleOrder": 10
+    },
+    "昆仑弟子": {
+      "tags": ["六大派", "昆仑", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 45, "titleOrder": 6
+    },
+    "崆峒弟子": {
+      "tags": ["六大派", "崆峒", "普通"],
+      "m": 95, "flag": null, "tier": "normal", "camp": "六大派", "sect": "崆峒", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 46, "titleOrder": 6
+    },
+    "殷梨亭": {
+      "tags": ["六大派", "武当", "普通"],
+      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": false, "encounter": true
+    },
+    "雄狮": {
+      "tags": ["明教", "召唤"],
+      "m": null, "flag": "isXieXunLion", "tier": "summon", "camp": "明教", "sect": "明教", "summon": false, "everyday": false, "encounter": false, "unitFlags": ["isLionMale"], "summonOf": "金毛狮王谢逊"
+    },
+    "幼狮": {
+      "tags": ["明教", "召唤"],
+      "m": null, "flag": "isXieXunLion", "tier": "summon", "camp": "明教", "sect": "明教", "summon": false, "everyday": false, "encounter": false, "unitFlags": ["isLionCub"], "summonOf": "金毛狮王谢逊"
+    },
+    "母狮": {
+      "tags": ["明教", "召唤"],
+      "m": null, "flag": "isXieXunLion", "tier": "summon", "camp": "明教", "sect": "明教", "summon": false, "everyday": false, "encounter": false, "unitFlags": ["isLioness"], "summonOf": "金毛狮王谢逊"
     }
   },
 
@@ -771,6 +1018,7 @@
       { "count": 8, "defBonus": 0.60, "atkBonus": 0.50 },
       { "count": 9, "defBonus": 1.00, "atkBonus": 1.00 }
     ], "recruitPool": {
+      "_deprecated": "2026-11-07 起运行期不再读取：由 characters.summon 推导（core/201 getHeroPools.recruitPool）。本表仅作 tools/829 对账快照，下一轮删除。",
       "ally": [
         { "name": "张无忌", "role": "远程" },
         { "name": "韦一笑", "role": "飞行" },
@@ -862,6 +1110,7 @@
   },
 
   "roster": {
+    "_deprecated": "2026-11-07 起运行期不再读取：mingM/enemyM/mingAll/eliteConfigs/enemyTitles 已由 characters 推导（core/201 getHeroPools）。本表仅作 tools/829 对账快照，下一轮删除。",
     "mingM": {
       "张无忌": 115, "韦一笑": 107, "寒离飒": 107,
       "殷天正": 104, "杨逍": 104, "范遥": 104,

@@ -1,4 +1,6 @@
-export const VER = 'core/202-unit.js V6.3.7';
+export const VER = 'core/202-unit.js V6.4.0';
+// V6.4.0 | 2026-11-07 优化二·B 方案：HERO_FLAGS 字面量删除，改为 proxy 直读 characters[name].flag；
+//        | 小昭/三狮/反伤弟子的形态标记统一走 characters[name].unitFlags，不再按名字写 if。
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 
@@ -21,39 +23,14 @@ const MAX_STAT_ROLL = 200;
 // 约定：`is<正式名>` 为身份标记字段名；「小昭」的两种形态（姊/妹）保留原有
 // isXiaoZhaoSister / isXiaoZhaoBrother 双标记，并额外给统一的 isXiaoZhao。
 // 名字带后缀（如 '小昭·姊'）时按基础名打标，避免每次改名都要同步。
-export const HERO_FLAGS = Object.freeze({
-    '张无忌': 'isZhang',
-    '韦一笑': 'isWei',
-    '成昆':   'isChengKun',
-    '宋青书': 'isSongQingshu',
-    '周芷若': 'isZhouZhiruo',
-    '鹿杖客': 'isLuZhangKe',
-    '鹤笔翁': 'isHeBiWeng',
-    '张三丰': 'isZhangSanfeng',
-    '胖远桥': 'isPangYuanQiao',
-    '灭绝师太': 'isMieJueShiTai',
-    '金毛狮王谢逊': 'isXieXun',
-    // 杨逍（光明左使·飞行·精英）：与韦一笑同为明教飞行精英。
-    //   进本表后 modules/29 的明教普通兵候选池过滤（HERO_FLAGS[name] → continue）自动把他排除，不重复出人
-    '杨逍': 'isYangXiao',
-    // 殷天正（白眉鹰王·防战·精英 M104，弱精英档）：进表即被 modules/29 明教普通兵候选池过滤，
-    //   与其余明教精英同走随机轮盘；同时让「众志成城」召唤出的殷天正自动技能全开
-    '殷天正': 'isYinTianZheng',
-    // 寒离飒（明教·战士·弱精英 M107，与韦一笑同池）：进表即被 modules/29 明教普通兵候选池过滤，
-    //   走 mingWeakPool 弱精英随机混入；同时用于恒定 2 号位落位规则
-    '寒离飒': 'isHanLiSa',
-    // 唐文亮（崆峒·战士·精英 M107）：六大派侧新精英。注意与 roster 里的普通兵「崆峒唐文亮」(M97)
-    //   不同名（本表按整名匹配），两者互不影响
-    '唐文亮': 'isTangWenLiang',
-    // 何太冲（弱精英、无组件）：补身份标记，render/32、名片表不再比名字。
-    //   他是六大派身份，不在 MING_M 池内，进这张表不影响 modules/29 的明教候选池过滤
-    '何太冲': 'isHeTaichong',
-    // 空见（弱精英·少林防战）：金刚不坏护罩，modules/316-elite-sixsects-kongjian.js
-    '空见': 'isKongJian',
-    // 谢逊的三只狮子：统一打 isXieXunLion，便于识别同一家族；形态各自另打标记（母狮/雄狮/幼狮）
-    '雄狮': 'isXieXunLion',
-    '幼狮': 'isXieXunLion',
-    '母狮': 'isXieXunLion',
+// 身份标记单一真源：characters[name].flag（原字面量表已删，2026-11-07）
+//   proxy 延迟读取，避免模块加载早于 gameData（loadGameData 是异步的）。
+export const HERO_FLAGS = new Proxy({}, {
+    get(_, name) {
+        if (typeof name !== 'string') return undefined;
+        return getGameData()?.characters?.[name]?.flag ?? undefined;
+    },
+    has(_, name) { return typeof name === 'string' && !!getGameData()?.characters?.[name]?.flag; }
 });
 
 /** 取「小昭·姊」→「小昭」这类基础名（去 · 后缀） */
@@ -75,14 +52,8 @@ export function applyHeroFlags(unit) {
     const name = baseHeroName(unit.name);
     const flag = HERO_FLAGS[name];
     if (flag) unit[flag] = true;
-    if (name === '小昭') unit.isXiaoZhao = true;
-    // 三狮形态标记：母狮/雄狮/幼狮互斥，成长时改名后重跑本函数即自动换标记（isLionCub 需调用方显式清）
-    if (name === '母狮') unit.isLioness = true;
-    if (name === '雄狮') unit.isLionMale = true;
-    if (name === '幼狮') unit.isLionCub = true;
-    // 反伤弟子：**刻意不进 HERO_FLAGS**——那张表被 modules/29 用来过滤明教普通兵候选池，
-    //   反伤弟子(M97)在池内，塞进去会被踢出候选池。与三狮同款走独立 if
-    if (name === '反伤弟子') unit.isReflectDisciple = true;
+    // 形态/额外标记统一来自 characters[name].unitFlags（小昭 isXiaoZhao、三狮形态、反伤弟子）
+    for (const f of (getGameData()?.characters?.[name]?.unitFlags || [])) unit[f] = true;
     // 不争数据旗：content 声明了 noContend 技能的英雄自动获得；
     //   回合末「敌方仅剩一人且不争 → 对方胜」的判定不再认识具体英雄（core/11 特判收口）
     if (getGameData().characters?.[name]?.skills?.noContend) unit.noContend = true;
