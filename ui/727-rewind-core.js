@@ -4,7 +4,7 @@
 export const VER = 'ui/727-rewind-core.js V1.2.0';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { STATE } from '../core/201-config-5v5-test.js';
 import { getLiveRecordedSteps } from '../player/513-battle-export.js';
 import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
@@ -206,11 +206,16 @@ function collectLinesUpTo(stepIdx, upto) {
             for (let k = 0; k < list.length; k++) {
                 const en = list[k];
                 if (!en || en.quiet) continue;
-                if (!TOP_RENDER_TYPES.has(en.type)) continue;   // 真播不上屏的类型，回看一样不出
+                // 圣火令掉落：504 交给 handleHolyTokenDrop（只演特效、不写 #log），
+                //   但分隔符仍由 504 在外层判、lastType 仍记 info —— 回看照抄这三件事
+                const tokenDrop = en.type === 'info' && en.dropKind === DROP_TYPES.TOKEN;
+                if (!tokenDrop && !TOP_RENDER_TYPES.has(en.type)) continue;   // 真播不上屏的类型，回看一样不出
                 if (shouldStartNewGroup(en, lastType)) items.push({ key: i + ':' + j + ':' + k + ':sep', sep: true });
-                // 508 handleInfo 对「张无忌切换」额外补一条分隔符：真播有，回看也得有
-                if (en.type === 'info' && en.isZhangSwitch && en.unitUid) items.push({ key: i + ':' + j + ':' + k + ':zsep', sep: true });
-                flattenEntry(en, i, j, String(k), items);
+                if (!tokenDrop) {
+                    // 508 handleInfo 对「张无忌切换」额外补一条分隔符：真播有，回看也得有
+                    if (en.type === 'info' && en.isZhangSwitch && en.unitUid) items.push({ key: i + ':' + j + ':' + k + ':zsep', sep: true });
+                    flattenEntry(en, i, j, String(k), items);
+                }
                 lastType = en.type;
             }
         }
@@ -221,6 +226,9 @@ function collectLinesUpTo(stepIdx, upto) {
 function renderLogItem(item) {
     if (item.sep) { renderSeparator(); return; }
     const en = item.entry;
+    // 509 分支次序：brief 下 type=detail 先折叠（L85 continue），白骨爪/随爪随后恒走正文整行（L169）
+    if (en.type === 'detail' && GlobalStore.get('logLevel') === 'brief') { renderStaticLogEntry(en); return; }
+    if (en.isClawHit || en.clawFast) { appendLogHTML(en.text + '<br>'); return; }
     // info/detail 与真播共用 510 的静态出口（brief 才折叠，其余正文整行直接出）
     if (en.type === 'info' || en.type === 'detail') renderStaticLogEntry(en);
     else appendLogHTML(en.text + '<br>');
@@ -413,7 +421,7 @@ export async function enterReview() {
     paintAt(S.stepIdx, S.cueIdx);
     S.logKeys = [];
     S.logLastType = null;
-    S.logDirty = false;
+    S.logDirty = true;              // 进倒针前 #log 里是真播的旧行：必须整块重建，不能只往后追加
     syncReviewLog(S.stepIdx, S.cueIdx);
     return { ok: true };
 }
