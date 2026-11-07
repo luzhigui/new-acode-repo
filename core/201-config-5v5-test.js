@@ -1,4 +1,6 @@
-export const VER = 'core/201-config-5v5-test.js V6.9.0';
+export const VER = 'core/201-config-5v5-test.js V6.9.1';
+// V6.9.1 | 2026-11-07 修复杂兵刷蓝回归：isNamedCharacter 不再靠「键在不在 characters 里」反推，
+//        | 改读 characters[name].named 显式标记（27 条具名=true / 5 条原无名 104 杂兵=false）。
 // V6.9.0 | 2026-11-07 优化二·B 方案落地：角色池（mingM/enemyM/mingAll/eliteConfigs/enemyTitles/recruitPool）
 //        | 全部改由 characters 运行时推导，roster 旧表仅作对账快照（tools/829-verify-pools.mjs），不再被读取。
 
@@ -60,10 +62,12 @@ function getSkillParamsJealous(characterName, skillKey) {
     return skill?.paramsJealous || null;
 }
 
-// 是否「具名角色」：characters 表里有条目（含技能/机制）的才算，无名杂兵（空闻/班淑娴等）不在表内。
+// 是否「具名角色」：唯一真源 = characters[name].named（显式声明，不从「键在不在 characters 里」反推）。
 //   用途：名字颜色分档里「蓝=弱精英（104 档具名）」的判据——只按 m 值判会把所有 104 无名兵一起涂蓝。
+//   收纳进 characters 用来推导池子的无名杂兵（如范遥/空闻/班淑娴）必须显式写 "named": false，
+//   否则会被误判成具名而刷蓝。新增条目同理：要蓝档就写 true，不写即按非具名处理。
 function isNamedCharacter(name) {
-    return !!(gameData?.characters?.[name]);
+    return gameData?.characters?.[name]?.named === true;
 }
 
 // 是否带有技能/机制（用来判定 M100 普通兵里的「特殊角色」）
