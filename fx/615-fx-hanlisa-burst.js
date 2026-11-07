@@ -10,8 +10,9 @@
 //   例外保留：柔光弧扇主体带 { minRealMs: bodyDur }，仍走逻辑时间版（经 fx/618 的 real:false 通道）。
 // 载荷 {seq, apexUid, aim, taken, hits:[{uid,pos,dmg,tier}], flight, bounces, vamp} 全 uid+数值可序列化；
 //   seq 去重防「引擎直发 + SKILL_ANNOUNCE 桥」双放。
-// 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）只播震屏 + 格子效果，防双演出。
-export const VER = 'fx/615-fx-hanlisa-burst.js V2.3.0';
+// 演出归属（V2.4.0）：ui/79 黑幕本轮已完整演过（标记 hlsAimPlayedThisTurn=true）⇒ 93 直接 return，0 演出；
+//   玩家中途跳过 / 回放 / 从机 / 自动不弹 79，标记为 false，93 演全套。一次爆发只有一个演出者。
+export const VER = 'fx/615-fx-hanlisa-burst.js V2.4.0';
 
 import { runTimeline } from './618-fx-timeline.js';
 import { markGridShake } from '../render/403-grid-render.js';
@@ -329,8 +330,7 @@ function vampFloat(apex, vamp) {
 }
 
 // 引擎直发与回放桥共用入口；seq 去重（先到者赢，后到的同 seq 静默丢弃）
-// 轻量模式：ui/79 黑幕刚完整演过（hlsAimPlayedAt 3.5s 内）→ 只播轻点缀（震屏+格子效果），
-//   跳过扇形冲击波/大号数字/撞边/吸血（黑幕里都演过了，战场再全套一遍=双演出）；回放/简单/自动挡无标记照常完整
+// 归属：ui/79 黑幕本轮已完整演过 ⇒ 93 直接 return，0 演出；回放/简单/自动/玩家跳过无标记照常完整
 let _lastSeq = null;
 export function showHanLiSaBurst(d) {
     if (!d || d.apexUid == null) return;
@@ -338,31 +338,22 @@ export function showHanLiSaBurst(d) {
         if (d.seq === _lastSeq) return;
         _lastSeq = d.seq;
     }
-    // 轻量判定：读布尔标记（79 完整演出过 = 战场只演轻量版），消费即清。
-    //   替代原全局时间戳 hlsAimPlayedAt——时间戳有 3.5s 窗口，时序一漂就误判降不降级；
-    //   布尔 + 消费清，彻底消除窗口问题。
-    //   从机/回放不弹 79，标记恒为 false，演全套——观感正确。
-    let lite = false;
+    // 演出归属：79 本轮已完整演出 ⇒ 93 必须 0 演出，直接 return（不是「演得轻一点」）。
+    //   读布尔标记并消费即清，替代原 hlsAimPlayedAt 的 3.5s 墙钟窗口。
+    //   时序：79 在 finish 里置 true → 引擎发载荷 → 93 在第一次读时清 false，标记只会被这一发消费。
+    //   从机/回放/玩家跳过不弹 79，标记恒为 false，93 演全套。
+    let played = false;
     try {
-        lite = !!GlobalStore.get('hlsAimPlayedThisTurn');
+        played = !!GlobalStore.get('hlsAimPlayedThisTurn');
         GlobalStore.set('hlsAimPlayedThisTurn', false);
     } catch (e) { /* noop */ }
+    if (played) return;
     const apex = centerOf(d.apexUid);
     if (!apex) return;
     const hits = (d.hits || []).map(h => {
         const c = centerOf(h.uid);
         return c ? { x: c.x, y: c.y, w: c.w, h: c.h, tier: h.tier, dmg: h.dmg, uid: h.uid } : null;
     }).filter(Boolean);
-    if (lite) {
-        // 轻量版：震屏 + 分档格子效果一笔带过（重头戏已在黑幕演完）
-        shakeScreen();
-        hits.forEach(h => {
-            if (h.tier === 'direct' || h.tier === 'eight' || h.tier === 'full123') shatterTrue(h.uid);
-            else if (h.tier === 'near' || h.tier === 'full456') impactHalf(h.uid);
-            else impactFar(h.uid);
-        });
-        return;
-    }
     shakeScreen();
     if (hits.length) {
         shockwave(apex, hits);
