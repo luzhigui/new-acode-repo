@@ -1,4 +1,5 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
+// V1.0.2 | 2026-11-07 | 概率回调 disguiseChance 0.10 / openingChance 0.20；新增「假身是敌方唯一可选目标」→ 误攻队友
 // 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）进入假身，持续 {duration} 回合；
 //   假身期间自身造成的伤害 ×1.5。
 export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.2';

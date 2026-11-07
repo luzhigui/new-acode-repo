@@ -1,4 +1,5 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
+// V1.0.1 | 2026-11-07 | 触发瞬间攻击力减半并记 N，此后每次出手 +N；自身 -1 血补 hp>1 守卫（不自杀）
 // ① 首次受到致死伤害：不倒，保留 keepHp 点生命（免疫本击），并立即反手打攻击者一次；
 // ② 此后每次受伤最多只受 cap 点（_dmgCap 单一来源，core/12 + core/13 两条落账出口共读）；
 // ③ 触发瞬间攻击力减半（减掉的量记为 N，存 state._duanChuiN）；此后每次出手后攻击 +N、自身生命 -selfCost
@@ -43,11 +44,12 @@ export const duanChuiHandler = {
                 applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
                 self.state._duanChuiTriggered = true;
                 self.state._dmgCap = cap;
-                // 触发瞬间攻击力减半：把当前攻击力压到 N，减掉的量记成 N（此后每出手 +N，形成 N→2N→3N）
-                const atkNow = Math.floor(getStat(self, 'atk'));
-                const n = Math.floor(atkNow / 2);
+                // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
+                //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
+                const atkNow = getStat(self, 'atk');
+                const n = atkNow / 2;
                 if (n > 0) {
-                    addMod(self, 'atk', { source: '断锤三式·减半', value: n - atkNow, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
+                    addMod(self, 'atk', { source: '断锤三式·减半', value: -n, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
                     self.state._duanChuiN = n;
                 }
                 pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${keepHp} 点生命，攻击减半（N=${n}）！`);

@@ -1,11 +1,11 @@
 {
- "ver": "879594bbab61f4be19b1ec0bb9ff5578a2f47134bf8a1af81e0cf309b64fc4d3",
+ "ver": "4e4e32b2475fe2e6394ef6bb5e8f1cb2a1f0577ba748fde5272bde168a9c8f3d",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 150,
  "files": [
   [
    "content/001-game-data.json",
-   "bd616d25c0c9866c6fb0c30d30c656a809fa24dae6d660d89c7555b9549e953f"
+   "cfb45db927a467b690059aeb107eea01aee4e6aceaac0de4d2d261b33acab871"
   ],
   [
    "content/002-hex-enhance.json",
@@ -13,7 +13,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "5ddc83413704f71c64f4a15627b06d87b55582c9b730218685e4272d0d0b6b2f"
+   "8940c77dc084eeecd81330dffd74f37538c652d02499a9c302c7c255bac04a64"
   ],
   [
    "core/202-unit.js",
@@ -365,15 +365,15 @@
   ],
   [
    "modules/336-elite-sixsects-yuanzhen.js",
-   "4eecb72be688fe67c74f013ecc2359fe72d739f359c371f97010c2c57f23f0b4"
+   "bb1f3ca8a4695d673abf0a1704054dfbb00041423101314e55dcf68560ad1f96"
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
-   "3c1719ccd2a7aeb84215384be8a0ead597fb318f3ca99fbeeb19200003f5cb48"
+   "1c6b840e197bfb6a41b8c70022d08a882852cb496535abd2538c1dd750f6d761"
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
-   "6866a418ebf49d379109d55167dd8d7f67d69cacd15d1530f8db5176930bf54d"
+   "69c7e1cea41f073ec8ade816e0e2f3addb07e2f11b98b2ab2afd6b775d9e3467"
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",

@@ -395,8 +395,8 @@
       "skills": {
         "duanChui": {
           "name": "断锤三式",
-          "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；此后每次出手后攻击 +{atkGain}、自身生命 -{selfCost}。",
-          "params": { "keepHp": 3, "cap": 1, "atkGain": 1, "selfCost": 1 }
+          "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；触发瞬间攻击力减半（减掉的量记为 N），此后每次出手后攻击 +N、自身生命 -{selfCost}。",
+          "params": { "keepHp": 3, "cap": 1, "selfCost": 1 }
         }
       }
     },
