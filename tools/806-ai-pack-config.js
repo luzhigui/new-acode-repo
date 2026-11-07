@@ -370,6 +370,10 @@ export const ALL_PROJECT_FILES = [
     '../tests/fact-coverage-selftest.mjs', '../tests/health-rules-syntax-sweep.mjs', '../tests/manifest-fresh-selftest.mjs', '../tests/registry-cross-check.mjs',
     // 2026-11-06 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/mechanics-install-selftest.mjs', '../tests/pick-key-line-selftest.mjs', '../tests/run-all-integrity-selftest.mjs',
+    // 2026-11-07 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/mutation-anchor-tripwire.mjs',
+    // 2026-11-07 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/relay-drift-guard.mjs',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',

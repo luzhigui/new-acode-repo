@@ -1,3 +1,12 @@
+// V2.9.26 | 2026-11-07 并行接力第一棒：T13/T14 重锚（解 MiniMax 主代码改动的冲突，主代码零改动）。
+//   由头：新绊线 mutation-anchor-tripwire 当场报 T13(render/410)、T14(render/413) 0 处命中。
+//   根因：上游 2de44141「回血/吸血战报显示实落值并注明修正原因」把渲染数字从
+//   `fact.leechVal` / `heal` 改成 healDisplay() 产出的字符串 `d.text` / `d.text(=heal)`，
+//   旧锚串被整行改写 ⇒ 变异静默失效、树木=干净树。
+//   重锚口径（只换定位串，判定阈值/变异语义一字未改）：仍只把**渲染文本里的吸血量翻倍**、
+//   不动引擎真值、不动 fact、不动飘字 fx；因新值是字符串，用 Number(x)*2 适配。
+//   实测两个新锚在各自文件均恰好 1 处命中（无 multi），替换后 node --check 通过。
+//   ★ 未跑全量变异树（20~40 分钟），故本轮只声称「锚点有效」，不声称「规则仍有牙」。
 // V2.9.25 | 2026-11-02 第 144 轮续3：修 V2.9.22/23 引入的 masked 假阳性 —— masked 只在「轨迹未变」时作证。
 //   V2.9.22/23 把 masked 一律当「有牙」，但 masked 明细可能是「战斗轨迹被带偏、顺带红一下」(第43轮教训)。
 //   实证 A28(改摄魂实际属性、轨迹大改)：masked 4 条全是张三丰「严阵以待/生生不息」新明细，与摄魂无关=顺带红，
@@ -138,7 +147,7 @@
 //   T17/T18 锚点整行失效（--verify 报 0 处 ⇒ 静默失效=假绿制造机）。重锚：
 //   T17 翻转 SWAP fact 的 side（ENEMY→ALLY，文本变「己方」咬判据1）；T18 把 fact 内 fromPos/toPos 对调
 //   （文本报反位置咬判据5）。两者仍针对 rule113（166）惑心配对/落地，牙齿语义不变。
-export const VER = 'tests/mutation-teeth.mjs V2.9.25';
+export const VER = 'tests/mutation-teeth.mjs V2.9.26';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -415,14 +424,15 @@ const MUTATIONS = [
       from: "造成 ${fmt1(fact.dmg)} 点伤害",
       to:   "造成 ${fmt1(fact.dmg * -1)} 点伤害",
       multi: true },   // 2026-11-01 全量重编号后 render/412 增护盾吸收分支：from 串在 L197（护盾未吸收）与 L200（部分吸收，作前缀子串）各出现一次，均属白骨爪伤害渲染，须两处同取负
+    // V2.9.26 重锚：上游把渲染数字收进 healDisplay()（实落值 + 原因后缀），锚串随之改写。
     { id: 'T13', kind: 'TEXT', desc: '嗜血狂刀吸血渲染量×2（⇒ 吸血>伤害×0.85 → rule151 判据2应咬）',
       file: 'render/410-facts-heal.js',
-      from: "的嗜血狂刀吸血+${fact.leechVal}",
-      to:   "的嗜血狂刀吸血+${fact.leechVal * 2}" },
+      from: "的嗜血狂刀吸血+${d.text}${d.note}",
+      to:   "的嗜血狂刀吸血+${Number(d.text) * 2}${d.note}" },
     { id: 'T14', kind: 'TEXT', desc: '韦一笑吸血(plusMaxHp)渲染heal×2（⇒ 吸血>伤害×maxRatio余量 → rule159 判据3应咬）',
       file: 'render/413-generic-renderers.js',
-      from: "${label}+${heal}，上限→${fact.newMaxHp}",
-      to:   "${label}+${heal * 2}，上限→${fact.newMaxHp}" },
+      from: "${label}+${heal}${note}，上限→${fact.newMaxHp}",
+      to:   "${label}+${Number(heal) * 2}${note}，上限→${fact.newMaxHp}" },
     // 第 68 轮新增：验证 rule163（正义国字脸叠防数值回归）真有牙，而非恒绿。
     //   rule163 读 ATTACK fact 的 data.pangDefGain，与配置 getSkillParams('胖远桥','righteousFace').defGain 对账；
     //   写事实那行在 modules/26 L368（pangDefGain = face.defGain）。把写入值×2 ⇒ 事实≠配置 ⇒ rule163 判据2 应咬。
@@ -461,8 +471,13 @@ const MUTATIONS = [
       // 2026-10-31 第 145 轮续：main 把惑心换位 fact 由「unitA/unitB/posA/posB」单 swap 重写为
       //   「swaps:[{uid,name,fromPos,toPos}]」变长数组（core/14 applyMindControlCore L196/L217，渲染 render/35-facts-control L92）。
       //   旧 from/to 锚定单行已不存在 ⇒ 重锚到 SWAP fact 发射行，只翻转其 side（BANNER/FAIL 行不含 MIND_CONTROL_SWAP 锚点，不会被误伤）。
-      from: "FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });",
-      to:   "FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), dmg: dmgOnSwap } });" },
+      // 2026-11-07 第 183 轮续：第 180 轮上游合并（518bf3e5 惑心落定按 pick3 完整覆盖三格 +
+      //   2ab69936 side 按持有者 camp 派生）后，L208 敌方发射行 side 已由常量 CAMP_TYPES.ENEMY 变为
+      //   变量 oppSide、且新增 allPositions: pick3 字段，第 145 轮锚点再次 0 命中（第 180/181/182 轮未重跑变异树故未暴露，
+      //   本轮重跑 --report 实测「⚠锚点失效·结论作废 1 处」）。第三次重锚：锚定敌方分支独有串
+      //   「side: oppSide ... dmg: dmgOnSwap」（己方分支为 side: selfSide ... heal: healOnSwap，不会误伤），只把 side 换成 ALLY 常量。
+      from: "data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, dmg: dmgOnSwap }",
+      to:   "data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, dmg: dmgOnSwap }" },
     //   T18：SWAP fact 把两个旧位置报反（posA/posB 对调，multi 两分支同改）—— 实际换位照常发生，
     //     但宣告的 oldPosA/oldPosB 与真相对调 ⇒ 判据5「A 应落到 oldPosB」永远不命中 ⇒ 应咬。
     //     判据2（自洽）抓不到（uid/位置仍合法且相异）—— 正是要单独验证判据5 有牙。
@@ -473,8 +488,12 @@ const MUTATIONS = [
       //   T17 同款锚点失效：旧 `unitB:..., posA, posB` 单行已不存在。真变异必须换**值**——
       //   `fromPos: s.toPos, toPos: s.fromPos`（fact 的 fromPos 装 toPos 的值、反之亦然）⇒ 渲染文本位置对调
       //   ⇒ 判据5（宣告位置 vs 后续真实站位）应咬。multi：敌/己两条 SWAP 发射行都含此串，一并翻。
-      from: "fromPos: s.fromPos, toPos: s.toPos",
-      to:   "fromPos: s.toPos, toPos: s.fromPos",
+      // 2026-11-07 第 183 轮续：上游合并后 L206/L227 新增 emitStateChange(POSITION, { fromPos: s.fromPos, toPos: s.toPos })
+      //   两行，旧短锚 `fromPos: s.fromPos, toPos: s.toPos` 在本文件命中 4 处——把「只骗 fact 文本」的变异
+      //   扩到了状态变更日志上（若规则侧 actual 取自 stateChange 会互相咬合成假绿）。收紧锚到 fact 发射行独有
+      //   的 swaps.map 完整串（实测全文件恰好 2 处命中＝敌/己两条 SWAP 发射行，emitStateChange 不含该串）。
+      from: "swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos }))",
+      to:   "swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.toPos, toPos: s.fromPos }))",
       multi: true },
     { id: 'A29', kind: 'ATTR', desc: '空见金刚不坏加持计数器 +1→+2（跳号 → rule172 判据1「严格1,2,3」应咬）',
       file: 'modules/316-elite-sixsects-kongjian.js',

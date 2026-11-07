@@ -1,3 +1,23 @@
+// V1.44.0 | 2026-11-07 迭代（并行接力第一棒）：挂「并行接力漂移守门」tests/relay-drift-guard.mjs（新建 V1.0.0）。
+//   用户引入 MiniMax 同为体检方，两边接力改同一套 tests/：下午它提交 5 笔（含 150/151 回血判据、
+//   121/122/141/142/148）并留有自己的未提交改动，我上一轮 16 个改动也未提交 ⇒ 两份成果混在
+//   同一份工作树，而 25 项体检无一喊「有人改过但没交接」/「合并冲突没解干净」。
+//   本守门两面：① 冲突标记残留、git 未解决冲突 → 硬红（确定性缺陷）；
+//   ② 列出 tests/ 未提交改动并算一枚「工作树指纹」RELAY-xxxxxxxx → 显形不判红，交下一棒核对，
+//      变了就说明有人动过同一批文件，须先对齐再动手。不抄 ver-bump/ver-drift/orphan 任何判据。
+//   带 6 条 --selftest 正负路径。挂 OBSERVES + hard: true，不改 CHECKS 分母、不改退码口径。
+//   ★ 本轮起工作方式：不直接改主仓，在独立 detached 副本里改完、比对基线 hash 无冲突再灌回。
+// V1.43.0 | 2026-11-07 迭代：融合夜间第 180~184 轮成果 + 挂「变异锚点有效性绊线」。
+//   ① 融合（只取夜间 tests/ 侧、本地未动过的文件）：9 条规则的报错聚合拆解（136/138/142/143/
+//      151/158/159/166/171，夜间第184轮把「一条指纹装 12 种病因」拆成各归各位）、mutation-teeth
+//      的 T17 第三次重锚 + T18 收紧锚（夜间第183轮）、体检迭代日志 180~184 轮正文。
+//      ★ 不取夜间的「16 个文件各补一行 301 import」点修：本地已收口到 _lib 唯一来源 + 常驻守门，
+//        两套修法只保留一套，避免同一处出现两个真相源。
+//   ② 白天实跑取证：融合前 `node mutation-teeth.mjs --verify` 报 T17 0 处、EXIT=1（假绿制造机），
+//      但 25 项 CHECKS + 全部 OBSERVES 无一跑它 ⇒ 锚点可静默失效若干轮无人喊（夜间潜伏 3 轮）。
+//      挂 tests/mutation-anchor-tripwire.mjs（新建 V1.0.0）：每轮 0.1s 调一次 --verify，
+//      不抄判据、只摊结论；stdout 零输出/无汇总/汇总 0 条一律判红（防「0 行当列名失配」旧坑）。
+//      带 7 条 --selftest 正负路径。挂 OBSERVES + hard: true，不改 CHECKS 分母、不改退码口径。
 // V1.42.0 | 2026-11-06 迭代：挂「机制装配收口守门」tests/mechanics-install-selftest.mjs（新建 V1.0.0）。
 //   上游 4230eb9a 新增 333/334/335 + content 的 statAbsorb 后，tests/ 下 15 个宿主各自手抄
 //   307/308/317/331 四行装配集体漏装 ⇒ 开局抛「未在 core/18 注册」、stdout 全 0 字节，
@@ -174,7 +194,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.42.0';
+export const VER = 'tests/run-all.mjs V1.44.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -439,7 +459,14 @@ const OBSERVES = [
     { name: '结论行挑选口径守门', script: 'tests/pick-key-line-selftest.mjs', args: [], hard: true },
     // V1.42.0 | 2026-11-06 迭代：机制装配收口守门（详见头顶 V1.42.0 日志行）。
     //   纯 node 只读 + 一次轻量装配；防「上游增机制模块 ⇒ 体检宿主从开局就整片静默崩」重演。
-    { name: '机制装配收口守门', script: 'tests/mechanics-install-selftest.mjs', args: [], hard: true }
+    { name: '机制装配收口守门', script: 'tests/mechanics-install-selftest.mjs', args: [], hard: true },
+    // V1.43.0 | 2026-11-07 迭代：变异锚点有效性绊线（详见头顶 V1.43.0 日志行）。
+    //   纯子进程 0.1s + 一个纯判定函数；不重复实现锚点匹配，只把 --verify 的结论每轮摊出来。
+    // hard: true = 锚点失效/生产者零输出是体检域确定性缺陷，非「待主代码转交」的研判灰度。
+    { name: '变异锚点有效性绊线', script: 'tests/mutation-anchor-tripwire.mjs', args: [], hard: true },
+    // V1.44.0 | 2026-11-07：并行接力漂移守门（详见头顶 V1.44.0 日志行）。
+    //   纯只读 + 一次 git status；冲突残留/未解决冲突是确定性缺陷，故 hard: true。
+    { name: '并行接力漂移守门', script: 'tests/relay-drift-guard.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
