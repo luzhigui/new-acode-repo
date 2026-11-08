@@ -1,0 +1,48 @@
+{
+  "domain": "D14",
+  "updatedAt": "2026-11-08 22:55",
+  "updatedBy": "D14 会话（词条装备与套装域）",
+  "note": "词条装备与套装域：乘率词条账本 vs 配置真值 / 声明↔账本双向同源 / 词条生命周期语义 / 妹永久背水叠层 / 飞行·猎杀成长。号段 319-324（324 预留，留给 lastStandLeech 吸血比例契约）。本轮 319-323 已落地并用 tests/d14-affix-set-case.mjs 正向+反向+skip 三类判据自证（全绿）。装备/套装（洗练、件数阈值、多层套装互斥）在引擎内不存在：grep「装备/洗练/套装」在主代码零命中，故不另设规则，避免把不存在的机制写成假判据。",
+  "entries": [
+    {
+      "id": 319,
+      "name": "乘率词条账本vs配置真值",
+      "file": "tests/health-rules/319-d10-mod-mul-truth.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "holyFlame/soulDrain/unity/lastStand/brotherLastStand/fortify(仅mul) 的 op:mul 词条逐条对 001/002 配置；补 228(只看声明) 与 238(只看 add) 之间的账本盲区"
+    },
+    {
+      "id": 320,
+      "name": "乘率声明与账本双向同源",
+      "file": "tests/health-rules/320-d10-decl-ledger-mul.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "同 (uid,field,group) 双向对账：声明↔账本值一致、同键不得重复挂、末回合声明必须落地"
+    },
+    {
+      "id": 321,
+      "name": "词条生命周期与机制语义一致",
+      "file": "tests/health-rules/321-d10-mod-lifecycle.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "9 个 group 的 op/ttl 语义表（round vs permanent、add vs mul）逐条比对；补 237 只判合法不判语义的缺口"
+    },
+    {
+      "id": 322,
+      "name": "妹背水词条vs配置与职业真值",
+      "file": "tests/health-rules/322-d10-brother-laststand-ledger.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "brotherLastStand / brotherLastStandWarrior / brotherLastStandWarriorGrow：乘率=CONFIG.BUFFS.lastStand、每层=getRoleBonus(WARRIOR)、三属性层数一致"
+    },
+    {
+      "id": 323,
+      "name": "飞行猎杀成长战报与账本一致",
+      "file": "tests/health-rules/323-d10-flyer-kill-growth.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "每次击杀 atk +2、neverMiss↔missDelta、战报数字与 atkBefore/atkAfter 同源、战报次数=账本 flyerKill 条数"
+    }
+  ]
+}

@@ -139,6 +139,11 @@
     "253-rewind-write-surface.js": "D5",
     "254-rewind-write-dynamic.js": "D5",
     "273-rewind-progress-boundary.js": "D5",
-    "274-rewind-speed-boundary.js": "D5"
+    "274-rewind-speed-boundary.js": "D5",
+    "319-d10-mod-mul-truth.js": "D14",
+    "320-d10-decl-ledger-mul.js": "D14",
+    "321-d10-mod-lifecycle.js": "D14",
+    "322-d10-brother-laststand-ledger.js": "D14",
+    "323-d10-flyer-kill-growth.js": "D14"
   }
 }
