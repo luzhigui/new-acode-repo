@@ -38,8 +38,20 @@ export function renderCarryApplyFact(fact) {
 }
 
 // Buff 召唤
+// 拒马落位只有一种东西：HORSE_SUMMON（巨马阵每回合刷新）与 XIAO_ZHAO_HORSE（小昭·妹永久巨马阵概率强刷）
+//   都靠 horseUid 占一格、都靠 HORSE_DESTROY 消散，共用一套渲染，只换宣告词与嘶鸣。
+function buildHorseSummonEntry(fact, label, taunt) {
+    return {
+        type: 'buff-summon',
+        text: `<span class="gold">🐴 ${label}：拒马出现在${fact.pos}号位！</span>`,
+        buffType: BUFF_SUBTYPES.SUMMON,
+        horsePos: fact.pos,
+        horseUid: fact.horseUid,
+        horseTaunt: fact.horseTaunt || taunt
+    };
+}
 export function renderHorseSummonFact(fact) {
-    return {type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${fact.pos}号位！</span>`, buffType: BUFF_SUBTYPES.SUMMON, horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: fact.horseTaunt || '嘶——！'};
+    return buildHorseSummonEntry(fact, '拒马阵', '嘶——！');
 }
 
 // 苦练
@@ -133,7 +145,7 @@ export function renderRongHuiBonusFact(fact) {
 
 // 小昭·妹 拒马 / 连击
 export function renderXiaoZhaoHorseFact(fact) {
-    return {type:'buff-summon', text:`<span class="gold">🐴 小昭·妹的拒马在${fact.pos}号位出现！</span>`, buffType: BUFF_SUBTYPES.SUMMON, horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: '嗷——！'};
+    return buildHorseSummonEntry(fact, '小昭·妹强刷', '嗷——！');
 }
 export function renderSpiderDoubleStrikeFact(fact) {
     return {type:'info', text:`<span class="gold">🕷️ 连蛛：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true};
