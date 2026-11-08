@@ -126,6 +126,9 @@ export const SCAN_FILES = [
     './health-rules/192-pengyingyu-doubleface.js',
     './health-rules/193-hebiweng-hornstrike.js',
     './health-rules/194-chengkun-phantom.js',
+    // 第 187 轮：角色技能模块（modules/3xx）第二批 —— 说不得布袋 / 唐文亮回春·同归于尽 /
+    //   张无忌乾坤 / 玄冥毒 DOT / 谢逊狮吼 / 庄铮断锤
+    './health-rules/195-shuobude-bag.js',
     // 战报与渲染一致性（分组归属 / 显示取整单一出口 / 飘字与正文同源）
     './health-rules/185-log-group-consistency.js',
     './health-rules/186-display-single-exit.js',
