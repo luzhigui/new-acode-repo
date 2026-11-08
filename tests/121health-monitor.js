@@ -141,6 +141,8 @@ import { rule285 } from './health-rules/285-settlement-order.js';
 // 第 195 轮修正：rewind 289/290 撞号，按 4.7 挪到 D5 空闲槽 253/254
 import { rule253 } from './health-rules/253-rewind-write-surface.js';
 import { rule254 } from './health-rules/254-rewind-write-dynamic.js';
+import { rule273 } from './health-rules/273-rewind-progress-boundary.js';
+import { rule274 } from './health-rules/274-rewind-speed-boundary.js';
 // 第 195 轮仲裁：日志域新件让出 286/287 → D8 271/272
 import { rule271 } from './health-rules/271-absorb-summary-same-source.js';
 import { rule272 } from './health-rules/272-hidden-renderer-outlets.js';
@@ -794,7 +796,7 @@ function runRuleChecks(ctx, doc) {
         rule289, rule290, rule291, rule292, rule293,
         rule259, rule260, rule261, rule262, rule263, rule264,
         rule271, rule272,
-        rule253, rule254,
+        rule253, rule254, rule273, rule274,
         rule283, rule284, rule285,
         rule243, rule244, rule245, rule246, rule247, rule248,
         rule249, rule250, rule251, rule252];

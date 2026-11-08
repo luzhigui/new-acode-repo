@@ -23,10 +23,10 @@ import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.0.0';
 
 const RE_OPEN = /🤪 (.+?) 受到「癫」的影响/;
-const RE_TRANSFER = /(.+?) 将「癫」传染给了 (.+?)/;
-const RE_DEATH = /随着 (.+?) 的死亡传给了 (.+?)/;
-const RE_BACK = /找不到攻击者，回到了 (.+?) 身上/;
-const RE_RANDOM = /周颠已阵亡，「癫」随机传给了 (.+?)/;
+const RE_TRANSFER = /🤪 (.+?) 将「癫」传染给了 (.+?)$/;
+const RE_DEATH = /🤪 「癫」随着 (.+?) 的死亡传给了 (.+?)$/;
+const RE_BACK = /🤪 「癫」找不到攻击者，回到了 (.+?) 身上$/;
+const RE_RANDOM = /🤪 周颠已阵亡，「癫」随机传给了 (.+?)$/;
 
 function stripTags(s) {
     return String(s || '').replace(/<[^>]+>/g, '');
@@ -58,7 +58,8 @@ export const rule292 = {
 
         // 预扫：回合号 + 癫开场白（回合|名字）—— 开场白可能落在攻击组之后的免疫块，不按条目位置认
         const roundAt = new Array(fs.length);
-        const openSet = new Set();
+        const openSet = new Set();      // 回合|名字（拒马这类无稳定 uid 的召唤物兜底）
+        const openUidSet = new Set();   // 回合|uid（成昆/圆真这类会改名的单位按 uid 认）
         let round = 0;
         let announceN = 0;
         for (let i = 0; i < fs.length; i++) {
@@ -73,9 +74,17 @@ export const rule292 = {
                 const note = stripTags(d.note);
                 const m = note.match(RE_OPEN);
                 if (m) openSet.add(round + '|' + m[1]);
+                if (d.unitUid != null) openUidSet.add(round + '|' + d.unitUid);
             }
         }
         if (announceN === 0 && holderUids.size === 0 && holderNames.size === 0) return 'skip';
+        if (process.env.D11_DEBUG) {
+            for (const f of fs) {
+                const d = f && f.data || {};
+                if (f && f.factType === FACT_TYPES.SKILL_ANNOUNCE && d.skillName === '癫') console.log('[D11] ANN', JSON.stringify(d));
+                if (f && f.factType === FACT_TYPES.ATTACK && d.attacker && d.attacker.name === '成昆') console.log('[D11] ATK', JSON.stringify(d.attacker));
+            }
+        }
 
         const fails = [];
         let holderAttacks = 0;
@@ -112,19 +121,20 @@ export const rule292 = {
             }
 
             if (f.factType === FACT_TYPES.MISS || f.factType === FACT_TYPES.DODGE) {
-                const a = (f.factType === FACT_TYPES.MISS ? d.attacker : d.attacker);
-                if (isHolder(a)) {
-                    fails.push('第' + r + '回合 癫持有者「' + (a && a.name) + '」' +
-                        (f.factType === FACT_TYPES.MISS ? '未命中' : '被闪避') + '（必中/无视闪避失效）');
-                }
+                const a = d.attacker;
+                if (!isHolder(a)) continue;
+                if (a && a.state && a.state._isDead) continue; // 死后出手：unit.alive=false 时 333 的报幕钩子本就不发，归 D10
+                fails.push('第' + r + '回合 癫持有者「' + (a && a.name) + '」' +
+                    (f.factType === FACT_TYPES.MISS ? '未命中' : '被闪避') + '（必中/无视闪避失效）');
                 continue;
             }
 
             if (f.factType === FACT_TYPES.ATTACK) {
                 const a = d.attacker || d.unit;
                 if (!isHolder(a)) continue;
+                if (a && a.state && a.state._isDead) continue; // 同上：阵亡后仍排队的攻击不再走 333 报幕
                 holderAttacks++;
-                if (!openSet.has(r + '|' + (a && a.name))) {
+                if (!openSet.has(r + '|' + (a && a.name)) && !(a && a.uid != null && openUidSet.has(r + '|' + a.uid))) {
                     fails.push('第' + r + '回合 癫持有者「' + (a && a.name) + '」出手但没有「受到「癫」的影响」报幕');
                 }
             }

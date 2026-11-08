@@ -174,6 +174,8 @@ export const SCAN_FILES = [
     // 第 195 轮修正：rewind 挪号 253/254（D5）
     './health-rules/253-rewind-write-surface.js',
     './health-rules/254-rewind-write-dynamic.js',
+    './health-rules/273-rewind-progress-boundary.js',
+    './health-rules/274-rewind-speed-boundary.js',
     // 第 195 轮仲裁：日志域新件让出 286/287 → D8 271/272
     './health-rules/271-absorb-summary-same-source.js',
     './health-rules/272-hidden-renderer-outlets.js',

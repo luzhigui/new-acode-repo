@@ -1,7 +1,30 @@
 {
   "domain": "D2",
-  "updatedAt": "2026-11-08 20:30",
+  "updatedAt": "2026-11-08 21:40",
   "updatedBy": "",
   "说明": "D2 六派精英（含玄冥）（号段 235-240）。本文件只由 D2 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "entries": [],
+  "assignments": [
+    {
+      "slot": 307,
+      "name": "何太冲·两仪双修数值与状态(回归)",
+      "source": "覆盖缺口：何太冲三技能零覆盖",
+      "state": "assigned",
+      "assignedAt": "2026-11-08 21:40"
+    },
+    {
+      "slot": 308,
+      "name": "何太冲·箭靶标记生命周期(回归)",
+      "source": "同上",
+      "state": "assigned",
+      "assignedAt": "2026-11-08 21:40"
+    },
+    {
+      "slot": 309,
+      "name": "何太冲·红血两仪互换账实一致(回归)",
+      "source": "同上",
+      "state": "assigned",
+      "assignedAt": "2026-11-08 21:40"
+    }
+  ]
 }

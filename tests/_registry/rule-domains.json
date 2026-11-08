@@ -136,9 +136,9 @@
     "293-control-cleanup-on-release.js": "D11",
     "271-absorb-summary-same-source.js": "D8",
     "272-hidden-renderer-outlets.js": "D8",
-    "313-rewind-progress-boundary.js": "D13",
-    "314-rewind-speed-boundary.js": "D13",
     "253-rewind-write-surface.js": "D5",
-    "254-rewind-write-dynamic.js": "D5"
+    "254-rewind-write-dynamic.js": "D5",
+    "273-rewind-progress-boundary.js": "D5",
+    "274-rewind-speed-boundary.js": "D5"
   }
 }

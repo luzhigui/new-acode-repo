@@ -164,6 +164,8 @@ export const RULE_META = {
     // 第 195 轮修正：rewind 挪号 253/254（D5）
     '回放写入面唯一入口(进场清空/退出按引用还原)': { tag: 'generic:通用', note: '回放写入面只允许一个入口；进场清空、退出按引用还原（D5）' },
     '回看静默期账本零写入(动态探针)': { tag: 'generic:通用', note: '回看静默期不得写账本（动态探针，D5）' },
+    '进度跳转边界(步拨/段拨/快进不越界)': { tag: 'generic:通用', note: '9 入口 S.active 守卫、prev/nextStep 夹两端、prev/nextCue 跨步回绕、paintAt/scrubToCue 夹 cueIdx、fastForward stride≥1、进场零步保护（D5）' },
+    '倍速切换边界(进场快照/退出无条件还原)': { tag: 'generic:通用', note: '进场快照 speed、退出无条件还原且全文件仅此 1 处写 speed、718 走 setState.speed 刷高亮（D5）' },
     // 第 195 轮·D10 续 + D11 控制与意识类（286-293）
     '关卡变体抽签真值与阵容互证(回归)': { tag: 'generic:阵容', note: '读 stage 配置真值：变体抽签结果与实到阵容互证；每场都有样本' },
     '每关敌方名字来源合法(回归)': { tag: 'generic:阵容', note: '敌方单位名必须来自该关固定精英/混入池，不得出现跨关串名' },

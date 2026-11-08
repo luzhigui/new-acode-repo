@@ -1,7 +1,17 @@
 {
   "domain": "D9",
-  "updatedAt": "2026-11-08 20:30",
+  "updatedAt": "2026-11-08 21:40",
   "updatedBy": "",
   "说明": "D9 海克斯/永久 buff/跨局（号段 277-282）。本文件只由 D9 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "entries": [],
+  "assignments": [
+    {
+      "slot": 277,
+      "name": "11 个 buff 姊/妹强化数值对照(回归)",
+      "source": "覆盖缺口：仅 228 覆盖 4 类，其余 11 个强化无数值真值对照",
+      "state": "assigned",
+      "assignedAt": "2026-11-08 21:40",
+      "note": "bloodthirst/hotBlood/fortify/cloudBody/windAssault/meteorShower/carry/doubleStrike/horseFormation/mindControl/holyFire"
+    }
+  ]
 }

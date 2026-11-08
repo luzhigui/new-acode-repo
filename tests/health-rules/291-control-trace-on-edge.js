@@ -76,14 +76,20 @@ export const rule291 = {
             const r = roundAt[i];
             const pair = r + '|' + a.name + '|' + t.name;
 
-            // ② 挂点自洽
+            // ② 挂点自洽：改目标挂 phantomConfuse；现原形挂 phantomReveal（两者都必须指向本击的攻击者）
             if (d.phantomFact) {
                 const pf = d.phantomFact;
                 const pd = pf.data || {};
-                if (pf.factType !== FACT_TYPES.PHANTOM_CONFUSE) {
-                    fails.push('第' + r + '回合 ' + a.name + '→' + t.name + ' 挂的 phantomFact 类型不是 phantomConfuse（' + pf.factType + '）');
-                } else if (pd.unitName !== a.name || pd.targetName !== t.name) {
-                    fails.push('第' + r + '回合 ' + a.name + '→' + t.name + ' 的 phantomFact 挂错一击（留痕指向 ' + pd.unitName + '→' + pd.targetName + '）');
+                if (pf.factType === FACT_TYPES.PHANTOM_CONFUSE) {
+                    if (pd.unitName !== a.name || pd.targetName !== t.name) {
+                        fails.push('第' + r + '回合 ' + a.name + '→' + t.name + ' 的 phantomConfuse 挂错一击（留痕指向 ' + pd.unitName + '→' + pd.targetName + '）');
+                    }
+                } else if (pf.factType === FACT_TYPES.PHANTOM_REVEAL) {
+                    if (pd.unitName !== a.name) {
+                        fails.push('第' + r + '回合 ' + a.name + '→' + t.name + ' 的 phantomReveal 挂错一击（留痕指向 ' + pd.unitName + '）');
+                    }
+                } else {
+                    fails.push('第' + r + '回合 ' + a.name + '→' + t.name + ' 挂的 phantomFact 类型未登记（' + pf.factType + '）');
                 }
             }
 

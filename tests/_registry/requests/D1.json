@@ -1,7 +1,23 @@
 {
   "domain": "D1",
-  "updatedAt": "2026-11-08 20:30",
+  "updatedAt": "2026-11-08 21:40",
   "updatedBy": "",
   "说明": "D1 通用结算与不变量（号段 229-234）。本文件只由 D1 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "entries": [],
+  "assignments": [
+    {
+      "slot": 301,
+      "name": "反伤弟子伤害反弹账实自洽(回归)",
+      "source": "覆盖缺口：damageReflect 零规则",
+      "state": "assigned",
+      "assignedAt": "2026-11-08 21:40"
+    },
+    {
+      "slot": 302,
+      "name": "眩晕/定身控制窗口一致性(回归)",
+      "source": "覆盖缺口：stunOnSwap 零规则",
+      "state": "assigned",
+      "assignedAt": "2026-11-08 21:40"
+    }
+  ]
 }

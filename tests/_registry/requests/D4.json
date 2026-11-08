@@ -1,7 +1,40 @@
 {
   "domain": "D4",
-  "updatedAt": "2026-11-08 20:30",
-  "updatedBy": "",
+  "updatedAt": "2026-11-08 21:40",
+  "updatedBy": "框架会话（仲裁回填）",
   "说明": "D4 明教精英 B：谢逊/杨逍/殷天正/寒离飒/说不得（号段 247-252）。本文件只由 D4 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "entries": [
+    {
+      "id": 249,
+      "name": "站位快照在界与同格双占(回归)",
+      "file": "tests/health-rules/249-position-bounds-unique.js",
+      "state": "merged",
+      "mergedAt": "2026-11-08 21:40",
+      "mergedSha": "d59f17c4"
+    },
+    {
+      "id": 250,
+      "name": "换位置换闭合(回归)",
+      "file": "tests/health-rules/250-swap-permutation-closure.js",
+      "state": "merged",
+      "mergedAt": "2026-11-08 21:40",
+      "mergedSha": "d59f17c4"
+    },
+    {
+      "id": 251,
+      "name": "换位后同回合追打连通(观测)",
+      "file": "tests/health-rules/251-post-swap-followup.js",
+      "state": "merged",
+      "mergedAt": "2026-11-08 21:40",
+      "mergedSha": "d59f17c4"
+    },
+    {
+      "id": 252,
+      "name": "幻影事实完整性(观测)",
+      "file": "tests/health-rules/252-phantom-fact-completeness.js",
+      "state": "merged",
+      "mergedAt": "2026-11-08 21:40",
+      "mergedSha": "d59f17c4"
+    }
+  ]
 }

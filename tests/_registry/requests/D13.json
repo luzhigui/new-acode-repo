@@ -1,0 +1,35 @@
+{
+  "domain": "D13",
+  "updatedAt": "2026-11-08 21:40",
+  "updatedBy": "框架会话（仲裁回填）",
+  "note": "回放/倒针状态机域（313-318）。承载 rewind 系列规则与回放器修复。",
+  "entries": [
+    {
+      "id": 313,
+      "name": "进度跳转边界(步拨/段拨/快进不越界)",
+      "file": "tests/health-rules/313-rewind-progress-boundary.js",
+      "state": "merged",
+      "mergedAt": "2026-11-08 21:40",
+      "mergedSha": "d59f17c4",
+      "note": "原 291 撞 D11 控制链，仲裁改到 D13"
+    },
+    {
+      "id": 314,
+      "name": "倍速切换边界(进场快照/退出无条件还原)",
+      "file": "tests/health-rules/314-rewind-speed-boundary.js",
+      "state": "merged",
+      "mergedAt": "2026-11-08 21:40",
+      "mergedSha": "d59f17c4",
+      "note": "原 292 撞 D11 控制链，仲裁改到 D13"
+    },
+    {
+      "id": null,
+      "state": "assigned",
+      "type": "主代码/回放侧任务",
+      "name": "回放器 ctx 接入 encounterVariant / rngContractVersion",
+      "note": "main 的 330 已返回这两个字段，回放侧只接了阵容两项，导致 286 关卡变体真值规则 156 场全 skip（结构性假绿）。请把两字段接进 replay ctx；接完 286 自动从 skip 转硬判。改 tests/ 侧回放器即可，不动主代码。",
+      "assignedAt": "2026-11-08 21:40",
+      "assignedBy": "框架会话"
+    }
+  ]
+}
