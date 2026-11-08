@@ -11,7 +11,9 @@
 // V1.0.12 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
 // V1.0.13 | 2026-11-08 严阵以待反弹比例参数化：通用防战反弹从写死 /2 改为读
 //           BUFFS.fortify.reboundRatio（配置现值 0.4），与 modules/311 张三丰自挂版同源。
-export const VER = 'core/212-battle-attack-chain.js V1.0.13';
+export const VER = '// V1.0.14 | 2026-11-08 状态标签化：眩晕目标跳过闪避判定改问 isControlled(target)、
+//   闪避反击的免控守卫改问 isCCImmune(unit)（core/218 标签表单一真源）。
+core/212-battle-attack-chain.js V1.0.14';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -26,6 +28,8 @@ import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_
 import { emitStateChange } from '../infra/108-state-change.js';
 import { computeDodgeChance, snapshotUnitForFact } from './213-battle-attack-edge.js';
 import { hasBrotherPermanent } from './204-buff-system.js';
+// 状态语义（受控/免控）：core/218 标签表是单一真源
+import { isControlled, isCCImmune } from './218-state-keys.js';
 
 const C = CONFIG;
 
@@ -117,7 +121,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     }
 
     const allyBuffs = (target.camp === CAMP_TYPES.ALLY && ctx.A ? ctx.A._activeBuffs : (target.camp === CAMP_TYPES.ENEMY && ctx.B ? ctx.B._activeBuffs : []));
-    if (target.state._stunned) return { skipped: false };
+    if (isControlled(target)) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
     // 不可闪避：攻击方带 _ignoreDodge 时整体跳过闪避判定（灭绝师太反击用，见 core/10 额外攻击循环）
     // _canAlwaysDodge 替代 isWei 硬编码：行动过仍可闪避由组件声明
@@ -553,7 +557,7 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
         } else if (decl.type === EFFECT_TYPES.STUN) {
             // 控制位移免疫（寒离飒·开局常驻）：闪避反击的眩晕不生效，反弹伤害照掉
-            if (unit.state && unit.state._ctrlImmune) continue;
+            if (isCCImmune(unit)) continue;
             unit.state._stunned = true;
             result.stunned = true;
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });

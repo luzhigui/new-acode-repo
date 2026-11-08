@@ -1,4 +1,8 @@
-export const VER = 'core/218-state-keys.js V2.9.33';
+// V2.10.0 | 2026-11-08 状态语义标签化（纯声明，零行为变更）：给 schema 条目加可选 tags，
+//   「受控 / 免控 / 不可被选中 / 待死」四类判定从各文件手写字段名改为标签驱动。
+//   以后新增一类控制状态（冰冻/沉睡/定身）只需在对应条目写 tags:[CC]，全部读取侧自动跟上，
+//   不必再去 core/209、core/210、core/212、modules/302、317、322 逐个补条件。
+export const VER = 'core/218-state-keys.js V2.10.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -9,10 +13,29 @@ export const STATE_FIELD_TYPES = Object.freeze({
     OBJECT: 'object',
 });
 
+/**
+ * 状态语义标签：把一个字段「意味着什么」与「字段叫什么」解耦。
+ *   schema 条目上的 `tags: [...]` 声明该字段为真值时具备哪些语义，
+ *   读取侧一律用 hasStateTag()/isControlled() 询问语义，不直接点字段名。
+ *
+ * 只对 BOOLEAN 字段成立（真值为真即命中）。数值/字符串/对象字段需要谓词时，
+ *   用条目的 `tagWhen: (value) => boolean` 登记，读取侧口径不变。
+ */
+export const STATE_TAGS = Object.freeze({
+    /** 控制中：本轮不能行动（被眩晕/冰冻/定身…）。加新控制状态只需打这个标签 */
+    CC: 'cc',
+    /** 免控：所有 CC 类施加对它无效（寒离飒常驻） */
+    CC_IMMUNE: 'ccImmune',
+    /** 不可被选中：不进打人门禁 canBeTargeted / 受益池 getBenefitTargets */
+    UNTARGETABLE: 'untargetable',
+    /** 待死：血量已归零、等 resolveDeaths 统一结算，期间不算活体也不可行动 */
+    PENDING_DEATH: 'pendingDeath',
+});
+
 // 回合级状态：回合开始统一重置为 default
 export const ROUND_STATE_SCHEMA = Object.freeze({
     _acted:                  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _stunned:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _stunned:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.CC] },
     _resting:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _blocked:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _xingFenActive:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
@@ -121,7 +144,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _spiderEggRounds:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 孵化过（保留 40% 血）：落地回血跳过、三档全作废，本局再死=真死
     _spiderEggHatch:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _untargetable:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _untargetable:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.UNTARGETABLE] },
     _hotBloodCount:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _doubleStriked:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _zhangSwitched:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
@@ -209,11 +232,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 飞行击杀惩罚：每击杀 1 人累加，攻击时叠加到未命中率（必中单位无效）
     _missChanceBonus:        { type: STATE_FIELD_TYPES.NUMBER, default: 0 },
-    _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.PENDING_DEATH] },
     // 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 寒离飒·控制免疫标记（core/14 惑心换位 / core/12 攻击链 / core/13 控制判定读取；持久化与现状一致放 battle 级）
-    _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.CC_IMMUNE] },
     // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
     _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 寒离飒·瞄准窗口状态（player/49 瞄准标记步写，hanlisa.js 消费后清零；持久化同现状放 battle 级）
@@ -245,6 +268,68 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */
 export const ROUND_STATE_KEYS = Object.freeze(Object.keys(ROUND_STATE_SCHEMA));
 export const BATTLE_STATE_KEYS = Object.freeze(Object.keys(BATTLE_STATE_SCHEMA));
+
+// ── 标签索引（模块加载时建一次）──────────────────────────────────────
+// 读取侧拿 tag → 字段名列表，逐字段判真值。避免每帧遍历上百个 schema 条目。
+const EMPTY_FIELDS = Object.freeze([]);
+const TAG_FIELD_INDEX = (() => {
+    const acc = Object.create(null);
+    for (const [key, spec] of [...Object.entries(ROUND_STATE_SCHEMA), ...Object.entries(BATTLE_STATE_SCHEMA)]) {
+        for (const tag of spec.tags || []) {
+            (acc[tag] || (acc[tag] = [])).push(key);
+        }
+    }
+    for (const tag of Object.keys(acc)) Object.freeze(acc[tag]);
+    return Object.freeze(acc);
+})();
+
+/** 某标签当前由哪些 state 字段承载（排查用；无字段返回空数组） */
+export function getTagFields(tag) {
+    return TAG_FIELD_INDEX[tag] || EMPTY_FIELDS;
+}
+
+/** 是否带某标签。传 unit 或 state 均可（unit 有 .state 时自动下钻）。null 安全。 */
+export function hasStateTag(unitOrState, tag) {
+    const st = (unitOrState && unitOrState.state) ? unitOrState.state : unitOrState;
+    if (!st) return false;
+    const fields = TAG_FIELD_INDEX[tag];
+    if (!fields) return false;
+    for (let i = 0; i < fields.length; i++) {
+        if (st[fields[i]]) return true;
+    }
+    return false;
+}
+
+/** 受控中：本轮不能行动（_stunned 及未来任何打 CC 标签的状态） */
+export function isControlled(unitOrState) {
+    return hasStateTag(unitOrState, STATE_TAGS.CC);
+}
+
+/** 免控：CC 类施加对它无效 */
+export function isCCImmune(unitOrState) {
+    return hasStateTag(unitOrState, STATE_TAGS.CC_IMMUNE);
+}
+
+/** 待死窗口：血量已归零、尚未被 resolveDeaths 清算 */
+export function isPendingDeath(unitOrState) {
+    return hasStateTag(unitOrState, STATE_TAGS.PENDING_DEATH);
+}
+
+/** 不可被选中（正在飞天/附身/布袋等标记窗口） */
+export function isUntargetable(unitOrState) {
+    return hasStateTag(unitOrState, STATE_TAGS.UNTARGETABLE);
+}
+
+/**
+ * 活体战斗单位：活着 + 血 >0 + 不在待死窗口。
+ *   与 canBeTargeted（core/203，额外排除不可选中/飞天）分工：
+ *   本函数只答「这个人现在算不算还活着能打」，不含选靶与出手资格。
+ */
+export function isLiveCombatant(unit) {
+    if (!unit || !unit.alive) return false;
+    if (!(unit.hp > 0)) return false;
+    return !isPendingDeath(unit);
+}
 
 // 默认值/数组深度拷贝逻辑全部走 STATE_FIELD_TYPES 类型分发，schema 是唯一事实源。
 

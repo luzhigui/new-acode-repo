@@ -4,7 +4,8 @@
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
 // V7.3.1 | 2026-11-08 体检转交：圣火令重画读 sister.holyFlame 缺键显式报错（原 TypeError）。
 // V7.3.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/317-elite-mingjiao.js V7.3.2';
+// V7.3.3 | 2026-11-08 状态标签化：同门出手候选的眩晕判定改问 isControlled()（core/218 标签表）。
+export const VER = 'modules/317-elite-mingjiao.js V7.3.3';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/208-registry-elite.js';
 import { registerTargetPoolFilter } from '../core/207-target-strategies.js';
@@ -22,6 +23,7 @@ import { createHanLiSaComponent } from './319-elite-mingjiao-hanlisa.js';
 import { bagTrapHandler } from './325-elite-mingjiao-shuobude.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { requireSkillParams } from './305-elite-helpers.js';
+import { isControlled } from '../core/218-state-keys.js';
 
 // ========== 精英组件集中注册（core/08 注册表；逐字搬自原文件末尾，顺序严格保持） ==========
 registerElite('雄鹰', createEagleComponent);
@@ -44,7 +46,7 @@ registerMechanicHandler(MECHANIC_TYPES.BAG_TRAP, bagTrapHandler);
 //   敌方全部已行动时候选排空 → runTargetPoolFilters 不替换池，按飞行默认照打（与组件内追击 ×1.3 同一条件）。
 registerTargetPoolFilter((unit, candidates) => {
     if (!unit.isYangXiao) return null;
-    return candidates.filter(e => !e.state._acted && !e.state._stunned);
+    return candidates.filter(e => !e.state._acted && !isControlled(e));
 });
 
 // ——V7.5.13 回合钩子注册（core/11 特判收口）：小昭的知识搬回小昭家 ——

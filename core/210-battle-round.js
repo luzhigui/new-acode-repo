@@ -8,10 +8,12 @@
 //   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
 // V6.3.39 | 2026-11-08 双宣告排重回退到「两次抽签 + 顺延」：V6.3.38 的 filter 后重抽会多消耗一次随机流，
 //   且候选不足时少抽一次；改回原版两次抽签，第二签同 uid 时从该签位起按候选顺序顺延取下一个不同 uid（不重抽）。
-export const VER = 'core/210-battle-round.js V6.3.40';
+export const VER = '// V6.3.41 | 2026-11-08 状态标签化：候选池/循环条件里的「alive && hp>0 && !pendingDeath」
+//   三连改问 isLiveCombatant()，眩晕改问 isControlled()（core/218 标签表单一真源）；逐项等价。
+core/210-battle-round.js V6.3.41';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
-import { resetStateFields } from './218-state-keys.js';
+import { resetStateFields, isControlled, isLiveCombatant } from './218-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './203-battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, installBuffMechanics, onUnitDeathFlyerRegen } from './204-buff-system.js';
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
@@ -463,7 +465,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         const priorityDeclarations = [];
 
         for (const u of sortedByPos) {
-            if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
+            if (isControlled(u)) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
             // 攻=0 一律不发起攻击，走休息通道（含众志成城 0 攻补员）；被加攻词条抬到 >0 即恢复出战。
             //   文案保留身份：拒马「拒马休息」、幼狮「幼狮休息」，其余「无力攻击」。
             if (getStat(u, 'atk') <= 0) {
@@ -529,8 +531,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     //   而它们又选不出可行动目标 → 阵营来回切换、死循环或拖到回合上限。
     //   真正死亡由本轮末尾的 finalizeRoundEnd → resolveDeaths 统一落地。
     while (
-        A.some(u => u.alive && u.hp > 0 && !u.state._pendingDeath && !u.state._acted) ||
-        B.some(u => u.alive && u.hp > 0 && !u.state._pendingDeath && !u.state._acted)
+        A.some(u => isLiveCombatant(u) && !u.state._acted) ||
+        B.some(u => isLiveCombatant(u) && !u.state._acted)
     ) {
         const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
         // 首个友方回合相位：回合组件实现 onFirstAllyTurn 钩子（组件自找目标触发附身），
@@ -548,7 +550,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         }
         // hp>0 且非待死才算候选：一击致死会先挂 _pendingDeath、死亡结算在更后面，
         //   中间若还把他当候选，就会出现「0 血单位出手、反击伤害 0」这类战报（实机已见）。
-        const candidates = currentTeam.filter(u => u.alive && u.hp > 0 && !u.state._pendingDeath && !u.state._acted).sort((a, b) => a.pos - b.pos);
+        const candidates = currentTeam.filter(u => isLiveCombatant(u) && !u.state._acted).sort((a, b) => a.pos - b.pos);
         if (candidates.length === 0) {
             currentSide = currentSide === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
             continue;
