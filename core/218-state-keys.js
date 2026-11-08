@@ -1,4 +1,4 @@
-export const VER = 'core/218-state-keys.js V2.9.32';
+export const VER = 'core/218-state-keys.js V2.9.33';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -170,6 +170,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 圣火不熄海克斯：每局首次己方非巨马阵亡时写在阵亡者本体上——'pending' 待复活 / 'used' 本局已复活。
     //   必须 battle 级（跨回合保留）：队伍数组每回合重建，挂数组过不了回合边界（同 _pendingZhouPos 理由）
     _holyFire:               { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 团队圣火名额已用次数：记在阵亡者本人（跨回合存活），判名额时按队伍求和
+    _holyFireUses:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 小昭·妹专属复活名额：妹永久 holyFire 的独立名额，与团队 _holyFire 名额叠加、互不占用
     _holyFireSelf:           { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 杨逍·点穴冷却：同一目标 cdRounds 回合内最多被点一次（回合开始递减，>0 即免疫本次点穴判定）

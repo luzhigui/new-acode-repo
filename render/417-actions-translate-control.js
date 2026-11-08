@@ -1,6 +1,6 @@
 // render/417-actions-translate-control.js — fact → stageAction 翻译器·控制位移族（38 拆分）
 import { STAGE_ACTION_TYPES, FACT_TYPES, FLY_MODE_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/417-actions-translate-control.js V1.1.1';
+export const VER = 'render/417-actions-translate-control.js V1.1.2';
 
 // 控制位移族翻译器表（键=factType）
 export const CONTROL_TRANSLATORS = {
@@ -50,11 +50,10 @@ export const CONTROL_TRANSLATORS = {
             factIndex: index,
             timing: 'beforeText'
         }];
-        if (data.dmg > 0) {
-            for (const s of swaps) acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: s.uid, dmg: data.dmg, factIndex: index, timing: 'afterText' });
-        }
-        if (data.heal > 0) {
-            for (const s of swaps) acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: s.uid, targetUid: s.uid, amount: data.heal, factIndex: index, timing: 'afterText' });
+        // 惑心换位按比例结算：逐单位各自带 dmgAmt / healAmt，不能再用全队同一个固定数
+        for (const s of swaps) {
+            if (s.dmgAmt > 0) acts.push({ kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT, targetUid: s.uid, dmg: s.dmgAmt, factIndex: index, timing: 'afterText' });
+            if (s.healAmt > 0) acts.push({ kind: STAGE_ACTION_TYPES.HEAL, actorUid: s.uid, targetUid: s.uid, amount: s.healAmt, factIndex: index, timing: 'afterText' });
         }
         return acts;
     },

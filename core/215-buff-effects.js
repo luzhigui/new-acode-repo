@@ -1,4 +1,4 @@
-export const VER = 'core/215-buff-effects.js V6.1.11';
+export const VER = 'core/215-buff-effects.js V6.2.0';
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
 //   控制免疫单位不进候选（删除免疫 50% 拦截与「洗完回原位」两条空结果路径）。
 // V6.1.10（2026-11-02 收尾）：撤销 applyMindControlCore 内三处 MCDEBUG 临时诊断（MCSIDE/MC_E/MC_A），
@@ -179,10 +179,14 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
         const { swaps, pick3 } = shuffleThreeSlots(enemySide, rng);
         if (swaps.length > 0) {
-            const dmgOnSwap = (enhance && enhance.dmgOnSwap) || 0;
-            if (dmgOnSwap > 0) {
+            const hpPct = (enhance && enhance.hpPctSwap) || 0;
+            if (hpPct > 0) {
                 for (const s of swaps) {
-                    if (s.unit.alive && !s.unit.state._pendingDeath) applyStatChange(s.unit, 'hp', -dmgOnSwap, null, '惑心换位');
+                    if (s.unit.alive && !s.unit.state._pendingDeath) {
+                        // 敌方：按当前生命比例扣血（逐单位各自算，不共用同一刀）
+                        s.dmgAmt = Math.max(1, Math.floor(s.unit.hp * hpPct));
+                        applyStatChange(s.unit, 'hp', -s.dmgAmt, null, '惑心换位');
+                    }
                 }
             }
             if (enhance && enhance.stunOnSwap) {
@@ -198,7 +202,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
                 emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
                 emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, dmg: dmgOnSwap } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos, dmgAmt: s.dmgAmt || 0 })), allPositions: pick3, hpPct } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: oppSide, reason: '无变化' } });
         }
@@ -209,17 +213,21 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     if (rng.nextInt(1,100) <= swapChanceAlly) {
         const { swaps, pick3 } = shuffleThreeSlots(allySide, rng);
         if (swaps.length > 0) {
-            const healOnSwap = (enhance && enhance.healOnSwap) || 0;
-            if (healOnSwap > 0) {
+            const hpPct = (enhance && enhance.hpPctSwap) || 0;
+            if (hpPct > 0) {
                 for (const s of swaps) {
-                    if (s.unit.alive && !s.unit.state._pendingDeath) applyStatChange(s.unit, 'hp', healOnSwap, unit, '惑心换位');
+                    if (s.unit.alive && !s.unit.state._pendingDeath) {
+                        // 己方：按最大生命比例回血（D5 口径，不看当前血）
+                        s.healAmt = Math.max(1, Math.floor(s.unit.maxHp * hpPct));
+                        applyStatChange(s.unit, 'hp', s.healAmt, unit, '惑心换位');
+                    }
                 }
             }
             for (const s of swaps) {
                 emitEvent(s.unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: s.toPos });
                 emitStateChange(s.unit, STATE_CHANGE_TYPES.POSITION, { fromPos: s.fromPos, toPos: s.toPos }, log);
             }
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: selfSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, heal: healOnSwap } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: selfSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos, healAmt: s.healAmt || 0 })), allPositions: pick3, hpPct } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: selfSide, reason: '无变化' } });
         }

@@ -288,11 +288,12 @@ function syncReviewLog(stepIdx, upto, adopt) {
 }
 
 // 静帧：把画面摆到「第 stepIdx 步、第 cueIdx 段」
-function paintAt(stepIdx, cueIdx) {
+function paintAt(stepIdx, cueIdx, opts = {}) {
     const c = ctx();
     if (!c || !c.store) return;
     const step = S.steps[stepIdx];
     if (!step) return;
+    const render = opts.render !== false;   // D 方案：定位过程中间步不刷 DOM，只在目标步一次性渲染
 
     clearDeathTimers(c);
     if (c._removedUids) c._removedUids.clear();
@@ -323,7 +324,7 @@ function paintAt(stepIdx, cueIdx) {
 
     // step.activeBuffs 是「进这一步之前」的 buff 快照（503 在播本步前 feed），正好配基底态
     const buffs = step.activeBuffs;
-    if (buffs) { c.activeBuffs = buffs.map(b => ({ ...b })); if (c.updateBuffSlots) c.updateBuffSlots(); }
+    if (buffs) { c.activeBuffs = buffs.map(b => ({ ...b })); if (render && c.updateBuffSlots) c.updateBuffSlots(); }
 
     S.stepIdx = stepIdx;
     S.cueIdx = upto;
@@ -331,7 +332,7 @@ function paintAt(stepIdx, cueIdx) {
     S.label = labelOf(cues[upto]);
     // 日志不在这里画：段拨时由调用方在「这一段的动作演完」后调 syncReviewLog，
     //   避免同一段被 paintAt 与 scrubToCue 各重绘一次。
-    if (c.updateUI) c.updateUI();
+    if (render && c.updateUI) c.updateUI();
 }
 
 function waitForGate(ms) {
@@ -555,6 +556,8 @@ async function scrubToCue(stepIdx, cueIdx) {
     const idx = Math.max(0, Math.min(cueIdx, cues.length - 1));
     const cue = cues[idx];
 
+    // 段拨/跳步属于「定位」：后台静默算到目标段，只在末尾一次性定格
+    setReviewSilent(ctx(), true);
     // 演出必须在「时钟运行」下播：主循环已被步首闸门钉住，放开时钟只放 FX，不会推进战斗
     GlobalStore.set('isPaused', false);
 
@@ -575,15 +578,18 @@ async function scrubToCue(stepIdx, cueIdx) {
         if (cue.kind === 'settle') {
             syncStoreFromStep(c, step);
         } else if (cue.kind === 'death') {
-            flushDeathFlashes(c, deathsOf(stepIdx));
+            if (!c.isRewinding) flushDeathFlashes(c, deathsOf(stepIdx));   // 定位：不重播死亡闪红
         } else if (cue.kind === 'text') {
             // 日志段走 504 的同一条单条播放：掉血飘字 / 血条 / 黄闪 / 逐字，与主流程一致
-            const fact = (step.log || [])[cue.logIndex];
-            const prepared = fact ? prepareLogEntry(fact) : null;
-            const list = Array.isArray(prepared) ? prepared : (prepared ? [prepared] : []);
-            for (const en of list) {
-                if (token !== S.cueToken) return;
-                if (en) await playSingleLogEntry(c, en, step, { value: true }, cue.logIndex);
+            //   定位态直接跳过演出，末尾 syncReviewLog 一次性定格到该段
+            if (!c.isRewinding) {
+                const fact = (step.log || [])[cue.logIndex];
+                const prepared = fact ? prepareLogEntry(fact) : null;
+                const list = Array.isArray(prepared) ? prepared : (prepared ? [prepared] : []);
+                for (const en of list) {
+                    if (token !== S.cueToken) return;
+                    if (en) await playSingleLogEntry(c, en, step, { value: true }, cue.logIndex);
+                }
             }
         } else if (cue.action) {
             applyStageActionToStore(c, cue.action, pending);
@@ -592,7 +598,7 @@ async function scrubToCue(stepIdx, cueIdx) {
             }
             if (token !== S.cueToken) return;
             applyStageActionToStoreAfter(c, cue.action, pending);
-            flushDeathFlashes(c, pending);
+            if (!c.isRewinding) flushDeathFlashes(c, pending);
         }
     }
     if (token !== S.cueToken) return;
@@ -632,7 +638,7 @@ function cancelRun() {
 export async function startPlay() {
     if (!S.active || S.busy) return;
     const c = ctx();
-    // 回看面板内的「播放」仍是静默重演（从头重演到第 N 步），绝不放历史特效
+    // 先把「回到本步之前」的基底态静默摆好（这一段属于定位，不演出）
     setReviewSilent(c, true);
     const token = ++S.cancelToken;
     S.busy = true;
@@ -657,6 +663,8 @@ export async function startPlay() {
     }
     S.logDirty = true;                  // 真播会直接往 #log 里写，后续段拨必须整块重建对齐
     GlobalStore.set('isPaused', false);
+    // 进入连续播放（只从当前步往后）：恢复正常演出，攻击/伤害/死亡特效一个不少
+    setReviewSilent(c, false);
 
     let playCue = 0;
     c._rewindCue = async (kind) => {
@@ -710,7 +718,8 @@ export function pausePlay() {
 
 export function resumePlay() {
     if (!S.active) return;
-    setReviewSilent(ctx(), true);   // 仍在回看面板内：继续静默，不放历史特效
+    const c = ctx();
+    setReviewSilent(c, false);      // 接着连续播放：正常演出
     // 停在某个停点上：放行那一个等待即可，原样接着播
     if (S.playRelease) {
         S.stopPlay = false;
@@ -729,6 +738,7 @@ export async function fastForward() {
     cancelRun();
     S.busy = true;
     try {
+        setReviewSilent(ctx(), true);   // 定位：后台算到底，中途零特效、零逐帧渲染
         GlobalStore.set('isPaused', true);
         await sleep(30);   // 给被取消的播放一点时间退出来
         const from = S.stepIdx;
@@ -736,10 +746,10 @@ export async function fastForward() {
         const span = last - from;
         const stride = Math.max(1, Math.ceil(span / 60));
         for (let i = from; i <= last; i += stride) {
-            paintAt(i, buildCuesFor(i).list.length - 1);
-            await sleep(28);
+            paintAt(i, buildCuesFor(i).list.length - 1, { render: false });   // 中间步不刷 DOM
         }
-        paintAt(last, buildCuesFor(last).list.length - 1);
+        paintAt(last, buildCuesFor(last).list.length - 1);                   // 目标步一次性定格
+        syncReviewLog(last, null);
     } finally {
         S.busy = false;
         // 到底后必须真暂停（不能 resume）：画面钉住，点主按钮「继续」才恢复推进

@@ -1,4 +1,4 @@
-export const VER = 'core/205-battle-horse.js V6.3.1';
+export const VER = 'core/205-battle-horse.js V6.3.2';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff } from './203-battle-utils.js';
@@ -88,6 +88,9 @@ export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
 
 // 拒马-销毁：回合结束概率消散拒马
 export function destroyHorse(allyTeam, log) {
+    // 姊强化·巨马阵 noDestroy：整局不消散
+    const horseEnh = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
+    if (horseEnh && horseEnh.noDestroy) return;
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;
 

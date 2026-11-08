@@ -1,3 +1,25 @@
+// V2.9.32 | 2026-11-08 迭代：修「纯换行差异被判成证据陈旧」+ 给陈旧红加归因，并修 VER 一刀切误报。
+//   实证：第 189 棒在独立 detached worktree 全量重跑 49 树、灌回主仓后 --report 报
+//   RULEFP/ENGFP 双不符。逐文件比对规则面 = 42 字节相同 + 6 纯 CRLF↔LF + 0 真实内容差异，
+//   ⇒ RULEFP 那条是 git autocrlf 造成的假红；引擎侧则确由并行会话 7 笔提交改了 12 个主代码文件，
+//   那条是真红，本轮**没有**绕过。
+//   ① 两个指纹函数保持零形参、#META 字段名与格式一字不动（tests/.mut/drive.mjs 用
+//      sliceBetween 抽函数源码文本去 new Function，改签名/边界会直接打断重跑链）；
+//      默认变换改为「逐文件统一 LF」⇒ 生成侧以后不再因 autocrlf / 混合换行产生不同值；
+//      可选 arguments[0] 变换供比较侧复算 raw/LF/CRLF 三态以认历史证据。
+//      真实字节改动、文件增删改名仍必红。
+//   ② 陈旧红新增归因：列出自结果 HEAD 起真实变化的文件，并单列「仅换行差异」；只读取证，
+//      归因失败静默、绝不新增判红条件。
+//   ③ VER 差异改为「数据守卫优先」：与第 144 轮把 mtime 一刀切降级为 warn 同理——VER 是解释层
+//      标识不是数据证据，五项数据守卫全过时降级 warn；只要任一数据守卫红，VER 差异照常列硬红。
+//      VER 头缺失仍硬红，不放宽。
+//   自证：tests/mutation-fp-eol-selftest.mjs（10 条牙，含双向换行互认与三种真实改动必红）。
+// V2.9.31 | 2026-11-08 合并轮：夜间第 185–189 轮判据链（V2.9.27→V2.9.30：T14 重锚、replaySig/结论面、
+//   甲/乙定性、conclSig）与主线白天第 187/189 棒（A30 触发点牙、T14 第四次重锚）合流。
+//   ★ 取夜间 V2.9.30 为基底，只把主线独有的 A30 树搬过来；T14 的 from/to 两边实为同一串
+//     （`上限→${fmtNum(fact.newMaxHp)}`），无需裁决。判定阈值、verdict 分类、计数口径一字未改。
+//   ★ 本版新增第 49 棵树 A30 ⇒ MUTFP 必变 ⇒ teeth-results.txt 须全量重跑 49 树才复绿；
+//     在此之前「牙口证据链对账」报陈旧是真实信号，不得用 --allow-stale 或改闸门绕过。
 // V2.9.26 | 2026-11-07 并行接力第一棒：T13/T14 重锚（解 MiniMax 主代码改动的冲突，主代码零改动）。
 //   由头：新绊线 mutation-anchor-tripwire 当场报 T13(render/410)、T14(render/413) 0 处命中。
 //   根因：上游 2de44141「回血/吸血战报显示实落值并注明修正原因」把渲染数字从
@@ -147,7 +169,31 @@
 //   T17/T18 锚点整行失效（--verify 报 0 处 ⇒ 静默失效=假绿制造机）。重锚：
 //   T17 翻转 SWAP fact 的 side（ENEMY→ALLY，文本变「己方」咬判据1）；T18 把 fact 内 fromPos/toPos 对调
 //   （文本报反位置咬判据5）。两者仍针对 rule113（166）惑心配对/落地，牙齿语义不变。
-export const VER = 'tests/mutation-teeth.mjs V2.9.26';
+// V2.9.29 | 2026-11-08 第 187 轮：「对照器兜住」补原因定性（甲/乙两类），并复验 V2.9.28 的判据修正在本树为**零迁移**。
+//   甲类 = 变异只动账本 value，REPLAY 段与 BASELINE 段均相对 _base 未变（V2.9.30 起 REPLAY 段按结论面比）⇒ 任何只看 fact 自洽的规则
+//   在定义上都咬不到它，守护者本来就只能是账本对照器。判定后追加「（变异仅动账本值·规则面结论未变）」，
+//   ★ verdict 分类与计数口径一字未动，只加限定语；不加标注的一律按乙类（规则本该咬却没咬）看待。
+//   本轮实测 A11/A17 两颗牙落甲类（两段逐字相同、fpChanged 因 maxHp 被改恒为真）——
+//   这正是 V2.9.28 把 trajFrozen 由单证改双证的实证基础；该修正对所有 47 棵树**未迁移任何判定**（复验见日志）。
+// V2.9.28 | 2026-11-08 第 187 轮：masked 闸门的「轨迹未变」由单证改双证。
+//   旧 `!fpChanged` 对**纯数值变异**恒假（FINGERPRINT 对 atk/def/maxHp/hp 求值，变异的正是这些属性）
+//   ⇒ 凡「纯数值变异 + 规则在干净树已红（转交中）」的组合，masked 永远作不了证。
+//   实证：m-A11 与 _base 的 REPLAY 段、BASELINE 段**双段逐字相同**，fpChanged 却为 true；
+//   m-A17（蛛女精通加攻翻倍）同型。新口径 trajFrozen = !fpChanged **或**（REPLAY 段与 BASELINE 段
+//   均相对 _base 逐字未变）。两段都未变 ⇒ 规则侧观测面与战报面均无变化，不存在「轨迹带偏顺带红」的余地。
+//   任一段有变 ⇒ 退回旧口径；拿不到 _base 签名 ⇒ 不成立（fail-closed）。★ 只收紧不作放宽：
+//   不新增任何 newRed 渠道，只是让「本来就在报的同一批明细」能被认作直接证据而非顺带红。
+// V2.9.30 | 2026-11-08 第 188 轮：把「规则面是否变化」的判据由**整段逐字**改为**结论面**，并按实测给 10 颗牙定性。
+//   由头：第 187 轮立了甲/乙定性（甲=变异只动账本值、规则在定义上咬不到；乙=规则本该咬却没咬，真待办），
+//   但判据用的是 REPLAY 段整段签名，把 `pass=40`→`pass=39`、`skip=127`→`skip=128` 这类**计数抖动**也算成扰动
+//   ⇒ 12 颗未标注牙全部落乙类，其中 10 颗其实是甲类（逐场明细一条未增未减）。
+//   实证（本树 teeth-results.txt 逐颗 diff，非推断）：A3/A5/A6/A7/A10/A14/A18/A19/A21/A23 差异**仅在** pass/skip 数字；
+//   A20、A22 是**真**乙类——两者的逐场明细确有增删（A20 新增「newMaxHp 上升但 maxHpDelta=0」、
+//   A22 新增「maxHpDelta=1.75 不等量」与九阳新场次），说明规则体确实看到了变异效应，只是落在了
+//   「基线已红不得作证」的闸门后面（rule164/rule143 在干净树就 fail>0）。这两颗保持乙类不动，是真待办。
+//   ★ 只收紧不放宽：新增的只是「判得更准地归因」，不新增任何 newRed / masked 渠道，不改 verdict 分类、
+//     不改计数口径、不动任何一条「不得作证」闸门（基线已红规则、干净树已命中契约）；任一签名缺失 ⇒ fail-closed。
+export const VER = 'tests/mutation-teeth.mjs V2.9.32';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -429,10 +475,15 @@ const MUTATIONS = [
       file: 'render/410-facts-heal.js',
       from: "的嗜血狂刀吸血+${d.text}${d.note}",
       to:   "的嗜血狂刀吸血+${Number(d.text) * 2}${d.note}" },
-    { id: 'T14', kind: 'TEXT', desc: '韦一笑吸血(plusMaxHp)渲染heal×2（⇒ 吸血>伤害×maxRatio余量 → rule159 判据3应咬）',
+    // V2.9.27 第 186 轮重锚：上游把 heal 收成一个已格式化好的模板串（`heal` 自身已含符号/取整），
+    //   且上限改用 fmtNum(fact.newMaxHp) 包裹 ⇒ 旧 from `${label}+${heal}${note}，上限→${fact.newMaxHp}` 0 处命中，
+    //   T14 变异树退化成干净树（绊线当场报「0 处 —— 该行已被删除/改写」）。
+    //   新锚点取渲染串里的 `${label}+${heal}${note}，上限→`，只污染**文案**、不动 fx 通道（fx.amount = healNum 是引擎真值），
+    //   于是「文案 heal ≠ 真值」这一分叉正是 rule159 判据3 要咬的形状，判据强度不变。
+    { id: 'T14', kind: 'TEXT', desc: '韦一笑吸血(plusMaxHp)渲染heal文案×2（⇒ 文案吸血>伤害×maxRatio余量 → rule159 判据3应咬）',
       file: 'render/413-generic-renderers.js',
-      from: "${label}+${heal}${note}，上限→${fact.newMaxHp}",
-      to:   "${label}+${Number(heal) * 2}${note}，上限→${fact.newMaxHp}" },
+      from: "${label}+${heal}${note}，上限→",
+      to:   "${label}+${Number(heal) * 2}${note}，上限→" },
     // 第 68 轮新增：验证 rule163（正义国字脸叠防数值回归）真有牙，而非恒绿。
     //   rule163 读 ATTACK fact 的 data.pangDefGain，与配置 getSkillParams('胖远桥','righteousFace').defGain 对账；
     //   写事实那行在 modules/26 L368（pangDefGain = face.defGain）。把写入值×2 ⇒ 事实≠配置 ⇒ rule163 判据2 应咬。
@@ -476,8 +527,8 @@ const MUTATIONS = [
       //   变量 oppSide、且新增 allPositions: pick3 字段，第 145 轮锚点再次 0 命中（第 180/181/182 轮未重跑变异树故未暴露，
       //   本轮重跑 --report 实测「⚠锚点失效·结论作废 1 处」）。第三次重锚：锚定敌方分支独有串
       //   「side: oppSide ... dmg: dmgOnSwap」（己方分支为 side: selfSide ... heal: healOnSwap，不会误伤），只把 side 换成 ALLY 常量。
-      from: "data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, dmg: dmgOnSwap }",
-      to:   "data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos })), allPositions: pick3, dmg: dmgOnSwap }" },
+      from: "data: { side: oppSide, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos, dmgAmt: s.dmgAmt || 0 })), allPositions: pick3, hpPct }",
+      to:   "data: { side: CAMP_TYPES.ALLY, swaps: swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos, dmgAmt: s.dmgAmt || 0 })), allPositions: pick3, hpPct }" },
     //   T18：SWAP fact 把两个旧位置报反（posA/posB 对调，multi 两分支同改）—— 实际换位照常发生，
     //     但宣告的 oldPosA/oldPosB 与真相对调 ⇒ 判据5「A 应落到 oldPosB」永远不命中 ⇒ 应咬。
     //     判据2（自洽）抓不到（uid/位置仍合法且相异）—— 正是要单独验证判据5 有牙。
@@ -499,6 +550,14 @@ const MUTATIONS = [
       file: 'modules/316-elite-sixsects-kongjian.js',
       from: "kj.state._kongJianUsed = (kj.state._kongJianUsed || 0) + 1;",
       to:   "kj.state._kongJianUsed = (kj.state._kongJianUsed || 0) + 2;" },
+    // V2.9.31 合并轮：从主线白天第 187 棒搬回的 A30（夜间链上没有这棵树）。
+    //   用途：142「张三丰回合开始生生不息」的触发点牙 —— 只让 priority 12 那次 handler 立刻 return
+    //   （注册仍在，轮到自己/八卦阵两处照旧），等价于「删触发点」的历史回归 ⇒ 进场后回合缺 ☯ info，
+    //   rule142（V6.1.11 已排除进场前回合）应报红。锚串在 modules/311 全文件恰好 1 处。
+    { id: 'A30', kind: 'ATTR', desc: '删张三丰回合开始生生不息触发（⇒ 进场后回合缺生生不息 → rule142 应咬）',
+      file: 'modules/311-elite-sixsects-zhangsanfeng.js',
+      from: "eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 12, (data) => {",
+      to:   "eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 12, (data) => { return;" },
 ];
 
 function toPosix(p) {
@@ -530,21 +589,38 @@ function checkFreshness(txt, resultsPath) {
         if (m) meta[m[1]] = m[2].trim();
     }
     const resMtime = fs.statSync(resultsPath).mtimeMs;
-    // ② VER / MUTFP
+    // ② VER / MUTFP —— V2.9.32：VER 是解释层标识，不是数据证据。
+    //   与第 144 轮把 mtime 一刀切降级为 warn 同理：只改 judge / 指纹比较逻辑并抬了版本，
+    //   49 树原始数据仍有效，却要 --allow-stale 才能看结论 ⇒ 误报。
+    //   ⇒ 改为「数据守卫优先」：先记下差异，等 ②⑤⑥③④ 跑完，五项全过则降级 warn；
+    //     只要任一数据守卫红，VER 差异照常列硬红。VER 头缺失依旧硬红，不放宽。
+    let verDiffNote = '';
     if (!meta.VER) why.push('结果文件缺少 #META VER 头（V2.9.0 之前的旧结果，无法证明配得上当前判据）');
-    else if (meta.VER !== VER) why.push(`判据版本不符：结果由 ${meta.VER} 生成，当前 ${VER}`);
+    else if (meta.VER !== VER) verDiffNote = `判据版本不符：结果由 ${meta.VER} 生成，当前 ${VER}`;
+    // 陈旧归因只附在第一条指纹不符上，避免重复刷屏；归因失败静默。
+    let attrAttached = false;
+    const attachAttr = () => {
+        if (attrAttached) return '';
+        attrAttached = true;
+        const a = staleAttribution(meta.HEAD);
+        return a ? '\n' + a : '';
+    };
     const fpNow = mutFingerprint();
     if (!meta.MUTFP) why.push('结果文件缺少 #META MUTFP 头（无法证明变异表未变）');
     else if (meta.MUTFP !== fpNow) why.push(`变异表指纹不符：结果侧 ${meta.MUTFP}，当前 ${fpNow} —— 变异改过，结果没重跑`);
     // ⑤ 判据（规则）文件内容指纹（V2.9.15）：规则文件一改，"某规则有牙"的结论就可能整条作废。
     //    缺头 = V2.9.15 之前生成的结果，无法证明规则未变 ⇒ 同样判陈旧（本轮本地证据正是这种情况）。
+    // V2.9.32：比较侧接受 raw/LF/CRLF 三态等价集合（兼容历史证据的旧字节口径）；
+    //   当前显示值取生成侧新口径（默认归一化），集合首项 raw 仅供认旧证据。
+    const rfpSet = ruleFingerprintVariants();
     const rfpNow = ruleFingerprint();
     if (!meta.RULEFP) why.push(`结果文件缺少 #META RULEFP 头（V2.9.15 之前的结果，无法证明规则文件未变；当前规则指纹 ${rfpNow}）——重跑变异树后自动生成`);
-    else if (meta.RULEFP !== rfpNow) why.push(`规则文件指纹不符：结果侧 ${meta.RULEFP}，当前 ${rfpNow} —— 判据（规则）文件改过，牙口结论可能已配不上当前代码`);
+    else if (!rfpSet.has(meta.RULEFP)) why.push(`规则文件指纹不符：结果侧 ${meta.RULEFP}，当前 ${rfpNow} —— raw/LF/CRLF 三态均不匹配；若历史证据由「逐文件混合换行」的副本生成，其旧字节口径无法回溯换算。V2.9.32 起生成侧统一按 LF 写，重跑后不会再有此差异` + attachAttr());
     // ⑥ 引擎源码指纹（第 139 轮并入上游改动：引擎改了但变异表 MUTFP 没变，旧结果仍会假绿）
+    const engSet = engineFingerprintVariants();
     const engFp = engineFingerprint();
     if (!meta.ENGFP) why.push(`结果文件缺少 #META ENGFP 头（无法证明引擎源码未变；当前引擎指纹 ${engFp}）——重跑变异树后自动生成`);
-    else if (meta.ENGFP !== engFp) why.push(`引擎源码指纹不符：结果侧 ${meta.ENGFP}，当前 ${engFp} —— 引擎代码改过（即便变异表没变），结果没重跑`);
+    else if (!engSet.has(meta.ENGFP)) why.push(`引擎源码指纹不符：结果侧 ${meta.ENGFP}，当前 ${engFp} —— 已排除纯换行差异（raw/LF/CRLF 三态均比对），被测主代码确有实质改动，结果没重跑` + attachAttr());
     // ③ 覆盖不全
     const missing = MUTATIONS.filter(m => !txt.includes(`##### MUT m-${m.id} #####`)).map(m => m.id);
     if (!txt.includes('##### MUT _base #####')) missing.unshift('_base');
@@ -563,12 +639,77 @@ function checkFreshness(txt, resultsPath) {
     //   若 why 非空（指纹已判数据真陈旧），mtime 差是冗余信号，不再重复报。
     try {
         const selfMtime = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs;
-        if (selfMtime > resMtime && why.length === 0) {
+        if (selfMtime > resMtime && why.length === 0 && warn.length === 0) {
             warn.push(`判据文件 mutation-teeth.mjs 比结果文件新（${fmt(selfMtime)} > ${fmt(resMtime)}），但变异表/规则/引擎指纹均匹配 —— 仅判定逻辑（judge）改动，48 树原始数据仍有效，结论按新逻辑解析；如需时间戳洁净请重跑 --emit-prep/--emit-run`);
         }
     } catch (e) { /* 拿不到 mtime 不拦 */ }
+    // ② VER 差异裁决（V2.9.32）：数据守卫全过 ⇒ 解释层改动，降级 warn；否则照常硬红。
+    if (verDiffNote) {
+        if (why.length === 0) warn.push(verDiffNote + ' —— 但变异表/规则/引擎指纹、覆盖、树 mtime 全匹配，属解释层改动，49 树原始数据仍有效');
+        else why.unshift(verDiffNote);
+    }
     return { why, warn };
 }
+
+// ── FP-EOL-BEGIN ──────────────────────────────────────────────────────────
+// 换行等价指纹（V2.9.32）：同一份 JS 源码在不同 worktree 被 git autocrlf 检出成
+// LF / CRLF，语义完全一样，但按原始字节算出的指纹不同 ⇒ 旧证据被误判陈旧。
+//   ★ 生成侧默认已改为「逐文件统一 LF」（见两个指纹函数的 xf 默认值），以后无论哪个
+//     worktree、混不混合换行，写进 #META 的都是同一个值；下面的三态集合只用来认历史证据。
+//   ★ 只扩大「等价」的定义到换行形态，不碰任何判定阈值：真实字节改动、文件增删改名
+//     一律仍使三种形态的指纹全变 ⇒ 必红。
+function eolVariants() {
+    const asStr = b => Buffer.isBuffer(b) ? b.toString('utf8') : String(b);
+    return [
+        b => b,                                                                              // ① raw：与历史证据同口径
+        b => Buffer.from(asStr(b).replace(/\r\n/g, '\n').replace(/\r/g, '\n'), 'utf8'),        // ② 统一 LF
+        b => Buffer.from(asStr(b).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n'), 'utf8'), // ③ 统一 CRLF
+    ];
+}
+function ruleFingerprintVariants() {
+    return new Set(eolVariants().map(xf => ruleFingerprint(xf)));
+}
+function engineFingerprintVariants() {
+    return new Set(eolVariants().map(xf => engineFingerprint(xf)));
+}
+
+// 陈旧归因（V2.9.32）：红不再只是一句「指纹不符」，把「自结果 HEAD 起到底哪些文件真变了」列出来。
+//   纯只读 git + 内存比对；任何一步失败都静默返回 ''（绝不因归因失败影响判定，也不新增判红条件）。
+//   metaHead 已按 hex 校验，命令串不接任何未净化输入。
+function staleAttribution(metaHead) {
+    if (!metaHead || !/^[0-9a-f]{6,40}$/i.test(metaHead)) return '';
+    const scope = ['core', 'modules', 'infra', 'player', 'render', 'content',
+                   'tests/health-rules', 'tests/122health-utils.js'];
+    let names;
+    try {
+        names = execSync(`git diff --name-only ${metaHead} -- ${scope.join(' ')}`,
+            { cwd: REPO, encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] })
+            .split('\n').map(s => s.trim()).filter(Boolean);
+    } catch (e) { return ''; }
+    if (!names.length) return '';
+    const norm = b => (Buffer.isBuffer(b) ? b.toString('utf8') : String(b))
+        .replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const realMain = [], realRules = [], nlOnly = [];
+    for (const n of names) {
+        let old;
+        try {
+            old = execSync(`git show "${metaHead}:${n}"`,
+                { cwd: REPO, encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] });
+        } catch (e) { old = null; }
+        let cur;
+        try { cur = fs.readFileSync(path.join(REPO, n)); } catch (e) { cur = null; }
+        if (old === null || cur === null) { (n.startsWith('tests/') ? realRules : realMain).push(n); continue; }
+        if (norm(old) === norm(cur)) { nlOnly.push(n); continue; }
+        (n.startsWith('tests/') ? realRules : realMain).push(n);
+    }
+    const out = [];
+    if (realMain.length) out.push(`     ↳ 归因：相对结果 HEAD ${metaHead.slice(0, 8)}，${realMain.length} 个主代码文件内容不同：${realMain.slice(0, 8).join('、')}${realMain.length > 8 ? '…' : ''}`);
+    if (realRules.length) out.push(`     ↳ 同口径下 ${realRules.length} 个判据/规则文件与该提交不同（含体检侧自行灌入的未提交改动）`);
+    if (nlOnly.length) out.push(`     ↳ 另有 ${nlOnly.length} 个文件仅换行差异（已自动兼容，不算陈旧）`);
+    out.push('     ↳ 注：#META 只记录提交号、不记录当时工作树；以上仅供定位，不作放行依据');
+    return out.join('\n');
+}
+// ── FP-EOL-END ────────────────────────────────────────────────────────────
 
 // 牙 → 守卫契约映射的**唯一来源读取**（V2.9.17 | 第 157 轮）。
 //   表本体住在 tests/contract-guard-selftest.mjs（TEETH_GUARDIAN），本文件绝不手写第二份 ——
@@ -642,6 +783,15 @@ function mutFingerprint() {
 //   口径（只钉判据，不含被测主代码）：tests/health-rules/*.js（47 个规则文件）+ tests/122health-utils.js
 //   （判据宿主，V6.x 系列判据都在里头）。改名 / 增删文件同样会改指纹 —— 按设计如此。
 function ruleFingerprint() {
+    // V2.9.32：可选第一参数 = 换行变换函数，仅供 ruleFingerprintVariants() 比较侧复算历史口径。
+    //   签名必须保持零形参（tests/.mut/drive.mjs 按 'function ruleFingerprint() {' 抽源码文本）；
+    //   ★ 默认 = 逐文件统一 LF：生成侧从此只写归一化指纹，任何 worktree 的 autocrlf /
+    //     逐文件混合换行都算出同一个值（第 190 棒实测副本里 6 文件换行不同就是漏网形态）。
+    //   ★ 变换必须内联、不能抽成公共函数：drive.mjs 的 sliceBetween 只抽本函数体，
+    //     引用外部 helper 会在 new Function 里 ReferenceError 直接打断重跑链。
+    const xf = typeof arguments[0] === 'function' ? arguments[0]
+        : (b) => Buffer.from((Buffer.isBuffer(b) ? b.toString('utf8') : String(b))
+            .replace(/\r\n/g, '\n').replace(/\r/g, '\n'), 'utf8');
     const h = crypto.createHash('sha1');
     const dir = path.join(HERE, 'health-rules');
     let files = [];
@@ -649,12 +799,12 @@ function ruleFingerprint() {
     h.update('health-rules\u0001' + files.join('\u0002') + '\u0003');
     for (const f of files) {
         h.update(f + '\u0001');
-        try { h.update(fs.readFileSync(path.join(dir, f))); } catch (e) { h.update('\u0002READ_FAIL'); }
+        try { h.update(xf(fs.readFileSync(path.join(dir, f)))); } catch (e) { h.update('\u0002READ_FAIL'); }
     }
     // 122health-utils.js：静默位移判据 / 行动权不变量等判据的宿主文件，改动同样会让牙口结论作废。
     try {
         h.update('122health-utils.js\u0001');
-        h.update(fs.readFileSync(path.join(HERE, '122health-utils.js')));
+        h.update(xf(fs.readFileSync(path.join(HERE, '122health-utils.js'))));
     } catch (e) { h.update('\u0002READ_FAIL'); }
     return h.digest('hex').slice(0, 12);
 }
@@ -665,6 +815,10 @@ function ruleFingerprint() {
 // 只哈希 mutation 树实际叠加的战斗相关源码目录（与第 42 轮叠加口径一致：core/modules/infra/player/render/content），
 // 路径取相对 REPO 保证跨 worktree 稳定。★ 与上方 ruleFingerprint 互补：一个盯判据、一个盯被测，缺一个都是盲区。
 function engineFingerprint() {
+    // V2.9.32：同 ruleFingerprint —— 零形参签名不变、默认逐文件统一 LF、变换必须内联。
+    const xf = typeof arguments[0] === 'function' ? arguments[0]
+        : (b) => Buffer.from((Buffer.isBuffer(b) ? b.toString('utf8') : String(b))
+            .replace(/\r\n/g, '\n').replace(/\r/g, '\n'), 'utf8');
     const dirs = ['core', 'modules', 'infra', 'player', 'render', 'content'];
     let sig = '';
     for (const d of dirs) {
@@ -687,7 +841,7 @@ function engineFingerprint() {
         for (const fp of files) {
             let c;
             try { c = fs.readFileSync(fp, 'utf8'); } catch { continue; }
-            sig += path.relative(REPO, fp) + '\u0001' + crypto.createHash('sha1').update(c).digest('hex').slice(0, 10) + '\u0002';
+            sig += path.relative(REPO, fp) + '\u0001' + crypto.createHash('sha1').update(xf(c)).digest('hex').slice(0, 10) + '\u0002';
         }
     }
     return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 12);
@@ -714,6 +868,11 @@ function breEscape(s) {
 //   必须比对**报红明细文本**：同一条规则若因本次变异报出了基线里没有的新文案/新场次，才算真有牙。
 // ★ 第 58 轮：_base 干净树的 baseline 段指纹（整段文本归一化排序后拼接）。judge 用它做增量判定。
 let BASE_SIG = null;
+// ★ V2.9.28（第 187 轮）：_base 干净树的 REPLAY 段签名（同款归一化）。用作「规则侧观测面是否变化」的对照。
+let BASE_REPLAY_SIG = null;
+// ★ V2.9.30（第 188 轮）：_base 干净树的 REPLAY 段**结论面**签名（逐规则、只收 fail>0 的明细集合）。
+//   与 BASE_REPLAY_SIG（整段逐字）并存：后者容忍不了 pass/skip 抖动，前者只认结论差异。
+let BASE_CONCL_SIG = null;
 // V2.9.0：干净树自己的「偏差」条数基准（实测 BREAK_DEF 跨子步 2 条）。偏差只看增量，不看绝对值。
 let BASE_MISMATCH = 0;
 // V2.9.14：干净树里「命中>0」的契约集合 —— 与 BASE_RED 同理，这些契约失去作证资格。
@@ -721,6 +880,7 @@ let BASE_MISMATCH = 0;
 let BASE_DIRTY_CONTRACTS = {};
 
 function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts) {
+
     // ★ 第 58 轮：baselineChanged 改为**相对 _base 干净树的增量**判定。
     //   旧口径 `B.changed || match<18` 是「与录制基线比」，而主代码进行中的 dotTick 让干净树自己就报红线，
     //   ⇒ 任何变异的 changed 恒 true ⇒ no-op 变异（A8/A19/A13，baseline 输出与 _base 逐字节相同）
@@ -729,6 +889,44 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
         ? B.baseSig !== BASE_SIG
         : (B.changed || (B.match !== null && B.match < 18));
     const fpChanged = FP0 !== null && stf.fp !== null && stf.fp !== FP0;
+    // ★★ V2.9.28（第 187 轮）：判「轨迹是否真变」的第二把尺子 —— REPLAY 段相对 _base 是否逐字未变。
+    //   由头（A11 实证，非推断）：
+    //     A11「韦一笑吸血上限提升翻倍」只把 addMod 的 value 从 delta 改成 delta*2（纯数值变异、不动分支、
+    //     不动 fact 文本）。实测 m-A11 与 _base 的 REPLAY 段**逐字相同**、BASELINE 段也**逐字相同**，
+    //     但 fpChanged=true —— 因为 FINGERPRINT 由 stat-decl --fingerprint 逐步对 atk/def/maxHp/hp 求
+    //     FNV 指纹，而被变异改掉的正是 maxHp 本身。⇒ 「改了属性值」这一动作**必然**让 fpChanged 为真。
+    //   后果：V2.9.24 的 masked 闸门 `masked.length > 0 && !fpChanged` 只认「fpChanged=false」，
+    //     于是凡「纯数值变异 + 规则在干净树已红（转交中）」的组合，masked 永远等不到闸门打开
+    //     ⇒ 落「规则无牙·对照器兜住」。本树实测 A11 / A17 两颗牙属此型（REPLAY 与 BASELINE 双段逐字相同、fpChanged 皆 true）。
+    //   ★ 这不是放宽，是把一票否决改成**两证俱全**：REPLAY 段逐字不变（规则侧观测面无变化 = 没有「顺带红」的余地）
+    //     **且** BASELINE 段逐字不变（战报/结局面也无变化），两条独立证据同时成立，masked 才是「直接抓」。
+    //     任一段有变化 ⇒ 退回旧口径（需 !fpChanged），维持零误报优先。A28 那种「轨迹大改、顺带红」的仍不作证。
+    //   ★ 拿不到 _base 签名时**一律不成立**（fail-closed），不可能因此把任何一颗牙放宽成有牙。
+    const replayUnchanged = BASE_REPLAY_SIG !== null && typeof B.replaySig === 'string'
+        && B.replaySig === BASE_REPLAY_SIG;
+    // ★★ V2.9.30（第 188 轮）：结论面（逐规则、只算 fail>0 的明细集合）是否相对 _base 一字未变。
+    //   与上面 replayUnchanged 的区别只有一处：**不计 pass/skip 计数抖动**，其余（规则红否、明细文本）同口径。
+    //   实测依据：A3/A5/A6/A7/A10/A14/A18/A19/A21/A23 十颗牙的 REPLAY 段差异**仅**为 pass/skip 数字，
+    //   逐场明细一条未增未减 —— 整段签名把这种抖动当成了「规则面被扰动」，属过严导致的误分类。
+    const conclUnchanged = BASE_CONCL_SIG !== null && typeof B.conclSig === 'string'
+        && B.conclSig === BASE_CONCL_SIG;
+    // 「规则侧观测面未变」= 整段逐字未变（最强）或 结论面一字未变（排除记账抖动）。
+    const replayStable = replayUnchanged || conclUnchanged;
+    const trajFrozen = !fpChanged || (replayStable && !baselineChanged);
+    // ★ V2.9.29（第 187 轮）：「对照器兜住」的原因定性 —— 区分「规则结构上不可能咬」与「规则本该咬却没咬」。
+    //   由头（A11 实证）：矩阵对 16 颗 ATTR 牙统一写「规则无牙·对照器兜住」，读者无从分辨两种截然不同的情况：
+    //     甲：变异只改**账本 value**（addMod 的数值参数），fact 文本与分支结构一字未动 ⇒ 任何「只看 fact 是否自洽」
+    //         的规则**在定义上**都不可能咬住它（规则 164 比的是 heal 与 maxHpDelta 两个字段互等，变异两边都不碰）。
+    //         这一类的守护者**本来就只能是账本对照器**，写「规则无牙」是误导（读起来像规则放水）。
+    //     乙：变异同时改了有规则盯的 fact/branch，规则本应报红却没报 ⇒ 才是真待办。
+    //   判据只用**现成的两段签名**，不新增任何测量：
+    //     REPLAY 段与 BASELINE 段均相对 _base 逐字未变（轨迹面完全无扰动）+ 对照器有增量命中
+    //     ⇒ 甲类（标注「变异仅动账本值·规则面结论未变」）。
+    //   其余 ⇒ 不加标注（保持原文，即默认按乙类看待，等人工复核）。
+    //   ★ 这是**加注解**不是改判定：verdict 的分类与计数口径一字未动，只在其后追加一个限定语。
+    //   V2.9.30：判据由「两段**逐字**未变」改为「BASELINE 段逐字未变 + REPLAY 段**结论面**未变」。
+    //     前者把 pass/skip 抖动也算扰动，导致 10 颗甲类被误归乙类；后者只认结论差异。
+    //     标注文案同步改「规则面结论未变」，与实际判据一致（旧文案「逐字未变」在结论面口径下不再准确）。
     const bRed = new Set(baseRed || []);
     const bDet = new Set(baseDetails || []);
     // ★★ 「基线已红的规则失去作证资格」（第 43 轮实测被迫加的第二道闸门）：
@@ -757,6 +955,11 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
     }
     // 兼容旧结果文件（无逐契约列）：退回归总数口径，不因解析缺口把「有牙」误判成「没牙」。
     if (Object.keys(byC).length === 0 && S.total > 0) { statClean = S.total; guardians.push('(未归属)×' + S.total); }
+    // ★ V2.9.30：ledgerOnly/ledgerNote 必须在这里（statClean 之后）算 —— 它们最初放在 judge 前段，
+    //   而 statClean 是本段才声明的 const，前置会撞 TDZ（ReferenceError 被外层 try 吞掉 ⇒ 整棵树判据静默失效）。
+    //   ★ 这是本轮自己踩的坑，记在这里防复发：判据变量一律「先声明后使用」。
+    const ledgerOnly = replayStable && !baselineChanged;
+    const ledgerNote = ledgerOnly ? '（变异仅动账本值·规则面结论未变）' : '';
     const statHit = statClean > 0 || mismatchDelta > 0;
     // ★★ V2.9.17：执行级实证 —— 这颗牙的守卫契约在本树是否**零触发**（fact 零发射 + 账本 group 从未出现）。
     //   零触发 ⇒ 变异注入的那行代码在样本里一次都没跑 ⇒ 谁也咬不到它，不是"规则无牙"而是"没机会咬"。
@@ -816,7 +1019,9 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
         //   (bc=true)时 masked 可能顺带红，仅提示不作证，落到「仅基线/对照器」等原有分支。
         //   ★ 治本不在此：T10/T16 的 rule143/164 基线红，根子是主代码 core/216 vs core/217 的 maxHp
         //     口径不同源（delta=2.5≠heal=3），修了那个 rule143/164 转绿，T10/T16 自然进 newRed 判有牙。
-        if (masked.length > 0 && !fpChanged) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };   // V2.9.25：用 fpChanged(战斗指纹)判"轨迹是否真变"，不用 baselineChanged——A28 实测 BASELINE 段相同但战斗已变(仅改 fact/属性不走 baseline)，故 !fpChanged 才是"轨迹未变"的可靠判据
+        if (masked.length > 0 && trajFrozen) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };   // V2.9.25：用 fpChanged(战斗指纹)判"轨迹是否真变"，不用 baselineChanged——A28 实测 BASELINE 段相同但战斗已变(仅改 fact/属性不走 baseline)，故 !fpChanged 才是"轨迹未变"的可靠判据
+        // V2.9.28：上面这条闸门从 `!fpChanged` 改为 `trajFrozen`（= !fpChanged 或「规则侧观测面未变 + BASELINE 段未变」）。
+        // V2.9.30：其中「规则侧观测面未变」由整段逐字改为**结论面**（逐规则 fail>0 的明细集合），排除 pass/skip 抖动。
         if (baselineChanged) return { verdict: '❌装饰品(仅基线能察觉)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
         return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     }
@@ -826,8 +1031,9 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
     //   优先记有牙（与 TEXT 同口径），只有规则零观测才考虑对照器/基线兜底。
     // V2.9.24：ATTR 分支 masked 同样只在「轨迹未变」时作证（理由见 TEXT 分支同处注释）。
     //   A28（轨迹大改）的 masked 是顺带红，不作证 ⇒ 落到下方 statClean 判「对照器兜住」。
-    if (masked.length > 0 && !fpChanged) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
-    if (statClean > 0) return { verdict: '规则无牙·对照器兜住' + gbit, effective, baselineChanged, fpChanged, newDetail, newRed, statMasked };
+    if (masked.length > 0 && trajFrozen) return { verdict: '规则有牙(掩盖×' + masked.length + ')', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+    // V2.9.28：同上，闸门改 trajFrozen（纯数值变异改了 maxHp ⇒ fpChanged 必真，旧闸门对它恒闭）。
+    if (statClean > 0) return { verdict: '规则无牙·对照器兜住' + gbit + ledgerNote, effective, baselineChanged, fpChanged, newDetail, newRed, statMasked };
     if (baselineChanged) return { verdict: '规则无牙·仅基线兜底', effective, baselineChanged, fpChanged, newDetail, newRed };
     // 属性变了(fpChanged) 但规则+对照器+基线都没反应
     return { verdict: '⚠属性已变但规则+对照器+基线均未反应(待确认盲区)', effective, baselineChanged, fpChanged, newDetail, newRed };
@@ -1059,6 +1265,10 @@ async function main() {
         let BASE_RED = [], BASE_DETAILS = [];
         if (b) {
             BASE_SIG = b.baselineSig ?? null;
+            // V2.9.28：REPLAY 段签名同样取自 _base；缺省 null ⇒ trajFrozen 只剩 !fpChanged 一支（fail-closed）。
+            BASE_REPLAY_SIG = b.replaySig ?? null;
+            // V2.9.30：结论面签名同样取自 _base；缺省 null ⇒ 第二支不成立（fail-closed，退化为整段逐字口径）。
+            BASE_CONCL_SIG = (typeof b.replayConclSig === 'string') ? b.replayConclSig : null;
             BASE_MISMATCH = (typeof b.statMismatch === 'number' ? b.statMismatch : 0);
             BASE_RED = b.red || []; BASE_DETAILS = b.details || [];
             // V2.9.14：干净树里已命中的契约 ⇒ 失去作证资格（对照器侧「不得作证」闸门）。
@@ -1102,7 +1312,7 @@ async function main() {
             const p = parsed['m-' + m.id];
             if (!p) { console.log(`⏭ 缺 ${m.id} 结果`); continue; }
             const R = { red: p.red, details: p.details || [], pairs: p.pairs || [], crash: p.crash };
-            const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig };
+            const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig, replaySig: p.replaySig, conclSig: p.replayConclSig };
             const S = { total: p.statTotal, statMismatch: p.statMismatch, statByContract: p.statByContract, zeroTriggers: p.zeroTriggers };
             const stf = { fp: p.fp };
             const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS, BASE_DIRTY_CONTRACTS);
@@ -1135,6 +1345,34 @@ async function main() {
     console.log('  3) node tests/mutation-teeth.mjs --report');
     console.log('（全程约 2~3 分钟；21 棵树 × 三件套）');
     console.log('（--emit-prep 生成基树+变异；--emit-run 产出 Bash 循环脚本跑三件套落盘；--report 解析出牙口矩阵）');
+}
+
+// ★★ V2.9.30（第 188 轮）：REPLAY 段的「结论面」签名 —— 与整段逐字签名 replaySig 分开。
+//   输入是 REPLAY 段的原始行数组，输出「逐规则、只含 fail>0 的明细集合」的**相对 _base 的增删差集**文本；
+//   单调可比、可复现、不含 pass/skip 计数。用途与由头见 parseBlock 内的调用点注释。
+//   与 parseBlock 里的 red/pairs 解析共用同一套行正则，避免出现「第二份口径」。
+function conclSig(replayLines) {
+    const rows = new Map();  // 规则名 -> Set(明细)
+    let cur = null;
+    for (const raw of replayLines) {
+        const line = raw.trim();
+        if (!line) continue;
+        const hm = line.match(/^(?:❌|⚠️)\s*(.+?)\s+pass=(\d+)\s+fail=(\d+)\s+skip=(\d+)/);
+        if (hm) {
+            cur = hm[1].trim();
+            // fail=0 的规则一律不进结论面：它的结论就是「无红」，与 pass/skip 怎么抖无关。
+            if (Number(hm[3]) > 0 && !rows.has(cur)) rows.set(cur, new Set());
+            else if (Number(hm[3]) === 0) rows.delete(cur);
+            continue;
+        }
+        const dm = line.match(/^\[seed=\d+\s+stage=\d+\]\s+(.+)$/);
+        if (dm && cur && rows.has(cur)) rows.get(cur).add(dm[1].trim());
+    }
+    const out = [];
+    for (const name of [...rows.keys()].sort()) {
+        out.push(name + '\n' + [...rows.get(name)].sort().join('\n'));
+    }
+    return out.join('\n--rule--\n');
 }
 
 // 解析单个变异块（REPLAY/BASELINE/STAT/FP 四段）—— 逐行切分，稳健。
@@ -1179,6 +1417,27 @@ function parseBlock(body) {
     //   A8/A19/A13 就是这么被误报的：baseline 输出与 _base **逐字节相同**，变异压根没生效。
     //   正确口径：baseline 是否**相对 _base 干净树**发生变化 —— 没变 ⇒ 变异无效，不构成任何兜底证据。
     const baselineSig = baseline.split('\n').map(s => s.trim()).filter(Boolean).sort().join('\n');
+    // ★ V2.9.28（第 187 轮）：REPLAY 段签名 —— 与 baselineSig 同款归一化（去行首尾空白 + 丢空行 + 排序）。
+    //   用途见 judge 里「轨迹未变」的新口径：REPLAY 段是「哪些规则、在哪些场次、报了什么明细」的**结论面**，
+    //   它逐字相同 = 规则这一侧的观测面没有任何变化，正是 masked 能否「直接作证」的实证。
+    //   排序是为了容忍并行跑树的输出顺序抖动（同一棵树的 REPLAY 多条之间本无顺序语义）。
+    const replaySig = replay.split('\n').map(s => s.trim()).filter(Boolean).sort().join('\n');
+    // ★★ V2.9.30（第 188 轮）：REPLAY 段的**结论面**签名 —— 与上面 replaySig（整段逐字）分开。
+    //   由头（第 188 轮实测，12 颗牙逐颗取证）：replaySig 把 `⚠️ 某规则 pass=40 fail=1 skip=109` 这一整行
+    //   也纳进签名，而 pass/skip 只是「参与判定的场次数」的抖动（变异改了属性数值 ⇒ 某些场次提前/退后结束，
+    //   判据跑到的场次数就变了），**结论一个字没变**。实测 A3/A5/A6/A7/A10/A14/A18/A19/A21/A23 十颗牙：
+    //   REPLAY 段相对 _base 的全部差异只有 `pass=40→39`、`skip=127→128` 这类记账抖动，
+    //   逐场明细（`[seed=N stage=M] 复发：…`）**一条未增未减** ⇒ 规则侧观测面其实完全没变。
+    //   ⇒ 用整段签名判「规则面是否变化」会把「结论无关的计数抖动」误读成「规则面被扰动」，
+    //     进而把甲类（规则结构上咬不到、只能由账本对照器守）误判成乙类待办。
+    //   结论面口径（逐规则归一）：
+    //     · 只收 fail>0 的规则（fail=0 的规则结论就是「无红」，其 pass/skip 不进签名）；
+    //     · 每条规则取其逐场明细集合，与 _base 同名规则的明细做**增删差集**；
+    //     · 差集为空 ⇒ 该规则在结论面上与 _base 一字不差（pass/skip/输出顺序抖动不计）。
+    //   ★ 只收紧不放宽：签名越「钝」越容易判「未变」，但这里的「未变」只用于**解释原因**（甲/乙定性）
+    //     与 masked 作证的第二支；第一支（!fpChanged）原样保留，且「不得作证」的闸门（基线已红规则、
+    //     干净树已命中契约）一条未动。
+    const replayConclSig = conclSig(secs.REPLAY);
     const changed = !!baseline.match(/回归|场与基线不一致/) || (match !== null && match < 18);
     let statTotal = 0;
     // V2.9.0：对照器「偏差」方向（声明 > 实际 ⇒ 少加 / 多报）的**总条数**。
@@ -1220,7 +1479,7 @@ function parseBlock(body) {
         }
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, warn, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, statByContract, zeroTriggers, fp: fpM ? fpM[1] : null };
+    return { red, warn, details, pairs, crash, match, changed, baselineSig, replaySig, replayConclRaw: secs.REPLAY, replayConclSig, statTotal, statMismatch, statByContract, zeroTriggers, fp: fpM ? fpM[1] : null };
 }
 
 function summarize(rows, outPath, metaLines, staleCount) {

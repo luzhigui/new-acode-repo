@@ -1,4 +1,4 @@
-export const VER = 'fx/610-fx-subscriber.js V6.1.5';
+export const VER = 'fx/610-fx-subscriber.js V6.1.6';
 
 import { eventBus } from '../infra/101-event-bus.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -19,6 +19,7 @@ import { showLionRoar } from './613-fx-lion-roar.js';
 import { showPangTaunt, showPangClumsy } from './614-fx-pang-antics.js';
 import { showHanLiSaBurst } from './615-fx-hanlisa-burst.js';
 import { showSkillCue } from './619-skill-cues.js';
+import { showSwordRain } from './620-sword-rain.js';
 import { updateHanLiSaChargeFx } from './612-hanlisa-charge.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { isFxSkipped as inFastForward } from '../infra/111-fx-gate.js';
@@ -51,6 +52,7 @@ eventBus.on(FX_SIGNALS.SPIDER_STRIKE, P, (d) => { if (inFastForward()) return; r
 eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain));
 eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, (d) => showDefBuffFloat(d.unit, d.gain));   // 钢蓝🛡，镜像位
 eventBus.on(FX_SIGNALS.HORSE_DISSOLVE, P, (d) => showHorseDissolve(d.unit));          // 拒马沙化消散
+eventBus.on(FX_SIGNALS.METEOR_RAIN, P, (d) => { if (inFastForward()) return; return showSwordRain(d.enemySide); });   // 飞箭雨
 eventBus.on(FX_SIGNALS.DODGE_BUBBLE, P, (d) => showDodgeBubble(d.unit, d.text));
 eventBus.on(FX_SIGNALS.BRUSH_EFFECT, P, (d) => applyBrushEffect(d.el));
 eventBus.on(FX_SIGNALS.HEART_EFFECT, P, (d) => showHeartEffect(d.unit));

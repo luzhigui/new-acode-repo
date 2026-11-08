@@ -1,7 +1,7 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
 // V6.3.34 | 2026-11-07 第 184 轮：finalizeRoundEnd 败方归零改调 killUnit（死亡收口统一出口，
 //          补记 V6.3.33 未升版的实质改动——此前直调 applyStatChange 带 ignoreCap，绕开了单一出口）
-export const VER = 'core/210-battle-round.js V6.3.35';
+export const VER = 'core/210-battle-round.js V6.3.36';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -18,7 +18,7 @@ import { clearAllWatchers } from './220-unit-watch.js';
 import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced, getRoundHooks } from './208-registry-elite.js';
 import { processUnitAttack } from './209-battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/101-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng } from './214-battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng, query } from './214-battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/102-core-utils.js';
 import { SeededRNG } from '../infra/102-core-utils.js';
@@ -279,10 +279,13 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
         }
     }
 
-    // 流云身法：团队版每回合随机少一人享受加成（若仅 1 人则正常享受）
+    // 流云身法：团队版每回合随机少一人享受加成；姊强化 noSkip 时全员都不跳过
     if (hasBuff(buffs, BUFF_TYPES.CLOUD_BODY)) {
+        const cloudEnh = query('xiaoHexEnhance', team, buffs, BUFF_TYPES.CLOUD_BODY);
         const aliveCloudTeam = team.filter(u => u.alive);
-        if (aliveCloudTeam.length > 1) {
+        if (cloudEnh && cloudEnh.noSkip) {
+            aliveCloudTeam.forEach(u => { u.state._cloudBodySkip = false; });
+        } else if (aliveCloudTeam.length > 1) {
             const rng = getBattleRng();
             const skipIdx = rng.nextInt(0, aliveCloudTeam.length - 1);
             aliveCloudTeam.forEach((u, idx) => { u.state._cloudBodySkip = (idx === skipIdx); });

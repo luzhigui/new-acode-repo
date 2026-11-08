@@ -6,7 +6,7 @@
 // V1.0.8 | 2026-11-08 修正 V1.0.7（撤回攻击值下限，攻击力不动）：改为伤害出口 dmg = max(1, dmg)，
 //          只兜真打中的最终伤害；闪避/免疫/完全挡下不经过这里，不给 1
 // V1.0.7 | 2026-11-08 出手攻击值下限 atkAct=max(1, atkBase+波动)（已撤回，见 V1.0.8）
-export const VER = 'core/212-battle-attack-chain.js V1.0.8';
+export const VER = 'core/212-battle-attack-chain.js V1.0.9';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -140,7 +140,11 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 rawAmount: Math.floor(getStat(unit, 'atk')),
                 actualAmount: 0
             });
-            let reboundDmg = Math.floor((getStat(target, 'atk') + getStat(target, 'def')) * C.DODGE_REBOUND_RATIO);
+            // 闪避反伤倍率：姊流云身法可覆盖（reboundRatio = 75%），否则走 CONFIG 默认
+            const dodgeTeam = target.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
+            const xzCloud = dodgeTeam ? query('xiaoHexEnhance', dodgeTeam, dodgeTeam._activeBuffs || [], BUFF_TYPES.CLOUD_BODY) : null;
+            const rebRatio = (xzCloud && xzCloud.reboundRatio) ? xzCloud.reboundRatio : C.DODGE_REBOUND_RATIO;
+            let reboundDmg = Math.floor((getStat(target, 'atk') + getStat(target, 'def')) * rebRatio);
             let unitHpBeforeRebound = Math.floor(unit.hp);
 
             const dodgeDeclarations = [];

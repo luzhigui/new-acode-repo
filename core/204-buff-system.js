@@ -1,5 +1,5 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.7.7';
+export const VER = 'core/204-buff-system.js V6.8.0';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -14,6 +14,7 @@ import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolveP
 import { findFreePos, spawnUnit } from './205-battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
@@ -364,6 +365,18 @@ export function submitBloodthirstDeclaration(data) {
             // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
             recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
         }
+        // 姊强化·必出双击：吸血之外再补一次完整攻击（走 extraRequests 过完整伤害管线）
+        if (enhanceBT && enhanceBT.forceDoubleStrike && unit.alive) {
+            if (!data.extraRequests) data.extraRequests = [];
+            data.extraRequests.push({
+                unit,
+                targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
+                reason: 'bloodthirstDouble',
+                actedMode: 'allow',
+                priority: 20,
+                ignoreBlock: true
+            });
+        }
     } else if (hasBrotherPermanent(allySide, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         // 同主分支：声明量填原值，preview 只用于飘字/审计
         const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
@@ -533,6 +546,28 @@ export function submitMeteorShowerDeclaration(data) {
     const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === ROLE_TYPES.RANGED;
     const brotherActive = unit.role === ROLE_TYPES.RANGED && hasBrotherPermanent(allySide, BUFF_TYPES.METEOR_SHOWER);
     if (!active && !brotherActive) return;
+    // 姊强化·飞箭雨：全屏真伤，替代原「主目标加伤 + 溅射」整套结算
+    const meteorEnh = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
+    if (active && meteorEnh && meteorEnh.trueDmgPct > 0) {
+        const foes = (enemySide || []).filter(u => u.alive && !u.isHorse);
+        if (!data.declarations) data.declarations = [];
+        const rows = [];
+        for (const u of foes) {
+            const dmg = Math.floor(getStat(u, 'maxHp') * meteorEnh.trueDmgPct);
+            if (dmg <= 0) continue;
+            data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: dmg, target: u, label: '☄️ 飞箭雨' });
+            rows.push(`${u.name} 受 ${dmg} 真伤`);
+        }
+        if (log) {
+            eventBus.emit(FX_SIGNALS.METEOR_RAIN, { enemySide });
+            log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '流星赶月·飞箭雨',
+                note: `☄️ 飞箭雨！${rows.join('、')}`,
+                floatText: '☄️', floatUid: unit.uid
+            } });
+        }
+        return;
+    }
     const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
     const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
     if (!data.declarations) data.declarations = [];
@@ -615,8 +650,13 @@ export function submitHolyFireRecord(data) {
     const owner = teams.find(t => (data.deadUnits || []).some(u => u && t.includes(u) && !u.isHorse && !u.isSummon && u.pos != null)
         && hasBuff(t._activeBuffs || [], BUFF_TYPES.HOLY_FIRE));
     if (owner) {
-        // 每局一次：本人群中已有「待复活」或「已复活」标记即不再记（两个标记都写在阵亡者本体上，跨回合存活）
-        if (!owner.some(u => u.state && (u.state._holyFire === 'pending' || u.state._holyFire === 'used'))) {
+        // 名额：普通版 1 次；姊强化 reviveCount 可到 2 次。按队伍求和（已用 + 待复活占用），
+        //   _holyFireUses 记在阵亡者本人 state（跨回合存活），故同一人第二次阵亡也能累加。
+        const hfEnh = owner.some(u => u.isXiaoZhaoSister && u.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
+        const reviveCount = (hfEnh && hfEnh.reviveCount != null) ? hfEnh.reviveCount : 1;
+        const usedCount = owner.reduce((n, u) => n + (((u.state && u.state._holyFireUses) || 0) + (u.state && u.state._holyFire === 'pending' ? 1 : 0)), 0);
+        const pendingExists = owner.some(u => u.state && u.state._holyFire === 'pending');
+        if (!pendingExists && usedCount < reviveCount) {
             const victim = (data.deadUnits || []).find(u => u && owner.includes(u) && !u.isHorse && !u.isSummon);
             if (victim && victim.pos != null) victim.state._holyFire = 'pending';
         }
@@ -652,9 +692,13 @@ function reviveHolyFireUnit(u, team, log, slot) {
         }
         ratio = brotherHFEnh.reviveRatio;
     } else {
+        // 姊强化：首复活 100% / 次复活 70%（按本人已用次数选档）；无强化回落普通版
+        const used = u.state._holyFireUses || 0;
         ratio = enhance
-            ? (enhance.reviveRatio != null ? enhance.reviveRatio : 0.6)
+            ? (used === 0 ? (enhance.firstReviveRatio != null ? enhance.firstReviveRatio : 1.0)
+                          : (enhance.secondReviveRatio != null ? enhance.secondReviveRatio : 0.7))
             : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4);
+        u.state._holyFireUses = used + 1;
     }
     // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
     //   （findFreePos 只算 alive 占位、尸体不占格，故通常直接原地复活）

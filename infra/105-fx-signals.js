@@ -1,4 +1,4 @@
-export const VER = 'infra/105-fx-signals.js V6.1.6';
+export const VER = 'infra/105-fx-signals.js V6.1.7';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
@@ -22,6 +22,7 @@ export const FX_SIGNALS = {
     SPLASH_ARROWS: 'fx:splashArrows',    // 流星箭雨
     BRUSH_EFFECT: 'fx:brushEffect',      // 死亡画笔渐隐
     HORSE_DISSOLVE: 'fx:horseDissolve',  // 拒马沙化消散
+    METEOR_RAIN: 'fx:meteorRain',        // 飞箭雨·全屏箭雨（快进跳过）
     DEF_BUFF_FLOAT: 'fx:defBuffFloat',   // 防御加成飘字（钢蓝🛡，与攻击飘字镜像位）
     // 位移动画
     PUSH_SWAP: 'fx:pushSwap',            // 推挤换位
