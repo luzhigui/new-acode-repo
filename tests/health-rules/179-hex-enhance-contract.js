@@ -15,12 +15,15 @@
 //      critPattern 升序去重且周期长度自洽、targetPositions 为 1~9 的去重整数列表。
 // 刻意不做：不比对「强化值是否比普通版更强」——圣火令 0.25 低于普通版 0.30 是老板拍板的
 //   平衡设计，硬判"必须更大"会造出假红；是否真有消费者由 hex-enhance-wiring-guard 静态对账。
-export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.0.0';
+// V1.1.0 | 2026-11-08：002（提交 17ee3c9f）删掉 sister.bloodthirst.forceDoubleStrike 与
+//   sister.carry.multiTarget 两个**无消费方**的死字段，契约表同步删这两项；sister.doubleStrike.chance
+//   保留（主线正在把 core/203 改成读它，属"该接线不该删"）。
+export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.1.0';
 import { getGameData, getHexEnhanceData } from '../../core/201-config-5v5-test.js';
 
 // 消费方硬读字段表：改这里 = 改契约，必须同步 core/modules 的实际读取点
 const SISTER_SCHEMA = {
-    bloodthirst: { leechRatio: 'prob', forceDoubleStrike: 'bool' },
+    bloodthirst: { leechRatio: 'prob' },
     hotBlood: { leechPct: 'prob', critPattern: 'critPattern', extraDuration: 'int' },
     windAssault: { hitProb: 'prob', pushProb: 'prob', extraDuration: 'int' },
     meteorShower: { trueDmgPct: 'prob', duration: 'int' },
@@ -28,7 +31,7 @@ const SISTER_SCHEMA = {
     cloudBody: { dodgeBonus: 'prob', reboundRatio: 'prob', noSkip: 'bool' },
     fortify: { healOnRebound: 'bool' },
     horseFormation: { horseAtk: 'num', horseDef: 'num', horseHp: 'num', reboundDmg: 'num', noDestroy: 'bool' },
-    carry: { multiTarget: 'bool', targetPositions: 'posList' },
+    carry: { targetPositions: 'posList' },
     holyFlame: { atkCols: 'colRow', defRows: 'colRow', atkBonus: 'prob', defBonus: 'prob' },
     soulDrain: { atkBonus: 'signed', perUnitBonus: 'prob' },
     holyFire: { reviveCount: 'int', firstReviveRatio: 'prob', secondReviveRatio: 'prob' },
