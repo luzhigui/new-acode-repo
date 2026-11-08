@@ -16,7 +16,8 @@
 //
 // ★ 本件是新文件，未登记进 tests/run-all.mjs：该文件由并行会话共用，避免抢改冲突；
 //   需要入册时由编排方在 OBSERVES 加一行即可。
-export const VER = 'tests/stats-pipeline-audit.mjs V1.1.0';
+// V1.2.0 | 2026-11-08 S7 改为静态复核：816 有 unrecDmg 累计且 813 有跳过写法 → 转 ✅ 备注，未修才报缺口。
+export const VER = 'tests/stats-pipeline-audit.mjs V1.2.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -601,15 +602,26 @@ for (let i = 0; i < 3; i++) {
 // ---------------------------------------------------------------------------
 // D2 的负差额不判红：引擎把「自伤/主动扣血」用 record=false 直改 hp（七伤拳自损 modules/315、
 // 乾坤自伤 modules/302），这部分本来就不进 dmgTaken；813 拿「承伤 − 净扣血」当漏记会假红。
-// 证据确凿 ⇒ 列成工具侧口径缺口（S7），不当作引擎战斗逻辑错误。
-if (negGapUnits > 0) {
-    staticFindings.push({
-        kind: 'REQ', id: 'S7', title: '813 的「负差额=漏记」会把自伤误判成漏记',
-        detail: `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}）。` +
-            '引擎侧正常：唐文亮「七伤拳自损」(modules/315) 与张无忌「乾坤自伤」(modules/302) 走 ' +
-            'applyStatChange(..., record=false) 直扣 hp，小昭·姊的附身/吸魂转移也直接搬 hp，都不记 dmgTaken。' +
-            '813 应按「是否自伤/附身/直改血」拆列或排除这些单位，否则页头会报「承伤漏记」假红。'
-    });
+// V1.2.0（2026-11-08）：816 用「真实 hp 变化 − 记账增量」标出 unrec*，813 跳过这些单位。
+// 静态复核两处写法防回退；只有未修时才列成工具侧口径缺口（S7）。
+{
+    const wBody = fnBody(SRC.worker, 'runStatsStageJob');
+    const s7Fixed = /unrecDmg/.test(wBody) && /unrecDmg/.test(SRC.stats) && /跳过/.test(SRC.stats);
+    if (s7Fixed) {
+        if (negGapUnits > 0) {
+            addNote('S7 负差额已排除不可校核单位（静态 ✅）',
+                `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}），均为自伤/附身/直改血；` +
+                '816 已标 unrec*，813 改为跳过这些单位，不再报假红。');
+        }
+    } else if (negGapUnits > 0) {
+        staticFindings.push({
+            kind: 'REQ', id: 'S7', title: '813 的「负差额=漏记」会把自伤误判成漏记',
+            detail: `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}）。` +
+                '引擎侧正常：唐文亮「七伤拳自损」(modules/315) 与张无忌「乾坤自伤」(modules/302) 走 ' +
+                'applyStatChange(..., record=false) 直扣 hp，小昭·姊的附身/吸魂转移也直接搬 hp，都不记 dmgTaken。' +
+                '813 应按「是否自伤/附身/直改血」拆列或排除这些单位，否则页头会报「承伤漏记」假红。'
+        });
+    }
 }
 
 const hardFails = [];

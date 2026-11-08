@@ -1,3 +1,5 @@
+// V1.20.1 | 2026-11-08 stats job 增 unrecDmg / unrecHeal 累计：用 payload 的累计 dmgTaken/healDone 与真实
+//   hp 变化对差，识出「自伤 / 附身搬血 / record=false 直改血」这类不进记账的掉血回血，供 813 跳过假红。
 // V1.20.0 | 2026-11-08 统计口径修正（对账 56 场查出的 2 条）：
 //   ① stats job 的 hp tracker 起点改为「开战前单位自身 hp/maxHp」，不再用首笔 HP_CHANGE 的 p.hp
 //     （原写法让每个单位的第一笔扣血/回血恒为 0，733 个单位里 117 个少算）；
@@ -729,7 +731,12 @@ function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = fals
                 const st = tracker[uid] || (tracker[uid] = {
                     hp: base ? base.hp : p.hp,
                     maxHp: base ? base.maxHp : p.maxHp,
-                    battleDmg: 0, battleHeal: 0, reallocDmg: 0, reallocHeal: 0
+                    battleDmg: 0, battleHeal: 0, reallocDmg: 0, reallocHeal: 0,
+                    // V1.20.1：不可校核血量（自伤 / 附身搬血 / record=false 直改血）——用 payload 里的
+                    //   累计 dmgTaken/healDone 与真实 hp 变化对差即可识别，不依赖引擎加字段。
+                    taken: base ? 0 : (p.dmgTaken || 0),
+                    heal: base ? 0 : (p.healDone || 0),
+                    unrecDmg: 0, unrecHeal: 0
                 });
                 const dHp = p.hp - st.hp;
                 if (dHp !== 0) {
@@ -740,6 +747,20 @@ function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = fals
                         if (maxHpChanged) st.reallocHeal += dHp; else st.battleHeal += dHp;
                     }
                 }
+                // 记账增量 vs 真实 hp 变化：对不上且不属于重分配 = 这一笔没进 dmgTaken/healDone
+                const dTaken = p.dmgTaken !== undefined ? (p.dmgTaken || 0) - st.taken : null;
+                const dHeal = p.healDone !== undefined ? (p.healDone || 0) - st.heal : null;
+                const maxHpChanged = p.maxHp !== st.maxHp;
+                if (dHp < 0 && dTaken !== null && !maxHpChanged) {
+                    const gap = (-dHp) - Math.max(0, dTaken);
+                    if (gap > 0.5) st.unrecDmg += gap;
+                }
+                if (dHp > 0 && dHeal !== null && !maxHpChanged) {
+                    const gap = dHp - Math.max(0, dHeal);
+                    if (gap > 0.5) st.unrecHeal += gap;
+                }
+                if (dTaken !== null) st.taken = p.dmgTaken || 0;
+                if (dHeal !== null) st.heal = p.healDone || 0;
                 st.hp = p.hp;
                 st.maxHp = p.maxHp;
             }
@@ -767,7 +788,7 @@ function record(agg, u, t) {
     if (!u) return;
     const camp = u.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const key = `${camp}·${u.name}`;
-    const d = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0 });
+    const d = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0, unrecDmg: 0, unrecHeal: 0 });
     d.battles++;
     d.dmgTaken += u.dmgTaken || 0;
     d.healDone += u.healDone || 0;
@@ -777,6 +798,8 @@ function record(agg, u, t) {
         d.reallocDmg += t.reallocDmg || 0;
         d.battleHeal += t.battleHeal || 0;
         d.reallocHeal += t.reallocHeal || 0;
+        d.unrecDmg += t.unrecDmg || 0;
+        d.unrecHeal += t.unrecHeal || 0;
     }
 }
 
