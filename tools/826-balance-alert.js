@@ -1,7 +1,10 @@
 // tools/826-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/826-balance-alert.js V3.8.2';
+export const VER = 'tools/826-balance-alert.js V3.8.3';
+// V3.8.3 | 2026-11-08 体检转交：112 快照跨版本混榜显式告警（照 808 V6.9.3 / 812 V3.7.0 口径）。
+//   旧版只用「最新快照距今 14 天」判新旧，但 eliteIssues 是逐表各取「最近一条含该表的快照」，
+//   各表可能来自不同时点/不同版本 → 合并胜率不可直接比较，之前没有任何提示。
 // V3.8.2 | 2026-11-08 按老板要求把表格呈现恢复原样：撤掉 V3.8.0 的「同批阵容细分」口径与面板细分表，
 //   规则五回到 V3.7.1 的跨模式总胜率对比（四套榜各自的总胜率）；V3.8.1 的规则一④改动保留。
 // V3.8.1 | 2026-11-08 | 规则一④「中文名覆盖」不再依赖跨页全局钩子：旧版读 window.__hexDocKeys
@@ -344,10 +347,15 @@ function eliteIssues() {
     if (!snaps.length) return { missing: '精英评测还没有快照 —— 到精英评测页跑「主表·自然出场」「强精英」「Boss·张无忌」「无精英」和「弱精英」，跑完自动存盘（也可点「💾 存结果」），本工具才有数据可判。' };
     // 112 自动存是「一张表一条」，单条常缺表；从新到旧合并，按表类型取最近一条含该表的快照
     const WANT = ['elite', 'solo', 'boss', 'none', 'weak'];
-    const picked = {};
+    const LABEL = { elite: '主表', solo: '强精英', boss: 'Boss', none: '无精英', weak: '弱精英' };
+    const picked = {}, pickedMeta = {};
     for (const k of WANT) {
         for (const s of snaps) {
-            if (s && s.parts && s.parts[k]) { picked[k] = s.parts[k]; break; }
+            if (s && s.parts && s.parts[k]) {
+                picked[k] = s.parts[k];
+                pickedMeta[k] = { ts: s.ts, ver: s.parts[k].ver || null };
+                break;
+            }
         }
     }
     const snap = snaps[0];                       // 112 存盘时 unshift，新的排最前
@@ -360,6 +368,23 @@ function eliteIssues() {
     if (ageDays > TH.FRESH_DAYS) issues.push({
         sev: 'warn', title: `112 快照已 ${ageDays.toFixed(1)} 天未更新`,
         detail: `判读基于 ${new Date(snap.ts).toLocaleString('zh-CN')} 的数据。若这期间改过任何数值，结论就不准了——建议到 112 重跑并「💾 存结果」。`
+    });
+
+    // V3.8.3 跨版本混榜（照 808 V6.9.3 口径）：各表分别取自不同版本，或有表是没记版本的旧数据，
+    //   合并后的胜率不可直接比较；只按「最新快照 14 天」判新旧会漏掉沿用的旧表。
+    const vers = [...new Set(WANT.filter(k => picked[k] && pickedMeta[k].ver).map(k => pickedMeta[k].ver))];
+    const noVerK = WANT.filter(k => picked[k] && !pickedMeta[k].ver);
+    const oldK = WANT.filter(k => picked[k] && (Date.now() - pickedMeta[k].ts) / 86400000 > TH.FRESH_DAYS);
+    if (vers.length > 1 || (vers.length > 0 && noVerK.length > 0)) issues.push({
+        sev: 'warn', title: '112 快照跨版本混榜',
+        detail: `各表数据版本：${vers.length ? vers.join(' / ') : '无记录'}`
+            + `${noVerK.length ? `；${noVerK.map(k => LABEL[k]).join('、')}是没记版本的旧数据` : ''}`
+            + `。跨版本合并的胜率不可直接比较——建议清空快照后整套重跑，或只保留同一版本的那批。`
+    });
+    if (oldK.length) issues.push({
+        sev: 'warn', title: `112 部分表沿用超过 ${TH.FRESH_DAYS} 天的旧快照`,
+        detail: `${oldK.map(k => `${LABEL[k]}（${((Date.now() - pickedMeta[k].ts) / 86400000).toFixed(1)} 天前）`).join('、')}`
+            + `。这些表不是最新一批的数据，与其余表不是同一时点，判读时别当成同一次体检。`
     });
 
     // 绝对值表（自然 / 强精英 / Boss）：逐精英累加，对表理想线判偏离

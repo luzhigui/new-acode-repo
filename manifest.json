@@ -1,11 +1,11 @@
 {
- "ver": "1b60308357316375cbc3320e7ef7e5017f581ed5eb9dd5a7036faa50a59fc4fb",
+ "ver": "47eb17cb5c6976f6330789fb7a86f73d5bbb9ab4c790a14ebaa003a09630d3a4",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "40c401015522a9411a1629a6638378ded99958c343256a6180696a42040dcc1e"
+   "d9d63e55340e17c8f0108400453842b04bbdb6d4fd0e9048dd5864200d4e6205"
   ],
   [
    "content/002-hex-enhance.json",
@@ -321,7 +321,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "a8ff9fc074c70b69474adf514510ea0fb3ae3e1c2de9e1fe4da1c1913a5f1a57"
+   "aa219808399cf5de186cdc12f52717fba909d049a71c27c1e17f9e4ff8dc5d9a"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
@@ -389,7 +389,7 @@
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
-   "1fc9f8b09dd76289d5e2e861469d427786764be755cea982840377164e36fbea"
+   "bc1db5c4dd8c0539fc9426bdca30ce3a384af1b1abfa3979438f151cb005628e"
   ],
   [
    "player/501-player-text.js",
