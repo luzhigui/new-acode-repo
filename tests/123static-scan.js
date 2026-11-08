@@ -167,6 +167,9 @@ export const SCAN_FILES = [
     './health-rules/234-round-settlement-order.js',
     './health-rules/235-final-unit-consistency.js',
     './health-rules/236-round-boundary.js',
+    './health-rules/237-mod-entry-shape.js',
+    './health-rules/238-decl-vs-ledger.js',
+    './health-rules/239-qiankun-decl-vs-ledger.js',
     // 第 192 轮·演出/倒针/回放状态机域（255-258 + 撞号顺延 265-266）
     './health-rules/255-rewind-silent-switch.js',
     './health-rules/256-rewind-account-isolation.js',
