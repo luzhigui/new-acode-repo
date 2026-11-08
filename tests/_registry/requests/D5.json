@@ -63,17 +63,21 @@
       "id": 273,
       "name": "进度跳转边界(步拨/段拨/快进不越界)",
       "file": "tests/health-rules/273-rewind-progress-boundary.js",
-      "state": "draft",
+      "state": "merged",
       "note": "号段 253-258 归本域后继续顺延取 273/274（原拟 296/297，文件被并行仲裁清走后重建）；本规则验 9 入口 S.active 守卫、两端夹取、paintAt/scrubToCue 夹 cueIdx、fastForward stride≥1、进场零步保护",
-      "addedAt": "2026-11-08 21:45"
+      "addedAt": "2026-11-08 21:45",
+      "mergedAt": "2026-11-08 21:35",
+      "mergedSha": "93a34ba1"
     },
     {
       "id": 274,
       "name": "倍速切换边界(进场快照/退出无条件还原)",
       "file": "tests/health-rules/274-rewind-speed-boundary.js",
-      "state": "draft",
+      "state": "merged",
       "note": "进场快照 speed、退出无条件还原（全文件仅此 1 处写）、718 统一走 setState.speed 刷高亮",
-      "addedAt": "2026-11-08 21:45"
+      "addedAt": "2026-11-08 21:45",
+      "mergedAt": "2026-11-08 21:35",
+      "mergedSha": "93a34ba1"
     }
   ]
 }

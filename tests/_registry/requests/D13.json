@@ -1,26 +1,26 @@
 {
   "domain": "D13",
-  "updatedAt": "2026-11-08 21:40",
+  "updatedAt": "2026-11-08 21:35",
   "updatedBy": "框架会话（仲裁回填）",
-  "note": "回放/倒针状态机域（313-318）。承载 rewind 系列规则与回放器修复。",
+  "note": "回放/倒针状态机域（313-318）。承载 rewind 系列规则与回放器修复。注意：进度跳转/倍速两条实际随倒针域会话落在 273/274（D5 号段顺延），313/314 仍空。",
   "entries": [
     {
-      "id": 313,
+      "id": 273,
       "name": "进度跳转边界(步拨/段拨/快进不越界)",
-      "file": "tests/health-rules/313-rewind-progress-boundary.js",
+      "file": "tests/health-rules/273-rewind-progress-boundary.js",
       "state": "merged",
-      "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "c47e6f53",
-      "note": "原 291 撞 D11 控制链，仲裁改到 D13"
+      "mergedAt": "2026-11-08 21:35",
+      "mergedSha": "93a34ba1",
+      "note": "原拟 313（原 291 撞 D11 控制链），实际落 273；与 D5 登记同一条，以文件为准"
     },
     {
-      "id": 314,
+      "id": 274,
       "name": "倍速切换边界(进场快照/退出无条件还原)",
-      "file": "tests/health-rules/314-rewind-speed-boundary.js",
+      "file": "tests/health-rules/274-rewind-speed-boundary.js",
       "state": "merged",
-      "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "c47e6f53",
-      "note": "原 292 撞 D11 控制链，仲裁改到 D13"
+      "mergedAt": "2026-11-08 21:35",
+      "mergedSha": "93a34ba1",
+      "note": "原拟 314（原 292 撞 D11 控制链），实际落 274"
     },
     {
       "id": null,
