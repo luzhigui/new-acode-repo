@@ -28,7 +28,8 @@
 //      （core/04 L319-321 姊强化分支读 content/201hex-enhance bloodthirst.leechRatio=1.6）。
 //      实测 base 80% / 强化 160%，故按快照是否有小昭·姊取 0.85 或 1.65（含取整余量）。
 //   3) 同一次攻击（同一个 attack-group）内同一单位登记两次 → 吸血膨胀
-//   4) 摘要百分比与 CONFIG.BUFFS.bloodthirst.leechRatio 不符 → 渲染写死 / 配置未收口
+//   4) 摘要百分比与「本回合该阵营实际生效档」不符 → 渲染写死 / 配置未收口
+//      无姊 = CONFIG.BUFFS.bloodthirst.leechRatio（80%）；有姊 = 002 sister.bloodthirst（160%）
 //   5) 吸血量越过该单位血量上限（终局 maxHp 兜底，取不到就跳过，只会漏报不会误报）
 // 误报规避：本场没有嗜血条目直接 skip；父组 _dmg 取不到就跳过判据2；配置读不到（CONFIG.BUFFS 是 getter）
 //   就跳过判据4；maxHp 取不到就跳过判据5；文案形态变了匹配不上就当 skip，绝不硬报。
@@ -37,7 +38,12 @@
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.20';
+export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.21';
+// V6.1.21（2026-11-08）：判据4 补姊强化档位。
+//   病由：回放变严后 3 场红 —— 摘要文案「攻击吸血160%」被判与 CONFIG 80% 不符；
+//   实为 core/204 L407-409 的 hasSister 分支读 002 sister.bloodthirst=1.6，规则只认基础版。
+//   现按「同回合 BUFF_SUMMARY 的 allyTeamUids 里有没有小昭·姊 uid」逐回合取档（与 149/228 同判据），
+//   取不到 fact 时退回快照判姊 + 两档都认。判定强度不变：两个合法档都不等的值照旧报红。
 // V6.1.20（2026-11-07 第 186 轮）：判据1 由「正整数」改为「非负数 + 0.1 精度」——口径过时修正。
 //   病由：引擎内部血量一律实数（infra/102 fmtNum「只有显示层取整、绝不回写」），core/217 L142-147
 //   实落值 = min(意图, maxHp-hp)，缺口带小数时合法落成 +11.5 / +9.8。判据强度不变：
@@ -49,19 +55,43 @@ export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.20';
 
 import { collectNodes, plain } from '../122health-utils.js';
 
-import { CONFIG } from '../../core/201-config-5v5-test.js';
+import { FACT_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
+import { CONFIG, getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 149/150 同款处理）
+//   V6.1.21（2026-11-08）：摘要档位补「小昭·姊强化」分支。core/204 L407-409 在 hasSister 时改读
+//   content/002-hex-enhance.json sister.bloodthirst.leechRatio（0.8 → 1.6，即 80% → 160%），
+//   旧版只拿基础 80% 比对文案 → 含姊局一律误报「摘要 160% 与配置 80% 不符」。
 function bloodthirstCfg() {
     var c = null;
     try {
         c = (CONFIG.BUFFS && CONFIG.BUFFS.bloodthirst) || null;
     } catch (e) { c = null; }
+    var s = null;
+    try { s = getSisterHexEnhance('bloodthirst') || null; } catch (e) { s = null; }
     return {
         pct: (c && typeof c.leechRatio === 'number') ? Math.round(c.leechRatio * 100) : null,
-        ratio: (c && typeof c.leechRatio === 'number') ? c.leechRatio : null
+        ratio: (c && typeof c.leechRatio === 'number') ? c.leechRatio : null,
+        sisterPct: (s && typeof s.leechRatio === 'number') ? Math.round(s.leechRatio * 100) : null,
+        sisterRatio: (s && typeof s.leechRatio === 'number') ? s.leechRatio : null
     };
 }
+
+// 小昭·姊 uid（开战名单即可定身份；uid 全程不变，afterX 兜底防止名单快照缺项）——与 149 同款。
+function sisterUidSet(beforeA, beforeE, afterA, afterE) {
+    var set = [];
+    var rosters = [beforeA, beforeE, afterA, afterE];
+    for (var r = 0; r < rosters.length; r++) {
+        var arr = rosters[r];
+        if (!arr || !arr.length) continue;
+        for (var i = 0; i < arr.length; i++) {
+            var u = arr[i];
+            if (u && u.isXiaoZhaoSister && u.uid != null && set.indexOf(u.uid) === -1) set.push(u.uid);
+        }
+    }
+    return set;
+}
+
 
 
 
@@ -88,13 +118,66 @@ function parentDmgOf(node, log) {
 export const rule98 = {
     group: '数值回归',
     name: '嗜血狂刀吸血(回归)',
-    test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+    test: function(ctx, log, beforeA, beforeE, afterA, afterE, facts) {
         var n = log ? log.length : 0;
         if (n === 0) return 'skip';
 
         var cfg = bloodthirstCfg();
         var nodes = collectNodes(log);
         var checked = 0;
+
+        // 摘要档位：本回合该阵营有没有小昭·姊（与 render/411 withSisterValues、228 同判据）——
+        //   看同一回合 BUFF_SUMMARY fact 的 data.allyTeamUids（该阵营存活 uid）里有没有姊 uid。
+        //   回合编号按日志文本「第N回合开始」推（与 131/149 同款）。取不到 fact 时退回快照判姊（宁漏勿误）。
+        var factsArr = (facts && facts.length) ? facts : ((ctx && ctx.facts) || []);
+        var sisterUids = sisterUidSet(beforeA, beforeE, afterA, afterE);
+        var btSisterRound = {}; // round -> bool
+        var fRound = 0;
+        for (var fq = 0; fq < factsArr.length; fq++) {
+            var ff = factsArr[fq];
+            if (!ff || typeof ff !== 'object') continue;
+            if (ff.factType === FACT_TYPES.ROUND_START) {
+                fRound = (ff.data && typeof ff.data.round === 'number') ? ff.data.round : fRound + 1;
+                continue;
+            }
+            if (ff.factType !== FACT_TYPES.BUFF_SUMMARY || !ff.data || !ff.data.buff) continue;
+            if (ff.data.buff.key !== BUFF_TYPES.BLOODTHIRST) continue;
+            var uids = ff.data.allyTeamUids || [];
+            var hasSis = false;
+            for (var su = 0; su < sisterUids.length; su++) {
+                if (uids.indexOf(sisterUids[su]) !== -1) { hasSis = true; break; }
+            }
+            if (hasSis) btSisterRound[fRound] = true;
+            else if (!(fRound in btSisterRound)) btSisterRound[fRound] = false;
+        }
+        var roundOf = new Map(); // 节点 -> 回合
+        var curRound = 0;
+        for (var ri = 0; ri < n; ri++) {
+            var re = log[ri];
+            if (!re) continue;
+            var rlist = Array.isArray(re) ? re : [re];
+            for (var rk = 0; rk < rlist.length; rk++) {
+                var rit = rlist[rk];
+                if (!rit) continue;
+                if (typeof rit.text === 'string') {
+                    var rtm = plain(rit.text).match(/第(\d+)回合开始/);
+                    if (rtm) curRound = parseInt(rtm[1], 10);
+                }
+                roundOf.set(rit, curRound);
+                if (Array.isArray(rit.entries)) {
+                    for (var rj = 0; rj < rit.entries.length; rj++) {
+                        if (rit.entries[rj]) roundOf.set(rit.entries[rj], curRound);
+                    }
+                }
+            }
+        }
+        var snapshotSister = false;
+        var sides0 = (afterA || []).concat(afterE || []);
+        for (var ss0 = 0; ss0 < sides0.length; ss0++) {
+            var su0 = sides0[ss0];
+            if (!su0) continue;
+            if (su0.isXiaoZhaoSister || (typeof su0.name === 'string' && su0.name.indexOf('小昭') !== -1 && su0.name.indexOf('姊') !== -1)) { snapshotSister = true; break; }
+        }
 
         // 第一遍：摘要配置一致性 + 逐条校验吸血量
         for (var i = 0; i < nodes.length; i++) {
@@ -105,10 +188,23 @@ export const rule98 = {
             // 摘要：「🗡️ 嗜血狂刀：甲、乙 攻击吸血80%」
             var sm = t.match(/嗜血狂刀：([^ ]+)\s*攻击吸血(\d+)%/);
             if (sm) {
-                // 判据4：文案百分比必须等于配置（渲染写死 vs 配置漂移）
-                if (cfg.pct != null && parseInt(sm[2], 10) !== cfg.pct) {
+                // 判据4：文案百分比必须等于「本回合该阵营实际生效档」
+                //   无姊 → CONFIG.BUFFS.bloodthirst.leechRatio（80%）；
+                //   有姊 → 002-hex-enhance sister.bloodthirst.leechRatio（160%，core/204 L407-409 分支）。
+                //   回合取不到对应 fact（老日志 / 过滤器差异）→ 两档都认，宁漏勿误。
+                var rNow = roundOf.get(e);
+                var sisRound = (rNow != null && Object.prototype.hasOwnProperty.call(btSisterRound, rNow))
+                    ? btSisterRound[rNow] : snapshotSister;
+                var gotPct = parseInt(sm[2], 10);
+                var allowedPct = [];
+                if (cfg.pct != null) allowedPct.push(cfg.pct);
+                if (sisRound && cfg.sisterPct != null) allowedPct.push(cfg.sisterPct);
+                if (allowedPct.length > 0 && allowedPct.indexOf(gotPct) === -1) {
+                    var wantLabel = sisRound
+                        ? 'CONFIG.BUFFS.bloodthirst.leechRatio（' + cfg.pct + '%）/ 002 sister.bloodthirst（' + cfg.sisterPct + '%）'
+                        : 'CONFIG.BUFFS.bloodthirst.leechRatio（' + cfg.pct + '%）';
                     return { fail: true, msg: '复发：嗜血狂刀摘要文案「攻击吸血' + sm[2] + '%」与配置 '
-                        + 'CONFIG.BUFFS.bloodthirst.leechRatio（' + cfg.pct + '%）不符（渲染被写死或配置未收口）' };
+                        + wantLabel + '不符（渲染被写死或配置未收口）' };
                 }
                 continue;
             }
