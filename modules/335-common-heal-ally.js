@@ -1,6 +1,7 @@
 // modules/335-common-heal-ally.js — 峨眉素问·妙手回春（普通兵机制）
 // 规则：每次攻击或被攻击（结算完伤害后），随机一名存活友方回复 healAmount 点生命值。
-export const VER = 'modules/335-common-heal-ally.js V1.0.0';
+// V1.0.1 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
+export const VER = 'modules/335-common-heal-ally.js V1.0.1';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -46,6 +47,8 @@ export const healAllyOnHitHandler = {
                             hpBefore: fmtHp(hpBefore),
                             hpAfter: fmtHp(hpBefore + healAmount),
                             unitUid: pick.uid,
+                            maxHp: pick.maxHp,
+                            stacks: 1,
                             icon: '🌿',
                             label: '妙手回春',
                             mode: 'plusTrail',

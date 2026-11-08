@@ -1,20 +1,31 @@
 // modules/325-elite-mingjiao-shuobude.js — 说不得·布袋（M100 普通兵机制，数据驱动）
-// 触发：说不得每次攻击命中后 50% 触发布袋（连击/反击等额外出手独立触发）。
+// 触发：说不得每次攻击命中后按 triggerChance 触发布袋（连击/反击等额外出手独立触发）。
 // 触发后掷二选一：
-//   ① 保护：己方有红血（<40%）→ 装己方最残的；无红血 → 改为抓敌
+//   ① 保护：己方有红血（< redHpThreshold）→ 装己方最残的；无红血 → 改为抓敌
 //   ② 抓敌：装敌方当前 hp 绝对值最高的
 // 装袋期间：不可选 / 不可打 / 不可行动 / 不可被治疗；格子显示布袋标记（render/32 按 _inBag 渲染）。
-// 回合末放出：保护回 10 点血；抓敌扣 10% 最大生命值的伤害。
+// 回合末放出：保护回 protectHeal 点血；抓敌扣 captureMaxHpPct 最大生命值的伤害。
 // 袋子同时最多装一个；已装人时再触发 → 本次作废。
-export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.0';
+// 参数唯一真源：content/001-game-data.json 说不得.skills.bagTrap.params（缺哪键报哪键，不再硬编码）。
+// V1.0.1 | 2026-11-08 体检转交：布袋参数化（triggerChance/protectBranchChance/redHpThreshold/protectHeal/captureMaxHpPct）。
+export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.1';
 
-import { CONFIG } from '../core/201-config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, applyStatChange, emitEvent, getStat } from '../core/214-battle-shared.js';
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
-const RED_HP_THRESHOLD = 0.4;   // 红血阈值（与 UI 详情弹窗同口径）
+// 布袋参数：缺段/缺子键当场报错，不回落硬编码（与海克斯「缺哪键报哪键」同口径）
+function getBagTrapParams() {
+    const p = getSkillParams('说不得', 'bagTrap');
+    if (!p) throw new Error('content/001-game-data.json 缺 说不得.skills.bagTrap.params');
+    for (const k of ['triggerChance', 'protectBranchChance', 'redHpThreshold', 'protectHeal', 'captureMaxHpPct']) {
+        if (p[k] == null) throw new Error(`content/001-game-data.json 缺 说不得.skills.bagTrap.params.${k}`);
+    }
+    return p;
+}
 
 function findShuobude(A) {
     return (A || []).find(u => u.name === '说不得' && u.alive);
@@ -42,8 +53,8 @@ function findLowestHpPct(team) {
 }
 
 // 从队伍里找"是否有红血"的单位
-function hasRedHp(team) {
-    return team.some(u => u.alive && !u.state._pendingDeath && !u.isHorse && u.hp / u.maxHp < RED_HP_THRESHOLD);
+function hasRedHp(team, redHpThreshold) {
+    return team.some(u => u.alive && !u.state._pendingDeath && !u.isHorse && u.hp / u.maxHp < redHpThreshold);
 }
 
 // 装袋：给 target 打 _inBag 标记（真正"装谁"的字段记在说不得身上），并把它标记为不可选
@@ -72,8 +83,9 @@ function onShuobudeHit(data) {
     if (!unit || unit.name !== '说不得' || !unit.alive) return;
     if (!data.dmg || data.dmg <= 0) return;
     const rng = getBattleRng();
-    // 50% 触发布袋
-    if (rng.next() >= 0.5) {
+    const p = getBagTrapParams();
+    // 触发布袋
+    if (rng.next() >= p.triggerChance) {
         if (log) pushSkillAnnounce(log, unit, '布袋', `🛍️ 布袋：触发判定失败`);
         return;
     }
@@ -84,10 +96,10 @@ function onShuobudeHit(data) {
     }
     const allyTeam = A || [];
     const enemyTeam = B || [];
-    // 触发后掷二选一：保护 / 抓敌各一半
-    const doProtect = rng.next() < 0.5;
+    // 触发后掷二选一：保护 / 抓敌按配置概率
+    const doProtect = rng.next() < p.protectBranchChance;
     // 保护分支：己方有红血 → 保护；无红血 → 改为抓敌
-    if (doProtect && hasRedHp(allyTeam)) {
+    if (doProtect && hasRedHp(allyTeam, p.redHpThreshold)) {
         const target = findLowestHpPct(allyTeam);
         if (target && target.uid !== unit.uid) {
             putInBag(unit, target, 'protect', log);
@@ -113,12 +125,13 @@ function releaseBag(data) {
         if (!target || !target.alive) continue;
         // 解状态：可被选中 + 可行动
         Object.assign(target.state, { _untargetable: false, _stunned: false });
+        const p = getBagTrapParams();
         if (bag.mode === 'protect') {
-            // 保护：回复 10 点生命（走 applyStatChange，吃截脉/寒毒打折是合理口径）
-            applyStatChange(target, 'hp', 10, caster, '布袋·放生');
+            // 保护：回复 protectHeal 点生命（走 applyStatChange，吃截脉/寒毒打折是合理口径）
+            applyStatChange(target, 'hp', p.protectHeal, caster, '布袋·放生');
         } else {
-            // 抓敌：扣 10% 最大生命值（伤害语义，source 记说不得，走死亡结算）
-            const dmg = Math.floor(target.maxHp * 0.1);
+            // 抓敌：扣 captureMaxHpPct 最大生命值（伤害语义，source 记说不得，走死亡结算）
+            const dmg = Math.floor(target.maxHp * p.captureMaxHpPct);
             if (dmg > 0) applyStatChange(target, 'hp', -dmg, caster, '布袋·憋死');
         }
         emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
@@ -128,16 +141,16 @@ function releaseBag(data) {
         });
         if (data.log) {
             const note = bag.mode === 'protect'
-                ? `🛍️ 布袋放生：${caster.name} 把 ${target.name} 放出来，回复 10 点生命`
-                : `🛍️ 布袋憋死：${caster.name} 把 ${target.name} 放出来，扣 10% 最大生命`;
+                ? `🛍️ 布袋放生：${caster.name} 把 ${target.name} 放出来，回复 ${fmtNum(p.protectHeal)} 点生命`
+                : `🛍️ 布袋憋死：${caster.name} 把 ${target.name} 放出来，扣 ${Math.round(p.captureMaxHpPct * 100)}% 最大生命`;
             pushSkillAnnounce(data.log, caster, '布袋', note, { floatText: '🛍️', floatUid: target.uid });
         }
     }
 }
 
-// 机制 handler：走 core/18 注册表（decl 里带 bagTrap 参数，目前参数硬编码 50%/40%/10，后续可参数化）
+// 机制 handler：走 core/18 注册表（参数真源在 content/001 说不得.skills.bagTrap.params）
 export const bagTrapHandler = {
-    fields: {},   // 目前无参数，全硬编码；如需参数化后续补 fields
+    fields: {},   // 参数由 getBagTrapParams() 从 skills.bagTrap.params 读取
     install({ eventBus }) {
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,

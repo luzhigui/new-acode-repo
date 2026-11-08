@@ -8,7 +8,8 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.2.3';
+// V2.2.4 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.2.4';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getFronts } from '../core/203-battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/214-battle-shared.js';
@@ -84,7 +85,7 @@ export function createHanLiSaComponent() {
                             // 声明量填原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折
                             type: EFFECT_TYPES.HEAL, value: rawNominal, source: hls,
                             factType: FACT_TYPES.HEAL,
-                            factData: { unitName: hls.name, heal, hpBefore: hls.hp, hpAfter: hls.hp + heal, unitUid: hls.uid, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
+                            factData: { unitName: hls.name, heal, hpBefore: hls.hp, hpAfter: hls.hp + heal, unitUid: hls.uid, maxHp: hls.maxHp, stacks: 1, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
                         });
                         recordHpAudit(hls, 'hlsJiuYangHeal', heal, '左拳·九阳治疗'); // 账本记实际落地值（与 fact heal 同口径）
                     }

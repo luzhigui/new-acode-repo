@@ -1,11 +1,11 @@
 {
- "ver": "d385fe66890f399ec24cc94cb4a94f8e4f500a20f347d62744b09dfae9195b2b",
+ "ver": "53313fe4c2e06045d6381466ea37e732eec20558de8908b559c50eae5ea7328c",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "f19eb81b432dc045bac5a87be60ee9f2255ba1f3136e6a868f90d4e701ad5fe3"
+   "9495135229ae4db6893bd70dc504944757cae9ed78b4fc168bf244eb56af8c79"
   ],
   [
    "content/002-hex-enhance.json",
@@ -13,7 +13,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "22f3db5a4e23b37168ab2c8a11da0d20c3ea125b21986979f7b4139459de1853"
+   "99af23636e291bfbf00d056a7f56b4c382eee0195f1f410090883db6a612e12a"
   ],
   [
    "core/202-unit.js",
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "b0fd9814f4c547fadddea14d633bf09efb09293e30302c1205b542057a37b099"
+   "ac234f174eca8544a26b129582bc30ddb5f77db692c8dc364e58a4184faa1648"
   ],
   [
    "core/205-battle-horse.js",
@@ -57,7 +57,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "44358424eb5e60e1a429a706bcdd33ab1825a1f4c15a9342bff96a80fa30026a"
+   "4e090bdc82ecd58d9d393e2a44681679817796396c2c3d45f8dd6c9d86038405"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -73,7 +73,7 @@
   ],
   [
    "core/216-skill-mechanisms.js",
-   "6d3191c5df7534aeca9a29e02e6fd19bf13665797edde380ae355a0145837e3a"
+   "11c5960521e81eff44e61d61fc9d0d2d1ae97f6f382a0562aaed0efb5e515605"
   ],
   [
    "core/217-effect-handlers.js",
@@ -241,7 +241,7 @@
   ],
   [
    "modules/302-elite-skills.js",
-   "c51f4711ec3580eef019050f5f877933587241d15ffd966615957a64876bdc4a"
+   "eed4593013511c69d69e5eda08b55fe45a26127f2070f846b1c6c663877b6108"
   ],
   [
    "modules/303-error-capture.js",
@@ -281,7 +281,7 @@
   ],
   [
    "modules/312-elite-sixsects-pangyuanqiao.js",
-   "f4a57992f3c81d6b7d322a6eb8ba281c20acd9e51c42d1a91eaf8a93986fc97a"
+   "521ca8f7a5fe07496e39d724f6e2542a405414804b9bd78312f99efdb0ae7785"
   ],
   [
    "modules/313-elite-sixsects-miejueshitai.js",
@@ -293,7 +293,7 @@
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "b5a0bc1ccdd41eb39a87c590d4679580dbc4bd664deea230d8d848ecdbc34456"
+   "6b37328f49938c5f08be936f8499f74b136a0b8b4ead85650cda9619c9887f6c"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",
@@ -309,7 +309,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "a2ec0b5deb917910cf4416e1aaba9f78d33e6abf3daa8f635c7dc4178ae29963"
+   "c60b27be739c7905b0c716a71f6fdf45c20ecfb76da92f957e075d0671ea1fef"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
@@ -333,7 +333,7 @@
   ],
   [
    "modules/325-elite-mingjiao-shuobude.js",
-   "521fd85b98f7f124e1282cdd1f1d7b6314110ea5e01e9e617bc4032b03079508"
+   "7e68760b13021d74d7ef46f59aba237d02a5332a599eb5b9d57d8c23bf379054"
   ],
   [
    "modules/326-elite-mingjiao-xiexun.js",
@@ -357,7 +357,7 @@
   ],
   [
    "modules/331-custom-effects.js",
-   "1f7cf83a3ed1f3b503d60f285e34ca9b90c237fcd08c688bf9ac11f2831423f6"
+   "a4500838d3df7eca400729ca24920016634358d3100204d4c6a285e8d5447814"
   ],
   [
    "modules/332-career-log.js",
@@ -373,7 +373,7 @@
   ],
   [
    "modules/335-common-heal-ally.js",
-   "987a2c79e61964503c4808b51c558cba9a12df5bb585ba48180562280fbe5da6"
+   "207d98529836a0983ba326eef222ff44d390e3df556d3587df29d993d255cd4f"
   ],
   [
    "modules/336-elite-sixsects-yuanzhen.js",

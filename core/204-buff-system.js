@@ -3,7 +3,8 @@
 // V6.8.3 | 2026-11-08 飞行再生去掉 Math.round：0.4 的真实回复被取整成 0 会打出「回复 0 点生命」，
 //         改实数差值，显示在 render/410 经 fmtNum 收口
 // V6.8.6 | 2026-11-08 体检转交：劈空/流星溅射在主伤为 0 时跳过声明（0 伤害也会触发挨打增益与成长）。
-export const VER = 'core/204-buff-system.js V6.8.6';
+// V6.8.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回血量可按百分比校验，不再靠最近 ATTACK 快照反推）。
+export const VER = 'core/204-buff-system.js V6.8.7';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -476,7 +477,7 @@ function submitLastStandLeechDeclaration(data) {
         data.declarations.push({
             type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit,
             factType: FACT_TYPES.HEAL,
-            factData: { unitName: unit.name, heal: leechVal, hpBefore: unit.hp, hpAfter: unit.hp + leechVal, unitUid: unit.uid, icon: '🩸', label: '背水一战吸血', mode: 'plusTrail', anchorVerb: '吸血' }
+            factData: { unitName: unit.name, heal: leechVal, hpBefore: unit.hp, hpAfter: unit.hp + leechVal, unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '🩸', label: '背水一战吸血', mode: 'plusTrail', anchorVerb: '吸血' }
         });
         recordHpAudit(unit, 'lastStandLeech', leechVal, '背水一战吸血');
     }

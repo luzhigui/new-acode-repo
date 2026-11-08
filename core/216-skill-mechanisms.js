@@ -1,5 +1,6 @@
 ﻿// V6.8.4 | 2026-11-02 | ~17937 bytes —— 吸血上限提升 newMaxHp 改 getStat 口径（与 217 L123 同源，消 0.5 永久丢失）
-export const VER = 'core/216-skill-mechanisms.js V6.8.4';
+// V6.8.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（九阳神功回复）。
+export const VER = 'core/216-skill-mechanisms.js V6.8.5';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
@@ -251,7 +252,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 const shieldGain = Math.max(0, nominal - heal);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                     recordHpAudit(unit, 'nineYangHeal', heal, '九阳神功治疗'); // 账本记实际落地值（与 fact.heal 同口径；stat-decl NINE_YANG_HEAL 契约据此 group 追踪九阳回血量
                 }
                 if (shieldGain > 0) {

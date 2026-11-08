@@ -13,7 +13,8 @@
 //          播报永远写「已在前排」，把目标侧真实拖拽（如「说不得 5→2、X 2→5」）整段吞掉，
 //          与 dash.moves 传给 fx/616 的拖拽演出自相矛盾。
 // V7.1.6 | 2026-11-08 冲刺 announce 补 grants 载荷（体检总框架 D1/D4：与 TW_DASH_APPLY 同值）
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.6';
+// V7.1.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回春术层数）。
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.7';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -83,7 +84,7 @@ export function createTangWenLiangComponent() {
                 applyStatChange(unit, 'hp', total, null, '回春术');
                 recordHpAudit(unit, 'huiChun', actualTotal, '回春术');
                 if (outLog) outLog.push({ factType: FACT_TYPES.HEAL, data: {
-                    unitName: unit.name, unitUid: unit.uid, heal: actualTotal,
+                    unitName: unit.name, unitUid: unit.uid, heal: actualTotal, maxHp: unit.maxHp, stacks: stacks.length,
                     hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpBefore + actualTotal),
                     icon: '🌿', label: '回春术', mode: 'plusTrail'
                 } });

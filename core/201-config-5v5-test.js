@@ -1,5 +1,6 @@
 // V6.9.5 | 2026-11-08 体检转交：删除 MING_SQUADS getter（对应 content.encounters.mingSquads 废配置，无读取方）。
-export const VER = 'core/201-config-5v5-test.js V6.9.5';
+// V6.9.6 | 2026-11-08 体检转交：PCT_PARAM_KEYS 补布袋参数（说不得 bagTrap.params 占位符按 % 输出）。
+export const VER = 'core/201-config-5v5-test.js V6.9.6';
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 // V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
@@ -217,7 +218,8 @@ const PCT_PARAM_KEYS = new Set(['reducePct', 'reboundPct', 'selfDmgPct', 'leechM
     'atkRatioRight', 'defRatioLeft', 'hpRatio',           // 小昭·蝶变附身三项
     'landHealRatio', 'landHealRatioDeath', 'eggHatchHpRatio',   // 小昭·飞天落地回血档位比（70/40 1% / 致死 5%）+ 孵化保留血量比 30%
     'lostHpRatio', 'maxHpRatio', 'executeThreshold',
-    'openChance', 'hitChance', 'disguiseChance', 'openingChance']);    // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）；本轮圆真/彭莹玉的触发概率
+    'openChance', 'hitChance', 'disguiseChance', 'openingChance',   // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）；本轮圆真/彭莹玉的触发概率
+    'triggerChance', 'protectBranchChance', 'redHpThreshold', 'captureMaxHpPct']);   // 说不得·布袋（content/001 skills.bagTrap.params）
 
 function getSkillDesc(characterName, skillKey, jealous) {
     const ch = gameData?.characters?.[characterName];

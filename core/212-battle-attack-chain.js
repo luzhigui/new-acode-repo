@@ -8,7 +8,8 @@
 // V1.0.7 | 2026-11-08 出手攻击值下限 atkAct=max(1, atkBase+波动)（已撤回，见 V1.0.8）
 // V1.0.11 | 2026-11-08 体检转交：暴击计数从 calcFinalDamage 移到 core/209 免疫判定之后
 //           （掷骰仍在原处保 RNG 序，返回 isCrit 供上层判定；被护罩挡下不再记暴击）。
-export const VER = 'core/212-battle-attack-chain.js V1.0.11';
+// V1.0.12 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
+export const VER = 'core/212-battle-attack-chain.js V1.0.12';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -454,7 +455,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                         value: healVal,
                         source: target,
                         factType: FACT_TYPES.HEAL,
-                        factData: { unitName: target.name, heal: healVal, hpBefore: fmtHp(target.hp), hpAfter: fmtHp(target.hp + healVal), unitUid: target.uid, icon: '🛡️', label: '严阵以待回复', mode: 'plusTrail', anchorVerb: '回复' }
+                        factData: { unitName: target.name, heal: healVal, hpBefore: fmtHp(target.hp), hpAfter: fmtHp(target.hp + healVal), unitUid: target.uid, maxHp: target.maxHp, stacks: 1, icon: '🛡️', label: '严阵以待回复', mode: 'plusTrail', anchorVerb: '回复' }
                     });
                 }
             }

@@ -1,7 +1,8 @@
 // modules/302-elite-skills.js — 精英技能公共实现（小昭蛛变/飞天/蛛袭、乾坤减伤、永久海克斯查询）
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
-export const VER = 'modules/302-elite-skills.js V6.3.4';
+// V6.3.5 | 2026-11-08 体检转交：QIAN_KUN_* fact 补减伤前 dmg（反弹可正算，不再由 selfDmg 反推区间）。
+export const VER = 'modules/302-elite-skills.js V6.3.5';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -107,6 +108,7 @@ export function applyDamageModifiers(unit, target, dmg, targetTeam, attackerTeam
             data: {
                 attackerName: unit.name,
                 zhangName: zhang.name,
+                dmg,          // 减伤前原始伤害（反弹/吸收校验的基数）
                 reducePct,
                 rebound,
                 selfDmg,

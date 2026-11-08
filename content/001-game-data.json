@@ -791,7 +791,14 @@
       "skills": {
         "bagTrap": {
           "name": "布袋",
-          "desc": "命中后 50% 触发布袋：己方有红血 → 装己方最残者、回合末放出回 10 血；否则 → 装敌方血最多者、回合末放出扣 10% 最大生命。装袋期间不可选中/行动。"
+          "desc": "命中后 {triggerChance}% 触发布袋：己方有红血（< {redHpThreshold}%）→ 装己方最残者、回合末放出回 {protectHeal} 血；否则 → 装敌方血最多者、回合末放出扣 {captureMaxHpPct}% 最大生命。装袋期间不可选中/行动。",
+          "params": {
+            "triggerChance": 0.5,
+            "protectBranchChance": 0.5,
+            "redHpThreshold": 0.4,
+            "protectHeal": 10,
+            "captureMaxHpPct": 0.1
+          }
         }
       },
       "mechanics": [

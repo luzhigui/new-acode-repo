@@ -1,5 +1,6 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.4';
+// V6.29.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.5';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
@@ -147,7 +148,7 @@ export function createPangYuanQiaoComponent() {
                 data.declarations.push({
                     type: EFFECT_TYPES.HEAL, value: rawHeal, source: pang,
                     factType: FACT_TYPES.HEAL,
-                    factData: { unitName: pang.name, heal: healed, hpBefore: fmtHp(pang.hp), hpAfter: fmtHp(pang.hp + healed), unitUid: pang.uid, icon: '💪', label: '蓄力回复', mode: 'plusTrail', anchorVerb: '回复' }
+                    factData: { unitName: pang.name, heal: healed, hpBefore: fmtHp(pang.hp), hpAfter: fmtHp(pang.hp + healed), unitUid: pang.uid, maxHp: pang.maxHp, stacks: 1, icon: '💪', label: '蓄力回复', mode: 'plusTrail', anchorVerb: '回复' }
                 });
             });
 
