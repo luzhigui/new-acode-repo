@@ -1,7 +1,37 @@
 {
   "domain": "D5",
-  "updatedAt": "2026-11-08 20:30",
-  "updatedBy": "",
+  "updatedAt": "2026-11-08 18:55",
+  "updatedBy": "演出/倒针/回放状态机域（第 192 轮）",
   "说明": "D5 新增精英与公共机制：周颠/成昆吸星/彭莹玉/庄铮/张中/圆真/治疗友军（号段 253-258）。本文件只由 D5 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "entries": [
+    {
+      "id": 255,
+      "name": "倒针静默开关完整性(进场/定位/退出)",
+      "file": "tests/health-rules/255-rewind-silent-switch.js",
+      "state": "draft",
+      "note": "号段 255-258 由父会话划给「演出/倒针/回放状态机」并行域（非 D5 机制），按号段归属登记在 D5",
+      "addedAt": "2026-11-08 18:55"
+    },
+    {
+      "id": 256,
+      "name": "回看不写真实账本(快照隔离)",
+      "file": "tests/health-rules/256-rewind-account-isolation.js",
+      "state": "draft",
+      "addedAt": "2026-11-08 18:55"
+    },
+    {
+      "id": 257,
+      "name": "连续播放只从当前步往后(不重演)",
+      "file": "tests/health-rules/257-rewind-play-from-current.js",
+      "state": "draft",
+      "addedAt": "2026-11-08 18:55"
+    },
+    {
+      "id": 258,
+      "name": "播放状态机切换清理(无悬挂演出)",
+      "file": "tests/health-rules/258-rewind-state-cleanup.js",
+      "state": "draft",
+      "addedAt": "2026-11-08 18:55"
+    }
+  ]
 }

@@ -1,7 +1,24 @@
 {
   "domain": "D7",
-  "updatedAt": "2026-11-08 20:30",
-  "updatedBy": "",
+  "updatedAt": "2026-11-08 19:02",
+  "updatedBy": "演出/倒针/回放状态机域（第 192 轮）",
   "说明": "D7 fact 契约链路：infra/107 注册 ↔ emit 点 ↔ render/33 渲染器 ↔ 消费方（号段 265-270）。本文件只由 D7 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "entries": [
+    {
+      "id": 265,
+      "name": "定格与真播同一落账顺序(单一权威)",
+      "file": "tests/health-rules/265-rewind-settle-same-authority.js",
+      "state": "draft",
+      "note": "号段 259-260 撞 D6 召唤物规则，按「撞号往后顺延」改取 265-266；本域为演出/倒针/回放状态机（非 D7 机制），按号段归属登记在 D7",
+      "addedAt": "2026-11-08 19:02"
+    },
+    {
+      "id": 266,
+      "name": "治疗演出数值与字段同源(不许二次取整)",
+      "file": "tests/health-rules/266-heal-amount-same-source.js",
+      "state": "draft",
+      "note": "同 265：撞号顺延自 260",
+      "addedAt": "2026-11-08 19:02"
+    }
+  ]
 }

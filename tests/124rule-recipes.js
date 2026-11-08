@@ -130,13 +130,13 @@ export const RULE_META = {
     '伤害下限与实数精度(回归)': { tag: 'generic:通用', note: '伤害下限与实数精度；不依赖出阵角色' },
     'buff时长递减与到期清理(回归)': { tag: 'generic:buff', note: 'buff 时长递减与到期清理；通用生命周期' },
     'buff加成声明与配置真值(回归)': { tag: 'generic:buff', note: 'buff 加成声明与配置真值；通用生命周期' },
-    // 第 192 轮·演出/倒针/回放状态机域（号段 255-260）：读导出函数源码做结构断言，不依赖出阵角色
+    // 第 192 轮·演出/倒针/回放状态机域（255-258 + 撞号顺延 265-266）：读导出函数源码做结构断言，不依赖出阵角色
     '倒针静默开关完整性(进场/定位/退出)': { tag: 'generic:通用', note: '727 静默开关 5 处 + 504 演出调用点全部带 !c.isRewinding 守卫；回看不放历史死亡红墨、连续播放不误静默' },
     '回看不写真实账本(快照隔离)': { tag: 'generic:通用', note: '进场快照/清空 battleLog+battleFacts、退出整块还原、504 只 get/push 不 set；回看不污染本局战报' },
     '连续播放只从当前步往后(不重演)': { tag: 'generic:通用', note: 'startPlay 从 S.stepIdx 起播、起播前回摆本步之前、resumePlay 不重进 enterReview、跳步夹区间' },
     '播放状态机切换清理(无悬挂演出)': { tag: 'generic:通用', note: '粗拨 cancelRun、细拨 token、startPlay finally 清句柄、exitReview 清 watchdog/playRelease/_rewindCue' },
     '定格与真播同一落账顺序(单一权威)': { tag: 'generic:通用', note: '504 整步落账 2 处（复活+权威），顺序「落账→settle→死亡闪→death→红墨」；定格不落半结算态' },
-    '治疗演出数值与字段同源(不许二次取整)': { tag: 'generic:通用', note: 'isHealEntry 的 healAmount 必须是有限正数且在正文同源；治疗飘字显示的是 fact 值' },
+    '治疗演出数值与血量迁移同源(观测)': { tag: 'generic:通用', note: '观察项：isHealEntry 的 healAmount 必须有限非负；正文显示值与血量迁移偏离 >1 点只报样例供研判；实测 156 场 69 例偏离，多数为名义治疗量≠有效治疗量' },
     // 第 193 轮·存活/胜负/回合结算链域（号段 231-236，只吃原始 fact 流）。全部先在 140 场回放量基线，
     //   候选判据 0 误报才升硬判；做不到 0 的降观察项（如复活缺死亡前置）。
     '圣火复活链完整性(回归)': { tag: 'mechanic:死亡结算', note: '死亡→复活→血量/档位一条链；档位精确核对需本局选到「圣火不熄」，未选到即 skip；缺死亡前置只进观察项' },

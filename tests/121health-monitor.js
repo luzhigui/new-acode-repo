@@ -137,7 +137,7 @@ import { rule261 } from './health-rules/261-horse-slot-lifecycle.js';
 import { rule262 } from './health-rules/262-butterfly-window-pairing.js';
 import { rule263 } from './health-rules/263-butterfly-window-no-action.js';
 import { rule264 } from './health-rules/264-lion-grow-timing.js';
-// 第 192 轮·演出/倒针/回放状态机域（号段 255-260）：播放器与倒针状态机的源码结构判据
+// 第 192 轮·演出/倒针/回放状态机域（255-258 + 撞号顺延 265-266）：播放器与倒针状态机的源码结构判据
 import { rule255 } from './health-rules/255-rewind-silent-switch.js';
 import { rule256 } from './health-rules/256-rewind-account-isolation.js';
 import { rule257 } from './health-rules/257-rewind-play-from-current.js';
