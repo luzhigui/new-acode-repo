@@ -133,6 +133,7 @@ export const SCAN_FILES = [
     //   张无忌乾坤 / 玄冥毒 DOT / 谢逊狮吼 / 庄铮断锤
     './health-rules/195-shuobude-bag.js',
     './health-rules/196-tangwenliang-huichun.js',
+    './health-rules/197-tangwenliang-tonggui.js',
     // 战报与渲染一致性（分组归属 / 显示取整单一出口 / 飘字与正文同源）
     './health-rules/185-log-group-consistency.js',
     './health-rules/186-display-single-exit.js',
