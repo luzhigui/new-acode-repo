@@ -2,7 +2,11 @@
 import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './827-tool-registry.js';
 
-export const VER = 'tools/812-elite-eval.js V3.3.0';
+export const VER = 'tools/812-elite-eval.js V3.4.0';
+// V3.4.0 | 2026-11-08 拆行口径回到「只有第 3 关有变体」：此前每关都按敌方阵容反推「·胖远桥 / ·宋青书」行，
+//   引擎的六大派额外混入在 4~7 关刷出这两个名字时，表里就多出「第4关·胖远桥」这类行，看着像跨关变体。
+//   实测这两个名字的出场只有两条来源：① 第 3 关 squadVariants（真变体）② 4~7 关额外混入（不是变体）。
+//   现改为：仅第 3 关拆变体两行，其余关一律单行（把该关所有桶合并后再算）。引擎、116 分桶、827 名单均不动。
 // V3.3.0 | 2026-10-31 双海克斯：工具栏新增「双海克斯（六大派也选）」复选框（102 的 #eliteEnemyHex），
 //   勾选后五类 job 全部透传 enemyHex，116 用 core/206-battle-runner V1.3.0 的 enemyHexPicker 让六大派也自动选。
 //   不勾 = 旧口径（只有明教选），历史基线可继续对比。
@@ -16,6 +20,41 @@ const configs = NATURAL_ELITES.map(name => ({ name }));
 const SOLO_ELITES = SOLO_ELITE_NAMES.map(name => ({ name }));
 const BOSS_ELITES = BOSS_ELITE_NAMES.map(name => ({ name }));
 const VARIANTS = ENEMY_VARIANTS;
+// 拆行口径（V3.4.0）：content 里只有第 3 关配了 squadVariants，所以「关卡变体」只属于第 3 关。
+//   其它关出现的同名精英来自六大派额外混入（M107/M100 档）或关卡固定阵容，不属于变体，不单列成行。
+const VARIANT_STAGE = 3;
+// 跨变体合并（数值字段累加；弱精英表的 clean 子表逐名累加）
+function mergeAgg(dst, d) {
+    if (!d) return dst;
+    for (const [k, v] of Object.entries(d)) {
+        if (k === 'clean') {
+            dst.clean = dst.clean || {};
+            for (const [nm, c] of Object.entries(v || {})) {
+                const t = dst.clean[nm] || (dst.clean[nm] = { runs: 0, wins: 0 });
+                t.runs += c.runs || 0; t.wins += c.wins || 0;
+            }
+        } else if (typeof v === 'number') {
+            dst[k] = (dst[k] || 0) + v;
+        }
+    }
+    return dst;
+}
+// 该关要渲染的行：第 3 关 → 变体各一行；其余关 → 单行（全部桶合并）
+//   桶有两种形态：主表/单英雄表是 { 名字: agg }，无精英表直接是 agg —— 逐键按类型合并，两种都吃得下
+function rowsOfStage(st, byStage) {
+    const same = byStage[st] || {};
+    if (Number(st) === VARIANT_STAGE) return VARIANTS.map(v => ({ variant: v, bucket: same[v] }));
+    const merged = {};
+    for (const v of VARIANTS) {
+        const slot = same[v];
+        if (!slot) continue;
+        for (const [k, val] of Object.entries(slot)) {
+            if (val && typeof val === 'object') merged[k] = mergeAgg(merged[k] || {}, val);
+            else if (typeof val === 'number') merged[k] = (merged[k] || 0) + val;
+        }
+    }
+    return [{ variant: '标准', bucket: merged }];
+}
 const WEAK_ALLY = WEAK_ELITES.filter(w => w.side === 'ally');
 const WEAK_ENEMY = WEAK_ELITES.filter(w => w.side === 'enemy');
 
@@ -269,9 +308,8 @@ function renderSoloResults(byStage, stages, list, resultEl, note) {
     for (const cfg of list) html += `<th class="elite-th">${cfg.name}</th>`;
     html += '</tr>';
     for (const st of stages) {
-        // 按变体拆行（V2.4.2）：第3关拆「·胖远桥」「·宋青书」两行，其余关单行；无数据的变体不出行
-        for (const v of VARIANTS) {
-            const slot = byStage[st] && byStage[st][v];
+        // 拆行口径同主表（V3.4.0）：只有第 3 关拆变体行，其余关单行
+        for (const { variant: v, bucket: slot } of rowsOfStage(st, byStage)) {
             const hasData = slot && list.some(cfg => slot[cfg.name] && slot[cfg.name].runs > 0);
             if (!hasData) continue;
             const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
@@ -380,8 +418,7 @@ noEliteBtn.addEventListener('click', async () => {
 function renderNoEliteResults(byStage, stages) {
     let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:120px"><col><col></colgroup><tr><th>关卡</th><th class="elite-th">胜率 / 场次</th><th class="elite-th">平均存活</th></tr>';
     for (const st of stages) {
-        for (const v of VARIANTS) {            // 按敌方变体拆行（第3关拆「·胖远桥」「·宋青书」）
-            const d = byStage[st] && byStage[st][v];
+        for (const { variant: v, bucket: d } of rowsOfStage(st, byStage)) {   // 拆行口径同主表（V3.4.0）
             if (!d || !d.runs) continue;
             const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
             html += noEliteRowHtml(label, d);
@@ -509,8 +546,7 @@ function renderWeakResults(byStage, stages) {
         for (const w of list) html += `<th class="elite-th">${w.name}</th>`;
         html += '</tr>';
         for (const st of stages) {
-            for (const v of VARIANTS) {              // 按敌方变体拆行（第3关拆「·胖远桥」「·宋青书」）
-                const slot = byStage[st] && byStage[st][v];
+            for (const { variant: v, bucket: slot } of rowsOfStage(st, byStage)) {   // 拆行口径同主表（V3.4.0）
                 if (!slot) continue;
                 if (!list.some(w => slot[w.name] && slot[w.name].runs > 0)) continue;
                 const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
@@ -592,10 +628,9 @@ function renderResults(byStage, stages) {
     html += '</tr>';
 
     for (const st of stages) {
-        // 按变体拆行：有数据的变体各占一行（第3关 → 「·胖远桥」「·宋青书」两行；其余关单行）
-        for (const v of VARIANTS) {
-            const bucket = byStage[st] && byStage[st][v];
-            const hasData = bucket && Object.values(bucket).some(d => d.runs > 0);
+        // 拆行口径（V3.4.0）：只有第 3 关有阵容变体 → 拆「·胖远桥」「·宋青书」两行；其余关单行
+        for (const { variant: v, bucket } of rowsOfStage(st, byStage)) {
+            const hasData = bucket && Object.values(bucket).some(d => d && d.runs > 0);
             if (!hasData) continue;
             const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
             html += `<tr><td class="elite-stage">${label}</td>`;
