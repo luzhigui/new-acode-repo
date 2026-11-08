@@ -30,8 +30,6 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 流云身法：团队版每回合随机有一人无法享受闪避加成（>1人时生效）
     _cloudBodySkip:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 唐文亮冲刺后待叠回春：等冲刺后那一拳结算完再叠（回合开始自动清）
-    _pendingDashHeal:        { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置

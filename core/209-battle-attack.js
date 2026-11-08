@@ -48,6 +48,7 @@ function tryAdvanceJavelin(unit, allySide, log) {
     const occupied = new Set(allySide.filter(u => u.alive && u.uid !== unit.uid).map(u => u.pos));
     const landPos = order.find(p => p >= 1 && p <= 9 && !occupied.has(p));
     if (landPos == null) return false;       // 前排满员：原地不动，走原来的「无可选目标」
+    const fromPos = unit.pos;                // 演出用：给 render 层「从哪格滑到哪格」
     if (moveUnitPosition(unit, landPos, log) === false) return false;   // 被控制免疫等挡住
     log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
         unitName: unit.name, unitUid: unit.uid, camp: unit.camp,
@@ -55,7 +56,8 @@ function tryAdvanceJavelin(unit, allySide, log) {
         // 前压是独立动作（本回合唯一一手），必须画分隔线自成一段 ——
         //   否则播放时 info 行无 needsSeparator，会紧贴上一单位攻击组末尾，读起来像那组的一部分。
         needsSeparator: true,
-        highlight: true // 标记需要给该单位格套框高亮
+        highlight: true, // 标记需要给该单位格套框高亮
+        advanceFrom: fromPos, advanceTo: landPos   // 单格滑行演出载荷（render/419 → JAVELIN_MOVE）
     } });
     return true;
 }

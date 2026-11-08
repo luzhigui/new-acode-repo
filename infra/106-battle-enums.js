@@ -103,6 +103,8 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     SPIDER_STRIKE: 'spiderStrike', REBOUND: 'rebound',
     DOT: 'dot', HEAL: 'heal',
     POS_SWAP: 'posSwap', PUSH: 'push',
+    // 标枪前压的单格滑行（载荷 fromPos/toPos）：换位滑行的单人版，不再走「步末快照重绘 = 瞬移」
+    JAVELIN_MOVE: 'javelinMove',
     STAT_CHANGE: 'statChange',
     SUMMON: 'summon', DESTROY: 'destroy',
     TRANSFORM: 'transform', FLY_MODE: 'flyMode', STUN: 'stun',

@@ -32,7 +32,7 @@ import {
     showMeleeMiss
 } from './603-fx-crash-5v5-test.js';
 
-import { animatePositionSwap, animateMindSwap } from './604-fx-position-swap.js';
+import { animatePositionSwap, animateMindSwap, animateUnitAdvance } from './604-fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from './605-fx-push-back.js';
 import { showDodgeBulletTime } from './606-fx-dodge-bullet.js';
 
@@ -73,6 +73,7 @@ export {
     showMeleeMiss,
     animatePositionSwap,
     animateMindSwap,
+    animateUnitAdvance,
     animatePushBack,
     animatePushSwap,
     showDodgeBulletTime,

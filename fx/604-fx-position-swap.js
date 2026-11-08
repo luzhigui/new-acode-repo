@@ -10,6 +10,48 @@ function getCellElement(unit) {
     return getUnitCell(unit);
 }
 
+// 标枪前压：单格滑行（换位演出的单人版）——沿直线从 fromPos 格滑到 toPos 格，滑完 dispatch POS_CHANGE 落定，
+//   由步末 syncStoreFromStep 重绘。不做换位那套闪烁，避免和「换位」混淆。
+export async function animateUnitAdvance(unit, fromPos, toPos, c) {
+    if (!unit || fromPos == null || toPos == null || fromPos === toPos) return;
+    const cell1 = getCellByPos(unit.camp, fromPos);
+    const cell2 = getCellByPos(unit.camp, toPos);
+    if (!cell1 || !cell2) return;
+    const rect1 = cell1.getBoundingClientRect();
+    const rect2 = cell2.getBoundingClientRect();
+    const dx = rect2.left + rect2.width / 2 - (rect1.left + rect1.width / 2);
+    const dy = rect2.top + rect2.height / 2 - (rect1.top + rect1.height / 2);
+
+    cell1.style.zIndex = '30';
+    await clock.animate(520, (p) => {
+        const k = 1 - Math.pow(1 - p, 3);   // easeOutCubic：起步快、落位稳
+        cell1.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+    });
+
+    cell1.style.opacity = '0';
+    await clock.wait(120);
+
+    if (c.store) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
+            { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: unit.uid, pos: toPos }
+        ]});
+    } else {
+        unit.pos = toPos;
+    }
+
+    cell1.style.cssText = '';
+    c.updateUI();
+
+    const newCell = getCellElement(unit);
+    if (newCell) {
+        newCell.style.opacity = '0'; newCell.style.transform = 'scale(0.88)';
+        requestAnimationFrame(() => {
+            newCell.style.transition = 'opacity .2s ease, transform .2s ease';
+            newCell.style.opacity = '1'; newCell.style.transform = 'scale(1)';
+        });
+    }
+}
+
 export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     // 两仪互换（红血）：connectLine 走专属「连线→对穿」演出（惑心互换保持原连闪动画不动）
     if (options.connectLine) return animateLiangyiSwap(unit1, unit2, c, options);

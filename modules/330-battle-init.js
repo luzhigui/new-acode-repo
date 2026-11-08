@@ -5,7 +5,14 @@
 // 六大派：保留 WEAK_ELITE_MIX_RATE（M104 混入），另加 M107 20% / M100 30% 两档独立判定；
 //   只替换「非具名、且不属本关固定精英池」的杂兵位，找不到杂兵位就放弃，绝不顶掉关卡固定精英。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-export const VER = 'modules/330-battle-init.js V7.6.7';
+export const VER = 'modules/330-battle-init.js V7.6.8';
+// 六大派额外精英/特殊兵混入池（M107 / M104 / M100 三档）。
+//   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
+export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
+    M107: ['张三丰', '宋青书', '周芷若', '胖远桥', '灭绝师太'],
+    M104: ['何太冲', '唐文亮', '空见'],
+    M100: ['俞莲舟', '素问', '少林圆真']
+});
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/202-unit.js';
@@ -419,9 +426,7 @@ export function initBattleTeams(currentStage, _rng) {
     // —— 六大派额外精英/特殊兵混入池（保留原 WEAK_ELITE_MIX_RATE 混入率，另加 M107 / M100 两档独立判定）——
     //   命中后只替换「非具名、且不属于本关固定精英池」的杂兵位；找不到杂兵位就放弃，绝不顶掉关卡固定精英
     const fixedEnemyEliteNames = new Set(Object.values(C.ELITE_POOL || {}).flat().map(e => e && e.name));
-    const SIX_M107 = ['张三丰', '宋青书', '周芷若', '胖远桥', '灭绝师太'];
-    const SIX_M104 = ['何太冲', '唐文亮', '空见'];
-    const SIX_M100 = ['俞莲舟', '素问', '少林圆真'];
+    const { M107: SIX_M107, M104: SIX_M104, M100: SIX_M100 } = SIX_SECTS_WEAK_ELITE_POOLS;
     // ⚠️ RNG 序列更新（V7.6.7）：三颗骰子 + 三个 pick 一律无条件消耗，命中与否只改「是否应用」
     const enemyM107Roll = _rng.next();
     const enemyM104Roll = _rng.next();

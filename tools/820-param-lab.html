@@ -164,6 +164,7 @@ table.dump td.left{text-align:left}
 <script type="module">
 import { ensureGameData, listNumericKnobs, pickTypicals } from './822-param-lab-core.js';
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
+import { SIX_SECTS_WEAK_ELITE_POOLS } from '../modules/330-battle-init.js';
 import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
     charSkillGroups, charGroupKeyOf, isMirroredSkillField, knobWhatIf,
     isOrphanField, humanToStored, inputHint, isUnreadSkillGroup } from './824-param-lab-glossary.js';
@@ -263,6 +264,9 @@ function stageEnemyNames(stage) {
     take(gameRoot.encounters?.enemySquads?.[stage]);
     take(gameRoot.encounters?.elitePool?.[stage]);
     for (const v of (gameRoot.encounters?.squadVariants?.[stage] || [])) take(v && v.squad);
+    // 弱精英（M107/M104/M100 混入池）不进固定阵容数据，但在关卡里会随机登场：
+    //   并进列表并去重，否则第五关的唐文亮（M104 随机位）在下拉里选不到。
+    for (const pool of Object.values(SIX_SECTS_WEAK_ELITE_POOLS)) for (const n of pool) s.add(n);
     return s;
 }
 // 明教侧角色：名册位 + 带「明教/精英」标签但未登记在名册的角色（如小昭·姊/妹共用的「小昭」）

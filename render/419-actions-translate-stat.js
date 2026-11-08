@@ -225,6 +225,22 @@ function translateSkillAnnounce(data, index) {
         }
         return acts;
     }
+    // 标枪前压：从旧格滑到新格（引擎已改 unit.pos，若不补这段，播放时就只剩步末快照重绘 = 瞬移）
+    if (data.advanceFrom != null && data.advanceTo != null && data.advanceFrom !== data.advanceTo && data.unitUid != null) {
+        const acts = [{
+            kind: STAGE_ACTION_TYPES.JAVELIN_MOVE,
+            actorUid: data.unitUid,
+            fromPos: data.advanceFrom,
+            toPos: data.advanceTo,
+            factIndex: index,
+            timing: 'beforeText'
+        }];
+        // 高亮框留到滑行之后套上（原 highlight 动作语义不变）
+        if (data.highlight) {
+            acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.unitUid, text: null, isHighlight: true, factIndex: index, timing: 'afterText' });
+        }
+        return acts;
+    }
     // 唐文亮突进高亮：返回专用的高亮动作，不飘字
     if (data.highlight && data.unitUid != null) {
         return {

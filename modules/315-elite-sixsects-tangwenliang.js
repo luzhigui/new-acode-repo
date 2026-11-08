@@ -5,7 +5,10 @@
 // V7.1.3 | 2026-11-07 第 184 轮：① 飞天/附身判据改调 core/203 isAirborne（本地内联删除，行为不变）；
 //          ② 补记 V7.1.2 未升版的实质改动——forceInsert 把「飞天/附身占格」从旧口径「视同空位继续
 //          往后找」改成「当墙、换列」（fuzz s127/r8 同格病根：9 号被推进小昭·姊附身腾空的 2 号格）。
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.3';
+// V7.1.4 | 2026-11-08 | 回春叠层改当场：doDash 冲刺即 addHuiChunStack（原先置 _pendingDashHeal 等
+//          「冲刺后那一拳」结算再叠，被动冲刺那一拳被跳过 → 四条钩子都不发 → 一层都不叠）；
+//          删除 _pendingDashHeal 与 AFTER_ATTACK/AFTER_MISS/AFTER_ATTACK_IMMUNE/ON_DODGE 四条 flush 监听。
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.4';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -204,8 +207,9 @@ export function createTangWenLiangComponent() {
                 const rb = getRoleBonus(ROLE_TYPES.WARRIOR);
                 if (outLog) outLog.push({ factType: FACT_TYPES.TW_DASH_APPLY, data: { unitName: tw.name, unitUid: tw.uid, camp: tw.camp, atk: rb.atk, def: rb.def, maxHp: rb.maxHp } });
                 switchRole(tw, ROLE_TYPES.WARRIOR, '冲刺·转战士', outLog);
-                // 回春延到「冲刺后那一拳」结算完再叠
-                tw.state._pendingDashHeal = true;
+                // 回春当场叠一层：原先挂 _pendingDashHeal 等「冲刺后那一拳」结算完再叠，
+                //   被动冲刺那一拳被跳过时四条钩子都不发，一层都叠不上；现在冲刺本身即叠层。
+                if (outLog) addHuiChunStack(tw, outLog);
                 tw.state._isDashStrikeFx = true; // 标记本击跳过物理攻击动画
                 if (outLog) {
                     const moves = [...(enemyRes.ok ? enemyRes.moved : []), ...(allyRes.ok ? allyRes.moved : [])]
@@ -238,37 +242,6 @@ export function createTangWenLiangComponent() {
                                   ].filter(Boolean) } });
                 }
             }
-
-            // 冲刺后的回春：等这一拳（dashStrike 或紧随的普攻）结算完再叠 + 立即 tick 回血。
-            //   冲刺后的这一拳若走额外攻击通道（被动触发/赠送攻击），core/11 不会再 emit ON_UNIT_ACTED，
-            //   所以此处必须「叠 + tick」一起做；主动冲刺的普攻在 ON_UNIT_ACTED 会再触发一次，
-            //   由 _hcTickedThisTurn 拦下（本回合已 tick 过则跳过），不会双回血。
-            const flushDashHeal = (data) => {
-                if (data.unit !== tw || !tw.alive || !tw.state._pendingDashHeal) return;
-                tw.state._pendingDashHeal = false;
-                tw.state._isDashStrikeFx = false; // 清理标记
-                // AFTER_MISS 期间 MISS fact 尚未入 log（AFTER_MISS 在 MISS 落账前广播），
-                //   回春的叠层播报/HEAL 若直接写 data.log 会排到「未命中」之前。
-                //   与 core/203、modules/310、modules/323 同一修法：有 deferredFacts 就走暂存，
-                //   由 core/209 在 MISS fact 落账后统一补出；AFTER_ATTACK/AFTER_MISS_IMMUNE/ON_DODGE
-                //   无该字段，回落 data.log（原行为）。
-                const sink = Array.isArray(data.deferredFacts) ? data.deferredFacts : data.log;
-                addHuiChunStack(tw, sink);
-                if (!tw.state._hcTickedThisTurn) {
-                    tickHuiChun(tw, sink);
-                    tw.state._hcTickedThisTurn = true;
-                }
-            };
-            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, 60, flushDashHeal);
-            eventBus.on(SIGNAL_TYPES.AFTER_MISS, 60, flushDashHeal);
-            // 免疫分支（AFTER_ATTACK_IMMUNE，小昭·妹飞天）：上面两条都不发，
-            //   这一拳打出去了但回春不叠——补挂一条，保证「冲刺后必叠」在任何结算分支都成立。
-            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, 60, flushDashHeal);
-            // 闪避分支：被闪避时 core/10 的 skipped 分支直接 return，AFTER_ATTACK/AFTER_MISS 都不发，
-            //   只有 core/12 内部 emit 的 ON_DODGE（data.unit = 攻击者）——漏挂这条导致
-            //   「冲刺后的平A被闪避 → 回春叠不上」（线上实测病根）。tw 作为攻击者时 data.unit === tw 通过，
-            //   别人闪避时 data.unit 是别人、被判据拦掉，不会误触发。
-            eventBus.on(SIGNAL_TYPES.ON_DODGE, 60, flushDashHeal);
 
             // 出手计数（整场）+ 冲刺触发 + 回春术叠层：core/10 在选敌完成、命中/闪避判定之前广播
             //   （带 target 与 log）——故命中/闪避都算一次出手；射程内无人（休息）时不广播、不计。
@@ -341,7 +314,6 @@ export function createTangWenLiangComponent() {
                 if (((n - 1) % dash.cycle) + 1 === dash.cycle) {
                     doDash(attacker, data.log);
                     tw.state._acted = true;
-                    tw.state._pendingDashHeal = true;
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit: tw,
@@ -383,6 +355,9 @@ export function createTangWenLiangComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 33, (data) => {
                 if (!tw.alive) return;
                 tw.state._hcTickedThisTurn = false;
+                // 冲刺拳头「跳过默认攻击动画」是一次性标记（消费在 core/212 建组处）：
+                //   万一那一拳没落地（被闪避/免疫/斩杀），回合开始兜一次，绝不跨回合残留。
+                tw.state._isDashStrikeFx = false;
             });
 
             // ③ 行动完 tick：每次行动结束（攻击/休息/被遮挡）emit ON_UNIT_ACTED，此处触发回春回血。

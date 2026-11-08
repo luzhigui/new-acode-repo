@@ -224,6 +224,18 @@ export const STAGE_ACTION_DEFS = {
             }
         }
     },
+    // 标枪前压·单格滑行：把 fromPos 格的卡片沿直线滑到 toPos 格，滑完 dispatch POS_CHANGE 落定。
+    //   复用换位滑行那套（fx/604 animateUnitAdvance，单人版），不新造位移演出。
+    [STAGE_ACTION_TYPES.JAVELIN_MOVE]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        fx: async (c, action) => {
+            if (isFxSkipped()) return;
+            const u = findUnitByUidLocal(c, action.actorUid);
+            if (!u) return;
+            const { animateUnitAdvance } = await import('../fx/608-fx-manager.js');
+            await animateUnitAdvance(u, action.fromPos, action.toPos, c);
+        }
+    },
     // 惑心换位·三格原地闪换：不滑行、不两两互换，三格内容原地反复闪换 → 红锁凝固 → 一次落到引擎给的终态。
     //   载荷 swaps: [{uid, fromPos, toPos}]，camp 从翻译层带过来（data.side）。
     //   落定后 fx 内部 dispatch POS_CHANGE，后续 syncStoreFromStep 会用引擎权威值重绘覆盖手动内容。

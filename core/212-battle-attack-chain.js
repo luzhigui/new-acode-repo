@@ -487,6 +487,9 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
     };
 
     // 关键：attacker 和 target 改为快照对象，不再引用活体 Unit
+    // 冲刺拳头「跳过默认攻击动画」是一次性标记：建组时读到即清（不清会永久跳过唐文亮后续所有攻击动画）
+    const dashStrikeFx = !!(unit.state && unit.state._isDashStrikeFx);
+    if (dashStrikeFx) unit.state._isDashStrikeFx = false;
     const attackFact = {
         factType: FACT_TYPES.ATTACK,
         data: {
@@ -501,7 +504,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
             phantomFact,
             entries: pendingEntries,
             snap,
-            isDashStrikeFx: !!unit.state._isDashStrikeFx
+            isDashStrikeFx: dashStrikeFx
         },
         _events: []
     };
