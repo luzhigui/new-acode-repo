@@ -9,7 +9,8 @@
 // V1.1.5 | 2026-11-08 体检转交：圣火不熄摘要带复活账（复活单位 uid / 第几次 / 档位比例 / 实际回复量），
 //         | 不再只印一句通用文案；结构化字段同步挂到渲染条目上供体检归账。
 // V1.1.6 | 2026-11-08 体检转交：UNIT_DEATH 死亡登记注册隐藏渲染器（只记账不上屏，避免战报重复死亡行）
-export const VER = 'render/411-facts-misc.js V1.1.6';
+// V1.1.7 | 2026-11-08 体检转交：ABSORB_SUMMARY 吸星汇总注册隐藏渲染器（只记账不上屏，行仍由 SKILL_ANNOUNCE 出）
+export const VER = 'render/411-facts-misc.js V1.1.7';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -199,6 +200,8 @@ registerFactRenderer(FACT_TYPES.ROUND_START, renderRoundStartFact);
 registerFactRenderer(FACT_TYPES.ROUND_END, renderRoundEndFact);
 // 死亡登记只供体检归账，不进画面（死亡行由攻击组/其它 fact 负责），返回 null 让 renderLog 跳过
 registerFactRenderer(FACT_TYPES.UNIT_DEATH, () => null);
+// 吸星汇总只供体检归账（group absorbed/absorbGain 逐单位对账）；SKILL_ANNOUNCE 已负责「🌀 发动吸星」行，此处显式声明隐藏
+registerFactRenderer(FACT_TYPES.ABSORB_SUMMARY, () => null);
 registerFactRenderer(FACT_TYPES.ZHANG_TAUNT, renderZhangTauntFact);
 registerFactRenderer(FACT_TYPES.NO_CONTEND, renderNoContendFact);
 registerFactRenderer(FACT_TYPES.PHANTOM_REVEAL, renderPhantomRevealFact);

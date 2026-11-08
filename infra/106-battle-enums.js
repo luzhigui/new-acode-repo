@@ -1,4 +1,5 @@
-export const VER = 'infra/106-battle-enums.js V1.11.3';
+// V1.11.4 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY（吸星一次结算一条汇总事实，含 beneficiaries 明细数组）
+export const VER = 'infra/106-battle-enums.js V1.11.4';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -81,7 +82,11 @@ export const FACT_TYPES = Object.freeze({
     SKILL_ANNOUNCE: 'skillAnnounce',
     // 死亡登记（core/213 resolveDeaths 唯一真实死亡出口）：{ uid, name, camp, reason, hpBefore, hpAfter }
     //   只进 step.log 供体检按 uid 归账（复活链前置/毒 DOT 致死），render 侧注册隐藏渲染器，不进画面
-    UNIT_DEATH: 'unitDeath'
+    UNIT_DEATH: 'unitDeath',
+    // 吸星结算汇总（modules/334）：一次结算一条，{ casterUid, skillName, source, absorbedTotal:{atk,def,maxHp},
+    //   beneficiaries:[{uid,name,stat,before,after}] }——beneficiaries 内同时含被吸方(负增量)与施术者(正增量)，
+    //   体检按 group 'absorbed'/'absorbGain' 对账；不进画面（renderFn null）
+    ABSORB_SUMMARY: 'absorbSummary'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 13 项对应） */

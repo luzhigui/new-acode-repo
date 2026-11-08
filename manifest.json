@@ -1,5 +1,5 @@
 {
- "ver": "82534169de0cb87e89413c8b4f94afd2761f0acb2e7e5817e383cb589b592677",
+ "ver": "cc8d5cdeeeade186659b4e68548da6365b0183452658613c17ab949614f7d11e",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -209,11 +209,11 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "9d49e1ee547fce7b108d4a252a88efa9ae1f73b14e8ad0a08b67fcf56b94ac2e"
+   "206c7be917053fe4d22b4ff6a66e9a6c43ef41483b159a021e25c5d4321e2694"
   ],
   [
    "infra/107-fact-contract.js",
-   "4a88008ce55afa522829ee4e4e047987de378f7c85491cc9154a8fb7155095d9"
+   "fbf395528eea9eabb130ae17617a6f11db34ae3637c5fd28e604e41346a039b3"
   ],
   [
    "infra/107-store-schema.js",
@@ -333,7 +333,7 @@
   ],
   [
    "modules/325-elite-mingjiao-shuobude.js",
-   "7e68760b13021d74d7ef46f59aba237d02a5332a599eb5b9d57d8c23bf379054"
+   "98e25ef5abc059326237b2a22f73d4a3998bcf8b9b85e7797f4b2eafb61846eb"
   ],
   [
    "modules/326-elite-mingjiao-xiexun.js",
@@ -369,7 +369,7 @@
   ],
   [
    "modules/334-common-absorb.js",
-   "e5232dc5c2a54514ffa1f205e17c547371815a4a97bb7d5f3b4f93cfd225c9b5"
+   "30fce7f3007a0c576453b4358d546b9d6ee1b2facfa06c6db87820a3f8c55d2c"
   ],
   [
    "modules/335-common-heal-ally.js",
@@ -385,7 +385,7 @@
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
-   "6d74ebd71fffb223c9e3273a2ce5cbf166dd7d3353da0b49c28e5a7819a059fe"
+   "721e38c3c9fb7dc18de89c51589321eb714c5d1bf3c4d00adbea10a63b805167"
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
@@ -437,7 +437,7 @@
   ],
   [
    "player/512-battle-flow.js",
-   "635d5197b71a52fc8dd700ee60ede169fbc1e9fbc064ef45fabcfcb74bd7e9f2"
+   "54002afcb8b6e9ef9c7add794196681cfb27047467046ade6c96d96e63a8c75e"
   ],
   [
    "player/513-battle-export.js",
@@ -457,7 +457,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "e150719f616ad4cceacdd2fa37b559764559f88330e2ec0556abc14da979ec54"
+   "a476eeccce6cee089e872d4e7949e788e317cc2cdad6b47bfc9021e86ff635ed"
   ],
   [
    "render/404-grid-badges.js",
@@ -489,7 +489,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "b35b3120cd4b405ae1e9ed375d928b10e670d142c266efc1e9cb32d46899ed67"
+   "fd3bafa3f71ef03d77e149d0cf84a90d9a2997cdd30a5e3a61467670a2e55a30"
   ],
   [
    "render/412-facts-stat.js",

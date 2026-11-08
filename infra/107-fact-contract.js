@@ -2,7 +2,8 @@
 // V1.5.17 | 2026-11-08 体检转交：免疫 fact 血量改实数并登记；圣火不熄复活账登记到 BUFF_SUMMARY / SKILL_ANNOUNCE
 // V1.5.18 | 2026-11-08 体检转交：新增 UNIT_DEATH 死亡登记契约（uid/name/camp/reason/hpBefore/hpAfter，隐藏不进画面）
 // V1.5.19 | 2026-11-08 体检转交：SKILL_ANNOUNCE 审计字段补飞行·猎杀成长键（atkBefore/atkAfter/missChance/missDelta/neverMiss/deadUid/deadName）
-export const VER = 'infra/107-fact-contract.js V1.5.19';
+// V1.5.20 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY 契约（吸星一次结算一条汇总，beneficiaries 内带逐单位 before/after）
+export const VER = 'infra/107-fact-contract.js V1.5.20';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -183,6 +184,13 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.XIAO_ZHAO_CARRY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
+
+    // 吸星结算汇总（modules/334 一次结算一条）：beneficiaries 里同时含被吸方（负增量，group 'absorbed'）
+    //   与施术者（正增量，group 'absorbGain'），每条 {uid, name, stat, before, after}；renderFn:null 不进画面
+    [FACT_TYPES.ABSORB_SUMMARY]: {
+        requiredFields: ['casterUid', 'skillName', 'source', 'absorbedTotal', 'beneficiaries'],
+        renderFn: null, translateFn: null
+    },
 });
 
 /**
@@ -227,6 +235,11 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
     // 死亡登记（core/213 resolveDeaths）：hpBefore/hpAfter 为引擎实数；复活前补账也复用本类型
     [FACT_TYPES.UNIT_DEATH]: Object.freeze([
         'uid', 'name', 'camp', 'reason', 'hpBefore', 'hpAfter'
+    ]),
+    // 吸星汇总（modules/334）：absorbedTotal 为本次吸到总量（按属性分项），beneficiaries 为逐单位逐属性 before/after
+    [FACT_TYPES.ABSORB_SUMMARY]: Object.freeze([
+        'casterUid', 'casterName', 'skillName', 'source',
+        'absorbedTotal.atk', 'absorbedTotal.def', 'absorbedTotal.maxHp', 'beneficiaries'
     ])
 });
 
