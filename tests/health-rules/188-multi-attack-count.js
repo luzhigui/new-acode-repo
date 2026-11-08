@@ -11,17 +11,27 @@
 //   「本回合段数」= 1 次主行动 + N 次被动/联动追加，N 由机制触发链决定，理论上不封顶。
 //   实测（156 场 / 5202 段）最高 6 段（seed=1 stage=7 第 1 回合 灭绝师太），2 段 204 例、
 //   3 段 4 例、4 段 9 例、6 段 1 例 ⇒ 6 是当前样本见过的最大值，不是规则边界。
+//   （第 195 轮复跑出现 7 段样本：seed=2 stage=7 第 8 回合 灭绝师太 —— 同样只打 observe。）
 //   因此 6 只作【观察阈值】：超过时打 observe（回放汇总进「观察项」段，不计红、不计退码），
 //   供人工研判「是合法新机制，还是重复写入/循环失控/身份串号」。若日后确认某机制合法 7 段，
 //   把阈值改大并在本文件头写清「哪一局、什么机制、几段」即可，别默默删规则。
 //
-// 仍按硬判据（fail 报红）的只有两条真正稳的结构不变量：
+// 仍按硬判据（fail 报红）的仍然只有两条真正稳的结构不变量：
 //   ① 同一 (回合, 单位) 的多段里，attacker 的 camp / name 必须一致 —— 抓「同一 uid 前后身份漂移」
 //      （例如快照被复用、复活后换了单位对象）。
 //   ② 每一段都要取得到目标：attack/miss/immune 取 target，dodge 取 dodger。取不到 = 空目标出手，渲染必炸。
 //
+// ★ 第 195 轮想用 `_linkReason` 把段数升硬判，实测证伪（记录在此，别再试一遍）：
+//   假设是「每回合 1 次主行动 + 只走 runExtraAttackRequests 的追加段，所以 _linkReason 为空的段最多 1 段」。
+//   实测 156 场里 124 场红（如 seed=1 stage=1 第5回合 寒离飒 2 段无 reason、seed=1 stage=4 宋青书/莫声谷同回合 2 段），
+//   原因是**一次追加请求内部也会结算多段**（双击/连击/多目标连打）—— 段与请求不是一对一。
+//   结论：没有「请求归属」就区分不了『一次请求多段』与『主行动重复执行』。
+//   转交主代码（tests/known-transfers.md 第 195 轮条目）：给 attack/miss/dodge/immune fact 加 `_requestId`
+//   （同一个 runExtraAttackRequests 请求内所有段同 id），体检才能把「同 requestId 多段」与「同回合多请求」分开，
+//   段数上限才升得成硬判。
+//
 // 行动权归属本身由 183（跨回合）/ 184（同回合死亡与复活）管，本规则只管「段数」这一种计数口径，不重复判。
-export const VER = 'tests/health-rules/188-multi-attack-count.js V1.1.0';
+export const VER = 'tests/health-rules/188-multi-attack-count.js V1.1.1';
 
 const SEG_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
 const SEG_OBSERVE = 6; // 观察阈值（实测拟合值，非引擎上限；见头注）

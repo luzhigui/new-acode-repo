@@ -17,7 +17,7 @@ export const rule82 = {
     group: '战报渲染回归',
     name: '破防显示位置/破防量(回归)',
     test: function(ctx, log) {
-        var misplace = 0, latePos = 0, badReduce = 0, total = 0;
+        var misplace = 0, latePos = 0, badReduce = 0, total = 0, badSamples = [];
         for (var i = 0; i < log.length; i++) {
             var e = log[i];
             if (!e || e.type !== 'attack-group' || !e.entries) continue;
@@ -46,7 +46,7 @@ export const rule82 = {
             if (mr) {
                 var reduce = parseFloat(mr[1]);
                 // 破防量回归：0（归零）或 >4（越界）才是信号；Math.min 夹取产生的 0.x 小数属正常
-                if (!(reduce > 0 && reduce <= MAX_BREAK_REDUCE)) badReduce++;
+                if (!(reduce > 0 && reduce <= MAX_BREAK_REDUCE)) { badReduce++; badSamples.push('第' + i + '组「' + plain.slice(0, 80) + '」→ 解析值 ' + reduce); }
             }
         }
         // 3) 游离：破防行不应出现在攻击组之外
@@ -58,7 +58,7 @@ export const rule82 = {
         var msgs = [];
         if (latePos > 0) msgs.push(latePos + '/' + total + '处破防显示位置靠后（应在攻击组最前面、波动行之前）');
         if (misplace > 0) msgs.push(misplace + '处破防行与所在攻击组攻击者/目标不一致或游离在攻击组外');
-        if (badReduce > 0) msgs.push(badReduce + '处破防量不在合法区间(0,4]（V6.1.3 破防分档回归：归零或越界）');
+        if (badReduce > 0) msgs.push(badReduce + '处破防量不在合法区间(0,4]（V6.1.3 破防分档回归：归零或越界）：' + badSamples.slice(0, 3).join('；'));
         // ★ 第 132 轮：原 msg 为「复发：」+ msgs.join()，整体动态 ⇒ 无法定位到分支，现已补前缀
         if (msgs.length > 0) return { fail: true, msg: '复发：破防显示位置/破防量：' + msgs.join(' | ') };
         return { fail: false };
