@@ -62,7 +62,7 @@ for (const r of rules) {
   }
 }
 for (const [id, files] of idMap) {
-  if (files.length > 1) ruleIssues.push(`规则 id 冲突：${id} 被 ${files.join(' / ')} 同时导出（并行会话撞号，须改名）`);
+  if (files.length > 1) ruleIssues.push(`同号导出 ${id}：${files.join(' / ')}（121 已用别名隔离，可继续；新文件请避开）`);
 }
 for (const base of Object.keys(ruleDomains)) {
   if (!rules.some((r) => r.base === base)) ruleIssues.push(`rule-domains.json 登记了不存在的文件 ${base}`);
@@ -107,11 +107,13 @@ const allSlots = domains.flatMap((d) => Array.from({ length: d.slots[1] - d.slot
 const nextFree = allSlots.find((n) => !claimed.includes(n)) ?? Math.max(CLAIM_FROM - 1, ...claimed) + 1;
 line(`  其中 173–${CLAIM_FROM - 1} 遗留占用 ${legacyCount} 条；${CLAIM_FROM} 起已认领 ${claimed.length} 条${claimed.length ? '（' + claimed.join(',') + '）' : ''}；下一个空闲号 ${nextFree}`);
 line('');
-line('【域登记位】（新规则只许落在本域号段）');
+line('【号段表】历史混合区 123–228 冻结（不再插入新文件）；新文件一律从 229 起按域连续分配');
 for (const d of domains) {
+  const legacy = rules.filter((r) => ruleDomains[r.base] === d.id && r.num < CLAIM_FROM).map((r) => r.num).sort((a, b) => a - b);
   const used = rules.filter((r) => ruleDomains[r.base] === d.id && r.num >= d.slots[0] && r.num <= d.slots[1]).length;
   const total = d.slots[1] - d.slots[0] + 1;
-  line(`  ${d.id} ${d.title.padEnd(18)} ${d.slots[0]}–${d.slots[1]}  已用 ${used}/${total}`);
+  line(`  ${d.id} 历史占用 ${legacy.length} 条${legacy.length ? '：' + legacy.join(',') : ''}`);
+  line(`     新段 ${d.slots[0]}–${d.slots[1]}  已占 ${used}  剩余 ${total - used}`);
 }
 line('');
 line('【机制覆盖缺口】');
