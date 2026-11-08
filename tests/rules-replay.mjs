@@ -57,7 +57,10 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.13.0';
+// V6.14.0 | 2026-11-08（第 192 轮）新增「观察项」通道：规则可返回 { fail:false, observe:'...' }，
+//   汇总到「观察项」段打印，不进 fails 计数、不改退出码。用于「实测拟合、非引擎真值」的软判据
+//   （首例：188 同回合多段出手计数口径的段数阈值 6）。既有规则返回值不受影响。
+export const VER = 'tests/rules-replay.mjs V6.14.0';
 // V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
 //   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
 //   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
@@ -521,6 +524,9 @@ function runCase(seed, stage, forces, forcePick = null) {
 }
 
 const agg = {}, kwHit = {};
+// 观察项通道（第 192 轮）：规则可返回 { fail:false, observe:'...' } 表示「结论供研判、但不是硬判据」。
+// 只汇总打印，不进 fails 计数、不改退出码 —— 与 run-all 的 OBSERVES 同一取舍。
+const OBSERVATIONS = new Map(); // ruleName -> Set(msg)
 // 分支指纹落盘（第 131 轮 V6.7.2）：仅在显式设置 RULE_MSGS_OUT 时才建容器，默认零副作用
 // ——不改任何判据、不影响既有输出与退出码。与 V6.7.1 的 RULE_STATS_OUT 同款口径（各管一个环境变量）。
 // 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
@@ -568,6 +574,11 @@ for (const { seed, stage, force, forces: entryForces, buffs: entryBuffs } of [..
             const st = (res === 'skip') ? 'skip' : (res && res.fail ? 'fail' : 'pass');
             const a = agg[r.name] || (agg[r.name] = { pass: 0, fail: 0, skip: 0, msgs: [] });
             a[st]++;
+            if (res && res.observe) {
+                let s = OBSERVATIONS.get(r.name);
+                if (!s) { s = new Set(); OBSERVATIONS.set(r.name, s); }
+                if (s.size < 20) s.add(`[seed=${seed} stage=${stage}] ${String(res.observe).slice(0, 180)}`);
+            }
             if (st === 'fail' && a.msgs.length < 3) a.msgs.push(`[seed=${seed} stage=${stage}] ${(res.msg || '').slice(0, 160)}`);
             // 分支指纹：只收集"真的报出来过"的 msg（去重；单规则上限 400 条防内存膨胀）
             if (BRANCH_MSGS && st === 'fail') {
@@ -649,6 +660,13 @@ for (const name of Object.keys(agg)) {
     const tag = a.fail > 0 ? (isTransfer ? '⚠️ ' : '❌') : (a.pass > 0 ? '✅' : '⏭ ');
     console.log(`${tag} ${name}  pass=${a.pass} fail=${a.fail} skip=${a.skip}${isTransfer ? '  【已转交·等主代码】' : ''}`);
     for (const m of a.msgs) console.log(`      ${m}`);
+}
+if (OBSERVATIONS.size) {
+    console.log('=== 观察项（不计红 / 不计退码，仅供研判） ===');
+    for (const [name, set] of OBSERVATIONS) {
+        console.log(`  🔎 ${name}  ${set.size} 例`);
+        for (const m of set) console.log(`      ${m}`);
+    }
 }
 if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');

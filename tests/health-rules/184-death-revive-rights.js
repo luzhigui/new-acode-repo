@@ -16,7 +16,10 @@
 // 死亡登记通道：只认 attack fact 的 snap.targetAlive===false / dmgResult.dead===true（引擎不在 fact 流里发
 //   `death` 类型事实，实测 seed=1 stage=1 全程 death fact 0 条）。漏登记（毒/反伤类死亡）只会少报，不会误报。
 // 复活通道：skillAnnounce skillName==='圣火不熄' 且带 unitUid。
-export const VER = 'tests/health-rules/184-death-revive-rights.js V1.0.0';
+// 观察项（V1.1.0 第 192 轮）：收到复活公告、但该 uid 从没被上面两条判据登记过死亡 ⇒ 打 observe
+//   （不计红、不计退码）。这不是违规，是**死亡登记通道不全**的证据：毒/反伤/自伤致死不落 attack fact，
+//   体检看不见。实测 60 场 17 例，先观察、等主代码给毒/反伤死亡补 fact 或统一死亡通道后再升硬判据。
+export const VER = 'tests/health-rules/184-death-revive-rights.js V1.1.0';
 
 const HIT_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
 
@@ -31,6 +34,7 @@ export const rule184 = {
         let round = null;
         let samples = 0;
         const errs = [];
+        const observes = [];
 
         const registerDeath = (uid, r) => { if (uid != null) dead[uid] = (r == null ? 0 : r); };
 
@@ -42,6 +46,10 @@ export const rule184 = {
 
             // 复活：死亡名单清除，行动权恢复
             if (f.factType === 'skillAnnounce' && d.skillName === '圣火不熄' && d.unitUid != null) {
+                if (dead[d.unitUid] == null) {
+                    observes.push('第' + (round == null ? '?' : round) + '回合：' + (d.unitName || d.unitUid) +
+                        ' 收到复活公告，但 fact 流里没有它的死亡登记（毒/反伤/自伤死亡不落 attack fact，死亡通道不全）');
+                }
                 delete dead[d.unitUid];
                 continue;
             }
@@ -82,6 +90,11 @@ export const rule184 = {
                 msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处）' : '')
             };
         }
-        return { fail: false, msg: '死亡/复活行动权口径成立：核对 ' + samples + ' 次出手，无同回合阵亡后出手或 PASS' };
+        return {
+            fail: false,
+            observe: observes.length ? (observes.slice(0, 3).join('；') + (observes.length > 3 ? '（共 ' + observes.length + ' 处）' : '')) : undefined,
+            msg: '死亡/复活行动权口径成立：核对 ' + samples + ' 次出手，无同回合阵亡后出手或 PASS' +
+                (observes.length ? '（另有 ' + observes.length + ' 例复活缺死亡登记，见观察项）' : '')
+        };
     }
 };
