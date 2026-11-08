@@ -10,10 +10,12 @@
 //        173 只判「落在 [0.30×maxHp, maxHp] 区间」，0.45/0.55 这类错档会整片漏掉；
 //     ③ 二次复活必须有新的死亡前置：同 uid 第二次复活、而两次复活之间没有任何死亡登记 → 观察项（实测 1 例）。
 //
-// 死亡前置缺失（复活前从未登记死亡）→ 观察项，与 184 同口径：这不是违规，是死亡通道不全
-//   （毒/反伤/自伤致死不落 attack fact）。实测 140 场 41 次复活里 15 例，硬判会整批误报，故只观察。
-// 死亡登记通道：attack 的 snap.targetAlive===false / dmgResult.dead===true，以及 xuanmingDot 的 isDead。
-export const VER = 'tests/health-rules/231-revive-chain.js V1.0.0';
+// 死亡前置缺失（复活前从未登记死亡）→ 观察项，与 184 同口径：这不是违规，是死亡通道不全。
+//   2026-11-08 主代码 bdd098cd 在攻击帧补 data.deaths（本帧全阵「已归零/待死」uid 清单）后，
+//   接入该通道观察项 20 → 9 例（pass=66 fail=0 skip=90）；剩余 9 例死因不落任何攻击帧，
+//   补全前仍只观察、不升硬判。
+// 死亡登记通道：attack 的 snap.targetAlive===false / dmgResult.dead===true / data.deaths[]，以及 xuanmingDot 的 isDead。
+export const VER = 'tests/health-rules/231-revive-chain.js V1.0.1';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const LEGAL_RATIOS = [0.30, 0.40, 0.70, 1.00];
@@ -43,10 +45,15 @@ export const rule231 = {
             if (!f || !f.factType) continue;
             const d = f.data || {};
 
-            // 死亡登记（两条已证实的通道）
+            // 死亡登记（三条已证实的通道）
             if (f.factType === FACT_TYPES.ATTACK) {
                 const t = d.target, snap = d.snap || {}, dmg = d.dmgResult || {};
                 if (t && t.uid != null && (snap.targetAlive === false || dmg.dead === true)) deathIdx.set(t.uid, i);
+                // 统一死亡清单（core/209 攻击帧把「本帧已归零/待死」全阵 uid 写进 data.deaths）：
+                //   毒/反伤/自伤/斩杀致死都在这里认领，补掉旧口径只看 targetAlive/dead 的盲区
+                if (Array.isArray(d.deaths)) {
+                    for (const dd of d.deaths) if (dd && dd.uid != null) deathIdx.set(dd.uid, i);
+                }
                 continue;
             }
             if (f.factType === FACT_TYPES.XUAN_MING_DOT) {
