@@ -11,7 +11,8 @@ import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } fr
 // V1.5.9 | 2026-11-08 体检转交：计算行支持负项明细（core/217 DMG_REDUCTION 以负值入列）；
 //         | 移除死渲染分支（dmgCalc.thunderBonus / trueDmg 全仓无赋值、hornDefIgnore/hornDmgMultiplier 恒 0/1，
 //         | 鹤笔翁金句里写死的 +50% 与配置 +30% 也对不上）。
-export const VER = 'render/407-facts-attack.js V1.5.9';
+// V1.5.10 | 2026-11-08 体检转交：伤害/护盾吸收行补 unitUid + hpBefore + hpAfterReal（护盾与扣血可归账）
+export const VER = 'render/407-facts-attack.js V1.5.10';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -204,6 +205,11 @@ export function renderAttackFact(fact) {
         // 2026-11-04 补丢字段：player/46 发飘字与血条预演的门槛是 dmg>0 且 hpAfter!==undefined——
         //   飘字从 fx 层搬到 player 层时只带出了 dmg，hpAfter 忘带 → 全仓普攻掉血飘字集体哑火（老板实锤三轮）
         hpAfter: targetHpAfter,
+        // 护盾吸收行可归账（体检转交）：补目标 uid + 减伤/护盾前的实数血量与结算后实数血量，
+        //   hpAfter 保持显示口径（规则 199 要求与组 hpAfter 严格同源，不能改成实数）。
+        unitUid: target.uid,
+        hpBefore: dmgResult.hpBefore,
+        hpAfterReal: snap.targetHpAfterReal !== undefined ? snap.targetHpAfterReal : targetHpAfter,
         _shield: dmgResult._shield,
         _permShield: dmgResult._permShield,
         text: damageText + (fact.miejueHint || '')
@@ -286,6 +292,10 @@ export function renderImmuneFact(fact) {
         immuneGroup.entries.push({
             type: 'damage-text',
             dmg: 0,
+            // 护盾吸收/完全免疫行同样补归账字段（体检转交）：命中目标 uid + 结算前后血量（未掉血，两者相同）
+            unitUid: target.uid,
+            hpBefore: fact.targetHp,
+            hpAfter: fact.targetHp,
             text: `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">0</span> 伤害（原本可造成 ${Math.round(calc.dmg)} 伤害被吸收），<span class="${dc}">${campD} ${target.name}</span> ${fmtNum(fact.targetHp)} → ${fmtNum(fact.targetHp)}`
         });
     }

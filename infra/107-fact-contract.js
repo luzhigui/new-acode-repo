@@ -1,5 +1,5 @@
-// V1.5.15 | 2026-11-08 体检对账补登：攻击实数血量快照、buff 摘要嵌套键；声明型 fact 补 camp/op，融会/乾坤补体检读的键
-export const VER = 'infra/107-fact-contract.js V1.5.15';
+// V1.5.16 | 2026-11-08 体检转交：乾坤 fact 补登记减伤前 dmg；攻击 fact 补登记死亡结算字段（attackerDead/…AtSettle）
+export const VER = 'infra/107-fact-contract.js V1.5.16';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -54,9 +54,9 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.MIND_CONTROL_FAIL]: { requiredFields: ['side'], renderFn: 'renderMindControlFailFact', translateFn: null },
     [FACT_TYPES.MIND_CONTROL_BANNER]: { requiredFields: ['side'], renderFn: 'renderMindControlBannerFact', translateFn: 'translateMindControlBanner' },
 
-    // 乾坤大挪移（modules/302 恒发 reducePct=转移比例、absorbed=盾吸收量，体检按这两项复算净伤）
-    [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid', 'reducePct', 'absorbed'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
-    [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid', 'reducePct', 'absorbed'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
+    // 乾坤大挪移（modules/302 恒发 reducePct=转移比例、absorbed=盾吸收量，dmg=减伤前原始伤害，体检按这三项复算净伤）
+    [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid', 'reducePct', 'absorbed', 'dmg'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
+    [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid', 'reducePct', 'absorbed', 'dmg'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
 
     // 通用回血：字段固定 {unitUid, heal, hpBefore, hpAfter, label, icon}，
     // 引擎侧统一走 emitHeal() 发射；新增回血机制只需登记这一条 + 调一行 emitHeal，无需各自建 fact 类型
@@ -195,7 +195,9 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
         'snap.attackerHpReal', 'snap.targetHpAfterReal',
         'dmgCalc.hpBonus', 'dmgCalc.thunderBonus',
         'dmgCalc.dmgMultiplierEntries', 'dmgCalc.bonusDmgEntries',
-        'dmgResult.hpBefore', 'dmgResult.dead', 'dmgResult._shield', 'dmgResult._permShield'
+        'dmgResult.hpBefore', 'dmgResult.dead', 'dmgResult._shield', 'dmgResult._permShield',
+        // 死亡登记（体检 184）：本帧结算前是否已归零/待死（毒/反伤/自伤/斩杀致死都算）
+        'dmgResult.attackerDead', 'snap.attackerDeadAtSettle', 'snap.targetDeadAtSettle'
     ]),
     [FACT_TYPES.BUFF_SUMMARY]: Object.freeze([
         'buff.key', 'buff.target', 'buff.remaining'

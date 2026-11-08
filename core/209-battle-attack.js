@@ -1,6 +1,6 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-// V6.4.11 | 2026-11-08 体检转交：暴击计数移到免疫判定之后（护罩挡下不再 critCount++）
-export const VER = 'core/209-battle-attack.js V6.4.11';
+// V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
+export const VER = 'core/209-battle-attack.js V6.4.12';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -17,7 +17,7 @@ import {
     resolveDeaths
 } from './211-battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { flushBattleEvents, fmtHp, fmtNum } from '../infra/102-core-utils.js';
+import { flushBattleEvents, fmtHp, fmtNum, fmtHpText } from '../infra/102-core-utils.js';
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 
 import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition, getStat } from './214-battle-shared.js';
@@ -36,6 +36,79 @@ const C = CONFIG;
 //     想让额外出手也不占本回合行动权，配 actedMode:'restore' + actedSnapshot: unit.state._acted。
 //   跨阵营反击自动按出手者阵营换边选目标；一次性不可闪避带 ignoreDodge: true（本次出手内生效，结束即清）。
 const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack']);
+
+// —— 静默回血补账（体检 230 转交）——
+// 机制直接 applyStatChange/refreshMaxHp 抬血时，只发 _events(HP_CHANGE)、不落任何日志行：
+//   同一次攻击组里血涨了、组内却没有一条回血行 → 体检判「两击之间凭空回血」。
+// 这里按组内 HP_CHANGE 事件序列还原每次抬血：前值取该 uid 上一事件（没有就取本帧起点快照），
+//   差值 > 0 且组内还没有该 uid 的回血行时，补一条带 isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter 的日志行。
+// 只补日志、不改血量；已有回血行的 uid 一律不再补（防重复记账）。
+const HEAL_DETECT_FACT_TYPES = new Set([
+    FACT_TYPES.HEAL,
+    FACT_TYPES.KUAI_LE_HEAL,
+    FACT_TYPES.WEI_LEECH,
+    FACT_TYPES.WEI_DODGE_LEECH,
+    FACT_TYPES.FLYER_REGEN,
+    FACT_TYPES.BLOOD_THIRST_LEECH,
+    FACT_TYPES.HOT_BLOOD_HEAL,
+    FACT_TYPES.PHANTOM_DISGUISE_HEAL,
+    FACT_TYPES.CLAW_HEAL,
+    FACT_TYPES.ENDLESS_BREATH,
+    FACT_TYPES.QIAN_KUN_DERIVED,
+    FACT_TYPES.SKILL_ANNOUNCE
+]);
+
+function findUnitByUid(A, B, uid) {
+    for (const team of [A, B]) {
+        if (!team) continue;
+        for (const u of team) if (u && u.uid === uid) return u;
+    }
+    return null;
+}
+
+// 该条目是否已经代表「uid 的回血」：raw fact（未渲染）/ 已渲染行都认。
+function entryHealsUid(e, uid) {
+    if (!e || typeof e !== 'object') return false;
+    if (e.isHealEntry && e.healUnitUid === uid) return true;
+    if (e.factType && HEAL_DETECT_FACT_TYPES.has(e.factType)) {
+        const d = e.data || {};
+        if (e.factType === FACT_TYPES.SKILL_ANNOUNCE) {
+            return d.unitUid === uid && /复活|回复|圣火/.test(String(d.note || '') + String(d.skillName || ''));
+        }
+        const owner = d.unitUid ?? d.healUnitUid ?? d.healTargetUid ?? d.targetUid ?? d.uid;
+        return owner === uid;
+    }
+    return false;
+}
+
+function hasLoggedHealForUid(group, log, from, uid) {
+    const entries = (group && group.data && group.data.entries) || [];
+    for (const e of entries) if (entryHealsUid(e, uid)) return true;
+    if (Array.isArray(log)) {
+        for (let i = from; i < log.length; i++) {
+            const it = log[i];
+            if (!it || typeof it !== 'object') continue;
+            if (Array.isArray(it)) {
+                for (const sub of it) if (entryHealsUid(sub, uid)) return true;
+            } else if (entryHealsUid(it, uid)) return true;
+        }
+    }
+    return false;
+}
+
+// 按时间顺序插入回血行：如果这笔回血打在「目标这次掉血之前」（回血后血量 >= 本组伤害的扣血前血量），
+//   就插到组条目最前面（渲染时伤害行由 renderAttackFact 自己先生成），否则追加到末尾。
+//   否则血量链仍会断在「上一组 → 本组第一击」之间。
+function insertSilentHealEntry(group, entry, heal) {
+    const entries = (group && group.data && group.data.entries) || [];
+    const dr = group && group.data && group.data.dmgResult;
+    const tgt = group && group.data && group.data.target;
+    if (dr && tgt && tgt.uid === heal.uid && typeof dr.hpBefore === 'number' && dr.hpBefore >= heal.hpAfter - 1e-9) {
+        entries.unshift(entry);
+    } else {
+        entries.push(entry);
+    }
+}
 
 // 标枪打不到人 → 往前压一行（789→456，456→123），压完由调用方重选目标。
 //   core 只认 ROLE_TYPES.JAVELIN，不认识具体英雄。落位优先同列，其次该行任意空位。
@@ -128,6 +201,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         unit.state._acted = true;
         return false;
     }
+
+    // —— 静默回血审计起点 ——
+    // 本帧起点血量快照（A/B 全阵）：组内 HP_CHANGE 事件按 uid 逐条比对，血涨了就是一笔静默回血。
+    const healTrace = new Map();
+    for (const u of [...(A || []), ...(B || [])]) if (u && u.uid != null) healTrace.set(u.uid, u.hp);
+    const healLogFrom = log.length;
+    let healEvtCursor = 0;
 
     let target, phantomFact;
     if (lockedTargetUid) {
@@ -308,6 +388,46 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     log.push(group);
 
+    // 组内静默回血补账：扫本轮新增的 HP_CHANGE 事件，血涨且组内没有该 uid 的回血行 → 补一条带账字段的日志行。
+    //   hpBefore 取该 uid 上一事件（没有就取本帧起点快照），healAmount 取实际血量差，不做二次取整。
+    const auditSilentHeals = () => {
+        const evs = group._events || [];
+        const gained = [];
+        for (let i = healEvtCursor; i < evs.length; i++) {
+            const ev = evs[i];
+            if (!ev || ev.eventType !== UNIT_EVENT_TYPES.HP_CHANGE) continue;
+            const uid = ev.unitUid;
+            const hp = ev.payload && ev.payload.hp;
+            if (uid == null || typeof hp !== 'number' || !isFinite(hp)) continue;
+            const prev = healTrace.has(uid) ? healTrace.get(uid) : hp;
+            if (hp > prev + 1e-9 && hp > 0) gained.push({ uid, hpBefore: prev, hpAfter: hp, amount: hp - prev });
+            healTrace.set(uid, hp);
+        }
+        healEvtCursor = evs.length;
+        if (gained.length === 0 || !group.data || !group.data.entries) return;
+        // 同一 uid 一段内多次抬血合并成一条，避免连续事件刷屏
+        const merged = new Map();
+        for (const h of gained) {
+            const m = merged.get(h.uid);
+            if (m) { m.hpAfter = h.hpAfter; m.amount += h.amount; } else merged.set(h.uid, { ...h });
+        }
+        for (const h of merged.values()) {
+            if (hasLoggedHealForUid(group, log, healLogFrom, h.uid)) continue;
+            const healed = findUnitByUid(A, B, h.uid);
+            const name = (healed && healed.name) || '单位';
+            insertSilentHealEntry(group, {
+                type: 'info',
+                text: `<span class="green">🩹 ${name} 静默回复+${fmtNum(h.amount)}（${fmtHpText(h.hpBefore)} → ${fmtHpText(h.hpAfter)}）</span>`,
+                isHealEntry: true,
+                healUnitUid: h.uid,
+                healAmount: h.amount,
+                hpBefore: h.hpBefore,
+                hpAfter: h.hpAfter,
+                isSilentHeal: true
+            }, h);
+        }
+    };
+
     const postReboundEntry = dmgResult.reboundEntry;
     if (postReboundEntry) { log.push(postReboundEntry); }
 
@@ -367,6 +487,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (!unit.state._isLinkAttack) unit.state._acted = true;
 
     group._events = (group._events || []).concat(flushBattleEvents());
+    // ① 伤害/防御/随动段结束后先补一次：这段里机制直接抬血（无 fact）也能立刻落行，排在组内伤害行之后。
+    auditSilentHeals();
 
     const extraRequests = [];
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, declarations: [], extraRequests };
@@ -424,12 +546,29 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 打完后的连锁（双击、玄冥联动、跟随攻击）：双击判遮挡；forceUnact 保留旧账——请求者出手前先清行动权
     runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, group, checkBlock: true, forceUnact: true });
 
+    // 死亡登记（体检 184 转交）：毒/反伤/自伤/斩杀致死时，死亡发生在「补刀/自伤/反伤」之后而非这一刀命中时，
+    //   只靠 dmgResult.dead 会漏账。结算前把「本帧是否已经归零/待死」记进 attack fact，供死亡登记通道统一认领；
+    //   只加审计字段，不动 alive 渲染口径。
+    const attackerDeadAtSettle = !unit.alive || unit.hp <= 0 || !!unit.state._pendingDeath;
+    const targetDeadAtSettle = !target.alive || target.hp <= 0 || !!target.state._pendingDeath;
+
     // 死亡结算恒传固定阵营 A/B：allySide/enemySide 是「出手者视角」，敌方出手时两侧被对调，
     //   ON_UNIT_DEATH 的 data.allySide 会变成敌方队伍（圣火记账等钩子按阵营认领会取错人）。
     resolveDeaths(A, B, log);
     // 本帧死亡结算后立刻把事件缓冲收进本组（谁打死的，死亡事件跟谁走）：
     //   留在全局缓冲会被上层攻击帧的 flush 捞走，播放层逐组 APPLY_EVENTS 就会演成死→活→死三段剧透。
     group._events = (group._events || []).concat(flushBattleEvents());
+    // ② 死亡/复活段后再补一次：复活抬血、结算前后被动回血都归到本组。
+    auditSilentHeals();
+
+    if (group.data) {
+        if (group.data.snap) {
+            group.data.snap.attackerDeadAtSettle = attackerDeadAtSettle;
+            group.data.snap.targetDeadAtSettle = targetDeadAtSettle;
+        }
+        const dr = group.data.dmgResult || dmgResult;
+        if (dr) dr.attackerDead = attackerDeadAtSettle;
+    }
 
     return true;
 }
