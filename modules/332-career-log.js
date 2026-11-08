@@ -5,7 +5,10 @@
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
-export const VER = 'modules/332-career-log.js V1.1.0';
+export const VER = 'modules/332-career-log.js V1.1.1';
+// V1.1.1 | 2026-11-08 | 「全部模式」合并两库时按 ts 稳定升序（源侧根治，不再仅靠 tools/852 包装兜底）：
+//   原 readKey(LS_KEY).concat(readKey(LS_KEY_DUAL)) 两库各自时间序、拼起来整体非时间序（单库全在双库前），
+//   凡「最近/局序/前后对比」统计都会算错。今在源侧统一排好，tools/852 的 readRecords 与之同源、二次排序幂等。
 // V1.1.0 | 2026-10-31 | 双海克斯模式分库存 + 只记人工对局：
 //   ① 双海克斯（运行态 enemyAutoHex）与单海克斯分两个 localStorage 库（ming_career_log_5v5_test / _dual），
 //      每条记录带 hexMode 字段，apppendCareerRecord 按 hexMode 路由，getCareerRecords(hexMode) 可单独取某模式；
@@ -110,7 +113,10 @@ function readKey(key) {
 export function getCareerRecords(hexMode) {
     if (hexMode === 'single') return readKey(LS_KEY);
     if (hexMode === 'dual') return readKey(LS_KEY_DUAL);
-    return readKey(LS_KEY).concat(readKey(LS_KEY_DUAL));
+    return readKey(LS_KEY).concat(readKey(LS_KEY_DUAL))
+        .map((r, i) => ({ r, i }))
+        .sort((a, b) => (Number(a.r.ts) || 0) - (Number(b.r.ts) || 0) || a.i - b.i)
+        .map(x => x.r);
 }
 // 两个模式各自有多少局（供 UI 决定要不要显示「双海克斯」切换、各自标签）
 export function getCareerModeCounts() {

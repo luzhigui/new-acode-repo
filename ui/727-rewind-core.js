@@ -93,6 +93,12 @@ export function getView() {
 
 // ---------- 内部工具 ----------
 function ctx() { return getPlayerContext(); }
+// 回看态静默开关唯一入口：进回看置真、退出回看置假。
+//   面板内的拖动/步进/段拨/播放/停点一律保持真（不放任何历史特效），
+//   player/504 的 FX 守卫读 c.isRewinding；禁止在回看路径上翻回 false。
+function setReviewSilent(c, on) {
+    if (c) c.isRewinding = !!on;
+}
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function clearDeathTimers(c) {
@@ -386,9 +392,9 @@ export async function enterReview() {
     S.steps = steps.slice();
     S.cueCache.clear();
     S.active = true;
-    // 倒针静默重演开关：回看期间一律不许重放历史 FX（死亡画笔/飘字），
-    //   只有「▶ 播放」（startPlay 真播）和退出回看时才置假。player/504 三处守卫读此字段。
-    c.isRewinding = true;
+    // 回看态 = 静默态：进场即置真，只有 exitReview 才关。
+    //   面板内的拖动/步进/段拨/播放/停点全部静默，一律不重放历史死亡特效。
+    setReviewSilent(c, true);
     S.playing = false;
     S.busy = false;
     S.cancelToken++;
@@ -432,7 +438,7 @@ export async function enterReview() {
 export function exitReview(opts) {
     if (!S.active) return;
     const c = ctx();
-    if (c) c.isRewinding = false;   // 退出回看恢复真播演出
+    setReviewSilent(c, false);      // 退出回看 = 回真实战场，恢复特效
     S.cancelToken++;
     if (S.playRelease) { const r = S.playRelease; S.playRelease = null; r(); }
     if (S.watchdog) { clearInterval(S.watchdog); S.watchdog = null; }
@@ -581,7 +587,7 @@ async function scrubToCue(stepIdx, cueIdx) {
             }
         } else if (cue.action) {
             applyStageActionToStore(c, cue.action, pending);
-            if (hasShow(cue, stepIdx)) {
+            if (hasShow(cue, stepIdx) && !c.isRewinding) {
                 try { await applyStageActionToFX(c, cue.action); } catch (e) { /* 单段特效失败不影响回看 */ }
             }
             if (token !== S.cueToken) return;
@@ -626,7 +632,8 @@ function cancelRun() {
 export async function startPlay() {
     if (!S.active || S.busy) return;
     const c = ctx();
-    c.isRewinding = false;      // 真播：要特效、要死亡画笔（与段拨的静默重演相对）
+    // 回看面板内的「播放」仍是静默重演（从头重演到第 N 步），绝不放历史特效
+    setReviewSilent(c, true);
     const token = ++S.cancelToken;
     S.busy = true;
     S.playing = true;
@@ -689,8 +696,8 @@ export async function startPlay() {
             S.busy = false;
             S.playing = false;
         }
-        // 停在停点上/被打断：只要还在回看态就回到静默，下次真播由 startPlay/resumePlay 置假
-        c.isRewinding = !!S.active;
+        // 面板内停住/被打断：回看态不变，继续静默（只有 exitReview 才关）
+        setReviewSilent(c, true);
     }
 }
 
@@ -703,8 +710,7 @@ export function pausePlay() {
 
 export function resumePlay() {
     if (!S.active) return;
-    const c = ctx();
-    if (c) c.isRewinding = false;   // 接着真播：恢复特效
+    setReviewSilent(ctx(), true);   // 仍在回看面板内：继续静默，不放历史特效
     // 停在某个停点上：放行那一个等待即可，原样接着播
     if (S.playRelease) {
         S.stopPlay = false;

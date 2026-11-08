@@ -33,8 +33,8 @@ export const VER = 'tools/852-career-log.js V2.9.2';
 //   在「全部模式」下这两处拿到的仍是错乱尾巴 → 趋势结论与导出的时间轴都是假的。
 //   改为本文件唯一读取入口 readRecords()（稳定按 ts 正序），11 处读取全部走它；
 //   recent 的局部排序随之移除。与顺序无关的聚合统计（胜率/英雄/海克斯）数值不变。
-//   ★ 真源 modules/332 的 concat 顺序未改（主代码，需另行转交）；本文件 re-export 的
-//     getCareerRecords 仍返回原始顺序，兼容外部调用面。
+//   ★ 真源 modules/332 已在 V1.1.1 源侧按 ts 稳定升序（2026-11-08 转交落地）；本文件 re-export 的
+//     getCareerRecords 现直接返回时间序，readRecords 的二次排序与之幂等，兼容外部调用面不变。
 // V2.6.0 | 2026-10-30 | 联机局与体检局不再写库（老板拍板「干脆去除」）：联机是人与人、体检是 full-auto
 //   无人值守，与玩家实打完全不同源，混在一起会污染胜率/英雄/海克斯全部统计。
 //   ① buildCareerRecord 拒收 mode==='pvp' 与 careerLogSuppress（tests/121 V6.9.1 游戏就绪时在
