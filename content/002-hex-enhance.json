@@ -12,7 +12,7 @@
     "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50, "hpPctSwap": 0.15, "stunOnSwap": true },
     "cloudBody": { "dodgeBonus": 0.30, "reboundRatio": 0.5, "noSkip": true },
     "fortify": { "healOnRebound": true },
-    "horseFormation": { "horseAtk": 0, "horseDef": 30, "horseHp": 30, "reboundDmg": 5, "noDestroy": true },
+    "horseFormation": { "horseAtk": 0, "horseDef": 30, "horseHp": 30, "reboundDmg": 15, "noDestroy": true },
     "carry": { "targetPositions": [4, 5, 6] },
     "holyFlame": { "atkCols": 2, "defRows": 2, "atkBonus": 0.25, "defBonus": 0.25 },
     "soulDrain": { "atkBonus": -0.40, "perUnitBonus": 0.10 },

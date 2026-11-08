@@ -1,6 +1,7 @@
 // V6.2.9 | 2026-11-08 精英数值一致性：流星赶月姊版时长改读 002 sister.meteorShower.duration
 //          （原写死 duration=4，与配置现值相同；缺键显式抛错，不回落）。
-export const VER = 'modules/329-buff-tools.js V6.2.9';
+// V6.2.10 | 2026-11-08 众志成城门槛放宽：本阵营存活 ≤5 人仍可进候选，只有 6 人（满编）剔除
+export const VER = 'modules/329-buff-tools.js V6.2.10';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -91,9 +92,9 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
         //   permanent 靠 remaining=MAX_ROUND 天然不会再进池，但那是数值挡；这里补机制挡，防未来 duration 改动。
         if ((k === BUFF_TYPES.CARRY || k === BUFF_TYPES.HOLY_FIRE || k === BUFF_TYPES.LAST_STAND) && usedKeys.includes(k)) return false;
         if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !ab.some(b => b.remaining > 0)) return false;
-        // 众志成城门槛（老板拍板）：只有本阵营「场上存活人数 < 4」时才可能出现——
-        //   人数口径含拒马/幼狮/雄鹰等召唤物（与 core/04 applyUnityBonus 同口径）；满 4 人及以上不进候选
-        if (k === BUFF_TYPES.UNITY && alive.length >= 4) return false;
+        // 众志成城门槛：本阵营「场上存活人数 ≤ 5」时都可能出现——
+        //   人数口径含拒马/幼狮/雄鹰等召唤物（与 core/04 applyUnityBonus 同口径）；超过 5 人（即满 6 人）不进候选
+        if (k === BUFF_TYPES.UNITY && alive.length > 5) return false;
         // 圣火令：场上存活角色 < 3 时不再出现（包含召唤物）
         if (k === BUFF_TYPES.HOLY_FLAME && alive.length < 3) return false;
         // 背水一战：场上存活角色 < 3 时不再出现，避免残局选了纯占位

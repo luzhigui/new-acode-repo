@@ -1,6 +1,7 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
 // V6.27.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.2';
+// V6.27.3 | 2026-11-08 严阵以待反弹比例参数化：不再写死 /2，改读 BUFFS.fortify.reboundRatio（现值 0.4）
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
@@ -191,8 +192,8 @@ export function createZhangSanfengComponent() {
             });
 
             // 严阵以待反弹：仅张三丰自身（不走 camp buff 检查，故不受 core/12 那条影响）
-            // 口径统一：原实现"实际伤害的一半"导致他越硬弹得越少，与配置"反弹50%伤害差值"
-            //   及通用防战(core/12)相反。改为逐字对齐 core/12：被防御抵消部分(atkAct-基础公式伤害)的一半
+            // 口径统一：原实现"实际伤害的一半"导致他越硬弹得越少，与配置「反弹{reboundRatio}伤害差值」
+            //   及通用防战(core/12)相反。改为逐字对齐 core/12：被防御抵消部分(atkAct-基础公式伤害)×配置比例
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 46, (data) => {
                 if (!zhang.state._tenRoundFired || !zhang.alive) return;
                 if (data.target !== zhang) return;
@@ -204,7 +205,9 @@ export function createZhangSanfengComponent() {
                 if (!attacker || !attacker.alive || attacker === zhang) return;
                 if (typeof data.atkAct !== 'number' || typeof data.defAct !== 'number') return;
                 const baseDmg = Math.floor(data.atkAct * (data.atkAct / (data.atkAct + data.defAct)));
-                const rebound = Math.floor((data.atkAct - baseDmg) / 2);
+                // 反弹比例走配置（与 core/12 通用防战同源），不再写死一半
+                const fortifyRatio = CONFIG.BUFFS.fortify.reboundRatio ?? 0.5;
+                const rebound = Math.floor((data.atkAct - baseDmg) * fortifyRatio);
                 if (rebound <= 0) return;
                 data.declarations = data.declarations || [];
                 data.declarations.push({

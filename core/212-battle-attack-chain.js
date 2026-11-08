@@ -9,7 +9,9 @@
 // V1.0.11 | 2026-11-08 体检转交：暴击计数从 calcFinalDamage 移到 core/209 免疫判定之后
 //           （掷骰仍在原处保 RNG 序，返回 isCrit 供上层判定；被护罩挡下不再记暴击）。
 // V1.0.12 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
-export const VER = 'core/212-battle-attack-chain.js V1.0.12';
+// V1.0.13 | 2026-11-08 严阵以待反弹比例参数化：通用防战反弹从写死 /2 改为读
+//           BUFFS.fortify.reboundRatio（配置现值 0.4），与 modules/311 张三丰自挂版同源。
+export const VER = 'core/212-battle-attack-chain.js V1.0.13';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -431,7 +433,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     const targetTeamForFortify = target.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
     const fortifyActive = hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) || hasBrotherPermanent(targetTeamForFortify, BUFF_TYPES.FORTIFY);
     if (fortifyActive && target.role === ROLE_TYPES.DEFENDER && dmg > 0) {
-        const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
+        // 反弹比例走配置（BUFFS.fortify.reboundRatio，现值 0.4），不再写死一半
+        const fortifyRatio = C.BUFFS.fortify.reboundRatio ?? 0.5;
+        const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) * fortifyRatio);
         if (reboundDmg > 0) {
             const hasSister = ctx.A && ctx.A.some(u => u.isXiaoZhaoSister && u.alive);
             // 姊强化回血开关读 002 sister.fortify.healOnRebound（此前写死「有姊就回血」，配置成为死数据）
