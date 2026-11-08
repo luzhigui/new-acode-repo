@@ -1,3 +1,5 @@
+// tests/isdead-fix-guard.mjs V1.0.2 | 2026-11-08 体检迭代：删掉 helper 之前重复手抄装配 302
+//   （总入口 301 已装载，装配收口守门 V1.0.2 当场点名）；功能代码与判据一字未动。
 // tests/isdead-fix-guard.mjs V1.0.1 （第 164 轮：fact 采集补 data.phantomFact 层 —— 幻影 fact 与 data.entries 并列、不在 entries 里，原两层口径对它恒不可见；只补视野、不缩面、不改判据）
 // ───────────────────────────────────────────────────────────────────────────
 // isDead 修复回归护栏（第 125 轮·A 落地闭环）：
@@ -37,7 +39,7 @@ import { initBattleTeams } from '../modules/330-battle-init.js';
 import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 
-const VER = 'tests/isdead-fix-guard.mjs V1.0.1';
+const VER = 'tests/isdead-fix-guard.mjs V1.0.2';
 const argv = process.argv.slice(2);
 const N_SEEDS = Number(process.env.SEEDS_N || (argv.includes('--seeds') ? argv[argv.indexOf('--seeds') + 1] : 30));
 const SEEDS = Array.from({ length: N_SEEDS }, (_, i) => i + 1);
@@ -68,7 +70,6 @@ function uidOf(fact) {
 }
 
 async function main() {
-    await import('../modules/302-elite-skills.js');
     await import('./_lib/install-mechanics.mjs');
     await loadGameData();
     // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）

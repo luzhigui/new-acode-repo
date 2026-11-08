@@ -1,3 +1,10 @@
+// V2.9.33 | 2026-11-08 迭代：T18 重锚（上游 13:38 在 MIND_CONTROL_SWAP 的 swaps.map 里
+//   补了 dmgAmt/healAmt/hpPct，原整行锚 `...toPos: s.toPos }))` 已不存在 ⇒ --verify 报 0 处，
+//   该牙静默失效=假绿制造机）。新锚收紧到敌/己两条发射行**共有且 emitStateChange 不含**的前缀
+//   `...fromPos: s.fromPos, toPos: s.toPos,`（实测全文件恰好 2 处 = 两条 fact 发射行）；
+//   变异仍只对调 fact 文本里的 fromPos/toPos 值，后半新增字段原样保留，变异语义一字未变。
+//   ★ 改了 MUTFP ⇒ 证据链对账会继续报陈旧（本来就因并行会话改主代码而陈旧），等主代码停稳
+//     再全量重跑 49 树；本轮不用 --allow-stale 绕过，也不手改结果文件。
 // V2.9.32 | 2026-11-08 迭代：修「纯换行差异被判成证据陈旧」+ 给陈旧红加归因，并修 VER 一刀切误报。
 //   实证：第 189 棒在独立 detached worktree 全量重跑 49 树、灌回主仓后 --report 报
 //   RULEFP/ENGFP 双不符。逐文件比对规则面 = 42 字节相同 + 6 纯 CRLF↔LF + 0 真实内容差异，
@@ -193,7 +200,7 @@
 //   「基线已红不得作证」的闸门后面（rule164/rule143 在干净树就 fail>0）。这两颗保持乙类不动，是真待办。
 //   ★ 只收紧不放宽：新增的只是「判得更准地归因」，不新增任何 newRed / masked 渠道，不改 verdict 分类、
 //     不改计数口径、不动任何一条「不得作证」闸门（基线已红规则、干净树已命中契约）；任一签名缺失 ⇒ fail-closed。
-export const VER = 'tests/mutation-teeth.mjs V2.9.32';
+export const VER = 'tests/mutation-teeth.mjs V2.9.33';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -543,8 +550,11 @@ const MUTATIONS = [
       //   两行，旧短锚 `fromPos: s.fromPos, toPos: s.toPos` 在本文件命中 4 处——把「只骗 fact 文本」的变异
       //   扩到了状态变更日志上（若规则侧 actual 取自 stateChange 会互相咬合成假绿）。收紧锚到 fact 发射行独有
       //   的 swaps.map 完整串（实测全文件恰好 2 处命中＝敌/己两条 SWAP 发射行，emitStateChange 不含该串）。
-      from: "swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos }))",
-      to:   "swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.toPos, toPos: s.fromPos }))",
+      // V2.9.33 重锚：上游在 toPos 后续了 dmgAmt/healAmt 与 hpPct，整行锚已失效。
+      //   只锁到 `toPos: s.toPos,` 为止的共同前缀；emitStateChange 行形态是 `{ fromPos: s.fromPos, ... }`
+      //   （不含 swaps.map），所以仍只改两条 fact 发射行，不会把状态变更日志一并翻过去。
+      from: "swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.fromPos, toPos: s.toPos,",
+      to:   "swaps.map(s => ({ uid: s.unit.uid, name: s.unit.name, fromPos: s.toPos, toPos: s.fromPos,",
       multi: true },
     { id: 'A29', kind: 'ATTR', desc: '空见金刚不坏加持计数器 +1→+2（跳号 → rule172 判据1「严格1,2,3」应咬）',
       file: 'modules/316-elite-sixsects-kongjian.js',

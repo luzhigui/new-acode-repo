@@ -1,3 +1,12 @@
+// V1.0.2 | 2026-11-08 迭代：修「变异表被当成手抄装配」的假红，并补两条负路径牙。
+//   实证：上游 301 新增 import './302-elite-skills.js' 后，installed 动态扩面，
+//   守门当场报 tests/mutation-teeth.mjs:311/377「手抄装配」——那两行其实是 MUTATIONS 里的
+//   `file: 'modules/xxx.js'`（变异目标的**数据**），文件里连一个动态 import() 都没有，
+//   真正装配发生在生成的 tests/.mut/drive.mjs。原判据 B 形态只看 rows>=2，任何含 ≥2 个
+//   模块路径的数据表都会被一网打尽 ⇒ 上游每加一个模块就凭空多一片假红。
+//   修法：B 形态额外要求全文存在「动态 import 且参数带插值/变量」的落地证据
+//   （smoke-headless.mjs 的 `await import(`../${rel}`)` 形态）；A 形态（本行有 import 关键字）
+//   判据一字未动，真手抄仍当场报红。判据强度只升不降。
 // V1.0.1 | 2026-11-07 迭代：最后一个待迁移宿主 tests/rules-replay.mjs 已收口 ⇒ PENDING 清空。
 //   守门机制保留（Map 为空时 ④ 自然空转，输出如实打「待迁移 无」），下次谁再手抄仍当场报红。
 // V1.0.0 | 2026-11-06 新建：机制装配收口常驻守门（301 动态扩面 + 宿主扫描 + 装配探针 + 待迁移自收敛）
@@ -15,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/mechanics-install-selftest.mjs V1.0.1';
+export const VER = 'tests/mechanics-install-selftest.mjs V1.0.2';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SELF = 'tests/mechanics-install-selftest.mjs';
@@ -59,6 +68,10 @@ function prodModules(src) {
  */
 function findDirectInstall(src, installed) {
     const rows = [];
+    // V1.0.2：B 形态必须同时有「动态 import 且参数带插值/变量」的落地证据。
+    //   否则 tests/mutation-teeth.mjs 里 23 条 `file: 'modules/xxx.js'`（纯变异目标数据）
+    //   会被 rows>=2 全判成装配。注意 A 形态（行内有 import 关键字）不受此开关影响。
+    const hasDynamicTable = /import\s*\(\s*(?:`[^`]*\$\{|[A-Za-z_$][\w$]*\s*\))/.test(src);
     src.split(/\r?\n/).forEach((line, i) => {
         const t = line.trim();
         if (t.startsWith('*') || t.startsWith('/*')) return;
@@ -70,7 +83,7 @@ function findDirectInstall(src, installed) {
             }
         }
     });
-    const tableish = rows.length >= 2; // B 形态：多个装配模块路径并列在同一文件
+    const tableish = hasDynamicTable && rows.length >= 2; // B 形态：表驱动 + 真有动态 import 落地
     return rows.filter(r => r.isImport || tableish);
 }
 
@@ -146,10 +159,30 @@ const pos = findDirectInstall([
 ].join('\n'), installedSample);
 if (pos.length !== 2) bad('负路径自证失败：A 形态手抄两行应抓到 2 处，实得 ' + pos.length);
 const posTable = findDirectInstall([
+    "const toLoad = {",
     "    emp: 'modules/307-elite-imperial.js',",
-    "    custom: 'modules/334-common-absorb.js' // 副作用 import 说明"
+    "    custom: 'modules/334-common-absorb.js' // 副作用 import 说明",
+    "};",
+    "for (const [k, rel] of Object.entries(toLoad)) { mods[k] = await import(`../${rel}`); }"
 ].join('\n'), installedSample);
 if (posTable.length !== 2) bad('负路径自证失败：B 形态字符串表应抓到 2 处，实得 ' + posTable.length);
+// V1.0.2 新增牙：变异表样式（多条 file 字段 + 零动态 import）必须 0 命中。
+const negMutationTable = findDirectInstall([
+    "const MUTATIONS = [",
+    "  { id: 'A17', file: 'modules/307-elite-imperial.js', from: 'a', to: 'b' },",
+    "  { id: 'A21', file: 'modules/334-common-absorb.js', from: 'a', to: 'b' },",
+    "  { id: 'A30', file: 'modules/302-elite-skills.js', from: 'a', to: 'b' },",
+    "];"
+].join('\n'), installedSample);
+if (negMutationTable.length) bad('负路径自证失败：变异表 file 字段是数据不是装配，不该被判手抄，实得 ' + JSON.stringify(negMutationTable));
+// V1.0.2 新增牙：只把「多个路径」堆在一起、没有动态 import 落地的普通数据表也不能算 B 形态。
+const negPlainTable = findDirectInstall([
+    "const MAP = {",
+    "  a: 'modules/307-elite-imperial.js',",
+    "  b: 'modules/334-common-absorb.js',",
+    "};"
+].join('\n'), installedSample);
+if (negPlainTable.length) bad('负路径自证失败：无动态 import 的普通数据表不该被判手抄，实得 ' + JSON.stringify(negPlainTable));
 const neg = findDirectInstall([
     "// await import('../modules/307-elite-imperial.js');",
     "await import('./_lib/install-mechanics.mjs');",
