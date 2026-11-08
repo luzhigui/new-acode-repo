@@ -134,6 +134,7 @@ export const SCAN_FILES = [
     './health-rules/195-shuobude-bag.js',
     './health-rules/196-tangwenliang-huichun.js',
     './health-rules/197-tangwenliang-tonggui.js',
+    './health-rules/198-zhangwuji-qiankun.js',
     // 战报与渲染一致性（分组归属 / 显示取整单一出口 / 飘字与正文同源）
     './health-rules/185-log-group-consistency.js',
     './health-rules/186-display-single-exit.js',
