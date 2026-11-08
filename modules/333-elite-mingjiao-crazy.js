@@ -2,14 +2,14 @@
 // 规则：初始携带「癫」，攻击随机不分敌友，命中后传给被打者；
 // 死亡时传给攻击者，找不到给周颠，周颠死了随机传。
 // 带「癫」时：必中，且无视目标闪避（从而不会触发闪避反击）。
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.1';
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.2';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
-import { canBeTargeted, isMelee } from '../core/203-battle-utils.js';
-import { runTargetFilters } from '../core/207-target-strategies.js';
+import { canBeTargeted } from '../core/203-battle-utils.js';
+import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 // 统一管理癫的赋予与撤销，同时控制必中与无视闪避
@@ -68,13 +68,10 @@ export const crazyHandler = {
                 data.unit.state._neverMiss = true;
                 data.unit.state._ignoreDodge = true;
 
-                // V1.1.1：候选池除 canBeTargeted 外，再跑一遍 core/207 引擎级过滤器——
-                //   与正常选敌同口径（女装中的彭莹玉、其他隐身机制在这里剔除）。
-                //   癫只改「敌友不分」，不改「看不见的人能被打」；全被剔空＝本次跳过，不兜底随便挑。
-                const pool = [...data.allySide, ...data.enemySide]
-                    .filter(u => u.uid !== data.unit.uid && canBeTargeted(u));
+                // V1.1.2：候选池统一走 core/207 出口，内部固定含 canBeTargeted + 全部引擎级过滤器，
+                //   这里不再自己拼池、也不再显式跑过滤链（技能侧不记得「要过滤」也不会漏）。
                 const rng = getBattleRng();
-                runTargetFilters(data.unit, pool, { rng, isMelee: isMelee(data.unit.role) || data.unit.isHorse });
+                const pool = buildTargetCandidates(data.unit, [data.allySide, data.enemySide], { rng });
                 if (pool.length > 0) {
                     data.declaration.targetResult = pool[rng.nextInt(0, pool.length - 1)];
                 }

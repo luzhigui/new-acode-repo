@@ -1,9 +1,9 @@
 // core/207-target-strategies.js
 // 与 registerDodgeRule 同模式：策略按注册顺序跑，第一个非 null 胜出。
 // 声明层（BEFORE_SELECT_TARGET）优先于本表——声明给出 targetResult 时根本不会进本表。
-export const VER = 'core/207-target-strategies.js V1.3.0';
+export const VER = 'core/207-target-strategies.js V1.3.1';
 
-import { getFronts } from './203-battle-utils.js';
+import { getFronts, canBeTargeted, isMelee } from './203-battle-utils.js';
 import { getGameData } from './201-config-5v5-test.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
@@ -55,6 +55,27 @@ export function registerTargetFilter(id, fn) {
 // 每回合 / 跨局清场：清掉所有已挂过滤器，等模块在 register() 里重挂
 export function clearTargetFilters() {
     _targetFilters.clear();
+}
+
+// ── 统一候选池出口（2026-11-08）────────────────────────────────────────────
+// 所有「挑能打的人」的地方都从这里出池：内部固定跑 canBeTargeted（死活/垂死/蝶蛛/附身/不可选）
+// + 全部引擎级过滤器（core/07 注册面，如女装＝真身隐去），调用方只传攻击者与候选来源，
+// 不再各自拼池、也不靠自己记得跑过滤链。
+// sides：来源数组列表（如 [allySide, enemySide]）；opts.excludeUids 默认排除攻击者本人。
+// opts.rng / opts.isMelee 透传给过滤器 ctx。注意：这里只过滤、不抽签，不改变随机序列。
+export function buildTargetCandidates(attacker, sides, opts = {}) {
+    const excludeUids = opts.excludeUids || (attacker ? [attacker.uid] : []);
+    const candidates = [];
+    for (const side of sides) {
+        for (const u of side || []) {
+            if (!u || excludeUids.includes(u.uid)) continue;
+            if (!canBeTargeted(u)) continue;
+            candidates.push(u);
+        }
+    }
+    const ctx = { rng: opts.rng, isMelee: isMelee(attacker.role) || !!attacker.isHorse };
+    runTargetFilters(attacker, candidates, ctx);
+    return candidates;
 }
 
 // 按注册顺序跑完所有过滤器，结果原地写回 candidates（emit payload 与策略必须看到同一份）
