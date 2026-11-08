@@ -1,7 +1,12 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
 // V6.3.34 | 2026-11-07 第 184 轮：finalizeRoundEnd 败方归零改调 killUnit（死亡收口统一出口，
 //          补记 V6.3.33 未升版的实质改动——此前直调 applyStatChange 带 ignoreCap，绕开了单一出口）
-export const VER = 'core/210-battle-round.js V6.3.36';
+// V6.3.37 | 2026-11-08 删 _bloodthirstStriked 每回合重置：嗜血必出双击逻辑已移除，无任何代码再写 true，
+//           该字段恒 false（218 声明保留以稳定 unit 快照形状 / golden 基线）；重置遂成死代码。
+// V6.3.38 | 2026-11-08 体检实测（seed=10 stage=7）：双宣告取第二人时只保证「索引不同」，候选数组里
+//   同一 uid 重复出现时仍会选中同一单位 → 文案「张无忌、张无忌」，该单位同回合连击触发两次。
+//   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
+export const VER = 'core/210-battle-round.js V6.3.38';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -76,24 +81,22 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            const idx1 = ctx.rng.nextInt(0, candidates.length - 1);
-            unitUids.push(candidates[idx1].uid);
-            if (candidates.length > 1) {
-                let idx2 = ctx.rng.nextInt(0, candidates.length - 1);
-                if (idx2 === idx1) idx2 = (idx2 + 1) % candidates.length;
-                unitUids.push(candidates[idx2].uid);
+            const first = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
+            unitUids.push(first.uid);
+            const rest = candidates.filter(u => u.uid !== first.uid);
+            if (rest.length > 0) {
+                unitUids.push(rest[ctx.rng.nextInt(0, rest.length - 1)].uid);
             }
         }
     }
     if (hasBuff(B._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = B.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            const idx1 = ctx.rng.nextInt(0, candidates.length - 1);
-            enemyUids.push(candidates[idx1].uid);
-            if (candidates.length > 1) {
-                let idx2 = ctx.rng.nextInt(0, candidates.length - 1);
-                if (idx2 === idx1) idx2 = (idx2 + 1) % candidates.length;
-                enemyUids.push(candidates[idx2].uid);
+            const first = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
+            enemyUids.push(first.uid);
+            const rest = candidates.filter(u => u.uid !== first.uid);
+            if (rest.length > 0) {
+                enemyUids.push(rest[ctx.rng.nextInt(0, rest.length - 1)].uid);
             }
         }
     }
@@ -318,7 +321,6 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
 
         u.state._xingFenExtraAttacking = false;
-        u.state._bloodthirstStriked = false;
         Object.assign(u.state, { _doubleStriked: false });
     });
 }

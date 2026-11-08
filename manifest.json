@@ -1,5 +1,5 @@
 {
- "ver": "fbcfce17721be57b2b6d0ba99c1d3e1290591bf16f47401480012ed74db6263d",
+ "ver": "55070052585ba40b0fe73d85066d5a31b1e5641416487ff3d20f7d2b37441169",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "ac234f174eca8544a26b129582bc30ddb5f77db692c8dc364e58a4184faa1648"
+   "5a646760309071623b67c5d245290f53ef81d0e75a527d3e613b71f543d3f479"
   ],
   [
    "core/205-battle-horse.js",
@@ -45,11 +45,11 @@
   ],
   [
    "core/209-battle-attack.js",
-   "5cb788519c1e67240260ec58daf812fafe352418841ec4b11535d5afd539980d"
+   "ece25fbaa30336afa935349ff258810c9b3c6344dc34ed5e4039219b27f19e86"
   ],
   [
    "core/210-battle-round.js",
-   "a7fa004cddd65bea859cd1ba01ef99eee649c8a9acc0a4f786bbd31ef94f06c7"
+   "31cfe219fa0af644c982c2613070461597d29f69d2b5988e8f2a84ff5c9576a5"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/107-fact-contract.js",
-   "3ce4f839cb208fbd8e1dff5ba86aa677e0c4de4345ba3fbe8e8fab14bf04471f"
+   "5a70ac97079b7bc84deac24c03d99f9820c4ac4e3f62f0afced415645ed6b925"
   ],
   [
    "infra/107-store-schema.js",
@@ -489,7 +489,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "5dbf3cd56980a1a3018b6c2de13b370bd3326a1d34e14f207d074e3f93a4859f"
+   "70678f3954601eb3401e373c58433cd8dc17c14c99d6277096677a9283d812fb"
   ],
   [
    "render/412-facts-stat.js",
