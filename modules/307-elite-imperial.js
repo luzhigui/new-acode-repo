@@ -2,13 +2,15 @@
 // V6.1.2 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='幻影伪装'（显式来源归因，
 //         渲染文案逐字不变——同一条事实另有小昭·兄/彭莹玉两个来源）
 // V6.1.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/307-elite-imperial.js V6.1.3';
+// V6.1.4 | 2026-11-08 模仿候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），「不模仿马」以 accept 条件保留
+export const VER = 'modules/307-elite-imperial.js V6.1.4';
 
 import { registerElite, registerLinkPartners } from '../core/208-registry-elite.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { emitEvent, getBattleRng, recordHpAudit } from '../core/214-battle-shared.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
+import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 import { findAlive } from './305-elite-helpers.js';
@@ -158,9 +160,11 @@ function submitPhantomDisguiseOnHit(data, decl) {
 
 // 幻影伪装：攻击后模仿对方单位。受击不重刷（闪避反击时保持暴露），只在自身攻击结算后重刷
 function rollPhantomDisguise(unit, enemySide) {
-    const enemyAlive = enemySide.filter(u => canBeTargeted(u) && !u.isHorse);
+    const rng = getBattleRng();
+    // 候选池走 core/207 公共出口（canBeTargeted + 引擎过滤器）；「不模仿马」是本技能的业务条件
+    const enemyAlive = buildTargetCandidates(unit, [enemySide], { rng, accept: u => !u.isHorse });
     if (enemyAlive.length > 0) {
-        const target = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)];
+        const target = enemyAlive[rng.nextInt(0, enemyAlive.length - 1)];
         Object.assign(unit.state, { _phantomTarget: target.uid });
         // 登记观察：被模仿者变得不可选（死/飞天/附身）→ 模仿立即失效
         registerPhantomWatcher(unit, target, enemySide);

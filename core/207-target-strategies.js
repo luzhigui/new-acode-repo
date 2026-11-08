@@ -61,7 +61,8 @@ export function clearTargetFilters() {
 // 所有「挑能打的人」的地方都从这里出池：内部固定跑 canBeTargeted（死活/垂死/蝶蛛/附身/不可选）
 // + 全部引擎级过滤器（core/07 注册面，如女装＝敌人不忍下手），调用方只传攻击者与候选来源，
 // 不再各自拼池、也不靠自己记得跑过滤链。
-// sides：来源数组列表（如 [allySide, enemySide]）；opts.excludeUids 默认排除攻击者本人。
+// sides：来源数组列表（如 [allySide, enemySide]）；opts.excludeUids 默认排除攻击者本人；
+// opts.accept 是调用方的额外业务条件（如「不模仿马」），只做减法、不绕过引擎过滤器。
 // opts.rng / opts.isMelee 透传给过滤器 ctx。注意：这里只过滤、不抽签，不改变随机序列。
 export function buildTargetCandidates(attacker, sides, opts = {}) {
     const excludeUids = opts.excludeUids || (attacker ? [attacker.uid] : []);
@@ -70,6 +71,7 @@ export function buildTargetCandidates(attacker, sides, opts = {}) {
         for (const u of side || []) {
             if (!u || excludeUids.includes(u.uid)) continue;
             if (!canBeTargeted(u)) continue;
+            if (opts.accept && !opts.accept(u)) continue;
             candidates.push(u);
         }
     }

@@ -5,11 +5,13 @@
 // V6.3.6 | 2026-11-08 体检转交：飞行·猎杀成长补战报行 + 头顶 🦇 飘字（成长前/后攻击、未命中累计、
 //   未命中免疫分支），走 SKILL_ANNOUNCE 同款 floatText 路径；每次击杀独立一条，连续成长连着升。
 // V6.3.7 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/302-elite-skills.js V6.3.7';
+// V6.3.8 | 2026-11-08 落地打击候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），删本地手工过滤
+export const VER = 'modules/302-elite-skills.js V6.3.8';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
-import { hasBuff, canBeTargeted } from '../core/203-battle-utils.js';
+import { hasBuff } from '../core/203-battle-utils.js';
+import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
@@ -235,8 +237,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${fmtNum(actualLandHeal)}（${fmtNum(hpBeforeHeal)} → ${fmtNum(hpBeforeHeal + actualLandHeal)}）`, { floatText: `+${fmtNum(actualLandHeal)}`, floatUid: unit.uid });
     }
 
-    // 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
-    const aliveEnemies = enemySide.filter(u => u.alive && canBeTargeted(u));
+    // 落地打击目标池统一走 core/207 出口：内部含 canBeTargeted + 全部引擎级过滤器（与主攻击门禁同口径）
+    const aliveEnemies = buildTargetCandidates(unit, [enemySide], { rng });
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }

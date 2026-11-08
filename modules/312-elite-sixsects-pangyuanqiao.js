@@ -1,11 +1,13 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
 // V6.29.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
 // V6.29.6 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.6';
+// V6.29.7 | 2026-11-08 打歪落点池改走 core/207 公共出口；池被隐身剔空时不挑人、交下游声明层
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.7';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
+import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
@@ -96,7 +98,10 @@ export function createPangYuanQiaoComponent() {
                     //   dmgMultMin~dmgMultMax 波动、步长 dmgMultStep，本击定值存 _clumsyMult）并附带击退/眩晕
                     const steps = Math.round((young.dmgMultMax - young.dmgMultMin) / young.dmgMultStep) + 1;
                     pang.state._clumsyMult = Math.round((young.dmgMultMin + rng.nextInt(0, steps - 1) * young.dmgMultStep) * 10) / 10;
-                    data.declaration.targetResult = cands[rng.nextInt(0, cands.length - 1)];
+                    // 打歪落点池走 core/207 公共出口（含引擎过滤器）；被隐身剔空时不挑人，交下游声明层
+                    const pool = buildTargetCandidates(pang, [data.enemySide], { rng });
+                    if (pool.length === 0) return;
+                    data.declaration.targetResult = pool[rng.nextInt(0, pool.length - 1)];
                     pang.state._clumsyHit = true;
                     pendingDecl = { kind: 'clumsy', mult: pang.state._clumsyMult };
                     return;
