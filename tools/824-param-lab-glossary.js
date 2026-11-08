@@ -7,10 +7,12 @@
 
 import { getSkillDesc } from '../core/201-config-5v5-test.js';
 
+// V2.8.2 | 2026-11-08 | 002-hex-enhance 删除 sister.carry.multiTarget 后同步删表项；
+//   补登两个新参数：duanChui.atkHalfRatio（0.5 = 攻击减半）、qianKunDerived.minReduce（乾坤减伤保底 0.5 点）。
 // V2.8.1 | 2026-10-31 | ~46022 bytes —— ENGINE_READ.spiderFly 删 xiaoZhaoDoubleStrikeChance（死字段：
 //   引擎零读取点，小昭·妹双连击真值走 002-hex-enhance.json 的 brother.doubleStrike.chance；
 //   守卫 param-read-guard 报「表陈旧」即此项，删表项=表与源码对齐）
-export const VER = 'tools/824-param-lab-glossary.js V2.8.1';
+export const VER = 'tools/824-param-lab-glossary.js V2.8.2';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -415,7 +417,6 @@ export const FIELD_GLOSSARY = {
     targetPower:        { name: '该关目标强度预算', unit: UNIT.point },
     destroyProb:        { name: '拒马阵被击毁的概率', unit: UNIT.pct },
     extraStrike:        { name: '是否额外攻击一次（true/false）', unit: UNIT.raw },
-    multiTarget:        { name: '是否多目标（true/false）', unit: UNIT.raw },
     healOnRebound:      { name: '反弹时是否回血（true/false）', unit: UNIT.raw },
     spawnProb:          { name: '每回合生成概率（引擎不读，巨马每回合必出）', unit: UNIT.pct },
     bonusRatio:         { name: '远程额外伤害比例（流星赶月）', unit: UNIT.pct },
@@ -452,6 +453,10 @@ export const FIELD_GLOSSARY = {
     row123:             { name: '1/2/3 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
     row456:             { name: '4/5/6 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
     row789:             { name: '7/8/9 号位伤害除数（基数 ÷ 该值）', unit: UNIT.raw },
+    // 庄铮 · 断锤三式 / 小昭 · 乾坤衍生（2026-11-08 参数化后补登，避免面板显示成未知项）
+    atkHalfRatio:       { name: '触发瞬间攻击力减半系数（0.5 = 攻击减半，减掉的量记为 N）', unit: UNIT.pct },
+    minReduce:          { name: '乾坤衍生减伤保底值（算出的伤害不低于该点数）', unit: UNIT.point },
+    // multiTarget 随 002 删除（sister.carry.multiTarget 无人消费，2026-11-08）
 };
 
 // CONFIG 键 → 中文名（旋钮标题用）

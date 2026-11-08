@@ -3,7 +3,9 @@ import { CONFIG, VER as ENGINE_VER, loadGameData, getGameData, loadHexEnhanceDat
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 import { HEX_NAMES } from './827-tool-registry.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.9.3';
+export const VER = 'tools/808-hex-dashboard.js V6.9.4';
+// V6.9.4 | 2026-11-08 清残留：002 删掉 sister.carry.multiTarget 后，FIELD_META 里的 multiTarget 行一并删除
+//            （该字段只此一处，没有别的消费方）；targetPositions 仍保留。
 // V6.9.3 | 2026-11-08 长期榜记录口径：每条战绩落 seed（116 hex job 提供）+ 版本（本工具 + 引擎配置）。
 //   渲染时同一榜内若混有多个版本或「无版本旧数据」，显式告警「跨版本合并不可直接比较」，并给出带 seed 的条数。
 //   只加字段、不改存储结构与表格布局；旧榜无 seed/版本时按「未记录」展示，不伪造。
@@ -185,7 +187,8 @@ const FIELD_META = {
   healOnRebound: ['反弹回血', 'bool'],
   horseAtk: ['巨马攻击', 'num'], horseDef: ['巨马防御', 'num'], horseHp: ['巨马生命', 'num'],
   reboundDmg: ['巨马反弹伤害', 'num'],
-  multiTarget: ['多目标受益', 'bool'], targetPositions: ['受益位', 'list'],
+  // multiTarget 随 002 删除（sister.carry.multiTarget 无人消费，2026-11-08）
+  targetPositions: ['受益位', 'list'],
   atkCols: ['加攻列数', 'num'], defRows: ['加防行数', 'num'],
   atkBonus: ['攻击加成', 'pct'], defBonus: ['防御加成', 'pct'],
   perUnitBonus: ['每多 1 人额外减攻', 'pct'],
