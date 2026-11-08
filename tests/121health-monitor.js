@@ -57,8 +57,25 @@ import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import { rule170 as rule114 } from './health-rules/170-taunts-integrity.js'; // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
 import { rule171 } from './health-rules/171-tangwenliang-dash.js'; // 第 114 轮新建：唐文亮冲刺落地验证（export 名按文件号 rule171）
 import { rule172 } from './health-rules/172-kongjian-jingang.js'; // 第 120 轮新建：空见金刚不坏次数与升级验证（新角色零覆盖盲区）
-import { rule179 as rule115 } from './health-rules/179-hex-enhance-contract.js'; // 海克斯专项：002 姊/妹强化配置完整性
+import { rule179 as rule115 } from './health-rules/179-hex-enhance-contract.js'; // 海克斯锦衣卫：002 姊/妹强化配置完整性（别名对齐旧编号段）
+// 第 185 轮：角色技能模块（modules/3xx）补盲 —— 周颠癫传染链 / 唐文亮七伤拳 /
+//   彭莹玉双面观音 / 鹤笔翁鹿角杖法 / 成昆混元霹雳劲与幻影治疗
+import { rule190 } from './health-rules/190-zhou-dian-crazy-chain.js';
+import { rule191 } from './health-rules/191-tangwenliang-qishang.js';
+import { rule192 } from './health-rules/192-pengyingyu-doubleface.js';
+import { rule193 } from './health-rules/193-hebiweng-hornstrike.js';
+import { rule194 } from './health-rules/194-chengkun-phantom.js';
 import { rule173 as ruleHpDeathRevive } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
+// 战报与渲染一致性（只读渲染后的 log）：
+//   185 分组一致性（组归属/结果同源）、186 显示数值单一出口（浮点尾巴）、
+//   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）
+import { rule185 } from './health-rules/185-log-group-consistency.js';
+import { rule186 } from './health-rules/186-display-single-exit.js';
+import { rule187 } from './health-rules/187-damage-float-same-source.js';
+// 第 186 轮：回合时序 / 目标选择 / 行动顺序三块结构规则（只吃原始 fact 流，不读渲染文本）
+import { rule181 } from './health-rules/181-round-sequence.js';     // 回合开始/结束分隔符连续性与配对
+import { rule182 } from './health-rules/182-target-validity.js';   // 鞭尸 / 自伤 / 误伤同阵营
+import { rule183 } from './health-rules/183-action-order.js';      // 阵亡者出手 / 重复行动权
 import { rule105 } from './health-rules/158-fact-anchor-align.js'; // 第 143 轮：吸收夜间 139 重写版（fx 结构判据），取代第 142 轮的退役
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
@@ -68,6 +85,15 @@ import { rule110 } from './health-rules/163-righteous-face.js';
 import { rule111 } from './health-rules/164-leech-maxhp.js';
 import { rule112 } from './health-rules/165-miejue-redesign.js';
 import { rule113 } from './health-rules/166-mind-control-swap.js';
+// 第 187 轮：框架公共层补登记（并行会话已建文件、未登记，避免静默不执行）
+import { rule174 } from './health-rules/174-ally-roster.js';
+import { rule176 as ruleAllyAnchorPos } from './health-rules/175-ally-anchor-pos.js';
+import { rule177 as ruleEnemyStageRoster } from './health-rules/176-enemy-stage-roster.js';
+import { rule179 as ruleEnemyMixIntegrity } from './health-rules/177-enemy-mix-integrity.js';
+import { rule181 as ruleStage3Variant } from './health-rules/178-stage3-variant.js';
+import { rule180 as ruleDamagePrecision } from './health-rules/180-damage-precision.js';
+import { rule227 } from './health-rules/227-buff-lifecycle.js';
+import { rule228 } from './health-rules/228-buff-effect-decl.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -673,7 +699,9 @@ function runRuleChecks(ctx, doc) {
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
-        rule110, rule111, rule112, rule113, rule114, rule171, rule172, ruleHpDeathRevive, rule115];
+        rule110, rule111, rule112, rule113, rule114, rule171, rule172, ruleHpDeathRevive, rule115,
+        rule190, rule191, rule192, rule193, rule194, rule181, rule182, rule183, rule185, rule186, rule187,
+        rule174, ruleAllyAnchorPos, ruleEnemyStageRoster, ruleEnemyMixIntegrity, ruleStage3Variant, ruleDamagePrecision, rule227, rule228];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

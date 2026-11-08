@@ -74,7 +74,7 @@ export const SCAN_FILES = [
     './health-rules/143-jiuyang-heal-pct.js',
     './health-rules/172-kongjian-jingang.js',
     './health-rules/171-tangwenliang-dash.js',
-    // 海克斯专项（2026-11-08）：002 姊/妹强化配置完整性（键集/字段/概率越界）
+    // 海克斯锦衣卫（2026-11-08）：002 姊/妹强化配置完整性（键集/字段/概率越界）
     './health-rules/179-hex-enhance-contract.js',
     // 2026-09-21 补登 144（第 2 趟新增时漏登）+ 新增 146
     './health-rules/144-xinhun-kuaile.js',
@@ -114,7 +114,31 @@ export const SCAN_FILES = [
     // 2026-10-07 新增：韦一笑蝠影汲血吸血（rule106：heal 正整数 / 上限恒等 / 比例上限）
     './health-rules/159-wei-bloodsiphon.js',
     // 血量/判死/复活：圣火不熄复活闭环（复活量/名单/名额上限）+ 回血家族账目自洽
-    './health-rules/173-hp-death-revive.js'
+    './health-rules/173-hp-death-revive.js',
+    // 第 186 轮：回合时序 / 目标选择 / 行动顺序（只吃原始 fact 流的结构不变量）
+    './health-rules/181-round-sequence.js',
+    './health-rules/182-target-validity.js',
+    './health-rules/183-action-order.js',
+    // 第 185 轮：角色技能模块（modules/3xx）补盲 —— 周颠癫传染链 / 唐文亮七伤拳 /
+    //   彭莹玉双面观音 / 鹤笔翁鹿角杖法 / 成昆混元霹雳劲与幻影治疗
+    './health-rules/190-zhou-dian-crazy-chain.js',
+    './health-rules/191-tangwenliang-qishang.js',
+    './health-rules/192-pengyingyu-doubleface.js',
+    './health-rules/193-hebiweng-hornstrike.js',
+    './health-rules/194-chengkun-phantom.js',
+    // 战报与渲染一致性（分组归属 / 显示取整单一出口 / 飘字与正文同源）
+    './health-rules/185-log-group-consistency.js',
+    './health-rules/186-display-single-exit.js',
+    './health-rules/187-damage-float-same-source.js',
+    // 第 187 轮：框架公共层补登记（并行会话已建文件、未登记）
+    './health-rules/174-ally-roster.js',
+    './health-rules/175-ally-anchor-pos.js',
+    './health-rules/176-enemy-stage-roster.js',
+    './health-rules/177-enemy-mix-integrity.js',
+    './health-rules/178-stage3-variant.js',
+    './health-rules/180-damage-precision.js',
+    './health-rules/227-buff-lifecycle.js',
+    './health-rules/228-buff-effect-decl.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
