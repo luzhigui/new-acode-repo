@@ -15,6 +15,9 @@
 //       def ratio 必须等于 (1+defBonus)×(1+perRoundBonus)^(回合-1)−1；
 //   E. 背水一战：atk ratio ∈ {基础 0.10, 姊 0.25}（无姊时只许 0.10）；def ratio 必须等于 −配置 defPenalty；
 //   F. 众志成城：攻/防各自必须落在档位表里，且同单位同回合的攻防必须来自同一档。
+//   G.（V1.0.1）妹永久 carry 叠层：layers 必须落在 002 brother.carry 的
+//      「layersBase + layersPerR1×r1 + layersPerR2×r2」整数栅格且 ≥ layersBase；
+//      atk/def/maxHp 必须逐项等于 小昭.mastery 的 atkPer/defPer/hpPer × layers；同回合同 uid 只许 1 条。
 // 误报规避：
 //   - 摄魂"团队版 vs 妹永久版"用施法方该回合摘要是否持有 soulDrain 区分（团队版才吃姊强化）；
 //   - 背水一战"团队低血触发 vs 妹永久触发"无法从 fact 区分，ratio 只在「无姊」场景强制基础值；
@@ -22,9 +25,12 @@
 //     （与 render/411 withSisterValues 同口径；回放/121 两条上下文通道都要认）；
 //   - 没有 facts 通道（浏览器体检）直接 skip；四类声明一条都没有也 skip。
 // 返回契约：{ fail:true, msg } = 失败；'skip' / 'pass' = 通过。
-export const VER = 'tests/health-rules/228-buff-effect-decl.js V1.0.0';
+// ★ V1.0.1（2026-11-08 Buff 时长与叠加域）：新增「妹永久 carry 叠层」（XIAO_ZHAO_CARRY_APPLY）。
+//   原缺口：modules/323 L253-267 的 layers = layersBase + layersPerR1×r1 + layersPerR2×r2、
+//   每层乘 小昭.mastery 的 atkPer/defPer/hpPer，此前零规则对账（238 把 xiaoZhaoCarry 白名单排除）。
+export const VER = 'tests/health-rules/228-buff-effect-decl.js V1.0.1';
 import { FACT_TYPES, CAMP_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
-import { CONFIG, getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
+import { CONFIG, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams } from '../../core/201-config-5v5-test.js';
 
 const EPS = 1e-9;
 function near(a, b) {
@@ -35,6 +41,12 @@ function buffCfg(key) {
 }
 function sisterCfg(key) {
     try { return getSisterHexEnhance(key) || null; } catch (e) { return null; }
+}
+function brotherCfg(key) {
+    try { return getBrotherHexEnhance(key) || null; } catch (e) { return null; }
+}
+function masteryParams() {
+    try { return getSkillParams('小昭', 'mastery') || null; } catch (e) { return null; }
 }
 function normCamp(v) {
     const s = String(v == null ? CAMP_TYPES.ALLY : v).toLowerCase();
@@ -250,7 +262,64 @@ export const rule228 = {
             }
         }
 
-        if (applyN === 0) return 'skip';
+        // ── 妹永久 carry 叠层（XIAO_ZHAO_CARRY_APPLY）────────────────────────
+        //   实现：modules/323 L253-267。layers = 002 brother.carry 三系数按「上回合/上上回合阵亡数」合成，
+        //   逐层乘 小昭.mastery 的 atkPer/defPer/hpPer，ttl:'round' 每回合重挂（无跨回合残留）。
+        //   三类静默失效：层数写死/少算（不在配置栅格）、atk·def·maxHp 与 layers 不同源、同回合重复挂账。
+        const CARRY = brotherCfg('carry');
+        const MAST = masteryParams();
+        const carryDup = {}; // round|uid -> count
+        let carryN = 0;
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            if (e.f.factType !== FACT_TYPES.XIAO_ZHAO_CARRY_APPLY) continue;
+            carryN++;
+            const d = e.f.data || {};
+            if (d.unitUid == null || d.unitUid === '') {
+                fails.push(`第${e.round}回合 妹永久carry 缺 unitUid（无法判重）`);
+                continue;
+            }
+            const ck = e.round + '|' + d.unitUid;
+            carryDup[ck] = (carryDup[ck] || 0) + 1;
+            if (!CARRY || typeof CARRY.layersBase !== 'number'
+                || typeof CARRY.layersPerR1 !== 'number' || typeof CARRY.layersPerR2 !== 'number') {
+                fails.push('002-hex-enhance.json 缺 brother.carry.layersBase/layersPerR1/layersPerR2');
+                continue;
+            }
+            if (!MAST || typeof MAST.atkPer !== 'number' || typeof MAST.defPer !== 'number' || typeof MAST.hpPer !== 'number') {
+                fails.push('小昭.mastery 缺 atkPer/defPer/hpPer（逐层加成无法对账）');
+                continue;
+            }
+            if (typeof d.layers !== 'number' || !isFinite(d.layers) || d.layers < CARRY.layersBase) {
+                fails.push(`第${e.round}回合 妹永久carry layers=${String(d.layers)} 非法（应 ≥ 基础 ${CARRY.layersBase}）`);
+                continue;
+            }
+            let onGrid = false;
+            for (let k1 = 0; k1 <= 20 && !onGrid; k1++) {
+                for (let k2 = 0; k2 <= 20 && !onGrid; k2++) {
+                    const v = CARRY.layersBase + k1 * CARRY.layersPerR1 + k2 * CARRY.layersPerR2;
+                    if (near(v, d.layers)) onGrid = true;
+                }
+            }
+            if (!onGrid) {
+                fails.push(`第${e.round}回合 妹永久carry layers=${d.layers} 不在配置栅格（${CARRY.layersBase} + ${CARRY.layersPerR1}×r1 + ${CARRY.layersPerR2}×r2）`);
+            }
+            const pairs = [['atk', d.atk, MAST.atkPer], ['def', d.def, MAST.defPer], ['maxHp', d.maxHp, MAST.hpPer]];
+            for (let j = 0; j < pairs.length; j++) {
+                const nm = pairs[j][0], got = pairs[j][1], per = pairs[j][2];
+                if (!near(got, per * d.layers)) {
+                    fails.push(`第${e.round}回合 妹永久carry ${nm} 声明 ${String(got)}，应为 ${per}×${d.layers}=${per * d.layers}（逐层与层数不同源）`);
+                }
+            }
+        }
+        for (const ck in carryDup) {
+            if (carryDup[ck] > 1) {
+                const p = ck.split('|');
+                fails.push(`第${p[0]}回合 妹永久carry 对 ${p[1]} 施加 ${carryDup[ck]} 条（重复挂账）`);
+            }
+        }
+
+        if (applyN === 0 && carryN === 0) return 'skip';
         // 返回契约：失败必须是 {fail:true,msg}（121 / rules-replay 只认对象形状，字符串会被算 pass）
         if (fails.length > 0) return { fail: true, msg: fails.slice(0, 6).join('；') };
         return 'pass';

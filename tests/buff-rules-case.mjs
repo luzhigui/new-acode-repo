@@ -13,7 +13,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-const { loadGameData, loadHexEnhanceData } = await import('../core/201-config-5v5-test.js');
+const { loadGameData, loadHexEnhanceData, getSkillParams } = await import('../core/201-config-5v5-test.js');
 await loadGameData();
 await loadHexEnhanceData();
 
@@ -133,6 +133,24 @@ function expectFail(name, got, mustContain) {
 {
     const facts = [R(1), S('holyFlame', 'ally', 4)];
     expect('228 无施加声明 → skip', rule228.test({ facts: facts }), 'skip');
+}
+
+// ---------- 228 V1.0.1 妹永久 carry 叠层 ----------
+{
+    const mast = getSkillParams('小昭', 'mastery');
+    const L = 2; // base 1 + 上回合 1 人 × 1 + 上上回合 0 人 × 0.5
+    const CY = (uid, layers, atk, def, maxHp) => ({
+        factType: FACT_TYPES.XIAO_ZHAO_CARRY_APPLY,
+        data: { unitUid: uid, unitName: '小昭·妹', camp: 'ally', layers: layers, atk: atk, def: def, maxHp: maxHp }
+    });
+    expect('228 妹carry 合法叠层', rule228.test({ facts: [R(1), S('holyFlame', 'ally', 4), CY('b1', L, mast.atkPer * L, mast.defPer * L, mast.hpPer * L)] }), 'pass');
+    expectFail('228 妹carry 层数不在配置栅格', rule228.test({ facts: [R(1), S('holyFlame', 'ally', 4), CY('b1', 2.3, mast.atkPer * 2.3, mast.defPer * 2.3, mast.hpPer * 2.3)] }), '不在配置栅格');
+    expectFail('228 妹carry atk 未随层数', rule228.test({ facts: [R(1), S('holyFlame', 'ally', 4), CY('b1', L, mast.atkPer, mast.defPer * L, mast.hpPer * L)] }), '不同源');
+    expectFail('228 妹carry 同回合重复挂账', rule228.test({
+        facts: [R(1), S('holyFlame', 'ally', 4),
+            CY('b1', L, mast.atkPer * L, mast.defPer * L, mast.hpPer * L),
+            CY('b1', L, mast.atkPer * L, mast.defPer * L, mast.hpPer * L)]
+    }), '重复挂账');
 }
 
 console.log(bad === 0 ? 'RESULT: 全对' : `RESULT: ${bad} 条不对`);
