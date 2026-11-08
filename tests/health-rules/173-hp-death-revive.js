@@ -27,9 +27,16 @@
 //      宁漏勿误（第 89 轮 150 的教训）。
 //   5) 回血家族：出现负回血 / 非有限数；带 hpBefore/hpAfter 的，hpAfter 不得 <0、不得 < hpBefore、
 //      实际增量不得 > 声明回血量（超过声明 = 重复应用或上限夹取写反）。
+// V1.1.0 增补（UNIT_DEATH 单一出口上线后）：
+//   6) 死亡登记自身合规：uid/name/reason 齐、camp∈{ally,enemy}、hpAfter≈0、hpBefore≥0。
+//      hpAfter>0 就是「带血尸体」——毒 DOT/反弹/反伤/吸血反噬/同归于尽/环境伤害里任何一条自己改血
+//      绕过 killUnit 归零，都会在这里现形（该 fact 在战报里是隐藏渲染器，肉眼看不到）。
+//   7) 复活时 hpBefore≈0；复活前补账的死亡登记（reason=「复活前补账」）后面必须真有同 uid 复活，
+//      否则就是 _pendingDeath 被清掉却没人活过来（待死清理时机错）。
+//   8) 静态侧配套：tests/hp-death-exit-guard.mjs 拦「裸写 hp 自减/写 0 / 自己置 _pendingDeath / 自己发死亡事实」。
 // 误报规避：本场既无圣火不熄又无回血 fact → skip；配置/增强参数读不到时只跳名额上限判据；
 //   妹在不在场只认开局名单的 isXiaoZhaoBrother 标记（拿不到标记就按「可能在」放宽 +1，绝不错杀）。
-export const VER = 'tests/health-rules/173-hp-death-revive.js V1.0.0';
+export const VER = 'tests/health-rules/173-hp-death-revive.js V1.1.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../../core/201-config-5v5-test.js';
 
@@ -82,11 +89,40 @@ export const rule173 = {
         const capA = teamCap(beforeA), capE = teamCap(beforeE);
         const revives = { ally: 0, enemy: 0 };
         const reviveUid = new Map();
-        let revivesSeen = 0, healsSeen = 0;
+        const reviveAt = new Map();      // uid -> 最近一次复活公告在 fact 流里的下标
+        const backfills = [];            // 复活前补账的死亡登记（待死未结算）
+        let revivesSeen = 0, healsSeen = 0, deathsSeen = 0;
 
-        for (const f of list) {
+        for (let i = 0; i < list.length; i++) {
+            const f = list[i];
             if (!f || !f.factType) continue;
             const d = f.data || {};
+            // ---- 死亡登记（UNIT_DEATH 单一出口）----
+            //   为什么判这条：所有致死路径（毒 DOT/反弹/反伤/吸血反噬/同归于尽/环境伤害）最终都必须由
+            //   resolveDeaths 收口，登记时血已归零；hpAfter>0 说明有一条路径绕过了归零（带血尸体），
+            //   而战报不会写这行（render/411 隐藏渲染器），肉眼永远看不到。
+            if (f.factType === FACT_TYPES.UNIT_DEATH) {
+                deathsSeen++;
+                const label = d.name || d.uid || '?';
+                if (d.uid == null || !d.name || !d.reason) {
+                    return { fail: true, msg: '死亡登记缺身份字段：' + label + '（uid/name/reason 必须齐，否则对不上尸位）' };
+                }
+                if (d.camp !== 'ally' && d.camp !== 'enemy') {
+                    return { fail: true, msg: '死亡登记阵营非法：' + label + ' camp=' + String(d.camp) + '（只允许 ally/enemy）' };
+                }
+                if (d.hpAfter === undefined || !num(d.hpAfter)) {
+                    return { fail: true, msg: '死亡登记缺 hpAfter：' + label + '（无法证明判死时血已归零）' };
+                }
+                if (d.hpAfter > 0.11 || d.hpAfter < -0.11) {
+                    return { fail: true, msg: '死亡登记血量未归零：' + label + ' hpAfter=' + d.hpAfter
+                        + '（带血尸体/负血：有致死路径绕过了 killUnit 归零）' };
+                }
+                if (d.hpBefore !== undefined && (!num(d.hpBefore) || d.hpBefore < -0.11)) {
+                    return { fail: true, msg: '死亡登记 hpBefore 非法：' + label + ' hpBefore=' + d.hpBefore };
+                }
+                if (String(d.reason).includes('复活前补账')) backfills.push({ i, uid: d.uid, name: label });
+                continue;
+            }
             // ---- 圣火不熄复活 ----
             if (f.factType === FACT_TYPES.SKILL_ANNOUNCE && d.skillName === '圣火不熄') {
                 revivesSeen++;
@@ -107,6 +143,12 @@ export const rule173 = {
                 }
                 if (camp) revives[camp]++;
                 if (uid != null) reviveUid.set(uid, (reviveUid.get(uid) || 0) + 1);
+                if (uid != null) reviveAt.set(uid, i);
+                // 复活时血必须已归零（阵亡 → 复活的前置）；hpBefore 非 0 说明待死清理时机错位或血被写负
+                if (d.hpBefore !== undefined && (!num(d.hpBefore) || Math.abs(d.hpBefore) > 0.11)) {
+                    return { fail: true, msg: '圣火不熄复活时血未归零：' + (d.unitName || uid) + ' hpBefore=' + d.hpBefore
+                        + '（应为 0：待死清理/_pendingDeath 时机错，或致死路径没把血夹到 0）' };
+                }
                 // 复活量越界：只在 maxHp 战中稳定时比（宁漏勿误）
                 const mhOpen = openHp.get(uid), mhEnd = endHp.get(uid);
                 if (num(mhOpen) && num(mhEnd) && Math.abs(mhOpen - mhEnd) < 1e-6 && mhOpen > 0) {
@@ -154,6 +196,17 @@ export const rule173 = {
             }
         }
 
+        // ---- 待死被清掉但没活过来：复活前补账的死亡登记后面必须真有同 uid 的复活公告 ----
+        //   补账的语义是「_pendingDeath 待死未结算，被复活流程先记一笔死亡」；如果后面没有同 uid 复活，
+        //   说明待死标记被清但 reviveHolyFireUnit 没落地 —— 血停在 0、alive 还是 false，战报只剩一句公告。
+        for (const b of backfills) {
+            const ri = reviveAt.get(b.uid);
+            if (ri == null || ri <= b.i) {
+                return { fail: true, msg: '待死被清掉但没复活：' + b.name + '（复活前补账 @' + b.i
+                    + '，之后无同 uid 圣火不熄公告：_pendingDeath 清理时机错）' };
+            }
+        }
+
         // ---- 每阵营复活次数上限（放在最后，先保证单条 fact 自身没坏）----
         if (revivesSeen > 0) {
             if (revives.ally > capA) {
@@ -165,7 +218,7 @@ export const rule173 = {
                     + '（团队 1 + 姊强化 + 妹独立 1）' };
             }
         }
-        if (revivesSeen === 0 && healsSeen === 0) return 'skip';
+        if (revivesSeen === 0 && healsSeen === 0 && deathsSeen === 0) return 'skip';
         return { fail: false };
     }
 };

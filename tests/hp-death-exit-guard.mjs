@@ -13,6 +13,16 @@
 //   2) 对象字面量 alive: false：只允许出现在 HP_CHANGE 事件载荷 / 战报快照 / 开局复位里；
 //   3) player/render/ui/fx 里的 SET_VISUAL _isDead: true：前 25 行内必须有「hp<=0」或「alive!==false」闸门。
 //
+// V2（2026-11-08 致死路径扩扫）——把「不写 alive、只动血」的致死路径也钉住（判据 4~7）：
+//   4) 自己改 hp：`.hp +=/-=`、`.hp = 0`/负数 —— 只有开局/单位构造类白名单函数可以直写；
+//      所有伤害/回血都必须走 core/214 applyStatChange（它才在 hp<=0 时就地置 _pendingDeath、发 HP_CHANGE）。
+//   5) 自己置 `.state._pendingDeath = true` —— 只允许 applyStatChange / killUnit / finalizeDeaths /
+//      resolveDeaths / processUnitAttack / applyAttackResult（这些是既有的收口链）；
+//   6) 自己 push `factType: FACT_TYPES.UNIT_DEATH` —— 只允许 core/213 resolveDeaths（唯一出口）
+//      与 core/204 reviveHolyFireUnit（复活前补账）。
+//   毒 DOT / 反弹 / 反伤 / 吸血反噬 / 同归于尽 / 环境伤害 任何一条绕过上述收口，都会在这里现形。
+//   为什么值得钉：这些路径在战报里没有痕迹（UNIT_DEATH 是隐藏渲染器），肉眼永远看不到。
+//
 // 自检（合成样本，不依赖真实文件）：node tests/hp-death-exit-guard.mjs --self-test
 // 正常跑：node tests/hp-death-exit-guard.mjs   （违规退 1 并点名文件:行）
 //
@@ -40,6 +50,29 @@ const DEATH_ASSIGN = /\.alive\s*=\s*(?:true|false)\b|\.?\b_isDead\s*=\s*(?:true|
 const ALIVE_FALSE_LITERAL = /\balive\s*:\s*false\b/;
 const DEAD_VISUAL = /STORE_ACTION_TYPES\.SET_VISUAL[^\n]*_isDead\s*:\s*true|_isDead\s*:\s*true[^\n]*STORE_ACTION_TYPES\.SET_VISUAL/;
 const GUARD_NEAR = /\bhp\s*<=\s*0\b|alive\s*!==\s*false|\bsyncStoreFromStep\b/;
+
+// V2 判据 4~6：致死路径的「不给 alive 也会死」那一层
+const PENDING_TRUE = /\._pendingDeath\s*=\s*true\b/;
+const HP_ARITH = /\.hp\s*(?:[+\-]=)(?![=])/;          // .hp += / .hp -=
+const HP_ZERO_ASSIGN = /\.hp\s*=\s*(?:0\b|-[0-9])/;    // .hp = 0 / .hp = -1
+const DEATH_FACT_LITERAL = /factType\s*:\s*FACT_TYPES\.UNIT_DEATH|log\.push[^;]*FACT_TYPES\.UNIT_DEATH/;
+const PENDING_TRUE_ALLOW = {
+    'core/214-battle-shared.js': ['applyStatChange', 'killUnit', 'finalizeDeaths'],
+    'core/213-battle-attack-edge.js': ['resolveDeaths'],
+    'core/209-battle-attack.js': ['processUnitAttack'],
+    'core/212-battle-attack-chain.js': ['applyAttackResult']
+};
+const HP_DIRECT_ALLOW = {
+    'core/202-unit.js': ['constructor', 'setStats', 'reset'],   // 单位构造/面板重算/复位
+    'core/205-horse-system.js': ['createHorse']                 // 坐骑初始 hp=0（尚未入场）
+};
+const UNIT_DEATH_ALLOW = {
+    'core/213-battle-attack-edge.js': ['resolveDeaths'],   // 唯一死亡出口
+    'core/204-buff-system.js': ['reviveHolyFireUnit'],     // 复活前补账（待死未结算）
+    // 终局清场：胜负已定，败方残余单位被强制收口（不发 ON_BEFORE_DEATH，但也必须留下与 resolveDeaths
+    // 同字段的死亡事实，否则「每个死者都有 UNIT_DEATH」对不上）；此路径由 core/210 finalizeRoundEnd 显式登记
+    'core/210-battle-round.js': ['finalizeRoundEnd']
+};
 
 function isComment(line) {
     const t = line.trim();
@@ -87,6 +120,27 @@ export function scanContent(file, text) {
                 out.push({ file, line: i + 1, kind: 'dead-visual-unguarded', fn: fnOf(lines, i), text: line.trim() });
             }
         }
+        // V2 判据 4：自己改 hp（任何绕过 applyStatChange 的加减/归零/写负）
+        if (HP_ARITH.test(line) || HP_ZERO_ASSIGN.test(line)) {
+            const fn = fnOf(lines, i);
+            if (!(HP_DIRECT_ALLOW[file] || []).includes(fn)) {
+                out.push({ file, line: i + 1, kind: 'raw-hp-write', fn, text: line.trim() });
+            }
+        }
+        // V2 判据 5：自己置待死标记（绕过 applyStatChange/killUnit 的收口）
+        if (PENDING_TRUE.test(line)) {
+            const fn = fnOf(lines, i);
+            if (!(PENDING_TRUE_ALLOW[file] || []).includes(fn)) {
+                out.push({ file, line: i + 1, kind: 'raw-pending-death', fn, text: line.trim() });
+            }
+        }
+        // V2 判据 6：自己发死亡事实（绕过 resolveDeaths 单一出口 ⇒ 无 ON_BEFORE_DEATH/ON_UNIT_DEATH）
+        if (DEATH_FACT_LITERAL.test(line)) {
+            const fn = fnOf(lines, i);
+            if (!(UNIT_DEATH_ALLOW[file] || []).includes(fn)) {
+                out.push({ file, line: i + 1, kind: 'raw-death-fact', fn, text: line.trim() });
+            }
+        }
     }
     return out;
 }
@@ -114,7 +168,15 @@ function selfTest() {
         ['player/509-attack-group.js', 'function handleAttackGroup() {\n    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });\n}', 1, '无闸门提前写死必须抓'],
         ['render/999-new.js', 'function foo(u) {\n    return { ...u, alive: false };\n}', 1, '演出/渲染层凭空写死活必须抓'],
         ['player/511-battle-report.js', 'function buildBattleReportData() {\n    return { ...u, alive: false, _isDead: true };\n}', 0, '战报快照白名单'],
-        ['core/214-battle-shared.js', 'function killUnit(u) {\n    emitCoreEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, alive: false });\n}', 0, 'HP_CHANGE 载荷合法']
+        ['core/214-battle-shared.js', 'function killUnit(u) {\n    emitCoreEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, alive: false });\n}', 0, 'HP_CHANGE 载荷合法'],
+        // V2：致死路径扩扫（不写 alive、只动血的那一层）
+        ['modules/999-dot.js', 'function tickDot(u, poisonDmg) {\n    u.hp -= poisonDmg;\n}', 1, '毒 DOT 自己扣血必须抓'],
+        ['modules/999-reflect.js', 'function reflect(u) {\n    u.hp = 0;\n}', 1, '反弹/反伤自己写 0 必须抓'],
+        ['modules/999-mutual.js', 'function mutualKill(u) {\n    u.state._pendingDeath = true;\n}', 1, '同归于尽自己置待死必须抓'],
+        ['modules/999-env.js', 'function envDamage(u, log) {\n    log.push({ factType: FACT_TYPES.UNIT_DEATH, data: { uid: u.uid } });\n}', 1, '环境伤害自己发死亡事实必须抓'],
+        ['core/214-battle-shared.js', 'function applyStatChange(u, stat, delta, cap) {\n    if (u.hp <= 0) u.state._pendingDeath = true;\n}', 0, 'applyStatChange 置待死合法'],
+        ['core/213-battle-attack-edge.js', 'function resolveDeaths(team, log) {\n    log.push({ factType: FACT_TYPES.UNIT_DEATH, data: { uid: u.uid } });\n}', 0, '死亡事实唯一出口合法'],
+        ['core/205-horse-system.js', 'function createHorse(team) {\n    const h = new Unit({ hp: 0 });\n    h.hp = 0;\n}', 0, '坐骑初始化写 hp=0 合法']
     ];
     let bad = 0;
     for (const [file, text, expect, label] of cases) {

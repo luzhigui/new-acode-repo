@@ -15,16 +15,29 @@
 //   · 该单位出现任何已入账的血量变化（回血条目/组级回血/溅射/白骨爪/复活·回春类文案）⇒ 清掉前一击，
 //     下一击重新取基线，不再跨着这笔账判（谁的账、什么时候入账）。
 //   · 文案类回血若拿不到 uid（buff-splash 无 uid）⇒ 保守清空全部轨迹，宁可少判也不误判。
-export const VER = 'tests/health-rules/230-cross-group-hp-trajectory.js V1.0.0';
+// V1.0.1（2026-11-08 血量判死域复核，修 3 类假断点，判据不放宽）：
+//   ① 闪避组取错血主：render/407 L56 里闪避组 `uidA = 闪避者`、`uidD = 被反击的攻方`，
+//      而 L67 的 damage-text 记的是**攻方**血量；旧版取 uidA ⇒ 两连闪里两个不同攻方的血
+//      记到同一个闪避者名下（74→45 鹿杖客 / 70→41 莫声谷 判成同一血链）。改两种组统一取 uidD。
+//   ② 组内渲染顺序 ≠ 结算顺序：回血条目排在伤害行之后（本击链前=回血后值）⇒ 判伤害行前先清基线。
+//   ③ 链后额外扣血：张无忌融会贯通由 core/12 在主结算后单独扣血（本组链后值 ≠ 真值）⇒ 同样先清基线。
+//   ④ 1 点级差异按显示颗粒度放过（断锤·耗血 每回合自损 1 点，modules/337 L116 record=false 无 fact）。
+export const VER = 'tests/health-rules/230-cross-group-hp-trajectory.js V1.0.1';
 import { plain } from '../122health-utils.js';
 
 var HEAL_TEXT = /回血|回春|复活|回复|吸血|吸取|治疗|生生不息/;
+// 链后额外扣血（不是回血，但同样让伤害行的链后值不等于真值）：融会贯通 / 伤害加深声明
+var EXTRA_DMG_TEXT = /融会贯通额外|伤害加深/;
+// 显示颗粒度 = 1 点：血量链只用两位显示值接龙，1 点内的差异要么是取整越界，
+//   要么是「断锤·耗血」这类 1 点级静默自损（modules/337 L116 applyStatChange record=false，无 fact）。
+//   这类 1 点差异无法归因，按显示颗粒度放过（宁漏勿误）。
+var NOISE = 1;
 
 export const rule230 = {
     group: '战报与渲染一致性',
     name: '同回合相邻同目标血量链连续性',
     test: function(ctx, log) {
-        var tol = 1e-6;
+        var tol = NOISE;
         var flat = [];
         for (var i = 0; i < (log || []).length; i++) {
             var e0 = log[i];
@@ -48,6 +61,24 @@ export const rule230 = {
             if (e.healAmount > 0 && e.healUnitUid != null) clearUnit(e.healUnitUid);
 
             var entries = e.entries || [];
+            // ── 组内预扫：渲染顺序 ≠ 结算顺序（V1.0.1 补）──
+            // ① 回血条目（如「🩹 周芷若 静默回复+30（35 → 65）」）在组内排到伤害行之后，
+            //   但数值上先于本击（本击链前=65 正是回血后的值）；先清基线再判，否则当断点（seed=2 stage=4 实证）。
+            // ② 链后额外扣血声明（张无忌「🔥 融会贯通额外+36」由 core/12 在主攻击结算后单独扣血）
+            //   会让「本组链后值」比真值高，下一击链前直接跳过去；同样先清基线（seed=4 stage=2 实证）。
+            var extraAfter = false;   // 本组存在「链后额外扣血」声明：组末链值不是真值，组后必须清基线
+            for (var k0 = 0; k0 < entries.length; k0++) {
+                var s0 = entries[k0];
+                if (!s0) continue;
+                var t0 = plain(s0.text || '');
+                if ((s0.isHealEntry && s0.healAmount > 0)
+                    || ((s0.type === 'info' || s0.type === 'detail' || s0.type === 'buff-splash')
+                        && (HEAL_TEXT.test(t0) || EXTRA_DMG_TEXT.test(t0)))) {
+                    if (s0.healUnitUid != null) clearUnit(s0.healUnitUid);
+                    else clearAll();
+                    if (EXTRA_DMG_TEXT.test(t0)) extraAfter = true;
+                }
+            }
             for (var k = 0; k < entries.length; k++) {
                 var s = entries[k];
                 if (!s) continue;
@@ -74,7 +105,10 @@ export const rule230 = {
                 if (!chain) continue;
                 var cb = parseFloat(chain[1]), ca = parseFloat(chain[2]);
                 if (!isFinite(cb) || !isFinite(ca)) continue;
-                var uid = e.isDodge ? e.uidA : e.uidD;
+                // 血主 = uidD：普通组的 damage-text 记受击目标（uidD）；闪避组的 uidA 是**闪避者**、
+                //   uidD 才是被反击的攻方，而 damage-text 记的正是攻方的 attackerHpBefore→attackerHpAfter
+                //   （render/407 L56/L67：`uidA:target.uid, uidD:unit.uid`）。两种组统一取 uidD。
+                var uid = e.uidD;
                 if (uid == null) continue;
                 var prev = state[uid];
                 // 只判「日志里紧挨着的两击」：中间只要插进任何别的条目（真伤/溅射/回血/台词…），
@@ -85,13 +119,15 @@ export const rule230 = {
                     var hitBefore = Math.abs(cb - prev.before) <= tol;
                     var hitAfter = Math.abs(cb - prev.after) <= tol;
                     if (!hitBefore && !hitAfter) {
-                        return { fail: true, msg: '血量轨迹断点：同回合相邻两击接不上——前击 ' + prev.before + '→' + prev.after + '，本击链前 ' + cb + '→' + ca + '（' + (e.isDodge ? '闪避反击攻方 ' + e.attackerName : '目标 ' + (e.targetName || e.uidD)) + '；中间血量变化未入账）' };
+                        return { fail: true, msg: '血量轨迹断点：同回合相邻两击接不上——前击 ' + prev.before + '→' + prev.after + '，本击链前 ' + cb + '→' + ca + '（' + (e.isDodge ? '闪避反击攻方 uid=' + e.uidD : '目标 ' + (e.targetName || e.uidD)) + '；中间血量变化未入账）' };
                     }
                     if (hitBefore) sameSnap++; else sequential++;
                 }
                 state[uid] = { before: cb, after: ca };
                 lastG[uid] = g;
             }
+            // 链后额外扣血在本组结算之后才落账 ⇒ 组末链值不是该单位真实血量，下一击不能接它
+            if (extraAfter) clearAll();
         }
         if (pairs === 0) return 'skip';   // 本场没有可判的相邻对（全是首击或被账目清空）
         return { fail: false, msg: '同回合相邻同目标血量链连续：' + pairs + ' 对（同快照 ' + sameSnap + ' / 顺序 ' + sequential + '）' };
