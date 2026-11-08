@@ -6,10 +6,9 @@
 // V1.0.8 | 2026-11-08 修正 V1.0.7（撤回攻击值下限，攻击力不动）：改为伤害出口 dmg = max(1, dmg)，
 //          只兜真打中的最终伤害；闪避/免疫/完全挡下不经过这里，不给 1
 // V1.0.7 | 2026-11-08 出手攻击值下限 atkAct=max(1, atkBase+波动)（已撤回，见 V1.0.8）
-// V1.0.10 | 2026-11-08 体检转交：① 乾坤护盾整段吸收不再被 max(1,dmg) 抬成 1（preModDmg + qkFull 判定）；
-//           ② ATTACK snap 补实数血量 attackerHpReal / targetHpAfterReal；
-//           ③ 删除死字段 thunderBonus / trueDmg / hornDefIgnore / hornDmgMultiplier（全仓无赋值，渲染分支同步移除）。
-export const VER = 'core/212-battle-attack-chain.js V1.0.10';
+// V1.0.11 | 2026-11-08 体检转交：暴击计数从 calcFinalDamage 移到 core/209 免疫判定之后
+//           （掷骰仍在原处保 RNG 序，返回 isCrit 供上层判定；被护罩挡下不再记暴击）。
+export const VER = 'core/212-battle-attack-chain.js V1.0.11';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -239,7 +238,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     // hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣（不能「先回血再加」——满血时被 maxHp 夹掉＝白给）。
     //   按 dmg 计数的链路（吸血/反伤/破防/统计）不受影响。
     let waveTaunt = null, waveUnit = null;
-    if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), critCount: unit.critCount }); }
+    if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), critCount: unit.critCount }); }
     else if (defVar + hpBonus >= C.DEF_WAVE_THRESHOLD) {
         const defTaunts = getGameData().taunts.def;
         waveTaunt = defTaunts[rng.nextInt(0, defTaunts.length - 1)];
@@ -325,7 +324,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
             baseRaw
         };
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [], formula };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, isCrit: atkVar === C.ATK_VAR, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [], formula };
 }
 
 // 步骤4：应用伤害结果

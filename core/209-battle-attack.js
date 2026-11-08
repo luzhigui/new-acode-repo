@@ -1,6 +1,6 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-// V6.4.10 | 2026-11-08 免疫破防行防御减数值走 fmtNum（reduce 是实数，直接拼进文本会带浮点尾巴）
-export const VER = 'core/209-battle-attack.js V6.4.10';
+// V6.4.11 | 2026-11-08 体检转交：暴击计数移到免疫判定之后（护罩挡下不再 critCount++）
+export const VER = 'core/209-battle-attack.js V6.4.11';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -20,7 +20,7 @@ import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { flushBattleEvents, fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 
-import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition } from './214-battle-shared.js';
+import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition, getStat } from './214-battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 
 const C = CONFIG;
@@ -240,6 +240,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const hpBeforeApply = target.hp;
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid });
     const immuneResult = resolveDamageImmune(immuneDeclarations);
+    // 暴击计数移到免疫判定之后：暴击掷骰发生在 calcFinalDamage（RNG 序不能挪），但被护罩/无敌挡下的一击
+    //   不该记暴击——否则战报零暴击、面板 +1（体检实测 33/156 场）。
+    if (!immuneResult && dmgCalc.isCrit) {
+        unit.critCount++;
+        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), critCount: unit.critCount });
+    }
     if (immuneResult) {
         const hpLossApplied = Math.max(0, hpBeforeApply - target.hp);
         if (hpLossApplied > 0) applyStatChange(target, 'hp', hpLossApplied, null, '免疫回退', false, false);

@@ -2,9 +2,9 @@
 // V6.8.4 | 2026-11-08 背水一战声明载荷补齐：def 乘率 + 战士 atk/def/maxHp 三条 add（体检总框架 D1/D4）
 // V6.8.3 | 2026-11-08 飞行再生去掉 Math.round：0.4 的真实回复被取整成 0 会打出「回复 0 点生命」，
 //         改实数差值，显示在 render/410 经 fmtNum 收口
-// V6.8.5 | 2026-11-08 体检转交：① carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；
-//        | ② 缺 carry 子键显式报错。
-export const VER = 'core/204-buff-system.js V6.8.5';
+// V6.8.6 | 2026-11-08 体检转交：劈空/流星溅射在主伤为 0 时跳过声明（0 伤害也会触发挨打增益与成长）。
+export const VER = 'core/204-buff-system.js V6.8.6';
+// V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -526,8 +526,13 @@ export function submitWindAssaultDeclaration(data) {
         const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
         if (rowTargets.length > 0) {
             const splashDmg = Math.floor(dmg);
-            if (!data.declarations) data.declarations = [];
-            data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, attackerUid: unit.uid, primaryUid: target.uid, splashUids: rowTargets.map(t => t.uid), splashDmg, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets.map(t => ({ uid: t.uid, name: t.name })), splashDmg } });
+            // 主伤被护罩全吸收时 dmg=0：0 伤害的溅射仍会触发挨打增益/流星成长等副作用，直接不声明
+            if (splashDmg > 0) {
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, attackerUid: unit.uid, primaryUid: target.uid, splashUids: rowTargets.map(t => t.uid), splashDmg, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets.map(t => ({ uid: t.uid, name: t.name })), splashDmg } });
+            } else if (log) {
+                log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '主伤为 0，不产生溅射' } });
+            }
         } else {
             log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '波及无同行目标' } });
         }
@@ -596,7 +601,8 @@ export function submitMeteorShowerDeclaration(data) {
     const adjPositions = getAdjacentPositions(target.pos);
     const splashSide = target.camp === unit.camp ? allySide : enemySide;
     const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
-    if (splashTargets.length > 0) {
+    // 0 伤害溅射不声明：主伤被护罩全吸收时 dmg=0，声明出去会白触发挨打增益/流星成长（体检 2/156 场）
+    if (splashTargets.length > 0 && splashDmg > 0) {
         data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: splashTargets, buffType: BUFF_SUBTYPES.METEOR_SPLASH, attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg, factType: FACT_TYPES.METEOR_SHOWER_SPLASH, factData: { label, targets: splashTargets.map(st => ({ uid: st.uid, name: st.name })), splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 } });
         for (const st of splashTargets) {
             data.declarations.push({ type: EFFECT_TYPES.STAT_CHANGE, field: 'def', delta: -(C.BUFFS.meteorShower.splashDefReduce || 1), target: st, reason: '流星溅射', logText: null });
