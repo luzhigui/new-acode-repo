@@ -18,7 +18,10 @@
 // 误报规避：
 //   - 摄魂"团队版 vs 妹永久版"用施法方该回合摘要是否持有 soulDrain 区分（团队版才吃姊强化）；
 //   - 背水一战"团队低血触发 vs 妹永久触发"无法从 fact 区分，ratio 只在「无姊」场景强制基础值；
+//   - 姊在场取「当前态（ctx.UI）或开局快照（ctx.snapshot / 位置参数）」任一有活着的姊
+//     （与 render/411 withSisterValues 同口径；回放/121 两条上下文通道都要认）；
 //   - 没有 facts 通道（浏览器体检）直接 skip；四类声明一条都没有也 skip。
+// 返回契约：{ fail:true, msg } = 失败；'skip' / 'pass' = 通过。
 export const VER = 'tests/health-rules/228-buff-effect-decl.js V1.0.0';
 import { FACT_TYPES, CAMP_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
 import { CONFIG, getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
@@ -49,7 +52,8 @@ function aliveSister(team) {
 export const rule228 = {
     group: 'buff加成对账',
     name: 'buff加成声明与配置真值(回归)',
-    test: function (ctx) {
+    // 参数：121 / rules-replay 传 (ctx, log, beforeAllies, beforeEnemies, ...)，离线用例走 ctx.beforeA/beforeE。
+    test: function (ctx, log, beforeAllies, beforeEnemies) {
         const facts = ctx && Array.isArray(ctx.facts) ? ctx.facts : [];
         if (facts.length === 0) return 'skip';
 
@@ -74,11 +78,17 @@ export const rule228 = {
         // 每回合每阵营持有哪些 buff key（用于区分团队版/永久版、姊强化路径）
         const sumKeys = {}; // round|camp -> Set
         const sumSeen = {}; // round|camp|key -> count
+        const aliveUids = {}; // round|camp -> Set(uid)：BUFF_SUMMARY 自带该阵营当回合存活名单
         for (let i = 0; i < entries.length; i++) {
             const e = entries[i];
             if (e.f.factType !== FACT_TYPES.BUFF_SUMMARY) continue;
             const b = e.f.data && e.f.data.buff;
+            const camp0 = normCamp(b && b.target);
+            if (Array.isArray(e.f.data && e.f.data.allyTeamUids)) {
+                aliveUids[e.round + '|' + camp0] = new Set(e.f.data.allyTeamUids);
+            }
             if (!b || typeof b.key !== 'string' || b.key === '') continue;
+            if (typeof b.remaining === 'number' && !isFinite(b.remaining)) continue; // 整局假摘要（如 311 张三丰·严阵以待，remaining=Infinity）：无剩余回合语义，归 227/229
             if (typeof b.remaining === 'number' && isFinite(b.remaining) && b.remaining <= 0) continue; // 227 负责
             const camp = normCamp(b.target);
             const k1 = e.round + '|' + camp;
@@ -94,10 +104,29 @@ export const rule228 = {
             }
         }
 
-        const allyHasSister = aliveSister(ctx.beforeA);
-        const enemyHasSister = aliveSister(ctx.beforeE);
-        function hasSister(camp) {
-            return camp === CAMP_TYPES.ENEMY ? enemyHasSister : allyHasSister;
+        // 姊在场判据：与 render/411-facts-misc.js withSisterValues 同口径——摘要用 fact 自带的
+        //   allyTeamUids（该阵营**当回合**存活 uid 名单）查有没有小昭·姊，再决定取姊版还是基础版。
+        //   旧版只读 ctx.beforeA/beforeE：回放把开局定稿放在 ctx.snapshot、121 走位置参数，
+        //   两条通道都读不到 ⇒ 恒判「无姊」⇒ 引擎按 0.25 施加反被报成「配置应 0.3」。
+        //   反过来只看终局/开局快照也不成立：姊中途阵亡的回合引擎已退回基础版，按快照判会误报。
+        const sisterUids = new Set();
+        function collectSisterUids(team) {
+            unitsOf(team).forEach(u => {
+                if (u && u.isXiaoZhaoSister && u.alive !== false && u.uid != null) sisterUids.add(u.uid);
+            });
+        }
+        collectSisterUids(beforeAllies); collectSisterUids(beforeEnemies);
+        collectSisterUids(ctx.beforeA); collectSisterUids(ctx.beforeE);
+        collectSisterUids(ctx.UI && ctx.UI.allyTeam); collectSisterUids(ctx.UI && ctx.UI.enemyTeam);
+        collectSisterUids(ctx.snapshot && ctx.snapshot.ally); collectSisterUids(ctx.snapshot && ctx.snapshot.enemy);
+        function hasSister(camp, r) {
+            const alive = aliveUids[r + '|' + camp];
+            if (alive) return [...alive].some(uid => sisterUids.has(uid));
+            // 该阵营该回合没有带存活名单的摘要 → 退回队伍快照判定
+            const cur = camp === CAMP_TYPES.ENEMY ? (ctx.UI && ctx.UI.enemyTeam) : (ctx.UI && ctx.UI.allyTeam);
+            const snap = camp === CAMP_TYPES.ENEMY ? (ctx.snapshot && ctx.snapshot.enemy) : (ctx.snapshot && ctx.snapshot.ally);
+            const pos = camp === CAMP_TYPES.ENEMY ? (beforeEnemies || ctx.beforeE) : (beforeAllies || ctx.beforeA);
+            return aliveSister(cur) || aliveSister(snap) || aliveSister(pos);
         }
         function holdsBuff(r, camp, key) {
             const set = sumKeys[r + '|' + camp];
@@ -141,7 +170,7 @@ export const rule228 = {
 
             if (t === FACT_TYPES.HOLY_FLAME_APPLY) {
                 if (!HF) continue;
-                const sister = hasSister(camp);
+                const sister = hasSister(camp, e.round);
                 const teamBuff = holdsBuff(e.round, camp, BUFF_TYPES.HOLY_FLAME);
                 const baseVal = field === 'def' ? HF.defBonus : HF.atkBonus;
                 const sisVal = HF_S ? (field === 'def' ? HF_S.defBonus : HF_S.atkBonus) : null;
@@ -170,7 +199,7 @@ export const rule228 = {
                     }
                 } else {
                     const casterCamp = camp === CAMP_TYPES.ENEMY ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY;
-                    const useSis = holdsBuff(e.round, casterCamp, BUFF_TYPES.SOUL_DRAIN) && hasSister(casterCamp) && SD_S;
+                    const useSis = holdsBuff(e.round, casterCamp, BUFF_TYPES.SOUL_DRAIN) && hasSister(casterCamp, e.round) && SD_S;
                     const base = useSis ? SD_S.atkBonus : SD.atkBonus;
                     const step = useSis ? SD_S.perUnitBonus : SD.perUnitBonus;
                     if (typeof step !== 'number' || step === 0) continue;
@@ -190,7 +219,7 @@ export const rule228 = {
                 } else {
                     const okBase = near(d.ratio, LS.atkBonus);
                     const okSis = LS_S && near(d.ratio, LS_S.atkBonus);
-                    if (hasSister(camp) ? !(okBase || okSis) : !okBase) {
+                    if (hasSister(camp, e.round) ? !(okBase || okSis) : !okBase) {
                         fails.push(`第${e.round}回合 背水一战 atk 声明 ${d.ratio}，配置应为 ${LS.atkBonus}${LS_S ? ' 或 ' + LS_S.atkBonus : ''}`);
                     }
                 }
@@ -222,7 +251,8 @@ export const rule228 = {
         }
 
         if (applyN === 0) return 'skip';
-        if (fails.length > 0) return fails.slice(0, 6).join('；');
+        // 返回契约：失败必须是 {fail:true,msg}（121 / rules-replay 只认对象形状，字符串会被算 pass）
+        if (fails.length > 0) return { fail: true, msg: fails.slice(0, 6).join('；') };
         return 'pass';
     }
 };

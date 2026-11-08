@@ -27,15 +27,20 @@ const AP = (type, uid, camp, field, ratio) => ({ factType: type, data: { unitUid
 const sisterTeam = [{ name: '小昭·姊', isXiaoZhaoSister: true, alive: true }];
 
 let bad = 0;
+// 规则返回契约：{fail:true,msg} = 失败；'skip' / 'pass' = 通过（字符串失败会被 121/回放器算 pass）
+function isFail(got) {
+    return !!(got && typeof got === 'object' && got.fail === true);
+}
 function expect(name, got, want) {
     const ok = got === want;
     if (!ok) bad++;
-    console.log(`${ok ? '✅' : '❌'} ${name} → ${got}${ok ? '' : '（期望 ' + want + '）'}`);
+    console.log(`${ok ? '✅' : '❌'} ${name} → ${typeof got === 'object' ? JSON.stringify(got) : got}${ok ? '' : '（期望 ' + want + '）'}`);
 }
 function expectFail(name, got, mustContain) {
-    const ok = got !== 'pass' && got !== 'skip' && got.indexOf(mustContain) >= 0;
+    const msg = isFail(got) ? String(got.msg || '') : '';
+    const ok = isFail(got) && msg.indexOf(mustContain) >= 0;
     if (!ok) bad++;
-    console.log(`${ok ? '✅' : '❌'} ${name} → ${got}`);
+    console.log(`${ok ? '✅' : '❌'} ${name} → ${msg || JSON.stringify(got)}`);
 }
 
 // ---------- 227 生命周期 ----------
@@ -62,6 +67,16 @@ function expectFail(name, got, mustContain) {
 {
     const facts = [R(1), S('holyFlame', 'ally', 4), R(2), S('holyFlame', 'ally', 3), R(3), R(4), S('holyFlame', 'ally', 4)];
     expect('227 到期后重新抽到 = 新实例', rule227.test({ facts: facts }), 'pass');
+}
+{
+    // 到期回合与重抽回合相接（回放每 3 回合补选，实测 1→4）：不能被判成「回升」
+    const facts = [R(1), S('holyFlame', 'ally', 4), R(2), S('holyFlame', 'ally', 3), R(3), S('holyFlame', 'ally', 2), R(4), S('holyFlame', 'ally', 1), R(5), S('holyFlame', 'ally', 4)];
+    expect('227 到期后紧接重抽（1→4）= 新实例', rule227.test({ facts: facts }), 'pass');
+}
+{
+    // 回放夹具 permanent 初值仍按 def.duration/BUFF_DURATION 给 4（不模拟 MAX_ROUND）
+    const facts = [R(1), S('lastStand', 'ally', 4), R(2), S('lastStand', 'ally', 3)];
+    expect('227 永久 buff 夹具初值 4 合法', rule227.test({ facts: facts }), 'pass');
 }
 
 // ---------- 228 加成声明 ----------

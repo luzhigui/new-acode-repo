@@ -10,12 +10,14 @@
 //   2) 上一回合 remaining=1 的 buff，下一回合不允许还出现在摘要（到期未清理）；
 //   3) remaining 必须为正数；非数字直接报契约破损；
 //   4) 首次出现（含到期后重新抽到的新实例）的 remaining 必须等于配置时长或配置时长 +1（姊强化上限）；
-//      永久 buff（内容配置 permanent）初值必须等于 CONFIG.MAX_ROUND；
+//      永久 buff（内容配置 permanent）初值允许 CONFIG.MAX_ROUND（真引擎）或配置时长（回放夹具）；
 //   5) 摘要里的 Infinity（整局永久持有 / 严阵以待假摘要）只要求不变成有限值，不做递减判据。
 // 误报规避：
 //   - remaining 回升只在「连续两回合都在摘要里」时才判——中间断档后重新抽到同一个 buff 是合法的新实例；
+//   - 上一回合 remaining=1 且本回合回到初始满值（或永久副本回到 MAX_ROUND）= 到期后重抽的新实例，不算回升；
 //   - 同回合重复条目交给 228 报，本规则跳过（避免一条毛病两条规则都喊）；
 //   - 没有 BUFF_SUMMARY fact 的场次直接 skip（浏览器体检无 facts 通道同样 skip）。
+// 返回契约：{ fail:true, msg } = 失败；'skip' / 'pass' = 通过。字符串会被 121/回放器算 pass（假绿根因）。
 export const VER = 'tests/health-rules/227-buff-lifecycle.js V1.0.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { CONFIG } from '../../core/201-config-5v5-test.js';
@@ -30,10 +32,13 @@ function buffCfg(key) {
 }
 
 // 首次出现允许的 remaining 取值集合（配置驱动，不硬编码回合数）
+//   permanent 的两种初值都合法：真引擎 createBuffObject 给 CONFIG.MAX_ROUND（35）；
+//   回放夹具 buff-picker 故意不改整批战报轨迹，仍按 def.duration/BUFF_DURATION 给（4）。
+//   夹具口径与引擎口径并存 ≠ 放宽判据：两者都是「这个实例刚挂上时的满值」。
 function legalInitial(key) {
     const cfg = buffCfg(key);
-    if (cfg && cfg.permanent) return [CONFIG.MAX_ROUND];
     const base = (cfg && typeof cfg.duration === 'number') ? cfg.duration : (CONFIG.BUFF_DURATION || 4);
+    if (cfg && cfg.permanent) return [CONFIG.MAX_ROUND, base, base + 1];
     return [base, base + 1]; // +1 = 小昭·姊 extraDuration 上限
 }
 
@@ -94,16 +99,28 @@ export const rule227 = {
                 if (legal.indexOf(rem) < 0) {
                     fails.push(`第${round}回合 ${b.key} 初值 ${rem} 与配置时长 ${legal.join('/')} 不符`);
                 }
-                seen[id] = { round: round, rem: rem };
+                seen[id] = { round: round, rem: rem, perm: b.permanent === true };
                 continue;
             }
             if (prev && prev.round === round - 1) {
-                if (rem > prev.rem) {
-                    fails.push(`第${round}回合 ${b.key} 剩余回升 ${prev.rem}→${rem}（同一条未过期却加时长）`);
-                } else if (rem < prev.rem - 1) {
-                    fails.push(`第${round}回合 ${b.key} 剩余跳减 ${prev.rem}→${rem}（一回合扣了多回合）`);
-                } else if (prev.rem === 1) {
-                    fails.push(`第${round}回合 ${b.key} 上一回合剩余=1 仍在摘要（到期未清理）`);
+                const legal = legalInitial(b.key);
+                const isPermCopy = b.permanent === true;
+                // 新实例的两种衔接形态：
+                //   ① 上一回合 remaining=1（摘要发完即消失），本回合同 key 以初始满值再现
+                //      ——回放每 3 回合补选，实测直接衔接成 1→4；
+                //   ② 上一回合是永久副本（permanent:true，来自妹永久账本，remaining=MAX_ROUND），
+                //      本回合换成团队新抽到的实例（实测 35→4）。
+                //   两者都是合法新实例，旧判据分别算成「回升」「跳减」。
+                const newInstance = (prev.rem === 1 || prev.perm === true)
+                    && (legal.indexOf(rem) >= 0 || (isPermCopy && rem === CONFIG.MAX_ROUND));
+                if (!newInstance) {
+                    if (rem > prev.rem) {
+                        fails.push(`第${round}回合 ${b.key} 剩余回升 ${prev.rem}→${rem}（同一条未过期却加时长）`);
+                    } else if (rem < prev.rem - 1) {
+                        fails.push(`第${round}回合 ${b.key} 剩余跳减 ${prev.rem}→${rem}（一回合扣了多回合）`);
+                    } else if (prev.rem === 1) {
+                        fails.push(`第${round}回合 ${b.key} 上一回合剩余=1 仍在摘要（到期未清理）`);
+                    }
                 }
             } else {
                 const legal = legalInitial(b.key);
@@ -111,11 +128,13 @@ export const rule227 = {
                     fails.push(`第${round}回合 ${b.key} 初值 ${rem} 与配置时长 ${legal.join('/')} 不符`);
                 }
             }
-            seen[id] = { round: round, rem: rem };
+            seen[id] = { round: round, rem: rem, perm: b.permanent === true };
         }
 
         if (summaryN === 0) return 'skip';
-        if (fails.length > 0) return fails.slice(0, 6).join('；');
+        // 返回契约：失败必须是 {fail:true,msg}。121 与 rules-replay 只认对象形状 / 'skip'，
+        //   返回普通字符串会被静默算 pass（本规则上线起一直假绿，直接调 .test 是 70/70 红）。
+        if (fails.length > 0) return { fail: true, msg: fails.slice(0, 6).join('；') };
         return 'pass';
     }
 };

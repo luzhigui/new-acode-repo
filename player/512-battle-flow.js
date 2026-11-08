@@ -1,6 +1,6 @@
 // player/512-battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
-// permanent:true 的海克斯（背水/圣火）duration 取 Infinity，整局持有不过期；显示文案为「整局」。
+// permanent:true 的海克斯（背水/圣火）按 modules/329 createBuffObject 实现取 CONFIG.MAX_ROUND（35）：有限值、逐回合 -1，到期正好卡在 35 回合上限；显示文案为「整局」。
 export const VER = 'player/512-battle-flow.js V6.4.7';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
