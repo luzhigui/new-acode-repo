@@ -1,7 +1,9 @@
 // V6.3.8 | 2026-11-07 第 184 轮：飞天/附身判据收口为 export isAirborne（全库唯一一份），
 //          getFronts / isBlocked 两处内联改调；203 侧补上 _butterflyHost（蝶附身必同时置 _flyMode，
 //          实际行为逐字不变）。214 / 315 / 318 的另四份同源实现同步改为调用本函数。
-export const VER = 'core/203-battle-utils.js V6.3.8';
+// V6.3.9 | 2026-11-08 体检转交：姊强化概率连击改读 002 sister.doubleStrike.chance（原写死 1.0，
+//          002 里那键是死键）；缺键当场抛错，不回落普通版。
+export const VER = 'core/203-battle-utils.js V6.3.9';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
@@ -357,7 +359,11 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUids, allyTeam, a
         }
         if (!matched || !unit.alive || unit.state._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
-        const missChainChance = xiaoDoubleEnhance ? 1.0 : C.BUFFS.doubleStrike.prob;
+        // 002 才是真源：旧版这里写死 1.0，配置里的 chance 从未被读过（死键）。缺键显式抛错，不回落。
+        if (xiaoDoubleEnhance && xiaoDoubleEnhance.chance == null) {
+            throw new Error('002-hex-enhance.json 缺 sister.doubleStrike.chance');
+        }
+        const missChainChance = xiaoDoubleEnhance ? xiaoDoubleEnhance.chance : C.BUFFS.doubleStrike.prob;
         // AFTER_MISS 期间有 deferredFacts（暂存，待 MISS fact 落账后再出，顺序才对）；
         //   AFTER_ATTACK 期间没有该字段，直接进 log（原行为）
         const sink = Array.isArray(data.deferredFacts) ? data.deferredFacts : log;

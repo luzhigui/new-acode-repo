@@ -1,15 +1,15 @@
 {
- "ver": "53313fe4c2e06045d6381466ea37e732eec20558de8908b559c50eae5ea7328c",
+ "ver": "eb89ec097463757cca2b062f00a239dc021b64fb298bcd3c4f605eb45c27a496",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "9495135229ae4db6893bd70dc504944757cae9ed78b4fc168bf244eb56af8c79"
+   "038b45f8764909aac847df4e78289a31960d96762ecaa358b4062d586a1621e8"
   ],
   [
    "content/002-hex-enhance.json",
-   "d50a7919a63d5b5d6f619323402d2dae3c18bd03134fead3b4f796ba05f027ff"
+   "7951059e74e6a20f4423392be57867ca0a442177bc4d396d3f51742edeb87be6"
   ],
   [
    "core/201-config-5v5-test.js",
@@ -21,7 +21,7 @@
   ],
   [
    "core/203-battle-utils.js",
-   "a43bcdf7c12c6663fb449888ceaafee5ca277dba8596be30f60e13ca5fef829e"
+   "d98fd96835d79f071377c6a61fbbc30db17fea5385448b7245b1fe0cc1ff8127"
   ],
   [
    "core/204-buff-system.js",
@@ -45,7 +45,7 @@
   ],
   [
    "core/209-battle-attack.js",
-   "00824ba12d4463f17ef605f6ef58dd6c1d3cffdd0c7430e4bd44ef7914133e2e"
+   "89029d04a8e1bdce80a1d16adf8259441467f47020e3d524fc6d627940c7bb4f"
   ],
   [
    "core/210-battle-round.js",
@@ -225,7 +225,7 @@
   ],
   [
    "infra/109-net-pvp.js",
-   "971b0310a25965af35e7f7da967b93f1e7e03f876a7b432b4943e3e041c3153e"
+   "fb8edd712f7b9d539d333a28cf1550323bee1df8f75ff3cb642cf848a6340287"
   ],
   [
    "infra/110-view-sheet.js",
@@ -321,7 +321,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "d914b472f41d03f6ba60da8e51aa0b66f016cde66d936eb3ff8df3012aed58e3"
+   "0413c1001d91035af67312c64ac13bc1a48a9f3b9553bf028d8b68797b89829c"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
@@ -349,11 +349,11 @@
   ],
   [
    "modules/329-buff-tools.js",
-   "81b7aeb33c4533b3f6df8db83388b1b118c9551d95265db73a16f58707491106"
+   "dc565b67384d824da6dc6d920adf1fe80ac474381f923f59ba1ed59b79e4ba21"
   ],
   [
    "modules/330-battle-init.js",
-   "f7b9f41cf589e3d4943cec11f38483e27f94d0bcf243f4ee94b5779d1fed64a7"
+   "7a57e7c489ff4f4b75803293539d4ec03a3e2a824cbc5db736a71a08dfc8fcfa"
   ],
   [
    "modules/331-custom-effects.js",
@@ -361,7 +361,7 @@
   ],
   [
    "modules/332-career-log.js",
-   "d0fcbeefc88860ca125897b1c8f4cf34de00964aa4188e9936669ae62a113082"
+   "c2779b04a0856a35e2c0d607910ba7304016931f05dbd9c9041d16699273f3d1"
   ],
   [
    "modules/333-elite-mingjiao-crazy.js",
@@ -381,7 +381,7 @@
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
-   "4d2c0e7d35e0637b699906bf3a4dc9b1a6d0b164b82e1c8cd47889c683a27bf5"
+   "c73c3b9c32615f015c48bafc4ad4fd73ad9ec60c91d6206f4f3738817c79a20c"
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
@@ -441,7 +441,7 @@
   ],
   [
    "player/513-battle-export.js",
-   "7867f0b6cbb62301920bf48a5ea1f5d4f4e682a3489e89331f62db19aa2a1b7a"
+   "070a365614423b4c935c477dd57d9a08eec755e84951363ecf7b60cbe919d9a3"
   ],
   [
    "player/514-battle-log-analyze.js",
@@ -481,19 +481,19 @@
   ],
   [
    "render/409-facts-control.js",
-   "c037ebd0fe8b202c338a9032c44b02af6bdd7a920d7b835c62f2aa96bc4cb92d"
+   "107fcbf8519ccbc27dc8e90fc2ed7e5e67da702fc6acd746cff023af0fd6e27e"
   ],
   [
    "render/410-facts-heal.js",
-   "af0297f74368b94a505235d0f9702d3cd57c01ce44a9dea0da0ba3d6fc66d5c4"
+   "a51559543680e0c6b235faeee8b61d33814a231227d0f34f749adcb7c6c00b25"
   ],
   [
    "render/411-facts-misc.js",
-   "7b17ec25ae00238d6cbd33e803f53b33c162ad48f0b63e5d5174c8f87df2912b"
+   "5dbf3cd56980a1a3018b6c2de13b370bd3326a1d34e14f207d074e3f93a4859f"
   ],
   [
    "render/412-facts-stat.js",
-   "143a6c22e2c415de20c3d00062c6f6535cb9da11d8d182e974df90b31edda74a"
+   "7b074291305efba28162d9bca5e06e10486ed6033353dc7bab3190f083eb447a"
   ],
   [
    "render/413-generic-renderers.js",
@@ -537,7 +537,7 @@
   ],
   [
    "ui/703-ui-render-5v5-test.js",
-   "95cb965af545c32d5e1eb2a0681f888f542c14c06ef75226da563240e0c65717"
+   "38e330b95c1721a3d0077ccc33af114c04810ba4be6cf3a9a64e728939c40dae"
   ],
   [
    "ui/704-main-state.js",
@@ -549,7 +549,7 @@
   ],
   [
    "ui/706-main-battle.js",
-   "8e275898d4d6192aab07858c96a41254de755e0c59fa459357f62c92827bfa7b"
+   "e758b5c5700e13fc196d1febdd7cd5c2df5eb9a0fb933380021439e64ac5221e"
   ],
   [
    "ui/707-audio-control.js",
@@ -589,7 +589,7 @@
   ],
   [
    "ui/716-net-session.js",
-   "6cff93ad3a10019c24d6876ec6b5ee8abce8a75c1b82d7eff2742d81e5b0503b"
+   "58164ff4001dba6058a52a873b4fdb6c6ab99fa614f945af9cb0777841ff3747"
   ],
   [
    "ui/717-replay-entry.js",
