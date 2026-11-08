@@ -1,6 +1,13 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
-export const VER = 'fx/616-tangwenliang-dash.js V3.0.4';
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.5';
+// V3.0.5 | 2026-11-08 | 冲刺血条「空→多→少」三跳收口：
+//   ① 克隆体开场只认 dash.hits 的 hpBefore（去掉 Math.min(store.hp, hpBefore) 的兜底，
+//      store 在主动=扣前 / 被动=扣后，掺进来必错一边，碰到 0 就画成空条）；
+//   ② 隐藏真格改到下一帧 rAF 再设 _renderFlyMode='fly'，先让克隆体画出这一帧；
+//      rAF 回调带收尾判据（fxFinished / activeGhosts 已被接管或淡出即跳过），防真格永久隐身；
+//   ③ 只对真的造出克隆体的 uid 设 fly（makeGhost 返回 null 时隐藏真格等于留空格）。
+//   配套 render/420 DASH.storeAfter 在清 fly 前把 hpAfter 先写回 store。
 // V3.0.4 | 2026-11-08 | 攻击力显示下限：演出克隆卡攻文本改 fmtAtk（<0 显示 0），引擎负数真值不回写
 // V3.0.3 | 2026-11-07 | 血量显示下限：演出克隆卡血量文本改 fmtHpText（存活 <1 显示 1），血条宽度仍用原始 hp
 // V3.0.2 | 2026-11-07 | 修「标枪飞行期间名字不变蓝、飞完才变蓝」：
@@ -149,10 +156,10 @@ function makeGhost(camp, fromPos, toPos, z, uid) {
     const store = GlobalStore.get('battleStore');
     const u = store ? store.getState().units.find(x => x.uid === uid) : null;
     if (!u) return null;
-    // 开场血量取「store 当前值」与扣前值的较小者：被动冲刺时 store 已是扣后值，
-    //   若仍按 hpBefore 开场，血条会先跳满再掉回去（空→满→掉三跳）
+    // 开场血量只认引擎扣血前的真值 hpBefore（不再掺 store 当前值：主动=扣前 / 被动=扣后，
+    //   掺进来必然有一边错，min 兜底碰到 0/脏值就把血条打成空）
     const hpBeforeSnap = _hpSnapshot.has(uid) ? _hpSnapshot.get(uid) : null;
-    const hpOverride = (hpBeforeSnap != null) ? Math.min(u.hp, hpBeforeSnap) : null;
+    const hpOverride = hpBeforeSnap;
     const g = document.createElement('div');
     g.className = 'cell';
     g.innerHTML = cardHtmlFromUnit(u, hpOverride);
@@ -409,6 +416,7 @@ async function showTangWenLiangDashSlow(dash) {
     const ghosts = [];
     let clearHl = () => {};
     let staticCell = null;
+    let slowFinished = false;   // 本段演出是否已收尾（rAF 延迟隐藏真格的安全判据）
     // 总时长读参数表（dashDur），按当前 speed 档位；取不到回落 1700。
     //   内部编排 350+240+620+400+900+400 = 2910ms，按 dashTotal 等比缩放，各段 minRealMs 同值跟随。
     const dashTotal = getPerfParam('dashDur', GlobalStore.get('speed') || 300) || 1700;
@@ -456,11 +464,21 @@ async function showTangWenLiangDashSlow(dash) {
     //   生产里的血条揭晓由 revealGhostHp 完成，这里是给 demo 留的口子
     activeGhosts = ghosts;
 
-    // 克隆体已画上 DOM，此时再隐藏真格（无缝替换，杜绝 store 阶段的提前隐身空窗期）
+    // 克隆体已画上 DOM，下一帧再隐藏真格（先让浏览器把克隆体画出来，杜绝原格空壳闪现）
+    //   保护判据：rAF 回来时若 ①本段已收尾（slowFinished）或 ②activeGhosts 已被别的轮次/淡出接管，就跳过——
+    //   否则 storeAfter 清完 fly 后这里再设一次，真格会永久隐身。
+    //   另：只隐藏「真的造出克隆体」的 uid（makeGhost 返回 null 时隐藏真格等于留一个空格）。
     {
         const _store = GlobalStore.get('battleStore');
-        if (_store) {
-            for (const m of moves) _store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+        const ghostUids = new Set(ghosts.map(gh => gh.uid));
+        if (_store && ghostUids.size > 0) {
+            requestAnimationFrame(() => {
+                if (slowFinished || activeGhosts !== ghosts) return;
+                for (const m of moves) {
+                    if (!ghostUids.has(m.uid)) continue;
+                    _store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+                }
+            });
         }
     }
 
@@ -691,6 +709,7 @@ async function showTangWenLiangDashSlow(dash) {
         await performFinishingPunch(twEl, tgtEl, T);
     }
 
+    slowFinished = true;
     return ghosts;
 }
 
@@ -699,6 +718,7 @@ export async function showTangWenLiangDash(dash, opts) {
     // 「唐文亮·冲刺子弹时间」（fxDashSlow）开着走慢速档；关掉 / 快进走原快版
     if (opts && opts.slowMotion) return showTangWenLiangDashSlow(dash);
     if (!dash || isFxSkipped()) return [];
+    let fxFinished = false;   // 本段演出是否已收尾（rAF 延迟隐藏真格的安全判据）
 
     // moves 载荷（新）优先；旧档无 moves 按旧双单位字段拼两条（兼容老战报回放）
     let moves = Array.isArray(dash.moves) ? dash.moves.filter(m => m && m.uid != null) : [];
@@ -724,11 +744,20 @@ export async function showTangWenLiangDash(dash, opts) {
     // 没有克隆体（双方原地未动）不放弃：后面全部回落到真格锚点
     activeGhosts = ghosts;
 
-    // 克隆体已画上 DOM，此时再隐藏真格（无缝替换，杜绝 store 阶段的提前隐身空窗期）
+    // 克隆体已画上 DOM，下一帧再隐藏真格（先让浏览器把克隆体画出来，杜绝原格空壳闪现）
+    //   保护判据：rAF 回来时若 ①本段已收尾（fxFinished）或 ②activeGhosts 已被别的轮次/淡出接管，就跳过——
+    //   否则 storeAfter 清完 fly 后这里再设一次，真格会永久隐身。
     {
         const _store = GlobalStore.get('battleStore');
-        if (_store) {
-            for (const m of moves) _store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+        const ghostUids = new Set(ghosts.map(gh => gh.uid));
+        if (_store && ghostUids.size > 0) {
+            requestAnimationFrame(() => {
+                if (fxFinished || activeGhosts !== ghosts) return;
+                for (const m of moves) {
+                    if (!ghostUids.has(m.uid)) continue;
+                    _store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: m.uid, _renderFlyMode: 'fly' });
+                }
+            });
         }
     }
 
@@ -799,6 +828,7 @@ export async function showTangWenLiangDash(dash, opts) {
         await performFinishingPunch(twAnchorEl, tgAnchorEl);
     }
 
+    fxFinished = true;
     return ghosts;
 }
 
