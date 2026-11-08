@@ -12,7 +12,9 @@ import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } fr
 //         | 移除死渲染分支（dmgCalc.thunderBonus / trueDmg 全仓无赋值、hornDefIgnore/hornDmgMultiplier 恒 0/1，
 //         | 鹤笔翁金句里写死的 +50% 与配置 +30% 也对不上）。
 // V1.5.10 | 2026-11-08 体检转交：伤害/护盾吸收行补 unitUid + hpBefore + hpAfterReal（护盾与扣血可归账）
-export const VER = 'render/407-facts-attack.js V1.5.10';
+// V1.5.11 | 2026-11-08 体检转交：未命中/闪避渲染补挂 phantomFact（幻影改目标那击可查）；
+//         | 免疫组 hpAfter 改取事实里的实数 fact.targetHp（原来取 target.hp，而 immune 事实只带 uid/name/camp）
+export const VER = 'render/407-facts-attack.js V1.5.11';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -20,15 +22,18 @@ export function renderMissFact(fact) {
     const dc = fact.target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = fact.attacker.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const campD = fact.target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+    const missEntries = [
+        // 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
+        {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtAtk(fmtNum(fact.attacker.atk))} 血${fmtHpText(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHpText(fact.target.hp)})`},
+        {type:'info', text:`<span class="gray">未命中！</span>`}
+    ];
+    // 幻影/迷心改目标的那一击被闪避/打空时，命中组不生成，phantomFact 由 core/209 挂在 MISS 上，这里补渲染
+    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) missEntries.push(_pf); }
     return {
         type:'attack-group',
         uidA: fact.attacker.uid,
         uidD: fact.target.uid,
-        entries: [
-            // 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
-            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${fmtAtk(fmtNum(fact.attacker.atk))} 血${fmtHpText(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${fmtNum(fact.target.def)} 血${fmtHpText(fact.target.hp)})`},
-            {type:'info', text:`<span class="gray">未命中！</span>`}
-        ],
+        entries: missEntries,
         isMiss:true,
         _fxSnapshot: fact.fxSnapshot,
         waveTaunt:null,
@@ -57,6 +62,8 @@ export function renderDodgeFact(fact) {
     };
 
     dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fmtNum(fact.dodgerDef)} 血${fmtHpText(fact.dodgerHp)})`});
+    // 幻影/迷心改目标的那一击被闪避时同样补渲染（core/209 把 phantomFact 挂在 DODGE 数据上）
+    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) dodgeGroup.entries.push(_pf); }
     dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fmtNum(fact.reboundDmg)} 真实伤害（${fmtHpText(fact.attackerHpBefore)} → ${fmtHpText(fact.attackerHpAfter)}）</span>`});
 
     if (fact.weiHeal) {
@@ -268,7 +275,7 @@ export function renderImmuneFact(fact) {
             type:'combat-text',
             text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.targetDef} 血${fmtHpText(fact.targetHp)})`
         }],
-        hpAfter: target.hp,
+        hpAfter: fact.targetHp,
         alive: target.alive,
         isDead:false,
         isImmune:true,

@@ -10,7 +10,8 @@
 //   于是印出的金额与实际落账对不上（实测 20 场偏离，如「回复 +14，血量 120→136」）。
 // V6.2.7 | 2026-11-08 体检转交（159）：LEECH handler 把 fact.heal 回填为实落值（声明期 previewHeal 只是预演，
 //   同帧血量漂移会让「文本 +N」与 fact.heal 不同源）；预演值改存 healNominal。
-export const VER = 'core/217-effect-handlers.js V6.2.7';
+// V6.2.8 | 2026-11-08 体检转交：破防实落值为 0 时不产 BREAK_DEF 条目（不再照抄声明的 0.8 造出「减防 0.8 / -0」假账）
+export const VER = 'core/217-effect-handlers.js V6.2.8';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -92,7 +93,10 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     if (reduce > 0) {
         refs.pendingDefReduceFact = { type: FACT_TYPES.BREAK_DEF, attackerName: unit.name, targetName: target.name, reduce };
     } else {
-        refs.pendingDefReduceFact = decl.factData || null;
+        // 实落减防为 0（refs.defBase 是 floor 后的防御，声明量 0.8 落在 0 之下）：不产 BREAK_DEF 条目。
+        //   原实现照抄 decl.factData 会写「减防 0.8」而实际一点没减（体检声明-实际对照转交）；
+        //   写 reduce:0 又会渲染出「-0」，故直接不产条目。
+        refs.pendingDefReduceFact = null;
     }
 });
 

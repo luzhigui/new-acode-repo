@@ -1,7 +1,8 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
 // V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
 // V6.4.13 | 2026-11-08 体检转交：免疫分支 attackerHp/targetHp 改实数（取整只留在显示层，fact 给引擎真值）
-export const VER = 'core/209-battle-attack.js V6.4.13';
+// V6.4.14 | 2026-11-08 体检转交：闪避/未命中分支补挂 phantomFact（改目标那一击被闪避时 phantomConfuse 不再丢）
+export const VER = 'core/209-battle-attack.js V6.4.14';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -280,6 +281,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, eventBus, { log, A, B, doubleStrikeUnitUid, state });
     if (hitResult.skipped) {
         if (hitResult.missFact) {
+            // 幻影/迷心改目标的那一击被闪避/打空时，命中组不存在，phantomFact 只能挂在 MISS 上；
+            //   否则流水里只剩「未命中」，查不到这次改的是幻影目标（体检「声明 vs 实际」丢一条）。
+            if (phantomFact) hitResult.missFact.phantomFact = phantomFact;
             log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
             // 未命中声明类 fact（连击 / 连蛛 / 性奋重试）紧跟 MISS 之后落账：
             //   它们在 AFTER_MISS 期间先暂存进 deferredFacts，避免排到 MISS 之前
@@ -289,6 +293,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         }
         if (hitResult.dodgeFact) {
             const dodgeFact = hitResult.dodgeFact;
+            if (phantomFact) dodgeFact.phantomFact = phantomFact;
             // 只挂 _pendingDeath，交由 resolveDeaths 统一结算（与 core/12 主伤害路径同口径）：
             //   直接 alive=false 会绕过结算——hp 不清零出「带血尸体」，且 ON_BEFORE_DEATH/ON_UNIT_DEATH 不发，
             //   watchUnit 判不到死亡、谢逊替死失效。
