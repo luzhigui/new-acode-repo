@@ -184,3 +184,12 @@
 | 2 | `modules/302-elite-skills.js` L329/L331 | 飞行·猎杀成长 atk +2 与未命中 +6 个百分点均为代码字面量，无 001/002 配置键 | 实读 302 L329 `value: 2`、L331 `missBefore + 6`；全库反查 flyerKill 无配置来源 | 调数值必须改代码；体检只能按常量哨兵（323 已钉住 +2/0/6 三档），判不了「配置值」。建议抽到配置或在 stat-decl 登记 `flyerKill` 契约 |
 | 3 | `tests/stat-decl-vs-actual-check.mjs`（公共层，框架会话单写） | 契约表仍缺 5 个 group：`brotherLastStand` / `brotherLastStandWarrior` / `brotherLastStandWarriorGrow` / `flyerKill` / `lastStandLeech` | `node tests/coverage-ledger.mjs` 的【账本 group 无契约】段落列出的正是这 5 个 | `coverage-ledger --enforce` 会持续判「不服从」。D14 已用 319-323 在规则侧覆盖前 4 个，但「无契约」口径只认 stat-decl 表，需框架会话补登；`lastStandLeech` 留给预留的 324 号 |
 | 4 | `modules/324`（妹背水三组词条）与 `modules/302`（flyerKill） | 只写账本、不发任何 fact（324 L32-41/L115-117、302 L329 均无 push*Fact） | 实读上述行；战报只有 SKILL_ANNOUNCE 文本，无结构化数值声明 | 体检只能从终局快照反查账本，判不了「战报数字 vs 实落」（322 只判账本↔配置）。若未来战报/面板要展示成长层数或背水乘率，需主代码补 fact |
+
+## 八、D1「回合时序与抽签」域转交（2026-11-08 第 195 轮·续）
+
+| # | 文件 | 行为 | 证据 | 影响面 |
+|---|---|---|---|---|
+| 1 | `tests/rng-draw-runtime-baseline.json`（公共层，需框架会话/改动方重录） | 运行期抽签次数基线已过期：基线只覆盖 10 个 (seed,stage)，巡检现在是 35 个；且 33 场次数与基线不符（2:1 682→584、3:1 825→673、1:3 554→582 …，其余「不在基线」） | 干净 HEAD 快照跑 `node tests/rng-discipline-check.mjs`：① 同种子双跑 35 场全部一致（序列可复现，绿）、② Math.random 0 处（绿）、③ 静态计数 134→133 仅提示、④ 主判据 33 场红 | ④ 是主判据，不重录就一直红。按规矩重录必须与**造成位移的代码改动**同一次提交（`REGEN=1 node tests/rng-discipline-check.mjs`）。本域没改战斗代码，不代为重录 |
+| 2 | `modules/338-elite-mingjiao-pengyingyu.js`（抽签点 3 → 2） | 彭莹玉的抽签点少了一处（删签或抽成公共函数） | `tests/rng-discipline-check.mjs` ③ 明细标注「3 分钟前改过」；④ 同批出现 33 场位移 | 若确实是抽成公共函数，④ 会保持原次数；现在 ④ 也变 ⇒ 大概率是真删签/换签，需要改动方确认是否符合设计 |
+
+> 本域本轮测试侧资产（tests-only）：`health-rules/234-round-settlement-order.js` V1.1.0（前导结算族扩到光环/圣火/灵魂汲取/众志成城，只判首次出现以避开回放器补发的妹妹永久摘要）、`health-rules/236-round-boundary.js` V1.1.0（终局清场事实允许落在 ROUND_END 之后 + 回合号上界/封顶）、`tests/round-order-check.mjs` V1.0.0（回合四相位运行期巡检，独立于 rules-replay）、`rng-discipline-check.mjs` V1.3.0（同种子双跑加「抽签次数逐场相等」、静态计数降为提示、选 Buff 与战斗抽签分流校验）、`draw-outcome-guard.mjs` V1.0.0（平局口径静态守卫；`tools/816` 的 9 处空值守卫见 S9/S15，本域不改 tools）。
