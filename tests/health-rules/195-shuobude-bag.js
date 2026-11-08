@@ -1,9 +1,9 @@
 ﻿// 回归规则：说不得「布袋」——装袋阵营语义 + 回合末放出的回血/扣血数值是否与 content 文案一致
-// 真值源（content/001-game-data.json 说不得 skills.bagTrap.desc）：
-//   「命中后 50% 触发布袋：己方有红血 → 装己方最残者、回合末放出回 10 血；
-//     否则 → 装敌方血最多者、回合末放出扣 10% 最大生命。装袋期间不可选中/行动。」
-//   本技能没有 params（modules/325 全硬编码 0.5/10/0.1），故真值只能从 desc 正则取；
-//   一旦 content 改文案、引擎没跟（或引擎写死旧值），本规则就会红。
+// 真值源（content/001-game-data.json 说不得 skills.bagTrap.params）：
+//   params.triggerChance=0.5 / protectHeal=10 / captureMaxHpPct=0.1 / redHpThreshold=0.4；
+//   desc 是**模板文案**（「回 {protectHeal} 血」「扣 {captureMaxHpPct}% 最大生命」），
+//   直接对 desc 取数字必然失配 → 恒 skip（第 196 轮实测：10 条布袋播报在样本里真的发生，规则却 skip 156/156）。
+//   故先读 params，params 缺键才回落「占位符替换成 params 值后再正则」的旧路径。
 // 引擎落点（modules/325）：命中后 50% 触发，二选一掷骰；
 //   protect → putInBag(己方最残血%)，回合末 releaseBag 回复 10 点；
 //   capture → putInBag(敌方当前 hp 绝对值最高)，回合末扣 floor(maxHp×10%)。
@@ -16,8 +16,8 @@
 //   3) 放出回血量 ≠ desc 的「回 N 血」，或憋死扣血比 ≠ desc 的「扣 N%」；
 //   4) 装袋目标名既不在己方也不在敌方名单（阵营来源被写死成某一边）。
 // 误报规避：本场无布袋播报 → skip；召唤物/复制体名字不在开战名单时跳过该条不判红；
-//   desc 正则取不到数 → 整条 skip（不凭硬编码默认值判红）。
-export const VER = 'tests/health-rules/195-shuobude-bag.js V1.0.0';
+//   真值（params/desc）取不到数 → 整条 skip（不凭硬编码默认值判红）。
+export const VER = 'tests/health-rules/195-shuobude-bag.js V1.1.0';
 import { FACT_TYPES, CAMP_TYPES } from '../../infra/106-battle-enums.js';
 import { getGameData } from '../../core/201-config-5v5-test.js';
 import { plain } from '../122health-utils.js';
@@ -26,16 +26,26 @@ function bagConfig() {
     try {
         var gd = getGameData();
         var c = gd && gd.characters && gd.characters['说不得'];
-        var desc = (c && c.skills && c.skills.bagTrap && c.skills.bagTrap.desc) || '';
-        var mChance = desc.match(/命中后\s*(\d+)\s*%/);
-        var mHeal = desc.match(/回\s*(\d+)\s*血/);
-        var mCap = desc.match(/扣\s*(\d+)\s*%\s*最大生命/);
-        if (!mHeal || !mCap) return null;
-        return {
-            chance: mChance ? parseInt(mChance[1], 10) / 100 : 0.5,
-            healHp: parseInt(mHeal[1], 10),
-            capturePct: parseInt(mCap[1], 10) / 100
-        };
+        var sk = (c && c.skills && c.skills.bagTrap) || {};
+        var p = sk.params || {};
+        var healHp = Number(p.protectHeal);
+        var capturePct = Number(p.captureMaxHpPct);
+        if (!isFinite(healHp) || !isFinite(capturePct)) {
+            var desc = String(sk.desc || '');
+            // 模板降级：{key} → params[key]，让无 params 的旧内容也能取数
+            for (var k in p) desc = desc.split('{' + k + '}').join(String(p[k]));
+            var mHeal = desc.match(/回\s*(\d+(?:\.\d+)?)\s*血/);
+            var mCap = desc.match(/扣\s*(\d+(?:\.\d+)?)\s*%\s*最大生命/);
+            if (!mHeal || !mCap) return null;
+            healHp = parseFloat(mHeal[1]);
+            capturePct = parseFloat(mCap[1]) / 100;
+        }
+        var chance = Number(p.triggerChance);
+        if (!isFinite(chance)) {
+            var mChance = String(sk.desc || '').match(/命中后\s*(\d+(?:\.\d+)?)\s*%/);
+            chance = mChance ? parseFloat(mChance[1]) / 100 : 0.5;
+        }
+        return { chance: chance, healHp: healHp, capturePct: capturePct };
     } catch (e) { return null; }
 }
 

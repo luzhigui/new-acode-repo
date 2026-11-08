@@ -6,7 +6,7 @@
 //   ② 账→屏：存在一条吸星报幕行，且行内三个数字与 absorbedTotal 的 fmtNum 显示口径完全一致；
 //      找不到行 = 账有屏无（玩家看不到吸到多少），报断点。
 // 判据来源（2026-11-08 实测 156 场）：吸星汇总每次全场结算一条；① 求和误差 0；② 报幕行 0 缺失。
-export const VER = 'tests/health-rules/286-absorb-summary-same-source.js V1.0.0';
+export const VER = 'tests/health-rules/271-absorb-summary-same-source.js V1.0.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { fmtNum } from '../../infra/102-core-utils.js';
 import { plain } from '../122health-utils.js';
@@ -23,7 +23,7 @@ function flatAll(arr) {
     return out;
 }
 
-export const rule286 = {
+export const rule271 = {
     group: '战报与渲染一致性',
     name: '吸星汇总账实同源且屏上有出处',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE, facts) {

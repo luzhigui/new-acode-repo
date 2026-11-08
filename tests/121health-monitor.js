@@ -138,15 +138,12 @@ import { rule236 } from './health-rules/236-round-boundary.js';
 import { rule283 } from './health-rules/283-post-death-action.js';
 import { rule284 } from './health-rules/284-battle-end-race.js';
 import { rule285 } from './health-rules/285-settlement-order.js';
-// 第 195 轮·D10 续 + D11 控制与意识类（286-293）
-import { rule286 } from './health-rules/286-stage-variant-truth.js';
-import { rule287 } from './health-rules/287-stage-name-source.js';
-import { rule288 } from './health-rules/288-enemy-elite-pos.js';
-import { rule289 } from './health-rules/289-control-target-trace.js';
-import { rule290 } from './health-rules/290-control-attacker-identity.js';
-import { rule291 } from './health-rules/291-control-trace-on-edge.js';
-import { rule292 } from './health-rules/292-control-stacking-crazy.js';
-import { rule293 } from './health-rules/293-control-cleanup-on-release.js';
+// 第 195 轮修正：rewind 289/290 撞号，按 4.7 挪到 D5 空闲槽 253/254
+import { rule253 } from './health-rules/253-rewind-write-surface.js';
+import { rule254 } from './health-rules/254-rewind-write-dynamic.js';
+// 第 195 轮仲裁：日志域新件让出 286/287 → D8 271/272
+import { rule271 } from './health-rules/271-absorb-summary-same-source.js';
+import { rule272 } from './health-rules/272-hidden-renderer-outlets.js';
 import { rule237 } from './health-rules/237-mod-entry-shape.js';
 import { rule238 } from './health-rules/238-decl-vs-ledger.js';
 import { rule239 } from './health-rules/239-qiankun-decl-vs-ledger.js';
@@ -172,8 +169,16 @@ import { rule257 } from './health-rules/257-rewind-play-from-current.js';
 import { rule258 } from './health-rules/258-rewind-state-cleanup.js';
 import { rule265 } from './health-rules/265-rewind-settle-same-authority.js';
 import { rule266 } from './health-rules/266-heal-amount-same-source.js';
-import { rule286 } from './health-rules/286-absorb-summary-same-source.js';
-import { rule287 } from './health-rules/287-hidden-renderer-outlets.js';
+// 第 195 轮仲裁：286/287 归 D10 关卡变体族（日志域的吸星/隐藏出口已让到 271/272）
+import { rule286 } from './health-rules/286-stage-variant-truth.js';
+import { rule287 } from './health-rules/287-stage-name-source.js';
+import { rule288 } from './health-rules/288-enemy-elite-pos.js';
+// 第 195 轮·D11 控制与意识类（289-293）
+import { rule289 } from './health-rules/289-control-target-trace.js';
+import { rule290 } from './health-rules/290-control-attacker-identity.js';
+import { rule291 } from './health-rules/291-control-trace-on-edge.js';
+import { rule292 } from './health-rules/292-control-stacking-crazy.js';
+import { rule293 } from './health-rules/293-control-cleanup-on-release.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -785,10 +790,12 @@ function runRuleChecks(ctx, doc) {
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229,
         rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239, rule240, rule241, rule242,
         rule267, rule268, rule269, rule270,
-        rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287,
+        rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287, rule288,
+        rule289, rule290, rule291, rule292, rule293,
         rule259, rule260, rule261, rule262, rule263, rule264,
+        rule271, rule272,
+        rule253, rule254,
         rule283, rule284, rule285,
-        rule286, rule287, rule288, rule289, rule290, rule291, rule292, rule293,
         rule243, rule244, rule245, rule246, rule247, rule248,
         rule249, rule250, rule251, rule252];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部

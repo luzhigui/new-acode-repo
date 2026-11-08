@@ -171,6 +171,12 @@ export const SCAN_FILES = [
     './health-rules/283-post-death-action.js',
     './health-rules/284-battle-end-race.js',
     './health-rules/285-settlement-order.js',
+    // 第 195 轮修正：rewind 挪号 253/254（D5）
+    './health-rules/253-rewind-write-surface.js',
+    './health-rules/254-rewind-write-dynamic.js',
+    // 第 195 轮仲裁：日志域新件让出 286/287 → D8 271/272
+    './health-rules/271-absorb-summary-same-source.js',
+    './health-rules/272-hidden-renderer-outlets.js',
     // 第 195 轮·D10 续 + D11 控制与意识类（286-293）
     './health-rules/286-stage-variant-truth.js',
     './health-rules/287-stage-name-source.js',

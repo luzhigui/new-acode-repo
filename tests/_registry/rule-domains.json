@@ -106,8 +106,6 @@
     "258-rewind-state-cleanup.js": "D5",
     "265-rewind-settle-same-authority.js": "D7",
     "266-heal-amount-same-source.js": "D7",
-    "286-absorb-summary-same-source.js": "D8",
-    "287-hidden-renderer-outlets.js": "D8",
     "243-move-payload-validity.js": "D3",
     "244-push-payload-selfconsistent.js": "D3",
     "245-javelin-range-select.js": "D3",
@@ -128,13 +126,19 @@
     "268-growth-curve-quantity.js": "D7",
     "269-panel-stored-vs-ledger.js": "D7",
     "270-ttl-expiry-closure.js": "D7",
+    "286-stage-variant-truth.js": "D10",
+    "287-stage-name-source.js": "D10",
+    "288-enemy-elite-pos.js": "D10",
     "289-control-target-trace.js": "D11",
     "290-control-attacker-identity.js": "D11",
     "291-control-trace-on-edge.js": "D11",
     "292-control-stacking-crazy.js": "D11",
     "293-control-cleanup-on-release.js": "D11",
-    "286-stage-variant-truth.js": "D10",
-    "287-stage-name-source.js": "D10",
-    "288-enemy-elite-pos.js": "D10"
+    "271-absorb-summary-same-source.js": "D8",
+    "272-hidden-renderer-outlets.js": "D8",
+    "313-rewind-progress-boundary.js": "D13",
+    "314-rewind-speed-boundary.js": "D13",
+    "253-rewind-write-surface.js": "D5",
+    "254-rewind-write-dynamic.js": "D5"
   }
 }
