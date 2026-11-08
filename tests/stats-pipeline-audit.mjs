@@ -16,7 +16,8 @@
 //
 // ★ 本件是新文件，未登记进 tests/run-all.mjs：该文件由并行会话共用，避免抢改冲突；
 //   需要入册时由编排方在 OBSERVES 加一行即可。
-export const VER = 'tests/stats-pipeline-audit.mjs V1.1.0';
+// V1.2.0 | 2026-11-08 S7 改为静态复核：816 有 unrecDmg 累计且 813 有跳过写法 → 转 ✅ 备注，未修才报缺口。
+export const VER = 'tests/stats-pipeline-audit.mjs V1.2.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -49,6 +50,7 @@ const { GlobalStore } = await import('../infra/104-global-store.js');
 const { eventBus } = await import('../infra/101-event-bus.js');
 const { UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } = await import('../infra/106-battle-enums.js');
 const { Unit } = await import('../core/202-unit.js');
+const { STATS_THRESHOLDS } = await import('./_lib/stats-thresholds.mjs');
 await import('./_lib/install-mechanics.mjs');
 await loadGameData();
 await loadHexEnhanceData();
@@ -230,6 +232,7 @@ addNote('S6', '排名/结论缺不确定性标注',
     const ev = SRC.evaluate;
     const has70 = /t\.wins\s*\/\s*t\.runs\s*\*\s*0\.7/.test(ev) && /\*\s*0\.3\)\s*\*\s*100/.test(ev);
     const thinCount = (ev.match(/d\.runs\s*<\s*200/g) || []).length;
+    const wrongThin = (ev.match(/d\.runs\s*<\s*(\d+)/g) || []).filter(s => parseInt(s.replace(/\D+/g, ''), 10) !== STATS_THRESHOLDS.thinSample.value);
     const noCI = !/wilson/i.test(ev);
     const scoreOnly = /const score = t\.runs \? \(t\.wins \/ t\.runs \* 0\.7 \+ t\.sumSurv \/ t\.runs \* 0\.3\) \* 100 : NaN/.test(ev);
     const noSeedStored = /latest\.elite = \{ stages, runs: RUNS, byStage, hero: buildHeroRates\(byStage, stages\) \}/.test(ev);
@@ -238,6 +241,7 @@ addNote('S6', '排名/结论缺不确定性标注',
             `812 实战评分 = (胜率×${has70 ? '0.7' : '?'} + 存活率×0.3)×100，两个权重无推导、无置信区间、无配对；` +
             `排名只按点估计 sort，第 2 名与第 3 名的差距可能小于噪声。` +
             `「样本少」阈值 200 硬编码 ${thinCount} 处（默认场次 1200/400/600，第 3 关拆两变体后单英雄格可 <200），` +
+            (wrongThin.length ? `且写法与台账不一致：${wrongThin.join(' / ')}；` : '') +
             `但样本少的行照样进排名与总评。排名使用的还是自然出场样本（各精英出场的关/变体构成不同），` +
             `页面虽注「只作参考」，却仍给「第 X / N 名」的确定排序。` +
             `${noSeedStored ? '另：masterSeed=Date.now() 不经 latest/快照落盘，同一张表无法复现。' : ''}`);
@@ -254,15 +258,16 @@ addNote('S6', '排名/结论缺不确定性标注',
         && /enemyStats\[ROLES\[ei\]\]\.total \+= roundsPerGroup/.test(rb);
     const conservativeClaim = /偏保守/.test(rb);
     const extreme = /hiV|loV/.test(rb);
-    const hardBias = /overall > 65 \|\| overall < 35/.test(rb);
+    const hardBias = /overall > 65 \|\| overall < 35/.test(rb)
+        || new RegExp(`overall > ${STATS_THRESHOLDS.overallHigh.value} || overall < ${STATS_THRESHOLDS.overallLow.value}`).test(rb);
     const rolePos = /extraPosConfig = \{[\s\S]{0,200}DEFENDER: \[3, 4, 6, 8\]/.test(rb) || /近战限位/.test(rb);
     if (paired && workerSeed) addNote('S11a', '809 配对种子公式成立（静态 ✅）',
         '116 worker：`seed = masterSeed + (pairedSeed ? 0 : ai*100000) + ei*10000 + i*7919`，' +
         '809 派发时 pairedSeed=true → 同 (ei,i) 下四职业确为同一 seed。');
     if (dateSeed || poolDouble || conservativeClaim || extreme || hardBias || rolePos) {
         addFinding('REQ', 'S11', '809 循环赛的配对/区间/极值口径有缺口',
-            `${dateSeed ? 'masterSeed=Date.now() 不落盘、不显示 → 4×4 表不可复现；' : ''}` +
-            `${poolDouble ? '池化把每场算两次（我方视角 + 敌方视角），poolN = 2×场次；' : ''}` +
+            `${dateSeed ? 'masterSeed=Date.now() 不落盘、不显示 → 4×4 表整表不可复现（同一张表第二天重跑必不同，且无法定位当时用了哪些种子）；' : ''}` +
+            `${poolDouble ? '池化把每场算两次（我方视角 + 敌方视角）：默认 4 敌 × 100 场 = 400 场，poolN 却=800，独立信息只有 400 → CI 宽度约被低估 √2；' : ''}` +
             `${conservativeClaim ? '页面写「配对后样本正相关、区间偏保守」，方向写反：同一 (ei,i) 四职业共享同一基底随机，单职业池内样本正相关会让 CI 偏窄（反保守），' : ''}` +
             `${extreme ? '「最好打 / 最难打」取 4 格 max/min、无 CI、0 位小数 → 极值选择偏差；' : ''}` +
             `${hardBias ? '整体偏差 35/65 硬编码红框，与样本量无关（应报 overall 的 CI）；' : ''}` +
@@ -270,16 +275,23 @@ addNote('S6', '排名/结论缺不确定性标注',
     }
 }
 
-// S12 826 告警阈值：判读线是否落在噪声区
+// S12 826 告警阈值：判读线是否落在噪声区（数值一律从台账取，避免检查自己再写一份硬编码）
 {
     const al = SRC.alert;
-    const th = { MIN: 300, NATURAL: 0.35, SOLO: 0.15, BOSS: 0.30, BAND: 0.05, PAIR_MIN: 150, FDR: 0.10 };
-    const hasTH = /MIN_SAMPLE:\s*300/.test(al) && /NATURAL:\s*0\.35/.test(al) && /SOLO:\s*0\.15/.test(al)
-        && /BOSS:\s*0\.30/.test(al) && /BAND:\s*0\.05/.test(al);
+    const th = {
+        MIN: STATS_THRESHOLDS.minSample.value,
+        NATURAL: 0.35, SOLO: 0.15, BOSS: 0.30,
+        BAND: STATS_THRESHOLDS.abBand.value / 100,
+        PAIR_MIN: STATS_THRESHOLDS.pairMin.value, FDR: 0.10
+    };
+    const hasTH = al.includes(STATS_THRESHOLDS.minSample.literal) && al.includes(STATS_THRESHOLDS.pairMin.literal)
+        && /NATURAL:\s*0\.35/.test(al) && /SOLO:\s*0\.15/.test(al) && /BOSS:\s*0\.30/.test(al)
+        && /BAND:\s*0\.05/.test(al);
+    const bandLiteral = new RegExp(`BAND: 0\\.${String(Math.round(th.BAND * 100)).padStart(2, '0')}`);
     const unweightedBase = /entries\.reduce\(\(s, \[, d\]\) => s \+ d\.wins \/ d\.count, 0\) \/ entries\.length/.test(al);
     const tautology = /const diffSum = rows\.reduce\(\(s, r\) => s \+ r\.diff, 0\)/.test(al);
     const clusterHeur = /const cluster = st\.buffSlots \/ st\.total/.test(al);
-    const heroMin = 8; // 852 HERO_MIN_GAMES
+    const heroMin = STATS_THRESHOLDS.heroMinGames.value;
     // 最小可辨差异（双侧 95%，n=300）：cluster=1 与 cluster=3 各算一条
     const mde = (p, n, cluster) => 1.96 * Math.sqrt(p * (1 - p) / n) * Math.sqrt(cluster) * 100;
     const mde1 = mde(th.NATURAL, th.MIN, 1), mde3 = mde(th.NATURAL, th.MIN, 3);
@@ -293,7 +305,35 @@ addNote('S6', '排名/结论缺不确定性标注',
             (unweightedBase ? '另：base = 各海克斯胜率的未加权平均，' : '') +
             (tautology ? 'diffSum=Σ(p−base) 恒等于 0（恒等式），invariant 告警永远不会触发；' : '') +
             (clusterHeur ? 'cluster 用「平均每局海克斯数」当 sqrt 设计效应（隐含 ρ=1）是启发式，未估 ICC。' : '') +
-            `样本线跨工具不一致：826=${th.MIN} / 812=200 / PAIR_MIN=${th.PAIR_MIN} / 852 英雄=${heroMin}。`);
+            `样本线跨工具不一致：826=${th.MIN} / 812=${STATS_THRESHOLDS.thinSample.value} / PAIR_MIN=${th.PAIR_MIN} / 852 英雄=${heroMin}。` +
+            (bandLiteral.test(al) ? '' : '另：826 的 BAND 写法已偏离台账。'));
+    }
+}
+
+// S14 阈值台账对账：工具里散落的硬编码是否仍与 tests/_lib/stats-thresholds.mjs 一致
+{
+    const ownerSrc = {
+        'tools/812-elite-eval.js': SRC.evaluate,
+        'tools/809-role-balance.js': SRC.roleBalance,
+        'tools/826-balance-alert.js': SRC.alert,
+        'tools/852-career-log.js': SRC.career,
+        'tools/814-baseline-compare.js': SRC.baseline
+    };
+    const missingSrc = [], drift = [];
+    for (const [key, t] of Object.entries(STATS_THRESHOLDS)) {
+        const src = ownerSrc[t.owner];
+        if (!src) { missingSrc.push(`${key}(${t.owner})`); continue; }
+        if (!src.includes(t.literal)) drift.push(`${key} 期望「${t.literal}」`);
+    }
+    if (missingSrc.length || drift.length) {
+        addFinding('REQ', 'S14', '阈值台账与工具源码未对齐',
+            (drift.length ? `工具侧已改/未按台账：${drift.join('；')}。` : '') +
+            (missingSrc.length ? `读不到持有者源码：${missingSrc.join('；')}。` : '') +
+            '台账（tests/_lib/stats-thresholds.mjs）是体检侧唯一口径基线；' +
+            '工具侧收口需由万能把 812/809/826/852 的常量改为从同一处引用（见 .tmp/req-tools-stats-fix.md）。');
+    } else {
+        addNote('S14', '阈值台账与工具一致（静态 ✅）',
+            `${Object.keys(STATS_THRESHOLDS).length} 项阈值（样本线/判读线/着色线）全部能在持有者源码里找到台账写法。`);
     }
 }
 
@@ -601,15 +641,26 @@ for (let i = 0; i < 3; i++) {
 // ---------------------------------------------------------------------------
 // D2 的负差额不判红：引擎把「自伤/主动扣血」用 record=false 直改 hp（七伤拳自损 modules/315、
 // 乾坤自伤 modules/302），这部分本来就不进 dmgTaken；813 拿「承伤 − 净扣血」当漏记会假红。
-// 证据确凿 ⇒ 列成工具侧口径缺口（S7），不当作引擎战斗逻辑错误。
-if (negGapUnits > 0) {
-    staticFindings.push({
-        kind: 'REQ', id: 'S7', title: '813 的「负差额=漏记」会把自伤误判成漏记',
-        detail: `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}）。` +
-            '引擎侧正常：唐文亮「七伤拳自损」(modules/315) 与张无忌「乾坤自伤」(modules/302) 走 ' +
-            'applyStatChange(..., record=false) 直扣 hp，小昭·姊的附身/吸魂转移也直接搬 hp，都不记 dmgTaken。' +
-            '813 应按「是否自伤/附身/直改血」拆列或排除这些单位，否则页头会报「承伤漏记」假红。'
-    });
+// V1.2.0（2026-11-08）：816 用「真实 hp 变化 − 记账增量」标出 unrec*，813 跳过这些单位。
+// 静态复核两处写法防回退；只有未修时才列成工具侧口径缺口（S7）。
+{
+    const wBody = fnBody(SRC.worker, 'runStatsStageJob');
+    const s7Fixed = /unrecDmg/.test(wBody) && /unrecDmg/.test(SRC.stats) && /跳过/.test(SRC.stats);
+    if (s7Fixed) {
+        if (negGapUnits > 0) {
+            addNote('S7 负差额已排除不可校核单位（静态 ✅）',
+                `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}），均为自伤/附身/直改血；` +
+                '816 已标 unrec*，813 改为跳过这些单位，不再报假红。');
+        }
+    } else if (negGapUnits > 0) {
+        staticFindings.push({
+            kind: 'REQ', id: 'S7', title: '813 的「负差额=漏记」会把自伤误判成漏记',
+            detail: `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}）。` +
+                '引擎侧正常：唐文亮「七伤拳自损」(modules/315) 与张无忌「乾坤自伤」(modules/302) 走 ' +
+                'applyStatChange(..., record=false) 直扣 hp，小昭·姊的附身/吸魂转移也直接搬 hp，都不记 dmgTaken。' +
+                '813 应按「是否自伤/附身/直改血」拆列或排除这些单位，否则页头会报「承伤漏记」假红。'
+        });
+    }
 }
 
 const hardFails = [];
