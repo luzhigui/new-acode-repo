@@ -25,7 +25,13 @@
 //   · 唐文亮强推挤压改站位不发位移事件 ⇒ checkLanding 中断判定须叠加 isOtherRelocate 白名单
 //     （后续任一「唐文亮冲刺·七伤齐发」报幕提到该单位名 = 位置被合法改写），
 //     否则把「之后又被挤走」误判成「这次没落地」（rule113 判据5 V6.1.3 已踩过同款）。
-export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.2';
+export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.3';
+// V2.0.3（2026-11-08）：补两处漏认的中断，口径不变（宁漏勿误）。
+//   ① buff-swap 条目只带 { type, swaps, buffType, text }，**没有 uidA/uidB** ⇒ 旧 uid 判定恒 false，
+//      「冲刺落位后又被人换走」一律误报「未落到宣告位」。改读 swaps（name/uid）点名该单位即放弃对账。
+//      实证 seed=5 stage=7：空闻 3→6 落地后，惑人心智「6号位空闻→5号位」立刻换走。
+//   ② 同一条冲刺报幕内同名出现多次（同名克隆各推一次）⇒ 按名解析 uid 只命中一个，必误判。
+//      该名整条跳过。实证 seed=5 stage=4「周芷若 6→9、周芷若 3→6」。
 // V2.0.2（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改判定口径与阈值）。
 //   病由：「宣告位越界」与「落位未生效」两类子病因都 push 进 problems，末尾 slice(0,3).join(' | ')
 //   合成一条 msg ⇒ 分支级只见一个聚合外壳指纹（牙口证据链对账的聚合型棘轮点名）。今两类各存一格、
@@ -36,7 +42,7 @@ export const VER = 'tests/health-rules/171-tangwenliang-dash.js V2.0.2';
 //   标枪前压/压进）。实证：宋青书被冲刺·七伤齐发推到 6 号位后，被此类机制合法挤走，规则却因认不出
 //   中断而误报「未落到 6 号位」。现与 166 判据5 同口径——命中 isSilentRelocate 即视为合法改写、放弃
 //   该次落位对账（宁漏勿误）。机制本体未改，属测试侧覆盖缺口，非主代码缺陷。
-import { entryTextsDeep, isSilentRelocate } from '../122health-utils.js';
+import { entryTextsDeep, isSilentRelocate, swapMovedUids } from '../122health-utils.js';
 
 // 位置改写白名单：唐文亮强推挤压改站位不发位移事件（moveUnitPosition），
 //   后续任一冲刺报幕提到该单位名 ⇒ 视为位置被合法改写，放弃其落位对账（宁漏勿误）。
@@ -132,6 +138,25 @@ export const rule171 = {
                     if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
                         if (mid.pushTargetUid === uid || mid.behindUid === uid ||
                             mid.uidA === uid || mid.uidB === uid) { interrupted = true; break; }
+                        // V2.0.3（2026-11-08）：buff-swap 条目**不带 uidA/uidB**（render/409 只回
+                        //   { type, swaps, buffType, text }）⇒ 上面那串 uid 判定对本条目恒 false。
+                        //   实证 seed=5 stage=7：空闻被冲刺推到 6 号位后，紧随「惑人心智」把
+                        //   「6号位空闻→5号位」换走，规则认不出中断，误报「未落到 6 号位」。
+                        //   改读 swaps（每项 { uid?, name, fromPos, toPos }）：命中该单位 = 位置被换位
+                        //   合法改写，放弃本次落位对账（宁漏勿误）。
+                        if (mid.type === 'buff-swap') {
+                            var movedUids = swapMovedUids(mid);
+                            if (uid != null && movedUids.indexOf(uid) !== -1) { interrupted = true; break; }
+                            var sw = mid.swaps;
+                            if (Array.isArray(sw)) {
+                                for (var si = 0; si < sw.length; si++) {
+                                    if (sw[si] && name && sw[si].name === name) { interrupted = true; break; }
+                                }
+                                if (interrupted) break;
+                            } else if (name && typeof mid.text === 'string' && mid.text.indexOf(name) !== -1) {
+                                interrupted = true; break;
+                            }
+                        }
                     }
                     // 通用静默位移白名单（V2.0.1 补）：命中即该单位被其它「改站位却不发位移事件」机制
                     //   合法改写，放弃本次落位对账（宁漏勿误），否则把「之后又被挤走」误判成「这次没落地」。
@@ -156,8 +181,17 @@ export const rule171 = {
             var da = dashes[d];
             var tag = '第' + roundAt(da.idx) + '回合冲刺';
             if (da.moves.length === 0) continue;   // 全被挡/免疫/原地未动：无宣告移动，不判位置（照实报幕）
+            // V2.0.3：同一条冲刺报幕里同名出现多次（如 seed=5 stage=4「周芷若 6→9、周芷若 3→6」，
+            //   两名同名克隆各被推一次）⇒ 按名解析 uid 注定只命中其中一个，拿单一 uid 对账必误判。
+            //   该名整条跳过（宁漏勿误）。
+            var nameCount = {};
+            for (var nc = 0; nc < da.moves.length; nc++) {
+                var nmc = da.moves[nc] && da.moves[nc].name;
+                if (nmc) nameCount[nmc] = (nameCount[nmc] || 0) + 1;
+            }
             for (var mv = 0; mv < da.moves.length; mv++) {
                 var mo = da.moves[mv];
+                if (mo && mo.name && nameCount[mo.name] > 1) continue;
                 if (!(mo.to >= 1 && mo.to <= 9)) {
                     if (!outOfRange) outOfRange = tag + ' ' + mo.name + ' 宣告位越界：' + mo.to;
                     continue;
@@ -169,7 +203,7 @@ export const rule171 = {
             }
         }
         if (outOfRange) return { fail: true, msg: '复发：唐文亮冲刺宣告位越界 — ' + outOfRange };
-        if (notLanded) return { fail: true, msg: '复发：唐文亮冲刺未落到宣告位 — 宣告移动的单位后续出场快照均未落到宣告位' };
+        if (notLanded) return { fail: true, msg: '复发：唐文亮冲刺未落到宣告位 — ' + notLanded };
         return { fail: false };
     }
 };

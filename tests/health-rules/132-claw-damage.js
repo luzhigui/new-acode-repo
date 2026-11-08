@@ -26,7 +26,7 @@
 //   133 路径2 的口径改为校验斩杀条目带 isExecute + clawTargetUid。
 //
 //
-export const VER = 'tests/health-rules/132-claw-damage.js V6.3.0';
+export const VER = 'tests/health-rules/132-claw-damage.js V6.3.1';
 // 用 as 保留原调用名 collectNodes：调用点（下方遍历）不改，避免"改名漏改调用点"这类回归。
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 import { getGameData } from '../../core/201-config-5v5-test.js';
@@ -146,10 +146,10 @@ export const rule79 = {
                 return { fail: true, msg: '复发：九阴白骨爪设计值低于下限：' + e.designedDmg + ' 低于设计下限 ' + floorDmg
                     + '（content 周芷若 chainClaw 声明下界；如 decl.jealous?.baseDmg 缺失或改错）' };
             }
-            if (dmg > e.designedDmg + EPS) {
-                return { fail: true, msg: '复发：九阴白骨爪落地值超过设计值：' + dmg + ' 超过设计值 ' + e.designedDmg
-                    + '（减伤/回填写反，落地不可大于设计）' };
-            }
+            // V6.3.1（2026-11-08）：删「文本落地值 > 设计值」比较。渲染条目里的 dmg 是 render/412
+            //   的 fmtNum 显示取整值（10.7 → 「11」），拿它比原始 designedDmg 必然把正常取整判成
+            //   越界（实测 1 场误报「11 超过 10.7」）。越界守护改由下方判据 4 用 CLAW_HIT 原始
+            //   fact 的 data.dmg 比 data.designedDmg（同一原始口径，无显示层干扰）。
             // 2.（已删除，第 21 轮）原判据「标记斩杀则目标血量应为 0」是**自相矛盾的伪判据**：
             //    modules/308-elite-sixsects.js:534 的斩杀定义就是
             //      isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0
