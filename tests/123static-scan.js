@@ -138,6 +138,9 @@ export const SCAN_FILES = [
     './health-rules/196-tangwenliang-huichun.js',
     './health-rules/197-tangwenliang-tonggui.js',
     './health-rules/198-zhangwuji-qiankun.js',
+    './health-rules/202-xuanming-poison-dot.js',
+    './health-rules/203-xiexun-lion-grow.js',
+    './health-rules/204-xiexun-lion-inspire.js',
     // 战报与渲染一致性（分组归属 / 显示取整单一出口 / 飘字与正文同源 / 血量链四处同源 / 组内顺序）
     './health-rules/185-log-group-consistency.js',
     './health-rules/186-display-single-exit.js',
