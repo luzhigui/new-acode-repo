@@ -7,8 +7,8 @@ import { getStat } from '../core/214-battle-shared.js';
 import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-// V1.5.5 | 2026-11-08 攻击力显示下限：命中/闪避/免疫/波动行攻文本一律包 fmtAtk（<0 显示 0），引擎负数真值不回写
-export const VER = 'render/407-facts-attack.js V1.5.5';
+// V1.5.7 | 2026-11-08 计算明细负攻口径：公式项与 baseRaw 打印前过 fmtAtk（<0 显示 0），与格子/波动行一致
+export const VER = 'render/407-facts-attack.js V1.5.7';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -162,7 +162,10 @@ export function renderAttackFact(fact) {
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value !== 1);
     const fm = dmgCalc.formula;
     let runningRaw = fm ? fm.baseRaw : 0;
-    if (fm) formulaText = `${fm.terms.map(t => t.text).join(' + ')} = ${fmt1(fm.baseRaw)}`;
+    // 计算明细与格子/波动行同口径（fmtAtk）：负攻真值（<0）一律印成 0，
+    //   否则会出现「攻-5 → 防20 → 伤害1」这种自相矛盾的明细。只改显示，不动 baseRaw/各项 value。
+    const fmtTermText = (text) => String(text).replace(/-?\d+(?:\.\d+)?/g, n => (Number(n) < 0 ? '0' : n));
+    if (fm) formulaText = `${fm.terms.map(t => fmtTermText(t.text)).join(' + ')} = ${fmt1(fmtAtk(fm.baseRaw))}`;
     for (const e of fmtBonusEntries) {
         runningRaw += e.value;
         formulaText += ` + ${e.label}${fmt1(e.value)} = ${fmt1(runningRaw)}`;
@@ -209,12 +212,19 @@ export function renderAttackFact(fact) {
         text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {
+        const leadEntries = [];   // 组内报幕（周颠·癫的出手开场白）：压到组首 → 分隔线之后、攻击头行之前
         for (const e of fact.entries) {
             if (e && e.factType === FACT_TYPES.BREAK_DEF) continue; // 已前置到攻击组开头
             // 无渲染声明的 fact（58 显式 renderFn:false）→ projectFactEntry 返回 null，跳过，避免 null 流入 entries 在 player/46 崩
-            if (e && e.factType) { const _re = projectFactEntry(e); if (_re) group.entries.push(_re); }
+            if (e && e.factType) {
+                const _re = projectFactEntry(e);
+                if (!_re) continue;
+                if (e.factType === FACT_TYPES.SKILL_ANNOUNCE) leadEntries.push(_re);
+                else group.entries.push(_re);
+            }
             else group.entries.push(e);
         }
+        if (leadEntries.length) group.entries.unshift(...leadEntries);
     }
     return group;
 }

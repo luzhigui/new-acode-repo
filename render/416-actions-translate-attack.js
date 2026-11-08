@@ -4,7 +4,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, SKILL_CU
 import { makeHealAction } from './418-actions-translate-heal.js';
 // 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/107-fact-contract.js';
-export const VER = 'render/416-actions-translate-attack.js V1.0.6';
+export const VER = 'render/416-actions-translate-attack.js V1.0.7';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -369,6 +369,19 @@ function makeAttackAction(data, index) {
                     statKind: 'atk',
                     targetUid: sp.pangAtkUid,
                     gain: Math.round(sp.pangAtkGain),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
+        } else if (e.factType === FACT_TYPES.SKILL_ANNOUNCE) {
+            // 组内报幕（周颠·癫的出手开场白）：fact 藏在 attack.data.entries 里、不在 log 顶层，
+            //   STAT 翻译器扫不到它 —— 🤪 头顶飘字只能在这里补，否则迁进组内后只剩战报行。
+            const sa = e.data || {};
+            if (sa.floatText && sa.floatUid != null) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
+                    targetUid: sa.floatUid,
+                    text: sa.floatText,
                     factIndex: index,
                     timing: 'afterText'
                 });

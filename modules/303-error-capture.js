@@ -1,4 +1,6 @@
-export const VER = 'modules/303-error-capture.js V6.5.0';
+export const VER = 'modules/303-error-capture.js V6.6.0';
+// V6.6.0 | 2026-11-08 | 🐞 已记录列表：每条加「下载这一条」（单条 .txt 落地）、「清空列表」更名「清空历史」
+//                     （保留二次确认）；单条文本与整段复制同格式（标题/角色/锚点/日志原文）
 // V6.5.0 | 2026-11-07 | 🎯 点选态不再改日志行距（去掉 min-height，只留光标+选中高亮）；记 Bug 面板
 //                     「去日志里点选锚点」收缩成屏幕顶部一条（标题+返回编辑+锚点提示），日志整块露出可点
 //                     可滚，点中日志行后面板自动恢复原位原高度
@@ -825,40 +827,56 @@ import { GlobalStore } from '../infra/104-global-store.js';
     }
 
     // ---------- 已记录列表 ----------
+    // 单条记录展开成文本行（整段复制 / 单条下载共用这一套格式，避免两处口径漂移）。
+    //   logBudget 是本条可用的日志原文预算，返回本次实际消耗，由调用方扣减。
+    function recordLines(r, idx, logBudget) {
+        const lines = [];
+        const t = fmtTime(r.createdAt);
+        const manual = r.mode === 'manual';
+        const sums = (r.entries || []).map(e => e.summary).filter(Boolean).join('；');
+        if (manual) {
+            lines.push((idx + 1) + '. ' + t + ' ｜ [手动] ' + (r.note || '（无描述）'));
+            if ((r.units || []).length) lines.push('   角色：' + r.units.join('、'));
+            if (sums) lines.push('   同时选中报错：' + sums);
+        } else {
+            lines.push((idx + 1) + '. ' + t + ' ｜ [自动] ' + (sums || r.note || '（无摘要）'));
+            if (sums && r.note) lines.push('   备注：' + r.note);
+        }
+        // 日志原文：报错点前后逐字带出（▶ 为锚点行）
+        const lc = r.detail && r.detail.logCtx;
+        if (lc && Array.isArray(lc.log) && lc.log.length) {
+            const block = [];
+            const noAt = (k) => (Array.isArray(lc.nos) && typeof lc.nos[k] === 'number') ? lc.nos[k] + 1 : lc.from + k + 1;
+            block.push('   ── 战斗日志原文（' + (lc.src === 'manual' ? '手动记录' : '自动抓取') +
+                ' · 锚点来源：' + (lc.anchorSrc === 'user' ? '用户点选' : '自动推测（未点选）') +
+                ' · 第 ' + noAt(0) + '~' + noAt(lc.log.length - 1) + ' 行 / 共 ' + lc.total +
+                ' 行 · 出事单位：' + (lc.unit || '未识别') +
+                ((lc.names || []).length > 1 ? ' · 出现：' + lc.names.join('、') : '') + '）');
+            lc.log.forEach((txt, k) => {
+                block.push('   ' + noAt(k) + ' │ ' + (k === lc.anchor ? '▶ ' : '  ') + txt);
+            });
+            const cost = block.join('\n').length;
+            if (cost <= logBudget) { lines.push(...block); return { lines, cost }; }
+            lines.push('   （本条日志原文见列表「详情」）');
+        }
+        return { lines, cost: 0 };
+    }
+
     function buildSavedCopyText(list) {
         const lines = ['【Bug 记录】共 ' + list.length + ' 条', ''];
         let logBudget = 16000;                       // 复制档总量封顶，避免几十条把剪贴板撑爆
         list.forEach((r, i) => {
-            const t = fmtTime(r.createdAt);
-            const manual = r.mode === 'manual';
-            const sums = (r.entries || []).map(e => e.summary).filter(Boolean).join('；');
-            if (manual) {
-                lines.push((i + 1) + '. ' + t + ' ｜ [手动] ' + (r.note || '（无描述）'));
-                if ((r.units || []).length) lines.push('   角色：' + r.units.join('、'));
-                if (sums) lines.push('   同时选中报错：' + sums);
-            } else {
-                lines.push((i + 1) + '. ' + t + ' ｜ [自动] ' + (sums || r.note || '（无摘要）'));
-                if (sums && r.note) lines.push('   备注：' + r.note);
-            }
-            // 日志原文：报错点前后逐字带出（▶ 为锚点行）
-            const lc = r.detail && r.detail.logCtx;
-            if (lc && Array.isArray(lc.log) && lc.log.length) {
-                const block = [];
-                const noAt = (k) => (Array.isArray(lc.nos) && typeof lc.nos[k] === 'number') ? lc.nos[k] + 1 : lc.from + k + 1;
-                block.push('   ── 战斗日志原文（' + (lc.src === 'manual' ? '手动记录' : '自动抓取') +
-                    ' · 锚点来源：' + (lc.anchorSrc === 'user' ? '用户点选' : '自动推测（未点选）') +
-                    ' · 第 ' + noAt(0) + '~' + noAt(lc.log.length - 1) + ' 行 / 共 ' + lc.total +
-                    ' 行 · 出事单位：' + (lc.unit || '未识别') +
-                    ((lc.names || []).length > 1 ? ' · 出现：' + lc.names.join('、') : '') + '）');
-                lc.log.forEach((txt, k) => {
-                    block.push('   ' + noAt(k) + ' │ ' + (k === lc.anchor ? '▶ ' : '  ') + txt);
-                });
-                const cost = block.join('\n').length;
-                if (cost <= logBudget) { lines.push(...block); logBudget -= cost; }
-                else lines.push('   （本条日志原文见列表「详情」）');
-            }
+            const res = recordLines(r, i, logBudget);
+            lines.push(...res.lines);
+            logBudget -= res.cost;
         });
         return lines.join('\n');
+    }
+
+    // 单条下载：只要当前这一条（标题行 + 角色 + 锚点 + 日志原文），方便直接发出去
+    function buildSingleRecordText(r) {
+        const res = recordLines(r, 0, 16000);
+        return ['【Bug 记录】1 条', ''].concat(res.lines).join('\n');
     }
 
     function openSavedList() {
@@ -944,6 +962,12 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     detailBox.style.display = open ? 'none' : 'block';
                     detailBtn.textContent = open ? '详情' : '收起';
                 };
+                const downloadBtn = makeSmallBtn('下载这一条');
+                downloadBtn.onclick = () => {
+                    const stamp = String(rec.createdAt || rec.id || Date.now()).replace(/[:.]/g, '-');
+                    downloadText(buildSingleRecordText(rec), 'bug-' + stamp + '.txt');
+                    showToast('已下载这一条');
+                };
                 const delBtn = makeSmallBtn('删除');
                 delBtn.style.color = '#ff9a8a';
                 delBtn.onclick = () => {
@@ -952,7 +976,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     showToast('已删除，剩 ' + arr.length + ' 条');
                     openSavedList();
                 };
-                ops.appendChild(detailBtn); ops.appendChild(delBtn);
+                ops.appendChild(detailBtn); ops.appendChild(downloadBtn); ops.appendChild(delBtn);
                 card.appendChild(ops);
                 listBox.appendChild(card);
             });
@@ -970,7 +994,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const secondRow = document.createElement('div');
         secondRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;';
         const fullBtn = makeSmallBtn('下载完整报告（全量）');
-        const clearBtn = makeSmallBtn('清空列表');
+        const clearBtn = makeSmallBtn('清空历史');
         clearBtn.style.color = '#ff9a8a';
         secondRow.appendChild(fullBtn); secondRow.appendChild(clearBtn);
         box.appendChild(secondRow);
@@ -993,9 +1017,9 @@ import { GlobalStore } from '../infra/104-global-store.js';
         };
         clearBtn.onclick = () => {
             if (!list.length) { showToast('列表已经是空的'); return; }
-            if (!window.confirm('清空全部已记录条目？')) return;
+            if (!window.confirm('确定清空全部 Bug 历史记录？此操作不可恢复。')) return;
             if (!writeSaved([])) return;
-            showToast('已清空列表');
+            showToast('已清空历史');
             openSavedList();
         };
     }
