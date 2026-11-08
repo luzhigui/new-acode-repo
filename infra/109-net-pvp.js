@@ -1,5 +1,7 @@
 // infra/109-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-export const VER = 'infra/109-net-pvp.js V7.4.3';
+export const VER = 'infra/109-net-pvp.js V7.5.0';
+// V7.5.0 | 2026-11-08 抽签契约版本化：lineup 捎带 rngContractVersion（从机据此比对），
+//   新增 contractMismatch 回传（从机发现版本不一致时通知房主，双端都明确报错、拒绝开战）。
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -105,12 +107,19 @@ function reviveStep(raw) {
 }
 
 // 房主下发阵容：两队单位净化后传输，从机复原成普通对象（摆位阶段只读 pos/渲染，不需要方法）
-export function plainLineup(stage, allyTeam, enemyTeam) {
-    return { stage, ally: allyTeam || [], enemy: enemyTeam || [] };
+// rngContractVersion：本局阵容是哪一版抽签契约产出的（房主带出）。从机拿它跟本地版本比对，
+//   不一致就明确报错并中止——否则双端各跑一套随机序列，打出来的根本不是同一场。
+export function plainLineup(stage, allyTeam, enemyTeam, rngContractVersion) {
+    return { stage, ally: allyTeam || [], enemy: enemyTeam || [], rngContractVersion: rngContractVersion || null };
 }
 
 export function reviveLineup(raw) {
-    return { stage: raw.stage || 1, ally: (raw.ally || []).map(u => ({ ...u })), enemy: (raw.enemy || []).map(u => ({ ...u })) };
+    return {
+        stage: raw.stage || 1,
+        ally: (raw.ally || []).map(u => ({ ...u })),
+        enemy: (raw.enemy || []).map(u => ({ ...u })),
+        rngContractVersion: raw.rngContractVersion || null
+    };
 }
 
 function pushStep(step) {
@@ -379,12 +388,18 @@ export function clearSteps() { failPendingStep(); }
 
 // ---- 阶段3 对外 API ----
 // 房主 → 从机：下发双方阵容（从机据此进摆位态，只摆六大派）
-export function sendLineup(stage, allyTeam, enemyTeam, keepReady = false) {
+// rngContractVersion：抽签契约版本随阵容捎带，从机必须在应用阵容前比对（不一致即中止）
+export function sendLineup(stage, allyTeam, enemyTeam, keepReady = false, rngContractVersion = null) {
     // keepReady：摆位阶段切小昭形态的重发，不算新一局——从机已「准备」的状态不能被退回
-    return netSend({ t: 'lineup', lineup: plainLineup(stage, allyTeam, enemyTeam), keepReady: !!keepReady });
+    return netSend({ t: 'lineup', lineup: plainLineup(stage, allyTeam, enemyTeam, rngContractVersion), keepReady: !!keepReady });
 }
 // 从机 → 房主：回传六大派站位（[{uid, pos}]），房主据此合并进自己的 UI.enemyTeam
 export function sendLineupReady(positions) { return netSend({ t: 'lineupReady', positions: positions || [] }); }
+// 从机 → 房主：本机抽签契约版本与房主下发的不一致（附双方版本）；房主据此明确报错、拒绝开战，
+//   否则双方会各跑一套随机序列——打出来的不是同一场，胜负还各算各的
+export function sendContractMismatch(localVersion, hostVersion) {
+    return netSend({ t: 'contractMismatch', localVersion: localVersion || null, hostVersion: hostVersion || null });
+}
 // 摆位实时同步（与 lineupReady 是两回事，别合并）：
 //   lineupReady = 「我摆完了，你可以开战」的握手，会改 netPeerReady/netGuestReady
 //   posUpdate   = 纯画面同步，只搬位置，不动任何准备状态

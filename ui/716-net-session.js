@@ -18,8 +18,13 @@ import { playBattleGuest } from '../player/503-player-core.js';
 import { stepBattleStart } from './712-tutorial.js';
 // 会话初始化公共件（与 ui/76replay-entry 共用）：重建 store + 收尾渲染各一行
 import { rebuildSessionStore, finalizeSessionRender } from './714-session-common.js';
+// 抽签契约版本：联机双端必须同一版，否则各跑一套随机序列（打出来的不是同一场）
+import { RNG_CONTRACT_VERSION } from '../modules/330-battle-init.js';
+import { showAlert } from './701-main-utils.js';
 
-export const VER = 'ui/716-net-session.js V1.1.0';
+export const VER = 'ui/716-net-session.js V1.2.0';
+// V1.2.0 | 2026-11-08 联机抽签契约校验：房主 lineup 捎带版本 → 从机 applyNetLineup 先比对，
+//   不一致明确报错并中止开局（回传 contractMismatch 让房主也看到同一句话），不许静默跑两套序列。
 
 // 纯数据化单位（与 76replay-entry 共用）：从机/回放的 steps 里恢复出的 plain object 再浅拷一份，断引用
 // ---- 联网对战阶段3：阵容 / 站位 / 海克斯双向 ----
@@ -101,7 +106,8 @@ export function sendNetLineup(keepReady = false) {
     // 重发阵容 = 新一局：从机「本局播完」回执随之作废，房主「▶ 下一关」重新锁上
     GlobalStore.set('netGuestDone', false);
     const UI = getState.UI();
-    net.sendLineup(getState.currentStage(), UI.allyTeam, UI.enemyTeam, keepReady);
+    // 抽签契约版本随阵容下发：从机据此判断双端是不是同一版抽签规则
+    net.sendLineup(getState.currentStage(), UI.allyTeam, UI.enemyTeam, keepReady, RNG_CONTRACT_VERSION);
     updateButtons();
 }
 
@@ -118,6 +124,17 @@ export function installNetSession(ctx) {
 
     // 房主下发的阵容灌进从机：abort 旧循环 + UI/快照/store 全套重建 + 进摆位态
     function applyNetLineup(lineup, keepReady = false) {
+        // ① 抽签契约版本先比对：不一致就中止（否则双端各跑一套随机序列，画面和胜负都对不上）
+        const hostVer = lineup.rngContractVersion || null;
+        if (hostVer !== RNG_CONTRACT_VERSION) {
+            // 先回传，让房主也明确看到「不能开」；再拆连接，避免双方干等
+            net.sendContractMismatch(RNG_CONTRACT_VERSION, hostVer);
+            GlobalStore.set('pvpMode', false);
+            exitNetIdentity();
+            showAlert('联机双方版本不一致（抽签规则不同），这一局不能开：你这边 ' + RNG_CONTRACT_VERSION
+                + '，对手那边 ' + (hostVer || '旧版本') + '。请双方更新到同一版本后重新建房。');
+            return;
+        }
         // 房主换关/开下一局重发阵容时，从机可能还卡在上一局的 playBattleGuest 循环里。
         // 直接 abort 旧循环 + 清残留 step，否则旧循环会接着播上一局的 step，最后还把 gs 打回 GAMEOVER
         const curCtx = getPlayerContext();
@@ -201,6 +218,18 @@ export function installNetSession(ctx) {
         if (msg.t === 'guestJoin') {
             if (GlobalStore.get('netRole') !== 'host') return;
             hostEnterAdjust();
+            return;
+        }
+        // 房主：从机报了抽签契约版本不一致 → 同样明确报错并锁死开战（双方跑两套序列 = 不是同一场）
+        if (msg.t === 'contractMismatch') {
+            if (GlobalStore.get('netRole') !== 'host') return;
+            net.clearSteps();
+            GlobalStore.set('netPeerReady', false);
+            GlobalStore.set('netGuestDone', false);
+            GlobalStore.set('pvpMode', false);
+            showAlert('联机双方版本不一致（抽签规则不同），这一局不能开：你这边 ' + RNG_CONTRACT_VERSION
+                + '，对手那边 ' + (msg.localVersion || '旧版本') + '。请双方更新到同一版本后重新建房。');
+            updateButtons();
             return;
         }
         if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {}), !!msg.keepReady); return; }
