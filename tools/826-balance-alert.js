@@ -1,16 +1,13 @@
 // tools/826-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/826-balance-alert.js V3.8.1';
+export const VER = 'tools/826-balance-alert.js V3.8.2';
+// V3.8.2 | 2026-11-08 按老板要求把表格呈现恢复原样：撤掉 V3.8.0 的「同批阵容细分」口径与面板细分表，
+//   规则五回到 V3.7.1 的跨模式总胜率对比（四套榜各自的总胜率）；V3.8.1 的规则一④改动保留。
 // V3.8.1 | 2026-11-08 | 规则一④「中文名覆盖」不再依赖跨页全局钩子：旧版读 window.__hexDocKeys
 //   （只有打开过 108 才存在），没打开时整条检查静默跳过；且文案仍写「缺手写战术解读」，
 //   但 HEX_HINTS 早已删除。108 已删掉手写表、直接引用 827，本规则改为直接判 HEX_NAMES 覆盖
 //   content.BUFFS，标题改成「主代码新增、827 未登记中文名」，漏登时 108 表头/852 报告会显示英文 key。
-// V3.8.0 | 2026-11-08 规则五口径修正（老板案例：两批独立跑批相减得出「妹妹 +19pp」，同批细分里反而更低）：
-//   旧版拿「仅妹妹榜」与「常规榜」两批各自跑批的总胜率相减——两批队伍/种子/阵容全不同，不是对照实验，差值不可用。
-//   新口径与 808 V6.9.0 统一：只读同一批「常规」记录，按记录自带 lineup 切「仅姐姐 / 仅妹妹 / 都不带 / 其他」
-//   互斥子集（合计恒等于总盘），以「都不带」为基准比；样本 <100 场降级为提示，两比例差给 95% CI、跨 0 不报显著。
-//   旧记录没有 lineup 字段 → 归「其他/未标注」，不混入对比，提示重跑。
 // V3.7.1 | 2026-10-31 108 详情卡改数据驱动后 HEX_HINTS 已删：去掉「108 缺判断提示文案」这项告警
 //          （判断提示现在按 content desc + 201 差异自动生成，不再存在漏登），只保留中文名表检查。
 // V3.7.0 | 2026-10-31 | 真实对局对照不再混算单/双海克斯：getCareerInsights / getHeroAggregates
@@ -32,7 +29,7 @@ const TH = {
     Z_WARN: 2.0,       // 海克斯表：|z| ≥ 2.0 判偏强/偏弱（约 95% 置信）
     Z_ALERT: 3.0,      // 海克斯表：|z| ≥ 3.0 判显著过强/过弱
     BAND: 0.05,        // 精英/整体：偏离理想线 ≥5pp 判过强/过弱、≥10pp 判显著（用户拍板）
-    MODE_GAP: 0.05,    // 同批阵容细分：仅妹妹/仅姐姐 相对「都不带」≥5pp 提示、≥10pp 且 CI 不跨 0 才判显著
+    MODE_GAP: 0.05,    // 模式间对比：扩展阵容（仅姐姐/仅妹妹）总胜率偏离常规 ≥5pp 判偏、≥10pp 判显著
     NATURAL: 0.35,     // 主表·自然出场 / 整体 7 关 的理想胜率
     SOLO: 0.15,        // 强精英（单核 M107）的理想胜率
     BOSS: 0.30,        // Boss·张无忌（单核 M115）的理想胜率
@@ -526,77 +523,43 @@ function overallIssues(hex) {
     return { cur, target, n, diff, ok: az < TH.BAND, issues };
 }
 
-/* ========== 规则五：同批阵容细分对比（仅妹妹 / 仅姐姐 vs 都不带） ========== */
-// V3.8.0 口径修正：旧版把「仅妹妹榜」和「常规榜」两批独立跑批的总胜率相减——两批队伍/种子/阵容全不同，
-//   不是对照实验，差值本身没有统计意义（老板案例：两批差值 +19pp，同批细分里妹妹组反而更低）。
-// 新口径（与 808 V6.9.0 统一）：只读同一批「常规」记录，按记录自带 lineup 切
-//   仅姐姐 / 仅妹妹 / 都不带 / 其他（互斥、合计恒等于总盘），以「都不带」为基准比。
-//   样本 <100 场降级为提示；两比例差给 95% 置信区间，跨 0 不得报「显著」。
-const LINEUP_BUCKETS = [
-    { k: 'sister', label: '仅姐姐' },
-    { k: 'brother', label: '仅妹妹' },
-    { k: 'none', label: '都不带' },
-    { k: 'other', label: '其他/未标注' }
-];
-const LINEUP_MIN = 100;   // 样本门槛（与 808 的 SAMPLE_MIN 对齐）
-const bucketOfLog = l => {
-    const v = l && l.lineup;
-    return (v === 'sister' || v === 'brother' || v === 'none') ? v : 'other';
-};
-// 两比例差 95% 置信区间（百分比点）。跨 0 即「样本不足以判定差异」。
-function diffCi95(w1, n1, w2, n2) {
-    if (!(n1 > 0) || !(n2 > 0)) return null;
-    const p1 = w1 / n1, p2 = w2 / n2;
-    const se = Math.sqrt(p1 * (1 - p1) / n1 + p2 * (1 - p2) / n2);
-    const diff = (p1 - p2) * 100, half = 1.959964 * se * 100;
-    return { diff, lo: diff - half, hi: diff + half };
-}
-
+/* ========== 规则五：扩展阵容模式间对比（读 108 四套榜，跨模式判总胜率偏离） ========== */
+// 108 已分别落盘 常规 / 仅姐姐 / 仅妹妹 / 不带 四套榜，但旧判读只「逐模式内」比海克斯、或「单模式」对 35% 理想线。
+// 妹妹永久海克斯继承机制会让「仅妹妹」整体显著抬升（实测 ~53% vs 常规 ~34%）——这条异常旧版只在手动
+// 切到「仅妹妹」模式看整体胜率时才暴露。本规则自动比对四模式总胜率，把「扩展阵容系统性失衡」点出来。
 function modeGapIssues() {
-    const logs = readJSON(hexKeyFor('normal'), []);
-    const total = logs.filter(l => l && typeof l === 'object').length;
-    const buckets = {};
-    LINEUP_BUCKETS.forEach(x => { buckets[x.k] = { n: 0, w: 0, rate: null }; });
-    for (const l of logs) {
-        if (!l || typeof l !== 'object') continue;   // 脏条目免疫
-        const b = buckets[bucketOfLog(l)];
-        b.n++;
-        if (l.winner === '明教') b.w++;
+    const rates = {};
+    let any = false;
+    for (const m of HEX_MODES) {
+        const st = hexStatsOf(readJSON(hexKeyFor(m), []));
+        if (st.total >= TH.MIN_SAMPLE) { rates[m] = { rate: st.allyWins / st.total, n: st.total }; any = true; }
     }
-    LINEUP_BUCKETS.forEach(x => { const b = buckets[x.k]; b.rate = b.n ? b.w / b.n : null; });
+    if (!any) return { missing: `模式间对比需要 108 海克斯榜把「常规 / 仅姐姐 / 仅妹妹 / 不带」四套都跑过（每套 ≥${TH.MIN_SAMPLE} 场），当前数据不足，跳过该对比。` };
 
-    if (!total) return { missing: '同批阵容细分需要 108「常规」榜数据 —— 先到海克斯仪表盘用「常规」阵容跑一批（跑完自动落盘，本工具不重跑）。' };
-    if (!buckets.sister.n && !buckets.brother.n && !buckets.none.n) return {
-        missing: `「常规」榜 ${total} 场全部是旧记录（没有 lineup 字段），无法切分阵容 —— 用 816 V1.19.0+ 重跑一批即可自动带上。`,
-        buckets, total
-    };
-
+    // 关键对照：扩展阵容 vs 基准（常规 / 不带）。覆盖「妹妹相对常规」「姐姐相对常规」「妹妹相对不带」
+    const pairs = [
+        ['brother', 'normal', '妹妹模式相对常规'],
+        ['sister', 'normal', '姐姐模式相对常规'],
+        ['brother', 'none', '妹妹模式相对不带姐姐妹妹']
+    ];
     const issues = [];
-    for (const [g, glabel] of [['brother', '仅妹妹'], ['sister', '仅姐姐']]) {
-        const a = buckets[g], base = buckets.none;
-        if (!a.n || !base.n) continue;             // 组内没样本：不猜差值
-        const diff = a.rate - base.rate;
+    for (const [a, b, label] of pairs) {
+        if (!rates[a] || !rates[b]) continue;
+        const diff = rates[a].rate - rates[b].rate;
         const az = Math.abs(diff);
-        if (az + 1e-9 < TH.MODE_GAP) continue;     // 低于 5pp 视为风格差异，不报
-        const ci = diffCi95(a.w, a.n, base.w, base.n);
-        const enough = a.n >= LINEUP_MIN && base.n >= LINEUP_MIN;
-        const crosses0 = !ci || (ci.lo <= 0 && ci.hi >= 0);
-        // 只有「两组样本都够 + 区间不跨 0 + 偏差 ≥10pp」才升为告警；其余一律提示
-        const sig = enough && !crosses0;
-        const sev = (sig && az >= TH.MODE_GAP * 2) ? 'alert' : 'warn';
+        // 加 1e-9 缓冲：浮点下正好 5.00% 会变成 4.999…% 被判为假阴性，丢失边界告警
+        if (az + 1e-9 < TH.MODE_GAP) continue;
+        const sev = az >= TH.MODE_GAP * 2 ? 'alert' : 'warn';
         const dir = diff > 0 ? '偏高' : '偏低';
-        const ciTxt = ci ? `${ci.lo >= 0 ? '+' : ''}${ci.lo.toFixed(1)} ~ ${ci.hi >= 0 ? '+' : ''}${ci.hi.toFixed(1)}pp` : '—';
         issues.push({
             sev,
-            title: `${glabel} 整体胜率${dir}于都不带${sig ? '（显著）' : '（不显著）'}`,
-            detail: `同批「常规」榜 ${total} 场，按本局阵容切分：${glabel} ${pct(a.rate)}（${a.n} 场）vs 都不带 ${pct(base.rate)}（${base.n} 场），差值 ${signed(diff)}，95% CI ${ciTxt}`
-                + `（区间${crosses0 ? '跨' : '不跨'} 0）`
-                + `｜样本门槛 ${LINEUP_MIN} 场：${enough ? '两组均达标' : '不足，仅提示、不作结论'}`
-                + `｜扩展阵容本应只改风格、不系统性抬升/压低总胜率`
-                + (g === 'brother' ? '（妹妹永久海克斯继承是最常见元凶）' : '') + '。'
+            title: `${MODE_LABEL[a]} 整体胜率${dir}于${MODE_LABEL[b]}`,
+            detail: `${label}：${MODE_LABEL[a]} ${pct(rates[a].rate)}（${rates[a].n} 场）vs ${MODE_LABEL[b]} ${pct(rates[b].rate)}（${rates[b].n} 场），差值 ${signed(diff)}`
+                + `｜扩展阵容本应只改风格、不系统性抬升/压低总胜率；偏离 ≥${(TH.MODE_GAP * 100).toFixed(0)}pp 提示该阵容本身过强/过弱`
+                + (a === 'brother' ? '（妹妹永久海克斯继承机制是最常见元凶：详见 108「仅妹妹」榜整体胜率）。' : '。')
         });
     }
-    return { issues, buckets, total, missing: null };
+    return { issues, rates, missing: null };
 }
 
 /* ========== 规则六：海克斯两两组合（V2.5.0） ========== */
@@ -1294,15 +1257,12 @@ function buildReport(d) {
     } else if (d.simReal && d.simReal.missing) {
         L.push('', '— 模拟 vs 实战对照 —', d.simReal.missing);
     }
-    if (d.modeGap && d.modeGap.buckets) {
-        const B = d.modeGap.buckets;
-        const sum = LINEUP_BUCKETS.reduce((s, x) => s + B[x.k].n, 0);
-        L.push('', '— 同批阵容细分（常规榜内部切分，基准=都不带）—');
-        L.push(`总盘 ${d.modeGap.total} 场｜` + LINEUP_BUCKETS.map(x => `${x.label} ${B[x.k].n} 场${B[x.k].rate === null ? '' : ' ' + pct(B[x.k].rate)}`).join('｜'));
-        L.push(`自检：细分合计 ${sum} 场 ${sum === d.modeGap.total ? '=' : '≠'} 总盘 ${d.modeGap.total} 场${sum === d.modeGap.total ? ' ✓' : ' ✗'}`);
+    if (d.modeGap && d.modeGap.rates) {
+        L.push('', '— 扩展阵容模式间对比（108 四套榜总胜率）—');
+        for (const m of HEX_MODES) if (d.modeGap.rates[m]) L.push(`${MODE_LABEL[m]}｜${d.modeGap.rates[m].n} 场｜${pct(d.modeGap.rates[m].rate)}`);
     }
     if (d.modeGap && d.modeGap.issues && d.modeGap.issues.length) {
-        L.push('', '— 阵容细分失衡 —');
+        L.push('', '— 模式间失衡 —');
         d.modeGap.issues.forEach((x, i) => { L.push(`${i + 1}. ${x.title}`); L.push(`   ${x.detail}`); });
     }
     if (d.ovr.cur !== undefined) {
@@ -1594,25 +1554,19 @@ function openBalanceAlert() {
         } else if (d.simReal && d.simReal.missing) {
             html += '<div class="bal-sec"><h3 style="color:#888">模拟 vs 实战对照</h3><p class="bal-no">· ' + d.simReal.missing + '</p></div>';
         }
-        // 规则五：同批阵容细分（常规榜内部按 lineup 切互斥子集，合计必须=总盘）
-        if (d.modeGap && d.modeGap.buckets) {
-            const B = d.modeGap.buckets;
-            const sum = LINEUP_BUCKETS.reduce((s, x) => s + B[x.k].n, 0);
-            const ok = sum === d.modeGap.total;
-            html += '<div class="bal-sec"><h3 style="color:#4fc3f7">🧩 同批阵容细分（常规榜内部切分，基准=都不带）</h3>'
-                + '<table><tr><th>分组</th><th>场次</th><th>明教整体胜率</th></tr>';
-            LINEUP_BUCKETS.forEach(x => {
-                const b = B[x.k];
-                html += `<tr${b.n < LINEUP_MIN ? ' style="opacity:.6"' : ''}><td class="l">${x.label}${b.n < LINEUP_MIN ? '（样本少）' : ''}</td><td>${b.n}</td><td>${b.rate === null ? '—' : pct(b.rate)}</td></tr>`;
-            });
-            html += `<tr><td class="l bal-dim">合计自检</td><td colspan="2" class="bal-dim">${sum} 场 ${ok ? '= 总盘 ' + d.modeGap.total + ' 场 ✓' : '≠ 总盘 ' + d.modeGap.total + ' 场 ✗'}</td></tr>`
-                + '</table><p class="bal-no">口径：同一批「常规」记录按本局阵容切互斥子集，合计恒等于总盘；不再拿两批独立跑批相减。旧记录无 lineup → 计入「其他/未标注」。</p></div>';
+        // 模式间对比（规则五）：108 四套榜总胜率横向比，自动抓「扩展阵容系统性失衡」
+        if (d.modeGap && d.modeGap.rates) {
+            const rs = d.modeGap.rates;
+            html += '<div class="bal-sec"><h3 style="color:#4fc3f7">扩展阵容模式间对比（108 四套榜总胜率）</h3>'
+                + '<table><tr><th>模式</th><th>场次</th><th>明教整体胜率</th></tr>';
+            for (const m of HEX_MODES) if (rs[m]) html += `<tr><td class="l">${MODE_LABEL[m]}</td><td>${rs[m].n}</td><td>${pct(rs[m].rate)}</td></tr>`;
+            html += '</table></div>';
         }
         if (d.modeGap && d.modeGap.issues && d.modeGap.issues.length) {
-            html += '<div class="bal-sec"><h3 style="color:#ff6b6b">🚨 阵容细分失衡</h3>' + d.modeGap.issues.map(itemHtml).join('') + '</div>';
+            html += '<div class="bal-sec"><h3 style="color:#ff6b6b">🚨 模式间失衡</h3>' + d.modeGap.issues.map(itemHtml).join('') + '</div>';
         }
         if (d.modeGap && d.modeGap.missing) {
-            html += '<div class="bal-sec"><h3 style="color:#888">⚪ 同批阵容细分</h3><p class="bal-no">· ' + d.modeGap.missing + '</p></div>';
+            html += '<div class="bal-sec"><h3 style="color:#888">⚪ 模式间对比</h3><p class="bal-no">· ' + d.modeGap.missing + '</p></div>';
         }
         // 整体
         if (d.ovr.cur !== undefined) {

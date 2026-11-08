@@ -1,7 +1,3 @@
-// V1.19.0 | 2026-11-08 hex job 每条记录补 lineup（本局自然阵容：sister / brother / none）：
-//           此前只记 {stage,buffs,winner}，108 只能在「四次独立跑批」之间比强弱（各批队伍不同，不是对照实验）。
-//           补了这条字段，108 才能在**同一批**里按阵容切互斥子集，子集场次之和恒等于总盘。
-//           只加字段、不动筛选逻辑：lineupMode 仍决定「重掷到哪种阵容」，normal 就是自然阵容。
 // V1.18.0 | 2026-10-31 双海克斯（六大派也带海克斯）：新增 pickEnemyHexBuff（逐字复刻 player/512-battle-flow 的纯逻辑）；
 //           11 个 job 全部接 enemyHex —— 原本带海克斯的（hex/elite 系列/balance/random/paired）由工具开关切换，
 //           本来不带海克斯的 stats/baseline 另加 hexEnabled 参数（默认关，旧基线不变）。
@@ -514,7 +510,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
 // 搬进 worker 是因为主线程一口气跑几百场会把页面占死（移动端弹「网页暂无响应」）。
 // seed 公式与 101 主线程版一致（Date.now() + i*7919），差异只在于是否并行，统计口径不受影响。
 function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex = 0, lineupMode = 'normal', enemyHex = false) {
-    const hexLog = []; // [{ stage, buffs: [key], winner, lineup }]
+    const hexLog = []; // [{ stage, buffs: [key], winner }]
     const wins = { ally: 0, enemy: 0, draw: 0 };
     const C = CONFIG;
     for (let i = 0; i < runs; i++) {
@@ -542,10 +538,6 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             if (!teams) continue;
         }
         const buffsPicked = [];
-        // V1.19.0：记下本局自然阵容。小昭只有一个形态（330 建队时姊妹二选一，不会同时在场），
-        //   所以三分类天然互斥：sister / brother / none。108 靠它把「常规」总盘切成子集做同批比较。
-        const xzUnit = teams.allyTeam.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother);
-        const lineup = xzUnit ? (xzUnit.isXiaoZhaoSister ? 'sister' : 'brother') : 'none';
         let liveEnemy = null;   // V1.16.0：本场实时敌方快照（onStep 维护），供惑人心智门槛
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
         // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
@@ -587,7 +579,7 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             onStep: (step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }
         });
         const w = res.winner || '平局';
-        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: w, lineup });
+        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: w });
         if (w === '明教') wins.ally++;
         else if (w === '六大派') wins.enemy++;
         else wins.draw++;
