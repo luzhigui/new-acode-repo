@@ -153,6 +153,16 @@
     "320-d10-decl-ledger-mul.js": "D14",
     "321-d10-mod-lifecycle.js": "D14",
     "322-d10-brother-laststand-ledger.js": "D14",
-    "323-d10-flyer-kill-growth.js": "D14"
+    "323-d10-flyer-kill-growth.js": "D14",
+    "277-d9-holy-fire-enhance.js": "D9",
+    "278-d9-fortify-enhance.js": "D9",
+    "279-d9-mind-control-enhance.js": "D9",
+    "280-d9-horse-formation-enhance.js": "D9",
+    "294-double-face-retarget.js": "D11",
+    "325-d6-butterfly-host-cleanup.js": "D6",
+    "326-d6-butterfly-window-payload.js": "D6",
+    "327-d6-summon-authorship.js": "D6",
+    "328-d6-summon-death-exit.js": "D6",
+    "329-d6-roster-stats-purity.js": "D6"
   }
 }
