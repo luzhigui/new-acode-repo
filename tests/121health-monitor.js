@@ -163,6 +163,8 @@ import { rule257 } from './health-rules/257-rewind-play-from-current.js';
 import { rule258 } from './health-rules/258-rewind-state-cleanup.js';
 import { rule265 } from './health-rules/265-rewind-settle-same-authority.js';
 import { rule266 } from './health-rules/266-heal-amount-same-source.js';
+import { rule286 } from './health-rules/286-absorb-summary-same-source.js';
+import { rule287 } from './health-rules/287-hidden-renderer-outlets.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -774,7 +776,7 @@ function runRuleChecks(ctx, doc) {
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229,
         rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239, rule240, rule241, rule242,
         rule267, rule268, rule269, rule270,
-        rule255, rule256, rule257, rule258, rule265, rule266,
+        rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287,
         rule259, rule260, rule261, rule262, rule263, rule264,
         rule283, rule284, rule285,
         rule243, rule244, rule245, rule246, rule247, rule248,

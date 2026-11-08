@@ -31,6 +31,8 @@ export const RULE_META = {
     '玄冥联动吞回合(回归)': { tag: 'enemy:玄冥二老', note: '敌方随机出阵，需连打多局碰出' },
     '坚盾计数时序(回归)': { tag: 'mechanic:坚盾' },
     '坚盾叠加超上限(回归)': { tag: 'mechanic:坚盾' },
+    '吸星汇总账实同源且屏上有出处': { tag: 'mechanic:吸星大法', note: '账本 absorbedTotal/beneficiaries 求和自洽；屏上必须有一条同数字吸星报幕行（ABSORB_SUMMARY 无渲染器，账有屏无即红）' },
+    '隐藏渲染器出口逐类登记': { tag: 'generic:通用', note: '静态守卫：infra/107 里 renderFn:null 的 fact 必须在白名单登记屏上出口；新增隐藏渲染器不登记出口即红' },
     // 第 44 轮：原「流星赶月溅射加攻量(回归)」随主代码渲染收口**重锚**为「来源合法性」
     //   （加攻量的数值校验交给 153），故 key 与备注同步改。
     '流星溅射成长来源合法性(回归)': { tag: 'mechanic:流星赶月', note: '团队 Buff 门控；判的是「无小昭·姊（增强来源）却加了攻」，数值校验见 153' },

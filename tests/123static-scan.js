@@ -188,6 +188,8 @@ export const SCAN_FILES = [
     './health-rules/258-rewind-state-cleanup.js',
     './health-rules/265-rewind-settle-same-authority.js',
     './health-rules/266-heal-amount-same-source.js',
+    './health-rules/286-absorb-summary-same-source.js',
+    './health-rules/287-hidden-renderer-outlets.js',
     // 第 D6 域·召唤物/附身/占格（号段 259-264）
     './health-rules/259-summon-uid-trace.js',
     './health-rules/260-summon-death-closure.js',

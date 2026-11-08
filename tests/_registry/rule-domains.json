@@ -106,6 +106,8 @@
     "258-rewind-state-cleanup.js": "D5",
     "265-rewind-settle-same-authority.js": "D7",
     "266-heal-amount-same-source.js": "D7",
+    "286-absorb-summary-same-source.js": "D8",
+    "287-hidden-renderer-outlets.js": "D8",
     "243-move-payload-validity.js": "D3",
     "244-push-payload-selfconsistent.js": "D3",
     "245-javelin-range-select.js": "D3",
