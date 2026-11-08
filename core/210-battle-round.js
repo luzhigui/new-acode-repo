@@ -8,9 +8,7 @@
 //   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
 // V6.3.39 | 2026-11-08 双宣告排重回退到「两次抽签 + 顺延」：V6.3.38 的 filter 后重抽会多消耗一次随机流，
 //   且候选不足时少抽一次；改回原版两次抽签，第二签同 uid 时从该签位起按候选顺序顺延取下一个不同 uid（不重抽）。
-export const VER = '// V6.3.41 | 2026-11-08 状态标签化：候选池/循环条件里的「alive && hp>0 && !pendingDeath」
-//   三连改问 isLiveCombatant()，眩晕改问 isControlled()（core/218 标签表单一真源）；逐项等价。
-core/210-battle-round.js V6.3.41';
+export const VER = 'V6.3.41 | 2026-11-08 状态标签化：候选池/循环条件里的「alive && hp>0 && !pendingDeath」三连改问 isLiveCombatant()，眩晕改问 isControlled()（core/218 标签表单一真源）；逐项等价。';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields, isControlled, isLiveCombatant } from './218-state-keys.js';
