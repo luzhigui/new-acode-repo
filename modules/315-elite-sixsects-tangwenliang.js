@@ -8,7 +8,11 @@
 // V7.1.4 | 2026-11-08 | 回春叠层改当场：doDash 冲刺即 addHuiChunStack（原先置 _pendingDashHeal 等
 //          「冲刺后那一拳」结算再叠，被动冲刺那一拳被跳过 → 四条钩子都不发 → 一层都不叠）；
 //          删除 _pendingDashHeal 与 AFTER_ATTACK/AFTER_MISS/AFTER_ATTACK_IMMUNE/ON_DODGE 四条 flush 监听。
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.4';
+// V7.1.5 | 2026-11-08 | 冲刺播报目标侧判定改用 applyMoves 之前的 targetFromPos：
+//          旧写法读被 moveUnitPosition 改写后的 target.pos，目标被拖到前排后这里恒为 ≤3，
+//          播报永远写「已在前排」，把目标侧真实拖拽（如「说不得 5→2、X 2→5」）整段吞掉，
+//          与 dash.moves 传给 fx/616 的拖拽演出自相矛盾。
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.5';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -224,7 +228,7 @@ export function createTangWenLiangComponent() {
                     const enemyText = enemyRes.ok
                         ? (listText(enemyRes) || '唐文亮原地未动')
                         : `唐文亮无法落位（${blockText(enemyRes)}）`;
-                    const allyText = target.pos > 3
+                    const allyText = targetFromPos > 3
                         ? (allyRes.ok ? (listText(allyRes) || `${target.name} 原地未动`) : `目标侧${blockText(allyRes)}`)
                         : `${target.name} 已在前排`;
                     pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${enemyText}；${allyText}。双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,

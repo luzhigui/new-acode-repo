@@ -1,6 +1,10 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
-export const VER = 'fx/616-tangwenliang-dash.js V3.0.5';
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.6';
+// V3.0.6 | 2026-11-08 | 慢速档（真机默认档）删掉 ghosts 为空即整段 return 的旧前置条件：
+//   V3.0.1 已声明「克隆体为空时回落真格锚点演完」，但慢档残留这一行，无克隆体时锁链/标枪/伤害浮字
+//   连同遮罩一起凭空消失；冲刺那一击的默认动画又被 _isDashStrikeFx 跳过 → 玩家看到「什么都没演」。
+//   回落后 L490-494 / L706-707 的真格锚点与 actorRect 判空已覆盖，无需其它改动。
 // V3.0.5 | 2026-11-08 | 冲刺血条「空→多→少」三跳收口：
 //   ① 克隆体开场只认 dash.hits 的 hpBefore（去掉 Math.min(store.hp, hpBefore) 的兜底，
 //      store 在主动=扣前 / 被动=扣后，掺进来必错一边，碰到 0 就画成空条）；
@@ -458,7 +462,10 @@ async function showTangWenLiangDashSlow(dash) {
             ghosts.push({ ...m, g, toRect: rectOf(m.camp, m.to) });
         }
     }
-    if (ghosts.length === 0) { cleanupAll(); return []; }
+    // 无克隆体（目标/唐文亮都在原地、或 makeGhost 拿不到格）不提前退出：
+    //   下面一律回落到真格锚点（twActorEl/tgtActorEl），锁链→冲击→标枪照常演完。
+    //   提前 return 会让真机默认的慢速档整段演出凭空消失，而这一击的默认攻击动画又被
+    //   _isDashStrikeFx 跳过 → 玩家看到的就是「什么都没演」。
 
     // 把 activeGhosts 指过去；注意 guardTick 在主链路没有调用点（只有 Z demo 演示页调用自己的副本），
     //   生产里的血条揭晓由 revealGhostHp 完成，这里是给 demo 留的口子
