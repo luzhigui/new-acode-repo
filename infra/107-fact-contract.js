@@ -3,7 +3,9 @@
 // V1.5.18 | 2026-11-08 体检转交：新增 UNIT_DEATH 死亡登记契约（uid/name/camp/reason/hpBefore/hpAfter，隐藏不进画面）
 // V1.5.19 | 2026-11-08 体检转交：SKILL_ANNOUNCE 审计字段补飞行·猎杀成长键（atkBefore/atkAfter/missChance/missDelta/neverMiss/deadUid/deadName）
 // V1.5.20 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY 契约（吸星一次结算一条汇总，beneficiaries 内带逐单位 before/after）
-export const VER = 'infra/107-fact-contract.js V1.5.20';
+// V1.5.21 | 2026-11-08 召唤契约补账：SUMMON_UNIT 具名召唤者补 byUid（313/318/326/339），审计字段登记
+// V1.5.22 | 2026-11-08 契约与实现对齐：UNIT_DEATH / ABSORB_SUMMARY 在 render/411 注册了显式隐藏渲染（() => null），契约不再谎称 renderFn:null
+export const VER = 'infra/107-fact-contract.js V1.5.22';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -138,8 +140,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.ROUND_START]: { requiredFields: ['round'], renderFn: 'renderRoundStartFact', translateFn: 'translateRoundStart' },
     [FACT_TYPES.ROUND_END]: { requiredFields: ['round'], renderFn: 'renderRoundEndFact', translateFn: 'translateRoundEnd' },
 
-    // 死亡登记（core/213 resolveDeaths 唯一真实死亡出口；renderFn:null = 隐藏，只供体检按 uid 归账）
-    [FACT_TYPES.UNIT_DEATH]: { requiredFields: ['uid', 'name', 'camp', 'reason', 'hpBefore', 'hpAfter'], renderFn: null, translateFn: null },
+    // 死亡登记（core/213 resolveDeaths 唯一真实死亡出口；隐藏只供体检按 uid 归账，render/411 注册了 () => null 的显式空渲染）
+    [FACT_TYPES.UNIT_DEATH]: { requiredFields: ['uid', 'name', 'camp', 'reason', 'hpBefore', 'hpAfter'], renderFn: 'renderUnitDeathHidden', translateFn: null },
     [FACT_TYPES.ZHANG_TAUNT]: { requiredFields: ['taunt'], renderFn: 'renderZhangTauntFact', translateFn: null },
 
     // 白骨爪
@@ -159,6 +161,8 @@ export const FACT_SPECS = Object.freeze({
 
     // 召唤 / 幼狮成长（谢逊狮子、灭绝召唤周芷若）
     // 召唤物必须带 uid（体检侧按 uid 认个体，同场两只同名幼狮/雄鹰靠名字分不开）
+    // byUid：具名召唤者的 uid（modules/313 灭绝师太、318 殷天正、326 谢逊、339 张中已带；core/204 的
+    //   副将雄鹰与众志补员没有单一召唤者，只有 byName）——可选字段，登记在 FACT_AUDIT_FIELDS
     // 演出：render/415 对带 cue 的召唤出 SKILL_CUE（张中·蹦蹦），cue 缺省则不出动作——登记非 null，避免契约谎称「不产动作」
     [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'summonUid', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: 'translateSummonUnitCue' },
     [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'unitUid', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
@@ -186,10 +190,11 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
 
     // 吸星结算汇总（modules/334 一次结算一条）：beneficiaries 里同时含被吸方（负增量，group 'absorbed'）
-    //   与施术者（正增量，group 'absorbGain'），每条 {uid, name, stat, before, after}；renderFn:null 不进画面
+    //   与施术者（正增量，group 'absorbGain'），每条 {uid, name, stat, before, after}；
+    //   render/411 显式注册了 () => null 的隐藏渲染（只供体检归账），故 renderFn 非 null
     [FACT_TYPES.ABSORB_SUMMARY]: {
         requiredFields: ['casterUid', 'skillName', 'source', 'absorbedTotal', 'beneficiaries'],
-        renderFn: null, translateFn: null
+        renderFn: 'renderAbsorbSummaryHidden', translateFn: null
     },
 });
 
@@ -240,7 +245,9 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
     [FACT_TYPES.ABSORB_SUMMARY]: Object.freeze([
         'casterUid', 'casterName', 'skillName', 'source',
         'absorbedTotal.atk', 'absorbedTotal.def', 'absorbedTotal.maxHp', 'beneficiaries'
-    ])
+    ]),
+    // 召唤者归属（体检 259 观察位）：byUid = 具名召唤者 uid（313/318/326/339）；core/204 两处无单一召唤者只有 byName
+    [FACT_TYPES.SUMMON_UNIT]: Object.freeze(['byUid', 'byName'])
 });
 
 /**

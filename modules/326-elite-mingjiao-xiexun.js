@@ -75,7 +75,7 @@ export function createXieXunComponent() {
                     { atk: summon.cub.atk, def: summon.cub.def, maxHp: summon.cub.maxHp, skipRoleBonus: summon.cub.skipRoleBonus });
                 cub.state._lionOwnerUid = xiexun.uid;   // 狮子归属标记：成长/振奋/随动按此认主
                 if (data && data.log) {
-                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: cub.name, summonUid: cub.uid, pos, byName: xiexun.name } });
+                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: cub.name, summonUid: cub.uid, pos, byName: xiexun.name, byUid: xiexun.uid } });
                 }
             });
 

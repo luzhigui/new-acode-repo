@@ -150,6 +150,7 @@ export function spawnCarryEagle(team, log) {
     if (!spec) return null;
     const eagle = spawnUnit(team, spec.name, spec.m, spec.role, 5, { atk: spec.atk, def: spec.def, maxHp: spec.maxHp });
     eagle.isCarryEagle = true;
+    // 副将雄鹰由 carry buff 按位空补召，没有单一召唤者（整队口径），故不落 byName/byUid
     if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: eagle.name, summonUid: eagle.uid, pos: eagle.pos } });
     return eagle;
 }
@@ -339,6 +340,7 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
         recruit.state._initMaxHp = 25;
     }
     recruit.isUnityRecruit = true;
+    // 众志补员由 buff 机制按名额补召（byName 传的是阵型/技能名，不是某个单位），故无 byUid
     if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城' } });
     return recruit;
 }

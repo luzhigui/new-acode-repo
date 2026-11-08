@@ -46,7 +46,7 @@ export const summonBengBengHandler = {
                 data.log.push({
                     factType: FACT_TYPES.SUMMON_UNIT,
                     data: {
-                        summonName: unit.name, summonUid: unit.uid, pos, byName: self.name,
+                        summonName: unit.name, summonUid: unit.uid, pos, byName: self.name, byUid: self.uid,
                         // 演出：从张中格到空位留一串残影、落点轻闪（fx/619 只读定位，不影响召唤）
                         cue: (self.pos != null)
                             ? { kind: SKILL_CUE_KINDS.SUMMON_MOVE, from: { uid: self.uid, camp: self.camp, pos: self.pos }, to: { uid: unit.uid, camp: unit.camp, pos } }

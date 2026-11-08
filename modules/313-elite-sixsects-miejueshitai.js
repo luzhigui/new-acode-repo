@@ -46,7 +46,7 @@ function flushZhouSummon(miejue, team, log) {
     const zhou = spawnUnit(team, '周芷若', summon.m, ROLE_TYPES.WARRIOR, landPos);
     miejue.state._summonedZhou = true;
     if (log) {
-        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos: landPos, byName: '灭绝师太' } });
+        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos: landPos, byName: '灭绝师太', byUid: miejue.uid } });
     }
 }
 

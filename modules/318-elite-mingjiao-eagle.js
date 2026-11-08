@@ -44,7 +44,7 @@ export function createEagleComponent() {
                 const pos = free[getBattleRng().nextInt(0, free.length - 1)];
                 const fem = spawnUnit(myTeam, femSpec.name, femSpec.m, femSpec.role, pos, { atk: femSpec.atk, def: femSpec.def, maxHp: femSpec.maxHp });
                 fem.isEagleFemale = true;
-                if (data.log) data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: fem.name, summonUid: fem.uid, pos } });
+                if (data.log) data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: fem.name, summonUid: fem.uid, pos, byName: u.name, byUid: u.uid } });
             });
         }
     };
