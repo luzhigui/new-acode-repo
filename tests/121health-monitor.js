@@ -65,7 +65,7 @@ import { rule191 } from './health-rules/191-tangwenliang-qishang.js';
 import { rule192 } from './health-rules/192-pengyingyu-doubleface.js';
 import { rule193 } from './health-rules/193-hebiweng-hornstrike.js';
 import { rule194 } from './health-rules/194-chengkun-phantom.js';
-import { rule173 as ruleHpDeathRevive } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
+import { rule173 } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
 // 战报与渲染一致性（只读渲染后的 log）：
 //   185 分组一致性（组归属/结果同源）、186 显示数值单一出口（浮点尾巴）、
 //   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）
@@ -87,11 +87,11 @@ import { rule112 } from './health-rules/165-miejue-redesign.js';
 import { rule113 } from './health-rules/166-mind-control-swap.js';
 // 第 187 轮：框架公共层补登记（并行会话已建文件、未登记，避免静默不执行）
 import { rule174 } from './health-rules/174-ally-roster.js';
-import { rule176 as ruleAllyAnchorPos } from './health-rules/175-ally-anchor-pos.js';
-import { rule177 as ruleEnemyStageRoster } from './health-rules/176-enemy-stage-roster.js';
-import { rule179 as ruleEnemyMixIntegrity } from './health-rules/177-enemy-mix-integrity.js';
-import { rule181 as ruleStage3Variant } from './health-rules/178-stage3-variant.js';
-import { rule180 as ruleDamagePrecision } from './health-rules/180-damage-precision.js';
+import { rule176 as rule175 } from './health-rules/175-ally-anchor-pos.js';
+import { rule177 as rule178 } from './health-rules/176-enemy-stage-roster.js';
+import { rule179 as rule184 } from './health-rules/177-enemy-mix-integrity.js';
+import { rule181 as rule188 } from './health-rules/178-stage3-variant.js';
+import { rule180 } from './health-rules/180-damage-precision.js';
 import { rule227 } from './health-rules/227-buff-lifecycle.js';
 import { rule228 } from './health-rules/228-buff-effect-decl.js';
 import {
@@ -699,9 +699,9 @@ function runRuleChecks(ctx, doc) {
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
-        rule110, rule111, rule112, rule113, rule114, rule171, rule172, ruleHpDeathRevive, rule115,
+        rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
         rule190, rule191, rule192, rule193, rule194, rule181, rule182, rule183, rule185, rule186, rule187,
-        rule174, ruleAllyAnchorPos, ruleEnemyStageRoster, ruleEnemyMixIntegrity, ruleStage3Variant, ruleDamagePrecision, rule227, rule228];
+        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

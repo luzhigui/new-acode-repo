@@ -147,6 +147,11 @@ const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : 
 const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
 // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
 const NOBUFFS = process.env.NOBUFFS === '1';
+// ENEMY_HEX=0 可退回「只有明教带海克斯」的单档口径（默认 1 = 双档，明教/六大派各选一个）。
+//   双档在回放里必须真的落到敌方单位身上才算覆盖：runCase 会统计敌方 buff 数与生效回合，
+//   开启双档却全程 0 ⇒ 直接判红（防"选了但引擎丢了"的假双档）。
+const ENEMY_HEX = process.env.ENEMY_HEX === '0' ? false : true;
+const dualStats = { enemyPicks: 0, enemyActiveRounds: 0 };
 
 // 第 159 轮新增：定向覆盖场次（默认随机阵容凑不齐的前置条件，靠主代码现成的强制开关补）。
 //   与 tests/stat-decl-vs-actual-check.mjs V3.11.0 同款口径、同一条安全边界：逐场设置、开场全键复位、
@@ -210,7 +215,13 @@ function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
         .filter(function (b) { return b.remaining > 0; });
     // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报（runner 特有开关，共享模块不管环境变量）
     if (NOBUFFS || !pickNew) return next;
-    return _sharedTickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew);
+    const beforeKeys = new Set((activeBuffs || []).map(function (b) { return b.key + '|' + (b.target || CAMP_TYPES.ALLY); }));
+    const out = _sharedTickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, ENEMY_HEX);
+    // 双档覆盖取证：真的给敌方补进了新 buff 才计一次（不是"选了但被丢弃"）
+    if (ENEMY_HEX && out.some(function (b) { return (b.target || CAMP_TYPES.ALLY) === CAMP_TYPES.ENEMY && !beforeKeys.has(b.key + '|' + b.target); })) {
+        dualStats.enemyPicks++;
+    }
+    return out;
 }
 
 // --- 不变量套件（V6.2.0）：与具体机制无关的低成本断言，逐步跑 ---
@@ -389,6 +400,12 @@ function runCase(seed, stage, forces) {
             }
         }
         if (winner || !lastStep) break;
+        // 双档覆盖取证：敌方身上确有生效 buff 才计一回合（引擎只给"持有方"挂 _activeBuffs）
+        if (ENEMY_HEX && lastStep) {
+            const eb = (lastStep.enemy && lastStep.enemy._activeBuffs) || [];
+            const perUnit = (lastStep.enemy || []).reduce(function (n, u) { return n + ((u && u._activeBuffs && u._activeBuffs.length) || 0); }, 0);
+            if (eb.length || perUnit) dualStats.enemyActiveRounds++;
+        }
         // V6.7.2 永久继承补丁的顺序前提：tickAndPickBuffs 会把新 Buff 的永久副本写进传入单位的
         //   state._permanentBuffs，必须先于 clone() 执行——clone() 深拷 state（core/02 L157-158
         //   copyAllStateFields 数组深拷贝），顺序反了副本全落进随后被丢弃的旧单位（实测蝶血 0 次）。
@@ -506,6 +523,14 @@ if (invIssues.size) {
 }
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
+// 双档覆盖自检（ENEMY_HEX）：开了双档却一次都没给敌方补到 buff ⇒ 判红——
+//   "选了但引擎整批丢弃"会让双海克斯长期假覆盖，这条把它变成可观测事实。
+if (ENEMY_HEX) {
+    console.log(`=== 双海克斯覆盖：敌方补选 ${dualStats.enemyPicks} 次 / 敌方身上生效 ${dualStats.enemyActiveRounds} 回合 ===`);
+    if (dualStats.enemyPicks === 0) console.log('  ❌ 双档开启但敌方从未补到 buff（双海克斯等于没跑）');
+} else {
+    console.log('=== 单海克斯对照口径（ENEMY_HEX=0）：只给明教补选 ===');
+}
 // 第 97 轮（2026-10-17）转交态：known-transfers.md 登记中的项显示 ⚠️ 且不计退出码——
 //   「转交中」与「真回归」必须分开，否则红线常红 = 狼来了（审核发现，详见该清单）。
 const KNOWN_TRANSFERS = (() => {
@@ -536,7 +561,7 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
-const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0);
+const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0) + ((ENEMY_HEX && dualStats.enemyPicks === 0) ? 1 : 0);
 console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}${transferred ? `；转交中 ${transferred} 条（⚠️ 不计退出码，见 tests/known-transfers.md）` : ''}；恒 skip(空转)规则 ${dead} 条` +
     `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +

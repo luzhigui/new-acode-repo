@@ -32,12 +32,15 @@ import { CONFIG } from '../../core/201-config-5v5-test.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
 import { hasCarryTarget } from '../../modules/329-buff-tools.js';
 
-export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
+export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, withEnemy = true) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
         .filter(function (b) { return b.remaining > 0; });
     if (!pickNew) return next;
     var turn = Math.floor(round / 3); // 第几次补选（round=1 预注入时为 0，其后 3/6/9… 递增）
-    var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
+    // withEnemy=false 只给明教补选（单海克斯对照口径，实测差异用；默认 true = 双档，与真游戏 enemyAutoHex 对齐）
+    var sides = withEnemy
+        ? [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }]
+        : [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }];
     for (var i = 0; i < sides.length; i++) {
         var s = sides[i];
         var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });

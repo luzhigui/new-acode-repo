@@ -258,9 +258,14 @@ for (const [rel, needle, label] of tier) {
     if (!exists(rel)) { problems.push('③ 档位文件缺失：' + rel); continue; }
     if (!read(rel).includes(needle)) problems.push('③ ' + rel + ' 缺「' + label + '」（<' + needle + '>）—— 双海克斯链路被拆/默认退回单档');
 }
-if (!exists('tests/rules-replay.mjs') || !read('tests/rules-replay.mjs').includes('enemyHexPicker')) {
-    notes.push('⚠ 回放器（rules-replay）只跑单海克斯：enemyHexPicker 未接，双档仅由浏览器体检 121 覆盖');
+// 回放器双档开关（ENEMY_HEX，默认开）：缺开关或共享选择器不支持 withEnemy ⇒ 双档退回"只有浏览器覆盖"
+if (!exists('tests/rules-replay.mjs') || !read('tests/rules-replay.mjs').includes('ENEMY_HEX')) {
+    problems.push('③ 回放器缺 ENEMY_HEX 双档开关（双海克斯只剩浏览器体检覆盖）');
 }
+if (!exists('tests/_lib/buff-picker.mjs') || !read('tests/_lib/buff-picker.mjs').includes('withEnemy')) {
+    problems.push('③ tests/_lib/buff-picker.mjs 缺 withEnemy 参数（无法退回单档对照）');
+}
+notes.push('③ 回放器双档：ENEMY_HEX 默认开（敌我各选一个），ENEMY_HEX=0 退回单档对照；敌方补选次数由回放自检打印并判红')
 
 // ── ④ 文案/注释漂移（只记报告，不判红） ────────────────────────────────
 try {
