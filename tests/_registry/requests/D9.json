@@ -1,9 +1,49 @@
 {
   "domain": "D9",
-  "updatedAt": "2026-11-08 21:40",
-  "updatedBy": "",
+  "updatedAt": "2026-11-08 22:20",
+  "updatedBy": "D9",
   "说明": "D9 海克斯/永久 buff/跨局（号段 277-282）。本文件只由 D9 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": [],
+  "entries": [
+    {
+      "id": "277a",
+      "slot": 277,
+      "file": "tests/health-rules/277-d9-holy-fire-enhance.js",
+      "name": "圣火不熄复活比例与次数(姊/妹)",
+      "group": "海克斯强化对账",
+      "covers": ["holyFire"],
+      "kind": "facts回归(双向对账)",
+      "case": "tests/d9-enhance-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 22:20",
+      "note": "team 名额按姊存活判第一/二档比例与次数；self 名额对 brother.holyFire.reviveRatio；healAmount/reviveRaw 同源校验"
+    },
+    {
+      "id": "278a",
+      "slot": 278,
+      "file": "tests/health-rules/278-d9-fortify-enhance.js",
+      "name": "严阵以待反弹姊强化(回血+阵营)",
+      "group": "海克斯强化对账",
+      "covers": ["fortify"],
+      "kind": "facts回归(双向对账)",
+      "case": "tests/d9-enhance-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 22:20",
+      "note": "hasSister 必须等于该阵营此刻是否有存活姊；有姊+healOnRebound=true 必须有 floor(反弹/3) 回血，反之不许有"
+    },
+    {
+      "id": "279a",
+      "slot": 279,
+      "file": "tests/health-rules/279-d9-mind-control-enhance.js",
+      "name": "惑心换位姊强化扣血比例",
+      "group": "海克斯强化对账",
+      "covers": ["mindControl"],
+      "kind": "facts回归(双向对账)",
+      "case": "tests/d9-enhance-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 22:20",
+      "note": "按 BANNER 两段定位持有方阵营；有姊必须 hpPctSwap，无姊必须 0；hpPct>0 时 dmgAmt 必须正整数"
+    }
+  ],
   "assignments": [
     {
       "slot": 277,
