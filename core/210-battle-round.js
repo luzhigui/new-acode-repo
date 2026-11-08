@@ -56,9 +56,11 @@ function clearRoundEntries(A, B, state, ctx) {
     // 清理后必须 refreshMaxHp，否则上回合 carry 的 maxHp 加成会残留
     // 按 uid 去重：复活后单位可能同时出现在 A/B 两侧数组里，重复清理会让 ttl=round 的词条被
     //   叠加计入（removeModsByTTL 幂等，但 refreshMaxHp 会按重复条目重算面板）。
+    // 不论生死都清：阵亡单位若被「圣火不熄」复活，上回合 round 词条会与新挂词条叠加（规则 241）。
+    //   refreshMaxHp 对已阵亡单位首行直接 return，清尸体词条不会改面板。
     const cleanedUids = new Set();
     for (const u of [...A, ...B]) {
-        if (!u || !u.alive || cleanedUids.has(u.uid)) continue;
+        if (!u || cleanedUids.has(u.uid)) continue;
         cleanedUids.add(u.uid);
         removeModsByTTL(u, 'round');
         refreshMaxHp(u, null, '回合清理');
