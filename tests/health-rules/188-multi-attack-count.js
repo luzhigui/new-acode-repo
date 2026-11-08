@@ -1,32 +1,34 @@
 // tests/health-rules/188-multi-attack-count.js
-// 体检规则：同一回合「多段出手」的计数口径
+// 体检规则：同一回合「多段出手」的计数口径（观察项）
 //
 // 为什么要有这条：一段攻击 ≠ 一次行动权。双击、概率连击、宋青书性奋、鹿角杖法、唐文亮冲刺、
 //   同归于尽反噬、召唤兽出手都会让同一单位在一个回合里产出多条 attack/miss/dodge/immune fact。
 //   体检此前没有「段数」口径：多段异常增长（重复写入 / 循环没终止 / 身份串号）没人能发现。
 //
-// 实测结论（2026-11-08 第 191 轮，156 场回放 / 746+ 回合 / 5202 段）：
-//   · 段数 2 段 204 例、3 段 4 例、4 段 9 例、6 段 1 例（seed=1 stage=7 第1回合 灭绝师太）——**多段是常态**。
-//   · 「第 2 段起必须可溯源（_linkReason / _isLinkAttack / 同回合具名公告）」这条断言**不可用**：
-//     实测 48/156 场都有合法多段却完全无标记（鹿杖客、宋青书、母狮等），属主代码未打标记的既有机制，
-//     硬判只会天天假红。因此本规则不判溯源，只判下面三条真正稳的结构不变量：
+// ★ 段数阈值 6 只是实测拟合，不是引擎真值（2026-11-08 第 192 轮取证）：
+//   引擎侧没有任何段数上限常量 —— core/209 的额外出手只按 extraRequests 逐条追加，靠
+//   _isLinkAttack 防「同类触发乒乓」，没有计数上限；主回合又是 _acted 一人一手，所以
+//   「本回合段数」= 1 次主行动 + N 次被动/联动追加，N 由机制触发链决定，理论上不封顶。
+//   实测（156 场 / 5202 段）最高 6 段（seed=1 stage=7 第 1 回合 灭绝师太），2 段 204 例、
+//   3 段 4 例、4 段 9 例、6 段 1 例 ⇒ 6 是当前样本见过的最大值，不是规则边界。
+//   因此 6 只作【观察阈值】：超过时打 observe（回放汇总进「观察项」段，不计红、不计退码），
+//   供人工研判「是合法新机制，还是重复写入/循环失控/身份串号」。若日后确认某机制合法 7 段，
+//   把阈值改大并在本文件头写清「哪一局、什么机制、几段」即可，别默默删规则。
 //
-//   ① 段数上限 SEG_CAP = 6。超过即「段数失控」（重复写入 / 循环失控 / 身份串号）。
-//      ⚠️ 这个常量是实测拟合值，不是引擎真值。若日后出现合法 7 段机制：先确认出处，再把本常量改大并在
-//      本文件头写清「哪一局、什么机制、几段」，别默默删规则。
-//   ② 同一 (回合, 单位) 的多段里，attacker 的 camp / name 必须一致 —— 抓「同一 uid 前后身份漂移」
+// 仍按硬判据（fail 报红）的只有两条真正稳的结构不变量：
+//   ① 同一 (回合, 单位) 的多段里，attacker 的 camp / name 必须一致 —— 抓「同一 uid 前后身份漂移」
 //      （例如快照被复用、复活后换了单位对象）。
-//   ③ 每一段都要取得到目标：attack/miss/immune 取 target，dodge 取 dodger。取不到 = 空目标出手，渲染必炸。
+//   ② 每一段都要取得到目标：attack/miss/immune 取 target，dodge 取 dodger。取不到 = 空目标出手，渲染必炸。
 //
 // 行动权归属本身由 183（跨回合）/ 184（同回合死亡与复活）管，本规则只管「段数」这一种计数口径，不重复判。
-export const VER = 'tests/health-rules/188-multi-attack-count.js V1.0.1';
+export const VER = 'tests/health-rules/188-multi-attack-count.js V1.1.0';
 
 const SEG_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
-const SEG_CAP = 6;
+const SEG_OBSERVE = 6; // 观察阈值（实测拟合值，非引擎上限；见头注）
 
 export const rule188 = {
     group: '行动与目标回归',
-    name: '同回合多段出手计数口径(回归)',
+    name: '同回合多段出手计数口径(观察项)',
     test: function (ctx, log, beforeA, beforeE, afterA, afterE, facts) {
         const fs = facts || [];
         if (!fs.length) return 'skip';
@@ -34,7 +36,9 @@ export const rule188 = {
         let round = null;
         let cur = new Map();     // uid -> [{type, name, camp, hasTarget}]
         let totalSegs = 0;
-        const errs = [];
+        let maxSeg = 0, maxSegWho = null, maxSegRound = null;
+        const errs = [];         // 硬判据：身份漂移 / 空目标
+        const observes = [];     // 观察项：段数超过实测阈值
 
         const flush = function () {
             if (cur.size === 0) return;
@@ -42,8 +46,10 @@ export const rule188 = {
                 const n = segs.length;
                 const name = segs[0].name;
                 const camp = segs[0].camp;
-                if (n > SEG_CAP) {
-                    errs.push('第' + round + '回合：' + (name || uid) + ' 单回合出手 ' + n + ' 段，超过上限 ' + SEG_CAP + '（疑似重复写入/循环失控）');
+                if (n > maxSeg) { maxSeg = n; maxSegWho = name || uid; maxSegRound = round; }
+                if (n > SEG_OBSERVE) {
+                    observes.push('第' + round + '回合：' + (name || uid) + ' 单回合 ' + n + ' 段（观察阈值 ' + SEG_OBSERVE +
+                        '，引擎无硬上限，需人工研判是否循环失控/身份串号）');
                     continue;
                 }
                 for (let k = 1; k < n; k++) {
@@ -85,6 +91,13 @@ export const rule188 = {
                 msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处）' : '')
             };
         }
-        return { fail: false, msg: '多段出手计数口径成立：核对 ' + totalSegs + ' 段，无超过 ' + SEG_CAP + ' 段的失控、无身份漂移、无空目标段' };
+        if (observes.length) {
+            return {
+                fail: false,
+                observe: observes.slice(0, 3).join('；') + (observes.length > 3 ? '（共 ' + observes.length + ' 处）' : ''),
+                msg: '多段出手计数：核对 ' + totalSegs + ' 段，最高 ' + maxSeg + ' 段（' + maxSegWho + ' 第' + maxSegRound + '回合），超观察阈值 ' + observes.length + ' 处'
+            };
+        }
+        return { fail: false, msg: '多段出手计数：核对 ' + totalSegs + ' 段，最高 ' + maxSeg + ' 段（' + maxSegWho + ' 第' + maxSegRound + '回合），未超观察阈值 ' + SEG_OBSERVE };
     }
 };
