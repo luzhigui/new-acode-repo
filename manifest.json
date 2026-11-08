@@ -1,5 +1,5 @@
 {
- "ver": "eb89ec097463757cca2b062f00a239dc021b64fb298bcd3c4f605eb45c27a496",
+ "ver": "c5831ce9b2525b3f2b37086066af83833846f8d2c639ced6bb3a2867edd40e80",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -45,7 +45,7 @@
   ],
   [
    "core/209-battle-attack.js",
-   "89029d04a8e1bdce80a1d16adf8259441467f47020e3d524fc6d627940c7bb4f"
+   "db5cb3f46f95de9e0f22d01beeb7fc3d0c4ad1e47cb0e47965c75ecc97b21109"
   ],
   [
    "core/210-battle-round.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/107-fact-contract.js",
-   "8bad9ed5c4d2cafc7760f9c37f2a8d89f5081bbbb473b61a86e6e70af7e46755"
+   "3c785982a8a76ed4cafa72038fc28fe3a7d416a8d93398d996277e0c96b81972"
   ],
   [
    "infra/107-store-schema.js",
@@ -321,7 +321,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "0413c1001d91035af67312c64ac13bc1a48a9f3b9553bf028d8b68797b89829c"
+   "a8ff9fc074c70b69474adf514510ea0fb3ae3e1c2de9e1fe4da1c1913a5f1a57"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
@@ -473,7 +473,7 @@
   ],
   [
    "render/407-facts-attack.js",
-   "f2612013f33bac445bddb0f94c1fc1d3cd276c4030c022ff9aaae8dc19e8edf3"
+   "99bd72a1808762c1794f479bd499fac39eab5e40694a12b1b9a6e9e9a01354ce"
   ],
   [
    "render/408-facts-effect.js",

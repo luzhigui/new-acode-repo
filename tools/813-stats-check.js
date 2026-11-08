@@ -1,6 +1,8 @@
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #scHex / #scEnemyHex（双海克斯需先勾海克斯）。
 //   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
+// 2026-11-08 V1.4.0 配合 816 V1.21.0：agg 新增 __meta（平局/胜负场次）与带 uid 的单位 key。
+//   __meta 不参与单位行渲染与负差额校核；单位 key 形如「明教·蹦蹦#uid」，同名杂兵不再并成一行。
 // 2026-11-08 V1.3.0 可复现：新增「种子」输入框（留空=Date.now()），填上次 masterSeed 即按同样随机流重跑；
 //   结果区显示 masterSeed / 引擎版本 / 完成时间。
 // 2026-11-08 V1.2.0 负差额判据排除不可校核单位：自伤（七伤拳/乾坤自伤）、小昭·姊附身搬血、record=false
@@ -60,6 +62,14 @@ startBtn.addEventListener('click', async () => {
             nextJobMsg: (job, id) => ({ jobId: id, kind: 'stats', stage: job.stage, seed: job.seed, runs: job.runs, hexEnabled, enemyHex }),
             onJobDone: (finished, total, job, part) => {
                 for (const [key, d] of Object.entries(part)) {
+                    if (key === '__meta') {
+                        const m = agg.__meta || (agg.__meta = { battles: 0, draws: 0, allyWins: 0, enemyWins: 0 });
+                        m.battles += d.battles;
+                        m.draws += d.draws;
+                        m.allyWins += d.allyWins;
+                        m.enemyWins += d.enemyWins;
+                        continue;
+                    }
                     const t = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0, unrecDmg: 0, unrecHeal: 0 });
                     t.battles += d.battles;
                     t.dmgTaken += d.dmgTaken;
@@ -92,7 +102,7 @@ function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 
 function renderResult(agg, stages, runs, meta) {
     lastAgg = agg;
-    const rows = Object.entries(agg).sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
+    const rows = Object.entries(agg).filter(([k]) => k !== '__meta').sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
 
     // 只校负差额：差额 < 0 表示真实 hp 变化比记账多 = 漏记。
     // 正差额（格挡/免疫/溢出/闪避/反弹只记承伤侧、治疗记产出侧）是口径设计使然，不告警。

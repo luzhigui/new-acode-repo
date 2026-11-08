@@ -1,3 +1,8 @@
+// V1.21.0 | 2026-11-08 stats job 两处口径修正（体检转交）：
+//   ① 平局不再丢场：原 `if (res.winner)` 让平局场次整场不 record（死守卫），现平局也记账，
+//     并以 agg.__meta 记 { battles, draws, allyWins, enemyWins } 供表头汇总；
+//   ② 聚合 key 由「阵营·名字」改为「阵营·名字#uid」：终局单位本身有 uid，旧写法把 6 个蹦蹦、
+//     2 只雄狮各拍成一行（实测并成 27 组），分行数据无法核对。
 // V1.20.2 | 2026-11-08 hex job 每条战绩带本场 seed（108 长期榜落盘后可逐场复现核对）。
 // V1.20.1 | 2026-11-08 stats job 增 unrecDmg / unrecHeal 累计：用 payload 的累计 dmgTaken/healDone 与真实
 //   hp 变化对差，识出「自伤 / 附身搬血 / record=false 直改血」这类不进记账的掉血回血，供 813 跳过假红。
@@ -778,10 +783,14 @@ function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = fals
 
         const res = runWholeBattle(ally, enemyTeam, seed + i * 7919, hexEnabled, enemyHex ? { enemyHex } : null);
         off();
-        if (res.winner) {
-            for (const u of (res.ally || [])) record(agg, u, tracker[u.uid]);
-            for (const u of (res.enemy || [])) record(agg, u, tracker[u.uid]);
-        }
+        // 平局也记账：原 `if (res.winner)` 是死守卫，平局场次整场消失（meta 也在这里累计）
+        const meta = agg.__meta || (agg.__meta = { battles: 0, draws: 0, allyWins: 0, enemyWins: 0 });
+        meta.battles++;
+        if (!res.winner) meta.draws++;
+        else if (res.winner === '明教') meta.allyWins++;
+        else meta.enemyWins++;
+        for (const u of (res.ally || [])) record(agg, u, tracker[u.uid]);
+        for (const u of (res.enemy || [])) record(agg, u, tracker[u.uid]);
     }
     return agg;
 }
@@ -789,8 +798,9 @@ function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = fals
 function record(agg, u, t) {
     if (!u) return;
     const camp = u.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
-    const key = `${camp}·${u.name}`;
-    const d = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0, unrecDmg: 0, unrecHeal: 0 });
+    // key 带 uid：同名杂兵（6 个蹦蹦 / 2 只雄狮）不能再被拍平成一行
+    const key = `${camp}·${u.name}#${u.uid}`;
+    const d = agg[key] || (agg[key] = { name: u.name, camp, uid: u.uid, battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0, unrecDmg: 0, unrecHeal: 0 });
     d.battles++;
     d.dmgTaken += u.dmgTaken || 0;
     d.healDone += u.healDone || 0;
