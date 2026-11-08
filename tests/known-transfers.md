@@ -68,6 +68,9 @@
 | 双击姊必连无归属载荷（转交） | **2026-11-08 D9 域新登记（fact 契约缺口）**：`DOUBLE_STRIKE` factData 只有 `{ success, unitName }`，**无 unitUid** ⇒ 无法定位触发单位阵营，判不了 `002 sister.doubleStrike.chance=1.0`（有姊必连）是否生效；`unitName` 在召唤同名场景不可靠。影响面=双击/连击全条目。转交：`DOUBLE_STRIKE` 补 `unitUid`（+`chance`），规则即可做「有姊持有 ⇒ success 恒 true」硬判 | 规则 277 文件头；本条（D9） |
 | 马阵姊召唤物属性无载荷（转交） | **2026-11-08 D9 域新登记（fact 契约缺口）**：`HORSE_SUMMON` factData 只有 `{ pos, horseUid, horseTaunt }`，不带 `horseAtk/horseDef/horseMaxHp` 与阵营 ⇒ `002 sister.horseFormation` 的 `horseAtk=0 / horseDef=30 / horseHp=30 / noDestroy / spawnChance=0.7` 六项里只有 `reboundDmg`（规则 280 已硬验）能对账。影响面=马阵召唤物本体强度。转交：`HORSE_SUMMON`/`XIAO_ZHAO_HORSE` 补三项属性与 `camp`，`noDestroy`/`spawnChance` 需 `HORSE_DESTROYED` 或召唤失败 fact 才可验 | 规则 280 文件头；本条（D9） |
 | 惑心姊双概率/眩晕无结构化载荷（观察） | **2026-11-08 D9 域新登记（概率类，暂观察）**：`MIND_CONTROL_SWAP` 已带 `hpPct`（规则 279 已硬验扣血比例），但 `enemySwapProb=0.95 / allySwapProb=0.50 / stunOnSwap=true` 只能靠长样本统计与 STATE_CHANGE 事后配对，单局不可判。影响面=惑心换位命中与眩晕。转交（低优先）：factData 补 `enemySwapChance/allySwapChance`（本次实际判定概率），规则即可做「配置概率 = 声明概率」硬判；眩晕可补 `stunApplied` 布尔 | 规则 279 文件头；本条（D9） |
+| 商店·宝箱掉率三处口径不一致 | **2026-11-08 D14 商店真值域新登记**：同一「宝箱掉率」有三份数字——商店页文案 L308 与设计稿 8.7 写「第 1 关 3% → 第 7 关 9% 线性递增、首次通关 +5%」；引擎通关实现 `player/511-battle-report.js` `chestClearRate = 1/100`（固定 1%，与关卡无关）；引擎击杀实现 `core/212` 用 `C.CHEST_DROP_RATE/100`，`core/201` 该常量 = 0.2 ⇒ 每次击杀 0.2%。且全库无「首通 +5%」实现（`首通/firstClear/first_clear` 零命中）。影响面：玩家看到的掉箱预期与实际体验差一个数量级；改一处另两处不动就会继续漂。转交主代码：把掉率收口到 `core/201` 单表（按关卡的 3%→9% + 首通加成开关），`player/511` 与商店页文案从该表取值/生成，禁止再写死第三份 | `tests/shop-truth-check.mjs` S5 |
+| 商店·购买链先扣币后落货且不回滚 | **2026-11-08 同上**：`tools/805-shop.html` `buyHero` / `buyPoint` 先 `setToken(token - price)`（直接写 localStorage），再 `saveCultivated()/saveShop()`；`openChest` 先 `setChests(c - 1)` 再 `saveShop()`。写存档失败（配额满/隐私模式）时 catch 只 `showToast('购买没完成…')`，**不回滚已扣的圣火令/宝箱** ⇒ 扣钱不给货。此前 `0b7dd284 fix(shop): 购买失败提示报真实错误名` 已证明失败分支真实可达。转交主代码：扣款/扣箱移到存档成功之后，或 catch 里恢复 token/宝箱（三者同一事务语义） | `tests/shop-truth-check.mjs` S7 |
+| 商店·「50 积分 = 1 令」无兑换实现 | **2026-11-08 同上**：商店页 L307「圣火令来自战斗掉落与积分兑换（50 积分 = 1 令）」、设计稿 8.1「50 积分 → 1 令」，但全库（ui/player/core/infra/tools）没有任何「扣 50 积分 → 加 1 圣火令」的代码或入口，玩家只能靠战斗掉落拿令。转交主代码：要么实现兑换（读 `ming_vote_score`、扣 50、写 token，并给入口），要么删掉这句文案；二选一需老板拍板 | `tests/shop-truth-check.mjs` S6 |
 
 ## 二、待用户定夺（可解释差异，等一句话）
 
@@ -80,6 +83,7 @@
 | NINE_YANG_HEAL 零触发（账本 327→368 词条 / 声明 0） | 长期遗留（非并行会话新引入，f7b3dc3 已存在）：九阳神功回复的声明 fact 未被契约 extract 捕获，非空转 | 待定夺：补 announce 数值载荷或修 extract 后转严格 |
 | 召唤者 uid（SUMMON_UNIT 只有 byName） | **契约缺口（第 D6 域 2026-11-08 新登记，2026-11-08 另一会话部分落地后更新）**：具名召唤点 313/318/326/339 已补 `byUid`（提交 `0c9f44f7`），**仍缺两处 `core/204`**：L154 雌鹰召唤只有 `summonName/summonUid/pos`（**连 byName 都没有**）、L344 众志成城补员只有 `byName: byName || '众志成城'`、无 `byUid` ⇒ 同名双谢逊/双张中时这两条无法按 uid 核对「谁召唤的谁」。规则 259 目前只验被召唤者 uid（不染红）。待主代码补齐这两处后，259 再加硬判据「byName/byUid 必填且召唤者存活」 | 规则 259 文件头 / 本会话 |
 | 召唤物阵亡无独立 fact | 契约缺口（第 D6 域 2026-11-08 新登记） | 召唤物死亡只能由 ATTACK 的 `dmgResult.dead` 推断；被非攻击来源清场（吞掉/消散类）时体检看不见。规则 260 只按攻击判死。待定夺：是否补一条 `SUMMON_DEAD{summonUid, cause}` fact（补后 260 可加「阵亡必须有明确 fact」） |
+| 商店·属性点「自带 1 级」vs 权重 0.1/0.25 | 设计口径冲突（D14 商店真值域 2026-11-08 新登记） | `tools/805-shop.html` 同一商品卡写「每个自带 1 级」，同页加点区写「攻/防 +0.1 · 血 +0.25」，设计稿 8.4 写「每个属性点自带一级经验 → 总 M +1 → 等级 +1」。实测（`tests/shop-truth-check.mjs` S4）：分配 1 个攻击点总 M 仅 +0.1、等级显示不变，要 10 个攻击点（或 4 个血点）才升 1 级。需老板拍板二选一：① 认代码权重（改文案/设计稿为「攻防每点 +0.1、血每点 +0.25，攒满 1 M 才升 1 级」）；② 认「1 点=1 级」（改 `FREE_POINT_VALUE` 权重为 1，但会显著放大养成速度）。未拍板前不动配置 |
 
 ## 三、结构不可达分支核销建议（第 123 轮整理，销挂账①）
 
@@ -98,6 +102,8 @@
 **顺带修掉的体检侧自身缺陷（非主代码）**：`tests/fact-dead-field-scan.mjs` V1.0.0 只读 `step.log` 顶层，而**声明类 fact 由 core/10 L303-305 / L382-384 塞进 attack-group 的 `data.entries` 嵌套层**（嗜血狂刀 / 热血奋战 / 溅射 / 反弹等全在此层）⇒ 54388 条里漏掉约 19051 条。V1.1.0 改为递归收集后样本 54388 → **73439**，新冒出 `bloodthirstLeech.isBrother`（222 次永假）与 10 条恒定候选（`rangedGrowth.growth` / `breakDef.type` / `heal.mode` / `heal.anchorVerb` / `qianKunBasic.*` …）。
 
 ## 四、维护记录
+
+- 2026-11-08 D14 商店真值域：新增独立检查器 `tests/shop-truth-check.mjs`（S1-S7），首跑 3 绿 4 红——绿：定价常量、显示价=实扣、每日折扣规则；红：①「属性点自带 1 级」vs 权重 0.1/0.25（待老板拍板，进第二节）②宝箱掉率三处口径不一致 ③购买扣币不回滚 ④「50 积分=1 令」无实现（②③④进第一节转交）。
 
 - 2026-10-23 第 123 轮：新增「三、结构不可达分支核销建议」整节（销挂账①），5 条零命中分支 + 1 条静态层级错位全部给出实证与核销动作；其中 **XIN_HUN.isDead 定性被修正**（第 112 轮「读错层级」不完整，打桩改读 state 层后仍恒假 ⇒ 真因是时序）；另修掉体检侧自身漏层缺陷（死字段扫描 V1.1.0 递归 attack-group 嵌套 fact，样本 54388 → 73439）。
 - 2026-10-23 第 122 轮：① 韦一笑蝠影转交**销项**（真因是满血落地归零，非 max(1) 漏守，规则 159 V1.1.0 按落地口径收紧后 31 场假红归零且带牙）；② 吸血上限转交**重新定性**为「core/15 与 core/16 两处 maxHp 口径不同源」（22 场实证，含 delta 为负被静默吞掉）；③ 新登记「同帧重复声明吃增量」（seed=12 stage=4，口径修正后才可见）；④ 规则 164 V1.1.0 修掉跨通道归因误报 5 场。
