@@ -1,12 +1,14 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
 // V1.0.3 | 2026-11-07 | 误攻队友的 PHANTOM_CONFUSE fact 补 sourceSkill='双面观音'：
 //   渲染打「双面观音」、战绩/体检按来源区分归因（不再复用成昆的「幻影伪装」文案）
-// V1.0.2 | 2026-11-07 | 概率回调 disguiseChance 0.10 / openingChance 0.20；新增「假身是敌方唯一可选目标」→ 误攻队友
-// 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）进入假身，持续 {duration} 回合；
-//   假身期间自身造成的伤害 ×{dmgBonus}（倍率取 content.skills.doubleFace.params.dmgBonus）。
-// V1.0.4 | 2026-11-08 体检转交：假身增伤倍率参数化（content.skills.doubleFace.params.dmgBonus），
+// V1.0.2 | 2026-11-07 | 概率回调 disguiseChance 0.10 / openingChance 0.20；新增「女装状态下是敌方唯一可选目标」→ 误攻队友
+// 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）换女装上阵，持续 {duration} 回合；
+//   女装期间自身造成的伤害 ×{dmgBonus}（倍率取 content.skills.doubleFace.params.dmgBonus）。
+// V1.0.4 | 2026-11-08 体检转交：女装增伤倍率参数化（content.skills.doubleFace.params.dmgBonus），
 //   不再硬编码 1.5；缺参数显式抛错，避免「改配置不改战局」。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.4';
+// V1.0.5 | 2026-11-08 文案修正：机制是「女装」不是「分身」，旧报幕「化出××」改为「女装上阵」；
+//   「真身隐去」语义（不可选中窗口）保留不变。
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.5';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -35,7 +37,7 @@ export const doubleFaceHandler = {
         //   用「彭莹玉♀」而不是另编一个女名——4 字不触发长名压缩，也一眼看出是女装状态
         const DISGUISE_NAME = '彭莹玉♀';
 
-        // 假身轮转：每回合开始先递减剩余回合，到 0 再掷骰进入；首回合用更高的 openingChance。
+        // 女装轮转：每回合开始先递减剩余回合，到 0 再掷骰进入；首回合用更高的 openingChance。
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: L.ROUND_START.XIE_SUMMON + 1,
@@ -64,11 +66,11 @@ export const doubleFaceHandler = {
                 const cue = self.pos != null
                     ? { kind: SKILL_CUE_KINDS.DISGUISE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: self.name, toName: DISGUISE_NAME, rounds: duration }
                     : null;
-                pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 化出假身，真身隐去 ${duration} 回合。`, { cue });
+                pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装上阵，真身隐去 ${duration} 回合。`, { cue });
             }
         });
 
-        // 假身增伤：自身对敌方造成的伤害 ×dmgBonus（走声明的伤害倍率，不进账本）
+        // 女装增伤：自身对敌方造成的伤害 ×dmgBonus（走声明的伤害倍率，不进账本）
         const dmgBonus = params.dmgBonus;
         if (dmgBonus == null) throw new Error('缺技能参数: 彭莹玉.doubleFace.dmgBonus');
         registerSettlementHook({
@@ -87,7 +89,7 @@ export const doubleFaceHandler = {
             }
         });
 
-        // 「敌人不打他」：假身期间把本单位从敌方候选池里剔除（core/07 注册面，core/10 每回合清场，
+        // 「敌人不打他」：女装期间把本单位从敌方候选池里剔除（core/07 注册面，core/10 每回合清场，
         //   故必须在这里用固定 id 重挂，同 id 覆盖＝幂等）。filter 本体无状态：只读调用时传入的
         //   attacker / candidates 与候选实例自身的 state，不闭包回合快照、不 splice 引擎数组；
         //   全被剔除＝返回空数组，引擎按「本轮无目标」处理，不做兜底。
@@ -100,7 +102,7 @@ export const doubleFaceHandler = {
             return kept.length === candidates.length ? null : kept;
         });
 
-        // 「唯一目标」：假身中他是敌方唯一可选目标时，敌方改为误攻自己的队友（走 phantomFact 既有路径），
+        // 「唯一目标」：女装中他是敌方唯一可选目标时，敌方改为误攻自己的队友（走 phantomFact 既有路径），
         //   而不是空过。这一条放在「选目标声明层」（core/12 先读 targetResult、命中就不再跑过滤器），
         //   所以不改 core/12 的空池＝无目标语义；也没有把攻击者队友塞进敌方候选池。
         registerSettlementHook({

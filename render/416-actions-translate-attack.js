@@ -466,7 +466,7 @@ function makeAttackAction(data, index) {
         });
     }
 
-    // 彭莹玉·双面观音：假身把敌方唯一目标拐去误攻队友那一下，在彭莹玉格上揭面具（只表现，不改数值）
+    // 彭莹玉·双面观音：女装把敌方唯一目标拐去误攻队友那一下，在彭莹玉格上揭面具（只表现，不改数值）
     const phantomData = data.phantomFact && data.phantomFact.data;
     if (phantomData && phantomData.sourceSkill === '双面观音' && phantomData.deceiverUid != null) {
         afterTextEffects.push({

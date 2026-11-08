@@ -237,7 +237,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     //   「死亡收口把血归零」不是一次受伤，不吃本上限（否则会截在 0 以上，造出 alive=false 却 hp>0 的分裂状态）。
     //   任何其它直扣血出口都不得传 true，否则本字段形同废止；契约正文见 core/214 applyStatChange 注释。
     _dmgCap:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 彭莹玉·双面观音（modules/338）：假身剩余回合 / 是否已进入过假身
+    // 彭莹玉·双面观音（modules/338）：女装剩余回合 / 是否已进入过女装
     _crossdressRounds:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _crossdressRolled:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });

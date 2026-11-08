@@ -368,7 +368,7 @@ export function renderGrid(id, camp) {
             eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
         }
 
-        // 彭莹玉·双面观音：假身期间挂 👗（V7.1.9 老板定案：口红 ❌ 应为女装）。此前没有这一支——
+        // 彭莹玉·双面观音：女装期间挂 👗（V7.1.9 老板定案：口红 ❌ 应为女装）。此前没有这一支——
         //   同档精英（成昆 🎭 / 唐文亮 🌿 / 张三丰 🛡️）都有状态标记，他没有，触发了格子上也看不出任何变化。
         if (unit.state && unit.state._crossdressRounds > 0) eliteSkillIcon += ' 👗';
 
