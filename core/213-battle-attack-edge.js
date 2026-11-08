@@ -5,9 +5,9 @@
 // V1.0.1 | 2026-11-07 第 184 轮：resolveDeaths 归零改调 killUnit（死亡收口统一出口，ignoreCap=true
 //          与审计账/待死标记一次做完；补记 V1.0.0 未升版的 ignoreCap 改动）
 // V1.0.2 | 2026-11-08 体检转交：resolveDeaths 每个死者补一条 UNIT_DEATH fact（只加事实，不改判死/结算逻辑）
-export const VER = '// V1.0.4 | 2026-11-08 状态标签化：isUnitStunned 改为 isControlled 的转口（此前零调用，
+// V1.0.4 | 2026-11-08 状态标签化：isUnitStunned 改为 isControlled 的转口（此前零调用，
 //   保留导出名防外部引用；判定口径统一由 core/218 标签表决定）。
-core/213-battle-attack-edge.js V1.0.3';
+export const VER = '213-battle-attack-edge.js V1.0.4';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';

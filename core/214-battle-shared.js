@@ -1,9 +1,9 @@
 // V6.4.7 | 2026-11-07 第 184 轮：① 新增 killUnit —— 死亡收口唯一出口（ignoreCap=true + recordHpAudit
 //          group='death' + _pendingDeath），finalizeDeaths / maxHp 变更致死改调它；applyStatChange 的
 //          ignoreCap 变成 killUnit 专用。② 飞天/附身判据改调 core/203 isAirborne（本地内联删除）。
-export const VER = '// V6.4.9 | 2026-11-08 状态标签化：三处免控守卫（换位/移动/击退眩晕）改问 isCCImmune()
+// V6.4.9 | 2026-11-08 状态标签化：三处免控守卫（换位/移动/击退眩晕）改问 isCCImmune()
 //         （core/218 标签表单一真源）；行为逐项等价，仅去掉裸读 state._ctrlImmune。
-core/214-battle-shared.js V6.4.9';
+export const VER = '214-battle-shared.js V6.4.9';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';

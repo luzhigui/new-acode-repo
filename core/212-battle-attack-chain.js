@@ -11,9 +11,9 @@
 // V1.0.12 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
 // V1.0.13 | 2026-11-08 严阵以待反弹比例参数化：通用防战反弹从写死 /2 改为读
 //           BUFFS.fortify.reboundRatio（配置现值 0.4），与 modules/311 张三丰自挂版同源。
-export const VER = '// V1.0.14 | 2026-11-08 状态标签化：眩晕目标跳过闪避判定改问 isControlled(target)、
+// V1.0.14 | 2026-11-08 状态标签化：眩晕目标跳过闪避判定改问 isControlled(target)、
 //   闪避反击的免控守卫改问 isCCImmune(unit)（core/218 标签表单一真源）。
-core/212-battle-attack-chain.js V1.0.14';
+export const VER = '212-battle-attack-chain.js V1.0.14';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';

@@ -2,9 +2,9 @@
 // V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
 // V6.4.13 | 2026-11-08 体检转交：免疫分支 attackerHp/targetHp 改实数（取整只留在显示层，fact 给引擎真值）
 // V6.4.14 | 2026-11-08 体检转交：闪避/未命中分支补挂 phantomFact（改目标那一击被闪避时 phantomConfuse 不再丢）
-export const VER = '// V6.4.16 | 2026-11-08 状态标签化：两处眩晕判定改问 isControlled(unit)（core/218 标签表），
+// V6.4.16 | 2026-11-08 状态标签化：两处眩晕判定改问 isControlled(unit)（core/218 标签表），
 //           裸读 state._stunned 下线；以后新增控制状态在 schema 打 cc 标签即自动生效。
-core/209-battle-attack.js V6.4.16';
+export const VER = '209-battle-attack.js V6.4.16';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
