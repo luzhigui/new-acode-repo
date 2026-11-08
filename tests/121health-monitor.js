@@ -74,10 +74,14 @@ import { rule198 } from './health-rules/198-zhangwuji-qiankun.js';
 import { rule173 } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
 // 战报与渲染一致性（只读渲染后的 log）：
 //   185 分组一致性（组归属/结果同源）、186 显示数值单一出口（浮点尾巴）、
-//   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）
+//   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）、
+//   199 血量链四处同源（正文/伤害行/格子血条/组结算，抓反推历史值）、
+//   200 组内条目顺序（时序改写不错位）
 import { rule185 } from './health-rules/185-log-group-consistency.js';
 import { rule186 } from './health-rules/186-display-single-exit.js';
 import { rule187 } from './health-rules/187-damage-float-same-source.js';
+import { rule199 } from './health-rules/199-hp-chain-same-source.js';
+import { rule200 } from './health-rules/200-group-entry-order.js';
 // 第 186 轮：回合时序 / 目标选择 / 行动顺序三块结构规则（只吃原始 fact 流，不读渲染文本）
 import { rule181 } from './health-rules/181-round-sequence.js';     // 回合开始/结束分隔符连续性与配对
 import { rule182 } from './health-rules/182-target-validity.js';   // 鞭尸 / 自伤 / 误伤同阵营
@@ -707,6 +711,7 @@ function runRuleChecks(ctx, doc) {
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
         rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
         rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule181, rule182, rule183, rule185, rule186, rule187,
+        rule199, rule200,
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
