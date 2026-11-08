@@ -2,7 +2,10 @@
 //        | （Normal 对 bonuses 缺键回落普通版 0.3，摘键会静默算错；缺哪键报哪键）。
 // V6.2.5 | 2026-11-08 状态标签化：惑心换位候选池与两处血量结算的「存活+非待死+非免控」
 //        | 改问 isPendingDeath/isCCImmune（core/218 标签表）；逐项等价。
-export const VER = '215-buff-effects.js V6.2.5';
+// V6.2.6 | 2026-11-08 known-transfers 第 12 条：惑心换位落位合法性闸——toPos 必须是 1~9 整数，
+//   非法落点整笔放弃（旧版单候选分支找不到空格时把 unit.pos 写成 undefined，后续按 pos 找位复位到
+//   1 号位 => 战报宣告 4、实际露面 1）。
+export const VER = 'core/215-buff-effects.js V6.2.6';
 // V6.2.2（2026-11-08）：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
 //   缺键直接 TypeError，与「缺哪键报哪键」口径不符）。
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
@@ -177,13 +180,19 @@ function shuffleThreeSlots(team, rng) {
             fromPos: fromPositions[i],
             toPos: fromPositions[(i + 1) % order.length]
         }));
+        // 落位合法性闸：toPos 必须是 1~9 的整数。非法值一旦写进 unit.pos，「按 pos 找位」的路径
+        //   会把他复位到 1 号位 => 战报宣告 4、实际露面 1（known-transfers 第 12 条：11/94 次落点不符）。
+        if (!result.every(s => Number.isInteger(s.toPos) && s.toPos >= 1 && s.toPos <= 9)) return { swaps: [], pick3 };
         for (const s of result) s.unit.pos = s.toPos;
         return { swaps: result, pick3 };
     }
     // 单个候选：直接挪到那个空格（位置必然不同）
     const u = units[0];
     const fromPos = u.pos;
-    const toPos = pick3.find(p => !team.some(x => x.pos === p));
+    const toPos = pick3.find(p => Number.isInteger(p) && p >= 1 && p <= 9 && !team.some(x => x.pos === p));
+    // 找不到空格就整笔放弃：旧版 toPos=undefined 会把 unit.pos 写成 undefined（非法落点），
+    //   之后按 pos 找位的路径把他复位到 1 号位 —— 战报宣告 N、实际落 1 的成因之一。
+    if (!Number.isInteger(toPos)) return { swaps: [], pick3 };
     u.pos = toPos;
     // 返回 pick3（被选中的 3 个格子）：fx 层落定时需要用它完整遍历 3 个格子，
     //   否则「原本空着但被分配了人」和「原本有人但被移空」两种情况都会演错。
