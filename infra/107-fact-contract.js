@@ -1,7 +1,8 @@
 // V1.5.16 | 2026-11-08 体检转交：乾坤 fact 补登记减伤前 dmg；攻击 fact 补登记死亡结算字段（attackerDead/…AtSettle）
 // V1.5.17 | 2026-11-08 体检转交：免疫 fact 血量改实数并登记；圣火不熄复活账登记到 BUFF_SUMMARY / SKILL_ANNOUNCE
 // V1.5.18 | 2026-11-08 体检转交：新增 UNIT_DEATH 死亡登记契约（uid/name/camp/reason/hpBefore/hpAfter，隐藏不进画面）
-export const VER = 'infra/107-fact-contract.js V1.5.18';
+// V1.5.19 | 2026-11-08 体检转交：SKILL_ANNOUNCE 审计字段补飞行·猎杀成长键（atkBefore/atkAfter/missChance/missDelta/neverMiss/deadUid/deadName）
+export const VER = 'infra/107-fact-contract.js V1.5.19';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -211,9 +212,13 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
         'reviveTier', 'reviveRatio', 'reviveSlot'
     ]),
     // 圣火不熄复活公告（core/204 reviveHolyFireUnit）：血量/回复量为引擎实数，档位便于体检反推 70% / 40%
+    // 飞行·猎杀（modules/302 registerFlyerKillGrowth）：atkBefore/atkAfter 为 getStat 实数，
+    //   missChance 为成长后累计百分点、missDelta 本条增量、neverMiss 为免疫分支（此时 missDelta=0），
+    //   deadUid/deadName 指被击杀者——体检按 group 'flyerKill' 的加法增量口径核对。
     [FACT_TYPES.SKILL_ANNOUNCE]: Object.freeze([
         'unitUid', 'skillName', 'healUnitUid', 'healAmount', 'hpBefore', 'hpAfter',
-        'reviveTier', 'reviveRatio', 'reviveSlot', 'reviveMaxHp', 'reviveRaw'
+        'reviveTier', 'reviveRatio', 'reviveSlot', 'reviveMaxHp', 'reviveRaw',
+        'atkBefore', 'atkAfter', 'missChance', 'missDelta', 'neverMiss', 'deadUid', 'deadName'
     ]),
     // 免疫 fact（core/209 免疫分支）：attackerHp / targetHp 已是引擎实数（显示层自行取整）
     [FACT_TYPES.IMMUNE]: Object.freeze([

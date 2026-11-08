@@ -1,11 +1,11 @@
 {
- "ver": "d2016d631b88e7cedb801215da502f50546c8badd1c05917f1b719a2117c170c",
+ "ver": "82534169de0cb87e89413c8b4f94afd2761f0acb2e7e5817e383cb589b592677",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "41c7daaf9ad0198c3675e0f8586578e17e16a7a9ebb201d66c9772c7c6a15b51"
+   "cd601a1904b6364bbb23b21763ece12f7493c5c1e86c235359aefbb85085ccfa"
   ],
   [
    "content/002-hex-enhance.json",
@@ -81,7 +81,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "df393aaa61c9b8f533dc2989f63e165422caf3f3f478088cdb03502d234515a1"
+   "3a80d6cba1ee45de00e9ff0131cf3bdf620d234c87bf6910d2e21fed8c00a511"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/107-fact-contract.js",
-   "ffc2f432565429c485b18bcbce00b68c927c5a30e54d1abe62488a165f34b539"
+   "4a88008ce55afa522829ee4e4e047987de378f7c85491cc9154a8fb7155095d9"
   ],
   [
    "infra/107-store-schema.js",
@@ -385,7 +385,7 @@
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
-   "a4d147dae84f7fd783380551a1726b9e2456ae5e076be7a325fc078dc522165c"
+   "6d74ebd71fffb223c9e3273a2ce5cbf166dd7d3353da0b49c28e5a7819a059fe"
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
@@ -457,7 +457,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "99bd18ca4e41e6eca3603082c413110cc2c0c15c5314498f9c4f61b8043acee5"
+   "e150719f616ad4cceacdd2fa37b559764559f88330e2ec0556abc14da979ec54"
   ],
   [
    "render/404-grid-badges.js",
@@ -509,7 +509,7 @@
   ],
   [
    "render/416-actions-translate-attack.js",
-   "598817b82acf1f2c9736ef6b916fcbf35ef9063f0e2b49684e0af2c3551037f8"
+   "d9fd0a085c5ede1fe916dccdf0d70adafd10f008791b9923a80acad3294d7d75"
   ],
   [
    "render/417-actions-translate-control.js",
