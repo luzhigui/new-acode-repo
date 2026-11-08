@@ -2,7 +2,9 @@
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
 // V6.3.5 | 2026-11-08 体检转交：QIAN_KUN_* fact 补减伤前 dmg（反弹可正算，不再由 selfDmg 反推区间）。
-export const VER = 'modules/302-elite-skills.js V6.3.5';
+// V6.3.6 | 2026-11-08 体检转交：飞行·猎杀成长补战报行 + 头顶 🦇 飘字（成长前/后攻击、未命中累计、
+//   未命中免疫分支），走 SKILL_ANNOUNCE 同款 floatText 路径；每次击杀独立一条，连续成长连着升。
+export const VER = 'modules/302-elite-skills.js V6.3.6';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -326,8 +328,24 @@ export function registerFlyerKillGrowth() {
                 const killer = all.find(u => u.uid === killerUid);
                 if (!killer || !killer.alive || killer.role !== ROLE_TYPES.FLYER) continue;
                 if (killer.camp !== CAMP_TYPES.ALLY) continue;      // 只给明教飞行单位
+                const atkBefore = getStat(killer, 'atk');
+                const missBefore = killer.state._missChanceBonus || 0;
                 addMod(killer, 'atk', { source: '飞行·猎杀', value: 2, ttl: 'permanent', group: 'flyerKill', op: 'add' });
-                if (!killer.state._neverMiss) killer.state._missChanceBonus = (killer.state._missChanceBonus || 0) + 6;
+                const neverMiss = !!killer.state._neverMiss;
+                if (!neverMiss) killer.state._missChanceBonus = missBefore + 6;
+                const atkAfter = getStat(killer, 'atk');
+                const missAfter = killer.state._missChanceBonus || 0;
+                // 战报 + 头顶 🦇 飘字（金钟罩同款 floatText 路径：从格子升起后淡出）。
+                //   每次击杀独立一条，连续成长就连着升多个，不合并。
+                pushSkillAnnounce(data.log, killer, '飞行·猎杀',
+                    `🦇 ${killer.name} 飞行·猎杀（击杀 ${dead.name}）：攻击 ${fmtNum(atkBefore)} → ${fmtNum(atkAfter)}`
+                    + (neverMiss ? '，未命中免疫（不叠加）' : `，未命中 +6%（累计 +${fmtNum(missAfter)}%）`),
+                    {
+                        floatText: '🦇', floatUid: killer.uid,
+                        atkBefore, atkAfter, missChance: missAfter,
+                        missDelta: neverMiss ? 0 : 6, neverMiss,
+                        deadName: dead.name, deadUid: dead.uid
+                    });
             }
         }
     });
