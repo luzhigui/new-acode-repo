@@ -1,7 +1,11 @@
 // tools/826-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/826-balance-alert.js V3.8.0';
+export const VER = 'tools/826-balance-alert.js V3.8.1';
+// V3.8.1 | 2026-11-08 | 规则一④「中文名覆盖」不再依赖跨页全局钩子：旧版读 window.__hexDocKeys
+//   （只有打开过 108 才存在），没打开时整条检查静默跳过；且文案仍写「缺手写战术解读」，
+//   但 HEX_HINTS 早已删除。108 已删掉手写表、直接引用 827，本规则改为直接判 HEX_NAMES 覆盖
+//   content.BUFFS，标题改成「主代码新增、827 未登记中文名」，漏登时 108 表头/852 报告会显示英文 key。
 // V3.8.0 | 2026-11-08 规则五口径修正（老板案例：两批独立跑批相减得出「妹妹 +19pp」，同批细分里反而更低）：
 //   旧版拿「仅妹妹榜」与「常规榜」两批各自跑批的总胜率相减——两批队伍/种子/阵容全不同，不是对照实验，差值不可用。
 //   新口径与 808 V6.9.0 统一：只读同一批「常规」记录，按记录自带 lineup 切「仅姐姐 / 仅妹妹 / 都不带 / 其他」
@@ -267,21 +271,19 @@ function coverageIssues() {
         detail: orphanPerm.join('、') + ' —— permanentBuffKeys 里存在但 content buffs 已无此键。'
     });
 
-    // ④ 108 的中文名登记漏投（提示级）：HEX_NAME_MAP 是手工表，漏登则表里只显示 key
-    //   V3.7.1：108 的判断提示已改自动生成（HEX_HINTS 删除），这一项不再检查。
-    const doc = window.__hexDocKeys;
-    if (doc) {
-        const missName = keys.filter(k => !doc.names.includes(k));
-        if (missName.length) out.push({
-            sev: 'warn', title: `108 缺「中文名」映射的海克斯 ${missName.length} 个`,
-            detail: missName.map(k => nameOf(k) + `（${k}）`).join('、') +
-                ' —— 108 的 HEX_NAME_MAP 是手工表；V6.6.4 起已用 content 官名兜底，表里不会显示英文，'
-                + '但漏登意味着该海克斯缺少手写的战术解读，建议补进 108 的 HEX_NAME_MAP / 127 的 HEX_NAMES。'
-        });
-    }
+    // ④ 中文名登记覆盖（提示级）：主代码新增海克斯、827 没跟上时，108 表头 / 852 报告会显示英文 key。
+    //   V3.8.0：旧版读 window.__hexDocKeys（只有打开过 108 才有该全局钩子），没打开时整条规则静默跳过；
+    //   文案还写着「缺少手写战术解读」，但 HEX_HINTS 早已删除。108 现已改为直接引用 827，
+    //   这里也改成直接判 827 HEX_NAMES 的覆盖，不再依赖跨页全局状态。
+    const missName = keys.filter(k => !HEX_NAMES[k]);
+    if (missName.length) out.push({
+        sev: 'warn', title: `主代码新增、827 未登记中文名的海克斯 ${missName.length} 个`,
+        detail: missName.map(k => nameOf(k) + `（${k}）`).join('、') +
+            ' —— 补进 827 HEX_NAMES；漏登时 108 表头 / 852 报告会退化成英文 key（content 官名兜底只保 108 不炸）。'
+    });
     return out;
 }
-// 兜底中文名改由 127 的 HEX_NAMES 提供（与 108 的 HEX_NAME_MAP 同源，见 127 文件头）
+// 兜底中文名由 127 的 HEX_NAMES 提供；108 已不再持有副本（V6.9.1 起直接 import 827）。
 
 /* ========== 规则二：海克斯过强/过弱（读 108 榜，与原口径一致） ========== */
 function hexIssues(mode) {

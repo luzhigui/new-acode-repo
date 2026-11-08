@@ -6,9 +6,10 @@
 //   1) 主代码 registerElite 名单  vs  827 注册表覆盖名单 → 列出"主代码有、工具未覆盖"的精英
 //   2) 主代码 characters 派生池（CONFIG.MING_M / ENEMY_M / ELITE_CONFIGS）/encounters 的 m 值  vs  805 HERO_META.baseM → 列出数值漂移
 //   3) 主代码精英的"出场方式"粗判（明教自然/六大派敌方变体/朝廷/carry召唤），标注工具是否有对应评测通道
-//   4) 主代码海克斯池（content.buffs） vs 827 HEX_NAMES / 808 HEX_NAME_MAP → 漏登会退化成英文 key
+//   4) 主代码海克斯池（content.buffs） vs 827 HEX_NAMES → 漏登会退化成英文 key；
+//      并盯 808 是否保持「直接引用 827」的单一真源（808 曾自带一份手写副本，已收编）
 //   5) 主代码关卡列表（encounters.enemySquads） vs 808 ALL_STAGES → 加关漏登会静默少跑一关的数据
-// 4/5 于 2026-11-08 补：主代码加新海克斯/新关卡时，工具侧全是手写名单，漏一处不报错、只是少数据。
+// 4/5 于 2026-11-08 补：主代码加新海克斯/新关卡时，工具侧名单漏一处不报错、只是少数据。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -189,15 +190,18 @@ const keysOfObject = (src, name) => {
 const hexProd = Object.keys(game.buffs || {});
 if (!hexProd.length) throw new Error('content.buffs 读不到——828 拒绝空集通过（海克斯名单）');
 const hex827 = keysOfObject(reg, 'HEX_NAMES');
-const hex808 = keysOfObject(dash, 'HEX_NAME_MAP');
+// 808 自 V6.9.1 起删掉手写副本、直接 import 827。护栏改盯两件事：引用还在不在、有没有又冒出副本。
+const dashImports827 = /from\s+['"]\.\/827-tool-registry\.js['"]/.test(dash) && /\bHEX_NAMES\b/.test(dash);
+const hex808Manual = keysOfObject(dash, 'HEX_NAME_MAP');   // 非 null = 有人把副本加回来了
 const stageProd = Object.keys(game.encounters?.enemySquads || {})
   .map(Number).filter(Number.isInteger).sort((a, b) => a - b);
 if (!stageProd.length) throw new Error('encounters.enemySquads 读不到——828 拒绝空集通过（关卡列表）');
 const asBlock = dash.match(/const ALL_STAGES\s*=\s*\[([^\]]*)\]/);
 const stage808 = asBlock ? [...asBlock[1].matchAll(/\d+/g)].map(x => Number(x[0])) : [];
 
-console.log('\n── D. 海克斯名单（content.buffs / 827 HEX_NAMES / 808 HEX_NAME_MAP）──');
-console.log(`  主代码 ${hexProd.length} 个 | 827 ${hex827 === null ? '读不到' : hex827.length} 个 | 808 ${hex808 === null ? '读不到' : hex808.length} 个`);
+console.log('\n── D. 海克斯名单（content.buffs / 827 HEX_NAMES / 108 单一真源）──');
+const dashState = dashImports827 ? '引用 827（无副本）' : hex808Manual ? `手写副本 ${hex808Manual.length} 个` : '读不到';
+console.log(`  主代码 ${hexProd.length} 个 | 827 ${hex827 === null ? '读不到' : hex827.length} 个 | 808 ${dashState}`);
 let dIssues = 0;
 const reportMiss = (label, keys, target) => {
   if (!keys.length) return;
@@ -206,26 +210,31 @@ const reportMiss = (label, keys, target) => {
   newProblems.push(...keys.map(k => `D:${k}`));
   dIssues++;
 };
-if (hex827 === null || hex808 === null) {
-  console.log('  ⚠ 名单块解析失败（HEX_NAMES / HEX_NAME_MAP 结构可能被改），护栏无法判定');
+if (hex827 === null) {
+  console.log('  ⚠ 827 HEX_NAMES 名单块解析失败，护栏无法判定');
   newProblems.push('D:parse');
   dIssues++;
 } else {
-  reportMiss('主代码有、827 未登记（826 告警文案 / 852 报告会显示英文 key）',
+  reportMiss('主代码有、827 未登记（108 表头 / 826 告警 / 852 报告会退化成英文 key）',
     hexProd.filter(k => !hex827.includes(k)), '补进 827 HEX_NAMES');
-  reportMiss('主代码有、808 未登记（108 表头 / 826 的「108 缺中文名」检查）',
-    hexProd.filter(k => !hex808.includes(k)), '补进 808 HEX_NAME_MAP');
-  const orphan = [...new Set([...hex827, ...hex808])].filter(k => !hexProd.includes(k));
+  const orphan = hex827.filter(k => !hexProd.includes(k));
   if (orphan.length) {
-    console.log(`  • 工具登记了但主代码已无此海克斯：${orphan.join('、')}（疑似改名/删除残留，建议清理，不计红）`);
+    console.log(`  • 827 登记了但主代码已无此海克斯：${orphan.join('、')}（疑似改名/删除残留，建议清理，不计红）`);
   }
-  const cross = [...new Set([...hex827.filter(k => !hex808.includes(k)), ...hex808.filter(k => !hex827.includes(k))])];
-  reportMiss('两份手写表互相同步失败（827 与 808 内容不一致）', cross, '以 827 为准统一两份表');
+  // 808 单一真源守卫：副本一旦回潮，主代码加海克斯就又得改两处
+  if (hex808Manual !== null) {
+    reportMiss('808 又出现手写 HEX_NAME_MAP 副本（真源分裂）', ['HEX_NAME_MAP'],
+      '删掉副本，改用 import { HEX_NAMES } from \'./827-tool-registry.js\'');
+    reportMiss('该副本与主代码不同步', hexProd.filter(k => !hex808Manual.includes(k)), '以 827 为准，不要另建名单');
+  } else if (!dashImports827) {
+    reportMiss('808 既没引用 827 也无名表（hexLabel 拿不到中文名）', ['808-hex-dashboard'],
+      '补回 import { HEX_NAMES } from \'./827-tool-registry.js\'');
+  }
 }
 const perm = game.hexes?.permanentBuffKeys || [];
 const permDiff = [...hexProd.filter(k => !perm.includes(k)), ...perm.filter(k => !hexProd.includes(k))];
 console.log(`  妹永久清单 permanentBuffKeys：${permDiff.length ? '与 buffs 不一致 → ' + permDiff.join('、') + '（826 规则一会告警）' : '与 buffs 一致'}（本项提示，不计红）`);
-if (!dIssues) console.log('  ✅ 三方名单一致');
+if (!dIssues) console.log('  ✅ 827 与主代码一致，808 走单一真源');
 
 console.log('\n── E. 关卡列表（encounters.enemySquads / 808 ALL_STAGES）──');
 console.log(`  主代码 [${stageProd.join(', ')}] | 808 [${stage808.join(', ') || '读不到'}]`);

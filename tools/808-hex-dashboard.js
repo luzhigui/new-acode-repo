@@ -1,8 +1,12 @@
 // ===== ../tools/808-hex-dashboard.js =====
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
+import { HEX_NAMES } from './827-tool-registry.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.9.0';
+export const VER = 'tools/808-hex-dashboard.js V6.9.1';
+// V6.9.1 | 2026-11-08 | 海克斯中文名收编单一真源：删掉本文件手写的 HEX_NAME_MAP（15 项），
+//   改为 import 827 HEX_NAMES；同步删掉 window.__hexDocKeys 跨页钩子（126 改为直接判 827）。
+//   主代码加新海克斯时只需改 827 一处，828 护栏负责盯它与 content.buffs 是否同步。
 // V6.9.0 | 2026-11-08 统计口径修正（老板：表1「常规」621 场 vs 细分 921/521/267，合计反而更大）：
 //           ① 根因不是算错，是「细分 ≠ 同批切分」——四种阵容模式各跑一批、各自重掷队伍，本来就是两组实验。
 //              worker（816 V1.19.0）现在每条记录带 lineup（本局阵容：sister/brother/none），
@@ -287,32 +291,14 @@ const HEX_NOTE = {
   unity: { brother: '召唤 1 名明教英雄（技能全开），属性随召唤表' }
 };
 
-// 海克斯中文名映射（2026-10-15 V6.2.5 从 render 内部提到模块级：模式对比视图共用）
-const HEX_NAME_MAP = {
-  doubleStrike: '概率连击',
-  horseFormation: '巨马阵',
-  carry: '你就是carry',
-  windAssault: '乘风突袭',
-  cloudBody: '流云身法',
-  mindControl: '惑人心智',
-  fortify: '严阵以待',
-  hotBlood: '热血奋战',
-  meteorShower: '流星赶月',
-  bloodthirst: '嗜血狂刀',
-  holyFlame: '圣火令',
-  soulDrain: '摄魂',
-  holyFire: '圣火不熄',
-  lastStand: '背水一战',
-  unity: '众志成城'
-};
-
-// V6.6.4：上面是手工表，漏登一个新海克斯就退化成英文 key（表里出现 mindControl）。
-//   补一层 content 官名兜底，与 52 的 hexLabel / 126 的 nameOf 走同一条链：
-//   content 官名 → 本表 → 兜底 key。126 那边「表里会直接显示英文 key」的告警仍看本表完整性，
-//   所以这层兜底不会把「忘记登记」这个信号藏掉。
+// V6.9.1（2026-11-08）：删掉本文件手写的 HEX_NAME_MAP 副本，直接引用 827 的 HEX_NAMES。
+//   原来 108 / 126 / 127 / 52 各持一份中文名，主代码加新海克斯要改多处、漏一处就显示英文 key；
+//   126 还靠 window.__hexDocKeys 跨页面读这份表，没打开过 108 时那条检查直接静默跳过。
+//   现在全工具箱只有 827 一份名单，828 护栏负责盯它与 content.buffs 是否同步。
+// 取值顺序沿用旧版：827 名单 → CONFIG.BUFFS 官名兜底（漏登时不会显示英文）→ 最后退回 key。
 function hexLabel(k) {
   if (!k) return '';
-  if (HEX_NAME_MAP[k]) return HEX_NAME_MAP[k];
+  if (HEX_NAMES[k]) return HEX_NAMES[k];
   try { return (CONFIG.BUFFS && CONFIG.BUFFS[k] && CONFIG.BUFFS[k].name) || k; } catch (e) { return k; }
 }
 
@@ -1188,9 +1174,8 @@ function render(summary, stats) {
   };
 }
 
-// 2026-10-18 暴露文案登记表的 key 清单，供 126 平衡告警查「新增海克斯漏登记」
-//   V6.7.2：HEX_HINTS 已删（判断提示改自动生成，不再有「漏登」问题），这里只留手工的中文名表。
-window.__hexDocKeys = { names: Object.keys(HEX_NAME_MAP) };
+// V6.9.1：删掉 window.__hexDocKeys（供 126 查「108 中文名漏登」的跨页全局钩子）。
+//   108 已不再持有名单，126 改为直接以 827 HEX_NAMES 判覆盖，不再依赖本页是否被打开过。
 // 调试/自检钩子：详情卡渲染函数（表格里点海克斯名走同一个函数，供 node 无头自检调用）
 window.__hexOpenDetail = openHexDetail;
 window.openHexDashboard = openHexDashboard;

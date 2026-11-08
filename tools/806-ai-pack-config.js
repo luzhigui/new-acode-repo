@@ -422,7 +422,15 @@ export const ALL_PROJECT_FILES = [
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
     // 有意不收录：debug-dash.html / hanlisa-grapple-demo.html（本地调试页）、tools/output/*（脚本产物）
-    '../index.html', '../dev-index.html'
+    '../index.html', '../dev-index.html',
+    // 2026-11-08 补登记 10 个主代码新文件（check-manifest --strict 报出的未登记项）。
+    //   漏登 = AI 复制包里这些文件「读取失败(0 字符)」；今后引擎目录新增文件必须同步登记，
+    //   verify:tools 已切严格模式，没登记会直接报红。
+    '../ui/726-rewind-panel.js', '../ui/727-rewind-core.js',
+    '../modules/336-elite-sixsects-yuanzhen.js', '../modules/337-elite-mingjiao-zhuangzheng.js',
+    '../modules/338-elite-mingjiao-pengyingyu.js', '../modules/339-elite-mingjiao-zhangzhong.js',
+    '../fx/618-fx-timeline.js', '../fx/619-skill-cues.js', '../fx/620-sword-rain.js',
+    '../infra/107-store-schema.js'
     // 2026-10-19 移除了 126/127/128/129/131 五个寒离飒·瑟提特效 demo 页的登记：
     //   这五页已移出仓库（搬去同级 _仓库外产物\），清单按旧名 fetch 必 404 → 包内 3 组「读取失败(0 字符)」；
     //   用户拍板「不要了」→ 106 清单 + dev-index 入口一并清除，demo 页不再随包复制
