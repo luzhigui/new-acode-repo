@@ -6,7 +6,7 @@
 //   ③ 成长 uid 必须对得上本场一条 SUMMON_UNIT（凭空长大的 uid = 归属丢失）；
 //   ④ 形态与落点一致：pos ≤ frontMax 成「雄狮」、其余成「母狮」——frontMax 取 content 真值
 //      （金毛狮王谢逊 skills.summonLion.grow.frontMax = 6），不在此处写死。
-// 实测（156 场）：91 次成长，间隔 1 回合 83 次 / 2 回合 6 次 / 3 回合 2 次；同回合 0 次、二次成长 0 次。
+// 实测（156 场）：88 次成长，间隔 1 回合 79 次 / 2 回合 7 次 / 3 回合 2 次；同回合 0 次、二次成长 0 次。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { getSkillParams } from '../../core/201-config-5v5-test.js';
 

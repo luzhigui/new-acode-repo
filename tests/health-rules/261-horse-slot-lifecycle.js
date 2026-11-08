@@ -7,9 +7,10 @@
 //   ④ 成功消散之后不得再以该 uid 出手/被选（消散≠死亡，但也不能继续参战）。
 // 「同阵营同一格两个活人」已由 rules-replay 的逐步不变量 pos 唯一负责，本规则不重复造判据。
 // 观察项：整局从未消散的拒马数（姊强化 noDestroy 的永久占格就是这类，已知待查项）。
-// 实测（156 场）：落位 294 次（另加小昭·哥的 XIAO_ZHAO_HORSE）/ 消散判定 403 次（127 成功、276 失败），
-//   成功重复 0、消散后参战 0。★ XIAO_ZHAO_HORSE 在 render/ 下没有任何渲染器（见 known-transfers），
-//   所以小昭·哥强刷的拒马只占格不出现在战报里 —— 这条只登记，不在本规则判红。
+// 实测（156 场）：落位 296 次（HORSE_SUMMON 278 + 小昭·哥 XIAO_ZHAO_HORSE 18）/ 消散判定 355 次（115 成功），
+//   成功重复 0、消散后参战 0。XIAO_ZHAO_HORSE 的整条链是通的：契约 infra/107 登记 renderFn/translateFn →
+//   render/412 `renderXiaoZhaoHorseFact`（L147，注册在 L249）负责「出现」行，消散走 `renderHorseDestroyFact`，
+//   两条都带 pos，播放层会把文本追加进战报。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule261 = {

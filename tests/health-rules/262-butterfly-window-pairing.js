@@ -6,9 +6,9 @@
 //   ③ HOST_DEAD 必须带 hostUid，且等于该窗口附身时的宿主 uid —— 统计/渲染都要靠它认「谁的窗口关了」；
 //   ④ 整场结束时不得残留未关闭窗口（残留 ⇒ 之后所有结算都按附身身份算）。
 // BUTTERFLY_NO_HOST（找不到宿主）是独立事件，不作为窗口关闭参与配对。
-// 实测（156 场）：356 次附身 / 333 次 RETURN / 23 次 HOST_DEAD —— ★ 23 条 HOST_DEAD 的 hostUid 全为 null，
-//   主代码 modules/322 的 _executeReturn 先 Object.assign(_butterflyHost:null) 再读该字段，读到的永远是 null。
-//   这是真问题，已登记 tests/known-transfers.md（等主代码一行修正：先取 uid 再清 state）。
+// 实测（156 场）：364 次附身 / 341 次飞回 / 23 次宿主阵亡，配对与宿主归属违规 **0 条**。
+//   历史：本条上线时 23 条 HOST_DEAD 的 hostUid 全为 null（modules/322 先清 _butterflyHost 再读该字段），
+//   该缺陷已由主代码改成「进函数先存 hostUidBeforeClear」；本条保留为回归护栏，再退回去就会立刻报红。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule262 = {
