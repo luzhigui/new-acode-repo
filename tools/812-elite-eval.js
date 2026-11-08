@@ -1,8 +1,12 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
 import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './827-tool-registry.js';
+import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.4.0';
+export const VER = 'tools/812-elite-eval.js V3.5.0';
+// V3.5.0 | 2026-11-08 快照带批次元数据：每张表记录自己的完成时间 ts、种子 seed、版本（本工具 + 引擎配置），
+//   手动保存多张表时不再把不同批次统一盖成同一个时间点；标签里不同批次显式标「⚠️多批次」并给出时间范围与 seed。
+//   旧快照没有这些字段时显示「时间/seed 未记录」，不伪造。
 // V3.4.0 | 2026-11-08 拆行口径回到「只有第 3 关有变体」：此前每关都按敌方阵容反推「·胖远桥 / ·宋青书」行，
 //   引擎的六大派额外混入在 4~7 关刷出这两个名字时，表里就多出「第4关·胖远桥」这类行，看着像跨关变体。
 //   实测这两个名字的出场只有两条来源：① 第 3 关 squadVariants（真变体）② 4~7 关额外混入（不是变体）。
@@ -87,17 +91,31 @@ const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
 const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
 const snapDropBtn = document.getElementById('eliteDropSnapBtn');
 const snapStatusEl = document.getElementById('eliteSnapStatus');
-// 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage }
+// 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage, ts, seed, ver }
 let latest = { elite: null, solo: null, boss: null, none: null, weak: null };
+
+// V3.5.0 批次元数据：每张表各自记完成时间 / 种子 / 版本，不再由快照统一盖一个 ts
+const TOOL_VER = VER.replace(/^tools\/812-elite-eval\.js\s*/, '');
+const ENGINE_VER_TXT = ENGINE_VER.replace(/^core\/201-config-5v5-test\.js\s*/, '');
+const batchMeta = seed => ({ ts: Date.now(), seed, ver: `${TOOL_VER}｜引擎 ${ENGINE_VER_TXT}` });
 
 const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
 const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(arr)); return null; } catch (e) { return e; } };
 
 function snapLabel(s) {
     const d = new Date(s.ts), p2 = n => String(n).padStart(2, '0');
+    const fmt = t => { const x = new Date(t); return `${p2(x.getMonth() + 1)}-${p2(x.getDate())} ${p2(x.getHours())}:${p2(x.getMinutes())}`; };
     const kinds = Object.keys(s.parts);
     const stages = s.parts[kinds[0]].stages.join(',');
-    return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).join('+')}`;
+    // V3.5.0：表级批次元数据（旧快照没有 → 显示未记录，不拿快照 ts 冒充）
+    const times = [...new Set(kinds.map(k => s.parts[k].ts).filter(v => v != null))].sort((a, b) => a - b);
+    const seeds = [...new Set(kinds.map(k => s.parts[k].seed).filter(v => v != null))];
+    const vers = [...new Set(kinds.map(k => s.parts[k].ver).filter(Boolean))];
+    let meta = times.length === 0 ? '｜时间/seed 未记录'
+        : (times.length > 1 ? `｜⚠️多批次 ${fmt(times[0])} ~ ${fmt(times[times.length - 1])}` : `｜${fmt(times[0])}`);
+    if (seeds.length) meta += `｜seed ${seeds.join('/')}`;
+    if (vers.length) meta += `｜${vers.join(' / ')}`;
+    return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).join('+')}${meta}`;
 }
 
 function refreshSnapSelect(keepId) {
@@ -114,7 +132,12 @@ function saveSnap(keys) {
     for (const k of keys) {
         if (!latest[k]) continue;
         // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
-        parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
+        // V3.5.0：批次元数据跟着各自那张表走，手动一次存多张也不会被压成同一个时间点
+        parts[k] = {
+            stages: [...latest[k].stages], runs: latest[k].runs,
+            byStage: JSON.parse(JSON.stringify(latest[k].byStage)),
+            ts: latest[k].ts || null, seed: latest[k].seed ?? null, ver: latest[k].ver || ''
+        };
         // V3.2.0：主表额外带上「明教英雄个体胜率」（126 规则八英雄层面的数据源；其余表没有该字段）
         if (latest[k].hero) parts[k].hero = JSON.parse(JSON.stringify(latest[k].hero));
     }
@@ -206,7 +229,7 @@ startBtn.addEventListener('click', async () => {
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.elite = { stages, runs: RUNS, byStage, hero: buildHeroRates(byStage, stages) };
+                latest.elite = { stages, runs: RUNS, byStage, hero: buildHeroRates(byStage, stages), ...batchMeta(masterSeed) };
                 renderResults(byStage, stages);
                 progressEl.textContent = `✅ 全部完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['elite']).msg;   // V2.9.0 跑完自动存（不必手点）
@@ -279,7 +302,7 @@ async function runSoloGroup(list, ui) {
                 ui.progressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest[ui.key] = { stages, runs: RUNS, byStage };
+                latest[ui.key] = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
                 renderSoloResults(byStage, stages, list, ui.resultEl, ui.note);
                 ui.progressEl.textContent = `✅ ${ui.title}评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap([ui.key]).msg;    // V2.9.0 跑完自动存（不必手点）
@@ -400,7 +423,7 @@ noEliteBtn.addEventListener('click', async () => {
                 noEliteProgressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.none = { stages, runs: RUNS, byStage };
+                latest.none = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
                 renderNoEliteResults(byStage, stages);
                 noEliteProgressEl.textContent = `✅ 无精英基线完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['none']).msg;    // V2.9.0 跑完自动存（不必手点）
@@ -520,7 +543,7 @@ weakBtn.addEventListener('click', async () => {
                 weakProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.weak = { stages, runs: RUNS, byStage };
+                latest.weak = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
                 renderWeakResults(byStage, stages);
                 weakProgressEl.textContent = `✅ 弱精英评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['weak']).msg;    // V2.9.0 跑完自动存（不必手点）
