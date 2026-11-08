@@ -1,19 +1,19 @@
 {
- "ver": "c5831ce9b2525b3f2b37086066af83833846f8d2c639ced6bb3a2867edd40e80",
+ "ver": "1b60308357316375cbc3320e7ef7e5017f581ed5eb9dd5a7036faa50a59fc4fb",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "038b45f8764909aac847df4e78289a31960d96762ecaa358b4062d586a1621e8"
+   "40c401015522a9411a1629a6638378ded99958c343256a6180696a42040dcc1e"
   ],
   [
    "content/002-hex-enhance.json",
-   "7951059e74e6a20f4423392be57867ca0a442177bc4d396d3f51742edeb87be6"
+   "eec419174f3bd5acd0725d2f696b7897c45c34833271b3b570725f82c450eeed"
   ],
   [
    "core/201-config-5v5-test.js",
-   "99af23636e291bfbf00d056a7f56b4c382eee0195f1f410090883db6a612e12a"
+   "373a474169f2e74cf7c0a111655d6128e0f00da61cc58c5cd1858344e0c48b08"
   ],
   [
    "core/202-unit.js",
@@ -45,7 +45,7 @@
   ],
   [
    "core/209-battle-attack.js",
-   "db5cb3f46f95de9e0f22d01beeb7fc3d0c4ad1e47cb0e47965c75ecc97b21109"
+   "5cb788519c1e67240260ec58daf812fafe352418841ec4b11535d5afd539980d"
   ],
   [
    "core/210-battle-round.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/107-fact-contract.js",
-   "3c785982a8a76ed4cafa72038fc28fe3a7d416a8d93398d996277e0c96b81972"
+   "3ce4f839cb208fbd8e1dff5ba86aa677e0c4de4345ba3fbe8e8fab14bf04471f"
   ],
   [
    "infra/107-store-schema.js",
@@ -361,7 +361,7 @@
   ],
   [
    "modules/332-career-log.js",
-   "c2779b04a0856a35e2c0d607910ba7304016931f05dbd9c9041d16699273f3d1"
+   "3b6db43fafc8bb2f6a6d2ed3e3ce3a0a61d666f5728e4177eedd2362492e428d"
   ],
   [
    "modules/333-elite-mingjiao-crazy.js",
@@ -493,7 +493,7 @@
   ],
   [
    "render/412-facts-stat.js",
-   "7b074291305efba28162d9bca5e06e10486ed6033353dc7bab3190f083eb447a"
+   "7970df05f062e6de3865b7de380660eaf28bf592ceb4ca2286d69a29d97d9769"
   ],
   [
    "render/413-generic-renderers.js",

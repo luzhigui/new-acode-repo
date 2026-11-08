@@ -1,6 +1,7 @@
 // V6.9.5 | 2026-11-08 体检转交：删除 MING_SQUADS getter（对应 content.encounters.mingSquads 废配置，无读取方）。
 // V6.9.6 | 2026-11-08 体检转交：PCT_PARAM_KEYS 补布袋参数（说不得 bagTrap.params 占位符按 % 输出）。
-export const VER = 'core/201-config-5v5-test.js V6.9.6';
+// V6.9.7 | 2026-11-08 体检转交：导出 getContentVersion()，供生涯记录/跑批判混版本（单一真源 = 001.version）。
+export const VER = 'core/201-config-5v5-test.js V6.9.7';
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 // V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
@@ -32,6 +33,12 @@ async function loadGameData() {
 // 同步获取（如果还没加载完就返回 null，调用方需要处理）
 function getGameData() {
     return gameData;
+}
+
+// content 版本（content/001-game-data.json 的 version 字段）：生涯记录/跑批据此判「混版本榜」，
+//   不再靠记录时间猜。未加载返回 null（浏览器实战路径此时必已加载）。
+function getContentVersion() {
+    return gameData?.version || null;
 }
 
 // 海克斯强化数据（姊妹/妹永久），单独文件 content/002-hex-enhance.json。
@@ -247,7 +254,7 @@ function getSkillDesc(characterName, skillKey, jealous) {
 }
 
 // 导出加载函数供外部使用
-export { loadGameData, getGameData, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter, hasSkills, invalidateConfigCache };
+export { loadGameData, getGameData, getContentVersion, loadHexEnhanceData, getHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue, isNamedCharacter, hasSkills, invalidateConfigCache };
 
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。
