@@ -459,7 +459,7 @@ function submitLastStandLeechDeclaration(data) {
         data.declarations.push({
             type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit,
             factType: FACT_TYPES.HEAL,
-            factData: { unitName: unit.name, heal: leechVal, hpBefore: Math.floor(unit.hp), hpAfter: Math.floor(unit.hp + leechVal), unitUid: unit.uid, icon: '🩸', label: '背水一战吸血', mode: 'plusTrail', anchorVerb: '吸血' }
+            factData: { unitName: unit.name, heal: leechVal, hpBefore: unit.hp, hpAfter: unit.hp + leechVal, unitUid: unit.uid, icon: '🩸', label: '背水一战吸血', mode: 'plusTrail', anchorVerb: '吸血' }
         });
         recordHpAudit(unit, 'lastStandLeech', leechVal, '背水一战吸血');
     }

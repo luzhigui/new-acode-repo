@@ -145,7 +145,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             const xzCloud = dodgeTeam ? query('xiaoHexEnhance', dodgeTeam, dodgeTeam._activeBuffs || [], BUFF_TYPES.CLOUD_BODY) : null;
             const rebRatio = (xzCloud && xzCloud.reboundRatio) ? xzCloud.reboundRatio : C.DODGE_REBOUND_RATIO;
             let reboundDmg = Math.floor((getStat(target, 'atk') + getStat(target, 'def')) * rebRatio);
-            let unitHpBeforeRebound = Math.floor(unit.hp);
+            let unitHpBeforeRebound = unit.hp;
 
             const dodgeDeclarations = [];
             dodgeDeclarations.push({ type: EFFECT_TYPES.REBOUND, value: reboundDmg });
@@ -172,7 +172,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     attackerAlive: unit.alive,
                     attackerAtk: Math.floor(getStat(unit, 'atk')),
                     dodgerDef: Math.floor(getStat(target, 'def')),
-                    dodgerHp: Math.floor(target.hp),
+                    dodgerHp: target.hp,
                     // 是否真被眩晕（_ctrlImmune 单位会是 false），渲染层据此写文案
                     stunned: dodgeEffectResult.stunned,
                     weiHeal: dodgeDeclarations.find(d => d.type === EFFECT_TYPES.WEI_HEAL)?.data || null,
@@ -232,7 +232,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     const rng = getBattleRng();
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
-    let hpBefore = Math.floor(target.hp);
+    let hpBefore = target.hp;
     // hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣（不能「先回血再加」——满血时被 maxHp 夹掉＝白给）。
     //   按 dmg 计数的链路（吸血/反伤/破防/统计）不受影响。
     let waveTaunt = null, waveUnit = null;

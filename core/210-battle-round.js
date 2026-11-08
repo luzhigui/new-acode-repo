@@ -479,7 +479,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             //   同时补一条与下方 passEntry 同结构的 PASS fact（回合末不变量要求行动权有账）。
             if (decl.skip) {
                 u.state._acted = true;
-                log.push({ factType: FACT_TYPES.PASS, data: { unit: { uid: u.uid, name: u.name, camp: u.camp, pos: u.pos, hp: u.hp }, reason: u.state._spiderEgg ? '蜘蛛卵结茧' : '组件声明skip', hpBefore: Math.floor(u.hp), hpAfter: Math.floor(u.hp), actualHeal: 0, events: [] } });
+                log.push({ factType: FACT_TYPES.PASS, data: { unit: { uid: u.uid, name: u.name, camp: u.camp, pos: u.pos, hp: u.hp }, reason: u.state._spiderEgg ? '蜘蛛卵结茧' : '组件声明skip', hpBefore: u.hp, hpAfter: u.hp, actualHeal: 0, events: [] } });
                 continue;
             }
             if (decl.pass) { passUnits.push({ unit: u, reason: '组件声明pass' }); continue; }
@@ -543,12 +543,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const { unit, reason } = orderResult.passEntry;
             unit.state._acted = true;
             unit.state._blocked = isBlocked(unit, currentTeam);
-            const hpBefore = Math.floor(unit.hp);
+            // 引擎一律实数（显示取整只在 infra/102 的 fmtHpText/fmtNum 出口）：
+            //   原 floor 会把残血 0.4 拍成 0、把「休息回复 15」记成整数差值，战报与真实血量对不上。
+            const hpBefore = unit.hp;
             let hpAfter = hpBefore;
             let actualHeal = 0;
             if (unit.alive && (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击')) {
                 applyStatChange(unit, 'hp', 15, null, '休息回复');
-                hpAfter = Math.floor(unit.hp);
+                hpAfter = unit.hp;
                 actualHeal = hpAfter - hpBefore;
             }
             const passFact = { unit: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, hp: unit.hp }, reason, hpBefore, hpAfter, actualHeal, events: [] };

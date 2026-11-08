@@ -226,9 +226,10 @@ export function createXiaoZhaoSisterComponent() {
             const atkRatio = flyDirection === 'left' ? 0 : bp.atkRatioRight;
             const defRatio = flyDirection === 'left' ? bp.defRatioLeft : 0;
             const hpRatio = bp.hpRatio;
-            const atkTransfer = Math.floor(sister.state._baseAtk * atkRatio);
-            const defTransfer = Math.floor(sister.state._baseDef * defRatio);
-            const hpTransfer = Math.floor(sister.hp * hpRatio);
+            // 与吸星同口径：引擎一律实数，0.5 比例配奇数面板不再丢 0.5；面板显示仍走显示层取整。
+            const atkTransfer = sister.state._baseAtk * atkRatio;
+            const defTransfer = sister.state._baseDef * defRatio;
+            const hpTransfer = sister.hp * hpRatio;
             Object.assign(sister.state, { _butterflyHpTransfer: hpTransfer });
             addMod(host, 'atk', { source: '蝶变附身', value: atkTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
             addMod(host, 'def', { source: '蝶变附身', value: defTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
@@ -240,7 +241,7 @@ export function createXiaoZhaoSisterComponent() {
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
             if (totalMaxHp > 0) {
-                const newHp = Math.floor(sister.maxHp * (totalHp/totalMaxHp));
+                const newHp = sister.maxHp * (totalHp/totalMaxHp);
                 const delta = newHp - sister.hp;
                 applyStatChange(sister, 'hp', delta, null, '蝶变附身血量', false, false);
             }

@@ -134,8 +134,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     //   渲染层只读它判「附身/飞天」，不再伸手读引擎的 unit._fsm 实例。
     _fsmPhase:               { type: STATE_FIELD_TYPES.STRING,  default: null },
     _butterflyHost:          { type: STATE_FIELD_TYPES.STRING,  default: null },
-    // 蝶变附身额外选中受惠的队友 uid
-    _extraButterflyHost:     { type: STATE_FIELD_TYPES.STRING,  default: null },
     _zhangTauntDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 张三丰：第十回合严阵以待

@@ -4,7 +4,7 @@
 export const VER = 'render/409-facts-control.js V1.0.2';
 
 import { registerFactRenderer } from './406-fact-registry.js';
-import { makeFXSnapshot, fmtHpText } from '../infra/102-core-utils.js';
+import { makeFXSnapshot, fmtHpText, fmtNum } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_SUBTYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 
 // 乘风突袭波及 / 击退 / 失败
@@ -65,7 +65,8 @@ export function renderPassFact(fact) {
             type:'attack-group', uidA:unit.uid, uidD:null,
             entries:[
                 {type:'info', text:`<span class="gray">${headText}</span>`},
-                {type:'info', text:`<span class="green">😴 休息回复 ${actualHeal} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
+                // actualHeal 现在是实数差值（可能 14.999999999999998）：文本走 fmtNum，动效 healAmount 仍用原值
+                {type:'info', text:`<span class="green">😴 休息回复 ${fmtNum(actualHeal)} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
             ],
             isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,

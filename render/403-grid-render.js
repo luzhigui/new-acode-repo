@@ -373,7 +373,13 @@ export function renderGrid(id, camp) {
         // 周颠·癫：强制置顶（只要预算>0就绝对能看到）
         if (unit.state._isCrazy) logoList.push('🤪');
         
-        if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
+        // 技能图标先合并成「一个元素」再入队：eliteSkillIcon 可能由多个 emoji 叠加（小昭·姊 🦋、
+        //   成昆 🎭、玄冥 ❄️、唐文亮 🌿xN…），按空格拆成多格会自己吃掉 logoBudget 的 2 格，
+        //   后面的 🩸 / 海克斯全被 slice 截掉。合并后仍只占 1 个名额，显示时紧挨着排。
+        if (eliteSkillIcon) {
+            const skillTokens = eliteSkillIcon.trim().split(/\s+/).filter(Boolean);
+            if (skillTokens.length > 0) logoList.push(skillTokens.join(''));
+        }
         // 背水一战已触发（整局仅一次，含妹永久版）：紧跟在技能图标之后、海克斯图标之前。
         //   ⚠️ 不能追加到末尾：logoBudget 只留前 2 个（带计数胶囊只留 1 个），实战角色普遍有
         //   ≥2 个海克斯图标，追加末尾 100% 被 slice 截掉（V7.1.4 真机不可见的根因）。

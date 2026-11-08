@@ -1,5 +1,5 @@
 {
- "ver": "c3506bc8a2d52e7cdda1f04740b75497929ccec7475f76ae6e89495471aa16d8",
+ "ver": "c920c94322d869fcdb7db130c7f9fa8fded70f0549656f416f759ae7148e284e",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "0342f5fffb6986087b517598df94c34a9649d172c448284f7002a4a0990d95d4"
+   "70b4df24deb3fe264a571fe4fec165dd3369d23c8a7b97c910f1cfbd274afe5e"
   ],
   [
    "core/205-battle-horse.js",
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "1b3cf0ba3282449fb7343c9dadabb057203b65ef175444664a98f0507c941334"
+   "a0f47dee2c5eb88a99c37f183ab3e34ecc8f533df9e6ac0c487340f36ff51039"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -57,7 +57,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "d4d12c3ee1069bb1fa142298950390dd41a2665b28e20dd83215791cb9d9bf35"
+   "9ddb6d42557d9bb736528c16bdea7b01e674dd950216872879815a3fc6b717d2"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -81,7 +81,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "2ac686841db3292fdc08204cae58d7608ff8aba225782eaf2b797bf2d22b0c6b"
+   "df393aaa61c9b8f533dc2989f63e165422caf3f3f478088cdb03502d234515a1"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -245,7 +245,7 @@
   ],
   [
    "modules/303-error-capture.js",
-   "e688dbb9f9e070d95a4193112c7848592ddd6f38bcb4d23b6c4d73d1d23ffca7"
+   "5e9244472a77cf4d0aff6028c7deab7be61fd594e1a2a35255b64da52c1baabb"
   ],
   [
    "modules/304-audio-manager.js",
@@ -321,7 +321,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "9a596e41c134febcb72e3af4b19d6f61dbacb161f60cbc1b077ba2f049aecf16"
+   "208889bd20acd7dafc299e3a3d21ba18ccd3142b8d864a17c57dc521c205c00f"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
@@ -353,7 +353,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "54fba2f68bcf6c9a03670db7d9c78ff9d6352cbac6ce1a5f0b849f493a965973"
+   "48044df53d223e730d2a77db16d4dfd733e61f719a2a63a08b9c59457e59f134"
   ],
   [
    "modules/331-custom-effects.js",
@@ -365,7 +365,7 @@
   ],
   [
    "modules/333-elite-mingjiao-crazy.js",
-   "a4e427cbfb98734a4b20d9c19a66cac2cb07e461431753950e3d15e897d83398"
+   "36e4058477c04a15ee1935dc565eb8167878febb05608150412a25202e58594f"
   ],
   [
    "modules/334-common-absorb.js",
@@ -457,7 +457,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "ca2071993f43e8f9cccb539cf0b15b283a093dccdb82ca2fe87183f3dfe0ad2e"
+   "ae7d550e7d4bc9653ca9b7544e9eea28501bb92cc24fd8b99d74319d8418e9b7"
   ],
   [
    "render/404-grid-badges.js",
@@ -473,7 +473,7 @@
   ],
   [
    "render/407-facts-attack.js",
-   "205188ecdc8f6cc9583b498382912deb1b05d5b53e5f0fbc674f4cfe31dca625"
+   "0bdf4c55d7815b3633c7c8f6cc9ca28abe9fcaa4557768491196a43335a4d7e3"
   ],
   [
    "render/408-facts-effect.js",
@@ -481,7 +481,7 @@
   ],
   [
    "render/409-facts-control.js",
-   "b71fef1f57e7309a7a2c778a79ac11e5f70b7f74c4c3ea1d9636f0fe22d6e921"
+   "a40fd8b1966825e63b939ecc226da2260cff12f4f8693891e03c5fe9a5aae8df"
   ],
   [
    "render/410-facts-heal.js",
@@ -509,7 +509,7 @@
   ],
   [
    "render/416-actions-translate-attack.js",
-   "776904ef1be72cdb1122146e44f0c2593946bb216bcdc7f16a9d7caea5d92992"
+   "598817b82acf1f2c9736ef6b916fcbf35ef9063f0e2b49684e0af2c3551037f8"
   ],
   [
    "render/417-actions-translate-control.js",
@@ -525,7 +525,7 @@
   ],
   [
    "render/420-actions-defs.js",
-   "fa21a376737ef6b38454ca559a83f3b346142384593457d1b2566eb217875e8c"
+   "c62b031f75330cde6d2f16e824d47b6517a2e498b4b7db33e139cbf4bb080eda"
   ],
   [
    "ui/701-main-utils.js",
@@ -537,7 +537,7 @@
   ],
   [
    "ui/703-ui-render-5v5-test.js",
-   "091e6c8e89cd0b7997066978c668049d1017052b2c60fabbb33daaecbee2e73a"
+   "df769d2752908fba35b0379393adb54226bbdeb3f51bb45035bd3557780a6887"
   ],
   [
    "ui/704-main-state.js",

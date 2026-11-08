@@ -104,8 +104,8 @@ function renderStatDetail(u, stat) {
     const base = u.state?.[baseKey] ?? u[stat] ?? 0;
     const mods = (u._mods && u._mods[stat]) || [];
     const final = getStat(u, stat);
-    // 攻文本走显示下限（<0 显示 0），底数/delta 仍用实数；其它属性不受影响
-    const baseText = String(stat === 'atk' ? fmtAtk(Math.floor(base)) : Math.floor(base));
+    // 攻文本走显示下限（<0 显示 0），底数/delta 走 fmtNum（引擎实数：蝶变附身/吸星已不再取整）
+    const baseText = String(stat === 'atk' ? fmtAtk(fmtNum(base)) : fmtNum(base));
     const finalText = stat === 'atk' ? fmtNum(fmtAtk(final)) : fmtNum(final);
     if (mods.length === 0) return baseText;
 
@@ -118,11 +118,11 @@ function renderStatDetail(u, stat) {
     const delta = (b) => b.add + base * b.mul;
     const parts = [baseText];
     const perm = delta(g.permanent);
-    if (Math.abs(perm) >= 0.01) parts.push(`<span style="color:${perm > 0 ? 'var(--c-green)' : 'var(--c-danger)'};">${perm > 0 ? '+' : ''}${Math.floor(perm)}永</span>`);
+    if (Math.abs(perm) >= 0.01) parts.push(`<span style="color:${perm > 0 ? 'var(--c-green)' : 'var(--c-danger)'};">${perm > 0 ? '+' : ''}${fmtNum(perm)}永</span>`);
     const att = delta(g.attached);
-    if (Math.abs(att) >= 0.01) parts.push(`<span style="color:var(--c-gain);">${att > 0 ? '+' : ''}${Math.floor(att)}附身</span>`);
+    if (Math.abs(att) >= 0.01) parts.push(`<span style="color:var(--c-gain);">${att > 0 ? '+' : ''}${fmtNum(att)}附身</span>`);
     const rnd = delta(g.round);
-    if (Math.abs(rnd) >= 0.01) parts.push(`<span style="color:#ff8c00;">${rnd > 0 ? '+' : ''}${Math.floor(rnd)}临</span>`);
+    if (Math.abs(rnd) >= 0.01) parts.push(`<span style="color:#ff8c00;">${rnd > 0 ? '+' : ''}${fmtNum(rnd)}临</span>`);
     if (parts.length === 1) return baseText;
     return parts.join(' ') + ' = <span style="color:var(--c-gain);font-weight:bold;">' + finalText + '</span>';
 }
