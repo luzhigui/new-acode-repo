@@ -1,7 +1,40 @@
 {
   "domain": "D12",
-  "updatedAt": "2026-11-08 21:40",
-  "updatedBy": "框架会话",
-  "note": "规则自检与假绿域：只做元守卫（假绿扫描/零触发/恒 skip/形状非法），不带业务号规则；号段 295-300 预留。",
-  "entries": []
+  "updatedAt": "2026-11-08 22:30",
+  "updatedBy": "D12 会话（规则自检与假绿）",
+  "note": "规则自检与假绿域：只做元守卫（假绿扫描/零触发/恒 skip/形状非法），不带业务号规则；号段 295-300 预留。本轮把 4 类判据落成常驻静态扫描 tests/rule-false-green-scan.mjs（V1.0.0，带内嵌反例自证），295-298 登记为元守卫槽位（不产出 health-rules 文件，故 file 指向扫描脚本）；299-300 仍预留。待框架会话把扫描器挂进 run-all 观察项/计退码项。",
+  "entries": [
+    {
+      "id": 295,
+      "name": "规则形状非法（返回普通字符串/布尔/undefined/缺 fail 字段）",
+      "file": "tests/rule-false-green-scan.mjs",
+      "type": "meta-guard",
+      "state": "pending",
+      "note": "判据 A；内嵌反例自证已过"
+    },
+    {
+      "id": 296,
+      "name": "规则无 fail 路径（只会 pass/skip）",
+      "file": "tests/rule-false-green-scan.mjs",
+      "type": "meta-guard",
+      "state": "pending",
+      "note": "判据 B；观测型（返回 observe）按设计豁免"
+    },
+    {
+      "id": 297,
+      "name": "规则恒 pass 分支（条件不影响结论）",
+      "file": "tests/rule-false-green-scan.mjs",
+      "type": "meta-guard",
+      "state": "pending",
+      "note": "判据 C；内嵌反例自证已过"
+    },
+    {
+      "id": 298,
+      "name": "规则 catch 吞掉（异常变 pass/skip 或空 catch）",
+      "file": "tests/rule-false-green-scan.mjs",
+      "type": "meta-guard",
+      "state": "pending",
+      "note": "判据 D1/D2/D3；设计口径降级已登记豁免表"
+    }
+  ]
 }
