@@ -1,8 +1,11 @@
-// modules/330-battle-init.js — 双方阵容生成（精英分层 / 弱精英混入 / 站位锚点）
-// 明教精英分层：Boss（张无忌）20% 独掷；Boss 局 30% 独走 / 20%带1强 / 25%带1弱 / 15%带2弱 / 10%带1强1弱；
-//   无 Boss：必出 1 强，40% 独走 / 40%带1弱 / 10%带2弱 / 10%双强。弱精英池 = 杨逍/殷天正。
+// modules/330-battle-init.js — 双方阵容生成（M107/M104/M100 分层 / 额外混入 / 站位锚点）
+// 明教（我方）：Boss 张无忌 20% 独掷；Boss 局 25% 再配 1 强精英；无 Boss 局 80% 出 1 强、其中 35% 再 1 强（双强）。
+//   M104 只从弱精英池（杨逍/殷天正）取，M100 从带技能普通兵池（周颠/说不得/彭莹玉/张中/反伤弟子）取，
+//   剩余空位交普通兵按功率补齐；队伍一律不超过 5 人，同档不取重名。
+// 六大派：保留 WEAK_ELITE_MIX_RATE（M104 混入），另加 M107 20% / M100 30% 两档独立判定；
+//   只替换「非具名、且不属本关固定精英池」的杂兵位，找不到杂兵位就放弃，绝不顶掉关卡固定精英。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-export const VER = 'modules/330-battle-init.js V7.6.6';
+export const VER = 'modules/330-battle-init.js V7.6.7';
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/202-unit.js';
@@ -99,15 +102,27 @@ export function initBattleTeams(currentStage, _rng) {
     }
     const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
 
-    // 骰子先掷后判（全部无条件消耗，保证联机双端 RNG 序列一致）
+    // 明教带技能的普通兵池（M100 档补位用；反伤弟子在数据里是 m=97，建单位一律读 MING_M 实际值，不硬写 100）
+    const MING_SPECIAL_M100 = ['周颠', '说不得', '彭莹玉', '张中', '反伤弟子'];
+
+    // ⚠️ RNG 序列更新（V7.6.7）：明教抽签次数从原 3 次变更为 7 次，旧冻结基线（固定种子回放/140 场体检）失效，
+    //    联机双端需重新校准基线。骰子一律无条件消耗，force 只改「是否应用」。
+    //   顺序：1 boss → 2 m107 → 3 m107Second → 4 m104Roll1 → 5 m104Roll2 → 6 m100Roll1 → 7 m100Roll2
+    //        → 8 strongPickIdxA → 9 strongPickIdxB → 10 weakPickIdxA → 11 weakPickIdxB
+    //        → 12 m100PickIdxA → 13 m100PickIdxB（pick 一律走 _rng.nextInt，与 _rng 同一条流）
     const bossRoll = _rng.next();
-    const bossPartnerRoll = _rng.next();
-    const noBossRouteRoll = _rng.next();
-    const subRouteRoll = _rng.next();
+    const m107Roll = _rng.next();
+    const m107SecondRoll = _rng.next();
+    const m104Roll1 = _rng.next();
+    const m104Roll2 = _rng.next();
+    const m100Roll1 = _rng.next();
+    const m100Roll2 = _rng.next();
     const strongPickIdxA = _rng.nextInt(0, strongEliteConfigs.length - 1);
     const strongPickIdxB = _rng.nextInt(0, strongEliteConfigs.length - 1);
     const weakPickIdxA = _rng.nextInt(0, Math.max(0, mingWeakPool.length - 1));
     const weakPickIdxB = _rng.nextInt(0, Math.max(0, mingWeakPool.length - 1));
+    const m100PickIdxA = _rng.nextInt(0, MING_SPECIAL_M100.length - 1);
+    const m100PickIdxB = _rng.nextInt(0, MING_SPECIAL_M100.length - 1);
 
     const hasBoss = bossRoll < (rate['张无忌'] ?? 0.20);
 
@@ -166,47 +181,83 @@ export function initBattleTeams(currentStage, _rng) {
         return unit;
     };
 
+    // 明教带技能普通兵（M100 档）：职业按 characters 身份取，取不到才随机四选一
+    const pushMingSpecial = (name) => {
+        const ch = getGameData()?.characters?.[name];
+        const m = C.MING_M[name];
+        if (m == null) throw new Error(`缺 MING_M: ${name}`);
+        const tagRole = ch?.role || (ch?.tags || []).find(t => C.ROLES.includes(t));
+        const role = tagRole || C.ROLES[_rand(0, 3)];
+        const unit = new Unit(name, m, role, CAMP_TYPES.ALLY);
+        unit.init(_rng); unit.applyBonus();
+        unit.pos = null;
+        allyTeam.push(unit);
+        usedPower += normalPowerOf(m);
+        return unit;
+    };
+
+    // 分层抽取（2026-11-08 重写，替代旧 noBossRouteRoll 四路分支）：
+    //   ① 先定 M107 强精英数（Boss 局 0/1、无 Boss 局 0/1/2）；
+    //   ② 再按 M107 档位配 M104（弱精英池）/ M100（带技能普通兵）补位；
+    //   ③ 剩余空位交下方 candidatePool 普通兵按功率补齐。
+    let m107Count = 0;
     if (weakAllyForced) {
         pushWeakElite(mingWeakPool.find(w => w.name === forceWeakElite));
     } else if (!anyForce) {
         if (hasBoss) {
-            // 出张无忌 (20%)：
-            // 20%带一强, 25%带一弱, 15%带两弱, 10%带一强一弱, 30%啥也不带
             pushElite(bossConfig);
-            if (noBossRouteRoll < 0.20) {
-                pushElite(strongEliteConfigs[strongPickIdxA]);
-            } else if (noBossRouteRoll < 0.45) {
-                if (mingWeakPool.length > 0) pushWeakElite(mingWeakPool[weakPickIdxA]);
-            } else if (noBossRouteRoll < 0.60) {
-                if (mingWeakPool.length > 0) {
-                    pushWeakElite(mingWeakPool[weakPickIdxA]);
-                    if (mingWeakPool.length > 1) {
-                        const idxB = (weakPickIdxB === weakPickIdxA) ? (weakPickIdxB + 1) % mingWeakPool.length : weakPickIdxB;
-                        pushWeakElite(mingWeakPool[idxB]);
-                    }
-                }
-            } else if (noBossRouteRoll < 0.70) {
-                pushElite(strongEliteConfigs[strongPickIdxA]);
-                if (mingWeakPool.length > 0) pushWeakElite(mingWeakPool[weakPickIdxA]);
-            }
-        } else {
-            // 无张无忌 (80%)：必出1强精英。然后：
-            // 10%出双强, 40%出1弱, 10%出2弱, 剩下40%啥也不带
-            pushElite(strongEliteConfigs[strongPickIdxA]);
-            if (noBossRouteRoll < 0.10) {
+            if (m107Roll < 0.25) { pushElite(strongEliteConfigs[strongPickIdxA]); m107Count = 1; }
+        } else if (m107Roll < 0.80) {
+            pushElite(strongEliteConfigs[strongPickIdxA]); m107Count = 1;
+            if (m107SecondRoll < 0.35) {
                 const idxB = (strongPickIdxB === strongPickIdxA) ? (strongPickIdxB + 1) % strongEliteConfigs.length : strongPickIdxB;
-                pushElite(strongEliteConfigs[idxB]);
-            } else if (noBossRouteRoll < 0.50) {
-                if (mingWeakPool.length > 0) pushWeakElite(mingWeakPool[weakPickIdxA]);
-            } else if (noBossRouteRoll < 0.60) {
-                if (mingWeakPool.length > 0) {
-                    pushWeakElite(mingWeakPool[weakPickIdxA]);
-                    if (mingWeakPool.length > 1) {
-                        const idxB = (weakPickIdxB === weakPickIdxA) ? (weakPickIdxB + 1) % mingWeakPool.length : weakPickIdxB;
-                        pushWeakElite(mingWeakPool[idxB]);
-                    }
-                }
+                pushElite(strongEliteConfigs[idxB]); m107Count = 2;
             }
+        }
+
+        // M104 / M100 档位表（阈值即线上口径，改动必须同步重录基线）
+        let m104Count = 0, m100Count = 0;
+        if (hasBoss) {
+            if (m107Count === 1) {
+                if (m104Roll1 < 0.50) m104Count = 1;
+                if (m100Roll1 < 0.50) m100Count = 1;
+            } else {
+                if (m104Roll1 < 0.80) m104Count = 1;
+                if (m100Roll1 < 0.80) m100Count++;
+                if (m100Roll2 < 0.50) m100Count++;
+            }
+        } else if (m107Count === 2) {
+            if (m104Roll1 < 0.60) m104Count = 1;
+            if (m100Roll1 < 0.70) m100Count = 1;
+        } else if (m107Count === 1) {
+            if (m104Roll1 < 0.80) m104Count = 1;
+            if (m100Roll1 < 0.85) m100Count++;
+            if (m100Roll2 < 0.60) m100Count++;
+        } else {
+            if (m104Roll1 < 0.90) m104Count++;
+            if (m104Roll2 < 0.80) m104Count++;
+            if (m100Roll1 < 0.90) m100Count++;
+            if (m100Roll2 < 0.80) m100Count++;
+        }
+
+        // 实例化 M104：mingWeakPool（杨逍/殷天正），两个 idx 撞名就顺延一位
+        for (let i = 0; i < m104Count && allyTeam.length < 5 && mingWeakPool.length > 0; i++) {
+            let idx = i === 0 ? weakPickIdxA : weakPickIdxB;
+            for (let tries = 0; tries < mingWeakPool.length && allyTeam.some(u => u.name === mingWeakPool[idx].name); tries++) {
+                idx = (idx + 1) % mingWeakPool.length;
+            }
+            const w = mingWeakPool[idx];
+            if (allyTeam.some(u => u.name === w.name)) break;   // 池里已无可用名
+            pushWeakElite(w);
+        }
+
+        // 实例化 M100：带技能普通兵池，排除已用名后按 idx 取
+        for (let i = 0; i < m100Count && allyTeam.length < 5; i++) {
+            const used = new Set(allyTeam.map(u => u.name));
+            const pool = MING_SPECIAL_M100.filter(n => !used.has(n));
+            if (pool.length === 0) break;
+            const pickIdx = (i === 0 ? m100PickIdxA : m100PickIdxB) % pool.length;
+            pushMingSpecial(pool[pickIdx]);
         }
     }
 
@@ -229,7 +280,8 @@ export function initBattleTeams(currentStage, _rng) {
     }
     candidatePool.sort((a, b) => a.power - b.power);
 
-    const remainingCandidates = [...candidatePool];
+    // 已由 M107/M104/M100 分档补进队里的名字不再参与普通兵填充（防同名重复）
+    const remainingCandidates = candidatePool.filter(c => !allyTeam.some(u => u.name === c.name));
     let remainingPower = (targetPower ?? C.MING_TARGET_POWER_FALLBACK) - usedPower;
     let remainingSlots = 5 - allyTeam.length;
     for (let slot = 0; slot < remainingSlots; slot++) {
@@ -364,24 +416,27 @@ export function initBattleTeams(currentStage, _rng) {
     let enemyUnits = [];
     const usedEnemyNames = [];
 
-    // —— 六大派弱精英混入——
-    // 池由名册派生（六大派名册里带身份标记、且不属于任一关卡的固定精英池）＝何太冲/唐文亮，不另建清单；
-    //   命中则本局把「首个 M 值匹配的数字空位」锁定为该弱精英（每局至多一名），照明教侧混入口径。
-    //   本关若没有对应 M 的数字空位（如第 3 关变体全是对象项）则不生效。
+    // —— 六大派额外精英/特殊兵混入池（保留原 WEAK_ELITE_MIX_RATE 混入率，另加 M107 / M100 两档独立判定）——
+    //   命中后只替换「非具名、且不属于本关固定精英池」的杂兵位；找不到杂兵位就放弃，绝不顶掉关卡固定精英
     const fixedEnemyEliteNames = new Set(Object.values(C.ELITE_POOL || {}).flat().map(e => e && e.name));
-    const enemyWeakPool = Object.entries(C.ENEMY_POOL_TIER)
-        .filter(([n]) => HERO_FLAGS[n] && !fixedEnemyEliteNames.has(n))
-        .map(([n]) => ({ name: n, m: ENEMY_M[n] }));
-    // RNG 流纪律（PVP 双端同源）：抽签无条件消耗，锁定与否只改「是否应用」，不改消耗序列
-    const enemyWeakRoll = _rng.next();
-    const enemyWeakPickIdx = enemyWeakPool.length > 0 ? _rand(0, enemyWeakPool.length - 1) : 0;
-    let weakLockName = null;
+    const SIX_M107 = ['张三丰', '宋青书', '周芷若', '胖远桥', '灭绝师太'];
+    const SIX_M104 = ['何太冲', '唐文亮', '空见'];
+    const SIX_M100 = ['俞莲舟', '素问', '少林圆真'];
+    // ⚠️ RNG 序列更新（V7.6.7）：三颗骰子 + 三个 pick 一律无条件消耗，命中与否只改「是否应用」
+    const enemyM107Roll = _rng.next();
+    const enemyM104Roll = _rng.next();
+    const enemyM100Roll = _rng.next();
+    const enemyM107PickIdx = _rand(0, SIX_M107.length - 1);
+    const enemyM104PickIdx = _rand(0, SIX_M104.length - 1);
+    const enemyM100PickIdx = _rand(0, SIX_M100.length - 1);
+    const extraEnemyElites = [];
     if (forceWeakElite && C.ENEMY_POOL_TIER[forceWeakElite] != null) {
-        weakLockName = forceWeakElite;          // dev 强制优先
-    } else if (enemyWeakPool.length > 0 && enemyWeakRoll < C.WEAK_ELITE_MIX_RATE) {
-        weakLockName = enemyWeakPool[enemyWeakPickIdx].name;
+        extraEnemyElites.push(forceWeakElite);                 // dev 强制优先
+    } else if (enemyM104Roll < C.WEAK_ELITE_MIX_RATE) {
+        extraEnemyElites.push(SIX_M104[enemyM104PickIdx]);
     }
-    let weakLockUsed = false;
+    if (enemyM107Roll < 0.20) extraEnemyElites.push(SIX_M107[enemyM107PickIdx]);
+    if (enemyM100Roll < 0.30) extraEnemyElites.push(SIX_M100[enemyM100PickIdx]);
 
     if (enemySquad) {
         let enemyPosSet = new Set();
@@ -409,13 +464,6 @@ export function initBattleTeams(currentStage, _rng) {
                     const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
-                }
-                // 弱精英锁定：命中名册且 M 值对上
-                //   本数字空位时锁定该具名——六大派弱精英「混入正常阵容占 1 位」，每局至多一名；
-                //   本关若无对应 M 空位则不生效（如第 3 关胖远桥组全对象项）
-                if (!weakLockUsed && weakLockName && ENEMY_POOL_TIER[weakLockName] === mVal && !usedEnemyNames.includes(weakLockName)) {
-                    name = weakLockName;
-                    weakLockUsed = true;
                 }
                 // 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
                 //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。
@@ -469,6 +517,29 @@ export function initBattleTeams(currentStage, _rng) {
             let extraUnit = new Unit(name, extraM, role, CAMP_TYPES.ENEMY);
             extraUnit.init(_rng); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
+            // V7.6.7：补位单位必须登记进 usedEnemyNames，否则下方「额外混入」去重守卫看不到它，
+            //   会再混入同名 M104（第5关玄冥局曾刷出「唐文亮×2 / 何太冲×2」）
+            usedEnemyNames.push(name);
+        }
+        // 应用额外混入：只替换无名普通杂兵，找不到空位则放弃本轮，绝不顶替关卡固定精英
+        for (const en of extraEnemyElites) {
+            if (usedEnemyNames.includes(en)) continue;
+            const ch = getGameData()?.characters?.[en];
+            const m = ch?.m;
+            if (m == null) throw new Error(`六大派额外混入缺 characters.${en}.m`);
+            const targetIdx = enemyUnits.findIndex(u => !fixedEnemyEliteNames.has(u.name)
+                && getGameData()?.characters?.[u.name]?.named !== true);
+            if (targetIdx < 0) continue;                           // 全被固定精英/具名填满 → 放弃，不 append
+            const role = ch?.role || (ch?.tags || []).find(t => C.ROLES.includes(t)) || C.ROLES[0];
+            const newUnit = new Unit(en, m, role, CAMP_TYPES.ENEMY);
+            newUnit.pos = null;
+            newUnit.init(_rng);
+            newUnit.applyBonus();
+            const oldName = enemyUnits[targetIdx].name;
+            const oldIdx = usedEnemyNames.indexOf(oldName);
+            if (oldIdx >= 0) usedEnemyNames.splice(oldIdx, 1);
+            enemyUnits[targetIdx] = newUnit;
+            usedEnemyNames.push(en);
         }
         let allUnits = [...enemyUnits];
         let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
