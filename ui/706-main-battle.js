@@ -1,4 +1,4 @@
-export const VER = 'ui/706-main-battle.js V6.1.6';
+export const VER = 'ui/706-main-battle.js V6.1.7';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -298,7 +298,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
                 `${u.name}(${u.role} M${u.m})`,
                 u.isHorse ? getRoleLogTag(u) : '',
                 `站位${displayPos}`,
-                `攻${fmtAtk(Math.floor(getStat(u, 'atk')))} 防${Math.floor(getStat(u, 'def'))}`,
+                `攻${fmtNum(fmtAtk(getStat(u, 'atk')))} 防${fmtNum(getStat(u, 'def'))}`,
                 `血${fmtHpText(u.hp)}/${fmtHpText(u.maxHp)}`,
                 aliveText,
                 (u.isZhang || u.isWei) ? getRoleLogTag(u) : ''

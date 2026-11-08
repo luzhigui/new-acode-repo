@@ -2,12 +2,15 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/410-facts-heal.js V1.2.1';
+export const VER = 'render/410-facts-heal.js V1.2.2';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeHealRenderer, healDisplay } from './413-generic-renderers.js';
 import { fmtHpText, fmtNum } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
+
+// 增量统一口径：符号写在数值外，数值只出绝对值（避免「+-2.6」「--3」这类双符号）
+const sgn = (v) => `${v >= 0 ? '+' : '-'}${fmtNum(Math.abs(v || 0))}`;
 
 // Buff 衍生效果（嗜血/热血）
 export function renderBloodthirstLeechFact(fact) {
@@ -70,7 +73,7 @@ export function renderQianKunDerivedFact(fact) {
     const reducePart = fact.reduce != null ? `${fact.targetName}减伤${fmtNum(fact.reduce)}，` : '';
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤衍生：${reducePart}${fact.healTargetName}治疗+${fmtNum(fact.heal)}，${fact.atkTargetName}攻击+${fmtNum(fact.atkGain)}</span>`,
+        text:`<span class="gold">🦋 乾坤衍生：${reducePart}${fact.healTargetName}治疗${sgn(fact.heal)}，${fact.atkTargetName}攻击${sgn(fact.atkGain)}</span>`,
         fx: [{ kind: 'heal', amount: fact.heal }, { kind: 'atk', amount: fact.atkGain }],
         isHealEntry: true,
         healAmount: fact.heal,
@@ -93,11 +96,10 @@ export function renderEndlessBreathFact(fact) {
     }
     // 攻防明细：回血同时按「实际回血/溢出」两档转永久攻防
     // 二选一：每次触发攻/防只有一边>0，零的那边不显示（「攻+2.6 防+0」→「攻+2.6」）
-    const num = (v) => Math.round((v || 0) * 10) / 10;
     const bonus = (atk, def) => {
         const parts = [];
-        if (atk > 0) parts.push(`攻+${num(atk)}`);
-        if (def > 0) parts.push(`防+${num(def)}`);
+        if (atk > 0) parts.push(`攻${sgn(atk)}`);
+        if (def > 0) parts.push(`防${sgn(def)}`);
         return parts.length > 0 ? parts.join(' ') : '';
     };
     const wrap = (t) => t ? `（${t}）` : '';

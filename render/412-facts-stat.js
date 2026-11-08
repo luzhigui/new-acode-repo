@@ -1,26 +1,30 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
 // V1.0.2 | 2026-11-08 攻击力显示下限：幼狮成长行攻文本包 fmtAtk（<0 显示 0），引擎负数真值不回写
-export const VER = 'render/412-facts-stat.js V1.0.2';
+// V1.0.3 | 2026-11-08 显示口径统一：增量「符号+绝对值」、损失量取绝对值、百分比/取整改走 fmtNum、攻击基数值走 fmtAtk
+export const VER = 'render/412-facts-stat.js V1.0.3';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
 import { fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 
+// 增量统一口径：符号写在数值外，数值只出绝对值（避免「+-2.6」「--3」这类双符号）
+const sgn = (v) => `${v >= 0 ? '+' : '-'}${fmtNum(Math.abs(v || 0))}`;
+
 export function renderZhangSwitchFact(fact) {
     return [
-        { type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${fmtNum(fact.atkGain)}、防+${fmtNum(fact.defGain)}、生命上限+${fmtNum(fact.maxHpGain)}</span>`, isZhangSwitch:true, unitUid: fact.zhang.uid },
+        { type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻${sgn(fact.atkGain)}、防${sgn(fact.defGain)}、生命上限${sgn(fact.maxHpGain)}</span>`, isZhangSwitch:true, unitUid: fact.zhang.uid },
         { type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true }
     ];
 }
 
 export function renderMeteorShowerMainFact(fact) {
-    return { type:'info', text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fmtNum(fact.bonusDmg)}，防御-${fmtNum(fact.defReduce)}</span>` };
+    return { type:'info', text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fmtNum(Math.abs(fact.bonusDmg))}，防御-${fmtNum(Math.abs(fact.defReduce))}</span>` };
 }
 
 export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
-    let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fmtNum(fact.splashDmg)}，防御-${fmtNum(fact.defReduce)}</span>`;
+    let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fmtNum(Math.abs(fact.splashDmg))}，防御-${fmtNum(Math.abs(fact.defReduce))}</span>`;
     // 成长段由 METEOR_SPLASH_GROWTH fact 独立渲染，不在此追加（否则重复渲染两遍）
     // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
@@ -30,7 +34,7 @@ export function renderMeteorShowerSplashFact(fact) {
 // Carry 应用
 export function renderCarryApplyFact(fact) {
     // unitUid 透传（第 185 轮）：体检 148 的「同回合重复应用」判据要按 uid 归因，显示名做不到
-    return { type:'info', unitUid: fact.unitUid, text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fmtNum(fact.atk)} 防+${fmtNum(fact.def)} 血上限+${fmtNum(fact.hp)}</span>` };
+    return { type:'info', unitUid: fact.unitUid, text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻${sgn(fact.atk)} 防${sgn(fact.def)} 血上限${sgn(fact.hp)}</span>` };
 }
 
 // Buff 召唤
@@ -43,7 +47,7 @@ export function renderKuLianPriorityFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ 苦练勤学：${fact.unitName} 率先行动！</span>` };
 }
 export function renderKuLianFact(fact) {
-    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fmtNum(fact.atkBonus)}攻+${fmtNum(fact.defBonus)}防+${fmtNum(fact.hpBonus)}血上限（自身双倍）！</span>` };
+    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友${sgn(fact.atkBonus)}攻${sgn(fact.defBonus)}防${sgn(fact.hpBonus)}血上限（自身双倍）！</span>` };
 }
 
 // 概率连击
@@ -59,12 +63,12 @@ export function renderDoubleStrikeFact(fact) {
 
 // 远程成长
 export function renderRangedGrowthFact(fact) {
-    return {type:'detail', text:`<span class="blue small">🏹 ${fact.unitName} 远程熟练：攻击 +${fmtNum(fact.growth)} → ${fmtNum(fact.newAtk)}</span>`};
+    return {type:'detail', text:`<span class="blue small">🏹 ${fact.unitName} 远程熟练：攻击 ${sgn(fact.growth)} → ${fmtNum(fmtAtk(fact.newAtk))}</span>`};
 }
 
 // 坚盾
 export function renderFortifyShieldFact(fact) {
-    return {type:'detail', text:`<span class="blue small">🛡️ ${fact.unitName} ${fact.label}：防御+${fmtNum(fact.increment)}（已叠${fact.current}/${fact.cap}）</span>`};
+    return {type:'detail', text:`<span class="blue small">🛡️ ${fact.unitName} ${fact.label}：防御${sgn(fact.increment)}（已叠${fact.current}/${fact.cap}）</span>`};
 }
 
 // 乾坤大挪移
@@ -72,7 +76,7 @@ export function renderQianKunUpgradedFact(fact) {
     const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fmtNum(fact.absorbed)} 伤害` : '';
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fmtNum(fact.rebound)}给${fact.attackerName}（${fact.zhangName}自伤${fmtNum(fact.selfDmg)}）</span>`,
+        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${fmtNum(fact.reducePct * 100)}%${absorbText}，反弹${fmtNum(Math.abs(fact.rebound))}给${fact.attackerName}（${fact.zhangName}自伤${fmtNum(Math.abs(fact.selfDmg))}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -83,7 +87,7 @@ export function renderQianKunBasicFact(fact) {
     const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fmtNum(fact.absorbed)} 伤害` : '';
     return {
         type:'info',
-        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fmtNum(fact.rebound)}给${fact.attackerName}（${fact.zhangName}自伤${fmtNum(fact.selfDmg)}）</span>`,
+        text:`<span class="gold">✨ 乾坤大挪移：减伤${fmtNum(fact.reducePct * 100)}%${absorbText}，反弹${fmtNum(Math.abs(fact.rebound))}给${fact.attackerName}（${fact.zhangName}自伤${fmtNum(Math.abs(fact.selfDmg))}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -93,7 +97,7 @@ export function renderQianKunBasicFact(fact) {
 
 // 小昭蛛变
 export function renderSpiderTransformFact(fact) {
-    const gain = fact.masteryGain ? `，精通+${fmtNum(fact.masteryGain.atk)}攻+${fmtNum(fact.masteryGain.def)}防+${fmtNum(fact.masteryGain.hp)}血` : '';
+    const gain = fact.masteryGain ? `，精通${sgn(fact.masteryGain.atk)}攻${sgn(fact.masteryGain.def)}防${sgn(fact.masteryGain.hp)}血` : '';
     return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4${gain}）</span>` };
 }
 
@@ -111,7 +115,7 @@ export function renderXingFenRetryFact(fact) {
 export function renderXinHunFact(fact) {
     return {
         type:'info',
-        text:`<span class="gold">💒 新婚：${fact.attackerName}攻击，${fact.targetName}被扣除${fmtNum(fact.hpDeduct)}点血量，叠加一层快乐(${Math.round(fact.healPct*100)}%)！当前快乐层数：${fact.stackCount}</span>`,
+        text:`<span class="gold">💒 新婚：${fact.attackerName}攻击，${fact.targetName}被扣除${fmtNum(Math.abs(fact.hpDeduct))}点血量，叠加一层快乐(${fmtNum(fact.healPct*100)}%)！当前快乐层数：${fact.stackCount}</span>`,
         buffType: BUFF_SUBTYPES.ELITE_XINHUN,
         zhouUid: fact.zhouUid,
         zhouHpAfter: fact.zhouHpAfter,
@@ -119,12 +123,12 @@ export function renderXinHunFact(fact) {
     };
 }
 export function renderXingFenCostFact(fact) {
-    return { type:'info', text:`<span class="red">💗 性奋代价：${fact.unitName} 血量上限 ${fmtNum(fact.oldMaxHp)} → ${fmtNum(fact.newMaxHp)}（-${fmtNum(fact.penalty)}）</span>` };
+    return { type:'info', text:`<span class="red">💗 性奋代价：${fact.unitName} 血量上限 ${fmtNum(fact.oldMaxHp)} → ${fmtNum(fact.newMaxHp)}（-${fmtNum(Math.abs(fact.penalty))}）</span>` };
 }
 
 // 融会贯通
 export function renderRongHuiBonusFact(fact) {
-    return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fmtNum(fact.extra)}（目标攻击${fmtNum(fact.targetAtk)} 防御${fmtNum(fact.targetDef)}，差值绝对值×50%）</span>` };
+    return { type:'info', text:`<span class="red">🔥 融会贯通额外${sgn(fact.extra)}（目标攻击${fmtNum(fmtAtk(fact.targetAtk))} 防御${fmtNum(fact.targetDef)}，差值绝对值×50%）</span>` };
 }
 
 // 小昭·妹 拒马 / 连击
@@ -165,12 +169,12 @@ export function renderSummonUnitFact(fact) {
 
 // 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
 export function renderLionGrowFact(fact) {
-    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fmtAtk(fmtNum(fact.atk))} / 防 ${fmtNum(fact.def)} / 血 ${fmtNum(fact.maxHp)}</span>` };
+    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fmtNum(fmtAtk(fact.atk))} / 防 ${fmtNum(fact.def)} / 血 ${fmtNum(fact.maxHp)}</span>` };
 }
 
 // 流星溅射成长
 export function renderMeteorSplashGrowthFact(fact) {
-    return { type:'info', text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
+    return { type:'info', text:`<span class="gold">⚡ ${fact.unitName} 攻击${sgn(fact.growth)}</span>` };
 }
 
 // 附录：raw HTML → factType 渲染
@@ -191,26 +195,23 @@ export function renderXingFenGrantFact(fact) {
 }
 
 export function renderClawHitFact(fact) {
-    // 爪伤一位小数出口兜底：爪雨是「累减→重算」循环，浮点尾巴（0.6000…01）会在爪间渗透，
-    //   无论源头哪条缝渗的，显示出口统一洗成一位小数（0.6→0.6、13→13、尾巴全截）。
-    const fmt1 = (v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v * 10) / 10 : v;
+    // 爪伤出口统一走 fmtNum：爪雨是「累减→重算」循环，浮点尾巴（0.6000…01）会在爪间渗透，
+    //   无论源头哪条缝渗的，显示出口统一洗掉浮点尾巴（不自己另写取整）。
     // designedDmg 透传：设计值随条目带出（core/16 回填），体检规则可还原「设计下限」守护
     //   （落地值 dmg 被减伤后可为 0~设计值，不能再当设计值用）
     // shieldAbsorb：core/16 在护盾抵扣后另记的抵挡量（只用于显示补充）。dmg 本身是**实际掉血**，
     //   与血条/账本同源；护盾吃掉的那部分只在这里以文字补充，避免「造成 13.4 点伤害」而目标一点血没掉。
-    const absorbed = (typeof fact.shieldAbsorb === 'number' && isFinite(fact.shieldAbsorb))
-        ? Math.round(fact.shieldAbsorb * 10) / 10 : 0;
+    const absorbed = fmtNum(fact.shieldAbsorb) || 0;
     const dmgText = absorbed <= 0
-        ? `造成 ${fmt1(fact.dmg)} 点伤害`
-        : (fmt1(fact.dmg) === 0
+        ? `造成 ${fmtNum(fact.dmg)} 点伤害`
+        : (fmtNum(fact.dmg) === 0
             ? `伤害被护盾全部抵挡（${absorbed} 点）`
-            : `造成 ${fmt1(fact.dmg)} 点伤害，护盾抵挡 ${absorbed} 点`);
-    return { type:'info', hpAfter: fmt1(fact.hpAfter), clawTargetUid: fact.targetUid, dmg: fmt1(fact.dmg), designedDmg: fact.designedDmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} ${dmgText}${fact.jealous?'【嫉妒】':''}</span>` };
+            : `造成 ${fmtNum(fact.dmg)} 点伤害，护盾抵挡 ${absorbed} 点`);
+    return { type:'info', hpAfter: fmtNum(fact.hpAfter), clawTargetUid: fact.targetUid, dmg: fmtNum(fact.dmg), designedDmg: fact.designedDmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} ${dmgText}${fact.jealous?'【嫉妒】':''}</span>` };
 }
 
 export function renderClawExecuteFact(fact) {
-    const fmt1 = (v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v * 10) / 10 : v;
-    const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fmt1(fact.dmg)}</span> 点伤害` : '造成致命一击';
+    const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fmtNum(fact.dmg)}</span> 点伤害` : '造成致命一击';
     return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} ${dmgText}【斩杀】</span>` };
 }
 

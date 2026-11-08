@@ -2,17 +2,21 @@
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
 // V1.0.3 | 2026-11-08 附身宿主阵亡渲染器补关闭标记（butterflyAction/hostUid/windowClosed，体检总框架 D3）
-export const VER = 'render/409-facts-control.js V1.0.3';
+export const VER = 'render/409-facts-control.js V1.0.4';
 
 import { registerFactRenderer } from './406-fact-registry.js';
-import { makeFXSnapshot, fmtHpText, fmtNum } from '../infra/102-core-utils.js';
+import { makeFXSnapshot, fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_SUBTYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+
+// V1.0.4 | 2026-11-08 显示口径统一：增量「符号+绝对值」、伤害/免疫量取绝对值、攻击基数值走 fmtAtk 下限
+// 增量统一口径：符号写在数值外，数值只出绝对值（避免「+-2.6」「--3」这类双符号）
+const sgn = (v) => `${v >= 0 ? '+' : '-'}${fmtNum(Math.abs(v || 0))}`;
 
 // 乘风突袭波及 / 击退 / 失败
 export function renderWindAssaultSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
-    let text = `<span class="orange">${fact.label}波及${details}，${word}${fmtNum(fact.splashDmg)}</span>`;
+    let text = `<span class="orange">${fact.label}波及${details}，${word}${fmtNum(Math.abs(fact.splashDmg))}</span>`;
     // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
@@ -112,18 +116,18 @@ export function renderSpiderReturnFact(fact) {
     return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>`, needsSeparator: true };
 }
 export function renderSpiderFlyFact(fact) {
-    return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fmtNum(fact.incomingDmg||0)} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
+    return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fmtNum(Math.abs(fact.incomingDmg||0))} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
 }
 
 // 蝶变
 export function renderButterflyAttachFact(fact) {
-    return { type:'info', butterflyAction:'attach', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 化为蝴蝶附身于 ${fact.hostName}！方向：${fact.flyDirection === 'left' ? '←左' : '右→'} 攻+${fmtNum(fact.atkTransfer)} 防+${fmtNum(fact.defTransfer)} 血上限+${fmtNum(fact.hpTransfer)}</span>`, needsSeparator: true };
+    return { type:'info', butterflyAction:'attach', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 化为蝴蝶附身于 ${fact.hostName}！方向：${fact.flyDirection === 'left' ? '←左' : '右→'} 攻${sgn(fact.atkTransfer)} 防${sgn(fact.defTransfer)} 血上限${sgn(fact.hpTransfer)}</span>`, needsSeparator: true };
 }
 export function renderButterflyNoHostFact(fact) {
     return { type:'info', butterflyAction:'noHost', sisterUid: fact.sisterUid, text:`<span class="red">🦋 蝶变：${fact.unitName} 无队友可附身，香消玉殒！</span>` };
 }
 export function renderButterflyReturnFact(fact) {
-    return { type:'info', butterflyAction:'return', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fmtNum(fact.sisterAtk)} 防 ${fmtNum(fact.sisterDef)} 血 ${fmtNum(fact.sisterHp)}</span>`, needsSeparator: true };
+    return { type:'info', butterflyAction:'return', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fmtNum(fmtAtk(fact.sisterAtk))} 防 ${fmtNum(fact.sisterDef)} 血 ${fmtNum(fact.sisterHp)}</span>`, needsSeparator: true };
 }
 export function renderButterflyHostDeadFact(fact) {
     // 附身窗口关闭标记（体检总框架 D3）：与 attach/return 同构，带 action + 双方 uid + windowClosed，

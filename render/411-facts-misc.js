@@ -4,11 +4,12 @@
 //   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
 // V1.1.2 | 2026-11-07 第 184 轮：幻影迷惑来源词按 fact.sourceSkill 取（幻影伪装 / 蝶舞迷心 / 双面观音），
 //         | 成昆文案逐字不变；旧 fact 仍按 deceiverIsSpider 兜底。
-export const VER = 'render/411-facts-misc.js V1.1.2';
+export const VER = 'render/411-facts-misc.js V1.1.3';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
 import { makeDotRenderer } from './413-generic-renderers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 
 // 拒马 / 张无忌
@@ -16,7 +17,7 @@ export function renderHorseDestroyFact(fact) {
     if (fact.success) {
         return {
             type:'buff-destroy',
-            text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马消散（成功率${fact.prob}%，${fact.roll}）</span>`,
+            text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马消散（成功率${fmtNum(fact.prob)}%，${fmtNum(fact.roll)}）</span>`,
             buffType: BUFF_SUBTYPES.DESTROY,
             horseUid: fact.horseUid,
             needsSeparator: true
@@ -24,7 +25,7 @@ export function renderHorseDestroyFact(fact) {
     }
     return {
         type:'info',
-        text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马未消散（成功率${fact.prob}%，${fact.roll}）</span>`,
+        text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马未消散（成功率${fmtNum(fact.prob)}%，${fmtNum(fact.roll)}）</span>`,
         horseUid: fact.horseUid
     };
 }
@@ -32,12 +33,12 @@ export function renderHorseDestroyFact(fact) {
 // Buff 摘要
 // 统一的海克斯摘要规则表
 const BUFF_SUMMARY_CFG = {
-    [BUFF_TYPES.BLOODTHIRST]: { role: ROLE_TYPES.WARRIOR, desc: (cfg) => `攻击吸血${Math.round(cfg.leechRatio*100)}%` },
-    [BUFF_TYPES.HOT_BLOOD]: { role: 'all', desc: (cfg) => `攻击回血${Math.round(cfg.leechRatio*100)}%（每3次翻倍）` },
-    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${Math.round(cfg.defBonus*100)}% 反弹50%` },
-    [BUFF_TYPES.CLOUD_BODY]: { role: 'all', desc: (cfg) => `闪避+${Math.round(cfg.dodgeBonus*100)}%` },
+    [BUFF_TYPES.BLOODTHIRST]: { role: ROLE_TYPES.WARRIOR, desc: (cfg) => `攻击吸血${fmtNum(cfg.leechRatio*100)}%` },
+    [BUFF_TYPES.HOT_BLOOD]: { role: 'all', desc: (cfg) => `攻击回血${fmtNum(cfg.leechRatio*100)}%（每3次翻倍）` },
+    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 反弹50%` },
+    [BUFF_TYPES.CLOUD_BODY]: { role: 'all', desc: (cfg) => `闪避+${fmtNum(cfg.dodgeBonus*100)}%` },
     [BUFF_TYPES.WIND_ASSAULT]: { role: ROLE_TYPES.FLYER, desc: () => `80%波及同行 80%击退` },
-    [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${Math.round(cfg.bonusRatio*100)}% 溅射${Math.round(cfg.splashRatio*100)}%（主箭降2防，小箭降1防）` },
+    [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${fmtNum(cfg.bonusRatio*100)}% 溅射${fmtNum(cfg.splashRatio*100)}%（主箭降2防，小箭降1防）` },
     [BUFF_TYPES.CARRY]: { role: 'carry', desc: () => `获得队友属性加成` },
     [BUFF_TYPES.MIND_CONTROL]: { role: 'none', desc: () => `最前排80%扰乱敌方换位，40%扰乱己方换位` },
     [BUFF_TYPES.SOUL_DRAIN]: { role: 'none', desc: () => `敌方全体攻击力-30%，防御递减` },
@@ -49,7 +50,7 @@ const BUFF_SUMMARY_CFG = {
         const rows = buff.rows || [];
         const colText = cols.length ? `第${cols.join('、')}列` : '无';
         const rowText = rows.length ? `第${rows.join('、')}行` : '无';
-        return `攻击${colText} +${Math.round(cfg.atkBonus*100)}%，防御${rowText} +${Math.round(cfg.defBonus*100)}%`;
+        return `攻击${colText} +${fmtNum(cfg.atkBonus*100)}%，防御${rowText} +${fmtNum(cfg.defBonus*100)}%`;
     }},
 };
 
@@ -95,7 +96,7 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids) {
 // 玄冥神掌
 export function renderXuanmingDotFact(fact) {
     const stackText = (fact.stacks || 1) > 1 ? `（${fact.stacks} 层）` : '';
-    return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作${stackText}，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, fx: [{ kind: 'dmg', amount: fact.dot }], uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
+    return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作${stackText}，${fact.unitName} 受到 ${fmtNum(fact.dot)} 点伤害</span>`, fx: [{ kind: 'dmg', amount: fact.dot }], uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
 }
 export const renderXuanmingPoisonedFact = makeDotRenderer({ icon: '❄️', skillName: '玄冥神掌' });
 

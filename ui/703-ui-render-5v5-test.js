@@ -1,9 +1,10 @@
 // V6.1.4 | 2026-11-07 血量显示下限：面板血量文本改 fmtHpText（存活 <1 显示 1），百分比/血条仍用原始 hp
 // V6.1.5 | 2026-11-08 攻击力显示下限：详情面板攻分解文本改 fmtAtk（<0 显示 0），底数/词条计算仍用实数
+// V6.1.6 | 2026-11-08 血量百分比文本改走 fmtNum，不再自己 Math.floor
 // V6.1.2 | 2026-11-07 #13：小昭详情面板补「变身次数/职业 + 变身/精通属性累计」两行，读引擎 _mods/_roleCounts
 // V6.1.3 | 2026-11-07 #13 收口：成长/精通两行只在妹妹（isXiaoZhaoBrother）分支显示，姐姐只保留永久海克斯那行
 //          #16 面板表头吸顶：标题+关闭叉常驻不滚，只有内容区独立 overflow-y:auto
-export const VER = 'ui/703-ui-render-5v5-test.js V6.1.5';
+export const VER = 'ui/703-ui-render-5v5-test.js V6.1.6';
 
 // getSkillDesc 已下沉到 ui/710-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/214-battle-shared.js';
@@ -212,7 +213,7 @@ function updateDetailPopupContent() {
                 + `<span style="color:#888;">成长</span><span>精通 ${layers} 层；变身 +${fmtNum(tAtk)}攻+${fmtNum(tDef)}防+${fmtNum(tHp)}血，精通 +${fmtNum(mAtk)}攻+${fmtNum(mDef)}防+${fmtNum(mHp)}血</span>`;
         }
     }
-    let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
+    let hpPct = u.alive ? fmtNum((u.hp / u.maxHp) * 100) : 0;
     let hpColor = hpPct > 70 ? 'var(--c-green)' : (hpPct > 40 ? 'var(--c-sect-orange)' : 'var(--c-danger)');
 
     // 只重写内容区：表头（标题+关闭叉）是常驻节点，不参与滚动，也不随每秒刷新重建。
