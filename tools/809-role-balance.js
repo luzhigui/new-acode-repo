@@ -1,4 +1,8 @@
-export const VER = 'tools/809-role-balance.js V6.2.3';
+export const VER = 'tools/809-role-balance.js V6.3.1';
+// V6.3.1 | 2026-11-08 池化去重：同一场对局在「我方/敌方」两视角各记一次，poolN 原为 at+et（=2×真实对局）。
+//   改为 poolN=(at+et)/2=at，poolW 同步折半 —— 点估计不变（仍 50% 基准），CI 变宽约 √2。
+//   只折分母会得到 >100% 的假胜率，故分子必须同步折半；「不分阵营」排行表同口径修正。
+//   顺带改正配对说明的方向：样本正相关 → 真实区间更宽（原来写成「偏保守、不夸大」是反的）。
 // V6.2.3 | 2026-11-01 修「表读不懂」的真因：海克斯默认单边（明教有/六大派无）→ 明教胜率被拉到 ~95%，
 //   四职业数字全被压平。① 默认关海克斯；开海克斯时自动勾「双海克斯」保证对称；
 //   ② 四职业总评加「整体偏差自检」：明教整体胜率 <35% 或 >65% 时红框告警「不可判平衡」；
@@ -332,7 +336,9 @@ function renderResult(container, matrix, allyStats, enemyStats) {
         const et = (enemyStats[role] && enemyStats[role].total) || 0;
         const allyPct = at ? aw / at * 100 : null;
         const enemyPct = et ? ew / et * 100 : null;          // 敌方差位时「明教」胜率：越低=该职业对敌方越强
-        const poolW = aw + (et - ew), poolN = at + et;       // 统一成「该职业所在方获胜」的场次
+        // V6.3.1：同一场对局在「我方视角 / 敌方视角」各记一次，n 不能直接用 at+et（=2×真实对局）。
+        //   分母取 (at+et)/2 = at（每个职业两视角场次相等），分子同步折半 —— 只折分母会算出 >100% 的假胜率。
+        const poolW = (aw + (et - ew)) / 2, poolN = (at + et) / 2;   // 统一成「该职业所在方获胜」的场次
         const poolPct = poolN ? poolW / poolN * 100 : null;
         const ci = wilson95(poolW, poolN);
         return { role, allyPct, enemyPct, poolPct, poolN, ci };
@@ -394,7 +400,7 @@ function renderResult(container, matrix, allyStats, enemyStats) {
         html += '<div style="color:#888;font-size:11px;margin-top:6px;line-height:1.6">口径：基底 5 人固定（1防战 / 2战士 / 5飞行 / 7远程 / 9远程），只换第 6 个弹性格位；'
             + '四职业共用同一批基底种子（同敌职业、同场次序号跑完全相同的基底，只换弹性格职业），所以点差更干净。'
             + '「综合强度」= 该职业在我方 / 在敌方两种视角合并后的所在方胜率（50% = 不偏不倚）。'
-            + '区间仍按独立样本近似，因为配对后样本正相关，比较时偏保守（不会夸大差异）。'
+            + '区间按独立样本近似；配对共享随机使样本正相关、有效样本量小于 n，真实区间比这里更宽（当前略偏窄，边界别当铁线）。'
             + '因此它衡量的是「多带或撞上某职业时的边际强弱」，不是抽象的机制平衡；且职业与具体角色绑定，结论应读作「职业池强度」。</div>';
         html += '</div>';
     }
@@ -449,10 +455,12 @@ function renderResult(container, matrix, allyStats, enemyStats) {
         const at = allyStats[role]?.total || 0;
         const ew = (enemyStats[role]?.total || 0) - (enemyStats[role]?.wins || 0);
         const et = enemyStats[role]?.total || 0;
-        const totalWins = aw + ew;
-        const totalGames = at + et;
+        // V6.3.1：同一场对局被两视角各计一次 → 分子分母同步折半（同总评口径）
+        const totalWins = (aw + ew) / 2;
+        const totalGames = (at + et) / 2;
         const pct = totalGames > 0 ? (totalWins / totalGames * 100).toFixed(1) : '-';
-        html += `<tr><td>${ROLE_ICONS[role]}${role}</td><td>${totalGames}</td><td>${totalWins}</td><td>${pct}%</td></tr>`;
+        const showW = Number.isInteger(totalWins) ? totalWins : totalWins.toFixed(1);
+        html += `<tr><td>${ROLE_ICONS[role]}${role}</td><td>${totalGames}</td><td>${showW}</td><td>${pct}%</td></tr>`;
     }
     html += '</table></div>';
 
