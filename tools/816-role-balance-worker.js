@@ -1,3 +1,8 @@
+// V1.20.0 | 2026-11-08 统计口径修正（对账 56 场查出的 2 条）：
+//   ① stats job 的 hp tracker 起点改为「开战前单位自身 hp/maxHp」，不再用首笔 HP_CHANGE 的 p.hp
+//     （原写法让每个单位的第一笔扣血/回血恒为 0，733 个单位里 117 个少算）；
+//   ② 变体桶与在场判定改用 initBattleTeams 的 teams.enemyTeam / allyTeam 开战快照，
+//     不再读 res.enemy / res.ally 终局阵容（终局会被惑人心智换位、召唤、死亡移除干扰）。
 // V1.18.0 | 2026-10-31 双海克斯（六大派也带海克斯）：新增 pickEnemyHexBuff（逐字复刻 player/512-battle-flow 的纯逻辑）；
 //           11 个 job 全部接 enemyHex —— 原本带海克斯的（hex/elite 系列/balance/random/paired）由工具开关切换，
 //           本来不带海克斯的 stats/baseline 另加 hexEnabled 参数（默认关，旧基线不变）。
@@ -194,6 +199,15 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled, enemyHex = false
 }
 
 // 112 精英评测：跑普通局，按"谁在场"归因
+// V1.20.0：在场/分桶一律读开战快照；下面两个小工具只负责「按快照身份取人」与「按 uid 对回终局单位取数值」，
+//   避免各 job 里直接对 res.ally / res.enemy 做查找（终局阵容会被惑人心智换位、召唤、死亡移除干扰）。
+function unitBy(list, pred) {
+    for (const u of (list || [])) if (pred(u)) return u;
+    return null;
+}
+function finalUnitOf(list, uid) {
+    return unitBy(list, u => u.uid === uid);
+}
 // 不再 force 上场 —— force 会抑制随机抽取（330-battle-init 的 `if (eliteCount > 0 && !forceZhang && !forceWei)`），
 // 导致被 force 的精英按"单精英"评、未 force 的按"多精英"评，四列不同尺子不可比。
 // 现改为：每关跑 runs 局普通对局（出率/站位/海克斯全走引擎原逻辑），
@@ -220,12 +234,15 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = fa
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
         if (!res.winner) continue;
-        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
-        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        // V1.20.0：变体桶读开战快照（runBattle 内部 clone，teams.enemyTeam 不被战斗改动）
+        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
+        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         a.runs++;
         if (res.winner === '明教') a.wins++;
-        const me = (res.ally || []).find(u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa);
+        // 入样判定也用开战快照，数值仍取终局单位（按 uid 对回）
+        const meInit = unitBy(teams.allyTeam, u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa);
+        const me = meInit ? finalUnitOf(res.ally, meInit.uid) : null;
         if (me) { if (me.alive) a.sumSurv++; a.sumDmg += me.dmgDealt || 0; a.sumTaken += me.dmgTaken || 0; }
     }
     // 只回传有数据的桶，空桶不占消息体积
@@ -259,8 +276,9 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         GlobalStore.set('battleHasZhang', false);
         const res = runWholeBattle(ally, teams.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
         if (!res.winner) continue;
-        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
-        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        // V1.20.0：变体桶读开战快照（同 runEliteStageJob）
+        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
+        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         a.runs++;
         if (res.winner === '明教') a.wins++;
@@ -333,8 +351,9 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null);
         if (!res.winner) continue;
-        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
-        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        // V1.20.0：变体桶读开战快照（明教侧用换人后的 ally，它才是本场真正的开战阵容）
+        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
+        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         if (arm === 'natural') {              // 自然对照臂：整关明教胜率，不认具体精英
             // V1.13.1 干净对照：只剔除「本局自然出现了某个弱精英」的局，按名字各留一套计数（clean[name]）——
@@ -343,7 +362,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
             //   比空见臂（恰一个弱精英）凭空强 15pp，Δ 被放大到 -19pp 的假值。
             a.runs++;
             if (res.winner === '明教') a.wins++;
-            const allyU = res.ally || [], enemyU = res.enemy || [];
+            const allyU = ally, enemyU = teams.enemyTeam;
             for (const [name, f] of Object.entries(WEAK_UNIT_FLAG)) {
                 if (allyU.some(u => u[f]) || enemyU.some(u => u[f])) continue;
                 const c = a.clean[name] || (a.clean[name] = { runs: 0, wins: 0 });
@@ -352,9 +371,9 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
             }
             continue;
         }
-        const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
-            .find(u => flag ? u[flag] : u.name === elite);
-        if (!me) continue;                    // 该弱精英本局没上场（第3关无 M104 空位等）→ 不计入
+        const meInit = unitBy(side === 'ally' ? ally : teams.enemyTeam, u => flag ? u[flag] : u.name === elite);
+        const me = meInit ? finalUnitOf(side === 'ally' ? res.ally : res.enemy, meInit.uid) : null;
+        if (!me) continue;
         // V1.14.0 路C配套：明教侧只计「换人成功」的局——目标精英自然混入已在场的局（swappedIn=false 且 me 命中）
         // 自然臂 clean[name] 同样剔掉，两臂样本逐场对应；换人未成（无合格替身/缺职业）也走这里（me 不命中已拦）
         if (side === 'ally' && !swappedIn) continue;
@@ -419,13 +438,14 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
         };
         const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep, enemyHex } : { enemyHex });
         if (!res.winner) continue;
-        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
-        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        // V1.20.0：变体桶读开战快照（明教侧用换人后的 ally，它才是本场真正的开战阵容）
+        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
+        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         if (arm === 'natural') {
             // 干净对照（与 runWeakEliteJob / 112 V3.0.3 同口径）：只剔「目标精英本人自然登场」的局，
             //   其他弱精英保持自然分布（一起剔 = 对照凭空变强，Δ 被放大成假值）
-            const allyU = res.ally || [], enemyU = res.enemy || [];
+            const allyU = ally, enemyU = teams.enemyTeam;
             const seen = flag
                 ? (allyU.some(u => u[flag]) || enemyU.some(u => u[flag]))
                 : (allyU.some(u => u.name === elite) || enemyU.some(u => u.name === elite));
@@ -434,8 +454,8 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
             if (res.winner === '明教') a.wins++;
             continue;
         }
-        const me = (side === 'ally' ? (res.ally || []) : (res.enemy || []))
-            .find(u => flag ? u[flag] : u.name === elite);
+        const meInit = unitBy(side === 'ally' ? ally : teams.enemyTeam, u => flag ? u[flag] : u.name === elite);
+        const me = meInit ? finalUnitOf(side === 'ally' ? res.ally : res.enemy, meInit.uid) : null;
         if (!me) continue;
         if (side === 'ally' && !swappedIn) continue;
         a.runs++;
@@ -477,18 +497,20 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null); // 带海克斯，对齐正式游戏节奏
         if (!res.winner) continue;
-        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
-        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        // V1.20.0：变体桶与"谁在场"都读开战快照（终局阵容会被惑人心智换位/召唤/死亡移除干扰）
+        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
+        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const agg = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
-        for (const u of (res.ally || [])) {
+        for (const init of teams.allyTeam) {
             let name = null;
-            if (u.isZhang) name = '张无忌';
-            else if (u.isWei) name = '韦一笑';
-            else if (u.isXiaoZhaoSister) name = '小昭·姊';
-            else if (u.isXiaoZhaoBrother) name = '小昭·妹';
-            else if (u.isXieXun) name = '金毛狮王谢逊';
-            else if (u.isHanLiSa) name = '寒离飒';
+            if (init.isZhang) name = '张无忌';
+            else if (init.isWei) name = '韦一笑';
+            else if (init.isXiaoZhaoSister) name = '小昭·姊';
+            else if (init.isXiaoZhaoBrother) name = '小昭·妹';
+            else if (init.isXieXun) name = '金毛狮王谢逊';
+            else if (init.isHanLiSa) name = '寒离飒';
             if (!name) continue;
+            const u = finalUnitOf(res.ally, init.uid) || init;   // 数值仍取终局单位
             const a = agg[name];
             a.runs++;
             if (res.winner === '明教') a.wins++;
@@ -694,13 +716,21 @@ function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = fals
         clearBattleGlobals();
         // 订阅 hp-change 事件流：以 maxHp 是否变化区分「战斗扣血」与「重分配扣血」
         const tracker = {};
+        // 2026-11-08 V1.20.0 修 S2：首笔 HP_CHANGE 的 payload 是「变化后」血量，拿它当起点会让
+        //   每个单位的第一笔扣血/回血恒为 0（733 单位里 117 个少算）。起点改为开战前单位自身的 hp/maxHp。
+        let initHp = null;
         const off = onBattleEvents(events => {
             for (const ev of events) {
                 if (ev.eventType !== UNIT_EVENT_TYPES.HP_CHANGE) continue;
                 const uid = ev.unitUid;
                 const p = ev.payload || {};
                 if (p.hp === undefined || p.maxHp === undefined) continue;
-                const st = tracker[uid] || (tracker[uid] = { hp: p.hp, maxHp: p.maxHp, battleDmg: 0, battleHeal: 0, reallocDmg: 0, reallocHeal: 0 });
+                const base = initHp && initHp.get(uid);
+                const st = tracker[uid] || (tracker[uid] = {
+                    hp: base ? base.hp : p.hp,
+                    maxHp: base ? base.maxHp : p.maxHp,
+                    battleDmg: 0, battleHeal: 0, reallocDmg: 0, reallocHeal: 0
+                });
                 const dHp = p.hp - st.hp;
                 if (dHp !== 0) {
                     const maxHpChanged = p.maxHp !== st.maxHp;
@@ -718,6 +748,9 @@ function runStatsStageJob(stage, seed, runs, hexEnabled = false, enemyHex = fals
         const initRng = new SeededRNG(seed + i * 7919);
         const { allyTeam, enemyTeam } = initBattleTeams(stage, initRng);
         const ally = allyTeam.map(u => u.clone());
+        // 开战快照：事件 uid 与建队 uid 同源（clone 保 uid），据此给 tracker 定初值
+        initHp = new Map();
+        for (const u of [...ally, ...enemyTeam]) initHp.set(u.uid, { hp: u.hp, maxHp: u.maxHp });
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
 
         const res = runWholeBattle(ally, enemyTeam, seed + i * 7919, hexEnabled, enemyHex ? { enemyHex } : null);
