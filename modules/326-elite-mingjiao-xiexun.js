@@ -1,5 +1,6 @@
 // modules/326-elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
-export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.0';
+// V1.2.1 | 2026-11-08 雄狮鼓舞 targets 补 uid（召唤物个体标识，体检总框架 D6）
+export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.1';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
@@ -96,7 +97,7 @@ export function createXieXunComponent() {
                 const inspireTargets = [];
                 for (const t of targets) {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
-                    inspireTargets.push({ unitName: t.name, atkDelta: gain });
+                    inspireTargets.push({ unitName: t.name, uid: t.uid, atkDelta: gain });
                     emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
                 }
                 // 数值声明 fact：一次触发给多人各 +gain，用 targets 名单承载（供体检对照器按 group='lionInspire' 比对）

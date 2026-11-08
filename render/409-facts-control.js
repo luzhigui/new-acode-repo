@@ -1,7 +1,8 @@
 // render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
-export const VER = 'render/409-facts-control.js V1.0.2';
+// V1.0.3 | 2026-11-08 附身宿主阵亡渲染器补关闭标记（butterflyAction/hostUid/windowClosed，体检总框架 D3）
+export const VER = 'render/409-facts-control.js V1.0.3';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeFXSnapshot, fmtHpText, fmtNum } from '../infra/102-core-utils.js';
@@ -125,7 +126,9 @@ export function renderButterflyReturnFact(fact) {
     return { type:'info', butterflyAction:'return', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fmtNum(fact.sisterAtk)} 防 ${fmtNum(fact.sisterDef)} 血 ${fmtNum(fact.sisterHp)}</span>`, needsSeparator: true };
 }
 export function renderButterflyHostDeadFact(fact) {
-    return { type:'info', text:`<span class="gold">🦋 蝶变：宿主已阵亡，${fact.sisterName} 被迫返回！</span>`, uidD: fact.sisterUid };
+    // 附身窗口关闭标记（体检总框架 D3）：与 attach/return 同构，带 action + 双方 uid + windowClosed，
+    //   规则侧才能在宿主阵亡这条上把「附身窗口已关」这个状态闭环，不再靠文本推断。
+    return { type:'info', butterflyAction:'hostDead', sisterUid: fact.sisterUid, hostUid: fact.hostUid, windowClosed: true, text:`<span class="gold">🦋 蝶变：宿主已阵亡，${fact.sisterName} 被迫返回！</span>`, uidD: fact.sisterUid };
 }
 
 // 行动跳过（眩晕/飞天）

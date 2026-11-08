@@ -4,7 +4,8 @@
 // V1.0.2 | 2026-11-07 | ① 附身占位可被击退挤开（core/214 同步放行脉冲格）——占位与目标互换；
 //          ② 宿主死亡立刻飞回当前格（watchUnit 观察 host.alive），并复位 A._butterflyTriggered，
 //             让下一位队友出手前按原有左右取序重新附身（旧版要等回合末声明）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.3';
+// V1.0.4 | 2026-11-08 宿主阵亡 fact 补 hostUid（体检总框架 D3 窗口关闭载荷）
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.4';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -297,7 +298,9 @@ export function createXiaoZhaoSisterComponent() {
                 Object.assign(sister.state, { _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
                 emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
-                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid } });
+                // 附身窗口关闭载荷（体检总框架 D3）：带上宿主 uid，渲染器据此打 windowClosed 标记
+                const deadHostUid = sister.state._butterflyHost;
+                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid, hostUid: deadHostUid } });
                 // 让格子当帧退出蝶形态（与下面正常飞回同款），宿主一死就立刻看到人回来，不等步末 sync
                 emitEvent(sister, UNIT_EVENT_TYPES.HP_CHANGE, {
                     hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,

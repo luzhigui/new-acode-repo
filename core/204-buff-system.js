@@ -1,7 +1,8 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
+// V6.8.4 | 2026-11-08 背水一战声明载荷补齐：def 乘率 + 战士 atk/def/maxHp 三条 add（体检总框架 D1/D4）
 // V6.8.3 | 2026-11-08 飞行再生去掉 Math.round：0.4 的真实回复被取整成 0 会打出「回复 0 点生命」，
 //         改实数差值，显示在 render/410 经 fmtNum 收口
-export const VER = 'core/204-buff-system.js V6.8.3';
+export const VER = 'core/204-buff-system.js V6.8.4';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -208,6 +209,15 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
 
     if (log) {
         log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: finalAtkBonus } });
+        // 载荷补齐（体检总框架 D1/D4）：def 乘率与战士三条 add 词条此前只有 addMod、无声明 fact，
+        //   账本侧看不到「声明」只能看落地值。def 用 LAST_STAND_APPLY（负乘率，契约侧只认正值则自动跳过），
+        //   战士三条用通用 STAT_CHANGE_APPLY（field/delta 与 addMod 入参同值）。
+        if (finalDefPenalty > 0) {
+            log.push({ factType: FACT_TYPES.LAST_STAND_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: -finalDefPenalty, group: 'lastStand' } });
+        }
+        log.push({ factType: FACT_TYPES.STAT_CHANGE_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', delta: warriorBonus.atk, group: 'lastStandWarrior' } });
+        log.push({ factType: FACT_TYPES.STAT_CHANGE_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', delta: warriorBonus.def, group: 'lastStandWarrior' } });
+        log.push({ factType: FACT_TYPES.STAT_CHANGE_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'maxHp', delta: warriorBonus.maxHp, group: 'lastStandWarrior' } });
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '背水一战', note: `🩸 背水一战：${unit.name} 永久获得攻击+${Math.round(finalAtkBonus * 100)}%，并获得一次战士加成；自身受到伤害增加${Math.round((unit.state._lastStandTakenMul - 1) * 100)}%`, line: false, floatText: '🩸背水一战！', floatUid: unit.uid } });
     }
 }
@@ -228,6 +238,13 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
     if (log) {
         log.push({ factType: FACT_TYPES.UNITY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'atk', op: 'mul', ratio: tier.atkBonus } });
         log.push({ factType: FACT_TYPES.UNITY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field: 'def', op: 'mul', ratio: tier.defBonus } });
+        // announce 载荷（体检总框架 D1/D4）：与 lastStand/twDash 同口径，一半数值走 grants，
+        //   规则侧不必再从两条 *_APPLY 里拼「本次众志成城到底加了多少」。
+        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+            unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '众志成城', label: 'unity',
+            note: `🤝 众志成城：${unit.name} 攻 +${Math.round(tier.atkBonus * 100)}%、防 +${Math.round(tier.defBonus * 100)}%（${aliveN} 人）`,
+            line: false, grants: [{ uid: unit.uid, mulAtk: tier.atkBonus, mulDef: tier.defBonus }]
+        } });
     }
 
     // 9人满员彩蛋：当队伍达到 9 人时，借用战斗横幅触发一次专属提示（整个阵营只弹一次）

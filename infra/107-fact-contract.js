@@ -1,4 +1,5 @@
-export const VER = 'infra/107-fact-contract.js V1.5.13';
+// V1.5.14 | 2026-11-08 契约补齐 uid：SUMMON_UNIT/LION_GROW 召唤物、BUTTERFLY_HOST_DEAD 宿主
+export const VER = 'infra/107-fact-contract.js V1.5.14';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -103,7 +104,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.BUTTERFLY_ATTACH]: { requiredFields: ['sisterUid', 'hostUid'], renderFn: 'renderButterflyAttachFact', translateFn: 'translateFlyMode' },
     [FACT_TYPES.BUTTERFLY_NO_HOST]: { requiredFields: ['sisterUid'], renderFn: 'renderButterflyNoHostFact', translateFn: 'translateFlyMode' },
     [FACT_TYPES.BUTTERFLY_RETURN]: { requiredFields: ['sisterUid', 'hostUid'], renderFn: 'renderButterflyReturnFact', translateFn: 'translateFlyMode' },
-    [FACT_TYPES.BUTTERFLY_HOST_DEAD]: { requiredFields: ['sisterUid'], renderFn: 'renderButterflyHostDeadFact', translateFn: 'translateFlyMode' },
+    [FACT_TYPES.BUTTERFLY_HOST_DEAD]: { requiredFields: ['sisterUid', 'hostUid'], renderFn: 'renderButterflyHostDeadFact', translateFn: 'translateFlyMode' },
 
     // 巨马反伤 / 严阵以待反弹
     [FACT_TYPES.HORSE_REBOUND]: { requiredFields: ['unitName', 'rebound'], renderFn: 'renderHorseReboundFact', translateFn: 'translateRebound' },
@@ -148,8 +149,9 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.NO_CONTEND]: { requiredFields: ['unitName'], renderFn: 'renderNoContendFact', translateFn: null },
 
     // 召唤 / 幼狮成长（谢逊狮子、灭绝召唤周芷若）
-    [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
-    [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
+    // 召唤物必须带 uid（体检侧按 uid 认个体，同场两只同名幼狮/雄鹰靠名字分不开）
+    [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'summonUid', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
+    [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'unitUid', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
 
     // 数值声明 fact（体检对照器专用；renderFn:null = 无渲染，不进画面）
     [FACT_TYPES.BAGUA_ARRAY]:  { requiredFields: ['unitName', 'atkDelta', 'defDelta'], renderFn: null, translateFn: 'translateBaguaArray' },

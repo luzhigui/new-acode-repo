@@ -4,7 +4,8 @@ import { addMod, refreshMaxHp, emitEvent, getStat } from '../core/214-battle-sha
 import { UNIT_EVENT_TYPES, STATE_CHANGE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 
-export const VER = 'modules/305-elite-helpers.js V1.2.0';
+// V1.2.1 | 2026-11-08 pushSkillAnnounce 统一携带 label（中文技能名 → 稳定英文标识，供体检规则匹配）
+export const VER = 'modules/305-elite-helpers.js V1.2.1';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。
 //   攻击组不存在（技能在组外触发）时静默跳过——行为与抽离前 5 份内联实现一致。
@@ -40,6 +41,17 @@ export function switchRoleOnly(unit, role, label, outLog) {
 //   line:false/grants/swap/dot/eggAtkDelta/eggDefDelta/pangDefGain…）走 extra 展开；
 //   extra 里的同名字段会覆盖基础值（例：hetaichong 箭靶标记的 camp 需覆盖为施法者阵营）。
 //   log 为空时静默跳过（与各原调用点的 if (log) 保护一致）。
+// 技能名 → 稳定 label：体检规则不靠中文文案匹配（文案随时可改），一律认这个英文短标识。
+//   333-339 新精英此前只有 skillName 中文，规则只能扒 note 文本；新增技能在此登记一行即可。
+const SKILL_LABELS = {
+    '癫': 'crazy',
+    '吸星大法': 'absorb',
+    '妙手回春': 'healAlly',
+    '现原形': 'yuanZhen',
+    '断锤三式': 'zhuangZheng',
+    '双面观音': 'pengYingYu'
+};
+
 export function pushSkillAnnounce(log, unit, skillName, note, extra) {
     if (!log || !unit) return;
     log.push({
@@ -49,6 +61,7 @@ export function pushSkillAnnounce(log, unit, skillName, note, extra) {
             unitUid: unit.uid,
             camp: unit.camp,
             skillName,
+            label: SKILL_LABELS[skillName] || skillName,
             note,
             ...(extra || {})
         }

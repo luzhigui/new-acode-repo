@@ -1,5 +1,5 @@
 {
- "ver": "962684e4898dfbbe07f185dd7441ac349eef7e671dfb3ba4e2b95fdbaf7f4c8c",
+ "ver": "8d4503f3e528febfdd706698f3ebf5551b3bdc03cc08063a93e07cd23cf70643",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "7600c0cbbd43939f85f36f8de723b0e10f0be8576a3d438c2b3615ada64315ee"
+   "95fa919bd084ac8d6ecfc5203e15c81cfa6fbd42069adef1ba31d06069f9ae60"
   ],
   [
    "core/205-battle-horse.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/107-fact-contract.js",
-   "cdeff05112b4749de0913b03aa0cd4a92935bc833a6d10b71bb5604e4fad38d2"
+   "d1f78444d6d9cada911f9d34e8ba0a0962646cca87ec365deae1878a20d10d0f"
   ],
   [
    "infra/107-store-schema.js",
@@ -253,7 +253,7 @@
   ],
   [
    "modules/305-elite-helpers.js",
-   "455cc6f6a4042206d3111a1453e5c28126b308ec08da107512203a144a331285"
+   "c4c91e7b149b9c6109fa77f3dcb7460ad1f99fe5cb2e61391f26bca62e40ff39"
   ],
   [
    "modules/306-battle-store.js",
@@ -293,7 +293,7 @@
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "0486d02dc75d6616883b8349016d9af5dd6d576c4fc7f804f59168ba026cc989"
+   "b5a0bc1ccdd41eb39a87c590d4679580dbc4bd664deea230d8d848ecdbc34456"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",
@@ -321,7 +321,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "208889bd20acd7dafc299e3a3d21ba18ccd3142b8d864a17c57dc521c205c00f"
+   "d914b472f41d03f6ba60da8e51aa0b66f016cde66d936eb3ff8df3012aed58e3"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
@@ -337,7 +337,7 @@
   ],
   [
    "modules/326-elite-mingjiao-xiexun.js",
-   "80a6e93b7831ff4af7e929be0930f7ce06ec654cbe2b5e23626d29ac4233b251"
+   "6a19f682c606eb441fb349390c18d814683d13ae3478553eeb96525ebbe3bb55"
   ],
   [
    "modules/327-elite-mingjiao-yangxiao.js",
@@ -481,7 +481,7 @@
   ],
   [
    "render/409-facts-control.js",
-   "e5aa31d4816434f6a3e95d0f636d9d2aa178f001622938bbf4e2e7c780c362dc"
+   "c037ebd0fe8b202c338a9032c44b02af6bdd7a920d7b835c62f2aa96bc4cb92d"
   ],
   [
    "render/410-facts-heal.js",

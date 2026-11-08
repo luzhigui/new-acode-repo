@@ -12,7 +12,8 @@
 //          旧写法读被 moveUnitPosition 改写后的 target.pos，目标被拖到前排后这里恒为 ≤3，
 //          播报永远写「已在前排」，把目标侧真实拖拽（如「说不得 5→2、X 2→5」）整段吞掉，
 //          与 dash.moves 传给 fx/616 的拖拽演出自相矛盾。
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.5';
+// V7.1.6 | 2026-11-08 冲刺 announce 补 grants 载荷（体检总框架 D1/D4：与 TW_DASH_APPLY 同值）
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.6';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -233,6 +234,9 @@ export function createTangWenLiangComponent() {
                         : `${target.name} 已在前排`;
                     pushSkillAnnounce(outLog, tw, '冲刺·七伤齐发', `⚡ 唐文亮冲刺·七伤齐发：${enemyText}；${allyText}。双方各受当前生命 ${Math.round(dash.dmgRatio * 100)}% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`,
                         { floatText: '⚡', floatUid: target.uid,
+                          // 声明载荷（体检总框架 D1/D4）：TW_DASH_APPLY 只带三值，announce 侧同步 grants，
+                          //   账本按「声明」核对 addMod 落地时两路都能对上
+                          grants: [{ uid: tw.uid, atk: rb.atk, def: rb.def, maxHp: rb.maxHp }],
                           // 冲刺是唐文亮的独立动作（被动触发时插在攻击者组后），画分隔线自成一段
                           needsSeparator: true,
                           dash: { fromUid: tw.uid, fromPos: twFromPos, toPos: tw.pos, fromCamp: tw.camp,
