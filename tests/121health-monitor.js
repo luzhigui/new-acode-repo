@@ -74,6 +74,7 @@ import { rule198 } from './health-rules/198-zhangwuji-qiankun.js';
 import { rule202 } from './health-rules/202-xuanming-poison-dot.js';
 import { rule203 } from './health-rules/203-xiexun-lion-grow.js';
 import { rule204 } from './health-rules/204-xiexun-lion-inspire.js';
+import { rule205 } from './health-rules/205-zhuangzheng-duanchui.js';
 import { rule173 } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
 // 战报与渲染一致性（只读渲染后的 log）：
 //   185 分组一致性（组归属/结果同源）、186 显示数值单一出口（浮点尾巴）、
@@ -719,7 +720,7 @@ function runRuleChecks(ctx, doc) {
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
         rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
-        rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule181, rule182, rule183, rule185, rule186, rule187,
+        rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule205, rule181, rule182, rule183, rule185, rule186, rule187,
         rule199, rule200, deathRights184, multiAttack188,
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
