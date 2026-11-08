@@ -5,11 +5,14 @@
 //        | 白骨爪此前直调 applyStatChange 漏传 ignoreCap → 庄铮 _dmgCap 下只掉 1 点血、fact 却写「斩杀」。
 // V6.2.5 | 2026-11-08 体检转交：DMG_REDUCTION 补负项明细（只扣总量不写明细 ⇒ 战报「计算」行漏掉这笔减伤，
 //        | 与最终伤害对不上）。负值由 render/407 排版成「- 减伤N」。
-export const VER = 'core/217-effect-handlers.js V6.2.5';
+// V6.2.6 | 2026-11-08 体检转交：HEAL handler 在应用后回填 heal / hpBefore / hpAfter（全部取实落值）。
+//   旧版 fact 里的 hpBefore / hpAfter 是「声明提交那一刻」的快照——同帧多次回血时前序回血尚未应用，
+//   于是印出的金额与实际落账对不上（实测 20 场偏离，如「回复 +14，血量 120→136」）。
+export const VER = 'core/217-effect-handlers.js V6.2.6';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
-import { flushBattleEvents } from '../infra/102-core-utils.js';
+import { flushBattleEvents, fmtHp } from '../infra/102-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { registerCalcModifier } from './222-registry-calc.js';
 
@@ -172,12 +175,19 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
         }
         // 显示口径（不改数值）：被点穴截脉/寒毒打折时，实落值通常小于声明值，把实落值与原因回写 factData，
         //   战报据此写「实际值（原因，原 N）」，不再把声明值当成回血量。
-        if (decl.factData && capped > 0) {
+        // 金额 / 前后血量一律以「应用后」的实落值为准：声明提交时 hp 快照在同帧多次回血时会偏，
+        //   直接覆盖 heal/hpBefore/hpAfter，保证「印的 = 落的」。
+        if (decl.factData) {
             const actual = Math.max(0, decl.source.hp - hpBefore);
-            decl.factData.healActual = actual;
-            decl.factData.healNominal = capped;
-            const mods = healModReasons(decl.source);
-            if (mods.length > 0) decl.factData.healMods = mods;
+            decl.factData.heal = actual;
+            decl.factData.hpBefore = fmtHp(hpBefore);
+            decl.factData.hpAfter = fmtHp(decl.source.hp);
+            if (capped > 0) {
+                decl.factData.healActual = actual;
+                decl.factData.healNominal = capped;
+                const mods = healModReasons(decl.source);
+                if (mods.length > 0) decl.factData.healMods = mods;
+            }
         }
         executed.push(decl);
     }

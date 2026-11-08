@@ -1,5 +1,5 @@
 {
- "ver": "47eb17cb5c6976f6330789fb7a86f73d5bbb9ab4c790a14ebaa003a09630d3a4",
+ "ver": "fbcfce17721be57b2b6d0ba99c1d3e1290591bf16f47401480012ed74db6263d",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "a0f47dee2c5eb88a99c37f183ab3e34ecc8f533df9e6ac0c487340f36ff51039"
+   "a7fa004cddd65bea859cd1ba01ef99eee649c8a9acc0a4f786bbd31ef94f06c7"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -77,7 +77,7 @@
   ],
   [
    "core/217-effect-handlers.js",
-   "e2a322db0f2f355332f679fac7dfd2e8e03b365dee2bfa12a72eebe7756eac55"
+   "0be2701cc62a1da61e242ed16d624d80524602b0392c3a71ff2f68d27457c745"
   ],
   [
    "core/218-state-keys.js",
