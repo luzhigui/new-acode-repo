@@ -1,10 +1,17 @@
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #scHex / #scEnemyHex（双海克斯需先勾海克斯）。
 //   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
+// 2026-11-08 V1.3.0 可复现：新增「种子」输入框（留空=Date.now()），填上次 masterSeed 即按同样随机流重跑；
+//   结果区显示 masterSeed / 引擎版本 / 完成时间。
+// 2026-11-08 V1.2.0 负差额判据排除不可校核单位：自伤（七伤拳/乾坤自伤）、小昭·姊附身搬血、record=false
+//   直改血的单位本就不进 dmgTaken/healDone，判红是假红。816 用「真实 hp 变化 − 记账增量」标出 unrec*，
+//   本页改为跳过这些单位（不计数、行级显示「— 跳过」），并在表头注明口径。
 import { runParallel } from './817-shared-worker-runner.js';
+import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
 const startBtn = document.getElementById('scStartBtn');
 const runsInput = document.getElementById('scRunsInput');
+const seedInput = document.getElementById('scSeedInput');
 const progressEl = document.getElementById('scProgress');
 const resultEl = document.getElementById('scResult');
 const hexCb = document.getElementById('scHex');
@@ -40,8 +47,10 @@ startBtn.addEventListener('click', async () => {
     const agg = {};
     const startT = performance.now();
 
-    // 每关一个 job，worker 内已完成本关 RUNS 场自聚合（种子公式与原主线程一致：Date.now() + run*7919 + stage*131）
-    const masterSeed = Date.now();
+    // 每关一个 job，worker 内已完成本关 RUNS 场自聚合（种子公式：masterSeed + stage*131，场内 run*7919）
+    // V1.3.0：「种子」输入框填上次的 masterSeed 即可原样重跑；留空才用 Date.now()
+    const seedRaw = parseInt(seedInput ? seedInput.value : '', 10);
+    const masterSeed = Number.isFinite(seedRaw) && seedRaw > 0 ? seedRaw : Date.now();
     const jobs = stages.map(stage => ({ stage, seed: masterSeed + stage * 131, runs: RUNS, label: `第${stage}关` }));
 
     try {
@@ -51,7 +60,7 @@ startBtn.addEventListener('click', async () => {
             nextJobMsg: (job, id) => ({ jobId: id, kind: 'stats', stage: job.stage, seed: job.seed, runs: job.runs, hexEnabled, enemyHex }),
             onJobDone: (finished, total, job, part) => {
                 for (const [key, d] of Object.entries(part)) {
-                    const t = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0 });
+                    const t = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0, unrecDmg: 0, unrecHeal: 0 });
                     t.battles += d.battles;
                     t.dmgTaken += d.dmgTaken;
                     t.battleDmg += d.battleDmg;
@@ -60,11 +69,13 @@ startBtn.addEventListener('click', async () => {
                     t.battleHeal += d.battleHeal;
                     t.reallocHeal += d.reallocHeal;
                     t.dmgDealt += d.dmgDealt;
+                    t.unrecDmg += d.unrecDmg || 0;
+                    t.unrecHeal += d.unrecHeal || 0;
                 }
                 progressEl.textContent = `体检中 ${finished}/${total}（已用 ${((performance.now() - startT) / 1000).toFixed(1)}s）`;
             },
             onAllDone: () => {
-                renderResult(agg, stages, RUNS);
+                renderResult(agg, stages, RUNS, { masterSeed, ts: Date.now(), ver: ENGINE_VER });
                 progressEl.textContent = `✅ 体检完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
             }
         });
@@ -79,29 +90,42 @@ startBtn.addEventListener('click', async () => {
 
 function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 
-function renderResult(agg, stages, runs) {
+function renderResult(agg, stages, runs, meta) {
     lastAgg = agg;
     const rows = Object.entries(agg).sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
 
     // 只校负差额：差额 < 0 表示真实 hp 变化比记账多 = 漏记。
     // 正差额（格挡/免疫/溢出/闪避/反弹只记承伤侧、治疗记产出侧）是口径设计使然，不告警。
-    // 全局 dmgTaken 与 dmgDealt 天生不等，不再做守恒校验。
-    let badDmg = 0, badHeal = 0;
+    // V1.2.0（2026-11-08）：自伤（七伤拳/乾坤自伤）、小昭·姊附身搬血、record=false 直改血的单位
+    //   本来就不进 dmgTaken/healDone，判红是假红。816 已按「真实 hp 变化 − 记账增量」标出 unrec*，
+    //   这些单位改判「跳过」，不计入告警数。
+    let badDmg = 0, badHeal = 0, skipped = 0;
     for (const [, d] of rows) {
-        if (d.dmgTaken - d.battleDmg - d.reallocDmg < -1) badDmg++;
-        if (d.healDone - d.battleHeal - d.reallocHeal < -1) badHeal++;
+        const unrec = (d.unrecDmg || 0) > 0.5 || (d.unrecHeal || 0) > 0.5;
+        if (unrec) skipped++;
+        if (!unrec && d.dmgTaken - d.battleDmg - d.reallocDmg < -1) badDmg++;
+        if (!unrec && d.healDone - d.battleHeal - d.reallocHeal < -1) badHeal++;
     }
+    const skipTxt = skipped ? `，${skipped} 个单位含自伤/附身/直改血已跳过` : '';
     const verdict = (badDmg + badHeal) === 0
-        ? `校核 ✓：${rows.length} 个单位均无负差额，记账未少于真实 hp 变化。`
-        : `校核 ✗：${badDmg} 个单位承伤负差额、${badHeal} 个单位治疗负差额 —— 有真实 hp 变化未进记账，需查。`;
+        ? `校核 ✓：${rows.length} 个单位均无可判定的负差额，记账未少于真实 hp 变化${skipTxt}。`
+        : `校核 ✗：${badDmg} 个单位承伤负差额、${badHeal} 个单位治疗负差额 —— 有真实 hp 变化未进记账，需查${skipTxt}。`;
 
+    // V1.3.0：结果区带本批次 seed / 版本 / 完成时间（可填回「种子」框原样重跑）
+    let metaTxt = '';
+    if (meta && meta.masterSeed != null) {
+        const d = new Date(meta.ts || Date.now()), p2 = n => String(n).padStart(2, '0');
+        metaTxt = `｜种子 masterSeed=${meta.masterSeed}｜${(meta.ver || '').replace(/^core\/201-config-5v5-test\.js\s*/, '引擎 ')}`
+            + `｜完成 ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    }
     let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
-        + `<div class="hex-log-verdict">${verdict}</div>
+        + `<div class="hex-log-verdict">${verdict}${metaTxt}</div>
     <p style="color:#888;font-size:11px;margin:8px 0;">
       记账口径：承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
       全局 dmgTaken 与 dmgDealt <span style="color:#ffa726;">本就不同</span>（承伤记全额、输出记实伤，闪避/反弹只记承伤侧），不做守恒校验。<br>
       hp 净扣血/净回血：maxHp 不变时的真实 hp 变化。<span style="color:#8ab4f8;">重分配列</span>：附身/飞回/carry/苦练造成的血量重分配，属正常机制。<br>
       判定只看<span style="color:#ff5252;">负差额</span>：承伤差额=记账承伤 − 净扣血 − 重分配承伤，为负 = 漏记；治疗侧同理。正差额正常（格挡/免疫/溢出/满血溢出）。<br>
+      <span style="color:#8ab4f8;">— 跳过</span>：该单位含自伤 / 附身搬血 / record=false 直改血（真实 hp 变化未进记账），不参与负差额判定。<br>
       数值为场均（共 ${stages.length} 关 × ${runs} 场）。
     </p>
     <table class="elite-table"><tr>
@@ -112,17 +136,19 @@ function renderResult(agg, stages, runs) {
     </tr>`;
 
     for (const [key, d] of rows) {
+        const unrec = (d.unrecDmg || 0) > 0.5 || (d.unrecHeal || 0) > 0.5;
         const dmgGap = d.dmgTaken - d.battleDmg - d.reallocDmg;    // 负 = 漏记
         const healGap = d.healDone - d.battleHeal - d.reallocHeal; // 负 = 漏记
         const dmgGapAvg = avg(dmgGap, d.battles);
         const healGapAvg = avg(healGap, d.battles);
-        const negDmg = dmgGap < -1;
-        const negHeal = healGap < -1;
+        const negDmg = !unrec && dmgGap < -1;
+        const negHeal = !unrec && healGap < -1;
         let verdictTxt = '✓ 正常';
-        if (negDmg && negHeal) verdictTxt = '⚠ 承伤+治疗漏记';
+        if (unrec) verdictTxt = '— 跳过（自伤/附身/直改血）';
+        else if (negDmg && negHeal) verdictTxt = '⚠ 承伤+治疗漏记';
         else if (negDmg) verdictTxt = '⚠ 承伤漏记';
         else if (negHeal) verdictTxt = '⚠ 治疗漏记';
-        const vColor = (negDmg || negHeal) ? '#ff5252' : '#4caf50';
+        const vColor = unrec ? '#8ab4f8' : ((negDmg || negHeal) ? '#ff5252' : '#4caf50');
         const reallocStyle = 'color:#8ab4f8;';   // 重分配=正常机制，只展示不判红
         html += `<tr>
             <td style="text-align:left;white-space:nowrap;">${key}</td>

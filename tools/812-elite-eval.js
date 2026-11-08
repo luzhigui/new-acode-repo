@@ -1,8 +1,14 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
 import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './827-tool-registry.js';
+import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.4.0';
+export const VER = 'tools/812-elite-eval.js V3.6.0';
+// V3.6.0 | 2026-11-08 可复现：新增「种子」输入框（留空=Date.now()），填上次结果的 masterSeed 即按同样随机流重跑；
+//   四张表结果区顶部显示 masterSeed / 版本 / 完成时间（旧快照显示「未记录」）。
+// V3.5.0 | 2026-11-08 快照带批次元数据：每张表记录自己的完成时间 ts、种子 seed、版本（本工具 + 引擎配置），
+//   手动保存多张表时不再把不同批次统一盖成同一个时间点；标签里不同批次显式标「⚠️多批次」并给出时间范围与 seed。
+//   旧快照没有这些字段时显示「时间/seed 未记录」，不伪造。
 // V3.4.0 | 2026-11-08 拆行口径回到「只有第 3 关有变体」：此前每关都按敌方阵容反推「·胖远桥 / ·宋青书」行，
 //   引擎的六大派额外混入在 4~7 关刷出这两个名字时，表里就多出「第4关·胖远桥」这类行，看着像跨关变体。
 //   实测这两个名字的出场只有两条来源：① 第 3 关 squadVariants（真变体）② 4~7 关额外混入（不是变体）。
@@ -87,17 +93,46 @@ const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
 const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
 const snapDropBtn = document.getElementById('eliteDropSnapBtn');
 const snapStatusEl = document.getElementById('eliteSnapStatus');
-// 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage }
+// 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage, ts, seed, ver }
 let latest = { elite: null, solo: null, boss: null, none: null, weak: null };
+
+// V3.5.0 批次元数据：每张表各自记完成时间 / 种子 / 版本，不再由快照统一盖一个 ts
+const TOOL_VER = VER.replace(/^tools\/812-elite-eval\.js\s*/, '');
+const ENGINE_VER_TXT = ENGINE_VER.replace(/^core\/201-config-5v5-test\.js\s*/, '');
+const batchMeta = seed => ({ ts: Date.now(), seed, ver: `${TOOL_VER}｜引擎 ${ENGINE_VER_TXT}` });
+
+// V3.6.0：种子可复现——输入框填上次的 masterSeed 即按同样随机流重跑；留空才用 Date.now()
+function readSeed() {
+    const el = document.getElementById('eliteSeedInput');
+    const v = el ? parseInt(el.value, 10) : NaN;
+    return Number.isFinite(v) && v > 0 ? v : Date.now();
+}
+// 结果区顶部显示本批次 seed / 版本 / 完成时间（旧快照没有就标「未记录」，不伪造）
+function metaLine(m) {
+    if (!m) return '';
+    if (m.seed == null) return '<p style="color:#888;font-size:11px;margin:2px 0 6px">种子/版本未记录（旧数据）</p>';
+    const d = new Date(m.ts || Date.now()), p2 = n => String(n).padStart(2, '0');
+    return `<p style="color:#888;font-size:11px;margin:2px 0 6px">种子 masterSeed=<b style="color:#ffd700">${m.seed}</b>｜版本 ${m.ver || '未记录'}`
+        + `｜完成 ${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}</p>`;
+}
 
 const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
 const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(arr)); return null; } catch (e) { return e; } };
 
 function snapLabel(s) {
     const d = new Date(s.ts), p2 = n => String(n).padStart(2, '0');
+    const fmt = t => { const x = new Date(t); return `${p2(x.getMonth() + 1)}-${p2(x.getDate())} ${p2(x.getHours())}:${p2(x.getMinutes())}`; };
     const kinds = Object.keys(s.parts);
     const stages = s.parts[kinds[0]].stages.join(',');
-    return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).join('+')}`;
+    // V3.5.0：表级批次元数据（旧快照没有 → 显示未记录，不拿快照 ts 冒充）
+    const times = [...new Set(kinds.map(k => s.parts[k].ts).filter(v => v != null))].sort((a, b) => a - b);
+    const seeds = [...new Set(kinds.map(k => s.parts[k].seed).filter(v => v != null))];
+    const vers = [...new Set(kinds.map(k => s.parts[k].ver).filter(Boolean))];
+    let meta = times.length === 0 ? '｜时间/seed 未记录'
+        : (times.length > 1 ? `｜⚠️多批次 ${fmt(times[0])} ~ ${fmt(times[times.length - 1])}` : `｜${fmt(times[0])}`);
+    if (seeds.length) meta += `｜seed ${seeds.join('/')}`;
+    if (vers.length) meta += `｜${vers.join(' / ')}`;
+    return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).join('+')}${meta}`;
 }
 
 function refreshSnapSelect(keepId) {
@@ -114,7 +149,12 @@ function saveSnap(keys) {
     for (const k of keys) {
         if (!latest[k]) continue;
         // 深拷再存：byStage 是渲染用的活对象，直接引用会跟后续重跑共享
-        parts[k] = { stages: [...latest[k].stages], runs: latest[k].runs, byStage: JSON.parse(JSON.stringify(latest[k].byStage)) };
+        // V3.5.0：批次元数据跟着各自那张表走，手动一次存多张也不会被压成同一个时间点
+        parts[k] = {
+            stages: [...latest[k].stages], runs: latest[k].runs,
+            byStage: JSON.parse(JSON.stringify(latest[k].byStage)),
+            ts: latest[k].ts || null, seed: latest[k].seed ?? null, ver: latest[k].ver || ''
+        };
         // V3.2.0：主表额外带上「明教英雄个体胜率」（126 规则八英雄层面的数据源；其余表没有该字段）
         if (latest[k].hero) parts[k].hero = JSON.parse(JSON.stringify(latest[k].hero));
     }
@@ -138,8 +178,8 @@ snapLoadBtn.addEventListener('click', () => {
     if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
     const p = rec.parts;
     if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE); bossProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
+    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE, p.boss); bossProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     if (p.weak) { latest.weak = p.weak; renderWeakResults(p.weak.byStage, p.weak.stages); weakProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
     snapStatusEl.textContent = `📂 已载入 ${snapLabel(rec)}`;
@@ -175,7 +215,7 @@ startBtn.addEventListener('click', async () => {
     const startT = performance.now();
 
     // 种子公式：masterSeed + stage*131 + 片序号*100003，各片不重叠
-    const masterSeed = Date.now();
+    const masterSeed = readSeed();
     const jobs = [];
     for (const stage of stages) {
         const chunks = Math.ceil(RUNS / CHUNK);
@@ -206,7 +246,7 @@ startBtn.addEventListener('click', async () => {
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.elite = { stages, runs: RUNS, byStage, hero: buildHeroRates(byStage, stages) };
+                latest.elite = { stages, runs: RUNS, byStage, hero: buildHeroRates(byStage, stages), ...batchMeta(masterSeed) };
                 renderResults(byStage, stages);
                 progressEl.textContent = `✅ 全部完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['elite']).msg;   // V2.9.0 跑完自动存（不必手点）
@@ -246,7 +286,7 @@ async function runSoloGroup(list, ui) {
         }
     }
     const startT = performance.now();
-    const masterSeed = Date.now();
+    const masterSeed = readSeed();
 
     // 每精英每关拆片派发（种子再错开 7717*精英序号，互不重叠）
     const jobs = [];
@@ -279,8 +319,8 @@ async function runSoloGroup(list, ui) {
                 ui.progressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest[ui.key] = { stages, runs: RUNS, byStage };
-                renderSoloResults(byStage, stages, list, ui.resultEl, ui.note);
+                latest[ui.key] = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
+                renderSoloResults(byStage, stages, list, ui.resultEl, ui.note, latest[ui.key]);
                 ui.progressEl.textContent = `✅ ${ui.title}评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap([ui.key]).msg;    // V2.9.0 跑完自动存（不必手点）
             }
@@ -301,8 +341,8 @@ bossBtn.addEventListener('click', () => runSoloGroup(BOSS_ELITES, {
     btn: bossBtn, progressEl: bossProgressEl, resultEl: bossResultEl, key: 'boss', title: 'Boss', note: BOSS_NOTE
 }));
 
-function renderSoloResults(byStage, stages, list, resultEl, note) {
-    let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+function renderSoloResults(byStage, stages, list, resultEl, note, meta) {
+    let html = metaLine(meta) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
     for (const cfg of list) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of list) html += `<th class="elite-th">${cfg.name}</th>`;
@@ -373,7 +413,7 @@ noEliteBtn.addEventListener('click', async () => {
         for (const v of VARIANTS) byStage[st][v] = { runs: 0, wins: 0, sumSurv: 0 };
     }
     const startT = performance.now();
-    const masterSeed = Date.now();
+    const masterSeed = readSeed();
 
     const jobs = [];
     for (const stage of stages) {
@@ -400,7 +440,7 @@ noEliteBtn.addEventListener('click', async () => {
                 noEliteProgressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.none = { stages, runs: RUNS, byStage };
+                latest.none = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
                 renderNoEliteResults(byStage, stages);
                 noEliteProgressEl.textContent = `✅ 无精英基线完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['none']).msg;    // V2.9.0 跑完自动存（不必手点）
@@ -416,7 +456,7 @@ noEliteBtn.addEventListener('click', async () => {
 });
 
 function renderNoEliteResults(byStage, stages) {
-    let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:120px"><col><col></colgroup><tr><th>关卡</th><th class="elite-th">胜率 / 场次</th><th class="elite-th">平均存活</th></tr>';
+    let html = metaLine(latest.none) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:120px"><col><col></colgroup><tr><th>关卡</th><th class="elite-th">胜率 / 场次</th><th class="elite-th">平均存活</th></tr>';
     for (const st of stages) {
         for (const { variant: v, bucket: d } of rowsOfStage(st, byStage)) {   // 拆行口径同主表（V3.4.0）
             if (!d || !d.runs) continue;
@@ -481,7 +521,7 @@ weakBtn.addEventListener('click', async () => {
         }
     }
     const startT = performance.now();
-    const masterSeed = Date.now();
+    const masterSeed = readSeed();
 
     // 自然臂 + 4 精英臂共用同一 (stage,chunk) seed：配对差才干净
     const jobs = [];
@@ -520,7 +560,7 @@ weakBtn.addEventListener('click', async () => {
                 weakProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                latest.weak = { stages, runs: RUNS, byStage };
+                latest.weak = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
                 renderWeakResults(byStage, stages);
                 weakProgressEl.textContent = `✅ 弱精英评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
                 snapStatusEl.textContent = saveSnap(['weak']).msg;    // V2.9.0 跑完自动存（不必手点）
@@ -564,7 +604,7 @@ function renderWeakResults(byStage, stages) {
         html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
         return html;
     };
-    let html = '';
+    let html = metaLine(latest.weak);
     html += sub('🐦 明教弱精英（建队后换掉一个普通位，强精英轮盘照常）', WEAK_ALLY,
         'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子）。V3.1.0 起换人发生在建队完成之后：两臂站位逐位全同，Δ 不含站位噪音，只剩精英本人 vs 被换的普通位。Δ>0 = 该弱精英给明教带来增益。「自然出现该精英」的局两臂同剔，样本逐场对应。');
     html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
@@ -621,7 +661,7 @@ function weakArmTotals(name, byStage, stages) {
 }
 
 function renderResults(byStage, stages) {
-    let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    let html = metaLine(latest.elite) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
     for (const cfg of configs) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;

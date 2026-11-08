@@ -68,17 +68,31 @@ import { rule194 } from './health-rules/194-chengkun-phantom.js';
 // 第 187 轮：角色技能模块（modules/3xx）第二批补盲 —— 说不得布袋 / 唐文亮回春·同归于尽 /
 //   张无忌乾坤 / 玄冥毒 DOT / 谢逊狮吼 / 庄铮断锤
 import { rule195 } from './health-rules/195-shuobude-bag.js';
+import { rule196 } from './health-rules/196-tangwenliang-huichun.js';
+import { rule197 } from './health-rules/197-tangwenliang-tonggui.js';
+import { rule198 } from './health-rules/198-zhangwuji-qiankun.js';
+import { rule202 } from './health-rules/202-xuanming-poison-dot.js';
+import { rule203 } from './health-rules/203-xiexun-lion-grow.js';
+import { rule204 } from './health-rules/204-xiexun-lion-inspire.js';
 import { rule173 } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
 // 战报与渲染一致性（只读渲染后的 log）：
 //   185 分组一致性（组归属/结果同源）、186 显示数值单一出口（浮点尾巴）、
-//   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）
+//   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）、
+//   199 血量链四处同源（正文/伤害行/格子血条/组结算，抓反推历史值）、
+//   200 组内条目顺序（时序改写不错位）
 import { rule185 } from './health-rules/185-log-group-consistency.js';
 import { rule186 } from './health-rules/186-display-single-exit.js';
 import { rule187 } from './health-rules/187-damage-float-same-source.js';
+import { rule199 } from './health-rules/199-hp-chain-same-source.js';
+import { rule200 } from './health-rules/200-group-entry-order.js';
 // 第 186 轮：回合时序 / 目标选择 / 行动顺序三块结构规则（只吃原始 fact 流，不读渲染文本）
 import { rule181 } from './health-rules/181-round-sequence.js';     // 回合开始/结束分隔符连续性与配对
 import { rule182 } from './health-rules/182-target-validity.js';   // 鞭尸 / 自伤 / 误伤同阵营
 import { rule183 } from './health-rules/183-action-order.js';      // 阵亡者出手 / 重复行动权
+// 第 191 轮：死亡/复活行动权归属（同回合口径）+ 同回合多段出手计数口径
+// 注意：177/178 的导出名已被别名占用成 rule184 / rule188（见 102-103 行），这里必须另起别名
+import { rule184 as deathRights184 } from './health-rules/184-death-revive-rights.js';
+import { rule188 as multiAttack188 } from './health-rules/188-multi-attack-count.js';
 import { rule105 } from './health-rules/158-fact-anchor-align.js'; // 第 143 轮：吸收夜间 139 重写版（fx 结构判据），取代第 142 轮的退役
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
@@ -97,6 +111,8 @@ import { rule181 as rule188 } from './health-rules/178-stage3-variant.js';
 import { rule180 } from './health-rules/180-damage-precision.js';
 import { rule227 } from './health-rules/227-buff-lifecycle.js';
 import { rule228 } from './health-rules/228-buff-effect-decl.js';
+// 第 191 轮补登：229 由并行会话建文件但未登记，registration-check 硬失败，这里补齐（逻辑未动）
+import { rule229 } from './health-rules/229-buff-permanent.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -703,8 +719,9 @@ function runRuleChecks(ctx, doc) {
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
         rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
-        rule190, rule191, rule192, rule193, rule194, rule195, rule181, rule182, rule183, rule185, rule186, rule187,
-        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228];
+        rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule181, rule182, rule183, rule185, rule186, rule187,
+        rule199, rule200, deathRights184, multiAttack188,
+        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

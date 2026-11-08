@@ -12,6 +12,7 @@ const isAnyElite = u => isFixedElite(u) || WEAK_FLAGS.some(f => u[f]);
 
 const startBtn = document.getElementById('lsStartBtn');
 const runsInput = document.getElementById('lsRunsInput');
+const seedInput = document.getElementById('lsSeedInput');
 const stageSelect = document.getElementById('lsStageSelect');
 const forceZhangCb = document.getElementById('lsForceZhang');
 const forceWeiCb = document.getElementById('lsForceWei');
@@ -33,6 +34,9 @@ resultEl.addEventListener('click', async (e) => {
 startBtn.addEventListener('click', async () => {
     const RUNS = parseInt(runsInput.value) || 200;
     const stage = parseInt(stageSelect.value) || 1;
+    // 2026-11-08 种子可复现——填上次的 masterSeed 即按同样随机流重采样；留空才用 Date.now()
+    const seedRaw = parseInt(seedInput ? seedInput.value : '', 10);
+    const masterSeed = Number.isFinite(seedRaw) && seedRaw > 0 ? seedRaw : Date.now();
     const fz = forceZhangCb.checked;
     const fw = forceWeiCb.checked;
     const fx = forceXieCb.checked;
@@ -65,7 +69,7 @@ startBtn.addEventListener('click', async () => {
             GlobalStore.flushBattleEvents();
             // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
 
-            const rng = new SeededRNG(Date.now() + run * 7919 + stage * 131);
+            const rng = new SeededRNG(masterSeed + run * 7919 + stage * 131);
             const { allyTeam } = initBattleTeams(stage, rng);
 
             const elites = allyTeam.filter(isFixedElite);
@@ -95,7 +99,7 @@ startBtn.addEventListener('click', async () => {
                 await new Promise(res => setTimeout(res, 5));
             }
         }
-        renderResult(stats, RUNS, stage, fz, fw, fx, fh);
+        renderResult(stats, RUNS, stage, fz, fw, fx, fh, masterSeed);
         progressEl.textContent = '✅ 采样完成';
     } catch (e) {
         resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}</div>`;
@@ -105,13 +109,13 @@ startBtn.addEventListener('click', async () => {
     }
 });
 
-function renderResult(stats, runs, stage, fz, fw, fx, fh) {
+function renderResult(stats, runs, stage, fz, fw, fx, fh, masterSeed) {
     lastStats = stats;
     const pct = n => (n / runs * 100).toFixed(1) + '%';
     const flag = `${fz ? ' · 强制张无忌' : ''}${fw ? ' · 强制韦一笑' : ''}${fx ? ' · 强制谢逊' : ''}${fh ? ' · 强制寒离飒' : ''}`;
 
     let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
-        + `<div class="hex-log-verdict">采样 ${runs} 场 · 第${stage}关${flag}</div>`;
+        + `<div class="hex-log-verdict">采样 ${runs} 场 · 第${stage}关${flag}｜种子 masterSeed=${masterSeed}</div>`;
 
     // 精英数量分布（规则见 modules/330-battle-init：Boss 30%；无 Boss 时强精英 1 个 90% / 2 个 10%；Boss 局 70% 带搭档）
     html += `<h3 style="color:#ffd700;margin:12px 0 6px;">精英数量分布（只数六名固定精英，未计弱精英混入）</h3>

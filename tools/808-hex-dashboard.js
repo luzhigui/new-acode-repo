@@ -1,9 +1,12 @@
 // ===== ../tools/808-hex-dashboard.js =====
-import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
+import { CONFIG, VER as ENGINE_VER, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 import { HEX_NAMES } from './827-tool-registry.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.9.2';
+export const VER = 'tools/808-hex-dashboard.js V6.9.3';
+// V6.9.3 | 2026-11-08 长期榜记录口径：每条战绩落 seed（116 hex job 提供）+ 版本（本工具 + 引擎配置）。
+//   渲染时同一榜内若混有多个版本或「无版本旧数据」，显式告警「跨版本合并不可直接比较」，并给出带 seed 的条数。
+//   只加字段、不改存储结构与表格布局；旧榜无 seed/版本时按「未记录」展示，不伪造。
 // V6.9.2 | 2026-11-08 按老板要求把表格呈现恢复原样：撤掉 V6.9.0 的同批阵容细分表、样本量/置信区间标注、
 //           跑批元数据表头与表 2 红字警示，表 1/表 2 回到改动前的列与布局。V6.9.1 的中文名单收编保留。
 // V6.9.1 | 2026-11-08 | 海克斯中文名收编单一真源：删掉本文件手写的 HEX_NAME_MAP（15 项），
@@ -54,6 +57,10 @@ export const VER = 'tools/808-hex-dashboard.js V6.9.2';
 
 (function(){
 const KEY = 'ming_hex_battle_log';
+// V6.9.3 记录版本标记：新战绩落「本工具 + 引擎配置」版本，同一榜混入多版本时才能显式喊出来
+const TOOL_VER = VER.replace(/^tools\/808-hex-dashboard\.js\s*/, '');
+const ENGINE_VER_TXT = ENGINE_VER.replace(/^core\/201-config-5v5-test\.js\s*/, '');
+const REC_VER = `${TOOL_VER}｜引擎 ${ENGINE_VER_TXT}`;
 // 2026-10-14 阵容模式：战绩按模式分键存储（常规沿用旧键，历史数据不丢），切换即换榜。
 // 消费端在 116 runHexStageJob：四模式统一「拒绝采样重掷自然阵容」（sister=含姊 / brother=含妹 / none=无小昭），不设 force、同一把尺子。
 const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹', none: '不带姐姐妹妹' };
@@ -618,7 +625,11 @@ function openHexDashboard() {
         //   主代码改过数值后还拿旧榜判读，就会得出错误结论。
         //   只加字段、不改结构：旧的没 ts 的记录照样能读，下游会把它们标成「无时间戳的旧数据」。
         const now = Date.now();
-        for (const rec of records) if (rec && !rec.ts) rec.ts = now;
+        for (const rec of records) {
+          if (rec && !rec.ts) rec.ts = now;
+          // V6.9.3：每条战绩落版本（seed 由 116 hex job 随记录带回）
+          if (rec && !rec.ver) rec.ver = REC_VER;
+        }
         const byStage = {};
         for (const rec of records) (byStage[rec.stage] || (byStage[rec.stage] = [])).push(rec);
         for (const stStr of Object.keys(byStage)) {
@@ -924,7 +935,24 @@ function render(summary, stats) {
       timeLine = `<p style="margin:2px 0 0;color:#888;font-size:12px">数据时间：无记录（这批是 108 V6.4.0 之前跑的，重跑一次就会带上时间）</p>`;
     }
   }
-  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜海克斯【<b style="color:#ffd700">${HEXMODE_LABEL[curHex]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine;
+  // V6.9.3：版本混榜告警——不同版本数值口径不同，合并后的胜率不可直接比较
+  let verLine = '';
+  {
+    const vers = [...new Set(logs.map(l => l && l.ver).filter(Boolean))];
+    const noVer = logs.filter(l => l && !l.ver).length;
+    const withSeed = logs.filter(l => l && l.seed != null).length;
+    const seeds = logs.map(l => l && l.seed).filter(v => v != null);
+    const seedTxt = seeds.length
+      ? `｜seed ${Math.min(...seeds)}~${Math.max(...seeds)}（${withSeed}/${total} 条带 seed）`
+      : `｜无 seed 记录（${total} 条）`;
+    const mixed = vers.length > 1 || (vers.length > 0 && noVer > 0);
+    const verTxt = vers.length
+      ? vers.join(' / ') + (noVer ? `（另有 ${noVer} 条无版本旧数据）` : '')
+      : '无记录（旧批数据）';
+    verLine = `<p style="margin:2px 0 0;color:${mixed ? '#ff5252' : '#888'};font-size:12px">数据版本：${verTxt}${seedTxt}`
+      + (mixed ? '　<b>⚠️ 同一榜混有不同版本数据，跨版本合并胜率不可直接比较，建议清空重跑</b>' : '') + '</p>';
+  }
+  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜海克斯【<b style="color:#ffd700">${HEXMODE_LABEL[curHex]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine + verLine;
 
   const hexKeys = new Set();
   logs.forEach(l => ((l && l.buffs) || []).forEach(b => hexKeys.add(b)));

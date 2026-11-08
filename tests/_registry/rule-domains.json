@@ -69,6 +69,8 @@
     "192-pengyingyu-doubleface.js": "D5",
     "193-hebiweng-hornstrike.js": "D2",
     "194-chengkun-phantom.js": "D5",
+    "199-hp-chain-same-source.js": "D8",
+    "200-group-entry-order.js": "D8",
     "227-buff-lifecycle.js": "D1",
     "228-buff-effect-decl.js": "D1"
   }
