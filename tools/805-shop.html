@@ -288,6 +288,10 @@
     <div class="section-title">📈 属性点</div>
     <div id="pointShop"></div>
 
+    <!-- 积分兑换 -->
+    <div class="section-title">🔄 积分兑换</div>
+    <div id="exchangeShop"></div>
+
     <!-- 经验（不可购买） -->
     <div class="section-title">📦 经验</div>
     <div class="shop-item disabled">
@@ -304,8 +308,8 @@
     </div>
 
     <div class="info">
-        💡 圣火令来自战斗掉落与积分兑换（50 积分 = 1 令）<br>
-        宝箱通关掉落：第 1 关 3% → 第 7 关 9%（首通 +5%）<br>
+        <span id="exchangeNote">💡 圣火令来自战斗掉落与积分兑换</span><br>
+        <span id="chestRateNote">宝箱通关掉落：随关卡递增（配置加载中…）</span><br>
         箱内：属性点 40% / 经验 40% / 圣火令 20%
     </div>
 
@@ -728,6 +732,7 @@ function saveCultivated() { localStorage.setItem(HERO_KEY, JSON.stringify(cultiv
 function getToken() { return num(localStorage.getItem(TOKEN_KEY)); }
 function setToken(v) { localStorage.setItem(TOKEN_KEY, String(Math.max(0, num(v)))); }
 function getScore() { return num(localStorage.getItem(SCORE_KEY)); }
+function setScore(v) { localStorage.setItem(SCORE_KEY, String(Math.max(0, num(v)))); }
 function getChests() { return num(localStorage.getItem(CHEST_KEY)); }
 function setChests(v) { localStorage.setItem(CHEST_KEY, String(Math.max(0, num(v)))); }
 // 老版本迁移：圣火令余额曾存在商店存档里
@@ -739,6 +744,92 @@ function ensureToken() {
             t = num(old.items && old.items['圣火令']);
         } catch (e) {}
         localStorage.setItem(TOKEN_KEY, String(t));
+    }
+}
+
+// ==================== 积分兑换圣火令（比例/上限读 content/003-shop-config.json，不写死）====================
+let EXCHANGE_CFG = null;
+let lastExchangeAt = 0;
+function loadExchangeConfig() {
+    return fetch(new URL('../content/003-shop-config.json', document.baseURI))
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(cfg => {
+            const ex = cfg && cfg.exchange;
+            if (!ex || typeof ex.scorePerToken !== 'number' ||
+                typeof ex.tokenPerTrade !== 'number' || typeof ex.tokenCap !== 'number') {
+                throw new Error('content/003-shop-config.json 缺 exchange 字段');
+            }
+            EXCHANGE_CFG = ex;
+        })
+        .catch(e => { EXCHANGE_CFG = null; console.warn('[shop] 兑换配置加载失败:', e); })
+        .then(() => renderExchange());
+}
+function renderExchange() {
+    const box = document.getElementById('exchangeShop');
+    if (!box) return;
+    if (!EXCHANGE_CFG) {
+        box.innerHTML = '<div class="shop-item disabled"><div class="item-icon">🔄</div>' +
+            '<div class="item-info"><div class="item-name">圣火令兑换</div>' +
+            '<div class="item-desc">配置未加载：content/003-shop-config.json 读取失败</div></div></div>';
+        return;
+    }
+    const ex = EXCHANGE_CFG;
+    const score = getScore(), token = getToken();
+    const full = token >= ex.tokenCap;
+    const note = document.getElementById('exchangeNote');
+    if (note) note.textContent = '💡 圣火令来自战斗掉落与积分兑换（' +
+        ex.scorePerToken + ' 积分 = ' + ex.tokenPerTrade + ' 令，上限 ' + ex.tokenCap + '）';
+    box.innerHTML =
+        '<div class="shop-item' + (full ? ' disabled' : '') + '">' +
+            '<div class="item-icon">🔥</div>' +
+            '<div class="item-info"><div class="item-name">圣火令</div>' +
+                '<div class="item-desc">' + ex.scorePerToken + ' 积分 → ' + ex.tokenPerTrade +
+                    ' 令 · 上限 ' + ex.tokenCap + '（现有 ' + token + ' 令，积分 ' + score + '）</div>' +
+            '</div>' +
+            '<div class="buy-col"><div class="price-line"><span class="price-now">' +
+                ex.scorePerToken + ' 🏆</span></div>' +
+                '<button class="mini-btn" data-act="exchange"' + (full ? ' disabled' : '') + '>兑换</button></div>' +
+        '</div>';
+    const btn = box.querySelector('[data-act="exchange"]');
+    if (btn) btn.addEventListener('click', exchangeToken);
+}
+function exchangeToken() {
+    // 防重复点击：短时间内的第二次点击给明确反馈，不静默吞掉
+    const now = Date.now();
+    if (now - lastExchangeAt < 400) { showToast('操作太快，请稍候再兑换'); return; }
+    const ex = EXCHANGE_CFG;
+    if (!ex) { showToast('兑换配置未加载，无法兑换'); return; }
+    const score = getScore(), token = getToken();
+    // ① 先校验：任何一条不过都直接返回，存档一个字节都不动
+    if (score < ex.scorePerToken) {
+        showToast('积分不足，需要 ' + ex.scorePerToken + '（现有 ' + score + '）');
+        return;
+    }
+    if (token + ex.tokenPerTrade > ex.tokenCap) {
+        showToast('圣火令已达上限 ' + ex.tokenCap + '（现有 ' + token + '），无法兑换');
+        return;
+    }
+    lastExchangeAt = now;
+    try {
+        // ② 先落货：写不进就整单失败，积分不动（避免 S7「先扣币后落货」）
+        const newToken = token + ex.tokenPerTrade;
+        setToken(newToken);
+        if (getToken() !== newToken) throw new Error('圣火令写入未生效');
+        // ③ 落货成功才扣积分；扣分失败则回滚已落的货，保证不白送
+        const newScore = score - ex.scorePerToken;
+        try {
+            setScore(newScore);
+            if (getScore() !== newScore) throw new Error('积分写入未生效');
+        } catch (e) {
+            setToken(token);
+            throw e;
+        }
+        renderAll();
+        showToast('兑换成功：-' + ex.scorePerToken + ' 积分，+' + ex.tokenPerTrade + ' 圣火令（现有 ' + newToken + ' 令）');
+    } catch (e) {
+        console.warn('[shop] 兑换链异常:', e);
+        showToast('兑换未完成：' + (e && e.message ? String(e.message).slice(0, 40) : '存储写入失败'));
+        renderAll();
     }
 }
 
@@ -896,7 +987,7 @@ function renderPointShop() {
             '<div class="item-icon">' + t.icon + '</div>' +
             '<div class="item-info">' +
                 '<div class="item-name">' + t.name + '</div>' +
-                '<div class="item-desc">已拥有 ' + (shopData.bag[t.key] || 0) + ' 个 · 每个自带 1 级</div>' +
+                '<div class="item-desc">已拥有 ' + (shopData.bag[t.key] || 0) + ' 个 · 每点 M+' + FREE_POINT_VALUE[t.key] + '，' + Math.round(1 / FREE_POINT_VALUE[t.key]) + ' 点 = 1 级</div>' +
             '</div>' +
             '<div class="buy-col">' +
                 '<div class="price-line">' + priceHtml(base, t.id) + '</div>' +
@@ -912,6 +1003,7 @@ function renderAll() {
     renderDiscount();
     renderHeroes();
     renderPointShop();
+    renderExchange();
 }
 
 // ==================== 角色详情 / 加点弹窗 ====================
@@ -1020,12 +1112,17 @@ function openBag() {
 function buyHero(name) {
     // 2026-11-01 老板手机实锤：存储写不进（配额满等）时 setItem 抛异常，购买静默失败
     // 连"圣火令不足"以外任何提示都没有 → 按"点了没反应"。至少要让失败看得见。
+    // 事务语义（known-transfers 商店三条第 2 项）：扣款 / 落货 / 存档要么全成、要么全退。
+    //   旧版先 setToken 再 saveCultivated/saveShop，写盘一失败就「令牌扣了、货没落」。
+    const snapToken = getToken();
+    const snapRelics = JSON.parse(JSON.stringify(cultivated.list));
+    const snapShop = JSON.parse(JSON.stringify(shopData));
     try {
     const price = finalPrice(unlockPrice(), 'unlock');
-    const token = getToken();
+    const token = snapToken;
     if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
     const meta = HERO_META[name] || { baseM: 100, role: '战士' };
-    setToken(token - price);
+    // 先落货并存盘，成功后才扣款（顺序反了就是「扣钱不给货」）
     cultivated.list.push({
         name: name,
         baseM: meta.baseM,
@@ -1035,6 +1132,7 @@ function buyHero(name) {
         equips: []
     });
     saveCultivated();
+    setToken(token - price);      // 落货成功后才扣款
     shopData.bought.heroes += 1;
     useDiscount('unlock');
     expState(name);
@@ -1044,27 +1142,45 @@ function buyHero(name) {
     } catch (e) {
         // 报真实错误而不是预设"存储满"——真凶可能是渲染层，写盘其实已成功
         console.warn('[shop] 购买链异常:', e);
-        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+        // 回滚到进函数时的快照：令牌、已解锁列表、计数与折扣次数一律还原
+        try {
+            cultivated.list = snapRelics;
+            shopData = snapShop;
+            setToken(snapToken);
+            saveCultivated();
+            saveShop();
+            renderAll();
+        } catch (e2) { console.warn('[shop] 回滚写盘失败:', e2); }
+        showToast('购买没完成（已还原，未扣圣火令）：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
     }
 }
 
 function buyPoint(type) {
     // 同 buyHero：存储异常不再静默（2026-11-01）
+    // 同 buyHero：快照 + 先落货后扣款 + 失败回滚
+    const snapToken = getToken();
+    const snapShop = JSON.parse(JSON.stringify(shopData));
     try {
     const base = pointPrice();
     const price = finalPrice(base, type.id);
-    const token = getToken();
+    const token = snapToken;
     if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
-    setToken(token - price);
     shopData.bag[type.key] += 1;
     shopData.bought.points += 1;
     useDiscount(type.id);
     saveShop();
+    setToken(token - price);      // 存档成功后才扣款
     renderAll();
     showToast('已购买 ' + type.name + ' +' + FREE_POINT_VALUE[type.key] + '（花费 ' + price + ' 🔥），已进背包');
     } catch (e) {
         console.warn('[shop] 购买链异常:', e);
-        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+        try {
+            shopData = snapShop;
+            setToken(snapToken);
+            saveShop();
+            renderAll();
+        } catch (e2) { console.warn('[shop] 回滚写盘失败:', e2); }
+        showToast('购买没完成（已还原，未扣圣火令）：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
     }
 }
 
@@ -1127,7 +1243,10 @@ function useExpPool(name) {
 function openChest() {
     const c = getChests();
     if (c <= 0) { showToast('暂无宝箱（通关掉落）'); return; }
-    setChests(c - 1);
+    // 事务语义：箱内产出先落账、存档成功后才扣箱；失败整笔回滚（旧版先扣箱再落货，失败就白亏一个箱）
+    const snapToken = getToken();
+    const snapShop = JSON.parse(JSON.stringify(shopData));
+    try {
     const r = Math.random();
     if (r < 0.4) {
         const keys = ['atk', 'def', 'hp'];
@@ -1142,8 +1261,20 @@ function openChest() {
         setToken(getToken() + 1);
         showToast('宝箱开出 圣火令 +1');
     }
+    setChests(c - 1);             // 产出落账并存档成功后才扣箱
     saveShop();
     renderAll();
+    } catch (e) {
+        console.warn('[shop] 开箱异常:', e);
+        try {
+            shopData = snapShop;
+            setToken(snapToken);
+            setChests(c);
+            saveShop();
+            renderAll();
+        } catch (e2) { console.warn('[shop] 开箱回滚写盘失败:', e2); }
+        showToast('开箱没完成（已还原，宝箱未消耗）：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+    }
 }
 
 // ==================== 串码系统 ====================
@@ -1328,10 +1459,33 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     showToast('养成存档已重置');
 });
 
+// 掉率文案与引擎同源：读 content/001-game-data.json 的 dropRates（core/201 loadGameData 也从这里
+//   合并进 CONFIG）。禁止在页面上再写死第二份数字——旧版写「第 1 关 3% → 第 7 关 9%」，而引擎通关
+//   掉率写死 1%、击杀 0.2%，三份口径差一个数量级（known-transfers 商店三条第 1 项）。
+async function loadDropRates() {
+    const el = document.getElementById('chestRateNote');
+    if (!el) return;
+    try {
+        const resp = await fetch(new URL('../content/001-game-data.json', document.baseURI));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const dr = (data && data.dropRates) || {};
+        const arr = Array.isArray(dr.chestClearByStage) ? dr.chestClearByStage : null;
+        if (!arr || arr.length < 2) throw new Error('dropRates.chestClearByStage 缺失');
+        const ladder = arr.slice(1).map(function (v, i) { return '第 ' + (i + 1) + ' 关 ' + v + '%'; }).join(' → ');
+        el.textContent = '宝箱通关掉落：' + ladder +
+            (typeof dr.chestFirstClearBonus === 'number' ? '（首通额外 +' + dr.chestFirstClearBonus + '%）' : '');
+    } catch (e) {
+        el.textContent = '宝箱通关掉落：随关卡递增（配置读取失败：' + (e && e.message ? e.message : '未知') + '）';
+    }
+}
+
 // ==================== 启动 ====================
 ensureToken();
 rebuildState();
 renderAll();
+loadExchangeConfig();
+loadDropRates();
 </script>
 </body>
 </html>

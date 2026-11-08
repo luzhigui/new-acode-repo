@@ -1,4 +1,6 @@
-export const VER = 'player/511-battle-report.js V6.2.0';
+// V%s | 2026-11-08 known-transfers 商店三条(1)：通关宝箱掉率改读单表 CONFIG.CHEST_CLEAR_RATES
+//   （content/001 dropRates），并补「首通额外 +CHEST_FIRST_CLEAR_BONUS%」的实现与存档位。
+export const VER = 'player/511-battle-report.js V6.2.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
@@ -76,7 +78,24 @@ export function grantClearRewards(winner, currentStage) {
         localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
         renderVictoryLine(`<span class="gold">🔥 通关奖励：获得1枚圣火令！当前总数：${currentToken + 1}</span><br>`);
     }
-    const chestClearRate = 1 / 100;
+    // 掉率单表（content/001 dropRates -> core/201 CONFIG）：旧版这里写死 1/100，
+    //   商店页文案却写「第 1 关 3% → 第 7 关 9%、首通 +5%」，玩家期望与实际差一个数量级。
+    //   首通加成需要「该关是否已通关过」的存档位：旧版全库没有这个实现（known-transfers 同条）。
+    const CHEST_CLEARED_KEY = 'ming_cleared_stages_5v5_test';
+    let clearedStages = [];
+    try {
+        const raw = localStorage.getItem(CHEST_CLEARED_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        clearedStages = Array.isArray(parsed) ? parsed : [];
+    } catch (e) { clearedStages = []; }
+    const isFirstClear = !clearedStages.includes(stage);
+    if (isFirstClear) {
+        // 先记账再掷骰：写盘失败最多少一次 +5%，不会每次都当首通白送
+        try { localStorage.setItem(CHEST_CLEARED_KEY, JSON.stringify(clearedStages.concat([stage]))); } catch (e) {}
+    }
+    const chestBasePct = (Array.isArray(CONFIG.CHEST_CLEAR_RATES) ? (CONFIG.CHEST_CLEAR_RATES[stage] || 0) : 0);
+    const chestPct = chestBasePct + (isFirstClear ? (CONFIG.CHEST_FIRST_CLEAR_BONUS || 0) : 0);
+    const chestClearRate = chestPct / 100;
     if (rng.next() < chestClearRate) {
         let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
         chests++;
