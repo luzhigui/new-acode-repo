@@ -21,12 +21,13 @@ globalThis.self = globalThis;
 async function main() {
     const [{ loadGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance, CONFIG },
            { FACT_TYPES },
-           { rule277 }, { rule278 }, { rule279 }] = await Promise.all([
+           { rule277 }, { rule278 }, { rule279 }, { rule280 }] = await Promise.all([
         import('../core/201-config-5v5-test.js'),
         import('../infra/106-battle-enums.js'),
         import('./health-rules/277-d9-holy-fire-enhance.js'),
         import('./health-rules/278-d9-fortify-enhance.js'),
-        import('./health-rules/279-d9-mind-control-enhance.js')
+        import('./health-rules/279-d9-mind-control-enhance.js'),
+        import('./health-rules/280-d9-horse-formation-enhance.js')
     ]);
     await loadGameData();
     await loadHexEnhanceData();
@@ -35,6 +36,7 @@ async function main() {
     const B_HF = getBrotherHexEnhance('holyFire');
     const S_FT = getSisterHexEnhance('fortify');
     const S_MC = getSisterHexEnhance('mindControl');
+    const S_HO = getSisterHexEnhance('horseFormation');
     const BASE_HF = CONFIG.BUFFS.holyFire.reviveRatio;
 
     const ally = [
@@ -136,8 +138,15 @@ async function main() {
             { factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: 'enemy', hpPct: MC_HP, swaps: [{ name: 'e1', dmgAmt: 0 }] } }]),
         'fail');
 
+    // ── 280 马阵 ────────────────────────────────────────────────────────
+    const HR = (o) => Object.assign({ factType: FACT_TYPES.HORSE_REBOUND, data: { rebound: S_HO.reboundDmg, attackerUid: 'e1', unitUid: 'ahorse' } }, o);
+    expect('280 正向·敌方打马吃己方姊反弹值', rule280, ctxOf([RS(1), HR({})]), 'pass');
+    expect('280 负向·反弹值与配置不同源', rule280, ctxOf([RS(1), HR({ data: { rebound: S_HO.reboundDmg + 1, attackerUid: 'e1', unitUid: 'ahorse' } })]), 'fail');
+    expect('280 负向·己方打马却吃己方姊反弹(跨阵营)', rule280, ctxOf([RS(1), HR({ data: { rebound: S_HO.reboundDmg, attackerUid: 'v1', unitUid: 'ehorse' } })]), 'fail');
+    expect('280 负向·无姊却出现马阵反弹', rule280, ctxOf([RS(1), DEATH('sis'), HR({})]), 'fail');
+
     let bad = 0;
-    console.log('==== D9 姊妹强化数值对照定向用例（277/278/279）====');
+    console.log('==== D9 姊妹强化数值对照定向用例（277/278/279/280）====');
     for (const c of cases) {
         if (!c.ok) bad++;
         const detail = c.got && typeof c.got === 'object' && c.got.msg ? ' → ' + c.got.msg

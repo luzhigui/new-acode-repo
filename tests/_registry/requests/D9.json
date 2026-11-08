@@ -42,6 +42,19 @@
       "state": "pending",
       "submittedAt": "2026-11-08 22:20",
       "note": "按 BANNER 两段定位持有方阵营；有姊必须 hpPctSwap，无姊必须 0；hpPct>0 时 dmgAmt 必须正整数"
+    },
+    {
+      "id": "280a",
+      "slot": 280,
+      "file": "tests/health-rules/280-d9-horse-formation-enhance.js",
+      "name": "马阵姊强化反弹值/触发阵营",
+      "group": "海克斯强化对账",
+      "covers": ["horseFormation"],
+      "kind": "facts回归(双向对账)",
+      "case": "tests/d9-enhance-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 22:35",
+      "note": "rebound 必须等于 sister.horseFormation.reboundDmg；明教打敌方马却吃明教姊反弹=跨阵营错位；无姊不许出现反弹"
     }
   ],
   "assignments": [
