@@ -1,6 +1,8 @@
-// V6.2.2 | 2026-11-08 体检转交：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
-//        | 缺键直接 TypeError，与「缺哪键报哪键」口径不符）。
-export const VER = 'core/215-buff-effects.js V6.2.2';
+// V6.2.3 | 2026-11-08 体检转交：applyHolyFlame_Sister 前置显式校验 sister.holyFlame.atkBonus/defBonus
+//        | （Normal 对 bonuses 缺键回落普通版 0.3，摘键会静默算错；缺哪键报哪键）。
+export const VER = 'core/215-buff-effects.js V6.2.3';
+// V6.2.2（2026-11-08）：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
+//   缺键直接 TypeError，与「缺哪键报哪键」口径不符）。
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
 //   控制免疫单位不进候选（删除免疫 50% 拦截与「洗完回原位」两条空结果路径）。
 // V6.1.10（2026-11-02 收尾）：撤销 applyMindControlCore 内三处 MCDEBUG 临时诊断（MCSIDE/MC_E/MC_A），
@@ -73,8 +75,13 @@ export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log, bonuses 
 
 // 姊强化：行列判定与 Normal 完全一致（读团队 buff 实例的 cols/rows），只把加成值换成
 //   sister.holyFlame（0.25）。此前直接转调 Normal，实际吃的是普通版 0.3。
+//   前置显式校验：Normal 对 bonuses 缺键是「回落普通版」，姊键被摘掉会静默按 0.3 算（不 throw 不告警），
+//   故在这里逐键校验，缺哪键报哪键。
 export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, log) {
     const enh = getSkillParams('小昭', 'hexEnhance').holyFlame;
+    if (!enh) throw new Error('002-hex-enhance.json 缺 sister.holyFlame');
+    if (enh.atkBonus == null) throw new Error('002-hex-enhance.json 缺 sister.holyFlame.atkBonus');
+    if (enh.defBonus == null) throw new Error('002-hex-enhance.json 缺 sister.holyFlame.defBonus');
     applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log, enh);
 }
 
