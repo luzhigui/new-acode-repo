@@ -10,7 +10,7 @@
       "file": "tests/health-rules/271-absorb-summary-same-source.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4",
+      "mergedSha": "c47e6f53",
       "note": "原 286 撞 D10 关卡变体族，框架仲裁改到 D8 空槽 271"
     },
     {
@@ -19,7 +19,7 @@
       "file": "tests/health-rules/272-hidden-renderer-outlets.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4",
+      "mergedSha": "c47e6f53",
       "note": "原 287 撞 D10，改到 D8 空槽 272"
     }
   ]

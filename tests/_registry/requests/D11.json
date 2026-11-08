@@ -7,7 +7,7 @@
       "file": "tests/health-rules/289-control-target-trace.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 290,
@@ -15,7 +15,7 @@
       "file": "tests/health-rules/290-control-attacker-identity.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 291,
@@ -23,7 +23,7 @@
       "file": "tests/health-rules/291-control-trace-on-edge.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 292,
@@ -31,7 +31,7 @@
       "file": "tests/health-rules/292-control-stacking-crazy.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 293,
@@ -39,7 +39,7 @@
       "file": "tests/health-rules/293-control-cleanup-on-release.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     }
   ],
   "updatedAt": "2026-11-08 21:40",

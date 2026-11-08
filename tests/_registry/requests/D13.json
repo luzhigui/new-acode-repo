@@ -10,7 +10,7 @@
       "file": "tests/health-rules/313-rewind-progress-boundary.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4",
+      "mergedSha": "c47e6f53",
       "note": "原 291 撞 D11 控制链，仲裁改到 D13"
     },
     {
@@ -19,7 +19,7 @@
       "file": "tests/health-rules/314-rewind-speed-boundary.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4",
+      "mergedSha": "c47e6f53",
       "note": "原 292 撞 D11 控制链，仲裁改到 D13"
     },
     {

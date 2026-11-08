@@ -12,7 +12,7 @@
       "note": "号段 255-258 由父会话划给「演出/倒针/回放状态机」并行域（非 D5 机制），按号段归属登记在 D5",
       "addedAt": "2026-11-08 18:55",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 256,
@@ -21,7 +21,7 @@
       "state": "merged",
       "addedAt": "2026-11-08 18:55",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 257,
@@ -30,7 +30,7 @@
       "state": "merged",
       "addedAt": "2026-11-08 18:55",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 258,
@@ -39,7 +39,7 @@
       "state": "merged",
       "addedAt": "2026-11-08 18:55",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4"
+      "mergedSha": "c47e6f53"
     },
     {
       "id": 253,
@@ -47,7 +47,7 @@
       "file": "tests/health-rules/253-rewind-write-surface.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4",
+      "mergedSha": "c47e6f53",
       "note": "原 289/290 撞号，框架仲裁改到 D5 空闲槽 253/254"
     },
     {
@@ -56,7 +56,7 @@
       "file": "tests/health-rules/254-rewind-write-dynamic.js",
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
-      "mergedSha": "d59f17c4",
+      "mergedSha": "c47e6f53",
       "note": "原 289/290 撞号，框架仲裁改到 D5 空闲槽 253/254"
     },
     {
