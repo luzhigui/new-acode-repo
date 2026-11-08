@@ -392,7 +392,7 @@ export const rule185 = {
 };
 
 // 真伤：不走防御、不走护盾，直接扣血（core/217 BONUS_DMG → applyStatChange）。
-//   ① 融会贯通：extra = floor(|目标攻 - 目标防| * ZHANG_RONGHUI_RATIO)（modules/320 L153），
+//   ① 融会贯通：extra = floor((目标攻 + 目标防) × ZHANG_RONGHUI_RATIO)（modules/320 L153-154），
 //      目标攻/防在 fact 里各自已被 floor，误差最多 1 点/项 ⇒ 容差 = 2×系数 + 0.5；
 //   ② 飞箭雨：公告文案「受 N 真伤」的 N 必须是正整数（core/204 L566-570 已跳过 0）。
 //   真伤有没有真的扣到血、有没有误吃护盾，fact 不带目标扣血实数 —— 需主模块补字段（已登记需求）。
@@ -410,10 +410,10 @@ export const rule186 = {
             if (f.factType === FACT_TYPES.RONG_HUI_BONUS) {
                 if (!isNum(d.extra) || !isNum(d.targetAtk) || !isNum(d.targetDef)) continue;
                 checked++;
-                const expect = Math.floor(Math.abs(d.targetAtk - d.targetDef) * ratio);
+                const expect = Math.floor((d.targetAtk + d.targetDef) * ratio);
                 const tol = 2 * ratio + 0.5;
                 if (Math.abs(d.extra - expect) > tol) {
-                    return { fail: true, msg: '复发：融会贯通真伤与公式不一致 — extra=' + d.extra + ' / 按目标攻防算=' + expect + '（攻=' + d.targetAtk + ', 防=' + d.targetDef + '）' };
+                    return { fail: true, msg: '复发：融会贯通真伤与公式不一致 — extra=' + d.extra + ' / 按(目标攻+目标防)×比例算=' + expect + '（攻=' + d.targetAtk + ', 防=' + d.targetDef + '）' };
                 }
                 if (d.extra < 0 || Math.abs(d.extra - Math.round(d.extra)) > 1e-6) {
                     return { fail: true, msg: '复发：融会贯通真伤非自然数 — extra=' + d.extra };
@@ -474,10 +474,13 @@ export const rule187 = {
     }
 };
 
-// 破防后的实际伤害：core/217 L79-88 把 reduce 写进 refs.defReduced，core/212 L225 用「减后防御」算伤害。
-//   只靠 fact 能验：① 破防 fact 的 reduce 必须与 dmgCalc.defReduced 同值（否则战报说 -4、实算用 -8）；
-//   ② 破防后基础防御必须是 ≥0 的整数（core/203 L217 会把 reduce 夹到目标当前防御，
-//      出现负数说明夹取失效，伤害公式会拿负防算出异常高伤）；
+// 破防后的实际伤害：core/217 L84-89 把 reduce 写进 refs.defReduced，core/212 用「减后防御」算伤害。
+//   ① 破防 fact 的 reduce 必须与 dmgCalc.defReduced 同值（否则战报说 -4、实算用 -8）。
+//      已确认根因（seed=20 stage=1，2026-11-08 复核）：core/203 L220 的 decl.factData 用**实数**
+//      getStat(target,'def')（=0.8），core/217 L86 却夹到 refs.defBase=floor(def)=0 ⇒ reduce=0；
+//      而 core/217 L90-93 在 reduce==0 分支把 decl.factData 原样塞进条目 ⇒ 战报 -0.8、实际 -0。
+//      该前置无同对 ATTACK 事实、也无本对破防（prevBrk=0/samePair=0）⇒ **不是上一击遗留**，已转交主代码。
+//   ② 破防后基础防御必须是 ≥0 的整数（出现负数说明夹取失效，伤害公式会拿负防算出异常高伤）；
 //   ③ 基础防御必须确实被减（defBase 不得高于原始防御的整数迹——fact 未带原始防御，
 //      这条只能靠主模块补 defStatBeforeReduce，已登记需求）。
 export const rule188 = {
@@ -501,7 +504,17 @@ export const rule188 = {
             checked++;
             const reduce = brk.data.reduce;
             if (!isNum(dc.defReduced) || Math.abs(dc.defReduced - reduce) > 1e-6) {
-                return { fail: true, msg: '复发：破防声明值与实算不一致 — 战报减防=' + reduce + ' / 实算 defReduced=' + dc.defReduced };
+                // 取证：确认不是「上一击遗留」（同对 ATTACK 事实里没有破防条目）
+                let prevBrk = 0, samePair = 0;
+                for (let j = i - 1; j >= 0; j--) {
+                    const p = facts[j];
+                    if (!p || p.factType !== FACT_TYPES.ATTACK) continue;
+                    const pd = p.data || {};
+                    if (!pd.attacker || !pd.target || pd.attacker.uid !== d.attacker.uid || pd.target.uid !== d.target.uid) continue;
+                    samePair++;
+                    if ((Array.isArray(pd.entries) ? pd.entries : []).some(x => x && x.factType === FACT_TYPES.BREAK_DEF)) prevBrk++;
+                }
+                return { fail: true, msg: '复发：破防声明值与实算不一致 — 战报减防=' + reduce + ' / 实算 defReduced=' + dc.defReduced + '（defBase=' + dc.defBase + ', targetDef=' + (d.target && d.target.def) + ', samePair=' + samePair + ', prevBrk=' + prevBrk + '）' };
             }
             if (!isNum(dc.defBase) || dc.defBase < -EPS) {
                 return { fail: true, msg: '复发：破防后基础防御为负 — defBase=' + dc.defBase + '（减防应夹到目标当前防御）' };
@@ -529,10 +542,8 @@ export const rule189 = {
         // 可能改变目标血量的事实：出现即放弃这一对的对账（这些是合法的段间改血，不是缺陷信号）
         const HP_RISK = {
             [FACT_TYPES.HEAL]: 1,
-            [FACT_TYPES.BONUS_DMG]: 1,
             [FACT_TYPES.RONG_HUI_BONUS]: 1,
             [FACT_TYPES.METEOR_SHOWER_MAIN]: 1,
-            [FACT_TYPES.STAT_CHANGE]: 1,
             [FACT_TYPES.STAT_CHANGE_APPLY]: 1,
             [FACT_TYPES.CLAW_HIT]: 1,
             [FACT_TYPES.CLAW_EXECUTE]: 1,
@@ -549,7 +560,6 @@ export const rule189 = {
             [FACT_TYPES.WEI_LEECH]: 1,
             [FACT_TYPES.CLAW_HEAL]: 1,
             [FACT_TYPES.WEI_DODGE_LEECH]: 1,
-            [FACT_TYPES.HEAL_ALLY_ON_HIT]: 1,
             [FACT_TYPES.QIAN_KUN_DERIVED]: 1,
             [FACT_TYPES.ENDLESS_BREATH]: 1,
             [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: 1
