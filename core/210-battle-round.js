@@ -6,7 +6,9 @@
 // V6.3.38 | 2026-11-08 体检实测（seed=10 stage=7）：双宣告取第二人时只保证「索引不同」，候选数组里
 //   同一 uid 重复出现时仍会选中同一单位 → 文案「张无忌、张无忌」，该单位同回合连击触发两次。
 //   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
-export const VER = 'core/210-battle-round.js V6.3.38';
+// V6.3.39 | 2026-11-08 双宣告排重回退到「两次抽签 + 顺延」：V6.3.38 的 filter 后重抽会多消耗一次随机流，
+//   且候选不足时少抽一次；改回原版两次抽签，第二签同 uid 时从该签位起按候选顺序顺延取下一个不同 uid（不重抽）。
+export const VER = 'core/210-battle-round.js V6.3.39';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -84,22 +86,30 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            const first = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
+            // 两次抽签（与原版一致，随机流不变）；第二签与被选中者同 uid 时不重抽（重抽会多消耗一次随机流），
+            //   从第二签位起按候选顺序顺延取下一个不同 uid；全队只有同一 uid 时退化为单宣告。
+            const i1 = ctx.rng.nextInt(0, candidates.length - 1);
+            const i2 = ctx.rng.nextInt(0, candidates.length - 1);
+            const first = candidates[i1];
             unitUids.push(first.uid);
-            const rest = candidates.filter(u => u.uid !== first.uid);
-            if (rest.length > 0) {
-                unitUids.push(rest[ctx.rng.nextInt(0, rest.length - 1)].uid);
+            for (let k = 0; k < candidates.length; k++) {
+                const cand = candidates[(i2 + k) % candidates.length];
+                if (cand.uid !== first.uid) { unitUids.push(cand.uid); break; }
             }
         }
     }
     if (hasBuff(B._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = B.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            const first = candidates[ctx.rng.nextInt(0, candidates.length - 1)];
+            // 两次抽签（与原版一致，随机流不变）；第二签与被选中者同 uid 时不重抽（重抽会多消耗一次随机流），
+            //   从第二签位起按候选顺序顺延取下一个不同 uid；全队只有同一 uid 时退化为单宣告。
+            const i1 = ctx.rng.nextInt(0, candidates.length - 1);
+            const i2 = ctx.rng.nextInt(0, candidates.length - 1);
+            const first = candidates[i1];
             enemyUids.push(first.uid);
-            const rest = candidates.filter(u => u.uid !== first.uid);
-            if (rest.length > 0) {
-                enemyUids.push(rest[ctx.rng.nextInt(0, rest.length - 1)].uid);
+            for (let k = 0; k < candidates.length; k++) {
+                const cand = candidates[(i2 + k) % candidates.length];
+                if (cand.uid !== first.uid) { enemyUids.push(cand.uid); break; }
             }
         }
     }
