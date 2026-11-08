@@ -2,7 +2,7 @@
 // V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
 // V6.4.13 | 2026-11-08 体检转交：免疫分支 attackerHp/targetHp 改实数（取整只留在显示层，fact 给引擎真值）
 // V6.4.14 | 2026-11-08 体检转交：闪避/未命中分支补挂 phantomFact（改目标那一击被闪避时 phantomConfuse 不再丢）
-export const VER = 'core/209-battle-attack.js V6.4.14';
+export const VER = 'core/209-battle-attack.js V6.4.15';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -276,7 +276,43 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     // 选敌完成·出手前带 log 广播：给「出手声明」类机制一个早于命中/闪避判定的日志通道
     //   （胖远桥掷骰声明若挂 AFTER_ATTACK / AFTER_DAMAGE_APPLIED，被闪避时两条都不发、声明被吞）。
-    eventBus.emit(SIGNAL_TYPES.AFTER_SELECT_TARGET, { unit, target, log });
+    // V6.4.15：payload 改为「可写容器」——机制可在此换目标（女装＝不忍下手、改打攻击方自己的队友），
+    //   也可把目标置空（攻击方已无队友可替）。换人后必须重算目标侧三本账，
+    //   否则会端着旧目标（如彭莹玉）的护罩/减伤账去打新目标。
+    const sel = { unit, target, log, allySide, enemySide, A, B, state, phantomFact, skipReason: null };
+    eventBus.emit(SIGNAL_TYPES.AFTER_SELECT_TARGET, sel);
+    if (sel.target !== target) {
+        target = sel.target;
+        if (target) {
+            targetActiveBuffs = target.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
+            targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
+            defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
+        } else {
+            targetActiveBuffs = null;
+            targetAllyTeam = null;
+            defenderBuffStats = null;
+        }
+    }
+    if (sel.phantomFact) phantomFact = sel.phantomFact;
+    if (!target) {
+        // 机制把目标置空（如女装「不忍下手」而攻击方身边已无队友）：这一击跳过、她不挨打。
+        //   标枪仍保留既有「无目标前压一行」语义，与上面同一段逻辑同构，不吃掉位移；
+        //   其余单位落一条看得懂的空击说明（skipReason 由机制写，缺失回落到通用文案）。
+        if (unit.role === ROLE_TYPES.JAVELIN && !lockedTargetUid && tryAdvanceJavelin(unit, allySide, log)) {
+            unit.state._acted = true;
+            return false;
+        }
+        const skipFact = {
+            type: 'emptyTarget',
+            attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
+            reason: sel.skipReason || '无可选目标，跳过行动',
+            events: []
+        };
+        skipFact.events = flushBattleEvents();
+        log.push({ factType: FACT_TYPES.EMPTY_TARGET, data: skipFact });
+        unit.state._acted = true;
+        return false;
+    }
 
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, eventBus, { log, A, B, doubleStrikeUnitUid, state });
     if (hitResult.skipped) {
@@ -369,6 +405,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             dmgCalc: dmgCalc, // 透传伤害计算结果，供前端渲染波动与原始伤害行
             events: []
         };
+        // 改目标类事实在免疫分支也要带：本击虽被挡下，但目标确实被改过（女装「不忍下手」等），
+        //   不补则战报里查不到「这一击原本打谁」，体检的声明/实际对照会时有时无。
+        if (phantomFact) immuneFact.phantomFact = phantomFact;
         immuneFact.events = flushBattleEvents();
         log.push({ factType: FACT_TYPES.IMMUNE, data: immuneFact });
 

@@ -15,11 +15,14 @@
 //   DISGUISE/UNVEIL 技能 cue 不再翻转名字牌，只保留薄纱/碎屑特效。
 // V1.0.8 | 2026-11-08 设定纠正：女装＝「别人不忍下手」，她仍看得见、也能被选中；
 //   报幕与注释统一口径，机制（过滤/概率/回合数/顺延）一行未动。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.8';
+// V1.0.9 | 2026-11-08 女装语义重做：撤掉 core/07 的剔除过滤器（她回到正常候选池）；
+//   改为全局「选中她 → 改打攻击方自己的队友」（挂 AFTER_SELECT_TARGET，按 pos 取第一个，不新增随机数）；
+//   攻击方队友全灭＝本击跳过、她不挨打（标枪仍前压），落 EMPTY_TARGET 说明；
+//   免疫分支补 phantomFact；每回合女装掷骰无论掷中/未中都落系统提示。
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.9';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { registerTargetFilter } from '../core/207-target-strategies.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -36,7 +39,6 @@ export const doubleFaceHandler = {
 
         const params = getSkillParams(decl.name, 'doubleFace');
         if (!params) throw new Error(`缺技能参数: ${decl.name}.doubleFace`);
-        const selfName = decl.name;
         const disguiseChance = params.disguiseChance;
         const openingChance = params.openingChance;
         const duration = params.duration;
@@ -60,18 +62,24 @@ export const doubleFaceHandler = {
                         }
                         return;
                     }
-                    // 仍在女装（含第 2 回合）：照常掷骰。成功＝在当前剩余回合上 +1 顺延，
+                    // 仍在女装（含第 2 回合）：照常掷骰（每回合恰好一次）。成功＝在当前剩余回合上 +1 顺延，
                     //   不是重置成 duration、也不是忽略；文案用「女装延长」，与「女装上阵」区分。
+                    // 掷中/未中都必须落一条提示，避免「骰子掷了、战报一片空白」。
                     self.state._crossdressRolled = true;
                     if (getBattleRng().next() < disguiseChance) {
                         self.state._crossdressRounds += 1;
                         pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装延长 1 回合（剩余 ${self.state._crossdressRounds} 回合）。`);
+                    } else {
+                        pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装未能延续（本回合未触发，剩余 ${self.state._crossdressRounds} 回合）。`);
                     }
                     return;
                 }
                 const chance = self.state._crossdressRolled ? disguiseChance : openingChance;
                 self.state._crossdressRolled = true;
-                if (getBattleRng().next() >= chance) return;
+                if (getBattleRng().next() >= chance) {
+                    pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装未能延续（本回合未触发）。`);
+                    return;
+                }
                 self.state._crossdressRounds = duration;
                 // 变装：薄纱扫过（只表现，不改数值与目标规则）；名字牌不换名，仍按本名显示
                 const cue = self.pos != null
@@ -100,35 +108,30 @@ export const doubleFaceHandler = {
             }
         });
 
-        // 「敌人不忍下手」：女装期间把本单位从敌方候选池里剔除（core/07 注册面，core/10 每回合清场，
-        //   故必须在这里用固定 id 重挂，同 id 覆盖＝幂等）。filter 本体无状态：只读调用时传入的
-        //   attacker / candidates 与候选实例自身的 state，不闭包回合快照、不 splice 引擎数组；
-        //   全被剔除＝返回空数组，引擎按「本轮无目标」处理，不做兜底。
-        const FILTER_ID = 'modules/338:doubleFace';
-        registerTargetFilter(FILTER_ID, (attacker, candidates) => {
-            // 只剔敌方候选：友方选友方（治疗/增益/内讧）走同一选敌面时，彭莹玉不该被误滤掉
-            if (attacker.camp === self.camp) return null;
-            const kept = candidates.filter(c =>
-                !(c.name === selfName && c.state && c.state._crossdressRounds > 0));
-            return kept.length === candidates.length ? null : kept;
-        });
-
-        // 「唯一可打人选」：女装中他是敌方唯一可打的人时，敌方不忍下手、改为误攻自己的队友（走 phantomFact 既有路径），
-        //   而不是空过。这一条放在「选目标声明层」（core/12 先读 targetResult、命中就不再跑过滤器），
-        //   所以不改 core/12 的空池＝无目标语义；也没有把攻击者队友塞进敌方候选池。
+        // 「别人不忍下手」全局（V1.0.9）：女装期间她照常在敌方候选池里，谁都选得到；
+        //   任何敌方一旦把她确定为出手目标，就改打「攻击方自己的队友」——不新增抽签，
+        //   按 pos 取第一个存活可选队友（同种子 RNG 序完全不变）。
+        //   挂 AFTER_SELECT_TARGET：core/12 选敌完成、命中/闪避判定之前；core/209 回读后重算目标账，
+        //   因此改人后的护罩/减伤都按队友算，不会拿彭莹玉的账去打队友。
+        //   攻击方队友全灭＝本击跳过、她不挨打，写一条看得懂的理由（不兜底去打她）。
         registerSettlementHook({
-            when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-            priority: L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL - 1,
+            when: SIGNAL_TYPES.AFTER_SELECT_TARGET,
+            priority: L.AFTER_SELECT_TARGET.DOUBLE_FACE_RETARGET,
             handler: (data) => {
                 if (!self.alive || self.state._crossdressRounds <= 0) return;
-                if (data.unit.camp === self.camp) return;
-                const valid = data.validTargets;
-                if (!valid || valid.length !== 1 || valid[0] !== self) return;
-                const mates = data.allySide.filter(u => u.alive && canBeTargeted(u) && u.uid !== data.unit.uid);
-                if (mates.length === 0) return;
-                const victim = mates[getBattleRng().nextInt(0, mates.length - 1)];
-                data.declaration.targetResult = victim;
-                data.declaration.phantomFact = {
+                if (data.target !== self) return;
+                if (!data.unit || data.unit.camp === self.camp) return;
+                const mates = (data.unit.camp === CAMP_TYPES.ALLY ? data.A : data.B)
+                    .filter(u => u && u.alive && u.uid !== data.unit.uid && canBeTargeted(u))
+                    .sort((a, b) => (a.pos == null ? 99 : a.pos) - (b.pos == null ? 99 : b.pos));
+                if (mates.length === 0) {
+                    data.target = null;
+                    data.skipReason = `${data.unit.name} 不忍对${self.name}下手，身边已无可替之人，这一击落空`;
+                    return;
+                }
+                const victim = mates[0];
+                data.target = victim;
+                data.phantomFact = {
                     factType: FACT_TYPES.PHANTOM_CONFUSE,
                     // sourceSkill 是这条事实的「来源词」：渲染按它打「双面观音」，
                     //   战绩/体检也按它归因（不再和成昆的 PHANTOM_CONFUSE 混算）。

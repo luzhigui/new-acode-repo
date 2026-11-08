@@ -2,7 +2,7 @@
 // V6.29.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
 // V6.29.6 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V6.29.7 | 2026-11-08 打歪落点池改走 core/207 公共出口；池被隐身剔空时不挑人、交下游声明层
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.7';
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.8';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
@@ -93,7 +93,15 @@ export function createPangYuanQiaoComponent() {
                 const f = CONFIG.PANG_CLUMSY_FORMULA;
                 const threshold = Math.min(f.cap, f.base + (getStat(pang, 'atk') - f.atkRef) / f.atkDiv);
                 const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
-                if (rng.next() < clumsyProb) {
+                // 癫发作（core/333 已随机选好目标，含己方队友）时不按自己的意志选敌：
+                //   骰子照常消耗（同种子 RNG 序不变），但「年轻气盛」的落点不再覆盖癫已选中的目标，
+                //   否则会把癫挑中的队友又改回敌人（现象：胖远桥癫了却从不打自己队友）。
+                const clumsyRoll = rng.next();
+                if (pang.state._isCrazy) {
+                    pendingDecl = null;
+                    return;
+                }
+                if (clumsyRoll < clumsyProb) {
                     // 年轻气盛（打歪）：随机挑一名敌人，×随机倍率（老板拍板：固定 2.0 改
                     //   dmgMultMin~dmgMultMax 波动、步长 dmgMultStep，本击定值存 _clumsyMult）并附带击退/眩晕
                     const steps = Math.round((young.dmgMultMax - young.dmgMultMin) / young.dmgMultStep) + 1;
