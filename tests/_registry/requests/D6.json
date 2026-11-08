@@ -1,7 +1,83 @@
 {
   "domain": "D6",
-  "updatedAt": "2026-11-08 20:30",
-  "updatedBy": "",
-  "说明": "D6 召唤物与单位族：幼狮/雄狮/拒马/carry/女装/蝶/蛛/克隆体/同格占位（号段 259-264）。本文件只由 D6 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": []
+  "updatedAt": "2026-11-08 23:10",
+  "updatedBy": "D6",
+  "说明": "D6 召唤物与附身窗口：幼狮/雄狮/拒马/carry/女装/蝶/蛛/克隆体/同格占位（原号段 259-264 已满；本批为续批，申请延展 325-329）。本文件只由 D6 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
+  "entries": [
+    {
+      "id": "325a",
+      "slot": 325,
+      "file": "tests/health-rules/325-d6-butterfly-host-cleanup.js",
+      "name": "附身关窗后宿主蝶变词条清理(回归)",
+      "group": "附身窗口",
+      "covers": ["butterfly", "mods"],
+      "kind": "facts回归(终局快照+复活对账)",
+      "case": "tests/d6-summon-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 23:10",
+      "note": "HOST_DEAD 关窗宿主终局不得留 group=butterfly 词条；被圣火不熄复活仍残留则硬红（转交 modules/322 死亡分支，见 known-transfers 同名行）"
+    },
+    {
+      "id": "326a",
+      "slot": 326,
+      "file": "tests/health-rules/326-d6-butterfly-window-payload.js",
+      "name": "蝶变关窗载荷·宿主uid与尸体路径(回归)",
+      "group": "附身窗口",
+      "covers": ["butterfly"],
+      "kind": "facts回归(事件流对账)",
+      "case": "tests/d6-summon-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 23:10",
+      "note": "RETURN/HOST_DEAD 必须带 hostUid 且等于附身时宿主；关窗 uid 必须能落到己方身份集合；窗口打开时不得报 BUTTERFLY_NO_HOST"
+    },
+    {
+      "id": "327a",
+      "slot": 327,
+      "file": "tests/health-rules/327-d6-summon-authorship.js",
+      "name": "召唤者身份归属byName/byUid(回归)",
+      "group": "召唤契约",
+      "covers": ["summon"],
+      "kind": "facts回归(双向对账)",
+      "case": "tests/d6-summon-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 23:10",
+      "note": "byUid ⇒ byName 必须存在且等于召唤者真实名；byName 无 byUid 只允许团队补召标签（众志成城/小昭·妹）；两者皆无只观察（副将雄鹰）"
+    },
+    {
+      "id": "328a",
+      "slot": 328,
+      "file": "tests/health-rules/328-d6-summon-death-exit.js",
+      "name": "召唤物阵亡单一出口对账(回归)",
+      "group": "召唤契约",
+      "covers": ["summon", "death"],
+      "kind": "facts回归(死亡出口对账)",
+      "case": "tests/d6-summon-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 23:10",
+      "note": "ATTACK 判死的召唤物/拒马必须有且只有一条 UNIT_DEATH；不得走「复活前补账」；SUMMON_DEAD 未落地，仅以 UNIT_DEATH 为唯一出口"
+    },
+    {
+      "id": "329a",
+      "slot": 329,
+      "file": "tests/health-rules/329-d6-roster-stats-purity.js",
+      "name": "存活率/阵容均值口径与虚假单位隔离(回归)",
+      "group": "统计口径",
+      "covers": ["stats", "summon", "horse", "phantom"],
+      "kind": "facts回归(快照口径+交叉观察)",
+      "case": "tests/d6-summon-case.mjs",
+      "state": "pending",
+      "submittedAt": "2026-11-08 23:10",
+      "note": "开局名单不得含 isSummon/isHorse；终局快照召唤/拒马不得丢标记；附身到召唤物、幻影误伤召唤物只计数观察（转交行见 known-transfers）"
+    }
+  ],
+  "assignments": [
+    {
+      "slot": 325,
+      "name": "D6 续批延展号段 325-329（5 条）",
+      "source": "原号段 259-264 已满；父会话要求「再来 5 个」",
+      "state": "requested",
+      "assignedAt": "2026-11-08 23:10",
+      "note": "325 附身关窗词条清理 / 326 关窗载荷·尸体路径 / 327 召唤者归属 / 328 召唤阵亡单一出口 / 329 统计口径与虚假单位隔离；请框架改 domains.json 给 D6 追加 slots 325-329（324 已被 D14 占用，未抢 319-324）"
+    }
+  ]
 }
