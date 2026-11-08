@@ -396,10 +396,19 @@ export function submitHotBloodDeclaration(data) {
     const active = hasBuff(unitBuffs, BUFF_TYPES.HOT_BLOOD);
     const brotherActive = isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.HOT_BLOOD);
     if (!active && !brotherActive) return;
-    const leechPct = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.leechPct || C.BUFFS.hotBlood.leechRatio) : C.BUFFS.hotBlood.leechRatio;
+    const enhanceHB = hasSister ? query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD) : null;
+    const leechPct = enhanceHB ? (enhanceHB.leechPct || C.BUFFS.hotBlood.leechRatio) : C.BUFFS.hotBlood.leechRatio;
     Object.assign(unit.state, { _hotBloodCount: (unit.state._hotBloodCount || 0) + 1 });
-    const critInterval = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.critInterval || C.HOT_BLOOD_CRIT_INTERVAL) : C.HOT_BLOOD_CRIT_INTERVAL;
-    const isDouble = unit.state._hotBloodCount % critInterval === 0;
+    let isDouble = false;
+    if (enhanceHB && Array.isArray(enhanceHB.critPattern)) {
+        // 姐姐强化：按配置数组定翻倍节奏（[2,3] = 每 3 次攻击里的第 2、3 次翻倍）
+        const cycleLen = enhanceHB.critPattern[enhanceHB.critPattern.length - 1] || C.HOT_BLOOD_CRIT_INTERVAL;
+        const pos = (unit.state._hotBloodCount - 1) % cycleLen + 1;
+        isDouble = enhanceHB.critPattern.includes(pos);
+    } else {
+        // 普通版：固定间隔翻倍
+        isDouble = unit.state._hotBloodCount % C.HOT_BLOOD_CRIT_INTERVAL === 0;
+    }
     const ratio = isDouble ? leechPct * 2 : leechPct;
     // 声明量填原值（core/16 HEAL handler 落账时再走一次截脉/寒毒打折，填 preview 会二次打折）；
     //   preview 只用于飘字/审计的实际落地值

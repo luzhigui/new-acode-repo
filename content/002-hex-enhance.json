@@ -6,7 +6,7 @@
 
   "sister": {
     "bloodthirst": { "leechRatio": 1.6 },
-    "hotBlood": { "leechPct": 0.20, "critInterval": 2, "extraDuration": 1 },
+    "hotBlood": { "leechPct": 0.20, "critPattern": [2, 3], "extraDuration": 1 },
     "windAssault": { "hitProb": 1.0, "pushProb": 1.0, "extraDuration": 1 },
     "meteorShower": { "atkPerSplash": 2, "duration": 4 },
     "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50, "dmgOnSwap": 10, "healOnSwap": 10, "stunOnSwap": true },
