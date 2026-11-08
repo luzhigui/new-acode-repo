@@ -700,11 +700,11 @@ export const STAGE_ACTION_DEFS = {
             // ①.5 真伤落账先于显真格：dash.hits 带引擎真值 hpAfter，但 store 要到步末 syncStoreFromStep
             //   才同步。这里先把 hpAfter 写进 store，真格显形时与克隆体同口径（否则清 fly 那一下会先按
             //   上一步旧血画出「满/多」，步末再掉，就是「空→多→少」的最后一跳）。
-            //   只写 hp（maxHp 保留原值，render/403 的百分比分母不受影响）；hpAfter<=0 时补 alive=false。
+            //   只写 hp（maxHp 保留原值，render/403 的百分比分母不受影响）；死亡判定交步末统一收口，
+            //   这里不提前写 alive=false——否则死前反扑/反击等 if (unit.alive) 分支会被提前掐死。
             for (const h of ((action.dash && action.dash.hits) || [])) {
                 if (!h || h.uid == null || h.hpAfter == null) continue;
                 const payload = { hp: Math.max(0, h.hpAfter) };
-                if (h.hpAfter <= 0) payload.alive = false;
                 c.store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: h.uid, payload });
             }
             // ② 清 fly：真格在克隆体下面显形（此时已在终位，不会出现位移闪回）

@@ -4,8 +4,10 @@
 //   剩余空位交普通兵按功率补齐；队伍一律不超过 5 人，同档不取重名。
 // 六大派：保留 WEAK_ELITE_MIX_RATE（M104 混入），另加 M107 20% / M100 30% 两档独立判定；
 //   只替换「非具名、且不属本关固定精英池」的杂兵位，找不到杂兵位就放弃，绝不顶掉关卡固定精英。
+//   额外混入按关卡解锁范围过滤：后段专属精英（如灭绝师太只属第7关固定池）不得提前出现在前段关，
+//   越界则本次不补（少补一人），不删名单也保证后段该出还能出。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-export const VER = 'modules/330-battle-init.js V7.6.8';
+export const VER = 'modules/330-battle-init.js V7.6.9';
 // 六大派额外精英/特殊兵混入池（M107 / M104 / M100 三档）。
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
@@ -427,6 +429,23 @@ export function initBattleTeams(currentStage, _rng) {
     //   命中后只替换「非具名、且不属于本关固定精英池」的杂兵位；找不到杂兵位就放弃，绝不顶掉关卡固定精英
     const fixedEnemyEliteNames = new Set(Object.values(C.ELITE_POOL || {}).flat().map(e => e && e.name));
     const { M107: SIX_M107, M104: SIX_M104, M100: SIX_M100 } = SIX_SECTS_WEAK_ELITE_POOLS;
+    // 关卡解锁范围：名字若出现在任一关的固定精英池，只允许从它首次出现的关卡起被额外混入。
+    //   例：灭绝师太只在第7关固定池 → 第1~6关不得靠额外混入提前出场；周芷若首次第4关 → 第3关不出。
+    //   不在任何固定池的名字（何太冲/唐文亮/空见/俞莲舟/素问/少林圆真）不受关卡限制。
+    const eliteFirstStage = new Map();
+    for (const [stageStr, list] of Object.entries(C.ELITE_POOL || {})) {
+        const stage = Number(stageStr);
+        for (const e of (list || [])) {
+            const n = e && e.name;
+            if (!n) continue;
+            const prev = eliteFirstStage.get(n);
+            if (prev == null || stage < prev) eliteFirstStage.set(n, stage);
+        }
+    }
+    const stageAllows = (name) => {
+        const from = eliteFirstStage.get(name);
+        return from == null || currentStage >= from;
+    };
     // ⚠️ RNG 序列更新（V7.6.7）：三颗骰子 + 三个 pick 一律无条件消耗，命中与否只改「是否应用」
     const enemyM107Roll = _rng.next();
     const enemyM104Roll = _rng.next();
@@ -436,12 +455,12 @@ export function initBattleTeams(currentStage, _rng) {
     const enemyM100PickIdx = _rand(0, SIX_M100.length - 1);
     const extraEnemyElites = [];
     if (forceWeakElite && C.ENEMY_POOL_TIER[forceWeakElite] != null) {
-        extraEnemyElites.push(forceWeakElite);                 // dev 强制优先
-    } else if (enemyM104Roll < C.WEAK_ELITE_MIX_RATE) {
+        extraEnemyElites.push(forceWeakElite);                 // dev 强制优先（不受关卡过滤）
+    } else if (enemyM104Roll < C.WEAK_ELITE_MIX_RATE && stageAllows(SIX_M104[enemyM104PickIdx])) {
         extraEnemyElites.push(SIX_M104[enemyM104PickIdx]);
     }
-    if (enemyM107Roll < 0.20) extraEnemyElites.push(SIX_M107[enemyM107PickIdx]);
-    if (enemyM100Roll < 0.30) extraEnemyElites.push(SIX_M100[enemyM100PickIdx]);
+    if (enemyM107Roll < 0.20 && stageAllows(SIX_M107[enemyM107PickIdx])) extraEnemyElites.push(SIX_M107[enemyM107PickIdx]);
+    if (enemyM100Roll < 0.30 && stageAllows(SIX_M100[enemyM100PickIdx])) extraEnemyElites.push(SIX_M100[enemyM100PickIdx]);
 
     if (enemySquad) {
         let enemyPosSet = new Set();

@@ -1,5 +1,5 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.8.0';
+export const VER = 'core/204-buff-system.js V6.8.1';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -366,7 +366,9 @@ export function submitBloodthirstDeclaration(data) {
             recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
         }
         // 姊强化·必出双击：吸血之外再补一次完整攻击（走 extraRequests 过完整伤害管线）
-        if (enhanceBT && enhanceBT.forceDoubleStrike && unit.alive) {
+        //   同回合只能白嫖一次：_bloodthirstStriked 由 core/210 每回合开始重置，防双击那一击再声明形成无限连击
+        if (enhanceBT && enhanceBT.forceDoubleStrike && unit.alive && !unit.state._bloodthirstStriked) {
+            unit.state._bloodthirstStriked = true;
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
                 unit,
