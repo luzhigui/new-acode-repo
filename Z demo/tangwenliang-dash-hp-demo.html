@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>唐文亮冲刺 · 血条三跳 A/B 对照</title>
+<!-- 唐文亮冲刺血条 demo（纯演示页，不接引擎、不 import 主代码，双击即可打开）
+     数值：满血 100，冲刺真伤 45% → 扣后 55。
+     A = 改前（被动冲刺：真格先到扣后 55 → 克隆体弹回扣前 100 → 碰撞帧再掉回 55）
+     B = 改后（克隆体开场取 min(store 当前 hp, hpBefore)，被动时不再回满，只掉一次） -->
+<style>
+  :root { --tan:#b8a88a; --brown:#5c4033; --gold:#b8860b; --parch:#f5f0e0; }
+  * { box-sizing: border-box; }
+  body { margin:0 auto; max-width:390px; padding:10px 10px 26px; background:#fdf8ec;
+         font:12px/1.55 "Microsoft YaHei",system-ui,sans-serif; color:#3d3d3d; }
+  h1 { font-size:15px; margin:2px 0 4px; color:var(--gold); letter-spacing:-.3px; }
+  .lead { font-size:10.5px; color:#777; line-height:1.6; margin:0 0 10px; }
+  .lead b { color:#c0392b; }
+  .legend { display:flex; gap:6px; font-size:10px; margin:0 0 12px; }
+  .legend span { padding:3px 7px; border-radius:5px; border:1px solid var(--tan); background:#fffdf6; }
+  .group { margin:0 0 16px; }
+  .group h2 { font-size:12.5px; margin:0 0 2px; color:var(--brown); }
+  .sub { font-size:10px; color:#888; margin:0 0 7px; }
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .card { position:relative; overflow:hidden; background:#fffdf6; border:2px solid var(--tan);
+          border-radius:9px; padding:7px 8px 8px; }
+  .card.a { border-color:#c9a227; }
+  .card.b { border-color:#2e7d32; }
+  .head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .tag { font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; color:#fff; }
+  .tag.a { background:#c9a227; }
+  .tag.b { background:#2e7d32; }
+  .stage { font-size:9.5px; color:#8d6e63; text-align:right; line-height:1.35; min-height:26px; flex:1; margin-left:5px; }
+  .lane { position:relative; height:30px; margin:0 0 6px; border-radius:6px;
+          background:repeating-linear-gradient(90deg,#efe4c8 0 18%,#e3d5ae 18% 18.6%,#efe4c8 18.6% 36%,
+          #e3d5ae 36% 36.6%,#efe4c8 36.6% 54%,#e3d5ae 54% 54.6%,#efe4c8 54.6% 72%,
+          #e3d5ae 72% 72.6%,#efe4c8 72.6% 100%); border:1px solid #d9c9a3; }
+  .chip { position:absolute; top:3px; left:6%; width:24px; height:22px; line-height:22px; text-align:center;
+          font-size:13px; border-radius:5px; background:#fff3c4; border:1px solid #c9a227;
+          box-shadow:0 0 8px rgba(255,209,102,.8); opacity:0; transition:left .55s cubic-bezier(.34,.8,.4,1), opacity .12s; }
+  .row { display:flex; align-items:center; gap:5px; margin:4px 0; }
+  .lbl { width:34px; font-size:9.5px; color:#6d5b4a; flex:0 0 auto; }
+  .bar { position:relative; flex:1; height:11px; border-radius:6px; overflow:hidden;
+         background:#e6ddc4; border:1px solid #cfc2a0; }
+  .bar > i { display:block; height:100%; width:100%; background:#4caf50; }
+  .num { width:26px; text-align:right; font-size:10px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .num.g { color:#2e7d32; } .num.o { color:#e67e22; } .num.r { color:#c0392b; }
+  .num.dim { color:#aaa; font-weight:400; }
+  .ghostRow.dim .bar > i { width:0 !important; }
+  .flash { position:absolute; inset:0; background:radial-gradient(circle,rgba(255,255,255,.95),rgba(255,255,255,0) 70%);
+           opacity:0; pointer-events:none; }
+  .flash.on { animation:fl .45s ease-out; }
+  @keyframes fl { 0%{opacity:1} 100%{opacity:0} }
+  .note { font-size:9px; color:#8d6e63; line-height:1.45; min-height:26px; margin:5px 0 6px; }
+  button { width:100%; min-height:38px; font:700 12px/1 "Microsoft YaHei",system-ui,sans-serif;
+           color:#3a2a00; background:#ffd700; border:1px solid #c9a227; border-radius:8px; cursor:pointer; }
+  button:active { transform:scale(.985); }
+  button.ghostBtn { background:#efe4c8; color:#4b3621; border-color:#8b7355; }
+  .chain { margin-top:8px; min-height:42px; background:#c0392b; border-color:#e74c3c; color:#fff; }
+  .foot { font-size:9.5px; color:#999; text-align:center; margin-top:14px; }
+</style>
+</head>
+<body>
+  <h1>唐文亮冲刺 · 血条 A/B 对照</h1>
+  <p class="lead">
+    满血 <b>100</b>，冲刺真伤 45% → 扣后 <b>55</b>。每张卡里两条：上=真格（格子上真实的血），下=冲刺克隆体（演出的临时卡）。<br>
+    A 是改前：被动冲刺会演 <b>空 → 满 → 掉</b>；B 是改后：只掉一次。碰撞帧有一次白闪。
+  </p>
+  <div class="legend"><span>🟨 A · 改前</span><span>🟩 B · 改后</span><span>👤 冲刺克隆体</span></div>
+
+  <section class="group">
+    <h2>① 被动冲刺（被打满 7 层触发）</h2>
+    <p class="sub">真格的血在演出前就已被引擎写成扣后值，克隆体开场值决定是否回满。</p>
+    <div class="cards">
+      <div class="card a" id="pA">
+        <div class="head"><span class="tag a">A · 改前</span><span class="stage">待机</span></div>
+        <div class="lane"><div class="chip">👤</div></div>
+        <div class="row">
+          <span class="lbl">真格</span>
+          <div class="bar"><i></i></div>
+          <span class="num">100</span>
+        </div>
+        <div class="row ghostRow dim">
+          <span class="lbl">克隆体</span>
+          <div class="bar"><i></i></div>
+          <span class="num dim">—</span>
+        </div>
+        <div class="note">轮到它时：真格 55 → 克隆体回满 100 → 碰撞帧再掉 55。</div>
+        <button class="replay">▶ 重放 A</button>
+      </div>
+
+      <div class="card b" id="pB">
+        <div class="head"><span class="tag b">B · 改后</span><span class="stage">待机</span></div>
+        <div class="lane"><div class="chip">👤</div></div>
+        <div class="row">
+          <span class="lbl">真格</span>
+          <div class="bar"><i></i></div>
+          <span class="num">100</span>
+        </div>
+        <div class="row ghostRow dim">
+          <span class="lbl">克隆体</span>
+          <div class="bar"><i></i></div>
+          <span class="num dim">—</span>
+        </div>
+        <div class="note">克隆体开场直接取扣后 55，与真格一致，不再回满。</div>
+        <button class="replay ghostBtn">▶ 重放 B</button>
+      </div>
+    </div>
+    <button class="chain" data-chain="passive">▶ A → B 连放</button>
+  </section>
+
+  <section class="group">
+    <h2>② 主动冲刺（自己出手积满触发）</h2>
+    <p class="sub">真格在演出期间仍是扣前值，A/B 的克隆体开场值都是 100，所以两卡画面一致——修复只作用于被动路径。</p>
+    <div class="cards">
+      <div class="card a" id="aA">
+        <div class="head"><span class="tag a">A · 改前</span><span class="stage">待机</span></div>
+        <div class="lane"><div class="chip">👤</div></div>
+        <div class="row">
+          <span class="lbl">真格</span>
+          <div class="bar"><i></i></div>
+          <span class="num">100</span>
+        </div>
+        <div class="row ghostRow dim">
+          <span class="lbl">克隆体</span>
+          <div class="bar"><i></i></div>
+          <span class="num dim">—</span>
+        </div>
+        <div class="note">起跳时真格还没落账：两条都 100，碰撞帧一次性掉到 55。</div>
+        <button class="replay">▶ 重放 A</button>
+      </div>
+
+      <div class="card b" id="aB">
+        <div class="head"><span class="tag b">B · 改后</span><span class="stage">待机</span></div>
+        <div class="lane"><div class="chip">👤</div></div>
+        <div class="row">
+          <span class="lbl">真格</span>
+          <div class="bar"><i></i></div>
+          <span class="num">100</span>
+        </div>
+        <div class="row ghostRow dim">
+          <span class="lbl">克隆体</span>
+          <div class="bar"><i></i></div>
+          <span class="num dim">—</span>
+        </div>
+        <div class="note">min(store=100, hpBefore=100)=100，与 A 完全相同。</div>
+        <button class="replay ghostBtn">▶ 重放 B</button>
+      </div>
+    </div>
+    <button class="chain" data-chain="active">▶ A → B 连放</button>
+  </section>
+
+  <div class="foot">纯演示页 · 不加载任何主代码 · 数值按真实比例 100 → 55</div>
+
+<script>
+(function () {
+    'use strict';
+    var MAX = 100;
+
+    function q(root, sel) { return root.querySelector(sel); }
+
+    function setBar(card, which, hp) {
+        var row = which === 'real' ? q(card, '.row:not(.ghostRow)') : q(card, '.ghostRow');
+        var fill = q(row, '.bar > i');
+        var num = q(row, '.num');
+        var pct = Math.max(0, Math.min(100, Math.round(hp / MAX * 100)));
+        fill.style.width = pct + '%';
+        fill.style.background = pct > 70 ? '#4caf50' : (pct > 40 ? '#ff9800' : '#f44336');
+        num.textContent = hp;
+        num.className = 'num ' + (pct > 70 ? 'g' : (pct > 40 ? 'o' : 'r'));
+    }
+
+    function setGhostShown(card, shown) {
+        var row = q(card, '.ghostRow');
+        var chip = q(card, '.chip');
+        row.classList.toggle('dim', !shown);
+        chip.style.opacity = shown ? '1' : '0';
+    }
+
+    function setGhostHp(card, hp) {
+        var num = q(card, '.ghostRow .num');
+        if (hp === null) { num.textContent = '—'; num.className = 'num dim'; return; }
+        setBar(card, 'ghost', hp);
+    }
+
+    // 复位：真格 100、克隆体隐藏、克隆体停在起点（无过渡）
+    function resetCard(card) {
+        var chip = q(card, '.chip');
+        chip.style.transition = 'none';
+        chip.style.left = '6%';
+        setGhostShown(card, false);
+        setGhostHp(card, null);
+        setBar(card, 'real', MAX);
+        q(card, '.stage').textContent = '待机';
+        card._timers.forEach(clearTimeout);
+        card._timers = [];
+        void chip.offsetWidth;               // 强制回流，下一次移动才走过渡
+        chip.style.transition = '';
+    }
+
+    // ---------- 时间线（ms）：每组每张卡各自的剧本 ----------
+    var SCRIPTS = {
+        passive: {
+            A: [
+                { at: 380,  real: 55,      stage: '① 真格先落扣后值 55' },
+                { at: 600,  ghost: 100,    stage: '② 克隆体按扣前开场 100' },
+                { at: 660,  chipTo: '76%' },
+                { at: 1200, ghost: 55, flash: 1, stage: '③ 碰撞帧回到真值 55' },
+                { at: 1700, stage: '结束 · 空 → 满 → 掉 三跳' }
+            ],
+            B: [
+                { at: 380,  real: 55,      stage: '① 真格落扣后值 55' },
+                { at: 600,  ghost: 55,     stage: '② 克隆体直接是扣后值（不回满）' },
+                { at: 660,  chipTo: '76%' },
+                { at: 1200, flash: 1,      stage: '③ 碰撞帧：与真格一致，无跳' },
+                { at: 1700, stage: '结束 · 只掉一次' }
+            ]
+        },
+        active: {
+            A: [
+                { at: 420,  ghost: 100,    stage: '① 起跳：真格尚未落账，克隆体 100' },
+                { at: 480,  chipTo: '76%' },
+                { at: 1200, real: 55, ghost: 55, flash: 1, stage: '② 碰撞帧一次性掉到 55' },
+                { at: 1700, stage: '结束 · 主动路径只有一跳' }
+            ],
+            B: [
+                { at: 420,  ghost: 100,    stage: '① 起跳：min(100,100)=100，同 A' },
+                { at: 480,  chipTo: '76%' },
+                { at: 1200, real: 55, ghost: 55, flash: 1, stage: '② 碰撞帧一次性掉到 55' },
+                { at: 1700, stage: '结束 · 与 A 完全一致' }
+            ]
+        }
+    };
+
+    function playCard(card, script) {
+        resetCard(card);
+        var chip = q(card, '.chip');
+        var flashEl = q(card, '.flash');
+        card._timers = script.map(function (step) {
+            return setTimeout(function () {
+                if (step.real  !== undefined) setBar(card, 'real', step.real);
+                if (step.ghost !== undefined) {
+                    setGhostShown(card, true);
+                    setGhostHp(card, step.ghost);
+                }
+                if (step.chipTo) chip.style.left = step.chipTo;
+                if (step.flash) {
+                    flashEl.classList.remove('on');
+                    void flashEl.offsetWidth;
+                    flashEl.classList.add('on');
+                }
+                if (step.stage) q(card, '.stage').textContent = step.stage;
+            }, step.at);
+        });
+        return new Promise(function (resolve) {
+            card._timers.push(setTimeout(resolve, 1750));
+        });
+    }
+
+    // 绑定：每张卡的重放按钮
+    var CARD_PAIRS = [
+        { card: q(document, '#pA'), group: 'passive', side: 'A' },
+        { card: q(document, '#pB'), group: 'passive', side: 'B' },
+        { card: q(document, '#aA'), group: 'active',  side: 'A' },
+        { card: q(document, '#aB'), group: 'active',  side: 'B' }
+    ];
+    CARD_PAIRS.forEach(function (it) {
+        it.card._timers = [];
+        q(it.card, '.replay').addEventListener('click', function () {
+            playCard(it.card, SCRIPTS[it.group][it.side]);
+        });
+        resetCard(it.card);
+    });
+
+    // 绑定：每组「A → B 连放」
+    document.querySelectorAll('.chain').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var g = btn.getAttribute('data-chain');
+            var pair = CARD_PAIRS.filter(function (it) { return it.group === g; });
+            var A = pair[0], B = pair[1];
+            return playCard(A.card, SCRIPTS[g].A).then(function () {
+                return new Promise(function (r) { setTimeout(r, 120); });
+            }).then(function () {
+                return playCard(B.card, SCRIPTS[g].B);
+            });
+        });
+    });
+})();
+</script>
+</body>
+</html>
