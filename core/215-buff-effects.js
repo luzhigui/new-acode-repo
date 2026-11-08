@@ -1,4 +1,6 @@
-export const VER = 'core/215-buff-effects.js V6.2.1';
+// V6.2.2 | 2026-11-08 体检转交：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
+//        | 缺键直接 TypeError，与「缺哪键报哪键」口径不符）。
+export const VER = 'core/215-buff-effects.js V6.2.2';
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
 //   控制免疫单位不进候选（删除免疫 50% 拦截与「洗完回原位」两条空结果路径）。
 // V6.1.10（2026-11-02 收尾）：撤销 applyMindControlCore 内三处 MCDEBUG 临时诊断（MCSIDE/MC_E/MC_A），
@@ -24,7 +26,14 @@ export function applyFortifyDef(unit) {
 
 // 流云身法：闪避 +25%（闪避不走属性词条，返回比率给 computeBuffStats 用）
 export function applyCloudBodyDodge_Normal() { return CONFIG.BUFFS.cloudBody.dodgeBonus; }
-export function applyCloudBodyDodge_Sister() { return getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
+// 姊版闪避：读 002 sister.cloudBody.dodgeBonus；缺哪键报哪键，不靠 TypeError
+export function applyCloudBodyDodge_Sister() {
+    const enh = getSkillParams('小昭', 'hexEnhance').cloudBody;
+    if (!enh || enh.dodgeBonus == null) {
+        throw new Error('002-hex-enhance.json 缺 sister.cloudBody.dodgeBonus');
+    }
+    return enh.dodgeBonus;
+}
 // 妹永久流云身法：普通版闪避 × brother.cloudBody.dodgeRatio（唯一真源 201，缺则炸）
 export function applyCloudBodyDodge_Brother() {
     const enh = getBrotherHexEnhance('cloudBody');

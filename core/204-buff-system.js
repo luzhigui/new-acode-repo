@@ -2,7 +2,9 @@
 // V6.8.4 | 2026-11-08 背水一战声明载荷补齐：def 乘率 + 战士 atk/def/maxHp 三条 add（体检总框架 D1/D4）
 // V6.8.3 | 2026-11-08 飞行再生去掉 Math.round：0.4 的真实回复被取整成 0 会打出「回复 0 点生命」，
 //         改实数差值，显示在 render/410 经 fmtNum 收口
-export const VER = 'core/204-buff-system.js V6.8.4';
+// V6.8.5 | 2026-11-08 体检转交：① carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；
+//        | ② 缺 carry 子键显式报错。
+export const VER = 'core/204-buff-system.js V6.8.5';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -107,7 +109,15 @@ export function applyCarryBonus(unit, A, state, log) {
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
-    const carryPositions = sister ? [4, 5, 6] : [5];
+    // 姊版多目标位读 002 sister.carry.targetPositions（此前硬编码 [4,5,6]，改配置不生效）
+    let carryPositions = [5];
+    if (sister) {
+        const carryCfg = getSkillParams('小昭', 'hexEnhance').carry;
+        if (!carryCfg || !Array.isArray(carryCfg.targetPositions)) {
+            throw new Error('002-hex-enhance.json 缺 sister.carry.targetPositions');
+        }
+        carryPositions = carryCfg.targetPositions;
+    }
     if (hasCarryActive && carryPositions.includes(unit.pos) && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         const bonus = sister ? calcCarryBonus_Sister(unit, A) : calcCarryBonus_Normal(unit, A);
         if (bonus.atkAbs) addMod(unit, 'atk', { source: 'carry', value: bonus.atkAbs, ttl: 'round', op: 'add', group: 'carry' });
@@ -385,20 +395,7 @@ export function submitBloodthirstDeclaration(data) {
             // 审计账本：记进 unit._audit.hp，零游戏逻辑副作用
             recordHpAudit(unit, 'bloodthirstLeech', leechVal, '嗜血狂刀'); // 账本记实际落地值（与 factData.leechVal 同口径）
         }
-        // 姊强化·必出双击：吸血之外再补一次完整攻击（走 extraRequests 过完整伤害管线）
-        //   同回合只能白嫖一次：_bloodthirstStriked 由 core/210 每回合开始重置，防双击那一击再声明形成无限连击
-        if (enhanceBT && enhanceBT.forceDoubleStrike && unit.alive && !unit.state._bloodthirstStriked) {
-            unit.state._bloodthirstStriked = true;
-            if (!data.extraRequests) data.extraRequests = [];
-            data.extraRequests.push({
-                unit,
-                targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
-                reason: 'bloodthirstDouble',
-                actedMode: 'allow',
-                priority: 20,
-                ignoreBlock: true
-            });
-        }
+        // 姊强化：移除必出双击逻辑，只保留数值翻倍（forceDoubleStrike 已从 002-hex-enhance.json 移除）
     } else if (hasBrotherPermanent(allySide, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         // 同主分支：声明量填原值，preview 只用于飘字/审计
         const rawLeech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);

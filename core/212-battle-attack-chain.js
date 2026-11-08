@@ -6,7 +6,10 @@
 // V1.0.8 | 2026-11-08 修正 V1.0.7（撤回攻击值下限，攻击力不动）：改为伤害出口 dmg = max(1, dmg)，
 //          只兜真打中的最终伤害；闪避/免疫/完全挡下不经过这里，不给 1
 // V1.0.7 | 2026-11-08 出手攻击值下限 atkAct=max(1, atkBase+波动)（已撤回，见 V1.0.8）
-export const VER = 'core/212-battle-attack-chain.js V1.0.9';
+// V1.0.10 | 2026-11-08 体检转交：① 乾坤护盾整段吸收不再被 max(1,dmg) 抬成 1（preModDmg + qkFull 判定）；
+//           ② ATTACK snap 补实数血量 attackerHpReal / targetHpAfterReal；
+//           ③ 删除死字段 thunderBonus / trueDmg / hornDefIgnore / hornDmgMultiplier（全仓无赋值，渲染分支同步移除）。
+export const VER = 'core/212-battle-attack-chain.js V1.0.10';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -276,6 +279,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     if (!modifierResult) {
         throw new Error(`[12] damageModifiers 未注册：modules/302-elite-skills.js 未被加载（unit=${unit.name}）`);
     }
+    // 减伤前伤害：乾坤护盾的「整段吸收」在 query 内完成（modules/302），吸收后 modifiedDmg=0，
+    //   不能靠 dmg<=0 判断（攻击力为 0 的真命中也是 0），必须拿减前值对照 absorbed。
+    const preModDmg = dmg;
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
     
@@ -287,7 +293,15 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 
     // 伤害出口下限（老板定案 2026-11-08）：真打中（未被闪避/免疫/完全挡下）的最终伤害至少 1，
     //   负攻（众志补员吃防战 -8）也不再算出负伤害。被挡下/免疫的路径不进本函数，不会凭空给 1。
-    dmg = Math.max(1, dmg);
+    // 例外：乾坤护盾整段吸收（absorbed ≥ 减后伤害）＝ 实际落地 0，此时保留下限 0，
+    //   否则战报写「造成 1 点伤害」而血条不动，与上一行注释口径相反（体检 183 转绿的依据）。
+    const qkFull = (bonusEntries || []).some((e) => {
+        if (!e || !e.data) return false;
+        if (typeof e.data.absorbed !== 'number' || typeof e.data.reducePct !== 'number') return false;
+        const reduced = Math.round(preModDmg * (1 - e.data.reducePct));
+        return reduced > 0 && e.data.absorbed >= reduced;
+    });
+    dmg = qkFull ? 0 : Math.max(1, dmg);
 
     // 计算明细（结构化，不是字符串）：渲染层照着排版，不再自己重算一遍。
     // 历史问题：render/30 为拼"计算：…"那行，又调了一次 calcDamage + 查了一次 FANG_K，
@@ -311,14 +325,14 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
             baseRaw
         };
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [], formula };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [], formula };
 }
 
 // 步骤4：应用伤害结果
 // ctx = { log, A, B, state, doubleStrikeUnitUid }
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, ctx) {
     const rng = getBattleRng();
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, dmg, bonusEntries, defReduction } = dmgCalc;
 
     // 波动减伤：hpBonus 从本次扣血里抵扣（dmg 本身不动，吸血/反伤/破防仍按 dmg 算），下限 0 不倒吸血
     let hpLoss = Math.max(0, dmg - hpBonus);
@@ -420,6 +434,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
         if (reboundDmg > 0) {
             const hasSister = ctx.A && ctx.A.some(u => u.isXiaoZhaoSister && u.alive);
+            // 姊强化回血开关读 002 sister.fortify.healOnRebound（此前写死「有姊就回血」，配置成为死数据）
+            const fortifySisterCfg = hasSister ? getSkillParams('小昭', 'hexEnhance').fortify : null;
+            if (hasSister && !fortifySisterCfg) throw new Error('002-hex-enhance.json 缺 sister.fortify');
             fortifyDeclarations = [{
                 type: EFFECT_TYPES.REBOUND,
                 value: reboundDmg,
@@ -429,8 +446,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 factType: FACT_TYPES.FORTIFY_REBOUND,
                 factData: { reboundDmg, unitName: unit.name, hasSister, attackerUid: unit.uid, unitUid: target.uid }
             }];
-            // 姊强化：严阵反弹时防战回复反弹伤害的 1/3
-            if (hasSister) {
+            // 姊强化：严阵反弹时防战回复反弹伤害的 1/3（开关 = sister.fortify.healOnRebound）
+            if (fortifySisterCfg && fortifySisterCfg.healOnRebound) {
                 const healVal = Math.floor(reboundDmg / 3);
                 if (healVal > 0) {
                     fortifyDeclarations.push({
@@ -445,13 +462,13 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _permShield: target.state._permShield || 0 };
+    return { dmg, dead, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _permShield: target.state._permShield || 0 };
 }
 
 // 步骤5：构建攻击事实
 // ctx = { log, A, B, state, doubleStrikeUnitUid }
 export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, ctx, phantomFact) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -473,6 +490,9 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         attackerPos: unit.pos,
         targetPos: target.pos,
         attackerHp: fmtHp(unit.hp),
+        // 实数血量（引擎真值，未取整）：attackerHp / targetHpAfter 是显示口径（≥10 取整），
+        //   体检无法对账 0.x 级扣血，故另带一份实数快照。
+        attackerHpReal: unit.hp,
         attackerAtkDisplay: Math.floor(getStat(unit, 'atk')),
         attackerAtk: Math.floor(getStat(unit, 'atk')),
         attackerDef: Math.floor(getStat(unit, 'def')),
@@ -487,6 +507,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         linkReason: unit.state?._linkReason || null,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
         targetHpAfter: fmtHp(target.hp),
+        targetHpAfterReal: target.hp,
         targetAlive: target.alive
     };
 

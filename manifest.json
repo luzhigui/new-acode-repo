@@ -1,19 +1,19 @@
 {
- "ver": "8d4503f3e528febfdd706698f3ebf5551b3bdc03cc08063a93e07cd23cf70643",
+ "ver": "2d59c812891d1ea2a6ed62b3502a7d502e098aa45e4d624bb8479b423520d72e",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "b7b21bf71772281316ed2447f0c812bc3287277c34e4c09a30a3157001aaac6e"
+   "f19eb81b432dc045bac5a87be60ee9f2255ba1f3136e6a868f90d4e701ad5fe3"
   ],
   [
    "content/002-hex-enhance.json",
-   "dfa8fd178727127edd91ccb703d5dfcd737aea41c3a9138e18bd0b1c0c42476b"
+   "cf8a515a51823cff5a30521aa944b4cc64f5bec980c21defe36aaeac5d45ffb3"
   ],
   [
    "core/201-config-5v5-test.js",
-   "fd878837185a12f5b9439ca4ef3ae6ac71f80c877eb8ebf09236dfbcff20ae07"
+   "22f3db5a4e23b37168ab2c8a11da0d20c3ea125b21986979f7b4139459de1853"
   ],
   [
    "core/202-unit.js",
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "95fa919bd084ac8d6ecfc5203e15c81cfa6fbd42069adef1ba31d06069f9ae60"
+   "2e36bfff9d0101a22dac9f9c346209c2f924cefc646786aad0b227953863a98f"
   ],
   [
    "core/205-battle-horse.js",
@@ -57,7 +57,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "9ddb6d42557d9bb736528c16bdea7b01e674dd950216872879815a3fc6b717d2"
+   "01fcea1784d93ea1dfd2d6ec1aae8736bfabf756abf698de13ac637eb72aa6e5"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -69,7 +69,7 @@
   ],
   [
    "core/215-buff-effects.js",
-   "890d750628f91c877364e83069de6e2b9281843412baa252c1d21e74cd7d0a58"
+   "91a96bdfea904d62f78e1f08ad486821570944ed2065b221cc59baae666bc10e"
   ],
   [
    "core/216-skill-mechanisms.js",
@@ -77,7 +77,7 @@
   ],
   [
    "core/217-effect-handlers.js",
-   "906c75c40f5401a65c7b6206660f86db0325658f4619eacbd891c5c1b388fbae"
+   "e2a322db0f2f355332f679fac7dfd2e8e03b365dee2bfa12a72eebe7756eac55"
   ],
   [
    "core/218-state-keys.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/107-fact-contract.js",
-   "d1f78444d6d9cada911f9d34e8ba0a0962646cca87ec365deae1878a20d10d0f"
+   "98a77874f4f04ac5d61a8582790c8577f9086c02376f74dcf3b2248837f0820e"
   ],
   [
    "infra/107-store-schema.js",
@@ -301,7 +301,7 @@
   ],
   [
    "modules/317-elite-mingjiao.js",
-   "8f2735116e14a0e71e433b959a34f6d5abc685ee9793a8bba97d144aad1238b2"
+   "5d3fe1e1580352aec81829c30f4895d883107b24d4a37ea82427cbfe14f117ed"
   ],
   [
    "modules/318-elite-mingjiao-eagle.js",
@@ -321,7 +321,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "d914b472f41d03f6ba60da8e51aa0b66f016cde66d936eb3ff8df3012aed58e3"
+   "3560465085e6e23f73f1d5d7f3db0610c3d150bf1d580afc3e2a93d4ce771c8e"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
@@ -353,7 +353,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "48044df53d223e730d2a77db16d4dfd733e61f719a2a63a08b9c59457e59f134"
+   "f7b9f41cf589e3d4943cec11f38483e27f94d0bcf243f4ee94b5779d1fed64a7"
   ],
   [
    "modules/331-custom-effects.js",
@@ -381,11 +381,11 @@
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
-   "69aa36690b318055b2ce3d0539055ec3efb5566b3e7e083c2bfd6c3c7265ac7b"
+   "4d2c0e7d35e0637b699906bf3a4dc9b1a6d0b164b82e1c8cd47889c683a27bf5"
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
-   "845a5dede2e6ed834808c23a1b3f858bd0c3ea7fd2b8aa3124b8277fdd5846d1"
+   "a4d147dae84f7fd783380551a1726b9e2456ae5e076be7a325fc078dc522165c"
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
@@ -473,7 +473,7 @@
   ],
   [
    "render/407-facts-attack.js",
-   "065f6b615342bc640909edcc6a548c505bc86dfa8ec8969b4926ca3b689cdb1b"
+   "f2612013f33bac445bddb0f94c1fc1d3cd276c4030c022ff9aaae8dc19e8edf3"
   ],
   [
    "render/408-facts-effect.js",
@@ -613,7 +613,7 @@
   ],
   [
    "ui/722-buff-tooltip.js",
-   "c0a2fbf54a467f44456faa1ec55df833d05cc7420c44e8652c1597fd478fa641"
+   "0adc3b21750a60a2d2b0af678cbbed196d31ae4b212ef09ebeda64300462b5a3"
   ],
   [
    "ui/726-rewind-panel.js",

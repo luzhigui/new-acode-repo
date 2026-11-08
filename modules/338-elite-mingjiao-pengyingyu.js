@@ -3,8 +3,10 @@
 //   渲染打「双面观音」、战绩/体检按来源区分归因（不再复用成昆的「幻影伪装」文案）
 // V1.0.2 | 2026-11-07 | 概率回调 disguiseChance 0.10 / openingChance 0.20；新增「假身是敌方唯一可选目标」→ 误攻队友
 // 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）进入假身，持续 {duration} 回合；
-//   假身期间自身造成的伤害 ×1.5。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.3';
+//   假身期间自身造成的伤害 ×{dmgBonus}（倍率取 content.skills.doubleFace.params.dmgBonus）。
+// V1.0.4 | 2026-11-08 体检转交：假身增伤倍率参数化（content.skills.doubleFace.params.dmgBonus），
+//   不再硬编码 1.5；缺参数显式抛错，避免「改配置不改战局」。
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.4';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -15,7 +17,6 @@ import { getBattleRng } from '../core/214-battle-shared.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
-const DMG_BONUS = 1.5;
 
 export const doubleFaceHandler = {
     fields: {},
@@ -67,7 +68,9 @@ export const doubleFaceHandler = {
             }
         });
 
-        // 假身增伤：自身对敌方造成的伤害 ×1.5（走声明的伤害倍率，不进账本）
+        // 假身增伤：自身对敌方造成的伤害 ×dmgBonus（走声明的伤害倍率，不进账本）
+        const dmgBonus = params.dmgBonus;
+        if (dmgBonus == null) throw new Error('缺技能参数: 彭莹玉.doubleFace.dmgBonus');
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_DAMAGE_CALC,
             priority: L.BEFORE_DAMAGE_CALC.HE_TAICHONG_MARK + 5,
@@ -77,9 +80,9 @@ export const doubleFaceHandler = {
                 if (!data.target || data.target.camp === self.camp) return;
                 data.declarations.push({
                     type: EFFECT_TYPES.DMG_MULTIPLIER,
-                    value: DMG_BONUS,
+                    value: dmgBonus,
                     source: self,
-                    label: `双面观音（伤害×${DMG_BONUS}）`
+                    label: `双面观音（伤害×${dmgBonus}）`
                 });
             }
         });

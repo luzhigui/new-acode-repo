@@ -437,7 +437,8 @@ function runCase(seed, stage, forces) {
         _enhancedBattleLog: log,
         facts: facts   // Step 0：原始 fact 全流（规则可经 ctx.facts 取用，独立于渲染文案）
     };
-    return { seed, stage, ctx, log, facts, beforeA, beforeE, afterA, afterE };
+    // STATS=1 逐场指纹要用：winner / rounds 此前不在返回值里（只有规则用 ctx）
+    return { seed, stage, ctx, log, facts, beforeA, beforeE, afterA, afterE, winner, rounds: battleState.round };
 }
 
 const agg = {}, kwHit = {};
@@ -453,6 +454,15 @@ for (const { seed, stage, force, forces: entryForces } of [...SEEDS.flatMap(seed
     const forces = forcesOfEntry({ force, forces: entryForces });
     const c = runCase(seed, stage, forces);
     cases++;
+    // STATS=1 逐场指纹（双档 vs 单档对照用，不进默认输出）：胜负 / 回合数 / 双方总损血
+    //   用途：ENEMY_HEX=1 与 ENEMY_HEX=0 各跑一遍后逐场 diff —— 若全无差异，说明敌方海克斯
+    //   「选了、挂上了，但对战局零影响」，即双档只是摆设。这不是判红项，只做取证。
+    if (process.env.STATS) {
+        var lossOf = function (b, a) { var n = 0; for (var i = 0; i < b.length; i++) { var u = b[i], v = a[i]; n += Math.max(0, (u && u.hp || 0) - (v && v.hp || 0)); } return n; };
+        console.log('[指纹] seed=' + c.seed + ' stage=' + c.stage + ' winner=' + (c.winner || 'null')
+            + ' rounds=' + c.rounds + ' allyLoss=' + Math.round(lossOf(c.beforeA, c.afterA) * 10) / 10
+            + ' enemyLoss=' + Math.round(lossOf(c.beforeE, c.afterE) * 10) / 10);
+    }
         // DUMP=seed:stage 单场调试：打印该场 buff-push/buff-swap 及相邻的攻击快照位置
         if (process.env.DUMP && process.env.DUMP === seed + ':' + stage) {
             console.log('--- DUMP ' + process.env.DUMP + ' 共 ' + c.log.length + ' 条 ---');

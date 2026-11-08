@@ -2,7 +2,8 @@
 // 编号 27 = 「明教精英」模块族，不是单文件序号；族内拆文件共享父号、用语义后缀区分。
 // 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
-export const VER = 'modules/317-elite-mingjiao.js V7.3.0';
+// V7.3.1 | 2026-11-08 体检转交：圣火令重画读 sister.holyFlame 缺键显式报错（原 TypeError）。
+export const VER = 'modules/317-elite-mingjiao.js V7.3.1';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/208-registry-elite.js';
 import { registerTargetPoolFilter } from '../core/207-target-strategies.js';
@@ -62,6 +63,7 @@ registerBuffRoundTransformer(BUFF_TYPES.HOLY_FLAME, (buff, rng, A, B) => {
     const hexEnhanceParams = getSkillParams('小昭', 'hexEnhance');
     if (!hexEnhanceParams) throw new Error('缺技能参数: 小昭.hexEnhance');
     const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
+    if (hasSisterForHolyFlame && !holyFlameEnhance) throw new Error('002-hex-enhance.json 缺 sister.holyFlame');
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
     const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
     const cols = [];

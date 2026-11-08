@@ -7,7 +7,9 @@
 //   额外混入按关卡解锁范围过滤：后段专属精英（如灭绝师太只属第7关固定池）不得提前出现在前段关，
 //   越界则本次不补（少补一人），不删名单也保证后段该出还能出。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-export const VER = 'modules/330-battle-init.js V7.6.9';
+// V7.7.0 | 2026-11-08 体检转交：① 抽中的阵容变体 id 落成返回值 encounterVariant（不再按阵容反推）；
+//         | ② 删除 mingSquadTemplate（赋值后从未使用，content.encounters.mingSquads 为废配置）。
+export const VER = 'modules/330-battle-init.js V7.7.0';
 // 六大派额外精英/特殊兵混入池（M107 / M104 / M100 三档）。
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
@@ -48,7 +50,6 @@ export function initBattleTeams(currentStage, _rng) {
     const ENEMY_POOL_TIER = CONFIG.ENEMY_POOL_TIER;  // 池表整场不变，先取一次，别在 filter 里逐角色读 getter
     const _rand = (min, max) => _rng.nextInt(min, max);
     let allyTeam = [], enemyTeam = [];
-    const mingSquadTemplate = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
     const eliteRate = C.ELITE_RATE || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
@@ -409,6 +410,8 @@ export function initBattleTeams(currentStage, _rng) {
     // 变体升级为 { squad, posTemplate? }：阵容与站位成套下发；posTemplate 缺省才回落关卡级 ENEMY_POS_TEMPLATES
     const squadVariants = C.ENCOUNTER_VARIANTS[currentStage];
     let variantPosTemplate = null;
+    // 抽中的变体 id（v1/v2…）落成返回值，跑批/体检直接读，不再按阵容反推；无变体的关卡为 null
+    let encounterVariant = null;
     if (squadVariants && squadVariants.length > 0) {
         // 先抽再判：forcePang 时即使覆盖结果也照抽一次，保证 RNG 流与不强制时一致（PVP 双端同源）
         const roll = _rng.nextInt(0, squadVariants.length - 1);
@@ -421,6 +424,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
         enemySquad = variant.squad;
         variantPosTemplate = variant.posTemplate || null;
+        encounterVariant = `v${squadVariants.indexOf(variant) + 1}`;
     }
     let enemyUnits = [];
     const usedEnemyNames = [];
@@ -659,5 +663,5 @@ export function initBattleTeams(currentStage, _rng) {
         enemyTeam = allUnits;
     }
 
-    return { allyTeam, enemyTeam };
+    return { allyTeam, enemyTeam, encounterVariant };
 }

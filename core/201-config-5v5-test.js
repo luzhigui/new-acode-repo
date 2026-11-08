@@ -1,4 +1,5 @@
-export const VER = 'core/201-config-5v5-test.js V6.9.4';
+// V6.9.5 | 2026-11-08 体检转交：删除 MING_SQUADS getter（对应 content.encounters.mingSquads 废配置，无读取方）。
+export const VER = 'core/201-config-5v5-test.js V6.9.5';
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 // V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
@@ -33,7 +34,7 @@ function getGameData() {
 }
 
 // 海克斯强化数据（姊妹/妹永久），单独文件 content/002-hex-enhance.json。
-//   缺字段代码回落到 CONFIG.BUFFS（普通版），不用在 201 里重复写。
+//   缺 sister / brother 段直接抛错；段内缺子键由各消费方「缺哪键报哪键」显式抛错，不回落到 CONFIG.BUFFS 普通版。
 let hexEnhanceData = null;
 
 async function loadHexEnhanceData() {
@@ -47,7 +48,7 @@ async function loadHexEnhanceData() {
 function getHexEnhanceData() { return hexEnhanceData; }
 // 姊强化：团队 buff 生效中。返回 null 表示该海克斯没强化配置
 function getSisterHexEnhance(key) { return (hexEnhanceData && hexEnhanceData.sister && hexEnhanceData.sister[key]) || null; }
-// 妹永久：团队 buff 过期后生效。返回 null 表示没配置（代码回落普通版）
+// 妹永久：团队 buff 过期后生效。返回 null 表示没配置（消费方须显式抛错，不回落普通版）
 function getBrotherHexEnhance(key) { return (hexEnhanceData && hexEnhanceData.brother && hexEnhanceData.brother[key]) || null; }
 
 // 从 gameData 读取角色技能参数，取不到返回 null（调用方按需 throw）
@@ -423,9 +424,6 @@ const CONFIG = {
     },
     get XIAO_ZHAO_PERMANENT_BUFFS() {
         return getGameData().hexes?.permanentBuffKeys || [];
-    },
-    get MING_SQUADS() {
-        return getGameData().encounters.mingSquads;
     },
     get MING_TARGET_POWER() {
         return getGameData().encounters.mingTargetPower;

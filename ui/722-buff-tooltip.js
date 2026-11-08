@@ -1,8 +1,10 @@
 // ui/722-buff-tooltip.js — buff 槽点击弹窗（名称 / 剩余回合 / 效果说明；圣火令附带 3×3 命中示意）
-export const VER = 'ui/722-buff-tooltip.js V1.0.0';
+// V1.0.1 | 2026-11-08 体检转交：圣火令九宫格 title 与核心效果摘要不再写死普通版 +30%/1 列，
+//         改为按姊版实际值（2 列 +25% / 2 行 +25%）显示。
+export const VER = 'ui/722-buff-tooltip.js V1.0.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
-import { CONFIG } from '../core/201-config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { buffsOfCamp } from '../modules/329-buff-tools.js';
 
@@ -67,6 +69,13 @@ function getGridData(buff) {
     if (key === BUFF_TYPES.HOLY_FLAME) {
         const cols = buff.cols || (buff.col != null ? [buff.col] : []);
         const rows = buff.rows || (buff.row != null ? [buff.row] : []);
+        // 加成百分比按实际生效档位取：小昭·姊在场读 002 sister.holyFlame，否则普通版——
+        //   原写死 +30% 是普通版口径，姊版实际 +25%，摘要与实际对不上
+        const hasSister = allUnits.some(x => x.alive && x.camp === casterCamp && x.isXiaoZhaoSister);
+        const hfCfg = hasSister ? getSkillParams('小昭', 'hexEnhance').holyFlame : null;
+        if (hasSister && !hfCfg) throw new Error('002-hex-enhance.json 缺 sister.holyFlame');
+        const atkPct = Math.round((hfCfg ? hfCfg.atkBonus : CONFIG.BUFFS.holyFlame.atkBonus) * 100);
+        const defPct = Math.round((hfCfg ? hfCfg.defBonus : CONFIG.BUFFS.holyFlame.defBonus) * 100);
         for (let p = 1; p <= 9; p++) {
             const col = (p - 1) % 3 + 1;
             const row = Math.ceil(p / 3);
@@ -74,8 +83,8 @@ function getGridData(buff) {
             const inRow = rows.includes(row);
             let color = '', title = '', active = inCol || inRow;
             if (inCol && inRow) { color = '#ffd700'; title = '攻防均生效'; }
-            else if (inCol) { color = '#ff6b6b'; title = '攻击+30%'; }
-            else if (inRow) { color = '#4fc3f7'; title = '防御+30%'; }
+            else if (inCol) { color = '#ff6b6b'; title = `攻击+${atkPct}%`; }
+            else if (inRow) { color = '#4fc3f7'; title = `防御+${defPct}%`; }
             cells.push({ pos: p, color, title, active });
         }
         note = '红 = 攻击列，蓝 = 防御行，金 = 交叉（同时生效）';
@@ -157,10 +166,13 @@ function openTooltip(buff) {
     const icon = cfg.icon || '🎴';
     const name = buff.name || cfg.name || buff.key;
     const left = (buff.remaining != null && buff.remaining !== Infinity && !buff.permanent) ? `${buff.remaining} 回` : '整局';
-    // 核心效果：优先用 cfg.desc 的第一句（到「（」或「，」前），否则用 name
+    // 核心效果：普通 buff 取 cfg.desc 首句；圣火令 / 热血奋战有两档数值（小昭·姊强化），
+    //   截断后只剩普通版口径 → 这两项直接展完整 desc（内含姊版实际值）。
     let coreRows = cfg.desc || '—';
-    const cut = coreRows.search(/[（(，,]/);
-    if (cut > 0) coreRows = coreRows.slice(0, cut);
+    if (buff.key !== BUFF_TYPES.HOLY_FLAME && buff.key !== BUFF_TYPES.HOT_BLOOD) {
+        const cut = coreRows.search(/[（(，,]/);
+        if (cut > 0) coreRows = coreRows.slice(0, cut);
+    }
     // 说明：完整 cfg.desc
     const desc = cfg.desc || '—';
 

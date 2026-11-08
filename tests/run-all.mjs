@@ -355,6 +355,12 @@ const OBSERVES = [
     { name: '海克斯分库启动链守门', script: 'tests/hex-boot-chain-guard.mjs', args: [] },
     // 2026-11-08：海克斯强化接线守门（002 配置键 ↔ 代码消费方 ↔ 运行期派发 + 缺键语义 + 单/双档位）
     { name: '海克斯强化接线守门', script: 'tests/hex-enhance-wiring-guard.mjs', args: [] },
+    // 2026-11-08：双海克斯效应哨兵（新建 V1.0.0）。
+    //   接线守门只证明"敌方也能选到 buff"，rules-replay 的 ENEMY_HEX 统计只证明"buff 挂到了敌方身上"，
+    //   两者都证明不了"敌方海克斯对战斗结果有任何影响" —— 阵营取值错、快照重建丢 buff、加成只读己方，
+    //   计数照样漂亮。本件同一批场次跑双档/单档两遍，逐场比胜负+回合数+双方总损血，零差异即判红。
+    //   子进程跑 rules-replay（STATS=1 指纹行），不看其退出码（其红来自其他规则）；hard: true。
+    { name: '双海克斯效应哨兵', script: 'tests/hex-dual-effect-check.mjs', args: [], hard: true },
     // V1.24.0 | 2026-10-31 夜间第 162 轮：兄分支惑心定向取证（承接【最高·下轮】⑤b-2 逐个配定向用例）。
     //   ★ 实测逼出一件被漏掉的事：phantomConfuse 有**两个**发射点，第 160 轮只数了成昆那个就下了
     //     「干净树本就不发射」的结论；兄分支走 forceXiaoZhao=brother，根本不需要 forceChengKun。

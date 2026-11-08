@@ -4,12 +4,14 @@
 
 import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 import { getStat } from '../core/214-battle-shared.js';
-import { getMechanicField } from '../core/201-config-5v5-test.js';
-import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
 // V1.5.7 | 2026-11-08 计算明细负攻口径：公式项与 baseRaw 打印前过 fmtAtk（<0 显示 0），与格子/波动行一致
 // V1.5.8 | 2026-11-08 破防行防御减数值走 fmtNum（reduce 是实数，裸插值会出浮点尾巴）
-export const VER = 'render/407-facts-attack.js V1.5.8';
+// V1.5.9 | 2026-11-08 体检转交：计算行支持负项明细（core/217 DMG_REDUCTION 以负值入列）；
+//         | 移除死渲染分支（dmgCalc.thunderBonus / trueDmg 全仓无赋值、hornDefIgnore/hornDmgMultiplier 恒 0/1，
+//         | 鹤笔翁金句里写死的 +50% 与配置 +30% 也对不上）。
+export const VER = 'render/407-facts-attack.js V1.5.9';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -147,18 +149,11 @@ export function renderAttackFact(fact) {
     }
     if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) group.entries.push(_pf); }
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(dmgCalc.atkBase)}→${fmtAtk(dmgCalc.atkAct)} 防${fmtNum(dmgCalc.defBase)}→${fmtNum(dmgCalc.defAct)} 减伤${fmtNum(dmgCalc.hpBonus)}</span>`});
-    if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${fmtNum(dmgCalc.thunderBonus)}真实伤害</span>`});
-    if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
-    if (dmgCalc.trueDmg > 0) {
-        // 单一真值源收口：比例取 mechanics 真值（引擎实际读的那份），不读 skills.params 副本
-        const rebelRatio = getMechanicField('宋青书', MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP, 'ratio');
-        if (rebelRatio === undefined) throw new Error('缺机制真值: 宋青书.bonusTargetCurrentHp.ratio');
-        group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${fmtNum(dmgCalc.trueDmg)}（目标当前生命${Math.round(rebelRatio * 100)}%）</span>`});
-    }
     // 公式明细由引擎输出（core/12 calcFinalDamage 的 formula 字段），此处只排版。
     // 不再自己调 calcDamage / 查 FANG_K / 反推 baseRaw —— 那会和引擎的实时值打架。
     let formulaText = '';
-    const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);
+    // 加成明细：正项「+」、负项「-」（DMG_REDUCTION 减伤以负值入列，此前只保留 >0 会把减伤吞掉）
+    const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value !== 0);
     // 乘数不再只显示 >1：嘲讽减伤（×0.4）也必须落在计算行上，否则玩家看不到伤害为何变小
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value !== 1);
     const fm = dmgCalc.formula;
@@ -169,7 +164,8 @@ export function renderAttackFact(fact) {
     if (fm) formulaText = `${fm.terms.map(t => fmtTermText(t.text)).join(' + ')} = ${fmt1(fmtAtk(fm.baseRaw))}`;
     for (const e of fmtBonusEntries) {
         runningRaw += e.value;
-        formulaText += ` + ${e.label}${fmt1(e.value)} = ${fmt1(runningRaw)}`;
+        const op = e.value > 0 ? '+' : '-';
+        formulaText += ` ${op} ${e.label}${fmt1(Math.abs(e.value))} = ${fmt1(runningRaw)}`;
     }
     for (const e of fmtMultiplierEntries) {
         runningRaw = Math.round(runningRaw * e.value * 10) / 10;
@@ -204,7 +200,7 @@ export function renderAttackFact(fact) {
     group.entries.push({
         type:'damage-text',
         deadFlag: directKill,
-        dmg: Math.round(dmgResult.dmg),
+        dmg: fmtNum(dmgResult.dmg),
         // 2026-11-04 补丢字段：player/46 发飘字与血条预演的门槛是 dmg>0 且 hpAfter!==undefined——
         //   飘字从 fx 层搬到 player 层时只带出了 dmg，hpAfter 忘带 → 全仓普攻掉血飘字集体哑火（老板实锤三轮）
         hpAfter: targetHpAfter,

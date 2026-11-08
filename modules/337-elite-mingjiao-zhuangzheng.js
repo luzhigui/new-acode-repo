@@ -10,7 +10,8 @@
 //   · 免疫分支不处理 extraRequests，挂 AFTER_DAMAGE_APPLIED 的反击请求会被整段吞掉；
 //     故反击挂 AFTER_ATTACK_IMMUNE（免疫分支专属广播，payload 带 unit/A/B/state），
 //     直调 core/10 processUnitAttack（与宋青书·性奋同一既有模式，不另造一套额外攻击系统）。
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.1';
+// V1.0.2 | 2026-11-08 体检转交：报幕 N= 走 fmtNum（原直接印内部浮点，实测出现 N=29.39124375）。
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.2';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -57,7 +58,7 @@ export const duanChuiHandler = {
                 const halveCue = (self.pos != null && n > 0)
                     ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
                     : null;
-                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${n}）！`, { cue: halveCue });
+                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${fmtNum(n)}）！`, { cue: halveCue });
                 data.declarations.push({ immune: true, reason: `🔨 断锤三式：${self.name} 屹立不倒` });
             }
         });

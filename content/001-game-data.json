@@ -410,8 +410,8 @@
       "skills": {
         "doubleFace": {
           "name": "双面观音",
-          "desc": "每回合开始 {disguiseChance}% 概率（首回合 {openingChance}%）进入假身，持续 {duration} 回合；假身期间自身造成的伤害 ×1.5。",
-          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 2 }
+          "desc": "每回合开始 {disguiseChance}% 概率（首回合 {openingChance}%）进入假身，持续 {duration} 回合；假身期间自身造成的伤害 ×{dmgBonus}。",
+          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 2, "dmgBonus": 1.5 }
         }
       }
     },
@@ -700,7 +700,7 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 2.0, "defToHeal": 0.06, "defToAtk": 0.12, "minReduce": 0.3 }
+          "params": { "defToReduce": 2.0, "defToHeal": 0.06, "defToAtk": 0.12 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
@@ -1080,13 +1080,13 @@
 
   "buffs": {
     "bloodthirst": { "name": "嗜血狂刀", "desc": "己方战士攻击吸血80%伤害值", "leechRatio": 0.8, "icon": "🗡️", "effects": ["bloodthirstLeech"] },
-    "hotBlood": { "name": "热血奋战", "desc": "攻击时回复20%已损失生命值，每第3次攻击回血翻倍", "leechRatio": 0.2, "critRatio": 0.3, "critInterval": 3, "icon": "❤️", "effects": ["hotBloodHeal"] },
+    "hotBlood": { "name": "热血奋战", "desc": "攻击时回复20%已损失生命值，每第3次攻击回血翻倍；小昭·姊在场时每3次攻击的第2、3次翻倍", "leechRatio": 0.2, "critRatio": 0.3, "critInterval": 3, "icon": "❤️", "effects": ["hotBloodHeal"] },
     "fortify": { "name": "严阵以待", "desc": "己方防战防御+40%，反弹50%伤害差值（持续3回合）", "defBonus": 0.4, "reboundRatio": 0.5, "duration": 3, "icon": "🛡️" },
     "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "dodgeBonus": 0.25, "brotherRatio": 0.7, "icon": "💨" },
     "windAssault": { "name": "乘风突袭", "desc": "飞行单位80%概率对同行敌人造成100%伤害，80%击退一格", "hitProb": 0.8, "pushProb": 0.8, "duration": 4, "icon": "🦅", "effects": ["windAssaultSplash"] },
     "meteorShower": { "name": "流星赶月", "desc": "己方远程对目标造成40%额外伤害，对周围溅射30%（持续3回合）", "bonusRatio": 0.4, "splashRatio": 0.3, "mainDefReduce": 2, "splashDefReduce": 1, "duration": 3, "icon": "☄️", "effects": ["meteorShowerMain"] },
     "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍；5号位无人时召唤一只雄鹰顶位（雄鹰命中后使己方一名已行动过的队友恢复行动力；若无人可恢复则召唤一只白板雌鹰永久存在）。全场只能选一次，持续3回合", "atkBonus": 0.08, "defBonus": 0.08, "hpBonus": 0.10, "deathMultiplier": 2, "duration": 3, "icon": "👑", "params": { "eagle": { "name": "雄鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50, "female": { "name": "雌鹰", "role": "飞行", "m": 50, "atk": 18, "def": 12, "maxHp": 50 } } } },
-    "holyFlame": { "name": "圣火令", "desc": "随机1列+30%攻击，随机2行+30%防御（持续4回合）", "atkBonus": 0.3, "defBonus": 0.3, "atkCols": 1, "defRows": 2, "duration": 4, "icon": "🔥" },
+    "holyFlame": { "name": "圣火令", "desc": "随机1列+30%攻击，随机2行+30%防御（持续4回合）；小昭·姊在场时改为随机2列+25%攻击、随机2行+25%防御", "atkBonus": 0.3, "defBonus": 0.3, "atkCols": 1, "defRows": 2, "duration": 4, "icon": "🔥" },
     "doubleStrike": { "name": "概率连击", "desc": "己方随机两人80%概率额外攻击一次（持续5回合）", "prob": 0.8, "duration": 5, "icon": "⚡" },
     "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束30%概率销毁", "horseHp": 30, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.3, "brotherSpawnChance": 0.7, "icon": "🐴" },
     "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位（持续3回合）", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 3, "icon": "🌀", "effects": ["mindControlSwap"] },
@@ -1112,9 +1112,6 @@
   },
 
   "encounters": {
-    "mingSquads": {
-      "1": [["张无忌", 100, 97, 97, 95], ["韦一笑", 104, 100, 97, 95], ["小昭", 104, 100, 97, 95], [104, 104, 104, 104, 95]]
-    },
     "mingTargetPower": { "2": 500, "3": 520, "4": 540, "5": 560, "6": 580, "7": 600 },
     "enemySquads": {
       "1": [104, 104, 100, 97, 95],
@@ -1154,22 +1151,22 @@
     "elitePool": {
       "2": [{ "name": "张三丰", "role": "防战", "m": 107 }],
       "3": [
-        { "name": "宋青书", "role": "飞行", "m": 107, "skill": "rebelStrike", "pos": 5 },
-        { "name": "胖远桥", "role": "战士", "m": 107, "skill": "rageOnHit", "pos": 2 }
+        { "name": "宋青书", "role": "飞行", "m": 107, "skill": "rebelStrike" },
+        { "name": "胖远桥", "role": "战士", "m": 107, "skill": "rageOnHit" }
       ],
       "4": [
-        { "name": "宋青书", "role": "飞行", "m": 107, "skill": "rebelStrike", "pos": 5 },
-        { "name": "周芷若", "role": "战士", "m": 107, "skill": "nineYinClaw", "pos": 2 }
+        { "name": "宋青书", "role": "飞行", "m": 107, "skill": "rebelStrike" },
+        { "name": "周芷若", "role": "战士", "m": 107, "skill": "nineYinClaw" }
       ],
       "5": [
-        { "name": "鹿杖客", "role": "远程", "m": 112, "skill": "xuanmingPalm", "pos": 7 },
-        { "name": "鹤笔翁", "role": "飞行", "m": 112, "skill": "hornStrike", "pos": 4 }
+        { "name": "鹿杖客", "role": "远程", "m": 112, "skill": "xuanmingPalm" },
+        { "name": "鹤笔翁", "role": "飞行", "m": 112, "skill": "hornStrike" }
       ],
       "6": [
-        { "name": "成昆", "role": "防战", "m": 112, "skill": "phantomThunder", "pos": 1 }
+        { "name": "成昆", "role": "防战", "m": 112, "skill": "phantomThunder" }
       ],
       "7": [
-        { "name": "灭绝师太", "role": "战士", "m": 115, "skill": "counterAttack", "pos": 2 }
+        { "name": "灭绝师太", "role": "战士", "m": 115, "skill": "counterAttack" }
       ]
     }
   },

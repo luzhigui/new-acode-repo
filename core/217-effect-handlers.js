@@ -3,7 +3,9 @@
 //        | _pendingDeath → core/209 的 executeKill 不置位 → 攻击组 isDead=false（死亡特效缺失），且斩杀实际没杀死人。
 // V6.2.4 | 2026-11-07 第 184 轮：EXECUTE 与白骨爪斩杀都改调 killUnit（死亡收口唯一出口）；
 //        | 白骨爪此前直调 applyStatChange 漏传 ignoreCap → 庄铮 _dmgCap 下只掉 1 点血、fact 却写「斩杀」。
-export const VER = 'core/217-effect-handlers.js V6.2.4';
+// V6.2.5 | 2026-11-08 体检转交：DMG_REDUCTION 补负项明细（只扣总量不写明细 ⇒ 战报「计算」行漏掉这笔减伤，
+//        | 与最终伤害对不上）。负值由 render/407 排版成「- 减伤N」。
+export const VER = 'core/217-effect-handlers.js V6.2.5';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -106,7 +108,11 @@ registerCalcModifier(EFFECT_TYPES.DMG_MULTIPLIER, (ctx) => {
 });
 
 registerCalcModifier(EFFECT_TYPES.DMG_REDUCTION, (ctx) => {
-    ctx.refs.bonusDmgTotal -= (ctx.decl.value || 0);
+    const val = ctx.decl.value || 0;
+    ctx.refs.bonusDmgTotal -= val;
+    // 明细与总量同源：此前只扣总量不写明细，render/407 的「计算」行看不到这笔减伤，与最终伤害对不上
+    //   （体检 181 转绿的依据）。负值由渲染层排版成「- 减伤N」。
+    if (val > 0) ctx.refs.bonusDmgEntries.push({ label: ctx.decl.label || '减伤', value: -val });
 });
 
 registerEffectHandler(EFFECT_TYPES.BONUS_DMG, (ctx) => {
