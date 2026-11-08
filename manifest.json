@@ -1,11 +1,11 @@
 {
- "ver": "55070052585ba40b0fe73d85066d5a31b1e5641416487ff3d20f7d2b37441169",
+ "ver": "d2016d631b88e7cedb801215da502f50546c8badd1c05917f1b719a2117c170c",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "d9d63e55340e17c8f0108400453842b04bbdb6d4fd0e9048dd5864200d4e6205"
+   "41c7daaf9ad0198c3675e0f8586578e17e16a7a9ebb201d66c9772c7c6a15b51"
   ],
   [
    "content/002-hex-enhance.json",
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "5a646760309071623b67c5d245290f53ef81d0e75a527d3e613b71f543d3f479"
+   "0504b5d7b12263cedce561e2d496ab14d8c75863b11df44d5f548b7f6b0d3572"
   ],
   [
    "core/205-battle-horse.js",
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "31cfe219fa0af644c982c2613070461597d29f69d2b5988e8f2a84ff5c9576a5"
+   "849a3144065ae2978268a426e0d5d171939143c08d1c338ac0d2e841579f86f2"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -61,7 +61,7 @@
   ],
   [
    "core/213-battle-attack-edge.js",
-   "7bc4210a3c2d10ef6710d8a69af8c908bd6ce83afffdc2589dc5c9e3a4ff886f"
+   "cd81719d166dc97e578811dc48643f2248f58842408ed1ac7548f5706dd28b22"
   ],
   [
    "core/214-battle-shared.js",
@@ -209,11 +209,11 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "10144823967ec676956f4005b0c840258b4ace73018175d9b8b9629d4314a8a7"
+   "9d49e1ee547fce7b108d4a252a88efa9ae1f73b14e8ad0a08b67fcf56b94ac2e"
   ],
   [
    "infra/107-fact-contract.js",
-   "5a70ac97079b7bc84deac24c03d99f9820c4ac4e3f62f0afced415645ed6b925"
+   "ffc2f432565429c485b18bcbce00b68c927c5a30e54d1abe62488a165f34b539"
   ],
   [
    "infra/107-store-schema.js",
@@ -241,7 +241,7 @@
   ],
   [
    "modules/302-elite-skills.js",
-   "eed4593013511c69d69e5eda08b55fe45a26127f2070f846b1c6c663877b6108"
+   "64faed89193ac2e6274f6df1fd548335097805126d643450bf1467274ea26138"
   ],
   [
    "modules/303-error-capture.js",
@@ -345,7 +345,7 @@
   ],
   [
    "modules/328-elite-mingjiao-yintianzheng.js",
-   "a34adf364b8d92921af2afe15e1b510ce3149a469fe28e95ac078d5a61ee5b72"
+   "f376143891b8148be4ecdf2b69fae2a88a253f05570fdcc290411922a85fc70f"
   ],
   [
    "modules/329-buff-tools.js",
@@ -389,7 +389,7 @@
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
-   "bc1db5c4dd8c0539fc9426bdca30ce3a384af1b1abfa3979438f151cb005628e"
+   "d880425dc93f9e6573fe83da728bb915f71157f10b03951848bff44c9a1768b8"
   ],
   [
    "player/501-player-text.js",
@@ -489,7 +489,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "70678f3954601eb3401e373c58433cd8dc17c14c99d6277096677a9283d812fb"
+   "b35b3120cd4b405ae1e9ed375d928b10e670d142c266efc1e9cb32d46899ed67"
   ],
   [
    "render/412-facts-stat.js",

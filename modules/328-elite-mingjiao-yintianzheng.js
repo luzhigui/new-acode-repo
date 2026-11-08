@@ -1,5 +1,7 @@
 // modules/328-elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
-export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.2.0';
+// V1.2.1 | 2026-11-08 体检转交：鹰王威压 / 老当益壮 四处 addMod 补 ttl:'permanent'——原缺 ttl 属未声明，
+//   两个机制都是「永久累积」（威压跨回合削攻防、老当益壮逐次成长），显式声明后与永久/回合词条清理口径一致。
+export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.2.1';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, addMod } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -31,8 +33,8 @@ export function createYinTianZhengComponent() {
                 if (data.unit.state._linkReason !== 'counterAttack') return;
                 const t = data.target;
                 if (!t || !t.alive) return;
-                addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', group: 'yingWangWeiYa' });
-                addMod(t, 'def', { source: '鹰王威压', value: -weiya.defDown, op: 'add', group: 'yingWangWeiYa' });
+                addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', ttl: 'permanent', group: 'yingWangWeiYa' });
+                addMod(t, 'def', { source: '鹰王威压', value: -weiya.defDown, op: 'add', ttl: 'permanent', group: 'yingWangWeiYa' });
                 pushInfo(data, `<span class="gold">🦅 殷天正鹰王威压：${t.name} 攻 −${weiya.atkDown}、防 −${weiya.defDown}（永久累积）</span>`);
                 // 头顶弹幕「第二段」：反击那一记已有 ⚔️反击！ 徽章（core/10 reason 链路），
                 //   此处补「鹰王威压」飘字，让「先反击、命中后再压」两段式一眼可见。
@@ -89,8 +91,8 @@ export function createYinTianZhengComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 // 同②：仅反击命中才成长（普攻命中不再滚雪球）
                 if (data.unit.state._linkReason !== 'counterAttack') return;
-                addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', group: 'laoDangYiZhuang' });
-                addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', group: 'laoDangYiZhuang' });
+                addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', ttl: 'permanent', group: 'laoDangYiZhuang' });
+                addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', ttl: 'permanent', group: 'laoDangYiZhuang' });
                 yin.state._counterProbBonus = (yin.state._counterProbBonus || 0) + grow.probGain;
                 pushInfo(data, `<span class="gold">💪 殷天正老当益壮：攻 +${fmtNum(grow.atkGain)}、防 +${fmtNum(grow.defGain)}、反击率 +${Math.round(grow.probGain * 100)}%</span>`);
             });
