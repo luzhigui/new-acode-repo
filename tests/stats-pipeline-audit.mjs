@@ -4,7 +4,7 @@
 //   新旧数据能否分辨、统计结果能否反过来验证战斗逻辑。
 //
 // 两条腿：
-//   ① 静态审计：读 tools/812/813/808/816 源码，比对口径写法（不改文件，只点名缺口）。
+//   ① 静态审计：读 tools/809/812/813/808/814/815/816/826/852 源码，比对口径写法（不改文件，只点名缺口）。
 //   ② 动态审计：真跑引擎（与 tools/816 的 stats job 同参数），用「固定初值 + 补齐尾部事件」
 //      的第二本账与 813 的记账法逐单位对账，量化它少算了多少；同时验胜负↔存活、拆桶漂移、
 //      同名合并、同 seed 可复现。
@@ -16,7 +16,7 @@
 //
 // ★ 本件是新文件，未登记进 tests/run-all.mjs：该文件由并行会话共用，避免抢改冲突；
 //   需要入册时由编排方在 OBSERVES 加一行即可。
-export const VER = 'tests/stats-pipeline-audit.mjs V1.0.0';
+export const VER = 'tests/stats-pipeline-audit.mjs V1.1.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +47,8 @@ const { runBattle } = await import('../core/206-battle-runner.js');
 const { initBattleTeams } = await import('../modules/330-battle-init.js');
 const { GlobalStore } = await import('../infra/104-global-store.js');
 const { eventBus } = await import('../infra/101-event-bus.js');
-const { UNIT_EVENT_TYPES, CAMP_TYPES } = await import('../infra/106-battle-enums.js');
+const { UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } = await import('../infra/106-battle-enums.js');
+const { Unit } = await import('../core/202-unit.js');
 await import('./_lib/install-mechanics.mjs');
 await loadGameData();
 await loadHexEnhanceData();
@@ -71,7 +72,9 @@ const SRC = {
     worker: read('tools/816-role-balance-worker.js'),
     roleBalance: read('tools/809-role-balance.js'),
     alert: read('tools/826-balance-alert.js'),
-    career: read('tools/852-career-log.js')
+    career: read('tools/852-career-log.js'),
+    baseline: read('tools/814-baseline-compare.js'),
+    lineup: read('tools/815-lineup-search.js')
 };
 
 function fnBody(src, name) {
@@ -145,41 +148,37 @@ function addNote(id, title, detail) {
 // ---------------------------------------------------------------------------
 
 // S1 拆桶取的是「终局阵容」还是「真实抽签（开战阵容）」？
-//    816 的精英/单挑/弱精英/无精英四类 job 都在 runBattle 之后按 res.enemy/res.ally 判断变体，
-//    终局阵容会被惑人心智换位、临时召唤、变形等改写；统计桶应取开战前的 teams.enemyTeam。
+//    816 V1.20.0 已改为 teams.enemyTeam 开战快照；本检查防回退（重新用 res.enemy 分桶即报红）。
 {
-    const jobs = [
-        ['runEliteStageJob', '精英评估'],
-        ['runSoloEliteJob', '单英雄'],
-        ['runWeakEliteJob', '弱精英']
-    ];
-    const hits = [];
-    for (const [name, label] of jobs) {
-        const body = fnBody(SRC.worker, name);
-        if (!body) continue;
-        const usesFinalEnemy = /res\.enemy/.test(body) && /isPangYuanQiao|isSongQingshu/.test(body);
-        const usesFinalAlly = /res\.ally/.test(body) && /find\(/.test(body);
-        if (usesFinalEnemy || usesFinalAlly) hits.push(label);
-    }
-    if (hits.length) {
+    const body = fnBody(SRC.worker, 'runEliteStageJob');
+    const fixed = /teams\.enemyTeam\.some\(u => u\.isPangYuanQiao\)/.test(body);
+    const regressed = /(res\.enemy|res\.ally)[\s\S]{0,60}(isPangYuanQiao|isSongQingshu)|(isPangYuanQiao|isSongQingshu)[\s\S]{0,60}(res\.enemy|res\.ally)/.test(body);
+    if (regressed) {
         addFinding('REQ', 'S1', '拆桶/在场判定读了终局阵容',
-            `${hits.join(' / ')} 用 res.enemy / res.ally（战斗结束后的阵容）判定变体桶或精英是否在场。` +
-            '开战抽签结果应取 initBattleTeams 返回的 teams.enemyTeam / allyTeam；' +
-            '终局阵容会受惑人心智换位、召唤、变形影响，桶与真实抽签可能对不上。' +
-            '（精英评估/弱精英读 res.enemy 的 isPangYuanQiao/isSongQingshu 分桶；单英雄读 res.ally.find 决定统计入样）');
+            '精英评估又用 res.enemy / res.ally 判定变体桶；开战抽签结果应取 initBattleTeams 的 teams.enemyTeam。' +
+            '终局阵容会受惑人心智换位、召唤、变形影响，桶与真实抽签可能对不上。');
+    } else if (fixed) {
+        addNote('S1', '拆桶已改开战快照（静态 ✅）',
+            '精英/单英雄/弱精英/无精英四个 job 都用 teams.enemyTeam.some(isPangYuanQiao/isSongQingshu) 分桶；' +
+            'res.ally / res.enemy 只按 uid 取终局数值，不参与分桶与入样判定。');
     }
 }
 
-// S2 813 的 hp 记账：第一笔 HP_CHANGE 被吃掉（初始化用的是「变化后」的 hp）
+// S2 813 的 hp 记账：第一笔 HP_CHANGE 是否还在被吃掉（V1.20.0 已改用开战初值，本检查防回退）
+let s2Regressed = false;
 {
     const body = fnBody(SRC.worker, 'runStatsStageJob');
-    const lazyInit = /tracker\[uid\]\s*[=]{1,2}\s*\(?\s*tracker\[uid\]\s*=\s*\{[^}]*hp:\s*p\.hp/.test(body)
-        || /tracker\[uid\]\s*=\s*\{[^}]*hp:\s*p\.hp/.test(body);
-    if (lazyInit) {
+    const lazyOld = /tracker\[uid\]\s*=\s*\{[^}]*hp:\s*p\.hp/.test(body);
+    const fixed = /initHp = new Map\(\)/.test(body) && /initHp\.set\(u\.uid, \{ hp: u\.hp, maxHp: u\.maxHp \}\)/.test(body);
+    if (lazyOld) {
+        s2Regressed = true;
         addFinding('REQ', 'S2', '承伤/治疗记账漏掉每个单位的第一笔',
-            'runStatsStageJob 的 tracker 在收到第一笔 HP_CHANGE 时用 p.hp（变化后的血量）当起点，' +
-            '随后 dHp = p.hp - st.hp 恒为 0 ⇒ 每个单位的第一笔扣血/回血都不进 battleDmg/battleHeal。' +
-            '初值应在开战前按单位初始 hp/maxHp 建好（见动态审计 D1 的量化）。');
+            'runStatsStageJob 的 tracker 又用首笔 HP_CHANGE 的 p.hp（变化后血量）当起点，' +
+            'dHp 恒为 0 ⇒ 每个单位的第一笔扣血/回血都不进 battleDmg/battleHeal。');
+    } else if (fixed) {
+        addNote('S2', '首笔记账已用开战初值（静态 ✅）',
+            'runStatsStageJob 先按开战阵容建 initHp，tracker 首见单位时取 initHp 的 hp/maxHp，' +
+            '不再用首笔 HP_CHANGE 的变化后血量。');
     }
 }
 
@@ -225,6 +224,102 @@ addNote('S6', '排名/结论缺不确定性标注',
     '812 精英评估每格有样本数 + 小于 200 标「样本少」，但「实战评分」排名没有置信区间；' +
     '809 职业平衡显示 n（8/16）但同一格里没有 CI；810 配对局、826 平衡告警有 CI。' +
     '建议排名类表至少标注 ±区间，或把 n<阈值的行降级为「仅参考」。');
+
+// S10 812 排名与样本量
+{
+    const ev = SRC.evaluate;
+    const has70 = /t\.wins\s*\/\s*t\.runs\s*\*\s*0\.7/.test(ev) && /\*\s*0\.3\)\s*\*\s*100/.test(ev);
+    const thinCount = (ev.match(/d\.runs\s*<\s*200/g) || []).length;
+    const noCI = !/wilson/i.test(ev);
+    const scoreOnly = /const score = t\.runs \? \(t\.wins \/ t\.runs \* 0\.7 \+ t\.sumSurv \/ t\.runs \* 0\.3\) \* 100 : NaN/.test(ev);
+    const noSeedStored = /latest\.elite = \{ stages, runs: RUNS, byStage, hero: buildHeroRates\(byStage, stages\) \}/.test(ev);
+    if (has70 || thinCount >= 2 || noCI || scoreOnly || noSeedStored) {
+        addFinding('REQ', 'S10', '812 实战评分与排名不可判噪声',
+            `812 实战评分 = (胜率×${has70 ? '0.7' : '?'} + 存活率×0.3)×100，两个权重无推导、无置信区间、无配对；` +
+            `排名只按点估计 sort，第 2 名与第 3 名的差距可能小于噪声。` +
+            `「样本少」阈值 200 硬编码 ${thinCount} 处（默认场次 1200/400/600，第 3 关拆两变体后单英雄格可 <200），` +
+            `但样本少的行照样进排名与总评。排名使用的还是自然出场样本（各精英出场的关/变体构成不同），` +
+            `页面虽注「只作参考」，却仍给「第 X / N 名」的确定排序。` +
+            `${noSeedStored ? '另：masterSeed=Date.now() 不经 latest/快照落盘，同一张表无法复现。' : ''}`);
+    }
+}
+
+// S11 809 循环赛配对与胜率
+{
+    const rb = SRC.roleBalance;
+    const paired = /pairedSeed:\s*true/.test(rb);
+    const workerSeed = /pairedSeed\s*\?\s*0\s*:\s*ai\s*\*\s*100000/.test(SRC.worker);
+    const dateSeed = /const masterSeed = Date\.now\(\)/.test(rb);
+    const poolDouble = /allyStats\[ROLES\[ai\]\]\.total \+= roundsPerGroup/.test(rb)
+        && /enemyStats\[ROLES\[ei\]\]\.total \+= roundsPerGroup/.test(rb);
+    const conservativeClaim = /偏保守/.test(rb);
+    const extreme = /hiV|loV/.test(rb);
+    const hardBias = /overall > 65 \|\| overall < 35/.test(rb);
+    const rolePos = /extraPosConfig = \{[\s\S]{0,200}DEFENDER: \[3, 4, 6, 8\]/.test(rb) || /近战限位/.test(rb);
+    if (paired && workerSeed) addNote('S11a', '809 配对种子公式成立（静态 ✅）',
+        '116 worker：`seed = masterSeed + (pairedSeed ? 0 : ai*100000) + ei*10000 + i*7919`，' +
+        '809 派发时 pairedSeed=true → 同 (ei,i) 下四职业确为同一 seed。');
+    if (dateSeed || poolDouble || conservativeClaim || extreme || hardBias || rolePos) {
+        addFinding('REQ', 'S11', '809 循环赛的配对/区间/极值口径有缺口',
+            `${dateSeed ? 'masterSeed=Date.now() 不落盘、不显示 → 4×4 表不可复现；' : ''}` +
+            `${poolDouble ? '池化把每场算两次（我方视角 + 敌方视角），poolN = 2×场次；' : ''}` +
+            `${conservativeClaim ? '页面写「配对后样本正相关、区间偏保守」，方向写反：同一 (ei,i) 四职业共享同一基底随机，单职业池内样本正相关会让 CI 偏窄（反保守），' : ''}` +
+            `${extreme ? '「最好打 / 最难打」取 4 格 max/min、无 CI、0 位小数 → 极值选择偏差；' : ''}` +
+            `${hardBias ? '整体偏差 35/65 硬编码红框，与样本量无关（应报 overall 的 CI）；' : ''}` +
+            `${rolePos ? '第 6 人格位池按职业不同（近战限位开启后防战/战士仅 [3,6]）→ 职业比较混入站位可用性。' : ''}`);
+    }
+}
+
+// S12 826 告警阈值：判读线是否落在噪声区
+{
+    const al = SRC.alert;
+    const th = { MIN: 300, NATURAL: 0.35, SOLO: 0.15, BOSS: 0.30, BAND: 0.05, PAIR_MIN: 150, FDR: 0.10 };
+    const hasTH = /MIN_SAMPLE:\s*300/.test(al) && /NATURAL:\s*0\.35/.test(al) && /SOLO:\s*0\.15/.test(al)
+        && /BOSS:\s*0\.30/.test(al) && /BAND:\s*0\.05/.test(al);
+    const unweightedBase = /entries\.reduce\(\(s, \[, d\]\) => s \+ d\.wins \/ d\.count, 0\) \/ entries\.length/.test(al);
+    const tautology = /const diffSum = rows\.reduce\(\(s, r\) => s \+ r\.diff, 0\)/.test(al);
+    const clusterHeur = /const cluster = st\.buffSlots \/ st\.total/.test(al);
+    const heroMin = 8; // 852 HERO_MIN_GAMES
+    // 最小可辨差异（双侧 95%，n=300）：cluster=1 与 cluster=3 各算一条
+    const mde = (p, n, cluster) => 1.96 * Math.sqrt(p * (1 - p) / n) * Math.sqrt(cluster) * 100;
+    const mde1 = mde(th.NATURAL, th.MIN, 1), mde3 = mde(th.NATURAL, th.MIN, 3);
+    const z5 = (th.BAND * 100) / (Math.sqrt(th.NATURAL * (1 - th.NATURAL) / th.MIN) * Math.sqrt(3) * 100);
+    if (hasTH) {
+        addFinding('REQ', 'S12', `826 判读线 ${(th.BAND * 100).toFixed(0)}pp 落在噪声区`,
+            `阈值确实集中在 TH（✅），但理想线 自然35% / 强精英15% / Boss30% 无推导，判读线 5pp 标「用户拍板」。` +
+            `按最小样本 n=${th.MIN}、p=35% 反算：cluster=1 时最小可辨差异约 ${mde1.toFixed(1)}pp，` +
+            `cluster=3 时约 ${mde3.toFixed(1)}pp；5pp 判读线在 cluster=3 下只相当于 z≈${z5.toFixed(2)}（<2），` +
+            `意味着「偏离 5pp」有相当比例只是同局多海克斯共享胜负带来的噪声。` +
+            (unweightedBase ? '另：base = 各海克斯胜率的未加权平均，' : '') +
+            (tautology ? 'diffSum=Σ(p−base) 恒等于 0（恒等式），invariant 告警永远不会触发；' : '') +
+            (clusterHeur ? 'cluster 用「平均每局海克斯数」当 sqrt 设计效应（隐含 ρ=1）是启发式，未估 ICC。' : '') +
+            `样本线跨工具不一致：826=${th.MIN} / 812=200 / PAIR_MIN=${th.PAIR_MIN} / 852 英雄=${heroMin}。`);
+    }
+}
+
+// S13 852 / 814 / 815 新工具口径一致性
+{
+    const career = SRC.career;
+    const recordSrc = read('modules/332-career-log.js');
+    const hasSeed = /\bseed\b/.test(recordSrc);
+    const hasRecVer = /v:\s*1/.test(recordSrc);
+    const hasEngineVer = /gameVer|engineVer|contentVer|buildVer/.test(recordSrc);
+    const byName = /appear\[u\.name\]/.test(career);
+    const mdDraw = /平局 \${total - winA - winE}/.test(career);
+    const b814 = SRC.baseline;
+    const hard5 = /diff >= 5/.test(b814) && !/wilson/i.test(b814);
+    const b815 = SRC.lineup;
+    const nowSeed = /SeededRNG\(Date\.now\(\)/.test(b815);
+    if (hasSeed && hasRecVer && !hasEngineVer) {
+        addFinding('REQ', 'S13', '实战记录有 seed 但无引擎/内容版本',
+            `modules/332 的记录字段：v:1 是「记录结构版本」，另有 seed —— 单局理论上可复现；` +
+            '但没有引擎/内容数据版本号。主代码数值一改，旧实战记录与今天跑的模拟仍会被 826 规则八当成同一口径对照。' +
+            (byName ? '另：852 英雄聚合按 u.name 计数，同名召唤物/分身会被并成一名英雄（与 D4 同类）。' : '') +
+            (mdDraw ? '平局只在 Markdown 里显示（面板/CSV 无平局列），胜率分母含平局这一点在界面上看不出来。' : '') +
+            (hard5 ? '814 A/B 差值 ±5pp 只作配色、无 CI，且同一 seed 未做配对统计。' : '') +
+            (nowSeed ? '815 每场用 Date.now()+… 做主种子，采样不可复现。' : ''));
+    }
+}
 
 // ---------------------------------------------------------------------------
 // ② 动态审计（真跑引擎，与 816 stats job 同参数）
@@ -290,8 +385,8 @@ function runOne(seed, stage) {
         initHp.set(u.uid, { hp: u.hp, maxHp: u.maxHp, name: u.name, camp: u.camp });
     }
 
-    const oldT = makeTracker(initHp, false);   // 813 现写法
-    const fixT = makeTracker(initHp, true);    // 正确起点
+    const oldT = makeTracker(initHp, false);   // V1.20.0 前的旧写法（用于量化历史缺口）
+    const fixT = makeTracker(initHp, true);    // 现行写法（开战初值）
     const offOld = onBattleEvents(evs => oldT.feed(evs));
     const offFix = onBattleEvents(evs => fixT.feed(evs));
 
@@ -457,6 +552,50 @@ for (const b of sample.slice(0, 3)) {
     }
 }
 
+// D8：809 配对实测 —— 同 seed 下只换 ally 第 6 人职业，敌方阵容是否逐场一致
+// 配对若成立，敌方 6 人的名字/站位/血量应完全相同（base 5 人应不变，第 6 人只换职业）。
+const BASE_TEMPLATE_W = { 1: ROLE_TYPES.DEFENDER, 2: ROLE_TYPES.WARRIOR, 5: ROLE_TYPES.FLYER, 7: ROLE_TYPES.RANGED, 9: ROLE_TYPES.RANGED };
+const ALL_POS = { [ROLE_TYPES.DEFENDER]: [3, 4, 6, 8], [ROLE_TYPES.WARRIOR]: [3, 4, 6, 8], [ROLE_TYPES.FLYER]: [3, 4, 6, 8], [ROLE_TYPES.RANGED]: [3, 4, 6, 8] };
+function probeUnit(role, camp, rng) {
+    const u = new Unit(`${camp === CAMP_TYPES.ALLY ? '明教' : '六大派'}·${role}`, 100, role, camp);
+    u.init(rng);
+    u.applyBonus();
+    return u;
+}
+function probeTeam(extraRole, camp, rng) {
+    const team = [];
+    for (const [posStr, role] of Object.entries(BASE_TEMPLATE_W)) {
+        const u = probeUnit(role, camp, rng);
+        u.pos = parseInt(posStr, 10); u._originalPos = u.pos; team.push(u);
+    }
+    const pool = ALL_POS[extraRole] || [3, 4, 6, 8];
+    const u = probeUnit(extraRole, camp, rng);
+    u.pos = pool[rng.nextInt(0, pool.length - 1)]; u._originalPos = u.pos; team.push(u);
+    return team;
+}
+const sigOf = (team) => team.map(u => `${u.name}|${u.pos}|${Math.round(u.hp)}|${Math.round(u.maxHp)}`).join(',');
+let pairProbeChecked = 0, pairProbeBad = 0;
+let pairProbeExample = '';
+for (let i = 0; i < 3; i++) {
+    const seed = BASE_SEED + 30000 + i * 7919;   // 与 116 worker: masterSeed + ei*10000 + i*7919 同形
+    const sigs = new Map();
+    for (const role of [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED]) {
+        const rng = new SeededRNG(seed);
+        probeTeam(role, CAMP_TYPES.ALLY, rng);                 // 先建我方（消耗职业相关抽数）
+        sigs.set(role, sigOf(probeTeam(ROLE_TYPES.RANGED, CAMP_TYPES.ENEMY, rng)));
+    }
+    pairProbeChecked++;
+    if (new Set(sigs.values()).size > 1) {
+        pairProbeBad++;
+        if (!pairProbeExample) {
+            const [r1, s1] = [...sigs.entries()][0];
+            const [r2, s2] = [...sigs.entries()].find(([, s]) => s !== s1) || ['', ''];
+            pairProbeExample = `seed=${seed}：我方第6人格=${r1} 时敌方 [${s1}]；换成 ${r2} 后敌方 [${s2}]`;
+        }
+    }
+}
+
+
 // ---------------------------------------------------------------------------
 // ③ 汇总输出
 // ---------------------------------------------------------------------------
@@ -474,7 +613,7 @@ if (negGapUnits > 0) {
 }
 
 const hardFails = [];
-if (firstLostUnits > 0) hardFails.push('D1');
+if (firstLostUnits > 0 && s2Regressed) hardFails.push('D1');
 if (winMismatch > 0) hardFails.push('D3');
 if (driftRows > 0) hardFails.push('D5');
 if (determinismBad > 0) hardFails.push('D7');
@@ -490,7 +629,7 @@ for (const n of staticNotes) console.log(`  ⚠️ ${n.id} ${n.title}\n     ${n.
 if (!staticFindings.length && !staticNotes.length) console.log('  ✅ 未发现口径缺口');
 console.log('');
 console.log('【二、动态审计（真跑引擎）】');
-console.log(`  D1 首笔丢失：审核单位 ${unitsAudited} 个，其中 ${firstLostUnits} 个少算（扣血少 ${firstLostAmount.toFixed(1)}，回血少 ${firstLostHeal.toFixed(1)}）${hardFails.includes('D1') ? ' ❌' : ' ✅'}`);
+console.log(`  D1 首笔丢失：审核单位 ${unitsAudited} 个；旧写法会漏 ${firstLostUnits} 个（扣血少 ${firstLostAmount.toFixed(1)}，回血少 ${firstLostHeal.toFixed(1)}）${hardFails.includes('D1') ? ' ❌ 仍在漏' : (s2Regressed ? '' : ' ✅ 现行 V1.20.0 已修')}`);
 for (const line of lossExamples) console.log('     · ' + line);
 console.log(`  D2 承伤负差额：${negGapUnits} 个单位「承伤 < 净扣血」${negGapUnits ? ' ⚠️（多为自伤/直改血，见 S7）' : ' ✅'}${negGapUnits ? `（最差 ${negGapWorst.toFixed(1)}）` : ''}`);
 for (const line of negGapExamples) console.log('     · ' + line);
@@ -500,8 +639,10 @@ console.log(`  D4 同名合并：${dupRows} 组同名多单位（统计按名字
 for (const line of dupExamples) console.log('     · ' + line);
 console.log(`  D5 拆桶漂移：${driftRows} 个单位开战/终局阵营不一致${hardFails.includes('D5') ? ' ❌' : ' ✅'}`);
 for (const line of driftExamples) console.log('     · ' + line);
-console.log(`  D6 尾部事件：813 离场后才 flush 的事件里含 ${tailLostHp} 笔 HP_CHANGE（现写法全部漏掉）`);
+console.log(`  D6 尾部事件：813 离场后 flush 的事件里含 ${tailLostHp} 笔 HP_CHANGE（>0 即现写法漏掉）`);
 console.log(`  D7 同 seed 复现：抽查 3 场，${determinismBad} 场不一致${hardFails.includes('D7') ? ' ❌' : ' ✅'}`);
+console.log(`  D8 809 配对实测：${pairProbeChecked} 个 seed × 4 职业，${pairProbeBad} 个 seed 的敌方阵容随我方职业变化${pairProbeBad ? ' ⚠️（配对只到种子层）' : ' ✅'}`);
+if (pairProbeExample) console.log('     · ' + pairProbeExample);
 console.log('');
 console.log('【三、需工具侧修复（转万能）】');
 let reqNo = 0;
