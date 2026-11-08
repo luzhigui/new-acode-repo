@@ -1,14 +1,16 @@
 // modules/302-elite-skills.js — 精英技能公共实现（小昭蛛变/飞天/蛛袭、乾坤减伤、永久海克斯查询）
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
-export const VER = 'modules/302-elite-skills.js V6.3.3';
+export const VER = 'modules/302-elite-skills.js V6.3.4';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
 import { hasBuff, canBeTargeted } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
+import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
+import { registerRoundHook } from '../core/208-registry-elite.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 // 玄冥二老 — 中毒/鹿角
@@ -303,3 +305,28 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
 registerQuery('xiaoHexEnhance', getXiaoZhaoHexEnhance);
 registerQuery('xiaoPermanentActive', isXiaoZhaoPermanentActive);
 registerQuery('damageModifiers', applyDamageModifiers);
+
+// 飞行·猎杀成长（全局机制，不属于某个角色）：每击杀 1 名敌人，攻击永久 +2；非必中单位同时
+//   未命中率 +6 个百分点（getMissBreakdown 里 _missChanceBonus 按百分点直接相加）。
+//   作用范围：只给明教（我方）飞行单位——敌方飞行击杀不成长（老板口径：默认只我方）。
+//   必须经 registerRoundHook 每回合重挂：core/210 每回合 eventBus.clearAll()，顶层直接挂会第一回合后失效。
+export function registerFlyerKillGrowth() {
+    registerSettlementHook({
+        when: SIGNAL_TYPES.ON_UNIT_DEATH,
+        priority: L.ON_UNIT_DEATH.XIAO_CARRY_COUNT + 1,
+        handler: (data) => {
+            for (const dead of (data.deadUnits || [])) {
+                if (dead.camp === CAMP_TYPES.ALLY) continue;        // 只算杀敌，队友误伤/自损不计
+                const killerUid = dead.state && dead.state._killerUid;   // core/214 applyStatChange 致命伤害时写入
+                if (!killerUid) continue;
+                const all = [...(data.allySide || []), ...(data.enemySide || [])];
+                const killer = all.find(u => u.uid === killerUid);
+                if (!killer || !killer.alive || killer.role !== ROLE_TYPES.FLYER) continue;
+                if (killer.camp !== CAMP_TYPES.ALLY) continue;      // 只给明教飞行单位
+                addMod(killer, 'atk', { source: '飞行·猎杀', value: 2, ttl: 'permanent', group: 'flyerKill', op: 'add' });
+                if (!killer.state._neverMiss) killer.state._missChanceBonus = (killer.state._missChanceBonus || 0) + 6;
+            }
+        }
+    });
+}
+registerRoundHook(registerFlyerKillGrowth);

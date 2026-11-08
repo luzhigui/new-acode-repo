@@ -209,6 +209,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _bloodthirstStriked:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _xingFenExtraAttacking:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 飞行击杀惩罚：每击杀 1 人累加，攻击时叠加到未命中率（必中单位无效）
+    _missChanceBonus:        { type: STATE_FIELD_TYPES.NUMBER, default: 0 },
     _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },

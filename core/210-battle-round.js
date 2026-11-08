@@ -1,7 +1,7 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
 // V6.3.34 | 2026-11-07 第 184 轮：finalizeRoundEnd 败方归零改调 killUnit（死亡收口统一出口，
 //          补记 V6.3.33 未升版的实质改动——此前直调 applyStatChange 带 ignoreCap，绕开了单一出口）
-export const VER = 'core/210-battle-round.js V6.3.34';
+export const VER = 'core/210-battle-round.js V6.3.35';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -15,7 +15,7 @@ import { installDeclaredSkills, installFromGameData } from './216-skill-mechanis
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 import { clearAllWatchers } from './220-unit-watch.js';
 
-import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced } from './208-registry-elite.js';
+import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced, getRoundHooks } from './208-registry-elite.js';
 import { processUnitAttack } from './209-battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/101-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng } from './214-battle-shared.js';
@@ -150,6 +150,8 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     clearEliteDodgeRules();
     // 选目标过滤器同上：挂在旧回合闭包上的 filter 本回合作废，必须清空后由模块在各自 register() 里重挂
     clearTargetFilters();
+    // 模块级全局钩子（clearAll 会清掉顶层注册）：模块在 208 注册、这里每回合统一重挂
+    for (const fn of getRoundHooks()) fn();
 
     registerWarriorBreakDefense(eventBus);
     registerRangedGrowth(eventBus);

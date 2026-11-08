@@ -137,6 +137,12 @@ export function getMissBreakdown(unit, mySide, oppSide) {
         total = base;
         sources.push({ label: '地面基础', value: base });
     }
+    // 飞行击杀惩罚（_missChanceBonus，单位=百分点）：每击杀 1 名敌人 +6 个百分点未命中
+    const killBonus = unit.state ? (unit.state._missChanceBonus || 0) : 0;
+    if (killBonus > 0) {
+        total += killBonus;
+        sources.push({ label: '飞行杀劫', value: killBonus });
+    }
     // 空列光环：看对方队伍空列；每空一列 −FLY_MISS_EMPTYCOL_REDUCE 个百分点（0.06）
     const emptyCols = countEnemyEmptyCols(oppSide || []);
     if (emptyCols > 0) {

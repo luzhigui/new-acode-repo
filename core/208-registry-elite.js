@@ -3,7 +3,7 @@
 //   加载时序：modules/00reg-mechanics 是全战斗入口统一装载点（先于任何 prepareRoundStart），
 //   模块顶层注册保证开战前就位。
 // 本文件实管 6 类注册面（精英/回合组件/buff变换器/搭档连线/状态迁移/圣火令增强判定），旧名「elite-registry」名不副实。
-export const VER = 'core/208-registry-elite.js V7.5.13';
+export const VER = 'core/208-registry-elite.js V7.5.14';
 
 const eliteRegistry = new Map();
 
@@ -52,3 +52,9 @@ export function isHolyFlameEnhanced(A) { return holyFlameEnhancers.some(fn => fn
 const stateTransitionSpecs = new Map();
 export function registerStateTransition(declType, spec) { stateTransitionSpecs.set(declType, spec); }
 export function getStateTransitionSpec(declType) { return stateTransitionSpecs.get(declType) || null; }
+
+// —— ⑥ 每回合重挂钩子：模块顶层注册 fn，core/210 每回合 eventBus.clearAll() 后逐个调用一次 ——
+//   模块里挂全局 eventBus/结算钩子（如飞行·猎杀成长）必须走这里：顶层直接挂会在第一回合 clearAll 后失效。
+const roundHooks = [];
+export function registerRoundHook(fn) { roundHooks.push(fn); }
+export function getRoundHooks() { return roundHooks; }
