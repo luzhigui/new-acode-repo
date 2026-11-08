@@ -167,12 +167,20 @@ export const SCAN_FILES = [
     './health-rules/234-round-settlement-order.js',
     './health-rules/235-final-unit-consistency.js',
     './health-rules/236-round-boundary.js',
+    // 第 194 轮·存活/胜负/结算链域续（号段 283-288）
+    './health-rules/283-post-death-action.js',
+    './health-rules/284-battle-end-race.js',
+    './health-rules/285-settlement-order.js',
     './health-rules/237-mod-entry-shape.js',
     './health-rules/238-decl-vs-ledger.js',
     './health-rules/239-qiankun-decl-vs-ledger.js',
     './health-rules/240-qiankun-accumulation.js',
     './health-rules/241-round-entry-duplicate.js',
     './health-rules/242-stat-closure.js',
+    './health-rules/267-growth-decl-vs-ledger.js',
+    './health-rules/268-growth-curve-quantity.js',
+    './health-rules/269-panel-stored-vs-ledger.js',
+    './health-rules/270-ttl-expiry-closure.js',
     // 第 192 轮·演出/倒针/回放状态机域（255-258 + 撞号顺延 265-266）
     './health-rules/255-rewind-silent-switch.js',
     './health-rules/256-rewind-account-isolation.js',
@@ -193,7 +201,12 @@ export const SCAN_FILES = [
     './health-rules/245-javelin-range-select.js',
     './health-rules/246-empty-target-explicit.js',
     './health-rules/247-target-selectable-state.js',
-    './health-rules/248-landing-snapshot-consistency.js'
+    './health-rules/248-landing-snapshot-consistency.js',
+    // 第 193 轮·选目标与站位（249~252）
+    './health-rules/249-position-bounds-unique.js',
+    './health-rules/250-swap-permutation-closure.js',
+    './health-rules/251-post-swap-followup.js',
+    './health-rules/252-phantom-fact-completeness.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。

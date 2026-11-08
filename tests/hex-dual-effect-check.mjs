@@ -22,7 +22,18 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/hex-dual-effect-check.mjs V1.0.0';
+export const VER = 'tests/hex-dual-effect-check.mjs V1.1.0';
+
+// V1.1.0 | 2026-11-08：新增 `--keys` 逐条目覆盖模式。
+//   默认模式只证"双档整体有影响"，证不了**每个**海克斯条目都有效：敌方可能只用到 3 个 buff，
+//   另外 12 个永远没被选中，坏了也看不出来。--keys 对 CONFIG.BUFFS 全键做定向对照：
+//   同一局（同 seed/stage）跑两遍 —— 基线（敌方零 buff） vs 定向（敌方只挂该键），
+//   逐键比较「胜负 / 回合数 / 双方总损血」：
+//     · 敌方身上没挂上该键      → 判红（选了但引擎丢了）
+//     · 挂上了但战局零差异      → ⚠ 记录（可能情境未触发，也可能形同虚设，需人工研判）
+//     · 挂上了且战局有差异      → 计入「逐键生效」
+//   门槛口径：职业门槛（BUFF_ROLE_REQUIREMENTS）/ carry 位不满足的键标"跳过"并写明原因，不硬凑。
+
 
 const FP_RE = /^\[指纹\] seed=(\d+) stage=(\d+) winner=(\S+) rounds=(\d+) allyLoss=(-?\d+(?:\.\d+)?) enemyLoss=(-?\d+(?:\.\d+)?)$/;
 
@@ -90,8 +101,94 @@ function selftest() {
     console.log('SELFTEST PASS');
 }
 
-function main() {
+// 逐条目覆盖模式（--keys）：进程内跑 core/206 无头整局，敌方分别挂「零 buff / 单个指定键」。
+//   为什么不用 rules-replay：它的 picker 是确定性轮转，没法按键定向下发，样本量再大也可能漏掉冷门键。
+async function perKey() {
+    const fs = await import('node:fs');
+    globalThis.fetch = async (url) => {
+        const p = fileURLToPath(url);
+        return { ok: true, json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) };
+    };
+    globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+    globalThis.window = globalThis;
+    globalThis.self = globalThis;
+
+    const cfg = await import('../core/201-config-5v5-test.js');
+    await cfg.loadGameData();
+    await cfg.loadHexEnhanceData();
+    await import('./_lib/install-mechanics.mjs');
+    const { initBattleTeams } = await import('../modules/330-battle-init.js');
+    const { SeededRNG } = await import('../infra/102-core-utils.js');
+    const { runBattle } = await import('../core/206-battle-runner.js');
+    const { CAMP_TYPES } = await import('../infra/106-battle-enums.js');
+    const { hasCarryTarget } = await import('../modules/329-buff-tools.js');
+
+    const keys = Object.keys(cfg.CONFIG.BUFFS).sort();
+    const combos = (process.env.HE_KEY_COMBOS || '1:1,2:3,1:5').split(',').map(s => {
+        const [seed, stage] = s.split(':').map(Number);
+        return { seed, stage: stage || 1 };
+    });
+
+    const lossOf = (team) => (team || []).reduce((n, u) => {
+        if (!u) return n;
+        const hp = (u.state && u.state.hp != null) ? u.state.hp : u.hp;
+        const max = (u.state && u.state.maxHp != null) ? u.state.maxHp : (u.maxHp || u._baseMaxHp);
+        return n + (max != null && hp != null ? Math.max(0, max - hp) : 0);
+    }, 0);
+    const fpOf = (r) => (r.winner || 'null') + '|' + r.rounds + '|' + lossOf(r.ally).toFixed(1) + '|' + lossOf(r.enemy).toFixed(1);
+
+    const reds = [], warns = [], passed = [], skipped = [];
+    for (const key of keys) {
+        const def = cfg.CONFIG.BUFFS[key] || {};
+        // 职业门槛：敌方阵容没有该职业 ⇒ 本键对敌方无意义，跳过并写原因（不硬凑成败）
+        const role = cfg.CONFIG.BUFF_ROLE_REQUIREMENTS && cfg.CONFIG.BUFF_ROLE_REQUIREMENTS[key];
+        const keyStats = { applied: 0, diff: 0, combs: 0 };
+        const skipReasons = [];
+        for (const c of combos) {
+            const rng = new SeededRNG(c.seed);
+            const { allyTeam, enemyTeam } = initBattleTeams(c.stage, rng);
+            if (key === 'carry' && !hasCarryTarget(enemyTeam)) { skipReasons.push('stage' + c.stage + ' 敌方无 carry 位'); continue; }
+            if (role && !enemyTeam.some(u => u && u.role === role)) { skipReasons.push('stage' + c.stage + ' 敌方无 ' + role + ' 职业'); continue; }
+            const base = runBattle({ ally: allyTeam, enemy: enemyTeam, seed: c.seed, hexPicker: null, enemyHexPicker: null, collectFacts: false });
+            let lastStep = null;
+            const buff = { key, target: CAMP_TYPES.ENEMY, remaining: 4, name: def.name || key, cols: [1, 2], rows: [1, 2] };
+            const r = runBattle({
+                ally: allyTeam, enemy: enemyTeam, seed: c.seed, hexPicker: null,
+                enemyHexPicker: () => buff, collectFacts: false, onStep: (s) => { lastStep = s; }
+            });
+            keyStats.combs++;
+            // 是否真挂在敌方：先看阵营级 _activeBuffs，再看单位级
+            const campBuffs = (lastStep && lastStep.enemy && lastStep.enemy._activeBuffs) || [];
+            let unitHas = false;
+            for (const u of ((lastStep && lastStep.enemy) || [])) {
+                if (u && (u._activeBuffs || []).some(b => b && b.key === key)) unitHas = true;
+            }
+            const applied = campBuffs.some(b => b && b.key === key) || unitHas;
+            if (applied) keyStats.applied++;
+            const fpBase = fpOf(base), fpKey = fpOf(r);
+            if (fpBase !== fpKey) keyStats.diff++;
+            else if (!applied) reds.push(`敌方从未挂上 ${key}（stage${c.stage} seed${c.seed}）`);
+        }
+        if (!keyStats.combs) { skipped.push(key + '（' + [...new Set(skipReasons)].join('；') + '）'); continue; }
+        if (keyStats.diff === 0) warns.push(`${key}：${keyStats.combs} 局均无差异（挂上 ${keyStats.applied}/${keyStats.combs}）`);
+        else passed.push(`${key}：${keyStats.diff}/${keyStats.combs} 局有差异`);
+    }
+    console.log('=== 逐条目覆盖（敌方定向挂载 vs 零 buff 基线）===');
+    if (passed.length) console.log('  生效：' + passed.join(' ｜ '));
+    if (warns.length) console.log('  ⚠ 零差异：' + warns.join(' ｜ '));
+    if (skipped.length) console.log('  跳过：' + skipped.join(' ｜ '));
+    if (reds.length) {
+        for (const r of reds) console.log('  ❌ ' + r);
+        console.log('RESULT: FAIL — ' + reds.length + ' 项');
+        process.exit(1);
+    }
+    console.log(`覆盖 ${keys.length} 键：生效 ${passed.length} / 零差异 ${warns.length} / 跳过 ${skipped.length}`);
+    console.log('RESULT: PASS');
+}
+
+async function main() {
     if (process.argv.includes('--selftest')) return selftest();
+    if (process.argv.includes('--keys')) return perKey();
     const seedList = process.env.HE_DUAL_SEEDS || '1,2';
     const stageList = process.env.HE_DUAL_STAGES || '1,4,7';
 

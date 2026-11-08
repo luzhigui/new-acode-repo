@@ -9,12 +9,12 @@
 //   ① 开局每个 uid 在终局同一阵营里恰好出现一次（不丢、不重、不换阵营；召唤物额外出现不算）；
 //   ② alive=true ⇒ hp>0；alive=false ⇒ hp<=0.001（复活/尸变若真出反例，先按红看）；
 //   ③ 0 <= hp <= maxHp、maxHp>0、hp/maxHp 为有限数、camp 只能是 ally/enemy；
-//   ④ alive=true 且 state._pendingDeath=true → 观察项（引擎内部标记，可能合法残留；实测 0 例）。
-export const VER = 'tests/health-rules/235-final-unit-consistency.js V1.0.0';
+//   ④ alive=true 且 state._pendingDeath=true → 硬判（V1.0.1 起：UNIT_DEATH 统一出口上线后复查 156 场 0 例，观察项升硬判）
+export const VER = 'tests/health-rules/235-final-unit-consistency.js V1.0.1';
 
 const EPS = 0.001;
 
-function checkSide(startUnits, endUnits, camp, errs, observes) {
+function checkSide(startUnits, endUnits, camp, errs) {
     const endMap = new Map();
     for (const u of endUnits || []) {
         if (!u || u.uid == null) continue;
@@ -42,7 +42,7 @@ function checkSide(startUnits, endUnits, camp, errs, observes) {
         if (u.hp < -EPS) errs.push(label + ' 终局 hp=' + u.hp + ' 为负');
         if (u.alive && !(u.hp > EPS)) errs.push(label + ' 标记 alive 但 hp=' + u.hp + '（存活统计会把尸体算成活人）');
         if (!u.alive && u.hp > EPS) errs.push(label + ' 标记阵亡但 hp=' + u.hp + '（存活统计会把活人算成尸体）');
-        if (u.alive && u.state && u.state._pendingDeath) observes.push(label + ' 终局 alive 但仍挂 _pendingDeath');
+        if (u.alive && u.state && u.state._pendingDeath) errs.push(label + ' 终局 alive 但仍挂 _pendingDeath（待死未结算）');
     }
 }
 
@@ -54,9 +54,9 @@ export const rule235 = {
         if (!Array.isArray(afterA) || !Array.isArray(afterE)) return 'skip';
         if (!beforeA.length && !beforeE.length) return 'skip';
 
-        const errs = [], observes = [];
-        checkSide(beforeA, afterA, '我方', errs, observes);
-        checkSide(beforeE, afterE, '敌方', errs, observes);
+        const errs = [];
+        checkSide(beforeA, afterA, '我方', errs);
+        checkSide(beforeE, afterE, '敌方', errs);
 
         if (errs.length) {
             return { fail: true, msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处）' : '') };
@@ -65,7 +65,6 @@ export const rule235 = {
         const aliveE = afterE.filter(u => u && u.alive).length;
         return {
             fail: false,
-            observe: observes.length ? observes.slice(0, 3).join('；') : undefined,
             msg: '终局存活/名单一致：我方 ' + aliveA + '/' + afterA.length + ' 存活，敌方 ' + aliveE + '/' + afterE.length + ' 存活'
         };
     }

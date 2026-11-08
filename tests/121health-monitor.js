@@ -122,6 +122,11 @@ import { rule245 } from './health-rules/245-javelin-range-select.js';
 import { rule246 } from './health-rules/246-empty-target-explicit.js';
 import { rule247 } from './health-rules/247-target-selectable-state.js';
 import { rule248 } from './health-rules/248-landing-snapshot-consistency.js';
+// 第 193 轮：选目标与站位·统一可选性 + 换位链 + 归因事实（249~252）
+import { rule249 } from './health-rules/249-position-bounds-unique.js';
+import { rule250 } from './health-rules/250-swap-permutation-closure.js';
+import { rule251 } from './health-rules/251-post-swap-followup.js';
+import { rule252 } from './health-rules/252-phantom-fact-completeness.js';
 // 第 193 轮·存活/胜负/回合结算链域（号段 231-236）：只吃原始 fact 流，不读渲染文本
 import { rule231 } from './health-rules/231-revive-chain.js';
 import { rule232 } from './health-rules/232-revive-action-quota.js';
@@ -129,12 +134,20 @@ import { rule233 } from './health-rules/233-battle-end-state.js';
 import { rule234 } from './health-rules/234-round-settlement-order.js';
 import { rule235 } from './health-rules/235-final-unit-consistency.js';
 import { rule236 } from './health-rules/236-round-boundary.js';
+// 第 194 轮·存活/胜负/结算链域续（号段 283-288）
+import { rule283 } from './health-rules/283-post-death-action.js';
+import { rule284 } from './health-rules/284-battle-end-race.js';
+import { rule285 } from './health-rules/285-settlement-order.js';
 import { rule237 } from './health-rules/237-mod-entry-shape.js';
 import { rule238 } from './health-rules/238-decl-vs-ledger.js';
 import { rule239 } from './health-rules/239-qiankun-decl-vs-ledger.js';
 import { rule240 } from './health-rules/240-qiankun-accumulation.js';
 import { rule241 } from './health-rules/241-round-entry-duplicate.js';
 import { rule242 } from './health-rules/242-stat-closure.js';
+import { rule267 } from './health-rules/267-growth-decl-vs-ledger.js';
+import { rule268 } from './health-rules/268-growth-curve-quantity.js';
+import { rule269 } from './health-rules/269-panel-stored-vs-ledger.js';
+import { rule270 } from './health-rules/270-ttl-expiry-closure.js';
 // 第 D6 域（召唤物 / 附身 / 占格，号段 259-264）：召唤 uid 追溯 / 阵亡闭环 / 拒马占格 /
 //   附身窗口成对 / 附身窗口不参战 / 幼狮成长时机
 import { rule259 } from './health-rules/259-summon-uid-trace.js';
@@ -760,9 +773,12 @@ function runRuleChecks(ctx, doc) {
         rule199, rule200, rule230, deathRights184, multiAttack188,
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229,
         rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239, rule240, rule241, rule242,
+        rule267, rule268, rule269, rule270,
         rule255, rule256, rule257, rule258, rule265, rule266,
         rule259, rule260, rule261, rule262, rule263, rule264,
-        rule243, rule244, rule245, rule246, rule247, rule248];
+        rule283, rule284, rule285,
+        rule243, rule244, rule245, rule246, rule247, rule248,
+        rule249, rule250, rule251, rule252];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

@@ -8,13 +8,14 @@
 //     ③ 档位：双海克斯体检默认（121）与主游戏按钮（702）/跑批入口（206）的接线是否还在。
 //   铁律：只读文件 + 只调用导出函数，绝不改主代码；有问题只点名，不自动修。
 // V1.1.0 | 2026-11-08：② 缺子键从"文字推断"升级为**实测归三档**（2g-2 摘掉内存里的
-//   sister.holyFlame.atkBonus 再调 215）。实测结论：215 对圣火令**静默回落普通版 0.3**
-//   （不 throw、不告警）—— 已登记需求，等主代码补显式 throw（参照 cloudBody 的 V6.2.2 做法）。
+//   sister.holyFlame.atkBonus 再调 215）。当前主代码已补显式 throw ⇒ 实测走「显式抛错」档；
+//   若哪天退回静默回落普通版，本件会当场点名。2f 的 needle 同步改指 305 requireSkillParams。
 export const VER = 'tests/hex-enhance-wiring-guard.mjs V1.1.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scanHexKeyRefs } from './_lib/hex-key-refs.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -26,18 +27,6 @@ const notes = [];
 
 function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
 function exists(rel) { return fs.existsSync(path.join(root, rel)); }
-function stripComments(src) {
-    return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
-}
-function walk(dir, out) {
-    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (ent.name === 'node_modules' || ent.name === '.mut' || ent.name === '.git' || ent.name === '.tmp') continue;
-        const p = path.join(dir, ent.name);
-        if (ent.isDirectory()) walk(p, out);
-        else if (/\.(js|mjs)$/.test(ent.name)) out.push(p);
-    }
-    return out;
-}
 function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
 // ── ⓪ 数据面 ───────────────────────────────────────────────────────────
@@ -51,50 +40,14 @@ if (!baseKeys.length) problems.push('⓪ 001 buffs 键集为空');
 notes.push(`⓪ 配置面：普通海克斯 ${baseKeys.length} 键 / sister ${sisterKeys.length} 键 / brother ${brotherKeys.length} 键`);
 
 // ── ① 接线对账：配置键 ↔ 代码引用 ──────────────────────────────────────
-const scanDirs = ['core', 'modules', 'player', 'ui', 'render', 'infra', 'fx']
-    .map(d => path.join(root, d)).filter(d => fs.existsSync(d));
-const sources = [];
-for (const d of scanDirs) walk(d, sources);
-
-// BUFF_TYPES 枚举名 → 值（query('xiaoHexEnhance', …, BUFF_TYPES.X) 的动态派发也算消费）
-const enumMap = {};
-try {
-    const src = read('infra/106-battle-enums.js');
-    const mm = src.match(/export const BUFF_TYPES\s*=\s*Object\.freeze\(\{([\s\S]*?)\}\)/);
-    if (mm) for (const m of mm[1].matchAll(/([A-Z_]+)\s*:\s*'([^']+)'/g)) enumMap[m[1]] = m[2];
-} catch (e) { /* 枚举文件缺失由其他规则点名 */ }
-
-const refs = { sister: {}, brother: {} };
-function addRef(section, key, where) {
-    if (!key) return;
-    if (!refs[section][key]) refs[section][key] = [];
-    refs[section][key].push(where);
-}
-for (const f of sources) {
-    const rel = path.relative(root, f).replace(/\\/g, '/');
-    const src = stripComments(fs.readFileSync(f, 'utf8'));
-    for (const m of src.matchAll(/getSisterHexEnhance\s*\(\s*'([A-Za-z0-9_]+)'/g)) addRef('sister', m[1], rel);
-    for (const m of src.matchAll(/getBrotherHexEnhance\s*\(\s*'([A-Za-z0-9_]+)'/g)) addRef('brother', m[1], rel);
-    // getSkillParams('小昭','hexEnhance').key / ?.key
-    for (const m of src.matchAll(/getSkillParams\s*\(\s*'小昭'\s*,\s*'hexEnhance'\s*\)\s*[?.]*\.\s*([A-Za-z_$][\w$]*)/g)) {
-        addRef('sister', m[1], rel);
-    }
-    // const hexEnhanceParams = getSkillParams(...)  → hexEnhanceParams.key
-    // 只认「键名属于 15 个真实海克斯」的属性，避免把同名变量的无关字段（.js/.find/.length…）算成消费方
-    for (const m of src.matchAll(/([A-Za-z_$][\w$]*)\s*=\s*getSkillParams\s*\(\s*'小昭'\s*,\s*'hexEnhance'\s*\)/g)) {
-        const varName = m[1];
-        const re = new RegExp(varName.replace(/[$]/g, '\\$&') + '\\s*[?.]*\\.\\s*([A-Za-z_$][\\w$]*)', 'g');
-        for (const k of src.matchAll(re)) {
-            if (baseKeys.indexOf(k[1]) >= 0) addRef('sister', k[1], rel);
-        }
-    }
-    // query('xiaoHexEnhance', …, BUFF_TYPES.X)
-    for (const m of src.matchAll(/query\s*\(\s*'xiaoHexEnhance'[\s\S]{0,240}?BUFF_TYPES\.([A-Z_]+)/g)) {
-        const v = enumMap[m[1]];
-        if (v) addRef('sister', v, rel);
-        else problems.push('① ' + rel + ' 传了未登记的 BUFF_TYPES.' + m[1] + '（无法对账海克斯键）');
-    }
-}
+// 扫描口径唯一来源：tests/_lib/hex-key-refs.mjs（本件与 hex-config-closure-check 共用，
+//   避免「变量式访问 / BUFF_TYPES 动态派发」这类规则只在一份实现里更新、另一份漏跟）
+const { refs, problems: scanProblems } = scanHexKeyRefs({
+    root,
+    relDirs: ['core', 'modules', 'player', 'ui', 'render', 'infra', 'fx'],
+    baseKeys
+});
+for (const p of scanProblems) problems.push(p);
 
 for (const section of ['sister', 'brother']) {
     const cfgKeys = section === 'sister' ? sisterKeys : brotherKeys;
@@ -272,10 +225,14 @@ try {
 }
 
 // 2f 显式 throw 护栏是否仍在（静态点名）
+//   2026-11-08 更新：302/317 的内联 throw 已收口到共享 helper 305 requireSkillParams（缺参即抛
+//   `缺技能参数: <角色>.<技能>`），needle 随之改指 helper + 「是否仍走 helper 取 002」，
+//   不再按旧文案判红（旧 needle 会让主代码正当重构后常年假红）。
 const guardFiles = [
     ['modules/329-buff-tools.js', '002-hex-enhance.json 缺 sister.', 'sister.<key>.extraDuration 显式 throw'],
-    ['modules/302-elite-skills.js', "缺技能参数: 小昭.hexEnhance", '缺整段显式 throw'],
-    ['modules/317-elite-mingjiao.js', "缺技能参数: 小昭.hexEnhance", '缺整段显式 throw']
+    ['305-elite-helpers.js', '缺技能参数: ${characterName}.${skillKey}', 'requireSkillParams 缺参抛错'],
+    ['modules/302-elite-skills.js', "requireSkillParams('小昭', 'hexEnhance')", '姊强化取 002 仍走 requireSkillParams（缺整段抛错）'],
+    ['modules/317-elite-mingjiao.js', "002-hex-enhance.json 缺 sister.holyFlame", '缺 sister.holyFlame 显式 throw']
 ];
 for (const [rel, needle, label] of guardFiles) {
     if (!exists(rel)) { problems.push('② 护栏文件缺失：' + rel); continue; }
