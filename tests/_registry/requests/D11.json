@@ -40,8 +40,39 @@
       "state": "merged",
       "mergedAt": "2026-11-08 21:40",
       "mergedSha": "c47e6f53"
+    },
+    {
+      "id": 294,
+      "name": "女装改目标·不忍下手(回归)",
+      "file": "tests/health-rules/294-double-face-retarget.js",
+      "exportName": "rule294",
+      "state": "pending",
+      "requestedAt": "2026-11-08 22:12",
+      "ready": {
+        "mergedCode": true,
+        "replayGreen": true,
+        "renderE2E": false,
+        "caseFile": true
+      },
+      "case": "tests/d11-double-face-retarget-case.mjs",
+      "evidence": "提交 227e3382 起女装改为「不做目标过滤 + AFTER_SELECT_TARGET 统一改打攻击方自己队友」；本规则按真值判：留痕必落地、改后必须同阵营、女装期她绝不成为最终目标、报「身边无可替代之人」时账面不许还有活队友。",
+      "note": "女装规则专用号 294（D11 号段最后一格）；需框架会话登记 121/123/124。"
     }
   ],
-  "updatedAt": "2026-11-08 21:40",
-  "updatedBy": "框架会话（仲裁回填）"
+  "upgrades": [
+    {
+      "id": 289,
+      "ver": "V1.1.0",
+      "note": "补「原目标是谁」：phantomFact 需带 origTargetName/origTargetUid（字段未落地前按 observe 记账，见 known-transfers）",
+      "at": "2026-11-08 22:12"
+    },
+    {
+      "id": 292,
+      "ver": "V1.1.0",
+      "note": "补判据④ 叠加最终目标：癫报幕目标、phantomConfuse 留痕目标必须与实际出手目标一致（惑心+癫/女装叠加）",
+      "at": "2026-11-08 22:12"
+    }
+  ],
+  "updatedAt": "2026-11-08 22:12",
+  "updatedBy": "D11 体检会话（控制与意识·女装新机制补口）"
 }

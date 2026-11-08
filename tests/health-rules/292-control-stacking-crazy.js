@@ -15,18 +15,24 @@
 //      （免疫分支的开场白落在免疫块之后，仍属本击，故按「本回合 + 名字」认，不要求嵌在攻击组里）；
 //   ③ 持有者自指：传染源与目标同一 uid（自己传自己＝癫卡死）——与 190 的重合部分只作兜底，
 //      190 已按名字链判，本规则按 uid 判，两者独立。
+//   ④ 【V1.1.0】叠加后的最终目标：癫开场白点名的目标必须与「本回合最近一次该单位出手」的最终目标一致；
+//      若这一击带 phantomConfuse（惑心/蝶舞迷心/幻影伪装/双面观音），留痕目标也必须与最终目标一致。
+//      典型病：惑心（core/215 applyMindControlCore）或女装把目标改成自己队友后，报幕/留痕仍写原随机目标，
+//      或者后续钩子把癫已选目标静默改写，最终战力打 A、战绩记 B —— 归因链断在这一环。
 //
 // 误报规避：本场既没有癫开场白、开局也没有 _isCrazy 单位 → skip；
-//   同名克隆（拒马等召唤物）按名字认留痕，宁漏勿误。
+//   同名克隆（拒马等召唤物）按名字认留痕，宁漏勿误；报幕前后找不到对应出手时只 observe，不染红。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
-export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.0.0';
+export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.1.0';
 
 const RE_OPEN = /🤪 (.+?) 受到「癫」的影响/;
+const RE_OPEN_TARGET = /🤪 (.+?) 受到「癫」的影响，不分敌友地向 (.+?) 发起攻击/;
 const RE_TRANSFER = /🤪 (.+?) 将「癫」传染给了 (.+?)$/;
 const RE_DEATH = /🤪 「癫」随着 (.+?) 的死亡传给了 (.+?)$/;
 const RE_BACK = /🤪 「癫」找不到攻击者，回到了 (.+?) 身上$/;
 const RE_RANDOM = /🤪 周颠已阵亡，「癫」随机传给了 (.+?)$/;
+const TARGET_EVENTS = [FACT_TYPES.ATTACK, FACT_TYPES.MISS, FACT_TYPES.DODGE, FACT_TYPES.IMMUNE];
 
 function stripTags(s) {
     return String(s || '').replace(/<[^>]+>/g, '');
@@ -88,11 +94,28 @@ export const rule292 = {
 
         const fails = [];
         let holderAttacks = 0;
+        let lastStrike = null;   // 最近一次出手（含非持有者），供 ④ 对齐报幕与最终目标
+        let unpairedN = 0;       // 报幕前后找不到对应出手 → observe，不染红
         for (let i = 0; i < fs.length; i++) {
             const f = fs[i];
             if (!f || !f.factType) continue;
             const d = f.data || {};
             const r = roundAt[i];
+
+            // ④ 前置：记录本回合最近一次出手的最终目标 + 本击留痕目标
+            if (TARGET_EVENTS.indexOf(f.factType) >= 0) {
+                const a = f.factType === FACT_TYPES.ATTACK ? (d.attacker || d.unit) : d.attacker;
+                const t = (f.factType === FACT_TYPES.DODGE ? d.dodger : d.target) || d.target;
+                if (a && t) {
+                    const pd = (d.phantomFact && d.phantomFact.data) || null;
+                    lastStrike = {
+                        round: r, name: a.name, uid: a.uid,
+                        targetName: t.name,
+                        phantomTargetName: pd ? pd.targetName : null,
+                        phantomSource: pd ? pd.sourceSkill : null
+                    };
+                }
+            }
 
             if (f.factType === FACT_TYPES.SKILL_ANNOUNCE && d.skillName === '癫') {
                 const note = stripTags(d.note);
@@ -100,6 +123,21 @@ export const rule292 = {
                 if ((m = note.match(RE_OPEN))) {
                     if (d.unitUid != null) holderUids.add(d.unitUid);
                     if (m[1]) holderNames.add(m[1]);
+                    // ④ 报幕目标 = 实际最终目标；留痕目标 = 实际最终目标
+                    const mt = note.match(RE_OPEN_TARGET);
+                    if (!mt || !lastStrike || lastStrike.round !== r || lastStrike.name !== m[1]) {
+                        unpairedN++;
+                    } else {
+                        if (mt[2] !== lastStrike.targetName) {
+                            fails.push('第' + r + '回合 癫报幕点名「' + mt[2] + '」，实际出手目标是「'
+                                + lastStrike.targetName + '」（叠加改写后报幕口径错位）');
+                        }
+                        if (lastStrike.phantomSource && lastStrike.phantomTargetName !== lastStrike.targetName) {
+                            fails.push('第' + r + '回合 癫叠加「' + lastStrike.phantomSource + '」后留痕指向「'
+                                + lastStrike.phantomTargetName + '」，实际最终目标是「' + lastStrike.targetName
+                                + '」（惑心+癫叠加最终目标不一致）');
+                        }
+                    }
                 } else if ((m = note.match(RE_TRANSFER))) {
                     if (d.unitUid != null) holderUids.delete(d.unitUid);
                     if (d.floatUid != null) holderUids.add(d.floatUid);
@@ -144,6 +182,9 @@ export const rule292 = {
             return { fail: true, msg: '癫（控制叠加）违规 ' + fails.length + ' 处：' + fails.slice(0, 4).join('；') };
         }
         if (holderAttacks === 0 && announceN === 0) return 'skip';
-        return { fail: false, msg: '癫必中/无视闪避与报幕一致：持有者出手 ' + holderAttacks + ' 次，报幕 ' + announceN + ' 条' };
+        const observe = unpairedN > 0
+            ? '癫开场白前后找不到对应出手 ' + unpairedN + ' 条（采集顺序/报幕时机待核，按 observe 记账）'
+            : null;
+        return { fail: false, observe, msg: '癫必中/无视闪避与报幕一致：持有者出手 ' + holderAttacks + ' 次，报幕 ' + announceN + ' 条' };
     }
 };
