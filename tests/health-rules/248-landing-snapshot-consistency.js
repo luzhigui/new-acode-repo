@@ -11,7 +11,12 @@
 // 宁漏勿误：只认「同一单位下一次露面」；中间若又出现该单位的新位移宣告，直接改期望值；
 //   中间被其它不发位移事实的机制静默挤走，也会落成不一致——这种样本先按观察项上报，
 //   等实测确认误报率后再决定是否升硬判据（纪律：0 误报才升硬）。
-export const VER = 'tests/health-rules/248-landing-snapshot-consistency.js V1.0.0';
+// 为什么 2026-11-08 仍不升硬（缺取证面，已在 known-transfers.md 登记）：
+//   位移出口不止三处宣告：主代码还有直接调 moveUnitPosition 而不发 fact 的路径
+//   （阵亡补位/复活归位/召唤占格等），fact 流里看不到这些「静默改位」，导致 11/94 的偏差无法判定。
+//   缺什么才能立硬判据：核心位移出口（core/214 moveUnitPosition）统一产一条 MOVE fact
+//   { uid, fromPos, toPos, reason }（含静默路径），体检侧才能把「宣告落点 vs 下次露面」闭合成硬账。
+export const VER = 'tests/health-rules/248-landing-snapshot-consistency.js V1.1.0';
 
 function addExpected(map, uid, pos, label) {
     if (uid == null || typeof pos !== 'number') return;

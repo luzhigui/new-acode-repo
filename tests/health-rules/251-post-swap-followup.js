@@ -7,8 +7,14 @@
 //   attacker / target / dodger / pass 主体出场。出场＝仍能被战报与后续结算看见；
 //   一整个回合都不出场，可能是已经行动过、死亡、或被控制跳过——不能直接判错，
 //   所以只给覆盖率，等主代码侧确认哪些属于「换位后被锁死」再升硬判。
+// 为什么 2026-11-08 仍不升硬（缺取证面，已在 known-transfers.md 登记）：
+//   「该出场却没出场」要区分合法跳过（本回合已行动过 / 前压·冲刺消耗行动权 / 被控 / 阵亡）与真锁死，
+//   但 fact 流里没有逐单位的 action-skip 证据：
+//     ① 缺 REQUEST 或 ACTION_SKIP fact（uid + round + skipReason: acted/stunned/flown）；
+//     ② 攻击/位移 fact 缺 _requestId，无法判定「这次位移是否消耗了该单位的行动权」。
+//   补齐后才能把「未出手且无合法跳过理由」升成硬判据。
 // 数据源：skillAnnounce(advanceTo) / windAssaultPush / mindControlSwap 的位移宣告 + 后续快照。
-export const VER = 'tests/health-rules/251-post-swap-followup.js V1.0.0';
+export const VER = 'tests/health-rules/251-post-swap-followup.js V1.1.0';
 
 function isSnapOf(f) {
     var d = f.data || {};

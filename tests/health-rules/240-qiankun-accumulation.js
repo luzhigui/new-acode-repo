@@ -1,10 +1,14 @@
 // tests/health-rules/240-qiankun-accumulation.js
 // 体检观测项：量化「乾坤衍生」单场累积曲线（只报数字，不判红、不设上限）
 //
-// 为什么只观测：
-//   现行实现 ttl='permanent'，无单次上限、无每回合次数上限、无衰减、无清理点；
-//   上限/衰减归主代码待定夺，体检侧不替主代码定规矩，只把「一场能叠到多少」量出来。
-//   一旦主代码定了上限，再按新口径升判据。
+// 为什么只观测（缺取证面，已在 known-transfers.md 登记）：
+//   现行实现 ttl='permanent'，content/001 小昭 qianKunDerived.params 只有 defToReduce/defToHeal/defToAtk，
+//   没有单次上限、没有每回合次数上限、没有衰减、没有清理点，也没有「当前层数/剩余层数」。
+//   缺什么才能立硬判据：
+//     ① 配置侧：limitPerRound / maxStacks / decayPerRound 任一（content 真值）；
+//     ② fact 侧：QIAN_KUN_DERIVED 需带 stackIndex / stackCount / cap（或 capHit 标记），
+//        才好判「越过上限仍加攻」而不是只看总量。
+//   现状只能把「一场能叠到多少」量出来，体检侧不替主代码定规矩。
 //
 // 判据来源（2026-11-08，39 场：种子 1~8 × 关卡 1/3/5/7 + 7 场定向姊妹/韦一笑）：
 //   17 场触发、共 267 次、+545 攻；单场最多 55 次 / +106 攻（seed=8 关卡4 强制小昭·姊）；

@@ -30,7 +30,11 @@ const mechanisms = readJson('mechanisms.json').mechanisms;
 const listFiles = (dir, ext) => fs.readdirSync(dir).filter((f) => f.endsWith(ext)).map((f) => path.join(dir, f));
 const read = (f) => fs.readFileSync(f, 'utf8');
 
-const domainOfSlot = (num) => domains.find((d) => num >= d.slots[0] && num <= d.slots[1])?.id || null;
+// 域归属：主段 slots + 补盲段 extraSlots 都要读（V1.0.1 修 301-309 误报「不属于任何域」）
+const inRange = (num, seg) => Array.isArray(seg) && num >= seg[0] && num <= seg[1];
+const domainOfSlot = (num) => (domains.find((d) =>
+  inRange(num, d.slots) || (Array.isArray(d.extraSlots) && d.extraSlots.some((s) => inRange(num, s))) ) || {}).id || null;
+const allSegs = (d) => [d.slots, ...(Array.isArray(d.extraSlots) ? d.extraSlots : [])];
 
 // ---------- 1. 规则盘点 ----------
 const rules = listFiles(RULES_DIR, '.js').map((file) => {
@@ -103,17 +107,18 @@ line('=== 体检覆盖总账 V1.0.0 ===');
 line(`规则 ${rules.length} 条 / 契约 ${contractIds.length} 条 / 机制 ${mechanisms.length} 项 / 引擎记账 group ${groupNames.size} 个`);
 const legacyCount = rules.filter((r) => r.num < CLAIM_FROM).length;
 const claimed = rules.filter((r) => r.num >= CLAIM_FROM).map((r) => r.num).sort((a, b) => a - b);
-const allSlots = domains.flatMap((d) => Array.from({ length: d.slots[1] - d.slots[0] + 1 }, (_, i) => d.slots[0] + i));
+const allSlots = domains.flatMap((d) => allSegs(d).flatMap((s) => Array.from({ length: s[1] - s[0] + 1 }, (_, i) => s[0] + i)));
 const nextFree = allSlots.find((n) => !claimed.includes(n)) ?? Math.max(CLAIM_FROM - 1, ...claimed) + 1;
 line(`  其中 173–${CLAIM_FROM - 1} 遗留占用 ${legacyCount} 条；${CLAIM_FROM} 起已认领 ${claimed.length} 条${claimed.length ? '（' + claimed.join(',') + '）' : ''}；下一个空闲号 ${nextFree}`);
 line('');
 line('【号段表】历史混合区 123–228 冻结（不再插入新文件）；新文件一律从 229 起按域连续分配');
 for (const d of domains) {
   const legacy = rules.filter((r) => ruleDomains[r.base] === d.id && r.num < CLAIM_FROM).map((r) => r.num).sort((a, b) => a - b);
-  const used = rules.filter((r) => ruleDomains[r.base] === d.id && r.num >= d.slots[0] && r.num <= d.slots[1]).length;
-  const total = d.slots[1] - d.slots[0] + 1;
+  const segs = allSegs(d);
+  const used = rules.filter((r) => ruleDomains[r.base] === d.id && segs.some((s) => r.num >= s[0] && r.num <= s[1])).length;
+  const total = segs.reduce((acc, s) => acc + s[1] - s[0] + 1, 0);
   line(`  ${d.id} 历史占用 ${legacy.length} 条${legacy.length ? '：' + legacy.join(',') : ''}`);
-  line(`     新段 ${d.slots[0]}–${d.slots[1]}  已占 ${used}  剩余 ${total - used}`);
+  line(`     新段 ${segs.map((s) => `${s[0]}–${s[1]}`).join(' / ')}  已占 ${used}  剩余 ${total - used}`);
 }
 line('');
 line('【机制覆盖缺口】');

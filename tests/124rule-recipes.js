@@ -148,7 +148,7 @@ export const RULE_META = {
     '连续播放只从当前步往后(不重演)': { tag: 'generic:通用', note: 'startPlay 从 S.stepIdx 起播、起播前回摆本步之前、resumePlay 不重进 enterReview、跳步夹区间' },
     '播放状态机切换清理(无悬挂演出)': { tag: 'generic:通用', note: '粗拨 cancelRun、细拨 token、startPlay finally 清句柄、exitReview 清 watchdog/playRelease/_rewindCue' },
     '定格与真播同一落账顺序(单一权威)': { tag: 'generic:通用', note: '504 整步落账 2 处（复活+权威），顺序「落账→settle→死亡闪→death→红墨」；定格不落半结算态' },
-    '治疗演出数值与血量迁移同源(观测)': { tag: 'generic:通用', note: '观察项：isHealEntry 的 healAmount 必须有限非负；正文显示值与血量迁移偏离 >1 点只报样例供研判；实测 156 场 69 例偏离，多数为名义治疗量≠有效治疗量' },
+    '治疗演出数值与血量迁移同源(回归)': { tag: 'generic:通用', note: 'isHealEntry 的 healAmount 必须有限非负；正文显示值必须等于同一条正文血量迁移差（≤1 点取整容差），已转硬判并登记转交（实测 69 例偏离待主代码收口）' },
     // 第 193 轮·存活/胜负/回合结算链域（号段 231-236，只吃原始 fact 流）。全部先在 140 场回放量基线，
     //   候选判据 0 误报才升硬判；做不到 0 的降观察项（如复活缺死亡前置）。
     '圣火复活链完整性(回归)': { tag: 'mechanic:死亡结算', note: '死亡→复活→血量/档位一条链；档位/血量已按 reviveTier/reviveRatio/reviveRaw/healAmount 结构化精确核对，缺死亡前置已升硬判（UNIT_DEATH 上线）' },
@@ -189,7 +189,7 @@ export const RULE_META = {
     // 第 192 轮·选目标 / 站位 / 落位（号段 243-248，只吃原始 fact 流）
     '位移载荷越界与自环(回归)': { tag: 'generic:通用', note: '位移载荷 from/to 必须 1~9 且 from≠to；换位落点不得重复；156 场 0 误报' },
     '击退换位载荷自洽(回归)': { tag: 'generic:通用', note: '击退落 behindPos、后方单位落 oldPos，两者不得同格且换位来源必须对上；156 场 0 误报' },
-    '标枪选靶射程(观测)': { tag: 'generic:通用', note: '标枪按 rangeByRow 选靶；实测 63 次可判出手 2 次射程外（唐文亮带 skillAnnounce 的攻击组，待定位），先观察' },
+    '标枪选靶射程(回归)': { tag: 'generic:通用', note: '标枪按 rangeByRow 选靶（射程表读 getGameData 真值，不抄常量）；实测 63 次可判出手 2 次射程外（唐文亮带 skillAnnounce 的攻击组），已转硬判并登记转交' },
     '空目标显式落账(回归)': { tag: 'generic:通用', note: '攻击类事实必须带目标 uid；emptyTarget 必须带攻击者+原因；156 场 0 误报' },
     '目标可选性统一口径(回归)': { tag: 'generic:通用', note: '跨机制一条口径：快照即时态(存活/蝶蛛/附身) + 女装窗口 + 布袋 _untargetable 窗口；156 场 0 误报' },
     '位移落位后快照一致(观测)': { tag: 'generic:通用', note: '宣告位移后该单位下次露面应在落点；实测 94 次核对 11 次不一致，先观察' },
@@ -204,7 +204,27 @@ export const RULE_META = {
     '拒马占格生命周期闭环(回归)': { tag: 'mechanic:拒马阵', note: '拒马每回合落位、回合末概率消散；需本局选到「巨马阵」才有样本，未选到即 skip（不报红）' },
     '蝶变附身窗口成对与宿主归属(回归)': { tag: 'hero:小昭', note: '小昭·姊强制上阵即有样本；HOST_DEAD 的 hostUid 缺口已由主代码修正（进函数先存 hostUidBeforeClear），本条留作回归护栏' },
     '附身窗口内小昭不参战(回归)': { tag: 'hero:小昭', note: '窗口内以她 uid 的攻击结算必须为 0（她 _acted/_untargetable），156 场 364 个窗口 0 违规' },
-    '幼狮成长时机与形态口径(回归)': { tag: 'hero:谢逊', note: '数值本身由 161 负责；本条只管时机（晚于召唤一回合）、每只一次、pos→雄/母狮映射（frontMax 取 content 真值）' }
+    '幼狮成长时机与形态口径(回归)': { tag: 'hero:谢逊', note: '数值本身由 161 负责；本条只管时机（晚于召唤一回合）、每只一次、pos→雄/母狮映射（frontMax 取 content 真值）' },
+    // 2026-11-08 补登：以下 15 条此前只落盘、未进执行面（121/123/124 三处齐登）
+    // D9 海克斯域 277-280
+    '圣火不熄复活比例与次数(姊/妹)': { tag: 'mechanic:海克斯', note: '002 sister/brother holyFire 配置 ↔ 复活比例/次数落地；团队名额与妹独立名额分开判，落地同源（healAmount=min(round(maxHp×ratio),缺口)）' },
+    '严阵以待反弹姊强化(回血+阵营)': { tag: 'mechanic:海克斯', note: '严阵反弹按防御者阵营取 allyBuffs_fortify；姊判定须同阵营（跨阵营误吃登记转交）' },
+    '惑心换位姊强化扣血比例': { tag: 'mechanic:海克斯', note: 'MIND_CONTROL_SWAP 的 hpPct 按 002 配置对账；换位概率/眩晕仍需载荷（见 known-transfers）' },
+    '马阵姊强化反弹值/触发阵营': { tag: 'mechanic:海克斯', note: '马阵 reboundDmg 按配置对账；反弹判定须攻击者阵营≠马阵营（跨阵营反弹登记转交）' },
+    // D11 294
+    '女装改目标·不忍下手(回归)': { tag: 'mechanic:控制', note: '彭莹玉女装窗口内不改打她本人，改打攻击方自己队友；判据随 227e3382 反转为「照常进池 + AFTER_SELECT_TARGET 改打」' },
+    // D14 词条装备与套装 319-323
+    '乘率词条账本vs配置真值': { tag: 'mechanic:词条', note: '乘率词条（op=mul）账本值与配置真值逐条对账，叠乘次序不影响单项落地值（D14）' },
+    '乘率声明与账本双向同源': { tag: 'mechanic:词条', note: '乘率声明分项之和 ↔ 账本实际累计双向对账，禁止只有一侧（D14）' },
+    '词条生命周期与机制语义一致': { tag: 'mechanic:词条', note: '词条 ttl/清理点与机制语义一致：permanent 不得被回合清理、round 必须回合清理、阵亡复活不得叠加（D14）' },
+    '妹背水词条vs配置与职业真值': { tag: 'mechanic:词条', note: '小昭·妹背水 lastStand 词条数值 ↔ 002 brother.lastStand 配置 + 职业加成真值（D14）' },
+    '飞行猎杀成长战报与账本一致': { tag: 'mechanic:词条', note: '飞行猎杀成长 group=flyerKill 的成长值，战报条目与账本落地同源（D14）' },
+    // D6 补盲段 325-329（蝶变/附身/召唤）
+    '附身关窗后宿主蝶变词条清理(回归)': { tag: 'hero:小昭', note: '窗口关闭（含宿主阵亡分支）必须 removeModsByGroup(host, butterfly) + refreshMaxHp(host)，否则复活后永久吃加成（D6）' },
+    '蝶变关窗载荷·宿主uid与尸体路径(回归)': { tag: 'hero:小昭', note: 'HOST_DEAD 必须带对宿主 uid，尸体路径与活体关窗两条分支载荷一致（D6）' },
+    '召唤者身份归属byName/byUid(回归)': { tag: 'generic:召唤物', note: '召唤物归属按 uid 定，同名召唤者不得混淆（byName 仅回落）' },
+    '召唤物阵亡单一出口对账(回归)': { tag: 'generic:召唤物', note: '召唤物死亡只有一条结算出口，活体名单与死亡事实一一对应' },
+    '存活率/阵容均值口径与虚假单位隔离(回归)': { tag: 'generic:召唤物', note: '存活率/阵容均值分母不含召唤物与虚假单位（蝶/蛛/马/狮等按口径分区统计）' }
 };
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）

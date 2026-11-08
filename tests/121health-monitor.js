@@ -190,6 +190,22 @@ import { rule303 } from './health-rules/303-damage-printed-vs-hp.js';
 import { rule304 } from './health-rules/304-break-def-order-and-zero.js';
 import { rule305 } from './health-rules/305-true-splash-display-source.js';
 import { rule306 } from './health-rules/306-damage-rounding-granularity.js';
+// D9 海克斯 277-280 / D11 294 / D14 319-323 / D6 补盲段 325-329（2026-11-08 补登，此前 15 条只落盘未进执行面）
+import { rule277 } from './health-rules/277-d9-holy-fire-enhance.js';
+import { rule278 } from './health-rules/278-d9-fortify-enhance.js';
+import { rule279 } from './health-rules/279-d9-mind-control-enhance.js';
+import { rule280 } from './health-rules/280-d9-horse-formation-enhance.js';
+import { rule294 } from './health-rules/294-double-face-retarget.js';
+import { rule319 } from './health-rules/319-d10-mod-mul-truth.js';
+import { rule320 } from './health-rules/320-d10-decl-ledger-mul.js';
+import { rule321 } from './health-rules/321-d10-mod-lifecycle.js';
+import { rule322 } from './health-rules/322-d10-brother-laststand-ledger.js';
+import { rule323 } from './health-rules/323-d10-flyer-kill-growth.js';
+import { rule325 } from './health-rules/325-d6-butterfly-host-cleanup.js';
+import { rule326 } from './health-rules/326-d6-butterfly-window-payload.js';
+import { rule327 } from './health-rules/327-d6-summon-authorship.js';
+import { rule328 } from './health-rules/328-d6-summon-death-exit.js';
+import { rule329 } from './health-rules/329-d6-roster-stats-purity.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -810,7 +826,10 @@ function runRuleChecks(ctx, doc) {
         rule253, rule254, rule273, rule274,
         rule283, rule284, rule285,
         rule243, rule244, rule245, rule246, rule247, rule248,
-        rule249, rule250, rule251, rule252];
+        rule249, rule250, rule251, rule252,
+        rule277, rule278, rule279, rule280, rule294,
+        rule319, rule320, rule321, rule322, rule323,
+        rule325, rule326, rule327, rule328, rule329];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

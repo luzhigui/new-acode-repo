@@ -234,7 +234,23 @@ export const SCAN_FILES = [
     './health-rules/249-position-bounds-unique.js',
     './health-rules/250-swap-permutation-closure.js',
     './health-rules/251-post-swap-followup.js',
-    './health-rules/252-phantom-fact-completeness.js'
+    './health-rules/252-phantom-fact-completeness.js',
+    // D9 海克斯 277-280 / D11 294 / D14 319-323 / D6 补盲段 325-329（2026-11-08 补登）
+    './health-rules/277-d9-holy-fire-enhance.js',
+    './health-rules/278-d9-fortify-enhance.js',
+    './health-rules/279-d9-mind-control-enhance.js',
+    './health-rules/280-d9-horse-formation-enhance.js',
+    './health-rules/294-double-face-retarget.js',
+    './health-rules/319-d10-mod-mul-truth.js',
+    './health-rules/320-d10-decl-ledger-mul.js',
+    './health-rules/321-d10-mod-lifecycle.js',
+    './health-rules/322-d10-brother-laststand-ledger.js',
+    './health-rules/323-d10-flyer-kill-growth.js',
+    './health-rules/325-d6-butterfly-host-cleanup.js',
+    './health-rules/326-d6-butterfly-window-payload.js',
+    './health-rules/327-d6-summon-authorship.js',
+    './health-rules/328-d6-summon-death-exit.js',
+    './health-rules/329-d6-roster-stats-purity.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
