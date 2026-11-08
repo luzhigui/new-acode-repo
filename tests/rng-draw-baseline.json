@@ -1,6 +1,6 @@
 {
-  "VER": "tests/rng-discipline-check.mjs V1.2.0",
-  "total": 134,
+  "VER": "tests/rng-discipline-check.mjs V1.3.0",
+  "total": 133,
   "files": {
     "core/202-unit.js": 5,
     "core/203-battle-utils.js": 6,
@@ -36,7 +36,7 @@
     "modules/334-common-absorb.js": 1,
     "modules/335-common-heal-ally.js": 1,
     "modules/336-elite-sixsects-yuanzhen.js": 2,
-    "modules/338-elite-mingjiao-pengyingyu.js": 3,
+    "modules/338-elite-mingjiao-pengyingyu.js": 2,
     "modules/339-elite-mingjiao-zhangzhong.js": 1
   }
 }
