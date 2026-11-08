@@ -4,9 +4,11 @@
 //   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
 // V1.1.2 | 2026-11-07 第 184 轮：幻影迷惑来源词按 fact.sourceSkill 取（幻影伪装 / 蝶舞迷心 / 双面观音），
 //         | 成昆文案逐字不变；旧 fact 仍按 deceiverIsSpider 兜底。
-export const VER = 'render/411-facts-misc.js V1.1.3';
+// V1.1.4 | 2026-11-08 buff 摘要按实际生效档读数：小昭·姊存活在场时用 002 sister 段覆盖普通版，
+//         | 覆盖 圣火令/摄魂/背水一战/众志成城/热血奋战/流云身法/乘风突袭/惑人心智/圣火不熄/概率连击。
+export const VER = 'render/411-facts-misc.js V1.1.4';
 
-import { CONFIG } from '../core/201-config-5v5-test.js';
+import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
 import { makeDotRenderer } from './413-generic-renderers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
@@ -31,20 +33,37 @@ export function renderHorseDestroyFact(fact) {
 }
 
 // Buff 摘要
+// 按「实际生效档」取配置：小昭·姊存活在场 → 002 sister.<key> 覆盖普通版数值；缺段缺键显式报错，不回落。
+//   否则摘要按普通版读数（如圣火令 +30%，实际姊版 +25%），与玩家看到的加成对不上。
+function withSisterValues(key, cfg, allyTeam) {
+    const hasSister = (allyTeam || []).some(u => u.alive && u.isXiaoZhaoSister);
+    if (!hasSister) return cfg;
+    const enh = getSisterHexEnhance(key);
+    if (!enh) throw new Error(`002-hex-enhance.json 缺 sister.${key}`);
+    return { ...cfg, ...enh };
+}
+
 // 统一的海克斯摘要规则表
 const BUFF_SUMMARY_CFG = {
     [BUFF_TYPES.BLOODTHIRST]: { role: ROLE_TYPES.WARRIOR, desc: (cfg) => `攻击吸血${fmtNum(cfg.leechRatio*100)}%` },
-    [BUFF_TYPES.HOT_BLOOD]: { role: 'all', desc: (cfg) => `攻击回血${fmtNum(cfg.leechRatio*100)}%（每3次翻倍）` },
+    [BUFF_TYPES.HOT_BLOOD]: { role: 'all', desc: (cfg) => {
+        // 姊版 leechPct/critPattern（每 3 次里的第 2、3 次翻倍）；普通版按每 3 次翻倍
+        const pct = cfg.leechPct != null ? cfg.leechPct : cfg.leechRatio;
+        const crit = Array.isArray(cfg.critPattern)
+            ? `每3次攻击的第${cfg.critPattern.join('、')}次翻倍`
+            : '每3次翻倍';
+        return `攻击回血${fmtNum(pct*100)}%（${crit}）`;
+    }},
     [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 反弹50%` },
     [BUFF_TYPES.CLOUD_BODY]: { role: 'all', desc: (cfg) => `闪避+${fmtNum(cfg.dodgeBonus*100)}%` },
-    [BUFF_TYPES.WIND_ASSAULT]: { role: ROLE_TYPES.FLYER, desc: () => `80%波及同行 80%击退` },
+    [BUFF_TYPES.WIND_ASSAULT]: { role: ROLE_TYPES.FLYER, desc: (cfg) => `${fmtNum(cfg.hitProb*100)}%波及同行 ${fmtNum(cfg.pushProb*100)}%击退` },
     [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${fmtNum(cfg.bonusRatio*100)}% 溅射${fmtNum(cfg.splashRatio*100)}%（主箭降2防，小箭降1防）` },
     [BUFF_TYPES.CARRY]: { role: 'carry', desc: () => `获得队友属性加成` },
-    [BUFF_TYPES.MIND_CONTROL]: { role: 'none', desc: () => `最前排80%扰乱敌方换位，40%扰乱己方换位` },
-    [BUFF_TYPES.SOUL_DRAIN]: { role: 'none', desc: () => `敌方全体攻击力-30%，防御递减` },
-    [BUFF_TYPES.LAST_STAND]: { role: 'none', desc: () => `生命低于25%时攻击+10%防御-20%且受易伤` },
-    [BUFF_TYPES.UNITY]: { role: 'none', desc: () => `按存活人数阶梯提供攻防加成` },
-    [BUFF_TYPES.HOLY_FIRE]: { role: 'none', desc: () => `每局首次阵亡单位原地复活` },
+    [BUFF_TYPES.MIND_CONTROL]: { role: 'none', desc: (cfg) => `最前排${fmtNum(cfg.enemySwapProb*100)}%扰乱敌方换位，${fmtNum(cfg.allySwapProb*100)}%扰乱己方换位` },
+    [BUFF_TYPES.SOUL_DRAIN]: { role: 'none', desc: (cfg) => `敌方全体攻击力${fmtNum(cfg.atkBonus*100)}%，敌方每多1个存活单位再+${fmtNum(cfg.perUnitBonus*100)}%，防御递减` },
+    [BUFF_TYPES.LAST_STAND]: { role: 'none', desc: (cfg) => `生命低于${fmtNum(cfg.hpThreshold*100)}%时攻击+${fmtNum(cfg.atkBonus*100)}%防御-${fmtNum(cfg.defPenalty*100)}%且受易伤` },
+    [BUFF_TYPES.UNITY]: { role: 'none', desc: (cfg) => `按存活人数阶梯提供攻防加成（首回合补满${fmtNum(cfg.recruitTarget)}人）` },
+    [BUFF_TYPES.HOLY_FIRE]: { role: 'none', desc: (cfg) => `每局${cfg.reviveCount != null ? `前${cfg.reviveCount}次` : '首次'}阵亡单位原地复活` },
     [BUFF_TYPES.HOLY_FLAME]: { role: 'none', desc: (cfg, buff) => {
         const cols = buff.cols || [];
         const rows = buff.rows || [];
@@ -55,10 +74,12 @@ const BUFF_SUMMARY_CFG = {
 };
 
 export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids) {
-    const cfg = CONFIG.BUFFS?.[buff.key];
-    if (!cfg) return null;
+    const baseCfg = CONFIG.BUFFS?.[buff.key];
+    if (!baseCfg) return null;
 
     const allyTeam = (allyTeamUids || []).map(uid => findUnitSnapshotByUid(uid)).filter(u => u);
+    // 实际生效档：小昭·姊在场时用姊版数值，否则普通版
+    const cfg = withSisterValues(buff.key, baseCfg, allyTeam);
 
     // 概率连击统一在此处理
     if (buff.key === BUFF_TYPES.DOUBLE_STRIKE) {
@@ -68,7 +89,9 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids) {
         // doubleStrikeNames：结构化宣告名单（原始单位名，未经任何别名/展示替换），供体检按名字核对，
         //   不必再从下面这行中文拼串里按「、」反解。text 保持原样，只加字段、不改既有语义。
         //   明教（里侧）与六大派（外侧）都走本函数，故两侧都带。
-        return { type: 'buff-summary', text: `<span class="gold">⚡ 概率连击：${units.map(u=>u.name).join('、')} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT, doubleStrikeNames: units.map(u => u.name) };
+        // 概率取实际档：普通版 prob 0.8，姊版 sister.doubleStrike.chance 1.0
+        const chance = cfg.chance != null ? cfg.chance : cfg.prob;
+        return { type: 'buff-summary', text: `<span class="gold">⚡ 概率连击：${units.map(u=>u.name).join('、')} ${fmtNum(chance*100)}%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT, doubleStrikeNames: units.map(u => u.name) };
     }
 
     const rule = BUFF_SUMMARY_CFG[buff.key];
