@@ -1,4 +1,17 @@
-// tests/layer-direction-scan.mjs | V0.3.0 | 2026-10-31
+// V0.4.0 | 2026-11-07 第 188 棒：修「多行 import 全漏」（判据收紧，非放宽）。
+//   由头：第 187 棒交接点名 111-128 行逐行套单行正则，跨行 `import {\n ... \n} from 'x'`
+//   整条解析不到（本工作树只读普查：25 条跨行 named import，现行边集一条都没有）。
+//   历史影响：modules/390-rewind-core.js 曾跨行 import player/505，在 modules 层形成反向边却未被抓，
+//   当时 A 类只报 4 条；该文件现已搬到 ui/727（ui→player 属合法向下），故那段旧账不在当前代码上。
+//   ★ 为什么先修判据而不是「先把翻出来的清干净再修」：漏报期间任何人新写一条跨行反向 import
+//     都不会响；先清存量再修 = 把闸门继续关着修门。红是既有事实显形，不是修出来的。
+//   改法：extractStaticDeps 由「逐行 split('\n') + ^ 单行正则」改成「全文 + gm 语句级正则」，
+//   五种形态不变、RANK / A 类 / B 类 / 基线口径一字未改；按语句起点去重，行号仍取首行。
+//   加两道自证：① extractSelfCheck 纯函数合成源码正负路径（--enforce 每轮必跑）；
+//   ② selfCheck 增「跨行语句解析数」下限，防多行能力被悄悄删掉又退回「恒绿」。
+//   ③ 负路径实证（第 188 棒）：向解析器注入 `crossLine:false` 与「named 正则退回单行」两种退化，
+//      --enforce 分别报 2 条 / 4 条自证失败且 EXIT=1；恢复后 EXIT=0。
+// tests/layer-direction-scan.mjs | V0.4.0 | 2026-11-07
 // 职责：分层依赖方向扫描。把仓库所有 JS 的 static import / re-export 解析成「层 → 层」的边，
 //   按**既有架构铁律**判定，输出 ① 实测量矩阵 ② 反向依赖 ③ 层级循环依赖 ④ 合法但值得记录的隔层直连。
 //
@@ -33,7 +46,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/layer-direction-scan.mjs V0.3.0';
+export const VER = 'tests/layer-direction-scan.mjs V0.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..');
@@ -107,24 +120,80 @@ const relOf = (abs) => path.relative(ROOT, abs).split(path.sep).join('/');
 //   故行号语义与旧手写版一致；额外多识别正则字面量，只会更准（不会把正则里的 // 当注释起点）。
 //   收口后 auditStripCopies 会把它计入「已收口」（判据：剥注释后确有 import 公共件语句）。
 
-// 静态依赖四形态：import{} / import x / import * as / import 'x' / export ... from
+// 静态依赖五形态：import{} / import x（可带 {}）/ import * as / import 'x' / export ... from
+// V0.4.0：全文 gm 语句级解析。旧版逐行 split('\n') 后套 ^ 单行正则，
+//   `import {\n  A,\n  B\n} from 'x'` 的四行没有一行能单独匹配任一形态 ⇒ 整条依赖凭空消失。
+//   ★ 用 [ \t] 与 [ \t\r\n] 显式写空白，不用 \s：m 标志下 \s* 会吞掉前一行换行，
+//     导致语句起点/行号漂移，还会把两条相邻语句粘成一条。
+//   ★ [^}]* 本身匹配换行，故 named / default / re-export 三种花括号形态天然支持跨行。
+//   ★ 同一语句可能被多个形态命中（如 `import Def, {C} from`），按起点排序后去重，
+//     保留 patterns 里靠前的形态，等价旧版「一行只取第一个匹配」的语义。
 function extractStaticDeps(code) {
     const clean = stripCommentsMapped(code).code;
     const patterns = [
-        { re: /^\s*import\s*\{[^}]*\}\s*from\s*['"]([^'"]+)['"]/, kind: 'named' },
-        { re: /^\s*import\s+\*\s+as\s+[\w$]+\s+from\s*['"]([^'"]+)['"]/, kind: 'namespace' },
-        { re: /^\s*import\s+[\w$]+\s*(?:,\s*\{[^}]*\})?\s*from\s*['"]([^'"]+)['"]/, kind: 'default' },
-        { re: /^\s*import\s*['"]([^'"]+)['"]/, kind: 'side-effect' },
-        { re: /^\s*export\s*(?:\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]/, kind: 're-export' }
+        { re: /^[ \t]*import[ \t]*\{[^}]*\}[ \t\r\n]*from[ \t\r\n]*['"]([^'"]+)['"]/gm, kind: 'named' },
+        { re: /^[ \t]*import[ \t\r\n]+\*[ \t\r\n]+as[ \t\r\n]+[\w$]+[ \t\r\n]*from[ \t\r\n]*['"]([^'"]+)['"]/gm, kind: 'namespace' },
+        { re: /^[ \t]*import[ \t\r\n]+[\w$]+[ \t\r\n]*(?:,[ \t\r\n]*\{[^}]*\})?[ \t\r\n]*from[ \t\r\n]*['"]([^'"]+)['"]/gm, kind: 'default' },
+        { re: /^[ \t]*import[ \t\r\n]*['"]([^'"]+)['"]/gm, kind: 'side-effect' },
+        { re: /^[ \t]*export[ \t\r\n]*(?:\*|\{[^}]*\})[ \t\r\n]*from[ \t\r\n]*['"]([^'"]+)['"]/gm, kind: 're-export' }
     ];
-    const deps = [];
-    clean.split('\n').forEach((ln, idx) => {
-        for (const { re, kind } of patterns) {
-            const m = re.exec(ln);
-            if (m) { deps.push({ spec: m[1], line: idx + 1, kind }); break; }
+    const found = [];
+    patterns.forEach(({ re, kind }, prio) => {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(clean))) {
+            found.push({
+                spec: m[1], index: m.index, end: m.index + m[0].length,
+                line: clean.slice(0, m.index).split('\n').length,
+                crossLine: m[0].includes('\n'), kind, prio
+            });
         }
     });
+    found.sort((a, b) => a.index - b.index || a.prio - b.prio);
+    const deps = [];
+    let lastEnd = -1;
+    for (const f of found) {
+        if (f.index < lastEnd) continue;
+        deps.push({ spec: f.spec, line: f.line, kind: f.kind, crossLine: f.crossLine });
+        lastEnd = f.end;
+    }
     return deps;
+}
+
+// 解析器自证（纯函数、与仓库内容无关，--enforce 每轮必跑）：
+//   正路径 = 五种形态各解析一条、其中三条是跨行语句；负路径 = 注释里的 import 不被误判、
+//   主牙 = 五形态归属 / 数量与顺序 / 跨行 3 条 / 行号取首行；注释误判是附加防线（防 ^ 锚被去掉）。
+export function extractSelfCheck() {
+    const issues = [];
+    const sample = [
+        "// import { bogus } from '../evil.js';",
+        "import { A,",
+        "         B } from '../infra/102-core-utils.js';",
+        "import Def, { C,",
+        "              D } from '../core/201-config-5v5-test.js';",
+        "export { E,",
+        "         F } from '../render/401-fact-renderer.js';",
+        "import * as NS from '../fx/608-fx-manager.js';",
+        "import '../ui/702-main-5v5-test.js';",
+        ''
+    ].join('\n');
+    let deps;
+    try { deps = extractStaticDeps(sample); }
+    catch (e) { return [`解析器自证抛错：${e.message}`]; }
+    const specs = deps.map(d => d.spec);
+    const want = [
+        '../infra/102-core-utils.js', '../core/201-config-5v5-test.js',
+        '../render/401-fact-renderer.js', '../fx/608-fx-manager.js',
+        '../ui/702-main-5v5-test.js'
+    ];
+    if (specs.length !== want.length || want.some((s, i) => specs[i] !== s)) {
+        issues.push(`解析器自证失败：应解析 ${want.length} 条依赖且顺序一致，实得 ${JSON.stringify(specs)}`);
+    }
+    const cross = deps.filter(d => d.crossLine).length;
+    if (cross !== 3) issues.push(`解析器自证失败：跨行语句应有 3 条，实得 ${cross}`);
+    const kinds = deps.map(d => d.kind).join(','); if (kinds !== 'named,default,re-export,namespace,side-effect') issues.push(`解析器自证失败：五形态归属应为 named,default,re-export,namespace,side-effect，实得 ${kinds}`); if (specs.includes('../evil.js')) issues.push('解析器自证失败：注释里的 import 被误判为真实依赖');
+    if (deps[0] && deps[0].line !== 2) issues.push(`解析器自证失败：首条跨行 import 行号应为 2，实得 ${deps[0].line}`);
+    return issues;
 }
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'vendor', '展示与CG', '文件汇总20260730', '.workbuddy', 'assets', 'docs']);
@@ -165,7 +234,7 @@ export function collect() {
             if (!toLayer) continue;
             edges.push({
                 from: relOf(f), fromLayer, to: relOf(targetAbs), toLayer,
-                line: d.line, kind: d.kind, spec: d.spec
+                line: d.line, kind: d.kind, spec: d.spec, crossLine: !!d.crossLine
             });
         }
     }
@@ -348,12 +417,15 @@ export function findRefs(targetRel) {
 
 // 自证断言：防扫描器自身腐烂后「恒 0 条」被当成干净（项目里 123static-scan 同样有这道）。// 三条下限依据 2026-10-29 实测（257 文件 / 901 边 / 10 个层有名），留足一半余量，
 // 避免正常增删文件就误报；但解析器正则写坏、路径拼错、目录被跳过时必然击穿。
-export function selfCheck(files, edges, cell) {
-    const issues = [];
+export function selfCheck(files, edges, cell, crossLineCount) {
+    // V0.4.0：解析器纯函数自证必须每轮跑，否则「多行解析被删掉」会安静退回恒绿。
+    const issues = extractSelfCheck();
     if (files.length < 150) issues.push(`只扫到 ${files.length} 个文件（下限 150）—— 目录遍历或层映射已腐烂`);
     if (edges.length < 450) issues.push(`只解析到 ${edges.length} 条边（下限 450）—— import 解析器已腐烂，A/B 类恒 0 条与不跑同形`);
     const pairCount = Object.keys(cell).filter(k => !k.endsWith(k.split('→')[0])).length;
     if (pairCount < 6) issues.push(`跨层边对只识别到 ${pairCount} 组（下限 6）—— 层映射失效`);
+    // 三条下限都只防「恒 0」，防不住「只漏多行」：本次漏洞正是 1056 条边全绿却漏 25 条语句。
+    if (!(crossLineCount > 0)) issues.push('跨行 import 语句解析到 0 条 —— 多行解析能力已腐烂（V0.3.0 漏报时的形态）');
     return issues;
 }
 
@@ -390,7 +462,8 @@ if (isMain) {
     const rev = judgeReverse(edges);
     const cycles = findLayerCycles(edges);
     const cell = matrix(edges);
-    const selfIssues = selfCheck(files, edges, cell);
+    const crossLineCount = edges.filter(e => e.crossLine).length;
+    const selfIssues = selfCheck(files, edges, cell, crossLineCount);
 
     const baselineLoad = noBaseline
         ? { data: emptyBaseline(), error: null, exists: false }
@@ -419,6 +492,7 @@ if (isMain) {
         console.log(JSON.stringify({
             ver: VER,
             files: files.length,
+            crossLineImports: crossLineCount,
             edges,
             reverse: rev,
             cycles,
@@ -442,7 +516,7 @@ if (isMain) {
         const W = 6;
 
         console.log('=== ' + VER + ' ===');
-        console.log(`扫描 ${files.length} 文件 / 静态依赖边 ${edges.length} 条 / 未解析路径 ${unresolved.length} 条`);
+        console.log(`扫描 ${files.length} 文件 / 静态依赖边 ${edges.length} 条（其中跨行 import ${crossLineCount} 条）/ 未解析路径 ${unresolved.length} 条`);
         console.log('判据真源：09 架构铁律 第6条 + 03 架构终态蓝图 原则6（ui/fx → player → render/modules → core → infra，无环无反向）');
         console.log(noBaseline
             ? '基线：已禁用（--no-baseline，按全量判定）'
@@ -486,7 +560,7 @@ if (isMain) {
         }
 
         console.log(`\n=== 自证断言 共 ${selfIssues.length + baselineIssues.length} 条 ===`);
-        if (!selfIssues.length && !baselineIssues.length) console.log('  （通过：文件数/边数/跨层边对均在下限之上，基线可解析）');
+        if (!selfIssues.length && !baselineIssues.length) console.log('  （通过：解析器五形态/跨行能力、文件数/边数/跨层边对均在下限之上，基线可解析）');
         for (const s of selfIssues) console.log('  ✗ ' + s);
         for (const s of baselineIssues) console.log('  ✗ ' + s);
 
