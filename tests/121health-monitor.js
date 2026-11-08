@@ -86,6 +86,10 @@ import { rule200 } from './health-rules/200-group-entry-order.js';
 import { rule181 } from './health-rules/181-round-sequence.js';     // 回合开始/结束分隔符连续性与配对
 import { rule182 } from './health-rules/182-target-validity.js';   // 鞭尸 / 自伤 / 误伤同阵营
 import { rule183 } from './health-rules/183-action-order.js';      // 阵亡者出手 / 重复行动权
+// 第 191 轮：死亡/复活行动权归属（同回合口径）+ 同回合多段出手计数口径
+// 注意：177/178 的导出名已被别名占用成 rule184 / rule188（见 102-103 行），这里必须另起别名
+import { rule184 as deathRights184 } from './health-rules/184-death-revive-rights.js';
+import { rule188 as multiAttack188 } from './health-rules/188-multi-attack-count.js';
 import { rule105 } from './health-rules/158-fact-anchor-align.js'; // 第 143 轮：吸收夜间 139 重写版（fx 结构判据），取代第 142 轮的退役
 import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import { rule107 } from './health-rules/160-spider-transform-mastery.js';
@@ -104,6 +108,8 @@ import { rule181 as rule188 } from './health-rules/178-stage3-variant.js';
 import { rule180 } from './health-rules/180-damage-precision.js';
 import { rule227 } from './health-rules/227-buff-lifecycle.js';
 import { rule228 } from './health-rules/228-buff-effect-decl.js';
+// 第 191 轮补登：229 由并行会话建文件但未登记，registration-check 硬失败，这里补齐（逻辑未动）
+import { rule229 } from './health-rules/229-buff-permanent.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -711,8 +717,8 @@ function runRuleChecks(ctx, doc) {
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
         rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
         rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule181, rule182, rule183, rule185, rule186, rule187,
-        rule199, rule200,
-        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228];
+        rule199, rule200, deathRights184, multiAttack188,
+        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

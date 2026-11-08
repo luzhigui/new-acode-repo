@@ -16,9 +16,15 @@
 // 用法：node tests/rng-discipline-check.mjs           # 校验，退 0 = 全过
 //       REGEN=1 node tests/rng-discipline-check.mjs   # 确认是有意改动后，重录抽签点基线
 //       SEEDS=1,2 STAGES=1,3 node tests/rng-discipline-check.mjs
-export const VER = 'tests/rng-discipline-check.mjs V1.0.0';
+//
+// V1.1.0 | 2026-11-08 第 191 轮：③ 不再是「一行报红让人猜」。差异会按『新增文件/删除文件/次数增加/次数减少』
+//   分类逐文件列出（含差值、该文件最近改动时刻），并按影响面给出下一步该跑什么：
+//     次数减少 ⇒ 最危险（少抽一个数，之后所有随机序列整体位移），先查是不是删了抽签语句；
+//     core/ 公共文件变化 ⇒ 影响所有战斗；modules/26x 单角色文件 ⇒ 只影响该角色出手。
+//   REGEN 重录时会打印「本次重录的增删清单」，避免有人悄悄把基线刷绿。
+export const VER = 'tests/rng-discipline-check.mjs V1.1.0';
 
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -196,25 +202,78 @@ else console.log('② 战斗代码禁用 Math.random：core/ 与 modules/（排�
 
 // ③ 抽签点次数快照
 const regen = String(process.env.REGEN || '') === '1';
+// 文件最近改动时刻提示：帮人一眼认出「这次改的就是它」，不用对着几十个文件猜
+function mtimeHint(rel) {
+    try {
+        const st = statSync(join(REPO, rel));
+        const mins = Math.round((Date.now() - st.mtimeMs) / 60000);
+        if (mins < 1) return '（刚刚改过）';
+        if (mins < 60) return `（${mins} 分钟前改过）`;
+        const hours = Math.round(mins / 60);
+        if (hours < 24) return `（${hours} 小时前改过）`;
+        return `（${Math.round(hours / 24)} 天前改过）`;
+    } catch (e) { return '（文件已不存在 ⇒ 抽签点被整段删除，重点看这里）'; }
+}
+// 影响面：core/ 是公共流程（所有战斗都会位移）；modules/ 一般只影响该角色/该机制的出手链
+function impactOf(rel) {
+    return rel.indexOf('core/') === 0 ? '影响全部战斗' : '影响该机制/角色的出手链';
+}
 if (regen) {
+    let changed = [];
+    if (existsSync(BASELINE_FILE)) {
+        try {
+            const old = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
+            const oldFiles = old.files || {};
+            for (const n of new Set([...Object.keys(oldFiles), ...Object.keys(counts)])) {
+                const was = oldFiles[n] || 0, now = counts[n] || 0;
+                if (was !== now) changed.push(`${n}：${was} → ${now}`);
+            }
+            if (old.total != null && old.total !== totalDraws) changed.push(`总数：${old.total} → ${totalDraws}`);
+        } catch (e) { changed = ['（旧基线读不出来，无法对比）']; }
+    }
     writeFileSync(BASELINE_FILE, JSON.stringify({ VER, total: totalDraws, files: counts }, null, 2) + '\n', 'utf8');
     console.log(`③ 已重录抽签点基线：${totalDraws} 处（${Object.keys(counts).length} 个文件）→ tests/rng-draw-baseline.json`);
+    console.log(changed.length
+        ? `   本次重录的差异（请写进提交说明/迭代日志，别人才能看出随机序列动过）：${changed.join('；')}`
+        : '   本次重录与旧基线完全一致（属于空重录）。');
 } else if (!existsSync(BASELINE_FILE)) {
     fail('没有抽签点基线文件 tests/rng-draw-baseline.json；首次建立请跑：REGEN=1 node tests/rng-discipline-check.mjs');
 } else {
     const base = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
     const baseFiles = base.files || {};
-    const diffs = [];
-    const names = new Set([...Object.keys(baseFiles), ...Object.keys(counts)]);
-    for (const n of names) {
+    const rows = [];
+    for (const n of new Set([...Object.keys(baseFiles), ...Object.keys(counts)])) {
         const was = baseFiles[n] || 0, now = counts[n] || 0;
-        if (was !== now) diffs.push(`${n}：${was} → ${now}`);
+        if (was !== now) rows.push({ name: n, was, now, delta: now - was });
     }
-    if (base.total != null && base.total !== totalDraws) diffs.push(`总数：${base.total} → ${totalDraws}`);
-    if (diffs.length) {
-        fail('抽签点次数变了 —— 随机序列会整体位移，基线/胜负会漂移；确认是有意改动后跑 REGEN=1 重录。变化：' + diffs.slice(0, 6).join('；') + (diffs.length > 6 ? `（共 ${diffs.length} 处）` : ''));
-    } else {
+    const totalDelta = (base.total != null) ? totalDraws - base.total : 0;
+    if (rows.length === 0 && totalDelta === 0) {
         console.log(`③ 抽签点次数与基线一致：${totalDraws} 处（${Object.keys(counts).length} 个文件）`);
+    } else {
+        // 分类：删抽签最危险（少抽一个数 = 之后所有随机序列整体位移）；新增次之；整文件增删单独标
+        const added = rows.filter(r => r.was === 0 && r.now > 0);
+        const removed = rows.filter(r => r.now === 0 && r.was > 0);
+        const down = rows.filter(r => r.was > 0 && r.now > 0 && r.delta < 0);
+        const up = rows.filter(r => r.was > 0 && r.now > 0 && r.delta > 0);
+        fail(rows.length === 0
+            ? `抽签点总数变了（基线里的分文件数无差异，疑似手改过基线）：${base.total} → ${totalDraws}`
+            : `抽签点次数变了（共 ${rows.length} 个文件${base.total != null ? `，总数 ${base.total} → ${totalDraws}` : ''}）—— 随机序列会整体位移，基线/胜负会漂移`);
+        const dump = (title, list) => {
+            if (!list.length) return;
+            console.log(`   ${title}：`);
+            for (const r of list) {
+                console.log(`     • ${r.name}：${r.was} → ${r.now}（${r.delta > 0 ? '+' : ''}${r.delta}）${mtimeHint(r.name)} ⇒ ${impactOf(r.name)}`);
+            }
+        };
+        dump('【危险】抽签点减少（少抽数 ⇒ 之后每一步抽签序号都前移）', down);
+        dump('【危险】整文件抽签点消失', removed);
+        dump('抽签点增加（多抽数 ⇒ 之后每一步抽签序号都后移）', up);
+        dump('新增文件带抽签点', added);
+        console.log('   下一步（按顺序，不要跳过）：');
+        console.log('     1) 对照上面标「刚刚/几分钟前改过」的文件，先确认这次改动是不是只改文案/重命名/挪位置 —— 是的话数不该变，回头找误删/误加的抽签语句；');
+        console.log('     2) 若确实有意改了抽签次数，跑 node tests/rules-replay.mjs，看哪些规则开始漂红（漂的就是被随机序列影响的面）；');
+        console.log('     3) 确认漂移可接受后：REGEN=1 node tests/rng-discipline-check.mjs 重录基线，把 tests/rng-draw-baseline.json 和代码改动一起提交；');
+        console.log('     4) 再跑一遍本命令，应转 PASS；同一次提交里没带基线文件 = 别人拉下来必红。');
     }
 }
 

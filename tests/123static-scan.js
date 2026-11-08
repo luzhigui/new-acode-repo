@@ -122,6 +122,9 @@ export const SCAN_FILES = [
     './health-rules/181-round-sequence.js',
     './health-rules/182-target-validity.js',
     './health-rules/183-action-order.js',
+    // 第 191 轮：死亡/复活行动权归属（同回合口径）+ 同回合多段出手计数口径
+    './health-rules/184-death-revive-rights.js',
+    './health-rules/188-multi-attack-count.js',
     // 第 185 轮：角色技能模块（modules/3xx）补盲 —— 周颠癫传染链 / 唐文亮七伤拳 /
     //   彭莹玉双面观音 / 鹤笔翁鹿角杖法 / 成昆混元霹雳劲与幻影治疗
     './health-rules/190-zhou-dian-crazy-chain.js',
@@ -149,7 +152,9 @@ export const SCAN_FILES = [
     './health-rules/178-stage3-variant.js',
     './health-rules/180-damage-precision.js',
     './health-rules/227-buff-lifecycle.js',
-    './health-rules/228-buff-effect-decl.js'
+    './health-rules/228-buff-effect-decl.js',
+    // 第 191 轮补登：229 由并行会话建文件但未登记（逻辑未动）
+    './health-rules/229-buff-permanent.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
