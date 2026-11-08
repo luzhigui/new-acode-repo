@@ -4,10 +4,13 @@
 //   本件回答三个问题（全部静态/离线，不跑战局）：
 //     ① 接线：每个 sister/brother 键是否至少有一个消费方？消费方引用的键是否都在 002 里？
 //     ② 缺键语义：002 缺 sister 段 → getSkillParams 必须抛；缺 brother 段 → 返回 null 回落普通版；
-//        缺子键时哪些路径有显式 throw、哪些只会 TypeError（后者的静默风险记入报告）。
+//        缺子键时**实测**归三档（显式 throw / 静默回落普通版 / TypeError），后两档的静默风险记入报告。
 //     ③ 档位：双海克斯体检默认（121）与主游戏按钮（702）/跑批入口（206）的接线是否还在。
 //   铁律：只读文件 + 只调用导出函数，绝不改主代码；有问题只点名，不自动修。
-export const VER = 'tests/hex-enhance-wiring-guard.mjs V1.0.0';
+// V1.1.0 | 2026-11-08：② 缺子键从"文字推断"升级为**实测归三档**（2g-2 摘掉内存里的
+//   sister.holyFlame.atkBonus 再调 215）。实测结论：215 对圣火令**静默回落普通版 0.3**
+//   （不 throw、不告警）—— 已登记需求，等主代码补显式 throw（参照 cloudBody 的 V6.2.2 做法）。
+export const VER = 'tests/hex-enhance-wiring-guard.mjs V1.1.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -176,7 +179,7 @@ try {
     await cfg4.loadHexEnhanceData();
     const s4 = cfg4.getSkillParams('小昭', 'hexEnhance');
     if (s4 && s4.holyFlame === undefined) {
-        notes.push('⚠ 缺子键语义：sister.holyFlame 缺失时 201 不抛、返回 undefined；215/317 直接读 .atkCols/.atkBonus 只会 TypeError（非显式报错）');
+        notes.push('⚠ 缺子键语义：整段 sister.holyFlame 缺失时 201 不抛、返回 undefined；215 传给 applyHolyFlame_Normal 后读 bonuses.atkBonus 直接 TypeError（非显式报错）');
     } else {
         problems.push('② 缺子键场景与预期不符（holyFlame 仍存在）');
     }
@@ -232,6 +235,40 @@ try {
     }
 } catch (e) {
     problems.push('② 效果层调用失败：' + e.message);
+}
+
+// 2g-2 缺子键实测（不是文字推断）：把 live 配置对象里的 sister.holyFlame.atkBonus 摘掉再调 215，
+//   看走哪条路 —— 显式 throw / 静默回落普通版 / TypeError。静默回落是最危险的一种：
+//   「配置漏一个键 → 战局按普通版 0.3 算」，既不崩也不告警，只能靠体检点名。
+try {
+    const cfg0 = await import('../core/201-config-5v5-test.js');
+    const eff2 = await import('../core/215-buff-effects.js');
+    const live = cfg0.getSkillParams('小昭', 'hexEnhance');
+    if (!live || !live.holyFlame || live.holyFlame.atkBonus == null) {
+        notes.push('⚠ 缺子键实测跳过：当前 002 里 sister.holyFlame.atkBonus 本来就不存在');
+    } else {
+        const saved = live.holyFlame.atkBonus;
+        const u2 = { name: '测试乙', pos: 1, camp: 'ming', state: {}, _mods: { atk: [], def: [] } };
+        let threw = false, applied = null;
+        delete live.holyFlame.atkBonus;   // 模拟漏键（只改内存里的 live 对象，不碰文件）
+        try {
+            eff2.applyHolyFlame_Sister(u2, [u2], [{ key: 'holyFlame', cols: [1], rows: [] }], []);
+            const m2 = (u2._mods.atk || [])[0];
+            applied = m2 ? m2.value : null;
+        } catch (e) { threw = true; }
+        finally { live.holyFlame.atkBonus = saved; }  // 立即还原，避免污染后续断言
+        const normalVal = game.buffs.holyFlame.atkBonus;
+        if (threw) {
+            notes.push('② 缺子键实测：sister.holyFlame.atkBonus 缺失 → 215 显式抛错（「缺哪键报哪键」达标）');
+        } else if (same(applied, normalVal)) {
+            notes.push('⚠ 缺子键实测：sister.holyFlame.atkBonus 缺失 → **静默回落普通版 ' + normalVal
+                + '**（不抛错、不告警，实战会把姊强化当普通版算）—— 建议补显式 throw');
+        } else {
+            notes.push('⚠ 缺子键实测：缺 atkBonus 时实际加成 = ' + JSON.stringify(applied) + '（既非 002 值也非普通版，需人工研判）');
+        }
+    }
+} catch (e) {
+    problems.push('② 缺子键实测调用失败：' + e.message);
 }
 
 // 2f 显式 throw 护栏是否仍在（静态点名）
