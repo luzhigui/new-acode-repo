@@ -1,7 +1,7 @@
 // V6.4.7 | 2026-11-07 第 184 轮：① 新增 killUnit —— 死亡收口唯一出口（ignoreCap=true + recordHpAudit
 //          group='death' + _pendingDeath），finalizeDeaths / maxHp 变更致死改调它；applyStatChange 的
 //          ignoreCap 变成 killUnit 专用。② 飞天/附身判据改调 core/203 isAirborne（本地内联删除）。
-export const VER = 'core/214-battle-shared.js V6.4.7';
+export const VER = 'core/214-battle-shared.js V6.4.8';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -433,8 +433,24 @@ export function getStat(unit, stat) {
     return Math.max(0, result);
 }
 
+// V6.4.8 | 2026-11-08 新增 emitHpChange —— 血量/攻防广播唯一出口，从 modules/305 下移而来：原实作
+//          置于 modules 层，core 自身那 22 处永远够不到入口（core→modules 属反向依赖），规则形同虚设。
+//          305 改为转口，对外签名与 payload 逐字节不变。守卫见 tests/entry-path-guard.mjs。
+// 广播单位数值变化（UI 重画攻防血）：固定 5 字段，extra 追加或覆盖。
+//   ★ 单一入口：裸写 emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, {...}) 一律应改调本函数。
+//   ★ 为何在 core/214 而非 modules/305：core 是业务最低层，modules 以上都能 import；
+//     入口若放 modules，core 自己够不到（反向依赖），规则会留 22 处活口。
+function emitHpChange(unit, extra) {
+    emitCoreEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, {
+        hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive,
+        atk: getStat(unit, 'atk'), def: getStat(unit, 'def'),
+        ...(extra || {})
+    });
+}
+
 export {
     emitCoreEvent as emitEvent,
+    emitHpChange,
     emitFullUnitState,
     finalizeDeaths,
     getNextAvailableUnit,

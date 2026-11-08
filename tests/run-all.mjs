@@ -1,3 +1,12 @@
+// V1.47.0 | 2026-11-08 迭代：挂「入口路径强制」tests/entry-path-guard.mjs（新建 V1.0.0）。
+//   由头：现有闸门管的是「目录怎么依赖」「版本有没升」「字段有没有登记」，没有一条管
+//   「公共出口已提供、代码却绕过它自己手写」。实测骨架铺开率极不均：findAlive 39/50、
+//   requireSkillParams 48/65 尚可，pushFact 却只有 1/95、emitHpChange 14/42 —— 可选就等于没有。
+//   本件按「规则 × 文件」冻结存量上限（146 处 113+33），只拦新增；14 条自证牙（注释/字符串/
+//   entries 容器三路负路径）＋端到端实测（注入 1 处裸写 → EXIT=1 且精确指向新增行；还原 → 0）。
+//   配套主代码：emitHpChange 实作从 modules/305 下移 core/214（否则 core 自身 22 处永远够不到，
+//   规则会留 79% 活口），305 改转口，行为与 payload 逐字节不变。
+//   挂 OBSERVES + hard: true，不改 CHECKS 分母、不改退码口径。
 // V1.46.0 | 2026-11-08 迭代：挂「变异指纹换行等价自证」tests/mutation-fp-eol-selftest.mjs（新建 V1.0.0）。
 //   配套 mutation-teeth.mjs V2.9.32：指纹生成侧改为逐文件统一 LF、比较侧认 raw/LF/CRLF 三态，
 //   顺手修掉 VER 一刀切误报并给陈旧红加 git 归因。自证 23 条牙（双向换行互认、混合换行、
@@ -508,7 +517,11 @@ const OBSERVES = [
     { name: '夜间成果合入守门', script: 'tests/nightly-merge-guard.mjs', args: [], hard: true },
     // V1.46.0 | 2026-11-08：变异指纹换行等价自证（详见头顶 V1.46.0 日志行）。
     //   纯 node 沙箱、零子进程、23 条牙；防「等价集合被放宽成永远放行」或「生成侧口径漂移」。
-    { name: '变异指纹换行等价自证', script: 'tests/mutation-fp-eol-selftest.mjs', args: [], hard: true }
+    { name: '变异指纹换行等价自证', script: 'tests/mutation-fp-eol-selftest.mjs', args: [], hard: true },
+    // V1.47.0 | 2026-11-08：入口路径强制（详见头顶 V1.47.0 日志行）。
+    //   新增裸写是确定性事实（不是待研判的灰度），故 hard: true；
+    //   存量 146 处已冻结进基线，--update-baseline 只在还清旧账后跑（棘轮只降不抬）。
+    { name: '入口路径强制', script: 'tests/entry-path-guard.mjs', args: ['--enforce'], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。

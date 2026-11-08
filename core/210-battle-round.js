@@ -8,7 +8,7 @@
 //   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
 // V6.3.39 | 2026-11-08 双宣告排重回退到「两次抽签 + 顺延」：V6.3.38 的 filter 后重抽会多消耗一次随机流，
 //   且候选不足时少抽一次；改回原版两次抽签，第二签同 uid 时从该签位起按候选顺序顺延取下一个不同 uid（不重抽）。
-export const VER = 'core/210-battle-round.js V6.3.39';
+export const VER = 'core/210-battle-round.js V6.3.40';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -27,7 +27,7 @@ import { processUnitAttack } from './209-battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/101-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng, query } from './214-battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
-import { flushBattleEvents, setBattleState } from '../infra/102-core-utils.js';
+import { flushBattleEvents, setBattleState, pushFact } from '../infra/102-core-utils.js';
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { resolveDeaths } from './211-battle-attack-steps.js';
 
@@ -698,15 +698,25 @@ function finalizeRoundEnd(A, B, ctx) {
     if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => {
+            // 终局清场也要留死亡事实（字段与 resolveDeaths 完全一致：uid/name/camp/reason/hpBefore/hpAfter）。
+            //   只对清场时仍活着的单位记账：已阵亡者早在 resolveDeaths 落过 UNIT_DEATH，重复记会多出死亡。
+            const wasAlive = u.alive;
+            const hpBefore = u.hp;
             // 死亡收口统一走 killUnit（内部 ignoreCap=true：这是状态收口而非受伤，不能被 _dmgCap 截断，否则死者 hp>0）
             killUnit(u, null, '战斗结束');
             u.alive = false;
             u.state._isDead = true;
             emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
+            if (wasAlive) {
+                ctx.log.push({ factType: FACT_TYPES.UNIT_DEATH, data: {
+                    uid: u.uid, name: u.name, camp: u.camp,
+                    reason: '终局清场', hpBefore, hpAfter: u.hp
+                } });
+            }
         });
     }
 
-    ctx.log.push({ factType: FACT_TYPES.ROUND_END, data: { round: ctx.round } });
+    pushFact(ctx.log, FACT_TYPES.ROUND_END, { round: ctx.round });
 
     const endEvents = flushBattleEvents();
 

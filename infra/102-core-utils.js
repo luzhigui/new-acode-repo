@@ -1,4 +1,7 @@
-export const VER = 'infra/102-core-utils.js V6.1.5';
+// V6.1.6 | 2026-11-08 新增 pushFact —— 推 fact 的唯一出口，从 modules/305 下移而来：放 modules 层时
+//          core（含 core/210 等 8 处）永远够不到（core→modules 属反向依赖），规则只能拦 modules 以上。
+//          infra 是最底层，七层全可用；305 改转口，行为与 payload 不变。守卫见 tests/entry-path-guard.mjs。
+export const VER = 'infra/102-core-utils.js V6.1.6';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';
 import { validateStoreValue } from './107-store-schema.js';
@@ -96,6 +99,15 @@ export function flushBattleEvents() {
         try { fn(events); } catch(e) {}
     }
     return events;
+}
+
+// 推一条 fact。log 为空静默跳过（与原 `if (log) log.push({factType, data})` 逐字同义）。
+//   ★ 单一入口：全库裸写 log.push({ factType, data }) 一律应改调本函数。
+//   ★ 为何在 infra 而非 modules/305：core/210、core/212 等也要推 fact，而 core→modules 是反向依赖，
+//     入口若只到 modules 层，底层只能继续手写，规则会留 113 处活口。
+export function pushFact(log, factType, data) {
+    if (!log) return;
+    log.push({ factType, data });
 }
 
 export function onBattleEvents(fn) {
