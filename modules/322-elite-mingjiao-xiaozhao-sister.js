@@ -7,7 +7,9 @@
 // V1.0.4 | 2026-11-08 宿主阵亡 fact 补 hostUid（体检总框架 D3 窗口关闭载荷）
 // V1.0.5 | 2026-11-08 精英数值一致性：乾坤衍生减伤保底值从写死 0.5 改为读 qianKunDerived.params.minReduce
 //           （旧兜底值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.5';
+// V1.0.6 | 2026-11-08 修 BUTTERFLY_HOST_DEAD.hostUid 恒 null：原在清空 _butterflyHost 之后才读它，
+//           现进函数先存 hostUidBeforeClear，清 state 后用存档值落 fact（体检实测 23/23 全 null）。
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.6';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -284,7 +286,9 @@ export function createXiaoZhaoSisterComponent() {
             const token = _hostWatchers.get(sister.uid);
             if (token) { unwatchUnit(token); _hostWatchers.delete(sister.uid); }
             if (!sister.alive || !sister.state._butterflyHost) return;
-            const host = A.find(u => u.uid === sister.state._butterflyHost && u.alive);
+            // 先存档宿主 uid：下面死主分支会清空 _butterflyHost，清完再读就恒为 null（旧 bug）
+            const hostUidBeforeClear = sister.state._butterflyHost;
+            const host = A.find(u => u.uid === hostUidBeforeClear && u.alive);
             if (!host || !host.alive) {
                 const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
                 const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
@@ -301,8 +305,8 @@ export function createXiaoZhaoSisterComponent() {
                 sister._fsm.transition('normal');
                 emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
                 // 附身窗口关闭载荷（体检总框架 D3）：带上宿主 uid，渲染器据此打 windowClosed 标记
-                const deadHostUid = sister.state._butterflyHost;
-                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid, hostUid: deadHostUid } });
+                //   用进函数时存档的 hostUidBeforeClear，不能读已被清空的 state._butterflyHost
+                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid, hostUid: hostUidBeforeClear } });
                 // 让格子当帧退出蝶形态（与下面正常飞回同款），宿主一死就立刻看到人回来，不等步末 sync
                 emitEvent(sister, UNIT_EVENT_TYPES.HP_CHANGE, {
                     hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
