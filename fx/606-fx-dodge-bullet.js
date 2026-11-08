@@ -1,5 +1,6 @@
 //   按 bulletTotal 等比缩放（含撤退三段/返场/飞走/末段等待），屏息凝视单独保底 2000ms
-export const VER = 'fx/606-fx-dodge-bullet.js V6.3.2';
+// V6.3.3 | 2026-11-08 反击飘字数值走 fmtNum，消除实数化后的浮点尾巴
+export const VER = 'fx/606-fx-dodge-bullet.js V6.3.3';
 
 import { showComicBubble } from './601-fx-common-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -7,6 +8,7 @@ import { STORE_ACTION_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCellRobust, getUnitCell } from './611-fx-ref-manager.js';
 import { clock } from '../infra/103-clock.js';
 import { getPerfParam } from '../core/223-perf-params.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 // 宽屏留黑适配：舞台=body 那根居中限宽 520px 的"手机柱"。
 // 本文件原先全按 innerWidth（整块屏幕）算分镜位置——宽屏电脑上闪电/克隆体/分镜框会飞进两侧黑边。
@@ -439,7 +441,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         document.body.appendChild(shockwave);
         cleanupElements.push(shockwave);
         const dmg = document.createElement('div');
-        dmg.textContent = '反击! ' + reboundDmg;
+        dmg.textContent = '反击! ' + fmtNum(reboundDmg);
         dmg.style.position = 'fixed';
         dmg.style.left = colX + 'px';
         dmg.style.top = colY + 'px';

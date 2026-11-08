@@ -1,11 +1,13 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.15';
+// V6.3.16 | 2026-11-08 四类飘字（💥伤害/❤回血/⚔攻/🛡️防）数值统一走 fmtNum，消除实数化后的浮点尾巴
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.16';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
 import { clock } from '../infra/103-clock.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 12, dodge: 4, healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2 };  // dmgFloat 6→12：反伤/连击高频小值下防池满抢位挤兑（2026-11-04）
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
@@ -104,7 +106,7 @@ export function showDamageFloat(unit, dmg) {
     const speedKey = GlobalStore.get('speed') || 300;
     const life = getPerfParam('floatLife', speedKey) || 1400;
     acquireFromPool('dmgFloat', (dmgEl) => {
-        dmgEl.textContent = '💥-'+dmg;   // 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
+        dmgEl.textContent = '💥-'+fmtNum(dmg);   // 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
         dmgEl.style.display = '';        // 点亮量宽（登记进 _activeFloats 供 ⚔/🛡️ 避让；💥 自身仍 right 锚定不变）
         markFloatActive(unit.uid, 'dmg', dmgEl.offsetWidth);
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
@@ -197,7 +199,7 @@ export function showHealFloat(unit, heal) {
     const stackOffset = (rec.count - 1) * HEAL_STACK_STEP;
     // 存活时长读参数表（floatLife），按当前 speed 档位；取不到回落 1400
     acquireFromPool('healFloat', (healEl) => {
-        healEl.textContent = '❤+' + heal;
+        healEl.textContent = '❤+' + fmtNum(heal);
         healEl.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
         // 三次定稿：❤ 钉死格内最左（左缘贴 rect.left+2，不再外伸——二次版被否）。
         //   宽度登记进 _activeFloats 供 ⚔/🛡️ 落位时避让；史前版内联 translate 被 healUp 首帧覆盖的坑见 V6.2.9 注。
@@ -223,7 +225,7 @@ export function showDefBuffFloat(unit, def) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('defBuffFloat', (el) => {
-        el.textContent = '🛡️' + (def > 0 ? '+' : '') + def;   // 🛡️ 带 U+FE0F = 防战职业 logo 本体（彩色）
+        el.textContent = '🛡️' + (def > 0 ? '+' : '') + fmtNum(def);   // 🛡️ 带 U+FE0F = 防战职业 logo 本体（彩色）
         el.style.color = '#1e6bb8';                            // 复用游戏既有防御色，不自造
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
         const w = el.offsetWidth;
@@ -282,7 +284,7 @@ export function showAtkBuffFloat(unit, atk) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('atkBuffFloat', (el) => {
-        el.textContent = '⚔' + (atk > 0 ? '+' : '') + atk;   // 负数（八卦减攻）不带 '+'，避免 '⚔+-1'
+        el.textContent = '⚔' + (atk > 0 ? '+' : '') + fmtNum(atk);   // 负数（八卦减攻）不带 '+'，避免 '⚔+-1'
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时 display:none，offsetWidth 恒 0）
         el.style.transform = '';    // 清掉旧 translate，见上注
         const w = el.offsetWidth;

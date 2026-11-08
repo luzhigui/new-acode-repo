@@ -7,6 +7,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './305-elite-helpers.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 // ========== 何太冲（六大派·昆仑·远程；「两仪双修」型弱精英） ==========
 // 重做 V3：旧三技能（连环箭/破甲箭/昆仑合击）整组删除，改由本组件全量承接。
@@ -174,9 +175,9 @@ export function createHeTaichongComponent() {
                 }
                 // 加血独立行：maxHp 词条「升则等量加」的回血单独落行，
                 //   紧跟互换/红血报幕——加血发生在攻击行之后，天然不会再有「造成 33 伤害，75→77」矛盾行
-                const healed = Math.floor(subject.hp) - hpBefore;
+                const healed = subject.hp - hpBefore;
                 if (healed > 0 && outLog) {
-                    pushSkillAnnounce(outLog, subject, '红血加血', `🩸 ${subject.name} 红血：生命 +${healed}（${hpBefore} → ${hpBefore + healed}）`, { floatText: `+${healed}`, floatUid: subject.uid });
+                    pushSkillAnnounce(outLog, subject, '红血加血', `🩸 ${subject.name} 红血：生命 +${fmtNum(healed)}（${fmtNum(hpBefore)} → ${fmtNum(hpBefore + healed)}）`, { floatText: `+${fmtNum(healed)}`, floatUid: subject.uid });
                 }
             }
             // ── 机制③ 红血触发 ──

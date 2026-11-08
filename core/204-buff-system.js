@@ -1,5 +1,7 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.8.2';
+// V6.8.3 | 2026-11-08 飞行再生去掉 Math.round：0.4 的真实回复被取整成 0 会打出「回复 0 点生命」，
+//         改实数差值，显示在 render/410 经 fmtNum 收口
+export const VER = 'core/204-buff-system.js V6.8.3';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -15,6 +17,7 @@ import { findFreePos, spawnUnit } from './205-battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
@@ -627,9 +630,10 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
         const before = u.hp;
         applyStatChange(u, 'hp', gain, null, '飞行再生');
         if (log && u.hp > before) {
-            // 回血出口取整：hp 是 0.1 精度（applyStatChange 落 step 到 0.1），两个一位小数相减会出浮点尾巴
-            //   （73.7-63.7 = 10.000000000000007）进日志与记账；与生生不息同口径截到整数。
-            const healed = Math.round(Math.max(0, u.hp - before));
+            // 回血出口保实数：hp 是 0.1 精度（applyStatChange 落 step 到 0.1），差值的浮点尾巴（73.7-63.7 =
+            //   10.000000000000007）由显示侧 fmtNum 收口；原 Math.round 会把 0.4 的真实回复取整成 0，
+            //   打出「飞行再生：XX 回复 0 点生命」的空行（守卫 u.hp > before 已保证实际有回血）。
+            const healed = Math.max(0, u.hp - before);
             log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: healed, deadCount: dead.length } });
             // 审计账本：value 与 fact heal 同一个 healed，保精确相等
             recordHpAudit(u, 'flyerRegen', healed, '飞行再生');
@@ -729,7 +733,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     if (log) {
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
             unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '圣火不熄',
-            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${reviveHeal} 点生命`,
+            note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${fmtNum(reviveHeal)} 点生命`,
             floatText: '🕯️', floatUid: u.uid
         } });
     }

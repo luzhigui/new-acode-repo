@@ -8,19 +8,19 @@ import { fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 
 export function renderZhangSwitchFact(fact) {
     return [
-        { type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${fact.atkGain}、防+${fact.defGain}、生命上限+${fact.maxHpGain}</span>`, isZhangSwitch:true, unitUid: fact.zhang.uid },
+        { type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${fmtNum(fact.atkGain)}、防+${fmtNum(fact.defGain)}、生命上限+${fmtNum(fact.maxHpGain)}</span>`, isZhangSwitch:true, unitUid: fact.zhang.uid },
         { type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true }
     ];
 }
 
 export function renderMeteorShowerMainFact(fact) {
-    return { type:'info', text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fact.bonusDmg}，防御-${fact.defReduce}</span>` };
+    return { type:'info', text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fmtNum(fact.bonusDmg)}，防御-${fmtNum(fact.defReduce)}</span>` };
 }
 
 export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
-    let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fact.splashDmg}，防御-${fact.defReduce}</span>`;
+    let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fmtNum(fact.splashDmg)}，防御-${fmtNum(fact.defReduce)}</span>`;
     // 成长段由 METEOR_SPLASH_GROWTH fact 独立渲染，不在此追加（否则重复渲染两遍）
     // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
@@ -43,7 +43,7 @@ export function renderKuLianPriorityFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ 苦练勤学：${fact.unitName} 率先行动！</span>` };
 }
 export function renderKuLianFact(fact) {
-    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身双倍）！</span>` };
+    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fmtNum(fact.atkBonus)}攻+${fmtNum(fact.defBonus)}防+${fmtNum(fact.hpBonus)}血上限（自身双倍）！</span>` };
 }
 
 // 概率连击
@@ -59,20 +59,20 @@ export function renderDoubleStrikeFact(fact) {
 
 // 远程成长
 export function renderRangedGrowthFact(fact) {
-    return {type:'detail', text:`<span class="blue small">🏹 ${fact.unitName} 远程熟练：攻击 +${fact.growth} → ${fact.newAtk}</span>`};
+    return {type:'detail', text:`<span class="blue small">🏹 ${fact.unitName} 远程熟练：攻击 +${fmtNum(fact.growth)} → ${fmtNum(fact.newAtk)}</span>`};
 }
 
 // 坚盾
 export function renderFortifyShieldFact(fact) {
-    return {type:'detail', text:`<span class="blue small">🛡️ ${fact.unitName} ${fact.label}：防御+${fact.increment}（已叠${fact.current}/${fact.cap}）</span>`};
+    return {type:'detail', text:`<span class="blue small">🛡️ ${fact.unitName} ${fact.label}：防御+${fmtNum(fact.increment)}（已叠${fact.current}/${fact.cap}）</span>`};
 }
 
 // 乾坤大挪移
 export function renderQianKunUpgradedFact(fact) {
-    const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fact.absorbed} 伤害` : '';
+    const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fmtNum(fact.absorbed)} 伤害` : '';
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fmtNum(fact.rebound)}给${fact.attackerName}（${fact.zhangName}自伤${fmtNum(fact.selfDmg)}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -80,10 +80,10 @@ export function renderQianKunUpgradedFact(fact) {
     };
 }
 export function renderQianKunBasicFact(fact) {
-    const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fact.absorbed} 伤害` : '';
+    const absorbText = fact.absorbed > 0 ? `，并用护盾替目标挡下 ${fmtNum(fact.absorbed)} 伤害` : '';
     return {
         type:'info',
-        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%${absorbText}，反弹${fmtNum(fact.rebound)}给${fact.attackerName}（${fact.zhangName}自伤${fmtNum(fact.selfDmg)}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -99,9 +99,9 @@ export function renderSpiderTransformFact(fact) {
 
 export function renderSpiderStrikeFact(fact) {
     // 补文字行：特效仍由 stageAction 驱动（不重复），这里只写「打谁、掉多少、是否击杀」。
-    const detail = fact.extraDmg ? `（穿透${fact.penetrationDmg} + 精通${fact.extraDmg}）` : '';
+    const detail = fact.extraDmg ? `（穿透${fmtNum(fact.penetrationDmg)} + 精通${fmtNum(fact.extraDmg)}）` : '';
     const dead = fact.isDead ? ' 💀击杀' : '';
-    return { type:'info', text:`<span class="gold">🕷️ 蛛袭：${fact.unitName} 对 ${fact.targetName} 造成 ${fact.totalDmg} 伤害${detail}${dead}</span>` };
+    return { type:'info', text:`<span class="gold">🕷️ 蛛袭：${fact.unitName} 对 ${fact.targetName} 造成 ${fmtNum(fact.totalDmg)} 伤害${detail}${dead}</span>` };
 }
 
 // 宋青书新婚 / 性奋
@@ -111,7 +111,7 @@ export function renderXingFenRetryFact(fact) {
 export function renderXinHunFact(fact) {
     return {
         type:'info',
-        text:`<span class="gold">💒 新婚：${fact.attackerName}攻击，${fact.targetName}被扣除${fact.hpDeduct}点血量，叠加一层快乐(${Math.round(fact.healPct*100)}%)！当前快乐层数：${fact.stackCount}</span>`,
+        text:`<span class="gold">💒 新婚：${fact.attackerName}攻击，${fact.targetName}被扣除${fmtNum(fact.hpDeduct)}点血量，叠加一层快乐(${Math.round(fact.healPct*100)}%)！当前快乐层数：${fact.stackCount}</span>`,
         buffType: BUFF_SUBTYPES.ELITE_XINHUN,
         zhouUid: fact.zhouUid,
         zhouHpAfter: fact.zhouHpAfter,
@@ -119,12 +119,12 @@ export function renderXinHunFact(fact) {
     };
 }
 export function renderXingFenCostFact(fact) {
-    return { type:'info', text:`<span class="red">💗 性奋代价：${fact.unitName} 血量上限 ${fact.oldMaxHp} → ${fact.newMaxHp}（-${fact.penalty}）</span>` };
+    return { type:'info', text:`<span class="red">💗 性奋代价：${fact.unitName} 血量上限 ${fmtNum(fact.oldMaxHp)} → ${fmtNum(fact.newMaxHp)}（-${fmtNum(fact.penalty)}）</span>` };
 }
 
 // 融会贯通
 export function renderRongHuiBonusFact(fact) {
-    return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fact.extra}（目标攻击${fact.targetAtk} 防御${fact.targetDef}，差值绝对值×50%）</span>` };
+    return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fmtNum(fact.extra)}（目标攻击${fmtNum(fact.targetAtk)} 防御${fmtNum(fact.targetDef)}，差值绝对值×50%）</span>` };
 }
 
 // 小昭·妹 拒马 / 连击
@@ -143,18 +143,18 @@ export function renderWarriorExecuteFact(fact) {
 
 // 巨马反伤 / 严阵以待反弹
 export function renderHorseReboundFact(fact) {
-    return { type:'info', text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fact.rebound} 点反伤</span>` };
+    return { type:'info', text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fmtNum(fact.rebound)} 点反伤</span>` };
 }
 // 反伤弟子·反伤护盾（2026-11-04 补弹幕）：unitName=挨反弹的攻击者，sourceName=反弹来源
 export function renderDiscipleReboundFact(fact) {
-    return { type:'info', text:`<span class="red">⚡ 反伤护盾：${fact.sourceName}反弹 ${fact.rebound} 点给 ${fact.unitName}</span>` };
+    return { type:'info', text:`<span class="red">⚡ 反伤护盾：${fact.sourceName}反弹 ${fmtNum(fact.rebound)} 点给 ${fact.unitName}</span>` };
 }
 export function renderFortifyReboundFact(fact) {
     if (fact.hasSister) {
-        const heal = Math.floor(fact.reboundDmg / 3);
-        return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${heal}）</span>` };
+        const heal = fact.reboundDmg / 3;
+        return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fmtNum(fact.reboundDmg)}给${fact.unitName}（姐姐强化：回复${fmtNum(heal)}）</span>` };
     }
-    return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
+    return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fmtNum(fact.reboundDmg)}给${fact.unitName}</span>` };
 }
 
 // 召唤：谢逊狮子 / 灭绝召唤周芷若

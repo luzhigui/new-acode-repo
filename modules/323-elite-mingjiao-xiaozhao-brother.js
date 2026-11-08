@@ -9,7 +9,7 @@ import { spawnOneUnityRecruit } from '../core/204-buff-system.js';
 import { spiderTransform, spiderReturn } from '../modules/302-elite-skills.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/101-event-bus.js';
-import { StateMachine } from '../infra/102-core-utils.js';
+import { StateMachine, fmtNum } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -53,7 +53,7 @@ function toSpiderEgg(u, outLog) {
     addMod(u, 'maxHp', { source: '蜘蛛卵', value: eggMaxHpDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     refreshMaxHp(u, null, '蜘蛛结茧');
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
-    pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / ${eggMaxHpTarget} 血（最大生命 50%），不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
+    pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / ${fmtNum(eggMaxHpTarget)} 血（最大生命 50%），不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
 }
 
 // 孵化：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、

@@ -8,6 +8,7 @@ import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, getStat
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce } from './305-elite-helpers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 export function createXieXunComponent() {
     return {
         name: '金毛狮王谢逊',
@@ -109,10 +110,10 @@ export function createXieXunComponent() {
                 // 狮吼演出改由表现层发：引擎在「生成步」时就 emit 会让吼抢在画面前面
                 //   （随动出手的演出被 isLinkAttack 延后 1400ms、苦练延后 1200ms），看起来像「母狮出手反而吼」。
                 //   现由 render/39 的 ATTACK 演出在雄狮真正出手的那一帧发 LION_ROAR + ATK_BUFF_FLOAT。
-                pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${gain}</span>`);
+                pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${fmtNum(gain)}</span>`);
                 // 头顶弹幕：雄狮振奋此前只有战报行、无飘字（母狮随动那侧靠 lionFollow 徽章，
                 //   振奋本身没有任何飘字）。补 🦁 挂雄狮头顶；line:false —— 战报行已由上方 pushInfo 承担
-                pushSkillAnnounce(data.log, lion, '雄狮振奋', `🦁 雄狮振奋！己方全体攻 +${gain}`, { line: false, floatText: '🦁雄狮振奋！', floatUid: lion.uid });
+                pushSkillAnnounce(data.log, lion, '雄狮振奋', `🦁 雄狮振奋！己方全体攻 +${fmtNum(gain)}`, { line: false, floatText: '🦁雄狮振奋！', floatUid: lion.uid });
             });
 
             // ④ 母狮·随动：母狮命中后，其他雄狮/母狮与谢逊各随动攻击一次，打母狮同一个目标。

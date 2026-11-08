@@ -19,7 +19,7 @@ import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosi
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance, snapshotUnitForFact } from '../core/211-battle-attack-steps.js';
 import { getMissBreakdown, makeFXSnapshot, isAirborne } from '../core/203-battle-utils.js';
-import { flushBattleEvents, fmtHp } from '../infra/102-core-utils.js';
+import { flushBattleEvents, fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './305-elite-helpers.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -287,7 +287,7 @@ export function createTangWenLiangComponent() {
                 }
                 // 报幕文本 + 满档横幅先存 state：此刻攻击组还没建（group 由 core/10 命中结算后 buildAttackGroup
                 //   才产出），由下面 ①-b 钩子搬进「唐文亮自己的攻击组」，不做组外扁平行
-                tw.state._qiShangNote = `👊 唐文亮七伤拳：自损 ${real} 点生命${real <= 0 ? '（残血保命，已无可损）' : (idxInCycle > 0 ? `（伤己 ${idxInCycle}/${dash.cycle}）` : '')}，本次伤害 ×${mult.toFixed(2)}${lowHp ? '（临危加成）' : ''}`;
+                tw.state._qiShangNote = `👊 唐文亮七伤拳：自损 ${fmtNum(real)} 点生命${real <= 0 ? '（残血保命，已无可损）' : (idxInCycle > 0 ? `（伤己 ${idxInCycle}/${dash.cycle}）` : '')}，本次伤害 ×${mult.toFixed(2)}${lowHp ? '（临危加成）' : ''}`;
                 tw.state._qiShangBanner = idxInCycle === dash.cycle ? '💢 七伤齐发！' : null;
             });
 

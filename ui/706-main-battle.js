@@ -1,7 +1,7 @@
 export const VER = 'ui/706-main-battle.js V6.1.6';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { SeededRNG, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
+import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
 import { updateUI, renderGrid } from './703-ui-render-5v5-test.js';
@@ -306,13 +306,13 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
             appendDiv('  ' + infoParts.join(' '));
             let statParts = [];
             if (hasStats) {
-                if (u.dmgDealt !== undefined && u.dmgDealt > 0) statParts.push(`输出${u.dmgDealt}`);
-                if (u.dmgTaken !== undefined && u.dmgTaken > 0) statParts.push(`承伤${u.dmgTaken}`);
+                if (u.dmgDealt !== undefined && u.dmgDealt > 0) statParts.push(`输出${fmtNum(u.dmgDealt)}`);
+                if (u.dmgTaken !== undefined && u.dmgTaken > 0) statParts.push(`承伤${fmtNum(u.dmgTaken)}`);
             }
             if (u.dodgeCount > 0) statParts.push(`闪避${u.dodgeCount}次`);
-            if (u.healDone > 0) statParts.push(`治疗${u.healDone}`);
-            if (u.reboundDone > 0) statParts.push(`反弹${u.reboundDone}`);
-            if (u.leechDone > 0) statParts.push(`吸血${u.leechDone}`);
+            if (u.healDone > 0) statParts.push(`治疗${fmtNum(u.healDone)}`);
+            if (u.reboundDone > 0) statParts.push(`反弹${fmtNum(u.reboundDone)}`);
+            if (u.leechDone > 0) statParts.push(`吸血${fmtNum(u.leechDone)}`);
             if (u.critCount > 0) statParts.push(`暴击${u.critCount}次`);
             if (u.survivedRounds > 0) statParts.push(`存活${u.survivedRounds}回合`);
             if (statParts.length > 0) appendDiv('    └ ' + statParts.join(' | '));

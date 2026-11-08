@@ -12,6 +12,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerRoundHook } from '../core/208-registry-elite.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 // 玄冥二老 — 中毒/鹿角
 
@@ -228,10 +229,10 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos, landHeal: actualLandHeal } });
 
     if (landHeal > 0) {
-        const hpBeforeHeal = Math.floor(unit.hp);
+        const hpBeforeHeal = unit.hp;
         applyStatChange(unit, 'hp', landHeal, unit, '飞天落地回血');
         recordHpAudit(unit, 'spiderLandHeal', actualLandHeal, '飞天落地回血');
-        pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${actualLandHeal}（${hpBeforeHeal} → ${hpBeforeHeal + actualLandHeal}）`, { floatText: `+${actualLandHeal}`, floatUid: unit.uid });
+        pushSkillAnnounce(log, unit, '飞天落地回血', `🕷️ ${unit.name} 飞天落地回血：生命 +${fmtNum(actualLandHeal)}（${fmtNum(hpBeforeHeal)} → ${fmtNum(hpBeforeHeal + actualLandHeal)}）`, { floatText: `+${fmtNum(actualLandHeal)}`, floatUid: unit.uid });
     }
 
     // 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）

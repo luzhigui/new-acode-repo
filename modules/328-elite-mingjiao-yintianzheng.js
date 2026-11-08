@@ -5,6 +5,7 @@ import { getBattleRng, addMod } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce } from './305-elite-helpers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 export function createYinTianZhengComponent() {
     return {
         name: '殷天正',
@@ -91,7 +92,7 @@ export function createYinTianZhengComponent() {
                 addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', group: 'laoDangYiZhuang' });
                 addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', group: 'laoDangYiZhuang' });
                 yin.state._counterProbBonus = (yin.state._counterProbBonus || 0) + grow.probGain;
-                pushInfo(data, `<span class="gold">💪 殷天正老当益壮：攻 +${grow.atkGain}、防 +${grow.defGain}、反击率 +${Math.round(grow.probGain * 100)}%</span>`);
+                pushInfo(data, `<span class="gold">💪 殷天正老当益壮：攻 +${fmtNum(grow.atkGain)}、防 +${fmtNum(grow.defGain)}、反击率 +${Math.round(grow.probGain * 100)}%</span>`);
             });
         }
     };

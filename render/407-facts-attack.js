@@ -8,7 +8,8 @@ import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
 // V1.5.7 | 2026-11-08 计算明细负攻口径：公式项与 baseRaw 打印前过 fmtAtk（<0 显示 0），与格子/波动行一致
-export const VER = 'render/407-facts-attack.js V1.5.7';
+// V1.5.8 | 2026-11-08 破防行防御减数值走 fmtNum（reduce 是实数，裸插值会出浮点尾巴）
+export const VER = 'render/407-facts-attack.js V1.5.8';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -52,8 +53,8 @@ export function renderDodgeFact(fact) {
         _events: fact.events || []
     };
 
-    dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fact.dodgerDef} 血${fmtHpText(fact.dodgerHp)})`});
-    dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fact.reboundDmg} 真实伤害（${fmtHpText(fact.attackerHpBefore)} → ${fmtHpText(fact.attackerHpAfter)}）</span>`});
+    dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fmtNum(fact.dodgerDef)} 血${fmtHpText(fact.dodgerHp)})`});
+    dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fmtNum(fact.reboundDmg)} 真实伤害（${fmtHpText(fact.attackerHpBefore)} → ${fmtHpText(fact.attackerHpAfter)}）</span>`});
 
     if (fact.weiHeal) {
         const healText = fact.weiHeal.oldMaxHp !== undefined
@@ -145,14 +146,14 @@ export function renderAttackFact(fact) {
         if (b) group.entries.unshift(b);
     }
     if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) group.entries.push(_pf); }
-    group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(dmgCalc.atkBase)}→${fmtAtk(dmgCalc.atkAct)} 防${dmgCalc.defBase}→${dmgCalc.defAct} 减伤${dmgCalc.hpBonus}</span>`});
-    if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
+    group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(dmgCalc.atkBase)}→${fmtAtk(dmgCalc.atkAct)} 防${fmtNum(dmgCalc.defBase)}→${fmtNum(dmgCalc.defAct)} 减伤${fmtNum(dmgCalc.hpBonus)}</span>`});
+    if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${fmtNum(dmgCalc.thunderBonus)}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     if (dmgCalc.trueDmg > 0) {
         // 单一真值源收口：比例取 mechanics 真值（引擎实际读的那份），不读 skills.params 副本
         const rebelRatio = getMechanicField('宋青书', MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP, 'ratio');
         if (rebelRatio === undefined) throw new Error('缺机制真值: 宋青书.bonusTargetCurrentHp.ratio');
-        group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round(rebelRatio * 100)}%）</span>`});
+        group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${fmtNum(dmgCalc.trueDmg)}（目标当前生命${Math.round(rebelRatio * 100)}%）</span>`});
     }
     // 公式明细由引擎输出（core/12 calcFinalDamage 的 formula 字段），此处只排版。
     // 不再自己调 calcDamage / 查 FANG_K / 反推 baseRaw —— 那会和引擎的实时值打架。
@@ -285,11 +286,11 @@ export function renderImmuneFact(fact) {
     // 把波动行、伤害行照样补全（与命中战斗同款，只是结果被免疫）
     if (fact.dmgCalc) {
         const calc = fact.dmgCalc;
-        immuneGroup.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(calc.atkBase)}→${fmtAtk(calc.atkAct)} 防${calc.defBase}→${calc.defAct} 减伤${calc.hpBonus}</span>`});
+        immuneGroup.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(calc.atkBase)}→${fmtAtk(calc.atkAct)} 防${fmtNum(calc.defBase)}→${fmtNum(calc.defAct)} 减伤${fmtNum(calc.hpBonus)}</span>`});
         immuneGroup.entries.push({
             type: 'damage-text',
             dmg: 0,
-            text: `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">0</span> 伤害（原本可造成 ${Math.round(calc.dmg)} 伤害被吸收），<span class="${dc}">${campD} ${target.name}</span> ${fact.targetHp} → ${fact.targetHp}`
+            text: `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">0</span> 伤害（原本可造成 ${Math.round(calc.dmg)} 伤害被吸收），<span class="${dc}">${campD} ${target.name}</span> ${fmtNum(fact.targetHp)} → ${fmtNum(fact.targetHp)}`
         });
     }
 
@@ -316,7 +317,7 @@ export function renderDropFact(fact) {
 
 export function renderBreakDefFact(fact) {
     // 补 fx 标记：破防有头顶飘字特效（🛡-2），应在播放时被认定为“效果行”，走较慢的停留时间
-    return { type: 'detail', text: `<span class="purple small">🗡️ ${fact.attackerName} 破防：${fact.targetName} 防御 -${fact.reduce}</span>`, fx: [{ kind: 'def', amount: fact.reduce }] };
+    return { type: 'detail', text: `<span class="purple small">🗡️ ${fact.attackerName} 破防：${fact.targetName} 防御 -${fmtNum(fact.reduce)}</span>`, fx: [{ kind: 'def', amount: fact.reduce }] };
 }
 
 // 何太冲技能报幕（连环箭·补射 / 昆仑合击 ×N）：note 为战报文本整行。
@@ -331,7 +332,7 @@ export function renderSkillAnnounceFact(fact) {
 
 // 击杀行
 export function renderKillLineFact(fact) {
-    return { text:`<span class="damage-line brush-red ${fact.ac}">💀击杀💀 ${fact.campA} ${fact.unitName}</span> 造成 <span class="red">${fact.dmg}</span> 伤害，<span class="${fact.dc}">${fact.campD} ${fact.targetName}</span> ${fact.hpBefore} → ${fact.hpNow} 💀阵亡` };
+    return { text:`<span class="damage-line brush-red ${fact.ac}">💀击杀💀 ${fact.campA} ${fact.unitName}</span> 造成 <span class="red">${fmtNum(fact.dmg)}</span> 伤害，<span class="${fact.dc}">${fact.campD} ${fact.targetName}</span> ${fact.hpBefore} → ${fact.hpNow} 💀阵亡` };
 }
 
 // ── 注册 ────────────────────────────────────────────────

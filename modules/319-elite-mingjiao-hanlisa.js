@@ -18,6 +18,7 @@ import { resolveRoundStatGrants } from '../core/217-effect-handlers.js';
 import { resolveDeaths } from '../core/211-battle-attack-steps.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce } from './305-elite-helpers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 export function createHanLiSaComponent() {
     return {
@@ -83,17 +84,17 @@ export function createHanLiSaComponent() {
                             // 声明量填原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折
                             type: EFFECT_TYPES.HEAL, value: rawNominal, source: hls,
                             factType: FACT_TYPES.HEAL,
-                            factData: { unitName: hls.name, heal, hpBefore: Math.floor(hls.hp), hpAfter: Math.floor(hls.hp + heal), unitUid: hls.uid, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
+                            factData: { unitName: hls.name, heal, hpBefore: hls.hp, hpAfter: hls.hp + heal, unitUid: hls.uid, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
                         });
                         recordHpAudit(hls, 'hlsJiuYangHeal', heal, '左拳·九阳治疗'); // 账本记实际落地值（与 fact heal 同口径）
                     }
                     if (shieldGain > 0) {
                         hls.state._permShield = (hls.state._permShield || 0) + shieldGain;
                     }
-                    const healText = heal > 0 ? `回复 ${heal} 点生命` : '满血';
-                    const shieldText = shieldGain > 0 ? `，${heal > 0 ? '溢出' : ''}转化为 ${shieldGain} 点护盾` : '';
+                    const healText = heal > 0 ? `回复 ${fmtNum(heal)} 点生命` : '满血';
+                    const shieldText = shieldGain > 0 ? `，${heal > 0 ? '溢出' : ''}转化为 ${fmtNum(shieldGain)} 点护盾` : '';
                     pushInfo(data, `<span class="gold">☀️ 寒离飒左拳·九阳：${healText}${shieldText}</span>`);
-                    announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + heal : ''}${shieldGain > 0 ? ` 🛡+${shieldGain}` : ''}`);
+                    announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + fmtNum(heal) : ''}${shieldGain > 0 ? ` 🛡+${fmtNum(shieldGain)}` : ''}`);
                 // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒
                 } else {
                     hls.state._hlsHanBingDone = true;   // 同样只用于凑齐解锁
@@ -108,9 +109,9 @@ export function createHanLiSaComponent() {
                 // ③ 凑齐两种（九阳 + 寒冰各至少出过一次）→ 本击结束即起蓄力（普攻照打，蓄力从下一回合开始）
                 if (hls.state._hlsJiuYangDone && hls.state._hlsHanBingDone && (hls.state._hlsCharging || 0) === 0) {
                     if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
-                    const shield = Math.floor(hls.maxHp * xl.shieldPct);
+                    const shield = hls.maxHp * xl.shieldPct;
                     Object.assign(hls.state, { _hlsCharging: 1, _shield: (hls.state._shield || 0) + shield });
-                    pushInfo(data, `<span class="gold">🌀 寒离飒起手蓄力：获得 ${shield} 点护盾（下回合凝聚）</span>`);
+                    pushInfo(data, `<span class="gold">🌀 寒离飒起手蓄力：获得 ${fmtNum(shield)} 点护盾（下回合凝聚）</span>`);
                 }
             });
 
@@ -340,7 +341,7 @@ export function createHanLiSaComponent() {
                         const isFull = aim < 1 || aim > 9 || !Array.isArray(shapes[String(aim)]);
                         const aimLabel = isFull ? '【全屏】' : `【瞄准 ${aim} 号位】`;
                         const burstPayload = { seq: ++burstSeq, apexUid: hls.uid, aim, taken: N, hits, flight, bounces, vamp };
-                        pushSkillAnnounce(data.log, hls, '蓄意轰拳', `💥 ${hls.name} 蓄意轰拳${aimLabel}${lines.length ? '：' + lines.join('、') : (N > 0 ? '（范围内无目标）' : '（能量不足，未能轰出）')}${vamp > 0 ? `；轰拳吸血 +${vamp}` : ''}`, { hlsBurst: burstPayload });
+                        pushSkillAnnounce(data.log, hls, '蓄意轰拳', `💥 ${hls.name} 蓄意轰拳${aimLabel}${lines.length ? '：' + lines.join('、') : (N > 0 ? '（范围内无目标）' : '（能量不足，未能轰出）')}${vamp > 0 ? `；轰拳吸血 +${fmtNum(vamp)}` : ''}`, { hlsBurst: burstPayload });
                         // 结算应用：声明统一走 core/16 应用器；击杀落阵亡行（core/12 边裁）——都在 ROUND_END fact 之前。
                         // 爆发视觉不再引擎直发：SKILL_ANNOUNCE 载 hlsBurst 载荷由 render/38→39 舞台动作补发（单机/回放/从机同一通道，时序与战报行对齐）
                         resolveRoundStatGrants(decls);

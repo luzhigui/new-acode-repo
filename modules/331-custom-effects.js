@@ -4,6 +4,7 @@ import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../i
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
 import { recordHpAudit } from '../core/214-battle-shared.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 // 机制注册表已下沉 core/18，本文件只负责注册具体机制
 export { registerMechanicHandler, hasMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -85,7 +86,7 @@ registerMechanicHandler(MECHANIC_TYPES.DAMAGE_REFLECT, {
                     // 2026-11-04 补弹幕：factType 驱动 416 翻译 → REBOUND 舞台（飘字落攻击者头上）
                     factType: FACT_TYPES.DISCIPLE_REBOUND,
                     factData: { unitName: unit ? unit.name : '攻击者', sourceName: target.name, unitUid: unit ? unit.uid : null, rebound: value },
-                    logText: `⚡ 反伤护盾：${target.name}反弹 ${value} 点伤害给 ${unit ? unit.name : '攻击者'}`
+                    logText: `⚡ 反伤护盾：${target.name}反弹 ${fmtNum(value)} 点伤害给 ${unit ? unit.name : '攻击者'}`
                 });
             }
         });

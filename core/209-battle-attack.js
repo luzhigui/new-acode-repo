@@ -1,5 +1,6 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-export const VER = 'core/209-battle-attack.js V6.4.9';
+// V6.4.10 | 2026-11-08 免疫破防行防御减数值走 fmtNum（reduce 是实数，直接拼进文本会带浮点尾巴）
+export const VER = 'core/209-battle-attack.js V6.4.10';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -16,7 +17,7 @@ import {
     resolveDeaths
 } from './211-battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { flushBattleEvents, fmtHp } from '../infra/102-core-utils.js';
+import { flushBattleEvents, fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 
 import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition } from './214-battle-shared.js';
@@ -288,7 +289,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 // 破防行必须在攻击组内（规则 135），但本 group 自身不带 factType、不经 renderAttackFact，
                 // 故在此直接建成带 text 的日志条目（与 render/35 renderBreakDefFact 同格式），
                 // 避免裸 fact 条目流入 player/46 在 playLogLine(entry2.text) 处崩（playLineText:26 text.includes）。
-                entries: [{ type: 'detail', text: `<span class="purple small">🗡️ ${dmgCalc.pendingDefReduceFact.attackerName} 破防：${dmgCalc.pendingDefReduceFact.targetName} 防御 -${dmgCalc.pendingDefReduceFact.reduce}</span>` }],
+                entries: [{ type: 'detail', text: `<span class="purple small">🗡️ ${dmgCalc.pendingDefReduceFact.attackerName} 破防：${dmgCalc.pendingDefReduceFact.targetName} 防御 -${fmtNum(dmgCalc.pendingDefReduceFact.reduce)}</span>` }],
                 immuneBreak: true,
                 events: []
             };

@@ -2,7 +2,7 @@
 export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.4';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
-import { fmtHp } from '../infra/102-core-utils.js';
+import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -121,7 +121,7 @@ export function createPangYuanQiaoComponent() {
                 if (!decl || !data.log) return;
                 const note = decl.kind === 'clumsy'
                     ? `😵 年轻气盛：胖远桥一拳打歪，招呼到 ${data.target ? data.target.name : '?'} 身上（伤害×${decl.mult}）`
-                    : `😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）`;
+                    : `😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${fmtNum(face.defGain)}，当前 ${fmtNum(getStat(pang, 'def'))}）`;
                 // pangDefGain 随 SKILL_ANNOUNCE 事实走（在 AFTER_SELECT_TARGET 落，早于命中判定，命中/被闪都发），
                 //   与 BEFORE_SELECT_TARGET 的 addMod 同触发点 ⇒ 账实一致；只挂 ATTACK 事实时被闪不发、会漏报。
                 pushSkillAnnounce(data.log, pang, decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸', note, {

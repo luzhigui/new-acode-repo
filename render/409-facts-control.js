@@ -11,7 +11,7 @@ import { FACT_TYPES, BUFF_SUBTYPES, CAMP_TYPES } from '../infra/106-battle-enums
 export function renderWindAssaultSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
-    let text = `<span class="orange">${fact.label}波及${details}，${word}${fact.splashDmg}</span>`;
+    let text = `<span class="orange">${fact.label}波及${details}，${word}${fmtNum(fact.splashDmg)}</span>`;
     // 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
@@ -66,7 +66,7 @@ export function renderPassFact(fact) {
             entries:[
                 {type:'info', text:`<span class="gray">${headText}</span>`},
                 // actualHeal 现在是实数差值（可能 14.999999999999998）：文本走 fmtNum，动效 healAmount 仍用原值
-                {type:'info', text:`<span class="green">😴 休息回复 ${fmtNum(actualHeal)} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
+                {type:'info', text:`<span class="green">😴 休息回复 ${fmtNum(actualHeal)} 点生命（${fmtNum(hpBefore)} → ${fmtNum(hpAfter)}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
             ],
             isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
@@ -111,18 +111,18 @@ export function renderSpiderReturnFact(fact) {
     return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>`, needsSeparator: true };
 }
 export function renderSpiderFlyFact(fact) {
-    return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fact.incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
+    return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fmtNum(fact.incomingDmg||0)} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
 }
 
 // 蝶变
 export function renderButterflyAttachFact(fact) {
-    return { type:'info', butterflyAction:'attach', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 化为蝴蝶附身于 ${fact.hostName}！方向：${fact.flyDirection === 'left' ? '←左' : '右→'} 攻+${fact.atkTransfer} 防+${fact.defTransfer} 血上限+${fact.hpTransfer}</span>`, needsSeparator: true };
+    return { type:'info', butterflyAction:'attach', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 化为蝴蝶附身于 ${fact.hostName}！方向：${fact.flyDirection === 'left' ? '←左' : '右→'} 攻+${fmtNum(fact.atkTransfer)} 防+${fmtNum(fact.defTransfer)} 血上限+${fmtNum(fact.hpTransfer)}</span>`, needsSeparator: true };
 }
 export function renderButterflyNoHostFact(fact) {
     return { type:'info', butterflyAction:'noHost', sisterUid: fact.sisterUid, text:`<span class="red">🦋 蝶变：${fact.unitName} 无队友可附身，香消玉殒！</span>` };
 }
 export function renderButterflyReturnFact(fact) {
-    return { type:'info', butterflyAction:'return', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fact.sisterAtk} 防 ${fact.sisterDef} 血 ${fact.sisterHp}</span>`, needsSeparator: true };
+    return { type:'info', butterflyAction:'return', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fmtNum(fact.sisterAtk)} 防 ${fmtNum(fact.sisterDef)} 血 ${fmtNum(fact.sisterHp)}</span>`, needsSeparator: true };
 }
 export function renderButterflyHostDeadFact(fact) {
     return { type:'info', text:`<span class="gold">🦋 蝶变：宿主已阵亡，${fact.sisterName} 被迫返回！</span>`, uidD: fact.sisterUid };

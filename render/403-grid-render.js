@@ -12,7 +12,8 @@
 // V7.1.8 | 2026-11-08 攻击力显示下限：格子攻/虚影攻文本改 fmtAtk（<0 显示 0），引擎负数真值不回写
 // V7.1.6 | 2026-11-07 #16 显示名收口 render/414（displayNameOf）：本体与成昆幻影同走同一别名（金毛狮王谢逊 →
 //          「金毛狮王」），残影格同步；归属判据 / 数据名 / 日志结构化字段一律不动
-export const VER = 'render/403-grid-render.js V7.1.8';
+// V7.1.9 | 2026-11-08 彭莹玉女装状态格标 💄 → 👗（老板定案：口红不对，应为女装）
+export const VER = 'render/403-grid-render.js V7.1.9';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -367,9 +368,9 @@ export function renderGrid(id, camp) {
             eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
         }
 
-        // 彭莹玉·双面观音：假身期间挂 💄。此前没有这一支——同档精英（成昆 🎭 / 唐文亮 🌿 /
-        //   张三丰 🛡️）都有状态标记，他没有，触发了格子上也看不出任何变化。
-        if (unit.state && unit.state._crossdressRounds > 0) eliteSkillIcon += ' 💄';
+        // 彭莹玉·双面观音：假身期间挂 👗（V7.1.9 老板定案：口红 ❌ 应为女装）。此前没有这一支——
+        //   同档精英（成昆 🎭 / 唐文亮 🌿 / 张三丰 🛡️）都有状态标记，他没有，触发了格子上也看不出任何变化。
+        if (unit.state && unit.state._crossdressRounds > 0) eliteSkillIcon += ' 👗';
 
         let logoList = [];
         // 金刚不坏护罩优先占位（状态性，可挂在任意单位身上；放最前避免被 buff 图标挤掉）

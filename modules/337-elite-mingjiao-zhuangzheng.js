@@ -19,6 +19,7 @@ import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../in
 import { applyStatChange, addMod, getStat } from '../core/214-battle-shared.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 export const duanChuiHandler = {
     fields: {},
@@ -56,7 +57,7 @@ export const duanChuiHandler = {
                 const halveCue = (self.pos != null && n > 0)
                     ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
                     : null;
-                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${keepHp} 点生命，攻击减半（N=${n}）！`, { cue: halveCue });
+                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${n}）！`, { cue: halveCue });
                 data.declarations.push({ immune: true, reason: `🔨 断锤三式：${self.name} 屹立不倒` });
             }
         });

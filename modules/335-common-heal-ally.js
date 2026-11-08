@@ -6,7 +6,7 @@ import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { getBattleRng, applyStatChange } from '../core/214-battle-shared.js';
-import { fmtHp } from '../infra/102-core-utils.js';
+import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 export const healAllyOnHitHandler = {
@@ -53,7 +53,7 @@ export const healAllyOnHitHandler = {
                         }
                     });
                     const reason = isAttacker ? '攻击后' : '被攻击后';
-                    pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${healAmount} 点生命`, { floatText: '🌿', floatUid: pick.uid });
+                    pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命`, { floatText: '🌿', floatUid: pick.uid });
                 }
             }
         });

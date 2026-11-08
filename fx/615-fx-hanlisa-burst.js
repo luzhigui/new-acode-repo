@@ -18,6 +18,7 @@ import { runTimeline } from './618-fx-timeline.js';
 import { markGridShake } from '../render/403-grid-render.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 // 轰拳内部各段统一按 burstDur 等比缩放（对齐 fx/85 子弹时间的 T()）。
 //   BASE = 2300 = '300' 档 burstDur → 2x 下 k=1，观感与改前完全一致；
@@ -265,7 +266,7 @@ function bigDamageFloat(uid, dmg, tier) {
         : 'text-shadow:0 0 8px rgba(255,160,60,0.7),0 2px 4px rgba(0,0,0,0.9)';
     const d = document.createElement('div');
     d.setAttribute('data-fx', 'temporary');
-    d.textContent = `−${dmg}`;
+    d.textContent = `−${fmtNum(dmg)}`;
     d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height * 0.18}px;transform:translate(-50%,0);font-size:${size}px;font-weight:900;font-family:inherit;color:${color};${glow};z-index:10013;pointer-events:none;opacity:0;`;
     document.body.appendChild(d);
     runTimeline([{ at: BT(heavy ? 120 : 200), dur: BT(1350), onFrame: (p) => {
@@ -319,7 +320,7 @@ function vampFloat(apex, vamp) {
     if (!(vamp > 0) || !apex) return;
     const d = document.createElement('div');
     d.setAttribute('data-fx', 'temporary');
-    d.textContent = `🩸 +${vamp}`;
+    d.textContent = `🩸 +${fmtNum(vamp)}`;
     d.style.cssText = `position:fixed;left:${apex.x}px;top:${apex.y - 14}px;transform:translate(-50%,0);font-size:24px;font-weight:900;color:#9ff0b0;text-shadow:0 0 10px rgba(80,220,130,0.8),0 2px 4px rgba(0,0,0,0.9);z-index:10013;pointer-events:none;opacity:0;`;
     document.body.appendChild(d);
     runTimeline([{ at: BT(650), dur: BT(1250), onFrame: (p) => {

@@ -1,11 +1,13 @@
 // modules/313-elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
-export const VER = 'modules/313-elite-sixsects-miejueshitai.js V6.28.0';
+// V6.28.1 | 2026-11-08 灭绝三击回血文本（回复/生命 → 生命）走 fmtNum，消除实数化后的浮点尾巴
+export const VER = 'modules/313-elite-sixsects-miejueshitai.js V6.28.1';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/205-battle-horse.js';
 import { getBattleRng, previewHeal } from '../core/214-battle-shared.js';
 import { eventBus, EFFECT_TYPES, registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo } from './305-elite-helpers.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
 // 灭绝师太（六大派·峨眉掌门·战士·M115）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
 // 新增，作为新第七关精英。四技能分工：
@@ -171,13 +173,13 @@ export function createMieJueShiTaiComponent() {
                 //   旧写法用声明值拼「生命 A → B」= 假账（实测 42 报成实回 21）。
                 const capped = Math.max(0, Math.floor(Math.min(leechVal, miejue.maxHp - miejue.hp)));
                 const actualHeal = previewHeal(miejue, capped);
-                const hpBefore = Math.floor(miejue.hp);
+                const hpBefore = miejue.hp;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: miejue });
                 // 吸血飘字交给 render/39 的出手演出帧发（同计数飘字，避免抢在画面前）——传实际值
                 if (data.group && data.group.data) data.group.data.miejueLeech = actualHeal;
                 const mutedTag = actualHeal < capped ? '（治疗被削减）' : '';
-                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，回复 ${actualHeal} 点${mutedTag}，生命 ${hpBefore} → ${hpBefore + actualHeal}</span>`);
+                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，回复 ${fmtNum(actualHeal)} 点${mutedTag}，生命 ${fmtNum(hpBefore)} → ${fmtNum(hpBefore + actualHeal)}</span>`);
             });
 
             // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，当场落位，全场仅 1 次。

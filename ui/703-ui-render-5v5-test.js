@@ -193,7 +193,7 @@ function updateDetailPopupContent() {
             const gAtk = layers * (m.atkPer ?? 0);
             const gDef = layers * (m.defPer ?? 0);
             const gHp = layers * (m.hpPer ?? 0);
-            masteryText = `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${gAtk}攻+${gDef}防+${gHp}血）</span>`;
+            masteryText = `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${fmtNum(gAtk)}攻+${fmtNum(gDef)}防+${fmtNum(gHp)}血）</span>`;
         }
         // #13 成长流水：变身次数/职业 + 属性累计，全部读引擎自己的账本，不另算一套——
         //   ① 次数：`_roleCounts` 是 modules/302 蛛变的抽中计数；
