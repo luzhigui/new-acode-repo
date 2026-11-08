@@ -193,3 +193,14 @@
 | 2 | `modules/338-elite-mingjiao-pengyingyu.js`（抽签点 3 → 2） | 彭莹玉的抽签点少了一处（删签或抽成公共函数） | `tests/rng-discipline-check.mjs` ③ 明细标注「3 分钟前改过」；④ 同批出现 33 场位移 | 若确实是抽成公共函数，④ 会保持原次数；现在 ④ 也变 ⇒ 大概率是真删签/换签，需要改动方确认是否符合设计 |
 
 > 本域本轮测试侧资产（tests-only）：`health-rules/234-round-settlement-order.js` V1.1.0（前导结算族扩到光环/圣火/灵魂汲取/众志成城，只判首次出现以避开回放器补发的妹妹永久摘要）、`health-rules/236-round-boundary.js` V1.1.0（终局清场事实允许落在 ROUND_END 之后 + 回合号上界/封顶）、`tests/round-order-check.mjs` V1.0.0（回合四相位运行期巡检，独立于 rules-replay）、`rng-discipline-check.mjs` V1.3.0（同种子双跑加「抽签次数逐场相等」、静态计数降为提示、选 Buff 与战斗抽签分流校验）、`draw-outcome-guard.mjs` V1.0.0（平局口径静态守卫；`tools/816` 的 9 处空值守卫见 S9/S15，本域不改 tools）。
+
+## 九、反伤/控制窗口 + 何太冲三技能 域转交（2026-11-08，规则 301-302 / 307-309）
+
+| # | 文件 | 行为 | 证据 | 影响面 |
+|---|---|---|---|---|
+| 1 | `modules/314-elite-sixsects-hetaichong.js` `tryRedBlood` L136-181 | 红血触发（hp ≤ 40%）只发 `SKILL_ANNOUNCE` 文本，不发任何带**触发帧血量**的结构化 fact | 实读 L140 判定 `subject.hp > subject.maxHp * redThreshold` 后直接走分支，全函数无 `log.push({factType:...})`；`ON_UNIT_ACTED` 载荷也不含 hp | 体检无法核对「触发是否真的 ≤40%」（用挨打行的 `hpPctAfter` 回溯会被中间毒/光环改血污染，309 已删除该判据）；建议触发时补一条 fact（uid / hpBefore / maxHp / thresholdPct） |
+| 2 | `modules/314` L147-174 | **两仪双方同时红血**（`partnerRed === true`）时，搭档走不进任何分支：`_redBloodUsed=true` 已置，但既无「两仪互换」也无「单人红血」公告（只有 `subject.uid === he.uid` 才走单人规则，搭档不是 he 就静默） | 实读 L147 `if (partner && !partnerRed)`、L171 `else if (subject.uid === he.uid)`，搭档同时红血两条都不成立；L177-180 加血行仍会对 subject 落账 | 战报缺「搭档也红血」的报幕，309 会对「加血行没有前置红血行」判红；需主代码补该分支文案或明确搭档是否也不该加血 |
+| 3 | `modules/314` L85-110 `AFTER_DAMAGE_APPLIED` 挂标 | 只校验 `unit.camp === he.camp`（挂号人同营），**不校验目标阵营**：`t.alive && t.state` 即挂标 | 实读 L89-91；同一 handler 内无 `t.camp !== he.camp` 的拦截。回放（seed=1 stage=2、seed=3 stage=3）出现同阵营挂标记录：何太冲(enemy)标记明月(enemy)、峨眉妙清(enemy)标记宋青书(enemy) | 若友伤/溅射路径能把伤害落到同营目标，就会给自家人挂 🎯 并吃 ×1.3/×1.1 加伤；308 只在结构化 uid（`unitUid`+`floatUid`）齐全时判红，避免同名跨阵营误报，但根因仍在主代码 |
+| 4 | `modules/314` L82 乘区公告 | `pushSkillAnnounce(data.log, he, '箭靶标记', ...)` 的 `unitName` 恒为「何太冲」，真实出手者只在 `floatUid` | 实读 L82 传入 `he` 而非 `unit`；308 已改读 `d.floatUid` 判定挂号人档位 | 战报/详情弹窗若按 `unitName` 展示会显示错人；建议公告带显式 `carrierUid`/`carrierName` |
+| 5 | `modules/314` L18 头注释、`core/218-state-keys.js` L131 | 注释写「3 回合 / 刷新为 3」，`content/001` 的 `attackMark.rounds` 实际是 2，代码读配置（真实窗口 2 回合） | 实读 314 L18「3 回合、不叠层」、218 L131「何太冲命中刷新为 3」；配置为 rounds=2 | 纯注释漂移，不影响运行；308 按 content 值 2 判「未过期就重挂」，注释不修会持续误导下一位维护者 |
+
