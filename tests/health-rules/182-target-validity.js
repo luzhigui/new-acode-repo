@@ -5,15 +5,30 @@
 //   ① 鞭尸：目标已经阵亡（本战报更早的击杀已把它记入死亡名单），后续任何一次攻击/闪避/免疫/未命中还指向它。
 //      复活豁免：收到 skillAnnounce 的「圣火不熄」后把它移出死亡名单（复活后当然可以再被攻击）。
 //   ② 自伤：attacker.uid === target.uid（攻击自己）。
-//   ③ 误伤同阵营：attacker.camp === target.camp。癫（周颠不分敌友）属于有意设计，
-//      本规则在整场战报出现「癫/惑心/心智/混乱/幻影」字样时**整场跳过**③（宁漏勿误，不猜具体豁免条件）。
+//   ③ 误伤同阵营：attacker.camp === target.camp。两条豁免通道（宁漏勿误）：
+//      a) 机制豁免（按回合+阵营）：同回合内只要 fact 流里出现过 phantomConfuse{deceiver=施术者}，
+//         就证明该术者的「强制改目标」在这一回合生效，故该回合内**敌对阵营**的同阵营出手全部豁免。
+//         三个发射点共用这一种 fact：modules/307 成昆「幻影伪装」、modules/338 彭莹玉「双面观音」
+//         （女装期他是敌方唯一可选目标时，targetResult 改为攻击自己队友，且不改 attacker 的 camp）、
+//         modules/323 小昭·兄「蝶舞迷心」。
+//         为什么不用「每条 fact 抵一次」：core/209 只在 buildAttackGroup 时挂 phantomFact，
+//         闪避/未命中分支（L281-304）会把这条 fact 丢掉 —— 被改目标的那一击若被闪避，
+//         fact 流里就查不到 phantomConfuse（seed=15 stage=5 的 鹿杖客→鹤笔翁 dodge 即此类）。
+//      b) 词表兜底（整场跳过）：战报出现「癫/惑心/心智/混乱/幻影」时整套跳过③（如周颠不分敌友）。
 //
 // 死亡名单只认「attack fact 的 snap.targetAlive === false」或「dmgResult.dead === true」，
 // 不从渲染文本猜死没死；死亡名单不全时只会漏报，不会误报。
-export const VER = 'tests/health-rules/182-target-validity.js V1.0.0';
+//
+// V1.1.0 | 2026-11-08 第 194 轮：③ 加机制豁免。
+//   证据（seed=15 stage=5 共 7 处假红）：同阵营攻击方 空性 / 何太冲 / 少林圆真 / 鹤笔翁 / 鹿杖客，
+//   其中 6 次 attack 都有对应 phantomConfuse{deceiver:'彭莹玉', deceiverCamp:'ally', sourceSkill:'双面观音'}；
+//   剩下 1 次 dodge（鹿杖客→鹤笔翁）因闪避分支丢 fact 而无从配对，故豁免粒度取「回合+阵营」。
+//   真因不是「圆真=成昆伪装」（该场圆真未现形），而是彭莹玉双面观音的强制改目标（camp 不变）。
+export const VER = 'tests/health-rules/182-target-validity.js V1.1.0';
 
 const TARGET_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
 const FRIENDLY_FIRE_EXEMPT_WORDS = ['癫', '惑心', '心智', '混乱', '幻影'];
+const PHANTOM_CONFUSE_TYPE = 'phantomConfuse';
 
 function collectText(node, out, depth, seen) {
     if (!node || depth > 8) return out;
@@ -40,8 +55,31 @@ export const rule182 = {
         try { battleText = collectText(log, [], 0).concat(collectText(fs, [], 0)).join(' '); } catch (e) { battleText = ''; }
         const friendlyExempt = FRIENDLY_FIRE_EXEMPT_WORDS.some(w => battleText.indexOf(w) >= 0);
 
+        // 改目标回合账（预扫一遍）：'round' → 施术者阵营。先扫后判，不依赖 fact 先后顺序。
+        //   phantomConfuse 的 deceiverCamp 字段只有 modules/338 带；307/323 只有名字，
+        //   故用全流 attacker/target/dodger 快照建「名字→阵营」表来补。
+        const redirectRounds = Object.create(null);
+        const nameCamp = Object.create(null);
+        for (const f of fs) {
+            if (!f || !f.factType) continue;
+            const d = f.data || {};
+            const us = [d.attacker, d.target, d.dodger];
+            for (const u of us) if (u && u.name && u.camp) nameCamp[u.name] = u.camp;
+        }
+        let pr = null;
+        for (const f of fs) {
+            if (!f || !f.factType) continue;
+            const d = f.data || {};
+            if (f.factType === 'roundStart') { pr = d.round; continue; }
+            if (f.factType !== PHANTOM_CONFUSE_TYPE || !d.unitName) continue;
+            const decCamp = d.deceiverCamp || nameCamp[d.deceiver];
+            if (!decCamp) continue;   // 施术者阵营查不到就不放宽（宁可漏报，不给假绿）
+            redirectRounds[pr == null ? '?' : pr] = decCamp;
+        }
+
         const dead = Object.create(null);
         let checked = 0;
+        let exempted = 0;
         let round = null;
         const errs = [];
 
@@ -68,8 +106,13 @@ export const rule182 = {
             if (a.uid === t.uid) {
                 errs.push('第' + (round == null ? '?' : round) + '回合：' + (a.name || a.uid) + ' 攻击了自己（自伤）');
             }
-            if (!friendlyExempt && a.camp && t.camp && a.camp === t.camp) {
-                errs.push('第' + (round == null ? '?' : round) + '回合：' + (a.name || a.uid) + ' 攻击了同阵营的 ' + (t.name || t.uid) + '（误伤）');
+            if (a.camp && t.camp && a.camp === t.camp) {
+                const decCamp = redirectRounds[(round == null ? '?' : round)];
+                if (friendlyExempt || (decCamp && a.camp !== decCamp)) {
+                    exempted++;   // 该回合已证实施术者强制改目标生效，敌对阵营的同阵营出手不算误伤
+                } else {
+                    errs.push('第' + (round == null ? '?' : round) + '回合：' + (a.name || a.uid) + ' 攻击了同阵营的 ' + (t.name || t.uid) + '（误伤）');
+                }
             }
 
             // 本次攻击是否把目标打死——只在 attack fact 上有 snap/dmgResult
@@ -85,9 +128,10 @@ export const rule182 = {
             return {
                 fail: true,
                 msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处目标异常）' : '') +
-                    (friendlyExempt ? '；本场含癫/惑心类机制，已跳过误伤判据' : '')
+                    (exempted ? '；另有 ' + exempted + ' 次同阵营出手已按机制豁免（' +
+                        (friendlyExempt ? '癫/惑心类词表' : 'phantomConfuse') + '）' : '')
             };
         }
-        return { fail: false, msg: '目标选择合法：核对 ' + checked + ' 次出手的指目标' + (friendlyExempt ? '（本场含癫/惑心类机制，未判误伤）' : '') };
+        return { fail: false, msg: '目标选择合法：核对 ' + checked + ' 次出手的指目标' + (exempted ? '（' + exempted + ' 次同阵营出手按机制豁免）' : '') };
     }
 };

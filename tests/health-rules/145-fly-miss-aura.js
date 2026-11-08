@@ -15,7 +15,9 @@
 //   - unit.state._neverMiss（必中）时 getMissBreakdown 直接返回 0/必中，不参与公式校验
 //   - 只校验存活单位（死亡单位不计入残血统计，与引擎口径一致）
 //   - 本场无存活飞行单位直接 skip（韦一笑为我方随机精英，敌方飞行亦随关卡浮动）
-export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.12';
+export const VER = 'tests/health-rules/145-fly-miss-aura.js V6.1.13';
+// V6.1.13 | 2026-11-08 第 194 轮：补算「飞行杀劫」项（core/203 L142-147 unit.state._missChanceBonus 按百分点
+//   直接相加，modules/302 每击杀 +6）。此前 recompute 漏该项，6−12+6=6 被算成 0，seed=2/14/15 等 4 场误报。
 
 import { ROLE_TYPES } from '../../infra/106-battle-enums.js';
 import { getMissBreakdown, countEnemyEmptyCols } from '../../core/203-battle-utils.js';
@@ -43,12 +45,15 @@ function recompute(unit, side, other) {
     }
     var empty = countEnemyEmptyCols(other || []);
     var raw = FLY_BASE + low * LOWHP_BONUS - empty * EMPTYCOL_REDUCE;
+    // 飞行杀劫：每击杀 1 名敌人 +6 个百分点（modules/302 写 state._missChanceBonus，core/203 getMissBreakdown 直接相加）
+    var killBonus = (unit && unit.state ? (unit.state._missChanceBonus || 0) : 0);
+    if (killBonus > 0) raw += killBonus;
     var eagle = 0;
     if (unit && unit.isYangXiao) {
         var ee = getSkillParams('杨逍', 'eagleEye');
         if (ee && ee.missReduce) { eagle = ee.missReduce * 100; raw -= eagle; }
     }
-    return { total: Math.max(0, Math.round(raw * 10) / 10), low: low, empty: empty, eagle: eagle };
+    return { total: Math.max(0, Math.round(raw * 10) / 10), low: low, empty: empty, eagle: eagle, killBonus: killBonus };
 }
 
 export const rule92 = {
@@ -87,12 +92,13 @@ export const rule92 = {
                     return { fail: true, msg: '复发：飞行未命中率数值与公式不符：' + (u.name || '?') + '飞行未命中率' + bd.total + '%，按 CONFIG 真值公式应为'
                         + exp.total + '%（飞行基础' + FLY_BASE + ' + 残血×' + exp.low + '×' + LOWHP_BONUS
                         + ' − 空列×' + exp.empty + '×' + EMPTYCOL_REDUCE
+                        + (exp.killBonus ? ' + 飞行杀劫' + exp.killBonus : '')
                         + (exp.eagle ? ' − 鹰眼' + exp.eagle : '') + '，下限0）' };
                 }
 
                 // 复发信号2：sources 明细项数与单条数值必须与公式一致
                 var src = bd.sources || [];
-                var seenLow = -1, seenEmpty = -1;
+                var seenLow = -1, seenEmpty = -1, seenKill = -1;
                 for (var k = 0; k < src.length; k++) {
                     var it = src[k] || {};
                     var label = it.label || '';
@@ -112,6 +118,14 @@ export const rule92 = {
                         }
                         continue;
                     }
+                    // 飞行杀劫（_missChanceBonus）：数值必须等于单位 state 的累计值，且只应出现在飞行单位
+                    if (label === '飞行杀劫') {
+                        seenKill = it.value;
+                        if (it.value !== exp.killBonus) {
+                            return { fail: true, msg: '复发：飞行杀劫记 ' + it.value + '%，应为 ' + exp.killBonus + '%（state._missChanceBonus 累计值不一致）' };
+                        }
+                        continue;
+                    }
                     // 鹰眼项：只应出现在杨逍身上，且数值 = eagleEye.missReduce×100（V6.1.11）
                     if (label === '鹰眼') {
                         if (it.value !== -exp.eagle) {
@@ -124,6 +138,9 @@ export const rule92 = {
                 }
                 if (exp.empty > 0 && seenEmpty !== exp.empty) {
                     return { fail: true, msg: '复发：敌方空列实为' + exp.empty + '个，sources 记「空列×' + seenEmpty + '」（空列计数口径漂移）' };
+                }
+                if (exp.killBonus > 0 && seenKill !== exp.killBonus) {
+                    return { fail: true, msg: '复发：飞行杀劫累计应为 ' + exp.killBonus + '%，sources 记 ' + seenKill + '%（漏项或 state 未累计）' };
                 }
             }
         }

@@ -4,16 +4,14 @@
 //   1. 破防行挂在攻击组末尾（fact.entries 被压到伤害行之后）
 //   2. 破防行的攻击者/目标与所在攻击组不一致（破防信息挂错攻击组）
 //   3. 破防行游离在攻击组之外
-//   4. 破防量 -X 不在合法档位 {2,3,4}（V6.1.3 分档回归：reduce 归零/越界 = 破防逻辑回退）
-// 对应已报 Bug：破防的提示应该在当前攻击组最前面，现在相对靠后了
-export const VER = 'tests/health-rules/135-break-def-pos.js V6.1.4';
+//   4. 破防量 -X 不在合法区间 (0, 4]（V6.1.3 分档回归：reduce 归零/越界 = 破防逻辑回退）
+export const VER = 'tests/health-rules/135-break-def-pos.js V6.1.5';
 
-// V6.1.4 | 2026-10-13 第 86 轮：合法档位集合补 1（min 夹取态）——core/03 L201
-//   `defReduced = Math.min(defReduced, getStat(target,'def'))`，目标 def=1 时破防量被夹成 1；
-//   L190 门控挡掉 def<=0，故夹取后最小值为 1、0 不可能由该路径产生 ⇒ 集合含 1 不含 0 不削牙
-//   （reduce 归零/越界仍照报）。此前只认 {2,3,4}，seed=3 stage=2「小昭·妹 破防：武当弟子 防御 -1」
-//   （多次破防叠加把武当弟子 def 压到 1）被误报——假阳性根治。
-const VALID_BREAK_REDUCE = { 1: true, 2: true, 3: true, 4: true };
+// V6.1.5 | 2026-11-08 第 194 轮：破防量允许小数（正则改 (\d+(?:\.\d+)?)）。
+//   core/203 L219 `defReduced = Math.min(defReduced, getStat(target,'def'))` 会把整数档夹成小数
+//   （实测 0.8）——旧正则 `防御 -(\d+)` 把 -0.8 截成 0，再撞整数白名单被判非法（seed=20 stage=1 误报）。
+//   判定改为区间 (0, 4]：0 = reduce 归零、>4 = 越界，两者才是回归信号；夹取产生的任意小数放行。
+const MAX_BREAK_REDUCE = 4;
 
 export const rule82 = {
     group: '战报渲染回归',
@@ -44,11 +42,11 @@ export const rule82 = {
                 var head = (e.entries[0] && e.entries[0].text || '').replace(/<[^>]+>/g, '');
                 if (head.indexOf(ma[1]) === -1 || head.indexOf(ma[2]) === -1) misplace++;
             }
-            var mr = plain.match(/防御\s*-(\d+)/);
+            var mr = plain.match(/防御\s*-(\d+(?:\.\d+)?)/);
             if (mr) {
-                var reduce = parseInt(mr[1], 10);
-                // 破防量回退：reduce 不在合法档位 {2,3,4}，说明破防分档逻辑回退到内联魔法数字或越界
-                if (!VALID_BREAK_REDUCE[reduce]) badReduce++;
+                var reduce = parseFloat(mr[1]);
+                // 破防量回归：0（归零）或 >4（越界）才是信号；Math.min 夹取产生的 0.x 小数属正常
+                if (!(reduce > 0 && reduce <= MAX_BREAK_REDUCE)) badReduce++;
             }
         }
         // 3) 游离：破防行不应出现在攻击组之外
@@ -60,7 +58,7 @@ export const rule82 = {
         var msgs = [];
         if (latePos > 0) msgs.push(latePos + '/' + total + '处破防显示位置靠后（应在攻击组最前面、波动行之前）');
         if (misplace > 0) msgs.push(misplace + '处破防行与所在攻击组攻击者/目标不一致或游离在攻击组外');
-        if (badReduce > 0) msgs.push(badReduce + '处破防量不在合法档位{2,3,4}（V6.1.3 破防分档回归）');
+        if (badReduce > 0) msgs.push(badReduce + '处破防量不在合法区间(0,4]（V6.1.3 破防分档回归：归零或越界）');
         // ★ 第 132 轮：原 msg 为「复发：」+ msgs.join()，整体动态 ⇒ 无法定位到分支，现已补前缀
         if (msgs.length > 0) return { fail: true, msg: '复发：破防显示位置/破防量：' + msgs.join(' | ') };
         return { fail: false };
