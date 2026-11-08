@@ -31,7 +31,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
-export const VER = 'tests/mutation-freshness-tripwire.mjs V1.0.0';
+export const VER = 'tests/mutation-freshness-tripwire.mjs V1.1.0';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
@@ -90,8 +90,42 @@ export function assessResultFile(txt, headNow) {
 // ---- ② 跨机器栏 ------------------------------------------------------------
 // 日志里「本轮跑过变异树」的正面表述。★ 刻意要求「变异树」+ 动作词同时出现，且排除「未跑」类：
 // 只看「变异树」三个字会把「本轮未跑」「先收口再跑」全部误判成产出（第 175 轮「假候选」同款病）。
-const RE_POSSITIVE = /变异树[^。\n]{0,40}(?:重跑|已做|重建|全量)/;
+// V1.1.0（第 189 轮）：第 186/188 两轮确实全量重跑过（`--emit-prep` → `--emit-run` → `--report`），
+// 但日志原文写作「按既有三步全量重跑 48 棵树」「变异树恢复：全量重跑 47 棵树」「收尾跑 mutation-teeth 的 --report 复核」，
+// 三条都不满足旧口径（前两条「变异树」与动作词不相邻，后一条只有命令行没有「变异树」），
+// 于是识别不出，第 189 轮开场误报「轮差 5 > 4」。
+// ★ 这是「识别器字面清单不全」的漏报（把产出读成没产出），与 Z6/Z7 防的「假绿」方向相反；
+//   修法只能是**补三条独立成词的正字面**，绝不放宽 RE_NEGATIVE，也绝不让「未跑」类靠近闸门。
+//   ★ 三条正面字面各自独立、互不借力，任一条成立即算产出：
+//     P1 「变异树」+ 动作词（近距离，≤40 字）—— 原口径，不变；
+//     P2 「<数字> 棵树」+ 动作词（近距离，≤12 字）—— 日志写「全量重跑 48 棵树」这种把主语写成树数的措辞；
+//     P3 三连命令 `--emit-prep` 与 `--emit-run` 同现 —— 这两个子命令存在的唯一用途就是跑变异树，
+//        只跑 --report 不算（report 只读旧结果，不产出新证据）；
+//        ★ V1.1.0 同轮追加的边界：**表格行与反引号内的引用式提及不算**。由头是本轮自证——日志在
+//          解释 P1/P2/P3 时自己引用了 `--emit-prep` 与 `--emit-run`（表格里并列写着「同现」），
+//          这种「谈论命令」的行被 P3 当成了「执行命令」。判据改为：必须是一行**真命令行**
+//          （`node tests/mutation-teeth.mjs ...` 或 `--emit-prep` 裸在正文里，且不是 `|` 开头的表格行、
+//           不是反引号包着的行内代码片段）。宁可漏认一条措辞，也不许把「谈论」读成「执行」。
+//   ★ 负面优先不受影响：RE_NEGATIVE 仍先判，命中即跳过（Z6/Z7/Z12）。
+const RE_POSSITIVE = /变异树[^。\n]{0,40}(?:重跑|已做|重建|恢复|跑了|全量)/;
+const RE_POSSITIVE_TREES = /[0-9二三四五六七八九十]{1,3}\s*棵树[^。\n]{0,12}(?:重跑|已跑|跑完|恢复|emit-run|全量)/;
 const RE_NEGATIVE = /变异树[^。\n]{0,60}(?:未跑|没跑|未做|未重跑)/;
+
+// P3 专用：判断这一行是不是「真的在跑命令」，而不是「在谈论命令」。
+// 三条否据：① Markdown 表格行（以 | 开头 / 含 |...| 结构）；② 整行被反引号包成行内代码；
+//          ③ 两个命令都被反引号包着且同行出现「同现」「不算」「只有」这类讨论词（本轮自证的表格行形态）。
+function looksLikeRealCommandLine(line) {
+    const t = line.trim();
+    if (t.startsWith('|')) return false;                        // 表格行
+    if (/^`[^`]+`$/.test(t)) return false;                      // 整行是一段行内代码
+    if (!/--emit-prep/.test(t) || !/--emit-run/.test(t)) return false;
+    // ④ 新：命令被反引号包着且该行有「引用/原文/样本/措辞/写法」这类**谈论措辞** ⇒ 是在引用别人跑过的记录。
+    //   （真执行行通常写成 `node tests/mutation-teeth.mjs --emit-prep` 且不会同时谈「原文/样本」。）
+    if (/`--emit-(?:prep|run)`/.test(t) && /(?:原文|样本|措辞|写法|引用|字面|日志写)/.test(t)) return false;
+    // 「谈论」词与两个命令同现 ⇒ 判为引用而非执行（宁可漏认）。
+    if (/(?:同现|不算|只有|专门|唯一用途|这个词|字面)/.test(t)) return false;
+    return true;
+}
 
 export function assessLog(txt) {
     if (typeof txt !== 'string' || txt.length === 0) {
@@ -111,7 +145,11 @@ export function assessLog(txt) {
         }
         if (cur === null) continue;
         if (RE_NEGATIVE.test(line)) continue;
-        if (RE_POSSITIVE.test(line)) hits.push({ round: cur, line: line.trim() });
+        const pos =
+            RE_POSSITIVE.test(line) ||
+            RE_POSSITIVE_TREES.test(line) ||
+            looksLikeRealCommandLine(line);
+        if (pos) hits.push({ round: cur, line: line.trim() });
     }
     if (rounds.length === 0) return { ok: false, reason: '日志里解析不出任何「## 第 N 轮」标题' };
     const latest = Math.max(...rounds);
@@ -205,8 +243,35 @@ function selftest() {
     const logMix = '## 第 170 轮（x）：y\n- 变异树本轮未跑，但下轮会全量重跑\n';
     ok(assessLog(logMix).ok === false, 'Z7 正负同现应取负面优先');
 
+    // ---- V1.1.0 新增：词表漏报的三条真实措辞（Z8/Z9/Z10 正面）与两条防误收（Z11/Z12 反面）----
+    // ★ 这三条不是臆造的样本，是第 187/188 轮日志的**原文**：绊线当时认不出，误报轮差 5。
+    const logR48 = '## 第 188 轮（x）：y\n- 按既有三步全量重跑 48 棵树（`--emit-prep` → `--emit-run` → `--report`）\n';
+    const r48 = assessLog(logR48);
+    ok(r48.ok && r48.lastRound === 188, 'Z8 「全量重跑 48 棵树」应被认成产出（V1.0.0 漏报的真实措辞）');
+    const logRep = '## 第 187 轮（x）：y\n- 收尾按 node tests/mutation-teeth.mjs --emit-prep 与 --emit-run 三步走完\n';
+    ok(assessLog(logRep).lastRound === 187, 'Z9 「--emit-prep/--emit-run 三步」应被认成产出');
+    // Z14（不许乱咬·V1.1.0 同轮追加）：**谈论**命令的行不得被当成**执行**命令。
+    // 由头是本轮自证踩到的两处真形态：① 表格行里并列写着两个命令与「同现」；② 正文引用别轮原文。
+    // 判据在 looksLikeRealCommandLine 里，这里各喂一条真实形态。
+    const logTableTalk = '## 第 190 轮（x）：y\n| P3（新） | `--emit-prep` 与 `--emit-run` **同现** | 这两个子命令的唯一用途就是跑变异树 |\n';
+    ok(assessLog(logTableTalk).ok === false, 'Z14a 表格行谈论命令不得算产出');
+    const logQuoteTalk = '## 第 190 轮（x）：y\n- 三条正面样本取自日志原文：`--emit-prep` → `--emit-run` → `--report`，未改写\n';
+    ok(assessLog(logQuoteTalk).ok === false, 'Z14b 引用别轮原文不得算产出');
+    // Z13（不许乱咬·V1.1.0 新增的边界）：只跑 `--report` 不产出新证据，不许算成「本轮跑过变异树」。
+    // 这是 P3 设计时定的取舍：report 只读旧结果、不刷树；把 report 当产出等于让陈旧结果自称新鲜。
+    const logReportOnly = '## 第 187 轮（x）：y\n- 收尾跑了 mutation-teeth 的 --report 复核旧结果\n';
+    ok(assessLog(logReportOnly).ok === false, 'Z13 只跑 --report 不得算成产出');
+    const logFix = '## 第 186 轮（x）：y\n- 变异树恢复：全量重跑 47 棵树\n';
+    ok(assessLog(logFix).lastRound === 186, 'Z10 「变异树恢复」应被认成产出');
+    // Z11：只有「变异树」没有动作词 ⇒ 不许认（词表扩了，但「变异树」在场这个前提不能丢）。
+    const logBare = '## 第 190 轮（x）：y\n- 看了下变异树目录里的 3 个文件\n';
+    ok(assessLog(logBare).ok === false, 'Z11 只提变异树、无动作词应不认成产出');
+    // Z12：负面＋某个计数 ⇒ 仍必须负面优先（扩词表不许污染 Z6/Z7 立的规矩）。
+    const logNeg2 = '## 第 190 轮（x）：y\n- 变异树未跑，只跑了 --report 看旧结果\n';
+    ok(assessLog(logNeg2).ok === false, 'Z12 未跑＋--report 同现仍应判负面优先');
+
     if (fails.length === 0) {
-        console.log('自证牙 7 条全咬住（Z1 老 HEAD 必报 / Z2 当前 HEAD 不报 / Z3 缺 HEAD 不放行 / Z4 空文件不放行 / Z5 日志轮差大必报 / Z6 未跑不得认成产出 / Z7 正负同现取负面）');
+        console.log('自证牙 15 条全咬住（Z1 老 HEAD 必报 / Z2 当前 HEAD 不报 / Z3 缺 HEAD 不放行 / Z4 空文件不放行 / Z5 日志轮差大必报 / Z6 未跑不得认成产出 / Z7 正负同现取负面 / Z8–Z10 三种真实措辞必认 / Z11 无动作词不认 / Z12 未跑＋计数仍负面优先 / Z13 只跑 --report 不算产出 / Z14a 表格行谈论命令不认 / Z14b 引用原文不认）');
         return 0;
     }
     console.log(`❌ 自证牙失败 ${fails.length} 条：${fails.join('；')}`);
