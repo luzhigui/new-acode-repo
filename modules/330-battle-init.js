@@ -11,7 +11,9 @@
 //         | ② 删除 mingSquadTemplate（赋值后从未使用，content.encounters.mingSquads 为废配置）。
 // V7.8.0 | 2026-11-08 RNG 抽签契约版本化：导出 RNG_CONTRACT_VERSION，initBattleTeams 返回值带上它
 //         |（战报 / 跑批 / 联机凭它识别「这条记录是哪一版抽签产生的」）。骰子数量或顺序一变就必须改版本号。
-export const VER = 'modules/330-battle-init.js V7.8.0';
+// V7.8.1 | 2026-11-08 建队去重：具名兵职业解析（含何太冲双修）与无名杂兵补名抽成文件内辅助函数，
+//         主建队与凑数池两条路径改调同一份；RNG 消耗序列不变（先 _rand(0,3) 再何太冲 _rng.next()）。
+export const VER = 'modules/330-battle-init.js V7.8.1';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -64,6 +66,27 @@ export function initBattleTeams(currentStage, _rng) {
     const ENEMY_M = CONFIG.ENEMY_M;
     const ENEMY_POOL_TIER = CONFIG.ENEMY_POOL_TIER;  // 池表整场不变，先取一次，别在 filter 里逐角色读 getter
     const _rand = (min, max) => _rng.nextInt(min, max);
+
+    // 具名兵职业解析（主建队与凑数池两条路径同口径）：
+    //   content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES 或标枪 > 随机四选一。
+    //   何太冲双修：远程/战士 50/50 摇，走 _rng 保联机同步。
+    //   ⚠️ RNG 消耗序列固定为「先 _rand(0,3)，再何太冲 _rng.next()」，与抽离前逐字一致。
+    const resolveEnemyRole = (name) => {
+        let role = C.ROLES[_rand(0, 3)];
+        const chNamed = getGameData()?.characters?.[name];
+        let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
+        if (name === '何太冲') tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
+        if (tagRole) role = tagRole;
+        return role;
+    };
+
+    // 无名杂兵补名：同门派递增编号（少林弟子 / 少林弟子2 …）
+    const makeFallbackName = (used) => {
+        const sects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
+        const base = sects[_rand(0, sects.length - 1)];
+        const existingCount = used.filter(n => n.startsWith(base)).length;
+        return base + (existingCount > 0 ? String(existingCount + 1) : '');
+    };
     let allyTeam = [], enemyTeam = [];
     const eliteRate = C.ELITE_RATE || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
@@ -503,26 +526,12 @@ export function initBattleTeams(currentStage, _rng) {
                     while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[_rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
                 }
                 if (!name) {
-                    const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                    const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
-                    const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
-                    name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
+                    name = makeFallbackName(usedEnemyNames);
                 }
                 // 具名角色填数值空位时用「自身职业」，不再四选一乱抽——
                 //   老板实测何太冲（昆仑·远程）偶尔顶着"防战"出场：该路径职业原本与身份无关。
                 //   无名杂兵（空闻/班淑娴等，不在 characters 表）保持随机，当作阵容变数。
-                let role = C.ROLES[_rand(0, 3)];
-                // 职业解析优先级：content `role` 字段（标枪等非 CONFIG.ROLES 职业）> tags 命中 CONFIG.ROLES
-                // 第二道防线：tags 里直接写「标枪」也认（role 字段丢失时不至于回落到随机四选一）
-                const chNamed = getGameData()?.characters?.[name];
-                let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
-
-                // 何太冲双修：取消固定远程，在远程和战士之间随机摇（RNG 走 _rng，保联机同步）
-                if (name === '何太冲') {
-                    tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
-                }
-
-                if (tagRole) role = tagRole;
+                const role = resolveEnemyRole(name);
                 let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
@@ -540,23 +549,11 @@ export function initBattleTeams(currentStage, _rng) {
                 if (usedNames.includes(name)) { name = null; pool.splice(pool.indexOf(pick), 1); }
             }
             if (!name) {
-                const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
-                const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
-                name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
+                name = makeFallbackName(usedEnemyNames);
             }
             // 职业解析与具名兵同口径：content `role` 字段 > tags 命中 CONFIG.ROLES 或标枪
             //   （此前这里只掷 C.ROLES 随机四选一，M104 池抽到唐文亮会给错职业）
-            const chNamed = getGameData()?.characters?.[name];
-            let role = C.ROLES[_rand(0, 3)];
-            let tagRole = chNamed?.role || (chNamed?.tags || []).find(t => C.ROLES.includes(t) || t === ROLE_TYPES.JAVELIN);
-
-            // 何太冲双修：与上方主建队路径同口径（V7.6.6 老板拍板补齐）——凑数池抽到也 50/50 摇
-            if (name === '何太冲') {
-                tagRole = _rng.next() < 0.5 ? ROLE_TYPES.WARRIOR : ROLE_TYPES.RANGED;
-            }
-
-            if (tagRole) role = tagRole;
+            const role = resolveEnemyRole(name);
             let extraUnit = new Unit(name, extraM, role, CAMP_TYPES.ENEMY);
             extraUnit.init(_rng); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
