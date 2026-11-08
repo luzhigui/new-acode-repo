@@ -2,7 +2,7 @@
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #bcHex / #bcEnemyHex（双海克斯需先勾海克斯）。
 //   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后 A/B 两臂共用同一开关，保证对照公平。
 import { runParallel } from './817-shared-worker-runner.js';
-import { ELITE_UNIT_META } from './827-tool-registry.js';
+import { ELITE_UNIT_META, STATS_TH } from './827-tool-registry.js';
 
 // 角色配置表（单一来源：127 的 ELITE_UNIT_META：flag / stdPos / role）
 const ROLE_CFG = ELITE_UNIT_META;
@@ -104,7 +104,7 @@ function renderResult(rows, stages, cfgA, cfgB) {
         const rateB = d.vB ? d.wB / d.vB * 100 : null;
         const diff = (rateA != null && rateB != null) ? rateB - rateA : null;
         const diffHtml = diff == null ? '-' :
-            `<span style="color:${diff >= 5 ? '#4caf50' : diff <= -5 ? '#ff5252' : '#888'};font-weight:bold;">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</span>`;
+            `<span style="color:${diff >= STATS_TH.AB_BAND ? '#4caf50' : diff <= -STATS_TH.AB_BAND ? '#ff5252' : '#888'};font-weight:bold;">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</span>`;
 
         html += `<tr>
             <td class="elite-stage">第${st}关</td>
@@ -124,7 +124,7 @@ function renderResult(rows, stages, cfgA, cfgB) {
     const rateB = tvB ? twB / tvB * 100 : null;
     const diff = (rateA != null && rateB != null) ? rateB - rateA : null;
     const diffHtml = diff == null ? '-' :
-        `<span style="color:${diff >= 5 ? '#4caf50' : diff <= -5 ? '#ff5252' : '#888'};font-weight:bold;">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</span>`;
+        `<span style="color:${diff >= STATS_TH.AB_BAND ? '#4caf50' : diff <= -STATS_TH.AB_BAND ? '#ff5252' : '#888'};font-weight:bold;">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</span>`;
 
     html += `<tr>
         <td class="elite-stage">总评</td>

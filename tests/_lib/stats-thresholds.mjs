@@ -1,11 +1,13 @@
-// tests/_lib/stats-thresholds.mjs | V1.0.0 | 2026-11-08（第 230 轮）
+// tests/_lib/stats-thresholds.mjs | V1.1.0 | 2026-11-08（第 230 轮）
 // 统计阈值台账：把散落在各跑批工具里的「样本量 / 判读线」收成一处定义，供体检对账与工具侧收口使用。
 // 说明：本文件是体检域的**口径基线**，不替代 tools 里的常量（体检不改 tools）。
 //   · 工具值与这里一致 → ✅；
 //   · 工具值改了、这里没跟 → 本台账报「台账落后」，不允许静默漂移；
 //   · 工具里找不到对应字面量（已收口到别处）→ 报「待确认归属」，由 daily 检查人工确认。
-// 每项：value（判读线数值）、owner（当前持有该硬编码的工具）、literal（源码里应出现的写法）、
+// 每项：value（判读线数值）、owner（当前持有该硬编码的工具）、literal（收口前的字面量写法）、
 //   label（人类可读口径）。单位统一：样本量=场/局，偏移=百分点(pp)，天数=天。
+// 2026-11-08 V1.1.0：工具侧已收口到 tools/827-tool-registry.js 的 STATS_TH；持有者源码出现
+//   STATS_TH.<KEY> 时，S14 改为核对 827 的数值与这里一致（不再要求旧的散落字面量）。
 export const STATS_THRESHOLDS = {
     // 812 精英评测：单格样本少于它只标「样本少」，不判强弱
     thinSample: { value: 200, owner: 'tools/812-elite-eval.js', literal: 'd.runs < 200', label: '单格最少场次' },

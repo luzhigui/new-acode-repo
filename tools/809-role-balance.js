@@ -21,6 +21,7 @@ export const VER = 'tools/809-role-balance.js V6.3.2';
 
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { getPoolSize } from './817-shared-worker-runner.js';
+import { STATS_TH } from './827-tool-registry.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
@@ -362,7 +363,7 @@ function renderResult(container, matrix, allyStats, enemyStats, meta) {
         const _allW = Object.keys(matrix).reduce((a, k) => a + ((matrix[k] && matrix[k].total) ? matrix[k].wins : 0), 0);
         const _allN = Object.keys(matrix).reduce((a, k) => a + ((matrix[k] && matrix[k].total) ? matrix[k].total : 0), 0);
         const overall = _allN ? _allW / _allN * 100 : null;
-        const biased = overall !== null && (overall > 65 || overall < 35);
+        const biased = overall !== null && (overall > STATS_TH.OVERALL_HIGH || overall < STATS_TH.OVERALL_LOW);
 
         html += '<div class="role-bal-section"><h2>⚖ 四职业平衡总评</h2>';
         if (biased) {
