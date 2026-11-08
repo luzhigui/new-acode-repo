@@ -571,7 +571,17 @@ for (const { seed, stage, force, forces: entryForces, buffs: entryBuffs } of [..
             } catch (e) {
                 res = { fail: true, msg: '规则抛异常: ' + (e.message || e) };
             }
-            const st = (res === 'skip') ? 'skip' : (res && res.fail ? 'fail' : 'pass');
+            // 形状防御（第 200 轮）：只认 {fail:boolean,msg} 与 'skip'。
+            //   此前 `res && res.fail ? 'fail' : 'pass'` —— 规则失败时返回普通字符串会被静默算 pass，
+            //   229 曾 156 场假绿、227/228 上线起一直假绿（直接调 .test 是 fail=70/70，回放却 pass=156）。
+            let st;
+            if (res === 'skip') st = 'skip';
+            else if (res === 'pass') st = 'pass';   // 显式成功状态词，语义明确
+            else if (res && typeof res === 'object') st = res.fail ? 'fail' : 'pass';
+            else {
+                st = 'fail';
+                res = { fail: true, msg: '返回值形状非法（只认 {fail:boolean,msg} 或 "skip"）：' + String(res).slice(0, 120) };
+            }
             const a = agg[r.name] || (agg[r.name] = { pass: 0, fail: 0, skip: 0, msgs: [] });
             a[st]++;
             if (res && res.observe) {

@@ -794,9 +794,17 @@ function runRuleChecks(ctx, doc) {
             } else if (result === 'skip') {
                 ruleSkipCount++;
                 ruleSkipNames.add(rule.name);
-            } else {
+            } else if (result === 'pass') {
                 rulePassCount++;
                 rulePassNames.add(rule.name);
+            } else if (result && typeof result === 'object') {
+                // 形状防御：只有 `{ fail:false }`（可带 observe）才算真通过；
+                // 返回普通字符串等非法形状一律报红，禁止静默算 pass（229/227/228 假绿的根因）
+                rulePassCount++;
+                rulePassNames.add(rule.name);
+            } else {
+                recordIssue(ctx, null, '规则返回形状非法', rule.name + ': 返回 ' + String(result).slice(0, 80)
+                    + '（只认 {fail:boolean,msg} 或 "skip"，否则失败会被算成 pass）', '系统');
             }
         } catch (e) {
             recordIssue(ctx, null, '规则异常', rule.name + ': ' + (e.message || '未知错误'), '系统');

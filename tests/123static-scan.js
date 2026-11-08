@@ -211,6 +211,72 @@ export function scanDeadFxAnchors(code) {
     return /\bfxAnchors\b/.test(stripComments(code));
 }
 
+// --- 规则 test 返回形状守卫（V1.3.0）---
+// 根因：回放器与体检中心只认 `{fail:true,msg}` 这一种形状，返回普通字符串一律算 pass
+//   ⇒ 229 曾 156 场假绿、227/228 上线起一直假绿（直接调 .test 是 fail=70/70、回放却 pass=156）。
+//   「静默计 pass」比报红危险得多，所以在写规则那一刻就拦，不等实测。
+// 判据：test 函数体**顶层**（相对深度 1）的 return 只允许两种形状
+//   ① 对象字面量 `{ ... }`（含 {fail:true/false}）②状态词字符串 'skip' / 'pass'
+//   其余（普通失败文案字符串、数组 join、模板串、变量）一律报红。
+export const LEGAL_TEST_STATUS = ["'skip'", '"skip"', "'pass'", '"pass"'];
+
+export function scanRuleTestShape(code) {
+    const src = stripComments(code);
+    // 两种写法：`test: (...) => {}` / `test(...) {}`（对象方法简写，173 属后者）
+    const m = src.match(/test\s*:\s*(async\s*)?(function\s*)?[A-Za-z0-9_]*\s*\(/) || src.match(/\n\s*(async\s+)?test\s*\(/);
+    if (!m) return null;
+    let i = m.index + m[0].length - 1;
+    let d = 0;
+    for (; i < src.length; i++) {
+        if (src[i] === '(') d++;
+        else if (src[i] === ')') { d--; if (d === 0) { i++; break; } }
+    }
+    while (i < src.length && /\s/.test(src[i])) i++;
+    if (src[i] !== '{') return [];           // 表达式体（几乎不会出现，放行）
+    const bodyStart = i;
+    let bd = 0;
+    for (; i < src.length; i++) {
+        if (src[i] === '{') bd++;
+        else if (src[i] === '}') { bd--; if (bd === 0) { i++; break; } }
+    }
+    const body = src.slice(bodyStart, i);
+    let line = src.slice(0, bodyStart).split('\n').length;
+    const out = [];
+    let quote = null, depth = 0;
+    for (let k = 0; k < body.length; k++) {
+        const c = body[k];
+        if (c === '\n') { line++; continue; }
+        if (quote) {
+            if (c === '\\') { k++; continue; }
+            if (c === quote) quote = null;
+            continue;
+        }
+        if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+        if (c === '{') { depth++; continue; }
+        if (c === '}') { depth--; continue; }
+        if (depth !== 1) continue;
+        if (!body.startsWith('return', k)) continue;
+        if (/[A-Za-z0-9_$]/.test(body[k - 1] || '')) continue;   // 排除 myreturn 这类标识符
+        if (!/\s/.test(body[k + 6] || '')) continue;             // 排除 returnHp / returnN 这类变量名
+        let j = k + 6;
+        while (j < body.length && /[ \t]/.test(body[j])) j++;
+        const first = body[j];
+        if (first === '{') continue;                             // ✅ 唯一合法形状
+        if (first === '"' || first === "'" || first === '`') {
+            const q = first;
+            let e = j + 1, buf = '';
+            while (e < body.length && body[e] !== q) { buf += body[e]; e++; }
+            if (LEGAL_TEST_STATUS.includes(q + buf.trim() + q)) continue;   // ✅ 合法状态词
+            out.push({ line, shape: '字符串', text: (q + buf.slice(0, 50) + q) });
+            continue;
+        }
+        let e = j;
+        while (e < body.length && !/[;\n]/.test(body[e])) e++;
+        out.push({ line, shape: '非对象表达式', text: body.slice(j, Math.min(e, j + 50)).trim() });
+    }
+    return out;
+}
+
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
 // 剥注释（第 24 轮补）：逐字符走一遍，跟踪引号状态，剔掉 `//` 行注释与 `/* */` 块注释。
 //   为什么必须做：此前直接在原文上匹配"是否使用了某符号"，注释里提一句 BUFF_TYPES 也会被当成使用
@@ -583,7 +649,8 @@ export async function collectScanFiles(baseUrl) {
         return { files: SCAN_FILES.slice(), error: '扫描面自动发现失败：' + (e.message || e) };
     }
     files.sort();
-    return { files: files.concat(SCAN_FILES), error: null };
+    // 去重：SCAN_FILES 里已登记的文件多半也会被自动发现，重复扫会重复报 issue
+    return { files: [...new Set(files.concat(SCAN_FILES))], error: null };
 }
 
 // 一键静态扫描：返回结构化结果，供体检中心渲染
@@ -596,7 +663,8 @@ export async function runStaticScan() {
             sharedImport: { name: '共享符号 import 缺失', issues: [] },
             importRef: { name: 'import 引用断裂', issues: [] },
             enumMember: { name: '枚举成员未定义', issues: [] },
-            deadFxAnchors: { name: '去锚定化残留 fxAnchors 字段', issues: [] }
+            deadFxAnchors: { name: '去锚定化残留 fxAnchors 字段', issues: [] },
+            ruleTestShape: { name: '规则 test 返回形状', issues: [] }
         },
         enumRefCount: 0,
         elapsedMs: 0
@@ -650,6 +718,19 @@ export async function runStaticScan() {
                 + '（运行时为 undefined，比较恒不等 ⇒ 分支静默失效）');
         }
         result.enumRefCount += countEnumMemberRefs(scanCode, enumMembers);
+        // 检查 4：规则 test 返回形状（只对 health-rules/ 生效）
+        //   失败返回普通字符串 ⇒ 回放器一律算 pass（229/227/228 假绿的根因），必须当场红。
+        if (/\/health-rules\/[^/]+\.js$/.test(rel)) {
+            const shape = scanRuleTestShape(code);
+            if (shape === null) {
+                result.slots.ruleTestShape.issues.push(rel + '：未找到 test 函数定义，静态守卫无法校验返回形状');
+            } else {
+                for (const it of shape) {
+                    result.slots.ruleTestShape.issues.push(rel + ' L' + it.line + '：顶层 return 返回' + it.shape
+                        + ' ' + it.text + ' —— 回放器只认 {fail:boolean,msg}，这种写法失败会被算成 pass（假绿）');
+                }
+            }
+        }
     }
     // 自证断言放收尾（引用总数要等全仓扫完才知道）—— 抽取器/扫描器任一腐烂，先把自己报红
     for (const it of selfCheckEnumMembers(enumMembers, result.enumRefCount)) {
@@ -701,7 +782,7 @@ if (isNode) {
         const slots = Object.values(r.slots);
         for (const s of slots) for (const it of s.issues) console.log('  ✗ [' + s.name + '] ' + it);
         const total = slots.reduce((n, s) => n + s.issues.length, 0);
-        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 五类 issue 合计 ${total} 条`);
+        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 六类 issue 合计 ${total} 条`);
         if (total > 0) process.exit(1);
     })();
 }
