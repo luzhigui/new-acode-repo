@@ -37,6 +37,12 @@
 | 暴击计数与事实一致(回归) | **第 191 棒·第二批新登记（2026-11-08）**：`core/209` L226 先 `calcFinalDamage`（`core/212` L239 `critCount++`），之后 L232 才做 `_immuneShield` 免疫判定 ⇒ 被金刚护罩整段挡下的那一击**只产 IMMUNE fact、不产 ATTACK fact**，战报零暴击、面板暴击次数 +1。实测 33/156 场（seed=1 stage=4 寒离飒 critCount 0→2 而战报只记 1；失败样本每条都恰有 1 次免疫暴击）。转交主代码：`critCount++` 移到免疫判定之后（或免疫路径回退计数） | 迭代日志「第 191 棒·第二批转交块三」 |
 | 同回合相邻同目标血量链连续性 | **2026-11-08 规则 230 新登记**：同回合里同一受击单位相邻两击的血量接不上（实测 41/156 场，抽检明细全部为血量上升）。病由：引擎侧静默回血以 `_events`(HP_CHANGE) 在组末入账，渲染层不产出行（如张三丰 159→174 无回血行），玩家看到「前击 148、本击 128」式跳变。转交主代码：静默回血必须产出带 uid 的回血行（`isHealEntry + healUnitUid + healAmount` 或带 `hpBefore/hpAfter` 的行） | 需求清单（本会话给出；规则 230 文件头注释） |
 | 溅射击中数值与目标(回归) | **第 191 棒·第二批新登记（2026-11-08）**：主伤害被乾坤护盾整段吸收后 `dmg=0`，`core/204` L531/598 的 `Math.floor(dmg*ratio)` 仍生成 `splashDmg=0` 的溅射声明，逐目标发 `SPLASH_DAMAGED` ⇒ **0 伤害也触发挨打增益 / 流星溅射成长**。实测 2/156（seed=11 stage=6、seed=20 stage=4，各 1 个目标）。转交主代码：`dmg<=0`（或 splashDmg<=0）时跳过溅射声明 | 迭代日志「第 191 棒·第二批转交块四」 |
+| 蝶变附身窗口成对与宿主归属(回归) | **2026-11-08 第 D6 域新登记**：`modules/322-elite-mingjiao-xiaozhao-sister.js` 的 `_executeReturn` 先 `Object.assign(sister.state, { _flyMode: null, _untargetable: false, _butterflyHost: null })`，隔几行再读 `const deadHostUid = sister.state._butterflyHost` ⇒ **HOST_DEAD 的 hostUid 恒为 null**（156 场 23/23 全命中，rules-replay 里也一直报 `butterflyHostDead hostUid` 契约违规）。统计/渲染要靠它认「谁的窗口关了」。修法一行：进函数先 `const deadHostUid = sister.state._butterflyHost;` 再清 state（规则 262 判据③ 就是这条） | 本会话（对话中给出的一行修正） |
+| 复活链缺「死亡事实」统一出口（规则 231 的观察项来源） | **2026-11-08 存活/胜负/回合结算链域新登记**：156 场里 20 例「圣火不熄」复活前找不到任何死亡登记。死亡目前只靠 attack 的 `snap.targetAlive===false`/`dmgResult.dead` 与 `xuanmingDot.isDead` 两条通道可证；毒/反伤/同归于尽等其它致死路径不落统一死亡 fact ⇒ 复活链无法 100% 闭环（规则 231 只能降观察项，不能升硬判）。转交主代码：所有致死出口统一落一条 `UNIT_DEATH`（或等价 fact，至少带 uid / cause / hpBefore），复活规则即可升硬判据 | 需求清单（规则 231 文件头注释） |
+| 复活 fact 缺血量字段（规则 231 的档位判据只能正则解析文案） | **2026-11-08 同上**：`skillAnnounce/圣火不熄` 只有 `note` 文案（「回复 N 点生命」），没有 hpBefore / hpAfter / maxHp / ratio / slot。体检现在只能从文案正则抠 N、再拿终局 maxHp 反推档位，战中 maxHp 变动时整批不可判（156 场仅 16 例可精确核对）。转交主代码：复活 fact 补 `hpBefore/hpAfter/maxHp/ratio/slot` 四个字段，规则即可对「每次复活血量都落账」做硬判 | 需求清单（规则 231 文件头注释） |
+| 回合末 buff 到期不产 fact（规则 234/236 的取证盲区） | **2026-11-08 同上**：buff 到期递减（`remaining-1`、过期淘汰）发生在 player/回放 runner 的 `tickAndPickBuffs`，引擎 fact 流里没有「到期」行；DOT 又是在回合**开始**结算而非回合末。因此「回合末的 DOT / buff 到期 / 回血按固定顺序、每一步都产行」在当前取证面上做不出一条可判规则（规则 234 只判到「回合前导：roundStart→DOT/摘要→首次出手」，规则 236 只判结束符位置与跨回合衔接）。转交主代码：若要覆盖回合末结算链，需在引擎侧落 `BUFF_EXPIRE`（带 key/remaining/uid）或把到期递减写进 `buffSummary` 的 remaining 变化 | 需求清单（规则 234/236 文件头注释） |
+| 标枪选靶射程(观测) | **2026-11-08 第 192 轮新登记**：156 场里 63 次可判标枪出手，**2 次选中射程外目标**——seed=17 stage=2 唐文亮 6 号位（中排，射程 1~6）选中 8 号位「蹦蹦」；seed=18 stage=7 唐文亮 8 号位（后排，射程 1~3）选中 7 号位「俞岱岩」。两条攻击 fact 均带 `skillAnnounce` 条目、`snap.linkReason=null`、`isDashStrikeFx=false`，即不是反击/跟随/冲刺反手拳标记路径。疑点：冲刺/七伤拳动作穿插导致「选靶时目标在前排、建组快照时已落到后排」或额外攻击未走射程过滤。规则 245 先降观察项（不染红）。转交主代码：确认这两击的选靶入口（是否 extraRequests 的 dashStrike 未打 linkReason），并核对 `core/207` 标枪 `rangeByRow` 过滤是否在建组前被绕过 | 规则 245 文件头 + 本轮回放记录 |
+| 位移落位后快照一致(观测) | **2026-11-08 第 192 轮新登记**：156 场里 94 次可核对「宣告位移→下次露面」，**11 次落点对不上**。样本：seed=8 s2 昆仑紫阳 惑心换位宣告到 5 号位、下次露面 1 号位；seed=9 s4 周芷若 宣告 7、露面 1；seed=11 s3 唐文亮 宣告被换位到 2、露面 3；seed=13 s2 峨眉慧心 击退到 8、露面 4。可能是后续静默位移（冲刺/撤退/两仪互换不发位移条目）或同帧快照早于落位写入。规则 248 先观察（不染红）。转交主代码：确认这些样本里是否存在未发条目的二次 relocate；若同帧快照早于 `moveUnitPosition` 落账，需把攻击快照取位时机后移或在 fact 里带落位版本号 | 规则 248 文件头 + 本轮回放记录 |
 
 ## 二、待用户定夺（可解释差异，等一句话）
 
@@ -47,6 +53,8 @@
 | 韦一笑满血吸血是否抬上限 | 设计取舍（第 122 轮新增） | 现行为：满血时 previewHeal 夹缺口 ⇒ heal=0、上限不抬（吸血白打一次）。规则 159 已按现行为判（满血归零合法），若产品上要「满血也抬上限」则需主代码改 core/15（上限按 rawHeal 抬、hp 按落地值加），改后规则 159 判据 A3 需同步 |
 | 覆盖率·宋青书未命中重试 13/140 | 样本不足类 | 触发条件苛刻（宋青书 + 苦练 + 未命中），非空转；已登记观察 |
 | NINE_YANG_HEAL 零触发（账本 327→368 词条 / 声明 0） | 长期遗留（非并行会话新引入，f7b3dc3 已存在）：九阳神功回复的声明 fact 未被契约 extract 捕获，非空转 | 待定夺：补 announce 数值载荷或修 extract 后转严格 |
+| 召唤者 uid（SUMMON_UNIT 只有 byName） | 契约缺口（第 D6 域 2026-11-08 新登记） | 现 fact 只带 `byName`，同名双谢逊/双张中时无法按 uid 核对「谁召唤的谁」；规则 259 只验被召唤者 uid，无法验归属。待定夺：主代码给 SUMMON_UNIT 补 `byUid`（modules/326、339、core/204 三处同改）后，259 再加一条硬判据 |
+| 召唤物阵亡无独立 fact | 契约缺口（第 D6 域 2026-11-08 新登记） | 召唤物死亡只能由 ATTACK 的 `dmgResult.dead` 推断；被非攻击来源清场（吞掉/消散类）时体检看不见。规则 260 只按攻击判死。待定夺：是否补一条 `SUMMON_DEAD{summonUid, cause}` fact（补后 260 可加「阵亡必须有明确 fact」） |
 
 ## 三、结构不可达分支核销建议（第 123 轮整理，销挂账①）
 

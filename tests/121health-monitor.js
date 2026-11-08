@@ -115,6 +115,35 @@ import { rule227 } from './health-rules/227-buff-lifecycle.js';
 import { rule228 } from './health-rules/228-buff-effect-decl.js';
 // 第 191 轮补登：229 由并行会话建文件但未登记，registration-check 硬失败，这里补齐（逻辑未动）
 import { rule229 } from './health-rules/229-buff-permanent.js';
+// 第 192 轮：选目标 / 站位 / 落位（243~248，只吃原始 fact 流）
+import { rule243 } from './health-rules/243-move-payload-validity.js';
+import { rule244 } from './health-rules/244-push-payload-selfconsistent.js';
+import { rule245 } from './health-rules/245-javelin-range-select.js';
+import { rule246 } from './health-rules/246-empty-target-explicit.js';
+import { rule247 } from './health-rules/247-target-selectable-state.js';
+import { rule248 } from './health-rules/248-landing-snapshot-consistency.js';
+// 第 193 轮·存活/胜负/回合结算链域（号段 231-236）：只吃原始 fact 流，不读渲染文本
+import { rule231 } from './health-rules/231-revive-chain.js';
+import { rule232 } from './health-rules/232-revive-action-quota.js';
+import { rule233 } from './health-rules/233-battle-end-state.js';
+import { rule234 } from './health-rules/234-round-settlement-order.js';
+import { rule235 } from './health-rules/235-final-unit-consistency.js';
+import { rule236 } from './health-rules/236-round-boundary.js';
+// 第 D6 域（召唤物 / 附身 / 占格，号段 259-264）：召唤 uid 追溯 / 阵亡闭环 / 拒马占格 /
+//   附身窗口成对 / 附身窗口不参战 / 幼狮成长时机
+import { rule259 } from './health-rules/259-summon-uid-trace.js';
+import { rule260 } from './health-rules/260-summon-death-closure.js';
+import { rule261 } from './health-rules/261-horse-slot-lifecycle.js';
+import { rule262 } from './health-rules/262-butterfly-window-pairing.js';
+import { rule263 } from './health-rules/263-butterfly-window-no-action.js';
+import { rule264 } from './health-rules/264-lion-grow-timing.js';
+// 第 192 轮·演出/倒针/回放状态机域（号段 255-260）：播放器与倒针状态机的源码结构判据
+import { rule255 } from './health-rules/255-rewind-silent-switch.js';
+import { rule256 } from './health-rules/256-rewind-account-isolation.js';
+import { rule257 } from './health-rules/257-rewind-play-from-current.js';
+import { rule258 } from './health-rules/258-rewind-state-cleanup.js';
+import { rule265 } from './health-rules/265-rewind-settle-same-authority.js';
+import { rule266 } from './health-rules/266-heal-amount-same-source.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -723,7 +752,11 @@ function runRuleChecks(ctx, doc) {
         rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
         rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule205, rule181, rule182, rule183, rule185, rule186, rule187,
         rule199, rule200, rule230, deathRights184, multiAttack188,
-        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229];
+        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229,
+        rule231, rule232, rule233, rule234, rule235, rule236,
+        rule255, rule256, rule257, rule258, rule265, rule266,
+        rule259, rule260, rule261, rule262, rule263, rule264,
+        rule243, rule244, rule245, rule246, rule247, rule248];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

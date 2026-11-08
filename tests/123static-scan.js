@@ -159,7 +159,35 @@ export const SCAN_FILES = [
     './health-rules/227-buff-lifecycle.js',
     './health-rules/228-buff-effect-decl.js',
     // 第 191 轮补登：229 由并行会话建文件但未登记（逻辑未动）
-    './health-rules/229-buff-permanent.js'
+    './health-rules/229-buff-permanent.js',
+    // 第 193 轮·存活/胜负/回合结算链域（号段 231-236）
+    './health-rules/231-revive-chain.js',
+    './health-rules/232-revive-action-quota.js',
+    './health-rules/233-battle-end-state.js',
+    './health-rules/234-round-settlement-order.js',
+    './health-rules/235-final-unit-consistency.js',
+    './health-rules/236-round-boundary.js',
+    // 第 192 轮·演出/倒针/回放状态机域（号段 255-260）
+    './health-rules/255-rewind-silent-switch.js',
+    './health-rules/256-rewind-account-isolation.js',
+    './health-rules/257-rewind-play-from-current.js',
+    './health-rules/258-rewind-state-cleanup.js',
+    './health-rules/265-rewind-settle-same-authority.js',
+    './health-rules/266-heal-amount-same-source.js',
+    // 第 D6 域·召唤物/附身/占格（号段 259-264）
+    './health-rules/259-summon-uid-trace.js',
+    './health-rules/260-summon-death-closure.js',
+    './health-rules/261-horse-slot-lifecycle.js',
+    './health-rules/262-butterfly-window-pairing.js',
+    './health-rules/263-butterfly-window-no-action.js',
+    './health-rules/264-lion-grow-timing.js',
+    // 第 192 轮·选目标 / 站位 / 落位（号段 243-248）
+    './health-rules/243-move-payload-validity.js',
+    './health-rules/244-push-payload-selfconsistent.js',
+    './health-rules/245-javelin-range-select.js',
+    './health-rules/246-empty-target-explicit.js',
+    './health-rules/247-target-selectable-state.js',
+    './health-rules/248-landing-snapshot-consistency.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
