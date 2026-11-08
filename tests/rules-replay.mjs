@@ -60,7 +60,12 @@ console.error = function (...args) {
 // V6.14.0 | 2026-11-08（第 192 轮）新增「观察项」通道：规则可返回 { fail:false, observe:'...' }，
 //   汇总到「观察项」段打印，不进 fails 计数、不改退出码。用于「实测拟合、非引擎真值」的软判据
 //   （首例：188 同回合多段出手计数口径的段数阈值 6）。既有规则返回值不受影响。
-export const VER = 'tests/rules-replay.mjs V6.14.0';
+// V6.15.0 | 2026-11-08 D13 回放器上下文透传：initBattleTeams 自 330 V7.7.0 起返回值多带
+//   encounterVariant（抽中的关卡变体 id，无变体关为 null）与 rngContractVersion（抽签契约版本）。
+//   回放器此前只解构 allyTeam/enemyTeam ⇒ 286「关卡变体抽签真值与阵容互证」拿到的
+//   ctx.encounterVariant 恒为 undefined，156 场全部走 skip（结构性假绿）。本轮把两字段原样接入
+//   ctx，规则自身与判据一字未改；全库仅 286 消费这两个字段，其它规则口径零变化。
+export const VER = 'tests/rules-replay.mjs V6.15.0';
 // V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
 //   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
 //   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
@@ -374,7 +379,9 @@ function runCase(seed, stage, forces, forcePick = null) {
     const rng = new SeededRNG(seed);
     const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
     GlobalStore.set('battleStore', store);
-    const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
+    // V6.15.0：encounterVariant / rngContractVersion 是 330 V7.7.0 起的返回值（变体 id 与抽签契约
+    //   版本），必须原样透传进 ctx —— 286 靠 encounterVariant 才能分桶判定，拿 undefined 就只能 skip。
+    const { allyTeam, enemyTeam, encounterVariant, rngContractVersion } = initBattleTeams(stage, rng);
     const beforeA = allyTeam.map(u => ({ ...u }));
     const beforeE = enemyTeam.map(u => ({ ...u }));
     let battleState = {
@@ -508,6 +515,9 @@ function runCase(seed, stage, forces, forcePick = null) {
     const afterE = (lastStep ? lastStep.enemy : battleState.enemy).map(u => ({ ...u }));
     const ctx = {
         gs: 'GAMEOVER', currentStage: stage,
+        // V6.15.0：关卡变体抽签真值（无变体关 = null）与抽签契约版本，规则只读不改。
+        encounterVariant: encounterVariant,
+        rngContractVersion: rngContractVersion,
         activeBuffs: battleState.activeBuffs || [],
         // 开局快照：语义务必取自 ui/702-main-5v5-test.js:392-393 的注释 ——
         //   「战斗进行中 snapshot 不反映当前态」、snapshot.enemy 是 Object.freeze 的定稿。
