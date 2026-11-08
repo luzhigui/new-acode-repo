@@ -14,6 +14,8 @@
 //   ① 链前值 ≠ 正文受影响单位血量           实测 0 条（真不变量：命中取目标 B、闪避反击取攻方 H）
 //   ② 链后值 ≠ fmtHpText(组 hpAfter)        实测 0 条（裸值对比有 404 条，全是 86.5→87 的合法显示取整）
 //   ③ 链后值 ≠ fmtHpText(伤害行 hpAfter 字段) 实测 0 条
+//   ④ 伤害行有 hpAfter、主命中/闪避组却没有组 hpAfter   实测 0 条（2026-11-08 复核：原先 85 条全落在
+//      免疫/护盾吸收辅助组，其 immuneFact.target 不含 hp，组级字段本就是 undefined，非断点，已收窄范围）
 //   注意：免疫组正文用 fmtNum 写「血 → 血」，存活且 hp<1 时 fmtNum 与 fmtHpText 会差 1
 //   （0.6 显示 0.6 / 存活最少显示 1），故两处都接受，避免把合法显示口径判成不同源。
 export const VER = 'tests/health-rules/199-hp-chain-same-source.js V1.0.0';
@@ -57,6 +59,9 @@ export const rule199 = {
             saw = true;
             // 伤害落到谁身上：普通命中=目标（后一个血）；闪避反击=攻方（前一个血）
             var affectedBefore = e.isDodge ? hpA : hpD;
+            // ④ 的判据范围：主命中组（renderAttackFact 的结算组，带 _dmg）与闪避组；
+            //   免疫/破防等辅助组只是条目容器，组级 hpAfter 天然可能缺，跳过不判。
+            var judgeGroup = !!e.isDodge || (typeof e._dmg === 'number' && !e.isImmune && !e.isBlock && !e.isRest);
             for (var m = 0; m < dmgRows.length; m++) {
                 var row = dmgRows[m];
                 var t = plain(row.text);
@@ -78,7 +83,10 @@ export const rule199 = {
                         return { fail: true, msg: '格子血条与正文不同源：链后显示=' + ca + '，伤害行 hpAfter=' + row.hpAfter + '（显示应为 ' + fmtHpText(row.hpAfter) + '）' };
                     }
                     // ④ 组结算字段不能缺——伤害行有结果、组却没结果，后续读组字段的一方会拿不到值
-                    if (typeof e.hpAfter !== 'number') {
+                    //    只判主命中组/闪避组：免疫(护盾吸收/完全挡下)、破防等辅助组是纯条目容器，
+                    //    天然没有组级结算字段（render/407 L264 immuneGroup 的 hpAfter 取自 fact.target.hp，
+                    //    而 core/209 L355 的 immuneFact.target 只带 uid/name/camp，故为 undefined）。
+                    if (judgeGroup && typeof e.hpAfter !== 'number') {
                         return { fail: true, msg: '组结算字段缺失：伤害行带 hpAfter=' + row.hpAfter + '，attack-group 却没有 hpAfter' };
                     }
                 }
