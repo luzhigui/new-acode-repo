@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "exchange": {
+    "scorePerToken": 50,
+    "tokenPerTrade": 1,
+    "tokenCap": 999
+  }
+}

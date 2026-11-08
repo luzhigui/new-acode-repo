@@ -288,6 +288,10 @@
     <div class="section-title">📈 属性点</div>
     <div id="pointShop"></div>
 
+    <!-- 积分兑换 -->
+    <div class="section-title">🔄 积分兑换</div>
+    <div id="exchangeShop"></div>
+
     <!-- 经验（不可购买） -->
     <div class="section-title">📦 经验</div>
     <div class="shop-item disabled">
@@ -304,7 +308,7 @@
     </div>
 
     <div class="info">
-        💡 圣火令来自战斗掉落与积分兑换（50 积分 = 1 令）<br>
+        <span id="exchangeNote">💡 圣火令来自战斗掉落与积分兑换</span><br>
         宝箱通关掉落：第 1 关 3% → 第 7 关 9%（首通 +5%）<br>
         箱内：属性点 40% / 经验 40% / 圣火令 20%
     </div>
@@ -728,6 +732,7 @@ function saveCultivated() { localStorage.setItem(HERO_KEY, JSON.stringify(cultiv
 function getToken() { return num(localStorage.getItem(TOKEN_KEY)); }
 function setToken(v) { localStorage.setItem(TOKEN_KEY, String(Math.max(0, num(v)))); }
 function getScore() { return num(localStorage.getItem(SCORE_KEY)); }
+function setScore(v) { localStorage.setItem(SCORE_KEY, String(Math.max(0, num(v)))); }
 function getChests() { return num(localStorage.getItem(CHEST_KEY)); }
 function setChests(v) { localStorage.setItem(CHEST_KEY, String(Math.max(0, num(v)))); }
 // 老版本迁移：圣火令余额曾存在商店存档里
@@ -739,6 +744,92 @@ function ensureToken() {
             t = num(old.items && old.items['圣火令']);
         } catch (e) {}
         localStorage.setItem(TOKEN_KEY, String(t));
+    }
+}
+
+// ==================== 积分兑换圣火令（比例/上限读 content/003-shop-config.json，不写死）====================
+let EXCHANGE_CFG = null;
+let lastExchangeAt = 0;
+function loadExchangeConfig() {
+    return fetch(new URL('../content/003-shop-config.json', document.baseURI))
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(cfg => {
+            const ex = cfg && cfg.exchange;
+            if (!ex || typeof ex.scorePerToken !== 'number' ||
+                typeof ex.tokenPerTrade !== 'number' || typeof ex.tokenCap !== 'number') {
+                throw new Error('content/003-shop-config.json 缺 exchange 字段');
+            }
+            EXCHANGE_CFG = ex;
+        })
+        .catch(e => { EXCHANGE_CFG = null; console.warn('[shop] 兑换配置加载失败:', e); })
+        .then(() => renderExchange());
+}
+function renderExchange() {
+    const box = document.getElementById('exchangeShop');
+    if (!box) return;
+    if (!EXCHANGE_CFG) {
+        box.innerHTML = '<div class="shop-item disabled"><div class="item-icon">🔄</div>' +
+            '<div class="item-info"><div class="item-name">圣火令兑换</div>' +
+            '<div class="item-desc">配置未加载：content/003-shop-config.json 读取失败</div></div></div>';
+        return;
+    }
+    const ex = EXCHANGE_CFG;
+    const score = getScore(), token = getToken();
+    const full = token >= ex.tokenCap;
+    const note = document.getElementById('exchangeNote');
+    if (note) note.textContent = '💡 圣火令来自战斗掉落与积分兑换（' +
+        ex.scorePerToken + ' 积分 = ' + ex.tokenPerTrade + ' 令，上限 ' + ex.tokenCap + '）';
+    box.innerHTML =
+        '<div class="shop-item' + (full ? ' disabled' : '') + '">' +
+            '<div class="item-icon">🔥</div>' +
+            '<div class="item-info"><div class="item-name">圣火令</div>' +
+                '<div class="item-desc">' + ex.scorePerToken + ' 积分 → ' + ex.tokenPerTrade +
+                    ' 令 · 上限 ' + ex.tokenCap + '（现有 ' + token + ' 令，积分 ' + score + '）</div>' +
+            '</div>' +
+            '<div class="buy-col"><div class="price-line"><span class="price-now">' +
+                ex.scorePerToken + ' 🏆</span></div>' +
+                '<button class="mini-btn" data-act="exchange"' + (full ? ' disabled' : '') + '>兑换</button></div>' +
+        '</div>';
+    const btn = box.querySelector('[data-act="exchange"]');
+    if (btn) btn.addEventListener('click', exchangeToken);
+}
+function exchangeToken() {
+    // 防重复点击：短时间内的第二次点击给明确反馈，不静默吞掉
+    const now = Date.now();
+    if (now - lastExchangeAt < 400) { showToast('操作太快，请稍候再兑换'); return; }
+    const ex = EXCHANGE_CFG;
+    if (!ex) { showToast('兑换配置未加载，无法兑换'); return; }
+    const score = getScore(), token = getToken();
+    // ① 先校验：任何一条不过都直接返回，存档一个字节都不动
+    if (score < ex.scorePerToken) {
+        showToast('积分不足，需要 ' + ex.scorePerToken + '（现有 ' + score + '）');
+        return;
+    }
+    if (token + ex.tokenPerTrade > ex.tokenCap) {
+        showToast('圣火令已达上限 ' + ex.tokenCap + '（现有 ' + token + '），无法兑换');
+        return;
+    }
+    lastExchangeAt = now;
+    try {
+        // ② 先落货：写不进就整单失败，积分不动（避免 S7「先扣币后落货」）
+        const newToken = token + ex.tokenPerTrade;
+        setToken(newToken);
+        if (getToken() !== newToken) throw new Error('圣火令写入未生效');
+        // ③ 落货成功才扣积分；扣分失败则回滚已落的货，保证不白送
+        const newScore = score - ex.scorePerToken;
+        try {
+            setScore(newScore);
+            if (getScore() !== newScore) throw new Error('积分写入未生效');
+        } catch (e) {
+            setToken(token);
+            throw e;
+        }
+        renderAll();
+        showToast('兑换成功：-' + ex.scorePerToken + ' 积分，+' + ex.tokenPerTrade + ' 圣火令（现有 ' + newToken + ' 令）');
+    } catch (e) {
+        console.warn('[shop] 兑换链异常:', e);
+        showToast('兑换未完成：' + (e && e.message ? String(e.message).slice(0, 40) : '存储写入失败'));
+        renderAll();
     }
 }
 
@@ -896,7 +987,7 @@ function renderPointShop() {
             '<div class="item-icon">' + t.icon + '</div>' +
             '<div class="item-info">' +
                 '<div class="item-name">' + t.name + '</div>' +
-                '<div class="item-desc">已拥有 ' + (shopData.bag[t.key] || 0) + ' 个 · 每个自带 1 级</div>' +
+                '<div class="item-desc">已拥有 ' + (shopData.bag[t.key] || 0) + ' 个 · 每点 M+' + FREE_POINT_VALUE[t.key] + '，' + Math.round(1 / FREE_POINT_VALUE[t.key]) + ' 点 = 1 级</div>' +
             '</div>' +
             '<div class="buy-col">' +
                 '<div class="price-line">' + priceHtml(base, t.id) + '</div>' +
@@ -912,6 +1003,7 @@ function renderAll() {
     renderDiscount();
     renderHeroes();
     renderPointShop();
+    renderExchange();
 }
 
 // ==================== 角色详情 / 加点弹窗 ====================
@@ -1332,6 +1424,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 ensureToken();
 rebuildState();
 renderAll();
+loadExchangeConfig();
 </script>
 </body>
 </html>
