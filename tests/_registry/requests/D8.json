@@ -1,0 +1,7 @@
+{
+  "domain": "D8",
+  "updatedAt": "2026-11-08 20:30",
+  "updatedBy": "",
+  "说明": "D8 输出层：翻译/飘字/播报/台词/技能说明/数字格式（号段 271-276）。本文件只由 D8 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
+  "entries": []
+}

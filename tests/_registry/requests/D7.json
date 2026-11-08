@@ -1,0 +1,7 @@
+{
+  "domain": "D7",
+  "updatedAt": "2026-11-08 20:30",
+  "updatedBy": "",
+  "说明": "D7 fact 契约链路：infra/107 注册 ↔ emit 点 ↔ render/33 渲染器 ↔ 消费方（号段 265-270）。本文件只由 D7 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
+  "entries": []
+}
