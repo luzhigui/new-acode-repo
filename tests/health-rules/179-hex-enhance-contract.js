@@ -18,12 +18,14 @@
 // V1.1.0 | 2026-11-08：002（提交 17ee3c9f）删掉 sister.bloodthirst.forceDoubleStrike 与
 //   sister.carry.multiTarget 两个**无消费方**的死字段，契约表同步删这两项；sister.doubleStrike.chance
 //   保留（主线正在把 core/203 改成读它，属"该接线不该删"）。
-export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.1.0';
+// V1.1.1 | 2026-11-08：002 姊版 bloodthirst.leechRatio 回调为 1.6（纯吸血，无必出双击），
+//   契约校验类型从 'prob'(0~1) 改 'num'(≥0)，否则 1.6 被误判越界。
+export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.1.1';
 import { getGameData, getHexEnhanceData } from '../../core/201-config-5v5-test.js';
 
 // 消费方硬读字段表：改这里 = 改契约，必须同步 core/modules 的实际读取点
 const SISTER_SCHEMA = {
-    bloodthirst: { leechRatio: 'prob' },
+    bloodthirst: { leechRatio: 'num' },  // 姊版吸血率 1.6（倍率 >1），按 ≥0 数值校验，不用 0~1 概率
     hotBlood: { leechPct: 'prob', critPattern: 'critPattern', extraDuration: 'int' },
     windAssault: { hitProb: 'prob', pushProb: 'prob', extraDuration: 'int' },
     meteorShower: { trueDmgPct: 'prob', duration: 'int' },

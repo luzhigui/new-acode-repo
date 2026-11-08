@@ -9,7 +9,9 @@
 //           （旧兜底值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
 // V1.0.6 | 2026-11-08 修 BUTTERFLY_HOST_DEAD.hostUid 恒 null：原在清空 _butterflyHost 之后才读它，
 //           现进函数先存 hostUidBeforeClear，清 state 后用存档值落 fact（体检实测 23/23 全 null）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.6';
+// V1.0.7 | 2026-11-08 取消乾坤衍生减伤保底：calcQianKunReduce 不再读 s.minReduce、去掉 Math.max 保底，
+//           减伤回归纯公式；白骨爪多段小伤害可实打实穿透。content/001 的 minReduce 键随之移除。
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.7';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -21,12 +23,12 @@ import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
 
 // 宿主死亡观察：sister.uid -> token。宿主一死立刻触发飞回（不必等回合末的 BUTTERFLY_RETURN 声明）
 const _hostWatchers = new Map();
-// 乾坤衍生减伤：dmg × 目标def / defToReduce%，保留一位小数，不低于 minReduce。
-// 普通攻击路径与白骨爪逐爪路径共用同一份公式，改公式只改这里；保底值读 content 的 minReduce（旧兜底 0.5，2026-11-08 参数化，数值不变）。
+// 乾坤衍生减伤：dmg × 目标def / defToReduce%，保留一位小数。
+// 取消 minReduce 保底：白骨爪等多段小伤害不再被保底减伤吃掉（content/001 已删 minReduce 键）。
+// 普通攻击路径与白骨爪逐爪路径共用同一份公式，改公式只改这里。
 function calcQianKunReduce(dmg, defStat, s) {
-    if (s.minReduce == null) throw new Error('缺技能参数: 小昭.qianKunDerived.minReduce');
     const raw = dmg * defStat / (s.defToReduce * 100);
-    return Math.max(s.minReduce, Math.round(raw * 10) / 10);
+    return Math.round(raw * 10) / 10;
 }
 
 export function createXiaoZhaoSisterComponent() {
