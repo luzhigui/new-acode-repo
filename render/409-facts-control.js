@@ -2,7 +2,10 @@
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
 // V1.0.3 | 2026-11-08 附身宿主阵亡渲染器补关闭标记（butterflyAction/hostUid/windowClosed，体检总框架 D3）
-export const VER = 'render/409-facts-control.js V1.0.4';
+// V1.0.4 | 2026-11-08 显示口径统一：增量「符号+绝对值」、伤害/免疫量取绝对值、攻击基数值走 fmtAtk 下限
+// V1.0.5 | 2026-11-08 休息回复量与事实同源：直接读 PASS fact 的 actualHeal，删掉写死的 15 点兜底
+//   （core/210 每条 PASS 都带 hpAfter-hpBefore 的实数差值，屏幕上印的数不再可能与实际落地量不同）
+export const VER = 'render/409-facts-control.js V1.0.5';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeFXSnapshot, fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
@@ -59,7 +62,7 @@ export function renderPassFact(fact) {
     if (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击') {
         const hpBefore = fmtHpText(fact.hpBefore !== undefined ? fact.hpBefore : unit.hp, unit.alive);
         const hpAfter = fmtHpText(fact.hpAfter !== undefined ? fact.hpAfter : unit.hp, unit.alive);
-        const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;
+        const actualHeal = fact.actualHeal;
         const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
         const headText = reason === '幼狮休息'
             ? `🐱 ${campName} ${unit.name} 尚幼，无法攻击`

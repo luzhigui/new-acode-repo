@@ -10,7 +10,9 @@
 //         | 不再只印一句通用文案；结构化字段同步挂到渲染条目上供体检归账。
 // V1.1.6 | 2026-11-08 体检转交：UNIT_DEATH 死亡登记注册隐藏渲染器（只记账不上屏，避免战报重复死亡行）
 // V1.1.7 | 2026-11-08 体检转交：ABSORB_SUMMARY 吸星汇总注册隐藏渲染器（只记账不上屏，行仍由 SKILL_ANNOUNCE 出）
-export const VER = 'render/411-facts-misc.js V1.1.7';
+// V1.1.8 | 2026-11-08 摘要与事实同源：严阵以待「反弹50%」改读 cfg.reboundRatio、流星赶月「降2/1防」改读
+//         | cfg.mainDefReduce/splashDefReduce——不再写死数字，配置一改摘要立即跟上
+export const VER = 'render/411-facts-misc.js V1.1.8';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -58,10 +60,10 @@ const BUFF_SUMMARY_CFG = {
             : '每3次翻倍';
         return `攻击回血${fmtNum(pct*100)}%（${crit}）`;
     }},
-    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 反弹50%` },
+    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 反弹${fmtNum(cfg.reboundRatio*100)}%` },
     [BUFF_TYPES.CLOUD_BODY]: { role: 'all', desc: (cfg) => `闪避+${fmtNum(cfg.dodgeBonus*100)}%` },
     [BUFF_TYPES.WIND_ASSAULT]: { role: ROLE_TYPES.FLYER, desc: (cfg) => `${fmtNum(cfg.hitProb*100)}%波及同行 ${fmtNum(cfg.pushProb*100)}%击退` },
-    [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${fmtNum(cfg.bonusRatio*100)}% 溅射${fmtNum(cfg.splashRatio*100)}%（主箭降2防，小箭降1防）` },
+    [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${fmtNum(cfg.bonusRatio*100)}% 溅射${fmtNum(cfg.splashRatio*100)}%（主箭降${fmtNum(cfg.mainDefReduce)}防，小箭降${fmtNum(cfg.splashDefReduce)}防）` },
     [BUFF_TYPES.CARRY]: { role: 'carry', desc: () => `获得队友属性加成` },
     [BUFF_TYPES.MIND_CONTROL]: { role: 'none', desc: (cfg) => `最前排${fmtNum(cfg.enemySwapProb*100)}%扰乱敌方换位，${fmtNum(cfg.allySwapProb*100)}%扰乱己方换位` },
     [BUFF_TYPES.SOUL_DRAIN]: { role: 'none', desc: (cfg) => `敌方全体攻击力${fmtNum(cfg.atkBonus*100)}%，敌方每多1个存活单位再+${fmtNum(cfg.perUnitBonus*100)}%，防御递减` },

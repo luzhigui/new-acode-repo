@@ -1,11 +1,15 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
 // V1.0.2 | 2026-11-08 攻击力显示下限：幼狮成长行攻文本包 fmtAtk（<0 显示 0），引擎负数真值不回写
 // V1.0.3 | 2026-11-08 显示口径统一：增量「符号+绝对值」、损失量取绝对值、百分比/取整改走 fmtNum、攻击基数值走 fmtAtk
-export const VER = 'render/412-facts-stat.js V1.0.3';
+// V1.0.4 | 2026-11-08 展示与事实同源：融会贯通「×50%」改读 CONFIG.ZHANG_RONGHUI_RATIO；
+//         严阵以待姊强化回血改读 sister.fortify.healOnRebound 且按 floor(反弹/3) 印数（与 core/212 同口径，
+//         落地 0 时不印「回复」，不再出现未取整的 4.3 / 回复 0.x）
+export const VER = 'render/412-facts-stat.js V1.0.4';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
 import { fmtNum, fmtAtk } from '../infra/102-core-utils.js';
+import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 
 // 增量统一口径：符号写在数值外，数值只出绝对值（避免「+-2.6」「--3」这类双符号）
 const sgn = (v) => `${v >= 0 ? '+' : '-'}${fmtNum(Math.abs(v || 0))}`;
@@ -140,7 +144,7 @@ export function renderXingFenCostFact(fact) {
 
 // 融会贯通
 export function renderRongHuiBonusFact(fact) {
-    return { type:'info', text:`<span class="red">🔥 融会贯通额外${sgn(fact.extra)}（目标攻击${fmtNum(fmtAtk(fact.targetAtk))} 防御${fmtNum(fact.targetDef)}，差值绝对值×50%）</span>` };
+    return { type:'info', text:`<span class="red">🔥 融会贯通额外${sgn(fact.extra)}（目标攻击${fmtNum(fmtAtk(fact.targetAtk))} 防御${fmtNum(fact.targetDef)}，攻防之和×${fmtNum(CONFIG.ZHANG_RONGHUI_RATIO*100)}%）</span>` };
 }
 
 // 小昭·妹 拒马 / 连击
@@ -166,11 +170,12 @@ export function renderDiscipleReboundFact(fact) {
     return { type:'info', text:`<span class="red">⚡ 反伤护盾：${fact.sourceName}反弹 ${fmtNum(fact.rebound)} 点给 ${fact.unitName}</span>` };
 }
 export function renderFortifyReboundFact(fact) {
-    if (fact.hasSister) {
-        const heal = fact.reboundDmg / 3;
-        return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fmtNum(fact.reboundDmg)}给${fact.unitName}（姐姐强化：回复${fmtNum(heal)}）</span>` };
-    }
-    return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fmtNum(fact.reboundDmg)}给${fact.unitName}</span>` };
+    // 姊强化回血与 core/212 同源：开关读 002 sister.fortify.healOnRebound，落地量 floor(反弹/3)；
+    //   引擎在 healVal === 0 时不产 HEAL 行，这里同样不印「回复」，避免出现「回复 4.3 / 回复 0.x」
+    const sisterCfg = fact.hasSister ? getSisterHexEnhance('fortify') : null;
+    const heal = (sisterCfg && sisterCfg.healOnRebound) ? Math.floor(fact.reboundDmg / 3) : 0;
+    const healText = heal > 0 ? `（姐姐强化：回复${fmtNum(heal)}）` : '';
+    return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fmtNum(fact.reboundDmg)}给${fact.unitName}${healText}</span>` };
 }
 
 // 召唤：谢逊狮子 / 灭绝召唤周芷若
