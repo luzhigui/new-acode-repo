@@ -17,7 +17,8 @@
 // ★ 本件是新文件，未登记进 tests/run-all.mjs：该文件由并行会话共用，避免抢改冲突；
 //   需要入册时由编排方在 OBSERVES 加一行即可。
 // V1.2.0 | 2026-11-08 S7 改为静态复核：816 有 unrecDmg 累计且 813 有跳过写法 → 转 ✅ 备注，未修才报缺口。
-export const VER = 'tests/stats-pipeline-audit.mjs V1.2.0';
+// V1.3.0 | 2026-11-08 S14 支持阈值收口：持有者引用 827 的 STATS_TH.<KEY> 时只核对数值，不再要求旧字面量。
+export const VER = 'tests/stats-pipeline-audit.mjs V1.3.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -320,10 +321,18 @@ addNote('S6', '排名/结论缺不确定性标注',
         'tools/814-baseline-compare.js': SRC.baseline
     };
     const missingSrc = [], drift = [];
+    // V1.3.0：允许「已收口」——持有者改为引用 827 的 STATS_TH.<KEY> 时，
+    //   只要 827 的数值与台账一致即算对齐；仍写旧字面量的按原文核对。
+    const { STATS_TH } = await import('../tools/827-tool-registry.js');
     for (const [key, t] of Object.entries(STATS_THRESHOLDS)) {
         const src = ownerSrc[t.owner];
         if (!src) { missingSrc.push(`${key}(${t.owner})`); continue; }
-        if (!src.includes(t.literal)) drift.push(`${key} 期望「${t.literal}」`);
+        const thKey = key.replace(/([A-Z])/g, '_$1').toUpperCase();
+        if (src.includes(`STATS_TH.${thKey}`)) {
+            if (STATS_TH[thKey] !== t.value) drift.push(`${key} 工具侧=${STATS_TH[thKey]} ≠ 台账=${t.value}`);
+            continue;
+        }
+        if (!src.includes(t.literal)) drift.push(`${key} 期望「${t.literal}」或「STATS_TH.${thKey}」`);
     }
     if (missingSrc.length || drift.length) {
         addFinding('REQ', 'S14', '阈值台账与工具源码未对齐',

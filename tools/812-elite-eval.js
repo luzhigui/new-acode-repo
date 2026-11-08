@@ -1,6 +1,6 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
 import { runParallel } from './817-shared-worker-runner.js';
-import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS } from './827-tool-registry.js';
+import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
 export const VER = 'tools/812-elite-eval.js V3.6.0';
@@ -375,7 +375,7 @@ function soloCellHtml(d) {
     const r = parseFloat(rate);
     const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
     const surv = (d.sumSurv / d.runs * 100).toFixed(1);
-    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    const thin = d.runs < STATS_TH.THIN_SAMPLE ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
     return `<td class="elite-cell">
         <div class="cell-rate" style="color:${color}">胜率 ${rate}%</div>
         <div class="cell-sub">${d.runs} 场${thin}</div>
@@ -477,7 +477,7 @@ function noEliteRowHtml(label, d) {
     const rate = (d.wins / d.runs * 100).toFixed(1);
     const r = parseFloat(rate);
     const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
-    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    const thin = d.runs < STATS_TH.THIN_SAMPLE ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
     return `<tr><td class="elite-stage">${label}</td>
         <td class="elite-cell"><div class="cell-rate" style="color:${color}">胜率 ${rate}%</div><div class="cell-sub">${d.runs} 场${thin}</div></td>
         <td class="elite-cell"><div class="cell-rate">${(d.sumSurv / d.runs).toFixed(2)} 人</div><div class="cell-sub">全队 5 人</div></td></tr>`;
@@ -619,7 +619,7 @@ function weakCellHtml(d, baseRate) {
     const rate = d.wins / d.runs * 100;
     const color = rate >= 50 ? '#4caf50' : rate >= 25 ? '#ffd700' : '#ff5252';
     const surv = (d.sumSurv / d.runs * 100).toFixed(1);
-    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    const thin = d.runs < STATS_TH.THIN_SAMPLE ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
     let deltaHtml = '<div class="cell-sub">Δ —（无对照）</div>';
     if (baseRate != null) {
         const dv = rate - baseRate;
@@ -749,7 +749,7 @@ function cellHtml(d) {
     const avgDmg = Math.floor(d.sumDmg / d.runs);
     const avgTaken = Math.floor(d.sumTaken / d.runs);
     const surv = (d.sumSurv / d.runs * 100).toFixed(1) + '%';
-    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    const thin = d.runs < STATS_TH.THIN_SAMPLE ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
     return `<td class="elite-cell">
         <div class="cell-rate" style="color:${color}">胜率 ${rate}</div>
         <div class="cell-sub">${d.runs} 场${thin}</div>

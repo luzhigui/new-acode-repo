@@ -18,14 +18,14 @@ export const VER = 'tools/826-balance-alert.js V3.8.2';
 //           跳过脏条目继续统计，不再让一条 null 拖死全表。
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
-import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES } from './827-tool-registry.js';
+import { NATURAL_ELITES as ELITES, SOLO_ELITES, BOSS_ELITES, ENEMY_VARIANTS as VARIANTS, WEAK_SIDE, HEX_NAMES, STATS_TH } from './827-tool-registry.js';
 // 规则八（V2.6.0）：拿真实对局和模拟跑批对照。52 是纯函数模块（只读 localStorage、无 DOM 副作用），可安全引入。
 import { getHeroAggregates, getCareerInsights, getHexWinRates, getCareerModeCounts } from './852-career-log.js';
 
 (function () {
 // ==================== 判读阈值（集中一处，要调只改这里） ====================
 const TH = {
-    MIN_SAMPLE: 300,   // 单个对象最少场次：低于此值只标「样本不足」，不判强弱
+    MIN_SAMPLE: STATS_TH.MIN_SAMPLE,   // 单个对象最少场次：低于此值只标「样本不足」，不判强弱（真源 827）
     Z_WARN: 2.0,       // 海克斯表：|z| ≥ 2.0 判偏强/偏弱（约 95% 置信）
     Z_ALERT: 3.0,      // 海克斯表：|z| ≥ 3.0 判显著过强/过弱
     BAND: 0.05,        // 精英/整体：偏离理想线 ≥5pp 判过强/过弱、≥10pp 判显著（用户拍板）
@@ -33,9 +33,9 @@ const TH = {
     NATURAL: 0.35,     // 主表·自然出场 / 整体 7 关 的理想胜率
     SOLO: 0.15,        // 强精英（单核 M107）的理想胜率
     BOSS: 0.30,        // Boss·张无忌（单核 M115）的理想胜率
-    FRESH_DAYS: 14,    // 112 快照超过这么多天 → 判读标注「可能过期」
+    FRESH_DAYS: STATS_TH.FRESH_DAYS,    // 112 快照超过这么多天 → 判读标注「可能过期」（真源 827）
     FDR_Q: 0.10,       // 海克斯多重比较的 BH-FDR 控制水平（10% = 允许约一成假阳性）
-    PAIR_MIN: 150,     // 海克斯两两组合最少场次：组合天然稀疏，比单体的 300 放宽；仍不够就只统计不告警
+    PAIR_MIN: STATS_TH.PAIR_MIN,     // 海克斯两两组合最少场次：组合天然稀疏，比单体放宽；仍不够就只统计不告警（真源 827）
     PAIR_BAND: 0.05,   // 组合协同/冲突：偏离两单体均值 ≥5pp 才报
     TREND_MIN: 3,      // 逐关走势至少 3 关有数据才判形状（1~2 关看不出趋势）
     TREND_DELTA: 0.01, // 走势判定：相邻两关差 ≥1pp 才算「升/降」，避免小数点抖动被当成趋势

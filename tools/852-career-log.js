@@ -10,7 +10,7 @@ import { getCareerRecords, getCareerMeta, CAREER_MAX_RECORDS, getCareerModeCount
 export { summarizeRoundStep, buildCareerRecord, appendCareerRecord, getCareerRecords, clearCareerRecords, getCareerModeCounts } from '../modules/332-career-log.js';
 // 海克斯中文名单一来源：与 108 表头 / 126 告警文案同源（见 827-tool-registry.js 文件头）。
 // 以前本文件另存一份手写副本，加新海克斯时若只改 127 忘改这里，就会退化成英文 key。
-import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES, M100_SKILL_ALLIES } from './827-tool-registry.js';
+import { HEX_NAMES, BOSS_ELITES, SOLO_ELITES, WEAK_ELITES, M100_SKILL_ALLIES, STATS_TH } from './827-tool-registry.js';
 
 // ===== V2.9.2：本文件内部唯一读取入口，一律返回「按时间正序」的记录数组 =====
 // 根因：modules/332 的 getCareerRecords() 在「全部模式」下是 单库.concat(双库)，
@@ -60,7 +60,7 @@ export const VER = 'tools/852-career-log.js V2.9.2';
 //   六大派侧带技能(俞莲舟/素问)是敌方、不计入明教英雄表。
 
 // 英雄/组合少于此场次 → 标「样本少」，胜率仅供参考（3 局 100% 不等于这个英雄强）
-const HERO_MIN_GAMES = 8;
+const HERO_MIN_GAMES = STATS_TH.HERO_MIN_GAMES;
 // 败因归类至少要有这么多输局才下结论（少于这个数只报「样本太少」）
 const LOSS_MIN = 5;
 
@@ -499,7 +499,7 @@ export function getHeroAggregates(includeEnemy = false, hexMode = null) {
 export function getHexWinRates(mode = null, hexMode = null) {
     const arr = readRecords(hexMode);
     if (arr.length === 0) return null;
-    const HEX_MIN_GAMES = 8;   // 逐海克斯门槛：玩家不会每局都带同一个，样本比英雄稀，仍给 ≥8 才判
+    const HEX_MIN_GAMES = STATS_TH.HEX_MIN_GAMES;   // 逐海克斯门槛（真源 827）
     const stat = {};
     for (const r of arr) {
         if (mode && r.mode !== mode) continue;
