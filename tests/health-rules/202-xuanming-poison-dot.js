@@ -15,7 +15,7 @@
 // 观测缺口（需求清单，不造假规则）：XUAN_MING_DOT 不带 maxHp，毒量无法做
 //   floor(maxHp×pct×stacks) 真值对账 —— fact 补 maxHp 后才能精确判「毒量对不对」。
 // 误报规避：本场无两种玄冥 fact → skip；中毒目标改名/召唤物照常按 fact 的 targetName 计。
-export const VER = 'tests/health-rules/199-xuanming-poison-dot.js V1.0.0';
+export const VER = 'tests/health-rules/202-xuanming-poison-dot.js V1.0.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { getGameData } from '../../core/201-config-5v5-test.js';
 
@@ -37,7 +37,7 @@ function luConfig() {
     return null;
 }
 
-export const rule199 = {
+export const rule202 = {
     group: '技能效果回归',
     name: '玄冥毒叠加与DOT跳数(回归)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE, facts) {
