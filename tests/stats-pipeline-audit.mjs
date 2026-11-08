@@ -18,7 +18,11 @@
 //   需要入册时由编排方在 OBSERVES 加一行即可。
 // V1.2.0 | 2026-11-08 S7 改为静态复核：816 有 unrecDmg 累计且 813 有跳过写法 → 转 ✅ 备注，未修才报缺口。
 // V1.3.0 | 2026-11-08 S14 支持阈值收口：持有者引用 827 的 STATS_TH.<KEY> 时只核对数值，不再要求旧字面量。
-export const VER = 'tests/stats-pipeline-audit.mjs V1.3.0';
+// V1.4.0 | 2026-11-08 多工具口径对齐：S3 判据改为按 parts[k] 字段核对（原正则匹配不上 V3.5.0 写法 → 假红）；
+//   新增 S15 胜负三态（同一场平局在 812/808/816/813/826/852 各记成什么）、
+//   S16 关卡变体桶键（812 只第 3 关拆变体 vs 826 按每关×3 变体算覆盖 → 恒报假缺口）、
+//   S17 全无版本的旧快照（三处混版本判据都在 vers.length>0 短路）、D9 同批战斗的胜负分母对照。
+export const VER = 'tests/stats-pipeline-audit.mjs V1.4.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -185,17 +189,25 @@ let s2Regressed = false;
     }
 }
 
-// S3 812 快照：无 seed/版本/逐表时间，手动保存会把不同批次的多张表打包成一个时间点
+// S3 812 快照：每张表是否各自带 ts / seed / 版本（V3.5.0 已落，本检防回退）
+//    旧判据按「parts 与 seed 同行」匹配，V3.5.0 把三者拆成独立行写法后一直假红——改为按 parts[k] 块内字段核对。
 {
     const src = SRC.evaluate;
-    const recLine = src.match(/const rec = \{ id: 'snap_'[^}]*\}/);
-    const hasSeed = /parts[^\n]*seed|seed[^\n]*parts/.test(src.slice(src.indexOf('function saveSnap'), src.indexOf('function saveSnap') + 1200));
-    const hasPerPartTs = /parts\[k\] = \{[\s\S]{0,200}ts:/.test(src);
-    if (!hasSeed || !hasPerPartTs) {
+    const anchor = src.indexOf('parts[k] = {');
+    const head = anchor < 0 ? '' : src.slice(anchor, anchor + 260);
+    const hasPerPartTs = /ts:\s*latest\[k\]\.ts/.test(head);
+    const hasPerPartSeed = /seed:\s*latest\[k\]\.seed/.test(head);
+    const hasPerPartVer = /ver:\s*latest\[k\]\.ver/.test(head);
+    const hasBatchMeta = /const batchMeta = seed =>/.test(src) && /ts: Date\.now\(\), seed, ver:/.test(src);
+    if (!hasPerPartTs || !hasPerPartSeed || !hasPerPartVer || !hasBatchMeta) {
         addFinding('REQ', 'S3', '快照分不清新旧数据',
-            `812 快照记录 = ${recLine ? recLine[0].trim() : 'id + ts + parts'}：只有整批一个 ts，` +
-            `没有 seed / 引擎版本 / 每张表的运行时间。手动「存快照」取的是 latest 里的全部表，` +
-            '可能把今天跑的表和几天前载入的旧表打包成同一个时间点，之后无法判断哪些行是旧口径。');
+            '812 快照的 parts[k] 没有逐表 ts / seed / ver（或跑批结果没经 batchMeta 打标）：' +
+            '手动「存快照」会把今天跑的表和几天前载入的旧表打包成同一个时间点，之后无法判断哪些行是旧口径。' +
+            `现状：ts=${hasPerPartTs} seed=${hasPerPartSeed} ver=${hasPerPartVer} batchMeta=${hasBatchMeta}。`);
+    } else {
+        addNote('S3', '快照逐表带 ts/seed/版本（静态 ✅）',
+            'parts[k] = { stages, runs, byStage, ts, seed, ver } 逐表落盘；跑批结果经 batchMeta(seed) 打 ts/seed/版本' +
+            '（版本 = 工具版本 + 引擎版本）。旧快照缺字段时由 metaLine 显示「未记录」，不伪造。');
     }
 }
 
@@ -241,7 +253,7 @@ addNote('S6', '排名/结论缺不确定性标注',
         addFinding('REQ', 'S10', '812 实战评分与排名不可判噪声',
             `812 实战评分 = (胜率×${has70 ? '0.7' : '?'} + 存活率×0.3)×100，两个权重无推导、无置信区间、无配对；` +
             `排名只按点估计 sort，第 2 名与第 3 名的差距可能小于噪声。` +
-            `「样本少」阈值 200 硬编码 ${thinCount} 处（默认场次 1200/400/600，第 3 关拆两变体后单英雄格可 <200），` +
+            `「样本少」阈值 ${STATS_THRESHOLDS.thinSample.value} 场（${thinCount ? `源码里仍有 ${thinCount} 处字面量` : '已收口到 827 的 STATS_TH'}），` +
             (wrongThin.length ? `且写法与台账不一致：${wrongThin.join(' / ')}；` : '') +
             `但样本少的行照样进排名与总评。排名使用的还是自然出场样本（各精英出场的关/变体构成不同），` +
             `页面虽注「只作参考」，却仍给「第 X / N 名」的确定排序。` +
@@ -367,6 +379,91 @@ addNote('S6', '排名/结论缺不确定性标注',
             (mdDraw ? '平局只在 Markdown 里显示（面板/CSV 无平局列），胜率分母含平局这一点在界面上看不出来。' : '') +
             (hard5 ? '814 A/B 差值 ±5pp 只作配色、无 CI，且同一 seed 未做配对统计。' : '') +
             (nowSeed ? '815 每场用 Date.now()+… 做主种子，采样不可复现。' : ''));
+    }
+}
+
+// S15 胜负三态：同一场「平局」在 812/808/816/813/826/852 各被记成什么
+//    引擎 winner 恒为 '明教' / '六大派' / '平局'（core/210），永远不会是空值；
+//    于是所有 `if (!res.winner)` 分支都是死代码——包括累计平局数的那一个。
+{
+    const w = SRC.worker;
+    const deadContinue = (w.match(/if \(!res\.winner\) continue;/g) || []).length;
+    const deadDraws = /if \(!res\.winner\) meta\.draws\+\+/.test(w);
+    const hexPathOk = /const w = res\.winner \|\| '平局'/.test(w);
+    const stats = SRC.stats;
+    const collectsDraws = /m\.draws \+= d\.draws/.test(stats);
+    const statsShowsDraw = /平局/.test(fnBody(stats, 'renderResult'));
+    const evalShowsDraw = /平局/.test(SRC.evaluate);
+    const alertShowsDraw = /平局/.test(SRC.alert);
+    const dashShowsDraw = /平局 \${draws}/.test(SRC.dashboard);
+    const careerShowsDraw = /平局 \${total - winA - winE}/.test(SRC.career);
+    const silent = [];
+    if (!evalShowsDraw) silent.push('812（runs 含平局→平局按负场进胜率，表上看不到平局数）');
+    if (!alertShowsDraw) silent.push('826（各表胜率分母含平局，面板无平局面）');
+    if (collectsDraws && !statsShowsDraw) silent.push('813（收了 __meta.draws 却从不渲染）');
+    if (deadDraws) silent.push('816（__meta.draws 走 !res.winner 死守卫 → 恒 0，813 收到也永远是 0）');
+    if (deadContinue > 0 || deadDraws || silent.length) {
+        addFinding('REQ', 'S15', '同一场平局在各工具里被算成三种结果',
+            `引擎 winner 三态恒有值 ⇒ 816 里 ${deadContinue} 处 \`if (!res.winner) continue\` 一次也不会命中` +
+            `（平局照样进 runs、不计 wins，等价于「平局按负场记账」）；` +
+            `${deadDraws ? '而累计平局数的那行 `if (!res.winner) meta.draws++` 同样永不命中 ⇒ __meta.draws 恒为 0，' : ''}` +
+            '808/852 却把平局单独计数并显示（`draws = total − 明教胜 − 六大派胜`）。' +
+            `看不见平局的：${silent.join('；')}。` +
+            (hexPathOk ? '（816 的 hexLog 路径已是 `res.winner || 平局` 三态口径，只差 stats 路径没对齐。）' : '') +
+            (dashShowsDraw && careerShowsDraw ? ' 可对照：808/852 已是三态显式计数。' : '') +
+            ' 同一份样本，平局在 808/852 是独立一项、在 812/826 是胜率分母里的负场、在 813 记成 0 且不显示。');
+    }
+}
+
+// S16 关卡变体桶键：812 只在第 3 关拆变体行，826 却按「每关 × 3 变体」算覆盖
+{
+    const ev = SRC.evaluate;
+    const variantStage = /const VARIANT_STAGE = 3/.test(ev);
+    const mergesOthers = /if \(Number\(st\) === VARIANT_STAGE\) return VARIANTS\.map/.test(ev)
+        && /return \[\{ variant: '标准', bucket: merged \}\]/.test(ev);
+    const alertAllCells = /for \(const st of part\.stages\) for \(const v of VARIANTS\)/.test(SRC.alert);
+    const alertCoverage = /coverage: \{ cells, emptyCells, emptyRows \}/.test(SRC.alert)
+        && /c\.emptyCells > 0 && c\.emptyCells < c\.cells/.test(SRC.alert);
+    if (variantStage && mergesOthers && alertAllCells && alertCoverage) {
+        const { NATURAL_ELITES, ENEMY_VARIANTS } = await import('../tools/827-tool-registry.js');
+        const S = 7, V = ENEMY_VARIANTS.length, N = NATURAL_ELITES.length;
+        const expect = S * V * N;                     // 826 的覆盖分母（7 关 × 3 变体 × 6 名）
+        const reachable = ((S - 1) * 1 + 1 * V) * N;  // 812 口径下结构上可能满的格子
+        const gapPct = ((expect - reachable) / expect * 100).toFixed(0);
+        addFinding('REQ', 'S16', '826 的覆盖格子数比 812 的呈现口径多两倍',
+            '812 V3.4.0 起「关卡变体」只属于第 3 关：其余关把 胖远桥/宋青书/标准 三个桶合并成一行；' +
+            '826 的 absTable/weakTable/none 仍按「part.stages 每一关 × 3 个变体」逐格取 byStage[st][v]，' +
+            `把 ${expect} 格（7 关 × ${V} 变体 × ${N} 名）当覆盖分母。` +
+            `但 4~7 关的 胖远桥/宋青书 桶只在六大派额外混入（M107/M100）真抽到时才有数，` +
+            `结构上最多只可能满 ${reachable} 格 ⇒ 恒缺 ${expect - reachable} 格（${gapPct}%），` +
+            '超过 30% 阈值就升级成 alert，每张表都会报「半份数据、判读偏乐观/偏悲观」的假缺口。' +
+            '数值合计不受影响（826 把三桶全加，等于 812 的合并行）；错的只有「覆盖/空格子」这套分母。' +
+            '修法：826 的期望格子按 812 呈现口径展开（第 3 关 3 变体、其余关合并成 1 行）。');
+    }
+}
+
+// S17 版本字段缺失的旧快照是否纳入判定
+//    812 / 826 / 808 三处的「混版本」判据都是 `vers.length > 1 || (vers.length > 0 && 无版本项 > 0)`：
+//    当整份快照/整条榜**一条版本都没有**时 vers.length === 0，整个条件短路成 false → 静默放行。
+{
+    const ev = SRC.evaluate;
+    const snapMixedBody = extractFunction(ev, 'snapVerMixed');
+    const hole812 = /vers\.length > 1 \|\| \(vers\.length > 0 && vers\.length < kinds\.length\)/.test(snapMixedBody);
+    const hole826 = /vers\.length > 1 \|\| \(vers\.length > 0 && noVerK\.length > 0\)/.test(SRC.alert);
+    const hole808 = /const mixed = vers\.length > 1 \|\| \(vers\.length > 0 && noVer > 0\)/.test(SRC.dashboard);
+    const dashText = /无记录（旧批数据）/.test(SRC.dashboard);
+    const holes = [];
+    if (hole812) holes.push('812 snapVerMixed（全表无版本 → false，快照标签不加警）');
+    if (hole826) holes.push('826 eliteIssues（全表无版本 → 不报「跨版本混榜」，只剩 14 天年龄线）');
+    if (hole808) holes.push('808 verLine（全榜无版本 → 不染红，只写一句灰字）');
+    if (holes.length) {
+        addFinding('REQ', 'S17', '全部无版本的旧快照仍被静默放行',
+            `混版本判据在三处同形：${holes.join('；')}。` +
+            '短路点都在 vers.length > 0：一条版本都没有时（旧快照/旧榜的常态）既不算「跨版本」也不算「版本未知」，' +
+            '直接把旧数据当同口径参与判读。' +
+            (dashText ? '808 至少写了「无记录（旧批数据）」文案，但不染色、不降级。' : '') +
+            '建议：`vers.length === 0` 与「跨版本」同等告警（判为「版本未知，不可横比」），' +
+            '或至少把无版本项强制按「旧数据」降级（不进排名/不参与判读）。');
     }
 }
 
@@ -551,6 +648,19 @@ for (const b of sample) {
     }
 }
 
+// D9：同一份样本、同一批战斗，各工具的「胜负分母」各是什么
+//    812：runs = 全部场（平局进分母、不算胜）→ 胜率 = 明教胜 / 全部
+//    826：同 812（st.total 含平局）
+//    808 / 852：明教胜 / 六大派胜 / 平局 三态独立计数
+//    816 → 813：battles = 全部场，allyWins / enemyWins 有，draws 走死守卫恒 0
+let emptyWinner = 0, allyWins = 0, enemyWins = 0;
+for (const b of sample) {
+    const w = b.res.winner;
+    if (!w) emptyWinner++;
+    else if (w === '明教') allyWins++;
+    else if (w === '六大派') enemyWins++;
+}
+
 // D4：同名合并风险（统计按「阵营·名字」聚合，同名不同个体会被并成一行）
 let dupRows = 0;
 let dupExamples = [];
@@ -657,7 +767,7 @@ for (let i = 0; i < 3; i++) {
     const s7Fixed = /unrecDmg/.test(wBody) && /unrecDmg/.test(SRC.stats) && /跳过/.test(SRC.stats);
     if (s7Fixed) {
         if (negGapUnits > 0) {
-            addNote('S7 负差额已排除不可校核单位（静态 ✅）',
+            addNote('S7', '负差额已排除不可校核单位（静态 ✅）',
                 `实测 ${negGapUnits} 个单位承伤 < 净扣血（最差 ${negGapWorst.toFixed(1)}），均为自伤/附身/直改血；` +
                 '816 已标 unrec*，813 改为跳过这些单位，不再报假红。');
         }
@@ -695,6 +805,15 @@ console.log(`  D2 承伤负差额：${negGapUnits} 个单位「承伤 < 净扣�
 for (const line of negGapExamples) console.log('     · ' + line);
 console.log(`  D3 胜负↔存活：${winMismatch} 场矛盾${hardFails.includes('D3') ? ' ❌' : ' ✅'}；平局 ${draws} 场（计入分母、不算赢）`);
 for (const line of winnerMismatchExamples) console.log('     · ' + line);
+console.log(`  D9 同一场胜负归属：${sample.length} 场 = 明教胜 ${allyWins} / 六大派胜 ${enemyWins} / 平局 ${draws} / winner 为空 ${emptyWinner}` +
+    `${emptyWinner === 0 && draws > 0 ? ' ⚠️ winner 从不为空 ⇒ 816 的 !res.winner 分支全是死代码' : ''}`);
+if (draws > 0) {
+    console.log(`     · 812/826 分母 = ${sample.length}（平局按负场）；808/852 三态 = ${allyWins}/${enemyWins}/${draws}；` +
+        `816→813 __meta.draws = 0（死守卫）⇒ 同一场平局在三处被记成「负场 / 独立平局 / 0 且不显示」`);
+} else {
+    console.log(`     · 本样本无平局：812/826 的分母、808/852 的三态计数此处一致；` +
+        `但 816 的 __meta.draws 仍是死守卫恒 0，含平局的批次上三处会分叉（口径缺口见 S15）`);
+}
 console.log(`  D4 同名合并：${dupRows} 组同名多单位（统计按名字聚合会并成一行）${dupRows ? ' ⚠️' : ' ✅'}`);
 for (const line of dupExamples) console.log('     · ' + line);
 console.log(`  D5 拆桶漂移：${driftRows} 个单位开战/终局阵营不一致${hardFails.includes('D5') ? ' ❌' : ' ✅'}`);
