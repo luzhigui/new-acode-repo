@@ -13,13 +13,16 @@
 //   ③ 复活后同回合出几次**不设上限**：实测复活当回合出手 0～2 次都出现（复活即恢复行动权 + 后续连击），
 //      设上限会误伤正常战斗，故只判 ① ② 两条时序。
 //
-// 死亡登记通道：只认 attack fact 的 snap.targetAlive===false / dmgResult.dead===true（引擎不在 fact 流里发
-//   `death` 类型事实，实测 seed=1 stage=1 全程 death fact 0 条）。漏登记（毒/反伤类死亡）只会少报，不会误报。
-// 复活通道：skillAnnounce skillName==='圣火不熄' 且带 unitUid。
-// 观察项（V1.1.0 第 192 轮）：收到复活公告、但该 uid 从没被上面两条判据登记过死亡 ⇒ 打 observe
-//   （不计红、不计退码）。这不是违规，是**死亡登记通道不全**的证据：毒/反伤/自伤致死不落 attack fact，
-//   体检看不见。实测 60 场 17 例，先观察、等主代码给毒/反伤死亡补 fact 或统一死亡通道后再升硬判据。
-export const VER = 'tests/health-rules/184-death-revive-rights.js V1.1.0';
+// 死亡登记通道（V1.2.0 第 193 轮）：**只认 `unitDeath` fact**（infra/106 UNIT_DEATH）。
+//   core/213 resolveDeaths 是唯一真实死亡出口，每死者发一条 { uid, name, camp, reason, hpBefore, hpAfter }，
+//   覆盖毒 DOT / 反伤 / 自伤 / 攻击致死全部死法；core/204 复活前也会对 `_pendingDeath && hp<=0` 补一条。
+//   **旧通道已删**（原先从 attack fact 的 snap.targetAlive===false / dmgResult.dead===true 反推死亡）——
+//   那条通道看不见毒/反伤致死的单位，导致「复活公告但无死亡登记」在 172 场里出现 20 例假观察。
+//
+// 复活通道：skillAnnounce skillName==='圣火不熄' 且带 unitUid ⇒ 移出死亡名单、恢复行动权。
+//   升级为硬判据（第 193 轮）：复活公告但死亡名单里没有该 uid ⇒ 违规（旧通道下 172 场 20 例，
+//   换 UNIT_DEATH 后实测 0 例，故升硬判据；若日后复现，说明死亡出口漏发或复活链在无死亡时报复活）。
+export const VER = 'tests/health-rules/184-death-revive-rights.js V1.2.0';
 
 const HIT_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
 
@@ -34,9 +37,6 @@ export const rule184 = {
         let round = null;
         let samples = 0;
         const errs = [];
-        const observes = [];
-
-        const registerDeath = (uid, r) => { if (uid != null) dead[uid] = (r == null ? 0 : r); };
 
         for (const f of fs) {
             if (!f || !f.factType) continue;
@@ -44,22 +44,20 @@ export const rule184 = {
 
             if (f.factType === 'roundStart') { round = d.round; continue; }
 
-            // 复活：死亡名单清除，行动权恢复
-            if (f.factType === 'skillAnnounce' && d.skillName === '圣火不熄' && d.unitUid != null) {
-                if (dead[d.unitUid] == null) {
-                    observes.push('第' + (round == null ? '?' : round) + '回合：' + (d.unitName || d.unitUid) +
-                        ' 收到复活公告，但 fact 流里没有它的死亡登记（毒/反伤/自伤死亡不落 attack fact，死亡通道不全）');
-                }
-                delete dead[d.unitUid];
+            // 死亡登记：唯一真通道 UNIT_DEATH（resolveDeaths 单一出口）
+            if (f.factType === 'unitDeath' && d.uid != null) {
+                dead[d.uid] = (round == null ? 0 : round);
                 continue;
             }
 
-            // 死亡登记（看这一击是否把目标打死）
-            if (f.factType === 'attack') {
-                const t = d.target;
-                const snap = d.snap || {};
-                const dmg = d.dmgResult || {};
-                if (t && t.uid != null && (snap.targetAlive === false || dmg.dead === true)) registerDeath(t.uid, round);
+            // 复活：死亡名单清除，行动权恢复；无死亡登记者＝违规
+            if (f.factType === 'skillAnnounce' && d.skillName === '圣火不熄' && d.unitUid != null) {
+                if (dead[d.unitUid] == null) {
+                    errs.push('第' + (round == null ? '?' : round) + '回合：' + (d.unitName || d.unitUid) +
+                        ' 收到复活公告，但此前没有任何死亡登记（unitDeath 漏发或异常复活）');
+                }
+                delete dead[d.unitUid];
+                continue;
             }
 
             // ① 同回合阵亡后仍命中出手
@@ -90,11 +88,6 @@ export const rule184 = {
                 msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处）' : '')
             };
         }
-        return {
-            fail: false,
-            observe: observes.length ? (observes.slice(0, 3).join('；') + (observes.length > 3 ? '（共 ' + observes.length + ' 处）' : '')) : undefined,
-            msg: '死亡/复活行动权口径成立：核对 ' + samples + ' 次出手，无同回合阵亡后出手或 PASS' +
-                (observes.length ? '（另有 ' + observes.length + ' 例复活缺死亡登记，见观察项）' : '')
-        };
+        return { fail: false, msg: '死亡/复活行动权口径成立：核对 ' + samples + ' 次出手，无同回合阵亡后出手或 PASS，复活均有死亡登记' };
     }
 };
