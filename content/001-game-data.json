@@ -425,8 +425,8 @@
       "skills": {
         "summonBengBeng": {
           "name": "召唤蹦蹦",
-          "desc": "每回合开始，在己方空位召唤一只蹦蹦（M{m}、攻{atk}、防{def}、生命{maxHp}）。",
-          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5 }
+          "desc": "每回合开始 {prob}% 概率，在己方空位召唤一只蹦蹦（M{m}、攻{atk}、防{def}、生命{maxHp}）。蹦蹦攻击或受击时，给对方叠加一层寒毒（{poisonDuration}回合，每回合 {poisonDot} 最大生命）。",
+          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.5, "poisonDuration": 3, "poisonDot": [0.04] }
         }
       }
     },
@@ -700,7 +700,7 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 2.0, "defToHeal": 0.06, "defToAtk": 0.12, "minReduce": 0.5 }
+          "params": { "defToReduce": 2.0, "defToHeal": 0.06, "defToAtk": 0.12 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
