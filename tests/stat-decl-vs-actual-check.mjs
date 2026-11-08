@@ -1,3 +1,7 @@
+// V3.17.0 | 2026-11-08 合并轮：补齐版本头注与 VER（此前工作树里已有 V3.17.0 的功能注释
+//   ——无声明源机制的两类非 CONTRACTS 名单、--scan-groups 扫地、背水战士派生值取配置真源、
+//   自洽校验按场次隔离 caseId—— 但头注/VER 仍停 3.16.0，被 ver-drift 断言② 当场报「日志领先」。
+//   本轮只补版本号与留痕，功能代码与判据一字未动。
 // V3.16.0 | 2026-11-06 迭代：装配再收口一层——由直接 import 301 改为走 tests/_lib/install-mechanics.mjs
 //   （与其余十几个宿主同一入口；由 mechanics-install-selftest 禁止绕过）。零行为变化：
 //   仍只绑定同一份生产总入口，stdout 头三行/契约行格式逐字不变。
@@ -95,7 +99,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.16.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.17.0';
 
 // ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
 //   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
@@ -237,6 +241,24 @@ const SAME_STEP_GROUPS = new Set(['fortify', 'baguaArray', 'rageOnHit', 'lionIns
 // 保守判据名单：fact 与 mod 跨步错位（fact 嵌攻击 entries / 不同子步生效），同一步 ledger 比对必然错位
 //   ⇒ 只抓整数倍超应用（翻倍），零误报。现仅 RIGHTEOUS_FACE（正义国字脸，def 加在嘲讽设置步、fact 在攻击步）。
 const LOOSE_IDS = new Set(['RIGHTEOUS_FACE']);
+
+// ===== V3.17.0：无声明源机制的两类「非 CONTRACTS 覆盖」名单 =====
+// 动因：--scan-groups 查出 8 个裸奔 group，全是主代码 11-04~11-07 新加机制。若只按
+//   「CONTRACTS 有没有同名 group」判覆盖，会永久报 8 个无法行动的 ❌，把真缺口淹掉。
+//   ★ 两者都不是白名单掩盖：SELF_CHECK 组有专属校验且偏差硬红；AUDIT_ONLY 组写明不适用理由并单列展示。
+// ① 无数值声明 fact、但可从「账本自身 + 配置常量」取证 → checkSelfConsistent() 真正盯数值：
+//   · absorbed / absorbGain：334 吸星，被吸方扣总量 == 吸方加总量（守恒）
+//   · duanChuiHalve / duanChuiGrow：337 断锤，减半 -N 与每次成长 +N 必须同源
+//   · lastStandWarrior：204 背水战士，三项词条值 == getRoleBonus(WARRIOR) 配置真源
+const SELF_CHECK_GROUPS = new Set([
+    'absorbed', 'absorbGain', 'lastStandWarrior', 'duanChuiGrow', 'duanChuiHalve'
+]);
+// ② 纯审计记账：recordHpAudit 记的是引擎结算后的实际 hp 变化，没有「机制声明了要改多少」可对照。
+//   强套声明对照只会制造假红；显式列出理由，不静默吞掉（新增审计 group 会重新落回 ❌ 提请判定）。
+const AUDIT_ONLY_GROUPS = new Map([
+    ['death', '死亡结算 hp 归零（core/214 finalizeDeaths 审计），无机制声明源'],
+    ['panelRebase', '面板换底 hp 差（core/214 recordHpAudit），无机制声明源']
+]);
 
 // 2026-10-02 审核线：factType 守卫。早期契约刻意「不导入枚举、靠字段形状签名」，
 //   但 commit 12a5808 给 SPIDER_TRANSFORM 补了 unitUid+atkDelta/defDelta/maxHpDelta 后，
@@ -850,6 +872,34 @@ const CONTRACTS = [
                 const d = e.data;
                 if (typeof d.unitName === 'string' && typeof d.reboundDmg === 'number' && d.reboundDmg > 0) {
                     out.push({ unit: d.unitName, uid: d.attackerUid || null, stat: 'hp', amount: d.reboundDmg });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                for (const e of nestedFacts(f)) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // V3.17.0（--scan-groups 扫地）：反伤弟子反弹——与 HORSE_REBOUND / FORTIFY_REBOUND 共用
+        //   core/217 REBOUND handler（L244-257 按 decl.factType 分账本 group），声明 fact 由
+        //   modules/331 L80-89 发：data:{ unitName(承受反弹的攻击者), sourceName, unitUid, rebound:value }。
+        //   账本 recordHpAudit 记在 decl.target=攻击者 身上 ⇒ 与 HORSE_REBOUND 完全同式（dir=-1）。
+        //   三者本该同批补，此前只补了前两个，discipleRebound 长期裸奔 113 词条。
+        id: 'DISCIPLE_REBOUND',
+        label: '反伤弟子反弹伤害',
+        group: 'discipleRebound',
+        dir: -1,
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.DISCIPLE_REBOUND) return;
+                const d = e.data;
+                if (typeof d.unitName === 'string' && typeof d.rebound === 'number' && d.rebound > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'hp', amount: d.rebound });
                 }
             };
             for (const f of stepLog || []) {
@@ -1811,13 +1861,15 @@ const CONTRACTS = [
 
 async function main() {
     const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper },
-           { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES, FACT_TYPES: FT }] = await Promise.all([
+           { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES, FACT_TYPES: FT, ROLE_TYPES },
+           { getRoleBonus }] = await Promise.all([
         import('../core/201-config-5v5-test.js'),
         import('../infra/102-core-utils.js'),
         import('../core/210-battle-round.js'),
         import('../modules/330-battle-init.js'),
         import('../core/214-battle-shared.js'),
-        import('../infra/106-battle-enums.js')
+        import('../infra/106-battle-enums.js'),
+        import('../core/202-unit.js')   // V3.17.0：背水战士派生值的配置真源
     ]);
     const { tickAndPickBuffs } = await import('./_lib/buff-picker.mjs');
     // 第 158 轮：定向覆盖组需要它来设 forceXiaoZhao（主代码 29battle-init 读它）。
@@ -1964,8 +2016,13 @@ async function main() {
     //   比凭印象列机制可靠得多：账本是引擎自己写的事实，既不会漏也不会多。
     const groupSeen = new Map();   // group -> { stats:Set, sources:Set, n }
     const seenModRefs = new Set(); // 去重：同一个词条在多个步反复出现只算一条
+    // V3.17.0 自洽校验取数：与 groupSeen 共用同一遍历，零额外场次、零额外快照。
+    //   seenModRefs 已按 mod 对象引用去重 ⇒ 每条 addMod 词条只累计一次，正好是「机制落地值」全集。
+    //   caseId 用于按场次隔离 perUnit（uid 跨场会复用，混在一起会把 A 场的减半量配到 B 场的成长上）。
+    const cons = { sum: new Map(), perUnit: new Map() };
+    let caseId = -1;
     const recordGroups = (led) => {
-        for (const per of led.values()) {
+        for (const [uid, per] of led.entries()) {
             for (const st of LEDGER_STATS) {
                 const mm = per && per[st];
                 if (!mm) continue;
@@ -1978,9 +2035,55 @@ async function main() {
                     rec.stats.add(st);
                     if (mod.source) rec.sources.add(mod.source);
                     rec.n++;
+                    // ---- V3.17.0：只取 SELF_CHECK 组的 op:'add' 词条（mul 无 add 语义）----
+                    if (mod.op === 'mul' || !SELF_CHECK_GROUPS.has(g)) continue;
+                    const v = Number(mod.value) || 0;
+                    const k = g + '|' + st;
+                    const s = cons.sum.get(k) || { sum: 0, n: 0 };
+                    s.sum += v; s.n++;
+                    cons.sum.set(k, s);
+                    if (g === 'duanChuiHalve' || g === 'duanChuiGrow' || g === 'lastStandWarrior') {
+                        const uk = caseId + '|' + uid;
+                        let r = cons.perUnit.get(uk);
+                        if (!r) { r = { halve: [], grow: [], warrior: [] }; cons.perUnit.set(uk, r); }
+                        if (g === 'duanChuiHalve') r.halve.push(v);
+                        else if (g === 'duanChuiGrow') r.grow.push(v);
+                        else r.warrior.push({ st, v });
+                    }
                 }
             }
         }
+    };
+    // V3.17.0：无声明 fact 的机制改从账本/配置取证。
+    //   ★ 边界：守恒类只查「扣加是否配平 / 派生值是否等于配置」，查不出「比例系数本身写错」
+    //     （吸星 ratio、断锤 N=atk/2）——那仍需主代码补数值声明 fact，已在交付说明点名。
+    const checkSelfConsistent = () => {
+        const issues = [];
+        let checked = 0;
+        const eq = (a, b) => Math.abs(a - b) < 1e-6;
+        // ① 吸星守恒：absorbed（被吸方扣，负值） + absorbGain（吸方得，正值） 应恒为 0
+        for (const st of ['atk', 'def', 'maxHp']) {
+            const a = cons.sum.get('absorbed|' + st), g = cons.sum.get('absorbGain|' + st);
+            if (!a || !g) continue;
+            checked += a.n + g.n;
+            if (!eq(a.sum + g.sum, 0)) issues.push(`吸星 ${st} 不守恒：被吸 ${a.sum} + 吸得 ${g.sum} = ${a.sum + g.sum}（应为 0）`);
+        }
+        const bonus = getRoleBonus(ROLE_TYPES.WARRIOR);
+        for (const [uk, r] of cons.perUnit) {
+            // ② 断锤守恒：同单位减半量 N 唯一，且每次成长 +N 恰等于该 N
+            if (r.halve.length) {
+                checked += r.halve.length + r.grow.length;
+                const N = Math.abs(r.halve[0]);
+                if (r.halve.some(v => !eq(Math.abs(v), N))) issues.push(`断锤减半量不一致 ${uk}`);
+                if (r.grow.some(v => !eq(v, N))) issues.push(`断锤成长 +N 与减半量不符 ${uk}（N=${N}）`);
+            }
+            // ③ 背水战士派生：三项词条值必须等于 getRoleBonus(WARRIOR)
+            for (const { st, v } of r.warrior) {
+                checked++;
+                if (typeof bonus[st] === 'number' && !eq(v, bonus[st])) issues.push(`背水战士 ${st}=${v} ≠ 配置 ${bonus[st]} ${uk}`);
+            }
+        }
+        return { checked, issues };
     };
     const cases = rawArgs.length > 0
         ? rawArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
@@ -1997,6 +2100,7 @@ async function main() {
     for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0, ambiguous: 0, checked: 0, mismatch: 0, mismatchEg: '' };
 
     for (const { seed, stage, forces } of cases) {
+        caseId++;  // V3.17.0：自洽校验的 perUnit 按场次隔离
         // 第 158 轮：定向覆盖组靠主代码现成的 forceXiaoZhao 开关凑齐前置条件；第 159 轮泛化为多开关。
         //   ★ 必须逐场设置、且开场先把全部白名单键复位 —— 全局态一旦泄漏到后续场次，
         //     默认样本就不是「干净随机阵容」了，历史结论全部作废且极难察觉。

@@ -1,3 +1,12 @@
+// V1.46.0 | 2026-11-08 迭代：挂「变异指纹换行等价自证」tests/mutation-fp-eol-selftest.mjs（新建 V1.0.0）。
+//   配套 mutation-teeth.mjs V2.9.32：指纹生成侧改为逐文件统一 LF、比较侧认 raw/LF/CRLF 三态，
+//   顺手修掉 VER 一刀切误报并给陈旧红加 git 归因。自证 23 条牙（双向换行互认、混合换行、
+//   真实字节改动/文件增删改名必红），挂 OBSERVES + hard: true，不改 CHECKS 分母。
+// V1.45.0 | 2026-11-08 合并轮：挂「夜间成果合入守门」tests/nightly-merge-guard.mjs（新建 V1.0.0）。
+//   由头：夜间自动化每天 23/1/3/5/7 点推一轮 Gitee nightly 分支，成果不会自动进白天工作树；
+//   今早实测本地 refs 还停 184、远端已有 185–189 五轮实质成果，白天却看不见、还误判「夜里没跑」。
+//   新守门四路信号（日志夜间轮 / 合入登记 / 本地 refs / 远端实时）只点名不收口，
+//   15 条自证牙（含防自命中）；挂 OBSERVES + hard: true，不改 CHECKS 分母、不改退码口径。
 // V1.44.0 | 2026-11-07 迭代（并行接力第一棒）：挂「并行接力漂移守门」tests/relay-drift-guard.mjs（新建 V1.0.0）。
 //   用户引入 MiniMax 同为体检方，两边接力改同一套 tests/：下午它提交 5 笔（含 150/151 回血判据、
 //   121/122/141/142/148）并留有自己的未提交改动，我上一轮 16 个改动也未提交 ⇒ 两份成果混在
@@ -194,7 +203,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.44.0';
+export const VER = 'tests/run-all.mjs V1.46.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -430,6 +439,10 @@ const OBSERVES = [
     //      并把匹配到的原文行摊出来供人工核验（启发式认错了人一眼能看出来）。
     //   带双向牙 Z1~Z7（老 HEAD 必报 / 当前 HEAD 不报 / 缺 HEAD 不放行 / 空文件不放行 /
     //   日志轮差大必报 / 「未跑」不得认成产出 / 正负同现取负面），跑 --selftest 可复核。
+    //   V1.1.0 | 2026-11-08 夜间第 189 轮：识别器补三条独立正字面（树数计量词 / --emit-prep 与
+    //      --emit-run 三连同现），牙扩到 Z1~Z13。由头是真漏报：第 186/188 轮都全量重跑过 48 棵树，
+    //      但日志写作「全量重跑 48 棵树」不含「变异树」紧邻动作词 ⇒ 认不出 ⇒ 第 189 轮开场误报轮差 5。
+    //      同时定死边界：只跑 --report 不算产出（只读旧结果，不产新证据），Z13 反向咬住。
     //   挂观察项不改分母，理由同前几轮。
     { name: '变异树新鲜度绊线', script: 'tests/mutation-freshness-tripwire.mjs', args: [] },
     // V1.35.0 | 2026-11-02 夜间第 177 轮：强制开关登记漂移守门（新增 V1.0.0），详见头顶 V1.35.0 日志行。
@@ -466,7 +479,14 @@ const OBSERVES = [
     { name: '变异锚点有效性绊线', script: 'tests/mutation-anchor-tripwire.mjs', args: [], hard: true },
     // V1.44.0 | 2026-11-07：并行接力漂移守门（详见头顶 V1.44.0 日志行）。
     //   纯只读 + 一次 git status；冲突残留/未解决冲突是确定性缺陷，故 hard: true。
-    { name: '并行接力漂移守门', script: 'tests/relay-drift-guard.mjs', args: [], hard: true }
+    { name: '并行接力漂移守门', script: 'tests/relay-drift-guard.mjs', args: [], hard: true },
+    // V1.45.0 | 2026-11-08：夜间成果合入守门（详见头顶 V1.45.0 日志行）。
+    //   纯只读 + 两次轻量 git（远端探测 8s 超时，拿不到只提示不判红）；
+    // hard: true = 「有夜间成果没取回/没登记」是确定性事实，不是待主代码转交的研判灰度。
+    { name: '夜间成果合入守门', script: 'tests/nightly-merge-guard.mjs', args: [], hard: true },
+    // V1.46.0 | 2026-11-08：变异指纹换行等价自证（详见头顶 V1.46.0 日志行）。
+    //   纯 node 沙箱、零子进程、23 条牙；防「等价集合被放宽成永远放行」或「生成侧口径漂移」。
+    { name: '变异指纹换行等价自证', script: 'tests/mutation-fp-eol-selftest.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
