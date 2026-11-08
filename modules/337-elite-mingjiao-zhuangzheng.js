@@ -13,15 +13,16 @@
 // V1.0.2 | 2026-11-08 体检转交：报幕 N= 走 fmtNum（原直接印内部浮点，实测出现 N=29.39124375）。
 // V1.0.3 | 2026-11-08 精英数值一致性：触发瞬间的「减半」系数从写死 0.5 改为读 duanChui.params.atkHalfRatio
 //           （旧值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.3';
+// V1.0.4 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.4';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { applyStatChange, addMod, getStat } from '../core/214-battle-shared.js';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+
+import { pushSkillAnnounce, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
 export const duanChuiHandler = {
@@ -31,8 +32,7 @@ export const duanChuiHandler = {
         const self = selfTeam.find(u => u.alive && u.name === decl.name);
         if (!self) return;
 
-        const params = getSkillParams(decl.name, 'duanChui');
-        if (!params) throw new Error(`缺技能参数: ${decl.name}.duanChui`);
+        const params = requireSkillParams(decl.name, 'duanChui');
         const keepHp = params.keepHp;
         const cap = params.cap;
         const selfCost = params.selfCost;

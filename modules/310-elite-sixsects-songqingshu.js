@@ -1,7 +1,8 @@
 // modules/310-elite-sixsects-songqingshu.js — 宋青书（叛逆突袭 / 苦练 / 新婚 / 性奋 / 白骨爪连锁）
 // 白骨爪连锁概率：基础 0.80，按周芷若自身已损血比线性升到 1.00，无存活宋青书再 +0.10（可超 1.00，等价「保底必连几爪」）；
 //   链条内每多连一爪概率 −0.01，累减到 ≤0 必断——这是「不会无限连」的唯一保证，不要改成固定概率。
-export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.2';
+// V6.28.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.3';
 import { getGameData } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
@@ -9,6 +10,7 @@ import { processUnitAttack } from '../core/209-battle-attack.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
 import { fmtHp } from '../infra/102-core-utils.js';
+import { findAlive } from './305-elite-helpers.js';
 
 // 宋青书
 export function createSongQingshuComponent() {
@@ -21,9 +23,9 @@ export function createSongQingshuComponent() {
 
 // 苦练前置：场上无周芷若时，宋青书成为受益者
 function checkKuLian(allyTeam) {
-    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
+    const song = findAlive(allyTeam, 'isSongQingshu');
     if (!song) return null;
-    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
+    const zhou = findAlive(allyTeam, 'isZhouZhiruo');
     if (zhou) return null;
     return song;
 }
@@ -65,8 +67,8 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
 
 // 性奋状态授予：周芷若存活时，宋青书本回合获得额外攻击机会
 function applyXingFenGrant(allyTeam, log) {
-    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
-    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
+    const zhou = findAlive(allyTeam, 'isZhouZhiruo');
+    const song = findAlive(allyTeam, 'isSongQingshu');
     if (!zhou || !song) return;
     Object.assign(song.state, { _xingFenActive: true });
     log.push({ factType: FACT_TYPES.XING_FEN_GRANT, data: { zhouName: zhou.name, songName: song.name } });
@@ -109,7 +111,7 @@ export const chainClawHandler = {
             //   chainProb 每次出手现算，故她下次出手自动回复原值。
             const selfLostRatio = unit.maxHp > 0 ? Math.max(0, (unit.maxHp - unit.hp) / unit.maxHp) : 0;
             const rampT = s.chainProcRampAt > 0 ? Math.min(selfLostRatio / s.chainProcRampAt, 1) : 1;
-            const song = allySide.find(u => u.isSongQingshu && u.alive);
+            const song = findAlive(allySide, 'isSongQingshu');
             let chainProb = s.chainProcChance + (s.chainProcMax - s.chainProcChance) * rampT;
             if (!song) chainProb += s.songDeadBonus;
 
@@ -215,7 +217,7 @@ export const kuLianHandler = {
         });
         eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
             if (!data.unit.isSongQingshu || !data.unit.alive) return;
-            const zhou = data.allySide && data.allySide.find(u => u.isZhouZhiruo && u.alive);
+            const zhou = data.allySide && findAlive(data.allySide, 'isZhouZhiruo');
             if (!zhou) data.declaration.priority = 1;
         });
     }
@@ -228,7 +230,7 @@ export const xinHunHandler = {
         eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.XINGFEN, (data) => {
             const { unit, allySide, log } = data;
             if (!unit || unit.name !== decl.name || !unit.alive) return;
-            const zhou = allySide.find(u => u.isZhouZhiruo && u.alive);
+            const zhou = findAlive(allySide, 'isZhouZhiruo');
             if (!zhou) return;
             const hpDeduct = decl.hpDeduct;
             const healLevels = decl.healLevels;

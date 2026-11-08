@@ -1,14 +1,16 @@
 // modules/321-elite-mingjiao-weiyixiao.js — 明教精英「韦一笑」：组件工厂（青翼蝠王·吸血/轻功）
-export const VER = 'modules/321-elite-mingjiao-weiyixiao.js V1.1.0';
+// V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/321-elite-mingjiao-weiyixiao.js V1.1.1';
 import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
+import { selfOrFindAlive } from './305-elite-helpers.js';
 export function createWeiYixiaoComponent() {
     return {
         name: '韦一笑',
         register(eventBus, A, B, log, self) {
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
-            const wei = (self && self.alive) ? self : A.find(u => u.isWei && u.alive);
+            const wei = selfOrFindAlive(self, A, 'isWei');
             if (!wei) return;
             wei.state._neverMiss = true;
             // 行动过仍可闪避 + 不参与飞行跳前排选敌：由组件声明，core 不再认 isWei

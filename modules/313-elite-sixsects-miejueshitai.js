@@ -1,12 +1,13 @@
 // modules/313-elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
 // V6.28.1 | 2026-11-08 灭绝三击回血文本（回复/生命 → 生命）走 fmtNum，消除实数化后的浮点尾巴
-export const VER = 'modules/313-elite-sixsects-miejueshitai.js V6.28.1';
+// V6.28.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/313-elite-sixsects-miejueshitai.js V6.28.2';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { spawnUnit, findFreePos } from '../core/205-battle-horse.js';
 import { getBattleRng, previewHeal } from '../core/214-battle-shared.js';
 import { eventBus, EFFECT_TYPES, registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
-import { pushInfo } from './305-elite-helpers.js';
+import { pushInfo, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
 // 灭绝师太（六大派·峨眉掌门·战士·M115）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
@@ -58,20 +59,16 @@ export function createMieJueShiTaiComponent() {
         register(eventBus, A, B, log, self) {
             // 不写死阵营：按身份标记在两侧找，灭绝换边也照样生效。
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
-            const miejue = (self && self.alive) ? self : [...A, ...B].find(u => u.isMieJueShiTai && u.alive);
+            const miejue = selfOrFindAlive(self, [...A, ...B], 'isMieJueShiTai');
             if (!miejue) return;
             const myTeam = miejue.camp === CAMP_TYPES.ALLY ? A : B;
 
-            const counter = getSkillParams('灭绝师太', 'counterAttack');
-            if (!counter) throw new Error('缺技能参数: 灭绝师太.counterAttack');
-            const third = getSkillParams('灭绝师太', 'thirdStrike');
-            if (!third) throw new Error('缺技能参数: 灭绝师太.thirdStrike');
+            const counter = requireSkillParams('灭绝师太', 'counterAttack');
+            const third = requireSkillParams('灭绝师太', 'thirdStrike');
             // 普攻系数：峨眉掌法 ×dmgMultiplier（当前 1.0=无加成，旋钮留档；被动出手不吃）
-            const normal = getSkillParams('灭绝师太', 'normalAttack');
-            if (!normal) throw new Error('缺技能参数: 灭绝师太.normalAttack');
+            const normal = requireSkillParams('灭绝师太', 'normalAttack');
             // 追击：每次打中后 prob 概率对同一目标再追击一次（伤害×dmgMultiplier，可被闪避）
-            const chase = getSkillParams('灭绝师太', 'chaseAttack');
-            if (!chase) throw new Error('缺技能参数: 灭绝师太.chaseAttack');
+            const chase = requireSkillParams('灭绝师太', 'chaseAttack');
             // 召唤参数在落位时（flushZhouSummon）现取；这里只做一次启动期存在性校验
             if (!getSkillParams('灭绝师太', 'summonZhou')) throw new Error('缺技能参数: 灭绝师太.summonZhou');
 

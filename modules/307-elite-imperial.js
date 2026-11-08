@@ -1,7 +1,8 @@
 // modules/307-elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
 // V6.1.2 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='幻影伪装'（显式来源归因，
 //         渲染文案逐字不变——同一条事实另有小昭·兄/彭莹玉两个来源）
-export const VER = 'modules/307-elite-imperial.js V6.1.2';
+// V6.1.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/307-elite-imperial.js V6.1.3';
 
 import { registerElite, registerLinkPartners } from '../core/208-registry-elite.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -10,6 +11,7 @@ import { emitEvent, getBattleRng, recordHpAudit } from '../core/214-battle-share
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
+import { findAlive } from './305-elite-helpers.js';
 
 // 成昆
 export function createChengKunComponent() {
@@ -33,7 +35,7 @@ export function createHeBiWengComponent() {
     return {
         name: '鹤笔翁',
         register(eventBus, A, B, log) {
-            const he = B.find(u => u.isHeBiWeng && u.alive);
+            const he = findAlive(B, 'isHeBiWeng');
             if (!he) return;
         },
     };

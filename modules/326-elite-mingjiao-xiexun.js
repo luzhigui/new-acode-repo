@@ -1,6 +1,7 @@
 // modules/326-elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
 // V1.2.1 | 2026-11-08 雄狮鼓舞 targets 补 uid（召唤物个体标识，体检总框架 D6）
-export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.1';
+// V1.2.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.2';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
@@ -8,7 +9,7 @@ import { applyHeroFlags, getRoleBonus } from '../core/202-unit.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
-import { pushInfo, pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushInfo, pushSkillAnnounce, selfOrFindAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 export function createXieXunComponent() {
     return {
@@ -18,14 +19,12 @@ export function createXieXunComponent() {
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find。
             //   双谢逊各管各的狮子：召唤时给幼狮打 state._lionOwnerUid=自己 uid，成长/振奋/随动只认自己召的，
             //   防双实例重复成长（RNG 双消耗）、双倍振奋、双份随动请求
-            const xiexun = (self && self.alive) ? self : [...A, ...B].find(u => u.isXieXun && u.alive);
+            const xiexun = selfOrFindAlive(self, [...A, ...B], 'isXieXun');
             if (!xiexun) return;
             const myTeam = xiexun.camp === CAMP_TYPES.ALLY ? A : B;
 
-            const summon = getSkillParams('金毛狮王谢逊', 'summonLion');
-            if (!summon) throw new Error('缺技能参数: 金毛狮王谢逊.summonLion');
-            const inspire = getSkillParams('金毛狮王谢逊', 'lionInspire');
-            if (!inspire) throw new Error('缺技能参数: 金毛狮王谢逊.lionInspire');
+            const summon = requireSkillParams('金毛狮王谢逊', 'summonLion');
+            const inspire = requireSkillParams('金毛狮王谢逊', 'lionInspire');
             if (!getSkillParams('金毛狮王谢逊', 'lionFollow')) throw new Error('缺技能参数: 金毛狮王谢逊.lionFollow');
 
             // ① 成长：上一回合留下的幼狮，本回合开始按所在位置成形（1-6 雄狮 / 7-9 母狮）。
@@ -98,7 +97,7 @@ export function createXieXunComponent() {
                 for (const t of targets) {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
                     inspireTargets.push({ unitName: t.name, uid: t.uid, atkDelta: gain });
-                    emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
+                    emitHpChange(t);
                 }
                 // 数值声明 fact：一次触发给多人各 +gain，用 targets 名单承载（供体检对照器按 group='lionInspire' 比对）
                 // 契约补齐：requiredFields 要 unitName（触发者=雄狮）但发射处一直没带——校验器红字但不阻断，此前漏了

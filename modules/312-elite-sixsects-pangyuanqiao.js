@@ -1,14 +1,14 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
 // V6.29.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.5';
-import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
+// V6.29.6 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.6';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
-
+import { pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
 // 新增；改版：嘲讽与打歪合并为「每次攻击前二选一」——
 //   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且自身防御永久+40、无上限叠加），
@@ -21,15 +21,12 @@ export function createPangYuanQiaoComponent() {
         register(eventBus, A, B, log) {
             // 不写死阵营：core/11 固定传（A=明教 / B=六大派），这里按身份标记在两侧找，
             // 胖远桥将来换边也照样生效
-            const pang = [...A, ...B].find(u => u.isPangYuanQiao && u.alive);
+            const pang = findAlive([A, B], 'isPangYuanQiao');
             if (!pang) return;
 
-            const rage = getSkillParams('胖远桥', 'rageOnHit');
-            if (!rage) throw new Error('缺技能参数: 胖远桥.rageOnHit');
-            const face = getSkillParams('胖远桥', 'righteousFace');
-            if (!face) throw new Error('缺技能参数: 胖远桥.righteousFace');
-            const young = getSkillParams('胖远桥', 'youngBlood');
-            if (!young) throw new Error('缺技能参数: 胖远桥.youngBlood');
+            const rage = requireSkillParams('胖远桥', 'rageOnHit');
+            const face = requireSkillParams('胖远桥', 'righteousFace');
+            const young = requireSkillParams('胖远桥', 'youngBlood');
 
             // 出手声明暂存：PANG_CLUMSY 掷完骰写入，AFTER_SELECT_TARGET（选敌完成·出手前）落日志后清空。
             //   存结构化结果（kind + 数值），目标名在落日志时用信号里的 data.target 现取，

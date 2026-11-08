@@ -1,17 +1,19 @@
 // modules/318-elite-mingjiao-eagle.js — 明教精英「雄鹰」：组件工厂（carry 海克斯召唤·飞行）
 // V1.0.2 | 2026-11-07 第 184 轮：飞天判据改调 core/203 isAirborne（全库唯一一份，行为不变）
-export const VER = 'modules/318-elite-mingjiao-eagle.js V1.0.2';
+// V1.0.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/318-elite-mingjiao-eagle.js V1.0.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { spawnUnit } from '../core/205-battle-horse.js';
 import { getBattleRng, addMod } from '../core/214-battle-shared.js';
 import { isAirborne } from '../core/203-battle-utils.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
+import { findAlive } from './305-elite-helpers.js';
 export function createEagleComponent() {
     return {
         name: '雄鹰',
         register(eventBus, A, B, log) {
-            const eagle = [...A, ...B].find(u => u.isCarryEagle && u.alive);
+            const eagle = findAlive([A, B], 'isCarryEagle');
             if (!eagle) return;
             const myTeam = eagle.camp === CAMP_TYPES.ALLY ? A : B;
             const spec = CONFIG.BUFFS?.carry?.params?.eagle;

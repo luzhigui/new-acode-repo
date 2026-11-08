@@ -14,8 +14,9 @@
 //          与 dash.moves 传给 fx/616 的拖拽演出自相矛盾。
 // V7.1.6 | 2026-11-08 冲刺 announce 补 grants 载荷（体检总框架 D1/D4：与 TW_DASH_APPLY 同值）
 // V7.1.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回春术层数）。
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.7';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+// V7.1.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.8';
+
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
@@ -23,7 +24,7 @@ import { computeDodgeChance, snapshotUnitForFact } from '../core/211-battle-atta
 import { getMissBreakdown, makeFXSnapshot, isAirborne } from '../core/203-battle-utils.js';
 import { flushBattleEvents, fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './305-elite-helpers.js';
+import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 
@@ -32,17 +33,13 @@ export function createTangWenLiangComponent() {
         name: '唐文亮',
         register(eventBus, A, B, log) {
             // 不写死阵营：按身份标记在两侧找
-            const tw = [...A, ...B].find(u => u.isTangWenLiang && u.alive);
+            const tw = findAlive([A, B], 'isTangWenLiang');
             if (!tw) return;
 
-            const qi = getSkillParams('唐文亮', 'qiShangQuan');
-            if (!qi) throw new Error('缺技能参数: 唐文亮.qiShangQuan');
-            const hc = getSkillParams('唐文亮', 'huiChunShu');
-            if (!hc) throw new Error('缺技能参数: 唐文亮.huiChunShu');
-            const dash = getSkillParams('唐文亮', 'chongCi');
-            if (!dash) throw new Error('缺技能参数: 唐文亮.chongCi');
-            const tong = getSkillParams('唐文亮', 'tongGuiYuJin');
-            if (!tong) throw new Error('缺技能参数: 唐文亮.tongGuiYuJin');
+            const qi = requireSkillParams('唐文亮', 'qiShangQuan');
+            const hc = requireSkillParams('唐文亮', 'huiChunShu');
+            const dash = requireSkillParams('唐文亮', 'chongCi');
+            const tong = requireSkillParams('唐文亮', 'tongGuiYuJin');
 
             // 职业加成（冲刺转战士用，与何太冲红血同款口径：addMod 词条 + refreshMaxHp 同步）
             function addRoleBonus(unit, role, label) {

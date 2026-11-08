@@ -1,14 +1,14 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.1';
-import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
+// V6.27.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.2';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
-
+import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
 // 张三丰（六大派·防战）：不攻击的续航核心
 // 技能1 生生不息 / 技能3 八卦阵 / 技能5 第三回合严阵以待
 // 技能4 不争（仅剩一人判负）在 core/11 的胜负判定里
@@ -17,15 +17,12 @@ export function createZhangSanfengComponent() {
         name: '张三丰',
         register(eventBus, A, B, log, self) {
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退 B 侧 find
-            const zhang = (self && self.alive) ? self : B.find(u => u.isZhangSanfeng && u.alive);
+            const zhang = selfOrFindAlive(self, B, 'isZhangSanfeng');
             if (!zhang) return;
 
-            const s = getSkillParams('张三丰', 'endlessBreath');
-            if (!s) throw new Error('缺技能参数: 张三丰.endlessBreath');
-            const ba = getSkillParams('张三丰', 'baguaArray');
-            if (!ba) throw new Error('缺技能参数: 张三丰.baguaArray');
-            const tf = getSkillParams('张三丰', 'tenRoundFortify');
-            if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
+            const s = requireSkillParams('张三丰', 'endlessBreath');
+            const ba = requireSkillParams('张三丰', 'baguaArray');
+            const tf = requireSkillParams('张三丰', 'tenRoundFortify');
 
             // 生生不息：只回 healPct 上限（三处触发共用：回合开始[免费] / 轮到自己[付费atkCost攻] / 八卦阵[付费atkCost攻]）；回血同时转永久攻防，见下
             // 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，

@@ -4,9 +4,10 @@
 // V6.3.5 | 2026-11-08 体检转交：QIAN_KUN_* fact 补减伤前 dmg（反弹可正算，不再由 selfDmg 反推区间）。
 // V6.3.6 | 2026-11-08 体检转交：飞行·猎杀成长补战报行 + 头顶 🦇 飘字（成长前/后攻击、未命中累计、
 //   未命中免疫分支），走 SKILL_ANNOUNCE 同款 floatText 路径；每次击杀独立一条，连续成长连着升。
-export const VER = 'modules/302-elite-skills.js V6.3.6';
+// V6.3.7 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/302-elite-skills.js V6.3.7';
 
-import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
 import { hasBuff, canBeTargeted } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -14,7 +15,7 @@ import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPE
 import { emitStateChange } from '../infra/108-state-change.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerRoundHook } from '../core/208-registry-elite.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
 // 玄冥二老 — 中毒/鹿角
@@ -24,8 +25,7 @@ export function tickXuanmingPoison(unit, source) {
     const poison = unit.state._xuanmingPoison;
     if (!poison || poison.remaining <= 0) return 0;
     poison.remaining--;
-    const s = getSkillParams('鹿杖客', 'xuanmingPalm');
-    if (!s) throw new Error('缺技能参数: 鹿杖客.xuanmingPalm');
+    const s = requireSkillParams('鹿杖客', 'xuanmingPalm');
     const idx = Math.min(poison.dotPercents.length - 1, s.duration - 1 - poison.remaining);
     const pct = poison.dotPercents[idx] || 0;
     const dot = Math.floor(unit.maxHp * pct);
@@ -61,13 +61,11 @@ export function applyDamageModifiers(unit, target, dmg, targetTeam, attackerTeam
     let label;
 
     if (xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
-        const s = getSkillParams('小昭', 'qianKunUpgraded');
-        if (!s) throw new Error('缺技能参数: 小昭.qianKunUpgraded');
+        const s = requireSkillParams('小昭', 'qianKunUpgraded');
         reducePct = s.reducePct; reboundPct = s.reboundPct; selfDmgPct = s.selfDmgPct;
         isProtected = true; label = 'QIAN_KUN_UPGRADED';
     } else if (!xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
-        const s = getSkillParams('张无忌', 'qianKun');
-        if (!s) throw new Error('缺技能参数: 张无忌.qianKun');
+        const s = requireSkillParams('张无忌', 'qianKun');
         reducePct = s.reducePct; reboundPct = s.reboundPct; selfDmgPct = s.selfDmgPct;
         isProtected = true; label = 'QIAN_KUN_BASIC';
     }
@@ -102,7 +100,7 @@ export function applyDamageModifiers(unit, target, dmg, targetTeam, attackerTeam
             }
 
             // 刷新张无忌的 UI（血量/护盾状态）
-            emitEvent(zhang, UNIT_EVENT_TYPES.HP_CHANGE, { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: getStat(zhang, 'atk'), def: getStat(zhang, 'def') });
+            emitHpChange(zhang);
         }
 
         entries.push({
@@ -163,13 +161,12 @@ export function spiderTransform(unit, log) {
     addMod(unit, 'def', { source: '蛛变·' + newRole, value: newStats.def, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
     addMod(unit, 'maxHp', { source: '蛛变·' + newRole, value: newStats.maxHp, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
     refreshMaxHp(unit, null, '蛛变');
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def') });
+    emitHpChange(unit);
 
     // 精通加成：首次精通时按层数差结算，全精通补 2 层
     let masteryGain = null;
     if (isNewMastery) {
-        const m = getSkillParams('小昭', 'mastery');
-        if (!m) throw new Error('缺技能参数: 小昭.mastery');
+        const m = requireSkillParams('小昭', 'mastery');
         const gained = masteryLayers(unit.state._masteredRoles.length) - masteryLayers(unit.state._masteredRoles.length - 1);
         if (gained > 0) {
             const gAtk = gained * m.atkPer, gDef = gained * m.defPer, gHp = gained * m.hpPer;
@@ -177,12 +174,12 @@ export function spiderTransform(unit, log) {
             addMod(unit, 'def', { source: '精通', value: gDef, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
             addMod(unit, 'maxHp', { source: '精通', value: gHp, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
             refreshMaxHp(unit, null, '精通');
-            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def') });
+            emitHpChange(unit);
             masteryGain = { atk: gAtk, def: gDef, hp: gHp };
         }
     }
 
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role: newRole });
+    emitHpChange(unit, { role: newRole });
     emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole }, log);
     // 体检对照增量字段：atkDelta/defDelta/maxHpDelta = 本次蛛变实际登记的职业加成（与上方 addMod 入参同源）；
     //   masteryGain 是精通层数的独立增量，勿混用
@@ -208,7 +205,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _flyMode: null, _spiderFlying: false });
+    emitHpChange(unit, { _flyMode: null, _spiderFlying: false });
     emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: unit.pos });
     emitStateChange(unit, STATE_CHANGE_TYPES.LANDING, { pos: unit.pos }, log);
 
@@ -218,8 +215,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     //   不落地（孵化/满血/比率为 0）时记 0，与 addMod 记账同条件同值
     let landHeal = 0;
     if (!unit.state._spiderEggHatch) {
-        const flyParams = getSkillParams('小昭', 'spiderFly');
-        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
+        const flyParams = requireSkillParams('小昭', 'spiderFly');
         const ratio = unit.state._spiderLandTier === 'death' ? flyParams.landHealRatioDeath : flyParams.landHealRatio;
         const heal = Math.floor(unit.maxHp * ratio);
         if (heal > 0 && unit.hp < unit.maxHp) landHeal = heal;
@@ -249,8 +245,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         // 老板拍板：落地蛛袭的穿透伤害减半（精通额外伤害保持不变）
         const penetrationDmg = Math.floor(atk * (atk / (atk + def)) * 0.5);
         const masteryCount = unit.state._masteredRoles?.length || 0;
-        const params = getSkillParams('小昭', 'spiderStrike');
-        if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
+        const params = requireSkillParams('小昭', 'spiderStrike');
         const extraDmgMap = params.extraDmgMap;
         const extraDmg = extraDmgMap[Math.min(masteryCount, Object.keys(extraDmgMap).length - 1)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
@@ -298,11 +293,10 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
-    const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive);
+    const xiaoZhao = findAlive(allyTeam, 'isXiaoZhaoSister');
     if (!xiaoZhao) return null;
     if (!hasBuff(activeBuffs, hexKey)) return null;
-    const s = getSkillParams('小昭', 'hexEnhance');
-    if (!s) throw new Error('缺技能参数: 小昭.hexEnhance');
+    const s = requireSkillParams('小昭', 'hexEnhance');
     return s[hexKey] || null;
 }
 

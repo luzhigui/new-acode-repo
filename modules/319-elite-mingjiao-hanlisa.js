@@ -9,8 +9,9 @@
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // V2.2.4 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.2.4';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+// V2.2.5 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.2.5';
+
 import { getFronts } from '../core/203-battle-utils.js';
 import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/214-battle-shared.js';
 import { emitStateChange } from '../infra/108-state-change.js';
@@ -18,14 +19,14 @@ import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event
 import { resolveRoundStatGrants } from '../core/217-effect-handlers.js';
 import { resolveDeaths } from '../core/211-battle-attack-steps.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
-import { pushInfo, pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushInfo, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
 export function createHanLiSaComponent() {
     return {
         name: '寒离飒',
         register(eventBus, A, B, log) {
-            const hls = [...A, ...B].find(u => u.isHanLiSa && u.alive);
+            const hls = findAlive([A, B], 'isHanLiSa');
             if (!hls) return;
 
             // 控制位移免疫·开局常驻（老板口径：被闪避反击/击退/换位只掉血不动窝；守卫在 core/12+13）
@@ -35,12 +36,9 @@ export function createHanLiSaComponent() {
             // 蓄意轰拳爆发序号（fx/93 引擎直发与回放桥重放按 seq 去重）
             let burstSeq = 0;
 
-            const jy = getSkillParams('寒离飒', 'jiuYangQuan');
-            if (!jy) throw new Error('缺技能参数: 寒离飒.jiuYangQuan');
-            const hb = getSkillParams('寒离飒', 'hanBingShenZhang');
-            if (!hb) throw new Error('缺技能参数: 寒离飒.hanBingShenZhang');
-            const xl = getSkillParams('寒离飒', 'xuLi');
-            if (!xl) throw new Error('缺技能参数: 寒离飒.xuLi');
+            const jy = requireSkillParams('寒离飒', 'jiuYangQuan');
+            const hb = requireSkillParams('寒离飒', 'hanBingShenZhang');
+            const xl = requireSkillParams('寒离飒', 'xuLi');
             // 双拳齐出的两个标量参数只认 content 真值（不做 `?? 字面量` 兜底）：缺了就当场报错。
             //   若只删兜底不校验，比较式会与 undefined 恒不成立 ⇒ 变成「任何血量都追加一拳」的静默错行为。
             if (xl.doublePunchHpPct == null || xl.doublePunchProb == null) {

@@ -1,28 +1,27 @@
 // modules/327-elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
-export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.1.0';
+// V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.1.1';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 export function createYangXiaoComponent() {
     return {
         name: '杨逍',
         register(eventBus, A, B, log, self) {
             // 不写死阵营：按身份标记在两侧找，杨逍换边也照样生效。
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
-            const yangxiao = (self && self.alive) ? self : [...A, ...B].find(u => u.isYangXiao && u.alive);
+            const yangxiao = selfOrFindAlive(self, [...A, ...B], 'isYangXiao');
             if (!yangxiao) return;
             // 多实例守卫：JIN_MAI 全局递减（扫全场单位的点穴状态）只由「场上第一个存活杨逍」实例挂载，
             //   双杨逍都挂会每回合减两遍（_dianXueCd 直接清空、_jinMai rounds 双倍递减）
             const sameYang = [...A, ...B].filter(o => o.alive && o.isYangXiao).sort((a, b) => (a.pos - b.pos) || (a.uid < b.uid ? -1 : 1));
             const isPrimary = sameYang.length > 0 && sameYang[0].uid === yangxiao.uid;
 
-            const dian = getSkillParams('杨逍', 'dianXueShenTong');
-            if (!dian) throw new Error('缺技能参数: 杨逍.dianXueShenTong');
-            const jie = getSkillParams('杨逍', 'dianXueJieMai');
-            if (!jie) throw new Error('缺技能参数: 杨逍.dianXueJieMai');
+            const dian = requireSkillParams('杨逍', 'dianXueShenTong');
+            const jie = requireSkillParams('杨逍', 'dianXueJieMai');
             const xian = getSkillParams('杨逍', 'xianJi') || { jumpProb: 0 };
 
             // ④ 先机：队友拟出手前（他自己还没出手时）各掷一次 jumpProb——
@@ -60,7 +59,7 @@ export function createYangXiaoComponent() {
                 Object.assign(target.state, { _stunned: true, _dianXueCd: dian.cdRounds });
                 // OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
                 target.state._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
-                emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), _stunned: true });
+                emitHpChange(target, { _stunned: true });
                 emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
                 if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动，并禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${Math.round(jie.healReduceRatio * 100)}%）`, { floatText: '😵', floatUid: target.uid });
             });

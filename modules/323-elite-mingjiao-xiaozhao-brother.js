@@ -1,8 +1,9 @@
 // modules/323-elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
 // V1.2.3 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='蝶舞迷心'（显式来源归因，
 //         渲染文案逐字不变；deceiverIsSpider 保留给旧消费方）
-export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.3';
-import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
+// V1.2.4 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.4';
+import { CONFIG, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { spawnHorse } from '../core/205-battle-horse.js';
 import { spawnOneUnityRecruit } from '../core/204-buff-system.js';
@@ -12,7 +13,7 @@ import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra
 import { StateMachine, fmtNum } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 const SPIDER_TIER_REASON = { '70': '血量即将低于70%', '40': '血量即将低于40%', 'death': '即将阵亡', hatch: '蜘蛛孵化' };
 function decideSpiderTier(state, maxHp, hpAfter, fp) {
     if (!state._spiderTriggered70 && hpAfter <= maxHp * fp.hpThresholds[0]) return '70';
@@ -37,8 +38,7 @@ function eggModValue(unit, stat, targetVal) {
 // 结茧：毒/反伤致死不走 BEFORE_DAMAGE_APPLY、飞天接不住 → ON_BEFORE_DEATH 清 _pendingDeath
 //   取消死亡，原地变 0 攻 / eggDef 防 / 妹妹最大生命 50% 血的卵（占格、不可行动、可被打碎=真死）。致死档在此落账。
 function toSpiderEgg(u, outLog) {
-    const fp = getSkillParams('小昭', 'spiderFly');
-    if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+    const fp = requireSkillParams('小昭', 'spiderFly');
     u.state._pendingDeath = false;
     Object.assign(u.state, { _spiderEgg: true, _spiderEggRounds: 0, _spiderTriggeredDeath: true });
     // 结茧属性增量先算局部（体检第 88 轮转交：写进 announce fact 供数值对照器 SPIDER_EGG 契约做声明侧）
@@ -52,15 +52,14 @@ function toSpiderEgg(u, outLog) {
     if (u.hp < u.maxHp) applyStatChange(u, 'hp', u.maxHp - u.hp, null, '蜘蛛结茧', false, false);
     addMod(u, 'maxHp', { source: '蜘蛛卵', value: eggMaxHpDelta, ttl: 'permanent', group: 'spiderEgg', op: 'add' });
     refreshMaxHp(u, null, '蜘蛛结茧');
-    emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
+    emitHpChange(u);
     pushSkillAnnounce(outLog, u, '蜘蛛卵', `🥚 ${u.name} 原地结茧：0 攻 / ${fp.eggDef} 防 / ${fmtNum(eggMaxHpTarget)} 血（最大生命 50%），不可行动（打碎即死）`, { floatText: '🥚', floatUid: u.uid, eggAtkDelta, eggDefDelta });
 }
 
 // 孵化：卵挺过「本回合+下回合」两个回合末 → 保留 eggHatchHpRatio 血、攻防恢复死亡前、
 //   三档全作废（再死=真死），直接飞天 → 落地蛛袭（spiderReturn 自带随机目标；_spiderEggHatch 跳过落地回血）
 function hatchSpiderEgg(u, outLog) {
-    const fp = getSkillParams('小昭', 'spiderFly');
-    if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+    const fp = requireSkillParams('小昭', 'spiderFly');
     Object.assign(u.state, {
         _spiderEgg: false, _spiderEggUsed: true, _spiderEggHatch: true, _spiderRemaining: 0,
         _spiderTriggered70: true, _spiderTriggered40: true, _spiderTriggeredDeath: true
@@ -69,7 +68,7 @@ function hatchSpiderEgg(u, outLog) {
     refreshMaxHp(u, null, '蜘蛛孵化');
     const targetHp = Math.floor(u.maxHp * fp.eggHatchHpRatio);
     if (u.hp > targetHp) applyStatChange(u, 'hp', -(u.hp - targetHp), null, '蜘蛛孵化', false);
-    emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
+    emitHpChange(u);
     pushSkillAnnounce(outLog, u, '蜘蛛孵化', `🕷️ ${u.name} 破茧孵化：保留 ${Math.round(fp.eggHatchHpRatio * 100)}% 血、攻防恢复，直接飞天！`, { floatText: '🕷️', floatUid: u.uid });
     const fsm = u._fsm;
     if (fsm && fsm.is('normal')) {
@@ -103,8 +102,7 @@ export function createXiaoZhaoBrotherComponent() {
                         const currentLog = (data && data.log) ? data.log : log;
                         const incomingDmg = data ? data.incomingDmg : 0;
                         // 飞天次数上限唯一来源：内容表 小昭.spiderFly.params（core/17 state 默认值只是镜像）
-                        const flyParams = getSkillParams('小昭', 'spiderFly');
-                        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
+                        const flyParams = requireSkillParams('小昭', 'spiderFly');
                         // 档位消费：档位由 decideSpiderTier 在触发点算好随 data.tier 带入，这里只落账；
                         //   hatch（蜘蛛孵化）不占档——孵化时三档已全作废
                         const tier = (data && data.tier) || 'death';
@@ -148,7 +146,7 @@ export function createXiaoZhaoBrotherComponent() {
             return fsm;
         },
         register(eventBus, A, B, log) {
-            const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
+            const brother = findAlive(A, 'isXiaoZhaoBrother');
             if (!brother) return;
             const fsm = this._buildFsm(brother, A, B, log);
             brother._fsm = fsm;
@@ -159,8 +157,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (brother.state._noFlyNoEgg) return;
                 if (fsm.is('flying') || fsm.is('dead')) return;
                 if (brother.state._spiderEgg) return;
-                const fp = getSkillParams('小昭', 'spiderFly');
-                if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+                const fp = requireSkillParams('小昭', 'spiderFly');
                 const hpAfter = Math.max(0, brother.hp - (data.dmg || 0));
                 const tier = decideSpiderTier(brother.state, brother.maxHp, hpAfter, fp);
                 if (tier) {
@@ -200,7 +197,7 @@ export function createXiaoZhaoBrotherComponent() {
             }
             // 蛛落：回合结束从天而降并攻击
             function submitSpiderDescendDeclaration(data) {
-                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && u.state._spiderFlying);
+                const bro = findAlive(A, 'isXiaoZhaoBrother', u => u.state._spiderFlying);
                 if (bro && bro._fsm && bro._fsm.is('flying')) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ type: 'spiderDescend', unit: bro, A, B, log: data.log });
@@ -209,7 +206,7 @@ export function createXiaoZhaoBrotherComponent() {
             // 蛛变：每回合随机变职业并结算永久海克斯（蜘蛛卵期间冻结：不蛛变不召唤）
             function submitSpiderTransformDeclaration(data) {
                 const { A, B, log } = data;
-                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive);
+                const bro = findAlive(A, 'isXiaoZhaoBrother');
                 if (!bro) return;
                 // 结茧冻结也要滚动/掷骰（回合对齐不断档）：死亡桶 r2←r1←cur←0；
                 //   妹永久圣火令按全局同口径掷 atkCols 列 + defRows 行（core/14 _Brother 读此命中判）
@@ -262,8 +259,7 @@ export function createXiaoZhaoBrotherComponent() {
                     const layers = carryEnh.layersBase
                         + carryEnh.layersPerR1 * d.r1
                         + carryEnh.layersPerR2 * d.r2;
-                    const per = getSkillParams('小昭', 'mastery');
-                    if (!per) throw new Error('缺技能参数: 小昭.mastery');
+                    const per = requireSkillParams('小昭', 'mastery');
                     addMod(bro, 'atk', { source: '小昭·妹永久carry', value: per.atkPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
                     addMod(bro, 'def', { source: '小昭·妹永久carry', value: per.defPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
                     addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: per.hpPer * layers, ttl: 'round', group: 'xiaoZhaoCarry', op: 'add' });
@@ -331,7 +327,7 @@ export function createXiaoZhaoBrotherComponent() {
             //   每回合恰一次）——结茧当回合末 +1、下一回合末 +2 → 先于蛛落（SPIDER_RETURN:10）孵化
             eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.SPIDER_EGG, (data) => {
                 if (!data.forced) return;
-                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && u.state._spiderEgg);
+                const bro = findAlive(A, 'isXiaoZhaoBrother', u => u.state._spiderEgg);
                 if (!bro) return;
                 bro.state._spiderEggRounds = (bro.state._spiderEggRounds || 0) + 1;
                 if (bro.state._spiderEggRounds >= 2) hatchSpiderEgg(bro, data.log || log);
@@ -348,7 +344,7 @@ export function createXiaoZhaoBrotherComponent() {
             //   挂这里与其它钩子同一时机、同一签名（registerSettlementHook 内部即 eventBus.on），
             //   register() 每回合唯一一次，不累积监听。
             registerSettlementHook({ when: SIGNAL_TYPES.ON_UNIT_DEATH, priority: L.ON_UNIT_DEATH.XIAO_CARRY_COUNT, handler: (data) => {
-                const bro = (data.allySide || []).find(u => u.isXiaoZhaoBrother && u.alive);
+                const bro = findAlive(data.allySide || [], 'isXiaoZhaoBrother');
                 if (!bro) return;
                 const deaths = (data.deadUnits || []).filter(u => u.camp === CAMP_TYPES.ALLY).length;
                 if (deaths <= 0) return;
@@ -360,8 +356,7 @@ export function createXiaoZhaoBrotherComponent() {
             if (!unit.isXiaoZhaoBrother || !unit.alive || unit.state._spiderEgg) return false;
             const fsm = unit._fsm;
             if (!fsm || !fsm.is('normal')) return false;
-            const fp = getSkillParams('小昭', 'spiderFly');
-            if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+            const fp = requireSkillParams('小昭', 'spiderFly');
             // 与 submitSpiderFlyDeclaration 共用落点判据（顺延语义一致）
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             const tier = decideSpiderTier(unit.state, unit.maxHp, hpAfter, fp);

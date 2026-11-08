@@ -3,11 +3,12 @@
 // 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
 // V7.3.1 | 2026-11-08 体检转交：圣火令重画读 sister.holyFlame 缺键显式报错（原 TypeError）。
-export const VER = 'modules/317-elite-mingjiao.js V7.3.1';
+// V7.3.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/317-elite-mingjiao.js V7.3.2';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/208-registry-elite.js';
 import { registerTargetPoolFilter } from '../core/207-target-strategies.js';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+
 import { BUFF_TYPES, CAMP_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
 import { createEagleComponent } from './318-elite-mingjiao-eagle.js';
 import { createZhangWujiComponent } from './320-elite-mingjiao-zhangwuji.js';
@@ -20,6 +21,7 @@ import { createYinTianZhengComponent } from './328-elite-mingjiao-yintianzheng.j
 import { createHanLiSaComponent } from './319-elite-mingjiao-hanlisa.js';
 import { bagTrapHandler } from './325-elite-mingjiao-shuobude.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
+import { requireSkillParams } from './305-elite-helpers.js';
 
 // ========== 精英组件集中注册（core/08 注册表；逐字搬自原文件末尾，顺序严格保持） ==========
 registerElite('雄鹰', createEagleComponent);
@@ -60,8 +62,7 @@ registerHolyFlameEnhancer(A => A.some(u => u.isXiaoZhaoSister && u.alive));
 registerBuffRoundTransformer(BUFF_TYPES.HOLY_FLAME, (buff, rng, A, B) => {
     if (!(buff.target === CAMP_TYPES.ALLY || !buff.target)) return buff;
     const hasSisterForHolyFlame = A.some(u => u.isXiaoZhaoSister && u.alive);
-    const hexEnhanceParams = getSkillParams('小昭', 'hexEnhance');
-    if (!hexEnhanceParams) throw new Error('缺技能参数: 小昭.hexEnhance');
+    const hexEnhanceParams = requireSkillParams('小昭', 'hexEnhance');
     const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
     if (hasSisterForHolyFlame && !holyFlameEnhance) throw new Error('002-hex-enhance.json 缺 sister.holyFlame');
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;

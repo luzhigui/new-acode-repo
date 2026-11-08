@@ -6,15 +6,16 @@
 // V1.2.0 | 2026-11-08 蹦蹦寒毒联动：isBengBeng 标记 + AFTER_DAMAGE_APPLIED 监听，只给敌方叠寒毒
 // V1.1.0 | 2026-11-08 加召唤概率：prob<1.0 才掷战斗 RNG，未配置不消耗随机数、保持旧行为
 // V1.0.0 | 初版
-export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.2.0';
+// V1.2.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.2.1';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, ROLE_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+
+import { pushSkillAnnounce, requireSkillParams } from './305-elite-helpers.js';
 
 export const summonBengBengHandler = {
     fields: {},
@@ -23,8 +24,7 @@ export const summonBengBengHandler = {
         const self = selfTeam.find(u => u.alive && u.name === decl.name);
         if (!self) return;
 
-        const params = getSkillParams(decl.name, 'summonBengBeng');
-        if (!params) throw new Error(`缺技能参数: ${decl.name}.summonBengBeng`);
+        const params = requireSkillParams(decl.name, 'summonBengBeng');
 
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,

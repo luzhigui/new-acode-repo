@@ -11,8 +11,9 @@
 //           现进函数先存 hostUidBeforeClear，清 state 后用存档值落 fact（体检实测 23/23 全 null）。
 // V1.0.7 | 2026-11-08 取消乾坤衍生减伤保底：calcQianKunReduce 不再读 s.minReduce、去掉 Math.max 保底，
 //           减伤回归纯公式；白骨爪多段小伤害可实打实穿透。content/001 的 minReduce 键随之移除。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.7';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+// V1.0.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.8';
+
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -20,6 +21,7 @@ import { StateMachine } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
+import { findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 
 // 宿主死亡观察：sister.uid -> token。宿主一死立刻触发飞回（不必等回合末的 BUTTERFLY_RETURN 声明）
 const _hostWatchers = new Map();
@@ -74,24 +76,23 @@ export function createXiaoZhaoSisterComponent() {
             // 从 core/11 迁入：姊在场 → 友方默认飞行方向 left（幂等 ||=；
             //   原版只在 round===1 设、无人中途清空 _flyDirection，每轮重设等价）
             A._flyDirection = A._flyDirection || 'left';
-            const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+            const sister = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
             if (!sister) return;
             const fsm = this._buildFsm(sister, A, log);
             sister._fsm = fsm;
             const comp = this;
             // 乾坤衍生：DMG_REDUCTION 走声明，hp/atk 直改并记账
             function submitXiaoZhaoQianKunDerivedDeclaration(data) {
-                const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+                const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
                 if (!xiaoZhao) return;
-                const zhang = A.find(u => u.isZhang && u.alive);
+                const zhang = findAlive(A, 'isZhang');
                 if (zhang) return;
                 const target = data.target;
                 if (!target || target.camp !== CAMP_TYPES.ALLY) return;
                 const atkStat = data.unit ? getStat(data.unit, 'atk') : 0;
                 const defStat = getStat(target, 'def');
                 const dmg = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
-                const s = getSkillParams('小昭', 'qianKunDerived');
-                if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
+                const s = requireSkillParams('小昭', 'qianKunDerived');
                 const reduce = calcQianKunReduce(dmg, defStat, s);
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
@@ -120,7 +121,7 @@ export function createXiaoZhaoSisterComponent() {
                     // 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
                     //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
                     addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
-                    emitEvent(atkTarget, UNIT_EVENT_TYPES.HP_CHANGE, { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: getStat(atkTarget, 'atk'), def: getStat(atkTarget, 'def') });
+                    emitHpChange(atkTarget);
                     // 记账随 beforeDamageCalc 事件 data 携带，由 12 calcFinalDamage 收入 dmgCalc 返回，不落 unit
                     if (!data._derivedEntries) data._derivedEntries = [];
                     data._derivedEntries.push({
@@ -146,14 +147,13 @@ export function createXiaoZhaoSisterComponent() {
             //   门槛与常规乾坤衍生一致（姊在场存活未眩晕、张无忌不在场、被爪者是友方）；
             //   受益池继续走 getBenefitTargets。条目随 payload 回传，由 core/10 落攻击组 entries。
             function submitClawQianKunDerived(data) {
-                const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+                const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
                 if (!xiaoZhao) return;
-                const zhang = A.find(u => u.isZhang && u.alive);
+                const zhang = findAlive(A, 'isZhang');
                 if (zhang) return;
                 const target = data.target;
                 if (!target || target.camp !== CAMP_TYPES.ALLY) return;
-                const s = getSkillParams('小昭', 'qianKunDerived');
-                if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
+                const s = requireSkillParams('小昭', 'qianKunDerived');
                 // 减伤半：基数=本爪实际伤害（老板拍板——不再拿攻击者普攻名义伤害算，
                 //   否则 0.6 的爪吃 2 点减伤直接归零）。爪小 → 套公式不足 1 → 保底取 1（最低限值），
                 //   实际效果：小爪被吃光、斩杀刀减 1 无关痛痒，乾坤衍生的肉在治疗+加攻上。斩杀照杀不减。
@@ -177,7 +177,7 @@ export function createXiaoZhaoSisterComponent() {
                 recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
                 // 属性只算不存：加攻改走 addMod 词条（同常规乾坤衍生，原直改 _baseAtk 绕过词条）
                 addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
-                emitEvent(atkTarget, UNIT_EVENT_TYPES.HP_CHANGE, { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: getStat(atkTarget, 'atk'), def: getStat(atkTarget, 'def') });
+                emitHpChange(atkTarget);
                 if (!data.derivedEntries) data.derivedEntries = [];
                 const entryData = {
                     targetName: target.name,
@@ -203,7 +203,7 @@ export function createXiaoZhaoSisterComponent() {
             }
             // 蝶变回归：回合结束飞回
             function submitButterflyReturnDeclaration(data) {
-                const sis = A.find(u => u.isXiaoZhaoSister && u.alive && u.state._butterflyHost);
+                const sis = findAlive(A, 'isXiaoZhaoSister', u => u.state._butterflyHost);
                 if (!sis || !fsm.is('attached')) return;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: 'butterflyReturn', sister: sis, A, log: data.log });
@@ -228,8 +228,7 @@ export function createXiaoZhaoSisterComponent() {
                 return null;
             }
             // 转移比例走内容表（1 = 100%）：向右飞只转攻、向左飞只转防、血量永远转
-            const bp = getSkillParams('小昭', 'butterflyAttach');
-            if (!bp) throw new Error('缺技能参数: 小昭.butterflyAttach');
+            const bp = requireSkillParams('小昭', 'butterflyAttach');
             const atkRatio = flyDirection === 'left' ? 0 : bp.atkRatioRight;
             const defRatio = flyDirection === 'left' ? bp.defRatioLeft : 0;
             const hpRatio = bp.hpRatio;
@@ -361,8 +360,8 @@ export function createXiaoZhaoSisterComponent() {
             emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, {}, log);
         },
         executeAttach(A, log) {
-            let sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
-            if (!sister) sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+            let sister = findAlive(A, 'isXiaoZhaoSister', u => u.pos === 4 && !u.state._stunned);
+            if (!sister) sister = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
             if (!sister || sister.state._butterflyHost) return null;
             const fsm = sister._fsm;
             if (fsm && fsm.is('normal')) fsm.transition('attaching', { log });
@@ -377,7 +376,7 @@ export function createXiaoZhaoSisterComponent() {
         //   首个友方回合开始时找可附身的姊（未眩晕、未附身）触发附身；
         //   返回 true = 插播了演出（主循环 yield 一步）——与原版「预检通过即 yield」口径一致
         onFirstAllyTurn(A, B, log) {
-            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
+            const sisterForAttach = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned && !u.state._butterflyHost);
             if (!sisterForAttach) return false;
             this.executeAttach(A, log);
             return true;

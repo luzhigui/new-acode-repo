@@ -7,7 +7,8 @@
 //   d. 攻 +10% / 防 -20% / 承伤 +40%（沿用 CONFIG.BUFFS.lastStand 数值）
 //   e. 额外 80% 吸血（永久，_brotherLastStandLeech = 0.8）
 //   f. 后续每回合开始叠一次战士加成（无限叠）
-export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.0.0';
+// V1.0.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.0.1';
 
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
@@ -15,10 +16,10 @@ import { addMod, getStat, getBattleRng, refreshMaxHp, applyStatChange, emitEvent
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, ROLE_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushSkillAnnounce, findAlive, emitHpChange } from './305-elite-helpers.js';
 
 function findBrother(A) {
-    return (A || []).find(u => u.isXiaoZhaoBrother && u.alive);
+    return findAlive(A || [], 'isXiaoZhaoBrother');
 }
 
 function triggerBrotherLastStand(brother, A, B, log) {
@@ -37,7 +38,7 @@ function triggerBrotherLastStand(brother, A, B, log) {
     addMod(brother, 'def', { source: '背水·精通转战士', value: warriorBonus.def, ttl: 'permanent', group: 'brotherLastStandWarrior', op: 'add' });
     addMod(brother, 'maxHp', { source: '背水·精通转战士', value: warriorBonus.maxHp, ttl: 'permanent', group: 'brotherLastStandWarrior', op: 'add' });
     refreshMaxHp(brother, null, '背水·精通转战士');
-    emitEvent(brother, UNIT_EVENT_TYPES.HP_CHANGE, { hp: brother.hp, maxHp: brother.maxHp, alive: brother.alive, atk: getStat(brother, 'atk'), def: getStat(brother, 'def'), role: ROLE_TYPES.WARRIOR });
+    emitHpChange(brother, { role: ROLE_TYPES.WARRIOR });
     emitStateChange(brother, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole: ROLE_TYPES.WARRIOR }, log);
 
     brother.state._noFlyNoEgg = true;

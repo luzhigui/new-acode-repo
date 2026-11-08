@@ -1,10 +1,11 @@
 // modules/314-elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.0';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+// V6.27.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.1';
+
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent, applyStatChange } from '../core/214-battle-shared.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce } from './305-elite-helpers.js';
+import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
@@ -22,12 +23,10 @@ export function createHeTaichongComponent() {
     return {
         name: '何太冲',
         register(eventBus, A, B, log) {
-            const he = B.find(u => u.isHeTaichong && u.alive);
+            const he = findAlive(B, 'isHeTaichong');
             if (!he) return;
-            const mark = getSkillParams('何太冲', 'targetMark');
-            if (!mark) throw new Error('缺技能参数: 何太冲.targetMark');
-            const red = getSkillParams('何太冲', 'redBlood');
-            if (!red) throw new Error('缺技能参数: 何太冲.redBlood');
+            const mark = requireSkillParams('何太冲', 'targetMark');
+            const red = requireSkillParams('何太冲', 'redBlood');
             const team = B;
             const redThreshold = (red.thresholdPct || 40) / 100;
 

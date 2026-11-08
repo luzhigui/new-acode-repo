@@ -1,12 +1,13 @@
 // modules/328-elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
 // V1.2.1 | 2026-11-08 体检转交：鹰王威压 / 老当益壮 四处 addMod 补 ttl:'permanent'——原缺 ttl 属未声明，
 //   两个机制都是「永久累积」（威压跨回合削攻防、老当益壮逐次成长），显式声明后与永久/回合词条清理口径一致。
-export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.2.1';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+// V1.2.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.2.2';
+
 import { getBattleRng, addMod } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES } from '../infra/106-battle-enums.js';
-import { pushInfo, pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushInfo, pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 export function createYinTianZhengComponent() {
     return {
@@ -14,15 +15,12 @@ export function createYinTianZhengComponent() {
         register(eventBus, A, B, log, self) {
             // 不写死阵营：按身份标记在两侧找，殷天正换边也照样生效。
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
-            const yin = (self && self.alive) ? self : [...A, ...B].find(u => u.isYinTianZheng && u.alive);
+            const yin = selfOrFindAlive(self, [...A, ...B], 'isYinTianZheng');
             if (!yin) return;
 
-            const counter = getSkillParams('殷天正', 'yingZhuaGong');
-            if (!counter) throw new Error('缺技能参数: 殷天正.yingZhuaGong');
-            const weiya = getSkillParams('殷天正', 'yingWangWeiYa');
-            if (!weiya) throw new Error('缺技能参数: 殷天正.yingWangWeiYa');
-            const grow = getSkillParams('殷天正', 'laoDangYiZhuang');
-            if (!grow) throw new Error('缺技能参数: 殷天正.laoDangYiZhuang');
+            const counter = requireSkillParams('殷天正', 'yingZhuaGong');
+            const weiya = requireSkillParams('殷天正', 'yingWangWeiYa');
+            const grow = requireSkillParams('殷天正', 'laoDangYiZhuang');
 
             // ② 鹰王威压（16→此处 18）：反击命中后削目标攻防（永久，跨回合延续）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.YIN_PRESSURE, (data) => {

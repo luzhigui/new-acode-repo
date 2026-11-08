@@ -3,13 +3,13 @@
 // 5 次用完后升级：此后每回合开始自动施加一次。
 // 触发时只入待发队列，AFTER_ATTACK（整组攻击含溅射/追击/双击全部打完）统一发出，避免被流星赶月二段打掉。
 // 空见自己阵亡也算「友方阵亡」条件，但立即发出（他的组件下回合不再注册）。
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
-
-export const VER = 'modules/316-elite-sixsects-kongjian.js V1.1.0';
+import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
+// V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/316-elite-sixsects-kongjian.js V1.1.1';
 
 // 触发监听排在常规 afterDamage 之后（吸血/嗜血/乘风等在 20~35），保证溅射受伤也记进待发队列
 const TRIGGER_PRIORITY = 55;
@@ -22,12 +22,11 @@ export function createKongJianComponent() {
     return {
         name: '空见',
         register(eventBus, A, B, log, self) {
-            const kj = (self && self.alive) ? self : [...A, ...B].find(u => u.isKongJian && u.alive);
+            const kj = selfOrFindAlive(self, [...A, ...B], 'isKongJian');
             if (!kj) return;
             const myTeam = kj.camp === CAMP_TYPES.ALLY ? A : B;
 
-            const skill = getSkillParams('空见', 'jinGangBuHuai');
-            if (!skill) throw new Error('缺技能参数: 空见.jinGangBuHuai');
+            const skill = requireSkillParams('空见', 'jinGangBuHuai');
             const maxUses = skill.maxUses ?? 5;
             const lowThreshold = skill.lowHpThreshold ?? 0.7;
 

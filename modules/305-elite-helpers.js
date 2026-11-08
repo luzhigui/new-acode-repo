@@ -1,11 +1,15 @@
-// modules/305-elite-helpers.js — 精英组件公共小工具（pushInfo / pushSkillAnnounce / 职业加成 / 换职业）
+// modules/305-elite-helpers.js — 精英组件公共骨架（找人 / 缺参 / 血量广播 / 推 fact / 播报 / 职业加成 / 换职业）
 import { getRoleBonus } from '../core/202-unit.js';
+import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { addMod, refreshMaxHp, emitEvent, getStat } from '../core/214-battle-shared.js';
 import { UNIT_EVENT_TYPES, STATE_CHANGE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 
 // V1.2.1 | 2026-11-08 pushSkillAnnounce 统一携带 label（中文技能名 → 稳定英文标识，供体检规则匹配）
-export const VER = 'modules/305-elite-helpers.js V1.2.1';
+// V2.0.0 | 2026-11-08 骨架化：新增 findAlive / selfOrFindAlive / requireSkillParams / requireField /
+//           pushFact / emitHpChange 六个通用动作，替代各精英模块手写的同类样板（找人 47 处、缺参 61 处、
+//           推 fact 112 处、血量广播 32 处）。行为与原内联实现逐字等价，不改任何数值与顺序。
+export const VER = 'modules/305-elite-helpers.js V2.0.0';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。
 //   攻击组不存在（技能在组外触发）时静默跳过——行为与抽离前 5 份内联实现一致。
@@ -33,8 +37,63 @@ export function applyRoleBonusMods(unit, role, label, group) {
 //   （何太冲 switchRole 内嵌加成，唐文亮 doDash 是「先加成、再打 fact、后换职业」两步）。
 export function switchRoleOnly(unit, role, label, outLog) {
     unit.role = role;
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role });
+    emitHpChange(unit, { role });
     emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole: role }, outLog);
+}
+
+// ---------- 骨架：通用动作 ----------
+
+// 找队伍里带某角色标记的活人。teams 可传单队（数组）或多队（[A, B]）。
+//   predicate 可选，叠加额外条件（如 !u.state._stunned）；不传即「活着 + 带该标记」。
+//   传空队 / null 返回 null，不抛错（与原 .find 行为一致）。
+export function findAlive(teams, flag, predicate) {
+    if (!teams) return null;
+    const lists = Array.isArray(teams[0]) ? teams : [teams];
+    for (const list of lists) {
+        if (!list) continue;
+        const hit = list.find(u => u && u[flag] && u.alive && (!predicate || predicate(u)));
+        if (hit) return hit;
+    }
+    return null;
+}
+
+// 出手者本人优先；本人不在/已阵亡才按标记找。
+//   与原手写 `(self && self.alive) ? self : ...` 完全等价。
+export function selfOrFindAlive(self, teams, flag, predicate) {
+    if (self && self.alive) return self;
+    return findAlive(teams, flag, predicate);
+}
+
+// 读技能参数并强制存在：缺键直接炸。
+//   全项目「配置缺键显式抛错、不回落」的唯一入口；错误文案与原手写逐字一致。
+export function requireSkillParams(characterName, skillKey) {
+    const params = getSkillParams(characterName, skillKey);
+    if (params == null) throw new Error(`缺技能参数: ${characterName}.${skillKey}`);
+    return params;
+}
+
+// 取二级键并强制存在（如 params.atkHalfRatio / params.minReduce）。
+//   context 传「角色.技能」，报错文案与 requireSkillParams 同格式。
+export function requireField(obj, field, context) {
+    const v = (obj == null) ? null : obj[field];
+    if (v == null) throw new Error(`缺技能参数: ${context}.${field}`);
+    return v;
+}
+
+// 推一条 fact。log 为空静默跳过（与原 `if (log) log.push(...)` 一致）。
+export function pushFact(log, factType, data) {
+    if (!log) return;
+    log.push({ factType, data });
+}
+
+// 广播单位数值变化（UI 重画攻防血）：固定 5 字段，extra 追加或覆盖。
+//   替代各模块手写的 emitEvent(unit, HP_CHANGE, { hp, maxHp, alive, atk, def, ... })。
+export function emitHpChange(unit, extra) {
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, {
+        hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive,
+        atk: getStat(unit, 'atk'), def: getStat(unit, 'def'),
+        ...(extra || {})
+    });
 }
 
 // 往 log 里推一条技能播报（SKILL_ANNOUNCE）。基础 5 字段固定，额外字段（floatText/floatUid/

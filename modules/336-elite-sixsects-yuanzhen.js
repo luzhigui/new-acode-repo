@@ -8,15 +8,16 @@
 // 单一来源：三件套的数值与实现全部来自 content/001 里成昆的 mechanics 声明，
 //   本文件只做「克隆成昆声明 → 改名换阵营 → 交给 core/15 installDeclaredSkills」，
 //   不在模块里重写第二份 0.20 伤害 / ×2 坚盾。
-export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.0.2';
+// V1.0.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.0.3';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { installDeclaredSkills, buildMechanicDeclarations } from '../core/216-skill-mechanisms.js';
-import { getGameData, getSkillParams } from '../core/201-config-5v5-test.js';
+import { getGameData } from '../core/201-config-5v5-test.js';
 import { getBattleRng, rebasePanel } from '../core/214-battle-shared.js';
 import { Unit } from '../core/202-unit.js';
 import { SIGNAL_TYPES, CAMP_TYPES, ROLE_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { pushSkillAnnounce, requireSkillParams } from './305-elite-helpers.js';
 
 // 现原形 = 变回成昆：模板角色名即数据源，改角色时只改这里与 content
 const REVEAL_TEMPLATE = '成昆';
@@ -73,8 +74,7 @@ export const yuanzhenRevealHandler = {
         const self = selfTeam.find(u => u.alive && u.name === decl.name);
         if (!self) return;
 
-        const params = getSkillParams(decl.name, 'yuanzhenReveal');
-        if (!params) throw new Error(`缺技能参数: ${decl.name}.yuanzhenReveal`);
+        const params = requireSkillParams(decl.name, 'yuanzhenReveal');
         const openChance = params.openChance;
         const hitChance = params.hitChance;
 
