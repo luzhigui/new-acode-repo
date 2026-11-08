@@ -353,6 +353,8 @@ const OBSERVES = [
     //     ⓪ 数据面（201 两段键数棘轮 + 200 无副本）、① 启动链成对点名、② 运行期真取一次。
     //     挂观察项不改分母（与孤儿普查同一取舍）—— 是否升 CHECKS 开红，留待拍板。
     { name: '海克斯分库启动链守门', script: 'tests/hex-boot-chain-guard.mjs', args: [] },
+    // 2026-11-08：海克斯强化接线守门（002 配置键 ↔ 代码消费方 ↔ 运行期派发 + 缺键语义 + 单/双档位）
+    { name: '海克斯强化接线守门', script: 'tests/hex-enhance-wiring-guard.mjs', args: [] },
     // V1.24.0 | 2026-10-31 夜间第 162 轮：兄分支惑心定向取证（承接【最高·下轮】⑤b-2 逐个配定向用例）。
     //   ★ 实测逼出一件被漏掉的事：phantomConfuse 有**两个**发射点，第 160 轮只数了成昆那个就下了
     //     「干净树本就不发射」的结论；兄分支走 forceXiaoZhao=brother，根本不需要 forceChengKun。

@@ -74,6 +74,8 @@ export const SCAN_FILES = [
     './health-rules/143-jiuyang-heal-pct.js',
     './health-rules/172-kongjian-jingang.js',
     './health-rules/171-tangwenliang-dash.js',
+    // 海克斯专项（2026-11-08）：002 姊/妹强化配置完整性（键集/字段/概率越界）
+    './health-rules/179-hex-enhance-contract.js',
     // 2026-09-21 补登 144（第 2 趟新增时漏登）+ 新增 146
     './health-rules/144-xinhun-kuaile.js',
     './health-rules/145-fly-miss-aura.js',
