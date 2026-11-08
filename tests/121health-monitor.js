@@ -132,6 +132,9 @@ import { rule236 } from './health-rules/236-round-boundary.js';
 import { rule237 } from './health-rules/237-mod-entry-shape.js';
 import { rule238 } from './health-rules/238-decl-vs-ledger.js';
 import { rule239 } from './health-rules/239-qiankun-decl-vs-ledger.js';
+import { rule240 } from './health-rules/240-qiankun-accumulation.js';
+import { rule241 } from './health-rules/241-round-entry-duplicate.js';
+import { rule242 } from './health-rules/242-stat-closure.js';
 // 第 D6 域（召唤物 / 附身 / 占格，号段 259-264）：召唤 uid 追溯 / 阵亡闭环 / 拒马占格 /
 //   附身窗口成对 / 附身窗口不参战 / 幼狮成长时机
 import { rule259 } from './health-rules/259-summon-uid-trace.js';
@@ -756,7 +759,7 @@ function runRuleChecks(ctx, doc) {
         rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule205, rule181, rule182, rule183, rule185, rule186, rule187,
         rule199, rule200, rule230, deathRights184, multiAttack188,
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229,
-        rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239,
+        rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239, rule240, rule241, rule242,
         rule255, rule256, rule257, rule258, rule265, rule266,
         rule259, rule260, rule261, rule262, rule263, rule264,
         rule243, rule244, rule245, rule246, rule247, rule248];
