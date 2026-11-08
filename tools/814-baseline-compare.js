@@ -1,6 +1,6 @@
 // 口径不变：同种子生成同一套阵容，A/B 两组精英配置各跑一遍；逐关对照 胜率/输出/承伤/存活 差异
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #bcHex / #bcEnemyHex（双海克斯需先勾海克斯）。
-//   默认都不勾 = 裸机对照（原口径、历史数不变）；勾海克斯后 A/B 两臂共用同一开关，保证对照公平。
+//   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后 A/B 两臂共用同一开关，保证对照公平。
 import { runParallel } from './817-shared-worker-runner.js';
 import { ELITE_UNIT_META } from './827-tool-registry.js';
 

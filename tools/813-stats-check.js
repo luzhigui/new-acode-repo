@@ -1,6 +1,6 @@
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #scHex / #scEnemyHex（双海克斯需先勾海克斯）。
-//   默认都不勾 = 裸机记账（原口径、历史数不变）；勾海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
+//   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
 import { runParallel } from './817-shared-worker-runner.js';
 
 const startBtn = document.getElementById('scStartBtn');

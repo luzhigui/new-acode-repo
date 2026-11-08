@@ -73,7 +73,7 @@ const keyFor = (mode, stage, hexMode = 'single') => {
 const readLogs = (mode, stage, hexMode = curHex) => { try { const a = JSON.parse(localStorage.getItem(keyFor(mode, stage, hexMode)) || '[]'); return Array.isArray(a) ? a.filter(l => l && typeof l === 'object') : []; } catch(e) { return []; } };
 let curMode = 'normal';
 let curStage = 'all';
-let curHex = 'single';
+let curHex = 'dual';
 let logs = [];
 
 // V6.6.6 脏数据自愈：历史榜里一旦混进 null/非对象条目，旧版 render 会在 l.buffs 上崩。
@@ -370,8 +370,8 @@ function openHexDashboard() {
           <option value="none">阵容：不带姐姐妹妹</option>
         </select>
         <select class="hex-hex-hexmode" title="海克斯档位：单 = 只有明教选（历史口径，沿用旧榜）；双 = 六大派也自动选一次（与主游戏「双海克斯」一致，单独存 _dual 榜）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
-          <option value="single" selected>海克斯：单（仅明教）</option>
-          <option value="dual">海克斯：双（六大派也带）</option>
+          <option value="single">海克斯：单（仅明教）</option>
+          <option value="dual" selected>海克斯：双（六大派也带）</option>
           <option value="all">海克斯：单+双（一起跑）</option>
         </select>
         <button class="hex-hex-load hex-hex-run" style="margin-left:10px">⚡ 自动跑</button>
@@ -434,7 +434,7 @@ function openHexDashboard() {
   const stageSel = mask.querySelector('.hex-hex-stage');
   const hexSel = mask.querySelector('.hex-hex-hexmode');
   lineupSel.value = 'all';
-  hexSel.value = 'single';
+  hexSel.value = 'dual';
   stageSel.value = String(curStage);
   logs = readLogs(curMode, curStage);
 
