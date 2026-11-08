@@ -1,4 +1,6 @@
-export const VER = 'modules/329-buff-tools.js V6.2.8';
+// V6.2.9 | 2026-11-08 精英数值一致性：流星赶月姊版时长改读 002 sister.meteorShower.duration
+//          （原写死 duration=4，与配置现值相同；缺键显式抛错，不回落）。
+export const VER = 'modules/329-buff-tools.js V6.2.9';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -15,7 +17,11 @@ export function createBuffObject(key, duration = null, target = CAMP_TYPES.ALLY,
         if (cfg.permanent) {
             duration = CONFIG.MAX_ROUND;
         } else if (key === BUFF_TYPES.METEOR_SHOWER && team.some(u => u.isXiaoZhaoSister && u.alive)) {
-            duration = 4;
+            const meteorEnh = getSisterHexEnhance('meteorShower');
+            if (!meteorEnh || meteorEnh.duration == null) {
+                throw new Error('002-hex-enhance.json 缺 sister.meteorShower.duration');
+            }
+            duration = meteorEnh.duration;
         } else if ((key === BUFF_TYPES.HOT_BLOOD || key === BUFF_TYPES.WIND_ASSAULT || key === BUFF_TYPES.UNITY) && team.some(u => u.isXiaoZhaoSister && u.alive)) {
             // 姊强化：热血奋战 / 乘风突袭 / 众志成城 持续 +N 回合（201 sister.extraDuration，缺则炸）
             const enhKey = key === BUFF_TYPES.HOT_BLOOD ? 'hotBlood'
