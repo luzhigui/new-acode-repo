@@ -1,9 +1,28 @@
 {
   "domain": "D1",
-  "updatedAt": "2026-11-08 21:40",
-  "updatedBy": "",
-  "说明": "D1 通用结算与不变量（号段 229-234）。本文件只由 D1 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
-  "entries": [],
+  "updatedAt": "2026-11-08 22:45",
+  "updatedBy": "D1·回合时序与抽签域",
+  "说明": "D1 通用结算与不变量（号段 229-236，补盲段 301-306）。本文件只由 D1 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
+  "entries": [
+    {
+      "slot": 234,
+      "name": "回合前导结算顺序(回归)",
+      "file": "tests/health-rules/234-round-settlement-order.js",
+      "ver": "V1.1.0",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:45",
+      "note": "在既有 ①-④ 上新增 ⑤：光环/圣火/灵魂汲取/众志成城（auraApply/holyFlameApply/soulDrainApply/unityApply）首次出现必须早于本回合首次出手；只判首次出现，避开回放器 V6.7.2 appendPermanentSummaries 在回合末尾补发的妹妹永久摘要（实测 seed=5 第 5 回合起摘要落在出手之后）。干净 HEAD 快照 156 场回归全绿。"
+    },
+    {
+      "slot": 236,
+      "name": "回合边界与连续性(回归)",
+      "file": "tests/health-rules/236-round-boundary.js",
+      "ver": "V1.1.0",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:45",
+      "note": "① 放开终局段：最后一回合结束符之后的非出手事实（终局清场：死亡/血量/摘要等）不再判越位，出手越位交给 round-order-check 终局段判据；② 新增回合号上界与封顶（round ∈ 1..MAX_ROUND，到封顶后不许再开新回合）。干净 HEAD 快照 156 场回归全绿。"
+    }
+  ],
   "assignments": [
     {
       "slot": 301,
@@ -18,6 +37,43 @@
       "source": "覆盖缺口：stunOnSwap 零规则",
       "state": "assigned",
       "assignedAt": "2026-11-08 21:40"
+    },
+    {
+      "slot": 234,
+      "name": "回合前导结算顺序(回归) V1.1.0 扩前导结算族",
+      "source": "覆盖缺口：回合四相位可验（start → 选 Buff → 攻击组 → end）",
+      "state": "pending",
+      "assignedAt": "2026-11-08 22:45"
+    },
+    {
+      "slot": 236,
+      "name": "回合边界与连续性(回归) V1.1.0 终局清场豁免 + 回合号上界",
+      "source": "口径固化：终局清场事实允许在 ROUND_END 之后",
+      "state": "pending",
+      "assignedAt": "2026-11-08 22:45"
+    }
+  ],
+  "harness": [
+    {
+      "file": "tests/round-order-check.mjs",
+      "ver": "V1.0.0",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:45",
+      "note": "回合四相位运行期巡检：自起对局攒 fact 流，判 ① 首条 roundStart ② 前导结算族早于首次出手 ③ 终局段不许出手/不许开新回合 ④ 回合号上界；顺带跑 234/236。10 场（含打满 35 回合的平局场）全绿；可 SEEDS/STAGES 定向。"
+    },
+    {
+      "file": "tests/rng-discipline-check.mjs",
+      "ver": "V1.3.0",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:45",
+      "note": "① 同种子双跑增加「运行期抽签次数逐场相等」；③ 静态抽签点计数降级为提示（不计退码，以 ④ 为准）；⑤ 新增选 Buff 与战斗抽签分流校验（抽卡不许消耗战斗 RNG、同参数两次挑卡一致）。干净 HEAD：①35 场全一致、②0 处 Math.random、⑤通过；④ 因基线过期仍红（见 known-transfers 八-1，需改动方同次提交重录）。"
+    },
+    {
+      "file": "tests/draw-outcome-guard.mjs",
+      "ver": "V1.0.0",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:45",
+      "note": "平局口径静态守卫：tests/ 禁止 `if (!x.winner)` 空值判平局与 `draws++` 被空值守卫包住（已做字符串/注释剔除，初版曾误报 6 处文案引用）；胜 = winner === '明教'。tools/816 的 9 处只报告不退码（S9/S15 已登记）。"
     }
   ]
 }
