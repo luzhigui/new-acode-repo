@@ -115,6 +115,9 @@ export const SCAN_FILES = [
     './health-rules/159-wei-bloodsiphon.js',
     // 血量/判死/复活：圣火不熄复活闭环（复活量/名单/名额上限）+ 回血家族账目自洽
     './health-rules/173-hp-death-revive.js',
+    // Buff/Debuff 专项：buff 时长递减/到期清理 + 四类乘率加成声明对配置真值（含小昭·姊强化路径）
+    './health-rules/227-buff-lifecycle.js',
+    './health-rules/228-buff-effect-decl.js',
     // 第 186 轮：回合时序 / 目标选择 / 行动顺序（只吃原始 fact 流的结构不变量）
     './health-rules/181-round-sequence.js',
     './health-rules/182-target-validity.js',
