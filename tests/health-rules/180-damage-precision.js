@@ -30,7 +30,7 @@
 //   · 有乾坤减伤或 <1 的乘数时放弃⑦「不得低于 raw 一位小数」的判定（合法降低）；
 //   · 乾坤整段吸收 ⇒ 最终伤害 0 是合法边界（qianKunFullyAbsorbed 放行）；
 //   · 同名多实例、负攻等只影响数值大小，不影响区间判定（区间是差值，天然对齐）。
-export const VER = 'tests/health-rules/180-damage-precision.js V1.3.0';
+export const VER = 'tests/health-rules/180-damage-precision.js V1.3.1';
 import { FACT_TYPES, ROLE_TYPES } from '../../infra/106-battle-enums.js';
 import { CONFIG } from '../../core/201-config-5v5-test.js';
 
@@ -430,8 +430,10 @@ export const rule185 = {
 };
 
 // 真伤：不走防御、不走护盾，直接扣血（core/217 BONUS_DMG → applyStatChange）。
-//   ① 融会贯通：extra = floor((目标攻 + 目标防) × ZHANG_RONGHUI_RATIO)（modules/320 L153-154），
-//      目标攻/防在 fact 里各自已被 floor，误差最多 1 点/项 ⇒ 容差 = 2×系数 + 0.5；
+//   ① 融会贯通：extra = floor(|目标攻 − 目标防| × ZHANG_RONGHUI_RATIO)（modules/320 L153），
+//      目标攻/防在 fact 里各自已被 floor，差值误差 <1 点 ⇒ 容差 = 系数 + 0.5；
+//      V1.3.1：旧口径写成 (目标攻 + 目标防) 求和，与引擎「攻防差」不符 —— seed1/2 实测
+//      攻34 防32 → extra=1（差×0.5），旧式算 33 判红 79 场。
 //   ② 飞箭雨：公告文案「受 N 真伤」的 N 必须是正整数（core/204 L566-570 已跳过 0）。
 //   真伤有没有真的扣到血、有没有误吃护盾，fact 不带目标扣血实数 —— 需主模块补字段（已登记需求）。
 export const rule186 = {
@@ -448,10 +450,10 @@ export const rule186 = {
             if (f.factType === FACT_TYPES.RONG_HUI_BONUS) {
                 if (!isNum(d.extra) || !isNum(d.targetAtk) || !isNum(d.targetDef)) continue;
                 checked++;
-                const expect = Math.floor((d.targetAtk + d.targetDef) * ratio);
-                const tol = 2 * ratio + 0.5;
+                const expect = Math.floor(Math.abs(d.targetAtk - d.targetDef) * ratio);
+                const tol = ratio + 0.5;
                 if (Math.abs(d.extra - expect) > tol) {
-                    return { fail: true, msg: '复发：融会贯通真伤与公式不一致 — extra=' + d.extra + ' / 按(目标攻+目标防)×比例算=' + expect + '（攻=' + d.targetAtk + ', 防=' + d.targetDef + '）' };
+                    return { fail: true, msg: '复发：融会贯通真伤与公式不一致 — extra=' + d.extra + ' / 按|目标攻−目标防|×比例算=' + expect + '（攻=' + d.targetAtk + ', 防=' + d.targetDef + '）' };
                 }
                 if (d.extra < 0 || Math.abs(d.extra - Math.round(d.extra)) > 1e-6) {
                     return { fail: true, msg: '复发：融会贯通真伤非自然数 — extra=' + d.extra };

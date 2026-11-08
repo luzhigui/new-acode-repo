@@ -24,7 +24,10 @@
 //   同名克隆（拒马等召唤物）按名字认留痕，宁漏勿误；报幕前后找不到对应出手时只 observe，不染红。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
-export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.1.0';
+export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.1.1';
+// V1.1.1（2026-11-08）：持有者/报幕判定改「有 uid 只认 uid，名字只兜底无 uid 召唤物」。
+//   病由：seed30/5 癫传到张无忌 u213（幻影）后，名字兜底把本体 u1 也当持有者 → u1 正常出手被判「没报幕」；
+//   癫传到鹤笔翁 u373 后，u7 的普通 miss 被判「必中失效」。seed32/6 成昆同类。判定强度不变。
 
 const RE_OPEN = /🤪 (.+?) 受到「癫」的影响/;
 const RE_OPEN_TARGET = /🤪 (.+?) 受到「癫」的影响，不分敌友地向 (.+?) 发起攻击/;
@@ -60,7 +63,13 @@ export const rule292 = {
                 if (u.name) holderNames.add(u.name);
             }
         }
-        const isHolder = (u) => !!u && ((u.uid != null && holderUids.has(u.uid)) || (u.name && holderNames.has(u.name)));
+        // V1.1.1：uid 优先。幻影/克隆与本体同名不同 uid（张无忌 u1 vs u213/u250、鹤笔翁 u7 vs u373），
+        //   名字兜底只留给「没有稳定 uid」的召唤物（拒马等），否则克隆持有癫会把本体一起判成持有者。
+        const isHolder = (u) => {
+            if (!u) return false;
+            if (u.uid != null) return holderUids.has(u.uid);
+            return !!(u.name && holderNames.has(u.name));
+        };
 
         // 预扫：回合号 + 癫开场白（回合|名字）—— 开场白可能落在攻击组之后的免疫块，不按条目位置认
         const roundAt = new Array(fs.length);
@@ -172,7 +181,10 @@ export const rule292 = {
                 if (!isHolder(a)) continue;
                 if (a && a.state && a.state._isDead) continue; // 同上：阵亡后仍排队的攻击不再走 333 报幕
                 holderAttacks++;
-                if (!openSet.has(r + '|' + (a && a.name)) && !(a && a.uid != null && openUidSet.has(r + '|' + a.uid))) {
+                const hasOpen = (a && a.uid != null)
+                    ? openUidSet.has(r + '|' + a.uid)
+                    : openSet.has(r + '|' + (a && a.name));
+                if (!hasOpen) {
                     fails.push('第' + r + '回合 癫持有者「' + (a && a.name) + '」出手但没有「受到「癫」的影响」报幕');
                 }
             }

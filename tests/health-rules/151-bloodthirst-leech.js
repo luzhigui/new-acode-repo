@@ -36,9 +36,13 @@
 //   刻意不做（会误报，记下免得以后重蹈）：不校验「吸血单位必须是战士」—— 战报只带单位名，而同名单位
 //   在不同关卡职业不同（探针里 name→role 映射会被最后一关覆盖，实测出现过"防战"的清风在吸血），
 //   拿终局快照反推职业必误报。要看职业得等回放器补"单位 uid + 职业"通道。
-//   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
-//   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
-export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.21';
+//   另：判据2 的伤害基准取原始 ATTACK fact 的 dmgCalc.dmg（全额伤害），按攻击组名/净伤配对；
+//   配对不上就跳过该条（宁漏勿误），不再用组上的 _dmg（那是扣掉 hpBonus 的显示净伤）。
+export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.22';
+// V6.1.22（2026-11-08）：判据1/2 的伤害基准由攻击组 _dmg（显示净伤）改为 dmgCalc.dmg（全额伤害）。
+//   病由：render/407 L139 `_dmg = dmg − hpBonus`，而 core/204 吸血按 dmgCalc.dmg 算；
+//   seed4/2「周芷若 +3 / _dmg=2.8」、seed17/4「+23 / _dmg=25.8」均为此类误报（全额伤害 4/28.8）。
+//   判定强度不变：仍按配置比例（含姊 ×2）＋0.05 容差，配不上 fullDmg 时跳过判据。
 // V6.1.21（2026-11-08）：判据4 补姊强化档位。
 //   病由：回放变严后 3 场红 —— 摘要文案「攻击吸血160%」被判与 CONFIG 80% 不符；
 //   实为 core/204 L407-409 的 hasSister 分支读 002 sister.bloodthirst=1.6，规则只认基础版。
@@ -103,16 +107,41 @@ function sisterUidSet(beforeA, beforeE, afterA, afterE) {
 // 终局快照里查单位最大血量（取不到返回 null，交给调用方跳过判据5）
 
 
-// 找吸血条目所属的攻击组总伤害 _dmg（顶层条目自身可能就是 attack-group；子条目则回溯其父）
-function parentDmgOf(node, log) {
+// 找吸血条目所属的攻击组节点（顶层条目自身可能就是 attack-group；子条目则回溯其父）
+function parentGroupOf(node, log) {
     if (!node) return null;
-    if (typeof node._dmg === 'number') return node._dmg;
+    if (typeof node._dmg === 'number') return node;
     for (var i = 0; i < log.length; i++) {
         var g = log[i];
         if (!g || !Array.isArray(g.entries)) continue;
-        if (g.entries.indexOf(node) !== -1 && typeof g._dmg === 'number') return g._dmg;
+        if (g.entries.indexOf(node) !== -1) return g;
     }
     return null;
+}
+
+// 攻击组 _dmg 是「显示净伤」= dmgResult.dmg − hpBonus（render/407 L139），
+// 而嗜血结算用的是 dmgCalc.dmg（全额伤害）。判据1/2 必须按全额伤害取上界，
+// 否则 hpBonus 一高，合法吸血就被判成比例写大（2026-11-08 第 N 轮：seed4/17 误报即此类）。
+function fullDmgOf(group, factsArr) {
+    if (!group || typeof group._dmg !== 'number') return null;
+    var net = group._dmg;
+    var aName = group.attackerName || null;
+    var tName = group.targetName || null;
+    for (var i = 0; i < factsArr.length; i++) {
+        var f = factsArr[i];
+        if (!f || f.factType !== FACT_TYPES.ATTACK) continue;
+        var d = f.data || {};
+        var dc = d.dmgCalc || null;
+        if (!dc || typeof dc.dmg !== 'number') continue;
+        var atk = d.attacker || {};
+        var tgt = d.target || {};
+        if (aName != null && atk.name !== aName) continue;
+        if (tName != null && tgt.name !== tName) continue;
+        var shown = Math.max(0, dc.dmg - (typeof dc.hpBonus === 'number' ? dc.hpBonus : 0));
+        if (Math.abs(shown - net) > 0.051) continue;
+        return dc.dmg;
+    }
+    return null; // 配不上：交给调用方跳过判据，宁漏勿误
 }
 
 export const rule98 = {
@@ -228,7 +257,7 @@ export const rule98 = {
                     + '负数/超过一位小数说明夹取被改或结算改道）' };
             }
             if (!(leech > 0)) {
-                var _pd = parentDmgOf(e, log);
+                var _pd = fullDmgOf(parentGroupOf(e, log), factsArr);
                 if (!(leech === 0 && _pd === 1)) {
                     return { fail: true, msg: '复发：嗜血狂刀吸血量非法归零：为「+' + raw + '」（唯一合法 +0 是本次伤害恰好 1、'
                         + 'floor(1×0.8)=0；其余 0 说明 dmg=0 仍登记（分支2 漏了 dmg>0 守卫））' };
@@ -240,7 +269,7 @@ export const rule98 = {
             //   leechRatio 读 content/002-hex-enhance.json bloodthirst.leechRatio=1.6（普通 0.8 的 2 倍）。
             //   旧版硬编码 0.8 上界，把合法的 155%（+20/12.9）当膨胀误报。现按「快照里是否有小昭·姊」判定：
             //   有姊 → 上限 ×2（1.65 含余量）；无姊 → 0.85。取不到 side 池或判不出姊时按「有姊」放宽（宁漏勿误）。
-            var dmg = parentDmgOf(e, log);
+            var dmg = fullDmgOf(parentGroupOf(e, log), factsArr);
             if (dmg != null && dmg > 0) {
                 var sisterPresent = false;
                 var sides = (afterA || []).concat(afterE || []);

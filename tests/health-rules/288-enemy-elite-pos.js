@@ -8,12 +8,12 @@
 //   ② 周芷若恒 ≥2 号位（优先表从 2 起，兜底也只放 2）——她不许站 1 号位当靶子。
 //   ③ 宋青书：队内无周芷若时恒 ≥4 号位（V7.5.25 老板口径「不许被唐文亮挤到前排」）；有周芷若（第4关）顺延其后。
 //
-// rule291「张三丰恒 1 号位」：
+// rule299「张三丰恒 1 号位」：
 //   330 的 1 号位锁只在本关固定池精英里找 `eliteUnits.find(name==='张三丰')`，而张三丰属于第 2 关固定池；
 //   被额外混入（M107，首现第 2 关，故第 3~7 关合法）后他变成普通兵，走模板/随机位 → 实测出现过 9 号位
 //   （seed=7 第 7 关）。老板口径是「张三丰固定 1 号位」，与他在哪一关出场无关 —— 本规则把它钉住；
-//   修复属主代码（需求已登记 tests/known-transfers.md）。
-export const VER = 'tests/health-rules/288-enemy-elite-pos.js V1.0.0';
+//   修复属主代码（已登记 tests/known-transfers.md「张三丰恒 1 号位」）。2026-11-08 补登记并顺延空号 294。
+export const VER = 'tests/health-rules/288-enemy-elite-pos.js V1.1.1';
 import { CONFIG as C } from '../../core/201-config-5v5-test.js';
 
 const POS_MAP = C.ENEMY_ELITE_POS_FLAGS_MAP || [];
@@ -60,7 +60,9 @@ export const rule288 = {
     }
 };
 
-export const rule291 = {
+// 号段更正：原导出 rule291 与 291-control-trace-on-edge.js 撞号，浏览器端只 import 后者，
+//   导致本判据在 121 注册表里被静默丢弃；2026-11-08 顺延到空号 299 并补注册（294 已被 D11 双面观音占用）。
+export const rule299 = {
     group: '阵容生成回归',
     name: '张三丰恒 1 号位(跨关混入同样适用)',
     test: function (ctx, log, beforeA, beforeE) {

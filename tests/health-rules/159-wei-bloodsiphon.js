@@ -39,7 +39,11 @@
 //   闪避反击通道**不经 previewHeal**，heal = max(1, ...) 恒 ≥ 1，故该通道仍要求严格正整数（不变）。
 // 误报规避：本场没有青翼蝠王吸血条目直接 skip；父快照取不到（facts 不可用时）退回 V1.0.0 文案判据，
 //   不静默放行；配置读不到(getMechanicField 在数据未就绪时会抛)就跳过比例上限判据。
-export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.4';
+export const VER = 'tests/health-rules/159-wei-bloodsiphon.js V1.2.5';
+// V1.2.5（2026-11-08）：判据A2/A3 的缺口基准由「父攻击快照 hp/maxHp」改为 fact.healNominal。
+//   病由：seed=19 stage=7 实测快照 27/27（gap=0），落地时被同帧吸星/前序伤害拉开缺口，
+//   healNominal=1、heal=1 合法，旧判据误报「超过出手瞬间可补缺口 0」。判定强度不变
+//   （heal > 落地缺口、缺口充足却 +0 且无抑疗，照旧报红）。
 // V1.2.4（2026-11-07 第 184 轮）：拆聚合型分支 —— 「渲染值不在 fact.heal 集合」分支的 msg 改固定骨架。
 //   病由：msg 里拼了 fact.heal 数组（长度随战况变化）⇒ 长度 3 / 7 / 21 被归一化成三个结构模板。
 //   判定（渲染显示值不在 fact.heal 集合内即失败）一字未改。
@@ -135,14 +139,31 @@ export const rule106 = {
                 return { fail: true, msg: '复发：青翼蝠王命中吸血落地值为「' + heal + '」（必须为非负整数；'
                     + '小数说明 previewHeal 出口取整被改，负数说明方向写反）' };
             }
-            // 判据A2：落地值不得超过**可补缺口**（满血时缺口 0 ⇒ 只能为 0）
-            if (sn && typeof sn.hp === 'number' && typeof sn.maxHp === 'number') {
+            // 判据A2：落地值不得超过**落地瞬间可补缺口**。
+            //   V1.2.5：缺口改读 fact.healNominal（core/217 L157 落地时重算 min(decl.value, maxHp-hp)）。
+            //   旧版用父攻击快照的 hp/maxHp，那是「出手瞬间」的值：同帧前序伤害/吸星改上限/反震后，
+            //   缺口已变（seed=19 stage=7 实测快照 27/27 gap=0，落地缺口 1、heal=1，被误判超缺口）。
+            var nominal = (typeof fr.healNominal === 'number') ? fr.healNominal : null;
+            if (nominal != null) {
+                // heal 是 core/217 L166 的 round(hpAfter-hpBefore)，缺口 3.96 合法落成 +4 ⇒ 按四舍五入后的缺口比
+                var nominalInt = Math.round(nominal);
+                if (heal > nominalInt + 1e-6) {
+                    return { fail: true, msg: '复发：青翼蝠王命中吸血 +' + heal + ' 超过落地可补缺口 '
+                        + nominal + '（healNominal=min(声明值, maxHp-hp)；落地值须 ≤ 该缺口取整）' };
+                }
+                // 判据A3（关键）：heal === 0 必须有可证的落地解释，否则就是 max(1) 漏守 / 取整被改
+                if (heal === 0 && nominalInt >= 1 && !suppress) {
+                    return { fail: true, msg: '复发：青翼蝠王命中吸血为「+0」，但落地仍有缺口 '
+                        + nominal + ' 且本场无抑疗证据；'
+                        + '引擎是 max(1, floor(dmg×rate)) 后过 previewHeal，缺口充足时归零 = 取整被改或 max(1) 漏守' };
+                }
+            } else if (sn && typeof sn.hp === 'number' && typeof sn.maxHp === 'number') {
+                // 旧日志无 healNominal：退回父攻击快照口径
                 var gap = sn.maxHp - sn.hp;
                 if (heal > gap + 1e-6) {
                     return { fail: true, msg: '复发：青翼蝠王命中吸血 +' + heal + ' 超过出手瞬间可补缺口 '
                         + gap + '（hp=' + sn.hp + ' maxHp=' + sn.maxHp + '；落地值须 ≤ maxHp-hp）' };
                 }
-                // 判据A3（关键）：heal === 0 必须有可证的落地解释，否则就是 max(1) 漏守 / 取整被改
                 if (heal === 0 && gap > 0 && !suppress) {
                     return { fail: true, msg: '复发：青翼蝠王命中吸血为「+0」，但出手瞬间仍有缺口 '
                         + gap + '（hp=' + sn.hp + ' maxHp=' + sn.maxHp + '）且本场无抑疗证据；'

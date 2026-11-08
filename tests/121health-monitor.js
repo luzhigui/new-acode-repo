@@ -174,7 +174,7 @@ import { rule266 } from './health-rules/266-heal-amount-same-source.js';
 // 第 195 轮仲裁：286/287 归 D10 关卡变体族（日志域的吸星/隐藏出口已让到 271/272）
 import { rule286 } from './health-rules/286-stage-variant-truth.js';
 import { rule287 } from './health-rules/287-stage-name-source.js';
-import { rule288 } from './health-rules/288-enemy-elite-pos.js';
+import { rule288, rule299 } from './health-rules/288-enemy-elite-pos.js';
 // 第 195 轮·D11 控制与意识类（289-293）
 import { rule289 } from './health-rules/289-control-target-trace.js';
 import { rule290 } from './health-rules/290-control-attacker-identity.js';
@@ -793,7 +793,7 @@ function runRuleChecks(ctx, doc) {
         rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239, rule240, rule241, rule242,
         rule267, rule268, rule269, rule270,
         rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287, rule288,
-        rule289, rule290, rule291, rule292, rule293,
+        rule289, rule290, rule291, rule292, rule293, rule299,
         rule259, rule260, rule261, rule262, rule263, rule264,
         rule271, rule272,
         rule253, rule254, rule273, rule274,
