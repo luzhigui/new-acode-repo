@@ -26,7 +26,9 @@ function readRecords(hexMode) {
         .map(x => x.r);
 }
 
-export const VER = 'tools/852-career-log.js V2.9.2';
+export const VER = 'tools/852-career-log.js V2.9.3';
+// V2.9.3 | 2026-11-08 | 导出汇总补「版本」行：引擎版本 + content 版本取自记录（modules/332 V1.3.0 起落盘），
+//   同批里跨版本或混有旧记录无版本时显式出「⚠️ 跨版本混榜」——此前只能靠 14 天新鲜度猜，看不出混版本。
 // V2.9.2 | 2026-11-08 | 修「两库拼接非时间序」的剩余尾巴（工具侧一次改透）：
 //   V2.9.1 只在 getCareerInsights 的 recent 局部按 ts 排序，但同一个 arr 还被
 //   getCareerTrend 的「最近20 vs 前20」和 exportCareerCSV 的「局序」列按尾部切片使用，
@@ -148,6 +150,23 @@ export function computeCareerStats(arr) {
     return { total, winA, winE, byStage, byStageAsc, appear, heroWins };
 }
 
+// V2.9.3：版本口径——记录带 engineVer / contentVer（modules/332 V1.3.0 起）。
+//   同批数据跨版本（或混有旧记录无版本）必须显式告警：光看「14 天内」新鲜度分不出版本混榜。
+function careerVerLine(arr) {
+    const ev = [...new Set(arr.map(r => r.engineVer).filter(Boolean))];
+    const cv = [...new Set(arr.map(r => r.contentVer).filter(Boolean))];
+    const missing = arr.filter(r => !r.engineVer || !r.contentVer).length;
+    const parts = [];
+    if (ev.length) parts.push('引擎 ' + ev.join(' / '));
+    if (cv.length) parts.push('内容 ' + cv.join(' / '));
+    let line = '版本：' + (parts.length ? parts.join(' ｜ ') : '未记录（旧记录）');
+    if (missing) line += ` ｜ ${missing} 局无版本`;
+    if (ev.length > 1 || cv.length > 1 || missing > 0) {
+        line += ' ｜ ⚠️ 跨版本混榜：不同引擎/内容版本（或缺版本的旧记录）不可直接横比';
+    }
+    return line;
+}
+
 // Markdown 导出（给 AI 分析：比 JSON 省 token 且可读）。hexMode: 'single'/'dual'/省略=合并
 export function exportCareerMarkdown(hexMode = null) {
     const arr = readRecords(hexMode);
@@ -158,6 +177,7 @@ export function exportCareerMarkdown(hexMode = null) {
     const { total, winA, winE, byStage, byStageAsc, appear, heroWins } = computeCareerStats(arr);
     lines.push('## 汇总');
     lines.push(`总场次 ${total} ｜ 明教 ${winA} 胜 ｜ 六大派 ${winE} 胜 ｜ 平局 ${total - winA - winE}`);
+    lines.push(careerVerLine(arr));
     // 模式分布（V1.6.0 加；V1.7.0 补各模式胜率）：单机/联机分开看，且给出各自胜率，
     //   才能判断「单机局是不是把整体胜率拉高/压低」而不是只数场次
     try {

@@ -1,4 +1,7 @@
-// V1.21.0 | 2026-11-08 stats job 两处口径修正（体检转交）：
+// V1.21.0/1 | 2026-11-08 统计口径修正（体检转交）：
+//   ③ V1.21.1 同款死守卫清出批处理 job：elite / soloElite / boss / noElite / weakElite / weakContrib / AB 配对
+//     里残留的 `if (!res.winner) continue` 全删，平局计入场次（各桶补 draws 计数），
+//     与 stats / hex / 852 生涯日志同一把尺子：胜 = winner==='明教'，平局只算分母。
 //   ① 平局不再丢场：原 `if (res.winner)` 让平局场次整场不 record（死守卫），现平局也记账，
 //     并以 agg.__meta 记 { battles, draws, allyWins, enemyWins } 供表头汇总；
 //   ② 聚合 key 由「阵营·名字」改为「阵营·名字#uid」：终局单位本身有 uid，旧写法把 6 个蹦蹦、
@@ -241,13 +244,14 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = fa
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
-        if (!res.winner) continue;
+        // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（runBattle 内部 clone，teams.enemyTeam 不被战斗改动）
         const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
         const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         a.runs++;
-        if (res.winner === '明教') a.wins++;
+        if (!res.winner) a.draws++;
+        else if (res.winner === '明教') a.wins++;
         // 入样判定也用开战快照，数值仍取终局单位（按 uid 对回）
         const meInit = unitBy(teams.allyTeam, u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa);
         const me = meInit ? finalUnitOf(res.ally, meInit.uid) : null;
@@ -268,7 +272,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = fa
 function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
     const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun
         || u.isHanLiSa || u.isYangXiao || u.isYinTianZheng;
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0 });
+    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0 });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场可能残留的 force 标志），保证本场是纯自然局
@@ -283,13 +287,14 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         if (!ally || !ally.length) continue;
         GlobalStore.set('battleHasZhang', false);
         const res = runWholeBattle(ally, teams.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
-        if (!res.winner) continue;
+        // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（同 runEliteStageJob）
         const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
         const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
         const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         a.runs++;
-        if (res.winner === '明教') a.wins++;
+        if (!res.winner) a.draws++;
+        else if (res.winner === '明教') a.wins++;
         a.sumSurv += (res.ally || []).filter(u => u.alive).length;   // 无精英局没有"主英雄"，改记全队存活人数
     }
     const out = {};
@@ -343,7 +348,7 @@ function applyForcedWeakAlly(ally, elite, rng) {
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, enemyHex = false) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
+    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
@@ -358,7 +363,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
         if (arm !== 'natural' && side === 'ally') swappedIn = applyForcedWeakAlly(ally, elite, initRng);
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null);
-        if (!res.winner) continue;
+        // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（明教侧用换人后的 ally，它才是本场真正的开战阵容）
         const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
         const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
@@ -369,13 +374,15 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
             //   其他弱精英（何太冲/唐文亮等）必须保持自然分布：一起剔会把对照变成「敌方零弱精英」，
             //   比空见臂（恰一个弱精英）凭空强 15pp，Δ 被放大到 -19pp 的假值。
             a.runs++;
-            if (res.winner === '明教') a.wins++;
+            if (!res.winner) a.draws++;
+            else if (res.winner === '明教') a.wins++;
             const allyU = ally, enemyU = teams.enemyTeam;
             for (const [name, f] of Object.entries(WEAK_UNIT_FLAG)) {
                 if (allyU.some(u => u[f]) || enemyU.some(u => u[f])) continue;
-                const c = a.clean[name] || (a.clean[name] = { runs: 0, wins: 0 });
+                const c = a.clean[name] || (a.clean[name] = { runs: 0, wins: 0, draws: 0 });
                 c.runs++;
-                if (res.winner === '明教') c.wins++;
+                if (!res.winner) c.draws++;
+                else if (res.winner === '明教') c.wins++;
             }
             continue;
         }
@@ -386,7 +393,8 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
         // 自然臂 clean[name] 同样剔掉，两臂样本逐场对应；换人未成（无合格替身/缺职业）也走这里（me 不命中已拦）
         if (side === 'ally' && !swappedIn) continue;
         a.runs++;
-        if (res.winner === '明教') a.wins++;
+        if (!res.winner) a.draws++;
+        else if (res.winner === '明教') a.wins++;
         if (me.alive) a.sumSurv++;
         a.sumDmg += me.dmgDealt || 0;
         a.sumTaken += me.dmgTaken || 0;
@@ -408,7 +416,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
 function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex = 0, enemyHex = false) {
     const flag = WEAK_UNIT_FLAG[elite];
     const newAgg = () => ({
-        runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0,
+        runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0,
         skills: {}, factsSelf: {}, factsTarget: {}, probes: {}
     });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
@@ -445,7 +453,7 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
             }
         };
         const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep, enemyHex } : { enemyHex });
-        if (!res.winner) continue;
+        // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（明教侧用换人后的 ally，它才是本场真正的开战阵容）
         const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
         const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
@@ -459,7 +467,8 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
                 : (allyU.some(u => u.name === elite) || enemyU.some(u => u.name === elite));
             if (seen) continue;
             a.runs++;
-            if (res.winner === '明教') a.wins++;
+            if (!res.winner) a.draws++;
+            else if (res.winner === '明教') a.wins++;
             continue;
         }
         const meInit = unitBy(side === 'ally' ? ally : teams.enemyTeam, u => flag ? u[flag] : u.name === elite);
@@ -467,7 +476,8 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
         if (!me) continue;
         if (side === 'ally' && !swappedIn) continue;
         a.runs++;
-        if (res.winner === '明教') a.wins++;
+        if (!res.winner) a.draws++;
+        else if (res.winner === '明教') a.wins++;
         if (me.alive) a.sumSurv++;
         a.sumDmg += me.dmgDealt || 0;
         a.sumTaken += me.dmgTaken || 0;
@@ -491,7 +501,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
     const newAgg = () => {
         const a = {};
         for (const n of NATURAL_ELITES) {
-            a[n] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
+            a[n] = { runs: 0, wins: 0, draws: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
         }
         return a;
     };
@@ -504,7 +514,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null); // 带海克斯，对齐正式游戏节奏
-        if (!res.winner) continue;
+        // V1.21.1 口径统一：平局也入样本（813 承伤对账 / 852 生涯日志都记平局，此前这里整场丢掉 ⇒ 场次不一致）
         // V1.20.0：变体桶与"谁在场"都读开战快照（终局阵容会被惑人心智换位/召唤/死亡移除干扰）
         const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
         const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
@@ -521,7 +531,8 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
             const u = finalUnitOf(res.ally, init.uid) || init;   // 数值仍取终局单位
             const a = agg[name];
             a.runs++;
-            if (res.winner === '明教') a.wins++;
+            if (!res.winner) a.draws++;
+            else if (res.winner === '明教') a.wins++;
             a.sumDmg += u.dmgDealt || 0;
             a.sumTaken += u.dmgTaken || 0;
             if (u.alive) a.sumSurv++;
@@ -867,13 +878,14 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB, hexEnabled = false, 
         const resA = runWholeBattle(teamA, enemyTeam, seedBase, hexEnabled, enemyHex ? { enemyHex } : null);
         GlobalStore.set('battleHasZhang', teamB.some(u => u.isZhang));
         const resB = runWholeBattle(teamB, enemyTeam, seedBase, hexEnabled, enemyHex ? { enemyHex } : null);
-        if (resA.winner) {
-            vA++; if (resA.winner === '明教') wA++;
+        // V1.21.1：平局也入样本（两臂同口径），胜只看 winner==='明教'
+        vA++; if (resA.winner && resA.winner === '明教') wA++;
+        {
             const e = (resA.ally || []).find(u => u[cfgA.flag]);
             if (e) { dA += e.dmgDealt || 0; tkA += e.dmgTaken || 0; if (e.alive) sA++; }
         }
-        if (resB.winner) {
-            vB++; if (resB.winner === '明教') wB++;
+        vB++; if (resB.winner && resB.winner === '明教') wB++;
+        {
             const e = (resB.ally || []).find(u => u[cfgB.flag]);
             if (e) { dB += e.dmgDealt || 0; tkB += e.dmgTaken || 0; if (e.alive) sB++; }
         }

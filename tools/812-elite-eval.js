@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.7.0';
+export const VER = 'tools/812-elite-eval.js V3.8.0';
+// V3.8.0 | 2026-11-08 平局进表（口径统一）：816 批处理 job 不再丢平局场次，四张表每格多一行「平局 N」，
+//   胜率分母 = 总场次（含平局），与 813 承伤对账、852 生涯日志一致；旧快照无 draws 字段按 0 显示。
 // V3.7.0 | 2026-11-08 快照跨版本混榜显式告警：同一条快照里各表来自不同版本（或旧表没记版本）时，
 //   下拉标签与载入提示都出「⚠️版本不一致」，不再只把版本号拼在一起让人自己比。
 // V3.6.0 | 2026-11-08 可复现：新增「种子」输入框（留空=Date.now()），填上次结果的 masterSeed 即按同样随机流重跑；
@@ -38,8 +40,8 @@ function mergeAgg(dst, d) {
         if (k === 'clean') {
             dst.clean = dst.clean || {};
             for (const [nm, c] of Object.entries(v || {})) {
-                const t = dst.clean[nm] || (dst.clean[nm] = { runs: 0, wins: 0 });
-                t.runs += c.runs || 0; t.wins += c.wins || 0;
+                const t = dst.clean[nm] || (dst.clean[nm] = { runs: 0, wins: 0, draws: 0 });
+                t.runs += c.runs || 0; t.wins += c.wins || 0; t.draws += c.draws || 0;
             }
         } else if (typeof v === 'number') {
             dst[k] = (dst[k] || 0) + v;
@@ -252,7 +254,7 @@ startBtn.addEventListener('click', async () => {
                     for (const [name, d] of Object.entries(roles || {})) {
                         const a = slot[name];
                         if (!a) continue;
-                        a.runs += d.runs; a.wins += d.wins;
+                        a.runs += d.runs; a.wins += d.wins; a.draws = (a.draws || 0) + (d.draws || 0);
                         a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken; a.sumSurv += d.sumSurv;
                     }
                 }
@@ -327,7 +329,7 @@ async function runSoloGroup(list, ui) {
                     const slot = byStage[job.stage] && byStage[job.stage][variant];
                     const a = slot && slot[job.elite];
                     if (!a) continue;
-                    a.runs += d.runs; a.wins += d.wins; a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
+                    a.runs += d.runs; a.wins += d.wins; a.draws = (a.draws || 0) + (d.draws || 0); a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
                 }
                 ui.progressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
@@ -381,6 +383,13 @@ function renderSoloResults(byStage, stages, list, resultEl, note, meta) {
     attachCopyBtn(resultEl);
 }
 
+// V3.8.0：平局标注。平局计入场次与胜率分母（胜 = winner==='明教'），与 813 承伤对账、852 生涯日志同一口径；
+//   816 各批处理 job 已同步补 draws 计数，旧快照没有该字段时按 0 处理。
+function drawSub(d) {
+    const n = (d && d.draws) || 0;
+    return n > 0 ? `<div class="cell-sub" style="color:#9e9e9e;">平局 ${n}</div>` : '';
+}
+
 // 单英雄表单元格：胜率/场次/存活（逐关行与总评行共用）
 function soloCellHtml(d) {
     if (!d || !d.runs) return '<td class="elite-cell">N/A</td>';
@@ -392,20 +401,21 @@ function soloCellHtml(d) {
     return `<td class="elite-cell">
         <div class="cell-rate" style="color:${color}">胜率 ${rate}%</div>
         <div class="cell-sub">${d.runs} 场${thin}</div>
+        ${drawSub(d)}
         <div class="cell-sub">存活 ${surv}%</div></td>`;
 }
 
 // 跨关跨变体累加某精英（单英雄表总评行用）
 function soloTotalsOf(cfg, byStage, stages) {
-    let runs = 0, wins = 0, sumSurv = 0;
+    let runs = 0, wins = 0, draws = 0, sumSurv = 0;
     for (const st of stages) {
         for (const v of VARIANTS) {
             const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
             if (!d) continue;
-            runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
+            runs += d.runs; wins += d.wins; draws += d.draws || 0; sumSurv += d.sumSurv;
         }
     }
-    return { runs, wins, sumSurv };
+    return { runs, wins, draws, sumSurv };
 }
 
 // ============ 2026-10-09 无精英基线：明教侧一个精英都不出 ============
@@ -448,7 +458,7 @@ noEliteBtn.addEventListener('click', async () => {
                 for (const [variant, d] of Object.entries((part && part.variants) || {})) {
                     const a = byStage[job.stage] && byStage[job.stage][variant];
                     if (!a) continue;
-                    a.runs += d.runs; a.wins += d.wins; a.sumSurv += d.sumSurv;
+                    a.runs += d.runs; a.wins += d.wins; a.draws = (a.draws || 0) + (d.draws || 0); a.sumSurv += d.sumSurv;
                 }
                 noEliteProgressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
@@ -492,21 +502,21 @@ function noEliteRowHtml(label, d) {
     const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
     const thin = d.runs < STATS_TH.THIN_SAMPLE ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
     return `<tr><td class="elite-stage">${label}</td>
-        <td class="elite-cell"><div class="cell-rate" style="color:${color}">胜率 ${rate}%</div><div class="cell-sub">${d.runs} 场${thin}</div></td>
+        <td class="elite-cell"><div class="cell-rate" style="color:${color}">胜率 ${rate}%</div><div class="cell-sub">${d.runs} 场${thin}</div>${drawSub(d)}</td>
         <td class="elite-cell"><div class="cell-rate">${(d.sumSurv / d.runs).toFixed(2)} 人</div><div class="cell-sub">全队 5 人</div></td></tr>`;
 }
 
 // 跨关跨变体累加（无精英表总评行用）
 function noEliteTotalsOf(byStage, stages) {
-    let runs = 0, wins = 0, sumSurv = 0;
+    let runs = 0, wins = 0, draws = 0, sumSurv = 0;
     for (const st of stages) {
         for (const v of VARIANTS) {
             const d = byStage[st] && byStage[st][v];
             if (!d) continue;
-            runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
+            runs += d.runs; wins += d.wins; draws += d.draws || 0; sumSurv += d.sumSurv;
         }
     }
-    return { runs, wins, sumSurv };
+    return { runs, wins, draws, sumSurv };
 }
 
 // ============ 2026-10-16 V2.8.0 弱精英评测：单弱精英强制上场 vs 自然配对对照 ============
@@ -563,11 +573,11 @@ weakBtn.addEventListener('click', async () => {
                     const slot = byStage[job.stage] && byStage[job.stage][variant];
                     const a = slot && slot[key];
                     if (!a) continue;
-                    a.runs += d.runs; a.wins += d.wins;
+                    a.runs += d.runs; a.wins += d.wins; a.draws = (a.draws || 0) + (d.draws || 0);
                     a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
                     for (const [nm, c] of Object.entries(d.clean || {})) {
-                        const t = a.clean[nm] || (a.clean[nm] = { runs: 0, wins: 0 });
-                        t.runs += c.runs; t.wins += c.wins;
+                        const t = a.clean[nm] || (a.clean[nm] = { runs: 0, wins: 0, draws: 0 });
+                        t.runs += c.runs; t.wins += c.wins; t.draws += c.draws || 0;
                     }
                 }
                 weakProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
@@ -643,6 +653,7 @@ function weakCellHtml(d, baseRate) {
         <div class="cell-rate" style="color:${color}">胜率 ${rate.toFixed(1)}%</div>
         ${deltaHtml}
         <div class="cell-sub">${d.runs} 场${thin}</div>
+        ${drawSub(d)}
         <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)} 承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
         <div class="cell-sub">存活 ${surv}%</div></td>`;
 }
@@ -658,14 +669,14 @@ function cleanBase(nb, name) {
 
 // 某弱精英跨关跨变体累加 + 只取它真有数据的关/变体上的自然对照（总评行用）
 function weakArmTotals(name, byStage, stages) {
-    const t = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
+    const t = { runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
     let nRuns = 0, nWins = 0;
     for (const st of stages) {
         for (const v of VARIANTS) {
             const slot = byStage[st] && byStage[st][v];
             const d = slot && slot[name];
             if (!d || !d.runs) continue;
-            t.runs += d.runs; t.wins += d.wins; t.sumSurv += d.sumSurv; t.sumDmg += d.sumDmg; t.sumTaken += d.sumTaken;
+            t.runs += d.runs; t.wins += d.wins; t.draws += d.draws || 0; t.sumSurv += d.sumSurv; t.sumDmg += d.sumDmg; t.sumTaken += d.sumTaken;
             const nb = cleanAgg(slot.__natural, name);
             if (nb && nb.runs) { nRuns += nb.runs; nWins += nb.wins; }
         }
@@ -741,15 +752,15 @@ function buildHeroRates(byStage, stages) {
 
 // 跨关跨变体累加某人数据（总评行与实战评分行共用）
 function totalsOf(cfg, byStage, stages) {
-    let tw = 0, tr = 0, td = 0, tt = 0, ts = 0;
+    let tw = 0, tr = 0, td = 0, tt = 0, ts = 0, dr = 0;
     for (const st of stages) {
         for (const v of VARIANTS) {
             const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
             if (!d) continue;
-            tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv;
+            tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv; dr += d.draws || 0;
         }
     }
-    return { runs: tr, wins: tw, sumDmg: td, sumTaken: tt, sumSurv: ts };
+    return { runs: tr, wins: tw, draws: dr, sumDmg: td, sumTaken: tt, sumSurv: ts };
 }
 
 // 单元格：胜率/输出/承伤/存活 + 样本量（自然样本，各精英不同，样本太少会提示）
@@ -766,6 +777,7 @@ function cellHtml(d) {
     return `<td class="elite-cell">
         <div class="cell-rate" style="color:${color}">胜率 ${rate}</div>
         <div class="cell-sub">${d.runs} 场${thin}</div>
+        ${drawSub(d)}
         <div class="cell-sub">输出 ${avgDmg}</div>
         <div class="cell-sub">承伤 ${avgTaken}</div>
         <div class="cell-sub">存活 ${surv}</div></td>`;

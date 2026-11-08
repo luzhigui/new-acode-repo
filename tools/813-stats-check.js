@@ -1,6 +1,7 @@
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #scHex / #scEnemyHex（双海克斯需先勾海克斯）。
 //   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
+// 2026-11-08 V1.5.0 表头补平局场数、单位名后标 uid：__meta.draws 来自 816 V1.21.x；与 812 / 852 口径一致（胜 = 明教，平局只进分母）。
 // 2026-11-08 V1.4.0 配合 816 V1.21.0：agg 新增 __meta（平局/胜负场次）与带 uid 的单位 key。
 //   __meta 不参与单位行渲染与负差额校核；单位 key 形如「明教·蹦蹦#uid」，同名杂兵不再并成一行。
 // 2026-11-08 V1.3.0 可复现：新增「种子」输入框（留空=Date.now()），填上次 masterSeed 即按同样随机流重跑；
@@ -129,7 +130,7 @@ function renderResult(agg, stages, runs, meta) {
             + `｜完成 ${p2(d.getHours())}:${p2(d.getMinutes())}`;
     }
     let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
-        + `<div class="hex-log-verdict">${verdict}${metaTxt}</div>
+        + `<div class="hex-log-verdict">${verdict}${metaTxt}${(agg.__meta && agg.__meta.draws) ? `｜平局 ${agg.__meta.draws} 场（计入场次分母）` : ''}</div>
     <p style="color:#888;font-size:11px;margin:8px 0;">
       记账口径：承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
       全局 dmgTaken 与 dmgDealt <span style="color:#ffa726;">本就不同</span>（承伤记全额、输出记实伤，闪避/反弹只记承伤侧），不做守恒校验。<br>
@@ -146,6 +147,8 @@ function renderResult(agg, stages, runs, meta) {
     </tr>`;
 
     for (const [key, d] of rows) {
+        // V1.5.0：key 形如「明教·蹦蹦#2081」，展示时把 uid 拎出来，同名杂兵一眼能分开
+        const label = key.replace(/^(.+)#(.+)$/, '$1（uid $2）');
         const unrec = (d.unrecDmg || 0) > 0.5 || (d.unrecHeal || 0) > 0.5;
         const dmgGap = d.dmgTaken - d.battleDmg - d.reallocDmg;    // 负 = 漏记
         const healGap = d.healDone - d.battleHeal - d.reallocHeal; // 负 = 漏记
@@ -161,7 +164,7 @@ function renderResult(agg, stages, runs, meta) {
         const vColor = unrec ? '#8ab4f8' : ((negDmg || negHeal) ? '#ff5252' : '#4caf50');
         const reallocStyle = 'color:#8ab4f8;';   // 重分配=正常机制，只展示不判红
         html += `<tr>
-            <td style="text-align:left;white-space:nowrap;">${key}</td>
+            <td style="text-align:left;white-space:nowrap;">${label}</td>
             <td>${d.battles}</td>
             <td>${avg(d.battleDmg, d.battles)}</td>
             <td style="${reallocStyle}">${avg(d.reallocDmg, d.battles)}</td>
