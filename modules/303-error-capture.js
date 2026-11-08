@@ -60,12 +60,6 @@ import { GlobalStore } from '../infra/104-global-store.js';
     function setLogPickMode(on) {
         // 只切点选态的样式作用域；锚点数据保留（退出点选态只是不显示高亮，保存时仍以它为准）
         document.body.classList.toggle(LOG_PICK_CLASS, !!on);
-        const b = document.getElementById('dshLogPickBtn');
-        if (b) {
-            b.textContent = on ? '📌 点选态：点日志行' : '📌 选锚点';
-            b.style.borderColor = on ? '#ffe066' : '#ffd700';
-            b.style.background = on ? 'rgba(255,215,0,.26)' : 'rgba(30,20,10,.9)';
-        }
     }
     function clearLogAnchor() {
         if (pickedLogEl) pickedLogEl.classList.remove('dsh-log-anchor');
@@ -1065,34 +1059,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
     } catch (e) { /* 忽略 */ }
     document.body.appendChild(bugQuickBtn);
 
-    // ---------- 📌 选锚点：点选态开关（常态行距一像素不动，开了只加可点光标 + 高亮） ----------
-    const pickBtn = document.createElement('button');
-    pickBtn.id = 'dshLogPickBtn';
-    pickBtn.textContent = '📌 选锚点';
-    pickBtn.title = '进入点选态：点日志任意一行作为 Bug 切片锚点（再点一次关闭）';
-    pickBtn.style.cssText =
-        'position:fixed;right:8px;bottom:calc(32vh + 42px);z-index:99999;' +
-        'display:none;padding:6px 12px;border-radius:18px;' +
-        'border:1px solid #ffd700;background:rgba(30,20,10,.9);color:#ffd700;' +
-        'font-size:12px;line-height:1;cursor:pointer;' +
-        'box-shadow:0 2px 8px rgba(0,0,0,.4);';
-    pickBtn.onclick = () => {
-        const on = !document.body.classList.contains(LOG_PICK_CLASS);
-        setLogPickMode(on);
-        showToast(on ? '点选态已开：点日志任意一行当锚点' : '点选态已关：日志行距已还原');
-    };
-    try {
-        const oldPick = document.getElementById('dshLogPickBtn');
-        if (oldPick && oldPick !== pickBtn) oldPick.remove();
-    } catch (e) { /* 忽略 */ }
-    document.body.appendChild(pickBtn);
+    // 外部悬浮的「📌 选锚点」按钮已删除：点选态入口全部收拢在记录面板内部
 
     function syncBugBtn() {
         // 直接读 store：比 window.GlobalStore 可靠（ES module 里 window 上不一定挂）
         let paused = false;
         try { paused = !!GlobalStore.get('isPaused'); } catch (e) { paused = false; }
         bugQuickBtn.style.display = paused ? 'block' : 'none';
-        pickBtn.style.display = paused ? 'block' : 'none';
         // 继续游戏就退出点选态，日志立刻恢复正常行距
         if (!paused && document.body.classList.contains(LOG_PICK_CLASS)) setLogPickMode(false);
     }

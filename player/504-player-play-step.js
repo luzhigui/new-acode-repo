@@ -62,9 +62,10 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     const processedAfterIndexes = new Set();
 
     // action 完整生命周期：store(前置) → fx(演出) → storeAfter(收尾)
+    //   倒针静默重演（c.isRewinding）时跳过 FX：历史死亡画笔/飘字不许重放
     const runAction = async (action) => {
         applyStageActionToStore(c, action, pendingDeaths);
-        if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
+        if (!c.isRewinding && getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
         applyStageActionToStoreAfter(c, action, pendingDeaths);
     };
 
@@ -92,8 +93,10 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
                 const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'beforeText');
                 for (const action of beforeActions) {
                     applyStageActionToStore(c, action, pendingDeaths);
-                    if (action.nonBlocking) applyStageActionToFX(c, action);
-                    else await applyStageActionToFX(c, action);
+                    if (!c.isRewinding) {
+                        if (action.nonBlocking) applyStageActionToFX(c, action);
+                        else await applyStageActionToFX(c, action);
+                    }
                     applyStageActionToStoreAfter(c, action, pendingDeaths);
                     if (c._rewindCue) await c._rewindCue('beforeText', action);   // 倒针停点：文字前动作后
                 }
@@ -107,7 +110,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
                     entry._fxSpecs = fxActions.map((a) => ({
                         cb: () => {
                             applyStageActionToStore(c, a, pendingDeaths);
-                            applyStageActionToFX(c, a);
+                            if (!c.isRewinding) applyStageActionToFX(c, a);
                             applyStageActionToStoreAfter(c, a, pendingDeaths);
                         }
                     }));
@@ -131,7 +134,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     for (const action of actions) {
         if (action.factIndex == null || !actionsByFactIndex.has(action.factIndex)) {
             applyStageActionToStore(c, action, pendingDeaths);
-            if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
+            if (!c.isRewinding && getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
             applyStageActionToStoreAfter(c, action, pendingDeaths);
         }
     }
@@ -153,7 +156,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
 
     const hasDeathAction = actions.some(a => a.dead && (a.kind === STAGE_ACTION_TYPES.ATTACK || a.kind === STAGE_ACTION_TYPES.DEATH || a.kind === STAGE_ACTION_TYPES.DOT));
     if (c._rewindCue) await c._rewindCue('death', step);   // 倒针停点：死亡红叉后
-    if (hasDeathAction) {
+    if (hasDeathAction && !c.isRewinding) {   // 倒针静默重演时不刷历史死亡红墨
         const logDiv = document.getElementById('log');
         if (logDiv && logDiv.lastElementChild) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
     }

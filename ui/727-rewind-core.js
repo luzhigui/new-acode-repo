@@ -386,6 +386,9 @@ export async function enterReview() {
     S.steps = steps.slice();
     S.cueCache.clear();
     S.active = true;
+    // 倒针静默重演开关：回看期间一律不许重放历史 FX（死亡画笔/飘字），
+    //   只有「▶ 播放」（startPlay 真播）和退出回看时才置假。player/504 三处守卫读此字段。
+    c.isRewinding = true;
     S.playing = false;
     S.busy = false;
     S.cancelToken++;
@@ -429,6 +432,7 @@ export async function enterReview() {
 export function exitReview(opts) {
     if (!S.active) return;
     const c = ctx();
+    if (c) c.isRewinding = false;   // 退出回看恢复真播演出
     S.cancelToken++;
     if (S.playRelease) { const r = S.playRelease; S.playRelease = null; r(); }
     if (S.watchdog) { clearInterval(S.watchdog); S.watchdog = null; }
@@ -622,6 +626,7 @@ function cancelRun() {
 export async function startPlay() {
     if (!S.active || S.busy) return;
     const c = ctx();
+    c.isRewinding = false;      // 真播：要特效、要死亡画笔（与段拨的静默重演相对）
     const token = ++S.cancelToken;
     S.busy = true;
     S.playing = true;
@@ -684,6 +689,8 @@ export async function startPlay() {
             S.busy = false;
             S.playing = false;
         }
+        // 停在停点上/被打断：只要还在回看态就回到静默，下次真播由 startPlay/resumePlay 置假
+        c.isRewinding = !!S.active;
     }
 }
 
@@ -696,6 +703,8 @@ export function pausePlay() {
 
 export function resumePlay() {
     if (!S.active) return;
+    const c = ctx();
+    if (c) c.isRewinding = false;   // 接着真播：恢复特效
     // 停在某个停点上：放行那一个等待即可，原样接着播
     if (S.playRelease) {
         S.stopPlay = false;
