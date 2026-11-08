@@ -2,7 +2,15 @@
 import { CONFIG, loadGameData, getGameData, loadHexEnhanceData, getSisterHexEnhance, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.8.4';
+export const VER = 'tools/808-hex-dashboard.js V6.9.0';
+// V6.9.0 | 2026-11-08 统计口径修正（老板：表1「常规」621 场 vs 细分 921/521/267，合计反而更大）：
+//           ① 根因不是算错，是「细分 ≠ 同批切分」——四种阵容模式各跑一批、各自重掷队伍，本来就是两组实验。
+//              worker（816 V1.19.0）现在每条记录带 lineup（本局阵容：sister/brother/none），
+//              表 1 新增「同批阵容细分」：同一批记录内切互斥子集，合计恒等于总盘，并逐行打 ✓/✗ 自检。
+//           ② 表 2（模式对比）是四次独立跑批，表头改成红字硬警示：严禁对比列间胜率/差值。
+//           ③ 样本量：<100 场灰显 +「样本少」；胜率/差值补 Wilson 95% 置信区间半宽（±x pp）。
+//           ④ 表头输出本次跑批元数据（commit / 关卡 / 场次 / 海克斯池 / 种子区间 / 阵容 / 档位）+ 本榜累计批次。
+//           旧记录没有 lineup → 归「其他/未标注」，所以自检仍然恒等；想看真细分就重跑一批。
 // V6.8.4 | 2026-11-04 按钮区排版（老板截图：模式对比与复制结果贴着且同色）：
 //           四个操作按钮收进独立一行 flex（gap 8px），「复制结果」改紫色 #b39ddb 与模式对比的蓝色区分。
 // V6.8.3 | 2026-11-02 修手机端「模式对比」表字重叠（老板截图）：9 列挤进 ~400px 屏，每列只剩 ~30px、
@@ -54,6 +62,31 @@ const MODE_LABEL = { normal: '常规', sister: '仅姐姐', brother: '仅妹妹'
 const CMP_MODES = ['normal', 'sister', 'brother', 'none'];
 const ALL_STAGES = [1, 2, 3, 4, 5, 6, 7];
 
+// V6.9.0：同批阵容细分（互斥）。worker 每条记录带 lineup，这里切成四个桶：
+//   仅姐姐 / 仅妹妹 / 都不带（330 建队时姊妹二选一，所以前三类天然互斥）；
+//   旧记录（V6.9.0 之前跑的）没有 lineup 字段，一律进「其他/未标注」——保证合计恒等于总盘。
+const LINEUP_BUCKETS = [
+  { k: 'sister', label: '仅姐姐' },
+  { k: 'brother', label: '仅妹妹' },
+  { k: 'none', label: '都不带' },
+  { k: 'other', label: '其他/未标注' }
+];
+const bucketOf = l => {
+  const v = l && l.lineup;
+  return (v === 'sister' || v === 'brother' || v === 'none') ? v : 'other';
+};
+const SAMPLE_MIN = 100;   // 样本量警示线：不足 100 场灰显 +「样本少」
+
+// V6.9.0：Wilson 95% 置信区间半宽（百分点）。小样本下正态近似会给出负下限，Wilson 不会。
+function ci95(wins, n) {
+  if (!n) return null;
+  const z = 1.959964, p = wins / n;
+  const den = 1 + z * z / n;
+  const center = (p + z * z / (2 * n)) / den;
+  const half = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / den;
+  return { lo: Math.max(0, center - half) * 100, hi: Math.min(1, center + half) * 100, half: half * 100 };
+}
+
 // 2026-10-25 V6.3.0：存储键加关卡维——七关沿用旧键（历史数据不丢），单关加 _stageN 后缀，
 // 各关/各模式互不污染。单关结果也落盘（老板定：切到该关就能看到历史，不必重跑）。
 // 2026-10-31 V6.8.0 双海克斯维：单海克斯沿用旧键（历史数据不丢），双海克斯全部加 _dual 后缀，
@@ -65,6 +98,33 @@ const keyFor = (mode, stage, hexMode = 'single') => {
   return (stage === 'all' || stage == null) ? base : `${base}_stage${stage}`;
 };
 const readLogs = (mode, stage, hexMode = curHex) => { try { const a = JSON.parse(localStorage.getItem(keyFor(mode, stage, hexMode)) || '[]'); return Array.isArray(a) ? a.filter(l => l && typeof l === 'object') : []; } catch(e) { return []; } };
+
+// V6.9.0 跑批元数据：每次跑批把「这批是什么条件下跑的」写进同榜的 _meta 键（对象，不是数组，
+//   不会被 sanitizeStoredLogs 当榜清理）。表头强制显示——否则隔几天看到一份榜，分不清是哪个版本、哪批种子、
+//   海克斯池开没开，只能靠猜。
+const metaKeyFor = (mode, stage, hexMode = 'single') => keyFor(mode, stage, hexMode) + '_meta';
+const readMeta = (mode, stage, hexMode) => {
+  try { const o = JSON.parse(localStorage.getItem(metaKeyFor(mode, stage, hexMode)) || 'null'); return o && typeof o === 'object' ? o : null; } catch (e) { return null; }
+};
+const writeMeta = (mode, stage, hexMode, meta) => { try { localStorage.setItem(metaKeyFor(mode, stage, hexMode), JSON.stringify(meta)); } catch (e) {} };
+
+// 跑批时的 git commit（best effort，2 秒超时）：外网取不到就写「取不到」，不编造。
+let commitHashCache = null;
+async function getCommitHash() {
+  if (commitHashCache) return commitHashCache;
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 2000);
+    const r = await fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1', { signal: ctl.signal });
+    clearTimeout(timer);
+    if (r.ok) {
+      const a = await r.json();
+      const sha = a && a[0] && a[0].sha;
+      if (sha) commitHashCache = sha.slice(0, 8);
+    }
+  } catch (e) {}
+  return commitHashCache || '取不到（离线）';
+}
 let curMode = 'normal';
 let curStage = 'all';
 let curHex = 'single';
@@ -357,8 +417,8 @@ function openHexDashboard() {
         <button class="hex-hex-close">关闭</button>
       </div>
       <div class="hex-hex-body">
-        <p class="hex-hex-tip">点「⚡ 自动跑」直接在弹窗里批量战斗，跑完自动出表：统计每个海克斯的出场次数、胜率，以及与「所有海克斯平均胜率」的差值。<span class="hex-more">▸ 说明</span></p>
-        <p class="hex-hex-tip hex-more-body">三个选择器：① 关卡 —— 默认「七关一起」，也可单跑某一关（单关结果单独存，切到该关即自动显示历史）；② 场次 —— 每关跑多少场；③ 阵容 —— 默认「全部4种（一起跑）」：一次把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 四种模式都跑完（各模式分键存储、共用同一批 seed，便于横向配对比较），跑完自动展开「模式对比」；也可只选某一种单跑。「清空数据」一次清掉四种模式 ×（七关 + 7 个单关）。</p>
+        <p class="hex-hex-tip">点「⚡ 自动跑」直接在弹窗里批量战斗，跑完自动出表：统计每个海克斯的出场次数、胜率，以及与「所有海克斯平均胜率」的差值。表下方「🧩 同批阵容细分」把同一批记录按本局阵容切开（合计恒等于总盘）；「🔀 模式对比」是四次独立跑批，不能互相比差值。<span class="hex-more">▸ 说明</span></p>
+        <p class="hex-hex-tip hex-more-body">三个选择器：① 关卡 —— 默认「七关一起」，也可单跑某一关（单关结果单独存，切到该关即自动显示历史）；② 场次 —— 每关跑多少场；③ 阵容 —— 默认「全部4种（四次独立跑批）」：把 常规/仅姐姐/仅妹妹/不带姐姐妹妹 各跑一批（各模式分键存储，拒绝采样各自重掷阵容，属四次独立实验，只能各自看强弱，不能横向比差值）；也可只跑「常规」一批——常规批内已按本局阵容标注，靠「同批阵容细分」表就能横向比。跑四种时自动展开「模式对比」。「清空数据」一次清掉四种模式 ×（七关 + 7 个单关）。</p>
         <select class="hex-hex-stage" title="关卡：七关一起 = 长期榜；单关 = 只看这一关（单独存，切到该关即显示）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px">
           <option value="all">关卡：七关一起</option>
           <option value="1">关卡：第1关</option>
@@ -370,12 +430,13 @@ function openHexDashboard() {
           <option value="7">关卡：第7关</option>
         </select>
         <select class="hex-hex-runsel" title="每关跑多少场（七关一起时每关各跑这么多；单关时就是这一关跑这么多）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
-          <option value="500">每关 500 场</option>
+          <option value="100">每关 100 场（小样本自检用）</option>
+          <option value="500" selected>每关 500 场</option>
           <option value="1000">每关 1000 场</option>
           <option value="2000">每关 2000 场</option>
         </select>
         <select class="hex-hex-lineup" title="阵容模式：决定跑批时明教侧小昭的出现方式" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
-          <option value="all" selected>阵容：全部4种（一起跑）</option>
+          <option value="all" selected>阵容：全部4种（四次独立跑批）</option>
           <option value="normal">阵容：常规</option>
           <option value="sister">阵容：仅姐姐（小昭·姊必出）</option>
           <option value="brother">阵容：仅妹妹（小昭·妹必出）</option>
@@ -513,7 +574,10 @@ function openHexDashboard() {
     // V6.8.0：清空扩到两个海克斯档位（单沿用旧键 / 双为 _dual 键）
     for (const h of ['single', 'dual']) {
       for (const m of CMP_MODES) {
-        for (const s of ['all', ...ALL_STAGES]) localStorage.removeItem(keyFor(m, s, h));
+        for (const s of ['all', ...ALL_STAGES]) {
+          localStorage.removeItem(keyFor(m, s, h));
+          localStorage.removeItem(metaKeyFor(m, s, h));   // V6.9.0 元数据一起清，别留下「有元数据没数据」的孤儿
+        }
       }
     }
     logs = [];
@@ -567,7 +631,9 @@ function openHexDashboard() {
       // 细粒度分片：每片 25 场。原来「一整关一个 job」只有 7 个 job——喂不满 worker 池，
       // 且各关时长不一，关间负载不均会拖长尾。分片后 worker 空一片接一片，负载自然拉平。
       // seed 逐场不变：片内 seed = 关基准 + (startIndex + i) * 7919，关基准 = masterSeed + stage*131。
-      // 多模式一起跑时四种模式共用同一套 seed（同关同场号对齐），方便横向做配对比较。
+      // V6.9.0 更正一个旧误解：四个模式虽然传入同一套 seed 值，但非 normal 模式要「拒绝采样重掷到指定阵容」，
+      //   重掷步长 seed + k*104729 直接把队伍换掉 → 打出来的不是配对数据，不能横向比差值。
+      //   要横向比姐姐/妹妹，用 normal 单跑 + 表 1 的「同批阵容细分」（同一批记录切分，才是真对照）。
       const CHUNK = 25;
       const jobs = [];
       for (const hx of hexModes) {
@@ -583,6 +649,34 @@ function openHexDashboard() {
       // 2026-10-27 V6.3.5：池大小留 2 核给主线程——手机满核跑批会把刷进度行的主线程饿死，
       //   进度数字冻在半路像卡死（8 核手机 8 worker 全占是元凶）。8 核 → 6 worker，吞吐损失约两成。
       const poolSize = Math.max(2, getPoolSize() - 2);
+      // V6.9.0 本次跑批元数据：跑批开始就定下来（commit 取不到也不影响跑批），跑完写进各榜的 _meta 键。
+      //   字段就是「对照组可复现」的最小集：谁跑的（版本+commit）、跑哪些关、每关多少场、海克斯池开没开、
+      //   种子区间、阵容模式、海克斯档位。
+      const runMeta = {
+        ver: VER, commit: await getCommitHash(), bid: masterSeed, ts: Date.now(),
+        stages: stages.slice(), per, total, poolSize,
+        modes: modes.slice(), hexModes: hexModes.slice(),
+        hexPool: Object.keys(CONFIG.BUFFS || {}),
+        seedStep: 7919, seedBase: masterSeed, stageStep: 131,
+        seedFrom: masterSeed + Math.min(...stages) * 131,
+        seedTo: masterSeed + Math.max(...stages) * 131 + (per - 1) * 7919,
+        enemyHex: hexModes.includes('dual')
+      };
+      // 每个榜键的元数据（单关键 = 这一关自己的范围；七关合计键 = 七关整体范围）
+      const metaForStages = (st) => {
+        const list = Array.isArray(st) ? st : [st];
+        return Object.assign({}, runMeta, {
+          stages: list,
+          seedFrom: masterSeed + Math.min(...list) * 131,
+          seedTo: masterSeed + Math.max(...list) * 131 + (per - 1) * 7919
+        });
+      };
+      const writeRunMeta = () => {
+        for (const m of modes) for (const hx of hexModes) {
+          for (const st of stages) writeMeta(m, st, hx, metaForStages(st));   // 单关键
+          if (stages.length > 1) writeMeta(m, 'all', hx, metaForStages(stages));   // 七关合计键
+        }
+      };
       // ---- 落盘基建（必须在 runParallel 之前定义：onJobDone 跑批期间就会回调 queueChunk）----
       // 结果按模式分别追加进各自存储键（V6.3.0：七关沿用旧键、单关加 _stageN，互不污染）
       // 2026-10-14 V6.2.2：写入失败不再静默吞——配额满时原 catch(e){} 会让「跑完 ✅」却读回空榜显示「暂无数据」，
@@ -630,7 +724,9 @@ function openHexDashboard() {
         //   主代码改过数值后还拿旧榜判读，就会得出错误结论。
         //   只加字段、不改结构：旧的没 ts 的记录照样能读，下游会把它们标成「无时间戳的旧数据」。
         const now = Date.now();
-        for (const rec of records) if (rec && !rec.ts) rec.ts = now;
+        // V6.9.0：bid = 本次跑批号（masterSeed）。表头据此算「本榜累计几批」，
+        //   避免把多批不同种子的数据当成一组对照实验。
+        for (const rec of records) if (rec && !rec.ts) { rec.ts = now; rec.bid = masterSeed; }
         const byStage = {};
         for (const rec of records) (byStage[rec.stage] || (byStage[rec.stage] = [])).push(rec);
         for (const stStr of Object.keys(byStage)) {
@@ -668,6 +764,7 @@ function openHexDashboard() {
       });
       clearInterval(timer);
       flushPending();   // V6.3.5 跑完补刷剩余攒批（定义已上移到 runParallel 之前，规避 TDZ）
+      writeRunMeta();   // V6.9.0 元数据随这批一起落地（表头要显示本次跑批条件）
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       const scope = (modes.length > 1 ? '全部4种阵容' : MODE_LABEL[modes[0]]) + ' · ' + hexLabelRun + ' · ' + stageLabel;
       if (saveErrs.length) {
@@ -790,9 +887,11 @@ function renderModeCompare(box) {
   const curSort = SORT_KEYS.has(cmpSortMode) ? cmpSortMode : 'normal';
   rows.sort((a, b) => (sortVal(b, curSort) - sortVal(a, curSort)) || a.key.localeCompare(b.key));
 
-  const rateTd = c => c
-    ? `<td>${c.rate.toFixed(1)}%<div class="cell-sub">${c.count} 场</div></td>`
-    : '<td style="color:#666">—</td>';
+  const rateTd = c => {
+    if (!c) return '<td style="color:#666">—</td>';
+    const small = c.count < SAMPLE_MIN;
+    return `<td${small ? ' style="color:#888"' : ''}>${c.rate.toFixed(1)}%<div class="cell-sub">${c.count} 场${small ? '（样本少）' : ''}</div></td>`;
+  };
   // Δ 格：正数金色、负数蓝色；|Δ|<1 灰显（看不出差别）。不再判显著性，数字自己看。
   const diffTd = dv => {
     if (dv === null) return '<td style="color:#666">—</td>';
@@ -800,9 +899,16 @@ function renderModeCompare(box) {
     return `<td style="color:${col}">${dv > 0 ? '+' : ''}${dv.toFixed(1)}%</td>`;
   };
 
-  let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：同一批海克斯在四种阵容模式下的胜率（${HEXMODE_LABEL[curHex]}｜${stageLabel}）</div>`;
-  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）· 前四列 = 胜率/场次，后四列 = 胜率 − <b>本模式海克斯平均</b>。<span class="hex-more">▸ 说明</span></p>`
-    + `<p class="hex-more-body">四个差值各算各的（同一模式内比，不跨模式相减）：正数 = 这枚海克斯在本模式里比平均强，负数 = 比平均弱。点表头排序。</p>`;
+  let html = `<div style="color:#ffd700;font-weight:bold;margin:16px 0 6px">🔀 模式对比：四种阵容模式各自跑批的结果（${HEXMODE_LABEL[curHex]}｜${stageLabel}）</div>`;
+  // V6.9.0：这张表是四次独立跑批，各批队伍/种子不同（拒绝采样会重掷阵容），
+  //   不是同一批种子的对照实验。老板看到的「常规 621 场 vs 细分 921/521/267，合计反而更大」
+  //   就是被这张表和上方常规榜混读造成的——所以这里必须红字写死，不让跨列对比。
+  html += '<p style="color:#ff5252;font-size:12px;font-weight:bold;margin:0 0 8px;line-height:1.6">'
+    + '⚠️ 常规数据与细分数据非同组实验，严禁直接对比胜率差值！'
+    + '<br><span style="color:#ffb74d;font-weight:normal">四列分别来自四次独立跑批（每次重掷阵容、种子不同），总场次本来就不相等。'
+    + '要判「姐姐/妹妹在不在，强弱差多少」，看上方「🧩 同批阵容细分」表（同一批记录内切分，合计=总盘）。</span></p>';
+  html += `<p style="color:#999;font-size:12px;margin:0 0 8px">取自各模式已存的【${stageLabel}】榜（不重跑）· 前四列 = 胜率/场次，后四列 = 胜率 − <b>本模式海克斯平均</b>（只能在同列内比）。<span class="hex-more">▸ 说明</span></p>`
+    + `<p class="hex-more-body">四个差值各算各的（同一模式内比，不跨模式相减）：正数 = 这枚海克斯在本模式里比平均强，负数 = 比平均弱。点表头排序。本表仅作「这个模式下谁偏强」的参考，不能拿来判「带姐姐是否比常规强」。</p>`;
   html += '<div class="hex-cmp-wrap"><table class="hex-cmp"><tr><th>海克斯</th>';
   for (const m of CMP_MODES) {
     const active = m === curSort;
@@ -936,7 +1042,27 @@ function render(summary, stats) {
       timeLine = `<p style="margin:2px 0 0;color:#888;font-size:12px">数据时间：无记录（这批是 108 V6.4.0 之前跑的，重跑一次就会带上时间）</p>`;
     }
   }
-  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜海克斯【<b style="color:#ffd700">${HEXMODE_LABEL[curHex]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine;
+  // V6.9.0：本次跑批元数据（表头强制显示）。没有这一行，隔几天就分不清榜是新版还是旧版、
+  //   海克斯池开没开、种子跑在哪一段、这批到底多少场——只能靠猜，也就没法判断能不能和别的榜比。
+  const meta = readMeta(curMode, curStage, curHex);
+  const bids = new Set();
+  for (const l of logs) if (l && l.bid) bids.add(l.bid);
+  const batchTxt = bids.size ? `${bids.size} 批` : '批次号缺失（旧数据）';
+  let metaLine;
+  if (meta) {
+    const stList = meta.stages || [];
+    const stTxt = stList.length > 1 ? `${Math.min(...stList)}–${Math.max(...stList)} 关` : `第${stList[0]}关`;
+    const poolN = (meta.hexPool || []).length;
+    const modeTxt = (meta.modes || []).length > 1 ? '全部4种（四次独立跑批）' : MODE_LABEL[(meta.modes || [])[0]] || '—';
+    metaLine = `<p style="margin:2px 0 0;color:#9ccc65;font-size:12px">🧾 本次跑批：${meta.ver || '—'}｜commit ${meta.commit || '—'}｜${stTxt}｜每关 ${meta.per} 场（本批共 ${meta.total} 场）`
+      + `｜海克斯池 ${poolN} 枚全开（未禁用）｜种子 ${meta.seedFrom}~${meta.seedTo}（步长 ${meta.seedStep}）`
+      + `｜阵容 ${modeTxt}｜${meta.enemyHex ? '双海克斯' : '单海克斯'}｜${meta.poolSize} 线程</p>`;
+  } else {
+    metaLine = `<p style="margin:2px 0 0;color:#ffb74d;font-size:12px">🧾 本次跑批：本榜没有元数据（V6.9.0 之前跑的）。重跑一批即可带上 commit / 关卡范围 / 场次 / 海克斯池 / 种子区间。</p>`;
+  }
+  metaLine += `<p style="margin:2px 0 0;color:#888;font-size:12px">本榜累计 ${total} 场 / ${batchTxt}${bids.size > 1 ? '　<b style="color:#ffb74d">⚠️ 多批不同种子混在一起，只适合看长期趋势，别当单次对照实验</b>' : ''}｜阵容细分取自同一批记录，不与「模式对比」跨批数据混算</p>`;
+
+  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜海克斯【<b style="color:#ffd700">${HEXMODE_LABEL[curHex]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine + metaLine;
 
   const hexKeys = new Set();
   logs.forEach(l => ((l && l.buffs) || []).forEach(b => hexKeys.add(b)));
@@ -974,18 +1100,20 @@ function render(summary, stats) {
     const diff = avgRate !== null ? winRate - avgRate : null;
 
     let tag = '';
-    if (withHex.length >= 10 && diff !== null) {
+    // V6.9.0：判 OP/WEAK 的门槛从 10 场抬到 SAMPLE_MIN——10 场里差一场就是 10pp，判出来全是噪音。
+    if (withHex.length >= SAMPLE_MIN && diff !== null) {
       if (diff > tagLine) tag = '<span class="hex-hex-op">OP</span>';
       else if (diff < -tagLine) tag = '<span class="hex-hex-weak">WEAK</span>';
     }
 
     const baseText = avgRate !== null ? `${avgRate.toFixed(1)}%` : '无样本';
     const diffText = diff !== null ? (diff > 0 ? `+${diff.toFixed(1)}%` : diff.toFixed(1) + '%') : '-';
+    const heroCi = ci95(withHex.filter(l => l && l.winner === '明教').length, withHex.length);
     const diffScale = 6; // 差值刻度：越小条越长（6 → 差 6% 即顶满半幅，视觉更夸张）
     const posPct = diff !== null && diff > 0 ? Math.min(diff / diffScale * 50, 50) : 0;
     const negPct = diff !== null && diff < 0 ? Math.min(Math.abs(diff) / diffScale * 50, 50) : 0;
 
-    rows.push({ key, name: hexLabel(key), count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag });
+    rows.push({ key, name: hexLabel(key), count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag, withHex, ciHalf: heroCi ? heroCi.half : null });
   }
 
   // 2026-10-14 按胜率从高到低排（同率时出场多的在前，次序稳定）
@@ -993,19 +1121,71 @@ function render(summary, stats) {
 
   let html = '<table><tr><th>海克斯</th><th>出场</th><th>胜率</th><th>海克斯平均</th><th>差值</th><th>判定</th><th>差值可视化</th></tr>';
   for (const r of rows) {
+    const few = r.count < SAMPLE_MIN;
     html += `<tr>
       <td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${r.name}</td>
-      <td>${r.count}</td>
-      <td>${r.winRate.toFixed(1)}%</td>
+      <td${few ? ' style="color:#888"' : ''}>${r.count}${few ? '<div class="cell-sub">（样本少）</div>' : ''}</td>
+      <td${few ? ' style="color:#888"' : ''}>${r.winRate.toFixed(1)}%</td>
       <td>${r.baseText}</td>
-      <td>${r.diffText}</td>
+      <td>${r.diffText}${r.ciHalf !== null && r.ciHalf !== undefined ? `<div class="cell-sub">±${r.ciHalf.toFixed(1)}</div>` : ''}</td>
       <td>${r.tag || '-'}</td>
       <td><div class="hex-hex-bar-wrap"><div class="hex-hex-bar-center"></div><div class="hex-hex-bar-pos" style="width:${r.posPct}%"></div><div class="hex-hex-bar-neg" style="width:${r.negPct}%"></div></div></td>
     </tr>`;
   }
   html += '</table>';
-  stats.innerHTML = html;
+
+  // V6.9.0 同批阵容细分：把上面这张表用的**同一批记录**按本局阵容切成互斥子集。
+  //   这是「姐姐/妹妹在不在，强弱差多少」唯一能横比的表——因为总盘和细分是同一条记录的两种看法，
+  //   不存在「两个实验相减」。合计列逐行校验：子集场次之和必须等于总盘场次。
+  const splitOf = list => {
+    const cells = {};
+    for (const b of LINEUP_BUCKETS) cells[b.k] = { n: 0, w: 0 };
+    for (const l of list) { const c = cells[bucketOf(l)]; c.n++; if (l && l.winner === '明教') c.w++; }
+    return cells;
+  };
+  const splitCell = c => {
+    if (!c.n) return '<td style="color:#555">—</td>';
+    const rate = c.w / c.n * 100;
+    const ci = ci95(c.w, c.n);
+    const small = c.n < SAMPLE_MIN;
+    return `<td style="color:${small ? '#888' : '#ccc'}">${rate.toFixed(1)}%`
+      + (ci ? `<div class="cell-sub">±${ci.half.toFixed(1)}</div>` : '')
+      + `<div class="cell-sub">${c.n} 场${small ? '（样本少）' : ''}</div></td>`;
+  };
+  const checkCell = (s, n) => `<td style="color:${s === n ? '#8bc34a' : '#ff5252'};font-weight:bold">${s} / ${n} ${s === n ? '✓' : '✗'}</td>`;
+  const totalCells = splitOf(logs);
+  const totalSum = LINEUP_BUCKETS.reduce((s, b) => s + totalCells[b.k].n, 0);
+
+  let splitHtml = '<div style="color:#ffd700;font-weight:bold;margin:18px 0 6px">🧩 同批阵容细分（同一批记录内互斥切分 · 合计必须 = 总盘）</div>';
+  splitHtml += '<p style="color:#999;font-size:12px;margin:0 0 8px">用的就是上面那张表同一批记录（不另跑、不重掷），只是按「本局有没有姐姐/妹妹」换个切法。'
+    + '「其他/未标注」= 旧版记录没带阵容标签；重跑一批就会归到真实子集。<span class="hex-more">▸ 说明</span></p>'
+    + '<p class="hex-more-body">合计列 = 四个子集场次相加，必须与本行总盘一致（✓ 绿 / ✗ 红）；不一致说明统计口径坏了，先别信任何结论。'
+    + `每格「胜率 / ±95% 置信区间 / 场次」，场次 &lt;${SAMPLE_MIN} 会标「样本少」——子集小的时候胜率抖动大，别拿几个百分点当结论。</p>`;
+  splitHtml += '<div class="hex-cmp-wrap"><table class="hex-cmp" style="min-width:820px"><tr><th>海克斯</th><th>总盘</th>'
+    + LINEUP_BUCKETS.map(b => `<th>${b.label}</th>`).join('') + '<th>合计校验</th></tr>';
+  splitHtml += `<tr><td style="color:#ffd700" title="不看海克斯，整批全部对局">（整批总盘）</td>`
+    + `<td>${total} 场<div class="cell-sub">明教胜 ${allyWins}</div></td>`
+    + LINEUP_BUCKETS.map(b => splitCell(totalCells[b.k])).join('')
+    + checkCell(totalSum, total) + '</tr>';
+  for (const r of rows) {
+    const cells = splitOf(r.withHex);
+    const s = LINEUP_BUCKETS.reduce((a, b) => a + cells[b.k].n, 0);
+    splitHtml += `<tr><td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${r.name}</td>`
+      + `<td>${r.count} 场<div class="cell-sub">${r.winRate.toFixed(1)}%</div></td>`
+      + LINEUP_BUCKETS.map(b => splitCell(cells[b.k])).join('')
+      + checkCell(s, r.count) + '</tr>';
+  }
+  splitHtml += '</table></div>';
+
+  stats.innerHTML = html + splitHtml;
   stats.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
+  // 自检钩子：无头验证直接拿「总盘 / 各子集场次 / 是否恒等」，不用解析 DOM 文本
+  window.__hexLineupCheck = (mode = curMode, stage = curStage, hexMode = curHex) => {
+    const lg = readLogs(mode, stage, hexMode);
+    const cells = splitOf(lg);
+    const sum = LINEUP_BUCKETS.reduce((s, b) => s + cells[b.k].n, 0);
+    return { mode, stage, hexMode, total: lg.length, buckets: Object.fromEntries(LINEUP_BUCKETS.map(b => [b.k, cells[b.k].n])), sum, ok: sum === lg.length };
+  };
 }
 
 // 2026-10-18 暴露文案登记表的 key 清单，供 126 平衡告警查「新增海克斯漏登记」
