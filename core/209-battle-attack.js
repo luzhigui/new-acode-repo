@@ -205,7 +205,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // —— 静默回血审计起点 ——
     // 本帧起点血量快照（A/B 全阵）：组内 HP_CHANGE 事件按 uid 逐条比对，血涨了就是一笔静默回血。
     const healTrace = new Map();
-    for (const u of [...(A || []), ...(B || [])]) if (u && u.uid != null) healTrace.set(u.uid, u.hp);
+    const preFrameDead = new Set();
+    for (const u of [...(A || []), ...(B || [])]) {
+        if (!u || u.uid == null) continue;
+        healTrace.set(u.uid, u.hp);
+        // 只把「早已彻底阵亡」的排除；本帧起点仍是 alive 的待死单位（毒 DOT 打空血但还没结算）算本帧死亡
+        if (!u.alive) preFrameDead.add(u.uid);
+    }
     const healLogFrom = log.length;
     let healEvtCursor = 0;
 
@@ -551,6 +557,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     //   只加审计字段，不动 alive 渲染口径。
     const attackerDeadAtSettle = !unit.alive || unit.hp <= 0 || !!unit.state._pendingDeath;
     const targetDeadAtSettle = !target.alive || target.hp <= 0 || !!target.state._pendingDeath;
+    // 本帧所有「结算前已归零/待死」的 uid（含毒 DOT、反伤、自伤、斩杀打死的非本组对手）：
+    //   统一死亡通道按 uid 认领，体检 184 不再只看这一刀打死的目标。
+    const deadBeforeSettle = [];
+    for (const u of [...(A || []), ...(B || [])]) {
+        if (!u || u.uid == null || preFrameDead.has(u.uid)) continue;
+        if (!u.alive || u.hp <= 0 || (u.state && u.state._pendingDeath)) deadBeforeSettle.push({ uid: u.uid, name: u.name, camp: u.camp });
+    }
 
     // 死亡结算恒传固定阵营 A/B：allySide/enemySide 是「出手者视角」，敌方出手时两侧被对调，
     //   ON_UNIT_DEATH 的 data.allySide 会变成敌方队伍（圣火记账等钩子按阵营认领会取错人）。
@@ -568,6 +581,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         }
         const dr = group.data.dmgResult || dmgResult;
         if (dr) dr.attackerDead = attackerDeadAtSettle;
+        group.data.deaths = deadBeforeSettle;
     }
 
     return true;

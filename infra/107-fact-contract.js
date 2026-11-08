@@ -196,8 +196,8 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
         'dmgCalc.hpBonus', 'dmgCalc.thunderBonus',
         'dmgCalc.dmgMultiplierEntries', 'dmgCalc.bonusDmgEntries',
         'dmgResult.hpBefore', 'dmgResult.dead', 'dmgResult._shield', 'dmgResult._permShield',
-        // 死亡登记（体检 184）：本帧结算前是否已归零/待死（毒/反伤/自伤/斩杀致死都算）
-        'dmgResult.attackerDead', 'snap.attackerDeadAtSettle', 'snap.targetDeadAtSettle'
+        // 死亡登记（体检 184）：本帧结算前是否已归零/待死；deaths = 本帧结算的死亡 uid 清单（毒/反伤/自伤/斩杀统一认领）
+        'dmgResult.attackerDead', 'snap.attackerDeadAtSettle', 'snap.targetDeadAtSettle', 'deaths'
     ]),
     [FACT_TYPES.BUFF_SUMMARY]: Object.freeze([
         'buff.key', 'buff.target', 'buff.remaining'
