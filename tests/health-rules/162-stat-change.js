@@ -9,9 +9,12 @@
 // 复活信号：
 //   1) delta 非有限数 → 取整被改 / 声明漏值（NaN 会污染永久词条）
 //   2) field 不在已知属性集 → 改了未登记的字段（契约缺口）
-//   3) reason 空串 → 声明源丢失，复盘无法定位谁改的
+//   3) 声明源表（group/reason）双双为空 → 复盘无法定位谁改的
+//   （2026-11-08 修误报：本 fact 有两个发出点——core/217 通用裁定带 reason，core/04 背水战士带
+//    group:'lastStandWarrior'；契约 requiredFields 不含 reason，原先硬判 reason 把 71 场背水场判红。
+//    现按 addMod 的 group 为准，无 group 的通用裁定量声明用 reason 认源，两者有其一即算登记。）
 // 误报规避：本场无 STAT_CHANGE_APPLY fact 直接 skip。
-export const VER = 'tests/health-rules/162-stat-change.js V1.0.0';
+export const VER = 'tests/health-rules/162-stat-change.js V1.1.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const VALID_FIELDS = { atk: 1, def: 1, maxHp: 1, hp: 1, spd: 1, cri: 1, eva: 1, act: 1 };
@@ -32,8 +35,9 @@ export const rule109 = {
             if (!d.field || !VALID_FIELDS[d.field]) {
                 return { fail: true, msg: '复发：属性变更 field=' + d.field + '（未登记字段）' };
             }
-            if (typeof d.reason !== 'string' || !d.reason) {
-                return { fail: true, msg: '复发：属性变更 reason 为空（声明源丢失，无法定位改动方）' };
+            const declaringSource = d.group || d.reason;
+            if (typeof declaringSource !== 'string' || !declaringSource) {
+                return { fail: true, msg: '复发：属性变更声明源为空（group/reason 均缺失，无法定位改动方）' };
             }
             checked++;
         }
