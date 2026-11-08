@@ -13,7 +13,9 @@
 // V7.1.6 | 2026-11-07 #16 显示名收口 render/414（displayNameOf）：本体与成昆幻影同走同一别名（金毛狮王谢逊 →
 //          「金毛狮王」），残影格同步；归属判据 / 数据名 / 日志结构化字段一律不动
 // V7.1.9 | 2026-11-08 彭莹玉女装状态格标 💄 → 👗（老板定案：口红不对，应为女装）
-export const VER = 'render/403-grid-render.js V7.1.9';
+// V7.1.10 | 2026-11-08 女装标识去重：删掉技能图标槽里追加的 👗——女装状态已由 state._displayName
+//          「彭莹玉♀」承担（`_crossdressRounds` 归零时还原本名），名字右侧同时出现 ♀ 和 👗 是重复
+export const VER = 'render/403-grid-render.js V7.1.10';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -368,9 +370,8 @@ export function renderGrid(id, camp) {
             eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
         }
 
-        // 彭莹玉·双面观音：女装期间挂 👗（V7.1.9 老板定案：口红 ❌ 应为女装）。此前没有这一支——
-        //   同档精英（成昆 🎭 / 唐文亮 🌿 / 张三丰 🛡️）都有状态标记，他没有，触发了格子上也看不出任何变化。
-        if (unit.state && unit.state._crossdressRounds > 0) eliteSkillIcon += ' 👗';
+        // 彭莹玉·双面观音：女装期间不再追加 👗——状态已由 state._displayName「彭莹玉♀」体现，
+        //   再挂技能槽会变成「彭莹玉♀ 👗」两个女装标识（V7.1.10 去重）。
 
         let logoList = [];
         // 金刚不坏护罩优先占位（状态性，可挂在任意单位身上；放最前避免被 buff 图标挤掉）
