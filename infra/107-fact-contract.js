@@ -1,5 +1,6 @@
 // V1.5.16 | 2026-11-08 体检转交：乾坤 fact 补登记减伤前 dmg；攻击 fact 补登记死亡结算字段（attackerDead/…AtSettle）
-export const VER = 'infra/107-fact-contract.js V1.5.16';
+// V1.5.17 | 2026-11-08 体检转交：免疫 fact 血量改实数并登记；圣火不熄复活账登记到 BUFF_SUMMARY / SKILL_ANNOUNCE
+export const VER = 'infra/107-fact-contract.js V1.5.17';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -200,7 +201,19 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
         'dmgResult.attackerDead', 'snap.attackerDeadAtSettle', 'snap.targetDeadAtSettle', 'deaths'
     ]),
     [FACT_TYPES.BUFF_SUMMARY]: Object.freeze([
-        'buff.key', 'buff.target', 'buff.remaining'
+        'buff.key', 'buff.target', 'buff.remaining',
+        // 圣火不熄复活账（core/204 随摘要下发）：revives 全量记录；平铺字段 = 最近一次复活
+        'revives', 'reviveUid', 'reviveHeal', 'reviveRaw', 'reviveMaxHp',
+        'reviveTier', 'reviveRatio', 'reviveSlot'
+    ]),
+    // 圣火不熄复活公告（core/204 reviveHolyFireUnit）：血量/回复量为引擎实数，档位便于体检反推 70% / 40%
+    [FACT_TYPES.SKILL_ANNOUNCE]: Object.freeze([
+        'unitUid', 'skillName', 'healUnitUid', 'healAmount', 'hpBefore', 'hpAfter',
+        'reviveTier', 'reviveRatio', 'reviveSlot', 'reviveMaxHp', 'reviveRaw'
+    ]),
+    // 免疫 fact（core/209 免疫分支）：attackerHp / targetHp 已是引擎实数（显示层自行取整）
+    [FACT_TYPES.IMMUNE]: Object.freeze([
+        'attacker.uid', 'target.uid', 'attackerHp', 'targetHp', 'dmgCalc.hpBefore', 'dmgCalc.dmg'
     ])
 });
 

@@ -4,7 +4,9 @@
 //         改实数差值，显示在 render/410 经 fmtNum 收口
 // V6.8.6 | 2026-11-08 体检转交：劈空/流星溅射在主伤为 0 时跳过声明（0 伤害也会触发挨打增益与成长）。
 // V6.8.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回血量可按百分比校验，不再靠最近 ATTACK 快照反推）。
-export const VER = 'core/204-buff-system.js V6.8.7';
+// V6.8.8 | 2026-11-08 体检转交：圣火不熄复活带账——复活记录（uid/实际回复量/原始量/maxHp/档位/比例/名额）写进
+//         | 阵亡者 state._holyFireRevives，随每回合 BUFF_SUMMARY 下发，复活公告同时带 healAmount 等结构化字段。
+export const VER = 'core/204-buff-system.js V6.8.8';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -366,10 +368,29 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 }
 
 export function logBuffSummary(allyTeam, ctx) {
-    let buffs = allyTeam._activeBuffs || [];
+    const buffs = allyTeam._activeBuffs || [];
     const aliveUids = allyTeam.filter(u => u.alive).map(u => u.uid);
+    // 圣火不熄复活账（体检转交）：此前摘要只有「每局首次阵亡单位原地复活」一句文案，293 条无法按 uid 归账。
+    //   复活发生在摘要之后（回合中/回合开始兜底），记录写在阵亡者本人 state（跨回合存活），这里随摘要下发。
+    const holyFireRevives = [];
+    for (const u of allyTeam) {
+        if (!u || !u.state || !Array.isArray(u.state._holyFireRevives)) continue;
+        for (const r of u.state._holyFireRevives) holyFireRevives.push(r);
+    }
     buffs.forEach(b => {
-        ctx.log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeamUids: aliveUids, doubleStrikeUids: ctx.doubleStrikeUids } });
+        const data = { buff: b, allyTeamUids: aliveUids, doubleStrikeUids: ctx.doubleStrikeUids };
+        if (b.key === BUFF_TYPES.HOLY_FIRE && holyFireRevives.length) {
+            const last = holyFireRevives[holyFireRevives.length - 1];
+            data.revives = holyFireRevives;       // 全量复活记录（体检按 uid 逐条归账）
+            data.reviveUid = last.uid;            // 最近一次复活单位 uid
+            data.reviveHeal = last.heal;          // 实际回复量（缺口夹取后）
+            data.reviveRaw = last.raw;            // 档位原始量 ratio×maxHp（回复被上限夹取时仍可反推档位）
+            data.reviveMaxHp = last.maxHp;
+            data.reviveTier = last.tier;          // 第几次复活（team 名额按本人已用次数；self 名额恒 1）
+            data.reviveRatio = last.ratio;        // 实际档位比例（1.0/0.7/0.4/0.3）
+            data.reviveSlot = last.slot;          // 'team' 团队名额 / 'self' 妹独立名额
+        }
+        ctx.log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data });
     });
 }
 
@@ -712,12 +733,14 @@ function reviveHolyFireUnit(u, team, log, slot) {
     // 妹独立名额（slot='self'）回血率唯一真源 = 201 brother.holyFire.reviveRatio（缺则炸）；
     //   团队名额（slot 非 self）有姊强化走姊表，否则回落普通版
     let ratio;
+    let reviveTier;
     if (slot === 'self') {
         const brotherHFEnh = getBrotherHexEnhance('holyFire');
         if (!brotherHFEnh || brotherHFEnh.reviveRatio == null) {
             throw new Error('002-hex-enhance.json 缺 brother.holyFire.reviveRatio');
         }
         ratio = brotherHFEnh.reviveRatio;
+        reviveTier = 1;               // 妹独立名额每局 1 次，档位恒第 1 次
     } else {
         // 姊强化：首复活 100% / 次复活 70%（按本人已用次数选档）；无强化回落普通版
         const used = u.state._holyFireUses || 0;
@@ -726,6 +749,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
                           : (enhance.secondReviveRatio != null ? enhance.secondReviveRatio : 0.7))
             : (cfg.reviveRatio != null ? cfg.reviveRatio : 0.4);
         u.state._holyFireUses = used + 1;
+        reviveTier = used + 1;        // 第几次复活（体检按档位反推 70% / 40%）
     }
     // 落位取格：原格若被活人占（召唤物/换位挤进来）→ core/05 findFreePos 按「原格+1 环形顺延」取首个空位
     //   （findFreePos 只算 alive 占位、尸体不占格，故通常直接原地复活）
@@ -745,17 +769,32 @@ function reviveHolyFireUnit(u, team, log, slot) {
     // 文案报实际落地值：下面 isHeal=false 不吃截脉/寒毒，故不能用 previewHeal（会误打折），按 maxHp 缺口夹取即实际值
     const reviveRaw = Math.round(u.maxHp * ratio);
     const reviveHeal = Math.min(reviveRaw, Math.max(0, u.maxHp - u.hp));
+    const hpBeforeRevive = u.hp;
     applyStatChange(u, 'hp', reviveRaw, null, '圣火不熄', false, false);
     // 复活即可动：删「当回合眩晕」（原 withStun 置 _stunned 挡本回合剩余行动），_acted 统一清 false——
     //   回合中复活（BEFORE_STATE_TRANSITION）本轮没动过就补上这一手，动过则多给一手（每局仅 1 次，代价可控）；
     //   回合开始兜底同口径。
     u.state._acted = false;
     emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: true, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
+    // 复活账（体检归账）：实际回复量/原始量/档位/名额写进本人 state，随每回合 BUFF_SUMMARY 下发；
+    //   复活公告也补结构化字段，体检不必再从 note 中文里抠数字（note 文案保持不变）。
+    const reviveSlot = slot === 'self' ? 'self' : 'team';
+    const rec = {
+        uid: u.uid, name: u.name, camp: u.camp,
+        slot: reviveSlot, tier: reviveTier, ratio,
+        heal: reviveHeal, raw: reviveRaw, maxHp: u.maxHp,
+        hpBefore: hpBeforeRevive, hpAfter: u.hp
+    };
+    if (!u.state._holyFireRevives) u.state._holyFireRevives = [];
+    u.state._holyFireRevives.push(rec);
     if (log) {
         log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
             unitName: u.name, unitUid: u.uid, camp: u.camp, skillName: '圣火不熄',
             note: `🕯️ 圣火不熄！${u.name} 原地复活，回复 ${fmtNum(reviveHeal)} 点生命`,
-            floatText: '🕯️', floatUid: u.uid
+            floatText: '🕯️', floatUid: u.uid,
+            healUnitUid: u.uid, healAmount: reviveHeal,
+            hpBefore: hpBeforeRevive, hpAfter: u.hp,
+            reviveTier, reviveRatio: ratio, reviveSlot, reviveMaxHp: u.maxHp, reviveRaw
         } });
     }
 }

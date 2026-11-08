@@ -6,7 +6,9 @@
 //         | 成昆文案逐字不变；旧 fact 仍按 deceiverIsSpider 兜底。
 // V1.1.4 | 2026-11-08 buff 摘要按实际生效档读数：小昭·姊存活在场时用 002 sister 段覆盖普通版，
 //         | 覆盖 圣火令/摄魂/背水一战/众志成城/热血奋战/流云身法/乘风突袭/惑人心智/圣火不熄/概率连击。
-export const VER = 'render/411-facts-misc.js V1.1.4';
+// V1.1.5 | 2026-11-08 体检转交：圣火不熄摘要带复活账（复活单位 uid / 第几次 / 档位比例 / 实际回复量），
+//         | 不再只印一句通用文案；结构化字段同步挂到渲染条目上供体检归账。
+export const VER = 'render/411-facts-misc.js V1.1.5';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -73,13 +75,31 @@ const BUFF_SUMMARY_CFG = {
     }},
 };
 
-export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids) {
+export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUids, revives) {
     const baseCfg = CONFIG.BUFFS?.[buff.key];
     if (!baseCfg) return null;
 
     const allyTeam = (allyTeamUids || []).map(uid => findUnitSnapshotByUid(uid)).filter(u => u);
     // 实际生效档：小昭·姊在场时用姊版数值，否则普通版
     const cfg = withSisterValues(buff.key, baseCfg, allyTeam);
+
+    // 圣火不熄：有复活账时按实际复活记录出账（复活单位 / 第几次 / 档位百分比 / 实际回复量），
+    //   不再只印「每局首次阵亡单位原地复活」一句通用文案；全量记录随条目下发给体检逐 uid 归账。
+    if (buff.key === BUFF_TYPES.HOLY_FIRE && Array.isArray(revives) && revives.length) {
+        const last = revives[revives.length - 1];
+        const pct = typeof last.ratio === 'number' ? fmtNum(last.ratio * 100) : '?';
+        const body = last.slot === 'self'
+            ? `${last.name}（妹名额·${pct}%档·回复${fmtNum(last.heal)}）`
+            : `${last.name}（第${last.tier}次复活·${pct}%档·回复${fmtNum(last.heal)}）`;
+        return {
+            type: 'buff-summary',
+            text: `<span class="gold">${cfg.icon} ${cfg.name}：${body}</span>`,
+            buffType: BUFF_SUBTYPES.BUFF_STAT,
+            reviveUid: last.uid, reviveHeal: last.heal, reviveTier: last.tier,
+            reviveRatio: last.ratio, reviveSlot: last.slot,
+            revives
+        };
+    }
 
     // 概率连击统一在此处理
     if (buff.key === BUFF_TYPES.DOUBLE_STRIKE) {
@@ -169,7 +189,7 @@ export function renderPhantomConfuseFact(fact) {
 
 // ── 注册 ────────────────────────────────────────────────
 registerFactRenderer(FACT_TYPES.HORSE_DESTROY, renderHorseDestroyFact);
-registerFactRenderer(FACT_TYPES.BUFF_SUMMARY, (data) => renderBuffSummaryFact(data.buff, data.allyTeamUids, data.doubleStrikeUids));
+registerFactRenderer(FACT_TYPES.BUFF_SUMMARY, (data) => renderBuffSummaryFact(data.buff, data.allyTeamUids, data.doubleStrikeUids, data.revives));
 registerFactRenderer(FACT_TYPES.XUAN_MING_DOT, renderXuanmingDotFact);
 registerFactRenderer(FACT_TYPES.XUAN_MING_POISONED, renderXuanmingPoisonedFact);
 registerFactRenderer(FACT_TYPES.XUAN_MING_LINK_ATTACK, renderXuanmingLinkAttackFact);

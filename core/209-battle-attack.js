@@ -1,6 +1,7 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
 // V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
-export const VER = 'core/209-battle-attack.js V6.4.12';
+// V6.4.13 | 2026-11-08 体检转交：免疫分支 attackerHp/targetHp 改实数（取整只留在显示层，fact 给引擎真值）
+export const VER = 'core/209-battle-attack.js V6.4.13';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
@@ -355,9 +356,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             reason: immuneResult.reason || null,
             flyData: immuneResult.flyData || null,
             attackerAtk: Math.floor(unit.atk),
-            attackerHp: fmtHp(unit.hp),
+            attackerHp: unit.hp,          // 实数（取整只留给显示层 fmtHpText）
             targetDef: Math.floor(target.def),
-            targetHp: fmtHp(target.hp),
+            targetHp: target.hp,          // 实数
             hpPctBefore: immuneHpPctBefore,
             hpPctAfter: immuneHpPctAfter,
             dmgCalc: dmgCalc, // 透传伤害计算结果，供前端渲染波动与原始伤害行
