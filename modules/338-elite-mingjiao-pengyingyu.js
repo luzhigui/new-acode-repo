@@ -10,7 +10,10 @@
 //   「真身隐去」语义（不可选中窗口）保留不变。
 // V1.0.6 | 2026-11-08 女装期照常掷骰：仍在女装（剩余回合 >0）时掷骰成功 → 当前剩余回合 +1 顺延，
 //   不再提前 return 跳过；战报用「女装延长 1 回合」，与首次「女装上阵」区分。褪装当回合仍不掷。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.6';
+// V1.0.7 | 2026-11-08 名字保持本名：不再写 state._displayName（原「彭莹玉♀」后缀撤掉），
+//   女装状态改为由 render/403 在技能图标槽挂 👗 + 未行动格淡粉红底色表达；
+//   DISGUISE/UNVEIL 技能 cue 不再翻转名字牌，只保留薄纱/碎屑特效。
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.7';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -35,9 +38,6 @@ export const doubleFaceHandler = {
         const disguiseChance = params.disguiseChance;
         const openingChance = params.openingChance;
         const duration = params.duration;
-        // 变装期的显示名：只影响格子名字牌（render/403 单点读取），日志/机制仍按 self.name；
-        //   用「彭莹玉♀」而不是另编一个女名——4 字不触发长名压缩，也一眼看出是女装状态
-        const DISGUISE_NAME = '彭莹玉♀';
 
         // 女装轮转：每回合开始先递减剩余回合，到 0 再掷骰进入；首回合用更高的 openingChance。
         registerSettlementHook({
@@ -48,13 +48,12 @@ export const doubleFaceHandler = {
                 if (self.state._crossdressRounds > 0) {
                     self.state._crossdressRounds -= 1;
                     if (self.state._crossdressRounds === 0) {
-                        // 刚褪装（进入 0）：妆容碎屑往下散 + 名字牌翻回本名（line:false 不落战报行）
+                        // 刚褪装（进入 0）：妆容碎屑往下散（line:false 不落战报行），名字牌保持本名不动
                         //   褪装当回合不掷骰，保持原节奏：从下一回合起按 disguiseChance 掷
-                        self.state._displayName = null;
                         if (data.log && self.pos != null) {
                             pushSkillAnnounce(data.log, self, '双面观音', '', {
                                 line: false,
-                                cue: { kind: SKILL_CUE_KINDS.UNVEIL, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: DISGUISE_NAME, toName: self.name }
+                                cue: { kind: SKILL_CUE_KINDS.UNVEIL, unit: { uid: self.uid, camp: self.camp, pos: self.pos } }
                             });
                         }
                         return;
@@ -72,10 +71,9 @@ export const doubleFaceHandler = {
                 self.state._crossdressRolled = true;
                 if (getBattleRng().next() >= chance) return;
                 self.state._crossdressRounds = duration;
-                self.state._displayName = DISGUISE_NAME;
-                // 变装：薄纱扫过 + 名字牌换成女装名（只表现，不改数值与目标规则）
+                // 变装：薄纱扫过（只表现，不改数值与目标规则）；名字牌不换名，仍按本名显示
                 const cue = self.pos != null
-                    ? { kind: SKILL_CUE_KINDS.DISGUISE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: self.name, toName: DISGUISE_NAME, rounds: duration }
+                    ? { kind: SKILL_CUE_KINDS.DISGUISE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, rounds: duration }
                     : null;
                 pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装上阵，真身隐去 ${duration} 回合。`, { cue });
             }

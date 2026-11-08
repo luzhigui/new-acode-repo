@@ -13,9 +13,10 @@
 // V7.1.6 | 2026-11-07 #16 显示名收口 render/414（displayNameOf）：本体与成昆幻影同走同一别名（金毛狮王谢逊 →
 //          「金毛狮王」），残影格同步；归属判据 / 数据名 / 日志结构化字段一律不动
 // V7.1.9 | 2026-11-08 彭莹玉女装状态格标 💄 → 👗（老板定案：口红不对，应为女装）
-// V7.1.10 | 2026-11-08 女装标识去重：删掉技能图标槽里追加的 👗——女装状态已由 state._displayName
-//          「彭莹玉♀」承担（`_crossdressRounds` 归零时还原本名），名字右侧同时出现 ♀ 和 👗 是重复
-export const VER = 'render/403-grid-render.js V7.1.10';
+// V7.1.11 | 2026-11-08 女装标识定案（老板反转）：名字保持本名，女装状态只由技能图标槽的 👗 表达
+//          （读 unit.state._crossdressRounds，褪装自动消失）；女装期间「未行动」格底色由淡绿改淡粉红，
+//          只换底色（文字/图标/边框/血条不动），已行动格保持 acted 原色，褪装即恢复淡绿
+export const VER = 'render/403-grid-render.js V7.1.11';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -289,6 +290,10 @@ export function renderGrid(id, camp) {
         const div = cells[i];
         resetCell(div);
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
+        // 彭莹玉·双面观音女装期间：只把「未行动」格的淡绿底换成淡粉红（内联样式压过 .cell.ready 的
+        //   #d4edda，但不影响 !important 的 resting/fixed-unit/受击闪色）；已行动格保持 acted 原色，
+        //   褪装后 readyClass 分支不再命中，底色自动回淡绿。文字/图标/边框/血条一律不动。
+        if (readyClass && unit.state && unit.state._crossdressRounds > 0) div.style.background = '#ffe4ec';
         // 金刚不坏护罩：淡金罩子由 CSS 伪元素画，随格子重绘自动跟随（state 清空即消失）
         // 死亡格不画罩子：毒/反伤/自损不走免疫分支，护罩没被消耗人却死了——红底✕外罩金圈很怪
         if (unit.state && unit.state._immuneShield && !isDead) div.classList.add('has-immune-shield');
@@ -370,8 +375,9 @@ export function renderGrid(id, camp) {
             eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
         }
 
-        // 彭莹玉·双面观音：女装期间不再追加 👗——状态已由 state._displayName「彭莹玉♀」体现，
-        //   再挂技能槽会变成「彭莹玉♀ 👗」两个女装标识（V7.1.10 去重）。
+        // 彭莹玉·双面观音：女装期间（_crossdressRounds > 0）技能图标槽挂 👗 状态标记，
+        //   名字保持本名不动；褪装（回合归零）图标自动消失
+        if (unit.state && unit.state._crossdressRounds > 0) eliteSkillIcon += ' 👗';
 
         let logoList = [];
         // 金刚不坏护罩优先占位（状态性，可挂在任意单位身上；放最前避免被 buff 图标挤掉）
