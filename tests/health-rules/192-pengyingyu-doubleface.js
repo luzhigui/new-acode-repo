@@ -4,7 +4,7 @@
 //   desc 写「女装期间自身造成的伤害 ×1.5」；modules/338 的 DMG_BONUS 是硬编码常量，label
 //   「双面观音（伤害×1.5）」走 DMG_MULTIPLIER 声明进伤害计算。
 // 引擎落点：
-//   报幕「彭莹玉 女装上阵，真身隐去 N 回合。」；
+//   报幕「彭莹玉 女装上阵，众人不忍下手（N 回合）。」；
 //   女装状态下是敌方唯一可选目标时改打自己队友，fact PHANTOM_CONFUSE（sourceSkill='双面观音'，
 //   deceiver=彭莹玉，targetName=被误导的队友）。
 // 复发信号：
@@ -13,7 +13,7 @@
 //   3) 女装增伤声明值 ≠ desc 的 ×1.5，或 label 里的数字 ≠ 实际倍率（文案与引擎脱钩）；
 //   4) PHANTOM_CONFUSE 归因错（sourceSkill 丢失 / 受骗者打的是彭莹玉本人 / deceiver 不是彭莹玉）。
 // 误报规避：本场既无彭莹玉报幕也无其攻击事实直接 skip；desc 数字解析失败时跳过第 3 条数值比对。
-export const VER = 'tests/health-rules/192-pengyingyu-doubleface.js V1.0.1';
+export const VER = 'tests/health-rules/192-pengyingyu-doubleface.js V1.0.2';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { getSkillParams, getGameData } from '../../core/201-config-5v5-test.js';
 import { entryTextsDeep, plain } from '../122health-utils.js';
@@ -65,7 +65,7 @@ export const rule192 = {
         // 判据 1：报幕时长 = 配置
         var disguiseCount = 0;
         for (var k = 0; k < texts.length; k++) {
-            var m = texts[k].match(/彭莹玉 女装上阵，真身隐去 (\d+) 回合/);
+            var m = texts[k].match(/彭莹玉 女装上阵，众人不忍下手（(\d+) 回合）/);
             if (!m) continue;
             disguiseCount++;
             if (parseInt(m[1], 10) !== duration) {

@@ -7,13 +7,15 @@
 // V1.0.4 | 2026-11-08 体检转交：女装增伤倍率参数化（content.skills.doubleFace.params.dmgBonus），
 //   不再硬编码 1.5；缺参数显式抛错，避免「改配置不改战局」。
 // V1.0.5 | 2026-11-08 文案修正：机制是「女装」不是「分身」，旧报幕「化出××」改为「女装上阵」；
-//   「真身隐去」语义（不可选中窗口）保留不变。
+//   那一刻起的「敌方无法对她出手」窗口保留不变。
 // V1.0.6 | 2026-11-08 女装期照常掷骰：仍在女装（剩余回合 >0）时掷骰成功 → 当前剩余回合 +1 顺延，
 //   不再提前 return 跳过；战报用「女装延长 1 回合」，与首次「女装上阵」区分。褪装当回合仍不掷。
 // V1.0.7 | 2026-11-08 名字保持本名：不再写 state._displayName（原「彭莹玉♀」后缀撤掉），
 //   女装状态改为由 render/403 在技能图标槽挂 👗 + 未行动格淡粉红底色表达；
 //   DISGUISE/UNVEIL 技能 cue 不再翻转名字牌，只保留薄纱/碎屑特效。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.7';
+// V1.0.8 | 2026-11-08 设定纠正：女装＝「别人不忍下手」，不是隐身/真身隐去；
+//   报幕与注释统一口径，机制（过滤/概率/回合数/顺延）一行未动。
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.8';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -75,7 +77,7 @@ export const doubleFaceHandler = {
                 const cue = self.pos != null
                     ? { kind: SKILL_CUE_KINDS.DISGUISE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, rounds: duration }
                     : null;
-                pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装上阵，真身隐去 ${duration} 回合。`, { cue });
+                pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装上阵，众人不忍下手（${duration} 回合）。`, { cue });
             }
         });
 
@@ -98,7 +100,7 @@ export const doubleFaceHandler = {
             }
         });
 
-        // 「敌人不打他」：女装期间把本单位从敌方候选池里剔除（core/07 注册面，core/10 每回合清场，
+        // 「敌人不忍下手」：女装期间把本单位从敌方候选池里剔除（core/07 注册面，core/10 每回合清场，
         //   故必须在这里用固定 id 重挂，同 id 覆盖＝幂等）。filter 本体无状态：只读调用时传入的
         //   attacker / candidates 与候选实例自身的 state，不闭包回合快照、不 splice 引擎数组；
         //   全被剔除＝返回空数组，引擎按「本轮无目标」处理，不做兜底。
@@ -111,7 +113,7 @@ export const doubleFaceHandler = {
             return kept.length === candidates.length ? null : kept;
         });
 
-        // 「唯一目标」：女装中他是敌方唯一可选目标时，敌方改为误攻自己的队友（走 phantomFact 既有路径），
+        // 「唯一可打人选」：女装中他是敌方唯一可打的人时，敌方不忍下手、改为误攻自己的队友（走 phantomFact 既有路径），
         //   而不是空过。这一条放在「选目标声明层」（core/12 先读 targetResult、命中就不再跑过滤器），
         //   所以不改 core/12 的空池＝无目标语义；也没有把攻击者队友塞进敌方候选池。
         registerSettlementHook({
