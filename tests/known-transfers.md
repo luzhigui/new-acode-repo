@@ -122,3 +122,32 @@
 | 6 | 对照器**输出格式**无自检的历史风险（第 127 轮闭环） | `mutation-teeth` 此前只 grep 汇总行「检出重复应用 N 处」取一个总数：一旦 stat-decl 改文案，18 颗 ATTR 牙的「对照器兜住」会**集体静默失去依据且不报错** | 已闭环 | 由新自检①（契约表可解析 + 规模下限 50）钉住；同款风险请照此排查其他「靠 grep 抓结论行」的 harness 环节 |
 | 7 | 回放 picker 的「姊版流星时长」不可观测 | `tests/_lib/buff-picker.mjs` V1.1.1 只给 `hotBlood/windAssault/unity` 补 `extraDuration`，`meteorShower` 仍写 `def.duration`(3)；而 `modules/329` 姊版读 002 `sister.meteorShower.duration`(4) ⇒ 回放里这条分支永远走不到。离线契约器 `tests/buff-ttl-contract.mjs` 已把实现面全覆盖（PASS） | 覆盖缺口（样本层，非主代码缺陷） | 若要在回放侧也硬验：改 picker 同步 meteorShower（tests-only）；但该 buff 会多留 1 回合、可能移动战报轨迹与基线，需重录基线，等拍板后再做 |
 | 8 | 妹永久 carry 层数无上限 | `modules/323` L247-252 注释已载明设计：`ttl:'round'` 每回合清理后重挂，天然消除「永久挂法」的无限叠加；`_xiaoCarryDeaths` 随存活上限自然收敛 | 设计（非缺陷） | 本轮 228 只验「层数在 002 栅格 / 逐层与层数同源 / 同回合不重复挂账」，不设上限判据；若产品要硬性封顶，需 002 加 `maxLayers` + 323 夹取（主代码），届时 228 再加一条上限判据 |
+
+## 六、2026-11-08 战报全量导出对账（`bug-report-1794144522505.md`）
+
+> 来源：老板上传的全量导出（battleLog / battleFacts 全流 / ally·enemy 快照含 `_mods` 账本 / domLogText）。只读核对，未改主代码。
+> 三档收口：**确认为 bug 2 条 · 口径差异（不算 bug）7 条 · 待定 2 条**。
+
+### 6.1 确认为 bug（2 条）
+
+| # | 位置 | 印出来的 ≠ 实际算的 | 改哪一侧 |
+|---|---|---|---|
+| 1 | `content/001-game-data.json` L1103 ↔ `content/002-hex-enhance.json` L22 | buff 面板描述写「姐姐强化补满到 5」，引擎读 002 的 `sister.unity.recruitTarget = 6`，且摘要文案按 `hasXiaoZhaoSister` 合并配置生成（`render/411-facts-misc.js` L71）⇒ 姊版实际补 6 人、面板说 5 | content 文案 5→6（低危、纯文本） |
+| 2 | `core/212-battle-attack-chain.js` L499 | 同一份 attack 快照里 `attackerMaxHp` 用 `Math.floor(unit.maxHp)`，而 `attackerHp` 走 `fmtHp`（≥10 取整）；本报告实证同一实数 165.825 写成 `attackerHp=166`、`attackerMaxHp=165`。同批 miss 快照的 maxHp 反而走 `fmtHp` 写 201 | 主代码 L499 → `fmtHp(unit.maxHp)`（仅快照字段，不动结算） |
+
+### 6.2 口径差异（不算 bug，7 条，依据已核到行）
+
+1. **众志成城「4 人」vs「6 人」**：**6 是对的**。人数档位取 `aliveN = team.filter(u => u.alive).length`（`core/204-buff-system.js` L251），**含召唤物**（本局蹦蹦 u122 计入），6 人档 = 攻 +20% / 防 +30%，与 `_mods` 账本一致；「补满 4 人」是**补员目标** `recruitTarget`（普通版 4、姊版 6），不是人数口径。摘要文案由 `render/411-facts-misc.js` L71 读配置生成，不是写死文案。
+2. **`unityApply` ×12 + `skillAnnounce` ×6**：双通道声明，不是重复记账。apply 是纯记账 fact（`infra/107-fact-contract.js` L185 `renderFn:null`，不进战报）；announce 带 `line:false`（`render/407-facts-attack.js` L340 直接返回 null）；`addMod` 每属性只调一次（`core/204` L258-259），战报只有 1 行 buff-summary。
+3. **吸星三数严格相等**：受害者逐项增量合计 = `absorbedTotal`（atk 0.316+0.1+0.1+0.269+0.323+0.1+0.368+0.381+0.344+0.354=2.655；def 合计 2.203；maxHp 合计 13.275）；施术者俞莲舟三条正增量同值。`cue.targets` 与 `beneficiaries` 数值一致（u31 0.316/0.284/1.625 … u40 0.354/0.236/1.4）。注意：`beneficiaries` 含施术者 3 条正增量（`modules/334-common-absorb.js` L85-87），全表求和会翻倍。
+4. **破防条目排在命中结算前**：设计。`core/217-effect-handlers.js` L87-94 在伤害计算前把 -2 写进目标 def（本次 `defBase 36→34`、`defAct 34+4=38`）；`render/407-facts-attack.js` L156 再把条目 unshift 到组首；`04 职业设定.md` L44 明确「破防在 beforeDamageCalc 阶段执行，破防后的防御直接参与本次伤害」；历史履历 L847 同口径。`defReduced:2` 与 `pendingDefReduceFact.reduce:2` 同源（`core/217` L92/L94）。
+5. **伤害行印 18、血条只掉 13**：设计口径。波动减伤 `hpBonus`（本击 5）在 `core/212` L337-338 从扣血里抵扣，`dmg` 本身保留供吸血/反伤/破防计数（L239 注释）；玩家可用明细「减伤5」对上 18-5=13。
+6. **取整**：`snap.attackerHp` / `snap.targetHpAfter` / `damage-text.hpAfter` 与对应 `*Real` 都走 `fmtNum`（`infra/102-core-utils.js` L162-180：<10 一位小数、≥10 取整）；`domLogText` 寒离飒 `血163/163` 与快照 162.5 只是取整（`ui/706-main-battle.js` L302 走 `fmtHpText`）。唯一例外是 6.1-2 的 `attackerMaxHp`。
+7. **可疑 state 字段全部设计**：`_crossdressRolled:false`（`core/218-state-keys.js` L242 默认为假，只有彭莹玉 `modules/338` L65 置真）；`_immuneExecute:true`（`modules/319-elite-mingjiao-hanlisa.js` L35，寒离飒免斩杀）；`_hlsTaken:[18.2]`（同文件 L191-193 最近 3 回合承伤桶，记 dmg 不记扣血，`ui/720-hanlisa-aim.js` L787 取档）；破防 `ttl:'permanent'`（`core/217` L91，`tests/mutation-teeth.mjs` L225 明确断言）。
+
+### 6.3 待定（2 条）
+
+| # | 现象 | 待拍板 |
+|---|---|---|
+| 1 | 破防 -2 被众志成城乘区放大：`getStat=(base+add)×(1+mul)` ⇒ 面板实数 36.5508→33.9508（实掉 2.6），而本次伤害算式按 floor 后 -2 用 34；同一条「防御 -2」两种口径 | 是否统一（破防改走乘区/调 getStat 顺序，或接受并改文案） |
+| 2 | 「造成 18 伤害」与血差 13 的文案口径（见 6.2-5） | 是否把伤害行改成印落地扣血 `dmg - hpBonus`（渲染侧） |
