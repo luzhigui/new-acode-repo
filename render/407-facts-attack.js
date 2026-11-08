@@ -14,7 +14,10 @@ import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } fr
 // V1.5.10 | 2026-11-08 体检转交：伤害/护盾吸收行补 unitUid + hpBefore + hpAfterReal（护盾与扣血可归账）
 // V1.5.11 | 2026-11-08 体检转交：未命中/闪避渲染补挂 phantomFact（幻影改目标那击可查）；
 //         | 免疫组 hpAfter 改取事实里的实数 fact.targetHp（原来取 target.hp，而 immune 事实只带 uid/name/camp）
-export const VER = 'render/407-facts-attack.js V1.5.11';
+// V1.5.12 | 2026-11-08 伤害行与血条对不上：波动减伤 hpBonus 在扣血时已抵掉，显示 dmg 却仍按原值印
+//         | （「造成 18」血条只掉 13）→ 伤害行/飘字/语音 _dmg 统一改印 dmg−hpBonus（下限 0）；
+//         | fact 里的 dmgCalc.dmg/dmgResult.dmg 不动（吸血/反伤/破防与体检 180 仍按原值）。
+export const VER = 'render/407-facts-attack.js V1.5.12';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -98,6 +101,9 @@ export function renderAttackFact(fact) {
     const dmgCalc = fact.dmgCalc;
     const dmgResult = fact.dmgResult;
     const snap = fact.snap || {};
+    // 波动减伤 hpBonus 在扣血时抵掉（core/12 hpLoss=max(0,dmg-hpBonus)），但 dmg 本身留给吸血/反伤/破防用。
+    //   显示口径必须跟着掉血走，否则出现「造成 18」而血条只掉 13；扣到 0 为止，不出现负伤害。
+    const shownDmg = Math.max(0, (dmgResult.dmg || 0) - (dmgCalc.hpBonus || 0));
     const ac = unit.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
@@ -130,7 +136,7 @@ export function renderAttackFact(fact) {
         waveTaunt: dmgCalc.waveTaunt, waveUnit: dmgCalc.waveUnit,
         unitRole,
         _fxSnapshot: fxSnapshot,
-        _dmg: dmgResult.dmg,
+        _dmg: shownDmg,
         _isZhangNear: isZhangNear,
         _nearAtkCount: nearAtkCount,
         hpPctBefore: fact.hpPctBefore,
@@ -195,20 +201,20 @@ export function renderAttackFact(fact) {
         ? renderKillLineFact({
             ac, dc, campA, campD,
             unitName: unit.name,
-            dmg: fmt1(dmgResult.dmg),
+            dmg: fmt1(shownDmg),
             targetName: target.name,
             hpBefore: fmtHpText(dmgResult.hpBefore),
             hpNow: fmtHpText(targetHpAfter)
         }).text
-        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${fmtHpText(dmgResult.hpBefore)} → ${fmtHpText(targetHpAfter)} ${dmgResult.dead?'💀阵亡':''}`;
+        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(shownDmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${fmtHpText(dmgResult.hpBefore)} → ${fmtHpText(targetHpAfter)} ${dmgResult.dead?'💀阵亡':''}`;
     // 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     // dmg：player/46 播到这行时用它弹伤害飘字（原先飘字由 fx/88 在命中后 1100ms 打，
     //   已改为「播到伤害行同帧打」，所以这里必须把数值带出来）。
-    //   取值与上面 damageText 里显示的完全同源（都是 Math.round(dmgResult.dmg)），数字与文案一致。
+    //   取值与上面 damageText 里显示的完全同源（都是 shownDmg＝dmg−hpBonus），数字与文案一致。
     group.entries.push({
         type:'damage-text',
         deadFlag: directKill,
-        dmg: fmtNum(dmgResult.dmg),
+        dmg: fmtNum(shownDmg),
         // 2026-11-04 补丢字段：player/46 发飘字与血条预演的门槛是 dmg>0 且 hpAfter!==undefined——
         //   飘字从 fx 层搬到 player 层时只带出了 dmg，hpAfter 忘带 → 全仓普攻掉血飘字集体哑火（老板实锤三轮）
         hpAfter: targetHpAfter,

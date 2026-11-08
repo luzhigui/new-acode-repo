@@ -4,7 +4,7 @@ import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, SKILL_CU
 import { makeHealAction } from './418-actions-translate-heal.js';
 // 攻击组内回血名单改从契约层引（原先硬编码在本文件 L205，新增回血忘加 = 攻击组内飘字静默漏掉）
 import { ATTACK_GROUP_HEAL_FACTS } from '../infra/107-fact-contract.js';
-export const VER = 'render/416-actions-translate-attack.js V1.0.7';
+export const VER = 'render/416-actions-translate-attack.js V1.0.8';
 
 // 攻击族翻译器表（键=factType）
 export const ATTACK_TRANSLATORS = {
@@ -146,7 +146,8 @@ function makeAttackAction(data, index) {
     const attacker = data.attacker;
     const target = data.target;
     const dmgResult = data.dmgResult;
-    const dmg = Math.round(dmgResult?.dmg ?? 0);
+    // 与伤害行/血条同源：hpBonus 在 core/12 已从扣血里抵掉，演出数字与血条预演不得再按原 dmg（否则飘字 18、血条掉 13）
+    const dmg = Math.round(Math.max(0, (dmgResult?.dmg ?? 0) - (data.dmgCalc?.hpBonus ?? 0)));
     const dead = !!(dmgResult?.dead || dmgResult?.executeKill);
     const hpAfter = data.snap?.targetHpAfter !== undefined
         ? data.snap.targetHpAfter
