@@ -8,7 +8,9 @@
 //   不再硬编码 1.5；缺参数显式抛错，避免「改配置不改战局」。
 // V1.0.5 | 2026-11-08 文案修正：机制是「女装」不是「分身」，旧报幕「化出××」改为「女装上阵」；
 //   「真身隐去」语义（不可选中窗口）保留不变。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.5';
+// V1.0.6 | 2026-11-08 女装期照常掷骰：仍在女装（剩余回合 >0）时掷骰成功 → 当前剩余回合 +1 顺延，
+//   不再提前 return 跳过；战报用「女装延长 1 回合」，与首次「女装上阵」区分。褪装当回合仍不掷。
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.6';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -45,8 +47,9 @@ export const doubleFaceHandler = {
                 if (!self.alive) return;
                 if (self.state._crossdressRounds > 0) {
                     self.state._crossdressRounds -= 1;
-                    // 刚褪装（进入 0）：妆容碎屑往下散 + 名字牌翻回本名（line:false 不落战报行）
                     if (self.state._crossdressRounds === 0) {
+                        // 刚褪装（进入 0）：妆容碎屑往下散 + 名字牌翻回本名（line:false 不落战报行）
+                        //   褪装当回合不掷骰，保持原节奏：从下一回合起按 disguiseChance 掷
                         self.state._displayName = null;
                         if (data.log && self.pos != null) {
                             pushSkillAnnounce(data.log, self, '双面观音', '', {
@@ -54,6 +57,14 @@ export const doubleFaceHandler = {
                                 cue: { kind: SKILL_CUE_KINDS.UNVEIL, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, fromName: DISGUISE_NAME, toName: self.name }
                             });
                         }
+                        return;
+                    }
+                    // 仍在女装（含第 2 回合）：照常掷骰。成功＝在当前剩余回合上 +1 顺延，
+                    //   不是重置成 duration、也不是忽略；文案用「女装延长」，与「女装上阵」区分。
+                    self.state._crossdressRolled = true;
+                    if (getBattleRng().next() < disguiseChance) {
+                        self.state._crossdressRounds += 1;
+                        pushSkillAnnounce(data.log, self, '双面观音', `${self.name} 女装延长 1 回合（剩余 ${self.state._crossdressRounds} 回合）。`);
                     }
                     return;
                 }
