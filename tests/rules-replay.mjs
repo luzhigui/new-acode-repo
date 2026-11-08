@@ -1,3 +1,10 @@
+// V6.13.0 | 2026-11-08（第 229 轮）回放器补三块 Buff 覆盖（均不涉主代码）：
+//   ① 定向场次补「小昭·姊 + 热血奋战/乘风突袭/众志成城」：DIRECTED_CASES 新增 buffs 字段，
+//     经 buff-picker 第 8 参 forcePick 强制明教侧选中，并在收尾打印三键的姊强化样本数（0 即判红）。
+//   ② buff-picker 的 remaining 不再恒 4，复刻 modules/329 createBuffObject（姊 extraDuration +1 /
+//     流星固定 4 / permanent 用 MAX_ROUND），首次挂载即时断言「姊在场必须 base+extra」。
+//   ③ 妹妹 _permanentBuffs 每回合补一条 BUFF_SUMMARY（permanent:true，同回合团队摘要已有同 key 则跳过），
+//     让 229 能验「永久 buff 整局不消失」——此前该状态只在 unit.state，fact 通道完全看不到。
 // V6.12.0 | 2026-11-07 迭代：机制装配由四行手抄清单改走 tests/_lib/install-mechanics.mjs
 //   （→ 生产唯一总入口 modules/301-reg-mechanics.js），与其余十几个离线宿主同口径。
 //   上游 4230eb9a 增 333/334/335 + content 的 statAbsorb 后，本件仍只装 307/308/317/331，
@@ -50,7 +57,7 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.12.0';
+export const VER = 'tests/rules-replay.mjs V6.13.0';
 // V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
 //   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
 //   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
@@ -78,9 +85,9 @@ export const VER = 'tests/rules-replay.mjs V6.12.0';
 //     那是收益不是事故，不许为维绿加豁免；炸出来就走「登记转交 + 人工研判」的正常流程。
 
 const HERE = new URL('.', import.meta.url);
-const [{ CONFIG, loadGameData, loadHexEnhanceData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
+const [{ CONFIG, loadGameData, loadHexEnhanceData, getSisterHexEnhance }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
-    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES },
+    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES, FACT_TYPES },
     { tickAndPickBuffs: _sharedTickAndPickBuffs }] = await Promise.all([
         import('../core/201-config-5v5-test.js'),
         import('../infra/102-core-utils.js'),
@@ -195,7 +202,16 @@ const DIRECTED_CASES = [
     { seed: 15, stage: 6, forces: { forceWei: true } },
     { seed: 14, stage: 2, forces: { forceWei: true } },
     { seed: 20, stage: 6, forces: { forceWei: true } },
-    { seed: 13, stage: 6, forces: { forceWei: true } }
+    { seed: 13, stage: 6, forces: { forceWei: true } },
+    // 第 229 轮：三个「姊强化时长」buff 的定向样本（sister 在场 + forcePick 强制选中）。
+    //   buff-picker V1.1.1 按 modules/329 口径给这三键 +sister.extraDuration；此前回放 remaining
+    //   恒 4，227 的 base/base+1 双档永远只命中 base，强化时长分支在回放里零样本。
+    { seed: 8, stage: 1, force: 'sister', buffs: BUFF_TYPES.HOT_BLOOD },
+    { seed: 8, stage: 3, force: 'sister', buffs: BUFF_TYPES.WIND_ASSAULT },
+    { seed: 8, stage: 5, force: 'sister', buffs: BUFF_TYPES.UNITY },
+    { seed: 9, stage: 2, force: 'sister', buffs: BUFF_TYPES.HOT_BLOOD },
+    { seed: 9, stage: 4, force: 'sister', buffs: BUFF_TYPES.WIND_ASSAULT },
+    { seed: 9, stage: 6, force: 'sister', buffs: BUFF_TYPES.UNITY }
 ];
 
 // （第 172 轮：下面 resetForces / forcesOfEntry / FORCE_KEYS 三件套已迁出至 tests/_lib/forced-case-normalize.mjs）
@@ -210,13 +226,13 @@ const DIRECTED_CASES = [
 // V6.7.3 | 2026-10-25 第 123 轮：主体逻辑收口至 tests/_lib/buff-picker.mjs（唯一来源）——本函数在
 //   tests/ 下曾有 8 份拷贝且已实证分化三档（xinhun 那份连 cols/rows 块与永久继承都没跟上），
 //   按第 133 轮 _lib/rule-branch-extract.mjs 先例收口。本文件只留 NOBUFFS 环境开关这一 runner 特有能力。
-function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
+function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, forcePick = null) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
         .filter(function (b) { return b.remaining > 0; });
     // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报（runner 特有开关，共享模块不管环境变量）
     if (NOBUFFS || !pickNew) return next;
     const beforeKeys = new Set((activeBuffs || []).map(function (b) { return b.key + '|' + (b.target || CAMP_TYPES.ALLY); }));
-    const out = _sharedTickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, ENEMY_HEX);
+    const out = _sharedTickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, ENEMY_HEX, forcePick);
     // 双档覆盖取证：真的给敌方补进了新 buff 才计一次（不是"选了但被丢弃"）
     if (ENEMY_HEX && out.some(function (b) { return (b.target || CAMP_TYPES.ALLY) === CAMP_TYPES.ENEMY && !beforeKeys.has(b.key + '|' + b.target); })) {
         dualStats.enemyPicks++;
@@ -302,7 +318,53 @@ function assertInvariants(units, round, seed, stage) {
 //   数值声明 fact 完全不可见 → 那 22 条「对照器兜底」的根因。喂入后规则可读 atkDelta/ratio/delta
 //   等数值字段做重算对账，真正长牙。现有 37 条规则忽略多余参数，向后兼容。
 
-function runCase(seed, stage, forces) {
+// V6.13.0：三键姊强化样本计数 + 妹永久摘要补发（回放侧建模，不改主代码）
+const SISTER_BUFF_KEYS = {
+    [BUFF_TYPES.HOT_BLOOD]: 'hotBlood',
+    [BUFF_TYPES.WIND_ASSAULT]: 'windAssault',
+    [BUFF_TYPES.UNITY]: 'unity'
+};
+const sisterBuffCover = { hotBlood: 0, windAssault: 0, unity: 0 };
+function sisterExtraFor(key) {
+    const enhKey = SISTER_BUFF_KEYS[key];
+    if (!enhKey) return null;
+    const enh = getSisterHexEnhance(enhKey);
+    return (enh && typeof enh.extraDuration === 'number') ? enh.extraDuration : null;
+}
+// 妹妹 _permanentBuffs 只在 unit.state 里，引擎的 BUFF_SUMMARY 只遍历团队 activeBuffs ⇒ 永久副本
+// 在 fact 通道完全不可见。这里每回合补一条（remaining=MAX_ROUND + permanent:true）；
+// 同回合团队摘要已有同 key 时跳过，避免 228 把「团队 + 永久」误判成重复挂载。
+function appendPermanentSummaries(allyUnits, roundFacts, facts) {
+    const bro = (allyUnits || []).find(function (u) { return u && u.isXiaoZhaoBrother; });
+    const list = bro && bro.state && Array.isArray(bro.state._permanentBuffs) ? bro.state._permanentBuffs : null;
+    if (!list || !list.length) return 0;
+    const teamKeys = new Set();
+    for (const f of (roundFacts || [])) {
+        if (!f || f.factType !== FACT_TYPES.BUFF_SUMMARY) continue;
+        const b = f.data && f.data.buff;
+        if (b && b.key) teamKeys.add((b.target || CAMP_TYPES.ALLY) + '|' + b.key);
+    }
+    let n = 0;
+    for (const pb of list) {
+        if (!pb || !pb.key) continue;
+        const camp = pb.target || CAMP_TYPES.ALLY;
+        if (teamKeys.has(camp + '|' + pb.key)) continue;
+        facts.push({
+            factType: FACT_TYPES.BUFF_SUMMARY,
+            data: {
+                buff: {
+                    key: pb.key, target: camp, remaining: CONFIG.MAX_ROUND,
+                    name: pb.name || pb.key, permanent: true
+                },
+                allyTeamUids: (allyUnits || []).filter(function (u) { return u && u.alive; }).map(function (u) { return u.uid; })
+            }
+        });
+        n++;
+    }
+    return n;
+}
+
+function runCase(seed, stage, forces, forcePick = null) {
     // 第 159 轮：开场先把全部白名单开关复位，再按本场 forces 设置（双重复位，杜绝全局态泄漏）。
     resetForces(GlobalStore);
     for (const k of Object.keys(forces || {})) GlobalStore.set(k, forces[k]);
@@ -322,7 +384,22 @@ function runCase(seed, stage, forces) {
     // V6.7.2 永久继承补丁：选 Buff 必须落在**本场战斗单位**（battleState.ally 克隆体）上——
     //   旧写法把 allyTeam（原型）传给 tickAndPickBuffs，永久副本全写进不被战斗使用的对象，
     //   战斗克隆体永远拿不到（实测蝶血渲染 0 次）。pick 输入只看 alive/role，原型与克隆体等价，pick 结果不变。
-    battleState.activeBuffs = tickAndPickBuffs([], battleState.ally, battleState.enemy, 1, seed, true);
+    battleState.activeBuffs = tickAndPickBuffs([], battleState.ally, battleState.enemy, 1, seed, true, forcePick);
+    // V6.13.0：首次挂载即验证「姊在场 → base + extraDuration」，不等规则 227 的宽松合法集（base/base+1）
+    {
+        const sis = battleState.ally.some(u => u && u.alive && u.isXiaoZhaoSister);
+        for (const b of battleState.activeBuffs) {
+            if ((b.target || CAMP_TYPES.ALLY) !== CAMP_TYPES.ALLY) continue;
+            const extra = sisterExtraFor(b.key);
+            if (extra == null || !sis) continue;
+            const cfg = CONFIG.BUFFS[b.key] || {};
+            const base = cfg.duration || CONFIG.BUFF_DURATION || 4;
+            sisterBuffCover[SISTER_BUFF_KEYS[b.key]]++;
+            if (b.remaining !== base + extra) {
+                invIssues.add(`[seed=${seed} stage=${stage}] ${b.key} 首挂剩余=${b.remaining}，姊在场应为 ${base}+${extra}=${base + extra}`);
+            }
+        }
+    }
     const log = [];
     const facts = [];   // Step 0：本场原始 fact 全流（含嵌套），喂给规则做数值对账
     let winner = null, lastStep = null;
@@ -366,6 +443,8 @@ function runCase(seed, stage, forces) {
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
             if (step.winner) winner = step.winner;
         }
+        // V6.13.0：把妹妹永久副本补进 fact 通道（每回合一条；229 用它验整局不消失）
+        appendPermanentSummaries((lastStep || {}).ally, roundFacts, facts);
         // 行动权不变量（回合级，第 24 轮·本机线移植）：本回合行动序列走完后核对，抓「吞回合」（122 唯一实现）
         for (const msg of checkActionRights(roundFacts,
             [...((lastStep || {}).ally || []), ...((lastStep || {}).enemy || [])])) {
@@ -412,7 +491,7 @@ function runCase(seed, stage, forces) {
         //   除写入目标外语义与原写法一致（round/pickNew 参数仍用旧 battleState.round）。
         const nextRoundNo = battleState.round + 1;
         const nextActiveBuffs = tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
-            battleState.round, seed, battleState.round % 3 === 0);
+            battleState.round, seed, battleState.round % 3 === 0, forcePick);
         battleState = {
             ally: lastStep.ally.map(u => u.clone()),
             enemy: lastStep.enemy.map(u => u.clone()),
@@ -446,12 +525,12 @@ const agg = {}, kwHit = {};
 // 落盘内容：逐条规则本次样本里**实际报出过**的 fail msg 全集（去重，供分支级空转自检做前缀匹配）。
 const BRANCH_MSGS = process.env.RULE_MSGS_OUT ? new Map() : null;
 let cases = 0;
-for (const { seed, stage, force, forces: entryForces } of [...SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage }))),
+for (const { seed, stage, force, forces: entryForces, buffs: entryBuffs } of [...SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage }))),
     // 第 159 轮：默认场次之后**追加**定向覆盖组（默认场次一个不减）。
-    ...DIRECTED_CASES.map(c => ({ seed: c.seed, stage: c.stage, force: c.force, forces: c.forces }))]) {
+    ...DIRECTED_CASES.map(c => ({ seed: c.seed, stage: c.stage, force: c.force, forces: c.forces, buffs: c.buffs }))]) {
     // 第 160 轮：单值 force 仍向后兼容（等价 forces:{forceXiaoZhao:force}），新增的 forces 走白名单校验。
     const forces = forcesOfEntry({ force, forces: entryForces });
-    const c = runCase(seed, stage, forces);
+    const c = runCase(seed, stage, forces, entryBuffs || null);
     cases++;
         // DUMP=seed:stage 单场调试：打印该场 buff-push/buff-swap 及相邻的攻击快照位置
         if (process.env.DUMP && process.env.DUMP === seed + ':' + stage) {
@@ -531,6 +610,10 @@ if (ENEMY_HEX) {
 } else {
     console.log('=== 单海克斯对照口径（ENEMY_HEX=0）：只给明教补选 ===');
 }
+// 第 229 轮：三个姊强化 buff 时长分支的样本自检——定向场次若一个都没挂上，等于又回零样本。
+console.log(`=== 姊强化时长覆盖：热血奋战 ${sisterBuffCover.hotBlood} / 乘风突袭 ${sisterBuffCover.windAssault} / 众志成城 ${sisterBuffCover.unity} ===`);
+const sisterBuffZero = !NOBUFFS && (sisterBuffCover.hotBlood + sisterBuffCover.windAssault + sisterBuffCover.unity) === 0;
+if (sisterBuffZero) console.log('  ❌ 三键姊强化零样本（定向场次未生效：forcePick 不在候选池或姊未在场）');
 // 第 97 轮（2026-10-17）转交态：known-transfers.md 登记中的项显示 ⚠️ 且不计退出码——
 //   「转交中」与「真回归」必须分开，否则红线常红 = 狼来了（审核发现，详见该清单）。
 const KNOWN_TRANSFERS = (() => {
@@ -561,7 +644,7 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
-const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0) + ((ENEMY_HEX && dualStats.enemyPicks === 0) ? 1 : 0);
+const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0) + ((ENEMY_HEX && dualStats.enemyPicks === 0) ? 1 : 0) + (sisterBuffZero ? 1 : 0);
 console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}${transferred ? `；转交中 ${transferred} 条（⚠️ 不计退出码，见 tests/known-transfers.md）` : ''}；恒 skip(空转)规则 ${dead} 条` +
     `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +

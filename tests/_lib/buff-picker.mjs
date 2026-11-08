@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-// tests/_lib/buff-picker.mjs | V1.0.0 | 2026-10-25 第 123 轮（日间线）
+// tests/_lib/buff-picker.mjs | V1.1.1 | 2026-11-08（第 229 轮）
+// V1.1.1 | 2026-11-08 ① 小昭·姊在场时，热血奋战/乘风突袭/众志成城 的 remaining 补上
+//   sister.extraDuration（对齐 modules/329 createBuffObject 的姊强化分支）。此前回放时长恒 4，
+//   227 的「初值 = base 或 base+1」永远只命中 base，姊强化时长分支从未被真跑过。
+//   其余 buff（含 permanent/流星）时长一律不动，避免顺手挪动整批战报轨迹。
+//  ② 新增可选第 8 参 forcePick：定向场次强制明教侧选中某个 key（仅当它在候选池里），
+//   用于给三个姊强化 buff 补定向样本；默认 null 时行为与旧版逐字一致。
+// V1.0.0 | 2026-10-25 第 123 轮（日间线）
 //
 // 回放器「团队海克斯 Buff 轮转挑选」逻辑的**唯一来源**（single source of truth）。
 //
@@ -28,11 +35,14 @@
 // 注意：tools/822-param-lab-core.js 另有一份**有意不合并**的变体（参数实验室自有口径：
 //   无 carry 门、自带永久处理）——tools/ 是独立域，不随本模块；若两域口径需对齐再单开轮次。
 
-import { CONFIG } from '../../core/201-config-5v5-test.js';
+import { CONFIG, getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
 import { hasCarryTarget } from '../../modules/329-buff-tools.js';
 
-export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, withEnemy = true) {
+// 002-hex-enhance.json 里带 sister.extraDuration 的三个 buff（其余 key 不受姊影响）
+const SISTER_BONUS_KEYS = [BUFF_TYPES.HOT_BLOOD, BUFF_TYPES.WIND_ASSAULT, BUFF_TYPES.UNITY];
+
+export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew, withEnemy = true, forcePick = null) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
         .filter(function (b) { return b.remaining > 0; });
     if (!pickNew) return next;
@@ -54,9 +64,26 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew,
             return true;
         });
         if (!avail.length) continue;
-        var pick = avail[(seed + turn + s.off) % avail.length];
+        // 定向场次：只对明教侧强制；目标 key 不在候选池（已有/职业门槛/已被选过）时退回轮转，不造假样本
+        var pick = (forcePick && s.camp === CAMP_TYPES.ALLY && avail.indexOf(forcePick) !== -1)
+            ? forcePick
+            : avail[(seed + turn + s.off) % avail.length];
         var def = CONFIG.BUFFS[pick] || {};
-        var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
+        // V1.1.1：只补「姊在场 → 这三键 +extraDuration」；其余时长保持旧口径，
+        //   避免顺手改掉 permanent/流星时长把整批战报轨迹一起挪动（本轮目标只补零样本分支）。
+        var sisterAlive = (s.team || []).some(function (u) { return u && u.alive && u.isXiaoZhaoSister; });
+        var duration = def.duration || CONFIG.BUFF_DURATION || 4;
+        if (sisterAlive && SISTER_BONUS_KEYS.indexOf(pick) !== -1) {
+            var enhKey = pick === BUFF_TYPES.HOT_BLOOD ? 'hotBlood'
+                : (pick === BUFF_TYPES.WIND_ASSAULT ? 'windAssault' : 'unity');
+            var sisterEnh = getSisterHexEnhance(enhKey);
+            if (!sisterEnh || sisterEnh.extraDuration == null) {
+                throw new Error(`002-hex-enhance.json 缺 sister.${enhKey}.extraDuration`);
+            }
+            duration += sisterEnh.extraDuration;
+        }
+        var nb = { key: pick, target: s.camp, remaining: duration, name: def.name || pick };
+        if (def.permanent) nb.permanent = true;
         if (pick === BUFF_TYPES.HOLY_FLAME) {
             // 圣火令需要 cols/rows；核心引擎只给明教重算，敌方快照得自带，否则面板取不到值
             // ★ 修正：真游戏里敌方 buff 由 modules/329 创建（单列+2 行已去重排序）、必要时再过
