@@ -1,6 +1,6 @@
 {
-  "VER": "tests/rng-discipline-check.mjs V1.1.0",
-  "total": 133,
+  "VER": "tests/rng-discipline-check.mjs V1.2.0",
+  "total": 134,
   "files": {
     "core/202-unit.js": 5,
     "core/203-battle-utils.js": 6,
@@ -31,11 +31,12 @@
     "modules/327-elite-mingjiao-yangxiao.js": 2,
     "modules/328-elite-mingjiao-yintianzheng.js": 1,
     "modules/329-buff-tools.js": 3,
-    "modules/330-battle-init.js": 25,
+    "modules/330-battle-init.js": 24,
     "modules/333-elite-mingjiao-crazy.js": 2,
     "modules/334-common-absorb.js": 1,
     "modules/335-common-heal-ally.js": 1,
     "modules/336-elite-sixsects-yuanzhen.js": 2,
-    "modules/338-elite-mingjiao-pengyingyu.js": 2
+    "modules/338-elite-mingjiao-pengyingyu.js": 3,
+    "modules/339-elite-mingjiao-zhangzhong.js": 1
   }
 }

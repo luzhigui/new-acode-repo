@@ -12,17 +12,25 @@
 //   ③ 抽签点次数快照：统计 core/ 与 modules/ 每个文件里 `.nextInt(` / `.next(` 的文本出现次数，
 //      与 tests/rng-draw-baseline.json 比对。次数变了 ≠ 一定错，但**一定意味着随机序列整体位移**，
 //      必须人工确认后重录基线（REGEN=1 node tests/rng-discipline-check.mjs）。
+//   ④ 运行期抽签次数快照（V1.2.0 新增）：静态次数抓不到「同一处代码运行时多抽了几次」——
+//      重抽（抽到不合规再抽一次）、换签（把一次抽签拆成两次）、循环次数变化都属于这类：
+//      源码里的 .next( 个数一个没变，随机序列却整体位移。这里给 SeededRNG.next() 挂计数器，
+//      记录每个 seed:stage 一场战斗**实际抽了多少个数**，与 tests/rng-draw-runtime-baseline.json 比对。
+//      次数不等 = 该场随机序列位移 ⇒ 必须解释清楚是哪个机制多抽/少抽（REGEN_DRAW=1 重录）。
 //
 // 用法：node tests/rng-discipline-check.mjs           # 校验，退 0 = 全过
 //       REGEN=1 node tests/rng-discipline-check.mjs   # 确认是有意改动后，重录抽签点基线
+//       REGEN_DRAW=1 node tests/rng-discipline-check.mjs  # 确认运行期抽签次数变化可接受后，重录运行期基线
 //       SEEDS=1,2 STAGES=1,3 node tests/rng-discipline-check.mjs
+//
+// V1.2.0 | 2026-11-08 第 195 轮（回合时序与抽签域）：新增 ④ 运行期抽签次数基线。
 //
 // V1.1.0 | 2026-11-08 第 191 轮：③ 不再是「一行报红让人猜」。差异会按『新增文件/删除文件/次数增加/次数减少』
 //   分类逐文件列出（含差值、该文件最近改动时刻），并按影响面给出下一步该跑什么：
 //     次数减少 ⇒ 最危险（少抽一个数，之后所有随机序列整体位移），先查是不是删了抽签语句；
 //     core/ 公共文件变化 ⇒ 影响所有战斗；modules/26x 单角色文件 ⇒ 只影响该角色出手。
 //   REGEN 重录时会打印「本次重录的增删清单」，避免有人悄悄把基线刷绿。
-export const VER = 'tests/rng-discipline-check.mjs V1.1.0';
+export const VER = 'tests/rng-discipline-check.mjs V1.2.0';
 
 import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -32,6 +40,7 @@ import { createHash } from 'node:crypto';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
 const BASELINE_FILE = join(HERE, 'rng-draw-baseline.json');
+const RUNTIME_BASELINE_FILE = join(HERE, 'rng-draw-runtime-baseline.json');
 
 // ---- 与回放器同口径：同一套环境垫片 ------------------------------------------------------------------
 globalThis.fetch = async (url) => {
@@ -73,11 +82,21 @@ function collectText(node, out, depth) {
     if (Array.isArray(node.entries)) node.entries.forEach(n => collectText(n, out, depth + 1));
 }
 
-/** 跑一场，返回 fact 摘要（同种子必须完全一致） */
+/** 带抽签计数器的 RNG：只包 next()（nextInt 内部就是调 next()，包两层会重复计数） */
+function countingRng(seed) {
+    const rng = new SeededRNG(seed);
+    const orig = rng.next.bind(rng);
+    let n = 0;
+    rng.next = (...args) => { n++; return orig(...args); };
+    Object.defineProperty(rng, 'drawCount', { get: () => n });
+    return rng;
+}
+
+/** 跑一场，返回 fact 摘要（同种子必须完全一致）+ 本场实际抽签次数 */
 function runOnce(seed, stage) {
     // 跨场隔离：圣火令数量是全局战斗状态，不清零会让第二遍的「当前总数」比第一遍多 —— 那是环境残留，不是随机数问题
     try { setBattleState('holyToken', 0); } catch (e) { /* 垫片环境允许失败 */ }
-    const rng = new SeededRNG(seed);
+    const rng = countingRng(seed);
     const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
     GlobalStore.set('battleStore', store);
     const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
@@ -120,7 +139,7 @@ function runOnce(seed, stage) {
         };
     }
     const digest = createHash('sha256').update(parts.join('\n')).digest('hex');
-    return { digest, winner, facts: parts.length, rounds: bs.round, parts };
+    return { digest, winner, facts: parts.length, rounds: bs.round, parts, drawCount: rng.drawCount };
 }
 
 // ---- 静态扫描：Math.random + 抽签点次数 ---------------------------------------------------------------
@@ -174,10 +193,12 @@ console.log('VER ' + VER);
 const seeds = (process.env.SEEDS || '1,2,3,4,5').split(',').map(Number).filter(n => Number.isFinite(n));
 const stages = (process.env.STAGES || '1,3').split(',').map(Number).filter(n => Number.isFinite(n));
 let replayChecked = 0;
+const drawCases = {};      // "seed:stage" → 本场实际抽签次数（④ 运行期基线用）
 for (const seed of seeds) for (const stage of stages) {
     const a = runOnce(seed, stage);
     const b = runOnce(seed, stage);
     replayChecked++;
+    drawCases[seed + ':' + stage] = a.drawCount;
     if (a.facts === 0) { fail(`seed=${seed} stage=${stage} 一场都没产出 fact（样本没跑起来）`); continue; }
     if (a.digest !== b.digest) {
         fail(`seed=${seed} stage=${stage} 同种子双跑结果不一致（${a.facts} 条 vs ${b.facts} 条，胜负 ${a.winner}/${b.winner}）—— 种子可复现性被破坏`);
@@ -274,6 +295,51 @@ if (regen) {
         console.log('     2) 若确实有意改了抽签次数，跑 node tests/rules-replay.mjs，看哪些规则开始漂红（漂的就是被随机序列影响的面）；');
         console.log('     3) 确认漂移可接受后：REGEN=1 node tests/rng-discipline-check.mjs 重录基线，把 tests/rng-draw-baseline.json 和代码改动一起提交；');
         console.log('     4) 再跑一遍本命令，应转 PASS；同一次提交里没带基线文件 = 别人拉下来必红。');
+    }
+}
+
+// ④ 运行期抽签次数快照
+//   静态 ③ 只能看到「源码里有几个 .next(」，看不到运行时「同一处代码抽了几次」。
+//   重抽（抽到不合规再抽一次）/ 换签（一次抽签拆成两次）/ 循环次数变化，都属于源码不变、序列位移的改动。
+const regenDraw = String(process.env.REGEN_DRAW || '') === '1';
+const caseKeys = Object.keys(drawCases);
+const totalRuntimeDraws = caseKeys.reduce((s, k) => s + drawCases[k], 0);
+if (regenDraw) {
+    let changed = [];
+    if (existsSync(RUNTIME_BASELINE_FILE)) {
+        try {
+            const old = JSON.parse(readFileSync(RUNTIME_BASELINE_FILE, 'utf8'));
+            const oldCases = old.cases || {};
+            for (const k of new Set([...Object.keys(oldCases), ...caseKeys])) {
+                const was = oldCases[k], now = drawCases[k];
+                if (was !== now) changed.push(`${k}：${was == null ? '（新样本）' : was} → ${now == null ? '（已移除）' : now}`);
+            }
+        } catch (e) { changed = ['（旧基线读不出来，无法对比）']; }
+    }
+    writeFileSync(RUNTIME_BASELINE_FILE, JSON.stringify({ VER, total: totalRuntimeDraws, cases: drawCases }, null, 2) + '\n', 'utf8');
+    console.log(`④ 已重录运行期抽签次数基线：${caseKeys.length} 场 / 共 ${totalRuntimeDraws} 次 → tests/rng-draw-runtime-baseline.json`);
+    console.log(changed.length ? `   本次重录的差异（请写进提交说明）：${changed.join('；')}` : '   本次重录与旧基线完全一致（空重录）。');
+} else if (!existsSync(RUNTIME_BASELINE_FILE)) {
+    fail('没有运行期抽签次数基线 tests/rng-draw-runtime-baseline.json；首次建立请跑：REGEN_DRAW=1 node tests/rng-discipline-check.mjs');
+} else {
+    const base = JSON.parse(readFileSync(RUNTIME_BASELINE_FILE, 'utf8'));
+    const baseCases = base.cases || {};
+    const rows = [];
+    for (const k of new Set([...Object.keys(baseCases), ...caseKeys])) {
+        const was = baseCases[k], now = drawCases[k];
+        if (was !== now) rows.push({ k, was, now, delta: (now || 0) - (was || 0) });
+    }
+    if (rows.length === 0) {
+        console.log(`④ 运行期抽签次数与基线一致：${caseKeys.length} 场 / 共 ${totalRuntimeDraws} 次`);
+    } else {
+        fail(`运行期抽签次数变了（${rows.length} 场）—— 随机序列位移，必须解释是哪个机制重抽/换签/多抽`);
+        for (const r of rows) {
+            const flag = r.delta > 0 ? '多抽（重抽/换签/新增分支）' : '少抽（删签/分支变窄）';
+            console.log(`     • ${r.k}：${r.was == null ? '（不在基线）' : r.was} → ${r.now == null ? '（本场已不产出）' : r.now}（${r.delta > 0 ? '+' : ''}${r.delta}）⇒ ${flag}`);
+        }
+        console.log('   处理：① 先定位是哪处机制改了抽签次数（叠加上面 ③ 的静态差异一起看）；');
+        console.log('         ② 跑 node tests/rules-replay.mjs 看随机序列位移影响到哪些规则；');
+        console.log('         ③ 确认可接受后 REGEN_DRAW=1 node tests/rng-discipline-check.mjs 重录运行期基线，与代码改动同一次提交。');
     }
 }
 
