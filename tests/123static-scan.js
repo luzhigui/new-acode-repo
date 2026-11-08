@@ -110,7 +110,9 @@ export const SCAN_FILES = [
     // 2026-10-26 第143轮：回填 158（第142轮误退役，现改用夜间139重写版 fx 结构判据）
     './health-rules/158-fact-anchor-align.js',
     // 2026-10-07 新增：韦一笑蝠影汲血吸血（rule106：heal 正整数 / 上限恒等 / 比例上限）
-    './health-rules/159-wei-bloodsiphon.js'
+    './health-rules/159-wei-bloodsiphon.js',
+    // 血量/判死/复活：圣火不熄复活闭环（复活量/名单/名额上限）+ 回血家族账目自洽
+    './health-rules/173-hp-death-revive.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
