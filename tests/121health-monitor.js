@@ -138,6 +138,15 @@ import { rule236 } from './health-rules/236-round-boundary.js';
 import { rule283 } from './health-rules/283-post-death-action.js';
 import { rule284 } from './health-rules/284-battle-end-race.js';
 import { rule285 } from './health-rules/285-settlement-order.js';
+// 第 195 轮·D10 续 + D11 控制与意识类（286-293）
+import { rule286 } from './health-rules/286-stage-variant-truth.js';
+import { rule287 } from './health-rules/287-stage-name-source.js';
+import { rule288 } from './health-rules/288-enemy-elite-pos.js';
+import { rule289 } from './health-rules/289-control-target-trace.js';
+import { rule290 } from './health-rules/290-control-attacker-identity.js';
+import { rule291 } from './health-rules/291-control-trace-on-edge.js';
+import { rule292 } from './health-rules/292-control-stacking-crazy.js';
+import { rule293 } from './health-rules/293-control-cleanup-on-release.js';
 import { rule237 } from './health-rules/237-mod-entry-shape.js';
 import { rule238 } from './health-rules/238-decl-vs-ledger.js';
 import { rule239 } from './health-rules/239-qiankun-decl-vs-ledger.js';
@@ -779,6 +788,7 @@ function runRuleChecks(ctx, doc) {
         rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287,
         rule259, rule260, rule261, rule262, rule263, rule264,
         rule283, rule284, rule285,
+        rule286, rule287, rule288, rule289, rule290, rule291, rule292, rule293,
         rule243, rule244, rule245, rule246, rule247, rule248,
         rule249, rule250, rule251, rule252];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部

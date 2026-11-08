@@ -127,6 +127,14 @@
     "267-growth-decl-vs-ledger.js": "D7",
     "268-growth-curve-quantity.js": "D7",
     "269-panel-stored-vs-ledger.js": "D7",
-    "270-ttl-expiry-closure.js": "D7"
+    "270-ttl-expiry-closure.js": "D7",
+    "289-control-target-trace.js": "D11",
+    "290-control-attacker-identity.js": "D11",
+    "291-control-trace-on-edge.js": "D11",
+    "292-control-stacking-crazy.js": "D11",
+    "293-control-cleanup-on-release.js": "D11",
+    "286-stage-variant-truth.js": "D10",
+    "287-stage-name-source.js": "D10",
+    "288-enemy-elite-pos.js": "D10"
   }
 }
