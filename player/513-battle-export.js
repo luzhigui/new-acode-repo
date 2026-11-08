@@ -1,8 +1,12 @@
 // player/513-battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
-export const VER = 'player/513-battle-export.js V1.5.0';
+export const VER = 'player/513-battle-export.js V1.6.0';
+// V1.6.0 | 2026-11-08 抽签契约版本化：录制 meta 带 rngContractVersion（战报格式 version 仍为 1，只加字段），
+//   导出的战报能对上「这条记录是哪一版抽签产生的」——抽签规则一改旧战报就不再混着读。
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 import { copyAllStateFields } from '../core/218-state-keys.js';
+// 抽签契约版本（单一真源在 modules/330-battle-init.js）
+import { RNG_CONTRACT_VERSION } from '../modules/330-battle-init.js';
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
 
@@ -16,7 +20,9 @@ export function startBattleRecording(meta) {
             startedAt: new Date().toISOString(),
             stage: (meta && meta.stage) || null,
             mode: (meta && meta.mode) || 'single',   // single | pvp-host | pvp-guest
-            seed: (meta && meta.seed) != null ? meta.seed : null
+            seed: (meta && meta.seed) != null ? meta.seed : null,
+            // 本局抽签契约版本：回放/跑批据此判断战报与当前抽签规则是否同源（联机从机与房主已在入口校验一致）
+            rngContractVersion: (meta && meta.rngContractVersion) || RNG_CONTRACT_VERSION
         },
         steps: []
     };
