@@ -31,7 +31,7 @@ const SISTER_SCHEMA = {
     bloodthirst: { leechRatio: 'num' },  // 姊版吸血率 1.6（倍率 >1），按 ≥0 数值校验，不用 0~1 概率
     hotBlood: { leechPct: 'prob', critPattern: 'critPattern', extraDuration: 'int' },
     windAssault: { hitProb: 'prob', pushProb: 'prob', extraDuration: 'int' },
-    meteorShower: { trueDmgPct: 'prob', duration: 'int' },
+    meteorShower: { trueDmgPct: 'prob', atkPerSplash: 'num', duration: 'int' },
     mindControl: { enemySwapProb: 'prob', allySwapProb: 'prob', hpPctSwap: 'prob', stunOnSwap: 'bool' },
     cloudBody: { dodgeBonus: 'prob', reboundRatio: 'prob', noSkip: 'bool' },
     fortify: { healOnRebound: 'bool' },
