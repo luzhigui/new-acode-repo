@@ -186,6 +186,10 @@ import { rule302 } from './health-rules/302-control-window-consistency.js';
 import { rule307 } from './health-rules/307-hetaichong-liangyi-pair.js';
 import { rule308 } from './health-rules/308-hetaichong-mark-lifecycle.js';
 import { rule309 } from './health-rules/309-hetaichong-red-swap-account.js';
+import { rule303 } from './health-rules/303-damage-printed-vs-hp.js';
+import { rule304 } from './health-rules/304-break-def-order-and-zero.js';
+import { rule305 } from './health-rules/305-true-splash-display-source.js';
+import { rule306 } from './health-rules/306-damage-rounding-granularity.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -800,6 +804,7 @@ function runRuleChecks(ctx, doc) {
         rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287, rule288,
         rule289, rule290, rule291, rule292, rule293,
         rule301, rule302, rule307, rule308, rule309,
+        rule303, rule304, rule305, rule306,
         rule259, rule260, rule261, rule262, rule263, rule264,
         rule271, rule272,
         rule253, rule254, rule273, rule274,

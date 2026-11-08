@@ -1,7 +1,7 @@
 {
   "domain": "D1",
-  "updatedAt": "2026-11-08 22:45",
-  "updatedBy": "D1·回合时序与抽签域",
+  "updatedAt": "2026-11-08 22:50",
+  "updatedBy": "D1·伤害数值与取整域",
   "说明": "D1 通用结算与不变量（号段 229-236，补盲段 301-306）。本文件只由 D1 域会话维护；state = draft / pending / merged / needs-fix；框架会话合入后回填 state、mergedAt、mergedSha。",
   "entries": [
     {
@@ -21,6 +21,51 @@
       "state": "pending",
       "createdAt": "2026-11-08 22:45",
       "note": "① 放开终局段：最后一回合结束符之后的非出手事实（终局清场：死亡/血量/摘要等）不再判越位，出手越位交给 round-order-check 终局段判据；② 新增回合号上界与封顶（round ∈ 1..MAX_ROUND，到封顶后不许再开新回合）。干净 HEAD 快照 156 场回归全绿。"
+    },
+    {
+      "slot": 301,
+      "name": "反伤弟子反弹数值与归属自洽(回归)",
+      "file": "tests/health-rules/301-disciple-rebound-account.js",
+      "ver": "V1.0.1",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:50",
+      "note": "落 assignments[301] 覆盖缺口（damageReflect 零规则）。判据：A 反弹值 floor 后整数且 ≥1；B 值 === floor(本击 dmgCalc.dmg × content.反伤弟子.mechanics.damageReflect.reflectRatio=0.30)；C 归属 unitUid=本击进攻者、来源=本击目标；D 本击组「反弹 N 点给 Y」N=fmtNum(反弹值) 且 Y=进攻者。定向 case 5 例全过（含 4 条负向）。"
+    },
+    {
+      "slot": 303,
+      "name": "伤害印数与血条实落同源(回归)",
+      "file": "tests/health-rules/303-damage-printed-vs-hp.js",
+      "ver": "V1.0.1",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:50",
+      "note": "守住 8993cb73 的「印 dmg − hpBonus」口径：A 正文数字=dmg 字段；B 无护盾/非斩杀/未截断时 |(hpBefore−hpAfterReal) − 印数| ≤ 1 点（TOL 写死在规则里，1 点级差异按显示颗粒度放过；断锤·耗血 selfCost=1 静默自损走 applyStatChange 直改 hp、不产伤害 fact，天然不判）。豁免：护盾吸收（余额 >0 或紧随吸收行）、斩杀、血量上限截断。定向 case 5 例全过（含 3 条负向）。"
+    },
+    {
+      "slot": 304,
+      "name": "破防条目时序与零减防静默(回归)",
+      "file": "tests/health-rules/304-break-def-order-and-zero.js",
+      "ver": "V1.0.1",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:50",
+      "note": "core/217 L86-101 reduce===0 已静默（不产 pendingDefReduceFact）、core/212 破防压栈于伤害前；规则固化为：A 破防前不得有伤害结算类条目（回血类 unshift 合法）；B reduce 为整数 >0 且 === dmgCalc.defReduced；C defReduced===0 不得有条目；D defReduced>0 无条目=漏账；E 战报破防行先于伤害行。定向 case 5 例全过（含 4 条负向）。"
+    },
+    {
+      "slot": 305,
+      "name": "真伤/溅射印数与归属同源(回归)",
+      "file": "tests/health-rules/305-true-splash-display-source.js",
+      "ver": "V1.0.1",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:50",
+      "note": "真伤（modules/320 extra=floor）、溅射（core/204 splashDmg=floor，≥1）：A 取整；B 归属（真伤 targetUid=本击目标、溅射名单不含进攻者）；C 印数=fmtNum(fact 值)；D 溅射名册与战报行一致。ATTACK fact 与攻击组同序配对，只认本击组内的行。定向 case 5 例全过（含 3 条负向）。"
+    },
+    {
+      "slot": 306,
+      "name": "伤害数字取整颗粒度统一(回归)",
+      "file": "tests/health-rules/306-damage-rounding-granularity.js",
+      "ver": "V1.0.1",
+      "state": "pending",
+      "createdAt": "2026-11-08 22:50",
+      "note": "伤害类出口（主伤害/爪伤/溅射/真伤/反伤/护盾抵挡）数字必须走 fmtNum（fmt1 是它的别名）：≥10 取整、<10 一位小数、禁止两位以上小数尾巴。只抓伤害语义数字，计算明细行（19.44-30%…）不算。定向 case 6 例全过（含 4 条负向）。"
     }
   ],
   "assignments": [
