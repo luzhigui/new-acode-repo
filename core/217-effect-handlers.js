@@ -8,7 +8,9 @@
 // V6.2.6 | 2026-11-08 体检转交：HEAL handler 在应用后回填 heal / hpBefore / hpAfter（全部取实落值）。
 //   旧版 fact 里的 hpBefore / hpAfter 是「声明提交那一刻」的快照——同帧多次回血时前序回血尚未应用，
 //   于是印出的金额与实际落账对不上（实测 20 场偏离，如「回复 +14，血量 120→136」）。
-export const VER = 'core/217-effect-handlers.js V6.2.6';
+// V6.2.7 | 2026-11-08 体检转交（159）：LEECH handler 把 fact.heal 回填为实落值（声明期 previewHeal 只是预演，
+//   同帧血量漂移会让「文本 +N」与 fact.heal 不同源）；预演值改存 healNominal。
+export const VER = 'core/217-effect-handlers.js V6.2.7';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -151,12 +153,20 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         const hpBefore = decl.source.hp;
         applyStatChange(decl.source, 'hp', capped, null, '吸血');
-        // 显示口径（不改数值）：吸血同受截脉/寒毒打折，实落值与原因回写 factData
-        if (decl.factData && capped > 0) {
-            decl.factData.healActual = Math.max(0, decl.source.hp - hpBefore);
+        // 显示与记账口径（不改数值）：heal 定为实落值——声明期 heal 是 previewHeal 预演（按当时 maxHp-hp 夹取），
+        //   同帧前序回血/伤害会让预演与真正落地的值不等（体检 159「文本 +N 但 fact 流无 heal=N」的成因）。
+        //   预演值改存 healNominal，供「被截脉/寒毒砍了多少」文案与对照。
+        if (decl.factData) {
+            // 取整口径对齐 previewHeal 出口（Math.round 级）：applyStatChange 内部按 ratio 实数相乘，
+            //   直接相减会留下 3.999999999999993 这类浮点残渣（体检 159 判定「必须为非负整数」）
+            const actual = Math.max(0, Math.round(decl.source.hp - hpBefore));
+            decl.factData.heal = actual;
+            decl.factData.healActual = actual;
             decl.factData.healNominal = capped;
-            const mods = healModReasons(decl.source);
-            if (mods.length > 0) decl.factData.healMods = mods;
+            if (actual > 0) {
+                const mods = healModReasons(decl.source);
+                if (mods.length > 0) decl.factData.healMods = mods;
+            }
         }
         decl.source.leechDone = (decl.source.leechDone || 0) + capped;
         executed.push(decl);
