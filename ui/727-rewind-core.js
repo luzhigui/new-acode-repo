@@ -556,7 +556,7 @@ async function scrubToCue(stepIdx, cueIdx) {
     const idx = Math.max(0, Math.min(cueIdx, cues.length - 1));
     const cue = cues[idx];
 
-    // 段拨/跳步属于「定位」：后台静默算到目标段，只在末尾一次性定格
+    // 基底重摆属于「定位」：静默摆到「这段之前」，不重放历史特效
     setReviewSilent(ctx(), true);
     // 演出必须在「时钟运行」下播：主循环已被步首闸门钉住，放开时钟只放 FX，不会推进战斗
     GlobalStore.set('isPaused', false);
@@ -569,6 +569,10 @@ async function scrubToCue(stepIdx, cueIdx) {
     S.label = labelOf(cue);
 
     const c = ctx();
+    // 基底已摆好：当前这一段的重演必须出特效（攻击/飞撞/飘字），
+    //   静默只保留给「死亡定格」（历史死亡红叉不重放）与基底摆画面。
+    const performing = cue.kind !== 'death';
+    setReviewSilent(c, !performing);
     const logEl = document.getElementById('log');
     const rowsBefore = logEl ? logEl.children.length : 0;   // 本段真播前已渲染的行数
     if (c && c.store && cue) {
@@ -581,8 +585,8 @@ async function scrubToCue(stepIdx, cueIdx) {
             if (!c.isRewinding) flushDeathFlashes(c, deathsOf(stepIdx));   // 定位：不重播死亡闪红
         } else if (cue.kind === 'text') {
             // 日志段走 504 的同一条单条播放：掉血飘字 / 血条 / 黄闪 / 逐字，与主流程一致
-            //   定位态直接跳过演出，末尾 syncReviewLog 一次性定格到该段
-            if (!c.isRewinding) {
+            //   定位态跳过演出，末尾 syncReviewLog 一次性定格到该段
+            if (performing) {
                 const fact = (step.log || [])[cue.logIndex];
                 const prepared = fact ? prepareLogEntry(fact) : null;
                 const list = Array.isArray(prepared) ? prepared : (prepared ? [prepared] : []);
@@ -593,7 +597,7 @@ async function scrubToCue(stepIdx, cueIdx) {
             }
         } else if (cue.action) {
             applyStageActionToStore(c, cue.action, pending);
-            if (hasShow(cue, stepIdx) && !c.isRewinding) {
+            if (performing && hasShow(cue, stepIdx)) {
                 try { await applyStageActionToFX(c, cue.action); } catch (e) { /* 单段特效失败不影响回看 */ }
             }
             if (token !== S.cueToken) return;
@@ -606,6 +610,7 @@ async function scrubToCue(stepIdx, cueIdx) {
     const adopt = logEl ? logEl.children.length - rowsBefore : 0;
     syncReviewLog(stepIdx, idx, adopt);
     if (c && c.updateUI) c.updateUI();
+    setReviewSilent(c, true);       // 本段演完回到回看静默态：下一次基底摆画面不重放特效
 }
 
 export function prevCue() {
