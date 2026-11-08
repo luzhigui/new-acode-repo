@@ -941,11 +941,15 @@ function render(summary, stats) {
     const vers = [...new Set(logs.map(l => l && l.ver).filter(Boolean))];
     const noVer = logs.filter(l => l && !l.ver).length;
     const withSeed = logs.filter(l => l && l.seed != null).length;
+    const seeds = logs.map(l => l && l.seed).filter(v => v != null);
+    const seedTxt = seeds.length
+      ? `｜seed ${Math.min(...seeds)}~${Math.max(...seeds)}（${withSeed}/${total} 条带 seed）`
+      : `｜无 seed 记录（${total} 条）`;
     const mixed = vers.length > 1 || (vers.length > 0 && noVer > 0);
     const verTxt = vers.length
       ? vers.join(' / ') + (noVer ? `（另有 ${noVer} 条无版本旧数据）` : '')
       : '无记录（旧批数据）';
-    verLine = `<p style="margin:2px 0 0;color:${mixed ? '#ff5252' : '#888'};font-size:12px">数据版本：${verTxt}｜带 seed ${withSeed}/${total}`
+    verLine = `<p style="margin:2px 0 0;color:${mixed ? '#ff5252' : '#888'};font-size:12px">数据版本：${verTxt}${seedTxt}`
       + (mixed ? '　<b>⚠️ 同一榜混有不同版本数据，跨版本合并胜率不可直接比较，建议清空重跑</b>' : '') + '</p>';
   }
   summary.innerHTML = `<p style="margin-top:12px;color:#ccc">阵容【<b style="color:#ff6ec7">${MODE_LABEL[curMode]}</b>】｜海克斯【<b style="color:#ffd700">${HEXMODE_LABEL[curHex]}</b>】｜${stageLabel}｜共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>` + timeLine + verLine;

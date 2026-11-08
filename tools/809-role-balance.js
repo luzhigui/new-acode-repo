@@ -1,4 +1,6 @@
-export const VER = 'tools/809-role-balance.js V6.3.1';
+export const VER = 'tools/809-role-balance.js V6.3.2';
+// V6.3.2 | 2026-11-08 可复现：新增「种子」输入框（留空=Date.now()），结果顶部显示 masterSeed；
+//   填回上次的 masterSeed 即按同样随机流重跑。
 // V6.3.1 | 2026-11-08 池化去重：同一场对局在「我方/敌方」两视角各记一次，poolN 原为 at+et（=2×真实对局）。
 //   改为 poolN=(at+et)/2=at，poolW 同步折半 —— 点估计不变（仍 50% 基准），CI 变宽约 √2。
 //   只折分母会得到 >100% 的假胜率，故分子必须同步折半；「不分阵营」排行表同口径修正。
@@ -103,6 +105,8 @@ window.openRoleBalance = function() {
                 <div class="role-bal-config">
                     <label>每组场次：</label>
                     <input type="number" id="roleBalRounds" value="100" min="10" max="1000" step="10">
+                    <label>种子：</label>
+                    <input type="number" id="roleBalSeed" placeholder="留空=自动" title="填上次结果的 masterSeed 可按同样随机流重跑" style="width:150px">
                     <button class="role-bal-run" id="roleBalRun">▶ 开始分析</button>
                     <button class="role-bal-clear" id="roleBalClear">清空</button>
                 </div>
@@ -124,6 +128,7 @@ window.openRoleBalance = function() {
     });
 
     const roundsInput = mask.querySelector('#roleBalRounds');
+    const seedInput = mask.querySelector('#roleBalSeed');
     const progress = mask.querySelector('#roleBalProgress');
     const result = mask.querySelector('#roleBalResult');
     const meleeLimitCb = mask.querySelector('#roleBalMeleeLimit');
@@ -179,7 +184,9 @@ window.openRoleBalance = function() {
         const matrix = {};
         const allyStats = {};
         const enemyStats = {};
-        const masterSeed = Date.now();
+        // V6.3.2：种子可复现——填上次 masterSeed 即按同样随机流重跑；留空才用 Date.now()
+        const seedRaw = parseInt(seedInput ? seedInput.value : '', 10);
+        const masterSeed = Number.isFinite(seedRaw) && seedRaw > 0 ? seedRaw : Date.now();
         const positions = JSON.parse(JSON.stringify({ ...extraPosConfig })); // 快照，worker 间共享只读
 
         // Worker 池并行：每核 1 worker，16 组 job 按可用 worker 并发派发
@@ -198,7 +205,7 @@ window.openRoleBalance = function() {
         }
 
         progress.textContent = `⏳ 启动 ${poolSize} 个并行 Worker，共 ${jobs.length} 组 × ${roundsPerGroup} 场…`;
-        renderResult(result, matrix, allyStats, enemyStats);
+        renderResult(result, matrix, allyStats, enemyStats, { masterSeed });
 
         try {
             const results = await runJobsParallel(jobs, roundsPerGroup, positions, hexEnabled, enemyHex, masterSeed, poolSize, (msg) => {
@@ -218,7 +225,7 @@ window.openRoleBalance = function() {
                 enemyStats[ROLES[ei]].total += roundsPerGroup;
             }
             progress.textContent = `✅ 全部 ${jobs.length} 组完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
-            renderResult(result, matrix, allyStats, enemyStats);
+            renderResult(result, matrix, allyStats, enemyStats, { masterSeed });
         } catch (err) {
             progress.textContent = `❌ 并行评测异常：${err.message || err}（已用 ${((performance.now() - startT) / 1000).toFixed(1)}s）`;
         }
@@ -322,8 +329,11 @@ function wilson95(w, n) {
     return [(c - s) / d, (c + s) / d];
 }
 
-function renderResult(container, matrix, allyStats, enemyStats) {
-    let html = '';
+function renderResult(container, matrix, allyStats, enemyStats, meta) {
+    // V6.3.2：结果顶部显示本批次 masterSeed（填回「种子」框可原样重跑）
+    let html = meta && meta.masterSeed != null
+        ? `<div style="color:#888;font-size:12px;margin-bottom:6px">种子 masterSeed=<b style="color:#ffd700">${meta.masterSeed}</b></div>`
+        : '';
 
     // ===== 2026-11-01：四职业平衡总评（用同一份 4×4 结果推导，不额外跑） =====
     // 口径：基底 5 人固定（1防战/2战士/5飞行/7远程/9远程），只换第 6 个弹性格位。

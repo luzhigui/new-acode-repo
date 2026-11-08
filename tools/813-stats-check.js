@@ -1,13 +1,17 @@
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 // 2026-10-31 V1.1.0 海克斯开关：面板新增 #scHex / #scEnemyHex（双海克斯需先勾海克斯）。
 //   默认：双海克斯勾选、海克斯关（海克斯关着时双档不生效）；开海克斯后仍做交叉核对，可验证海克斯链路的 hp 记账。
+// 2026-11-08 V1.3.0 可复现：新增「种子」输入框（留空=Date.now()），填上次 masterSeed 即按同样随机流重跑；
+//   结果区显示 masterSeed / 引擎版本 / 完成时间。
 // 2026-11-08 V1.2.0 负差额判据排除不可校核单位：自伤（七伤拳/乾坤自伤）、小昭·姊附身搬血、record=false
 //   直改血的单位本就不进 dmgTaken/healDone，判红是假红。816 用「真实 hp 变化 − 记账增量」标出 unrec*，
 //   本页改为跳过这些单位（不计数、行级显示「— 跳过」），并在表头注明口径。
 import { runParallel } from './817-shared-worker-runner.js';
+import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
 const startBtn = document.getElementById('scStartBtn');
 const runsInput = document.getElementById('scRunsInput');
+const seedInput = document.getElementById('scSeedInput');
 const progressEl = document.getElementById('scProgress');
 const resultEl = document.getElementById('scResult');
 const hexCb = document.getElementById('scHex');
@@ -43,8 +47,10 @@ startBtn.addEventListener('click', async () => {
     const agg = {};
     const startT = performance.now();
 
-    // 每关一个 job，worker 内已完成本关 RUNS 场自聚合（种子公式与原主线程一致：Date.now() + run*7919 + stage*131）
-    const masterSeed = Date.now();
+    // 每关一个 job，worker 内已完成本关 RUNS 场自聚合（种子公式：masterSeed + stage*131，场内 run*7919）
+    // V1.3.0：「种子」输入框填上次的 masterSeed 即可原样重跑；留空才用 Date.now()
+    const seedRaw = parseInt(seedInput ? seedInput.value : '', 10);
+    const masterSeed = Number.isFinite(seedRaw) && seedRaw > 0 ? seedRaw : Date.now();
     const jobs = stages.map(stage => ({ stage, seed: masterSeed + stage * 131, runs: RUNS, label: `第${stage}关` }));
 
     try {
@@ -69,7 +75,7 @@ startBtn.addEventListener('click', async () => {
                 progressEl.textContent = `体检中 ${finished}/${total}（已用 ${((performance.now() - startT) / 1000).toFixed(1)}s）`;
             },
             onAllDone: () => {
-                renderResult(agg, stages, RUNS);
+                renderResult(agg, stages, RUNS, { masterSeed, ts: Date.now(), ver: ENGINE_VER });
                 progressEl.textContent = `✅ 体检完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
             }
         });
@@ -84,7 +90,7 @@ startBtn.addEventListener('click', async () => {
 
 function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 
-function renderResult(agg, stages, runs) {
+function renderResult(agg, stages, runs, meta) {
     lastAgg = agg;
     const rows = Object.entries(agg).sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
 
@@ -105,8 +111,15 @@ function renderResult(agg, stages, runs) {
         ? `校核 ✓：${rows.length} 个单位均无可判定的负差额，记账未少于真实 hp 变化${skipTxt}。`
         : `校核 ✗：${badDmg} 个单位承伤负差额、${badHeal} 个单位治疗负差额 —— 有真实 hp 变化未进记账，需查${skipTxt}。`;
 
+    // V1.3.0：结果区带本批次 seed / 版本 / 完成时间（可填回「种子」框原样重跑）
+    let metaTxt = '';
+    if (meta && meta.masterSeed != null) {
+        const d = new Date(meta.ts || Date.now()), p2 = n => String(n).padStart(2, '0');
+        metaTxt = `｜种子 masterSeed=${meta.masterSeed}｜${(meta.ver || '').replace(/^core\/201-config-5v5-test\.js\s*/, '引擎 ')}`
+            + `｜完成 ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    }
     let html = `<button class="copy-res-btn" style="background:#444;color:#eee;border:none;border-radius:6px;padding:4px 12px;font-weight:bold;cursor:pointer;font-family:monospace;margin:2px 0 6px;">📋 复制结果</button>`
-        + `<div class="hex-log-verdict">${verdict}</div>
+        + `<div class="hex-log-verdict">${verdict}${metaTxt}</div>
     <p style="color:#888;font-size:11px;margin:8px 0;">
       记账口径：承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
       全局 dmgTaken 与 dmgDealt <span style="color:#ffa726;">本就不同</span>（承伤记全额、输出记实伤，闪避/反弹只记承伤侧），不做守恒校验。<br>
