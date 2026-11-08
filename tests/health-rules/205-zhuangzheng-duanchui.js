@@ -55,7 +55,9 @@ export const rule205 = {
             if (triggerIdx < 0) { triggerIdx = i; nValue = n; }
 
             var cue = f.data.cue;
-            if (cue && cue.kind === SKILL_CUE_KINDS.ATK_HALVE && typeof cue.amount === 'number' && Math.abs(cue.amount - n) > 0.05) {
+            // 播报里的 N 走 fmtNum（≥10 显示整数、<10 一位小数），cue amount 是原始浮点 ——
+            //   同源但显示层四舍五入，比对容差按最坏取整误差 0.5 放宽到 0.55（不做浮点等值比较）。
+            if (cue && cue.kind === SKILL_CUE_KINDS.ATK_HALVE && typeof cue.amount === 'number' && Math.abs(cue.amount - n) > 0.55) {
                 return { fail: true, msg: '复发：断锤减半飘字 amount=' + cue.amount + ' ≠ 播报 N=' + n + '（演出与数值两处各自算）' };
             }
         }
@@ -108,7 +110,7 @@ export const rule205 = {
                 if (gf.data.unitName !== '庄铮' || gf.data.skillName !== '断锤三式') continue;
                 var c2 = gf.data.cue;
                 if (!c2 || c2.kind !== SKILL_CUE_KINDS.ATK_GROW || typeof c2.amount !== 'number') continue;
-                if (Math.abs(c2.amount - nValue) > 0.05) {
+                if (Math.abs(c2.amount - nValue) > 0.55) {
                     return { fail: true, msg: '复发：断锤出手成长飘字 amount=' + c2.amount + ' ≠ 触发时记下的 N=' + nValue + '（成长量与减半量不同源）' };
                 }
             }

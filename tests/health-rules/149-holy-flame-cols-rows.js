@@ -25,21 +25,50 @@
 //     实测 120 场每个回合恒 1 条，取 ≥3 是不误报的保守门槛，只当回归哨兵用）。
 // 误报规避：本场没有「圣火令：」摘要直接 skip；配置读不到时只跳过判据 4（其余结构判据照跑）；
 //   文本形态变了（未来改文案）匹配不上就当 skip，绝不硬报。
-export const VER = 'tests/health-rules/149-holy-flame-cols-rows.js V6.1.15';
+export const VER = 'tests/health-rules/149-holy-flame-cols-rows.js V6.2.1';
 import { plain } from '../122health-utils.js';
+import { FACT_TYPES, BUFF_TYPES } from '../../infra/106-battle-enums.js';
 
-import { CONFIG } from '../../core/201-config-5v5-test.js';
+import { CONFIG, getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 147/148 同款处理）
+//   V6.2.1（2026-11-08）：render/411 改成「本阵营有姊存活 → 读 002 的 sister.holyFlame（25%/25%），
+//   否则读普通版（30%/30%）」。旧版只拿普通版 30% 比对文案 → 含小昭·姊的局全误报。
+//   档位不能靠「攻击列数」猜：敌方（六大派）若也持圣火令，摘要是 2 行 2 列排版但百分比仍是普通版，
+//   拿列数当版本标记会把敌方条目误判成姊版（实测 149 直接红 43 场）。正确做法是拿同一回合的
+//   BUFF_SUMMARY fact（data.allyTeamUids）看该阵营存活名单里有没有小昭·姊 uid —— 与 render 的
+//   withSisterValues(key, cfg, allyTeam) 同一判据（allyTeam.some(u => u.alive && u.isXiaoZhaoSister)）。
 function holyCfg() {
     var c = null;
     try {
         c = (CONFIG.BUFFS && CONFIG.BUFFS.holyFlame) || null;
     } catch (e) { c = null; }
+    var s = null;
+    try { s = getSisterHexEnhance('holyFlame'); } catch (e) { s = null; }
     return {
         atkPct: (c && typeof c.atkBonus === 'number') ? Math.round(c.atkBonus * 100) : null,
-        defPct: (c && typeof c.defBonus === 'number') ? Math.round(c.defBonus * 100) : null
+        defPct: (c && typeof c.defBonus === 'number') ? Math.round(c.defBonus * 100) : null,
+        // 姊版缺键 → null（判据 4 对姊版摘要跳过，绝不回落到普通版误报）
+        sisterAtkPct: (s && typeof s.atkBonus === 'number') ? Math.round(s.atkBonus * 100) : null,
+        sisterDefPct: (s && typeof s.defBonus === 'number') ? Math.round(s.defBonus * 100) : null
     };
+}
+
+// 小昭·姊 uid（开战名单即可定身份；uid 全程不变，afterX 兜底防止名单快照缺项）
+function sisterUidSet(beforeA, beforeE, afterA, afterE) {
+    var set = [];
+    var rosters = [beforeA, beforeE, afterA, afterE];
+    for (var r = 0; r < rosters.length; r++) {
+        var arr = rosters[r];
+        if (!arr || !arr.length) continue;
+        for (var i = 0; i < arr.length; i++) {
+            var u = arr[i];
+            // uid 是字符串（'u2' 这类），不能按 number 过滤 —— 早先按 number 判会把姊 uid 全部漏掉，
+            //   阵营档位恒判普通版，含姊局反而误报 +25% 不符。
+            if (u && u.isXiaoZhaoSister && u.uid != null && set.indexOf(u.uid) === -1) set.push(u.uid);
+        }
+    }
+    return set;
 }
 
 
@@ -88,7 +117,7 @@ function checkSeq(nums, label, round) {
 export const rule96 = {
     group: '数值回归',
     name: '圣火令行列选取(回归)',
-    test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+    test: function(ctx, log, beforeA, beforeE, afterA, afterE, facts) {
         var n = log ? log.length : 0;
         if (n === 0) return 'skip';
 
@@ -96,6 +125,20 @@ export const rule96 = {
         var curRound = 0;
         var perRound = 0;    // 判据6：同回合摘要条数
         var checked = 0;
+
+        // 阵营档位来源：圣火令 BUFF_SUMMARY fact 自带 data.allyTeamUids（该阵营存活 uid），
+        //   role='none' 的摘要不会因单位筛选而不渲染 ⇒ 这些 fact 与日志里的「圣火令：」条目按序一一对应。
+        var sisterUids = sisterUidSet(beforeA, beforeE, afterA, afterE);
+        var hfFacts = [];
+        if (facts && facts.length) {
+            for (var fi = 0; fi < facts.length; fi++) {
+                var ff = facts[fi];
+                if (!ff || ff.factType !== FACT_TYPES.BUFF_SUMMARY || !ff.data || !ff.data.buff) continue;
+                if (ff.data.buff.key !== BUFF_TYPES.HOLY_FLAME) continue;
+                hfFacts.push(ff.data);
+            }
+        }
+        var hfIdx = 0;
 
         for (var i = 0; i < n; i++) {
             var e = log[i];
@@ -136,14 +179,49 @@ export const rule96 = {
                 // ★ 第 132 轮：原写 msg: bad（整条 msg 由 checkSeq 运行时拼出，静态抽取拿不到前缀 ⇒
                 //   本分支既不能证明有牙也不能证明掉牙）。改为以静态前缀领起，bad 内容原样保留 ⇒ 出盲区。
                 if (bad) return { fail: true, msg: '复发：圣火令行列异常：' + bad };
-                // 判据4：百分比必须与配置一致（渲染写死 vs 配置漂移）
-                if (cfg.atkPct != null && parseInt(m[2], 10) !== cfg.atkPct) {
-                    return { fail: true, msg: '复发：圣火令攻击加成百分比不符：第' + curRound + '回合 圣火令攻击加成文案 +' + m[2]
-                        + '% 与配置 CONFIG.BUFFS.holyFlame.atkBonus（' + cfg.atkPct + '%）不符（渲染被写死或配置未收口）' };
+                // 判据4：百分比必须与「该阵营当时实际生效档」一致（渲染写死 vs 配置漂移）
+                //   档位 = 同一回合 fact 的 allyTeamUids 里有没有小昭·姊（与 render/411 withSisterValues 同判据）。
+                //   取不到对应 fact（老日志/过滤器差异）→ 两档都认，宁可不判也不误报。
+                var campData = (hfIdx < hfFacts.length) ? hfFacts[hfIdx] : null;
+                hfIdx++;
+                var verLabel, expAtk, expDef;
+                if (campData) {
+                    var allyUids = campData.allyTeamUids || [];
+                    var hasSister = false;
+                    for (var su = 0; su < sisterUids.length; su++) {
+                        if (allyUids.indexOf(sisterUids[su]) !== -1) { hasSister = true; break; }
+                    }
+                    verLabel = hasSister ? '002 sister.holyFlame（姊版）' : 'CONFIG.BUFFS.holyFlame（普通版）';
+                    expAtk = hasSister ? cfg.sisterAtkPct : cfg.atkPct;
+                    expDef = hasSister ? cfg.sisterDefPct : cfg.defPct;
+                } else {
+                    verLabel = '普通版/姊版任一（缺 BUFF_SUMMARY fact，无法判定阵营）';
+                    expAtk = null;
+                    expDef = null;
                 }
-                if (cfg.defPct != null && parseInt(m[4], 10) !== cfg.defPct) {
+                var gotAtk = parseInt(m[2], 10);
+                var gotDef = parseInt(m[4], 10);
+                var atkOk = true, defOk = true;
+                if (campData) {
+                    if (expAtk != null && gotAtk !== expAtk) atkOk = false;
+                    if (expDef != null && gotDef !== expDef) defOk = false;
+                } else {
+                    var atkCands = [];
+                    if (cfg.atkPct != null) atkCands.push(cfg.atkPct);
+                    if (cfg.sisterAtkPct != null) atkCands.push(cfg.sisterAtkPct);
+                    var defCands = [];
+                    if (cfg.defPct != null) defCands.push(cfg.defPct);
+                    if (cfg.sisterDefPct != null) defCands.push(cfg.sisterDefPct);
+                    if (atkCands.length && atkCands.indexOf(gotAtk) === -1) atkOk = false;
+                    if (defCands.length && defCands.indexOf(gotDef) === -1) defOk = false;
+                }
+                if (!atkOk) {
+                    return { fail: true, msg: '复发：圣火令攻击加成百分比不符：第' + curRound + '回合 圣火令攻击加成文案 +' + m[2]
+                        + '% 与 ' + verLabel + '（' + expAtk + '%）不符（渲染被写死或配置未收口）' };
+                }
+                if (!defOk) {
                     return { fail: true, msg: '复发：圣火令防御加成百分比不符：第' + curRound + '回合 圣火令防御加成文案 +' + m[4]
-                        + '% 与配置 CONFIG.BUFFS.holyFlame.defBonus（' + cfg.defPct + '%）不符（渲染被写死或配置未收口）' };
+                        + '% 与 ' + verLabel + '（' + expDef + '%）不符（渲染被写死或配置未收口）' };
                 }
             }
         }

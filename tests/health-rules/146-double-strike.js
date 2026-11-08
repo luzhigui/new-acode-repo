@@ -27,10 +27,12 @@
 //     doubleStrikeUnitUid`），所以「回合开始宣告[幼狮] → 成长 → 触发者[雄狮]」是**同一单位**，不是越界。
 //     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记
 //     别名后再比对；不做这层就会把谢逊狮群的正常回合误报成连击越界（2026-09-24 实测 2 条红全是这个形态）。
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.17';
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.18';
 import { plain } from '../122health-utils.js';
 
-const PROB_PCT = 80; // content buffs.doubleStrike.prob = 0.8，仅用于文案口径核对
+// content buffs.doubleStrike.prob = 0.8；小昭·姊在场时 render/411 读 002 sister.doubleStrike.chance = 1.0。
+//   两档都合法，仅用于文案口径说明（名字解析已改为「数字%概率」形态，不再钉死 80%）。
+const PROB_PCT = 80;
 
 
 
@@ -64,7 +66,11 @@ function inferNextAttacker(log, i) {
 //   蝶变宿主转移 / 幼狮成长两条合法别名通道**同时失效**，实测关卡3（2 条）、关卡7（1 条）共 3 条假阳性。
 //   现按「、」拆成独立名字逐个入册，别名对每个名字独立生效；整串不再作为键。
 function declaredNameOf(text) {
-    var m = plain(text).match(/概率连击：(.+?)\s*80%概率/);
+    // V6.1.18（2026-11-08）：概率档随实际生效版本变化 —— render/411 有姊时读 002 sister.doubleStrike.chance
+    //   （100%），没姊读 CONFIG.BUFFS.doubleStrike.prob（80%）。旧实现把「80%」写死在正则里，
+    //   含小昭·姊的局宣告文案是「100%概率额外攻击一次」→ 解析不到名字 ⇒ 本回合宣告名单恒空，
+    //   随后触发 banner 一律被误判「越界/未被宣告」。这里只要求「数字%概率」形态，两档都认。
+    var m = plain(text).match(/概率连击：(.+?)\s*(\d+)%概率/);
     if (!m) return null;
     var parts = String(m[1]).split('、');
     var out = [];
@@ -249,7 +255,7 @@ export const rule93 = {
                 }
             }
         }
-        if (problems.length > 0) return { fail: true, msg: '复发：概率连击异常（' + PROB_PCT + '% 触发）— ' + problems.slice(0, 3).join(' | ') };
+        if (problems.length > 0) return { fail: true, msg: '复发：概率连击异常（普通版 ' + PROB_PCT + '% / 姊版 100% 触发）— ' + problems.slice(0, 3).join(' | ') };
         return { fail: false };
     }
 };
