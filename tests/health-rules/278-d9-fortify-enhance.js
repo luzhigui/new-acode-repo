@@ -5,13 +5,13 @@
 //   002 真值：sister.fortify.healOnRebound（布尔）。
 // 判据：
 //   A. FORTIFY_REBOUND.reboundDmg 必须是正整数；
-//   B. hasSister 必须与该阵营「此刻是否有存活小昭·姊」一致 —— 引擎判定只读 ctx.A（明教侧），
-//      敌方防战反弹时会把己方姊误当成本方强化（跨阵营错位，实测会真红）；
+//   B. hasSister 必须与「防御者阵营此刻是否有存活小昭·姊」一致 —— 引擎已改按防御者阵营取
+//      （cc3a19d3：core/212 L457-459），本判据同样只认防御方阵营，不再写死明教侧；
 //   C. 该阵营有存活姊 且 healOnRebound=true → 本次反弹必须紧跟一条 label='严阵以待回复' 且
 //      unitUid=防御方 的回血事实，数值必须 floor(reboundDmg/3)（>0 时）；缺 = 配置有、实际没生效；
 //   D. 无存活姊 或 healOnRebound=false → 不允许出现这条回血（实际生效但配置没有）。
 // 无 facts 通道：skip；本局没有反弹事实：skip。
-export const VER = 'tests/health-rules/278-d9-fortify-enhance.js V1.0.0';
+export const VER = 'tests/health-rules/278-d9-fortify-enhance.js V1.1.0';
 import { FACT_TYPES, CAMP_TYPES } from '../../infra/106-battle-enums.js';
 import { getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
 
@@ -100,8 +100,7 @@ export const rule278 = {
 
             const sisAlive = Array.from(sisterUids).some(u => uidCamp[u] === camp && alive[u] === true);
             if (d.hasSister !== sisAlive) {
-                fails.push(`第${round}回合 ${camp} 方防御者严阵反弹 hasSister=${d.hasSister}，实际该阵营姊${sisAlive ? '存活' : '不在'}`
-                    + `（core/212 L436 只读 ctx.A，跨阵营判定错位）`);
+                fails.push(`第${round}回合 ${camp} 方防御者严阵反弹 hasSister=${d.hasSister}，实际该阵营姊${sisAlive ? '存活' : '不在'}`);
             }
 
             // 找同一回合内该防御方的「严阵以待回复」

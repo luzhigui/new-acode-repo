@@ -3,16 +3,15 @@
 // 机制源：core/212-battle-attack-chain.js L413-425
 //   target.isHorse && dmg>0 && query('xiaoHexEnhance', ctx.A, ctx.A._activeBuffs, HORSE_FORMATION)
 //   && hasBuff(ctx.A._activeBuffs, HORSE_FORMATION) ⇒ rebound = enhance.reboundDmg；
-//   **始终读 ctx.A（明教侧），不看马/攻击者属于哪一方**。
+//   **按「马所属阵营」取强化（cc3a19d3 起）：horseTeam = 马.camp ? ctx.A : ctx.B，不再恒读 ctx.A。**
 // 002 真值：sister.horseFormation.reboundDmg。
-// 判据：
+// 判据（全部以「马所属阵营」为准，不再写死明教侧）：
 //   A. rebound 必须是正整数；
-//   B. 反弹只应发生在「敌方攻击者打己方马」——攻击者阵营为明教（ally）却吃到明教姊的反弹
-//      即跨阵营错位（实际生效但配置没有）；
-//   C. 攻方为六大派（enemy）时，明教侧此刻必须有存活小昭·姊（否则事实不该出现）；
+//   B. 反弹只应发生在「敌对阵营攻击者打该阵营的马」——攻击者阵营 == 马所属阵营即跨阵营错位；
+//   C. 马所属阵营此刻必须有存活小昭·姊（否则事实不该出现）；
 //   D. rebound 必须逐条等于 002 sister.horseFormation.reboundDmg（改配置不生效/写死旧值都判红）。
 // 无 facts 通道：skip；本局没有马阵反弹事实：skip。
-export const VER = 'tests/health-rules/280-d9-horse-formation-enhance.js V1.0.0';
+export const VER = 'tests/health-rules/280-d9-horse-formation-enhance.js V1.1.0';
 import { FACT_TYPES, CAMP_TYPES } from '../../infra/106-battle-enums.js';
 import { getSisterHexEnhance } from '../../core/201-config-5v5-test.js';
 
@@ -99,16 +98,19 @@ export const rule280 = {
             }
 
             const attackerUid = d.attackerUid != null ? String(d.attackerUid) : null;
+            const horseUid = d.unitUid != null ? String(d.unitUid) : null;
             if (attackerUid == null || !uidCamp[attackerUid]) continue;   // 攻方阵营不可知：宁漏勿错
+            const horseCamp = horseUid != null ? uidCamp[horseUid] : null;
+            if (!horseCamp) continue;   // 马不在快照里：判不了所属阵营，宁漏勿错
 
-            if (uidCamp[attackerUid] === CAMP_TYPES.ALLY) {
-                fails.push(`第${round}回合 明教攻击者打马却吃到明教姊的马阵反弹（跨阵营错位；core/212 L414 只读 ctx.A）`);
+            if (uidCamp[attackerUid] === horseCamp) {
+                fails.push(`第${round}回合 ${horseCamp} 方攻击者打${horseCamp} 方的马却吃到马阵反弹（跨阵营错位）`);
                 continue;
             }
             const sisAlive = Array.from(sisterUids)
-                .some(u => uidCamp[u] === CAMP_TYPES.ALLY && alive[u] === true);
+                .some(u => uidCamp[u] === horseCamp && alive[u] === true);
             if (!sisAlive) {
-                fails.push(`第${round}回合 明教侧无存活姊，却出现马阵反弹 ${rebound}（实际生效但配置没有）`);
+                fails.push(`第${round}回合 马所属 ${horseCamp} 方无存活姊，却出现马阵反弹 ${rebound}（实际生效但配置没有）`);
             }
         }
 

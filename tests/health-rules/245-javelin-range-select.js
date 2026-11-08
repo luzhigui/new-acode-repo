@@ -64,7 +64,9 @@ export const rule245 = {
         if (checked === 0) return 'skip';
         if (errs.length) {
             // 实测 156 场：63 次可判标枪出手，2 次射程外（seed=17 s2 / seed=18 s7），两例均带 skillAnnounce
-            //   且 snap.linkReason=null，即走了常规选靶链——判据已硬，缺陷登记 known-transfers 转交主代码收口。
+            //   且 snap.linkReason=null。第 202 轮追查结论：**样本不足、待扩样本**——两个入口都排不掉
+            //   ① extraRequests/dashStrike 未打 linkReason；② core/207 射程过滤在建组前被绕过。
+            //   2 例撑不起定性，扩样本后再收口；判据维持硬判，不为此放宽。
             return { fail: true, msg: '标枪射程外的选靶 ' + errs.length + '/' + checked + ' 次：' + errs.slice(0, 3).join('；') };
         }
         return { fail: false, msg: '标枪选靶射程成立：核对 ' + checked + ' 次标枪出手' };

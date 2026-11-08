@@ -12,13 +12,14 @@
 //        或第二档 secondReviveRatio（tier≥2），且 tier 不得超过 sister.reviveCount；
 //      · 无存活姊 → 比例必须等于普通版 reviveRatio，且 tier 必须为 1（普通版只给 1 次）；
 //      “配置有、实际没生效” = 姊活着却按普通版 0.4 复活；“实际生效但配置没有” = 无姊却吃 0.7/1.0 档。
+//      阵营取 fact 自带的 d.camp（复活公告由引擎按被复活者阵营写出），**不写死明教侧**。
 //   B. 妹独立名额（slot='self'）：比例必须等于 brother.holyFire.reviveRatio，tier 恒 1。
 //   C. 落地同源：healAmount 必须 = min(round(maxHp×ratio), maxHp−hpBefore)，且 reviveRaw 必须 =
 //      round(maxHp×ratio)（文案/飘字/实际回血三者同一个 ratio）。
 // 存活判定：队伍快照建 uid→阵营 与 小昭·姊 uid 名单，按 fact 流顺序吃 UNIT_DEATH（死）
 //   和 圣火不熄公告（复活），逐步得到「此刻谁活着」——不用回合摘要（无 buff 时摘要不存在）。
 // 无 facts 通道（浏览器体检）：skip；本局没有复活公告：skip（没有场景 ≠ 通过）。
-export const VER = 'tests/health-rules/277-d9-holy-fire-enhance.js V1.0.0';
+export const VER = 'tests/health-rules/277-d9-holy-fire-enhance.js V1.1.0';
 import { FACT_TYPES, CAMP_TYPES } from '../../infra/106-battle-enums.js';
 import { CONFIG, getSisterHexEnhance, getBrotherHexEnhance } from '../../core/201-config-5v5-test.js';
 
