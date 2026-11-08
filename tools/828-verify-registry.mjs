@@ -6,6 +6,9 @@
 //   1) 主代码 registerElite 名单  vs  827 注册表覆盖名单 → 列出"主代码有、工具未覆盖"的精英
 //   2) 主代码 characters 派生池（CONFIG.MING_M / ENEMY_M / ELITE_CONFIGS）/encounters 的 m 值  vs  805 HERO_META.baseM → 列出数值漂移
 //   3) 主代码精英的"出场方式"粗判（明教自然/六大派敌方变体/朝廷/carry召唤），标注工具是否有对应评测通道
+//   4) 主代码海克斯池（content.buffs） vs 827 HEX_NAMES / 808 HEX_NAME_MAP → 漏登会退化成英文 key
+//   5) 主代码关卡列表（encounters.enemySquads） vs 808 ALL_STAGES → 加关漏登会静默少跑一关的数据
+// 4/5 于 2026-11-08 补：主代码加新海克斯/新关卡时，工具侧全是手写名单，漏一处不报错、只是少数据。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -78,8 +81,10 @@ const arrOf = (name) => {
 const NATURAL = arrOf('NATURAL_ELITES');
 const SOLO = arrOf('SOLO_ELITES');
 const BOSS = arrOf('BOSS_ELITES');
-const WEAK = arrOf('WEAK_ELITES').length ? arrOf('WEAK_ELITES') : []; // 对象数组，单独处理
-const weakNames = [...reg.matchAll(/name:\s*'([^']+)'/g)].map(x => x[1]);
+// 只在 WEAK_ELITES 块内取 name。旧版全文扫 /name:'X'/，827 以后若新增任何带 name 字段的对象
+//   （例如把 M100_SKILL_ALLIES 改成对象数组）都会被误收进覆盖名单 → 主代码漏登的精英被"假覆盖"，护栏假绿。
+const weakBlock = reg.match(/export const WEAK_ELITES\s*=\s*\[([\s\S]*?)\s*\];/);
+const weakNames = weakBlock ? [...weakBlock[1].matchAll(/name:\s*'([^']+)'/g)].map(x => x[1]) : [];
 const covered827 = new Set([...NATURAL, ...SOLO, ...BOSS, ...weakNames]);
 
 // ---- 4. 805 HERO_META ----
@@ -169,6 +174,70 @@ console.log('\n── C. 805 有、但主代码未注册的英雄（可能是商
 const extra805 = Object.keys(heroMeta).filter(n => !eliteNames.has(n));
 if (!extra805.length) console.log('  （无）');
 else for (const n of extra805) console.log(`  • ${n}  baseM=${heroMeta[n].baseM}`);
+
+// ---- 6. 海克斯名单 / 关卡列表：主代码真源 vs 工具手写名单 ----
+// 这两项过去完全没人盯：主代码加海克斯 → 827/808 没跟上时，表头静默显示英文 key；
+// 主代码加关卡 → 808 的 ALL_STAGES 没跟上时，跑批和存档键都跳过那一关，连报错都没有。
+const dash = read('tools/808-hex-dashboard.js');
+const keysOfObject = (src, name) => {
+  // 闭合用 \s*\}; 而非写死 \n\};：827 是 CRLF、808 是 LF，混行尾或删掉末项后剩 \r}; 都得能解析，
+  //   否则护栏只会含糊报「解析失败」，说不清到底是谁漏登。
+  const m = src.match(new RegExp(`(?:export )?const ${name}\\s*=\\s*\\{([\\s\\S]*?)\\s*\\};`));
+  if (!m) return null;
+  return [...m[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)].map(x => x[1]);
+};
+const hexProd = Object.keys(game.buffs || {});
+if (!hexProd.length) throw new Error('content.buffs 读不到——828 拒绝空集通过（海克斯名单）');
+const hex827 = keysOfObject(reg, 'HEX_NAMES');
+const hex808 = keysOfObject(dash, 'HEX_NAME_MAP');
+const stageProd = Object.keys(game.encounters?.enemySquads || {})
+  .map(Number).filter(Number.isInteger).sort((a, b) => a - b);
+if (!stageProd.length) throw new Error('encounters.enemySquads 读不到——828 拒绝空集通过（关卡列表）');
+const asBlock = dash.match(/const ALL_STAGES\s*=\s*\[([^\]]*)\]/);
+const stage808 = asBlock ? [...asBlock[1].matchAll(/\d+/g)].map(x => Number(x[0])) : [];
+
+console.log('\n── D. 海克斯名单（content.buffs / 827 HEX_NAMES / 808 HEX_NAME_MAP）──');
+console.log(`  主代码 ${hexProd.length} 个 | 827 ${hex827 === null ? '读不到' : hex827.length} 个 | 808 ${hex808 === null ? '读不到' : hex808.length} 个`);
+let dIssues = 0;
+const reportMiss = (label, keys, target) => {
+  if (!keys.length) return;
+  console.log(`  ⚠ ${label}：${keys.join('、')}`);
+  console.log(`      → ${target}`);
+  newProblems.push(...keys.map(k => `D:${k}`));
+  dIssues++;
+};
+if (hex827 === null || hex808 === null) {
+  console.log('  ⚠ 名单块解析失败（HEX_NAMES / HEX_NAME_MAP 结构可能被改），护栏无法判定');
+  newProblems.push('D:parse');
+  dIssues++;
+} else {
+  reportMiss('主代码有、827 未登记（826 告警文案 / 852 报告会显示英文 key）',
+    hexProd.filter(k => !hex827.includes(k)), '补进 827 HEX_NAMES');
+  reportMiss('主代码有、808 未登记（108 表头 / 826 的「108 缺中文名」检查）',
+    hexProd.filter(k => !hex808.includes(k)), '补进 808 HEX_NAME_MAP');
+  const orphan = [...new Set([...hex827, ...hex808])].filter(k => !hexProd.includes(k));
+  if (orphan.length) {
+    console.log(`  • 工具登记了但主代码已无此海克斯：${orphan.join('、')}（疑似改名/删除残留，建议清理，不计红）`);
+  }
+  const cross = [...new Set([...hex827.filter(k => !hex808.includes(k)), ...hex808.filter(k => !hex827.includes(k))])];
+  reportMiss('两份手写表互相同步失败（827 与 808 内容不一致）', cross, '以 827 为准统一两份表');
+}
+const perm = game.hexes?.permanentBuffKeys || [];
+const permDiff = [...hexProd.filter(k => !perm.includes(k)), ...perm.filter(k => !hexProd.includes(k))];
+console.log(`  妹永久清单 permanentBuffKeys：${permDiff.length ? '与 buffs 不一致 → ' + permDiff.join('、') + '（826 规则一会告警）' : '与 buffs 一致'}（本项提示，不计红）`);
+if (!dIssues) console.log('  ✅ 三方名单一致');
+
+console.log('\n── E. 关卡列表（encounters.enemySquads / 808 ALL_STAGES）──');
+console.log(`  主代码 [${stageProd.join(', ')}] | 808 [${stage808.join(', ') || '读不到'}]`);
+const missStage = stageProd.filter(s => !stage808.includes(s));
+const extraStage = stage808.filter(s => !stageProd.includes(s));
+if (missStage.length) {
+  console.log(`  ⚠ 主代码有、808 跑批名单漏掉：第 ${missStage.join('、')} 关`);
+  console.log('      → 补进 808 ALL_STAGES；漏关会让跑批与存档键静默跳过该关，数据少一截且不报错');
+  newProblems.push(...missStage.map(s => `E:stage${s}`));
+}
+if (extraStage.length) console.log(`  • 808 有、主代码已无：第 ${extraStage.join('、')} 关（疑似历史关保留，不计红）`);
+if (!missStage.length) console.log('  ✅ 关卡列表一致（819-auto-tuner 用 allStages() 动态取，无需同步）');
 
 console.log('\n══════════════════════════════════════════════════════════════');
 const problems = newProblems.length;
