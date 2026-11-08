@@ -1,5 +1,5 @@
-// V1.5.14 | 2026-11-08 契约补齐 uid：SUMMON_UNIT/LION_GROW 召唤物、BUTTERFLY_HOST_DEAD 宿主
-export const VER = 'infra/107-fact-contract.js V1.5.14';
+// V1.5.15 | 2026-11-08 体检对账补登：攻击实数血量快照、buff 摘要嵌套键；声明型 fact 补 camp/op，融会/乾坤补体检读的键
+export const VER = 'infra/107-fact-contract.js V1.5.15';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -54,9 +54,9 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.MIND_CONTROL_FAIL]: { requiredFields: ['side'], renderFn: 'renderMindControlFailFact', translateFn: null },
     [FACT_TYPES.MIND_CONTROL_BANNER]: { requiredFields: ['side'], renderFn: 'renderMindControlBannerFact', translateFn: 'translateMindControlBanner' },
 
-    // 乾坤大挪移
-    [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
-    [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
+    // 乾坤大挪移（modules/302 恒发 reducePct=转移比例、absorbed=盾吸收量，体检按这两项复算净伤）
+    [FACT_TYPES.QIAN_KUN_UPGRADED]: { requiredFields: ['rebound', 'zhangUid', 'reducePct', 'absorbed'], renderFn: 'renderQianKunUpgradedFact', translateFn: 'translateQianKunUpgraded' },
+    [FACT_TYPES.QIAN_KUN_BASIC]: { requiredFields: ['rebound', 'zhangUid', 'reducePct', 'absorbed'], renderFn: 'renderQianKunBasicFact', translateFn: 'translateQianKunBasic' },
 
     // 通用回血：字段固定 {unitUid, heal, hpBefore, hpAfter, label, icon}，
     // 引擎侧统一走 emitHeal() 发射；新增回血机制只需登记这一条 + 调一行 emitHeal，无需各自建 fact 类型
@@ -79,9 +79,10 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.XUAN_MING_LINK_ATTACK]: { requiredFields: ['partnerName', 'unitName'], renderFn: 'renderXuanmingLinkAttackFact', translateFn: null },
 
     // 幻影伪装
-    [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderPhantomDisguiseHealFact', translateFn: 'makeHealAction' },
+    [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: { requiredFields: ['unitName', 'unitUid', 'heal'], renderFn: 'renderPhantomDisguiseHealFact', translateFn: 'makeHealAction' },
     [FACT_TYPES.PHANTOM_REVEAL]: { requiredFields: ['unitName', 'deceiver', 'deceiverUid'], renderFn: 'renderPhantomRevealFact', translateFn: null },
-    [FACT_TYPES.PHANTOM_CONFUSE]: { requiredFields: ['unitName', 'deceiver'], renderFn: 'renderPhantomConfuseFact', translateFn: null },
+    // sourceSkill：被惑心者正在读条的技能名；targetName：被迷惑目标的展示名（体检按这两键核对惑心归属）
+    [FACT_TYPES.PHANTOM_CONFUSE]: { requiredFields: ['unitName', 'deceiver', 'sourceSkill', 'targetName'], renderFn: 'renderPhantomConfuseFact', translateFn: null },
 
     // 宋青书新婚 / 性奋
     [FACT_TYPES.XING_FEN_RETRY]: { requiredFields: ['unitName'], renderFn: 'renderXingFenRetryFact', translateFn: null },
@@ -91,7 +92,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.XING_FEN_GRANT]: { requiredFields: ['songName', 'zhouName'], renderFn: 'renderXingFenGrantFact', translateFn: null },
     [FACT_TYPES.XIN_HUN_DEATH]: { requiredFields: ['uidD'], renderFn: 'renderXinHunDeathFact', translateFn: 'translateXinHunDeath' },
 
-    [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk', 'targetUid'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
+    // targetDef：真伤公式 floor(|目标攻-目标防|×比例) 的入参之一，体检按攻/防两项复算（modules/320 恒发）
+    [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk', 'targetDef', 'targetUid'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
 
     // 韦一笑吸血
     [FACT_TYPES.WEI_LEECH]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderWeiLeechFact', translateFn: 'makeHealAction' },
@@ -150,7 +152,8 @@ export const FACT_SPECS = Object.freeze({
 
     // 召唤 / 幼狮成长（谢逊狮子、灭绝召唤周芷若）
     // 召唤物必须带 uid（体检侧按 uid 认个体，同场两只同名幼狮/雄鹰靠名字分不开）
-    [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'summonUid', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
+    // 演出：render/415 对带 cue 的召唤出 SKILL_CUE（张中·蹦蹦），cue 缺省则不出动作——登记非 null，避免契约谎称「不产动作」
+    [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'summonUid', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: 'translateSummonUnitCue' },
     [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'unitUid', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
 
     // 数值声明 fact（体检对照器专用；renderFn:null = 无渲染，不进画面）
@@ -161,19 +164,42 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.STAT_CHANGE_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'delta'], renderFn: null, translateFn: null },
     // 光环（ttl:round 加法词条）：emptyCol/bloodAura 与 addMod 入参同值，为 0 也发（零值词条也要有账）
     [FACT_TYPES.AURA_APPLY]: { requiredFields: ['unitName', 'unitUid', 'emptyCol', 'bloodAura'], renderFn: null, translateFn: null },
-    // 圣火令（乘法共享乘区，无独立增量）：ratio 与 addMod value 同值（0.3=+30%），field 为 atk/def，体检按乘率口径核对
-    [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 圣火令（乘法共享乘区，无独立增量）：ratio 与 addMod value 同值（0.3=+30%），field 为 atk/def；camp/op 供体检按阵营+乘率口径核对
+    [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 摄魂（core/04 applySoulDrain，op:mul 削弱型）：ratio 与 addMod value 同值——atk 为 atkBonus(-0.30) 随人数差更深（每多 1 人 -0.05），def 为乘法累积 (1+defBonus)×(1+perRoundBonus)^(N-1)-1（×0.9 起步、每回合再 ×0.95）；field 为 atk/def，体检按乘率（mulSum）口径核对
-    [FACT_TYPES.SOUL_DRAIN_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    [FACT_TYPES.SOUL_DRAIN_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 背水一战（core/04 applyLastStandBonus，op:mul 残血增伤）：ratio 与 addMod value 同值（atkBonus），field='atk'，体检按乘率（mulSum）口径核对
-    [FACT_TYPES.LAST_STAND_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    [FACT_TYPES.LAST_STAND_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 众志成城（core/04 applyUnityBonus，op:mul 人数阶梯攻防同乘）：ratio 与 addMod value 同值（tier.atkBonus/defBonus），field='atk'|'def'，体检按乘率（mulSum）口径核对
-    [FACT_TYPES.UNITY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    [FACT_TYPES.UNITY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：atk/def/maxHp 与 addMod value 同值（getRoleBonus(WARRIOR)），体检按加法增量口径核对
     [FACT_TYPES.TW_DASH_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
     [FACT_TYPES.XIAO_ZHAO_CARRY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
     // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
     [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
+});
+
+/**
+ * FACT_AUDIT_FIELDS —— 体检对账用的嵌套字段清单（点路径）。
+ * 只做「登记」，不参与 validateFactContract（那边只管平铺顶层键），缺字段不阻断引擎、不拉红。
+ * 体检规则按这里列的路径读 fact.data；字段新增/改名必须两边同步。
+ *
+ * 攻击 fact（core/212 buildAttackGroup）的血量快照是两套口径：
+ *   attacker.hp / attacker.maxHp / snap.attackerHp / snap.targetHpAfter —— 显示口径（≥10 取整）
+ *   snap.attackerHpReal / snap.targetHpAfterReal —— 实数口径（未取整，供体检核 0.x 级扣血）
+ */
+export const FACT_AUDIT_FIELDS = Object.freeze({
+    [FACT_TYPES.ATTACK]: Object.freeze([
+        'attacker.uid', 'attacker.name', 'attacker.hp', 'attacker.maxHp',
+        'snap.attackerHp', 'snap.targetHpAfter', 'snap.targetAlive',
+        'snap.attackerHpReal', 'snap.targetHpAfterReal',
+        'dmgCalc.hpBonus', 'dmgCalc.thunderBonus',
+        'dmgCalc.dmgMultiplierEntries', 'dmgCalc.bonusDmgEntries',
+        'dmgResult.hpBefore', 'dmgResult.dead', 'dmgResult._shield', 'dmgResult._permShield'
+    ]),
+    [FACT_TYPES.BUFF_SUMMARY]: Object.freeze([
+        'buff.key', 'buff.target', 'buff.remaining'
+    ])
 });
 
 /**
