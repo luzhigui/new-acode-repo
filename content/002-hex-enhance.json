@@ -31,6 +31,6 @@
     "holyFire": { "reviveRatio": 0.4 },
     "unity": { "summonChance": 0.7, "recruitM": 15 },
     "carry": { "layersBase": 1, "layersPerR1": 1, "layersPerR2": 0.5 },
-    "lastStand": { "hpThreshold": 0.25 }
+    "lastStand": {}
   }
 }

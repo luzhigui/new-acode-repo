@@ -7,7 +7,7 @@ import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
-import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs, recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
+import { createBuffObject, buffsOfCamp, generateBuffChoices, filterAvailableBuffs, recordUsedBuffKey, recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
 import { appendLogHTML } from './510-renderer.js';
 import * as net from '../infra/109-net-pvp.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -38,6 +38,7 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
     
     if (newBuff) {
         nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
+        recordUsedBuffKey(newBuff.key);
         appendLogHTML(`<span class="gold">✨ ${label}方获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
         // 妹永久海克斯写入：记进 GlobalStore 独立账本（回合末由 503 playBattle 覆盖进引擎）。
         //   不再直接写 store 里妹的 state——那会被 syncStoreFromStep 整份覆盖；
@@ -80,6 +81,7 @@ export async function handlePvpBuffSelection(c, nextActiveBuffs) {
     let merged = nextActiveBuffs || [];
     if (allyBuff) {
         merged = [...merged, allyBuff];
+        recordUsedBuffKey(allyBuff.key);
         appendLogHTML(`<span class="gold">✨ ${CAMP_LABEL[CAMP_TYPES.ALLY]}方获得Buff：${allyBuff.name}（${allyBuff.permanent ? '整局' : '持续' + allyBuff.remaining + '回合'}）</span><br>`);
     }
     const pickKey = pickMsg && pickMsg.key;
@@ -119,6 +121,7 @@ export async function handleEnemyAutoBuffSelection(c, nextActiveBuffs) {
     const choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
     const pick = choices[rng.nextInt(0, choices.length - 1)];
     const newBuff = createBuffObject(pick, null, CAMP_TYPES.ENEMY, enemyTeam);
+    recordUsedBuffKey(newBuff.key);
     appendLogHTML(`<span class="gold">✨ 六大派 自动选择 Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
     // 六大派自动选对玩家不可见，补一条气泡明示。
     //   位置：钉在敌 8 号位格子正上方（7/8/9 后排三格的中间列）——位置固定不动，

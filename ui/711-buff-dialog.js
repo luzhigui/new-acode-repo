@@ -6,7 +6,7 @@ export const VER = 'ui/711-buff-dialog.js V6.4.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
-import { createBuffObject, buffsOfCamp, filterAvailableBuffs } from '../modules/329-buff-tools.js';
+import { createBuffObject, buffsOfCamp, filterAvailableBuffs, recordUsedBuffKey } from '../modules/329-buff-tools.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { stepBattleBuff } from './712-tutorial.js';
@@ -93,11 +93,7 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
             btn.textContent = b.text;
             btn.addEventListener('click', () => {
                 const newBuff = createBuffObject(b.value, null, camp, team);
-                // carry 全场只能选一次：记进 usedBuffKeys（跨关不清，整局有效；resetBattleRuntime 时清空）
-                if (b.value === 'carry') {
-                    const used = GlobalStore.get('usedBuffKeys') || [];
-                    if (!used.includes('carry')) GlobalStore.set('usedBuffKeys', [...used, 'carry']);
-                }
+                recordUsedBuffKey(b.value);
                 if (camp === CAMP_TYPES.ALLY) {
                     const xiaoZhao = team.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {

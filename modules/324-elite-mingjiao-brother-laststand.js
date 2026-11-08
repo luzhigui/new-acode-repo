@@ -1,16 +1,18 @@
 // modules/324-elite-mingjiao-brother-laststand.js — 小昭·妹永久背水一战（专属组件）
-// 触发：团队背水不在场 + 妹持永久背水 + 妹自身血量跌破 brother.lastStand.hpThreshold（201）。
+// 触发：ON_ROUND_START 时团队背水在场即触发永久效果（每局一次，不看血量、不等团队 buff 过期、不看永久账本）。
 // 效果：
 //   a. 精通转战士：职业锁战士 + 额外叠 1 次战士加成（精通累积保留）
-//   b. 对敌方随机存活单位触发一次蛛袭（穿透 + 精通额外伤害，公式同 modules/20 spiderReturn）
+//   b. 蛛袭：按本局剩余飞天次数（_spiderRemaining）逐次随机打敌方存活单位，可重复同一目标；
+//      公式同 modules/20 spiderReturn（穿透 + 精通额外伤害）；剩 0 次不赠送
 //   c. 本局永久禁飞天禁变卵（_noFlyNoEgg = true，modules/27 飞天/变卵触发点读它）
 //   d. 攻 +10% / 防 -20% / 承伤 +40%（沿用 CONFIG.BUFFS.lastStand 数值）
 //   e. 额外 80% 吸血（永久，_brotherLastStandLeech = 0.8）
 //   f. 后续每回合开始叠一次战士加成（无限叠）
-// V1.0.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.0.1';
+// V1.1.0 | 2026-11-08 触发时机改为 ON_ROUND_START（团队背水在场即触发，不再看血量/永久账本）；
+//   蛛袭由单次改为按 _spiderRemaining 次数逐次随机（可重复同一目标）；brother.lastStand.hpThreshold 废弃
+export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.1.0';
 
-import { CONFIG, getSkillParams, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, applyStatChange, emitEvent } from '../core/214-battle-shared.js';
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -43,33 +45,39 @@ function triggerBrotherLastStand(brother, A, B, log) {
 
     brother.state._noFlyNoEgg = true;
 
-    const enemies = (B || []).filter(u => u.alive);
-    if (enemies.length > 0) {
-        const rng = getBattleRng();
-        const target = enemies[rng.nextInt(0, enemies.length - 1)];
-        const atk = getStat(brother, 'atk');
-        const def = getStat(target, 'def');
-        const penetrationDmg = Math.floor(atk * (atk / (atk + def)) * 0.5);
+    // 蛛袭次数 = 剩余飞天次数（剩几次就随机打几次，可重复同一目标）
+    const strikeCount = brother.state._spiderRemaining || 0;
+    if (strikeCount > 0) {
         const params = getSkillParams('小昭', 'spiderStrike');
+        if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
         const extraDmgMap = params.extraDmgMap;
         const masteryCount = brother.state._masteredRoles?.length || 0;
         const extraDmg = extraDmgMap[Math.min(masteryCount, Object.keys(extraDmgMap).length - 1)] || 0;
-        const totalDmg = penetrationDmg + extraDmg;
-        applyStatChange(target, 'hp', -totalDmg, brother, '蛛袭（背水触发）');
-        if (log) {
-            log.push({
-                factType: FACT_TYPES.SPIDER_STRIKE,
-                data: {
-                    unitName: brother.name,
-                    targetName: target.name,
-                    penetrationDmg,
-                    extraDmg,
-                    totalDmg,
-                    isDead: target.hp <= 0,
-                    unitUid: brother.uid,
-                    targetUid: target.uid
-                }
-            });
+        const rng = getBattleRng();
+        for (let i = 0; i < strikeCount; i++) {
+            const enemies = (B || []).filter(u => u.alive);
+            if (enemies.length === 0) break;
+            const target = enemies[rng.nextInt(0, enemies.length - 1)];
+            const atk = getStat(brother, 'atk');
+            const def = getStat(target, 'def');
+            const penetrationDmg = Math.floor(atk * (atk / (atk + def)) * 0.5);
+            const totalDmg = penetrationDmg + extraDmg;
+            applyStatChange(target, 'hp', -totalDmg, brother, '蛛袭（背水触发）');
+            if (log) {
+                log.push({
+                    factType: FACT_TYPES.SPIDER_STRIKE,
+                    data: {
+                        unitName: brother.name,
+                        targetName: target.name,
+                        penetrationDmg,
+                        extraDmg,
+                        totalDmg,
+                        isDead: target.hp <= 0,
+                        unitUid: brother.uid,
+                        targetUid: target.uid
+                    }
+                });
+            }
         }
     }
 
@@ -80,22 +88,17 @@ function triggerBrotherLastStand(brother, A, B, log) {
     }
 }
 
+// 触发：团队背水在场即触发永久效果（每局一次，不再等团队 buff 过期，不再等血量跌破阈值）
 registerSettlementHook({
-    when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
-    priority: L.AFTER_DAMAGE_APPLIED.LEECH + 2,
+    when: SIGNAL_TYPES.ON_ROUND_START,
+    priority: 10,
     handler: (data) => {
         const A = data.A, B = data.B, log = data.log;
         if (!A || !B) return;
         const brother = findBrother(A);
         if (!brother || brother.state._brotherLastStandTriggered) return;
         const buffs = A._activeBuffs || [];
-        if (buffs.some(b => b.key === BUFF_TYPES.LAST_STAND)) return;
-        const permOwned = Array.isArray(brother.state._permanentBuffs)
-            && brother.state._permanentBuffs.some(b => b.key === BUFF_TYPES.LAST_STAND);
-        if (!permOwned) return;
-        const enh = getBrotherHexEnhance('lastStand');
-        if (!enh || enh.hpThreshold == null) throw new Error('002-hex-enhance.json 缺 brother.lastStand.hpThreshold');
-        if (brother.hp >= brother.maxHp * enh.hpThreshold) return;
+        if (!buffs.some(b => b.key === BUFF_TYPES.LAST_STAND)) return;
         triggerBrotherLastStand(brother, A, B, log);
     }
 });

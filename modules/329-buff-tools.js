@@ -70,6 +70,15 @@ export function hasCarryTarget(team) {
 // 现统一由本函数提供，generateBuffChoices 也改调它（行为不变）。
 // opts.withFortifyRule：116 职业平衡 job 专用（无剩余 buff 时禁选严阵以待），默认关；116 hex job / 122 不开。
 // 注意：V6.2.4 已按老板拍板删掉 carry 过滤（无 5 号位时 core/04 会召唤雄鹰顶位），本函数同样不含。
+// 记录已选过的「全场唯一」海克斯；选 buff 的四处流程（手选/全自动/联网/双海克斯）统一调这里
+export function recordUsedBuffKey(key) {
+    if (!key) return;
+    const isExclusive = key === BUFF_TYPES.CARRY || key === BUFF_TYPES.HOLY_FIRE || key === BUFF_TYPES.LAST_STAND;
+    if (!isExclusive) return;
+    const used = GlobalStore.get('usedBuffKeys') || [];
+    if (!used.includes(key)) GlobalStore.set('usedBuffKeys', [...used, key]);
+}
+
 export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
     const { withFortifyRule = false, enemyTeam = [] } = opts;
     const ab = activeBuffs || [];
@@ -78,8 +87,9 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
     const alive = (team || []).filter(u => u && u.alive);
     return Object.keys(CONFIG.BUFFS).filter(k => {
         if (activeBuffKeys.includes(k)) return false;
-        // carry 全场只能选一次：选过（不论是否过期）就不再进候选
-        if (k === BUFF_TYPES.CARRY && usedKeys.includes(k)) return false;
+        // 全场只能选一次：carry + permanent 海克斯（背水一战 / 圣火不熄）
+        //   permanent 靠 remaining=MAX_ROUND 天然不会再进池，但那是数值挡；这里补机制挡，防未来 duration 改动。
+        if ((k === BUFF_TYPES.CARRY || k === BUFF_TYPES.HOLY_FIRE || k === BUFF_TYPES.LAST_STAND) && usedKeys.includes(k)) return false;
         if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !ab.some(b => b.remaining > 0)) return false;
         // 众志成城门槛（老板拍板）：只有本阵营「场上存活人数 < 4」时才可能出现——
         //   人数口径含拒马/幼狮/雄鹰等召唤物（与 core/04 applyUnityBonus 同口径）；满 4 人及以上不进候选
