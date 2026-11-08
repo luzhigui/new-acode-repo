@@ -4,14 +4,15 @@
 //   攻击链内部流转留在 212-battle-attack-chain.js，保持「一条攻击链一个文件」。
 // V1.0.1 | 2026-11-07 第 184 轮：resolveDeaths 归零改调 killUnit（死亡收口统一出口，ignoreCap=true
 //          与审计账/待死标记一次做完；补记 V1.0.0 未升版的 ignoreCap 改动）
-export const VER = 'core/213-battle-attack-edge.js V1.0.1';
+// V1.0.2 | 2026-11-08 体检转交：resolveDeaths 每个死者补一条 UNIT_DEATH fact（只加事实，不改判死/结算逻辑）
+export const VER = 'core/213-battle-attack-edge.js V1.0.2';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';
 import { getEffectHandler, hasEffectHandler, validateDeclarationFields } from './217-effect-handlers.js';
 import { emitEvent, killUnit, getStat } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
-import { UNIT_EVENT_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 
 // 综合闪避率（0~1）：规则表各源 + buff 闪避，独立相乘后取补——resolveAttackHit 内部与
@@ -135,6 +136,8 @@ export function resolveDeaths(allySide, enemySide, log) {
         if (!u.state._pendingDeath) continue;
         // 死亡收口统一走 killUnit（内部 ignoreCap=true：归零血不是一次受伤，不许被 _dmgCap 截在 0 以上，
         //   否则 alive=false 却 hp>0）
+        // hpBefore 取 killUnit 之前的值（攻击/DOT 已把血打到 0），hpAfter 取结算后的实数
+        const hpBefore = u.hp;
         killUnit(u, null, '死亡结算');
         u.alive = false;
         u.state._isDead = true;
@@ -144,6 +147,14 @@ export function resolveDeaths(allySide, enemySide, log) {
         // 死亡不再发 UNIT_REMOVE：伤口一结算就把格子从 store 摘掉，会出现「格子先空、死亡特效后到」。
         //   改为只保留 _isDead 状态 → 格子当帧就上死亡态（红底 ✕），尸体交给 player/42 的 3 秒清尸计时统一移除。
         emitStateChange(u, STATE_CHANGE_TYPES.DEATH, {}, log);
+        // 死亡登记 fact（体检 231/184 归账）：resolveDeaths 是唯一真实死亡出口，此前只发信号、零日志。
+        //   只加事实、不改判死/结算逻辑；render/411 注册隐藏渲染器，战报不会多出重复死亡行。
+        if (Array.isArray(log)) {
+            log.push({ factType: FACT_TYPES.UNIT_DEATH, data: {
+                uid: u.uid, name: u.name, camp: u.camp,
+                reason: '死亡结算', hpBefore, hpAfter: u.hp
+            } });
+        }
         died.push(u);
     }
 

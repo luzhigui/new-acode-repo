@@ -1,4 +1,4 @@
-export const VER = 'infra/106-battle-enums.js V1.11.2';
+export const VER = 'infra/106-battle-enums.js V1.11.3';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -78,7 +78,10 @@ export const FACT_TYPES = Object.freeze({
     LION_INSPIRE: 'lionInspire',
     // 何太冲三技能显性化：技能报幕行 + 头顶飘字声明。note 为战报文本；
     //   line:false 时只走飘字不落行（renderLog 返回 null，其 stageAction 照播）；floatText/floatUid 走 SKILL_FLOAT 头顶飘字
-    SKILL_ANNOUNCE: 'skillAnnounce'
+    SKILL_ANNOUNCE: 'skillAnnounce',
+    // 死亡登记（core/213 resolveDeaths 唯一真实死亡出口）：{ uid, name, camp, reason, hpBefore, hpAfter }
+    //   只进 step.log 供体检按 uid 归账（复活链前置/毒 DOT 致死），render 侧注册隐藏渲染器，不进画面
+    UNIT_DEATH: 'unitDeath'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 13 项对应） */

@@ -6,7 +6,8 @@
 // V6.8.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回血量可按百分比校验，不再靠最近 ATTACK 快照反推）。
 // V6.8.8 | 2026-11-08 体检转交：圣火不熄复活带账——复活记录（uid/实际回复量/原始量/maxHp/档位/比例/名额）写进
 //         | 阵亡者 state._holyFireRevives，随每回合 BUFF_SUMMARY 下发，复活公告同时带 healAmount 等结构化字段。
-export const VER = 'core/204-buff-system.js V6.8.8';
+// V6.8.9 | 2026-11-08 体检转交：复活前补账——_pendingDeath && hp<=0 的单位先补一条 UNIT_DEATH（DOT 致死被复活救走也留登记）
+export const VER = 'core/204-buff-system.js V6.8.9';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -724,6 +725,16 @@ export function submitHolyFireRecord(data) {
 
 function reviveHolyFireUnit(u, team, log, slot) {
     const mark = slot === 'self' ? '_holyFireSelf' : '_holyFire';
+    // 复活前补账（体检转交，保守方案）：毒 DOT 等在回合开始把血打到 0 只停成 _pendingDeath，
+    //   若在 resolveDeaths 之前被复活，_pendingDeath 会被直接清掉、死亡永不再结算 → 该 uid 从未被登记死亡。
+    //   这里在复活动作之前补一条 UNIT_DEATH（零时机变化：不改判死/不改结算顺序）。
+    //   _pendingDeath 仍为真 ⇒ 从未走过 resolveDeaths，不会与正式死亡登记重复。
+    if (Array.isArray(log) && u.state._pendingDeath && u.hp <= 0) {
+        log.push({ factType: FACT_TYPES.UNIT_DEATH, data: {
+            uid: u.uid, name: u.name, camp: u.camp,
+            reason: '复活前补账（待死未结算）', hpBefore: u.hp, hpAfter: u.hp
+        } });
+    }
     u.state[mark] = 'used';
     const cfg = C.BUFFS.holyFire || {};
     // 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）

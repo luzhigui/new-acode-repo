@@ -1,6 +1,7 @@
 // V1.5.16 | 2026-11-08 体检转交：乾坤 fact 补登记减伤前 dmg；攻击 fact 补登记死亡结算字段（attackerDead/…AtSettle）
 // V1.5.17 | 2026-11-08 体检转交：免疫 fact 血量改实数并登记；圣火不熄复活账登记到 BUFF_SUMMARY / SKILL_ANNOUNCE
-export const VER = 'infra/107-fact-contract.js V1.5.17';
+// V1.5.18 | 2026-11-08 体检转交：新增 UNIT_DEATH 死亡登记契约（uid/name/camp/reason/hpBefore/hpAfter，隐藏不进画面）
+export const VER = 'infra/107-fact-contract.js V1.5.18';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -134,6 +135,9 @@ export const FACT_SPECS = Object.freeze({
     // 回合分隔线 / 台词
     [FACT_TYPES.ROUND_START]: { requiredFields: ['round'], renderFn: 'renderRoundStartFact', translateFn: 'translateRoundStart' },
     [FACT_TYPES.ROUND_END]: { requiredFields: ['round'], renderFn: 'renderRoundEndFact', translateFn: 'translateRoundEnd' },
+
+    // 死亡登记（core/213 resolveDeaths 唯一真实死亡出口；renderFn:null = 隐藏，只供体检按 uid 归账）
+    [FACT_TYPES.UNIT_DEATH]: { requiredFields: ['uid', 'name', 'camp', 'reason', 'hpBefore', 'hpAfter'], renderFn: null, translateFn: null },
     [FACT_TYPES.ZHANG_TAUNT]: { requiredFields: ['taunt'], renderFn: 'renderZhangTauntFact', translateFn: null },
 
     // 白骨爪
@@ -214,6 +218,10 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
     // 免疫 fact（core/209 免疫分支）：attackerHp / targetHp 已是引擎实数（显示层自行取整）
     [FACT_TYPES.IMMUNE]: Object.freeze([
         'attacker.uid', 'target.uid', 'attackerHp', 'targetHp', 'dmgCalc.hpBefore', 'dmgCalc.dmg'
+    ]),
+    // 死亡登记（core/213 resolveDeaths）：hpBefore/hpAfter 为引擎实数；复活前补账也复用本类型
+    [FACT_TYPES.UNIT_DEATH]: Object.freeze([
+        'uid', 'name', 'camp', 'reason', 'hpBefore', 'hpAfter'
     ])
 });
 
