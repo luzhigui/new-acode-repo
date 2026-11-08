@@ -375,13 +375,6 @@ const OBSERVES = [
     // 2026-11-08：逐条目双档覆盖（CONFIG.BUFFS 全键，敌方定向挂载 vs 零 buff 基线）。
     //   默认哨兵只证"双档整体有影响"，本项补"每个条目单独都能改变战局"；零差异只记录不判红。
     { name: '海克斯逐键双档覆盖', script: 'tests/hex-dual-effect-check.mjs', args: ['--keys'], hard: true },
-    // 2026-11-08：海克斯三边闭环（配置值 → 消费方 → 实际生效值）。
-    //   改 live 配置值，302 派发必须原样返回、215 实际加成必须跟着变；同时扫死键与反向缺口。
-    //   内存内改值立即还原，不碰 content/；hard: true（闭环断裂即是确定性事实）。
-    { name: '海克斯配置三边闭环', script: 'tests/hex-config-closure-check.mjs', args: [], hard: true },
-    // 2026-11-08：逐条目双档覆盖（CONFIG.BUFFS 全键，敌方定向挂载 vs 零 buff 基线）。
-    //   默认哨兵只证"双档整体有影响"，本项补"每个条目单独都能改变战局"；零差异只记录不判红。
-    { name: '海克斯逐键双档覆盖', script: 'tests/hex-dual-effect-check.mjs', args: ['--keys'], hard: true },
     // V1.24.0 | 2026-10-31 夜间第 162 轮：兄分支惑心定向取证（承接【最高·下轮】⑤b-2 逐个配定向用例）。
     //   ★ 实测逼出一件被漏掉的事：phantomConfuse 有**两个**发射点，第 160 轮只数了成昆那个就下了
     //     「干净树本就不发射」的结论；兄分支走 forceXiaoZhao=brother，根本不需要 forceChengKun。

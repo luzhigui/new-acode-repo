@@ -7,8 +7,9 @@
 // 「召唤之后有没有 fact 引用这只」只进观察项：实测 156 场 525 次召唤中**零出现 0 只**
 //   （deep 查 data 任意字段/嵌套数组；早先只查攻击/成长/激励时统计出的「245 只零引用」是漏查
 //   增益、毒、治疗等引用造成的假数，已改正）。事实流是渲染的唯一输入，不存在另一条渲染消费通道。
-// 已知契约缺口（登记 tests/known-transfers.md，等主代码）：SUMMON_UNIT 只带 byName 不带 byUid，
-//   同名双谢逊/双张中时无法按 uid 核对「谁召唤的谁」。
+// 已知契约缺口（登记 tests/known-transfers.md）：具名召唤点 313/318/326/339 已于 0c9f44f7 补 `byUid`；
+//   仍缺 core/204 两处——L154 雌鹰召唤无 byName/byUid、L344 众志成城补员只有 byName 无 byUid，
+//   同名双谢逊/双张中时无法按 uid 核对「谁召唤的谁」。补齐后本条再加「byName/byUid 必填」硬判据。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule259 = {
