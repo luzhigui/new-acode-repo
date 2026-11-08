@@ -1,3 +1,4 @@
+// V1.20.2 | 2026-11-08 hex job 每条战绩带本场 seed（108 长期榜落盘后可逐场复现核对）。
 // V1.20.1 | 2026-11-08 stats job 增 unrecDmg / unrecHeal 累计：用 payload 的累计 dmgTaken/healDone 与真实
 //   hp 变化对差，识出「自伤 / 附身搬血 / record=false 直改血」这类不进记账的掉血回血，供 813 跳过假红。
 // V1.20.0 | 2026-11-08 统计口径修正（对账 56 场查出的 2 条）：
@@ -603,7 +604,8 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             onStep: (step) => { if (step && Array.isArray(step.enemy)) liveEnemy = step.enemy; }
         });
         const w = res.winner || '平局';
-        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: w });
+        // V1.20.2：每条战绩带本场 seed（可复现单场），108 长期榜落下后可按 seed 重跑核对
+        hexLog.push({ stage, seed, buffs: buffsPicked.map(b => b.key), winner: w });
         if (w === '明教') wins.ally++;
         else if (w === '六大派') wins.enemy++;
         else wins.draw++;
