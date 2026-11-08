@@ -13,7 +13,12 @@
 //           BUFFS.fortify.reboundRatio（配置现值 0.4），与 modules/311 张三丰自挂版同源。
 // V1.0.14 | 2026-11-08 状态标签化：眩晕目标跳过闪避判定改问 isControlled(target)、
 //   闪避反击的免控守卫改问 isCCImmune(unit)（core/218 标签表单一真源）。
-export const VER = '212-battle-attack-chain.js V1.0.14';
+// V1.0.15 | 2026-11-08 known-transfers 三条：(1)马阵反弹改按马所属阵营取 buff（旧版恒取明教侧，
+//   明教打敌方马吃自家姊反弹）；(2)严阵回血的姊判定改按防御者阵营（旧版恒读 ctx.A，敌方防御者
+//   白吃明教姊回血）；(3)applyAttackResult 回传 cappedLoss（被 _dmgCap 吃掉的量），供伤害行/飘字
+//   印实际落地值（庄铮断锤三式此前报「造成 53」而血只掉 1）；(4)韦一笑闪避吸血的上限增量不再
+//   Math.floor 基准（floor 抹掉小数尾巴 => delta 比 heal 多零点几，体检 164 四处复发）。
+export const VER = 'core/212-battle-attack-chain.js V1.0.15';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -364,7 +369,11 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     // 单次受伤上限（庄铮·断锤三式）：必须截在 dead 判定之前——core/13 的 hp 截断只改落账值，
     //   这里不改 hpLoss 的话，致死伤害照样把 hpAfter 算成 ≤0、死亡标记照样落下（上限形同虚设）。
     //   上限只有 _dmgCap 一个来源；core/13 直扣血出口读同一字段。
+    const hpLossBeforeCap = hpLoss;
     if (target.state._dmgCap > 0) hpLoss = Math.min(hpLoss, target.state._dmgCap);
+    // 被单次受伤上限吃掉的那部分：战报的伤害行/飘字必须扣掉它（旧版仍印截断前的 53，
+    //   而血量只掉 1）。只记账不影响结算——dmg 本身仍按原值供吸血/反伤/破防计。
+    const cappedLoss = Math.max(0, hpLossBeforeCap - hpLoss);
     let hpAfter = target.hp - hpLoss;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');
@@ -413,8 +422,12 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     }
 
     let horseReboundDeclarations = [];
-    const xiaoHEnhance = query('xiaoHexEnhance', ctx.A, ctx.A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
-    if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(ctx.A._activeBuffs, BUFF_TYPES.HORSE_FORMATION)) {
+    // 马阵反弹按「马所属阵营」取，不是恒取明教侧：旧版读 ctx.A，明教打敌方马也吃明教姊的反弹
+    //   （自己人反自己人）。马是 target，马阵 buff 挂在召唤它的那一队。
+    const horseTeam = target.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
+    const horseBuffs = (horseTeam && horseTeam._activeBuffs) || [];
+    const xiaoHEnhance = query('xiaoHexEnhance', horseTeam, horseBuffs, BUFF_TYPES.HORSE_FORMATION);
+    if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(horseBuffs, BUFF_TYPES.HORSE_FORMATION)) {
         const rebound = xiaoHEnhance.reboundDmg;
         horseReboundDeclarations.push({
             type: EFFECT_TYPES.REBOUND,
@@ -441,7 +454,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         const fortifyRatio = C.BUFFS.fortify.reboundRatio ?? 0.5;
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) * fortifyRatio);
         if (reboundDmg > 0) {
-            const hasSister = ctx.A && ctx.A.some(u => u.isXiaoZhaoSister && u.alive);
+            // 姊判定按「防御者阵营」取，与上面 allyBuffs_fortify / 下面 hasBrotherPermanent 同口径：
+            //   旧版恒读 ctx.A（明教侧），六大派防御者吃严阵反弹时会白吃明教姊的回血。
+            const hasSister = !!targetTeamForFortify && targetTeamForFortify.some(u => u.isXiaoZhaoSister && u.alive);
             // 姊强化回血开关读 002 sister.fortify.healOnRebound（此前写死「有姊就回血」，配置成为死数据）
             const fortifySisterCfg = hasSister ? getSkillParams('小昭', 'hexEnhance').fortify : null;
             if (hasSister && !fortifySisterCfg) throw new Error('002-hex-enhance.json 缺 sister.fortify');
@@ -470,7 +485,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _permShield: target.state._permShield || 0 };
+    return { dmg, dead, cappedLoss, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _permShield: target.state._permShield || 0 };
 }
 
 // 步骤5：构建攻击事实
@@ -565,7 +580,9 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
             // 词条化：27 传的 newMaxHp 已是"当前 maxHp+heal"的绝对值（不封顶），这里只算增量
-            const delta = Math.max(0, newMaxHp - Math.floor(getStat(target, 'maxHp')));
+            // 不再 Math.floor 基准：floor 把上限的小数尾巴抹掉，delta 会比 heal 多出零点几（体检 164 判「+2 但
+            //   delta=2.325」）。newMaxHp = 当前上限 + heal（modules/321 声明），减实数基准即严格等于 heal。
+            const delta = Math.max(0, newMaxHp - getStat(target, 'maxHp'));
             // 体检对照增量字段：decl.data 随后按引用挂到 dodgeFact.weiHeal（见上方闪避 fact 组装）
             decl.data.maxHpDelta = delta;
             // 独立数值声明 fact（演出仍走 dodgeFact.weiHeal：34 日志行 + 39 飘字，此 fact 不进画面）

@@ -13,7 +13,9 @@
 //           减伤回归纯公式；白骨爪多段小伤害可实打实穿透。content/001 的 minReduce 键随之移除。
 // V1.0.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V1.0.9 | 2026-11-08 状态标签化：六处「找不受控的姊/妹」改问 isControlled()（core/218 标签表）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.9';
+// V1.0.10 | 2026-11-08 known-transfers 第 3 条：_executeReturn 宿主阵亡分支补 removeModsByGroup(host,'butterfly')
+//   + refreshMaxHp，且放在飞回血量分母计算之前（旧版只清 _butterflyHost，宿主词条永久残留）。
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.10';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -291,8 +293,19 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister.alive || !sister.state._butterflyHost) return;
             // 先存档宿主 uid：下面死主分支会清空 _butterflyHost，清完再读就恒为 null（旧 bug）
             const hostUidBeforeClear = sister.state._butterflyHost;
-            const host = A.find(u => u.uid === hostUidBeforeClear && u.alive);
-            if (!host || !host.alive) {
+            // 宿主记录分两档：hostRec 含已阵亡（清词条要用），host 仅存活（走正常飞回分支）。
+            //   旧版一步 find(... && u.alive) 拿到 undefined，死亡分支就彻底拿不到宿主对象，词条无从清理。
+            const hostRec = A.find(u => u.uid === hostUidBeforeClear) || null;
+            const host = (hostRec && hostRec.alive) ? hostRec : null;
+            if (!host) {
+                // 关窗必清宿主蝶变词条（与下方 host-alive 分支同口径）：旧版死亡分支只清 _butterflyHost，
+                //   宿主的 atk/def/maxHp 三件蝶变词条永久留在账本上——被圣火不熄复活后白吃攻/防/血上限；
+                //   残留 maxHp 还会抬高下面「全队 maxHp 分母」，让姐姐飞回血量偏低（156 场 26 具宿主实证）。
+                //   ★ 必须在算分母之前清，否则这一场飞回血量仍然算错。
+                if (hostRec) {
+                    removeModsByGroup(hostRec, 'butterfly');
+                    refreshMaxHp(hostRec, sister, '蝶变飞回血上限');
+                }
                 const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
                 const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
                 const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);

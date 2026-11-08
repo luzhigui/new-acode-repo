@@ -11,7 +11,9 @@
 // V6.2.7 | 2026-11-08 体检转交（159）：LEECH handler 把 fact.heal 回填为实落值（声明期 previewHeal 只是预演，
 //   同帧血量漂移会让「文本 +N」与 fact.heal 不同源）；预演值改存 healNominal。
 // V6.2.8 | 2026-11-08 体检转交：破防实落值为 0 时不产 BREAK_DEF 条目（不再照抄声明的 0.8 造出「减防 0.8 / -0」假账）
-export const VER = 'core/217-effect-handlers.js V6.2.8';
+// V6.2.9 | 2026-11-08 known-transfers 第 7 条：LEECH handler 优先按声明期算好的 maxHpGain 累加上限，
+//   修「同帧多击第二次不抬上限」（绝对目标值相减恒 0）；无该字段的老调用点行为不变。
+export const VER = 'core/217-effect-handlers.js V6.2.9';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -138,10 +140,12 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.source || !decl.source.alive) continue;
-        if (decl.maxHp) {
-            // 词条化：每次吸血只加"当前上限 → 目标上限"的增量，避免旧实现按 base 差值重复叠加
+        if (decl.maxHp != null || decl.maxHpGain != null) {
+            // 词条化：每次吸血只加上限增量，避免旧实现按 base 差值重复叠加。
+            //   * 优先 maxHpGain（声明期算好的本次应抬量）：maxHp 是「目标绝对上限」，同帧第二击的
+            //     它是在第一击之前算的，相减恒 0 => 第二次吸血白吸。没有 maxHpGain 的老调用点回落原算法。
             const cur = getStat(decl.source, 'maxHp');
-            const delta = decl.maxHp - cur;
+            const delta = decl.maxHpGain != null ? decl.maxHpGain : (decl.maxHp - cur);
             if (delta > 0) {
                 addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
                 refreshMaxHp(decl.source, null, '吸血上限提升');

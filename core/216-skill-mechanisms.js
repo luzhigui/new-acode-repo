@@ -1,6 +1,8 @@
 ﻿// V6.8.4 | 2026-11-02 | ~17937 bytes —— 吸血上限提升 newMaxHp 改 getStat 口径（与 217 L123 同源，消 0.5 永久丢失）
 // V6.8.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（九阳神功回复）。
-export const VER = 'core/216-skill-mechanisms.js V6.8.5';
+// V6.8.6 | 2026-11-08 known-transfers 第 7 条：LEECH 声明补 maxHpGain（=本次实回），handler 按增量累加，
+//   修「同帧多击第二次不抬上限」；上限口径与 core/217 同源（都用 getStat）。
+export const VER = 'core/216-skill-mechanisms.js V6.8.6';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
@@ -241,7 +243,10 @@ function submitOnHitEffects(data, onHitDecls) {
                 const heal = previewHeal(unit, rawHeal);
                 const newMaxHp = getStat(unit, 'maxHp') + heal;   // 与 core/217 L123 的 getStat 同源：unit.maxHp 已被 refreshMaxHp floor 成整数、getStat 保留 1 位小数，两者差 0.5 ⇒ heal=+3 但 delta=2.5，少抬的 0.5 永久丢失
                 if (!data.declarations) data.declarations = [];
-                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawHeal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
+                // maxHpGain：本次应抬的上限增量（=本次实回 heal）。handler 优先按它累加，
+                //   不再用「目标绝对上限 - 当前上限」相减——同帧第二击的 maxHp 是在第一击之前算的，
+                //   相减得到 0，第二击吸血就不抬上限了（known-transfers 第 122 轮「同帧重复声明吃增量」）。
+                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawHeal, source: unit, maxHp: newMaxHp, maxHpGain: heal, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT) {
                 // 满血转护盾（与寒离飒左拳·九阳同口径）：rawOnly 拿打折后应发额度，
                 //   应发 − 实回 = 溢出，进永久护盾 _permShield（截脉/寒毒都算在 nominal 里）

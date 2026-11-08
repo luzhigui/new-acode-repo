@@ -2,7 +2,10 @@
 // V1.2.0 | 2026-11-07 面板为 0 的属性不吸（否则被吸方扣不动、吸方白得 0.1）；面板 > 0 时仍 max(面板 × ratio, 0.1)。
 // V1.1.0 | 2026-11-07 吸取量不再取整：每目标实数扣 = max(面板值 × ratio, 0.1)，攻/防/血上限同精度；
 //          旧版 floor 把 1% 不足 1 点的目标抹成 0（30 攻吸 0），那不是需求。
-export const VER = 'modules/334-common-absorb.js V1.4.0';
+// V1.5.0 | 2026-11-08 known-transfers 第 1 条：吸星汇总账实同源——扣减与增益都先除乘区因子再落 add 词条，
+//   并以落地实测值累加 absorbedTotal；旧版平铺扣 -absorbDef 被 getStat 乘区放大，受害者实损比
+//   施术者所得多 (1+mulSum) 倍，差额凭空消失（50 例实证）。
+export const VER = 'modules/334-common-absorb.js V1.5.0';
 // V1.3.0 | 2026-11-07 未触发/无可吸目标时补一行「🌀 吸星：本次未触发」回合开始提示（每回合最多一行，不飘字）。
 // V1.4.0 | 2026-11-08 体检转交：一次吸星结算补一条 ABSORB_SUMMARY 汇总事实（absorbedTotal 分项 +
 //   beneficiaries 逐单位逐属性 before/after，含施术者正增量），group absorbed/absorbGain 从此可对账；
@@ -11,7 +14,7 @@ export const VER = 'modules/334-common-absorb.js V1.4.0';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, SKILL_CUE_KINDS, FACT_TYPES } from '../infra/106-battle-enums.js';
-import { getBattleRng, addMod, getStat, refreshMaxHp } from '../core/214-battle-shared.js';
+import { getBattleRng, addMod, getStat, refreshMaxHp, statMulFactor } from '../core/214-battle-shared.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
@@ -38,10 +41,36 @@ export const statAbsorbHandler = {
                 // 账本用：逐单位逐属性的变更前/后（一次结算只汇总成一条 ABSORB_SUMMARY，不按单位拆 fact）
                 const beneficiaries = [];
 
+                // 账实同源的唯一出口：受害者实损必须严格等于声明分项。
+                //   getStat = (base + addSum) x (1 + mulSum)——add 层落 1 点会被乘区放大成 (1+mulSum) 点
+                //   （严阵以待 ×1.1 等）。旧版按面板百分比把 -absorbDef 平铺扣进 add 层，受害者实损
+                //   比施术者所得多出那 10%，差额凭空消失（known-transfers 第 1 条，50 例实证）。
+                //   落词条前先除乘区因子，再以落地实测值累加，保证「声明分项 = 受害者实损 = 施术者正增」。
+                const take = (u, stat, want) => {
+                    if (!(want > 0)) return 0;
+                    const before = getStat(u, stat);
+                    addMod(u, stat, { source: '被吸星', value: -want / statMulFactor(u, stat), ttl: 'permanent', group: 'absorbed', op: 'add' });
+                    if (stat === 'maxHp') refreshMaxHp(u, null, '被吸星');
+                    const after = getStat(u, stat);
+                    const real = before - after;
+                    if (real !== 0) beneficiaries.push({ uid: u.uid, name: u.name, stat, before, after });
+                    return real;   // 吸到多少由落地实测决定（扣到底被夹 0 时如实变少）
+                };
+                const give = (u, stat, want) => {
+                    if (!(want > 0)) return 0;
+                    const before = getStat(u, stat);
+                    addMod(u, stat, { source: '吸星大法', value: want / statMulFactor(u, stat), ttl: 'permanent', group: 'absorbGain', op: 'add' });
+                    if (stat === 'maxHp') refreshMaxHp(u, null, '吸星大法');
+                    const after = getStat(u, stat);
+                    const real = after - before;
+                    if (real !== 0) beneficiaries.push({ uid: u.uid, name: u.name, stat, before, after });
+                    return real;
+                };
+
                 // 遍历全场其他人
                 allUnits.forEach(u => {
                     if (!u.alive || u.uid === self.uid) return;
-                    
+
                     // 实数吸取，保底 0.1：不做 floor/round/toFixed（面板值 × 1% = 0.3 就真吸 0.3）。
                     //   面板为 0 的属性不吸——被吸方本来扣不动，吸方却会白得 0.1（0 攻召唤物送属性）。
                     const atkV = getStat(u, 'atk'), defV = getStat(u, 'def'), hpV = getStat(u, 'maxHp');
@@ -49,42 +78,25 @@ export const statAbsorbHandler = {
                     const absorbDef = defV > 0 ? Math.max(defV * decl.ratio, 0.1) : 0;
                     const absorbHp = hpV > 0 ? Math.max(hpV * decl.ratio, 0.1) : 0;
 
-                    if (absorbAtk > 0) {
-                        addMod(u, 'atk', { source: '被吸星', value: -absorbAtk, ttl: 'permanent', group: 'absorbed', op: 'add' });
-                        beneficiaries.push({ uid: u.uid, name: u.name, stat: 'atk', before: atkV, after: getStat(u, 'atk') });
-                    }
-                    if (absorbDef > 0) {
-                        addMod(u, 'def', { source: '被吸星', value: -absorbDef, ttl: 'permanent', group: 'absorbed', op: 'add' });
-                        beneficiaries.push({ uid: u.uid, name: u.name, stat: 'def', before: defV, after: getStat(u, 'def') });
-                    }
-                    if (absorbHp > 0) {
-                        addMod(u, 'maxHp', { source: '被吸星', value: -absorbHp, ttl: 'permanent', group: 'absorbed', op: 'add' });
-                        refreshMaxHp(u, null, '被吸星');
-                        beneficiaries.push({ uid: u.uid, name: u.name, stat: 'maxHp', before: hpV, after: getStat(u, 'maxHp') });
-                    }
+                    const gotAtk = take(u, 'atk', absorbAtk);
+                    const gotDef = take(u, 'def', absorbDef);
+                    const gotHp = take(u, 'maxHp', absorbHp);
+                    totalAtk += gotAtk;
+                    totalDef += gotDef;
+                    totalMaxHp += gotHp;
 
-                    totalAtk += absorbAtk;
-                    totalDef += absorbDef;
-                    totalMaxHp += absorbHp;
-
-                    if (absorbAtk > 0 || absorbDef > 0 || absorbHp > 0) {
-                        absorbed.push({ uid: u.uid, camp: u.camp, pos: u.pos, atk: absorbAtk, def: absorbDef, hp: absorbHp });
+                    if (gotAtk > 0 || gotDef > 0 || gotHp > 0) {
+                        absorbed.push({ uid: u.uid, camp: u.camp, pos: u.pos, atk: gotAtk, def: gotDef, hp: gotHp });
                     }
                 });
 
                 // 结算给自己（至少吸到一点属性才提示，防止0收益满屏飘字）
                 if (totalAtk > 0 || totalDef > 0 || totalMaxHp > 0) {
-                    const selfAtkBefore = getStat(self, 'atk'), selfDefBefore = getStat(self, 'def'), selfHpBefore = getStat(self, 'maxHp');
-                    if (totalAtk > 0) addMod(self, 'atk', { source: '吸星大法', value: totalAtk, ttl: 'permanent', group: 'absorbGain', op: 'add' });
-                    if (totalDef > 0) addMod(self, 'def', { source: '吸星大法', value: totalDef, ttl: 'permanent', group: 'absorbGain', op: 'add' });
-                    if (totalMaxHp > 0) {
-                        addMod(self, 'maxHp', { source: '吸星大法', value: totalMaxHp, ttl: 'permanent', group: 'absorbGain', op: 'add' });
-                        refreshMaxHp(self, null, '吸星大法');
-                    }
-                    // 施术者增益也进同一份汇总（beneficiaries 里正增量 = group 'absorbGain'，负增量 = 'absorbed'）
-                    if (totalAtk > 0) beneficiaries.push({ uid: self.uid, name: self.name, stat: 'atk', before: selfAtkBefore, after: getStat(self, 'atk') });
-                    if (totalDef > 0) beneficiaries.push({ uid: self.uid, name: self.name, stat: 'def', before: selfDefBefore, after: getStat(self, 'def') });
-                    if (totalMaxHp > 0) beneficiaries.push({ uid: self.uid, name: self.name, stat: 'maxHp', before: selfHpBefore, after: getStat(self, 'maxHp') });
+                    // 施术者侧同口径落账（自身带乘区时也不许放大）：beneficiaries 正增量 = 'absorbGain'、
+                    //   负增量 = 'absorbed'，三处数值严格相等。
+                    give(self, 'atk', totalAtk);
+                    give(self, 'def', totalDef);
+                    give(self, 'maxHp', totalMaxHp);
 
                     if (data.log) {
                         // 账本：一次结算一条汇总事实（不按单位拆行），体检按 before/after 核对 absorbed/absorbGain

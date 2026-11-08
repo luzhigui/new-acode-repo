@@ -17,7 +17,9 @@ import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } fr
 // V1.5.12 | 2026-11-08 伤害行与血条对不上：波动减伤 hpBonus 在扣血时已抵掉，显示 dmg 却仍按原值印
 //         | （「造成 18」血条只掉 13）→ 伤害行/飘字/语音 _dmg 统一改印 dmg−hpBonus（下限 0）；
 //         | fact 里的 dmgCalc.dmg/dmgResult.dmg 不动（吸血/反伤/破防与体检 180 仍按原值）。
-export const VER = 'render/407-facts-attack.js V1.5.12';
+// V1.5.13 | 2026-11-08 known-transfers 第 9 条：伤害行/飘字扣除 cappedLoss（单次受伤上限吃掉的部分），
+//   印实际落地扣血而不是截断前的原值。
+export const VER = 'render/407-facts-attack.js V1.5.13';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -103,7 +105,10 @@ export function renderAttackFact(fact) {
     const snap = fact.snap || {};
     // 波动减伤 hpBonus 在扣血时抵掉（core/12 hpLoss=max(0,dmg-hpBonus)），但 dmg 本身留给吸血/反伤/破防用。
     //   显示口径必须跟着掉血走，否则出现「造成 18」而血条只掉 13；扣到 0 为止，不出现负伤害。
-    const shownDmg = Math.max(0, (dmgResult.dmg || 0) - (dmgCalc.hpBonus || 0));
+    // 伤害行/飘字一律印「实际落地扣血」：dmg 是结算原值（吸血/反伤/破防按它算，不能改），
+    //   波动减伤 hpBonus 从扣血里抵扣，单次受伤上限 _dmgCap 吃掉的部分（cappedLoss）也必须扣掉。
+    //   旧版只减 hpBonus -> 庄铮断锤三式报「造成 53」而血只掉 1（known-transfers 第 9 条）。
+    const shownDmg = Math.max(0, (dmgResult.dmg || 0) - (dmgCalc.hpBonus || 0) - (dmgResult.cappedLoss || 0));
     const ac = unit.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
