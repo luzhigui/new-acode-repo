@@ -1,15 +1,15 @@
 {
- "ver": "1b0e2e98891dcc609ce97165c6f713200660e140a31c516fc9c84bbfea652b5a",
+ "ver": "6aeb7b44b4abb0a99e0a19234e65919b41b20ec5e48b8f9d2e4976cae98612c7",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "cd601a1904b6364bbb23b21763ece12f7493c5c1e86c235359aefbb85085ccfa"
+   "776cbf36c6e479a6f15fb1727bb81de71487563a80431ce3ad9bdbe9ba01bae6"
   ],
   [
    "content/002-hex-enhance.json",
-   "eec419174f3bd5acd0725d2f696b7897c45c34833271b3b570725f82c450eeed"
+   "0f838ef44f6c6df219fc5fdc53b3282c358ffb418b53ed70f7649ddbb0c2ca0e"
   ],
   [
    "core/201-config-5v5-test.js",
@@ -37,7 +37,7 @@
   ],
   [
    "core/207-target-strategies.js",
-   "f15faf1c611d44116247f7834452bbe6ce5ce9f23a4d8a2546fae114618c5c7d"
+   "1fe112e04f0b64291df49ac007a6aa97dd300bee63981882251b1c18203508a3"
   ],
   [
    "core/208-registry-elite.js",
@@ -49,7 +49,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "849a3144065ae2978268a426e0d5d171939143c08d1c338ac0d2e841579f86f2"
+   "50d65e70c3b415abb2f7fdb62306b46c31f1e1ff0adefa4e1c5bd51c04967dc0"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -241,7 +241,7 @@
   ],
   [
    "modules/302-elite-skills.js",
-   "eeb2fd942a51eeb018a389597b61feb81ca4634af3361fb1c874820fb3deeefb"
+   "6664ff7985362416bcc054019a50418d42afde1058833947d8a8c83953d1307a"
   ],
   [
    "modules/303-error-capture.js",
@@ -261,7 +261,7 @@
   ],
   [
    "modules/307-elite-imperial.js",
-   "70931c9fe783131c3bf9e595fdae599cc343e7bbdf5f04edca038518aa7d4593"
+   "9b74c3a77fed78cf1c6905c39a813d6e810f02d9836e6a134c3b2711ca9354c8"
   ],
   [
    "modules/308-elite-sixsects.js",
@@ -273,43 +273,43 @@
   ],
   [
    "modules/310-elite-sixsects-songqingshu.js",
-   "e380c25df445ffdcae5673798da232d972d352f04648daf1036dbda7a2a035dd"
+   "651aeb07af50d21ec4f212b7bd315b33761496ded7041f2d1a94d484d51b54ab"
   ],
   [
    "modules/311-elite-sixsects-zhangsanfeng.js",
-   "71277b6b6f29f4fd92a2a8058a38cf66429615dfa96d05df11d3d6e0621068f0"
+   "c3ea146c475187178e0a8aa485d0dd1e50dbaf69e06d5294ddba47d5deecf640"
   ],
   [
    "modules/312-elite-sixsects-pangyuanqiao.js",
-   "5a47f79f9bba0b3a21f7872728d1cafac688a8f88db3cd3989a2b1edd3cc4e79"
+   "ff2f50fbba858bf7fdad8eb4f8007bbe82455d7c7a92a4ca07da9d9992535590"
   ],
   [
    "modules/313-elite-sixsects-miejueshitai.js",
-   "ee54b8581d935916aebadd905a3ccb5423ed462908d252e7ccb0630ae2ddff95"
+   "f5e40e9e341c793af10b2f6098e63f1644a011029e0de45a48e6f8b81de4bfa8"
   ],
   [
    "modules/314-elite-sixsects-hetaichong.js",
-   "47469e175ead683041d8ac6c1915fb380c77008d6aff81a01dd916d9f19f80a2"
+   "4ef7b8503cf2865bec7b79e78e80baa225608f7ebcbe2f621ae5e7b5176294fc"
   ],
   [
    "modules/315-elite-sixsects-tangwenliang.js",
-   "e088ac6bca1dbbfcbe5f758f0d71b8fc09bd16593ef4f24ade6c6a185295fbfb"
+   "b234f357c6912e5c0b221b3a306c5c0877a14de29e24104cb6fd0bd14a8ca6b9"
   ],
   [
    "modules/316-elite-sixsects-kongjian.js",
-   "9cac02684a06bbf766a48282edeb927423c8066aa0885444cdb974aa4200ef4c"
+   "eeb9123eebdf3d1d519fce13742de8da6b30a91b79524552b3462a5ce8049423"
   ],
   [
    "modules/317-elite-mingjiao.js",
-   "5d3fe1e1580352aec81829c30f4895d883107b24d4a37ea82427cbfe14f117ed"
+   "87fa78c8b5bff7e538b7d196ccdc4335d05a663b1c12848306776411a31754df"
   ],
   [
    "modules/318-elite-mingjiao-eagle.js",
-   "53eeb8370fb7c15fed1d6a838f58aed14b5b8a71dddca846e5fc45797f59a45e"
+   "2274c7e1b474b81a769e57eadde5556135977c462a85f8ccb53f8f17193e4cb7"
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "c5de6171fbdca6c3fc14de1b2e542a82d815be41b3b3503e36eb68e996c7be0b"
+   "c10aa8efbc32570f808249bf2b80e678f0516e09d420acd803ff05804f0c83d3"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
@@ -317,19 +317,19 @@
   ],
   [
    "modules/321-elite-mingjiao-weiyixiao.js",
-   "f2e0a563697c6d13ca05ea1d962d5d59cc20246773483af24975a23812cc26ff"
+   "8996d4331897b813df720df3b9e585ec9731bcf1bce0a7203839446ca0df4fbb"
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "9fd6b26bb48849b3baeffbc5e6e4a70c4d991e7b4a0087709568f52cc379b533"
+   "11f5989351ce10d47a9ab873f4f9504638d07000ea34225bba1360cee3289e2b"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",
-   "15fb4ac6471b0b5e240c7d66b044b9d9d8bb316bd003d8af56368870cbbad0c3"
+   "8436e294407145f4a72f6b12a5ef73781575e5c9cb4cb4c814c889c15a206bb4"
   ],
   [
    "modules/324-elite-mingjiao-brother-laststand.js",
-   "7074a70bd8d1194b7d1ce1670a548c0ba6b32a345dff28362d94fff3c6b4e6a8"
+   "f612093357a504fda5e2fa4ae2cf0512d0d4e5f06975da20c4b42d3656530639"
   ],
   [
    "modules/325-elite-mingjiao-shuobude.js",
@@ -337,23 +337,23 @@
   ],
   [
    "modules/326-elite-mingjiao-xiexun.js",
-   "7a9dea237ecb42bf5287e191b83a08fb7d484cd46ef91a15781df97d83482074"
+   "c9a64a29a90839343e138824429952e57023d4b702dc875caa365ed98933ef09"
   ],
   [
    "modules/327-elite-mingjiao-yangxiao.js",
-   "99d76cff960a1f58cc61499b6b000f5dd9452ec88c39f872202089cbd004e0fe"
+   "5a1168bc58c9f470385d7263790a0d46266e95376834ad5a2e59c48afe42d77f"
   ],
   [
    "modules/328-elite-mingjiao-yintianzheng.js",
-   "ae65c78c1b37a04afb11c144786bc30ac047f7af3b1471dca9618dbfffd068f2"
+   "a7a39ad3918582436b31adfba1da11b245a91fb6896404c7b85798aff973b07d"
   ],
   [
    "modules/329-buff-tools.js",
-   "dc565b67384d824da6dc6d920adf1fe80ac474381f923f59ba1ed59b79e4ba21"
+   "9510b6c5acc18beefb9c712a6c2d13ab28b4d973807c5a59a4ff925319492e04"
   ],
   [
    "modules/330-battle-init.js",
-   "7a57e7c489ff4f4b75803293539d4ec03a3e2a824cbc5db736a71a08dfc8fcfa"
+   "6daf7b4359a1939aea45374fc0afcd93817167191eaca384a4400f39d9e0702e"
   ],
   [
    "modules/331-custom-effects.js",
@@ -365,7 +365,7 @@
   ],
   [
    "modules/333-elite-mingjiao-crazy.js",
-   "36e4058477c04a15ee1935dc565eb8167878febb05608150412a25202e58594f"
+   "d22de9ca21cff1d94ee785b3a09e3a7c9894e3c3e1e560a1ddebbb31cf0fa7f4"
   ],
   [
    "modules/334-common-absorb.js",
@@ -377,19 +377,19 @@
   ],
   [
    "modules/336-elite-sixsects-yuanzhen.js",
-   "2fd16ce5f28100f627030644bbe174b6d436c6cf34081494ebc705832f997353"
+   "75cb0cc393fa9bd007dbcfc36a9181cbbfbb656ed23ba38d3207dbce4d275fde"
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
-   "c73c3b9c32615f015c48bafc4ad4fd73ad9ec60c91d6206f4f3738817c79a20c"
+   "5dbc8d39650f23c2e6e8520843daf69c6feaaf74ca2888649a078268ec54619e"
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
-   "4ace7d85d21e77c868f099858795f129be66d4de4793b93f0b6226b4f8a802ae"
+   "1336ac45d5744f3d73816d772651b1885fbbfc8fa5abc12bb7ee720d16198230"
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
-   "d880425dc93f9e6573fe83da728bb915f71157f10b03951848bff44c9a1768b8"
+   "26e8a26b8965aa96c78bf766caa289261b1ef5d91ece36128da83beaa6977b45"
   ],
   [
    "player/501-player-text.js",
@@ -437,7 +437,7 @@
   ],
   [
    "player/512-battle-flow.js",
-   "54002afcb8b6e9ef9c7add794196681cfb27047467046ade6c96d96e63a8c75e"
+   "703456d0a0dec216e0a3e8771e30beec5325a283c0873da39390918a35c7ebf8"
   ],
   [
    "player/513-battle-export.js",
@@ -569,7 +569,7 @@
   ],
   [
    "ui/711-buff-dialog.js",
-   "10c02e779ba46f8b8572cc04ddf02d3fca85a93c10645007ebc1ca56766daf9f"
+   "fd7de4a38473076e0c682d944972d2ad55c734e5e8b01bff688d0ab5d77463a5"
   ],
   [
    "ui/712-tutorial.js",
