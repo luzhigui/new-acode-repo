@@ -211,25 +211,46 @@ export function installNetSession(ctx) {
     GlobalStore.setUIHandler('syncNetPositions', syncNetPositions);
     GlobalStore.setUIHandler('sendNetLineup', sendNetLineup);
 
+    // 对手上报的抽签契约版本（从机连接后主动发 contractVersion）。null = 旧客户端没报 → 一律按不一致处理
+    let peerContractVersion = null;
+
+    function contractWarn(peerVer) {
+        return '联机双方版本不一致（抽签规则不同），这一局不能开：你这边 ' + RNG_CONTRACT_VERSION
+            + '，对手那边 ' + (peerVer || '旧版本') + '。请双方更新到同一版本后重新建房。';
+    }
+
+    // 房主侧中止：锁死准备/开战并拆房。对手版本不可信时宁可开不了，也不能两边跑两套随机序列
+    function abortHostOnContract(peerVer) {
+        net.clearSteps();
+        GlobalStore.set('netPeerReady', false);
+        GlobalStore.set('netGuestDone', false);
+        GlobalStore.set('pvpMode', false);
+        exitNetIdentity();
+        showAlert(contractWarn(peerVer));
+        updateButtons();
+    }
+
     const onNetMessage = (msg) => {
         if (!msg) return;
         // 房主：从机（重新）加入。走和首次连接同一条路——房主自己可能还卡在上一局的战斗循环里，
         // hostEnterAdjust 会先把本地战斗掐掉再重发阵容
         if (msg.t === 'guestJoin') {
             if (GlobalStore.get('netRole') !== 'host') return;
+            peerContractVersion = null;   // 新对手入房：版本确认作废，等它自己上报
             hostEnterAdjust();
+            return;
+        }
+        // 房主：对手上报抽签契约版本 → 先核对，不一致当场拆房（不等到开战才发现跑了不同的随机序列）
+        if (msg.t === 'contractVersion') {
+            if (GlobalStore.get('netRole') !== 'host') return;
+            peerContractVersion = msg.version || null;
+            if (peerContractVersion !== RNG_CONTRACT_VERSION) abortHostOnContract(peerContractVersion);
             return;
         }
         // 房主：从机报了抽签契约版本不一致 → 同样明确报错并锁死开战（双方跑两套序列 = 不是同一场）
         if (msg.t === 'contractMismatch') {
             if (GlobalStore.get('netRole') !== 'host') return;
-            net.clearSteps();
-            GlobalStore.set('netPeerReady', false);
-            GlobalStore.set('netGuestDone', false);
-            GlobalStore.set('pvpMode', false);
-            showAlert('联机双方版本不一致（抽签规则不同），这一局不能开：你这边 ' + RNG_CONTRACT_VERSION
-                + '，对手那边 ' + (msg.localVersion || '旧版本') + '。请双方更新到同一版本后重新建房。');
-            updateButtons();
+            abortHostOnContract(msg.localVersion);
             return;
         }
         if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {}), !!msg.keepReady); return; }
@@ -245,6 +266,12 @@ export function installNetSession(ctx) {
             return;
         }
         if (msg.t === 'lineupReady') {
+            // 房主：开战最后一道闸——对手必须与本地同一版抽签契约。旧客户端不会上报 contractVersion（null），
+            //   此时宁可开不了，也不能让两边各跑一套随机序列
+            if (GlobalStore.get('netRole') === 'host' && peerContractVersion !== RNG_CONTRACT_VERSION) {
+                abortHostOnContract(peerContractVersion);
+                return;
+            }
             // 房主：对手已回传六大派站位 → 合并进自己的 UI.enemyTeam，开战按钮解禁
             // 只改 UI.enemyTeam：snapshot.enemy 是 65 里 Object.freeze 的定稿（严格模式写它会抛，
             // 且规则本就要求"战斗进行中 snapshot 不反映当前态"），开战时 startBattle 会从 UI 重建 snap.enemy
@@ -287,6 +314,8 @@ export function installNetSession(ctx) {
     // 连接成功：双方都进摆位态；房主额外下发阵容，且等对手回传后才能开战
     const onNetAccept = (meta) => {
         if (meta && meta.isHost) { hostEnterAdjust(); return; }
+        // 从机：先把本机抽签契约版本报给房主（房主据此核对，不再只靠从机单边校验）
+        net.sendContractVersion(RNG_CONTRACT_VERSION);
         // 从机保险丝：身份（netRole=guest）刚落上就重画一遍，保证 guest-view 翻转即时生效。
         // 正常时序 accept 比 lineup 先到、applyNetLineup 渲染时身份已在（60 的 onGuestJoin 已调序）；
         // 这里兜的是消息乱序/重连等边角：哪怕阵容先到、先按房主视角画了，这一笔也会立刻翻正，

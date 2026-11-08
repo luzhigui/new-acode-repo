@@ -1,7 +1,9 @@
 // infra/109-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-export const VER = 'infra/109-net-pvp.js V7.5.0';
+export const VER = 'infra/109-net-pvp.js V7.5.1';
 // V7.5.0 | 2026-11-08 抽签契约版本化：lineup 捎带 rngContractVersion（从机据此比对），
 //   新增 contractMismatch 回传（从机发现版本不一致时通知房主，双端都明确报错、拒绝开战）。
+// V7.5.1 | 2026-11-08 双向握手补口：新增 contractVersion（从机连接后主动上报版本），
+//   房主在 lineupReady 时二次核对——旧客户端不上报，房主按 null 拒绝开战，不再只有从机单边校验。
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -399,6 +401,11 @@ export function sendLineupReady(positions) { return netSend({ t: 'lineupReady', 
 //   否则双方会各跑一套随机序列——打出来的不是同一场，胜负还各算各的
 export function sendContractMismatch(localVersion, hostVersion) {
     return netSend({ t: 'contractMismatch', localVersion: localVersion || null, hostVersion: hostVersion || null });
+}
+// 从机 → 房主：连接后先上报本机抽签契约版本。房主在「对手准备（lineupReady）」时二次核对，
+//   堵住旧客户端不校验 lineup 版本的漏洞——旧客户端不会上报，房主看到 null 就必须拒绝开战
+export function sendContractVersion(version) {
+    return netSend({ t: 'contractVersion', version: version || null });
 }
 // 摆位实时同步（与 lineupReady 是两回事，别合并）：
 //   lineupReady = 「我摆完了，你可以开战」的握手，会改 netPeerReady/netGuestReady
