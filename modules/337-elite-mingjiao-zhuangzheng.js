@@ -11,7 +11,9 @@
 //     故反击挂 AFTER_ATTACK_IMMUNE（免疫分支专属广播，payload 带 unit/A/B/state），
 //     直调 core/10 processUnitAttack（与宋青书·性奋同一既有模式，不另造一套额外攻击系统）。
 // V1.0.2 | 2026-11-08 体检转交：报幕 N= 走 fmtNum（原直接印内部浮点，实测出现 N=29.39124375）。
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.2';
+// V1.0.3 | 2026-11-08 精英数值一致性：触发瞬间的「减半」系数从写死 0.5 改为读 duanChui.params.atkHalfRatio
+//           （旧值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.3';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -34,6 +36,9 @@ export const duanChuiHandler = {
         const keepHp = params.keepHp;
         const cap = params.cap;
         const selfCost = params.selfCost;
+        // 触发瞬间的攻击力保留比例（0.5 = 减半）。旧代码写死 atkNow / 2，2026-11-08 参数化，数值不变。
+        const atkHalfRatio = params.atkHalfRatio;
+        if (atkHalfRatio == null) throw new Error(`缺技能参数: ${decl.name}.duanChui.atkHalfRatio`);
 
         // ① 首击保命：先把血收到 keepHp，再挂 _dmgCap —— 顺序反了会把自己这一收截成只掉 cap 点。
         registerSettlementHook({
@@ -49,7 +54,7 @@ export const duanChuiHandler = {
                 // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
                 //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
                 const atkNow = getStat(self, 'atk');
-                const n = atkNow / 2;
+                const n = atkNow * atkHalfRatio;
                 if (n > 0) {
                     addMod(self, 'atk', { source: '断锤三式·减半', value: -n, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
                     self.state._duanChuiN = n;

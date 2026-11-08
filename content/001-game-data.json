@@ -396,7 +396,7 @@
         "duanChui": {
           "name": "断锤三式",
           "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；触发瞬间攻击力减半（减掉的量记为 N），此后每次出手后攻击 +N、自身生命 -{selfCost}。",
-          "params": { "keepHp": 3, "cap": 1, "selfCost": 1 }
+          "params": { "keepHp": 3, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5 }
         }
       }
     },
@@ -700,7 +700,7 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 2.0, "defToHeal": 0.06, "defToAtk": 0.12 }
+          "params": { "defToReduce": 2.0, "defToHeal": 0.06, "defToAtk": 0.12, "minReduce": 0.5 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
