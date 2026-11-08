@@ -23,14 +23,15 @@
 //   7) 暴击计数（critCount）与战报 ATTACK fact 记到的暴击次数对不上；
 //   8) 溅射声明 0 伤害却逐目标挨打 / 目标 uid 重复；真伤数值与公式对不上；护盾还有余量却扣血；
 //      破防后 defReduced 与实际减防值不一致；多段攻击段间血量不衔接。
+//   9) 显示快照与实数快照两套取整口径混用（fmtHp 哪一侧被绕过）；抵挡值 blockValue 与基础项不同源。
 // 误报规避：
 //   · 只认顶层 factType=attack（闪避/免疫/未命中各有独立 factType，不在此列）；
 //   · 波动边界用配置真值（CONFIG.ATK_VAR/DEF_VAR/HP_BONUS_*），配置改了规则自动跟；
 //   · 有乾坤减伤或 <1 的乘数时放弃⑦「不得低于 raw 一位小数」的判定（合法降低）；
 //   · 乾坤整段吸收 ⇒ 最终伤害 0 是合法边界（qianKunFullyAbsorbed 放行）；
 //   · 同名多实例、负攻等只影响数值大小，不影响区间判定（区间是差值，天然对齐）。
-export const VER = 'tests/health-rules/180-damage-precision.js V1.2.0';
-import { FACT_TYPES } from '../../infra/106-battle-enums.js';
+export const VER = 'tests/health-rules/180-damage-precision.js V1.3.0';
+import { FACT_TYPES, ROLE_TYPES } from '../../infra/106-battle-enums.js';
 import { CONFIG } from '../../core/201-config-5v5-test.js';
 
 const EPS = 1e-9;
@@ -45,6 +46,12 @@ function expectCalcDamage(atk, def) {
 function floor10(v) { return Math.floor(v * 10) / 10; }
 
 function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+// 与 infra/102 fmtNum / fmtHp 同式（显示唯一出口）：<10 一位小数、≥10 取整、≤0 → 0
+function expectDisplay(real) {
+    if (!(real > 0)) return 0;
+    return real >= 10 ? Math.round(real) : Math.round(real * 10) / 10;
+}
 
 function hasQianKun(d) {
     const es = (d && Array.isArray(d.entries)) ? d.entries : [];
@@ -120,6 +127,33 @@ export const rule180 = {
             }
             if (isNum(dr._permShield) && dr._permShield < -EPS) {
                 return { fail: true, msg: '复发：永久护盾余量为负 — ' + dr._permShield };
+            }
+
+            // ⑥ 显示快照与实数快照必须同源（infra/102 fmtHp/fmtNum：<10 一位小数、≥10 取整、≤0→0）。
+            //    同一笔血量两处各取整一次（如显示侧改 Math.floor、真值侧改 Math.round）会在战报里
+            //    与飘字/血条对不上——这里直接拿引擎给的实数反推显示值核对。
+            const snap = d.snap || {};
+            const pairs = [
+                ['目标', snap.targetHpAfter, snap.targetHpAfterReal],
+                ['出手者', snap.attackerHp, snap.attackerHpReal]
+            ];
+            for (let p = 0; p < pairs.length; p++) {
+                const disp = pairs[p][1], real = pairs[p][2];
+                if (!isNum(disp) || !isNum(real)) continue;
+                if (Math.abs(disp - expectDisplay(real)) > 1e-6) {
+                    return { fail: true, msg: '复发：' + pairs[p][0] + '显示血量与实数不同源 — 显示=' + disp + ' / 实数=' + real + '（出口应统一 fmtHp，中途换了取整口径）' };
+                }
+            }
+
+            // ⑦ 抵挡值（blockValue）与基础项同源：非防战 core/212 L272 = floor10((atkAct+加成)×乘数)。
+            //    任何一步提前取整/换口径，战报的「抵挡 N」就会与实际伤害链错位。
+            if (snap.attackerRole !== ROLE_TYPES.DEFENDER && isNum(dc.blockValue) &&
+                isNum(dc.atkAct) && isNum(dc.dmgMultiplier)) {
+                const bonus = isNum(dc.bonusDmgTotal) ? dc.bonusDmgTotal : 0;
+                const expectBlock = floor10((dc.atkAct + bonus) * dc.dmgMultiplier);
+                if (Math.abs(dc.blockValue - expectBlock) > 1e-6) {
+                    return { fail: true, msg: '复发：抵挡值与基础项不同源 — blockValue=' + dc.blockValue + ' / 按 floor10((atkAct+加成)×乘数)=' + expectBlock + '（atkAct=' + dc.atkAct + ', 加成=' + bonus + ', 乘数=' + dc.dmgMultiplier + '）' };
+                }
             }
         }
         if (checked === 0) return 'skip';
@@ -385,6 +419,10 @@ export const rule185 = {
             if (d.defReduce !== undefined && (!isNum(d.defReduce) || d.defReduce <= 0)) {
                 return { fail: true, msg: '复发：溅射降防值非法 — defReduce=' + d.defReduce + '（应为正数，负数=被溅射者反而加防）' };
             }
+            // 防御是整数档（core/212 defBase = floor(getStat)），降防声明带小数 = 与破防 0.8 vs 0 同源的口径缺口
+            if (d.defReduce !== undefined && Math.abs(d.defReduce - Math.round(d.defReduce)) > 1e-6) {
+                return { fail: true, msg: '复发：溅射降防值非整数 — defReduce=' + d.defReduce + '（防御按整数档夹取，声明侧不得留小数）' };
+            }
         }
         if (checked === 0) return 'skip';
         return { fail: false };
@@ -521,6 +559,11 @@ export const rule188 = {
             }
             if (Math.abs(dc.defBase - Math.round(dc.defBase)) > 1e-6) {
                 return { fail: true, msg: '复发：破防后基础防御非整数 — defBase=' + dc.defBase };
+            }
+            // 减防量同样必须是整数档：defBase=floor(def)、decl.value=tier 整数，减出小数只可能是
+            // 声明侧用了实数防御（正是 0.8 vs 0 那类缺口的另一半）。
+            if (dc.defReduced < -EPS || Math.abs(dc.defReduced - Math.round(dc.defReduced)) > 1e-6) {
+                return { fail: true, msg: '复发：减防量非整数/为负 — defReduced=' + dc.defReduced + '（整数档应 ≥0 且无小数）' };
             }
         }
         if (checked === 0) return 'skip';
