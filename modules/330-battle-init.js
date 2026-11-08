@@ -9,7 +9,22 @@
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
 // V7.7.0 | 2026-11-08 体检转交：① 抽中的阵容变体 id 落成返回值 encounterVariant（不再按阵容反推）；
 //         | ② 删除 mingSquadTemplate（赋值后从未使用，content.encounters.mingSquads 为废配置）。
-export const VER = 'modules/330-battle-init.js V7.7.0';
+// V7.8.0 | 2026-11-08 RNG 抽签契约版本化：导出 RNG_CONTRACT_VERSION，initBattleTeams 返回值带上它
+//         |（战报 / 跑批 / 联机凭它识别「这条记录是哪一版抽签产生的」）。骰子数量或顺序一变就必须改版本号。
+export const VER = 'modules/330-battle-init.js V7.8.0';
+
+// ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
+// 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
+//   冻结种子回放、历史基线、双端联机分布全部失配却无从识别「是哪一版抽出来的」。
+// 改动触发条件（任一发生就必须改这里，并同步重录 tests/rng-draw-baseline.json）：
+//   ① 增删任何一颗骰子；② 调换抽签顺序；③ 改变 pick / nextInt 的调用次数。
+// 当前 rng-contract-v1 的固定前缀（无条件消耗）：
+//   明教 7 掷 boss / m107 / m107Second / m104-1 / m104-2 / m100-1 / m100-2
+//         + 6 pick strongA / strongB / weakA / weakB / m100A / m100B；
+//   六大派 3 掷 m107 / m104 / m100 + 3 pick m107 / m104 / m100；
+//   阵容变体 1 pick（仅当该关有 squadVariants）；
+//   之后是随分支/人数变化的补齐抽签（候选池洗牌、普通兵填充、站位洗牌、何太冲职业摇）——同属契约。
+export const RNG_CONTRACT_VERSION = 'rng-contract-v1';
 // 六大派额外精英/特殊兵混入池（M107 / M104 / M100 三档）。
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
@@ -663,5 +678,6 @@ export function initBattleTeams(currentStage, _rng) {
         enemyTeam = allUnits;
     }
 
-    return { allyTeam, enemyTeam, encounterVariant };
+    // rngContractVersion：本局阵容由哪一版抽签契约产出（跑批 / 回放 / 联机对账靠它识别失配，别按阵容反推）
+    return { allyTeam, enemyTeam, encounterVariant, rngContractVersion: RNG_CONTRACT_VERSION };
 }

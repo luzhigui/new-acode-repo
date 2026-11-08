@@ -5,7 +5,9 @@
 //   完整战报单局几百 KB 到 2MB，只有「保存战报」按钮按需导出单局时才用。
 // 摘要单局约 2~3KB，上限 200 局约 600KB。
 // 写入失败（配额满/隐私模式）静默跳过，不打断战斗。
-export const VER = 'modules/332-career-log.js V1.1.1';
+export const VER = 'modules/332-career-log.js V1.2.0';
+// V1.2.0 | 2026-11-08 | 生涯记录带 rngContractVersion：抽签契约一改（骰子数量/顺序），
+//   旧记录与新记录就是两套分布，统计/跑批/回放据此剔除或分组，不用再靠「什么时候记的」猜。
 // V1.1.1 | 2026-11-08 | 「全部模式」合并两库时按 ts 稳定升序（源侧根治，不再仅靠 tools/852 包装兜底）：
 //   原 readKey(LS_KEY).concat(readKey(LS_KEY_DUAL)) 两库各自时间序、拼起来整体非时间序（单库全在双库前），
 //   凡「最近/局序/前后对比」统计都会算错。今在源侧统一排好，tools/852 的 readRecords 与之同源、二次排序幂等。
@@ -19,6 +21,8 @@ import { FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 // V2.6.0 起写库前读 GlobalStore.careerLogSuppress（体检会话标记，tests/121 置位）；
 // infra/54 无 DOM 依赖，浏览器/node 两侧都能安全 import
 import { GlobalStore } from '../infra/104-global-store.js';
+// 抽签契约版本（单一真源在 modules/330-battle-init.js，这里只读不写第二份）
+import { RNG_CONTRACT_VERSION } from './330-battle-init.js';
 
 const LS_KEY = 'ming_career_log_5v5_test';          // 单海克斯（普通模式）记录库
 const LS_KEY_DUAL = 'ming_career_log_5v5_dual';     // 双海克斯（六大派海克斯）记录库，与单海克斯分库存
@@ -90,6 +94,7 @@ export function buildCareerRecord({ stage, mode, seed, winner, rounds, hexKeys, 
         id: `s${stage}-${Date.now().toString(36)}`,
         ts: Date.now(),
         stage, mode, seed,
+        rngContractVersion: RNG_CONTRACT_VERSION,
         hexMode: hexModeResolved,
         autoLevel: autoLv,
         winner, rounds,
