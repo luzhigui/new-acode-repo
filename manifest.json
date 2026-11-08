@@ -1,5 +1,5 @@
 {
- "ver": "6aeb7b44b4abb0a99e0a19234e65919b41b20ec5e48b8f9d2e4976cae98612c7",
+ "ver": "29337b07ff2ed115aa9557592e3b23478f9e5389b79b71bd41bbe198d2bdc84d",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "0504b5d7b12263cedce561e2d496ab14d8c75863b11df44d5f548b7f6b0d3572"
+   "07d41ac1dea83a943895069a1d19ad2888a89c6260b409d26ed650adaba8e612"
   ],
   [
    "core/205-battle-horse.js",
@@ -65,7 +65,7 @@
   ],
   [
    "core/214-battle-shared.js",
-   "be80376728b10e203bbb6afbb56d449f0c317a812fec54c800578dc8ae4365df"
+   "663d345b0f386a8d7eee2644d6a9b1936a3f03c651c58f597b9ce964a6a64c16"
   ],
   [
    "core/215-buff-effects.js",
@@ -253,7 +253,7 @@
   ],
   [
    "modules/305-elite-helpers.js",
-   "429736eb95388df57344c4a6b100113179002c1cfc7210c7ebe08b1d5d0333bf"
+   "2c59b591222df29190a4b1b32f7e72ed3e070b9732a046dc685f5b9cb5c05424"
   ],
   [
    "modules/306-battle-store.js",
@@ -329,7 +329,7 @@
   ],
   [
    "modules/324-elite-mingjiao-brother-laststand.js",
-   "f612093357a504fda5e2fa4ae2cf0512d0d4e5f06975da20c4b42d3656530639"
+   "1935e5eb7d8703660a9456bf471760b4fe07a2100d155307a22439a4096d0131"
   ],
   [
    "modules/325-elite-mingjiao-shuobude.js",

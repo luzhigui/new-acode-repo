@@ -20,7 +20,10 @@
 //   保留（主线正在把 core/203 改成读它，属"该接线不该删"）。
 // V1.1.1 | 2026-11-08：002 姊版 bloodthirst.leechRatio 回调为 1.6（纯吸血，无必出双击），
 //   契约校验类型从 'prob'(0~1) 改 'num'(≥0)，否则 1.6 被误判越界。
-export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.1.1';
+// V1.2.0 | 2026-11-08：002（提交 b7a9784e）有意废弃 brother.lastStand.hpThreshold——妹背水改为
+//   「团队背水在场即触发」，002 保留空对象占键；消费方 core/204 已同步（缺键不抛错）。
+//   契约表 brother.lastStand 改为空 schema，允许「有约定但无必填字段」的占位条目存在。
+export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.2.0';
 import { getGameData, getHexEnhanceData } from '../../core/201-config-5v5-test.js';
 
 // 消费方硬读字段表：改这里 = 改契约，必须同步 core/modules 的实际读取点
@@ -50,7 +53,9 @@ const BROTHER_SCHEMA = {
     holyFire: { reviveRatio: 'prob' },
     unity: { summonChance: 'prob', recruitM: 'int' },
     carry: { layersBase: 'num', layersPerR1: 'num', layersPerR2: 'num' },
-    lastStand: { hpThreshold: 'prob' }
+    // b7a9784e 有意废弃 hpThreshold：妹背水触发条件改为「团队背水在场即触发」（modules/324），
+    //   002 保留空对象占键。空 schema = 允许空条目，不作「条目为空」判红。
+    lastStand: {}
 };
 
 function isNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -100,7 +105,9 @@ function sectionProblems(sectionName, section, schema, baseKeys) {
             return;
         }
         var fields = Object.keys(section[key] || {});
-        if (!fields.length) problems.push(sectionName + '.' + key + ' 条目为空');
+        // 空 schema = 有意占位（如 b7a9784e 废弃的 brother.lastStand），允许条目为空；
+        //   有必填契约时条目为空才算配置缺失。
+        if (!fields.length && Object.keys(s).length > 0) problems.push(sectionName + '.' + key + ' 条目为空');
         Object.keys(s).forEach(function(f) {
             if (!Object.prototype.hasOwnProperty.call(section[key], f)) {
                 problems.push(sectionName + '.' + key + '.' + f + ' 缺失（消费方硬读该字段）');

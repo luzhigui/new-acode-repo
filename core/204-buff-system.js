@@ -7,7 +7,10 @@
 // V6.8.8 | 2026-11-08 体检转交：圣火不熄复活带账——复活记录（uid/实际回复量/原始量/maxHp/档位/比例/名额）写进
 //         | 阵亡者 state._holyFireRevives，随每回合 BUFF_SUMMARY 下发，复活公告同时带 healAmount 等结构化字段。
 // V6.8.9 | 2026-11-08 体检转交：复活前补账——_pendingDeath && hp<=0 的单位先补一条 UNIT_DEATH（DOT 致死被复活救走也留登记）
-export const VER = 'core/204-buff-system.js V6.8.9';
+// V6.9.0 | 2026-11-08 救阻塞：b7a9784e 有意废弃 brother.lastStand.hpThreshold（002 改为空对象保留键），
+//         本函数硬抛错导致整局回放与 rng 基线全卡。对齐消费方：缺键时 permThreshold=null、permLow 恒 false，
+//         纯妹永久场景仍由 modules/324 专属组件处理，不改 content 数值。
+export const VER = 'core/204-buff-system.js V6.9.0';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -176,16 +179,17 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
     const teamThreshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
     // 妹永久背水触发阈值：只在 permOwned 为真时才读 201——
     //   团队版场景（teamHas=true, permOwned=false）的普通单位不碰 201，避免 worker 无 201 环境误炸
+    // b7a9784e 有意废弃 brother.lastStand.hpThreshold（002 改为空对象保留键存在）；
+    //   缺键即「无独立阈值」：permLow 恒 false，纯妹永久场景由 modules/324 专属组件处理，不得抛错阻断整局。
     let permThreshold = null;
     if (permOwned) {
         const brotherLsEnh = getBrotherHexEnhance('lastStand');
-        if (!brotherLsEnh || brotherLsEnh.hpThreshold == null) {
-            throw new Error('002-hex-enhance.json 缺 brother.lastStand.hpThreshold');
+        if (brotherLsEnh && brotherLsEnh.hpThreshold != null) {
+            permThreshold = brotherLsEnh.hpThreshold;
         }
-        permThreshold = brotherLsEnh.hpThreshold;
     }
     const teamLow = teamHas && unit.hp < unit.maxHp * teamThreshold;
-    const permLow = permOwned && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * permThreshold);
+    const permLow = permThreshold != null && permOwned && Array.isArray(team) && team.some(u => u.alive && u.hp < u.maxHp * permThreshold);
     
     if (!teamLow && !permLow) return;
 
