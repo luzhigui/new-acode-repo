@@ -68,7 +68,7 @@ const SCAN_ONLY = process.argv.includes('--scan');
 const SRC = path.join(root, 'modules/323-elite-mingjiao-xiaozhao-brother.js');
 const src = fs.readFileSync(SRC, 'utf8').split(/\r?\n/);
 const reasons = [];
-const idxFact = src.findIndex(l => l.includes('PHANTOM_CONFUSE'));
+const idxFact = src.findIndex(l => /phantomFact\s*=\s*\{[^}]*PHANTOM_CONFUSE/.test(l));
 if (idxFact < 0) {
     reasons.push('modules/323-elite-mingjiao-xiaozhao-brother.js 里找不到 PHANTOM_CONFUSE 发射点（分支被删 / 改名）');
 } else {

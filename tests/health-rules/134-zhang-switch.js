@@ -1,8 +1,18 @@
 // 回归规则：张无忌近身切换时机 — 同列前排无存活队友才切（core/214-battle-shared.js checkZhangSwitch）
 // 复发信号：同列前排队友存活却切换（时机过早）/ 前排阵亡后隔≥2回合才切换（时机过晚）/ 一场切换多次
 // 对应已报 Bug：张无忌切换近身时机不对
-export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.2';
-import { entryTextsDeep } from '../122health-utils.js';
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.3.3';
+// V6.3.3（2026-11-07 第 185 轮）：修「入场后被换位」一类误报 —— 只改数据源，判据与阈值一字未动。
+//   病由：本规则判「张无忌是否已被换走」用的是 `e.uidA === uid || e.uidB === uid`，可渲染后的
+//   buff-swap 条目只有 { type, swaps, buffType, text }，**根本不含 uidA/uidB** ⇒ 该判断恒 false
+//   （166 规则 V6.1.9 早已踩过并改读 swaps，本规则与 138 漏改）。于是「开局 5 号位、第 1 回合被惑心
+//   换到 2 号位」的张无忌，引擎按实时站位照切（正确），规则却仍按开局列判「同列前排队友存活」
+//    ⇒ 误报「切换时机过早」（seed=9 stage=7 / seed=10 stage=5，本轮各 1 条）。
+//   ★ 上游 0800f201「惑心保证有效」删掉了「洗完回原位」空结果路径后，换位条目必写，此类误报由偶发转高频。
+//   修法：改用公共 swapMovedUids(entry)（读 swaps 数组），判据本身（时机过早/过晚/一场多次）不动。
+//   取证：seed=9 stage=7 第 1 回合切换发生时 engineside 实测张无忌 pos=2（开局快照 pos=5），
+//   同列 2 号位已无人 ⇒ 引擎判定成立，属合法切换。
+import { entryTextsDeep, swapMovedUids } from '../122health-utils.js';
 
 // 判定一条战报条目是否为「切换近战形态」：数组/entries 里任一文本命中即可；
 // 命中即算一次（同一 log 下标只可能来自同一条 fact 的两件套，调用方按下标去重）。
@@ -106,6 +116,7 @@ export const rule81 = {
             for (var m = 0; m < log.length; m++) {
                 var er = log[m];
                 if (!er) continue;
+                if (er.type === 'buff-swap' && swapMovedUids(er).indexOf(zhangUid) !== -1) { selfMoved = true; break; }
                 if (er.type === 'buff-swap' && (er.uidA === zhangUid || er.uidB === zhangUid)) { selfMoved = true; break; }
                 if (er.type === 'buff-push' && (er.pushTargetUid === zhangUid || er.behindUid === zhangUid)) { selfMoved = true; break; }
             }

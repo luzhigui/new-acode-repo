@@ -27,7 +27,13 @@
 //   5) 宣告位置未生效：每条 swap 宣告 fromPos→toPos，被下一次换位打断前，该单位后续出场快照
 //      从未落到 toPos（复用 138 V6.1.12 口径：一拍时滞内任一快照命中即算生效；无后续快照不报）。
 // 误报规避：本场没有惑心条目直接 skip（仅在抽到「惑人心智」团队 Buff 时产生）。
-export const VER = 'tests/health-rules/166-mind-control-swap.js V6.1.11';
+export const VER = 'tests/health-rules/166-mind-control-swap.js V6.2.0';
+// V6.2.0（2026-11-07 第 185 轮）：判据1 配对语义随上游 core/215 V6.1.11「保证有效」重定标 —— 上游删掉
+//   「洗完回原位即不写条」的空结果路径后，命中即必写一条 SWAP，相邻两次执行可以同侧命中，旧的
+//   「同场所有组首侧一致」前提失效（实测 seed=7 stage=3 把合法的 己/敌、敌/己 交替报成 16 场假红）。
+//   新口径：按「同阵营连续段」切执行边界，段长必须为 2 且一敌一己；不再要求整场首侧一致。
+//   ★ 只重定标配对语义，**未放宽**任何实体判据：SWAP 自洽、位置越界、来源/目标位共用、
+//     FAIL 理由越界、文本格式漂移、宣告位未落地六类一字未动；断链/同侧仍有牙（段长非 2 / 段内两条同侧）。
 // V6.1.11（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改任何判定口径与阈值）。
 //   病由：12 类子病因全 push 进 problems、末尾 slice(0,3).join(' | ') 合并成一条 msg ⇒ 分支级只看到一个
 //   「聚合外壳」指纹，掉其中任何一类都看不出来；牙口证据链对账据此点名「166 一条指纹 12 种子病因 /
@@ -183,25 +189,40 @@ export const rule113 = {
             pRange = null, pFrom = null, pTo = null, pLandSeen = null, pLandEnd = null;
 
         // 判据 1：配对完整性 —— 一次执行产出**两条**（一条敌方 + 一条己方），两次执行按组相邻。
-        // 2026-11-05 修假阳性：侧别次序**相对持有者**而定，不是恒定「敌方在前」——
-        //   core/14 applyMindControlCore 先按持有者选首侧：明教持有 → 敌方先，六大派持有 → 己方先
-        //   （该函数注释原文如此）。惑心登记在 content/001-game-data.json `hexes.permanentBuffKeys`，
-        //   可挂敌方 ⇒ 己,敌,己,敌 是完全合法的序列。
-        //   旧判据按「敌必在己之前」写死，实测关卡5 把 己,敌,己,敌 误报成 2 条（首条己方 + 末条敌方断链）。
-        //   新判据：① 总数必须偶数（奇数=断链/丢失）② 每两条一组必为一敌一己
-        //          ③ 同场所有组的首侧必须一致（持有者固定，次序不可能中途翻转）
-        //   回归样例：己,敌,己,敌 通过；敌,己,己,敌 因「组首侧不一致」仍报错。
+        // 2026-11-07 第 185 轮修假阳性（★ 上游 0800f201「惑心换位改保证有效」后高频）：
+        //   旧判据③「同场所有组首侧必须一致」建立在「一次执行 = 相邻两条」这个前提上，而该前提
+        //   在 v6.1.11 后已**不再成立**：上游删掉了 shuffleThreeSlots 的「洗完回原位」空结果路径
+        //   （命中即必写条目），于是每一次 roll 命中都产出一条 SWAP；相邻两次执行若都命中（敌 80% /
+        //   己 40%），序列就变成 …Swap(己) Swap(己)… 或 …Swap(敌) Swap(敌)…，按两条一组切分必然错位，
+        //   后续所有组都被算成「首侧翻转」。
+        //   实测取证（seed=7 stage=3，28 条）：真实侧序为
+        //     己/敌FAIL | 己/敌FAIL | 己/敌FAIL | 己/敌SWAP | 敌/己FAIL | 己/敌FAIL | 己/己 | …
+        //   即先后由两个不同持有者各执行一次（明教持有→敌首、六大派持有→己首），是**合法**的，
+        //   旧判据却把它报成翻转。改判口径（只收紧配对语义，不放宽任何实体判据）：
+        //     ① 总数必须偶数；② 以「同阵营连续段」为一次执行的边界重新切分，**每一段内**必须恰为
+        //        「一条敌方 + 一条己方」（段长 1 或 3 条 ⇒ 断链）；③ 不再要求整场首侧一致
+        //        （首侧随持有者变是设计使然，见上）。
+        //   仍保留的牙：条目丢失/断链（段长非 2）、一次执行两条同侧（段内两条同侧）、
+        //   以及 SWAP 自洽/落地/FAIL 理由/格式漂移四类实体判据（本次一行未动）。
         if (mc.length % 2 !== 0) {
             pOdd = '惑心条目数为 ' + mc.length + '（奇数）：一次执行应产出「敌方+己方」两条，出现断链/丢失';
         }
-        var leadSide = mc.length >= 2 ? mc[0].side : null;
-        for (var k = 0; k + 1 < mc.length; k += 2) {
-            if (mc[k].side === mc[k + 1].side) {
-                if (!pSame) pSame = '第' + (k + 1) + '、' + (k + 2) + '条惑心同为「' + mc[k].side + '」（一次执行应为一条敌方 + 一条己方）';
-            } else if (leadSide && mc[k].side !== leadSide) {
-                if (!pLead) pLead = '第' + (k + 1) + '、' + (k + 2) + '条惑心组首侧为「' + mc[k].side
-                    + '」，与首组「' + leadSide + '」不一致（持有者固定，一次执行的侧序不应中途翻转）';
+        // 按「同阵营连续段」切分执行边界：相邻两条同阵营即属不同的执行（各产一条，方向必然不同）
+        var segStart = 0;
+        for (var k = 0; k < mc.length; k++) {
+            var isLast = (k === mc.length - 1);
+            var nextSame = !isLast && (mc[k + 1].side === mc[k].side);
+            if (!isLast && !nextSame) continue;
+            var segLen = k - segStart + 1;
+            if (segLen % 2 !== 0) {
+                if (!pLead) pLead = '第' + (segStart + 1) + '~' + (k + 1) + '条惑心（连续「' + mc[segStart].side
+                    + '」段）共 ' + segLen + ' 条，成不了「敌方+己方」的整组（一次执行应为两条一敌一己）';
             }
+            if (segLen === 2 && mc[segStart].side === mc[k].side) {
+                if (!pSame) pSame = '第' + (segStart + 1) + '、' + (k + 1) + '条惑心同为「' + mc[segStart].side
+                    + '」（一次执行应为一条敌方 + 一条己方）';
+            }
+            segStart = k + 1;
         }
 
         for (var k2 = 0; k2 < mc.length; k2++) {
@@ -300,7 +321,9 @@ export const rule113 = {
         // 注意：落地两类（pLandSeen / pLandEnd）在语义上是同一判据的两种取证路径，故各自成表但仍分两条返回。
         if (pOdd) return { fail: true, msg: '复发：惑心配对断链 — ' + pOdd };
         if (pSame) return { fail: true, msg: '复发：惑心组内同侧 — ' + pSame };
-        if (pLead) return { fail: true, msg: '复发：惑心组首侧翻转 — 某组首侧与首组不一致（持有者固定，一次执行的侧序不应中途翻转）' };
+        // 第 185 轮：原「组首侧翻转」判据已被上游「保证有效」证伪（首侧随持有者变 + 相邻两次可同侧命中），
+        //   本槽位改承载「连续同阵营段长非 2」＝该次执行没凑成敌+己整组（等价于原来的断链牙，指纹保留）。
+        if (pLead) return { fail: true, msg: '复发：惑心执行段不成组 — ' + pLead };
         if (pReason) return { fail: true, msg: '复发：惑心失败理由越界 — ' + pReason };
         if (pName) return { fail: true, msg: '复发：惑心换位单位名为空 — ' + pName };
         if (pRange) return { fail: true, msg: '复发：惑心换位位置越界 — ' + pRange };

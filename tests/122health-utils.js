@@ -1,4 +1,6 @@
-// V6.7.7 | 2026-11-07 第 185 轮 两处口径修正（均为判据读错源，不改任何判定强度）：
+// V6.8.0 | 2026-11-07 第 185 轮 三处口径修正（均为判据读错源，不改任何判定强度）：
+//   ⓪ 新增 swapMovedUids（见文件末尾）：render/409 渲染后的 buff-swap 只有 {type, swaps, buffType, text}，
+//      不含 uidA/uidB ⇒ 任何按 uidA/uidB 判「谁被换走」的地方恒 false（134/138/166 同源病，本轮一起修）。
 //   ① checkUnitHpValidity 改读**同一步的引擎冻结真值** unit._frozen（core/11 makeStep 同时刻采的 hp/maxHp）。
 //      病由：battleStore 的 unit 是混合时点样本——maxHp 由 SET_UNITS（step 起点）冻结，hp 却会被播放期
 //      player/509 的 HP_CHANGE（payload 只写 hp，见 509:109）改写成 step 中段值；上限在 step 内变更
@@ -34,7 +36,7 @@ import { getUnitCol, getUnitRow } from '../infra/102-core-utils.js';
 // V6.7.4（续迭代）：checkHpBarSync 同款修复——单位受击后引擎 hp 即时更新、DOM 血条动画回落约 0.7s，
 //   原判据见 |actual-expected|>5 即报，会把"刚受击的动画途中一帧"误判为"血条高度异常"（每次受击都触发）。
 //   改为追踪连续两次取样高度：仍变化=动画中跳过；稳定且仍偏离>5%=真·卡死/错位才报。
-export const VER = 'tests/122health-utils.js V6.7.7';
+export const VER = 'tests/122health-utils.js V6.8.0';
 
 // [模块级状态] 见 V6.7.3：死亡血条动画收敛追踪 + GAMEOVER 按钮稳定计时
 const _barPrev = new Map();      // uid -> 上次观测到的血条高度(%)，区分"动画回落中"与"卡死残留"
@@ -1025,4 +1027,36 @@ export function isSilentRelocate(mid, exp) {
             (hfName === exp.name || (t && exp.name && t.indexOf(exp.name) !== -1))) return true;
     }
     return false;
+}
+// V6.8.0（2026-11-07 第 185 轮）：换位条目「谁被换走了」的唯一解析入口。
+//   病由（本轮实测取证）：render/409 渲染出的 buff-swap 条目**只有 { type, swaps, buffType, text }**，
+//   不带 uidA/uidB；任何按 `e.uidA === uid || e.uidB === uid` 判「本单位是否被换位」的地方**恒 false**。
+//   166 规则 V6.1.9 已踩过同一个坑并改读 mid.swaps，但 134（近身切换时机）与 138（乘风击退落地）
+//   仍按 uidA/uidB 判，于是「入场后先被惑心换走」这类样本全都认不出：
+//     · 134：张无忌开局 5 号位，第 1 回合被惑心换到 2 号位（同列已无前排队友）⇒ 引擎按实时站位照切（正确），
+//       规则仍用开局列判定「同列前排队友存活」⇒ 误报「切换时机过早」（seed=9 stage=7 / seed=10 stage=5）；
+//     · 138：乘风把张无忌击退到 8 号位，紧随的惑心又把他换到 5 号位 ⇒ 此后 6 次快照都不在 8 号位，
+//       规则认不出这次"第三方改写"，误报「击退未落地」（seed=6 stage=1 / seed=13 stage=5）。
+//   ★ 2026-11-07 上游 0800f201「惑心换位改保证有效」删掉了「洗完回原位」这条空结果路径，
+//     命中率由「净位移为 0 即不写条」变成「必写条」⇒ 这两类误报从偶发变成高频（本轮 134 失 2 场、138 失 2 场）。
+//   本函数只做"读出是谁"，不改任何判定口径：命中即代表该单位的位置被这次换位真实改写。
+export function swapMovedUids(entry) {
+    if (!entry || typeof entry !== 'object') return [];
+    // 新口径：渲染后条目携带 swaps（render/409 返回数组，每项带 uid / name / fromPos / toPos）
+    if (entry.type === 'buff-swap' && Array.isArray(entry.swaps)) {
+        var out = [];
+        for (var i = 0; i < entry.swaps.length; i++) {
+            var s = entry.swaps[i];
+            if (s && s.uid != null) out.push(s.uid);
+        }
+        return out;
+    }
+    // 旧口径兜底：少数宿主仍给 uidA/uidB（保留，不扩大）
+    if (entry.type === 'buff-swap') {
+        var o2 = [];
+        if (entry.uidA != null) o2.push(entry.uidA);
+        if (entry.uidB != null) o2.push(entry.uidB);
+        return o2;
+    }
+    return [];
 }

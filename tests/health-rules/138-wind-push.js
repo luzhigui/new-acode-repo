@@ -1,7 +1,15 @@
 // 回归规则：乘风破浪击退换位 — 击退恰一行(+3)、有身后单位时双方换位、位置随后真实生效
 // 复发信号：击退距离≠+3 / 换位描述缺失 / 击退后单位站位与战报宣告不一致（换位未生效或特效错位）
 // 对应已报 Bug：乘风破浪击退换位特效不对
-export const VER = 'tests/health-rules/138-wind-push.js V6.2.3';
+export const VER = 'tests/health-rules/138-wind-push.js V6.2.4';
+// V6.2.4（2026-11-07 第 185 轮）：修「击退落地后又被惑心换走」一类误报 —— 只改打断识别，判据与阈值未动。
+//   病由：判据 3 的"中途被打断"分支读 `mid.uidA === uid || mid.uidB === uid`，而渲染后的 buff-swap
+//   条目只有 { type, swaps, buffType, text }，不含 uidA/uidB ⇒ 对惑心换位恒 false。乘风把张无忌击退到
+//   8 号位后，紧随的惑心又把他换到 5 号位（实测 seed=6 stage=1：L229 PUSH 张无忌 8→5，L241/L242 惑心
+//   再把 5→8→5 来回换），此后 6 次快照都不在 8 号位 ⇒ 误报「击退后位置未生效」。
+//   修法：补 swapMovedUids(mid) 这条等价判定（读 swaps 数组），与既有 pushTargetUid/behindUid 同权。
+//   ★ 上游 0800f201「惑心保证有效」删掉「洗完回原位」空结果路径后，换位条目必写，此类误报由偶发转高频。
+//   覆盖不减：真正的"击退没落地"仍是「有后续快照且全部不在宣告位、且中间无任何第三方改写」。
 // V6.2.3（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改判定口径与阈值）。
 //   病由：三类子病因（击退距离异常 / 缺身后单位移位描述 / 击退后位置未生效）全 push 进 problems，
 //   末尾 slice(0,3).join(' | ') 合成一条 msg ⇒ 分支级只见一个聚合外壳指纹，丢其中任一类都看不出来。
@@ -23,7 +31,7 @@ export const VER = 'tests/health-rules/138-wind-push.js V6.2.3';
 // V6.2.1（2026-10-23 第 124 轮）：上面两条收口为 tests/122health-utils.js 的 isSilentRelocate
 //   （138 / 166 此前各写一份，重复即埋雷；本轮在 166 侧实证上游新机制「两仪互换」同样走
 //   swapUnitPositions、同样不发位移事件，白名单必须由唯一来源维护）。
-import { isSilentRelocate } from '../122health-utils.js';
+import { isSilentRelocate, swapMovedUids } from '../122health-utils.js';
 
 export const rule85 = {
     group: '技能效果回归',
@@ -90,6 +98,9 @@ export const rule85 = {
                             if (mid && (mid.type === 'buff-push' || mid.type === 'buff-swap')) {
                                 if (mid.pushTargetUid === exp.uid || mid.behindUid === exp.uid ||
                                     mid.uidA === exp.uid || mid.uidB === exp.uid) { interrupted = true; break; }
+                                // 第 185 轮：buff-swap 条目不带 uidA/uidB（render/409 只给 swaps 数组），
+                                //   上一行对惑心换位恒 false ⇒ 「击退落地后又被惑心换走」认不出，误判未落地。
+                                if (swapMovedUids(mid).indexOf(exp.uid) !== -1) { interrupted = true; break; }
                             }
                             // 第 121 轮补：静默位移（冲刺/撤退/寒离飒位移）也要算打断，否则误报
                             if (isSilentRelocate(mid, exp)) { interrupted = true; break; }
