@@ -1,5 +1,5 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.8.1';
+export const VER = 'core/204-buff-system.js V6.8.2';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -548,7 +548,8 @@ export function submitMeteorShowerDeclaration(data) {
     const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === ROLE_TYPES.RANGED;
     const brotherActive = unit.role === ROLE_TYPES.RANGED && hasBrotherPermanent(allySide, BUFF_TYPES.METEOR_SHOWER);
     if (!active && !brotherActive) return;
-    // 姊强化·飞箭雨：全屏真伤，替代原「主目标加伤 + 溅射」整套结算
+    // 姊强化·飞箭雨：全屏真伤，与下方「主目标加伤 + 溅射 + 降防」叠加（V6.8.2 删 return：
+    //   原实现直接 return 跳过整套结算，姐姐版实际只剩真伤）
     const meteorEnh = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
     if (active && meteorEnh && meteorEnh.trueDmgPct > 0) {
         const foes = (enemySide || []).filter(u => u.alive && !u.isHorse);
@@ -568,7 +569,6 @@ export function submitMeteorShowerDeclaration(data) {
                 floatText: '☄️', floatUid: unit.uid
             } });
         }
-        return;
     }
     const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
     const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);

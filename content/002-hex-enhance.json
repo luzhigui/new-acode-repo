@@ -10,16 +10,16 @@
     "windAssault": { "hitProb": 1.0, "pushProb": 1.0, "extraDuration": 1 },
     "meteorShower": { "trueDmgPct": 0.05, "duration": 4 },
     "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50, "hpPctSwap": 0.15, "stunOnSwap": true },
-    "cloudBody": { "dodgeBonus": 0.30, "reboundRatio": 0.75, "noSkip": true },
+    "cloudBody": { "dodgeBonus": 0.30, "reboundRatio": 0.5, "noSkip": true },
     "fortify": { "healOnRebound": true },
     "horseFormation": { "horseAtk": 0, "horseDef": 30, "horseHp": 30, "reboundDmg": 5, "noDestroy": true },
     "carry": { "multiTarget": true, "targetPositions": [4, 5, 6] },
-    "holyFlame": { "atkCols": 2, "defRows": 2, "atkBonus": 0.3, "defBonus": 0.3 },
+    "holyFlame": { "atkCols": 2, "defRows": 2, "atkBonus": 0.25, "defBonus": 0.25 },
     "soulDrain": { "atkBonus": -0.40, "perUnitBonus": 0.10 },
-    "holyFire": { "reviveCount": 2, "firstReviveRatio": 1.0, "secondReviveRatio": 0.70 },
+    "holyFire": { "reviveCount": 2, "firstReviveRatio": 0.7, "secondReviveRatio": 0.4 },
     "doubleStrike": { "chance": 1.0 },
     "lastStand": { "hpThreshold": 0.4, "atkBonus": 0.25, "leechRatio": 0.05 },
-    "unity": { "recruitM": 25, "recruitTarget": 5 }
+    "unity": { "recruitM": 25, "recruitTarget": 5, "extraDuration": 1 }
   },
 
   "brother": {

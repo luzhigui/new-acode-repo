@@ -1,4 +1,4 @@
-export const VER = 'modules/329-buff-tools.js V6.2.7';
+export const VER = 'modules/329-buff-tools.js V6.2.8';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -16,9 +16,10 @@ export function createBuffObject(key, duration = null, target = CAMP_TYPES.ALLY,
             duration = CONFIG.MAX_ROUND;
         } else if (key === BUFF_TYPES.METEOR_SHOWER && team.some(u => u.isXiaoZhaoSister && u.alive)) {
             duration = 4;
-        } else if ((key === BUFF_TYPES.HOT_BLOOD || key === BUFF_TYPES.WIND_ASSAULT) && team.some(u => u.isXiaoZhaoSister && u.alive)) {
-            // 姊强化：热血奋战 / 乘风突袭 持续 +N 回合（201 sister.extraDuration，缺则炸）
-            const enhKey = key === BUFF_TYPES.HOT_BLOOD ? 'hotBlood' : 'windAssault';
+        } else if ((key === BUFF_TYPES.HOT_BLOOD || key === BUFF_TYPES.WIND_ASSAULT || key === BUFF_TYPES.UNITY) && team.some(u => u.isXiaoZhaoSister && u.alive)) {
+            // 姊强化：热血奋战 / 乘风突袭 / 众志成城 持续 +N 回合（201 sister.extraDuration，缺则炸）
+            const enhKey = key === BUFF_TYPES.HOT_BLOOD ? 'hotBlood'
+                : (key === BUFF_TYPES.WIND_ASSAULT ? 'windAssault' : 'unity');
             const sisterEnh = getSisterHexEnhance(enhKey);
             if (!sisterEnh || sisterEnh.extraDuration == null) {
                 throw new Error(`002-hex-enhance.json 缺 sister.${enhKey}.extraDuration`);

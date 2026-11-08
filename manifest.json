@@ -1,15 +1,15 @@
 {
- "ver": "340ed3eaf2b247520c9f8ba9542db51b6d26e50a4d51b549a08c903e953bfefd",
+ "ver": "3285c8e35c28f6ca663044ab8aa10db1f1be5ae568335c1d65cde50b0e14f2fb",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "7c7ec575fe4a81411bdc48938eb1ed75aa8fb42c364e6d3c1c9f75dbe566b391"
+   "b7b21bf71772281316ed2447f0c812bc3287277c34e4c09a30a3157001aaac6e"
   ],
   [
    "content/002-hex-enhance.json",
-   "1f2c62ae86a0bdeba4cf1dfd25912b1b19a30499670470c7f8d83e7affc1d9d6"
+   "dfa8fd178727127edd91ccb703d5dfcd737aea41c3a9138e18bd0b1c0c42476b"
   ],
   [
    "core/201-config-5v5-test.js",
@@ -25,7 +25,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "70b4df24deb3fe264a571fe4fec165dd3369d23c8a7b97c910f1cfbd274afe5e"
+   "65e62531abd63e5098c7cad8d8d9d20d0b3d472efe7d4752ed670be85e4ffb79"
   ],
   [
    "core/205-battle-horse.js",
@@ -69,7 +69,7 @@
   ],
   [
    "core/215-buff-effects.js",
-   "ed0f4eeee064abc0ca00a19546f36e0e43dad3ff9f048d4d2e3d7f23abbe782f"
+   "890d750628f91c877364e83069de6e2b9281843412baa252c1d21e74cd7d0a58"
   ],
   [
    "core/216-skill-mechanisms.js",
@@ -349,7 +349,7 @@
   ],
   [
    "modules/329-buff-tools.js",
-   "4a5f8b2c6a8c60f1f084cb911fb807f1e20fab2140df5da0298ecc9110062106"
+   "81b7aeb33c4533b3f6df8db83388b1b118c9551d95265db73a16f58707491106"
   ],
   [
    "modules/330-battle-init.js",

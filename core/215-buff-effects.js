@@ -1,4 +1,4 @@
-export const VER = 'core/215-buff-effects.js V6.2.0';
+export const VER = 'core/215-buff-effects.js V6.2.1';
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
 //   控制免疫单位不进候选（删除免疫 50% 拦截与「洗完回原位」两条空结果路径）。
 // V6.1.10（2026-11-02 收尾）：撤销 applyMindControlCore 内三处 MCDEBUG 临时诊断（MCSIDE/MC_E/MC_A），
@@ -41,23 +41,32 @@ function pushHolyFlameFact(log, unit, field, ratio) {
     log.push({ factType: FACT_TYPES.HOLY_FLAME_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field, op: 'mul', ratio } });
 }
 
-export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log) {
+/**
+ * 圣火令本体。bonuses 可选：传 { atkBonus, defBonus } 即用该组数值，缺字段回落 CONFIG.BUFFS.holyFlame
+ *   —— 姊/妹强化共用本实现，避免复制「按列加攻 / 按行加防 + fact」这套逻辑。
+ */
+export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log, bonuses = null) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
+    const atkBonus = (bonuses && bonuses.atkBonus != null) ? bonuses.atkBonus : CONFIG.BUFFS.holyFlame.atkBonus;
+    const defBonus = (bonuses && bonuses.defBonus != null) ? bonuses.defBonus : CONFIG.BUFFS.holyFlame.defBonus;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
     if (cols.includes(getUnitCol(unit.pos))) {
-        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
-        pushHolyFlameFact(log, unit, 'atk', CONFIG.BUFFS.holyFlame.atkBonus);
+        addMod(unit, 'atk', { source: '圣火令', value: atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+        pushHolyFlameFact(log, unit, 'atk', atkBonus);
     }
     if (rows.includes(getUnitRow(unit.pos))) {
-        addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
-        pushHolyFlameFact(log, unit, 'def', CONFIG.BUFFS.holyFlame.defBonus);
+        addMod(unit, 'def', { source: '圣火令', value: defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+        pushHolyFlameFact(log, unit, 'def', defBonus);
     }
 }
 
+// 姊强化：行列判定与 Normal 完全一致（读团队 buff 实例的 cols/rows），只把加成值换成
+//   sister.holyFlame（0.25）。此前直接转调 Normal，实际吃的是普通版 0.3。
 export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, log) {
-    applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log);
+    const enh = getSkillParams('小昭', 'hexEnhance').holyFlame;
+    applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log, enh);
 }
 
 // 妹永久圣火令改「画行列、判命中」（老板拍板）：不再无条件双加成——回合初蛛变按全局同口径
