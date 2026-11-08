@@ -86,6 +86,7 @@ import { rule186 } from './health-rules/186-display-single-exit.js';
 import { rule187 } from './health-rules/187-damage-float-same-source.js';
 import { rule199 } from './health-rules/199-hp-chain-same-source.js';
 import { rule200 } from './health-rules/200-group-entry-order.js';
+import { rule230 } from './health-rules/230-cross-group-hp-trajectory.js';
 // 第 186 轮：回合时序 / 目标选择 / 行动顺序三块结构规则（只吃原始 fact 流，不读渲染文本）
 import { rule181 } from './health-rules/181-round-sequence.js';     // 回合开始/结束分隔符连续性与配对
 import { rule182 } from './health-rules/182-target-validity.js';   // 鞭尸 / 自伤 / 误伤同阵营
@@ -721,7 +722,7 @@ function runRuleChecks(ctx, doc) {
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
         rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
         rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule205, rule181, rule182, rule183, rule185, rule186, rule187,
-        rule199, rule200, deathRights184, multiAttack188,
+        rule199, rule200, rule230, deathRights184, multiAttack188,
         rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);

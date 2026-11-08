@@ -148,6 +148,7 @@ export const SCAN_FILES = [
     './health-rules/187-damage-float-same-source.js',
     './health-rules/199-hp-chain-same-source.js',
     './health-rules/200-group-entry-order.js',
+    './health-rules/230-cross-group-hp-trajectory.js',
     // 第 187 轮：框架公共层补登记（并行会话已建文件、未登记）
     './health-rules/174-ally-roster.js',
     './health-rules/175-ally-anchor-pos.js',
