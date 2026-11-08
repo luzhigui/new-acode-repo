@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, WEAK_ELITES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.6.0';
+export const VER = 'tools/812-elite-eval.js V3.7.0';
+// V3.7.0 | 2026-11-08 快照跨版本混榜显式告警：同一条快照里各表来自不同版本（或旧表没记版本）时，
+//   下拉标签与载入提示都出「⚠️版本不一致」，不再只把版本号拼在一起让人自己比。
 // V3.6.0 | 2026-11-08 可复现：新增「种子」输入框（留空=Date.now()），填上次结果的 masterSeed 即按同样随机流重跑；
 //   四张表结果区顶部显示 masterSeed / 版本 / 完成时间（旧快照显示「未记录」）。
 // V3.5.0 | 2026-11-08 快照带批次元数据：每张表记录自己的完成时间 ts、种子 seed、版本（本工具 + 引擎配置），
@@ -119,6 +121,14 @@ function metaLine(m) {
 const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
 const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(arr)); return null; } catch (e) { return e; } };
 
+// V3.7.0：快照是否跨版本混榜——各表版本不统一，或有的旧表根本没记版本，都算混杂。
+//   只把版本号拼在一起（vers.join(' / ')）读者看不出问题，必须显式告警。
+function snapVerMixed(s) {
+    const kinds = Object.keys(s.parts);
+    const vers = [...new Set(kinds.map(k => s.parts[k].ver).filter(Boolean))];
+    return vers.length > 1 || (vers.length > 0 && vers.length < kinds.length);
+}
+
 function snapLabel(s) {
     const d = new Date(s.ts), p2 = n => String(n).padStart(2, '0');
     const fmt = t => { const x = new Date(t); return `${p2(x.getMonth() + 1)}-${p2(x.getDate())} ${p2(x.getHours())}:${p2(x.getMinutes())}`; };
@@ -132,6 +142,7 @@ function snapLabel(s) {
         : (times.length > 1 ? `｜⚠️多批次 ${fmt(times[0])} ~ ${fmt(times[times.length - 1])}` : `｜${fmt(times[0])}`);
     if (seeds.length) meta += `｜seed ${seeds.join('/')}`;
     if (vers.length) meta += `｜${vers.join(' / ')}`;
+    if (snapVerMixed(s)) meta += '｜⚠️版本不一致（跨版本混榜，胜率不可直接比较）';
     return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).join('+')}${meta}`;
 }
 
@@ -177,12 +188,14 @@ snapLoadBtn.addEventListener('click', () => {
     const rec = readSnaps().find(s => s.id === snapSelect.value);
     if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
     const p = rec.parts;
-    if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE, p.boss); bossProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    if (p.weak) { latest.weak = p.weak; renderWeakResults(p.weak.byStage, p.weak.stages); weakProgressEl.textContent = `📂 已载入历史快照 ${snapLabel(rec)}`; }
-    snapStatusEl.textContent = `📂 已载入 ${snapLabel(rec)}`;
+    // V3.7.0：载入时若这份快照跨版本混榜，提示条里明说，避免拿混版本的表直接横比
+    const label = snapLabel(rec) + (snapVerMixed(rec) ? '｜⚠️版本不一致，跨版本胜率不能直接比' : '');
+    if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${label}`; }
+    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
+    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE, p.boss); bossProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
+    if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
+    if (p.weak) { latest.weak = p.weak; renderWeakResults(p.weak.byStage, p.weak.stages); weakProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
+    snapStatusEl.textContent = `📂 已载入 ${label}`;
 });
 
 snapDropBtn.addEventListener('click', () => {
