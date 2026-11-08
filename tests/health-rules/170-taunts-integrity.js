@@ -39,7 +39,8 @@ export const rule170 = {
         try {
             data = getGameData();
         } catch (e) {
-            return { fail: false, skip: true, msg: 'loadGameData 未就绪，跳过' };
+            // loadGameData 未就绪（异步竞态）→ 回放器/121 只认 'skip' 字符串，明确跳过
+            return 'skip';
         }
         var chars = data.characters || {};
         var taunts = data.taunts || {};

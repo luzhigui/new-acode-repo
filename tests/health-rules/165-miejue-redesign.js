@@ -90,6 +90,6 @@ export const rule112 = {
 
         // 本场灭绝未出场 / 未触发任何被盯行为 → 无信号，skip（非 fail）
         if (!triggered) return 'skip';
-        return { pass: true };
+        return 'pass';
     }
 };

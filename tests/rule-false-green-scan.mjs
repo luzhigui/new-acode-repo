@@ -42,6 +42,7 @@ const STRICT = argv.includes('--strict');
 // 只登记「设计口径、复核后不算假绿」的降级写法；真问题一律留在 ❌（等所属域修，扫描器保持红）。
 const KNOWN = [
     // —— D2 数据未就绪降级为 skip（回归域统一写法：异步 loadGameData 未完成时避免误红；回放器内数据恒就绪）
+    { file: '170-taunts-integrity.js', rule: '台词池双向一致性(taunts)', cat: 'D2', reason: 'getGameData 未就绪 → 明确 return \'skip\'（异步加载竞态，设计口径）' },
     { file: '174-ally-roster.js', rule: '明教阵容规模与分层(回归)', cat: 'D2', reason: 'getGameData 未就绪 → skip（异步加载竞态，设计口径）' },
     { file: '174-ally-roster.js', rule: '明教阵容名字来源(回归)', cat: 'D2', reason: '同上' },
     { file: '176-enemy-stage-roster.js', rule: '六大派关卡固定精英必到(回归)', cat: 'D2', reason: '同上' },
@@ -54,11 +55,7 @@ const KNOWN = [
     { file: '174-ally-roster.js', rule: '明教阵容名字来源(回归)', cat: 'D3', reason: 'GlobalStore 未就绪按无强制处理' },
     { file: '176-enemy-stage-roster.js', rule: '关卡解锁闸·后段精英不得提前(回归)', cat: 'D3', reason: 'forceWeakElite 可选配置，取不到按未强制' },
     { file: '203-xiexun-lion-grow.js', rule: '谢逊幼狮成长成形(回归)', cat: 'D3', reason: '缺职业加成时按 0 校验基础值' },
-    { file: '287-stage-name-source.js', rule: '每关敌方名字来源合法(回归)', cat: 'D3', reason: 'forceWeakElite 可选配置，取不到按未强制' },
-    // —— 真问题·已上报所属域（D12 只报不改：规则文件属别域号段，修复权在登记域；本件保持可见）
-    { file: '165-miejue-redesign.js', rule: '灭绝重设计行为数值(回归)', cat: 'A', reason: '真问题：return {pass:true} 缺 fail 字段，按 pass 计；改写为 return \'pass\'（所属域待修）' },
-    { file: '170-taunts-integrity.js', rule: '台词池双向一致性(taunts)', cat: 'A', reason: '真问题：{fail:false,skip:true} 被两处消费者算 pass ⇒ 数据未就绪静默变绿；改写为 return \'skip\'（所属域待修）' },
-    { file: '170-taunts-integrity.js', rule: '台词池双向一致性(taunts)', cat: 'D1', reason: '真问题：同一 catch 把 loadGameData 异常吞成 pass（所属域待修）' }
+    { file: '287-stage-name-source.js', rule: '每关敌方名字来源合法(回归)', cat: 'D3', reason: 'forceWeakElite 可选配置，取不到按未强制' }
 ];
 
 // ---------------------------------------------------------------- 四类判据的内嵌反例（自证）
