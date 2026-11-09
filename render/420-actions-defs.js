@@ -125,6 +125,14 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.HEAL]: {
         grid: 'sync', log: 'sync',
         timing: (action) => (action && action.timing === 'afterText') ? 'afterText' : 'anchor',
+        // 带引擎真值 hpAfter 的回血当场落 store：血条随这一行立即刷新。
+        //   否则（如生生不息在 PASS 单位回合触发）这笔回血与下一个出手单位同处一个 step，
+        //   只能等步末 syncStoreFromStep 才显形 —— 老板实机：队友回血要等队友攻击才刷。
+        store: (c, action) => {
+            if (!c.store || action.hpAfter == null || action.targetUid == null) return;
+            const payload = { hp: Math.max(0, action.hpAfter) };
+            c.store.dispatch({ type: STORE_ACTION_TYPES.HP_CHANGE, unitUid: action.targetUid, payload });
+        },
         fx: (c, action) => {
             const healUnit = findUnitByUidLocal(c, action.targetUid);
             if (healUnit && action.amount) {

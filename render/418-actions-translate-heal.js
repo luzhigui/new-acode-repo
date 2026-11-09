@@ -45,6 +45,7 @@ function translateEndlessBreath(data, index) {
         actions.push({
             kind: STAGE_ACTION_TYPES.HEAL,
             actorUid: data.unitUid, targetUid: data.unitUid, amount: selfHeal,
+            hpAfter: typeof data.hpAfter === 'number' ? data.hpAfter : null,
             anchorIndex: 0, factIndex: index, timing: 'afterText'
         });
     }
@@ -53,6 +54,7 @@ function translateEndlessBreath(data, index) {
         actions.push({
             kind: STAGE_ACTION_TYPES.HEAL,
             actorUid: data.overflowToUid, targetUid: data.overflowToUid, amount: overflowHeal,
+            hpAfter: typeof data.overflowToHpAfter === 'number' ? data.overflowToHpAfter : null,
             anchorIndex: 0, factIndex: index, timing: 'afterText'
         });
     }

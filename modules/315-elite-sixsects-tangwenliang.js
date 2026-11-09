@@ -175,10 +175,20 @@ export function createTangWenLiangComponent() {
                 for (const m of moves) moveUnitPosition(m.unit, m.to, log);
             }
 
+            // 冲刺存活判据（所有冲刺入口共用）：已死 / 血归零 / 待死清场都算不能出手，
+            //   外加「本击已被判斩杀、但 EXECUTE 声明还没执行」的中间态——斩杀声明在 AFTER_DAMAGE_APPLIED
+            //   广播之后才由 core/16 落地，这一刻 alive 仍 true、hp 仍 >0，只判 alive/hp 会漏，
+            //   死人照样冲刺（实机：唐文亮被战士斩杀 → 七伤拳（被击）满 7 → 冲刺 + 转战士 + 真伤）。
+            function dashBlocked(declarations) {
+                if (!tw.alive || tw.hp <= 0 || tw.state._pendingDeath) return true;
+                if (!Array.isArray(declarations)) return false;
+                return declarations.some(d => d && d.type === EFFECT_TYPES.EXECUTE && d.target === tw);
+            }
+
             function doDash(target, outLog) {
                 // 执行处兜底判据（与 core/209 行动入口同口径）：排队时还活着、执行时可能已被本击打死。
                 //   两个入口都已判过，这里再判一次，保证「不冲刺 / 不扣真伤 / 不写事实」三件一起停。
-                if (!tw.alive || tw.hp <= 0 || tw.state._pendingDeath) return;
+                if (dashBlocked()) return;
                 // 在引擎坐标系中，1/2/3 始终是前排（不论明教还是六大派）。
                 //   所以目标所在列的前排永远是 1 + col。
                 const frontPos = ((target.pos - 1) % 3) + 1;
@@ -256,7 +266,7 @@ export function createTangWenLiangComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_SELECT_TARGET, 12, (data) => {
                 if (data.unit !== tw || !tw.alive) return;
                 // 与 core/209 行动入口同口径：已归零 / 待死 都不许再触发冲刺
-                if (tw.hp <= 0 || tw.state._pendingDeath) return;
+                if (dashBlocked()) return;
                 const n = (tw.state._qiShangCount || 0) + 1;
                 tw.state._qiShangCount = n;
                 const idx = ((n - 1) % dash.cycle) + 1;
@@ -300,8 +310,9 @@ export function createTangWenLiangComponent() {
             //   优先级裸数字 60（晚于 55 的「自损量搬进攻击组」；AFTER_DAMAGE_APPLIED 无 QISHANG 键，故不引用层键）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 60, (data) => {
                 if (data.target !== tw || !tw.alive) return;
-                // 与 core/209 行动入口同口径：hp 已归零（含本击刚打到 0、alive 尚未落地的窗口）不许再冲刺
-                if (tw.hp <= 0 || tw.state._pendingDeath) return;
+                // 与 core/209 行动入口同口径：hp 已归零（含本击刚打到 0、alive 尚未落地的窗口）不许再冲刺；
+                //   本击已排队斩杀（EXECUTE 声明尚未执行）同样算已判死——被击反应也不许再有，直接停手。
+                if (dashBlocked(data.declarations)) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === tw) return;

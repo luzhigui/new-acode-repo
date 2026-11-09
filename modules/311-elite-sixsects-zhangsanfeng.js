@@ -101,6 +101,9 @@ export function createZhangSanfengComponent() {
                         data: {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: healed,
+                            // 回血后的引擎真值：演出层在场就按它落 store（血条当场刷新），
+                            //   不然这笔回血要等「同一个 step 里下一个出手单位的步末同步」才显形（老板实机：攒到队友攻击才刷）
+                            hpAfter: unit.hp,
                             overflow,
                             cost,
                             atkGain: selfAtkGain,
@@ -108,6 +111,7 @@ export function createZhangSanfengComponent() {
                             overflowToName: receiver ? receiver.name : null,
                             overflowToUid: receiver ? receiver.uid : null,
                             overflowHealed: receiverHealed,
+                            overflowToHpAfter: receiver ? receiver.hp : null,
                             overflowAtkGain: receiverAtkGain,
                             overflowDefGain: receiverDefGain
                         }

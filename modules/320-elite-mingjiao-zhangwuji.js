@@ -150,7 +150,8 @@ export function createZhangWujiComponent() {
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: secondTaunt } }); }
                 if (unit.nearAtkCount >= CONFIG.ZHANG_NEAR_ATK_LIMIT) {
                     if (!fsm.is('ronghui')) fsm.transition('ronghui');
-                    const extra = Math.floor(Math.abs(getStat(target, 'atk') - getStat(target, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
+                    // 口径：目标「攻击 + 防御」之和 × 系数（不是攻防差的一半——残差公式是错的）
+                    const extra = Math.floor((getStat(target, 'atk') + getStat(target, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
                     if (data && data.declarations) {
                         data.declarations.push({
                             type: EFFECT_TYPES.BONUS_DMG,
