@@ -10,7 +10,9 @@
 // V6.9.0 | 2026-11-08 救阻塞：b7a9784e 有意废弃 brother.lastStand.hpThreshold（002 改为空对象保留键），
 //         本函数硬抛错导致整局回放与 rng 基线全卡。对齐消费方：缺键时 permThreshold=null、permLow 恒 false，
 //         纯妹永久场景仍由 modules/324 专属组件处理，不改 content 数值。
-export const VER = 'core/204-buff-system.js V6.9.0';
+// V6.9.1 | 2026-11-09 众志成城补员加攻击下限：防战吃 -8 职业攻后 m=15 基础攻可能为负（显示 0、百分比加成乘 0 仍是 0），
+//         改为攻 <1 补到 1，与防/血下限同口径写 _base*/_init*。
+export const VER = 'core/204-buff-system.js V6.9.1';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -312,10 +314,11 @@ export function spawnUnityRecruits(team, log) {
 }
 
 // 众志成城·单次补员（团队补员与妹永久召唤共用）：随机空位 + 池内随机 + 精英技能全开 + 属性下限钳制。
-//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开）；属性下限：防 <5 补到 5、
-//   生命上限 <25 补到 25。攻击力不钳制（老板定案 2026-11-08）：吃职业加成后为负就照实数存 atk/_baseAtk/_initAtk，
-//   只在显示层把 <0 显示成 0；≤0 攻仍走 core/11 pass 不攻击。口径同 spawnHorse/spawnUnit(stats)：
-//   建人阶段直接写基础值并同步 state._base* / _init*（getStat 只认 _base*，不回写则加成后仍读旧值）+ 满血 hp。
+//   召唤走 core/05 spawnUnit（自动 isSummon + applyHeroFlags → 精英技能全开）；属性下限：攻 <1 补到 1、
+//   防 <5 补到 5、生命上限 <25 补到 25。攻击力下限（老板定案 2026-11-09）：防战吃 -8 职业攻后，m=15 的补员
+//   基础攻可能为负 → getStat 显示 0，任何百分比加成（背水/众志）乘 0 仍是 0；改成攻 <1 补到 1。
+//   口径同 spawnHorse/spawnUnit(stats)：建人阶段直接写基础值并同步 state._base* / _init*（getStat 只认 _base*，
+//   不回写则加成后仍读旧值）+ 满血 hp。
 //   重名保护取消（定案「完全真技能」）：补员精英不降级白板，组件多实例化由 core/11 传 self 支撑。
 export function spawnOneUnityRecruit(team, log, m, byName) {
     if (!team || !team.length) return null;
@@ -332,6 +335,7 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
     if (landPos == null) return null;   // 9 格全被活人占：放弃本次落位
     const pick = pool[rng.nextInt(0, pool.length - 1)];
     const recruit = spawnUnit(team, pick.name, m, pick.role, landPos);
+    if (recruit.atk < 1) { recruit.atk = 1; recruit.state._baseAtk = 1; recruit.state._initAtk = 1; }
     if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
     if (recruit.maxHp < 25) {
         recruit.maxHp = 25;

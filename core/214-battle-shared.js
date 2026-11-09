@@ -5,7 +5,9 @@
 //         （core/218 标签表单一真源）；行为逐项等价，仅去掉裸读 state._ctrlImmune。
 // V6.4.10 | 2026-11-08 known-transfers 第 1 条：新增 statMulFactor（乘区因子出口）——吸星按面板百分比
 //   吸取时须先除本因子再落 add 词条，否则受害者实损被乘区放大、与施术者所得对不上。
-export const VER = 'core/214-battle-shared.js V6.4.10';
+// V6.4.11 | 2026-11-09 庄铮·断锤三式：_dmgCap 生效期间拒绝一切回血（isHeal 正向落账收口），
+//   与斩杀无效同读 _dmgCap（老板口径：免疫/异常状态单位不能被治疗）。
+export const VER = 'core/214-battle-shared.js V6.4.11';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -234,6 +236,10 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     // 天上无敌：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
     //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
     if (field === 'hp' && delta < 0 && target.state && target.state._spiderFlying) return false;
+    // 断锤三式·异常状态（庄铮）：保命触发后（_dmgCap 生效）不接受任何回血——
+    //   老板口径 2026-11-09：免疫/异常状态单位不能被治疗（与斩杀同口径，同读 _dmgCap）。
+    //   收口在所有 hp 正向落账处（吸血/回血/生生不息/布袋放生/休息回复…），不做逐出口修改。
+    if (field === 'hp' && delta > 0 && isHeal && target.state && target.state._dmgCap > 0) return false;
     // 杨逍·点穴截脉（反治疗）：被点穴目标眩晕解除后 rounds 回合内，受到的治疗/吸血回复按 ratio 打折。
     //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
     //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。

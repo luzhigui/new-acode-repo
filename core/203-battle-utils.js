@@ -3,7 +3,9 @@
 //          实际行为逐字不变）。214 / 315 / 318 的另四份同源实现同步改为调用本函数。
 // V6.3.9 | 2026-11-08 体检转交：姊强化概率连击改读 002 sister.doubleStrike.chance（原写死 1.0，
 //          002 里那键是死键）；缺键当场抛错，不回落普通版。
-export const VER = 'core/203-battle-utils.js V6.3.9';
+// V6.4.0 | 2026-11-09 斩杀无效判定收口 export getExecuteBlockReason：寒离飒 _immuneExecute 之外，
+//          补上庄铮·断锤三式 _dmgCap（hp 高于上限时斩杀不能一次性归零，与血量判死同口径）。
+export const VER = 'core/203-battle-utils.js V6.4.0';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
@@ -255,6 +257,18 @@ export function registerRangedGrowth(eventBus) {
     });
 }
 
+// 斩杀无效判定（与「血量判死」同口径）：目标当前状态能否被一次性斩杀。
+//   ① _immuneExecute（寒离飒）：明面免疫斩杀；
+//   ② _dmgCap（庄铮·断锤三式）：血量判死会先把本击截到上限，hp 仍高于上限时任何一击都打不死；
+//      斩杀是一次性归零，绕过上限 = 越过血量判死（实机：庄铮 3→2 后被战士斩杀直接带走）。
+//   返回 null = 可斩杀；否则返回原因（用于播报）。
+export function getExecuteBlockReason(unit) {
+    if (!unit || !unit.state) return null;
+    if (unit.state._immuneExecute) return 'immuneExecute';
+    if (unit.state._dmgCap > 0 && unit.hp > unit.state._dmgCap) return 'dmgCap';
+    return null;
+}
+
 // 战士斩杀：目标血量低于阈值时直接击杀（不涉及属性词条）
 function submitWarriorExecuteDeclaration(data) {
     const { unit, target, allySide, declarations } = data;
@@ -277,8 +291,14 @@ function submitWarriorExecuteDeclaration(data) {
     const effHp = target.hp + shieldHp - (ronghuiDecl ? ronghuiDecl.value : 0);
     if (effHp <= target.maxHp * threshold) {
         // 免疫斩杀拦截（只在真正进入斩杀线时才报，避免满血也弹免疫斩杀）
-        if (target.state._immuneExecute) {
-            if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: target.name, unitUid: target.uid, camp: target.camp, skillName: '免疫斩杀', note: `🛡️ ${target.name} 无视了斩杀！`, line: false, floatText: '🛡️免疫斩杀', floatUid: target.uid } });
+        const blockReason = getExecuteBlockReason(target);
+        if (blockReason) {
+            if (data.log) {
+                const note = blockReason === 'dmgCap'
+                    ? `🛡️ ${target.name} 断锤不倒，斩杀无效！`
+                    : `🛡️ ${target.name} 无视了斩杀！`;
+                data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: { unitName: target.name, unitUid: target.uid, camp: target.camp, skillName: '免疫斩杀', note, line: false, floatText: '🛡️免疫斩杀', floatUid: target.uid } });
+            }
             return;
         }
         if (!declarations) return;

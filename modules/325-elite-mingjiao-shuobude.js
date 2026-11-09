@@ -4,13 +4,14 @@
 //   ① 保护：己方有红血（< redHpThreshold）→ 装己方最残的；无红血 → 改为抓敌
 //   ② 抓敌：装敌方当前 hp 绝对值最高的
 // 装袋期间：不可选 / 不可打 / 不可行动 / 不可被治疗；格子显示布袋标记（render/32 按 _inBag 渲染）。
-// 回合末放出：保护回 protectHeal 点血；抓敌扣 captureMaxHpPct 最大生命值的伤害。
+// 下一回合末放出（装袋当回合不放）：保护回 protectHeal 点血；抓敌扣 captureMaxHpPct 最大生命值的伤害。
 // 袋子同时最多装一个；已装人时再触发 → 本次作废。
 // 参数唯一真源：content/001-game-data.json 说不得.skills.bagTrap.params（缺哪键报哪键，不再硬编码）。
 // V1.0.1 | 2026-11-08 体检转交：布袋参数化（triggerChance/protectBranchChance/redHpThreshold/protectHeal/captureMaxHpPct）。
 // V1.0.2 | 2026-11-09 布袋跨回合：装袋当回合 ready=false 不放，ON_ROUND_START 置 ready=true 并给目标重新上锁，
 //   下回合末才放出（此前装袋当回合末即放，等于没有跨回合控制）。
-export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.2';
+// V1.0.3 | 2026-11-09 装袋公告文案对齐跨回合：由「回合末放出」改为「下一回合末放出」（逻辑本就是跨回合，只改文案）。
+export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.3';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, applyStatChange, emitEvent, getStat } from '../core/214-battle-shared.js';
@@ -75,7 +76,7 @@ function putInBag(caster, target, mode, log) {
     if (log) {
         const label = mode === 'protect' ? '🛍️ 保护' : '🛍️ 装袋';
         pushSkillAnnounce(log, caster, '布袋',
-            `${label}：${caster.name} 把 ${target.name} 装进布袋（回合末放出）`,
+            `${label}：${caster.name} 把 ${target.name} 装进布袋（下一回合末放出）`,
             { floatText: '🛍️', floatUid: target.uid });
     }
 }

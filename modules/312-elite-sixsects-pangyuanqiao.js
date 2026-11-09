@@ -2,7 +2,9 @@
 // V6.29.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
 // V6.29.6 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V6.29.7 | 2026-11-08 打歪落点池改走 core/207 公共出口；池被隐身剔空时不挑人、交下游声明层
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.8';
+// V6.29.9 | 2026-11-09 癫发作不再吞技能：只跳过「打歪改落点」，×倍率+击退 / 正义国字脸+加防照常触发；
+//          嘲讽只标记敌方阵营（癫时 validTargets 含队友）。
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.9';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
@@ -93,30 +95,33 @@ export function createPangYuanQiaoComponent() {
                 const f = CONFIG.PANG_CLUMSY_FORMULA;
                 const threshold = Math.min(f.cap, f.base + (getStat(pang, 'atk') - f.atkRef) / f.atkDiv);
                 const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
-                // 癫发作（core/333 已随机选好目标，含己方队友）时不按自己的意志选敌：
-                //   骰子照常消耗（同种子 RNG 序不变），但「年轻气盛」的落点不再覆盖癫已选中的目标，
-                //   否则会把癫挑中的队友又改回敌人（现象：胖远桥癫了却从不打自己队友）。
+                // 癫发作（core/333 已随机选好目标，含己方队友）：骰子照常消耗（同种子 RNG 序不变），
+                //   但「年轻气盛」的落点不再覆盖癫已选中的目标，否则会把癫挑中的队友又改回敌人。
+                //   V6.29.9：旧版在掷骰后整段 return，把两个技能一起吞掉（胖远桥癫了等于没技能，
+                //   实机只有破防/波动/计算）——现在只跳过「改落点」，技能本身（×倍率+击退 / 嘲讽+加防）照常生效。
                 const clumsyRoll = rng.next();
-                if (pang.state._isCrazy) {
-                    pendingDecl = null;
-                    return;
-                }
                 if (clumsyRoll < clumsyProb) {
                     // 年轻气盛（打歪）：随机挑一名敌人，×随机倍率（老板拍板：固定 2.0 改
                     //   dmgMultMin~dmgMultMax 波动、步长 dmgMultStep，本击定值存 _clumsyMult）并附带击退/眩晕
                     const steps = Math.round((young.dmgMultMax - young.dmgMultMin) / young.dmgMultStep) + 1;
                     pang.state._clumsyMult = Math.round((young.dmgMultMin + rng.nextInt(0, steps - 1) * young.dmgMultStep) * 10) / 10;
                     // 打歪落点池走 core/207 公共出口（含引擎过滤器）；被隐身剔空时不挑人，交下游声明层
-                    const pool = buildTargetCandidates(pang, [data.enemySide], { rng });
-                    if (pool.length === 0) return;
-                    data.declaration.targetResult = pool[rng.nextInt(0, pool.length - 1)];
+                    //   癫发作时不改落点（保留 core/333 随机选中的目标，含队友）
+                    if (!pang.state._isCrazy) {
+                        const pool = buildTargetCandidates(pang, [data.enemySide], { rng });
+                        if (pool.length === 0) return;
+                        data.declaration.targetResult = pool[rng.nextInt(0, pool.length - 1)];
+                    }
                     pang.state._clumsyHit = true;
                     pendingDecl = { kind: 'clumsy', mult: pang.state._clumsyMult };
                     return;
                 }
                 // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗），
-                //   同时自身防御永久 +defGain
-                for (const foe of cands) foe.state._tauntedByPang = true;
+                //   同时自身防御永久 +defGain。癫时 validTargets 含队友，只标记敌方阵营，
+                //   否则会把队友也嘲讽成「只能打胖远桥」。
+                for (const foe of cands) {
+                    if (foe.camp !== pang.camp) foe.state._tauntedByPang = true;
+                }
                 addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });
                 pang.state._tauntFired = true;
                 pendingDecl = { kind: 'face' };
