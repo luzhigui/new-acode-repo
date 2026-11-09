@@ -1,7 +1,8 @@
 // ui/727-rewind-core.js — 倒针回看（调试）：按步/按演出段回拨，复用本局战报录制，不碰引擎
 //   开关默认关：只有地址栏带 ?rewind=1 或 localStorage.gmd_rewind='1' 才生效。
 //   数据源：player/513 的在录步（每步自带两队快照 + 日志 + 演出动作清单），不额外存快照。
-export const VER = 'ui/727-rewind-core.js V1.2.0';
+// V1.2.1 | 2026-11-09 死亡定帧补红叉：段拨到 death 停点不再被 isRewinding 静默挡掉，只补本步新死者。
+export const VER = 'ui/727-rewind-core.js V1.2.1';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
@@ -535,11 +536,13 @@ function deathsOf(stepIdx) {
         .map(u => u.uid);
 }
 
-function flushDeathFlashes(c, uids) {
+function flushDeathFlashes(c, uids, opts = {}) {
     if (!c || !c.store) return;
     for (const uid of uids || []) {
         const du = c.store.getState().units.find(u => u.uid === uid);
-        if (du && du.alive !== false && !(du.state && du.state._isDead)) {
+        // opts.force：死亡定帧专用——本步死者即便 store 已落 alive=false 也要补 _isDead，
+        //   否则步末落账后红叉只能靠「!alive」兜着，死亡定帧没有独立标记。
+        if (du && (opts.force || du.alive !== false) && !(du.state && du.state._isDead)) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: FLASH_TYPES.DEAD });
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });
         }
@@ -582,7 +585,8 @@ async function scrubToCue(stepIdx, cueIdx) {
         if (cue.kind === 'settle') {
             syncStoreFromStep(c, step);
         } else if (cue.kind === 'death') {
-            if (!c.isRewinding) flushDeathFlashes(c, deathsOf(stepIdx));   // 定位：不重播死亡闪红
+            // 死亡定帧：只补「本步新死」的红叉（deathsOf 已按上一步存活集合过滤），历史死亡不重放
+            flushDeathFlashes(c, deathsOf(stepIdx), { force: true });
         } else if (cue.kind === 'text') {
             // 日志段走 504 的同一条单条播放：掉血飘字 / 血条 / 黄闪 / 逐字，与主流程一致
             //   定位态跳过演出，末尾 syncReviewLog 一次性定格到该段
