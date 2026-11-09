@@ -1,3 +1,7 @@
+// V1.49.0 | 2026-11-09 迭代：挂「转交队列出口守门」tests/transfer-exit-guard.mjs（新建 V1.0.0）。
+//   由头：known-transfers.md 实测 169 条表格行 / 31 条已销项 / 138 条待销项、带销项条件 0 条，
+//   而 rules-replay 对转交规则不计退码 ⇒ 登记即长期免检。本件冻结存量、只拦基线被当调节阀，
+//   新增条目只点名不判红（推广期不制造噪声），6 条纯内存负路径自证。挂 OBSERVES 不改 CHECKS 分母。
 // V1.48.0 | 2026-11-09 合入夜间第 195–199 轮：新增两项离线断言（韦一笑吸血额度 / 流星成长渲染）
 //   进 CHECKS，清单 63 条全唯一；顺手归位版本漂移——上一版头注已抬 V1.47.0、VER 仍停 V1.46.0
 //   （ver-drift / ver-bump 会报红），本次两端同步抬到 V1.48.0。未改任何既有判据、未动 CHECKS 口径。
@@ -215,7 +219,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.48.0';
+export const VER = 'tests/run-all.mjs V1.49.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -528,7 +532,11 @@ const OBSERVES = [
     // V1.47.0 | 2026-11-08：入口路径强制（详见头顶 V1.47.0 日志行）。
     //   新增裸写是确定性事实（不是待研判的灰度），故 hard: true；
     //   存量 146 处已冻结进基线，--update-baseline 只在还清旧账后跑（棘轮只降不抬）。
-    { name: '入口路径强制', script: 'tests/entry-path-guard.mjs', args: ['--enforce'], hard: true }
+    { name: '入口路径强制', script: 'tests/entry-path-guard.mjs', args: ['--enforce'], hard: true },
+    // V1.49.0 | 2026-11-09：转交队列出口守门（详见头顶 V1.49.0 日志行）。
+    //   存量 138 条待销项冻结进基线、只点名不判红；真正咬的是抽取器失位 / 基线被改坏 /
+    //   借 --update-baseline 把队列洗长（基线只降不抬）。hard: true = 这些都是确定性缺陷。
+    { name: '转交队列出口守门', script: 'tests/transfer-exit-guard.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
