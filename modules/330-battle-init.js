@@ -1,7 +1,7 @@
 // modules/330-battle-init.js — 双方阵容生成（M107/M104/M100 分层 / 额外混入 / 站位锚点）
-// 明教（我方）：Boss 张无忌 20% 独掷；Boss 局 25% 再配 1 强精英；无 Boss 局 80% 出 1 强、其中 35% 再 1 强（双强）。
+// 明教（我方）：Boss 张无忌 20% 独掷；Boss 局 25% 再配 1 强精英；无 Boss 局必出 1 强、其中 35% 再 1 强（双强）。
 //   M104 只从弱精英池（杨逍/殷天正）取，M100 从带技能普通兵池（周颠/说不得/彭莹玉/张中/反伤弟子）取，
-//   剩余空位交普通兵按功率补齐；队伍一律不超过 5 人，同档不取重名。
+//   剩余空位从普通兵池等概率补齐；队伍一律不超过 5 人，同档不取重名。
 // 六大派：保留 WEAK_ELITE_MIX_RATE（M104 混入），另加 M107 20% / M100 30% 两档独立判定；
 //   只替换「非具名、且不属本关固定精英池」的杂兵位，找不到杂兵位就放弃，绝不顶掉关卡固定精英。
 //   额外混入按关卡解锁范围过滤：后段专属精英（如灭绝师太只属第7关固定池）不得提前出现在前段关，
@@ -15,7 +15,9 @@
 //         主建队与凑数池两条路径改调同一份；RNG 消耗序列不变（先 _rand(0,3) 再何太冲 _rng.next()）。
 // V7.8.2 | 2026-11-08 known-transfers 第 2 条：张三丰 1 号位锁的识别范围从 eliteUnits 扩到 allUnits——
 //   张三丰按 M107 混入第 3~7 关时不在本关固定池里，旧版当普通兵走模板/随机位（实证 seed7 stage7 落 9 号位）。
-export const VER = 'modules/330-battle-init.js V7.8.2';
+// V7.9.0 | 2026-11-09 明教必出 107：无 Boss 局强精英判定 80% → 100%（每局至少一个 107）；
+//   无 107 兜底分支改为「M104 弱精英拉满 + M100 带技能补满」，不再用普通杂兵凑人数。
+export const VER = 'modules/330-battle-init.js V7.9.0';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -43,18 +45,6 @@ import { GlobalStore } from '../infra/104-global-store.js';
 import { CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 
 const C = CONFIG;
-
-// 内容表功率读数（单一数据源，缺项即抛错，不静默兜底）
-function elitePowerOf(name) {
-    const p = C.ELITE_POWER?.[name];
-    if (p == null) throw new Error(`缺 roster.elitePower: ${name}`);
-    return p;
-}
-function normalPowerOf(m) {
-    const p = C.NORMAL_POWER?.[m];
-    if (p == null) throw new Error(`缺 roster.normalPower: ${m}`);
-    return p;
-}
 
 // 六大派精英身份 → 站位优先数组：数据源 content.roster.enemyElitePos（格式 { flag: [优先级数组] }）
 // 加新精英：若需要固定站位就在 content 加一行 { "isXxx": [优先级数组] }，本文件无需改
@@ -91,7 +81,6 @@ export function initBattleTeams(currentStage, _rng) {
     };
     let allyTeam = [], enemyTeam = [];
     const eliteRate = C.ELITE_RATE || {};
-    const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
     // 玩家在图鉴选定的角色 → 提高对应精英出场率（zw/wy 直连；xz/xm → 小昭并偏向姊/妹）
     let pickKey = null;
@@ -106,7 +95,7 @@ export function initBattleTeams(currentStage, _rng) {
 
     // ── 明教精英分层重写（老板口径：限强度、保趣味）──
     //   Boss：张无忌独一档，按 ELITE_RATE.张无忌（20%，content.roster.eliteRate）独立掷；带人分布见文件头
-    //   无 Boss：必出 1 强，40% 独走 / 40%带1弱 / 10%带2弱 / 10%双强，总数 ≤ 3
+    //   无 Boss：必出 1 强（100%），其中 35% 再 1 强（双强），其余按下方 M104/M100 档位配人，总数 ≤ 3
     //   强精英池 = 韦一笑 / 小昭 / 金毛狮王谢逊 / 寒离飒（寒离飒由弱升强，与前者同级）
     //   弱精英池 = 杨逍 / 殷天正（由 HERO_FLAGS − eliteConfigs 派生，寒离飒进了精英表即自动排除）
     //   RNG 流纪律（PVP 双端同源）：骰子全部无条件消耗，force 只改「是否应用」，不改消耗序列。
@@ -114,7 +103,7 @@ export function initBattleTeams(currentStage, _rng) {
     //   tier='boss'   明教 Boss（独一档，Boss 局最多再配 1 个搭档）
     //   tier='strong' 强精英池（Boss 局可配、无 Boss 局走轮盘）
     //   flag          直接取 characters[name].flag（core/02 HERO_FLAGS 已是该字段的 proxy，无第二份映射可补）
-    //   power         仍从 content.roster.elitePower 查（数值唯一源不变）
+    //   power         已不参与建队（老板口径 2026-11-09：出场只按概率/配比，不按功率目标取人）
     // 无兜底：配置缺失一律抛错，避免静默按老口径算
     const allEliteConfigs = C.ELITE_CONFIGS;
     if (!Array.isArray(allEliteConfigs) || allEliteConfigs.length === 0) {
@@ -127,7 +116,7 @@ export function initBattleTeams(currentStage, _rng) {
         if (!Object.values(ROLE_TYPES).includes(c.role)) {
             throw new Error(`非法 role: characters 派生精英项 ${c.name} 的 role='${c.role}'（须为 ROLE_TYPES 之一）`);
         }
-        return { name: c.name, m: c.m, role: c.role, [c.flag]: true, power: elitePowerOf(c.name) };
+        return { name: c.name, m: c.m, role: c.role, [c.flag]: true };
     };
     const bossConfigs = allEliteConfigs.filter(c => c.tier === 'boss').map(toEliteConfig);
     if (bossConfigs.length !== 1) {
@@ -161,7 +150,7 @@ export function initBattleTeams(currentStage, _rng) {
     //        → 8 strongPickIdxA → 9 strongPickIdxB → 10 weakPickIdxA → 11 weakPickIdxB
     //        → 12 m100PickIdxA → 13 m100PickIdxB（pick 一律走 _rng.nextInt，与 _rng 同一条流）
     const bossRoll = _rng.next();
-    const m107Roll = _rng.next();
+    const m107Roll = _rng.next();   // Boss 局搭档判定沿用本值；无 Boss 局已改为必出 107，不再用它判档（RNG 抽签契约不变）
     const m107SecondRoll = _rng.next();
     const m104Roll1 = _rng.next();
     const m104Roll2 = _rng.next();
@@ -175,8 +164,6 @@ export function initBattleTeams(currentStage, _rng) {
     const m100PickIdxB = _rng.nextInt(0, MING_SPECIAL_M100.length - 1);
 
     const hasBoss = bossRoll < (rate['张无忌'] ?? 0.20);
-
-    let usedPower = 0;
 
     // 造精英单位（小昭走形态分支；其余 init+applyBonus）
     const pushElite = (c) => {
@@ -197,7 +184,6 @@ export function initBattleTeams(currentStage, _rng) {
         }
         unit.pos = null;
         allyTeam.push(unit);
-        usedPower += c.power;
         return unit;
     };
 
@@ -227,7 +213,6 @@ export function initBattleTeams(currentStage, _rng) {
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
-        usedPower += elitePowerOf(w.name);
         return unit;
     };
 
@@ -242,14 +227,13 @@ export function initBattleTeams(currentStage, _rng) {
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
-        usedPower += normalPowerOf(m);
         return unit;
     };
 
     // 分层抽取（2026-11-08 重写，替代旧 noBossRouteRoll 四路分支）：
-    //   ① 先定 M107 强精英数（Boss 局 0/1、无 Boss 局 0/1/2）；
+    //   ① 先定 M107 强精英数（Boss 局 0/1、无 Boss 局 1/2——107 必出）；
     //   ② 再按 M107 档位配 M104（弱精英池）/ M100（带技能普通兵）补位；
-    //   ③ 剩余空位交下方 candidatePool 普通兵按功率补齐。
+    //   ③ 剩余空位交下方 candidatePool 普通兵等概率补齐。
     let m107Count = 0;
     if (weakAllyForced) {
         pushWeakElite(mingWeakPool.find(w => w.name === forceWeakElite));
@@ -257,7 +241,7 @@ export function initBattleTeams(currentStage, _rng) {
         if (hasBoss) {
             pushElite(bossConfig);
             if (m107Roll < 0.25) { pushElite(strongEliteConfigs[strongPickIdxA]); m107Count = 1; }
-        } else if (m107Roll < 0.80) {
+        } else {
             pushElite(strongEliteConfigs[strongPickIdxA]); m107Count = 1;
             if (m107SecondRoll < 0.35) {
                 const idxB = (strongPickIdxB === strongPickIdxA) ? (strongPickIdxB + 1) % strongEliteConfigs.length : strongPickIdxB;
@@ -284,10 +268,10 @@ export function initBattleTeams(currentStage, _rng) {
             if (m100Roll1 < 0.85) m100Count++;
             if (m100Roll2 < 0.60) m100Count++;
         } else {
-            if (m104Roll1 < 0.90) m104Count++;
-            if (m104Roll2 < 0.80) m104Count++;
-            if (m100Roll1 < 0.90) m100Count++;
-            if (m100Roll2 < 0.80) m100Count++;
+            // 无 107 兜底（107 必出后正常流程已不可达，保留防呆）：这种局面不得出现普通杂兵，
+            //   弱精英池（M104 杨逍/殷天正）拉满，剩余空位全交带技能 M100（周颠/说不得/彭莹玉/张中/反伤弟子）。
+            m104Count = mingWeakPool.length;
+            m100Count = Math.max(0, 5 - m104Count);
         }
 
         // 实例化 M104：mingWeakPool（杨逍/殷天正），两个 idx 撞名就顺延一位
@@ -316,41 +300,28 @@ export function initBattleTeams(currentStage, _rng) {
     for (const [name, tier] of Object.entries(C.MING_POOL_TIER)) {
         // 去名字字面量：用身份标记判断是否精英（与 eliteConfigs 同源）
         if (HERO_FLAGS[name]) continue;
-        // 入池资格读池档 poolTier；数值档 m 只用于建单位/power
+        // 入池资格读池档 poolTier；数值档 m 只用于建单位
         const m = C.MING_M[name];
-        if (tier >= 95 && tier <= 104) candidatePool.push({ name, m, role: null, power: normalPowerOf(m) });
+        if (tier >= 95 && tier <= 104) candidatePool.push({ name, m });
     }
-    // 同分公平竞争：8 个 M100 并列时，稳定排序会保持数组原序、slice(0,3) 永远取前 3 个
-    //   → 说不得/冷谦/彭莹玉几乎不出场（老板实锤「从来没见过」）。
-    //   先用战斗 RNG 洗一次牌，同分档在洗牌后的顺序里随机排，每个 M100 都有机会进 above 前 3。
-    //   用 _rng 而不是 Math.random：PVP 双端同源、同种子可复现。
+    // 候选池先用战斗 RNG 洗一次牌（保持抽签次数不变；PVP 双端同源、同种子可复现），
+    //   随后逐位从剩余候选里等概率抽人——不再按功率目标/均值挑人（老板口径 2026-11-09）。
     for (let i = candidatePool.length - 1; i > 0; i--) {
         const j = _rng.nextInt(0, i);
         [candidatePool[i], candidatePool[j]] = [candidatePool[j], candidatePool[i]];
     }
-    candidatePool.sort((a, b) => a.power - b.power);
 
     // 已由 M107/M104/M100 分档补进队里的名字不再参与普通兵填充（防同名重复）
     const remainingCandidates = candidatePool.filter(c => !allyTeam.some(u => u.name === c.name));
-    let remainingPower = (targetPower ?? C.MING_TARGET_POWER_FALLBACK) - usedPower;
     let remainingSlots = 5 - allyTeam.length;
     for (let slot = 0; slot < remainingSlots; slot++) {
-        const avgPower = remainingSlots > 0 ? remainingPower / remainingSlots : C.POWER_FALLBACK;
-        const candidates = [];
-        const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
-        const below = remainingCandidates.filter(c => c.power < avgPower).sort((a, b) => b.power - a.power).slice(0, 2);
-        candidates.push(...above);
-        for (const c of below) { if (!candidates.some(x => x.name === c.name)) candidates.push(c); }
-        if (candidates.length === 0) candidates.push(...remainingCandidates.slice(0, 5));
-        const pick = candidates[_rand(0, candidates.length - 1)];
-        const idx = remainingCandidates.findIndex(c => c.name === pick.name);
-        if (idx >= 0) remainingCandidates.splice(idx, 1);
+        if (remainingCandidates.length === 0) break;
+        const pick = remainingCandidates.splice(_rng.nextInt(0, remainingCandidates.length - 1), 1)[0];
         const role = C.ROLES[_rand(0, 3)];
         const unit = new Unit(pick.name, pick.m, role, CAMP_TYPES.ALLY);
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
-        remainingPower -= pick.power;
     }
 
     // 强制指定普通兵（如说不得、周颠）出场
@@ -380,7 +351,6 @@ export function initBattleTeams(currentStage, _rng) {
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei && !u.isXieXun && !u.isYangXiao);
             if (swappable) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
-                remainingPower += normalPowerOf(swappable.m);
             }
             let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], CAMP_TYPES.ALLY);
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
@@ -391,7 +361,6 @@ export function initBattleTeams(currentStage, _rng) {
             xzUnit.state._baseMaxHp = xzUnit.maxHp; xzUnit.state._baseAtk = xzUnit.atk; xzUnit.state._baseDef = xzUnit.def;
             xzUnit.pos = swappable ? swappable.pos : null;
             allyTeam.push(xzUnit);
-            remainingPower -= elitePowerOf('小昭');
         }
     }
 

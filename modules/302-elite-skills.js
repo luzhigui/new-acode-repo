@@ -7,7 +7,9 @@
 // V6.3.7 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V6.3.8 | 2026-11-08 落地打击候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），删本地手工过滤
 // V6.3.9 | 2026-11-08 状态标签化：张无忌可取性里的眩晕判定改问 isControlled()（core/218 标签表）。
-export const VER = 'modules/302-elite-skills.js V6.3.9';
+// V6.4.0 | 2026-11-09 飞行·猎杀成长去掉「只给明教」的阵营门槛：敌方飞行击杀我方同样涨攻/涨未命中，
+//   其余排除原样保留（只算杀敌、杀者须存活且 role=FLYER）。
+export const VER = 'modules/302-elite-skills.js V6.4.0';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -311,7 +313,8 @@ registerQuery('damageModifiers', applyDamageModifiers);
 
 // 飞行·猎杀成长（全局机制，不属于某个角色）：每击杀 1 名敌人，攻击永久 +2；非必中单位同时
 //   未命中率 +6 个百分点（getMissBreakdown 里 _missChanceBonus 按百分点直接相加）。
-//   作用范围：只给明教（我方）飞行单位——敌方飞行击杀不成长（老板口径：默认只我方）。
+//   作用范围：双方飞行单位对称生效——敌方飞行击杀我方同样成长（老板口径 2026-11-09）；
+//   排除项与改动前一致：只算杀敌（队友误伤不计）、杀者须存活且 role=FLYER。
 //   必须经 registerRoundHook 每回合重挂：core/210 每回合 eventBus.clearAll()，顶层直接挂会第一回合后失效。
 export function registerFlyerKillGrowth() {
     registerSettlementHook({
@@ -325,7 +328,6 @@ export function registerFlyerKillGrowth() {
                 const all = [...(data.allySide || []), ...(data.enemySide || [])];
                 const killer = all.find(u => u.uid === killerUid);
                 if (!killer || !killer.alive || killer.role !== ROLE_TYPES.FLYER) continue;
-                if (killer.camp !== CAMP_TYPES.ALLY) continue;      // 只给明教飞行单位
                 const atkBefore = getStat(killer, 'atk');
                 const missBefore = killer.state._missChanceBonus || 0;
                 addMod(killer, 'atk', { source: '飞行·猎杀', value: 2, ttl: 'permanent', group: 'flyerKill', op: 'add' });

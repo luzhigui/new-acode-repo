@@ -454,9 +454,6 @@ const CONFIG = {
     get XIAO_ZHAO_PERMANENT_BUFFS() {
         return getGameData().hexes?.permanentBuffKeys || [];
     },
-    get MING_TARGET_POWER() {
-        return getGameData().encounters.mingTargetPower;
-    },
     get ELITE_POWER() {
         return getGameData().roster.elitePower;
     },
@@ -501,9 +498,6 @@ const CONFIG = {
     // 六大派精英站位优先表已数据化到 content.roster.enemyElitePos（getter = ENEMY_ELITE_POS_FLAGS_MAP）
     // 未命中身份时的兜底表
     ENEMY_ELITE_POS_FALLBACK: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-    // 阵容 power 兜底（modules/29 用）
-    MING_TARGET_POWER_FALLBACK: 500,  // 关卡目标 power 兜底（第 1 关未在 encounters.mingTargetPower 列出）
-    POWER_FALLBACK: 90,               // 单卡 power 兜底（= roster.normalPower 最低档）
     XUANMING_EXTRA_M: 104,            // 第 5 关玄冥二老齐出时额外补的普通兵 M 值
 
     // ── 参数体系收敛批 3：战斗通用规则常量 ──
