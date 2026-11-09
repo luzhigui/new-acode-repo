@@ -1,3 +1,6 @@
+// V1.0.1 | 2026-11-09：真收口手写剥注释——删本地 stripComments，改 import 公共件的
+//   stripCommentsPreserving（保长度语义，matchParen 靠字符下标定位，不能用删除式）。
+//   实现逐字搬迁、行为不变；改前/改后本脚本输出逐字一致已取证。
 // tests/hook-order-check.mjs
 // 体检守卫：同一帧多钩子的执行顺序 —— 结算钩子的注册纪律（静态巡检）
 //
@@ -17,11 +20,12 @@
 //
 // 用法：node tests/hook-order-check.mjs        # 退 0 = 硬判据全过
 //       VERBOSE=1 node tests/hook-order-check.mjs   # 把报告项的上下文行号也打出来
-export const VER = 'tests/hook-order-check.mjs V1.0.0';
+export const VER = 'tests/hook-order-check.mjs V1.0.1';
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripCommentsPreserving as stripComments } from './_lib/static-truth-slice.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -44,10 +48,7 @@ function walk(dir, out) {
     return out;
 }
 
-function stripComments(src) {
-    return src.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
-        .replace(/\/\/[^\n]*/g, m => ' '.repeat(m.length));
-}
+// 保长度剥注释已收口到 tests/_lib/static-truth-slice.mjs（见文件头 import），此处不再留第二份实现。
 
 /** 从 openIdx（指向 '('）开始找配对的 ')'，返回 [start,end) 的区间；字符串里的括号跳过 */
 function matchParen(src, openIdx) {

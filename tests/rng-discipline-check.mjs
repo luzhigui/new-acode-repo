@@ -1,3 +1,6 @@
+// V1.3.1 | 2026-11-09：真收口手写剥注释——删本地 stripComments，改 import 公共件 stripComments。
+//   实测：60 个 core/modules 文件里公共件与旧正则版 8 个输出不同（公共件不误删字符串里的 //），
+//   但抽签点 .nextInt(/.next( 计数 0 变化 ⇒ 本脚本静态统计与结论不变；改前/改后输出逐字一致已取证。
 // tests/rng-discipline-check.mjs
 // 体检守卫：抽签（随机数）纪律 —— 种子可复现 + 战斗代码禁用 Math.random + 抽签点次数快照
 //
@@ -31,12 +34,13 @@
 //     次数减少 ⇒ 最危险（少抽一个数，之后所有随机序列整体位移），先查是不是删了抽签语句；
 //     core/ 公共文件变化 ⇒ 影响所有战斗；modules/26x 单角色文件 ⇒ 只影响该角色出手。
 //   REGEN 重录时会打印「本次重录的增删清单」，避免有人悄悄把基线刷绿。
-export const VER = 'tests/rng-discipline-check.mjs V1.3.0';
+export const VER = 'tests/rng-discipline-check.mjs V1.3.1';
 
 import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { stripComments } from './_lib/static-truth-slice.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -147,9 +151,7 @@ function runOnce(seed, stage) {
 const BATTLE_DIRS = ['core', 'modules'];
 const DISPLAY_FILE_EXEMPT = /^303-error-capture\.js$|^304-audio-manager\.js$/;   // 错误采集/音频：非战斗逻辑
 
-function stripComments(src) {
-    return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-}
+// 剥注释已收口到 tests/_lib/static-truth-slice.mjs（见文件头 import），此处不再留第二份实现。
 
 function walkJs(dir, out) {
     for (const st of readdirSync(dir, { withFileTypes: true })) {

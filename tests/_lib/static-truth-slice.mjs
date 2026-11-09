@@ -84,6 +84,10 @@
 //   原下界是 nightly 收口前的旧假设（hasActiveBuff/permHas/normalizeForces 等还在册，真实 identical ≥2 组）；
 //   171/172 收口核销后 tests 下逐字相同副本只剩 fail×3 一组，硬 ≥2 假红。新下界与「仍在册 expect:true
 //   的逐字重复组数」对齐：至少点出 1 组证明检测器没失灵，0 组才判覆盖面塌（届时须把 fail 也翻 expect:false）。
+// V2.0.0 | 2026-11-09 迭代：新增 stripCommentsPreserving（保长度剥注释，供按字符索引定位的
+//   调用方使用），把 hook-order-check / rng-discipline-check 两份手写实现真收口到公共件。
+//   ★ 不是加一行 import 洗红：两个脚本的本地函数已删除，改前改后输出逐字一致另存证据。
+//   公共件自证新增 ㉒ 五条（长度/换行/注释覆盖/真代码保留 + 删除式不等长的反向证明）。
 // V1.9.0 | 2026-11-09 合入夜间 195–199 后：修 DUP_WITNESS 里 parentDmgOf 的过期证人（第二份早已不在盘，
 //   全 tests 仅 1 处定义，却还被当成「必须点出两处」的铁证，误报成「检测失灵」——第 162 轮 collectFacts
 //   同款病第二次复发）；新增 ㉑ 证人保鲜断言 + 两条纯内存正负路径自证，用定义数把「证人过期」
@@ -93,7 +97,7 @@
 //     叫 forcesOfEntry、用 indexOf 不用 includes，两把尺子同时漏掉它，最后是人工翻出来的。本条换尺子：
 //     看**元素取值**（共享 ≥2 且重叠度 ≥50% 即进网），与名字、写法都无关。只点名不收口（改覆盖面＝改行为，
 //     须拍板）。自证 ㉑ 双向必查：已知仍在册的 MAIN_DIRS ⇄ SCAN_DIRS 这一对必须被点出（缺 ⇒ 检测器失灵）。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.9.0';
+export const VER = 'tests/_lib/static-truth-slice.mjs V2.0.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -179,6 +183,30 @@ export function codeMask(code) {
 //   ★ 保行结构：块注释里的换行**逐个保留**（out 里按原下标 push '\n'），
 //     这与 rule-branch-extract 旧手写版"连换行一起吃掉"不同 —— 那版会让多行块注释之后
 //     的行号整体塌陷一截，抽取侧按行号回指时就会指错行。
+/**
+ * 保长度剥注释（2026-11-09：第 151 轮「第二份快照」收口剩下的最后一块）。
+ *
+ * 与 stripComments / stripCommentsMapped 的区别：那两个是**删除式**（输出比输入短），
+ * 本函数是**替换式**——把注释字符逐个换成空格、换行原样留着，输出长度与输入严格相等。
+ * 为什么必须留这第二种口径：hook-order-check.mjs 的 matchParen 靠字符下标在剥注释后的
+ * 源码里定位括号区间，删除式会让下标整体左移 ⇒ 直接换过去等于改坏它的取样面。
+ *   ⇒ 之前那两份手写实现不全是「抄了一份」，其中一份是**不同语义**，硬收口才会坏事；
+ *     正解是把这个口径也做成公共能力，让调用方真删本地实现、改 import。
+ *
+ * ★ 实现逐字照搬 tests/hook-order-check.mjs 收口前的手写版，纯搬迁零行为变化。
+ *   已知边界（原实现就有）：正则式会误判字符串/正则字面量里的 `//`，属少收方向；
+ *   调用方扫的是 registerSettlementHook( 注册点，实测全仓输出一致。想修这个边界
+ *   要换 stripCommentsMapped，但那会改变长度语义，须另行拍板，不在本轮范围内。
+ *
+ * ★ auditStripCopies 的「已收口」判据只看有没有 import 本公共件 —— 因此调用方必须
+ *   **真的删掉本地实现**，光补一行 import 洗红是自欺欺人（第 149 轮同款病）。
+ */
+export function stripCommentsPreserving(src) {
+    return String(src)
+        .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
+        .replace(/\/\/[^\n]*/g, m => ' '.repeat(m.length));
+}
+
 export function stripCommentsMapped(src) {
     let out = '';
     const owner = [];
@@ -724,6 +752,19 @@ export function checkWitnessFreshness(witnesses, countFn) {
 
 export function selfCheck() {
     const fails = [];
+    // ㉒ 保长度剥注释自证：长度/换行不变、注释被空格覆盖、真代码保留；
+    //    并反向证明「删除式」确实不等长，否则这两种口径就没必要并存。
+    try {
+        const probe = 'const a = 1; // 行注释\n/* 块\n注释 */ const b = 2;\n';
+        const kept = stripCommentsPreserving(probe);
+        if (kept.length !== probe.length) fails.push('㉒ 保长度剥注释输出长度变了 ⇒ 按索引定位的调用方会错位');
+        if (kept.split('\n').length !== probe.split('\n').length) fails.push('㉒ 保长度剥注释吃掉换行 ⇒ 行号会错位');
+        if (kept.includes('行注释') || kept.includes('块') || kept.includes('注释 */')) fails.push('㉒ 注释没被空格覆盖 ⇒ 注释里的字样会被当成真代码');
+        if (!kept.includes('const a = 1;') || !kept.includes('const b = 2;')) fails.push('㉒ 真代码被误删 ⇒ 剥注释取样面塌陷');
+        if (stripComments(probe).length === probe.length) fails.push('㉒ 负路径：删除式剥注释竟与输入等长 ⇒ 两种口径没差别，保长度版没有存在理由');
+    } catch (e) {
+        fails.push('㉒ 保长度剥注释自证抛异常（' + (e && e.message ? e.message : String(e)) + '）');
+    }
     // ★ 自证自己必须"全函数不抛"：它一旦抛异常，两个受体会**直接崩掉**而不是报红
     //   （本轮牙三实证：把块头正则改坏后 fact-coverage-selftest 与 fact-dead-field-scan 双双
     //   TypeError 退出，报错信息写的是公共件的行号，反而把真因藏了）。
