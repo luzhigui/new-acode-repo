@@ -37,34 +37,34 @@ export const rule260 = {
                 }
                 const atk = d.attacker && d.attacker.uid;
                 if (typeof atk === 'string' && deadAt.has(atk) && deadAt.get(atk) < i) {
-                    fails.push(`${summons.get(atk)} 阵亡后仍出手（第${i}条攻击）`);
+                    fails.push(`召唤物阵亡后仍出手：${summons.get(atk)}（第${i}条攻击）`);
                 }
                 if (typeof tgt === 'string' && deadAt.has(tgt) && deadAt.get(tgt) < i) {
-                    fails.push(`${summons.get(tgt)} 阵亡后仍被选为目标`);
+                    fails.push(`召唤物阵亡后仍被选为目标：${summons.get(tgt)}`);
                 }
                 continue;
             }
             if (f.factType === FACT_TYPES.LION_GROW) {
                 const u = d.unitUid;
-                if (typeof u === 'string' && deadAt.has(u)) fails.push(`${summons.get(u)} 阵亡后仍成长`);
+                if (typeof u === 'string' && deadAt.has(u)) fails.push(`召唤物阵亡后仍成长：${summons.get(u)}`);
                 continue;
             }
             if (f.factType === FACT_TYPES.LION_INSPIRE && Array.isArray(d.targets)) {
                 for (const t of d.targets) {
                     const u = t && t.uid;
-                    if (typeof u === 'string' && deadAt.has(u)) fails.push(`${summons.get(u)} 阵亡后仍被激励`);
+                    if (typeof u === 'string' && deadAt.has(u)) fails.push(`召唤物阵亡后仍被激励：${summons.get(u)}`);
                 }
                 continue;
             }
             if (f.factType === FACT_TYPES.HEAL) {
                 const u = d.unitUid;
-                if (typeof u === 'string' && deadAt.has(u)) fails.push(`${summons.get(u)} 阵亡后仍被治疗`);
+                if (typeof u === 'string' && deadAt.has(u)) fails.push(`召唤物阵亡后仍被治疗：${summons.get(u)}`);
             }
         }
         if (died === 0) return 'skip';
 
         const observe = `${summons.size} 只召唤物中 ${died} 只阵亡，阵亡后违规引用 ${fails.length} 次`;
-        if (fails.length) return { fail: true, msg: fails.slice(0, 3).join('；') };
+        if (fails.length) return { fail: true, msg: `召唤物阵亡后仍参与结算：${fails[0]}（共 ${fails.length} 次）` };
         return { fail: false, observe: observe };
     }
 };

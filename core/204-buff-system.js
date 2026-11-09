@@ -281,7 +281,7 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
     }
 }
 
-// 众志成城补员：首回合场上有几人补到 4（姐姐强化补到 5；已达目标人数则不补），之后每回合 +1，
+// 众志成城补员：首回合场上有几人补到 4（姐姐强化补到 6；已达目标人数则不补），之后每回合 +1，
 //   直到 buff 到期（唯一上限是 9 格站位）。目标人数读 content unity.recruitTarget / hexEnhance.unity.recruitTarget。
 //   首回合标记挂 buff 对象（跨回合同一对象，且只出现在持有它的阵营列表里，天然按阵营隔离）。
 //   召唤细节（精英技能全开 + 属性下限钳制）收在 spawnOneUnityRecruit，团队补员与妹永久召唤共用。
@@ -759,7 +759,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
         ratio = brotherHFEnh.reviveRatio;
         reviveTier = 1;               // 妹独立名额每局 1 次，档位恒第 1 次
     } else {
-        // 姊强化：首复活 100% / 次复活 70%（按本人已用次数选档）；无强化回落普通版
+        // 姊强化：首复活 70% / 次复活 40%（读 002 sister.holyFire，按本人已用次数选档）；无强化回落普通版
         const used = u.state._holyFireUses || 0;
         ratio = enhance
             ? (used === 0 ? (enhance.firstReviveRatio != null ? enhance.firstReviveRatio : 1.0)

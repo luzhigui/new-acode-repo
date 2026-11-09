@@ -86,14 +86,14 @@ export const rule194 = {
                     }
                     if (expect > 1) {
                         if (!bonus) {
-                            return { fail: true, msg: '复发：成昆已损失 ' + lostHp + ' 点生命，但本击没有「混元霹雳劲」加伤声明（应 floor(' + lostHp + '×' + cfg.thunderRatio + ')=' + expect + '）' };
+                            return { fail: true, msg: '复发：混元霹雳劲漏发 — 成昆已损失 ' + lostHp + ' 点生命，但本击没有「混元霹雳劲」加伤声明（应 floor(' + lostHp + '×' + cfg.thunderRatio + ')=' + expect + '）' };
                         }
                         if (Math.abs(bonus.value - expect) > 1) {
                             return { fail: true, msg: '复发：混元霹雳劲=' + bonus.value + ' ≠ floor(已损失 ' + lostHp + '×' + cfg.thunderRatio + ')=' + expect };
                         }
                     } else if (bonus && bonus.value > expect + 1) {
                         // expect=0/1 时快照取整可能差 1，不判缺失，只判金额别超
-                        return { fail: true, msg: '复发：成昆已损失 ' + lostHp + ' 点却出现混元霹雳劲 ' + bonus.value + '（比例口径不符）' };
+                        return { fail: true, msg: '复发：混元霹雳劲不该出现 — 成昆已损失 ' + lostHp + ' 点却出现混元霹雳劲 ' + bonus.value + '（比例口径不符）' };
                     }
                 }
                 continue;
@@ -127,7 +127,7 @@ export const rule194 = {
                 if (Math.floor(per * k) === healVal || Math.abs(Math.floor(per * k) - healVal) <= 1) ok = true;
             }
             if (!ok) {
-                return { fail: true, msg: '复发：幻影治疗 ' + healVal + ' 无法用 floor(已损失 ' + lost + '×' + cfg.healRatio + '×k)（k=1..12，或缺口 ' + missing + ' 截断）解释（比例/人数口径写死）' };
+                return { fail: true, msg: '复发：幻影治疗量不符公式 — ' + healVal + ' 无法用 floor(已损失 ' + lost + '×' + cfg.healRatio + '×k)（k=1..12，或缺口 ' + missing + ' 截断）解释（比例/人数口径写死）' };
             }
         }
         if (samples === 0) return 'skip';

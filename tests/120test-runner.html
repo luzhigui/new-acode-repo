@@ -63,7 +63,9 @@
     </div>
     <script type="module">
         import { initMonitor } from './121health-monitor.js';
-        initMonitor();
+        // 第 196 轮：initMonitor 改 async（规则改为表驱动动态 import，须等装载完成再绑 UI），
+        // 必须 await；不 await 会抛「装载未完成就调用」而整页静默不动。
+        await initMonitor();
 
         // 🏥 体检入口：打开体检模式 2 级菜单（实时跟跑 / 快速静态体检 / 快速跑完 / 按规则体检）
         document.getElementById('btnAutoRun').addEventListener('click', () => {

@@ -396,6 +396,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/258-rewind-state-cleanup.js', '../tests/health-rules/259-summon-uid-trace.js', '../tests/health-rules/260-summon-death-closure.js', '../tests/health-rules/261-horse-slot-lifecycle.js',
     '../tests/health-rules/262-butterfly-window-pairing.js', '../tests/health-rules/263-butterfly-window-no-action.js', '../tests/health-rules/264-lion-grow-timing.js', '../tests/health-rules/265-rewind-settle-same-authority.js',
     '../tests/health-rules/266-heal-amount-same-source.js', '../tests/hex-dual-effect-check.mjs', '../tests/hex-enhance-wiring-guard.mjs',
+    // 2026-11-09 合并夜间 195–199：补登夜间新增/白天未登记的体检脚本
+    '../tests/health-rules/267-growth-decl-vs-ledger.js', '../tests/health-rules/268-growth-curve-quantity.js', '../tests/health-rules/269-panel-stored-vs-ledger.js', '../tests/health-rules/270-ttl-expiry-closure.js', '../tests/health-rules/283-post-death-action.js', '../tests/health-rules/284-battle-end-race.js', '../tests/health-rules/285-settlement-order.js', '../tests/hex-config-closure-check.mjs', '../tests/meteor-growth-render-selftest.mjs', '../tests/wei-leech-quota-selftest.mjs',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',

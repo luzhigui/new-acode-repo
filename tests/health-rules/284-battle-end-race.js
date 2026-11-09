@@ -9,7 +9,7 @@
 //   若仍阵亡 ⇒ 判红（复活被覆盖 / 落位失败）。复活后再次阵亡是合法路径，按「最后一次」比较即可区分。
 // 判据③（平局/双灭口径）归 233，本规则不重复判。
 // 数据依赖：UNIT_DEATH / SKILL_ANNOUNCE / ATTACK / afterA / afterE，全部回放侧可得。
-export const VER = 'tests/health-rules/284-battle-end-race.js V1.0.1';
+export const VER = 'tests/health-rules/284-battle-end-race.js V1.1.0';
 import { FACT_TYPES, CAMP_TYPES } from '../../infra/106-battle-enums.js';
 
 const SIDE_CN = { [CAMP_TYPES.ALLY]: '我方', [CAMP_TYPES.ENEMY]: '敌方' };
@@ -53,7 +53,7 @@ export const rule284 = {
                 if (!f || f.factType !== FACT_TYPES.ATTACK) continue;
                 const a = f.data && f.data.attacker;
                 if (a && a.camp === camp) {
-                    errs.push(`${SIDE_CN[camp]} 终局 0 活，但其单位 ${a.name || a.uid} 在最后死亡@${di} 之后仍出手@${i}`);
+                    errs.push(`终局0活后仍出手：${SIDE_CN[camp]} 单位 ${a.name || a.uid} 在最后死亡@${di} 之后仍出手@${i}`);
                     break;
                 }
             }
@@ -64,11 +64,30 @@ export const rule284 = {
             const di = lastDeath.get(uid);
             if (di != null && di > ri) continue;
             if (finalAlive.has(uid) && finalAlive.get(uid) === false) {
-                errs.push(`uid ${uid} 最后一次复活@${ri} 之后无死亡，终局却仍阵亡（复活被覆盖/落位失败）`);
+                errs.push(`复活后被终局覆盖：uid ${uid} 最后一次复活@${ri} 之后无死亡，终局却仍阵亡（复活被覆盖/落位失败）`);
             }
         }
 
-        if (errs.length) return { fail: true, msg: errs.slice(0, 4).join('；') };
+        // ★ V1.1.0（第 199 轮）：**分子病因发红**，不再把 errs 拼成一条 msg。
+        //   为什么必须拆（第 199 轮实测，务必先读）：本条把 errs 前 4 条 `join('；')` 成一条 msg，
+        //   于是「判据①出手」与「判据②复活被覆盖」混在同一句话里，**两种病因的开头完全相同**
+        //   （改前两种病因都以「我方 终局 0 活」或「uid u​…」打头，抽取器只能给一个分支取**一个**静态前缀），
+        //   因此这条规则名下 16 条证据全部「对不上号」。改后两种病因各自以固定中文标签打头，前缀天然互不相同。
+        //   ★ 判据一个字没动：errs 的判定条件、循环、顺序、命中集合与改前**逐字等价**，
+        //     改的只是「怎么报」—— 每个子病因各发一条（前缀天然互不相同），顺序仍是源码顺序。
+        if (errs.length) {
+            // 判据①的病因（每阵营至多 1 条）
+            for (const camp of [CAMP_TYPES.ALLY, CAMP_TYPES.ENEMY]) {
+                const hit = errs.find(e => e.startsWith(`终局0活后仍出手：${SIDE_CN[camp]} `));
+                if (hit) return { fail: true, msg: '终局0活后仍出手：' + hit.slice('终局0活后仍出手：'.length) };
+            }
+            // 判据②的病因（每个 uid 至多 1 条）
+            for (const e of errs) {
+                if (e.startsWith('复活后被终局覆盖：uid ')) return { fail: true, msg: '复活后被终局覆盖：' + e.slice('复活后被终局覆盖：'.length) };
+            }
+            // 兜底：口径未识别的新形态原样报（不吞错、不静默）
+            return { fail: true, msg: '未识别病因：' + errs.slice(0, 4).join('；') };
+        }
         return {
             fail: false,
             msg: '终局全链一致：0 活一侧无后续出手，复活公告全部活到终局（终局存活 我方 ' + campAlive[CAMP_TYPES.ALLY] + ' / 敌方 ' + campAlive[CAMP_TYPES.ENEMY] + '）'

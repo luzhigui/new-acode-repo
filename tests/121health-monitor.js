@@ -1,5 +1,12 @@
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.11.1';
+export const VER = 'tests/121health-monitor.js V6.12.1';
+// V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
+// V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
+//   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
+//   的 `import { initMonitor }` 100% 挂掉（面板全白），node 侧只能报 8 条同义 404（import 4 + 文件读取 4）。
+//   改法：缺哪个只影响它自己，收进 MISSING_RULE_MODULES 并在状态行点名；allRules 里过滤掉 null，
+//   不伪造空规则混进执行数组。initMonitor 改 async，页面须 await（未 await 显式抛错，不静默降级）。
+//   未改任何一条规则实现、未放宽任何判据、未替上游补规则文件。
 // V6.11.1 | 2026-11-07 第 185 轮：体检报告带现场切片（第 4 项需求）。
 //   ① 每条异常在 recordIssue 时抓一份精简切片 buildIssueSlice：复用游戏内 Bug 记录器同一入口
 //     ui/702 window.__BUG_CONTEXT__（modules/303 也走它，不另写一套）。口径：关卡/回合/seed/版本指纹
@@ -19,193 +26,237 @@ export const VER = 'tests/121health-monitor.js V6.11.1';
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
 import { collectFacts } from './_lib/fact-collect.mjs';
-import { rule70 } from './health-rules/123-claw-heal-spam.js';
-import { rule71 } from './health-rules/124-aftermiss.js';
-import { rule72 } from './health-rules/125-fortify-timing.js';
-import { rule73 } from './health-rules/126-xuanming-link.js';
-import { rule74 } from './health-rules/127-butterfly-stack.js';
-import { rule75 } from './health-rules/128-butterfly-return.js';
-import { rule76 } from './health-rules/129-spider-fly-count.js';
-import { rule77 } from './health-rules/130-fortify-overflow.js';
-import { rule78 } from './health-rules/131-separator-duplicate.js';
-import { rule79 } from './health-rules/132-claw-damage.js';
-import { rule80 } from './health-rules/133-death-effect.js';
-import { rule81 } from './health-rules/134-zhang-switch.js';
-import { rule82 } from './health-rules/135-break-def-pos.js';
-import { rule83 } from './health-rules/136-meteor-atk.js';
-import { rule84 } from './health-rules/137-kulian-prompt.js';
-import { rule85 } from './health-rules/138-wind-push.js';
-import { rule86 } from './health-rules/139-spider-butterfly-target.js';
-import { rule87 } from './health-rules/140-wei-dodge-cloud.js';
-import { rule88 } from './health-rules/141-zhangsanfeng-fortify-round.js';
-import { rule89 } from './health-rules/142-zhangsanfeng-endless-roundstart.js';
-import { rule90 } from './health-rules/143-jiuyang-heal-pct.js';
-import { rule91 } from './health-rules/144-xinhun-kuaile.js';
-import { rule92 } from './health-rules/145-fly-miss-aura.js';
-import { rule93 } from './health-rules/146-double-strike.js';
-import { rule94 } from './health-rules/147-horse-destroy.js';
-import { rule95 } from './health-rules/148-carry-bonus.js';
-import { rule96 } from './health-rules/149-holy-flame-cols-rows.js';
-import { rule97 } from './health-rules/150-hot-blood-leech.js';
-import { rule98 } from './health-rules/151-bloodthirst-leech.js';
-import { rule99 } from './health-rules/152-xingfen-extra-attack.js';
-import { rule100 } from './health-rules/153-meteor-growth-render.js';
-import { rule101 } from './health-rules/154-endless-breath-gain.js';
-import { rule102 } from './health-rules/155-meteor-growth-dup.js';
-import { rule156 as rule103 } from './health-rules/156-desc-truth-drift.js'; // 156 实际导出名是 rule156（按文件号），别名对齐
-import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
-import { rule170 as rule114 } from './health-rules/170-taunts-integrity.js'; // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
-import { rule171 } from './health-rules/171-tangwenliang-dash.js'; // 第 114 轮新建：唐文亮冲刺落地验证（export 名按文件号 rule171）
-import { rule172 } from './health-rules/172-kongjian-jingang.js'; // 第 120 轮新建：空见金刚不坏次数与升级验证（新角色零覆盖盲区）
-import { rule179 as rule115 } from './health-rules/179-hex-enhance-contract.js'; // 海克斯锦衣卫：002 姊/妹强化配置完整性（别名对齐旧编号段）
+// ── 规则装载表（第 196 轮改造：静态 import → 动态 import 表 + 逐条容错）────────────────────
+// 为什么改：249~252 四个规则文件上游从未提交（git cat-file 已确认），而本节此前用 123 条**静态**
+//   import，缺一个文件就让整个 121 模块解析失败 —— 浏览器侧 120test-runner.html 的
+//   `import { initMonitor }` 直接 100% 挂掉、体检面板一片空白；node 侧静态扫描只能报 8 条同名 404
+//   噪音（import 侧 4 条 + 文件读取侧 4 条），把真正的问题淹没在重复行里。
+// 口径：只改「装载方式」，不改任何一条规则的实现、不放宽任何判据、不替上游补写规则文件。
+//   缺文件不再静默，收成一条点名报告（loadMissingRulesReport），静态扫描仍照旧报红。
+// 加新规则仍必须同时补：本表一行 + allRules 数组一处（registration-check 硬卡这一条）。
+// 与原注释里的行号说明（156/170 别名等）保持一致：别名在 from 字段里保留 export 原名。
+const RULE_MODULES = [
+    { local: 'rule70', from: './health-rules/123-claw-heal-spam.js', export: 'rule70' },
+    { local: 'rule71', from: './health-rules/124-aftermiss.js', export: 'rule71' },
+    { local: 'rule72', from: './health-rules/125-fortify-timing.js', export: 'rule72' },
+    { local: 'rule73', from: './health-rules/126-xuanming-link.js', export: 'rule73' },
+    { local: 'rule74', from: './health-rules/127-butterfly-stack.js', export: 'rule74' },
+    { local: 'rule75', from: './health-rules/128-butterfly-return.js', export: 'rule75' },
+    { local: 'rule76', from: './health-rules/129-spider-fly-count.js', export: 'rule76' },
+    { local: 'rule77', from: './health-rules/130-fortify-overflow.js', export: 'rule77' },
+    { local: 'rule78', from: './health-rules/131-separator-duplicate.js', export: 'rule78' },
+    { local: 'rule79', from: './health-rules/132-claw-damage.js', export: 'rule79' },
+    { local: 'rule80', from: './health-rules/133-death-effect.js', export: 'rule80' },
+    { local: 'rule81', from: './health-rules/134-zhang-switch.js', export: 'rule81' },
+    { local: 'rule82', from: './health-rules/135-break-def-pos.js', export: 'rule82' },
+    { local: 'rule83', from: './health-rules/136-meteor-atk.js', export: 'rule83' },
+    { local: 'rule84', from: './health-rules/137-kulian-prompt.js', export: 'rule84' },
+    { local: 'rule85', from: './health-rules/138-wind-push.js', export: 'rule85' },
+    { local: 'rule86', from: './health-rules/139-spider-butterfly-target.js', export: 'rule86' },
+    { local: 'rule87', from: './health-rules/140-wei-dodge-cloud.js', export: 'rule87' },
+    { local: 'rule88', from: './health-rules/141-zhangsanfeng-fortify-round.js', export: 'rule88' },
+    { local: 'rule89', from: './health-rules/142-zhangsanfeng-endless-roundstart.js', export: 'rule89' },
+    { local: 'rule90', from: './health-rules/143-jiuyang-heal-pct.js', export: 'rule90' },
+    { local: 'rule91', from: './health-rules/144-xinhun-kuaile.js', export: 'rule91' },
+    { local: 'rule92', from: './health-rules/145-fly-miss-aura.js', export: 'rule92' },
+    { local: 'rule93', from: './health-rules/146-double-strike.js', export: 'rule93' },
+    { local: 'rule94', from: './health-rules/147-horse-destroy.js', export: 'rule94' },
+    { local: 'rule95', from: './health-rules/148-carry-bonus.js', export: 'rule95' },
+    { local: 'rule96', from: './health-rules/149-holy-flame-cols-rows.js', export: 'rule96' },
+    { local: 'rule97', from: './health-rules/150-hot-blood-leech.js', export: 'rule97' },
+    { local: 'rule98', from: './health-rules/151-bloodthirst-leech.js', export: 'rule98' },
+    { local: 'rule99', from: './health-rules/152-xingfen-extra-attack.js', export: 'rule99' },
+    { local: 'rule100', from: './health-rules/153-meteor-growth-render.js', export: 'rule100' },
+    { local: 'rule101', from: './health-rules/154-endless-breath-gain.js', export: 'rule101' },
+    { local: 'rule102', from: './health-rules/155-meteor-growth-dup.js', export: 'rule102' },
+    { local: 'rule103', from: './health-rules/156-desc-truth-drift.js', export: 'rule156' }, // 156 实际导出名是 rule156（按文件号），别名对齐
+    { local: 'rule104', from: './health-rules/157-mechanic-install-reconcile.js', export: 'rule104' },
+    { local: 'rule114', from: './health-rules/170-taunts-integrity.js', export: 'rule170' }, // 170 实际导出名是 rule170（按文件号），别名对齐（同 156 先例）
+    { local: 'rule171', from: './health-rules/171-tangwenliang-dash.js', export: 'rule171' }, // 第 114 轮新建：唐文亮冲刺落地验证（export 名按文件号 rule171）
+    { local: 'rule172', from: './health-rules/172-kongjian-jingang.js', export: 'rule172' }, // 第 120 轮新建：空见金刚不坏次数与升级验证（新角色零覆盖盲区）
+    { local: 'rule115', from: './health-rules/179-hex-enhance-contract.js', export: 'rule179' }, // 海克斯锦衣卫：002 姊/妹强化配置完整性（别名对齐旧编号段）
+    { local: 'rule190', from: './health-rules/190-zhou-dian-crazy-chain.js', export: 'rule190' },
+    { local: 'rule191', from: './health-rules/191-tangwenliang-qishang.js', export: 'rule191' },
+    { local: 'rule192', from: './health-rules/192-pengyingyu-doubleface.js', export: 'rule192' },
+    { local: 'rule193', from: './health-rules/193-hebiweng-hornstrike.js', export: 'rule193' },
+    { local: 'rule194', from: './health-rules/194-chengkun-phantom.js', export: 'rule194' },
+    { local: 'rule195', from: './health-rules/195-shuobude-bag.js', export: 'rule195' },
+    { local: 'rule196', from: './health-rules/196-tangwenliang-huichun.js', export: 'rule196' },
+    { local: 'rule197', from: './health-rules/197-tangwenliang-tonggui.js', export: 'rule197' },
+    { local: 'rule198', from: './health-rules/198-zhangwuji-qiankun.js', export: 'rule198' },
+    { local: 'rule202', from: './health-rules/202-xuanming-poison-dot.js', export: 'rule202' },
+    { local: 'rule203', from: './health-rules/203-xiexun-lion-grow.js', export: 'rule203' },
+    { local: 'rule204', from: './health-rules/204-xiexun-lion-inspire.js', export: 'rule204' },
+    { local: 'rule205', from: './health-rules/205-zhuangzheng-duanchui.js', export: 'rule205' },
+    { local: 'rule173', from: './health-rules/173-hp-death-revive.js', export: 'rule173' }, // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
+    { local: 'rule185', from: './health-rules/185-log-group-consistency.js', export: 'rule185' },
+    { local: 'rule186', from: './health-rules/186-display-single-exit.js', export: 'rule186' },
+    { local: 'rule187', from: './health-rules/187-damage-float-same-source.js', export: 'rule187' },
+    { local: 'rule199', from: './health-rules/199-hp-chain-same-source.js', export: 'rule199' },
+    { local: 'rule200', from: './health-rules/200-group-entry-order.js', export: 'rule200' },
+    { local: 'rule230', from: './health-rules/230-cross-group-hp-trajectory.js', export: 'rule230' },
+    { local: 'rule181', from: './health-rules/181-round-sequence.js', export: 'rule181' }, // 回合开始/结束分隔符连续性与配对
+    { local: 'rule182', from: './health-rules/182-target-validity.js', export: 'rule182' }, // 鞭尸 / 自伤 / 误伤同阵营
+    { local: 'rule183', from: './health-rules/183-action-order.js', export: 'rule183' }, // 阵亡者出手 / 重复行动权
+    { local: 'deathRights184', from: './health-rules/184-death-revive-rights.js', export: 'rule184' },
+    { local: 'multiAttack188', from: './health-rules/188-multi-attack-count.js', export: 'rule188' },
+    { local: 'rule105', from: './health-rules/158-fact-anchor-align.js', export: 'rule105' }, // 第 143 轮：吸收夜间 139 重写版（fx 结构判据），取代第 142 轮的退役
+    { local: 'rule106', from: './health-rules/159-wei-bloodsiphon.js', export: 'rule106' },
+    { local: 'rule107', from: './health-rules/160-spider-transform-mastery.js', export: 'rule107' },
+    { local: 'rule108', from: './health-rules/161-lion-grow.js', export: 'rule108' },
+    { local: 'rule109', from: './health-rules/162-stat-change.js', export: 'rule109' },
+    { local: 'rule110', from: './health-rules/163-righteous-face.js', export: 'rule110' },
+    { local: 'rule111', from: './health-rules/164-leech-maxhp.js', export: 'rule111' },
+    { local: 'rule112', from: './health-rules/165-miejue-redesign.js', export: 'rule112' },
+    { local: 'rule113', from: './health-rules/166-mind-control-swap.js', export: 'rule113' },
+    { local: 'rule174', from: './health-rules/174-ally-roster.js', export: 'rule174' },
+    { local: 'rule175', from: './health-rules/175-ally-anchor-pos.js', export: 'rule176' },
+    { local: 'rule178', from: './health-rules/176-enemy-stage-roster.js', export: 'rule177' },
+    { local: 'rule184', from: './health-rules/177-enemy-mix-integrity.js', export: 'rule179' },
+    { local: 'rule188', from: './health-rules/178-stage3-variant.js', export: 'rule181' },
+    { local: 'rule180', from: './health-rules/180-damage-precision.js', export: 'rule180' },
+    { local: 'rule227', from: './health-rules/227-buff-lifecycle.js', export: 'rule227' },
+    { local: 'rule228', from: './health-rules/228-buff-effect-decl.js', export: 'rule228' },
+    { local: 'rule229', from: './health-rules/229-buff-permanent.js', export: 'rule229' },
+    { local: 'rule243', from: './health-rules/243-move-payload-validity.js', export: 'rule243' },
+    { local: 'rule244', from: './health-rules/244-push-payload-selfconsistent.js', export: 'rule244' },
+    { local: 'rule245', from: './health-rules/245-javelin-range-select.js', export: 'rule245' },
+    { local: 'rule246', from: './health-rules/246-empty-target-explicit.js', export: 'rule246' },
+    { local: 'rule247', from: './health-rules/247-target-selectable-state.js', export: 'rule247' },
+    { local: 'rule248', from: './health-rules/248-landing-snapshot-consistency.js', export: 'rule248' },
+    { local: 'rule249', from: './health-rules/249-position-bounds-unique.js', export: 'rule249' },
+    { local: 'rule250', from: './health-rules/250-swap-permutation-closure.js', export: 'rule250' },
+    { local: 'rule251', from: './health-rules/251-post-swap-followup.js', export: 'rule251' },
+    { local: 'rule252', from: './health-rules/252-phantom-fact-completeness.js', export: 'rule252' },
+    { local: 'rule231', from: './health-rules/231-revive-chain.js', export: 'rule231' },
+    { local: 'rule232', from: './health-rules/232-revive-action-quota.js', export: 'rule232' },
+    { local: 'rule233', from: './health-rules/233-battle-end-state.js', export: 'rule233' },
+    { local: 'rule234', from: './health-rules/234-round-settlement-order.js', export: 'rule234' },
+    { local: 'rule235', from: './health-rules/235-final-unit-consistency.js', export: 'rule235' },
+    { local: 'rule236', from: './health-rules/236-round-boundary.js', export: 'rule236' },
+    { local: 'rule283', from: './health-rules/283-post-death-action.js', export: 'rule283' },
+    { local: 'rule284', from: './health-rules/284-battle-end-race.js', export: 'rule284' },
+    { local: 'rule285', from: './health-rules/285-settlement-order.js', export: 'rule285' },
+    { local: 'rule237', from: './health-rules/237-mod-entry-shape.js', export: 'rule237' },
+    { local: 'rule238', from: './health-rules/238-decl-vs-ledger.js', export: 'rule238' },
+    { local: 'rule239', from: './health-rules/239-qiankun-decl-vs-ledger.js', export: 'rule239' },
+    { local: 'rule240', from: './health-rules/240-qiankun-accumulation.js', export: 'rule240' },
+    { local: 'rule241', from: './health-rules/241-round-entry-duplicate.js', export: 'rule241' },
+    { local: 'rule242', from: './health-rules/242-stat-closure.js', export: 'rule242' },
+    { local: 'rule267', from: './health-rules/267-growth-decl-vs-ledger.js', export: 'rule267' },
+    { local: 'rule268', from: './health-rules/268-growth-curve-quantity.js', export: 'rule268' },
+    { local: 'rule269', from: './health-rules/269-panel-stored-vs-ledger.js', export: 'rule269' },
+    { local: 'rule270', from: './health-rules/270-ttl-expiry-closure.js', export: 'rule270' },
+    { local: 'rule259', from: './health-rules/259-summon-uid-trace.js', export: 'rule259' },
+    { local: 'rule260', from: './health-rules/260-summon-death-closure.js', export: 'rule260' },
+    { local: 'rule261', from: './health-rules/261-horse-slot-lifecycle.js', export: 'rule261' },
+    { local: 'rule262', from: './health-rules/262-butterfly-window-pairing.js', export: 'rule262' },
+    { local: 'rule263', from: './health-rules/263-butterfly-window-no-action.js', export: 'rule263' },
+    { local: 'rule264', from: './health-rules/264-lion-grow-timing.js', export: 'rule264' },
+    { local: 'rule255', from: './health-rules/255-rewind-silent-switch.js', export: 'rule255' },
+    { local: 'rule256', from: './health-rules/256-rewind-account-isolation.js', export: 'rule256' },
+    { local: 'rule257', from: './health-rules/257-rewind-play-from-current.js', export: 'rule257' },
+    { local: 'rule258', from: './health-rules/258-rewind-state-cleanup.js', export: 'rule258' },
+    { local: 'rule265', from: './health-rules/265-rewind-settle-same-authority.js', export: 'rule265' },
+    { local: 'rule266', from: './health-rules/266-heal-amount-same-source.js', export: 'rule266' },
+    { local: 'rule253', from: './health-rules/253-rewind-write-surface.js', export: 'rule253' },
+    { local: 'rule254', from: './health-rules/254-rewind-write-dynamic.js', export: 'rule254' },
+    { local: 'rule273', from: './health-rules/273-rewind-progress-boundary.js', export: 'rule273' },
+    { local: 'rule274', from: './health-rules/274-rewind-speed-boundary.js', export: 'rule274' },
+    { local: 'rule271', from: './health-rules/271-absorb-summary-same-source.js', export: 'rule271' },
+    { local: 'rule272', from: './health-rules/272-hidden-renderer-outlets.js', export: 'rule272' },
+    { local: 'rule286', from: './health-rules/286-stage-variant-truth.js', export: 'rule286' },
+    { local: 'rule287', from: './health-rules/287-stage-name-source.js', export: 'rule287' },
+    { local: 'rule288', from: './health-rules/288-enemy-elite-pos.js', export: 'rule288' },
+    { local: 'rule299', from: './health-rules/288-enemy-elite-pos.js', export: 'rule299' },
+    { local: 'rule289', from: './health-rules/289-control-target-trace.js', export: 'rule289' },
+    { local: 'rule290', from: './health-rules/290-control-attacker-identity.js', export: 'rule290' },
+    { local: 'rule291', from: './health-rules/291-control-trace-on-edge.js', export: 'rule291' },
+    { local: 'rule292', from: './health-rules/292-control-stacking-crazy.js', export: 'rule292' },
+    { local: 'rule293', from: './health-rules/293-control-cleanup-on-release.js', export: 'rule293' },
+    { local: 'rule301', from: './health-rules/301-disciple-rebound-account.js', export: 'rule301' },
+    { local: 'rule302', from: './health-rules/302-control-window-consistency.js', export: 'rule302' },
+    { local: 'rule307', from: './health-rules/307-hetaichong-liangyi-pair.js', export: 'rule307' },
+    { local: 'rule308', from: './health-rules/308-hetaichong-mark-lifecycle.js', export: 'rule308' },
+    { local: 'rule309', from: './health-rules/309-hetaichong-red-swap-account.js', export: 'rule309' },
+    { local: 'rule303', from: './health-rules/303-damage-printed-vs-hp.js', export: 'rule303' },
+    { local: 'rule304', from: './health-rules/304-break-def-order-and-zero.js', export: 'rule304' },
+    { local: 'rule305', from: './health-rules/305-true-splash-display-source.js', export: 'rule305' },
+    { local: 'rule306', from: './health-rules/306-damage-rounding-granularity.js', export: 'rule306' },
+    { local: 'rule277', from: './health-rules/277-d9-holy-fire-enhance.js', export: 'rule277' },
+    { local: 'rule278', from: './health-rules/278-d9-fortify-enhance.js', export: 'rule278' },
+    { local: 'rule279', from: './health-rules/279-d9-mind-control-enhance.js', export: 'rule279' },
+    { local: 'rule280', from: './health-rules/280-d9-horse-formation-enhance.js', export: 'rule280' },
+    { local: 'rule294', from: './health-rules/294-double-face-retarget.js', export: 'rule294' },
+    { local: 'rule319', from: './health-rules/319-d10-mod-mul-truth.js', export: 'rule319' },
+    { local: 'rule320', from: './health-rules/320-d10-decl-ledger-mul.js', export: 'rule320' },
+    { local: 'rule321', from: './health-rules/321-d10-mod-lifecycle.js', export: 'rule321' },
+    { local: 'rule322', from: './health-rules/322-d10-brother-laststand-ledger.js', export: 'rule322' },
+    { local: 'rule323', from: './health-rules/323-d10-flyer-kill-growth.js', export: 'rule323' },
+    { local: 'rule325', from: './health-rules/325-d6-butterfly-host-cleanup.js', export: 'rule325' },
+    { local: 'rule326', from: './health-rules/326-d6-butterfly-window-payload.js', export: 'rule326' },
+    { local: 'rule327', from: './health-rules/327-d6-summon-authorship.js', export: 'rule327' },
+    { local: 'rule328', from: './health-rules/328-d6-summon-death-exit.js', export: 'rule328' },
+    { local: 'rule329', from: './health-rules/329-d6-roster-stats-purity.js', export: 'rule329' },
+];
+
+// 装载结果：local 名 → 规则函数。缺文件/缺导出**不塞 undefined**，一律记进 MISSING_RULE_MODULES。
+const RULE_BINDINGS = Object.create(null);
+export const MISSING_RULE_MODULES = [];
+
+// 逐条装载，单条失败只影响它自己。必须在本模块任何使用规则的副作用之前完成，
+// 故用顶层 await（浏览器与 node 对 ESM 顶层 await 一致支持）。
+const _loadedSettled = { done: false, results: null };
+_loadedSettled.results = await Promise.allSettled(RULE_MODULES.map(m => import(m.from)));
+_loadedSettled.done = true;
+_loadedSettled.results.forEach((r, i) => {
+    const m = RULE_MODULES[i];
+    if (r.status === 'rejected') {
+        MISSING_RULE_MODULES.push({ local: m.local, from: m.from, why: String((r.reason && r.reason.message) || r.reason) });
+        return;
+    }
+    // 规则导出的是**对象** `{ name, test(...) }`（不是裸函数），所以这里只校验「有导出且是对象」，
+    // 不校验 typeof === 'function' —— 写成 function 会把 123 条全判成缺导出，等于把规则全静默摘掉。
+    const fn = r.value ? r.value[m.export] : undefined;
+    if (!fn || typeof fn !== 'object' || typeof fn.test !== 'function') {
+        MISSING_RULE_MODULES.push({ local: m.local, from: m.from, why: '模块已加载但 ' + m.export + ' 不是 {test(){}} 规则对象（导出名改了/被删/形状变了）' });
+        return;
+    }
+    RULE_BINDINGS[m.local] = fn;
+});
+
+// 取绑定：缺了返回 null，由 allRules 过滤掉，**不**伪造空规则混进执行数组
+// （空规则会让 registration-check 与覆盖率统计以为它在岗，正是「规则在册 ≠ 规则在岗」的老坑）。
+// 表里根本没登记的名字属于代码写错，直接抛，不要静默降级。
+const B = (name) => {
+    const fn = RULE_BINDINGS[name];
+    if (!fn && !MISSING_RULE_MODULES.some(x => x.local === name)) {
+        throw new Error('121 规则装载表缺登记：' + name + '（静态 import 已改为 RULE_MODULES 表，加规则请补表）');
+    }
+    return fn || null;
+};
+
 // 第 185 轮：角色技能模块（modules/3xx）补盲 —— 周颠癫传染链 / 唐文亮七伤拳 /
 //   彭莹玉双面观音 / 鹤笔翁鹿角杖法 / 成昆混元霹雳劲与幻影治疗
-import { rule190 } from './health-rules/190-zhou-dian-crazy-chain.js';
-import { rule191 } from './health-rules/191-tangwenliang-qishang.js';
-import { rule192 } from './health-rules/192-pengyingyu-doubleface.js';
-import { rule193 } from './health-rules/193-hebiweng-hornstrike.js';
-import { rule194 } from './health-rules/194-chengkun-phantom.js';
 // 第 187 轮：角色技能模块（modules/3xx）第二批补盲 —— 说不得布袋 / 唐文亮回春·同归于尽 /
 //   张无忌乾坤 / 玄冥毒 DOT / 谢逊狮吼 / 庄铮断锤
-import { rule195 } from './health-rules/195-shuobude-bag.js';
-import { rule196 } from './health-rules/196-tangwenliang-huichun.js';
-import { rule197 } from './health-rules/197-tangwenliang-tonggui.js';
-import { rule198 } from './health-rules/198-zhangwuji-qiankun.js';
-import { rule202 } from './health-rules/202-xuanming-poison-dot.js';
-import { rule203 } from './health-rules/203-xiexun-lion-grow.js';
-import { rule204 } from './health-rules/204-xiexun-lion-inspire.js';
-import { rule205 } from './health-rules/205-zhuangzheng-duanchui.js';
-import { rule173 } from './health-rules/173-hp-death-revive.js'; // 血量/判死/复活：圣火不熄复活闭环 + 回血账目自洽
 // 战报与渲染一致性（只读渲染后的 log）：
 //   185 分组一致性（组归属/结果同源）、186 显示数值单一出口（浮点尾巴）、
 //   187 飘字伤害数值与正文同源（当前转交中，见 known-transfers.md）、
 //   199 血量链四处同源（正文/伤害行/格子血条/组结算，抓反推历史值）、
 //   200 组内条目顺序（时序改写不错位）
-import { rule185 } from './health-rules/185-log-group-consistency.js';
-import { rule186 } from './health-rules/186-display-single-exit.js';
-import { rule187 } from './health-rules/187-damage-float-same-source.js';
-import { rule199 } from './health-rules/199-hp-chain-same-source.js';
-import { rule200 } from './health-rules/200-group-entry-order.js';
-import { rule230 } from './health-rules/230-cross-group-hp-trajectory.js';
 // 第 186 轮：回合时序 / 目标选择 / 行动顺序三块结构规则（只吃原始 fact 流，不读渲染文本）
-import { rule181 } from './health-rules/181-round-sequence.js';     // 回合开始/结束分隔符连续性与配对
-import { rule182 } from './health-rules/182-target-validity.js';   // 鞭尸 / 自伤 / 误伤同阵营
-import { rule183 } from './health-rules/183-action-order.js';      // 阵亡者出手 / 重复行动权
 // 第 191 轮：死亡/复活行动权归属（同回合口径）+ 同回合多段出手计数口径
 // 注意：177/178 的导出名已被别名占用成 rule184 / rule188（见 102-103 行），这里必须另起别名
-import { rule184 as deathRights184 } from './health-rules/184-death-revive-rights.js';
-import { rule188 as multiAttack188 } from './health-rules/188-multi-attack-count.js';
-import { rule105 } from './health-rules/158-fact-anchor-align.js'; // 第 143 轮：吸收夜间 139 重写版（fx 结构判据），取代第 142 轮的退役
-import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
-import { rule107 } from './health-rules/160-spider-transform-mastery.js';
-import { rule108 } from './health-rules/161-lion-grow.js';
-import { rule109 } from './health-rules/162-stat-change.js';
-import { rule110 } from './health-rules/163-righteous-face.js';
-import { rule111 } from './health-rules/164-leech-maxhp.js';
-import { rule112 } from './health-rules/165-miejue-redesign.js';
-import { rule113 } from './health-rules/166-mind-control-swap.js';
 // 第 187 轮：框架公共层补登记（并行会话已建文件、未登记，避免静默不执行）
-import { rule174 } from './health-rules/174-ally-roster.js';
-import { rule176 as rule175 } from './health-rules/175-ally-anchor-pos.js';
-import { rule177 as rule178 } from './health-rules/176-enemy-stage-roster.js';
-import { rule179 as rule184 } from './health-rules/177-enemy-mix-integrity.js';
-import { rule181 as rule188 } from './health-rules/178-stage3-variant.js';
-import { rule180 } from './health-rules/180-damage-precision.js';
-import { rule227 } from './health-rules/227-buff-lifecycle.js';
-import { rule228 } from './health-rules/228-buff-effect-decl.js';
 // 第 191 轮补登：229 由并行会话建文件但未登记，registration-check 硬失败，这里补齐（逻辑未动）
-import { rule229 } from './health-rules/229-buff-permanent.js';
 // 第 192 轮：选目标 / 站位 / 落位（243~248，只吃原始 fact 流）
-import { rule243 } from './health-rules/243-move-payload-validity.js';
-import { rule244 } from './health-rules/244-push-payload-selfconsistent.js';
-import { rule245 } from './health-rules/245-javelin-range-select.js';
-import { rule246 } from './health-rules/246-empty-target-explicit.js';
-import { rule247 } from './health-rules/247-target-selectable-state.js';
-import { rule248 } from './health-rules/248-landing-snapshot-consistency.js';
 // 第 193 轮：选目标与站位·统一可选性 + 换位链 + 归因事实（249~252）
-import { rule249 } from './health-rules/249-position-bounds-unique.js';
-import { rule250 } from './health-rules/250-swap-permutation-closure.js';
-import { rule251 } from './health-rules/251-post-swap-followup.js';
-import { rule252 } from './health-rules/252-phantom-fact-completeness.js';
 // 第 193 轮·存活/胜负/回合结算链域（号段 231-236）：只吃原始 fact 流，不读渲染文本
-import { rule231 } from './health-rules/231-revive-chain.js';
-import { rule232 } from './health-rules/232-revive-action-quota.js';
-import { rule233 } from './health-rules/233-battle-end-state.js';
-import { rule234 } from './health-rules/234-round-settlement-order.js';
-import { rule235 } from './health-rules/235-final-unit-consistency.js';
-import { rule236 } from './health-rules/236-round-boundary.js';
 // 第 194 轮·存活/胜负/结算链域续（号段 283-288）
-import { rule283 } from './health-rules/283-post-death-action.js';
-import { rule284 } from './health-rules/284-battle-end-race.js';
-import { rule285 } from './health-rules/285-settlement-order.js';
-// 第 195 轮修正：rewind 289/290 撞号，按 4.7 挪到 D5 空闲槽 253/254
-import { rule253 } from './health-rules/253-rewind-write-surface.js';
-import { rule254 } from './health-rules/254-rewind-write-dynamic.js';
-import { rule273 } from './health-rules/273-rewind-progress-boundary.js';
-import { rule274 } from './health-rules/274-rewind-speed-boundary.js';
-// 第 195 轮仲裁：日志域新件让出 286/287 → D8 271/272
-import { rule271 } from './health-rules/271-absorb-summary-same-source.js';
-import { rule272 } from './health-rules/272-hidden-renderer-outlets.js';
-import { rule237 } from './health-rules/237-mod-entry-shape.js';
-import { rule238 } from './health-rules/238-decl-vs-ledger.js';
-import { rule239 } from './health-rules/239-qiankun-decl-vs-ledger.js';
-import { rule240 } from './health-rules/240-qiankun-accumulation.js';
-import { rule241 } from './health-rules/241-round-entry-duplicate.js';
-import { rule242 } from './health-rules/242-stat-closure.js';
-import { rule267 } from './health-rules/267-growth-decl-vs-ledger.js';
-import { rule268 } from './health-rules/268-growth-curve-quantity.js';
-import { rule269 } from './health-rules/269-panel-stored-vs-ledger.js';
-import { rule270 } from './health-rules/270-ttl-expiry-closure.js';
 // 第 D6 域（召唤物 / 附身 / 占格，号段 259-264）：召唤 uid 追溯 / 阵亡闭环 / 拒马占格 /
 //   附身窗口成对 / 附身窗口不参战 / 幼狮成长时机
-import { rule259 } from './health-rules/259-summon-uid-trace.js';
-import { rule260 } from './health-rules/260-summon-death-closure.js';
-import { rule261 } from './health-rules/261-horse-slot-lifecycle.js';
-import { rule262 } from './health-rules/262-butterfly-window-pairing.js';
-import { rule263 } from './health-rules/263-butterfly-window-no-action.js';
-import { rule264 } from './health-rules/264-lion-grow-timing.js';
 // 第 192 轮·演出/倒针/回放状态机域（255-258 + 撞号顺延 265-266）：播放器与倒针状态机的源码结构判据
-import { rule255 } from './health-rules/255-rewind-silent-switch.js';
-import { rule256 } from './health-rules/256-rewind-account-isolation.js';
-import { rule257 } from './health-rules/257-rewind-play-from-current.js';
-import { rule258 } from './health-rules/258-rewind-state-cleanup.js';
-import { rule265 } from './health-rules/265-rewind-settle-same-authority.js';
-import { rule266 } from './health-rules/266-heal-amount-same-source.js';
-// 第 195 轮仲裁：286/287 归 D10 关卡变体族（日志域的吸星/隐藏出口已让到 271/272）
-import { rule286 } from './health-rules/286-stage-variant-truth.js';
-import { rule287 } from './health-rules/287-stage-name-source.js';
-import { rule288, rule299 } from './health-rules/288-enemy-elite-pos.js';
-// 第 195 轮·D11 控制与意识类（289-293）
-import { rule289 } from './health-rules/289-control-target-trace.js';
-import { rule290 } from './health-rules/290-control-attacker-identity.js';
-import { rule291 } from './health-rules/291-control-trace-on-edge.js';
-import { rule292 } from './health-rules/292-control-stacking-crazy.js';
-import { rule293 } from './health-rules/293-control-cleanup-on-release.js';
-import { rule301 } from './health-rules/301-disciple-rebound-account.js';
-import { rule302 } from './health-rules/302-control-window-consistency.js';
-import { rule307 } from './health-rules/307-hetaichong-liangyi-pair.js';
-import { rule308 } from './health-rules/308-hetaichong-mark-lifecycle.js';
-import { rule309 } from './health-rules/309-hetaichong-red-swap-account.js';
-import { rule303 } from './health-rules/303-damage-printed-vs-hp.js';
-import { rule304 } from './health-rules/304-break-def-order-and-zero.js';
-import { rule305 } from './health-rules/305-true-splash-display-source.js';
-import { rule306 } from './health-rules/306-damage-rounding-granularity.js';
-// D9 海克斯 277-280 / D11 294 / D14 319-323 / D6 补盲段 325-329（2026-11-08 补登，此前 15 条只落盘未进执行面）
-import { rule277 } from './health-rules/277-d9-holy-fire-enhance.js';
-import { rule278 } from './health-rules/278-d9-fortify-enhance.js';
-import { rule279 } from './health-rules/279-d9-mind-control-enhance.js';
-import { rule280 } from './health-rules/280-d9-horse-formation-enhance.js';
-import { rule294 } from './health-rules/294-double-face-retarget.js';
-import { rule319 } from './health-rules/319-d10-mod-mul-truth.js';
-import { rule320 } from './health-rules/320-d10-decl-ledger-mul.js';
-import { rule321 } from './health-rules/321-d10-mod-lifecycle.js';
-import { rule322 } from './health-rules/322-d10-brother-laststand-ledger.js';
-import { rule323 } from './health-rules/323-d10-flyer-kill-growth.js';
-import { rule325 } from './health-rules/325-d6-butterfly-host-cleanup.js';
-import { rule326 } from './health-rules/326-d6-butterfly-window-payload.js';
-import { rule327 } from './health-rules/327-d6-summon-authorship.js';
-import { rule328 } from './health-rules/328-d6-summon-death-exit.js';
-import { rule329 } from './health-rules/329-d6-roster-stats-purity.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -311,7 +362,10 @@ function detectStage(doc) {
     return m ? parseInt(m[1]) : 0;
 }
 
-export function initMonitor() {
+// 第 196 轮：改为 async —— 页面里必须 await。装载表是动态 import，与 initMonitor 并行启动；
+// 若调用方不 await 就直接开跑，规则可能在首场结算时才装齐，前几场会以「规则数组短一截」静默漏检。
+export async function initMonitor() {
+    if (!_loadedSettled.done) throw new Error('121 规则装载未完成就调用了 initMonitor：请把 initMonitor() 改成 await initMonitor()');
     gameArea = document.getElementById('gameArea');
     reportArea = document.getElementById('reportArea');
     gameFrame = document.getElementById('gameFrame');
@@ -334,6 +388,16 @@ export function initMonitor() {
     const btnModeStatic = document.getElementById('btnModeStatic');
     const btnModeCancel = document.getElementById('btnModeCancel');
     statusLine = document.getElementById('statusLine');
+
+    // 第 196 轮：装载缺口点名。以前 4 个文件缺失会以 8 条同义 404 摊在静态扫描里（import 侧 4 条 +
+    // 文件读取侧 4 条），看起来像「扫描器坏了」；现在收成一条，点名缺哪几个文件、由谁引用的。
+    // 只报不修：不替上游补规则文件，也不把它们伪装成 skip 规则混进 allRules。
+    if (MISSING_RULE_MODULES.length > 0) {
+        const names = MISSING_RULE_MODULES.map(x => x.from.replace('./health-rules/', '')).join('、');
+        statusLine.textContent = '⚠ 规则装载缺口 ' + MISSING_RULE_MODULES.length + ' 条：' + names;
+        statusLine.style.color = '#ff9800';
+        console.warn('[121] 规则装载缺口', MISSING_RULE_MODULES);
+    }
 
     let scanInterval = 200;
 
@@ -808,128 +872,26 @@ function runRuleChecks(ctx, doc) {
     //   等于浏览器侧体检**根本没跑它们**（node 侧 rules-replay 是自动扫目录，故一直没暴露），
     //   156 则连 import 都没有。加新规则必须**同时**补 import 与本数组两处（registration-check
     //   V1.1.0 起会硬卡这一条，别再只补一处）。
-    const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
-        rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
-        rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
-        rule110, rule111, rule112, rule113, rule114, rule171, rule172, rule173, rule115,
-        rule190, rule191, rule192, rule193, rule194, rule195, rule196, rule197, rule198, rule202, rule203, rule204, rule205, rule181, rule182, rule183, rule185, rule186, rule187,
-        rule199, rule200, rule230, deathRights184, multiAttack188,
-        rule174, rule175, rule178, rule184, rule188, rule180, rule227, rule228, rule229,
-        rule231, rule232, rule233, rule234, rule235, rule236, rule237, rule238, rule239, rule240, rule241, rule242,
-        rule267, rule268, rule269, rule270,
-        rule255, rule256, rule257, rule258, rule265, rule266, rule286, rule287, rule288,
-        rule289, rule290, rule291, rule292, rule293, rule299,
-        rule301, rule302, rule307, rule308, rule309,
-        rule303, rule304, rule305, rule306,
-        rule259, rule260, rule261, rule262, rule263, rule264,
-        rule271, rule272,
-        rule253, rule254, rule273, rule274,
-        rule283, rule284, rule285,
-        rule243, rule244, rule245, rule246, rule247, rule248,
-        rule249, rule250, rule251, rule252,
-        rule277, rule278, rule279, rule280, rule294,
-        rule319, rule320, rule321, rule322, rule323,
-        rule325, rule326, rule327, rule328, rule329];
-    // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
-    const rules = filterRulesByTags(allRules, RECIPE_TAGS);
-
-    // 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
-    if (battleLog.length === 0) {
-        if (ctx.gs === 'GAMEOVER') recordIssue(ctx, null, '规则数据源', '战报日志为空，' + rules.length + '条规则未执行（空转防假绿红线）', '系统');
-        return;
-    }
-
-    for (const entry of battleLog) {
-        entry._locate = locateLogEntry(battleLog, entry);
-    }
-
-    // （第 21 轮删除）原 `ctx._doc = doc;` —— 全库无任何规则读 ctx._doc，纯死赋值，已删。
-    // before = 开战快照：ctx.UI.allyTeam 本就是开战 clone，语义正确，直接用
-    // after  = 真值：必须走 battleStore（见 teamsFromStore 根因注释），否则 143/144 这类
-    //          "靠终局值反推"的判据会成片误报
-    const beforeAllies = allyTeam.map(u => ({ ...u }));
-    const beforeEnemies = enemyTeam.map(u => ({ ...u }));
-    const storeTeams = teamsFromStore(ctx);
-    const finalAllies = storeTeams.ally;
-    const finalEnemies = storeTeams.enemy;
-    for (const rule of rules) {
-        try {
-            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies, facts);
-            if (result && result.fail) {
-                const msgs = (result.msg || '').split(' | ');
-                for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
-            } else if (result === 'skip') {
-                ruleSkipCount++;
-                ruleSkipNames.add(rule.name);
-            } else if (result === 'pass') {
-                rulePassCount++;
-                rulePassNames.add(rule.name);
-            } else if (result && typeof result === 'object') {
-                // 形状防御：只有 `{ fail:false }`（可带 observe）才算真通过；
-                // 返回普通字符串等非法形状一律报红，禁止静默算 pass（229/227/228 假绿的根因）
-                rulePassCount++;
-                rulePassNames.add(rule.name);
-            } else {
-                recordIssue(ctx, null, '规则返回形状非法', rule.name + ': 返回 ' + String(result).slice(0, 80)
-                    + '（只认 {fail:boolean,msg} 或 "skip"，否则失败会被算成 pass）', '系统');
-            }
-        } catch (e) {
-            recordIssue(ctx, null, '规则异常', rule.name + ': ' + (e.message || '未知错误'), '系统');
-        }
-    }
-}
-
-// 结算类UI检查：血条颜色/特效残留/胜利弹幕/换位稳定等，等渲染稳定后执行
-function runSettleChecks(ctx, doc) {
-    const teams = teamsFromStore(ctx);
-    const allyTeam = teams.ally;
-    const enemyTeam = teams.enemy;
-    const allUnits = allyTeam.concat(enemyTeam);
-
-    const win = getWin();
-    for (const unit of allUnits) {
-        for (const msg of checkHpBarColor(unit, win, doc)) recordIssue(ctx, unit.uid, '血条颜色', msg, 'UI');
-    }
-
-    for (const msg of checkFxOrphans(doc)) recordIssue(ctx, null, '特效残留', msg, 'UI');
-
-    setTimeout(() => {
-        const ctx2 = getCtx();
-        const doc2 = getDoc();
-        // 弹幕仅存活 3.5s（acquireFromPool 3500ms），须在存活窗口内检查；已离开GAMEOVER说明重置已清场，跳过避免误报
-        if (doc2 && ctx2 && ctx2.gs === 'GAMEOVER') {
-            for (const msg of checkVictoryDanmaku(doc2, allyTeam, enemyTeam)) recordIssue(ctx, null, '胜利弹幕', msg, 'UI');
-        }
-    }, 2000);
-
-    checkSwapStability(ctx, doc, allyTeam, enemyTeam);
-
-    for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
-    for (const msg of checkMeleeFxState(ctx, doc, teams.ally, teams.enemy)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-    for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
-}
-
-function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {
-    const wS = getWin();
-    const battleLog = wS && wS.GlobalStore ? wS.GlobalStore.get('battleLog') : null;
-    if (!Array.isArray(battleLog) || battleLog.length === 0) return;
-    const allUnits = allyTeam.concat(enemyTeam);
-    const swapEvents = battleLog.filter(e => e.type === 'buff-swap' || e.type === 'buff-push');
-    for (const swapEvent of swapEvents) {
-        const swapIndex = battleLog.indexOf(swapEvent);
-        if (swapIndex === -1) continue;
-        const unitA = allUnits.find(u => u.name === swapEvent._swapNameA);
-        const unitB = allUnits.find(u => u.name === swapEvent._swapNameB);
-        if (!unitA || !unitB) continue;
-        [unitA, unitB].forEach(u => {
-            if (u.alive && !getCellByUid(u.uid, doc)) {
-                const loc = swapEvent._locate || '';
-                recordIssue(ctx, u.uid, '换位UI丢失', u.name + '换位后格子丢失 ' + loc, 'UI');
-            }
-        });
-        const nextAttacks = battleLog.slice(swapIndex + 1).filter(e => e.type === 'attack-group');
-        if (nextAttacks.length > 0) {
-            const firstAttack = nextAttacks[0];
+    const allRules = [
+        B('rule70'), B('rule71'), B('rule72'), B('rule73'), B('rule74'), B('rule75'), B('rule76'), B('rule77'), B('rule78'), B('rule79'),
+        B('rule80'), B('rule81'), B('rule82'), B('rule83'), B('rule84'), B('rule85'), B('rule86'), B('rule87'), B('rule88'), B('rule89'),
+        B('rule90'), B('rule91'), B('rule92'), B('rule93'), B('rule94'), B('rule95'), B('rule96'), B('rule97'), B('rule98'), B('rule99'),
+        B('rule100'), B('rule101'), B('rule102'), B('rule103'), B('rule104'), B('rule105'), B('rule106'), B('rule107'), B('rule108'), B('rule109'),
+        B('rule110'), B('rule111'), B('rule112'), B('rule113'), B('rule114'), B('rule171'), B('rule172'), B('rule173'), B('rule115'), B('rule190'),
+        B('rule191'), B('rule192'), B('rule193'), B('rule194'), B('rule195'), B('rule196'), B('rule197'), B('rule198'), B('rule202'), B('rule203'),
+        B('rule204'), B('rule205'), B('rule181'), B('rule182'), B('rule183'), B('rule185'), B('rule186'), B('rule187'), B('rule199'), B('rule200'),
+        B('rule230'), B('deathRights184'), B('multiAttack188'), B('rule174'), B('rule175'), B('rule178'), B('rule184'), B('rule188'), B('rule180'), B('rule227'),
+        B('rule228'), B('rule229'), B('rule231'), B('rule232'), B('rule233'), B('rule234'), B('rule235'), B('rule236'), B('rule237'), B('rule238'),
+        B('rule239'), B('rule240'), B('rule241'), B('rule242'), B('rule267'), B('rule268'), B('rule269'), B('rule270'), B('rule255'), B('rule256'),
+        B('rule257'), B('rule258'), B('rule265'), B('rule266'), B('rule286'), B('rule287'), B('rule288'), B('rule289'), B('rule290'), B('rule291'),
+        B('rule292'), B('rule293'), B('rule299'), B('rule301'), B('rule302'), B('rule307'), B('rule308'), B('rule309'), B('rule303'), B('rule304'),
+        B('rule305'), B('rule306'), B('rule259'), B('rule260'), B('rule261'), B('rule262'), B('rule263'), B('rule264'), B('rule271'), B('rule272'),
+        B('rule253'), B('rule254'), B('rule273'), B('rule274'), B('rule283'), B('rule284'), B('rule285'), B('rule243'), B('rule244'), B('rule245'),
+        B('rule246'), B('rule247'), B('rule248'), B('rule249'), B('rule250'), B('rule251'), B('rule252'), B('rule277'), B('rule278'), B('rule279'),
+        B('rule280'), B('rule294'), B('rule319'), B('rule320'), B('rule321'), B('rule322'), B('rule323'), B('rule325'), B('rule326'), B('rule327'),
+        B('rule328'), B('rule329')
+    ]
+        .filter(fn => typeof fn === 'function')
             checkPositionAfterSwap(ctx, firstAttack, unitA, swapEvent._swapEnginePosA);
             checkPositionAfterSwap(ctx, firstAttack, unitB, swapEvent._swapEnginePosB);
         }

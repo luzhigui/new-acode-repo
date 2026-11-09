@@ -112,7 +112,7 @@ export const rule228 = {
         for (const k2 in sumSeen) {
             if (sumSeen[k2] > 1) {
                 const parts = k2.split('|');
-                fails.push(`第${parts[0]}回合 ${parts[1]} 方 ${parts[2]} 摘要出现 ${sumSeen[k2]} 条（重复挂载）`);
+                fails.push(`buff加成声明：第${parts[0]}回合 ${parts[1]} 方 ${parts[2]} 摘要出现 ${sumSeen[k2]} 条（重复挂载）`);
             }
         }
 
@@ -170,11 +170,11 @@ export const rule228 = {
             const camp = normCamp(d.camp);
             const field = d.field;
             if (uid == null || uid === '') {
-                fails.push(`第${e.round}回合 ${t} 缺 unitUid（无法判重）`);
+                fails.push(`buff加成声明：第${e.round}回合 ${t} 缺 unitUid（无法判重）`);
                 continue;
             }
             if (d.op !== 'mul' || typeof d.ratio !== 'number' || !isFinite(d.ratio)) {
-                fails.push(`第${e.round}回合 ${t} 声明形态破损（op=${d.op}, ratio=${String(d.ratio)}）`);
+                fails.push(`buff加成声明：第${e.round}回合 ${t} 声明形态破损（op=${d.op}, ratio=${String(d.ratio)}）`);
                 continue;
             }
             const dupKey = e.round + '|' + t + '|' + uid + '|' + camp + '|' + field;
@@ -188,16 +188,16 @@ export const rule228 = {
                 const sisVal = HF_S ? (field === 'def' ? HF_S.defBonus : HF_S.atkBonus) : null;
                 if (sister && teamBuff && sisVal != null) {
                     if (!near(d.ratio, sisVal)) {
-                        fails.push(`第${e.round}回合 圣火令 ${field} 声明 ${d.ratio}，姊强化应为 ${sisVal}（基础 ${baseVal}）`);
+                        fails.push(`buff加成声明：第${e.round}回合 圣火令 ${field} 声明 ${d.ratio}，姊强化应为 ${sisVal}（基础 ${baseVal}）`);
                     }
                 } else if (!near(d.ratio, baseVal)) {
-                    fails.push(`第${e.round}回合 圣火令 ${field} 声明 ${d.ratio}，配置应为 ${baseVal}`);
+                    fails.push(`buff加成声明：第${e.round}回合 圣火令 ${field} 声明 ${d.ratio}，配置应为 ${baseVal}`);
                 }
             } else if (t === FACT_TYPES.UNITY_APPLY) {
                 if (!UN || !Array.isArray(UN.tiers)) continue;
                 const vals = UN.tiers.map(x => (field === 'def' ? x.defBonus : x.atkBonus));
                 if (!vals.some(v => near(d.ratio, v))) {
-                    fails.push(`第${e.round}回合 众志成城 ${field} 声明 ${d.ratio} 不在档位 ${vals.join('/')}`);
+                    fails.push(`buff加成声明：第${e.round}回合 众志成城 ${field} 声明 ${d.ratio} 不在档位 ${vals.join('/')}`);
                 }
                 const pk = e.round + '|' + uid;
                 if (!unityPair[pk]) unityPair[pk] = {};
@@ -207,7 +207,7 @@ export const rule228 = {
                 if (field === 'def') {
                     const expect = (1 + (SD.defBonus || 0)) * Math.pow(1 + (SD.perRoundBonus || 0), e.round - 1) - 1;
                     if (!near(d.ratio, expect)) {
-                        fails.push(`第${e.round}回合 摄魂 def 声明 ${d.ratio}，配置应为 ${expect}`);
+                        fails.push(`buff加成声明：第${e.round}回合 摄魂 def 声明 ${d.ratio}，配置应为 ${expect}`);
                     }
                 } else {
                     const casterCamp = camp === CAMP_TYPES.ENEMY ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY;
@@ -218,7 +218,7 @@ export const rule228 = {
                     const k = (base - d.ratio) / step;
                     const kOk = k >= -EPS && Math.abs(k - Math.round(k)) <= 1e-6;
                     if (!kOk) {
-                        fails.push(`第${e.round}回合 摄魂 atk 声明 ${d.ratio}，配置栅格应为 ${base}−${step}×N（${useSis ? '姊版' : '基础'}）`);
+                        fails.push(`buff加成声明：第${e.round}回合 摄魂 atk 声明 ${d.ratio}，配置栅格应为 ${base}−${step}×N（${useSis ? '姊版' : '基础'}）`);
                     }
                 }
             } else if (t === FACT_TYPES.LAST_STAND_APPLY) {
@@ -226,13 +226,13 @@ export const rule228 = {
                 if (field === 'def') {
                     const penalty = typeof LS.defPenalty === 'number' ? LS.defPenalty : 0.2;
                     if (!near(d.ratio, -penalty)) {
-                        fails.push(`第${e.round}回合 背水一战 def 声明 ${d.ratio}，配置应为 ${-penalty}`);
+                        fails.push(`buff加成声明：第${e.round}回合 背水一战 def 声明 ${d.ratio}，配置应为 ${-penalty}`);
                     }
                 } else {
                     const okBase = near(d.ratio, LS.atkBonus);
                     const okSis = LS_S && near(d.ratio, LS_S.atkBonus);
                     if (hasSister(camp, e.round) ? !(okBase || okSis) : !okBase) {
-                        fails.push(`第${e.round}回合 背水一战 atk 声明 ${d.ratio}，配置应为 ${LS.atkBonus}${LS_S ? ' 或 ' + LS_S.atkBonus : ''}`);
+                        fails.push(`buff加成声明：第${e.round}回合 背水一战 atk 声明 ${d.ratio}，配置应为 ${LS.atkBonus}${LS_S ? ' 或 ' + LS_S.atkBonus : ''}`);
                     }
                 }
                 if (field !== 'def') {
@@ -245,12 +245,12 @@ export const rule228 = {
         for (const k in applyDup) {
             if (applyDup[k] > 1) {
                 const p = k.split('|');
-                fails.push(`第${p[0]}回合 ${p[1]} 对 ${p[2]}（${p[4]}）施加 ${applyDup[k]} 条（重复施加）`);
+                fails.push(`buff加成声明：第${p[0]}回合 ${p[1]} 对 ${p[2]}（${p[4]}）施加 ${applyDup[k]} 条（重复施加）`);
             }
         }
         for (const uk in lastStandByUid) {
             if (lastStandByUid[uk] > 1) {
-                fails.push(`单位 ${uk} 整局触发背水一战 ${lastStandByUid[uk]} 次（应仅 1 次）`);
+                fails.push(`buff加成声明：单位 ${uk} 整局触发背水一战 ${lastStandByUid[uk]} 次（应仅 1 次）`);
             }
         }
         if (UN && Array.isArray(UN.tiers)) {
@@ -258,7 +258,7 @@ export const rule228 = {
                 const pair = unityPair[pk];
                 if (pair.atk == null || pair.def == null) continue;
                 const ok = UN.tiers.some(x => near(pair.atk, x.atkBonus) && near(pair.def, x.defBonus));
-                if (!ok) fails.push(`第${pk.split('|')[0]}回合 众志成城 攻防 ${pair.atk}/${pair.def} 不同档`);
+                if (!ok) fails.push(`buff加成声明：第${pk.split('|')[0]}回合 众志成城 攻防 ${pair.atk}/${pair.def} 不同档`);
             }
         }
 
@@ -321,7 +321,7 @@ export const rule228 = {
 
         if (applyN === 0 && carryN === 0) return 'skip';
         // 返回契约：失败必须是 {fail:true,msg}（121 / rules-replay 只认对象形状，字符串会被算 pass）
-        if (fails.length > 0) return { fail: true, msg: fails.slice(0, 6).join('；') };
+        if (fails.length > 0) return { fail: true, msg: `buff加成声明与配置真值：${fails[0].slice('buff加成声明：'.length)}（共 ${fails.length} 条）` };
         return 'pass';
     }
 };

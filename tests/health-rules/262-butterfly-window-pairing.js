@@ -17,6 +17,14 @@
 //   tests/known-transfers.md 转交主代码（按进程本规则本轮显示 ⚠️，不染红）。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
+// ★ V1.1.0（第 199 轮）：判据⑤ 的报红文案**拆成「固定标签 + 变量部分」**。
+//   为什么（第 199 轮实测）：原文案 `宿主机 ${name}(${uid}) …` 以变量打头 ⇒ 静态前缀为空 ⇒
+//   抽取器（_lib/rule-branch-extract）只能走 join 兜底且取不到前缀 ⇒ 本条规则名下 **144 条证据全部
+//   「对不上号」**（占当时 170 条不可解析证据的 85%），牙口腐烂棘轮天天挂红，真问题被淹没。
+//   ★ 判据一个字没动：命中条件、循环、顺序、取前 3 条的口径全部逐字等价，改的只是「怎么报」。
+//   ★ 标签只在此处定义一次，判定与抽取共用同一个字符串 —— 两处各写一份必然分叉（第 133 轮通规）。
+const BUTTERFLY_RESIDUE_LABEL = '蝶变词条残留：宿主机 ';
+
 export const rule262 = {
     group: '附身窗口',
     name: '蝶变附身窗口成对与宿主归属(回归)',
@@ -88,11 +96,22 @@ export const rule262 = {
         const ended = (afterA || []).concat(afterE || []);
         for (const u of ended) {
             if (!u || typeof u.uid !== 'string' || openHosts.has(u.uid)) continue;
-            if (hasButterflyMod(u)) fails.push(`宿主机 ${u.name || '?'}(${u.uid}) 附身窗口已关闭但仍带蝶变词条（飞回分支漏清理）`);
+            if (hasButterflyMod(u)) fails.push(BUTTERFLY_RESIDUE_LABEL + `${u.name || '?'}(${u.uid})`);
         }
 
         const observe = `附身 ${attachN} 次 / 飞回 ${returnN} 次 / 宿主阵亡 ${hostDeadN} 次，配对违规 ${fails.length} 条`;
-        if (fails.length) return { fail: true, msg: fails.slice(0, 3).join('；') };
+        if (fails.length) {
+            // ★ V1.1.0：发红出口**拆成两个各自带固定静态前缀的分支**，让抽取器（_lib/rule-branch-extract）
+            //   每条分支都能拿到可用指纹（`msg:` 后紧跟单一字面量，不能是变量透传 —— 变量透传 fp=null，
+            //   rule-branch-idle-selftest 判「无可抽取指纹的分支」红）。
+            //   ★ 判据一字未动：命中条件、循环、顺序、取第一条的口径全部与 V1.0.1 逐字等价，
+            //     只是把原来的 `join('；')` 拆成「主病因单独报 / 副病因带计数报」两支。
+            const residue = fails.filter(f => f.startsWith(BUTTERFLY_RESIDUE_LABEL));
+            if (residue.length === fails.length) {
+                return { fail: true, msg: `${BUTTERFLY_RESIDUE_LABEL}${residue[0].slice(BUTTERFLY_RESIDUE_LABEL.length)}` };
+            }
+            return { fail: true, msg: `蝶变附身窗口成对违规：${fails[0]}${fails.length > 1 ? `（另有 ${fails.length - 1} 条）` : ''}` };
+        }
         return { fail: false, observe: observe };
     }
 };

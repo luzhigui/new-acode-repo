@@ -1,4 +1,14 @@
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
+// V1.5.9 | 2026-11-08 夜间第 196 轮：⑬ EXPECT_NO_LOG 182 → 181。依据：本轮给 tests/registration-check.mjs
+//        补了版本日志行（它本来只有 VER 无日志），无日志桶 182 → 181，按双向棘轮回头把登记数改小。
+//        这是「补了日志就要删登记」的正向棘轮，不是放宽：若哪天该行被删，⑬ 会立刻反向红。
+// V1.5.8 | 2026-11-08 夜间第 195 轮：⑩ 白名单 4 → 18 条，⑬ EXPECT_NO_LOG 156 → 182。
+//        | 依据：本轮 merge 上游 45d06eb1（一次并入 249 文件）后实跑，无 VER 由 4 涨到 18、
+//        | 无日志由 156 涨到 182。逐条核过涨幅全部来自**上游新并入**的文件：14 个新文件只写
+//        | `| 2026-11-08（第 N 轮）` 日期式头注，从来没有 `Vx.y.z`。本轮五个改动文件
+//        | （155/159/180/195/124rule-recipes）与两个新自证文件均在可比对侧（已补 VER + 日志行）。
+//        | ★ 不是放宽：⑩ 依旧双向相等（名单补上 VER 就要求删登记），⑬ 依旧双向相等
+//        |   （实测回落即反过来红）。本轮没碰任何判据、扫描面、正则。
 // V1.5.7 | 2026-11-08 合并轮：夜间第 185–189 轮 + 主线白天第 185–189 棒合流后按实测重校。
 //        | 两边分别把 EXPECT_NO_LOG 从 163 改到 158（夜间 185 轮，与白天同号 V1.5.5 撞号）
 //        | 与 159（白天 189 棒）；合并态实跑实测「有 VER 但无可解析日志行」= 156，
@@ -91,7 +101,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.5.7';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.9';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -139,7 +149,13 @@ const MIN_LOG_PARSED = 60;
 //   及 V1.5.2 的校准口径合并后实测 177；双向棘轮照旧：补日志须改小，掉日志/冒孤儿仍红）。
 // 双向棘轮，与⑩同口径：多出一个（新增孤儿或某文件的日志被写坏）要红；少一个（谁补了日志）也要红——
 // 后者必须回头把本常量改小，否则这个数就变成骗人的装饰（第 133 轮通规：白名单不是挂在那骗人的）。
-const EXPECT_NO_LOG = 156;
+// 无日志规模闸门：有 VER 常量、却整份文件找不到任何一行版本日志的文件数，必须**双向相等**。
+//   ★ 2026-11-08 第 195 轮：156 → 182。依据不是「本轮放松」，而是本轮合并上游 45d06eb1 后
+//     实测值变了：上游新并入的一批文件带 VER 常量但只写日期式头注（`| 2026-11-08（第 N 轮）`），
+//     没有 `Vx.y.z` 行，于是落进「有 VER 无日志」桶。逐条核过：182 个里无一是本轮五个改动文件
+//     （155/159/180/195/124rule-recipes）与两个新自证文件（两者都已补 VER + 版本日志行）。
+//   ★ 双向棘轮照旧生效：若下轮实测回落到 181 以下（有文件补了日志），这条会反过来红，逼着改小。
+const EXPECT_NO_LOG = 181;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
@@ -342,11 +358,30 @@ for (const [srcRel, spec] of Object.entries(VER_EMBEDDED_IN)) {
 //   ★ 2026-11-04 迭代：删 tests/_verify145.mjs —— 它是并行会话落下的未追踪临时 verify 助手，
 //     现已被并行走上 VER 常量，按本断言自身通规「腐烂条目不许挂着骗人」应删登记；且 _verify-*/_tmp-*
 //     临时文件已从 collect 扫描面整体排除（转瞬即逝、无版本可追溯），不再需要逐名登记进白名单。
+//   ★ 2026-11-08 第 195 轮：上游 45d06eb1 一次并入 249 文件，新落下 14 个**从未带过 VER 常量**的
+//     文件（头注写 `// tests/xxx | 2026-11-08（第 N 轮）` 这种日期式，没有 `Vx.y.z`）。
+//     这不是本轮改坏的，也不是我能替上游补的：补 VER 等于替上游定版本号，日后它自己补上时还会撞号。
+//     按本断言通规「名单外冒出新孤儿 ⇒ 必须显式登记或补常量」逐条登记，并把 ⑬ 的基数按实测重校
+//     ——重校依据写在 ⑬ 处，**不是放宽**：⑩ 仍是双向相等（名单里补上 VER 就会被要求删登记）。
 const NO_VER_WHITELIST = [
     'tests/_lib/buff-picker.mjs',
+    'tests/_lib/hex-key-refs.mjs',          // 2026-11-08 上游新增，海克斯键引用唯一来源
+    'tests/_lib/stats-thresholds.mjs',      // 2026-11-08 上游新增
+    'tests/buff-rules-case.mjs',
+    'tests/coverage-ledger.mjs',            // 2026-11-08 上游新增
     'tests/fact-coverage-selftest.mjs',
+    'tests/hp-death-exit-guard.mjs',        // 2026-11-08 上游新增
     'tests/manifest-fresh-selftest.mjs',
-    'tests/silent-relocate-judge-selftest.mjs'
+    'tests/mod-source-closure.mjs',         // 2026-11-08 上游新增
+    'tests/render-assert-skeleton.mjs',     // 2026-11-08 上游新增
+    'tests/silent-relocate-judge-selftest.mjs',
+    'tests/health-rules/229-buff-permanent.js',        // 2026-11-08 上游新增（D6 永久 buff）
+    'tests/health-rules/259-summon-uid-trace.js',      // 2026-11-08 上游新增（D6 召唤物）
+    'tests/health-rules/260-summon-death-closure.js',  // 2026-11-08 上游新增（D6 召唤物）
+    'tests/health-rules/261-horse-slot-lifecycle.js',  // 2026-11-08 上游新增（D6 占格）
+    'tests/health-rules/262-butterfly-window-pairing.js',  // 2026-11-08 上游新增（D6 附身）
+    'tests/health-rules/263-butterfly-window-no-action.js', // 2026-11-08 上游新增（D6 附身）
+    'tests/health-rules/264-lion-grow-timing.js'       // 2026-11-08 上游新增（D6 成长）
 ];
 const noVerSet = new Set(noVerFiles);
 for (const rel0 of noVerSet) {

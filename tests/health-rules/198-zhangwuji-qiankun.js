@@ -45,7 +45,7 @@ export const rule198 = {
             if (reducePct == null) continue;
             samples++;
             if (Math.abs(reducePct - cfg.reducePct) > 1e-9) {
-                return { fail: true, msg: '复发：乾坤' + (isBasic ? '基础版' : '升级版') + '减伤=' + (reducePct * 100) + '% ≠ content 参数 ' + (cfg.reducePct * 100) + '%（分支取错参数/写死旧值）' };
+                return { fail: true, msg: '复发：乾坤减伤比例不符 — ' + (isBasic ? '基础版' : '升级版') + ' 减伤=' + (reducePct * 100) + '% ≠ content 参数 ' + (cfg.reducePct * 100) + '%（分支取错参数/写死旧值）' };
             }
 
             var rebound = num(f.data.rebound);
@@ -59,7 +59,7 @@ export const rule198 = {
             var rLow = Math.floor(dmgLow * cfg.reboundPct);
             var rHigh = Math.floor((dmgHigh - 1e-9) * cfg.reboundPct);
             if (rebound < rLow - 1 || rebound > rHigh + 1) {
-                return { fail: true, msg: '复发：乾坤' + (isBasic ? '基础版' : '升级版') + '反弹 ' + rebound + ' 与自伤 ' + selfDmg + ' 不同源（自伤比 ' + (cfg.selfDmgPct * 100) + '% 反推原始伤害区间后，反弹比 ' + (cfg.reboundPct * 100) + '% 应落在 ' + rLow + '~' + rHigh + '）' };
+                return { fail: true, msg: '复发：乾坤反弹与自伤对不上 — ' + (isBasic ? '基础版' : '升级版') + ' 反弹 ' + rebound + ' 与自伤 ' + selfDmg + ' 不同源（自伤比 ' + (cfg.selfDmgPct * 100) + '% 反推原始伤害区间后，反弹比 ' + (cfg.reboundPct * 100) + '% 应落在 ' + rLow + '~' + rHigh + '）' };
             }
         }
         if (samples === 0) return 'skip';

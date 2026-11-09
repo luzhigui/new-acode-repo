@@ -40,7 +40,7 @@ export const rule179 = {
         var baseLen = squads[0].length;
         for (var v = 1; v < squads.length; v++) {
             if (squads[v].length !== baseLen) {
-                return { fail: true, msg: '复发：第' + stage + '关变体阵容长度不一致（变体1 ' + baseLen + ' 人 / 变体' + (v + 1) + ' ' + squads[v].length + ' 人）' };
+                return { fail: true, msg: '复发：变体阵容长度不一致 — 第' + stage + '关变体阵容长度不一致（变体1 ' + baseLen + ' 人 / 变体' + (v + 1) + ' ' + squads[v].length + ' 人）' };
             }
         }
         // ② 人数：替换型混入不增员，仅第5关玄冥齐出 +1
@@ -49,7 +49,7 @@ export const rule179 = {
         var bothXuanming = !!(names['鹿杖客'] && names['鹤笔翁']);
         var expected = baseLen + (stage === 5 && bothXuanming ? 1 : 0);
         if (E.length !== expected) {
-            return { fail: true, msg: '复发：第' + stage + '关敌方阵容 ' + E.length + ' 人（应为 ' + expected + ' 人，额外混入只许替换不增员）' };
+            return { fail: true, msg: '复发：额外混入导致增员 — 第' + stage + '关敌方阵容 ' + E.length + ' 人（应为 ' + expected + ' 人，额外混入只许替换不增员）' };
         }
         // ③ 重名
         var seen = {}, dup = null;
@@ -59,7 +59,7 @@ export const rule179 = {
             if (seen[n]) { dup = n; break; }
             seen[n] = true;
         }
-        if (dup) return { fail: true, msg: '复发：第' + stage + '关敌方阵容出现重名「' + dup + '」（混入/玄冥补员去重守卫漏登记）' };
+        if (dup) return { fail: true, msg: '复发：额外混入出现重名 — 第' + stage + '关敌方阵容出现重名「' + dup + '」（混入/玄冥补员去重守卫漏登记）' };
         return { fail: false };
     }
 };
@@ -87,12 +87,12 @@ export const rule180 = {
             if (u.name === '何太冲') {
                 // 双修特例：老板拍板 50/50，只允许战士/远程
                 if (u.role !== ROLE_TYPES.WARRIOR && u.role !== ROLE_TYPES.RANGED) {
-                    return { fail: true, msg: '复发：第' + stage + '关何太冲职业 ' + u.role + '（双修只允许战士/远程）' };
+                    return { fail: true, msg: '复发：何太冲职业越界 — 第' + stage + '关何太冲职业 ' + u.role + '（双修只允许战士/远程）' };
                 }
                 continue;
             }
             if (u.role !== idRole) {
-                return { fail: true, msg: '复发：第' + stage + '关具名敌方「' + u.name + '」职业与身份不符（身份 ' + idRole + ' / 实站 ' + u.role + '）' };
+                return { fail: true, msg: '复发：具名敌方职业与身份不符 — 第' + stage + '关具名敌方「' + u.name + '」职业与身份不符（身份 ' + idRole + ' / 实站 ' + u.role + '）' };
             }
         }
         return { fail: false };

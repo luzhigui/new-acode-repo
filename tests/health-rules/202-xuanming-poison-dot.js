@@ -80,7 +80,7 @@ export const rule202 = {
                 //   不接受原地不变 / 一次 +2 —— 精确到期判定需 fact 补 uid+round（见需求清单）。
                 var prevStacks = lastStacks[tName];
                 if (prevStacks != null && stacks !== prevStacks + 1 && stacks !== 1) {
-                    return { fail: true, msg: '复发：玄冥毒 ' + tName + ' stacks 从 ' + prevStacks + ' 跳到 ' + stacks + '（应 +1 或到期重挂为 1；叠层语义被写死）' };
+                    return { fail: true, msg: '复发：玄冥毒叠层跳变 — ' + tName + ' stacks 从 ' + prevStacks + ' 跳到 ' + stacks + '（应 +1 或到期重挂为 1；叠层语义被写死）' };
                 }
                 lastStacks[tName] = stacks;
                 poisonHits[tName] = (poisonHits[tName] || 0) + 1;
@@ -102,12 +102,12 @@ export const rule202 = {
                 if (lastStacks[dName] == null) {
                     lastStacks[dName] = st2;   // 开战即带毒（无施加记录）→ 只记录，不判口径
                 } else if (st2 !== lastStacks[dName]) {
-                    return { fail: true, msg: '复发：玄冥毒 ' + dName + ' DOT stacks=' + st2 + ' ≠ 最近中毒 stacks=' + lastStacks[dName] + '（状态与 fact 口径脱钩）' };
+                    return { fail: true, msg: '复发：玄冥毒 DOT 叠层与施加端脱钩 — ' + dName + ' DOT stacks=' + st2 + ' ≠ 最近中毒 stacks=' + lastStacks[dName] + '（状态与 fact 口径脱钩）' };
                 }
                 dotTicks[dName] = (dotTicks[dName] || 0) + 1;
                 var hits = poisonHits[dName] || 0;
                 if (hits > 0 && dotTicks[dName] > hits * duration) {
-                    return { fail: true, msg: '复发：玄冥毒 ' + dName + ' 已跳 ' + dotTicks[dName] + ' 次 > 中毒 ' + hits + ' 次×持续 ' + duration + ' 回合（到期没清 / duration 写死更大）' };
+                    return { fail: true, msg: '复发：玄冥毒跳数越界 — ' + dName + ' 已跳 ' + dotTicks[dName] + ' 次 > 中毒 ' + hits + ' 次×持续 ' + duration + ' 回合（到期没清 / duration 写死更大）' };
                 }
             }
         }

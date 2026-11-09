@@ -84,12 +84,16 @@
 //   原下界是 nightly 收口前的旧假设（hasActiveBuff/permHas/normalizeForces 等还在册，真实 identical ≥2 组）；
 //   171/172 收口核销后 tests 下逐字相同副本只剩 fail×3 一组，硬 ≥2 假红。新下界与「仍在册 expect:true
 //   的逐字重复组数」对齐：至少点出 1 组证明检测器没失灵，0 组才判覆盖面塌（届时须把 fail 也翻 expect:false）。
+// V1.9.0 | 2026-11-09 合入夜间 195–199 后：修 DUP_WITNESS 里 parentDmgOf 的过期证人（第二份早已不在盘，
+//   全 tests 仅 1 处定义，却还被当成「必须点出两处」的铁证，误报成「检测失灵」——第 162 轮 collectFacts
+//   同款病第二次复发）；新增 ㉑ 证人保鲜断言 + 两条纯内存正负路径自证，用定义数把「证人过期」
+//   与「检测器失灵」分开，不再诱使后人去改本来没坏的检测器。未动 auditDupFnNames 一行判据。
 // V1.8.0 | 2026-11-01 夜间第 173 轮：新增第三条线索 auditSharedLiteralSets（补第 172 轮点名的结构性盲区）。
 //   ★ 病根：原两把尺子是「同名 ∪ 同体」，盖不住「换个名字重写一遍」—— 第 172 轮第三份强制开关白名单
 //     叫 forcesOfEntry、用 indexOf 不用 includes，两把尺子同时漏掉它，最后是人工翻出来的。本条换尺子：
 //     看**元素取值**（共享 ≥2 且重叠度 ≥50% 即进网），与名字、写法都无关。只点名不收口（改覆盖面＝改行为，
 //     须拍板）。自证 ㉑ 双向必查：已知仍在册的 MAIN_DIRS ⇄ SCAN_DIRS 这一对必须被点出（缺 ⇒ 检测器失灵）。
-export const VER = 'tests/_lib/static-truth-slice.mjs V1.8.0';
+export const VER = 'tests/_lib/static-truth-slice.mjs V1.9.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -681,6 +685,43 @@ export function auditAnchorSites(opts) {
 //   ⒍⒎ 锚点取样三视图自证（整行注释 / 行尾注释 两种假写法必须各自能被数出来）。
 //   ★ 设计原则照抄第 143 轮 sample-sufficiency：每个新受体挂一条 selfCheck()，一处坏多处喊。
 // ---------------------------------------------------------------------------
+// ㉑ 证人保鲜（2026-11-09）：把「证人过期」与「检测失灵」分开。
+//   第 162 轮 collectFacts、本轮 parentDmgOf 都是上游把第二份收口了，自证里那条
+//   「仍在册的重复」前提已不成立，旧口径却一律报「检测失灵」—— 红得没有真因，
+//   还诱使后人去改本来没坏的检测器。数一下定义数即可定因，不用猜。
+/** 数某符号在 tests/ 下有多少个文件里写了函数定义（只看定义，不看调用/注释）。 */
+function countDefFiles(name) {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const re = new RegExp('\\b(?:function\\s+' + name + '\\b|(?:const|let|var)\\s+' + name + '\\s*=)');
+    let n = 0;
+    const walk = (dir) => {
+        for (const st of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (st.name.startsWith('.') || st.name === 'node_modules') continue;
+            const p = path.join(dir, st.name);
+            if (st.isDirectory()) { walk(p); continue; }
+            if (!/\.(js|mjs)$/.test(st.name)) continue;
+            try { if (re.test(fs.readFileSync(p, 'utf8'))) n++; } catch (_) { /* 读不到不计入 */ }
+        }
+    };
+    walk(root);
+    return n;
+}
+
+/** 纯逻辑，注入 countFn 即可做负路径自证（不碰磁盘）。 */
+export function checkWitnessFreshness(witnesses, countFn) {
+    const out = [];
+    for (const w of witnesses) {
+        if (!w.expect) continue;
+        const n = countFn(w.name);
+        if (n < 2) {
+            out.push('DUP_WITNESS 证人已过期：' + w.name + ' 全 tests 仅 ' + n
+                + ' 处函数定义 ⇒ 「仍在册的重复」前提不成立，请把 expect 改 false 并写清核销依据与轮次（'
+                + w.why + '）；不要去改 auditDupFnNames，它没坏');
+        }
+    }
+    return out;
+}
+
 export function selfCheck() {
     const fails = [];
     // ★ 自证自己必须"全函数不抛"：它一旦抛异常，两个受体会**直接崩掉**而不是报红
@@ -874,7 +915,7 @@ function runSelfChecks(fails) {
     //     或当初的核销依据失效）。两侧都要写清理由与轮次，谁改谁留痕。
     const DUP_WITNESS = [
         { name: 'readIfAbs', expect: false, why: '第 165 轮(续) 收口为 tests/_lib/read-if-abs.mjs 唯一来源（contract-binding-drift / rule-binding-drift 两处内联副本消除，重复真消失；今后 tests 下若再冒出第二份同体 readIfAbs 即判回归）' },
-        { name: 'parentDmgOf', expect: true, why: '第 152 轮点名至今仍在（两份，落在 health-rules）' },
+        { name: 'parentDmgOf', expect: false, why: '2026-11-09 核销：第 152 轮点名的两份（health-rules/151 与 159）里 151 那份已不在盘，实测全 tests 仅 159 一处定义 ⇒ 重复真消失，不是检测失灵；今后若再冒出第二份同体定义，本条按「重复回归」报红' },
         { name: 'fail', expect: true, why: '第 152 轮点名至今仍在（三份自检入口）' },
 { name: 'collectFacts', expect: false, why: '第 163 轮立 tests/_lib/fact-collect.mjs 为唯一收口；本轮消除 121health-monitor.js / rules-replay.mjs 内联副本（含 121 漏 phantomFact 的口径分叉），重复真消失（不是检测失灵）' },
 { name: 'hasActiveBuff', expect: false, why: '第 171 轮立 tests/_lib/buff-state-query.mjs 为唯一收口；消除 phantom-confuse-brother-case.mjs / xiaozhao-horse-carry-case.mjs 两处内联副本（逐字相同，纯搬迁零行为变化），重复真消失（不是检测失灵）' },
@@ -893,8 +934,20 @@ function runSelfChecks(fails) {
                 fails.push('auditDupFnNames 又把已核销的重复函数 ' + w.name + ' 点出来了（核销依据：' + w.why + ' ⇒ 要么重复回归、要么当初核销是误判，两边都要查）');
             }
         }
+        // ㉑ 证人保鲜：expect:true 的每一项必须在盘上真有 ≥2 处定义，否则是证人过期而非检测失灵。
+        //    放在「检测失灵」判定之后，两条红互不遮蔽；判定本身不让自证静默变绿。
+        fails.push(...checkWitnessFreshness(DUP_WITNESS, countDefFiles));
+        // ㉑ 负/正路径（纯内存注入，不碰磁盘）：过期证人必报、定义数够 2 不许报。
+        const stale = [{ name: '__no_such_fn__', expect: true, why: '自证合成' }];
+        const neg = checkWitnessFreshness(stale, () => 0);
+        if (neg.length !== 1 || !neg[0].includes('证人已过期')) {
+            fails.push('㉑ 负路径：合成一个已过期的证人竟没被点出 ⇒ 证人保鲜断言失效');
+        }
+        if (checkWitnessFreshness(stale, () => 2).length) {
+            fails.push('㉑ 正路径：定义数够 2 的证人竟被报过期 ⇒ 假红');
+        }
         // ★ 下界与「仍在册 expect:true 的逐字重复」对齐：nightly 171/172 收口后 tests 下真实 identical
-        //   只剩 fail×3 一组（parentDmgOf 落在 sameNameOnly 异体桶，不计入此口径）。0 组才判覆盖面塌。
+        //   只剩 fail×3 一组。0 组才判覆盖面塌。
         if (d9.identical.length < 1) {
             fails.push('auditDupFnNames 逐字重复只点出 ' + d9.identical.length + ' 组（应 ≥ 1）⇒ 重复检测覆盖面塌了');
         }

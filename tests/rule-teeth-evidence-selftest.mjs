@@ -100,6 +100,21 @@ const ROTTEN_WHITELIST = [
 
 // 连续数字归一化（26/22/190/12% 等实测值差异不应造成多条重复登记）
 function normMsg(m) { return m.replace(/\d+/g, '#'); }
+/**
+ * V1.0.7（第 199 轮）：**聚合外壳的归一化**——去掉「一条 msg 里用分号串了多条子病因」这层外壳。
+ *   为什么：一条分支把 errs 前 3 条 `join('；')` 上报（如 243 的 `A；B`、`A；B；C（共 N 处）`），
+ *   数字已抹成 # 之后，`A；B` 与 `A；B；C（共 # 处）` 仍是两个不同的 rk ⇒ 同一种病因在这条分支上
+ *   被数成多条种子病因，聚合型棘轮虚高。
+ *   ★ 只动「用于数种子的归一化」，**不动** findBranchByMsg 的匹配口径（匹配仍用原 msg），
+ *     也不动 rotten 键的归一化（腐烂棘轮该多严还多严）—— 这是本函数唯一的用途边界。
+ *   ★ 判定口径：msg 里出现「；」说明它是多条子病因串起来的聚合壳，取**首段**为代表；
+ *     单病因 msg 不含「；」，原样返回，不受影响。
+ */
+function aggNormMsg(m) {
+    const n = normMsg(m);
+    const i = n.indexOf('；');
+    return i === -1 ? n : n.slice(0, i);
+}
 function rottenKey(e) { return e.rule + '|' + normMsg(e.msg); }
 
 // V1.0.4：结构模板归一 —— 中文串与数字都抹成占位符，用来区分「多种子病因」到底是哪一种：
@@ -153,8 +168,10 @@ function computeTeethMaps(evid, branches) {
                 const k = bittenKeyOf(hit);
                 byRuleFp.set(k, (byRuleFp.get(k) || 0) + 1);
                 // 聚合型检测：同一条分支指纹承载了多条**不同**的归一化子病因
+                // ★ 第 199 轮：改用 aggNormMsg（去掉 `A；B；C` 聚合外壳后只留首条病因），
+                //   否则「同一条病因、只是串了 1 条还是 2 条」会被数成多种子病因，棘轮虚高。
                 if (!aggLoad.has(k)) aggLoad.set(k, new Set());
-                aggLoad.get(k).add(normMsg(msg));
+                aggLoad.get(k).add(aggNormMsg(msg));
             } else {
                 const rk = rottenKey({ rule: e.rule, msg });
                 if (!rotten.has(rk)) rotten.set(rk, { rule: e.rule, msg, norm: normMsg(msg), n: 0 });
@@ -211,18 +228,44 @@ function checkEvidenceFreshness() {
 // --- 解析证据文件（格式由 rules-replay.mjs 产出，见其 tag 行与 msgs 行）---
 //   ⚠️ |❌|✅|⏭  <规则名>  pass=N fail=M skip=K  【已转交·等主代码】(可选)
 //         <msg 行，6 空格缩进，形如 [seed=S stage=G] 复发：…>
+// ★ V1.0.6（第 199 轮）：**块边界必须是硬边界** —— 第 199 轮实测抓到的判据级盲区，务必先读。
+//   旧口径只认 `^\s{6}\S`（6 空格 + 非空白）作为证据行，**把「9 空格缩进」的观察项明细行也算了进来**
+//   （`=== 观察项 ===` 段里每条是 `  🔎 规则名` + `      [seed=..] …`，同样是 6 空格起）。
+//   而状态行（`✅ …pass=…`）不是 6 空格开头 ⇒ 循环**不会**在这里停 ⇒ 一旦当前规则是某变体里最后一条
+//   带证据的规则，后面整段观察项明细会被**吞进这条规则的 msgs**：
+//     实测 m-A1 里「蝶变附身窗口」块吃了 217 条，其中 214 条是别的规则的观察项明细（拒马/成长曲线/词条闭包…）；
+//   后果不是「少算几条」，而是**证据可解析率被稀释到 6.8%（762/11229）**，同时 473 条「对不上号」里
+//   九成是这种串味 —— 牙口腐烂棘轮整天挂红，真正该盯的两条规则（262/284 数据驱动 msg）反而被淹没。
+//   修法（只认格式，不动任何判据）：
+//     ① 块的**结束条件**从「不是 6 空格」收紧为「不是证据行」—— 证据行只认 `[seed=N stage=M]` 开头；
+//        任何其它行（状态行 / 段标题 / 空行 / BANNER）一律终止本块；
+//     ② 观察项段（`=== 观察项` 之后）整段跳过：它的明细不是 fail 证据，过去只是「碰巧」没被算进去。
+//   ★ 这是第 128 轮通规「白名单型 / 静默判据都是回放盲区」的又一例：这次的盲区是**解析器的收尾边界**。
+//   ★ V2.9.36（第 199 轮）：mutation-teeth 的 REPLAY 段改落 `@S@`/`@M@`/`@R@` 三种前缀
+//     （见 mutation-teeth 处「去掉 grep」的长注释：GNU grep 在 en_US.UTF-8 下对含 emoji 的交替式整批漏匹配，
+//      导致 ✅ 状态行全部丢失、明细串味）。这里同时兼容旧格式，两种都先剥前缀再判定。
+function isEvidenceMsgLine(l) {
+    return /^(?:@M@)?\s{6,}\[seed=\d+\s+stage=\d+\]/.test(l);
+}
 function parseEvidence(txt) {
     const lines = txt.split('\n');
     const entries = [];
     let curMut = null;
+    let inObservations = false;
     for (let i = 0; i < lines.length; i++) {
-        const L = lines[i];
+        const L = lines[i].replace(/^@[SMR]@/, '');
         const mm = L.match(/^#####\s+MUT\s+(\S+)\s+#####/);
-        if (mm) { curMut = mm[1]; continue; }
+        if (mm) { curMut = mm[1]; inObservations = false; continue; }
+        // 观察项段：`=== 观察项` 起到该 MUT 块结束（空行 + BASELINE/STAT 段标题）为止，整段不是 fail 证据
+        if (/^===\s*观察项/.test(L)) { inObservations = true; continue; }
+        if (inObservations) {
+            if (/^(RESULT:|BASELINE:|STAT:|FP:|#####)/.test(L) || L.trim() === '') inObservations = false;
+            else continue;
+        }
         const m = L.match(/^(?:❌|⚠️\s|✅|⏭\s)\s*(.+?)\s+pass=(\d+)\s+fail=(\d+)\s+skip=(\d+)/);
         if (!m) continue;
         const msgs = [];
-        for (let j = i + 1; j < lines.length && /^\s{6}\S/.test(lines[j]); j++) msgs.push(lines[j].trim());
+        for (let j = i + 1; j < lines.length && isEvidenceMsgLine(lines[j]); j++) msgs.push(lines[j].replace(/^@M@/, '').trim());
         entries.push({ mut: curMut, rule: m[1], pass: +m[2], fail: +m[3], skip: +m[4], msgs });
         i += msgs.length;
     }

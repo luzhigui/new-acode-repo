@@ -1,3 +1,6 @@
+// V1.48.0 | 2026-11-09 合入夜间第 195–199 轮：新增两项离线断言（韦一笑吸血额度 / 流星成长渲染）
+//   进 CHECKS，清单 63 条全唯一；顺手归位版本漂移——上一版头注已抬 V1.47.0、VER 仍停 V1.46.0
+//   （ver-drift / ver-bump 会报红），本次两端同步抬到 V1.48.0。未改任何既有判据、未动 CHECKS 口径。
 // V1.47.0 | 2026-11-08 迭代：挂「入口路径强制」tests/entry-path-guard.mjs（新建 V1.0.0）。
 //   由头：现有闸门管的是「目录怎么依赖」「版本有没升」「字段有没有登记」，没有一条管
 //   「公共出口已提供、代码却绕过它自己手写」。实测骨架铺开率极不均：findAlive 39/50、
@@ -212,7 +215,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.46.0';
+export const VER = 'tests/run-all.mjs V1.48.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -235,6 +238,17 @@ const CHECKS = [
     { name: '无头冒烟', script: 'tests/smoke-headless.mjs', args: [] },
     { name: '账本对照(声明vs实际)', script: 'tests/stat-decl-vs-actual-check.mjs', args: [] },
     { name: '静默位移判据自检(离线断言)', script: 'tests/silent-relocate-judge-selftest.mjs', args: [] },
+    // V1.39.0 | 2026-11-08 夜间第 195 轮：挂「韦一笑吸血额度判据自检」tests/wei-leech-quota-selftest.mjs。
+    //   159 的判据 A2 本轮由「heal ≤ 出手快照缺口」改为「heal ≤ nominal ≤ actual」额度自洽链
+    //   （快照 hp 是 fmtHp 取整值、且同帧前序吸血已抬 maxHp，快照缺口不是落账缺口）。
+    //   ★ 放宽必须同时证明仍能咬住 —— 否则就是拿改判据换绿灯。回放里修前 fail=1 / 修后 fail=0，
+    //     看不出「报大数」这类回归是否还被咬住，故离线补 12 条（正向 5 / 反向 7）。
+    { name: '韦一笑吸血额度判据自检(离线断言)', script: 'tests/wei-leech-quota-selftest.mjs', args: [] },
+    // V1.39.0 | 2026-11-08 夜间第 195 轮：挂「流星成长渲染判据自检」tests/meteor-growth-render-selftest.mjs。
+    //   155 曾因只认「攻击+N」而在 156 场里恒空转（主代码 negative 成长写「攻击-N」），
+    //   而 153 头注称「单位名缺失/渲染两遍已拆到 155」、实现里却只剩成长量一条 ⇒ 两块覆盖双重失守。
+    //   修正则后必须证明仍能咬住，故离线补 7 条（反向 3 / 正向 3 / skip 1）。
+    { name: '流星成长渲染判据自检(离线断言)', script: 'tests/meteor-growth-render-selftest.mjs', args: [] },
     // V1.4.0 | 2026-10-24 第 127 轮：挂「对照器守卫自检」tests/contract-guard-selftest.mjs。
     //   18 颗 ATTR 变异牙的判定是「规则无牙·对照器兜住」——对照器是它们**唯一**的证据来源，
     //   却一直没配离线自检（第 125 轮立的通规：白名单型判据都是回放盲区，须逐个补自检）。

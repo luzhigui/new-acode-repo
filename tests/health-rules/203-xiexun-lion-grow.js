@@ -47,7 +47,7 @@ export const rule203 = {
             var wantDef = expectForm.def + (bonus.def || 0);
             var wantMaxHp = expectForm.maxHp + (bonus.maxHp || 0);
             if (Math.abs(f.data.atk - wantAtk) > 1 || Math.abs(f.data.def - wantDef) > 1 || Math.abs(f.data.maxHp - wantMaxHp) > 1) {
-                return { fail: true, msg: '复发：' + expectForm.name + '成形值 atk/def/maxHp=' + f.data.atk + '/' + f.data.def + '/' + f.data.maxHp + ' ≠ 配置基础值+职业加成 ' + wantAtk + '/' + wantDef + '/' + wantMaxHp + '（基础值改配置没跟 / 漏职业加成）' };
+                return { fail: true, msg: '复发：成形值 atk/def/maxHp 与配置不符 — ' + expectForm.name + ' 实测 atk/def/maxHp=' + f.data.atk + '/' + f.data.def + '/' + f.data.maxHp + ' ≠ 配置基础值+职业加成 ' + wantAtk + '/' + wantDef + '/' + wantMaxHp + '（基础值改配置没跟 / 漏职业加成）' };
             }
 
             var dAtk = wantAtk - cub.atk;

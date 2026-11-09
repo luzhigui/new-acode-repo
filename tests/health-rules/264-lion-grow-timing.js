@@ -58,29 +58,29 @@ export const rule264 = {
             growN++;
             const uid = d.unitUid;
             if (typeof uid !== 'string' || uid === '') {
-                fails.push(`第${round}回合成长缺 unitUid`);
+                fails.push(`幼狮成长时机：第${round}回合成长缺 unitUid`);
                 continue;
             }
             if (!summonRound.has(uid)) {
-                fails.push(`第${round}回合成长的 uid ${uid} 对不上任何一次召唤`);
+                fails.push(`幼狮成长时机：第${round}回合成长的 uid ${uid} 对不上任何一次召唤`);
                 continue;
             }
             if (round < summonRound.get(uid) + 1) {
-                fails.push(`第${round}回合成长早于召唤下一回合（同回合/倒序，uid=${uid}）`);
+                fails.push(`幼狮成长时机：第${round}回合成长早于召唤下一回合（同回合/倒序，uid=${uid}）`);
             }
-            if (grown.has(uid)) fails.push(`幼狮 ${uid} 成长两次`);
+            if (grown.has(uid)) fails.push(`幼狮成长时机：幼狮 ${uid} 成长两次`);
             grown.add(uid);
             if (typeof d.pos === 'number' && Number.isInteger(d.pos)) {
                 const expect = d.pos <= frontMax ? frontName : backName;
                 if (d.name !== expect) {
-                    fails.push(`第${round}回合落点 ${d.pos} 号位应成${expect}，实际${String(d.name)}`);
+                    fails.push(`幼狮成长时机：第${round}回合落点 ${d.pos} 号位应成${expect}，实际${String(d.name)}`);
                 }
             }
         }
         if (growN === 0) return 'skip';
 
         const observe = `成长 ${growN} 次，形态口径 frontMax=${frontMax}（${frontName}/${backName}）`;
-        if (fails.length) return { fail: true, msg: fails.slice(0, 3).join('；') };
+        if (fails.length) return { fail: true, msg: `幼狮成长时机与形态口径：${fails[0].slice('幼狮成长时机：'.length)}（共 ${fails.length} 条）` };
         return { fail: false, observe: observe };
     }
 };

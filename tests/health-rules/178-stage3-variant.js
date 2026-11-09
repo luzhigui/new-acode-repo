@@ -44,11 +44,11 @@ export const rule181 = {
             var sets = vars.map(function (v) { return namedElitesOf(v && v.squad, chars); });
             for (var j = 0; j < sets.length; j++) {
                 if (!sets[j].length) {
-                    return { fail: true, msg: '复发：第' + st + '关变体' + (j + 1) + ' 未配具名（不可替换）精英（该变体无法被任何名字反推，跑批分桶口径失效）' };
+                    return { fail: true, msg: '复发：变体缺具名精英 — 第' + st + '关变体' + (j + 1) + ' 未配具名（不可替换）精英（该变体无法被任何名字反推，跑批分桶口径失效）' };
                 }
                 for (var k = 0; k < j; k++) {
                     if (sets[k].join('|') === sets[j].join('|')) {
-                        return { fail: true, msg: '复发：第' + st + '关变体' + (k + 1) + ' 与变体' + (j + 1) + ' 的具名精英完全相同（按名反推必然打架）' };
+                        return { fail: true, msg: '复发：变体具名精英完全重合 — 第' + st + '关变体' + (k + 1) + ' 与变体' + (j + 1) + ' 的具名精英完全相同（按名反推必然打架）' };
                     }
                 }
             }
@@ -65,7 +65,7 @@ export const rule181 = {
         var mineSets = mine.map(function (v) { return namedElitesOf(v && v.squad, chars); });
         var matched = mineSets.some(function (set) { return set.every(function (n) { return names[n]; }); });
         if (!matched) {
-            return { fail: true, msg: '复发：第' + stage + '关变体未成套下发（两套变体自带的具名精英都不在场）' };
+            return { fail: true, msg: '复发：变体未成套下发 — 第' + stage + '关变体未成套下发（两套变体自带的具名精英都不在场）' };
         }
         return { fail: false };
     }

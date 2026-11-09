@@ -55,7 +55,7 @@ export const rule285 = {
                     // 判据③（同帧）：复活必须晚于本帧的死亡登记
                     const fd = frameDeaths.get(d.unitUid);
                     if (fd != null && fd > i) {
-                        errs.push(`${d.unitName || d.unitUid} 复活公告@${i} 早于同帧死亡@${fd}`);
+                        errs.push(`复活公告早于同帧死亡：${d.unitName || d.unitUid} 复活公告@${i} 早于同帧死亡@${fd}`);
                     }
                     dead.delete(d.unitUid);
                 }
@@ -68,7 +68,7 @@ export const rule285 = {
                 if (uid != null) {
                     const di = dead.get(uid);
                     if (di != null) {
-                        errs.push(`${d.unitName || uid} 已死亡@${di}，仍在@${i} 被结算反弹 ${d.rebound}`);
+                        errs.push(`已死亡仍被结算反弹：${d.unitName || uid} 已死亡@${di}，仍在@${i} 被结算反弹 ${d.rebound}`);
                         if (errs.length >= 4) break;
                     }
                 }
@@ -79,10 +79,10 @@ export const rule285 = {
                 regenN++;
                 const uid = d.unitUid;
                 if (!frameHasDeath) {
-                    errs.push(`再生@${i} 之前本帧没有任何死亡登记（顺序漂移）`);
+                    errs.push(`再生之前本帧无死亡登记：再生@${i} 之前本帧没有任何死亡登记（顺序漂移）`);
                 }
                 if (uid != null && dead.has(uid)) {
-                    errs.push(`再生@${i} 的目标 ${uid} 处于已死未复活状态（回血给尸体）`);
+                    errs.push(`再生目标已死未复活：再生@${i} 的目标 ${uid} 处于已死未复活状态（回血给尸体）`);
                 }
                 if (errs.length >= 4) break;
             }

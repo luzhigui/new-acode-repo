@@ -1,7 +1,13 @@
-// V1.0.0 | 2026-11-06 新建：编排器自身完整性守门（清单→磁盘断链 / 观察项显形不腐烂 / 拍板边界不被越）
-// tests/run-all-integrity-selftest.mjs | V1.0.0 | 2026-11-06 迭代：编排器自身完整性守门。
+// V1.1.0 | 2026-11-08 迭代：新增 ④【清单自洽】——同段内重复挂载 / 同名异绑 / hard 口径分裂。
+//   实跑取证：稳定提交 7ab90c22 的 run-all.mjs 里，OBSERVES 的「海克斯配置三边闭环」(L367/L374)
+//   与「海克斯逐键双档覆盖」(L370/L377) 被各挂了两遍（62 条清单只有 60 条唯一）。
+//   ★ 三处消费这份清单的守门（本件的断链检查 / pack-manifest-check 的 Set / orphan-sweep 的
+//     「已登记」真值）都只查「清单里写了什么」，没有一个查「清单自己写重了没有」⇒ 同一脚本
+//     每轮白跑一遍，失败时汇总里同一个名字点两遍；两套 hard 声明一旦被分别改过，同一脚本还会
+//     同时被标成「确定型守门」和「待研判取证项」，结论自相矛盾。本件把清单自身也纳入被审计对象。
+// tests/run-all-integrity-selftest.mjs | V1.1.0 | 2026-11-08 迭代：编排器自身完整性守门。
 //
-// 干什么（三件事，全部只读、不执行任何被扫脚本）：
+// 干什么（四件事，全部只读、不执行任何被扫脚本）：
 //   ①【清单→磁盘断链】run-all.mjs 的 CHECKS/OBSERVES 里每条 script: 指向的文件必须在盘。
 //      由来：11-04/11-05 两晚云端夜间任务挂在「/workspace/repo 整个目录被回收」，
 //      任务书 11-06 实测「以 GitHub main 为基底只有 9/25、以 nightly/第179轮 为基底 22/25」——
@@ -13,6 +19,11 @@
 //      沿用 guard-presence-scan 第 155 轮立的范式，剥注释走公共件唯一来源 stripCommentsMapped）。
 //   ③【拍板边界不被越】OBSERVES 段不得出现 failed++，process.exit(failed ? 1 : 0) 必须还在。
 //      「观察项要不要升红线开拦」是拍板权，本件只守住「没被谁顺手改掉」，不替人拍板。
+//   ④【清单自洽】（V1.1.0）从剥注释后的真代码分别取 CHECKS / OBSERVES 声明段，逐条解析
+//      name/script/args/hard，判三件事：同一段内 (name,script,args) 完全相同＝重复挂载；
+//      同一段内同名却指向不同脚本/参数＝同名异绑；同名条目的 hard 声明不一致＝口径分裂。
+//      ★ 只认真代码：注释里写一条假的 script: 不算条目（与 orphan-sweep 三视图口径一致）；
+//        段抽不到 / 一条都没抠出来一律判「抽取器失位」，不许把「没查」写成「没问题」。
 //
 // 退码：exit 1 = 编排器自身不完整/显形退回假绿/边界被越，属体检域确定性缺陷。
 //   按既定取舍挂 run-all 的 OBSERVES（不改 CHECKS 分母、不改既有结论），是否升 CHECKS 待拍板。
@@ -27,7 +38,7 @@ import {
     VER as TRUTH_VER, selfCheck as truthSelfCheck, stripCommentsMapped
 } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/run-all-integrity-selftest.mjs V1.0.0';
+export const VER = 'tests/run-all-integrity-selftest.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -58,13 +69,47 @@ function observeSegment(code) {
 }
 
 /**
+ * 取一份清单声明段（CHECKS / OBSERVES）的真代码。
+ * ★ 传进来的 code 已剥注释 ⇒ 注释里写一条 `script: 'tests/x.mjs'` 不会被当成已登记条目。
+ *   非贪婪截到第一个 `];`；清单项里的 args 是 `[]` 不是 `];`，不会提前截断。
+ */
+function listSegment(code, name) {
+    const re = new RegExp('const\\s+' + name + '\\s*=\\s*\\[([\\s\\S]*?)\\];');
+    const hit = re.exec(code);
+    if (!hit) return null;
+    return { text: hit[1], start: hit.index + hit[0].indexOf('[') + 1 };
+}
+
+/** 抠清单项的 name/script/args/hard；args 缺失按空数组算（自证合成样本即无 args）。 */
+function parseEntries(seg) {
+    const out = [];
+    // 逗号可选：清单真实条目都带 args，但自证合成样本里的 CHECKS 条目只有 name/script。
+    // 少一个逗号就一条都抠不出来 ⇒ 会误报「抽取器失位」，把真判据挡在门外。
+    const re = /\{\s*name:\s*'([^']+)'\s*,\s*script:\s*'([^']+)'\s*,?\s*([^{}]*)\}/g;
+    for (const m of seg.text.matchAll(re)) {
+        const rest = m[3] || '';
+        const a = /args:\s*\[([^\]]*)\]/.exec(rest);
+        out.push({
+            name: m[1],
+            script: m[2],
+            args: a ? a[1].replace(/\s+/g, '') : '',
+            hard: /hard:\s*true/.test(rest),
+            line: 0,
+            at: seg.start + m.index
+        });
+    }
+    return out;
+}
+
+/**
  * 审计编排器。
  * @param {string} src run-all.mjs 源码
  * @param {(rel:string)=>boolean} exists 注入的存在性判定（自证时喂假实现，不碰磁盘）
- * @returns {{fails:string[], missing:{id:string,why:string}[], hits:{id:string,line:number}[], broken:string[], scripts:string[]}}
+ * @returns {{fails:string[], missing:{id:string,why:string}[], hits:{id:string,line:number}[], broken:string[], scripts:string[], counts:object, duplicates:object[], nameClashes:object[], hardSplits:object[]}}
  */
 export function auditRunAllIntegrity(src, exists) {
-    const res = { fails: [], missing: [], hits: [], broken: [], scripts: [] };
+    const res = { fails: [], missing: [], hits: [], broken: [], scripts: [],
+        counts: {}, duplicates: [], nameClashes: [], hardSplits: [] };
     if (typeof src !== 'string' || !src.length) {
         res.fails.push('run-all.mjs 源码为空 ⇒ 本件没有真的取到东西（不许把「取不到」当成「没问题」）');
         return res;
@@ -103,6 +148,50 @@ export function auditRunAllIntegrity(src, exists) {
     }
     for (const p of res.scripts) if (!exists(p)) res.broken.push(p);
 
+    // ④ 清单自洽（V1.1.0）：把「清单自己」也当成被审计对象，而不是只当真值来源。
+    for (const L of [
+        { name: 'CHECKS', seg: listSegment(code, 'CHECKS') },
+        { name: 'OBSERVES', seg: listSegment(code, 'OBSERVES') }
+    ]) {
+        if (!L.seg || !L.seg.text.trim()) {
+            res.fails.push('取不到 ' + L.name + ' 清单声明段 ⇒ 清单自洽检查空转（不许把「抽不到」当「没问题」）');
+            continue;
+        }
+        const entries = parseEntries(L.seg);
+        if (!entries.length) {
+            res.fails.push(L.name + ' 段一条清单项都没抠出来 ⇒ 条目抽取器失位，清单自洽检查空转');
+            continue;
+        }
+        res.counts[L.name] = entries.length;
+        for (const e of entries) e.line = lineOf(e.at);
+
+        // a) 完全重复：同一段里 (name, script, args) 出现两次以上
+        const byKey = new Map();
+        for (const e of entries) {
+            const k = e.name + '|' + e.script + '|' + e.args;
+            if (!byKey.has(k)) byKey.set(k, []);
+            byKey.get(k).push(e);
+        }
+        for (const [k, v] of byKey) {
+            if (v.length > 1) res.duplicates.push({ list: L.name, key: k, lines: v.map(e => e.line) });
+        }
+
+        // b) 同名异绑 / c) hard 口径分裂：汇总按 name 点名，同名必须只有一种含义
+        const byName = new Map();
+        for (const e of entries) {
+            if (!byName.has(e.name)) byName.set(e.name, []);
+            byName.get(e.name).push(e);
+        }
+        for (const [n, v] of byName) {
+            if (new Set(v.map(e => e.script + '|' + e.args)).size > 1) {
+                res.nameClashes.push({ list: L.name, name: n, lines: v.map(e => e.line) });
+            }
+            if (new Set(v.map(e => e.hard)).size > 1) {
+                res.hardSplits.push({ list: L.name, name: n, lines: v.map(e => e.line) });
+            }
+        }
+    }
+
     return res;
 }
 
@@ -132,8 +221,11 @@ export function selfCheck() {
     const noExists = () => false;
 
     const r0 = auditRunAllIntegrity(good, okExists);
-    if (r0.fails.length || r0.missing.length || r0.broken.length) {
-        fails.push('正路径：齐全样本本应全绿，实得 fails=' + r0.fails.length + ' missing=' + r0.missing.length + ' broken=' + r0.broken.length);
+    if (r0.fails.length || r0.missing.length || r0.broken.length ||
+        r0.duplicates.length || r0.nameClashes.length || r0.hardSplits.length) {
+        fails.push('正路径：齐全样本本应全绿，实得 fails=' + r0.fails.length + ' missing=' + r0.missing.length +
+            ' broken=' + r0.broken.length + ' dup=' + r0.duplicates.length +
+            ' clash=' + r0.nameClashes.length + ' split=' + r0.hardSplits.length);
     }
     // 负路径 A：删掉「读退出码」
     const noStatus = good.replace(/const code = \(typeof r\.status === 'number'\) \? r\.status : 1;/, 'const code = 0;');
@@ -162,6 +254,29 @@ export function selfCheck() {
     if (!auditRunAllIntegrity(L(decoy), okExists).missing.some(x => x.id === 'readStatus')) {
         fails.push('负路径 F：CHECKS 段读码做诱饵、OBSERVES 段丢读码，本件竟没报 readStatus ⇒ 退回全文匹配的假绿');
     }
+
+    // ---- V1.1.0 清单自洽：五条新负路径（G~K） ----
+    const withObserve = (body) => head.replace(/const OBSERVES = \[[\s\S]*?\];/, 'const OBSERVES = [' + body + '];');
+    const one = "{ name: '合成守门', script: 'tests/run-all-integrity-selftest.mjs', args: [], hard: true }";
+    // 负路径 G：两条一模一样的观察项 ⇒ 必须报重复挂载
+    const rDup = auditRunAllIntegrity(withObserve(one + ', ' + one) + '\n' + seg, okExists);
+    if (!rDup.duplicates.length) fails.push('负路径 G：OBSERVES 里两条一模一样的条目，本件竟没报重复挂载 ⇒ 假绿');
+    // 负路径 H：同名却指向别的脚本 ⇒ 必须报同名异绑
+    const rClash = auditRunAllIntegrity(withObserve(one + ", { name: '合成守门', script: 'tests/another.mjs', args: [] }") + '\n' + seg, okExists);
+    if (!rClash.nameClashes.length) fails.push('负路径 H：同名指向不同脚本，本件竟没报同名异绑 ⇒ 假绿');
+    // 负路径 I：同名一条 hard:true 一条没有 ⇒ 必须报口径分裂
+    const rSplit = auditRunAllIntegrity(withObserve(one + ", { name: '合成守门', script: 'tests/run-all-integrity-selftest.mjs', args: [] }") + '\n' + seg, okExists);
+    if (!rSplit.hardSplits.length) fails.push('负路径 I：同名条目 hard 声明不一致，本件竟没报口径分裂 ⇒ 假绿');
+    // 负路径 J：注释里的假条目不许被算成真条目（取样面只认剥注释后的真代码）
+    const rDecoy = auditRunAllIntegrity('// ' + one + '\n' + good, okExists);
+    if (rDecoy.counts.OBSERVES !== 1 || rDecoy.duplicates.length) {
+        fails.push('负路径 J：注释里的假条目被当成真条目 ⇒ 清单自洽取样面被污染');
+    }
+    // 负路径 K：CHECKS 段被改名 ⇒ 必须报「抽不到」，不许把空转写成没问题
+    const noList = good.replace('const CHECKS = [', 'const CHECK_LIST = [');
+    if (!auditRunAllIntegrity(noList, okExists).fails.some(x => x.includes('CHECKS'))) {
+        fails.push('负路径 K：CHECKS 段抽不到，本件竟没报抽取器失位 ⇒ 假绿');
+    }
     return fails;
 }
 
@@ -172,17 +287,26 @@ function main() {
     console.log('=== 编排器自身完整性守门 ' + VER + ' ===');
     const tFails = truthSelfCheck();
     if (tFails && tFails.length) {
-        console.log('⛔ 公共剥注释件 ' + TRUTH_VER + ' 自证失败 ' + tFails.length + ' 处，结论不可信：');
+        // V1.1.0：治理型自证红（第二份实现棘轮 / 改名对上限）≠ 剥注释功能失效。
+        //   旧版在这里直接 return 1 ⇒ 别人的治理账一红，本件 ①②③④ 全部空转、一个结论都不打。
+        //   实测 2026-11-08：公共件 4 条治理红（并行会话新增脚本手写 stripComments / 改名对 23 对 > 12）
+        //   把「清单自洽」新判据完全遮蔽。改为「照常跑完并打印，红仍计进退码」：
+        //   不弱化任何判据、不放行任何红，只是不让别人的红把本件结论整个盖住。
+        console.log('⚠ 公共剥注释件 ' + TRUTH_VER + ' 自证失败 ' + tFails.length + ' 处（仍计进退码）：');
         for (const x of tFails) console.log('  · ' + x);
+    }
+    let sFails;
+    try { sFails = selfCheck(); }
+    catch (e) {
+        console.log('⛔ 本件自证抛异常（剥注释公共件功能可能已失效）：' + (e && e.message ? e.message : String(e)));
         return 1;
     }
-    const sFails = selfCheck();
     if (sFails.length) {
         console.log('⛔ 本件自证失败 ' + sFails.length + ' 处（自身判据先坏了）：');
         for (const x of sFails) console.log('  · ' + x);
         return 1;
     }
-    console.log('· 自证：正路径全绿 + 6 条负路径（读码/收集/断链/越界/空源码/段内诱饵）全部咬住');
+    console.log('· 自证：正路径全绿 + 11 条负路径（读码/收集/断链/越界/空源码/段内诱饵/重复挂载/同名异绑/hard分裂/注释诱饵/清单失位）全部咬住');
 
     const relOrAbs = srcArg ? srcArg.slice('--src='.length) : RUN_ALL;
     const p = path.isAbsolute(relOrAbs) ? relOrAbs : path.join(root, relOrAbs);
@@ -192,21 +316,42 @@ function main() {
         return 1;
     }
     const src = fs.readFileSync(p, 'utf8');
-    const r = auditRunAllIntegrity(src, (rel) => fs.existsSync(path.join(root, rel)));
+    let r;
+    try { r = auditRunAllIntegrity(src, (rel) => fs.existsSync(path.join(root, rel))); }
+    catch (e) {
+        console.log('⛔ 本件判据抛异常（剥注释公共件功能可能已失效）：' + (e && e.message ? e.message : String(e)));
+        return 1;
+    }
 
     for (const h of r.hits) console.log('  ✅ ' + h.id.padEnd(14) + ' L' + h.line);
     for (const x of r.missing) console.log('  ❌ ' + x.id.padEnd(14) + ' ' + x.why);
     for (const x of r.fails) console.log('  ❌ ' + x);
     for (const b of r.broken) console.log('  ❌ 断链 ' + b + '（run-all 清单登记了，磁盘上没有）');
+    for (const d of r.duplicates) {
+        const [n, s, a] = d.key.split('|');
+        console.log('  ❌ 重复挂载 [' + d.list + '] L' + d.lines.join(' & L') + ' 「' + n + '」' + s + ' [' + a + ']');
+    }
+    for (const x of r.nameClashes) {
+        console.log('  ❌ 同名异绑 [' + x.list + '] L' + x.lines.join(' & L') + ' 「' + x.name + '」指向了不同的脚本/参数');
+    }
+    for (const x of r.hardSplits) {
+        console.log('  ❌ hard 口径分裂 [' + x.list + '] L' + x.lines.join(' & L') + ' 「' + x.name + '」同名条目 hard 声明不一致');
+    }
 
     console.log('· 清单脚本 ' + r.scripts.length + ' 条，在盘 ' + (r.scripts.length - r.broken.length) + ' 条，断链 ' + r.broken.length + ' 条');
+    console.log('· 清单自洽：CHECKS ' + (r.counts.CHECKS ?? '?') + ' 条 / OBSERVES ' + (r.counts.OBSERVES ?? '?') +
+        ' 条，重复 ' + r.duplicates.length + ' 组 / 同名异绑 ' + r.nameClashes.length +
+        ' 处 / hard 分裂 ' + r.hardSplits.length + ' 处');
     // 软检查：夜间迭代日志是夜间任务的接力入口，缺失只提示、不判红（白天本地与云端重建前都可能没有）。
     if (!fs.existsSync(path.join(root, NIGHTLY_LOG))) {
         console.log('  ⚠ ' + NIGHTLY_LOG + ' 不在盘 —— 夜间任务靠它接力，若这是夜间沙箱请先走「工作区自愈重建」');
     }
 
-    const bad = r.fails.length + r.missing.length + r.broken.length;
-    console.log(bad ? ('⛔ 编排器自身完整性 ' + bad + ' 处失守（见上）') : '✅ 编排器自身完整性 PASS（显形未腐烂 / 边界未越 / 清单无断链）');
+    const bad = r.fails.length + r.missing.length + r.broken.length +
+        r.duplicates.length + r.nameClashes.length + r.hardSplits.length +
+        (tFails ? tFails.length : 0);
+    console.log(bad ? ('⛔ 编排器自身完整性 ' + bad + ' 处失守（见上）') :
+        '✅ 编排器自身完整性 PASS（显形未腐烂 / 边界未越 / 清单无断链 / 清单自洽）');
     return bad ? 1 : 0;
 }
 

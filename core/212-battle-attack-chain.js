@@ -154,7 +154,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 rawAmount: Math.floor(getStat(unit, 'atk')),
                 actualAmount: 0
             });
-            // 闪避反伤倍率：姊流云身法可覆盖（reboundRatio = 75%），否则走 CONFIG 默认
+            // 闪避反伤倍率：姊流云身法可覆盖（reboundRatio = 50%），否则走 CONFIG 默认
             const dodgeTeam = target.camp === CAMP_TYPES.ALLY ? ctx.A : ctx.B;
             const xzCloud = dodgeTeam ? query('xiaoHexEnhance', dodgeTeam, dodgeTeam._activeBuffs || [], BUFF_TYPES.CLOUD_BODY) : null;
             const rebRatio = (xzCloud && xzCloud.reboundRatio) ? xzCloud.reboundRatio : C.DODGE_REBOUND_RATIO;

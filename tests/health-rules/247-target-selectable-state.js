@@ -84,7 +84,9 @@ export const rule247 = {
 
             var why = badState(t);
             if (why) {
-                errs.push('第' + (round == null ? '?' : round) + '回合：' + (a.name || a.uid) + ' 的 ' + f.factType + ' 指向了 ' + (t.name || t.uid) + '：' + why);
+                // 第 199 轮（夜间）合入：msg 开头补稳定中文静态前缀，供分支指纹抽取器取到可区分指纹。
+                // 白天版此处是「第N回合：」动态开头 ⇒ 抽取器拿不到 ≥4 字静态前缀，分支恒「无法裁定」。
+                errs.push('攻击目标不可选：' + (a.name || a.uid) + ' 的 ' + f.factType + ' 指向了 ' + (t.name || t.uid) + '：' + why);
             }
 
             if (t.uid != null && crossdressEnd[t.uid] != null && round != null && round <= crossdressEnd[t.uid]) {

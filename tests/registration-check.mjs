@@ -10,7 +10,7 @@
 //      按用户定调（2026-10-02）本就有意不全，新体检规则/runner 不要求往里登记，
 //      重复登记也无害**。故 106 差异只输出一行中性说明，不算待办、不计硬失败、不要去补登。
 // 运行：node tests/registration-check.mjs
-export const VER = 'tests/registration-check.mjs V1.3.0';
+export const VER = 'tests/registration-check.mjs V1.4.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
@@ -142,10 +142,34 @@ async function main() {
             if (mm) imported.push(mm[2] || mm[1]); // 有别名取本地绑定名，否则取原名
         }
     }
+    // V1.4.0（第 196 轮）：121 的规则装载改为 `const RULE_MODULES = [{ local, from, export }]` 表驱动
+    //   动态 import，静态 import 已全部移除。若只认静态 import，这里会把 123 条全判成「数组引用未 import」，
+    //   属于**守门人跟不上被守对象的合法重构**（守卫变噪音），也会掩盖真正的漏登记。
+    //   新口径三处对齐：① 表条目 = import（local 名）；② 数组 = B('local')；③ 两边互为补集。
+    //   注意：表里登记了但数组没写 = 浏览器侧从不执行；数组写了但表里没有 = B() 会抛「缺登记」。
+    const tableLocals = [];
+    const tableBlock = t121.match(/const\s+RULE_MODULES\s*=\s*\[([\s\S]*?)\n\];/);
+    if (tableBlock) {
+        for (const mm of tableBlock[1].matchAll(/local:\s*'([\w$]+)'/g)) tableLocals.push(mm[1]);
+    }
+    const importedUnion = [...new Set(imported.concat(tableLocals))];
     const arrBlock = t121.match(/const\s+allRules\s*=\s*\[([\s\S]*?)\]/);
-    const inArray = arrBlock ? [...arrBlock[1].matchAll(/rule\d+/g)].map(m => m[0]) : [];
-    const dangling = imported.filter(r => !inArray.includes(r));   // import 了但不执行
-    const orphan = inArray.filter(r => !imported.includes(r));     // 执行了但没 import（会崩）
+    let inArray = [];
+    if (arrBlock) {
+        // 兼容两种写法：直接标识符（旧）与 B('rule70')（第 196 轮起）。
+        // ⚠ 取裸标识符前必须先剥掉 B('...') —— 否则 'B(\'rule70\')' 里的 rule70 会同时被两路各计一次，
+        //   正向判定直接误报「123 条重复登记」。
+        const withoutB = arrBlock[1].replace(/B\(\s*'[\w$]+'\s*\)/g, ' ');
+        const idents = [...withoutB.matchAll(/\b(rule\d+|deathRights184|multiAttack188)\b/g)].map(m => m[0]);
+        const viaB = [...arrBlock[1].matchAll(/B\(\s*'([\w$]+)'\s*\)/g)].map(m => m[1]);
+        // ⚠ 不去重：重复登记必须能被 dupArray 抓到（第一版这里用了 Set，把「同一规则写两遍」这条守卫
+        //   改瞎了，反向自证当场发现）。去重只用于集合比较，见下方 inArrayUniq。
+        inArray = idents.concat(viaB);
+    }
+    const inArrayUniq = [...new Set(inArray)];
+    // 表驱动时 B('x') 每处都会出现一次，去重后再判重复登记；重复的本质是同一规则在数组里写两遍
+    const dangling = importedUnion.filter(r => !inArrayUniq.includes(r));   // import 了但不执行
+    const orphan = inArrayUniq.filter(r => !importedUnion.includes(r));     // 执行了但没 import（会崩）
     const dupArray = inArray.filter((r, i) => inArray.indexOf(r) !== i);
 
     // ============ V1.3.0：modules/26 拆分结构对账（源码级静态，非运行时）============

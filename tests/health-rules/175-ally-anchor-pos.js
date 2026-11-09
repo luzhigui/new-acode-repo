@@ -34,19 +34,19 @@ export const rule176 = {
             var unit = A.find(function (u) { return has(u, a.flag, a.name); });
             if (!unit) continue;
             if (unit.pos !== a.pos) {
-                return { fail: true, msg: '复发：第' + stage + '关' + a.label + '开场不在 ' + a.pos + ' 号位（实 ' + unit.pos + '，固定站位锚点被顶走）' };
+                return { fail: true, msg: '复发：固定站位锚点被顶走 — 第' + stage + '关' + a.label + '开场不在 ' + a.pos + ' 号位（实 ' + unit.pos + '，固定站位锚点被顶走）' };
             }
         }
         // 小昭：姊妹两形态共用 4 号位
         var xz = A.find(function (u) { return u && (u.isXiaoZhaoSister || u.isXiaoZhaoBrother); });
         if (xz && xz.pos !== 4) {
-            return { fail: true, msg: '复发：第' + stage + '关小昭开场不在 4 号位（实 ' + xz.pos + '，固定站位锚点被顶走）' };
+            return { fail: true, msg: '复发：小昭姊妹未占 4 号位 — 第' + stage + '关小昭开场不在 4 号位（实 ' + xz.pos + '，固定站位锚点被顶走）' };
         }
         // 固定位恒为 3 个（队内 ≥3 人时；不足 3 人的极端阵容按实际人数放行）
         if (A.length >= 3) {
             var fixedCount = A.filter(function (u) { return u && u.fixed === true; }).length;
             if (fixedCount !== 3) {
-                return { fail: true, msg: '复发：第' + stage + '关明教固定位 ' + fixedCount + ' 个（应恒为 3 个，toLock 截断被破坏）' };
+                return { fail: true, msg: '复发：明教固定位数量不对 — 第' + stage + '关明教固定位 ' + fixedCount + ' 个（应恒为 3 个，toLock 截断被破坏）' };
             }
         }
         return { fail: false };

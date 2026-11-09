@@ -90,7 +90,7 @@ export const rule197 = {
             if (M != null && M > 0) {
                 var want = Math.max(1, Math.round(M * ratio));
                 if (Math.abs(dmg - want) > 1) {
-                    return { fail: true, msg: '复发：同归于尽反噬扣血 ' + dmg + ' ≠ round(' + victimName + ' maxHp ' + M + ' × ' + ratio + ')=' + want };
+                    return { fail: true, msg: '复发：同归于尽反噬数值不符 — 扣血 ' + dmg + ' ≠ round(' + victimName + ' maxHp ' + M + ' × ' + ratio + ')=' + want };
                 }
             }
         }

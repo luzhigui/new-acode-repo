@@ -54,8 +54,8 @@ export const rule229 = {
             if (b.permanent !== true || !afterRoundEnd) continue;
             permanentN++;
             permanent[id] = true;
-            if (camp !== CAMP_TYPES.ALLY) fails.push(`${b.key} 永久副本挂到 ${camp}（真路径只给明教妹）`);
-            if (b.remaining !== MAX_R()) fails.push(`${b.key} 永久副本剩余=${String(b.remaining)}，应恒为 MAX_ROUND(${MAX_R()})`);
+            if (camp !== CAMP_TYPES.ALLY) fails.push(`妹永久海克斯：${b.key} 永久副本挂到 ${camp}（真路径只给明教妹）`);
+            if (b.remaining !== MAX_R()) fails.push(`妹永久海克斯：${b.key} 永久副本剩余=${String(b.remaining)}，应恒为 MAX_ROUND(${MAX_R()})`);
         }
 
         if (permanentN === 0) return 'skip';
@@ -64,12 +64,12 @@ export const rule229 = {
             const arr = [...set].sort((a, b) => a - b);
             for (let r = arr[0]; r <= arr[arr.length - 1]; r++) {
                 if (!set.has(r)) {
-                    fails.push(`${id} 第${r}回合没有任何摘要（永久副本中途消失）`);
+                    fails.push(`妹永久海克斯：${id} 第${r}回合没有任何摘要（永久副本中途消失）`);
                     if (fails.length >= 6) break;
                 }
             }
         }
-        if (fails.length) return { fail: true, msg: fails.slice(0, 6).join('；') };
+        if (fails.length) return { fail: true, msg: `妹永久海克斯整局不消失：${fails[0]}（共 ${fails.length} 条）` };
         return 'pass';
     }
 };

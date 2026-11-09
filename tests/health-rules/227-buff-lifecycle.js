@@ -68,7 +68,7 @@ export const rule227 = {
             summaryN++;
             const b = f.data && f.data.buff;
             if (!b || typeof b.key !== 'string' || b.key === '') {
-                fails.push(`第${round}回合 buff 摘要缺 key`);
+                fails.push(`buff时长递减与到期清理：第${round}回合 摘要缺 key`);
                 continue;
             }
             const camp = b.target || 'ALLY';
@@ -80,11 +80,11 @@ export const rule227 = {
                 continue;
             }
             if (typeof rem !== 'number' || !isFinite(rem)) {
-                fails.push(`第${round}回合 ${b.key} 剩余回合非数字（${String(rem)}）`);
+                fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 剩余回合非数字（${String(rem)}）`);
                 continue;
             }
             if (rem <= 0) {
-                fails.push(`第${round}回合 ${b.key} 剩余=${rem}，应已到期移除`);
+                fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 剩余=${rem}，应已到期移除`);
                 continue;
             }
 
@@ -97,7 +97,7 @@ export const rule227 = {
                 // 整局永久摘要之后出现有限值 = 新的有限 buff 实例，按首现口径
                 const legal = legalInitial(b.key);
                 if (legal.indexOf(rem) < 0) {
-                    fails.push(`第${round}回合 ${b.key} 初值 ${rem} 与配置时长 ${legal.join('/')} 不符`);
+                    fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 初值 ${rem} 与配置时长 ${legal.join('/')} 不符`);
                 }
                 seen[id] = { round: round, rem: rem, perm: b.permanent === true };
                 continue;
@@ -115,17 +115,17 @@ export const rule227 = {
                     && (legal.indexOf(rem) >= 0 || (isPermCopy && rem === CONFIG.MAX_ROUND));
                 if (!newInstance) {
                     if (rem > prev.rem) {
-                        fails.push(`第${round}回合 ${b.key} 剩余回升 ${prev.rem}→${rem}（同一条未过期却加时长）`);
+                        fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 剩余回升 ${prev.rem}→${rem}（同一条未过期却加时长）`);
                     } else if (rem < prev.rem - 1) {
-                        fails.push(`第${round}回合 ${b.key} 剩余跳减 ${prev.rem}→${rem}（一回合扣了多回合）`);
+                        fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 剩余跳减 ${prev.rem}→${rem}（一回合扣了多回合）`);
                     } else if (prev.rem === 1) {
-                        fails.push(`第${round}回合 ${b.key} 上一回合剩余=1 仍在摘要（到期未清理）`);
+                        fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 上一回合剩余=1 仍在摘要（到期未清理）`);
                     }
                 }
             } else {
                 const legal = legalInitial(b.key);
                 if (legal.indexOf(rem) < 0) {
-                    fails.push(`第${round}回合 ${b.key} 初值 ${rem} 与配置时长 ${legal.join('/')} 不符`);
+                    fails.push(`buff时长递减与到期清理：第${round}回合 ${b.key} 初值 ${rem} 与配置时长 ${legal.join('/')} 不符`);
                 }
             }
             seen[id] = { round: round, rem: rem, perm: b.permanent === true };
@@ -134,7 +134,7 @@ export const rule227 = {
         if (summaryN === 0) return 'skip';
         // 返回契约：失败必须是 {fail:true,msg}。121 与 rules-replay 只认对象形状 / 'skip'，
         //   返回普通字符串会被静默算 pass（本规则上线起一直假绿，直接调 .test 是 70/70 红）。
-        if (fails.length > 0) return { fail: true, msg: fails.slice(0, 6).join('；') };
+        if (fails.length > 0) return { fail: true, msg: `buff时长递减与到期清理：${fails[0].slice('buff时长递减与到期清理：'.length)}（共 ${fails.length} 条）` };
         return 'pass';
     }
 };

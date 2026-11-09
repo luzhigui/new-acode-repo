@@ -400,6 +400,14 @@ function collectImports(code) {
     // import 'x'（副作用导入）
     re = /import\s*['"]([^'"]+)['"]/g;
     while ((m = re.exec(code)) !== null) fromPaths.push(m[1]);
+    // 动态 import 装载表（第 196 轮补）：121health-monitor.js 把 123 条规则静态 import 改成
+    //   `const RULE_MODULES = [{ local: 'rule70', from: './health-rules/123-...js', export: 'rule70' }, ...]`
+    //   + `Promise.allSettled(RULE_MODULES.map(m => import(m.from)))`。上面几条正则只认静态 import 与
+    //   字面量动态 import，看不到这种「表驱动」的路径 —— 若不补，改写法本身就把 4 条 import 断裂
+    //   顺手抹掉了，等于用换写法换一次绿色。故显式认表里的 from 字面量。
+    //   只认 `from: '相对路径'` 这一种键名（与 RULE_MODULES 表约定一致），不猜其他自定义键。
+    re = /\bfrom\s*:\s*['"](\.[^'"]+)['"]/g;
+    while ((m = re.exec(code)) !== null) fromPaths.push(m[1]);
     // 解构取值同样算"已取得"（第 24 轮补）：`.mjs` runner 普遍先动态 import 一批模块、再整体解构，
     //   如 `const [{ renderLog }, { GlobalStore }, { BUFF_TYPES, CAMP_TYPES }] = await Promise.all([...])`
     //   和 `const { CAMP_TYPES, ROLE_TYPES } = mods.enums;` —— 都不是 `import {} from` 形态，
@@ -737,18 +745,24 @@ export async function runStaticScan() {
         const enumResp = await fetch(new URL('../infra/106-battle-enums.js', baseUrl).href + '?t=' + t0);
         if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
     } catch (e) { /* 落空由 selfCheckEnumMembers 接管报红 */ }
+    // 第 196 轮：文件缺失先攒着，收尾时与 import 侧合并判定（见循环内注释）
+    const unreachable = [];
     for (const rel of scan.files) {
         const fileUrl = new URL(rel, baseUrl).href;
         let code;
         try {
             const resp = await fetch(fileUrl + '?t=' + t0);
             if (!resp.ok) {
-                result.slots.importRef.issues.push(rel + ' (文件读取 HTTP ' + resp.status + ')');
+                // 第 196 轮：缺文件的「文件读取 404」与「被谁 import 的 404」是同一条事实的两次播报。
+                //   249~252 从未提交，此前各报一条（4+4=8 条），同一件事摊成 8 行，反倒让人以为是
+                //   扫描器坏了。这里先记下缺口，等全仓扫完 import 侧再决定：有引用方 → 由引用方那条
+                //   负责点名（写清被谁引），无人引用 → 才在此单报（真正游离的野登记项）。
+                unreachable.push({ rel, why: '文件读取 HTTP ' + resp.status });
                 continue;
             }
             code = await resp.text();
         } catch (e) {
-            result.slots.importRef.issues.push(rel + ' (文件读取失败 ' + (e.message || e) + ')');
+            unreachable.push({ rel, why: '文件读取失败 ' + (e.message || e) });
             continue;
         }
         result.files++;
@@ -790,6 +804,18 @@ export async function runStaticScan() {
         }
     }
     // 自证断言放收尾（引用总数要等全仓扫完才知道）—— 抽取器/扫描器任一腐烂，先把自己报红
+    // 第 196 轮：合并「文件缺失」两处播报。规矩：
+    //   ① 有引用方的缺失文件 → 只保留引用方那条（已写清「被谁引」），不再单报文件读取 404；
+    //   ② 无人引用的缺失文件 → 单报一条，并点名「它只出现在 SCAN_FILES 登记里，全仓无人 import」；
+    //   ③ 数量不变的原则：**没少报任何一个不可达目标**，只是同一目标不再报两遍。
+    const uniq = [];
+    for (const u of unreachable) {
+        const rel = '../' + u.rel.replace(/^\.\//, '').replace(/^\.\.\//, '');
+        const basename = rel.split('/').pop();
+        const hasRef = result.slots.importRef.issues.some(line => line.includes(basename) && line.includes('→'));
+        if (!hasRef) uniq.push(rel + ' (' + u.why + ')：它只出现在 SCAN_FILES 登记里，全仓无人 import');
+    }
+    for (const line of uniq) result.slots.importRef.issues.push(line);
     for (const it of selfCheckEnumMembers(enumMembers, result.enumRefCount)) {
         result.slots.enumMember.issues.push('（自证）' + it);
     }

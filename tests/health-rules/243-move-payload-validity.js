@@ -34,9 +34,9 @@ export const rule243 = {
             if (f.factType === 'skillAnnounce' && (d.advanceFrom != null || d.advanceTo != null)) {
                 checked++;
                 if (!isPos(d.advanceFrom) || !isPos(d.advanceTo)) {
-                    errs.push((d.unitName || d.unitUid || '单位') + ' 前压载荷越界：' + d.advanceFrom + '→' + d.advanceTo);
+                    errs.push('前压载荷越界：' + (d.unitName || d.unitUid || '单位') + ' ' + d.advanceFrom + '→' + d.advanceTo);
                 } else if (d.advanceFrom === d.advanceTo) {
-                    errs.push((d.unitName || d.unitUid || '单位') + ' 前压载荷自环：from=to=' + d.advanceTo + '（播报读了改写后的位置）');
+                    errs.push('前压载荷自环：' + (d.unitName || d.unitUid || '单位') + ' from=to=' + d.advanceTo + '（播报读了改写后的位置）');
                 }
             }
 
@@ -46,19 +46,19 @@ export const rule243 = {
                 // （modules/319 hanlisa L315 明写 oldPos:8 / behindPos:land；138 已按 label 排除同类）。
                 var isBombPush = typeof d.label === 'string' && /轰拳|轰飞|崩飞/.test(d.label);
                 if (!isPos(d.oldPos) || !isPos(d.behindPos)) {
-                    errs.push((d.target && (d.target.name || d.target.uid) || '受击者') + ' 击退载荷越界：' + d.oldPos + '→' + d.behindPos);
+                    errs.push('击退载荷越界：' + (d.target && (d.target.name || d.target.uid) || '受击者') + ' ' + d.oldPos + '→' + d.behindPos);
                 } else {
                     if (!isBombPush && d.behindPos !== d.oldPos + 3) {
-                        errs.push((d.target && (d.target.name || d.target.uid) || '受击者') + ' 击退落点不是后方三格：' + d.oldPos + '→' + d.behindPos);
+                        errs.push('击退落点不是后方三格：' + (d.target && (d.target.name || d.target.uid) || '受击者') + ' ' + d.oldPos + '→' + d.behindPos);
                     }
                     if (d.behindUnit) {
                         if (!isPos(d.behindOldPos)) {
-                            errs.push((d.behindUnit.name || d.behindUnit.uid || '后方单位') + ' 换位来源越界：' + d.behindOldPos);
+                            errs.push('换位来源越界：' + (d.behindUnit.name || d.behindUnit.uid || '后方单位') + ' ' + d.behindOldPos);
                         } else if (d.behindOldPos !== d.behindPos) {
-                            errs.push((d.behindUnit.name || d.behindUnit.uid || '后方单位') + ' 换位来源与受击者落点不一致：' + d.behindOldPos + '≠' + d.behindPos);
+                            errs.push('换位来源与受击者落点不一致：' + (d.behindUnit.name || d.behindUnit.uid || '后方单位') + ' ' + d.behindOldPos + '≠' + d.behindPos);
                         }
                         if (d.behindOldPos === d.oldPos) {
-                            errs.push((d.target && (d.target.name || d.target.uid) || '受击者') + ' 与后方单位原地互换（自环）：' + d.oldPos + '→' + d.behindPos);
+                            errs.push('与后方单位原地互换（自环）：' + (d.target && (d.target.name || d.target.uid) || '受击者') + ' ' + d.oldPos + '→' + d.behindPos);
                         }
                     }
                 }
@@ -73,11 +73,11 @@ export const rule243 = {
                         var s = swaps[k] || {};
                         var who = s.name || s.uid || ('第' + (k + 1) + '个');
                         if (!isPos(s.fromPos) || !isPos(s.toPos)) {
-                            errs.push(who + ' 换位载荷越界：' + s.fromPos + '→' + s.toPos);
+                            errs.push('换位载荷越界：' + who + ' ' + s.fromPos + '→' + s.toPos);
                             continue;
                         }
                         if (s.fromPos === s.toPos) {
-                            errs.push(who + ' 换位载荷自环：from=to=' + s.toPos);
+                            errs.push('换位载荷自环：' + who + ' from=to=' + s.toPos);
                         }
                         if (tos[s.toPos]) {
                             errs.push('换位落点重复：' + s.toPos + ' 同时被 ' + tos[s.toPos] + ' 与 ' + who + ' 占用');
@@ -91,10 +91,22 @@ export const rule243 = {
 
         if (checked === 0) return 'skip';
         if (errs.length) {
-            return {
-                fail: true,
-                msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处位移载荷异常）' : '')
-            };
+            // ★ 第 199 轮：按「固定静态标签」分发出红 —— 每条 errs 的**首段**都是下面这些字面量之一
+            //   （见各 push 点），这里按出现顺序取第一条命中并原样上报，指纹与证据一一对上。
+            //   ★ 判据一字未动：检查条件、顺序、取前 3 条的旧聚合外壳口径全部等价，
+            //     只是把「一条 join('；') 聚合分支」拆成「按病因各自可定位的分支」，否则牙口证据
+            //     里「击退落点不是后方三格」这类 msg 永远匹配不到静态前缀（第 199 轮实测 3 条对不上号）。
+            const LABELS = ['前压载荷越界：', '前压载荷自环：', '击退载荷越界：', '击退落点不是后方三格：',
+                '换位来源越界：', '换位来源与受击者落点不一致：', '与后方单位原地互换（自环）：',
+                '换位载荷越界：', '换位载荷自环：', '换位落点重复：'];
+            const first = LABELS.find(lb => errs.some(e => e.startsWith(lb)));
+            if (first) {
+                const hit = errs.find(e => e.startsWith(first));
+                // 固定静态前缀「位移载荷异常：」+ 原样病因文本（病因本身已带分类标签），
+                // 抽取器能在 msg 首段拿到可用指纹；运行时 msg 仍以病因标签开头，牙口证据照样对得上。
+                return { fail: true, msg: `位移载荷异常：${hit}${errs.length > 1 ? `（共 ${errs.length} 处位移载荷异常）` : ''}` };
+            }
+            return { fail: true, msg: '位移载荷异常（未匹配到已知病因标签）：' + errs.slice(0, 3).join('；') };
         }
         return { fail: false, msg: '位移载荷合法：核对 ' + checked + ' 组位移声明（无越界/自环/落点重复）' };
     }

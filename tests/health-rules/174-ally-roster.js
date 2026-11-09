@@ -41,10 +41,10 @@ export const rule174 = {
         var stage = ctx && ctx.currentStage;
         var A = beforeA || (ctx && ctx.snapshot && ctx.snapshot.ally) || [];
         if (!A.length) {
-            return { fail: true, msg: '复发：第' + stage + '关明教阵容为空（initBattleTeams 未产出我方单位）' };
+            return { fail: true, msg: '复发：明教阵容为空 — 第' + stage + '关明教阵容为空（initBattleTeams 未产出我方单位）' };
         }
         if (A.length > 5) {
-            return { fail: true, msg: '复发：明教阵容超过 5 人（实 ' + A.length + ' 人，建队上限被破坏）' };
+            return { fail: true, msg: '复发：明教阵容超过 5 人 — 实 ' + A.length + ' 人，建队上限被破坏）' };
         }
         var seen = {}, dup = null;
         for (var i = 0; i < A.length; i++) {
@@ -53,7 +53,7 @@ export const rule174 = {
             if (seen[n]) { dup = n; break; }
             seen[n] = true;
         }
-        if (dup) return { fail: true, msg: '复发：明教阵容出现重名「' + dup + '」（同档抽取去重失效）' };
+        if (dup) return { fail: true, msg: '复发：明教阵容出现重名 — 「' + dup + '」（同档抽取去重失效）' };
 
         var bossCount = 0, xzCount = 0;
         for (var j = 0; j < A.length; j++) {
@@ -62,10 +62,10 @@ export const rule174 = {
             if (u && (u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) xzCount++;
         }
         if (bossCount > 1) {
-            return { fail: true, msg: '复发：明教出现 ' + bossCount + ' 个 Boss 张无忌（Boss 独一档被破坏）' };
+            return { fail: true, msg: '复发：Boss 张无忌数量越界 — 明教出现 ' + bossCount + ' 个 Boss 张无忌（Boss 独一档被破坏）' };
         }
         if (xzCount > 1) {
-            return { fail: true, msg: '复发：明教出现 ' + xzCount + ' 个小昭形态单位（姊/妹互斥失效）' };
+            return { fail: true, msg: '复发：小昭形态单位互斥失效 — 明教出现 ' + xzCount + ' 个小昭形态单位（姊/妹互斥失效）' };
         }
         if (anyForce()) return { fail: false };
 
@@ -85,10 +85,10 @@ export const rule174 = {
             else if (weakNames[A[k] && A[k].name]) wc++;
         }
         if (sc > 2) {
-            return { fail: true, msg: '复发：明教强精英 ' + sc + ' 名（上限 2 名，双强档位被破坏）' };
+            return { fail: true, msg: '复发：强精英档位越界 — 明教强精英 ' + sc + ' 名（上限 2 名，双强档位被破坏）' };
         }
         if (wc > 2) {
-            return { fail: true, msg: '复发：明教弱精英 ' + wc + ' 名（上限 2 名，M104 档位被破坏）' };
+            return { fail: true, msg: '复发：弱精英档位越界 — 明教弱精英 ' + wc + ' 名（上限 2 名，M104 档位被破坏）' };
         }
         return { fail: false };
     }
@@ -129,7 +129,7 @@ export const rule175 = {
             var n = A[i] && A[i].name;
             if (!n) continue;
             if (!allowed[n]) {
-                return { fail: true, msg: '复发：明教第' + stage + '关出现池外名字「' + n + '」（不在精英/弱精英/带技能兵/普通池名单）' };
+                return { fail: true, msg: '复发：阵容出现池外名字 — 明教第' + stage + '关出现池外名字「' + n + '」（不在精英/弱精英/带技能兵/普通池名单）' };
             }
         }
         return { fail: false };

@@ -42,7 +42,7 @@ export const rule283 = {
             actions++;
             const dth = dead.get(a.uid);
             if (dth) {
-                errs.push(`${a.name || a.uid} 死亡登记@${dth.idx} 之后仍出手@${i}（中间无复活公告）`);
+                errs.push(`死后不得再出手：${a.name || a.uid} 死亡登记@${dth.idx} 之后仍出手@${i}（中间无复活公告）`);
                 if (errs.length >= 4) break;
             }
         }

@@ -1,3 +1,15 @@
+// V2.9.34 | 2026-11-09 夜间第 197 轮：牙口结论重算（连续三轮挂账项）。
+//   一、A27/T12 重锚：上游把取整包裹 fmt1 统一成 fmtNum，两条原 from 串 0 处命中 ⇒ 变异树=干净树，
+//       这两颗牙的「有牙」结论此前是假的。新锚语义一字未变（A27 仍只污染 actualHeal 渲染值、
+//       T12 仍只把 dmg 取负），T12 仍 multi（412 里 L223/L226 两处同取）。
+//   二、★ 新增「对照器恒空转·不作证」一类：METEOR_GROWTH/HORSE_REBOUND 在 _base 与全部 48 树上一律零触发，
+//       旧判据把它渲染成「⚠样本未覆盖(变异行零执行)」——把「契约死了」说成「样本没跑到」。
+//       现按 BASE_ZERO_CONTRACTS 分流，与 contract-guard-selftest ③⑤ 口径打通（那边早就判红，这边一直说没事）。
+//   三、★ 新增第三道闸门「同源标注」：报红明细里一条都没点到本牙对象 ⇒ 标 △轨迹连带·待复核。
+//       实测 42 颗「规则有牙」里 11 颗属此类（A1/A2/A3/A4/A8/A9/A11/A19/A20/T10/A28），
+//       另有 2 颗（A25/T16）只有掩盖信号无新明细。**只加标注、不动分类**，理由同 V2.9.14/V2.9.29。
+//   四、矩阵头部结论改由 sameSourceSummary() 现算，不写死数字 —— 写死的那份过一轮就开始说谎。
+//   自证 ①②③④ 四条，双向各一（只证「能判出」会把恒真闸门放过去）。
 // V2.9.33 | 2026-11-08 迭代：T18 重锚（上游 13:38 在 MIND_CONTROL_SWAP 的 swaps.map 里
 //   补了 dmgAmt/healAmt/hpPct，原整行锚 `...toPos: s.toPos }))` 已不存在 ⇒ --verify 报 0 处，
 //   该牙静默失效=假绿制造机）。新锚收紧到敌/己两条发射行**共有且 emitStateChange 不含**的前缀
@@ -200,7 +212,7 @@
 //   「基线已红不得作证」的闸门后面（rule164/rule143 在干净树就 fail>0）。这两颗保持乙类不动，是真待办。
 //   ★ 只收紧不放宽：新增的只是「判得更准地归因」，不新增任何 newRed / masked 渠道，不改 verdict 分类、
 //     不改计数口径、不动任何一条「不得作证」闸门（基线已红规则、干净树已命中契约）；任一签名缺失 ⇒ fail-closed。
-export const VER = 'tests/mutation-teeth.mjs V2.9.33';
+export const VER = 'tests/mutation-teeth.mjs V2.9.35';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -434,8 +446,11 @@ const MUTATIONS = [
       to:   "（伤害×${counter.dmgRatio * 2}）" },
     { id: 'A27', kind: 'ATTR', desc: '灭绝三击吸血报值×2（渲染污染 → rule165 判据3 落地值自洽 K==H2-H1 应咬）',
       file: 'modules/313-elite-sixsects-miejueshitai.js',
-      from: "回复 ${actualHeal} 点${mutedTag}",
-      to:   "回复 ${actualHeal * 2} 点${mutedTag}" },
+      // V2.9.34 第 197 轮重锚：上游 2026-11-08 把灭绝三击回血文本改走 fmtNum（实数化后浮点尾巴），
+      //   原 from「回复 ${actualHeal} 点${mutedTag}」0 处 ⇒ 树木=干净树（假绿制造机）。锚串随包裹函数改写，
+      //   语义不变：仍只污染渲染数字（actualHeal*2），引擎真值与配置 ratio 不动 ⇒ rule165 判据3 K==H2-H1 必咬。
+      from: "回复 ${fmtNum(actualHeal)} 点${mutedTag}",
+      to:   "回复 ${fmtNum(actualHeal * 2)} 点${mutedTag}" },
     // ===== 第 65 轮新增：验证坚盾双规则（125 计数时序 / 130 叠加超上限）真有牙，而非恒绿 =====
     //   两条都扫渲染后战报里的「🛡️ X 坚盾：防御+N（已叠C/Y）」detail 文案（render/412-facts-stat.js L68，
 //   2026-10-18 第 100 轮随 render/35 拆分由 -facts-effect.js 迁入）。
@@ -472,10 +487,12 @@ const MUTATIONS = [
 //   改为 `造成 ${fmt1(fact.dmg)} 点伤害`（fmt1 取整包裹），旧 from 0 处 ⇒ 树木=干净树（假绿制造机）。
 //   锚点改指 `造成 ${fmt1(fact.dmg)} 点伤害`，to 取负 ⇒ 渲染出负伤害 ⇒ rule132 判据1（dmg<0）应咬。
 //   （2026-10-18 第 100 轮：该行随 render/35 拆分迁至 render/412-facts-stat.js L194，仅换 file 路径。）
-    { id: 'T12', kind: 'TEXT', desc: '九阴白骨爪渲染伤害取负（fmt1 包裹后⇒ 落地伤害<0 → rule132 判据1 应咬）',
+//   V2.9.34 第 197 轮重锚：上游把取整包裹由 fmt1 统一为 fmtNum，原串「造成 ${fmt1(fact.dmg)} 点伤害」0 处；
+//   新串在 412 里出现两处（L223 无护盾 / L226 有护盾前缀），仍是同一件白骨爪伤害渲染，multi 照旧两处同取负。
+    { id: 'T12', kind: 'TEXT', desc: '九阴白骨爪渲染伤害取负（fmtNum 包裹后⇒ 落地伤害<0 → rule132 判据1 应咬）',
       file: 'render/412-facts-stat.js',
-      from: "造成 ${fmt1(fact.dmg)} 点伤害",
-      to:   "造成 ${fmt1(fact.dmg * -1)} 点伤害",
+      from: "造成 ${fmtNum(fact.dmg)} 点伤害",
+      to:   "造成 ${fmtNum(fact.dmg * -1)} 点伤害",
       multi: true },   // 2026-11-01 全量重编号后 render/412 增护盾吸收分支：from 串在 L197（护盾未吸收）与 L200（部分吸收，作前缀子串）各出现一次，均属白骨爪伤害渲染，须两处同取负
     // V2.9.26 重锚：上游把渲染数字收进 healDisplay()（实落值 + 原因后缀），锚串随之改写。
     { id: 'T13', kind: 'TEXT', desc: '嗜血狂刀吸血渲染量×2（⇒ 吸血>伤害×0.85 → rule151 判据2应咬）',
@@ -888,8 +905,155 @@ let BASE_MISMATCH = 0;
 // V2.9.14：干净树里「命中>0」的契约集合 —— 与 BASE_RED 同理，这些契约失去作证资格。
 //   实测当前为空（56 条契约在 _base 上命中皆 0），故本闸门当下不改变任何判定，只防未来假绿。
 let BASE_DIRTY_CONTRACTS = {};
+// V2.9.34：干净树（_base）里就已零触发的契约 —— 它们不是「这颗牙的样本没覆盖」，而是**契约本身恒空转**。
+//   与 BASE_DIRTY_CONTRACTS 同源同理（干净树已命中 ⇒ 不得作证；干净树已空转 ⇒ 同样不得作证），
+//   只是方向相反。contract-guard-selftest ⑤ 早已把「守卫契约是恒空转契约」判为「对照器兜住属自欺」，
+//   而本文件 V2.9.17 的 zeroTrig 通道不分场合一律渲染成「⚠样本未覆盖(变异行零执行)」，
+//   等于把「对照器死了」说成「样本没跑到」。第 197 轮实证：METEOR_GROWTH 与 HORSE_REBOUND
+//   在 _base 与全部 48 棵变异树上**无一例外**零触发，A5/T3 却被写成「样本未覆盖」。
+let BASE_ZERO_CONTRACTS = new Set();
 
-function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts) {
+// V2.9.34：★★ 第三道闸门「同源判定」—— 报红的规则是否**点到了这颗牙自己的对象**。
+//   由头（第 197 轮全量重跑实测）：42 颗牙判「规则有牙」，但逐条看明细，16 颗牙的红里**一条都没提到**
+//   它自己改的东西 —— 全是「唐文亮同归于尽反噬扣血 35≠33」「终局全链与复活判死竞争」这类
+//   **全局轨迹被带偏后的顺带红**。例如 A3 改的是 carry 攻击加成，红的是唐文亮阵亡反噬；
+//   A7 改的是生生不息转防，红的是终局判死。这类红不能当「规则抓住了这次变异」的证据。
+//   ★ 这是**加标注不是改判定**：verdict 分类与计数一字不动，只在后面挂「△轨迹连带·待复核」，
+//     并在矩阵里单列一栏。理由同 V2.9.14/V2.9.29：先让读者看得见，再谈要不要收紧口径。
+//   ★ 判据只用现成数据（变异条目的 subject 关键词 + 规则明细原文），不新增任何测量。
+//   只认**对象字段名/机制键**（事实 data 路径里那一截），不认规则名里的通用中文词 ——
+//   否则「生生不息」这类词既是 A7 的对象、又出现在「终局全链」规则的措辞里，会假阳性。
+const SUBJECT_KEYS = {
+    A1: ['BREAK_DEF', 'breakDef', '破防量', '破防'],
+    A2: ['FORTIFY', 'fortify', '坚盾'],
+    A3: ['CARRY_APPLY', 'carry'],
+    A4: ['QIAN_KUN', 'nearSwitch', '近战切换'],
+    A5: ['METEOR_GROWTH', 'meteorSplashGrowth'],
+    A6: ['KU_LIAN', 'kuLian'],
+    A7: ['ENDLESS_BREATH', 'endlessBreath'],
+    A8: ['BUTTERFLY', 'butterfly'],
+    A9: ['BAGUA_ATK', 'bagua'],
+    A10: ['RAGE_ON_HIT', 'rageOnHit'],
+    A11: ['WEI_HEAL', 'weiHeal'],
+    A12: ['XING_FEN_COST', 'xingFen', '性奋'],
+    A13: ['XING_FEN_COST', 'xingFen', '性奋'],
+    A14: ['LION_INSPIRE', 'lionInspire'],
+    A15: ['LION_GROW', 'lionGrow'],
+    A16: ['RANGED_GROWTH', 'rangedGrowth'],
+    A17: ['SPIDER_MASTERY', 'spiderMastery'],
+    A18: ['KU_LIAN', 'kuLian'],
+    A19: ['BUTTERFLY', 'butterfly', '蝶变'],
+    A20: ['LEECH_MAXHP', 'leechMaxHp'],
+    A21: ['SPIDER_TRANSFORM', 'spiderTransform'],
+    A22: ['STAT_CHANGE', 'statChange'],
+    A23: ['RIGHTEOUS_FACE', 'righteousFace', 'pangDefGain'],
+    A24: ['AURA', 'aura'],
+    A25: ['HOLY_FLAME', 'holyFlame'],
+    A26: ['miejue', '灭绝'],
+    A27: ['miejueLeech', '灭绝三击'],
+    A28: ['SOUL_DRAIN', 'soulDrain'],
+    A29: ['金刚不坏', 'vajra', '计数器'],
+    A30: ['ENDLESS_BREATH', 'endlessBreath', '生生不息'],
+    T1: ['BREAK_DEF', 'breakDef', '破防量'],
+    T2: ['FORTIFY', 'fortify'],
+    T3: ['METEOR_GROWTH', 'meteorSplashGrowth'],
+    T4: ['ENDLESS_BREATH', 'endlessBreath', 'atkGain', '生生不息'],
+    T5: ['XING_FEN_COST', '性奋'],
+    T6: ['meteorShower', 'atkPerSplash', '流星'],
+    T7: ['KU_LIAN', 'kuLian'],
+    T8: ['FORTIFY', 'fortify'],
+    T9: ['FORTIFY', 'fortify', '坚盾'],
+    T10: ['healMaxHpPct', '九阳', '九阳神功'],
+    T11: ['behindPos', '击退'],
+    T12: ['白骨爪'],
+    T13: ['嗜血狂刀'],
+    T14: ['蝠影', 'plusMaxHp', 'WEI_LEECH', '吸血'],
+    T15: ['pangDefGain', '国字脸'],
+    T16: ['newMaxHp'],
+    T17: ['惑心', 'MIND_CONTROL_SWAP'],
+    T18: ['惑心', 'MIND_CONTROL_SWAP']
+};
+function sameSourceHits(mutId, details) {
+    const keys = SUBJECT_KEYS[mutId] || [];
+    if (!keys.length) return null;   // 未登记 ⇒ 不判，不猜
+    const hit = new Set();
+    for (const d of (details || [])) {
+        for (const k of keys) if (d.indexOf(k) !== -1) hit.add(k);
+    }
+    return [...hit];
+}
+
+// V2.9.35（第 198 轮）：★ 「△轨迹连带」逐颗复核 —— 给每颗牙补**反向取证**，不再只挂一个标签。
+//   由头（第 197 轮留下 11+2 颗待复核，节点点名本轮必须交答案）：
+//     第 197 轮判「不同源」用的是「明细文本里有没有 SUBJECT_KEYS 关键词」。这个口径**只证否定、不证成因**：
+//     它说得出「明细没点到 #fff」，说不出「为什么它会红」。逐颗看下去就发现 11 颗的红**高度集中在 6 条规则**上 ——
+//     唐文亮同归于尽反噬 / 回合词条同源重复 / 终局全链与复活判死竞争 / 唐文亮回春术逐层回血 /
+//     成昆混元霹雳劲与幻影治疗 / 面板存值与账本一致。这 6 条全是**全局轨迹类**规则（比血量、比回合词条、
+//     比终局存活、比面板存值），它们对「轨迹怎么走」敏感，对「谁改的」不敏感。
+//   ⇒ 本轮口径：把报红规则归到**对象域**（血量链 / 回合词条 / 终局判死 / 回血档位 / 幻影治疗 / 面板账本），
+//     再与本牙的对象域比对。两边域不同 ⇒ 「轨迹连带」**有成因依据**（不是随口贴的标签）；
+//     两边同域 ⇒ 那才是真同源被关键词口径漏判，须单列点名。
+//   ★ 本表只登记「规则 → 域」的事实，不含任何牙的结论；牙的结论由代码现算，不写死。
+const RULE_DOMAIN = [
+    [/同归于尽.*反噬/, 'hp-chain'],
+    [/回合词条同源重复/, 'round-entry'],
+    [/终局全链与复活判死竞争/, 'battle-end'],
+    [/回春术逐层回血/, 'heal-tier'],
+    [/成昆混元霹雳劲与幻影治疗/, 'illusion-heal'],
+    [/面板存值与账本一致/, 'panel-ledger'],
+    [/成长声明与账本同源|成长声明与账本/, 'growth-ledger'],
+    [/召唤物阵亡后不再参与结算/, 'summon-death'],
+    [/蝶变附身窗口成对|蝶变/, 'butterfly-window'],
+    [/位移载荷越界与自环|击退换位载荷自洽/, 'move-payload'],
+    [/白骨爪/, 'claw'],
+    [/九阳/, 'jiuyang'],
+    [/吸血上限提升数值/, 'leech-maxhp'],
+];
+// 每颗牙的对象域（与 SUBJECT_KEYS 同源的一层抽象：这牙改的东西落在哪条链上）
+const MUT_DOMAIN = {
+    A1: 'breakdef', A2: 'fortify', A3: 'carry-atk', A4: 'nearswitch-atk', A5: 'meteor-growth',
+    A6: 'kulian', A7: 'endless-breath', A8: 'butterfly-def', A9: 'bagua-cost', A10: 'rage-on-hit',
+    A11: 'leech-maxhp', A12: 'xingfen', A13: 'xingfen', A14: 'lion-inspire', A15: 'lion-grow',
+    A16: 'ranged-growth', A17: 'spider-mastery', A18: 'kulian', A19: 'butterfly', A20: 'leech-maxhp',
+    A21: 'spider-transform', A22: 'stat-change', A23: 'righteous-face', A24: 'aura', A25: 'holy-flame',
+    A26: 'miejue', A27: 'miejue-leech', A28: 'soul-drain', A29: 'vajra', A30: 'endless-breath',
+    T1: 'breakdef', T2: 'fortify', T3: 'meteor-growth', T4: 'endless-breath', T5: 'xingfen',
+    T6: 'meteor-shower', T7: 'kulian', T8: 'fortify', T9: 'fortify', T10: 'jiuyang',
+    T11: 'push-payload', T12: 'claw', T13: 'bloodblade', T14: 'bat-shadow', T15: 'pang-def',
+    T16: 'maxhp-decl', T17: 'mind-swap', T18: 'mind-swap',
+};
+/**
+ * V2.9.35：给一颗「△轨迹连带」的牙生成**复核结论**。
+ *   输入：本牙 id、报红规则名列表（不含基线已红的那部分）。
+ *   输出：{ domains, verdict, note }，verdict ∈ ('轨迹连带·域不同' | '同域·须人工' | '未登记·不猜')。
+ *   ★ 与 SUBJECT_KEYS 的关键词口径**互补而非替代**：关键词判「有没有点到对象」，域比对判「为什么它不点到」。
+ *     两者都判「不同源」才落「轨迹连带」；任一判「可能同域」就降到「须人工」，宁可多留一双眼睛。
+ */
+function reviewTrail(mutId, redRules) {
+    const own = MUT_DOMAIN[mutId];
+    if (!own) return { domains: [], verdict: '未登记·不猜', note: '本牙对象域未登记' };
+    const domains = [];
+    for (const r of (redRules || [])) {
+        const hit = RULE_DOMAIN.find(([re]) => re.test(r));
+        domains.push(hit ? hit[1] : null);
+    }
+    const known = domains.filter(Boolean);
+    if (known.length === 0) {
+        return { domains, verdict: '未登记·不猜', note: '报红规则均未登记对象域，不替它解释' };
+    }
+    // 同域判据：本牙域与任一报红规则域相同，或属于同一族（两者都必走「加成账本」这条共用链）
+    //   ★ 族成员必须**都从账本取数/回写账本**：stat-change（改存值）、growth-ledger（声明与账本）、
+    //     panel-ledger（面板存值与账本）三者共用 getStat/账本，改任一侧都会让另两侧的比对红。
+    //     不把 breakdef/carry 这类「纯数值 ATTR」拉进来 —— 它们不经过账本比对（A1 就是靠这条排除的）。
+    const inFamily = x => x === 'stat-change' || x === 'growth-ledger' || x === 'panel-ledger';
+    const same = known.some(d => d === own || (inFamily(d) && inFamily(own)));
+    if (same) {
+        return { domains, verdict: '同域·须人工', note: '报红规则与本牙落在同一对象域，关键词口径漏判，须人工复核是否真同源' };
+    }
+    return { domains, verdict: '轨迹连带·域不同', note: '报红规则与本牙对象域不同 ⇒ 属全局轨迹类规则的顺带红，不构成本牙有牙的证据' };
+}
+
+function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts, baseZeroContracts) {
 
     // ★ 第 58 轮：baselineChanged 改为**相对 _base 干净树的增量**判定。
     //   旧口径 `B.changed || match<18` 是「与录制基线比」，而主代码进行中的 dotTick 让干净树自己就报红线，
@@ -981,6 +1145,10 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
     const guardianContract = (typeof TEETH_GUARDIAN === 'object' && TEETH_GUARDIAN)
         ? (TEETH_GUARDIAN[mut.id] || null) : null;
     const guardianZero = !!guardianContract && zeroTrig.indexOf(guardianContract) !== -1;
+    // V2.9.34：把「死契约」与「真·样本未覆盖」分开。干净树就已零触发 ⇒ 契约本身不干活，
+    //   这颗牙是「对照器侧无作证资格」，不是「变异行零执行」。判据不放宽：两类都不是绿灯，
+    //   都算缺口待办；但归因不同，诊断方向完全不同（一个要修契约，一个要扩样本）。
+    const guardianDead = guardianZero && !!baseZeroContracts && baseZeroContracts.has(guardianContract);
     // 旧口径 `mut.kind === 'TEXT'` 的无条件生效在此收口：TEXT 也必须有「机制真的执行过」的实证。
     // V2.9.23（第 144 轮续2）：effective 加入 masked —— V2.9.15 让「转交中(⚠️)/基线红规则」的新明细
     //   记入 masked，但 effective 从未把 masked 算进去 ⇒ `!effective` 抢先返回「未观测到影响」，masked
@@ -993,12 +1161,18 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts)
     // V2.9.14：把守到它的契约名写进判定 —— 「对照器兜住」从此可审计（谁兜的、兜了几处）。
     const gbit = guardians.length ? `(${guardians.join('、')})` : '';
     if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
+    if (guardianDead) return { verdict: '⚠对照器恒空转·不作证(守卫契约' + guardianContract + '在干净树即零触发)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     if (guardianZero) return { verdict: '⚠样本未覆盖(变异行零执行·守卫契约' + guardianContract + '恒空转)', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged, newDetail, newRed, masked, statMasked };
     // 规则侧：只认「基线不红的规则」报出的新红
     const bit = newDetail.length > 0 ? `(+${newDetail.length}条新明细)` : '';
     if (newRed.length > 0) {
-        return { verdict: '规则有牙' + bit, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+        const src = sameSourceHits(mut.id, newDetail);
+        const tag = (src && src.length === 0) ? '△轨迹连带·待复核' : '';
+        // V2.9.35：△ 栏不再只贴标签 —— 同时算复核结论（对象域比对），把「为什么不是它」写进产物。
+        const trailReview = tag ? reviewTrail(mut.id, newRed) : null;
+        return { verdict: '规则有牙' + bit, sameSource: src, verdictTag: tag, trailReview,
+                 effective, baselineChanged, fpChanged, newDetail, newRed, masked };
     }
     if (mut.kind === 'TEXT') {
         // 第 57 轮修判定顺序缺陷：原逻辑 `if (kind==='TEXT') return 装饰品` 排在 `S.total>0` **之前**，
@@ -1119,7 +1293,21 @@ async function main() {
             //   完全没有分辨力（基线红会把变异红掩盖掉）。改为比对**明细文本**才能分辨
             //   「同一条规则是否因本次变异报出了新的红」。
             // V2.9.13：grep 补 `⚠️` —— 转交中规则的头行此前被过滤掉，其明细在 parseBlock 里无归属（见头部 V2.9.13）。
-            '  ( cd "$d" && node tests/rules-replay.mjs 2>/dev/null | grep -E "RESULT:|❌|⚠️|^\\s+\\[seed=" ) >> "$OUT" || true',
+            // ★ V2.9.36（第 199 轮）：**去掉 grep 过滤**，原样落盘完整 REPLAY 输出。
+            //   为什么必须去掉（第 199 轮实测，务必先读）：GNU grep 在 en_US.UTF-8 下对
+            //   `grep -E "RESULT:|❌|⚠️|^\s+\[seed="` 的三字节 emoji 交替分支**会整批漏匹配**
+            //   —— 实测同一文件 `grep -cE "✅"` = 125、而把 `✅` 放进交替式后 = 0；
+            //   `LC_ALL=C` 下恢复 125。后果不是「少几行」而是**状态行整体消失**：
+            //     证据文件里每条规则只剩头行 + 明细，中间夹着别的规则的明细行，
+            //     于是解析器把后面 200 多行全算进第一条「有明细但后面没状态行」的规则（262 蝶变），
+            //     证据可解析率被稀释到 6.8%（762/11229），473 条「对不上号」九成是这种串味。
+            //   ★ 判据一个字没动：口径仍是「取 RESULT / 状态行 / 明细行」，只是把过滤动作从
+            //     **不可靠的 grep** 移到**显式逐行判定**里，并用 `@S@`（状态行）/`@M@`（明细行）/
+            //     `@R@`（RESULT 行）三种**自有前缀**落盘，彻底消除「明细行 vs 观察项明细行」的歧义
+            //     （两者格式完全相同，只能靠「观察项段」这个位置信息区分）。
+            //   ★ 这仍是 mutation-teeth 自己的产物口径（不是 rules-replay 的职责），解析端 parseBlock
+            //     认这三种前缀；旧格式（无前缀）继续按原逻辑兼容，不回改历史文件。
+            '  ( cd "$d" && node tests/rules-replay.mjs 2>/dev/null | LC_ALL=C awk \'{ if (obs) next; if ($0 ~ /^=== 观察项/) { obs=1; next } if ($0 ~ /^(❌|⚠️|✅|⏭)/) { print "@S@" $0; next } if ($0 ~ /^[ ]{6,}\\[seed=/) { print "@M@" $0; next } if ($0 ~ /^RESULT:/) { print "@R@" $0 } }\' ) >> "$OUT" || true',
             '  echo "BASELINE:" >> "$OUT"',
             '  ( cd "$d" && node tests/140-baseline.js --check 2>/dev/null | grep -E "BASELINE-MATCH|回归|场与基线不一致|DIFF" ) >> "$OUT" || true',
             '  echo "STAT:" >> "$OUT"',
@@ -1181,6 +1369,69 @@ async function main() {
             bad++;
         } else {
             console.log('✅ 自证② 零触发信号解析自证：识别出 ' + ztProbe.join('、'));
+        }
+        // 自证③（V2.9.34）：死契约与真·样本未覆盖**判得开**。造一颗牙，守卫契约在基树零触发集合里，
+        //   同一份 S 在两棵树（基树零触发 / 基树零触发以外）下必须给出**不同**结论 ——
+        //   若两路同判，说明新通道形同虚设，会把「对照器死了」继续渲染成「样本没跑到」。
+        try {
+            const mkMut = { id: 'SELFTEST', kind: 'ATTR', desc: 'synthetic' };
+            const zeroS = { total: 0, statMismatch: 0, statByContract: {}, zeroTriggers: ['METEOR_GROWTH'] };
+            const emptyR = { red: [], details: [], pairs: [], crash: null };
+            const emptyB = { match: 18, changed: false, baseSig: null, replaySig: null, conclSig: null };
+            const emptyStf = { fp: null };
+            const savedG = TEETH_GUARDIAN;
+            TEETH_GUARDIAN = { SELFTEST: 'METEOR_GROWTH' };
+            const vDead = judge({ ...mkMut, kind: 'TEXT' }, {}, emptyR, emptyB, zeroS, emptyStf, [], [], {}, new Set(['METEOR_GROWTH'])).verdict;
+            const vMiss = judge({ ...mkMut, kind: 'TEXT' }, {}, emptyR, emptyB, zeroS, emptyStf, [], [], {}, new Set([])).verdict;
+            TEETH_GUARDIAN = savedG;
+            const okDead = /^⚠对照器恒空转/.test(vDead);
+            const okMiss = /^⚠样本未覆盖/.test(vMiss);
+            if (!okDead || !okMiss) {
+                console.log(`❌ 自证③ 死契约/样本未覆盖分流失败：基树零触发 ⇒「${vDead}」，非零触发 ⇒「${vMiss}」`);
+                bad++;
+            } else {
+                console.log('✅ 自证③ 死契约与样本未覆盖分流自证：两路结论不同且各自归因正确');
+            }
+        } catch (e) {
+            console.log('❌ 自证③ 分流自证抛错：' + (e && e.message));
+            bad++;
+        }
+        // 自证④（V2.9.34）：同源闸门**双向**都认得出 —— 点到对象的判同源，没点到的判不同源。
+        //   单向自证（只证明「能判出同源」）会把恒真闸门放过去，那才是本轮最怕的假绿。
+        try {
+            const hit = sameSourceHits('A10', ['成长声明与账本不同源：胖远桥/rageOnHit/atk 声明18 vs 账本36']);
+            const miss = sameSourceHits('A3', ['同归于尽反噬扣血 35 ≠ round(韦一笑 maxHp 130 × 0.25)=33']);
+            const unknown = sameSourceHits('ZZ99', ['随便一条']);
+            if (!(hit && hit.length > 0) || !(miss && miss.length === 0) || unknown !== null) {
+                console.log(`❌ 自证④ 同源闸门双向判定失败：命中→${JSON.stringify(hit)} 未命中→${JSON.stringify(miss)} 未登记→${JSON.stringify(unknown)}`);
+                bad++;
+            } else {
+                console.log('✅ 自证④ 同源闸门双向自证：命中判同源 / 未命中判不同源 / 未登记不猜');
+            }
+        } catch (e) {
+            console.log('❌ 自证④ 同源闸门自证抛错：' + (e && e.message));
+            bad++;
+        }
+        // 自证⑤（V2.9.35）：对象域复核闸门**三路**都要认得出 ——
+        //   域不同（A1 破防 vs 同归于尽反噬·血量链）⇒ 轨迹连带；
+        //   同域（改「加成账本」类对象，报红「面板存值与账本一致」）⇒ 须人工；
+        //   未登记规则 ⇒ 不猜。只证「能判出域不同」会把恒判「域不同」的恒真闸门放过去。
+        try {
+            const diff = reviewTrail('A1', ['唐文亮同归于尽阵亡反噬(回归)']);
+            const same = reviewTrail('A22', ['面板存值与账本一致(加成账本)(回归)']);   // A22=stat-change，与账本同族
+            const unk = reviewTrail('A1', ['某条无人登记域的新规则(回归)']);
+            const unk2 = reviewTrail('ZZ99', ['唐文亮同归于尽阵亡反噬(回归)']);
+            const ok = diff.verdict === '轨迹连带·域不同' && same.verdict === '同域·须人工'
+                && unk.verdict === '未登记·不猜' && unk2.verdict === '未登记·不猜';
+            if (!ok) {
+                console.log(`❌ 自证⑤ 对象域复核三路判定失败：域不同→${diff.verdict} 同域→${same.verdict} 未登记规则→${unk.verdict} 未登记牙→${unk2.verdict}`);
+                bad++;
+            } else {
+                console.log('✅ 自证⑤ 对象域复核三路自证：域不同判轨迹连带 / 同域降级须人工 / 未登记不猜（规则与牙两侧各测一次）');
+            }
+        } catch (e) {
+            console.log('❌ 自证⑤ 对象域复核自证抛错：' + (e && e.message));
+            bad++;
         }
         if (bad) process.exit(1);
         return;
@@ -1284,6 +1535,11 @@ async function main() {
             // V2.9.14：干净树里已命中的契约 ⇒ 失去作证资格（对照器侧「不得作证」闸门）。
             BASE_DIRTY_CONTRACTS = Object.fromEntries(
                 Object.entries(b.statByContract || {}).filter(([, v]) => v > 0));
+            // V2.9.34：干净树已零触发的契约 ⇒ 死契约集合（见 BASE_ZERO_CONTRACTS 处注释）。
+            BASE_ZERO_CONTRACTS = new Set(b.zeroTriggers || []);
+            if (BASE_ZERO_CONTRACTS.size) {
+                console.log(`  ⚠ 干净树里已零触发的契约 ${BASE_ZERO_CONTRACTS.size} 条（${[...BASE_ZERO_CONTRACTS].join('、')}）—— 契约本恒空转，不作「样本未覆盖」归因`);
+            }
             if (Object.keys(BASE_DIRTY_CONTRACTS).length) {
                 console.log(`  ⚠ 干净树里已命中的契约 ${Object.keys(BASE_DIRTY_CONTRACTS).length} 条（${Object.keys(BASE_DIRTY_CONTRACTS).join('、')}）`);
                 console.log('    按第 43 轮同一口径，它们失去作证资格 —— 其命中不计入「有牙」，改记 [对照器掩盖×N]。');
@@ -1325,7 +1581,7 @@ async function main() {
             const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig, replaySig: p.replaySig, conclSig: p.replayConclSig };
             const S = { total: p.statTotal, statMismatch: p.statMismatch, statByContract: p.statByContract, zeroTriggers: p.zeroTriggers };
             const stf = { fp: p.fp };
-            const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS, BASE_DIRTY_CONTRACTS);
+            const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS, BASE_DIRTY_CONTRACTS, BASE_ZERO_CONTRACTS);
             // V2.9.0：实证「变异到底注进树里没有」。锚点失效时（主代码改写了 from 串）sed 替换 0 处，
             //   树 = 干净树，跑出来的一切都是「没变化」——而 judge 对 TEXT 无条件判 effective，
             //   于是「没注入」被渲染成「规则没牙 / 装饰品(真盲区)」，是最坏的假结论（T2 挂了好几轮就是这么来的）。
@@ -1405,7 +1661,11 @@ function parseBlock(body) {
     // V2.9.13：转交中（⚠️，fail>0 但已登记转交、不计退码）规则的报红明细**同样存在**，此前被整段丢弃。
     const warn = [];
     let curRule = null;
-    for (const line of replay.split('\n')) {
+    for (const raw of replay.split('\n')) {
+        // ★ V2.9.36：新格式前缀（`@S@` 状态行 / `@M@` 明细行 / `@R@` RESULT 行）。
+        //   旧格式（无前缀）原样兼容 —— 两种格式都先剥前缀再走同一套判定，判据一处、不分叉。
+        const line = raw.replace(/^@[SMR]@/, '');
+        if (!line.trim()) continue;
         const m = line.match(/^❌\s+(.+?)\s+pass=\d+\s+fail=\d+\s+skip=\d+/);
         if (m) { curRule = m[1].trim(); red.push(curRule); continue; }
         // ⚠️ 行：只设 curRule（让后续明细有归属）+ 记入 warn，**不进 red**（转交态不是新红，不作证）。
@@ -1492,21 +1752,74 @@ function parseBlock(body) {
     return { red, warn, details, pairs, crash, match, changed, baselineSig, replaySig, replayConclRaw: secs.REPLAY, replayConclSig, statTotal, statMismatch, statByContract, zeroTriggers, fp: fpM ? fpM[1] : null };
 }
 
+// V2.9.34：把「同源 / 轨迹连带」的计数直接写进矩阵头部 —— 数字由本函数现算，
+//   不写死在文档里（写死的那一份过一轮就又开始说谎，这正是本轮要治的病）。
+function sameSourceSummary(rows) {
+    const teeth = rows.filter(r => /^规则有牙/.test(r.verdict || ''));
+    const src = teeth.filter(r => Array.isArray(r.sameSource) && r.sameSource.length > 0);
+    const trail = teeth.filter(r => r.verdictTag);
+    // 只有 [掩盖×N]（基线已红规则顺带红）而**没有任何新明细**的牙：连「明细点到对象」都无从谈起，
+    //   单列一栏，不许悄悄算进「同源」。A25/T16 即此型（V2.9.34 实测）。
+    const maskedOnly = teeth.filter(r => !r.verdictTag && !(Array.isArray(r.sameSource) && r.sameSource.length));
+    const dead = rows.filter(r => /^⚠对照器恒空转/.test(r.verdict || ''));
+    const guard = rows.filter(r => /对照器兜住|对照器有牙/.test(r.verdict || ''));
+    const out = [`> **判定合计**：规则有牙 ${teeth.length}（其中**同源 ${src.length}** / **△轨迹连带·待复核 ${trail.length}** / **仅掩盖、无新明细 ${maskedOnly.length}**）· 对照器兜住或对照器有牙 ${guard.length} · 对照器恒空转·不作证 ${dead.length}。`];
+    if (maskedOnly.length) {
+        out.push('>', `> **仅掩盖 ${maskedOnly.length} 颗**（${maskedOnly.map(r => r.mut.id).join('、')}）：只有「基线已红规则的顺带红」这一种信号，`
+            + '没有一条新明细，**同样不作为「抓住了这次变异」的证据**，与 △ 栏一并留待复核。');
+    }
+    if (trail.length) {
+        // V2.9.35：把 11+2 颗的**复核结论**按域比对分类汇总（数字现算，不写死）。
+        const rev = trail.map(r => r.trailReview || { verdict: '未登记·不猜' });
+        const diff = rev.filter(x => x.verdict === '轨迹连带·域不同').length;
+        const same = rev.filter(x => x.verdict === '同域·须人工').length;
+        const unk = rev.filter(x => x.verdict === '未登记·不猜').length;
+        out.push('>',
+            `> **△轨迹连带 ${trail.length} 颗**（${trail.map(r => r.mut.id).join('、')}）：报红明细里**一条都没点到它自己改的东西**，`
+            + '属变异把全局轨迹带偏后的顺带红，**不能算「规则抓住了这次变异」**。'
+            + `本轮（第 198 轮）已逐颗复核并写入矩阵末列「复核(对象域)」：**域不同 ${diff}** / **同域·须人工 ${same}** / **未登记·不猜 ${unk}**。`);
+        if (same > 0) {
+            out.push('>',
+                `> ★ **同域·须人工 ${same} 颗**（${trail.filter(r => (r.trailReview || {}).verdict === '同域·须人工').map(r => r.mut.id).join('、')}）：`
+                + '这几颗的报红规则与本牙落在同一对象域 —— 关键词口径漏判，**可能真是同源**。本轮不自行改判，'
+                + '单列点名交人工；下轮须为它们补定向用例或改判。');
+        }
+        out.push('>',
+            '> 复核口径：报红规则按「对象域」（血量链 / 回合词条 / 终局判死 / 回血档位 / 幻影治疗 / 面板账本…）归类，'
+            + '与本牙对象域比对。**域不同 ⇒ 轨迹连带有成因依据**，不是随口贴的标签；'
+            + '域相同 ⇒ 降级为「须人工」，宁可多留一双眼睛。');
+    }
+    if (dead.length) {
+        out.push('>',
+            `> **⚠对照器恒空转 ${dead.length} 颗**（${dead.map(r => r.mut.id + '→' + (r.verdict.match(/守卫契约([A-Z_]+)/) || [])[1]).join('、')}）：`
+            + '这些守卫契约在**干净基树**上就零触发，不是「这颗牙的样本没跑到」，而是契约自己是个死契约。'
+            + '规则侧不替主代码补写机制，也不为了让矩阵好看去放宽判据；如实标注，立待办。');
+    }
+    return out;
+}
+
 function summarize(rows, outPath, metaLines, staleCount) {
     // V2.9.12：md 与 stdout 同步产出 —— 控制台照旧给人看，md 落盘给下一轮/白天会话看。
     const md = [];
     console.log('\n=== 牙口矩阵 ===');
     console.log('ID   类型   判定                     报红规则');
-    md.push('| ID | 类型 | 判定 | 报红规则 | 变异描述 |');
-    md.push('|---|---|---|---|---|');
+    md.push('| ID | 类型 | 判定 | 同源 | 报红规则 | 变异描述 | 复核(对象域) |');
+    md.push('|---|---|---|---|---|---|---|');
     for (const r of rows) {
         const red = (r.red || []).length ? r.red.map(s => s.replace('(回归)', '')).join('、') : '—';
         // [掩盖×N]：该变异让「基线已红的规则」冒出了 N 条新明细 —— 属噪声，**不可**当成有牙的证据
         const mk = (r.masked || []).length ? ` [掩盖×${(r.masked || []).length}]` : '';
         // V2.9.14：对照器侧被「已命中契约」吃掉的部分（同规则侧 [掩盖×N]，只提示、不作证据）
         const cmk = r.statMasked > 0 ? ` [对照器掩盖×${r.statMasked}]` : '';
-        console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${(r.verdict || '').padEnd(30)} ${red}${mk}${cmk}`);
-        md.push(`| ${r.mut.id} | ${r.mut.kind} | ${r.verdict || ''} | ${red}${mk}${cmk} | ${r.mut.desc} |`);
+        // V2.9.34：同源标注 —— 报红明细里一条都没点到本牙对象 ⇒ 轨迹连带，不能当「抓住了这次变异」的证据。
+        const ssTag = r.verdictTag ? ` [${r.verdictTag}]` : '';
+        const ssCol = (r.sameSource === undefined || r.sameSource === null) ? '—'
+                    : (r.sameSource.length ? `同源(${r.sameSource.join('/')})` : '**不同源**');
+        // V2.9.35：△ 栏附**复核结论**（对象域比对），让「为什么不算它有牙」在产物里可审计，不靠口头。
+        const tr = r.trailReview;
+        const trCol = tr ? `${tr.verdict}（报红域：${[...new Set(tr.domains.map(d => d || '未登记'))].join('/')}｜本牙域：${MUT_DOMAIN[r.mut.id] || '未登记'}）` : '—';
+        console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${((r.verdict || '') + ssTag).padEnd(30)} ${red}${mk}${cmk}`);
+        md.push(`| ${r.mut.id} | ${r.mut.kind} | ${r.verdict || ''}${ssTag} | ${ssCol} | ${red}${mk}${cmk} | ${r.mut.desc} | ${trCol} |`);
     }
     const has = (r, k) => r.verdict && r.verdict.indexOf(k) >= 0;
     const blind = rows.filter(r => has(r, '装饰品'));
@@ -1592,7 +1905,9 @@ function summarize(rows, outPath, metaLines, staleCount) {
             ...(metaLines || []).map(l => '> ' + l),
             '',
             `覆盖 **${rows.length}** 颗牙（A1–A28 / T1–T18）。口径见 \`tests/mutation-teeth.mjs\` 头部方法论；`,
-            '判定共七类：锚点失效 / fact 文本有牙 / 真盲区(装饰品) / 对照器兜住 / 仅基线兜底 / 待确认盲区 / 未观测到影响。',
+            '判定共八类：锚点失效 / fact 文本有牙 / 真盲区(装饰品) / 对照器兜住 / 仅基线兜底 / 待确认盲区 / 未观测到影响 / **对照器恒空转·不作证**。',
+            '',
+            ...sameSourceSummary(rows),
             '',
             '## 全集矩阵',
             '',

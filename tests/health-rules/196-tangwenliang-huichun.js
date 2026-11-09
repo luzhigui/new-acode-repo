@@ -120,7 +120,7 @@ export const rule196 = {
             // 治疗被减疗机制打折 → 小于最小单层值，交给减疗规则，不判
             if (!matched && heal < minAll && minAll > 0) { debuffed++; continue; }
             if (!matched) {
-                return { fail: true, msg: '复发：回春术' + bestMsg };
+                return { fail: true, msg: '复发：回春术逐层回血异常 — ' + bestMsg };
             }
         }
         if (samples === 0) return 'skip';
