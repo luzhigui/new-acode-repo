@@ -12,7 +12,10 @@
 // V1.0.7 | 2026-11-08 取消乾坤衍生减伤保底：calcQianKunReduce 不再读 s.minReduce、去掉 Math.max 保底，
 //           减伤回归纯公式；白骨爪多段小伤害可实打实穿透。content/001 的 minReduce 键随之移除。
 // V1.0.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.8';
+// V1.0.9 | 2026-11-08 状态标签化：六处「找不受控的姊/妹」改问 isControlled()（core/218 标签表）。
+// V1.0.10 | 2026-11-08 known-transfers 第 3 条：_executeReturn 宿主阵亡分支补 removeModsByGroup(host,'butterfly')
+//   + refreshMaxHp，且放在飞回血量分母计算之前（旧版只清 _butterflyHost，宿主词条永久残留）。
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.10';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -22,6 +25,7 @@ import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TY
 import { emitStateChange } from '../infra/108-state-change.js';
 import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
 import { findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
+import { isControlled } from '../core/218-state-keys.js';
 
 // 宿主死亡观察：sister.uid -> token。宿主一死立刻触发飞回（不必等回合末的 BUTTERFLY_RETURN 声明）
 const _hostWatchers = new Map();
@@ -76,14 +80,14 @@ export function createXiaoZhaoSisterComponent() {
             // 从 core/11 迁入：姊在场 → 友方默认飞行方向 left（幂等 ||=；
             //   原版只在 round===1 设、无人中途清空 _flyDirection，每轮重设等价）
             A._flyDirection = A._flyDirection || 'left';
-            const sister = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
+            const sister = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
             if (!sister) return;
             const fsm = this._buildFsm(sister, A, log);
             sister._fsm = fsm;
             const comp = this;
             // 乾坤衍生：DMG_REDUCTION 走声明，hp/atk 直改并记账
             function submitXiaoZhaoQianKunDerivedDeclaration(data) {
-                const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
+                const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
                 if (!xiaoZhao) return;
                 const zhang = findAlive(A, 'isZhang');
                 if (zhang) return;
@@ -147,7 +151,7 @@ export function createXiaoZhaoSisterComponent() {
             //   门槛与常规乾坤衍生一致（姊在场存活未眩晕、张无忌不在场、被爪者是友方）；
             //   受益池继续走 getBenefitTargets。条目随 payload 回传，由 core/10 落攻击组 entries。
             function submitClawQianKunDerived(data) {
-                const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
+                const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
                 if (!xiaoZhao) return;
                 const zhang = findAlive(A, 'isZhang');
                 if (zhang) return;
@@ -289,8 +293,19 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister.alive || !sister.state._butterflyHost) return;
             // 先存档宿主 uid：下面死主分支会清空 _butterflyHost，清完再读就恒为 null（旧 bug）
             const hostUidBeforeClear = sister.state._butterflyHost;
-            const host = A.find(u => u.uid === hostUidBeforeClear && u.alive);
-            if (!host || !host.alive) {
+            // 宿主记录分两档：hostRec 含已阵亡（清词条要用），host 仅存活（走正常飞回分支）。
+            //   旧版一步 find(... && u.alive) 拿到 undefined，死亡分支就彻底拿不到宿主对象，词条无从清理。
+            const hostRec = A.find(u => u.uid === hostUidBeforeClear) || null;
+            const host = (hostRec && hostRec.alive) ? hostRec : null;
+            if (!host) {
+                // 关窗必清宿主蝶变词条（与下方 host-alive 分支同口径）：旧版死亡分支只清 _butterflyHost，
+                //   宿主的 atk/def/maxHp 三件蝶变词条永久留在账本上——被圣火不熄复活后白吃攻/防/血上限；
+                //   残留 maxHp 还会抬高下面「全队 maxHp 分母」，让姐姐飞回血量偏低（156 场 26 具宿主实证）。
+                //   ★ 必须在算分母之前清，否则这一场飞回血量仍然算错。
+                if (hostRec) {
+                    removeModsByGroup(hostRec, 'butterfly');
+                    refreshMaxHp(hostRec, sister, '蝶变飞回血上限');
+                }
                 const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
                 const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
                 const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);
@@ -360,8 +375,8 @@ export function createXiaoZhaoSisterComponent() {
             emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, {}, log);
         },
         executeAttach(A, log) {
-            let sister = findAlive(A, 'isXiaoZhaoSister', u => u.pos === 4 && !u.state._stunned);
-            if (!sister) sister = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned);
+            let sister = findAlive(A, 'isXiaoZhaoSister', u => u.pos === 4 && !isControlled(u));
+            if (!sister) sister = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
             if (!sister || sister.state._butterflyHost) return null;
             const fsm = sister._fsm;
             if (fsm && fsm.is('normal')) fsm.transition('attaching', { log });
@@ -376,7 +391,7 @@ export function createXiaoZhaoSisterComponent() {
         //   首个友方回合开始时找可附身的姊（未眩晕、未附身）触发附身；
         //   返回 true = 插播了演出（主循环 yield 一步）——与原版「预检通过即 yield」口径一致
         onFirstAllyTurn(A, B, log) {
-            const sisterForAttach = findAlive(A, 'isXiaoZhaoSister', u => !u.state._stunned && !u.state._butterflyHost);
+            const sisterForAttach = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u) && !u.state._butterflyHost);
             if (!sisterForAttach) return false;
             this.executeAttach(A, log);
             return true;

@@ -1,7 +1,10 @@
 // V6.9.5 | 2026-11-08 体检转交：删除 MING_SQUADS getter（对应 content.encounters.mingSquads 废配置，无读取方）。
 // V6.9.6 | 2026-11-08 体检转交：PCT_PARAM_KEYS 补布袋参数（说不得 bagTrap.params 占位符按 % 输出）。
 // V6.9.7 | 2026-11-08 体检转交：导出 getContentVersion()，供生涯记录/跑批判混版本（单一真源 = 001.version）。
-export const VER = 'core/201-config-5v5-test.js V6.9.7';
+// V%s | 2026-11-08 known-transfers 商店三条(1)：宝箱掉率收口为单表 content/001 dropRates，
+//   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
+//   禁止 JS/商店页再写第二份数字。
+export const VER = 'core/201-config-5v5-test.js V6.9.8';
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 // V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
@@ -26,8 +29,21 @@ async function loadGameData() {
     const resp = await fetch(new URL('../content/001-game-data.json', import.meta.url));
     if (!resp.ok) throw new Error(`游戏数据加载失败：HTTP ${resp.status}`);
     gameData = await resp.json();
+    // 掉率表真源在 content（引擎与商店页双端可达）：加载即合并进 CONFIG。
+    //   禁止在任何 JS/HTML 里再写第二份数字——旧版三份口径（商店页 3%→9% / 通关固定 1% /
+    //   击杀 0.2%）让「玩家看到的期望」与「实际体验」差一个数量级（known-transfers 商店三条第 1 项）。
+    applyDropRates(gameData.dropRates);
     invalidateConfigCache();  // 数据整体替换后，派生缓存必须作废（防「改了配置读到旧结果」）
     return gameData;
+}
+
+// 掉率表合并：content/001 dropRates -> CONFIG（唯一真源出口，引擎与商店页同源）。
+//   字段缺失时保留 CONFIG 里的内置默认值（与 content 当前值一致），不静默清空。
+function applyDropRates(dr) {
+    if (!dr || typeof dr !== 'object') return;
+    if (Array.isArray(dr.chestClearByStage) && dr.chestClearByStage.length > 1) CONFIG.CHEST_CLEAR_RATES = dr.chestClearByStage.slice();
+    if (typeof dr.chestFirstClearBonus === 'number') CONFIG.CHEST_FIRST_CLEAR_BONUS = dr.chestFirstClearBonus;
+    if (typeof dr.chestKill === 'number') CONFIG.CHEST_DROP_RATE = dr.chestKill;
 }
 
 // 同步获取（如果还没加载完就返回 null，调用方需要处理）
@@ -402,7 +418,11 @@ const CONFIG = {
     FORTIFY_INCREMENT: 1,
     FORTIFY_CAP: 4,
     TOKEN_DROP_RATES: [0, 1.5, 2, 2.5, 4, 5.5, 6, 7], // 索引=关卡号，1.5→7 递增。统一口径：对齐 player/48 通关奖励的 10-02 定案表（此前两张表各修一半方向相反：core 头补0[0,0,1.5,...,6] vs 48 尾补7；统一后 s1 局内击杀也掉令1.5%，s7=7%）
-    CHEST_DROP_RATE: 0.2,
+    // 宝箱掉率三项：真源 content/001 dropRates（加载时覆盖），此处仅为「content 缺失」时的默认值，
+    //   值必须与 content 一致；改数值请只改 content/001，别在这里改。
+    CHEST_DROP_RATE: 0.2,          // 击杀掉率（%）：每次击杀独立掷
+    CHEST_CLEAR_RATES: [0, 3, 4, 5, 6, 8, 8, 9],   // 通关掉率（%），索引 = 关卡号
+    CHEST_FIRST_CLEAR_BONUS: 5,    // 首通额外加成（%）
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
     BGM_LOCAL: 'assets/sfx_xinai.mp3',

@@ -8,7 +8,9 @@
 // 袋子同时最多装一个；已装人时再触发 → 本次作废。
 // 参数唯一真源：content/001-game-data.json 说不得.skills.bagTrap.params（缺哪键报哪键，不再硬编码）。
 // V1.0.1 | 2026-11-08 体检转交：布袋参数化（triggerChance/protectBranchChance/redHpThreshold/protectHeal/captureMaxHpPct）。
-export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.1';
+// V1.0.2 | 2026-11-09 布袋跨回合：装袋当回合 ready=false 不放，ON_ROUND_START 置 ready=true 并给目标重新上锁，
+//   下回合末才放出（此前装袋当回合末即放，等于没有跨回合控制）。
+export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.2';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, applyStatChange, emitEvent, getStat } from '../core/214-battle-shared.js';
@@ -58,9 +60,10 @@ function hasRedHp(team, redHpThreshold) {
 }
 
 // 装袋：给 target 打 _inBag 标记（真正"装谁"的字段记在说不得身上），并把它标记为不可选
+// ready 标记：装袋当回合为 false（不放），下回合开始置 true（下回合末才放）
 function putInBag(caster, target, mode, log) {
     Object.assign(caster.state, {
-        _inBag: { targetUid: target.uid, mode, casterUid: caster.uid, casterName: caster.name }
+        _inBag: { targetUid: target.uid, mode, casterUid: caster.uid, casterName: caster.name, ready: false }
     });
     // 用 state._untargetable 屏蔽选敌（canBeTargeted 读它）；同时 state._stunned 屏蔽行动（core/11 跳过）
     Object.assign(target.state, { _untargetable: true, _stunned: true });
@@ -112,6 +115,7 @@ function onShuobudeHit(data) {
 }
 
 // 回合末放出（挂 ON_ROUND_END，只认真回合末 forced:true）
+// ready=false 的袋子（本回合刚套上）跳过，等下回合末再放
 function releaseBag(data) {
     if (!data || !data.forced) return;
     const teams = [data.A, data.B].filter(Boolean);
@@ -119,6 +123,7 @@ function releaseBag(data) {
         const caster = team.find(u => u.state && u.state._inBag);
         if (!caster) continue;
         const bag = caster.state._inBag;
+        if (!bag.ready) continue;
         caster.state._inBag = null;
         const allUnits = [...(data.A || []), ...(data.B || [])];
         const target = allUnits.find(u => u.uid === bag.targetUid);
@@ -161,6 +166,30 @@ export const bagTrapHandler = {
             when: SIGNAL_TYPES.ON_ROUND_END,
             priority: L.ROUND_END.BAG_TRAP_RELEASE,
             handler: (data) => releaseBag(data)
+        });
+        // 布袋跨回合维持：下回合开始时置 ready=true，并给目标重新上锁
+        //   （resetStateFields 已在 ON_ROUND_START 之前把 _stunned/_untargetable 清成 false，必须重新挂）
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_ROUND_START,
+            priority: L.ROUND_START.BAG_TRAP_READY,
+            handler: (data) => {
+                const teams = [data.A, data.B].filter(Boolean);
+                const all = [...(data.A || []), ...(data.B || [])];
+                for (const team of teams) {
+                    for (const u of team) {
+                        const bag = u.state && u.state._inBag;
+                        if (!bag) continue;
+                        // 装袋当回合的 ON_ROUND_START 已经过去了，这里只会处理「上回合装的袋子」
+                        if (!bag.ready) u.state._inBag = { ...bag, ready: true };
+                        // 目标重新上锁（不 emit 事件，UI 侧格子显示的是布袋，不需要 😵 标记）
+                        const target = all.find(t => t.uid === bag.targetUid);
+                        if (target && target.alive) {
+                            target.state._untargetable = true;
+                            target.state._stunned = true;
+                        }
+                    }
+                }
+            }
         });
     }
 };

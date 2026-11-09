@@ -13,7 +13,9 @@
 //         |（战报 / 跑批 / 联机凭它识别「这条记录是哪一版抽签产生的」）。骰子数量或顺序一变就必须改版本号。
 // V7.8.1 | 2026-11-08 建队去重：具名兵职业解析（含何太冲双修）与无名杂兵补名抽成文件内辅助函数，
 //         主建队与凑数池两条路径改调同一份；RNG 消耗序列不变（先 _rand(0,3) 再何太冲 _rng.next()）。
-export const VER = 'modules/330-battle-init.js V7.8.1';
+// V7.8.2 | 2026-11-08 known-transfers 第 2 条：张三丰 1 号位锁的识别范围从 eliteUnits 扩到 allUnits——
+//   张三丰按 M107 混入第 3~7 关时不在本关固定池里，旧版当普通兵走模板/随机位（实证 seed7 stage7 落 9 号位）。
+export const VER = 'modules/330-battle-init.js V7.8.2';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -586,7 +588,9 @@ export function initBattleTeams(currentStage, _rng) {
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
         // 张三丰固定1号位：普通兵排位之前先锁，其他单位不许占
-        const zhangSanfeng = eliteUnits.find(u => u.name === '张三丰');
+        //   识别范围必须是 allUnits 而非 eliteUnits：eliteUnits 只收「本关固定池」的精英，
+        //   张三丰按 M107 混入第 3~7 关时不在池里，旧版就此当普通兵走模板/随机位（实证 seed7 s7 落 9 号位）。
+        const zhangSanfeng = allUnits.find(u => u.name === '张三丰');
         if (zhangSanfeng && !enemyPosSet.has(1)) {
             zhangSanfeng.pos = 1;
             zhangSanfeng.state._originalPos = 1;

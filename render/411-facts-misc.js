@@ -12,7 +12,8 @@
 // V1.1.7 | 2026-11-08 体检转交：ABSORB_SUMMARY 吸星汇总注册隐藏渲染器（只记账不上屏，行仍由 SKILL_ANNOUNCE 出）
 // V1.1.8 | 2026-11-08 摘要与事实同源：严阵以待「反弹50%」改读 cfg.reboundRatio、流星赶月「降2/1防」改读
 //         | cfg.mainDefReduce/splashDefReduce——不再写死数字，配置一改摘要立即跟上
-export const VER = 'render/411-facts-misc.js V1.1.8';
+// V1.1.9 | 2026-11-09 SUMMON_DEAD 注册隐藏渲染（召唤物阵亡只供体检归账，不进画面）
+export const VER = 'render/411-facts-misc.js V1.1.9';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -204,6 +205,8 @@ registerFactRenderer(FACT_TYPES.ROUND_END, renderRoundEndFact);
 registerFactRenderer(FACT_TYPES.UNIT_DEATH, () => null);
 // 吸星汇总只供体检归账（group absorbed/absorbGain 逐单位对账）；SKILL_ANNOUNCE 已负责「🌀 发动吸星」行，此处显式声明隐藏
 registerFactRenderer(FACT_TYPES.ABSORB_SUMMARY, () => null);
+// 召唤物阵亡登记只供体检归账（规则 260 不再从 ATTACK dead 反推）；战报死亡行由攻击组负责，此处显式隐藏
+registerFactRenderer(FACT_TYPES.SUMMON_DEAD, () => null);
 registerFactRenderer(FACT_TYPES.ZHANG_TAUNT, renderZhangTauntFact);
 registerFactRenderer(FACT_TYPES.NO_CONTEND, renderNoContendFact);
 registerFactRenderer(FACT_TYPES.PHANTOM_REVEAL, renderPhantomRevealFact);

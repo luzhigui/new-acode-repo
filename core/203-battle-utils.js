@@ -216,7 +216,10 @@ function submitWarriorBreakDefenseDeclaration(data) {
     //   兜底档 → 防御 × (WARRIOR_BREAK_CHANCE_PER_DEF * 100)（如 30 × 2.5 = 75）
     let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF * 100) : tier.chance * 100;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
-    defReduced = Math.min(defReduced, getStat(target, 'def'));
+    // 破防口径：取整后再夹到当前防御（不取整会发出 2.5 这类小数破防，面板按整数记 → 对账差）；
+    //   取整后归零则该次不声明（0 破防只挂空事实）。
+    defReduced = Math.min(defReduced, Math.floor(getStat(target, 'def')));
+    if (defReduced <= 0) return;
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
 }
 

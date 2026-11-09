@@ -1,13 +1,18 @@
 // V6.4.7 | 2026-11-07 第 184 轮：① 新增 killUnit —— 死亡收口唯一出口（ignoreCap=true + recordHpAudit
 //          group='death' + _pendingDeath），finalizeDeaths / maxHp 变更致死改调它；applyStatChange 的
 //          ignoreCap 变成 killUnit 专用。② 飞天/附身判据改调 core/203 isAirborne（本地内联删除）。
-export const VER = 'core/214-battle-shared.js V6.4.8';
+// V6.4.9 | 2026-11-08 状态标签化：三处免控守卫（换位/移动/击退眩晕）改问 isCCImmune()
+//         （core/218 标签表单一真源）；行为逐项等价，仅去掉裸读 state._ctrlImmune。
+// V6.4.10 | 2026-11-08 known-transfers 第 1 条：新增 statMulFactor（乘区因子出口）——吸星按面板百分比
+//   吸取时须先除本因子再落 add 词条，否则受害者实损被乘区放大、与施术者所得对不上。
+export const VER = 'core/214-battle-shared.js V6.4.10';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { isAirborne } from './203-battle-utils.js';   // 飞天/附身判据全库唯一一份（第 184 轮收口）
+import { isAirborne } from './203-battle-utils.js';
+import { isCCImmune } from './218-state-keys.js';     // 免控语义（core/218 标签表单一真源）   // 飞天/附身判据全库唯一一份（第 184 轮收口）
 const C = CONFIG;
 
 // 战斗统计统一记账入口（唯一入口）。承伤记 rawAmount（减免前全额），
@@ -130,7 +135,7 @@ function swapUnitPositions(unitA, unitB, log) {
     if (!unitA || !unitB) return false;
     // 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
     // 返回布尔：原静默 return 让调用方在换位失败时照发"换位成功"战报（体检 114 家族案）。
-    if ((unitA.state && unitA.state._ctrlImmune) || (unitB.state && unitB.state._ctrlImmune)) return false;
+    if (isCCImmune(unitA) || isCCImmune(unitB)) return false;
     const posA = unitA.pos;
     const posB = unitB.pos;
     unitA.pos = posB;
@@ -147,7 +152,7 @@ function moveUnitPosition(unit, newPos, log) {
     if (!unit || newPos == null) return false;
     // 免疫也挡"移动"分支：原只挡 swap，唐文亮拽免疫者且前排空着时走 move 分支 → 硬拽走、免疫破功
     //   （体检 114 家族案的反向洞）。返回布尔供调用方照实报幕。
-    if (unit.state && unit.state._ctrlImmune) return false;
+    if (isCCImmune(unit)) return false;
     const oldPos = unit.pos;
     unit.pos = newPos;
     // 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
@@ -166,7 +171,7 @@ function moveUnitPosition(unit, newPos, log) {
 function resolvePushOrStun(target, team, log, label) {
     if (!target || !target.alive) return;
     // 控制位移免疫（寒离飒·开局常驻）：击退/撞晕都不吃（乘风突袭、胖远桥、拒马蛛同走此门）
-    if (target.state && target.state._ctrlImmune) return;
+    if (isCCImmune(target)) return;
     const behindPos = target.pos + 3;
     const behindUnit = behindPos <= 9 ? team.find(u => u.pos === behindPos && u.alive) : null;
     // 附身占位可被挤开（老板 2026-11 定调）：蝶形态（_flyMode='butterfly' / _butterflyHost 有值）
@@ -433,6 +438,19 @@ export function getStat(unit, stat) {
     return Math.max(0, result);
 }
 
+// 乘区因子（1 + mulSum）：与 getStat 的 (base + addSum) x (1 + mulSum) 严格同源。
+//   用途：凡「实际增减量必须等于声明值」的机制（吸星按面板百分比吸取/扣减），
+//   add 层落 1 点会被乘区放大成 (1+mulSum) 点 => 受害者实损 != 施术者所得，差额凭空消失。
+//   正确姿势：add 词条写 声明值 / statMulFactor(u, stat)，落地后逐人逐属性 before/after 实测。
+function statMulFactor(unit, stat) {
+    if (!unit) return 1;
+    const mods = (unit._mods && unit._mods[stat]) || [];
+    let mulSum = 0;
+    for (const m of mods) if (m.op === 'mul') mulSum += m.value;
+    const f = 1 + mulSum;
+    return f > 0 ? f : 1;   // 乘区被削到非正时按 1 兜底，避免除零/负值反号
+}
+
 // V6.4.8 | 2026-11-08 新增 emitHpChange —— 血量/攻防广播唯一出口，从 modules/305 下移而来：原实作
 //          置于 modules 层，core 自身那 22 处永远够不到入口（core→modules 属反向依赖），规则形同虚设。
 //          305 改为转口，对外签名与 payload 逐字节不变。守卫见 tests/entry-path-guard.mjs。
@@ -449,6 +467,7 @@ function emitHpChange(unit, extra) {
 }
 
 export {
+    statMulFactor,
     emitCoreEvent as emitEvent,
     emitHpChange,
     emitFullUnitState,

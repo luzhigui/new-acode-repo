@@ -6,7 +6,8 @@
 //   未命中免疫分支），走 SKILL_ANNOUNCE 同款 floatText 路径；每次击杀独立一条，连续成长连着升。
 // V6.3.7 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V6.3.8 | 2026-11-08 落地打击候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），删本地手工过滤
-export const VER = 'modules/302-elite-skills.js V6.3.8';
+// V6.3.9 | 2026-11-08 状态标签化：张无忌可取性里的眩晕判定改问 isControlled()（core/218 标签表）。
+export const VER = 'modules/302-elite-skills.js V6.3.9';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -19,6 +20,7 @@ import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event
 import { registerRoundHook } from '../core/208-registry-elite.js';
 import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
+import { isControlled } from '../core/218-state-keys.js';
 
 // 玄冥二老 — 中毒/鹿角
 
@@ -55,7 +57,7 @@ export function applyDamageModifiers(unit, target, dmg, targetTeam, attackerTeam
     let modifiedDmg = dmg;
     const entries = [];
     const xiaoZhao = targetTeam.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
-    const zhang = targetTeam.find(c => c.isZhang && c.alive && c.rangedForm && !c.state._stunned);
+    const zhang = targetTeam.find(c => c.isZhang && c.alive && c.rangedForm && !isControlled(c));
     if (target.camp !== CAMP_TYPES.ALLY || !zhang) return { modifiedDmg, entries };
 
     let isProtected = false;

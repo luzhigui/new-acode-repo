@@ -1,6 +1,11 @@
 // V6.2.3 | 2026-11-08 体检转交：applyHolyFlame_Sister 前置显式校验 sister.holyFlame.atkBonus/defBonus
 //        | （Normal 对 bonuses 缺键回落普通版 0.3，摘键会静默算错；缺哪键报哪键）。
-export const VER = 'core/215-buff-effects.js V6.2.3';
+// V6.2.5 | 2026-11-08 状态标签化：惑心换位候选池与两处血量结算的「存活+非待死+非免控」
+//        | 改问 isPendingDeath/isCCImmune（core/218 标签表）；逐项等价。
+// V6.2.6 | 2026-11-08 known-transfers 第 12 条：惑心换位落位合法性闸——toPos 必须是 1~9 整数，
+//   非法落点整笔放弃（旧版单候选分支找不到空格时把 unit.pos 写成 undefined，后续按 pos 找位复位到
+//   1 号位 => 战报宣告 4、实际露面 1）。
+export const VER = 'core/215-buff-effects.js V6.2.6';
 // V6.2.2（2026-11-08）：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
 //   缺键直接 TypeError，与「缺哪键报哪键」口径不符）。
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
@@ -14,6 +19,7 @@ import { eventBus } from '../infra/101-event-bus.js';
 import { getBattleRng, addMod, getStat, applyStatChange, emitEvent } from './214-battle-shared.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { isPendingDeath, isCCImmune } from './218-state-keys.js';   // 待死/免控语义（标签表单一真源）
 const C = CONFIG;
 
 // 严阵以待：防御 +50%（mul 词条）
@@ -136,7 +142,7 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
 function shuffleThreeSlots(team, rng) {
     const allPos = [1, 2, 3, 4, 5, 6, 7, 8, 9];
     // 候选 = 存活、非待死、非控制免疫；全灭/全免疫时保持空结果（保留分支，正常路径不命中）
-    const cands = team.filter(u => u.alive && !u.state._pendingDeath && !u.state._ctrlImmune);
+    const cands = team.filter(u => u.alive && !isPendingDeath(u) && !isCCImmune(u));
     if (cands.length === 0) return { swaps: [], pick3: [] };
 
     const pick3 = [];
@@ -174,13 +180,19 @@ function shuffleThreeSlots(team, rng) {
             fromPos: fromPositions[i],
             toPos: fromPositions[(i + 1) % order.length]
         }));
+        // 落位合法性闸：toPos 必须是 1~9 的整数。非法值一旦写进 unit.pos，「按 pos 找位」的路径
+        //   会把他复位到 1 号位 => 战报宣告 4、实际露面 1（known-transfers 第 12 条：11/94 次落点不符）。
+        if (!result.every(s => Number.isInteger(s.toPos) && s.toPos >= 1 && s.toPos <= 9)) return { swaps: [], pick3 };
         for (const s of result) s.unit.pos = s.toPos;
         return { swaps: result, pick3 };
     }
     // 单个候选：直接挪到那个空格（位置必然不同）
     const u = units[0];
     const fromPos = u.pos;
-    const toPos = pick3.find(p => !team.some(x => x.pos === p));
+    const toPos = pick3.find(p => Number.isInteger(p) && p >= 1 && p <= 9 && !team.some(x => x.pos === p));
+    // 找不到空格就整笔放弃：旧版 toPos=undefined 会把 unit.pos 写成 undefined（非法落点），
+    //   之后按 pos 找位的路径把他复位到 1 号位 —— 战报宣告 N、实际落 1 的成因之一。
+    if (!Number.isInteger(toPos)) return { swaps: [], pick3 };
     u.pos = toPos;
     // 返回 pick3（被选中的 3 个格子）：fx 层落定时需要用它完整遍历 3 个格子，
     //   否则「原本空着但被分配了人」和「原本有人但被移空」两种情况都会演错。
@@ -207,7 +219,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             const hpPct = (enhance && enhance.hpPctSwap) || 0;
             if (hpPct > 0) {
                 for (const s of swaps) {
-                    if (s.unit.alive && !s.unit.state._pendingDeath) {
+                    if (s.unit.alive && !isPendingDeath(s.unit)) {
                         // 敌方：按当前生命比例扣血（逐单位各自算，不共用同一刀）
                         s.dmgAmt = Math.max(1, Math.floor(s.unit.hp * hpPct));
                         applyStatChange(s.unit, 'hp', -s.dmgAmt, null, '惑心换位');
@@ -216,7 +228,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             }
             if (enhance && enhance.stunOnSwap) {
                 for (const s of swaps) {
-                    if (s.unit.alive && !s.unit.state._pendingDeath) {
+                    if (s.unit.alive && !isPendingDeath(s.unit)) {
                         s.unit.state._stunned = true;
                         emitEvent(s.unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: s.unit.hp, maxHp: s.unit.maxHp, alive: s.unit.alive, atk: getStat(s.unit, 'atk'), def: getStat(s.unit, 'def'), _stunned: true });
                         emitStateChange(s.unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
@@ -241,7 +253,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             const hpPct = (enhance && enhance.hpPctSwap) || 0;
             if (hpPct > 0) {
                 for (const s of swaps) {
-                    if (s.unit.alive && !s.unit.state._pendingDeath) {
+                    if (s.unit.alive && !isPendingDeath(s.unit)) {
                         // 己方：按最大生命比例回血（D5 口径，不看当前血）
                         s.healAmt = Math.max(1, Math.floor(s.unit.maxHp * hpPct));
                         applyStatChange(s.unit, 'hp', s.healAmt, unit, '惑心换位');

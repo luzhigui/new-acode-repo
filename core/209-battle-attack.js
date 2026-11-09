@@ -2,10 +2,14 @@
 // V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
 // V6.4.13 | 2026-11-08 体检转交：免疫分支 attackerHp/targetHp 改实数（取整只留在显示层，fact 给引擎真值）
 // V6.4.14 | 2026-11-08 体检转交：闪避/未命中分支补挂 phantomFact（改目标那一击被闪避时 phantomConfuse 不再丢）
-export const VER = 'core/209-battle-attack.js V6.4.15';
+// V6.4.16 | 2026-11-08 状态标签化：两处眩晕判定改问 isControlled(unit)（core/218 标签表），
+//           裸读 state._stunned 下线；以后新增控制状态在 schema 打 cc 标签即自动生效。
+// V6.4.17 | 2026-11-08 known-transfers 第 11 条：锁定目标补 canBeTargeted——飞天/附身/不可选中的单位
+//   不再被连击等被动出手锁定命中（此前血不掉却照报伤害）。
+export const VER = 'core/209-battle-attack.js V6.4.17';
 
 import { CONFIG } from './201-config-5v5-test.js';
-import { hasBuff, makeFXSnapshot, isBlocked } from './203-battle-utils.js';
+import { hasBuff, makeFXSnapshot, isBlocked, canBeTargeted } from './203-battle-utils.js';
 
 import { computeBuffStats } from './204-buff-system.js';
 import {
@@ -23,6 +27,8 @@ import { flushBattleEvents, fmtHp, fmtNum, fmtHpText } from '../infra/102-core-u
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 
 import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition, getStat } from './214-battle-shared.js';
+// 状态语义（受控/免控/待死）：单一真源在 core/218 的标签表，不再逐文件点字段名
+import { isControlled } from './218-state-keys.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 
 const C = CONFIG;
@@ -193,7 +199,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         if (unit && unit.state) unit.state._acted = true;
         return false;
     }
-    if (unit.state._stunned) {
+    if (isControlled(unit)) {
         log.push({ factType: FACT_TYPES.STUN_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
@@ -220,7 +226,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let target, phantomFact;
     if (lockedTargetUid) {
         // 补 pendingDeath：连锁带着已归零的 uid 进来时，不该再打
-        target = enemySide.find(u => u.uid === lockedTargetUid && u.alive && !u.state._pendingDeath) || null;
+        // 锁定目标也必过 canBeTargeted：旧版只判 alive/_pendingDeath，小昭·妹飞天（_spiderFlying）、
+        //   附身中（_flyMode/FSM）照样被锁定命中——血被 core/214 拦下不掉，战报却宣称「造成 17 伤害」。
+        //   目标已不可选 => 落到下面走正常选目标重挑（与 extraRequests 的 targetUid 同口径）。
+        target = enemySide.find(u => u.uid === lockedTargetUid && canBeTargeted(u)) || null;
         phantomFact = null;
         if (!target) {
             // 锁定目标已阵亡，跳过行动
@@ -345,7 +354,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         return true;
     }
 
-    if (unit.state._stunned) {
+    if (isControlled(unit)) {
         unit.state._acted = true;
         return true;
     }

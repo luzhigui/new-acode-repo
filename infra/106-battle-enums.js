@@ -1,5 +1,6 @@
 // V1.11.4 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY（吸星一次结算一条汇总事实，含 beneficiaries 明细数组）
-export const VER = 'infra/106-battle-enums.js V1.11.4';
+// V1.11.5 | 2026-11-09 新增 SUMMON_DEAD（core/213 resolveDeaths 召唤物阵亡与 UNIT_DEATH 同出口，只进 step.log）
+export const VER = 'infra/106-battle-enums.js V1.11.5';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -71,6 +72,8 @@ export const FACT_TYPES = Object.freeze({
     NO_CONTEND: 'noContend',
     // 召唤（谢逊狮子 / 灭绝召唤周芷若）
     SUMMON_UNIT: 'summonUnit',
+    // 召唤物阵亡登记（core/213 resolveDeaths 与 UNIT_DEATH 同出口）：{ summonUid, summonName, camp, pos, cause, hpBefore, hpAfter }，只进 step.log
+    SUMMON_DEAD: 'summonDead',
     // 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
     LION_GROW: 'lionGrow',
     // 数值声明 fact（供体检对照器比对「声明 vs 账本 group 实际增量」；不进画面，只进 step.log）

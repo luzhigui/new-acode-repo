@@ -5,7 +5,11 @@
 // V1.0.1 | 2026-11-07 第 184 轮：resolveDeaths 归零改调 killUnit（死亡收口统一出口，ignoreCap=true
 //          与审计账/待死标记一次做完；补记 V1.0.0 未升版的 ignoreCap 改动）
 // V1.0.2 | 2026-11-08 体检转交：resolveDeaths 每个死者补一条 UNIT_DEATH fact（只加事实，不改判死/结算逻辑）
-export const VER = 'core/213-battle-attack-edge.js V1.0.2';
+// V1.0.4 | 2026-11-08 状态标签化：isUnitStunned 改为 isControlled 的转口（此前零调用，
+//   保留导出名防外部引用；判定口径统一由 core/218 标签表决定）。
+// V1.0.5 | 2026-11-09 召唤物阵亡补显式事实：resolveDeaths 里 isSummon 的死者与 UNIT_DEATH 同出口
+//   补一条 SUMMON_DEAD（此前只能从 ATTACK 的 dmgResult.dead 反推，DOT / 替死 / 非攻击来源归零时看不见）。
+export const VER = '213-battle-attack-edge.js V1.0.5';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';
@@ -14,6 +18,7 @@ import { emitEvent, killUnit, getStat } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
+import { isControlled } from './218-state-keys.js';
 
 // 综合闪避率（0~1）：规则表各源 + buff 闪避，独立相乘后取补——resolveAttackHit 内部与
 //   外部「概率直读」消费者（唐文亮·同归于尽反噬，绕开「行动过不能闪避」前置时）共用此单点公式。
@@ -154,6 +159,13 @@ export function resolveDeaths(allySide, enemySide, log) {
                 uid: u.uid, name: u.name, camp: u.camp,
                 reason: '死亡结算', hpBefore, hpAfter: u.hp
             } });
+            // 召唤物阵亡显式事实：此前只能从 ATTACK 的 dmgResult.dead 反推，被 DOT / 替死 / 非攻击来源打到归零时看不见
+            if (u.isSummon) {
+                log.push({ factType: FACT_TYPES.SUMMON_DEAD, data: {
+                    summonUid: u.uid, summonName: u.name, camp: u.camp, pos: u.pos,
+                    cause: '死亡结算', hpBefore, hpAfter: u.hp
+                } });
+            }
         }
         died.push(u);
     }
@@ -163,6 +175,7 @@ export function resolveDeaths(allySide, enemySide, log) {
     }
 }
 
+/** 是否受控（眩晕及未来任何打 cc 标签的控制状态）。转口 core/218 isControlled，保留旧名兼容。 */
 export function isUnitStunned(unit) {
-    return !!(unit && unit.state._stunned);
+    return isControlled(unit);
 }

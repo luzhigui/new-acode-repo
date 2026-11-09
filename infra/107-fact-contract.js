@@ -5,7 +5,8 @@
 // V1.5.20 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY 契约（吸星一次结算一条汇总，beneficiaries 内带逐单位 before/after）
 // V1.5.21 | 2026-11-08 召唤契约补账：SUMMON_UNIT 具名召唤者补 byUid（313/318/326/339），审计字段登记
 // V1.5.22 | 2026-11-08 契约与实现对齐：UNIT_DEATH / ABSORB_SUMMARY 在 render/411 注册了显式隐藏渲染（() => null），契约不再谎称 renderFn:null
-export const VER = 'infra/107-fact-contract.js V1.5.22';
+// V1.5.23 | 2026-11-09 新增 SUMMON_DEAD 契约（召唤物阵亡隐藏只供体检归账）；SUMMON_UNIT 审计字段补 camp
+export const VER = 'infra/107-fact-contract.js V1.5.23';
 
 import { FACT_TYPES } from './106-battle-enums.js';
 
@@ -142,6 +143,8 @@ export const FACT_SPECS = Object.freeze({
 
     // 死亡登记（core/213 resolveDeaths 唯一真实死亡出口；隐藏只供体检按 uid 归账，render/411 注册了 () => null 的显式空渲染）
     [FACT_TYPES.UNIT_DEATH]: { requiredFields: ['uid', 'name', 'camp', 'reason', 'hpBefore', 'hpAfter'], renderFn: 'renderUnitDeathHidden', translateFn: null },
+    // 召唤物阵亡（resolveDeaths 与 UNIT_DEATH 同出口）：只给体检归账，render/411 注册显式隐藏渲染
+    [FACT_TYPES.SUMMON_DEAD]: { requiredFields: ['summonUid', 'summonName', 'camp', 'cause'], renderFn: 'renderSummonDeadHidden', translateFn: null },
     [FACT_TYPES.ZHANG_TAUNT]: { requiredFields: ['taunt'], renderFn: 'renderZhangTauntFact', translateFn: null },
 
     // 白骨爪
@@ -247,7 +250,9 @@ export const FACT_AUDIT_FIELDS = Object.freeze({
         'absorbedTotal.atk', 'absorbedTotal.def', 'absorbedTotal.maxHp', 'beneficiaries'
     ]),
     // 召唤者归属（体检 259 观察位）：byUid = 具名召唤者 uid（313/318/326/339）；core/204 两处无单一召唤者只有 byName
-    [FACT_TYPES.SUMMON_UNIT]: Object.freeze(['byUid', 'byName'])
+    [FACT_TYPES.SUMMON_UNIT]: Object.freeze(['byUid', 'byName', 'camp']),
+    // 召唤物阵亡（体检 260 归账）：summonUid 与 SUMMON_UNIT.summonUid 对齐；cause 为死亡来源文本
+    [FACT_TYPES.SUMMON_DEAD]: Object.freeze(['summonUid', 'summonName', 'camp', 'pos', 'cause', 'hpBefore', 'hpAfter'])
 });
 
 /**

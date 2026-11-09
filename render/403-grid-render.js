@@ -16,7 +16,8 @@
 // V7.1.11 | 2026-11-08 女装标识定案（老板反转）：名字保持本名，女装状态只由技能图标槽的 👗 表达
 //          （读 unit.state._crossdressRounds，褪装自动消失）；女装期间「未行动」格底色由淡绿改淡粉红，
 //          只换底色（文字/图标/边框/血条不动），已行动格保持 acted 原色，褪装即恢复淡绿
-export const VER = 'render/403-grid-render.js V7.1.11';
+// V7.1.12 | 2026-11-08 状态标签化：格子 😵 判定改问 isControlled()（core/218 标签表），不再裸读 _stunned。
+export const VER = 'render/403-grid-render.js V7.1.12';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -36,6 +37,7 @@ import {
     tryHorseSpawnAnim, clearGridCells, applyGridShake
 } from './405-grid-cells.js';
 import { buildCountBadge, getDodgeBreakdown, isUnitBenefitedByBuff } from './404-grid-badges.js';
+import { isControlled } from '../core/218-state-keys.js';
 export { getDodgeBreakdown, isUnitBenefitedByBuff };
 export { markGridShake } from './405-grid-cells.js';
 
@@ -213,7 +215,7 @@ export function renderGrid(id, camp) {
         let isDead = (flashVal===FLASH_TYPES.DEAD || !unit.alive || unit.state._isDead);
         let isBlocked = (unit.state && unit.state._blocked) || false;
         let isResting = (unit.state && unit.state._resting) || false;
-        let isStunned = (unit.state && unit.state._stunned) || false;
+        let isStunned = isControlled(unit);
 
         // 改查名片表（原为本地 7 分支 if/else 链）
         //   表迁 render/37：import 由 ui/69 改 ./414-role-cards.js，切断 render→ui 反向依赖

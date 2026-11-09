@@ -1,6 +1,13 @@
 {
-  "version": "5.20.0",
-  "updated": "2026-11-07",
+  "version": "5.21.0",
+  "updated": "2026-11-08",
+
+  "dropRates": {
+    "_note": "宝箱掉率唯一真源：引擎读 core/201 loadGameData 合并进 CONFIG，商店页文案也读这里。禁止在 JS/HTML 再写第二份数字。",
+    "chestClearByStage": [0, 3, 4, 5, 6, 8, 8, 9],
+    "chestFirstClearBonus": 5,
+    "chestKill": 0.2
+  },
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },

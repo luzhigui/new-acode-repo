@@ -309,7 +309,7 @@
 
     <div class="info">
         <span id="exchangeNote">💡 圣火令来自战斗掉落与积分兑换</span><br>
-        宝箱通关掉落：第 1 关 3% → 第 7 关 9%（首通 +5%）<br>
+        <span id="chestRateNote">宝箱通关掉落：随关卡递增（配置加载中…）</span><br>
         箱内：属性点 40% / 经验 40% / 圣火令 20%
     </div>
 
@@ -1112,12 +1112,17 @@ function openBag() {
 function buyHero(name) {
     // 2026-11-01 老板手机实锤：存储写不进（配额满等）时 setItem 抛异常，购买静默失败
     // 连"圣火令不足"以外任何提示都没有 → 按"点了没反应"。至少要让失败看得见。
+    // 事务语义（known-transfers 商店三条第 2 项）：扣款 / 落货 / 存档要么全成、要么全退。
+    //   旧版先 setToken 再 saveCultivated/saveShop，写盘一失败就「令牌扣了、货没落」。
+    const snapToken = getToken();
+    const snapRelics = JSON.parse(JSON.stringify(cultivated.list));
+    const snapShop = JSON.parse(JSON.stringify(shopData));
     try {
     const price = finalPrice(unlockPrice(), 'unlock');
-    const token = getToken();
+    const token = snapToken;
     if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
     const meta = HERO_META[name] || { baseM: 100, role: '战士' };
-    setToken(token - price);
+    // 先落货并存盘，成功后才扣款（顺序反了就是「扣钱不给货」）
     cultivated.list.push({
         name: name,
         baseM: meta.baseM,
@@ -1127,6 +1132,7 @@ function buyHero(name) {
         equips: []
     });
     saveCultivated();
+    setToken(token - price);      // 落货成功后才扣款
     shopData.bought.heroes += 1;
     useDiscount('unlock');
     expState(name);
@@ -1136,27 +1142,45 @@ function buyHero(name) {
     } catch (e) {
         // 报真实错误而不是预设"存储满"——真凶可能是渲染层，写盘其实已成功
         console.warn('[shop] 购买链异常:', e);
-        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+        // 回滚到进函数时的快照：令牌、已解锁列表、计数与折扣次数一律还原
+        try {
+            cultivated.list = snapRelics;
+            shopData = snapShop;
+            setToken(snapToken);
+            saveCultivated();
+            saveShop();
+            renderAll();
+        } catch (e2) { console.warn('[shop] 回滚写盘失败:', e2); }
+        showToast('购买没完成（已还原，未扣圣火令）：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
     }
 }
 
 function buyPoint(type) {
     // 同 buyHero：存储异常不再静默（2026-11-01）
+    // 同 buyHero：快照 + 先落货后扣款 + 失败回滚
+    const snapToken = getToken();
+    const snapShop = JSON.parse(JSON.stringify(shopData));
     try {
     const base = pointPrice();
     const price = finalPrice(base, type.id);
-    const token = getToken();
+    const token = snapToken;
     if (token < price) { showToast('圣火令不足，需要 ' + price + ' 令（现有 ' + token + '）'); return; }
-    setToken(token - price);
     shopData.bag[type.key] += 1;
     shopData.bought.points += 1;
     useDiscount(type.id);
     saveShop();
+    setToken(token - price);      // 存档成功后才扣款
     renderAll();
     showToast('已购买 ' + type.name + ' +' + FREE_POINT_VALUE[type.key] + '（花费 ' + price + ' 🔥），已进背包');
     } catch (e) {
         console.warn('[shop] 购买链异常:', e);
-        showToast('购买没完成：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+        try {
+            shopData = snapShop;
+            setToken(snapToken);
+            saveShop();
+            renderAll();
+        } catch (e2) { console.warn('[shop] 回滚写盘失败:', e2); }
+        showToast('购买没完成（已还原，未扣圣火令）：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
     }
 }
 
@@ -1219,7 +1243,10 @@ function useExpPool(name) {
 function openChest() {
     const c = getChests();
     if (c <= 0) { showToast('暂无宝箱（通关掉落）'); return; }
-    setChests(c - 1);
+    // 事务语义：箱内产出先落账、存档成功后才扣箱；失败整笔回滚（旧版先扣箱再落货，失败就白亏一个箱）
+    const snapToken = getToken();
+    const snapShop = JSON.parse(JSON.stringify(shopData));
+    try {
     const r = Math.random();
     if (r < 0.4) {
         const keys = ['atk', 'def', 'hp'];
@@ -1234,8 +1261,20 @@ function openChest() {
         setToken(getToken() + 1);
         showToast('宝箱开出 圣火令 +1');
     }
+    setChests(c - 1);             // 产出落账并存档成功后才扣箱
     saveShop();
     renderAll();
+    } catch (e) {
+        console.warn('[shop] 开箱异常:', e);
+        try {
+            shopData = snapShop;
+            setToken(snapToken);
+            setChests(c);
+            saveShop();
+            renderAll();
+        } catch (e2) { console.warn('[shop] 开箱回滚写盘失败:', e2); }
+        showToast('开箱没完成（已还原，宝箱未消耗）：' + (e && e.name ? e.name + ' ' + String(e.message || '').slice(0, 40) : '未知错误'));
+    }
 }
 
 // ==================== 串码系统 ====================
@@ -1420,11 +1459,33 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     showToast('养成存档已重置');
 });
 
+// 掉率文案与引擎同源：读 content/001-game-data.json 的 dropRates（core/201 loadGameData 也从这里
+//   合并进 CONFIG）。禁止在页面上再写死第二份数字——旧版写「第 1 关 3% → 第 7 关 9%」，而引擎通关
+//   掉率写死 1%、击杀 0.2%，三份口径差一个数量级（known-transfers 商店三条第 1 项）。
+async function loadDropRates() {
+    const el = document.getElementById('chestRateNote');
+    if (!el) return;
+    try {
+        const resp = await fetch(new URL('../content/001-game-data.json', document.baseURI));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const dr = (data && data.dropRates) || {};
+        const arr = Array.isArray(dr.chestClearByStage) ? dr.chestClearByStage : null;
+        if (!arr || arr.length < 2) throw new Error('dropRates.chestClearByStage 缺失');
+        const ladder = arr.slice(1).map(function (v, i) { return '第 ' + (i + 1) + ' 关 ' + v + '%'; }).join(' → ');
+        el.textContent = '宝箱通关掉落：' + ladder +
+            (typeof dr.chestFirstClearBonus === 'number' ? '（首通额外 +' + dr.chestFirstClearBonus + '%）' : '');
+    } catch (e) {
+        el.textContent = '宝箱通关掉落：随关卡递增（配置读取失败：' + (e && e.message ? e.message : '未知') + '）';
+    }
+}
+
 // ==================== 启动 ====================
 ensureToken();
 rebuildState();
 renderAll();
 loadExchangeConfig();
+loadDropRates();
 </script>
 </body>
 </html>
