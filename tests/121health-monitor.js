@@ -891,7 +891,107 @@ function runRuleChecks(ctx, doc) {
         B('rule280'), B('rule294'), B('rule319'), B('rule320'), B('rule321'), B('rule322'), B('rule323'), B('rule325'), B('rule326'), B('rule327'),
         B('rule328'), B('rule329')
     ]
-        .filter(fn => typeof fn === 'function')
+        .filter(fn => typeof fn === 'function');
+    // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
+    const rules = filterRulesByTags(allRules, RECIPE_TAGS);
+
+    // 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
+    if (battleLog.length === 0) {
+        if (ctx.gs === 'GAMEOVER') recordIssue(ctx, null, '规则数据源', '战报日志为空，' + rules.length + '条规则未执行（空转防假绿红线）', '系统');
+        return;
+    }
+
+    for (const entry of battleLog) {
+        entry._locate = locateLogEntry(battleLog, entry);
+    }
+
+    // （第 21 轮删除）原 `ctx._doc = doc;` —— 全库无任何规则读 ctx._doc，纯死赋值，已删。
+    // before = 开战快照：ctx.UI.allyTeam 本就是开战 clone，语义正确，直接用
+    // after  = 真值：必须走 battleStore（见 teamsFromStore 根因注释），否则 143/144 这类
+    //          "靠终局值反推"的判据会成片误报
+    const beforeAllies = allyTeam.map(u => ({ ...u }));
+    const beforeEnemies = enemyTeam.map(u => ({ ...u }));
+    const storeTeams = teamsFromStore(ctx);
+    const finalAllies = storeTeams.ally;
+    const finalEnemies = storeTeams.enemy;
+    for (const rule of rules) {
+        try {
+            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies, facts);
+            if (result && result.fail) {
+                const msgs = (result.msg || '').split(' | ');
+                for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
+            } else if (result === 'skip') {
+                ruleSkipCount++;
+                ruleSkipNames.add(rule.name);
+            } else if (result === 'pass') {
+                rulePassCount++;
+                rulePassNames.add(rule.name);
+            } else if (result && typeof result === 'object') {
+                // 形状防御：只有 `{ fail:false }`（可带 observe）才算真通过；
+                // 返回普通字符串等非法形状一律报红，禁止静默算 pass（229/227/228 假绿的根因）
+                rulePassCount++;
+                rulePassNames.add(rule.name);
+            } else {
+                recordIssue(ctx, null, '规则返回形状非法', rule.name + ': 返回 ' + String(result).slice(0, 80)
+                    + '（只认 {fail:boolean,msg} 或 "skip"，否则失败会被算成 pass）', '系统');
+            }
+        } catch (e) {
+            recordIssue(ctx, null, '规则异常', rule.name + ': ' + (e.message || '未知错误'), '系统');
+        }
+    }
+}
+
+// 结算类UI检查：血条颜色/特效残留/胜利弹幕/换位稳定等，等渲染稳定后执行
+function runSettleChecks(ctx, doc) {
+    const teams = teamsFromStore(ctx);
+    const allyTeam = teams.ally;
+    const enemyTeam = teams.enemy;
+    const allUnits = allyTeam.concat(enemyTeam);
+
+    const win = getWin();
+    for (const unit of allUnits) {
+        for (const msg of checkHpBarColor(unit, win, doc)) recordIssue(ctx, unit.uid, '血条颜色', msg, 'UI');
+    }
+
+    for (const msg of checkFxOrphans(doc)) recordIssue(ctx, null, '特效残留', msg, 'UI');
+
+    setTimeout(() => {
+        const ctx2 = getCtx();
+        const doc2 = getDoc();
+        // 弹幕仅存活 3.5s（acquireFromPool 3500ms），须在存活窗口内检查；已离开GAMEOVER说明重置已清场，跳过避免误报
+        if (doc2 && ctx2 && ctx2.gs === 'GAMEOVER') {
+            for (const msg of checkVictoryDanmaku(doc2, allyTeam, enemyTeam)) recordIssue(ctx, null, '胜利弹幕', msg, 'UI');
+        }
+    }, 2000);
+
+    checkSwapStability(ctx, doc, allyTeam, enemyTeam);
+
+    for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
+    for (const msg of checkMeleeFxState(ctx, doc, teams.ally, teams.enemy)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
+    for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
+}
+
+function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {
+    const wS = getWin();
+    const battleLog = wS && wS.GlobalStore ? wS.GlobalStore.get('battleLog') : null;
+    if (!Array.isArray(battleLog) || battleLog.length === 0) return;
+    const allUnits = allyTeam.concat(enemyTeam);
+    const swapEvents = battleLog.filter(e => e.type === 'buff-swap' || e.type === 'buff-push');
+    for (const swapEvent of swapEvents) {
+        const swapIndex = battleLog.indexOf(swapEvent);
+        if (swapIndex === -1) continue;
+        const unitA = allUnits.find(u => u.name === swapEvent._swapNameA);
+        const unitB = allUnits.find(u => u.name === swapEvent._swapNameB);
+        if (!unitA || !unitB) continue;
+        [unitA, unitB].forEach(u => {
+            if (u.alive && !getCellByUid(u.uid, doc)) {
+                const loc = swapEvent._locate || '';
+                recordIssue(ctx, u.uid, '换位UI丢失', u.name + '换位后格子丢失 ' + loc, 'UI');
+            }
+        });
+        const nextAttacks = battleLog.slice(swapIndex + 1).filter(e => e.type === 'attack-group');
+        if (nextAttacks.length > 0) {
+            const firstAttack = nextAttacks[0];
             checkPositionAfterSwap(ctx, firstAttack, unitA, swapEvent._swapEnginePosA);
             checkPositionAfterSwap(ctx, firstAttack, unitB, swapEvent._swapEnginePosB);
         }
