@@ -418,7 +418,7 @@
         "doubleFace": {
           "name": "双面观音",
           "desc": "每回合开始 {disguiseChance}% 概率（首回合 {openingChance}%）换女装上阵，持续 {duration} 回合；女装期间众人不忍下手（不会挨打），自身造成的伤害 ×{dmgBonus}。",
-          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 2, "dmgBonus": 1.5 }
+          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 3, "dmgBonus": 1.5 }
         }
       }
     },
