@@ -10,7 +10,7 @@
 //   f. 后续每回合开始叠一次战士加成（无限叠）
 // V1.1.0 | 2026-11-08 触发时机改为 ON_ROUND_START（团队背水在场即触发，不再看血量/永久账本）；
 //   蛛袭由单次改为按 _spiderRemaining 次数逐次随机（可重复同一目标）；brother.lastStand.hpThreshold 废弃
-// V1.2.0 | 2026-11-10 每回合战士成长加系统提示+头顶 💪 飘字（老板要求：成长可见化，带累计次数 _brotherLastStandGrowN）
+// V1.2.0 | 2026-11-10 每回合战士成长加系统提示+头顶 ⚔️ 飘字（老板要求：成长可见化，带累计次数 _brotherLastStandGrowN）
 // V1.2.1 | 2026-11-10 重大修复：三钩从顶层裸注册迁 registerRoundHook 每回合重挂（210 每回合 clearAll，
 //           顶层注册活不过第一回合=妹背水上线以来从未触发过，老板实测实锤）；触发门扩妹账本路径（对齐 323 全家口径）
 export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.2.1';
@@ -121,8 +121,8 @@ function onRoundStartGrow(data) {
     brother.state._brotherLastStandGrowN = (brother.state._brotherLastStandGrowN || 0) + 1;
     if (data.log) {
         pushSkillAnnounce(data.log, brother, '背水·战士成长',
-            `💪 妹背水·战士成长第${brother.state._brotherLastStandGrowN}次：攻+${warriorBonus.atk} 防+${warriorBonus.def} 血上限+${warriorBonus.maxHp}`,
-            { floatText: '💪', floatUid: brother.uid });
+            `⚔️ 妹背水·战士成长第${brother.state._brotherLastStandGrowN}次：攻+${warriorBonus.atk} 防+${warriorBonus.def} 血上限+${warriorBonus.maxHp}`,
+            { floatText: '⚔️', floatUid: brother.uid });
     }
 }
 
