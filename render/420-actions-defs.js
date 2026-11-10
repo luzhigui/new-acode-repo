@@ -19,7 +19,7 @@ export const VER = 'render/420-actions-defs.js V1.7.5';
 const LINK_FX_TEXT = {
     counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动',
     xuanmingLink: '☯️联动', chaseAttack: '⚡追击',
-    doubleStrike: '⚡连击！', bloodthirst: '🗡️嗜血！', xiaoZhaoDoubleMiss: '🕷️双击！'
+    doubleStrike: '⚡连击！', brotherLastStrike: '⚡连击！', bloodthirst: '🗡️嗜血！', xiaoZhaoDoubleMiss: '🕷️双击！'
 };
 
 // 先查 store 权威单位，再回退 UI 快照

@@ -153,7 +153,7 @@ export function renderAttackFact(fact) {
         isDashStrikeFx: fact.isDashStrikeFx
     };
     // 被动出手行内徽章：普攻无前缀，反击/跟随等带金色【标签】——不用翻日志也知道这一手是什么
-    const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击', doubleStrike: '连击', bloodthirst: '嗜血', xiaoZhaoDoubleMiss: '双击' };
+    const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击', doubleStrike: '连击', brotherLastStrike: '连击', bloodthirst: '嗜血', xiaoZhaoDoubleMiss: '双击' };
     const linkTag = LINK_TAGS[linkReason] ? `<span class="gold">【${LINK_TAGS[linkReason]}】</span>` : '';
     group.entries.push({type:'combat-text', text:`${linkTag}<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${fmtHpText(unitHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${fmtHpText(dmgResult.hpBefore)})`});
     // 破防日志前置到攻击组最前

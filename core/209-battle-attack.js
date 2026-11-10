@@ -43,7 +43,8 @@ const C = CONFIG;
 //   reason 进 LINK_REASONS 的（反击/随动/联动类）：执行期间自动置 _isLinkAttack——不吃行动权 + 不触发同类（防乒乓）；
 //     想让额外出手也不占本回合行动权，配 actedMode:'restore' + actedSnapshot: unit.state._acted。
 //   跨阵营反击自动按出手者阵营换边选目标；一次性不可闪避带 ignoreDodge: true（本次出手内生效，结束即清）。
-const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack']);
+// brotherLastStrike=妹背水连击（modules/324）：互斥掷骰 50% 连击刀，_isLinkAttack 守卫保证不连锁
+const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack', 'brotherLastStrike']);
 
 // —— 静默回血补账（体检 230 转交）——
 // 机制直接 applyStatChange/refreshMaxHp 抬血时，只发 _events(HP_CHANGE)、不落任何日志行：
