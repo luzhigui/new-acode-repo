@@ -7,14 +7,35 @@
 //   正文渲染成「回复 N 点」，一个空格之差子串永不匹配，飘字回调永不触发，数值正常加、
 //   不报任何错，纯静默失效。这类坑靠人眼四天后才逮到，此规则让体检当场报红。
 //
-export const VER = 'tests/health-rules/158-fact-anchor-align.js V2.0.2';
+export const VER = 'tests/health-rules/158-fact-anchor-align.js V2.1.0';
 // V2.0.2（2026-11-07 第 184 轮）：拆聚合型分支（只改「怎么报」，不改判定口径与判定顺序）。
 //   病由：五类子病因（fx 项非法 / kind 未知 / amount 非有限 / amount 为负 / 数值不在正文）全 push 进
 //   breaks，末尾 slice(0,5).join(' | ') 合成一条 msg ⇒ 一条指纹下挤 6 类结构模板，掉任一类都看不出。
 //   今五类各存一格、按原判定顺序命中首因返回（非法 → kind → NaN → 负 → 不同源），并统一用「1 处」
 //   计数以固定模板。判定仍是同一组断言、同一 FX_KINDS 白名单、同一 amount 同源形态表。
 
+// V2.1.0 | 2026-11-10 第 202 轮：本条只做「不同源」一支的**出口**拆分——
+//   原先 bSync 只留首例，嗜血狂刀与青翼蝠王两类不同技能的样本挤在同一条指纹下（2 种子病因）。
+//   改法：bSync 改成「首段 → 首例」的 Map，报错时按首段各出一条（顺序取首次出现序）。
+//   ★ 判定口径一字未动（同一组断言、同一 FX_KINDS、同一 amountTextForms），只改「怎么报」。
+//   首段取 fx 所在条目正文剥掉 HTML 标签后、到第一个空格/分隔符前的那段——它是「哪个技能出的飘字」，
+//   正是分出口要区分的那件事；同一技能的多条样本仍合成一条，不制造新噪音。
+
 import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
+
+// 出口首段：剥标签 → 去掉开头装饰符号（emoji / 箭头 / 空白）→ 取**技能名**，即最后一个
+//   「N 的」之后的那个词（「周芷若 的嗜血狂刀吸血+50」取「嗜血狂刀」；「青翼蝠王·吸血+10」取「吸血」）。
+//   为什么不是「第一个词」：第一版按第一个词取，结果按**单位名**切开（周芷若 / 灭绝师太 / 空智
+//   各成一条），同一个技能三个单位报三条，那不是「几种病」而是「几个人」，等于把噪音当信号。
+//   分出口要区分的是「哪处文案出的错」，所以取技能/效果名；无「N 的」形态时退回第一个词。
+function fxHead(text) {
+    var s = String(text || '').replace(/<[^>]*>/g, ' ').trim();
+    s = s.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/, '');
+    var m = s.match(/[^\s，,。、·:：]+\s+的\s*([^\s，,。、·:：+0-9]+)/);
+    if (m && m[1]) return m[1];
+    var m1 = s.match(/^[^\s，,。、·:：+0-9]+/);
+    return (m1 && m1[0]) ? m1[0] : '（无首段）';
+}
 
 // 播放器认得的 fx 类型。新增 kind 必须同时改这里与本文件 VER —— 否则新 kind 会被当未知静默丢弃。
 // 'def' = 破防飘字（右侧族），播放器 fx/601 dynamicBuffLeft(kind='def') 已实装，此前本清单漏登记 → 假红。
@@ -41,7 +62,9 @@ export const rule105 = {
         // ★ 第 184 轮（拆聚合型分支）：5 类子病因各自独立上报（首因返回），不再 slice(0,5).join(' | ')
         //   合并成一条聚合外壳——原先一条指纹下挤了 6 类结构模板，掉其中任何一类都看不出来。
         //   判定口径与顺序一字未改（仍是同一组断言），只改「怎么报」。
-        var bBad = null, bKind = null, bNaN = null, bNeg = null, bSync = null;
+        var bBad = null, bKind = null, bNaN = null, bNeg = null;
+        // V2.1.0：不同源一支按 fx 文本首段分出口（首段 → 首例），不再只留全局首例
+        var bSyncByHead = new Map();
         for (var i = 0; i < nodes.length; i++) {
             var e = nodes[i] && nodes[i].e;
             if (!e || typeof e !== 'object') continue;
@@ -80,7 +103,10 @@ export const rule105 = {
                     if (text.indexOf(forms[f]) !== -1) { hit = true; break; }
                 }
                 if (!hit) {
-                    if (!bSync) bSync = 'fx 数值不在正文（文案与特效不同源，飘字数值将对不上）: ' + text.slice(0, 60);
+                    var head = fxHead(text);
+                    if (!bSyncByHead.has(head)) {
+                        bSyncByHead.set(head, 'fx 数值不在正文（文案与特效不同源，飘字数值将对不上）: ' + text.slice(0, 60));
+                    }
                 }
             }
         }
@@ -89,7 +115,12 @@ export const rule105 = {
         if (bKind) return { fail: true, msg: '飘字 fx kind 未知（特效将静默不播）: ' + bKind };
         if (bNaN) return { fail: true, msg: '飘字 fx amount 非有限数（特效将哑火）: ' + bNaN };
         if (bNeg) return { fail: true, msg: '飘字 fx amount 为负（特效将飘负值）: ' + bNeg };
-        if (bSync) return { fail: true, msg: '飘字 fx 数值不在正文（不同源）: ' + bSync };
+        if (bSyncByHead.size > 0) {
+            var syncMsg = [...bSyncByHead.entries()]
+                .map(function(kv) { return '【' + kv[0] + '】' + kv[1]; })
+                .join(' ‖ ');
+            return { fail: true, msg: '飘字 fx 数值不在正文（不同源）: ' + syncMsg };
+        }
         return { fail: false };
     }
 };

@@ -50,7 +50,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
+import { stripCommentsMapped, mainSourceDirs } from './_lib/static-truth-slice.mjs';
 
 export const VER = 'tests/entry-path-guard.mjs V1.0.0';
 
@@ -58,7 +58,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const BASELINE_FILE = path.join(HERE, 'entry-path-baseline.json');
 
-const SCAN_DIRS = ['infra', 'core', 'modules', 'render', 'player', 'fx', 'ui'];
+const SCAN_DIRS = mainSourceDirs;
 
 // 规则表。新增一条规则 = 加一行 + 重跑一次 --update-baseline（存量自动入基线）。
 const RULES = [

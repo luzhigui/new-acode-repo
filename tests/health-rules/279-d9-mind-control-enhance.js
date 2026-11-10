@@ -137,7 +137,47 @@ export const rule279 = {
         }
 
         if (sawN === 0) return 'skip';
-        if (fails.length) return { fail: true, msg: fails.slice(0, 6).join('；') };
+        // ★ V1.2.0（第 200 轮）：按病因分出口，一出口一固定字面量前缀。
+        //   旧写法 `fails.slice(0,6).join('；')` 把 6 个子病因塞进一条指纹；且「扣血比例非法」
+        //   那条把 `hpPct=` 与阵营写进 msg 中段，牙口证据里同一条出口被抽成 3 种（ally / enemy / 无阵营）。
+        //   判据（isNum 范围、near、sisAlive 分支、continue 口径）一字未动，只把「怎么报」按病因分开。
+        const pick = (head) => fails.filter((x) => x.indexOf(head) === 0);
+        const top3 = (arr) => arr.slice(0, 3).join(' | ') + (arr.length > 3 ? `（共 ${arr.length} 条）` : '');
+        // ★ V1.3.0（第 200 轮）：把「阵营」这唯一变量拆成独立字面量出口。
+        //   旧写法用 `${holderCamp}` 插值写进 msg 中段，抽取器只能拿到模板首段，
+        //   于是同一病因「ally 方」与「enemy 方」被抽成 2 条互不相干的子病因。
+        //   这不是两种病因，是同一条判据在两个阵营上的两个实例 —— 但「任一维掉了要看得见」
+        //   仍然成立，所以出口必须分、前缀必须是字面量（不能靠归一化把 ally/enemy 抹掉）。
+        //   判据（isNum 范围、near、sisAlive 分支、continue 口径）与取条数口径（同出口内 top3）一字未改。
+        const CAMP_LBL = [[CAMP_TYPES.ALLY, '己方'], [CAMP_TYPES.ENEMY, '敌方']];
+        const fIllegal = pick('惑心换位扣血比例非法');
+        if (fIllegal.length) return { fail: true, msg: '惑心换位扣血比例越界：' + top3(fIllegal) };
+        const fNoSrc = pick('惑心换位姊强化扣血比例缺真源');
+        if (fNoSrc.length) return { fail: true, msg: '惑心换位姊强化比例缺真源：' + top3(fNoSrc) };
+        // ★ V1.4.0（第 200 轮）：循环 + 插值 → 四条独立字面量出口。
+        //   上一版用 `for (const [camp,lbl] of CAMP_LBL)` 拼 `'…不符·' + lbl + '：'`，
+        //   抽取器只拿得到公共首段「惑心换位姊强化比例与配置不符·」，两条阵营分支于是互为前缀，
+        //   且与兜底那条「·未归类阵营：」也互为前缀 —— 分支级自检当场报 3 组撞车。
+        //   现每条阵营各写死前缀，分叉点提前到前端。判据与 top3 口径一字未改。
+        const fMisAlly = pick('惑心换位扣血比例与配置不符').filter((x) => x.indexOf(' ' + CAMP_TYPES.ALLY + ' 方') !== -1);
+        if (fMisAlly.length) return { fail: true, msg: '惑心换位姊强化比例与配置不符·己方：' + top3(fMisAlly) };
+        const fMisEnemy = pick('惑心换位扣血比例与配置不符').filter((x) => x.indexOf(' ' + CAMP_TYPES.ENEMY + ' 方') !== -1);
+        if (fMisEnemy.length) return { fail: true, msg: '惑心换位姊强化比例与配置不符·敌方：' + top3(fMisEnemy) };
+        const fSisAlly = pick('惑心换位无姊却扣血').filter((x) => x.indexOf(' ' + CAMP_TYPES.ALLY + ' 方') !== -1);
+        if (fSisAlly.length) return { fail: true, msg: '惑心换位无姊仍扣血·己方：' + top3(fSisAlly) };
+        const fSisEnemy = pick('惑心换位无姊却扣血').filter((x) => x.indexOf(' ' + CAMP_TYPES.ENEMY + ' 方') !== -1);
+        if (fSisEnemy.length) return { fail: true, msg: '惑心换位无姊仍扣血·敌方：' + top3(fSisEnemy) };
+        // 兜底：出现阵营之外的写法（不应发生，但绝不静默吞掉）
+        const fMismatchRest = pick('惑心换位扣血比例与配置不符');
+        if (fMismatchRest.length) return { fail: true, msg: '惑心换位比例不符但阵营不可知：' + top3(fMismatchRest) };
+        const fNoSisRest = pick('惑心换位无姊却扣血');
+        if (fNoSisRest.length) return { fail: true, msg: '惑心换位无姊扣血但阵营不可知：' + top3(fNoSisRest) };
+        const fNoSwap = pick('惑心换位事实 swaps 为空');
+        if (fNoSwap.length) return { fail: true, msg: '惑心换位事实无落地：' + top3(fNoSwap) };
+        if (fails.length) {
+            // 兜底：出现了上述五类之外的 msg（不应发生，但绝不静默吞掉）
+            return { fail: true, msg: '惑心换位未归类病因：' + fails.slice(0, 6).join('；') };
+        }
         return 'pass';
     }
 };

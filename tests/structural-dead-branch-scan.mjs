@@ -26,6 +26,7 @@
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
+import { mainSourceDirs } from './_lib/static-truth-slice.mjs';
 
 // 环境 mock（不改引擎源码，Node 补浏览器能力）—— 必须在任何引擎 import 之前
 globalThis.fetch = async (url) => {
@@ -51,7 +52,7 @@ const SEEDS = Array.from({ length: N_SEEDS }, (_, i) => i + 1);
 const STAGES = [1, 2, 3, 4, 5, 6, 7];
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SCAN_DIRS = ['core', 'modules', 'render', 'player', 'infra', 'fx', 'ui'];
+const SCAN_DIRS = mainSourceDirs;
 // 变量名短于 2 字符或明显是命名空间的不参与（噪音源）
 const OBJ_SKIP = new Set(['state', 'data', 'this', 'globalThis', 'window', 'console', 'Math', 'JSON',
     'Object', 'Array', 'CONFIG', 'C', 'U', 'L', 'S', 'process', 'fs', 'path', 'document']);

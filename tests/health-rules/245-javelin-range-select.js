@@ -57,7 +57,11 @@ export const rule245 = {
             checked++;
             var range = table[rowKeyOf(a.pos)];
             if (Array.isArray(range) && range.indexOf(t.pos) < 0) {
-                errs.push('第?回合 ' + (a.name || a.uid) + '（' + a.pos + '号位·' + rowKeyOf(a.pos) + '）选中了射程外的 ' + (t.name || t.uid) + '（' + t.pos + '号位）');
+                // ★ V1.3.0（第 200 轮）：明细只留「轮次 + 出手者」，坐标降为附加说明。
+                //   实测同一病因（中排/后排射程外选靶）因「目标是谁、几号位」不同被抽成 5 种指纹。
+                //   病因是「站在该行段的人打了射程外目标」，与具体是谁、几号位无关；
+                //   但站位行是枚举维，掉了就看不见 ⇒ 行段信息留在**前缀**（见下方三个字面量出口）。
+                errs.push('第?回合 ' + (a.name || a.uid) + '（' + rowKeyOf(a.pos) + '·' + a.pos + '号位→' + t.pos + '号位）');
             }
         }
 
@@ -65,7 +69,24 @@ export const rule245 = {
         if (errs.length) {
             // 实测 156 场：63 次可判标枪出手，2 次射程外（seed=17 s2 / seed=18 s7），两例均带 skillAnnounce
             //   且 snap.linkReason=null，即走了常规选靶链——判据已硬，缺陷登记 known-transfers 转交主代码收口。
-            return { fail: true, msg: '标枪射程外的选靶 ' + errs.length + '/' + checked + ' 次：' + errs.slice(0, 3).join('；') };
+            // ★ V1.1.0（第 200 轮）：按「出手方站位行」拆独立字面量出口。
+            //   旧写法把 rowKeyOf(a.pos) 的返回值（mid / back / front）插进 msg 中段，
+            //   抽取器只取模板首段 ⇒ 同一病因「射程外选靶」被抽成 2~3 条互不相干的子病因。
+            //   站位行是枚举维不是病因维，但任一维掉了仍要看得见 ⇒ 出口分、前缀写字面量。
+            //   判据（linkReason 排除、range.indexOf 判定、checked 计数）与取条数口径（slice(0,3)）一字未改。
+            // ★ V1.2.0（第 200 轮）：兜底出口原先写成「标枪射程外选靶·未归类站位 …」，
+            //   与常规出口共享前缀「标枪射程外选靶·」⇒ 分支级自检判为「同规则内指纹互为前缀」，
+            //   长的（常规）那条永远被短的抢先匹配，分支级判定静默退化成规则级。
+            //   修法：兜底出口改用**不共享任何公共前缀**的字面量开头，并把三条常规出口写成独立字面量
+            //   （不再靠 ROW_LBL[i][1] 插值 —— 抽取器只认模板首段字面量，插值维取不到）。
+            var subFront = errs.filter(function (e) { return e.indexOf('（front·') !== -1; });
+            if (subFront.length) return { fail: true, msg: '标枪前排射程外选靶 ' + subFront.length + '/' + checked + ' 次：' + subFront.slice(0, 3).join('；') };
+            var subMid = errs.filter(function (e) { return e.indexOf('（mid·') !== -1; });
+            if (subMid.length) return { fail: true, msg: '标枪中排射程外选靶 ' + subMid.length + '/' + checked + ' 次：' + subMid.slice(0, 3).join('；') };
+            var subBack = errs.filter(function (e) { return e.indexOf('（back·') !== -1; });
+            if (subBack.length) return { fail: true, msg: '标枪后排射程外选靶 ' + subBack.length + '/' + checked + ' 次：' + subBack.slice(0, 3).join('；') };
+            // 兜底：站位行不在表内（不应发生，但绝不静默吞掉）
+            return { fail: true, msg: '标枪出手站位行无法归类 ' + errs.length + '/' + checked + ' 次：' + errs.slice(0, 3).join('；') };
         }
         return { fail: false, msg: '标枪选靶射程成立：核对 ' + checked + ' 次标枪出手' };
     }

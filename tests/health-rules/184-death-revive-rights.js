@@ -13,7 +13,7 @@
 //   ③ 复活后同回合出几次**不设上限**：实测复活当回合出手 0～2 次都出现（复活即恢复行动权 + 后续连击），
 //      设上限会误伤正常战斗，故只判 ① ② 两条时序。
 //
-// 死亡登记通道（V1.2.0 第 193 轮）：**只认 `unitDeath` fact**（infra/106 UNIT_DEATH）。
+// 死亡登记通道（V1.2.1 第 193 轮）：**只认 `unitDeath` fact**（infra/106 UNIT_DEATH）。
 //   core/213 resolveDeaths 是唯一真实死亡出口，每死者发一条 { uid, name, camp, reason, hpBefore, hpAfter }，
 //   覆盖毒 DOT / 反伤 / 自伤 / 攻击致死全部死法；core/204 复活前也会对 `_pendingDeath && hp<=0` 补一条。
 //   **旧通道已删**（原先从 attack fact 的 snap.targetAlive===false / dmgResult.dead===true 反推死亡）——
@@ -22,10 +22,11 @@
 // 复活通道：skillAnnounce skillName==='圣火不熄' 且带 unitUid ⇒ 移出死亡名单、恢复行动权。
 //   升级为硬判据（第 193 轮）：复活公告但死亡名单里没有该 uid ⇒ 违规（旧通道下 172 场 20 例，
 //   换 UNIT_DEATH 后实测 0 例，故升硬判据；若日后复现，说明死亡出口漏发或复活链在无死亡时报复活）。
-export const VER = 'tests/health-rules/184-death-revive-rights.js V1.2.0';
+// V1.2.1 | 2026-11-10 第 202 轮：fact 类型表收口到 _lib/static-truth-slice.mjs 的 FACT_TYPE_MISS（取值一字未动）。
+export const VER = 'tests/health-rules/184-death-revive-rights.js V1.2.1';
 
-const HIT_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
-
+// fact 类型表走公共件（第 202 轮「一事一源」收口，原先本文件手抄一份）
+import { FACT_TYPE_MISS as HIT_FACT_TYPES } from '../_lib/static-truth-slice.mjs';
 export const rule184 = {
     group: '行动与目标回归',
     name: '死亡与复活的行动权归属(回归)',

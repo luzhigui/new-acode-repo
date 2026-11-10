@@ -31,9 +31,11 @@
 //   段数上限才升得成硬判。
 //
 // 行动权归属本身由 183（跨回合）/ 184（同回合死亡与复活）管，本规则只管「段数」这一种计数口径，不重复判。
-export const VER = 'tests/health-rules/188-multi-attack-count.js V1.1.1';
+// V1.1.2 | 2026-11-10 第 202 轮：fact 类型表收口到 _lib/static-truth-slice.mjs 的 FACT_TYPE_MISS（取值一字未动）。
+export const VER = 'tests/health-rules/188-multi-attack-count.js V1.1.2';
 
-const SEG_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
+// fact 类型表走公共件（第 202 轮「一事一源」收口，原先本文件手抄一份）
+import { FACT_TYPE_MISS as SEG_FACT_TYPES } from '../_lib/static-truth-slice.mjs';
 const SEG_OBSERVE = 6; // 观察阈值（实测拟合值，非引擎上限；见头注）
 
 export const rule188 = {

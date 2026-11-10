@@ -13,11 +13,13 @@
 //   全部合法 —— 0 误报，升硬判据。两处真问题已登记 tests/known-transfers.md，等主代码补 ttl；
 //   本规则保持硬红，直到主代码修好（不许为维绿加白名单）。
 
-export const VER = 'tests/health-rules/237-mod-entry-shape.js V1.0.0';
+// 第 203 轮：属性键清单收口为唯一来源（原为本地手抄 const STATS = [...]）
+import { STAT_MOD_KEYS as STATS } from '../_lib/static-truth-slice.mjs';
+
+export const VER = 'tests/health-rules/237-mod-entry-shape.js V1.0.1';
 
 const TTLS = ['permanent', 'round', 'attached'];
 const OPS = ['add', 'mul'];
-const STATS = ['atk', 'def', 'maxHp'];
 
 export const rule237 = {
     group: '属性与加成账本',

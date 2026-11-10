@@ -30,9 +30,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mainSourceDirs } from './_lib/static-truth-slice.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
-const SCAN_DIRS = ['core', 'modules', 'render', 'player', 'ui', 'fx', 'infra'];
+const SCAN_DIRS = mainSourceDirs;
 
 // 出口白名单：file → 允许写死状态的函数名（顺序无关；新出口必须在此登记）
 const DEATH_WRITE_ALLOW = {

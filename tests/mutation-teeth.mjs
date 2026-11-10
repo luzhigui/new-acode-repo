@@ -1,3 +1,8 @@
+// V2.9.36 | 2026-11-10 白天合入夜间 200–203：A17 锚点因主代码新增「精通拉满」入口重锚为 multi。
+//   modules/302 现在有两处 { source:'精通', value:gAtk }（L152 masterAllRoles / L205 原精通触发），
+//   同写 spiderMastery 账本。旧「非 multi 要求唯一」使 --verify 报失效 ⇒ 变异树会退化成干净树、假绿。
+//   ★ 两处都注入（不是放宽）：新入口同样纳入取证；变异语义仍是「精通攻击加成 ×2」，未改任何判据。
+//   另：公共件 V2.4.0 已给夜间第 201 轮新换的族数闸门补上负路径自证。
 // V2.9.34 | 2026-11-09 夜间第 197 轮：牙口结论重算（连续三轮挂账项）。
 //   一、A27/T12 重锚：上游把取整包裹 fmt1 统一成 fmtNum，两条原 from 串 0 处命中 ⇒ 变异树=干净树，
 //       这两颗牙的「有牙」结论此前是假的。新锚语义一字未变（A27 仍只污染 actualHeal 渲染值、
@@ -212,7 +217,7 @@
 //   「基线已红不得作证」的闸门后面（rule164/rule143 在干净树就 fail>0）。这两颗保持乙类不动，是真待办。
 //   ★ 只收紧不放宽：新增的只是「判得更准地归因」，不新增任何 newRed / masked 渠道，不改 verdict 分类、
 //     不改计数口径、不动任何一条「不得作证」闸门（基线已红规则、干净树已命中契约）；任一签名缺失 ⇒ fail-closed。
-export const VER = 'tests/mutation-teeth.mjs V2.9.35';
+export const VER = 'tests/mutation-teeth.mjs V2.9.36';
 
 import { spawnSync, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -326,10 +331,13 @@ const MUTATIONS = [
       to:   "{ source: '远程成长', value: growth * 2," },
     // 第 48 轮新增：精通（spiderMastery）此前同样是「无契约 + 无变异」的双重盲区，
     //   本轮靠它战报里自带的 masteryGain 补上了契约，这条变异用来证明契约真能咬住。
+    // V2.9.36：主代码新增 masterAllRoles 后，同一条精通 addMod 有两个写入口（L152 / L205）。
+    //   两处都改才是完整取证；只改一处会让新入口永远没被牙咬过。
     { id: 'A17', kind: 'ATTR', desc: '小昭·弟精通攻击加成翻倍',
       file: 'modules/302-elite-skills.js',
       from: "{ source: '精通', value: gAtk,",
-      to:   "{ source: '精通', value: gAtk * 2," },
+      to:   "{ source: '精通', value: gAtk * 2,",
+      multi: true },
     // ============ 第 49 轮新增：专门验证「判据从整数倍升级为严格相等」带来的增量能力 ============
     //   A18/A19 的杀伤在这类好莱坞式 bug：不是翻倍，**只错一点点 / 直接失效**。
     //   旧判据（整数倍 + 仅 SAME_STEP 虚报）对这两种**都必定漏报**：

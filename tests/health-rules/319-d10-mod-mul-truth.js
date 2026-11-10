@@ -120,6 +120,35 @@ export const rule319 = {
             }
         }
         if (scanned === 0) return 'skip';
+        // ★ V1.2.0（第 200 轮）：msg 只留「可定位的短前缀 + 被测单位」，数值集合与账本值降为明细。
+        //   V1.1.0 分 group 之后仍剩 3 种子病因，逐条查明**不是三种病因**，而是同一条判据的三种写法：
+        //     ① 单位名 `u#` / `u##` / `u###`（实体名长度不同）被当成不同指纹；
+        //     ② 配置集合 `{#/#/#/#/…}` 的**档位数**随配置版本变化（soulDrain 实测 11 档），
+        //        但「账本值不在配置集合里」这一病因与档位数无关。
+        //   修法：msg 固定为「口径 · 统计项 · group」，单位名与两串数值一律放明细且**限长**，
+        //   并明确给出「集合档位数」这个真正有用的量（档位数进明细，不进指纹）。
+        //   判据（allowed / inSet / 过滤条件 / 计数）一字未动，只把「怎么报」拆成「病因头 + 明细」。
+        const pf = (g) => bad.filter((x) => x.indexOf('（' + g + '）') >= 0);
+        const tail4 = (part) => part.slice(0, 4).join('；') + (part.length > 4 ? `（共 ${part.length} 条）` : '');
+        // 明细只留「谁 · 统计项 · 实值 vs 档位数」——数值集合本身不再进 msg（它是配置版本，不是病因）
+        const detail = (part) => part.slice(0, 4).map((x) => {
+            const m = x.match(/^(\S+) (atk|def|maxHp)（([^）]+)）账本 (\S+) 不在配置集合 \{(.*)\}$/);
+            if (!m) return x.slice(0, 40);
+            const cnt = m[4] === '' ? 0 : m[4].split('/').length;
+            return m[1] + ' · ' + m[2] + ' · 账本 ' + m[3] + ' 不在 ' + cnt + ' 档配置里';
+        }).join('；') + (part.length > 4 ? `（共 ${part.length} 条）` : '');
+        const bHoly = pf('holyFlame');
+        if (bHoly.length) return { fail: true, msg: '乘率词条与配置不同源·圣火不熄：' + detail(bHoly) };
+        const bSoul = pf('soulDrain');
+        if (bSoul.length) return { fail: true, msg: '乘率词条与配置不同源·摄魂：' + detail(bSoul) };
+        const bUnity = pf('unity');
+        if (bUnity.length) return { fail: true, msg: '乘率词条与配置不同源·众志成城：' + detail(bUnity) };
+        const bLast = pf('lastStand');
+        if (bLast.length) return { fail: true, msg: '乘率词条与配置不同源·背水一战：' + detail(bLast) };
+        const bBro = pf('brotherLastStand');
+        if (bBro.length) return { fail: true, msg: '乘率词条与配置不同源·妹永久背水：' + detail(bBro) };
+        const bFort = pf('fortify');
+        if (bFort.length) return { fail: true, msg: '乘率词条与配置不同源·严阵以待：' + detail(bFort) };
         if (bad.length) {
             return { fail: true, msg: '乘率词条与配置不同源：' + bad.slice(0, 4).join('；') + (bad.length > 4 ? `（共 ${bad.length} 条）` : '') };
         }

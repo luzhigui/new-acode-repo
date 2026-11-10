@@ -55,11 +55,12 @@ import {
     judgeSample, checkThreshold, thinFloorOf, selfCheck
 } from './_lib/sample-sufficiency.mjs';
 import { readIfAbs } from './_lib/read-if-abs.mjs';
+// 主代码目录清单走公共件（第 202 轮「一事一源」收口，原先本文件手抄一份）
+import { mainSourceDirs as MAIN_DIRS } from './_lib/static-truth-slice.mjs';
 
 const COMPARER = 'tests/stat-decl-vs-actual-check.mjs';
 const ENUM_FILE = path.join(root, 'infra', '106-battle-enums.js');
 // 主代码口径：tests/ 之外的一切 js（含 core / modules / render / player / ui / fx / infra）
-const MAIN_DIRS = ['core', 'modules', 'render', 'player', 'ui', 'fx', 'infra'];
 // ① 规模下限：低于此值说明 CONTRACTS 切块失败或契约被批量删除，自检结果不可信
 const MIN_CONTRACTS = 50;
 // ① 绑定键白名单：这些键在主代码里本就不是字面量（由配置/常量拼出），属已知的例外，

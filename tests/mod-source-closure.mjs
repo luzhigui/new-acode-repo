@@ -18,10 +18,11 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// 第 203 轮：属性键清单收口为唯一来源（原为本地手抄 const STATS = [...]）
+import { STAT_MOD_KEYS as STATS } from './_lib/static-truth-slice.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SCAN_DIRS = ['core', 'modules', 'infra', 'render', 'player', 'fx'];
-const STATS = ['atk', 'def', 'maxHp'];
 const NEED_KEYS = ['ttl', 'group', 'source', 'op'];
 const VERBOSE = process.argv.includes('--verbose');
 

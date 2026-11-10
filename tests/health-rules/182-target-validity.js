@@ -19,14 +19,17 @@
 // 死亡名单只认「attack fact 的 snap.targetAlive === false」或「dmgResult.dead === true」，
 // 不从渲染文本猜死没死；死亡名单不全时只会漏报，不会误报。
 //
-// V1.1.0 | 2026-11-08 第 194 轮：③ 加机制豁免。
+// V1.1.1 | 2026-11-08 第 194 轮：③ 加机制豁免。
 //   证据（seed=15 stage=5 共 7 处假红）：同阵营攻击方 空性 / 何太冲 / 少林圆真 / 鹤笔翁 / 鹿杖客，
 //   其中 6 次 attack 都有对应 phantomConfuse{deceiver:'彭莹玉', deceiverCamp:'ally', sourceSkill:'双面观音'}；
 //   剩下 1 次 dodge（鹿杖客→鹤笔翁）因闪避分支丢 fact 而无从配对，故豁免粒度取「回合+阵营」。
 //   真因不是「圆真=成昆伪装」（该场圆真未现形），而是彭莹玉双面观音的强制改目标（camp 不变）。
-export const VER = 'tests/health-rules/182-target-validity.js V1.1.0';
+// V1.1.2 | 2026-11-10 第 202 轮：fact 类型表收口到 _lib/static-truth-slice.mjs 的 FACT_TYPE_MISS（取值一字未动）。
+export const VER = 'tests/health-rules/182-target-validity.js V1.1.2';
 
-const TARGET_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
+// fact 类型表走公共件（第 202 轮「一事一源」收口，原先本文件手抄一份）
+import { FACT_TYPE_MISS as TARGET_FACT_TYPES } from '../_lib/static-truth-slice.mjs';
+
 const FRIENDLY_FIRE_EXEMPT_WORDS = ['癫', '惑心', '心智', '混乱', '幻影'];
 const PHANTOM_CONFUSE_TYPE = 'phantomConfuse';
 

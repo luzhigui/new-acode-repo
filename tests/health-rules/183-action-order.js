@@ -14,9 +14,11 @@
 //         「出手 + 休息互斥」也有 16/150 场假红（同归于尽后复活会补一条 isBlock 的 PASS），两条都没有干净树的稳定语义，
 //         故只保留①这条结构不变量。行动权总数由 checkActionRights 兜底，本规则不重复判。
 //   死亡名单只认 attack fact 的 snap.targetAlive===false / dmgResult.dead===true，不看渲染文本；不全时只会漏报。
-export const VER = 'tests/health-rules/183-action-order.js V1.2.0';
+// V1.2.1 | 2026-11-10 第 202 轮：fact 类型表收口到 _lib/static-truth-slice.mjs 的 FACT_TYPE_MISS（取值一字未动）。
+export const VER = 'tests/health-rules/183-action-order.js V1.2.1';
 
-const TURN_FACT_TYPES = ['attack', 'miss', 'dodge', 'immune'];
+// fact 类型表走公共件（第 202 轮「一事一源」收口，原先本文件手抄一份）
+import { FACT_TYPE_MISS as TURN_FACT_TYPES } from '../_lib/static-truth-slice.mjs';
 
 function isLink(a) {
     return !!(a && a.state && a.state._isLinkAttack);

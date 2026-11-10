@@ -13,10 +13,11 @@
 //   初值 0 差异；终局重算 0 差异（未加 max(0) 前有 3 条负值，属 getStat 自带的 0 下限，
 //   按同口径加下限后归零）。0 误报，升硬判据。
 import { getStat } from '../../core/214-battle-shared.js';
+// 第 203 轮：属性键清单收口为唯一来源（原为本地手抄 const STATS = [...]）
+import { STAT_MOD_KEYS as STATS } from '../_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/health-rules/242-stat-closure.js V1.0.0';
+export const VER = 'tests/health-rules/242-stat-closure.js V1.0.1';
 
-const STATS = ['atk', 'def', 'maxHp'];
 const BASE_KEY = { atk: '_baseAtk', def: '_baseDef', maxHp: '_baseMaxHp' };
 
 export const rule242 = {

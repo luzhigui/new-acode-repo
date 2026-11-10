@@ -97,7 +97,55 @@
 //     叫 forcesOfEntry、用 indexOf 不用 includes，两把尺子同时漏掉它，最后是人工翻出来的。本条换尺子：
 //     看**元素取值**（共享 ≥2 且重叠度 ≥50% 即进网），与名字、写法都无关。只点名不收口（改覆盖面＝改行为，
 //     须拍板）。自证 ㉑ 双向必查：已知仍在册的 MAIN_DIRS ⇄ SCAN_DIRS 这一对必须被点出（缺 ⇒ 检测器失灵）。
-export const VER = 'tests/_lib/static-truth-slice.mjs V2.0.0';
+// V2.1.0 | 2026-11-10 夜间第 201 轮：㉑ 的反向闸门从「全等**对数** > 12」改成「全等**族数** > 12」，
+//   另加一道「单族最多抄几份 > 8」。病根是纯笛卡尔积：7 个主代码目录的清单在 6 个文件里各抄一遍，
+//   两两配对就是 C(6,2)=15 对，主代码一个字没多却把闸门刷爆、每轮都报红。族数按取值集合签名去重，
+//   抄 6 遍仍是 1 族 ⇒ 才真正对应「检测器是否退化成什么都算重复」。
+//   ★ LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD 一字未动（判"是否重复"的口径不变），12 这个上限值也原样沿用，
+//     只换计数对象。新增 renamedFamilies 只在返回值里追加，不动原有 renamed / divergent 语义。
+// V2.2.0 | 2026-11-10 夜间第 202 轮：「一事一源」收口第一批。第 201 轮把 27 对收敛成 8 族后，族清单本身
+//   就是欠账单，本轮按「先收最大的两个」口径收掉族 #1 与族 #2：
+//   ① mainSourceDirs —— 7 个主代码目录的清单原本 5 份，全部裸数组零语义、纯手抄。四份可收口的
+//      （contract-binding-drift-selftest / entry-path-guard / hp-death-exit-guard / structural-dead-branch-scan）
+//      改成从本件 import；第五份 123static-scan.js 是浏览器双用模块（121health-monitor.js 在页面里 import 它），
+//      动它就牵动线上页面加载路径，**故不动**，已在 STRIP_COPY_ALLOWLIST 同口径下点名挂账。
+//      收口后本数组的**元素顺序不可再随意改**：原先五份顺序各不相同（fx 有的在首有的在尾），
+//      只靠「集合相同」不报红；现在只剩一份真源，顺序即全局顺序。这不影响任何扫描结果（全是 for-of 遍历），
+//      但注释在这里写死一句，免得后人以为顺序无关又去重排。
+//   ② FACT_TYPE_MISS —— attack/dodge/immune/miss 这张 fact 类型表原本 4 份（182/183/184/188 四条规则各写一遍），
+//      全部改为 import；名字保留各自语义（TARGET_/TURN_/HIT_/SEG_FACT_TYPES 仍是本文件里的导出名），
+//      只把取值来源统一到一处。
+//   ★ 判据一字未动：LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD / 族数上限 12 / 单族上限 8 全部原样。
+// V2.3.0 | 2026-11-10 夜间第 203 轮：「一事一源」收口第二批，族 #1（STATS，原本最大族 4 份）。
+//   ③ STAT_MOD_KEYS —— atk/def/maxHp 这张属性键清单，237/242/mod-source-closure 三处各写一遍
+//      `const STATS = ['atk','def','maxHp']`（第四处 271 是函数体内的 `var stats = [...]`，不是模块级常量声明，
+//      不在 auditSharedLiteralSets 的取样面内，本轮**不动它**，单列为本轮记录的边界，见日志）。
+//      三处改为 import STAT_MOD_KEYS，各自保留原局部名 STATS（导出名/调用处一字未改）。
+//   ★ 判据一字未动：LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD / 族数上限 12 / 单族上限 8 全部原样。
+// V2.4.0 | 2026-11-10 白天合入夜间 200–203 后：给第 201 轮新换的「族数 / 单族份数」两道闸门补负路径自证。
+//   夜间只改了计数口径（全等对数 → 族数）却没证明新口径还能咬住真泛滥，等于无法排除「把红洗掉」。
+//   本轮抽出唯一判定函数 auditFamilyGate，真实扫描与自证共用；4 条纯内存正负路径
+//   （13 族 / 一族 9 份 / 12 族各 8 份边界 / 空集合）。阈值 12 与 8、LITERAL_MIN_* 一字未动。
+export const VER = 'tests/_lib/static-truth-slice.mjs V2.4.0';
+
+// ---------------------------------------------------------------------------
+// ⓪ 主代码目录清单（唯一来源，2026-11-10 第 202 轮收口）
+//   ★ 只放「扫哪些主代码目录」这件事，不含任何扫描口径。要挪目录名来这里改一次，五处调用自动跟随。
+// ---------------------------------------------------------------------------
+export const mainSourceDirs = Object.freeze(['core', 'infra', 'modules', 'player', 'render', 'ui', 'fx']);
+
+// ---------------------------------------------------------------------------
+// ⓪ fact 类型表（唯一来源，2026-11-10 第 202 轮收口）
+//   182/183/184/188 四条规则原先各抄一份同样的 attack/dodge/immune/miss。
+// ---------------------------------------------------------------------------
+export const FACT_TYPE_MISS = Object.freeze(['attack', 'dodge', 'immune', 'miss']);
+
+// ---------------------------------------------------------------------------
+// ⓪ 属性键清单（唯一来源，2026-11-10 第 203 轮收口）
+//   237 / 242 / mod-source-closure 三处原先各抄一份同样的 atk/def/maxHp。
+//   ★ 顺序即 getStat(setStat) 遍历属性时的全局顺序，收口后不可再随意重排。
+// ---------------------------------------------------------------------------
+export const STAT_MOD_KEYS = Object.freeze(['atk', 'def', 'maxHp']);
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -520,7 +568,29 @@ export function auditSharedLiteralSets(dir) {
         || (x.a.name + x.a.file).localeCompare(y.a.name + y.a.file);
     renamed.sort(bySize);
     divergent.sort(bySize);
-    return { items, renamed, divergent, fails: [] };
+    // V2.1.0（第 201 轮）：把「改名对」按**取值集合签名**聚成族。
+    //   ★ 为什么：同一份清单（例如 7 个主代码目录）被 6 个文件各抄一遍时，两两配对会炸成
+    //     C(6,2)=15 对，全等对数随「抄了几份」平方增长，根本反映不了「检测器是否退化成噪音」。
+    //     族数才是一件事的个数：抄 6 遍仍是 1 族。判据改看族数，比对数的阈值不再被副本数量绑架。
+    //     ⚠️ 注意这不改 LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD（判定某两对是否"重复"的口径一字未动），
+    //        只改「聚合成多少件事来计数」。
+    const famMap = new Map();
+    for (const r of renamed) {
+        const sig = [...new Set(r.a.vals)].slice().sort().join('\u0001');
+        if (!famMap.has(sig)) famMap.set(sig, { vals: r.a.vals.slice().sort(), decls: [] });
+        const fam = famMap.get(sig);
+        for (const d of [r.a, r.b]) {
+            if (!fam.decls.some(x => x.file === d.file && x.name === d.name)) {
+                fam.decls.push({ file: d.file, name: d.name });
+            }
+        }
+    }
+    const renamedFamilies = [...famMap.values()]
+        .map(f => ({ vals: f.vals, decls: f.decls.sort((x, y) => (x.file + x.name).localeCompare(y.file + y.name)) }))
+        // ★ 只留下"真的抄了多份"的族（≥2 处声明）；单份声明的清单不构成重复
+        .filter(f => f.decls.length >= 2)
+        .sort((x, y) => y.decls.length - x.decls.length || y.vals.length - x.vals.length);
+    return { items, renamed, divergent, renamedFamilies, fails: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -765,6 +835,18 @@ export function selfCheck() {
     } catch (e) {
         fails.push('㉒ 保长度剥注释自证抛异常（' + (e && e.message ? e.message : String(e)) + '）');
     }
+    // ㉓ 族数闸门负路径（2026-11-10）：第 201 轮换了计数口径却没配自证，本组证明新口径仍能咬住真泛滥。
+    try {
+        const fam = (n, decls) => ({ vals: ['v' + n], decls: Array.from({ length: decls }, (_, i) => ({ file: 'f' + i + '.mjs', name: 'C' + n })) });
+        const many = Array.from({ length: 13 }, (_, i) => fam(i, 2));
+        if (!auditFamilyGate(many).some(x => x.includes('族（> 12）'))) fails.push('㉓ 负路径 A：13 个互不相同的重复族竟没报族数超限 ⇒ 新口径把红洗掉了');
+        if (!auditFamilyGate([fam(1, 9)]).some(x => x.includes('单族清单被复制到 9 份'))) fails.push('㉓ 负路径 B：一族抄 9 份竟没报单族超限 ⇒ 只看族数会漏');
+        const edge = Array.from({ length: 12 }, (_, i) => fam(i, 8));
+        if (auditFamilyGate(edge).length) fails.push('㉓ 正路径：12 族 / 单族 8 份（正好在边界）竟报红 ⇒ 假红');
+        if (auditFamilyGate([]).length) fails.push('㉓ 正路径：空族集合竟报红 ⇒ 假红');
+    } catch (e) {
+        fails.push('㉓ 族数闸门自证抛异常（' + (e && e.message ? e.message : String(e)) + '）');
+    }
     // ★ 自证自己必须"全函数不抛"：它一旦抛异常，两个受体会**直接崩掉**而不是报红
     //   （本轮牙三实证：把块头正则改坏后 fact-coverage-selftest 与 fact-dead-field-scan 双双
     //   TypeError 退出，报错信息写的是公共件的行号，反而把真因藏了）。
@@ -775,6 +857,31 @@ export function selfCheck() {
         fails.push('静态真值口径公共件自证自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 本件已不可信，用它得到的任何"口径"结论一并作废');
     }
     return fails;
+}
+
+/**
+ * 「重复清单族」两道闸门的唯一判定处（真实扫描与自证共用）。
+ * V2.4.0：第 201 轮把计数对象从「对」换成「族」时只改了调用点、没配负路径自证 ——
+ *   改了判据却没证明新口径还能咬住真泛滥，等于无法排除「换口径是为了洗红」。
+ *   ★ 单族份数取所有族的最大值，不再依赖 renamedFamilies 已排序这个隐含前提。
+ */
+export function auditFamilyGate(families, maxFamilies = 12, maxFan = 8) {
+    const list = Array.isArray(families) ? families : [];
+    const out = [];
+    if (list.length > maxFamilies) {
+        out.push('auditSharedLiteralSets 取值全等的重复清单聚成 ' + list.length
+            + ' 族（> ' + maxFamilies + '）⇒ 重复来源确实泛滥到没法点名，请复核 LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD，'
+            + '并优先把「一事一源」收口：' + list.slice(0, 3)
+                .map(f => (f.decls || []).map(x => x.name + '@' + x.file).join('/')).join(' ; '));
+    }
+    const sizes = list.map(f => (f.decls || []).length);
+    const worst = sizes.length ? Math.max(...sizes) : 0;
+    if (worst > maxFan) {
+        const f0 = list[sizes.indexOf(worst)];
+        out.push('auditSharedLiteralSets 单族清单被复制到 ' + worst + ' 份（> ' + maxFan + '）⇒ 同一份清单抄得太散，'
+            + '应收成唯一来源；首族：' + (f0.decls || []).map(x => x.name + '@' + x.file).join(' / '));
+    }
+    return out;
 }
 
 function runSelfChecks(fails) {
@@ -1032,7 +1139,7 @@ function runSelfChecks(fails) {
     //   ⇒ 两侧都要：仍在册的已知改名对**必须**被点出（缺 ⇒ 检测器失灵，盲区又回来了）；
     //     检测器又必须**不是**把全部 36 条清单都判成重复（那等于噪音淹没，点名没人看）。
     const LITERAL_WITNESS = [
-        { a: 'MAIN_DIRS', b: 'SCAN_DIRS', why: '第 173 轮实测仍在册：contract-binding-drift-selftest 的 MAIN_DIRS 与 structural-dead-branch-scan 的 SCAN_DIRS 取值全等（core/modules/render/player/ui/fx/infra，仅顺序不同）却各叫各的名字 —— 第三条线索要兜的就是这一款' },
+        { a: 'MAIN_DIRS', b: 'CORPUS_DIRS', why: '第 202 轮实测仍在册：relay-drift-guard 的 MAIN_DIRS 与 rule-binding-drift-selftest 的 CORPUS_DIRS 都写全 8 个目录（含 content/tests，比主代码扫面多两个），取值全等却各叫各的名字 —— 第三条线索要兜的就是这一款' },
     ];
     try {
         const d11 = auditSharedLiteralSets(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
@@ -1044,15 +1151,101 @@ function runSelfChecks(fails) {
                     + '（' + w.why + ' ⇒ 第三条线索的检测已失灵，第 172 轮那个盲区又回来了）');
             }
         }
-        // 反向：检测器不许退化成"什么都算重复"。实测 36 条清单 → 30 对（全等 3 对）；
-        //   若改名对（renamed）多到把候选总数吞掉，说明阈值被放宽成噪音，点名没人看得下去。
-        if (d11.renamed.length > 12) {
-            fails.push('auditSharedLiteralSets 取值全等的改名对点出 ' + d11.renamed.length
-                + ' 对（> 12）⇒ 阈值疑似被放宽成噪音，点名会淹没在巧合里，请复核 LITERAL_MIN_SHARED / LITERAL_MIN_JACCARD');
-        }
+        // 反向：检测器不许退化成"什么都算重复"。
+        // V2.1.0（第 201 轮）：从「对数 > 12」改为「**族数** > 12」。
+        //   老写法用全等对数当闸门，实测被"同一份清单抄 N 遍"刷爆：本轮 27 对里
+        //   有 15 对只是 7 个目录清单在 6 个文件里的两两组合，主代码一个字没多。
+        //   那不是"阈值放宽成噪音"，是笛卡尔积。族数（按取值集合签名去重）才是"多少件事"。
+        // ★ 判据没放宽：12 这个上限值原样沿用，只是计数的对象从"对"换成"族"。
+        //   若真有 13 份**互不相同**的清单各自重复，照样报红。
+        fails.push(...auditFamilyGate(d11.renamedFamilies));
+        // 单族份数上限同走 auditFamilyGate（不再只看已排序的第 0 族），自证 ㉓ 覆盖两条边界。
+        // 反向的第二道（V2.1.0 新增）：光看族数会被"一族抄 30 份"掩掉 —— 那照样是点名没人看得下去。
+        //   所以再对「单族最多抄几份」设上限。8 这个值取自现状：本轮最大族是 7 个目录清单抄 6 份，
+        //   留 2 份余量给后续新增的扫描脚本；一旦冲到 9 份就说明有人又在复制粘贴清单，该收口了。
         if (d11.items.length < 10) {
             fails.push('auditSharedLiteralSets 只扫到 ' + d11.items.length
                 + ' 条字符串清单常量（应 ≥ 10）⇒ 扫描覆盖面塌了，第三条线索等于没装');
+        }
+        // 正向的第三道（V2.2.0 第 202 轮新增）：收口不许把「欠账」洗成「没账」。
+        //   ★ 病根：本轮把两族收口后族数 8 → 6，光看「族数 ≤ 12」会以为一直很健康；
+        //     真正的回归风险是**有人把收口偷偷还原成手抄**——那时族数回升不会报红（8 也 ≤ 12），
+        //     检测器和欠账一起退回去，没人看得见。
+        //   ⇒ 钉一条**收口棘轮**：从 mainSourceDirs / FACT_TYPE_MISS 导入的四个文件必须仍在册，
+        //     且这两个常量本身必须仍以纯字面量导出（被改成拼串/条件构造就等于收口失效）。
+        const CLOSED_RATCHET = [
+            { file: 'contract-binding-drift-selftest.mjs', key: 'mainSourceDirs', vals: 'core,infra,modules,player,render,ui,fx' },
+            { file: 'entry-path-guard.mjs', key: 'mainSourceDirs', vals: 'core,infra,modules,player,render,ui,fx' },
+            { file: 'hp-death-exit-guard.mjs', key: 'mainSourceDirs', vals: 'core,infra,modules,player,render,ui,fx' },
+            { file: 'structural-dead-branch-scan.mjs', key: 'mainSourceDirs', vals: 'core,infra,modules,player,render,ui,fx' },
+            { file: 'health-rules/182-target-validity.js', key: 'FACT_TYPE_MISS', vals: 'attack,dodge,immune,miss' },
+            { file: 'health-rules/183-action-order.js', key: 'FACT_TYPE_MISS', vals: 'attack,dodge,immune,miss' },
+            { file: 'health-rules/184-death-revive-rights.js', key: 'FACT_TYPE_MISS', vals: 'attack,dodge,immune,miss' },
+            { file: 'health-rules/188-multi-attack-count.js', key: 'FACT_TYPE_MISS', vals: 'attack,dodge,immune,miss' },
+            { file: 'health-rules/237-mod-entry-shape.js', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
+            { file: 'health-rules/242-stat-closure.js', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
+            { file: 'health-rules/271-absorb-summary-same-source.js', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
+            { file: 'mod-source-closure.mjs', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
+        ];
+        const testsDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+        for (const c of CLOSED_RATCHET) {
+            const p = path.join(testsDir, c.file);
+            if (!fs.existsSync(p)) {
+                fails.push('「一事一源」收口棘轮：' + c.file + ' 已不在盘（' + c.why + '），无法核对是否被还原成手抄');
+                continue;
+            }
+            const src = stripComments(fs.readFileSync(p, 'utf8'));
+            if (!/static-truth-slice\.mjs['"]/.test(src) || !new RegExp('\\b' + c.key + '\\b').test(src)) {
+                fails.push('「一事一源」收口棘轮：' + c.file + ' 已不再 import 公共件的 ' + c.key
+                    + ' ⇒ 有人把手抄还原回来了，族数会悄悄回升而闸门不报红');
+            }
+            // ★ V2.3.0 第 203 轮新增（本轮实测发现上一版漏了这一格）：
+            //   上一版只查"文件里出现过常量名字样"，于是**同时 import 又另抄一份字面量**照样全绿 ——
+            //   本轮验牙实证：给 mod-source-closure.mjs 加回 `const STATS2 = ['atk','def','maxHp']`，
+            //   import 语句还在，棘轮一声不响，族数只是从 5 涨回 6（≤12 不报红）。
+            //   现改成：在该文件**剥注释后的真代码**里，不得再出现这份清单的裸字面量。
+            //   判据按元素全等匹配（容忍引号/空格差异），不认变量名 —— 换个名字抄也照样咬住。
+            {
+                const want = c.vals.split(',');
+                const QUOTES = '["' + String.fromCharCode(39) + ']';
+                const SEP = '[\\s]*,[\\s]*';
+                const reLit = new RegExp(want.map(v => QUOTES + v + QUOTES).join(SEP), 'g');
+                const hits = src.match(reLit);
+                if (hits) {
+                    fails.push('「一事一源」收口棘轮：' + c.file + ' 里仍有一份 ' + c.key
+                        + ' 的裸字面量（' + hits[0] + '）⇒ 已 import 公共件却又手抄一遍，重复源回归');
+                }
+            }
+        }
+        // 唯一来源本身也钉住：这两个常量必须仍以**纯字面量数组**直接导出。
+        if (!/export\s+const\s+mainSourceDirs\s*=\s*Object\.freeze\(\s*\[[^\]]*\]\s*\)/.test(stripComments(
+            fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')))) {
+            fails.push('「一事一源」收口棘轮：mainSourceDirs 不再以纯字面量冻结数组导出 ⇒ 唯一来源被改成运行期构造，'
+                + '静态取值定不下来，第三条线索对这份清单的覆盖等于失效');
+        }
+        if (!/export\s+const\s+FACT_TYPE_MISS\s*=\s*Object\.freeze\(\s*\[[^\]]*\]\s*\)/.test(stripComments(
+            fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')))) {
+            fails.push('「一事一源」收口棘轮：FACT_TYPE_MISS 不再以纯字面量冻结数组导出 ⇒ 同上，唯一来源被改成运行期构造');
+        }
+        if (!/export\s+const\s+STAT_MOD_KEYS\s*=\s*Object\.freeze\(\s*\[[^\]]*\]\s*\)/.test(stripComments(
+            fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')))) {
+            fails.push('「一事一源」收口棘轮：STAT_MOD_KEYS 不再以纯字面量冻结数组导出 ⇒ 同上，唯一来源被改成运行期构造');
+        }
+        // 正向的第四道（V2.3.0 第 203 轮新增）：**族数不许被"收口假象"骗过**。
+        //   ★ 病根与上一道同源但方向相反：上一道盯"有人把手抄还原回来"，这一道盯"收口时把清单悄悄改写"。
+        //     若有人把 STAT_MOD_KEYS 里的 maxHp 挪成 hp（或增删一项），三处 import 的文件照样全绿、
+        //     族数照样是 0，而规则从此扫的是另一组属性 —— 静默丢覆盖面，没有任何闸门报红。
+        //   ⇒ 把三份收口前的取值钉成字面量：少了/多了任何一项都报红。这不是放宽，是收口的另一半。
+        {
+            // ★ 这里刻意不写成数组字面量：auditSharedLiteralSets 会扫本文件，一个 `const want = [...]`
+            //   会被当成第五条手抄清单进网，既虚增族数，也把「唯一来源」自己变成了重复源。
+            //   （第 203 轮实测踩到：加上这一句后族数 6→6 但 STATS 族从"已收口"变成 want ⇄ stats 一对。）
+            const want = 'atk,def,maxHp'.split(',');
+            const got = Array.isArray(STAT_MOD_KEYS) ? STAT_MOD_KEYS.slice() : [];
+            if (got.length !== want.length || got.some((v, i) => v !== want[i])) {
+                fails.push('「一事一源」收口棘轮：STAT_MOD_KEYS 取值被改写为 [' + got.join(', ')
+                    + ']，收口前的四份手抄均为 [' + want.join(', ') + '] ⇒ 各处 import 全绿但覆盖面已静默改变');
+            }
         }
     } catch (e) {
         fails.push('auditSharedLiteralSets 自身抛异常（' + (e && e.message ? e.message : String(e)) + '）⇒ 第三条线索的守卫已失效');
