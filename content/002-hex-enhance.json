@@ -26,10 +26,10 @@
     "cloudBody": { "dodgeRatio": 0.7 },
     "doubleStrike": { "chance": 0.8 },
     "mindControl": { "hitChance": 0.2 },
-    "soulDrain": { "pointChance": 0.6, "pointRounds": 2 },
+    "soulDrain": { "pointChance": 0.5, "pointRounds": 2 },
     "horseFormation": { "spawnChance": 0.7 },
     "holyFire": { "reviveRatio": 0.4 },
-    "unity": { "summonChance": 0.5, "recruitM": 15 },
+    "unity": { "summonChance": 0.3, "recruitM": 15 },
     "carry": { "layersBase": 1, "layersPerR1": 1, "layersPerR2": 0.5 },
     "lastStand": {}
   }

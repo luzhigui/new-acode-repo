@@ -276,7 +276,7 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
     const casterAlive = isAlly ? alive.B : alive.A;
     const targetAlive = isAlly ? alive.A : alive.B;
     
-    // 摄魂：普通版随机影响 N-1 人（最少 1 人）；姊强化版影响敌方所有人
+    // 摄魂：普通版上限 4 人（2026-11-10 拍板：敌方不足 4 人则全员生效；原"随机 N-1"废止）；姊强化版影响敌方所有人
     const hasTeamSoulDrain = hasBuff(enemyBuffs, BUFF_TYPES.SOUL_DRAIN);
     const hasSisterSoulDrain = hasTeamSoulDrain && enemy.some(u => u.isXiaoZhaoSister && u.alive);
     let soulDrainTargets = null;
@@ -286,7 +286,7 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
             // 姊强化：全体
             soulDrainTargets = new Set(aliveTeam.map(u => u.uid));
         } else {
-            const count = Math.max(1, aliveTeam.length - 1);
+            const count = Math.min(4, aliveTeam.length);   // 上限 4 人，不足 4 人全员生效
             const shuffled = [...aliveTeam];
             const rng = getBattleRng();
             for (let i = shuffled.length - 1; i > 0; i--) {
