@@ -5,6 +5,7 @@
 //          ② 宿主死亡立刻飞回当前格（watchUnit 观察 host.alive），并复位 A._butterflyTriggered，
 //             让下一位队友出手前按原有左右取序重新附身（旧版要等回合末声明）。
 // V1.0.4 | 2026-11-08 宿主阵亡 fact 补 hostUid（体检总框架 D3 窗口关闭载荷）
+// V1.0.6 | 2026-11-10 乾坤衍生数值刀：回血/加攻改乘法口径（参数即比例，名字=数学）——defToHeal 0.06→0.10（防×10%）、defToAtk 0.12→0.05（防×5%），减伤轴未动
 // V1.0.5 | 2026-11-08 精英数值一致性：乾坤衍生减伤保底值从写死 0.5 改为读 qianKunDerived.params.minReduce
 //           （旧兜底值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
 // V1.0.6 | 2026-11-08 修 BUTTERFLY_HOST_DEAD.hostUid 恒 null：原在清空 _butterflyHost 之后才读它，
@@ -116,10 +117,10 @@ export function createXiaoZhaoSisterComponent() {
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     // 实际落地值（截脉/寒毒打折后）只用于飘字/审计；
                     //   落账仍传原值——applyStatChange 内部会打折，传 preview 会二次打折
-                    const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
+                    const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') * s.defToHeal));   // V1.0.6 乘法口径：defToHeal 即回血比例
                     const heal = previewHeal(healTarget, healRaw);
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
+                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') * s.defToAtk));     // V1.0.6 乘法口径：defToAtk 即加攻比例
                     applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
                     // 审计账本：记进 unit._audit.hp，零行为副作用
                     recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗'); // 账本记实际落地值（与 fact heal 同口径；白骨爪路径已同口径）
@@ -174,10 +175,10 @@ export function createXiaoZhaoSisterComponent() {
                 const rng = getBattleRng();
                 const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                 // 实际落地值只用于飘字/审计；落账传原值（applyStatChange 内部打折，传 preview 会二次打折）
-                const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
+                const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') * s.defToHeal));   // V1.0.6 乘法口径：defToHeal 即回血比例
                 const heal = previewHeal(healTarget, healRaw);
                 const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
+                const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') * s.defToAtk));     // V1.0.6 乘法口径：defToAtk 即加攻比例
                 applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
                 // 审计账本：记进 unit._audit.hp，零行为副作用
                 recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');

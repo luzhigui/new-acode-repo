@@ -2,7 +2,7 @@
 // 体检规则：小昭·姊「乾坤衍生」的声明加攻 == 账本 qianKunDerived 实际落地加攻
 //
 // 机制（2026-11-08 取证）：
-//   atkGain = max(1, floor(def / (defToAtk * 100)))，defToAtk:0.12 → floor(def/12)；
+//   atkGain = max(1, floor(def * defToAtk))（V1.0.6 起乘法口径，defToAtk:0.05 → def×5%）；
 //   每命中一次就按该式给「受益单位」加攻：ttl='permanent'，无单次上限、无每回合次数上限、
 //   无衰减、无清理点。张无忌活着时完全不触发（小昭·姊走附身路线）。
 //   声明口 = QIAN_KUN_DERIVED 事实（atkTargetUid / atkGain），落地口 = unit._mods.atk 里
