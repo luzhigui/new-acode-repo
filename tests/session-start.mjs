@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// V1.1.0 | 2026-11-10：补「不带参数跑 = 输出开工菜单」，并明确写清
+//   「光跑命令不会让别的会话自动知道规矩，必须把输出整段粘到新会话第一条消息」。
+//   用户问「下次去哪里复制这个命令」⇒ 命令不该靠记：无参入口 + tests/多会话开工.md 固定落点。
 // tests/session-start.mjs | V1.0.0 | 2026-11-10
 // 「按角色生成可直接粘的会话启动提示词」。内容全部从 session-scope.json 生成，
 // 不手写第二份清单 —— 守门与提示词共用同一份真值，改边界只改一处。
@@ -13,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/session-start.mjs V1.0.0';
+export const VER = 'tests/session-start.mjs V1.1.0';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -103,23 +106,60 @@ ${role === 'merge' ? '合流角色负责双推；其他角色不要自己 push �
 - 不放宽任何判据、不删变异牙、不抬棘轮上限（要抬须拍板并留痕）；
 - 不用定时自动化跑迭代（每次新建会话、额外计费、实测撞过 429）；
 - 发现工具/流程本身有问题，动态提醒或自行修正，别攒着。
+
+---
+## ★ 使用方式（别漏这一步）
+把**以上整段**复制，粘贴到新 AI 会话的第一条消息里。
+光在仓库里跑 session-start.mjs，别的会话不会自动知道任何规矩；
+session-scope-guard.mjs 只负责在你提交前兜底拦越界，不负责教会话怎么干。
+`;
+}
+
+/** 不带参数时的开工菜单：不用记命令，跑一下就能看到三条可复制的命令。 */
+export function buildMenu(scope) {
+    const roles = Object.keys(scope.roles || {});
+    return `# 多会话开工：先选角色
+
+★ 重要：光跑本命令不会让别的 AI 会话自动知道规矩。
+  必须把下面某条命令的输出**整段复制**，粘到新会话的第一条消息里。
+  守门（session-scope-guard.mjs）只是提交前的兜底，不负责教会话。
+
+可用角色：${roles.join(' / ')}
+
+\`\`\`bash
+# 1) 域会话：写某个号段的规则（把 D9 换成你自己的域）
+node tests/session-start.mjs --role=domain --domain=D9 --base=<锁定的 tip>
+
+# 2) 框架面会话：独占四个公共文件、挂清单、做登记同步
+node tests/session-start.mjs --role=framework --base=<锁定的 tip>
+
+# 3) 合流会话：三方合并 + 双推 + 写合入登记
+node tests/session-start.mjs --role=merge --base=<锁定的 tip>
+\`\`\`
+
+<锁定的 tip> 这样拿：\`git fetch gh-ssh && git rev-parse gh-ssh/main\`
+
+也可以直接在对话里说「开个 D9 域会话」，让我生成并粘好。
+改规矩只改三处：所有权表 tests/_registry/session-scope.json、守门、本脚本。
 `;
 }
 
 function main() {
     const argv = process.argv.slice(2);
     const arg = (k) => (argv.find(a => a.startsWith('--' + k + '=')) || '').slice(('--' + k + '=').length);
-    const role = arg('role') || 'domain';
+    const role = arg('role');
     const domain = arg('domain');
     const base = arg('base');
     const worktree = arg('worktree');
     try {
         const scope = loadScope();
+        // 不带参数 = 开工菜单（不用记命令）。只有显式给了角色才生成提示词。
+        if (!role) { process.stdout.write(buildMenu(scope)); return 0; }
         process.stdout.write(buildPrompt({ scope, role, domain, base, worktree }));
         return 0;
     } catch (e) {
         console.error('⛔ ' + (e && e.message ? e.message : String(e)));
-        console.error('用法：node tests/session-start.mjs --role=domain|framework|merge --domain=D9 --base=<sha>');
+        console.error('不带参数 = 开工菜单；生成提示词：node tests/session-start.mjs --role=domain --domain=D9 --base=<sha>');
         return 1;
     }
 }
