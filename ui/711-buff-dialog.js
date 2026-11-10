@@ -35,8 +35,9 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
             if (available.length === 0) { resolve(null); return; }
 
             if (GlobalStore.get('bugMode')) {
-                // 🐛 Bug 模式：不洗牌不截断，全部可选海克斯一屏展示（调试便利，2026-11-10 恢复）
-                choices = [...available];
+                // 🐛 Bug 模式：真·全开——不吃 filterAvailableBuffs（已持有/一次性用完/人数职业门槛全不看），
+                //   基础海克斯全表可选（含重复拿；姊妹强化版走各自分库不在此列）。2026-11-10 老板点名"怎么那么少"
+                choices = Object.keys(CONFIG.BUFFS);
             } else {
                 const shuffled = [...available];
                 const rng = getBattleRng();

@@ -11,12 +11,15 @@
 // V1.1.0 | 2026-11-08 触发时机改为 ON_ROUND_START（团队背水在场即触发，不再看血量/永久账本）；
 //   蛛袭由单次改为按 _spiderRemaining 次数逐次随机（可重复同一目标）；brother.lastStand.hpThreshold 废弃
 // V1.2.0 | 2026-11-10 每回合战士成长加系统提示+头顶 💪 飘字（老板要求：成长可见化，带累计次数 _brotherLastStandGrowN）
-export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.2.0';
+// V1.2.1 | 2026-11-10 重大修复：三钩从顶层裸注册迁 registerRoundHook 每回合重挂（210 每回合 clearAll，
+//           顶层注册活不过第一回合=妹背水上线以来从未触发过，老板实测实锤）；触发门扩妹账本路径（对齐 323 全家口径）
+export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.2.1';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, applyStatChange, emitEvent } from '../core/214-battle-shared.js';
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
+import { registerRoundHook } from '../core/208-registry-elite.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, ROLE_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { pushSkillAnnounce, findAlive, emitHpChange } from './305-elite-helpers.js';
@@ -89,55 +92,54 @@ function triggerBrotherLastStand(brother, A, B, log) {
     }
 }
 
-// 触发：团队背水在场即触发永久效果（每局一次，不再等团队 buff 过期，不再等血量跌破阈值）
-registerSettlementHook({
-    when: SIGNAL_TYPES.ON_ROUND_START,
-    priority: 10,
-    handler: (data) => {
-        const A = data.A, B = data.B, log = data.log;
-        if (!A || !B) return;
-        const brother = findBrother(A);
-        if (!brother || brother.state._brotherLastStandTriggered) return;
-        const buffs = A._activeBuffs || [];
-        if (!buffs.some(b => b.key === BUFF_TYPES.LAST_STAND)) return;
-        triggerBrotherLastStand(brother, A, B, log);
-    }
-});
+// 触发门与三钩：V1.2.1 重大修复——core/210 每回合 eventBus.clearAll() 清光顶层注册（302:319 同款教训），
+//   V1.1.0 顶层 registerSettlementHook = 第一回合 installRoundMechanics 后三钩全灭，
+//   妹背水自上线起从未真正触发过（老板 bug 模式实测实锤）。改 registerRoundHook 每回合重挂。
+// 触发口径对齐 323 全家：团队背水在场 OR 妹账本有背水，任一即触发（每局一次）。
+function onRoundStartGate(data) {
+    const A = data.A, B = data.B, log = data.log;
+    if (!A || !B) return;
+    const brother = findBrother(A);
+    if (!brother || brother.state._brotherLastStandTriggered) return;
+    const teamHas = (A._activeBuffs || []).some(b => b.key === BUFF_TYPES.LAST_STAND);
+    const bookHas = (brother.state._permanentBuffs || []).some(b => b.key === BUFF_TYPES.LAST_STAND);
+    if (!teamHas && !bookHas) return;
+    triggerBrotherLastStand(brother, A, B, log);
+}
 
-registerSettlementHook({
-    when: SIGNAL_TYPES.ON_ROUND_START,
-    priority: 55,
-    handler: (data) => {
-        const A = data.A;
-        if (!A) return;
-        const brother = findBrother(A);
-        if (!brother || !brother.state._brotherLastStandTriggered) return;
-        const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
-        addMod(brother, 'atk', { source: '背水·战士成长', value: warriorBonus.atk, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
-        addMod(brother, 'def', { source: '背水·战士成长', value: warriorBonus.def, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
-        addMod(brother, 'maxHp', { source: '背水·战士成长', value: warriorBonus.maxHp, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
-        refreshMaxHp(brother, null, '背水·战士成长');
-        // 系统提示 + 头顶 💪 logo 飘字（2026-11-10 老板要求）：每次成长都可见，带累计次数
-        brother.state._brotherLastStandGrowN = (brother.state._brotherLastStandGrowN || 0) + 1;
-        if (data.log) {
-            pushSkillAnnounce(data.log, brother, '背水·战士成长',
-                `💪 妹背水·战士成长第${brother.state._brotherLastStandGrowN}次：攻+${warriorBonus.atk} 防+${warriorBonus.def} 血上限+${warriorBonus.maxHp}`,
-                { floatText: '💪', floatUid: brother.uid });
-        }
+function onRoundStartGrow(data) {
+    const A = data.A;
+    if (!A) return;
+    const brother = findBrother(A);
+    if (!brother || !brother.state._brotherLastStandTriggered) return;
+    const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
+    addMod(brother, 'atk', { source: '背水·战士成长', value: warriorBonus.atk, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
+    addMod(brother, 'def', { source: '背水·战士成长', value: warriorBonus.def, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
+    addMod(brother, 'maxHp', { source: '背水·战士成长', value: warriorBonus.maxHp, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
+    refreshMaxHp(brother, null, '背水·战士成长');
+    // 系统提示 + 头顶 💪 logo 飘字（2026-11-10 老板要求）：每次成长都可见，带累计次数
+    brother.state._brotherLastStandGrowN = (brother.state._brotherLastStandGrowN || 0) + 1;
+    if (data.log) {
+        pushSkillAnnounce(data.log, brother, '背水·战士成长',
+            `💪 妹背水·战士成长第${brother.state._brotherLastStandGrowN}次：攻+${warriorBonus.atk} 防+${warriorBonus.def} 血上限+${warriorBonus.maxHp}`,
+            { floatText: '💪', floatUid: brother.uid });
     }
-});
+}
 
-registerSettlementHook({
-    when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
-    priority: L.AFTER_DAMAGE_APPLIED.LEECH,
-    handler: (data) => {
-        const unit = data.unit;
-        if (!unit || !unit.isXiaoZhaoBrother) return;
-        const leechRatio = unit.state._brotherLastStandLeech;
-        if (!leechRatio || !data.dmg || data.dmg <= 0) return;
-        const rawLeech = Math.floor(data.dmg * leechRatio);
-        if (rawLeech <= 0) return;
-        if (!data.declarations) data.declarations = [];
-        data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit });
-    }
-});
+function onDamageLeech(data) {
+    const unit = data.unit;
+    if (!unit || !unit.isXiaoZhaoBrother) return;
+    const leechRatio = unit.state._brotherLastStandLeech;
+    if (!leechRatio || !data.dmg || data.dmg <= 0) return;
+    const rawLeech = Math.floor(data.dmg * leechRatio);
+    if (rawLeech <= 0) return;
+    if (!data.declarations) data.declarations = [];
+    data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit });
+}
+
+function installBrotherLastStandHooks() {
+    registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: 10, handler: onRoundStartGate });
+    registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: 55, handler: onRoundStartGrow });
+    registerSettlementHook({ when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, priority: L.AFTER_DAMAGE_APPLIED.LEECH, handler: onDamageLeech });
+}
+registerRoundHook(installBrotherLastStandHooks);
