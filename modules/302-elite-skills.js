@@ -137,6 +137,8 @@ function masteryLayers(count) { return count >= CONFIG.ROLES.length ? count + CO
 
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
+    // 背水·精通转战士（modules/324）触发后永久锁战士：蛛变轮换停摆（老板拍板 2026-11-10「选了背水永远战士」）
+    if (unit.state._brotherLastStandTriggered) return;
     const rng = getBattleRng();
     const roles = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER];
 

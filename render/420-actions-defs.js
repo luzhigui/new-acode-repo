@@ -569,6 +569,8 @@ export const STAGE_ACTION_DEFS = {
             if (spiderUnit && strikeTarget) {
                 await eventBus.emit(FX_SIGNALS.SPIDER_STRIKE, { spiderUnit, strikeTarget });
             }
+            // 掉血数字（2026-11-10 老板报"蛛袭没有掉血提示"）：蜘蛛特效后补 DAMAGE_FLOAT，与上方直伤族同款口径
+            if (strikeTarget && action.dmg > 0) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: strikeTarget, dmg: action.dmg });
         }
     },
     [STAGE_ACTION_TYPES.BUFF_EFFECT]: {
