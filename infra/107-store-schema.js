@@ -2,7 +2,7 @@ export const VER = 'infra/107-store-schema.js V1.0.0';
 
 import { BUFF_TYPES, FACT_TYPES } from './106-battle-enums.js';
 
-// GlobalStore 值形状真源：65 键白名单 + 类型声明 + 运行期校验。
+// GlobalStore 值形状真源：键数白名单+类型声明+运行期校验（键数以白名单为准，两侧必须对齐）。
 // 分层：本文件只依赖 infra/106，禁止 import core/（core→infra 单向，反向会破坏架构铁律）。
 // 只做「只读浅校验」：不 clone、不 freeze、不修正值——store 里存的是活引用与状态唯一真源。
 // 深校验（逐元素逐字段）只在 ?schema=1 调试开关下开启，见 validateStoreValue 的 deep 选项。
@@ -21,7 +21,7 @@ export const STORE_VALUE_TYPES = Object.freeze({
 
 const S = STORE_VALUE_TYPES;
 
-// 65 键白名单：与 2026-11-06 对照表逐字一致（含 currentBattleState）。
+// 白名单：与 2026-11-06 对照表逐字一致（含 currentBattleState），此后加键白名单+schema 双登记。
 // 新增键必须同时补白名单与 STORE_SCHEMA，禁止裸字符串。
 export const STORE_KEY_WHITELIST = Object.freeze(new Set([
     '_hasPlayedFair', 'abortController', 'activeBuffs', 'adjustMode', 'autoLevel', 'autoMode',
@@ -51,7 +51,7 @@ const BUFF_VALUES = new Set(Object.values(BUFF_TYPES));
 const ALLY = 'ally';
 const GS_VALUES = new Set(['IDLE', 'RUNNING', 'PAUSED', 'GAMEOVER']);
 
-// 65 键逐键声明。required 默认 true；nullable 默认 false；default 仅结构键给（初始化/缺键读取）。
+// 逐键声明。required 默认 true；nullable 默认 false；default 仅结构键给（初始化/缺键读取）。
 export const STORE_SCHEMA = Object.freeze({
     _hasPlayedFair: { type: S.BOOLEAN },
     abortController: { type: S.OBJECT, nullable: true },
@@ -395,11 +395,10 @@ export function isStoreKey(key) { return STORE_KEY_WHITELIST.has(key); }
 /** 装配自检：白名单/声明/结构键数量必须对齐，防止漏注册 */
 export function assertStoreSchema() {
     const schemaKeys = Object.keys(STORE_SCHEMA);
-    if (STORE_KEY_WHITELIST.size !== 65) {
-        throw new Error(`[107] 白名单应为 65 键，实际 ${STORE_KEY_WHITELIST.size}`);
-    }
-    if (schemaKeys.length !== 65) {
-        throw new Error(`[107] STORE_SCHEMA 应为 65 键，实际 ${schemaKeys.length}`);
+    // 2026-11-10 起不再写死键数（加键改两处硬编码必炸手机端，实锤一次）：数量对齐改双向互查——
+    //   单边加键（只加白名单漏 schema 或反之）由下方两个 for 循环逐键咬住，保护力不变
+    if (STORE_KEY_WHITELIST.size !== schemaKeys.length) {
+        throw new Error(`[107] 白名单 ${STORE_KEY_WHITELIST.size} 键与 STORE_SCHEMA ${schemaKeys.length} 键不对齐`);
     }
     for (const key of schemaKeys) {
         if (!STORE_KEY_WHITELIST.has(key)) throw new Error(`[107] schema 键 '${key}' 不在白名单`);
