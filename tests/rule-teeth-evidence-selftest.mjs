@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+// V1.0.12 | 2026-11-10 白天迭代：给 aggNormMsg 补双向负路径自证。
+//   该函数是「聚合型分支」判定的唯一归一化入口，V1.0.5→V1.0.11 连改 6 版口径却零自证；
+//   最坏情形是它退化成恒等映射 —— 所有 msg 归一成同一个 rk、聚合分支全塌，
+//   MAX_AGG_BRANCHES / SINGLE_AGG_CAP 反而全绿，没有任何东西会报。
+//   本轮新增 selfCheckAggNorm（纯内存、不读证据文件），main 每轮先跑：
+//   该合并的噪声必须合并，真不同病因必须仍能分开，出口标签必须保住，6 个不同病因不许塌成 <5 个键。
+//   未改 aggNormMsg 一行实现、未动三个阈值、未动 findBranchByMsg / rottenKey 口径。
 // tests/rule-teeth-evidence-selftest.mjs | V1.0.11 | 2026-11-10 夜间第 202 轮：aggNormMsg 补一手「出口标签保护」—— 158 按「哪处文案」把「不同源」拆成两个出口后，出口名挂在 msg 的【嗜血狂刀吸血】/【青翼蝠王】上，但本函数第 ①②步把中文实体名一律抹成 ◆，标签里的字被一起吃成【◆】，两个出口塌成一个；剩下的差异只剩样例正文句式，被数成「2 种子病因」—— 那是把拆出口的成果又抹平了。只保护【…】内的字母与中文（数字仍抹 #，与 normMsg 同口径），标签外的抹除口径一字不动。MAX_AGG_BRANCHES=6 / SINGLE_AGG_CAP=20 / MIN_PARSE_RATE=0.95 三阈值一字未动，findBranchByMsg 与 rotten 键口径同样未动。
 // tests/rule-teeth-evidence-selftest.mjs | V1.0.7 | 2026-11-10 夜间第 201 轮：aggNormMsg 补一手「计数后缀壳」归一 —— 规则出口把「共 N 处/次」这类汇总尾巴挂在 msg 末尾（243 withCnt「（共 N 处位移载荷异常）」，250「（共 N 次换位不闭合）」），同一病因 1 处报原样、多处多一截尾巴，归一后成了两个 rk ⇒ 一条分支被数成 2 种病因、2 类结构模板，硬顶在观察级。只剥括号内的「共 + 数字 + 量词」描述，括号里的病因词（如「不同源」）不受影响。聚合型分支 5 -> 4。MAX_AGG_BRANCHES=6 / SINGLE_AGG_CAP=20 / MIN_PARSE_RATE=0.95 三阈值一字未动，findBranchByMsg 与 rotten 键口径同样未动。
 // tests/rule-teeth-evidence-selftest.mjs | V1.0.6 | 2026-11-09 夜间第 200 轮：仅跟随上游证据刷新（MAX_AGG_BRANCHES=6 / SINGLE_AGG_CAP=20 / MIN_PARSE_RATE=0.95 三阈值一字未动）；配合 146/154/132 三规则拆分出口后重新取证，聚合型分支由 15 → 8。
@@ -64,7 +71,7 @@ import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mj
 //   头版本日志抬到 V1.0.3（加了断言⑦单条聚合度峰值硬上限 SINGLE_AGG_CAP），却漏抬本 VER 常量，
 //   于是「版本常量漂移自检」与「版本号遗忘抬升绊线」双双报红。★ 这与本线第 172 轮自踩同款
 //   （抬了日志漏了常量），区别只是这次是上游会话犯的 —— 绊线照样当场咬住，不是只盯自己人。
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.11';
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.12';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
@@ -113,7 +120,7 @@ function normMsg(m) { return m.replace(/\d+/g, '#'); }
  *   ★ 判定口径：msg 里出现「；」说明它是多条子病因串起来的聚合壳，取**首段**为代表；
  *     单病因 msg 不含「；」，原样返回，不受影响。
  */
-function aggNormMsg(m) {
+export function aggNormMsg(m) {
     const n = normMsg(m);
     const i = n.indexOf('；');
     const head = i === -1 ? n : n.slice(0, i);
@@ -191,6 +198,58 @@ function aggNormMsg(m) {
     s = s.replace(/\u0001(\d+)\u0001/g, (_, k) => tags[Number(k)]);
     return s;
 }
+/**
+ * V1.0.12：aggNormMsg 的双向自证（纯内存、不碰磁盘与证据文件）。
+ * 为什么必须有：这个函数连改 6 版口径、每版都写「阈值一字未动」，但从没人证明
+ *   ① 噪声确实被合并了，② 真不同病因仍分得开。缺 ② 就无法排除「改口径是为了洗红」：
+ *   恒等映射会让所有分支塌成 1 个 rk，两个棘轮一起变绿，分支级判定静默失效。
+ */
+export function selfCheckAggNorm() {
+    const fails = [];
+    const eq = (a, b, why) => {
+        if (aggNormMsg(a) !== aggNormMsg(b)) fails.push('正路径「' + why + '」应归一到同一键却不同 ⇒ 噪声会虚增聚合分支');
+    };
+    const ne = (a, b, why) => {
+        if (aggNormMsg(a) === aggNormMsg(b)) fails.push('负路径「' + why + '」是不同病因却归一成同一键 ⇒ 归一化把红洗掉了');
+    };
+    try {
+        // ① 同一病因换「被测单位 / 实测数值 / 配置档位数」—— 换的是实例，不是病因
+        eq('乘率词条与配置不同源·圣火不熄：张无忌 atk 账本 3 不在 {1/2/3} 档配置里',
+           '乘率词条与配置不同源·圣火不熄：明教弟子3 atk 账本 5 不在 {1/2/3/4/5/6/7/8} 档配置里',
+           '同一病因换单位名与配置档位数');
+        // ② 计数后缀壳（V1.0.10）：1 处报原样、多处多一截尾巴，仍是同一病因
+        eq('位移载荷异常（共 3 处位移载荷异常）', '位移载荷异常', '同一病因的计数尾巴');
+        // ③ 分号聚合壳（V1.0.7）：取首段
+        eq('目标不可选；另一条同类明细', '目标不可选', '分号聚合外壳');
+        // ④ 竖线多条目壳（V1.0.9）：取首段
+        eq('样例：「a | b」', '样例：「a', '竖线多条目外壳');
+    } catch (e) {
+        fails.push('正路径样本抛异常（' + (e && e.message ? e.message : String(e)) + '）');
+    }
+    try {
+        // ⑤ 真不同病因必须仍能分开（KEEP 词表是穷举的，不能抹平）
+        ne('数值不同源：账本与声明不符', '数值越界：超过上限', '不同源 vs 越界');
+        ne('伤害缺失：没有落地行', '伤害重复：同一击发两遍', '缺失 vs 重复');
+        // ⑥ 出口标签必须保住且能区分（V1.0.11 的全部目的）
+        ne('【嗜血狂刀吸血】不同源', '【青翼蝠王】不同源', '两个不同出口标签');
+        // ⑦ 恒等化防护：6 个明显不同病因，归一后不同键数必须 ≥ 5
+        const distinct = [
+            '不同源：账本与声明', '越界：数值超上限', '缺失：落地行不见',
+            '重复：一击两遍', '非法：格式不对', '未落地：宣告了没执行'
+        ];
+        const keys = new Set(distinct.map(aggNormMsg));
+        if (keys.size < 5) {
+            fails.push('负路径：6 个明显不同病因只归一成 ' + keys.size + ' 个键（应 ≥ 5）⇒ 归一化疑似退化成恒等映射，聚合棘轮会被洗绿');
+        }
+        // ⑧ 边界：空串 / 纯数字不许抛异常、不许返回非字符串
+        if (typeof aggNormMsg('') !== 'string') fails.push('边界：空串未返回字符串');
+        if (typeof aggNormMsg('12345') !== 'string') fails.push('边界：纯数字未返回字符串');
+    } catch (e) {
+        fails.push('负路径样本抛异常（' + (e && e.message ? e.message : String(e)) + '）');
+    }
+    return fails;
+}
+
 function rottenKey(e) { return e.rule + '|' + normMsg(e.msg); }
 
 // V1.0.4：结构模板归一 —— 中文串与数字都抹成占位符，用来区分「多种子病因」到底是哪一种：
@@ -360,6 +419,15 @@ function fail(msg) {
 }
 
 function main() {
+    // V1.0.12：归一化函数本身先自证。它坏了，后面七条断言对的内容全是假的。
+    const normFails = selfCheckAggNorm();
+    if (normFails.length) {
+        console.log('❌ aggNormMsg 自证失败 ' + normFails.length + ' 处（归一化口径已坏，聚合型判定不可信）：');
+        for (const x of normFails) console.log('  · ' + x);
+        process.exit(1);
+    }
+    console.log('· aggNormMsg 自证：归一有效 / 不同病因可分 / 出口标签保住 / 恒等化防护，全过');
+
     // --- 静态抽取（唯一来源）---
     const { files, branches } = scanAllBranches();
 
@@ -486,4 +554,5 @@ function main() {
     process.exit(0);
 }
 
-main();
+// 允许被别的守门 import 复用（导入时不自跑），与 transfer-exit-guard 等同款守卫。
+if (process.argv[1] && /rule-teeth-evidence-selftest\.mjs$/.test(process.argv[1])) main();
