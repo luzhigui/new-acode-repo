@@ -552,6 +552,33 @@ export function initBattleTeams(currentStage, _rng) {
             enemyUnits[targetIdx] = newUnit;
             usedEnemyNames.push(en);
         }
+        // 强制指定六大派带技能角色出场（dev-index 🧪 按钮，2026-11-10）：同 _forceMingUnit 口径，
+        //   M/职业读 content characters 单一真源；先顶无名杂兵，顶不掉满员换最后一个（阵容人数不变，保站位模板）
+        const forceSectUnit = GlobalStore.get('forceSectUnit');
+        if (forceSectUnit) {
+            if (!enemyUnits.some(u => u.name === forceSectUnit)) {
+                const chDef = getGameData() && getGameData().characters && getGameData().characters[forceSectUnit];
+                if (!chDef || chDef.m == null) throw new Error(`forceSectUnit 无效（characters 表缺 ${forceSectUnit} 或缺 m）`);
+                const role = resolveEnemyRole(forceSectUnit);
+                let unit = new Unit(forceSectUnit, chDef.m, role, CAMP_TYPES.ENEMY);
+                unit.pos = null; unit.init(_rng); unit.applyBonus();
+                const plainIdx = enemyUnits.findIndex(u => !usedEnemyNames.includes(u.name));
+                if (plainIdx >= 0) {
+                    const oldName = enemyUnits[plainIdx].name;
+                    const oldIdx = usedEnemyNames.indexOf(oldName);
+                    if (oldIdx >= 0) usedEnemyNames.splice(oldIdx, 1);
+                    enemyUnits[plainIdx] = unit;
+                } else if (enemyUnits.length >= 5) {
+                    const oldName = enemyUnits[enemyUnits.length - 1].name;
+                    const oldIdx = usedEnemyNames.indexOf(oldName);
+                    if (oldIdx >= 0) usedEnemyNames.splice(oldIdx, 1);
+                    enemyUnits[enemyUnits.length - 1] = unit;
+                } else {
+                    enemyUnits.push(unit);
+                }
+                usedEnemyNames.push(forceSectUnit);
+            }
+        }
         let allUnits = [...enemyUnits];
         let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));

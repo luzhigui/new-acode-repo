@@ -34,13 +34,18 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
             const available = filterAvailableBuffs(activeBuffs, team, { withFortifyRule: true, enemyTeam });
             if (available.length === 0) { resolve(null); return; }
 
-            const shuffled = [...available];
-            const rng = getBattleRng();
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = rng.nextInt(0, i);
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            if (GlobalStore.get('bugMode')) {
+                // 🐛 Bug 模式：不洗牌不截断，全部可选海克斯一屏展示（调试便利，2026-11-10 恢复）
+                choices = [...available];
+            } else {
+                const shuffled = [...available];
+                const rng = getBattleRng();
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = rng.nextInt(0, i);
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
             }
-            choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
         }
         if (choices.length === 0) { resolve(null); return; }
 

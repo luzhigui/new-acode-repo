@@ -95,6 +95,29 @@
                     <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
                     <button class="big-btn btn-play" id="btnKongJian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
                 </div>
+                <!-- 明教新三兵（带技能 M100，走 _forceMingUnit 通用通道）：庄铮·叠防 / 彭莹玉·治疗 / 张中·蹦蹦 -->
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnZhuangZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #a1887f, #4e342e);">🧱 庄铮</button>
+                    <button class="big-btn btn-play" id="btnPengYingYu" style="flex:1;background:linear-gradient(135deg, #81c784, #1b5e20);">🌿 彭莹玉</button>
+                    <button class="big-btn btn-play" id="btnZhangZhong" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #b0bec5, #37474f);">🐾 张中</button>
+                </div>
+                <!-- 六大派带技能角色（敌队侧强制出场，走 _forceSectUnit 通用通道） -->
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnZhouZhiRuo" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #ce93d8, #4a148c);">🕷️ 周芷若</button>
+                    <button class="big-btn btn-play" id="btnSongQingShu" style="flex:1;background:linear-gradient(135deg, #ef9a9a, #b71c1c);">⚔️ 宋青书</button>
+                    <button class="big-btn btn-play" id="btnZhangSanFeng" style="flex:1;background:linear-gradient(135deg, #fff59d, #f57f17);">☯️ 张三丰</button>
+                    <button class="big-btn btn-play" id="btnChengKun" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #b39ddb, #311b92);">🎭 成昆</button>
+                </div>
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnLuZhangKe" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #90a4ae, #263238);">🧊 鹿杖客</button>
+                    <button class="big-btn btn-play" id="btnHeBiWeng" style="flex:1;background:linear-gradient(135deg, #ffcc80, #bf360c);">🖌️ 鹤笔翁</button>
+                    <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
+                    <button class="big-btn btn-play" id="btnSuWen" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
+                </div>
+                <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnBugMode" style="flex:1;background:linear-gradient(135deg, #f44336, #212121);">🐛 Bug模式（海克斯全开）</button>
+                </div>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
@@ -678,6 +701,68 @@
         document.getElementById('btnZhouDian').addEventListener('click', () => {
             clearDemoFlags();
             mustSet('_forceMingUnit', '周颠');
+            window.location.href = 'index.html';
+        });
+        // 明教新三兵（带技能 M100）：_forceMingUnit 通用通道
+        document.getElementById('btnZhuangZheng').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceMingUnit', '庄铮');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnPengYingYu').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceMingUnit', '彭莹玉');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnZhangZhong').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceMingUnit', '张中');
+            window.location.href = 'index.html';
+        });
+        // 六大派带技能角色：_forceSectUnit 通用通道（330 敌队构建段挤位插入，M/职业读 content 单一真源）
+        document.getElementById('btnZhouZhiRuo').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '周芷若');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnSongQingShu').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '宋青书');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnZhangSanFeng').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '张三丰');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnChengKun').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '成昆');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnLuZhangKe').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '鹿杖客');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnHeBiWeng').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '鹤笔翁');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnYuLianZhou').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '俞莲舟');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnSuWen').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '素问');
+            window.location.href = 'index.html';
+        });
+        // 🐛 Bug 模式：海克斯选卡全部可选（2026-11-10 恢复；一次生效，进游戏消费后即清）
+        document.getElementById('btnBugMode').addEventListener('click', () => {
+            mustSet('_bugMode', '1');
             window.location.href = 'index.html';
         });
         // 文档入口统一走 tools/833-md-reader.html（起点读书式阅读器）：手机上直跳 *.md 原文会缩成小字白底

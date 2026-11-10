@@ -107,6 +107,16 @@ export function initDevFlags() {
         GlobalStore.set('forceMingUnit', forceMingUnit);
         localStorage.removeItem('_forceMingUnit');
     }
+    const forceSectUnit = localStorage.getItem('_forceSectUnit');
+    if (forceSectUnit) {
+        GlobalStore.set('forceSectUnit', forceSectUnit);
+        localStorage.removeItem('_forceSectUnit');
+    }
+    // Bug 模式（dev-index 🐛 按钮）：海克斯选卡不洗牌不截断、全部可选（2026-11-10 应老板要求恢复；原版 10-31 随 demo 清理删除）
+    if (localStorage.getItem('_bugMode') === '1') {
+        GlobalStore.set('bugMode', true);
+        localStorage.removeItem('_bugMode');
+    }
 }
 
 export function copyLogToClipboard(choice) {
