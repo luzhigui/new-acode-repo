@@ -220,9 +220,10 @@ function healModReasons(unit) {
         const pct = Math.round((1 - (st._jinMai.ratio ?? 1)) * 100);
         mods.push(`点穴截脉（回复-${pct}%）`);
     }
-    const xp = st._xuanmingPoison, hd = st._hlsHanDu;
+    const xp = st._xuanmingPoison, hd = st._hlsHanDu, bd = st._bengHanDu;
     const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
-        || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+        || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
+        || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
     if (poisoned) mods.push('寒毒抑疗削减');
     return mods;
 }

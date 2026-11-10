@@ -372,6 +372,8 @@ export function renderGrid(id, camp) {
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         // 寒离飒·寒冰神掌寒毒：与玄冥毒同款 ❄️ 标记
         if (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
+        // 蹦蹦寒毒（张中召唤）：同款 ❄️
+        if (unit.state._bengHanDu && unit.state._bengHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
         // 唐文亮·回春术层标记（老板需求）：🌿 或 🌿xN——不然看不出他攒着几层回血
         if (unit.isTangWenLiang && Array.isArray(unit.state._hcStacks) && unit.state._hcStacks.length > 0) {
             eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');

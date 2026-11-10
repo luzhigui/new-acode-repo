@@ -112,6 +112,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 蹦蹦寒毒（2026-11-10 毒归挂毒方：结构同 _hlsHanDu 多一个 stacks，modules/339 自结算，与寒离飒无关）
+    _bengHanDu:              { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 金刚不坏护罩（空见）：{ sourceUid, sourceName }，免疫一次伤害；被正规攻击/溅射消耗后置 null
     _immuneShield:           { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 空见：已发出护罩次数 / 待发数量 / 五条件标记（opening/allyHurt/allyDead/selfHurt/selfLow）/ 升级标记

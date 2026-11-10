@@ -216,9 +216,10 @@ function previewHeal(target, raw, rawOnly = false) {
     const st = target.state;
     if (st && st._jinMai && st._jinMai.rounds > 0) applied = Math.round(applied * st._jinMai.ratio);
     if (st) {
-        const xp = st._xuanmingPoison, hd = st._hlsHanDu;
+        const xp = st._xuanmingPoison, hd = st._hlsHanDu, bd = st._bengHanDu;
         const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
-            || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+            || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
+            || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
         if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
     }
     // rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
@@ -260,8 +261,10 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
         if (target.state) {
             const xp = target.state._xuanmingPoison;
             const hd = target.state._hlsHanDu;
+            const bd = target.state._bengHanDu;
             const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
-                || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0);
+                || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
+                || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
             if (poisoned) applied = applied * C.XUANMING_POISON_HEAL_REDUCE;
         }
     }
