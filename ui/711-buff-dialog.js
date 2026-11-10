@@ -1,7 +1,9 @@
 // ui/711-buff-dialog.js — 海克斯手选弹窗
 // 候选门槛与 modules/28 generateBuffChoices、player/49 全自动同口径：众志成城要求本阵营存活 <4 人。
 //   本弹窗自建候选列表，门槛必须手动跟上，不能只改一处。
-export const VER = 'ui/711-buff-dialog.js V6.4.3';
+// V6.4.4 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepBattleBuff 改为
+//           就地空实现（调用点未动）。恢复见 archive/README.md「二」。
+export const VER = 'ui/711-buff-dialog.js V6.4.4';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -9,7 +11,8 @@ import { addPermanentBuff } from '../modules/302-elite-skills.js';
 import { createBuffObject, buffsOfCamp, filterAvailableBuffs, recordUsedBuffKey } from '../modules/329-buff-tools.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
-import { stepBattleBuff } from './712-tutorial.js';
+// 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
+const stepBattleBuff = () => {};
 
 const CAMP_LABEL = { [CAMP_TYPES.ALLY]: '明教', [CAMP_TYPES.ENEMY]: '六大派' };
 

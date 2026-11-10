@@ -1,4 +1,6 @@
-export const VER = 'ui/706-main-battle.js V6.1.7';
+// V6.1.8 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepBuff 改为就地空实现
+//           （调用点未动）。恢复见 archive/README.md「二」。
+export const VER = 'ui/706-main-battle.js V6.1.8';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -15,7 +17,8 @@ import { getXiaoZhaoSwitchBtn } from './709-ui-controls.js';   // 小昭切换�
 import { resetBattleRuntime } from './715-reset-runtime.js';
 // 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
 import { getRoleLogTag } from './710-role-cards.js';
-import { stepBuff } from './712-tutorial.js';
+// 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
+const stepBuff = () => {};
 // 蓄意轰拳瞄准黑幕：模块加载即注册 showHanlisaAim UIHandler（player/49 回合末取用）
 import './720-hanlisa-aim.js';
 import './722-buff-tooltip.js';

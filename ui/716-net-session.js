@@ -15,14 +15,17 @@ import { createStore, battleReducer } from '../modules/306-battle-store.js';
 import { setGridStore } from '../render/403-grid-render.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { playBattleGuest } from '../player/503-player-core.js';
-import { stepBattleStart } from './712-tutorial.js';
+// 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
+const stepBattleStart = () => {};
 // 会话初始化公共件（与 ui/76replay-entry 共用）：重建 store + 收尾渲染各一行
 import { rebuildSessionStore, finalizeSessionRender } from './714-session-common.js';
 // 抽签契约版本：联机双端必须同一版，否则各跑一套随机序列（打出来的不是同一场）
 import { RNG_CONTRACT_VERSION } from '../modules/330-battle-init.js';
 import { showAlert } from './701-main-utils.js';
 
-export const VER = 'ui/716-net-session.js V1.2.0';
+export const VER = 'ui/716-net-session.js V1.2.1';
+// V1.2.1 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepBattleStart 改为
+//           就地空实现（调用点未动）。恢复见 archive/README.md「二」。
 // V1.2.0 | 2026-11-08 联机抽签契约校验：房主 lineup 捎带版本 → 从机 applyNetLineup 先比对，
 //   不一致明确报错并中止开局（回传 contractMismatch 让房主也看到同一句话），不许静默跑两套序列。
 

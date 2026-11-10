@@ -1,7 +1,9 @@
 // ui/705-main-dialogs.js — 主界面弹窗（战报 / 音乐 / 投票 / 倒计时 / 日志工具）
 // 「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取，不 import 76——
 //   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
-export const VER = 'ui/705-main-dialogs.js V6.5.1';
+// V6.5.2 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepVoteOpen/stepCountdown
+//           改为就地空实现（调用点未动）。恢复见 archive/README.md「二」。
+export const VER = 'ui/705-main-dialogs.js V6.5.2';
 
 import { showModal, showAlert, copyLogToClipboard } from './701-main-utils.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
@@ -9,7 +11,9 @@ import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { stepVoteOpen, stepCountdown } from './712-tutorial.js';
+// 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
+const stepVoteOpen = () => {};
+const stepCountdown = () => {};
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/513-battle-export.js';
 import { injectLogAnalyzeStyle, analyzeBattleFacts } from '../player/514-battle-log-analyze.js';
 // 战报弹窗

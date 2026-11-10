@@ -1,6 +1,9 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
+// V6.14.6 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场CG（原 ui/713-opening-cg.js）搬 archive/，
+//           精英图鉴选人弹层 showEliteGallery 改为直接放行（原 524KB 嵌页 展示与CG/精英展示-04 一并搬 archive/）。
+//           全部改为就地空实现，调用点未动；恢复方式见 archive/README.md 与 archive/702-showEliteGallery.snippet.js。
 // V6.14.5 | 2026-11-07 封面版本列表补 render/403 指纹：真机可一眼确认格子渲染 JS 是否已更新
-export const VER = 'ui/702-main-5v5-test.js V6.14.5';
+export const VER = 'ui/702-main-5v5-test.js V6.14.6';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -32,8 +35,18 @@ import { toggleFxPanel, syncFxButton } from './708-fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindXiaoZhaoSwitchButton, bindGridClick, initSpeedButtons } from './709-ui-controls.js';
 import { bindCopyLogButton } from './705-main-dialogs.js';
 import * as net from '../infra/109-net-pvp.js';
-import { stepAdjustStart, stepAdjustMove, stepVoteOpen, stepCountdown, stepBuff, stepBattleStart, initTutorial, resetTutorialDone } from './712-tutorial.js';
-import { isOpeningCgDone, showOpeningCg } from './713-opening-cg.js';
+// 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场 CG（原 ui/713-opening-cg.js）已搬 archive/。
+//   这里改为就地空实现，**调用点一行都不用改**（stepBuff 等被 5 处调用，逐个删比改 import 风险大）。
+//   恢复方式见 archive/README.md「二」，那里列了全部 6 处 import + 这篇的改法。
+const stepAdjustStart = () => {};
+const stepAdjustMove = () => {};
+const stepVoteOpen = () => {};
+const stepCountdown = () => {};
+const stepBuff = () => {};
+const stepBattleStart = () => {};
+// 注：原 initTutorial / resetTutorialDone 两个导出已无调用点（「❓」按钮连同绑定一起下线），故不再保留空实现。
+const isOpeningCgDone = () => true;      // 恒真 = 永远当作「CG 已看过」，启动流程直接进下一步
+const showOpeningCg = (onDone) => { if (typeof onDone === 'function') onDone(); };
 
 import { VER as VER_BUFF } from '../core/204-buff-system.js';
 import { VER as VER_HORSE } from '../core/205-battle-horse.js';
@@ -60,35 +73,17 @@ const C = CONFIG, S = STATE;
 
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
-// 精英图鉴选人弹层：CG 之后、新手引导之前弹出，用户选定角色 → 提高该角色出场率（写 localStorage，29battle-init 读取加权）
-// 改为只弹一次：与开场CG同套路，选过就跳过（想重选走 dev-index 入口 或 清 localStorage）
-const ELITE_GALLERY_DONE_KEY = 'ming_elite_gallery_done_5v5_test';
-function isEliteGalleryDone() {
-    try { return localStorage.getItem(ELITE_GALLERY_DONE_KEY) === '1'; } catch { return true; }
-}
-function markEliteGalleryDone() {
-    try { localStorage.setItem(ELITE_GALLERY_DONE_KEY, '1'); } catch {}
-}
+// 精英图鉴选人弹层（2026-11-10 下线存档）
+//   老板：图鉴现在不怎么用了 → 连同它在 展示与CG/ 里那个 524 KB 的嵌页一起下线。
+//   原实现是弹一个指向 './展示与CG/精英展示-04-圣火单卡旋转-GLM5.3.html' 的 iframe，
+//   选完把 ming_elite_pick_5v5 写进 localStorage、供 modules/330 建队时加权。
+//   现在直接放行（不弹、不写），启动流程照常往后走；想恢复就把 archive/702-showEliteGallery.snippet.js
+//   里的原实现贴回来（那个文件里连 524 KB 嵌页的路径都留着）。
+//   ⚠️ 已知副作用（下线前就存在，非本次引入）：330 的 rate 加权只对「张无忌」一个键生效，
+//      选韦一笑/小昭写了也不读。图鉴下线后这条失效路径自然不再被触发，不必单独修。
 function showEliteGallery(onDone) {
-    if (isEliteGalleryDone()) { if (typeof onDone === 'function') onDone(); return; }
-    const frame = document.createElement('iframe');
-    frame.src = './展示与CG/精英展示-04-圣火单卡旋转-GLM5.3.html';
-    frame.id = 'eliteGalleryFrame';
-    frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:100020;background:#03050a;';
-    document.body.appendChild(frame);
-    let closed = false;
-    function close() {
-        if (closed) return; closed = true;
-        markEliteGalleryDone();
-        window.removeEventListener('message', onMsg);
-        try { frame.remove(); } catch {}
-        if (typeof onDone === 'function') onDone();
-    }
-    function onMsg(e) {
-        if (e.data && e.data.type === 'ming_elite_picked') close();
-    }
-    window.addEventListener('message', onMsg);
-    frame.addEventListener('load', () => {});
+    if (typeof onDone === 'function') onDone();
+    return;
 }
 
 // UI 局部状态（不含 activeBuffs）
@@ -233,11 +228,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindXiaoZhaoSwitchButton();   // 小昭姊/妹摆位切换悬浮按钮（只在摆位阶段显示）
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
-    // ❓ 战斗外重播：只重看分步引导（重看 CG/图鉴属于低频需求，不再强制捆绑）
-    initTutorial(() => {
-        resetTutorialDone();
-        stepAdjustStart();
-    });
+    // 2026-11-10 下线存档：原 initTutorial(cb) 的作用是给头部「❓」按钮绑点击——
+    //   战斗中弹「⚔️ 规则一览」，战斗外重播分步引导。引导已搬 archive/712-tutorial.js，
+    //   那个「❓」按钮（index.html 的 #btnTutorial）也一并从页面删除，故这里不再需要任何绑定。
+    //   恢复时：把按钮 HTML 贴回 index.html 头部（见 archive/README.md 表格），并把下面这段换回 initTutorial(...)。
 
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();

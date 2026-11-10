@@ -101,8 +101,12 @@
 // V6.0.48 | 2026-10-31 补登记 2 项：content/002-hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
 //           modules/324-elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
+// V6.0.63 | 2026-11-10 新增存档层：① AI_EXCLUDE 移除 712-tutorial / 713-opening-cg（已搬 archive/，不在主代码里了，
+//           归 ARCHIVE_FILES 管），并撤出 711-buff-dialog（它被 ui/704 注册成 UIHandler、player/512 每次选海克斯都调用，
+//           属核心玩法不是纯演出层，原先剔除是误判）；② 新增 ARCHIVE_FILES + 第六个分组「📦 存档（不随包）」
+//           + 该组专用 GROUP_PROMPTS，存档件默认不勾选、不随主代码包/工具包发出。
 // 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
-export const VER = 'tools/806-ai-pack-config.js V6.0.62';
+export const VER = 'tools/806-ai-pack-config.js V6.0.63';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -112,13 +116,32 @@ export const VER = 'tools/806-ai-pack-config.js V6.0.62';
 //   ⚠️ 这些文件被主控 import（ui/702/703/704/705/706/716/717、render/414），包内会出现「import 指向缺失文件」，
 //   属预期而非 bug；AI_INTERFACE_NOTE 与 103 的索引/路径清单都从本集合自动生成说明，改这里不用改文案。
 export const AI_EXCLUDE = new Set([
-    '../ui/712-tutorial.js',        // 新手引导（日志区提示面板 + 浮动箭头）
-    '../ui/713-opening-cg.js',      // 开场 CG（三幕黑屏文字）
-    '../ui/711-buff-dialog.js',     // 海克斯手选弹窗
+    // 2026-11-10 下线存档：712-tutorial / 713-opening-cg 已搬 archive/（真正断链，不在主代码里了），
+    //   故从本排除表移出——它们现在归 ARCHIVE_FILES 管（独立「📦 存档」组，默认不勾，不随包）。
+    //   排除表只装「仍在主代码里、但不想随包」的文件，两者语义不同，别混。
+    //
+    // 2026-11-10 撤出 711-buff-dialog：它被 ui/704 注册成 UIHandler、player/512 战斗流程每次选海克斯都调用，
+    //   属核心玩法不是纯演出层。原先被剔出包是误判——发给网页端的包里若缺它，512 的 showBuffPopup 调用
+    //   会指向缺失文件，AI 读代码会以为海克斯手选不存在。
     '../ui/710-role-cards.js',     // 角色名片转口（真身 render/414-role-cards）
     '../render/414-role-cards.js'  // 角色名片（图鉴）：格子图标 / 技能说明 / 日志标签
 ]);
 
+// ── 存档层清单（archive/）：下线了但留着以防将来要用 ──────────────────────────
+// 和 AI_EXCLUDE 的区别（这条最容易混，写清楚）：
+//   AI_EXCLUDE = 文件**还在主代码里、还在被 import**，只是不想让它随包发（纯演出层）。
+//   ARCHIVE_FILES = 文件**已经不在主代码链上了**（搬进 archive/），复制器给它们单开一组，
+//     **默认不勾选**，所以正常发主代码包时它们不会被带进去。
+//
+// 为什么单独开一组、不塞进「工具」组：老板明确要求——工具组本来就大，
+//   给网页端发工具包时不该再额外背上这些不用的存档件。
+//   要发的时候在这一组里手动勾，不想要就当它不存在。
+//
+// 维护：新增存档件时在这里加一行 + archive/README.md 的表格加一行 + 在那里写清「怎么捡回来」。
+export const ARCHIVE_FILES = [
+    '../archive/712-tutorial.js',   // 新手引导（原 ui/712-tutorial.js，2026-11-10 下线）
+    '../archive/713-opening-cg.js'  // 开场 CG（原 ui/713-opening-cg.js，2026-11-10 下线）
+];
 // AI 上下文契约
 // 「已剔除」段随 AI_EXCLUDE 自动生成（不手写，避免集合与文案双源漂移）
 export const AI_INTERFACE_NOTE = `// ============================================================
@@ -402,6 +425,18 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/266-heal-amount-same-source.js', '../tests/hex-dual-effect-check.mjs', '../tests/hex-enhance-wiring-guard.mjs',
     // 2026-11-09 合并夜间 195–199：补登夜间新增/白天未登记的体检脚本
     '../tests/health-rules/267-growth-decl-vs-ledger.js', '../tests/health-rules/268-growth-curve-quantity.js', '../tests/health-rules/269-panel-stored-vs-ledger.js', '../tests/health-rules/270-ttl-expiry-closure.js', '../tests/health-rules/283-post-death-action.js', '../tests/health-rules/284-battle-end-race.js', '../tests/health-rules/285-settlement-order.js', '../tests/hex-config-closure-check.mjs', '../tests/meteor-growth-render-selftest.mjs', '../tests/wei-leech-quota-selftest.mjs',
+    // 2026-11-10 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/entry-path-guard.mjs', '../tests/health-rules/249-position-bounds-unique.js', '../tests/health-rules/250-swap-permutation-closure.js', '../tests/health-rules/251-post-swap-followup.js',
+    '../tests/health-rules/252-phantom-fact-completeness.js', '../tests/health-rules/253-rewind-write-surface.js', '../tests/health-rules/254-rewind-write-dynamic.js', '../tests/health-rules/271-absorb-summary-same-source.js',
+    '../tests/health-rules/272-hidden-renderer-outlets.js', '../tests/health-rules/273-rewind-progress-boundary.js', '../tests/health-rules/274-rewind-speed-boundary.js', '../tests/health-rules/277-d9-holy-fire-enhance.js',
+    '../tests/health-rules/278-d9-fortify-enhance.js', '../tests/health-rules/279-d9-mind-control-enhance.js', '../tests/health-rules/280-d9-horse-formation-enhance.js', '../tests/health-rules/286-stage-variant-truth.js',
+    '../tests/health-rules/287-stage-name-source.js', '../tests/health-rules/288-enemy-elite-pos.js', '../tests/health-rules/289-control-target-trace.js', '../tests/health-rules/290-control-attacker-identity.js',
+    '../tests/health-rules/291-control-trace-on-edge.js', '../tests/health-rules/292-control-stacking-crazy.js', '../tests/health-rules/293-control-cleanup-on-release.js', '../tests/health-rules/294-double-face-retarget.js',
+    '../tests/health-rules/301-disciple-rebound-account.js', '../tests/health-rules/302-control-window-consistency.js', '../tests/health-rules/303-damage-printed-vs-hp.js', '../tests/health-rules/304-break-def-order-and-zero.js',
+    '../tests/health-rules/305-true-splash-display-source.js', '../tests/health-rules/306-damage-rounding-granularity.js', '../tests/health-rules/307-hetaichong-liangyi-pair.js', '../tests/health-rules/308-hetaichong-mark-lifecycle.js',
+    '../tests/health-rules/309-hetaichong-red-swap-account.js', '../tests/health-rules/319-d10-mod-mul-truth.js', '../tests/health-rules/320-d10-decl-ledger-mul.js', '../tests/health-rules/321-d10-mod-lifecycle.js',
+    '../tests/health-rules/322-d10-brother-laststand-ledger.js', '../tests/health-rules/323-d10-flyer-kill-growth.js', '../tests/health-rules/325-d6-butterfly-host-cleanup.js', '../tests/health-rules/326-d6-butterfly-window-payload.js',
+    '../tests/health-rules/327-d6-summon-authorship.js', '../tests/health-rules/328-d6-summon-death-exit.js', '../tests/health-rules/329-d6-roster-stats-purity.js',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',
@@ -454,7 +489,11 @@ export const ALL_PROJECT_FILES = [
     '../modules/336-elite-sixsects-yuanzhen.js', '../modules/337-elite-mingjiao-zhuangzheng.js',
     '../modules/338-elite-mingjiao-pengyingyu.js', '../modules/339-elite-mingjiao-zhangzhong.js',
     '../fx/618-fx-timeline.js', '../fx/619-skill-cues.js', '../fx/620-sword-rain.js',
-    '../infra/112-store-schema.js'
+    '../infra/112-store-schema.js',
+    // 2026-11-10 下线存档层：这些文件已从主代码链断开（搬进 archive/），登记在此只为让复制器
+    //   能列出「📦 存档」独立组（默认不勾）。不登记则复制器里根本看不到它们，想捡回来时无从下手。
+    //   注意：它们**不在**引擎/UI/工具/体检任何一组里，不会随正常包发出。
+    ...ARCHIVE_FILES
     // 2026-10-19 移除了 126/127/128/129/131 五个寒离飒·瑟提特效 demo 页的登记：
     //   这五页已移出仓库（搬去同级 _仓库外产物\），清单按旧名 fetch 必 404 → 包内 3 组「读取失败(0 字符)」；
     //   用户拍板「不要了」→ 106 清单 + dev-index 入口一并清除，demo 页不再随包复制
@@ -472,7 +511,13 @@ export const FILE_GROUPS = [
     { name: 'player', displayName: '播放器', prefixes: ['../player/'] },
     { name: 'ui', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
-    { name: 'tests', displayName: '体检', prefixes: ['../tests/'] }
+    { name: 'tests', displayName: '体检', prefixes: ['../tests/'] },
+    // 2026-11-10 第六类：下线存档层。老板要求——这些「不用了但怕以后要」的东西
+    //   既不该进主代码包（拖大），也不该进工具包（工具组本来就太大、更没必要），
+    //   所以单开一组，**默认不勾选**，要用时手动勾上发。
+    //   必须排在最后：803 的分组循环是「第一个前缀命中即归组」，而兜底逻辑会把
+    //   没匹配上的文件塞进第一组（引擎）——本组前缀写死 ../archive/，不参与兜底。
+    { name: 'archive', displayName: '📦 存档（不随包）', prefixes: ['../archive/'] }
 ];
 
 // 主题分析提示词
@@ -496,5 +541,10 @@ export const GROUP_PROMPTS = {
     '体检': {
         before: '请深入分析测试与体检代码（健康检查、单元测试、运行时采样、体检规则）。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: '体检代码发送完毕。'
+    },
+    // 2026-11-10 下线存档组专用提示词：只有老板手动勾选这一组发出去时才会用到
+    '📦 存档（不随包）': {
+        before: '以下是本项目**已下线但保留存档**的代码（新手引导 / 开场CG 等，见 archive/README.md 的清单与捡回方法）。这些文件当前**不在运行链上**，请勿据此判断游戏功能存在缺失，也不要主动把它们接回主代码。仅在我明确要求恢复时才使用。',
+        after: '存档代码发送完毕。'
     }
 };

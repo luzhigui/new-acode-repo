@@ -1,4 +1,8 @@
-export const VER = 'tools/803-toolkit.js V6.2.8';
+export const VER = 'tools/803-toolkit.js V6.2.9';
+// V6.2.9 | 2026-11-10 配合 archive/ 存档层：① 分组渲染给每组打 data-group 标记；
+//           ② 「全选」按钮跳过存档组（archive/），防止一键把所有下线存档件误勾进复制包——
+//              老板明确这些「不随包」，只允许在它自己那组里手动勾。
+//           ③ 全不选不受影响（存档组本来就不勾，清掉无害）。
 // V6.2.8 | 2026-10-31 单次复制上限默认 8 万 → 16 万（老板拍板），并把上限公式收成「填多少就是多少」：
 //           旧 min(charLimit*1.5, 90000) 在默认 8 万时产出 9 万包、填 16 万也被夹回 9 万（V6.2.6 只改了一半）。
 //           HARD_LIMIT = charLimit、HUGE_THRESHOLD = charLimit：>16 万的文件独占一包并按字符上限切片。
@@ -66,6 +70,7 @@ function escapeHtml(text) {
         if (group.files.length === 0) return;
         const groupDiv = document.createElement('div');
         groupDiv.className = 'file-group';
+        groupDiv.dataset.group = group.name;   // 2026-11-10：供「全选」识别存档组（archive）并跳过
         const header = document.createElement('div');
         header.className = 'group-header';
         header.innerHTML = `<span class="group-arrow">▶</span><span class="group-name">📁 ${group.displayName}</span><span class="group-count">${group.files.length} 个文件</span><button class="group-select-all-btn">全选组</button><button class="group-deselect-btn">全不选组</button>`;
@@ -235,17 +240,25 @@ function escapeHtml(text) {
         setTimeout(() => { btn.textContent = BACK; }, 2000);
     });
 
+    // 2026-11-10：存档组（archive/）永不参与「全选」。
+    //   老板的原话是「这些备用的不该进复制器/不该进包」，若「全选」一按就把存档也带上，
+    //   等于留了个一不留神的口子。要发存档只能在它那一组里手动勾。
+    const isArchiveGroup = (groupDiv) => groupDiv.dataset.group === 'archive';
+
     document.getElementById('fcBtnSelectAll').addEventListener('click', () => {
-        document.querySelectorAll('#tab-file-copier input[type=checkbox]').forEach(cb => cb.checked = true);
-        // 所有组的"全选组"按钮变为蓝色"已全选"
+        document.querySelectorAll('#tab-file-copier .file-group').forEach(groupDiv => {
+            if (isArchiveGroup(groupDiv)) return;   // 存档组跳过，保持不勾
+            groupDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+        });
+        // 除存档组外，各组"全选组"按钮变为蓝色"已全选"
         document.querySelectorAll('.group-select-all-btn').forEach(btn => {
+            if (btn.closest('.file-group') && isArchiveGroup(btn.closest('.file-group'))) return;
             btn.textContent = '已全选';
             btn.classList.add('selected');
         });
     });
     document.getElementById('fcBtnDeselectAll').addEventListener('click', () => {
         document.querySelectorAll('#tab-file-copier input[type=checkbox]').forEach(cb => cb.checked = false);
-        // 所有组的"全选组"按钮恢复为"全选组"
         document.querySelectorAll('.group-select-all-btn').forEach(btn => {
             btn.textContent = '全选组';
             btn.classList.remove('selected');

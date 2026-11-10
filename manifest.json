@@ -1,7 +1,7 @@
 {
- "ver": "ca13103fd1189e7408d2ddae853c74d73914bd7eae7ac4aae799221fb90d864b",
+ "ver": "84ab6a195599f2be05e8cbf2f1fc6a7cb47e48cc72ca16e9c00d24bdf989d79c",
  "gen": "tools/830-manifest-gen.mjs",
- "count": 156,
+ "count": 154,
  "files": [
   [
    "content/001-game-data.json",
@@ -189,7 +189,7 @@
   ],
   [
    "index.html",
-   "579a04ddb27afa4a45ae378550fb26d4a4398368abcc0d03b178261a8686242d"
+   "157ae604814eaf3be800af05981275e6e2a7688f2a943ed0398c5d6b4c717ff6"
   ],
   [
    "infra/101-event-bus.js",
@@ -205,7 +205,7 @@
   ],
   [
    "infra/104-global-store.js",
-   "f545584015d9d91fc0b1c65fa19309ddaa0549abb90e0ec3dc2e8924cc13eac5"
+   "31665173dfaecf0bafce3be2ae6f924ead283ec304dadf157b37d2304c1c4b32"
   ],
   [
    "infra/105-fx-signals.js",
@@ -537,7 +537,7 @@
   ],
   [
    "ui/702-main-5v5-test.js",
-   "cbdf2ae00345623b30e4150e47ed333bd88815bf335ce90c83504019d983e8ec"
+   "4ad516e86f819a9d6efec3ec380e4b6ae6ae2d4a2ceb413864b4e1772cc493bf"
   ],
   [
    "ui/703-ui-render-5v5-test.js",
@@ -549,11 +549,11 @@
   ],
   [
    "ui/705-main-dialogs.js",
-   "7836373f89d3c7642dee9a34860f0378468fecdd0cf88b850596dfa034724dd0"
+   "857b561538ac0d2ab389e462e49c726c085f0960bdf63ecfc01a4f4d31f62b70"
   ],
   [
    "ui/706-main-battle.js",
-   "e758b5c5700e13fc196d1febdd7cd5c2df5eb9a0fb933380021439e64ac5221e"
+   "63266a8a0b7f377195178d37f49fae8407b9430592909aec092b5ae60bdee96a"
   ],
   [
    "ui/707-audio-control.js",
@@ -573,15 +573,7 @@
   ],
   [
    "ui/711-buff-dialog.js",
-   "5bf2ece6b5fcda1c944a45815ca4e7566f3578b867373fb8aff97ca33cec0a70"
-  ],
-  [
-   "ui/712-tutorial.js",
-   "eac2604a1b33c104d93a6e7a3e5d495069f25fb1742ecdd130b79e2b3da53abf"
-  ],
-  [
-   "ui/713-opening-cg.js",
-   "a1e459d73e323d6ad49596dd75301f27dd76803a94e5775832b2df6fa252bf11"
+   "24d17f1518751eba6644f7670953765601c30c4b3aed18e2b93c153d87518c71"
   ],
   [
    "ui/714-session-common.js",
@@ -593,11 +585,11 @@
   ],
   [
    "ui/716-net-session.js",
-   "6e950c457a9dce311b50f199a4606cf29718135dd56f9c73f94bd63321bcb924"
+   "23ca5439c0332834f06324838761537548737f77840622041844ef2881cfb7d2"
   ],
   [
    "ui/717-replay-entry.js",
-   "b3825dc4b182b650165b7d9522ce8f8d49bdd1156217c982e5996b461e214216"
+   "4143fa14ef5043dd848a35999358690cec5d0e558cf40543f5c56ae778945f05"
   ],
   [
    "ui/718-speed-controls.js",

@@ -348,13 +348,9 @@
    body.paused-animations *::after {
        animation-play-state: paused !important;
    }
-   #tutorialPanel { position: absolute; top: 64px; left: 6px; right: 6px; z-index: 10005; background: rgba(38, 44, 62, 0.96); border: 2px solid var(--c-gold-bright); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #f0ece0; line-height: 1.55; box-shadow: 0 2px 10px rgba(0,0,0,0.35); pointer-events: none; text-align: center; }
-  #tutorialPanel .tut-title { color: var(--c-gold-bright); font-size: 13px; }
-   .tutorial-arrow { position: fixed; z-index: 100010; color: #28a745; font-size: 40px; pointer-events: none; text-shadow: 0 0 12px rgba(40,167,69,0.9); animation: tutorialArrowBob 0.7s ease-in-out infinite; }
-   @keyframes tutorialArrowBob { 0%,100%{ transform: translateY(0); opacity: 1; } 50%{ transform: translateY(12px); opacity: 0.45; } }
-   /* 队伍边框：仅新手引导时显示（body.tut-active），平时战场保持原样 */
-  body.tut-active #allyGrid { border: 3px solid var(--c-ming-blue); box-shadow: 0 0 8px rgba(30,110,184,0.5); }
-  body.tut-active #enemyGrid { border: 3px solid var(--c-sect-orange); box-shadow: 0 0 8px rgba(210,105,30,0.5); }
+    /* 2026-11-10 下线存档：新手引导的 7 行样式（#tutorialPanel / .tut-title / .tutorial-arrow /
+       @keyframes tutorialArrowBob / body.tut-active 两条队伍边框）已随 ui/712-tutorial.js 一起下线。
+       原样式原样存在 archive/tutorial-styles.css，恢复引导时贴回这里即可。 */
    </style>
 </head>
 <body>
@@ -371,7 +367,7 @@
     <div id="netStatusLine"></div>
     <div id="coverVersion"></div>
 </div>
-<div class="header"><span class="net-room-badge" id="netRoomBadge"></span><h2><span id="headerTitle">⚔️ 光明顶对战 5v5 </span><span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
+<div class="header"><span class="net-room-badge" id="netRoomBadge"></span><h2><span id="headerTitle">⚔️ 光明顶对战 5v5 </span><span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
 <div class="upper-area">
     <div class="battlefield" id="battlefield">
         <div class="team-row"><div class="camp-side"><span class="team-label orange" id="labelEnemy">六大派</span><div class="camp-badges" id="campBadgesEnemy"></div></div><div class="grid" id="enemyGrid"></div></div>
