@@ -17,7 +17,6 @@ const EXT = /\.(?:html?|js|mjs|json|css)$/i;
 const SKIP = new Set([
     'sw.js', 'manifest.json', 'dev-index.html',
     'package.json', 'package-lock.json', 'capacitor.config.json', 'eslint.config.mjs',
-    'debug2.mjs', 'debug_mc.mjs', '_probe134.mjs',
 ]);
 
 export function collectFiles() {

@@ -2,7 +2,7 @@ export const VER = 'ui/704-main-state.js V6.0.0';
 
 import { STATE } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext, getState, setState } from '../infra/104-global-store.js';
-import { getStoreDefault } from '../infra/107-store-schema.js';
+import { getStoreDefault } from '../infra/112-store-schema.js';
 
 import { updateUI, spawnVictoryEffects, setRenderStore } from './703-ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './706-main-battle.js';

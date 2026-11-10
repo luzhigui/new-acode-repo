@@ -1,8 +1,12 @@
-export const VER = 'infra/104-global-store.js V6.1.0';
+export const VER = 'infra/104-global-store.js V6.1.1';
+// V6.1.1 | 2026-11-10 删除 slideSpeedActive 两个恒 false 的死桩（getState.slideSpeedActive / STATE getter）：
+//   它既不在 112-store-schema 的 67 键白名单里，也没有 setter，全仓无任何消费方——
+//   ui/718-speed-controls.js 自己维护同名模块级变量，与 store 无关。
+//   留着它会让人以为「store 里有个可读的滑速状态」，实际永远是 false，属指错方向的假接口。
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './102-core-utils.js';
 import { UI_HANDLER_KEYS } from './106-battle-enums.js';
-import { validateStoreValue, isStoreKey } from './107-store-schema.js';
+import { validateStoreValue, isStoreKey } from './112-store-schema.js';
 
 // UIHandler 键校验：非法键立即抛错（不再靠拼写正确才生效）；合法但尚未注册仍返回 undefined，
 //   保留调用点 `const fn = getUIHandler(k); if (fn) fn()` 的加载时序语义。
@@ -148,7 +152,6 @@ export const getState = {
     logLevel: () => GlobalStore.get('logLevel'),
     battleResultForInfo: () => GlobalStore.get('battleResultForInfo'),
     gameStarted: () => GlobalStore.get('gameStarted'),
-    slideSpeedActive: () => false,
     isBattleStarting: () => GlobalStore.get('isBattleStarting'),
     adjustMode: () => GlobalStore.get('adjustMode'),
     selectedAdjustPos: () => GlobalStore.get('selectedAdjustPos'),
@@ -226,7 +229,6 @@ export function getPlayerContext() {
         set autoMode(v) { GlobalStore.set('autoMode', v); },
         get autoLevel() { return GlobalStore.get('autoLevel'); },
         set autoLevel(v) { GlobalStore.set('autoLevel', v); },
-        get slideSpeedActive() { return false; },
         get battleResultForInfo() { return GlobalStore.get('battleResultForInfo'); },
         set battleResultForInfo(v) { GlobalStore.set('battleResultForInfo', v); },
         get isBattleStarting() { return GlobalStore.get('isBattleStarting'); },

@@ -359,7 +359,7 @@ async function main() {
     if (descProblems.length) {
         console.log('\n技能说明数字 vs 引擎真值 漂移：');
         for (const d of descProblems) console.log(`  ✗ ${d}`);
-        console.log(`\n✗ 共 ${descProblems.length} 项 —— 请同步 content/001-game-data.json 与 core/01 DESC_TRUTH`);
+        console.log(`\n✗ 共 ${descProblems.length} 项 —— 请同步 content/001-game-data.json 与 core/201-config-5v5-test.js 的 DESC_TRUTH`);
     }
     process.exit(1);
 }

@@ -454,7 +454,7 @@ export const ALL_PROJECT_FILES = [
     '../modules/336-elite-sixsects-yuanzhen.js', '../modules/337-elite-mingjiao-zhuangzheng.js',
     '../modules/338-elite-mingjiao-pengyingyu.js', '../modules/339-elite-mingjiao-zhangzhong.js',
     '../fx/618-fx-timeline.js', '../fx/619-skill-cues.js', '../fx/620-sword-rain.js',
-    '../infra/107-store-schema.js'
+    '../infra/112-store-schema.js'
     // 2026-10-19 移除了 126/127/128/129/131 五个寒离飒·瑟提特效 demo 页的登记：
     //   这五页已移出仓库（搬去同级 _仓库外产物\），清单按旧名 fetch 必 404 → 包内 3 组「读取失败(0 字符)」；
     //   用户拍板「不要了」→ 106 清单 + dev-index 入口一并清除，demo 页不再随包复制

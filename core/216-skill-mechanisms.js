@@ -1,4 +1,4 @@
-﻿// V6.8.4 | 2026-11-02 | ~17937 bytes —— 吸血上限提升 newMaxHp 改 getStat 口径（与 217 L123 同源，消 0.5 永久丢失）
+// V6.8.4 | 2026-11-02 | ~17937 bytes —— 吸血上限提升 newMaxHp 改 getStat 口径（与 217 L123 同源，消 0.5 永久丢失）
 // V6.8.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（九阳神功回复）。
 // V6.8.6 | 2026-11-08 known-transfers 第 7 条：LEECH 声明补 maxHpGain（=本次实回），handler 按增量累加，
 //   修「同帧多击第二次不抬上限」；上限口径与 core/217 同源（都用 getStat）。
@@ -63,7 +63,7 @@ function checkFields(obj, schema, where) {
         if (!checkKind(obj ? obj[key] : undefined, kind)) {
             let got;
             try { got = JSON.stringify(obj ? obj[key] : undefined); } catch { got = String(obj ? obj[key] : undefined); }
-            throw new Error(`[core/15] 机制字段 "${key}" 缺失或类型错（${where}，应为 ${kind}）：${got}`);
+            throw new Error(`[core/216] 机制字段 "${key}" 缺失或类型错（${where}，应为 ${kind}）：${got}`);
         }
     }
 }
@@ -79,13 +79,13 @@ export function validateMechanicDeclarations(declarations) {
         if (decl.type) {
             const handler = getMechanicHandler(decl.type);
             if (!handler) {
-                throw new Error(`[core/15] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册（实现在 modules 侧 registerMechanicHandler 登记）`);
+                throw new Error(`[core/216] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/219 注册（实现在 modules 侧 registerMechanicHandler 登记）`);
             }
             const schema = handler.fields || null;
             if (schema) checkFields(decl, schema, `角色 ${decl.name} 的顶层 ${decl.type}`);
         }
         if (decl.targetRule !== undefined && !TARGET_RULE_TYPES.has(decl.targetRule)) {
-            throw new Error(`[core/15] 未知 targetRule "${decl.targetRule}"（角色 ${decl.name}）：合法值 ${[...TARGET_RULE_TYPES].join('/')}`);
+            throw new Error(`[core/216] 未知 targetRule "${decl.targetRule}"（角色 ${decl.name}）：合法值 ${[...TARGET_RULE_TYPES].join('/')}`);
         }
         for (const [container, allow] of Object.entries(LOCAL_EFFECT_TYPES)) {
             const arr = decl[container];
@@ -94,7 +94,7 @@ export function validateMechanicDeclarations(declarations) {
             for (const el of arr) {
                 const t = el && el.type;
                 if (typeof t !== 'string' || !allow.has(t)) {
-                    throw new Error(`[core/15] 未知内层效果 type "${t}"（角色 ${decl.name} 的 ${container}）：不在 core/15 分发名单内`);
+                    throw new Error(`[core/216] 未知内层效果 type "${t}"（角色 ${decl.name} 的 ${container}）：不在 core/216 的分发名单内`);
                 }
                 checkFields(el, fieldSchema[t] || {}, `角色 ${decl.name} 的 ${container}.${t}`);
             }
@@ -132,7 +132,7 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     for (const decl of declarations) {
         if (!decl || !decl.type) continue;
         if (!hasMechanicHandler(decl.type)) {
-            throw new Error(`[core/15] 未知机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册`);
+            throw new Error(`[core/216] 未知机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/219 注册`);
         }
         installMechanicByType(eventBus, decl.type, A, B, log, decl);
     }

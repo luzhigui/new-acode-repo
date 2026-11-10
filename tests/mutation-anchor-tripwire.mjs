@@ -63,7 +63,7 @@ function selftest() {
         ['真绿', 0,
             '✅ A1   core/217-effect-handlers.js 1 处\n✅ 47 条变异锚点全部有效', '', true],
         ['零输出但退出码 0（最阴的假绿）', 0, '', '', false],
-        ['零输出 + stderr 真报错', 1, '', 'Error: [core/15] 未知顶层机制 type "statAbsorb"', false],
+        ['零输出 + stderr 真报错', 1, '', 'Error: [core/216] 未知顶层机制 type "statAbsorb"', false],
         ['报红行却退出 0', 0,
             '❌ T17 core/215-buff-effects.js 0 处 —— 变异静默失效\n✅ 46 条变异锚点全部有效', '', false],
         ['红明细 + 无汇总行', 0, '❌ T17 ... 0 处', '', false],

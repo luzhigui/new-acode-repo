@@ -1407,7 +1407,11 @@ function main() {
         const prodExit = (typeof r.status === 'number') ? r.status : -1;
         const prodStdout = r.stdout || '';
         const prodErr = (r.stderr || '').trim();
-        const crashMark = /对照器异常|未在 core\/18 注册|Cannot find module|SyntaxError|TypeError|ReferenceError|ERR_MODULE_NOT_FOUND/i.test(prodErr);
+        // 2026-11-10：崩溃标记改为「不绑编号」——原先硬编码 `未在 core\/18 注册`，
+        //   core/216 的运行时消息改成现行编号（core/219）后本行会静默失配，
+        //   于是「生产者崩了」被误判成「列名失配」，正是本守卫要防的那类指错方向。
+        //   现在只认稳定的措辞片段，编号怎么改都不会连坐。
+        const crashMark = /对照器异常|未在 core\/\d+ 注册|未在 core\/[a-z0-9\-]+ 注册|Cannot find module|SyntaxError|TypeError|ReferenceError|ERR_MODULE_NOT_FOUND/i.test(prodErr);
         const noOutput = prodStdout.trim() === '';
         if (noOutput || crashMark) {
             const head = prodErr ? ' / stderr 首行「' + prodErr.split('\n')[0].slice(0, 120) + '」' : '';

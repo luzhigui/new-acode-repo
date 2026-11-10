@@ -4,7 +4,7 @@
 export const VER = 'infra/102-core-utils.js V6.1.6';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';
-import { validateStoreValue } from './107-store-schema.js';
+import { validateStoreValue } from './112-store-schema.js';
 
 // StateMachine
 // 通用有限状态机，transition 校验目标状态和转换表

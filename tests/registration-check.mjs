@@ -188,9 +188,9 @@ async function main() {
     if (miss123.length) hard.push(['123static-scan.js SCAN_FILES 未登记', miss123]);
     if (miss124.length) hard.push(['124rule-recipes.js RULE_META 未登记', miss124]);
     if (noName.length) hard.push(['规则文件取不到 name（无法核 124）', noName]);
-    if (sixProblems.length) hard.push(['modules/26 拆分结构对账失败（死文件/断裂/死导出/漏 import/漏导出）', sixProblems]);
+    if (sixProblems.length) hard.push(['modules/301 拆分结构对账失败（死文件/断裂/死导出/漏 import/漏导出）', sixProblems]);
 
-    console.log(`登记一致性：health-rules ${ruleFiles.length} 个文件 · 打包清单含 tests 条目 ${entries.length} 条 · modules/26 入口 + ${modFiles.length} 个组件文件`);
+    console.log(`登记一致性：health-rules ${ruleFiles.length} 个文件 · 打包清单含 tests 条目 ${entries.length} 条 · modules/301 入口 + ${modFiles.length} 个组件文件`);
     if (hard.length) {
         console.log(`\n[硬失败] tests/ 侧登记缺失（体检侧自修，共 ${hard.length} 类）：`);
         for (const [why, list] of hard) {
@@ -198,14 +198,14 @@ async function main() {
             for (const x of list) console.log('      - ' + x);
         }
     } else {
-        console.log(`✅ 121 / 123 / 124 三处登记齐全（含 121 内 import↔allRules 数组一致：${inArray.length} 条规则进执行数组）· modules/26 拆分结构一致（入口 + ${modFiles.length} 组件，死文件/断裂/死导出/漏 import/漏导出 均无）`);
+        console.log(`✅ 121 / 123 / 124 三处登记齐全（含 121 内 import↔allRules 数组一致：${inArray.length} 条规则进执行数组）· modules/301 拆分结构一致（入口 + ${modFiles.length} 组件，死文件/断裂/死导出/漏 import/漏导出 均无）`);
     }
 
     // 106 是给网页端 DeepSeek 的复制包清单，有意不全（见头部 V1.1.1 说明）：
     // 新规则/runner 未纳入、或个别条目重复，均为预期内，不核对、不报待办、不要补登。
     const diff106 = miss106.length + missRunner.length + new Set(dup106).size;
     if (diff106 > 0) {
-        console.log(`ℹ tools/106 复制包清单与 tests/ 现有 ${diff106} 处差异（新规则/runner 未纳入或重复）——复制包有意不全，属预期内，不核对`);
+        console.log(`ℹ tools/806 复制包清单与 tests/ 现有 ${diff106} 处差异（新规则/runner 未纳入或重复）——复制包有意不全，属预期内，不核对`);
     }
     if (hard.length) process.exit(1);
 }

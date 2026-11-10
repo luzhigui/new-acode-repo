@@ -6,12 +6,18 @@
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/207-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
 // V1.4.9 | ~35000 bytes | 2026-10-26 第 143 轮吸收夜间140：新增第四类「枚举成员未定义」（parseEnumMembers 现场解析 infra/56 为唯一来源 + scanEnumMemberRefs + 三条自证断言），专抓「ENUM.KEY 被引用但键不存在」的静默死分支（正是上游 5818419a 用 BUTTERFLY 顶掉 JAVELIN 的 P0 形态）；回填 158 注册项
+// V1.6.0 | 2026-11-10 新增第五类「运行时消息里的悬空文件编号」（scanStaleRuntimeRefs + 三条自证断言）。
+//   起因：排查 tools/819 全崩时，core/216 抛的 `[core/15] 未知顶层机制 type "dotTick"：未在 core/18 注册`
+//   里两个编号都不存在（真身 core/216-skill-mechanisms.js / core/219-mechanic-registry.js），
+//   照着错误信息去 core/15 找「分发名单」永远找不到，只能先反推编号映射——出故障时指错方向。
+//   只锁运行时消息上下文（throw/console.* 所在行），注释侧 268 处历史叙述不纳入（多为 changelog 留痕，
+//   塞进棘轮既看不懂也守不住）。锁定后基线为 0，规则无需白名单。
 // V1.5.0 | 2026-11-06 D3：SCAN_FILES 退役主代码段——core/infra/modules/player/render/ui/fx 七个目录改为
 //   运行期自动发现（Node 走 fs 遍历、浏览器走 manifest.json 全量清单），显式排除 tools/ tests/ content/ 与 dev 页。
 //   实测七个目录共 142 个 js/mjs，旧手写清单只覆盖 87 个、漏 55 个（fx/60x-61x、modules/31x-33x、
 //   player/504-506/513-514、render/404/405/409-412/414、ui/714/720-722、infra/102/110/111、core/212/213/223 等），
 //   这些文件的 import 断裂 / 枚举漏 import 一路都扫不到。tests/ 侧仍保留字面量登记（registration-check.mjs 靠文本对账）。
-export const VER = 'tests/123static-scan.js V1.5.0';
+export const VER = 'tests/123static-scan.js V1.6.0';
 
 // Node / 浏览器双用判定：自动发现的两套实现（fs 遍历 / manifest.json）与文末 CLI 自举共用这一个开关
 export const IS_NODE = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
@@ -266,6 +272,65 @@ const FX_ANCHOR_WATCH_FILES = [
 export function scanDeadFxAnchors(code) {
     // 剥注释后扫，避免注释里提一句触发假红（同 stripComments 口径）
     return /\bfxAnchors\b/.test(stripComments(code));
+}
+
+// --- 第五类：运行时消息里的悬空文件编号（V1.6.0）---
+// 根因（2026-11-10 实测，排查 tools/819 全崩时当场踩到）：
+//   全仓重编号后，注释与**运行时抛出的错误串**里仍留着旧短编号。注释只是脏，
+//   但错误串里的旧编号是**在出故障时指错方向**——最要命的一类假信息：
+//     core/216-skill-mechanisms.js 抛 `[core/15] 未知顶层机制 type "dotTick"：未在 core/18 注册`，
+//     而 core/15、core/18 都不存在（真身 core/216-skill-mechanisms.js / core/219-mechanic-registry.js）。
+//     照着它去 core/15 找「分发名单」永远找不到，只能先反推编号映射。
+// 判据：**只扫运行时消息上下文**（throw new Error / console.error/warn/log 所在行）里的
+//   `层/编号` 引用，若该层没有该编号的文件即报红。
+//   为什么不扫注释：注释侧存量 268 处、63 种编号（多为 changelog 里的历史叙述，如「从 core/10 拆出」，
+//   属正常留痕）。把 268 条塞进棘轮基线既看不懂也守不住，且噪音会淹没真问题。
+//   锁定运行时消息后基线为 0，规则干净、永不需要白名单。
+const LAYER_NUM_RE = /\b(infra|core|render|modules|fx|player|ui)\/(\d{1,3})\b/g;
+const RUNTIME_MSG_RE = /throw\s+new\s+Error|new\s+Error\s*\(|console\.(?:error|warn|log)\s*\(/;
+
+// layerNums: { core: Set(['201','202',...]), ... } —— 由扫描面文件名现算，不另维护清单
+export function scanStaleRuntimeRefs(code, layerNums) {
+    const out = [];
+    const lines = code.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!RUNTIME_MSG_RE.test(line)) continue;
+        // 该行是纯注释则跳过（注释里的历史叙述不算运行时消息）
+        const t = line.trim();
+        if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue;
+        LAYER_NUM_RE.lastIndex = 0;
+        let m;
+        while ((m = LAYER_NUM_RE.exec(line)) !== null) {
+            const layer = m[1], num = m[2];
+            const set = layerNums[layer];
+            if (!set || set.has(num)) continue;
+            out.push({ line: i + 1, ref: layer + '/' + num, text: t.slice(0, 120) });
+        }
+    }
+    return out;
+}
+
+// 自证：扫描器自身腐烂时先把自己报红（否则规则恒绿＝假绿）
+export function selfCheckStaleRuntimeRefs() {
+    const fake = {
+        core: new Set(['216', '219']),
+        infra: new Set(['104'])
+    };
+    // 合成样本用拼接构造：若写字面量 `core/15`，本文件自身会被本规则扫到（自证样本自伤），
+    //   实测就是这么冒出来两条假红的——样本必须拼出来，不能在源码里成形。
+    const S = 'core/';
+    const bad = 'throw new Error(`[' + S + '15] 未知机制 type X：未在 ' + S + '18 注册`);';
+    const good = 'throw new Error(`[' + S + '216] 未知机制 type X：未在 ' + S + '219 注册`);';
+    const cmt = '// 历史：从 ' + S + '15 拆出，见 ' + S + '18';
+    const probs = [];
+    const nBad = scanStaleRuntimeRefs(bad, fake).length;
+    if (nBad !== 2) probs.push('合成样本应命中 2 处悬空编号，实际 ' + nBad + ' 处（抽取器已腐烂）');
+    const nGood = scanStaleRuntimeRefs(good, fake).length;
+    if (nGood !== 0) probs.push('合法编号样本被误报 ' + nGood + ' 处（会制造假红）');
+    const nCmt = scanStaleRuntimeRefs(cmt, fake).length;
+    if (nCmt !== 0) probs.push('纯注释样本被误报 ' + nCmt + ' 处（注释不该计入）');
+    return probs;
 }
 
 // --- 规则 test 返回形状守卫（V1.3.0）---
@@ -729,7 +794,8 @@ export async function runStaticScan() {
             importRef: { name: 'import 引用断裂', issues: [] },
             enumMember: { name: '枚举成员未定义', issues: [] },
             deadFxAnchors: { name: '去锚定化残留 fxAnchors 字段', issues: [] },
-            ruleTestShape: { name: '规则 test 返回形状', issues: [] }
+            ruleTestShape: { name: '规则 test 返回形状', issues: [] },
+            staleRuntimeRef: { name: '运行时消息里的悬空文件编号', issues: [] }
         },
         enumRefCount: 0,
         elapsedMs: 0
@@ -745,6 +811,19 @@ export async function runStaticScan() {
         const enumResp = await fetch(new URL('../infra/106-battle-enums.js', baseUrl).href + '?t=' + t0);
         if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
     } catch (e) { /* 落空由 selfCheckEnumMembers 接管报红 */ }
+    // 第五类前置：按扫描面文件名现算「每层实际存在哪些编号」，不另维护清单
+    const layerNums = {};
+    for (const rel of scan.files) {
+        const mm = String(rel).replace(/^\.\.\//, '').match(/^([a-z]+)\/(\d{1,3})[^/]*$/);
+        if (!mm) continue;
+        const L = mm[1];
+        if (!SCAN_DIRS.includes(L)) continue;
+        (layerNums[L] || (layerNums[L] = new Set())).add(mm[2]);
+    }
+    // 自证：抽取器腐烂时先把自己报红，否则本类恒绿＝假绿
+    for (const it of selfCheckStaleRuntimeRefs()) {
+        result.slots.staleRuntimeRef.issues.push('（自证）' + it);
+    }
     // 第 196 轮：文件缺失先攒着，收尾时与 import 侧合并判定（见循环内注释）
     const unreachable = [];
     for (const rel of scan.files) {
@@ -789,6 +868,12 @@ export async function runStaticScan() {
                 + '（运行时为 undefined，比较恒不等 ⇒ 分支静默失效）');
         }
         result.enumRefCount += countEnumMemberRefs(scanCode, enumMembers);
+        // 检查 5：运行时消息里的悬空文件编号（V1.6.0）
+        //   为什么用原始 code 而非 scanCode：错误串就在字符串里，stripComments 会把它剥掉。
+        for (const it of scanStaleRuntimeRefs(code, layerNums)) {
+            result.slots.staleRuntimeRef.issues.push(rel + ' L' + it.line + '：运行时消息引用 ' + it.ref
+                + '，但该层没有这个编号的文件（照着它去找必然找不到）—— ' + it.text);
+        }
         // 检查 4：规则 test 返回形状（只对 health-rules/ 生效）
         //   失败返回普通字符串 ⇒ 回放器一律算 pass（229/227/228 假绿的根因），必须当场红。
         if (/\/health-rules\/[^/]+\.js$/.test(rel)) {
@@ -865,7 +950,8 @@ if (isNode) {
         const slots = Object.values(r.slots);
         for (const s of slots) for (const it of s.issues) console.log('  ✗ [' + s.name + '] ' + it);
         const total = slots.reduce((n, s) => n + s.issues.length, 0);
-        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 六类 issue 合计 ${total} 条`);
+        // 类数由 slots 现数，不写死——V1.6.0 加第五类时这里还印着「六类」，与实际不符。
+        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / ${slots.length} 类 issue 合计 ${total} 条`);
         if (total > 0) process.exit(1);
     })();
 }
