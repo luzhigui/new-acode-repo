@@ -79,7 +79,7 @@
 const $ = id => document.getElementById(id);
 const WORKER_URL = new URL('./816-role-balance-worker.js', import.meta.url);
 const STORE_KEY = 'ming_ablation_result';
-const TOOL_VER = '831 V1.0.0';
+const TOOL_VER = '831 V1.0.1';
 
 const ARMS = [
     { id: 'base', label: '全开（基线）', flags: {} },
@@ -168,7 +168,10 @@ async function runAll() {
                 const j = jobs[next++];
                 const r = await runJobOn(w, j);
                 for (const [v, a] of Object.entries(r.variants)) {
-                    const t = acc[j._arm][j._stage][v];
+                    // V1.0.1：意外桶（如第3关冒出「标准」）懒初始化，不再读 undefined.runs
+                    const stageAgg = acc[j._arm][j._stage];
+                    if (!stageAgg[v]) stageAgg[v] = { runs: 0, wins: 0, draws: 0, surv: 0 };
+                    const t = stageAgg[v];
                     t.runs += a.runs; t.wins += a.wins; t.draws += (a.draws || 0); t.surv += (a.sumSurv || 0);
                 }
                 done += j.runs;
@@ -212,7 +215,8 @@ function render(run) {
     for (const [st, v] of rows) {
         const name = st === 3 ? '第3关·' + v : '第' + st + '关';
         html += '<tr><td>' + name + '</td>' + arms.map(a => {
-            const c = run.arms[a.id][st][v];
+            // V1.0.1：桶缺失按 0 处理，渲染不炸
+            const c = (run.arms[a.id][st] && run.arms[a.id][st][v]) || { runs: 0, wins: 0, surv: 0 };
             return '<td>' + wr(c) + '<br><span class="td small">' + cellSub(c) + '</span></td>';
         }).join('') + '</tr>';
     }
