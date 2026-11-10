@@ -63,6 +63,7 @@
         <button id="btnStop" class="ghost" disabled>■ 停止</button>
         <button id="btnSave" class="ghost" disabled>💾 存结果</button>
         <button id="btnLoad" class="ghost">📂 载入</button>
+        <button id="btnCopy" class="ghost" disabled>📋 复制结果</button>
     </div>
     <div id="bar"><div id="barFill"></div></div>
     <div id="progText">待命</div>
@@ -265,8 +266,68 @@ $('btnLoad').addEventListener('click', () => {
         lastRun = JSON.parse(raw);
         render(lastRun);
         $('btnSave').disabled = false;
+        $('btnCopy').disabled = false;
         setProg('已载入 ' + new Date(lastRun.ts).toLocaleString('zh-CN'));
     } catch (e) { setErr('载入失败：' + (e && e.message || e)); }
+});
+
+// V1.0.3 📋 复制结果：markdown 表格 + 归因行 + 种子戳（可直接贴聊天/文档）
+function buildCopyText(run) {
+    const arms = ARMS.filter(a => run.arms[a.id]);
+    const stages = Object.keys(run.arms[arms[0].id]).map(Number).sort((a, b) => a - b);
+    const rows = [];
+    for (const st of stages) for (const v of STAGE_ROWS(st)) rows.push([st, v]);
+    const pct = c => c.runs ? (100 * c.wins / c.runs).toFixed(1) + '%（' + c.runs + '场' + (c.surv != null ? '·存活' + (100 * c.surv / c.runs).toFixed(1) + '%' : '') + '）' : '—';
+    const agg = {};
+    for (const a of arms) {
+        agg[a.id] = { runs: 0, wins: 0, surv: 0 };
+        for (const st of stages) for (const v of STAGE_ROWS(st)) {
+            const c = (run.arms[a.id][st] && run.arms[a.id][st][v]) || { runs: 0, wins: 0, surv: 0 };
+            agg[a.id].runs += c.runs; agg[a.id].wins += c.wins; agg[a.id].surv += c.surv;
+        }
+    }
+    let out = '# 消融实验室 · 姊三因素归因\n\n';
+    out += '| 关卡 | ' + arms.map(a => a.label).join(' | ') + ' |\n';
+    out += '| --- | ' + arms.map(() => '---').join(' | ') + ' |\n';
+    for (const [st, v] of rows) {
+        out += '| 第' + st + '关' + (v !== '标准' ? '·' + v : '') + ' | ' + arms.map(a => {
+            const c = (run.arms[a.id][st] && run.arms[a.id][st][v]) || { runs: 0, wins: 0 };
+            return c.runs ? (100 * c.wins / c.runs).toFixed(1) + '% ' + c.runs + '场' : '—';
+        }).join(' | ') + ' |\n';
+    }
+    out += '| 总评 | ' + arms.map(a => agg[a.id].runs ? (100 * agg[a.id].wins / agg[a.id].runs).toFixed(1) + '% ' + agg[a.id].runs + '场' : '—').join(' | ') + ' |\n\n';
+    const base = agg[arms[0].id];
+    const baseWr = base.runs ? 100 * base.wins / base.runs : 0;
+    if (base.runs) {
+        out += '三因素贡献（基线 ' + baseWr.toFixed(1) + '%，降幅=该因素贡献）：\n';
+        for (const a of arms.slice(1)) {
+            if (!agg[a.id].runs) continue;
+            const d = 100 * agg[a.id].wins / agg[a.id].runs - baseWr;
+            out += '- ' + a.label + '：' + d.toFixed(1) + ' pp（' + baseWr.toFixed(1) + '% → ' + (100 * agg[a.id].wins / agg[a.id].runs).toFixed(1) + '%）\n';
+        }
+        out += '\n';
+    }
+    out += '种子 ' + run.masterSeed + '｜每臂每关 ' + run.runs + ' 场｜' + (run.enemyHex ? '双海克斯' : '单海克斯') + '｜平局计分母｜' + TOOL_VER + '｜' + new Date(run.ts).toLocaleString('zh-CN');
+    return out;
+}
+$('btnCopy').addEventListener('click', async () => {
+    if (!lastRun) return;
+    const text = buildCopyText(lastRun);
+    try {
+        await navigator.clipboard.writeText(text);
+        setProg('已复制结果（markdown）');
+    } catch (e) {
+        // 剪贴板 API 被拒（非安全上下文/权限）→ 老通道兜底；再失败如实报错名，不静默
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (!ok) throw new Error('execCommand 返回失败');
+            setProg('已复制结果（markdown）');
+        } catch (e2) { setErr('复制失败：' + (e2 && e2.name || e2) + '（' + (e2 && e2.message || e && e.message || '') + '）——长按结果区域手动复制'); }
+    }
 });
 setProg('待命（worker 池 ' + poolSize + '）');
 </script>
