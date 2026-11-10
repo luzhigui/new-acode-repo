@@ -104,6 +104,13 @@
 // V6.0.48 | 2026-10-31 补登记 2 项：content/002-hex-enhance.json（hexEnhance 迁出 200 的新数据文件）、
 //           modules/324-elite-mingjiao-brother-laststand.js（00reg-mechanics 已 import 的妹永久背水组件）。
 // 第 162 轮冲突裁决：VERSION 取本地更高的 V6.0.49（上游 V6.0.48 为并行线的旧号），版本履历一行不删。
+// V6.0.64 | 2026-11-10 角色名片加回复制包，排除表清空（老板核对后确认是漏、不是有意）：
+//   ① AI_EXCLUDE 撤出 710/414-role-cards —— 实测改动 39 笔仍在动、被 render/403+406、ui/703+706、fx/616
+//      五处依赖，历次「新增精英」都把它列为必改 7 处之一，不该剔出；
+//   ② 该表因此为空，改成空集合也安全的形态：AI_INTERFACE_NOTE 不再无条件印「已剔除」段，
+//      803 的纪律文案改为跟集合现算（原先硬编码 4 个文件名，撤出后会变假话）；
+//   ③ 澄清命名：414/710 原作者注释误标「角色名片（图鉴）」，与 ui/702 的精英图鉴弹层混为一谈——
+//      这正是当初误判成「纯演出层」的根源。已补名字澄清段（文件名保留不改，牵动 6 处 import 收益不抵）。
 // V6.0.63 | 2026-11-10 新增存档层：① AI_EXCLUDE 移除 712-tutorial / 713-opening-cg（已搬 archive/，不在主代码里了，
 //           归 ARCHIVE_FILES 管），并撤出 711-buff-dialog（它被 ui/704 注册成 UIHandler、player/512 每次选海克斯都调用，
 //           属核心玩法不是纯演出层，原先剔除是误判）；② 新增 ARCHIVE_FILES + 第六个分组「📦 存档（不随包）」
@@ -118,6 +125,12 @@ export const VER = 'tools/806-ai-pack-config.js V6.0.64';
 //   网页端改战斗逻辑用不上 → 剔出复制包（共省约 42 KB）。游戏运行不受影响（只影响发包）。
 //   ⚠️ 这些文件被主控 import（ui/702/703/704/705/706/716/717、render/414），包内会出现「import 指向缺失文件」，
 //   属预期而非 bug；AI_INTERFACE_NOTE 与 103 的索引/路径清单都从本集合自动生成说明，改这里不用改文案。
+// ❌ 2026-11-10 复核：上述「剔 5 件」的判定**已全部推翻**，本表现为空。逐件去向——
+//   · 712-tutorial / 713-opening-cg → 已真正断链并搬 archive/（改归 ARCHIVE_FILES，独立「📦 存档」组）；
+//   · 711-buff-dialog → 误判（player/512 每次选海克斯都调它，属核心玩法），已加回；
+//   · 710 / 414-role-cards → 误判（被 render/403、406、ui/703、706、fx/616 五处依赖、历史改动 39 笔仍在动），已加回。
+//   教训：「纯演出层」不等于「AI 用不上」——显示层恰恰是 AI 改内容（加精英/换图标/改短名）时的必改项。
+//   判据应是「改动频率 + 被依赖数」，不是「看起来像不像画面」。详见 AI_EXCLUDE 定义处的完整说明。
 export const AI_EXCLUDE = new Set([
     // 2026-11-10 下线存档：712-tutorial / 713-opening-cg 已搬 archive/（真正断链，不在主代码里了），
     //   故从本排除表移出——它们现在归 ARCHIVE_FILES 管（独立「📦 存档」组，默认不勾，不随包）。
@@ -126,8 +139,18 @@ export const AI_EXCLUDE = new Set([
     // 2026-11-10 撤出 711-buff-dialog：它被 ui/704 注册成 UIHandler、player/512 战斗流程每次选海克斯都调用，
     //   属核心玩法不是纯演出层。原先被剔出包是误判——发给网页端的包里若缺它，512 的 showBuffPopup 调用
     //   会指向缺失文件，AI 读代码会以为海克斯手选不存在。
-    '../ui/710-role-cards.js',     // 角色名片转口（真身 render/414-role-cards）
-    '../render/414-role-cards.js'  // 角色名片（图鉴）：格子图标 / 技能说明 / 日志标签
+    //
+    // 2026-11-10 撤出 710/414-role-cards（原注释误标为「角色名片（图鉴）」，老板核对后确认是**漏**不是有意）：
+    //   ① 它是 render/403 格子图标、render/406 文本归一、ui/703 技能栏、ui/706 日志标签、fx/616 的共同依赖，
+    //      缺了它 AI 读这 5 个文件的 import 全是断的，根本读不懂格子渲染怎么出图标；
+    //   ② 改动频率实测 **39 笔**且仍在动（金毛狮王短名、金刚不坏飘字、反伤弟子图标…），
+    //      历次「新增精英」提交都把它列为必改的 7 处之一（如空见：content+02unit+17schema+16护罩+26组件+注册+37名片）。
+    //      即它跟「加内容」强绑定，不是「几乎不改」的死文件。
+    //   ③ 原先判「纯演出层」不准确：图标/短名/技能说明确实是显示用途，但显示层正是 AI 改内容时要动的地方。
+    //
+    // 本表当前为空（保留集合结构：将来再有「还在主代码里但确实不想随包」的纯演出件，往这里加）。
+    //   ⚠️ 2026-10-31 那轮「剔出 5 件省 42 KB」的判定已基本推翻：4 件已移出（3 件归 archive/、1 件是误判），
+    //      剩下 0 件。发主代码包时不再有静默缺失的 import 目标。
 ]);
 
 // ── 存档层清单（archive/）：下线了但留着以防将来要用 ──────────────────────────
@@ -144,6 +167,11 @@ export const AI_EXCLUDE = new Set([
 export const ARCHIVE_FILES = [
     '../archive/712-tutorial.js',   // 新手引导（原 ui/712-tutorial.js，2026-11-10 下线）
     '../archive/713-opening-cg.js'  // 开场 CG（原 ui/713-opening-cg.js，2026-11-10 下线）
+    // 另外两件存档**有意不列**（列了就会出现在复制器里，徒增勾选的诱惑）：
+    //   · archive/展示与CG/精英展示-04-…html  —— 524 KB，图鉴嵌页。列表里出现它只会诱导误勾，把包撑爆；
+    //     要恢复照 archive/README.md 表格搬回 展示与CG/ 即可。
+    //   · archive/tutorial-styles.css         —— 复制器只收 .js/.mjs/.html/.cjs/.md/.json，.css 本就不在可选面内。
+    //   · archive/702-showEliteGallery.snippet.js —— 参考代码片段，非可运行模块，同样不列。
 ];
 // AI 上下文契约
 // 「已剔除」段随 AI_EXCLUDE 自动生成（不手写，避免集合与文案双源漂移）
@@ -155,7 +183,7 @@ export const AI_INTERFACE_NOTE = `// ===========================================
 // ============================================================
 // ⚠️ 已按用户要求剔除 ${AI_EXCLUDE.size} 个纯演出层文件（不在包内）：
 ${[...AI_EXCLUDE].map(f => `//   ⊘ ${f.replace(/^\.\.\//, '')}`).join('\n')}
-// 这些只做画面展示（新手引导 / 开场CG / 角色名片·图鉴 / 海克斯手选弹窗），不含战斗逻辑。
+// 这些只做画面展示，不含战斗逻辑。
 // 主控里对它们的 import 仍写在源码中 → 包内看到「找不到该文件」属预期，不是代码 bug，
 // 不要追问「请补发」。确实需要时按 raw 单读：
 //   https://raw.githubusercontent.com/luzhigui/new-acode-repo/main/<上面路径去掉 ../ 后>
@@ -209,7 +237,9 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-04 补登记 69-role-cards：角色名片表（ui/703-ui-render-5v5-test、ui/706-main-battle、render/403-grid-render 已 import）
     '../ui/710-role-cards.js',
     '../ui/715-reset-runtime.js', '../ui/711-buff-dialog.js',
-    '../ui/712-tutorial.js', '../ui/713-opening-cg.js',
+    // 2026-11-10 清除死登记：ui/712-tutorial / ui/713-opening-cg 已搬进 archive/（登记改走 ARCHIVE_FILES +
+    //   「📦 存档」组），这两行是搬走时该删未删留下的 → check-manifest --strict 报「清单指向不存在的文件」。
+    //   **勿补回**：文件已不在主代码链上。
     // 2026-10-11 补登记 75/76：ui/702-main-5v5-test 减负批拆出的联网会话与战报回放入口（ui/702-main-5v5-test、ui/709-ui-controls 已 import）
     '../ui/716-net-session.js', '../ui/717-replay-entry.js',
     // 2026-10-14 补登记 77/78：ui/709-ui-controls 三拆产物（77 倍速系统、78 按钮状态+buff 槽，709 入口 re-export 二者；漏登则包内引用断裂）
@@ -469,6 +499,11 @@ export const ALL_PROJECT_FILES = [
     '../tools/836-voice-commentary.js', '../tools/837-voice-panel.js',
     // 2026-10-28 补登记 138：弱精英机制贡献评估（116 V1.15.0 weakContrib 的消费端）
     '../tools/838-elite-contrib.html',
+    // 2026-11-10 补登记 831：消融实验室单页（802 备用工具卡片「🧪 消融实验室」直接打开，跑批走 816 V1.22.0
+    //   kind:'ablation'，开关 globalThis.MING_ABLATION）。与 833/834/835/838 同类的**页面件**，
+    //   属「网页端阅读需要」——漏登则包内工具箱点开这张卡 404。（对照：828/829/830 是本机 node 脚本，
+    //   按本表 2026-09-26 定案不纳入、不补登。）
+    '../tools/831-ablation-lab.html',
     // 2026-11-01 补登记：GitHub Pages 版本化构建 + 复制包清单自检（都是纯 Node 脚本，随包供网页端核对清单完整性）
     '../tools/build-versioned-site.mjs', '../tools/check-manifest.mjs',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；

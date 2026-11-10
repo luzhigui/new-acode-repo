@@ -223,8 +223,16 @@ function escapeHtml(text) {
         L.push('');
         L.push('## 四、纪律');
         L.push('- 清单唯一真源 = tools/806-ai-pack-config.js 的 ALL_PROJECT_FILES，与复制包同源；索引里没有的文件视为不随包。');
-        L.push(`- ⊘ 标记的 ${AI_EXCLUDE.size} 个文件（新手引导 / 开场CG / 角色名片·图鉴 / 海克斯手选弹窗）已按用户要求剔出复制包；`);
-        L.push('  主控源码里的 import 仍指向它们 → 包内「找不到该文件」属预期，不要当成 bug，也不要追问补发。');
+        // 2026-11-10：这段原先硬编码「新手引导 / 开场CG / 角色名片·图鉴 / 海克斯手选弹窗」四个文件名，
+        //   但四件已全部撤出（3 件搬 archive/、角色名片与手选弹窗经核对是误判已加回）→ 文案会变成假话。
+        //   改为跟着 AI_EXCLUDE 现算：集合空时说明「无剔除」，非空时自动列名单（与 AI_INTERFACE_NOTE 同口径）。
+        if (AI_EXCLUDE.size === 0) {
+            L.push('- 本包**无剔除文件**：清单里登记的每一个文件都在包内，import 目标不会缺失。');
+        } else {
+            L.push(`- ⊘ 标记的 ${AI_EXCLUDE.size} 个文件已按用户要求剔出复制包（${[...AI_EXCLUDE].map(f => f.replace(/^\.\.\//, '')).join('、')}）；`);
+            L.push('  主控源码里的 import 仍指向它们 → 包内「找不到该文件」属预期，不要当成 bug，也不要追问补发。');
+        }
+        L.push('- 下线存档件（新手引导/开场CG/精英图鉴等）不在本包，清单见 archive/README.md。');
         L.push('- 改动前按 raw 读原文，禁止凭索引摘写改代码。');
         return L.join('\n');
     }
