@@ -101,17 +101,10 @@
                     <button class="big-btn btn-play" id="btnPengYingYu" style="flex:1;background:linear-gradient(135deg, #81c784, #1b5e20);">🌿 彭莹玉</button>
                     <button class="big-btn btn-play" id="btnZhangZhong" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #b0bec5, #37474f);">🐾 张中</button>
                 </div>
-                <!-- 六大派带技能角色（敌队侧强制出场，走 _forceSectUnit 通用通道） -->
+                <!-- 六大派带技能普通兵（敌队侧强制，_forceSectUnit 通用通道）。
+                     周芷若/宋青书/张三丰/成昆/鹿杖客/鹤笔翁为固定关卡 boss（自然出场），2026-11-10 应老板要求撤销按钮 -->
                 <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnZhouZhiRuo" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #ce93d8, #4a148c);">🕷️ 周芷若</button>
-                    <button class="big-btn btn-play" id="btnSongQingShu" style="flex:1;background:linear-gradient(135deg, #ef9a9a, #b71c1c);">⚔️ 宋青书</button>
-                    <button class="big-btn btn-play" id="btnZhangSanFeng" style="flex:1;background:linear-gradient(135deg, #fff59d, #f57f17);">☯️ 张三丰</button>
-                    <button class="big-btn btn-play" id="btnChengKun" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #b39ddb, #311b92);">🎭 成昆</button>
-                </div>
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnLuZhangKe" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #90a4ae, #263238);">🧊 鹿杖客</button>
-                    <button class="big-btn btn-play" id="btnHeBiWeng" style="flex:1;background:linear-gradient(135deg, #ffcc80, #bf360c);">🖌️ 鹤笔翁</button>
-                    <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
+                    <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
                     <button class="big-btn btn-play" id="btnSuWen" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
                 </div>
                 <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
@@ -719,37 +712,8 @@
             mustSet('_forceMingUnit', '张中');
             window.location.href = 'index.html';
         });
-        // 六大派带技能角色：_forceSectUnit 通用通道（330 敌队构建段挤位插入，M/职业读 content 单一真源）
-        document.getElementById('btnZhouZhiRuo').addEventListener('click', () => {
-            clearDemoFlags();
-            mustSet('_forceSectUnit', '周芷若');
-            window.location.href = 'index.html';
-        });
-        document.getElementById('btnSongQingShu').addEventListener('click', () => {
-            clearDemoFlags();
-            mustSet('_forceSectUnit', '宋青书');
-            window.location.href = 'index.html';
-        });
-        document.getElementById('btnZhangSanFeng').addEventListener('click', () => {
-            clearDemoFlags();
-            mustSet('_forceSectUnit', '张三丰');
-            window.location.href = 'index.html';
-        });
-        document.getElementById('btnChengKun').addEventListener('click', () => {
-            clearDemoFlags();
-            mustSet('_forceSectUnit', '成昆');
-            window.location.href = 'index.html';
-        });
-        document.getElementById('btnLuZhangKe').addEventListener('click', () => {
-            clearDemoFlags();
-            mustSet('_forceSectUnit', '鹿杖客');
-            window.location.href = 'index.html';
-        });
-        document.getElementById('btnHeBiWeng').addEventListener('click', () => {
-            clearDemoFlags();
-            mustSet('_forceSectUnit', '鹤笔翁');
-            window.location.href = 'index.html';
-        });
+        // 六大派带技能普通兵：_forceSectUnit 通用通道（330 敌队构建段挤位插入，M/职业读 content 单一真源）。
+        //   周芷若/宋青书/张三丰/成昆/鹿杖客/鹤笔翁六 boss 按钮已撤（2026-11-10 固定关卡自然出场，无需强制）
         document.getElementById('btnYuLianZhou').addEventListener('click', () => {
             clearDemoFlags();
             mustSet('_forceSectUnit', '俞莲舟');
