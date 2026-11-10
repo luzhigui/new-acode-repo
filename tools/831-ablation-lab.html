@@ -77,9 +77,9 @@
 
 <script type="module">
 const $ = id => document.getElementById(id);
-const WORKER_URL = new URL('./816-role-balance-worker.js', import.meta.url);
+const WORKER_URL = new URL('./816-role-balance-worker.js?v=V1_22_1', import.meta.url);   // 带版本参：worker 改版后手机缓存强制刷新
 const STORE_KEY = 'ming_ablation_result';
-const TOOL_VER = '831 V1.0.1';
+const TOOL_VER = '831 V1.0.2';
 
 const ARMS = [
     { id: 'base', label: '全开（基线）', flags: {} },
