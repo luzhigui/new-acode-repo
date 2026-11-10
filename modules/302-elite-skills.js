@@ -16,7 +16,7 @@ import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, SIGNAL_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerRoundHook } from '../core/208-registry-elite.js';
@@ -134,6 +134,30 @@ export function applyDamageModifiers(unit, target, dmg, targetTeam, attackerTeam
 
 // 精通层数：每职业 1 层，全 4 门后 +2 层（封顶 6）
 function masteryLayers(count) { return count >= CONFIG.ROLES.length ? count + CONFIG.MASTERY_FULL_BONUS_LAYERS : count; }
+
+// 背水·突袭精通拉满（2026-11-10 老板改版）：所有未精通职业立即白拿首穿精通加成、层数封顶（全 4 门+2=6）。
+//   逐门走与 spiderTransform 首穿完全同款的「层数差结算」，保证与正常轮换路径逐数一致。返回本次新增层数。
+export function masterAllRoles(unit, log) {
+    if (!unit.isXiaoZhaoBrother || !unit.alive) return 0;
+    const roles = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER];
+    if (!unit.state._masteredRoles) Object.assign(unit.state, { _masteredRoles: [] });
+    const m = requireSkillParams('小昭', 'mastery');
+    let granted = 0;
+    for (const role of roles) {
+        if (unit.state._masteredRoles.includes(role)) continue;
+        unit.state._masteredRoles.push(role);
+        const gained = masteryLayers(unit.state._masteredRoles.length) - masteryLayers(unit.state._masteredRoles.length - 1);
+        if (gained > 0) {
+            const gAtk = gained * m.atkPer, gDef = gained * m.defPer, gHp = gained * m.hpPer;
+            addMod(unit, 'atk', { source: '精通', value: gAtk, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
+            addMod(unit, 'def', { source: '精通', value: gDef, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
+            addMod(unit, 'maxHp', { source: '精通', value: gHp, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
+            granted += gained;
+        }
+    }
+    if (granted > 0) { refreshMaxHp(unit, null, '精通拉满'); emitHpChange(unit); }
+    return granted;
+}
 
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
@@ -281,6 +305,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
+    // 背水触发后永不继承（老板拍板 2026-11-10）：账本只保留背水一张，其他永久海克斯一律不再收
+    if (xiaoZhao.state._brotherLastStandTriggered && buffKey !== BUFF_TYPES.LAST_STAND) return;
     if (!CONFIG.XIAO_ZHAO_PERMANENT_BUFFS.includes(buffKey)) return;
     if (!xiaoZhao.state._permanentBuffs) Object.assign(xiaoZhao.state, { _permanentBuffs: [] });
     if (xiaoZhao.state._permanentBuffs.some(b => b.key === buffKey)) return;

@@ -13,13 +13,16 @@
 // V1.2.0 | 2026-11-10 每回合战士成长加系统提示+头顶 ⚔️ 飘字（老板要求：成长可见化，带累计次数 _brotherLastStandGrowN）
 // V1.2.1 | 2026-11-10 重大修复：三钩从顶层裸注册迁 registerRoundHook 每回合重挂（210 每回合 clearAll，
 //           顶层注册活不过第一回合=妹背水上线以来从未触发过，老板实测实锤）；触发门扩妹账本路径（对齐 323 全家口径）
-export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.2.1';
+// V1.3.0 | 2026-11-10 突袭改版：触发瞬间精通拉满（白拿全部未精通职业加成）+已继承永久海克斯逐张折算突袭次数后全部丢弃，
+//           此后永不继承（302 addPermanentBuff 门控）——老板拍的以攻代削大改版
+export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.3.0';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, applyStatChange, emitEvent } from '../core/214-battle-shared.js';
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerRoundHook } from '../core/208-registry-elite.js';
+import { masterAllRoles } from './302-elite-skills.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, ROLE_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { pushSkillAnnounce, findAlive, emitHpChange } from './305-elite-helpers.js';
@@ -49,8 +52,16 @@ function triggerBrotherLastStand(brother, A, B, log) {
 
     brother.state._noFlyNoEgg = true;
 
-    // 蛛袭次数 = 剩余飞天次数（剩几次就随机打几次，可重复同一目标）
-    const strikeCount = brother.state._spiderRemaining || 0;
+    // 突袭改版（2026-11-10 老板拍板）：
+    //   ①未精通职业全部立即白拿首穿精通加成、精通层数封顶
+    //   ②账本里已继承的永久海克斯逐张折算成突袭次数，随后全部丢弃只留背水；此后永不继承（302 addPermanentBuff 门控）
+    const masteredLayers = masterAllRoles(brother, log);
+    const book = brother.state._permanentBuffs || [];
+    const inheritedCount = book.filter(b => b.key !== BUFF_TYPES.LAST_STAND).length;
+    if (inheritedCount > 0) brother.state._permanentBuffs = book.filter(b => b.key === BUFF_TYPES.LAST_STAND);
+
+    // 蛛袭次数 = 剩余飞天次数 + 已继承永久海克斯数（剩几次就随机打几次，可重复同一目标）
+    const strikeCount = (brother.state._spiderRemaining || 0) + inheritedCount;
     if (strikeCount > 0) {
         const params = getSkillParams('小昭', 'spiderStrike');
         if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
@@ -87,7 +98,7 @@ function triggerBrotherLastStand(brother, A, B, log) {
 
     if (log) {
         pushSkillAnnounce(log, brother, '背水一战·妹',
-            `🩸 妹背水触发：精通转战士 + 蛛袭 + 攻+${Math.round(cfg.atkBonus * 100)}%/防-${Math.round((cfg.defPenalty ?? 0.2) * 100)}%/承伤+${Math.round(((cfg.takenDmgMul ?? 1.4) - 1) * 100)}%/吸血80%/禁飞天禁变卵`,
+            `🩸 妹背水触发·突袭：精通转战士+精通拉满(+${masteredLayers}层)+蛛袭×${strikeCount}（飞天${brother.state._spiderRemaining}+永久海克斯折算${inheritedCount}）+ 攻+${Math.round(cfg.atkBonus * 100)}%/防-${Math.round((cfg.defPenalty ?? 0.2) * 100)}%/承伤+${Math.round(((cfg.takenDmgMul ?? 1.4) - 1) * 100)}%/吸血80%/禁飞天禁变卵${inheritedCount > 0 ? '，已丢弃继承永久海克斯' : ''}`,
             { floatText: '🩸背水！', floatUid: brother.uid });
     }
 }
