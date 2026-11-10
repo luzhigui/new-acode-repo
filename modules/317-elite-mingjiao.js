@@ -5,7 +5,7 @@
 // V7.3.1 | 2026-11-08 体检转交：圣火令重画读 sister.holyFlame 缺键显式报错（原 TypeError）。
 // V7.3.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V7.3.3 | 2026-11-08 状态标签化：同门出手候选的眩晕判定改问 isControlled()（core/218 标签表）。
-export const VER = 'modules/317-elite-mingjiao.js V7.3.3';
+export const VER = 'modules/317-elite-mingjiao.js V7.3.4';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/208-registry-elite.js';
 import { registerTargetPoolFilter } from '../core/207-target-strategies.js';
@@ -57,13 +57,13 @@ registerRoundComponent('小昭·妹', CAMP_TYPES.ALLY);
 
 // 圣火令增强判定（数值加成消费，applyHolyFlameBonus 第三参）：姊在场即增强——
 //   原 core/11 hasSisterForHolyFlame 变量的泛化，与下行行列重画同一语义
-registerHolyFlameEnhancer(A => A.some(u => u.isXiaoZhaoSister && u.alive));
+registerHolyFlameEnhancer(A => !(globalThis.MING_ABLATION?.noSisterHex) && A.some(u => u.isXiaoZhaoSister && u.alive));
 
 // 圣火令增强：姊在场时每回合重画覆盖行列（原 core/11 hexEnhance 内联版逐字迁移；
 // 同位置同条件画 rng，序不变——140 基线二分保障）
 registerBuffRoundTransformer(BUFF_TYPES.HOLY_FLAME, (buff, rng, A, B) => {
     if (!(buff.target === CAMP_TYPES.ALLY || !buff.target)) return buff;
-    const hasSisterForHolyFlame = A.some(u => u.isXiaoZhaoSister && u.alive);
+    const hasSisterForHolyFlame = !(globalThis.MING_ABLATION?.noSisterHex) && A.some(u => u.isXiaoZhaoSister && u.alive);
     const hexEnhanceParams = requireSkillParams('小昭', 'hexEnhance');
     const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
     if (hasSisterForHolyFlame && !holyFlameEnhance) throw new Error('002-hex-enhance.json 缺 sister.holyFlame');

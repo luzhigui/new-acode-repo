@@ -18,7 +18,7 @@
 //   白吃明教姊回血）；(3)applyAttackResult 回传 cappedLoss（被 _dmgCap 吃掉的量），供伤害行/飘字
 //   印实际落地值（庄铮断锤三式此前报「造成 53」而血只掉 1）；(4)韦一笑闪避吸血的上限增量不再
 //   Math.floor 基准（floor 抹掉小数尾巴 => delta 比 heal 多零点几，体检 164 四处复发）。
-export const VER = 'core/212-battle-attack-chain.js V1.0.15';
+export const VER = 'core/212-battle-attack-chain.js V1.0.16';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -456,7 +456,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         if (reboundDmg > 0) {
             // 姊判定按「防御者阵营」取，与上面 allyBuffs_fortify / 下面 hasBrotherPermanent 同口径：
             //   旧版恒读 ctx.A（明教侧），六大派防御者吃严阵反弹时会白吃明教姊的回血。
-            const hasSister = !!targetTeamForFortify && targetTeamForFortify.some(u => u.isXiaoZhaoSister && u.alive);
+            const hasSister = !!targetTeamForFortify && !(globalThis.MING_ABLATION?.noSisterHex) && targetTeamForFortify.some(u => u.isXiaoZhaoSister && u.alive);
             // 姊强化回血开关读 002 sister.fortify.healOnRebound（此前写死「有姊就回血」，配置成为死数据）
             const fortifySisterCfg = hasSister ? getSkillParams('小昭', 'hexEnhance').fortify : null;
             if (hasSister && !fortifySisterCfg) throw new Error('002-hex-enhance.json 缺 sister.fortify');

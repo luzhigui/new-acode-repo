@@ -1,5 +1,5 @@
 {
- "ver": "8660430bf489510cd936830a1b456011b920aa07ac9d51e5a2c4957b433fe694",
+ "ver": "18f75b6d3fe2fa64395b1159e6ef8f54dcbab4eb7e6bfe2af539fa321cf23462",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 156,
  "files": [
@@ -29,7 +29,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "a4904dcfea15aefe5ccae92b9e6cd8d03a66b556070a59756ac176c44343c15c"
+   "1c10e3b3d33a34094a303a34d9a6576c71f183cf978ef6c139a095f50844cca1"
   ],
   [
    "core/205-battle-horse.js",
@@ -61,7 +61,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "d6a105938a36ea5abacc99f18a749c0702fcc580ecea6cddd63cca52cd369774"
+   "157dd7fd20eb18e90f7bae392d2114bd935555a9093e1645365bb960cc14a51c"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -245,7 +245,7 @@
   ],
   [
    "modules/302-elite-skills.js",
-   "481182c5f4c50f78905df8bfd4c0648e94f1a75a32793f70b802ff1cb4a23a30"
+   "83938d3b71594ca046c8e34f03104baea58e8ff2ce3ea279b5a082405289ccde"
   ],
   [
    "modules/303-error-capture.js",
@@ -305,7 +305,7 @@
   ],
   [
    "modules/317-elite-mingjiao.js",
-   "8b41e4d03ff777629c1c448bbc9da73f76bd4f44a5eeb36dab5a72eb40651366"
+   "74445e33bbb11ced94bd96413f0a9d3daa44ffef28ffe6227fc9341922fc368f"
   ],
   [
    "modules/318-elite-mingjiao-eagle.js",
@@ -325,7 +325,7 @@
   ],
   [
    "modules/322-elite-mingjiao-xiaozhao-sister.js",
-   "abd8da5ae530053e1678abeff2dc79c75b4dc90513062ffba86c1916b4a5ad1a"
+   "0f46117e26bb0e95f668b2b4a6ca7ebd4687dd42327164656fe5965a7bbfc47c"
   ],
   [
    "modules/323-elite-mingjiao-xiaozhao-brother.js",

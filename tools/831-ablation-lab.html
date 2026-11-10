@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧪 消融实验室 · 三因素归因</title>
+<style>
+    body { font-family: system-ui, sans-serif; background: #14161c; color: #dfe3ea; margin: 0; padding: 14px; font-size: 14px; }
+    h1 { font-size: 18px; margin: 4px 0 2px; }
+    .sub { color: #8b93a3; font-size: 12px; margin-bottom: 10px; line-height: 1.7; }
+    .card { background: #1c1f27; border: 1px solid #2c313d; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0; }
+    label { font-size: 13px; }
+    input[type="number"] { width: 70px; background: #14161c; color: #dfe3ea; border: 1px solid #3a4150; border-radius: 6px; padding: 4px 6px; }
+    .chk { display: inline-flex; align-items: center; gap: 4px; background: #232733; border: 1px solid #343b49; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+    .chk input { accent-color: #d4a24c; }
+    button { background: #d4a24c; color: #14161c; border: none; border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button.ghost { background: #2c313d; color: #dfe3ea; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    #bar { height: 10px; background: #232733; border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+    #barFill { height: 100%; width: 0%; background: linear-gradient(90deg,#d4a24c,#e6c37b); transition: width .2s; }
+    #progText { font-size: 12px; color: #8b93a3; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border: 1px solid #2c313d; padding: 6px 8px; text-align: center; }
+    th { background: #232733; color: #c9cfdb; font-weight: 600; }
+    td.small { color: #8b93a3; font-size: 11px; }
+    .delta-pos { color: #7ec97e; font-weight: 600; }
+    .delta-neg { color: #e08b8b; font-weight: 600; }
+    .armName { font-weight: 600; }
+    #result { overflow-x: auto; }
+    #attr { font-size: 13px; line-height: 1.9; }
+    .warn { color: #e0b56b; font-size: 12px; }
+    .err { color: #e08b8b; font-size: 13px; white-space: pre-wrap; }
+    .stamp { color: #6f7787; font-size: 11px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>🧪 消融实验室 · 姊三因素归因</h1>
+<div class="sub">
+    环境：自然阵容但<b>保证小昭·姊在场</b>（其余精英照常轮盘），海克斯开。<br>
+    三个开关逐一关掉，与基线同种子配对——差距就是该因素对胜率的贡献。机制分叉后各自演化，属消融固有性质。
+</div>
+
+<div class="card">
+    <div class="row">
+        <span>关卡：</span>
+        <label class="chk"><input type="checkbox" class="stage" value="2" checked>2</label>
+        <label class="chk"><input type="checkbox" class="stage" value="3" checked>3</label>
+        <label class="chk"><input type="checkbox" class="stage" value="4" checked>4</label>
+        <label class="chk"><input type="checkbox" class="stage" value="5" checked>5</label>
+        <label class="chk"><input type="checkbox" class="stage" value="6" checked>6</label>
+        <label class="chk"><input type="checkbox" class="stage" value="7" checked>7</label>
+        <span style="margin-left:14px">每臂每关场数：</span>
+        <input type="number" id="runs" value="200" min="20" step="20">
+        <label class="chk"><input type="checkbox" id="enemyHex">双海克斯（六大派也选）</label>
+    </div>
+    <div class="row">
+        <span>消融臂：</span>
+        <label class="chk"><input type="checkbox" id="armHex" checked>关姐姐海克斯</label>
+        <label class="chk"><input type="checkbox" id="armQk" checked>关乾坤衍生</label>
+        <label class="chk"><input type="checkbox" id="armAtt" checked>关附身</label>
+        <button id="btnRun">▶ 开始</button>
+        <button id="btnStop" class="ghost" disabled>■ 停止</button>
+        <button id="btnSave" class="ghost" disabled>💾 存结果</button>
+        <button id="btnLoad" class="ghost">📂 载入</button>
+    </div>
+    <div id="bar"><div id="barFill"></div></div>
+    <div id="progText">待命</div>
+    <div id="errBox" class="err"></div>
+</div>
+
+<div class="card" id="result" hidden>
+    <table id="tbl"></table>
+    <div id="attr" style="margin-top:10px"></div>
+    <div class="stamp" id="stamp"></div>
+</div>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const WORKER_URL = new URL('./816-role-balance-worker.js', import.meta.url);
+const STORE_KEY = 'ming_ablation_result';
+const TOOL_VER = '831 V1.0.0';
+
+const ARMS = [
+    { id: 'base', label: '全开（基线）', flags: {} },
+    { id: 'hex',  label: '关姐姐海克斯', flags: { noSisterHex: true } },
+    { id: 'qk',   label: '关乾坤衍生',   flags: { noQianKun: true } },
+    { id: 'att',  label: '关附身',       flags: { noAttach: true } },
+];
+const STAGE_ROWS = s => s === 3 ? ['胖远桥', '宋青书'] : ['标准'];
+
+let running = false, stopFlag = false;
+let lastRun = null;          // { masterSeed, runs, enemyHex, arms:{id:{stage:{variant:{runs,wins,draws,surv}}}} }
+let workers = [], poolSize = Math.min(4, (navigator.hardwareConcurrency || 4));
+
+function setErr(msg) { $('errBox').textContent = msg || ''; }
+function setProg(txt, done, total) {
+    $('progText').textContent = txt;
+    if (total > 0) $('barFill').style.width = Math.min(100, done / total * 100).toFixed(1) + '%';
+}
+
+function spawnWorker() {
+    return new Promise((resolve, reject) => {
+        const w = new Worker(WORKER_URL, { type: 'module' });
+        let ready = false;
+        w.onmessage = e => {
+            const d = e.data || {};
+            if (d.kind === 'worker-ready') {
+                ready = true;
+                if (d.ok) resolve(w);
+                else reject(new Error('worker 引擎启动失败: ' + (d.error || '未知')));
+                return;
+            }
+            w._onJob && w._onJob(d);
+        };
+        w.onerror = e => { if (!ready) reject(new Error('worker 加载失败: ' + (e.message || '未知'))); };
+        setTimeout(() => { if (!ready) reject(new Error('worker 启动超时')); }, 30000);
+    });
+}
+
+function runJobOn(w, payload) {
+    return new Promise((resolve, reject) => {
+        w._onJob = d => {
+            if (d.jobId !== payload.jobId) return;
+            w._onJob = null;
+            if (d.ok) resolve(d.result); else reject(new Error(d.error || 'worker job 失败'));
+        };
+        w.postMessage(payload);
+    });
+}
+
+async function runAll() {
+    if (running) return;
+    const stages = [...document.querySelectorAll('.stage:checked')].map(x => +x.value);
+    if (!stages.length) { setErr('至少勾一个关卡'); return; }
+    const runs = Math.max(20, +$('runs').value || 200);
+    const enemyHex = $('enemyHex').checked;
+    const arms = ARMS.filter(a => a.id === 'base' ||
+        (a.id === 'hex' && $('armHex').checked) ||
+        (a.id === 'qk' && $('armQk').checked) ||
+        (a.id === 'att' && $('armAtt').checked));
+
+    running = true; stopFlag = false;
+    $('btnRun').disabled = true; $('btnStop').disabled = false; $('btnSave').disabled = true;
+    setErr('');
+    const masterSeed = Date.now();
+    const shardRuns = Math.max(40, Math.ceil(runs / poolSize));
+    const jobs = [];
+    for (const arm of arms) for (const st of stages) {
+        const vs = STAGE_ROWS(st);
+        for (let s = 0, i = 0; s * shardRuns < runs; s++) {
+            const n = Math.min(shardRuns, runs - s * shardRuns);
+            jobs.push({ jobId: 'j' + (jobs.length), kind: 'ablation', stage: st, seed: masterSeed,
+                runs: n, flags: arm.flags, startIndex: i, enemyHex, _arm: arm.id, _stage: st });
+            i += n;
+        }
+    }
+    const total = arms.length * stages.length * runs;
+    let done = 0;
+    const acc = {};   // arm -> stage -> variant -> {runs,wins,draws,surv}
+    for (const a of arms) { acc[a.id] = {}; for (const st of stages) { acc[a.id][st] = {}; for (const v of STAGE_ROWS(st)) acc[a.id][st][v] = { runs: 0, wins: 0, draws: 0, surv: 0 }; } }
+
+    try {
+        workers = await Promise.all(Array.from({ length: poolSize }, () => spawnWorker()));
+        let next = 0;
+        const pump = async w => {
+            while (next < jobs.length && !stopFlag) {
+                const j = jobs[next++];
+                const r = await runJobOn(w, j);
+                for (const [v, a] of Object.entries(r.variants)) {
+                    const t = acc[j._arm][j._stage][v];
+                    t.runs += a.runs; t.wins += a.wins; t.draws += (a.draws || 0); t.surv += (a.sumSurv || 0);
+                }
+                done += j.runs;
+                const armLabel = arms.find(x => x.id === j._arm).label;
+                setProg('跑批中：' + armLabel + ' · 第' + j._stage + '关 · 已完成 ' + done + ' / ' + total + ' 场', done, total);
+            }
+        };
+        await Promise.all(workers.map(pump));
+        if (stopFlag) { setProg('已停止（已完成 ' + done + ' / ' + total + '）'); return; }
+        setProg('完成：' + total + ' 场', total, total);
+        lastRun = { ts: Date.now(), masterSeed, runs, enemyHex, arms: acc };
+        render(lastRun);
+        $('btnSave').disabled = false;
+    } catch (e) {
+        setErr('跑批失败：' + (e && e.message || e));
+    } finally {
+        running = false;
+        $('btnRun').disabled = false; $('btnStop').disabled = true;
+        workers.forEach(w => w.terminate()); workers = [];
+    }
+}
+
+const wr = x => x.runs ? (100 * x.wins / x.runs).toFixed(1) + '%' : '—';
+const cellSub = x => x.runs ? x.runs + ' 场' + (x.runs < 100 ? '（样本少）' : '') : '—';
+
+function render(run) {
+    const arms = ARMS.filter(a => run.arms[a.id]);
+    const stages = Object.keys(run.arms[arms[0].id]).map(Number).sort((a, b) => a - b);
+    const rows = [];
+    for (const st of stages) for (const v of STAGE_ROWS(st)) rows.push([st, v]);
+    // 总评
+    const agg = {};
+    for (const a of arms) {
+        agg[a.id] = { runs: 0, wins: 0, surv: 0 };
+        for (const st of stages) for (const v of STAGE_ROWS(st)) {
+            const c = run.arms[a.id][st][v];
+            agg[a.id].runs += c.runs; agg[a.id].wins += c.wins; agg[a.id].surv += c.surv;
+        }
+    }
+    let html = '<tr><th>关卡</th>' + arms.map(a => '<th>' + a.label + '</th>').join('') + '</tr>';
+    for (const [st, v] of rows) {
+        const name = st === 3 ? '第3关·' + v : '第' + st + '关';
+        html += '<tr><td>' + name + '</td>' + arms.map(a => {
+            const c = run.arms[a.id][st][v];
+            return '<td>' + wr(c) + '<br><span class="td small">' + cellSub(c) + '</span></td>';
+        }).join('') + '</tr>';
+    }
+    html += '<tr><th>总评</th>' + arms.map(a => {
+        const g = agg[a.id];
+        const wrP = g.runs ? (100 * g.wins / g.runs).toFixed(1) + '%' : '—';
+        const sv = g.runs ? (100 * g.surv / (g.runs * 5)).toFixed(1) + '%' : '—';
+        return '<th>' + wrP + '<br><span class="td small">' + g.runs + ' 场 · 姊存活 ' + sv + '</span></th>';
+    }).join('') + '</tr>';
+    $('tbl').innerHTML = html;
+
+    const baseWr = agg.base.runs ? 100 * agg.base.wins / agg.base.runs : null;
+    let attr = '<b>三因素贡献（基线 ' + (baseWr != null ? baseWr.toFixed(1) + '%' : '—') + '）</b><br>';
+    for (const a of arms) {
+        if (a.id === 'base') continue;
+        const g = agg[a.id];
+        if (!g.runs || baseWr == null) continue;
+        const wrP = 100 * g.wins / g.runs;
+        const d = wrP - baseWr;
+        const cls = d <= -0.5 ? 'delta-neg' : 'delta-pos';
+        attr += '<span class="' + cls + '">' + a.label + '：' + d.toFixed(1) + ' pp（' + baseWr.toFixed(1) + '% → ' + wrP.toFixed(1) + '%）</span>　—　降幅即该因素在「姊在场自然局」里的胜率贡献<br>';
+    }
+    attr += '<span class="warn">读法：降幅越大 = 该因素越值钱；接近 0 = 该因素在当前环境没怎么发力。平局计分母不计胜场。</span>';
+    $('attr').innerHTML = attr;
+    $('stamp').textContent = '种子 masterSeed=' + run.masterSeed + '｜每臂每关 ' + run.runs + ' 场｜' +
+        (run.enemyHex ? '双海克斯' : '单海克斯') + '｜' + TOOL_VER + '｜完成 ' + new Date(run.ts).toLocaleString('zh-CN');
+    $('result').hidden = false;
+}
+
+function mustSet(key, val) {
+    try { localStorage.setItem(key, val); }
+    catch (e) { throw new Error((e && e.name || 'Error') + '：存档写入失败，结果未保存（' + (e && e.message || '').slice(0, 40) + '）'); }
+}
+
+$('btnRun').addEventListener('click', runAll);
+$('btnStop').addEventListener('click', () => { stopFlag = true; $('progText').textContent = '停止中…'; });
+$('btnSave').addEventListener('click', () => {
+    if (!lastRun) return;
+    try { mustSet(STORE_KEY, JSON.stringify(lastRun)); setProg('已保存结果'); }
+    catch (e) { setErr(e.message); }
+});
+$('btnLoad').addEventListener('click', () => {
+    try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) { setErr('没有已保存的结果'); return; }
+        lastRun = JSON.parse(raw);
+        render(lastRun);
+        $('btnSave').disabled = false;
+        setProg('已载入 ' + new Date(lastRun.ts).toLocaleString('zh-CN'));
+    } catch (e) { setErr('载入失败：' + (e && e.message || e)); }
+});
+setProg('待命（worker 池 ' + poolSize + '）');
+</script>
+</body>
+</html>

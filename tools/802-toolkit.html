@@ -297,6 +297,12 @@
                 <span class="tc-desc">配对测机制触发与胜率 Δ</span>
                 <button class="tc-open">打开</button>
             </div>
+            <!-- 2026-11-10：消融实验室（姊三因素） -->
+            <div class="tc-card" data-tool="ablation">
+                <span class="tc-head"><span class="tc-icon">🧪</span><span class="tc-title">消融实验室</span></span>
+                <span class="tc-desc">姊海克斯/乾坤衍生/附身 三开关归因</span>
+                <button class="tc-open">打开</button>
+            </div>
             <!-- 2026-11-01：工具数据总览——各工具占用 + 分项清空（只碰工具结果，不动游戏存档） -->
             <div class="tc-card" data-tool="dataoverview">
                 <span class="tc-head"><span class="tc-icon">🗄️</span><span class="tc-title">工具数据总览</span></span>
@@ -546,6 +552,7 @@
                     if (key === 'logviewer') { window.openLogViewer(); return; }
                     if (key === 'paramlab') { openInPage('820-param-lab.html', '🧪 参数实验台'); return; }
                     if (key === 'elitecontrib') { openInPage('838-elite-contrib.html', '🧬 弱精英机制贡献'); return; }
+                    if (key === 'ablation') { openInPage('831-ablation-lab.html', '🧪 消融实验室'); return; }
                     if (key === 'dataoverview') { renderDataOverview(); }
                     const panel = document.getElementById(PANELS[key]);
                     if (!panel) return;
@@ -580,6 +587,7 @@
             { label: '834 创意摸奖 · 收藏', keys: ['ming_idea_pinned'] },
             { label: '835 参数扫描结果', keys: ['ming_param_scan_result', 'ming_param_search_result'] },
             { label: '838 弱精英机制贡献', keys: ['ming_weak_elite_contrib'] },
+            { label: '831 消融实验室结果', keys: ['ming_ablation_result'] },
             { label: '837 语音解说存档', keys: ['ming_voice_commentary'] }
         ];
         const lsAllKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };

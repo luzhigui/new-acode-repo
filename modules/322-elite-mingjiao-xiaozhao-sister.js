@@ -15,7 +15,7 @@
 // V1.0.9 | 2026-11-08 状态标签化：六处「找不受控的姊/妹」改问 isControlled()（core/218 标签表）。
 // V1.0.10 | 2026-11-08 known-transfers 第 3 条：_executeReturn 宿主阵亡分支补 removeModsByGroup(host,'butterfly')
 //   + refreshMaxHp，且放在飞回血量分母计算之前（旧版只清 _butterflyHost，宿主词条永久残留）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.10';
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.11';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -87,6 +87,7 @@ export function createXiaoZhaoSisterComponent() {
             const comp = this;
             // 乾坤衍生：DMG_REDUCTION 走声明，hp/atk 直改并记账
             function submitXiaoZhaoQianKunDerivedDeclaration(data) {
+    if (globalThis.MING_ABLATION?.noQianKun) return;   // 831 消融实验室：乾坤衍生关闭（831）
                 const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
                 if (!xiaoZhao) return;
                 const zhang = findAlive(A, 'isZhang');
@@ -151,6 +152,7 @@ export function createXiaoZhaoSisterComponent() {
             //   门槛与常规乾坤衍生一致（姊在场存活未眩晕、张无忌不在场、被爪者是友方）；
             //   受益池继续走 getBenefitTargets。条目随 payload 回传，由 core/10 落攻击组 entries。
             function submitClawQianKunDerived(data) {
+    if (globalThis.MING_ABLATION?.noQianKun) return;   // 831 消融实验室：乾坤衍生关闭（白骨爪通道）
                 const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
                 if (!xiaoZhao) return;
                 const zhang = findAlive(A, 'isZhang');
@@ -379,7 +381,7 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister) sister = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
             if (!sister || sister.state._butterflyHost) return null;
             const fsm = sister._fsm;
-            if (fsm && fsm.is('normal')) fsm.transition('attaching', { log });
+            if (fsm && fsm.is('normal') && !globalThis.MING_ABLATION?.noAttach) fsm.transition('attaching', { log });   // 831 消融实验室：附身关闭则保持地面形态
             return sister;
         },
         executeReturn(sister, A, log) {

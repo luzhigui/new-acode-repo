@@ -1,3 +1,4 @@
+// V1.22.0 | 2026-11-10 新增 kind:'ablation'（tools/831 消融实验室）——固定小昭·姊在场的自然队，按 globalThis.MING_ABLATION 三开关（关姐姐海克斯/关乾坤衍生/关附身）跑消融臂；开关只改「是否应用」，不改种子公式
 // V1.21.0/1 | 2026-11-08 统计口径修正（体检转交）：
 //   ③ V1.21.1 同款死守卫清出批处理 job：elite / soloElite / boss / noElite / weakElite / weakContrib / AB 配对
 //     里残留的 `if (!res.winner) continue` 全删，平局计入场次（各桶补 draws 计数），
@@ -905,6 +906,41 @@ try {
     self.postMessage({ kind: 'worker-ready', ok: false, error: String(err && err.message || err) });
 }
 
+// 831 消融实验室：固定「小昭·姊在场」的自然队跑一个消融臂。flags 三开关由主线程编排（互斥臂各自下单），
+//   战斗谓词实时读 globalThis.MING_ABLATION —— 开关只改「是否应用」，不改种子公式（runSoloEliteJob 同款）。
+//   同 (stage, startIndex+i) 种子跨臂复用 = 同起点配对；机制分叉后各自演化（机制消融固有性质）。
+function runAblationJob(stage, seed, runs, flags, startIndex = 0, enemyHex = false) {
+    globalThis.MING_ABLATION = { ...flags };
+    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0 });
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    try {
+        for (let i = 0; i < runs; i++) {
+            clearBattleGlobals();
+            GlobalStore.set('forceXiaoZhao', 'sister');   // 姊保证在场（其余精英自然轮盘），clear 会清需每场重设
+            const battleSeed = seed + (startIndex + i) * 7919;
+            const teams = initBattleTeams(stage, new SeededRNG(battleSeed));
+            const ally = teams.allyTeam.map(u => u.clone());
+            if (!ally.length) continue;
+            GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
+            const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
+            const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
+            const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
+            const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+            a.runs++;
+            if (!res.winner) a.draws++;
+            else if (res.winner === '明教') a.wins++;
+            const meInit = unitBy(teams.allyTeam, u => u.isXiaoZhaoSister);
+            const me = meInit ? finalUnitOf(res.ally, meInit.uid) : null;
+            if (me && me.alive) a.sumSurv++;
+        }
+    } finally {
+        globalThis.MING_ABLATION = null;   // 臂间隔离，不泄漏进其他 job
+    }
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) if (a.runs > 0) out[v] = a;
+    return { stage, variants: out };
+}
+
 self.onmessage = (e) => {
     const { jobId, kind } = e.data;
     eventBus.resetErrorTracker(); // 每 job 独立统计 hook 运行时错误（无 DOM 环境唯一可见通道）
@@ -953,6 +989,9 @@ self.onmessage = (e) => {
         } else if (kind === 'paired') {
             const { size, seed, startIndex, runs, hexEnabled, enemyHex } = e.data;
             result = runPairedJob(size, seed, startIndex || 0, runs, !!hexEnabled, !!enemyHex);
+        } else if (kind === 'ablation') {
+            const { stage, seed, runs, flags, startIndex, enemyHex } = e.data;
+            result = runAblationJob(stage, seed, runs, flags || {}, startIndex || 0, !!enemyHex);
         } else if (kind === 'baseline') {
             const { stage, seed, runs, cfgA, cfgB, hexEnabled, enemyHex } = e.data;
             result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB, !!hexEnabled, !!enemyHex);

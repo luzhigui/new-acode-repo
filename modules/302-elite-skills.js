@@ -9,7 +9,7 @@
 // V6.3.9 | 2026-11-08 状态标签化：张无忌可取性里的眩晕判定改问 isControlled()（core/218 标签表）。
 // V6.4.0 | 2026-11-09 飞行·猎杀成长去掉「只给明教」的阵营门槛：敌方飞行击杀我方同样涨攻/涨未命中，
 //   其余排除原样保留（只算杀敌、杀者须存活且 role=FLYER）。
-export const VER = 'modules/302-elite-skills.js V6.4.0';
+export const VER = 'modules/302-elite-skills.js V6.4.1';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -299,6 +299,7 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
+    if (globalThis.MING_ABLATION?.noSisterHex) return null;   // 831 消融实验室：姊版海克斯整包关闭，消费方回落普通版
     const xiaoZhao = findAlive(allyTeam, 'isXiaoZhaoSister');
     if (!xiaoZhao) return null;
     if (!hasBuff(activeBuffs, hexKey)) return null;

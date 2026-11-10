@@ -12,7 +12,7 @@
 //         纯妹永久场景仍由 modules/324 专属组件处理，不改 content 数值。
 // V6.9.1 | 2026-11-09 众志成城补员加攻击下限：防战吃 -8 职业攻后 m=15 基础攻可能为负（显示 0、百分比加成乘 0 仍是 0），
 //         改为攻 <1 补到 1，与防/血下限同口径写 _base*/_init*。
-export const VER = 'core/204-buff-system.js V6.9.1';
+export const VER = 'core/204-buff-system.js V6.9.2';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -42,7 +42,7 @@ export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
         }
         return;
     }
-    if (ctx.hasSister) applyHolyFlame_Sister(unit, null, activeBuffs, ctx.log);
+    if (ctx.hasSister && !globalThis.MING_ABLATION?.noSisterHex) applyHolyFlame_Sister(unit, null, activeBuffs, ctx.log);
     else applyHolyFlame_Normal(unit, null, activeBuffs, ctx.log);
 }
 
@@ -77,7 +77,7 @@ export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     if (!hasTeam && !permanentHit) return;
     const cfg = CONFIG.BUFFS.soulDrain;
     // 姊增强接线：仅团队版生效（施法方小昭·姊存活在场 → 减攻 -30%→-45%、逆风每多 1 人 -5%→-10%，hexEnhance.soulDrain）
-    const enhance = (hasTeam && ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').soulDrain || null) : null;
+    const enhance = (hasTeam && !(globalThis.MING_ABLATION?.noSisterHex) && ctx?.casterSide && ctx.casterSide.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').soulDrain || null) : null;
     const atkBase = enhance ? enhance.atkBonus : cfg.atkBonus;
     const perUnit = enhance ? enhance.perUnitBonus : cfg.perUnitBonus;
     const extra = ctx ? Math.max(0, ctx.targetAlive - ctx.casterAlive) : 0;
@@ -117,7 +117,7 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
 export function applyCarryBonus(unit, A, state, log) {
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
-    const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
+    const sister = !(globalThis.MING_ABLATION?.noSisterHex) && A.some(a => a.isXiaoZhaoSister && a.alive);
     // 姊版多目标位读 002 sister.carry.targetPositions（此前硬编码 [4,5,6]，改配置不生效）
     let carryPositions = [5];
     if (sister) {
@@ -177,7 +177,7 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
         && unit.state._permanentBuffs.some(b => b.key === BUFF_TYPES.LAST_STAND));
     if (!teamHas && !permOwned) return;
     
-    const enh = (teamHas && Array.isArray(team) && team.some(u => u.isXiaoZhaoSister && u.alive))
+    const enh = (teamHas && Array.isArray(team) && !(globalThis.MING_ABLATION?.noSisterHex) && team.some(u => u.isXiaoZhaoSister && u.alive))
         ? (getSkillParams('小昭', 'hexEnhance').lastStand || null) : null;
     const teamThreshold = (enh && enh.hpThreshold != null) ? enh.hpThreshold : (cfg.hpThreshold ?? 0.35);
     // 妹永久背水触发阈值：只在 permOwned 为真时才读 201——
@@ -370,7 +370,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     // 词条系统下，攻防由 getStat 统一计算；此处只保留闪避率计算
     let dodgeBonus = 0;
     if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && !unit.state._cloudBodySkip) {
-        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) dodgeBonus = applyCloudBodyDodge_Sister();
+        if (allyTeam && !(globalThis.MING_ABLATION?.noSisterHex) && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) dodgeBonus = applyCloudBodyDodge_Sister();
         else dodgeBonus = applyCloudBodyDodge_Normal();
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
         dodgeBonus = applyCloudBodyDodge_Brother();
@@ -415,7 +415,7 @@ export function submitBloodthirstDeclaration(data) {
 
     if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         // 姊强化：吸血率翻倍（普通 80% → 强化 160%，读 content hexEnhance.bloodthirst.leechRatio）
-        const enhanceBT = hasSister ? getSkillParams('小昭', 'hexEnhance').bloodthirst : null;
+        const enhanceBT = (hasSister && !globalThis.MING_ABLATION?.noSisterHex) ? getSkillParams('小昭', 'hexEnhance').bloodthirst : null;
         const leechRatio = (enhanceBT && enhanceBT.leechRatio != null) ? enhanceBT.leechRatio : C.BUFFS.bloodthirst.leechRatio;
         // 声明量必须填原值：core/16 LEECH handler 落账时还会再走一次截脉/寒毒打折，
         //   这里若直接填 preview 值会被打两次折（50% 变 25%）；preview 只用于飘字/审计「实际落地值」
@@ -662,7 +662,7 @@ export function registerMindControl(eventBus) {
             const buffs = allySide._activeBuffs || [];
             const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
             if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL)) {
-                if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
+                if (hasSister && !globalThis.MING_ABLATION?.noSisterHex) applyMindControl_Sister(unit, allySide, enemySide, log);
                 else applyMindControl_Normal(unit, allySide, enemySide, log);
             }
         }
@@ -711,7 +711,7 @@ export function submitHolyFireRecord(data) {
     if (owner) {
         // 名额：普通版 1 次；姊强化 reviveCount 可到 2 次。按队伍求和（已用 + 待复活占用），
         //   _holyFireUses 记在阵亡者本人 state（跨回合存活），故同一人第二次阵亡也能累加。
-        const hfEnh = owner.some(u => u.isXiaoZhaoSister && u.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
+        const hfEnh = (!(globalThis.MING_ABLATION?.noSisterHex) && owner.some(u => u.isXiaoZhaoSister && u.alive)) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
         const reviveCount = (hfEnh && hfEnh.reviveCount != null) ? hfEnh.reviveCount : 1;
         const usedCount = owner.reduce((n, u) => n + (((u.state && u.state._holyFireUses) || 0) + (u.state && u.state._holyFire === 'pending' ? 1 : 0)), 0);
         const pendingExists = owner.some(u => u.state && u.state._holyFire === 'pending');
@@ -748,7 +748,7 @@ function reviveHolyFireUnit(u, team, log, slot) {
     u.state[mark] = 'used';
     const cfg = C.BUFFS.holyFire || {};
     // 姊增强接线：复活方小昭·姊存活在场 → 回血 40%→60%（hexEnhance.holyFire）
-    const enhance = team.some(x => x.isXiaoZhaoSister && x.alive) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
+    const enhance = (!(globalThis.MING_ABLATION?.noSisterHex) && team.some(x => x.isXiaoZhaoSister && x.alive)) ? (getSkillParams('小昭', 'hexEnhance').holyFire || null) : null;
     // 妹永久名额（slot='self'）回血固定 30%（content.buffs.holyFire.brotherReviveRatio），
     //   不吃姊增强——与「永久版一律用团队基础值」的既定口径一致（圣火令/摄魂同款）
     // 妹独立名额（slot='self'）回血率唯一真源 = 201 brother.holyFire.reviveRatio（缺则炸）；
