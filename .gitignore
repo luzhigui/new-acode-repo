@@ -61,3 +61,6 @@ _repro.*
 
 # Pages 指纹发布副本（tools/build-versioned-site.mjs 产物，本地/CI 生成，永不入库）
 _site/
+
+# 会话临时件目录（临时补丁/日志/排查脚本/临时工作树 wt-*，运行期自动再生，不入库；2026-11-10 起忽略）
+/.tmp/
