@@ -6,7 +6,9 @@
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/207-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
 // V1.4.9 | ~35000 bytes | 2026-10-26 第 143 轮吸收夜间140：新增第四类「枚举成员未定义」（parseEnumMembers 现场解析 infra/56 为唯一来源 + scanEnumMemberRefs + 三条自证断言），专抓「ENUM.KEY 被引用但键不存在」的静默死分支（正是上游 5818419a 用 BUTTERFLY 顶掉 JAVELIN 的 P0 形态）；回填 158 注册项
-// V1.6.0 | 2026-11-10 新增第五类「运行时消息里的悬空文件编号」（scanStaleRuntimeRefs + 三条自证断言）。
+// V1.6.0 | 2026-11-10 新增第七类「运行时消息里的悬空文件编号」（scanStaleRuntimeRefs + 三条自证断言）。
+//   编号口径：本文件「第 N 类」按 result.slots 的**定义顺序**数（现 7 个槽位），与下方「检查 N」的
+//   另一套历史编号不同——两套并存是历史遗留，别把「检查 5」当成「第五类」。
 //   起因：排查 tools/819 全崩时，core/216 抛的 `[core/15] 未知顶层机制 type "dotTick"：未在 core/18 注册`
 //   里两个编号都不存在（真身 core/216-skill-mechanisms.js / core/219-mechanic-registry.js），
 //   照着错误信息去 core/15 找「分发名单」永远找不到，只能先反推编号映射——出故障时指错方向。
@@ -274,7 +276,7 @@ export function scanDeadFxAnchors(code) {
     return /\bfxAnchors\b/.test(stripComments(code));
 }
 
-// --- 第五类：运行时消息里的悬空文件编号（V1.6.0）---
+// --- 第七类（按 slots 定义顺序）：运行时消息里的悬空文件编号（V1.6.0）---
 // 根因（2026-11-10 实测，排查 tools/819 全崩时当场踩到）：
 //   全仓重编号后，注释与**运行时抛出的错误串**里仍留着旧短编号。注释只是脏，
 //   但错误串里的旧编号是**在出故障时指错方向**——最要命的一类假信息：
@@ -811,7 +813,7 @@ export async function runStaticScan() {
         const enumResp = await fetch(new URL('../infra/106-battle-enums.js', baseUrl).href + '?t=' + t0);
         if (enumResp.ok) enumMembers = parseEnumMembers(await enumResp.text());
     } catch (e) { /* 落空由 selfCheckEnumMembers 接管报红 */ }
-    // 第五类前置：按扫描面文件名现算「每层实际存在哪些编号」，不另维护清单
+    // 第七类前置：按扫描面文件名现算「每层实际存在哪些编号」，不另维护清单
     const layerNums = {};
     for (const rel of scan.files) {
         const mm = String(rel).replace(/^\.\.\//, '').match(/^([a-z]+)\/(\d{1,3})[^/]*$/);
@@ -950,7 +952,7 @@ if (isNode) {
         const slots = Object.values(r.slots);
         for (const s of slots) for (const it of s.issues) console.log('  ✗ [' + s.name + '] ' + it);
         const total = slots.reduce((n, s) => n + s.issues.length, 0);
-        // 类数由 slots 现数，不写死——V1.6.0 加第五类时这里还印着「六类」，与实际不符。
+        // 类数由 slots 现数，不写死——V1.6.0 加第七类时这里还印着「六类」，与实际不符。
         console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / ${slots.length} 类 issue 合计 ${total} 条`);
         if (total > 0) process.exit(1);
     })();
