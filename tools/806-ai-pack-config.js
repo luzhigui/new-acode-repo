@@ -1,3 +1,6 @@
+// V6.0.64 | 2026-11-10 补登记多会话协作三件（session-scope.json / session-scope-guard.mjs / session-start.mjs）；
+//           顺手归位头注：上一版 VER 已抬到 V6.0.63 但头注漏写，本版两端同步到 V6.0.64。
+// V6.0.63 | 2026-11-10 并行会话抬 VER（此处补记，未改任何清单内容）。
 // V6.0.62 | 2026-11-09 补登记 tests/transfer-exit-guard.mjs 与其基线 JSON
 //           （新挂 OBSERVES，漏登则包内队列守门直接找不到文件或读不到基线）。
 // V6.0.61 | 2026-11-06 补登记新普通兵三机制（301-reg-mechanics.js 已 import，漏登则包内装配断链）：
@@ -106,7 +109,7 @@
 //           属核心玩法不是纯演出层，原先剔除是误判）；② 新增 ARCHIVE_FILES + 第六个分组「📦 存档（不随包）」
 //           + 该组专用 GROUP_PROMPTS，存档件默认不勾选、不随主代码包/工具包发出。
 // 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
-export const VER = 'tools/806-ai-pack-config.js V6.0.63';
+export const VER = 'tools/806-ai-pack-config.js V6.0.64';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -405,6 +408,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/mutation-fp-eol-selftest.mjs',
     // 2026-11-09：转交队列出口守门 + 其存量基线（基线不进包则守门报「基线缺失」）
     '../tests/transfer-exit-guard.mjs', '../tests/transfer-exit-baseline.json',
+    // 2026-11-10：多会话文件所有权（守门 + 唯一真值表 + 启动提示词生成）
+    '../tests/_registry/session-scope.json', '../tests/session-scope-guard.mjs', '../tests/session-start.mjs',
     // 2026-11-08 自动补全：health-rules 173–266 被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/health-rules/173-hp-death-revive.js', '../tests/health-rules/174-ally-roster.js', '../tests/health-rules/175-ally-anchor-pos.js', '../tests/health-rules/176-enemy-stage-roster.js',
     '../tests/health-rules/177-enemy-mix-integrity.js', '../tests/health-rules/178-stage3-variant.js', '../tests/health-rules/179-hex-enhance-contract.js', '../tests/health-rules/180-damage-precision.js',

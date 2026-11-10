@@ -1,3 +1,9 @@
+// V1.50.0 | 2026-11-10 迭代：挂「多会话文件所有权守门」tests/session-scope-guard.mjs（新建 V1.0.0）。
+//   多会话并行时最难的不是 AI 能力，而是「公共层由框架会话单写」只是文字约定、没有机器可验；
+//   本仓已三次出事（改动被覆盖回退 / 全量入库扫入临时件 / 夜间合并冲突全落公共文件）。
+//   所有权表 tests/_registry/session-scope.json 是唯一真值，守门与启动提示词脚本共用，不抄第二份。
+//   ★ 未声明 HC_ROLE 时只跑「暂存区不得有 .tmp」通用红线 ⇒ 日常体检不因未设环境变量而变红。
+//   挂 OBSERVES + hard: true，不改 CHECKS 分母与退码口径。
 // V1.49.0 | 2026-11-09 迭代：挂「转交队列出口守门」tests/transfer-exit-guard.mjs（新建 V1.0.0）。
 //   由头：known-transfers.md 实测 169 条表格行 / 31 条已销项 / 138 条待销项、带销项条件 0 条，
 //   而 rules-replay 对转交规则不计退码 ⇒ 登记即长期免检。本件冻结存量、只拦基线被当调节阀，
@@ -219,7 +225,7 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.49.0';
+export const VER = 'tests/run-all.mjs V1.50.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -536,7 +542,10 @@ const OBSERVES = [
     // V1.49.0 | 2026-11-09：转交队列出口守门（详见头顶 V1.49.0 日志行）。
     //   存量 138 条待销项冻结进基线、只点名不判红；真正咬的是抽取器失位 / 基线被改坏 /
     //   借 --update-baseline 把队列洗长（基线只降不抬）。hard: true = 这些都是确定性缺陷。
-    { name: '转交队列出口守门', script: 'tests/transfer-exit-guard.mjs', args: [], hard: true }
+    { name: '转交队列出口守门', script: 'tests/transfer-exit-guard.mjs', args: [], hard: true },
+    // V1.50.0 | 2026-11-10：多会话文件所有权守门（详见头顶 V1.50.0 日志行）。
+    //   各会话开工/提交前设 HC_ROLE（+ HC_DOMAIN）自检越界；未设角色时只跑全量入库红线。
+    { name: '多会话文件所有权守门', script: 'tests/session-scope-guard.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。

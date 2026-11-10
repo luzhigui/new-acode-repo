@@ -1,0 +1,72 @@
+{
+  "$comment": "多会话协作的文件所有权唯一真值表。session-scope-guard.mjs（守门）与 session-start.mjs（启动提示词）共用本文件；域号段不在此复制，统一读 domains.json / rule-domains.json。改本表 = 改协作边界，需在体检迭代日志留痕。",
+  "version": "1.0.0",
+  "updated": "2026-11-10",
+  "env": { "role": "HC_ROLE", "domain": "HC_DOMAIN" },
+  "sharedTruth": {
+    "domains": "tests/_registry/domains.json",
+    "ruleDomains": "tests/_registry/rule-domains.json",
+    "note": "域号段与归属不在此复制，避免同一清单抄两份；守门只在需要校验 HC_DOMAIN 是否在册时读 domains.json。"
+  },
+  "roles": {
+    "domain": {
+      "desc": "域会话：只写本域规则文件、本域号段申请、定向用例、两份登记文档。公共四件一律交给框架面。",
+      "requiresDomain": true,
+      "allow": [
+        "^tests/health-rules/[^/]+\\.js$",
+        "^tests/_registry/requests/[^/]+\\.json$",
+        "^tests/[a-z0-9-]*case\\.mjs$",
+        "^tests/known-transfers\\.md$",
+        "^tests/体检迭代日志\\.md$"
+      ],
+      "warn": [
+        "^tests/_registry/(domains|rule-domains|contract-domains|mechanisms)\\.json$"
+      ]
+    },
+    "framework": {
+      "desc": "框架面会话：独占四个公共文件、注册表、打包清单；负责登记同步与清单挂载。",
+      "requiresDomain": false,
+      "allow": ["^tests/", "^tools/806-ai-pack-config\\.js$"]
+    },
+    "merge": {
+      "desc": "合流会话：三方合并、双推、写合入登记。越界判定对它跳过（合并结果本就横跨多域），通用红线仍生效。",
+      "requiresDomain": false,
+      "allow": [".*"],
+      "skipScopeCheck": true
+    }
+  },
+  "frameworkOnly": [
+    "^tests/run-all\\.mjs$",
+    "^tests/121health-monitor\\.js$",
+    "^tests/123static-scan\\.js$",
+    "^tests/124rule-recipes\\.js$",
+    "^tests/_registry/(domains|rule-domains|contract-domains|mechanisms)\\.json$",
+    "^tests/coverage-ledger\\.mjs$",
+    "^tools/806-ai-pack-config\\.js$"
+  ],
+  "commonHardDeny": [
+    "^tests/baselines/",
+    "^tests/\\.mut/",
+    "^tests/mutation-teeth\\.mjs$",
+    "^core/",
+    "^modules/",
+    "^render/",
+    "^ui/",
+    "^fx/",
+    "^player/",
+    "^infra/",
+    "^content/"
+  ],
+  "stagedTempDeny": [
+    "^\\.tmp/",
+    "^\\.workbuddy/",
+    "(^|/)_tmp-",
+    "\\.patch$",
+    "(^|/)nul$"
+  ],
+  "evidence": [
+    "2026-11-09：共享主仓时，本会话的清单自洽判据被并行会话覆盖回退，需从独立 worktree 副本取回。",
+    "2026-11-09：并行会话「全量入库」把本会话 41 个文件扫进他们的提交，commit 报 nothing to commit。",
+    "2026-11-10：夜间 200-203 合并 20 文件中 6 个冲突，全部落在公共文件；121 两边都大改需脚本补回 162 条规则。"
+  ]
+}
