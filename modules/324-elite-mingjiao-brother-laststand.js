@@ -117,7 +117,7 @@ function onRoundStartGrow(data) {
     addMod(brother, 'def', { source: '背水·战士成长', value: warriorBonus.def, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
     addMod(brother, 'maxHp', { source: '背水·战士成长', value: warriorBonus.maxHp, ttl: 'permanent', group: 'brotherLastStandWarriorGrow', op: 'add' });
     refreshMaxHp(brother, null, '背水·战士成长');
-    // 系统提示 + 头顶 💪 logo 飘字（2026-11-10 老板要求）：每次成长都可见，带累计次数
+    // 系统提示 + 头顶 ⚔️ logo 飘字（2026-11-10 老板要求：苦练的力量飘刀剑）：每次成长都可见，带累计次数
     brother.state._brotherLastStandGrowN = (brother.state._brotherLastStandGrowN || 0) + 1;
     if (data.log) {
         pushSkillAnnounce(data.log, brother, '背水·战士成长',
