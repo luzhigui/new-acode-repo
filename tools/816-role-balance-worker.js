@@ -1,3 +1,4 @@
+// V1.22.1 | 2026-11-10 ablation 分桶收窄：仅第3关拆双桶（第4关也带宋青书旗标，拆了 831 页面侧没格子直接崩）
 // V1.22.0 | 2026-11-10 新增 kind:'ablation'（tools/831 消融实验室）——固定小昭·姊在场的自然队，按 globalThis.MING_ABLATION 三开关（关姐姐海克斯/关乾坤衍生/关附身）跑消融臂；开关只改「是否应用」，不改种子公式
 // V1.21.0/1 | 2026-11-08 统计口径修正（体检转交）：
 //   ③ V1.21.1 同款死守卫清出批处理 job：elite / soloElite / boss / noElite / weakElite / weakContrib / AB 配对
@@ -925,7 +926,8 @@ function runAblationJob(stage, seed, runs, flags, startIndex = 0, enemyHex = fal
             const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
             const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
             const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-            const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+            // V1.22.1：只有第3关拆胖远桥/宋青书双桶——第4关等也带宋青书旗标，拆了页面侧没有对应格子（831 崩批根因）
+            const a = (stage === 3) ? (enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准'])) : variants['标准'];
             a.runs++;
             if (!res.winner) a.draws++;
             else if (res.winner === '明教') a.wins++;
