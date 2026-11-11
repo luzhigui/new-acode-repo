@@ -10,13 +10,16 @@
 //           （旧兜底值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
 // V1.0.6 | 2026-11-08 修 BUTTERFLY_HOST_DEAD.hostUid 恒 null：原在清空 _butterflyHost 之后才读它，
 //           现进函数先存 hostUidBeforeClear，清 state 后用存档值落 fact（体检实测 23/23 全 null）。
+// V1.0.12 | 2026-11-11 消融子开关三件套（老板拍板分化三子集）：noQianKunReduce/noQianKunHeal/noQianKunAtk
+//           各关各的（常规+白骨爪双路径同口径），noQianKun 总闸不变；子开关只跳过生效、掷骰照常消耗保序列逐位一致；
+//           渲染联动 410：缺哪段不吐哪段（不再渲染 null）
 // V1.0.7 | 2026-11-08 取消乾坤衍生减伤保底：calcQianKunReduce 不再读 s.minReduce、去掉 Math.max 保底，
 //           减伤回归纯公式；白骨爪多段小伤害可实打实穿透。content/001 的 minReduce 键随之移除。
 // V1.0.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V1.0.9 | 2026-11-08 状态标签化：六处「找不受控的姊/妹」改问 isControlled()（core/218 标签表）。
 // V1.0.10 | 2026-11-08 known-transfers 第 3 条：_executeReturn 宿主阵亡分支补 removeModsByGroup(host,'butterfly')
 //   + refreshMaxHp，且放在飞回血量分母计算之前（旧版只清 _butterflyHost，宿主词条永久残留）。
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.11';
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.12';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -87,8 +90,12 @@ export function createXiaoZhaoSisterComponent() {
             sister._fsm = fsm;
             const comp = this;
             // 乾坤衍生：DMG_REDUCTION 走声明，hp/atk 直改并记账
+            // V1.0.9 消融子开关三件套（老板拍板分化加攻/减伤/回血三子集）：noQianKunReduce / noQianKunHeal /
+            //   noQianKunAtk 各关各的，noQianKun 总闸不变（全关）。子开关只跳过「生效」，
+            //   掷骰照常消耗——随机数序列逐位一致，同种子配对消融臂才干净（残血光环两半同测同款纪律）
             function submitXiaoZhaoQianKunDerivedDeclaration(data) {
-    if (globalThis.MING_ABLATION?.noQianKun) return;   // 831 消融实验室：乾坤衍生关闭（831）
+    const abl = globalThis.MING_ABLATION || {};
+    if (abl.noQianKun) return;   // 831 消融实验室：乾坤衍生总闸（三子集全关，831）
                 const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
                 if (!xiaoZhao) return;
                 const zhang = findAlive(A, 'isZhang');
@@ -99,14 +106,17 @@ export function createXiaoZhaoSisterComponent() {
                 const defStat = getStat(target, 'def');
                 const dmg = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
                 const s = requireSkillParams('小昭', 'qianKunDerived');
-                const reduce = calcQianKunReduce(dmg, defStat, s);
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push({
-                    type: EFFECT_TYPES.DMG_REDUCTION,
-                    value: reduce,
-                    source: xiaoZhao,
-                    logText: null
-                });
+                let reduce = null;
+                if (!abl.noQianKunReduce) {
+                    reduce = calcQianKunReduce(dmg, defStat, s);
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({
+                        type: EFFECT_TYPES.DMG_REDUCTION,
+                        value: reduce,
+                        source: xiaoZhao,
+                        logText: null
+                    });
+                }
                 // 姐姐附身中不再吃乾坤衍生：附身=趴在宿主头顶的蝶形态（_flyMode='butterfly'），
                 //   不是地面作战单位，治疗/加攻候选池排除她；未附身（地面正常站位）时仍可被选中（老板拍板）
                 // 受益池收编 getBenefitTargets（03 裁判）：此前只排蝶/蛛，垂死、妹蛛 _spiderFlying、
@@ -117,17 +127,22 @@ export function createXiaoZhaoSisterComponent() {
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     // 实际落地值（截脉/寒毒打折后）只用于飘字/审计；
                     //   落账仍传原值——applyStatChange 内部会打折，传 preview 会二次打折
-                    const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') * s.defToHeal));   // V1.0.6 乘法口径：defToHeal 即回血比例
-                    const heal = previewHeal(healTarget, healRaw);
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') * s.defToAtk));     // V1.0.6 乘法口径：defToAtk 即加攻比例
-                    applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
-                    // 审计账本：记进 unit._audit.hp，零行为副作用
-                    recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗'); // 账本记实际落地值（与 fact heal 同口径；白骨爪路径已同口径）
-                    // 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
-                    //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
-                    addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
-                    emitHpChange(atkTarget);
+                    let heal = null, atkGain = null;
+                    if (!abl.noQianKunHeal) {
+                        const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') * s.defToHeal));   // V1.0.6 乘法口径：defToHeal 即回血比例
+                        heal = previewHeal(healTarget, healRaw);
+                        applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
+                        // 审计账本：记进 unit._audit.hp，零行为副作用
+                        recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗'); // 账本记实际落地值（与 fact heal 同口径；白骨爪路径已同口径）
+                    }
+                    if (!abl.noQianKunAtk) {
+                        atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') * s.defToAtk));     // V1.0.6 乘法口径：defToAtk 即加攻比例
+                        // 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
+                        //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
+                        addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
+                        emitHpChange(atkTarget);
+                    }
                     // 记账随 beforeDamageCalc 事件 data 携带，由 12 calcFinalDamage 收入 dmgCalc 返回，不落 unit
                     if (!data._derivedEntries) data._derivedEntries = [];
                     data._derivedEntries.push({
@@ -153,7 +168,8 @@ export function createXiaoZhaoSisterComponent() {
             //   门槛与常规乾坤衍生一致（姊在场存活未眩晕、张无忌不在场、被爪者是友方）；
             //   受益池继续走 getBenefitTargets。条目随 payload 回传，由 core/10 落攻击组 entries。
             function submitClawQianKunDerived(data) {
-    if (globalThis.MING_ABLATION?.noQianKun) return;   // 831 消融实验室：乾坤衍生关闭（白骨爪通道）
+    const abl = globalThis.MING_ABLATION || {};
+    if (abl.noQianKun) return;   // 831 消融实验室：乾坤衍生总闸（白骨爪通道）
                 const xiaoZhao = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
                 if (!xiaoZhao) return;
                 const zhang = findAlive(A, 'isZhang');
@@ -164,8 +180,9 @@ export function createXiaoZhaoSisterComponent() {
                 // 减伤半：基数=本爪实际伤害（老板拍板——不再拿攻击者普攻名义伤害算，
                 //   否则 0.6 的爪吃 2 点减伤直接归零）。爪小 → 套公式不足 1 → 保底取 1（最低限值），
                 //   实际效果：小爪被吃光、斩杀刀减 1 无关痛痒，乾坤衍生的肉在治疗+加攻上。斩杀照杀不减。
+                //   V1.0.9：noQianKunReduce 时减伤整段跳过（不写回 payload.reduce，白骨爪照扣全额）
                 let reduce = 0;
-                if (!data.noReduce) {
+                if (!abl.noQianKunReduce && !data.noReduce) {
                     const defStat = getStat(target, 'def');
                     reduce = calcQianKunReduce(data.dmg, defStat, s);
                     data.reduce = reduce;
@@ -174,17 +191,20 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length === 0) return;
                 const rng = getBattleRng();
                 const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                // 实际落地值只用于飘字/审计；落账传原值（applyStatChange 内部打折，传 preview 会二次打折）
-                const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') * s.defToHeal));   // V1.0.6 乘法口径：defToHeal 即回血比例
-                const heal = previewHeal(healTarget, healRaw);
                 const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') * s.defToAtk));     // V1.0.6 乘法口径：defToAtk 即加攻比例
-                applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
-                // 审计账本：记进 unit._audit.hp，零行为副作用
-                recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
-                // 属性只算不存：加攻改走 addMod 词条（同常规乾坤衍生，原直改 _baseAtk 绕过词条）
-                addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
-                emitHpChange(atkTarget);
+                // 掷骰照常消耗（序列保序），只跳过生效
+                let heal = null, atkGain = null;
+                if (!abl.noQianKunHeal) {
+                    const healRaw = Math.max(1, Math.floor(getStat(healTarget, 'def') * s.defToHeal));   // V1.0.6 乘法口径：defToHeal 即回血比例
+                    heal = previewHeal(healTarget, healRaw);
+                    applyStatChange(healTarget, 'hp', healRaw, xiaoZhao, '乾坤衍生治疗');
+                    recordHpAudit(healTarget, 'qianKunHeal', heal, '乾坤衍生治疗');
+                }
+                if (!abl.noQianKunAtk) {
+                    atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') * s.defToAtk));     // V1.0.6 乘法口径：defToAtk 即加攻比例
+                    addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
+                    emitHpChange(atkTarget);
+                }
                 if (!data.derivedEntries) data.derivedEntries = [];
                 const entryData = {
                     targetName: target.name,
