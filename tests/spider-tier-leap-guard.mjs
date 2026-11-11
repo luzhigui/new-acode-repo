@@ -1,3 +1,12 @@
+// V1.1.1 | 2026-11-11：① ③ 号结论原本写死「按 70 档接住」，降序后实际是 death ⇒ 改为如实报
+//   实际档位分布；② 新增 ④ 签名↔调用点参数个数护栏（落地补 hpBefore 时漏改两个调用点会静默失真）。
+// V1.1.0 | 2026-11-11 白天迭代：给守卫补「扫指定源码副本」与真源码正负路径自证。
+//   夜间 V1.0.0 的 --self-test 只拿手搓的 chain 对象喂判据，没有证明「真源码改好了守卫会转绿」；
+//   也无法在不改主代码的前提下验证处置方案。本版：
+//   ① --src=<path> 让守卫可扫改动后的源码副本（人工复核/合流前验证用，输出标明不代表当前主代码）；
+//   ② 自证新增两条**真源码形态**：把现状函数与按本仓验收口径修好的函数各写成源码串，
+//      走同一个 readTierChain 抽取器 + runGuard，断言现状必红、修好必全绿。
+//   ★ 三条判据、阈值来源、合成穷举口径一字未动；主代码零触碰。
 // tests/spider-tier-leap-guard.mjs | V1.0.0 | 2026-11-11 夜间第 207 轮
 //
 // 守什么：小昭·妹「飞天三档」的**跨档判定**必须看「受击前血量」，不能只看「受击后血量」。
@@ -40,14 +49,41 @@
 // 退出码：0 = 三条全过（口径已正确）；1 = 有可机检的跨档缺口（当前即此态，如实报）；
 //         2 = 守卫自身前提失效（找不到 decideSpiderTier / 内容表缺参数），先修守卫。
 //
-// 自检：node tests/spider-tier-leap-guard.mjs --self-test（合成样本，不依赖真实文件）
+// 自检：node tests/spider-tier-leap-guard.mjs --self-test（合成样本 + 真源码正负路径，不依赖真实文件）
+// 复核：node tests/spider-tier-leap-guard.mjs --src=.tmp/fixed-tier.js（扫改动后的源码副本）
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
-export const VER = 'tests/spider-tier-leap-guard.mjs V1.0.0';
+export const VER = 'tests/spider-tier-leap-guard.mjs V1.1.1';
+
+/**
+ * V1.1.1：函数签名 ↔ 调用点参数个数护栏。
+ *   落地「补 hpBefore 入参」时最容易漏的是两个调用点；漏了不会语法错，但 hpAfter 会接到
+ *   hpBefore 位置变成受击前血量，跨档判定静默失真。本函数只数参数个数（不解析表达式），
+ *   多个调用点逐个点名，零误报优先：签名抓不到就直接报前提失效。
+ */
+export function checkCallSiteArity(src) {
+    const text = String(src || '');
+    const sig = /function\s+decideSpiderTier\s*\(([^)]*)\)/.exec(text);
+    if (!sig) return ['找不到 decideSpiderTier 函数签名 ⇒ 无法核对调用点'];
+    const count = (s) => s.split(',').map(x => x.trim()).filter(Boolean).length;
+    const want = count(sig[1]);
+    const fails = [];
+    let calls = 0;
+    for (const m of text.matchAll(/decideSpiderTier\s*\(([^)]*)\)/g)) {
+        if (text.slice(Math.max(0, m.index - 12), m.index).includes('function')) continue; // 跳过定义本身
+        calls++;
+        const got = count(m[1]);
+        const line = text.slice(0, m.index).split('\n').length;
+        if (got !== want) fails.push('④ 调用点 L' + line + ' 传了 ' + got + ' 个参数，函数签名要 ' + want
+            + ' 个 ⇒ 改签名后漏改调用点，hpAfter 会接到错误位置（静默失真，非语法错）');
+    }
+    if (!calls) fails.push('④ 一个 decideSpiderTier 调用点都没抓到 ⇒ 取样面塌陷，不许把「没查」当「没问题」');
+    return fails;
+}
 
 const TIER_SRC = 'modules/323-elite-mingjiao-xiaozhao-brother.js';
 const CONTENT = 'content/001-game-data.json';
@@ -196,8 +232,12 @@ function runGuard({ chain, thresholds, verbose = false }) {
             + leaps[0].dmg + ' ⇒ 返回 ' + leaps[0].got + '（应 death）⇒ 该击直接打死，'
             + '最严重档与致死档（结茧）都不执行');
     } else {
+        // V1.1.0：旧文案写死「按 70 档接住」，但降序序列下这些样本实际判的是 death ⇒ 报告说谎。
+        //   改为如实报实际档位分布；本守卫只判「跨档致死必须 death」，不对非跨档样本选档拍板。
+        const gotDist = [...new Set(reasonable.map(r => String(r.got)))].sort().join('/') || 'null';
         notes.push('③ 合成穷举 ' + sampled + ' 个致死击，跨档形态（受击前已在线下）全部正确判 death'
-            + '（另有 ' + reasonable.length + ' 个「从阈值之上一次打死」按 70 档接住，属合理形态）');
+            + '（另有 ' + reasonable.length + ' 个「从阈值之上一次打死」的非跨档样本，实际判为 ' + gotDist
+            + '；本守卫不对此类选档拍板）');
     }
 
     if (verbose) for (const n of notes) console.log('  ✅ ' + n);
@@ -218,7 +258,72 @@ function selfTest() {
     const half = { order: ['death', '40', '70'], params: ['state', 'maxHp', 'hpAfter'], hasBeforeInfo: false, body: '' };
     const h = runGuard({ chain: half, thresholds: th });
     if (h.fails.length !== 1) { console.log('✗ 自检失败：「降序但无 hpBefore」应只命中 1 条，实际 ' + h.fails.length); err++; }
-    console.log(err ? '\n❌ 自检未通过 ' + err + ' 例（守卫判定逻辑本身坏了，结论一律不作数）' : '\n✅ 自检全部通过（三条判据都能咬住对应缺陷形态）');
+
+    // V1.1.0：真源码形态正负路径。上面三条喂的是手搓 chain 对象，没证明「真源码改好了守卫会转绿」。
+    //   这里走同一个 readTierChain 抽取器，把源码文本 → 判定序列 → runGuard 整条链跑通。
+    const OLD_SRC = [
+        'function decideSpiderTier(state, maxHp, hpAfter, fp) {',
+        "    if (!state._spiderTriggered70 && hpAfter <= maxHp * fp.hpThresholds[0]) return '70';",
+        "    if (!state._spiderTriggered40 && hpAfter <= maxHp * fp.hpThresholds[1]) return '40';",
+        "    if (!state._spiderTriggeredDeath && hpAfter <= 0) return 'death';",
+        '    return null;',
+        '}',
+        '// 后面还有别的代码：验证函数体截取不越界'
+    ].join('\n');
+    const FIXED_SRC = [
+        'function decideSpiderTier(state, maxHp, hpBefore, hpAfter, fp) {',
+        "    if (!state._spiderTriggeredDeath && hpBefore > 0 && hpAfter <= 0) return 'death';",
+        "    if (!state._spiderTriggered40 && hpAfter <= maxHp * fp.hpThresholds[1]) return '40';",
+        "    if (!state._spiderTriggered70 && hpAfter <= maxHp * fp.hpThresholds[0]) return '70';",
+        '    return null;',
+        '}'
+    ].join('\n');
+    try {
+        const cOld = readTierChain(OLD_SRC);
+        const cFix = readTierChain(FIXED_SRC);
+        if (cOld.error || cFix.error) {
+            console.log('✗ 自检失败：真源码样本抽取器报错 ' + (cOld.error || cFix.error)); err++;
+        } else {
+            const fOld = runGuard({ chain: cOld, thresholds: th }).fails;
+            const fFix = runGuard({ chain: cFix, thresholds: th }).fails;
+            if (!fOld.length || !fOld.some(x => x.includes('跨档致死缺口'))) {
+                console.log('✗ 自检失败：现状真源码竟没报跨档致死缺口 ⇒ 守卫把真缺陷洗绿了'); err++;
+            }
+            if (fFix.length) {
+                console.log('✗ 自检失败：按验收口径修好的真源码仍报 ' + fFix.length + ' 处（' + fFix[0] + '）'); err++;
+            }
+            if (cOld.order.join() !== '70,40,death' || cFix.order.join() !== 'death,40,70') {
+                console.log('✗ 自检失败：真源码判定序列抽取错位'); err++;
+            }
+        }
+    } catch (e) {
+        console.log('✗ 自检失败：真源码正负路径抛异常 ' + (e && e.message ? e.message : String(e))); err++;
+    }
+    // V1.1.1：④ 签名↔调用点护栏的正负路径（纯源码串，不读磁盘）
+    const ARITY_OK = [
+        'function decideSpiderTier(state, maxHp, hpAfter, fp) {',
+        '    return null;',
+        '}',
+        'const a = decideSpiderTier(s, m, hpAfter, fp);',
+        'const b = decideSpiderTier(s, m, hpAfter, fp);'
+    ].join('\n');
+    const ARITY_BAD = ARITY_OK.replace('function decideSpiderTier(state, maxHp, hpAfter, fp)',
+        'function decideSpiderTier(state, maxHp, hpBefore, hpAfter, fp)');
+    if (checkCallSiteArity(ARITY_OK).length) { console.log('✗ 自检失败：签名与两个调用点一致竟报 ④ ⇒ 假红'); err++; }
+    const aBad = checkCallSiteArity(ARITY_BAD);
+    if (aBad.length !== 2 || !aBad.every(x => x.includes('④ 调用点'))) {
+        console.log('✗ 自检失败：改了签名漏改两个调用点竟没被逐一点名，实际 ' + aBad.length + ' 条'); err++;
+    }
+    if (!checkCallSiteArity('// 没有函数也没有调用').length) {
+        console.log('✗ 自检失败：取样面空了竟没报 ④ ⇒ 把「没查」当「没问题」'); err++;
+    }
+    // ③ 结论文案不再写死档位：降序链下必须如实报实际分布
+    const gNotes = runGuard({ chain: good, thresholds: th }).notes;
+    if (!gNotes.some(n => n.includes('实际判为')) || gNotes.some(n => n.includes('按 70 档接住'))) {
+        console.log('✗ 自检失败：③ 结论文案回潮成写死档位或没如实报分布'); err++;
+    }
+    console.log(err ? '\n❌ 自检未通过 ' + err + ' 例（守卫判定逻辑本身坏了，结论一律不作数）'
+        : '\n✅ 自检全部通过（三条判据 + 手搓链 3 例 + 真源码正负 2 例 + 签名护栏/文案 3 例）');
     return err ? 1 : 0;
 }
 
@@ -227,24 +332,32 @@ function main() {
 
     const th = readThresholds();
     if (th.error) { console.log('⚠ 守卫前提失效：' + th.error); return 2; }
+    // V1.1.0：允许扫指定源码副本（合流前验证处置方案用）。未指定时仍只读真实主代码。
+    const srcArg = process.argv.find(a => a.startsWith('--src='));
+    const srcRel = srcArg ? srcArg.slice('--src='.length) : TIER_SRC;
+    if (srcArg) console.log('⚙ 注入源码副本（仅验证用，结论不代表当前主代码）：' + srcRel);
     let src;
     try {
-        src = readFileSync(join(REPO, TIER_SRC), 'utf8');
+        src = readFileSync(srcArg ? resolve(REPO, srcRel) : join(REPO, TIER_SRC), 'utf8');
     } catch (e) {
-        console.log('⚠ 守卫前提失效：读不到 ' + TIER_SRC + '：' + e.message);
+        console.log('⚠ 守卫前提失效：读不到 ' + srcRel + '：' + e.message);
         return 2;
     }
     const chain = readTierChain(src);
     if (chain.error) { console.log('⚠ 守卫前提失效：' + chain.error); return 2; }
 
-    const { fails, notes } = runGuard({ chain, thresholds: th.hpThresholds, verbose: true });
+    const guard = runGuard({ chain, thresholds: th.hpThresholds, verbose: true });
+    // V1.1.1：④ 签名↔调用点独立护栏，与三条判据的红合并后一起进退码。
+    const fails = guard.fails.concat(checkCallSiteArity(src));
+    const notes = guard.notes;
     console.log('\n飞天三档跨档判定守卫（阈值 ' + th.hpThresholds.map(t => (t * 100) + '%').join(' / ')
         + '，判定序列 ' + chain.order.join(' → ') + '）');
     if (fails.length) {
-        console.log('❌ 发现 ' + fails.length + ' 处跨档缺口（机械静态判定，未改主代码）：');
+        console.log('❌ 发现 ' + fails.length + ' 处问题（跨档判定 / 签名同步；机械静态判定，未改主代码）：');
         for (const f of fails) console.log('  ❌ ' + f);
-        console.log('\n建议（交白天拍板，夜间不动主代码）：把 decideSpiderTier 的判定改为「先致死、后阈值」并补受击前血量入参；'
-            + '改完本守卫应转 0。改前请先补负样本，确认旧口径确实会漏致死档。');
+        console.log('\n处置：按本守卫 --self-test 的验收口径改 decideSpiderTier（判定序列按严重度降序'
+            + ' + 入参补受击前血量，本击致死优先）；改完可用 --src=<副本> 在不碰主代码的前提下先验证本守卫转 0。'
+            + '三条判据与阈值来源均不动，不需要放宽任何标准。');
         return 1;
     }
     console.log('✅ 飞天三档跨档判定合规：' + notes.join('；'));
