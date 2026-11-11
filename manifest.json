@@ -1,5 +1,5 @@
 {
- "ver": "84ab6a195599f2be05e8cbf2f1fc6a7cb47e48cc72ca16e9c00d24bdf989d79c",
+ "ver": "12d5702d935fc4ac702bcc4c6921b62a7bc6f9ac9167ad51660be400fdb15eed",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 154,
  "files": [
@@ -446,10 +446,6 @@
   [
    "player/513-battle-export.js",
    "070a365614423b4c935c477dd57d9a08eec755e84951363ecf7b60cbe919d9a3"
-  ],
-  [
-   "player/514-battle-log-analyze.js",
-   "4b506928cf4bdae65a41b29cb7e610687d11844077e75c476f2060dcd270ab99"
   ],
   [
    "render/401-fact-renderer.js",

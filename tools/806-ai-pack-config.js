@@ -1,3 +1,7 @@
+// V6.0.67 | 2026-11-11 主代码「📊 走势分析」下线、分析代码搬进工具箱：
+//           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
+//              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
+//           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
 // V6.0.65 | 2026-11-11 弱精英评测从 812 拆出、独立成 802 页签：清单删 tools/838-elite-contrib.html（单页下线），
 //           补登记 tools/846-weak-elite-eval.js；顺手补漏登记 content/003-shop-config.json
 //           （805-shop.html 运行时 fetch，缺则包内商店页读不到配置）。
@@ -79,7 +83,7 @@
 //           render/414-role-cards.js（从 ui/69 迁入 render，62/65/32 已 import）
 // V6.0.21 | ~17800 bytes | 2026-10-08 补登记 9 个新文件（全仓比对清单与磁盘，补「被已登记文件 import 却漏登」的断裂链）：
 //           ui/710-role-cards.js（62/65/32 查名片表）、modules/301-reg-mechanics.js（61 机制装配单入口）、
-//           player/513-battle-export.js（42/61/64/68 战报导出）、player/514-battle-log-analyze.js（64 战报分析）、
+//           player/513-battle-export.js（42/61/64/68 战报导出）、player/514-battle-log-analyze.js（64 战报分析；2026-11-11 已迁 tools/845）、
 //           tools/824-param-lab-glossary.js（120 页面与 param-read-guard 共用参数表）、
 //           tests/health-rules/157-159（121health-monitor 已 import）、tests/mutation-teeth.mjs（变异测试主力）
 // V6.0.20 | ~11800 bytes | 2026-09-29 补登记 tests/health-rules/156-desc-truth-drift.js（参数单一真值源收口：
@@ -121,7 +125,7 @@
 //           属核心玩法不是纯演出层，原先剔除是误判）；② 新增 ARCHIVE_FILES + 第六个分组「📦 存档（不随包）」
 //           + 该组专用 GROUP_PROMPTS，存档件默认不勾选、不随主代码包/工具包发出。
 // 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
-export const VER = 'tools/806-ai-pack-config.js V6.0.66';
+export const VER = 'tools/806-ai-pack-config.js V6.0.67';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -171,7 +175,11 @@ export const AI_EXCLUDE = new Set([
 // 维护：新增存档件时在这里加一行 + archive/README.md 的表格加一行 + 在那里写清「怎么捡回来」。
 export const ARCHIVE_FILES = [
     '../archive/712-tutorial.js',   // 新手引导（原 ui/712-tutorial.js，2026-11-10 下线）
-    '../archive/713-opening-cg.js'  // 开场 CG（原 ui/713-opening-cg.js，2026-11-10 下线）
+    '../archive/713-opening-cg.js', // 开场 CG（原 ui/713-opening-cg.js，2026-11-10 下线）
+    // 2026-11-11 主代码「📊 走势分析」下线：分析模块从 player/514 搬进工具箱。
+    //   老板要求「复制包不要复制它，但复制器里要能看到、归到存档」→ 登记在这里（存档组默认不勾、
+    //   不随主代码包/工具包发出），803 的分组逻辑另有 ARCHIVE_ONLY 覆盖，把它从「工具」组挪进本组。
+    '../tools/845-battle-log-analyze.js'
     // 另外两件存档**有意不列**（列了就会出现在复制器里，徒增勾选的诱惑）：
     //   · archive/展示与CG/精英展示-04-…html  —— 524 KB，图鉴嵌页。列表里出现它只会诱导误勾，把包撑爆；
     //     要恢复照 archive/README.md 表格搬回 展示与CG/ 即可。
@@ -233,8 +241,10 @@ export const ALL_PROJECT_FILES = [
     '../player/504-player-play-step.js', '../player/505-player-stage-actions.js', '../player/506-player-step-sync.js',
     '../player/507-battle-player-5v5-test.js', '../player/508-event-handlers.js', '../player/509-attack-group.js', '../player/510-renderer.js',
     '../player/511-battle-report.js', '../player/512-battle-flow.js',
-    // 2026-10-08 补登记 50/51：玩家层战报导出（42/61/64/68 已 import）与战报日志分析（64 已 import）
-    '../player/513-battle-export.js', '../player/514-battle-log-analyze.js',
+    // 2026-10-08 补登记 50：玩家层战报导出（42/61/64/68 已 import）
+    // 2026-11-11 51（战报日志分析）已从 player 迁入工具箱 tools/845-battle-log-analyze.js，
+    //   按老板要求归「📦 存档」组、不随包 —— 见 ARCHIVE_FILES，不在此处登记
+    '../player/513-battle-export.js',
     // ui（UI 主控）
     '../ui/701-main-utils.js', '../ui/702-main-5v5-test.js', '../ui/703-ui-render-5v5-test.js',
     '../ui/704-main-state.js', '../ui/705-main-dialogs.js', '../ui/706-main-battle.js',
@@ -513,9 +523,7 @@ export const ALL_PROJECT_FILES = [
     //   属「网页端阅读需要」——漏登则包内工具箱点开这张卡 404。（对照：828/829/830 是本机 node 脚本，
     //   按本表 2026-09-26 定案不纳入、不补登。）
     '../tools/831-ablation-lab.html',
-    // 2026-11-11 补登记 839：弱精英测评浏览器版（802 备用工具卡片「🛡️ 弱精英测评」直接打开，原名「反伤类」已纠偏；
-    //   跑局走 core/206 runBattle；839-reflect-eval.mjs 是本机 node 脚本，按定案不随包）。
-    '../tools/839-reflect-eval.html',
+    // 2026-11-11 删 tools/839-reflect-eval.html：原「🛡️ 弱精英测评」单页已并入 802「🐦 弱精英评测」页签（846）
     // 2026-11-01 补登记：GitHub Pages 版本化构建 + 复制包清单自检（都是纯 Node 脚本，随包供网页端核对清单完整性）
     '../tools/build-versioned-site.mjs', '../tools/check-manifest.mjs',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；

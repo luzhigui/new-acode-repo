@@ -1,10 +1,11 @@
-﻿// tools/807-battle-log-viewer.js — 战报文件复盘（数据源与游戏内走势分析完全一致）
+// tools/807-battle-log-viewer.js — 战报文件复盘（数据源与游戏内走势分析完全一致）
 // 粘贴文本入口已删：文本没有 fact 结构，只能正则反推，精度差且新机制识别不到。
-// 现在只吃「🎬 保存战报」导出的 .json（含 steps），与 ui/705-main-dialogs 共用 analyzeBattleFacts。
-import { injectLogAnalyzeStyle, analyzeBattleFacts, collectFactsFromReport } from '../player/514-battle-log-analyze.js';
+// 现在只吃「🎬 保存战报」导出的 .json（含 steps）。2026-11-11 起游戏内「走势分析」已下线，
+// 解析/叙事/图表代码搬到 tools/845-battle-log-analyze.js，本页是它唯一的消费方。
+import { injectLogAnalyzeStyle, analyzeBattleFacts, collectFactsFromReport } from './845-battle-log-analyze.js';
 import { rehydrateReport, migrateReport } from '../player/513-battle-export.js';
 
-export const VER = 'tools/807-battle-log-viewer.js V2.0.0';
+export const VER = 'tools/807-battle-log-viewer.js V2.0.1';
 
 export function openLogViewer() {
   injectLogAnalyzeStyle();

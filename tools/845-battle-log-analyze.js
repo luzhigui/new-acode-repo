@@ -1,11 +1,13 @@
-// player/514-battle-log-analyze.js — 战斗日志分析（日志复盘 + 战报走势分析共用）
+// tools/845-battle-log-analyze.js — 战斗日志分析（工具箱战报复盘用；原 player/514-battle-log-analyze.js）
 // 纯解析 + 字符串渲染，不碰 core、不读引擎状态：输入日志文本 / battleLog 条目，输出 HTML。
 //   样式统一 hex-log- 前缀，injectLogAnalyzeStyle() 幂等注入一次。
-// 两处消费：工具箱「日志复盘」（粘贴文本）、战报弹窗「走势分析」（直接喂内存 battleLog）。
+// 2026-11-11 从 player/514 迁入工具箱：主代码「📊 走势分析」（ui/705 战报弹窗）已下线，
+//   本模块只剩工具箱 tools/807-battle-log-viewer.js 一个消费方。导入路径 ../infra/ 不变（tools 与 player 同级）。
 import { FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { fmtHpText } from '../infra/102-core-utils.js';
 
-export const VER = 'player/514-battle-log-analyze.js V1.4.1';
+export const VER = 'tools/845-battle-log-analyze.js V1.4.2';
+// V1.4.2 | 2026-11-11 从 player/514 迁入工具箱（主代码走势分析已下线）；仅改文件头与 VER，逻辑零改动。
 
 // ───────────────────────── 样式（幂等注入） ─────────────────────────
 const STYLE_ID = 'hexLogStyle';

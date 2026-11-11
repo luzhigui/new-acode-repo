@@ -1,4 +1,7 @@
-export const VER = 'tools/803-toolkit.js V6.2.9';
+export const VER = 'tools/803-toolkit.js V6.3.0';
+// V6.3.0 | 2026-11-11 tools/845-battle-log-analyze.js（主代码走势分析下线后搬进工具箱的分析模块）
+//           按老板要求归「📦 存档（不随包）」组：分组与目录索引都加 ARCHIVE_ONLY 覆盖，
+//           否则会被「../tools/」前缀先命中、落进「工具」组。只覆盖这一个文件，其余分组规则不动。
 // V6.2.9 | 2026-11-10 配合 archive/ 存档层：① 分组渲染给每组打 data-group 标记；
 //           ② 「全选」按钮跳过存档组（archive/），防止一键把所有下线存档件误勾进复制包——
 //              老板明确这些「不随包」，只允许在它自己那组里手动勾。
@@ -40,7 +43,13 @@ function escapeHtml(text) {
 
     // 分组整理
     FILE_GROUPS.forEach(g => g.files = []);
+    // 2026-11-11：这是个「物理在 tools/、逻辑归存档」的例外——前缀会被「工具」组先命中，故单列覆盖
+    const ARCHIVE_ONLY = new Set(['../tools/845-battle-log-analyze.js']);
     FILES.forEach(f => {
+        if (ARCHIVE_ONLY.has(f)) {
+            const ag = FILE_GROUPS.find(g => g.name === 'archive');
+            if (ag) { ag.files.push(f); return; }
+        }
         for (const g of FILE_GROUPS) {
             if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) {
                 g.files.push(f);
@@ -206,11 +215,18 @@ function escapeHtml(text) {
         L.push('');
         L.push(`## 三、目录索引（与复制包同源，共 ${ALL_PROJECT_FILES.length} 个文件；⊘ = 已剔出复制包，需要时按 raw 单读）`);
         const buckets = FILE_GROUPS.map(g => ({ label: g.displayName, files: [] }));
+        // 2026-11-11：与复制器分组同口径——tools/845 与「../tools/」前缀的归属冲突，按存档组算
+        const ARCHIVE_ONLY = new Set(['../tools/845-battle-log-analyze.js']);
+        const archiveIdx = FILE_GROUPS.findIndex(g => g.name === 'archive');
         ALL_PROJECT_FILES.forEach(f => {
             let idx = 0;
-            for (let i = 0; i < FILE_GROUPS.length; i++) {
-                const g = FILE_GROUPS[i];
-                if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) { idx = i; break; }
+            if (ARCHIVE_ONLY.has(f) && archiveIdx >= 0) {
+                idx = archiveIdx;
+            } else {
+                for (let i = 0; i < FILE_GROUPS.length; i++) {
+                    const g = FILE_GROUPS[i];
+                    if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) { idx = i; break; }
+                }
             }
             buckets[idx].files.push((AI_EXCLUDE.has(f) ? '⊘ ' : '  ') + f.replace(/^\.\.\//, ''));
         });

@@ -1,6 +1,9 @@
-// tools/846-weak-elite-eval.js —— 弱精英评测（工具箱「🐦 弱精英评测」页签）：全档位具名单位同种子直接 A/B 替换，出胜率 Δ
+// tools/846-weak-elite-eval.js —— 弱精英评测（工具箱「🐦 弱精英评测」页签）：M104/M100/M97 带技能单位同种子直接 A/B 替换，出胜率 Δ
 // ~14 KB
-export const VER = 'tools/846-weak-elite-eval.js V1.1.0';
+export const VER = 'tools/846-weak-elite-eval.js V1.1.1';
+// V1.1.1 | 2026-11-11 名单口径改「带技能」：候选过滤由 named===true 改成 skills 非空
+//   （依据 content/001-game-data.json：M104/M100/M97 三档且有 skills 的单位，共 14 个——明教 8 / 六大派 6；
+//   老板要求「M100 带技能的、M104 的、M97 反伤弟子（带技能）全部放进去」）。
 // V1.0.0 | 2026-11-11 从 812-elite-eval.js（V3.8.0）拆出：弱精英评测独立成工具箱「🐦 弱精英评测」页签，
 //   UI 元素 id 全部换新（#weakElite*、.weak-elite-stage-check），跑完写 localStorage['ming_elite_eval_snaps'] 一条只含 parts.weak 的快照。
 // V1.1.0 | 2026-11-11 名单与跑批换成 839-reflect-eval.html 那套：
@@ -86,11 +89,13 @@ function saveWeakSnap(part) {
     return { ok: true, msg: `✅ 已存弱精英快照（1 张表），现存 ${snaps.length} 条「精英评测」历史` };
 }
 
-// ============ 候选单位：运行时从游戏数据收集 M104/M100/M97 全部具名单位（同 839 collectCands） ============
+// ============ 候选单位：运行时从游戏数据收集 M104/M100/M97 且带技能的单位 ============
+// 依据 content/001-game-data.json：M104/M100/M97 三档且有 skills 的单位，共 14 个（明教 8 / 六大派 6）。
+//   以「带技能」为准，不再依赖 named 标记。
 function collectCands() {
     const out = [];
     for (const [n, c] of Object.entries((game && game.characters) || {})) {
-        if (!M_TIERS.includes(c.m) || c.named !== true) continue;
+        if (!M_TIERS.includes(c.m) || Object.keys(c.skills || {}).length === 0) continue;
         out.push({ name: n, camp: c.camp, m: c.m, side: c.camp === '明教' ? 'ally' : 'enemy' });
     }
     return out;
@@ -101,7 +106,7 @@ function renderCands() {
     candRowEl.innerHTML = cands.length
         ? '<span style="color:#aaa;font-size:12px;">候选：</span>'
           + cands.map(c => `<label><input type="checkbox" class="weak-elite-cand-check" value="${c.name}" checked>${c.name}（${c.camp} M${c.m}）</label>`).join('')
-        : '<span style="color:#888;font-size:12px;">没有匹配候选（M104/M100/M97 具名单位）</span>';
+        : '<span style="color:#888;font-size:12px;">没有匹配候选（M104/M100/M97 带技能单位）</span>';
 }
 
 // 启动：加载游戏数据后渲染候选；元素缺失则整块不启动（不注册监听、不抛错）

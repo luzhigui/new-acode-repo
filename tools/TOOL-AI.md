@@ -76,7 +76,7 @@
 
 - `802-toolkit.html` 工具箱主页：页面本体是文件复制器（`803` + `806` 清单），顶部 4 个入口按钮（📊 海克斯仪表盘 808 / ⚖️ 职业平衡 809 / ⚖️ 全随机站位 810 / 🚨 平衡告警 826）+ 底部「🧰 备用工具」折叠区 **11 张卡片**（统计一致性体检 813 / 精英基线对比 814 / 阵容分布搜索 815 / 创意摸奖 834 / 参数扫描 835 / 语音解说存档 836+837 / 日志复盘 807 / 参数实验台 820 / 弱精英机制贡献 838 / **消融实验室 831**（2026-11-10 新增）/ 工具数据总览（各工具 localStorage 占用 + 分项清空，只碰工具结果不动游戏存档））。
 - `805-shop.html`：圣火令商店 demo。**828 会拿它的 `HERO_META` 对账主代码 m 值**，改这里等于改契约。
-- `807-battle-log-viewer.js`：战报文件复盘，只吃「🎬 保存战报」导出的 .json（含 steps），与游戏内走势分析共用 `player/514-battle-log-analyze.js` 的 `analyzeBattleFacts`。粘贴文本入口已删——正则反推精度差且认不出新机制。
+- `807-battle-log-viewer.js`：战报文件复盘，只吃「🎬 保存战报」导出的 .json（含 steps），解析/叙事/图表走 `845-battle-log-analyze.js` 的 `analyzeBattleFacts`（2026-11-11 从 `player/514` 迁入工具箱；游戏内「📊 走势分析」已下线）。粘贴文本入口已删——正则反推精度差且认不出新机制。
 - `808-hex-dashboard.js`：海克斯看板，四模式分键存 localStorage；长期榜每条落 seed + 版本，跨版本合并会显式告警。
 - `809-role-balance.js` / `810-role-balance-random.html`：职业平衡（固定站位 / 全随机站位）。默认**关海克斯**，开海克斯时自动勾双海克斯保证对称；总胜率离 50% 多远才是结论。
 - `812-elite-eval.js`：精英评测，四张表 = 主表(`elite`) / 单英雄(`soloElite`) / 无精英基线(`noElite`) / 弱精英(`weakElite`)，结果进快照库（`ming_elite_eval_snaps`）。`⚔ 强精英胜率` 按钮走 `soloElite`；`weakContrib` 不是本页的，是 `838` 的观测通道。
@@ -91,7 +91,7 @@
 - `833-md-reader.html`：MD 阅读器，dev-index「文档与准则」的文本入口，用法 `?f=<仓库根相对路径>`，手机上看长文档不缩字。
 - `834-idea-lab.html`：创意摸奖，四类创意 × 三种摸法，合法性按 `content/001` 的 mechanics.type + 824 的 TYPE_GLOSSARY 判定。纯前端不跑战斗。
 - `835-param-scan.html`：参数扫描（A 敏感度含死参数清单 / B 贪心定向搜索），复用 822/823，不写新跑批逻辑。
-- `846-weak-elite-eval.js`：弱精英评测（工具箱「🐦 弱精英评测」页签，2026-11-11 从 812 拆出）。算法/口径/渲染 1:1 沿用 812 的弱精英表（`kind:'weakElite'`，natural 对照臂 + 每个弱精英一条臂，同 (关,分片) 同种子），跑完自动往 `ming_elite_eval_snaps` 写一条只含 `parts.weak` 的快照，826 照旧可读。
+- `846-weak-elite-eval.js`：弱精英评测（工具箱「🐦 弱精英评测」页签，2026-11-11 从 812 拆出）。算法/口径/渲染 1:1 沿用 812 的弱精英表（`kind:'weakElite'`，natural 对照臂 + 每个弱精英一条臂，同 (关,分片) 同种子），跑完自动往 `ming_elite_eval_snaps` 写一条只含 `parts.weak` 的快照，826 照旧可读。候选名单 = M104/M100/M97 且带技能的单位（按 `content/001-game-data.json` 共 15 个，明教 8 / 六大派 7）。原 `839-reflect-eval.html`（「🛡️ 弱精英测评」）**已并入本页签并删除该页面**。
 - `852-career-log.js`：生涯记录报表与导出。运行时记账在 `modules/332-career-log.js`（**唯一真源，`player/503` 直接 import 它，不再经 tools**）；本页只读摘要，单局 2~3KB、上限 200 局，不存 steps。
 
 **跑批真身都在 worker 里**——`822`/`827` 是纯逻辑，node 侧可直接 import；`816`/`817`/`823` 是浏览器 worker 脚本，

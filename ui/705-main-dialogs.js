@@ -3,7 +3,9 @@
 //   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
 // V6.5.2 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepVoteOpen/stepCountdown
 //           改为就地空实现（调用点未动）。恢复见 archive/README.md「二」。
-export const VER = 'ui/705-main-dialogs.js V6.5.2';
+// V6.5.3 | 2026-11-11 下线「📊 走势分析」：分析代码整体搬进工具箱 tools/845-battle-log-analyze.js，
+//           本文件删掉对应 import、走势分析容器与「📊 走势分析」/「📋 复制分析」两个按钮（战报数据表与复制战报不变）。
+export const VER = 'ui/705-main-dialogs.js V6.5.3';
 
 import { showModal, showAlert, copyLogToClipboard } from './701-main-utils.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
@@ -15,7 +17,6 @@ import { CONFIG } from '../core/201-config-5v5-test.js';
 const stepVoteOpen = () => {};
 const stepCountdown = () => {};
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/513-battle-export.js';
-import { injectLogAnalyzeStyle, analyzeBattleFacts } from '../player/514-battle-log-analyze.js';
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
 export function showBattleReport(battleResultForInfo) {
@@ -96,13 +97,6 @@ export function showBattleReport(battleResultForInfo) {
     tableDiv.style.cssText = 'flex:1 1 auto;min-height:0;min-width:0;overflow:auto;';
     box.appendChild(tableDiv);
 
-    // 走势分析容器（默认隐藏，点「📊 走势分析」后渲染内存 battleLog，与工具箱 107 共用 player/51）
-    // 挂 hex-log-box 类以复用其表格/卡片样式，内联覆盖外观融入战报弹窗
-    let analysisDiv = document.createElement('div');
-    analysisDiv.className = 'hex-log-box';
-    analysisDiv.style.cssText = 'display:none;background:transparent;border:none;padding:0;width:100%;max-height:none;min-width:0;flex:1 1 auto;min-height:0;overflow:auto;font-size:12px;';
-    box.appendChild(analysisDiv);
-
     function renderTable() {
         tableDiv.innerHTML = '';
         let sorted = [...allUnits].sort((a,b) => (b[sortBy]||0) - (a[sortBy]||0));
@@ -139,69 +133,6 @@ export function showBattleReport(battleResultForInfo) {
 
     // 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
     attachSaveBattleReportButton(btnDiv, () => getBattleRecording());
-
-    // 一键走势分析：把内存 battleLog 拍平喂给 player/51（与工具箱 107 同一套解析/叙事/图表）
-    let analyzeBtn = document.createElement('button');
-    analyzeBtn.textContent = '📊 走势分析';
-    analyzeBtn.style.cssText = 'background:#6a3de0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
-    let analysisShown = false;
-    let analysisRendered = false;
-    analyzeBtn.onclick = () => {
-        analysisShown = !analysisShown;
-        if (analysisShown) {
-            if (!analysisRendered) {
-                injectLogAnalyzeStyle();
-                const facts = GlobalStore.get('battleFacts') || [];
-                const r = analyzeBattleFacts(facts, { winner });
-                analysisDiv.innerHTML = `<div class="hex-log-summary" style="display:flex">${r.summaryHtml}</div>` + r.bodyHtml;
-                analysisRendered = true;
-            }
-            tableDiv.style.display = 'none';
-            sortBtnDiv.style.display = 'none';
-            analysisDiv.style.display = 'block';
-            analyzeBtn.textContent = '↩️ 返回数据表';
-            copyAnalysisBtn.style.display = '';
-        } else {
-            tableDiv.style.display = 'block';
-            sortBtnDiv.style.display = 'flex';
-            analysisDiv.style.display = 'none';
-            analyzeBtn.textContent = '📊 走势分析';
-            copyAnalysisBtn.style.display = 'none';
-        }
-    };
-    btnDiv.appendChild(analyzeBtn);
-
-    let copyAnalysisBtn = document.createElement('button');
-    copyAnalysisBtn.textContent = '📋 复制分析';
-    copyAnalysisBtn.style.cssText = 'background:#37474f;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;display:none;';
-    copyAnalysisBtn.onclick = () => {
-        const text = analysisDiv.innerText;
-        const fallbackCopy = (txt) => {
-            const ta = document.createElement('textarea');
-            ta.value = txt;
-            ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;';
-            document.body.appendChild(ta);
-            ta.focus(); ta.select();
-            let ok = false;
-            try { ok = document.execCommand('copy'); } catch (e) {}
-            document.body.removeChild(ta);
-            if (ok) {
-                copyAnalysisBtn.textContent = '✅ 已复制';
-                setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
-            } else {
-                alert('复制失败，请手动选择文本');
-            }
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => {
-                copyAnalysisBtn.textContent = '✅ 已复制';
-                setTimeout(() => { copyAnalysisBtn.textContent = '📋 复制分析'; }, 2000);
-            }).catch(() => fallbackCopy(text));
-        } else {
-            fallbackCopy(text);
-        }
-    };
-    btnDiv.appendChild(copyAnalysisBtn);
 
     let copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 复制战报';
