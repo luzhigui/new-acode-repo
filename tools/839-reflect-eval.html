@@ -27,6 +27,7 @@
     td .wr { font-size: 11px; color: #8b93a3; }
     .delta-pos { color: #7ec97e; font-weight: 600; }
     .delta-neg { color: #e08b8b; font-weight: 600; }
+    .delta-flat { color: #8b93a3; font-weight: 600; }
     #result { overflow-x: auto; }
     .err { color: #e08b8b; font-size: 13px; white-space: pre-wrap; }
     .stamp { color: #6f7787; font-size: 11px; margin-top: 8px; }
@@ -36,17 +37,17 @@
 <body>
 <h1>🛡️ 弱精英测评（M104 / M100 / M97）</h1>
 <div class="sub">
-    候选 = 档位内全部具名单位（都带技能）。跑局走 816 worker 池（配对臂法，与「⚔️ 精英强度评测」的弱精英表同口径）：<br>
-    同一批种子跑两臂——<b>自然臂</b>（原样阵容）vs <b>强制臂</b>（把一名普通成员换成候选，站位继承），<br>
-    Δ = 强制臂明教胜率 − 自然臂胜率（剔除候选自然登场局）。<b>Δ&gt;0 候选帮明教，Δ&lt;0 候选（敌方侧）压明教</b>。<br>
-    第 3 关胖远桥/宋青书变体已合并统计。反伤/场读引擎账本 unit.reboundDone。
+    候选 = 档位内全部具名单位（都带技能）。跑局走 816 worker 池，<b>同种子直接 A/B</b>（V3 算法，老板拍板换掉配对臂法）：<br>
+    同一颗种子跑两局——<b>自然局</b>（正式建队流原样）vs <b>换入局</b>（把该侧一名普通成员换成候选，站位继承），<br>
+    <b>Δ = 换入局明教胜率 − 自然局胜率</b>（明教侧候选 Δ&gt;0=帮明教；六大派侧候选 Δ&lt;0=压明教，即敌方变强）。<br>
+    候选<b>自然已在该侧登场</b>的场次整对剔除（两臂同弃，防「再带一个」重复效应污染 Δ；常客因此有效场次偏少，见总Δ下 runs）。翻盘列=逐场配对里输赢被改写的局数。第 3 关变体已合并。
 </div>
 
 <div class="card">
     <div class="row">
-        <label>每关场次 <input type="number" id="games" value="50" min="10" max="500" step="10"></label>
-        <label class="chk"><input type="radio" name="hexMode" value="single" checked>单海克斯</label>
-        <label class="chk"><input type="radio" name="hexMode" value="double">双海克斯</label>
+        <label>每关场次 <input type="number" id="games" value="100" min="10" max="500" step="10"></label>
+        <label class="chk"><input type="radio" name="hexMode" value="single">单海克斯</label>
+        <label class="chk"><input type="radio" name="hexMode" value="double" checked>双海克斯</label>
         <label>种子 <input type="text" id="seed" placeholder="留空=随机"></label>
         <button id="btnRun">▶ 开始测评</button>
         <button id="btnTsv" class="ghost" disabled>📋 复制 TSV</button>
@@ -61,11 +62,14 @@
 <div class="stamp" id="stamp"></div>
 
 <script type="module">
-// tools/839-reflect-eval.html — 弱精英测评（M104/M100/M97 档位全部带技能具名单位；浏览器版，工具箱常驻入口）
-// V2.0.0 | 2026-11-11 | 老板两条指令：① 删「仅反伤机制」过滤器（没意义）；② 加 7 个关卡选择 + 单/双海克斯。
-//   架构同步升级：不再主线程手搓固定阵容（会占死页面，仪表盘 V1.9.0 同款教训），
-//   改走 817 runParallel + 816 worker kind:'weakElite' 配对臂 job（与 812 精英强度评测同引擎口径），
-//   关卡/海克斯/阵容生成全部复用正式建队流（initBattleTeams），反伤列吃 816 V1.22.0 新增的 sumRebound。
+// tools/839-reflect-eval.html — 弱精英测评（M104/M100/M97 档位全部具名单位；浏览器版，工具箱常驻入口）
+// V3.0.0 | 2026-11-11 | 老板三连：① 默认双海克斯；② 空值/样式不合理→换算法根治；③ 配对臂法方向性假象
+//   （六大派带技能单位 Δ 为正）不可信 → 改「同种子直接 A/B」：worker 新 kind:'unitAB'（816 V1.23.0），
+//   自然局 vs 换入局逐场配对，victim=该侧非具名普通成员，新增翻盘↑/↓列。
+//   V3.1.0：无头复验发现常客单位「再带一个」重复效应造假负值（杨逍自然登场率 41%）→
+//   候选自然已在场场次两臂同弃（816 V1.23.1），14 单位全有数，总Δ 下显示有效配对场。
+//   默认场次 50→100；总Δ 附 95% 噪声带（±2√翻盘和/配对场），|Δ|≤噪声带置灰，着色统一按己方阵营增益。
+//   V2.0.0（同日）：worker 化 + 关卡/单双海克斯选择（weakElite 配对臂，已替换）。
 import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
 import { runParallel } from './817-shared-worker-runner.js';
 
@@ -83,7 +87,7 @@ async function boot() {
         $('stageRow').innerHTML = '关卡 ' + [1,2,3,4,5,6,7].map(s =>
             `<label class="chk"><input type="checkbox" class="stageChk" value="${s}" ${s !== 4 ? 'checked' : ''}>第${s}关</label>`).join('');
         renderCands();
-        $('stamp').textContent = `引擎 ${CONFIG.ENGINE_VER || '?'} · 档位 M${M_TIERS.join('/M')} · worker 配对臂（816 weakElite）`;
+        $('stamp').textContent = `引擎 ${CONFIG.ENGINE_VER || '?'} · 档位 M${M_TIERS.join('/M')} · worker 同种子 A/B（816 unitAB）`;
     } catch (e) {
         $('candRow').innerHTML = `<span class="err">加载失败：${e && e.message || e}</span>`;
     }
@@ -121,15 +125,15 @@ async function run() {
     $('btnRun').disabled = true;
     $('btnTsv').disabled = true;
     $('result').innerHTML = '';
-    const totalBattles = stages.length * runs * (units.length + 1);
-    $('progText').textContent = `准备开跑：${stages.length} 关 × ${runs} 场 × (${units.length} 候选 + 1 自然臂) ≈ ${totalBattles} 局（${enemyHex ? '双' : '单'}海克斯）…`;
+    const totalBattles = stages.length * runs * units.length * 2;
+    $('progText').textContent = `准备开跑：${stages.length} 关 × ${runs} 场 × ${units.length} 候选 × 2 局/场（自然+换入）≈ ${totalBattles} 局（${enemyHex ? '双' : '单'}海克斯）…`;
     $('barFill').style.width = '1%';
     await yieldUi();
 
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumRebound: 0, clean: {} });
+    const newAgg = () => ({ runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 });
     const byStage = {};
     for (const st of stages) {
-        byStage[st] = { __natural: newAgg() };
+        byStage[st] = {};
         for (const u of units) byStage[st][u.name] = newAgg();
     }
 
@@ -140,30 +144,18 @@ async function run() {
             const n = Math.min(CHUNK, runs - c * CHUNK);
             if (n <= 0) continue;
             const seed = masterSeed + stage * 131;
-            const startIndex = c * CHUNK;
-            jobs.push({ stage, seed, startIndex, runs: n, arm: 'natural', label: `第${stage}关#${c + 1}·自然臂` });
-            for (const u of units) jobs.push({ stage, seed, startIndex, runs: n, elite: u.name, side: u.side, label: `第${stage}关#${c + 1}·${u.name}` });
+            for (const u of units) jobs.push({ stage, seed, startIndex: c * CHUNK, runs: n, elite: u.name, side: u.side, label: `第${stage}关#${c + 1}·${u.name}` });
         }
     }
-
-    const mergeInto = (dst, d) => {
-        for (const [k, v] of Object.entries(d)) {
-            if (k === 'clean') { for (const [nm, c] of Object.entries(v || {})) { const t = dst.clean[nm] || (dst.clean[nm] = { runs: 0, wins: 0 }); t.runs += c.runs || 0; t.wins += c.wins || 0; } }
-            else if (typeof v === 'number') dst[k] = (dst[k] || 0) + v;
-        }
-    };
 
     try {
         await runParallel({
             jobs,
-            kind: 'weakElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite', enemyHex }),
+            kind: 'unitAB',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'unitAB', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, elite: job.elite, side: job.side, enemyHex }),
             onJobDone: (finished, total, job, part) => {
-                const key = job.arm === 'natural' ? '__natural' : job.elite;
-                for (const d of Object.values((part && part.variants) || {})) {
-                    const slot = byStage[job.stage] && byStage[job.stage][key];
-                    if (slot) mergeInto(slot, d);
-                }
+                const slot = byStage[job.stage] && byStage[job.stage][job.elite];
+                if (slot) for (const k of Object.keys(slot)) slot[k] += Number((part && part[k]) || 0);
                 $('barFill').style.width = (finished / total * 100).toFixed(1) + '%';
                 $('progText').textContent = `${job.label} 完成（${finished}/${total}）`;
             },
@@ -183,54 +175,62 @@ async function run() {
     }
 }
 
-// Δ = 强制臂胜率 − 自然臂 clean[该单位] 胜率（pp）；自然臂 clean 缺失时退回自然臂整体（并标注）
+// Δ = (换入胜 − 自然胜)/配对场 ×100；每单位都有数（换人失败是两臂同弃，逐场严格配对）
 function deltaOf(stAgg, name) {
-    const e = stAgg[name], nat = stAgg.__natural;
-    if (!e || !e.runs || !nat) return null;
-    const c = nat.clean && nat.clean[name];
-    const base = c && c.runs >= e.runs * 0.5 ? c : nat;
-    return { d: (e.wins / e.runs - base.wins / base.runs) * 100, wr: e.wins / e.runs * 100, runs: e.runs };
+    const e = stAgg && stAgg[name];
+    if (!e || !e.runs) return null;
+    return { d: (e.forceWins - e.natWins) / e.runs * 100, wr: e.forceWins / e.runs * 100, runs: e.runs, flipWin: e.flipWin, flipLose: e.flipLose };
+}
+function totalAgg(name) {
+    const t = { runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 };
+    for (const st of state.stages) {
+        const a = state.byStage[st] && state.byStage[st][name];
+        if (a) for (const k of Object.keys(t)) t[k] += a[k];
+    }
+    return t;
 }
 
 function renderTable(masterSeed, enemyHex) {
-    const agg = (u, k) => { let s = 0, r = 0; for (const st of state.stages) { const a = state.byStage[st][u]; if (a) { s += a[k]; r += a.runs; } } return r ? s / r : 0; };
-    const totalDelta = (u) => {
-        let er = 0, ew = 0, nr = 0, nw = 0;
-        for (const st of state.stages) {
-            const a = state.byStage[st][u]; if (a) { er += a.runs; ew += a.wins; }
-            const c = state.byStage[st].__natural.clean && state.byStage[st].__natural.clean[u];
-            if (c) { nr += c.runs; nw += c.wins; }
-        }
-        return er && nr ? (ew / er - nw / nr) * 100 : null;
-    };
-    const rows = state.units.map(u => ({ u, cells: state.stages.map(st => deltaOf(state.byStage[st], u.name)), totD: totalDelta(u) }))
-        .sort((a, b) => (b.totD ?? -999) - (a.totD ?? -999));
-    const fmtD = c => c ? `<td><span class="${c.d >= 0 ? 'delta-pos' : 'delta-neg'}">${c.d >= 0 ? '+' : ''}${c.d.toFixed(1)}</span><br><span class="wr">${c.wr.toFixed(0)}%</span></td>` : '<td class="wr">—</td>';
-    $('result').innerHTML = `<table><tr><th class="sticky-col">单位</th><th>阵营/M</th>${state.stages.map(s => `<th>第${s}关 Δ·胜率</th>`).join('')}<th>总Δ</th><th>输出/场</th><th>承伤/场</th><th>存活率</th><th>反伤/场</th></tr>` +
-        rows.map(({ u, cells, totD }) =>
-            `<tr><td class="sticky-col"><b>${u.name}</b></td><td class="wr">${u.camp} M${u.m}</td>${cells.map(fmtD).join('')}` +
-            `<td><span class="${(totD ?? 0) >= 0 ? 'delta-pos' : 'delta-neg'}">${totD == null ? '—' : (totD >= 0 ? '+' : '') + totD.toFixed(1)}</span></td>` +
-            `<td>${agg(u.name, 'sumDmg').toFixed(0)}</td><td>${agg(u.name, 'sumTaken').toFixed(0)}</td>` +
-            `<td>${(agg(u.name, 'sumSurv') * 100).toFixed(1)}%</td><td>${agg(u.name, 'sumRebound').toFixed(1)}</td></tr>`).join('') +
-        `</table><div class="sub" style="margin-top:6px">seed=${masterSeed} · ${enemyHex ? '双' : '单'}海克斯 · 每关目标 ${state.runs} 场。<br>` +
-        `「—」= 测不出 Δ：周颠/说不得/张中/彭莹玉这类几乎<b>每场强制出场</b>的单位，对照臂里也全是他们，没有「不含他」的样本可配——不是 bug，是「多带一个」这个问题对他们本就不成立。</div>`;
+    const rows = state.units.map(u => {
+        const cells = state.stages.map(st => deltaOf(state.byStage[st], u.name));
+        const t = totalAgg(u.name);
+        return { u, cells, t, totD: t.runs ? (t.forceWins - t.natWins) / t.runs * 100 : null };
+    }).sort((a, b) => {
+        const av = a.u.side === 'ally' ? 1 : -1;   // 影响力统一成「对己方阵营的增益」再排序
+        return (b.totD == null ? -999 : av * b.totD) - (a.totD == null ? -999 : av * a.totD);
+    });
+    // 着色统一按「对己方阵营的增益」：ally 取 Δ、enemy 取 −Δ；|Δ|≤95%噪声带时置灰（别拿噪声当结论）
+    const gainOf = (d, side) => side === 'ally' ? d : -d;
+    const marginOf = e => e.runs ? 2 * Math.sqrt(e.flipWin + e.flipLose) / e.runs * 100 : 0;
+    const cls = (d, side, margin) => Math.abs(gainOf(d, side)) <= margin ? 'delta-flat' : (gainOf(d, side) >= 0 ? 'delta-pos' : 'delta-neg');
+    const fmtD = (c, side) => c ? `<td><span class="${cls(c.d, side, marginOf(c))}">${c.d >= 0 ? '+' : ''}${c.d.toFixed(1)}</span><br><span class="wr">${c.wr.toFixed(0)}%</span></td>` : '<td class="wr">—</td>';
+    $('result').innerHTML = `<table><tr><th class="sticky-col">单位</th><th>阵营/M</th>${state.stages.map(s => `<th>第${s}关 Δ·换入胜率</th>`).join('')}` +
+        `<th>总Δ·噪声带</th><th>翻盘↑</th><th>翻盘↓</th><th>输出/场</th><th>承伤/场</th><th>存活率</th><th>反伤/场</th></tr>` +
+        rows.map(({ u, cells, t, totD }) => {
+            const m = marginOf(t);
+            return `<tr><td class="sticky-col"><b>${u.name}</b></td><td class="wr">${u.camp} M${u.m}</td>${cells.map(c => fmtD(c, u.side)).join('')}` +
+            `<td>${totD == null ? '—' : `<span class="${cls(totD, u.side, m)}">${totD >= 0 ? '+' : ''}${totD.toFixed(1)}</span><br><span class="wr">±${m.toFixed(1)} · ${t.runs}配对场</span>`}</td>` +
+            `<td>${t.runs ? (t.flipWin / t.runs * 100).toFixed(1) : '—'}</td><td>${t.runs ? (t.flipLose / t.runs * 100).toFixed(1) : '—'}</td>` +
+            `<td>${t.runs ? (t.sumDmg / t.runs).toFixed(0) : '—'}</td><td>${t.runs ? (t.sumTaken / t.runs).toFixed(0) : '—'}</td>` +
+            `<td>${t.runs ? (t.sumSurv / t.runs * 100).toFixed(1) + '%' : '—'}</td><td>${t.runs ? (t.sumRebound / t.runs).toFixed(1) : '—'}</td></tr>`;
+        }).join('') +
+        `</table><div class="sub" style="margin-top:6px">seed=${masterSeed} · ${enemyHex ? '双' : '单'}海克斯 · 每关目标 ${state.runs} 场（各单位有效配对场见总Δ下方）。` +
+        `Δ 是明教视角（明教候选 +好、六大派候选 −好），着色按己方增益：<b>绿=该单位帮自己阵营，灰=|Δ|≤±95%噪声带（别当结论）</b>。` +
+        `「翻盘↑/↓」= 每 100 配对场里输→赢 / 赢→输 的场数（TSV 里是原始次数）。单关列噪声大，跨关结论看总Δ。</div>`;
 }
 
 $('btnTsv').addEventListener('click', async () => {
     if (!state.byStage) return;
-    const head = ['单位', '阵营', 'M', ...state.stages.map(s => `第${s}关Δ`), '总Δ', '输出/场', '承伤/场', '存活率', '反伤/场'];
+    const head = ['单位', '阵营', 'M', ...state.stages.map(s => `第${s}关Δ`), '总Δ', '配对场', '95%噪声带', '翻盘↑', '翻盘↓', '输出/场', '承伤/场', '存活率', '反伤/场'];
     const lines = [head.join('\t')];
     for (const u of state.units) {
         const ds = state.stages.map(st => { const c = deltaOf(state.byStage[st], u.name); return c ? c.d.toFixed(1) : ''; });
-        let e = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 }, n = { runs: 0, wins: 0 };
-        for (const st of state.stages) {
-            const a = state.byStage[st][u.name]; if (a) for (const k of Object.keys(e)) e[k] += a[k];
-            const c = state.byStage[st].__natural.clean && state.byStage[st].__natural.clean[u.name];
-            if (c) { n.runs += c.runs; n.wins += c.wins; }
-        }
-        const totD = e.runs && n.runs ? (e.wins / e.runs - n.wins / n.runs) * 100 : null;
-        const per = k => e.runs ? (e[k] / e.runs).toFixed(1) : '';
-        lines.push([u.name, u.camp, 'M' + u.m, ...ds, totD == null ? '' : totD.toFixed(1), per('sumDmg'), per('sumTaken'), e.runs ? (e.sumSurv / e.runs * 100).toFixed(1) + '%' : '', per('sumRebound')].join('\t'));
+        const t = totalAgg(u.name);
+        const totD = t.runs ? ((t.forceWins - t.natWins) / t.runs * 100).toFixed(1) : '';
+        const margin = t.runs ? (2 * Math.sqrt(t.flipWin + t.flipLose) / t.runs * 100).toFixed(1) : '';
+        const per = k => t.runs ? (t[k] / t.runs).toFixed(1) : '';
+        lines.push([u.name, u.camp, 'M' + u.m, ...ds, totD, t.runs, margin, t.flipWin, t.flipLose, per('sumDmg'), per('sumTaken'),
+            t.runs ? (t.sumSurv / t.runs * 100).toFixed(1) + '%' : '', per('sumRebound')].join('\t'));
     }
     try { await navigator.clipboard.writeText(lines.join('\n')); $('progText').textContent = '已复制 TSV，可直接贴表'; }
     catch { $('progText').textContent = '剪贴板被拦，请在结果表手动选择复制'; }
