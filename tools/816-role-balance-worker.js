@@ -1,3 +1,5 @@
+// V1.23.3 | 2026-11-11 同款改名坑清剩余查表点：applyForcedWeakAlly / runUnitABJob 里 MING_M[elite]
+//   characters[elite] 改为「先运行时名、查不到退回「·」前主名」双查（当前调用方传主名，不踩坑；防将来传形态名）。
 // V1.23.2 | 2026-11-11 unitAB 替身判定修 bug：小昭建队时被改名为「小昭·姊/妹」，原 isNamed 用改名串查 characters
 //   查不到 → 被当成「非具名普通成员」换掉（M107 精英换 M104），实测 30% 的配对场 Δ 被系统性拉低约 15 点。
 //   现按形态标记 + 「·」前主名判定具名，小昭不再进替身池。
@@ -331,6 +333,10 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
 //   取 pos 最小者——站位每场随机洗，被换身份场间自然轮换、不偏向固定角色。
 //   计数配套：目标精英「自然混入已在场」的局强制臂跳过（自然臂 clean[name] 同剔这些局）——同种子
 //   同掷点，两臂样本逐场对应，Δ = 精英 vs 被换的普通成员，纯配对。
+// 小昭建队时被改名成「小昭·姊 / 小昭·妹」；凡拿运行时名查 characters / MING_M，
+//   一律先按运行时名、查不到退回「·」前主名（与 runUnitABJob 的 isNamed 同口径）。
+const baseNameOf = n => String(n || '').split('·')[0];
+
 function applyForcedWeakAlly(ally, elite, rng) {
     if (ally.some(u => u.name === elite)) return false;   // 自然混入已带他：不换人，外层跳过该局
     const isAnchor = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun || u.isHanLiSa;
@@ -340,10 +346,11 @@ function applyForcedWeakAlly(ally, elite, rng) {
         && !(isFront(u) && !ally.some(v => v !== u && isFront(v))));
     const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
     if (!victim) return false;
-    const m = CONFIG.MING_M[elite];
+    const m = CONFIG.MING_M[elite] ?? CONFIG.MING_M[baseNameOf(elite)];
     if (m == null) return false;
     // 职业解析与 29 明教混入块同口径：content role 字段 > tags 命中 CONFIG.ROLES
-    const ch = getGameData()?.characters?.[elite];
+    const chars = getGameData()?.characters || {};
+    const ch = chars[elite] || chars[baseNameOf(elite)];
     const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t));
     if (!role) return false;                              // 缺职业解析：当作精英未上场（与 !me continue 同口径）
     const unit = new Unit(elite, m, role, CAMP_TYPES.ALLY);
@@ -430,7 +437,6 @@ function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex =
     // ⚠️ 小昭在 330 建队时被改名成「小昭·姊 / 小昭·妹」，用改名后的字符串查 characters 查不到，
     //    会被误判成「非具名普通成员」而被换掉（M107 精英换 M104 → Δ 被系统性拉低约 15 点）。
     //    这里先按形态标记排除，再退回「·」前的主名查 named。
-    const baseNameOf = n => String(n || '').split('·')[0];
     const isNamed = u => {
         if (u.isXiaoZhaoBrother || u.isXiaoZhaoSister) return true;
         const ch = chars[u.name] || chars[baseNameOf(u.name)];
@@ -454,9 +460,9 @@ function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex =
         const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
         if (!victim) continue;                       // 无合格替身：两臂同弃（逐场对应）
         const mTable = side === 'ally' ? CONFIG.MING_M : CONFIG.ENEMY_M;
-        const ch = chars[elite];
+        const ch = chars[elite] || chars[baseNameOf(elite)];
         const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t)) || victim.role;
-        const unit = new Unit(elite, (mTable && mTable[elite]) || 100, role, side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
+        const unit = new Unit(elite, (mTable && (mTable[elite] ?? mTable[baseNameOf(elite)])) || 100, role, side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
         unit.pos = victim.pos;
         unit.init(new SeededRNG(s + 7));             // 独立 rng：不扰动建队流后续
         unit.applyBonus();
