@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// V1.2.0 | 2026-11-11：开工菜单显示 session-scope.json 里的 activeSessions（本轮已开工会话、
+//   锁定 tip、各自占用的域与号段），防止第三个会话又去抢同一个号段。
 // V1.1.0 | 2026-11-10：补「不带参数跑 = 输出开工菜单」，并明确写清
 //   「光跑命令不会让别的会话自动知道规矩，必须把输出整段粘到新会话第一条消息」。
 //   用户问「下次去哪里复制这个命令」⇒ 命令不该靠记：无参入口 + tests/多会话开工.md 固定落点。
@@ -16,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/session-start.mjs V1.1.0';
+export const VER = 'tests/session-start.mjs V1.2.0';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -118,6 +120,12 @@ session-scope-guard.mjs 只负责在你提交前兜底拦越界，不负责教�
 /** 不带参数时的开工菜单：不用记命令，跑一下就能看到三条可复制的命令。 */
 export function buildMenu(scope) {
     const roles = Object.keys(scope.roles || {});
+    const act = scope.activeSessions;
+    const activeBlock = (act && Array.isArray(act.sessions) && act.sessions.length)
+        ? `\n## 当前已开工的会话（别抢域）\n锁定基底：\`${act.lockedTip}\`（更新 ${act.updated}）\n`
+            + act.sessions.map(s => `- ${s.who}：${s.role}${s.domain ? ' / ' + s.domain : ''}`
+                + (s.slots ? '，号 ' + s.slots.join('、') : '') + ' — ' + (s.owns || '')).join('\n') + '\n'
+        : '';
     return `# 多会话开工：先选角色
 
 ★ 重要：光跑本命令不会让别的 AI 会话自动知道规矩。
@@ -140,6 +148,7 @@ node tests/session-start.mjs --role=merge --base=<锁定的 tip>
 <锁定的 tip> 这样拿：\`git fetch gh-ssh && git rev-parse gh-ssh/main\`
 
 也可以直接在对话里说「开个 D9 域会话」，让我生成并粘好。
+${activeBlock}
 改规矩只改三处：所有权表 tests/_registry/session-scope.json、守门、本脚本。
 `;
 }

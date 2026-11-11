@@ -64,6 +64,16 @@
     "\\.patch$",
     "(^|/)nul$"
   ],
+  "activeSessions": {
+    "$comment": "本轮并行作战板。由框架面会话（WorkBuddy）维护；域号段互不重叠，新会话开工前先看这里，别抢已分配的域。改这里不算改判据。",
+    "lockedTip": "f2dd68d3bfe30f6c5ea33674235d44a73dca6240",
+    "updated": "2026-11-11",
+    "sessions": [
+      { "who": "WorkBuddy", "role": "framework+merge", "owns": "四个公共文件 / 注册表 / 三方合并与双推" },
+      { "who": "DeepSeek harness", "role": "domain", "domain": "D12", "slots": [295, 296], "owns": "规则自检与假绿" },
+      { "who": "MiniMax", "role": "domain", "domain": "D13", "slots": [315, 316], "owns": "回放/倒针状态机（避开历史假条目 313/314）" }
+    ]
+  },
   "evidence": [
     "2026-11-09：共享主仓时，本会话的清单自洽判据被并行会话覆盖回退，需从独立 worktree 副本取回。",
     "2026-11-09：并行会话「全量入库」把本会话 41 个文件扫进他们的提交，commit 报 nothing to commit。",
