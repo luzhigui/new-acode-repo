@@ -105,6 +105,7 @@
                      周芷若/宋青书/张三丰/成昆/鹿杖客/鹤笔翁为固定关卡 boss（自然出场），2026-11-10 应老板要求撤销按钮 -->
                 <div style="display:flex;gap:0;margin-bottom:10px;">
                     <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
+                    <button class="big-btn btn-play" id="btnYuanZhen" style="flex:1;background:linear-gradient(135deg, #ffd54f, #5d4037);">🎭 圆真</button>
                     <button class="big-btn btn-play" id="btnSuWen" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
                 </div>
                 <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
@@ -717,6 +718,11 @@
         document.getElementById('btnYuLianZhou').addEventListener('click', () => {
             clearDemoFlags();
             mustSet('_forceSectUnit', '俞莲舟');
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnYuanZhen').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '少林圆真');
             window.location.href = 'index.html';
         });
         document.getElementById('btnSuWen').addEventListener('click', () => {
