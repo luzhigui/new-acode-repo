@@ -29,6 +29,8 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
                 const source = decl.sourceName ? allUnits.find(u => u.name === decl.sourceName) : null;
                 allUnits.forEach(u => {
                     if (!u.alive) return;
+                    // 免疫毒素（庄铮·断锤形态）：触发前已带毒的历史残留也不再结算
+                    if (u.state && u.state._immunePoison) return;
                     const st = u.state[decl.stateKey];
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;

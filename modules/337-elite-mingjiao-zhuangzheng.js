@@ -138,7 +138,9 @@ export const duanChuiHandler = {
             if (data.hostUid !== self.uid) return;
             if (!self.state._duanChuiTriggered) return;
             if (self.hp > keepHp) {
-                applyStatChange(self, 'hp', keepHp - self.hp, null, '蝶变飞回血量回退', false, false);
+                // ignoreCap=true：_dmgCap 会把负向 delta 夹到 -1，「回退到 5」就变成每次只削 1 点。
+                //   血量回退是形态收口、不是一次受伤，与 killUnit 同口径。
+                applyStatChange(self, 'hp', keepHp - self.hp, null, '蝶变飞回血量回退', false, false, true);
                 emitHpChange(self);
             }
         });

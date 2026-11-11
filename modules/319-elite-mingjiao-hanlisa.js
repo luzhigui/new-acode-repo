@@ -178,6 +178,8 @@ export function createHanLiSaComponent() {
                 // 寒毒结算（本组件自管，不依赖鹿杖客是否在场）
                 allUnits.forEach(u => {
                     if (!u.alive) return;
+                    // 免疫毒素（庄铮·断锤形态）：触发前已带毒的历史残留也不再结算
+                    if (u.state && u.state._immunePoison) return;
                     const st = u.state._hlsHanDu;
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;
