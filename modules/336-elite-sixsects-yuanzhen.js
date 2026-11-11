@@ -1,6 +1,9 @@
 // modules/336-elite-sixsects-yuanzhen.js — 少林圆真·现原形（六大派精英）
 // V1.0.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.0.3';
+// V1.1.0 | 2026-11-12 老板拍板两刀：①继承收窄——装混元霹雳劲+幻影伪装（变身模仿+变身回血），
+//           坚盾增幅（fortifyIncrementMul）按字段摘除不克隆 ②圆真本体职业不限死（001 摘防战 tag，
+//           resolveEnemyRole 每局随机摇；rebasePanel 不碰 role，变身后沿用摇到的职业不掰回防战）
+export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.1.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { installDeclaredSkills, buildMechanicDeclarations } from '../core/216-skill-mechanisms.js';
@@ -13,14 +16,21 @@ import { pushSkillAnnounce, requireSkillParams } from './305-elite-helpers.js';
 // 现原形 = 变回成昆：模板角色名即数据源，改角色时只改这里与 content
 const REVEAL_TEMPLATE = '成昆';
 
-// 把成昆的 mechanics 声明原样克隆给圆真（只换 name / camp），交给 core/15 统一安装。
+// 把成昆的 mechanics 声明按 2026-11-12 老板拍板筛选后克隆给圆真（只换 name / camp），core/15 统一安装：
+//   继承混元霹雳劲（已损失生命真伤）+ 幻影伪装（变身模仿 + 变身回血 healRatio）；
+//   坚盾增幅不继承——混元与坚盾同在成昆机制表第 1 条（attributeMods: fortifyIncrementMul），
+//   按字段摘除 attributeMods、保留 beforeDamageEffects（06:23 二次拍板「混元也加上」）。
 //   eventBus 每回合 clearAll，故每回合开始都要重装一次；reveal 当回合也要立刻装。
 function installChengkunPackage(eventBus, A, B, log, self) {
     const template = getGameData().characters?.[REVEAL_TEMPLATE];
     if (!template || !Array.isArray(template.mechanics) || template.mechanics.length === 0) {
-        throw new Error(`缺机制声明: characters.${REVEAL_TEMPLATE}.mechanics（少林圆真·现原形依赖成昆三件套）`);
+        throw new Error(`缺机制声明: characters.${REVEAL_TEMPLATE}.mechanics（少林圆真·现原形依赖成昆机制表）`);
     }
-    const declarations = buildMechanicDeclarations({ characters: { [REVEAL_TEMPLATE]: template } })
+    const pkg = { ...template, mechanics: template.mechanics
+        .map(m => { const { attributeMods, ...rest } = m; return rest; })
+        .filter(m => m.type || (Array.isArray(m.beforeDamageEffects) && m.beforeDamageEffects.length)
+                  || (Array.isArray(m.onHitEffects) && m.onHitEffects.length)) };
+    const declarations = buildMechanicDeclarations({ characters: { [REVEAL_TEMPLATE]: pkg } })
         .map(d => ({ ...d, name: self.name, camp: self.camp }));
     installDeclaredSkills(eventBus, A, B, log, declarations);
 }

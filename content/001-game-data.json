@@ -379,7 +379,7 @@
     },
     "少林圆真": {
       "named": true,
-      "tags": ["六大派", "少林", "防战"],
+      "tags": ["六大派", "少林"],
       "m": 100, "poolTier": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 15, "titleOrder": 3,
       "mechanics": [
         { "camp": "enemy", "type": "yuanzhenReveal" }

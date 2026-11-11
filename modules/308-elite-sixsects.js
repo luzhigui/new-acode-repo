@@ -13,7 +13,7 @@ import { createHeTaichongComponent } from './314-elite-sixsects-hetaichong.js';
 import { createKongJianComponent } from './316-elite-sixsects-kongjian.js';
 // 唐文亮（崆峒·战士·精英 m107）：七伤拳自损增伤 / 同归于尽反噬
 import { createTangWenLiangComponent } from './315-elite-sixsects-tangwenliang.js';
-// 少林圆真（少林·防战 m100）：现原形 → 继承成昆三件套
+// 少林圆真（少林 m100，职业每局随机摇）：现原形 → 继承混元霹雳劲+幻影伪装（变身模仿+回血），坚盾增幅不装（2026-11-12）
 import { yuanzhenRevealHandler } from './336-elite-sixsects-yuanzhen.js';
 
 // ========== 机制 handler 集中注册（core/18 注册表；handler 对象实现分别在各角色文件） ==========
