@@ -511,7 +511,7 @@ const CONFIG = {
     SPIDER_MIND_CONTROL_CHANCE: 0.20,      // 永久惑心误伤概率（27）
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
     ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
-    XUANMING_POISON_HEAL_REDUCE: 0.5,      // 寒毒抑疗：带寒毒目标受到的治疗再乘该系数（core/13，2026-10-22）
+    XUANMING_POISON_HEAL_REDUCE: 0.34,     // 寒毒抑疗：带寒毒目标受到的治疗再乘该系数（=减疗66%；2026-11-11 老板拍板减疗统一 66%，原 0.5=减50%）
     MASTERY_FULL_BONUS_LAYERS: 2,          // 小昭全精通后额外加的层数（20）
 
     get ELITE_POOL() {
