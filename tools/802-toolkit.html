@@ -20,7 +20,9 @@
         .page-clock { color: #7f8aa8; font-size: 11px; line-height: 1; padding: 4px 11px; background: #2a2a4e; border: 1px solid #333; border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; white-space: nowrap; }
 
         /* ========== 标签页导航 ========== */
-        .tab-nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; }
+        /* 2026-11-11：页签数会变（现 3 个），写死 repeat(2,1fr) 会把第 3 个挤到第二行半宽；
+           改 grid-auto-flow:column + grid-auto-columns:1fr —— 任意页签数都一行等宽排开 */
+        .tab-nav { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; }
         .tab-btn { padding: 10px 4px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tab-btn:hover { background: #3a3a6e; color: #ddd; }
         .tab-btn.active { background: #ffd700; color: #1a1a2e; }
@@ -215,6 +217,10 @@
         .cell-rate { font-weight: bold; }
         .cell-sub { color: #aaa; font-size: 11px; }
         .elite-v-th { writing-mode: vertical-rl; text-orientation: upright; height: 70px; white-space: nowrap; vertical-align: bottom; }
+        /* 2026-11-11 弱精英评测「候选单位」勾选区（M104/M100/M97 全档位具名单位，运行时收集）：
+           标签样式沿用 .elite-stage-group label 的灰字小号，只是允许换行 */
+        #weakEliteCandRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; }
+        #weakEliteCandRow label { color: #aaa; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 3px; }
         /* 2026-11-01：长说明折叠（一句 + 「略」点开） */
         .tip-more { color: #4fc3f7; cursor: pointer; font-weight: bold; user-select: none; }
         .tip-more-body { display: none; }
@@ -479,22 +485,25 @@
         <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方「🛡 无精英基线」按钮）</div></div>
     </div>
 
-    <!-- 2026-11-11 弱精英评测从「⚔️ 精英战力评测」页签拆出，独立成页签（算法/排版 1:1 照抄，实现在 846-weak-elite-eval.js） -->
+    <!-- 2026-11-11 弱精英评测从「⚔️ 精英战力评测」页签拆出，独立成页签（算法/排版 1:1 照抄，实现在 846-weak-elite-eval.js）
+         2026-11-11 V1.1.0：名单改为 M104/M100/M97 全档位具名单位（运行时从 game.characters 收集），跑批改 816 kind:'unitAB'（同种子直接 A/B） -->
     <div class="tab-content" id="tab-weak-elite">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            单测弱精英：同关同变体配同种子的「自然对照臂」，直接出胜率 Δ。<span class="tip-more">▸ 略</span>
+            全档位具名单位（M104 / M100 / M97）：同种子直接 A/B 替换，Δ = 换入局 − 自然局。<span class="tip-more">▸ 略</span>
         </p>
         <p class="tip-more-body" style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            明教侧（杨逍 / 殷天正）：116 建队完成后换掉一个普通位，两臂站位逐位全同，Δ = 精英本人 vs 被换掉的普通位。<br>
-            六大派侧（何太冲 / 唐文亮 / 空见）：锁定敌方 M104 数字空位再换名，Δ<0 = 明教更难打。<br>
-            每个弱精英一条臂 + 一条 natural 自然对照臂，同一 (关, 分片) 共用同一 seed；「本局自然出现该精英」的局两臂同剔，样本逐场对应。<br>
+            候选 = M104 / M100 / M97 三档全部具名单位（含 100/97 档反伤弟子），运行时从游戏数据收集，默认全选、可逐个取消。<br>
+            同一种子跑两局：<b>自然局</b>（正式建队流原样）vs <b>换入局</b>（把该侧一名普通成员换成候选，站位继承），逐场严格配对；<br>
+            Δ = 换入局明教胜率 − 自然局胜率。明教侧候选 Δ&gt;0 = 帮明教；六大派侧候选 Δ&lt;0 = 压明教（敌方变强）。<br>
+            候选<b>自然已在该侧登场</b>的场次整对剔除（两臂同弃，防「再带一个」重复效应污染 Δ，常客有效场次因此偏少）。<br>
+            总Δ 附 95% 噪声带（±2√翻盘和/配对场），|Δ|≤噪声带置灰；翻盘↑/↓ = 每 100 配对场里输→赢 / 赢→输 的场数。<br>
             跑完自动往「精英评测快照」（localStorage）写一条只含弱精英表的记录，平衡告警直接读取；本页签的场数 / 种子与「⚔️ 精英战力评测」页签互不影响。
         </p>
         <div class="elite-config">
-            <label>控制变量场数：</label>
-            <input type="number" id="weakEliteRunsInput" value="400" min="100" max="5000" step="100">
+            <label>每关场次：</label>
+            <input type="number" id="weakEliteRunsInput" value="100" min="10" max="5000" step="10">
             <label style="color:#aaa; font-size:12px;">种子：</label>
-            <input type="number" id="weakEliteSeedInput" placeholder="留空=自动" style="width:150px" title="填上次结果的 masterSeed 可按同样随机流重跑（每个 (关, 分片) 的自然对照臂与各精英臂共用同一 seed）">
+            <input type="number" id="weakEliteSeedInput" placeholder="留空=自动" style="width:150px" title="填上次结果的 masterSeed 可按同样随机流重跑（每关每分片的所有候选共用同一 seed）">
             <label style="color:#4fc3f7; font-size:12px;" title="不勾 = 只有明教选海克斯（历史口径）；勾选 = 六大派也自动选一次，与主游戏「双海克斯」一致"><input type="checkbox" id="weakEliteEnemyHex" checked> 双海克斯（六大派也选）</label>
             <div class="elite-stage-group">
                 <label>关卡：</label>
@@ -508,9 +517,10 @@
             </div>
             <button id="weakEliteStartBtn">▶ 开始评测</button>
             <span id="weakEliteSnapStatus"></span>
+            <div id="weakEliteCandRow"><span style="color:#888;font-size:12px;">候选名单加载中…</span></div>
         </div>
         <div class="elite-progress" id="weakEliteProgress"></div>
-        <div id="weakEliteResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方「▶ 开始评测」）——表内两张子表：明教侧 杨逍/殷天正、六大派侧 何太冲/唐文亮/空见，每格出胜率 + 相对自然对照的 Δ</div></div>
+        <div id="weakEliteResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡与候选单位后点上方「▶ 开始评测」）——表内两张子表：明教侧 / 六大派侧，每格出该关 Δ + 换入胜率，总行带 95% 噪声带与翻盘数</div></div>
     </div>
 
     <script>

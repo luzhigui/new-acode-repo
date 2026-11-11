@@ -1,55 +1,21 @@
-// tools/846-weak-elite-eval.js —— 弱精英评测（工具箱独立页签）：单弱精英强制上场 vs 同种子自然对照臂，直接出胜率 Δ
-// ~18 KB
-export const VER = 'tools/846-weak-elite-eval.js V1.0.0';
-// V1.0.0 | 2026-11-11 从 812-elite-eval.js（V3.8.0）拆出：弱精英评测独立成工具箱「🐦 弱精英评测」页签。
-//   算法 / 口径 / Δ 算法 / 渲染结构 1:1 搬迁（812 的 V1.13.1 干净对照、V3.1.0 建队后换人、V3.4.0 拆行口径全部保留）；
-//   UI 元素 id 全部换新（#weakElite*、.weak-elite-stage-check），避免与 812 抢元素；
-//   跑完写 localStorage['ming_elite_eval_snaps'] 一条只含 parts.weak 的快照，826 平衡告警照旧可读（它按表类型跨快照取最新一条）。
+// tools/846-weak-elite-eval.js —— 弱精英评测（工具箱「🐦 弱精英评测」页签）：全档位具名单位同种子直接 A/B 替换，出胜率 Δ
+// ~14 KB
+export const VER = 'tools/846-weak-elite-eval.js V1.1.0';
+// V1.0.0 | 2026-11-11 从 812-elite-eval.js（V3.8.0）拆出：弱精英评测独立成工具箱「🐦 弱精英评测」页签，
+//   UI 元素 id 全部换新（#weakElite*、.weak-elite-stage-check），跑完写 localStorage['ming_elite_eval_snaps'] 一条只含 parts.weak 的快照。
+// V1.1.0 | 2026-11-11 名单与跑批换成 839-reflect-eval.html 那套：
+//   ① 候选改成运行时从 game.characters 动态收集 M104/M100/M97 全部具名单位（named===true），side 由 camp 派生——
+//      替掉 827 的固定 5 人硬名单；页签新增「候选单位」勾选区（默认全选，#weakEliteCandRow）；
+//   ② worker kind 由旧的配对臂 kind 换成 'unitAB'（816 V1.23.0）：同种子跑自然局 + 换入局逐场配对，
+//      候选自然已在场场次两臂同弃，产出翻盘↑/↓ 与 95% 噪声带；
+//   ③ 呈现仍用 802 的 elite-table / elite-cell / elite-stage 类（明教侧 / 六大派侧两张子表）；
+//   ④ 默认场次 400 → 100；快照仍写 parts.weak 一条（结构与 826 读取口径一致，第 3 关变体合并进「标准」桶）。
 
 import { runParallel } from './817-shared-worker-runner.js';
-import { WEAK_ELITES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
-import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
+import { loadGameData, loadHexEnhanceData, VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-// 名单统一由 827-tool-registry.js 提供（弱精英 5 人 / 敌方变体），本文件只做形态适配
-const VARIANTS = ENEMY_VARIANTS;
-// 拆行口径（同 812 V3.4.0）：content 里只有第 3 关配了 squadVariants，所以「关卡变体」只属于第 3 关。
-//   其它关出现的同名精英来自六大派额外混入（M107/M100 档）或关卡固定阵容，不属于变体，不单列成行。
-const VARIANT_STAGE = 3;
-// 跨变体合并（数值字段累加；弱精英表的 clean 子表逐名累加）
-function mergeAgg(dst, d) {
-    if (!d) return dst;
-    for (const [k, v] of Object.entries(d)) {
-        if (k === 'clean') {
-            dst.clean = dst.clean || {};
-            for (const [nm, c] of Object.entries(v || {})) {
-                const t = dst.clean[nm] || (dst.clean[nm] = { runs: 0, wins: 0, draws: 0 });
-                t.runs += c.runs || 0; t.wins += c.wins || 0; t.draws += c.draws || 0;
-            }
-        } else if (typeof v === 'number') {
-            dst[k] = (dst[k] || 0) + v;
-        }
-    }
-    return dst;
-}
-// 该关要渲染的行：第 3 关 → 变体各一行；其余关 → 单行（全部桶合并）
-//   桶有两种形态：主表/单英雄表是 { 名字: agg }，无精英表直接是 agg —— 逐键按类型合并，两种都吃得下
-function rowsOfStage(st, byStage) {
-    const same = byStage[st] || {};
-    if (Number(st) === VARIANT_STAGE) return VARIANTS.map(v => ({ variant: v, bucket: same[v] }));
-    const merged = {};
-    for (const v of VARIANTS) {
-        const slot = same[v];
-        if (!slot) continue;
-        for (const [k, val] of Object.entries(slot)) {
-            if (val && typeof val === 'object') merged[k] = mergeAgg(merged[k] || {}, val);
-            else if (typeof val === 'number') merged[k] = (merged[k] || 0) + val;
-        }
-    }
-    return [{ variant: '标准', bucket: merged }];
-}
-
-const WEAK_ALLY = WEAK_ELITES.filter(w => w.side === 'ally');
-const WEAK_ENEMY = WEAK_ELITES.filter(w => w.side === 'enemy');
+const M_TIERS = [104, 100, 97];
+const CHUNK = 50; // 每片局数：细粒度分片——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
 const startBtn = document.getElementById('weakEliteStartBtn');
 const runsInput = document.getElementById('weakEliteRunsInput');
@@ -58,8 +24,9 @@ const enemyHexChk = document.getElementById('weakEliteEnemyHex');
 const progressEl = document.getElementById('weakEliteProgress');
 const resultEl = document.getElementById('weakEliteResult');
 const snapStatusEl = document.getElementById('weakEliteSnapStatus');
+const candRowEl = document.getElementById('weakEliteCandRow');
 
-const CHUNK = 50; // 每片局数：细粒度分片（同 812）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
+let game = null;
 
 // ============ 快照：跑完自动写一条只含弱精英表的快照（826 平衡告警按表类型跨快照取最新一条） ============
 const SNAP_KEY = 'ming_elite_eval_snaps';
@@ -88,20 +55,27 @@ function metaLine(m) {
 
 const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; } };
 
-// 存一条只含 weak 的快照：结构与 812 的表级记录一致（stages/runs/byStage/ts/seed/ver），826 直接读 parts.weak
-function saveWeakSnap(table) {
-    const snaps = readSnaps();
-    const rec = {
-        id: 'snap_' + Date.now(),
-        ts: Date.now(),
-        parts: {
-            weak: {
-                stages: [...table.stages], runs: table.runs,
-                byStage: JSON.parse(JSON.stringify(table.byStage)),
-                ts: table.ts || null, seed: table.seed ?? null, ver: table.ver || ''
-            }
+// 826 读的口径是 byStage[st][variant][名字]：桶里 __natural = 自然臂合计、名字 = 换入臂。
+//   unitAB 无变体拆桶（第 3 关变体已合并），统一写进「标准」桶，字段名仍按 826 的 runs/wins。
+function snapshotPart(stages, runs, byStage, meta) {
+    const part = { stages: [...stages], runs, byStage: {}, ts: meta.ts, seed: meta.seed, ver: meta.ver };
+    for (const st of stages) {
+        const slot = { __natural: { runs: 0, wins: 0 } };
+        for (const [name, a] of Object.entries(byStage[st] || {})) {
+            if (!a || !a.runs) continue;
+            slot[name] = { runs: a.runs, wins: a.forceWins };
+            slot.__natural.runs += a.runs;
+            slot.__natural.wins += a.natWins;
         }
-    };
+        part.byStage[st] = { '标准': slot };
+    }
+    return part;
+}
+
+// 存一条只含 weak 的快照：结构与 812 的表级记录一致（stages/runs/byStage/ts/seed/ver），826 直接读 parts.weak
+function saveWeakSnap(part) {
+    const snaps = readSnaps();
+    const rec = { id: 'snap_' + Date.now(), ts: Date.now(), parts: { weak: part } };
     snaps.unshift(rec);                                    // 新的排最前
     if (snaps.length > SNAP_LIMIT) snaps.length = SNAP_LIMIT;
     try {
@@ -112,74 +86,92 @@ function saveWeakSnap(table) {
     return { ok: true, msg: `✅ 已存弱精英快照（1 张表），现存 ${snaps.length} 条「精英评测」历史` };
 }
 
-// ============ 弱精英评测：单弱精英强制上场 vs 自然配对对照 ============
-// 口径（V3.1.0 路C，老板拍板）：明教侧 = 116 建队完成后「确定性替身换名」（两臂建队随机数逐数一致、
-//       站位逐位全同，Δ=纯精英贡献）；六大派侧 = M104 数字空位具名锁定（同「只换名」形态）；
-//       同一关同一变体配 natural 臂（同种子）作对照，表内直接出 Δ。胜 = 明教。
+// ============ 候选单位：运行时从游戏数据收集 M104/M100/M97 全部具名单位（同 839 collectCands） ============
+function collectCands() {
+    const out = [];
+    for (const [n, c] of Object.entries((game && game.characters) || {})) {
+        if (!M_TIERS.includes(c.m) || c.named !== true) continue;
+        out.push({ name: n, camp: c.camp, m: c.m, side: c.camp === '明教' ? 'ally' : 'enemy' });
+    }
+    return out;
+}
+function renderCands() {
+    if (!candRowEl) return;
+    const cands = collectCands();
+    candRowEl.innerHTML = cands.length
+        ? '<span style="color:#aaa;font-size:12px;">候选：</span>'
+          + cands.map(c => `<label><input type="checkbox" class="weak-elite-cand-check" value="${c.name}" checked>${c.name}（${c.camp} M${c.m}）</label>`).join('')
+        : '<span style="color:#888;font-size:12px;">没有匹配候选（M104/M100/M97 具名单位）</span>';
+}
+
+// 启动：加载游戏数据后渲染候选；元素缺失则整块不启动（不注册监听、不抛错）
+async function boot() {
+    if (!startBtn || !candRowEl) return;
+    try {
+        await loadHexEnhanceData();
+        game = await loadGameData();
+        renderCands();
+    } catch (e) {
+        candRowEl.innerHTML = `<span style="color:#ff5252;font-size:12px;">候选名单加载失败：${(e && e.message) || e}</span>`;
+    }
+}
+
+// ============ 弱精英评测：同种子直接 A/B（自然局 vs 换入局，逐场配对） ============
+// 口径（同 839 V3.1.0 / 816 kind:'unitAB'）：自然局 = 建队流原样；换入局 = 同种子重建阵容后把该侧一名普通成员
+//   换成候选（站位继承、独立 rng 初始化），逐场配对。候选自然已在场的场次两臂同弃；
+//   Δ = (换入胜 − 自然胜)/配对场；翻盘↑/↓ = 输→赢 / 赢→输 场数。胜 = 明教。
 async function runWeakEval() {
     const stages = Array.from(document.querySelectorAll('.weak-elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(runsInput && runsInput.value) || 400;
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
+    const cands = collectCands();
+    const checked = new Set(Array.from(document.querySelectorAll('.weak-elite-cand-check:checked')).map(cb => cb.value));
+    const units = cands.filter(c => checked.has(c.name));
+    if (!units.length) { alert('请至少勾选一个候选单位'); return; }
 
-    startBtn.disabled = true;
-    progressEl.textContent = '开始弱精英评测...';
-    resultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
-
-    // byStage[st][variant][key]：key = '__natural'（自然对照臂）或 弱精英名
-    // V1.13.1：natural 桶按名字带 clean[name]（该局两侧都没出现这个弱精英的统计）
-    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
-    const byStage = {};
-    for (const st of stages) {
-        byStage[st] = {};
-        for (const v of VARIANTS) {
-            byStage[st][v] = { __natural: newAgg() };
-            for (const w of WEAK_ELITES) byStage[st][v][w.name] = newAgg();
-        }
-    }
+    const RUNS = parseInt(runsInput && runsInput.value, 10) || 100;
+    const enemyHex = enemyHexOn();
     const startT = performance.now();
     const masterSeed = readSeed();
 
-    // 自然臂 + 5 精英臂共用同一 (stage,chunk) seed：配对差才干净
+    startBtn.disabled = true;
+    resultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
+    progressEl.textContent = `准备开跑：${stages.length} 关 × ${RUNS} 场 × ${units.length} 候选 × 2 局/场（自然+换入）…`;
+
+    // byStage[st][名字] = 该单位在该关的配对累加器（同 816 runUnitABJob 返回口径）
+    const newAgg = () => ({ runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 });
+    const byStage = {};
+    for (const st of stages) {
+        byStage[st] = {};
+        for (const u of units) byStage[st][u.name] = newAgg();
+    }
+
+    // 每关每个分片一个 seed，该分片内所有候选共用——同种子逐场配对才干净
     const jobs = [];
     for (const stage of stages) {
         const chunks = Math.ceil(RUNS / CHUNK);
         for (let c = 0; c < chunks; c++) {
-            const runs = Math.min(CHUNK, RUNS - c * CHUNK);
-            if (runs <= 0) continue;
+            const n = Math.min(CHUNK, RUNS - c * CHUNK);
+            if (n <= 0) continue;
             const seed = masterSeed + stage * 131;
-            const startIndex = c * CHUNK;
-            jobs.push({ stage, seed, startIndex, runs, arm: 'natural', label: `第${stage}关#${c + 1}·自然对照` });
-            for (const w of WEAK_ELITES) {
-                jobs.push({ stage, seed, startIndex, runs, elite: w.name, side: w.side, label: `第${stage}关#${c + 1}·${w.name}` });
-            }
+            for (const u of units) jobs.push({ stage, seed, startIndex: c * CHUNK, runs: n, elite: u.name, side: u.side, label: `第${stage}关#${c + 1}·${u.name}` });
         }
     }
 
     try {
         await runParallel({
             jobs,
-            kind: 'weakElite',
-            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex || 0, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite', enemyHex: enemyHexOn() }),
+            kind: 'unitAB',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'unitAB', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, elite: job.elite, side: job.side, enemyHex }),
             onJobDone: (finished, total, job, part) => {
-                const key = (part && part.arm === 'natural') ? '__natural' : job.elite;
-                for (const [variant, d] of Object.entries((part && part.variants) || {})) {
-                    const slot = byStage[job.stage] && byStage[job.stage][variant];
-                    const a = slot && slot[key];
-                    if (!a) continue;
-                    a.runs += d.runs; a.wins += d.wins; a.draws = (a.draws || 0) + (d.draws || 0);
-                    a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
-                    for (const [nm, c] of Object.entries(d.clean || {})) {
-                        const t = a.clean[nm] || (a.clean[nm] = { runs: 0, wins: 0, draws: 0 });
-                        t.runs += c.runs; t.wins += c.wins; t.draws += c.draws || 0;
-                    }
-                }
+                const slot = byStage[job.stage] && byStage[job.stage][job.elite];
+                if (slot) for (const k of Object.keys(slot)) slot[k] += Number((part && part[k]) || 0);
                 progressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
-                const table = { stages, runs: RUNS, byStage, ...batchMeta(masterSeed) };
-                renderWeakResults(table.byStage, table.stages, table);
+                const meta = batchMeta(masterSeed);
+                renderWeakResults(byStage, units, stages, { ...meta, runs: RUNS, enemyHex });
                 progressEl.textContent = `✅ 弱精英评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
-                snapStatusEl.textContent = saveWeakSnap(table).msg;    // 跑完自动存（不必手点）
+                if (snapStatusEl) snapStatusEl.textContent = saveWeakSnap(snapshotPart(stages, RUNS, byStage, meta)).msg;    // 跑完自动存（不必手点）
             }
         });
     } catch (e) {
@@ -191,96 +183,78 @@ async function runWeakEval() {
     }
 }
 
-function renderWeakResults(byStage, stages, meta) {
-    const sub = (title, list, note) => {
-        const anyData = stages.some(st => VARIANTS.some(v => list.some(w => byStage[st] && byStage[st][v] && byStage[st][v][w.name] && byStage[st][v][w.name].runs > 0)));
-        if (!anyData) return `<div style="font-weight:bold;margin:14px 0 6px">${title}</div><div class="elite-empty">本次该侧全部未上场，无数据</div>`;
+// ============ 结果渲染：明教侧 / 六大派侧两张子表，DOM 与样式沿用 elite-table 系列 ============
+// 单元格式（同 839 语义）：单关 = Δ + 换入胜率；总行 = Δ + 噪声带/配对场
+const gainOf = (d, side) => side === 'ally' ? d : -d;                      // 统一成「对己方阵营的增益」再判色
+const marginOf = e => e.runs ? 2 * Math.sqrt(e.flipWin + e.flipLose) / e.runs * 100 : 0;
+const deltaColor = (d, side, margin) => Math.abs(gainOf(d, side)) <= margin ? '#888' : (gainOf(d, side) >= 0 ? '#4caf50' : '#ff5252');
+
+function deltaOf(stAgg, name) {
+    const e = stAgg && stAgg[name];
+    if (!e || !e.runs) return null;
+    const d = (e.forceWins - e.natWins) / e.runs * 100;
+    return { d, wr: e.forceWins / e.runs * 100, runs: e.runs, flipWin: e.flipWin, flipLose: e.flipLose, margin: marginOf(e) };
+}
+
+function renderWeakResults(byStage, units, stages, meta) {
+    const num = (v, f) => v == null ? '—' : f(v);
+    const fmtD = d => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`;
+
+    const sideBlock = (title, list, note) => {
         let html = `<div style="font-weight:bold;margin:14px 0 6px">${title}</div>`;
-        html += '<table class="elite-table elite-table-fit"><colgroup><col style="width:120px">';
-        for (const w of list) html += '<col>';
-        html += '</colgroup><tr><th>关卡</th>';
-        for (const w of list) html += `<th class="elite-th">${w.name}</th>`;
-        html += '</tr>';
-        for (const st of stages) {
-            for (const { variant: v, bucket: slot } of rowsOfStage(st, byStage)) {   // 拆行口径同主表（V3.4.0）
-                if (!slot) continue;
-                if (!list.some(w => slot[w.name] && slot[w.name].runs > 0)) continue;
-                const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
-                html += `<tr><td class="elite-stage">${label}</td>`;
-                for (const w of list) html += weakCellHtml(slot[w.name], cleanBase(slot.__natural, w.name));
-                html += '</tr>';
+        if (!list.length) return html + '<div class="elite-empty">本次未勾选该侧候选</div>';
+        const rows = list.map(u => {
+            const cells = stages.map(st => deltaOf(byStage[st], u.name));
+            const t = { runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 };
+            for (const st of stages) {
+                const a = byStage[st] && byStage[st][u.name];
+                if (a) for (const k of Object.keys(t)) t[k] += a[k];
             }
+            const totD = t.runs ? (t.forceWins - t.natWins) / t.runs * 100 : null;
+            return { u, cells, t, totD };
+        }).sort((a, b) => {
+            const av = a.u.side === 'ally' ? 1 : -1;   // 按「对己方阵营的增益」排序
+            return (b.totD == null ? -999 : av * b.totD) - (a.totD == null ? -999 : av * a.totD);
+        });
+
+        html += '<table class="elite-table elite-table-fit"><tr><th class="elite-th">单位</th><th class="elite-th">阵营/M</th>';
+        for (const st of stages) html += `<th class="elite-th">第${st}关 Δ·换入胜率</th>`;
+        html += '<th class="elite-th">总Δ·噪声带</th><th class="elite-th">翻盘↑</th><th class="elite-th">翻盘↓</th>'
+            + '<th class="elite-th">输出/场</th><th class="elite-th">承伤/场</th><th class="elite-th">存活率</th><th class="elite-th">反伤/场</th></tr>';
+
+        for (const { u, cells, t, totD } of rows) {
+            const m = marginOf(t);
+            html += `<tr><td class="elite-stage">${u.name}</td><td class="cell-sub">${u.camp} M${u.m}</td>`;
+            for (const c of cells) {
+                html += c
+                    ? `<td class="elite-cell"><div class="cell-rate" style="color:${deltaColor(c.d, u.side, c.margin)}">Δ ${fmtD(c.d)}</div><div class="cell-sub">胜率 ${c.wr.toFixed(0)}%</div></td>`
+                    : '<td class="elite-cell">—</td>';
+            }
+            const totStyle = totD == null ? 'color:#888' : `color:${deltaColor(totD, u.side, m)}`;
+            html += `<td class="elite-cell"><div class="cell-rate" style="${totStyle}">${totD == null ? '—' : 'Δ ' + fmtD(totD)}</div>`
+                + `<div class="cell-sub">±${m.toFixed(1)} · ${t.runs} 配对场</div></td>`;
+            html += `<td class="elite-cell">${num(t.runs ? t.flipWin / t.runs * 100 : null, v => v.toFixed(1))}</td>`
+                + `<td class="elite-cell">${num(t.runs ? t.flipLose / t.runs * 100 : null, v => v.toFixed(1))}</td>`
+                + `<td class="elite-cell">${num(t.runs ? t.sumDmg / t.runs : null, v => Math.round(v))}</td>`
+                + `<td class="elite-cell">${num(t.runs ? t.sumTaken / t.runs : null, v => Math.round(v))}</td>`
+                + `<td class="elite-cell">${num(t.runs ? t.sumSurv / t.runs * 100 : null, v => v.toFixed(1) + '%')}</td>`
+                + `<td class="elite-cell">${num(t.runs ? t.sumRebound / t.runs : null, v => v.toFixed(1))}</td></tr>`;
         }
-        html += '<tr><td class="elite-stage">总评</td>';
-        for (const w of list) {
-            const t = weakArmTotals(w.name, byStage, stages);   // Δ 只取该精英真有数据的关/变体上的自然对照，避免口径错位
-            html += weakCellHtml(t.t, t.baseRate);
-        }
-        html += '</tr></table>';
+        html += '</table>';
         html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
         return html;
     };
+
+    const ally = units.filter(u => u.side === 'ally');
+    const enemy = units.filter(u => u.side === 'enemy');
     let html = metaLine(meta);
-    html += sub('🐦 明教弱精英（建队后换掉一个普通位，强精英轮盘照常）', WEAK_ALLY,
-        'Δ = 该弱精英臂胜率 − 同关同变体「自然对照」臂（同种子）。V3.1.0 起换人发生在建队完成之后：两臂站位逐位全同，Δ 不含站位噪音，只剩精英本人 vs 被换的普通位。Δ>0 = 该弱精英给明教带来增益。「自然出现该精英」的局两臂同剔，样本逐场对应。');
-    html += sub('🗡 六大派弱精英（锁定敌方 M104 数字空位）', WEAK_ENEMY,
-        'Δ = 锁定该弱精英后明教胜率 − 自然对照。Δ<0 = 更难打（他更强、对明教威胁更大）。第3关为固定变体阵容、无 M104 空位，故该关不出行。自然对照已剔除「本局自然出现该精英」的局，故其场次略少于精英臂。');
+    html += sideBlock(`🐦 明教侧具名单位（M${M_TIERS.join('/M')}，选 ${ally.length} 个）`, ally,
+        'Δ = 换入局明教胜率 − 自然局胜率（同种子逐场配对）。Δ>0 = 该单位给明教带来增益。候选自然已在该侧的场次两臂同弃（常客有效配对场偏少）。着色按己方增益：绿 = 帮自己阵营，灰 = |Δ|≤±95% 噪声带。');
+    html += sideBlock(`🗡 六大派侧具名单位（M${M_TIERS.join('/M')}，选 ${enemy.length} 个）`, enemy,
+        '替换对象 = 该侧非具名普通成员（唯一前排受保护）。Δ<0 = 明教更难打（敌方变强）；着色同样按「对己方阵营的增益」（此处绿色 = 更压明教）。翻盘↑/↓ 为每 100 配对场的输→赢 / 赢→输 场数。');
+    html += `<div style="font-size:11px;color:#999;margin-top:8px;">seed=${meta.seed} · ${meta.enemyHex ? '双' : '单'}海克斯 · 每关目标 ${meta.runs == null ? '?' : meta.runs} 场（见各表「配对场」）。单关列噪声大，跨关结论看总Δ。</div>`;
     resultEl.innerHTML = html;
     attachCopyBtn(resultEl);
-}
-
-// 弱精英表单元格：胜率 + Δ（相对自然对照）+ 场次/输出/承伤/存活
-function weakCellHtml(d, baseRate) {
-    if (!d || !d.runs) return '<td class="elite-cell">N/A</td>';
-    const rate = d.wins / d.runs * 100;
-    const color = rate >= 50 ? '#4caf50' : rate >= 25 ? '#ffd700' : '#ff5252';
-    const surv = (d.sumSurv / d.runs * 100).toFixed(1);
-    const thin = d.runs < STATS_TH.THIN_SAMPLE ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
-    let deltaHtml = '<div class="cell-sub">Δ —（无对照）</div>';
-    if (baseRate != null) {
-        const dv = rate - baseRate;
-        const dc = dv > 0.05 ? '#4caf50' : dv < -0.05 ? '#ff5252' : '#888';
-        deltaHtml = `<div class="cell-sub" style="color:${dc}">Δ ${dv >= 0 ? '+' : ''}${dv.toFixed(1)}</div>`;
-    }
-    return `<td class="elite-cell">
-        <div class="cell-rate" style="color:${color}">胜率 ${rate.toFixed(1)}%</div>
-        ${deltaHtml}
-        <div class="cell-sub">${d.runs} 场${thin}</div>
-        ${drawSub(d)}
-        <div class="cell-sub">输出 ${Math.floor(d.sumDmg / d.runs)} 承伤 ${Math.floor(d.sumTaken / d.runs)}</div>
-        <div class="cell-sub">存活 ${surv}%</div></td>`;
-}
-
-// 平局标注：平局计入场次与胜率分母（胜 = winner==='明教'），与 813/852 同一口径
-function drawSub(d) {
-    const n = (d && d.draws) || 0;
-    return n > 0 ? `<div class="cell-sub" style="color:#9e9e9e;">平局 ${n}</div>` : '';
-}
-
-// 弱精英表基准取用（V1.13.1 干净对照）：只剔「本局自然出现了该弱精英」的局，其他弱精英保持自然分布
-function cleanAgg(nb, name) {
-    return nb && nb.clean ? nb.clean[name] : null;
-}
-function cleanBase(nb, name) {
-    const c = cleanAgg(nb, name);
-    return c && c.runs > 0 ? c.wins / c.runs * 100 : null;
-}
-
-// 某弱精英跨关跨变体累加 + 只取它真有数据的关/变体上的自然对照（总评行用）
-function weakArmTotals(name, byStage, stages) {
-    const t = { runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
-    let nRuns = 0, nWins = 0;
-    for (const st of stages) {
-        for (const v of VARIANTS) {
-            const slot = byStage[st] && byStage[st][v];
-            const d = slot && slot[name];
-            if (!d || !d.runs) continue;
-            t.runs += d.runs; t.wins += d.wins; t.draws += d.draws || 0; t.sumSurv += d.sumSurv; t.sumDmg += d.sumDmg; t.sumTaken += d.sumTaken;
-            const nb = cleanAgg(slot.__natural, name);
-            if (nb && nb.runs) { nRuns += nb.runs; nWins += nb.wins; }
-        }
-    }
-    return { t, baseRate: nRuns > 0 ? nWins / nRuns * 100 : null };
 }
 
 // ============ 复制结果表（同 812） ============
@@ -320,6 +294,7 @@ function attachCopyBtn(host) {
 }
 
 // 页签未挂载（元素缺失）时整块不启动：不注册监听、不抛错
-if (startBtn && runsInput && progressEl && resultEl) {
+if (startBtn && runsInput && progressEl && resultEl && candRowEl) {
     startBtn.addEventListener('click', runWeakEval);
+    boot();
 }
