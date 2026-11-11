@@ -190,9 +190,10 @@ async function runWeakEval() {
 
 // ============ 结果渲染：明教侧 / 六大派侧两张子表，DOM 与样式沿用 elite-table 系列 ============
 // 单元格式（同 839 语义）：单关 = Δ + 换入胜率；总行 = Δ + 噪声带/配对场
-const gainOf = (d, side) => side === 'ally' ? d : -d;                      // 统一成「对己方阵营的增益」再判色
 const marginOf = e => e.runs ? 2 * Math.sqrt(e.flipWin + e.flipLose) / e.runs * 100 : 0;
-const deltaColor = (d, side, margin) => Math.abs(gainOf(d, side)) <= margin ? '#888' : (gainOf(d, side) >= 0 ? '#4caf50' : '#ff5252');
+// 着色只按「对明教胜率」的方向：Δ>0 = 换入后明教更容易赢（绿），Δ<0 = 明教更难赢（红）。
+// 不再按己方阵营反转，也不再让噪声带把所有格子染灰。
+const deltaColor = (d) => (d > 0 ? '#4caf50' : '#ff5252');
 
 function deltaOf(stAgg, name) {
     const e = stAgg && stAgg[name];
@@ -238,10 +239,10 @@ function renderWeakResults(byStage, units, stages, meta) {
                 html += `<tr><td class="elite-stage" style="text-align:left">${u.name}</td>`;
                 for (const c of cells) {
                     html += c
-                        ? `<td class="elite-cell"><span style="color:${deltaColor(c.d, u.side, c.margin)}">${fmtD(c.d)}</span></td>`
+                        ? `<td class="elite-cell"><span style="color:${deltaColor(c.d)}">${fmtD(c.d)}</span></td>`
                         : '<td class="elite-cell">—</td>';
                 }
-                const totStyle = totD == null ? 'color:#888' : `color:${deltaColor(totD, u.side, m)}`;
+                const totStyle = totD == null ? 'color:#888' : `color:${deltaColor(totD)}`;
                 html += `<td class="elite-cell"><span style="${totStyle};font-weight:bold">${totD == null ? '—' : fmtD(totD)}</span>`
                     + `<div class="cell-sub">±${m.toFixed(1)} · ${t.runs} 场</div></td></tr>`;
             }
@@ -255,9 +256,9 @@ function renderWeakResults(byStage, units, stages, meta) {
     const enemy = units.filter(u => u.side === 'enemy');
     let html = metaLine(meta);
     html += sideBlock(`🐦 明教侧带技能单位（M${M_TIERS.join('/M')}，选 ${ally.length} 个）`, ally,
-        'Δ = 换入局明教胜率 − 自然局胜率（同种子逐场配对，单位 %）。Δ>0 = 该单位给明教带来增益。候选自然已在该侧的场次两臂同弃（常客有效配对场偏少）。着色按己方增益：绿 = 帮自己阵营，灰 = |Δ|≤±95% 噪声带。');
+        'Δ = 换入局明教胜率 − 自然局胜率（同种子逐场配对，单位 %）。这里换掉的是明教无名的凑数成员。绿 = 换入后明教更容易赢，红 = 更难赢。末列「±」= 95% 噪声带，|Δ| 小于它说明差异还在随机波动里。');
     html += sideBlock(`🗡 六大派侧带技能单位（M${M_TIERS.join('/M')}，选 ${enemy.length} 个）`, enemy,
-        '替换对象 = 该侧非具名普通成员（唯一前排受保护）。Δ<0 = 明教更难打（敌方变强）；着色同样按「对己方阵营的增益」（此处绿色 = 更压明教）。');
+        '这里换掉的是六大派无名的凑数成员，Δ 仍是明教胜率的变化：红 = 换入后明教胜率被压下去（该单位对明教威胁大），绿 = 反而帮了明教。');
     html += `<div style="font-size:11px;color:#999;margin-top:8px;">seed=${meta.seed} · ${meta.enemyHex ? '双' : '单'}海克斯 · 每关目标 ${meta.runs == null ? '?' : meta.runs} 场（见各表「场」）。单关列噪声大，跨关结论看总Δ。</div>`;
     resultEl.innerHTML = html;
     attachCopyBtn(resultEl);
