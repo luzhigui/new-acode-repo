@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🛡️ 反伤类弱精英测评</title>
+<title>🛡️ 弱精英测评</title>
 <style>
     body { font-family: system-ui, sans-serif; background: #14161c; color: #dfe3ea; margin: 0; padding: 14px; font-size: 14px; }
     h1 { font-size: 18px; margin: 4px 0 2px; }
@@ -32,17 +32,17 @@
 </style>
 </head>
 <body>
-<h1>🛡️ 反伤类弱精英测评（M104 / M100 / M97）</h1>
+<h1>🛡️ 弱精英测评（M104 / M100 / M97）</h1>
 <div class="sub">
-    候选 = 档位内带「反伤 / 反弹 / 同归于尽」机制的具名单位（自动检测，可勾「全部具名」扩到档位全员）。<br>
+    候选 = 档位内全部具名单位（都带技能；勾「仅反伤机制」可缩到反伤/反弹/同归于尽那一类）。<br>
     环境：固定基线阵容，候选替换己方 1 号位；对照无候选基线（同种子）算胜率增量。<br>
     反伤伤害读引擎权威账本 <b>unit.reboundDone</b>（全路径覆盖），反伤次数/同尽次数扫 fact 流。
 </div>
 
 <div class="card">
     <div class="row">
-        <label>每单位场次 <input type="number" id="games" value="200" min="10" max="2000" step="10"></label>
-        <label class="chk"><input type="checkbox" id="allNames">档位内全部具名单位</label>
+        <label>每单位场次 <input type="number" id="games" value="100" min="10" max="2000" step="10"></label>
+        <label class="chk"><input type="checkbox" id="reflectOnly">仅反伤机制单位</label>
         <button id="btnRun">▶ 开始测评</button>
         <button id="btnTsv" class="ghost" disabled>📋 复制 TSV</button>
     </div>
@@ -55,8 +55,10 @@
 <div class="stamp" id="stamp"></div>
 
 <script type="module">
-// tools/839-reflect-eval.html — 反伤类弱精英强度测评（浏览器版，工具箱常驻入口）
-// V1.0.0 | 2026-11-11 | 由 tools/839-reflect-eval.mjs 移植：老板拍板「别让我跑 node，工具箱加常驻按钮」。
+// tools/839-reflect-eval.html — 弱精英测评（M104/M100/M97 档位全部带技能具名单位；浏览器版，工具箱常驻入口）
+// V1.1.0 | 2026-11-11 | 老板纠偏两条：① 原名「反伤类」以偏概全——默认候选改为档位内全部具名单位，反伤只是其中一列；
+//   ② 「点了开始测评没反应」——根因是 campWin 拿 CAMP_TYPES.ALLY('ally') 比 winner('明教'/'六大派') 恒 false，
+//   胜率全 0 像没跑；现改字符串比较，并补：点下按钮立刻出「准备…」反馈、整轮 try/catch 上屏报错（不再静默卡死）。
 //   口径与 CLI 版一致（固定基线阵容 + 候选替换 1 号位 + 同种子基线对照），但跑局一律走 core/206 runBattle
 //   统一入口（816 纪律：不许手抄回合循环），机制装配走浏览器统一入口 modules/301-reg-mechanics.js。
 //   分块执行（每 15 场让出主线程），不卡 UI。
@@ -88,15 +90,14 @@ async function boot() {
 }
 
 function collectCands() {
-    const all = $('allNames').checked;
+    const reflectOnly = $('reflectOnly').checked;
     const out = [];
     for (const [n, c] of Object.entries(game.characters)) {
         if (!M_TIERS.includes(c.m) || c.named !== true) continue;
         const s = JSON.stringify(c);
-        if (all || REFLECT_RE.test(s)) {
-            const kw = [...new Set(s.match(/damageReflect|reflectRatio|reboundPct|同归于尽|反噬/g) || [])].join('/');
-            out.push({ name: n, camp: c.camp, m: c.m, kw: kw || '含反弹/反伤文案' });
-        }
+        const kw = [...new Set(s.match(/damageReflect|reflectRatio|reboundPct|同归于尽|反噬/g) || [])].join('/');
+        if (reflectOnly && !kw && !REFLECT_RE.test(s)) continue;
+        out.push({ name: n, camp: c.camp, m: c.m, kw: kw || (REFLECT_RE.test(s) ? '反弹/反伤文案' : '—') });
     }
     return out;
 }
@@ -104,9 +105,9 @@ function renderCands() {
     const cands = collectCands();
     $('candRow').innerHTML = cands.length
         ? cands.map(c => `<label class="chk"><input type="checkbox" class="candChk" value="${c.name}" checked>${c.name}（${c.camp} M${c.m}）</label>`).join('')
-        : '<span class="sub">没有匹配候选（勾「档位内全部具名单位」试试）</span>';
+        : '<span class="sub">没有匹配候选（取消「仅反伤机制」试试）</span>';
 }
-$('allNames').addEventListener('change', () => { if (!state.running) renderCands(); });
+$('reflectOnly').addEventListener('change', () => { if (!state.running) renderCands(); });
 
 function roleOf(name, rng) {
     const ch = game.characters[name];
@@ -162,7 +163,8 @@ function runOne(allyNames, enemyNames, seed, side, candName) {
         candAlive = !!(u && u.alive);
         reflectDmg = Number((u && u.reboundDone) || 0);
     }
-    const campWin = res.winner === (side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
+    // ⚠️ runBattle 的 winner 是阵营中文名（'明教'/'六大派'，null=回合上限未分），不能拿 CAMP_TYPES.ALLY('ally') 比——恒 false
+    const campWin = res.winner === (side === 'ally' ? '明教' : '六大派');
     return { campWin, candAlive, reflectDmg, reflectCount: agg.reflectCount, deathblast: agg.deathblast };
 }
 
@@ -173,13 +175,28 @@ async function run() {
     const checked = [...document.querySelectorAll('.candChk:checked')].map(cb => cb.value);
     const cands = collectCands().filter(c => checked.includes(c.name));
     if (!cands.length) return;
-    const GAMES = Math.max(10, Number($('games').value) || 200);
+    const GAMES = Math.max(10, Number($('games').value) || 100);
     state.running = true;
     $('btnRun').disabled = true;
     $('btnTsv').disabled = true;
     $('result').innerHTML = '';
     state.rows = [];
+    // 点下按钮立刻给反馈——原来第一批 15 场跑完才有第一个进度更新，手机上几秒空白像「没反应」
+    $('progText').textContent = `准备开跑：${cands.length} 个候选 × ${GAMES} 场（含基线对照）…`;
+    $('barFill').style.width = '1%';
+    await yieldUi();
+    try {
+        await runInner(cands, GAMES);
+    } catch (e) {
+        $('progText').innerHTML = `<span class="err">测评中断：${e && e.message || e}</span>`;
+    } finally {
+        state.running = false;
+        $('btnRun').disabled = false;
+        $('btnTsv').disabled = state.rows.length === 0;
+    }
+}
 
+async function runInner(cands, GAMES) {
     const baselineCache = {};
     const totalUnits = cands.length + 2;   // +2：两侧基线（按需，进度粗算够用）
     let doneUnits = 0;
@@ -217,9 +234,6 @@ async function run() {
         renderTable();
     }
     setProg(`完成：${cands.length} 个候选 × ${GAMES} 场`, 1);
-    state.running = false;
-    $('btnRun').disabled = false;
-    $('btnTsv').disabled = false;
 }
 
 function renderTable() {

@@ -297,10 +297,10 @@
                 <span class="tc-desc">配对测机制触发与胜率 Δ</span>
                 <button class="tc-open">打开</button>
             </div>
-            <!-- 2026-11-11：反伤类弱精英测评（M104/100/97，浏览器版 839，老板拍板免跑 node） -->
+            <!-- 2026-11-11：弱精英测评（M104/100/97 档位全部带技能具名单位，浏览器版 839，老板拍板免跑 node；原名「反伤类」已纠偏） -->
             <div class="tc-card" data-tool="reflect">
-                <span class="tc-head"><span class="tc-icon">🛡️</span><span class="tc-title">反伤类弱精英测评</span></span>
-                <span class="tc-desc">反伤/同尽单位 胜率Δ + reboundDone 账本</span>
+                <span class="tc-head"><span class="tc-icon">🛡️</span><span class="tc-title">弱精英测评</span></span>
+                <span class="tc-desc">档位内带技能单位 胜率Δ + 反伤账本</span>
                 <button class="tc-open">打开</button>
             </div>
             <!-- 2026-11-10：消融实验室（姊三因素） -->
@@ -559,7 +559,7 @@
                     if (key === 'paramlab') { openInPage('820-param-lab.html', '🧪 参数实验台'); return; }
                     if (key === 'elitecontrib') { openInPage('838-elite-contrib.html', '🧬 弱精英机制贡献'); return; }
                     if (key === 'ablation') { openInPage('831-ablation-lab.html', '🧪 消融实验室'); return; }
-                    if (key === 'reflect') { openInPage('839-reflect-eval.html', '🛡️ 反伤类弱精英测评'); return; }
+                    if (key === 'reflect') { openInPage('839-reflect-eval.html', '🛡️ 弱精英测评'); return; }
                     if (key === 'dataoverview') { renderDataOverview(); }
                     const panel = document.getElementById(PANELS[key]);
                     if (!panel) return;

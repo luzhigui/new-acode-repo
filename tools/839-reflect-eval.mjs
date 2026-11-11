@@ -1,8 +1,9 @@
-// tools/839-reflect-eval.mjs — 反伤类弱精英（M104/M100/M97）强度测评
-// 用法：node tools/839-reflect-eval.mjs [--games=200] [--m=104,100,97] [--all] [名字过滤...]
-//   默认只评「反伤/反弹/同归于尽」机制的候选；--all 评 M 档内全部具名单位。
+// tools/839-reflect-eval.mjs — 弱精英（M104/M100/M97 档位全部带技能具名单位）强度测评 CLI 版
+// 用法：node tools/839-reflect-eval.mjs [--games=200] [--m=104,100,97] [--reflect] [名字过滤...]
+//   默认评 M 档内全部具名单位（2026-11-11 老板纠偏：原名「反伤类」以偏概全）；--reflect 缩到反伤/反弹/同归于尽那一类。
 //   每单位跑 N 场：候选替换己方 1 号位，对照基线（无候选的原班阵容）算胜率增量；
-//   反伤伤害按 fact 归因（*_REBOUND fact / 攻击 fact 的 reboundDmg / 同归于尽反噬）。
+//   反伤伤害读引擎权威账本 unit.reboundDone，次数按 rebound fact 归因。
+// 浏览器常驻版：工具箱「🛡️ 弱精英测评」卡片（839-reflect-eval.html，同口径）。
 // 纯只读：不改任何配置，不写文件，结果打 stdout（TSV 友好，可直接贴表）。
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -63,19 +64,20 @@ function makeTeam(names, camp, rng, mTable) {
     });
 }
 
-// —— 候选检测：M 档内带反伤类机制的具名单位 ——
+// —— 候选：M 档内全部具名单位（都带技能；2026-11-11 老板纠偏，原名「反伤类」以偏概全）——
+//   --reflect 缩到反伤/反弹/同归于尽那一类；名字过滤参数照常可用。
 const REFLECT_RE = /damageReflect|reflectRatio|reboundPct|同归于尽|反噬|反弹|反伤/;
 const cands = [];
 for (const [n, c] of Object.entries(game.characters)) {
     if (!M_TIERS.includes(c.m) || c.named !== true) continue;
     const s = JSON.stringify(c);
-    if (argv.all || REFLECT_RE.test(s)) {
-        const kw = [...new Set(s.match(/damageReflect|reflectRatio|reboundPct|同归于尽|反噬/g) || [])].join('/');
-        cands.push({ name: n, camp: c.camp, m: c.m, kw: kw || '含反弹/反伤文案' });
-    }
+    const kw = [...new Set(s.match(/damageReflect|reflectRatio|reboundPct|同归于尽|反噬/g) || [])].join('/');
+    const isReflect = !!kw || REFLECT_RE.test(s);
+    if (argv.reflect && !isReflect) continue;
+    cands.push({ name: n, camp: c.camp, m: c.m, kw: isReflect ? (kw || '反弹/反伤文案') : '—' });
 }
 const filtered = nameFilters.length ? cands.filter(c => nameFilters.some(f => c.name.includes(f))) : cands;
-if (!filtered.length) { console.log('没有匹配候选（试 --all 或名字过滤）'); process.exit(0); }
+if (!filtered.length) { console.log('没有匹配候选（检查名字过滤/--m 档位）'); process.exit(0); }
 
 // —— 固定基线阵容（与冒烟同源）——
 const mingBase = mods.cfg.CONFIG.MING_ALL.filter(n => mods.cfg.CONFIG.MING_M[n]).slice(0, 5);
@@ -160,7 +162,7 @@ for (const c of filtered) {
 }
 
 // —— 输出 ——
-console.log(`反伤类弱精英测评 | 档位 M${M_TIERS.join('/M')} | 每单位 ${GAMES} 场 | 基线：明教/六大派原班各 ${GAMES} 场`);
+console.log(`弱精英测评 | 档位 M${M_TIERS.join('/M')} | 每单位 ${GAMES} 场 | 基线：明教/六大派原班各 ${GAMES} 场`);
 console.log('单位\t阵营\tM\t反伤机制\t胜率\t基线胜率\tΔ胜率\t反伤伤/场\t反伤次/场\t同尽/场\t存活率');
 rows.sort((a, b) => (b.wins / GAMES - b.baseWin / GAMES) - (a.wins / GAMES - a.baseWin / GAMES));
 for (const r of rows) {
