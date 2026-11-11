@@ -433,7 +433,7 @@
         "summonBengBeng": {
           "name": "召唤蹦蹦",
           "desc": "每回合开始 {prob}% 概率，在己方空位召唤一只蹦蹦（M{m}、攻{atk}、防{def}、生命{maxHp}）。蹦蹦攻击或受击时，给对方叠加一层寒毒（{poisonDuration}回合，每回合 {poisonDot} 最大生命）。",
-          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.5, "poisonDuration": 3, "poisonDot": [0.04] }
+          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.66, "poisonDuration": 3, "poisonDot": [0.04] }
         }
       }
     },
@@ -615,8 +615,8 @@
         },
         "dianXueJieMai": {
           "name": "点穴截脉",
-          "desc": "攻击命中后单独掷 80% 概率截脉（与点穴成败无关）：目标进入截脉（禁疗❌）3 回合（本回合+下回合+下下回合），受到的治疗/吸血回复减少 50%（反治疗）。",
-          "params": { "prob": 0.80, "rounds": 3, "healReduceRatio": 0.5 }
+          "desc": "攻击命中后必发截脉（掷骰 100%，机制保留）：目标进入截脉（禁疗❌）3 回合（本回合+下回合+下下回合），受到的治疗/吸血回复减少 66%（反治疗）。",
+          "params": { "prob": 1.0, "rounds": 3, "healReduceRatio": 0.66 }
         },
         "eagleEye": {
           "name": "鹰眼",
@@ -674,7 +674,7 @@
         },
         "hanBingShenZhang": {
           "name": "右拳·寒冰",
-          "desc": "每次普攻独立掷 50/50：另 50% 施展时给被攻击目标叠寒毒，每回合失去最大生命 4%（每命中一次叠 1 层、无上限），持续 3 回合；带寒毒的目标受到的治疗减少 50%。",
+          "desc": "每次普攻独立掷 50/50：另 50% 施展时给被攻击目标叠寒毒，每回合失去最大生命 4%（每命中一次叠 1 层、无上限），持续 3 回合；带寒毒的目标受到的治疗减少 66%。",
           "params": { "duration": 3, "dotPercents": [0.04] }
         },
         "xuLi": {

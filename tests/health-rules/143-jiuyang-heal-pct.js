@@ -81,8 +81,8 @@ var NINE_YANG_PCT = 0.12;
 var NINE_YANG_PREV_PCT = 0.10;
 // V6.1.8 之前的更早比例
 var NINE_YANG_OLD_PCT = 0.08;
-// 寒毒/玄冥毒抑疗系数：core/01 CONFIG.XUANMING_POISON_HEAL_REDUCE（2026-10-22 起）
-var POISON_HEAL_REDUCE = 0.5;
+// 寒毒/玄冥毒抑疗乘数：core/01 CONFIG.XUANMING_POISON_HEAL_REDUCE（2026-11-11 起 0.5→0.34，即减疗统一 66%）
+var POISON_HEAL_REDUCE = 0.34;
 
 // V6.3.5（第 185 轮）：从 facts 真值流里取九阳的**落地值**。
 //   渲染条目只有文案（预演口径，本轮实测 175/945 条与落地值不符），
