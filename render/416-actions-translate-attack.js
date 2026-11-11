@@ -467,7 +467,11 @@ function makeAttackAction(data, index) {
         });
     }
 
-    // 彭莹玉·双面观音：女装把敌方唯一目标拐去误攻队友那一下，在彭莹玉格上揭面具（只表现，不改数值）
+    // 彭莹玉·双面观音：女装把敌方唯一目标拐去误攻队友那一下——
+    //   ① 彭莹玉格上揭面具（MASK_PEEL cue，原逻辑）
+    //   ② 被魅惑的人头顶飘「🌸 不忍下手」
+    //      不用爱心：💗 已被宋青书/周芷若「新婚/性奋」占用，会混淆。
+    //      花瓣语义 = 被迷住身不由己，不是真心相爱。
     const phantomData = data.phantomFact && data.phantomFact.data;
     if (phantomData && phantomData.sourceSkill === '双面观音' && phantomData.deceiverUid != null) {
         afterTextEffects.push({
@@ -479,6 +483,16 @@ function makeAttackAction(data, index) {
             factIndex: index,
             timing: 'afterText'
         });
+        // 被魅惑者头顶飘字：落点是 data.unit（被魅惑的那个攻击者），不是彭莹玉
+        if (data.unit && data.unit.uid) {
+            afterTextEffects.push({
+                kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
+                targetUid: data.unit.uid,
+                text: '🌸 不忍下手',
+                factIndex: index,
+                timing: 'afterText'
+            });
+        }
     }
 
     // 血量线弹幕（文本后）

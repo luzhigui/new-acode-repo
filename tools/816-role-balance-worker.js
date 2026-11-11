@@ -1,3 +1,6 @@
+// V1.23.4 | 2026-11-11 unitAB 改「同职业替换」：原来取站位最靠前的非具名成员，不分职业，
+//   等于把「职业变化」和「单位强度」混在一起测（治疗换坦克会让敌方变弱 → Δ 反而变绿，读不出强度）。
+//   现在只在同职业的普通成员里挑替身，该侧没有同职业替身就整场丢弃（不混职业凑数）。
 // V1.23.3 | 2026-11-11 同款改名坑清剩余查表点：applyForcedWeakAlly / runUnitABJob 里 MING_M[elite]
 //   characters[elite] 改为「先运行时名、查不到退回「·」前主名」双查（当前调用方传主名，不踩坑；防将来传形态名）。
 // V1.23.2 | 2026-11-11 unitAB 替身判定修 bug：小昭建队时被改名为「小昭·姊/妹」，原 isNamed 用改名串查 characters
@@ -454,14 +457,17 @@ function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex =
         clearBattleGlobals();
         const t2 = initBattleTeams(stage, new SeededRNG(s));
         const team = side === 'ally' ? t2.allyTeam : t2.enemyTeam;
-        // victim：非具名（普通成员）；唯一前排保护（阵容语义不塌）。候选已自然在场的情形已在上面整场剔除
-        const frontCount = team.filter(u => isFront(u) && !isNamed(u)).length;
-        const cands = team.filter(u => !isNamed(u) && !(isFront(u) && frontCount <= 1));
-        const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
-        if (!victim) continue;                       // 无合格替身：两臂同弃（逐场对应）
-        const mTable = side === 'ally' ? CONFIG.MING_M : CONFIG.ENEMY_M;
+        // victim：非具名（普通成员）+ **同职业**——把「职业变化」这个混淆变量排除掉，只测单位本身强弱；
+        //   唯一前排保护（阵容语义不塌）。候选已自然在场的情形已在上面整场剔除。
+        //   该侧没有同职业普通成员时整场丢弃（不混职业凑数，否则「治疗换坦克」会被读成单位强度差）。
         const ch = chars[elite] || chars[baseNameOf(elite)];
-        const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t)) || victim.role;
+        const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t));
+        if (!role) continue;
+        const frontCount = team.filter(u => isFront(u) && !isNamed(u)).length;
+        const cands = team.filter(u => !isNamed(u) && u.role === role && !(isFront(u) && frontCount <= 1));
+        const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
+        if (!victim) continue;                       // 无同职业替身：两臂同弃（逐场对应）
+        const mTable = side === 'ally' ? CONFIG.MING_M : CONFIG.ENEMY_M;
         const unit = new Unit(elite, (mTable && (mTable[elite] ?? mTable[baseNameOf(elite)])) || 100, role, side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
         unit.pos = victim.pos;
         unit.init(new SeededRNG(s + 7));             // 独立 rng：不扰动建队流后续

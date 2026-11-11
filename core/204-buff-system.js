@@ -269,17 +269,18 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
     }
 
     // 9人满员彩蛋：当队伍达到 9 人时，借用战斗横幅触发一次专属提示（整个阵营只弹一次）
-    if (aliveN >= 9 && unit.camp === CAMP_TYPES.ALLY && unit.pos === 5 && log) {
-        // 只在 5 号位（核心位）计算时触发一次，防刷屏
-        const hasBanner = log.some(l => l.data && l.data.text && l.data.text.includes('九人满员'));
-        if (!hasBanner) {
-            // 直接走战斗横幅通道（39 层会消费并阻塞播放）
-            log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '众志成城',
-                note: `🤝 众志成城 · 九人满员！全队攻防达到巅峰！`,
-                line: false, bannerText: '🤝 众志成城 · 九人满员！'
-            } });
-        }
+    // 9 人满员彩蛋：整局只弹一次。
+    //   旧版 hasBanner 查的是 l.data.text，但 fact 结构里是 data.note（永远 false）；
+    //   而且 log 只是「当步」的 log，不是全局 → 9 人持续多回合会每回合弹一次。
+    //   改全局标记，ui/715 resetBattleRuntime 每局清。不再依赖 unit.pos === 5。
+    if (aliveN >= 9 && unit.camp === CAMP_TYPES.ALLY && log) {
+        if (globalThis.__unityFullBannerShown) return;
+        globalThis.__unityFullBannerShown = true;
+        log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+            unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '众志成城',
+            note: `🤝 众志成城 · 九人满员！全队攻防达到巅峰！`,
+            line: false, bannerText: '🤝 众志成城 · 九人满员！'
+        } });
     }
 }
 
