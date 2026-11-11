@@ -58,6 +58,9 @@
         <span>消融臂：</span>
         <label class="chk"><input type="checkbox" id="armHex" checked>关姐姐海克斯</label>
         <label class="chk"><input type="checkbox" id="armQk" checked>关乾坤衍生</label>
+        <label class="chk"><input type="checkbox" id="armQkR" checked>乾坤·只关减伤</label>
+        <label class="chk"><input type="checkbox" id="armQkH" checked>乾坤·只关回血</label>
+        <label class="chk"><input type="checkbox" id="armQkA" checked>乾坤·只关加攻</label>
         <label class="chk"><input type="checkbox" id="armAtt" checked>关附身</label>
         <button id="btnRun">▶ 开始</button>
         <button id="btnStop" class="ghost" disabled>■ 停止</button>
@@ -80,12 +83,15 @@
 const $ = id => document.getElementById(id);
 const WORKER_URL = new URL('./816-role-balance-worker.js?v=V1_22_1', import.meta.url);   // 带版本参：worker 改版后手机缓存强制刷新
 const STORE_KEY = 'ming_ablation_result';
-const TOOL_VER = '831 V1.0.3';
+const TOOL_VER = '831 V1.0.4';   // V1.0.4 乾坤衍生消融子开关三臂（只关减伤/只关回血/只关加攻），flags 透传 816
 
 const ARMS = [
     { id: 'base', label: '全开（基线）', flags: {} },
     { id: 'hex',  label: '关姐姐海克斯', flags: { noSisterHex: true } },
     { id: 'qk',   label: '关乾坤衍生',   flags: { noQianKun: true } },
+    { id: 'qkR',  label: '乾坤·只关减伤', flags: { noQianKunReduce: true } },
+    { id: 'qkH',  label: '乾坤·只关回血', flags: { noQianKunHeal: true } },
+    { id: 'qkA',  label: '乾坤·只关加攻', flags: { noQianKunAtk: true } },
     { id: 'att',  label: '关附身',       flags: { noAttach: true } },
 ];
 const STAGE_ROWS = s => s === 3 ? ['胖远桥', '宋青书'] : ['标准'];
@@ -139,6 +145,9 @@ async function runAll() {
     const arms = ARMS.filter(a => a.id === 'base' ||
         (a.id === 'hex' && $('armHex').checked) ||
         (a.id === 'qk' && $('armQk').checked) ||
+        (a.id === 'qkR' && $('armQkR').checked) ||
+        (a.id === 'qkH' && $('armQkH').checked) ||
+        (a.id === 'qkA' && $('armQkA').checked) ||
         (a.id === 'att' && $('armAtt').checked));
 
     running = true; stopFlag = false;
