@@ -707,7 +707,7 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 1.0, "defToHeal": 0.10, "defToAtk": 0.05 }
+          "params": { "defToReduce": 1.2, "defToHeal": 0.12, "defToAtk": 0.04 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",

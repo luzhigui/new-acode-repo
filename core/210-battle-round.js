@@ -8,12 +8,14 @@
 //   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
 // V6.3.39 | 2026-11-08 双宣告排重回退到「两次抽签 + 顺延」：V6.3.38 的 filter 后重抽会多消耗一次随机流，
 //   且候选不足时少抽一次；改回原版两次抽签，第二签同 uid 时从该签位起按候选顺序顺延取下一个不同 uid（不重抽）。
-export const VER = 'core/210-battle-round.js V6.3.40';
+// V6.3.41 | 2026-11-11 妹背水后不吃团队海克斯：连击候选池排除（她有自己的背水掷骰连击，不双掷）、
+//           云身跳过强制置真（姊强化 noSkip 也不豁免她）、per-unit 施法循环五 apply 跳过（摄魂保留=敌方减益照挨）
+export const VER = 'core/210-battle-round.js V6.3.41';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './203-battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, installBuffMechanics, onUnitDeathFlyerRegen } from './204-buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, installBuffMechanics, onUnitDeathFlyerRegen, isTeamHexExcluded } from './204-buff-system.js';
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
 import { Unit } from './202-unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './221-registry-dodge.js';
@@ -86,7 +88,8 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     let unitUids = [];
     let enemyUids = [];
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
-        let candidates = A.filter(u => u.alive && !u.isHorse);
+        // 妹背水后不吃团队海克斯：排除出候选池（她有自己的背水掷骰连击，避免双掷）
+        let candidates = A.filter(u => u.alive && !u.isHorse && !isTeamHexExcluded(u));
         if (candidates.length > 0) {
             // 两次抽签（与原版一致，随机流不变）；第二签与被选中者同 uid 时不重抽（重抽会多消耗一次随机流），
             //   从第二签位起按候选顺序顺延取下一个不同 uid；全队只有同一 uid 时退化为单宣告。
@@ -313,19 +316,24 @@ function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
     } else {
         team.forEach(u => { u.state._cloudBodySkip = false; });
     }
+    // 妹背水后不吃团队海克斯：云身跳过强制置真（姊强化 noSkip 也不豁免）
+    team.forEach(u => { if (isTeamHexExcluded(u)) u.state._cloudBodySkip = true; });
 
     team.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
 
-        applyHolyFlameBonus(u, buffs, { hasSister: isAlly ? isHolyFlameEnhanced(team) : false, log: ctx.log });
-        applyFortifyBonus(u, buffs, team);
+        // 妹背水后不吃团队海克斯：五 apply 跳过（204 内也有闸，双保险）；摄魂保留=敌方减益照挨
+        if (!isTeamHexExcluded(u)) {
+            applyHolyFlameBonus(u, buffs, { hasSister: isAlly ? isHolyFlameEnhanced(team) : false, log: ctx.log });
+            applyFortifyBonus(u, buffs, team);
+            applyCarryBonus(u, team, state, ctx.log);
+            applyLastStandBonus(u, team, buffs, ctx.log);
+            applyUnityBonus(u, team, buffs, ctx.log);
+        }
         if (!hasTeamSoulDrain || soulDrainTargets.has(u.uid)) {
             applySoulDrain(u, enemyBuffs, { log: ctx.log, casterAlive, targetAlive, round: ctx.round, casterSide: enemy });
         }
-        applyCarryBonus(u, team, state, ctx.log);
-        applyLastStandBonus(u, team, buffs, ctx.log);
-        applyUnityBonus(u, team, buffs, ctx.log);
 
         const auraBonuses = getAuraBonuses(u, team, enemy);
         // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
