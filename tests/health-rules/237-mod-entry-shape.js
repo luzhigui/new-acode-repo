@@ -14,11 +14,11 @@
 //   本规则保持硬红，直到主代码修好（不许为维绿加白名单）。
 
 // 第 203 轮：属性键清单收口为唯一来源（原为本地手抄 const STATS = [...]）
-import { STAT_MOD_KEYS as STATS } from '../_lib/static-truth-slice.mjs';
+import { STAT_MOD_KEYS as STATS, MOD_TTLS as TTLS } from '../_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/health-rules/237-mod-entry-shape.js V1.0.1';
+// V1.0.2 | 2026-11-10 夜间第 204 轮：「一事一源」收口第三批——TTLS 三档改从公共件 import（原为本地手抄），取值与顺序一字未改，判据未动。
+export const VER = 'tests/health-rules/237-mod-entry-shape.js V1.0.2';
 
-const TTLS = ['permanent', 'round', 'attached'];
 const OPS = ['add', 'mul'];
 
 export const rule237 = {

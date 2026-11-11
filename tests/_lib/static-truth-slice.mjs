@@ -126,7 +126,10 @@
 //   夜间只改了计数口径（全等对数 → 族数）却没证明新口径还能咬住真泛滥，等于无法排除「把红洗掉」。
 //   本轮抽出唯一判定函数 auditFamilyGate，真实扫描与自证共用；4 条纯内存正负路径
 //   （13 族 / 一族 9 份 / 12 族各 8 份边界 / 空集合）。阈值 12 与 8、LITERAL_MIN_* 一字未动。
-export const VER = 'tests/_lib/static-truth-slice.mjs V2.4.0';
+// V2.5.0 | 2026-11-10 夜间第 204 轮：「一事一源」收口第三批首批——TTLS 三档（237 ⇄ 270，取值全等零分叉）
+//   收成公共件 MOD_TTLS，两处改 import；族数 5 → 4、清单常量 67 → 65。收口棘轮同步补两格（MOD_TTLS 在册 +
+//   取值钉死 permanent/round/attached + 纯字面量导出形态），防止回抄或静默改档。阈值一字未动。
+export const VER = 'tests/_lib/static-truth-slice.mjs V2.5.0';
 
 // ---------------------------------------------------------------------------
 // ⓪ 主代码目录清单（唯一来源，2026-11-10 第 202 轮收口）
@@ -146,6 +149,14 @@ export const FACT_TYPE_MISS = Object.freeze(['attack', 'dodge', 'immune', 'miss'
 //   ★ 顺序即 getStat(setStat) 遍历属性时的全局顺序，收口后不可再随意重排。
 // ---------------------------------------------------------------------------
 export const STAT_MOD_KEYS = Object.freeze(['atk', 'def', 'maxHp']);
+
+// ---------------------------------------------------------------------------
+// ⓪b 词条 ttl 三档清单（唯一来源，2026-11-10 第 204 轮收口）
+//   237-mod-entry-shape 与 270-ttl-expiry-closure 原先各抄一份完全相同的三档；
+//   取值全等、零分叉（收口前逐元素比对过：permanent / round / attached，顺序亦同）。
+//   ★ 该清单必须与主代码 addMod 实际支持的 ttl 取值一致，改动前先核 core/204-buff-system.js。
+// ---------------------------------------------------------------------------
+export const MOD_TTLS = Object.freeze(['permanent', 'round', 'attached']);
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1186,6 +1197,9 @@ function runSelfChecks(fails) {
             { file: 'health-rules/242-stat-closure.js', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
             { file: 'health-rules/271-absorb-summary-same-source.js', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
             { file: 'mod-source-closure.mjs', key: 'STAT_MOD_KEYS', vals: 'atk,def,maxHp' },
+            // 第 204 轮收口：ttl 三档（原 237 / 270 各手抄一份，取值全等、零分叉）
+            { file: 'health-rules/237-mod-entry-shape.js', key: 'MOD_TTLS', vals: 'permanent,round,attached' },
+            { file: 'health-rules/270-ttl-expiry-closure.js', key: 'MOD_TTLS', vals: 'permanent,round,attached' },
         ];
         const testsDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
         for (const c of CLOSED_RATCHET) {
@@ -1231,6 +1245,10 @@ function runSelfChecks(fails) {
             fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')))) {
             fails.push('「一事一源」收口棘轮：STAT_MOD_KEYS 不再以纯字面量冻结数组导出 ⇒ 同上，唯一来源被改成运行期构造');
         }
+        if (!/export\s+const\s+MOD_TTLS\s*=\s*Object\.freeze\(\s*\[[^\]]*\]\s*\)/.test(stripComments(
+            fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')))) {
+            fails.push('「一事一源」收口棘轮：MOD_TTLS 不再以纯字面量冻结数组导出 ⇒ 同上，唯一来源被改成运行期构造');
+        }
         // 正向的第四道（V2.3.0 第 203 轮新增）：**族数不许被"收口假象"骗过**。
         //   ★ 病根与上一道同源但方向相反：上一道盯"有人把手抄还原回来"，这一道盯"收口时把清单悄悄改写"。
         //     若有人把 STAT_MOD_KEYS 里的 maxHp 挪成 hp（或增删一项），三处 import 的文件照样全绿、
@@ -1245,6 +1263,13 @@ function runSelfChecks(fails) {
             if (got.length !== want.length || got.some((v, i) => v !== want[i])) {
                 fails.push('「一事一源」收口棘轮：STAT_MOD_KEYS 取值被改写为 [' + got.join(', ')
                     + ']，收口前的四份手抄均为 [' + want.join(', ') + '] ⇒ 各处 import 全绿但覆盖面已静默改变');
+            }
+            // 第 204 轮：ttl 三档同规格钉值 —— 收口前 237 / 270 两份手抄逐元素全等。
+            const wantT = 'permanent,round,attached'.split(',');
+            const gotT = Array.isArray(MOD_TTLS) ? MOD_TTLS.slice() : [];
+            if (gotT.length !== wantT.length || gotT.some((v, i) => v !== wantT[i])) {
+                fails.push('「一事一源」收口棘轮：MOD_TTLS 取值被改写为 [' + gotT.join(', ')
+                    + ']，收口前两份手抄均为 [' + wantT.join(', ') + '] ⇒ 两处 ttl 校验全绿但覆盖面已静默改变');
             }
         }
     } catch (e) {

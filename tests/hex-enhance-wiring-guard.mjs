@@ -1,4 +1,6 @@
-// V1.0.0 | 2026-11-08：海克斯强化「配置 ↔ 消费方 ↔ 运行期」三段对账守门（新增）
+// V1.2.0 | 2026-11-11：改走唯一装配入口 helper.loadMechanic（不再手抄 import 302）；修 2f 护栏表
+//   305 路径缺 modules/ 前缀导致「护栏文件缺失」假红、该项从未真正检查过。
+// V1.1.0 | 2026-11-08：海克斯强化「配置 ↔ 消费方 ↔ 运行期」三段对账守门（新增）
 //   由来：content/002-hex-enhance.json 是小昭·姊（团队 buff 生效中）/小昭·妹（永久）强化的唯一真源，
 //   但此前只有 hex-boot-chain-guard 盯「文件加载链路」，没有一件盯「配置里的每个键到底有没有被代码读」。
 //   本件回答三个问题（全部静态/离线，不跑战局）：
@@ -10,7 +12,7 @@
 // V1.1.0 | 2026-11-08：② 缺子键从"文字推断"升级为**实测归三档**（2g-2 摘掉内存里的
 //   sister.holyFlame.atkBonus 再调 215）。当前主代码已补显式 throw ⇒ 实测走「显式抛错」档；
 //   若哪天退回静默回落普通版，本件会当场点名。2f 的 needle 同步改指 305 requireSkillParams。
-export const VER = 'tests/hex-enhance-wiring-guard.mjs V1.1.0';
+export const VER = 'tests/hex-enhance-wiring-guard.mjs V1.2.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -145,7 +147,8 @@ try {
 
 // 2e 运行期派发实证：姊在场 + 该海克斯生效 → getXiaoZhaoHexEnhance 必须吐出 002 里对应的强化段
 try {
-    const m302 = await import('../modules/302-elite-skills.js');
+    const { loadMechanic } = await import('./_lib/install-mechanics.mjs');
+    const m302 = await loadMechanic('302-elite-skills');
     const withSister = [{ isXiaoZhaoSister: true, alive: true }];
     baseKeys.forEach(k => {
         let got = null;
@@ -230,7 +233,7 @@ try {
 //   不再按旧文案判红（旧 needle 会让主代码正当重构后常年假红）。
 const guardFiles = [
     ['modules/329-buff-tools.js', '002-hex-enhance.json 缺 sister.', 'sister.<key>.extraDuration 显式 throw'],
-    ['305-elite-helpers.js', '缺技能参数: ${characterName}.${skillKey}', 'requireSkillParams 缺参抛错'],
+    ['modules/305-elite-helpers.js', '缺技能参数: ${characterName}.${skillKey}', 'requireSkillParams 缺参抛错'],
     ['modules/302-elite-skills.js', "requireSkillParams('小昭', 'hexEnhance')", '姊强化取 002 仍走 requireSkillParams（缺整段抛错）'],
     ['modules/317-elite-mingjiao.js', "002-hex-enhance.json 缺 sister.holyFlame", '缺 sister.holyFlame 显式 throw']
 ];

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/hex-config-closure-check.mjs | V1.0.0 | 2026-11-08
+// tests/hex-config-closure-check.mjs | V1.1.0 | 2026-11-11（改走唯一装配入口 helper.loadMechanic，不再手抄 import 302）
 //
 // 干什么：把海克斯强化做成「配置键 → 消费方 → 实际生效值」的三边闭环检测。
 //   179 守的是「002 配置自身完整」，接线守门守的是「键有人读」，本件补最后一环：
@@ -21,7 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scanHexKeyRefs } from './_lib/hex-key-refs.mjs';
 
-export const VER = 'tests/hex-config-closure-check.mjs V1.0.0';
+export const VER = 'tests/hex-config-closure-check.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
@@ -74,7 +74,11 @@ const cfg = await import('../core/201-config-5v5-test.js');
 await cfg.loadGameData();
 await cfg.loadHexEnhanceData();
 const eff = await import('../core/215-buff-effects.js');
-const m302 = await import('../modules/302-elite-skills.js');
+// V1.1.0 | 2026-11-11 迭代：不再手抄 import 302，改由唯一装配入口按 id 取模块（helper.loadMechanic），
+//   否则收口守门把它判成「手抄装配」——301 增机制时这类宿主必然漏装。行为不变：301 已 import 302，
+//   动态 import 返回同一实例，取到的就是生产那份。
+const { loadMechanic } = await import('./_lib/install-mechanics.mjs');
+const m302 = await loadMechanic('302-elite-skills');
 const siteA = [{ isXiaoZhaoSister: true, alive: true }];
 
 // ── ② 派发闭环：改 live 值 → 302 必须返回改动后的值 ─────────────

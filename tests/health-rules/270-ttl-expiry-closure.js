@@ -8,9 +8,10 @@
 //   本规则量化终局 ttl 分布与残留规模，给「清理点要不要改成不论生死都清」提供数据；不判红（避免与 241 重复）。
 //
 // 实测（2026-11-08，48 场）：permanent 占绝大多数；阵亡单位残留 round 条目只在「阵亡当回合的挂载」出现。
-export const VER = 'tests/health-rules/270-ttl-expiry-closure.js V1.0.0';
+// V1.0.1 | 2026-11-10 夜间第 204 轮：「一事一源」收口第三批——TTLS 三档改从公共件 import（原为本地手抄），取值与顺序一字未改，判据未动。
+import { MOD_TTLS as TTLS } from '../_lib/static-truth-slice.mjs';
 
-const TTLS = ['permanent', 'round', 'attached'];
+export const VER = 'tests/health-rules/270-ttl-expiry-closure.js V1.0.1';
 
 export const rule270 = {
     group: '属性与加成账本',

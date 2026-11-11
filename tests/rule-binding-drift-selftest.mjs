@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// V1.4.0 | 2026-11-11 合入夜间 204–208 后：给 E「内部过滤位」补双对端真身负路径。
+//   夜间 205/206 把绑定键 6 条归零，只配了 11 条**单一对端**合成自证；
+//   实证一个 key 既被 fails.filter 内部消费、又用 log.some 去主代码语料认领战报时，
+//   detectInternalKey 仍判免检 ⇒ 真·假绿被洗掉。公共件 V1.2.0 加前置守卫（加严），
+//   本件补 2 条自证：双对端必须不免检 / 纯内部仍须免检（防误伤现有 6 条）。
+//   判据阈值、白名单、四层口径一字未动。
 // tests/rule-binding-drift-selftest.mjs | V1.1.0 | 2026-11-07 第 186 棒（体检侧·MiniMax）：名表补收 content/characters 的角色名键（修「附身于 张无忌」误报）
 //
 // 背景（为什么要有它，务必先读）：
@@ -34,8 +40,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripCommentsMapped } from './_lib/static-truth-slice.mjs';
 import { readIfAbs } from './_lib/read-if-abs.mjs';
+import { isInternalFilterKey, detectInternalKey, isInternalParseKey, isInternalLoopVarKey, isPushTemplateKey } from './_lib/rule-internal-filter.mjs';
 
-export const VER = 'tests/rule-binding-drift-selftest.mjs V1.1.0';
+export const VER = 'tests/rule-binding-drift-selftest.mjs V1.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -199,6 +206,105 @@ function collectCharNames() {
 const fails = [];
 const notes = [];
 const exempt = [];
+const internalExempt = [];
+
+// --- E 四层口径自证（V1.3.0，第 206 轮）---
+//   公共件按「函数体」切片，所以样例必须套一层真实函数壳（规则文件的 test 都是这种形态）。
+//   每层都要有正样本（必须咬住）与负样本（必须不咬）：负样本是防「加一条免检口径就把整片报红消掉」
+//   的闸门——口径若退化成「什么都放过」，负样本会立刻失败。
+let selfProof = { ok: 0, total: 0 };
+function runInternalSelfProof() {
+    const wrap = (body) => 'export const r = {\n    test: function (ctx, log) {\n' + body + '\n    }\n};\n';
+    const SELF = [
+        { name: 'L1 正 push文案+filter二次筛选', fn: isInternalFilterKey, want: true, key: '非整数', body: [
+            "const fails = [];",
+            "fails.push(`额外 ${x} 非整数（floor 出口失守）`);",
+            "const t = fails.filter((y) => y.indexOf('非整数') > 0);"
+        ].join('\n') },
+        { name: 'L1 负 字面量对主代码语料做匹配', fn: isInternalFilterKey, want: false, key: '非整数', body: [
+            "const fails = [];",
+            "fails.push(`额外 ${x} 非整数（floor 出口失守）`);",
+            "const t = corpus.filter((y) => y.indexOf('非整数') > 0);"
+        ].join('\n') },
+        { name: 'L2 正 数组元素match自己报文', fn: isInternalParseKey, want: true, key: '不在配置集合', body: [
+            "const bad = [];",
+            "bad.push(`${who} ${stat} 账本 ${v} 不在配置集合 {${set.join('/')}}`);",
+            "const detail = (part) => part.slice(0, 4).map((x) => {",
+            "    const m = x.match(/^账本 (\\S+) 不在配置集合 \\{(.*)\\}$/);",
+            "    return m ? m[1] : x;",
+            "});",
+            "detail(bad);"
+        ].join('\n') },
+        { name: 'L2 负 正则解析的是主代码语料', fn: isInternalParseKey, want: false, key: '不在配置集合', body: [
+            "const bad = [];",
+            "bad.push(`${who} 不在配置集合 {${set}}`);",
+            "const m = corpus.match(/不在配置集合 \\{(.*)\\}/);"
+        ].join('\n') },
+        { name: 'L3 正 forof本地数组+startsWith', fn: isInternalLoopVarKey, want: true, key: '复活后被终局覆盖：uid ', body: [
+            "const errs = [];",
+            "errs.push(`复活后被终局覆盖：uid ${u.uid}`);",
+            "for (const e of errs) { if (e.startsWith('复活后被终局覆盖：uid ')) return { fail: true }; }"
+        ].join('\n') },
+        { name: 'L3 负 循环的是主代码语料', fn: isInternalLoopVarKey, want: false, key: '复活后被终局覆盖：uid ', body: [
+            "const errs = [];",
+            "errs.push(`复活后被终局覆盖：uid ${u.uid}`);",
+            "for (const e of corpus) { if (e.startsWith('复活后被终局覆盖：uid ')) return { fail: true }; }"
+        ].join('\n') },
+        { name: 'L4 正 拼接串被+切断的碎片', fn: isPushTemplateKey, want: true, key: '单条峰值', body: [
+            "const parts = [];",
+            "parts.push(label + '：' + r.count + ' 次 / 合计' + r.sum + ' / 单条峰值' + r.peak + ' / 字段' + k);",
+            "return { observe: parts.join('；') };"
+        ].join('\n') },
+        { name: 'L4 正 const装配后return出去的碎片', fn: isPushTemplateKey, want: true, key: '其中召唤者是召唤物', body: [
+            "const observe = `召唤 ${total} 次（其中召唤者是召唤物 ${chainN} 次） / 无归属 ${na} 次`;",
+            "const fails = [];",
+            "if (fails.length) return { fail: true };",
+            "return { fail: false, observe: observe };"
+        ].join('\n') },
+        { name: 'L4 负 整句连续文案未被切断', fn: isPushTemplateKey, want: false, key: '应仅挂号', body: [
+            "const msgs = [];",
+            "msgs.push(`箭靶标记乘区档位非法（应仅挂号）`);",
+            "if (msgs.length) return { fail: true, msg: msgs.join(' | ') };"
+        ].join('\n') },
+        { name: 'L4 负 碎片已被L1消费不许走L4', fn: isPushTemplateKey, want: false, key: '非整数', body: [
+            "const fails = [];",
+            "fails.push(`额外 ${x} 非整数（floor 出口失守）`);",
+            "const t = fails.filter((y) => y.indexOf('非整数') > 0);"
+        ].join('\n') },
+        { name: 'L4 负 整句只被逗号分隔（非表达式边界）', fn: isPushTemplateKey, want: false, key: '应仅挂号', body: [
+            "const msgs = [];",
+            "msgs.push(`箭靶标记乘区档位非法，应仅挂号`);",
+            "if (msgs.length) return { fail: true, msg: msgs.join(' | ') };"
+        ].join('\n') }
+    ];
+    // V1.4.0 双对端真身负路径：合成样本虽小，形态取自真实规则（本地 push → 内部 filter → 外部语料认领），
+    //   且走的是**统一入口 detectInternalKey** 而非单层函数，直接覆盖「四层短路把红洗掉」这条路径。
+    SELF.push(
+        { name: 'L0 负 双对端：内部 filter 消费 + 外部 log.some 认领战报 ⇒ 不许免检', fn: detectInternalKey, want: false, key: '非整数', body: [
+            "const fails = [];",
+            "fails.push(`额外 ${x} 非整数（floor 出口失守）`);",
+            "const t = fails.filter((y) => y.indexOf('非整数') > 0);",
+            "const hit = log.some((e) => String(e.msg).includes('非整数'));",
+            "if (hit) return { fail: true };",
+            "return { fail: false, t: t.length };"
+        ].join('\n') },
+        { name: 'L0 正 纯内部单对端仍须免检（防加严误伤 6 条存量）', fn: detectInternalKey, want: true, key: '非整数', body: [
+            "const fails = [];",
+            "fails.push(`额外 ${x} 非整数（floor 出口失守）`);",
+            "const t = fails.filter((y) => y.indexOf('非整数') > 0);",
+            "return { fail: false, t: t.length };"
+        ].join('\n') }
+    );
+    selfProof.total = SELF.length;
+    selfProof.ok = 0;
+    for (const c of SELF) {
+        let hit = false;
+        try { hit = !!c.fn(c.key, wrap(c.body)); } catch (e) { hit = false; }
+        if (hit === c.want) { selfProof.ok++; continue; }
+        fails.push(`E 口径自证未咬住：${c.name} —— 期望${c.want ? '判免检' : '判不免检'}，实际${hit ? '判免检' : '判不免检'}`);
+    }
+    notes.push(`E 口径自证 ${selfProof.ok}/${selfProof.total} 条全咬住（每层正样本 + 负样本：主代码语料 / push 行本身 / 整句连续文案 均必须不免检）`);
+}
 
 const corpus = collectCorpus();
 if (!corpus) { console.error('❌ 主代码语料为空 —— 目录清单可能变了：' + CORPUS_DIRS.join('/')); process.exit(1); }
@@ -215,8 +321,10 @@ for (const f of files) {
     for (const it of extractKeys(code, owner, lineOf, rawLines)) {
         if (!HAS_CN.test(it.key)) continue;
         rawCount++;
-        if (!seen.has(it.key)) seen.set(it.key, { files: new Set(), how: it.how, line: it.line, raw: it.raw, win: it.win });
-        seen.get(it.key).files.add(f);
+        if (!seen.has(it.key)) seen.set(it.key, { files: new Set(), fileSrc: new Map(), how: it.how, line: it.line, raw: it.raw, win: it.win });
+        const rec = seen.get(it.key);
+        rec.files.add(f);
+        if (!rec.fileSrc.has(f)) rec.fileSrc.set(f, { line: it.line, src });
     }
 }
 
@@ -246,6 +354,23 @@ for (const [key, meta] of [...seen.entries()].sort()) {
     if (s) { exempt.push(`C 反向哨兵「${key}」—— ${s.why}`); continue; }
     const c2 = COMPAT_KEYS.find(x => x.key === key);
     if (c2) { exempt.push('D 兼容/变异点保留「' + key + '」—— ' + c2.why); continue; }
+    // E 内部过滤位（V1.2.0 / V1.3.0，第 205 / 206 轮）：字面量的对端不是主代码，是规则自己装配的文案。
+    //   第 205 轮只认「filter/indexOf 前缀筛选」一层（L1）；第 206 轮扩到四层（判定全在公共件
+    //   tests/_lib/rule-internal-filter.mjs 里，本处只做薄接入）：
+    //     L1 前缀筛选式消费 —— fails.filter(x => x.indexOf('非整数') > 0)
+    //     L2 正则解析式消费 —— x.match(/^…账本 (\S+) 不在配置集合 \{(.*)\}$/)
+    //     L3 循环变量消费   —— for (const e of errs) if (e.startsWith('复活后被终局覆盖：uid '))
+    //     L4 push 模板碎片  —— `' / 单条峰值' + r.peak`、`…${chainN} 次）`（从未被任何判据消费）
+    //   无名单、无快照，纯结构判定；规则改成从主代码取文案时判定自然失效、重新报红。
+    let internal = null;
+    for (const [srcFile, info] of meta.fileSrc) {
+        const hit = detectInternalKey(key, info.src || '');
+        if (hit) { internal = { ...hit, file: srcFile }; break; }
+    }
+    if (internal) {
+        internalExempt.push({ key, layer: internal.layer, arr: internal.arr, file: internal.file, alias: internal.alias, how: internal.how });
+        continue;
+    }
     fails.push(`判据键「${key}」在主代码语料里**零命中**（${meta.how} · ${where}）`
         + ' —— 规则靠这个字面量认领战报，主代码文案已改名/撤除 ⇒ 该判据恒不命中（恒空转或恒绿），属真·假绿');
     checked++;
@@ -279,10 +404,19 @@ if (!fails.length) {
     notes.push(`模板拼装免检用的名表：共 ${charNames.length} 条（其中角色名 ${roleNames.size} 条来自 content/*.json 的 characters 键`
         + ' —— 不收这批，143 的「附身于 张无忌」类键会被误报成「真·假绿」）');
     notes.push(`棘轮：反向哨兵白名单 ${SENTINEL_KEYS.length} 条全部仍在规则中出现（只许收缩，不得新增）`);
+    notes.push(`免检 E（内部过滤位）${internalExempt.length} 条：四层纯结构判定（L1 前缀筛选 / L2 正则解析 / L3 循环变量 / L4 push 模板碎片），无名单无快照`);
+    const byLayer = {};
+    for (const e of internalExempt) byLayer[e.layer] = (byLayer[e.layer] || 0) + 1;
+    if (internalExempt.length) notes.push('E 分层：' + Object.keys(byLayer).sort().map(k => k + ' ' + byLayer[k] + ' 条').join(' / '));
+    runInternalSelfProof();
 }
 
 for (const n of notes) console.log('  ✅ ' + n);
 for (const e of exempt) console.log('  ⏭  ' + e);
+for (const e of internalExempt) {
+    console.log('  ⏭  E ' + e.layer + '「' + e.key + '」—— 对端是规则本地数组 ' + e.arr
+        + (e.alias ? '（经别名 ' + e.alias + '）' : '') + (e.how ? '（' + e.how + '）' : '') + '（' + e.file + '），不是主代码');
+}
 if (fails.length) {
     console.log(`\n❌ 规则绑定键漂移自检失败 ${fails.length} 项：`);
     for (const f of fails) console.log('  ❌ ' + f);

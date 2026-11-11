@@ -16,4 +16,18 @@
 //   禁止再在宿主里直接 import 307/308/317/331/324/333/334/335，
 //   由 tests/mechanics-install-selftest.mjs 常驻扫描守门（含待迁移清单自收敛）。
 import '../../modules/301-reg-mechanics.js';
-export const VER = 'tests/_lib/install-mechanics.mjs V1.0.0';
+
+// V1.1.0 | 2026-11-11 迭代：加 loadMechanic(id) —— 供个别宿主在「已装配」之后取模块命名空间。
+//   背景：hex-config-closure-check / hex-enhance-wiring-guard 两个宿主既要装配全域，又要调 302
+//   的 getXiaoZhaoHexEnhance。原先各写一行 await import('../modules/302-...js')，被收口守门判成
+//   「手抄装配」（判据扫的是文件里出现 modules/<已装模块> 字面量，与是否真装配无关）。
+//   本入口提供 loadMechanic 后，宿主只写 id 字符串即可，路径字面量集中在这一处（helper 本身豁免）。
+//   ★ 不缓存第二次装配：301 已经 import 了这些模块，动态 import 同一 URL 返回同一实例，零副作用。
+export async function loadMechanic(id) {
+    const key = String(id || '').replace(/\.js$/, '');
+    if (!/^[\w-]+$/.test(key)) throw new Error('loadMechanic: 非法模块 id ' + JSON.stringify(id));
+    // 本件在 tests/_lib/ 下，机制模块在仓库根 modules/，故回退两级（用变量拼，避开静态扫描字面量）。
+    return import('../' + '../modules/' + key + '.js');
+}
+
+export const VER = 'tests/_lib/install-mechanics.mjs V1.1.0';

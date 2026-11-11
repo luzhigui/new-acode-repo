@@ -1,6 +1,8 @@
 // V6.0.65 | 2026-11-11 弱精英评测从 812 拆出、独立成 802 页签：清单删 tools/838-elite-contrib.html（单页下线），
 //           补登记 tools/846-weak-elite-eval.js；顺手补漏登记 content/003-shop-config.json
 //           （805-shop.html 运行时 fetch，缺则包内商店页读不到配置）。
+// V6.0.66 | 2026-11-11 合入夜间 204–208：补登夜间第 207 轮新建、已挂 run-all OBSERVES 却漏登的
+//           tests/spider-tier-leap-guard.mjs（漏登则夜间只读沙箱包内该守门直接断链）。
 // V6.0.64 | 2026-11-10 补登记多会话协作三件（session-scope.json / session-scope-guard.mjs / session-start.mjs）；
 //           顺手归位头注：上一版 VER 已抬到 V6.0.63 但头注漏写，本版两端同步到 V6.0.64。
 // V6.0.63 | 2026-11-10 并行会话抬 VER（此处补记，未改任何清单内容）。
@@ -119,7 +121,7 @@
 //           属核心玩法不是纯演出层，原先剔除是误判）；② 新增 ARCHIVE_FILES + 第六个分组「📦 存档（不随包）」
 //           + 该组专用 GROUP_PROMPTS，存档件默认不勾选、不随主代码包/工具包发出。
 // 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
-export const VER = 'tools/806-ai-pack-config.js V6.0.65';
+export const VER = 'tools/806-ai-pack-config.js V6.0.66';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -445,6 +447,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/transfer-exit-guard.mjs', '../tests/transfer-exit-baseline.json',
     // 2026-11-10：多会话文件所有权（守门 + 唯一真值表 + 启动提示词生成）
     '../tests/_registry/session-scope.json', '../tests/session-scope-guard.mjs', '../tests/session-start.mjs',
+    // 2026-11-11 合入夜间 207：飞天三档跨档判定守卫（已挂 OBSERVES，夜间漏登）
+    '../tests/spider-tier-leap-guard.mjs',
     // 2026-11-08 自动补全：health-rules 173–266 被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/health-rules/173-hp-death-revive.js', '../tests/health-rules/174-ally-roster.js', '../tests/health-rules/175-ally-anchor-pos.js', '../tests/health-rules/176-enemy-stage-roster.js',
     '../tests/health-rules/177-enemy-mix-integrity.js', '../tests/health-rules/178-stage3-variant.js', '../tests/health-rules/179-hex-enhance-contract.js', '../tests/health-rules/180-damage-precision.js',

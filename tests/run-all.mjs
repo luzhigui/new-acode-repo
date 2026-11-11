@@ -225,7 +225,21 @@ import path from 'node:path';
 
 // 第 161 轮冲突裁决：上游 V1.20.0 与本线 V1.22.0 各自独立演进，取本地更高版本 V1.22.0；
 //   上游新增的 CHECKS 项「分层依赖方向(新增闸门)」作为新红线**保留**（非放宽，不删上游闸门）。
-export const VER = 'tests/run-all.mjs V1.50.0';
+// V1.52.0 | 2026-11-11 夜间第 207 轮：挂「飞天三档跨档判定守卫」tests/spider-tier-leap-guard.mjs（新建 V1.0.0）。
+//   ★ 起因不是"想加一项"，是第 207 轮查 SPIDER_EGG 契约长期零触发时，沿着「结茧为什么不发生」一路查到
+//     保命机制本身有结构性缺口（取证见该件头注与 tests/体检迭代日志.md 第 207 轮节）：
+//       内容表 小昭.spiderFly.desc 写「受击**将跌破**{hpThresholds}**或致死**时化为小蜘蛛免疫伤害」，
+//       即档位判定必须看**受击前**血量；而 modules/323 decideSpiderTier 只吃 hpAfter 且按升序判
+//       （70 → 40 → death）⇒ 一击从 40% 线下一路打到 0 时，第一条就命中返回 '70'，
+//       单位被这一击直接打死，40 档与致死档（结茧）都不执行。
+//     实测（对照器同源主循环 seed 17 stage 4）：R8 21.7% → R9 70/378 → R9 末 hp=0 alive=false，
+//       死亡时 _spiderTriggered40=false / _spiderTriggeredDeath=false / _spiderRemaining=2（还剩两次）。
+//   ⇒ 同一根因也解释了 SPIDER_EGG 为什么 140 场零声明：结茧只走致死档，而致死档永远轮不到。
+//     这不是"样本没覆盖"，按样本不足去补种子只会白跑（本轮已实测：不装配背水时结茧可达，但那是
+//     一击致死被避开的分支，不是缺口消失）。
+//   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
+//   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
+export const VER = 'tests/run-all.mjs V1.52.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -545,7 +559,11 @@ const OBSERVES = [
     { name: '转交队列出口守门', script: 'tests/transfer-exit-guard.mjs', args: [], hard: true },
     // V1.50.0 | 2026-11-10：多会话文件所有权守门（详见头顶 V1.50.0 日志行）。
     //   各会话开工/提交前设 HC_ROLE（+ HC_DOMAIN）自检越界；未设角色时只跑全量入库红线。
-    { name: '多会话文件所有权守门', script: 'tests/session-scope-guard.mjs', args: [], hard: true }
+    { name: '多会话文件所有权守门', script: 'tests/session-scope-guard.mjs', args: [], hard: true },
+    // V1.52.0 | 2026-11-11 夜间第 207 轮：飞天三档跨档判定守卫（详见头顶 V1.52.0 日志行）。
+    //   只做机械静态判定（内容表阈值 + 主代码判定序列 + 合成穷举），不改主代码。
+    //   exit 2 = 守卫自身前提失效（找不到 decideSpiderTier / 内容表缺参数），按「守卫坏了」处理。
+    { name: '飞天三档跨档判定守卫', script: 'tests/spider-tier-leap-guard.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
