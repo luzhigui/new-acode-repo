@@ -1,5 +1,5 @@
-// tools/835-reflect-eval.mjs — 反伤类弱精英（M104/M100/M97）强度测评
-// 用法：node tools/835-reflect-eval.mjs [--games=200] [--m=104,100,97] [--all] [名字过滤...]
+// tools/839-reflect-eval.mjs — 反伤类弱精英（M104/M100/M97）强度测评
+// 用法：node tools/839-reflect-eval.mjs [--games=200] [--m=104,100,97] [--all] [名字过滤...]
 //   默认只评「反伤/反弹/同归于尽」机制的候选；--all 评 M 档内全部具名单位。
 //   每单位跑 N 场：候选替换己方 1 号位，对照基线（无候选的原班阵容）算胜率增量；
 //   反伤伤害按 fact 归因（*_REBOUND fact / 攻击 fact 的 reboundDmg / 同归于尽反噬）。

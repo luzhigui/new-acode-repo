@@ -504,6 +504,9 @@ export const ALL_PROJECT_FILES = [
     //   属「网页端阅读需要」——漏登则包内工具箱点开这张卡 404。（对照：828/829/830 是本机 node 脚本，
     //   按本表 2026-09-26 定案不纳入、不补登。）
     '../tools/831-ablation-lab.html',
+    // 2026-11-11 补登记 839：反伤类弱精英测评浏览器版（802 备用工具卡片「🛡️ 反伤类弱精英测评」直接打开，
+    //   跑局走 core/206 runBattle；839-reflect-eval.mjs 是本机 node 脚本，按定案不随包）。
+    '../tools/839-reflect-eval.html',
     // 2026-11-01 补登记：GitHub Pages 版本化构建 + 复制包清单自检（都是纯 Node 脚本，随包供网页端核对清单完整性）
     '../tools/build-versioned-site.mjs', '../tools/check-manifest.mjs',
     // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；

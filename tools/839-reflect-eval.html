@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛡️ 反伤类弱精英测评</title>
+<style>
+    body { font-family: system-ui, sans-serif; background: #14161c; color: #dfe3ea; margin: 0; padding: 14px; font-size: 14px; }
+    h1 { font-size: 18px; margin: 4px 0 2px; }
+    .sub { color: #8b93a3; font-size: 12px; margin-bottom: 10px; line-height: 1.7; }
+    .card { background: #1c1f27; border: 1px solid #2c313d; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0; }
+    label { font-size: 13px; }
+    input[type="number"] { width: 80px; background: #14161c; color: #dfe3ea; border: 1px solid #3a4150; border-radius: 6px; padding: 4px 6px; }
+    .chk { display: inline-flex; align-items: center; gap: 4px; background: #232733; border: 1px solid #343b49; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+    .chk input { accent-color: #d4a24c; }
+    button { background: #d4a24c; color: #14161c; border: none; border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button.ghost { background: #2c313d; color: #dfe3ea; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    #bar { height: 10px; background: #232733; border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+    #barFill { height: 100%; width: 0%; background: linear-gradient(90deg,#d4a24c,#e6c37b); transition: width .2s; }
+    #progText { font-size: 12px; color: #8b93a3; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border: 1px solid #2c313d; padding: 6px 8px; text-align: center; }
+    th { background: #232733; color: #c9cfdb; font-weight: 600; }
+    td.small { color: #8b93a3; font-size: 11px; }
+    .delta-pos { color: #7ec97e; font-weight: 600; }
+    .delta-neg { color: #e08b8b; font-weight: 600; }
+    #result { overflow-x: auto; }
+    .err { color: #e08b8b; font-size: 13px; white-space: pre-wrap; }
+    .stamp { color: #6f7787; font-size: 11px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>🛡️ 反伤类弱精英测评（M104 / M100 / M97）</h1>
+<div class="sub">
+    候选 = 档位内带「反伤 / 反弹 / 同归于尽」机制的具名单位（自动检测，可勾「全部具名」扩到档位全员）。<br>
+    环境：固定基线阵容，候选替换己方 1 号位；对照无候选基线（同种子）算胜率增量。<br>
+    反伤伤害读引擎权威账本 <b>unit.reboundDone</b>（全路径覆盖），反伤次数/同尽次数扫 fact 流。
+</div>
+
+<div class="card">
+    <div class="row">
+        <label>每单位场次 <input type="number" id="games" value="200" min="10" max="2000" step="10"></label>
+        <label class="chk"><input type="checkbox" id="allNames">档位内全部具名单位</label>
+        <button id="btnRun">▶ 开始测评</button>
+        <button id="btnTsv" class="ghost" disabled>📋 复制 TSV</button>
+    </div>
+    <div class="row" id="candRow"><span class="sub">候选名单加载中…</span></div>
+    <div id="bar"><div id="barFill"></div></div>
+    <div id="progText"></div>
+</div>
+
+<div class="card" id="result"></div>
+<div class="stamp" id="stamp"></div>
+
+<script type="module">
+// tools/839-reflect-eval.html — 反伤类弱精英强度测评（浏览器版，工具箱常驻入口）
+// V1.0.0 | 2026-11-11 | 由 tools/839-reflect-eval.mjs 移植：老板拍板「别让我跑 node，工具箱加常驻按钮」。
+//   口径与 CLI 版一致（固定基线阵容 + 候选替换 1 号位 + 同种子基线对照），但跑局一律走 core/206 runBattle
+//   统一入口（816 纪律：不许手抄回合循环），机制装配走浏览器统一入口 modules/301-reg-mechanics.js。
+//   分块执行（每 15 场让出主线程），不卡 UI。
+import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
+import { Unit } from '../core/202-unit.js';
+import { SeededRNG } from '../infra/102-core-utils.js';
+import { CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { runBattle } from '../core/206-battle-runner.js';
+import '../modules/301-reg-mechanics.js';
+
+const $ = (id) => document.getElementById(id);
+const M_TIERS = [104, 100, 97];
+const REFLECT_RE = /damageReflect|reflectRatio|reboundPct|同归于尽|反噬|反弹|反伤/;
+
+let game = null;
+const state = { running: false, rows: [] };
+
+async function boot() {
+    try {
+        await loadHexEnhanceData();
+        game = await loadGameData();
+        mingBase = CONFIG.MING_ALL.filter(n => CONFIG.MING_M[n]).slice(0, 5);
+        enemyBase = Object.keys(CONFIG.ENEMY_M).slice(-9, -4);
+        renderCands();
+        $('stamp').textContent = `引擎 ${CONFIG.ENGINE_VER || '?'} · 档位 M${M_TIERS.join('/M')} · 与 839-reflect-eval.mjs 同口径`;
+    } catch (e) {
+        $('candRow').innerHTML = `<span class="err">加载失败：${e.message}</span>`;
+    }
+}
+
+function collectCands() {
+    const all = $('allNames').checked;
+    const out = [];
+    for (const [n, c] of Object.entries(game.characters)) {
+        if (!M_TIERS.includes(c.m) || c.named !== true) continue;
+        const s = JSON.stringify(c);
+        if (all || REFLECT_RE.test(s)) {
+            const kw = [...new Set(s.match(/damageReflect|reflectRatio|reboundPct|同归于尽|反噬/g) || [])].join('/');
+            out.push({ name: n, camp: c.camp, m: c.m, kw: kw || '含反弹/反伤文案' });
+        }
+    }
+    return out;
+}
+function renderCands() {
+    const cands = collectCands();
+    $('candRow').innerHTML = cands.length
+        ? cands.map(c => `<label class="chk"><input type="checkbox" class="candChk" value="${c.name}" checked>${c.name}（${c.camp} M${c.m}）</label>`).join('')
+        : '<span class="sub">没有匹配候选（勾「档位内全部具名单位」试试）</span>';
+}
+$('allNames').addEventListener('change', () => { if (!state.running) renderCands(); });
+
+function roleOf(name, rng) {
+    const ch = game.characters[name];
+    const tags = (ch && ch.tags) || [];
+    const hit = tags.find(t => CONFIG.ROLES.includes(t));
+    return hit || CONFIG.ROLES[rng.nextInt(0, CONFIG.ROLES.length - 1)];
+}
+function makeTeam(names, camp, rng, mTable) {
+    return names.map((name, i) => {
+        const u = new Unit(name, (mTable && mTable[name]) || 100, roleOf(name, rng), camp);
+        u.init(rng);
+        u.applyBonus();
+        u.pos = i + 1;
+        return u;
+    });
+}
+
+// fact 扫描：*rebound fact（反弹者=候选）+ 同归于尽反噬 announce；伤害总额走终局 reboundDone
+function scanFacts(logs, uid, name) {
+    let reflectCount = 0, deathblast = 0;
+    const visit = (f) => {
+        const d = f && f.data;
+        if (!d) return;
+        const ft = f.factType || '';
+        if (/rebound$/i.test(ft) && (d.sourceName === name || d.attackerUid === uid)) reflectCount++;
+        else if (ft === 'skillAnnounce' && d.unitUid === uid && /同归于尽|反噬/.test(String(d.note || '') + String(d.skillName || ''))) deathblast++;
+        if (Array.isArray(d.entries)) d.entries.forEach(visit);
+    };
+    for (const f of logs || []) visit(f);
+    return { reflectCount, deathblast };
+}
+
+// ⚠️ 不能在模块顶层读 CONFIG.MING_ALL/ENEMY_M——这些 getter 要求 gameData 已加载（201:298 直接抛），
+//   顶层求值会让整个 module 挂掉、boot 永远跑不到（实测：页面卡「候选名单加载中…」）。boot() 里取。
+let mingBase = [], enemyBase = [];
+
+function runOne(allyNames, enemyNames, seed, side, candName) {
+    const rng = new SeededRNG(seed);
+    const ally = makeTeam(allyNames, CAMP_TYPES.ALLY, rng, CONFIG.MING_M);
+    const enemy = makeTeam(enemyNames, CAMP_TYPES.ENEMY, rng, CONFIG.ENEMY_M);
+    const uid = (side === 'ally' ? ally : enemy).find(u => u.name === candName)?.uid ?? null;
+    const agg = { reflectCount: 0, deathblast: 0 };
+    const res = runBattle({
+        ally, enemy, seed,
+        onStep: uid != null ? (step) => {
+            const sc = scanFacts(step.log, uid, candName);
+            agg.reflectCount += sc.reflectCount; agg.deathblast += sc.deathblast;
+        } : null
+    });
+    let candAlive = false, reflectDmg = 0;
+    if (uid != null) {
+        const u = (side === 'ally' ? res.ally : res.enemy).find(x => x.uid === uid);
+        candAlive = !!(u && u.alive);
+        reflectDmg = Number((u && u.reboundDone) || 0);
+    }
+    const campWin = res.winner === (side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
+    return { campWin, candAlive, reflectDmg, reflectCount: agg.reflectCount, deathblast: agg.deathblast };
+}
+
+const yieldUi = () => new Promise(r => setTimeout(r, 0));
+
+async function run() {
+    if (state.running) return;
+    const checked = [...document.querySelectorAll('.candChk:checked')].map(cb => cb.value);
+    const cands = collectCands().filter(c => checked.includes(c.name));
+    if (!cands.length) return;
+    const GAMES = Math.max(10, Number($('games').value) || 200);
+    state.running = true;
+    $('btnRun').disabled = true;
+    $('btnTsv').disabled = true;
+    $('result').innerHTML = '';
+    state.rows = [];
+
+    const baselineCache = {};
+    const totalUnits = cands.length + 2;   // +2：两侧基线（按需，进度粗算够用）
+    let doneUnits = 0;
+    const setProg = (label, frac) => {
+        $('barFill').style.width = Math.round(frac * 100) + '%';
+        $('progText').textContent = label;
+    };
+
+    async function ensureBaseline(side) {
+        if (baselineCache[side]) return baselineCache[side];
+        let wins = 0;
+        for (let s = 0; s < GAMES; s++) {
+            if (runOne(mingBase, enemyBase, 100000 + s * 31, side, null).campWin) wins++;
+            if (s % 15 === 14) { setProg(`基线（${side === 'ally' ? '明教' : '六大派'}侧）${s + 1}/${GAMES}`, (doneUnits + s / GAMES) / totalUnits); await yieldUi(); }
+        }
+        baselineCache[side] = wins;
+        return wins;
+    }
+
+    for (const c of cands) {
+        const side = c.camp === '明教' ? 'ally' : 'enemy';
+        const allyNames = side === 'ally' ? [c.name, ...mingBase.slice(1)] : mingBase;
+        const enemyNames = side === 'enemy' ? [c.name, ...enemyBase.slice(1)] : enemyBase;
+        let wins = 0, alive = 0, reflectDmg = 0, reflectCount = 0, deathblast = 0;
+        for (let s = 0; s < GAMES; s++) {
+            const r = runOne(allyNames, enemyNames, 100000 + s * 31, side, c.name);
+            if (r.campWin) wins++;
+            if (r.candAlive) alive++;
+            reflectDmg += r.reflectDmg; reflectCount += r.reflectCount; deathblast += r.deathblast;
+            if (s % 15 === 14) { setProg(`${c.name} ${s + 1}/${GAMES}`, (doneUnits + s / GAMES) / totalUnits); await yieldUi(); }
+        }
+        const baseWin = await ensureBaseline(side);
+        state.rows.push({ c, side, wins, alive, reflectDmg, reflectCount, deathblast, baseWin, GAMES });
+        doneUnits++;
+        renderTable();
+    }
+    setProg(`完成：${cands.length} 个候选 × ${GAMES} 场`, 1);
+    state.running = false;
+    $('btnRun').disabled = false;
+    $('btnTsv').disabled = false;
+}
+
+function renderTable() {
+    const rows = [...state.rows].sort((a, b) => (b.wins - b.baseWin) / b.GAMES - (a.wins - a.baseWin) / a.GAMES);
+    const pct = (x, n) => (x / n * 100).toFixed(1) + '%';
+    $('result').innerHTML = `<table><tr><th>单位</th><th>阵营</th><th>M</th><th>反伤机制</th><th>胜率</th><th>基线胜率</th><th>Δ胜率</th><th>反伤伤/场</th><th>反伤次/场</th><th>同尽/场</th><th>存活率</th></tr>` +
+        rows.map(r => {
+            const d = (r.wins - r.baseWin) / r.GAMES * 100;
+            return `<tr><td><b>${r.c.name}</b></td><td class="small">${r.c.camp}</td><td class="small">M${r.c.m}</td><td class="small">${r.c.kw}</td>` +
+                `<td>${pct(r.wins, r.GAMES)}</td><td class="small">${pct(r.baseWin, r.GAMES)}</td>` +
+                `<td class="${d >= 0 ? 'delta-pos' : 'delta-neg'}">${d >= 0 ? '+' : ''}${d.toFixed(1)}%</td>` +
+                `<td>${(r.reflectDmg / r.GAMES).toFixed(1)}</td><td>${(r.reflectCount / r.GAMES).toFixed(2)}</td>` +
+                `<td>${(r.deathblast / r.GAMES).toFixed(2)}</td><td>${pct(r.alive, r.GAMES)}</td></tr>`;
+        }).join('') + '</table>';
+}
+
+$('btnTsv').addEventListener('click', async () => {
+    const lines = ['单位\t阵营\tM\t反伤机制\t胜率\t基线胜率\tΔ胜率\t反伤伤/场\t反伤次/场\t同尽/场\t存活率'];
+    for (const r of [...state.rows].sort((a, b) => (b.wins - b.baseWin) - (a.wins - a.baseWin))) {
+        const d = (r.wins - r.baseWin) / r.GAMES * 100;
+        lines.push([r.c.name, r.c.camp, 'M' + r.c.m, r.c.kw, (r.wins / r.GAMES * 100).toFixed(1) + '%',
+            (r.baseWin / r.GAMES * 100).toFixed(1) + '%', (d >= 0 ? '+' : '') + d.toFixed(1) + '%',
+            (r.reflectDmg / r.GAMES).toFixed(1), (r.reflectCount / r.GAMES).toFixed(2), (r.deathblast / r.GAMES).toFixed(2),
+            (r.alive / r.GAMES * 100).toFixed(1) + '%'].join('\t'));
+    }
+    try { await navigator.clipboard.writeText(lines.join('\n')); $('progText').textContent = '已复制 TSV，可直接贴表'; }
+    catch { $('progText').textContent = '剪贴板被拦，请在结果区手动选择复制'; }
+});
+$('btnRun').addEventListener('click', run);
+boot();
+</script>
+</body>
+</html>
