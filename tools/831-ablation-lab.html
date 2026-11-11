@@ -52,7 +52,7 @@
         <label class="chk"><input type="checkbox" class="stage" value="7" checked>7</label>
         <span style="margin-left:14px">每臂每关场数：</span>
         <input type="number" id="runs" value="200" min="20" step="20">
-        <label class="chk"><input type="checkbox" id="enemyHex">双海克斯（六大派也选）</label>
+        <label class="chk"><input type="checkbox" id="enemyHex" checked>双海克斯（六大派也选）</label>
     </div>
     <div class="row">
         <span>消融臂：</span>
@@ -83,7 +83,7 @@
 const $ = id => document.getElementById(id);
 const WORKER_URL = new URL('./816-role-balance-worker.js?v=V1_22_1', import.meta.url);   // 带版本参：worker 改版后手机缓存强制刷新
 const STORE_KEY = 'ming_ablation_result';
-const TOOL_VER = '831 V1.0.4';   // V1.0.4 乾坤衍生消融子开关三臂（只关减伤/只关回血/只关加攻），flags 透传 816
+const TOOL_VER = '831 V1.0.5';   // V1.0.5 双海克斯默认勾选（2026-11-11 老板定：双海克斯为标准口径）   // V1.0.4 乾坤衍生消融子开关三臂（只关减伤/只关回血/只关加攻），flags 透传 816
 
 const ARMS = [
     { id: 'base', label: '全开（基线）', flags: {} },
