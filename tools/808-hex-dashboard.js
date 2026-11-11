@@ -3,7 +3,8 @@ import { CONFIG, VER as ENGINE_VER, loadGameData, getGameData, loadHexEnhanceDat
 import { runParallel, getPoolSize } from './817-shared-worker-runner.js';
 import { HEX_NAMES } from './827-tool-registry.js';
 
-export const VER = 'tools/808-hex-dashboard.js V6.9.4';
+export const VER = 'tools/808-hex-dashboard.js V6.9.5';
+// V6.9.5 | 2026-11-11 跑批档位降量（老板：一次跑太久还占内存）：每关 500/1000/2000 → 默认 200 / 400 / 700。
 // V6.9.4 | 2026-11-08 清残留：002 删掉 sister.carry.multiTarget 后，FIELD_META 里的 multiTarget 行一并删除
 //            （该字段只此一处，没有别的消费方）；targetPositions 仍保留。
 // V6.9.3 | 2026-11-08 长期榜记录口径：每条战绩落 seed（116 hex job 提供）+ 版本（本工具 + 引擎配置）。
@@ -368,9 +369,9 @@ function openHexDashboard() {
           <option value="7">关卡：第7关</option>
         </select>
         <select class="hex-hex-runsel" title="每关跑多少场（七关一起时每关各跑这么多；单关时就是这一关跑这么多）" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
-          <option value="500">每关 500 场</option>
-          <option value="1000">每关 1000 场</option>
-          <option value="2000">每关 2000 场</option>
+          <option value="200" selected>每关 200 场</option>
+          <option value="400">每关 400 场</option>
+          <option value="700">每关 700 场</option>
         </select>
         <select class="hex-hex-lineup" title="阵容模式：决定跑批时明教侧小昭的出现方式" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
           <option value="all" selected>阵容：全部4种（一起跑）</option>
@@ -527,7 +528,7 @@ function openHexDashboard() {
     const runBtn = mask.querySelector('.hex-hex-run');
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
-    const per = parseInt(sel.value, 10) || 500;
+    const per = parseInt(sel.value, 10) || 200;
     // V6.3.0 关卡选择 = 跑批范围：'all' 跑七关、数字跑单关；阵容同前（all = 四模式一起跑）
     const stageVal = stageSel.value;
     const stages = stageVal === 'all' ? ALL_STAGES : [parseInt(stageVal, 10)];
