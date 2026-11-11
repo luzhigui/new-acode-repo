@@ -12,7 +12,11 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.5';
+export const VER = 'render/420-actions-defs.js V1.7.6';
+// V1.7.6 | 2026-11-11 | 冲刺补刀致死一击恢复默认攻击动画（!isDashStrikeFx → (!isDashStrikeFx || dead)）：
+//   老板实机「唐文亮冲拒马，拒马直接被冲刺死了」——真凶是冲刺后那记补刀普攻（冲刺真伤上限=当前血-1
+//   打不死人），它的动画被 isDashStrikeFx 有意跳过 → 目标无声暴毙，观感成冲刺击杀 + 后续动作像冲空气。
+//   目标存活时维持原「只演标枪收尾」的干净口径不动。
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -78,8 +82,10 @@ export const STAGE_ACTION_DEFS = {
             if (attacker && action.pangClumsy && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.PANG_CLUMSY, { unit: attacker });
             }
-            // 如果是唐文亮冲刺后的那一下，已经有终结一拳特效了，不再播系统默认的飞撞/射箭
-            if (attacker && target && action.attackerRole && !action.isDashStrikeFx) {
+            // 如果是唐文亮冲刺后的那一下，已经有终结一拳特效了，不再播系统默认的飞撞/射箭；
+            //   但这一击把目标打死时必须放出来（2026-11-11 老板实机：拒马被冲刺后无声暴毙，
+            //   观感成「冲刺直接打死拒马 + 对着空气再冲」）——补刀致死一击要让人看得见
+            if (attacker && target && action.attackerRole && (!action.isDashStrikeFx || action.dead)) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {
                     fxSnapshot: action.fx,
                     unitA: attacker,
