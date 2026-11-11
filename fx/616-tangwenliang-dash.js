@@ -52,6 +52,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 import { getRoleIcon } from '../render/414-role-cards.js';
 import { isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
+import { baseHeroName } from '../core/202-unit.js';
 import { STORE_ACTION_TYPES } from '../infra/106-battle-enums.js';
 import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
@@ -130,10 +131,11 @@ function revealGhostHp(uids) {
 function nameTierOf(u) {
     const displayName = (u.state && u.state._displayName) || u.name || '';
     const m = u.m || 0;
-    if (m === 100 && hasSkills(displayName)) return 'name-green';
+    const baseName = baseHeroName(displayName);   // 小昭运行时是「小昭·姊/妹」，查表退回主名
+    if (m === 100 && hasSkills(baseName)) return 'name-green';
     if (m >= 112) return 'gold';
     if (m >= 107) return 'name-purple';
-    if (m >= 104 && isNamedCharacter(displayName)) return 'name-blue';
+    if (m >= 104 && isNamedCharacter(baseName)) return 'name-blue';
     return '';
 }
 

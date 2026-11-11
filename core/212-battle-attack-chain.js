@@ -9,6 +9,8 @@
 export const VER = 'core/212-battle-attack-chain.js V1.0.16';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
+// 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
+import { baseHeroName } from './202-unit.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getMissBreakdown, canBeTargeted } from './203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod, recordHpAudit } from './214-battle-shared.js';
@@ -387,7 +389,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         // 按名字查表而非认 isZhang——core 不硬编码精英身份，与 _canAlwaysDodge 同一约定）
         // 小昭条目带 requiresHolyFlame 门控（老板拍板）：妹永久账本里有圣火令才生效——
         //   _permanentBuffs「本局不过期」语义天然满足「拥有圣火令后、这一局内」
-        let luck = getSkillParams(unit.name, 'holyTokenLuck');
+        let luck = getSkillParams(baseHeroName(unit.name), 'holyTokenLuck');
         if (luck && luck.requiresHolyFlame &&
             !(unit.isXiaoZhaoBrother && unit.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HOLY_FLAME))) luck = null;
         const dropRate = Math.min(1, (C.TOKEN_DROP_RATES[stage] || 0) / 100 * (luck && luck.multiplier ? luck.multiplier : 1));

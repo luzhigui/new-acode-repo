@@ -8,6 +8,7 @@ import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../in
 import { eventBus } from '../infra/101-event-bus.js';
 import { getDodgeRules } from '../core/221-registry-dodge.js';
 import { CONFIG, getSkillDesc, isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
+import { baseHeroName } from '../core/202-unit.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
@@ -407,13 +408,15 @@ export function renderGrid(id, camp) {
         //   金/紫/蓝 = 对应的精英/弱精英档位
         //   黑 = 无技能普通杂兵
         let nameTier = '';
-        if (unit.m === 100 && hasSkills(displayName)) {
+        // 查表一律退回主名：小昭运行时叫「小昭·姊/妹」，不退回会判成「无技能杂兵」
+        const baseName = baseHeroName(displayName);
+        if (unit.m === 100 && hasSkills(baseName)) {
             nameTier = 'name-green';
         } else if (displayTierM >= 112) {
             nameTier = 'gold';
         } else if (displayTierM >= 107) {
             nameTier = 'name-purple';
-        } else if (displayTierM >= 104 && isNamedCharacter(displayName)) {
+        } else if (displayTierM >= 104 && isNamedCharacter(baseName)) {
             nameTier = 'name-blue';
         }
         let compressName = false;

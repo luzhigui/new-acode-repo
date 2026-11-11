@@ -31,7 +31,7 @@ export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
 });
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
-import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/202-unit.js';
+import { Unit, applyHeroFlags, HERO_FLAGS, baseHeroName } from '../core/202-unit.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { CAMP_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 
@@ -543,7 +543,7 @@ export function initBattleTeams(currentStage, _rng) {
             const m = ch?.m;
             if (m == null) throw new Error(`六大派额外混入缺 characters.${en}.m`);
             const targetIdx = enemyUnits.findIndex(u => !fixedEnemyEliteNames.has(u.name)
-                && getGameData()?.characters?.[u.name]?.named !== true);
+                && (getGameData()?.characters?.[u.name] || getGameData()?.characters?.[baseHeroName(u.name)])?.named !== true);
             if (targetIdx < 0) continue;                           // 全被固定精英/具名填满 → 放弃，不 append
             const role = ch?.role || (ch?.tags || []).find(t => C.ROLES.includes(t)) || C.ROLES[0];
             const newUnit = new Unit(en, m, role, CAMP_TYPES.ENEMY);
@@ -603,7 +603,7 @@ export function initBattleTeams(currentStage, _rng) {
             for (let [role, poses] of Object.entries(template)) { if (role === 'random') continue; templateNeeds[role] = poses.length; }
             // 具名角色（characters 表且有 ROLES tag，如 何太冲=远程）：职业是身份，不参与下面的凑模板改职
             //   补 content `role` 字段（标枪等非 CONFIG.ROLES 职业）同判 isTagFixed
-            const isTagFixed = (u) => { const ch = getGameData()?.characters?.[u.name]; return !!(ch && (ch.role || (ch.tags || []).find(t => C.ROLES.includes(t)))); };
+            const isTagFixed = (u) => { const gd = getGameData()?.characters || {}; const ch = gd[u.name] || gd[baseHeroName(u.name)]; return !!(ch && (ch.role || (ch.tags || []).find(t => C.ROLES.includes(t)))); };
             for (let role of [ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.WARRIOR]) {
                 let need = templateNeeds[role] || 0;
                 let current = roleCounts[role] || 0;
