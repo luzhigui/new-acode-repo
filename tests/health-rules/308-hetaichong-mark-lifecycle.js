@@ -159,7 +159,9 @@ export const rule308 = {
       msgs.push('箭靶标记公告存在但无法解析挂标行');
     }
 
-    return msgs.length ? { fail: true, msg: msgs.slice(0, 8).join(' | ') } : (hasMarkFact ? 'pass' : 'skip');
+    if (msgs.length) return { fail: true, msg: msgs.slice(0, 8).join(' | ') };
+    if (hasMarkFact) return 'pass';
+    return 'skip';
   }
 };
 

@@ -67,6 +67,7 @@ export const rule307 = {
       }
     }
 
-    return msgs.length ? { fail: true, msg: msgs.join(' | ') } : 'pass';
+    if (msgs.length) return { fail: true, msg: msgs.join(' | ') };
+    return 'pass';
   }
 };

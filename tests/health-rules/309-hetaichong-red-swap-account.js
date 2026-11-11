@@ -163,6 +163,7 @@ export const rule309 = {
       }
     }
 
-    return msgs.length ? { fail: true, msg: msgs.slice(0, 8).join(' | ') } : 'pass';
+    if (msgs.length) return { fail: true, msg: msgs.slice(0, 8).join(' | ') };
+    return 'pass';
   }
 };
