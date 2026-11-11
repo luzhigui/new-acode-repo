@@ -1,3 +1,6 @@
+// V1.23.2 | 2026-11-11 unitAB 替身判定修 bug：小昭建队时被改名为「小昭·姊/妹」，原 isNamed 用改名串查 characters
+//   查不到 → 被当成「非具名普通成员」换掉（M107 精英换 M104），实测 30% 的配对场 Δ 被系统性拉低约 15 点。
+//   现按形态标记 + 「·」前主名判定具名，小昭不再进替身池。
 // V1.23.0/1 | 2026-11-11 新增 kind:'unitAB'（839 弱精英测评 V3：同种子直接 A/B，替换 weakElite 配对臂）；
 //   V1.23.1 无头复验后修语义：候选自然已在该侧登场的场次两臂同弃，Δ 纯测「普通 M100 → 候选」替换增益，
 //   消除常客单位（杨逍自然登场率 41%）「再带一个」重复效应造成的假负值。
@@ -424,7 +427,15 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
 function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex = false) {
     const agg = { runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 };
     const chars = getGameData()?.characters || {};
-    const isNamed = u => !!(chars[u.name] && chars[u.name].named === true);
+    // ⚠️ 小昭在 330 建队时被改名成「小昭·姊 / 小昭·妹」，用改名后的字符串查 characters 查不到，
+    //    会被误判成「非具名普通成员」而被换掉（M107 精英换 M104 → Δ 被系统性拉低约 15 点）。
+    //    这里先按形态标记排除，再退回「·」前的主名查 named。
+    const baseNameOf = n => String(n || '').split('·')[0];
+    const isNamed = u => {
+        if (u.isXiaoZhaoBrother || u.isXiaoZhaoSister) return true;
+        const ch = chars[u.name] || chars[baseNameOf(u.name)];
+        return !!(ch && ch.named === true);
+    };
     const isFront = u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR;
     for (let i = 0; i < runs; i++) {
         const s = seed + (startIndex + i) * 7919;
