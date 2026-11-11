@@ -1,3 +1,6 @@
+// V1.23.5 | 2026-11-11 上一条「严格同职业」会把样本筛成 0（素问 role 为空、唐文亮是标枪、
+//   普通弟子职业是建队时随机四选一），改为三级降级：同职业 → 同站位类（前排/后排）→ 不限职业，
+//   并把「无职业数据的候选」改成沿用被换者职业（纯单位互换）。
 // V1.23.4 | 2026-11-11 unitAB 改「同职业替换」：原来取站位最靠前的非具名成员，不分职业，
 //   等于把「职业变化」和「单位强度」混在一起测（治疗换坦克会让敌方变弱 → Δ 反而变绿，读不出强度）。
 //   现在只在同职业的普通成员里挑替身，该侧没有同职业替身就整场丢弃（不混职业凑数）。
@@ -457,16 +460,25 @@ function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex =
         clearBattleGlobals();
         const t2 = initBattleTeams(stage, new SeededRNG(s));
         const team = side === 'ally' ? t2.allyTeam : t2.enemyTeam;
-        // victim：非具名（普通成员）+ **同职业**——把「职业变化」这个混淆变量排除掉，只测单位本身强弱；
-        //   唯一前排保护（阵容语义不塌）。候选已自然在场的情形已在上面整场剔除。
-        //   该侧没有同职业普通成员时整场丢弃（不混职业凑数，否则「治疗换坦克」会被读成单位强度差）。
+        // victim 优先级：同职业 > 同站位类（前排/后排）> 任意非具名（都不分职业时等同旧口径）。
+        //   为什么要有降级：普通弟子的职业是建队时随机四选一（330:57-64），像「素问」数据里 role 为空、
+        //   「唐文亮」是标枪（普通池没有），严格同职业会直接把样本筛成 0 场。降级到同站位类，
+        //   至少把「治疗换坦克」这种改变前排结构的最强混淆变量挡在外面。
+        //   唯一前排保护不变；候选自然在场的场次已在上面整场剔除。
         const ch = chars[elite] || chars[baseNameOf(elite)];
-        const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t));
-        if (!role) continue;
+        const resolvedRole = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t));
         const frontCount = team.filter(u => isFront(u) && !isNamed(u)).length;
-        const cands = team.filter(u => !isNamed(u) && u.role === role && !(isFront(u) && frontCount <= 1));
-        const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
-        if (!victim) continue;                       // 无同职业替身：两臂同弃（逐场对应）
+        const base = team.filter(u => !isNamed(u) && !(isFront(u) && frontCount <= 1));
+        if (!base.length) continue;                  // 无合格替身：两臂同弃（逐场对应）
+        const byPos = list => list.slice().sort((a, b) => a.pos - b.pos);
+        let cands = resolvedRole ? base.filter(u => u.role === resolvedRole) : [];
+        if (!cands.length && resolvedRole) {
+            const wantFront = resolvedRole === ROLE_TYPES.DEFENDER || resolvedRole === ROLE_TYPES.WARRIOR;
+            cands = base.filter(u => isFront(u) === wantFront);
+        }
+        if (!cands.length) cands = base;             // 最后兜底：不筛职业
+        const victim = byPos(cands)[0];
+        const role = resolvedRole || victim.role;    // 候选无职业数据时沿用被换者的职业（纯单位互换）
         const mTable = side === 'ally' ? CONFIG.MING_M : CONFIG.ENEMY_M;
         const unit = new Unit(elite, (mTable && (mTable[elite] ?? mTable[baseNameOf(elite)])) || 100, role, side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
         unit.pos = victim.pos;
