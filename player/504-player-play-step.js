@@ -21,6 +21,10 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     const pendingDeaths = [];
     const actions = step.stageActions || [];
     const log = step.log || [];
+    // Bug5 同组横幅判据按 factIndex 记，而 factIndex 是「每步内」索引，跨步会重号。
+    //   每步开头清一次，避免上一步末尾的 PUSH 和本步第一个 PUSH 恰好同号时
+    //   被误判成同一组、横幅被跳过。
+    c._lastPangBannerGroupKey = null;
 
     // 修复圣火不熄等「复活」在步首被 UI 忽略的问题：
     // 引擎在回合开始已经把他改活，但 UI 步末才同步。若清尸 timer 先触发，画面会先变空、再变尸体、最后才活。

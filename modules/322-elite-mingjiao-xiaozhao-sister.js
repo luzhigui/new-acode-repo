@@ -332,7 +332,7 @@ export function createXiaoZhaoSisterComponent() {
                 Object.assign(sister.state, { _flyMode: null, _untargetable: false, _butterflyHost: null });
                 Object.assign(sister.state, { _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
-                emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
+                emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true, hostUid: hostUidBeforeClear }, log);
                 // 附身窗口关闭载荷（体检总框架 D3）：带上宿主 uid，渲染器据此打 windowClosed 标记
                 //   用进函数时存档的 hostUidBeforeClear，不能读已被清空的 state._butterflyHost
                 log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, sisterUid: sister.uid, hostUid: hostUidBeforeClear } });
@@ -385,7 +385,7 @@ export function createXiaoZhaoSisterComponent() {
                     sisterHp: sister.hp
                 }
             });
-            emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, {}, log);
+            emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostUid: host ? host.uid : null }, log);
         },
         executeAttach(A, log) {
             let sister = findAlive(A, 'isXiaoZhaoSister', u => u.pos === 4 && !isControlled(u));

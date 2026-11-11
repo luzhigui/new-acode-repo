@@ -261,6 +261,8 @@ function submitOnHitEffects(data, onHitDecls) {
                     unit.state._permShield = (unit.state._permShield || 0) + shieldGain;
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
+                // 免疫毒素（庄铮·断锤形态）：完全不上毒，格子不挂 ❄️
+                if (target.state && target.state._immunePoison) continue;
                 // 不衰减 + 可叠加 + 无上限：每命中 stacks+1、remaining 刷新为 duration。
                 //   每回合伤害 = maxHp × dotPercents[0] × stacks（结算见 modules/30 dotTick）
                 const prev = target.state._xuanmingPoison;

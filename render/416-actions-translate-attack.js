@@ -469,7 +469,7 @@ function makeAttackAction(data, index) {
 
     // 彭莹玉·双面观音：女装把敌方唯一目标拐去误攻队友那一下——
     //   ① 彭莹玉格上揭面具（MASK_PEEL cue，原逻辑）
-    //   ② 被魅惑的人头顶飘「🌸 不忍下手」
+    //   ② 被魅惑者头顶飘「🌸 不忍下手」
     //      不用爱心：💗 已被宋青书/周芷若「新婚/性奋」占用，会混淆。
     //      花瓣语义 = 被迷住身不由己，不是真心相爱。
     const phantomData = data.phantomFact && data.phantomFact.data;
@@ -483,11 +483,12 @@ function makeAttackAction(data, index) {
             factIndex: index,
             timing: 'afterText'
         });
-        // 被魅惑者头顶飘字：落点是 data.unit（被魅惑的那个攻击者），不是彭莹玉
-        if (data.unit && data.unit.uid) {
+        // 被魅惑者头顶飘字：落点是本击攻击者（被魅惑的那个），不是彭莹玉。
+        //   注意用 attacker（本函数作用域内的变量），data.unit 在 makeAttackAction 里不存在。
+        if (attacker && attacker.uid != null) {
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
-                targetUid: data.unit.uid,
+                targetUid: attacker.uid,
                 text: '🌸 不忍下手',
                 factIndex: index,
                 timing: 'afterText'

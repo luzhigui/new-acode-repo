@@ -388,7 +388,7 @@
         "yuanzhenReveal": {
           "name": "现原形",
           "desc": "开局 {openChance}% 概率、或此后每次受击 {hitChance}% 概率现出原形：变回成昆——面板（m/攻/防/最大血）换成成昆、血量按现形瞬间的比例折算、已有增益保留，并原样继承其混元霹雳劲、坚盾增幅与幻影伪装。",
-          "params": { "openChance": 0.10, "hitChance": 0.02 }
+          "params": { "openChance": 0.20, "hitChance": 0.05 }
         }
       }
     },
@@ -403,7 +403,7 @@
         "duanChui": {
           "name": "断锤三式",
           "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；触发瞬间攻击力减半（减掉的量记为 N），此后每次出手后攻击 +N、自身生命 -{selfCost}。",
-          "params": { "keepHp": 3, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5 }
+          "params": { "keepHp": 5, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5 }
         }
       }
     },

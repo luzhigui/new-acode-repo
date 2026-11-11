@@ -240,6 +240,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 寒离飒·控制免疫标记（core/14 惑心换位 / core/12 攻击链 / core/13 控制判定读取；持久化与现状一致放 battle 级）
     _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.CC_IMMUNE] },
+    // 庄铮·断锤形态免疫标记（modules/337 触发时挂，modules/310 白骨爪 / 挂毒入口读取）
+    _immuneClaw:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _immunePoison:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
     _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 寒离飒·瞄准窗口状态（player/49 瞄准标记步写，hanlisa.js 消费后清零；持久化同现状放 battle 级）

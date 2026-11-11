@@ -69,6 +69,8 @@ export const summonBengBengHandler = {
                 if (target.isBengBeng && target.state._pendingDeath) return;              // 致死一击 → 死亡钩子管
                 const victim = unit.isBengBeng ? target : unit;                           // 谁被挂毒：蹦蹦的对手
                 if (!victim.alive) return;
+                // 免疫毒素（庄铮·断锤形态）：完全不上毒
+                if (victim.state && victim.state._immunePoison) return;
 
                 const duration = params.poisonDuration ?? 3;
                 const dotPercents = params.poisonDot || [0.04];
@@ -95,6 +97,8 @@ export const summonBengBengHandler = {
                 const allUnits = [...(data.A || []), ...(data.B || [])];
                 allUnits.forEach(u => {
                     if (!u.alive) return;
+                    // 免疫毒素（庄铮·断锤形态）：上毒入口已挡，此处兜住「触发前已带毒」的历史情况
+                    if (u.state && u.state._immunePoison) return;
                     const st = u.state._bengHanDu;
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;
@@ -124,6 +128,8 @@ export const summonBengBengHandler = {
                         .find(u => u && u.uid === dead.state._killerUid);
                     if (!killer || !killer.alive) continue;
                     if (killer.camp === dead.camp) continue;                             // 友方误伤不挂
+                    // 免疫毒素（庄铮·断锤形态）：完全不上毒
+                    if (killer.state && killer.state._immunePoison) continue;
                     const duration = params.poisonDuration ?? 3;
                     const dotPercents = params.poisonDot || [0.04];
                     const prev = killer.state._bengHanDu;

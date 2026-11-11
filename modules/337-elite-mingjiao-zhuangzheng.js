@@ -5,10 +5,10 @@ export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.4';
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { applyStatChange, addMod, getStat } from '../core/214-battle-shared.js';
 
-import { pushSkillAnnounce, requireSkillParams } from './305-elite-helpers.js';
+import { pushSkillAnnounce, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
 export const duanChuiHandler = {
@@ -37,6 +37,23 @@ export const duanChuiHandler = {
                 applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
                 self.state._duanChuiTriggered = true;
                 self.state._dmgCap = cap;
+                // 断锤形态整套免疫（2026-11-11 老板拍板）：
+                //   _ctrlImmune    霸体免疫眩晕（组四订阅 STUNNED 清 _stunned）
+                //   _neverMiss     必中（不未命中）
+                //   _ignoreDodge   必中（不被闪避；对方不闪避 → 闪避反击链断）
+                //   _immuneExecute 免疫斩杀（core/203 getExecuteBlockReason 已读，core 不动）
+                //   _immuneClaw    免疫白骨爪（组十二 modules/310 读）
+                //   _immunePoison  免疫毒素（组八九十 挂毒入口各挡）
+                // 拒绝回血/吸血不额外挂标记：_dmgCap > 0 已由 core/214 拦正向治疗；
+                //   姐姐附身 isHeal=false 不受拦，仍可加血 → 组五按契约回退到 keepHp。
+                Object.assign(self.state, {
+                    _ctrlImmune: true,
+                    _neverMiss: true,
+                    _ignoreDodge: true,
+                    _immuneExecute: true,
+                    _immuneClaw: true,
+                    _immunePoison: true
+                });
                 // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
                 //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
                 const atkNow = getStat(self, 'atk');
@@ -100,6 +117,29 @@ export const duanChuiHandler = {
                     }
                 }
                 if (self.hp > 1) applyStatChange(self, 'hp', -selfCost, null, '断锤·耗血', false, false);
+            }
+        });
+
+        // 霸体免疫眩晕：任何路径设 _stunned（杨逍点穴 / 寒离飒撞边 / 惑心换位等）都即时清掉。
+        //   只在自己身上生效；以 _ctrlImmune 标记为判据——没触发断锤就不会被清。
+        eventBus.on(SIGNAL_TYPES.ON_UNIT_STATE_CHANGE, 5, (data) => {
+            if (!data || data.unitUid !== self.uid) return;
+            if (data.changeType !== STATE_CHANGE_TYPES.STUNNED) return;
+            if (!self.state._ctrlImmune) return;
+            self.state._stunned = false;
+            emitHpChange(self, { _stunned: false });
+        });
+
+        // 姐姐附身飞回时血量回退：附身期间 refreshMaxHp「上限升则等量加血」
+        //   绕过拒绝回血给了庄铮加血（isHeal=false），飞回后按契约「超 keepHp 保留 keepHp，
+        //   低于保留当前值」收口。宿主 uid 靠组六/七 让 RETURNED 信号带上 hostUid 识别。
+        eventBus.on(SIGNAL_TYPES.ON_UNIT_STATE_CHANGE, 5, (data) => {
+            if (!data || data.changeType !== STATE_CHANGE_TYPES.RETURNED) return;
+            if (data.hostUid !== self.uid) return;
+            if (!self.state._duanChuiTriggered) return;
+            if (self.hp > keepHp) {
+                applyStatChange(self, 'hp', keepHp - self.hp, null, '蝶变飞回血量回退', false, false);
+                emitHpChange(self);
             }
         });
     }

@@ -95,13 +95,19 @@ export function createHanLiSaComponent() {
                     announceFloat(data, '左拳·九阳', `☀️ 左拳·九阳${heal > 0 ? ' +' + fmtNum(heal) : ''}${shieldGain > 0 ? ` 🛡+${fmtNum(shieldGain)}` : ''}`);
                 // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒
                 } else {
-                    hls.state._hlsHanBingDone = true;   // 同样只用于凑齐解锁
-                    const prev = target.state._hlsHanDu;
-                    const stacks = (prev && prev.remaining > 0 && prev.stacks > 0 ? prev.stacks : 0) + 1;
-                    target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04])], stacks };
-                    const pctText = Math.round(((hb.dotPercents || [0.04])[0] || 0) * 100);
-                    pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 寒气入体（${hb.duration ?? 3} 回合，每回合 ${pctText}%×${stacks} 层最大生命）</span>`);
-                    announceFloat(data, '右拳·寒冰', '❄️ 右拳·寒冰');
+                    hls.state._hlsHanBingDone = true;   // 「已出寒冰」计数照记，只不挂毒
+                    // 免疫毒素（庄铮·断锤形态）：完全不上寒毒
+                    if (target.state && target.state._immunePoison) {
+                        pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 免疫寒气（断锤形态）</span>`);
+                        announceFloat(data, '右拳·寒冰', '🚫 免疫寒气');
+                    } else {
+                        const prev = target.state._hlsHanDu;
+                        const stacks = (prev && prev.remaining > 0 && prev.stacks > 0 ? prev.stacks : 0) + 1;
+                        target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04])], stacks };
+                        const pctText = Math.round(((hb.dotPercents || [0.04])[0] || 0) * 100);
+                        pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 寒气入体（${hb.duration ?? 3} 回合，每回合 ${pctText}%×${stacks} 层最大生命）</span>`);
+                        announceFloat(data, '右拳·寒冰', '❄️ 右拳·寒冰');
+                    }
                 }
 
                 // ③ 凑齐两种（九阳 + 寒冰各至少出过一次）→ 本击结束即起蓄力（普攻照打，蓄力从下一回合开始）
