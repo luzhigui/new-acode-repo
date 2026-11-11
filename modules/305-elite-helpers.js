@@ -12,13 +12,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 //   ★ 必须 import 建本地绑定后再 export：`export {x} from` 不建本地名，switchRoleOnly 内部调会 undefined。
 export { emitHpChange, pushFact };
 
-// V1.2.1 | 2026-11-08 pushSkillAnnounce 统一携带 label（中文技能名 → 稳定英文标识，供体检规则匹配）
-// V2.0.0 | 2026-11-08 骨架化：新增 findAlive / selfOrFindAlive / requireSkillParams / requireField /
-//           pushFact / emitHpChange 六个通用动作，替代各精英模块手写的同类样板（找人 47 处、缺参 61 处、
-//           推 fact 112 处、血量广播 32 处）。行为与原内联实现逐字等价，不改任何数值与顺序。
-// V2.0.1 | 2026-11-08 两个通用动作实作下移最低可用层：emitHpChange → core/214（V6.4.8）、
-//           pushFact → infra/102（V6.1.6）。放 modules 层时 core 自身（HP 广播 22 处 / 推 fact 113 处）
-//           永远够不到入口，守卫规则形同虚设。本文件改为转口，对外签名与行为不变。
+// V2.0.1 | 2026-11-08 两个通用动作实作下移最低可用层：emitHpChange → core/214（V6.4.8）、 pushFact → infra/102（V6.1.6）。放 modules 层时 core 自身（HP 广播 22 处 / 推 fact 113 处） 永远够不到入口，守卫规则形同虚设。本文件改为转口，对外签名与行为不变。
 export const VER = 'modules/305-elite-helpers.js V2.0.1';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。
@@ -28,7 +22,6 @@ export function pushInfo(data, text) {
         data.group.data.entries.push({ type: 'info', text });
     }
 }
-
 
 // 登记一套职业加成词条（atk/def/maxHp 各 +bonus），并同步 maxHp。
 //   group 必须由调用方传：体检对照器按 group 隔离比对「声明 vs 账本」，统一成一个会破契约
@@ -93,10 +86,8 @@ export function requireField(obj, field, context) {
 // 推一条 fact。log 为空静默跳过。
 //   ★ 实作已下移 infra/102（V6.1.6）并在文件头转口；此处不再保留本地副本。
 
-
 // 广播单位数值变化（UI 重画攻防血）：固定 5 字段，extra 追加或覆盖。
 //   ★ 实作已下移 core/214（V6.4.8）并在文件头上方转口；此处不再保留本地副本。
-
 
 // 往 log 里推一条技能播报（SKILL_ANNOUNCE）。基础 5 字段固定，额外字段（floatText/floatUid/
 //   line:false/grants/swap/dot/eggAtkDelta/eggDefDelta/pangDefGain…）走 extra 展开；

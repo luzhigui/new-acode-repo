@@ -1,5 +1,4 @@
 // modules/326-elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
-// V1.2.1 | 2026-11-08 雄狮鼓舞 targets 补 uid（召唤物个体标识，体检总框架 D6）
 // V1.2.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.2';
 import { getSkillParams } from '../core/201-config-5v5-test.js';

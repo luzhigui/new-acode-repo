@@ -1,18 +1,4 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
-// V1.0.1 | 2026-11-07 | 触发瞬间攻击力减半并记 N，此后每次出手 +N；自身 -1 血补 hp>1 守卫（不自杀）
-// ① 首次受到致死伤害：不倒，保留 keepHp 点生命（免疫本击），并立即反手打攻击者一次；
-// ② 此后每次受伤最多只受 cap 点（_dmgCap 单一来源，core/12 + core/13 两条落账出口共读）；
-// ③ 触发瞬间攻击力减半（减掉的量记为 N，存 state._duanChuiN）；此后每次出手后攻击 +N、自身生命 -selfCost
-//    （hp 不大于 1 时不扣，不自杀）。
-// 注册面说明（按现码修正，勿照抄旧稿）：
-//   · BEFORE_DAMAGE_APPLY 的 payload 只有 { target, dmg, hpBefore, A, log, declarations }，
-//     没有 unit / B / state —— 攻击者在这是拿不到的，所以「立即反击」不在这里做。
-//   · 免疫分支不处理 extraRequests，挂 AFTER_DAMAGE_APPLIED 的反击请求会被整段吞掉；
-//     故反击挂 AFTER_ATTACK_IMMUNE（免疫分支专属广播，payload 带 unit/A/B/state），
-//     直调 core/10 processUnitAttack（与宋青书·性奋同一既有模式，不另造一套额外攻击系统）。
-// V1.0.2 | 2026-11-08 体检转交：报幕 N= 走 fmtNum（原直接印内部浮点，实测出现 N=29.39124375）。
-// V1.0.3 | 2026-11-08 精英数值一致性：触发瞬间的「减半」系数从写死 0.5 改为读 duanChui.params.atkHalfRatio
-//           （旧值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
 // V1.0.4 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.4';
 

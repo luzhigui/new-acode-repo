@@ -1,27 +1,6 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
-// V1.0.3 | 2026-11-07 | 误攻队友的 PHANTOM_CONFUSE fact 补 sourceSkill='双面观音'：
-//   渲染打「双面观音」、战绩/体检按来源区分归因（不再复用成昆的「幻影伪装」文案）
-// V1.0.2 | 2026-11-07 | 概率回调 disguiseChance 0.10 / openingChance 0.20；新增「女装状态下是敌方唯一可选目标」→ 误攻队友
-// 规则：每回合开始 {disguiseChance}%（首回合 {openingChance}%）换女装上阵，持续 {duration} 回合；
-//   女装期间自身造成的伤害 ×{dmgBonus}（倍率取 content.skills.doubleFace.params.dmgBonus）。
-// V1.0.4 | 2026-11-08 体检转交：女装增伤倍率参数化（content.skills.doubleFace.params.dmgBonus），
-//   不再硬编码 1.5；缺参数显式抛错，避免「改配置不改战局」。
-// V1.0.5 | 2026-11-08 文案修正：机制是「女装」不是「分身」，旧报幕「化出××」改为「女装上阵」；
-//   那一刻起的「敌方无法对她出手」窗口保留不变。
-// V1.0.6 | 2026-11-08 女装期照常掷骰：仍在女装（剩余回合 >0）时掷骰成功 → 当前剩余回合 +1 顺延，
-//   不再提前 return 跳过；战报用「女装延长 1 回合」，与首次「女装上阵」区分。褪装当回合仍不掷。
-// V1.0.7 | 2026-11-08 名字保持本名：不再写 state._displayName（原「彭莹玉♀」后缀撤掉），
-//   女装状态改为由 render/403 在技能图标槽挂 👗 + 未行动格淡粉红底色表达；
-//   DISGUISE/UNVEIL 技能 cue 不再翻转名字牌，只保留薄纱/碎屑特效。
-// V1.0.8 | 2026-11-08 设定纠正：女装＝「别人不忍下手」，她仍看得见、也能被选中；
-//   报幕与注释统一口径，机制（过滤/概率/回合数/顺延）一行未动。
-// V1.0.9 | 2026-11-08 女装语义重做：撤掉 core/07 的剔除过滤器（她回到正常候选池）；
-//   改为全局「选中她 → 改打攻击方自己的队友」（挂 AFTER_SELECT_TARGET，按 pos 取第一个，不新增随机数）；
-//   攻击方队友全灭＝本击跳过、她不挨打（标枪仍前压），落 EMPTY_TARGET 说明；
-//   免疫分支补 phantomFact；每回合女装掷骰无论掷中/未中都落系统提示。
-// V1.0.10 | 2026-11-09 语义纠正：女装＝别人不忍下手 ⇒ 敌方候选池「有多人时不选她」，
-//   全局挂 core/07 的 registerTargetFilter（不是 333 癫的池）；她是唯一可选目标时才保留，
-//   由 AFTER_SELECT_TARGET 改打攻击方自己的队友（队友也没了＝本击跳过，她不挨打）；持续 3 回合。
+// V1.0.10 | 女装＝别人不忍下手 ⇒ 敌方候选池有多人时不选她（core/07 registerTargetFilter），
+//   她是唯一可选目标时由 AFTER_SELECT_TARGET 改打攻击方自己的队友；队友也没了＝本击跳过，她不挨打。
 export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.10';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';

@@ -1,7 +1,4 @@
 // modules/307-elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
-// V6.1.2 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='幻影伪装'（显式来源归因，
-//         渲染文案逐字不变——同一条事实另有小昭·兄/彭莹玉两个来源）
-// V6.1.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V6.1.4 | 2026-11-08 模仿候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），「不模仿马」以 accept 条件保留
 export const VER = 'modules/307-elite-imperial.js V6.1.4';
 

@@ -1,10 +1,4 @@
-// V6.3.8 | 2026-11-07 第 184 轮：飞天/附身判据收口为 export isAirborne（全库唯一一份），
-//          getFronts / isBlocked 两处内联改调；203 侧补上 _butterflyHost（蝶附身必同时置 _flyMode，
-//          实际行为逐字不变）。214 / 315 / 318 的另四份同源实现同步改为调用本函数。
-// V6.3.9 | 2026-11-08 体检转交：姊强化概率连击改读 002 sister.doubleStrike.chance（原写死 1.0，
-//          002 里那键是死键）；缺键当场抛错，不回落普通版。
-// V6.4.0 | 2026-11-09 斩杀无效判定收口 export getExecuteBlockReason：寒离飒 _immuneExecute 之外，
-//          补上庄铮·断锤三式 _dmgCap（hp 高于上限时斩杀不能一次性归零，与血量判死同口径）。
+// V6.4.0 | 2026-11-09 斩杀无效判定收口 export getExecuteBlockReason：寒离飒 _immuneExecute 之外， 补上庄铮·断锤三式 _dmgCap（hp 高于上限时斩杀不能一次性归零，与血量判死同口径）。
 export const VER = 'core/203-battle-utils.js V6.4.0';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';

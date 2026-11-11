@@ -2,13 +2,7 @@
 // 归属判据：这些函数被「攻击链之外」的调用方单独使用（modules/26-tangwenliang 取 computeDodgeChance +
 //   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
 //   攻击链内部流转留在 212-battle-attack-chain.js，保持「一条攻击链一个文件」。
-// V1.0.1 | 2026-11-07 第 184 轮：resolveDeaths 归零改调 killUnit（死亡收口统一出口，ignoreCap=true
-//          与审计账/待死标记一次做完；补记 V1.0.0 未升版的 ignoreCap 改动）
-// V1.0.2 | 2026-11-08 体检转交：resolveDeaths 每个死者补一条 UNIT_DEATH fact（只加事实，不改判死/结算逻辑）
-// V1.0.4 | 2026-11-08 状态标签化：isUnitStunned 改为 isControlled 的转口（此前零调用，
-//   保留导出名防外部引用；判定口径统一由 core/218 标签表决定）。
-// V1.0.5 | 2026-11-09 召唤物阵亡补显式事实：resolveDeaths 里 isSummon 的死者与 UNIT_DEATH 同出口
-//   补一条 SUMMON_DEAD（此前只能从 ATTACK 的 dmgResult.dead 反推，DOT / 替死 / 非攻击来源归零时看不见）。
+// V1.0.5 | 2026-11-09 召唤物阵亡补显式事实：resolveDeaths 里 isSummon 的死者与 UNIT_DEATH 同出口 补一条 SUMMON_DEAD（此前只能从 ATTACK 的 dmgResult.dead 反推，DOT / 替死 / 非攻击来源归零时看不见）。
 export const VER = '213-battle-attack-edge.js V1.0.5';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';

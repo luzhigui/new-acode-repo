@@ -1,24 +1,6 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.8.4 | 2026-11-08 背水一战声明载荷补齐：def 乘率 + 战士 atk/def/maxHp 三条 add（体检总框架 D1/D4）
-// V6.8.3 | 2026-11-08 飞行再生去掉 Math.round：0.4 的真实回复被取整成 0 会打出「回复 0 点生命」，
-//         改实数差值，显示在 render/410 经 fmtNum 收口
-// V6.8.6 | 2026-11-08 体检转交：劈空/流星溅射在主伤为 0 时跳过声明（0 伤害也会触发挨打增益与成长）。
-// V6.8.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回血量可按百分比校验，不再靠最近 ATTACK 快照反推）。
-// V6.8.8 | 2026-11-08 体检转交：圣火不熄复活带账——复活记录（uid/实际回复量/原始量/maxHp/档位/比例/名额）写进
-//         | 阵亡者 state._holyFireRevives，随每回合 BUFF_SUMMARY 下发，复活公告同时带 healAmount 等结构化字段。
-// V6.8.9 | 2026-11-08 体检转交：复活前补账——_pendingDeath && hp<=0 的单位先补一条 UNIT_DEATH（DOT 致死被复活救走也留登记）
-// V6.9.0 | 2026-11-08 救阻塞：b7a9784e 有意废弃 brother.lastStand.hpThreshold（002 改为空对象保留键），
-//         本函数硬抛错导致整局回放与 rng 基线全卡。对齐消费方：缺键时 permThreshold=null、permLow 恒 false，
-//         纯妹永久场景仍由 modules/324 专属组件处理，不改 content 数值。
-// V6.9.1 | 2026-11-09 众志成城补员加攻击下限：防战吃 -8 职业攻后 m=15 基础攻可能为负（显示 0、百分比加成乘 0 仍是 0），
-//         改为攻 <1 补到 1，与防/血下限同口径写 _base*/_init*。
-// V6.9.3 | 2026-11-11 妹背水后不吃团队海克斯（老板拍板）：isTeamHexExcluded 谓词集中一处，
-//           圣火令/严阵/carry/背水hex/众志 per-unit 施法 + 嗜血/热血/流星攻击时结算 + 云身闪避 全部设闸；
-//           摄魂（敌方对我方的减益）不设闸=不吃己方海克斯但对敌方海克斯照常挨
-// V6.9.4 | 2026-11-11 热血奋战翻倍节奏统一走 critPattern：普通版读 001（[1,3]=每3次第1、3次翻倍），
-//         姊强化读 002（[1,2,3]=全部翻倍），妹永久版走普通分支自动同频；无配置才回落固定间隔旧口径。
+// V6.9.4 | 热血奋战翻倍节奏统一走 critPattern：普通版读 001（[1,3]），姊强化读 002（[1,2,3]），妹永久版同普通分支
 export const VER = 'core/204-buff-system.js V6.9.4';
-// V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,

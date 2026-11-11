@@ -1,5 +1,4 @@
 // modules/318-elite-mingjiao-eagle.js — 明教精英「雄鹰」：组件工厂（carry 海克斯召唤·飞行）
-// V1.0.2 | 2026-11-07 第 184 轮：飞天判据改调 core/203 isAirborne（全库唯一一份，行为不变）
 // V1.0.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/318-elite-mingjiao-eagle.js V1.0.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';

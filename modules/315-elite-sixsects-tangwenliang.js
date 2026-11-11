@@ -2,18 +2,6 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-// V7.1.3 | 2026-11-07 第 184 轮：① 飞天/附身判据改调 core/203 isAirborne（本地内联删除，行为不变）；
-//          ② 补记 V7.1.2 未升版的实质改动——forceInsert 把「飞天/附身占格」从旧口径「视同空位继续
-//          往后找」改成「当墙、换列」（fuzz s127/r8 同格病根：9 号被推进小昭·姊附身腾空的 2 号格）。
-// V7.1.4 | 2026-11-08 | 回春叠层改当场：doDash 冲刺即 addHuiChunStack（原先置 _pendingDashHeal 等
-//          「冲刺后那一拳」结算再叠，被动冲刺那一拳被跳过 → 四条钩子都不发 → 一层都不叠）；
-//          删除 _pendingDashHeal 与 AFTER_ATTACK/AFTER_MISS/AFTER_ATTACK_IMMUNE/ON_DODGE 四条 flush 监听。
-// V7.1.5 | 2026-11-08 | 冲刺播报目标侧判定改用 applyMoves 之前的 targetFromPos：
-//          旧写法读被 moveUnitPosition 改写后的 target.pos，目标被拖到前排后这里恒为 ≤3，
-//          播报永远写「已在前排」，把目标侧真实拖拽（如「说不得 5→2、X 2→5」）整段吞掉，
-//          与 dash.moves 传给 fx/616 的拖拽演出自相矛盾。
-// V7.1.6 | 2026-11-08 冲刺 announce 补 grants 载荷（体检总框架 D1/D4：与 TW_DASH_APPLY 同值）
-// V7.1.7 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（回春术层数）。
 // V7.1.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.8';
 

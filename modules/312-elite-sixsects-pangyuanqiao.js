@@ -1,9 +1,5 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.29.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
-// V6.29.6 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-// V6.29.7 | 2026-11-08 打歪落点池改走 core/207 公共出口；池被隐身剔空时不挑人、交下游声明层
-// V6.29.9 | 2026-11-09 癫发作不再吞技能：只跳过「打歪改落点」，×倍率+击退 / 正义国字脸+加防照常触发；
-//          嘲讽只标记敌方阵营（癫时 validTargets 含队友）。
+// V6.29.9 | 2026-11-09 癫发作不再吞技能：只跳过「打歪改落点」，×倍率+击退 / 正义国字脸+加防照常触发； 嘲讽只标记敌方阵营（癫时 validTargets 含队友）。
 export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.9';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';

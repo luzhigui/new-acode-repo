@@ -1,18 +1,4 @@
-// V6.2.3 | 2026-11-07 | 修战士斩杀被 _dmgCap 截断：EXECUTE 归零血改 ignoreCap=true（处决不是受伤）
-//        | 庄铮·断锤三式把每次受伤截到 cap 点，斩杀走同一 applyStatChange 也被截 → 血不归零、不挂
-//        | _pendingDeath → core/209 的 executeKill 不置位 → 攻击组 isDead=false（死亡特效缺失），且斩杀实际没杀死人。
-// V6.2.4 | 2026-11-07 第 184 轮：EXECUTE 与白骨爪斩杀都改调 killUnit（死亡收口唯一出口）；
-//        | 白骨爪此前直调 applyStatChange 漏传 ignoreCap → 庄铮 _dmgCap 下只掉 1 点血、fact 却写「斩杀」。
-// V6.2.5 | 2026-11-08 体检转交：DMG_REDUCTION 补负项明细（只扣总量不写明细 ⇒ 战报「计算」行漏掉这笔减伤，
-//        | 与最终伤害对不上）。负值由 render/407 排版成「- 减伤N」。
-// V6.2.6 | 2026-11-08 体检转交：HEAL handler 在应用后回填 heal / hpBefore / hpAfter（全部取实落值）。
-//   旧版 fact 里的 hpBefore / hpAfter 是「声明提交那一刻」的快照——同帧多次回血时前序回血尚未应用，
-//   于是印出的金额与实际落账对不上（实测 20 场偏离，如「回复 +14，血量 120→136」）。
-// V6.2.7 | 2026-11-08 体检转交（159）：LEECH handler 把 fact.heal 回填为实落值（声明期 previewHeal 只是预演，
-//   同帧血量漂移会让「文本 +N」与 fact.heal 不同源）；预演值改存 healNominal。
-// V6.2.8 | 2026-11-08 体检转交：破防实落值为 0 时不产 BREAK_DEF 条目（不再照抄声明的 0.8 造出「减防 0.8 / -0」假账）
-// V6.2.9 | 2026-11-08 known-transfers 第 7 条：LEECH handler 优先按声明期算好的 maxHpGain 累加上限，
-//   修「同帧多击第二次不抬上限」（绝对目标值相减恒 0）；无该字段的老调用点行为不变。
+// V6.2.9 | 2026-11-08 known-transfers 第 7 条：LEECH handler 优先按声明期算好的 maxHpGain 累加上限， 修「同帧多击第二次不抬上限」（绝对目标值相减恒 0）；无该字段的老调用点行为不变。
 export const VER = 'core/217-effect-handlers.js V6.2.9';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';

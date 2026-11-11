@@ -1,7 +1,5 @@
 // modules/327-elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
-// V1.2.0 | 2026-11-11 点穴/截脉拆两骰（老板拍板）：点穴 60% 挂眩晕+冷却，截脉 80% 独立挂禁疗（成败互不绑定）；
-//           冷却门仍挡整个弹指神通；四档公告文案（双中/只点穴/只截脉/全空），截脉单独命中飘 ❌。
-// V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
+// V1.2.0 | 2026-11-11 点穴/截脉拆两骰（老板拍板）：点穴 60% 挂眩晕+冷却，截脉 80% 独立挂禁疗（成败互不绑定）； 冷却门仍挡整个弹指神通；四档公告文案（双中/只点穴/只截脉/全空），截脉单独命中飘 ❌。
 export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.2.0';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/214-battle-shared.js';
@@ -84,7 +82,7 @@ export function createYangXiaoComponent() {
                 data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: dian.allActedDmgRatio, source: yangxiao, label: '弹指神通·追击' });
             });
 
-            // ③ 回合开始：递减 _jinMai 剩余回合与 _dianXueCd 冷却
+            // ③ 回合开始：递减 _jinMai 剩余回合与 _dianXueCd 冷却；顺手清先机「免行动力」悬空标记
             if (isPrimary) eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.JIN_MAI, (data) => {
                 for (const u of [...(data.A || []), ...(data.B || [])]) {
                     if (!u.alive) continue;
@@ -94,6 +92,29 @@ export function createYangXiaoComponent() {
                     }
                     if (st._dianXueCd > 0) st._dianXueCd -= 1;
                 }
+            });
+
+            // ⑤ 先机免行动力：任何一次「真出手」后 30% 概率不消耗行动力
+            //    命中/未命中/闪避/免疫四条信号各覆盖一条出手结果，一次出手只会走其中一条；
+            //    PASS（眩晕/遮挡/休息）不走这四条，天然被排除，不会出现「被遮挡反复掷 30%」的死循环
+            const _rollFreeAction = (data) => {
+                const u = data && data.unit;
+                if (!u || u !== yangxiao || !u.alive) return;
+                if (getBattleRng().next() >= (xian.freeActionProb || 0)) return;
+                yangxiao.state._xianJiFreePending = true;
+            };
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 95, _rollFreeAction);
+            eventBus.on(SIGNAL_TYPES.AFTER_MISS, 95, _rollFreeAction);
+            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK_IMMUNE, 95, _rollFreeAction);
+            eventBus.on(SIGNAL_TYPES.ON_DODGE, 95, _rollFreeAction);
+
+            // 消费：行动完（ON_UNIT_ACTED）时若本击掷中，复原 _acted false
+            eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 90, (data) => {
+                if (data.unit !== yangxiao) return;
+                if (!yangxiao.state._xianJiFreePending) return;
+                yangxiao.state._xianJiFreePending = false;
+                yangxiao.state._acted = false;
+                if (data.log) pushSkillAnnounce(data.log, yangxiao, '先机', `👟 ${yangxiao.name}·先机：本次出手未消耗行动力，本回合仍可出手`, { floatText: '👟', floatUid: yangxiao.uid });
             });
         }
     };

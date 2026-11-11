@@ -1,24 +1,5 @@
 // modules/322-elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
-// V1.0.3 | 2026-11-07 #17 按文档口径删掉「额外再选一个队友加同等属性」的第二受益者（附身只对主宿主生效；
-//           `_extraButterflyHost` 的写入与飞回清理一并移除）。
-// V1.0.2 | 2026-11-07 | ① 附身占位可被击退挤开（core/214 同步放行脉冲格）——占位与目标互换；
-//          ② 宿主死亡立刻飞回当前格（watchUnit 观察 host.alive），并复位 A._butterflyTriggered，
-//             让下一位队友出手前按原有左右取序重新附身（旧版要等回合末声明）。
-// V1.0.4 | 2026-11-08 宿主阵亡 fact 补 hostUid（体检总框架 D3 窗口关闭载荷）
-// V1.0.6 | 2026-11-10 乾坤衍生数值刀：回血/加攻改乘法口径（参数即比例，名字=数学）——defToHeal 0.06→0.10（防×10%）、defToAtk 0.12→0.05（防×5%），减伤轴未动
-// V1.0.5 | 2026-11-08 精英数值一致性：乾坤衍生减伤保底值从写死 0.5 改为读 qianKunDerived.params.minReduce
-//           （旧兜底值 0.5 原样搬进 content/001，数值不变；配置缺键显式抛错，不回落）。
-// V1.0.6 | 2026-11-08 修 BUTTERFLY_HOST_DEAD.hostUid 恒 null：原在清空 _butterflyHost 之后才读它，
-//           现进函数先存 hostUidBeforeClear，清 state 后用存档值落 fact（体检实测 23/23 全 null）。
-// V1.0.12 | 2026-11-11 消融子开关三件套（老板拍板分化三子集）：noQianKunReduce/noQianKunHeal/noQianKunAtk
-//           各关各的（常规+白骨爪双路径同口径），noQianKun 总闸不变；子开关只跳过生效、掷骰照常消耗保序列逐位一致；
-//           渲染联动 410：缺哪段不吐哪段（不再渲染 null）
-// V1.0.7 | 2026-11-08 取消乾坤衍生减伤保底：calcQianKunReduce 不再读 s.minReduce、去掉 Math.max 保底，
-//           减伤回归纯公式；白骨爪多段小伤害可实打实穿透。content/001 的 minReduce 键随之移除。
-// V1.0.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-// V1.0.9 | 2026-11-08 状态标签化：六处「找不受控的姊/妹」改问 isControlled()（core/218 标签表）。
-// V1.0.10 | 2026-11-08 known-transfers 第 3 条：_executeReturn 宿主阵亡分支补 removeModsByGroup(host,'butterfly')
-//   + refreshMaxHp，且放在飞回血量分母计算之前（旧版只清 _butterflyHost，宿主词条永久残留）。
+// V1.0.12 | 2026-11-11 消融子开关三件套（老板拍板分化三子集）：noQianKunReduce/noQianKunHeal/noQianKunAtk 各关各的（常规+白骨爪双路径同口径），noQianKun 总闸不变；子开关只跳过生效、掷骰照常消耗保序列逐位一致； 渲染联动 410：缺哪段不吐哪段（不再渲染 null）
 export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.12';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';
@@ -246,7 +227,16 @@ export function createXiaoZhaoSisterComponent() {
             const comp = this;
             if (sister.state._butterflyHost) return null;
             const flyDirection = A._flyDirection || 'left';
-            const order = flyDirection === 'left' ? [3,2,1,9,8,7,6,5] : [5,6,7,8,9,1,2,3];
+            // 扫描顺序从「她当前所在位置」向外展开，不能写死 [3,2,1,…]/[5,6,7,…]——
+            //   原表按 4 号位邻居硬编码，她被击退到 9 号位后仍从 3/5 起扫，就出现「人在 9 号位按 4 号位飞」。
+            //   左飞 = pos 递减方向、右飞 = pos 递增方向，9 格环形（pos 从 1 到 9 循环）。
+            const order = [];
+            const startPos = (typeof sister.pos === 'number' && sister.pos >= 1 && sister.pos <= 9) ? sister.pos : 4;
+            for (let i = 1; i < 9; i++) {
+                const step = flyDirection === 'left' ? -i : i;
+                const p = ((startPos - 1 + step + 18) % 9) + 1;
+                if (p !== startPos) order.push(p);
+            }
             let host = null;
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) {

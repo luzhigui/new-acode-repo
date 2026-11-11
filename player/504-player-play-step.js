@@ -65,7 +65,20 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     //   倒针静默重演（c.isRewinding）时跳过 FX：历史死亡画笔/飘字不许重放
     const runAction = async (action) => {
         applyStageActionToStore(c, action, pendingDeaths);
-        if (!c.isRewinding && getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
+        // 同一 factIndex 内连续多条 PUSH：只弹一次 banner。
+        //   8 号位特例产生 3 条 PUSH（崩飞 u5/u2 + 轰飞 victim），原逻辑每条都弹 1.5s 横幅，
+        //   三连弹 4.5s 就是「磨蹭」的主要来源。
+        const prev = c._lastPangBannerGroupKey;
+        const key = action.kind === STAGE_ACTION_TYPES.PUSH && action.factIndex != null ? action.factIndex : null;
+        if (!c.isRewinding && getActionFx(action) !== 'none') {
+            if (action.kind === STAGE_ACTION_TYPES.PUSH && key === prev) {
+                // 同组内的第 2/3 条 PUSH：跳过 banner，只走位移（fx 里 banner 与位移是分开的两段）
+                await applyStageActionToFX(c, { ...action, skipBanner: true });
+            } else {
+                await applyStageActionToFX(c, action);
+                c._lastPangBannerGroupKey = key;
+            }
+        }
         applyStageActionToStoreAfter(c, action, pendingDeaths);
     };
 

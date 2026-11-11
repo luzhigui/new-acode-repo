@@ -3,13 +3,7 @@
 //   （参数全部来自 content 的 summonBengBeng，与谢逊幼狮同口径）。
 //   蹦蹦攻击或受击时给对方叠一层寒毒（独立毒账 _bengHanDu，本模块自结算，与寒离飒无关——V1.3.0）。
 // 预估约 3400 字节
-// V1.2.0 | 2026-11-08 蹦蹦寒毒联动：isBengBeng 标记 + AFTER_DAMAGE_APPLIED 监听，只给敌方叠寒毒
-// V1.1.0 | 2026-11-08 加召唤概率：prob<1.0 才掷战斗 RNG，未配置不消耗随机数、保持旧行为
-// V1.0.0 | 初版
-// V1.2.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-// V1.3.0 | 2026-11-10 毒归挂毒方（TA 拍板）：蹦蹦毒独立 _bengHanDu 字段+模块内自结算，与寒离飒彻底解耦；
-//   三通道挂毒=打蹦蹦/被蹦蹦打/任何伤害击杀蹦蹦（凶手读 _killerUid 账，溅射/DOT/反弹全覆盖）；
-//   抑疗（寒毒抑疗削减）与格上 ❄️ 图标同享；毒账随受害者走，扣到回合数耗尽为止，跟三家死活无关。
+// V1.3.0 | 2026-11-10 毒归挂毒方（TA 拍板）：蹦蹦毒独立 _bengHanDu 字段+模块内自结算，与寒离飒彻底解耦； 三通道挂毒=打蹦蹦/被蹦蹦打/任何伤害击杀蹦蹦（凶手读 _killerUid 账，溅射/DOT/反弹全覆盖）； 抑疗（寒毒抑疗削减）与格上 ❄️ 图标同享；毒账随受害者走，扣到回合数耗尽为止，跟三家死活无关。
 export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.3.0';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';

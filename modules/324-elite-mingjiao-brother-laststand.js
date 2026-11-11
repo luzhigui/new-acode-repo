@@ -8,16 +8,7 @@
 //   d. 攻 +10% / 防 -20% / 承伤 +40%（沿用 CONFIG.BUFFS.lastStand 数值）
 //   e. 额外 80% 吸血（永久，_brotherLastStandLeech = 0.8）
 //   f. 后续每回合开始叠一次战士加成（无限叠）
-// V1.1.0 | 2026-11-08 触发时机改为 ON_ROUND_START（团队背水在场即触发，不再看血量/永久账本）；
-//   蛛袭由单次改为按 _spiderRemaining 次数逐次随机（可重复同一目标）；brother.lastStand.hpThreshold 废弃
-// V1.2.0 | 2026-11-10 每回合战士成长加系统提示+头顶 ⚔️ 飘字（老板要求：成长可见化，带累计次数 _brotherLastStandGrowN）
-// V1.2.1 | 2026-11-10 重大修复：三钩从顶层裸注册迁 registerRoundHook 每回合重挂（210 每回合 clearAll，
-//           顶层注册活不过第一回合=妹背水上线以来从未触发过，老板实测实锤）；触发门扩妹账本路径（对齐 323 全家口径）
-// V1.3.0 | 2026-11-10 突袭改版：触发瞬间精通拉满（白拿全部未精通职业加成）+已继承永久海克斯逐张折算突袭次数后全部丢弃，
-//           此后永不继承（302 addPermanentBuff 门控）——老板拍的以攻代削大改版
-// V1.4.0 | 2026-11-11 攻击经济互斥掷骰（老板拍板方案A）：每次攻击结算后掷硬币——50% 连击一刀（走 core/10 额外出手通道，
-//           新 reason brotherLastStrike 入 LINK_REASONS，引擎 _isLinkAttack 守卫保证连击那一刀绝不再掷）/
-//           50% 吸血 80%；承伤 40%→50%（content lastStand.takenDmgMul）
+// V1.4.0 | 2026-11-11 攻击经济互斥掷骰（老板拍板方案A）：每次攻击结算后掷硬币——50% 连击一刀（走 core/10 额外出手通道， 新 reason brotherLastStrike 入 LINK_REASONS，引擎 _isLinkAttack 守卫保证连击那一刀绝不再掷）/ 50% 吸血 80%；承伤 40%→50%（content lastStand.takenDmgMul）
 export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.4.0';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';

@@ -1,11 +1,5 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-// V6.4.12 | 2026-11-08 体检转交：攻击组静默回血补账（isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter）+ 死亡结算审计字段（attackerDead/…AtSettle）
-// V6.4.13 | 2026-11-08 体检转交：免疫分支 attackerHp/targetHp 改实数（取整只留在显示层，fact 给引擎真值）
-// V6.4.14 | 2026-11-08 体检转交：闪避/未命中分支补挂 phantomFact（改目标那一击被闪避时 phantomConfuse 不再丢）
-// V6.4.16 | 2026-11-08 状态标签化：两处眩晕判定改问 isControlled(unit)（core/218 标签表），
-//           裸读 state._stunned 下线；以后新增控制状态在 schema 打 cc 标签即自动生效。
-// V6.4.17 | 2026-11-08 known-transfers 第 11 条：锁定目标补 canBeTargeted——飞天/附身/不可选中的单位
-//   不再被连击等被动出手锁定命中（此前血不掉却照报伤害）。
+// V6.4.17 | 2026-11-08 known-transfers 第 11 条：锁定目标补 canBeTargeted——飞天/附身/不可选中的单位 不再被连击等被动出手锁定命中（此前血不掉却照报伤害）。
 export const VER = 'core/209-battle-attack.js V6.4.17';
 
 import { CONFIG } from './201-config-5v5-test.js';
@@ -366,9 +360,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const immuneDeclarations = [];
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
-    // 引擎保底：空见死后其组件不再注册，但队友身上的护罩必须仍能消费，防 UI 残留
+    // 引擎保底：空见死后其组件不再注册，但队友身上的护罩必须仍能消费，防 UI 残留。
+    //   reason 必须与 modules/316 正式消费分支同款（含「金刚不坏」四个字）：
+    //   render/420 的 IMMUNE fx 按 reason.indexOf('金刚不坏') 分流播不播飞撞/飞箭。
+    //   旧 reason 是 `🛡️ ${sourceName}：护罩挡下这一击`（含空见名、不含「金刚不坏」），
+    //   空见活着时走 316 正常，死后走本保底 → fx 分支整段跳过 → 偶发「打着打着没有飞撞飞箭」。
     if (target.state && target.state._immuneShield && !immuneDeclarations.some(d => d.immune)) {
-        immuneDeclarations.push({ immune: true, reason: `🛡️ ${target.state._immuneShield.sourceName || '护罩'}：护罩挡下这一击` });
+        immuneDeclarations.push({ immune: true, reason: '🛡️ 金刚不坏：护罩挡下这一击' });
         target.state._immuneShield = null;
     }
 
@@ -396,7 +394,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             rawAmount: 0,
             actualAmount: hpLossApplied
         });
-        emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+        // 护罩已在本击 BEFORE_DAMAGE_APPLY 消费（modules/316 置 null），但 HP_CHANGE payload 原先
+        // 只带血量字段，store 里 _immuneShield 还挂着旧对象，render/403 会一直渲 🔔 到步末
+        // syncStoreFromStep 整份覆盖才掉。这里把当前值一并带上（此时为 null），护罩当帧消失。
+        emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _immuneShield: target.state._immuneShield || null });
 
         const immuneHpPctBefore = Math.floor((Math.min(hpBeforeApply, target.maxHp) / target.maxHp) * 100);
         const immuneHpPctAfter = Math.floor((target.hp / target.maxHp) * 100);

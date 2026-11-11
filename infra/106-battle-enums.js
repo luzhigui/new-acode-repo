@@ -1,4 +1,3 @@
-// V1.11.4 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY（吸星一次结算一条汇总事实，含 beneficiaries 明细数组）
 // V1.11.5 | 2026-11-09 新增 SUMMON_DEAD（core/213 resolveDeaths 召唤物阵亡与 UNIT_DEATH 同出口，只进 step.log）
 export const VER = 'infra/106-battle-enums.js V1.11.5';
 
@@ -366,6 +365,7 @@ export const UI_HANDLER_KEYS = Object.freeze({
     RESTORE_SPEED_FROM_SCROLL: 'restoreSpeedFromScroll',
     AUTO_SCROLL_LOG: 'autoScrollLog',
     UPDATE_SCORE_BADGE: 'updateScoreBadge',
+    SCROLL_LOG_TO_BOTTOM: 'scrollLogToBottom',
     // 战斗流程：弹窗 / 瞄准 / 小昭形态 / 暂停态
     SHOW_FLY_DIRECTION_POPUP: 'showFlyDirectionPopup',
     SHOW_HANLISA_AIM: 'showHanlisaAim',

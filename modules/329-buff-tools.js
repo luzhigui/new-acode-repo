@@ -1,5 +1,3 @@
-// V6.2.9 | 2026-11-08 精英数值一致性：流星赶月姊版时长改读 002 sister.meteorShower.duration
-//          （原写死 duration=4，与配置现值相同；缺键显式抛错，不回落）。
 // V6.2.10 | 2026-11-08 众志成城门槛放宽：本阵营存活 ≤5 人仍可进候选，只有 6 人（满编）剔除
 export const VER = 'modules/329-buff-tools.js V6.2.10';
 

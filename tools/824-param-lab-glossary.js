@@ -7,11 +7,7 @@
 
 import { getSkillDesc } from '../core/201-config-5v5-test.js';
 
-// V2.8.2 | 2026-11-08 | 002-hex-enhance 删除 sister.carry.multiTarget 后同步删表项；
-//   补登两个新参数：duanChui.atkHalfRatio（0.5 = 攻击减半）、qianKunDerived.minReduce（乾坤减伤保底 0.5 点）。
-// V2.8.1 | 2026-10-31 | ~46022 bytes —— ENGINE_READ.spiderFly 删 xiaoZhaoDoubleStrikeChance（死字段：
-//   引擎零读取点，小昭·妹双连击真值走 002-hex-enhance.json 的 brother.doubleStrike.chance；
-//   守卫 param-read-guard 报「表陈旧」即此项，删表项=表与源码对齐）
+// V2.8.2 | 2026-11-08 | 002-hex-enhance 删除 sister.carry.multiTarget 后同步删表项； 补登两个新参数：duanChui.atkHalfRatio（0.5 = 攻击减半）、qianKunDerived.minReduce（乾坤减伤保底 0.5 点）。
 export const VER = 'tools/824-param-lab-glossary.js V2.8.2';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
@@ -201,8 +197,6 @@ export function isMirroredSkillField(skillKey, fieldPath) {
     if (!fields || !fieldPath) return false;
     return fields.some(f => fieldPath === f || fieldPath.startsWith(f + '.'));
 }
-
-
 
 // 角色里没有归入任何技能的战斗数值，统一落到这个组。
 export const OTHER_PASSIVE_GROUP = '__other__';

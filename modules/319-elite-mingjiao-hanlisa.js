@@ -8,7 +8,6 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-// V2.2.4 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
 // V2.2.5 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.2.5';
 
@@ -185,7 +184,6 @@ export function createHanLiSaComponent() {
                     pushSkillAnnounce(data.log, u, '寒毒', `❄️ 寒毒发作：${u.name} 损失 ${dot} 点生命${hdStacks > 1 ? `（${hdStacks} 层）` : ''}`, { dot });
                     recordHpAudit(u, 'hlsHanDuDot', -dot, '寒毒');
                 });
-
 
                 // 承伤桶滚动：保留最近 3 桶，新桶承载本回合
                 const arr = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken : [];

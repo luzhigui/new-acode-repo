@@ -1,9 +1,5 @@
 // modules/328-elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
-// V1.2.1 | 2026-11-08 体检转交：鹰王威压 / 老当益壮 四处 addMod 补 ttl:'permanent'——原缺 ttl 属未声明，
-//   两个机制都是「永久累积」（威压跨回合削攻防、老当益壮逐次成长），显式声明后与永久/回合词条清理口径一致。
-// V1.2.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-// V1.3.0 | 2026-11-11 老板拍板加强：威压/老当益壮各加「生命上限 −3 / +3」词条（走 addMod+refreshMaxHp，
-//           升等量加、降等比缩，与唐文亮冲刺同口径）；反击初始概率 22%→33%、每次命中 +2%→+3%（封顶 90% 不变）。
+// V1.3.0 | 2026-11-11 老板拍板加强：威压/老当益壮各加「生命上限 −3 / +3」词条（走 addMod+refreshMaxHp， 升等量加、降等比缩，与唐文亮冲刺同口径）；反击初始概率 22%→33%、每次命中 +2%→+3%（封顶 90% 不变）。
 export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.3.0';
 
 import { getBattleRng, addMod, refreshMaxHp } from '../core/214-battle-shared.js';
@@ -103,4 +99,3 @@ export function createYinTianZhengComponent() {
         }
     };
 }
-

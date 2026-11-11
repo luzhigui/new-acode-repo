@@ -1,10 +1,4 @@
-// V6.2.3 | 2026-11-08 体检转交：applyHolyFlame_Sister 前置显式校验 sister.holyFlame.atkBonus/defBonus
-//        | （Normal 对 bonuses 缺键回落普通版 0.3，摘键会静默算错；缺哪键报哪键）。
-// V6.2.5 | 2026-11-08 状态标签化：惑心换位候选池与两处血量结算的「存活+非待死+非免控」
-//        | 改问 isPendingDeath/isCCImmune（core/218 标签表）；逐项等价。
-// V6.2.6 | 2026-11-08 known-transfers 第 12 条：惑心换位落位合法性闸——toPos 必须是 1~9 整数，
-//   非法落点整笔放弃（旧版单候选分支找不到空格时把 unit.pos 写成 undefined，后续按 pos 找位复位到
-//   1 号位 => 战报宣告 4、实际露面 1）。
+// V6.2.6 | 2026-11-08 known-transfers 第 12 条：惑心换位落位合法性闸——toPos 必须是 1~9 整数， 非法落点整笔放弃（旧版单候选分支找不到空格时把 unit.pos 写成 undefined，后续按 pos 找位复位到 1 号位 => 战报宣告 4、实际露面 1）。
 export const VER = 'core/215-buff-effects.js V6.2.6';
 // V6.2.2（2026-11-08）：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
 //   缺键直接 TypeError，与「缺哪键报哪键」口径不符）。

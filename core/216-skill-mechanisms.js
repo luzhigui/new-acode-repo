@@ -1,7 +1,4 @@
-// V6.8.4 | 2026-11-02 | ~17937 bytes —— 吸血上限提升 newMaxHp 改 getStat 口径（与 217 L123 同源，消 0.5 永久丢失）
-// V6.8.5 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks（九阳神功回复）。
-// V6.8.6 | 2026-11-08 known-transfers 第 7 条：LEECH 声明补 maxHpGain（=本次实回），handler 按增量累加，
-//   修「同帧多击第二次不抬上限」；上限口径与 core/217 同源（都用 getStat）。
+// V6.8.6 | 2026-11-08 known-transfers 第 7 条：LEECH 声明补 maxHpGain（=本次实回），handler 按增量累加， 修「同帧多击第二次不抬上限」；上限口径与 core/217 同源（都用 getStat）。
 export const VER = 'core/216-skill-mechanisms.js V6.8.6';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';

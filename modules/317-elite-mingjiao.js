@@ -2,8 +2,6 @@
 // 编号 27 = 「明教精英」模块族，不是单文件序号；族内拆文件共享父号、用语义后缀区分。
 // 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
-// V7.3.1 | 2026-11-08 体检转交：圣火令重画读 sister.holyFlame 缺键显式报错（原 TypeError）。
-// V7.3.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V7.3.3 | 2026-11-08 状态标签化：同门出手候选的眩晕判定改问 isControlled()（core/218 标签表）。
 export const VER = 'modules/317-elite-mingjiao.js V7.3.4';
 

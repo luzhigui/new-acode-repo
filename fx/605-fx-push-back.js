@@ -27,13 +27,13 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
     if (oldRect && newRect) {
         const dx = newRect.x - oldRect.x;
         const dy = newRect.y - oldRect.y;
-        cell.style.transition = 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        cell.style.transition = 'transform 0.30s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
         cell.style.zIndex = '99999';
         cell.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
-        await clock.wait(450);
-        cell.style.transition = 'transform 0.15s ease-out';
+        await clock.wait(300);
+        cell.style.transition = 'transform 0.10s ease-out';
         cell.style.transform = `translate(${dx}px, ${dy}px) scale(1)`;
-        await clock.wait(150);
+        await clock.wait(100);
     }
 
     if (!skipDataChange) {

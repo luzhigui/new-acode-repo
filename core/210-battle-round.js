@@ -1,15 +1,5 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-// V6.3.34 | 2026-11-07 第 184 轮：finalizeRoundEnd 败方归零改调 killUnit（死亡收口统一出口，
-//          补记 V6.3.33 未升版的实质改动——此前直调 applyStatChange 带 ignoreCap，绕开了单一出口）
-// V6.3.37 | 2026-11-08 删 _bloodthirstStriked 每回合重置：嗜血必出双击逻辑已移除，无任何代码再写 true，
-//           该字段恒 false（218 声明保留以稳定 unit 快照形状 / golden 基线）；重置遂成死代码。
-// V6.3.38 | 2026-11-08 体检实测（seed=10 stage=7）：双宣告取第二人时只保证「索引不同」，候选数组里
-//   同一 uid 重复出现时仍会选中同一单位 → 文案「张无忌、张无忌」，该单位同回合连击触发两次。
-//   改为按 uid 排除首个；排除后不足 1 人则退化为单宣告。
-// V6.3.39 | 2026-11-08 双宣告排重回退到「两次抽签 + 顺延」：V6.3.38 的 filter 后重抽会多消耗一次随机流，
-//   且候选不足时少抽一次；改回原版两次抽签，第二签同 uid 时从该签位起按候选顺序顺延取下一个不同 uid（不重抽）。
-// V6.3.41 | 2026-11-11 妹背水后不吃团队海克斯：连击候选池排除（她有自己的背水掷骰连击，不双掷）、
-//           云身跳过强制置真（姊强化 noSkip 也不豁免她）、per-unit 施法循环五 apply 跳过（摄魂保留=敌方减益照挨）
+// V6.3.41 | 2026-11-11 妹背水后不吃团队海克斯：连击候选池排除（她有自己的背水掷骰连击，不双掷）、 云身跳过强制置真（姊强化 noSkip 也不豁免她）、per-unit 施法循环五 apply 跳过（摄魂保留=敌方减益照挨）
 export const VER = 'core/210-battle-round.js V6.3.41';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
@@ -120,8 +110,6 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     }
 
     setBattleState('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
-
-
 
     ctx.log.filter(l => l.factType === 'horseSummon').forEach(hl => {
         const horse = A.find(u => u.uid === hl.data.horseUid);
@@ -562,7 +550,6 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             continue;
         }
         const orderResult = resolveActionOrder(candidates, log);
-
 
         if (orderResult.passEntry) {
             const { unit, reason } = orderResult.passEntry;

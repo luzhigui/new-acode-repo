@@ -7,16 +7,7 @@
 //   额外混入按关卡解锁范围过滤：后段专属精英（如灭绝师太只属第7关固定池）不得提前出现在前段关，
 //   越界则本次不补（少补一人），不删名单也保证后段该出还能出。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-// V7.7.0 | 2026-11-08 体检转交：① 抽中的阵容变体 id 落成返回值 encounterVariant（不再按阵容反推）；
-//         | ② 删除 mingSquadTemplate（赋值后从未使用，content.encounters.mingSquads 为废配置）。
-// V7.8.0 | 2026-11-08 RNG 抽签契约版本化：导出 RNG_CONTRACT_VERSION，initBattleTeams 返回值带上它
-//         |（战报 / 跑批 / 联机凭它识别「这条记录是哪一版抽签产生的」）。骰子数量或顺序一变就必须改版本号。
-// V7.8.1 | 2026-11-08 建队去重：具名兵职业解析（含何太冲双修）与无名杂兵补名抽成文件内辅助函数，
-//         主建队与凑数池两条路径改调同一份；RNG 消耗序列不变（先 _rand(0,3) 再何太冲 _rng.next()）。
-// V7.8.2 | 2026-11-08 known-transfers 第 2 条：张三丰 1 号位锁的识别范围从 eliteUnits 扩到 allUnits——
-//   张三丰按 M107 混入第 3~7 关时不在本关固定池里，旧版当普通兵走模板/随机位（实证 seed7 stage7 落 9 号位）。
-// V7.9.0 | 2026-11-09 明教必出 107：无 Boss 局强精英判定 80% → 100%（每局至少一个 107）；
-//   无 107 兜底分支改为「M104 弱精英拉满 + M100 带技能补满」，不再用普通杂兵凑人数。
+// V7.9.0 | 2026-11-09 明教必出 107：无 Boss 局强精英判定 80% → 100%（每局至少一个 107）； 无 107 兜底分支改为「M104 弱精英拉满 + M100 带技能补满」，不再用普通杂兵凑人数。
 export const VER = 'modules/330-battle-init.js V7.9.0';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
@@ -455,9 +446,22 @@ export function initBattleTeams(currentStage, _rng) {
             if (prev == null || stage < prev) eliteFirstStage.set(n, stage);
         }
     }
+    // 该关变体池：squadVariants 里出现过的所有人名。
+    //   变体是「二选一」关系（第三关：宋青书 vs 胖远桥），额外混入不能跨变体塞人，
+    //   否则会出现「胖远桥 + 宋青书同场」（老板 2026-11-11 报）。
+    const variantPoolNames = new Set();
+    for (const v of (C.ENCOUNTER_VARIANTS[currentStage] || [])) {
+        for (const it of (v.squad || [])) {
+            if (it && it.name) variantPoolNames.add(it.name);
+        }
+    };
     const stageAllows = (name) => {
         const from = eliteFirstStage.get(name);
-        return from == null || currentStage >= from;
+        if (from != null && currentStage < from) return false;
+        // 名字属于该关变体池 → 额外混入一律拒绝。
+        //   当前变体里已有的名字会被 usedEnemyNames 去重拦掉，走到这的必是「另一个变体的人」。
+        if (variantPoolNames.has(name)) return false;
+        return true;
     };
     // ⚠️ RNG 序列更新（V7.6.7）：三颗骰子 + 三个 pick 一律无条件消耗，命中与否只改「是否应用」
     const enemyM107Roll = _rng.next();

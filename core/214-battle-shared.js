@@ -1,12 +1,4 @@
-// V6.4.7 | 2026-11-07 第 184 轮：① 新增 killUnit —— 死亡收口唯一出口（ignoreCap=true + recordHpAudit
-//          group='death' + _pendingDeath），finalizeDeaths / maxHp 变更致死改调它；applyStatChange 的
-//          ignoreCap 变成 killUnit 专用。② 飞天/附身判据改调 core/203 isAirborne（本地内联删除）。
-// V6.4.9 | 2026-11-08 状态标签化：三处免控守卫（换位/移动/击退眩晕）改问 isCCImmune()
-//         （core/218 标签表单一真源）；行为逐项等价，仅去掉裸读 state._ctrlImmune。
-// V6.4.10 | 2026-11-08 known-transfers 第 1 条：新增 statMulFactor（乘区因子出口）——吸星按面板百分比
-//   吸取时须先除本因子再落 add 词条，否则受害者实损被乘区放大、与施术者所得对不上。
-// V6.4.11 | 2026-11-09 庄铮·断锤三式：_dmgCap 生效期间拒绝一切回血（isHeal 正向落账收口），
-//   与斩杀无效同读 _dmgCap（老板口径：免疫/异常状态单位不能被治疗）。
+// V6.4.11 | 2026-11-09 庄铮·断锤三式：_dmgCap 生效期间拒绝一切回血（isHeal 正向落账收口）， 与斩杀无效同读 _dmgCap（老板口径：免疫/异常状态单位不能被治疗）。
 export const VER = 'core/214-battle-shared.js V6.4.11';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清

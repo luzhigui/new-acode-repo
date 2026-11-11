@@ -1,5 +1,4 @@
 // modules/313-elite-sixsects-miejueshitai.js — 六大派精英「灭绝师太」：反击 / 追击 / 峨眉掌法 / 三击吸血 / 召唤周芷若
-// V6.28.1 | 2026-11-08 灭绝三击回血文本（回复/生命 → 生命）走 fmtNum，消除实数化后的浮点尾巴
 // V6.28.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/313-elite-sixsects-miejueshitai.js V6.28.2';
 import { getSkillParams } from '../core/201-config-5v5-test.js';

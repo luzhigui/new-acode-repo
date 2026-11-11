@@ -1,10 +1,3 @@
-// V1.5.16 | 2026-11-08 体检转交：乾坤 fact 补登记减伤前 dmg；攻击 fact 补登记死亡结算字段（attackerDead/…AtSettle）
-// V1.5.17 | 2026-11-08 体检转交：免疫 fact 血量改实数并登记；圣火不熄复活账登记到 BUFF_SUMMARY / SKILL_ANNOUNCE
-// V1.5.18 | 2026-11-08 体检转交：新增 UNIT_DEATH 死亡登记契约（uid/name/camp/reason/hpBefore/hpAfter，隐藏不进画面）
-// V1.5.19 | 2026-11-08 体检转交：SKILL_ANNOUNCE 审计字段补飞行·猎杀成长键（atkBefore/atkAfter/missChance/missDelta/neverMiss/deadUid/deadName）
-// V1.5.20 | 2026-11-08 体检转交：新增 ABSORB_SUMMARY 契约（吸星一次结算一条汇总，beneficiaries 内带逐单位 before/after）
-// V1.5.21 | 2026-11-08 召唤契约补账：SUMMON_UNIT 具名召唤者补 byUid（313/318/326/339），审计字段登记
-// V1.5.22 | 2026-11-08 契约与实现对齐：UNIT_DEATH / ABSORB_SUMMARY 在 render/411 注册了显式隐藏渲染（() => null），契约不再谎称 renderFn:null
 // V1.5.23 | 2026-11-09 新增 SUMMON_DEAD 契约（召唤物阵亡隐藏只供体检归账）；SUMMON_UNIT 审计字段补 camp
 export const VER = 'infra/107-fact-contract.js V1.5.23';
 
@@ -305,4 +298,3 @@ export function buildRendererMap(rendererFns) {
     }
     return map;
 }
-

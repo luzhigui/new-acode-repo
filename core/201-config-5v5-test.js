@@ -1,5 +1,3 @@
-// V6.9.5 | 2026-11-08 体检转交：删除 MING_SQUADS getter（对应 content.encounters.mingSquads 废配置，无读取方）。
-// V6.9.6 | 2026-11-08 体检转交：PCT_PARAM_KEYS 补布袋参数（说不得 bagTrap.params 占位符按 % 输出）。
 // V6.9.7 | 2026-11-08 体检转交：导出 getContentVersion()，供生涯记录/跑批判混版本（单一真源 = 001.version）。
 // V%s | 2026-11-08 known-transfers 商店三条(1)：宝箱掉率收口为单表 content/001 dropRates，
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
@@ -519,8 +517,6 @@ const CONFIG = {
     }
     // 精英技能参数在 gameData.characters.*.mechanics，读取统一走 getSkillParams（缺失即配置错误，调用方 throw）
 };
-
-
 
 const STATE = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
 

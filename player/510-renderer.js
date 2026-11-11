@@ -135,6 +135,23 @@ export function clearAllEffects() {
 
 // 滚动回底按钮 + 用户滚动暂停
 
+// 日志滚回底部 + 恢复 0.5 倍速（下拉箭头、Bug 记录面板关闭/保存后共用）
+export function scrollLogToBottom() {
+    const logDiv = getLogDiv();
+    if (!logDiv) return;
+    const c = ctx();
+    logDiv.scrollTop = logDiv.scrollHeight;
+    if (c) c.userScrolled = false;
+    const btn = document.getElementById('backToBottomBtn');
+    if (btn) btn.style.display = 'none';
+    const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
+    // 兜底：playerContext 里 speed 未设过才补默认 500。
+    //   原写法 c.speed = mainCtx.speed 两边同一对象，等于自赋值——真值分支是空操作，
+    //   只留「未设过就补 500」这一个真实意图。
+    if (c && !c.speed) c.speed = 500;
+}
+GlobalStore.setUIHandler('scrollLogToBottom', scrollLogToBottom);
+
 export function initLogScrollControls(c) {
     const logDiv = getLogDiv();
     if (!logDiv) return;
@@ -142,15 +159,7 @@ export function initLogScrollControls(c) {
     btn.id = 'backToBottomBtn';
     btn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;';
     btn.innerHTML = '↓';
-    btn.addEventListener('click', () => {
-        logDiv.scrollTop = logDiv.scrollHeight;
-        c.userScrolled = false;
-        btn.style.display = 'none';
-        const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
-        const mainCtx = ctx();
-        if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
-        else c.speed = 500;
-    });
+    btn.addEventListener('click', scrollLogToBottom);
     logDiv.parentElement.appendChild(btn);
     logDiv.addEventListener('scroll', () => {
         const distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;

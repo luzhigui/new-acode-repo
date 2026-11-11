@@ -1,19 +1,6 @@
-﻿﻿// render/411-facts-misc.js — 效果域·系统/离散项 fact 渲染器
-//   系统行（回合开始/结束/台词/不争/连击摘要）+ 离散精英项（幻影识破迷惑/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）13 条整块迁入。
-//   「misc」不是垃圾桶：它是「不归回血/控制位移/属性召唤三族」的剩余——系统行与跨族离散事件。
-//   若未来 misc 涨到 20KB+，再按 elite/system 二次拆（判据见拆分方案）。
-// V1.1.2 | 2026-11-07 第 184 轮：幻影迷惑来源词按 fact.sourceSkill 取（幻影伪装 / 蝶舞迷心 / 双面观音），
-//         | 成昆文案逐字不变；旧 fact 仍按 deceiverIsSpider 兜底。
-// V1.1.4 | 2026-11-08 buff 摘要按实际生效档读数：小昭·姊存活在场时用 002 sister 段覆盖普通版，
-//         | 覆盖 圣火令/摄魂/背水一战/众志成城/热血奋战/流云身法/乘风突袭/惑人心智/圣火不熄/概率连击。
-// V1.1.5 | 2026-11-08 体检转交：圣火不熄摘要带复活账（复活单位 uid / 第几次 / 档位比例 / 实际回复量），
-//         | 不再只印一句通用文案；结构化字段同步挂到渲染条目上供体检归账。
-// V1.1.6 | 2026-11-08 体检转交：UNIT_DEATH 死亡登记注册隐藏渲染器（只记账不上屏，避免战报重复死亡行）
-// V1.1.7 | 2026-11-08 体检转交：ABSORB_SUMMARY 吸星汇总注册隐藏渲染器（只记账不上屏，行仍由 SKILL_ANNOUNCE 出）
-// V1.1.8 | 2026-11-08 摘要与事实同源：严阵以待「反弹50%」改读 cfg.reboundRatio、流星赶月「降2/1防」改读
-//         | cfg.mainDefReduce/splashDefReduce——不再写死数字，配置一改摘要立即跟上
-// V1.1.9 | 2026-11-09 SUMMON_DEAD 注册隐藏渲染（召唤物阵亡只供体检归账，不进画面）
-// V1.1.10 | 2026-11-11 热血奋战摘要按 critPattern 全覆盖判「全部翻倍」（姊版 [1,2,3]），周期数不再写死 3。
+﻿﻿/// render/411-facts-misc.js — 效果域·系统/离散项 fact 渲染器
+//   系统行 + 离散精英项（幻影识破/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）。
+// V1.1.10 | 热血奋战摘要按 critPattern 判「全部翻倍」，周期数不再写死 3。
 export const VER = 'render/411-facts-misc.js V1.1.10';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
@@ -185,11 +172,15 @@ export function renderPhantomRevealFact(fact) {
 }
 export function renderPhantomConfuseFact(fact) {
     // 来源词按事实自带的 sourceSkill 取（每个发射点必须打标），渲染层不猜英雄名：
-    //   成昆「幻影伪装」/ 小昭·兄「蝶舞迷心」/ 彭莹玉「双面观音」——同一条 PHANTOM_CONFUSE 三个来源，
-    //   战绩与体检也按 sourceSkill 区分归因，不再统统算到成昆头上。
-    //   兜底保留旧行为：只带 deceiverIsSpider 的旧 fact → 蝶舞迷心；其余 → 幻影伪装（成昆文案逐字不变）。
+    //   成昆「幻影伪装」/ 小昭·兄「蝶舞迷心」/ 彭莹玉「双面观音」——同一条 PHANTOM_CONFUSE 三个来源。
     const title = PHANTOM_CONFUSE_TITLES[fact.sourceSkill]
         || (fact.deceiverIsSpider === true ? PHANTOM_CONFUSE_TITLES['蝶舞迷心'] : PHANTOM_CONFUSE_TITLES['幻影伪装']);
+    // 双面观音（彭莹玉女装）：不是「迷惑」，是「魅惑 + 不忍心」——攻击方知道对面是彭莹玉，
+    //   但被女装迷住，主观上不忍心下手，转身故意打自己队友。文案单独一档，与成昆/蝶舞迷心的
+    //   「被动迷惑」语义区分开（老板 2026-11-11 拍板）。
+    if (fact.sourceSkill === '双面观音') {
+        return { type:'info', text:`<span class="gold">${title}${fact.unitName} 被 ${fact.deceiver} 的女装魅惑，不忍心下手，转身攻击队友 ${fact.targetName}！</span>` };
+    }
     return { type:'info', text:`<span class="gold">${title}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
 }
 

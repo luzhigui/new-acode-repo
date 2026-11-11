@@ -1,5 +1,4 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-// V6.27.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 // V6.27.3 | 2026-11-08 严阵以待反弹比例参数化：不再写死 /2，改读 BUFFS.fortify.reboundRatio（现值 0.4）
 export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';

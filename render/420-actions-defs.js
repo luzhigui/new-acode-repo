@@ -271,7 +271,10 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const target = findUnitByUidLocal(c, action.actorUid);
             if (!target) return;
-            await eventBus.emit(FX_SIGNALS.BANNER, { text: `${action.label || '🦅 乘风突袭'}！` });
+            // 同组连续 PUSH 只弹一次 banner（8 号位特例 3 连推挤，原逻辑每条弹 1.5s 横幅，共 4.5s）
+            if (!action.skipBanner) {
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: `${action.label || '🦅 乘风突袭'}！` });
+            }
             if (action.targetUid) {
                 const behind = findUnitByUidLocal(c, action.targetUid);
                 if (behind) {
@@ -462,6 +465,16 @@ export const STAGE_ACTION_DEFS = {
         grid: 'none', log: 'sync',
         // 函数式：动作自带 timing 优先（溅射破罩要 afterText，跟箭雨同步）；不带的维持 beforeText 原行为
         timing: (action) => (action && action.timing) || 'beforeText',
+        // 金刚不坏护罩消费：store 里的 _immuneShield 必须当帧清掉。
+        //   引擎侧已置 null，但 HP_CHANGE / SKILL_ANNOUNCE 都不带这个字段，
+        //   碎裂动画结束后任何一次 renderGrid 都会按 store 旧值把 🔔 挂回来——
+        //   「有时残留有时不残留」就是这段窗口内有没有重绘决定的。
+        //   正规攻击免疫、溅射破罩两条路最终都翻译成 IMMUNE 且 reason 含「金刚不坏」，这里一处覆盖两路。
+        store: (c, action) => {
+            if (!c.store || !action || action.targetUid == null) return;
+            if (!action.reason || action.reason.indexOf('金刚不坏') < 0) return;
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.targetUid, _immuneShield: null });
+        },
         fx: async (c, action) => {
             if (isFxSkipped()) return;
             const target = findUnitByUidLocal(c, action.targetUid);
@@ -545,6 +558,15 @@ export const STAGE_ACTION_DEFS = {
             if (action.text && !GlobalStore.get('fastForwardActive')) {
                 const { showBuffBanner } = await import('../fx/608-fx-manager.js');
                 await showBuffBanner(action.text);
+            }
+            // 全队金光：众志成城九人满员彩蛋专用（goldGlow 标记）。
+            //   复用 fx/613 的 glowPulse：unit 传 null = 不做狮吼环/吼字，只给每个存活单位套金圈脉冲。
+            if (action.goldGlow && c.store) {
+                const units = c.store.getState().units.filter(u => u.alive && !u.isHorse);
+                if (units.length > 0) {
+                    const { showLionRoar } = await import('../fx/613-fx-lion-roar.js');
+                    showLionRoar(null, units);
+                }
             }
         }
     },

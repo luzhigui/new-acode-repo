@@ -6,19 +6,7 @@ import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra
 import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-// V1.5.7 | 2026-11-08 计算明细负攻口径：公式项与 baseRaw 打印前过 fmtAtk（<0 显示 0），与格子/波动行一致
-// V1.5.8 | 2026-11-08 破防行防御减数值走 fmtNum（reduce 是实数，裸插值会出浮点尾巴）
-// V1.5.9 | 2026-11-08 体检转交：计算行支持负项明细（core/217 DMG_REDUCTION 以负值入列）；
-//         | 移除死渲染分支（dmgCalc.thunderBonus / trueDmg 全仓无赋值、hornDefIgnore/hornDmgMultiplier 恒 0/1，
-//         | 鹤笔翁金句里写死的 +50% 与配置 +30% 也对不上）。
-// V1.5.10 | 2026-11-08 体检转交：伤害/护盾吸收行补 unitUid + hpBefore + hpAfterReal（护盾与扣血可归账）
-// V1.5.11 | 2026-11-08 体检转交：未命中/闪避渲染补挂 phantomFact（幻影改目标那击可查）；
-//         | 免疫组 hpAfter 改取事实里的实数 fact.targetHp（原来取 target.hp，而 immune 事实只带 uid/name/camp）
-// V1.5.12 | 2026-11-08 伤害行与血条对不上：波动减伤 hpBonus 在扣血时已抵掉，显示 dmg 却仍按原值印
-//         | （「造成 18」血条只掉 13）→ 伤害行/飘字/语音 _dmg 统一改印 dmg−hpBonus（下限 0）；
-//         | fact 里的 dmgCalc.dmg/dmgResult.dmg 不动（吸血/反伤/破防与体检 180 仍按原值）。
-// V1.5.13 | 2026-11-08 known-transfers 第 9 条：伤害行/飘字扣除 cappedLoss（单次受伤上限吃掉的部分），
-//   印实际落地扣血而不是截断前的原值。
+// V1.5.13 | 2026-11-08 known-transfers 第 9 条：伤害行/飘字扣除 cappedLoss（单次受伤上限吃掉的部分）， 印实际落地扣血而不是截断前的原值。
 export const VER = 'render/407-facts-attack.js V1.5.13';
 
 // 攻击流程

@@ -1,9 +1,5 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
-// V1.0.2 | 2026-11-08 攻击力显示下限：幼狮成长行攻文本包 fmtAtk（<0 显示 0），引擎负数真值不回写
-// V1.0.3 | 2026-11-08 显示口径统一：增量「符号+绝对值」、损失量取绝对值、百分比/取整改走 fmtNum、攻击基数值走 fmtAtk
-// V1.0.4 | 2026-11-08 展示与事实同源：融会贯通「×50%」改读 CONFIG.ZHANG_RONGHUI_RATIO；
-//         严阵以待姊强化回血改读 sister.fortify.healOnRebound 且按 floor(反弹/3) 印数（与 core/212 同口径，
-//         落地 0 时不印「回复」，不再出现未取整的 4.3 / 回复 0.x）
+// V1.0.4 | 2026-11-08 展示与事实同源：融会贯通「×50%」改读 CONFIG.ZHANG_RONGHUI_RATIO； 严阵以待姊强化回血改读 sister.fortify.healOnRebound 且按 floor(反弹/3) 印数（与 core/212 同口径， 落地 0 时不印「回复」，不再出现未取整的 4.3 / 回复 0.x）
 export const VER = 'render/412-facts-stat.js V1.0.4';
 
 import { registerFactRenderer } from './406-fact-registry.js';

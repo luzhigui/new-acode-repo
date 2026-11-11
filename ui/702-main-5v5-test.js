@@ -1,8 +1,5 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-// V6.14.6 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场CG（原 ui/713-opening-cg.js）搬 archive/，
-//           精英图鉴选人弹层 showEliteGallery 改为直接放行（原 524KB 嵌页 展示与CG/精英展示-04 一并搬 archive/）。
-//           全部改为就地空实现，调用点未动；恢复方式见 archive/README.md 与 archive/702-showEliteGallery.snippet.js。
-// V6.14.5 | 2026-11-07 封面版本列表补 render/403 指纹：真机可一眼确认格子渲染 JS 是否已更新
+// V6.14.6 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场CG（原 ui/713-opening-cg.js）搬 archive/， 精英图鉴选人弹层 showEliteGallery 改为直接放行（原 524KB 嵌页 展示与CG/精英展示-04 一并搬 archive/）。 全部改为就地空实现，调用点未动；恢复方式见 archive/README.md 与 archive/702-showEliteGallery.snippet.js。
 export const VER = 'ui/702-main-5v5-test.js V6.14.6';
 
 import '../infra/104-global-store.js';
@@ -131,8 +128,6 @@ const updateScoreBadge = () => { const ctx = getPlayerContext(); if (ctx && ctx.
 export function onAnyButtonClick() { if (!gameStarted) return; if (AudioManager && AudioManager.enabled && parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5') > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
 
-
-
 function swapAllyPositions(posA, posB) {
     const currentUI = getState.UI();
     let unitA = currentUI.allyTeam.find(u => u.pos === posA); let unitB = currentUI.allyTeam.find(u => u.pos === posB);
@@ -171,7 +166,6 @@ async function startApp() { updateCoverVersion(); }
 startApp();
 
 // DOM 初始化
-
 
 // 模块脚本（deferred）求值时 readyState 必为 complete/interactive，直接初始化；
 //   原 else 分支引用的旧名 initBugAndXiaoZhaoModes 已在 60main-utils→701 改名时漏改，且该分支不可达，删除。
@@ -466,12 +460,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-
-
-
-
-
-
     function switchToStageInternal(stage){
     if (stage === getState.currentStage()) { forceStopGame(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateUI(); return; }
         onAnyButtonClick();
@@ -762,10 +750,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         return out;
     };
-
-
-
-
 
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();

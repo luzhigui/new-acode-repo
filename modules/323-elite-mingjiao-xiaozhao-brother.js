@@ -1,8 +1,6 @@
 // modules/323-elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-// V1.2.3 | 2026-11-07 第 184 轮：PHANTOM_CONFUSE fact 补 sourceSkill='蝶舞迷心'（显式来源归因，
-//         渲染文案逐字不变；deceiverIsSpider 保留给旧消费方）
-// V1.2.4 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.4';
+// V1.2.5 | 2026-11-11 体检转交：decideSpiderTier 增 hpBefore 入参，死亡档改为「受击前 >0 且受击后 <=0」才判（两处调用点同改）
+export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.5';
 import { CONFIG, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { spawnHorse } from '../core/205-battle-horse.js';
@@ -15,10 +13,10 @@ import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STA
 import { emitStateChange } from '../infra/108-state-change.js';
 import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 const SPIDER_TIER_REASON = { '70': '血量即将低于70%', '40': '血量即将低于40%', 'death': '即将阵亡', hatch: '蜘蛛孵化' };
-function decideSpiderTier(state, maxHp, hpAfter, fp) {
-    if (!state._spiderTriggered70 && hpAfter <= maxHp * fp.hpThresholds[0]) return '70';
+function decideSpiderTier(state, maxHp, hpBefore, hpAfter, fp) {
+    if (!state._spiderTriggeredDeath && hpBefore > 0 && hpAfter <= 0) return 'death';
     if (!state._spiderTriggered40 && hpAfter <= maxHp * fp.hpThresholds[1]) return '40';
-    if (!state._spiderTriggeredDeath && hpAfter <= 0) return 'death';
+    if (!state._spiderTriggered70 && hpAfter <= maxHp * fp.hpThresholds[0]) return '70';
     return null;
 }
 function markSpiderTier(state, tier) {
@@ -159,7 +157,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (brother.state._spiderEgg) return;
                 const fp = requireSkillParams('小昭', 'spiderFly');
                 const hpAfter = Math.max(0, brother.hp - (data.dmg || 0));
-                const tier = decideSpiderTier(brother.state, brother.maxHp, hpAfter, fp);
+                const tier = decideSpiderTier(brother.state, brother.maxHp, brother.hp, hpAfter, fp);
                 if (tier) {
                     if (!data.declarations) data.declarations = [];
                     const flyData = { tier, reason: SPIDER_TIER_REASON[tier], incomingDmg: data.dmg, log: data.log || log };
@@ -359,7 +357,7 @@ export function createXiaoZhaoBrotherComponent() {
             const fp = requireSkillParams('小昭', 'spiderFly');
             // 与 submitSpiderFlyDeclaration 共用落点判据（顺延语义一致）
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
-            const tier = decideSpiderTier(unit.state, unit.maxHp, hpAfter, fp);
+            const tier = decideSpiderTier(unit.state, unit.maxHp, unit.hp, hpAfter, fp);
             if (!tier) return false;
             const flyData = { tier, reason: SPIDER_TIER_REASON[tier], incomingDmg, log };
             fsm.transition('flying', flyData);

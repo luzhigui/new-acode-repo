@@ -1,18 +1,6 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
-// V1.0.6 | 2026-11-07 第 184 轮：补记 V1.0.5 未升版的实质改动——命中落地后对 hp<=0 目标补挂
-//          _pendingDeath（死亡标记唯一的正路出口，避免「血归零但待死标记没挂」的中间态）
-// V1.0.8 | 2026-11-08 修正 V1.0.7（撤回攻击值下限，攻击力不动）：改为伤害出口 dmg = max(1, dmg)，
-//          只兜真打中的最终伤害；闪避/免疫/完全挡下不经过这里，不给 1
-// V1.0.7 | 2026-11-08 出手攻击值下限 atkAct=max(1, atkBase+波动)（已撤回，见 V1.0.8）
-// V1.0.11 | 2026-11-08 体检转交：暴击计数从 calcFinalDamage 移到 core/209 免疫判定之后
-//           （掷骰仍在原处保 RNG 序，返回 isCrit 供上层判定；被护罩挡下不再记暴击）。
-// V1.0.12 | 2026-11-08 体检转交：HEAL fact 补 maxHp / stacks。
-// V1.0.13 | 2026-11-08 严阵以待反弹比例参数化：通用防战反弹从写死 /2 改为读
-//           BUFFS.fortify.reboundRatio（配置现值 0.4），与 modules/311 张三丰自挂版同源。
-// V1.0.14 | 2026-11-08 状态标签化：眩晕目标跳过闪避判定改问 isControlled(target)、
-//   闪避反击的免控守卫改问 isCCImmune(unit)（core/218 标签表单一真源）。
 // V1.0.15 | 2026-11-08 known-transfers 三条：(1)马阵反弹改按马所属阵营取 buff（旧版恒取明教侧，
 //   明教打敌方马吃自家姊反弹）；(2)严阵回血的姊判定改按防御者阵营（旧版恒读 ctx.A，敌方防御者
 //   白吃明教姊回血）；(3)applyAttackResult 回传 cappedLoss（被 _dmgCap 吃掉的量），供伤害行/飘字
@@ -296,10 +284,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
     
-    // 背水一战易伤：如果目标处于触发状态，伤害乘以系数
+    // 背水一战易伤：如果目标处于触发状态，伤害乘以系数。
+    //   进 dmgMultiplierEntries，让计算行显示「×1.5 背水一战易伤 = N」——
+    //   旧版只乘数值不写明细，战报里只看到计算 33、结果 48，差 15 对不上（老板 2026-11-11 指出）。
     const lastStandTakenMul = target.state._lastStandTakenMul;
     if (lastStandTakenMul && lastStandTakenMul > 1) {
         dmg = Math.floor(dmg * lastStandTakenMul * 10) / 10;
+        dmgMultiplierEntries.push({ label: '背水一战易伤', value: lastStandTakenMul });
     }
 
     // 伤害出口下限（老板定案 2026-11-08）：真打中（未被闪避/免疫/完全挡下）的最终伤害至少 1，

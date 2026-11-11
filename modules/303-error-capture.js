@@ -442,12 +442,16 @@ import { GlobalStore } from '../infra/104-global-store.js';
     // ---------- 弹层壳（复用 index.html 的 .modal-overlay 皮肤）----------
     function closePanels() {
         anchorPickedHook = null;
-        setLogPickMode(false);                  // 关面板即退出点选态：日志行样式立刻还原
+        setLogPickMode(false);                  // 关面板即退出点选态（点选态不是 overlay，是 body class）：日志行样式立刻还原
         clearLogAnchor();                       // 面板关了，锚点数据一并清掉（下次重来）
+        // 两个 overlay：记录面板 / 已记录列表；点选态在上两行已单独收
         ['bugRecorderOverlay', 'bugListOverlay'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.remove();
         });
+        // 关面板 = 退出「在日志区翻找」的状态：日志滚回底部、0.5 倍速自动还原。
+        //   否则点完锚点/保存后，日志还停在半路，必须手动点右下角下拉箭头才能恢复速度。
+        try { const fn = GlobalStore.getUIHandler('scrollLogToBottom'); if (fn) fn(); } catch (e) {}
     }
     function makeOverlay(id) {
         const overlay = document.createElement('div');
