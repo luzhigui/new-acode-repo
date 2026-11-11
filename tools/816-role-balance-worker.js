@@ -350,7 +350,9 @@ function applyForcedWeakAlly(ally, elite, rng) {
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, enemyHex = false) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
-    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
+    // V1.22.0（2026-11-11）：精英臂新增 sumRebound——终局引擎权威账本 unit.reboundDone（全反伤路径覆盖），
+    //   839 弱精英测评页「反伤/场」列消费；自然臂不采（无 me）。旧消费方（812）不读该字段，向后兼容。
+    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumRebound: 0, clean: {} });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
@@ -400,6 +402,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
         if (me.alive) a.sumSurv++;
         a.sumDmg += me.dmgDealt || 0;
         a.sumTaken += me.dmgTaken || 0;
+        a.sumRebound += me.reboundDone || 0;
     }
     const out = {};
     for (const [v, a] of Object.entries(variants)) {

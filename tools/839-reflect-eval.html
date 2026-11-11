@@ -11,7 +11,8 @@
     .card { background: #1c1f27; border: 1px solid #2c313d; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
     .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0; }
     label { font-size: 13px; }
-    input[type="number"] { width: 80px; background: #14161c; color: #dfe3ea; border: 1px solid #3a4150; border-radius: 6px; padding: 4px 6px; }
+    input[type="number"] { width: 70px; background: #14161c; color: #dfe3ea; border: 1px solid #3a4150; border-radius: 6px; padding: 4px 6px; }
+    input[type="text"] { width: 120px; background: #14161c; color: #dfe3ea; border: 1px solid #3a4150; border-radius: 6px; padding: 4px 6px; }
     .chk { display: inline-flex; align-items: center; gap: 4px; background: #232733; border: 1px solid #343b49; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
     .chk input { accent-color: #d4a24c; }
     button { background: #d4a24c; color: #14161c; border: none; border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
@@ -20,32 +21,37 @@
     #bar { height: 10px; background: #232733; border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
     #barFill { height: 100%; width: 0%; background: linear-gradient(90deg,#d4a24c,#e6c37b); transition: width .2s; }
     #progText { font-size: 12px; color: #8b93a3; }
-    table { border-collapse: collapse; width: 100%; font-size: 13px; }
-    th, td { border: 1px solid #2c313d; padding: 6px 8px; text-align: center; }
-    th { background: #232733; color: #c9cfdb; font-weight: 600; }
-    td.small { color: #8b93a3; font-size: 11px; }
+    table { border-collapse: collapse; width: max-content; font-size: 13px; }
+    th, td { border: 1px solid #2c313d; padding: 5px 8px; text-align: center; }
+    th { background: #232733; color: #c9cfdb; font-weight: 600; position: sticky; top: 0; }
+    td .wr { font-size: 11px; color: #8b93a3; }
     .delta-pos { color: #7ec97e; font-weight: 600; }
     .delta-neg { color: #e08b8b; font-weight: 600; }
     #result { overflow-x: auto; }
     .err { color: #e08b8b; font-size: 13px; white-space: pre-wrap; }
     .stamp { color: #6f7787; font-size: 11px; margin-top: 8px; }
+    .sticky-col { position: sticky; left: 0; background: #1c1f27; }
 </style>
 </head>
 <body>
 <h1>🛡️ 弱精英测评（M104 / M100 / M97）</h1>
 <div class="sub">
-    候选 = 档位内全部具名单位（都带技能；勾「仅反伤机制」可缩到反伤/反弹/同归于尽那一类）。<br>
-    环境：固定基线阵容，候选替换己方 1 号位；对照无候选基线（同种子）算胜率增量。<br>
-    反伤伤害读引擎权威账本 <b>unit.reboundDone</b>（全路径覆盖），反伤次数/同尽次数扫 fact 流。
+    候选 = 档位内全部具名单位（都带技能）。跑局走 816 worker 池（配对臂法，与「⚔️ 精英强度评测」的弱精英表同口径）：<br>
+    同一批种子跑两臂——<b>自然臂</b>（原样阵容）vs <b>强制臂</b>（把一名普通成员换成候选，站位继承），<br>
+    Δ = 强制臂明教胜率 − 自然臂胜率（剔除候选自然登场局）。<b>Δ&gt;0 候选帮明教，Δ&lt;0 候选（敌方侧）压明教</b>。<br>
+    第 3 关胖远桥/宋青书变体已合并统计。反伤/场读引擎账本 unit.reboundDone。
 </div>
 
 <div class="card">
     <div class="row">
-        <label>每单位场次 <input type="number" id="games" value="100" min="10" max="2000" step="10"></label>
-        <label class="chk"><input type="checkbox" id="reflectOnly">仅反伤机制单位</label>
+        <label>每关场次 <input type="number" id="games" value="50" min="10" max="500" step="10"></label>
+        <label class="chk"><input type="radio" name="hexMode" value="single" checked>单海克斯</label>
+        <label class="chk"><input type="radio" name="hexMode" value="double">双海克斯</label>
+        <label>种子 <input type="text" id="seed" placeholder="留空=随机"></label>
         <button id="btnRun">▶ 开始测评</button>
         <button id="btnTsv" class="ghost" disabled>📋 复制 TSV</button>
     </div>
+    <div class="row" id="stageRow"></div>
     <div class="row" id="candRow"><span class="sub">候选名单加载中…</span></div>
     <div id="bar"><div id="barFill"></div></div>
     <div id="progText"></div>
@@ -56,48 +62,38 @@
 
 <script type="module">
 // tools/839-reflect-eval.html — 弱精英测评（M104/M100/M97 档位全部带技能具名单位；浏览器版，工具箱常驻入口）
-// V1.1.0 | 2026-11-11 | 老板纠偏两条：① 原名「反伤类」以偏概全——默认候选改为档位内全部具名单位，反伤只是其中一列；
-//   ② 「点了开始测评没反应」——根因是 campWin 拿 CAMP_TYPES.ALLY('ally') 比 winner('明教'/'六大派') 恒 false，
-//   胜率全 0 像没跑；现改字符串比较，并补：点下按钮立刻出「准备…」反馈、整轮 try/catch 上屏报错（不再静默卡死）。
-//   口径与 CLI 版一致（固定基线阵容 + 候选替换 1 号位 + 同种子基线对照），但跑局一律走 core/206 runBattle
-//   统一入口（816 纪律：不许手抄回合循环），机制装配走浏览器统一入口 modules/301-reg-mechanics.js。
-//   分块执行（每 15 场让出主线程），不卡 UI。
+// V2.0.0 | 2026-11-11 | 老板两条指令：① 删「仅反伤机制」过滤器（没意义）；② 加 7 个关卡选择 + 单/双海克斯。
+//   架构同步升级：不再主线程手搓固定阵容（会占死页面，仪表盘 V1.9.0 同款教训），
+//   改走 817 runParallel + 816 worker kind:'weakElite' 配对臂 job（与 812 精英强度评测同引擎口径），
+//   关卡/海克斯/阵容生成全部复用正式建队流（initBattleTeams），反伤列吃 816 V1.22.0 新增的 sumRebound。
 import { CONFIG, loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
-import { Unit } from '../core/202-unit.js';
-import { SeededRNG } from '../infra/102-core-utils.js';
-import { CAMP_TYPES } from '../infra/106-battle-enums.js';
-import { runBattle } from '../core/206-battle-runner.js';
-import '../modules/301-reg-mechanics.js';
+import { runParallel } from './817-shared-worker-runner.js';
 
 const $ = (id) => document.getElementById(id);
 const M_TIERS = [104, 100, 97];
-const REFLECT_RE = /damageReflect|reflectRatio|reboundPct|同归于尽|反噬|反弹|反伤/;
+const CHUNK = 50;
 
 let game = null;
-const state = { running: false, rows: [] };
+const state = { running: false, byStage: null, stages: [], units: [], runs: 0 };
 
 async function boot() {
     try {
         await loadHexEnhanceData();
         game = await loadGameData();
-        mingBase = CONFIG.MING_ALL.filter(n => CONFIG.MING_M[n]).slice(0, 5);
-        enemyBase = Object.keys(CONFIG.ENEMY_M).slice(-9, -4);
+        $('stageRow').innerHTML = '关卡 ' + [1,2,3,4,5,6,7].map(s =>
+            `<label class="chk"><input type="checkbox" class="stageChk" value="${s}" ${s !== 4 ? 'checked' : ''}>第${s}关</label>`).join('');
         renderCands();
-        $('stamp').textContent = `引擎 ${CONFIG.ENGINE_VER || '?'} · 档位 M${M_TIERS.join('/M')} · 与 839-reflect-eval.mjs 同口径`;
+        $('stamp').textContent = `引擎 ${CONFIG.ENGINE_VER || '?'} · 档位 M${M_TIERS.join('/M')} · worker 配对臂（816 weakElite）`;
     } catch (e) {
-        $('candRow').innerHTML = `<span class="err">加载失败：${e.message}</span>`;
+        $('candRow').innerHTML = `<span class="err">加载失败：${e && e.message || e}</span>`;
     }
 }
 
 function collectCands() {
-    const reflectOnly = $('reflectOnly').checked;
     const out = [];
     for (const [n, c] of Object.entries(game.characters)) {
         if (!M_TIERS.includes(c.m) || c.named !== true) continue;
-        const s = JSON.stringify(c);
-        const kw = [...new Set(s.match(/damageReflect|reflectRatio|reboundPct|同归于尽|反噬/g) || [])].join('/');
-        if (reflectOnly && !kw && !REFLECT_RE.test(s)) continue;
-        out.push({ name: n, camp: c.camp, m: c.m, kw: kw || (REFLECT_RE.test(s) ? '反弹/反伤文案' : '—') });
+        out.push({ name: n, camp: c.camp, m: c.m, side: c.camp === '明教' ? 'ally' : 'enemy' });
     }
     return out;
 }
@@ -105,162 +101,139 @@ function renderCands() {
     const cands = collectCands();
     $('candRow').innerHTML = cands.length
         ? cands.map(c => `<label class="chk"><input type="checkbox" class="candChk" value="${c.name}" checked>${c.name}（${c.camp} M${c.m}）</label>`).join('')
-        : '<span class="sub">没有匹配候选（取消「仅反伤机制」试试）</span>';
-}
-$('reflectOnly').addEventListener('change', () => { if (!state.running) renderCands(); });
-
-function roleOf(name, rng) {
-    const ch = game.characters[name];
-    const tags = (ch && ch.tags) || [];
-    const hit = tags.find(t => CONFIG.ROLES.includes(t));
-    return hit || CONFIG.ROLES[rng.nextInt(0, CONFIG.ROLES.length - 1)];
-}
-function makeTeam(names, camp, rng, mTable) {
-    return names.map((name, i) => {
-        const u = new Unit(name, (mTable && mTable[name]) || 100, roleOf(name, rng), camp);
-        u.init(rng);
-        u.applyBonus();
-        u.pos = i + 1;
-        return u;
-    });
-}
-
-// fact 扫描：*rebound fact（反弹者=候选）+ 同归于尽反噬 announce；伤害总额走终局 reboundDone
-function scanFacts(logs, uid, name) {
-    let reflectCount = 0, deathblast = 0;
-    const visit = (f) => {
-        const d = f && f.data;
-        if (!d) return;
-        const ft = f.factType || '';
-        if (/rebound$/i.test(ft) && (d.sourceName === name || d.attackerUid === uid)) reflectCount++;
-        else if (ft === 'skillAnnounce' && d.unitUid === uid && /同归于尽|反噬/.test(String(d.note || '') + String(d.skillName || ''))) deathblast++;
-        if (Array.isArray(d.entries)) d.entries.forEach(visit);
-    };
-    for (const f of logs || []) visit(f);
-    return { reflectCount, deathblast };
-}
-
-// ⚠️ 不能在模块顶层读 CONFIG.MING_ALL/ENEMY_M——这些 getter 要求 gameData 已加载（201:298 直接抛），
-//   顶层求值会让整个 module 挂掉、boot 永远跑不到（实测：页面卡「候选名单加载中…」）。boot() 里取。
-let mingBase = [], enemyBase = [];
-
-function runOne(allyNames, enemyNames, seed, side, candName) {
-    const rng = new SeededRNG(seed);
-    const ally = makeTeam(allyNames, CAMP_TYPES.ALLY, rng, CONFIG.MING_M);
-    const enemy = makeTeam(enemyNames, CAMP_TYPES.ENEMY, rng, CONFIG.ENEMY_M);
-    const uid = (side === 'ally' ? ally : enemy).find(u => u.name === candName)?.uid ?? null;
-    const agg = { reflectCount: 0, deathblast: 0 };
-    const res = runBattle({
-        ally, enemy, seed,
-        onStep: uid != null ? (step) => {
-            const sc = scanFacts(step.log, uid, candName);
-            agg.reflectCount += sc.reflectCount; agg.deathblast += sc.deathblast;
-        } : null
-    });
-    let candAlive = false, reflectDmg = 0;
-    if (uid != null) {
-        const u = (side === 'ally' ? res.ally : res.enemy).find(x => x.uid === uid);
-        candAlive = !!(u && u.alive);
-        reflectDmg = Number((u && u.reboundDone) || 0);
-    }
-    // ⚠️ runBattle 的 winner 是阵营中文名（'明教'/'六大派'，null=回合上限未分），不能拿 CAMP_TYPES.ALLY('ally') 比——恒 false
-    const campWin = res.winner === (side === 'ally' ? '明教' : '六大派');
-    return { campWin, candAlive, reflectDmg, reflectCount: agg.reflectCount, deathblast: agg.deathblast };
+        : '<span class="sub">没有匹配候选</span>';
 }
 
 const yieldUi = () => new Promise(r => setTimeout(r, 0));
 
 async function run() {
     if (state.running) return;
+    const stages = [...document.querySelectorAll('.stageChk:checked')].map(cb => Number(cb.value));
     const checked = [...document.querySelectorAll('.candChk:checked')].map(cb => cb.value);
-    const cands = collectCands().filter(c => checked.includes(c.name));
-    if (!cands.length) return;
-    const GAMES = Math.max(10, Number($('games').value) || 100);
+    const units = collectCands().filter(c => checked.includes(c.name));
+    if (!stages.length || !units.length) { $('progText').textContent = '先勾关卡和候选单位'; return; }
+    const runs = Math.max(10, Number($('games').value) || 50);
+    const enemyHex = document.querySelector('input[name="hexMode"]:checked').value === 'double';
+    const seedInput = $('seed').value.trim();
+    const masterSeed = seedInput ? Number(seedInput) : Date.now();
+
     state.running = true;
     $('btnRun').disabled = true;
     $('btnTsv').disabled = true;
     $('result').innerHTML = '';
-    state.rows = [];
-    // 点下按钮立刻给反馈——原来第一批 15 场跑完才有第一个进度更新，手机上几秒空白像「没反应」
-    $('progText').textContent = `准备开跑：${cands.length} 个候选 × ${GAMES} 场（含基线对照）…`;
+    const totalBattles = stages.length * runs * (units.length + 1);
+    $('progText').textContent = `准备开跑：${stages.length} 关 × ${runs} 场 × (${units.length} 候选 + 1 自然臂) ≈ ${totalBattles} 局（${enemyHex ? '双' : '单'}海克斯）…`;
     $('barFill').style.width = '1%';
     await yieldUi();
+
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumRebound: 0, clean: {} });
+    const byStage = {};
+    for (const st of stages) {
+        byStage[st] = { __natural: newAgg() };
+        for (const u of units) byStage[st][u.name] = newAgg();
+    }
+
+    const jobs = [];
+    for (const stage of stages) {
+        const chunks = Math.ceil(runs / CHUNK);
+        for (let c = 0; c < chunks; c++) {
+            const n = Math.min(CHUNK, runs - c * CHUNK);
+            if (n <= 0) continue;
+            const seed = masterSeed + stage * 131;
+            const startIndex = c * CHUNK;
+            jobs.push({ stage, seed, startIndex, runs: n, arm: 'natural', label: `第${stage}关#${c + 1}·自然臂` });
+            for (const u of units) jobs.push({ stage, seed, startIndex, runs: n, elite: u.name, side: u.side, label: `第${stage}关#${c + 1}·${u.name}` });
+        }
+    }
+
+    const mergeInto = (dst, d) => {
+        for (const [k, v] of Object.entries(d)) {
+            if (k === 'clean') { for (const [nm, c] of Object.entries(v || {})) { const t = dst.clean[nm] || (dst.clean[nm] = { runs: 0, wins: 0 }); t.runs += c.runs || 0; t.wins += c.wins || 0; } }
+            else if (typeof v === 'number') dst[k] = (dst[k] || 0) + v;
+        }
+    };
+
     try {
-        await runInner(cands, GAMES);
+        await runParallel({
+            jobs,
+            kind: 'weakElite',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'weakElite', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs, elite: job.elite, side: job.side, arm: job.arm || 'elite', enemyHex }),
+            onJobDone: (finished, total, job, part) => {
+                const key = job.arm === 'natural' ? '__natural' : job.elite;
+                for (const d of Object.values((part && part.variants) || {})) {
+                    const slot = byStage[job.stage] && byStage[job.stage][key];
+                    if (slot) mergeInto(slot, d);
+                }
+                $('barFill').style.width = (finished / total * 100).toFixed(1) + '%';
+                $('progText').textContent = `${job.label} 完成（${finished}/${total}）`;
+            },
+            onAllDone: () => {
+                state.byStage = byStage; state.stages = stages; state.units = units; state.runs = runs;
+                renderTable(masterSeed, enemyHex);
+                $('barFill').style.width = '100%';
+                $('progText').textContent = `✅ 完成，seed=${masterSeed}（填回种子框可复现）`;
+            }
+        });
     } catch (e) {
         $('progText').innerHTML = `<span class="err">测评中断：${e && e.message || e}</span>`;
     } finally {
         state.running = false;
         $('btnRun').disabled = false;
-        $('btnTsv').disabled = state.rows.length === 0;
+        $('btnTsv').disabled = !state.byStage;
     }
 }
 
-async function runInner(cands, GAMES) {
-    const baselineCache = {};
-    const totalUnits = cands.length + 2;   // +2：两侧基线（按需，进度粗算够用）
-    let doneUnits = 0;
-    const setProg = (label, frac) => {
-        $('barFill').style.width = Math.round(frac * 100) + '%';
-        $('progText').textContent = label;
+// Δ = 强制臂胜率 − 自然臂 clean[该单位] 胜率（pp）；自然臂 clean 缺失时退回自然臂整体（并标注）
+function deltaOf(stAgg, name) {
+    const e = stAgg[name], nat = stAgg.__natural;
+    if (!e || !e.runs || !nat) return null;
+    const c = nat.clean && nat.clean[name];
+    const base = c && c.runs >= e.runs * 0.5 ? c : nat;
+    return { d: (e.wins / e.runs - base.wins / base.runs) * 100, wr: e.wins / e.runs * 100, runs: e.runs };
+}
+
+function renderTable(masterSeed, enemyHex) {
+    const agg = (u, k) => { let s = 0, r = 0; for (const st of state.stages) { const a = state.byStage[st][u]; if (a) { s += a[k]; r += a.runs; } } return r ? s / r : 0; };
+    const totalDelta = (u) => {
+        let er = 0, ew = 0, nr = 0, nw = 0;
+        for (const st of state.stages) {
+            const a = state.byStage[st][u]; if (a) { er += a.runs; ew += a.wins; }
+            const c = state.byStage[st].__natural.clean && state.byStage[st].__natural.clean[u];
+            if (c) { nr += c.runs; nw += c.wins; }
+        }
+        return er && nr ? (ew / er - nw / nr) * 100 : null;
     };
-
-    async function ensureBaseline(side) {
-        if (baselineCache[side]) return baselineCache[side];
-        let wins = 0;
-        for (let s = 0; s < GAMES; s++) {
-            if (runOne(mingBase, enemyBase, 100000 + s * 31, side, null).campWin) wins++;
-            if (s % 15 === 14) { setProg(`基线（${side === 'ally' ? '明教' : '六大派'}侧）${s + 1}/${GAMES}`, (doneUnits + s / GAMES) / totalUnits); await yieldUi(); }
-        }
-        baselineCache[side] = wins;
-        return wins;
-    }
-
-    for (const c of cands) {
-        const side = c.camp === '明教' ? 'ally' : 'enemy';
-        const allyNames = side === 'ally' ? [c.name, ...mingBase.slice(1)] : mingBase;
-        const enemyNames = side === 'enemy' ? [c.name, ...enemyBase.slice(1)] : enemyBase;
-        let wins = 0, alive = 0, reflectDmg = 0, reflectCount = 0, deathblast = 0;
-        for (let s = 0; s < GAMES; s++) {
-            const r = runOne(allyNames, enemyNames, 100000 + s * 31, side, c.name);
-            if (r.campWin) wins++;
-            if (r.candAlive) alive++;
-            reflectDmg += r.reflectDmg; reflectCount += r.reflectCount; deathblast += r.deathblast;
-            if (s % 15 === 14) { setProg(`${c.name} ${s + 1}/${GAMES}`, (doneUnits + s / GAMES) / totalUnits); await yieldUi(); }
-        }
-        const baseWin = await ensureBaseline(side);
-        state.rows.push({ c, side, wins, alive, reflectDmg, reflectCount, deathblast, baseWin, GAMES });
-        doneUnits++;
-        renderTable();
-    }
-    setProg(`完成：${cands.length} 个候选 × ${GAMES} 场`, 1);
-}
-
-function renderTable() {
-    const rows = [...state.rows].sort((a, b) => (b.wins - b.baseWin) / b.GAMES - (a.wins - a.baseWin) / a.GAMES);
-    const pct = (x, n) => (x / n * 100).toFixed(1) + '%';
-    $('result').innerHTML = `<table><tr><th>单位</th><th>阵营</th><th>M</th><th>反伤机制</th><th>胜率</th><th>基线胜率</th><th>Δ胜率</th><th>反伤伤/场</th><th>反伤次/场</th><th>同尽/场</th><th>存活率</th></tr>` +
-        rows.map(r => {
-            const d = (r.wins - r.baseWin) / r.GAMES * 100;
-            return `<tr><td><b>${r.c.name}</b></td><td class="small">${r.c.camp}</td><td class="small">M${r.c.m}</td><td class="small">${r.c.kw}</td>` +
-                `<td>${pct(r.wins, r.GAMES)}</td><td class="small">${pct(r.baseWin, r.GAMES)}</td>` +
-                `<td class="${d >= 0 ? 'delta-pos' : 'delta-neg'}">${d >= 0 ? '+' : ''}${d.toFixed(1)}%</td>` +
-                `<td>${(r.reflectDmg / r.GAMES).toFixed(1)}</td><td>${(r.reflectCount / r.GAMES).toFixed(2)}</td>` +
-                `<td>${(r.deathblast / r.GAMES).toFixed(2)}</td><td>${pct(r.alive, r.GAMES)}</td></tr>`;
-        }).join('') + '</table>';
+    const rows = state.units.map(u => ({ u, cells: state.stages.map(st => deltaOf(state.byStage[st], u.name)), totD: totalDelta(u) }))
+        .sort((a, b) => (b.totD ?? -999) - (a.totD ?? -999));
+    const fmtD = c => c ? `<td><span class="${c.d >= 0 ? 'delta-pos' : 'delta-neg'}">${c.d >= 0 ? '+' : ''}${c.d.toFixed(1)}</span><br><span class="wr">${c.wr.toFixed(0)}%</span></td>` : '<td class="wr">—</td>';
+    $('result').innerHTML = `<table><tr><th class="sticky-col">单位</th><th>阵营/M</th>${state.stages.map(s => `<th>第${s}关 Δ·胜率</th>`).join('')}<th>总Δ</th><th>输出/场</th><th>承伤/场</th><th>存活率</th><th>反伤/场</th></tr>` +
+        rows.map(({ u, cells, totD }) =>
+            `<tr><td class="sticky-col"><b>${u.name}</b></td><td class="wr">${u.camp} M${u.m}</td>${cells.map(fmtD).join('')}` +
+            `<td><span class="${(totD ?? 0) >= 0 ? 'delta-pos' : 'delta-neg'}">${totD == null ? '—' : (totD >= 0 ? '+' : '') + totD.toFixed(1)}</span></td>` +
+            `<td>${agg(u.name, 'sumDmg').toFixed(0)}</td><td>${agg(u.name, 'sumTaken').toFixed(0)}</td>` +
+            `<td>${(agg(u.name, 'sumSurv') * 100).toFixed(1)}%</td><td>${agg(u.name, 'sumRebound').toFixed(1)}</td></tr>`).join('') +
+        `</table><div class="sub" style="margin-top:6px">seed=${masterSeed} · ${enemyHex ? '双' : '单'}海克斯 · 每关目标 ${state.runs} 场。<br>` +
+        `「—」= 测不出 Δ：周颠/说不得/张中/彭莹玉这类几乎<b>每场强制出场</b>的单位，对照臂里也全是他们，没有「不含他」的样本可配——不是 bug，是「多带一个」这个问题对他们本就不成立。</div>`;
 }
 
 $('btnTsv').addEventListener('click', async () => {
-    const lines = ['单位\t阵营\tM\t反伤机制\t胜率\t基线胜率\tΔ胜率\t反伤伤/场\t反伤次/场\t同尽/场\t存活率'];
-    for (const r of [...state.rows].sort((a, b) => (b.wins - b.baseWin) - (a.wins - a.baseWin))) {
-        const d = (r.wins - r.baseWin) / r.GAMES * 100;
-        lines.push([r.c.name, r.c.camp, 'M' + r.c.m, r.c.kw, (r.wins / r.GAMES * 100).toFixed(1) + '%',
-            (r.baseWin / r.GAMES * 100).toFixed(1) + '%', (d >= 0 ? '+' : '') + d.toFixed(1) + '%',
-            (r.reflectDmg / r.GAMES).toFixed(1), (r.reflectCount / r.GAMES).toFixed(2), (r.deathblast / r.GAMES).toFixed(2),
-            (r.alive / r.GAMES * 100).toFixed(1) + '%'].join('\t'));
+    if (!state.byStage) return;
+    const head = ['单位', '阵营', 'M', ...state.stages.map(s => `第${s}关Δ`), '总Δ', '输出/场', '承伤/场', '存活率', '反伤/场'];
+    const lines = [head.join('\t')];
+    for (const u of state.units) {
+        const ds = state.stages.map(st => { const c = deltaOf(state.byStage[st], u.name); return c ? c.d.toFixed(1) : ''; });
+        let e = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 }, n = { runs: 0, wins: 0 };
+        for (const st of state.stages) {
+            const a = state.byStage[st][u.name]; if (a) for (const k of Object.keys(e)) e[k] += a[k];
+            const c = state.byStage[st].__natural.clean && state.byStage[st].__natural.clean[u.name];
+            if (c) { n.runs += c.runs; n.wins += c.wins; }
+        }
+        const totD = e.runs && n.runs ? (e.wins / e.runs - n.wins / n.runs) * 100 : null;
+        const per = k => e.runs ? (e[k] / e.runs).toFixed(1) : '';
+        lines.push([u.name, u.camp, 'M' + u.m, ...ds, totD == null ? '' : totD.toFixed(1), per('sumDmg'), per('sumTaken'), e.runs ? (e.sumSurv / e.runs * 100).toFixed(1) + '%' : '', per('sumRebound')].join('\t'));
     }
     try { await navigator.clipboard.writeText(lines.join('\n')); $('progText').textContent = '已复制 TSV，可直接贴表'; }
-    catch { $('progText').textContent = '剪贴板被拦，请在结果区手动选择复制'; }
+    catch { $('progText').textContent = '剪贴板被拦，请在结果表手动选择复制'; }
 });
 $('btnRun').addEventListener('click', run);
 boot();
