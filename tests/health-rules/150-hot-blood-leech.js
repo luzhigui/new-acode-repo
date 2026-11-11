@@ -1,9 +1,9 @@
 // 回归规则：热血奋战（hotBlood）攻击回血链路 — 此前完全没有体检项盯这条链路。
 // 机制源（core/204-buff-system.js L98-118 submitHotBloodDeclaration）：
 //   - 触发：单位存活 且 hp < maxHp 且（持有 HOT_BLOOD 团队 Buff 或 小昭·弟永久海克斯激活）
-//   - 比例：leechPct = 小昭·姊在场 ? (小昭.hexEnhance.hotBlood.leechPct 0.20 : 0.15) : 0.15
-//   - 翻倍：_hotBloodCount 每次攻击 +1，critInterval = 小昭·姊在场 ? (hexEnhance.critInterval 2 : 3) : 3，
-//           isDouble = count % critInterval === 0，ratio = isDouble ? leechPct × 2 : leechPct
+//   - 比例：leechPct = 小昭·姊在场 ? (小昭.hexEnhance.hotBlood.leechPct 0.25) : CONFIG 0.25
+//   - 翻倍：_hotBloodCount 每次攻击 +1，critPattern 定节奏（普通 [1,3]=每3次第1、3次；姊强化 [1,2,3]=全部翻倍），
+//           ratio = isDouble ? leechPct × 2 : leechPct
 //   - 回血量：leech = min(Math.floor((maxHp - hp) × ratio), maxHp - hp)，leech > 0 才登记
 //   - 渲染：render/30 renderHotBloodHealFact → info「❤️ 热血奋战：甲 回复+12」/「❤️‍🔥 热血奋战(翻倍)：甲 回复+24」
 //           render/30 renderBuffSummaryFact（HOT_BLOOD 分支）→ 顶层 buff-summary
@@ -22,7 +22,7 @@
 //      缺口本身可带一位小数；显示层 fmtNum/healDisplay 也只到 0.1 精度。V6.1.18 前按「正整数」判属**口径过时**）
 //   2) 回血量越过该单位血量上限（终局 maxHp 兜底；2026-10-14 第 89 轮加「开战 vs 终局 maxHp 一致才比」门，见误报规避节）
 //   3) 同一单位在同一次攻击（同一个 attack-group）内登记两次 → 回血翻倍膨胀
-//   4) 回血量量级膨胀：单次回血 > 血量上限 × 0.6（合法上限是 leechPct×2，小昭·姊强化下也才 0.40；
+//   4) 回血量量级膨胀：单次回血 > 血量上限 × 0.6（合法上限是 leechPct×2，小昭·姊强化下也才 0.50；
 //      留 0.6 是给未来配置上调留余量，只抓"比例被写大/翻倍重复叠加"这类粗错）
 //      2026-10-12 加固：加绝对值门槛 leech>2——小数字（maxHp=1 回 1 → 占比 100%）是合法回血，原判据误报
 //   5) 摘要百分比与 CONFIG.BUFFS.hotBlood.leechRatio 不符 → 渲染写死 / 配置未收口
