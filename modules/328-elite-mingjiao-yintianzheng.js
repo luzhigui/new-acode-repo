@@ -2,9 +2,11 @@
 // V1.2.1 | 2026-11-08 体检转交：鹰王威压 / 老当益壮 四处 addMod 补 ttl:'permanent'——原缺 ttl 属未声明，
 //   两个机制都是「永久累积」（威压跨回合削攻防、老当益壮逐次成长），显式声明后与永久/回合词条清理口径一致。
 // V1.2.2 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.2.2';
+// V1.3.0 | 2026-11-11 老板拍板加强：威压/老当益壮各加「生命上限 −3 / +3」词条（走 addMod+refreshMaxHp，
+//           升等量加、降等比缩，与唐文亮冲刺同口径）；反击初始概率 22%→33%、每次命中 +2%→+3%（封顶 90% 不变）。
+export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.3.0';
 
-import { getBattleRng, addMod } from '../core/214-battle-shared.js';
+import { getBattleRng, addMod, refreshMaxHp } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
@@ -33,11 +35,13 @@ export function createYinTianZhengComponent() {
                 if (!t || !t.alive) return;
                 addMod(t, 'atk', { source: '鹰王威压', value: -weiya.atkDown, op: 'add', ttl: 'permanent', group: 'yingWangWeiYa' });
                 addMod(t, 'def', { source: '鹰王威压', value: -weiya.defDown, op: 'add', ttl: 'permanent', group: 'yingWangWeiYa' });
-                pushInfo(data, `<span class="gold">🦅 殷天正鹰王威压：${t.name} 攻 −${weiya.atkDown}、防 −${weiya.defDown}（永久累积）</span>`);
+                addMod(t, 'maxHp', { source: '鹰王威压', value: -weiya.maxHpDown, op: 'add', ttl: 'permanent', group: 'yingWangWeiYa' });
+                refreshMaxHp(t, yin, '鹰王威压');   // 降则等比缩当前血（core/214 口径），血上限真落地
+                pushInfo(data, `<span class="gold">🦅 殷天正鹰王威压：${t.name} 攻 −${weiya.atkDown}、防 −${weiya.defDown}、血上限 −${weiya.maxHpDown}（永久累积）</span>`);
                 // 头顶弹幕「第二段」：反击那一记已有 ⚔️反击！ 徽章（core/10 reason 链路），
                 //   此处补「鹰王威压」飘字，让「先反击、命中后再压」两段式一眼可见。
                 //   line:false —— 战报行已由上方 pushInfo 承担，此处只走头顶飘字不重复落行
-                pushSkillAnnounce(data.log, yin, '鹰王威压', `📉 鹰王威压！${t.name} 攻 −${weiya.atkDown}·防 −${weiya.defDown}`,
+                pushSkillAnnounce(data.log, yin, '鹰王威压', `📉 鹰王威压！${t.name} 攻 −${weiya.atkDown}·防 −${weiya.defDown}·血上限 −${weiya.maxHpDown}`,
                     { line: false, floatText: '📉鹰王威压！', floatUid: yin.uid });
             });
 
@@ -91,8 +95,10 @@ export function createYinTianZhengComponent() {
                 if (data.unit.state._linkReason !== 'counterAttack') return;
                 addMod(yin, 'atk', { source: '老当益壮', value: grow.atkGain, op: 'add', ttl: 'permanent', group: 'laoDangYiZhuang' });
                 addMod(yin, 'def', { source: '老当益壮', value: grow.defGain, op: 'add', ttl: 'permanent', group: 'laoDangYiZhuang' });
+                addMod(yin, 'maxHp', { source: '老当益壮', value: grow.maxHpGain, op: 'add', ttl: 'permanent', group: 'laoDangYiZhuang' });
+                refreshMaxHp(yin, yin, '老当益壮');   // 升则等量加当前血（与唐文亮冲刺加成同口径）
                 yin.state._counterProbBonus = (yin.state._counterProbBonus || 0) + grow.probGain;
-                pushInfo(data, `<span class="gold">💪 殷天正老当益壮：攻 +${fmtNum(grow.atkGain)}、防 +${fmtNum(grow.defGain)}、反击率 +${Math.round(grow.probGain * 100)}%</span>`);
+                pushInfo(data, `<span class="gold">💪 殷天正老当益壮：攻 +${fmtNum(grow.atkGain)}、防 +${fmtNum(grow.defGain)}、血上限 +${fmtNum(grow.maxHpGain)}、反击率 +${Math.round(grow.probGain * 100)}%</span>`);
             });
         }
     };

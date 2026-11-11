@@ -1815,10 +1815,11 @@ const CONTRACTS = [
         extract(stepLog) {
             const out = [];
             const scanText = (t) => {
-                const m = t.match(/殷天正鹰王威压：(.+?) 攻 −(\d+)、防 −(\d+)/);
+                const m = t.match(/殷天正鹰王威压：(.+?) 攻 −(\d+)、防 −(\d+)(?:、血上限 −(\d+))?/);
                 if (!m) return;
                 out.push({ unit: m[1], stat: 'atk', amount: Number(m[2]) });
                 out.push({ unit: m[1], stat: 'def', amount: Number(m[3]) });
+                if (m[4]) out.push({ unit: m[1], stat: 'maxHp', amount: Number(m[4]) });
             };
             const scan = (e) => {
                 if (!e) return;
@@ -1844,10 +1845,11 @@ const CONTRACTS = [
             const scan = (e) => {
                 if (!e) return;
                 if (e.type === 'info' && typeof e.text === 'string') {
-                    const m = e.text.match(/殷天正老当益壮：攻 \+(\d+)、防 \+(\d+)/);
+                    const m = e.text.match(/殷天正老当益壮：攻 \+(\d+)、防 \+(\d+)(?:、血上限 \+(\d+))?/);
                     if (m) {
                         out.push({ unit: '殷天正', stat: 'atk', amount: Number(m[1]) });
                         out.push({ unit: '殷天正', stat: 'def', amount: Number(m[2]) });
+                        if (m[3]) out.push({ unit: '殷天正', stat: 'maxHp', amount: Number(m[3]) });
                     }
                 }
                 for (const x of nestedFacts(e)) scan(x);
