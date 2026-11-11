@@ -464,7 +464,7 @@ function eliteIssues() {
 
     // 弱精英表：Δ = 弱精英臂 − 同种子自然对照臂（配对，同关同变体）
     function weakTable(part) {
-        if (!part) { nodata.push('弱精英：快照里没有这张表，请到 112 跑一遍并重新「💾 存结果」。'); return null; }
+        if (!part) { nodata.push('弱精英：快照里没有这张表，请到工具箱「🐦 弱精英评测」页签跑一遍（跑完自动存快照）。'); return null; }
         const names = Object.keys(WEAK_SIDE);
         const per = {}; names.forEach(n => per[n] = { runs: 0, wins: 0, nRuns: 0, nWins: 0 });
         for (const st of part.stages) for (const v of VARIANTS) {

@@ -1,3 +1,6 @@
+// V6.0.65 | 2026-11-11 弱精英评测从 812 拆出、独立成 802 页签：清单删 tools/838-elite-contrib.html（单页下线），
+//           补登记 tools/846-weak-elite-eval.js；顺手补漏登记 content/003-shop-config.json
+//           （805-shop.html 运行时 fetch，缺则包内商店页读不到配置）。
 // V6.0.64 | 2026-11-10 补登记多会话协作三件（session-scope.json / session-scope-guard.mjs / session-start.mjs）；
 //           顺手归位头注：上一版 VER 已抬到 V6.0.63 但头注漏写，本版两端同步到 V6.0.64。
 // V6.0.63 | 2026-11-10 并行会话抬 VER（此处补记，未改任何清单内容）。
@@ -116,7 +119,7 @@
 //           属核心玩法不是纯演出层，原先剔除是误判）；② 新增 ARCHIVE_FILES + 第六个分组「📦 存档（不随包）」
 //           + 该组专用 GROUP_PROMPTS，存档件默认不勾选、不随主代码包/工具包发出。
 // 2026-11-02 合并夜间第177轮：VER 取 nightly 更高版本 V6.0.60（本地重编号后路径 806）
-export const VER = 'tools/806-ai-pack-config.js V6.0.64';
+export const VER = 'tools/806-ai-pack-config.js V6.0.65';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -309,6 +312,8 @@ export const ALL_PROJECT_FILES = [
     // 2026-10-31 补登记 201：小昭 hexEnhance（姐妹强化/妹永久）已从 200 迁出到独立文件，
     //   core/201-config-5v5-test 的 getSkillParams / getBrotherHexEnhance 与 modules/317-328、329-buff-tools 都读它，漏登则包内直接抛「缺 sister 段」。
     '../content/002-hex-enhance.json',
+    // 2026-11-11 补登记：805-shop.html 运行时 fetch 商店配置，漏登则包内商店页读不到配置
+    '../content/003-shop-config.json',
     // tests（体检规则与自动测试）
     '../tests/120test-runner.html', '../tests/121health-monitor.js', '../tests/122health-utils.js',
     '../tests/123static-scan.js', '../tests/124rule-recipes.js',
@@ -497,8 +502,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/835-param-scan.html',
     // 2026-10-25 补登记：语音解说从主游戏下线，搬到 tools 存档（136 引擎 / 137 设置面板）
     '../tools/836-voice-commentary.js', '../tools/837-voice-panel.js',
-    // 2026-10-28 补登记 138：弱精英机制贡献评估（116 V1.15.0 weakContrib 的消费端）
-    '../tools/838-elite-contrib.html',
+    // 2026-11-11 弱精英评测从 812 拆出，独立成 802「🐦 弱精英评测」页签（838 弱精英机制贡献单页已下线删除）
+    '../tools/846-weak-elite-eval.js',
     // 2026-11-10 补登记 831：消融实验室单页（802 备用工具卡片「🧪 消融实验室」直接打开，跑批走 816 V1.22.0
     //   kind:'ablation'，开关 globalThis.MING_ABLATION）。与 833/834/835/838 同类的**页面件**，
     //   属「网页端阅读需要」——漏登则包内工具箱点开这张卡 404。（对照：828/829/830 是本机 node 脚本，

@@ -182,7 +182,7 @@
         /* 2026-10-28 只统一形状，不统一颜色：「弱精英评测」原先缺样式会退化成浏览器默认灰按钮，
            现补上与其他按钮一致的形状/字号/圆角，但各组业务配色全部恢复原样
            （金=主表 / 蓝=强精英 / 橙=Boss / 灰蓝=无精英 / 绿=弱精英 / 绿=存结果 / 蓝=载入 / 棕=清历史）。 */
-        #eliteStartBtn, #eliteSoloBtn, #eliteBossBtn, #eliteNoEliteBtn, #eliteWeakBtn,
+        #eliteStartBtn, #eliteSoloBtn, #eliteBossBtn, #eliteNoEliteBtn, #weakEliteStartBtn,
         #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn {
             border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
@@ -190,15 +190,15 @@
         #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; }
         #eliteBossBtn { background: #ff9800; color: #1a1a2e; }
         #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; }
-        #eliteWeakBtn { background: #4caf50; color: #1a1a2e; }
+        #weakEliteStartBtn { background: #4caf50; color: #1a1a2e; }
         #eliteSaveSnapBtn { background: #4caf50; color: #fff; }
         #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; padding: 10px 16px; }
         #eliteDropSnapBtn { background: #6d4c41; color: #ddd; padding: 10px 16px; }
         #eliteStartBtn:disabled, #eliteSoloBtn:disabled, #eliteBossBtn:disabled,
-        #eliteNoEliteBtn:disabled, #eliteWeakBtn:disabled, #eliteSaveSnapBtn:disabled,
+        #eliteNoEliteBtn:disabled, #weakEliteStartBtn:disabled, #eliteSaveSnapBtn:disabled,
         #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
-        #eliteSnapStatus { color: #8bc34a; font-size: 12px; }
+        #eliteSnapStatus, #weakEliteSnapStatus { color: #8bc34a; font-size: 12px; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
         .elite-empty { color: #888; text-align: center; margin-top: 12px; }
         table.elite-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #16213e; border: 1px solid #333; border-radius: 10px; overflow: hidden; }
@@ -237,6 +237,7 @@
     <div class="tab-nav">
         <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
+        <button class="tab-btn" data-tab="tab-weak-elite">🐦 弱精英评测</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
@@ -290,11 +291,6 @@
             <div class="tc-card" data-tool="paramlab">
                 <span class="tc-head"><span class="tc-icon">🧪</span><span class="tc-title">参数实验台</span></span>
                 <span class="tc-desc">固定阵容改参数对照</span>
-                <button class="tc-open">打开</button>
-            </div>
-            <div class="tc-card" data-tool="elitecontrib">
-                <span class="tc-head"><span class="tc-icon">🧬</span><span class="tc-title">弱精英机制贡献</span></span>
-                <span class="tc-desc">配对测机制触发与胜率 Δ</span>
                 <button class="tc-open">打开</button>
             </div>
             <!-- 2026-11-10：消融实验室（姊三因素） -->
@@ -440,7 +436,7 @@
             列 = 明教六名精英：张无忌（M115 boss）/ 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒（M107 强精英，按 30% 概率混入）——谁在场记给谁，胜 = 明教获胜。<br>
             行 = 关卡，按敌方阵容拆行：第3关轮换阵容拆成「·胖远桥」「·宋青书」两行分开看胜率。<br>
             纯走引擎原逻辑（出率 / 站位 / 每 3 回合海克斯），不做强制上场，同场共现是真实环境。样本量因此不同：张无忌约 40%、韦一笑约 33%、姐妹各约 17%、寒离飒约 30%；每关 1200 局 ≈ 张无忌 480 / 韦一笑 400 / 姐妹各 200。<br>
-            另有四张控制变量表（共用「控制变量场数」）：⚔ 强精英、👑 Boss·张无忌、🛡 无精英基线、🐦 弱精英评测。
+            另有三张控制变量表（共用「控制变量场数」）：⚔ 强精英、👑 Boss·张无忌、🛡 无精英基线。🐦 弱精英评测已独立成单独页签。
         </p>
         <div class="elite-config">
             <label>每关总场次：</label>
@@ -460,13 +456,12 @@
             </div>
             <button id="eliteStartBtn">▶ 开始评测</button>
             <label style="color:#aaa; font-size:12px;">控制变量场数：</label>
-            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 强精英胜率」「👑 Boss·张无忌」「🛡 无精英基线」「🐦 弱精英评测」四张控制变量表；普通评测仍用左侧「每关总场次」">
+            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 强精英胜率」「👑 Boss·张无忌」「🛡 无精英基线」三张控制变量表；普通评测仍用左侧「每关总场次」">
             <button id="eliteSoloBtn" title="强精英（M107）逐一单核选中关卡：韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒（force 单精英抑制轮盘）">⚔ 强精英胜率</button>
             <button id="eliteBossBtn" title="Boss（张无忌·M115）单核：force 张无忌、抑制随机轮盘，单独一表避免与 M107 强精英混比">👑 Boss·张无忌</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
-            <button id="eliteWeakBtn" title="单测弱精英：明教侧（杨逍/殷天正）强制混入、六大派侧（何太冲/唐文亮）锁定 M104 空位；同关同变体配自然对照臂，直接出胜率 Δ">🐦 弱精英评测</button>
             <span style="color:#555">｜</span>
-            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的五张表（主表·自然出场 / 强精英 / Boss·张无忌 / 无精英 / 弱精英）合并再存一条。最多留 10 条">💾 存结果</button>
+            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的四张表（主表·自然出场 / 强精英 / Boss·张无忌 / 无精英）合并再存一条。最多留 10 条">💾 存结果</button>
             <button id="eliteLoadSnapBtn" title="载入选中的历史快照，重新渲染对应的表（不重跑）">📂 载入</button>
             <button id="eliteDropSnapBtn" title="删除全部历史快照（不影响页面上当前的表）">🗑 清空历史</button>
             <select id="eliteSnapSelect" title="历史快照列表：时间｜关卡｜含哪几张表"></select>
@@ -480,8 +475,40 @@
         <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方「👑 Boss·张无忌」按钮）</div></div>
         <div class="elite-progress" id="eliteNoEliteProgress" style="margin-top:14px;"></div>
         <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方「🛡 无精英基线」按钮）</div></div>
-        <div class="elite-progress" id="eliteWeakProgress" style="margin-top:14px;"></div>
-        <div id="eliteWeakResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方「🐦 弱精英评测」按钮）——明教侧杨逍/殷天正 + 六大派侧何太冲/唐文亮，同关同变体与自然对照比胜率 Δ</div></div>
+    </div>
+
+    <!-- 2026-11-11 弱精英评测从「⚔️ 精英战力评测」页签拆出，独立成页签（算法/排版 1:1 照抄，实现在 846-weak-elite-eval.js） -->
+    <div class="tab-content" id="tab-weak-elite">
+        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
+            单测弱精英：同关同变体配同种子的「自然对照臂」，直接出胜率 Δ。<span class="tip-more">▸ 略</span>
+        </p>
+        <p class="tip-more-body" style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
+            明教侧（杨逍 / 殷天正）：116 建队完成后换掉一个普通位，两臂站位逐位全同，Δ = 精英本人 vs 被换掉的普通位。<br>
+            六大派侧（何太冲 / 唐文亮 / 空见）：锁定敌方 M104 数字空位再换名，Δ<0 = 明教更难打。<br>
+            每个弱精英一条臂 + 一条 natural 自然对照臂，同一 (关, 分片) 共用同一 seed；「本局自然出现该精英」的局两臂同剔，样本逐场对应。<br>
+            跑完自动往「精英评测快照」（localStorage）写一条只含弱精英表的记录，平衡告警直接读取；本页签的场数 / 种子与「⚔️ 精英战力评测」页签互不影响。
+        </p>
+        <div class="elite-config">
+            <label>控制变量场数：</label>
+            <input type="number" id="weakEliteRunsInput" value="400" min="100" max="5000" step="100">
+            <label style="color:#aaa; font-size:12px;">种子：</label>
+            <input type="number" id="weakEliteSeedInput" placeholder="留空=自动" style="width:150px" title="填上次结果的 masterSeed 可按同样随机流重跑（每个 (关, 分片) 的自然对照臂与各精英臂共用同一 seed）">
+            <label style="color:#4fc3f7; font-size:12px;" title="不勾 = 只有明教选海克斯（历史口径）；勾选 = 六大派也自动选一次，与主游戏「双海克斯」一致"><input type="checkbox" id="weakEliteEnemyHex" checked> 双海克斯（六大派也选）</label>
+            <div class="elite-stage-group">
+                <label>关卡：</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="1" checked>1</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="2" checked>2</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="3" checked>3</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="4" checked>4</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="5" checked>5</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="6" checked>6</label>
+                <label><input type="checkbox" class="weak-elite-stage-check" value="7" checked>7</label>
+            </div>
+            <button id="weakEliteStartBtn">▶ 开始评测</button>
+            <span id="weakEliteSnapStatus"></span>
+        </div>
+        <div class="elite-progress" id="weakEliteProgress"></div>
+        <div id="weakEliteResult"><div class="elite-empty">弱精英评测：尚未运行（勾选关卡后点上方「▶ 开始评测」）——表内两张子表：明教侧 杨逍/殷天正、六大派侧 何太冲/唐文亮/空见，每格出胜率 + 相对自然对照的 Δ</div></div>
     </div>
 
     <script>
@@ -551,7 +578,6 @@
                     if (key === 'voice') { window.openVoicePanel(); return; }
                     if (key === 'logviewer') { window.openLogViewer(); return; }
                     if (key === 'paramlab') { openInPage('820-param-lab.html', '🧪 参数实验台'); return; }
-                    if (key === 'elitecontrib') { openInPage('838-elite-contrib.html', '🧬 弱精英机制贡献'); return; }
                     if (key === 'ablation') { openInPage('831-ablation-lab.html', '🧪 消融实验室'); return; }
                     if (key === 'dataoverview') { renderDataOverview(); }
                     const panel = document.getElementById(PANELS[key]);
@@ -586,7 +612,6 @@
             { label: '812 精英评测快照', keys: ['ming_elite_eval_snaps'] },
             { label: '834 创意摸奖 · 收藏', keys: ['ming_idea_pinned'] },
             { label: '835 参数扫描结果', keys: ['ming_param_scan_result', 'ming_param_search_result'] },
-            { label: '838 弱精英机制贡献', keys: ['ming_weak_elite_contrib'] },
             { label: '831 消融实验室结果', keys: ['ming_ablation_result'] },
             { label: '837 语音解说存档', keys: ['ming_voice_commentary'] }
         ];
@@ -637,6 +662,7 @@
     <script type="module" src="./809-role-balance.js"></script>
     <script type="module" src="./803-toolkit.js"></script>
     <script type="module" src="./812-elite-eval.js"></script>
+    <script type="module" src="./846-weak-elite-eval.js"></script>
     <script type="module" src="./813-stats-check.js"></script>
     <script type="module" src="./814-baseline-compare.js"></script>
     <script type="module" src="./815-lineup-search.js"></script>
