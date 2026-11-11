@@ -1,9 +1,9 @@
 // 回归规则：热血奋战（hotBlood）攻击回血链路 — 此前完全没有体检项盯这条链路。
 // 机制源（core/204-buff-system.js L98-118 submitHotBloodDeclaration）：
 //   - 触发：单位存活 且 hp < maxHp 且（持有 HOT_BLOOD 团队 Buff 或 小昭·弟永久海克斯激活）
-//   - 比例：leechPct = 小昭·姊在场 ? (小昭.hexEnhance.hotBlood.leechPct 0.20 : 0.15) : 0.15
-//   - 翻倍：_hotBloodCount 每次攻击 +1，critInterval = 小昭·姊在场 ? (hexEnhance.critInterval 2 : 3) : 3，
-//           isDouble = count % critInterval === 0，ratio = isDouble ? leechPct × 2 : leechPct
+//   - 比例：leechPct = 小昭·姊在场 ? (小昭.hexEnhance.hotBlood.leechPct 0.25) : CONFIG 0.25
+//   - 翻倍：_hotBloodCount 每次攻击 +1，critPattern 定节奏（普通 [1,3]=每3次第1、3次；姊强化 [1,2,3]=全部翻倍），
+//           ratio = isDouble ? leechPct × 2 : leechPct
 //   - 回血量：leech = min(Math.floor((maxHp - hp) × ratio), maxHp - hp)，leech > 0 才登记
 //   - 渲染：render/30 renderHotBloodHealFact → info「❤️ 热血奋战：甲 回复+12」/「❤️‍🔥 热血奋战(翻倍)：甲 回复+24」
 //           render/30 renderBuffSummaryFact（HOT_BLOOD 分支）→ 顶层 buff-summary

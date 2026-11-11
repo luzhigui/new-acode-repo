@@ -15,7 +15,9 @@
 // V6.9.3 | 2026-11-11 妹背水后不吃团队海克斯（老板拍板）：isTeamHexExcluded 谓词集中一处，
 //           圣火令/严阵/carry/背水hex/众志 per-unit 施法 + 嗜血/热血/流星攻击时结算 + 云身闪避 全部设闸；
 //           摄魂（敌方对我方的减益）不设闸=不吃己方海克斯但对敌方海克斯照常挨
-export const VER = 'core/204-buff-system.js V6.9.3';
+// V6.9.4 | 2026-11-11 热血奋战翻倍节奏统一走 critPattern：普通版读 001（[1,3]=每3次第1、3次翻倍），
+//         姊强化读 002（[1,2,3]=全部翻倍），妹永久版走普通分支自动同频；无配置才回落固定间隔旧口径。
+export const VER = 'core/204-buff-system.js V6.9.4';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -487,13 +489,17 @@ export function submitHotBloodDeclaration(data) {
     const leechPct = enhanceHB ? (enhanceHB.leechPct || C.BUFFS.hotBlood.leechRatio) : C.BUFFS.hotBlood.leechRatio;
     Object.assign(unit.state, { _hotBloodCount: (unit.state._hotBloodCount || 0) + 1 });
     let isDouble = false;
-    if (enhanceHB && Array.isArray(enhanceHB.critPattern)) {
-        // 姐姐强化：按配置数组定翻倍节奏（[2,3] = 每 3 次攻击里的第 2、3 次翻倍）
-        const cycleLen = enhanceHB.critPattern[enhanceHB.critPattern.length - 1] || C.HOT_BLOOD_CRIT_INTERVAL;
+    // 翻倍节奏统一走 critPattern（元素=周期内第几次翻倍，末位=周期长度）：
+    //   姊强化读 002（[1,2,3]=全部翻倍），普通版读 001（[1,3]=每3次的第1、3次）；
+    //   妹永久版本来就走普通版分支（无 enhanceHB），自动读普通节奏。
+    //   两边都没配才回落固定间隔翻倍（HOT_BLOOD_CRIT_INTERVAL 旧口径）。
+    const hbPattern = (enhanceHB && Array.isArray(enhanceHB.critPattern)) ? enhanceHB.critPattern
+        : (Array.isArray(C.BUFFS.hotBlood.critPattern) ? C.BUFFS.hotBlood.critPattern : null);
+    if (hbPattern && hbPattern.length) {
+        const cycleLen = hbPattern[hbPattern.length - 1] || C.HOT_BLOOD_CRIT_INTERVAL;
         const pos = (unit.state._hotBloodCount - 1) % cycleLen + 1;
-        isDouble = enhanceHB.critPattern.includes(pos);
+        isDouble = hbPattern.includes(pos);
     } else {
-        // 普通版：固定间隔翻倍
         isDouble = unit.state._hotBloodCount % C.HOT_BLOOD_CRIT_INTERVAL === 0;
     }
     const ratio = isDouble ? leechPct * 2 : leechPct;

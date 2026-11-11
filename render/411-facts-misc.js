@@ -13,7 +13,8 @@
 // V1.1.8 | 2026-11-08 摘要与事实同源：严阵以待「反弹50%」改读 cfg.reboundRatio、流星赶月「降2/1防」改读
 //         | cfg.mainDefReduce/splashDefReduce——不再写死数字，配置一改摘要立即跟上
 // V1.1.9 | 2026-11-09 SUMMON_DEAD 注册隐藏渲染（召唤物阵亡只供体检归账，不进画面）
-export const VER = 'render/411-facts-misc.js V1.1.9';
+// V1.1.10 | 2026-11-11 热血奋战摘要按 critPattern 全覆盖判「全部翻倍」（姊版 [1,2,3]），周期数不再写死 3。
+export const VER = 'render/411-facts-misc.js V1.1.10';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -54,11 +55,11 @@ function withSisterValues(key, cfg, allyTeam) {
 const BUFF_SUMMARY_CFG = {
     [BUFF_TYPES.BLOODTHIRST]: { role: ROLE_TYPES.WARRIOR, desc: (cfg) => `攻击吸血${fmtNum(cfg.leechRatio*100)}%` },
     [BUFF_TYPES.HOT_BLOOD]: { role: 'all', desc: (cfg) => {
-        // 姊版 leechPct/critPattern（每 3 次里的第 2、3 次翻倍）；普通版按每 3 次翻倍
+        // critPattern 节奏：普通版 [1,3]=每3次第1、3次翻倍；姊强化 [1,2,3] 全覆盖 → 「全部翻倍」
         const pct = cfg.leechPct != null ? cfg.leechPct : cfg.leechRatio;
-        const crit = Array.isArray(cfg.critPattern)
-            ? `每3次攻击的第${cfg.critPattern.join('、')}次翻倍`
-            : '每3次翻倍';
+        const pat = Array.isArray(cfg.critPattern) && cfg.critPattern.length ? cfg.critPattern : null;
+        const cycle = pat ? pat[pat.length - 1] : 0;
+        const crit = pat ? (pat.length >= cycle ? '全部翻倍' : `每${cycle}次攻击的第${pat.join('、')}次翻倍`) : '每3次翻倍';
         return `攻击回血${fmtNum(pct*100)}%（${crit}）`;
     }},
     [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 反弹${fmtNum(cfg.reboundRatio*100)}%` },
