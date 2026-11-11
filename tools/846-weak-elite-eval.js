@@ -202,48 +202,49 @@ function deltaOf(stAgg, name) {
 }
 
 function renderWeakResults(byStage, units, stages, meta) {
-    const num = (v, f) => v == null ? '—' : f(v);
     const fmtD = d => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`;
+
+    // 只留「对胜率的帮助」：行 = 单位，列 = 各关 Δ + 总Δ；行按 M 值分档（M104 / M100 / M97）
+    const rowsOf = (list) => list.map(u => {
+        const cells = stages.map(st => deltaOf(byStage[st], u.name));
+        const t = { runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0 };
+        for (const st of stages) {
+            const a = byStage[st] && byStage[st][u.name];
+            if (a) for (const k of Object.keys(t)) t[k] += a[k] || 0;
+        }
+        const totD = t.runs ? (t.forceWins - t.natWins) / t.runs * 100 : null;
+        return { u, cells, t, totD };
+    }).sort((a, b) => {
+        const av = a.u.side === 'ally' ? 1 : -1;   // 按「对己方阵营的增益」排序
+        return (b.totD == null ? -999 : av * b.totD) - (a.totD == null ? -999 : av * a.totD);
+    });
 
     const sideBlock = (title, list, note) => {
         let html = `<div style="font-weight:bold;margin:14px 0 6px">${title}</div>`;
         if (!list.length) return html + '<div class="elite-empty">本次未勾选该侧候选</div>';
-        const rows = list.map(u => {
-            const cells = stages.map(st => deltaOf(byStage[st], u.name));
-            const t = { runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 };
-            for (const st of stages) {
-                const a = byStage[st] && byStage[st][u.name];
-                if (a) for (const k of Object.keys(t)) t[k] += a[k];
-            }
-            const totD = t.runs ? (t.forceWins - t.natWins) / t.runs * 100 : null;
-            return { u, cells, t, totD };
-        }).sort((a, b) => {
-            const av = a.u.side === 'ally' ? 1 : -1;   // 按「对己方阵营的增益」排序
-            return (b.totD == null ? -999 : av * b.totD) - (a.totD == null ? -999 : av * a.totD);
-        });
+        const rows = rowsOf(list);
+        const span = stages.length + 2;
 
-        html += '<table class="elite-table elite-table-fit"><tr><th class="elite-th">单位</th><th class="elite-th">阵营/M</th>';
-        for (const st of stages) html += `<th class="elite-th">第${st}关 Δ·换入胜率</th>`;
-        html += '<th class="elite-th">总Δ·噪声带</th><th class="elite-th">翻盘↑</th><th class="elite-th">翻盘↓</th>'
-            + '<th class="elite-th">输出/场</th><th class="elite-th">承伤/场</th><th class="elite-th">存活率</th><th class="elite-th">反伤/场</th></tr>';
+        html += '<table class="elite-table"><tr><th class="elite-th" style="text-align:left">单位</th>';
+        for (const st of stages) html += `<th class="elite-th">第${st}关</th>`;
+        html += '<th class="elite-th">总Δ</th></tr>';
 
-        for (const { u, cells, t, totD } of rows) {
-            const m = marginOf(t);
-            html += `<tr><td class="elite-stage">${u.name}</td><td class="cell-sub">${u.camp} M${u.m}</td>`;
-            for (const c of cells) {
-                html += c
-                    ? `<td class="elite-cell"><div class="cell-rate" style="color:${deltaColor(c.d, u.side, c.margin)}">Δ ${fmtD(c.d)}</div><div class="cell-sub">胜率 ${c.wr.toFixed(0)}%</div></td>`
-                    : '<td class="elite-cell">—</td>';
+        for (const mTier of M_TIERS) {
+            const tierRows = rows.filter(r => r.u.m === mTier);
+            if (!tierRows.length) continue;
+            html += `<tr><td colspan="${span}" style="text-align:left;color:#7fb3ff;background:#1e2a45;font-weight:bold;padding:5px 8px">M${mTier}</td></tr>`;
+            for (const { u, cells, t, totD } of tierRows) {
+                const m = marginOf(t);
+                html += `<tr><td class="elite-stage" style="text-align:left">${u.name}</td>`;
+                for (const c of cells) {
+                    html += c
+                        ? `<td class="elite-cell"><span style="color:${deltaColor(c.d, u.side, c.margin)}">${fmtD(c.d)}</span></td>`
+                        : '<td class="elite-cell">—</td>';
+                }
+                const totStyle = totD == null ? 'color:#888' : `color:${deltaColor(totD, u.side, m)}`;
+                html += `<td class="elite-cell"><span style="${totStyle};font-weight:bold">${totD == null ? '—' : fmtD(totD)}</span>`
+                    + `<div class="cell-sub">±${m.toFixed(1)} · ${t.runs} 场</div></td></tr>`;
             }
-            const totStyle = totD == null ? 'color:#888' : `color:${deltaColor(totD, u.side, m)}`;
-            html += `<td class="elite-cell"><div class="cell-rate" style="${totStyle}">${totD == null ? '—' : 'Δ ' + fmtD(totD)}</div>`
-                + `<div class="cell-sub">±${m.toFixed(1)} · ${t.runs} 配对场</div></td>`;
-            html += `<td class="elite-cell">${num(t.runs ? t.flipWin / t.runs * 100 : null, v => v.toFixed(1))}</td>`
-                + `<td class="elite-cell">${num(t.runs ? t.flipLose / t.runs * 100 : null, v => v.toFixed(1))}</td>`
-                + `<td class="elite-cell">${num(t.runs ? t.sumDmg / t.runs : null, v => Math.round(v))}</td>`
-                + `<td class="elite-cell">${num(t.runs ? t.sumTaken / t.runs : null, v => Math.round(v))}</td>`
-                + `<td class="elite-cell">${num(t.runs ? t.sumSurv / t.runs * 100 : null, v => v.toFixed(1) + '%')}</td>`
-                + `<td class="elite-cell">${num(t.runs ? t.sumRebound / t.runs : null, v => v.toFixed(1))}</td></tr>`;
         }
         html += '</table>';
         html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
@@ -253,11 +254,11 @@ function renderWeakResults(byStage, units, stages, meta) {
     const ally = units.filter(u => u.side === 'ally');
     const enemy = units.filter(u => u.side === 'enemy');
     let html = metaLine(meta);
-    html += sideBlock(`🐦 明教侧具名单位（M${M_TIERS.join('/M')}，选 ${ally.length} 个）`, ally,
-        'Δ = 换入局明教胜率 − 自然局胜率（同种子逐场配对）。Δ>0 = 该单位给明教带来增益。候选自然已在该侧的场次两臂同弃（常客有效配对场偏少）。着色按己方增益：绿 = 帮自己阵营，灰 = |Δ|≤±95% 噪声带。');
-    html += sideBlock(`🗡 六大派侧具名单位（M${M_TIERS.join('/M')}，选 ${enemy.length} 个）`, enemy,
-        '替换对象 = 该侧非具名普通成员（唯一前排受保护）。Δ<0 = 明教更难打（敌方变强）；着色同样按「对己方阵营的增益」（此处绿色 = 更压明教）。翻盘↑/↓ 为每 100 配对场的输→赢 / 赢→输 场数。');
-    html += `<div style="font-size:11px;color:#999;margin-top:8px;">seed=${meta.seed} · ${meta.enemyHex ? '双' : '单'}海克斯 · 每关目标 ${meta.runs == null ? '?' : meta.runs} 场（见各表「配对场」）。单关列噪声大，跨关结论看总Δ。</div>`;
+    html += sideBlock(`🐦 明教侧带技能单位（M${M_TIERS.join('/M')}，选 ${ally.length} 个）`, ally,
+        'Δ = 换入局明教胜率 − 自然局胜率（同种子逐场配对，单位 %）。Δ>0 = 该单位给明教带来增益。候选自然已在该侧的场次两臂同弃（常客有效配对场偏少）。着色按己方增益：绿 = 帮自己阵营，灰 = |Δ|≤±95% 噪声带。');
+    html += sideBlock(`🗡 六大派侧带技能单位（M${M_TIERS.join('/M')}，选 ${enemy.length} 个）`, enemy,
+        '替换对象 = 该侧非具名普通成员（唯一前排受保护）。Δ<0 = 明教更难打（敌方变强）；着色同样按「对己方阵营的增益」（此处绿色 = 更压明教）。');
+    html += `<div style="font-size:11px;color:#999;margin-top:8px;">seed=${meta.seed} · ${meta.enemyHex ? '双' : '单'}海克斯 · 每关目标 ${meta.runs == null ? '?' : meta.runs} 场（见各表「场」）。单关列噪声大，跨关结论看总Δ。</div>`;
     resultEl.innerHTML = html;
     attachCopyBtn(resultEl);
 }
