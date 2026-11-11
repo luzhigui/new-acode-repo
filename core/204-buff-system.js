@@ -174,7 +174,7 @@ export function spawnCarryEagle(team, log) {
 // 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
 //   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
 //   buff 整局持有（content permanent:true → player/49 给 remaining=Infinity）。
-//   姊强化接线：小昭·姊在场且有团队背水 → 阈值 35%→50%（hexEnhance.lastStand.hpThreshold）。
+//   姊强化接线：小昭·姊在场且有团队背水 → 阈值 50%（002 hpThreshold）+吸血 20%（leechRatio）；加攻不写=回落团队 0.1（2026-11-11 老板拍板）。
 //   妹永久接线：团队背水不在场时，只要**任一队友**血量低于阈值，妹（isXiaoZhaoBrother）也吃背水加成。
 //   数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检核对。
 export function applyLastStandBonus(unit, team, activeBuffs, log) {
