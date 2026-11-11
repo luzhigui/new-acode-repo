@@ -1,3 +1,6 @@
+// V1.23.0/1 | 2026-11-11 新增 kind:'unitAB'（839 弱精英测评 V3：同种子直接 A/B，替换 weakElite 配对臂）；
+//   V1.23.1 无头复验后修语义：候选自然已在该侧登场的场次两臂同弃，Δ 纯测「普通 M100 → 候选」替换增益，
+//   消除常客单位（杨逍自然登场率 41%）「再带一个」重复效应造成的假负值。
 // V1.22.1 | 2026-11-10 ablation 分桶收窄：仅第3关拆双桶（第4关也带宋青书旗标，拆了 831 页面侧没格子直接崩）
 // V1.22.0 | 2026-11-10 新增 kind:'ablation'（tools/831 消融实验室）——固定小昭·姊在场的自然队，按 globalThis.MING_ABLATION 三开关（关姐姐海克斯/关乾坤衍生/关附身）跑消融臂；开关只改「是否应用」，不改种子公式
 // V1.21.0/1 | 2026-11-08 统计口径修正（体检转交）：
@@ -350,7 +353,9 @@ function applyForcedWeakAlly(ally, elite, rng) {
 function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, enemyHex = false) {
     // 2026-10-22 V1.12.3：单位标记统一由 127 的 WEAK_UNIT_FLAG 提供（名字本身唯一，不分 side）
     const flag = WEAK_UNIT_FLAG[elite];
-    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, clean: {} });
+    // V1.22.0（2026-11-11）：精英臂新增 sumRebound——终局引擎权威账本 unit.reboundDone（全反伤路径覆盖），
+    //   839 弱精英测评页「反伤/场」列消费；自然臂不采（无 me）。旧消费方（812）不读该字段，向后兼容。
+    const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumRebound: 0, clean: {} });
     const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
@@ -400,12 +405,67 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
         if (me.alive) a.sumSurv++;
         a.sumDmg += me.dmgDealt || 0;
         a.sumTaken += me.dmgTaken || 0;
+        a.sumRebound += me.reboundDone || 0;
     }
     const out = {};
     for (const [v, a] of Object.entries(variants)) {
         if (a.runs > 0) out[v] = a;
     }
     return { elite: arm === 'natural' ? null : elite, side, arm, variants: out };
+}
+
+// 839 弱精英测评 V3（2026-11-11 老板拍板换算法）：同种子直接 A/B——
+//   自然臂 = initBattleTeams(stage, seed) 原样跑；强制臂 = 同种子重建阵容后把一名普通成员换成候选再跑。
+//   与 weakElite 配对臂的差异：① 换人规则两臂通用（不依赖 WEAK_UNIT_FLAG/clean 名单，14 单位全有数）；
+//   ② V1.23.1 改：候选自然已在该侧登场时整场剔除（两臂同弃）——无头复验发现常客单位（杨逍自然登场率 41%）
+//     照换会测成「再带一个」的重复效应，把强精英 Δ 拉成假负值；剔除后 Δ 纯测「普通 M100 → 候选」的替换增益；
+//   ③ 逐场配对（换人失败两场一起弃），顺带产出翻盘数（输→赢/赢→输），方向性噪声显著低于旧法。
+//   返回 { runs, natWins, forceWins, flipWin, flipLose, sumDmg, sumTaken, sumSurv, sumRebound }。
+function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex = false) {
+    const agg = { runs: 0, natWins: 0, forceWins: 0, flipWin: 0, flipLose: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0, sumRebound: 0 };
+    const chars = getGameData()?.characters || {};
+    const isNamed = u => !!(chars[u.name] && chars[u.name].named === true);
+    const isFront = u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR;
+    for (let i = 0; i < runs; i++) {
+        const s = seed + (startIndex + i) * 7919;
+        clearBattleGlobals();
+        const t1 = initBattleTeams(stage, new SeededRNG(s));
+        if (!t1.allyTeam.length || !t1.enemyTeam.length) continue;
+        const side1 = side === 'ally' ? t1.allyTeam : t1.enemyTeam;
+        if (side1.some(u => u.name === elite)) continue;   // ② 候选自然在场：两臂同弃，避免重复效应污染
+        const r1 = runWholeBattle(t1.allyTeam.map(u => u.clone()), t1.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
+        clearBattleGlobals();
+        const t2 = initBattleTeams(stage, new SeededRNG(s));
+        const team = side === 'ally' ? t2.allyTeam : t2.enemyTeam;
+        // victim：非具名（普通成员）；唯一前排保护（阵容语义不塌）。候选已自然在场的情形已在上面整场剔除
+        const frontCount = team.filter(u => isFront(u) && !isNamed(u)).length;
+        const cands = team.filter(u => !isNamed(u) && !(isFront(u) && frontCount <= 1));
+        const victim = cands.slice().sort((a, b) => a.pos - b.pos)[0];
+        if (!victim) continue;                       // 无合格替身：两臂同弃（逐场对应）
+        const mTable = side === 'ally' ? CONFIG.MING_M : CONFIG.ENEMY_M;
+        const ch = chars[elite];
+        const role = ch?.role || (ch?.tags || []).find(t => CONFIG.ROLES.includes(t)) || victim.role;
+        const unit = new Unit(elite, (mTable && mTable[elite]) || 100, role, side === 'ally' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY);
+        unit.pos = victim.pos;
+        unit.init(new SeededRNG(s + 7));             // 独立 rng：不扰动建队流后续
+        unit.applyBonus();
+        team[team.indexOf(victim)] = unit;
+        const r2 = runWholeBattle(t2.allyTeam, t2.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
+        const meInit = unitBy(team, u => u.name === elite);
+        const me = meInit ? finalUnitOf(side === 'ally' ? r2.ally : r2.enemy, meInit.uid) : null;
+        if (!me) continue;
+        const w1 = r1.winner === '明教', w2 = r2.winner === '明教';
+        agg.runs++;
+        if (w1) agg.natWins++;
+        if (w2) agg.forceWins++;
+        if (!w1 && w2) agg.flipWin++;
+        if (w1 && !w2) agg.flipLose++;
+        if (me.alive) agg.sumSurv++;
+        agg.sumDmg += me.dmgDealt || 0;
+        agg.sumTaken += me.dmgTaken || 0;
+        agg.sumRebound += me.reboundDone || 0;
+    }
+    return { elite, side, ...agg };
 }
 
 // 138 弱精英机制贡献：与 runWeakEliteJob 同款配对臂/归因纪律（同种子、同剔「自然已在场」），
@@ -976,6 +1036,9 @@ self.onmessage = (e) => {
         } else if (kind === 'weakElite') {
             const { stage, seed, runs, elite, side, arm, startIndex, enemyHex } = e.data;
             result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0, !!enemyHex);
+        } else if (kind === 'unitAB') {
+            const { stage, seed, runs, elite, side, startIndex, enemyHex } = e.data;
+            result = runUnitABJob(stage, seed, runs, elite, side, startIndex || 0, !!enemyHex);
         } else if (kind === 'weakContrib') {
             const { stage, seed, runs, elite, side, arm, probes, startIndex, enemyHex } = e.data;
             result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0, !!enemyHex);

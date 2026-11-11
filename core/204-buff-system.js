@@ -12,7 +12,12 @@
 //         纯妹永久场景仍由 modules/324 专属组件处理，不改 content 数值。
 // V6.9.1 | 2026-11-09 众志成城补员加攻击下限：防战吃 -8 职业攻后 m=15 基础攻可能为负（显示 0、百分比加成乘 0 仍是 0），
 //         改为攻 <1 补到 1，与防/血下限同口径写 _base*/_init*。
-export const VER = 'core/204-buff-system.js V6.9.2';
+// V6.9.3 | 2026-11-11 妹背水后不吃团队海克斯（老板拍板）：isTeamHexExcluded 谓词集中一处，
+//           圣火令/严阵/carry/背水hex/众志 per-unit 施法 + 嗜血/热血/流星攻击时结算 + 云身闪避 全部设闸；
+//           摄魂（敌方对我方的减益）不设闸=不吃己方海克斯但对敌方海克斯照常挨
+// V6.9.4 | 2026-11-11 热血奋战翻倍节奏统一走 critPattern：普通版读 001（[1,3]=每3次第1、3次翻倍），
+//         姊强化读 002（[1,2,3]=全部翻倍），妹永久版走普通分支自动同频；无配置才回落固定间隔旧口径。
+export const VER = 'core/204-buff-system.js V6.9.4';
 // V6.8.5（2026-11-08）：carry 目标位改读 002 sister.carry.targetPositions（原硬编码 [4,5,6]）；缺子键显式报错。
 import {
     applyFortifyDef,
@@ -33,6 +38,7 @@ import { fmtNum } from '../infra/102-core-utils.js';
 const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) {
         // 团队圣火令过期后，小昭·妹自己续上（永久海克斯）。别删此分支：
@@ -47,12 +53,21 @@ export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
 }
 
 // 妹妹永久：全队同职业共享（导出：core/212 严阵反弹要与 applyFortifyBonus 同判据，否则「全队加防、只有妹反弹」）
+// 妹背水后不吃团队海克斯（2026-11-11 老板拍板）：谓词读背水触发真值（324 触发时置
+//   _brotherLastStandTriggered），不新增状态键。各消费点逐一设闸：
+//   apply 五件套 / 嗜血·热血·流星攻击时结算 / computeBuffStats 云身 / 210 连击候选池+云身跳过。
+//   不闸：摄魂（敌方海克斯对我方的减益，照常挨）、圣火不熄复活/巨马/惑心（全局面效果非 per-unit 收益）
+export function isTeamHexExcluded(unit) {
+    return !!(unit && unit.isXiaoZhaoBrother && unit.state && unit.state._brotherLastStandTriggered);
+}
+
 export function hasBrotherPermanent(team, buffKey) {
     if (!Array.isArray(team)) return false;
     return team.some(u => u.isXiaoZhaoBrother && u.alive && u.state?._permanentBuffs?.some(b => b.key === buffKey));
 }
 
 export function applyFortifyBonus(unit, activeBuffs, team) {
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     // 支持分阵营：六大派持有严阵以待时同样生效
     if (unit.role !== ROLE_TYPES.DEFENDER) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
@@ -115,6 +130,7 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
 // 受益面含拒马与狮子：门控不放 isHorse——拒马站受益位也吃加成。副作用：拒马吃到攻加成后 atk>0，
 //   不再走「拒马休息」、会出手。
 export function applyCarryBonus(unit, A, state, log) {
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     const sister = !(globalThis.MING_ABLATION?.noSisterHex) && A.some(a => a.isXiaoZhaoSister && a.alive);
@@ -160,10 +176,11 @@ export function spawnCarryEagle(team, log) {
 // 背水一战（lastStand）：己方单位当前血量低于 maxHp × hpThreshold 时，攻击力 ×(1+atkBonus)。
 //   与摄魂/严阵以待同款「每回合重挂」口径——ttl:'round' 每回合统一清理后再判一次，血回上去即自然失效。
 //   buff 整局持有（content permanent:true → player/49 给 remaining=Infinity）。
-//   姊强化接线：小昭·姊在场且有团队背水 → 阈值 35%→50%（hexEnhance.lastStand.hpThreshold）。
+//   姊强化接线：小昭·姊在场且有团队背水 → 阈值 50%（002 hpThreshold）+吸血 20%（leechRatio）；加攻不写=回落团队 0.1（2026-11-11 老板拍板）。
 //   妹永久接线：团队背水不在场时，只要**任一队友**血量低于阈值，妹（isXiaoZhaoBrother）也吃背水加成。
 //   数值声明 fact（LAST_STAND_APPLY）：op:mul 乘法词条共享乘区、无独立增量，发乘率 ratio 供体检核对。
 export function applyLastStandBonus(unit, team, activeBuffs, log) {
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     const cfg = C.BUFFS.lastStand;
     if (!cfg || unit.maxHp <= 0) return;
 
@@ -247,6 +264,7 @@ export function applyLastStandBonus(unit, team, activeBuffs, log) {
 //   与摄魂同款：ttl:'round' 每回合清理重挂，故整局持续、不做回合计数器；人数每回合现算。
 //   数值声明 fact（UNITY_APPLY）：op:mul 乘法词条，攻/防各发一条乘率 ratio 供体检按乘率口径核对。
 export function applyUnityBonus(unit, team, activeBuffs, log) {
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     if (!hasBuff(activeBuffs, BUFF_TYPES.UNITY)) return;
     const cfg = C.BUFFS.unity;
     if (!cfg || !Array.isArray(cfg.tiers)) return;
@@ -368,6 +386,10 @@ export function spawnBrotherPermanentUnityRecruit(team, log) {
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
     // 词条系统下，攻防由 getStat 统一计算；此处只保留闪避率计算
+    if (isTeamHexExcluded(unit)) {
+        // 妹背水后不吃团队云身（她自己的永久云身背水时已全部丢弃，不会走到该分支）
+        return { atkBonus: 0, defBonus: 0, dodgeBonus: 0, hpBonus: 0, carryAtkAbs: 0, carryDefAbs: 0, carryHpAbs: 0 };
+    }
     let dodgeBonus = 0;
     if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && !unit.state._cloudBodySkip) {
         if (allyTeam && !(globalThis.MING_ABLATION?.noSisterHex) && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) dodgeBonus = applyCloudBodyDodge_Sister();
@@ -409,6 +431,7 @@ export function logBuffSummary(allyTeam, ctx) {
 export function submitBloodthirstDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
     if (!unit.alive) return;
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯（她有自己的背水掷骰吸血）
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
@@ -454,6 +477,7 @@ export function registerBloodthirst(eventBus) {
 export function submitHotBloodDeclaration(data) {
     const { unit, dmg, allySide, enemySide, log } = data;
     if (!unit.alive || unit.hp >= unit.maxHp) return;
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
@@ -465,13 +489,17 @@ export function submitHotBloodDeclaration(data) {
     const leechPct = enhanceHB ? (enhanceHB.leechPct || C.BUFFS.hotBlood.leechRatio) : C.BUFFS.hotBlood.leechRatio;
     Object.assign(unit.state, { _hotBloodCount: (unit.state._hotBloodCount || 0) + 1 });
     let isDouble = false;
-    if (enhanceHB && Array.isArray(enhanceHB.critPattern)) {
-        // 姐姐强化：按配置数组定翻倍节奏（[2,3] = 每 3 次攻击里的第 2、3 次翻倍）
-        const cycleLen = enhanceHB.critPattern[enhanceHB.critPattern.length - 1] || C.HOT_BLOOD_CRIT_INTERVAL;
+    // 翻倍节奏统一走 critPattern（元素=周期内第几次翻倍，末位=周期长度）：
+    //   姊强化读 002（[1,2,3]=全部翻倍），普通版读 001（[1,3]=每3次的第1、3次）；
+    //   妹永久版本来就走普通版分支（无 enhanceHB），自动读普通节奏。
+    //   两边都没配才回落固定间隔翻倍（HOT_BLOOD_CRIT_INTERVAL 旧口径）。
+    const hbPattern = (enhanceHB && Array.isArray(enhanceHB.critPattern)) ? enhanceHB.critPattern
+        : (Array.isArray(C.BUFFS.hotBlood.critPattern) ? C.BUFFS.hotBlood.critPattern : null);
+    if (hbPattern && hbPattern.length) {
+        const cycleLen = hbPattern[hbPattern.length - 1] || C.HOT_BLOOD_CRIT_INTERVAL;
         const pos = (unit.state._hotBloodCount - 1) % cycleLen + 1;
-        isDouble = enhanceHB.critPattern.includes(pos);
+        isDouble = hbPattern.includes(pos);
     } else {
-        // 普通版：固定间隔翻倍
         isDouble = unit.state._hotBloodCount % C.HOT_BLOOD_CRIT_INTERVAL === 0;
     }
     const ratio = isDouble ? leechPct * 2 : leechPct;
@@ -598,6 +626,7 @@ export function registerWindAssault(eventBus) {
 export function submitMeteorShowerDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
     if (!unit.alive || !target || !target.alive) return;
+    if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     const unitBuffs = allySide._activeBuffs || [];
     const isBrother = unit.isXiaoZhaoBrother;
     const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === ROLE_TYPES.RANGED;

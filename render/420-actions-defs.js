@@ -12,14 +12,22 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.5';
+export const VER = 'render/420-actions-defs.js V1.7.7';
+// V1.7.7 | 2026-11-11 | 拒马召唤横幅恢复：SUMMON fx 旧写法先 findUnitByUidLocal 查 store，但拒马在回合开始步
+//   生成、store 要到本步末尾才落账 → 查必落空，「🐴 拒马阵！」横幅整段被吞，新拒马无声入场。
+//   老板实机「拒马提前消失，冲/打全是空气」：旧马回合末消散（有沙化特效）+ 新马无声换格出生，
+//   观感上马没了，引擎冲/打新马全被读成对空气。横幅文案不依赖单位对象，按 actorUid 放行。
+// V1.7.6 | 2026-11-11 | 冲刺补刀致死一击恢复默认攻击动画（!isDashStrikeFx → (!isDashStrikeFx || dead)）：
+//   老板实机「唐文亮冲拒马，拒马直接被冲刺死了」——真凶是冲刺后那记补刀普攻（冲刺真伤上限=当前血-1
+//   打不死人），它的动画被 isDashStrikeFx 有意跳过 → 目标无声暴毙，观感成冲刺击杀 + 后续动作像冲空气。
+//   目标存活时维持原「只演标枪收尾」的干净口径不动。
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
 const LINK_FX_TEXT = {
     counterAttack: '⚔️反击！', followAttack: '👣跟随', lionFollow: '🦁随动',
     xuanmingLink: '☯️联动', chaseAttack: '⚡追击',
-    doubleStrike: '⚡连击！', bloodthirst: '🗡️嗜血！', xiaoZhaoDoubleMiss: '🕷️双击！'
+    doubleStrike: '⚡连击！', brotherLastStrike: '⚡连击！', bloodthirst: '🗡️嗜血！', xiaoZhaoDoubleMiss: '🕷️双击！'
 };
 
 // 先查 store 权威单位，再回退 UI 快照
@@ -78,8 +86,10 @@ export const STAGE_ACTION_DEFS = {
             if (attacker && action.pangClumsy && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.PANG_CLUMSY, { unit: attacker });
             }
-            // 如果是唐文亮冲刺后的那一下，已经有终结一拳特效了，不再播系统默认的飞撞/射箭
-            if (attacker && target && action.attackerRole && !action.isDashStrikeFx) {
+            // 如果是唐文亮冲刺后的那一下，已经有终结一拳特效了，不再播系统默认的飞撞/射箭；
+            //   但这一击把目标打死时必须放出来（2026-11-11 老板实机：拒马被冲刺后无声暴毙，
+            //   观感成「冲刺直接打死拒马 + 对着空气再冲」）——补刀致死一击要让人看得见
+            if (attacker && target && action.attackerRole && (!action.isDashStrikeFx || action.dead)) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {
                     fxSnapshot: action.fx,
                     unitA: attacker,
@@ -283,8 +293,11 @@ export const STAGE_ACTION_DEFS = {
             }
         },
         fx: async (c, action) => {
-            const horse = findUnitByUidLocal(c, action.actorUid);
-            if (horse) {
+            // 拒马在回合开始步生成，而 store 要等本步末尾 syncStoreFromStep 才落账——
+            //   旧写法 findUnitByUidLocal 此刻必落空 → 「🐴 拒马阵！」横幅整段被吞，
+            //   新拒马无声出现：上一匹消散后老板以为场上没马了，后面冲它/打它全成「对空气」。
+            //   横幅文案不依赖单位对象，只按 actorUid（召唤成功才有）放行。
+            if (action.actorUid) {
                 await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + (action.taunt || '') });
             }
         }

@@ -1,12 +1,14 @@
 // render/404-grid-badges.js — 格子内展示计算（计数徽章 / 闪避分解 / buff 受益判定）
 //   buildCountBadge / getDodgeBreakdown / isUnitBenefitedByBuff 整块迁入。
 //   只依赖传入的 unit/team/buffs，不碰 DOM、不碰 store（渲染主循环调用它们取值）。
-export const VER = 'render/404-grid-badges.js V1.0.0';
+// V1.1.0 | 2026-11-11 妹背水后不吃团队海克斯：受益类 logo 与实效闸对齐（isUnitBenefitedByBuff 头部
+//           isTeamHexExcluded 闸 + BENEFIT_HEXES 集合），背水后的妹格子不再挂无效的 🤝/🔥/⚡ 等受益标
+export const VER = 'render/404-grid-badges.js V1.1.0';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { ROLE_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { getDodgeRules } from '../core/221-registry-dodge.js';
-import { computeBuffStats } from '../core/204-buff-system.js';
+import { computeBuffStats, isTeamHexExcluded } from '../core/204-buff-system.js';
 import { getUnitCol, getUnitRow } from '../infra/102-core-utils.js';
 
 // 计数技能进度徽章：进度型（凑 N 次触发）在角色名后显示「当前档/N」小胶囊，
@@ -76,7 +78,17 @@ export function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     return { sources, combined };
 }
 
+// 妹背水后不吃团队海克斯（2026-11-11 老板拍板）：受益类 logo 与实效闸（core/204 各消费点）对齐——
+//   per-unit 收益的海克斯 logo 在背水后的妹格子上一律不显示（否则挂着标没效果=误导）；
+//   摄魂（敌方减益）/惑心/圣火不熄（复活）不设实效闸，logo 照常显示。
+const BENEFIT_HEXES = new Set([
+    BUFF_TYPES.CARRY, BUFF_TYPES.METEOR_SHOWER, BUFF_TYPES.BLOODTHIRST, BUFF_TYPES.FORTIFY,
+    BUFF_TYPES.WIND_ASSAULT, BUFF_TYPES.CLOUD_BODY, BUFF_TYPES.HOLY_FLAME, BUFF_TYPES.HOT_BLOOD,
+    BUFF_TYPES.DOUBLE_STRIKE, BUFF_TYPES.UNITY,
+]);
+
 export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, activeBuffs) {
+    if (isTeamHexExcluded(unit) && BENEFIT_HEXES.has(buffKey)) return false;
     switch (buffKey) {
         case BUFF_TYPES.CARRY: return unit.pos === 5 && unit.alive;
         case BUFF_TYPES.METEOR_SHOWER: return unit.role === ROLE_TYPES.RANGED;

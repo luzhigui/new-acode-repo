@@ -15,7 +15,10 @@
 //           顶层注册活不过第一回合=妹背水上线以来从未触发过，老板实测实锤）；触发门扩妹账本路径（对齐 323 全家口径）
 // V1.3.0 | 2026-11-10 突袭改版：触发瞬间精通拉满（白拿全部未精通职业加成）+已继承永久海克斯逐张折算突袭次数后全部丢弃，
 //           此后永不继承（302 addPermanentBuff 门控）——老板拍的以攻代削大改版
-export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.3.0';
+// V1.4.0 | 2026-11-11 攻击经济互斥掷骰（老板拍板方案A）：每次攻击结算后掷硬币——50% 连击一刀（走 core/10 额外出手通道，
+//           新 reason brotherLastStrike 入 LINK_REASONS，引擎 _isLinkAttack 守卫保证连击那一刀绝不再掷）/
+//           50% 吸血 80%；承伤 40%→50%（content lastStand.takenDmgMul）
+export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.4.0';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getRoleBonus } from '../core/202-unit.js';
@@ -25,7 +28,7 @@ import { registerRoundHook } from '../core/208-registry-elite.js';
 import { masterAllRoles } from './302-elite-skills.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, ROLE_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
-import { pushSkillAnnounce, findAlive, emitHpChange } from './305-elite-helpers.js';
+import { pushSkillAnnounce, pushInfo, findAlive, emitHpChange } from './305-elite-helpers.js';
 
 function findBrother(A) {
     return findAlive(A || [], 'isXiaoZhaoBrother');
@@ -137,15 +140,36 @@ function onRoundStartGrow(data) {
     }
 }
 
+// V1.4.0 互斥掷骰（老板拍板 2026-11-11 方案A）：每次攻击结算后掷硬币——
+//   50% 连击一刀（走 core/10 额外出手通道，同反击/随动管；reason brotherLastStrike 在 LINK_REASONS 内，
+//   执行期引擎自动置 _isLinkAttack，本钩子开头即挡 → 连击那一刀绝不再掷=不会连锁）；
+//   50% 吸血 80%（原档位不变）。门：_brotherLastStandLeech 只有背水触发才设值。
 function onDamageLeech(data) {
     const unit = data.unit;
     if (!unit || !unit.isXiaoZhaoBrother) return;
     const leechRatio = unit.state._brotherLastStandLeech;
     if (!leechRatio || !data.dmg || data.dmg <= 0) return;
+    // 连击那一刀不再掷（引擎连招守卫：LINK 类额外出手执行期置位、结束即清）
+    if (unit.state._isLinkAttack) return;
+    if (getBattleRng().nextInt(1, 100) <= 50) {
+        if (!data.extraRequests) data.extraRequests = [];
+        data.extraRequests.push({
+            unit,
+            // 同 323 双击口径：原目标死了/待死/是队友（惑心误伤等）→ null 走正常选敌重挑
+            targetUid: (data.target && data.target.alive && !data.target.state._pendingDeath && data.target.camp !== unit.camp) ? data.target.uid : null,
+            reason: 'brotherLastStrike',
+            actedMode: 'restore',
+            actedSnapshot: unit.state._acted,
+            priority: 30
+        });
+        pushInfo(data, `<span class="gold">⚡ 妹背水连击！${unit.name} 追加一刀</span>`);
+        return;
+    }
     const rawLeech = Math.floor(data.dmg * leechRatio);
     if (rawLeech <= 0) return;
     if (!data.declarations) data.declarations = [];
-    data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit });
+    // 声明必须带 factType/factData（对照 204 嗜血同款）：否则 209 落账成无文本 info 行=战报里看不见回血
+    data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawLeech, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal: rawLeech, isBrother: true, unitUid: unit.uid } });
 }
 
 function installBrotherLastStandHooks() {

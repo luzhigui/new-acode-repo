@@ -1,15 +1,19 @@
 // 用法：runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl })
 export const SHARED_WORKER_URL = new URL('./816-role-balance-worker.js', import.meta.url);
 
-// 统一池大小口径：默认用满全部逻辑核（用户要求「尽量快」；战场计算全在 worker，主线程 UI 不受影响）。
-// 想给系统留核时，控制台执行 localStorage.setItem('battle_pool_size', 6) 即可，下次点击生效。
+// 统一池大小口径：默认 min(逻辑核数, 16)。
+// V1.2.0 | 2026-11-11 | 原「用满全部逻辑核」在高核机器上翻车：93 核服务器一次开 93 个 worker，
+//   每个 worker 各装一份完整引擎+配置数据（几十 MB），内存爆 + worker 冷启动互相挤崩
+//   （实测 console：worker#92 ERROR，839 测评首跑被中断；这也解释了仪表盘「跑一次占内存很大」）。
+//   16 封顶后普通机器（≤16核）速度不变，高核机器不再失控。
+// 想给系统留核或强制更大池时，控制台执行 localStorage.setItem('battle_pool_size', 6) 即可，下次点击生效。
 export function getPoolSize(override) {
     if (override) return Math.max(1, Math.floor(override) || 1);
     try {
         const v = parseInt(localStorage.getItem('battle_pool_size'), 10);
         if (v > 0) return v;
     } catch (e) {}
-    return Math.max(1, navigator.hardwareConcurrency || 4);
+    return Math.max(1, Math.min(navigator.hardwareConcurrency || 4, 16));
 }
 
 export async function runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl = SHARED_WORKER_URL }) {

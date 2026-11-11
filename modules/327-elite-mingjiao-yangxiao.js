@@ -1,6 +1,8 @@
 // modules/327-elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
+// V1.2.0 | 2026-11-11 点穴/截脉拆两骰（老板拍板）：点穴 60% 挂眩晕+冷却，截脉 80% 独立挂禁疗（成败互不绑定）；
+//           冷却门仍挡整个弹指神通；四档公告文案（双中/只点穴/只截脉/全空），截脉单独命中飘 ❌。
 // V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.1.1';
+export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.2.0';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -40,7 +42,8 @@ export function createYangXiaoComponent() {
                 if (data.log) pushSkillAnnounce(data.log, u, '先机', `👟 ${u.name}·先机：抢先出手（${ahead[0].name} 顺延，行动权不丢）`);
             });
 
-            // ① 命中后点穴判定：眩晕 + 禁疗同时挂（data.unit=杨逍，data.target=被命中者）
+            // ① 命中后点穴/截脉判定（V1.2.0 老板拍板拆两骰）：点穴 dian.prob（60%）→ 眩晕+冷却；
+            //    截脉 jie.prob（80%）→ 禁疗，与点穴成败无关；冷却中两者一起被挡（沿用「穴道还麻着」动静）。
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.DIAN_XUE, (data) => {
                 const unit = data.unit;
                 if (!unit || !unit.isYangXiao || !unit.alive) return;
@@ -51,17 +54,24 @@ export function createYangXiaoComponent() {
                     if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `👆 ${unit.name} 弹指神通：${target.name} 穴道还麻着（冷却 ${target.state._dianXueCd} 回合），本次未发动`);
                     return;
                 }
-                if (getBattleRng().next() >= dian.prob) {
-                    if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `👆 ${unit.name} 弹指神通：未点中 ${target.name} 穴道，本次未发动`);
-                    return;
+                const dianHit = getBattleRng().next() < dian.prob;
+                const jieHit = getBattleRng().next() < (jie.prob != null ? jie.prob : 1);
+                const reducePct = Math.round(jie.healReduceRatio * 100);
+                if (dianHit) {
+                    Object.assign(target.state, { _stunned: true, _dianXueCd: dian.cdRounds });
+                    emitHpChange(target, { _stunned: true });
+                    emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
                 }
-
-                Object.assign(target.state, { _stunned: true, _dianXueCd: dian.cdRounds });
-                // OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
-                target.state._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
-                emitHpChange(target, { _stunned: true });
-                emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
-                if (data.log) pushSkillAnnounce(data.log, unit, '弹指神通', `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动，并禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${Math.round(jie.healReduceRatio * 100)}%）`, { floatText: '😵', floatUid: target.uid });
+                if (jieHit) {
+                    // OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
+                    target.state._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
+                    emitHpChange(target, { _jinMai: target.state._jinMai });
+                }
+                if (!data.log) return;
+                if (dianHit && jieHit) pushSkillAnnounce(data.log, unit, '弹指神通', `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动，并禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${reducePct}%）`, { floatText: '😵', floatUid: target.uid });
+                else if (dianHit) pushSkillAnnounce(data.log, unit, '弹指神通', `😵 ${unit.name} 弹指神通：点中 ${target.name} 穴道，本回合无法行动（脉未截住，本次未禁疗）`, { floatText: '😵', floatUid: target.uid });
+                else if (jieHit) pushSkillAnnounce(data.log, unit, '弹指神通', `❌ ${unit.name} 弹指神通：${target.name} 穴道未中，但截脉奏效——禁疗 ${jie.rounds} 回合（治疗/吸血回复减少 ${reducePct}%）`, { floatText: '❌', floatUid: target.uid });
+                else pushSkillAnnounce(data.log, unit, '弹指神通', `👆 ${unit.name} 弹指神通：未点中 ${target.name} 穴道，本次未发动`);
             });
 
             // ② 敌方全部已行动过 → 追击：本次伤害 ×allActedDmgRatio（与选敌排空回退飞行默认同一条件）

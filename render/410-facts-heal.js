@@ -2,7 +2,7 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/410-facts-heal.js V1.2.2';
+export const VER = 'render/410-facts-heal.js V1.2.3';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeHealRenderer, healDisplay } from './413-generic-renderers.js';
@@ -69,21 +69,33 @@ export const renderWeiLeechFact = makeHealRenderer({ icon: '🦇', label: '青�
 
 // 小昭·姊 乾坤衍生 / 蝶变
 export function renderQianKunDerivedFact(fact) {
-    // 减伤半可选：常规乾坤衍生与白骨爪逐爪都带 reduce；斩杀那一刀照杀不减（noReduce），reduce 缺省时不吐「减伤N」
-    const reducePart = fact.reduce != null ? `${fact.targetName}减伤${fmtNum(fact.reduce)}，` : '';
-    return {
+    // V1.0.9 三段全可选（消融子开关 noQianKunReduce/Heal/Atk 会让对应字段为 null，缺哪段不吐哪段）：
+    //   减伤段原有可选护栏；回血/加攻段此前无条件拼串，关子集会渲染出「null治疗null」
+    const parts = [];
+    if (fact.reduce != null) parts.push(`${fact.targetName}减伤${fmtNum(fact.reduce)}`);
+    if (fact.heal != null) parts.push(`${fact.healTargetName}治疗${sgn(fact.heal)}`);
+    if (fact.atkGain != null) parts.push(`${fact.atkTargetName}攻击${sgn(fact.atkGain)}`);
+    const out = {
         type:'info',
-        text:`<span class="gold">🦋 乾坤衍生：${reducePart}${fact.healTargetName}治疗${sgn(fact.heal)}，${fact.atkTargetName}攻击${sgn(fact.atkGain)}</span>`,
-        fx: [{ kind: 'heal', amount: fact.heal }, { kind: 'atk', amount: fact.atkGain }],
-        isHealEntry: true,
-        healAmount: fact.heal,
-        healUnitUid: fact.healTargetUid,
-        // 枚举真名是 QIANKUN_ATK（infra/106:300）。旧写法 QIAN_KUN_ATK 恒 undefined，
-        //   而 render/416 按 e.buffType === 'qiankun_atk' 分流乾坤衍生加成 ⇒ 分支整条静默失效
-        buffType: BUFF_SUBTYPES.QIANKUN_ATK,
-        atkGain: fact.atkGain,
-        atkTargetUid: fact.atkTargetUid
+        text:`<span class="gold">🦋 乾坤衍生：${parts.join('，')}</span>`,
+        fx: []
     };
+    if (fact.heal != null) {
+        out.fx.push({ kind: 'heal', amount: fact.heal });
+        out.isHealEntry = true;
+        out.healAmount = fact.heal;
+        out.healUnitUid = fact.healTargetUid;
+    }
+    if (fact.atkGain != null) {
+        out.fx.push({ kind: 'atk', amount: fact.atkGain });
+        // 枚举真名是 QIANKUN_ATK（infra/106:300）。旧写法 QIAN_KUN_ATK 恒 undefined，
+        //   而 render/416 按 e.buffType === 'qiankun_atk' 分流乾坤衍生加成 ⇒ 分支整条静默失效。
+        //   V1.0.9：随 atkGain 联动——关加攻子集时不发乾坤加成标记，416 分流不会拿到 null
+        out.buffType = BUFF_SUBTYPES.QIANKUN_ATK;
+        out.atkGain = fact.atkGain;
+        out.atkTargetUid = fact.atkTargetUid;
+    }
+    return out;
 }
 
 // 张三丰：生生不息（回血 + 溢出转嫁 + 回血转永久攻防）

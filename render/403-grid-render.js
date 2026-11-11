@@ -374,9 +374,10 @@ export function renderGrid(id, camp) {
         if (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
         // 蹦蹦寒毒（张中召唤）：同款 ❄️
         if (unit.state._bengHanDu && unit.state._bengHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
-        // 唐文亮·回春术层标记（老板需求）：🌿 或 🌿xN——不然看不出他攒着几层回血
+        // 唐文亮·回春术层标记（老板需求）：🌿——不然看不出他攒着回血；层数不再显示（格子放不下），
+        //   具体几层看战报行「回春术+N」
         if (unit.isTangWenLiang && Array.isArray(unit.state._hcStacks) && unit.state._hcStacks.length > 0) {
-            eliteSkillIcon += ' 🌿' + (unit.state._hcStacks.length > 1 ? 'x' + unit.state._hcStacks.length : '');
+            eliteSkillIcon += ' 🌿';
         }
 
         // 彭莹玉·双面观音：女装期间（_crossdressRounds > 0）技能图标槽挂 👗 状态标记，

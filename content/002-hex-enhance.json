@@ -1,14 +1,14 @@
 {
   "version": "1.0.0",
-  "updated": "2026-11-08",
+  "updated": "2026-11-11",
 
   "_desc": "海克斯强化数据（从 core/04、core/11、core/14、modules/20、modules/27 的硬编码抽出）。小昭·姊 = 团队 buff 生效中；小昭·妹 = 团队 buff 过期后永久生效。只写与普通版不同的强化值（与普通版相同的数值不写）。缺 sister / brother 段直接抛错，不回落到普通版；段内缺哪键就报哪键（显式抛错，不回落普通版）。",
 
   "sister": {
     "bloodthirst": { "leechRatio": 1.6 },
-    "hotBlood": { "leechPct": 0.20, "critPattern": [2, 3], "extraDuration": 1 },
+    "hotBlood": { "leechPct": 0.25, "critPattern": [1, 2, 3], "extraDuration": 1 },
     "windAssault": { "hitProb": 1.0, "pushProb": 1.0, "extraDuration": 1 },
-    "meteorShower": { "trueDmgPct": 0.05, "atkPerSplash": 2, "duration": 4 },
+    "meteorShower": { "trueDmgPct": 0.05, "atkPerSplash": 2, "duration": 3 },
     "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50, "hpPctSwap": 0.15, "stunOnSwap": true },
     "cloudBody": { "dodgeBonus": 0.30, "reboundRatio": 0.5, "noSkip": true },
     "fortify": { "healOnRebound": true },
@@ -18,7 +18,7 @@
     "soulDrain": { "atkBonus": -0.40, "perUnitBonus": 0.10 },
     "holyFire": { "reviveCount": 2, "firstReviveRatio": 0.7, "secondReviveRatio": 0.4 },
     "doubleStrike": { "chance": 1.0 },
-    "lastStand": { "hpThreshold": 0.4, "atkBonus": 0.25, "leechRatio": 0.05 },
+    "lastStand": { "hpThreshold": 0.5, "leechRatio": 0.20 },
     "unity": { "recruitM": 25, "recruitTarget": 6, "extraDuration": 1 }
   },
 
