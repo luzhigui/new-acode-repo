@@ -324,8 +324,13 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey, log) {
     //   下一次「姊拒马为什么消散」直接从战报看到断在哪一关。
     const fail = (reason) => {
         if (log) {
+            // 契约必填 unitUid/camp（infra/107；渲染器只读 note，uid 供对账）：
+            //   姊在队伍里（含阵亡/未附身）→ 锚她自己，真值；完全不在场 → 合成标识 'sisterHex:<hex>'。
+            //   camp 一律取队伍真值，无队伍回落 ALLY。
+            const sis = Array.isArray(allyTeam) ? allyTeam.find(u => u && u.isXiaoZhaoSister) : null;
+            const teamCamp = (Array.isArray(allyTeam) && allyTeam[0] && allyTeam[0].camp) || CAMP_TYPES.ALLY;
             log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
-                unitName: '小昭·姊', unitUid: null, camp: null,
+                unitName: '小昭·姊', unitUid: (sis && sis.uid) || ('sisterHex:' + hexKey), camp: (sis && sis.camp) || teamCamp,
                 skillName: '海克斯增强', note: `🔎 姊强化未生效（${hexKey}）：${reason}`
             } });
         }

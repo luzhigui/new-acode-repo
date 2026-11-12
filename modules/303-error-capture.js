@@ -36,11 +36,15 @@ import { GlobalStore } from '../infra/104-global-store.js';
     const MAX_DETAIL_CHARS = 200000;            // 单条详细数据上限，防止撑爆 localStorage
 
     // 现场切片：报错点附近的战斗日志原文（逐字，不摘要、不截半句）
-    const SLICE_MAX_BYTES = 3072;               // 整条切片上限 3KB（UTF-8）
-    const LOG_CTX_BEFORE = 8;                   // 报错点之前最多带 8 行
-    const LOG_CTX_AFTER = 2;                    // 报错点之后最多带 2 行
+    // 2026-11-12：原 3072/8/2/12 四个常数在实战中不够用——"该发生没发生"类 bug 需要往前翻几回合。
+    //   实测行数上限（8+2=11 行）先卡住、3KB 多数场景摸不到；但长行（乾坤衍生+跟随+攻击全挤一行）
+    //   会爆字节上限，所以两者一起抬。仍保留 MIN_KEEP 兜底与超限降级，不会撑爆记录。
+    //   LOG_TAIL_LIMIT 必须同步抬：自动报错抓的是「当场快照」，快照只存 12 行的话 BEFORE=30 无数据可抓。
+    const SLICE_MAX_BYTES = 10240;              // 整条切片上限 10KB（UTF-8，约 3400 汉字）
+    const LOG_CTX_BEFORE = 30;                  // 报错点之前最多带 30 行
+    const LOG_CTX_AFTER = 5;                    // 报错点之后最多带 5 行
     const LOG_CTX_MIN_KEEP = 3;                 // 最近 3 行永不砍
-    const LOG_TAIL_LIMIT = 12;                  // 自动报错当场快照的行数（存内存，不落 localStorage）
+    const LOG_TAIL_LIMIT = 40;                  // 自动报错当场快照的行数（存内存，不落 localStorage）
 
     // ---------- 日志行点选：用户手指指定锚点（不靠猜） ----------
     // 点选态只加「可点光标 + 选中高亮」：行高／行距／字体与常态逐像素一致，不撑高。
@@ -277,7 +281,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                 if (recentNames.length) { focus = recentNames; anchor = findLast(recentNames); }
             }
             if (anchor < 0) { focus = []; anchor = len - 1; }
-            // 前 8 行 + 报错点 + 之后 2 行；日志不足 3 行时全带
+            // 前 30 行 + 报错点 + 之后 5 行；日志不足 3 行时全带
             let start = Math.max(0, anchor - LOG_CTX_BEFORE);
             if (start > len - LOG_CTX_MIN_KEEP) start = Math.max(0, len - LOG_CTX_MIN_KEEP);
             const end = Math.max(anchor, Math.min(len - 1, anchor + LOG_CTX_AFTER));
