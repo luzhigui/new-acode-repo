@@ -108,7 +108,8 @@ export function renderGrid(id, camp) {
         if (unit && !unit.state) unit.state = {};
         if (unit) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
-            //   曾经这里加了 !unit.isHorse 限制，导致拒马飞撞时
+            //   曾经这里加了 !unit.isHorse 限制，导致拒马飞撞时飞态渲染被跳过，现对马也生效
+            const effectiveFlyMode = getView(unit.uid, '_renderFlyMode') || (unit.state && unit.state._flyMode);
             if (effectiveFlyMode || (unit.state && (unit.state._fsmPhase === 'attached' || unit.state._fsmPhase === 'flying'))) {
                 const div = cells[i];
                 resetCell(div);

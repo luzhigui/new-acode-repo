@@ -27,7 +27,7 @@ function installChengkunPackage(eventBus, A, B, log, self) {
         throw new Error(`缺机制声明: characters.${REVEAL_TEMPLATE}.mechanics（少林圆真·现原形依赖成昆机制表）`);
     }
     const pkg = { ...template, mechanics: template.mechanics
-        .map(m => { const { attributeMods, ...rest } = m; return rest; })
+        .map(m => { const { attributeMods: _strippedShield, ...rest } = m; return rest; })
         .filter(m => m.type || (Array.isArray(m.beforeDamageEffects) && m.beforeDamageEffects.length)
                   || (Array.isArray(m.onHitEffects) && m.onHitEffects.length)) };
     const declarations = buildMechanicDeclarations({ characters: { [REVEAL_TEMPLATE]: pkg } })

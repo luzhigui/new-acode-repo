@@ -8,6 +8,7 @@ import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { applyStatChange, addMod, getStat } from '../core/214-battle-shared.js';
+import { refreshMaxHp } from '../core/214-battle-shared.js';
 
 import { pushSkillAnnounce, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
