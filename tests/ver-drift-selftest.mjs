@@ -1,3 +1,15 @@
+// V1.5.12 | 2026-11-12 白天合入夜间 209–213：⑬ 按**主线实测**重校 EXPECT_NO_LOG 207 → 196。
+//   夜间链在自己的树上实测 207，主线登记停在 181；合流后实跑得 196（扫描 387 个带 VER 文件、
+//   191 个可比对、无日志 196 个）。等式闸两侧都是「实测 == 登记」，不按合流后实测同步就会两侧都红。
+//   ★ 不是放宽、不是重录基线：只把登记值改成实跑数，判据与双向棘轮一字未动。
+//   其余红如实保留：11 条「无 VER 且未登记白名单」的孤儿、4 条主代码版本日志落后、
+//   core/213 路径串号 —— 均属并行会话/主代码侧欠账，本轮不补白名单、不改主代码洗红。
+// V1.5.11 | 2026-11-11 夜间第 209 轮：⑬ EXPECT_NO_LOG 223 → 207（夜间链实测），⑩ 白名单补登 rule-internal-filter.mjs。
+//   ⑬ 依据：合并上游 cfae6145（38 笔）后实测 207 < 登记 223，方向是「有文件补上了日志」，
+//      双向棘轮的反向闸（第 423 行）本就要求把登记改小；不改小等于让腐烂的登记继续挂着。
+//      ★ 这不是重录基线、也不放宽判据：等式两侧都是「实测 == 登记」的等式闸，一动就得两边同步。
+//   ⑩ 依据：tests/_lib/rule-internal-filter.mjs 是第 206 轮夜间新增的纯判定 helper（无 VER 常量），
+//      当时漏登白名单，留了个「新增孤儿」红。本轮补登，理由写进行内。
 // tests/ver-drift-selftest.mjs — 版本常量漂移自检（第 20 项，计退码）
 // V1.5.9 | 2026-11-08 夜间第 196 轮：⑬ EXPECT_NO_LOG 182 → 181。依据：本轮给 tests/registration-check.mjs
 //        补了版本日志行（它本来只有 VER 无日志），无日志桶 182 → 181，按双向棘轮回头把登记数改小。
@@ -101,7 +113,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.5.9';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.12';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -155,7 +167,7 @@ const MIN_LOG_PARSED = 60;
 //     没有 `Vx.y.z` 行，于是落进「有 VER 无日志」桶。逐条核过：182 个里无一是本轮五个改动文件
 //     （155/159/180/195/124rule-recipes）与两个新自证文件（两者都已补 VER + 版本日志行）。
 //   ★ 双向棘轮照旧生效：若下轮实测回落到 181 以下（有文件补了日志），这条会反过来红，逼着改小。
-const EXPECT_NO_LOG = 181;
+const EXPECT_NO_LOG = 196;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
@@ -366,6 +378,7 @@ for (const [srcRel, spec] of Object.entries(VER_EMBEDDED_IN)) {
 const NO_VER_WHITELIST = [
     'tests/_lib/buff-picker.mjs',
     'tests/_lib/hex-key-refs.mjs',          // 2026-11-08 上游新增，海克斯键引用唯一来源
+    'tests/_lib/rule-internal-filter.mjs',  // 2026-11-11 第 206 轮夜间新增：纯结构判定 helper，无 VER 常量（第 209 轮补登）
     'tests/_lib/stats-thresholds.mjs',      // 2026-11-08 上游新增
     'tests/buff-rules-case.mjs',
     'tests/coverage-ledger.mjs',            // 2026-11-08 上游新增

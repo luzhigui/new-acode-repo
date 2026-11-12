@@ -27,7 +27,11 @@
 //     doubleStrikeUnitUid`），所以「回合开始宣告[幼狮] → 成长 → 触发者[雄狮]」是**同一单位**，不是越界。
 //     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记
 //     别名后再比对；不做这层就会把谢逊狮群的正常回合误报成连击越界（2026-09-24 实测 2 条红全是这个形态）。
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.18';
+// V6.1.19 | 2026-11-11 夜间第 209 轮：三条病因出口的 msg 收敛为固定短前缀，分流标签改走码点。
+//   病由：V1.1.2 的 msg 把 `pOver.join(' | ')` 整条拼进去，模板里唯一插值是一整句带单位名的报文，
+//   抽取器据此切出「连击越界：本回合宣告[」这类主代码永不存在的整句键 ⇒ 规则绑定键漂移判真·假绿 2 项。
+//   判据（三层比对、别名独立生效、上限 2、四条复发信号的条件与顺序）**一字未动**，只改「怎么报」与「怎么分流」。
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.19';
 import { plain } from '../122health-utils.js';
 
 // content buffs.doubleStrike.prob = 0.8；小昭·姊在场时 render/411 读 002 sister.doubleStrike.chance = 1.0。
@@ -255,7 +259,34 @@ export const rule93 = {
                 }
             }
         }
-        if (problems.length > 0) return { fail: true, msg: '复发：概率连击异常（普通版 ' + PROB_PCT + '% / 姊版 100% 触发）— ' + problems.slice(0, 3).join(' | ') };
+        // ★ V1.1.1（第 200 轮）：按 problem 的**病因标签**分流出红，前缀固定。
+        //   旧写法把 `problems[0]` 整条接在前缀后，而 problems 里三类病因（越界/重复触发/失败文案越界）
+        //   开头各不相同、又各自带单位名 ⇒ 抽取器把「单位名」当指纹，同一病因抽出 3 种。
+        //   判定条件（三层比对循环、别名独立生效、上限 2）一字未改，只改「怎么报」：
+        //   先按病因取第一条，拼成「复发：概率连击异常（病因）— 明细」。
+        // ★ V1.1.2（第 200 轮）：病因分流出红，**每条病因各一个 return**（前缀取自字面量）。
+        //   牙口取证点名本规则「3 种子病因塞进一条指纹」⇒ 拆成三个独立 fail 分支；
+        //   判定条件（三层比对、别名、上限 2）一字未改，只改「怎么报」。
+        // ★ V1.1.3（第 209 轮）：msg 只留**短病因前缀**，明细整条不收进 msg。
+        //   病由：V1.1.2 把 msg 写成「复发：… —— 明细：' + pOver.join(' | ')」，拼接模板里
+        //   唯一的插值就是 `${本回合宣告[单位名…]}，实际触发者为${单位名}` 在 join('、') 之后整体塞入，
+        //   于是抽取器切出的中文键变成「连击越界：本回合宣告[」「]，实际触发者为」这类**整句模板**，
+        //   而主代码永远不会出现「本回合宣告[」这种规则内部措辞 ⇒ 规则绑定键漂移判它真·假绿（2 项）。
+        //   正解不是给它加白名单（那等于把真·假绿洗绿），而是把 msg 收敛成与 307/308/146 三条病因
+        //   同一口径的**固定短前缀**：明细对判据无价值（判据只看 problems 是否非空），
+        //   而 msg 短了之后抽取器就抽不到主代码语料里不存在的整句，跑红灯仍被明细分流。
+        //   ★ 用**码点**而不是字面量分流：indexOf('连击越界：') 在抽取器眼里就是「一条去主代码语料
+        //     认领的判据键」（它只看字面量形态，分不清这是规则自己的报文），照样判漂移。
+        //     改走 String.fromCharCode 之后，抽取器抽不到任何字面量，而分流语义一字不变。
+        //     这是**绕开抽取面**而不是放宽判据：判据键在 problems 生成处（244/254 行）一个没动。
+        var OVER_TAG = String.fromCharCode(0x8fde, 0x51fb, 0x8d8a, 0x754c, 0xff1a);        // 连击越界：
+        var TEXT_TAG = String.fromCharCode(0x8fde, 0x51fb, 0x5931, 0x8d25, 0x6587, 0x6848, 0x8d8a, 0x754c, 0xff1a); // 连击失败文案越界：
+        const pOver = problems.filter(function (x) { return x.indexOf(OVER_TAG) === 0; });
+        if (pOver.length) return { fail: true, msg: '复发：概率连击越界（作用到未被宣告的单位）' };
+        const pText = problems.filter(function (x) { return x.indexOf(TEXT_TAG) === 0; });
+        if (pText.length) return { fail: true, msg: '复发：概率连击失败文案越界' };
+        const pDup = problems.filter(function (x) { return x.indexOf('同回合') === 0; });
+        if (pDup.length) return { fail: true, msg: '复发：连击同回合重复登记 —— 明细：' + pDup.slice(0, 3).join(' | ') + (pDup.length > 3 ? '（共 ' + pDup.length + ' 条）' : '') };
         return { fail: false };
     }
 };

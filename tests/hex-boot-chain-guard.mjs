@@ -13,7 +13,7 @@
 //     ② 运行期实证（垫 fetch shim 真加载一次）：getSkillParams('小昭','hexEnhance') 不再抛错且返回非空、
 //        getSisterHexEnhance / getBrotherHexEnhance 各取到一段 —— 证明数据真的接上了，不是"文件在硬盘上"就算数。
 //   口径：只点名不放宽 —— 本件不替任何体检项改判据、不改任何基线；它只回答"启动链有没有跟上迁移"。
-export const VER = 'tests/hex-boot-chain-guard.mjs V1.0.0';
+export const VER = 'tests/hex-boot-chain-guard.mjs V1.0.1';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -77,6 +77,15 @@ try {
 
 // ── ① 启动链静态点名 ────────────────────────────────────────────────────
 const scanDirs = [path.join(root, 'tests'), path.join(root, 'ui'), path.join(root, 'tools')];
+// V1.0.1 | 2026-11-11 夜间第 210 轮：判据面收口——特征词只认「真调用」，不认字符串里提到。
+//   病由（本轮实测）：tests/health-rules/174-ally-roster.js 只在一条报错文案里写了
+//   「initBattleTeams 未产出我方单位」，源码全文 `src.includes('initBattleTeams')` 命中 ⇒ 被判成
+//   「消费战局却没有 loadHexEnhanceData」的启动链缺口。该文件实际只读 CONFIG 静态数组、从不建局，
+//   属于纯误报；且这类误报会随「文案提到 API 名」不断增加，把真缺口淹掉。
+//   修法（加严，不放宽）：特征词必须带调用括号形态出现（m + '('），即 getSkillParams( / initBattleTeams( …
+//   —— 只说不调的不再算消费方。判据方向不变：真调用却缺 loadHexEnhanceData 的，照旧逐条点名。
+const NEED_MARKER_RE = new RegExp('(?:' + NEED_MARKERS.map(m => m + '\\s*\\(').join('|') + ')');
+
 const gaps = [];
 let scanned = 0;
 for (const d of scanDirs) {
@@ -85,7 +94,9 @@ for (const d of scanDirs) {
         const src = fs.readFileSync(f, 'utf8');
         // 剥注释前先粗判：文件得自己加载 gameData（否则数据由宿主给，本条不适用）
         if (!/loadGameData\s*\(/.test(src)) continue;
-        if (!NEED_MARKERS.some(m => src.includes(m))) continue; // 只读 getGameData 的（157/170 那类）不消费 hex，豁免
+        // 剥注释后再判消费：注释与纯文案里提到 API 名不算「消费」
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+        if (!NEED_MARKER_RE.test(code)) continue; // 只读 getGameData 的（157/170 那类）不消费 hex，豁免
         scanned += 1;
         if (!/loadHexEnhanceData/.test(src)) gaps.push(path.relative(root, f));
     }
