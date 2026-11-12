@@ -1,3 +1,4 @@
+// V1.53.1 | 2026-11-12 合流 D12 二轮：挂规则假绿静态扫描
 // V1.53.0 | 2026-11-12 迭代：挂「静态入口解耦守门」tests/static-entry-guard.mjs（新建 V1.0.0）。
 //   由头：手机端实测「快速静态体检点了卡住」——按钮绑在 initMonitor() 里，而 121 顶层
 //   await 160 个规则模块，静态扫描另需 fetch 175 个文件；动态跑 2-7 关只报 1 个问题，
@@ -245,7 +246,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.53.0';
+export const VER = 'tests/run-all.mjs V1.53.1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -571,7 +572,10 @@ const OBSERVES = [
     //   exit 2 = 守卫自身前提失效（找不到 decideSpiderTier / 内容表缺参数），按「守卫坏了」处理。
     { name: '飞天三档跨档判定守卫', script: 'tests/spider-tier-leap-guard.mjs', args: [], hard: true },
     // V1.53.0 | 2026-11-12：静态体检入口不得依赖运行时规则装载 / 报告必须显形覆盖缺口。
-    { name: '静态入口解耦守门', script: 'tests/static-entry-guard.mjs', args: [], hard: true }
+    { name: '静态入口解耦守门', script: 'tests/static-entry-guard.mjs', args: [], hard: true },
+    // 2026-11-12 合流 D12 二轮：扫描器已加 acorn 缺失守卫（exit 1 明确报前提失效），
+    //   但依赖缺失是环境前提而非确定性缺陷 ⇒ 不标 hard，只显形。
+    { name: '规则假绿静态扫描', script: 'tests/rule-false-green-scan.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。

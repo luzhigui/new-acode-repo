@@ -1,40 +1,56 @@
 {
   "domain": "D12",
-  "updatedAt": "2026-11-08 22:30",
+  "updatedAt": "2026-11-11 22:25",
   "updatedBy": "D12 会话（规则自检与假绿）",
-  "note": "规则自检与假绿域：只做元守卫（假绿扫描/零触发/恒 skip/形状非法），不带业务号规则；号段 295-300 预留。本轮把 4 类判据落成常驻静态扫描 tests/rule-false-green-scan.mjs（V1.0.0，带内嵌反例自证），295-298 登记为元守卫槽位（不产出 health-rules 文件，故 file 指向扫描脚本）；299-300 仍预留。待框架会话把扫描器挂进 run-all 观察项/计退码项。",
+  "note": "规则自检与假绿域：号段 295-300 预留。本轮按开工口径把 295/296 落成**运行时规则**（tests/health-rules/295-*.js、296-*.js），盯的是「体检自检自身的假绿」：295 抓「某条自检恒返回通过」（无可达变红出口 ⇒ 每轮白占一个闸门名额），296 抓「改了判定口径却没配反向样本」（hard 闸门无反例入口 = 装饰品闸门）。每条硬判据都配了反向样本，见定向用例 tests/d12-selfcheck-case.mjs（23 项断言：反向 10 / 正向 13，含棘轮失效检测）。\n\n★ 号位调整，需框架面拍板（本会话已改本登记表，但 121/123/124 一字未碰）：上一轮把静态扫描器 rule-false-green-scan.mjs 的判据 A/B/C/D 摊在 295-298 四个号上。本轮 295/296 改由运行时规则占用，故把扫描器的判据 A/B 挪到 297、C/D 留在 298（同一支脚本，槽位只是记账）。若框架面认为元守卫与运行时规则不该混用同一号段，可把扫描器整体迁到 299/300，本域无异议，只要登记等于真值即可。\n\n★ 本轮抓到的真问题（本域只报不改）：run-all 登记的 65 条自检/守门脚本里，tests/fact-coverage-selftest.mjs **全文只有 process.exit(0)**，没有非零退码、没有 process.exitCode 赋值、没有 throw ⇒ 结构上不可能报红，而它仍挂在 run-all「fact 覆盖交叉自检」名额上；它自己文件头写的是「降级为候选生成器：仅报告，不判红，不挂 run-all」——说法与登记表打架。修法二选一（补真能变红的退码 / 从登记表摘掉），归属框架面 + fact-coverage 所属域，本域不代改。296 侧登记的 health-rules-syntax-sweep.mjs 无反向样本，同属只报不改。",
   "entries": [
     {
       "id": 295,
+      "name": "自检脚本必须有变红出口(防恒返回通过)",
+      "file": "tests/health-rules/295-selfcheck-red-path.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "判据 R1（无任何变红出口）/R2（process.exit 实参清一色字面量 0）；射程=run-all 登记表全部条目；注释里的 exit(1) 不算红路径（防「注释吹牛、判据空转」）；反向样本见 tests/d12-selfcheck-case.mjs"
+    },
+    {
+      "id": 296,
+      "name": "硬判据必须配反向样本(防装饰品闸门)",
+      "file": "tests/health-rules/296-selfcheck-reverse-sample.js",
+      "type": "runtime",
+      "state": "pending",
+      "note": "判据 B1（hard:true 条目去注释后无任何反例入口）/B2（自证入口定义了却从不调用=死代码）/B3（KNOWN 豁免条目失效不收缩）；注释里写「已配反例」不算证据；KNOWN 已登记 health-rules-syntax-sweep.mjs 一条（只报不改）"
+    },
+    {
+      "id": 297,
       "name": "规则形状非法（返回普通字符串/布尔/undefined/缺 fail 字段）",
       "file": "tests/rule-false-green-scan.mjs",
       "type": "meta-guard",
       "state": "pending",
-      "note": "判据 A；内嵌反例自证已过"
+      "note": "静态扫描器判据 A；本轮从 295 挪来（号位随运行时规则让位），扫描器代码一字未改；内嵌反例自证已过"
     },
     {
-      "id": 296,
+      "id": 298,
       "name": "规则无 fail 路径（只会 pass/skip）",
       "file": "tests/rule-false-green-scan.mjs",
       "type": "meta-guard",
       "state": "pending",
-      "note": "判据 B；观测型（返回 observe）按设计豁免"
+      "note": "静态扫描器判据 B（观测型返回 observe 按设计豁免）；本轮并入 298，与 C/D 同支脚本"
     },
     {
-      "id": 297,
+      "id": 299,
       "name": "规则恒 pass 分支（条件不影响结论）",
       "file": "tests/rule-false-green-scan.mjs",
       "type": "meta-guard",
       "state": "pending",
-      "note": "判据 C；内嵌反例自证已过"
+      "note": "静态扫描器判据 C；本轮从 297 挪来，扫描器代码一字未改"
     },
     {
-      "id": 298,
+      "id": 300,
       "name": "规则 catch 吞掉（异常变 pass/skip 或空 catch）",
       "file": "tests/rule-false-green-scan.mjs",
       "type": "meta-guard",
       "state": "pending",
-      "note": "判据 D1/D2/D3；设计口径降级已登记豁免表"
+      "note": "静态扫描器判据 D1/D2/D3；设计口径降级已登记扫描器内 KNOWN 表（棘轮只许收缩）"
     }
   ]
 }

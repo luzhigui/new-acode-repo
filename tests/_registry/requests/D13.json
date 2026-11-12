@@ -1,8 +1,8 @@
 {
   "domain": "D13",
-  "updatedAt": "2026-11-08 21:35",
-  "updatedBy": "框架会话（仲裁回填）",
-  "note": "回放/倒针状态机域（313-318）。承载 rewind 系列规则与回放器修复。注意：进度跳转/倍速两条实际随倒针域会话落在 273/274（D5 号段顺延），313/314 仍空。",
+  "updatedAt": "2026-11-12 21:05",
+  "updatedBy": "D13 会话（MiniMax 域会话）",
+  "note": "回放/倒针状态机域（313-318）。承载 rewind 系列规则与回放器修复。注意：进度跳转/倍速两条实际随倒针域会话落在 273/274（D5 号段顺延），313/314 仍空且本轮禁用（历史假条目）。本轮新增 315/316 两条**运行时**规则（合成探针真跑 ui/727 + 真 player/513 录制接口，每条硬判据带反向样本），号段由框架面预批。",
   "entries": [
     {
       "id": 273,
@@ -21,6 +21,26 @@
       "mergedAt": "2026-11-08 21:35",
       "mergedSha": "93a34ba1",
       "note": "原拟 314（原 292 撞 D11 控制链），实际落 274"
+    },
+    {
+      "id": 315,
+      "name": "倒针推进闸门与停泊放行(运行时)",
+      "file": "tests/health-rules/315-rewind-gate-park-runtime.js",
+      "type": "runtime-rule",
+      "state": "pending",
+      "assignedAt": "2026-11-12 21:05",
+      "assignedBy": "D13 会话（框架面预批号段 315）",
+      "note": "运行时规则：合成探针 tests/rewind-gate-park-probe-case.mjs（最小 DOM/Store 桩 + 真 player/513 录制接口，真跑 ui/727）。判据四条：① 进场必须挂 c._rewindGate 且闸门 promise 仍 pending（主循环真停在步首，战斗不在回看面板背后偷跑）；② 停住退出必须**保留**闸门 + isPaused=true + gs=PAUSED；③ 点主按钮「继续」停泊监听必须放行闸门（promise 兑现 + 句柄清空）；④ 「继续播」退出必须拆闸门 + gs=RUNNING + isPaused=false。反向样本 4 条（no-gate / no-park-listen / no-release-gate / resume-no-clear）改坏 ui/727 真源码重跑全红。**待框架面回填 121health-monitor 规则表 + 124rule-recipes 登记**（registration-check 报未登记属预期）。"
+    },
+    {
+      "id": 316,
+      "name": "倒针回看快照与退出还原终点(运行时)",
+      "file": "tests/health-rules/316-rewind-snapshot-restore-runtime.js",
+      "type": "runtime-rule",
+      "state": "pending",
+      "assignedAt": "2026-11-12 21:05",
+      "assignedBy": "D13 会话（框架面预批号段 316）",
+      "note": "运行时规则：合成探针 tests/rewind-snapshot-restore-probe-case.mjs（真跑 ui/727；三维阵容 u1 / u1u2 / u1u2u3 当「现在第几步」的指纹）。判据六条：① 回看总步数 = 进场时已录步数；② 回看期间真播新增的步不得进入回看（进度定格在进场那一刻）；③ 退出后画面还原到 c._rewindLastStep（真实战场那一步），不是玩家拨到的那一步；④ 退出后回看态全清（active=false / 步数归零 / 静默关 / 两份账本按引用还原）；⑤ 退出后倍速回到进场快照值；⑥ 退出回看不抛异常。反向样本 4 条（steps-live / restore-to-player-step / no-clear-steps / snapshot-no-speed）全红。**待框架面回填 121health-monitor 规则表 + 124rule-recipes 登记**。"
     },
     {
       "id": null,

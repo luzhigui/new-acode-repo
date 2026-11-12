@@ -1,3 +1,5 @@
+// V6.0.71 | 2026-11-12 合流补登 4 条运行时规则（295/296/315/316），打包清单漏登 4→0。
+// V6.0.70 | 2026-11-12 合流 D12/D13：补登定向用例与扫描器
 // V6.0.69 | 2026-11-12 补登静态体检解耦两件：tests/123static-entry.js（浏览器页运行时要动态
 //           import，漏登则手机上点静态体检 404）、tests/static-entry-guard.mjs（已挂 run-all
 //           OBSERVES）。包内容不变，仅补登。
@@ -12,7 +14,7 @@
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.69';
+export const VER = 'tools/806-ai-pack-config.js V6.0.71';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -226,6 +228,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/123static-scan.js', '../tests/124rule-recipes.js',
     // 2026-11-12：静态体检独立入口 + 解耦守门（手机端不依赖 160 个运行时规则模块）
     '../tests/123static-entry.js', '../tests/static-entry-guard.mjs',
+    // 2026-11-12 合流 D12/D13：域会话定向用例与被挂清单的扫描器
+    '../tests/d12-selfcheck-case.mjs', '../tests/d12v2-scan-case.mjs', '../tests/rewind-probe-sandbox-case.mjs', '../tests/rewind-gate-park-probe-case.mjs', '../tests/rewind-snapshot-restore-probe-case.mjs', '../tests/rule-false-green-scan.mjs',
     '../tests/health-rules/123-claw-heal-spam.js',
     '../tests/health-rules/124-aftermiss.js',
     '../tests/health-rules/125-fortify-timing.js',
@@ -388,6 +392,9 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/309-hetaichong-red-swap-account.js', '../tests/health-rules/319-d10-mod-mul-truth.js', '../tests/health-rules/320-d10-decl-ledger-mul.js', '../tests/health-rules/321-d10-mod-lifecycle.js',
     '../tests/health-rules/322-d10-brother-laststand-ledger.js', '../tests/health-rules/323-d10-flyer-kill-growth.js', '../tests/health-rules/325-d6-butterfly-host-cleanup.js', '../tests/health-rules/326-d6-butterfly-window-payload.js',
     '../tests/health-rules/327-d6-summon-authorship.js', '../tests/health-rules/328-d6-summon-death-exit.js', '../tests/health-rules/329-d6-roster-stats-purity.js',
+    // 2026-11-12 合流 D12/D13：4 条运行时规则（漏登则包内 rules-replay 静默丢弃）
+    '../tests/health-rules/295-selfcheck-red-path.js', '../tests/health-rules/296-selfcheck-reverse-sample.js',
+    '../tests/health-rules/315-rewind-gate-park-runtime.js', '../tests/health-rules/316-rewind-snapshot-restore-runtime.js',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',

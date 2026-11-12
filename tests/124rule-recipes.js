@@ -1,3 +1,4 @@
+// V1.2.6 | 2026-11-12 合流 D12/D13：回填 4 条 RULE_META
 // V1.2.5 | 2026-10-30 夜间第 159 轮：订正四条小昭规则的 note —— 原文「随机精英，**无法强制**，
 //   需连打多局碰出」是**过期 know-how**：主代码 modules/330-battle-init.js L245-262 的 GlobalStore
 //   'forceXiaoZhao'（'brother' / 'sister'）一直在，只是此前没人拿来回放。这句判断失误直接让
@@ -14,7 +15,7 @@
 //   也**不臆造**改动内容 —— 具体改了什么以抬升时的提交为准，待其补记。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.5';
+export const VER = 'tests/124rule-recipes.js V1.2.6';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
@@ -229,7 +230,11 @@ export const RULE_META = {
     '蝶变关窗载荷·宿主uid与尸体路径(回归)': { tag: 'hero:小昭', note: 'HOST_DEAD 必须带对宿主 uid，尸体路径与活体关窗两条分支载荷一致（D6）' },
     '召唤者身份归属byName/byUid(回归)': { tag: 'generic:召唤物', note: '召唤物归属按 uid 定，同名召唤者不得混淆（byName 仅回落）' },
     '召唤物阵亡单一出口对账(回归)': { tag: 'generic:召唤物', note: '召唤物死亡只有一条结算出口，活体名单与死亡事实一一对应' },
-    '存活率/阵容均值口径与虚假单位隔离(回归)': { tag: 'generic:召唤物', note: '存活率/阵容均值分母不含召唤物与虚假单位（蝶/蛛/马/狮等按口径分区统计）' }
+    '存活率/阵容均值口径与虚假单位隔离(回归)': { tag: 'generic:召唤物', note: '存活率/阵容均值分母不含召唤物与虚假单位（蝶/蛛/马/狮等按口径分区统计）' },
+    '自检脚本必须有变红出口(防恒返回通过)': { tag: 'generic:通用', note: '域会话交付 295 号段（合流回填）；group=体检自检与假绿，运行时探针自带反向样本' },
+    '硬判据必须配反向样本(防装饰品闸门)': { tag: 'generic:通用', note: '域会话交付 296 号段（合流回填）；group=体检自检与假绿，运行时探针自带反向样本' },
+    '倒针推进闸门与停泊放行(运行时)': { tag: 'generic:通用', note: '域会话交付 315 号段（合流回填）；group=战报与渲染一致性，运行时探针自带反向样本' },
+    '倒针回看快照与退出还原终点(运行时)': { tag: 'generic:通用', note: '域会话交付 316 号段（合流回填）；group=战报与渲染一致性，运行时探针自带反向样本' },
 };
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）

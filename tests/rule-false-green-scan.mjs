@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tests/rule-false-green-scan.mjs | V1.0.0 | 2026-11-08（D12 规则自检与假绿域）
+// tests/rule-false-green-scan.mjs | V1.1.0 | 2026-11-12（D12 规则自检与假绿域 v2）
 //
 // 定位：把「规则本身写错 ⇒ 体检假绿」做成一条常驻静态扫描，覆盖 tests/health-rules/ 全部规则文件。
 // 与运行时自检的分工：
@@ -27,9 +27,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parse } from 'acorn';
 
-export const VER = 'tests/rule-false-green-scan.mjs V1.0.0';
+// D12 v2 补丁：acorn 为非内置依赖，浏览器侧或干净工作树跑时常缺失
+// 缺失时明确报「守卫前提失效」退出，而非以 ERR_MODULE_NOT_FOUND 崩溃、也不当成"发现假绿"
+let parse = null;
+try {
+    const mod = await import('acorn');
+    parse = mod.parse;
+} catch (e) {
+    console.error('守卫前提失效：acorn 缺失 – ' + (e && e.message ? e.message : e));
+    process.exit(1);
+}
+
+export const VER = 'tests/rule-false-green-scan.mjs V1.1.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RULE_DIR = path.join(here, 'health-rules');
@@ -40,7 +50,7 @@ const STRICT = argv.includes('--strict');
 // ---------------------------------------------------------------- 已登记真问题（棘轮：只许收缩）
 // 每条 = 文件|规则名|类别。reason 写「为什么现在不改」；属 D12 只报不改的边界。
 // 只登记「设计口径、复核后不算假绿」的降级写法；真问题一律留在 ❌（等所属域修，扫描器保持红）。
-const KNOWN = [
+export const KNOWN = [
     // —— D2 数据未就绪降级为 skip（回归域统一写法：异步 loadGameData 未完成时避免误红；回放器内数据恒就绪）
     { file: '170-taunts-integrity.js', rule: '台词池双向一致性(taunts)', cat: 'D2', reason: 'getGameData 未就绪 → 明确 return \'skip\'（异步加载竞态，设计口径）' },
     { file: '174-ally-roster.js', rule: '明教阵容规模与分层(回归)', cat: 'D2', reason: 'getGameData 未就绪 → skip（异步加载竞态，设计口径）' },
@@ -61,7 +71,7 @@ const KNOWN = [
 // ---------------------------------------------------------------- 四类判据的内嵌反例（自证）
 // 每个夹具都是一条**最小规则文件**：categories 里列出「本判据必须咬住哪几类」。
 // 自证失败（该咬的没咬住 / 干净夹具被误咬）直接退 1，避免「判据写了但从不生效」。
-const SELF_FIXTURES = [
+export const SELF_FIXTURES = [
     {
         name: '形状非法：返回普通字符串',
         categories: ['A'],
@@ -113,6 +123,32 @@ const SELF_FIXTURES = [
 };`
     },
     {
+        name: 'catch 吞掉：异常转 skip',
+        categories: ['D2'],
+        src: `export const rule999 = {
+  name: '夹具·吞异常变skip',
+  test: function (ctx) {
+    var v = 0;
+    try { v = ctx.facts.length; } catch (e) { return 'skip'; }
+    if (v > 1) return { fail: true, msg: '红' };
+    return 'pass';
+  }
+};`
+    },
+    {
+        name: 'catch 吞掉：空 catch',
+        categories: ['D3'],
+        src: `export const rule999 = {
+  name: '夹具·空catch',
+  test: function (ctx) {
+    var v = 0;
+    try { v = ctx.facts.length; } catch (e) { }
+    if (v > 1) return { fail: true, msg: '红' };
+    return 'pass';
+  }
+};`
+    },
+    {
         name: '干净夹具：四种病都没有',
         categories: [],
         src: `export const rule999 = {
@@ -158,7 +194,7 @@ function lineIndex(src) {
 function trunc(s, n = 60) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; }
 
 // ---------------------------------------------------------------- 单文件分析
-function analyzeSource(src, file) {
+export function analyzeSource(src, file) {
     const findings = [];
     const push = (rule, cat, line, why) => findings.push({ file, rule, cat, line, why });
 
@@ -394,7 +430,7 @@ function analyzeSource(src, file) {
 }
 
 // ---------------------------------------------------------------- 自证：判据先咬住自己写的反例
-function selfCheck() {
+export function selfCheck() {
     const bad = [];
     for (const fx of SELF_FIXTURES) {
         const got = analyzeSource(fx.src, '(fixture)');
@@ -457,7 +493,7 @@ function main() {
                     (kn ? '（已登记：' + kn.reason + '）' : ''));
             }
         }
-        console.log('· 判据自证：A/B/C/D1 四类反例各咬住 1 例，干净夹具 0 误咬 ✅');
+        console.log('· 判据自证：A/B/C/D1/D2/D3 六类反例各咬住 1 例，干净夹具 0 误咬 ✅');
         console.log('· 已登记豁免 ' + KNOWN.length + ' 条（棘轮只许收缩）；本轮命中 ' + all.length + ' 条（其中未登记 ' + news.length + ' 条）');
         for (const k of vanishedKnown) console.log('  ❌ 豁免条目已消失：' + k + ' ⇒ 必须同步收缩 KNOWN');
         if (news.length || vanishedKnown.length) console.log('❌ 发现 ' + news.length + ' 条未登记假绿 / ' + vanishedKnown.length + ' 条豁免失效');
@@ -468,4 +504,6 @@ function main() {
     process.exit(failed ? 1 : 0);
 }
 
-main();
+// 直接执行才跑 main；被 import 时只导出纯函数/数据，供定向用例复用
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectRun) main();
