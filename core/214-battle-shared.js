@@ -436,6 +436,13 @@ export function getStat(unit, stat) {
     // 引擎内部一律实数：不在此处截到 0.1 格（旧实现 floor 会吃掉吸取/加成的小数尾巴）。
     //   显示层统一取整见 infra/102 fmtNum；显示结果不回写数据。
     const result = (base + addSum) * (1 + mulSum);
+    // 绝对值上限锁（庄铮·断锤三式）：锁定期间无视一切词条增删，恒等于锁值。
+    //   与差值词条的区别：差值是「锁定时实时值 - keepHp」，含当时生效的 ttl:'round' 词条；
+    //   临时词条被回合清理后 base+差值会落到负数（被夹到 1）——就是「carry 结束后没回 5」的根因。
+    if (stat === 'maxHp') {
+        const lock = unit.state?._maxHpLock;
+        if (typeof lock === 'number' && lock > 0) return lock;
+    }
     return Math.max(0, result);
 }
 

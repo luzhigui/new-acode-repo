@@ -533,6 +533,22 @@ export const STAGE_ACTION_DEFS = {
                         crash.showMeleeCrash(attacker, target, onHit);
                     }
                 }).catch(() => {});
+                return;
+            }
+            // 其他免疫（庄铮断锤等）：只演接触帧飞撞/飞箭，不碎裂——攻击者确实「撞上了」，只是没穿透。
+            //   此前 reason 不匹配金刚不坏也不带 flyData 时整段空返回，观感像「攻击被掐断」。
+            if (attacker && target) {
+                Promise.all([
+                    import('../fx/603-fx-crash-5v5-test.js'),
+                    import('../fx/602-fx-arrows-5v5-test.js')
+                ]).then(([crash, arrows]) => {
+                    const onContact = () => AudioManager.playSfx(attacker.role);
+                    const isRanged = attacker.role === ROLE_TYPES.RANGED
+                        || attacker.role === ROLE_TYPES.JAVELIN
+                        || attacker.role === ROLE_TYPES.BUTTERFLY;
+                    if (isRanged) arrows.showRangedArrow(attacker, target, false, onContact);
+                    else crash.showMeleeCrash(attacker, target, onContact);
+                }).catch(() => {});
             }
             // 飞天（flyData）走 core/10 原有分支：文本由 render/34 的 SPIDER_FLY 渲染，特效由飞行态 stageAction 负责
         }

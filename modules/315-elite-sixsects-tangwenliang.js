@@ -158,6 +158,79 @@ export function createTangWenLiangComponent() {
                 return { ok: false, reason: 'all-blocked', moved: [] };
             }
 
+            // 癫冲队友的就位判定：返回 { mateTo, twTo }——队友最终位 + 唐文亮最终位（保证两人不重叠）。
+            //   按队友所在排分三条规则（老板 2026-11-12 拍板）：
+            //     ① 队友在 456 中排 → 挤压：沿 tw→target 方向继续推队友，目标格空则队友推过去、唐落队友原位；
+            //        撞墙/被占则队友不动、唐落离 tw 最近的相邻空格（视觉「挤在墙上」）
+            //     ② 队友在 123 前排 → 队友不动、唐落同列身后（中排优先、后排兜底）
+            //     ③ 队友在 789 后排 → 队友推到同列前排（再中排兜底）、唐落队友原位
+            //   同队特殊处理原因：冲敌方时 target 与 tw 分属两队，两次 forceInsert 各算各队自然不重叠；
+            //     同队两段 moved 基于同一份初始状态算出来，applyMoves 前后脚执行就叠同格。
+            //   相邻格兜底：同列全占时找相邻空位（同排左→右→斜对角），两人仍相邻。
+            function findAllyDashLanding(team, target, self, excludeUid) {
+                const occ = (pos) => team.some(u => u.alive && u.pos === pos && u.uid !== excludeUid);
+                const col = (target.pos - 1) % 3;
+                const row = Math.floor((target.pos - 1) / 3);   // 0=前排 1=中排 2=后排
+
+                // 相邻格兜底：队友不动，唐落离 target 最近的空位（同列优先→同排→斜对角）
+                function adjacentFallback(why) {
+                    const cands = [
+                        target.pos + 3, target.pos - 3,
+                        col > 0 ? target.pos - 1 : null,
+                        col < 2 ? target.pos + 1 : null,
+                        target.pos + 4, target.pos - 4, target.pos + 2, target.pos - 2,
+                    ].filter(p => p != null && p >= 1 && p <= 9 && p !== target.pos);
+                    for (const p of cands) {
+                        // 斜对角校验：pos±4/pos±2 必须真斜对角（不能绕列）
+                        const d = p - target.pos;
+                        if (d === 4 || d === -4 || d === 2 || d === -2) {
+                            const dc = Math.abs(((p - 1) % 3) - col);
+                            const dr = Math.abs(Math.floor((p - 1) / 3) - row);
+                            if (dc > 1 || dr > 1) continue;
+                        }
+                        if (!occ(p)) return { mateTo: target.pos, twTo: p, mode: why };
+                    }
+                    return null;
+                }
+
+                // 规则 ②：队友在 123 前排 → 队友不动，唐落同列身后
+                if (row === 0) {
+                    for (const p of [target.pos + 3, target.pos + 6]) {
+                        if (p <= 9 && !occ(p)) return { mateTo: target.pos, twTo: p, mode: 'behind' };
+                    }
+                    return adjacentFallback('adjacent');
+                }
+
+                // 规则 ③：队友在 789 后排 → 队友推到同列前排，唐落队友原位
+                if (row === 2) {
+                    for (const p of [target.pos - 6, target.pos - 3]) {
+                        if (p >= 1 && !occ(p)) return { mateTo: p, twTo: target.pos, mode: 'pushFront' };
+                    }
+                    return adjacentFallback('adjacent');
+                }
+
+                // 规则 ①：队友在 456 中排 → 挤压（方向 = 从 tw→target 继续）
+                const twCol = (self.pos - 1) % 3;
+                const twRow = Math.floor((self.pos - 1) / 3);
+                const pushes = [];
+                if (twCol !== col) {
+                    // 水平方向优先：tw 在左 → 队友往右推；tw 在右 → 队友往左推
+                    const p = target.pos + (col > twCol ? 1 : -1);
+                    if (p >= 1 && p <= 9 && Math.floor((p - 1) / 3) === row) pushes.push(p);
+                }
+                if (twRow !== row) {
+                    // 纵向方向：tw 在前 → 队友往后推；tw 在后 → 队友往前推
+                    const p = target.pos + (row > twRow ? 3 : -3);
+                    if (p >= 1 && p <= 9) pushes.push(p);
+                }
+                for (const p of pushes) {
+                    if (!occ(p)) return { mateTo: p, twTo: target.pos, mode: 'squeeze' };
+                }
+
+                // 推不动 → 队友不动，唐落相邻格
+                return adjacentFallback('squeezeBlocked');
+            }
+
             // 落地：moved 已是「末端→前端」顺序，正序调用不会撞格
             function applyMoves(moves, log) {
                 for (const m of moves) moveUnitPosition(m.unit, m.to, log);
@@ -184,9 +257,26 @@ export function createTangWenLiangComponent() {
                 const targetFromPos = target.pos;
                 const allyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
                 const enemyTeam = tw.camp === CAMP_TYPES.ALLY ? A : B;
-                // 多列尝试（首选同列前排；被免疫/飞天占或路径被免疫挡 → 随机换 1/3 列）
-                const allyRes = target.pos > 3 ? forceInsertAnyColumn(allyTeam, target, frontPos) : { ok: true, moved: [] };
-                const enemyRes = forceInsertAnyColumn(enemyTeam, tw, frontPos);
+                let allyRes = { ok: true, moved: [] };
+                let enemyRes;
+                if (target.camp === tw.camp) {
+                    // 癫冲队友：按三条规则算队友终态 + 唐终态（findAllyDashLanding），一次生成两段 moved。
+                    //   两人永不重叠、同队单次推挤安全（不再走 forceInsertAnyColumn 那条双段计算路径）。
+                    const land = findAllyDashLanding(enemyTeam, target, tw, tw.uid);
+                    if (land) {
+                        const moved = [];
+                        if (land.mateTo !== target.pos) moved.push({ unit: target, from: target.pos, to: land.mateTo });
+                        if (land.twTo !== tw.pos) moved.push({ unit: tw, from: tw.pos, to: land.twTo, isDash: true });
+                        enemyRes = { ok: true, moved };
+                    } else {
+                        // 相邻格全被占（9 格满员极端场景）：队友不动、唐也不动，跳过本次位移
+                        enemyRes = { ok: true, moved: [] };
+                    }
+                } else {
+                    // 正常冲敌方：保持原逻辑（两队各自 forceInsert，占位集合不交叉，不会重叠）
+                    allyRes = target.pos > 3 ? forceInsertAnyColumn(allyTeam, target, frontPos) : { ok: true, moved: [] };
+                    enemyRes = forceInsertAnyColumn(enemyTeam, tw, frontPos);
+                }
                 // 先落冲方、再落目标方
                 if (enemyRes.ok) applyMoves(enemyRes.moved, outLog);
                 if (allyRes.ok) applyMoves(allyRes.moved, outLog);

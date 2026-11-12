@@ -106,9 +106,9 @@ export function renderGrid(id, camp) {
         const corpseAtPos = team.find(c => c.pos === pos && (c.alive === false || (c.state && c.state._isDead)));
         let unit = corpseAtPos || team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
         if (unit && !unit.state) unit.state = {};
-        if (unit && !unit.isHorse) {
+        if (unit) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
-            const effectiveFlyMode = getView(unit.uid, '_renderFlyMode') || (unit.state && unit.state._flyMode);
+            //   曾经这里加了 !unit.isHorse 限制，导致拒马飞撞时
             if (effectiveFlyMode || (unit.state && (unit.state._fsmPhase === 'attached' || unit.state._fsmPhase === 'flying'))) {
                 const div = cells[i];
                 resetCell(div);

@@ -253,6 +253,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _inBag:                  { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 周颠·癫：全场唯一持有，攻击随机不分敌友，命中/死亡转移
     _isCrazy:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 组内报幕暂存：模块在 BEFORE_ACTION_SELECT / ON_UNIT_ACTED 时机写入 { skillName, note, extra? }，
+    //   core/209 buildAttackGroup 之后 unshift 到本击攻击组开头并清空。
+    //   旧路径：模块在攻击组外直接 log.push，报幕游离在上一击尾巴与本击分隔符之间，读起来像上一击触发的
+    //   （杨逍「先机」误归因实测）。
+    _pendingAnnounce:        { type: STATE_FIELD_TYPES.OBJECT,  default: null },
 
     // 少林圆真·现原形（modules/336）：已现形 / 开局那一次概率已掷过（整场级，跨回合克隆保留）
     _yuanzhenRevealed:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
@@ -261,6 +266,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiN:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 上限锁（庄铮·断锤三式）：有值时 getStat('maxHp') 直接返回该绝对值，无视一切词条增删。
+    //   不能用差值 add 词条模拟——差值按「锁定时实时值」算，会把当时生效的 ttl:'round' 词条
+    //   （carry 的 +maxHp 等）算进去；回合末清临时词条后 base+差值变负数、被 refreshMaxHp 夹到 1。
+    _maxHpLock:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 单次受伤上限（0 = 不限）：core/13 直扣血与 core/12 攻击扣血两条出口共读这一个字段。
     // 例外清单（`applyStatChange` 第 8 参 ignoreCap=true 的唯一合法调用方）：**只有 `killUnit`**——
     //   「死亡收口把血归零」不是一次受伤，不吃本上限（否则会截在 0 以上，造出 alive=false 却 hp>0 的分裂状态）。

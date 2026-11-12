@@ -19,11 +19,14 @@ class EventBus {
         if (!this._listeners[signal]) {
             this._listeners[signal] = [];
         }
-        const cbKey = callback.toString();
         const isDup = this._listeners[signal].some(l => {
             if (l.priority !== priority) return false;
             if (l.key || key) return l.key === key;
-            return l.callback.toString() === cbKey;
+            // 判重按「函数引用」而不是 callback.toString()：
+            //   旧口径比源码文本，两个不同闭包只要源码一字不差就被当成重复——registerDoubleStrike
+            //   对 A/B 两队各调一次，第二次的闭包带着另一队的 uid 数组，却被静默丢弃，
+            //   表现为「有 ⚡ 但连击既不成功也不失败」。
+            return l.callback === callback;
         });
         if (isDup) return;
         this._listeners[signal].push({ priority, callback, key });

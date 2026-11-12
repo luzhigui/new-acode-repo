@@ -36,8 +36,9 @@ export function createYangXiaoComponent() {
                 if (ahead.length === 0) return;
                 if (getBattleRng().next() >= (xian.jumpProb || 0)) return;
                 data.declaration.jumpConsume = true;
-                // 插队公告（core/11 V6.3.25 起载荷带 log）：点名被顺延的第一名队友，鞋印还是👟
-                if (data.log) pushSkillAnnounce(data.log, u, '先机', `👟 ${u.name}·先机：抢先出手（${ahead[0].name} 顺延，行动权不丢）`);
+                // 插队公告暂存到 state，由 core/209 buildAttackGroup 之后 unshift 到本击攻击组开头（跟本击一起播）。
+                //   旧路径在攻击组外直接 log.push：报幕卡在「上一击尾巴」与「本击分隔符」之间，读起来像上一击触发的先机。
+                u.state._pendingAnnounce = { skillName: '先机', note: `👟 ${u.name}·先机：抢先出手（${ahead[0].name} 顺延，行动权不丢）` };
             });
 
             // ① 命中后点穴/截脉判定（V1.2.0 老板拍板拆两骰）：点穴 dian.prob（60%）→ 眩晕+冷却；
@@ -114,7 +115,13 @@ export function createYangXiaoComponent() {
                 if (!yangxiao.state._xianJiFreePending) return;
                 yangxiao.state._xianJiFreePending = false;
                 yangxiao.state._acted = false;
-                if (data.log) pushSkillAnnounce(data.log, yangxiao, '先机', `👟 ${yangxiao.name}·先机：本次出手未消耗行动力，本回合仍可出手`, { floatText: '👟', floatUid: yangxiao.uid });
+                // 免费出手公告暂存到 state，下次出手由 core/209 unshift 到该击攻击组开头（跟那次出手同组，不会飘在两组之间）。
+                //   旧路径在 ON_UNIT_ACTED 里直接 log.push：公告出现在本击攻击组末尾之后，与下一击分隔符之间游离。
+                yangxiao.state._pendingAnnounce = {
+                    skillName: '先机',
+                    note: `👟 ${yangxiao.name}·先机：本次出手未消耗行动力，本回合仍可出手`,
+                    extra: { floatText: '👟', floatUid: yangxiao.uid }
+                };
             });
         }
     };

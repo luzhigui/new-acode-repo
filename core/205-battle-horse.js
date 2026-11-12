@@ -1,4 +1,5 @@
-export const VER = 'core/205-battle-horse.js V6.3.2';
+// V6.3.4 | 2026-11-12 巨马阵 noDestroy 保持回合末回查（撤销马身快照方案：跨回合旧马会残留强化）；query 增传 log 供 modules/302 推诊断 fact
+export const VER = 'core/205-battle-horse.js V6.3.4';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff } from './203-battle-utils.js';
@@ -23,7 +24,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     }
     let horsePos = available[0];
     let horse = new Unit('拒马', C.HORSE_M, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
-    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
+    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION, log);
     horse.atk = 0;
     // 拒马血量系数分档：按 50% 血量占位取档，唯一来源 02unit.getHpDmgRatio（原先此处硬编码 0.06）
     horse.state._hpDmgRatio = getHpDmgRatio(0.5);
@@ -88,8 +89,9 @@ export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
 
 // 拒马-销毁：回合结束概率消散拒马
 export function destroyHorse(allyTeam, log) {
-    // 姊强化·巨马阵 noDestroy：整局不消散
-    const horseEnh = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
+    // 姊强化·巨马阵 noDestroy：整局不消散。
+    //   log 传进 query 供诊断：拿不到强化时由 modules/302 推一条 fact 说明是哪一关断的。
+    const horseEnh = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION, log);
     if (horseEnh && horseEnh.noDestroy) return;
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;

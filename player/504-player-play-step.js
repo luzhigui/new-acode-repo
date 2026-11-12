@@ -228,5 +228,17 @@ export async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factI
     }
 
     c._lastLogType = lastEntryType;
+    // B 方案（2026-11-12）：SKILL_ANNOUNCE entry（pushSkillAnnounce 挂的 _entryFrozen）播完立即同步攻防血，
+    //   与 509 handleAttackGroup 内同款逻辑，覆盖「公告在攻击组外、走 504 单行播放」的路径。
+    if (c.store && entry && entry._entryFrozen && Array.isArray(entry._entryFrozen)) {
+        for (const f of entry._entryFrozen) {
+            if (!f || !f.uid) continue;
+            c.store.dispatch({
+                type: STORE_ACTION_TYPES.HP_CHANGE,
+                unitUid: f.uid,
+                payload: { atk: f.atk, def: f.def, maxHp: f.maxHp, hp: f.hp, alive: f.alive }
+            });
+        }
+    }
     return { isBattleOver: false };
 }

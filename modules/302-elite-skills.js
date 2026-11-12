@@ -2,7 +2,7 @@
 // 飞天落地回血先 previewHeal 预演再落账：文案/飘字取实际值，声明值只记审计。
 //   landHeal 提前算好写进 SPIDER_RETURN fact data（数值对照器声明侧；不落地记 0，与 addMod 同条件同值）。
 // V6.4.0 | 2026-11-09 飞行·猎杀成长去掉「只给明教」的阵营门槛：敌方飞行击杀我方同样涨攻/涨未命中， 其余排除原样保留（只算杀敌、杀者须存活且 role=FLYER）。
-export const VER = 'modules/302-elite-skills.js V6.4.1';
+export const VER = 'modules/302-elite-skills.js V6.4.2';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
@@ -319,13 +319,28 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
     return unit.state._permanentBuffs.some(b => b.key === buffKey);
 }
 
-export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
-    if (globalThis.MING_ABLATION?.noSisterHex) return null;   // 831 消融实验室：姊版海克斯整包关闭，消费方回落普通版
-    const xiaoZhao = findAlive(allyTeam, 'isXiaoZhaoSister');
-    if (!xiaoZhao) return null;
-    if (!hasBuff(activeBuffs, hexKey)) return null;
+export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey, log) {
+    // 诊断：每个返回 null 的分支都推一条 fact（只有调用方传了 log 才推，如 core/205 的生成/销毁两条链）。
+    //   下一次「姊拒马为什么消散」直接从战报看到断在哪一关。
+    const fail = (reason) => {
+        if (log) {
+            log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                unitName: '小昭·姊', unitUid: null, camp: null,
+                skillName: '海克斯增强', note: `🔎 姊强化未生效（${hexKey}）：${reason}`
+            } });
+        }
+        return null;
+    };
+    if (globalThis.MING_ABLATION?.noSisterHex) return fail('831 消融实验室关闭姊版海克斯');
+    // 判据放宽：存活，或正在附身（_butterflyHost 有值）。
+    //   附身中她仍在队伍、alive 正常；放宽是为覆盖「宿主/克隆边界下只剩附身标记、alive 已被置假」的瞬时态。
+    const xiaoZhao = findAlive(allyTeam, 'isXiaoZhaoSister')
+        || (allyTeam || []).find(u => u && u.isXiaoZhaoSister && u.state && u.state._butterflyHost);
+    if (!xiaoZhao) return fail('队伍里没有存活/附身中的小昭·姊');
+    if (!hasBuff(activeBuffs, hexKey)) return fail(`团队没有生效中的 ${hexKey} buff`);
     const s = requireSkillParams('小昭', 'hexEnhance');
-    return s[hexKey] || null;
+    if (!s[hexKey]) return fail('hexEnhance 数据缺该键');
+    return s[hexKey];
 }
 
 // 查询注册

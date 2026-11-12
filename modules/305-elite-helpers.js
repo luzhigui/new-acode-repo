@@ -1,7 +1,7 @@
 // modules/305-elite-helpers.js — 精英组件公共骨架（找人 / 缺参 / 血量广播 / 推 fact / 播报 / 职业加成 / 换职业）
 import { getRoleBonus } from '../core/202-unit.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
-import { addMod, refreshMaxHp, emitHpChange } from '../core/214-battle-shared.js';
+import { addMod, refreshMaxHp, emitHpChange, getStat } from '../core/214-battle-shared.js';
 // pushFact 实作已下移 infra/102（V6.1.6）：core 层也要推 fact，放 modules 层底层够不到。
 import { pushFact } from '../infra/102-core-utils.js';
 // UNIT_EVENT_TYPES 随 emitHpChange 下移 core/214 一并移除（本文件不再直接发事件）
@@ -17,9 +17,24 @@ export const VER = 'modules/305-elite-helpers.js V2.0.1';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。
 //   攻击组不存在（技能在组外触发）时静默跳过——行为与抽离前 5 份内联实现一致。
+// B 方案（2026-11-12）：每行 entry 带「时刻攻防血快照」（攻击者 + 目标），
+//   player/509 播到本行时立即同步 store，解「殷天正老当益壮加攻防，UI 直到组末才跳变」的视觉延迟。
 export function pushInfo(data, text) {
     if (data && data.group && data.group.data && data.group.data.entries) {
-        data.group.data.entries.push({ type: 'info', text });
+        const entry = { type: 'info', text };
+        const snap = [];
+        const trySnap = (u) => {
+            if (!u || !u.uid) return;
+            snap.push({
+                uid: u.uid,
+                atk: getStat(u, 'atk'), def: getStat(u, 'def'),
+                maxHp: getStat(u, 'maxHp'), hp: u.hp, alive: u.alive
+            });
+        };
+        trySnap(data.unit);
+        if (data.target && (!data.unit || data.target.uid !== data.unit.uid)) trySnap(data.target);
+        if (snap.length > 0) entry._entryFrozen = snap;
+        data.group.data.entries.push(entry);
     }
 }
 
@@ -106,7 +121,7 @@ const SKILL_LABELS = {
 
 export function pushSkillAnnounce(log, unit, skillName, note, extra) {
     if (!log || !unit) return;
-    log.push({
+    const item = {
         factType: FACT_TYPES.SKILL_ANNOUNCE,
         data: {
             unitName: unit.name,
@@ -117,5 +132,15 @@ export function pushSkillAnnounce(log, unit, skillName, note, extra) {
             note,
             ...(extra || {})
         }
-    });
+    };
+    // B 方案：公告也挂时刻快照（有些机制只走 pushSkillAnnounce 不走 pushInfo，如鹰王威压飘字）。
+    //   line:false 的公告不落行，fact 走 null 分支跳过播放，_entryFrozen 也不会被消费，无害。
+    if (unit.uid) {
+        item._entryFrozen = [{
+            uid: unit.uid,
+            atk: getStat(unit, 'atk'), def: getStat(unit, 'def'),
+            maxHp: getStat(unit, 'maxHp'), hp: unit.hp, alive: unit.alive
+        }];
+    }
+    log.push(item);
 }

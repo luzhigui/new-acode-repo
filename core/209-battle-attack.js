@@ -448,6 +448,20 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     const group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, { log, A, B, state, doubleStrikeUnitUid }, phantomFact);
 
+    // 组内报幕（模块 BEFORE_ACTION_SELECT / ON_UNIT_ACTED 暂存到 unit.state._pendingAnnounce）：
+    //   unshift 到本击攻击组开头，跟本击一起播放，不再游离在「上一击尾巴」与「本击分隔符」之间。
+    //   典型症状：杨逍「先机」公告读起来像上一击触发的。render/407 的 leadEntries 同款 unshift 逻辑，
+    //   这里是第一道，让 fact 序跟日志视觉序对齐。
+    if (unit.state && unit.state._pendingAnnounce) {
+        const pa = unit.state._pendingAnnounce;
+        unit.state._pendingAnnounce = null;
+        group.data.entries.unshift({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+            unitName: unit.name, unitUid: unit.uid, camp: unit.camp,
+            skillName: pa.skillName, note: pa.note,
+            ...(pa.extra || {})
+        } });
+    }
+
     log.push(group);
 
     // 组内静默回血补账：扫本轮新增的 HP_CHANGE 事件，血涨且组内没有该 uid 的回血行 → 补一条带账字段的日志行。

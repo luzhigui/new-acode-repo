@@ -98,25 +98,9 @@ export const chainClawHandler = {
             const { unit, target, dmg, log, allySide, enemySide } = data;
             if (!unit || unit.name !== decl.name) return;
             if (!target || !target.alive) return;
-            // 免疫白骨爪（庄铮·断锤形态）：第一爪演一个 0 伤害，链直接断。
-            //   照常演（有飘字、有动画）表示"抓不穿"；链断掉是避免一直 0 伤害刷屏。
-            if (target.state && target.state._immuneClaw) {
-                if (data.declarations) {
-                    data.declarations.push({
-                        type: EFFECT_TYPES.CLAW_CHAIN,
-                        source: unit,
-                        target,
-                        hits: [{
-                            dmg: 0,
-                            factType: FACT_TYPES.CLAW_HIT,
-                            data: { unitName: unit.name, targetName: target.name, dmg: 0, isExecute: false, jealous: false, depth: 0, hpAfter: target.hp, targetUid: target.uid },
-                            isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: false
-                        }],
-                        execute: null
-                    });
-                }
-                return;
-            }
+            // 免疫白骨爪（庄铮·断锤形态）：2026-11-12 老板拍板改「爪子可造成 1 点」——链不再一刀断，
+            //   每爪 1 点，5 点血的庄铮被连续 5 爪打死（_dmgCap=1 在 core/217 自动截每爪伤害到 1 点）。
+            //   旧版演 0 伤害 + 链断，观感像「抓不穿 / 爪子对无敌无效」。
             const rng = getBattleRng();
             const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
             const baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg;

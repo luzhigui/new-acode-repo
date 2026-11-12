@@ -296,7 +296,7 @@ export const AudioManager = {
     },
 
     fadeTo(targetVol, durationMs) {
-        const vv = Math.max(0, Math.min(1, targetVol));
+        const vv = Math.max(0, Math.min(1, targetVol * this._currentBoost()));
         if (_isHttp) {
             if (!_bgmGain) return;
             try {
@@ -354,7 +354,7 @@ export const AudioManager = {
                 _bgmGain = ctx.createGain();
                 _bgmGain.connect(ctx.destination);
             }
-            _bgmGain.gain.setValueAtTime(this._userVol(), ctx.currentTime);
+            _bgmGain.gain.setValueAtTime(Math.min(1, this._userVol() * this._currentBoost()), ctx.currentTime);
             const src = ctx.createBufferSource();
             src.buffer = buf;
             src.loop = false;
@@ -439,6 +439,14 @@ export const AudioManager = {
                 playLionRoar(this.sfxVolume);
             }
         } catch (e) {}
+    },
+
+    // 当前曲目的音量倍率（读 CONFIG.BGM_TRACKS 里该曲目 volBoost，缺省 1.0）。
+    //   醉春风(sfx_xinai) 源文件本身响度低，用 volBoost 补偿，不改源文件。
+    _currentBoost() {
+        const tracks = CONFIG.BGM_TRACKS || [];
+        const t = tracks.find(x => x.id === this.currentBgmId);
+        return (t && typeof t.volBoost === 'number') ? t.volBoost : 1.0;
     },
 
     playSfx(role, opts) {

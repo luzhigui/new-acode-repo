@@ -745,11 +745,13 @@ export function resumePlay() {
 export async function fastForward() {
     if (!S.active) return;
     cancelRun();
+    const mySteps = S.steps;             // 记住自己这一份回看（数组身份＝会话身份）
     S.busy = true;
     try {
         setReviewSilent(ctx(), true);   // 定位：后台算到底，中途零特效、零逐帧渲染
         GlobalStore.set('isPaused', true);
         await sleep(30);   // 给被取消的播放一点时间退出来
+        if (S.steps !== mySteps) return;   // 回看已被换掉（取消/重开）就整体收手，不再碰画面与日志
         const from = S.stepIdx;
         const last = S.steps.length - 1;
         const span = last - from;
@@ -762,6 +764,6 @@ export async function fastForward() {
     } finally {
         S.busy = false;
         // 到底后必须真暂停（不能 resume）：画面钉住，点主按钮「继续」才恢复推进
-        exitReview({ resume: false });
+        if (S.steps === mySteps) exitReview({ resume: false });   // 期间新开的那一回看不被这尾巴一起退掉
     }
 }

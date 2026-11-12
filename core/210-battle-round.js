@@ -341,6 +341,7 @@ function prepareRoundStart(A, B, state, ctx) {
     // 召唤物优先级：雄鹰(carry) > 众志成城补员 > 巨马(拒马)。必须保证雄鹰先占 5 号位，防被其他召唤物挤占。
     prepareRoundSpawns(A, B, state, ctx);
     const ds = spawnHorsesAndPickDoubleStrike(A, B, state, ctx);
+    if (globalThis.__DBG_DOUBLE_STRIKE) console.log('[dbg] ds =', ds && ds.unitUids, ds && ds.enemyUids);
     const { roundComps } = installRoundMechanics(A, B, state, ctx, ds);
     linkPartners(A, B);
     prepareSoulDrain(A, B, ctx);
@@ -471,8 +472,11 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
-            // 连击宿主（明教被选中者 / 拥有永久连击的妹妹）无视遮挡，强行参战
-            const isDoubleStrikeHost = (Array.isArray(doubleStrikeUnitUids) && doubleStrikeUnitUids.includes(u.uid)) || (u.state && u.state._permanentBuffs && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE));
+            // 连击宿主无视遮挡，强行参战。
+            //   必须按单位阵营取对应数组——旧版只查 doubleStrikeUnitUids（明教的），
+            //   六大派连击持有者（enemyDoubleStrikeUids）被遮挡时照样走 pass（周芷若实锤）。
+            const myHostUids = u.camp === CAMP_TYPES.ALLY ? doubleStrikeUnitUids : enemyDoubleStrikeUids;
+            const isDoubleStrikeHost = (Array.isArray(myHostUids) && myHostUids.includes(u.uid)) || (u.state && u.state._permanentBuffs && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE));
             
             // 嗜血狂刀宿主：只要有团队版，或者妹妹永久版，且自身是战士，同样无视遮挡
             const teamBuffs = fullAllySide._activeBuffs || [];

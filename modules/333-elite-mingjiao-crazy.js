@@ -2,7 +2,7 @@
 // 规则：初始携带「癫」，攻击随机不分敌友，命中后传给被打者；
 // 死亡时传给攻击者，找不到给周颠，周颠死了随机传。
 // 带「癫」时：必中，且无视目标闪避（从而不会触发闪避反击）。
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.2';
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.3';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -103,7 +103,8 @@ export const crazyHandler = {
             handler: (data) => {
                 const unit = data.unit;
                 if (!unit || !unit.alive || !unit.state._isCrazy) return;
-                if (data.log) pushSkillAnnounce(data.log, unit, '癫', crazyAttackNote(unit, data.target), { floatText: '🤪', floatUid: unit.uid });
+                // 免疫分支不建攻击组，公告无组可依；打分隔线让它自成一段（同 337 断锤公告）。
+                if (data.log) pushSkillAnnounce(data.log, unit, '癫', crazyAttackNote(unit, data.target), { floatText: '🤪', floatUid: unit.uid, needsSeparator: true });
             }
         });
 

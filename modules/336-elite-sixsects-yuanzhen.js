@@ -75,6 +75,18 @@ export const yuanzhenRevealHandler = {
         const self = selfTeam.find(u => u.alive && u.name === decl.name);
         if (!self) return;
 
+        // 已现形：本回合机制声明必须在「攻击开始前」装好（阶段4 clearAll 之后）。
+        //   原先只靠下面 ON_ROUND_START 钩子重装，一旦钩子没轮到/被 clearAll 清掉，
+        //   混元霹雳劲与幻影伪装就整局静默失效（实测现形后日志既无混元也无回血）。
+        //   这里直装一次做保底：phase4 早于攻击循环，装了就能用；钩子里再装是幂等的。
+        if (self.state._yuanzhenRevealed) {
+            try {
+                installChengkunPackage(eventBus, A, B, null, self);
+            } catch (e) {
+                console.error('[336] 成昆包安装失败：', e && e.message ? e.message : e);
+            }
+        }
+
         const params = requireSkillParams(decl.name, 'yuanzhenReveal');
         const openChance = params.openChance;
         const hitChance = params.hitChance;
@@ -85,10 +97,7 @@ export const yuanzhenRevealHandler = {
             priority: L.ROUND_START.XIE_SUMMON + 2,
             handler: (data) => {
                 if (!self.alive) return;
-                if (self.state._yuanzhenRevealed) {
-                    installChengkunPackage(eventBus, A, B, data.log, self);
-                    return;
-                }
+                if (self.state._yuanzhenRevealed) return;   // 每回合重装已上移到 install()，这里再装会重复挂混元（伤害翻倍）
                 if (!self.state._yuanzhenOpenRolled) {
                     self.state._yuanzhenOpenRolled = true;
                     if (getBattleRng().next() < openChance) reveal(eventBus, data.A, data.B, data.log, self);

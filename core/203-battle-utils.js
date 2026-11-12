@@ -363,11 +363,27 @@ export function registerFortifyShield(eventBus) {
 }
 
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUids, allyTeam, activeBuffs) {
-    if (!Array.isArray(doubleStrikeUnitUids) || doubleStrikeUnitUids.length === 0) return;
+    if (!Array.isArray(doubleStrikeUnitUids) || doubleStrikeUnitUids.length === 0) {
+        if (globalThis.__DBG_DOUBLE_STRIKE) console.log('[dbg] registerDoubleStrike 空数组，未注册', doubleStrikeUnitUids);
+        return;
+    }
+    if (globalThis.__DBG_DOUBLE_STRIKE) console.log('[dbg] registerDoubleStrike 注册', doubleStrikeUnitUids, '我方人数', allyTeam && allyTeam.length);
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
+        if (globalThis.__DBG_DOUBLE_STRIKE) {
+            console.log('[dbg] 双击 handler 触发', unit && unit.name, 'uid=', unit && unit.uid,
+                'matched=', doubleStrikeUnitUids.includes(unit && unit.uid),
+                'alive=', unit && unit.alive, '_doubleStriked=', unit && unit.state && unit.state._doubleStriked);
+        }
         // 连击转移：若轮盘选中的两人中有姊，而她已经蝶变附身，则连击归宿主（此时宿主、姊、另一人共3人触发）。
         let matched = doubleStrikeUnitUids.includes(unit.uid);
+        // 永久连击（团队版/妹永久）不走轮盘，uid 数组里没有他，但 core/210 的绕遮挡判据
+        //   已按 _permanentBuffs 认他作「连击持有者」→ 格子挂 ⚡、能绕遮挡，却在这里静默 matched=false，
+        //   表现为「有 ⚡ 但既不成功也不失败」。这里补认永久 buff，与绕遮挡口径对齐。
+        if (!matched && unit.state && Array.isArray(unit.state._permanentBuffs)
+            && unit.state._permanentBuffs.some(b => b && b.key === BUFF_TYPES.DOUBLE_STRIKE)) {
+            matched = true;
+        }
         if (!matched) {
             const sis = allyTeam.find(u => doubleStrikeUnitUids.includes(u.uid) && u.isXiaoZhaoSister);
             if (sis && sis.state._butterflyHost === unit.uid) {

@@ -141,12 +141,17 @@ export function installFromGameData(eventBus, A, B, log, gameData) {
 
 function submitLowestHpTarget(data, decl) {
     if (data.unit.name !== decl.name) return;
+    // 尊重更高优先级（数字更小）的 handler 已设的结果：癫（priority 1）已随机选好一个，
+    //   此时 lowestHp（priority 20）不该覆盖成「血最少的敌人」——韦一笑中了癫就该不分敌友随机打。
+    if (data.declaration.targetResult) return;
     const sorted = [...data.validTargets].sort((a, b) => a.hp - b.hp);
     if (sorted[0]) data.declaration.targetResult = sorted[0];
 }
 
 function submitHighestHpPctTarget(data, decl) {
     if (data.unit.name !== decl.name) return;
+    // 同上：癫已抢先选中的，不覆盖（宋青书中癫同理）。
+    if (data.declaration.targetResult) return;
     // 百分比并列改随机：原 reduce 平局取末位，而拒马/幼狮恒满血又 push 在队尾，
     //   宋青书整局只会盯着召唤物打。改为先取最高百分比，再从并列者里随机挑。
     let best = -Infinity;

@@ -457,7 +457,11 @@ export function initBattleTeams(currentStage, _rng) {
     };
     const stageAllows = (name) => {
         const from = eliteFirstStage.get(name);
-        if (from != null && currentStage < from) return false;
+        // 有专属固定关的精英一律不通过额外混入——「关卡专属」是设计（张三丰=第2关 boss、灭绝=第7关），
+        //   首现关之后乱入会破坏专属感（第3关出张三丰实锤）。
+        //   副作用：M107 池（张三丰/宋青书/周芷若/胖远桥/灭绝师太）全部有专属关，该档混入暂时全部作废；
+        //   未来加「无专属关」的 M107 精英时自动生效，不需要再改这里。
+        if (from != null) return false;
         // 名字属于该关变体池 → 额外混入一律拒绝。
         //   当前变体里已有的名字会被 usedEnemyNames 去重拦掉，走到这的必是「另一个变体的人」。
         if (variantPoolNames.has(name)) return false;

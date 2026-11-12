@@ -1,6 +1,7 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
 // V1.0.4 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.4';
+// V1.0.6 | 2026-11-12 断锤公告带 needsSeparator（免疫分支公告自成一段）；上限锁改绝对值字段 _maxHpLock（carry 结束后回到 5，不再被差值词条夹到 1）
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.6';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -34,7 +35,15 @@ export const duanChuiHandler = {
                 if (data.target !== self || !self.alive) return;
                 if (self.state._duanChuiTriggered) return;
                 if (self.hp - data.dmg > 0) return;
-                applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
+                // 2026-11-12 老板拍板：触发瞬间 maxHp 锁到 keepHp（5 点），面板显示 5/5，而不是 5/162。
+                //   上限锁走绝对值字段（core/214 getStat 直接返回），不写差值 add 词条：
+                //   差值会把锁定时生效的 ttl:'round' 词条（carry 的 +maxHp 等）算进去，
+                //   回合末清临时词条后 base+差值 落到负数、被 refreshMaxHp 夹到 1 —— 就是「carry 结束后没回到 5」。
+                //   绝对值锁无视词条增删，carry 在不在都恒等于 keepHp。
+                //   refreshMaxHp 的等比缩会把 hp 按 (5/原上限) 缩到 <5，随后再拉一次到 keepHp——两步顺序不能反。
+                self.state._maxHpLock = keepHp;
+                refreshMaxHp(self, null, '断锤三式·锁血');
+                if (self.hp < keepHp) applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
                 self.state._duanChuiTriggered = true;
                 self.state._dmgCap = cap;
                 // 断锤形态整套免疫（2026-11-11 老板拍板）：
@@ -66,7 +75,9 @@ export const duanChuiHandler = {
                 const halveCue = (self.pos != null && n > 0)
                     ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
                     : null;
-                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${fmtNum(n)}）！`, { cue: halveCue });
+                // needsSeparator：免疫分支不建攻击组，公告没有组可依。打分隔线让它自成一段——
+                //   否则它会卡在「上一击攻击组尾巴」与「下一击分隔符」之间，读起来像上一击触发的。
+                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${fmtNum(n)}）！`, { cue: halveCue, needsSeparator: true });
                 data.declarations.push({ immune: true, reason: `🔨 断锤三式：${self.name} 屹立不倒` });
             }
         });
@@ -88,7 +99,16 @@ export const duanChuiHandler = {
                 self.state._linkReason = 'counterAttack';
                 self.state._acted = false;   // 已行动过也要能反手（被动出手不消耗行动权）
                 try {
-                    processUnitAttack(self, myTeam, foeTeam, data.log, data.A, data.B, data.state, null, attacker.uid);
+                    // 返回 false = 没产出攻击组（已死/受控/飞天/锁定目标不可选），日志里就会“免疫公告后直接跳下一击”。
+                    //   只在失败时告警，正常运行零噪音，便于下次复现时一眼看出是哪条 early-return。
+                    const ok = processUnitAttack(self, myTeam, foeTeam, data.log, data.A, data.B, data.state, null, attacker.uid);
+                    if (!ok) {
+                        console.warn('[337] 断锤反击未产出：',
+                            'self.alive=' + self.alive, 'hp=' + self.hp,
+                            '_pendingDeath=' + self.state._pendingDeath,
+                            'attacker=' + attacker.name, 'attacker.alive=' + attacker.alive,
+                            'attacker._pendingDeath=' + attacker.state._pendingDeath);
+                    }
                 } finally {
                     self.state._isLinkAttack = false;
                     self.state._linkReason = null;

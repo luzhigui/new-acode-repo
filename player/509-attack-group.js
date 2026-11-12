@@ -81,6 +81,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             console.warn('[handleAttackGroup] 跳过无法渲染的日志条目（缺 text）:', entry2);
             continue;
         }
+        // B 方案（2026-11-12）：每条 entry 播完立即同步它携带的攻防血快照（pushInfo 挂到 entry._entryFrozen）。
+        //   try/finally 保证各分支的 continue 也走 dispatch——不这么写就得在每个 continue 前各补一段，
+        //   将来加分支容易漏。
+        try {
         const logLevel = getState.logLevel();
         if (logLevel === 'brief' && entry2.type === 'detail') { renderStaticLogEntry(entry2); continue; }
 
@@ -192,6 +196,21 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const hasFx = Array.isArray(entry2.fx) && entry2.fx.length > 0;
             const gap = getPerfParam(hasFx ? 'lineGapFx' : 'lineGap', GlobalStore.get('speed') || 300) || (hasFx ? 280 : 30);
             await clock.waitReal(gap);
+        }
+        } finally {
+            // B 方案：本 entry 携带的时刻攻防血快照，播完立即同步 store。
+            //   放 finally 是因为 try 体内有 4 个 continue（brief-detail 折叠 / damage-text / info-detail / 正常行），
+            //   每个 continue 都会跳过后续代码直接下一轮，finally 保证它们也都走 dispatch。
+            if (c.store && entry2._entryFrozen && Array.isArray(entry2._entryFrozen)) {
+                for (const f of entry2._entryFrozen) {
+                    if (!f || !f.uid) continue;
+                    c.store.dispatch({
+                        type: STORE_ACTION_TYPES.HP_CHANGE,
+                        unitUid: f.uid,
+                        payload: { atk: f.atk, def: f.def, maxHp: f.maxHp, hp: f.hp, alive: f.alive }
+                    });
+                }
+            }
         }
     }
 
