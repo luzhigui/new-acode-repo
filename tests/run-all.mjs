@@ -1,3 +1,9 @@
+// V1.53.0 | 2026-11-12 迭代：挂「静态入口解耦守门」tests/static-entry-guard.mjs（新建 V1.0.0）。
+//   由头：手机端实测「快速静态体检点了卡住」——按钮绑在 initMonitor() 里，而 121 顶层
+//   await 160 个规则模块，静态扫描另需 fetch 175 个文件；动态跑 2-7 关只报 1 个问题，
+//   但日志里能看出十几处不对 —— 报告只把 issues 当问题数，规则大面积 skip 不显形。
+//   本轮把静态体检拆到独立模块 123static-entry.js（不 import 121）、报告加 coverage 口径，
+//   本守门把两条修法固化成机器约束。挂 OBSERVES + hard:true，不改 CHECKS 分母与退码口径。
 // V1.50.0 | 2026-11-10 迭代：挂「多会话文件所有权守门」tests/session-scope-guard.mjs（新建 V1.0.0）。
 //   多会话并行时最难的不是 AI 能力，而是「公共层由框架会话单写」只是文字约定、没有机器可验；
 //   本仓已三次出事（改动被覆盖回退 / 全量入库扫入临时件 / 夜间合并冲突全落公共文件）。
@@ -239,7 +245,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.52.0';
+export const VER = 'tests/run-all.mjs V1.53.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -563,7 +569,9 @@ const OBSERVES = [
     // V1.52.0 | 2026-11-11 夜间第 207 轮：飞天三档跨档判定守卫（详见头顶 V1.52.0 日志行）。
     //   只做机械静态判定（内容表阈值 + 主代码判定序列 + 合成穷举），不改主代码。
     //   exit 2 = 守卫自身前提失效（找不到 decideSpiderTier / 内容表缺参数），按「守卫坏了」处理。
-    { name: '飞天三档跨档判定守卫', script: 'tests/spider-tier-leap-guard.mjs', args: [], hard: true }
+    { name: '飞天三档跨档判定守卫', script: 'tests/spider-tier-leap-guard.mjs', args: [], hard: true },
+    // V1.53.0 | 2026-11-12：静态体检入口不得依赖运行时规则装载 / 报告必须显形覆盖缺口。
+    { name: '静态入口解耦守门', script: 'tests/static-entry-guard.mjs', args: [], hard: true }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。

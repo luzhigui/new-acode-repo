@@ -1,5 +1,9 @@
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.12.1';
+// V6.13.0 | 2026-11-12 迭代：① 快速静态体检拆到独立模块 tests/123static-entry.js
+//   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
+//   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
+//     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
+export const VER = 'tests/121health-monitor.js V6.13.0';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -23,7 +27,6 @@ export const VER = 'tests/121health-monitor.js V6.12.1';
 //           体检无人值守局的胜率/阵容与玩家实打完全不同源，混进生涯记录会把英雄/海克斯统计全部带歪。
 //           游戏就绪时在 iframe 的 GlobalStore 上置真（会话期常驻），52 写库前读到即跳过；正常对局（顶层窗口）无此标记、照常记录。
 
-import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
 import { collectFacts } from './_lib/fact-collect.mjs';
 // ── 规则装载表（第 196 轮改造：静态 import → 动态 import 表 + 逐条容错）────────────────────
@@ -385,7 +388,6 @@ export async function initMonitor() {
     const backBtn = document.getElementById('btnBackToGame');
     const modeOverlay = document.getElementById('healthModeOverlay');
     const btnModeLive = document.getElementById('btnModeLive');
-    const btnModeStatic = document.getElementById('btnModeStatic');
     const btnModeCancel = document.getElementById('btnModeCancel');
     statusLine = document.getElementById('statusLine');
 
@@ -415,24 +417,9 @@ export async function initMonitor() {
             btnStartMonitor.click();
         }
     });
-    // ⚡ 快速静态体检：不跑游戏，fetch 核心文件做结构性扫描，结果渲染进报告区
-    if (btnModeStatic) btnModeStatic.addEventListener('click', async () => {
-        hideModeOverlay();
-        const STATIC_TITLE = '⚡ 快速静态体检（不跑游戏）';
-        reportArea.classList.add('active'); gameArea.classList.remove('active');
-        backBtn.style.display = 'inline-block';
-        reportArea.innerHTML = '<div class="report-group" style="color:#2196f3;">' + STATIC_TITLE + ' 扫描中…</div>';
-        reportArea.scrollTop = 0;
-        statusLine.textContent = '静态体检扫描中…（fetch 核心文件）';
-        try {
-            const result = await runStaticScan();
-            renderStaticReport(result, STATIC_TITLE);
-            statusLine.textContent = '静态体检完成 ✅ ' + result.files + '个文件 ' + result.elapsedMs + 'ms';
-        } catch (e) {
-            reportArea.innerHTML = '<div class="report-group report-fail">静态体检异常：' + (e.message || e) + '</div>';
-            statusLine.textContent = '静态体检失败';
-        }
-    });
+    // V6.13.0 | 2026-11-12：⚡ 快速静态体检已拆到独立模块 tests/123static-entry.js，
+    //   由 120test-runner.html 在 await initMonitor() 之前绑定（不等 160 个规则模块）。
+    //   此处不再绑定，避免双绑定跑两遍；btnModeStatic 变量一并移除。
     if (btnModeCancel) btnModeCancel.addEventListener('click', () => {
         hideModeOverlay();
         if (!monitorActive && !gameLoaded) {
@@ -1142,42 +1129,7 @@ function hookRuntimeErrors(win) {
 }
 
 // 静态体检报告渲染
-// 渲染 runStaticScan() 的结构化结果到报告区（不跑游戏，直接展示结构问题）
-function renderStaticReport(result, title) {
-    if (reportArea) reportArea.innerHTML = '';
-    const head = document.createElement('div');
-    head.className = 'report-group';
-    head.style.color = '#2196f3';
-    head.textContent = title + ' — ' + result.files + '个文件 ' + result.elapsedMs + 'ms';
-    reportArea.appendChild(head);
-
-    const slots = result.slots ? Object.values(result.slots) : [];
-    let totalIssues = 0;
-    for (const slot of slots) {
-        const issues = (slot && slot.issues) || [];
-        totalIssues += issues.length;
-        const g = document.createElement('div');
-        g.className = 'report-group';
-        g.textContent = '▪ ' + slot.name + '（' + issues.length + '）';
-        reportArea.appendChild(g);
-        if (issues.length === 0) {
-            const pass = document.createElement('div');
-            pass.className = 'report-line report-pass';
-            pass.textContent = '✅ 通过';
-            reportArea.appendChild(pass);
-        } else {
-            issues.forEach(msg => {
-                const line = document.createElement('div');
-                line.className = 'report-line report-fail';
-                line.textContent = '❌ ' + msg;
-                reportArea.appendChild(line);
-            });
-        }
-    }
-    const staticBackBtn = document.getElementById('btnBackToGame');
-    if (staticBackBtn) staticBackBtn.style.display = 'inline-block';
-    reportArea.scrollTop = 0;
-}
+// V6.13.0：静态报告渲染已迁至 tests/123static-entry.js（renderStaticReport），此处不再留第二份实现。
 
 function updateStatusLine() {
     if (!statusLine) return;
@@ -1198,7 +1150,15 @@ function updateReport() {
         const metaDiv = document.createElement('div');
         metaDiv.style.cssText = 'color:#9c8cff;font-size:11px;padding:6px 8px;border:1px solid #9c8cff;border-radius:6px;margin-bottom:8px;background:rgba(156,140,255,0.08);';
         const _hexLabel = (hexModeResolved === 'dual') ? '双海克斯' : '单海克斯';
-        metaDiv.textContent = '🕒 体检时间：' + runTime + ' ｜ 模式：' + _hexLabel + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + detectedIssues.length + ' 项';
+        // V6.13.0：把「没触发」显形出来。旧版只报异常数，规则大面积 skip 时看起来像「代码没问题」，
+        //   用户实测动态跑 2-7 关只报 1 个问题、却能从日志里看出十几处不对 ⇒ 报告口径把覆盖缺口藏了。
+        const _executed = rulePassCount + ruleSkipCount;
+        const _skipRate = _executed ? Math.round(ruleSkipCount / _executed * 100) : 100;
+        const _coverNote = (_executed < RULE_MODULES.length || _skipRate >= 50)
+            ? ' ｜ ⚠ 覆盖不足：在册 ' + RULE_MODULES.length + ' 条，实际执行 ' + _executed
+              + ' 条，其中 ' + ruleSkipCount + ' 条未触发（' + _skipRate + '%）⇒ 本次结论不代表没有问题'
+            : ' ｜ 覆盖：执行 ' + _executed + ' 条 / 未触发 ' + ruleSkipCount + ' 条（' + _skipRate + '%）';
+        metaDiv.textContent = '🕒 体检时间：' + runTime + ' ｜ 模式：' + _hexLabel + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + detectedIssues.length + ' 项' + _coverNote;
         reportArea.appendChild(metaDiv);
     } catch (e) {}
     const order = { '手动': 0, '规则': 1, '引擎': 2, 'UI': 3 };
@@ -1327,6 +1287,20 @@ function finalizeAutoReport(ctx, doc, reason) {
             ruleSkip: ruleSkipCount,
             rulePassNames: [...rulePassNames],
             ruleSkippedNames: [...ruleSkipNames],
+            // V6.13.0：机器可读的覆盖口径，供 health_auto_check.py 与后续守门判断「是不是没覆盖到」。
+            coverage: {
+                registered: RULE_MODULES.length,
+                missing: MISSING_RULE_MODULES.length,
+                executed: rulePassCount + ruleSkipCount,
+                pass: rulePassCount,
+                skip: ruleSkipCount,
+                skipRate: (rulePassCount + ruleSkipCount) ? Math.round(ruleSkipCount / (rulePassCount + ruleSkipCount) * 100) : 100,
+                issues: finalIssues.length,
+                verdict: ((rulePassCount + ruleSkipCount) < RULE_MODULES.length
+                    || (rulePassCount + ruleSkipCount) === 0
+                    || ruleSkipCount / Math.max(1, rulePassCount + ruleSkipCount) >= 0.5)
+                    ? 'COVERAGE_GAP' : 'OK'
+            },
             factContractWarns: contractList
         };
         window.__healthResult = report;

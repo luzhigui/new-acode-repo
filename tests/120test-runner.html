@@ -62,16 +62,12 @@
         <div id="statusLine">等待启动...</div>
     </div>
     <script type="module">
-        import { initMonitor } from './121health-monitor.js';
-        // 第 196 轮：initMonitor 改 async（规则改为表驱动动态 import，须等装载完成再绑 UI），
-        // 必须 await；不 await 会抛「装载未完成就调用」而整页静默不动。
-        await initMonitor();
-
-        // 🏥 体检入口：打开体检模式 2 级菜单（实时跟跑 / 快速静态体检 / 快速跑完 / 按规则体检）
+        // ★ V6.13.0 | 2026-11-12：静态体检与菜单按钮**先绑、不依赖运行时规则装载**。
+        //   旧版静态 import 121 ⇒ 模块顶层 await 160 个规则 import 全部回来才求值，手机端就是「点了没反应」。
+        //   改为：先绑菜单/静态/快跑三个按钮，再用动态 import 加载 121 并 await initMonitor()。
         document.getElementById('btnAutoRun').addEventListener('click', () => {
             document.getElementById('healthModeOverlay').style.display = 'flex';
         });
-        // 🚀 快速跑完：一键进入自动后台模式（快进+目标关+报告），无需任何终端命令
         document.getElementById('btnModeAuto').addEventListener('click', () => {
             const url = new URL(window.location.href);
             url.searchParams.set('auto', '1');
@@ -81,6 +77,23 @@
             if (!url.searchParams.get('speed')) url.searchParams.set('speed', '300');
             window.location.href = url.href;
         });
+        // ⚡ 快速静态体检：走独立模块（只依赖 123static-scan.js），不等任何规则模块。
+        document.getElementById('btnModeStatic').addEventListener('click', async () => {
+            const { runQuickStatic } = await import('./123static-entry.js');
+            await runQuickStatic();
+        });
+        // 依赖运行时规则的按钮先置灰，装载完成后由下方恢复，避免「点了没反应」。
+        const pendingBtns = ['btnModeLive', 'btnModeRecipe', 'btnModeCancel']
+            .map(id => document.getElementById(id)).filter(Boolean);
+        pendingBtns.forEach(b => { b.disabled = true; });
+        const statusPending = document.getElementById('statusLine');
+        if (statusPending) statusPending.textContent = '规则装载中（160 条）… ⚡ 静态体检可先跑';
+
+        // 第 196 轮：initMonitor 改 async（规则改为表驱动动态 import，须等装载完成再绑 UI），
+        // 必须 await；不 await 会抛「装载未完成就调用」而整页静默不动。
+        const { initMonitor } = await import('./121health-monitor.js');
+        await initMonitor();
+        pendingBtns.forEach(b => { b.disabled = false; });
         </script>
 <!-- 手动记录弹窗 -->
 <div id="healthManualOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:99999;">

@@ -1,3 +1,6 @@
+// V6.0.69 | 2026-11-12 补登静态体检解耦两件：tests/123static-entry.js（浏览器页运行时要动态
+//           import，漏登则手机上点静态体检 404）、tests/static-entry-guard.mjs（已挂 run-all
+//           OBSERVES）。包内容不变，仅补登。
 // V6.0.68 | 2026-11-12 工作区清理（零引用大件归档，包内容不变）：
 //           ① ARCHIVE_FILES 追加 archive/141voice-commentary-demo.html（830 KB）与
 //              archive/142voice-audition.html（1.5 MB）——原在 tests/，全库零引用、不在打包清单；
@@ -9,7 +12,7 @@
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.68';
+export const VER = 'tools/806-ai-pack-config.js V6.0.69';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -221,6 +224,8 @@ export const ALL_PROJECT_FILES = [
     // tests（体检规则与自动测试）
     '../tests/120test-runner.html', '../tests/121health-monitor.js', '../tests/122health-utils.js',
     '../tests/123static-scan.js', '../tests/124rule-recipes.js',
+    // 2026-11-12：静态体检独立入口 + 解耦守门（手机端不依赖 160 个运行时规则模块）
+    '../tests/123static-entry.js', '../tests/static-entry-guard.mjs',
     '../tests/health-rules/123-claw-heal-spam.js',
     '../tests/health-rules/124-aftermiss.js',
     '../tests/health-rules/125-fortify-timing.js',
