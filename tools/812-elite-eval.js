@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.9.0';
+export const VER = 'tools/812-elite-eval.js V3.10.0';
+// V3.10.0 | 2026-11-12 打开页面自动显示上次结果：载入逻辑抽成 applySnap()，页面初始化时直接渲染
+//   最近一条可渲染快照（不必手动选历史、不必重跑）；顺带把下拉选中项同步到该条。
 // V3.9.0 | 2026-11-11 弱精英评测拆到 tools/846-weak-elite-eval.js 独立页签（802「🐦 弱精英评测」）：
 //   本文件的 weak 表 / 监听 / 渲染 / 快照分支全部移除，只留主表 + 强精英 + Boss + 无精英四张表；
 //   旧快照里仍可能带 parts.weak，载入时安静跳过；历史快照下拉只列含本工具可渲染表的条目
@@ -187,18 +189,26 @@ snapSaveBtn.addEventListener('click', () => {
     snapStatusEl.textContent = saveSnap(['elite', 'solo', 'boss', 'none']).msg;
 });
 
-snapLoadBtn.addEventListener('click', () => {
-    const rec = readSnaps().find(s => s.id === snapSelect.value);
-    if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
+// 载入一条快照到页面（按钮和「打开页面自动恢复」共用）
+function applySnap(rec, auto) {
+    if (!rec) return false;
     const p = rec.parts;
     // V3.7.0：载入时若这份快照跨版本混榜，提示条里明说，避免拿混版本的表直接横比
     const label = snapLabel(rec) + (snapVerMixed(rec) ? '｜⚠️版本不一致，跨版本胜率不能直接比' : '');
-    if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `📂 已载入历史快照 ${label}`; }
-    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
-    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE, p.boss); bossProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
-    if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `📂 已载入历史快照 ${label}`; }
+    let loaded = 0;
+    if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
+    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
+    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE, p.boss); bossProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
+    if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
     // V3.9.0：旧快照里可能带 parts.weak（弱精英已拆到 846），这里直接跳过，不报错
-    snapStatusEl.textContent = `📂 已载入 ${label}`;
+    snapStatusEl.textContent = auto ? `📂 已自动显示上次结果 ${label}（想刷新就重新跑）` : `📂 已载入 ${label}`;
+    return loaded > 0;
+}
+
+snapLoadBtn.addEventListener('click', () => {
+    const rec = readSnaps().find(s => s.id === snapSelect.value);
+    if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
+    applySnap(rec, false);
 });
 
 snapDropBtn.addEventListener('click', () => {
@@ -209,6 +219,14 @@ snapDropBtn.addEventListener('click', () => {
 });
 
 refreshSnapSelect();
+
+// 打开页面自动恢复：默认把最近一条「本工具能渲染」的快照摆出来，不用手动选历史、不用重跑
+(function autoRestoreLatest() {
+    const snaps = readSnaps().filter(s => s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k]));
+    if (!snaps.length) return;
+    const newest = snaps.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+    if (applySnap(newest, true)) snapSelect.value = newest.id;
+})();
 
 
 startBtn.addEventListener('click', async () => {

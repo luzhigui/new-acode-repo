@@ -1,6 +1,8 @@
 // tools/846-weak-elite-eval.js —— 弱精英评测（工具箱「🐦 弱精英评测」页签）：M104/M100/M97 带技能单位同种子直接 A/B 替换，出胜率 Δ
 // ~14 KB
-export const VER = 'tools/846-weak-elite-eval.js V1.1.1';
+export const VER = 'tools/846-weak-elite-eval.js V1.2.0';
+// V1.2.0 | 2026-11-12 打开页面自动显示上次结果：快照补存 units/nat/flipWin/flipLose/enemyHex，
+//   boot() 里 restoreLatestWeak() 直接渲染最近一条 parts.weak（旧快照按自然胜率折算 nat，Δ 有 ±0.5 场误差）。
 // V1.1.1 | 2026-11-11 名单口径改「带技能」：候选过滤由 named===true 改成 skills 非空
 //   （依据 content/001-game-data.json：M104/M100/M97 三档且有 skills 的单位，共 14 个——明教 8 / 六大派 6；
 //   老板要求「M100 带技能的、M104 的、M97 反伤弟子（带技能）全部放进去」）。
@@ -61,18 +63,65 @@ const readSnaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY)
 // 826 读的口径是 byStage[st][variant][名字]：桶里 __natural = 自然臂合计、名字 = 换入臂。
 //   unitAB 无变体拆桶（第 3 关变体已合并），统一写进「标准」桶，字段名仍按 826 的 runs/wins。
 function snapshotPart(stages, runs, byStage, meta) {
-    const part = { stages: [...stages], runs, byStage: {}, ts: meta.ts, seed: meta.seed, ver: meta.ver };
+    const part = { stages: [...stages], runs, byStage: {}, ts: meta.ts, seed: meta.seed, ver: meta.ver, enemyHex: !!meta.enemyHex, units: [] };
     for (const st of stages) {
         const slot = { __natural: { runs: 0, wins: 0 } };
         for (const [name, a] of Object.entries(byStage[st] || {})) {
             if (!a || !a.runs) continue;
-            slot[name] = { runs: a.runs, wins: a.forceWins };
+            // nat / flipWin / flipLose 一起存：载入时才能原样还原 Δ 与噪声带（826 只读 runs/wins，多余字段无害）
+            slot[name] = { runs: a.runs, wins: a.forceWins, nat: a.natWins, flipWin: a.flipWin, flipLose: a.flipLose };
             slot.__natural.runs += a.runs;
             slot.__natural.wins += a.natWins;
         }
         part.byStage[st] = { '标准': slot };
     }
+    // 单位元信息一起存（camp/m/side）：载入时不必再依赖 game.characters，改名/删角色也能还原
+    part.units = inferUnits(part, stages);
     return part;
+}
+
+// ============ 打开页面自动恢复：直接渲染最近一条含 parts.weak 的快照 ============
+// 旧快照没有 units / nat / flip 字段：units 用 game.characters 反查补齐，nat 按该关自然胜率折算（Δ 会有 ±0.5 场误差）。
+function inferUnits(p, stages) {
+    const names = new Set();
+    for (const st of stages) {
+        const slot = (p.byStage?.[st] && p.byStage[st]['标准']) || {};
+        for (const n of Object.keys(slot)) if (n !== '__natural') names.add(n);
+    }
+    return [...names].map(n => {
+        const c = (game && game.characters && game.characters[n]) || {};
+        return { name: n, camp: c.camp || '?', m: c.m, side: c.camp === '明教' ? 'ally' : 'enemy' };
+    }).filter(u => M_TIERS.includes(u.m));
+}
+
+function restoreLatestWeak() {
+    const rec = readSnaps().find(s => s && s.parts && s.parts.weak && s.parts.weak.byStage);
+    if (!rec) return false;
+    const p = rec.parts.weak;
+    const stages = (p.stages || []).slice();
+    if (!stages.length) return false;
+    const byStage = {};
+    for (const st of stages) {
+        const slot = (p.byStage?.[st] && p.byStage[st]['标准']) || {};
+        const natAll = slot.__natural || { runs: 0, wins: 0 };
+        const natRate = natAll.runs ? natAll.wins / natAll.runs : 0;
+        byStage[st] = {};
+        for (const [name, e] of Object.entries(slot)) {
+            if (name === '__natural' || !e || !e.runs) continue;
+            byStage[st][name] = {
+                runs: e.runs,
+                natWins: e.nat != null ? e.nat : Math.round(e.runs * natRate),
+                forceWins: e.wins || 0,
+                flipWin: e.flipWin || 0,
+                flipLose: e.flipLose || 0
+            };
+        }
+    }
+    const units = (p.units && p.units.length ? p.units : inferUnits(p, stages)).filter(u => M_TIERS.includes(u.m));
+    if (!units.length) return false;
+    renderWeakResults(byStage, units, stages, { ts: p.ts, seed: p.seed, ver: p.ver, runs: p.runs, enemyHex: p.enemyHex });
+    if (progressEl) progressEl.textContent = '📂 已载入上次结果（想刷新就再点「开始评测」）';
+    return true;
 }
 
 // 存一条只含 weak 的快照：结构与 812 的表级记录一致（stages/runs/byStage/ts/seed/ver），826 直接读 parts.weak
@@ -116,6 +165,7 @@ async function boot() {
         await loadHexEnhanceData();
         game = await loadGameData();
         renderCands();
+        restoreLatestWeak();                 // 上次跑过就直接把表摆出来，不用重跑也不用选历史
     } catch (e) {
         candRowEl.innerHTML = `<span style="color:#ff5252;font-size:12px;">候选名单加载失败：${(e && e.message) || e}</span>`;
     }
