@@ -1,8 +1,15 @@
+// V6.0.68 | 2026-11-12 工作区清理（零引用大件归档，包内容不变）：
+//           ① ARCHIVE_FILES 追加 archive/141voice-commentary-demo.html（830 KB）与
+//              archive/142voice-audition.html（1.5 MB）——原在 tests/，全库零引用、不在打包清单；
+//              语音工具本体 tools/836、837 仍在用，搬走的只是演示/试听页；
+//           ② archive/lab-stage3.md、lab-stage3-patched.md（原 tools/output/ 的 2026-09-28 旧报告）
+//              有意**不登记**，理由见 ARCHIVE_FILES 处注释；
+//           ③ tools/output/lineups-stage3.json **未动** —— 它是 821-param-lab 的默认输入。
 // V6.0.67 | 2026-11-11 主代码「📊 走势分析」下线、分析代码搬进工具箱：
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.67';
+export const VER = 'tools/806-ai-pack-config.js V6.0.68';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -56,12 +63,20 @@ export const ARCHIVE_FILES = [
     // 2026-11-11 主代码「📊 走势分析」下线：分析模块从 player/514 搬进工具箱。
     //   老板要求「复制包不要复制它，但复制器里要能看到、归到存档」→ 登记在这里（存档组默认不勾、
     //   不随主代码包/工具包发出），803 的分组逻辑另有 ARCHIVE_ONLY 覆盖，把它从「工具」组挪进本组。
-    '../tools/845-battle-log-analyze.js'
+    '../tools/845-battle-log-analyze.js',
+    // 2026-11-12 工作区清理：零引用的大件演示页从 tests/ 搬进 archive/（830 KB / 1.5 MB）。
+    //   语音解说本体（tools/836-voice-commentary.js、837-voice-panel.js）仍在用、不受影响；
+    //   搬走的只是演示/试听页，全库零引用、也不在打包清单里。
+    '../archive/141voice-commentary-demo.html',
+    '../archive/142voice-audition.html'
     // 另外两件存档**有意不列**（列了就会出现在复制器里，徒增勾选的诱惑）：
     //   · archive/展示与CG/精英展示-04-…html  —— 524 KB，图鉴嵌页。列表里出现它只会诱导误勾，把包撑爆；
     //     要恢复照 archive/README.md 表格搬回 展示与CG/ 即可。
     //   · archive/tutorial-styles.css         —— 复制器只收 .js/.mjs/.html/.cjs/.md/.json，.css 本就不在可选面内。
     //   · archive/702-showEliteGallery.snippet.js —— 参考代码片段，非可运行模块，同样不列。
+    //   · archive/lab-stage3.md / lab-stage3-patched.md —— 2026-09-28 的历史实验报告，纯文本存档
+    //     （2026-11-12 同批从 tools/output/ 搬入）；注意 tools/output/lineups-stage3.json **没搬**，
+    //     它是 821-param-lab 的默认输入，搬走会让工具少个默认样本。
 ];
 // AI 上下文契约
 // 「已剔除」段随 AI_EXCLUDE 自动生成（不手写，避免集合与文案双源漂移）

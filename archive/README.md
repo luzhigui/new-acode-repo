@@ -20,6 +20,9 @@
 | `tutorial-styles.css` | `index.html` 的 `<style>` 第 351-357 行 | 2026-11-10 | 配套引导的 7 行样式，引导下线后成死样式 | 贴回 `index.html` 的 `<style>` 末尾 |
 | `702-showEliteGallery.snippet.js` | `ui/702-main-5v5-test.js` 内的函数 | 2026-11-10 | 精英图鉴选人弹层原实现（含嵌页路径） | 见该文件头部「恢复步骤」 |
 | `展示与CG/精英展示-04-圣火单卡旋转-GLM5.3.html` | `展示与CG/` | 2026-11-10 | 图鉴那个 524 KB 嵌页，**本次省下空间的大头** | 移回 `展示与CG/`，配合上一条 |
+| `141voice-commentary-demo.html`（830 KB） | `tests/141voice-commentary-demo.html` | 2026-11-12 | 语音解说实战 demo，全库零引用、不在打包清单；语音工具本体（`tools/836`/`837`）仍在用，这只是演示页 | 移回 `tests/` 即可，无 import 需恢复 |
+| `142voice-audition.html`（1.5 MB） | `tests/142voice-audition.html` | 2026-11-12 | 解说员音色试听页，同上，零引用 | 移回 `tests/` 即可 |
+| `lab-stage3.md` / `lab-stage3-patched.md` | `tools/output/` | 2026-11-12 | 2026-09-28 的参数实验台历史报告，结论早已并入履历，零引用 | 需要旧数据时按名找回；注意 `lineups-stage3.json` **没搬**，它是 `821` 的默认输入 |
 
 ## 二、捡回来时要改哪些地方（**别忘，这就是你担心的那件事**）
 
