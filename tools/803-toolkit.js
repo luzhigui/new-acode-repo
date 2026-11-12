@@ -137,6 +137,73 @@ function escapeHtml(text) {
         if (e.key === 'Enter') document.getElementById('fcBtnAddFile').click();
     });
 
+    // ===== 按序号单文件复制（2026-11-13）：输 803 / 803,806 / 808-hex，回车直接复制该文件全文 =====
+    // 清单来自 806 的 ALL_PROJECT_FILES（含已剔出复制包的文件）；内容每次点都现读磁盘，不吃缓存。
+    const byNumberInput = document.getElementById('fcByNumberInput');
+    const byNumberBtn = document.getElementById('fcBtnCopyByNumber');
+
+    // 同名序号会跨目录撞（infra/102、tools/102、tests/126…），所以 tools/ 优先：
+    //   tools 里唯一命中就直接用；tools 里多个或没有，再退回全清单判断唯一性。
+    function matchByKey(key) {
+        const k = key.trim().toLowerCase();
+        if (!k) return [];
+        const isNum = /^\d+$/.test(k);
+        const all = ALL_PROJECT_FILES.filter(f => {
+            const base = f.replace(/^\.\//, '').split('/').pop().toLowerCase();
+            if (isNum) {
+                const num = (base.match(/^(\d+)/) || [])[1];
+                return !!num && num.startsWith(k);
+            }
+            return base.includes(k);
+        });
+        const inTools = all.filter(f => f.includes('/tools/'));
+        return inTools.length ? inTools : all;
+    }
+
+    async function copyFileByNumber() {
+        const raw = (byNumberInput.value || '').trim();
+        if (!raw) { statusDiv.textContent = '⚠️ 先输入序号'; return; }
+        const keys = raw.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+        const picked = [], miss = [], multi = [];
+        for (const key of keys) {
+            const hits = matchByKey(key);
+            if (!hits.length) { miss.push(key); continue; }
+            if (hits.length > 1) {
+                multi.push(`${key} → ${hits.slice(0, 6).map(h => h.replace(/^\.\.\//, '')).join(' / ')}${hits.length > 6 ? ' …' : ''}`);
+                continue;
+            }
+            if (!picked.includes(hits[0])) picked.push(hits[0]);
+        }
+        if (!picked.length) {
+            statusDiv.textContent = '❌ ' + (multi.length ? '序号不唯一，请补全名字：' + multi.join('；') : '清单里没有：' + miss.join(', '));
+            return;
+        }
+        const BACK = byNumberBtn.textContent;
+        byNumberBtn.disabled = true; byNumberBtn.textContent = '⏳ 读取中...';
+        const chunks = [], errs = [];
+        for (const f of picked) {
+            const r = await readLocalText(f);
+            if (r.error) { errs.push(`${f.replace(/^\.\.\//, '')}（${r.error}）`); continue; }
+            chunks.push(`// ===== ${f.replace(/^\.\.\//, '')} =====\n${r.content}`);
+        }
+        byNumberBtn.disabled = false; byNumberBtn.textContent = BACK;
+        let msg = '';
+        if (chunks.length) {
+            const text = chunks.join('\n\n');
+            const ok = await copyText(text);
+            msg = ok
+                ? `✅ 已复制 ${picked.length} 个文件（${text.length} 字符）：${picked.map(f => f.replace(/^\.\.\//, '')).join(', ')}`
+                : `⚠️ 读取成功但写剪贴板失败（${text.length} 字符），请手动复制`;
+        }
+        if (errs.length) msg += `｜❌ ${errs.join('、')}`;
+        if (multi.length) msg += `｜⚠️ 未处理（不唯一）：${multi.join('；')}`;
+        if (miss.length) msg += `｜⚠️ 清单无此文件：${miss.join(', ')}`;
+        statusDiv.textContent = msg;
+    }
+
+    byNumberBtn.addEventListener('click', copyFileByNumber);
+    byNumberInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') copyFileByNumber(); });
+
     // ===== 独立复制：04 网页端协议 / 仓库网址 + 目录索引（2026-10-25 新增，均不随包发送）=====
     async function copyText(text) {
         try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* 回退 execCommand */ }

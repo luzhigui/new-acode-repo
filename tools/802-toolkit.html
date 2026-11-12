@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V6.4.7 | 2026-10-30 预加载补 002-hex-enhance.json（小昭 hexEnhance 迁出 200 后，建队/姐妹强化都读它）。
      V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
      V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
@@ -423,6 +423,11 @@
         <div class="add-file-row">
             <input type="text" id="fcCustomFileInput" placeholder="输入文件名，多个用逗号分隔">
             <button id="fcBtnAddFile">＋ 添加文件</button>
+        </div>
+
+        <div class="add-file-row">
+            <input type="text" id="fcByNumberInput" placeholder="按序号复制：803 / 803,806 / 808-hex（回车即复制）">
+            <button id="fcBtnCopyByNumber">📄 复制该文件</button>
         </div>
 
         <div class="add-file-row">
