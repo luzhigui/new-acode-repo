@@ -1,3 +1,4 @@
+// V6.0.72 | 2026-11-12 合流 D13 二轮：补登 317/318 规则与 3 个定向用例
 // V6.0.71 | 2026-11-12 合流补登 4 条运行时规则（295/296/315/316），打包清单漏登 4→0。
 // V6.0.70 | 2026-11-12 合流 D12/D13：补登定向用例与扫描器
 // V6.0.69 | 2026-11-12 补登静态体检解耦两件：tests/123static-entry.js（浏览器页运行时要动态
@@ -14,7 +15,7 @@
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.71';
+export const VER = 'tools/806-ai-pack-config.js V6.0.72';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -395,6 +396,8 @@ export const ALL_PROJECT_FILES = [
     // 2026-11-12 合流 D12/D13：4 条运行时规则（漏登则包内 rules-replay 静默丢弃）
     '../tests/health-rules/295-selfcheck-red-path.js', '../tests/health-rules/296-selfcheck-reverse-sample.js',
     '../tests/health-rules/315-rewind-gate-park-runtime.js', '../tests/health-rules/316-rewind-snapshot-restore-runtime.js',
+    // 2026-11-12 合流 D13 二轮：317/318 规则 + 3 个定向用例
+    '../tests/health-rules/317-rewind-cue-interrupt-runtime.js', '../tests/health-rules/318-rewind-fastforward-cancel-runtime.js', '../tests/rewind-cue-interrupt-probe-case.mjs', '../tests/rewind-fastforward-cancel-probe-case.mjs', '../tests/rewind-guard-prereq-case.mjs',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',

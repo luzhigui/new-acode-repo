@@ -128,7 +128,8 @@ export function runMutantChild(selfPath, mutName) {
 export function check(list, name, cond, detail) {
     list.push({ name, ok: !!cond, detail: detail || '' });
     console.log((cond ? '  ✓ ' : '  ✗ ') + name + (detail ? ' — ' + detail : ''));
-}export function summarize(list, label) {
+}
+export function summarize(list, label) {
     const bad = list.filter(x => !x.ok);
     if (bad.length) {
         console.log('RESULT: FAIL (' + bad.length + '/' + list.length + ' 条断言失败)');
@@ -136,5 +137,81 @@ export function check(list, name, cond, detail) {
         return false;
     }
     console.log('RESULT: PASS (' + list.length + ' 条断言全过) · ' + (label || ''));
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// 第二轮追加（2026-11-12 · D13 第二棒）：闸门环境守卫 + 时钟/日志保真 + 子进程失败识别
+// ---------------------------------------------------------------------------
+
+/** 「守卫前提失效」的统一措辞：规则、探针、日志、交付都用这一句，便于搜。 */
+export const ENV_SKIP_REASON = '守卫前提失效：环境不允许起子进程';
+
+/** 系统级「起不来子进程」的 errno 集合：这些不是主代码缺陷，是环境前提失效。 */
+export const SPAWN_ENV_FAIL_CODES = new Set([
+    'EPERM', 'ENOENT', 'EACCES', 'EAGAIN', 'EBUSY', 'EIO', 'EMFILE', 'ENFILE',
+    'ENOMEM', 'ENOSPC', 'ENOSYS', 'ENOTDIR', 'EFAULT', 'EINVAL', 'EPIPE', 'EDEADLK'
+]);
+
+/**
+ * 判断一次 spawn 失败是不是「环境不允许起子进程」。
+ * ★ 关键分辨：子进程**跑完了并退码非 0**（err.status 是数字）= 探针真的报红 ⇒ 必须算 fail；
+ *   只有「压根没起来」（ENOENT/EPERM…）才是环境问题 ⇒ 只能 skip，不能误报红。
+ */
+export function isSpawnEnvFailure(err) {
+    if (!err || typeof err !== 'object') return false;
+    if (typeof err.status === 'number') return false;
+    const code = err.code || err.errno;
+    if (typeof code === 'string' && SPAWN_ENV_FAIL_CODES.has(code)) return true;
+    if (err.syscall === 'spawn' || err.syscall === 'spawnSync') return true;
+    return false;
+}
+
+/** 探针自己宣告「环境前提失效」：规则据此返回 skip，而不是误报红。 */
+export function envSkipMarker(reason) {
+    return 'RESULT: SKIP-ENV (' + (reason || ENV_SKIP_REASON) + ')';
+}
+export function isEnvSkipOutput(out) {
+    return /RESULT:\s*SKIP-ENV/.test(String(out || ''));
+}
+
+/** 起一个子进程并回报「是不是压根没起来」（spawnError 非空 ⇒ 环境问题）。 */
+export function runChildWithEnv(selfPath, env, timeoutMs) {
+    const r = spawnSync(process.execPath, [selfPath], {
+        cwd: REPO, encoding: 'utf8', timeout: timeoutMs || 180000,
+        env: Object.assign({}, process.env, env || {})
+    });
+    return {
+        code: typeof r.status === 'number' ? r.status : 1,
+        out: (r.stdout || '') + (r.stderr || ''),
+        spawnError: r.error ? (r.error.code || r.error.message || 'SPAWN_FAILED') : null
+    };
+}
+
+/** rAF 桩 + 启动时钟：infra/103 的 clock 靠 requestAnimationFrame 推进，
+ *  没有它 clock.wait()/waitReal() 永远不 resolve ⇒ 探针里的播放路径会挂死。 */
+export async function installClockShim() {
+    globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+    globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+    const { clock } = await import('../infra/103-clock.js');
+    clock.start();
+    return clock;
+}
+
+/** 让 log 元素的 innerHTML ↔ children 联动：真 DOM 里 innerHTML='' 会清空子节点，
+ *  旧桩只存字符串 ⇒ 「清空真账本」这类改动在桩上根本看不见。 */
+export function upgradeLogDomFidelity() {
+    const el = globalThis.document && globalThis.document.getElementById('log');
+    if (!el) return false;
+    let html = el.innerHTML || '';
+    Object.defineProperty(el, 'innerHTML', {
+        configurable: true,
+        get() { return html; },
+        set(v) {
+            html = String(v);
+            el.children = html ? [{ tag: 'div', innerHTML: html }] : [];
+            el.lastElementChild = html ? el.children[0] : null;
+        }
+    });
     return true;
 }

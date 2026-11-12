@@ -21,26 +21,35 @@ export const VER = 'tests/health-rules/315-rewind-gate-park-runtime.js V1.0.0';
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { isSpawnEnvFailure, isEnvSkipOutput, ENV_SKIP_REASON } from '../rewind-probe-sandbox-case.mjs';
 
 const PROBE = fileURLToPath(new URL('../rewind-gate-park-probe-case.mjs', import.meta.url));
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 let _cached = null;
 
+// 故障注入钩子（只给体检自证用）：把要起的解释器指到不存在的路径 ⇒ 模拟「环境不许起子进程」。
+const EXE = process.env.HC_PROBE_EXE || process.execPath;
+
 function runProbe() {
     if (_cached) return _cached;
     try {
-        const out = execFileSync(process.execPath, [PROBE], {
+        const out = execFileSync(EXE, [PROBE], {
             cwd: ROOT,
             encoding: 'utf8',
             timeout: 180000,
-            stdio: ['ignore', 'pipe', 'pipe']
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: process.env
         });
-        _cached = { ok: /RESULT:\s*PASS/.test(out), out: out };
+        _cached = { ok: /RESULT:\s*PASS/.test(out), out: out, skip: null };
     } catch (e) {
-        _cached = {
-            ok: false,
-            out: String((e && (e.stdout || '')) || '') + String((e && (e.stderr || '')) || '') + ' [exit=' + (e && e.status) + ']'
-        };
+        const errOut = String((e && (e.stdout || '')) || '') + String((e && (e.stderr || '')) || '');
+        // ★ 环境起不来子进程（EPERM/ENOENT…）≠ 主代码倒针坏了 ⇒ 只能 skip，不能报红。
+        //   分辨点：子进程跑完并退码非 0（e.status 是数字）= 探针真报红 ⇒ 仍走 fail 分支。
+        if (isSpawnEnvFailure(e)) {
+            _cached = { ok: false, out: errOut, skip: String((e && (e.code || e.errno || e.syscall)) || 'SPAWN_FAILED') };
+        } else {
+            _cached = { ok: false, out: errOut + ' [exit=' + (e && e.status) + ']' };
+        }
     }
     return _cached;
 }
@@ -50,6 +59,15 @@ export const rule315 = {
     name: '倒针推进闸门与停泊放行(运行时)',
     test: function(ctx, log) {
         const r = runProbe();
+        // ★ 守卫前提失效（环境不许起子进程）⇒ 本项跳过，不计失败、更不算红。
+        if (r.skip) {
+            console.log('[315] ' + ENV_SKIP_REASON + '（' + r.skip + '）⇒ 本项本轮跳过，不计失败');
+            return 'skip';
+        }
+        if (isEnvSkipOutput(r.out)) {
+            console.log('[315] ' + ENV_SKIP_REASON + '（探针内部子进程起不来）⇒ 本项本轮跳过，不计失败');
+            return 'skip';
+        }
         if (!r.ok) {
             const tail = (r.out || '').split('\n').filter(l => /✗|RESULT|Error/i.test(l)).slice(-6).join(' | ');
             return { fail: true, msg: '倒针闸门/停泊探针未通过（战斗可能在回看背后偷跑，或退出后卡在步首）：' + (tail || '无输出') };

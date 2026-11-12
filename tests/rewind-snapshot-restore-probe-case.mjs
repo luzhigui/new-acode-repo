@@ -18,7 +18,7 @@
 // 运行：node tests/rewind-snapshot-restore-probe-case.mjs
 //   期望末行 RESULT: PASS（含反向样本全红）；任何一条红 → 退出码 1。
 import {
-    installDom, makeFakeStore, mkStep, loadRewind, runMutantChild, check, summarize, REPO
+    installDom, makeFakeStore, mkStep, loadRewind, runChildWithEnv, envSkipMarker, check, summarize, REPO
 } from './rewind-probe-sandbox-case.mjs';
 import { fileURLToPath } from 'node:url';
 
@@ -120,7 +120,12 @@ try {
 const mutNames = Object.keys(MUTATIONS);
 if (!process.env.HC_PROBE_MUT) {
     for (const name of mutNames) {
-        const child = runMutantChild(SELF, name);
+        const child = runChildWithEnv(SELF, { HC_PROBE_MUT: name });
+        // 环境压根起不来子进程 ⇒ 不是主代码缺陷，宣告前提失效（规则据此 skip，不报红）
+        if (child.spawnError) {
+            console.log(envSkipMarker('变异子进程起不来：' + child.spawnError));
+            process.exit(0);
+        }
         const crashed = /Error:|没改到任何字符/.test(child.out);
         const red = /RESULT:\s*FAIL/.test(child.out);
         const which = (child.out.match(/✗\s*(.+)/g) || []).map(s => s.replace(/✗\s*/, '').split(' — ')[0]);

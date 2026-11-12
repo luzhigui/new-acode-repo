@@ -1,3 +1,4 @@
+// V1.6.2 | 2026-11-12 合流 D13 二轮：回填 317/318 到 SCAN_FILES
 // V1.6.1 | 2026-11-12 合流 D12/D13：回填 4 条规则到 SCAN_FILES
 // 不跑游戏，直接 fetch 核心文件做结构性检查：
 //   1. 枚举 import 缺失：代码使用了枚举常量（infra/106-battle-enums.js 导出的 13 个）但 import 行缺失
@@ -20,7 +21,7 @@
 //   实测七个目录共 142 个 js/mjs，旧手写清单只覆盖 87 个、漏 55 个（fx/60x-61x、modules/31x-33x、
 //   player/504-506/513-514、render/404/405/409-412/414、ui/714/720-722、infra/102/110/111、core/212/213/223 等），
 //   这些文件的 import 断裂 / 枚举漏 import 一路都扫不到。tests/ 侧仍保留字面量登记（registration-check.mjs 靠文本对账）。
-export const VER = 'tests/123static-scan.js V1.6.1';
+export const VER = 'tests/123static-scan.js V1.6.2';
 
 // Node / 浏览器双用判定：自动发现的两套实现（fs 遍历 / manifest.json）与文末 CLI 自举共用这一个开关
 export const IS_NODE = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
@@ -259,7 +260,8 @@ export const SCAN_FILES = [
     './health-rules/328-d6-summon-death-exit.js',
     './health-rules/329-d6-roster-stats-purity.js',
     './health-rules/295-selfcheck-red-path.js', './health-rules/296-selfcheck-reverse-sample.js',
-    './health-rules/315-rewind-gate-park-runtime.js', './health-rules/316-rewind-snapshot-restore-runtime.js'
+    './health-rules/315-rewind-gate-park-runtime.js', './health-rules/316-rewind-snapshot-restore-runtime.js',
+    './health-rules/317-rewind-cue-interrupt-runtime.js', './health-rules/318-rewind-fastforward-cancel-runtime.js'
 ];
 
 // 去锚定化（第 142 轮）后 fxAnchors 字段全仓清零（render/35-*、render/36、player/* 旧飘字通道已迁到 fx:[{kind,amount}]）。
