@@ -432,8 +432,8 @@
       "skills": {
         "summonBengBeng": {
           "name": "召唤蹦蹦",
-          "desc": "每回合开始 {prob}% 概率，在己方空位召唤一只蹦蹦（M{m}、攻{atk}、防{def}、生命{maxHp}）。蹦蹦攻击或受击时，给对方叠加一层寒毒（{poisonDuration}回合，每回合 {poisonDot} 最大生命）。",
-          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.66, "poisonDuration": 3, "poisonDot": [0.04] }
+          "desc": "每回合开始 {prob}% 概率，在己方空位召唤一只蹦蹦（M{m}、攻{atk}、防{def}、生命{maxHp}）；张中每次攻击命中后再有 20% 概率召唤、蹦蹦每次攻击命中后再有 10% 概率召唤（不限数量）；己方角色死亡时按其 m 值÷1000 的概率补召一只。蹦蹦攻击或受击时，给对方叠加一层寒毒（{poisonDuration}回合，每回合 {poisonDot} 最大生命）。",
+          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.3, "attackSummonProb": 0.2, "bengBengSummonProb": 0.1, "deathSummonDivisor": 1000, "poisonDuration": 3, "poisonDot": [0.04] }
         }
       }
     },
@@ -625,8 +625,8 @@
         },
         "xianJi": {
           "name": "先机",
-          "desc": "被动：队友每次拟出手前 60% 概率抢得先机：他插到队首先出手（先手点穴），本该先手的队友顺延出手、行动权不丢。每次真正出手后（命中/未命中/闪避/免疫）都有 30% 概率不消耗自身行动力，本回合仍可再出手。",
-          "params": { "jumpProb": 0.60, "freeActionProb": 0.30 }
+          "desc": "被动：队友每次拟出手前 50% 概率抢得先机：他插到队首先出手（先手点穴），本该先手的队友顺延出手、行动权不丢。每次真正出手后（命中/未命中/闪避/免疫）都有 20% 概率不消耗自身行动力，本回合仍可再出手。",
+          "params": { "jumpProb": 0.50, "freeActionProb": 0.20 }
         }
       },
       "taunts": {

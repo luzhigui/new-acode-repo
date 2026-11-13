@@ -1,10 +1,15 @@
 // modules/339-elite-mingjiao-zhangzhong.js — 明教·五散人 张中「召唤蹦蹦」
-// 规则：每回合开始，按 content summonBengBeng.prob（默认 1.0）概率，在己方空位召唤一只蹦蹦
-//   （参数全部来自 content 的 summonBengBeng，与谢逊幼狮同口径）。
+// 规则：①每回合开始按 prob 概率召唤；②张中攻击命中后按 attackSummonProb 召唤；
+//   ③蹦蹦攻击命中后按 bengBengSummonProb 召唤（②③不限数量，受空位限制）；
+//   ④己方角色死亡按 其m/deathSummonDivisor 概率补召（敌方死亡不补，张中已亡不补）。
+//   召出单位参数全部来自 content 的 summonBengBeng，与谢逊幼狮同口径。
 //   蹦蹦攻击或受击时给对方叠一层寒毒（独立毒账 _bengHanDu，本模块自结算，与寒离飒无关——V1.3.0）。
-// 预估约 3400 字节
+// 预估约 4700 字节
+// V1.4.0 | 2026-11-13 三路加召唤（老板拍板）：回合召唤 prob 0.66→0.3；新增张中攻击后 0.2 /
+//   蹦蹦攻击后 0.1（AFTER_ATTACK FOLLOW_ATTACK+5=50 空档，仅命中 dmg>0 算攻击）；
+//   己方死亡按 m/1000 补召（ON_UNIT_DEATH HOLY_FIRE+2=42，蹦蹦含内 m=10→0.01）。
 // V1.3.0 | 2026-11-10 毒归挂毒方（TA 拍板）：蹦蹦毒独立 _bengHanDu 字段+模块内自结算，与寒离飒彻底解耦； 三通道挂毒=打蹦蹦/被蹦蹦打/任何伤害击杀蹦蹦（凶手读 _killerUid 账，溅射/DOT/反弹全覆盖）； 抑疗（寒毒抑疗削减）与格上 ❄️ 图标同享；毒账随受害者走，扣到回合数耗尽为止，跟三家死活无关。
-export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.3.0';
+export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.4.0';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -24,24 +29,18 @@ export const summonBengBengHandler = {
 
         const params = requireSkillParams(decl.name, 'summonBengBeng');
 
-        registerSettlementHook({
-            when: SIGNAL_TYPES.ON_ROUND_START,
-            priority: L.ROUND_START.XIE_SUMMON,
-            handler: (data) => {
-                if (!self.alive || self.state._pendingDeath) return;
-                // 2026-11-08 召唤概率：读 content summonBengBeng.prob（未配置默认 1.0 = 旧行为）。
-                //   每回合 100% 必召在残局会形成人海把对面拖死，50% 控强度。
-                //   prob < 1.0 才掷骰：未配置时不消耗 RNG，保持旧随机序列逐字节一致。
-                const prob = params.prob != null ? params.prob : 1.0;
-                if (prob < 1.0 && getBattleRng().next() >= prob) return;
-                const myTeam = self.camp === CAMP_TYPES.ALLY ? data.A : data.B;
-                // 落位走 core/205 pickFreePos（每方各自占 1-9，随机取一格；无空位返回 null）
-                const pos = pickFreePos(myTeam, getBattleRng());
-                if (pos == null) return;
-                const unit = spawnUnit(myTeam, '蹦蹦', params.m, ROLE_TYPES.WARRIOR, pos,
-                    { atk: params.atk, def: params.def, maxHp: params.maxHp, skipRoleBonus: true });
-                unit.isBengBeng = true;   // 蹦蹦专属标记，供寒毒监听判定
-                data.log.push({
+        // 公共召唤体（V1.4.0 抽出）：回合召唤 / 攻击召唤 / 死亡补召 三处共用。
+        //   在 myTeam（张中所在阵营）随机空位召一只蹦蹦；无空位静默放弃。
+        const summonBeng = (myTeam, log) => {
+            if (!self.alive || self.state._pendingDeath) return;
+            // 落位走 core/205 pickFreePos（每方各自占 1-9，随机取一格；无空位返回 null）
+            const pos = pickFreePos(myTeam, getBattleRng());
+            if (pos == null) return;
+            const unit = spawnUnit(myTeam, '蹦蹦', params.m, ROLE_TYPES.WARRIOR, pos,
+                { atk: params.atk, def: params.def, maxHp: params.maxHp, skipRoleBonus: true });
+            unit.isBengBeng = true;   // 蹦蹦专属标记，供寒毒监听判定
+            if (log) {
+                log.push({
                     factType: FACT_TYPES.SUMMON_UNIT,
                     data: {
                         summonName: unit.name, summonUid: unit.uid, pos, byName: self.name, byUid: self.uid,
@@ -51,6 +50,59 @@ export const summonBengBengHandler = {
                             : null
                     }
                 });
+            }
+        };
+
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_ROUND_START,
+            priority: L.ROUND_START.XIE_SUMMON,
+            handler: (data) => {
+                if (!self.alive || self.state._pendingDeath) return;
+                // 2026-11-08 召唤概率：读 content summonBengBeng.prob（未配置默认 1.0 = 旧行为）。
+                //   prob < 1.0 才掷骰：未配置时不消耗 RNG，保持旧随机序列逐字节一致。
+                const prob = params.prob != null ? params.prob : 1.0;
+                if (prob < 1.0 && getBattleRng().next() >= prob) return;
+                const myTeam = self.camp === CAMP_TYPES.ALLY ? data.A : data.B;
+                summonBeng(myTeam, data.log);
+            }
+        });
+
+        // 攻击后召唤（V1.4.0 老板拍板）：张中命中后 0.2 / 蹦蹦命中后 0.1，不限数量（受空位限制）。
+        //   只认命中（dmg>0）：闪避走 AFTER_MISS 不在此列；被免疫的本击不广播 AFTER_ATTACK（core/10）。
+        //   召唤方恒为张中（按 self.camp 定阵营），与攻击者阵营一致（蹦蹦必属张中阵营）。
+        registerSettlementHook({
+            when: SIGNAL_TYPES.AFTER_ATTACK,
+            priority: L.AFTER_ATTACK.FOLLOW_ATTACK + 5,   // 45 之后的空档（50）：在所有追加攻击结算完再掷
+            handler: (data) => {
+                const { unit, dmg, log } = data;
+                if (!unit || !unit.alive || !dmg || dmg <= 0) return;
+                if (!self.alive || self.state._pendingDeath) return;
+                const isZhangzhong = unit.uid === self.uid;
+                const isBeng = !!unit.isBengBeng;
+                if (!isZhangzhong && !isBeng) return;
+                const prob = isZhangzhong ? (params.attackSummonProb ?? 0) : (params.bengBengSummonProb ?? 0);
+                if (prob <= 0) return;
+                if (getBattleRng().next() >= prob) return;
+                const myTeam = unit.camp === CAMP_TYPES.ALLY ? data.allySide : data.enemySide;
+                summonBeng(myTeam, log);
+            }
+        });
+
+        // 死亡补召（V1.4.0 老板拍板）：己方（张中阵营）任一角色死亡，按 其m值/deathSummonDivisor
+        //   概率补召一只（M100→0.1，蹦蹦 m10→0.01）。敌方死亡不补；张中已亡不补（召唤者不在场）。
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_UNIT_DEATH,
+            priority: L.ON_UNIT_DEATH.HOLY_FIRE + 2,   // 圣火复活判定(+1 毒钩)之后：被救回的不算死
+            handler: (data) => {
+                if (!self.alive || self.state._pendingDeath) return;
+                for (const dead of (data.deadUnits || [])) {
+                    if (!dead || dead.camp !== self.camp) continue;      // 只算己方死亡
+                    const prob = (dead.m || 0) / (params.deathSummonDivisor || 1000);
+                    if (prob <= 0) continue;
+                    if (getBattleRng().next() >= prob) continue;
+                    const myTeam = self.camp === CAMP_TYPES.ALLY ? data.allySide : data.enemySide;
+                    summonBeng(myTeam, data.log);
+                }
             }
         });
 
