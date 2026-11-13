@@ -491,19 +491,8 @@ export const FILE_GROUPS = [
 // 用途：一次性把所有 .md 连同路径复制出来，丢给网页端判断哪些该删、哪些该留。
 // 增删文档时同步这里。
 export const DOC_FILES = Object.freeze([
-'../04 网页端协议.md',
+    '../04 网页端协议.md',
     '../README.md',
-    '../tests/known-transfers.md',
-    '../tests/体检-fact覆盖矩阵.md',
-    '../tests/体检使用说明.md',
-    '../tests/体检号段与登记规则.md',
-    '../tests/体检总框架与分块边界.md',
-    '../tests/体检模块总览与整改基线.md',
-    '../tests/体检蓝图.md',
-    '../tests/体检迭代日志.md',
-    '../tests/牙口矩阵.md',
-    '../tools/TOOL-AI.md',
-    '../体检条目.md',
     '../多会话开工.md',
     '../文件汇总20260730/05 游戏设定 不看不能理解/00 总览.md',
     '../文件汇总20260730/05 游戏设定 不看不能理解/01 海克斯机制详解.md',
