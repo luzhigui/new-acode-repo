@@ -4,6 +4,7 @@
 > 每次动看板前先 `git fetch`；`owner` 写你的标识（会话名 / 人名 / agent 名）。
 > 看板改动**单独 commit + 双推**，避免两人抢同一格。
 > 用法见 skill：`guangmingding-health-run`（`.workbuddy/skills/guangmingding-health-run/`）。
+> **跨软件通用入口**：仓库根 `AGENTS.md` 含一份可复制粘贴到任意聊天 Agent 的自包含提示词（中英双语），别的软件/别的会话的 Agent 读它即可认领并跑体检，无需本仓库上下文。
 
 ## 任务列表
 | # | 标题 | 验收标准（done 长啥样） | 状态 | owner | 更新时间 |
