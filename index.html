@@ -205,6 +205,118 @@
         .log-header-right { display: none; gap: 2px; align-items: center; flex-wrap: nowrap; }
         .log-header-right button { padding: 3px 6px; border-radius: 3px; border: 1px solid var(--c-brown-border); background: var(--c-parchment-2); font-size: 9px; cursor: pointer; color: var(--c-brown); white-space: nowrap; }
         .log-header-right button.active { background: #9b59b6; color: white; border-color: #7d3c98; width: 100%; text-align: center; }
+        /* ═══ 圣火令主动（2026-11-13）═══ */
+        .hex-slot {
+            position: absolute; left: 50%; top: 50%;
+            width: 60px; height: 60px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            font-size: 30px; z-index: 50; pointer-events: auto;
+            background: radial-gradient(circle at 35% 30%, rgba(255,224,102,0.6), rgba(217,119,6,0.4) 70%, rgba(122,58,0,0.22));
+            border: 2.5px solid #ffd700;
+            box-shadow: 0 0 24px rgba(255,215,0,0.95), inset 0 0 14px rgba(255,215,0,0.55);
+            color: #fff; transform: translate(-50%, -50%);
+            cursor: grab; touch-action: none;
+        }
+        .hex-slot.visible { display: flex; animation: hexSlotBreath 1.4s ease-in-out infinite; }
+        .hex-slot.landing { animation: hexSlotLand .5s cubic-bezier(.34,1.56,.64,1) forwards; }
+        .hex-slot.dragging {
+            background: radial-gradient(circle at 35% 30%, rgba(255,224,102,0.15), rgba(217,119,6,0.1) 70%, transparent);
+            box-shadow: none; animation: none; cursor: grabbing;
+            border-color: rgba(255,215,0,0.35); border-style: dashed;
+            pointer-events: none;
+        }
+        @keyframes hexSlotBreath {
+            0%,100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 16px rgba(255,215,0,0.75); }
+            50% { transform: translate(-50%, -50%) scale(1.06); box-shadow: 0 0 32px rgba(255,215,0,1); }
+        }
+        @keyframes hexSlotLand {
+            0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+            55% { transform: translate(-50%, -50%) scale(1.22); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        #hexPending {
+            position: fixed; right: 14px; bottom: 120px; z-index: 100;
+            width: 60px; height: 60px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            font-size: 30px;
+            background: radial-gradient(circle at 35% 30%, #ffe066, #d97706 70%, #7a3a00);
+            border: 2.5px solid #ffd700;
+            box-shadow: 0 0 20px rgba(255,215,0,0.9);
+            color: #fff; cursor: pointer;
+            animation: hexPendingBreath 1.6s ease-in-out infinite;
+        }
+        #hexPending.visible { display: flex; }
+        #hexPending .tag {
+            position: absolute; top: -6px; right: -6px;
+            background: #c0392b; color: #fff; font-size: 10px; font-weight: bold;
+            padding: 1px 6px; border-radius: 8px; border: 1px solid #fff;
+        }
+        @keyframes hexPendingBreath {
+            0%,100% { transform: scale(1); box-shadow: 0 0 14px rgba(255,215,0,0.6); }
+            50% { transform: scale(1.06); box-shadow: 0 0 28px rgba(255,215,0,1); }
+        }
+        #hexBanner {
+            position: fixed; left: 50%; top: 44%;
+            transform: translate(-50%, -50%) scale(0.6);
+            z-index: 180;
+            padding: 12px 28px; border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255,224,102,0.98), rgba(217,119,6,0.98));
+            border: 2px solid #ffd700;
+            color: #3a2508; font-size: 16px; font-weight: 900;
+            letter-spacing: 1px; white-space: nowrap;
+            box-shadow: 0 0 40px rgba(255,215,0,0.95), 0 8px 24px rgba(0,0,0,0.6);
+            pointer-events: none; opacity: 0;
+            transition: opacity .25s, transform .35s cubic-bezier(.34,1.56,.64,1);
+        }
+        #hexBanner.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        #hexGhost {
+            position: fixed; z-index: 250;
+            width: 60px; height: 60px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            font-size: 32px; pointer-events: none;
+            background: radial-gradient(circle at 35% 30%, #ffe066, #d97706 70%, #7a3a00);
+            border: 2.5px solid #ffd700;
+            box-shadow: 0 0 32px rgba(255,215,0,1), 0 8px 24px rgba(0,0,0,0.6);
+        }
+        #hexGhost.visible { display: flex; }
+        #hexLinkSvg { position: fixed; inset: 0; z-index: 240; pointer-events: none; display: none; }
+        #hexLinkSvg.visible { display: block; }
+        #hexLinkGlow { stroke: rgba(255,224,102,0.4); stroke-width: 20; fill: none; stroke-linecap: round; filter: blur(8px); }
+        #hexLinkPath { stroke: #ffd700; stroke-width: 5; fill: none; stroke-linecap: round; filter: drop-shadow(0 0 8px rgba(255,215,0,1)); stroke-dasharray: 18 10; animation: hexFlowDash .8s linear infinite; }
+        #hexLinkCore { stroke: rgba(255,255,255,0.95); stroke-width: 2; fill: none; stroke-linecap: round; }
+        #hexLinkHead { fill: #ffd700; filter: drop-shadow(0 0 12px rgba(255,215,0,1)); }
+        @keyframes hexFlowDash { to { stroke-dashoffset: -28; } }
+        .hex-flow-dot { fill: #fff6cf; filter: drop-shadow(0 0 8px rgba(255,215,0,1)); }
+        .cell.hex-drop-heal {
+            border-color: #4caf50 !important; background: #d4edda !important;
+            animation: hexBreathHeal 1.1s ease-in-out infinite;
+        }
+        .cell.hex-drop-dmg {
+            border-color: #c0392b !important; background: #f8d7d3 !important;
+            animation: hexBreathDmg 1.1s ease-in-out infinite;
+        }
+        .cell.hex-drop-invalid { opacity: 0.35; }
+        @keyframes hexBreathHeal {
+            0%,100% { box-shadow: 0 0 6px rgba(76,175,80,0.35), inset 0 0 3px rgba(76,175,80,0.15); }
+            50% { box-shadow: 0 0 22px rgba(76,175,80,0.95), inset 0 0 10px rgba(76,175,80,0.45); }
+        }
+        @keyframes hexBreathDmg {
+            0%,100% { box-shadow: 0 0 6px rgba(192,57,43,0.35), inset 0 0 3px rgba(192,57,43,0.15); }
+            50% { box-shadow: 0 0 22px rgba(192,57,43,0.95), inset 0 0 10px rgba(192,57,43,0.45); }
+        }
+        #hexTip {
+            position: fixed; z-index: 260;
+            padding: 5px 11px; border-radius: 7px;
+            background: rgba(20,12,4,0.96); color: #ffd700;
+            border: 1px solid rgba(255,215,0,0.8);
+            font-size: 11px; font-weight: bold; white-space: nowrap;
+            pointer-events: none; display: none;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+        }
+        #hexTip.visible { display: block; }
+        #hexTip.heal { color: #7ee89a; border-color: #4caf50; }
+        #hexTip.dmg { color: #ff8b7b; border-color: #c0392b; }
+
         #log { flex: 1; overflow-y: auto; padding: 4px 6px 8em 6px; font-size: 10px; line-height: 1.3; }
         .log-bottom-bar {
             position: absolute; bottom: 0; left: 0; right: 0;
@@ -373,6 +485,8 @@
         <div class="team-row"><div class="camp-side"><span class="team-label orange" id="labelEnemy">六大派</span><div class="camp-badges" id="campBadgesEnemy"></div></div><div class="grid" id="enemyGrid"></div></div>
         <div class="team-row"><div class="camp-side"><span class="team-label blue" id="labelAlly">明 教</span><div class="camp-badges" id="campBadgesAlly"></div></div><div class="grid" id="allyGrid"></div></div>
         <canvas id="glowCanvas"></canvas>
+        <!-- 圣火令槽（2026-11-13）：点继续后从右下角飞入，拖动使用 -->
+        <div class="hex-slot" id="hexSlot">🔥</div>
     </div>
     <div class="controls">
         <button id="btnMain">▶ 开始<br><span style="font-size:8px;">(投票)</span></button>
@@ -414,6 +528,19 @@
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
+
+<!-- 圣火令主动（2026-11-13）挂载元素 -->
+<div id="hexPending">🔥<span class="tag">1</span></div>
+<div id="hexBanner">🔥 获得 1 枚圣火令</div>
+<div id="hexGhost">🔥</div>
+<svg id="hexLinkSvg">
+    <path id="hexLinkGlow" />
+    <path id="hexLinkPath" />
+    <path id="hexLinkCore" />
+    <circle id="hexLinkHead" r="10" />
+    <g id="hexFlowDots"></g>
+</svg>
+<div id="hexTip"></div>
 <!-- 代码指纹：只挂 4 个入口 script，发版时把 3.5.2 这个数字 +1 即可让 http 端立刻拿新代码。
      只影响 js 缓存，mp3/图片由 sw.js 永久账本管，与这里无关；file:// 下浏览器不吃 HTTP 缓存，照常可开。 -->
 <script type="module" src="./infra/104-global-store.js?v=3.5.2"></script>

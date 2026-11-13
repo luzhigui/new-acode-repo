@@ -1,3 +1,4 @@
+// V1.54.0 | 2026-11-13：新增 --jobs N 并发跑（默认 1=顺序，行为不变），各守门脚本独立安全可并行。
 // V1.53.1 | 2026-11-12 合流 D12 二轮：挂规则假绿静态扫描
 // V1.53.0 | 2026-11-12 迭代：挂「静态入口解耦守门」tests/static-entry-guard.mjs（新建 V1.0.0）。
 //   由头：手机端实测「快速静态体检点了卡住」——按钮绑在 initMonitor() 里，而 121 顶层
@@ -246,7 +247,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.53.1';
+export const VER = 'tests/run-all.mjs V1.54.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');

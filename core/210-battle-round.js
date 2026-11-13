@@ -400,6 +400,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     //   （那些路径都受引擎活体共享影响，回放/联机读到终态 → 「格子防37/日志防56」的根因）。
     //   冻结时刻 = 本步末（引擎此刻状态）。含全单位：死掉的 hp=0、新召唤的也在 A/B 里。
     const makeStep = (logs, evs, winner = null, done = false) => {
+        // 圣火令主动（2026-11-13）：每步开头消费队列，fact 追加到本步 log 末尾
+        consumeHexActions(A, B, logs);
         const frozenValues = {};
         for (const u of [...A, ...B]) {
             frozenValues[u.uid] = {
@@ -724,4 +726,69 @@ function finalizeRoundEnd(A, B, ctx) {
     finalizeDeaths(A);
     finalizeDeaths(B);
     return { winner, done, endEvents };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 圣火令主动使用（2026-11-13 · 一局一次）
+//   玩家拖圣火令落到红血单位 → ui/723 调 submitHexAction 入队
+//   → 下一次 makeStep 时 consumeHexActions 消费 → 本步 log 末尾追加 fact
+//   为什么是队列：UI 层只有 UI 镜像、拿不到引擎活体单位，
+//   必须等 generator 的 A/B 拿得到时再结算。
+// ═══════════════════════════════════════════════════════════════
+let _pendingHexActions = [];
+
+export function submitHexAction(uid, mode) {
+    if (!uid || (mode !== 'heal' && mode !== 'dmg')) return false;
+    _pendingHexActions.push({ uid, mode });
+    return true;
+}
+
+export function clearPendingHexActions() {
+    _pendingHexActions = [];
+}
+
+function consumeHexActions(A, B, log) {
+    if (_pendingHexActions.length === 0) return;
+    const batch = _pendingHexActions;
+    _pendingHexActions = [];
+    for (const { uid, mode } of batch) {
+        const target = [...A, ...B].find(u => u.uid === uid && u.alive);
+        if (!target) continue;
+        applyHexActive(A, B, target, mode, log);
+    }
+}
+
+// 直接结算（供消费队列或未来直接调用；本函数不做次数校验，由 UI 层保证一局一次）
+export function applyHexActive(A, B, target, mode, log) {
+    if (!target || !target.alive) return false;
+    const maxHp = getStat(target, 'maxHp');
+    if (maxHp <= 0) return false;
+    const hpBefore = target.hp;
+    if (mode === 'heal') {
+        const heal = Math.floor(maxHp * 0.30);
+        applyStatChange(target, 'hp', heal, null, '圣火令·救援');
+        if (log) {
+            log.push({ factType: FACT_TYPES.HEX_ACTIVE_HEAL, data: {
+                unitUid: target.uid, unitName: target.name, camp: target.camp,
+                heal, hpBefore, hpAfter: target.hp, maxHp
+            } });
+        }
+        return true;
+    }
+    if (mode === 'dmg') {
+        const dmg = Math.floor(maxHp * 0.15);
+        const isExecute = (hpBefore / maxHp) < 0.10;
+        applyStatChange(target, 'hp', -dmg, null, '圣火令·打击');
+        if (isExecute && target.hp > 0) {
+            killUnit(target, null, '圣火令斩杀');
+        }
+        if (log) {
+            log.push({ factType: FACT_TYPES.HEX_ACTIVE_DMG, data: {
+                unitUid: target.uid, unitName: target.name, camp: target.camp,
+                dmg, hpBefore, hpAfter: target.hp, maxHp, isExecute
+            } });
+        }
+        return true;
+    }
+    return false;
 }

@@ -356,3 +356,16 @@ registerFactRenderer(FACT_TYPES.IMMUNE, renderImmuneFact);
 registerFactRenderer(FACT_TYPES.DROP, renderDropFact);
 registerFactRenderer(FACT_TYPES.BREAK_DEF, renderBreakDefFact);
 registerFactRenderer(FACT_TYPES.SKILL_ANNOUNCE, renderSkillAnnounceFact);
+
+// 圣火令·打击（2026-11-13）：真伤 + 斩杀标记
+export function renderHexActiveDmgFact(fact) {
+    const execTag = fact.isExecute ? ' <span class="red">【斩杀】</span>' : '';
+    return {
+        type: 'info',
+        text: `<span class="red">🔥 圣火令·打击：${fact.unitName} 受到 ${fmtNum(fact.dmg)} 点真实伤害（${fmtHpText(fact.hpBefore)} → ${fmtHpText(fact.hpAfter)}）${execTag}</span>`,
+        fx: [{ kind: 'dmg', amount: fact.dmg }],
+        uidD: fact.unitUid,
+        isDead: fact.isExecute && fact.hpAfter <= 0
+    };
+}
+registerFactRenderer(FACT_TYPES.HEX_ACTIVE_DMG, renderHexActiveDmgFact);

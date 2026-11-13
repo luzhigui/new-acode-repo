@@ -139,7 +139,16 @@ export const ATTACK_TRANSLATORS = {
         ? { kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText', nonBlocking: true }
         : null,
     [FACT_TYPES.SPIDER_DOUBLE_STRIKE]: (data, index) => ({ kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' }),
-    [FACT_TYPES.XING_FEN_GRANT]: () => null
+    [FACT_TYPES.XING_FEN_GRANT]: () => null,
+    // 圣火令·打击（2026-11-13）：单目标真伤，走 DOT 舞台（afterText 播伤害飘字）
+    [FACT_TYPES.HEX_ACTIVE_DMG]: (data, index) => ({
+        kind: STAGE_ACTION_TYPES.DOT,
+        targetUid: data.unitUid ?? null,
+        dmg: data.dmg,
+        dead: data.isExecute && data.hpAfter <= 0,
+        factIndex: index,
+        timing: 'afterText'
+    })
 };
 
 function makeAttackAction(data, index) {

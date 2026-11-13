@@ -53,6 +53,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 流云身法：团队版每回合随机有一人无法享受闪避加成（>1人时生效）
     _cloudBodySkip:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 韦一笑·青翼追魂（2026-11-13）：闪避追击每回合限 1 次；回合级字段，每回合 resetStateFields 自然清零
+    _weiExclusiveFiredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置
@@ -108,6 +110,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsCharging:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 寒离飒低血双拳：本回合已触发过就置 true，回合开始统一清（防同回合无限连锁）
     _hlsDoubleFired:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 寒离飒专属海克斯「寒离飒强化」：本局已触发过（一场一次）/ 本回合嘲讽 / 本回合承伤按攻击力计入 / 本回合已加行动盾
+    _hlsPowerUsed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _hlsTaunt:               { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _hlsTrueAbsorb:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _hlsPowerShielded:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 最近三回合承伤（每回合一个桶，回合开始滚动；蓄力真伤 = 桶和）
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）

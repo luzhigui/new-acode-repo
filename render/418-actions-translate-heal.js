@@ -16,7 +16,9 @@ export const HEAL_TRANSLATORS = {
     [FACT_TYPES.BLOOD_THIRST_LEECH]: (data, index) => makeHealAction(data, index),
     // 飞行再生飘字改走 afterText：锚点通道（飘字靠「锚文本与正文逐字匹配」触发）任何一环文案漂移
     //   或缓存旧模块就无声哑火；显式 afterText 不依赖文本匹配，本类故障从结构上消灭。
-    [FACT_TYPES.FLYER_REGEN]: (data, index) => ({ ...makeHealAction(data, index), timing: 'afterText' })
+    [FACT_TYPES.FLYER_REGEN]: (data, index) => ({ ...makeHealAction(data, index), timing: 'afterText' }),
+    // 圣火令·救援（2026-11-13）：与其它回血同构
+    [FACT_TYPES.HEX_ACTIVE_HEAL]: (data, index) => makeHealAction(data, index)
 };
 
 // 通用回血动作（本族共用；攻击族 makeAttackAction 的组内 entries 回血也从这里取，故导出）

@@ -1,5 +1,7 @@
+// V6.2.11 | 2026-11-13 专属海克斯框架：content buffs 里带 owner 的海克斯只在本方该角色存活时进候选
+//   （requires='noCharge' 额外要求该角色未蓄力）；recordUsedBuffKey 把 owner 类并入全场唯一机制挡。
 // V6.2.10 | 2026-11-08 众志成城门槛放宽：本阵营存活 ≤5 人仍可进候选，只有 6 人（满编）剔除
-export const VER = 'modules/329-buff-tools.js V6.2.10';
+export const VER = 'modules/329-buff-tools.js V6.2.11';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -70,9 +72,11 @@ export function hasCarryTarget(team) {
 // opts.withFortifyRule：116 职业平衡 job 专用（无剩余 buff 时禁选严阵以待），默认关；116 hex job / 122 不开。
 // 注意：V6.2.4 已按老板拍板删掉 carry 过滤（无 5 号位时 core/04 会召唤雄鹰顶位），本函数同样不含。
 // 记录已选过的「全场唯一」海克斯；选 buff 的四处流程（手选/全自动/联网/双海克斯）统一调这里
+//   全场唯一 = carry / permanent 海克斯（圣火不熄、背水一战）/ 专属海克斯（content 里带 heroRequirement 的）
 export function recordUsedBuffKey(key) {
     if (!key) return;
-    const isExclusive = key === BUFF_TYPES.CARRY || key === BUFF_TYPES.HOLY_FIRE || key === BUFF_TYPES.LAST_STAND;
+    const def = CONFIG.BUFFS[key] || {};
+    const isExclusive = key === BUFF_TYPES.CARRY || key === BUFF_TYPES.HOLY_FIRE || key === BUFF_TYPES.LAST_STAND || !!def.heroRequirement;
     if (!isExclusive) return;
     const used = GlobalStore.get('usedBuffKeys') || [];
     if (!used.includes(key)) GlobalStore.set('usedBuffKeys', [...used, key]);
@@ -101,6 +105,17 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
         if (k === BUFF_TYPES.MIND_CONTROL && (alive.length <= 2 || enemyTeam.length <= 2)) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !alive.some(u => u.role === requiredRole)) return false;
+        // 专属海克斯（2026-11-13）：heroRequirement 指定哪个身份标记必须在场
+        //   content 里 buff.heroRequirement = 'isWei' → 只有韦一笑在场才进候选池（六大派抽不到）
+        //   requires='noCharge' → 该角色正在蓄力时也不进池（寒离飒强化「必须他未蓄力」）
+        //   全场唯一：已选过的专属海克斯不再进池（与 carry / permanent 同口径的机制挡）
+        const heroReq = CONFIG.BUFFS[k].heroRequirement;
+        if (heroReq) {
+            if (usedKeys.includes(k)) return false;
+            const hero = alive.find(u => u[heroReq]);
+            if (!hero) return false;
+            if (CONFIG.BUFFS[k].requires === 'noCharge' && (hero.state?._hlsCharging || 0) !== 0) return false;
+        }
         return true;
     });
 }

@@ -88,7 +88,10 @@ export const FACT_TYPES = Object.freeze({
     // 吸星结算汇总（modules/334）：一次结算一条，{ casterUid, skillName, source, absorbedTotal:{atk,def,maxHp},
     //   beneficiaries:[{uid,name,stat,before,after}] }——beneficiaries 内同时含被吸方(负增量)与施术者(正增量)，
     //   体检按 group 'absorbed'/'absorbGain' 对账；不进画面（renderFn null）
-    ABSORB_SUMMARY: 'absorbSummary'
+    ABSORB_SUMMARY: 'absorbSummary',
+    // 圣火令主动使用（2026-11-13）：一局一次，己方回血 / 敌方真伤+斩杀
+    HEX_ACTIVE_HEAL: 'hexActiveHeal',
+    HEX_ACTIVE_DMG: 'hexActiveDmg'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 13 项对应） */
@@ -102,7 +105,10 @@ export const BUFF_TYPES = Object.freeze({
     SOUL_DRAIN: 'soulDrain',  // 摄魂：敌方全体攻击力降低（唯一削弱型海克斯）
     HOLY_FIRE: 'holyFire',    // 圣火不熄：每局首次己方非巨马阵亡 → 下一个行动步原位复活（死亡交互型海克斯）
     LAST_STAND: 'lastStand',  // 背水一战：己方单位血量低于 35% → 攻击力 +40%
-    UNITY: 'unity'            // 众志成城：按存活人数（含召唤物）阶梯加攻防；生效时人不足则召唤随机角色补员
+    UNITY: 'unity',           // 众志成城：按存活人数（含召唤物）阶梯加攻防；生效时人不足则召唤随机角色补员
+    HLS_POWER_1: 'hlsPower1', // 寒离飒强化（专属）：立刻起蓄 + 嘲讽 + 承伤按攻击力计入 + 本回合末爆发
+    // 韦一笑专属（2026-11-13）：青翼追魂——命中追加已损失生命 10% 真伤；闪避后追击（每回合 1 次）
+    WEI_EXCLUSIVE: 'weiExclusive'
 });
 
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */
@@ -382,5 +388,10 @@ export const UI_HANDLER_KEYS = Object.freeze({
     START_REPLAY_FROM_FILE: 'startReplayFromFile',
     GO_BACK_TO_COVER: 'goBackToCover',
     HOST_WAIT_RECONNECT: 'hostWaitReconnect',
-    SWAP_ALLY_POSITIONS: 'swapAllyPositions'
+    SWAP_ALLY_POSITIONS: 'swapAllyPositions',
+    // 圣火令主动（2026-11-13）：
+    //   ON_HOLY_TOKEN_DROP —— player/502 掉落动画结束 → 通知 ui/723 亮右下角待用图标
+    //   ON_CONTINUE_FOR_HEX —— ui/709 暂停/下一回合恢复时调 → 让圣火令飞入战场中央
+    ON_HOLY_TOKEN_DROP: 'onHolyTokenDrop',
+    ON_CONTINUE_FOR_HEX: 'onContinueForHex'
 });

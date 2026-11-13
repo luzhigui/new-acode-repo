@@ -403,7 +403,7 @@
         "duanChui": {
           "name": "断锤三式",
           "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；触发瞬间攻击力减半（减掉的量记为 N），此后每次出手后攻击 +N、自身生命 -{selfCost}。",
-          "params": { "keepHp": 5, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5 }
+          "params": { "keepHp": 10, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5 }
         }
       }
     },
@@ -433,7 +433,7 @@
         "summonBengBeng": {
           "name": "召唤蹦蹦",
           "desc": "每回合开始 {prob}% 概率，在己方空位召唤一只蹦蹦（M{m}、攻{atk}、防{def}、生命{maxHp}）；张中每次攻击命中后再有 20% 概率召唤、蹦蹦每次攻击命中后再有 10% 概率召唤（不限数量）；己方角色死亡时按其 m 值÷1000 的概率补召一只。蹦蹦攻击或受击时，给对方叠加一层寒毒（{poisonDuration}回合，每回合 {poisonDot} 最大生命）。",
-          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.3, "attackSummonProb": 0.2, "bengBengSummonProb": 0.1, "deathSummonDivisor": 1000, "poisonDuration": 3, "poisonDot": [0.04] }
+          "params": { "m": 10, "atk": 3, "def": 2, "maxHp": 12.5, "prob": 0.28, "attackSummonProb": 0.15, "bengBengSummonProb": 0.08, "deathSummonDivisor": 1000, "poisonDuration": 3, "poisonDot": [0.04] }
         }
       }
     },
@@ -1387,7 +1387,18 @@
       { "count": 7, "defBonus": 0.40, "atkBonus": 0.30 },
       { "count": 8, "defBonus": 0.60, "atkBonus": 0.50 },
       { "count": 9, "defBonus": 1.00, "atkBonus": 1.00 }
-    ], "icon": "🤝" }
+    ], "icon": "🤝" },
+
+    "hlsPower1": { "name": "寒离飒强化", "desc": "寒离飒立刻起蓄：获得 100 点护盾，嘲讽全场敌人本回合只攻击他，本回合他承受的伤害按「对方攻击力」全额计入蓄意轰拳基数（不看实扣血量），回合末直接打出蓄意轰拳；本回合他行动时再获得 50% 最大生命护盾。仅在他未蓄力时可选，全场仅一次", "heroRequirement": "isHanLiSa", "requires": "noCharge", "armorBonus": 100, "shieldPct": 0.5, "duration": 1, "icon": "🌀" },
+
+    "weiExclusive": {
+      "name": "韦一笑强化1",
+      "desc": "韦一笑专属：每次命中额外造成目标已损失生命10%的真实伤害；每次成功闪避后立即发动一次追击（每回合最多1次、不消耗行动力）。持续3回合。",
+      "icon": "🦇",
+      "duration": 3,
+      "heroRequirement": "isWei",
+      "effects": ["weiExclusive"]
+    }
   },
 
   "hexes": {
@@ -1400,6 +1411,7 @@
   },
 
   "encounters": {
+    "randomEliteStages": [1],
     "enemySquads": {
       "1": [104, 104, 100, 97, 95],
       "2": [{ "name": "张三丰", "role": "防战", "m": 107 }, 104, 104, 100, 97],

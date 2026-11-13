@@ -477,6 +477,10 @@ const CONFIG = {
     get ENEMY_POOL_TIER() {
         return getHeroPools().enemyPoolTier;
     },
+    // 随机精英关（2026-11-13）：列在这的关卡从所有六大派具名精英里随机抽 N 人组队
+    get RANDOM_ELITE_STAGES() {
+        return getGameData().encounters.randomEliteStages || [];
+    },
     get ENEMY_SQUADS() {
         return getGameData().encounters.enemySquads;
     },

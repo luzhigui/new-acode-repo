@@ -436,12 +436,17 @@ export function getStat(unit, stat) {
     // 引擎内部一律实数：不在此处截到 0.1 格（旧实现 floor 会吃掉吸取/加成的小数尾巴）。
     //   显示层统一取整见 infra/102 fmtNum；显示结果不回写数据。
     const result = (base + addSum) * (1 + mulSum);
-    // 绝对值上限锁（庄铮·断锤三式）：锁定期间无视一切词条增删，恒等于锁值。
-    //   与差值词条的区别：差值是「锁定时实时值 - keepHp」，含当时生效的 ttl:'round' 词条；
-    //   临时词条被回合清理后 base+差值会落到负数（被夹到 1）——就是「carry 结束后没回 5」的根因。
+    // 基数上限锁（庄铮·断锤三式，2026-11-13 老板拍板修正）：
+    //   原实现是绝对值锁（直接 return lock），把所有词条加成吞掉——carry / 蝶变附身 / 众志补员的
+    //   maxHp 加成全部失效，附身飞回也不会回落。改成「基数锁」：锁定期间 base 强制等于锁值、
+    //   词条照常叠，maxHp = (lock + addSum) × (1 + mulSum)。
+    //   这样 carry 能吃到、carry 结束后回合末清临时词条 → 自然回到锁值；附身飞回同理。
+    //   下限 Math.max(1, ...) 保护：极端情况下负词条把结果推成 0 时庄铮不会立刻死（1 血也能撑几击）。
     if (stat === 'maxHp') {
         const lock = unit.state?._maxHpLock;
-        if (typeof lock === 'number' && lock > 0) return lock;
+        if (typeof lock === 'number' && lock > 0) {
+            return Math.max(1, (lock + addSum) * (1 + mulSum));
+        }
     }
     return Math.max(0, result);
 }

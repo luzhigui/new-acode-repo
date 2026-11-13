@@ -1,3 +1,7 @@
+// V1.23.6 | 2026-11-13 专属海克斯（content buff.heroRequirement：寒离飒强化 / 韦一笑强化1）只在
+//   「海克斯平衡仪表盘」（runHexStageJob 内联 picker）排除——那张表横向比通用强度，专属绑定角色读不出结论。
+//   精英战力评测 / 职业平衡 / unitAB 一律照常抽：那几张表测真实对局战力，专属本来就该生效。
+//   （首版误把过滤加在共享 pickHexBuff 上，把精英评测也滤掉了，同日二次修正。）
 // V1.23.5 | 2026-11-11 上一条「严格同职业」会把样本筛成 0（素问 role 为空、唐文亮是标枪、
 //   普通弟子职业是建队时随机四选一），改为三级降级：同职业 → 同站位类（前排/后排）→ 不限职业，
 //   并把「无职业数据的候选」改成沿用被换者职业（纯单位互换）。
@@ -153,10 +157,16 @@ function buildTeam(extraRole, camp, positions, rng) {
     return team;
 }
 
+// 专属海克斯（content buff.heroRequirement，如「寒离飒强化」「韦一笑强化1」）只在「海克斯平衡仪表盘」
+//   （runHexStageJob）里排除：那张表要横向比较各海克斯的通用强度，专属绑定特定角色在场，混进去读不出结论。
+//   精英战力评测 / 职业平衡 / unitAB 一律照常抽取——那些表测的是真实对局的战力，专属海克斯本来就该生效。
+const isExclusiveHex = (k) => !!(CONFIG.BUFFS[k] && CONFIG.BUFFS[k].heroRequirement);
+
 function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule, enemyTeam = []) {
     // 2026-10-22 V1.12.4：候选池过滤统一由 modules/329-buff-tools filterAvailableBuffs 提供（与主代码同口径）；
     //   withFortifyRule 原样透传给 opts（职业平衡 job 专用：无剩余 buff 时禁选严阵以待）。
     // V1.16.0：enemyTeam 透传（惑人心智门槛要读敌方存活数）；按 ui/711-buff-dialog 同口径先滤 alive
+    // 注意：本函数服务的是「模拟真实对局」的 job（职业平衡/精英/unitAB），不做专属过滤。
     const enemyAlive = (enemyTeam || []).filter(u => u && u.alive);
     const available = filterAvailableBuffs(activeBuffs, allyTeam, { withFortifyRule: !!withFortifyRule, enemyTeam: enemyAlive });
     if (available.length === 0) return null;
@@ -183,6 +193,7 @@ function pickEnemyHexBuff(activeBuffs, enemySide, allySide, rng) {
     const enemyTeam = (enemySide || []).filter(u => u && u.alive);
     const allyTeam = (allySide || []).filter(u => u && u.alive);
     const activeEnemyBuffs = buffsOfCamp(activeBuffs, CAMP_TYPES.ENEMY);
+    // 不过滤专属：本函数服务真实对局模拟（精英/双海克斯）；六大派侧天然没有明教精英，专属本就抽不到。
     const available = filterAvailableBuffs(activeEnemyBuffs, enemyTeam, { withFortifyRule: true, enemyTeam: allyTeam });
     if (available.length === 0) return null;
     const shuffled = [...available];
@@ -683,8 +694,10 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             // 2026-10-22 V1.12.4：候选池过滤统一由 modules/329-buff-tools filterAvailableBuffs 提供；
             //   hex job 不开 withFortifyRule（与原行为一致）。
             // V1.16.0：实时敌方透传（惑人心智门槛）
+            // V1.23.6：滤掉专属海克斯（heroRequirement），专属不进通用平衡评估。
             const available = filterAvailableBuffs(activeBuffs, allySide,
-                { enemyTeam: (liveEnemy || teams.enemyTeam).filter(u => u && u.alive) });
+                { enemyTeam: (liveEnemy || teams.enemyTeam).filter(u => u && u.alive) })
+                .filter(k => !isExclusiveHex(k));
             if (available.length === 0) return null;
             // 偏好海克斯出现时优先选（与 101 主线程版一致；无偏好则全池随机）
             const preferred = available.filter(k => preferredBuffs.includes(k));

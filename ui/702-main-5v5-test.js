@@ -53,6 +53,7 @@ import { setBattleRng, getBattleRng } from '../core/214-battle-shared.js';
 import { VER as VER_PLAYER_CORE } from '../player/503-player-core.js';
 import { installNetSession, sendNetLineup, clearNetBadge } from './716-net-session.js';
 import { installReplayEntry } from './717-replay-entry.js';
+import './723-hex-active.js';   // 圣火令主动（2026-11-13）：顶层副作用注册 UIHandler
 import { handlePvpBuffSelection, handleEnemyAutoBuffSelection } from '../player/512-battle-flow.js';
 import { VER as VER_TEXT } from '../player/501-player-text.js';
 import { VER as VER_BUFF_UI } from '../player/502-player-buff-ui.js';

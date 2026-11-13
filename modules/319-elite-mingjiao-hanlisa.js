@@ -8,16 +8,20 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-// V2.2.5 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.2.5';
+// V2.3.0 | 2026-11-13 新增专属海克斯「寒离飒强化」（buffs.hlsPower1）：下回合开始立刻起蓄（直接到相位 2，
+//   不跳过行动）、+armorBonus 护盾、全场嘲讽本回合只打他、承伤桶改按攻击者攻击力全额计入、行动时再加
+//   shieldPct×maxHp 护盾；回合末走既有 ON_ROUND_END 爆发。一场一次（_hlsPowerUsed）。
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.3.0';
 
 import { getFronts } from '../core/203-battle-utils.js';
-import { getBattleRng, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/214-battle-shared.js';
+import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/214-battle-shared.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
+import { registerTargetFilter } from '../core/207-target-strategies.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { resolveRoundStatGrants } from '../core/217-effect-handlers.js';
 import { resolveDeaths } from '../core/211-battle-attack-steps.js';
-import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
@@ -56,6 +60,40 @@ export function createHanLiSaComponent() {
                 pushSkillAnnounce(ctx.log, hls, skillName, text, { line: false, floatText: text, floatUid: hls.uid });
             };
             const enemyOf = () => (hls.camp === CAMP_TYPES.ALLY ? B : A);
+
+            // —— 专属海克斯「寒离飒强化」（buffs.hlsPower1）——
+            //   与普通蓄力的差别：① 直接置相位 2（普通是 1 → 下回合行动前跳过；强化版他本回合照常行动）
+            //   ② 额外 armorBonus 护盾 ③ 全场嘲讽本回合只打他 ④ 本回合承伤桶改记「攻击者攻击力」
+            //   ⑤ 行动时再加 shieldPct×maxHp 护盾；回合末走既有 ON_ROUND_END(===2) 爆发分支，无需另写。
+            //   一场只触发一次（_hlsPowerUsed 是整场字段，跨局由 resetBattleTransientState 归零）。
+            const powerCfg = CONFIG.BUFFS[BUFF_TYPES.HLS_POWER_1] || {};
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XUANMING_POISON, (data) => {
+                // 强化回合标记每回合先清：不依赖回合末清，防他本回合阵亡后标记残留
+                hls.state._hlsTaunt = false;
+                hls.state._hlsTrueAbsorb = false;
+                hls.state._hlsPowerShielded = false;
+                if (!hls.alive || hls.state._hlsPowerUsed) return;
+                if ((hls.state._hlsCharging || 0) !== 0) return;
+                const myTeam = hls.camp === CAMP_TYPES.ALLY ? data.A : data.B;
+                const activeBuffs = (myTeam && myTeam._activeBuffs) || [];
+                if (!activeBuffs.some(b => b && b.key === BUFF_TYPES.HLS_POWER_1)) return;
+                hls.state._hlsPowerUsed = true;
+                hls.state._hlsCharging = 2;   // 相位 2 = 本回合蓄力且回合末爆发；不经过相位 1，所以不跳过行动
+                hls.state._hlsTaunt = true;
+                hls.state._hlsTrueAbsorb = true;
+                hls.state._shield = (hls.state._shield || 0) + (powerCfg.armorBonus || 0);
+                pushSkillAnnounce(data.log, hls, '寒离飒强化',
+                    `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按对方攻击力全额计入轰拳）`,
+                    { floatText: '🌀强化', floatUid: hls.uid });
+            });
+
+            // 嘲讽：敌方攻击者的候选池强制收成寒离飒（core/10 每回合清过滤器，本组件 register 每回合重挂，id 幂等）
+            registerTargetFilter('hanlisaPowerTaunt', (unit, candidates) => {
+                if (!hls.alive || !hls.state._hlsTaunt) return null;
+                if (!unit || unit.camp === hls.camp) return null;      // 只约束敌方攻击者
+                const hit = (candidates || []).find(u => u && u.uid === hls.uid);
+                return hit ? [hit] : null;                              // 他不可选中（极端情况）时不干预，照默认打
+            });
 
             // —— 普攻命中后：九阳 / 寒毒 / 解锁蓄力 ——
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LEECH + 2, (data) => {
@@ -124,7 +162,12 @@ export function createHanLiSaComponent() {
                 if (data.target !== hls) return;
                 if (data.dmg && data.dmg > 0) {
                     const arr = hls.state._hlsTaken;
-                    if (Array.isArray(arr) && arr.length > 0) arr[arr.length - 1] += data.dmg;
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        // 强化回合：吸收口径改为「攻击者攻击力」全额（真实伤害扣法，不看实际掉血）
+                        arr[arr.length - 1] += (hls.state._hlsTrueAbsorb && data.unit)
+                            ? Math.max(0, Math.floor(getStat(data.unit, 'atk')))
+                            : data.dmg;
+                    }
                 }
                 // core/12 写在本击的 absorbed 量：谁的日志归谁——护盾吸收是寒离飒的承伤反应，
                 //   不再插进攻击者的攻击组（pushInfo），改为紧跟本击攻击组之后的独立播报行
@@ -162,6 +205,13 @@ export function createHanLiSaComponent() {
             // —— 蓄力回合：跳过行动（core/11 声明通道，产 PASS 行）——
             eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
                 if (data.unit !== hls) return;
+                // 强化回合：轮到他行动时再得 shieldPct×maxHp 护盾（每回合一次；回合末爆发时随 _shield 清零）
+                if (hls.state._hlsTaunt && !hls.state._hlsPowerShielded) {
+                    hls.state._hlsPowerShielded = true;
+                    const addShield = hls.maxHp * (powerCfg.shieldPct || 0);
+                    hls.state._shield = (hls.state._shield || 0) + addShield;
+                    pushInfo(data, `<span class="gold">🛡️ 寒离飒强化：行动前再得 ${fmtNum(addShield)} 点护盾</span>`);
+                }
                 if ((hls.state._hlsCharging || 0) !== 1) return;
                 hls.state._hlsCharging = 2;
                 data.declaration.skip = true;

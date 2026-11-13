@@ -873,7 +873,9 @@ export function installBuffMechanics(eventBus) {
         mindControlSwap: registerMindControl,
         holyFireRevive: registerHolyFire,
         lastStandLeech: registerLastStandLeech,
-        lastStandTrigger: registerLastStand
+        lastStandTrigger: registerLastStand,
+        // 韦一笑专属（2026-11-13）：青翼追魂
+        weiExclusive: registerWeiExclusive
     };
     for (const buff of Object.values(gd.buffs)) {
         if (!buff.effects || !Array.isArray(buff.effects)) continue;
@@ -882,4 +884,62 @@ export function installBuffMechanics(eventBus) {
             if (install) install(eventBus);
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 韦一笑专属 · 青翼追魂（2026-11-13）
+//   效果1：每次命中 → 额外造成目标已损失生命 10% 真实伤害（BONUS_DMG）
+//   效果2：每次成功闪避后 → 立即发动一次追击（每回合 1 次、不消耗行动力）
+//   海克斯配置 heroRequirement: 'isWei' → 只有韦一笑在场才进候选池
+//   效果2 复用 core/10 的 extraRequests 通道，走 counterAttack 语义（_isLinkAttack 防环）
+//   ⚠️ 前置依赖：core/212 的 ON_DODGE emit 必须带 A/B/extraRequests（若未改，效果2 不触发）
+// ═══════════════════════════════════════════════════════════════
+function registerWeiExclusive(eventBus) {
+    // 效果1：命中追加已损失生命 10% 真伤
+    //   优先级 LEECH + 4（44）：空档，排在斩断（WARRIOR_EXECUTE 45）之前，
+    //   追加伤害落地后目标血量更低，斩杀判定更容易进阈值
+    eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LEECH + 4, (data) => {
+        const { unit, target, dmg } = data;
+        if (!unit || !unit.isWei || !unit.alive) return;
+        if (!target || !target.alive) return;
+        if (!dmg || dmg <= 0) return;
+        const allySide = unit.camp === CAMP_TYPES.ALLY ? data.A : data.B;
+        if (!allySide || !hasBuff(allySide._activeBuffs, BUFF_TYPES.WEI_EXCLUSIVE)) return;
+        const lostHp = Math.max(0, target.maxHp - target.hp);
+        if (lostHp <= 0) return;
+        const bonusDmg = Math.floor(lostHp * 0.10);
+        if (bonusDmg <= 0) return;
+        if (!data.declarations) data.declarations = [];
+        data.declarations.push({
+            type: EFFECT_TYPES.BONUS_DMG,
+            value: bonusDmg,
+            target,
+            source: unit,
+            label: '青翼追魂',
+            logText: `<span class="gold">🦇 青翼追魂：${unit.name} 对 ${target.name} 追加 ${fmtNum(bonusDmg)} 点真实伤害</span>`
+        });
+    });
+
+    // 效果2：闪避后追击（每回合 1 次、不消耗行动力）
+    //   防环：_weiExclusiveFiredThisRound 挡住本回合第二次；
+    //   counterAttack 进 LINK_REASONS → 执行期 _isLinkAttack = true，追击自身不会再触发追击
+    eventBus.on(SIGNAL_TYPES.ON_DODGE, 50, (data) => {
+        const { unit, target } = data;
+        if (!target || !target.isWei || !target.alive) return;
+        if (!unit || !unit.alive) return;
+        if (target.state._weiExclusiveFiredThisRound) return;
+        const allySide = target.camp === CAMP_TYPES.ALLY ? data.A : data.B;
+        if (!allySide || !hasBuff(allySide._activeBuffs, BUFF_TYPES.WEI_EXCLUSIVE)) return;
+        if (!data.extraRequests) return;   // 引擎未提供通道（旧版本兼容，防御性 return）
+        target.state._weiExclusiveFiredThisRound = true;
+        data.extraRequests.push({
+            unit: target,
+            targetUid: unit.uid,
+            reason: 'counterAttack',
+            actedMode: 'restore',
+            actedSnapshot: target.state._acted,
+            priority: 13,
+            infoText: `<span class="gold">🦇 青翼追魂：${target.name} 闪避后追击 ${unit.name}</span>`
+        });
+    });
 }

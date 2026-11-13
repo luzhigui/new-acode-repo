@@ -53,7 +53,10 @@ export const duanChuiHandler = {
                 //   _ignoreDodge   必中（不被闪避；对方不闪避 → 闪避反击链断）
                 //   _immuneExecute 免疫斩杀（core/203 getExecuteBlockReason 已读，core 不动）
                 //   _immuneClaw    免疫白骨爪（组十二 modules/310 读）
-                //   _immunePoison  免疫毒素（组八九十 挂毒入口各挡）
+                // 2026-11-13 老板拍板去掉 _immunePoison：庄铮触发断锤后照样中毒。
+                //   消费点（core/216 挂毒 / modules/331 dotTick / modules/319 寒毒 / modules/339 蹦蹦寒毒）
+                //   的 `if (state._immunePoison)` 检查是防御性空转——字段不再被任何地方设置，恒为 false，
+                //   无副作用；消费点不动，只断「谁设置它」。
                 // 拒绝回血/吸血不额外挂标记：_dmgCap > 0 已由 core/214 拦正向治疗；
                 //   姐姐附身 isHeal=false 不受拦，仍可加血 → 组五按契约回退到 keepHp。
                 Object.assign(self.state, {
@@ -61,8 +64,7 @@ export const duanChuiHandler = {
                     _neverMiss: true,
                     _ignoreDodge: true,
                     _immuneExecute: true,
-                    _immuneClaw: true,
-                    _immunePoison: true
+                    _immuneClaw: true
                 });
                 // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
                 //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
@@ -73,12 +75,13 @@ export const duanChuiHandler = {
                     self.state._duanChuiN = n;
                 }
                 // 演出：攻击数字被剥走一半往上飘（fx/619），只表现，减半数值仍以上面 addMod 为准
-                const halveCue = (self.pos != null && n > 0)
+                // 日志不在这里推（2026-11-13 老板拍板修正顺位）：BEFORE_DAMAGE_APPLY 时 IMMUNE fact 还没落账，
+                //   pushSkillAnnounce 会排到 IMMUNE 前面 → 读起来像「还没被打就提示锤裂」。
+                //   挪到 AFTER_ATTACK_IMMUNE（IMMUNE fact 已 push、反击 extraRequests 还未 push），
+                //   顺位自然变成 IMMUNE → SKILL_ANNOUNCE → 反击攻击组。
+                self.state._duanChuiHalveCue = (self.pos != null && n > 0)
                     ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
                     : null;
-                // needsSeparator：免疫分支不建攻击组，公告没有组可依。打分隔线让它自成一段——
-                //   否则它会卡在「上一击攻击组尾巴」与「下一击分隔符」之间，读起来像上一击触发的。
-                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${fmtNum(n)}）！`, { cue: halveCue, needsSeparator: true });
                 data.declarations.push({ immune: true, reason: `🔨 断锤三式：${self.name} 屹立不倒` });
             }
         });
@@ -90,6 +93,12 @@ export const duanChuiHandler = {
             handler: (data) => {
                 if (data.target !== self || !data.unit || data.unit.name === self.name) return;
                 if (!self.state._duanChuiTriggered || self.state._duanChuiCountering || !self.alive) return;
+                // 顺位修正（2026-11-13）：IMMUNE fact 已在 core/10 免疫分支落账，此处推 SKILL_ANNOUNCE，
+                //   紧跟在 IMMUNE 之后、反击之前。去掉 needsSeparator——IMMUNE 已是独立的攻击组，
+                //   中间再插分隔符会显得「提示被切断」。
+                const halveCue = self.state._duanChuiHalveCue;
+                self.state._duanChuiHalveCue = null;
+                pushSkillAnnounce(data.log, self, '断锤三式', `${self.name} 锤裂人未倒——保留 ${fmtNum(keepHp)} 点生命，攻击减半（N=${fmtNum(self.state._duanChuiN || 0)}）！`, { cue: halveCue });
                 const attacker = data.unit;
                 if (!attacker.alive || attacker.state._pendingDeath) return;
                 const myTeam = self.camp === CAMP_TYPES.ALLY ? data.A : data.B;

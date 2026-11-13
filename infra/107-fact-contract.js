@@ -192,6 +192,16 @@ export const FACT_SPECS = Object.freeze({
         requiredFields: ['casterUid', 'skillName', 'source', 'absorbedTotal', 'beneficiaries'],
         renderFn: 'renderAbsorbSummaryHidden', translateFn: null
     },
+
+    // 圣火令主动（2026-11-13）
+    [FACT_TYPES.HEX_ACTIVE_HEAL]: {
+        requiredFields: ['unitUid', 'unitName', 'heal', 'hpBefore', 'hpAfter'],
+        renderFn: 'renderHexActiveHealFact', translateFn: 'makeHealAction'
+    },
+    [FACT_TYPES.HEX_ACTIVE_DMG]: {
+        requiredFields: ['unitUid', 'unitName', 'dmg', 'hpBefore', 'hpAfter', 'isExecute'],
+        renderFn: 'renderHexActiveDmgFact', translateFn: 'translateHexActiveDmg'
+    },
 });
 
 /**

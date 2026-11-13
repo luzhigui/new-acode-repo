@@ -61,6 +61,10 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew,
             if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
             var requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
             if (requiredRole && !alive.some(function (u) { return u.role === requiredRole; })) return false;
+            // 专属海克斯（与 modules/329 filterAvailableBuffs 同口径）：heroRequirement 指定的身份标记必须在本侧存活，
+            //   否则该 buff 挂上去也是空转（寒离飒强化 / 韦一笑青翼追魂等），会污染回放样本。
+            var heroReq = CONFIG.BUFFS[k] && CONFIG.BUFFS[k].heroRequirement;
+            if (heroReq && !alive.some(function (u) { return u[heroReq]; })) return false;
             return true;
         });
         if (!avail.length) continue;

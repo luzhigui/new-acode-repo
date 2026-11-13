@@ -429,6 +429,66 @@ export function initBattleTeams(currentStage, _rng) {
     let enemyUnits = [];
     const usedEnemyNames = [];
 
+    // 随机精英关（2026-11-13 老板拍板：第一关主打一个欢乐）：
+    //   从所有六大派具名精英里随机抽 N 人组队——M100~M115 全开放（俞莲舟/素问/少林圆真 到 灭绝师太），
+    //   能出啥全看运气。squadSize 沿用该关原阵容人数（第一关 5 人）。
+    //   走 _rng（PVP 双端同源、同种子可复现）；resolveEnemyRole 内部会消耗 RNG（每抽 1 人固定 1 次 + 何太冲额外 1 次）。
+    //   抽完直接覆盖 enemySquad，下面的 if (enemySquad) 原构建逻辑完全不动。
+    const randomEliteStages = C.RANDOM_ELITE_STAGES || [];
+    if (randomEliteStages.includes(currentStage)) {
+        const allChars = getGameData().characters || {};
+        const elitePool = Object.keys(allChars)
+            .filter(n => {
+                const ch = allChars[n];
+                return ch && ch.camp === '六大派' && ch.named === true
+                    && ch.m != null && ch.tier !== 'summon';
+            })
+            .map(n => ({ name: n, m: allChars[n].m }));
+        const squadSize = Array.isArray(C.ENEMY_SQUADS[currentStage]) ? C.ENEMY_SQUADS[currentStage].length : 5;
+
+        // 配对精英（2026-11-13 老板拍板：玄冥二老看作一个单位）：
+        //   整组作为【一个候选签】参与抽奖，抽到就占 group.length 个坑（多成员同时出场）；
+        //   不是「特殊待遇掷骰决定出不出」——跟灭绝/周芷若/张三丰完全平级，都是池子里一个条目。
+        //   剩余坑位放不下这组时从池里剔除继续抽（消耗 RNG 但池子有限，必然收敛）。
+        //   未来加新组合只加 PAIRED_GROUPS 一行，逻辑不动。
+        const PAIRED_GROUPS = [['鹿杖客', '鹤笔翁']];
+        const pairedNames = new Set(PAIRED_GROUPS.flat());
+        const soloPool = elitePool.filter(e => !pairedNames.has(e.name));
+
+        // 候选池：每个单人是 size=1 的候选，每个配对组是 size=N 的候选
+        const candidates = soloPool.map(e => ({
+            members: [{ name: e.name, m: e.m }],
+            size: 1
+        }));
+        for (const group of PAIRED_GROUPS) {
+            if (group.every(n => allChars[n])) {
+                candidates.push({
+                    members: group.map(n => ({ name: n, m: allChars[n].m })),
+                    size: group.length
+                });
+            }
+        }
+
+        // 无放回随机抽：每次从 remaining 抽一条，抽中即移除；剩余坑位放不下这组就剔除重抽
+        const pickedSquad = [];
+        const remaining = candidates.slice();
+        while (pickedSquad.length < squadSize && remaining.length > 0) {
+            const idx = _rng.nextInt(0, remaining.length - 1);
+            const cand = remaining[idx];
+            if (squadSize - pickedSquad.length < cand.size) {
+                remaining.splice(idx, 1);
+                continue;
+            }
+            remaining.splice(idx, 1);
+            for (const m of cand.members) {
+                const role = resolveEnemyRole(m.name);
+                pickedSquad.push({ name: m.name, role, m: m.m });
+            }
+        }
+
+        enemySquad = pickedSquad;
+    }
+
     // —— 六大派额外精英/特殊兵混入池（保留原 WEAK_ELITE_MIX_RATE 混入率，另加 M107 / M100 两档独立判定）——
     //   命中后只替换「非具名、且不属于本关固定精英池」的杂兵位；找不到杂兵位就放弃，绝不顶掉关卡固定精英
     const fixedEnemyEliteNames = new Set(Object.values(C.ELITE_POOL || {}).flat().map(e => e && e.name));

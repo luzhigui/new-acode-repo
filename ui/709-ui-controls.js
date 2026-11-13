@@ -120,10 +120,16 @@ export function bindNetPvp(net, onNetMsg, onConnected) {
 export function bindPauseButton(getState, setState, updateButtons) {
     document.getElementById('btnPause').addEventListener('click', function () {
         onAnyButtonClick();
+        const wasPaused = getState.gs() === 'PAUSED';
         if (getState.gs() === 'RUNNING') {
             setState.gs('PAUSED');
         } else if (getState.gs() === 'PAUSED') {
             setState.gs('RUNNING');
+        }
+        // 圣火令主动（2026-11-13）：从暂停恢复到 RUNNING → 让圣火令飞入
+        if (wasPaused) {
+            const fnHex = GlobalStore.getUIHandler('onContinueForHex');
+            if (typeof fnHex === 'function') fnHex();
         }
         // 走统一的裁判逻辑
         const fnSync = GlobalStore.getUIHandler('syncPauseState');
@@ -176,6 +182,9 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
         }
         setState.waitingForNextRound(false);
         setState.gs('RUNNING');
+        // 圣火令主动（2026-11-13）：回合末等待恢复 → 让圣火令飞入
+        const fnHex = GlobalStore.getUIHandler('onContinueForHex');
+        if (typeof fnHex === 'function') fnHex();
         updateButtons();
     });
 }

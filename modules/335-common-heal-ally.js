@@ -6,7 +6,7 @@ export const VER = 'modules/335-common-heal-ally.js V1.0.1';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, FACT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-import { getBattleRng, applyStatChange } from '../core/214-battle-shared.js';
+import { getBattleRng, applyStatChange, addMod } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
@@ -32,31 +32,49 @@ export const healAllyOnHitHandler = {
 
                 // 随机挑一个
                 const pick = pool[getBattleRng().nextInt(0, pool.length - 1)];
-                if (pick.hp >= pick.maxHp) return; // 满血就不回了
 
+                // 溢出转防御（2026-11-13 老板拍板：素问太弱，满血溢出加永久防御，不封顶）
+                //   治疗量 10 点，实际回血 = min(10, 缺口)，溢出 = 10 - 实际回血 → addMod 永久 def。
+                //   之前「满血直接 return」改成「满血整笔转防御」——触发次数不变，但每次都有产出。
+                //   溢出是永久 add（group 'healAllyDef'），30 回合累积到 +60~+100 防，越打越硬。
                 const healAmount = Math.min(decl.healAmount, pick.maxHp - pick.hp);
+                const overflow = decl.healAmount - healAmount;
                 const hpBefore = Math.floor(pick.hp);
-                applyStatChange(pick, 'hp', healAmount, self, '妙手回春');
+                if (healAmount > 0) {
+                    applyStatChange(pick, 'hp', healAmount, self, '妙手回春');
+                }
+                if (overflow > 0) {
+                    addMod(pick, 'def', { source: '妙手回春·溢甲', value: overflow, ttl: 'permanent', group: 'healAllyDef', op: 'add' });
+                }
 
                 if (log) {
-                    log.push({
-                        factType: FACT_TYPES.HEAL,
-                        data: {
-                            unitName: pick.name,
-                            heal: healAmount,
-                            hpBefore: fmtHp(hpBefore),
-                            hpAfter: fmtHp(hpBefore + healAmount),
-                            unitUid: pick.uid,
-                            maxHp: pick.maxHp,
-                            stacks: 1,
-                            icon: '🌿',
-                            label: '妙手回春',
-                            mode: 'plusTrail',
-                            anchorVerb: '回复'
-                        }
-                    });
+                    // 只有真回血才推 HEAL fact（溢出全转防御时没有回血数值）
+                    if (healAmount > 0) {
+                        log.push({
+                            factType: FACT_TYPES.HEAL,
+                            data: {
+                                unitName: pick.name,
+                                heal: healAmount,
+                                hpBefore: fmtHp(hpBefore),
+                                hpAfter: fmtHp(hpBefore + healAmount),
+                                unitUid: pick.uid,
+                                maxHp: pick.maxHp,
+                                stacks: 1,
+                                icon: '🌿',
+                                label: '妙手回春',
+                                mode: 'plusTrail',
+                                anchorVerb: '回复'
+                            }
+                        });
+                    }
                     const reason = isAttacker ? '攻击后' : '被攻击后';
-                    pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命`, { floatText: '🌿', floatUid: pick.uid });
+                    if (healAmount > 0 && overflow > 0) {
+                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命，溢出 ${fmtNum(overflow)} 转防御`, { floatText: '🌿', floatUid: pick.uid });
+                    } else if (healAmount > 0) {
+                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命`, { floatText: '🌿', floatUid: pick.uid });
+                    } else if (overflow > 0) {
+                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 满血，溢出 ${fmtNum(overflow)} 转防御`, { floatText: '🌿', floatUid: pick.uid });
+                    }
                 }
             }
         });

@@ -41,27 +41,31 @@ function findHighestHp(team) {
     return best;
 }
 
-// 从队伍里找"血量百分比最低"的存活单位（保护己方用）
-function findLowestHpPct(team) {
+// 保护分支候选（2026-11-13 老板拍板重做）：
+//   找「残血 + 本回合已行动」的己方队友——已行动 = 不耽误出手，装他无副作用。
+//   排除说不得自己（自己在出手）；排除召唤物/拒马；多个候选取血量百分比最低。
+//   全部不满足时返回 null → 走抓敌分支（原「有红血就保护」的口径被收窄）。
+function findProtectCandidate(team, redHpThreshold, excludeUid) {
     let best = null;
     for (const u of team) {
         if (!u.alive || u.state._pendingDeath || u.isHorse) continue;
+        if (u.uid === excludeUid) continue;
+        if (u.hp / u.maxHp >= redHpThreshold) continue;
+        if (!u.state._acted) continue;   // 本回合未行动：不装（别耽误他出手）
         const pct = u.hp / u.maxHp;
         if (!best || pct < best.pct) best = { u, pct };
     }
     return best ? best.u : null;
 }
 
-// 从队伍里找"是否有红血"的单位
-function hasRedHp(team, redHpThreshold) {
-    return team.some(u => u.alive && !u.state._pendingDeath && !u.isHorse && u.hp / u.maxHp < redHpThreshold);
-}
-
 // 装袋：给 target 打 _inBag 标记（真正"装谁"的字段记在说不得身上），并把它标记为不可选
-// ready 标记：装袋当回合为 false（不放），下回合开始置 true（下回合末才放）
-function putInBag(caster, target, mode, log) {
+// readyImmediately（2026-11-13 老板拍板）：
+//   true  = 本回合末就放（装的人本回合已行动或已错过行动，关到回合末不影响他）
+//   false = 下回合开始置 ready，下回合末放（耽误下回合 1 次行动）
+// 核心理念：布袋只耽误 1 次行动，不长期关押。
+function putInBag(caster, target, mode, log, readyImmediately = false) {
     Object.assign(caster.state, {
-        _inBag: { targetUid: target.uid, mode, casterUid: caster.uid, casterName: caster.name, ready: false }
+        _inBag: { targetUid: target.uid, mode, casterUid: caster.uid, casterName: caster.name, ready: readyImmediately }
     });
     // 用 state._untargetable 屏蔽选敌（canBeTargeted 读它）；同时 state._stunned 屏蔽行动（core/11 跳过）
     Object.assign(target.state, { _untargetable: true, _stunned: true });
@@ -72,13 +76,18 @@ function putInBag(caster, target, mode, log) {
     });
     if (log) {
         const label = mode === 'protect' ? '🛍️ 保护' : '🛍️ 装袋';
+        const timing = readyImmediately ? '本回合末放出' : '下一回合末放出';
         pushSkillAnnounce(log, caster, '布袋',
-            `${label}：${caster.name} 把 ${target.name} 装进布袋（下一回合末放出）`,
+            `${label}：${caster.name} 把 ${target.name} 装进布袋（${timing}）`,
             { floatText: '🛍️', floatUid: target.uid });
     }
 }
 
 // 触发判定（挂 AFTER_DAMAGE_APPLIED）：每次说不得命中后掷一次
+// V1.1.0 | 2026-11-13 老板拍板重做分支：
+//   保护：只装「残血 + 已行动」的己方（免得耽误出手），装完本回合末就放、回 10 血；
+//   抓敌：找敌方血量最高的，已行动 → 下回合末放（拖住下回合），未行动 → 本回合末放（只拖本回合）。
+//   保护/抓敌的「二选一」不再单独掷骰（原 protectBranchChance 废弃）：保护优先，保护不到才抓敌。
 function onShuobudeHit(data) {
     const { unit, A, B, log } = data;
     if (!unit || unit.name !== '说不得' || !unit.alive) return;
@@ -97,19 +106,19 @@ function onShuobudeHit(data) {
     }
     const allyTeam = A || [];
     const enemyTeam = B || [];
-    // 触发后掷二选一：保护 / 抓敌按配置概率
-    const doProtect = rng.next() < p.protectBranchChance;
-    // 保护分支：己方有红血 → 保护；无红血 → 改为抓敌
-    if (doProtect && hasRedHp(allyTeam, p.redHpThreshold)) {
-        const target = findLowestHpPct(allyTeam);
-        if (target && target.uid !== unit.uid) {
-            putInBag(unit, target, 'protect', log);
-            return;
-        }
-        // 目标是自己或找不到，落到抓敌
+    // 1. 保护：优先装「残血 + 已行动」的己方队友
+    const protectTarget = findProtectCandidate(allyTeam, p.redHpThreshold, unit.uid);
+    if (protectTarget) {
+        putInBag(unit, protectTarget, 'protect', log, true);   // 本回合末放，不耽误行动
+        return;
     }
+    // 2. 抓敌：装敌方血量最高的；按行动状态决定关押时长
+    //   已行动 → 下回合末放（耽误下回合 1 次）；未行动 → 本回合末放（耽误本回合 1 次）
     const enemyTarget = findHighestHp(enemyTeam);
-    if (enemyTarget) putInBag(unit, enemyTarget, 'capture', log);
+    if (enemyTarget) {
+        const alreadyActed = enemyTarget.state._acted === true;
+        putInBag(unit, enemyTarget, 'capture', log, !alreadyActed);
+    }
 }
 
 // 回合末放出（挂 ON_ROUND_END，只认真回合末 forced:true）

@@ -151,3 +151,9 @@ registerFactRenderer(FACT_TYPES.WEI_LEECH, renderWeiLeechFact);
 registerFactRenderer(FACT_TYPES.QIAN_KUN_DERIVED, renderQianKunDerivedFact);
 registerFactRenderer(FACT_TYPES.ENDLESS_BREATH, renderEndlessBreathFact);
 registerFactRenderer(FACT_TYPES.CLAW_HEAL, renderClawHealFact);
+
+// 圣火令·救援（2026-11-13）：走通用工厂，与其它回血同构
+export const renderHexActiveHealFact = makeHealRenderer({
+    icon: '🔥', label: '圣火令·救援', mode: 'plusTrail', anchorVerb: '恢复'
+});
+registerFactRenderer(FACT_TYPES.HEX_ACTIVE_HEAL, renderHexActiveHealFact);

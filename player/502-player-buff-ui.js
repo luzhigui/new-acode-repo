@@ -58,6 +58,8 @@ export async function handleHolyTokenDrop(c, entry) {
     icon.remove();
     c.updateScoreBadge();
     GlobalStore.set('bulletTimeActive', false);
+    // 圣火令主动（2026-11-13）：掉落动画结束 → 通知 ui/723 亮右下角待用图标
+    try { const fn = GlobalStore.getUIHandler('onHolyTokenDrop'); if (fn) fn(); } catch (e) { /* noop */ }
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {

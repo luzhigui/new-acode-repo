@@ -68,6 +68,12 @@ export const crazyHandler = {
                 data.unit.state._neverMiss = true;
                 data.unit.state._ignoreDodge = true;
 
+                // 周颠本人豁免「不分敌友随机」（2026-11-13 老板拍板：他只是有 buff，不是真蠢）：
+                //   癫在他身上只保留「传染」一条，攻击走正常选敌（打敌人），命中后仍把癫传出去。
+                //   必中 / 无视闪避 / 无视遮挡（core/210 isCrazyHost）照常保留——这是癫给源头的真正面。
+                //   传染后的持有者（被传染者）没有豁免，照样随机打。
+                if (data.unit.name === decl.name) return;
+
                 // V1.1.2：候选池统一走 core/207 出口，内部固定含 canBeTargeted + 全部引擎级过滤器，
                 //   这里不再自己拼池、也不再显式跑过滤链（技能侧不记得「要过滤」也不会漏）。
                 const rng = getBattleRng();
