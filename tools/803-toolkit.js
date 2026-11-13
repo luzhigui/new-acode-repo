@@ -1,4 +1,7 @@
-export const VER = 'tools/803-toolkit.js V6.3.0';
+export const VER = 'tools/803-toolkit.js V6.4.0';
+// V6.4.0 | 2026-11-13 ① 新增「按序号复制单文件」输入框（803 / 803,806 / 808-hex，tools/ 优先，内容现读不缓存）；
+//           ② 存档组下面新增「📚 文档（汇总·不进复制包）」组：61 份 .md 一次性连路径复制，
+//              给网页端判断哪份该删该留；名单在 806 的 DOC_FILES，与「全选」隔离（全选不勾文档组）。
 // V6.3.0 | 2026-11-11 tools/845-battle-log-analyze.js（主代码走势分析下线后搬进工具箱的分析模块）
 //           按老板要求归「📦 存档（不随包）」组：分组与目录索引都加 ARCHIVE_ONLY 覆盖，
 //           否则会被「../tools/」前缀先命中、落进「工具」组。只覆盖这一个文件，其余分组规则不动。
@@ -17,7 +20,7 @@ export const VER = 'tools/803-toolkit.js V6.3.0';
 //           填 20 万硬顶真到 20 万（配 102 V6.4.4 解锁 max）。
 // V6.2.5 | 2026-10-30 上限框 max 100000 → 200000（102 V6.4.4，仅解锁输入范围）；默认值与 JS 兜底 80000 均不动。
 
-import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './806-ai-pack-config.js';
+import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE, DOC_FILES } from './806-ai-pack-config.js';
 
 // 标签页切换
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -109,6 +112,46 @@ function escapeHtml(text) {
             groupDiv.classList.add('open'); // 展开文件夹方便逐个取消
         });
     });
+
+    // 2026-11-13：📚 文档组——不进 AI 复制包，只当「文档汇总」用。
+    //   勾「全选组」后点复制/批量发送，每段都带 `// ===== 路径 =====`，扔给网页端判断该删该留。
+    function appendGroupCard(groupName, title, files) {
+        const gd = document.createElement('div');
+        gd.className = 'file-group';
+        gd.dataset.group = groupName;
+        const header = document.createElement('div');
+        header.className = 'group-header';
+        header.innerHTML = `<span class="group-arrow">▶</span><span class="group-name">📁 ${title}</span><span class="group-count">${files.length} 个文件</span><button class="group-select-all-btn">全选组</button><button class="group-deselect-btn">全不选组</button>`;
+        const filesDiv = document.createElement('div');
+        filesDiv.className = 'group-files';
+        files.forEach(f => filesDiv.appendChild(buildCheckbox(f, false)));
+        gd.appendChild(header);
+        gd.appendChild(filesDiv);
+        fileGroupsDiv.appendChild(gd);
+
+        const selectBtn = header.querySelector('.group-select-all-btn');
+        header.addEventListener('click', (e) => {
+            if (e.target.classList.contains('group-select-all-btn') || e.target.classList.contains('group-deselect-btn')) return;
+            gd.classList.toggle('open');
+        });
+        selectBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filesDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+            selectBtn.textContent = '已全选';
+            selectBtn.classList.add('selected');
+        });
+        header.querySelector('.group-deselect-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            filesDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+            selectBtn.textContent = '全选组';
+            selectBtn.classList.remove('selected');
+            gd.classList.add('open');
+        });
+        return gd;
+    }
+
+    // 文档排在「📦 存档」后面
+    if (DOC_FILES && DOC_FILES.length) appendGroupCard('docs', '文档（汇总·不进复制包）', DOC_FILES.slice());
 
     document.getElementById('fcBtnAddFile').addEventListener('click', () => {
         const input = document.getElementById('fcCustomFileInput');
@@ -334,7 +377,9 @@ function escapeHtml(text) {
     // 2026-11-10：存档组（archive/）永不参与「全选」。
     //   老板的原话是「这些备用的不该进复制器/不该进包」，若「全选」一按就把存档也带上，
     //   等于留了个一不留神的口子。要发存档只能在它那一组里手动勾。
-    const isArchiveGroup = (groupDiv) => groupDiv.dataset.group === 'archive';
+    // 2026-11-13：文档组（docs）同理跳过——8 MB 的 md 全塞进主包没有意义，
+    //   它是「单独发给网页端做文档取舍」用的，只能在自己组里手动勾。
+    const isArchiveGroup = (groupDiv) => groupDiv.dataset.group === 'archive' || groupDiv.dataset.group === 'docs';
 
     document.getElementById('fcBtnSelectAll').addEventListener('click', () => {
         document.querySelectorAll('#tab-file-copier .file-group').forEach(groupDiv => {
