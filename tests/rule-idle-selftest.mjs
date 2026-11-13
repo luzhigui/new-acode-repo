@@ -44,7 +44,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const VER = 'tests/rule-idle-selftest.mjs V1.4.0';
+export const VER = 'tests/rule-idle-selftest.mjs V1.5.0';
 
 // 取样充分性判定与对照器守卫 / 契约绑定 / fact 普查共用同一份口径，不另写一份。
 import {
@@ -86,7 +86,27 @@ const MIN_RULES = 45;
 //   ★ 收缩不是放宽：出表后它照旧受第②条管辖 —— 哪天又回到 pass=0 fail=0，会被当成
 //     「白名单外新增恒空转」重新报红，性质由『样本不足』升级为『判据漂移』，须修而非豁免。
 //   ★ 判据阈值一字未动；322 的三段判据（A 背水 / B 战士 / C 成长）本轮同样一字未动。
-const IDLE_WHITELIST = [];
+// V1.5.0 | 2026-11-13 贡献者轮（本会话）：新增 1 条**取证后登记**的恒空转（不是放宽，是如实挂账）。
+//   「庄铮断锤三式保命与承伤上限(回归)」(205)：skip=156（标准样本 156 场全数未触发）。
+//   取证结论三条已排除两条 ——
+//     ① 判据键过期：否。modules/337 L81 播报仍含「保留 {keepHp} 点生命，攻击减半（N=…）」，
+//       content/001 L406 参数 {keepHp:5,cap:1,selfCost:1,atkHalfRatio:0.5} 与规则 getSkillParams 读同源，
+//       规则正则 /保留\s*([\d.]+)\s*点生命/ 与 /N=([\d.]+)/ 与新版播报逐字一致。
+//     ② 数据源错位：否。modules/305 pushSkillAnnounce(L127/130/131) 落 SKILL_ANNOUNCE 带
+//       unitName/skillName/note/cue，与 205 规则的扫描口径（f.data.unitName/skillName/note/cue）完全一致；
+//       IMMUNE/ATTACK 的 target/targetHp/dmgCalc 亦与规则断言一致。
+//     ③ 样本未覆盖：是。modules/337 L35-38 断锤三式仅「首击致死」触发（self.hp - data.dmg <= 0 且未触发过），
+//       标准 156 场样本里庄铮从未吃到致死首击 ⇒ 规则 triggerIdx 恒 -1、整份 skip。
+//   ★ 这是覆盖盲区、非缺陷：与 V1.3.0 登记的 322 妹背水同构（机制触发条件在标准样本里从未被构造）。
+//   ★ 出表条件：样本里一旦出现庄铮吃致死首击，205 即 pass/fail，按第②条棘轮自动要求撤登记。
+//   ★ 判据阈值一字未动；205 的五项断言（保留值/减半量N/免疫落账/承伤上限/成长同源）本轮未改。
+const IDLE_WHITELIST = [
+    {
+        name: '庄铮断锤三式保命与承伤上限(回归)',
+        file: '205-zhuangzheng-duanchui.js',
+        why: '取证（2026-11-13）：庄铮断锤三式仅首击致死触发（modules/337 L35-38），标准 156 场样本从未构造该情景 ⇒ skip=156，pass=0 fail=0。已排除判据键过期（modules/337 L81 播报含「保留 N 点生命」+「N=…」、content/001 L406 参数与规则读同源）；已排除数据源错位（modules/305 pushSkillAnnounce 落 unitName/skillName/note/cue 与 205 扫描口径一致）。属样本未覆盖，非缺陷，故挂账；出表条件：样本一旦出现庄铮致死首击即激活，按第②条棘轮自动撤登记。'
+    }
+];
 
 function fail(msg) {
     console.log('  ❌ ' + msg);
