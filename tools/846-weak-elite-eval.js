@@ -1,6 +1,8 @@
 // tools/846-weak-elite-eval.js —— 弱精英评测（工具箱「🐦 弱精英评测」页签）：M104/M100/M97 带技能单位同种子直接 A/B 替换，出胜率 Δ
 // ~14 KB
-export const VER = 'tools/846-weak-elite-eval.js V1.2.0';
+export const VER = 'tools/846-weak-elite-eval.js V1.2.1';
+// V1.2.1 | 2026-11-13 候选名单按 M 值分档（M104 / M100 / M97 各一组），每组带「全选 / 全不选」，
+//   默认全选；按钮只作用于本档，方便单独测某一档。标签去掉重复的 M 值（档位已在组标题）。
 // V1.2.0 | 2026-11-12 打开页面自动显示上次结果：快照补存 units/nat/flipWin/flipLose/enemyHex，
 //   boot() 里 restoreLatestWeak() 直接渲染最近一条 parts.weak（旧快照按自然胜率折算 nat，Δ 有 ±0.5 场误差）。
 // V1.1.1 | 2026-11-11 名单口径改「带技能」：候选过滤由 named===true 改成 skills 非空
@@ -149,13 +151,32 @@ function collectCands() {
     }
     return out;
 }
+// 2026-11-13：按 M 值分档展示，每档一组「全选 / 全不选」，默认全选；
+//   这样后期可以只勾某一档（如只测 M104）跑批，不用逐个点。
 function renderCands() {
     if (!candRowEl) return;
     const cands = collectCands();
-    candRowEl.innerHTML = cands.length
-        ? '<span style="color:#aaa;font-size:12px;">候选：</span>'
-          + cands.map(c => `<label><input type="checkbox" class="weak-elite-cand-check" value="${c.name}" checked>${c.name}（${c.camp} M${c.m}）</label>`).join('')
-        : '<span style="color:#888;font-size:12px;">没有匹配候选（M104/M100/M97 带技能单位）</span>';
+    if (!cands.length) {
+        candRowEl.innerHTML = '<span style="color:#888;font-size:12px;">没有匹配候选（M104/M100/M97 带技能单位）</span>';
+        return;
+    }
+    const groups = M_TIERS
+        .map(m => ({ m, list: cands.filter(c => c.m === m).sort((a, b) => a.name.localeCompare(b.name, 'zh')) }))
+        .filter(g => g.list.length);
+    candRowEl.innerHTML = groups.map(g =>
+        `<div class="weak-cand-group" data-m="${g.m}">`
+        + `<span class="weak-cand-tier">M${g.m}（${g.list.length}）</span>`
+        + '<button type="button" class="weak-cand-all" data-act="all">全选</button>'
+        + '<button type="button" class="weak-cand-all" data-act="none">全不选</button>'
+        + g.list.map(c => `<label><input type="checkbox" class="weak-elite-cand-check" value="${c.name}" checked>${c.name}（${c.camp}）</label>`).join('')
+        + '</div>').join('');
+    // 档位按钮只作用于本组，不碰其他档位
+    candRowEl.querySelectorAll('.weak-cand-all').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const on = btn.dataset.act === 'all';
+            btn.closest('.weak-cand-group').querySelectorAll('.weak-elite-cand-check').forEach(cb => { cb.checked = on; });
+        });
+    });
 }
 
 // 启动：加载游戏数据后渲染候选；元素缺失则整块不启动（不注册监听、不抛错）

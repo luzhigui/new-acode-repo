@@ -219,8 +219,13 @@
         .elite-v-th { writing-mode: vertical-rl; text-orientation: upright; height: 70px; white-space: nowrap; vertical-align: bottom; }
         /* 2026-11-11 弱精英评测「候选单位」勾选区（M104/M100/M97 全档位具名单位，运行时收集）：
            标签样式沿用 .elite-stage-group label 的灰字小号，只是允许换行 */
-        #weakEliteCandRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; }
+        #weakEliteCandRow { display: flex; flex-direction: column; gap: 6px; width: 100%; }
         #weakEliteCandRow label { color: #aaa; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 3px; }
+        /* 2026-11-13：候选按 M 值分档，每档一组 + 组内全选/全不选（默认全选） */
+        .weak-cand-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 8px; border: 1px solid #333; border-radius: 6px; background: #1a1a2e; }
+        .weak-cand-tier { color: #ffd700; font-size: 12px; font-weight: bold; min-width: 62px; }
+        .weak-cand-all { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+        .weak-cand-all:hover { background: #4a4a8e; }
         /* 2026-11-01：长说明折叠（一句 + 「略」点开） */
         .tip-more { color: #4fc3f7; cursor: pointer; font-weight: bold; user-select: none; }
         .tip-more-body { display: none; }
