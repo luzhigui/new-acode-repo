@@ -11,13 +11,12 @@
 //      「回看已经被换掉了」⇒ 转交主代码修（见 known-transfers + 转交块）。
 // 探针怎么跑：复用共用沙箱（DOM/Store 桩 + 变异体工厂），另加 rAF 桩（让时钟走起来）
 //   与 log 元素 innerHTML ↔ children 联动（不然「清空真账本」在桩上根本看不见）。
-// 反向样本：改坏 ui/727 真源码重跑必须红在对应判据上；
-//   另外配一条「修好样本」fix-tail-guard（给尾巴加会话代次守卫）⇒ 必须让 ③ 由红转绿，
-//   证明这条判据咬的正是这个缺陷、不是别的东西。
+// 反向样本：改坏 ui/727 真源码重跑必须红在对应判据上。
 // 运行：node tests/rewind-fastforward-cancel-probe-case.mjs
 //   期望末行 RESULT: PASS；任何一条红 → 退出码 1。
-// ★ 当前主代码下 ③ 是红的（真缺陷，已转交主代码）：本用例会 RESULT: FAIL —— 这是预期状态，
-//   本探针因此也用作「缺陷还在」的证据（每次跑都应红在 ③）。
+// ★ 主代码已在 fcd5dd04 落地会话代次守卫（mySteps）⇒ ③ 转绿；原「修好样本」fix-tail-guard
+//   随之失去意义，改配「去掉守卫」样本 no-tail-guard：把两处守卫删掉，③ 必须由绿转红，
+//   证明这条判据咬的正是那两行守卫。
 import {
     installDom, upgradeLogDomFidelity, installClockShim, makeFakeStore, mkStep,
     loadRewind, runChildWithEnv, envSkipMarker, check, summarize
@@ -28,19 +27,18 @@ const SELF = fileURLToPath(import.meta.url);
 
 // ---- 变异体：每条都改 ui/727 真源码，改不到就报错（防「反向样本打空」假绿） ----
 const MUTATIONS = {
-    'no-busy': (src) => src.replace('    cancelRun();\n    S.busy = true;\n    try {', '    cancelRun();\n    try {'),
-    'ff-resume': (src) => src.replace('        exitReview({ resume: false });', '        exitReview({ resume: true });'),
-    // 「修好样本」：给快进的尾巴加会话代次守卫（数组身份 = 会话身份）⇒ 取消后尾巴必须收手
-    'fix-tail-guard': (src) => src
-        .replace('    cancelRun();\n    S.busy = true;', '    cancelRun();\n    const mySteps = S.steps;\n    S.busy = true;')
-        .replace('        await sleep(30);   // 给被取消的播放一点时间退出来',
-            '        await sleep(30);   // 给被取消的播放一点时间退出来\n        if (S.steps !== mySteps) return;   // 会话代次守卫：回看已被换掉就收手')
+    'no-busy': (src) => src.replace('    S.busy = true;\n    try {', '    try {'),
+    'ff-resume': (src) => src.replace('if (S.steps === mySteps) exitReview({ resume: false });', 'if (S.steps === mySteps) exitReview({ resume: true });'),
+    // 「去掉守卫」样本：删掉两处会话代次守卫 ⇒ 取消后尾巴又去 syncReviewLog，③ 必须转红
+    'no-tail-guard': (src) => src
+        .replace('        if (S.steps !== mySteps) return;   // 回看已被换掉（取消/重开）就整体收手，不再碰画面与日志\n', '')
+        .replace('if (S.steps === mySteps) exitReview({ resume: false });', 'exitReview({ resume: false });')
 };
-// expect: 'red' = 必须红在指定判据上；'green' = 必须整份转绿（修好样本）
+// expect: 'red' = 必须红在指定判据上；'green' = 必须整份转绿（当前无此类样本，分支保留）
 const MUT_EXPECT = {
     'no-busy': { mode: 'red', at: '① 快进期间必须置 busy（面板据此禁重复操作）' },
     'ff-resume': { mode: 'red', at: '② 快进完成后必须收敛：回看已退出 + 真暂停 + 倍速还原' },
-    'fix-tail-guard': { mode: 'green', at: '③ 快进被取消时，尾巴不得清空真战场的 #log' }
+    'no-tail-guard': { mode: 'red', at: '③ 快进被取消时，尾巴不得清空真战场的 #log' }
 };
 
 const R = [];

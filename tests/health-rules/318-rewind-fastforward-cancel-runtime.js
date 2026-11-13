@@ -7,7 +7,7 @@
 //      syncReviewLog —— 而此时 #log 已经被 exitReview 还原成「真战场的战报行」，尾巴那次同步
 //      把它们当成「多出来的行」整块清掉 ⇒ 玩家继续打的时候，战报日志凭空消失。
 //      根因：尾巴不知道自己负责的那一回看还在不在（没有会话代次概念），也没判断
-//      「回看已经被换掉了」⇒ 已转交主代码修（见 tests/known-transfers.md 的登记条 + 迭代日志转交块）。
+//      「回看已经被换掉了」⇒ 主代码已在 fcd5dd04 落地会话代次守卫（mySteps），③ 转绿销项。
 // 本规则调用合成探针 tests/rewind-fastforward-cancel-probe-case.mjs（复用共用沙箱：DOM/Store 桩 +
 //   变异体工厂，另加 rAF 桩让 infra/103 的时钟走起来、log 元素 innerHTML↔children 联动——不联动就
 //   看不见「真账本被清空」），真跑 ui/727，逐条断言：
@@ -15,12 +15,11 @@
 //     ② 快进完成后：回看已退出 + gs=PAUSED + isPaused=true + 倍速回到进场快照值 + 两份账本按引用还原；
 //     ③ 快进被取消时，尾巴不得清空真战场的 #log（真账本必须还在）。
 //   探针自带 3 条反向样本：no-busy（去掉 busy→①红）/ ff-resume（快进后改成 resume→②红）/
-//   fix-tail-guard（★「修好样本」：给尾巴加会话代次守卫 ⇒ ③ 必须由红转绿，
-//   证明这条判据咬的正是这个缺陷、不是别的东西）。
-// ★ 当前主代码下 ③ 为红（真缺陷，已转交）⇒ 本规则暂时报红；该规则已登记进
-//   tests/known-transfers.md（「转交中」不计退出码），主代码落地后即转绿并销项。
+//   no-tail-guard（删掉两处会话代次守卫→③红），证明每条判据都咬得住。
 // ★ 环境起不来子进程（EPERM/ENOENT…）时返回 skip（守卫前提失效），不误报红。
-export const VER = 'tests/health-rules/318-rewind-fastforward-cancel-runtime.js V1.0.0';
+export const VER = 'tests/health-rules/318-rewind-fastforward-cancel-runtime.js V1.1.0';
+// V1.1.0（2026-11-07 第 186 轮）：主代码 fcd5dd04 落地 mySteps 守卫后 ③ 转绿；探针反向样本
+//   由「修好样本 fix-tail-guard」改为「去掉守卫 no-tail-guard」（改不到源码会报错防打空）。
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
