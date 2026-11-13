@@ -10,10 +10,10 @@
 | # | 标题 | 验收标准（done 长啥样） | 状态 | owner | 更新时间 |
 |---|------|------------------------|------|-------|----------|
 | 1 | 通用化回流通道：手测 15 条 Bug 逐条归位 | `tests/bug-backlog.md` 建好，每条有"有规则盯 / 明确不在射程"结论，对应规则或标注补齐 | doing | zhong(主会话) | 2026-11-13 |
-| 2 | 318 判据③主代码修复落地 | 转交块（ui/727 fastForward 尾巴守卫）已落地，`rewind-fastforward-cancel-probe-case.mjs` 由红转绿；撤销 318 的"转交中"豁免登记 | done | 光明顶体检 Agent | 2026-11-13 |
+| 2 | 318 判据③主代码修复落地 | 转交块（ui/727 fastForward 尾巴守卫）已落地，`rewind-fastforward-cancel-probe-case.mjs` 由红转绿；撤销 318 的"转交中"豁免登记 | done | AI编程助手 | 2026-11-13 · 证据：`node tests/rewind-fastforward-cancel-probe-case.mjs` 干净树 ①②③ 全绿（快进置 busy / 收敛退出+倍速还原 / 取消时尾巴不清真账本）EXIT=0；变异反向样本侧 SKIP-ENV（沙箱 EPERM 子进程起不来，环境阻塞非脚本红） |
 | 3 | rule-idle 恒空转红取证 | 庄铮断锤三式保命与承伤上限(回归)：干净树实测 pass=16/fail=0（非恒空转，规则健康）；脏树 skip=156 为并行 WIP 失真。V1.5.0 误登记已撤回(V1.5.1)，守门转绿，无需豁免 | done | 钟老师/贡献者轮 | 2026-11-13 |
-| 4 | fact-coverage-selftest 恒绿线补真退码 | 该脚本不再全文 `process.exit(0)`；补至少 1 条会变红的断言（D12 一轮遗留） | done | 光明顶体检 Agent | 2026-11-13 |
-| 5 | 元守卫 297–300 归属梳理 | 确认哪些是"槽位"（指向扫描脚本本身）、哪些待回填；更新 `requests/D12.json` 登记口径，消除 registration 误报 | doing | 光明顶体检 Agent | 2026-11-13 |
+| 4 | fact-coverage-selftest 恒绿线补真退码 | 该脚本不再全文 `process.exit(0)`；补至少 1 条会变红的断言（D12 一轮遗留） | done | AI编程助手 | 2026-11-13 |
+| 5 | 元守卫 297–300 归属梳理 | 确认哪些是"槽位"（指向扫描脚本本身）、哪些待回填；更新 `requests/D12.json` 登记口径，消除 registration 误报 | doing | AI编程助手 | 2026-11-13 |
 | 6 | 体检 Node 守门并行化实测 | `run-all --jobs N` 已实现；实测提速比与稳定性，写进命令速查 | open | - | - |
 | 7 | D12 扫描器 acorn 依赖守卫 + 反向样本补齐 | `rule-false-green-scan.mjs` 缺 acorn 时打印「守卫前提失效：acorn 缺失」并 exit(1)；六类反例各有夹具；定向用例通过 | open | - | - |
 | 8 | rule-idle 自检分支死码清理 | 经核查已满足（销项）：selfCheck()/checkThreshold() 自 L219/224 起已是真调用（d0fa0ad5·第143轮引 sample-sufficiency 公共件时落地）；全文 exit(1) 仅 119/127/232 三处真实错误分支，无「注释里的 exit(1)」死码 ⇒ 死码清理早完成，本条为过时任务 | done | 钟老师/贡献者轮 | 2026-11-13 |
