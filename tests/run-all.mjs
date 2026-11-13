@@ -226,7 +226,7 @@
 // 用法：node tests/run-all.mjs
 //   不含变异牙齿（mutation-teeth 全量约 8 分钟、会生成 tests/.mut 临时树），需要时单独跑。
 //   子脚本的环境变量可透传，例如 SEEDS=1,2 STAGES=2 node tests/run-all.mjs（影响回放）。
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -598,28 +598,92 @@ function pickKeyLine(out, failed) {
 const QUICK = process.argv.includes('--quick');
 const activeChecks = QUICK ? CHECKS.filter(c => c.tier !== 'heavy') : CHECKS;
 const skippedHeavy = QUICK ? CHECKS.filter(c => c.tier === 'heavy') : [];
+
+// V1.54.0 | 2026-11-13：新增 --jobs N 并发跑（默认 1 = 顺序，行为不变）。
+//   各守门脚本彼此独立、不共享状态（不写公共 .tmp、不在仓内互踩），可安全并行；
+//   spawnSync 顺序跑在大清单下偏慢，--jobs N 用 spawn 异步池提速。输出按完成序打印，
+//   末尾汇总表仍按原顺序。重型采样一并入池，长任务只占一个槽。
+const JOBS = (() => {
+    const i = process.argv.indexOf('--jobs');
+    if (i >= 0 && process.argv[i + 1]) {
+        const n = parseInt(process.argv[i + 1], 10);
+        if (Number.isInteger(n) && n >= 1) return n;
+    }
+    return 1;
+})();
+
+function runChild(script, args) {
+    return new Promise((resolve) => {
+        const r = spawn(node, [path.join(root, script), ...args],
+            { cwd: root, encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024 });
+        let out = '', err = '';
+        r.stdout.on('data', d => { out += d; });
+        r.stderr.on('data', d => { err += d; });
+        r.on('error', e => { err += String(e && e.message || e); resolve({ code: 1, out, err }); });
+        r.on('close', code => resolve({ code: typeof code === 'number' ? code : 1, out, err }));
+    });
+}
+
+// 并发池：每个 worker 从队列取任务，打印「▶ 名 ...」后异步跑，完成打印结论行。
+async function runList(list, isObserve) {
+    const queue = list.slice();
+    const done = new Map();
+    const workers = [];
+    for (let i = 0; i < Math.min(JOBS, queue.length); i++) {
+        workers.push((async () => {
+            let c;
+            while ((c = queue.shift()) !== undefined) {
+                process.stdout.write('▶ ' + c.name + ' ... ');
+                const t0 = Date.now();
+                const r = await runChild(c.script, c.args || []);
+                const ms = Date.now() - t0;
+                const key = pickKeyLine(r.out + '\n' + r.err, r.code !== 0);
+                done.set(c, { ms, code: r.code, key });
+                if (!isObserve && r.code !== 0) failed++;
+                console.log((r.code === 0 ? (isObserve ? '🔎' : '✅') : '❌' + (isObserve ? ' exit=' + r.code : '')) + ' (' + ms + 'ms)  ' + key);
+            }
+        })());
+    }
+    await Promise.all(workers);
+    for (const c of list) {
+        const d = done.get(c);
+        if (!d) continue;
+        if (isObserve) {
+            if (d.code !== 0) observeFails.push({ name: c.name, code: d.code, key: d.key, hard: !!c.hard });
+        } else {
+            rows.push({ ok: d.code === 0, name: c.name, ms: d.ms, code: d.code, key: d.key });
+        }
+    }
+}
+
 console.log('================ 光明顶 5v5 · 一键全量体检 ================');
 if (QUICK) console.log('· --quick：跳过 ' + skippedHeavy.length + ' 项重型采样（' + skippedHeavy.map(c => c.name).join('、') + '）');
+if (JOBS > 1) console.log('· --jobs ' + JOBS + '：并发跑（默认 1 = 顺序）');
 const rows = [];
+const observeFails = [];
 let failed = 0;
 const tStart = Date.now();
-for (const c of activeChecks) {
-    process.stdout.write('▶ ' + c.name + ' ... ');
-    const t0 = Date.now();
-    let r;
-    try {
-        r = spawnSync(node, [path.join(root, c.script), ...c.args],
-            { cwd: root, encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024 });
-    } catch (e) {
-        r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
+if (JOBS === 1) {
+    for (const c of activeChecks) {
+        process.stdout.write('▶ ' + c.name + ' ... ');
+        const t0 = Date.now();
+        let r;
+        try {
+            r = spawnSync(node, [path.join(root, c.script), ...c.args],
+                { cwd: root, encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024 });
+        } catch (e) {
+            r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
+        }
+        const ms = Date.now() - t0;
+        const code = (typeof r.status === 'number') ? r.status : 1;
+        const ok = code === 0;
+        if (!ok) failed++;
+        const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''), !ok);
+        rows.push({ ok, name: c.name, ms, code, key });
+        console.log((ok ? '✅' : '❌') + ' (' + ms + 'ms)  ' + key);
     }
-    const ms = Date.now() - t0;
-    const code = (typeof r.status === 'number') ? r.status : 1;
-    const ok = code === 0;
-    if (!ok) failed++;
-    const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''), !ok);
-    rows.push({ ok, name: c.name, ms, code, key });
-    console.log((ok ? '✅' : '❌') + ' (' + ms + 'ms)  ' + key);
+} else {
+    await runList(activeChecks, false);
 }
 
 console.log('=========================================================');
@@ -638,21 +702,24 @@ console.log('结果：' + pass + '/' + activeChecks.length + ' 通过，耗时 '
 if (OBSERVES.length) {
     console.log('---------------------------------------------------------');
     console.log('观察项（取证类探针，结果供人工研判、不计退码）：');
-    const observeFails = [];
-    for (const c of OBSERVES) {
-        const t0 = Date.now();
-        let r;
-        try {
-            r = spawnSync(node, [path.join(root, c.script), ...c.args],
-                { cwd: root, encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024 });
-        } catch (e) {
-            r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
+    if (JOBS === 1) {
+        for (const c of OBSERVES) {
+            const t0 = Date.now();
+            let r;
+            try {
+                r = spawnSync(node, [path.join(root, c.script), ...c.args],
+                    { cwd: root, encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024 });
+            } catch (e) {
+                r = { status: 1, stdout: '', stderr: String(e && e.message || e) };
+            }
+            const code = (typeof r.status === 'number') ? r.status : 1;
+            const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''), code !== 0);
+            const ms = Date.now() - t0;
+            if (code !== 0) observeFails.push({ name: c.name, code, key, hard: !!c.hard });
+            console.log('  ' + (code === 0 ? '🔎' : '❌ exit=' + code) + ' ' + c.name.padEnd(22) + ' ' + ms + 'ms  ' + key);
         }
-        const code = (typeof r.status === 'number') ? r.status : 1;
-        const key = pickKeyLine((r.stdout || '') + '\n' + (r.stderr || ''), code !== 0);
-        const ms = Date.now() - t0;
-        if (code !== 0) observeFails.push({ name: c.name, code, key, hard: !!c.hard });
-        console.log('  ' + (code === 0 ? '🔎' : '❌ exit=' + code) + ' ' + c.name.padEnd(22) + ' ' + ms + 'ms  ' + key);
+    } else {
+        await runList(OBSERVES, true);
     }
     if (observeFails.length) {
         console.log('---------------------------------------------------------');
