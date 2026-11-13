@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// V1.0.13 | 2026-11-13 环境依赖处置（按体检交接 spec 选项②）：teeth-results.txt 由变异树取证产出、被 .gitignore 排除、
+//   CI checkout 里永远不存在 ⇒ 此前在 push 门禁下恒红（属「环境缺失」而非「判据失败」）。改为「产物缺失时显式跳过
+//   （exit 0）并打 loud 警告」：CI 不跑此项、本地有产物时仍全量校验；不削弱任何判据、不降阈值、不静默放行。
 // V1.0.12 | 2026-11-10 白天迭代：给 aggNormMsg 补双向负路径自证。
 //   该函数是「聚合型分支」判定的唯一归一化入口，V1.0.5→V1.0.11 连改 6 版口径却零自证；
 //   最坏情形是它退化成恒等映射 —— 所有 msg 归一成同一个 rk、聚合分支全塌，
@@ -71,7 +74,7 @@ import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mj
 //   头版本日志抬到 V1.0.3（加了断言⑦单条聚合度峰值硬上限 SINGLE_AGG_CAP），却漏抬本 VER 常量，
 //   于是「版本常量漂移自检」与「版本号遗忘抬升绊线」双双报红。★ 这与本线第 172 轮自踩同款
 //   （抬了日志漏了常量），区别只是这次是上游会话犯的 —— 绊线照样当场咬住，不是只盯自己人。
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.12';
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.13';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
@@ -432,10 +435,15 @@ function main() {
     const { files, branches } = scanAllBranches();
 
     // --- 证据解析 ---
+    // ★ V1.0.13（环境依赖处置，spec 选项②）：teeth-results.txt 是变异树取证产物、被 .gitignore 排除，
+    //   CI checkout 里永远不存在 ⇒ 在 push 门禁下恒红（属「环境缺失」非「判据失败」）。
+    //   改为产物缺失时显式跳过（exit 0）并打 loud 警告：CI 不跑此项；本地跑过变异树（node tests/mutation-teeth.mjs
+    //   生成 teeth-results.txt）后仍全量校验。不削弱任何判据、不降阈值、不静默放行——跳过原因明确写进输出。
     if (!fs.existsSync(EVIDENCE)) {
-        console.log('❌ 牙口证据链对账失败：找不到变异树结果文件 ' + EVIDENCE +
-            ' ⇒ 46 颗牙的牙口结论无据可查，分支级判定失去证据地基（须先跑变异树取证）');
-        process.exit(1);
+        console.log('⚠️ [仅本地] 牙口证据链对账跳过：变异树产物 ' + EVIDENCE +
+            ' 不存在（被 .gitignore 排除，CI checkout 不含此文件）。');
+        console.log('   ⇒ 本项在 CI push 门禁下按「仅本地」处理、不计入红项；本地运行 node tests/mutation-teeth.mjs 生成产物后即全量校验。');
+        process.exit(0);
     }
     const txt = fs.readFileSync(EVIDENCE, 'utf8');
     // ⑧ 结果新鲜度闸门：必须在七条断言之前——结果若陈旧，七条对的内容也是假的
