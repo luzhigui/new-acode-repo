@@ -17,7 +17,7 @@ import { clock } from '../infra/103-clock.js';
 import { getNoTableScale } from '../core/223-perf-params.js';
 import { translateFactsToStageActions } from '../render/402-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './511-battle-report.js';
-import { handleBuffSelection, handlePvpBuffSelection, handleEnemyAutoBuffSelection, handleFlyDirection, handleHanlisaAimWindow } from './512-battle-flow.js';
+import { handleBuffSelection, handlePvpBuffSelection, handleEnemyAutoBuffSelection, handleFlyDirection, handleHanlisaAimWindow, handleZhangTargetPicker } from './512-battle-flow.js';
 import * as net from '../infra/109-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './513-battle-export.js';
 import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from '../modules/332-career-log.js';
@@ -144,6 +144,8 @@ export async function playBattle() {
             // 蓄意轰拳瞄准窗口：core/11 回合收尾前 yield 的空标记步——不播不录不发从机，
             //   在此弹黑幕收瞄准（写进 step 的单位，与引擎 generator 的 A/B 同引用），随后收尾结算即读到
             if (step.hanlisaAimWindow) { await handleHanlisaAimWindow(c, step); continue; }
+            // 张无忌专属·我命由我（2026-11-13）：出手前拖拽选目标窗口——不播不录不发从机，收完 continue
+            if (step.zhangTargetPickerWindow) { await handleZhangTargetPicker(c, step); continue; }
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs；快进状态一起捎带
             if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));

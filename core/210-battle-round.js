@@ -594,7 +594,18 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         unit.survivedRounds++;
         emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), survivedRounds: unit.survivedRounds });
 
+        // 张无忌专属·我命由我（2026-11-13）：张无忌出手前 yield 一个选目标窗口。
+        //   播放层（player/503）弹拖拽，把 _manualTargetUid 写进 step 单位（与 generator A/B 同引用），
+        //   随后的 processUnitAttack → selectAttackTarget 优先读手动目标；出手后清理。
+        //   headless（ui=false）不 yield；快进/全自动在播放层门控放行（512）。
+        if (ui && unit.isZhang && unit.camp === CAMP_TYPES.ALLY
+            && hasBuff(A._activeBuffs, BUFF_TYPES.ZHANG_DESTINY)) {
+            const pickStep = makeStep([], []);
+            pickStep.zhangTargetPickerWindow = { zhangUid: unit.uid };
+            yield pickStep;
+        }
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUids?.[0] ?? null);
+        if (unit.state && unit.state._manualTargetUid) delete unit.state._manualTargetUid;
         resolveDeaths(A, B, log);
         // 行动完成广播（攻击成功/未命中/被闪避都算走完一次）
         eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide, enemySide, log });

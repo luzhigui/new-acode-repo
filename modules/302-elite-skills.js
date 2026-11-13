@@ -4,7 +4,8 @@
 // V6.4.0 | 2026-11-09 飞行·猎杀成长去掉「只给明教」的阵营门槛：敌方飞行击杀我方同样涨攻/涨未命中， 其余排除原样保留（只算杀敌、杀者须存活且 role=FLYER）。
 export const VER = 'modules/302-elite-skills.js V6.4.2';
 
-import { CONFIG } from '../core/201-config-5v5-test.js';
+import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
+import { spawnUnit } from '../core/205-battle-horse.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/202-unit.js';
 import { hasBuff } from '../core/203-battle-utils.js';
 import { buildTargetCandidates } from '../core/207-target-strategies.js';
@@ -393,3 +394,59 @@ export function registerFlyerKillGrowth() {
     });
 }
 registerRoundHook(registerFlyerKillGrowth);
+
+// ═══════════════════════════════════════════════════════════════
+// 张无忌专属 · 快来护驾（2026-11-13）
+//   先算张无忌队当前空位 → 从明教带技能角色池筛「能落到锚点空位」的候选
+//   → 随机抽 1 人 → 落位。
+//   排除规则：① 已在队同名（不重复召唤）② 固定站位锚点不在空位里就排除
+//   （寒离飒要 2 号位、小昭 4 号位、韦一笑 6 号位、金毛狮王谢逊 7 号位——来自 330 建队锚点）
+//   姐姐：默认向右飞（_flyDirection），不弹窗。
+// ═══════════════════════════════════════════════════════════════
+export function summonZhangRescue(team, log) {
+    if (!team || !team.length) return null;
+    const occupied = new Set(team.filter(u => u.alive).map(u => u.pos));
+    const freePositions = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
+    if (freePositions.length === 0) return null;
+
+    const usedNames = new Set(team.filter(u => u.alive).map(u => u.name));
+    // 固定站位锚点（来自 modules/330 建队规则）：角色 → 必需位置
+    const FIXED_ANCHOR = { '寒离飒': 2, '小昭·姊': 4, '小昭·妹': 4, '韦一笑': 6, '金毛狮王谢逊': 7, '张无忌': 5 };
+    const gd = getGameData();
+    const ROLE_POOL = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.JAVELIN, '蝴蝶'];
+    const candidates = Object.keys(gd.characters || {}).filter(n => {
+        const ch = gd.characters[n];
+        if (!ch || ch.camp !== '明教' || !ch.skills) return false;
+        if (usedNames.has(n)) return false;
+        // 姐姐/妹的基础名都是「小昭」，content key 是「小昭」，单独处理
+        if (n === '小昭') return freePositions.includes(FIXED_ANCHOR['小昭·姊']);
+        const anchor = FIXED_ANCHOR[n];
+        if (anchor != null) return freePositions.includes(anchor);
+        return true;
+    });
+    if (candidates.length === 0) return null;
+
+    const rng = getBattleRng();
+    const pickedName = candidates[rng.nextInt(0, candidates.length - 1)];
+    const ch = gd.characters[pickedName];
+    // content key 是「小昭」，实际建单位用「小昭·姊」
+    const finalName = pickedName === '小昭' ? '小昭·姊' : pickedName;
+    let landPos;
+    if (finalName === '小昭·姊' || finalName === '小昭·妹') {
+        landPos = 4;
+    } else if (FIXED_ANCHOR[finalName] != null && freePositions.includes(FIXED_ANCHOR[finalName])) {
+        landPos = FIXED_ANCHOR[finalName];
+    } else {
+        landPos = freePositions[rng.nextInt(0, freePositions.length - 1)];
+    }
+    const role = ch.role || (ch.tags || []).find(t => ROLE_POOL.includes(t)) || ROLE_TYPES.WARRIOR;
+    const unit = spawnUnit(team, finalName, ch.m, role, landPos);
+    if (finalName === '小昭·姊' && team._flyDirection == null) team._flyDirection = 'right';
+    if (log) {
+        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: {
+            summonName: finalName, summonUid: unit.uid, pos: landPos,
+            byName: '张无忌', byUid: (team.find(u => u.isZhang) || {}).uid || null
+        } });
+    }
+    return unit;
+}

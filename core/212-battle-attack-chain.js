@@ -30,6 +30,12 @@ const C = CONFIG;
 
 // 步骤1：选择攻击目标
 export function selectAttackTarget(unit, enemySide, allySide) {
+    // 张无忌专属·我命由我（2026-11-13）：手动拖拽目标优先——命中即用，跳过裁判与随机选目标。
+    //   手动目标已不可选（死亡/飞天/附身）→ 落回正常选目标链路。
+    if (unit.state && unit.state._manualTargetUid) {
+        const manual = enemySide.find(u => u.uid === unit.state._manualTargetUid && canBeTargeted(u));
+        if (manual) return { target: manual, phantomFact: null };
+    }
     const rng = getBattleRng();
     // 统一走 canBeTargeted：含 pendingDeath / flyMode / 附身 / FSM 飞行
     const validTargets = enemySide.filter(c => canBeTargeted(c));
@@ -405,7 +411,12 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         if (luck && luck.requiresHolyFlame &&
             !(unit.isXiaoZhaoBrother && unit.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.HOLY_FLAME))) luck = null;
         const dropRate = Math.min(1, (C.TOKEN_DROP_RATES[stage] || 0) / 100 * (luck && luck.multiplier ? luck.multiplier : 1));
-        if (rng.next() < dropRate) {
+        // 张无忌专属·武学奇才（2026-11-13）：期间击杀必定掉落圣火令。
+        //   rng.next() 无条件消耗一次（保证同种子 RNG 序与旧版一致），判定改成「必掉 OR 随机率」。
+        const zhangProdigyBuffs = (unit.camp === CAMP_TYPES.ALLY ? ctx.A._activeBuffs : ctx.B._activeBuffs) || [];
+        const guaranteedToken = unit.isZhang && zhangProdigyBuffs.some(b => b.key === BUFF_TYPES.ZHANG_PRODIGY);
+        const roll = rng.next();
+        if (guaranteedToken || roll < dropRate) {
             target.state._tokenDropped = true;
             const currentToken = getBattleState('holyToken') || 0;
             setBattleState('holyToken', currentToken + 1);

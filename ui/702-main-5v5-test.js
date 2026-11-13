@@ -17,6 +17,7 @@ import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '..
 import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/507-battle-player-5v5-test.js';   // 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initDevFlags } from './701-main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+import './724-zhang-target-picker.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/704-main-state.js';
@@ -255,6 +256,28 @@ document.addEventListener('DOMContentLoaded', async function() {
             // 选 Buff 前注入战斗 RNG：full-auto 与手动同源，保证同种子复现一致
             const _snap = getState.snapshot();
             setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
+            // 张无忌专属（2026-11-13）：开局张无忌在队弹三选一。
+            //   审核修正两道门：①联机跳过（host/guest 各自弹窗选不同项=失同步）②full-auto 跳过
+            //   （弹窗会卡死自动跑批；评测口径不含此专属海克斯）
+            if (!GlobalStore.get('netRole') && getState.autoLevel() !== 'full-auto') {
+                const _zAlly = getState.UI().allyTeam || [];
+                if (_zAlly.some(u => u.isZhang && u.alive)) {
+                    const { showZhangExclusivePopup } = await import('./711-buff-dialog.js');
+                    const picked = await showZhangExclusivePopup(_zAlly, false);
+                    if (picked) {
+                        const { createBuffObject } = await import('../modules/329-buff-tools.js');
+                        const zhangBuff = createBuffObject(picked, null, CAMP_TYPES.ALLY, _zAlly);
+                        getState.activeBuffs().push(zhangBuff);
+                        // 选项「快来护驾」：立即召唤
+                        if (picked === BUFF_TYPES.ZHANG_RESCUE) {
+                            const { summonZhangRescue } = await import('../modules/302-elite-skills.js');
+                            summonZhangRescue(_zAlly, null);
+                        }
+                        logDiv.innerHTML += `<span class="gold">☀️ 张无忌获得专属：${zhangBuff.name}</span><br>`;
+                        autoScrollLog();
+                    }
+                }
+            }
             if (GlobalStore.get('netRole') === 'host') {
                 // 联网 PVP 阶段3：开局海克斯双向——房主统一发六大派选项，双方各选后合并
                 await handlePvpBuffSelection(getPlayerContext(), getState.activeBuffs());

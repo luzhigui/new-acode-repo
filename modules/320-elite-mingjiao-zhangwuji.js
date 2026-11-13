@@ -7,7 +7,9 @@ import { getRoleBonus } from '../core/202-unit.js';
 import { emitEvent, applyStatChange, refreshMaxHp, addMod, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { StateMachine } from '../infra/102-core-utils.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
+import { hasBuff } from '../core/203-battle-utils.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { watchUnit } from '../core/220-unit-watch.js';
 function checkZhangSwitch(zhang, A, log) {
@@ -137,6 +139,54 @@ export function createZhangWujiComponent() {
             }, (shouldSwitch, trigger) => {
                 if (shouldSwitch && fsm.is('ranged')) {
                     fsm.transition('switching', { log: trigger && trigger.log });
+                }
+            });
+
+            // ═══════════════════════════════════════════════════════════
+            // 张无忌专属 · 武学奇才（2026-11-13）：被攻击触发九阳回血 + 融会分支。
+            //   ① 九阳回血 12%（不看是否满血）
+            //   ② 已学会融会（_zhangSwitched）：对攻击者追融会伤害——公式与现有融会同源
+            //      （目标攻+防）×0.5，走 BONUS_DMG declaration（飘字/落账与现有融会一致）
+            //   ③ 未学会：被挨打也算练武——nearAtkCount +1（加速学融会）+ 叠 1 层战士加成
+            //   持续 3 回合由 buff remaining 控制，buff 不在场不触发。
+            // ═══════════════════════════════════════════════════════════
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.JIUYANG + 5, (data) => {
+                if (data.target !== zhang || !zhang.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                if (!hasBuff(A._activeBuffs, BUFF_TYPES.ZHANG_PRODIGY)) return;
+                const attacker = data.unit;
+                if (!attacker || !attacker.alive || attacker === zhang) return;
+                // ① 九阳回血
+                const rawHeal = Math.floor(getStat(zhang, 'maxHp') * 0.12);
+                const capped = Math.min(rawHeal, Math.max(0, getStat(zhang, 'maxHp') - zhang.hp));
+                if (capped > 0) applyStatChange(zhang, 'hp', capped, null, '九阳神功·武学奇才');
+                // ②/③ 融会分支
+                if (zhang.state._zhangSwitched) {
+                    const extra = Math.floor((getStat(attacker, 'atk') + getStat(attacker, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
+                    if (extra > 0) {
+                        if (data.declarations) {
+                            data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: extra, target: attacker, logText: null });
+                        } else {
+                            applyStatChange(attacker, 'hp', -extra, zhang, '融会贯通·反击');
+                        }
+                        if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                            unitName: zhang.name, unitUid: zhang.uid, camp: zhang.camp,
+                            skillName: '武学奇才', note: `⚡ 武学奇才：${zhang.name} 融会贯通反伤 ${attacker.name} ${fmtNum(extra)} 点`,
+                            line: false, floatText: '⚡', floatUid: attacker.uid
+                        } });
+                    }
+                } else {
+                    zhang.nearAtkCount = (zhang.nearAtkCount || 0) + 1;
+                    const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
+                    addMod(zhang, 'atk', { source: '武学奇才', value: warriorBonus.atk, ttl: 'permanent', group: 'zhangProdigy', op: 'add' });
+                    addMod(zhang, 'def', { source: '武学奇才', value: warriorBonus.def, ttl: 'permanent', group: 'zhangProdigy', op: 'add' });
+                    addMod(zhang, 'maxHp', { source: '武学奇才', value: warriorBonus.maxHp, ttl: 'permanent', group: 'zhangProdigy', op: 'add' });
+                    refreshMaxHp(zhang, null, '武学奇才');
+                    if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                        unitName: zhang.name, unitUid: zhang.uid, camp: zhang.camp,
+                        skillName: '武学奇才', note: `⚡ 武学奇才：${zhang.name} 被打不慌，融会渐悟 +1 层，战士加成 +1 层（攻+3/防+3/血+30）`,
+                        line: false, floatText: '⚡', floatUid: zhang.uid
+                    } });
                 }
             });
         },

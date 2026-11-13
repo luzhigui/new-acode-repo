@@ -108,7 +108,11 @@ export const BUFF_TYPES = Object.freeze({
     UNITY: 'unity',           // 众志成城：按存活人数（含召唤物）阶梯加攻防；生效时人不足则召唤随机角色补员
     HLS_POWER_1: 'hlsPower1', // 寒离飒强化（专属）：立刻起蓄 + 嘲讽 + 承伤按攻击力计入 + 本回合末爆发
     // 韦一笑专属（2026-11-13）：青翼追魂——命中追加已损失生命 10% 真伤；闪避后追击（每回合 1 次）
-    WEI_EXCLUSIVE: 'weiExclusive'
+    WEI_EXCLUSIVE: 'weiExclusive',
+    // 张无忌专属三选一（2026-11-13）：开局三选一，选完锁定这局路线
+    ZHANG_DESTINY: 'zhangDestiny',   // 我命由我不由天：华丽模式手动拖拽选目标
+    ZHANG_RESCUE: 'zhangRescue',     // 快来护驾：一次性召唤明教带技能角色
+    ZHANG_PRODIGY: 'zhangProdigy'    // 武学奇才：3 回合，被攻击触发九阳回血+融会
 });
 
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */
@@ -393,5 +397,7 @@ export const UI_HANDLER_KEYS = Object.freeze({
     //   ON_HOLY_TOKEN_DROP —— player/502 掉落动画结束 → 通知 ui/723 亮右下角待用图标
     //   ON_CONTINUE_FOR_HEX —— ui/709 暂停/下一回合恢复时调 → 让圣火令飞入战场中央
     ON_HOLY_TOKEN_DROP: 'onHolyTokenDrop',
-    ON_CONTINUE_FOR_HEX: 'onContinueForHex'
+    ON_CONTINUE_FOR_HEX: 'onContinueForHex',
+    // 张无忌专属（2026-11-13）：拖拽选目标
+    SHOW_ZHANG_TARGET_PICKER: 'showZhangTargetPicker'
 });

@@ -169,6 +169,28 @@ export async function handleFlyDirection(c, lastStep, currentRound) {
 //   （本回合克隆，与引擎 generator 的 A/B 同引用——写入直达随后的 ON_ROUND_END 结算）。
 //   只在「华丽模式 + 玩家操控明教侧 + 非全自动/快进」弹黑幕；联网不再排除——只有房主跑引擎才进本函数，
 //   从机只播 step，瞄准结果随房主的 step 下发。其余一概跳过，引擎随机前排兜底。
+export async function handleZhangTargetPicker(c, step) {
+    // 张无忌专属·我命由我（2026-11-13）：门控 + 调 ui/724 注册的拖拽窗，结果写 _manualTargetUid。
+    //   快进/全自动/未挂 UI → 直接放行（引擎 selectAttackTarget 走正常选目标）。
+    try {
+        if (!step || !step.zhangTargetPickerWindow) return;
+        const pool = [...(step.ally || []), ...(step.enemy || [])];
+        const zhang = pool.find(u => u && u.isZhang && u.alive && u.uid === step.zhangTargetPickerWindow.zhangUid);
+        if (!zhang) return;
+        const interactive = zhang.camp === CAMP_TYPES.ALLY
+            && !GlobalStore.get('fastForwardActive')
+            && c.autoLevel !== 'full-auto'
+            && GlobalStore.get('autoLevel') !== 'full-auto';
+        if (!interactive) return; // 自动/快进：无手动目标，引擎正常选目标
+        const showPicker = GlobalStore.getUIHandler('showZhangTargetPicker');
+        if (typeof showPicker !== 'function') return; // UI 未挂（异常环境）→ 引擎兜底
+        const uid = await new Promise(resolve => { showPicker(c, step, resolve); });
+        if (uid) zhang.state._manualTargetUid = uid;
+    } catch (e) {
+        console.warn('[张无忌] 选目标窗口异常，走引擎自动选目标', e);
+    }
+}
+
 export async function handleHanlisaAimWindow(c, step) {
     try {
         if (!step || !step.hanlisaAimWindow) return;

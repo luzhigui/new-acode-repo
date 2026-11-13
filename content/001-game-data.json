@@ -1398,6 +1398,33 @@
       "duration": 3,
       "heroRequirement": "isWei",
       "effects": ["weiExclusive"]
+    },
+
+    "zhangDestiny": {
+      "name": "我命由我不由天",
+      "desc": "张无忌专属·全局：华丽模式下，张无忌每次攻击前可拖动他指向任意敌方目标，松手后箭飞过去。自动/评测模式不出现此选项。",
+      "icon": "☀️",
+      "permanent": true,
+      "heroRequirement": "isZhang",
+      "zhangExclusive": true
+    },
+    "zhangRescue": {
+      "name": "快来护驾",
+      "desc": "张无忌专属·一次性：从明教带技能角色里随机召唤 1 名（排除已在队同名、排除无法落位的角色），站位随机。姐姐默认向右飞。",
+      "icon": "🛡️",
+      "permanent": true,
+      "heroRequirement": "isZhang",
+      "zhangExclusive": true,
+      "effects": ["zhangRescue"]
+    },
+    "zhangProdigy": {
+      "name": "武学奇才",
+      "desc": "张无忌专属·持续3回合：被攻击时触发九阳回血；已学会融会则对攻击者造成融会伤害，未学会则叠 1 层融会 + 1 层战士加成。此期间张无忌击杀敌人必定掉落圣火令（融会反死也算）。",
+      "icon": "⚡",
+      "duration": 3,
+      "heroRequirement": "isZhang",
+      "zhangExclusive": true,
+      "effects": ["zhangProdigy"]
     }
   },
 

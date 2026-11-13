@@ -169,3 +169,65 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
         });
     });
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// 张无忌专属三选一（2026-11-13）
+//   开局张无忌在队弹此窗；选完锁定这局路线。
+//   调用方（ui/702）已做两道门：联机跳过（防双选失同步）、full-auto 跳过（防卡自动流程），
+//   故 isAutoMode 仅保留参数语义（true 时隐藏「我命由我」拖拽项），当前恒传 false。
+//   返回：选中的 buff key（'zhangDestiny' | 'zhangRescue' | 'zhangProdigy'）或 null（不选）
+// ═══════════════════════════════════════════════════════════════
+export function showZhangExclusivePopup(team, isAutoMode) {
+    return new Promise((resolve) => {
+        const choices = [
+            {
+                key: BUFF_TYPES.ZHANG_PRODIGY,
+                name: '⚡ 武学奇才',
+                desc: '持续 3 回合。被攻击时触发九阳回血；已学会融会则对攻击者反伤，未学会则被打也练武（融会层数+战士加成）。期间击杀必定掉圣火令。'
+            },
+            {
+                key: BUFF_TYPES.ZHANG_RESCUE,
+                name: '🛡️ 快来护驾',
+                desc: '一次性。从明教带技能角色里随机召唤 1 名（站位随机、排除已在队同名）。姐姐默认向右飞。'
+            }
+        ];
+        if (!isAutoMode) {
+            choices.unshift({
+                key: BUFF_TYPES.ZHANG_DESTINY,
+                name: '☀️ 我命由我不由天',
+                desc: '全局。张无忌每次攻击前可拖动他指向任意敌方目标，指哪打哪。'
+            });
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'zhangExclusiveOverlay';
+        const box = document.createElement('div');
+        box.className = 'modal-box';
+        box.style.cssText = 'max-width:360px;padding:20px 16px;';
+        const title = document.createElement('div');
+        title.textContent = '☀️ 张无忌 · 专属海克斯';
+        title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;text-align:center;margin-bottom:6px;';
+        const sub = document.createElement('div');
+        sub.textContent = '三选一，选定后本局锁定此路线';
+        sub.style.cssText = 'color:#aaa;font-size:11px;text-align:center;margin-bottom:16px;';
+        box.appendChild(title);
+        box.appendChild(sub);
+
+        choices.forEach(c => {
+            const btn = document.createElement('button');
+            btn.className = 'modal-btn buff';
+            btn.style.cssText = 'display:block;width:100%;margin-bottom:8px;padding:10px 12px;text-align:left;background:#2a2a4e;color:#eee;border:1px solid #555;border-radius:8px;font-size:12px;line-height:1.5;cursor:pointer;';
+            btn.innerHTML = `<div style="color:#ffd700;font-weight:bold;font-size:13px;margin-bottom:2px;">${c.name}</div><div style="color:#bbb;font-size:11px;">${c.desc}</div>`;
+            btn.onclick = () => {
+                overlay.remove();
+                resolve(c.key);
+            };
+            box.appendChild(btn);
+        });
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+    });
+}
