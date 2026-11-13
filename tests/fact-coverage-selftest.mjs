@@ -30,6 +30,15 @@
 //     是否切换属于改判据，须拍板 —— 本轮只负责把差异摆到桌上，不许它再静默。
 //
 // 用法：node tests/fact-coverage-selftest.mjs [--scan]（--scan 只报告不判退码）
+//
+// 第 149 轮（D12 一轮遗留 · 补真退码）：
+//   此前本文件**全文只有 process.exit(0)**，没有非零退码、没有 process.exitCode 赋值、没有 throw
+//   ⇒ 结构上不可能报红 ⇒ 被 295 点名「恒绿线，每轮白占一个闸门名额」。
+//   本轮给「前提塌方」补真退码：取样面不足 / 取样公共件自证失败 / 口径审计自证失败 ⇒ exit 1。
+//   ★ 候选清单（gaps/stale）保持第 124 轮「仅报告、不判红」语义**不变** —— 它是候选生成器，
+//     真缺口须样本驱动（结构扫描器跑真实对局）复核后才可处置，故不纳入退码；
+//     caliberFails（脏切片 67 条混入 / 16 条同名重复 / 两套口径不一致）是**已知遗留**，
+//     切换属改既有结论须拍板，纳入退码会让干净树恒红，故同样不纳入。
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -267,7 +276,7 @@ console.log('· 取样档位：枚举 ' + SAMPLE_FK.state + '（薄线 ' + SAMPL
     + SAMPLE_RF.state + '（薄线 ' + SAMPLE_RF.thin + '）· 引擎文件 ' + SAMPLE_EF.state + '（薄线 ' + SAMPLE_EF.thin + '）'
     + (SAMPLE_INSUFFICIENT ? ' ⇒ **取样不足**：下列结论中的「没查到」一律标「不成立」' : ' ⇒ 取样充分'));
 if (sampleFails.length) {
-    console.log('· ⛔ 取样面红线（' + sampleFails.length + ' 项；本检查器按第 124 轮定性恒不判退码，仅报告）：');
+    console.log('· ⛔ 取样面/公共件红线（' + sampleFails.length + ' 项；前提塌方 ⇒ 下方会判退码）：');
     for (const s of sampleFails) console.log('    ❌ ' + s);
 }
 if (caliberFails.length) {
@@ -288,7 +297,7 @@ if (caliberFails.length) {
     console.log('        本轮只作了上面的真值对照口径，**未切换**，故既有历史数字保持不变。');
 }
 if (metaFails.length) {
-    console.log('· ⛔ 口径审计自证（第 144 轮新增 · ' + metaFails.length + ' 项）：');
+    console.log('· ⛔ 口径审计自证（第 144 轮新增 · ' + metaFails.length + ' 项；前提塌方 ⇒ 下方会判退码）：');
     for (const s of metaFails) console.log('    ❌ ' + s);
 } else {
     console.log('· ✅ 口径审计自证通过（切片两路径一致 ' + FACT_KEYS.length + ' 条 / 真值口径 '
@@ -359,4 +368,20 @@ if (SCAN_ONLY) { console.log('· --scan 模式：仅报告不判红'); }
 // ⇒ 降级为「候选生成器」：仅报告，不判红，不挂 run-all。真正的覆盖盲区须样本驱动
 //   （跑真实对局收集实际出现的 fact，核对规则/契约/渲染/不变量断言）—— 由结构扫描器通道 B 负责。
 console.log('⚠ 本检查器静态不可靠：以上为候选清单，须样本驱动（结构扫描器跑真实对局）复核后才可作处置');
-process.exit(0);
+// 第 149 轮 · 真退码（D12 295 点名「恒绿线」的修法：补真能变红的出口，不靠摘登记表）：
+//   判红范围 = 前提塌方，不含候选清单：
+//     · sampleFails —— 取样面不足（三个面任一塌到薄线以下）/ 取样公共件自证失败 / 真值口径公共件自证失败；
+//     · metaFails   —— 口径审计自证失败（两条提取路径数不清同一份 / 真值口径重复 / 真值 0 条 / 独立段落截取失败）。
+//   这些不是「覆盖结论的好坏」，而是「本文件的取样与口径前提是否成立」—— 前提塌了，上面所有
+//   覆盖率/缺口/悬空数字都失去依据，必须红得起来（0 缺口 0 悬空在前提塌方时不是绿，是没查）。
+//   gaps/stale/caliberFails 依旧仅报告，维持既有定性（见文件头第 149 轮说明）。
+const premiseFails = [...sampleFails, ...metaFails];
+if (SCAN_ONLY) {
+    console.log('· --scan 模式：仅报告不判红');
+} else if (premiseFails.length) {
+    console.log('⛔ 前提塌方 ' + premiseFails.length + ' 项（取样面/公共件/口径审计自证）⇒ exit 1 —— '
+        + '本文件的取样与口径前提已不成立，上面的覆盖结论不作数，先修前提');
+    process.exitCode = 1;
+} else {
+    console.log('✅ 前提自证通过（取样面三档 ENOUGH 且公共件自证 0 条），候选清单按第 124 轮定性仅报告');
+}

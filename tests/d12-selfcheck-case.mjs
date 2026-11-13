@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// tests/d12-selfcheck-case.mjs | V1.0.0 | 2026-11-11（D12 规则自检与假绿域）
+// tests/d12-selfcheck-case.mjs | V1.1.0 | 2026-11-13（D12 规则自检与假绿域）
 //
 // 定向用例：给 295/296 两条元守卫规则喂**合成源码**，每条硬判据都配一对样本 ——
 //   反向样本（人为改坏 → 必须命中）+ 正向样本（干净写法 → 必须不命中，防一刀切假红）。
 // 主题「体检自检自身的假绿」能不能被抓到，就看这里：
 //   某条自检恒返回通过（295）/ 改了判定口径却没配反向样本（296）——两类都必须咬住。
 // 用法：node tests/d12-selfcheck-case.mjs    全对 exit 0；任一条判错 exit 1
-export const VER = 'tests/d12-selfcheck-case.mjs V1.0.0';
+export const VER = 'tests/d12-selfcheck-case.mjs V1.1.0';
 
 import { scanRedPath, parseRunAllRegistry, scanExemptDrift } from './health-rules/295-selfcheck-red-path.js';
 import { scanReverseSample, collectHardGates, pickStaleKnows } from './health-rules/296-selfcheck-reverse-sample.js';
@@ -176,9 +176,14 @@ function sectionRealRepo() {
     console.log('  295 ⇒ ' + (isFail(r295) ? 'FAIL' : 'PASS') + ' :: ' + summary(r295));
     console.log('  296 ⇒ ' + (isFail(r296) ? 'FAIL' : 'PASS') + ' :: ' + summary(r296));
 
-    // 已知未闭环：fact-coverage-selftest.mjs 只有 exit(0) ⇒ 295 必须点名它（这条红是本轮抓到的真问题，不许洗）
-    const named = isFail(r295) && /fact-coverage-selftest\.mjs/.test(summary(r295));
-    check('295 在真仓库点名 fact-coverage-selftest.mjs（本轮硬问题，必须红）', named);
+    // 第 149 轮闭环更新：fact-coverage-selftest.mjs 已补真红退码（sampleFails/metaFails 前提塌方 ⇒ exitCode=1），
+    //   295 不再把它当恒绿线点名。此前的「295 必须点名它」断言是闭环前钉的问题，已随修复翻红——
+    //   改为双向核实：① 文件里确实存在非零退码出口（process.exitCode = 1）；② 295 对它不再报恒绿。
+    const fcovSrc = readFileSync(fileURLToPath(new URL('../tests/fact-coverage-selftest.mjs', import.meta.url)), 'utf8');
+    const hasRedExit = /process\.exitCode\s*=\s*[1-9]/.test(fcovSrc);
+    check('fact-coverage-selftest.mjs 已补真红退码（存在非零 process.exitCode 赋值）', hasRedExit);
+    const namedNow = isFail(r295) && /fact-coverage-selftest\.mjs/.test(summary(r295));
+    check('295 对已修好的 fact-coverage-selftest 不再点名（恒绿线已闭环）', !namedNow, summary(r295));
 
     // 已登记真问题不复发红：296 对 health-rules-syntax-sweep 走 KNOWN
     check('296 真仓库不作红（已登记缺口走 KNOWN，表外无新增）', !isFail(r296), summary(r296));
