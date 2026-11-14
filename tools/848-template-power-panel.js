@@ -16,6 +16,7 @@ if (!startBtn) { /* 页面无该页签时静默 */ }
 
 let TPL = null;
 let lastTable = [];
+let lastText = '';
 
 const isFront = r => r === '防战' || r === '战士';
 
@@ -161,7 +162,60 @@ function renderAll(jobs, acc) {
     }
     resultEl.innerHTML = html;
     lastTable = tableRows;
+    lastText = buildText(jobs, acc);
 }
+
+// 复制用纯文本（TSV）：粘进表格软件或微信都是对齐的
+function buildText(jobs, acc) {
+    const L = [];
+    const base = jobs.filter(j => j.kind === 'base');
+    if (base.length) {
+        L.push('=== 基线（纯骨架不替换） ===');
+        base.forEach(j => {
+            const v = acc.get(j.key) || { wins: 0, runs: 0 };
+            L.push(`${j.b.id}\t${j.a.id}\t${pct(v.wins, v.runs)}\t${v.runs}场`);
+        });
+        L.push('');
+    }
+    for (const camp of ['明教', '六大派']) {
+        const cj = jobs.filter(j => j.kind === 'cand' && getGameData().characters[j.cand.name]?.camp === camp);
+        if (!cj.length) continue;
+        const names = [...new Set(cj.map(j => j.cand.name))];
+        const aids = [...new Set(cj.map(j => j.a.id))];
+        L.push(`=== ${camp}单位（打${camp === '明教' ? '六大派' : '明教'}靶） ===`);
+        L.push(['单位', '职业', ...aids, '平均'].join('\t'));
+        for (const name of names) {
+            const role = cj.find(j => j.cand.name === name)?.cand.role || '-';
+            let sw = 0, st = 0;
+            const cells = aids.map(aid => {
+                const v = acc.get(`${name}|${aid}`) || { wins: 0, runs: 0 };
+                sw += v.wins; st += v.runs;
+                return pct(v.wins, v.runs);
+            });
+            L.push([name, role, ...cells, st ? (sw / st * 100).toFixed(0) + '%' : '-'].join('\t'));
+        }
+        L.push('');
+    }
+    return L.join('\n');
+}
+
+const copyBtn = document.getElementById('tpCopyBtn');
+copyBtn?.addEventListener('click', async () => {
+    if (!lastText) { progressEl.textContent = '还没有结果可复制'; return; }
+    try {
+        await navigator.clipboard.writeText(lastText);
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = lastText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+    }
+    const old = copyBtn.textContent;
+    copyBtn.textContent = '已复制';
+    setTimeout(() => { copyBtn.textContent = old; }, 1500);
+});
 
 csvBtn?.addEventListener('click', () => {
     if (!lastTable.length) { progressEl.textContent = '还没有结果可导出'; return; }
