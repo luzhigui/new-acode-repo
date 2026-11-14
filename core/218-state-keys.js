@@ -210,6 +210,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _holyFireUses:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 小昭·妹专属复活名额：妹永久 holyFire 的独立名额，与团队 _holyFire 名额叠加、互不占用
     _holyFireSelf:           { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // 圣火令复活记录（modules/204 圣火令主动）：数组元素为复活事件 rec（谁复活/何时/第几次），
+    //   204 的 consumesLedger 族跨回合聚合读取——漏登记 = clone 静默丢账本 + 守卫抛错（2026-11-15 第二例，老板贴单）。
+    _holyFireRevives:        { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 杨逍·点穴冷却：同一目标 cdRounds 回合内最多被点一次（回合开始递减，>0 即免疫本次点穴判定）
     _dianXueCd:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 杨逍·截脉（禁疗❌）：点穴命中同时挂上 rounds 回合，{ rounds: 剩余回合数, ratio: 治疗/吸血回复乘率 }。
