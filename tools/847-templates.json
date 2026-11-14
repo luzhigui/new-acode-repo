@@ -1,0 +1,107 @@
+{
+  "_note": "847 模板战力评测的阵容池。A = 靶子（10~20 套为宜），B = 被测骨架。每单位固定 role/pos，替换时按 role 同职业匹配。pos：1-3 前排，4-6 中排，7-9 后排。",
+  "a": [
+    { "id": "M-弱", "camp": "明教", "tier": "弱", "units": [
+      { "name": "明教弟子1", "role": "防战", "pos": 1 },
+      { "name": "明教弟子2", "role": "战士", "pos": 2 },
+      { "name": "明教弟子3", "role": "战士", "pos": 3 },
+      { "name": "明教洪午", "role": "战士", "pos": 4 },
+      { "name": "明教岳山", "role": "远程", "pos": 7 },
+      { "name": "明教石虎", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "M-中", "camp": "明教", "tier": "中", "units": [
+      { "name": "颜垣", "role": "防战", "pos": 1 },
+      { "name": "范遥", "role": "战士", "pos": 2 },
+      { "name": "吴劲草", "role": "战士", "pos": 3 },
+      { "name": "冷谦", "role": "战士", "pos": 4 },
+      { "name": "明教洪午", "role": "远程", "pos": 7 },
+      { "name": "明教岳山", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "M-强", "camp": "明教", "tier": "强", "units": [
+      { "name": "寒离飒", "role": "防战", "pos": 2 },
+      { "name": "杨逍", "role": "战士", "pos": 1 },
+      { "name": "殷天正", "role": "战士", "pos": 3 },
+      { "name": "韦一笑", "role": "战士", "pos": 4 },
+      { "name": "张无忌", "role": "远程", "pos": 5 },
+      { "name": "金毛狮王谢逊", "role": "远程", "pos": 7 }
+    ]},
+    { "id": "S-弱", "camp": "六大派", "tier": "弱", "units": [
+      { "name": "清虚", "role": "防战", "pos": 1 },
+      { "name": "清风", "role": "战士", "pos": 2 },
+      { "name": "明月", "role": "战士", "pos": 3 },
+      { "name": "静玄", "role": "战士", "pos": 4 },
+      { "name": "静虚", "role": "远程", "pos": 7 },
+      { "name": "静照", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "S-中", "camp": "六大派", "tier": "中", "units": [
+      { "name": "空闻", "role": "防战", "pos": 1 },
+      { "name": "空智", "role": "战士", "pos": 2 },
+      { "name": "空性", "role": "战士", "pos": 3 },
+      { "name": "班淑娴", "role": "战士", "pos": 4 },
+      { "name": "宗维侠", "role": "远程", "pos": 7 },
+      { "name": "常敬之", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "S-强", "camp": "六大派", "tier": "强", "units": [
+      { "name": "鹿杖客", "role": "防战", "pos": 1 },
+      { "name": "鹤笔翁", "role": "战士", "pos": 2 },
+      { "name": "成昆", "role": "战士", "pos": 3 },
+      { "name": "灭绝师太", "role": "战士", "pos": 4 },
+      { "name": "张三丰", "role": "远程", "pos": 7 },
+      { "name": "周芷若", "role": "远程", "pos": 8 }
+    ]}
+  ],
+  "b": [
+    { "id": "BM-均衡", "camp": "明教", "units": [
+      { "name": "颜垣", "role": "防战", "pos": 1 },
+      { "name": "范遥", "role": "战士", "pos": 2 },
+      { "name": "吴劲草", "role": "战士", "pos": 3 },
+      { "name": "冷谦", "role": "战士", "pos": 4 },
+      { "name": "明教洪午", "role": "远程", "pos": 7 },
+      { "name": "明教岳山", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "BM-前排厚", "camp": "明教", "units": [
+      { "name": "颜垣", "role": "防战", "pos": 1 },
+      { "name": "明教石虎", "role": "战士", "pos": 2 },
+      { "name": "明教弟子1", "role": "战士", "pos": 3 },
+      { "name": "范遥", "role": "战士", "pos": 4 },
+      { "name": "冷谦", "role": "远程", "pos": 7 },
+      { "name": "吴劲草", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "BS-均衡", "camp": "六大派", "units": [
+      { "name": "空闻", "role": "防战", "pos": 1 },
+      { "name": "空智", "role": "战士", "pos": 2 },
+      { "name": "空性", "role": "战士", "pos": 3 },
+      { "name": "清虚", "role": "战士", "pos": 4 },
+      { "name": "清风", "role": "远程", "pos": 7 },
+      { "name": "明月", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "BS-前排厚", "camp": "六大派", "units": [
+      { "name": "班淑娴", "role": "防战", "pos": 1 },
+      { "name": "宗维侠", "role": "战士", "pos": 2 },
+      { "name": "常敬之", "role": "战士", "pos": 3 },
+      { "name": "静玄", "role": "战士", "pos": 4 },
+      { "name": "静虚", "role": "远程", "pos": 7 },
+      { "name": "静照", "role": "远程", "pos": 8 }
+    ]}
+  ],
+  "candidates": [
+    { "name": "杨逍" },
+    { "name": "殷天正" },
+    { "name": "张中", "role": "远程" },
+    { "name": "周颠", "role": "战士" },
+    { "name": "说不得", "role": "战士" },
+    { "name": "庄铮" },
+    { "name": "彭莹玉", "role": "远程" },
+    { "name": "反伤弟子" },
+    { "name": "寒离飒" },
+    { "name": "金毛狮王谢逊", "role": "远程" },
+    { "name": "韦一笑", "role": "战士" },
+    { "name": "素问", "role": "远程" },
+    { "name": "少林圆真", "role": "远程" },
+    { "name": "何太冲" },
+    { "name": "唐文亮" },
+    { "name": "灭绝师太" },
+    { "name": "成昆" },
+    { "name": "张三丰" }
+  ]
+}
