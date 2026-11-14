@@ -707,7 +707,7 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 1.33, "defToHeal": 0.144, "defToAtk": 0.036 }
+          "params": { "defToReduce": 1.6, "defToHeal": 0.12, "defToAtk": 0.03 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
@@ -1433,7 +1433,8 @@
       "fortify", "bloodthirst", "meteorShower", "windAssault",
       "cloudBody", "hotBlood", "carry", "doubleStrike",
       "mindControl", "horseFormation", "holyFlame", "soulDrain",
-      "holyFire", "lastStand", "unity"
+      "holyFire", "lastStand", "unity",
+      "hlsPower1", "weiExclusive", "zhangDestiny", "zhangRescue", "zhangProdigy"
     ]
   },
 

@@ -54,5 +54,9 @@ export const FX_SIGNALS = {
     PINNED_BUBBLE: 'fx:pinnedBubble',
     // 轻量技能演出（吸星连线 / 现形换脸 / 断锤数字 / 双面观音变装 / 蹦蹦挪位）：
     //   统一一条信号，按载荷 kind 分派到 fx/619；一条 cue 只有一个演出者，只表现不改结算。
-    SKILL_CUE: 'fx:skillCue'
+    SKILL_CUE: 'fx:skillCue',
+    // 重置对象池：ui/715 跨局/跨战斗重置时发，fx/610 订阅后调 fx/601 的清理函数。
+    //   以前 ui 层直接 import fx/601 的 resetDanmakuPool / resetFloatTables——ui 引 fx 功能函数，
+    //   反向依赖。改成发信号后，ui 只依赖 infra，fx/601 退回纯订阅者。
+    RESET_FX_POOLS: 'fx:resetPools'
 };

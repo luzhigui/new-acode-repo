@@ -1,10 +1,11 @@
+// V6.8.7 | 2026-11-14 known-transfers 第 185 轮残留半：九阳神功 HEAL 账本改「结算期按应用后实落量」记账——声明只带 auditGroup/auditSource，删掉声明期 recordHpAudit（原口径记的是 previewHeal 预演，同帧前序回血/伤害会让预演≠落地 ⇒ 账本与 fact.heal 分叉，体检 NINE_YANG_HEAL 出偏差）。
 // V6.8.6 | 2026-11-08 known-transfers 第 7 条：LEECH 声明补 maxHpGain（=本次实回），handler 按增量累加， 修「同帧多击第二次不抬上限」；上限口径与 core/217 同源（都用 getStat）。
-export const VER = 'core/216-skill-mechanisms.js V6.8.6';
+export const VER = 'core/216-skill-mechanisms.js V6.8.7';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
 import { registerDodgeRule } from './221-registry-dodge.js';
-import { recordHpAudit, getBattleRng, previewHeal, getStat } from './214-battle-shared.js';
+import { getBattleRng, previewHeal, getStat } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/106-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './219-mechanic-registry.js';
@@ -253,14 +254,18 @@ function submitOnHitEffects(data, onHitDecls) {
                 // 满血转护盾（与寒离飒左拳·九阳同口径）：rawOnly 拿打折后应发额度，
                 //   应发 − 实回 = 溢出，进永久护盾 _permShield（截脉/寒毒都算在 nominal 里）
                 const rawNominal = Math.floor(unit.maxHp * eff.pct);
+                // ★ 第三参 true（rawOnly）不可丢：只打折、不夹 maxHp 缺口。丢了满血时 nominal 会被 gap=0
+                //   夹成 0 ⇒ 满血九阳永不给护盾；改成用 rawNominal 直接算又会让「被打折掉的治疗量变护盾」。
                 const nominal = previewHeal(unit, rawNominal, true);
                 // 实回按 core/16 HEAL handler 口径（先夹 maxHp 缺口、再打折），保证文案/飘字 = 血条
                 const heal = previewHeal(unit, Math.min(rawNominal, Math.max(0, unit.maxHp - unit.hp)));
                 const shieldGain = Math.max(0, nominal - heal);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
-                    recordHpAudit(unit, 'nineYangHeal', heal, '九阳神功治疗'); // 账本记实际落地值（与 fact.heal 同口径；stat-decl NINE_YANG_HEAL 契约据此 group 追踪九阳回血量
+                    // 账本不在声明期记：auditGroup/auditSource 只是「账本归属」载荷，真正记账在 core/217 HEAL
+                    //   结算 handler 里按「applyStatChange 前后 hp 差（应用后实落量）」写同一 group——
+                    //   声明期只有 previewHeal 预演，同帧前序回血/伤害会让预演≠落地 ⇒ 账本与 fact.heal 分叉。
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, auditGroup: 'nineYangHeal', auditSource: '九阳神功治疗', factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                 }
                 if (shieldGain > 0) {
                     unit.state._permShield = (unit.state._permShield || 0) + shieldGain;

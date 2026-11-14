@@ -166,12 +166,51 @@ export const EXECUTION_LAYER = {
 };
 
 /**
+ * 执行顺序不变量：显式声明「谁必须排在谁之后」。
+ *   格式：[EXECUTION_LAYER 的层名, 先执行的键, 后执行的键]
+ * 以前这些关系只写在注释里（如 WARRIOR_EXECUTE 注释「必须晚于 JIUYANG=40」），
+ * 改任何一个裸数字破坏顺序都不会报错；现在加载期校验，破坏即炸，不许静默跑错。
+ */
+export const EXECUTION_LAYER_INVARIANTS = Object.freeze([
+    // 斩杀（45）必须晚于九阳/融会 BONUS_DMG 声明（40）：斩杀要把融会伤害计入有效血量
+    ['AFTER_DAMAGE_APPLIED', 'JIUYANG', 'WARRIOR_EXECUTE'],
+    // 斩杀（45）必须晚于胖远桥打歪日志（42）：同一条攻击组内先记打歪、再判斩杀
+    ['AFTER_DAMAGE_APPLIED', 'PANG_CLUMSY_LOG', 'WARRIOR_EXECUTE'],
+    // 幼狮成长（15）必须早于召唤（16）：否则刚召出的幼狮会在同一次回合开始立刻长大
+    ['ROUND_START', 'LION_GROW', 'XIE_SUMMON']
+]);
+
+/**
+ * 加载期自检：逐条校验 EXECUTION_LAYER_INVARIANTS 的「先执行 < 后执行」。
+ *   数字相等或顺序反了立即抛错——顺序依赖不允许静默破坏。
+ *   只校验显式声明的不变量，未声明的依赖不受影响（零行为变化）。
+ */
+export function validateExecutionLayer() {
+    const problems = [];
+    for (const [layerKey, earlyKey, lateKey] of EXECUTION_LAYER_INVARIANTS) {
+        const layer = EXECUTION_LAYER[layerKey];
+        if (!layer) { problems.push(`未知层 ${layerKey}`); continue; }
+        const e = layer[earlyKey];
+        const l = layer[lateKey];
+        if (typeof e !== 'number') { problems.push(`${layerKey}.${earlyKey} 不存在`); continue; }
+        if (typeof l !== 'number') { problems.push(`${layerKey}.${lateKey} 不存在`); continue; }
+        if (!(e < l)) problems.push(`${layerKey}: ${earlyKey}=${e} 必须小于 ${lateKey}=${l}（实际 ${e} ≥ ${l}）`);
+    }
+    if (problems.length > 0) {
+        throw new Error('[EXECUTION_LAYER] 执行顺序不变量被破坏：\n' + problems.join('\n'));
+    }
+}
+
+/**
  * 结算时机注册入口：统一替代手写 eventBus.on(signal, L.X, fn)。
  * 内部透传 eventBus.on，行为零变化。
  */
 export function registerSettlementHook({ when, priority, handler, key }) {
     eventBus.on(when, priority, handler, key);
 }
+
+// 加载期跑一次自检：顺序依赖被破坏必须在启动时就炸，不许静默跑错
+validateExecutionLayer();
 
 export const EFFECT_TYPES = {
     BONUS_DMG: 'bonusDmg',

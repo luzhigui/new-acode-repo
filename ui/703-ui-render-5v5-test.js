@@ -19,8 +19,10 @@ import {
 } from '../render/403-grid-render.js';
 
 export { getDodgeBreakdown, isUnitBenefitedByBuff };
-import { showDanmaku as _showDanmaku } from '../fx/601-fx-common-5v5-test.js';
-const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
+// 弹幕走信号通道：ui 层不 import fx 层功能函数（原 `showDanmaku as _showDanmaku` 那条已删）。
+//   胜利台词的弹幕在 spawnVictoryEffects 里发 FX_SIGNALS.DANMAKU。
+import { eventBus } from '../infra/101-event-bus.js';
+import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 
 export function stripTags(html) { let div = document.createElement('div'); div.innerHTML = html; return div.textContent || ''; }
 
@@ -311,7 +313,8 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         logDiv.innerHTML += `<span class="${winColorClass}">🗯️ ${u.name}：${taunt}</span><br>`;
         setTimeout(() => {
             requestAnimationFrame(() => {
-                showDanmaku(u, taunt);
+                // 走信号：fx/610 订阅后调 fx/601 的 showDanmaku
+                eventBus.emit(FX_SIGNALS.DANMAKU, { unit: u, text: taunt });
             });
         }, index * 600);
     });

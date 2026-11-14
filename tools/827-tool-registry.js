@@ -108,5 +108,11 @@ export const HEX_NAMES = {
     soulDrain: '摄魂',
     holyFire: '圣火不熄',
     lastStand: '背水一战',
-    unity: '众志成城'
+    unity: '众志成城',
+    // 2026-11-14 补专属海克斯：之前漏登，108表头/852报告会退化成英文 key
+    hlsPower1: '寒离飒强化',
+    weiExclusive: '韦一笑强化1',
+    zhangDestiny: '我命由我不由天',
+    zhangRescue: '快来护驾',
+    zhangProdigy: '武学奇才'
 };

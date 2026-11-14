@@ -8,10 +8,11 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
+// V2.3.1 | 2026-11-14 known-transfers 第 185 轮残留半：左拳·九阳治疗账本由「声明期记 previewHeal 预演」改为「core/217 HEAL 结算期按应用后实落量记」（声明只带 auditGroup/auditSource，删掉声明期 recordHpAudit）——与 core/216 九阳神功同口径，修账本与 fact.heal 分叉（体检 HLS_JIUYANG_HEAL 偏差）。
 // V2.3.0 | 2026-11-13 新增专属海克斯「寒离飒强化」（buffs.hlsPower1）：下回合开始立刻起蓄（直接到相位 2，
 //   不跳过行动）、+armorBonus 护盾、全场嘲讽本回合只打他、承伤桶改按攻击者攻击力全额计入、行动时再加
 //   shieldPct×maxHp 护盾；回合末走既有 ON_ROUND_END 爆发。一场一次（_hlsPowerUsed）。
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.3.0';
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.3.1';
 
 import { getFronts } from '../core/203-battle-utils.js';
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/214-battle-shared.js';
@@ -117,12 +118,14 @@ export function createHanLiSaComponent() {
                     if (heal > 0) {
                         if (!data.declarations) data.declarations = [];
                         data.declarations.push({
-                            // 声明量填原值：core/16 HEAL handler 落账时还会再走一次截脉/寒毒打折
+                            // 声明量填原值：core/217 HEAL handler 落账时还会再走一次截脉/寒毒打折
                             type: EFFECT_TYPES.HEAL, value: rawNominal, source: hls,
                             factType: FACT_TYPES.HEAL,
+                            // 账本不在声明期记（这里只有 previewHeal 预演，同帧前序回血会让预演≠落地）：
+                            //   auditGroup/auditSource 只是归属载荷，真正记账在 core/217 结算期按实落量写
+                            auditGroup: 'hlsJiuYangHeal', auditSource: '左拳·九阳治疗',
                             factData: { unitName: hls.name, heal, hpBefore: hls.hp, hpAfter: hls.hp + heal, unitUid: hls.uid, maxHp: hls.maxHp, stacks: 1, icon: '☀️', label: '左拳·九阳回复', mode: 'plusTrail', anchorVerb: '回复' }
                         });
-                        recordHpAudit(hls, 'hlsJiuYangHeal', heal, '左拳·九阳治疗'); // 账本记实际落地值（与 fact heal 同口径）
                     }
                     if (shieldGain > 0) {
                         hls.state._permShield = (hls.state._permShield || 0) + shieldGain;

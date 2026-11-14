@@ -5,13 +5,24 @@
 export const VER = 'core/221-registry-dodge.js V1.0.0';
 
 const _dodgeRules = [];
+// 基础规则条数：由 sealBaseDodgeRules() 在基础规则注册完之后写入。
+//   以前 clearEliteDodgeRules 写死 length = 2——默认前面永远两条基础规则，
+//   加第三条基础规则时会被一起清掉。现在只清「封印之后新加的」（= 精英规则）。
+//   初始值 2 是当前实际条数，行为与改前完全一致；正常路径下 sealBaseDodgeRules 会把它刷成真值。
+let _baseRuleCount = 2;
 
 export function registerDodgeRule(fn) {
     _dodgeRules.push(fn);
 }
 
+// 基础规则注册完之后调用（core/211 末尾）：把当前的条数记成「基数」。
+//   之后 clearEliteDodgeRules 只删到这个数为止，基础规则永远留着。
+export function sealBaseDodgeRules() {
+    _baseRuleCount = _dodgeRules.length;
+}
+
 export function clearEliteDodgeRules() {
-    _dodgeRules.length = 2;
+    _dodgeRules.length = _baseRuleCount;
 }
 
 export function getDodgeRules() {

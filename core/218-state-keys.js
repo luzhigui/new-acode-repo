@@ -55,6 +55,11 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _cloudBodySkip:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 韦一笑·青翼追魂（2026-11-13）：闪避追击每回合限 1 次；回合级字段，每回合 resetStateFields 自然清零
     _weiExclusiveFiredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 杨逍·先机免行动力（modules/327）：本次出手后 30% 概率不消耗行动力。
+    //   出手掷中置真 → 行动完 ON_UNIT_ACTED 消费置假；正常闭环在同一出手周期内。
+    //   登记为回合级：即使异常（后续监听抛错导致消费没走到）残留 true，回合开始也自动清零，
+    //   不会把「上回合的免费出手」带到下回合误判。
+    _xianJiFreePending:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置
@@ -428,4 +433,30 @@ export function resetStateFields(state) {
         state[key] = spec.default;
     }
     return state;
+}
+
+// ── 状态字段注册校验（A1 护栏）─────────────────────────────────────
+// copyAllStateFields 只拷贝 schema 里登记过的字段；运行时如果有人往 state 里塞了
+// 未登记的字段，clone 时会静默丢掉（下一回合该字段凭空消失，不报错、不警告）。
+// 本函数是唯一校验出口：clone 等关键路径调用它，漏登记即当场报错。
+const ALL_REGISTERED_STATE_KEYS = new Set([...ROUND_STATE_KEYS, ...BATTLE_STATE_KEYS]);
+
+/**
+ * 检查 state 里是否混进了未注册的字段。
+ * @param {object} state 单位 state 对象
+ * @param {string} [context] 上下文（如单位名），便于报错定位
+ * @throws 有未注册字段时立即抛错（不许静默丢字段）
+ */
+export function assertStateFullyRegistered(state, context) {
+    if (!state || typeof state !== 'object') return;
+    const unknown = [];
+    for (const key of Object.keys(state)) {
+        if (!ALL_REGISTERED_STATE_KEYS.has(key)) unknown.push(key);
+    }
+    if (unknown.length > 0) {
+        throw new Error(
+            `[core/218] 状态字段未注册（${context || '未知单位'}）：${unknown.join(', ')}\n` +
+            `  → 这些字段在 clone 时会静默丢失，必须在 ROUND_STATE_SCHEMA / BATTLE_STATE_SCHEMA 中登记。`
+        );
+    }
 }

@@ -5,7 +5,7 @@
 export const VER = 'ui/727-rewind-core.js V1.2.1';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, DROP_TYPES, LOG_ENTRY_TYPES } from '../infra/106-battle-enums.js';
 import { STATE } from '../core/201-config-5v5-test.js';
 import { getLiveRecordedSteps } from '../player/513-battle-export.js';
 import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
@@ -181,13 +181,10 @@ function flattenEntry(entry, stepIdx, factIdx, path, out) {
     out.push({ key: stepIdx + ':' + factIdx + ':' + path, entry: entry });
 }
 
-// 顶层条目类型白名单：与 player/504 playSingleLogEntry 的 switch 同口径。
-//   未登记的类型（如顶层 detail：攻盾/远程熟练）真播本就不上屏，回看也必须一致，不能多出行。
-const TOP_RENDER_TYPES = new Set([
-    'info', 'buff-summon', 'buff-destroy', 'buff-leech', 'buff-splash',
-    'buff-bonus', 'buff-swap', 'buff-push', 'buff-summary', 'buff-rebound-fortify',
-    'round-start', 'attack-group', 'round-end'
-]);
+// 顶层条目类型白名单：唯一真源 = infra/106 的 LOG_ENTRY_TYPES。
+//   以前这里手抄一份、504 的 switch 手抄一份，两处手工同步——改一处漏一处就漂移。
+//   现统一从枚举生成：加一种上屏类型只改 106 一处，回看这边自动跟上。
+const TOP_RENDER_TYPES = new Set(Object.values(LOG_ENTRY_TYPES));
 
 // 收集「第 0 步 ~ stepIdx 步、第 upto 段之前」应出现的全部日志行（upto=null 表示本步全部）
 //   返回 { items, lastType }：lastType 供真播前把 c._lastLogType 对齐到同一口径。

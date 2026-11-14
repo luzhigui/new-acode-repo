@@ -6,7 +6,7 @@ import { CONFIG, getGameData } from './201-config-5v5-test.js';
 
 import { StateMachine } from '../infra/102-core-utils.js';
 
-import { copyAllStateFields, createInitialState } from './218-state-keys.js';
+import { copyAllStateFields, createInitialState, assertStateFullyRegistered } from './218-state-keys.js';
 
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
@@ -126,6 +126,8 @@ export class Unit {
         // 审计账本浅拷：数组独立、元素引用共享（体检对照器的逐步按引用差集依赖共享）。
         //   注意 clone 的通用循环会跳过所有 _ 前缀字段（_mods 是唯一例外），_audit 必须在此显式处理。
         c._audit = { hp: [...(this._audit?.hp || [])] };
+        // A1 护栏：state 里有未注册字段 → 当场炸（clone 会静默丢这些字段，不许无声无息）
+        assertStateFullyRegistered(this.state, this.name);
         // state：全量字段统一拷贝（17-state-keys 驱动），数组深拷贝、对象浅拷贝
         c.state = {};
         copyAllStateFields(this.state, c.state);

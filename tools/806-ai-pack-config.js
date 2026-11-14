@@ -481,23 +481,57 @@ export const ALL_PROJECT_FILES = [
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
-// 主题分组（合并为 5 大类）
-// 引擎：infra/core/modules/render/content + 入口页面（index、dev-index）
-// 播放器：player（战斗执行→画面演出的独立子系统）
-// UI（画面特效等）：ui + fx
-// 工具：tools
-// 体检：tests
+// ── 低频文件清单（2026-11-14 老板拍板分「高频/低频」两组）────────────────
+// 判据：改代码时是不是「用到才翻」的大件专用件。
+//   高频 = 不改它就没法干活的地基（infra/core/modules/player/render/content/index + 常用 ui）；
+//   低频 = 功能专一的大文件、空壳、demo，改到那个功能才读。
+// 只挑大件 + 空壳，低频占比约 15%（原始总量 160 万字符里约 25 万）。
+// 维护纪律：新增「功能专一的大文件」（>15 KB 且平时不翻）往这里加；普通小文件不动，留在高频更安全。
+// ── 低频文件清单（2026-11-14 老板拍板：引擎组、UI 组各拆一份「低频」）────────────
+// 判据：改代码时「用到才翻」的大件专用件、空壳、开发入口页。其余一律留高频组。
+export const ENGINE_LOW_FREQ = new Set([
+    '../modules/309-elite-sixsects-zhouzhiruo.js',    // 空壳（由灭绝召唤入场）
+    '../dev-index.html',                              // 开发入口（正式入口是 index.html）
+    '../modules/315-elite-sixsects-tangwenliang.js',  // 31.2 KB 唐文亮七伤/冲刺（配套 fx/616 已在 UI 低频）
+    '../modules/319-elite-mingjiao-hanlisa.js',       // 26.9 KB 寒离飒蓄力轰拳（配套 ui/720、fx/615 已在 UI 低频）
+    '../modules/303-error-capture.js'                 // 58 KB 错误捕获面板（纯调试工具，改战斗逻辑用不到；
+                                                      //   被 ui/702 顶层 import，从主包拆走后包内会出现「import 指向缺失文件」，
+                                                      //   与 ARCHIVE_FILES 同一性质，属预期不是 bug）
+]);
+
+export const UI_LOW_FREQ = new Set([
+    '../ui/720-hanlisa-aim.js',         // 63.8 KB 寒离飒蓄力瞄准弹窗
+    '../ui/721-perf-panel.js',          // 40.7 KB 8x 参数面板
+    '../ui/726-rewind-panel.js',        // 5.8 KB 倒针面板壳
+    '../ui/727-rewind-core.js',         // 29.6 KB 倒针核心
+    '../ui/722-buff-tooltip.js',        // 11.9 KB buff 槽点击弹窗（纯展示，改战斗逻辑用不到）
+    // fx 专用演出（大件、功能专一，改对应机制才读）
+    '../fx/606-fx-dodge-bullet.js',     // 24.7 KB 闪避子弹时间
+    '../fx/615-fx-hanlisa-burst.js',    // 19.0 KB 轰拳爆发视觉
+    '../fx/616-tangwenliang-dash.js',   // 43.2 KB 唐文亮冲刺多人推挤
+    '../fx/607-fx-butterfly-spider.js', // 12.2 KB 蝶变/蛛变全套
+    '../fx/604-fx-position-swap.js',    // 14.8 KB 换位/惑心换位/两仪互换
+    '../fx/605-fx-push-back.js',        // 5.9 KB 击退/推挤
+    '../fx/619-skill-cues.js'           // 14.8 KB 轻量技能演出（吸星/现形/双锤/双面观音/蹦蹦挪位）
+]);
+
+// 主题分组：原六组结构不变，仅把 engine、ui 各拆成「高频 / 低频」两组。
+// 顺序敏感：803 是「第一个前缀命中即归组」，低频组必须排在对应高频组之前
+//   （低频用精确文件路径，startsWith 精确命中；未命中的自然落进高频的目录前缀）。
+// 播放器 / 工具 / 体检 / 存档 原样保留。
 export const FILE_GROUPS = [
-    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
+    { name: 'engineLow', displayName: '引擎·低频', prefixes: [...ENGINE_LOW_FREQ] },
+    { name: 'engineHigh', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
     { name: 'player', displayName: '播放器', prefixes: ['../player/'] },
-    { name: 'ui', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
+    { name: 'uiLow', displayName: 'UI·低频', prefixes: [...UI_LOW_FREQ] },
+    { name: 'uiHigh', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
     { name: 'tests', displayName: '体检', prefixes: ['../tests/'] },
     // 2026-11-10 第六类：下线存档层。老板要求——这些「不用了但怕以后要」的东西
     //   既不该进主代码包（拖大），也不该进工具包（工具组本来就太大、更没必要），
     //   所以单开一组，**默认不勾选**，要用时手动勾上发。
     //   必须排在最后：803 的分组循环是「第一个前缀命中即归组」，而兜底逻辑会把
-    //   没匹配上的文件塞进第一组（引擎）——本组前缀写死 ../archive/，不参与兜底。
+    //   没匹配上的文件塞进第一组（引擎·低频）——本组前缀写死 ../archive/，不参与兜底。
     { name: 'archive', displayName: '📦 存档（不随包）', prefixes: ['../archive/'] }
 ];
 
@@ -564,13 +598,21 @@ export const GROUP_PROMPTS = {
         before: '请深入分析战斗引擎代码（基础设施、核心战斗、播放器、通用模块、渲染层、游戏内容数据、入口页面）。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: '战斗引擎代码发送完毕。'
     },
-    'UI（画面特效等）': {
-        before: '请深入分析 UI 与特效代码（血条渲染、弹窗对话框、飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: 'UI 与特效代码发送完毕。'
+    '引擎·低频': {
+        before: '以下是引擎组的**低频文件**（空壳组件、开发入口页）：改到对应功能才需要读，日常开工不必读。请勿据此判断游戏功能存在缺失。无需输出详细分析。',
+        after: '引擎低频文件发送完毕。'
     },
     '播放器': {
         before: '请深入分析战斗播放器层（战斗日志播放、攻击组渲染、事件处理、动画调度、结算渲染）。播放器是战斗引擎与画面演出之间的独立子系统，重点理解事件→事实→渲染的链路。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: '播放器层代码发送完毕。'
+    },
+    'UI（画面特效等）': {
+        before: '请深入分析 UI 与特效代码（血条渲染、弹窗对话框、飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: 'UI 与特效代码发送完毕。'
+    },
+    'UI·低频': {
+        before: '以下是 UI 组的**低频文件**（蓄力瞄准弹窗、8x 参数面板、倒针面板与核心、闪避子弹时间、轰拳爆发视觉、唐文亮冲刺）：改到对应功能才需要读，日常开工不必读。请勿据此判断游戏功能存在缺失。无需输出详细分析。',
+        after: 'UI 低频文件发送完毕。'
     },
     '工具': {
         before: '请深入分析工具箱代码（自动战斗、工具箱UI、日志复盘、海克斯仪表盘、职业平衡分析、精英评测、商店）。无需输出详细分析，收到全部代码后直接开始协助开发。',

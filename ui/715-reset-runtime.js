@@ -4,8 +4,10 @@ import { GlobalStore } from '../infra/104-global-store.js';
 import { setRenderStore } from './703-ui-render-5v5-test.js';
 import { clearEliteDodgeRules } from '../core/221-registry-dodge.js';
 import { flushBattleEvents } from '../infra/102-core-utils.js';
-// 弹幕池重置函数：与删除 DOM 配合，防止对象池持有游离元素
-import { resetDanmakuPool, resetFloatTables } from '../fx/601-fx-common-5v5-test.js';
+// 弹幕/飘字对象池重置：走信号通道，ui 层不再 import fx 层功能函数。
+//   fx/610 订阅 RESET_FX_POOLS 后调 fx/601 的 resetDanmakuPool / resetFloatTables。
+import { eventBus } from '../infra/101-event-bus.js';
+import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { clearAllView } from '../infra/110-view-sheet.js';
 
 function removeIfExists(id) {
@@ -58,11 +60,9 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     ['battleReportOverlay', 'battleReportFloat', 'buffFloatBtn', 'voteModalOverlay'].forEach(removeIfExists);
     const voteFloat = document.getElementById('voteFloat');
     if (voteFloat) voteFloat.style.display = 'none';
-    // 弹幕重置：调用池重置函数（内部会移除 DOM 并重建池），
-    //   不能只删 DOM——对象池仍持引用会导致后续弹幕全部失效
-    resetDanmakuPool();
-    // 浮动飘字三张表（掉血叠层 / 回血叠层 / 四类飘字避让）按 uid 记账，跨局必须清
-    resetFloatTables();
+    // 弹幕/飘字对象池重置：发信号，由 fx/610 订阅后调 fx/601 的清理函数。
+    //   不能只删 DOM——对象池仍持引用会导致后续弹幕全部失效。
+    eventBus.emit(FX_SIGNALS.RESET_FX_POOLS, {});
     clearAllView();
     document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
     document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));

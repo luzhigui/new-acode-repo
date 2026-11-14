@@ -50,7 +50,7 @@ import { clock } from '../infra/103-clock.js';
 import { getCellByPos } from './611-fx-ref-manager.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
-import { getRoleIcon } from '../render/414-role-cards.js';
+import { getRoleIcon, getNameColorTier } from '../render/414-role-cards.js';
 import { isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
 import { baseHeroName } from '../core/202-unit.js';
 import { STORE_ACTION_TYPES } from '../infra/106-battle-enums.js';
@@ -126,17 +126,13 @@ function revealGhostHp(uids) {
 }
 
 // ============================== 卡片 / 克隆体 ==============================
-// 名字色档：与 render/403-grid-render 同一套判据（绿=M100带技能 / 金≥112 / 紫≥107 / 蓝≥104且具名）。
-//   克隆体必须带同款色档，否则演出中是白名、收尾显真格才「变蓝」。
+// 名字色档：唯一判据在 render/414 的 getNameColorTier（本函数只是把单位对象适配成它的入参）。
+//   以前这里手抄一份判据、注释写「与 render/403 同一套」，靠人手同步；
+//   现在统一从真源取，加新色档只改一处，格子和克隆体自动跟上。
 function nameTierOf(u) {
     const displayName = (u.state && u.state._displayName) || u.name || '';
     const m = u.m || 0;
-    const baseName = baseHeroName(displayName);   // 小昭运行时是「小昭·姊/妹」，查表退回主名
-    if (m === 100 && hasSkills(baseName)) return 'name-green';
-    if (m >= 112) return 'gold';
-    if (m >= 107) return 'name-purple';
-    if (m >= 104 && isNamedCharacter(baseName)) return 'name-blue';
-    return '';
+    return getNameColorTier(displayName, m);
 }
 
 // 单位数据 → 格子卡片 HTML（与 render/403-grid-render 同款结构与色档）

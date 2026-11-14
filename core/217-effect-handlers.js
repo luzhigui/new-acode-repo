@@ -1,5 +1,6 @@
+// V6.3.0 | 2026-11-14 known-transfers 第 185 轮残留半：HEAL handler 增「结算期按实落量记审计账本」（decl.auditGroup 存在且 actual>0 时 recordHpAudit），并把手九阳等声明期记账的预演/落地分叉收口到同一 actual；actual 取整口径对齐 LEECH（Math.round）。
 // V6.2.9 | 2026-11-08 known-transfers 第 7 条：LEECH handler 优先按声明期算好的 maxHpGain 累加上限， 修「同帧多击第二次不抬上限」（绝对目标值相减恒 0）；无该字段的老调用点行为不变。
-export const VER = 'core/217-effect-handlers.js V6.2.9';
+export const VER = 'core/217-effect-handlers.js V6.3.0';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -181,8 +182,11 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
         //   战报据此写「实际值（原因，原 N）」，不再把声明值当成回血量。
         // 金额 / 前后血量一律以「应用后」的实落值为准：声明提交时 hp 快照在同帧多次回血时会偏，
         //   直接覆盖 heal/hpBefore/hpAfter，保证「印的 = 落的」。
+        // 取整口径对齐 LEECH handler（本文件 L157 Math.round）：applyStatChange 内部按 ratio 实数相乘，
+        //   直接相减会留下 3.999999999999993 这类浮点残渣（落进账本后不会像战报那样被 fmtNum 洗掉）。
+        //   ★ actual 必须算在 if (decl.factData) 之外：账本记账（下方 auditGroup）不依赖 factData 是否存在。
+        const actual = Math.max(0, Math.round(decl.source.hp - hpBefore));
         if (decl.factData) {
-            const actual = Math.max(0, decl.source.hp - hpBefore);
             decl.factData.heal = actual;
             decl.factData.hpBefore = fmtHp(hpBefore);
             decl.factData.hpAfter = fmtHp(decl.source.hp);
@@ -192,6 +196,13 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
                 const mods = healModReasons(decl.source);
                 if (mods.length > 0) decl.factData.healMods = mods;
             }
+        }
+        // 审计账本：与 factData.heal 同源（同一个 actual 变量）。声明期只发预演的声明（core/216 九阳、
+        //   modules/319 左拳九阳已改为声明只带 auditGroup/auditSource），记账统一收口到这里，
+        //   保证「账本 == fact.heal == applyStatChange 的实际 hp 增量」三者恒等。
+        //   无 auditGroup 的其它 HEAL 声明（嗜血/热血/幻影/乾坤衍生/掷骰回血…）行为完全不变。
+        if (decl.auditGroup && actual > 0) {
+            recordHpAudit(decl.source, decl.auditGroup, actual, decl.auditSource || '回血');
         }
         executed.push(decl);
     }

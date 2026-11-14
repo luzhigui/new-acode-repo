@@ -10,6 +10,10 @@ import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
+// 倒计时垃圾话弹幕：走信号通道，ui 层不 import fx 层功能函数
+//   （原来靠调用方传 showDanmakuFn 进来，即 ui→fx 反向依赖）。
+import { eventBus } from '../infra/101-event-bus.js';
+import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 // 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
 const stepVoteOpen = () => {};
 const stepCountdown = () => {};
@@ -386,7 +390,8 @@ export function showVoteDialog(callback, battleHasZhang) {
 
 // 倒计时
 // 弹窗-倒计时：3-2-1动画+垃圾话弹幕
-export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showDanmakuFn, autoScrollLogFn) {
+//   弹幕走信号通道（FX_SIGNALS.DANMAKU），ui 层不再接 fx 层的 showDanmaku 函数当参数。
+export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, autoScrollLogFn) {
     stepCountdown();
     let nums = ['3', '2', '1'];
     let mainBtn = document.getElementById('btnMain');
@@ -402,7 +407,7 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
         if (div.parentNode) div.parentNode.removeChild(div);
         if (i === 0) {
             let t = trashTalkAlly[randFn(0, trashTalkAlly.length - 1)];
-            showDanmakuFn({camp:CAMP_TYPES.ALLY, pos:5}, t);
+            eventBus.emit(FX_SIGNALS.DANMAKU, { unit: {camp:CAMP_TYPES.ALLY, pos:5}, text: t });
             let l = document.getElementById('log');
             let d = document.createElement('div');
             d.innerHTML = `<span class="blue">🗯️ 明教：${t}</span><br>`;
@@ -411,7 +416,7 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
         }
         if (i === 1) {
             let t = trashTalkEnemy[randFn(0, trashTalkEnemy.length - 1)];
-            showDanmakuFn({camp:CAMP_TYPES.ENEMY, pos:5}, t);
+            eventBus.emit(FX_SIGNALS.DANMAKU, { unit: {camp:CAMP_TYPES.ENEMY, pos:5}, text: t });
             let l = document.getElementById('log');
             let d = document.createElement('div');
             d.innerHTML = `<span class="orange">🗯️ 六大派：${t}</span><br>`;

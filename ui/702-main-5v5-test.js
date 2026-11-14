@@ -11,9 +11,14 @@ import { Unit, VER as VER_UNIT } from '../core/202-unit.js';
 import { VER as VER_UTILS } from '../core/203-battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './703-ui-render-5v5-test.js';
 import { VER as VER_RENDER } from '../render/403-grid-render.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/601-fx-common-5v5-test.js';
-import { showRangedArrow, VER as FA_VER } from '../fx/602-fx-arrows-5v5-test.js';
-import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/603-fx-crash-5v5-test.js';
+// 注：原先三条 fx import（showDanmaku / showDamageFloat / showDodgeBubble / showHealFloat / FX_VER，
+//     showRangedArrow / FA_VER，showMeleeCrash / showMeleeDodge / showMeleeMiss / FC_VER）已整体删除——
+//     R1 分层收口：ui 不再 import fx 层的功能函数。
+//     · showDanmaku：改成 showCountdown 内部发信号（组 4b），本文件不再直接持有该函数。
+//     · 其余 8 个（showDamageFloat / showDodgeBubble / showHealFloat / showRangedArrow /
+//       showMeleeCrash / showMeleeDodge / showMeleeMiss / FA_VER / FC_VER）：本来就是死 import，
+//       本文件零调用点，一并删。
+//     · FX_VER：ALL_VERS.fx_common 随之删除（见下方 ALL_VERS 段）。
 import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/507-battle-player-5v5-test.js';   // 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initDevFlags } from './701-main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -160,8 +165,8 @@ window.ALL_VERS = {
     core: VER_CORE,
     player_core: VER_PLAYER_CORE,
     ui: UI_VER,
-    render: VER_RENDER,
-    fx_common: FX_VER
+    render: VER_RENDER
+    // fx_common 已随 R1 分层收口删除：ui 层不再 import fx 层的 FX_VER。
 };
 
 async function startApp() { updateCoverVersion(); }
@@ -250,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             GlobalStore.set('battleFacts', []);
             clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), getState.gs(), battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
             stepCountdown();
-            await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, showDanmaku, autoScrollLog);
+            await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, autoScrollLog);
             let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
             autoScrollLog();
             // 选 Buff 前注入战斗 RNG：full-auto 与手动同源，保证同种子复现一致

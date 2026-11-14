@@ -5,7 +5,7 @@ export const VER = 'player/504-player-play-step.js V1.1.2';
 import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { GlobalStore, getState } from '../infra/104-global-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, STAGE_ACTION_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, STAGE_ACTION_TYPES, DROP_TYPES, LOG_ENTRY_TYPES } from '../infra/106-battle-enums.js';
 
 import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './502-player-buff-ui.js';
 import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './508-event-handlers.js';
@@ -224,7 +224,18 @@ export async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factI
         }
         case 'round-end': await handleRoundEnd(c, entry, step.log || [], 0); lastEntryType = entry.type; break;
 
-        default: break;
+        default:
+            // A3 护栏：LOG_ENTRY_TYPES 白名单里有的 type，switch 必须覆盖到 case。
+            //   漏了 case → 真播不出这一行（727 回看走白名单反而有），两边漂移。
+            //   去重挂在函数属性上，只在首次命中时报一次，不刷屏。
+            if (LOG_ENTRY_TYPES.includes(entry.type)) {
+                if (!playSingleLogEntry._warnedMissingCase) playSingleLogEntry._warnedMissingCase = new Set();
+                if (!playSingleLogEntry._warnedMissingCase.has(entry.type)) {
+                    playSingleLogEntry._warnedMissingCase.add(entry.type);
+                    console.error(`[player/504] switch 漏了 case: '${entry.type}'（在 LOG_ENTRY_TYPES 白名单内，但本 switch 未处理，真播与回看会漂移）`);
+                }
+            }
+            break;
     }
 
     c._lastLogType = lastEntryType;

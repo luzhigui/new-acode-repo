@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V6.4.7 | 2026-10-30 预加载补 002-hex-enhance.json（小昭 hexEnhance 迁出 200 后，建队/姐妹强化都读它）。
      V6.4.6 | 2026-10-30 页面级游戏数据预加载补 .catch：失败只 warn，不留未捕获 rejection（配 108 V6.6.8）。
      V6.4.5 | 2026-10-30 108 改带时间戳动态加载（穿手机浏览器 module 缓存，配 108 V6.6.6 脏榜自愈）。
@@ -20,10 +20,10 @@
         .page-clock { color: #7f8aa8; font-size: 11px; line-height: 1; padding: 4px 11px; background: #2a2a4e; border: 1px solid #333; border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; white-space: nowrap; }
 
         /* ========== 标签页导航 ========== */
-        /* 2026-11-11：页签数会变（现 3 个），写死 repeat(2,1fr) 会把第 3 个挤到第二行半宽；
-           改 grid-auto-flow:column + grid-auto-columns:1fr —— 任意页签数都一行等宽排开 */
-        .tab-nav { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; }
-        .tab-btn { padding: 10px 4px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* 2026-11-14：页签数增多（现 6 个），单行平分宽度导致文字全被截断成省略号；
+           改为 flex + 自动换行，每个页签宽度随内容自适应，排不下自动换行 */
+        .tab-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 5px; }
+        .tab-btn { flex: 1 1 calc(33.33% - 6px); min-width: 100px; padding: 10px 4px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; text-align: center; line-height: 1.4; }
         .tab-btn:hover { background: #3a3a6e; color: #ddd; }
         .tab-btn.active { background: #ffd700; color: #1a1a2e; }
 

@@ -70,15 +70,43 @@ export function resetNoTableScale() { _noTableScale = 2; }
 
 let _params = JSON.parse(JSON.stringify(DEFAULTS));
 
+// 缺配置告警去重：getPerfParam 在热路径上被每个演出调用，同一个 key 只喊一次，
+//   避免「新演出忘了配时长」这类问题在控制台刷屏，同时保证一喊就能看见。
+const _warnedMissingPerfKeys = new Set();
+
 // 取某项在某档位的毫秒值。tierKey 传 speed 值（300/150/50/800），
 //   传不进（未匹配/undefined）自动回落到 '300'（标准档），保证不返回 NaN。
 export function getPerfParam(key, tierKey) {
   const row = _params[key];
-  if (!row) return 0;
+  if (!row) {
+    // A4 护栏：整项参数不存在时不再静默返回 0。
+    //   以前「新演出忘了在 DEFAULTS 里加一项」会得到 0ms 时长 → 动画瞬间播完、
+    //   玩家什么都看不见、控制台一片安静。现在第一次命中就喊一声，只喊一次，
+    //   调用方自带的 `|| 兜底` 照常生效，行为不变，只是把静默换成了可见。
+    if (!_warnedMissingPerfKeys.has(key)) {
+      _warnedMissingPerfKeys.add(key);
+      console.warn(
+        `[core/223-perf-params] 参数未配置: key='${key}'。` +
+        `调用方会用自带兜底值，但这个演出的时长参数没进表——` +
+        `检查是不是新增演出忘了在 DEFAULTS 里加一项。`
+      );
+    }
+    return 0;
+  }
   const v = row[String(tierKey)];
   if (typeof v === 'number') return v;
   const fallback = row['300'];
-  return typeof fallback === 'number' ? fallback : 0;
+  if (typeof fallback === 'number') return fallback;
+  // 项存在但连标准档 '300' 都取不到：多半是 setPerfParams 导入的外部 JSON 缺了这一列，
+  //   同样不能静默——否则整项演出所有档位都变 0ms。
+  if (!_warnedMissingPerfKeys.has(key + '#300')) {
+    _warnedMissingPerfKeys.add(key + '#300');
+    console.warn(
+      `[core/223-perf-params] 参数缺标准档: key='${key}' 的 '300' 列不是数字` +
+      `（可能被 setPerfParams 导入的 JSON 覆盖掉了）。`
+    );
+  }
+  return 0;
 }
 
 // 取全部参数（供参数面板展示 / 导出）

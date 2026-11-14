@@ -1,7 +1,10 @@
 // tools/826-balance-alert.js — 光明顶5v5 平衡主动告警（把胜率数据自动判读成告警清单）
 // 数据来源全为既有工具的落盘结果，本工具不重跑批：108 榜读 localStorage（四模式分键），
 //   112 快照读 ming_elite_eval_snaps（取最新一条，须含 主表/单英雄/弱精英 三张表）。
-export const VER = 'tools/826-balance-alert.js V3.8.3';
+export const VER = 'tools/826-balance-alert.js V3.9.0';
+// V3.9.0 | 2026-11-14 「平均存活回合」口径统一改成「存活率%」（avgSurv = d.surv/d.runs 是 0~1 比例）：
+//   精英打法描述、报表行、绝对表表头/单元格/悬浮中位三处全改；顺带补回 81142904 号段重排时丢掉的
+//   <table> 开标签与表头行，并删掉 absTableHtml 循环外那段引用未定义 r 的死代码（一调用就 ReferenceError）。
 // V3.8.3 | 2026-11-08 体检转交：112 快照跨版本混榜显式告警（照 808 V6.9.3 / 812 V3.7.0 口径）。
 //   旧版只用「最新快照距今 14 天」判新旧，但 eliteIssues 是逐表各取「最近一条含该表的快照」，
 //   各表可能来自不同时点/不同版本 → 合并胜率不可直接比较，之前没有任何提示。
@@ -997,9 +1000,9 @@ const PORTRAIT_HINT = {
 function formDesc(r, med) {
     if (r.avgSurv === null) return '';
     const f = v => (v === null || v === undefined) ? '—' : Math.round(v).toString();
-    let s = `｜平均活 ${r.avgSurv.toFixed(1)} 回合、打 ${f(r.avgDmg)} 输出、吃 ${f(r.avgTaken)} 承伤`;
+    let s = `｜存活率 ${Math.round(r.avgSurv * 100)}%、打 ${f(r.avgDmg)} 输出、吃 ${f(r.avgTaken)} 承伤`;
     if (med && med.mSurv !== null) {
-        s += `（同表同僚中位：活 ${med.mSurv.toFixed(1)} / 打 ${f(med.mDmg)} / 吃 ${f(med.mTaken)}）`;
+        s += `（同表同僚中位：存活率 ${Math.round(med.mSurv * 100)}% / 打 ${f(med.mDmg)} / 吃 ${f(med.mTaken)}）`;
     }
     const hint = r.portrait && PORTRAIT_HINT[r.portrait];
     if (hint) s += `｜画像：${r.portrait} → ${hint}`;
@@ -1212,7 +1215,7 @@ function buildReport(d) {
         if (!sec) return;
         L.push('', `— ${label}（理想线 ${pct(sec.target)}）—`);
         sec.rows.forEach(r => L.push(`${r.name}｜${r.n} 场｜${r.p === null ? '—' : pct(r.p)}｜偏离 ${r.diff === null ? '—' : signed(r.diff)}`
-            + (r.avgSurv !== null ? `｜活 ${r.avgSurv.toFixed(1)} 回合 打 ${Math.round(r.avgDmg)} 吃 ${Math.round(r.avgTaken)}` : '')
+            + (r.avgSurv !== null ? `｜存活率 ${Math.round(r.avgSurv * 100)}% 打 ${Math.round(r.avgDmg)} 吃 ${Math.round(r.avgTaken)}` : '')
             + `｜走势 ${r.trend ? r.trend.text + '（' + r.trend.tip + '）' : '—'}`
             + `｜${r.portrait || absVerdict(sec, r)}`));
     };
@@ -1315,10 +1318,13 @@ function absTableHtml(sec, title, colP) {
         ? `<span class="bal-weak" style="font-size:11px;font-weight:normal">&nbsp;⚠️ 覆盖 ${sec.coverage.cells - sec.coverage.emptyCells}/${sec.coverage.cells} 格</span>`
         : '';
     let h = `<div class="bal-sec"><h3 style="color:#4fc3f7">${title}（理想线 ${pct(sec.target)}）${cov}</h3>`
-        + `<table><tr><th>精英</th><th>场次</th><th>${colP}</th><th>偏离</th><th>打法 活/打/吃</th><th>逐关走势</th><th>判读</th></tr>`;
+        + `<table><tr><th>精英</th><th>场次</th><th>${colP}</th><th>偏离</th><th>打法 存活率/打/吃</th><th>逐关走势</th><th>判读</th></tr>`;
     const M = sec.medians || {};
-    const fmtMed = v => (typeof v === 'number') ? (v < 100 ? v.toFixed(1) : Math.round(v)) : '—';
-    const medTip = `同表同僚中位：活 ${fmtMed(M.mSurv)} / 打 ${fmtMed(M.mDmg)} / 吃 ${fmtMed(M.mTaken)}`;
+    // 存活率口径：avgSurv 是 0~1 的存活比例（L434 = d.surv / d.runs），显示要 ×100；
+    //   null 保护不能省——某表整列无数据时 median 返回 null，Math.round(null*100) 会假显示 0%。
+    const fmtPct = v => (typeof v === 'number') ? `${Math.round(v * 100)}%` : '—';
+    const fmtNum = v => (typeof v === 'number') ? Math.round(v).toString() : '—';
+    const medTip = `同表同僚中位：存活率 ${fmtPct(M.mSurv)} / 打 ${fmtNum(M.mDmg)} / 吃 ${fmtNum(M.mTaken)}`;
     for (const r of sec.rows) {
         const ok = !sec.canJudge(r);
         const az = ok ? 0 : Math.abs(r.diff);
@@ -1327,7 +1333,7 @@ function absTableHtml(sec, title, colP) {
                 : az >= TH.BAND ? (r.diff > 0 ? '<span class="bal-weak">过弱</span>' : '<span class="bal-weak">过强</span>')
                     : '<span class="bal-good">正常</span>';
         const form = r.avgSurv === null ? '<span class="bal-dim">—</span>'
-            : `<span title="${medTip}">${r.avgSurv.toFixed(1)} / ${Math.round(r.avgDmg)} / ${Math.round(r.avgTaken)}`
+            : `<span title="${medTip}">${Math.round(r.avgSurv * 100)}% / ${Math.round(r.avgDmg)} / ${Math.round(r.avgTaken)}`
             + (r.portrait ? ` <b class="bal-weak">${r.portrait}</b>` : '') + '</span>';
         const tr = r.trend ? `<span title="${r.trend.tip}">${r.trend.text}</span>` : '<span class="bal-dim">—</span>';
         h += `<tr><td class="l">${r.name}</td><td>${r.n}</td><td>${r.p === null ? '—' : pct(r.p)}</td>`

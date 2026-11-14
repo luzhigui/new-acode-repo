@@ -6,7 +6,7 @@
 //   判断依据：它被 render/403（格子图标）、render/406（文本归一）、ui/703（技能栏）、ui/706（日志标签）、
 //   fx/616 五处依赖，且历史改动 **39 笔仍在动**；历次「新增精英」都把它列为必改的 7 处之一。
 //   文件名 role-cards 保留不改（英文语义即「角色信息卡」，改动会牵动 6 处 import + manifest + 打包清单，收益不抵风险）。
-import { getSkillDesc, getGameData } from '../core/201-config-5v5-test.js';
+import { getSkillDesc, getGameData, isNamedCharacter, hasSkills } from '../core/201-config-5v5-test.js';
 import { baseHeroName } from '../core/202-unit.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
@@ -143,6 +143,26 @@ const SKILL_EXTRA = {
 
 // 不想在名片里显示的技能（比如气运被动、隐藏机制）
 const SKILL_HIDDEN = new Set(['holyTokenLuck']);
+
+// ── 名字色档唯一判据 ─────────────────────────────────────
+// 格子（render/403）与冲刺克隆体（fx/616）都必须用本函数取色档。
+//   以前两处各自内联一份逐字相同的判据，注释都写“同一套”，靠人手同步——
+//   加新档位（如 m≥120 橙金）时改一处漏一处，格子和克隆体就会不同色。
+// 色档规则（老板拍板 黑蓝紫金）：
+//   绿 = M100 带技能的普通兵（说不得/周颠/武当莲舟/峨眉素问等）
+//   金 = m≥112（boss 档）· 紫 = m≥107（精英档）· 蓝 = m≥104 且具名（弱精英档）· 其余黑（不返回 class）
+// 参数说明：name 传「展示名」（成昆幻影要传被模仿者的名字，让克隆体和格子都跟随模仿者档位）；
+//          m 传「判断档位的 m 值」（同样跟随成昆幻影而被覆盖的场景）。
+export function getNameColorTier(name, m) {
+    const raw = (typeof name === 'string') ? name : '';
+    const base = baseHeroName(raw);
+    const mm = (typeof m === 'number') ? m : 0;
+    if (mm === 100 && hasSkills(base)) return 'name-green';
+    if (mm >= 112) return 'gold';
+    if (mm >= 107) return 'name-purple';
+    if (mm >= 104 && isNamedCharacter(base)) return 'name-blue';
+    return '';
+}
 
 // 弹窗技能说明：直接读 content 数据统一生成，杜绝手动维护漏配
 export function getRoleSkills(u) {

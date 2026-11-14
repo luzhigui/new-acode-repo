@@ -16,7 +16,7 @@ import { getStat } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { clock } from '../infra/103-clock.js';
 import { getView, setView } from '../infra/110-view-sheet.js';
-import { getRoleIcon, displayNameOf } from './414-role-cards.js';
+import { getRoleIcon, displayNameOf, getNameColorTier } from './414-role-cards.js';
 
 import {
     ensureGridCells, resetCell, getSlotUnits, updateHpDisplay, getShakeRemain,
@@ -408,18 +408,8 @@ export function renderGrid(id, camp) {
         //   绿档 = 带有技能的 M100 角色（说不得、周颠、武当莲舟、峨眉素问等）
         //   金/紫/蓝 = 对应的精英/弱精英档位
         //   黑 = 无技能普通杂兵
-        let nameTier = '';
-        // 查表一律退回主名：小昭运行时叫「小昭·姊/妹」，不退回会判成「无技能杂兵」
-        const baseName = baseHeroName(displayName);
-        if (unit.m === 100 && hasSkills(baseName)) {
-            nameTier = 'name-green';
-        } else if (displayTierM >= 112) {
-            nameTier = 'gold';
-        } else if (displayTierM >= 107) {
-            nameTier = 'name-purple';
-        } else if (displayTierM >= 104 && isNamedCharacter(baseName)) {
-            nameTier = 'name-blue';
-        }
+        // 名字色档：唯一判据在 render/414 的 getNameColorTier（格子与冲刺克隆体共用同一套）
+        const nameTier = getNameColorTier(displayName, displayTierM);
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) compressName = true;

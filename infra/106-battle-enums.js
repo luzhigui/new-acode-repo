@@ -142,6 +142,29 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     SKILL_CUE: 'skillCue'
 });
 
+/**
+ * 日志条目类型白名单：哪些「渲染后 entry.type」会上屏。
+ *   唯一真源。player/504 的 switch 与 ui/727 的回看白名单都必须与本表同口径——
+ *   以前两处各自手抄一份，改一处漏一处就漂移（真播有、回看没有，或反之）。
+ *   加一种新的上屏类型：这里加一行；504 补一个 case（漏了跑局时由 default 分支报错）。
+ *   不在此表的类型（如顶层 detail：攻盾/远程熟练）真播本就不上屏，回看也必须一致。
+ */
+export const LOG_ENTRY_TYPES = Object.freeze({
+    INFO: 'info',
+    BUFF_SUMMON: 'buff-summon',
+    BUFF_DESTROY: 'buff-destroy',
+    BUFF_LEECH: 'buff-leech',
+    BUFF_SPLASH: 'buff-splash',
+    BUFF_BONUS: 'buff-bonus',
+    BUFF_SWAP: 'buff-swap',
+    BUFF_PUSH: 'buff-push',
+    BUFF_SUMMARY: 'buff-summary',
+    BUFF_REBOUND_FORTIFY: 'buff-rebound-fortify',
+    ROUND_START: 'round-start',
+    ATTACK_GROUP: 'attack-group',
+    ROUND_END: 'round-end'
+});
+
 /** 轻量技能演出 cue 子类型：SKILL_CUE 载荷 kind 的唯一来源（fx/619 按此分派；不许裸字符串） */
 export const SKILL_CUE_KINDS = Object.freeze({
     ABSORB: 'absorb',           // 俞莲舟·吸星大法：细线收向他 + 被吸数值飘字 + 自身加深

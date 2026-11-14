@@ -37,8 +37,41 @@ const C = CONFIG;
 //   reason 进 LINK_REASONS 的（反击/随动/联动类）：执行期间自动置 _isLinkAttack——不吃行动权 + 不触发同类（防乒乓）；
 //     想让额外出手也不占本回合行动权，配 actedMode:'restore' + actedSnapshot: unit.state._acted。
 //   跨阵营反击自动按出手者阵营换边选目标；一次性不可闪避带 ignoreDodge: true（本次出手内生效，结束即清）。
-// brotherLastStrike=妹背水连击（modules/324）：互斥掷骰 50% 连击刀，_isLinkAttack 守卫保证不连锁
-const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack', 'brotherLastStrike']);
+// 被动出手「防连锁意图表」：每一种由机制触发出来的出手，都必须在这里登记一行，写明要不要防无限循环。
+//   引擎防   = 引擎自动打「我是被动」标记，这一手不会再触发同类（防 A 反 B、B 反 A 死循环）
+//   允许链式 = 不打标记，靠概率自己收敛（如灭绝追击：10% 概率，连出多次概率极低）
+//   自己防   = 不打标记，但机制自带「本回合已触发」标记，一回合最多一次
+// 加新的被动出手机制必须在这里加一行，否则运行期第一次遇到时会在控制台报错——不许悄悄漏过。
+const PASSIVE_ATTACK_POLICY = {
+    // ── 引擎防：被打/队友出手后触发，必须防双方互反、循环触发 ──
+    counterAttack:      { label: '反击',         policy: '引擎防' },   // 殷天正鹰爪、灭绝反击、韦一笑青翼追魂
+    followAttack:       { label: '跟随',         policy: '引擎防' },   // 灭绝跟随
+    lionFollow:         { label: '母狮随动',     policy: '引擎防' },   // 谢逊母狮
+    xuanmingLink:       { label: '玄冥联动',     policy: '引擎防' },   // 鹿杖客↔鹤笔翁
+    brotherLastStrike:  { label: '妹背水连击',   policy: '引擎防' },   // 小昭·妹背水掷骰连击刀
+
+    // ── 允许链式：概率触发，靠概率收敛，设计上允许自己触发自己 ──
+    chaseAttack:        { label: '灭绝追击',     policy: '允许链式' }, // 10% 概率，链式概率指数衰减
+    dashStrike:         { label: '唐文亮反手一拳', policy: '允许链式' }, // 满 7 触发一次，机制本身不会再自我触发
+
+    // ── 自己防：机制自带回合标记，一回合最多一次 ──
+    doubleStrike:       { label: '概率连击',     policy: '自己防' },   // 靠 _doubleStriked
+    xingFenRetry:       { label: '性奋重试',     policy: '自己防' },   // 靠 _xingFenActive 消费
+    xiaoZhaoDoubleMiss: { label: '妹双击补刀',   policy: '自己防' },   // 靠 _xiaoZhaoDoubleStriked
+    hanlisaDouble:      { label: '寒离飒低血双拳', policy: '自己防' }  // 靠 _hlsDoubleFired
+};
+
+// 需要引擎打「被动出手」标记的那一批（= 上面 policy 为「引擎防」的）：
+//   执行期被打上 _isLinkAttack 后，这一手不会再触发同类，也不吃行动权。
+// 内容与原 LINK_REASONS 完全一致，行为零变化。
+const ENGINE_GUARD_REASONS = new Set(
+    Object.entries(PASSIVE_ATTACK_POLICY)
+        .filter(([, v]) => v.policy === '引擎防')
+        .map(([k]) => k)
+);
+
+// 未登记告警去重：同一个 reason 只报一次，不刷屏。
+const _warnedUnknownReasons = new Set();
 
 // —— 静默回血补账（体检 230 转交）——
 // 机制直接 applyStatChange/refreshMaxHp 抬血时，只发 _events(HP_CHANGE)、不落任何日志行：
@@ -157,7 +190,21 @@ function runExtraAttackRequests(requests, opts) {
         executedUids.add(req.unit.uid);
         if (forceUnact) req.unit.state._acted = false;
         if (req.actedMode === 'allow') req.unit.state._acted = false;
-        const isLinkReq = LINK_REASONS.has(req.reason);
+        // A2 护栏：被动出手意图查表。
+        //   登记过的按登记执行（引擎防 → 打标记；允许链式/自己防 → 不打标记）；
+        //   没登记的新机制，第一次出现就报错，提示去 PASSIVE_ATTACK_POLICY 补一行——
+        //   否则无法判断它会不会「反击触发反击」无限循环。
+        const policyEntry = PASSIVE_ATTACK_POLICY[req.reason];
+        if (!policyEntry && req.reason && !_warnedUnknownReasons.has(req.reason)) {
+            _warnedUnknownReasons.add(req.reason);
+            console.error(
+                `[core/209] 被动出手没登记意图：'${req.reason}'。` +
+                `这是「被打 / 队友出手后触发打一下」这类被动出手。` +
+                `请到 core/209 的 PASSIVE_ATTACK_POLICY 里加一行，写明它是「引擎防 / 允许链式 / 自己防」——` +
+                `不写明的话，无法判断它会不会「反击触发反击」无限循环。`
+            );
+        }
+        const isLinkReq = ENGINE_GUARD_REASONS.has(req.reason);
         if (isLinkReq) req.unit.state._isLinkAttack = true;
         // 被动出手原因透传（纯展示用，不参与引擎判定）：反击/跟随/随动/联动/追击等
         //   reason 记进 _linkReason，core/12 快照进 attack fact → render/34 战报行内徽章 + render/39 出手帧头顶飘字

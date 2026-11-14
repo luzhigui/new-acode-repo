@@ -24,7 +24,8 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     }
     let horsePos = available[0];
     let horse = new Unit('拒马', C.HORSE_M, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
-    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION, log);
+    // 不传 log：小昭不在时底层推的“未生效”诊断不该刷进玩家战报
+    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
     // 拒马血量系数分档：按 50% 血量占位取档，唯一来源 02unit.getHpDmgRatio（原先此处硬编码 0.06）
     horse.state._hpDmgRatio = getHpDmgRatio(0.5);
@@ -90,8 +91,8 @@ export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
 // 拒马-销毁：回合结束概率消散拒马
 export function destroyHorse(allyTeam, log) {
     // 姊强化·巨马阵 noDestroy：整局不消散。
-    //   log 传进 query 供诊断：拿不到强化时由 modules/302 推一条 fact 说明是哪一关断的。
-    const horseEnh = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION, log);
+    // 不传 log：同上，诊断信息不该出现在玩家战报里
+    const horseEnh = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     if (horseEnh && horseEnh.noDestroy) return;
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;

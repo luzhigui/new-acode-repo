@@ -23,6 +23,9 @@ import { showSwordRain } from './620-sword-rain.js';
 import { updateHanLiSaChargeFx } from './612-hanlisa-charge.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { isFxSkipped as inFastForward } from '../infra/111-fx-gate.js';
+// 重置对象池：ui/715 发 RESET_FX_POOLS 信号，本文件订阅后调这两个函数。
+//   以前 ui/715 直接 import 这两个函数——ui 层引 fx 层功能函数，反向依赖。
+import { resetDanmakuPool, resetFloatTables } from './601-fx-common-5v5-test.js';
 
 // 快进判断归位于表现层：统一走 infra/62 的 isFxSkipped（顶部以同名别名 inFastForward 引入，
 //   本文件十几处 inFastForward() 调用点零改动）
@@ -109,3 +112,11 @@ eventBus.on(FX_SIGNALS.SKILL_CUE, P, (d) => {
 //   2026-10-29 改为发信号。这里不做快进拦截——扇形是常驻指示物（蓄力期间要一直显示），
 //   与一次性演出不同，快进时也应保持可见。
 eventBus.on(FX_SIGNALS.GRID_RENDERED, P, (d) => { updateHanLiSaChargeFx(d.units); });
+
+// 重置对象池（ui/715 跨局/跨战斗重置时发）：
+//   弹幕对象池与飘字三张表按 uid 记账，跨局必须清——不能只删 DOM，池内仍持引用会让后续弹幕全部失效。
+//   以前 ui/715 直接 import 清理函数；改成信号后，ui 只依赖 infra，fx/601 的清理函数只在本文件被调。
+eventBus.on(FX_SIGNALS.RESET_FX_POOLS, P, () => {
+    resetDanmakuPool();
+    resetFloatTables();
+});
