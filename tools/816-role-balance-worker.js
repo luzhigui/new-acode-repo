@@ -780,7 +780,7 @@ function buildFromTemplate(specs, camp, rng) {
 
 function runTemplateABJob(job) {
     const { aUnits, bUnits, cand, runs, startIndex = 0 } = job;
-    let wins = 0;
+    let wins = 0, draws = 0;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
         const seed = 3000001 + (startIndex + i) * 7919;
@@ -804,9 +804,10 @@ function runTemplateABJob(job) {
             hexPicker: (ab, al, r) => pickHexBuff(ab, al, r, false, enemy),
             enemyHexPicker: (ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)
         });
-        if ((res.winner || '平局') === '明教') wins++;
+        const w = res.winner || '平局';
+        if (w === '明教') wins++; else if (w === '平局') draws++;
     }
-    return { wins, runs };
+    return { wins, runs, draws };
 }
 
 function runRandomJob(size, baseSeed, startIndex, runs, hexEnabled = false, enemyHex = false) {

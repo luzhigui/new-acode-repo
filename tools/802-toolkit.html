@@ -250,6 +250,7 @@
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
         <button class="tab-btn" data-tab="tab-weak-elite">🐦 弱精英评测</button>
         <button class="tab-btn" data-tab="tab-template-power">⚔ 模板战力</button>
+        <button class="tab-btn" data-tab="tab-cup-rank">🏆 交叉积分赛</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
@@ -498,6 +499,19 @@
 
     <!-- 2026-11-11 弱精英评测从「⚔️ 精英战力评测」页签拆出，独立成页签（算法/排版 1:1 照抄，实现在 846-weak-elite-eval.js）
          2026-11-11 V1.1.0：名单改为 M104/M100/M97 全档位具名单位（运行时从 game.characters 收集），跑批改 816 kind:'unitAB'（同种子直接 A/B） -->
+    <div class="tab-content" id="tab-cup-rank">
+        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
+            交叉积分赛：明教每个被测单位 × 六大派每个被测单位两两对战（各配本方均衡骨架、同职业替换），每场胜 3 分 / 平 1 分 / 负 0 分，按总积分出两个阵营的排名。双海克斯。
+        </p>
+        <div class="fc-config" style="margin-bottom:10px;">
+            <label>每组场次</label><input id="cupRuns" type="number" value="100" min="5" max="500">
+            <button id="cupStartBtn">▶ 开赛</button>
+            <button id="cupCopyBtn" style="background:#4caf50;color:#fff;">复制排名</button>
+        </div>
+        <div id="cupProgress" class="status-text"></div>
+        <div id="cupResult"></div>
+    </div>
+
     <div class="tab-content" id="tab-template-power">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             模板战力：A 池 = 靶子阵容（弱/中/强，明教与六大派各一套），B 池 = 被测骨架。被测单位替换 B 队同职业位，逐套打 A，统计被测方胜率。双海克斯、双方各自独立随机。
@@ -703,6 +717,7 @@
     <script type="module" src="./812-elite-eval.js"></script>
     <script type="module" src="./846-weak-elite-eval.js"></script>
     <script type="module" src="./848-template-power-panel.js"></script>
+    <script type="module" src="./849-cup-rank-panel.js"></script>
     <script type="module" src="./813-stats-check.js"></script>
     <script type="module" src="./814-baseline-compare.js"></script>
     <script type="module" src="./815-lineup-search.js"></script>
