@@ -3,7 +3,11 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.10.0';
+export const VER = 'tools/812-elite-eval.js V3.11.0';
+// V3.11.0 | 2026-11-14 修「开始评测/强精英点了没反应、刷新也没用、必须清空历史」：
+//   顶层 autoRestoreLatest / refreshSnapSelect 未做异常保护，坏快照一抛错就打断模块执行，
+//   后续监听（第 232 行起）全部没挂上；「🗑 清空历史」注册在前所以还能用，清完才恢复。
+//   现改为两步都 try/catch + snapLabel 对缺 stages / 空 part 做护栏。
 // V3.10.0 | 2026-11-12 打开页面自动显示上次结果：载入逻辑抽成 applySnap()，页面初始化时直接渲染
 //   最近一条可渲染快照（不必手动选历史、不必重跑）；顺带把下拉选中项同步到该条。
 // V3.9.0 | 2026-11-11 弱精英评测拆到 tools/846-weak-elite-eval.js 独立页签（802「🐦 弱精英评测」）：
@@ -128,7 +132,7 @@ const writeSnaps = arr => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(
 //   只把版本号拼在一起（vers.join(' / ')）读者看不出问题，必须显式告警。
 function snapVerMixed(s) {
     // V3.9.0：只比本工具可渲染的四种表——旧快照里的 parts.weak 属于 846 的口径，不计入混榜判断
-    const kinds = Object.keys(s.parts).filter(k => TABLE_LABEL[k]);
+    const kinds = Object.keys(s.parts).filter(k => TABLE_LABEL[k] && s.parts[k]);
     const vers = [...new Set(kinds.map(k => s.parts[k].ver).filter(Boolean))];
     return vers.length > 1 || (vers.length > 0 && vers.length < kinds.length);
 }
@@ -136,12 +140,16 @@ function snapVerMixed(s) {
 function snapLabel(s) {
     const d = new Date(s.ts), p2 = n => String(n).padStart(2, '0');
     const fmt = t => { const x = new Date(t); return `${p2(x.getMonth() + 1)}-${p2(x.getDate())} ${p2(x.getHours())}:${p2(x.getMinutes())}`; };
-    const kinds = Object.keys(s.parts);
-    const stages = s.parts[kinds[0]].stages.join(',');
+    // V3.11.0 护栏：坏快照（缺 stages / 空 part）不能让标签函数抛错——它在模块顶层被调用，
+    //   一抛就打断后续监听注册，表现为「按钮点了没反应、刷新也没用、清空历史才好」。
+    const parts = s.parts || {};
+    const kinds = Object.keys(parts);
+    const first = kinds.map(k => parts[k]).find(p => p && Array.isArray(p.stages));
+    const stages = first ? first.stages.join(',') : '?';
     // V3.5.0：表级批次元数据（旧快照没有 → 显示未记录，不拿快照 ts 冒充）
-    const times = [...new Set(kinds.map(k => s.parts[k].ts).filter(v => v != null))].sort((a, b) => a - b);
-    const seeds = [...new Set(kinds.map(k => s.parts[k].seed).filter(v => v != null))];
-    const vers = [...new Set(kinds.map(k => s.parts[k].ver).filter(Boolean))];
+    const times = [...new Set(kinds.map(k => parts[k] && parts[k].ts).filter(v => v != null))].sort((a, b) => a - b);
+    const seeds = [...new Set(kinds.map(k => parts[k] && parts[k].seed).filter(v => v != null))];
+    const vers = [...new Set(kinds.map(k => parts[k] && parts[k].ver).filter(Boolean))];
     let meta = times.length === 0 ? '｜时间/seed 未记录'
         : (times.length > 1 ? `｜⚠️多批次 ${fmt(times[0])} ~ ${fmt(times[times.length - 1])}` : `｜${fmt(times[0])}`);
     if (seeds.length) meta += `｜seed ${seeds.join('/')}`;
@@ -218,14 +226,28 @@ snapDropBtn.addEventListener('click', () => {
     snapStatusEl.textContent = '🗑 历史已清空';
 });
 
-refreshSnapSelect();
+// V3.11.0：模块顶层的「历史下拉 + 自动恢复」全部关进 try/catch。这两步在监听注册之前执行，
+//   历史里只要有一条坏快照（缺 stages / 空 part / 旧格式）就会抛错打断整个模块：
+//   → 「▶ 开始评测」「⚔ 强精英」监听根本没挂上（点了没反应，刷新读到同一条坏快照还是没反应），
+//   → 而「🗑 清空历史」注册在前仍然可用，所以表现为「必须清空历史才能点」。
+//   与内存大小无关；内存占大只是让坏快照更容易产生。
+try {
+    refreshSnapSelect();
+} catch (e) {
+    console.error('[elite-eval] 历史下拉渲染失败（已跳过，不影响跑批）:', e);
+}
 
 // 打开页面自动恢复：默认把最近一条「本工具能渲染」的快照摆出来，不用手动选历史、不用重跑
 (function autoRestoreLatest() {
-    const snaps = readSnaps().filter(s => s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k]));
-    if (!snaps.length) return;
-    const newest = snaps.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
-    if (applySnap(newest, true)) snapSelect.value = newest.id;
+    try {
+        const snaps = readSnaps().filter(s => s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k]));
+        if (!snaps.length) return;
+        const newest = snaps.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+        if (applySnap(newest, true)) snapSelect.value = newest.id;
+    } catch (e) {
+        console.error('[elite-eval] 自动载入上次结果失败（已跳过，按钮照常可用）:', e);
+        snapStatusEl.textContent = `⚠️ 上次结果载入失败，已跳过（可点「🗑 清空历史」重来）：${(e && e.message) || e}`;
+    }
 })();
 
 
