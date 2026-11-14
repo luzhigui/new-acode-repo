@@ -1,3 +1,6 @@
+// V6.0.73 | 2026-11-14 补登 850 关卡精英评分页签与 847~849 三件（模板名单 + 两个页签前端），
+//           以及 check-manifest --strict 报出的 ui/723、ui/724 两个主代码文件。
+//           漏登后果：包内页签 404 / fetch 模板名单失败 / AI 读到 0 字符。
 // V6.0.72 | 2026-11-12 合流 D13 二轮：补登 317/318 规则与 3 个定向用例
 // V6.0.71 | 2026-11-12 合流补登 4 条运行时规则（295/296/315/316），打包清单漏登 4→0。
 // V6.0.70 | 2026-11-12 合流 D12/D13：补登定向用例与扫描器
@@ -15,7 +18,7 @@
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.72';
+export const VER = 'tools/806-ai-pack-config.js V6.0.73';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -425,6 +428,14 @@ export const ALL_PROJECT_FILES = [
     '../tools/836-voice-commentary.js', '../tools/837-voice-panel.js',
     // 2026-11-11 弱精英评测从 812 拆出，独立成 802「🐦 弱精英评测」页签（838 弱精英机制贡献单页已下线删除）
     '../tools/846-weak-elite-eval.js',
+    // 2026-11-14 补登记 847~850：模板战力 / 交叉积分赛 / 关卡精英评分的 802 页签前端，
+    //   以及 848/849 运行时 fetch 的模板名单 847-templates.json。
+    //   漏登 = 包内这几个页签 404 或模板名单读取失败（847-template-power.mjs 是本机 node CLI，
+    //   与 828/829/830 同类，按本表定案不随包，故不登记）。
+    '../tools/847-templates.json',
+    '../tools/848-template-power-panel.js',
+    '../tools/849-cup-rank-panel.js',
+    '../tools/850-stage-elite-panel.js',
     // 2026-11-10 补登记 831：消融实验室单页（802 备用工具卡片「🧪 消融实验室」直接打开，跑批走 816 V1.22.0
     //   kind:'ablation'，开关 globalThis.MING_ABLATION）。与 833/834/835/838 同类的**页面件**，
     //   属「网页端阅读需要」——漏登则包内工具箱点开这张卡 404。（对照：828/829/830 是本机 node 脚本，
@@ -453,6 +464,8 @@ export const ALL_PROJECT_FILES = [
     //   漏登 = AI 复制包里这些文件「读取失败(0 字符)」；今后引擎目录新增文件必须同步登记，
     //   verify:tools 已切严格模式，没登记会直接报红。
     '../ui/726-rewind-panel.js', '../ui/727-rewind-core.js',
+    // 2026-11-14 补登记：check-manifest --strict 报出的两个 UI 新文件（海克斯生效态 / 张无忌目标选择器）
+    '../ui/723-hex-active.js', '../ui/724-zhang-target-picker.js',
     '../modules/336-elite-sixsects-yuanzhen.js', '../modules/337-elite-mingjiao-zhuangzheng.js',
     '../modules/338-elite-mingjiao-pengyingyu.js', '../modules/339-elite-mingjiao-zhangzhong.js',
     '../fx/618-fx-timeline.js', '../fx/619-skill-cues.js', '../fx/620-sword-rain.js',
