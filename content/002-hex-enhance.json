@@ -19,7 +19,7 @@
     "holyFire": { "reviveCount": 2, "firstReviveRatio": 0.7, "secondReviveRatio": 0.4 },
     "doubleStrike": { "chance": 1.0 },
     "lastStand": { "hpThreshold": 0.5, "leechRatio": 0.20 },
-    "unity": { "recruitM": 50, "recruitTarget": 5, "extraDuration": 1 }
+    "unity": { "recruitM": 20, "recruitTarget": 5, "extraDuration": 1 }
   },
 
   "brother": {
