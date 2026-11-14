@@ -278,6 +278,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiN:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 减半演出提示（modules/337 IMMUNE 顺位修正）：断锤触发瞬间的 SKILL_CUE 结构体（{kind,unit,amount}），
+    //   写入后由 AFTER_ATTACK_IMMUNE 分支读走并置 null；若反击分支被重入锁/死亡拦下，残留值随下次触发
+    //   覆盖，不跨局遗留——漏登记会在 clone 时被守卫当场抛错（2026-11-15 线上实锤，老板贴单）。
+    _duanChuiHalveCue:       { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 上限锁（庄铮·断锤三式）：有值时 getStat('maxHp') 直接返回该绝对值，无视一切词条增删。
     //   不能用差值 add 词条模拟——差值按「锁定时实时值」算，会把当时生效的 ttl:'round' 词条
     //   （carry 的 +maxHp 等）算进去；回合末清临时词条后 base+差值变负数、被 refreshMaxHp 夹到 1。
