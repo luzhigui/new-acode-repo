@@ -125,11 +125,13 @@ function getNextAvailableUnit(team) {
     return team.filter(c => c.alive && !c.state._acted).sort((a, b) => a.pos - b.pos)[0] || null;
 }
 
-function swapUnitPositions(unitA, unitB, log) {
+function swapUnitPositions(unitA, unitB, log, opts = {}) {
     if (!unitA || !unitB) return false;
-    // 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝
+    // 控制位移免疫（寒离飒·开局常驻）：惑心换位等一切换位对免疫者不生效——只掉血不动窝。
+    //   例外（2026-11-15 老板拍板）：友方拉（何太冲两仪互换，同侧换位）放行——免疫挡的是
+    //   敌方冲刺拉到位移，自家队友的拉走不在其列。opts.friendlyPull=true 时不吃免疫。
     // 返回布尔：原静默 return 让调用方在换位失败时照发"换位成功"战报（体检 114 家族案）。
-    if (isCCImmune(unitA) || isCCImmune(unitB)) return false;
+    if (!opts.friendlyPull && (isCCImmune(unitA) || isCCImmune(unitB))) return false;
     const posA = unitA.pos;
     const posB = unitB.pos;
     unitA.pos = posB;

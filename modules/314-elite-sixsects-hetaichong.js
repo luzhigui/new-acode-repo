@@ -151,7 +151,8 @@ export function createHeTaichongComponent() {
                     partner.state._redBloodUsed = true;
                     // 位置互换可能被免疫挡下（同侧出现免疫者时）：职业照换，位置失败要明说，
                     //   且不发 swap 载荷——否则 render/38 会演一次假换位动画（体检 114 家族案第 4 口）
-                    const posSwapped = swapUnitPositions(subject, partner, outLog);
+                    // 两仪互换=同侧友方拉（2026-11-15 老板拍板）：庄铮/寒离飒级免疫者仍可被拉走换位
+                    const posSwapped = swapUnitPositions(subject, partner, outLog, { friendlyPull: true });
                     switchRole(subject, hisRole, `两仪互换·${hisRole}`, outLog);
                     switchRole(partner, myRole, `两仪互换·${myRole}`, outLog);
 

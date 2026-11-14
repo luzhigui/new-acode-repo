@@ -238,7 +238,9 @@ export function createXiaoZhaoSisterComponent() {
                 if (p !== startPos) order.push(p);
             }
             let host = null;
-            for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
+            // 宿主门槛（2026-11-15 老板拍板）：M<25 的不考虑——众志招募兵（m15/20）这类不配当宿主，
+            //   姐姐只附身正牌队员；附近全是低 M 时走「蝶变无宿主」既有分支
+            for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid && (a.m || 0) >= 25); if (u) { host = u; break; } }
             if (!host) {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主', false);
                 log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name, sisterUid: sister.uid } });
