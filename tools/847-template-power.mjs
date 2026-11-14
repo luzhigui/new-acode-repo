@@ -60,13 +60,18 @@ function makeUnit(spec, camp, rng) {
 // B 骨架 + 被测单位替换：同职业 → 同排 → 末位
 function buildB(tpl, candSpec, rng) {
     const units = tpl.units.map(s => ({ ...s }));
-    const cand = { name: candSpec.name, role: candSpec.role, pos: null };
-    let idx = units.findIndex(u => u.role === candSpec.role);
-    if (idx < 0) idx = units.findIndex(u => isFront(u.role) === isFront(candSpec.role));
-    if (idx < 0) idx = units.length - 1;
-    cand.pos = units[idx].pos;
-    units[idx] = cand;
-    return { units: units.map(s => makeUnit(s, CAMP_TYPES.ALLY, rng)), slot: units[idx].pos, replacedRole: tpl.units[idx].role };
+    let slot = null, replacedRole = null;
+    if (candSpec) {
+        const cand = { name: candSpec.name, role: candSpec.role, pos: null };
+        let idx = units.findIndex(u => u.role === candSpec.role);
+        if (idx < 0) idx = units.findIndex(u => isFront(u.role) === isFront(candSpec.role));
+        if (idx < 0) idx = units.length - 1;
+        cand.pos = units[idx].pos;
+        replacedRole = units[idx].role;
+        units[idx] = cand;
+        slot = cand.pos;
+    }
+    return { units: units.map(s => makeUnit(s, CAMP_TYPES.ALLY, rng)), slot, replacedRole };
 }
 
 function buildA(tpl, rng) {
@@ -114,9 +119,33 @@ function candSpec(c) {
 const aPool = TPL.a.slice(0, MAX_A);
 const bPool = TPL.b.slice(0, MAX_B);
 const rows = [];
+const baseline = [];
 const t0 = Date.now();
 let done = 0;
 const totalPlanned = rawCands.length * bPool.length * 3 * RUNS;
+
+// ===== 基线：不替换任何单位，纯 B 骨架打 A（判断靶子档位是否还有区分度）=====
+for (const b of bPool) {
+    for (const a of aPool.filter(x => x.camp !== b.camp)) {
+        let wins = 0;
+        for (let i = 0; i < RUNS; i++) {
+            const seed = 2000003 + i * 7919 + a.id.length * 131 + b.id.length * 17;
+            const rng = new SeededRNG(seed);
+            const bb = buildB(b, null, rng);
+            const aa = buildA(a, rng);
+            const { allyPicker, enemyPicker } = makeHexPickers();
+            aa.__enemy = aa;
+            const res = runBattle({
+                ally: bb.units, enemy: aa, seed,
+                hexPicker: allyPicker,
+                enemyHexPicker: enemyPicker,
+                maxRounds: CONFIG.MAX_ROUND
+            });
+            if (res && res.winner === '明教') wins++;
+        }
+        baseline.push({ bCamp: b.camp, bId: b.id, aId: a.id, pct: wins / RUNS * 100 });
+    }
+}
 
 for (const raw of rawCands) {
     const cs = candSpec(raw);
@@ -165,15 +194,41 @@ for (const raw of rawCands) {
     console.log(`\n${candName}（${myCamp}/${role}） 平均 ${(sumW / sumR * 100).toFixed(1)}%  ${cells.join('  ')}`);
 }
 
-console.log('\n\n===== 汇总（按平均胜率降序） =====');
-rows.sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
-const aIds = [...new Set(rows.flatMap(r => Object.keys(r.byA)))];
-const head = ['单位', '阵营', '职业', ...aIds, '平均'];
-const table = [head, ...rows.map(r => [r.name, r.camp, r.role,
-    ...aIds.map(k => r.byA[k] ? (r.byA[k].wins / r.byA[k].runs * 100).toFixed(0) + '%' : '-'), r.avg + '%'])];
-const widths = head.map((_, i) => Math.max(...table.map(row => String(row[i]).length)));
-for (const row of table) console.log(row.map((c, i) => String(c).padEnd(widths[i])).join('  '));
+console.log('\n\n===== 基线（纯骨架不替换，靶子档位参考）=====');
+for (const camp of [...new Set(baseline.map(x => x.bCamp))]) {
+    console.log(`\n[${camp} 骨架]`);
+    const ids = [...new Set(baseline.filter(x => x.bCamp === camp).map(x => x.aId))];
+    console.log('  骨架     ' + ids.map(i => i.padEnd(7)).join(' '));
+    for (const bId of [...new Set(baseline.filter(x => x.bCamp === camp).map(x => x.bId))]) {
+        const cells = ids.map(i => {
+            const r = baseline.find(x => x.bId === bId && x.aId === i);
+            return (r ? r.pct.toFixed(0) + '%' : '-').padEnd(7);
+        });
+        console.log('  ' + bId.padEnd(9) + cells.join(' '));
+    }
+}
 
+function printGroup(title, list) {
+    if (!list.length) return;
+    list.sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
+    console.log(`\n===== ${title} =====`);
+    const ids = [...new Set(list.flatMap(r => Object.keys(r.byA)))];
+    const head = ['单位', '职业', ...ids, '平均'];
+    const table = [head, ...list.map(r => [r.name, r.role,
+        ...ids.map(k => r.byA[k] ? (r.byA[k].wins / r.byA[k].runs * 100).toFixed(0) + '%' : '-'),
+        r.avg + '%'])];
+    const widths = head.map((_, i) => Math.max(...table.map(row => String(row[i]).length)));
+    for (const row of table) console.log(row.map((c, i) => String(c).padEnd(widths[i])).join('  '));
+}
+
+printGroup('明教单位（打六大派靶）', rows.filter(r => r.camp === '明教'));
+printGroup('六大派单位（打明教靶）', rows.filter(r => r.camp === '六大派'));
+
+const allRows = rows.slice().sort((a, b) => a.camp.localeCompare(b.camp, 'zh') || parseFloat(b.avg) - parseFloat(a.avg));
+const aIds = [...new Set(allRows.flatMap(r => Object.keys(r.byA)))];
+const head = ['阵营', '单位', '职业', ...aIds, '平均'];
+const table = [head, ...allRows.map(r => [r.camp, r.name, r.role,
+    ...aIds.map(k => r.byA[k] ? (r.byA[k].wins / r.byA[k].runs * 100).toFixed(0) + '%' : '-'), r.avg + '%'])];
 const outPath = argv.out ? String(argv.out) : path.join(process.env.TEMP || '.', `847-power-${Date.now()}.csv`);
 fs.writeFileSync(outPath, '\uFEFF' + table.map(r => r.map(c => `"${c}"`).join(',')).join('\n'), 'utf8');
 console.log('\nCSV: ' + outPath);
