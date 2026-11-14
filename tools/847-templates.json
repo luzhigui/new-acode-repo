@@ -112,12 +112,12 @@
     { "name": "寒离飒" },
     { "name": "金毛狮王谢逊", "role": "远程" },
     { "name": "韦一笑", "role": "战士" },
-    { "name": "素问", "role": "远程", "kind": "support", "pos": 9 },
+    { "name": "素问", "role": "远程", "kind": "support" },
     { "name": "少林圆真", "role": "远程" },
     { "name": "何太冲" },
     { "name": "唐文亮" },
     { "name": "灭绝师太" },
     { "name": "成昆" },
-    { "name": "张三丰", "kind": "support", "pos": 9 }
+    { "name": "张三丰", "kind": "support" }
   ]
 }
