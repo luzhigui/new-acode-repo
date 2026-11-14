@@ -6,6 +6,7 @@ import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './203-battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, installBuffMechanics, onUnitDeathFlyerRegen, isTeamHexExcluded } from './204-buff-system.js';
+import { applyMindControl_Normal, applyMindControl_Sister } from './215-buff-effects.js';
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
 import { Unit } from './202-unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './221-registry-dodge.js';
@@ -576,6 +577,22 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             log.push({ factType: FACT_TYPES.PASS, data: passFact });
             // 行动完成广播（休息/遮挡/生生不息都算一次行动）
             eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide: currentTeam, enemySide: unit.camp === CAMP_TYPES.ALLY ? B : A, log });
+
+            // 张三丰（endlessBreath 单位）行动后触发惑人心智（2026-11-14 老板拍板）：
+            //   PASS 分支（不攻击）不广播 AFTER_ATTACK，原惑心挂 AFTER_ATTACK 不触发；
+            //   单独调 applyMindControl_Normal/Sister 直接结算，不走 eventBus——
+            //   否则 AFTER_ATTACK 上十余条监听（坚盾/双击/随动/联动）都会响应，超出「只触发惑心」的意图。
+            //   队首判断保持原逻辑（applyMindControlCore 内部判 frontUnit.uid === unit.uid）：
+            //   张三丰被击退到后排时他自己不触发，跟正常队首一致——惑心的语义是「前排出手扰乱」。
+            if (unit.endlessBreath) {
+                const ebEnemySide = unit.camp === CAMP_TYPES.ALLY ? B : A;
+                const ebBuffs = currentTeam._activeBuffs || [];
+                if (hasBuff(ebBuffs, BUFF_TYPES.MIND_CONTROL)) {
+                    const hasSister = currentTeam.some(u => u.isXiaoZhaoSister && u.alive);
+                    if (hasSister && !globalThis.MING_ABLATION?.noSisterHex) applyMindControl_Sister(unit, currentTeam, ebEnemySide, log);
+                    else applyMindControl_Normal(unit, currentTeam, ebEnemySide, log);
+                }
+            }
             continue;
         }
 
