@@ -63,7 +63,7 @@ if (typeof localStorage === 'undefined') {
     };
 }
 import { CONFIG, loadGameData, loadHexEnhanceData, getGameData } from '../core/201-config-5v5-test.js';
-import { Unit } from '../core/202-unit.js';
+import { Unit, applyHeroFlags } from '../core/202-unit.js';
 import { NATURAL_ELITES, SOLO_FORCE_KEY, WEAK_UNIT_FLAG, ELITE_UNIT_META } from './827-tool-registry.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/102-core-utils.js';
 import { runBattle } from '../core/206-battle-runner.js';
@@ -764,6 +764,50 @@ function buildRandomTeam(size, camp, rng, force) {
     return team;
 }
 
+// 847 模板战力：A 靶子 vs B 骨架（可替换被测单位），双方具名模板，双海克斯
+function buildFromTemplate(specs, camp, rng) {
+    return specs.map(s => {
+        const ch = getGameData().characters[s.name];
+        if (!ch) throw new Error('未知角色: ' + s.name);
+        const u = new Unit(s.name, ch.m, s.role, camp);
+        applyHeroFlags(u);
+        u.init(rng);
+        u.applyBonus();
+        u.pos = s.pos;
+        return u;
+    });
+}
+
+function runTemplateABJob(job) {
+    const { aUnits, bUnits, cand, runs, startIndex = 0 } = job;
+    let wins = 0;
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();
+        const seed = 3000001 + (startIndex + i) * 7919;
+        const bSpecs = bUnits.map(s => ({ ...s }));
+        if (cand) {
+            let k = bSpecs.findIndex(s => s.role === cand.role);
+            if (k < 0) {
+                const front = r => r === '防战' || r === '战士';
+                k = bSpecs.findIndex(s => front(s.role) === front(cand.role));
+            }
+            if (k < 0) k = bSpecs.length - 1;
+            bSpecs[k] = { name: cand.name, role: cand.role, pos: bSpecs[k].pos };
+        }
+        const rng = new SeededRNG(seed);
+        const ally = buildFromTemplate(bSpecs, CAMP_TYPES.ALLY, rng);
+        const enemy = buildFromTemplate(aUnits, CAMP_TYPES.ENEMY, rng);
+        setBattleRng(new SeededRNG(seed + 2));
+        const res = runBattle({
+            ally, enemy, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY,
+            hexPicker: (ab, al, r) => pickHexBuff(ab, al, r, false, enemy),
+            enemyHexPicker: (ab, en, al, r) => pickEnemyHexBuff(ab, en, al, r)
+        });
+        if ((res.winner || '平局') === '明教') wins++;
+    }
+    return { wins, runs };
+}
+
 function runRandomJob(size, baseSeed, startIndex, runs, hexEnabled = false, enemyHex = false) {
     const stats = { allyCounts: {}, enemyCounts: {} };
     for (const role of RANDOM_ROLES) { stats.allyCounts[role] = {}; stats.enemyCounts[role] = {}; }
@@ -1090,6 +1134,9 @@ self.onmessage = (e) => {
         } else if (kind === 'weakContrib') {
             const { stage, seed, runs, elite, side, arm, probes, startIndex, enemyHex } = e.data;
             result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0, !!enemyHex);
+        } else if (kind === 'templateAB') {
+            const { aUnits, bUnits, cand, runs, startIndex } = e.data;
+            result = runTemplateABJob({ aUnits, bUnits, cand, runs, startIndex: startIndex || 0 });
         } else if (kind === 'stats') {
             const { stage, seed, runs, hexEnabled, enemyHex } = e.data;
             result = runStatsStageJob(stage, seed, runs, !!hexEnabled, !!enemyHex);

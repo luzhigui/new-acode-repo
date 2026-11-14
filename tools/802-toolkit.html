@@ -249,6 +249,7 @@
         <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
         <button class="tab-btn" data-tab="tab-weak-elite">🐦 弱精英评测</button>
+        <button class="tab-btn" data-tab="tab-template-power">⚔ 模板战力</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
@@ -497,6 +498,20 @@
 
     <!-- 2026-11-11 弱精英评测从「⚔️ 精英战力评测」页签拆出，独立成页签（算法/排版 1:1 照抄，实现在 846-weak-elite-eval.js）
          2026-11-11 V1.1.0：名单改为 M104/M100/M97 全档位具名单位（运行时从 game.characters 收集），跑批改 816 kind:'unitAB'（同种子直接 A/B） -->
+    <div class="tab-content" id="tab-template-power">
+        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
+            模板战力：A 池 = 靶子阵容（弱/中/强，明教与六大派各一套），B 池 = 被测骨架。被测单位替换 B 队同职业位，逐套打 A，统计被测方胜率。双海克斯、双方各自独立随机。
+        </p>
+        <div class="fc-config" style="margin-bottom:10px;">
+            <label>每对场次</label><input id="tpRuns" type="number" value="30" min="5" max="500">
+            <button id="tpStartBtn">▶ 开始评测</button>
+            <button id="tpCsvBtn" style="background:#1565c0;color:#fff;">导出 CSV</button>
+        </div>
+        <div id="tpProgress" class="status-text"></div>
+        <div id="tpPools"></div>
+        <div id="tpResult"></div>
+    </div>
+
     <div class="tab-content" id="tab-weak-elite">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             全档位带技能单位（M104 / M100 / M97，共 14 个）：同种子直接 A/B 替换，Δ = 换入局 − 自然局。<span class="tip-more">▸ 略</span>
@@ -686,6 +701,7 @@
     <script type="module" src="./803-toolkit.js"></script>
     <script type="module" src="./812-elite-eval.js"></script>
     <script type="module" src="./846-weak-elite-eval.js"></script>
+    <script type="module" src="./848-template-power-panel.js"></script>
     <script type="module" src="./813-stats-check.js"></script>
     <script type="module" src="./814-baseline-compare.js"></script>
     <script type="module" src="./815-lineup-search.js"></script>
