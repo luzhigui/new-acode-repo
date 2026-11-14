@@ -14,6 +14,7 @@ import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPE
 import { emitStateChange } from '../infra/108-state-change.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerRoundHook } from '../core/208-registry-elite.js';
+import { registerDodgeRule, sealBaseDodgeRules } from '../core/221-registry-dodge.js';
 import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 import { isControlled } from '../core/218-state-keys.js';
@@ -376,13 +377,18 @@ export function registerFlyerKillGrowth() {
                 addMod(killer, 'atk', { source: '飞行·猎杀', value: 2, ttl: 'permanent', group: 'flyerKill', op: 'add' });
                 const neverMiss = !!killer.state._neverMiss;
                 if (!neverMiss) killer.state._missChanceBonus = missBefore + 6;
+                // 击杀回额外成长（2026-11-15 老板拍板）：+2% 闪避（按击杀数累计，规则表读 _flyerKillCount）+ 5 点生命上限
+                killer.state._flyerKillCount = (killer.state._flyerKillCount || 0) + 1;
+                addMod(killer, 'maxHp', { source: '飞行·猎杀', value: 5, ttl: 'permanent', group: 'flyerKill', op: 'add' });
+                refreshMaxHp(killer, null, '飞行·猎杀');
                 const atkAfter = getStat(killer, 'atk');
                 const missAfter = killer.state._missChanceBonus || 0;
                 // 战报 + 头顶 🦇 飘字（金钟罩同款 floatText 路径：从格子升起后淡出）。
                 //   每次击杀独立一条，连续成长就连着升多个，不合并。
                 pushSkillAnnounce(data.log, killer, '飞行·猎杀',
                     `🦇 ${killer.name} 飞行·猎杀（击杀 ${dead.name}）：攻击 ${fmtNum(atkBefore)} → ${fmtNum(atkAfter)}`
-                    + (neverMiss ? '，未命中免疫（不叠加）' : `，未命中 +6%（累计 +${fmtNum(missAfter)}%）`),
+                    + (neverMiss ? '，未命中免疫（不叠加）' : `，未命中 +6%（累计 +${fmtNum(missAfter)}%）`)
+                    + '，闪避 +2%，生命上限 +5',
                     {
                         floatText: '🦇', floatUid: killer.uid,
                         atkBefore, atkAfter, missChance: missAfter,
@@ -394,6 +400,15 @@ export function registerFlyerKillGrowth() {
     });
 }
 registerRoundHook(registerFlyerKillGrowth);
+
+// 飞行·猎杀击杀闪避（2026-11-15 老板拍板）：每击杀 +2% 闪避，读 _flyerKillCount。
+//   顶层注册 + 再封口：进基础段，clearEliteDodgeRules 每局清精英不伤本条；本模块每回合被
+//   roundHook 重挂的是上面那个 fn，本条只在模块求值时注册一次，不会叠。
+registerDodgeRule((target) => {
+    const n = (target && target.state && target.state._flyerKillCount) || 0;
+    return n > 0 ? Math.min(n * 0.02, 1) : 0;
+});
+sealBaseDodgeRules();
 
 // ═══════════════════════════════════════════════════════════════
 // 张无忌专属 · 快来护驾（2026-11-13）

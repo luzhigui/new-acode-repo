@@ -74,7 +74,7 @@
           "camp": "enemy",
           "targetRule": "highestHpPct",
           "beforeDamageEffects": [
-            { "type": "bonusTargetCurrentHp", "ratio": 0.10, "label": "叛逆突袭" }
+            { "type": "bonusTargetCurrentHp", "ratio": 0.16, "label": "叛逆突袭" }
           ]
         },
         {
@@ -465,13 +465,13 @@
         {
           "camp": "enemy",
           "type": "healAllyOnHit",
-          "healAmount": 10
+          "healAmount": 15
         }
       ],
       "skills": {
         "healAlly": {
           "name": "妙手回春",
-          "desc": "每次攻击或被攻击后，随机一名友方回复 10 点生命值。"
+          "desc": "每次攻击或被攻击后，随机一名友方回复 15 点生命值。"
         }
       }
     },
@@ -512,7 +512,7 @@
         "endlessBreath": {
           "name": "生生不息",
           "desc": "不攻击；每回合开始回复最大生命{healPct}%；轮到自己行动时与八卦阵触发均需消耗{atkCost}点攻击力（攻不足则不触发）。回血同时永久加成，攻或防随机二选一：实际回血每{healAtkDiv}点→攻+1、每{healDefDiv}点→防+1；溢出每{overflowAtkDiv}点→攻+1、每{overflowDefDiv}点→防+1（每档至少+{minBonus}；加成记在血量落点单位身上）",
-          "params": { "healPct": 0.16, "healAtkDiv": 20, "healDefDiv": 10, "overflowAtkDiv": 10, "overflowDefDiv": 5, "minBonus": 1, "atkCost": 3 }
+          "params": { "healPct": 0.16, "healAtkDiv": 25, "healDefDiv": 10, "overflowAtkDiv": 12.5, "overflowDefDiv": 5, "minBonus": 1, "atkCost": 2 }
         },
         "baguaArray": {
           "name": "八卦阵",

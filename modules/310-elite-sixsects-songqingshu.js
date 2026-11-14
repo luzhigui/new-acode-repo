@@ -3,14 +3,14 @@
 //   链条内每多连一爪概率 −0.01，累减到 ≤0 必断——这是「不会无限连」的唯一保证，不要改成固定概率。
 // V6.28.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.3';
-import { getGameData } from '../core/201-config-5v5-test.js';
+import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
 import { fmtHp } from '../infra/102-core-utils.js';
-import { findAlive } from './305-elite-helpers.js';
+import { findAlive, pushSkillAnnounce } from './305-elite-helpers.js';
 
 // 宋青书
 export function createSongQingshuComponent() {
@@ -174,6 +174,14 @@ export const chainClawHandler = {
 
             if (hits.length > 0 && data && data.declarations) {
                 data.declarations.push({ type: EFFECT_TYPES.CLAW_CHAIN, source: unit, target, hits, execute: executeInfo });
+                // 白骨爪抑疗（2026-11-15 老板拍板）：爪命中挂截脉式抑疗 2 回合，
+                //   强度走减疗 66% 统一口径（CONFIG.XUANMING_POISON_HEAL_REDUCE，与寒毒同源单一来源）
+                if (target && target.alive && !target.state._jinMai) {
+                    target.state._jinMai = { rounds: 2, ratio: CONFIG.XUANMING_POISON_HEAL_REDUCE };
+                    pushSkillAnnounce(data.log, unit, '九阴白骨爪',
+                        `🐾 白骨爪寒毒入体：${target.name} 受疗 -66%（2回合）`,
+                        { line: false, floatText: '❌', floatUid: target.uid });
+                }
             }
             if (totalHeal > 0 && song && song.alive && data && data.declarations) {
                 data.declarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: song, factType: FACT_TYPES.CLAW_HEAL, factData: { totalHeal, unitUid: song.uid } });
@@ -201,7 +209,7 @@ export const kuLianHandler = {
             const targets = getBenefitTargets(B);
             const kuLianTargets = [];
             for (const u of targets) {
-                const mult = u.uid === kuLianSong.uid ? 2 : 1;
+                const mult = u.uid === kuLianSong.uid ? 3 : 1;   // 宋青书三倍（2026-11-15 老板拍板，原双倍）
                 // 实际增量提到变量：既给 addMod 也给下方 targets 名单，保证「声明 == 实际」逐人一致
                 const atkDelta = s.atkBonus * mult;
                 const defDelta = s.defBonus * mult;

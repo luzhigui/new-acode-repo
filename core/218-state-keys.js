@@ -254,6 +254,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 飞行击杀惩罚：每击杀 1 人累加，攻击时叠加到未命中率（必中单位无效）
     _missChanceBonus:        { type: STATE_FIELD_TYPES.NUMBER, default: 0 },
+    // 飞行·猎杀击杀计数（modules/302）：每击杀 +1，闪避规则表按数×2% 读，整场累计跨回合保留
+    _flyerKillCount:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.PENDING_DEATH] },
     // 击杀者记账（uid 非引用）：core/13 致死出口写入，唐文亮「同归于尽」反噬击杀者用（modules/26 读）
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },

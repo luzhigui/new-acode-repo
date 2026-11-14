@@ -35,6 +35,9 @@ export function createHanLiSaComponent() {
 
             // 控制位移免疫·开局常驻（老板口径：被闪避反击/击退/换位只掉血不动窝；守卫在 core/12+13）
             hls.state._ctrlImmune = true;
+            // 免疫毒素（2026-11-15 老板拍板）：蹦蹦寒毒/玄冥毒/白骨爪链全部对我不生效——
+            //   消费点全覆盖（216 施加/319+331+339 tick/叠层），此处只设开关
+            hls.state._immunePoison = true;
             // 免疫斩杀：无法被战士斩杀或白骨爪斩杀直接带走，只能被磨死
             hls.state._immuneExecute = true;
             // 蓄意轰拳爆发序号（fx/93 引擎直发与回放桥重放按 seq 去重）

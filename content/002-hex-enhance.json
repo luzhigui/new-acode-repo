@@ -13,13 +13,13 @@
     "cloudBody": { "dodgeBonus": 0.30, "reboundRatio": 0.5, "noSkip": true },
     "fortify": { "healOnRebound": true },
     "horseFormation": { "horseAtk": 0, "horseDef": 30, "horseHp": 30, "reboundDmg": 15, "noDestroy": true },
-    "carry": { "targetPositions": [4, 5, 6] },
+    "carry": { "targetPositions": [5, 6] },
     "holyFlame": { "atkCols": 2, "defRows": 2, "atkBonus": 0.25, "defBonus": 0.25 },
     "soulDrain": { "atkBonus": -0.40, "perUnitBonus": 0.10 },
     "holyFire": { "reviveCount": 2, "firstReviveRatio": 0.7, "secondReviveRatio": 0.4 },
     "doubleStrike": { "chance": 1.0 },
     "lastStand": { "hpThreshold": 0.5, "leechRatio": 0.20 },
-    "unity": { "recruitM": 25, "recruitTarget": 5, "extraDuration": 1 }
+    "unity": { "recruitM": 50, "recruitTarget": 5, "extraDuration": 1 }
   },
 
   "brother": {

@@ -19,6 +19,9 @@ export const duanChuiHandler = {
         const selfTeam = decl.camp === CAMP_TYPES.ALLY ? A : B;
         const self = selfTeam.find(u => u.alive && u.name === decl.name);
         if (!self) return;
+        // 控制位移免疫（2026-11-15 老板拍板）：不死时与寒离飒同款——击退/撞晕/换位/拽位只掉血不动窝；
+        //   死亡单位本就不是位移目标，「不死时」由 alive 语义天然保证
+        self.state._ctrlImmune = true;
 
         const params = requireSkillParams(decl.name, 'duanChui');
         const keepHp = params.keepHp;

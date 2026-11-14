@@ -226,8 +226,9 @@ export function renderGrid(id, camp) {
                 roleIcon = mimicTarget.role===ROLE_TYPES.WARRIOR?'⚔️':(mimicTarget.role===ROLE_TYPES.DEFENDER?'🛡️':(mimicTarget.role===ROLE_TYPES.RANGED?'🏹':(mimicTarget.role===ROLE_TYPES.JAVELIN?'🪠':'🦅')));
             }
         }
-        // 圆真现原形 → 真变身：实体已是成昆（内部 name 仍「少林圆真」，机制声明按它克隆），显示名单独走这层
-        if (unit.state && unit.state._displayName) displayName = unit.state._displayName;
+        // 圆真现原形 → 真变身：实体已是成昆（内部 name 仍「少林圆真」，机制声明按它克隆），显示名单独走这层。
+        //   幻影伪装激活时被模仿者名字优先（2026-11-15 老板拍板：格子全跟随对面名字+技能logo，不露成昆本体）
+        if (unit.state && unit.state._displayName && !(unit.isChengKun && unit.state._phantomTarget)) displayName = unit.state._displayName;
         let latestUnit = unit;
         if (store) {
             const state = store.getState();
