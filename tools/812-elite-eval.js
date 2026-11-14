@@ -3,7 +3,11 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.11.0';
+export const VER = 'tools/812-elite-eval.js V3.12.0';
+// V3.12.0 | 2026-11-15 修「打开页面自动载入上次结果失败：Cannot access 'SOLO_NOTE' before initialization」：
+//   SOLO_NOTE / BOSS_NOTE 定义在 applySnap 之后，而 autoRestoreLatest 在模块顶层立即执行并调 applySnap，
+//   任何含 solo/boss 表的历史快照都会撞 const TDZ，被 try/catch 吞掉显示「上次结果载入失败」。
+//   现把两个 NOTE 上移到 applySnap 之前（TABLE_LABEL 旁），删原 329/330 重复定义。
 // V3.11.0 | 2026-11-14 修「开始评测/强精英点了没反应、刷新也没用、必须清空历史」：
 //   顶层 autoRestoreLatest / refreshSnapSelect 未做异常保护，坏快照一抛错就打断模块执行，
 //   后续监听（第 232 行起）全部没挂上；「🗑 清空历史」注册在前所以还能用，清完才恢复。
@@ -97,6 +101,11 @@ const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄�
 const SNAP_KEY = 'ming_elite_eval_snaps';
 const SNAP_LIMIT = 10;                                     // 最多留 10 条历史，超出丢最旧
 const TABLE_LABEL = { elite: '主表·自然出场', solo: '强精英', boss: 'Boss·张无忌', none: '无精英基线' };
+// 表头说明（定义在 applySnap 之前：autoRestoreLatest 在模块顶层立即执行，若定义靠后，
+//   const 尚在 TDZ，任何含 solo/boss 的历史快照都会触发 Cannot access 'SOLO_NOTE' before initialization，
+//   被 try/catch 吞掉显示「上次结果载入失败」。2026-11-15 上移修复）
+const SOLO_NOTE = '强精英单挑 = force 该精英单核（抑制随机轮盘、海克斯开、胜=明教）。与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。';
+const BOSS_NOTE = 'Boss·张无忌 = force 张无忌单核（M115 boss 档、抑制随机轮盘、海克斯开、胜=明教）。单独一表，避免与 M107 强精英混在同一把尺子上比较。';
 const snapSelect = document.getElementById('eliteSnapSelect');
 const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
 const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
@@ -321,8 +330,6 @@ startBtn.addEventListener('click', async () => {
 // 口径：force 单精英（29 V7.5.16 起各路 force 全抑制随机轮盘=真·单精英局）、海克斯开、
 //       胜=明教。与普通评测的区别：普通表是「自然出场归因」（同场多精英），这张表是「控制变量单挑」。
 //       寒离飒走 29 V7.6.1 的 forceHanLiSa（与她升强精英后的通道一致），单核口径全表统一。
-const SOLO_NOTE = '强精英单挑 = force 该精英单核（抑制随机轮盘、海克斯开、胜=明教）。与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。';
-const BOSS_NOTE = 'Boss·张无忌 = force 张无忌单核（M115 boss 档、抑制随机轮盘、海克斯开、胜=明教）。单独一表，避免与 M107 强精英混在同一把尺子上比较。';
 
 async function runSoloGroup(list, ui) {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));

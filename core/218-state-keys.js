@@ -1,8 +1,11 @@
+// V2.11.0 | 2026-11-15 补登两个漏登记的 state 字段（体检转交字段只写未登记，clone 被 assertStateFullyRegistered 拦下）：
+//   ① _holyFireRevives（圣火不熄复活账，core/204 写入，整场持久）；
+//   ② _duanChuiHalveCue（庄铮断锤演出提示，modules/337 写入，本击内有效）。同域同类字段今后必须同步登记。
 // V2.10.0 | 2026-11-08 状态语义标签化（纯声明，零行为变更）：给 schema 条目加可选 tags，
 //   「受控 / 免控 / 不可被选中 / 待死」四类判定从各文件手写字段名改为标签驱动。
 //   以后新增一类控制状态（冰冻/沉睡/定身）只需在对应条目写 tags:[CC]，全部读取侧自动跟上，
 //   不必再去 core/209、core/210、core/212、modules/302、317、322 逐个补条件。
-export const VER = 'core/218-state-keys.js V2.10.0';
+export const VER = 'core/218-state-keys.js V2.11.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -210,8 +213,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _holyFireUses:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 小昭·妹专属复活名额：妹永久 holyFire 的独立名额，与团队 _holyFire 名额叠加、互不占用
     _holyFireSelf:           { type: STATE_FIELD_TYPES.STRING,  default: null },
-    // 圣火令复活记录（modules/204 圣火令主动）：数组元素为复活事件 rec（谁复活/何时/第几次），
-    //   204 的 consumesLedger 族跨回合聚合读取——漏登记 = clone 静默丢账本 + 守卫抛错（2026-11-15 第二例，老板贴单）。
+    // 圣火不熄复活账（体检转交）：每次圣火复活逐条记录 {uid,name,camp,slot,tier,ratio,heal,raw,maxHp,hpBefore,hpAfter}
+    //   （core/14 applyHolyFireRevive 写入，写在阵亡者本人，跨回合存活）；
+    //   摘要随团队圣火 buff 全量下发，体检按 uid 逐条归账。必须 battle 级——队伍数组每回合重建，挂数组过不了回合边界
     _holyFireRevives:        { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 杨逍·点穴冷却：同一目标 cdRounds 回合内最多被点一次（回合开始递减，>0 即免疫本次点穴判定）
     _dianXueCd:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -281,9 +285,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiN:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    // 减半演出提示（modules/337 IMMUNE 顺位修正）：断锤触发瞬间的 SKILL_CUE 结构体（{kind,unit,amount}），
-    //   写入后由 AFTER_ATTACK_IMMUNE 分支读走并置 null；若反击分支被重入锁/死亡拦下，残留值随下次触发
-    //   覆盖，不跨局遗留——漏登记会在 clone 时被守卫当场抛错（2026-11-15 线上实锤，老板贴单）。
+    // 庄铮·断锤三式演出提示（modules/337 BEFORE_DAMAGE_APPLY 写、AFTER_ATTACK_IMMUNE 读后置 null，仅本击内有效）
     _duanChuiHalveCue:       { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 上限锁（庄铮·断锤三式）：有值时 getStat('maxHp') 直接返回该绝对值，无视一切词条增删。
     //   不能用差值 add 词条模拟——差值按「锁定时实时值」算，会把当时生效的 ttl:'round' 词条
