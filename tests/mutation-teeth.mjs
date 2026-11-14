@@ -1,3 +1,4 @@
+// V2.9.37 | 2026-11-14 #9 引擎依赖体检脚本脏树前置守卫：main() 开头挂 tests/_lib/worktree-guard.mjs 的 checkWorktreeClean，工作树有未提交改动或 HEAD≠远端稳定 tip 时显式告警并 exit(1)，禁止在叠 WIP 的主树上下「恒空转/假绿/覆盖不足」结论（#3 脏树 skip=156 误判教训）。判据阈值/变异定义一字未动。
 // V2.9.36 | 2026-11-10 白天合入夜间 200–203：A17 锚点因主代码新增「精通拉满」入口重锚为 multi。
 //   modules/302 现在有两处 { source:'精通', value:gAtk }（L152 masterAllRoles / L205 原精通触发），
 //   同写 spiderMastery 账本。旧「非 multi 要求唯一」使 --verify 报失效 ⇒ 变异树会退化成干净树、假绿。
@@ -217,9 +218,10 @@
 //   「基线已红不得作证」的闸门后面（rule164/rule143 在干净树就 fail>0）。这两颗保持乙类不动，是真待办。
 //   ★ 只收紧不放宽：新增的只是「判得更准地归因」，不新增任何 newRed / masked 渠道，不改 verdict 分类、
 //     不改计数口径、不动任何一条「不得作证」闸门（基线已红规则、干净树已命中契约）；任一签名缺失 ⇒ fail-closed。
-export const VER = 'tests/mutation-teeth.mjs V2.9.36';
+export const VER = 'tests/mutation-teeth.mjs V2.9.37';
 
 import { spawnSync, execSync } from 'node:child_process';
+import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1232,6 +1234,12 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails, baseDirtyContracts,
 }
 
 async function main() {
+    const g = checkWorktreeClean(import.meta.url);
+    if (g.dirty) {
+        warnIfDirty(g, { label: 'mutation-teeth', maxShow: 6 });
+        console.log('⚠️ 脏树警告：当前工作树非干净，恒空转/假绿/覆盖不足结论作废，请在干净 detached worktree 重跑后再下判定。');
+        process.exit(1);
+    }
     const argv = process.argv.slice(2);
 
     if (argv.includes('--emit-prep')) {

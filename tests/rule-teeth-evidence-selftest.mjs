@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// V1.0.14 | 2026-11-14 #9 引擎依赖体检脚本脏树前置守卫：main() 开头挂 tests/_lib/worktree-guard.mjs 的 checkWorktreeClean，工作树有未提交改动或 HEAD≠远端稳定 tip 时显式告警并 exit(1)，禁止在叠 WIP 的主树上下「恒空转/假绿/覆盖不足」结论（#3 脏树 skip=156 误判教训）。判据阈值一字未动。
 // V1.0.13 | 2026-11-13 环境依赖处置（按体检交接 spec 选项②）：teeth-results.txt 由变异树取证产出、被 .gitignore 排除、
 //   CI checkout 里永远不存在 ⇒ 此前在 push 门禁下恒红（属「环境缺失」而非「判据失败」）。改为「产物缺失时显式跳过
 //   （exit 0）并打 loud 警告」：CI 不跑此项、本地有产物时仍全量校验；不削弱任何判据、不降阈值、不静默放行。
@@ -67,6 +68,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs';
 import { scanAllBranches, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mjs';
 
@@ -74,7 +76,7 @@ import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mj
 //   头版本日志抬到 V1.0.3（加了断言⑦单条聚合度峰值硬上限 SINGLE_AGG_CAP），却漏抬本 VER 常量，
 //   于是「版本常量漂移自检」与「版本号遗忘抬升绊线」双双报红。★ 这与本线第 172 轮自踩同款
 //   （抬了日志漏了常量），区别只是这次是上游会话犯的 —— 绊线照样当场咬住，不是只盯自己人。
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.13';
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.14';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
@@ -422,6 +424,12 @@ function fail(msg) {
 }
 
 function main() {
+    const g = checkWorktreeClean(import.meta.url);
+    if (g.dirty) {
+        warnIfDirty(g, { label: 'rule-teeth-evidence-selftest', maxShow: 6 });
+        console.log('⚠️ 脏树警告：当前工作树非干净，恒空转/假绿/覆盖不足结论作废，请在干净 detached worktree 重跑后再下判定。');
+        process.exit(1);
+    }
     // V1.0.12：归一化函数本身先自证。它坏了，后面七条断言对的内容全是假的。
     const normFails = selfCheckAggNorm();
     if (normFails.length) {

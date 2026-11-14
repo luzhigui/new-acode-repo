@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// tests/rule-idle-selftest.mjs | V1.5.2 | 2026-11-14 #9 引擎依赖体检脚本脏树前置守卫：main() 开头挂 tests/_lib/worktree-guard.mjs 的 checkWorktreeClean，工作树有未提交改动或 HEAD≠远端稳定 tip 时显式告警并 exit(1)，禁止在叠 WIP 的主树上下「恒空转/假绿/覆盖不足」结论（#3 脏树 skip=156 误判教训）。判据阈值与 322 三段判据一字未动。
 // tests/rule-idle-selftest.mjs | V1.4.0 | 2026-11-11 夜间第 205 轮：恒空转白名单清空（322 妹背水词条已被激活 pass=9 fail=0 skip=147，按第②条棘轮收缩；出表后回落即按『判据漂移』重红）。判据阈值与 322 三段判据一字未动。
 // tests/rule-idle-selftest.mjs | V1.3.0 | 2026-11-09 夜间第 200 轮：IDLE_WHITELIST 由字符串数组改 {name,file,why} 对象数组（旧形态报 undefined 且无法写取证结论）；新增一条「妹背水词条vs配置与职业真值」登记，取证结论为标准样本 156 场从未写入该三组词条，判据键与数据源均已逐字排除。判据阈值一字未动。
 // tests/rule-idle-selftest.mjs | V1.3.0 | 2026-10-27 夜间第 145 轮：恒空转白名单清零（155 首次被激活 ⇒ 按第②条棘轮收缩；出表后回落即按『判据漂移』重红）
@@ -43,8 +44,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs';
 
-export const VER = 'tests/rule-idle-selftest.mjs V1.5.1';
+export const VER = 'tests/rule-idle-selftest.mjs V1.5.2';
 
 // 取样充分性判定与对照器守卫 / 契约绑定 / fact 普查共用同一份口径，不另写一份。
 import {
@@ -104,6 +106,12 @@ function fail(msg) {
 }
 
 function main() {
+    const g = checkWorktreeClean(import.meta.url);
+    if (g.dirty) {
+        warnIfDirty(g, { label: 'rule-idle-selftest', maxShow: 6 });
+        console.log('⚠️ 脏树警告：当前工作树非干净，恒空转/假绿/覆盖不足结论作废，请在干净 detached worktree 重跑后再下判定。');
+        process.exit(1);
+    }
     const tmp = path.join(os.tmpdir(), 'rule-idle-stats-' + process.pid + '.json');
     const res = spawnSync(process.execPath, [path.join(here, 'rules-replay.mjs')], {
         cwd: root,

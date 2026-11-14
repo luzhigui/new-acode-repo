@@ -43,6 +43,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs';
 // 取样充分性判定（2026-10-27 夜间第 143 轮接入）：与对照器守卫 / 契约绑定 / fact 普查 / 规则恒空转
 // 共用 tests/_lib/sample-sufficiency.mjs 同一份口径。本检查器此前**完全不判取样面**：
 //   FACT_TYPES 块一旦切不出来（infra/56 结构变动）⇒ FACT_KEYS=0 ⇒ gaps / stale 双双归零 ⇒
@@ -60,6 +61,12 @@ import { auditSlice, soloBlockKeys, selfCheck as truthSelfCheck } from './_lib/s
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 
 const SCAN_ONLY = process.argv.includes('--scan');
+const _wtg = checkWorktreeClean(import.meta.url);
+if (_wtg.dirty) {
+    warnIfDirty(_wtg, { label: 'fact-coverage-selftest', maxShow: 6 });
+    console.log('⚠️ 脏树警告：当前工作树非干净，恒空转/假绿/覆盖不足结论作废，请在干净 detached worktree 重跑后再下判定。');
+    process.exit(1);
+}
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // 取样面规模下限（实测：FACT_KEYS 145 / 规则文件 47 / 引擎文件 52；薄线由公共件按一半推出）。

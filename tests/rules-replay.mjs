@@ -26,6 +26,7 @@ import { readdir } from 'node:fs/promises';
 import { collectFacts } from './_lib/fact-collect.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
 globalThis.fetch = async (url) => {
@@ -65,7 +66,7 @@ console.error = function (...args) {
 //   回放器此前只解构 allyTeam/enemyTeam ⇒ 286「关卡变体抽签真值与阵容互证」拿到的
 //   ctx.encounterVariant 恒为 undefined，156 场全部走 skip（结构性假绿）。本轮把两字段原样接入
 //   ctx，规则自身与判据一字未改；全库仅 286 消费这两个字段，其它规则口径零变化。
-export const VER = 'tests/rules-replay.mjs V6.15.0';
+export const VER = 'tests/rules-replay.mjs V6.15.1';
 // V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
 //   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
 //   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
@@ -167,6 +168,14 @@ const NOBUFFS = process.env.NOBUFFS === '1';
 //   开启双档却全程 0 ⇒ 直接判红（防"选了但引擎丢了"的假双档）。
 const ENEMY_HEX = process.env.ENEMY_HEX === '0' ? false : true;
 const dualStats = { enemyPicks: 0, enemyActiveRounds: 0 };
+
+// #9 脏树前置守卫：规则回放依赖引擎/主数据，叠 WIP 的主树会把健康规则误判成恒空转/假绿/覆盖不足，必须先闸住。
+const _wtg = checkWorktreeClean(import.meta.url);
+if (_wtg.dirty) {
+    warnIfDirty(_wtg, { label: 'rules-replay', maxShow: 6 });
+    console.log('⚠️ 脏树警告：当前工作树非干净，恒空转/假绿/覆盖不足结论作废，请在干净 detached worktree 重跑后再下判定。');
+    process.exit(1);
+}
 
 // 第 159 轮新增：定向覆盖场次（默认随机阵容凑不齐的前置条件，靠主代码现成的强制开关补）。
 //   与 tests/stat-decl-vs-actual-check.mjs V3.11.0 同款口径、同一条安全边界：逐场设置、开场全键复位、
