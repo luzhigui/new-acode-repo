@@ -1,3 +1,8 @@
+// V6.0.74 | 2026-11-14 按用途瘦身复制包：移出 10 个「本机 node 脚本」——网页端和网页 AI 都用不到，
+//           只留页面件（820~824 页面/核心/worker、834-idea-lab + 词条池、835 等照旧）。
+//           移出清单：818-import-export-check / 819-auto-tuner / 821-param-lab / 834-fetch-pool /
+//           build-versioned-site / check-manifest / probe-lioness / probe-lioness2 / probe-pang-balance / probe-yangxiao-jump。
+//           文件仍在磁盘，需要时再登记回来即可。
 // V6.0.73 | 2026-11-14 补登 850 关卡精英评分页签与 847~849 三件（模板名单 + 两个页签前端），
 //           以及 check-manifest --strict 报出的 ui/723、ui/724 两个主代码文件。
 //           漏登后果：包内页签 404 / fetch 模板名单失败 / AI 读到 0 字符。
@@ -18,7 +23,7 @@
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.73';
+export const VER = 'tools/806-ai-pack-config.js V6.0.74';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -408,10 +413,9 @@ export const ALL_PROJECT_FILES = [
     '../tools/809-role-balance.js', '../tools/816-role-balance-worker.js', '../tools/817-shared-worker-runner.js', '../tools/810-role-balance-random.html',
     '../tools/812-elite-eval.js', '../tools/813-stats-check.js',
     '../tools/814-baseline-compare.js', '../tools/815-lineup-search.js',
-    '../tools/818-import-export-check.mjs',
     '../tools/820-param-lab.html', '../tools/822-param-lab-core.js', '../tools/823-param-lab-worker.js', '../tools/824-param-lab-glossary.js',
-    // 2026-10-25 补登记 119/121：TOOL-AI 与工具箱文档引用的 node 直跑入口（参数 A/B 调优器 / 参数实验室主脚本）
-    '../tools/819-auto-tuner.mjs', '../tools/821-param-lab.mjs',
+    // 2026-11-14 移出复制包（本机 node CLI，网页端与网页 AI 都跑不到，只留页面件）：
+    //   818-import-export-check.mjs / 819-auto-tuner.mjs / 821-param-lab.mjs
     // 2026-10-18 补登记 126：工具箱「🚨 平衡告警」按钮的实现（102 V6.1.3 挂 module 脚本）
     '../tools/826-balance-alert.js',
     // 2026-10-22 补登记 127：工具箱共用名单与文案表（112/126/122/116/108 的单一来源；
@@ -422,7 +426,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/833-md-reader.html',
     // 2026-10-22 补登记 134/135：创意摸奖（自带元素池 + 手动维护的外部词条池）与参数扫描
     //（135 依赖 123 V1.2.0 的 stages 多关支持；134 只读 content，不跑战斗）
-    '../tools/834-idea-lab.html', '../tools/834-fetch-pool.mjs', '../tools/834-idea-pool-additions.json',
+    '../tools/834-idea-lab.html', '../tools/834-idea-pool-additions.json',
+    // 2026-11-14 移出复制包：834-fetch-pool.mjs（本机 node 维护脚本，网页端不加载）
     '../tools/835-param-scan.html',
     // 2026-10-25 补登记：语音解说从主游戏下线，搬到 tools 存档（136 引擎 / 137 设置面板）
     '../tools/836-voice-commentary.js', '../tools/837-voice-panel.js',
@@ -442,13 +447,9 @@ export const ALL_PROJECT_FILES = [
     //   按本表 2026-09-26 定案不纳入、不补登。）
     '../tools/831-ablation-lab.html',
     // 2026-11-11 删 tools/839-reflect-eval.html：原「🛡️ 弱精英测评」单页已并入 802「🐦 弱精英评测」页签（846）
-    // 2026-11-01 补登记：GitHub Pages 版本化构建 + 复制包清单自检（都是纯 Node 脚本，随包供网页端核对清单完整性）
-    '../tools/build-versioned-site.mjs', '../tools/check-manifest.mjs',
-    // 2026-10-22 补登记：AI 工具借用索引 + 四个历史探针（用户要求留档、且必须让新 AI 能取到；
-    // 用途与复用场景见 TOOL-AI.md「四、历史探针」节）
+    // 2026-11-14 移出复制包：build-versioned-site.mjs / check-manifest.mjs（本机 node 构建/自检脚本）
+    // 2026-10-22 补登记：AI 工具借用索引（探针 4 件已于 2026-11-14 移出复制包）
     '../tools/TOOL-AI.md',
-    '../tools/probe-lioness.mjs', '../tools/probe-lioness2.mjs',
-    '../tools/probe-pang-balance.mjs', '../tools/probe-yangxiao-jump.mjs',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     // assets（音频资源，不参与 fetch 复制）
