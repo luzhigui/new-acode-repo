@@ -1,3 +1,6 @@
+// V1.24.0 | 2026-11-14 新增 kind:'stageAB'（850 关卡精英评分）：固定明教骨架 vs 关卡原生防守，
+//   明教精英换进明教骨架同职业位、六大派精英换进该关防守同职业杂兵位；双方阵容只建一次（固定种子），
+//   同一候选永远同一批队友，不同候选之间只差换进去的那个人。只产出明教胜率（wins/draws/runs）。
 // V1.23.6 | 2026-11-13 专属海克斯（content buff.heroRequirement：寒离飒强化 / 韦一笑强化1）只在
 //   「海克斯平衡仪表盘」（runHexStageJob 内联 picker）排除——那张表横向比通用强度，专属绑定角色读不出结论。
 //   精英战力评测 / 职业平衡 / unitAB 一律照常抽：那几张表测真实对局战力，专属本来就该生效。
@@ -810,6 +813,114 @@ function runTemplateABJob(job) {
     return { wins, runs, draws };
 }
 
+// 850 关卡精英评分：固定明教阵容 vs 关卡原生防守（只换被测精英，队友永远同一批）。
+//   口径（2026-11-14 老板定）：
+//     ① mode='ally'：固定明教骨架（allyUnits，全是普通兵）按同职业换入明教精英，打该关原生防守；
+//     ② mode='enemy'：明教骨架不变，把该关原生防守里的一名普通杂兵按同职业换入六大派精英；
+//     ③ 双方阵容都只建一次（固定种子），每场只让战斗内随机变化 —— 同一被测单位永远同一群队友，
+//        不同候选之间也只差「换进去的那一个人」；
+//     ④ 返回 { wins, draws, runs, skipped? }；skipped：该关原生防守本来就带这名单位 / 没有可换的杂兵位。
+const isNamedUnit = (u) => {
+    if (u.isXiaoZhaoBrother || u.isXiaoZhaoSister) return true;
+    const ch = getGameData()?.characters?.[u.name] || getGameData()?.characters?.[baseNameOf(u.name)];
+    return !!(ch && ch.named === true);
+};
+const roleOfName = (n) => {
+    const ch = getGameData()?.characters?.[baseNameOf(n)];
+    if (!ch) return null;
+    return ch.role || (ch.tags || []).find(t => CONFIG.ROLES.includes(t)) || null;
+};
+const isFrontRole = r => r === ROLE_TYPES.DEFENDER || r === ROLE_TYPES.WARRIOR;
+
+// 按蓝图造人（rng 固定 = 同一蓝图属性恒定）；小昭·姊/·妹走 modules/330 pushElite 同款分支
+function buildStageUnit(spec, camp, rng) {
+    const base = baseNameOf(spec.name);
+    const ch = getGameData()?.characters?.[base];
+    if (!ch) throw new Error('未知角色: ' + spec.name);
+    const role = spec.role || ch.role || (ch.tags || []).find(t => CONFIG.ROLES.includes(t));
+    if (!role) throw new Error('缺职业: ' + spec.name);
+    const u = new Unit(spec.name, ch.m, role, camp);
+    if (base === '小昭') {
+        u.isXiaoZhaoSister = spec.name === '小昭·姊';
+        u.isXiaoZhaoBrother = !u.isXiaoZhaoSister;
+        applyHeroFlags(u);
+        u.initXiaoZhao(); u.applyBonus(true);
+        u.state._baseMaxHp = u.maxHp; u.state._baseAtk = u.atk; u.state._baseDef = u.def;
+    } else {
+        applyHeroFlags(u);
+        u.init(rng); u.applyBonus();
+    }
+    u.pos = spec.pos;
+    u._originalPos = spec.pos;
+    return u;
+}
+
+// 同职业 → 同排（前/后）→ 末位，返回被替换的下标（与 847 模板替换同口径）
+function replacementIndex(specs, role) {
+    let k = role ? specs.findIndex(s => s.role === role) : -1;
+    if (k < 0 && role) k = specs.findIndex(s => isFrontRole(s.role) === isFrontRole(role));
+    if (k < 0) k = specs.length - 1;
+    return k;
+}
+
+function runStageABJob(job) {
+    const { stage, mode, allyUnits, cand, runs, startIndex = 0, enemyHex = false } = job;
+    // 原生防守固定：该关用固定种子建一次，所有候选共用同一套敌人
+    clearBattleGlobals();
+    const native = initBattleTeams(stage, new SeededRNG(9100000 + stage * 7919));
+    if (!native.enemyTeam.length) throw new Error(`第 ${stage} 关没有原生防守阵容`);
+
+    // 明教骨架（被测明教精英换进同职业位）
+    const allySpecs = (allyUnits || []).map(s => ({ ...s }));
+    if (!allySpecs.length) throw new Error('缺少 allyUnits 固定阵容');
+    if (mode === 'ally' && cand) {
+        const role = cand.role || roleOfName(cand.name);
+        const k = replacementIndex(allySpecs, role);
+        allySpecs[k] = { name: cand.name, role: role || allySpecs[k].role, pos: allySpecs[k].pos };
+    }
+
+    // 六大派防守（被测精英换进同职业杂兵位）
+    const enemySnapshot = native.enemyTeam.map(u => u.clone());
+    if (mode === 'enemy' && cand) {
+        if (enemySnapshot.some(u => u.name === cand.name || baseNameOf(u.name) === baseNameOf(cand.name))) {
+            return { wins: 0, draws: 0, runs: 0, skipped: 'native' };
+        }
+        const role = cand.role || roleOfName(cand.name);
+        const frontCount = enemySnapshot.filter(u => isFrontRole(u.role) && !isNamedUnit(u)).length;
+        const wantFront = !!role && isFrontRole(role);
+        const base = enemySnapshot.filter(u => !isNamedUnit(u) && (wantFront || !(isFrontRole(u.role) && frontCount <= 1)));
+        if (!base.length) return { wins: 0, draws: 0, runs: 0, skipped: 'no-slot' };
+        const byPos = list => list.slice().sort((a, b) => a.pos - b.pos);
+        let pool = role ? base.filter(u => u.role === role) : [];
+        if (!pool.length && role) pool = base.filter(u => isFrontRole(u.role) === wantFront);
+        if (!pool.length) pool = base;
+        const victim = byPos(pool)[0];
+        const unit = buildStageUnit(
+            { name: cand.name, role: role || victim.role, pos: victim.pos },
+            CAMP_TYPES.ENEMY, new SeededRNG(7100000 + stage * 31)
+        );
+        enemySnapshot[enemySnapshot.indexOf(victim)] = unit;
+    }
+
+    // 明教骨架只建一次（每场 clone），属性在候选之间完全一致
+    const allyBase = allySpecs.map(s => buildStageUnit(s, CAMP_TYPES.ALLY, new SeededRNG(6500000 + stage * 131 + s.pos * 17)));
+
+    let wins = 0, draws = 0, used = 0;
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();
+        const seed = 2100000 + stage * 10000 + (startIndex + i) * 7919;
+        const res = runWholeBattle(
+            allyBase.map(u => u.clone()),
+            enemySnapshot.map(u => u.clone()),
+            seed, true, enemyHex ? { enemyHex } : null
+        );
+        used++;
+        const w = res.winner || '平局';
+        if (w === '明教') wins++; else if (w === '平局') draws++;
+    }
+    return { wins, draws, runs: used };
+}
+
 function runRandomJob(size, baseSeed, startIndex, runs, hexEnabled = false, enemyHex = false) {
     const stats = { allyCounts: {}, enemyCounts: {} };
     for (const role of RANDOM_ROLES) { stats.allyCounts[role] = {}; stats.enemyCounts[role] = {}; }
@@ -1139,6 +1250,12 @@ self.onmessage = (e) => {
         } else if (kind === 'templateAB') {
             const { aUnits, bUnits, cand, runs, startIndex } = e.data;
             result = runTemplateABJob({ aUnits, bUnits, cand, runs, startIndex: startIndex || 0 });
+        } else if (kind === 'stageAB') {
+            const { stage, mode, allyUnits, cand, runs, startIndex, enemyHex } = e.data;
+            result = runStageABJob({
+                stage, mode, allyUnits, cand, runs,
+                startIndex: startIndex || 0, enemyHex: !!enemyHex
+            });
         } else if (kind === 'stats') {
             const { stage, seed, runs, hexEnabled, enemyHex } = e.data;
             result = runStatsStageJob(stage, seed, runs, !!hexEnabled, !!enemyHex);

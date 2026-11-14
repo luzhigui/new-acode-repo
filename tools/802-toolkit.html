@@ -251,6 +251,7 @@
         <button class="tab-btn" data-tab="tab-weak-elite">🐦 弱精英评测</button>
         <button class="tab-btn" data-tab="tab-template-power">⚔ 模板战力</button>
         <button class="tab-btn" data-tab="tab-cup-rank">🏆 交叉积分赛</button>
+        <button class="tab-btn" data-tab="tab-stage-elite">🎯 关卡精英评分</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
@@ -512,6 +513,22 @@
         <div id="cupResult"></div>
     </div>
 
+    <!-- 2026-11-14 关卡精英评分（850-stage-elite-panel.js）：固定明教骨架 vs 七关原生防守，
+         明教精英榜（换进骨架）/ 六大派防守榜（换进该关防守），只统计明教胜率。 -->
+    <div class="tab-content" id="tab-stage-elite">
+        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
+            固定两套明教普通兵阵容（队友永远同一批），被测明教精英按同职业换进骨架打七关；六大派精英按同职业换进该关原生防守（攻方固定为阵容 A + 寒离飒）。只统计明教胜率，越低＝防守越强。
+        </p>
+        <div class="fc-config" style="margin-bottom:10px;">
+            <label>每格场次</label><input id="seRuns" type="number" value="40" min="5" max="300">
+            <label style="font-weight:normal;color:#aaa;"><input id="seEnemyHex" type="checkbox"> 六大派也带海克斯</label>
+            <button id="seStartBtn">▶ 开始评分</button>
+            <button id="seCopyBtn" style="background:#4caf50;color:#fff;">复制结果</button>
+        </div>
+        <div id="seProgress" class="status-text"></div>
+        <div id="seResult"></div>
+    </div>
+
     <div class="tab-content" id="tab-template-power">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             模板战力：A 池 = 靶子阵容（弱/中/强，明教与六大派各一套），B 池 = 被测骨架。被测单位替换 B 队同职业位，逐套打 A，统计被测方胜率。双海克斯、双方各自独立随机。
@@ -718,6 +735,7 @@
     <script type="module" src="./846-weak-elite-eval.js"></script>
     <script type="module" src="./848-template-power-panel.js"></script>
     <script type="module" src="./849-cup-rank-panel.js"></script>
+    <script type="module" src="./850-stage-elite-panel.js"></script>
     <script type="module" src="./813-stats-check.js"></script>
     <script type="module" src="./814-baseline-compare.js"></script>
     <script type="module" src="./815-lineup-search.js"></script>
