@@ -14,7 +14,7 @@
 | 3 | rule-idle 恒空转红取证 | 庄铮断锤三式保命与承伤上限(回归)：干净树实测 pass=16/fail=0（非恒空转，规则健康）；脏树 skip=156 为并行 WIP 失真。V1.5.0 误登记已撤回(V1.5.1)，守门转绿，无需豁免 | done | 钟老师/贡献者轮 | 2026-11-13 |
 | 4 | fact-coverage-selftest 恒绿线补真退码 | 该脚本不再全文 `process.exit(0)`；补至少 1 条会变红的断言（D12 一轮遗留） | done | AI编程助手 | 2026-11-13 |
 | 5 | 元守卫 297–300 归属梳理 | 确认哪些是"槽位"（指向扫描脚本本身）、哪些待回填；更新 `requests/D12.json` 登记口径，消除 registration 误报 | doing | AI编程助手 | 2026-11-13 |
-| 6 | 体检 Node 守门并行化实测 | `run-all --jobs N` 已实现；实测提速比与稳定性，写进命令速查 | open | - | - |
+| 6 | 体检 Node 守门并行化实测 | `run-all --jobs N` 已实现；实测提速比与稳定性，写进命令速查 | doing | 钟老师/贡献者轮(11-14) | 2026-11-14 |
 | 7 | D12 扫描器 acorn 依赖守卫 + 反向样本补齐 | `rule-false-green-scan.mjs` 缺 acorn 时打印「守卫前提失效：acorn 缺失」并 exit(1)；六类反例各有夹具；定向用例通过 | open | - | - |
 | 8 | rule-idle 自检分支死码清理 | 经核查已满足（销项）：selfCheck()/checkThreshold() 自 L219/224 起已是真调用（d0fa0ad5·第143轮引 sample-sufficiency 公共件时落地）；全文 exit(1) 仅 119/127/232 三处真实错误分支，无「注释里的 exit(1)」死码 ⇒ 死码清理早完成，本条为过时任务 | done | 钟老师/贡献者轮 | 2026-11-13 |
 | 9 | 引擎依赖体检脚本加脏树前置守卫 | `rules-replay` 系脚本（rule-idle-selftest / fact-coverage-selftest / 变异牙等）跑前检测运行环境是否干净：若工作树有未提交主代码改动、或 HEAD≠远端稳定 tip，打印「脏树警告」并**不准下"恒空转/假绿/覆盖不足"结论**（参考本会话 #3 脏树 skip=156 误判教训）；干净 detached worktree 跑法不受影响。验收：在叠了 WIP 的主树上跑此类脚本会显式告警而非静默失真 | open | - | - |
