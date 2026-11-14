@@ -22,6 +22,14 @@ export const VER = 'tests/121health-monitor.js V6.13.2';
 //     可一键复制/导出。切片纯取证、只读，不参与任何判定（recordIssue 仍只按原 detail 去重）。
 //   ③ 回合号兜底：规则多在 GAMEOVER 触发，UI.round 此时多为 0 —— 从 battleLog 末尾回溯最后一条
 //     「第N回合」分隔符，保证切片带真实回合；取不到才退回 ctx.UI.round。
+// V6.11.2 | 2026-11-14 切片补齐「看不见的当事单位」（幼狮血条残留那条无法自证暴露的缺口）：
+//   ① 召唤物段：__BUG_CONTEXT__ 的十人来自 UI 快照 allyTeam/enemyTeam，召唤物/拒马天然在 10 人之外
+//     ⇒ 召唤物异常（幼狮/雄狮/母狮/雄鹰/拒马）在切片里看不到当事单位。改从真值源 battleStore
+//     直读，带 名/阵营/血/上限/站位/存活/死亡后秒（≤6 只）。
+//   ② UI 取证段（仅 source='UI'）：把被判单位自己格子的 DOM 实况带出来 —— cell 在不在、.hp-bar-inner
+//     高度、data-flash、.dead-mark、opacity。判据读什么就记什么，报告不再只能"看逻辑、猜画面"。
+//   ③ 补齐已采到却被丢弃的字段：步号（playStep，复现三要素之一）、暂停/倍速、活跃 Buff（≤8）。
+//   切片仍纯取证、只读、不参与判定。
 // V6.10.0 | 2026-11-04 双海克斯体检默认开启：开局点「六大派海克斯模式」按钮（btnGameEnemyHex）置 enemyAutoHex=true，
 //           六大派也自动选海克斯，覆盖双海克斯路径；?hexMode=single 退回单海克斯（点普通开始）。游戏本体双海克斯由
 //           ui/702 的 btnGameEnemyHex 触发（V1.3.0 core/206 的 enemyHexPicker），此前体检只走单海克斯，双海克斯路径从未被体检覆盖。
@@ -1009,7 +1017,7 @@ function checkPositionAfterSwap(ctx, attackEntry, unit, expectedPos) {
 //   口径：整场十人一行（名/阵营/血/上限/攻/防/位置/存活）+ 与报错点名单位的状态字段
 //   + 最近 6 条战斗日志 + 最近 10 个事实类型 + 版本/配置指纹/关卡/回合/seed。
 //   体积：单条约 1~2KB；切片只读，纯取证，不参与任何判定。
-function buildIssueSlice(detail, unitUid, ctx) {
+function buildIssueSlice(detail, unitUid, ctx, source) {
     const win = getWin();
     if (!win || typeof win.__BUG_CONTEXT__ !== 'function') return null;
     try {
@@ -1033,6 +1041,49 @@ function buildIssueSlice(detail, unitUid, ctx) {
             } catch (e) {}
         }
         if (!roundNo && ctx && ctx.UI && typeof ctx.UI.round === 'number') roundNo = ctx.UI.round;
+        // 真值源 units（V6.11.2）：切片十人来自 UI 快照，召唤物/拒马在 10 人之外 —— 召唤物异常要在
+        //   真值源里找当事单位，否则只能对着「最近动作 summonDead」猜。
+        let liveUnits = [];
+        try {
+            const st = win.GlobalStore && win.GlobalStore.get('battleStore');
+            liveUnits = (st && typeof st.getState === 'function' && st.getState().units) || [];
+        } catch (e) { liveUnits = []; }
+        // 召唤物段（≤6 只）：死后秒 = 距 _deathTime 的秒数，未死记 '-'
+        let summons = [];
+        try {
+            summons = liveUnits
+                .filter(u => u && (u.isSummon || u.isHorse || u.isLionCub))
+                .slice(-6)
+                .map(u => [
+                    u.name, u.camp === 'ally' ? '明' : '六', u.hp, u.maxHp, u.pos, u.alive ? 1 : 0,
+                    (u.state && u.state._deathTime) ? Math.round((Date.now() - u.state._deathTime) / 100) / 10 : '-'
+                ]);
+        } catch (e) { summons = []; }
+        // UI 取证段（V6.11.2）：只对 UI 类异常抓被判单位自己格子的 DOM 实况 —— 判据读什么就记什么。
+        //   定向顺序：recordIssue 传进来的 uid → 报错文字里点名的单位名（召唤物唯一进切片的口子）。
+        let uiEv = null;
+        if (source === 'UI') {
+            try {
+                const doc = win.document;
+                // 同名多实例（雄狮×3）：优先已阵亡的、再取数组末位 —— 死亡类异常要抓的是死者那只
+                const cands = liveUnits.filter(u => u && u.name && detail.indexOf(u.name) >= 0);
+                const named = liveUnits.find(u => u && u.uid && u.uid === unitUid)
+                    || cands.filter(u => !u.alive).slice(-1)[0]
+                    || cands.slice(-1)[0];
+                if (named) {
+                    const cell = getCellByUid(named.uid, doc);
+                    const bar = cell && cell.querySelector('.hp-bar-inner');
+                    uiEv = {
+                        name: named.name, uid: String(named.uid).slice(0, 14),
+                        cell: !!cell,
+                        bar: bar ? String(bar.style.height || '') : '-',
+                        flash: cell ? (cell.getAttribute('data-flash') || '-') : '-',
+                        deadMark: !!(cell && cell.querySelector('.dead-mark')),
+                        opacity: cell ? String(cell.style.opacity || '-') : '-'
+                    };
+                }
+            } catch (e) { uiEv = null; }
+        }
         // 点名单位：auto 档按报错文字里的单位名自动聚焦，带出与报错相关的 state 字段（≤2 个）
         let focus = [];
         try {
@@ -1047,10 +1098,14 @@ function buildIssueSlice(detail, unitUid, ctx) {
         const sl = {
             ver: base.ver, cfgVer: base.cfgVer,
             stage: base.stage, round: roundNo, gs: base.gs, seed: seed,
+            step: base.playStep, paused: base.paused, speed: base.speed,
             where: base.where,
             unitFields: base.unitFields || ['名字', '阵营', '血', '血上限', '攻', '防', '站位', '存活'],
             units: base.units || [],
+            summons: summons,
+            uiEv: uiEv,
             focus: focus,
+            buffs: (base.buffs || []).slice(-8),
             acts: (base.actions || []).slice(-10),
             log: (base.log || []).slice(-6)
         };
@@ -1058,6 +1113,7 @@ function buildIssueSlice(detail, unitUid, ctx) {
         let txt = formatIssueSlice(sl);
         while (txt.length > 2048 && sl.log.length > 2) { sl.log.shift(); txt = formatIssueSlice(sl); }
         while (txt.length > 2048 && sl.acts.length > 4) { sl.acts.shift(); txt = formatIssueSlice(sl); }
+        while (txt.length > 2048 && sl.summons.length > 3) { sl.summons.shift(); txt = formatIssueSlice(sl); }
         while (txt.length > 2048 && sl.focus.length > 1) { sl.focus.pop(); txt = formatIssueSlice(sl); }
         if (txt.length > 2048) { sl.focus = []; txt = formatIssueSlice(sl); }
         if (txt.length > 2048) { sl.log = []; sl.acts = []; txt = formatIssueSlice(sl); }
@@ -1071,10 +1127,25 @@ function formatIssueSlice(s) {
     const lines = [];
     lines.push('【切片】ver=' + (s.ver || '?') + ' cfg=' + (s.cfgVer || '?') +
         ' 关' + (s.stage != null ? s.stage : '?') + ' 回合' + (s.round != null ? s.round : '?') +
-        ' gs=' + (s.gs != null ? s.gs : '?') + ' seed=' + (s.seed != null ? s.seed : '?'));
+        ' gs=' + (s.gs != null ? s.gs : '?') + ' seed=' + (s.seed != null ? s.seed : '?') +
+        ' 步=' + (s.step != null ? s.step : '?') +
+        (s.paused ? ' 暂停中' : '') + (s.speed != null ? ' 速' + s.speed : ''));
     if (s.units && s.units.length) {
         lines.push('  十人（' + (s.unitFields || []).join('/') + '）:');
         for (const u of s.units) lines.push('    ' + (Array.isArray(u) ? u.join('/') : JSON.stringify(u)));
+    }
+    if (s.summons && s.summons.length) {
+        lines.push('  召唤物（名/阵营/血/上限/站位/存活/死后秒）:');
+        for (const u of s.summons) lines.push('    ' + u.join('/'));
+    }
+    if (s.uiEv) {
+        lines.push('  UI取证: ' + s.uiEv.name + ' cell=' + (s.uiEv.cell ? '有' : '无')
+            + ' bar=' + s.uiEv.bar + ' flash=' + s.uiEv.flash
+            + ' 死亡标记=' + (s.uiEv.deadMark ? '有' : '无') + ' opacity=' + s.uiEv.opacity);
+    }
+    if (s.buffs && s.buffs.length) {
+        lines.push('  活跃Buff: ' + s.buffs.map(b => (b && b.name ? b.name : (b && b.key))
+            + '(' + (b && b.remaining != null ? b.remaining : '?') + ')').join(' '));
     }
     if (s.focus && s.focus.length) {
         lines.push('  点名单位:');
@@ -1101,7 +1172,7 @@ function recordIssue(ctx, unitUid, type, detail, source, immediate) {
     }
     issueKeys.add(key);
     const stage = detectStage(getDoc()) || (ctx ? ctx.currentStage : 0) || 0;
-    detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString(), slice: buildIssueSlice(detail, unitUid, ctx) });
+    detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString(), slice: buildIssueSlice(detail, unitUid, ctx, source) });
     updateReport();
     updateStatusLine();
 }
