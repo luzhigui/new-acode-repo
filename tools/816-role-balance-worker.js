@@ -786,7 +786,8 @@ function runTemplateABJob(job) {
         const seed = 3000001 + (startIndex + i) * 7919;
         const bSpecs = bUnits.map(s => ({ ...s }));
         if (cand) {
-            let k = bSpecs.findIndex(s => s.role === cand.role);
+            let k = cand.pos ? bSpecs.findIndex(s => s.pos === cand.pos) : -1;
+            if (k < 0) k = bSpecs.findIndex(s => s.role === cand.role);
             if (k < 0) {
                 const front = r => r === '防战' || r === '战士';
                 k = bSpecs.findIndex(s => front(s.role) === front(cand.role));

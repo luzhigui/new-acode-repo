@@ -57,13 +57,14 @@ function makeUnit(spec, camp, rng) {
     return u;
 }
 
-// B 骨架 + 被测单位替换：同职业 → 同排 → 末位
+// B 骨架 + 被测单位替换：指定 pos（辅助固定后排）→ 同职业 → 同排 → 末位
 function buildB(tpl, candSpec, rng) {
     const units = tpl.units.map(s => ({ ...s }));
     let slot = null, replacedRole = null;
     if (candSpec) {
         const cand = { name: candSpec.name, role: candSpec.role, pos: null };
-        let idx = units.findIndex(u => u.role === candSpec.role);
+        let idx = candSpec.pos ? units.findIndex(u => u.pos === candSpec.pos) : -1;
+        if (idx < 0) idx = units.findIndex(u => u.role === candSpec.role);
         if (idx < 0) idx = units.findIndex(u => isFront(u.role) === isFront(candSpec.role));
         if (idx < 0) idx = units.length - 1;
         cand.pos = units[idx].pos;
@@ -109,11 +110,13 @@ function roleOf(name) {
     }
     return null;
 }
-// 候选可写成 "名字" 或 { name, role }：数据里没职业的（素问/圆真/张中…）在模板里显式指定
+// 候选可写成 "名字" 或 { name, role, kind, pos }：数据里没职业的显式指定；kind= support 走辅助模板并固定 pos
 function candSpec(c) {
-    const name = typeof c === 'string' ? c : c.name;
-    const role = (typeof c === 'object' && c.role) || roleOf(name);
-    return { name, role };
+    // 命令行 --cand=名字 时，回查 json 里的完整定义（kind/pos/role 不丢）
+    const o = typeof c === 'string'
+        ? (TPL.candidates.find(x => (typeof x === 'string' ? x : x.name) === c) || { name: c })
+        : c;
+    return { name: o.name, role: o.role || roleOf(o.name), kind: o.kind || 'dps', pos: o.pos || null };
 }
 
 const aPool = TPL.a.slice(0, MAX_A);
@@ -153,7 +156,7 @@ for (const raw of rawCands) {
     const candName = cs.name;
     if (!role) { console.log(`跳过 ${candName}：数据里没有职业，请在 847-templates.json 的 candidates 里补 role`); continue; }
     const myCamp = chars[candName].camp;
-    const bList = bPool.filter(b => b.camp === myCamp);
+    const bList = bPool.filter(b => b.camp === myCamp && (!b.kinds || b.kinds.includes(cs.kind)));
     const aList = aPool.filter(a => a.camp !== myCamp);
     if (!bList.length || !aList.length) { console.log(`跳过 ${candName}：没有匹配的模板`); continue; }
 

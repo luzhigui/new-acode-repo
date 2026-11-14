@@ -29,8 +29,13 @@ function roleOf(name) {
     return null;
 }
 function candSpec(raw) {
-    const name = typeof raw === 'string' ? raw : raw.name;
-    return { name, role: (typeof raw === 'object' && raw.role) || roleOf(name) };
+    const o = typeof raw === 'string' ? { name: raw } : raw;
+    return {
+        name: o.name,
+        role: o.role || roleOf(o.name),
+        kind: o.kind || 'dps',
+        pos: o.pos || null
+    };
 }
 
 function renderPools() {
@@ -70,7 +75,7 @@ startBtn?.addEventListener('click', async () => {
     for (const c of cSel) {
         if (!c.role) continue;
         const camp = chars[c.name]?.camp;
-        for (const b of B.filter(x => x.camp === camp)) {
+        for (const b of B.filter(x => x.camp === camp && (!x.kinds || x.kinds.includes(c.kind)))) {
             for (const a of A.filter(x => x.camp !== camp)) {
                 jobs.push({ kind: 'cand', a, b, cand: c, runs: RUNS, key: `${c.name}|${a.id}`, label: `${c.name} vs ${a.id}` });
             }

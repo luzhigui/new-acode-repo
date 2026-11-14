@@ -51,7 +51,7 @@
     ]}
   ],
   "b": [
-    { "id": "BM-均衡", "camp": "明教", "units": [
+    { "id": "BM-均衡", "kinds": ["dps", "tank"], "camp": "明教", "units": [
       { "name": "颜垣", "role": "防战", "pos": 1 },
       { "name": "范遥", "role": "战士", "pos": 2 },
       { "name": "吴劲草", "role": "战士", "pos": 3 },
@@ -59,7 +59,7 @@
       { "name": "明教洪午", "role": "远程", "pos": 7 },
       { "name": "明教岳山", "role": "远程", "pos": 8 }
     ]},
-    { "id": "BM-前排厚", "camp": "明教", "units": [
+    { "id": "BM-前排厚", "kinds": ["dps", "tank"], "camp": "明教", "units": [
       { "name": "颜垣", "role": "防战", "pos": 1 },
       { "name": "明教石虎", "role": "战士", "pos": 2 },
       { "name": "明教弟子1", "role": "战士", "pos": 3 },
@@ -67,7 +67,7 @@
       { "name": "冷谦", "role": "远程", "pos": 7 },
       { "name": "吴劲草", "role": "远程", "pos": 8 }
     ]},
-    { "id": "BS-均衡", "camp": "六大派", "units": [
+    { "id": "BS-均衡", "kinds": ["dps", "tank"], "camp": "六大派", "units": [
       { "name": "空闻", "role": "防战", "pos": 1 },
       { "name": "空智", "role": "战士", "pos": 2 },
       { "name": "空性", "role": "战士", "pos": 3 },
@@ -75,13 +75,29 @@
       { "name": "清风", "role": "远程", "pos": 7 },
       { "name": "明月", "role": "远程", "pos": 8 }
     ]},
-    { "id": "BS-前排厚", "camp": "六大派", "units": [
+    { "id": "BS-前排厚", "kinds": ["dps", "tank"], "camp": "六大派", "units": [
       { "name": "班淑娴", "role": "防战", "pos": 1 },
       { "name": "宗维侠", "role": "战士", "pos": 2 },
       { "name": "常敬之", "role": "战士", "pos": 3 },
       { "name": "静玄", "role": "战士", "pos": 4 },
       { "name": "静虚", "role": "远程", "pos": 7 },
       { "name": "静照", "role": "远程", "pos": 8 }
+    ]},
+    { "id": "BM-辅助", "kinds": ["support"], "camp": "明教", "units": [
+      { "name": "杨逍", "role": "防战", "pos": 1 },
+      { "name": "殷天正", "role": "战士", "pos": 2 },
+      { "name": "范遥", "role": "战士", "pos": 3 },
+      { "name": "吴劲草", "role": "战士", "pos": 4 },
+      { "name": "冷谦", "role": "远程", "pos": 7 },
+      { "name": "明教岳山", "role": "远程", "pos": 9 }
+    ]},
+    { "id": "BS-辅助", "kinds": ["support"], "camp": "六大派", "units": [
+      { "name": "空闻", "role": "防战", "pos": 1 },
+      { "name": "空智", "role": "战士", "pos": 2 },
+      { "name": "空性", "role": "战士", "pos": 3 },
+      { "name": "班淑娴", "role": "战士", "pos": 4 },
+      { "name": "清风", "role": "远程", "pos": 7 },
+      { "name": "明月", "role": "远程", "pos": 9 }
     ]}
   ],
   "candidates": [
@@ -96,12 +112,12 @@
     { "name": "寒离飒" },
     { "name": "金毛狮王谢逊", "role": "远程" },
     { "name": "韦一笑", "role": "战士" },
-    { "name": "素问", "role": "远程" },
+    { "name": "素问", "role": "远程", "kind": "support", "pos": 9 },
     { "name": "少林圆真", "role": "远程" },
     { "name": "何太冲" },
     { "name": "唐文亮" },
     { "name": "灭绝师太" },
     { "name": "成昆" },
-    { "name": "张三丰" }
+    { "name": "张三丰", "kind": "support", "pos": 9 }
   ]
 }
