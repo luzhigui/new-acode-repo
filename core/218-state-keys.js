@@ -383,7 +383,9 @@ export function isImmuneTo(unitOrState, kind) {
         case 'execute':
             return !!st._immuneExecute;
         default:
-            return false;
+            // 拼错 kind 就地喊停：静默放行会让「以为免疫了、其实没免疫」查很久。
+            //   调用方必须传 infra/106 IMMUNE_KINDS 里的值。
+            throw new Error('isImmuneTo: 未知免疫类型 "' + kind + '"（应使用 IMMUNE_KINDS 里的值）');
     }
 }
 
