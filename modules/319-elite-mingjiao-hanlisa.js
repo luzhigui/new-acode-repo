@@ -158,7 +158,9 @@ export function createHanLiSaComponent() {
                 if (hls.state._hlsJiuYangDone && hls.state._hlsHanBingDone && (hls.state._hlsCharging || 0) === 0) {
                     if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
                     const shield = hls.maxHp * xl.shieldPct;
-                    Object.assign(hls.state, { _hlsCharging: 1, _shield: (hls.state._shield || 0) + shield });
+                    // 护盾改成「重置为上限值」而非累加：起手 / 蓄力回合 / 被雄鹰恢复 三处都刷到
+                    //   maxHp×shieldPct，不会叠成 60%/90%。
+                    Object.assign(hls.state, { _hlsCharging: 1, _shield: shield });
                     pushInfo(data, `<span class="gold">🌀 寒离飒起手蓄力：获得 ${fmtNum(shield)} 点护盾（下回合凝聚）</span>`);
                 }
             });
@@ -209,6 +211,9 @@ export function createHanLiSaComponent() {
             });
 
             // —— 蓄力回合：跳过行动（core/11 声明通道，产 PASS 行）——
+            //   相位 1 → 本回合首次轮到：skip、转 3（已跳过，等回合末爆发）、护盾刷到上限。
+            //   相位 3 → 已跳过又被雄鹰恢复行动力：仍 skip（不打人），攻击力原值累加进轰拳基数，护盾再刷。
+            //   相位 2 属「寒离飒强化」路径（ON_ROUND_START 直接置 2、本回合照常攻击），这里不碰。
             eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
                 if (data.unit !== hls) return;
                 // 强化回合：轮到他行动时再得 shieldPct×maxHp 护盾（每回合一次；回合末爆发时随 _shield 清零）
@@ -218,10 +223,19 @@ export function createHanLiSaComponent() {
                     hls.state._shield = (hls.state._shield || 0) + addShield;
                     pushInfo(data, `<span class="gold">🛡️ 寒离飒强化：行动前再得 ${fmtNum(addShield)} 点护盾</span>`);
                 }
-                if ((hls.state._hlsCharging || 0) !== 1) return;
-                hls.state._hlsCharging = 2;
+                const charging = hls.state._hlsCharging || 0;
+                if (charging !== 1 && charging !== 3) return;
                 data.declaration.skip = true;
-                announce({ log: data.log }, `🌀 ${hls.name} 蓄力中（本回合不行动）`);
+                if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
+                hls.state._shield = hls.maxHp * xl.shieldPct;
+                if (charging === 1) {
+                    hls.state._hlsCharging = 3;
+                    announce({ log: data.log }, `🌀 ${hls.name} 蓄力中（本回合不行动，护盾刷新）`);
+                } else {
+                    const atkBonus = Math.floor(getStat(hls, 'atk'));
+                    hls.state._hlsExtraBonus = (hls.state._hlsExtraBonus || 0) + atkBonus;
+                    announce({ log: data.log }, `🌀 ${hls.name} 被恢复行动力，继续蓄力：攻击力 +${fmtNum(atkBonus)} 计入轰拳基数，护盾刷新`);
+                }
             });
 
             // —— 回合开始：寒毒 tick + 承伤桶滚动（蓄意轰拳结算已迁 ON_ROUND_END·forced:true，V2.1）——
@@ -262,18 +276,22 @@ export function createHanLiSaComponent() {
             //    → 随机前排兜底（getBattleRng 保基线可复现）。
             eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.HANLISA_BURST, (data) => {
                 if (!data || !data.forced) return;   // 每单位行动后的 forced:false 广播不结算
-                if ((hls.state._hlsCharging || 0) !== 2) return;
+                // 相位 2 = 强化路径（本回合照常行动）；相位 3 = 普通蓄力（已跳过行动）。两者都在回合末爆发。
+                const phase = hls.state._hlsCharging || 0;
+                if (phase !== 2 && phase !== 3) return;
                 hls.state._hlsCharging = 0;           // 无论死活都清（防阵亡复活后带陈旧蓄力状态爆发）
                 if (!hls.alive) return;
                     // 蓄过一次必须再各触发一次九阳/寒毒才能再蓄 —— 爆发结算即清标记，
                     //   否则两标记一直为 true，下一刀普攻立刻又满足起蓄条件（实机表现为「老蓄力」）
                     hls.state._hlsJiuYangDone = false;
                     hls.state._hlsHanBingDone = false;
+                    hls.state._hlsExtraBonus = 0;   // 额外基数用完清零，下一轮蓄力重新累计
                     const decls = [];   // ROUND_END 无 declarations 通道，本地攒齐后统一走 core/16 应用器
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
+                        // N = 最近三回合承伤总和 + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）。
+                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));
 
                         // —— 瞄准位：player/42 回合末交互写入优先（华丽模式按住-拖-松手）；
                         //    没写 = 简单模式/全自动/快进/AI → 本处随机前排兜底（getBattleRng 保基线可复现）——

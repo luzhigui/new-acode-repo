@@ -265,6 +265,20 @@ export const UNIT_EVENT_TYPES = Object.freeze({
     ZHANG_SWITCH: 'zhang-switch'
 });
 
+/**
+ * 免疫类型：所有「这个单位能不能被施加 X」的判断都走这个枚举。
+ *   消费侧统一调 core/218 的 isImmuneTo(unit, kind)，不许各模块自己查字段名。
+ *   加新免疫 kind：这里加一行 + core/218 的 isImmuneTo 里加一条映射；消费侧零改动。
+ *   单位侧声明：state 上对应的布尔字段（如 _ctrlImmune / _immunePoison / _immuneExecute）——
+ *   数据侧零改动，已有的声明原样有效。
+ */
+export const IMMUNE_KINDS = Object.freeze({
+    CONTROL: 'control',   // 眩晕/击退/换位等控制与位移（读 state._ctrlImmune）
+    POISON:  'poison',    // 挂毒与 dot 结算（读 state._immunePoison）
+    EXECUTE: 'execute',   // 战士斩杀 / 白骨爪斩杀（读 state._immuneExecute）
+    BAG:     'bag'        // 说不得·布袋（读 state._ctrlImmune——袋子的本质是控制：不可选 + 不可行动）
+});
+
 /** 掉落类型：DROP fact 的 kind / dropKind 唯一来源 */
 export const DROP_TYPES = Object.freeze({
     TOKEN: 'token',

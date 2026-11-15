@@ -13,9 +13,11 @@ export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.3';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, applyStatChange, emitEvent, getStat } from '../core/214-battle-shared.js';
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES, IMMUNE_KINDS } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
+// 免疫查询统一入口：袋子问「你免疫装袋吗」，免疫就换下一个（不各处硬拦）
+import { isImmuneTo } from '../core/218-state-keys.js';
 
 // 布袋参数：缺段/缺子键当场报错，不回落硬编码（与海克斯「缺哪键报哪键」同口径）
 function getBagTrapParams() {
@@ -36,6 +38,8 @@ function findHighestHp(team) {
     let best = null;
     for (const u of team) {
         if (!u.alive || u.state._pendingDeath || u.isHorse) continue;
+        // 免疫装袋者（寒离飒等）不进候选——袋子问「你免疫装袋吗」，免疫就换下一个。
+        if (isImmuneTo(u, IMMUNE_KINDS.BAG)) continue;
         if (!best || u.hp > best.hp) best = u;
     }
     return best;
@@ -50,6 +54,7 @@ function findProtectCandidate(team, redHpThreshold, excludeUid) {
     for (const u of team) {
         if (!u.alive || u.state._pendingDeath || u.isHorse) continue;
         if (u.uid === excludeUid) continue;
+        if (isImmuneTo(u, IMMUNE_KINDS.BAG)) continue;   // 免疫装袋者不进候选
         if (u.hp / u.maxHp >= redHpThreshold) continue;
         if (!u.state._acted) continue;   // 本回合未行动：不装（别耽误他出手）
         const pct = u.hp / u.maxHp;
@@ -107,6 +112,7 @@ function onShuobudeHit(data) {
     const allyTeam = A || [];
     const enemyTeam = B || [];
     // 1. 保护：优先装「残血 + 已行动」的己方队友
+    //   免疫控制者（寒离飒等）已在 findProtectCandidate 候选池里排除，不会走到这里。
     const protectTarget = findProtectCandidate(allyTeam, p.redHpThreshold, unit.uid);
     if (protectTarget) {
         putInBag(unit, protectTarget, 'protect', log, true);   // 本回合末放，不耽误行动
@@ -114,6 +120,7 @@ function onShuobudeHit(data) {
     }
     // 2. 抓敌：装敌方血量最高的；按行动状态决定关押时长
     //   已行动 → 下回合末放（耽误下回合 1 次）；未行动 → 本回合末放（耽误本回合 1 次）
+    //   免疫控制者已在 findHighestHp 候选池里排除。
     const enemyTarget = findHighestHp(enemyTeam);
     if (enemyTarget) {
         const alreadyActed = enemyTarget.state._acted === true;

@@ -116,8 +116,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
     _hlsJiuYangDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _hlsHanBingDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 蓄力相位：0 未蓄力 / 1 已触发待下回合蓄 / 2 本回合蓄力（跳过行动）
+    // 蓄力相位：0 未蓄力 / 1 待蓄（下回合行动前跳过）/ 2 强化路径（本回合照常行动、回合末爆发）
+    //   / 3 已跳过行动、等回合末爆发（普通蓄力；被雄鹰恢复后仍停在此相位继续蓄）
     _hlsCharging:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 蓄力期被雄鹰恢复行动力时，把攻击力原值累加到这里（真伤，值多少加多少）；
+    //   轰拳爆发时并入基数 N，爆发结算后清 0。多次恢复即多次累加。
+    _hlsExtraBonus:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 寒离飒低血双拳：本回合已触发过就置 true，回合开始统一清（防同回合无限连锁）
     _hlsDoubleFired:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 寒离飒专属海克斯「寒离飒强化」：本局已触发过（一场一次）/ 本回合嘲讽 / 本回合承伤按攻击力计入 / 本回合已加行动盾
@@ -351,6 +355,36 @@ export function isControlled(unitOrState) {
 /** 免控：CC 类施加对它无效 */
 export function isCCImmune(unitOrState) {
     return hasStateTag(unitOrState, STATE_TAGS.CC_IMMUNE);
+}
+
+/**
+ * 免疫查询唯一入口：这个单位能不能被施加 kind 类效果？
+ *   kind = IMMUNE_KINDS 之一（control / poison / execute / bag）。
+ *   返回 true = 免疫，消费侧必须跳过这个目标或换下一个。
+ *
+ * 设计意图（2026-11-15 老板拍板）：免疫是单位属性，不是消费侧的 if 链。
+ *   装袋技能挑人时问一句「你免疫装袋吗」，免疫就换下一个——而不是挑到之后才发现装不上。
+ *   现有三个布尔字段（_ctrlImmune / _immunePoison / _immuneExecute）原样有效，
+ *   本函数只做「kind → 字段」的映射，数据侧零改动。
+ *
+ * 加新 kind 三步：infra/106 的 IMMUNE_KINDS 加一行 → 本函数加一条映射 → 消费侧调用。
+ * 注：case 用字符串字面量而非 import IMMUNE_KINDS —— 218 是纯定义模块（零 import），
+ *   加上 106 会新增依赖链；枚举值本身不该变。
+ */
+export function isImmuneTo(unitOrState, kind) {
+    const st = (unitOrState && unitOrState.state) ? unitOrState.state : unitOrState;
+    if (!st) return false;
+    switch (kind) {
+        case 'control':
+        case 'bag':      // 袋子本质是控制：不可选 + 不可行动
+            return hasStateTag(st, STATE_TAGS.CC_IMMUNE);
+        case 'poison':
+            return !!st._immunePoison;
+        case 'execute':
+            return !!st._immuneExecute;
+        default:
+            return false;
+    }
 }
 
 /** 待死窗口：血量已归零、尚未被 resolveDeaths 清算 */

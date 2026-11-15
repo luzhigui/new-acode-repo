@@ -195,7 +195,7 @@ export async function handleHanlisaAimWindow(c, step) {
     try {
         if (!step || !step.hanlisaAimWindow) return;
         const pool = [...(step.ally || []), ...(step.enemy || [])];
-        const hls = pool.find(u => u && u.isHanLiSa && u.alive && u.state && u.state._hlsCharging === 2);
+        const hls = pool.find(u => u && u.isHanLiSa && u.alive && u.state && (u.state._hlsCharging || 0) >= 2);
         if (!hls) return;
         const interactive = hls.camp === CAMP_TYPES.ALLY
             && !!GlobalStore.get('fxHanlisaAim')

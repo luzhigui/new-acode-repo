@@ -685,7 +685,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     // 蓄意轰拳瞄准窗口：行动循环结束后、收尾结算前，若寒离飒蓄力到期且 ui 模式，先 yield 一个空标记步。
     //   播放层此时弹瞄准黑幕，把 _hlsAim* 写进 step 单位（与本 generator 的 A/B 同引用），收尾结算即读到。
     //   ui:false（headless）不 yield，结算走随机前排兜底。
-    if (ui && [...A, ...B].some(u => u && u.isHanLiSa && u.alive && u.state && (u.state._hlsCharging || 0) === 2)) {
+    if (ui && [...A, ...B].some(u => u && u.isHanLiSa && u.alive && u.state && (u.state._hlsCharging || 0) >= 2)) {
         const aimStep = makeStep([], []);
         aimStep.hanlisaAimWindow = true;
         yield aimStep;
