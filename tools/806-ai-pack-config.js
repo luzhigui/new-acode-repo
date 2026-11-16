@@ -538,25 +538,24 @@ export const PLAYER_LOW_FREQ = new Set([
     '../player/507-battle-player-5v5-test.js' // 0.8 KB 入口
 ]);
 
-// 主题分组：原六组结构不变，仅把 engine、ui 各拆成「高频 / 低频」两组。
-// 顺序敏感：803 是「第一个前缀命中即归组」，低频组必须排在对应高频组之前
-//   （低频用精确文件路径，startsWith 精确命中；未命中的自然落进高频的目录前缀）。
-// 播放器 / 工具 / 体检 / 存档 原样保留。
+// 主题分组：高频三组在前（1/2/3），低频三组在后（4/5/6），再是工具/体检/存档。
+// 分组判据（2026-11-16 改）：
+//   低频组带 exact: true —— 按「精确文件路径」匹配，803 先做精确匹配、再按目录前缀匹配，
+//   所以它们可以安全地排在引擎/播放器/UI 后面，不会被前面的目录前缀抢走。
 export const FILE_GROUPS = [
-    // packSkip: true = 复制器里照常显示、可手动勾选，但 AI 复制包自动跳过（只发高频地基）。
-    { name: 'engineLow', displayName: '引擎·低频', packSkip: true, prefixes: [...ENGINE_LOW_FREQ] },
     { name: 'engineHigh', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
-    { name: 'playerLow', displayName: '播放器·低频', packSkip: true, prefixes: [...PLAYER_LOW_FREQ] },
     { name: 'player', displayName: '播放器', prefixes: ['../player/'] },
-    { name: 'uiLow', displayName: 'UI·低频', packSkip: true, prefixes: [...UI_LOW_FREQ] },
-    { name: 'uiHigh', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
+    { name: 'uiHigh', displayName: 'UI', prefixes: ['../ui/', '../fx/'] },
+    // packSkip: true = 复制器里照常显示、可手动勾选，但 AI 复制包自动跳过（只发高频地基）。
+    { name: 'engineLow', displayName: '引擎·低频', packSkip: true, exact: true, prefixes: [...ENGINE_LOW_FREQ] },
+    { name: 'playerLow', displayName: '播放器·低频', packSkip: true, exact: true, prefixes: [...PLAYER_LOW_FREQ] },
+    { name: 'uiLow', displayName: 'UI·低频', packSkip: true, exact: true, prefixes: [...UI_LOW_FREQ] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
     { name: 'tests', displayName: '体检', prefixes: ['../tests/'] },
     // 2026-11-10 第六类：下线存档层。老板要求——这些「不用了但怕以后要」的东西
     //   既不该进主代码包（拖大），也不该进工具包（工具组本来就太大、更没必要），
     //   所以单开一组，**默认不勾选**，要用时手动勾上发。
-    //   必须排在最后：803 的分组循环是「第一个前缀命中即归组」，而兜底逻辑会把
-    //   没匹配上的文件塞进第一组（引擎·低频）——本组前缀写死 ../archive/，不参与兜底。
+    //   必须排在最后；前缀写死 ../archive/，不参与兜底（兜底进第一组＝引擎）。
     { name: 'archive', displayName: '📦 存档（不随包）', prefixes: ['../archive/'] }
 ];
 

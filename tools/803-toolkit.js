@@ -49,17 +49,20 @@ function escapeHtml(text) {
     FILE_GROUPS.forEach(g => g.files = []);
     // 2026-11-11：这是个「物理在 tools/、逻辑归存档」的例外——前缀会被「工具」组先命中，故单列覆盖
     const ARCHIVE_ONLY = new Set(['../tools/845-battle-log-analyze.js']);
+    // 分组匹配（2026-11-16）：低频组是 exact 精确路径，必须优先判定，
+    //   否则会被排在前面的 ../modules/、../ui/ 等目录前缀抢走（分组已改成高频 1/2/3、低频 4/5/6）。
+    const matchGroup = (f) => {
+        const ex = FILE_GROUPS.find(g => g.exact && g.prefixes && g.prefixes.includes(f));
+        if (ex) return ex;
+        return FILE_GROUPS.find(g => !g.exact && g.prefixes && g.prefixes.some(p => f.startsWith(p))) || null;
+    };
     FILES.forEach(f => {
         if (ARCHIVE_ONLY.has(f)) {
             const ag = FILE_GROUPS.find(g => g.name === 'archive');
             if (ag) { ag.files.push(f); return; }
         }
-        for (const g of FILE_GROUPS) {
-            if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) {
-                g.files.push(f);
-                return;
-            }
-        }
+        const g = matchGroup(f);
+        if (g) { g.files.push(f); return; }
         FILE_GROUPS[0].files.push(f); // 兜底：未匹配分组的文件归入第一组（引擎）
     });
 
@@ -334,9 +337,13 @@ function escapeHtml(text) {
             if (ARCHIVE_ONLY.has(f) && archiveIdx >= 0) {
                 idx = archiveIdx;
             } else {
-                for (let i = 0; i < FILE_GROUPS.length; i++) {
-                    const g = FILE_GROUPS[i];
-                    if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) { idx = i; break; }
+                // 与复制器同口径：exact 组优先，再按目录前缀
+                const ex = FILE_GROUPS.findIndex(g => g.exact && g.prefixes && g.prefixes.includes(f));
+                if (ex >= 0) { idx = ex; } else {
+                    for (let i = 0; i < FILE_GROUPS.length; i++) {
+                        const g = FILE_GROUPS[i];
+                        if (!g.exact && g.prefixes && g.prefixes.some(p => f.startsWith(p))) { idx = i; break; }
+                    }
                 }
             }
             buckets[idx].files.push((AI_EXCLUDE.has(f) ? '⊘ ' : '  ') + f.replace(/^\.\.\//, ''));
