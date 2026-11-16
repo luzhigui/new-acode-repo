@@ -1,3 +1,9 @@
+// V1.55.0 | 2026-11-16 迭代：挂「转交块交付守门」tests/transfer-block-guard.mjs（新建 V1.0.0）。
+//   由头：第14轮报告说「要主代码配合」却一块未交、看板三行写「只写转交块、等授权落地」= 空头支票；
+//   skill §4.5 事后立了「说要配合⇒同轮必贴块」，但只是文字纪律，别的会话/软件不读 skill 照样犯。
+//   本件把纪律固化成机器约束：只扫看板任务行，冻结存量(0条)进 baseline、只拦新增空头话与基线洗长；
+//   自指行(标题含守门)与已交付行豁免；7 组离线自证 + 咬牙测试(注入→红/还原→绿)均通过。
+//   挂 OBSERVES + hard:true，不改 CHECKS 分母与退码口径。只读 tests/ 文档，不碰主代码。
 // V1.54.0 | 2026-11-13：新增 --jobs N 并发跑（默认 1=顺序，行为不变），各守门脚本独立安全可并行。
 // V1.53.1 | 2026-11-12 合流 D12 二轮：挂规则假绿静态扫描
 // V1.53.0 | 2026-11-12 迭代：挂「静态入口解耦守门」tests/static-entry-guard.mjs（新建 V1.0.0）。
@@ -247,7 +253,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.54.0';
+export const VER = 'tests/run-all.mjs V1.55.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -565,6 +571,9 @@ const OBSERVES = [
     //   存量 138 条待销项冻结进基线、只点名不判红；真正咬的是抽取器失位 / 基线被改坏 /
     //   借 --update-baseline 把队列洗长（基线只降不抬）。hard: true = 这些都是确定性缺陷。
     { name: '转交队列出口守门', script: 'tests/transfer-exit-guard.mjs', args: [], hard: true },
+    // V1.55.0 | 2026-11-16：转交块交付守门（详见头顶 V1.55.0 日志行）。冻结存量空头话(0条)进 baseline、
+    //   只拦新增与基线洗长；自指行/已交付行豁免。hard: true = 新增空头话属确定性缺陷。
+    { name: '转交块交付守门', script: 'tests/transfer-block-guard.mjs', args: [], hard: true },
     // V1.50.0 | 2026-11-10：多会话文件所有权守门（详见头顶 V1.50.0 日志行）。
     //   各会话开工/提交前设 HC_ROLE（+ HC_DOMAIN）自检越界；未设角色时只跑全量入库红线。
     { name: '多会话文件所有权守门', script: 'tests/session-scope-guard.mjs', args: [], hard: true },
