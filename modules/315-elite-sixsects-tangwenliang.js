@@ -9,7 +9,7 @@ import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance, snapshotUnitForFact } from '../core/211-battle-attack-steps.js';
-import { getMissBreakdown, makeFXSnapshot, isAirborne } from '../core/203-battle-utils.js';
+import { getMissBreakdown, makeFXSnapshot, isAirborne, isInBag } from '../core/203-battle-utils.js';
 import { flushBattleEvents, fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { applyRoleBonusMods, switchRoleOnly, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
@@ -105,6 +105,10 @@ export function createTangWenLiangComponent() {
                     if (isAirborne(occAtTarget)) {
                         return { ok: false, reason: 'blocked-target-airborne', blocked: occAtTarget, moved: [] };
                     }
+                    // 布袋格当墙：袋中人不在场，不能被推挤挪格（推了演出层找不到新格子，播放链会停在上一行）
+                    if (isInBag(team, occAtTarget)) {
+                        return { ok: false, reason: 'blocked-target-bag', blocked: occAtTarget, moved: [] };
+                    }
                 }
                 // 落点本身空着 → 不推任何人，直接落（旧版从 startIdx+1 往后扫到第一个空格，
                 //   会把落点之后的队友整串前推——2 号位空着却把 5 号的队友推到 8 号，就是老板看到的现象）
@@ -122,6 +126,7 @@ export function createTangWenLiangComponent() {
                     if (occ) {
                         if (occ.state && occ.state._ctrlImmune) { blocked = occ; blockedReason = 'blocked-path-immune'; break; }  // 路径中间免疫 → 换列
                         if (isAirborne(occ)) { blocked = occ; blockedReason = 'blocked-path-airborne'; break; }  // 飞天/附身格 → 当墙（推进入她格 = 落地同格）
+                        if (isInBag(team, occ)) { blocked = occ; blockedReason = 'blocked-path-bag'; break; }      // 布袋格 → 同样当墙
                         continue;                        // 活人 → 继续往后
                     }
                     emptyIdx = i; break;
@@ -134,7 +139,7 @@ export function createTangWenLiangComponent() {
                 for (let i = emptyIdx; i > startIdx; i--) {
                     const curr = path[i], prev = path[i - 1];
                     const mover = team.find(u => u !== unit && u.pos === prev && u.alive);
-                    if (mover && !isAirborne(mover)) moved.push({ unit: mover, from: prev, to: curr });
+                    if (mover && !isAirborne(mover) && !isInBag(team, mover)) moved.push({ unit: mover, from: prev, to: curr });
                 }
                 moved.push({ unit, from: unit.pos, to: targetPos, isDash: true });
                 return { ok: true, moved };
@@ -307,9 +312,9 @@ export function createTangWenLiangComponent() {
                         .map(m => ({ uid: m.unit.uid, camp: m.unit.camp, from: m.from, to: m.to, isDash: !!m.isDash }));
                     const blockText = (res) => {
                         if (res.reason === 'full') return '无空位';
-                        if (res.reason === 'all-blocked') return '全部列被免疫/飞天挡下、整侧不动';
+                        if (res.reason === 'all-blocked') return '全部列被免疫/飞天/布袋挡下、整侧不动';
                         const b = res.blocked;
-                        return `被 ${b.name}${isAirborne(b) ? '（飞天/附身）' : '免疫'} 挡下、整侧不动`;
+                        return `被 ${b.name}${isAirborne(b) ? '（飞天/附身）' : '免疫/布袋'} 挡下、整侧不动`;
                     };
                     const listText = (res) => res.moved.map(m => `${m.unit.name} ${m.from}→${m.to}`).join('、');
                     const enemyText = enemyRes.ok

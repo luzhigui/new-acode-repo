@@ -41,6 +41,14 @@ export function isAirborne(unit) {
     return false;
 }
 
+// 布袋中统一判据：装袋期间不可选 / 不可打 / 不可行动 / 不可位移（与飞天同口径当墙）。
+//   「装谁」记在说不得自己的 state._inBag.targetUid 上（modules/325 putInBag），
+//   所以判据必须拿到队伍，不能只看 unit 自己。
+export function isInBag(units, unit) {
+    if (!unit || !Array.isArray(units)) return false;
+    return units.some(c => c && c !== unit && c.state && c.state._inBag && c.state._inBag.targetUid === unit.uid);
+}
+
 export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
