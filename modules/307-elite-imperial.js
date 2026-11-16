@@ -1,11 +1,12 @@
 // modules/307-elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
+// V6.1.5 | 2026-11-16 known-transfers：幻影伪装治疗账本改「结算期按应用后实落量」记账——声明只带 auditGroup/auditSource，删声明期 recordHpAudit（原记 floor 预演值，与 fact.heal 分叉 ⇒ 体检 PHANTOM_DISGUISE_HEAL 重复应用）；与 core/216 九阳 / modules/319 左拳九阳同口径，core/217 零改动
 // V6.1.4 | 2026-11-08 模仿候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），「不模仿马」以 accept 条件保留
-export const VER = 'modules/307-elite-imperial.js V6.1.4';
+export const VER = 'modules/307-elite-imperial.js V6.1.5';
 
 import { registerElite, registerLinkPartners } from '../core/208-registry-elite.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
-import { emitEvent, getBattleRng, recordHpAudit } from '../core/214-battle-shared.js';
+import { emitEvent, getBattleRng } from '../core/214-battle-shared.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { watchUnit, unwatchUnit } from '../core/220-unit-watch.js';
@@ -147,10 +148,9 @@ function submitPhantomDisguiseOnHit(data, decl) {
         const aliveCount = data.enemySide.filter(u => u.alive).length;
         const heal = Math.floor(lostHp * decl.healRatio * aliveCount);
         if (!data.declarations) data.declarations = [];
-        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
-        // 审计账本：幻影伪装治疗自身 hp 贡献记进 unit._audit.hp，供 stat-decl 对照器按
-        //   group='phantomDisguiseHeal' 比对「声明 heal vs 实际治疗」。真实治疗仍由上方 HEAL 声明结算负责。
-        recordHpAudit(unit, 'phantomDisguiseHeal', heal, '成昆幻影伪装治疗');
+        // 账本不在声明期记：这里 heal 是 floor 预演值，同帧前序回血/伤害会让预演≠落地 ⇒ 账本与 fact.heal 分叉。
+        //   auditGroup/auditSource 只是归属载荷，真正记账在 core/217 HEAL 结算期按实落量写同一 group
+        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, auditGroup: 'phantomDisguiseHeal', auditSource: '成昆幻影伪装治疗', factData: { unitName: unit.name, heal, unitUid: unit.uid } });
     }
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
 }
