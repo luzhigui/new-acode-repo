@@ -440,10 +440,11 @@ function escapeHtml(text) {
     }
 
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
-        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 160000;
+        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 65000;
         const SOFT_LIMIT = charLimit;
-        // V6.2.8：上限就是上限——去掉 1.5 倍余量与 90k 硬顶，默认 16 万就切 16 万的包
+        // V6.2.8：上限就是上限——去掉 1.5 倍余量与 90k 硬顶，填多少就切多少的包
         //   （>上限的巨型文件由 splitLargeFile 按字符上限切片，不再依赖「独占一包」的额外余量）
+        // V6.4.9（2026-11-16）：默认值 16 万 → 6.5 万，跟随 DeepSeek 单条读取上限下调
         const HARD_LIMIT = charLimit;
         const HUGE_THRESHOLD = charLimit;
 
