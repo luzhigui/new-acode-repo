@@ -61,11 +61,14 @@ export function applyDamageModifiers(unit, target, dmg, targetTeam, attackerTeam
     let reducePct, reboundPct, selfDmgPct;
     let label;
 
-    if (xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
+    // 乾坤强化档消融开关（2026-11-16 老板拍板纳入考量）：noQianKunUpgrade=true 时小昭在场的
+    //   30/20 强化档回落 10/10 基础档（即无视小昭存在）；开关无掷骰，种子序列逐位一致，配对臂干净
+    const upgradeActive = !!xiaoZhao && !globalThis.MING_ABLATION?.noQianKunUpgrade;
+    if (upgradeActive && qianKunZone(zhang.pos).includes(target.pos)) {
         const s = requireSkillParams('小昭', 'qianKunUpgraded');
         reducePct = s.reducePct; reboundPct = s.reboundPct; selfDmgPct = s.selfDmgPct;
         isProtected = true; label = 'QIAN_KUN_UPGRADED';
-    } else if (!xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
+    } else if (!upgradeActive && qianKunZone(zhang.pos).includes(target.pos)) {
         const s = requireSkillParams('张无忌', 'qianKun');
         reducePct = s.reducePct; reboundPct = s.reboundPct; selfDmgPct = s.selfDmgPct;
         isProtected = true; label = 'QIAN_KUN_BASIC';
