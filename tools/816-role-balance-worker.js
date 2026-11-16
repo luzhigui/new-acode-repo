@@ -1182,8 +1182,9 @@ function runAblationJob(stage, seed, runs, flags, startIndex = 0, enemyHex = fal
     try {
         for (let i = 0; i < runs; i++) {
             clearBattleGlobals();
-            GlobalStore.set('forceXiaoZhao', 'sister');   // 姊保证在场（其余精英自然轮盘），clear 会清需每场重设
-            if (flags.forceZhang) GlobalStore.set('forceZhang', true);   // 2026-11-16 老板要「姊+无忌双强制」口径：flags 透传，不污染 MING_ABLATION 开关语义
+            GlobalStore.set('forceXiaoZhao', flags.forceXiaoZhao === 'none' ? null : (flags.forceXiaoZhao || 'sister'));
+            //   缺省仍 'sister'（831 现行口径不变）；flags.forceXiaoZhao='brother'/'none' 供双强制/无忌单人口径（2026-11-16 老板拍板扩展）
+            if (flags.forceZhang) GlobalStore.set('forceZhang', true);   // 「姊+无忌双强制」口径：flags 透传，不污染 MING_ABLATION 开关语义
             const battleSeed = seed + (startIndex + i) * 7919;
             const teams = initBattleTeams(stage, new SeededRNG(battleSeed));
             const ally = teams.allyTeam.map(u => u.clone());
