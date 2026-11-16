@@ -1,3 +1,7 @@
+// V6.0.75 | 2026-11-16 低频再分一层 + 发包只发高频：
+//           ① 新增 PLAYER_LOW_FREQ（513 导出/510 渲染器/511 战报/502 buff 面板/501 文案/505 关卡动作/507 入口）；
+//           ② ENGINE_LOW_FREQ 追加 render/403、416、407（纯呈现/翻译），UI_LOW_FREQ 追加 ui/705、709（弹窗/控件壳）；
+//           ③ 三个低频组加 packSkip: true —— 复制器照常显示可手动勾选，AI 复制包自动跳过（只发地基）。
 // V6.0.74 | 2026-11-14 按用途瘦身复制包：移出 10 个「本机 node 脚本」——网页端和网页 AI 都用不到，
 //           只留页面件（820~824 页面/核心/worker、834-idea-lab + 词条池、835 等照旧）。
 //           移出清单：818-import-export-check / 819-auto-tuner / 821-param-lab / 834-fetch-pool /
@@ -23,7 +27,7 @@
 //           ① 清单删 player/514-battle-log-analyze.js（文件已删，改由 tools/845-battle-log-analyze.js 承接，
 //              845 按老板要求归 ARCHIVE_FILES「📦 存档」组，不随主代码包/工具包发出）；
 //           ② 删 tools/839-reflect-eval.html（「🛡️ 弱精英测评」已并入 802「🐦 弱精英评测」页签 = 846）。
-export const VER = 'tools/806-ai-pack-config.js V6.0.74';
+export const VER = 'tools/806-ai-pack-config.js V6.0.75';
 
 // AI 复制包踢除清单（803-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -494,9 +498,13 @@ export const ENGINE_LOW_FREQ = new Set([
     '../dev-index.html',                              // 开发入口（正式入口是 index.html）
     '../modules/315-elite-sixsects-tangwenliang.js',  // 31.2 KB 唐文亮七伤/冲刺（配套 fx/616 已在 UI 低频）
     '../modules/319-elite-mingjiao-hanlisa.js',       // 26.9 KB 寒离飒蓄力轰拳（配套 ui/720、fx/615 已在 UI 低频）
-    '../modules/303-error-capture.js'                 // 58 KB 错误捕获面板（纯调试工具，改战斗逻辑用不到；
+    '../modules/303-error-capture.js',                // 58 KB 错误捕获面板（纯调试工具，改战斗逻辑用不到；
                                                       //   被 ui/702 顶层 import，从主包拆走后包内会出现「import 指向缺失文件」，
                                                       //   与 ARCHIVE_FILES 同一性质，属预期不是 bug）
+    // 2026-11-16 追加：纯呈现/纯翻译层，改战斗逻辑时用不到
+    '../render/403-grid-render.js',                   // 34.8 KB 网格渲染
+    '../render/416-actions-translate-attack.js',      // 27.2 KB 攻击动作文案翻译
+    '../render/407-facts-attack.js'                   // 24.2 KB facts 攻击呈现
 ]);
 
 export const UI_LOW_FREQ = new Set([
@@ -505,6 +513,9 @@ export const UI_LOW_FREQ = new Set([
     '../ui/726-rewind-panel.js',        // 5.8 KB 倒针面板壳
     '../ui/727-rewind-core.js',         // 29.6 KB 倒针核心
     '../ui/722-buff-tooltip.js',        // 11.9 KB buff 槽点击弹窗（纯展示，改战斗逻辑用不到）
+    // 2026-11-16 追加：UI 外壳/弹窗，改战斗与工具逻辑用不到
+    '../ui/705-main-dialogs.js',        // 26.7 KB 主界面弹窗
+    '../ui/709-ui-controls.js',         // 24.3 KB 控件外壳
     // fx 专用演出（大件、功能专一，改对应机制才读）
     '../fx/606-fx-dodge-bullet.js',     // 24.7 KB 闪避子弹时间
     '../fx/615-fx-hanlisa-burst.js',    // 19.0 KB 轰拳爆发视觉
@@ -515,15 +526,29 @@ export const UI_LOW_FREQ = new Set([
     '../fx/619-skill-cues.js'           // 14.8 KB 轻量技能演出（吸星/现形/双锤/双面观音/蹦蹦挪位）
 ]);
 
+// 2026-11-16 新增：播放器低频（整组约 127 KB，切出「不看也能改战斗逻辑」的边角，省 ~4.6 万字节）
+//   核心循环（503/504/506/508/509/512）留高频：那是每一帧都在跑的东西。
+export const PLAYER_LOW_FREQ = new Set([
+    '../player/513-battle-export.js',       // 22.4 KB 战斗导出/日志落盘
+    '../player/510-renderer.js',            // 7.6 KB 渲染器壳
+    '../player/511-battle-report.js',       // 6.9 KB 战报文案
+    '../player/502-player-buff-ui.js',      // 4.0 KB buff 面板
+    '../player/501-player-text.js',         // 3.1 KB 文案表
+    '../player/505-player-stage-actions.js',// 2.6 KB 关卡动作
+    '../player/507-battle-player-5v5-test.js' // 0.8 KB 入口
+]);
+
 // 主题分组：原六组结构不变，仅把 engine、ui 各拆成「高频 / 低频」两组。
 // 顺序敏感：803 是「第一个前缀命中即归组」，低频组必须排在对应高频组之前
 //   （低频用精确文件路径，startsWith 精确命中；未命中的自然落进高频的目录前缀）。
 // 播放器 / 工具 / 体检 / 存档 原样保留。
 export const FILE_GROUPS = [
-    { name: 'engineLow', displayName: '引擎·低频', prefixes: [...ENGINE_LOW_FREQ] },
+    // packSkip: true = 复制器里照常显示、可手动勾选，但 AI 复制包自动跳过（只发高频地基）。
+    { name: 'engineLow', displayName: '引擎·低频', packSkip: true, prefixes: [...ENGINE_LOW_FREQ] },
     { name: 'engineHigh', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
+    { name: 'playerLow', displayName: '播放器·低频', packSkip: true, prefixes: [...PLAYER_LOW_FREQ] },
     { name: 'player', displayName: '播放器', prefixes: ['../player/'] },
-    { name: 'uiLow', displayName: 'UI·低频', prefixes: [...UI_LOW_FREQ] },
+    { name: 'uiLow', displayName: 'UI·低频', packSkip: true, prefixes: [...UI_LOW_FREQ] },
     { name: 'uiHigh', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
     { name: 'tests', displayName: '体检', prefixes: ['../tests/'] },
