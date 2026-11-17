@@ -4,7 +4,8 @@
 //     点「继续」（PAUSED→RUNNING 或 waitingForNextRound→RUNNING）→ onContinueForHex → 飞入中央
 //     拖动中央 slot → 落红血单位 → 本地预演 + submitHexAction 入队 → 下一 makeStep 引擎消费
 //   状态机：idle → pending → centered → dragging → used
-export const VER = 'ui/723-hex-active.js V1.0.0';
+// V1.0.1 | 2026-11-17 圣火令只有暂停后才飞入中央（删3秒自动飞入与继续触发）
+export const VER = 'ui/723-hex-active.js V1.0.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { submitHexAction } from '../core/210-battle-round.js';
@@ -32,12 +33,8 @@ export function onHolyTokenDrop() {
     const p = $('hexPending');
     if (p) { p.classList.add('visible'); p.onclick = triggerFlyIn; }
 
-    pushLogTip('🔥 获得 1 枚圣火令 · 点「继续」后可用');
-
-    // autoMode 下没有「点继续」的时机，3 秒后自动飞入
-    setTimeout(() => {
-        if (hexState === 'pending') triggerFlyIn();
-    }, 3000);
+    pushLogTip('🔥 获得 1 枚圣火令 · 按「暂停」后飞入中央可用');
+    // 2026-11-17 老板拍板：删 3 秒自动飞入与「点继续」触发——只有按「暂停」后才飞入中央
 }
 
 function pushLogTip(text) {

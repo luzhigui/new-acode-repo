@@ -7,7 +7,8 @@
 //   「受控 / 免控 / 不可被选中 / 待死」四类判定从各文件手写字段名改为标签驱动。
 //   以后新增一类控制状态（冰冻/沉睡/定身）只需在对应条目写 tags:[CC]，全部读取侧自动跟上，
 //   不必再去 core/209、core/210、core/212、modules/302、317、322 逐个补条件。
-export const VER = 'core/218-state-keys.js V2.11.1';
+// V2.11.2 | 2026-11-17 注册 _firstTokenDone（首杀必掉令标记）
+export const VER = 'core/218-state-keys.js V2.11.2';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -133,6 +134,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
     _hlsHanDu:               { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 寒离飒/带 firstKillToken 英雄的本局首杀标记（2026-11-17 老板拍板首杀必掉令）
+    _firstTokenDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 蹦蹦寒毒（2026-11-10 毒归挂毒方：结构同 _hlsHanDu 多一个 stacks，modules/339 自结算，与寒离飒无关）
     _bengHanDu:              { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 金刚不坏护罩（空见）：{ sourceUid, sourceName }，免疫一次伤害；被正规攻击/溅射消耗后置 null

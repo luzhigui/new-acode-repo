@@ -1,4 +1,5 @@
-export const VER = 'player/502-player-buff-ui.js V6.0.1';
+// V6.0.2 | 2026-11-17 掉落动画改原格亮起即收（飞中央改由暂停触发，ui/723）
+export const VER = 'player/502-player-buff-ui.js V6.0.2';
 
 import { Unit } from '../core/202-unit.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -43,17 +44,9 @@ export async function handleHolyTokenDrop(c, entry) {
             r();
         });
     });
-    await clock.wait(400);
-
-    const badge = document.getElementById('scoreBadge');
-    const badgeRect = badge ? badge.getBoundingClientRect() : null;
-    if (badgeRect && cellRect) {
-        icon.style.left = (badgeRect.left + badgeRect.width - 20) + 'px';
-        icon.style.top = (badgeRect.top + badgeRect.height / 2) + 'px';
-        icon.style.transform = 'translate(-50%, -50%) scale(0.8)';
-        icon.style.opacity = '0.6';
-    }
-    await clock.wait(800);
+    // 2026-11-17 老板拍板：掉落不再自动飞徽章——令在原格亮起即收，计数静默更新；
+    //   只有玩家按「暂停」后才由 ui/723 pending 图标飞入战场中央
+    await clock.wait(500);
 
     icon.remove();
     c.updateScoreBadge();

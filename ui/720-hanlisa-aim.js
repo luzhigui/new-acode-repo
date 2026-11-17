@@ -4,7 +4,8 @@
 // shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）必须拆开——
 //   预警按九位九形画全格（空位也罩住），命中只对有人的格。
 // 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
-export const VER = 'ui/720-hanlisa-aim.js V3.5.4';
+// V3.5.5 | 2026-11-17 预检键同步 colDen/vampPct；不瞄预览镜像按列穿深；吸血预览30%
+export const VER = 'ui/720-hanlisa-aim.js V3.5.5';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -190,7 +191,7 @@ function tierOf(aim, p) {
     const d = Math.abs(r1 - r2) + Math.abs(c1 - c2);
     return d <= 0 ? 'direct' : (d === 1 ? 'near' : 'far');
 }
-function dmgMapFor(aim, N, xl) {
+function dmgMapFor(aim, N, xl, enemies) {
     const map = {};
     if (aim >= 1 && aim <= 9) {
         // 无兜底：参数缺失一律抛错（旧版兜底成 direct:2/eightDen:3 会静默算出与引擎不一致的伤害）
@@ -205,14 +206,20 @@ function dmgMapFor(aim, N, xl) {
             };
         }
     } else {
-        if (!xl.fullDen) throw new Error('缺技能参数: 寒离飒.xuLi.fullDen');
-        const fd = xl.fullDen;
-        [[1, 2, 3, fd.row123, 'full123'], [4, 5, 6, fd.row456, 'full456'], [7, 8, 9, fd.row789, 'full789']]
-            .forEach(([a, b, c, d, t]) => { [a, b, c].forEach(p => { map[p] = { dmg: Math.floor(N / d), tier: t }; }); });
+        // V2.4.0 按列穿深（老板 2026-11-17 拍板）：与 modules/319 引擎同口径——每列最前排 N/3、列内第二人 N/4、其余敌人 N/5
+        if (!xl.colDen) throw new Error('缺技能参数: 寒离飒.xuLi.colDen');
+        const cd = xl.colDen;
+        const picked = new Set();
+        for (const col of [[1, 4, 7], [2, 5, 8], [3, 6, 9]]) {
+            const inCol = enemies.filter(e => e && e.alive && col.includes(e.pos)).sort((a, b) => a.pos - b.pos);
+            if (inCol[0]) { map[inCol[0].pos] = { dmg: Math.floor(N / cd.front), tier: 'colFront' }; picked.add(inCol[0].pos); }
+            if (inCol[1]) { map[inCol[1].pos] = { dmg: Math.floor(N / cd.second), tier: 'colSecond' }; picked.add(inCol[1].pos); }
+        }
+        enemies.filter(e => e && e.alive && !picked.has(e.pos)).forEach(e => { map[e.pos] = { dmg: Math.floor(N / cd.rest), tier: 'colRest' }; });
     }
     return map;
 }
-const TIER_F = { direct: 1.0, eight: 1.0, full123: 1.0, near: 0.85, full456: 0.85, far: 0.72, full789: 0.72 };
+const TIER_F = { direct: 1.0, eight: 1.0, colFront: 1.0, near: 0.85, colSecond: 0.85, far: 0.72, colRest: 0.72 };
 
 /* ================= 三、战场活格现查（图标/分档色/视觉序） ================= */
 function liveLook(gridId, pos) {
@@ -776,10 +783,11 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     // 无兜底：params 取不到/字段缺失一律报错，不静默按旧口径算
     //   （旧版 `|| {}` + dmgMapFor 里的字面量兜底会让 UI 显示与引擎结算脱钩且无声）
     // 但**不能直接抛**：本函数是 player/49 await 的 Promise 制造者，抛出后 resolve 永不调用 → 战斗卡死。
-    // 故：显式 console.error 报出缺失字段 + 立刻 resolve「未瞄准」，由引擎侧随机前排兜底结算（modules/27 有真值路径）。
+    // 故：显式 console.error 报出缺失字段 + 立刻 resolve「未瞄准」，由引擎侧按列穿深结算（modules/319 有真值路径）。
+    // 2026-11-17 老板拍板：预检键同步 colDen/vampPct（fullDen/vampDiv 已废）
     const xl = getSkillParams('寒离飒', 'xuLi');
-    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.fullDen || xl.vampDiv == null || xl.shieldPct == null || !xl.hitShapes) {
-        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/fullDen/vampDiv/shieldPct/hitShapes）——瞄准窗口中止，走引擎兜底',
+    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.colDen || xl.vampPct == null || xl.shieldPct == null || !xl.hitShapes) {
+        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/colDen/vampPct/shieldPct/hitShapes）——瞄准窗口中止，走引擎兜底',
             { got: xl ? Object.keys(xl) : null });
         resolve({ aim: 0, holdMs: 0 });
         return;
@@ -1015,12 +1023,12 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         APP.releaseLevel = APP.level;
         stage.S.level = APP.level;
         stage.S.aim = APP.aim;
-        stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl));
-        // 吸血真值（与 modules/27 同公式：总伤 1/3 封顶缺失生命）
+        stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl, enemies));
+        // 吸血真值（与 modules/319 同公式：总伤 30% 封顶缺失生命；2026-11-17 老板拍板 1/3→30%）
         const total = stage.S.hits.reduce((s, h) => s + (h.dmg || 0), 0);
-        const vampDiv = xl.vampDiv;
-        if (vampDiv == null) throw new Error('缺技能参数: 寒离飒.xuLi.vampDiv');
-        stage.S.vamp = (total > 0 && vampDiv > 0) ? Math.min(Math.floor(total / vampDiv), Math.max(0, hls.maxHp - hls.hp)) : 0;
+        const vampPct = xl.vampPct;
+        if (vampPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.vampPct');
+        stage.S.vamp = (total > 0 && vampPct > 0) ? Math.min(Math.floor(total * vampPct), Math.max(0, hls.maxHp - hls.hp)) : 0;
         updateHud(APP.level);
     }
 

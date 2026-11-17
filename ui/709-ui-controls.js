@@ -1,7 +1,8 @@
 // ui/709-ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
-export const VER = 'ui/709-ui-controls.js V7.9.3';
+// V7.9.4 | 2026-11-17 圣火令飞入改由进入暂停触发（删回合末等待恢复触发）
+export const VER = 'ui/709-ui-controls.js V7.9.4';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -126,8 +127,8 @@ export function bindPauseButton(getState, setState, updateButtons) {
         } else if (getState.gs() === 'PAUSED') {
             setState.gs('RUNNING');
         }
-        // 圣火令主动（2026-11-13）：从暂停恢复到 RUNNING → 让圣火令飞入
-        if (wasPaused) {
+        // 圣火令主动（2026-11-17 老板拍板）：进入暂停（RUNNING→PAUSED）→ 让圣火令飞入中央（旧版在恢复时飞，反了）
+        if (!wasPaused && getState.gs() === 'PAUSED') {
             const fnHex = GlobalStore.getUIHandler('onContinueForHex');
             if (typeof fnHex === 'function') fnHex();
         }
@@ -182,9 +183,6 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
         }
         setState.waitingForNextRound(false);
         setState.gs('RUNNING');
-        // 圣火令主动（2026-11-13）：回合末等待恢复 → 让圣火令飞入
-        const fnHex = GlobalStore.getUIHandler('onContinueForHex');
-        if (typeof fnHex === 'function') fnHex();
         updateButtons();
     });
 }

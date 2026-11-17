@@ -2,7 +2,8 @@
 // V%s | 2026-11-08 known-transfers 商店三条(1)：宝箱掉率收口为单表 content/001 dropRates，
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
 //   禁止 JS/商店页再写第二份数字。
-export const VER = 'core/201-config-5v5-test.js V6.9.8';
+// V6.9.9 | 2026-11-17 新增 ZHANG_EXCLUSIVE_CHANCE（专属三选一随机出现概率）
+export const VER = 'core/201-config-5v5-test.js V6.9.9';
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 // V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
@@ -514,6 +515,7 @@ const CONFIG = {
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
     ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
     XUANMING_POISON_HEAL_REDUCE: 0.5,      // 抑疗统一系数：带寒毒/截脉目标受到的治疗再乘该系数（=减疗50%；2026-11-17 老板拍板统一回 50%，回收 11-11 的 66% 档）
+    ZHANG_EXCLUSIVE_CHANCE: 0.2,           // 张无忌专属三选一开局出现概率（2026-11-17 老板拍板改随机出现；三个一起出、每局最多一次；联机/full-auto 不弹）
     MASTERY_FULL_BONUS_LAYERS: 2,          // 小昭全精通后额外加的层数（20）
 
     get ELITE_POOL() {

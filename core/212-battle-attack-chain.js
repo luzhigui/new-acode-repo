@@ -6,7 +6,8 @@
 //   白吃明教姊回血）；(3)applyAttackResult 回传 cappedLoss（被 _dmgCap 吃掉的量），供伤害行/飘字
 //   印实际落地值（庄铮断锤三式此前报「造成 53」而血只掉 1）；(4)韦一笑闪避吸血的上限增量不再
 //   Math.floor 基准（floor 抹掉小数尾巴 => delta 比 heal 多零点几，体检 164 四处复发）。
-export const VER = 'core/212-battle-attack-chain.js V1.0.16';
+// V1.0.17 | 2026-11-17 首杀必掉令：holyTokenLuck.firstKillToken（张无忌每局首次击杀必掉一枚圣火令）
+export const VER = 'core/212-battle-attack-chain.js V1.0.17';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 // 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
@@ -415,8 +416,12 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         //   rng.next() 无条件消耗一次（保证同种子 RNG 序与旧版一致），判定改成「必掉 OR 随机率」。
         const zhangProdigyBuffs = (unit.camp === CAMP_TYPES.ALLY ? ctx.A._activeBuffs : ctx.B._activeBuffs) || [];
         const guaranteedToken = unit.isZhang && zhangProdigyBuffs.some(b => b.key === BUFF_TYPES.ZHANG_PRODIGY);
+        // 2026-11-17 老板拍板：holyTokenLuck.firstKillToken——该英雄每局首次击杀必掉一枚（张无忌）。
+        //   数据驱动不硬编码精英身份；首杀标记记在击杀者 unit.state（战斗级，重开局自动清）
+        const firstKillToken = !!(luck && luck.firstKillToken) && !unit.state._firstTokenDone;
         const roll = rng.next();
-        if (guaranteedToken || roll < dropRate) {
+        if (guaranteedToken || firstKillToken || roll < dropRate) {
+            if (firstKillToken) unit.state._firstTokenDone = true;
             target.state._tokenDropped = true;
             const currentToken = getBattleState('holyToken') || 0;
             setBattleState('holyToken', currentToken + 1);
