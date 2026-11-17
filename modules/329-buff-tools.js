@@ -1,5 +1,8 @@
 // modules/329-buff-tools.js — 海克斯池过滤、生成、计时与通用海克斯工具函数
-export const VER = 'modules/329-buff-tools.js V6.2.11';
+// V6.2.12 | 2026-11-17 专属海克斯改制（老板拍板）：① 新增 familyOf（读 content 的 xxxExclusive 家族标记）
+//   与 pickBuffChoices（家族折叠：抽中任一成员即整族一起进候选）；② recordUsedBuffKey 改整族登记，
+//   filterAvailableBuffs 改整族排除 ⇒ 选定一个专属后另两个终身不再出现；③ generateBuffChoices 改走家族折叠。
+export const VER = 'modules/329-buff-tools.js V6.2.12';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -77,8 +80,67 @@ export function recordUsedBuffKey(key) {
     const isExclusive = key === BUFF_TYPES.CARRY || key === BUFF_TYPES.HOLY_FIRE || key === BUFF_TYPES.LAST_STAND || !!def.heroRequirement;
     if (!isExclusive) return;
     const used = GlobalStore.get('usedBuffKeys') || [];
-    if (!used.includes(key)) GlobalStore.set('usedBuffKeys', [...used, key]);
+    // 家族整族登记（2026-11-17）：选了「快来护驾」⇒ 我命由我 / 武学奇才 一并记入已用。
+    //   否则过滤层「同族任一被用即整族排除」缺数据源，另两个还能再进池。
+    const fam = familyOf(key);
+    const toAdd = fam
+        ? Object.keys(CONFIG.BUFFS).filter(k => familyOf(k) === fam)
+        : [key];
+    const next = [...used];
+    let changed = false;
+    for (const k of toAdd) if (!next.includes(k)) { next.push(k); changed = true; }
+    if (changed) GlobalStore.set('usedBuffKeys', next);
 }
+
+// ── 专属海克斯家族（2026-11-17 老板拍板）────────────────────────
+//   规则三条：① 与普通海克斯等概率、任何回合格都能被抽到（不再有「开局专属弹窗 + 0.2 概率」）；
+//   ② 抽中家族任一成员 → 把该家族其余成员一起拉进候选（弹窗里就是「三选一」）；
+//   ③ 选定任一成员 → 整家族终身不再进池（这才是「专属」的强度：一局只有一条路线）。
+//   家族键 = content 里形如 `xxxExclusive: true` 的布尔字段（现只有 zhangExclusive 三个）。
+//   ⚠ 该字段此前是**纯摆设、全库零读取**，本轮起它是家族归属的唯一真源。
+export function familyOf(key) {
+    const def = CONFIG.BUFFS[key];
+    if (!def) return null;
+    for (const field in def) {
+        if (field.endsWith('Exclusive') && def[field] === true) return field;
+    }
+    return null;
+}
+
+// 洗牌后按「家族折叠成 1 个抽取单元」取候选：家族成员各算一个单元，抽中一个即代表抽中整族。
+// 展开时家族优先占位、普通海克斯只填剩余槽，故家族总超过 choices 时不截断（弹窗按钮自适应）。
+export function pickBuffChoices(available, rng = null, choicesCount = null) {
+    const r = rng || getBattleRng();
+    const shuffled = [...available];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = r.nextInt(0, i);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    // 折叠：同族成员只占 1 个抽取单元（第二个及以后不重复占位）
+    const units = [];
+    const seenFam = new Set();
+    for (const k of shuffled) {
+        const fam = familyOf(k);
+        if (!fam) { units.push({ key: k }); continue; }
+        if (seenFam.has(fam)) continue;
+        seenFam.add(fam);
+        units.push({ fam, keys: shuffled.filter(x => familyOf(x) === fam) });
+    }
+    const n = choicesCount == null ? CONFIG.BUFF_CHOICES : choicesCount;
+    const chosen = units.slice(0, n);
+    const fams = chosen.filter(u => u.fam);
+    const plain = chosen.filter(u => !u.fam);
+    const out = [];
+    for (const f of fams) out.push(...f.keys);
+    const slots = Math.max(0, n - out.length);
+    out.push(...plain.slice(0, slots).map(u => u.key));
+    return out;
+}
+
+// 获得专属 buff 时的一次性效果（「快来护驾」召唤）**不在本文件实现**：
+//   引擎每回合用 state.ally.map(clone) 重建 A/B（core/210），UI 侧队伍数组是 filter 副本，
+//   往那里 push 新单位下一回合就丢。故召唤归属 core/204 的 spawnZhangRescueIfNeeded，
+//   由 core/210 的 applyRoundStartSpawns 在回合开头调用（与众志成城同款时机）。
 
 export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
     const { withFortifyRule = false, enemyTeam = [] } = opts;
@@ -109,7 +171,13 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
         //   全场唯一：已选过的专属海克斯不再进池（与 carry / permanent 同口径的机制挡）
         const heroReq = CONFIG.BUFFS[k].heroRequirement;
         if (heroReq) {
-            if (usedKeys.includes(k)) return false;
+            // 家族整族锁（2026-11-17）：同族任一成员被选中 ⇒ 其余成员也终身不再进池。
+            //   原来只判 `usedKeys.includes(k)`（单个 key），选完「快来护驾」另外两个照样能再进池。
+            const fam = familyOf(k);
+            if (fam) {
+                const famUsed = Object.keys(CONFIG.BUFFS).some(x => familyOf(x) === fam && usedKeys.includes(x));
+                if (famUsed) return false;
+            } else if (usedKeys.includes(k)) return false;
             const hero = alive.find(u => u[heroReq]);
             if (!hero) return false;
             if (CONFIG.BUFFS[k].requires === 'noCharge' && (hero.state?._hlsCharging || 0) !== 0) return false;
@@ -122,13 +190,8 @@ export function filterAvailableBuffs(activeBuffs, team = [], opts = {}) {
 // enemyTeam：对方阵营存活单位——惑人心智门槛读它，不传等于恒剔除该项（V6.2.6 补参数）
 export function generateBuffChoices(activeBuffs, team = [], rng = null, enemyTeam = []) {
     const available = filterAvailableBuffs(activeBuffs, team, { withFortifyRule: true, enemyTeam });
-    const shuffled = [...available];
-    const r = rng || getBattleRng();
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = r.nextInt(0, i);
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, CONFIG.BUFF_CHOICES);
+    // 家族折叠交给 pickBuffChoices 单点处理（与 ui/711 手选弹窗同口径）
+    return pickBuffChoices(available, rng);
 }
 
 export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlotsFn) {

@@ -1,5 +1,8 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-export const VER = 'core/204-buff-system.js V6.9.4';
+// V6.9.5 | 2026-11-17 张无忌专属「快来护驾」召唤迁入本文件（原 modules/302-summonZhangRescue）：专属改走普通池后
+//   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
+//   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。
+export const VER = 'core/204-buff-system.js V6.9.5';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -872,6 +875,77 @@ export function installBuffMechanics(eventBus) {
             if (install) install(eventBus);
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 张无忌专属 · 快来护驾（2026-11-13 立，2026-11-17 迁入 core）
+//   先算张无忌队当前空位 → 从明教带技能角色池筛「能落到锚点空位」的候选
+//   → 随机抽 1 人 → 落位。
+//   排除规则：① 已在队同名（不重复召唤）② 固定站位锚点不在空位里就排除
+//   （寒离飒要 2 号位、小昭 4 号位、韦一笑 6 号位、金毛狮王谢逊 7 号位——来自 modules/330 建队锚点）
+//   姐姐：默认向右飞（_flyDirection），不弹窗。
+//   ⚠ 为什么从 modules/302 迁到 core/204：专属改走普通池后任何回合都可能选中，
+//   召唤必须由引擎回合开头执行（core/210）。core 不允许反向 import modules（层方向铁律），
+//   且 core/204 本就是 buff 机制的归属地（众志成城补员 spawnOneUnityRecruit 同在此文件）。
+// ═══════════════════════════════════════════════════════════════
+export function summonZhangRescue(team, log) {
+    if (!team || !team.length) return null;
+    const occupied = new Set(team.filter(u => u.alive).map(u => u.pos));
+    const freePositions = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
+    if (freePositions.length === 0) return null;
+
+    const usedNames = new Set(team.filter(u => u.alive).map(u => u.name));
+    // 固定站位锚点（来自 modules/330 建队规则）：角色 → 必需位置
+    const FIXED_ANCHOR = { '寒离飒': 2, '小昭·姊': 4, '小昭·妹': 4, '韦一笑': 6, '金毛狮王谢逊': 7, '张无忌': 5 };
+    const gd = getGameData();
+    const ROLE_POOL = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.JAVELIN, '蝴蝶'];
+    const candidates = Object.keys(gd.characters || {}).filter(n => {
+        const ch = gd.characters[n];
+        if (!ch || ch.camp !== '明教' || !ch.skills) return false;
+        if (usedNames.has(n)) return false;
+        // 姐姐/妹的基础名都是「小昭」，content key 是「小昭」，单独处理
+        if (n === '小昭') return freePositions.includes(FIXED_ANCHOR['小昭·姊']);
+        const anchor = FIXED_ANCHOR[n];
+        if (anchor != null) return freePositions.includes(anchor);
+        return true;
+    });
+    if (candidates.length === 0) return null;
+
+    const rng = getBattleRng();
+    const pickedName = candidates[rng.nextInt(0, candidates.length - 1)];
+    const ch = gd.characters[pickedName];
+    // content key 是「小昭」，实际建单位用「小昭·姊」
+    const finalName = pickedName === '小昭' ? '小昭·姊' : pickedName;
+    let landPos;
+    if (finalName === '小昭·姊' || finalName === '小昭·妹') {
+        landPos = 4;
+    } else if (FIXED_ANCHOR[finalName] != null && freePositions.includes(FIXED_ANCHOR[finalName])) {
+        landPos = FIXED_ANCHOR[finalName];
+    } else {
+        landPos = freePositions[rng.nextInt(0, freePositions.length - 1)];
+    }
+    const role = ch.role || (ch.tags || []).find(t => ROLE_POOL.includes(t)) || ROLE_TYPES.WARRIOR;
+    const unit = spawnUnit(team, finalName, ch.m, role, landPos);
+    if (finalName === '小昭·姊' && team._flyDirection == null) team._flyDirection = 'right';
+    if (log) {
+        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: {
+            summonName: finalName, summonUid: unit.uid, pos: landPos,
+            byName: '张无忌', byUid: (team.find(u => u.isZhang) || {}).uid || null
+        } });
+    }
+    return unit;
+}
+
+// 引擎回合开头调用（core/210）：持有「快来护驾」且尚未召过 → 召一次。
+//   必须早于组件工厂循环，召出来的单位当回合才能被注册面挂上精英技能（与众志成城同款时序）。
+//   幂等：buff 对象上的 _rescueSpawned 跨回合有效（同一 buff 对象在 A/B 的 _activeBuffs 里）。
+export function spawnZhangRescueIfNeeded(team, log = null) {
+    if (!team || !team.length) return null;
+    const buff = (team._activeBuffs || []).find(b => b.key === BUFF_TYPES.ZHANG_RESCUE);
+    if (!buff || buff._rescueSpawned) return null;
+    if (!team.some(u => u.alive && u.isZhang)) return null;
+    buff._rescueSpawned = true;
+    return summonZhangRescue(team, log);
 }
 
 // ═══════════════════════════════════════════════════════════════

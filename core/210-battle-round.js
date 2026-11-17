@@ -1,10 +1,13 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-export const VER = 'core/210-battle-round.js V6.3.41';
+// V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
+//   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
+//   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
+export const VER = 'core/210-battle-round.js V6.3.42';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './203-battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, installBuffMechanics, onUnitDeathFlyerRegen, isTeamHexExcluded } from './204-buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, spawnZhangRescueIfNeeded, installBuffMechanics, onUnitDeathFlyerRegen, isTeamHexExcluded } from './204-buff-system.js';
 import { applyMindControl_Normal, applyMindControl_Sister } from './215-buff-effects.js';
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
 import { Unit } from './202-unit.js';
@@ -146,6 +149,12 @@ function prepareRoundSpawns(A, B, state, ctx) {
     //   召出来的单位当回合就能被注册面挂上精英技能；原挂在 ON_ROUND_START 会当回合白板）。
     spawnBrotherPermanentUnityRecruit(A, ctx.log);
     spawnBrotherPermanentUnityRecruit(B, ctx.log);
+    // 张无忌专属「快来护驾」（2026-11-17）：专属已改走普通池，任何回合都可能选中，
+    //   故召唤必须由引擎在回合开头做——UI 侧队伍数组是 filter 副本，往那里 push 下一回合 clone 就丢。
+    //   与上面三个召唤同时机（早于组件工厂循环），召出来的单位当回合就能挂上精英技能。
+    //   幂等由 buff._rescueSpawned 保证，一局只召一次。
+    spawnZhangRescueIfNeeded(A, ctx.log);
+    spawnZhangRescueIfNeeded(B, ctx.log);
 }
 
 // 阶段4：清裁判登记 → 注册本回合战斗机制 → 实例化回合组件 → 装声明技能/数据表。

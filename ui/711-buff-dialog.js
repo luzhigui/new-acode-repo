@@ -1,12 +1,14 @@
 // ui/711-buff-dialog.js — 海克斯手选弹窗
-// 候选门槛与 modules/28 generateBuffChoices、player/49 全自动同口径：众志成城要求本阵营存活 <4 人。
-//   本弹窗自建候选列表，门槛必须手动跟上，不能只改一处。
-export const VER = 'ui/711-buff-dialog.js V6.4.4';
+// 候选门槛与 modules/329 generateBuffChoices、player/512 全自动同口径：统一走 filterAvailableBuffs
+//   + pickBuffChoices（家族折叠在此单点实现），本弹窗不再自建洗牌逻辑。
+// V6.5.0 | 2026-11-17 专属海克斯改制：删开局三选一弹窗（showZhangExclusivePopup），
+//   专属改与普通海克斯等概率进普通池；抽中家族任一成员即整族一起进候选；选完整族终身不再出现。详见 modules/329。
+export const VER = 'ui/711-buff-dialog.js V6.5.0';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
-import { createBuffObject, buffsOfCamp, filterAvailableBuffs, recordUsedBuffKey } from '../modules/329-buff-tools.js';
+import { createBuffObject, buffsOfCamp, filterAvailableBuffs, recordUsedBuffKey, pickBuffChoices } from '../modules/329-buff-tools.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 // 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
@@ -40,13 +42,9 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
                 //   基础海克斯全表可选（含重复拿；姊妹强化版走各自分库不在此列）。2026-11-10 老板点名"怎么那么少"
                 choices = Object.keys(CONFIG.BUFFS);
             } else {
-                const shuffled = [...available];
-                const rng = getBattleRng();
-                for (let i = shuffled.length - 1; i > 0; i--) {
-                    const j = rng.nextInt(0, i);
-                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                }
-                choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+                // 候选抽样统一走 modules/329 的 pickBuffChoices：家族折叠（抽中一个专属
+                //   ⇒ 整族一起进候选）在此单点实现，与引擎侧 generateBuffChoices 同口径。
+                choices = pickBuffChoices(available, getBattleRng());
             }
         }
         if (choices.length === 0) { resolve(null); return; }
@@ -56,7 +54,11 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
             const rng = getBattleRng();
             const pick = choices[rng.nextInt(0, choices.length - 1)];
             const newBuff = createBuffObject(pick, null, camp, team);
+            recordUsedBuffKey(pick);
             if (camp === CAMP_TYPES.ALLY) {
+                // 「快来护驾」的召唤**不在这里做**：引擎每回合用 state.ally.map(clone) 重建队伍，
+                //   本函数的 team 是 .filter() 副本，往它 push 的新单位下一回合就会被丢掉 = 白选。
+                //   召唤统一由引擎 core/210 回合开头的 spawnZhangRescueIfNeeded 完成。
                 const xz = team.find(u => u.isXiaoZhaoBrother);
                 if (xz) addPermanentBuff(xz, pick, newBuff.name, {});
             }
@@ -102,6 +104,7 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
                 const newBuff = createBuffObject(b.value, null, camp, team);
                 recordUsedBuffKey(b.value);
                 if (camp === CAMP_TYPES.ALLY) {
+                    // 召唤同上：不在 UI 层做，由引擎 core/210 回合开头统一处理
                     const xiaoZhao = team.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {
                         addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
@@ -168,64 +171,3 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
     });
 }
 
-
-// ═══════════════════════════════════════════════════════════════
-// 张无忌专属三选一（2026-11-13）
-//   开局张无忌在队弹此窗；选完锁定这局路线。
-//   调用方（ui/702）已做两道门：联机跳过（防双选失同步）、full-auto 跳过（防卡自动流程），
-//   故 isAutoMode 仅保留参数语义（true 时隐藏「我命由我」拖拽项），当前恒传 false。
-//   返回：选中的 buff key（'zhangDestiny' | 'zhangRescue' | 'zhangProdigy'）或 null（不选）
-// ═══════════════════════════════════════════════════════════════
-export function showZhangExclusivePopup(team, isAutoMode) {
-    return new Promise((resolve) => {
-        const choices = [
-            {
-                key: BUFF_TYPES.ZHANG_PRODIGY,
-                name: '⚡ 武学奇才',
-                desc: '持续 3 回合。被攻击时触发九阳回血；已学会融会则对攻击者反伤，未学会则被打也练武（融会层数+战士加成）。期间击杀必定掉圣火令。'
-            },
-            {
-                key: BUFF_TYPES.ZHANG_RESCUE,
-                name: '🛡️ 快来护驾',
-                desc: '一次性。从明教带技能角色里随机召唤 1 名（站位随机、排除已在队同名）。姐姐默认向右飞。'
-            }
-        ];
-        if (!isAutoMode) {
-            choices.unshift({
-                key: BUFF_TYPES.ZHANG_DESTINY,
-                name: '☀️ 我命由我不由天',
-                desc: '全局。张无忌每次攻击前可拖动他指向任意敌方目标，指哪打哪。'
-            });
-        }
-
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.id = 'zhangExclusiveOverlay';
-        const box = document.createElement('div');
-        box.className = 'modal-box';
-        box.style.cssText = 'max-width:360px;padding:20px 16px;';
-        const title = document.createElement('div');
-        title.textContent = '☀️ 张无忌 · 专属海克斯';
-        title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;text-align:center;margin-bottom:6px;';
-        const sub = document.createElement('div');
-        sub.textContent = '三选一，选定后本局锁定此路线';
-        sub.style.cssText = 'color:#aaa;font-size:11px;text-align:center;margin-bottom:16px;';
-        box.appendChild(title);
-        box.appendChild(sub);
-
-        choices.forEach(c => {
-            const btn = document.createElement('button');
-            btn.className = 'modal-btn buff';
-            btn.style.cssText = 'display:block;width:100%;margin-bottom:8px;padding:10px 12px;text-align:left;background:#2a2a4e;color:#eee;border:1px solid #555;border-radius:8px;font-size:12px;line-height:1.5;cursor:pointer;';
-            btn.innerHTML = `<div style="color:#ffd700;font-weight:bold;font-size:13px;margin-bottom:2px;">${c.name}</div><div style="color:#bbb;font-size:11px;">${c.desc}</div>`;
-            btn.onclick = () => {
-                overlay.remove();
-                resolve(c.key);
-            };
-            box.appendChild(btn);
-        });
-
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-    });
-}

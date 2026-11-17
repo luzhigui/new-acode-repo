@@ -1,5 +1,7 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-export const VER = 'ui/702-main-5v5-test.js V6.14.7';
+// V6.14.8 | 2026-11-17 删开局张无忌专属三选一弹窗（ZHANG_EXCLUSIVE_CHANCE 掷骰一并移除）：
+//   专属改与普通海克斯等概率进普通池、任何回合都能抽到，抽中整族进候选、选定后整族终身不再出现。
+export const VER = 'ui/702-main-5v5-test.js V6.14.8';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -260,31 +262,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             // 选 Buff 前注入战斗 RNG：full-auto 与手动同源，保证同种子复现一致
             const _snap = getState.snapshot();
             setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
-            // 张无忌专属（2026-11-13）：开局张无忌在队弹三选一。
-            //   审核修正两道门：①联机跳过（host/guest 各自弹窗选不同项=失同步）②full-auto 跳过
-            //   （弹窗会卡死自动跑批；评测口径不含此专属海克斯）
-            if (!GlobalStore.get('netRole') && getState.autoLevel() !== 'full-auto') {
-                const _zAlly = getState.UI().allyTeam || [];
-                if (_zAlly.some(u => u.isZhang && u.alive)
-                    // 2026-11-17 老板拍板：专属三选一改随机概率出现（CONFIG.ZHANG_EXCLUSIVE_CHANCE）。
-                    //   掷骰只在张在场且非联机/非全自动时消耗（保证 full-auto 同种子序列零漂移）
-                    && getBattleRng().next() < CONFIG.ZHANG_EXCLUSIVE_CHANCE) {
-                    const { showZhangExclusivePopup } = await import('./711-buff-dialog.js');
-                    const picked = await showZhangExclusivePopup(_zAlly, false);
-                    if (picked) {
-                        const { createBuffObject } = await import('../modules/329-buff-tools.js');
-                        const zhangBuff = createBuffObject(picked, null, CAMP_TYPES.ALLY, _zAlly);
-                        getState.activeBuffs().push(zhangBuff);
-                        // 选项「快来护驾」：立即召唤
-                        if (picked === BUFF_TYPES.ZHANG_RESCUE) {
-                            const { summonZhangRescue } = await import('../modules/302-elite-skills.js');
-                            summonZhangRescue(_zAlly, null);
-                        }
-                        logDiv.innerHTML += `<span class="gold">☀️ 张无忌获得专属：${zhangBuff.name}</span><br>`;
-                        autoScrollLog();
-                    }
-                }
-            }
+            // 张无忌专属（2026-11-17 改制）：开局专属三选一弹窗已删除。
+            //   专属海克斯（我命由我 / 快来护驾 / 武学奇才）现在与普通海克斯等概率进普通池，
+            //   任何回合都可能被抽到；抽中家族任一成员即整族一起进候选，选定后整族终身不再出现。
+            //   实现收口在 modules/329（familyOf / pickBuffChoices / recordUsedBuffKey 整族登记）；
+            //   「快来护驾」的召唤另在 core/204（spawnZhangRescueIfNeeded）+ core/210 回合开头执行
+            //   ——中局选中时 UI 层加不进引擎队伍，必须由引擎侧做。
             if (GlobalStore.get('netRole') === 'host') {
                 // 联网 PVP 阶段3：开局海克斯双向——房主统一发六大派选项，双方各选后合并
                 await handlePvpBuffSelection(getPlayerContext(), getState.activeBuffs());

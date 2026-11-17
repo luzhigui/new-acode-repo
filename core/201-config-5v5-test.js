@@ -1,7 +1,10 @@
 // V%s | 2026-11-08 known-transfers 商店三条(1)：宝箱掉率收口为单表 content/001 dropRates，
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
 //   禁止 JS/商店页再写第二份数字。
-export const VER = 'core/201-config-5v5-test.js V6.9.10';
+export const VER = 'core/201-config-5v5-test.js V6.9.11';
+// V6.9.11 | 2026-11-17 废弃 ZHANG_EXCLUSIVE_CHANCE（值保留 0.2，仅防旧引用报错，主代码已无调用点）：
+//   老板改口径——张无忌三个专属不再走「开局独立概率弹窗」，改与普通海克斯等概率进普通池、任何回合都能抽到；
+//   抽中家族任一成员即整族一起进候选，选完整族终身不再出现。家族规则实现见 modules/329（familyOf/pickBuffChoices）。
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
 
@@ -503,7 +506,9 @@ const CONFIG = {
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
     ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
     XUANMING_POISON_HEAL_REDUCE: 0.67,     // 抑疗统一系数：带寒毒/截脉目标受到的治疗再乘该系数（=减疗33%；2026-11-17 老板拍板统一 33%，同日 66→50→33 三调）
-    ZHANG_EXCLUSIVE_CHANCE: 0.2,           // 张无忌专属三选一开局出现概率（2026-11-17 老板拍板改随机出现；三个一起出、每局最多一次；联机/full-auto 不弹）
+    ZHANG_EXCLUSIVE_CHANCE: 0.2,           // 【已废弃 2026-11-17】原「开局专属三选一弹窗出现概率」。
+                                           //   老板改口径：专属与普通海克斯等概率进普通池、任何回合都能抽到，
+                                           //   不再有开局弹窗与独立概率。保留键名只为防旧引用报错，勿再使用。
     MASTERY_FULL_BONUS_LAYERS: 2,          // 小昭全精通后额外加的层数（20）
 
     get ELITE_POOL() {
