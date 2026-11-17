@@ -1,3 +1,10 @@
+// V1.6.4 | 2026-11-17 第25轮：新增第八类「体检登记的强制开关主代码没有」（scanForceSwitchDrift）。
+//   起因：用户在"按规则体检"勾谢逊/小昭却一个都不强制上场——tests/124 的 RULE_META force 名若拼错，
+//   下发 GlobalStore.set(错名) 会被主代码无视、静默失效（第23轮踩过：小昭须下发字符串 sister 而非 true）。
+//   这类"体检登记的主代码根本没有"的漂移，静态快检原来 7 类一个都不查（330文件/0条），是"白跑"的一块。
+//   判据：扫 124 的 force 名 vs 主代码 modules/330 真实 GlobalStore.get('forceX') —— 登记了却没有即报红；
+//   反方向（主代码有但体检未登记）不报——那是工具按需登记，不是错误。带正负自证各一条。
+// V1.6.3 | 2026-11-17：回填 311 到 SCAN_FILES
 // V1.6.2 | 2026-11-12 合流 D13 二轮：回填 317/318 到 SCAN_FILES
 // V1.6.1 | 2026-11-12 合流 D12/D13：回填 4 条规则到 SCAN_FILES
 // 不跑游戏，直接 fetch 核心文件做结构性检查：
@@ -21,7 +28,7 @@
 //   实测七个目录共 142 个 js/mjs，旧手写清单只覆盖 87 个、漏 55 个（fx/60x-61x、modules/31x-33x、
 //   player/504-506/513-514、render/404/405/409-412/414、ui/714/720-722、infra/102/110/111、core/212/213/223 等），
 //   这些文件的 import 断裂 / 枚举漏 import 一路都扫不到。tests/ 侧仍保留字面量登记（registration-check.mjs 靠文本对账）。
-export const VER = 'tests/123static-scan.js V1.6.2';
+export const VER = 'tests/123static-scan.js V1.6.4';
 
 // Node / 浏览器双用判定：自动发现的两套实现（fs 遍历 / manifest.json）与文末 CLI 自举共用这一个开关
 export const IS_NODE = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
@@ -335,6 +342,46 @@ export function selfCheckStaleRuntimeRefs() {
     if (nGood !== 0) probs.push('合法编号样本被误报 ' + nGood + ' 处（会制造假红）');
     const nCmt = scanStaleRuntimeRefs(cmt, fake).length;
     if (nCmt !== 0) probs.push('纯注释样本被误报 ' + nCmt + ' 处（注释不该计入）');
+    return probs;
+}
+
+// --- 第八类：体检登记的强制开关在主代码是否存在（V1.6.4）---
+// 根因：tests/124 RULE_META 的 force 名若拼错/过期，下发 GlobalStore.set(错名) 会被主代码无视——
+//   勾了规则却一个都不强制上场，规则大面积 skip，用户看到"体检啥也查不到"。静默失效，必须静态拦。
+// 判据：登记名（force 值冒号前部分）必须出现在主代码 modules/330 的 GlobalStore.get('forceX') 里。
+//   只报"登记了却没有"（真错）；反方向"主代码有但没登记"是工具按需登记，合法，不报。
+export function scanForceSwitchDrift(recipeCode, initCode) {
+    const out = [];
+    if (!recipeCode || !initCode) return ['（自证/取数失败）124 或 330 源码为空，漂移检查未生效'];
+    const known = new Set();
+    // 正则/文案里的 GlobalStore 也用拼接，避免本文件被"共享符号 import"槽位自伤（stripComments 不剥字符串）
+    const G = 'GlobalStore';
+    const getRe = new RegExp(G + "\\.get\\(\\s*'([^']+)'\\s*\\)", 'g');
+    for (const m of stripComments(initCode).matchAll(getRe)) known.add(m[1]);
+    if (known.size === 0) return ['（自证/抽取器腐烂）330 里一个 ' + G + '.get 都没解析到，漂移检查未生效'];
+    const seen = new Set();
+    for (const m of stripComments(recipeCode).matchAll(/force:\s*'([^']+)'/g)) {
+        const name = m[1].split(':')[0];
+        if (seen.has(name)) continue;
+        seen.add(name);
+        if (!known.has(name)) out.push(name + '：124 RULE_META 登记了强制开关，但 modules/330 没有 ' + G + ".get('" + name + "')（下发会被静默忽略）");
+    }
+    if (seen.size === 0) return ['（自证/抽取器腐烂）124 里一个 force 登记都没解析到，漂移检查未生效'];
+    return out;
+}
+
+export function selfCheckForceSwitchDrift() {
+    const probs = [];
+    // ★ 样本必须拼出来：若把 GlobalStore 写成字面量，本文件自身会被"共享符号 import"槽位扫到、自伤报红
+    //   （与本文件 selfCheckStaleRuntimeRefs 用 'core/' 拼接避开自伤同一手法）。
+    const G = 'GlobalStore';
+    const init = 'const a = ' + G + ".get('forceZhang'); const b = " + G + ".get('forceXieXun');";
+    const bad = scanForceSwitchDrift("'r': { force: 'forceTypo' }", init);
+    const good = scanForceSwitchDrift("'r': { force: 'forceZhang' }", init);
+    if (bad.length !== 1 || !bad[0].includes('forceTypo')) probs.push('编造开关名应报 1 条，实际 ' + bad.length + ' 条');
+    if (good.length !== 0) probs.push('真实登记的开关被误报 ' + good.length + ' 条');
+    const empty = scanForceSwitchDrift('', init);
+    if (empty.length === 0) probs.push('源码为空必须报"检查未生效"，不能静默放过');
     return probs;
 }
 
@@ -800,7 +847,8 @@ export async function runStaticScan() {
             enumMember: { name: '枚举成员未定义', issues: [] },
             deadFxAnchors: { name: '去锚定化残留 fxAnchors 字段', issues: [] },
             ruleTestShape: { name: '规则 test 返回形状', issues: [] },
-            staleRuntimeRef: { name: '运行时消息里的悬空文件编号', issues: [] }
+            staleRuntimeRef: { name: '运行时消息里的悬空文件编号', issues: [] },
+            forceSwitchDrift: { name: '体检登记的强制开关主代码没有', issues: [] }
         },
         enumRefCount: 0,
         elapsedMs: 0
@@ -828,6 +876,20 @@ export async function runStaticScan() {
     // 自证：抽取器腐烂时先把自己报红，否则本类恒绿＝假绿
     for (const it of selfCheckStaleRuntimeRefs()) {
         result.slots.staleRuntimeRef.issues.push('（自证）' + it);
+    }
+    // 第八类前置：fetch 体检配方 + 主代码初始化，做强制开关登记一致性对账
+    let recipeSrc = '', initSrc = '';
+    try {
+        const rr = await fetch(new URL('./124rule-recipes.js', baseUrl).href + '?t=' + t0);
+        if (rr.ok) recipeSrc = await rr.text();
+        const ir = await fetch(new URL('../modules/330-battle-init.js', baseUrl).href + '?t=' + t0);
+        if (ir.ok) initSrc = await ir.text();
+    } catch (e) { /* 落空由 scanForceSwitchDrift 的"检查未生效"报红接管 */ }
+    for (const it of scanForceSwitchDrift(recipeSrc, initSrc)) {
+        result.slots.forceSwitchDrift.issues.push(it);
+    }
+    for (const it of selfCheckForceSwitchDrift()) {
+        result.slots.forceSwitchDrift.issues.push('（自证）' + it);
     }
     // 第 196 轮：文件缺失先攒着，收尾时与 import 侧合并判定（见循环内注释）
     const unreachable = [];
