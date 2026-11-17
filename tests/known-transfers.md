@@ -388,3 +388,34 @@
 
 <!-- 域会话 D13 二轮 a3fa9972 追加 -->
 | ~~倒针快进收尾与取消(运行时)~~ **【已闭环 第 186 轮·主代码 fcd5dd04 落地会话代次守卫】** | **第 190 棒 · D13 第二棒新登记（转交主代码，已销项）**：快进（ui/727 的 fastForward）跑完会在 finally 里 exitReview，而它的**尾巴没有会话代次概念** —— 用户在快进途中（内部有 30ms 等待窗口）关掉面板取消时，exitReview 已把 #log 还原成「真战场的战报行」，尾巴那次 syncReviewLog 把这些行当成「多出来的行」整块清掉（el.innerHTML=""）⇒ 玩家继续打的时候，战报日志凭空消失。转交主代码：尾巴进门前记住自己那一份回看（数组身份或会话号），跑之前先比对，回看已被换掉就整体收手（不再 paintAt / syncReviewLog / exitReview）。探针证据：tests/rewind-fastforward-cancel-probe-case.mjs 判据③ 原红；**销项验证（2026-11-07）**：主代码 fcd5dd04 加了会话代次守卫后 `node tests/rewind-fastforward-cancel-probe-case.mjs` ⇒ RESULT: PASS（7/7；③ 转绿），反向样本改配 no-tail-guard（删掉两处守卫 ⇒ ③ 必须转红，实测红）⇒ 判据仍咬得住。 | 迭代日志「第 190 棒 · D13 第二棒」 |
+
+## T-N35-1 `infra/107` 撞号拆除后 `ui/704-main-state.js` 注释仍指旧号（主代码注释 · 2026-11-17 第35轮）
+
+- **背景**：`infra/107-fact-contract.js` 与 `infra/107-store-schema.js` 长期撞号（同号两名），已由并行会话把后者让号为 `infra/112-store-schema.js`。第35轮核对「改名后引用面是否全部同步」，结论：**活引用全部同步**（见下）。
+- **活引用核对结论（已逐条实测，无断链）**：
+
+  | 位置 | 现状 |
+  |---|---|
+  | `infra/112-store-schema.js` | 文件在，VER V1.1.0 ✅ |
+  | `infra/104-global-store.js` L6 | `import { validateStoreValue, isStoreKey } from './112-store-schema.js'` ✅ |
+  | `infra/102-core-utils.js` L5 | `import { validateStoreValue } from './112-store-schema.js'` ✅ |
+  | `ui/704-main-state.js` L5 | `import { getStoreDefault } from '../infra/112-store-schema.js'` ✅ |
+  | `manifest.json` L239 | `"infra/112-store-schema.js"` ✅ |
+  | `tools/806-ai-pack-config.js` L483 | `'../infra/112-store-schema.js'` ✅ |
+  | `getStoreDefault` 定义处 | `infra/112-store-schema.js` L202 ✅ |
+  | 七层编号唯一性 | `node tests/main-number-guard.mjs` ⇒ EXIT=0（151 文件全唯一、无未编号）✅ |
+
+- **★ 唯一遗漏（转交主代码，红线不碰）**：`ui/704-main-state.js` **L41** 注释仍写旧号：
+
+  ```
+  ===== START ui/704-main-state.js L41 =====
+  - // 结构键缺省值统一取 infra/107，避免 704 与 schema 各维护一份
+  + // 结构键缺省值统一取 infra/112-store-schema，避免 704 与 schema 各维护一份
+  ===== END ui/704-main-state.js L41 =====
+  ```
+
+  实际来源已是 `infra/112-store-schema.js`（同文件 L5 的 import 就是它）。该注释会让人去 `infra/107-fact-contract.js` 找 schema —— 那里根本没有 schema。
+  ★ 为何 `comment-ref-scan` 抓不到：`infra/107` 这个路径**当前是活引用**（`107-fact-contract.js` 存在）⇒ 扫描器按「路径存活」放行。这属**语义陈旧**（指错目标），不是路径断链。
+
+- **处置**：本条**不计入退出码**（转交中 ≠ 体检坏）；主代码落地后划掉本条并复跑 `node tests/main-number-guard.mjs` 与 `node tests/comment-ref-scan.mjs` 确认仍绿。
+
