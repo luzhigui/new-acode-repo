@@ -371,6 +371,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/transfer-exit-guard.mjs', '../tests/transfer-exit-baseline.json',
     // 2026-11-10：多会话文件所有权（守门 + 唯一真值表 + 启动提示词生成）
     '../tests/_registry/session-scope.json', '../tests/session-scope-guard.mjs', '../tests/session-start.mjs',
+    // 2026-11-17 第38轮：双推兜底手册（沙箱内 git push 不可用时的现象判别与处置，含实测 6 种无效绕法）
+    '../tests/_registry/PUSH-FALLBACK.md',
     // 2026-11-11 合入夜间 207：飞天三档跨档判定守卫（已挂 OBSERVES，夜间漏登）
     '../tests/spider-tier-leap-guard.mjs',
     // 2026-11-08 自动补全：health-rules 173–266 被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
