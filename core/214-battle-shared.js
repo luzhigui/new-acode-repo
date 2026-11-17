@@ -1,5 +1,6 @@
 // V6.4.11 | 2026-11-09 庄铮·断锤三式：_dmgCap 生效期间拒绝一切回血（isHeal 正向落账收口）， 与斩杀无效同读 _dmgCap（老板口径：免疫/异常状态单位不能被治疗）。
-export const VER = 'core/214-battle-shared.js V6.4.11';
+// V6.4.12 | 2026-11-17 applyStatChange 增 ignoreHealReduce 第9参（寒离飒轰拳真实吸血通道）
+export const VER = 'core/214-battle-shared.js V6.4.12';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -226,7 +227,8 @@ function previewHeal(target, raw, rawOnly = false) {
 // ignoreCap=true：**只由 killUnit 使用**——死亡收口的「把血归零」不是一次受伤，不吃 _dmgCap
 //   （否则被截在 0 以上 → 出现 alive=false 却 hp=97 的分裂状态；fuzz s76/r35 平局清算即此路径）。
 //   任何其它直扣血出口都不得传 true，否则 _dmgCap 形同废止。
-function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false) {
+function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false, ignoreHealReduce = false) {
+    // ignoreHealReduce（2026-11-17 老板拍板）：真实吸血通道——跳过截脉/寒毒抑疗打折（庄铮断锤免疗不受此旗影响，那是免疫不是抑疗）
     if (delta === 0 || !target || !target.alive) return false;
     // 天上无敌：小昭·妹飞天期间免疫一切 hp 伤害（正规攻击另有 BEFORE_DAMAGE_APPLY 免疫声明，
     //   这里兜住毒/反弹/自伤这类直扣血路径）。只挡掉血不挡治疗。
@@ -249,17 +251,19 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     //   注意这里不夹 maxHp 溢出——applyStatChange 下面本来就会夹，重复夹会改变「溢出前」的中间值。
     if (isHeal && field === 'hp' && delta > 0) {
         applied = delta;
-        if (target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
-            applied = applied * target.state._jinMai.ratio;
-        }
-        if (target.state) {
-            const xp = target.state._xuanmingPoison;
-            const hd = target.state._hlsHanDu;
-            const bd = target.state._bengHanDu;
-            const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
-                || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
-                || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
-            if (poisoned) applied = applied * C.XUANMING_POISON_HEAL_REDUCE;
+        if (!ignoreHealReduce) {
+            if (target.state && target.state._jinMai && target.state._jinMai.rounds > 0) {
+                applied = applied * target.state._jinMai.ratio;
+            }
+            if (target.state) {
+                const xp = target.state._xuanmingPoison;
+                const hd = target.state._hlsHanDu;
+                const bd = target.state._bengHanDu;
+                const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
+                    || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
+                    || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
+                if (poisoned) applied = applied * C.XUANMING_POISON_HEAL_REDUCE;
+            }
         }
     }
     const oldVal = target[field];

@@ -1024,7 +1024,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         stage.S.level = APP.level;
         stage.S.aim = APP.aim;
         stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl, enemies));
-        // 吸血真值（与 modules/319 同公式：总伤 30% 封顶缺失生命；2026-11-17 老板拍板 1/3→30%）
+        // 吸血真值（与 modules/319 同公式：总伤 10% 封顶缺失生命；真实吸血不走抑疗打折，预览同口径）
         const total = stage.S.hits.reduce((s, h) => s + (h.dmg || 0), 0);
         const vampPct = xl.vampPct;
         if (vampPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.vampPct');
