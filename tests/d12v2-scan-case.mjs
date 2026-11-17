@@ -113,21 +113,18 @@ console.log('   实际输出：' + blocked.out.trim().split('\n').slice(-1)[0]);
 
 // 3c 有牙：把守卫改坏（①只打印不退出 ②整段拆掉）⇒ 同一套判定必须判红
 //   （变体只存在于临时目录，不碰仓库里的扫描器）
+// ★ 匹配必须**行尾无关**：仓库 .gitattributes 是 text=auto eol=crlf ⇒ 干净工作树里源码是 CRLF、
+//   本机工作树里可能是 LF，写死 '\n' 会导致「变异体没改到东西」而在别的机器上假红。
 const scannerSrc = fs.readFileSync(scannerPath, 'utf8');
+const GUARD_RE = /(console\.error\('守卫前提失效：acorn 缺失[^\n]*?)(\r?\n)([ \t]*)process\.exit\(1\);/;
 const mutations = [
     {
         name: '守卫只打印不退出',
-        src: scannerSrc.replace(
-            "    console.error('守卫前提失效：acorn 缺失 – ' + (e && e.message ? e.message : e));\n    process.exit(1);",
-            "    console.error('守卫前提失效：acorn 缺失 – ' + (e && e.message ? e.message : e));\n    /* 变体：故意不退出 */"
-        )
+        src: scannerSrc.replace(GUARD_RE, '$1$2$3/* 变体：故意不退出 */')
     },
     {
         name: '守卫整段被拆掉',
-        src: scannerSrc.replace(
-            "    console.error('守卫前提失效：acorn 缺失 – ' + (e && e.message ? e.message : e));\n    process.exit(1);",
-            '    /* 变体：守卫整段没了 */'
-        )
+        src: scannerSrc.replace(GUARD_RE, '')
     }
 ];
 for (const mu of mutations) {
