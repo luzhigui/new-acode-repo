@@ -1,0 +1,55 @@
+diff --git a/tools/health_auto_check.py b/tools/health_auto_check.py
+index 28c6d47d..5ef36f97 100644
+--- a/tools/health_auto_check.py
++++ b/tools/health_auto_check.py
+@@ -123,6 +123,7 @@ def main():
+         all_pass_names = set()                            # 去重后「通过」规则名
+         all_skip_names = set()                            # 去重后「跳过」规则名
+         rounds_meta = []                                  # 每轮摘要
++        coverage_gaps = []                                # #22：覆盖缺口轮次（issues 为空≠没问题）
+ 
+         for i in range(1, ROUNDS + 1):
+             if i > 1:
+@@ -136,21 +137,40 @@ def main():
+                         all_issues.append(it)
+                 all_pass_names.update(res.get('rulePassNames', []))
+                 all_skip_names.update(res.get('ruleSkippedNames', []))
++                # #22：读页面已算好的覆盖口径（121health-monitor.js coverage），不再只看 issues。
++                cov = res.get('coverage') or {}
++                if cov.get('verdict') == 'COVERAGE_GAP':
++                    coverage_gaps.append({
++                        'idx': i, 'registered': cov.get('registered', 0), 'executed': cov.get('executed', 0),
++                        'pass': cov.get('pass', 0), 'skip': cov.get('skip', 0), 'skipRate': cov.get('skipRate', 0),
++                    })
+                 rounds_meta.append({
+                     'idx': i, 'elapsed': res.get('elapsed', 0), 'max': res.get('maxStageSeen', 0),
+                     'reason': res.get('reason'), 'pass': res.get('rulePass', 0), 'skip': res.get('ruleSkip', 0),
++                    'coverage': cov,
+                 })
+             else:
+                 rounds_meta.append({'idx': i, 'elapsed': None, 'max': 0, 'reason': 'no-result', 'pass': 0, 'skip': 0})
+ 
+         # —— 输出报告 ——
++        # #22：issues 为空只代表「这次查到的没报错」，不代表「没问题」。页面已给 coverage.verdict，
++        #   覆盖不足时必须显式报缺口，禁止打「✅ 全部通过」这种会被误读成主代码完美的结论。
+         print('══════════ 体检报告（多轮累计） ══════════', flush=True)
+-        if not all_issues:
+-            print('✅ 全部通过，未发现异常', flush=True)
++        if not all_issues and not coverage_gaps:
++            print('✅ 全部通过，未发现异常（且覆盖充分）', flush=True)
++        elif not all_issues and coverage_gaps:
++            print('⚠️ 未发现异常，但覆盖不足——本次结论**不代表没有问题**：', flush=True)
++            for g in coverage_gaps:
++                print(f'   · 第{g["idx"]}轮：执行 {g["executed"]}/{g["registered"]} 条规则'
++                      f'（通过 {g["pass"]} / 跳过 {g["skip"]}，跳过率 {g["skipRate"]}%）', flush=True)
++            print('   → 补足覆盖（加轮次 SEEDS / 定向阵容）或改用 `node tests/run-all.mjs --quick --jobs 4` 看 CHECKS 全套，再下结论。', flush=True)
+         else:
+             print(f'❌ 发现 {len(all_issues)} 项异常（跨 {ROUNDS} 轮合并去重）：', flush=True)
+             for it in all_issues:
+                 print(f'   · [第{it.get("stage", "?")}关 · {it.get("type", "?")}] {it.get("detail", "")}（来源:{it.get("source", "?")}）', flush=True)
++            if coverage_gaps:
++                print(f'⚠️ 另有 {len(coverage_gaps)} 轮覆盖不足（结论不代表没问题）：'
++                      + '、'.join(f'第{g["idx"]}轮 {g["executed"]}/{g["registered"]}' for g in coverage_gaps), flush=True)
+ 
+         # 每轮摘要
+         tot_elapsed = 0
