@@ -1,8 +1,9 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
 // V6.29.9 | 2026-11-09 癫发作不再吞技能：只跳过「打歪改落点」，×倍率+击退 / 正义国字脸+加防照常触发； 嘲讽只标记敌方阵营（癫时 validTargets 含队友）。
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.9';
+// V6.29.10 | 2026-11-17 蓄力回复账本收口结算期：删声明期 recordHpAudit（preview 预演≠落地），改声明带 auditGroup/auditSource 由 core/217 HEAL handler 按实落量记账。
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.10';
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { addMod, getStat, getBattleRng, resolvePushOrStun, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
+import { addMod, getStat, getBattleRng, resolvePushOrStun, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { buildTargetCandidates } from '../core/207-target-strategies.js';
@@ -153,12 +154,13 @@ export function createPangYuanQiaoComponent() {
                 const rawHeal = Math.min(face.healPerAttack, pang.maxHp - pang.hp);
                 const healed = previewHeal(pang, rawHeal);
                 if (healed <= 0) return;
-                // 纯记账：只 push unit._audit.hp，供数值对照器隔离自身贡献（九阳 core/15 L248 同款口径）
-                recordHpAudit(pang, 'pangHitHeal', healed, '蓄力回复'); // 账本记实际落地值（与 fact heal 同口径）
+                // 账本不在声明期记（这里只有 previewHeal 预演，同帧前序回血/伤害会让预演≠落地）：
+                //   auditGroup/auditSource 只是归属载荷，真正记账在 core/217 结算期按实落量写同一 group
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.HEAL, value: rawHeal, source: pang,
                     factType: FACT_TYPES.HEAL,
+                    auditGroup: 'pangHitHeal', auditSource: '蓄力回复',
                     factData: { unitName: pang.name, heal: healed, hpBefore: fmtHp(pang.hp), hpAfter: fmtHp(pang.hp + healed), unitUid: pang.uid, maxHp: pang.maxHp, stacks: 1, icon: '💪', label: '蓄力回复', mode: 'plusTrail', anchorVerb: '回复' }
                 });
             });
