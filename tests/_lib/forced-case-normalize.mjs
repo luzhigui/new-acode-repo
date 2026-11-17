@@ -44,14 +44,42 @@
 //
 // ★ VER 必须带（前车之鉴：第 171 轮本族新件出生时漏写 VER，ver-drift-selftest 断言⑩ 当场开红，
 //   判「新增孤儿、版本无从追溯」——绊线咬的正是真会犯的错，别嫌啰嗦）。
-export const VER = 'tests/_lib/forced-case-normalize.mjs V1.0.0';
+// ═══ 白名单为什么取这 9 个（2026-11-17 第37轮扩到 9 条）═══
+//   前 3 个（第 172 轮定）：forceXiaoZhao / forceXieXun / forceWei —— 主代码 330 里全都真实存在，
+//   两边各自论证过对方那份的合法性（详见上方「白名单为什么取这三个」一节）。
+//
+//   ★ 第37轮补的 6 个（本轮逐条核对主代码 330-battle-init.js 的读取面与语义后登记）：
+//     · forceZhang    （L181/L191）强制张无忌(Boss)上场 —— 强/精英规则关注面，且 dev 面板有按钮。
+//     · forceHanLiSa  （L185/L194）强制寒离飒(强精英)上场 —— V7.6.1 独立通道；盯寒离飒的规则
+//                     （138风推/166惑心/175锚位/188多段）全靠随机碰，补登记后不再恒 skip。
+//     · forcePang     （L417-422）强制第3关选含「胖远桥」的阵容变体 —— 胖远桥规则(正义国字脸)
+//                     需要它才能稳定命中。
+//     · forceWeakElite（L128/L132/L229/L537）强制弱精英上场（可带值）—— 弱精英是规则关注面；
+//                     注意主代码对它做了入池校验，无效值会 throw。
+//     · forceMingUnit （L318-329）强制明教带技能普通兵（如说不得/周颠）上场（可带值）。
+//     · forceSectUnit （L624-647）强制六大派带技能角色出场（可带值）—— 敌方角色规则需要它。
+//   ⇒ 这 6 个全部在主代码**读取面**里（`force-switch-registry-drift-guard` 的幽灵判定为 0），
+//     且都有 dev 面板写入按钮（ui/701）⇒ 登记它们不会造出「白名单里躺着一个主代码根本不读的键」
+//     那种静默无效的后门/假绿。
+//
+// ★ 唯一**不登记**的是 forceSoloWeakElite（L188，V7.5.26「工具强精英单挑」）：
+//   它的语义是「只锁寒离飒、不产生第二个精英」，属 dev 调试工具态、不是正常体检形态；
+//   定向场次不需要它，也不该由回放器喂进去（喂了会造出线上不会出现的局面）。
+//   ⚠ 它在主代码读取面里 ⇒ 守门的「未登记」桶里会一直留着它 1 条（这是**如实反映**，不是漏）。
+//     故守门棘轮上限相应地定为 1（只许降不许升）。
+//
+// ★ 边界（不变）：本白名单只管「定向场次允许用哪些 force 开关」；
+//   体检通道（124rule-recipes 的 RULE_META/collectForceFlags）是**另一套**登记面，
+//   两者互不覆盖 —— 补了本表不等于体检通道也认（#31 已单独补过体检通道那侧）。
+export const VER = 'tests/_lib/forced-case-normalize.mjs V1.1.0';
 
 /**
  * 允许出现在定向覆盖场次里的 GlobalStore 强制开关键。
  * ★ 每个都必须在 modules/330-battle-init.js 里真实存在才可登记（见文件头论证），
  *   不许拿 GlobalStore 当后门改引擎行为。
  */
-export const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun', 'forceWei'];
+export const FORCE_KEYS = ['forceXiaoZhao', 'forceXieXun', 'forceWei',
+    'forceZhang', 'forceHanLiSa', 'forcePang', 'forceWeakElite', 'forceMingUnit', 'forceSectUnit'];
 
 /**
  * 把一个场次条目归一化成「开关名 → 取值」表。
@@ -71,11 +99,39 @@ export function forcesOfEntry(entry) {
 }
 
 /**
- * 逐场跑之前把全部白名单开关复位为 false —— 闲置，用来杜绝全局态泄漏。
+ * 各开关的「空值」形态（与 infra/112-store-schema.js 的类型声明一一对应）。
+ * ★ 单一真值源在 schema；本表是它的镜像，任何一方改动都必须同步另一方 ——
+ *   断言「本表覆盖 FORCE_KEYS 全集且无多余键、且类型与 schema 一致」由
+ *   tests/forced-case-reset-selftest.mjs 盯着。
+ */
+export const RESET_VALUE = {
+    forceHanLiSa: false,
+    forceMingUnit: null,     // string 型 ⇒ 空值是 null，不是 false、也不是 ''（'' 会被当成「强制空名」）
+    forcePang: false,
+    forceSectUnit: null,
+    forceWei: false,
+    forceXiaoZhao: false,    // BOOLEAN|STRING 双型 ⇒ 用 false 复位（'sister'/'brother' 才是真值）
+    forceXieXun: false,
+    forceZhang: false,
+    forceWeakElite: null,
+};
+
+/**
+ * 逐场跑之前把全部白名单开关复位 —— 闲置，用来杜绝全局态泄漏。
+ * ★ 复位值必须按 **store schema 的真实类型**给，不能一律 false：
+ *   infra/112-store-schema.js L104-114 的权威类型是
+ *     BOOLEAN：forceHanLiSa / forcePang / forceSoloWeakElite / forceWei / forceXieXun / forceZhang
+ *     STRING ：forceMingUnit / forceSectUnit / forceWeakElite（带值开关，值是角色名）
+ *     BOOLEAN|STRING：forceXiaoZhao（'sister'/'brother'）
+ *   一律设 false ⇒ 对那 3 个 string 键就等于「把字符串键塞了个 boolean」，
+ *   GlobalStore.set 会走 schema 校验并**当场抛错**：
+ *     [GlobalStore.schema] key='forceWeakElite' forceWeakElite 期望 string，实际 boolean
+ *   ⇒ 这不是「多清几个键」的无害差别，是直接把 stat-decl-vs-actual-check 等消费方打崩。
+ *   （本条是第37轮补登记时真踩出来的：补登记前白名单只有 3 个 boolean 键，问题不显形。）
  * @param {object} GlobalStore infra/104-global-store.js 的实例
  */
 export function resetForces(GlobalStore) {
-    for (const k of FORCE_KEYS) GlobalStore.set(k, false);
+    for (const k of FORCE_KEYS) GlobalStore.set(k, RESET_VALUE[k]);
 }
 
 // 内部唯一实现：两个导出名共用，保证口径不可能分叉。

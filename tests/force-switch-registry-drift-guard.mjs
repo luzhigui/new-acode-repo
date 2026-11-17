@@ -1,6 +1,13 @@
-// tests/force-switch-registry-drift-guard.mjs | V1.0.0 | 2026-11-02 夜间第 177 轮
+// tests/force-switch-registry-drift-guard.mjs | V1.1.0 | 2026-11-17 第 37 轮
 //
 // 「定向覆盖场次能按哪些强制开关」这份白名单，与主代码真正读的开关面，差多少 —— 每天自动报一次。
+//
+// ★ V1.1.0（2026-11-17 第37轮）：本件从「只报不改」升级为「报 + 已收口」。
+//   第37轮把登记面（tests/_lib/forced-case-normalize.mjs 的 FORCE_KEYS）从 3 条补到 **9 条**
+//   （补 forceZhang / forceHanLiSa / forcePang / forceWeakElite / forceMingUnit / forceSectUnit，
+//     逐条核对过主代码读取面与语义；唯一不登记的是 forceSoloWeakElite —— dev 工具态），
+//   未登记实测降到 **1 条** ⇒ 棘轮上限由 5 **收窄**到 1（只许降不许升；抬闸门须拍板）。
+//   ★ 本件自身仍**不改** FORCE_KEYS（登记面在 forced-case-normalize 那件里，本件只做对账）。
 //
 // ═══ 由来：这份清单在 tools 侧已经漂移过三次，每次都是人手翻出来的 ═══
 //   tools/122-param-lab-core.js L47-49 的注释自己写着：
@@ -47,7 +54,7 @@
 //     不报错、不变红，只是悄悄变成没看见（与第 167 轮「只改生产者漏改消费者 ⇒ 解析出 0 行」
 //     同一款假绿）。文件头那句「不许拿 GlobalStore 当后门改引擎行为」此前只有人话在守。
 //
-export const VER = 'tests/force-switch-registry-drift-guard.mjs V1.0.0';
+export const VER = 'tests/force-switch-registry-drift-guard.mjs V1.1.0';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -66,8 +73,11 @@ export const WRITER_REL = 'ui/701-main-utils.js';
 // ★ 一律不放行（不许拿「0 条」当「没问题」，这是本件最容易自产的假绿）。
 export const MIN_MAIN_KEYS = 8;
 
-// 棘轮上限：允许「主代码读而 tests 未登记」的条数。**首次实测值 5**，只许降不许升。
-export const UNREG_RATCHET = 5;
+// 棘轮上限：允许「主代码读而 tests 未登记」的条数。**只许降不许升**。
+// ★ 历史：初版 5（第177轮）→ 主代码加开关顶穿成 6、7 长期 TRIP → 第37轮把登记面补到 9 条，
+//   未登记实测降到 **1 条**（只剩 forceSoloWeakElite，属 dev 工具态、按设计不登记）⇒ 上限同步收窄到 1。
+//   ⚠ 要抬这个上限属**为刷绿抬闸门**，须拍板并写明理由（本轮未抬、也不许悄悄抬）。
+export const UNREG_RATCHET = 1;
 
 // 抽取用正则（只认 force 前缀的键；双引号也认；下划线通道前缀可省）
 const RE_GS_GET = /GlobalStore\s*\.\s*get\s*\(\s*(['"])(force[A-Za-z0-9_]*)\1\s*\)/g;
@@ -241,12 +251,32 @@ function selftest() {
     ok(z10.ok && z10.writeOnly && z10.writeOnly.includes('forceGhost2'), 'Z10 写入面「设了没人读」应算出');
     ok(z10.pass === true, 'Z10 写入面只报不判，不得拖累结论');
 
+    // Z11（V1.1.0 第37轮新增·端到端钉真值）：**真实主代码 + 真实登记面**跑一遍，
+    //   未登记必须**恰好等于** ['forceSoloWeakElite']（dev 工具态、按设计不登记那一条），
+    //   且幽灵必须为 0（登记面里不许躺着主代码根本不读的键）。
+    //   ★ 为什么必须是端到端（不能靠 Z1~Z10 的合成源）：Z1~Z10 全喂合成源码，**没有一条**
+    //     真的读过 modules/330-battle-init.js 与 FORCE_KEYS ⇒ 「登记面与主代码实际是否对得上」
+    //     这件事此前没有任何机器断言在守（本件自己的正文也只是「打印给人看」，且恒退 0）。
+    //   ★ 这条同时钉住两个方向：① 有人把 forceSoloWeakElite 悄悄登记进去（未登记变 0）→ 红；
+    //     ② 有人把它从主代码删掉（未登记仍 1 但语义已变 / 或主代码新增开关未登记）→ 红。
+    try {
+        const realMain = fs.readFileSync(path.join(root, MAIN_REL), 'utf8');
+        const z11 = assess({ mainSrc: realMain, writerSrc: null, registry: FORCE_KEYS });
+        ok(z11.ok === true, 'Z11 真实主代码须可解析（不许假装 0 条）');
+        ok(z11.unregistered.length === 1 && z11.unregistered[0] === 'forceSoloWeakElite',
+            'Z11 未登记须恰好 1 条且为 forceSoloWeakElite（实测 ' + JSON.stringify(z11.unregistered) + '）');
+        ok(z11.phantom.length === 0, 'Z11 幽灵必须为 0（实测 ' + JSON.stringify(z11.phantom) + '）');
+        ok(z11.pass === true, 'Z11 真实数据下须 PASS（未登记 1 ≤ 上限 ' + UNREG_RATCHET + '）');
+    } catch (e) {
+        ok(false, 'Z11 端到端断言抛错：' + e.message);
+    }
+
     if (fails.length) {
         console.log('自证牙失败 ' + fails.length + ' 条：');
         for (const f of fails) console.log('  ❌ ' + f);
         return 1;
     }
-    console.log('自证牙 10 条全咬住（Z1 多读必进未登记 / Z2 幽灵必判红 / Z3 一致必 PASS / Z4 缺 anyForce 不放行 / Z5 零解析不放行 / Z6 注释不算数 / Z7 双通道归一 / Z8 超棘轮必 TRIP / Z9 规模缩水必报 / Z10 写入面只报不判）');
+    console.log('自证牙 11 条全咬住（Z1 多读必进未登记 / Z2 幽灵必判红 / Z3 一致必 PASS / Z4 缺 anyForce 不放行 / Z5 零解析不放行 / Z6 注释不算数 / Z7 双通道归一 / Z8 超棘轮必 TRIP / Z9 规模缩水必报 / Z10 写入面只报不判 / Z11 端到端真实数据未登记恰为 1 条）');
     return 0;
 }
 

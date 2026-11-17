@@ -1,3 +1,12 @@
+// V1.59.0 | 2026-11-17 第37轮：挂「强制开关复位形态自检」tests/forced-case-reset-selftest.mjs（新建 V1.0.0）。
+//   由头（本轮真踩出来的坑）：第37轮把 FORCE_KEYS 从 3 条补到 9 条后，resetForces 沿用
+//   「一律设 false」的旧写法 ⇒ 3 个**带值**开关（forceMingUnit/forceSectUnit/forceWeakElite）
+//   在 schema 里是 STRING 型，塞 boolean 被 GlobalStore.set 当场拒 ⇒ 消费方
+//   stat-decl-vs-actual-check 直接崩（[GlobalStore.schema] key='forceWeakElite' 期望 string，实际 boolean）。
+//   ★ 补登记前白名单只有 3 个 boolean 键 ⇒ 这个 bug **根本不显形** ⇒「复位值形态对不对」
+//     此前没有任何机器断言在守。本件五条判据（键集双向相等 / 复位值类型合 schema /
+//     schema 无漏声明 / 规模闸门 / 反向样本真咬住）把这道闸补上。
+//   确定性 PASS/FAIL + exit 0/1 ⇒ 挂 CHECKS（CHECKS 31→32）；纯 tests/ 只读主代码 schema，不碰主代码。
 // V1.58.0 | 2026-11-17 迭代：挂「主代码编号守门」tests/main-number-guard.mjs 与
 //   「主代码陈旧引用扫描」tests/comment-ref-scan.mjs（两件均新建 V1.0.0）。
 //   由头：既有 duplicate-number-guard 只守 tests/health-rules/ 的号，主代码七层撞号无人拦
@@ -272,7 +281,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.58.0';
+export const VER = 'tests/run-all.mjs V1.59.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -288,6 +297,16 @@ const CHECKS = [
     //   只拦新增 ⇒ 日常不制造噪声。牙：撞号/无编号/新陈旧引用三路均实测 EXIT=1，干净树 EXIT=0。
     { name: '主代码编号守门', script: 'tests/main-number-guard.mjs', args: [] },
     { name: '主代码陈旧引用扫描', script: 'tests/comment-ref-scan.mjs', args: [] },
+    // V1.59.0 | 2026-11-17 第37轮：挂「强制开关复位形态自检」tests/forced-case-reset-selftest.mjs（新建 V1.0.0）。
+    //   由头（本轮真踩出来的坑）：第37轮把 FORCE_KEYS 从 3 条补到 9 条后，resetForces 沿用
+    //   「一律设 false」的旧写法 ⇒ 3 个**带值**开关（forceMingUnit/forceSectUnit/forceWeakElite）
+    //   在 schema 里是 STRING 型，塞 boolean 被 GlobalStore.set 当场拒 ⇒ 消费方
+    //   stat-decl-vs-actual-check 直接崩（[GlobalStore.schema] key='forceWeakElite' 期望 string，实际 boolean）。
+    //   ★ 补登记前白名单只有 3 个 boolean 键 ⇒ 这个 bug **根本不显形** ⇒「复位值形态对不对」
+    //     此前没有任何机器断言在守。本件五条判据（键集双向相等 / 复位值类型合 schema /
+    //     schema 无漏声明 / 规模闸门 / 反向样本真咬住）把这道闸补上。
+    //   确定性 PASS/FAIL + exit 0/1 ⇒ 挂 CHECKS 计入分母；纯 tests/ 只读主代码 schema，不碰主代码。
+    { name: '强制开关复位形态自检', script: 'tests/forced-case-reset-selftest.mjs', args: [] },
     { name: '分层依赖方向(新增闸门)', script: 'tests/layer-direction-scan.mjs', args: ['--enforce'] },
     { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
     { name: '蓄意轰拳数值口径对账', script: 'tests/hit-shapes-consistency.mjs', args: [] },
