@@ -1,6 +1,4 @@
 // ui/717-replay-entry.js — 战报回放入口（从 61main 拆出）
-// V1.1.1 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepBattleStart 改为
-//           就地空实现（调用点未动）。恢复见 archive/README.md「二」。
 export const VER = 'ui/717-replay-entry.js V1.1.1';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { getState, setState } from './704-main-state.js';

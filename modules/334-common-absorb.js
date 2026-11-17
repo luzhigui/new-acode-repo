@@ -1,10 +1,5 @@
 // modules/334-common-absorb.js — 武当莲舟·吸星（普通兵机制）
-// V1.5.0 | 2026-11-08 known-transfers 第 1 条：吸星汇总账实同源——扣减与增益都先除乘区因子再落 add 词条， 并以落地实测值累加 absorbedTotal；旧版平铺扣 -absorbDef 被 getStat 乘区放大，受害者实损比 施术者所得多 (1+mulSum) 倍，差额凭空消失（50 例实证）。
 export const VER = 'modules/334-common-absorb.js V1.5.0';
-// V1.3.0 | 2026-11-07 未触发/无可吸目标时补一行「🌀 吸星：本次未触发」回合开始提示（每回合最多一行，不飘字）。
-// V1.4.0 | 2026-11-08 体检转交：一次吸星结算补一条 ABSORB_SUMMARY 汇总事实（absorbedTotal 分项 +
-//   beneficiaries 逐单位逐属性 before/after，含施术者正增量），group absorbed/absorbGain 从此可对账；
-//   不按单位/属性拆 fact，战报行数不变。
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';

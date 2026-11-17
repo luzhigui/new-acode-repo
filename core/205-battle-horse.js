@@ -1,4 +1,4 @@
-// V6.3.4 | 2026-11-12 巨马阵 noDestroy 保持回合末回查（撤销马身快照方案：跨回合旧马会残留强化）；query 增传 log 供 modules/302 推诊断 fact
+// core/205-battle-horse.js — 拒马的生成、销毁、空格查询与指定格召唤
 export const VER = 'core/205-battle-horse.js V6.3.4';
 
 import { CONFIG } from './201-config-5v5-test.js';

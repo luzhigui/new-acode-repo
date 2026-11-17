@@ -1,14 +1,12 @@
 // render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
-// V1.0.5 | 2026-11-08 休息回复量与事实同源：直接读 PASS fact 的 actualHeal，删掉写死的 15 点兜底 （core/210 每条 PASS 都带 hpAfter-hpBefore 的实数差值，屏幕上印的数不再可能与实际落地量不同）
 export const VER = 'render/409-facts-control.js V1.0.5';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeFXSnapshot, fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 import { FACT_TYPES, BUFF_SUBTYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 
-// V1.0.4 | 2026-11-08 显示口径统一：增量「符号+绝对值」、伤害/免疫量取绝对值、攻击基数值走 fmtAtk 下限
 // 增量统一口径：符号写在数值外，数值只出绝对值（避免「+-2.6」「--3」这类双符号）
 const sgn = (v) => `${v >= 0 ? '+' : '-'}${fmtNum(Math.abs(v || 0))}`;
 

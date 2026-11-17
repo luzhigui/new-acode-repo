@@ -3,7 +3,6 @@
 //   方向：fx ← infra（只依赖时钟，不 import render/core）。
 //   快进由订阅侧 fx/610 拦（isFxSkipped），本文件不做额外判断。
 export const VER = 'fx/620-sword-rain.js V1.0.1';
-// V1.0.1 | 2026-11-09 箭体 4×34 → 8×60、箭头 10×10 → 16×16；单支飞行 220ms → 520ms 起、整波间隔 40ms → 90ms/支，只改演出不改结算
 
 import { clock } from '../infra/103-clock.js';
 

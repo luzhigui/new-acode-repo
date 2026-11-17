@@ -1,4 +1,4 @@
-// V6.0.2 | 2026-11-17 掉落动画改原格亮起即收（飞中央改由暂停触发，ui/723）
+// player/502-player-buff-ui.js — 播放器层海克斯 UI 逻辑（掉落动画、横幅与 DOM 联动）
 export const VER = 'player/502-player-buff-ui.js V6.0.2';
 
 import { Unit } from '../core/202-unit.js';

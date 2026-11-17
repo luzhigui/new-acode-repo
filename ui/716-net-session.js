@@ -24,10 +24,6 @@ import { RNG_CONTRACT_VERSION } from '../modules/330-battle-init.js';
 import { showAlert } from './701-main-utils.js';
 
 export const VER = 'ui/716-net-session.js V1.2.1';
-// V1.2.1 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepBattleStart 改为
-//           就地空实现（调用点未动）。恢复见 archive/README.md「二」。
-// V1.2.0 | 2026-11-08 联机抽签契约校验：房主 lineup 捎带版本 → 从机 applyNetLineup 先比对，
-//   不一致明确报错并中止开局（回传 contractMismatch 让房主也看到同一句话），不许静默跑两套序列。
 
 // 纯数据化单位（与 76replay-entry 共用）：从机/回放的 steps 里恢复出的 plain object 再浅拷一份，断引用
 // ---- 联网对战阶段3：阵容 / 站位 / 海克斯双向 ----

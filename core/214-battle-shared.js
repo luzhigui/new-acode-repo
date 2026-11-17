@@ -1,5 +1,4 @@
-// V6.4.11 | 2026-11-09 庄铮·断锤三式：_dmgCap 生效期间拒绝一切回血（isHeal 正向落账收口）， 与斩杀无效同读 _dmgCap（老板口径：免疫/异常状态单位不能被治疗）。
-// V6.4.12 | 2026-11-17 applyStatChange 增 ignoreHealReduce 第9参（寒离飒轰拳真实吸血通道）
+// core/214-battle-shared.js — 属性词条系统 + 战斗状态收口（addMod / getStat / applyStatChange / killUnit / refreshMaxHp）
 export const VER = 'core/214-battle-shared.js V6.4.12';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清

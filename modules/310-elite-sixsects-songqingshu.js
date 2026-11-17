@@ -1,7 +1,6 @@
 // modules/310-elite-sixsects-songqingshu.js — 宋青书（叛逆突袭 / 苦练 / 新婚 / 性奋 / 白骨爪连锁）
 // 白骨爪连锁概率：基础 0.80，按周芷若自身已损血比线性升到 1.00，无存活宋青书再 +0.10（可超 1.00，等价「保底必连几爪」）；
 //   链条内每多连一爪概率 −0.01，累减到 ≤0 必断——这是「不会无限连」的唯一保证，不要改成固定概率。
-// V6.28.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.3';
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';

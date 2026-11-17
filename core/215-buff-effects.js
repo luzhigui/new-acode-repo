@@ -1,4 +1,4 @@
-// V6.2.6 | 2026-11-08 known-transfers 第 12 条：惑心换位落位合法性闸——toPos 必须是 1~9 整数， 非法落点整笔放弃（旧版单候选分支找不到空格时把 unit.pos 写成 undefined，后续按 pos 找位复位到 1 号位 => 战报宣告 4、实际露面 1）。
+// core/215-buff-effects.js — 海克斯实际效果落地（流云、圣火令、carry、惑心换位）
 export const VER = 'core/215-buff-effects.js V6.2.6';
 // V6.2.2（2026-11-08）：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
 //   缺键直接 TypeError，与「缺哪键报哪键」口径不符）。

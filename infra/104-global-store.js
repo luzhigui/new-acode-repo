@@ -1,8 +1,5 @@
+// infra/104-global-store.js — 全局状态容器、UIHandler 通道与 PlayerContext 桥接
 export const VER = 'infra/104-global-store.js V6.1.1';
-// V6.1.1 | 2026-11-10 删除 slideSpeedActive 两个恒 false 的死桩（getState.slideSpeedActive / STATE getter）：
-//   它既不在 112-store-schema 的 67 键白名单里，也没有 setter，全仓无任何消费方——
-//   ui/718-speed-controls.js 自己维护同名模块级变量，与 store 无关。
-//   留着它会让人以为「store 里有个可读的滑速状态」，实际永远是 false，属指错方向的假接口。
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './102-core-utils.js';
 import { UI_HANDLER_KEYS } from './106-battle-enums.js';

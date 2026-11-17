@@ -1,5 +1,4 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
-// V1.0.4 | 2026-11-08 展示与事实同源：融会贯通「×50%」改读 CONFIG.ZHANG_RONGHUI_RATIO； 严阵以待姊强化回血改读 sister.fortify.healOnRebound 且按 floor(反弹/3) 印数（与 core/212 同口径， 落地 0 时不印「回复」，不再出现未取整的 4.3 / 回复 0.x）
 export const VER = 'render/412-facts-stat.js V1.0.4';
 
 import { registerFactRenderer } from './406-fact-registry.js';

@@ -1,6 +1,4 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-// V6.14.6 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场CG（原 ui/713-opening-cg.js）搬 archive/， 精英图鉴选人弹层 showEliteGallery 改为直接放行（原 524KB 嵌页 展示与CG/精英展示-04 一并搬 archive/）。 全部改为就地空实现，调用点未动；恢复方式见 archive/README.md 与 archive/702-showEliteGallery.snippet.js。
-// V6.14.7 | 2026-11-17 专属三选一改随机概率出现（ZHANG_EXCLUSIVE_CHANCE=0.2）
 export const VER = 'ui/702-main-5v5-test.js V6.14.7';
 
 import '../infra/104-global-store.js';

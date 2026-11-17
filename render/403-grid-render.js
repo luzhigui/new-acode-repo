@@ -1,7 +1,6 @@
 // render/403-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-// V7.1.12 | 2026-11-08 状态标签化：格子 😵 判定改问 isControlled()（core/218 标签表），不再裸读 _stunned。
 export const VER = 'render/403-grid-render.js V7.1.12';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';

@@ -1,6 +1,4 @@
 // ui/722-buff-tooltip.js — buff 槽点击弹窗（名称 / 剩余回合 / 效果说明；圣火令附带 3×3 命中示意）
-// V1.0.1 | 2026-11-08 体检转交：圣火令九宫格 title 与核心效果摘要不再写死普通版 +30%/1 列，
-//         改为按姊版实际值（2 列 +25% / 2 行 +25%）显示。
 export const VER = 'ui/722-buff-tooltip.js V1.0.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';

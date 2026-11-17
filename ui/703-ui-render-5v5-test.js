@@ -1,4 +1,4 @@
-// V6.1.6 | 2026-11-08 血量百分比文本改走 fmtNum，不再自己 Math.floor
+// ui/703-ui-render-5v5-test.js — UI 层主渲染（格子重绘、详情弹窗、胜利特效）
 export const VER = 'ui/703-ui-render-5v5-test.js V6.1.6';
 
 // getSkillDesc 已下沉到 ui/710-role-cards.js（技能说明统一查表），本文件不再直接用

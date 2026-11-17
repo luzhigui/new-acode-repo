@@ -1,5 +1,4 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-// V6.3.16 | 2026-11-08 四类飘字（💥伤害/❤回血/⚔攻/🛡️防）数值统一走 fmtNum，消除实数化后的浮点尾巴
 export const VER = 'fx/601-fx-common-5v5-test.js V6.3.16';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';

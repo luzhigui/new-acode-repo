@@ -1,4 +1,4 @@
-// V1.5.23 | 2026-11-09 新增 SUMMON_DEAD 契约（召唤物阵亡隐藏只供体检归账）；SUMMON_UNIT 审计字段补 camp
+// infra/107-fact-contract.js — fact 契约定义（FACT_SPECS）与渲染/翻译校验
 export const VER = 'infra/107-fact-contract.js V1.5.23';
 
 import { FACT_TYPES } from './106-battle-enums.js';

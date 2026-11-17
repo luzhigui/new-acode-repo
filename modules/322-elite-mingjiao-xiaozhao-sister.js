@@ -1,5 +1,4 @@
 // modules/322-elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
-// V1.0.12 | 2026-11-11 消融子开关三件套（老板拍板分化三子集）：noQianKunReduce/noQianKunHeal/noQianKunAtk 各关各的（常规+白骨爪双路径同口径），noQianKun 总闸不变；子开关只跳过生效、掷骰照常消耗保序列逐位一致； 渲染联动 410：缺哪段不吐哪段（不再渲染 null）
 export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.12';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';

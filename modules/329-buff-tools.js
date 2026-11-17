@@ -1,6 +1,4 @@
-// V6.2.11 | 2026-11-13 专属海克斯框架：content buffs 里带 owner 的海克斯只在本方该角色存活时进候选
-//   （requires='noCharge' 额外要求该角色未蓄力）；recordUsedBuffKey 把 owner 类并入全场唯一机制挡。
-// V6.2.10 | 2026-11-08 众志成城门槛放宽：本阵营存活 ≤5 人仍可进候选，只有 6 人（满编）剔除
+// modules/329-buff-tools.js — 海克斯池过滤、生成、计时与通用海克斯工具函数
 export const VER = 'modules/329-buff-tools.js V6.2.11';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';

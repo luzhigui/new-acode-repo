@@ -1,5 +1,4 @@
 // modules/323-elite-mingjiao-xiaozhao-brother.js — 明教精英「小昭·妹」：组件工厂 + 蛛变/蜘蛛卵全套 + 死亡计数自注册
-// V1.2.5 | 2026-11-11 体检转交：decideSpiderTier 增 hpBefore 入参，死亡档改为「受击前 >0 且受击后 <=0」才判（两处调用点同改）
 export const VER = 'modules/323-elite-mingjiao-xiaozhao-brother.js V1.2.5';
 import { CONFIG, getBrotherHexEnhance } from '../core/201-config-5v5-test.js';
 import { hasBuff } from '../core/203-battle-utils.js';

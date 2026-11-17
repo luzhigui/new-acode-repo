@@ -1,7 +1,6 @@
 // ui/705-main-dialogs.js — 主界面弹窗（战报 / 音乐 / 投票 / 倒计时 / 日志工具）
 // 「📂 播放战报文件」经 GlobalStore.getUIHandler('startReplayFromFile') 取，不 import 76——
 //   本文件已被 63 import，再 import 76 会让 63→64→76→63 成环。
-// V6.5.3 | 2026-11-11 下线「📊 走势分析」：分析代码整体搬进工具箱 tools/845-battle-log-analyze.js， 本文件删掉对应 import、走势分析容器与「📊 走势分析」/「📋 复制分析」两个按钮（战报数据表与复制战报不变）。
 export const VER = 'ui/705-main-dialogs.js V6.5.3';
 
 import { showModal, showAlert, copyLogToClipboard } from './701-main-utils.js';

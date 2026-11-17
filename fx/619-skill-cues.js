@@ -4,7 +4,6 @@
 //   载荷全部是可序列化的 uid/camp/pos/数值 → 回放、联机从机都能播同一份演出。
 //   一条 cue 只在这里演出一次；快进由 fx/610 订阅侧统一拦（不阻塞战斗）。
 export const VER = 'fx/619-skill-cues.js V1.1.0';
-// V1.1.0 | 2026-11-07 吸星演出放慢到可读：连线 1000ms、数值 1700ms、目标间隔 180ms（逻辑时间，不阻塞）。
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';

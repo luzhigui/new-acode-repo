@@ -1,5 +1,4 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-// V6.27.3 | 2026-11-08 严阵以待反弹比例参数化：不再写死 /2，改读 BUFFS.fortify.reboundRatio（现值 0.4）
 export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/214-battle-shared.js';

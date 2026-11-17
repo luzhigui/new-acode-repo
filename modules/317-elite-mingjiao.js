@@ -2,8 +2,6 @@
 // 编号 27 = 「明教精英」模块族，不是单文件序号；族内拆文件共享父号、用语义后缀区分。
 // 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
-// V7.3.4 | 2026-11-16 版本号留痕补齐：VER 常量已为 7.3.4，此前漏写对应头注行（ver-drift ② 报「VER 领先」）；无机制改动。
-// V7.3.3 | 2026-11-08 状态标签化：同门出手候选的眩晕判定改问 isControlled()（core/218 标签表）。
 export const VER = 'modules/317-elite-mingjiao.js V7.3.4';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/208-registry-elite.js';

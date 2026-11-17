@@ -6,7 +6,6 @@ import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra
 import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-// V1.5.13 | 2026-11-08 known-transfers 第 9 条：伤害行/飘字扣除 cappedLoss（单次受伤上限吃掉的部分）， 印实际落地扣血而不是截断前的原值。
 export const VER = 'render/407-facts-attack.js V1.5.13';
 
 // 攻击流程

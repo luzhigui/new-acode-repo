@@ -1,8 +1,4 @@
 // modules/336-elite-sixsects-yuanzhen.js — 少林圆真·现原形（六大派精英）
-// V1.0.3 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-// V1.1.0 | 2026-11-12 老板拍板两刀：①继承收窄——装混元霹雳劲+幻影伪装（变身模仿+变身回血），
-//           坚盾增幅（fortifyIncrementMul）按字段摘除不克隆 ②圆真本体职业不限死（001 摘防战 tag，
-//           resolveEnemyRole 每局随机摇；rebasePanel 不碰 role，变身后沿用摇到的职业不掰回防战）
 export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.1.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';

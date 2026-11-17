@@ -5,10 +5,6 @@
 //   召出单位参数全部来自 content 的 summonBengBeng，与谢逊幼狮同口径。
 //   蹦蹦攻击或受击时给对方叠一层寒毒（独立毒账 _bengHanDu，本模块自结算，与寒离飒无关——V1.3.0）。
 // 预估约 4700 字节
-// V1.4.0 | 2026-11-13 三路加召唤（老板拍板）：回合召唤 prob 0.66→0.3；新增张中攻击后 0.2 /
-//   蹦蹦攻击后 0.1（AFTER_ATTACK FOLLOW_ATTACK+5=50 空档，仅命中 dmg>0 算攻击）；
-//   己方死亡按 m/1000 补召（ON_UNIT_DEATH HOLY_FIRE+2=42，蹦蹦含内 m=10→0.01）。
-// V1.3.0 | 2026-11-10 毒归挂毒方（TA 拍板）：蹦蹦毒独立 _bengHanDu 字段+模块内自结算，与寒离飒彻底解耦； 三通道挂毒=打蹦蹦/被蹦蹦打/任何伤害击杀蹦蹦（凶手读 _killerUid 账，溅射/DOT/反弹全覆盖）； 抑疗（寒毒抑疗削减）与格上 ❄️ 图标同享；毒账随受害者走，扣到回合数耗尽为止，跟三家死活无关。
 export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.4.0';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';

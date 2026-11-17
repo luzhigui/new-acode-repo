@@ -1,6 +1,4 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.29.9 | 2026-11-09 癫发作不再吞技能：只跳过「打歪改落点」，×倍率+击退 / 正义国字脸+加防照常触发； 嘲讽只标记敌方阵营（癫时 validTargets 含队友）。
-// V6.29.10 | 2026-11-17 蓄力回复账本收口结算期：删声明期 recordHpAudit（preview 预演≠落地），改声明带 auditGroup/auditSource 由 core/217 HEAL handler 按实落量记账。
 export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.10';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, previewHeal } from '../core/214-battle-shared.js';

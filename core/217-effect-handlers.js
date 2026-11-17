@@ -1,5 +1,4 @@
-// V6.3.0 | 2026-11-14 known-transfers 第 185 轮残留半：HEAL handler 增「结算期按实落量记审计账本」（decl.auditGroup 存在且 actual>0 时 recordHpAudit），并把九阳/左拳·九阳等声明期记账的预演/落地分叉收口到同一 actual；actual 取整口径对齐 LEECH（Math.round）。
-// V6.2.9 | 2026-11-08 known-transfers 第 7 条：LEECH handler 优先按声明期算好的 maxHpGain 累加上限， 修「同帧多击第二次不抬上限」（绝对目标值相减恒 0）；无该字段的老调用点行为不变。
+// core/217-effect-handlers.js — 伤害结算后的特效裁定器（回血、吸血、溅射、反伤等 Effect Handler）
 export const VER = 'core/217-effect-handlers.js V6.3.0';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
@@ -138,7 +137,7 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
                 refreshMaxHp(decl.source, null, '吸血上限提升');
             } else if (delta < 0) {
                 // 声明目标上限 < 当前上限（cur 被别处抬高了），旧实现静默置 0 = 悄悄没抬上限；
-                //   显式告警，避免「战报写抬了、实际上限没动」的静默失真（known-transfers 第 122 轮登记）
+                //   显式告警，避免「战报写抬了、实际上限没动」的静默失真
                 console.warn('[LEECH] maxHpDelta<0 被静默吞：decl.maxHp=' + decl.maxHp + ' cur=' + cur + ' unit=' + (decl.source && decl.source.name));
             }
             // 体检对照增量字段：把实际登记的词条增量回写 factData

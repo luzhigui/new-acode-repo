@@ -1,5 +1,4 @@
 // core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
-// V6.3.41 | 2026-11-11 妹背水后不吃团队海克斯：连击候选池排除（她有自己的背水掷骰连击，不双掷）、 云身跳过强制置真（姊强化 noSkip 也不豁免她）、per-unit 施法循环五 apply 跳过（摄魂保留=敌方减益照挨）
 export const VER = 'core/210-battle-round.js V6.3.41';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
@@ -49,7 +48,7 @@ function clearRoundEntries(A, B, state, ctx) {
     // 清理后必须 refreshMaxHp，否则上回合 carry 的 maxHp 加成会残留
     // 按 uid 去重：复活后单位可能同时出现在 A/B 两侧数组里，重复清理会让 ttl=round 的词条被
     //   叠加计入（removeModsByTTL 幂等，但 refreshMaxHp 会按重复条目重算面板）。
-    // 不论生死都清：阵亡单位若被「圣火不熄」复活，上回合 round 词条会与新挂词条叠加（规则 241）。
+    // 不论生死都清：阵亡单位若被「圣火不熄」复活，上回合 round 词条会与新挂词条叠加。
     //   refreshMaxHp 对已阵亡单位首行直接 return，清尸体词条不会改面板。
     const cleanedUids = new Set();
     for (const u of [...A, ...B]) {
@@ -65,7 +64,7 @@ function clearRoundEntries(A, B, state, ctx) {
     ctx.log.push({ factType: FACT_TYPES.ROUND_START, data: { round: ctx.round } });
 }
 
-// 阶段2：双方刷马 + 选双击单位（rng），返回 { unitUid:A队, enemyUid:B队 }。
+// 阶段2：双方刷马 + 选双击单位。
 function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     const teamHorseA = spawnHorse(A, ctx.log, B);
     if (teamHorseA) {
@@ -122,7 +121,7 @@ function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     return { unitUids, enemyUids };
 }
 
-// 阶段3：圣火令 buff 变换器重算（之后重切 activeBuffs）→ 召雄鹰 → 众志成城补员。
+// 阶段3：圣火令 buff 变换器重算 → 召雄鹰 → 众志成城补员。
 function prepareRoundSpawns(A, B, state, ctx) {
     // 圣火令增强迁 modules/27：回合开始 buff 变换器注册面，同位置同条件画 rng（序不变，基线二分保障）；
     //   无增强者在变换器内部走默认行列重画
@@ -149,7 +148,7 @@ function prepareRoundSpawns(A, B, state, ctx) {
     spawnBrotherPermanentUnityRecruit(B, ctx.log);
 }
 
-// 阶段4：清裁判登记 → 注册本回合战斗机制 → 工厂循环实例化回合组件 → 装声明技能/数据表。
+// 阶段4：清裁判登记 → 注册本回合战斗机制 → 实例化回合组件 → 装声明技能/数据表。
 function installRoundMechanics(A, B, state, ctx, ds) {
     eventBus.clearAll();
     // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
@@ -210,7 +209,7 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     return { roundComps };
 }
 
-// 阶段5：搭档连线（仅扫敌方 B，配对双方互挂 _linkedPartnerUid）。
+// 阶段5：搭档连线。
 function linkPartners(A, B) {
     // 搭档连线：配对知识在英雄模块侧注册；仅扫敌方 B
     for (const [partnerA, partnerB] of getLinkPartnerPairs()) {
@@ -220,7 +219,7 @@ function linkPartners(A, B) {
     }
 }
 
-// 阶段6：重置每单位状态字段 → 摄魂点名（存量 -1 + 各方向随机点名）→ 发 ON_ROUND_START 结算属性授予。
+// 阶段6：重置每单位状态字段 → 摄魂点名 → 发 ON_ROUND_START 结算属性授予。
 function prepareSoulDrain(A, B, ctx) {
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
@@ -236,7 +235,7 @@ function prepareSoulDrain(A, B, ctx) {
     resolveRoundStatGrants(roundStatDeclarations);
 }
 
-// 阶段7：按闪避规则 + 云身词条计算每单位本回合闪避率（乘性合并）。
+// 阶段7：计算每单位本回合闪避率。
 function computeDodgeChance(A, B) {
     const dodgeUnits = [...A, ...B];
     for (const u of dodgeUnits) {
@@ -257,11 +256,7 @@ function computeDodgeChance(A, B) {
     }
 }
 
-// 阶段8：对单队施加回合 per-unit 加成（A/B 两个同构循环合并）。
-//   team=本队、enemy=对方队；isAlly=true 为明教(A)。差异全部参数化：
-//   · 圣火令 hasSister：A 队读 isHolyFlameEnhanced，B 队恒 false
-//   · 摄魂方向：casterAlive/targetAlive 互换、casterSide 恒为对方队 enemy
-//   · 光环：getAuraBonuses(u, team, enemy)
+// 阶段8：对单队施加回合 per-unit 加成。
 function applyTeamRoundBuffs(team, enemy, state, ctx, alive, isAlly) {
     const buffs = team._activeBuffs || [];
     const enemyBuffs = enemy._activeBuffs || [];
@@ -396,12 +391,9 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     let log = [];
     let round = state.round;
 
-    // 状态源唯一：本步为每个单位冻结一份真值（getStat 现算），随 step 下发。
-    //   下游（player/42 → render/32）只读它，不再从 _mods 词条原料现算，也不再从日志 snap 单点捞
-    //   （那些路径都受引擎活体共享影响，回放/联机读到终态 → 「格子防37/日志防56」的根因）。
-    //   冻结时刻 = 本步末（引擎此刻状态）。含全单位：死掉的 hp=0、新召唤的也在 A/B 里。
+    // 状态源唯一：本步为每个单位冻结一份真值，随 step 下发，下游只读它。
     const makeStep = (logs, evs, winner = null, done = false) => {
-        // 圣火令主动（2026-11-13）：每步开头消费队列，fact 追加到本步 log 末尾
+        // 圣火令主动：每步开头消费队列。
         consumeHexActions(A, B, logs);
         const frozenValues = {};
         for (const u of [...A, ...B]) {

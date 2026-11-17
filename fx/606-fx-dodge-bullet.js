@@ -1,5 +1,4 @@
 //   按 bulletTotal 等比缩放（含撤退三段/返场/飞走/末段等待），屏息凝视单独保底 2000ms
-// V6.3.3 | 2026-11-08 反击飘字数值走 fmtNum，消除实数化后的浮点尾巴
 export const VER = 'fx/606-fx-dodge-bullet.js V6.3.3';
 
 import { showComicBubble } from './601-fx-common-5v5-test.js';

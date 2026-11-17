@@ -1,6 +1,4 @@
 // modules/307-elite-imperial.js — 元朝朝廷精英：成昆（幻影伪装）/ 鹿杖客·鹤笔翁（玄冥联动）
-// V6.1.5 | 2026-11-16 known-transfers：幻影伪装治疗账本改「结算期按应用后实落量」记账——声明只带 auditGroup/auditSource，删声明期 recordHpAudit（原记 floor 预演值，与 fact.heal 分叉 ⇒ 体检 PHANTOM_DISGUISE_HEAL 重复应用）；与 core/216 九阳 / modules/319 左拳九阳同口径，core/217 零改动
-// V6.1.4 | 2026-11-08 模仿候选池改走 core/207 公共出口（canBeTargeted + 引擎过滤器），「不模仿马」以 accept 条件保留
 export const VER = 'modules/307-elite-imperial.js V6.1.5';
 
 import { registerElite, registerLinkPartners } from '../core/208-registry-elite.js';

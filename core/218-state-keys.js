@@ -1,13 +1,4 @@
-// V2.11.1 | 2026-11-14 补登 _manualTargetUid（张无忌·我命由我拖拽选目标：player/512 写入、core/212 选目标时读、core/210 回合收尾清）；
-//   同属「只写未登记」，浏览器端 clone 会撞 assertStateFullyRegistered。
-// V2.11.0 | 2026-11-15 补登两个漏登记的 state 字段（体检转交字段只写未登记，clone 被 assertStateFullyRegistered 拦下）：
-//   ① _holyFireRevives（圣火不熄复活账，core/204 写入，整场持久）；
-//   ② _duanChuiHalveCue（庄铮断锤演出提示，modules/337 写入，本击内有效）。同域同类字段今后必须同步登记。
-// V2.10.0 | 2026-11-08 状态语义标签化（纯声明，零行为变更）：给 schema 条目加可选 tags，
-//   「受控 / 免控 / 不可被选中 / 待死」四类判定从各文件手写字段名改为标签驱动。
-//   以后新增一类控制状态（冰冻/沉睡/定身）只需在对应条目写 tags:[CC]，全部读取侧自动跟上，
-//   不必再去 core/209、core/210、core/212、modules/302、317、322 逐个补条件。
-// V2.11.2 | 2026-11-17 注册 _firstTokenDone（首杀必掉令标记）
+// core/218-state-keys.js — 单位状态字段 schema 定义与标签化（受控/免控/不可选/待死）
 export const VER = 'core/218-state-keys.js V2.11.2';
 
 /** 字段类型：决定 clone 时的拷贝方式 */

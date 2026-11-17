@@ -1,5 +1,5 @@
+// player/510-renderer.js — 播放器渲染出口（日志挂载、滚动、胜利特效、战斗日志清除）
 export const VER = 'player/510-renderer.js V6.1.0';
-// V6.1.0 | 2026-11-07 | 新增 renderStaticLogEntry：info/detail 静态渲染共用出口（真播 509 与倒针 727 同套）
 
 import { GlobalStore, getState } from '../infra/104-global-store.js';
 import { playLineText } from './501-player-text.js';

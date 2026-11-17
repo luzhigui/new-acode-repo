@@ -1,22 +1,9 @@
-// V6.9.7 | 2026-11-08 体检转交：导出 getContentVersion()，供生涯记录/跑批判混版本（单一真源 = 001.version）。
 // V%s | 2026-11-08 known-transfers 商店三条(1)：宝箱掉率收口为单表 content/001 dropRates，
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
 //   禁止 JS/商店页再写第二份数字。
-// V6.9.9 | 2026-11-17 新增 ZHANG_EXCLUSIVE_CHANCE（专属三选一随机出现概率）
-// V6.9.10 | 2026-11-17 抑疗统一系数改 0.67（减疗33%）
 export const VER = 'core/201-config-5v5-test.js V6.9.10';
 // V6.9.4 | 2026-11-07 性能回归修复：getHeroPools() 结果缓存 + BUFFS 缓存（每场 300~450 次重复推导 → 单场 93 ms 降到 ~11 ms）；
 //        | 运行期改写 characters/buffs 时必须调用 invalidateConfigCache()，否则读到旧派生结果。
-// V6.9.3 | 2026-11-07 named 收成「每条必填」契约：characters 82 条全部显式写（30 具名 true / 52 杂兵 false），
-//        | 缺字段不再靠默认值兜着，改由 tests/smoke-headless.mjs 的数据卫生断言报错。
-//        | roster 旧表已于 7f04f450 删除，角色池唯一派生口 = getHeroPools()。
-// V6.9.2 | 2026-11-07 修 {prob} 残留：DESC_TRUTH 补登 absorb→statAbsorb.prob（scale 100）。
-//        | 俞莲舟 absorb 技能无 params，概率只存 mechanics，getSkillDesc 回落 params 取不到 ⇒ 说明原样
-//        | 印出 {prob}（规则回放 150/150 全红）；PCT_PARAM_KEYS 早已含 prob，缺的是真值入口，不是注册。
-// V6.9.1 | 2026-11-07 修复杂兵刷蓝回归：isNamedCharacter 不再靠「键在不在 characters 里」反推，
-//        | 改读 characters[name].named 显式标记（27 条具名=true / 5 条原无名 104 杂兵=false）。
-// V6.9.0 | 2026-11-07 优化二·B 方案落地：角色池（mingM/enemyM/mingAll/eliteConfigs/enemyTitles/recruitPool）
-//        | 全部改由 characters 运行时推导，roster 旧表仅作对账快照（tools/829-verify-pools.mjs），不再被读取。
 
 import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/106-battle-enums.js';
 

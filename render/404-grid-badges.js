@@ -1,8 +1,6 @@
 // render/404-grid-badges.js — 格子内展示计算（计数徽章 / 闪避分解 / buff 受益判定）
 //   buildCountBadge / getDodgeBreakdown / isUnitBenefitedByBuff 整块迁入。
 //   只依赖传入的 unit/team/buffs，不碰 DOM、不碰 store（渲染主循环调用它们取值）。
-// V1.1.0 | 2026-11-11 妹背水后不吃团队海克斯：受益类 logo 与实效闸对齐（isUnitBenefitedByBuff 头部
-//           isTeamHexExcluded 闸 + BENEFIT_HEXES 集合），背水后的妹格子不再挂无效的 🤝/🔥/⚡ 等受益标
 export const VER = 'render/404-grid-badges.js V1.1.0';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';

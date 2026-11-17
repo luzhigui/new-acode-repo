@@ -1,5 +1,4 @@
 // modules/328-elite-mingjiao-yintianzheng.js — 明教精英「殷天正」：组件工厂（白眉鹰王·防战·反击三段）
-// V1.3.0 | 2026-11-11 老板拍板加强：威压/老当益壮各加「生命上限 −3 / +3」词条（走 addMod+refreshMaxHp， 升等量加、降等比缩，与唐文亮冲刺同口径）；反击初始概率 22%→33%、每次命中 +2%→+3%（封顶 90% 不变）。
 export const VER = 'modules/328-elite-mingjiao-yintianzheng.js V1.3.0';
 
 import { getBattleRng, addMod, refreshMaxHp } from '../core/214-battle-shared.js';

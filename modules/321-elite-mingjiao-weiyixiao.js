@@ -1,5 +1,4 @@
 // modules/321-elite-mingjiao-weiyixiao.js — 明教精英「韦一笑」：组件工厂（青翼蝠王·吸血/轻功）
-// V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/321-elite-mingjiao-weiyixiao.js V1.1.1';
 import { getMechanicField } from '../core/201-config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';

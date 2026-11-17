@@ -2,7 +2,6 @@
 // 归属判据：这些函数被「攻击链之外」的调用方单独使用（modules/26-tangwenliang 取 computeDodgeChance +
 //   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
 //   攻击链内部流转留在 212-battle-attack-chain.js，保持「一条攻击链一个文件」。
-// V1.0.5 | 2026-11-09 召唤物阵亡补显式事实：resolveDeaths 里 isSummon 的死者与 UNIT_DEATH 同出口 补一条 SUMMON_DEAD（此前只能从 ATTACK 的 dmgResult.dead 反推，DOT / 替死 / 非攻击来源归零时看不见）。
 export const VER = '213-battle-attack-edge.js V1.0.5';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';

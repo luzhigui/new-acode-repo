@@ -1,4 +1,3 @@
-// V1.0.0 | 2026-11-07 倒针面板落地：入口按钮 + 底部小面板（默认开、暂停时才露入口）
 // ui/726-rewind-panel.js — 倒针面板（默认开，暂停时才露入口）：入口按钮 + 底部小面板
 //   默认不需要任何地址参数；?rewind=0 或 localStorage.gmd_rewind='0' 可彻底关掉（不建 DOM、不起定时器）。
 export const VER = 'ui/726-rewind-panel.js V1.0.0';

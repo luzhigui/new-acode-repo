@@ -4,7 +4,6 @@
 //     点「继续」（PAUSED→RUNNING 或 waitingForNextRound→RUNNING）→ onContinueForHex → 飞入中央
 //     拖动中央 slot → 落红血单位 → 本地预演 + submitHexAction 入队 → 下一 makeStep 引擎消费
 //   状态机：idle → pending → centered → dragging → used
-// V1.0.1 | 2026-11-17 圣火令只有暂停后才飞入中央（删3秒自动飞入与继续触发）
 export const VER = 'ui/723-hex-active.js V1.0.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';

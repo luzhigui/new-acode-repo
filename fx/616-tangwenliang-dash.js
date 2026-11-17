@@ -1,47 +1,6 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
 export const VER = 'fx/616-tangwenliang-dash.js V3.0.6';
-// V3.0.6 | 2026-11-08 | 慢速档（真机默认档）删掉 ghosts 为空即整段 return 的旧前置条件：
-//   V3.0.1 已声明「克隆体为空时回落真格锚点演完」，但慢档残留这一行，无克隆体时锁链/标枪/伤害浮字
-//   连同遮罩一起凭空消失；冲刺那一击的默认动画又被 _isDashStrikeFx 跳过 → 玩家看到「什么都没演」。
-//   回落后 L490-494 / L706-707 的真格锚点与 actorRect 判空已覆盖，无需其它改动。
-// V3.0.5 | 2026-11-08 | 冲刺血条「空→多→少」三跳收口：
-//   ① 克隆体开场只认 dash.hits 的 hpBefore（去掉 Math.min(store.hp, hpBefore) 的兜底，
-//      store 在主动=扣前 / 被动=扣后，掺进来必错一边，碰到 0 就画成空条）；
-//   ② 隐藏真格改到下一帧 rAF 再设 _renderFlyMode='fly'，先让克隆体画出这一帧；
-//      rAF 回调带收尾判据（fxFinished / activeGhosts 已被接管或淡出即跳过），防真格永久隐身；
-//   ③ 只对真的造出克隆体的 uid 设 fly（makeGhost 返回 null 时隐藏真格等于留空格）。
-//   配套 render/420 DASH.storeAfter 在清 fly 前把 hpAfter 先写回 store。
-// V3.0.4 | 2026-11-08 | 攻击力显示下限：演出克隆卡攻文本改 fmtAtk（<0 显示 0），引擎负数真值不回写
-// V3.0.3 | 2026-11-07 | 血量显示下限：演出克隆卡血量文本改 fmtHpText（存活 <1 显示 1），血条宽度仍用原始 hp
-// V3.0.2 | 2026-11-07 | 修「标枪飞行期间名字不变蓝、飞完才变蓝」：
-//   克隆体卡片没带名字色档（真格 render/403 对唐文亮是 name-blue），演出时看到的是白名克隆体，
-//   收尾后 storeAfter 显真格才变蓝。cardHtmlFromUnit 补上同一套色档（绿/金/紫/蓝），克隆体与真格一致。
-// V3.0.1 | 2026-11-06 | 修「冲刺特效只显示一部分」：
-//   ① 快版锚点从「ghosts.find(x => !x.isDash)」改成按 targetUid 找克隆体，找不到用真格 ——
-//      目标本来就在前排（target.pos<=3）不会产生克隆体，旧写法必抓到「被挤队友」，
-//      金线/冲击环/标枪全打在队友身上，目标一次都没被演出；`_isDashStrikeFx` 又把默认攻击动画跳过，
-//      所以玩家看到的就是「后半段没了」。
-//   ② 快版/慢版去掉「moves 为空 / ghosts 为空就 return」——双方原地未动也照常用真格演完
-//      锁链→冲击→标枪，只有 dash 连 from/to 都没有才放弃。
-//   ③ performFinishingPunch 的基线按 position 分口径：克隆体是 fixed（left/top=视口坐标），
-//      真格 .cell 是 relative（left/top=相对偏移），否则拿真格当唐文亮锚点时整格会被 left=视口 x 顶飞。
-// V3.0.0 | 2026-11-02 | 视觉整体对齐 demo 逐帧演示（用户拍板「能替换全部替换」）：
-//   ① makeGhost 改为一律从 store 自绘卡片 —— DASH 的 store 步会先把终点格 resetCell 成空壳
-//      （_renderFlyMode='fly' 走 render/32 的 fly 分支），cloneNode 那条路在回放/联机从机上必然拿 null，
-//      整个位移/锁链/慢速档会被静默跳过（老板实机「动画完全不对」的根因）。
-//   ② 位置只写 left/top、transform 只放 scale —— 修「双算位移冲出格子」（原慢速档走位写 transform）。
-//   ③ 新增 freezeGhosts：碰撞帧把 left/top 固化到终点 —— 修「克隆体在 finishing punch 时弹回起点」
-//      （原版 finishing punch 把位移写进 transform，与 left/top 双算）。
-//   ④ performFinishingPunch 改为 CSS 标枪（shaft 64×8 + head 22px 三角），飞 400ms、扎中停留 200ms。
-//      语义说明：原版是「近战一拳」；主代码唐文亮冲刺后转战士、拳头语义更贴；但用户拍板标枪更精致，
-//      且标枪本就是唐文亮招牌——按用户指令改标枪，快版与慢速档统一。
-//   ⑤ 血条防剧透：血量真值由引擎 modules/315 随 dash.hits 直接带过来（hpBefore/hpAfter），
-//      克隆体用 hpBefore 开场，碰撞帧 revealGhostHp 切到 hpAfter。
-//      不再从 store 反推——被动冲刺时 store 已被 ATTACK 收尾写成扣血后，反推等于二次扣血（血条忽空）。
-//      同时删掉原版慢速档/快版里「碰撞帧 store.dispatch(HP_CHANGE) 再扣一次」的双扣血
-//      （syncStoreFromStep 最终会覆盖回引擎值，但演出瞬态会显示多扣一次的血条）。
-//   ⑥ 卡片血条颜色阈值 50/20 → 70/40，与 render/403-grid-render 的格子色档对齐（原版两者不一致）。
 // 强推挤压版：单目标双克隆 → moves 多人克隆 + 金线对拉 + 冲击环/火花/屏震。
 //   纯装饰：位置由引擎 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 事件走 core/13 既有链）。
 //   交接顺序（别搞反，否则旧格闪回一帧）：克隆体落定 → storeAfter 清 fly 显真格 → 克隆体才淡出。

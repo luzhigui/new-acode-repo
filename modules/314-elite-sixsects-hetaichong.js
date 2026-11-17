@@ -1,5 +1,4 @@
 // modules/314-elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-// V6.27.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.1';
 
 import { getRoleBonus } from '../core/202-unit.js';

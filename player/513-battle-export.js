@@ -1,14 +1,5 @@
 // player/513-battle-export.js — 战报录制 / 净化 / 增量瘦身 / 导出
 export const VER = 'player/513-battle-export.js V1.6.1';
-// V1.6.1 | 2026-11-11 | 修「回放里拒马变僵尸格子」：增量还原（rehydrateReport）是只加不减的合并，
-//   而拒马消散（horseDestroy）在引擎侧是直接 splice 出队、没有阵亡快照——旧马在后续每一步还原
-//   快照里都还挂着 alive=true。syncStoreFromStep 的复活守卫见「报活」会把 DESTROY 刚拉黑的 uid
-//   捞出黑名单重新上架 → 棋盘上留一具永不消失的僵尸拒马格（实测 r10 的 9 号马挂到 r22 战斗结束，
-//   最多同时 3 个残影格）。真马每回合消散换格，玩家盯着的却是僵尸格——冲它/打它全成「对空气」。
-//   修法：还原时扫 horseDestroy fact，从该步起把该 uid 标 alive=false + _isDead（与引擎口径一致：
-//   「DESTROY 单位恒报 alive=false，不进复活守卫」），后续 DESTROY 拉黑即永久生效。
-// V1.6.0 | 2026-11-08 抽签契约版本化：录制 meta 带 rngContractVersion（战报格式 version 仍为 1，只加字段），
-//   导出的战报能对上「这条记录是哪一版抽签产生的」——抽签规则一改旧战报就不再混着读。
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 import { copyAllStateFields } from '../core/218-state-keys.js';

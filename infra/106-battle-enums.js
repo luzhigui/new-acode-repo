@@ -1,4 +1,4 @@
-// V1.11.5 | 2026-11-09 新增 SUMMON_DEAD（core/213 resolveDeaths 召唤物阵亡与 UNIT_DEATH 同出口，只进 step.log）
+// infra/106-battle-enums.js — 全局枚举、类型常量与白名单唯一真源
 export const VER = 'infra/106-battle-enums.js V1.11.5';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */

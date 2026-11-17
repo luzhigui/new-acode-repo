@@ -1,5 +1,4 @@
-// V6.8.7 | 2026-11-14 known-transfers 第 185 轮残留半：九阳神功 HEAL 账本改「结算期按应用后实落量」记账——声明只带 auditGroup/auditSource，删掉声明期 recordHpAudit（原口径记的是 previewHeal 预演，同帧前序回血/伤害会让预演≠落地 ⇒ 账本与 fact.heal 分叉，体检 NINE_YANG_HEAL 出偏差）。
-// V6.8.6 | 2026-11-08 known-transfers 第 7 条：LEECH 声明补 maxHpGain（=本次实回），handler 按增量累加， 修「同帧多击第二次不抬上限」；上限口径与 core/217 同源（都用 getStat）。
+// core/216-skill-mechanisms.js — 数据驱动技能机制的安装期校验与统一装配
 export const VER = 'core/216-skill-mechanisms.js V6.8.7';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
@@ -248,7 +247,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 if (!data.declarations) data.declarations = [];
                 // maxHpGain：本次应抬的上限增量（=本次实回 heal）。handler 优先按它累加，
                 //   不再用「目标绝对上限 - 当前上限」相减——同帧第二击的 maxHp 是在第一击之前算的，
-                //   相减得到 0，第二击吸血就不抬上限了（known-transfers 第 122 轮「同帧重复声明吃增量」）。
+                //   相减得到 0，第二击吸血就不抬上限了。
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: rawHeal, source: unit, maxHp: newMaxHp, maxHpGain: heal, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT) {
                 // 满血转护盾（与寒离飒左拳·九阳同口径）：rawOnly 拿打折后应发额度，

@@ -2,7 +2,6 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-// V7.1.8 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.8';
 
 import { getRoleBonus } from '../core/202-unit.js';

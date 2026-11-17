@@ -4,7 +4,6 @@
 // shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）必须拆开——
 //   预警按九位九形画全格（空位也罩住），命中只对有人的格。
 // 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
-// V3.5.5 | 2026-11-17 预检键同步 colDen/vampPct；不瞄预览镜像按列穿深；吸血预览30%
 export const VER = 'ui/720-hanlisa-aim.js V3.5.5';
 
 import { GlobalStore } from '../infra/104-global-store.js';

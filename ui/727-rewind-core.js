@@ -1,7 +1,6 @@
 // ui/727-rewind-core.js — 倒针回看（调试）：按步/按演出段回拨，复用本局战报录制，不碰引擎
 //   开关默认关：只有地址栏带 ?rewind=1 或 localStorage.gmd_rewind='1' 才生效。
 //   数据源：player/513 的在录步（每步自带两队快照 + 日志 + 演出动作清单），不额外存快照。
-// V1.2.1 | 2026-11-09 死亡定帧补红叉：段拨到 death 停点不再被 isRewinding 静默挡掉，只补本步新死者。
 export const VER = 'ui/727-rewind-core.js V1.2.1';
 
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';

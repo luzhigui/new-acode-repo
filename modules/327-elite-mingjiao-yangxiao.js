@@ -1,5 +1,4 @@
 // modules/327-elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
-// V1.2.0 | 2026-11-11 点穴/截脉拆两骰（老板拍板）：点穴 60% 挂眩晕+冷却，截脉 80% 独立挂禁疗（成败互不绑定）； 冷却门仍挡整个弹指神通；四档公告文案（双中/只点穴/只截脉/全空），截脉单独命中飘 ❌。
 export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.2.0';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/214-battle-shared.js';

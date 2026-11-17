@@ -9,11 +9,6 @@
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则按列穿深 AoE；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
-// V2.4.0 | 2026-11-17 老板拍板四刀：①抑疗统一 66%→50%（走 CONFIG.XUANMING_POISON_HEAL_REDUCE 单源，模块零改动）②直击档 1.2→1.4（tierDen.direct=0.7143）③不瞄模式重做：随机前排兜底+行分档全屏 → 按列穿深（每列前排 N/3、列内第二人 N/4、其余 N/5；自动/快进/AI 同口径确定性结算，删 getFronts 兜底与 fullDen 消费）④专属强化行动盾 50%→30%（001 hlsPower1.shieldPct，与普通蓄力盾一致；蓄力 _shield 与九阳 _permShield 本就分池叠加）⑤轰拳吸血二改：真实吸血 10% 不吃抑疗（applyStatChange 第9参 ignoreHealReduce 直通）+ 转化 10% 伤害为最大生命值（ROUND_STAT_GRANT maxHp 原生通道，vampPct=0.1/maxHpConvertPct=0.1）。
-// V2.3.1 | 2026-11-14 known-transfers 第 185 轮残留半：左拳·九阳治疗账本由「声明期记 previewHeal 预演」改为「core/217 HEAL 结算期按应用后实落量记」（声明只带 auditGroup/auditSource，删掉声明期 recordHpAudit）——与 core/216 九阳神功同口径，修账本与 fact.heal 分叉（体检 HLS_JIUYANG_HEAL 偏差）。
-// V2.3.0 | 2026-11-13 新增专属海克斯「寒离飒强化」（buffs.hlsPower1）：下回合开始立刻起蓄（直接到相位 2，
-//   不跳过行动）、+armorBonus 护盾、全场嘲讽本回合只打他、承伤桶改按攻击者攻击力全额计入、行动时再加
-//   shieldPct×maxHp 护盾；回合末走既有 ON_ROUND_END 爆发。一场一次（_hlsPowerUsed）。
 export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.0';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';

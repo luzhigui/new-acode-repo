@@ -1,6 +1,4 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
-// V1.0.4 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
-// V1.0.6 | 2026-11-12 断锤公告带 needsSeparator（免疫分支公告自成一段）；上限锁改绝对值字段 _maxHpLock（carry 结束后回到 5，不再被差值词条夹到 1）
 export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.6';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';

@@ -1,4 +1,3 @@
-// V1.0.0 | 2026-11-06 新建：特效时间线唯一拼装入口 runTimeline（等待→逐帧→清理），fx/615 试点迁移
 // fx/618-fx-timeline.js — 特效时间线的唯一拼装入口
 //   把「等待 → 逐帧动画 → 收尾清理」的手写 .then 链收敛成声明式步骤表；行为与直接调用 clock 完全一致：
 //     real: true （默认，真实时间轴）→ clock.waitReal / clock.animateReal：不吃倍速、暂停冻结、快进直接完成

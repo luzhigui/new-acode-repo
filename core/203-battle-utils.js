@@ -1,4 +1,4 @@
-// V6.4.0 | 2026-11-09 斩杀无效判定收口 export getExecuteBlockReason：寒离飒 _immuneExecute 之外， 补上庄铮·断锤三式 _dmgCap（hp 高于上限时斩杀不能一次性归零，与血量判死同口径）。
+// core/203-battle-utils.js — 战斗通用工具（选敌基础、空列/残血光环、未命中、破防/成长/斩杀的声明）
 export const VER = 'core/203-battle-utils.js V6.4.0';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';

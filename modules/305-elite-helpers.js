@@ -12,7 +12,6 @@ import { emitStateChange } from '../infra/108-state-change.js';
 //   ★ 必须 import 建本地绑定后再 export：`export {x} from` 不建本地名，switchRoleOnly 内部调会 undefined。
 export { emitHpChange, pushFact };
 
-// V2.0.1 | 2026-11-08 两个通用动作实作下移最低可用层：emitHpChange → core/214（V6.4.8）、 pushFact → infra/102（V6.1.6）。放 modules 层时 core 自身（HP 广播 22 处 / 推 fact 113 处） 永远够不到入口，守卫规则形同虚设。本文件改为转口，对外签名与行为不变。
 export const VER = 'modules/305-elite-helpers.js V2.0.1';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。

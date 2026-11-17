@@ -1,5 +1,4 @@
-// V6.1.8 | 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）搬 archive/，本文件 stepBuff 改为就地空实现
-//           （调用点未动）。恢复见 archive/README.md「二」。
+// ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
 export const VER = 'ui/706-main-battle.js V6.1.8';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';

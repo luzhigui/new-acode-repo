@@ -1,6 +1,4 @@
-// V6.1.6 | 2026-11-08 新增 pushFact —— 推 fact 的唯一出口，从 modules/305 下移而来：放 modules 层时
-//          core（含 core/210 等 8 处）永远够不到（core→modules 属反向依赖），规则只能拦 modules 以上。
-//          infra 是最底层，七层全可用；305 改转口，行为与 payload 不变。守卫见 tests/entry-path-guard.mjs。
+// infra/102-core-utils.js — 无业务依赖的纯函数工具（状态机、RNG、事件缓冲、战斗数学、显示取整）
 export const VER = 'infra/102-core-utils.js V6.1.6';
 
 import { CAMP_TYPES, ROLE_TYPES } from './106-battle-enums.js';

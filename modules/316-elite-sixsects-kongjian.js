@@ -8,7 +8,6 @@ import { getBattleRng } from '../core/214-battle-shared.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
-// V1.1.1 | 2026-11-08 骨架化：占位查找 / 缺参读取 / 血量广播改走 modules/305 公共骨架，行为等价。
 export const VER = 'modules/316-elite-sixsects-kongjian.js V1.1.1';
 
 // 触发监听排在常规 afterDamage 之后（吸血/嗜血/乘风等在 20~35），保证溅射受伤也记进待发队列

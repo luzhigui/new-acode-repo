@@ -8,7 +8,6 @@
 //   d. 攻 +10% / 防 -20% / 承伤 +40%（沿用 CONFIG.BUFFS.lastStand 数值）
 //   e. 额外 80% 吸血（永久，_brotherLastStandLeech = 0.8）
 //   f. 后续每回合开始叠一次战士加成（无限叠）
-// V1.4.0 | 2026-11-11 攻击经济互斥掷骰（老板拍板方案A）：每次攻击结算后掷硬币——50% 连击一刀（走 core/10 额外出手通道， 新 reason brotherLastStrike 入 LINK_REASONS，引擎 _isLinkAttack 守卫保证连击那一刀绝不再掷）/ 50% 吸血 80%；承伤 40%→50%（content lastStand.takenDmgMul）
 export const VER = 'modules/324-elite-mingjiao-brother-laststand.js V1.4.0';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';

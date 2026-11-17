@@ -1,6 +1,5 @@
+// core/202-unit.js — 单位实体构造、克隆、身份标记与职业加成
 export const VER = 'core/202-unit.js V6.4.0';
-// V6.4.0 | 2026-11-07 优化二·B 方案：HERO_FLAGS 字面量删除，改为 proxy 直读 characters[name].flag；
-//        | 小昭/三狮/反伤弟子的形态标记统一走 characters[name].unitFlags，不再按名字写 if。
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 

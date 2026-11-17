@@ -1,4 +1,4 @@
-// V1.1.2 | 2026-11-08 体检转交：XUAN_MING_DOT fact 补 maxHp（毒量可按百分比校验）。
+// modules/331-custom-effects.js — 通用机制注册（dotTick 毒、反伤弟子护盾）
 export const VER = 'modules/331-custom-effects.js V1.1.2';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';

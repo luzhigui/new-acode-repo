@@ -1,5 +1,4 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
-// V6.4.17 | 2026-11-08 known-transfers 第 11 条：锁定目标补 canBeTargeted——飞天/附身/不可选中的单位 不再被连击等被动出手锁定命中（此前血不掉却照报伤害）。
 export const VER = 'core/209-battle-attack.js V6.4.17';
 
 import { CONFIG } from './201-config-5v5-test.js';
@@ -73,12 +72,10 @@ const ENGINE_GUARD_REASONS = new Set(
 // 未登记告警去重：同一个 reason 只报一次，不刷屏。
 const _warnedUnknownReasons = new Set();
 
-// —— 静默回血补账（体检 230 转交）——
+// —— 静默回血补账 ——
 // 机制直接 applyStatChange/refreshMaxHp 抬血时，只发 _events(HP_CHANGE)、不落任何日志行：
 //   同一次攻击组里血涨了、组内却没有一条回血行 → 体检判「两击之间凭空回血」。
-// 这里按组内 HP_CHANGE 事件序列还原每次抬血：前值取该 uid 上一事件（没有就取本帧起点快照），
-//   差值 > 0 且组内还没有该 uid 的回血行时，补一条带 isHealEntry/healUnitUid/healAmount/hpBefore/hpAfter 的日志行。
-// 只补日志、不改血量；已有回血行的 uid 一律不再补（防重复记账）。
+// 按组内 HP_CHANGE 事件序列还原每次抬血，补一条带账字段的日志行。只补日志、不改血量。
 const HEAL_DETECT_FACT_TYPES = new Set([
     FACT_TYPES.HEAL,
     FACT_TYPES.KUAI_LE_HEAL,
@@ -669,7 +666,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 打完后的连锁（双击、玄冥联动、跟随攻击）：双击判遮挡；forceUnact 保留旧账——请求者出手前先清行动权
     runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, group, checkBlock: true, forceUnact: true });
 
-    // 死亡登记（体检 184 转交）：毒/反伤/自伤/斩杀致死时，死亡发生在「补刀/自伤/反伤」之后而非这一刀命中时，
+    // 死亡登记：毒/反伤/自伤/斩杀致死时，死亡发生在「补刀/自伤/反伤」之后而非这一刀命中时，
     //   只靠 dmgResult.dead 会漏账。结算前把「本帧是否已经归零/待死」记进 attack fact，供死亡登记通道统一认领；
     //   只加审计字段，不动 alive 渲染口径。
     const attackerDeadAtSettle = !unit.alive || unit.hp <= 0 || !!unit.state._pendingDeath;

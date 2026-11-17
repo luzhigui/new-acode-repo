@@ -1,8 +1,5 @@
+// infra/112-store-schema.js — GlobalStore 键名白名单、值类型 schema 与运行期校验
 export const VER = 'infra/112-store-schema.js V1.1.0';
-// V1.1.0 | 2026-11-10 解除 infra/107 撞号：本文件原名 107-store-schema.js，与既有的
-//   107-fact-contract.js 同号并存（同层两个 107，按编号找文件必然找错一个）。
-//   本文件较新（V1.0.0 建于 2026-11-06 对照表对齐时），故由本文件让号 → 112（infra 当时 112 空位）。
-//   纯改名：VER 字符串、引用路径、manifest 同步；逻辑一行未动。
 
 import { BUFF_TYPES, FACT_TYPES } from './106-battle-enums.js';
 

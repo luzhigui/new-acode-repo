@@ -1,5 +1,4 @@
 // core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
-// V6.9.4 | 热血奋战翻倍节奏统一走 critPattern：普通版读 001（[1,3]），姊强化读 002（[1,2,3]），妹永久版同普通分支
 export const VER = 'core/204-buff-system.js V6.9.4';
 import {
     applyFortifyDef,
@@ -34,11 +33,9 @@ export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
     else applyHolyFlame_Normal(unit, null, activeBuffs, ctx.log);
 }
 
-// 妹妹永久：全队同职业共享（导出：core/212 严阵反弹要与 applyFortifyBonus 同判据，否则「全队加防、只有妹反弹」）
-// 妹背水后不吃团队海克斯（2026-11-11 老板拍板）：谓词读背水触发真值（324 触发时置
-//   _brotherLastStandTriggered），不新增状态键。各消费点逐一设闸：
-//   apply 五件套 / 嗜血·热血·流星攻击时结算 / computeBuffStats 云身 / 210 连击候选池+云身跳过。
-//   不闸：摄魂（敌方海克斯对我方的减益，照常挨）、圣火不熄复活/巨马/惑心（全局面效果非 per-unit 收益）
+// 妹妹永久：全队同职业共享。
+// 妹背水后不吃团队海克斯：谓词读背水触发真值，不新增状态键。
+//   摄魂（敌方减益）、圣火不熄复活、巨马、惑心不受此闸影响。
 export function isTeamHexExcluded(unit) {
     return !!(unit && unit.isXiaoZhaoBrother && unit.state && unit.state._brotherLastStandTriggered);
 }
@@ -60,12 +57,9 @@ export function applyFortifyBonus(unit, activeBuffs, team) {
     }
 }
 
-// 摄魂（首个削弱型海克斯）：对阵方（casterActiveBuffs 持有）使我方每存活单位攻击力 ×(1+ratio)。
+// 摄魂：对阵方使我方每存活单位攻击力 ×(1+ratio)。
 //   与严阵以待同款「每回合重挂」口径——ttl:'round' 由回合开始统一清理，故整局持续、不做回合计数器。
-//   调用点见 core/11：明教持有 → 施加到六大派每人；六大派持有 → 施加到明教每人。
 //   逆风补偿：被削方每比施法方多 1 个存活单位（非马），减攻比例再 -perUnitBonus；被削方人数 ≤ 施法方时保底 atkBonus。
-//   两值见 content buffs.soulDrain，两方人数由 core/11 回合开始快照传入；降防见函数内注释，回合数由 core/11 传入。
-//   ctx 收口：log / aliveCounts 等上下文型尾参合并为单 ctx={log,casterAlive,targetAlive,round}，新增上下文只进 ctx 不再改签名
 export function applySoulDrain(unit, casterActiveBuffs, ctx) {
     const hasTeam = hasBuff(casterActiveBuffs, BUFF_TYPES.SOUL_DRAIN);
     // 妹永久摄魂：团队摄魂过期后由 preparePermanentSoulDrain 每回合随机点名
@@ -109,8 +103,7 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
     pick.state._soulDrainRounds = enh.pointRounds;
 }
 
-// 受益面含拒马与狮子：门控不放 isHorse——拒马站受益位也吃加成。副作用：拒马吃到攻加成后 atk>0，
-//   不再走「拒马休息」、会出手。
+// 受益面含拒马与狮子。副作用：拒马吃到攻加成后 atk>0，不再走「拒马休息」。
 export function applyCarryBonus(unit, A, state, log) {
     if (isTeamHexExcluded(unit)) return;   // 妹背水后不吃团队海克斯
     const activeBuffs = A._activeBuffs || [];
@@ -130,8 +123,7 @@ export function applyCarryBonus(unit, A, state, log) {
         if (bonus.atkAbs) addMod(unit, 'atk', { source: 'carry', value: bonus.atkAbs, ttl: 'round', op: 'add', group: 'carry' });
         if (bonus.defAbs) addMod(unit, 'def', { source: 'carry', value: bonus.defAbs, ttl: 'round', op: 'add', group: 'carry' });
         if (bonus.hpAbs) { addMod(unit, 'maxHp', { source: 'carry', value: bonus.hpAbs, ttl: 'round', op: 'add', group: 'carry' }); refreshMaxHp(unit, null, 'carry'); }
-        // unitUid（第 185 轮补）：单靠显示名无法区分同名单位（如两侧各 1 只「雄鹰」），
-        //   体检 148 的同回合重复判据与 render/419 的属性动画都按 uid 归因（419 早已读 data.unitUid ?? data.unit?.uid）。
+        // unitUid：单靠显示名无法区分同名单位（如两侧各 1 只「雄鹰」）。
         log.push({ factType: FACT_TYPES.CARRY_APPLY, data: { unitName: unit.name, unitUid: unit.uid, atk: bonus.atkAbs, def: bonus.defAbs, hp: bonus.hpAbs } });
     }
 }
@@ -716,9 +708,7 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
 export function submitHolyFireRecord(data) {
     const teams = [data.allySide, data.enemySide].filter(Boolean);
     // 按死者认领名额：先确定死的是谁、属于哪支队伍，再查那支队伍有没有圣火。
-    //   不能取「第一个持有圣火的队伍」——双方都持有时会取到敌方，己方死者永远认领不到（判负照走）。
-    // 名额只给「真角色」：拒马(isHorse)与召唤物(幼狮/雄狮/母狮，isSummon)阵亡不占名额——
-    //   否则唯一一次复活常被 0 攻幼狮这类召唤物吃掉，复活出来也是白板。
+    // 名额只给「真角色」：拒马与召唤物阵亡不占名额。
     const owner = teams.find(t => (data.deadUnits || []).some(u => u && t.includes(u) && !u.isHorse && !u.isSummon && u.pos != null)
         && hasBuff(t._activeBuffs || [], BUFF_TYPES.HOLY_FIRE));
     if (owner) {
@@ -733,9 +723,7 @@ export function submitHolyFireRecord(data) {
             if (victim && victim.pos != null) victim.state._holyFire = 'pending';
         }
     }
-    // 妹永久补 holyFire（「团队 1 + 她 1」）：小昭·妹自己阵亡，独立名额再复活一次——与团队名额互不占用
-    //   （_holyFireSelf 单独记账）；直查 _permanentBuffs，不走 xiaoPermanentActive（那个在团队 buff 在场时返回 false，
-    //   而妹名额要与团队名额叠加生效）。已被团队名额接管（_holyFire==='pending'）时不再记，防同一次死亡双复活。
+    // 妹永久补 holyFire：小昭·妹自己阵亡，独立名额再复活一次。
     for (const team of teams) {
         const bro = (data.deadUnits || []).find(u => u && team.includes(u) && u.isXiaoZhaoBrother && !u.isHorse && !u.isSummon);
         if (!bro || bro.pos == null) continue;
