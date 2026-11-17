@@ -1,3 +1,12 @@
+// V1.58.0 | 2026-11-17 迭代：挂「主代码编号守门」tests/main-number-guard.mjs 与
+//   「主代码陈旧引用扫描」tests/comment-ref-scan.mjs（两件均新建 V1.0.0）。
+//   由头：既有 duplicate-number-guard 只守 tests/health-rules/ 的号，主代码七层撞号无人拦
+//   （infra/107 两文件长期同号、靠人肉发现后由并行会话改名才消）；注释里 366 键旧短编号引用
+//   （core/10、player/46、render/30…）也不在 123static-scan 射程。两件纯静态、零执行、只读。
+//   不拦路：引用侧存量入基线 tests/comment-ref-baseline.json（键=文件::引用、不含行号，行号漂移零噪声），
+//   只拦基线外新增；编号侧当前已核对为 0 冲突 ⇒ 只在新增撞号/新增未编号时退码 1。
+//   牙：撞号 / 无编号 / 新陈旧引用三路在仓库外 detached worktree 实测均 EXIT=1，干净树两件 EXIT=0。
+//   两件均为确定性事实（不是待研判灰度）⇒ 挂 CHECKS，计入分母与退码口径。判据阈值/主代码一字未动。
 // V1.57.0 | 2026-11-17：挂「一键报告人话翻译覆盖度自检」tests/one-click-health-translation-selfcheck.mjs。
 //   由头（#30）：one-click-health.mjs 用关键词表把红项翻成人话，表人工维护、新增检查项后又会
 //   落"其他"而无人察觉。本件静态交叉核对 run-all 条目 vs MEANING keys（按子串匹配，指出会翻成
@@ -263,7 +272,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.57.0';
+export const VER = 'tests/run-all.mjs V1.58.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -272,6 +281,13 @@ const node = process.execPath;
 // 十项红线（V1.1.0 起），顺序 = 从快到慢、从结构到数值
 const CHECKS = [
     { name: '静态扫描(import/枚举)', script: 'tests/123static-scan.js', args: [] },
+    // V1.58.0 | 2026-11-17：挂「主代码编号守门」+「主代码陈旧引用扫描」（两件均新建 V1.0.0）。
+    //   由头：duplicate-number-guard 只守 tests/health-rules/，主代码七层撞号没人拦
+    //   （infra/107 两文件长期同号、靠人肉发现）；注释里 366 键旧短编号引用（core/10、player/46…）
+    //   也是 123static-scan 射程外。两件都纯静态/零执行；存量进基线（引用侧）或已核对为 0（编号侧），
+    //   只拦新增 ⇒ 日常不制造噪声。牙：撞号/无编号/新陈旧引用三路均实测 EXIT=1，干净树 EXIT=0。
+    { name: '主代码编号守门', script: 'tests/main-number-guard.mjs', args: [] },
+    { name: '主代码陈旧引用扫描', script: 'tests/comment-ref-scan.mjs', args: [] },
     { name: '分层依赖方向(新增闸门)', script: 'tests/layer-direction-scan.mjs', args: ['--enforce'] },
     { name: '静态契约一致性(门槛/翻译器)', script: 'tests/contract-consistency.mjs', args: [] },
     { name: '蓄意轰拳数值口径对账', script: 'tests/hit-shapes-consistency.mjs', args: [] },

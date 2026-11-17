@@ -412,6 +412,10 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/317-rewind-cue-interrupt-runtime.js', '../tests/health-rules/318-rewind-fastforward-cancel-runtime.js', '../tests/rewind-cue-interrupt-probe-case.mjs', '../tests/rewind-fastforward-cancel-probe-case.mjs', '../tests/rewind-guard-prereq-case.mjs',
     // 2026-11-16 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/transfer-block-guard.mjs',
+    // 2026-11-17 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/comment-ref-scan.mjs', '../tests/main-number-guard.mjs',
+    // 2026-11-17 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
+    '../tests/health-rules/311-mind-swap-bag-exclusion.js', '../tests/one-click-health-translation-selfcheck.mjs',
     // tools（开发工具箱）
     '../tools/802-toolkit.html', '../tools/803-toolkit.js',
     '../tools/805-shop.html', '../tools/806-ai-pack-config.js', '../tools/806b-server.js',
