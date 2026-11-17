@@ -1,3 +1,4 @@
+// V1.2.9 | 2026-11-17：登记 311「惑心换位排除袋中单位」规则名（tag:mechanic:惑人心智）
 // V1.2.8 | 2026-11-17 第23轮：补齐「按规则体检」强制上场开关——此前 RULE_META 只给 4 条规则配 force
 //   (张无忌×2/韦一笑×1)，勾 hero:谢逊(3条) / hero:小昭(9条) 时 collectForceFlags 返回空 {} ⇒ 一个都不强制上场，
 //   规则因「本场没抽到该英雄」大面积 skip（用户质疑「全能体检查不到东西」的可修短板）。
@@ -23,7 +24,7 @@
 //   也**不臆造**改动内容 —— 具体改了什么以抬升时的提交为准，待其补记。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.8';
+export const VER = 'tests/124rule-recipes.js V1.2.9';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
@@ -61,6 +62,7 @@ export const RULE_META = {
     // 2026-10-13 第 87 轮新增：惑人心智换位链路（138 只管乘风击退，惑心的敌方/己方配对、
     //   SWAP 自洽、宣告位置落地此前无规则盯）
     '惑心换位配对与落地(回归)': { tag: 'mechanic:惑人心智', note: '团队 Buff，需本局选到「惑人心智」且最前排单位出手过才会触发' },
+    '惑心换位排除袋中单位(回归)': { tag: 'mechanic:惑人心智', note: '311：袋中单位不得进 shuffleThreeSlots 候选池；需同场有说不得装袋播报 + 惑心换位 fact，缺一 skip' },
     // 第 114 轮新增：171 唐文亮冲刺落地。冲刺需唐文亮出手满 7 次（content chongCi.cycle），
     //   且唐文亮是六大派弱精英随机混入 ⇒ 条件稀有，未抽到即 skip（实测 140 场回放有命中，非恒空转）。
     '唐文亮冲刺落地(回归)': { tag: 'enemy:唐文亮', note: '唐文亮为弱精英随机混入，且需出手满7次才冲刺，条件稀有需连打多局碰出' },

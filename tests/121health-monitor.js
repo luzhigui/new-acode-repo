@@ -1,3 +1,4 @@
+// V6.13.3 | 2026-11-17：回填 311 到规则表与执行数组（袋中单位不得进惑心换位候选池）
 // V6.13.2 | 2026-11-12 合流 D13 二轮：回填 317/318 到规则表与执行数组
 // V6.13.1 | 2026-11-12 合流 D12/D13：回填 295/296/315/316 到规则表与执行数组
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
@@ -5,7 +6,7 @@
 //   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
 //   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
 //     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
-export const VER = 'tests/121health-monitor.js V6.13.2';
+export const VER = 'tests/121health-monitor.js V6.13.3';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -211,6 +212,7 @@ const RULE_MODULES = [
     { local: 'rule327', from: './health-rules/327-d6-summon-authorship.js', export: 'rule327' },
     { local: 'rule328', from: './health-rules/328-d6-summon-death-exit.js', export: 'rule328' },
     { local: 'rule329', from: './health-rules/329-d6-roster-stats-purity.js', export: 'rule329' },
+    { local: 'rule311', from: './health-rules/311-mind-swap-bag-exclusion.js', export: 'rule311' },
     { local: 'rule295', from: './health-rules/295-selfcheck-red-path.js', export: 'rule295' },
     { local: 'rule296', from: './health-rules/296-selfcheck-reverse-sample.js', export: 'rule296' },
     { local: 'rule315', from: './health-rules/315-rewind-gate-park-runtime.js', export: 'rule315' },
@@ -895,7 +897,7 @@ function runRuleChecks(ctx, doc) {
         B('rule253'), B('rule254'), B('rule273'), B('rule274'), B('rule283'), B('rule284'), B('rule285'), B('rule243'), B('rule244'), B('rule245'),
         B('rule246'), B('rule247'), B('rule248'), B('rule249'), B('rule250'), B('rule251'), B('rule252'), B('rule277'), B('rule278'), B('rule279'),
         B('rule280'), B('rule294'), B('rule319'), B('rule320'), B('rule321'), B('rule322'), B('rule323'), B('rule325'), B('rule326'), B('rule327'),
-        B('rule328'), B('rule329'), B('rule295'), B('rule296'), B('rule315'), B('rule316'), B('rule317'), B('rule318')
+        B('rule328'), B('rule329'), B('rule311'), B('rule295'), B('rule296'), B('rule315'), B('rule316'), B('rule317'), B('rule318')
     ]
         .filter(fn => typeof fn === 'function');
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部

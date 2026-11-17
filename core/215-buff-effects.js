@@ -1,5 +1,11 @@
 // core/215-buff-effects.js — 海克斯实际效果落地（流云、圣火令、carry、惑心换位）
-export const VER = 'core/215-buff-effects.js V6.2.6';
+export const VER = 'core/215-buff-effects.js V6.2.7';
+// V6.2.7（2026-11-17）：惑心换位候选池排除「袋中单位」——shuffleThreeSlots 候选过滤补 !isInBag(allUnits, u)。
+//   装袋（modules/325 putInBag）只上 _untargetable/_stunned，alive 仍为 true、无 _pendingDeath/_ctrlImmune，
+//   旧过滤会把它当合法换位候选，违反 core/203「装袋期间不可位移」口径。
+//   allUnits 在 applyMindControlCore 内由现有 allySide+enemySide 现场拼出：敌方侧换位、己方侧换位、
+//   core/210 张三丰 PASS 旁路三条路径同走本函数，一并覆盖，调用方签名零变动（无参数漂移风险）。
+//   飞天/附身/蛛变/召唤物仍可换（L134 口径不变），本过滤只认 isInBag，不用 _untargetable 代替。
 // V6.2.2（2026-11-08）：applyCloudBodyDodge_Sister 缺子键显式报错（原直链 .cloudBody.dodgeBonus，
 //   缺键直接 TypeError，与「缺哪键报哪键」口径不符）。
 // V6.1.11（2026-11-07）：惑心换位改「保证有效」——抽格必含存活单位、参与单位全员必挪位、
@@ -8,7 +14,7 @@ export const VER = 'core/215-buff-effects.js V6.2.6';
 //   排查惑心换位回放误报用，已确认引擎换位真实生效、属规则166 误报，诊断代码无保留价值。
 
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from './201-config-5v5-test.js';
-import { getUnitRow, getUnitCol } from './203-battle-utils.js';
+import { getUnitRow, getUnitCol, isInBag } from './203-battle-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { getBattleRng, addMod, getStat, applyStatChange, emitEvent } from './214-battle-shared.js';
 import { emitStateChange } from '../infra/108-state-change.js';
@@ -131,12 +137,14 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
 }
 
 // 惑心 3 格重排（保证有效）：抽中的 3 格至少 1 格有存活单位，且参与换位的单位全部必然挪位。
-//   控制免疫单位不进候选（不再出现「被挡住 → 无变化」）；飞天/附身可换。
+//   控制免疫单位、袋中单位不进候选（不再出现「被挡住 → 无变化」）；飞天/附身可换。
 //   返回实际发生变化的单位 [{ unit, fromPos, toPos }]（正常路径长度 ≥1，且每个单位 toPos ≠ fromPos）。
-function shuffleThreeSlots(team, rng) {
+//   allUnits = 全场单位（含装袋施法者）：袋子记在说不得 state._inBag.targetUid 上，isInBag 需全场才能判。
+function shuffleThreeSlots(team, rng, allUnits) {
     const allPos = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    // 候选 = 存活、非待死、非控制免疫；全灭/全免疫时保持空结果（保留分支，正常路径不命中）
-    const cands = team.filter(u => u.alive && !isPendingDeath(u) && !isCCImmune(u));
+    // 候选 = 存活、非待死、非控制免疫、非袋中；全灭/全免疫/全在袋时保持空结果（保留分支，正常路径不命中）
+    //   ★ 不能用 state._untargetable 代替 isInBag —— 飞天/附身也带不可选语义，但按上面口径仍可换。
+    const cands = team.filter(u => u.alive && !isPendingDeath(u) && !isCCImmune(u) && !isInBag(allUnits, u));
     if (cands.length === 0) return { swaps: [], pick3: [] };
 
     const pick3 = [];
@@ -195,6 +203,10 @@ function shuffleThreeSlots(team, rng) {
 
 function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly, enhance = null) {
     const rng = getBattleRng();
+    // 全场单位：allUnits 在此唯一拼装。两条换位分支（敌/己）+ core/210 张三丰 PASS 旁路同走本函数，
+    //   调用方（core/204 AFTER_ATTACK、core/210 PASS）签名零变动 ⇒ 三路径同口径、无参数漂移风险。
+    //   isInBag 需全场：袋子「装谁」记在说不得自己的 state._inBag.targetUid（modules/325），单看本队可能漏。
+    const allUnits = [...(allySide || []), ...(enemySide || [])];
     // side 相对持有者视角派生（原写死 ENEMY/ALLY 只对明教持有正确）：
     //   明教持有 → 第一次 oppSide=ENEMY（六大派）、第二次 selfSide=ALLY（明教）；
     //   六大派持有 → 第一次 oppSide=ALLY（明教）、第二次 selfSide=ENEMY（六大派）。
@@ -208,7 +220,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
 
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: oppSide } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
-        const { swaps, pick3 } = shuffleThreeSlots(enemySide, rng);
+        const { swaps, pick3 } = shuffleThreeSlots(enemySide, rng, allUnits);
         if (swaps.length > 0) {
             const hpPct = (enhance && enhance.hpPctSwap) || 0;
             if (hpPct > 0) {
@@ -242,7 +254,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     }
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: selfSide } });
     if (rng.nextInt(1,100) <= swapChanceAlly) {
-        const { swaps, pick3 } = shuffleThreeSlots(allySide, rng);
+        const { swaps, pick3 } = shuffleThreeSlots(allySide, rng, allUnits);
         if (swaps.length > 0) {
             const hpPct = (enhance && enhance.hpPctSwap) || 0;
             if (hpPct > 0) {

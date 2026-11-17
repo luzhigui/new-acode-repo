@@ -163,6 +163,7 @@
     "326-d6-butterfly-window-payload.js": "D6",
     "327-d6-summon-authorship.js": "D6",
     "328-d6-summon-death-exit.js": "D6",
-    "329-d6-roster-stats-purity.js": "D6"
+    "329-d6-roster-stats-purity.js": "D6",
+    "311-mind-swap-bag-exclusion.js": "D2"
   }
 }
