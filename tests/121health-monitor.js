@@ -568,10 +568,13 @@ export async function initMonitor() {
                 const w = getWin();
                 const testApi = w && w.__DSH_TEST_API__;
                 if (testApi && typeof testApi.selectStage === 'function') testApi.selectStage(autoStartStage);
-                // 规则配方：强制精英上场（借游戏侧 forceZhang/forceWei hook，下局 initBattleTeams 生效）
+                // 规则配方：强制精英上场（借游戏侧 force* hook，下局 initBattleTeams 生效）
+                // V1.x 第23轮：按【值】下发而非一律 true —— forceXiaoZhao 只认 'sister'/'brother' 字符串，
+                //   下发 true 会被主代码当不强制（静默失效，勾 hero:小昭 9 条全靠随机碰）。
+                //   RECIPE_FORCE 形如 { forceZhang:true, forceXieXun:true, forceXiaoZhao:'sister' }。
                 try {
                     if (w && w.GlobalStore && RECIPE_FORCE) {
-                        for (const k of Object.keys(RECIPE_FORCE)) w.GlobalStore.set(k, true);
+                        for (const k of Object.keys(RECIPE_FORCE)) w.GlobalStore.set(k, RECIPE_FORCE[k]);
                     }
                 } catch (e) {}
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检

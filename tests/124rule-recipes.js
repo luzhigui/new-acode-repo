@@ -1,3 +1,10 @@
+// V1.2.8 | 2026-11-17 第23轮：补齐「按规则体检」强制上场开关——此前 RULE_META 只给 4 条规则配 force
+//   (张无忌×2/韦一笑×1)，勾 hero:谢逊(3条) / hero:小昭(9条) 时 collectForceFlags 返回空 {} ⇒ 一个都不强制上场，
+//   规则因「本场没抽到该英雄」大面积 skip（用户质疑「全能体检查不到东西」的可修短板）。
+//   主代码 modules/330:181-189 有 6 个 force 开关，本次接上 forceXieXun(布尔) 与 forceXiaoZhao(字符串 sister)。
+//   ★ force 字段新增 `开关名:值` 写法（如 'forceXiaoZhao:sister'）：collectForceFlags 按 ':' 拆成 {key:value}，
+//     121 下发行按值 GlobalStore.set（小昭只认 'sister'/'brother' 字符串，下发 true 会被当不强制、静默失效）。
+//   判定阈值/规则判据/主代码一字未动；只扩强制上场通道，让本会跳过的规则有机会真被检查。
 // V1.2.7 | 2026-11-12 合流 D13 二轮：回填 317/318 的 RULE_META
 // V1.2.6 | 2026-11-12 合流 D12/D13：回填 4 条 RULE_META
 // V1.2.5 | 2026-10-30 夜间第 159 轮：订正四条小昭规则的 note —— 原文「随机精英，**无法强制**，
@@ -16,17 +23,17 @@
 //   也**不臆造**改动内容 —— 具体改了什么以抬升时的提交为准，待其补记。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.7';
+export const VER = 'tests/124rule-recipes.js V1.2.8';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '宋青书新婚快乐链路(回归)': { tag: 'enemy:宋青书', note: '需宋青书+周芷若同场，敌方随机出阵，需连打多局碰出' },
     '张无忌近身切换时机(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '流云身法闪避面板不生效(回归)': { tag: 'hero:韦一笑', force: 'forceWei' },
-    '小昭妹飞天免疫次数超限(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
-    '小昭妹/姐不可选期被打(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
-    '姐姐附身叠加(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
-    '姐姐飞回血量(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '小昭妹飞天免疫次数超限(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '小昭妹/姐不可选期被打(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '姐姐附身叠加(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '姐姐飞回血量(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
     '宋青书未命中重试(回归)': { tag: 'enemy:宋青书', note: '敌方随机出阵，需连打多局碰出' },
     '白骨爪回血刷屏(回归)': { tag: 'enemy:宋青书', note: '敌方随机出阵，需连打多局碰出' },
     '九阴白骨爪伤害(回归)': { tag: 'enemy:周芷若', note: '敌方随机出阵，需连打多局碰出' },
@@ -98,7 +105,7 @@ export const RULE_META = {
     // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
     '飘字fx数值对账(契约)': { tag: 'generic:通用', note: 'fx 结构判据：kind 合法 + amount 有限正数 + 数值⊂正文（第143轮吸收夜间139重写版，原名「飘字锚点对齐」）' },
     '韦一笑蝠影汲血吸血(回归)': { tag: 'hero:韦一笑', force: 'forceWei', note: '韦一笑永久闪避，每次出手走闪避反击路径必触发吸血；基线 18/35 场大多有样本' },
-    '蛛变/精通数值(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
+    '蛛变/精通数值(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
     '幼狮成长数值(回归)': { tag: 'mechanic:幼狮成长', note: '明教幼狮成长永久词条；小昭·姊海克斯增强时才触发，需连打多局碰出' },
     '属性变更数值(回归)': { tag: 'generic:通用', note: '不依赖本局出阵角色；STAT_CHANGE_APPLY 此前在规则视野外（renderFn:null），Step 0 后可见' },
     '正义国字脸叠防数值(回归)': { tag: 'hero:胖远桥', note: '胖远桥招牌；落点 pangDefGain == 配置 defGain，规则侧此前看不到（嵌套在 ATTACK fact），Step 0 后可见' },
@@ -115,8 +122,8 @@ export const RULE_META = {
     '唐文亮同归于尽阵亡反噬(回归)': { tag: 'enemy:唐文亮', note: '唐文亮为六大派弱精英随机混入，需本场阵亡才有反噬播报' },
     '张无忌乾坤减伤与反弹(回归)': { tag: 'hero:张无忌', note: '张无忌远程形态+队友站四邻格才有乾坤样本；小昭在场走升级版' },
     '玄冥毒叠加与DOT跳数(回归)': { tag: 'enemy:鹿杖客', note: '鹿杖客为六大派远程精英，需命中挂毒才有样本；毒量真值缺口见需求清单' },
-    '谢逊幼狮成长成形(回归)': { tag: 'hero:谢逊', note: '谢逊每回合 50% 召幼狮、下回合 80% 成长；站位决定雄/母狮' },
-    '谢逊雄狮振奋加攻(回归)': { tag: 'hero:谢逊', note: '雄狮命中后触发；需幼狮先长成雄狮并命中' },
+    '谢逊幼狮成长成形(回归)': { tag: 'hero:谢逊', force: 'forceXieXun', note: '谢逊每回合 50% 召幼狮、下回合 80% 成长；站位决定雄/母狮' },
+    '谢逊雄狮振奋加攻(回归)': { tag: 'hero:谢逊', force: 'forceXieXun', note: '雄狮命中后触发；需幼狮先长成雄狮并命中' },
     '庄铮断锤三式保命与承伤上限(回归)': { tag: 'hero:庄铮', note: '明教普通单位，需吃到首次致死伤害才触发；未触发即 skip' },
     // 战报与渲染一致性三件套（只读渲染后的 log，不依赖出阵角色 ⇒ 通用）
     '战报分组一致性(组归属/结果同源)': { tag: 'generic:通用', note: '组结构不变量：孤儿伤害行/组内套组/名字不成对/空组带结算结果/组结果不一致；140 场 0 误报' },
@@ -209,9 +216,9 @@ export const RULE_META = {
     '召唤物 uid 唯一与落点合法(回归)': { tag: 'generic:召唤物', note: 'SUMMON_UNIT 带 summonUid/落点 1~9/召唤者名；谢逊幼狮、张中蹦蹦、众志成城、灭绝周芷若常驻有样本' },
     '召唤物阵亡后不再参与结算(回归)': { tag: 'generic:召唤物', note: '判死取自 ATTACK 的 dmgResult.dead；156 场 525 只召唤里 361 只阵亡、阵亡后违规引用 0 次' },
     '拒马占格生命周期闭环(回归)': { tag: 'mechanic:拒马阵', note: '拒马每回合落位、回合末概率消散；需本局选到「巨马阵」才有样本，未选到即 skip（不报红）' },
-    '蝶变附身窗口成对与宿主归属(回归)': { tag: 'hero:小昭', note: '小昭·姊强制上阵即有样本；HOST_DEAD 的 hostUid 缺口已由主代码修正（进函数先存 hostUidBeforeClear），本条留作回归护栏' },
-    '附身窗口内小昭不参战(回归)': { tag: 'hero:小昭', note: '窗口内以她 uid 的攻击结算必须为 0（她 _acted/_untargetable），156 场 364 个窗口 0 违规' },
-    '幼狮成长时机与形态口径(回归)': { tag: 'hero:谢逊', note: '数值本身由 161 负责；本条只管时机（晚于召唤一回合）、每只一次、pos→雄/母狮映射（frontMax 取 content 真值）' },
+    '蝶变附身窗口成对与宿主归属(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭·姊强制上阵即有样本；HOST_DEAD 的 hostUid 缺口已由主代码修正（进函数先存 hostUidBeforeClear），本条留作回归护栏' },
+    '附身窗口内小昭不参战(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '窗口内以她 uid 的攻击结算必须为 0（她 _acted/_untargetable），156 场 364 个窗口 0 违规' },
+    '幼狮成长时机与形态口径(回归)': { tag: 'hero:谢逊', force: 'forceXieXun', note: '数值本身由 161 负责；本条只管时机（晚于召唤一回合）、每只一次、pos→雄/母狮映射（frontMax 取 content 真值）' },
     // 2026-11-08 补登：以下 15 条此前只落盘、未进执行面（121/123/124 三处齐登）
     // D9 海克斯域 277-280
     '圣火不熄复活比例与次数(姊/妹)': { tag: 'mechanic:海克斯', note: '002 sister/brother holyFire 配置 ↔ 复活比例/次数落地；团队名额与妹独立名额分开判，落地同源（healAmount=min(round(maxHp×ratio),缺口)）' },
@@ -227,8 +234,8 @@ export const RULE_META = {
     '妹背水词条vs配置与职业真值': { tag: 'mechanic:词条', note: '小昭·妹背水 lastStand 词条数值 ↔ 002 brother.lastStand 配置 + 职业加成真值（D14）' },
     '飞行猎杀成长战报与账本一致': { tag: 'mechanic:词条', note: '飞行猎杀成长 group=flyerKill 的成长值，战报条目与账本落地同源（D14）' },
     // D6 补盲段 325-329（蝶变/附身/召唤）
-    '附身关窗后宿主蝶变词条清理(回归)': { tag: 'hero:小昭', note: '窗口关闭（含宿主阵亡分支）必须 removeModsByGroup(host, butterfly) + refreshMaxHp(host)，否则复活后永久吃加成（D6）' },
-    '蝶变关窗载荷·宿主uid与尸体路径(回归)': { tag: 'hero:小昭', note: 'HOST_DEAD 必须带对宿主 uid，尸体路径与活体关窗两条分支载荷一致（D6）' },
+    '附身关窗后宿主蝶变词条清理(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '窗口关闭（含宿主阵亡分支）必须 removeModsByGroup(host, butterfly) + refreshMaxHp(host)，否则复活后永久吃加成（D6）' },
+    '蝶变关窗载荷·宿主uid与尸体路径(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: 'HOST_DEAD 必须带对宿主 uid，尸体路径与活体关窗两条分支载荷一致（D6）' },
     '召唤者身份归属byName/byUid(回归)': { tag: 'generic:召唤物', note: '召唤物归属按 uid 定，同名召唤者不得混淆（byName 仅回落）' },
     '召唤物阵亡单一出口对账(回归)': { tag: 'generic:召唤物', note: '召唤物死亡只有一条结算出口，活体名单与死亡事实一一对应' },
     '存活率/阵容均值口径与虚假单位隔离(回归)': { tag: 'generic:召唤物', note: '存活率/阵容均值分母不含召唤物与虚假单位（蝶/蛛/马/狮等按口径分区统计）' },
@@ -267,15 +274,48 @@ export function filterRulesByTags(rules, tags) {
     });
 }
 
-// 从选中 tags 收集可强制的精英 hook（借游戏侧现有 forceZhang/forceWei 机制）
+// 从选中 tags 收集可强制的精英 hook（借游戏侧现有 force* 机制）
+//   force 写法两种：
+//     ① 'forceXieXun'          → 布尔开关，下发 true
+//     ② 'forceXiaoZhao:sister' → 带值开关，按 ':' 拆成 { key, value }，下发字符串 'sister'
+//         （小昭只认 'sister'/'brother'；下发 true 会被主代码当不强制、静默失效——V1.2.8 修的就是这个）
 export function collectForceFlags(tags) {
     const flags = {};
     if (!tags || tags.size === 0) return flags;
     for (const name of Object.keys(RULE_META)) {
         const meta = RULE_META[name];
-        if (meta.force && tags.has(meta.tag)) flags[meta.force] = true;
+        if (!meta.force || !tags.has(meta.tag)) continue;
+        const at = meta.force.indexOf(':');
+        if (at > 0) {
+            flags[meta.force.slice(0, at)] = meta.force.slice(at + 1);
+        } else {
+            flags[meta.force] = true;
+        }
     }
     return flags;
+}
+
+// V1.2.8 自证：布尔/带值/空tags/混合四路。纯逻辑无副作用，供外部 --selftest 调用。
+export function selftestRecipeForce() {
+    const fails = [];
+    // 按键排序后比 —— flags 是普通对象、插入顺序随 RULE_META 遍历而定，与判据无关
+    const norm = o => JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+    const eq = (a, b, label) => {
+        if (norm(a) !== norm(b)) fails.push(label + '：得 ' + JSON.stringify(a) + ' 期望 ' + JSON.stringify(b));
+    };
+    eq(collectForceFlags(new Set(['hero:谢逊'])), { forceXieXun: true }, '① 谢逊布尔开关');
+    eq(collectForceFlags(new Set(['hero:小昭'])), { forceXiaoZhao: 'sister' }, '② 小昭带值开关');
+    eq(collectForceFlags(new Set(['hero:张无忌'])), { forceZhang: true }, '③ 旧布尔开关不回归');
+    eq(collectForceFlags(new Set()), {}, '④ 空 tags');
+    eq(collectForceFlags(null), {}, '⑤ null tags');
+    const mixed = collectForceFlags(new Set(['hero:谢逊', 'hero:小昭', 'hero:韦一笑']));
+    eq(mixed, { forceXieXun: true, forceXiaoZhao: 'sister', forceWei: true }, '⑥ 混合布尔+带值');
+    if (fails.length) {
+        console.error('❌ 配方强制开关自证失败：\n  ' + fails.join('\n  '));
+        return false;
+    }
+    console.log('✅ 配方强制开关自证 6/6（布尔/带值/旧开关不回归/空/null/混合）');
+    return true;
 }
 
 // 解析 URL 的 rules= 参数 → tag 集合（逗号分隔，如 rules=hero:张无忌,mechanic:破防）
