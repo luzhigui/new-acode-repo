@@ -1,3 +1,9 @@
+// V3.18.0 | 2026-11-17 第21轮：修 STAT_CHANGE 契约 extract 的口径错——把「背水战士」声明也算进来了。
+//   真凶：core/204:238-240 的战士声明发 STAT_CHANGE_APPLY(带 group:'lastStandWarrior')，但它的 addMod
+//   记在 group='lastStandWarrior'（core/204:219-221），不走 core/217 STAT_CHANGE handler 的 group='statChange'。
+//   契约 extract 不认 d.group，把战士 +3 和 statChange -2 混成 +1，而账本只读 statChange=-2 ⇒ 假「少加/重复」。
+//   战士数值另有独立守恒校验（本文件 SELF_CHECK 组 lastStandWarrior），排除它不留盲区。
+//   修法：extract 跳过 d.group === 'lastStandWarrior'（判据阈值/账本/主代码一字未动）。
 // V3.17.0 | 2026-11-08 合并轮：补齐版本头注与 VER（此前工作树里已有 V3.17.0 的功能注释
 //   ——无声明源机制的两类非 CONTRACTS 名单、--scan-groups 扫地、背水战士派生值取配置真源、
 //   自洽校验按场次隔离 caseId—— 但头注/VER 仍停 3.16.0，被 ver-drift 断言② 当场报「日志领先」。
@@ -99,7 +105,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.17.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.18.0';
 
 // ★ 第 164 轮新增：嵌套 fact 采集收口 —— 把「phantomFact 那一层」一并吐出来
 //   幻影类 fact 挂在 attackFact.data.phantomFact，与 data.entries **并列、不在 entries 里**；
@@ -1192,6 +1198,10 @@ const CONTRACTS = [
             for (const f of stepLog || []) {
                 if (!f || !f.data || f.factType !== FACT_TYPES.STAT_CHANGE_APPLY) continue;
                 const d = f.data;
+                // V3.18.0：背水战士的 STAT_CHANGE_APPLY（core/204:238-240, group='lastStandWarrior'）
+                //   账本记在 group='lastStandWarrior'、不走本契约的 group='statChange'，混进来会假报少加/重复。
+                //   战士数值另有独立守恒校验（SELF_CHECK 组 lastStandWarrior），这里跳过不留盲区。
+                if (d.group === 'lastStandWarrior') continue;
                 if (typeof d.field === 'string' && typeof d.delta === 'number') {
                     out.push({ unit: d.unitName, uid: d.unitUid || null, stat: d.field, amount: d.delta });
                 }
