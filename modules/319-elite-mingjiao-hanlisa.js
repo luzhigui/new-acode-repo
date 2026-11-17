@@ -1,20 +1,21 @@
 // modules/319-elite-mingjiao-hanlisa.js — 明教精英「寒离飒」：战士 · 弱精英 M107（与韦一笑同池）· 恒定 2 号位
 //   ① 九阳神拳 / ② 寒冰神掌：每次普攻独立掷 50/50 —— 出九阳则回复自身最大生命 12%（同张无忌），
-//      否则出寒冰神掌给被打目标挂寒毒（3 回合 4%→2%→1% 最大生命，同鹿杖客）；同一种可连续出，不锁
-//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 20% 最大生命护盾并蓄力；下一回合跳过行动，
+//      否则出寒冰神掌给被打目标挂寒毒（3 回合每层 4% 最大生命、叠层无上限，再命中刷新）；同一种可连续出，不锁
+//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 30% 最大生命护盾并蓄力；下一回合跳过行动，
 //      蓄力回合收尾（ON_ROUND_END·forced:true）轰出蓄意轰拳，基数 N = 最近三回合自身承受总伤害：
-//      玩家瞄准敌方一格按九位九形取格——目标格 N×1.2（tierDen.direct=0.8333，2026-11-15 老板拍板）、相邻格 N/4、更远格 N/6（全部真伤）；不瞄=全屏 123 各 N/3、456 各 N/4、789 各 N/5；
+//      玩家瞄准敌方一格按九位九形取格——目标格 N×1.4（tierDen.direct=0.7143，2026-11-17 老板拍板 1.2→1.4）、相邻格 N/4、更远格 N/6（全部真伤）；
+//      不瞄（V2.4.0 老板拍板，替换原随机前排兜底+行分档全屏）=按列穿深：每列最前排 N/3、列内第二人 N/4、其余敌人 N/5；
 //      瞄 8 特例：8 吃 N/2 且被轰穿中列落 2 号位撞边眩晕，途经 2/5 被崩向两侧（一左一右）；轰完吸血 = 总伤害 1/3。
-//      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则随机前排兜底；
+//      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则按列穿深 AoE；
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
+// V2.4.0 | 2026-11-17 老板拍板四刀：①抑疗统一 66%→50%（走 CONFIG.XUANMING_POISON_HEAL_REDUCE 单源，模块零改动）②直击档 1.2→1.4（tierDen.direct=0.7143）③不瞄模式重做：随机前排兜底+行分档全屏 → 按列穿深（每列前排 N/3、列内第二人 N/4、其余 N/5；自动/快进/AI 同口径确定性结算，删 getFronts 兜底与 fullDen 消费）④专属强化行动盾 50%→30%（001 hlsPower1.shieldPct，与普通蓄力盾一致；蓄力 _shield 与九阳 _permShield 本就分池叠加）。
 // V2.3.1 | 2026-11-14 known-transfers 第 185 轮残留半：左拳·九阳治疗账本由「声明期记 previewHeal 预演」改为「core/217 HEAL 结算期按应用后实落量记」（声明只带 auditGroup/auditSource，删掉声明期 recordHpAudit）——与 core/216 九阳神功同口径，修账本与 fact.heal 分叉（体检 HLS_JIUYANG_HEAL 偏差）。
 // V2.3.0 | 2026-11-13 新增专属海克斯「寒离飒强化」（buffs.hlsPower1）：下回合开始立刻起蓄（直接到相位 2，
 //   不跳过行动）、+armorBonus 护盾、全场嘲讽本回合只打他、承伤桶改按攻击者攻击力全额计入、行动时再加
 //   shieldPct×maxHp 护盾；回合末走既有 ON_ROUND_END 爆发。一场一次（_hlsPowerUsed）。
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.3.1';
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.0';
 
-import { getFronts } from '../core/203-battle-utils.js';
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal } from '../core/214-battle-shared.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { registerTargetFilter } from '../core/207-target-strategies.js';
@@ -294,13 +295,11 @@ export function createHanLiSaComponent() {
                         const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));
 
                         // —— 瞄准位：player/42 回合末交互写入优先（华丽模式按住-拖-松手）；
-                        //    没写 = 简单模式/全自动/快进/AI → 本处随机前排兜底（getBattleRng 保基线可复现）——
+                        //    V2.4.0（2026-11-17 老板拍板）：没写（简单/全自动/快进/AI/PVP）不再随机前排赌单点，
+                        //    一律走下方按列穿深 AoE（确定性，无掷骰）——
                         let aim = 0;
                         if (hls.state._hlsAimChosen) {
                             aim = Math.min(9, Math.max(0, hls.state._hlsAim | 0));
-                        } else {
-                            const fronts = getFronts(enemies);
-                            if (fronts.length > 0) aim = fronts[getBattleRng().nextInt(0, fronts.length - 1)].pos;
                         }
                         hls.state._hlsAimChosen = false;
                         hls.state._hlsAim = 0;
@@ -327,10 +326,18 @@ export function createHanLiSaComponent() {
                                 den: (aim === 8 && p !== 8) ? eightDen : (den[tierOf(aim, p)] ?? 6)
                             }));
                         } else {
-                            if (!xl.fullDen) throw new Error('缺技能参数: 寒离飒.xuLi.fullDen');
-                            const fd = xl.fullDen;
-                            cells = [[1, 2, 3, fd.row123, 'full123'], [4, 5, 6, fd.row456, 'full456'], [7, 8, 9, fd.row789, 'full789']]
-                                .flatMap(([a, b, c, d, t]) => [a, b, c].map(p => ({ pos: p, tier: t, den: d })));
+                            // V2.4.0 按列穿深（老板 2026-11-17 拍板）：每列最前排 N/3、列内第二人 N/4、其余所有敌人 N/5；
+                            //   列 = {1,4,7}/{2,5,8}/{3,6,9}，前排 = pos 最小（同 getFronts 语义）；按位结算，不排浮空
+                            if (!xl.colDen) throw new Error('缺技能参数: 寒离飒.xuLi.colDen');
+                            const cd = xl.colDen;
+                            cells = [];
+                            const picked = new Set();
+                            for (const col of [[1, 4, 7], [2, 5, 8], [3, 6, 9]]) {
+                                const inCol = enemies.filter(e => e.alive && col.includes(e.pos)).sort((a, b) => a.pos - b.pos);
+                                if (inCol[0]) { cells.push({ pos: inCol[0].pos, tier: 'colFront', den: cd.front }); picked.add(inCol[0].pos); }
+                                if (inCol[1]) { cells.push({ pos: inCol[1].pos, tier: 'colSecond', den: cd.second }); picked.add(inCol[1].pos); }
+                            }
+                            enemies.filter(e => e.alive && !picked.has(e.pos)).forEach(e => cells.push({ pos: e.pos, tier: 'colRest', den: cd.rest }));
                         }
 
                         // —— 真伤声明（ROUND_STAT_GRANT：不吃防不吃闪避，与旧 2/5/8 真伤同通道）——
