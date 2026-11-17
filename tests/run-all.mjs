@@ -1,3 +1,13 @@
+// V1.57.0 | 2026-11-17：挂「一键报告人话翻译覆盖度自检」tests/one-click-health-translation-selfcheck.mjs。
+//   由头（#30）：one-click-health.mjs 用关键词表把红项翻成人话，表人工维护、新增检查项后又会
+//   落"其他"而无人察觉。本件静态交叉核对 run-all 条目 vs MEANING keys（按子串匹配，指出会翻成
+//   "其他"的条目）+ 动态段真跑一次统计报告"其他"标题数（>0 exit 1）。纯呈现自检，
+//   挂 OBSERVES 不改 CHECKS 分母与退码口径；只读 tests/ 不碰主代码。
+// V1.56.0 | 2026-11-17 迭代：把 D12 两个定向用例挂进 CHECKS（补漏——此前只在册 6 个 case 文件，这两条常驻闸门漏挂）。
+//   tests/d12-selfcheck-case.mjs（295/296 自检假绿域：解析器/棘轮/真仓库普查，合成夹具硬判据）与
+//   tests/d12v2-scan-case.mjs（13 夹具精确断言 + acorn 守卫真反向样本 + 2 变异体必须判红）都是确定性自检
+//   （PASS/FAIL + exit 0/1，有硬判据）⇒ 按档位规则挂 CHECKS，计入分母与退码口径；不挂 OBSERVES（取证类）
+//   是因为它们不是「结论供人工研判」，而是「判错即红」的机器断言。两件均不碰主代码。
 // V1.55.0 | 2026-11-16 迭代：挂「转交块交付守门」tests/transfer-block-guard.mjs（新建 V1.0.0）。
 //   由头：第14轮报告说「要主代码配合」却一块未交、看板三行写「只写转交块、等授权落地」= 空头支票；
 //   skill §4.5 事后立了「说要配合⇒同轮必贴块」，但只是文字纪律，别的会话/软件不读 skill 照样犯。
@@ -253,7 +263,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.55.0';
+export const VER = 'tests/run-all.mjs V1.57.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -367,7 +377,15 @@ const CHECKS = [
     //     ① 全部 tests/health-rules/*.js（rules-replay 走 readdir 自动加载，漏登=包内静默丢弃该规则）
     //     ② run-all CHECKS/OBSERVES 里 script: 指向的 tests/*（spawnSync 直跑，漏登=包内找不到文件即跳过/报错）
     //   任何磁盘有、清单漏登的，它自行补进 106 的 tests 段并抬版本号；反向陈旧条目仅告警不删。
-    { name: '打包清单完整性(自动补全106)', script: 'tests/pack-manifest-check.mjs', args: [] }
+    { name: '打包清单完整性(自动补全106)', script: 'tests/pack-manifest-check.mjs', args: [] },
+    // V1.56.0 | 2026-11-17：补挂 D12 两个定向用例（此前只手动敲命令才跑，夜检/并发全套时一次都不执行）。
+    //   ① D12 规则自检与假绿域：喂合成源码给 295/296 两条元守卫规则，反向样本（改坏→必中）+ 正向样本（干净→必不中）
+    //     防一刀切假红，真仓库普查 69/68 条红路径齐全；PASS exit 0 / 任一条判错 exit 1 ⇒ 确定性 ⇒ CHECKS。
+    //   ② D12 扫描器定向用例：13 条夹具（形状非法/无fail路径/恒pass分支/catch吞掉）精确命中集合断言，
+    //     + acorn 缺失守卫真反向样本（真把 acorn 拦掉跑一次）+ 2 变异体必须判红 + 正向对照；PASS exit 0 ⇒ 确定性 ⇒ CHECKS。
+    //   两件均只读 tests/ 不碰主代码，不改阈值/基线/判据。
+    { name: 'D12规则自检与假绿域(295/296)', script: 'tests/d12-selfcheck-case.mjs', args: [] },
+    { name: 'D12扫描器定向用例(13夹具+acorn守卫)', script: 'tests/d12v2-scan-case.mjs', args: [] }
 ];
 
 // V1.2.0 | 2026-10-21 第 112 轮：挂观察项（不影响退码）——第 113 轮沙箱交接规格的主线重写产物。
@@ -585,7 +603,12 @@ const OBSERVES = [
     { name: '静态入口解耦守门', script: 'tests/static-entry-guard.mjs', args: [], hard: true },
     // 2026-11-12 合流 D12 二轮：扫描器已加 acorn 缺失守卫（exit 1 明确报前提失效），
     //   但依赖缺失是环境前提而非确定性缺陷 ⇒ 不标 hard，只显形。
-    { name: '规则假绿静态扫描', script: 'tests/rule-false-green-scan.mjs', args: [] }
+    { name: '规则假绿静态扫描', script: 'tests/rule-false-green-scan.mjs', args: [] },
+    // 2026-11-17 #30 一键报告人话翻译覆盖度自检（新增 V1.0.0）。
+    //   一键体检用关键词表把红项翻成人话，表人工维护、漏补会落"其他"；
+    //   静态交叉核对 run-all 条目 vs MEANING keys（按子串匹配，指出会翻成"其他"的条目），
+    //   动态段真跑一次统计报告"其他"标题数（>0 exit 1）。纯呈现自检，挂观察项不计退码。
+    { name: '一键报告翻译覆盖度自检', script: 'tests/one-click-health-translation-selfcheck.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
