@@ -711,7 +711,7 @@
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
-          "desc": "张无忌在场时，全队减伤{reducePct}%并反弹{reboundPct}%（无忌自伤{selfDmgPct}%）",
+          "desc": "张无忌在场且小昭为姊时，全队减伤{reducePct}%并反弹{reboundPct}%（无忌自伤{selfDmgPct}%）",
           "params": { "reducePct": 0.4, "reboundPct": 0.3, "selfDmgPct": 0.1 }
         },
         "spiderTransform": {
