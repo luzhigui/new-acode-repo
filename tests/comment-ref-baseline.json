@@ -371,5 +371,6 @@
   "ui/721-perf-panel.js::player/41",
   "ui/721-perf-panel.js::player/45",
   "ui/721-perf-panel.js::render/39"
- ]
+ ],
+ "maxCount": 368
 }
