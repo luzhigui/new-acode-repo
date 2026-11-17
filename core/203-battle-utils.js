@@ -1,5 +1,7 @@
 // core/203-battle-utils.js — 战斗通用工具（选敌基础、空列/残血光环、未命中、破防/成长/斩杀的声明）
-export const VER = 'core/203-battle-utils.js V6.4.0';
+// V6.5.0 | 2026-11-17 FIX-2026-1117-11（老板拍板「近战打前排是硬规则」）：抽 getFrontsPure（无 RNG 兜底）
+//   + 新增 getMeleeLegalTargetSet / isMeleeLegalTarget 作近战合法目标单一真源；getFronts 重构为 Pure+RNG 兜底，行为不变。
+export const VER = 'core/203-battle-utils.js V6.5.0';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus, baseHeroName } from './202-unit.js';
@@ -49,16 +51,24 @@ export function isInBag(units, unit) {
     return units.some(c => c && c !== unit && c.state && c.state._inBag && c.state._inBag.targetUid === unit.uid);
 }
 
-export function getFronts(units) {
-    let fronts = [];
+// 纯前排口径（无 RNG 兜底）：各纵列最前的存活非飞天单位。供 UI 拖拽 / 近战硬规则复用，
+//   零副作用、不碰 getBattleRng —— 浏览器端预览高亮不能消耗引擎随机序列。
+export function getFrontsPure(units) {
+    const fronts = [];
+    const list = units || [];
     for (let col = 0; col < 3; col++) {
-        let poses = [1+col, 4+col, 7+col];
-        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !isAirborne(c)).sort((a, b) => a.pos - b.pos);
+        const poses = [1 + col, 4 + col, 7 + col];
+        const chars = list.filter(c => poses.includes(c.pos) && c.alive && !isAirborne(c)).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
+    return fronts;
+}
+
+export function getFronts(units) {
+    const fronts = getFrontsPure(units);
     if (fronts.length === 0) {
-        let alive = units.filter(c => c.alive);
-        if (alive.length > 0) fronts = [alive[getBattleRng().nextInt(0, alive.length - 1)]];
+        const alive = (units || []).filter(c => c.alive);
+        if (alive.length > 0) fronts.push(alive[getBattleRng().nextInt(0, alive.length - 1)]);
     }
     return fronts;
 }
@@ -90,6 +100,27 @@ export function canBeTargeted(unit) {
     if (unit.state && unit.state._spiderFlying) return false;
     if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
     return true;
+}
+
+// ── 近战打前排 = 硬规则（2026-11-17 老板拍板「这他妈就是硬规则」）──────────────────
+// 口径完全复用 getFronts：各纵列最前的存活非飞天敌人 = 近战的合法攻击目标全集。
+//   isMelee 已含 WARRIOR/DEFENDER/FLYER，isHorse（拒马）同样算近战，一并受约束；
+//   远程/蝴蝶/标枪不受限（返回 null 表示「该攻击者无近战限制」）。
+// 引擎 selectAttackTarget 手动/自动/声明三路 + UI 拖拽高亮全部走这里，
+//   做到「引擎能打谁 = UI 亮谁」，杜绝亮了打不到 / 能打没亮。
+// opts.noFallback：UI 侧传 true —— 无地面前排时直接给空集，绝不触发 getFronts 的 RNG 兜底。
+export function getMeleeLegalTargetSet(attacker, enemySide, opts = {}) {
+    if (!attacker) return null;
+    if (!isMelee(attacker.role) && !attacker.isHorse) return null;
+    const units = enemySide || [];
+    if (opts.noFallback && getFrontsPure(units).length === 0) return new Set();
+    return new Set(getFronts(units).map(u => u.uid));
+}
+
+export function isMeleeLegalTarget(attacker, target, enemySide, opts = {}) {
+    const legal = getMeleeLegalTargetSet(attacker, enemySide, opts);
+    if (legal === null) return true;   // 非近战：不受硬规则约束
+    return !!target && legal.has(target.uid);
 }
 
 // ── 受益池裁判（2026-10-07 老板拍板，与打人门禁 canBeTargeted 成对）────────────────

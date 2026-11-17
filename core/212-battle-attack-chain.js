@@ -1,13 +1,17 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
-export const VER = 'core/212-battle-attack-chain.js V1.0.17';
+// V1.0.18 | 2026-11-17 FIX-2026-1117-11：近战打前排=硬规则。selectAttackTarget 的手动/候选池两路
+//   统一过 core/203 的 getMeleeLegalTargetSet/isMeleeLegalTarget，手动拖拽再也选不到后排。
+//   声明层（BEFORE_SELECT_TARGET 指定 targetResult）与 core/209 锁定目标/换目标旁路不在本次范围：
+//   实测在 emit 后追加 isMeleeLegalTarget 会破坏同种子双跑复现性（seed=5 stage=3），故不在此处加闸。
+export const VER = 'core/212-battle-attack-chain.js V1.0.18';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 // 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
 import { baseHeroName } from './202-unit.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { calcDamage, getFangLevel, isMelee, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getMissBreakdown, canBeTargeted } from './203-battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getMissBreakdown, canBeTargeted, getMeleeLegalTargetSet, isMeleeLegalTarget } from './203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod, recordHpAudit } from './214-battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, persistValue, loadPersistedValue, fmtHp } from '../infra/102-core-utils.js';
 import { getDodgeRules } from './221-registry-dodge.js';
@@ -25,15 +29,23 @@ const C = CONFIG;
 
 // 步骤1：选择攻击目标
 export function selectAttackTarget(unit, enemySide, allySide) {
+    // 近战打前排 = 硬规则（FIX-2026-1117-11）：合法目标集合单一真源在 core/203 getFronts。
+    //   手动 / 候选池 / 声明三路共用同一套判据，杜绝「手动能打后排、自动不能」的双标。
+    const meleeLegal = getMeleeLegalTargetSet(unit, enemySide);
     // 张无忌专属·我命由我（2026-11-13）：手动拖拽目标优先——命中即用，跳过裁判与随机选目标。
-    //   手动目标已不可选（死亡/飞天/附身）→ 落回正常选目标链路。
+    //   手动目标已不可选（死亡/飞天/附身）**或近战够不着（后排）** → 落回正常选目标链路。
     if (unit.state && unit.state._manualTargetUid) {
         const manual = enemySide.find(u => u.uid === unit.state._manualTargetUid && canBeTargeted(u));
-        if (manual) return { target: manual, phantomFact: null };
+        if (manual && isMeleeLegalTarget(unit, manual, enemySide)) return { target: manual, phantomFact: null };
     }
     const rng = getBattleRng();
     // 统一走 canBeTargeted：含 pendingDeath / flyMode / 附身 / FSM 飞行
-    const validTargets = enemySide.filter(c => canBeTargeted(c));
+    let validTargets = enemySide.filter(c => canBeTargeted(c));
+    if (meleeLegal) {
+        // 硬规则落地：近战候选池只留前排（getFronts 同源，含「无地面前排时 RNG 兜底一个」的既有口径）。
+        //   池被裁空 ⇒ 本次无目标，直接返回，不进声明 / 策略 / 兜底。
+        validTargets = validTargets.filter(c => meleeLegal.has(c.uid));
+    }
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
@@ -44,6 +56,8 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
     if (declaration.targetResult) {
         const declared = declaration.targetResult;
+        // 近战硬规则只闸「手动 + 自动候选池」两路（用户点名范围）。声明层是技能/机制指定目标
+        //   （挑衅/幻影/锁定），在 emit 后重算 getFronts 会破坏同种子复现性，另走 core/209 旁路治理。
         if (declared && canBeTargeted(declared)) {
             target = declared;
             phantomFact = declaration.phantomFact || null;

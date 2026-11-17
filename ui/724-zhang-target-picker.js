@@ -4,9 +4,15 @@
 //   512 写 zhang.state._manualTargetUid（step 单位与引擎 generator A/B 同引用），
 //   随后 core/212 selectAttackTarget 优先读手动目标，出手结算后 core/210 清理。
 //   放弃（点空白/ESC/拖出界）→ resolve(null)，走正常选目标。
-export const VER = 'ui/724-zhang-target-picker.js V1.0.0';
+// V1.1.0 | 2026-11-17 FIX-2026-1117-11（老板拍板）：① 拖拽手感对齐 ui/723 圣火令——
+//   跟手虚影 + SVG 连线/流动光点 + 起点格 dragging 脉冲 + 终点有效金光/无效灰显 + 跟随提示；
+//   全部 JS 内动态建 DOM + inline style（含运行时注入 <style> 的 keyframes），**不碰 index.html CSS 块**。
+//   ② 合法目标口径改调 core/203 getMeleeLegalTargetSet(...,{noFallback:true})，与引擎手动/自动三路同源：
+//   近战够不着后排 → 后排灰显不可选，杜绝「亮了打不到 / 能打没亮」。零引擎改动（本文件自身）。
+export const VER = 'ui/724-zhang-target-picker.js V1.1.0';
 
 import { GlobalStore } from '../infra/104-global-store.js';
+import { getMeleeLegalTargetSet } from '../core/203-battle-utils.js';
 
 export function showZhangTargetPicker(c, step, resolve) {
     const zhangUid = step && step.zhangTargetPickerWindow && step.zhangTargetPickerWindow.zhangUid;
@@ -15,77 +21,220 @@ export function showZhangTargetPicker(c, step, resolve) {
     const zhangCell = zhangUid ? document.querySelector(`[data-uid="${zhangUid}"]`) : null;
     if (!zhang || !zhangCell) { resolve(null); return; }
 
-    // 可拖拽目标 = 敌方存活（含马？不含——打马走正常选目标，马不是玩家意图的主目标）
-    const enemyUids = new Set(allUnits.filter(u => u && u.alive && u.camp !== zhang.camp && !u.isHorse).map(u => u.uid));
+    const enemySide = (step && step.enemy) || [];
+    // 合法目标 = 引擎单一真源（core/203）。noFallback：UI 预览零 RNG 消耗。
+    //   legalSet===null ⇒ 远程形态，全部敌方合法；否则仅前排 uid 合法。
+    const legalSet = getMeleeLegalTargetSet(zhang, enemySide, { noFallback: true });
+    const isLegalUid = (uid) => legalSet === null || legalSet.has(uid);
+
+    // 可拖拽目标 = 敌方存活（不含马——打马走正常选目标，马不是玩家意图的主目标）
+    const enemyUids = new Set(enemySide.filter(u => u && u.alive && u.camp !== zhang.camp && !u.isHorse).map(u => u.uid));
 
     // 高亮底账：每个格子记原 style，收尾精确还原
     const GLOW_ZHANG = ';box-shadow:0 0 24px rgba(255,215,0,0.95);position:relative;z-index:10011;';
-    const GLOW_ENEMY = ';box-shadow:0 0 16px rgba(255,80,80,0.85);position:relative;z-index:10011;';
-    const GLOW_HOVER = ';box-shadow:0 0 28px rgba(255,215,0,1);';
+    const GLOW_LEGAL = ';box-shadow:0 0 18px rgba(255,215,0,0.9);position:relative;z-index:10011;';
+    const GLOW_ILLEGAL = ';box-shadow:0 0 10px rgba(130,130,130,0.5);filter:grayscale(0.85) brightness(0.72);position:relative;z-index:10011;';
+    const GLOW_HOVER_OK = ';box-shadow:0 0 36px rgba(255,215,0,1),0 0 14px rgba(255,215,0,0.9) inset;filter:none;';
+    const GLOW_HOVER_BAD = ';box-shadow:0 0 22px rgba(170,170,170,0.95);filter:grayscale(1) brightness(0.6);';
     const baseZhang = zhangCell.getAttribute('style') || '';
     zhangCell.setAttribute('style', baseZhang + GLOW_ZHANG);
     const baseCells = new Map();
     const enemyCells = new Map();
     enemyUids.forEach(uid => {
         const cell = document.querySelector(`[data-uid="${uid}"]`);
-        if (cell) { enemyCells.set(uid, cell); baseCells.set(uid, cell.getAttribute('style') || ''); cell.setAttribute('style', baseCells.get(uid) + GLOW_ENEMY); }
+        if (!cell) return;
+        const base = cell.getAttribute('style') || '';
+        baseCells.set(uid, base);
+        enemyCells.set(uid, cell);
+        cell.setAttribute('style', base + (isLegalUid(uid) ? GLOW_LEGAL : GLOW_ILLEGAL));
     });
+
+    // ── 运行时样式（keyframes 注入 <style>，不落盘 index.html，零撞车）──
+    const styleTag = document.createElement('style');
+    styleTag.id = 'zhangPickerFxStyle';
+    styleTag.textContent = '@keyframes zhangPickerPulse{'
+        + '0%,100%{box-shadow:0 0 18px rgba(255,215,0,0.8),0 0 6px rgba(255,215,0,0.5) inset;}'
+        + '50%{box-shadow:0 0 42px rgba(255,215,0,1),0 0 20px rgba(255,215,0,0.95) inset;}}';
+    document.head.appendChild(styleTag);
 
     // 全屏压暗层 + 提示
     const overlay = document.createElement('div');
     overlay.id = 'zhangTargetOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10010;';
-    const tip = document.createElement('div');
-    tip.textContent = '☀️ 按住张无忌，拖到要打的目标上（松手在空白处=取消）';
-    tip.style.cssText = 'position:absolute;bottom:18%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(0,0,0,0.9);white-space:nowrap;';
-    overlay.appendChild(tip);
+    const tipBar = document.createElement('div');
+    tipBar.textContent = '☀️ 按住张无忌，金色可打／灰色是够不着的后排（松手在空白=取消）';
+    tipBar.style.cssText = 'position:absolute;bottom:18%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(0,0,0,0.9);white-space:nowrap;';
+    overlay.appendChild(tipBar);
+
+    // ── SVG 连线（起点=张无忌格中心，终点=指针）──
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:10012;opacity:0;transition:opacity .12s;';
+    const mkPath = (stroke, width, opacity) => {
+        const p = document.createElementNS(NS, 'path');
+        p.setAttribute('fill', 'none');
+        p.setAttribute('stroke', stroke);
+        p.setAttribute('stroke-width', String(width));
+        p.setAttribute('stroke-linecap', 'round');
+        p.setAttribute('opacity', String(opacity));
+        svg.appendChild(p);
+        return p;
+    };
+    const linkGlow = mkPath('#ffd700', 10, 0.35);
+    const linkCore = mkPath('#fff3b0', 2.5, 0.95);
+    const flowGroup = document.createElementNS(NS, 'g');
+    svg.appendChild(flowGroup);
+
+    // ── 跟手虚影 ──
+    const ghost = document.createElement('div');
+    ghost.style.cssText = 'position:fixed;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;'
+        + 'display:flex;align-items:center;justify-content:center;font-size:26px;pointer-events:none;z-index:10013;'
+        + 'background:radial-gradient(circle at 35% 30%,#ffe066,#d97706 70%,#7a3a00);border:2px solid #ffd700;'
+        + 'box-shadow:0 0 26px rgba(255,215,0,0.9);opacity:0;transition:opacity .12s;';
+    ghost.textContent = '☀️';
+
+    // ── 跟随提示（合法金光／非法灰显文案）──
+    const hoverTip = document.createElement('div');
+    hoverTip.style.cssText = 'position:fixed;padding:5px 10px;border-radius:6px;background:rgba(20,12,4,0.94);'
+        + 'border:1px solid #ffd700;color:#ffd700;font-size:12px;font-weight:bold;white-space:nowrap;'
+        + 'pointer-events:none;z-index:10014;opacity:0;transition:opacity .1s;box-shadow:0 4px 14px rgba(0,0,0,0.6);';
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(svg);
+    document.body.appendChild(ghost);
+    document.body.appendChild(hoverTip);
 
     let dragging = false;
     let hoverUid = null;
+    let start = { x: 0, y: 0 };
 
-    const setHover = (uid) => {
-        if (hoverUid === uid) return;
-        if (hoverUid) {
-            const old = enemyCells.get(hoverUid);
-            if (old) old.setAttribute('style', baseCells.get(hoverUid) + GLOW_ENEMY);
-        }
-        hoverUid = uid;
-        if (hoverUid) {
-            const cell = enemyCells.get(hoverUid);
-            if (cell) cell.setAttribute('style', baseCells.get(hoverUid) + GLOW_ENEMY + GLOW_HOVER);
-        }
+    const refreshStart = () => {
+        const r = zhangCell.getBoundingClientRect();
+        start = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     };
+    const updateLink = (px, py, legal) => {
+        const mx = (start.x + px) / 2;
+        const my = (start.y + py) / 2 - 46;
+        const d = `M ${start.x} ${start.y} Q ${mx} ${my} ${px} ${py}`;
+        linkGlow.setAttribute('d', d);
+        linkCore.setAttribute('d', d);
+        linkGlow.setAttribute('stroke', legal ? '#ffd700' : '#8a8a8a');
+        linkCore.setAttribute('stroke', legal ? '#fff3b0' : '#c4c4c4');
+    };
+
+    // ── 流动光点（同 ui/723 startFlowDots：沿 path.getPointAtLength 走）──
+    let flowRaf = 0, flowT0 = 0;
+    const DOT_COUNT = 4;
+    const startFlowDots = () => {
+        flowGroup.innerHTML = '';
+        const dots = [];
+        for (let i = 0; i < DOT_COUNT; i++) {
+            const c = document.createElementNS(NS, 'circle');
+            c.setAttribute('r', '3.5');
+            c.setAttribute('fill', '#fff7c2');
+            flowGroup.appendChild(c);
+            dots.push(c);
+        }
+        flowT0 = performance.now();
+        const tick = (now) => {
+            if (!dragging) return;
+            const len = linkCore.getTotalLength ? linkCore.getTotalLength() : 0;
+            if (len > 1) {
+                const off = ((now - flowT0) / 900) % 1;
+                dots.forEach((c, i) => {
+                    const t = (off + i / DOT_COUNT) % 1;
+                    const pt = linkCore.getPointAtLength(t * len);
+                    c.setAttribute('cx', pt.x);
+                    c.setAttribute('cy', pt.y);
+                    c.setAttribute('opacity', String(0.35 + 0.65 * Math.sin(t * Math.PI)));
+                });
+            }
+            flowRaf = requestAnimationFrame(tick);
+        };
+        flowRaf = requestAnimationFrame(tick);
+    };
+    const stopFlowDots = () => {
+        if (flowRaf) cancelAnimationFrame(flowRaf);
+        flowRaf = 0;
+        flowGroup.innerHTML = '';
+    };
+
+    const setHover = (uid, px, py) => {
+        const legal = uid ? isLegalUid(uid) : false;
+        if (hoverUid !== uid) {
+            if (hoverUid) {
+                const old = enemyCells.get(hoverUid);
+                if (old) old.setAttribute('style', baseCells.get(hoverUid) + (isLegalUid(hoverUid) ? GLOW_LEGAL : GLOW_ILLEGAL));
+            }
+            hoverUid = uid;
+            if (hoverUid) {
+                const cell = enemyCells.get(hoverUid);
+                if (cell) cell.setAttribute('style', baseCells.get(hoverUid) + (isLegalUid(hoverUid) ? GLOW_LEGAL : GLOW_ILLEGAL) + (legal ? GLOW_HOVER_OK : GLOW_HOVER_BAD));
+            }
+        }
+        if (uid) {
+            const u = allUnits.find(x => x && x.uid === uid);
+            hoverTip.textContent = legal ? `☀️ 松手攻击 ${u ? u.name : '目标'}` : '⛔ 近战够不着后排';
+            hoverTip.style.borderColor = legal ? '#ffd700' : '#888';
+            hoverTip.style.color = legal ? '#ffd700' : '#bbb';
+            hoverTip.style.left = (px + 16) + 'px';
+            hoverTip.style.top = (py + 18) + 'px';
+            hoverTip.style.opacity = '1';
+        } else {
+            hoverTip.style.opacity = '0';
+        }
+        updateLink(px, py, legal);
+    };
+
     const cleanup = () => {
+        stopFlowDots();
+        ghost.remove();
+        svg.remove();
+        hoverTip.remove();
+        styleTag.remove();
         overlay.remove();
         zhangCell.setAttribute('style', baseZhang);
         enemyCells.forEach((cell, uid) => cell.setAttribute('style', baseCells.get(uid)));
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
         document.removeEventListener('keydown', onKey);
     };
     const onKey = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
     const onMove = (e) => {
+        ghost.style.left = e.clientX + 'px';
+        ghost.style.top = e.clientY + 'px';
         if (!dragging) return;
         const el = document.elementFromPoint(e.clientX, e.clientY);
         const cell = el && el.closest ? el.closest('.cell.occupied') : null;
         const uid = (cell && cell.dataset) ? cell.dataset.uid : null;
-        setHover(uid && enemyUids.has(uid) ? uid : null);
+        setHover(uid && enemyUids.has(uid) ? uid : null, e.clientX, e.clientY);
     };
     const onUp = () => {
         if (!dragging) return;
         dragging = false;
-        const picked = hoverUid;
+        const picked = hoverUid && isLegalUid(hoverUid) ? hoverUid : null;
         cleanup();
         resolve(picked || null);
     };
-    const onDown = () => { dragging = true; };
+    const onDown = (e) => {
+        if (e.preventDefault) e.preventDefault();
+        refreshStart();
+        dragging = true;
+        zhangCell.setAttribute('style', baseZhang + GLOW_ZHANG + ';animation:zhangPickerPulse .9s ease-in-out infinite;');
+        ghost.style.left = e.clientX + 'px';
+        ghost.style.top = e.clientY + 'px';
+        ghost.style.opacity = '1';
+        svg.style.opacity = '1';
+        updateLink(e.clientX, e.clientY, false);
+        startFlowDots();
+    };
 
     zhangCell.addEventListener('pointerdown', onDown);
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
     document.addEventListener('keydown', onKey);
-
-    document.body.appendChild(overlay);
 }
 
 GlobalStore.setUIHandler('showZhangTargetPicker', showZhangTargetPicker);
