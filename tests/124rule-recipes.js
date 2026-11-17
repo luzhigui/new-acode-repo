@@ -1,3 +1,18 @@
+// V1.3.0 | 2026-11-17 第31轮：主代码 force 开关按需登记核对（10 个 vs 体检用 4 个）。
+//   ★ 由头：#29 静态槽位只报"登记了主代码没有的"（真错），反方向"主代码有但体检未登记"
+//     按设计不报（按需）—— 但实测 modules/330 有 10 个 force 开关，体检侧只登记 4 个。
+//   ★ 逐条核对结论（主代码 330-battle-init.js L128/L181-188/L318/L332/L417/L624）：
+//     已登记 4 个：forceZhang / forceWei / forceXieXun / forceXiaoZhao（带值 sister）
+//     该登记漏了 2 个 → 本轮补：
+//       · forceHanLiSa（布尔，寒离飒强精英，V7.6.1 新增独立通道）→ 加通用 tag 条目
+//         （138风推/166惑心/175锚位/188多段等 health-rules 全靠随机碰，补登记后不再恒 skip）
+//       · forcePang（布尔，第3关变体2含胖远桥）→ 给已有的 hero:胖远桥 规则加 force
+//     纯工具开关 4 个 → 不登记（不属正常体检流程）：
+//       · forceSoloWeakElite（工具强精英单挑，只锁寒离飒、不产生第二精英）
+//       · forceMingUnit（dev-index 🧪 按钮）
+//       · forceWeakElite（弱精英敌方随机，校验逻辑只防误用）
+//       · forceSectUnit（dev-index 🧪 按钮）
+//   ★ 只扩强制上场通道，判据阈值/规则判据/主代码一字未动。
 // V1.2.9 | 2026-11-17：登记 311「惑心换位排除袋中单位」规则名（tag:mechanic:惑人心智）
 // V1.2.8 | 2026-11-17 第23轮：补齐「按规则体检」强制上场开关——此前 RULE_META 只给 4 条规则配 force
 //   (张无忌×2/韦一笑×1)，勾 hero:谢逊(3条) / hero:小昭(9条) 时 collectForceFlags 返回空 {} ⇒ 一个都不强制上场，
@@ -24,7 +39,7 @@
 //   也**不臆造**改动内容 —— 具体改了什么以抬升时的提交为准，待其补记。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.9';
+export const VER = 'tests/124rule-recipes.js V1.3.0';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
@@ -110,9 +125,12 @@ export const RULE_META = {
     '蛛变/精通数值(回归)': { tag: 'hero:小昭', force: 'forceXiaoZhao:sister', note: '小昭为随机精英，但**可强制**：GlobalStore forceXiaoZhao=brother/sister（主代码 29battle-init L245-262）；第 159 轮起 rules-replay 已加定向覆盖场次，本规则不再恒空转' },
     '幼狮成长数值(回归)': { tag: 'mechanic:幼狮成长', note: '明教幼狮成长永久词条；小昭·姊海克斯增强时才触发，需连打多局碰出' },
     '属性变更数值(回归)': { tag: 'generic:通用', note: '不依赖本局出阵角色；STAT_CHANGE_APPLY 此前在规则视野外（renderFn:null），Step 0 后可见' },
-    '正义国字脸叠防数值(回归)': { tag: 'hero:胖远桥', note: '胖远桥招牌；落点 pangDefGain == 配置 defGain，规则侧此前看不到（嵌套在 ATTACK fact），Step 0 后可见' },
+    '正义国字脸叠防数值(回归)': { tag: 'hero:胖远桥', force: 'forcePang', note: '胖远桥招牌；落点 pangDefGain == 配置 defGain，规则侧此前看不到（嵌套在 ATTACK fact），Step 0 后可见。第3关变体含胖远桥，forcePang 强制选中含胖远桥变体（330-battle-init L417-422）' },
     '吸血上限提升数值(回归)': { tag: 'hero:韦一笑', note: '韦一笑蝠影汲血永久抬上限；maxHpDelta/newMaxHp 良好 + 同单位相邻单调，与对照器互补' },
     '灭绝重设计行为数值(回归)': { tag: 'hero:灭绝师太', note: '2026-10-09 重设计：反击×dmgRatio / 三击吸血×leechRatio / 死亡召唤周芷若(SUM MON_UNIT)；行为与渲染文案对配置真值' },
+    // 第31轮：寒离飒强制开关登记。主代码 330-battle-init L185/L194 已有 forceHanLiSa 独立通道（V7.6.1），
+    //   但 RULE_META 此前无寒离飒条目 ⇒ 138/166/175/188 等 health-rules 全靠随机碰出。补通用 tag 条目供 collectForceFlags 下发。
+    '寒离飒强制上场(通用)': { tag: 'hero:寒离飒', force: 'forceHanLiSa', note: '寒离飒为明教强精英（330-battle-init forceHanLiSa）；补 force 登记让盯寒离飒的规则（138风推/166惑心/175锚位/188多段等）不再全靠随机碰。通用条目本身不对应具体 health-rule 判据，仅供 collectForceFlags 收集' },
     // 第 185 轮：角色技能模块（modules/3xx）补盲
     '周颠癫传染链一致性(回归)': { tag: 'hero:周颠', note: '明教普通单位，癫会传给敌我；无强制开关，未出场即 skip' },
     '唐文亮七伤拳自损与增伤(回归)': { tag: 'enemy:唐文亮', note: '唐文亮为六大派弱精英随机混入，需命中才有七伤拳报幕，需连打多局碰出' },
@@ -312,11 +330,14 @@ export function selftestRecipeForce() {
     eq(collectForceFlags(null), {}, '⑤ null tags');
     const mixed = collectForceFlags(new Set(['hero:谢逊', 'hero:小昭', 'hero:韦一笑']));
     eq(mixed, { forceXieXun: true, forceXiaoZhao: 'sister', forceWei: true }, '⑥ 混合布尔+带值');
+    // #31 新增：补 forceHanLiSa（布尔）与 forcePang（布尔）
+    eq(collectForceFlags(new Set(['hero:寒离飒'])), { forceHanLiSa: true }, '⑦ 寒离飒布尔开关');
+    eq(collectForceFlags(new Set(['hero:胖远桥'])), { forcePang: true }, '⑧ 胖远桥布尔开关');
     if (fails.length) {
         console.error('❌ 配方强制开关自证失败：\n  ' + fails.join('\n  '));
         return false;
     }
-    console.log('✅ 配方强制开关自证 6/6（布尔/带值/旧开关不回归/空/null/混合）');
+    console.log('✅ 配方强制开关自证 8/8（布尔/带值/旧开关不回归/空/null/混合/寒离飒/胖远桥）');
     return true;
 }
 

@@ -3,8 +3,9 @@
 //   把红项翻成“其他”而无人察觉。
 //   ① 静态预检：交叉核对 run-all 的 CHECKS/OBSERVES 条目名 vs MEANING 表 keys（按 humanLine
 //      一致的子串匹配），列出会翻成“其他”的条目，供补表。
-//   ② 动态段（受环境约束）：真跑一次 one-click-health，统计生成报告里“其他”标题数；>0 exit 1。
+//   ② 动态段（受环境约束）：真跑一次 one-click-health，统计生成报告里“其他”标题数；>0 提示补表。
 //   挂 OBSERVES（不改 CHECKS 分母），pure tests/，不碰主代码、不改阈值/基线/判据。
+export const VER = 'tests/one-click-health-translation-selfcheck.mjs V1.0.0';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
