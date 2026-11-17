@@ -22,7 +22,7 @@
 | 改动历史 | `记录-更改履历.md` |
 | 踩过的坑 / 经验教训 | `文件汇总20260730/11 错题集及履历/01 错误与经验库.md` |
 | 待办与设计想法 | `文件汇总20260730/10 待办事项和想法优化/00 总览.md` |
-| 跑体检 / 回归验证 | `tests/`（说明见 `tests/体检使用说明.md`）；一键全量 `node tests/run-all.mjs` |
+| 跑体检 / 回归验证 | `tests/`（说明见 `tests/体检使用说明.md`）；一键全量 `node tests/run-all.mjs`（守门脚本 `tests/d12v2-scan-case.mjs` 依赖 `acorn`，已声明于 `package.json`；新 clone 后先 `npm install`） |
 | 用/写开发工具 | `tools/`（`802-toolkit.html` 工具箱主页；**动手造轮子前先读 `tools/TOOL-AI.md`**） |
 
 ---
