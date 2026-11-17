@@ -16,7 +16,7 @@ This repo (`new-acode-repo`, a 5v5 battle simulator called 光明顶) ships a **
 5. **Execute** via one of the three entry points (see SKILL.md). Fastest: `node tests/run-all.mjs --jobs 4`. Most realistic: `python tools/health_auto_check.py 600 7 100`.
 6. **Report with evidence**: the exact command you ran + its actual output lines. Never just say "I ran it."
 7. **Red lines**: do NOT modify game source code — only `tests/` and pack manifests. Only `git add` specific files (never `git add -A` / `git add .`). Do not change thresholds, do not re-record baselines, do not relax assertions. For real bugs in game code, emit a **transfer block** (code wrapped in `===== START ... =====` / `===== END =====`) for a human to land.
-8. **Commit & push**: stage only the specific files you changed, commit, then push to BOTH `gh-ssh` and `gitee` remotes.
+8. **Commit & push — DO IT IMMEDIATELY (highest priority)**: stage only the specific files you changed, commit, then push to BOTH `gh-ssh` and `gitee` remotes right away. NEVER leave work staged or committed-but-unpushed — this is a SHARED working tree and other sessions will wipe it. Do NOT stall over "remote has new commits from someone else": fetch, fast-forward or resolve, then push anyway and verify both tips. Never say "I won't push yet to avoid affecting others" — pushing protects the work; leaving it local loses it.
 
 A self-contained copy-paste version of this protocol is at the bottom of this file (between 【START】 and 【END】 markers) — paste that block into any chat to turn that agent into a competent contributor.
 
@@ -56,10 +56,16 @@ A self-contained copy-paste version of this protocol is at the bottom of this fi
   - 不改阈值、不重录基线（`baselines/*.json` 非调节阀）、不放宽判据。
   - 变异牙齿全量需走 `--emit-prep`→`prep.sh`→`--emit-run`→`run.sh`→`--report`；`_base` 陈旧会废锚点。
 
+## 🚨 推送铁律（最高优先级 · 所有 Agent 必读 · 不许打折扣）
+**改完立即 commit + 双推，绝不留在暂存区 / 本地不推。**
+- 这是**共享单工作树**：你 `git add` 了但没 commit/push 的改动，会被别的会话 `reset` / `clean` / 顺手提交时清掉——**暂存 = 白干**。所以：**add 具体文件 → commit → 立刻 push gh-ssh + gitee**，一气呵成，不要中途停下来等确认。
+- **不要拿"远端被别人改了"当理由不推 / 暂停 / 长篇纠结。** 发现远端有新提交：先 `git fetch` 看清楚，是快进就快进推；真分叉就在你自己的提交上处理后**照样推上去**。推完核对三端 tip。别把"可能影响别人"当作拖延或暂存的借口——**推上去才是保护成果，留在本地才会丢。**
+- **禁止话术**："怕覆盖别人所以先不推" / "先暂存等确认" / "未提交未推送" —— 这些在本仓库一律视为未完成。
+
 ## 完成定义
 - 任务有可验证结果（命令 + 实际结论行）。
 - 看板已更新（领格 / 补格 / 标 `done`）。
-- 改动只 `add` 具体文件，已 commit + 双推，两端 tip 一致。
+- 改动只 `add` 具体文件，**已 commit + 双推 gh-ssh + gitee，两端 tip 一致**；没有任何"暂存 / 本地未推"的残留。
 
 ---
 
@@ -77,11 +83,12 @@ A self-contained copy-paste version of this protocol is at the bottom of this fi
 > 3. 做完把任务标 `done`，并**保证看板永远 ≥3 个 `open`**（做1留234、做2留345、做3留456）；不够就补。
 > 4. 报告必须带**实际命令 + 实际结论行**，不要只说"我跑了"。
 > 5. 红线：主代码**零触碰**（只改 tests/ + 打包清单）；只 `git add` 具体文件（绝不 `-A`/`.`）；不改阈值、不重录基线、不放宽判据；主代码真缺陷只写"转交块"（START/END 标记的可复制代码）交人落地。
-> 6. 改动只 add 具体文件 → commit → 双推 `gh-ssh` + `gitee`。看板改动单独提交双推，避免抢格。
-> 7. 始终遵守 SKILL.md 里的完整红线与完成定义。遇到命令失败先读报错再诊断，不要静默跳过。
+> 6. **推送铁律（最高优先级）**：改动只 add 具体文件 → commit → **立即双推** `gh-ssh` + `gitee`，一气呵成。**绝不暂存/留在本地不推——本仓库是共享工作树，未推送的改动会被别的会话清掉。** 不要拿"远端被别人改了/怕影响别人"当理由不推或暂停：先 fetch，快进就推、分叉就处理完照样推，推完核对两端 tip。"先暂存等确认""未提交未推送"一律视为未完成。
+> 7. 看板改动单独提交双推，避免抢格。
+> 8. 始终遵守 SKILL.md 里的完整红线与完成定义。遇到命令失败先读报错再诊断，不要静默跳过。
 > 【END】
 
 > 🌐 English copy-paste block:
 > 【START health-check agent protocol】
-> You are a contributing agent for the "光明顶 5v5" battle-sim repo (new-acode-repo). Two key files at repo root: `tests/_registry/HEALTH_BOARD.md` (shared task board) and `.workbuddy/skills/guangmingding-health-run/SKILL.md` (runbook). If you lack repo access, ask the user for the path or have them paste those two files — never guess; then `git fetch`. Steps: (1) claim the smallest `#` task with status `open` → set `doing` + `owner` + timestamp; if none open, add ≥3 tasks then take #1. (2) Execute via `node tests/run-all.mjs --jobs 4` (fast) or `python tools/health_auto_check.py 600 7 100` (realistic browser run). (3) Mark done and keep ≥3 tasks `open` always. (4) Report with the exact command + its actual output lines. (5) Red lines: never touch game source (only `tests/` + pack manifests); only `git add` specific files (never `-A`/`.`); never change thresholds, re-record baselines, or relax assertions; real game bugs → emit a transfer block (code between `===== START =====` / `===== END =====`) for a human. (6) Commit only specific files, push to BOTH `gh-ssh` and `gitee`. (7) Follow all red lines in SKILL.md. Diagnose failures from error output; never silently skip.
+> You are a contributing agent for the "光明顶 5v5" battle-sim repo (new-acode-repo). Two key files at repo root: `tests/_registry/HEALTH_BOARD.md` (shared task board) and `.workbuddy/skills/guangmingding-health-run/SKILL.md` (runbook). If you lack repo access, ask the user for the path or have them paste those two files — never guess; then `git fetch`. Steps: (1) claim the smallest `#` task with status `open` → set `doing` + `owner` + timestamp; if none open, add ≥3 tasks then take #1. (2) Execute via `node tests/run-all.mjs --jobs 4` (fast) or `python tools/health_auto_check.py 600 7 100` (realistic browser run). (3) Mark done and keep ≥3 tasks `open` always. (4) Report with the exact command + its actual output lines. (5) Red lines: never touch game source (only `tests/` + pack manifests); only `git add` specific files (never `-A`/`.`); never change thresholds, re-record baselines, or relax assertions; real game bugs → emit a transfer block (code between `===== START =====` / `===== END =====`) for a human. (6) **PUSH RULE — HIGHEST PRIORITY**: commit only specific files, then **immediately push to BOTH `gh-ssh` and `gitee`** in one go. NEVER leave changes staged or committed-but-unpushed — this is a SHARED working tree; unpushed work gets wiped by other sessions. Do NOT use "remote has new commits" or "might affect others" as an excuse to delay or hold back: `git fetch`, fast-forward if possible, resolve divergence if needed, then PUSH ANYWAY and verify both tips. "Staged pending confirmation" / "committed but not pushed" always counts as NOT DONE. (7) Commit board changes separately and push immediately. (8) Follow all red lines in SKILL.md. Diagnose failures from error output; never silently skip.
 > 【END】
