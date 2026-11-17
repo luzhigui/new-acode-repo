@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-// tests/rule-false-green-scan.mjs | V1.1.0 | 2026-11-12（D12 规则自检与假绿域 v2）
+// tests/rule-false-green-scan.mjs | V1.2.0 | 2026-11-14（D12 规则自检与假绿域 v2）
+// V1.2.0 变更（2026-11-14，体检侧）：① 夹具补齐到「每个子判据各 1 例」——A 补 布尔 / undefined /
+//   缺 fail 字段 3 例，C 补 字面量条件 / 首句 return pass 2 例，D1 补 {fail:false,skip:true} 1 例
+//   ⇒ 六类判据（A/B/C/D1/D2/D3）下每个子判据都有反例，不再只咬住「每类最顺手的那个写法」；
+//   ② 夹具新增 expectCats（**应当命中的精确集合**），selfCheck 由「只查该咬的咬住」升级为
+//   「精确集合相等」——原来判据自己过度咬合（多咬了别的类）也没人知道；
+//   ③ 干净夹具仍要求 0 命中（多咬也算错）。
 //
 // 定位：把「规则本身写错 ⇒ 体检假绿」做成一条常驻静态扫描，覆盖 tests/health-rules/ 全部规则文件。
 // 与运行时自检的分工：
@@ -7,7 +13,8 @@
 //     都靠「跑样本 + 回放数字」，只能看见**已经跑出来**的假绿；
 //   · 本件只看源码形状，在规则上线前就能咬住「怎么写都不可能报红」的写法，两者互不替代。
 //
-// 四类判据（每类都有内嵌反例自证，见 SELF_FIXTURES —— 判据先证明自己能咬住，再拿去扫全库）：
+// 六类判据（每类的**每个子判据**都有内嵌反例自证，见 SELF_FIXTURES —— 判据先证明自己能咬住，
+// 再证明自己**不会多咬**（expectCats 精确集合），才拿去扫全库）：
 //   A 形状非法：test() 返回普通字符串 / 布尔 / undefined / 缺 fail 字段的对象。
 //     回放器（rules-replay 第 200 轮）与浏览器侧（121）只认 'skip' / 'pass' / {fail:boolean,msg}；
 //     其余形状要么被算 pass（229/227/228 假绿根因），要么整条规则报「形状非法」噪声。
@@ -15,7 +22,9 @@
 //     这条规则无论数据多烂都只会 pass/skip ⇒ 恒绿。
 //   C 恒 pass 分支：条件不影响结论的分支（两支都只 return pass / 首句就 return pass / 字面量条件）。
 //     分支代码在、覆盖率也扫到了，但该分支永远不可能报红。
-//   D catch 吞掉：test() 内 try/catch 把异常吞成 pass/skip 或空 catch —— 数据链断了照样绿。
+//   D1 catch 吞成 pass：try/catch 把异常吞成 pass（含 {fail:false,skip:true}——消费者只认 fail 字段）。
+//   D2 catch 吞成 skip：异常被吞成跳过 —— 数据链断了照样看不见。
+//   D3 空 catch：异常被静默吞掉。
 //
 // 判定口径（与仓库既有棘轮一致）：
 //   · KNOWN 里的条目 = 已登记的真问题（本域只报不改，等所属域修），逐条打印 ⚠️，不计退码；
@@ -39,7 +48,7 @@ try {
     process.exit(1);
 }
 
-export const VER = 'tests/rule-false-green-scan.mjs V1.1.0';
+export const VER = 'tests/rule-false-green-scan.mjs V1.2.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RULE_DIR = path.join(here, 'health-rules');
@@ -68,13 +77,16 @@ export const KNOWN = [
     { file: '287-stage-name-source.js', rule: '每关敌方名字来源合法(回归)', cat: 'D3', reason: 'forceWeakElite 可选配置，取不到按未强制' }
 ];
 
-// ---------------------------------------------------------------- 四类判据的内嵌反例（自证）
-// 每个夹具都是一条**最小规则文件**：categories 里列出「本判据必须咬住哪几类」。
-// 自证失败（该咬的没咬住 / 干净夹具被误咬）直接退 1，避免「判据写了但从不生效」。
+// ---------------------------------------------------------------- 六类判据的内嵌反例（自证）
+// 每个夹具都是一条**最小规则文件**：categories = 本判据必须咬住哪几类；expectCats = **应当命中的精确集合**
+// （多咬也算错 —— 判据自己过度咬合同样是缺陷）。自证失败（该咬的没咬住 / 多咬了 / 干净夹具被误咬）
+// 直接退 1，避免「判据写了但从不生效」或「判据什么都咬」。
 export const SELF_FIXTURES = [
+    // —— A 形状非法：4 个子形状各 1 例（消费者只认 'skip' / 'pass' / {fail:boolean,msg}）
     {
         name: '形状非法：返回普通字符串',
         categories: ['A'],
+        expectCats: ['A'],
         src: `export const rule999 = {
   name: '夹具·返回字符串',
   test: function (ctx) {
@@ -84,8 +96,43 @@ export const SELF_FIXTURES = [
 };`
     },
     {
+        name: '形状非法：返回布尔',
+        categories: ['A'],
+        expectCats: ['A', 'B'],
+        src: `export const rule999 = {
+  name: '夹具·返回布尔',
+  test: function (ctx) {
+    return true;
+  }
+};`
+    },
+    {
+        name: '形状非法：返回 undefined（光 return）',
+        categories: ['A'],
+        expectCats: ['A', 'B'],
+        src: `export const rule999 = {
+  name: '夹具·返回undefined',
+  test: function (ctx) {
+    return;
+  }
+};`
+    },
+    {
+        name: '形状非法：返回缺 fail 字段的对象',
+        categories: ['A'],
+        expectCats: ['A', 'B'],
+        src: `export const rule999 = {
+  name: '夹具·缺fail字段',
+  test: function (ctx) {
+    return { msg: '没有 fail 字段' };
+  }
+};`
+    },
+    // —— B 无 fail 路径
+    {
         name: '无 fail 路径：只会 pass/skip',
         categories: ['B'],
+        expectCats: ['B'],
         src: `export const rule999 = {
   name: '夹具·无红',
   test: function (ctx) {
@@ -95,9 +142,23 @@ export const SELF_FIXTURES = [
   }
 };`
     },
+    // —— C 恒 pass 分支：3 个子判据各 1 例
+    {
+        name: '恒 pass 分支：条件写成字面量',
+        categories: ['C'],
+        expectCats: ['C'],
+        src: `export const rule999 = {
+  name: '夹具·字面量条件',
+  test: function (ctx) {
+    if (true) return 'pass';
+    return { fail: true, msg: '红' };
+  }
+};`
+    },
     {
         name: '恒 pass 分支：两支都只 return pass',
         categories: ['C'],
+        expectCats: ['B', 'C'],
         src: `export const rule999 = {
   name: '夹具·恒pass',
   test: function (ctx) {
@@ -110,8 +171,21 @@ export const SELF_FIXTURES = [
 };`
     },
     {
+        name: '恒 pass 分支：第一句就无条件 return pass',
+        categories: ['C'],
+        expectCats: ['B', 'C'],
+        src: `export const rule999 = {
+  name: '夹具·首句pass',
+  test: function (ctx) {
+    return 'pass';
+  }
+};`
+    },
+    // —— D catch 吞掉：D1 吞成 pass（两种写法）/ D2 吞成 skip / D3 空 catch
+    {
         name: 'catch 吞掉：异常转 pass',
         categories: ['D1'],
+        expectCats: ['D1'],
         src: `export const rule999 = {
   name: '夹具·吞异常',
   test: function (ctx) {
@@ -123,8 +197,23 @@ export const SELF_FIXTURES = [
 };`
     },
     {
+        name: 'catch 吞掉：异常转 {fail:false,skip:true}（消费者只认 fail 字段 ⇒ 算 pass）',
+        categories: ['D1'],
+        expectCats: ['A', 'D1'],
+        src: `export const rule999 = {
+  name: '夹具·吞异常成skip字段',
+  test: function (ctx) {
+    var v = 0;
+    try { v = ctx.facts.length; } catch (e) { return { fail: false, skip: true }; }
+    if (v > 1) return { fail: true, msg: '红' };
+    return 'pass';
+  }
+};`
+    },
+    {
         name: 'catch 吞掉：异常转 skip',
         categories: ['D2'],
+        expectCats: ['D2'],
         src: `export const rule999 = {
   name: '夹具·吞异常变skip',
   test: function (ctx) {
@@ -138,6 +227,7 @@ export const SELF_FIXTURES = [
     {
         name: 'catch 吞掉：空 catch',
         categories: ['D3'],
+        expectCats: ['D3'],
         src: `export const rule999 = {
   name: '夹具·空catch',
   test: function (ctx) {
@@ -148,9 +238,11 @@ export const SELF_FIXTURES = [
   }
 };`
     },
+    // —— 干净夹具：六类病一个都没有（多咬也算错）
     {
-        name: '干净夹具：四种病都没有',
+        name: '干净夹具：六种病都没有',
         categories: [],
+        expectCats: [],
         src: `export const rule999 = {
   name: '夹具·干净',
   test: function (ctx) {
@@ -438,6 +530,20 @@ export function selfCheck() {
         for (const c of fx.categories) {
             if (!gotCats.has(c)) bad.push('反例「' + fx.name + '」没被 ' + c + ' 类咬住');
         }
+        // 精确集合：expectCats（应当命中的类）必须**恰好**等于实际命中的类 —— 多咬也是缺陷
+        // （判据过度咬合会把好规则判红，比不咬更坏）
+        const want = new Set(fx.expectCats || fx.categories);
+        const wantSorted = [...want].sort();
+        const extra = [...gotCats].filter(c => !want.has(c)).sort();
+        const missing = [...want].filter(c => !gotCats.has(c)).sort();
+        if (extra.length) {
+            bad.push('反例「' + fx.name + '」多咬了 ' + extra.join(',')
+                + '（期望恰好 ' + (wantSorted.join(',') || '0 类') + '）');
+        }
+        if (missing.length) {
+            bad.push('反例「' + fx.name + '」漏咬 ' + missing.join(',')
+                + '（期望恰好 ' + (wantSorted.join(',') || '0 类') + '）');
+        }
         if (fx.categories.length === 0 && got.length > 0) {
             bad.push('干净夹具被误咬：' + got.map(f => f.cat + '@' + f.why).join(' / '));
         }
@@ -493,7 +599,9 @@ function main() {
                     (kn ? '（已登记：' + kn.reason + '）' : ''));
             }
         }
-        console.log('· 判据自证：A/B/C/D1/D2/D3 六类反例各咬住 1 例，干净夹具 0 误咬 ✅');
+        const fixtureCats = [...new Set(SELF_FIXTURES.flatMap(fx => fx.categories))].sort();
+        console.log('· 判据自证：' + SELF_FIXTURES.length + ' 条夹具覆盖 ' + fixtureCats.join('/')
+            + ' 六类判据的每个子判据（expectCats 精确集合，多咬也算错）0 误咬 ✅');
         console.log('· 已登记豁免 ' + KNOWN.length + ' 条（棘轮只许收缩）；本轮命中 ' + all.length + ' 条（其中未登记 ' + news.length + ' 条）');
         for (const k of vanishedKnown) console.log('  ❌ 豁免条目已消失：' + k + ' ⇒ 必须同步收缩 KNOWN');
         if (news.length || vanishedKnown.length) console.log('❌ 发现 ' + news.length + ' 条未登记假绿 / ' + vanishedKnown.length + ' 条豁免失效');
