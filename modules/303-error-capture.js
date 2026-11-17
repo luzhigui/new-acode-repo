@@ -1,15 +1,7 @@
-export const VER = 'modules/303-error-capture.js V6.6.0';
-// V6.6.0 | 2026-11-08 | 🐞 已记录列表：每条加「下载这一条」（单条 .txt 落地）、「清空列表」更名「清空历史」
-//                     （保留二次确认）；单条文本与整段复制同格式（标题/角色/锚点/日志原文）
-// V6.5.0 | 2026-11-07 | 🎯 点选态不再改日志行距（去掉 min-height，只留光标+选中高亮）；记 Bug 面板
-//                     「去日志里点选锚点」收缩成屏幕顶部一条（标题+返回编辑+锚点提示），日志整块露出可点
-//                     可滚，点中日志行后面板自动恢复原位原高度
-// V6.4.0 | 2026-11-07 | 🎯 日志区每行可点选（≥32px、金色高亮）；记 Bug 时以用户点的那行为锚取
-//                     前 8 + 该行 + 后 2 行逐字原文，没点才自动推测；切片标「锚点来源」（撤掉全程时间线）
-// V6.3.0 | 2026-11-07 | 🐞 切片带上报错点附近的战斗日志原文（前 8 行 + 后到最新，逐字不摘要），
-//                     附「出事单位 + 日志里出现的单位」；整条切片 ≤3KB，超了先砍更早日志、再砍单位字段
-// V6.2.1 | 2026-11-07 | 详细数据改为对症裁剪：只带相关 1~2 单位 + 活跃状态 + 最近 5 步日志（约 1~2KB）
-// V6.2.0 | 2026-11-07 | 🐞 改为轻量记录器：弹面板挑条目 + 备注 + 本地列表 + 清爽复制；全量导出收进列表
+// modules/303-error-capture.js — 全局报错捕获、Bug 面板 UI 与切片数据生成
+// V6.6.1 | 2026-11-17 Bug 面板单条复制：记录卡「下载这一条」改为「复制这一条」（内容追加现场切片 JSON）；
+//   复制→提示→失败降级下载收口到 copyOrDownload，「一键复制全部」同用，不写第二套。
+export const VER = 'modules/303-error-capture.js V6.6.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -413,6 +405,16 @@ import { GlobalStore } from '../infra/104-global-store.js';
         try { document.execCommand('copy'); } catch (e) {}
         document.body.removeChild(ta);
     }
+    // 复制→成功提示→剪贴板不可用降级下载：单条复制与一键复制全部共用这一套
+    function copyOrDownload(text, okMsg, fileName) {
+        return copyText(text)
+            .then(() => showToast(okMsg))
+            .catch(() => {
+                downloadText(text, fileName);
+                showToast('剪贴板不可用，已下载 .txt');
+            });
+    }
+
     function downloadText(text, name) {
         const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
         const href = URL.createObjectURL(blob);
@@ -881,10 +883,17 @@ import { GlobalStore } from '../infra/104-global-store.js';
         return lines.join('\n');
     }
 
-    // 单条下载：只要当前这一条（标题行 + 角色 + 锚点 + 日志原文），方便直接发出去
+    // 单条复制/下载：这一条（标题行 + 角色 + 锚点 + 日志原文 + 现场切片 JSON，与列表详情框同源）
     function buildSingleRecordText(r) {
         const res = recordLines(r, 0, 16000);
-        return ['【Bug 记录】1 条', ''].concat(res.lines).join('\n');
+        const lines = ['【Bug 记录】1 条', ''].concat(res.lines);
+        if (r.hasDetail && r.detail) {
+            lines.push('');
+            lines.push('── 现场切片' + (r.detailBytes ? '（' + (r.detailBytes / 1024).toFixed(1) + 'KB）' : ''));
+            try { lines.push(JSON.stringify(r.detail, null, 2)); }
+            catch (e) { lines.push(String(r.detail)); }
+        }
+        return lines.join('\n');
     }
 
     function openSavedList() {
@@ -970,11 +979,10 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     detailBox.style.display = open ? 'none' : 'block';
                     detailBtn.textContent = open ? '详情' : '收起';
                 };
-                const downloadBtn = makeSmallBtn('下载这一条');
-                downloadBtn.onclick = () => {
+                const copyOneBtn = makeSmallBtn('复制这一条');
+                copyOneBtn.onclick = () => {
                     const stamp = String(rec.createdAt || rec.id || Date.now()).replace(/[:.]/g, '-');
-                    downloadText(buildSingleRecordText(rec), 'bug-' + stamp + '.txt');
-                    showToast('已下载这一条');
+                    copyOrDownload(buildSingleRecordText(rec), '已复制这一条', 'bug-' + stamp + '.txt');
                 };
                 const delBtn = makeSmallBtn('删除');
                 delBtn.style.color = '#ff9a8a';
@@ -984,7 +992,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     showToast('已删除，剩 ' + arr.length + ' 条');
                     openSavedList();
                 };
-                ops.appendChild(detailBtn); ops.appendChild(downloadBtn); ops.appendChild(delBtn);
+                ops.appendChild(detailBtn); ops.appendChild(copyOneBtn); ops.appendChild(delBtn);
                 card.appendChild(ops);
                 listBox.appendChild(card);
             });
@@ -1010,12 +1018,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         copyAll.onclick = () => {
             const arr = loadSaved();
             if (!arr.length) { showToast('列表还是空的'); return; }
-            copyText(buildSavedCopyText(arr)).then(() => {
-                showToast('已复制 ' + arr.length + ' 条记录');
-            }).catch(() => {
-                downloadText(buildSavedCopyText(arr), 'bug-records-' + Date.now() + '.txt');
-                showToast('剪贴板不可用，已下载 .txt');
-            });
+            copyOrDownload(buildSavedCopyText(arr), '已复制 ' + arr.length + ' 条记录', 'bug-records-' + Date.now() + '.txt');
         };
         addBtn.onclick = openRecorder;
         closeBtn.onclick = closePanels;
