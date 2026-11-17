@@ -1,4 +1,10 @@
 // tests/nightly-merge-guard.mjs | V1.0.0 | 2026-11-08
+// V1.1.0 | 2026-11-17 第20轮：修「静默读错数」——parseNightlyRounds 正则要求标题含「夜间」两字，
+//   而第 210 轮起日志标题统一简写为「…（2026-11-13 夜）」（单字「夜」）⇒ 自 209 轮起一条都认不出，
+//   latestNightly 恒停 209、守门靠④远端实时兜住才不转绿，却一直报「合入登记落后」这个似是而非的理由
+//   —— 静默瞎了 22 轮。修法只动读数层：夜间关键字放宽为单字「夜」；补 Z16（简写必认）/
+//   Z17（白天接力/合并轮不误收）两条自证钉死两头。判据/退码口径一字未动。
+//   同源修复已在夜间第232轮验证；本件是 main 侧同款自修（跨线只登记线索、main 侧复核后自修）。
 // V1.0.0 | 2026-11-08 合并轮：新建「夜间成果合入守门」，拦住「远端已推 N 轮、白天会话一个都没取回」
 //   这类静默断链。四路信号（日志夜间轮 / 合入登记 / 本地 refs / 远端实时）+ 15 条自证牙，
 //   纯只读、挂 OBSERVES、不改分母。
@@ -32,7 +38,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
-export const VER = 'tests/nightly-merge-guard.mjs V1.0.0';
+export const VER = 'tests/nightly-merge-guard.mjs V1.1.0';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
@@ -40,11 +46,12 @@ const LOG = path.join(HERE, '体检迭代日志.md');
 
 // ---- 纯解析层（可单测，不碰磁盘/网络） ------------------------------------
 
-/** 日志里的夜间轮标题：`## 第 185 轮（2026-11-07 夜间 · V9 双通道轮）`。
- *  「棒」（白天接力）与不带「夜间」的标题一律不算。 */
+/** 日志里的夜间轮标题：长写 `## 第 185 轮（2026-11-07 夜间 · V9 双通道轮）`
+ *  与简写 `## 第 N 轮（2026-11-17 夜）` 都算（第 210 轮起统一简写，单字「夜」）。
+ *  「白天接力 / 合并轮」等不带「夜」的标题一律不算。 */
 export function parseNightlyRounds(text) {
     const out = [];
-    const re = /^##\s*第\s*(\d+)\s*轮（[^）\n]*夜间[^）\n]*）/gm;
+    const re = /^##\s*第\s*(\d+)\s*轮（[^）\n]*夜[^）\n]*）/gm;
     let m;
     while ((m = re.exec(text)) !== null) out.push(Number(m[1]));
     return out;
@@ -155,13 +162,25 @@ function selftest() {
     if (Math.max(...parseRemoteRounds('abc\trefs/heads/nightly/第190轮\ndef\trefs/heads/nightly/第189轮')) !== 190) {
         fails.push('Z15 远端轮号解析错');
     }
+    // Z16/Z17（V1.1.0）：第 210 轮起日志标题简写为单字「夜」，原「夜间」正则静默瞎 22 轮。
+    const mixed = [
+        '## 第 209 轮（2026-11-07 夜间 · V9 双通道轮）',
+        '## 第 232 轮（2026-11-17 夜）',
+        '## 第 233 轮（2026-11-17 白天接力）',
+        '## 合并轮（2026-11-16 夜）',
+    ].join('\n');
+    const parsed = parseNightlyRounds(mixed).sort((a, b) => a - b);
+    if (parsed.length !== 2 || parsed[0] !== 209 || parsed[1] !== 232) {
+        fails.push('Z16/Z17 夜间标题简写解析错：期望认出[209,232]（长写夜间+简写夜）、不认白天接力/合并轮，实得[' + parsed.join(',') + ']');
+    }
 
     if (fails.length) {
         console.log('❌ 自证牙失败 ' + fails.length + ' 条：' + fails.join('；'));
         return 1;
     }
-    console.log('✅ 自证牙 15 条全咬住（Z1 同步 / Z2 缺登记 / Z3 登记落后 / Z4 本地落后 / Z5 远端领先 / '
-        + 'Z6 登记超前 / Z7 无 git / Z8 无日志 / Z9 零夜间轮 / Z10 离线不误伤 / Z11–Z15 解析层与防自命中）');
+    console.log('✅ 自证牙 17 条全咬住（Z1 同步 / Z2 缺登记 / Z3 登记落后 / Z4 本地落后 / Z5 远端领先 / '
+        + 'Z6 登记超前 / Z7 无 git / Z8 无日志 / Z9 零夜间轮 / Z10 离线不误伤 / Z11–Z15 解析层与防自命中 / '
+        + 'Z16 简写「夜」必认 / Z17 白天接力不误收）');
     return 0;
 }
 
