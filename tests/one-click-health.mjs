@@ -70,10 +70,11 @@ try {
     exit = r.status;
     // ★ 真实 bug 候选的数据源：单独跑一次 coverage-report 拿【干净格式】。
     //   不要从 run-all 的并发混杂输出里解析——它的 key 行按完成序打印、带 ▶ 前缀，格式不稳（第27轮踩过）。
-    const cov = spawnSync(process.execPath, [path.join(WORKTREE, 'tests', 'coverage-report.mjs')], {
+    const cov = spawnSync(process.execPath, ['tests/coverage-report.mjs'], {
         cwd: WORKTREE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     });
     coverageOut = (cov.stdout || '') + (cov.stderr || '');
+    if (cov.status !== 0) console.log('[coverage诊断] status=' + cov.status + ' err=' + JSON.stringify(coverageOut.slice(0, 200)));
 } finally {
     // 无论成败都清临时树，别留垃圾
     cleanWorktree();
