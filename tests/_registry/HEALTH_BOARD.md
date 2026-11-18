@@ -46,11 +46,25 @@
 | 34 | 陈旧引用基线「只许收缩」棘轮 | 当前 `comment-ref-scan.mjs` 只在**新增**时退码，存量被修掉只提示 `--update`、不判红 ⇒ 基线可以被悄悄写大（有人跑 `--update` 就把新债洗成存量）。验收：加一条棘轮——基线键数 > 上次登记数即退码 1（与 `entry-path-guard` / `transfer-block-guard` 同款「只降不抬」口径）；配自证正负路径（洗长→红、收缩→绿）。 | done | AI编程助手 | 2026-11-17 |
 | 35 | 主代码无编号文件/撞号的历史成因排查 | `main-number-guard` 已把「撞号 + 无编号」钉成硬红，但当前七层实测为 0 —— 说明历史欠账已被并行会话清掉（`infra/107-store-schema` → `112`）。验收：核对该次改名的引用面是否全部同步（`grep` 全库 `107-store-schema` 与 `infra/107` 旧写法），确认无残留断链；若发现遗漏，登记为转交块交主代码侧。 | done | AI编程助手 | 2026-11-17 |
 | 40 | ★ 伤害印数 85 失败定性 + 让它浮出到主报告（用户"查不到bug"真凶） | 第27轮坐实：用户手动全能体检查不到的一茬茬bug，其实规则303在回放里**一直报85个失败**（干净树4c504874实测 `node tests/rules-replay.mjs` → pass=71 fail=85 skip=0；明细「印23而血条实落6.5 差16.5」「印22实落7 差15」）。但①它挂在"覆盖率/空转红线"这个OBSERVE名字下、只显形不计退码；②浏览器侧规则303因无damage-text结构返回skip；⇒ 用户和我都把它当"覆盖噪声"放过了。构造样本 d1-damage-rounding-case 全绿(27例)、护盾吸收豁免正常，说明判据没坏，是真实日志的护盾吸收格式/位置跟构造不同 ⇒ 属"判据跟随新机制"，改它会改变结论、须拍板。本轮交付：①坐实定性(不擅自放宽判据)；②让这85条从OBSERVE噪声变成人话可见——一键报告/守门里显式列出"真实bug候选"区。验收：取证命令+结论行；报告能一眼看到这85条，不再被"覆盖率"名字掩盖；判据阈值/基线/主代码一字不动。 | doing | 钟老师/第27轮 | 2026-11-18 |
-| 10 | 夜间分支(第218轮及36个)与 main 分叉收口 | 根因：夜间自动化只推 `nightly/第N轮` 永不并 main；03:00 复盘自动化(58a7cc1a)据记忆 PAUSED；白天 main 又独立改 tests/ ⇒ 自 cfae6145(11-11)分叉。`git merge-tree` 实测 `main<-nightly/218` 有 **23 处文本冲突**(15 content+7 add/add+1 modify/delete)，其中 **4 个是主代码**(content/001,core/214,modules/302,modules/337)+1 文档 modify/delete ⇒ 吸收 nightly **非纯 tests 操作**，撞主代码红线，需 zhong 显式授权+专用合并会话。验收：选定策略后 tests/ 回单一真源、双端一致、体检可在单树跑通 | open | - | - |
+| 10 | 夜间分支(第218轮及36个)与 main 分叉收口 | 根因：夜间自动化只推 `nightly/第N轮` 永不并 main；03:00 复盘自动化(58a7cc1a)据记忆 PAUSED；白天 main 又独立改 tests/ ⇒ 自 cfae6145(11-11)分叉。`git merge-tree` 实测 `main<-nightly/218` 有 **23 处文本冲突**(15 content+7 add/add+1 modify/delete)，其中 **4 个是主代码**(content/001,core/214,modules/302,modules/337)+1 文档 modify/delete ⇒ 吸收 nightly **非纯 tests 操作**，撞主代码红线，需 zhong 显式授权+专用合并会话。验收：选定策略后 tests/ 回单一真源、双端一致、体检可在单树跑通 | blocked | AI编程助手 | 2026-11-18 |
+===== 转交块 T-N10 (主代码冲突合并，zhong 授权后落地) =====
+目标：把 nightly/第218轮（含36个子提交）合并进 main，消除自 cfae6145(11-11) 以来的分叉。
+已知事实：
+- `git merge-tree main nightly/第218轮` → 23 处文本冲突：15 content + 7 add/add + 1 modify/delete
+- 其中 4 处在主代码：content/001、core/214、modules/302、modules/337（撞主代码红线，不可 AI 自行落地）
+- 1 处文档 modify/delete
+- 其余 18 处在 tests/（可在主代码冲突解决后，由体检 Agent 在纯 tests/ 侧处理）
+落地要求：
+1. 由 zhong 显式授权，开专用合并会话
+2. 先解决 4 处主代码冲突（按 main 侧或 nightly 侧拍板，以运行通过为准）
+3. 主代码冲突解决后，tests/ 侧冲突可由体检 Agent 逐条处理（纯 tests/，不触碰主代码）
+4. 合并后跑 `node tests/run-all.mjs --jobs 4` 在单树上跑通（EXIT 可 1，但必须是既存红，不新增红）
+===== END =====
 | 36 | 语义陈旧引用扫描（路径活但指错目标 · 与 #33 路径断链互补） | #33 清的是「路径断链」（`core/10` 指向不存在的文件）；但有一类**指错目标**扫不到——`infra/107` 路径**当前存活**（fact-contract 真的在 107），注释作者想指的却是被让号到 112 的 store-schema（见 #35 转交块 T-N35-1）。这类错指会让读者去错文件找东西，机器判「路径有效」故一律放行。验收：新建语义扫描——对「同一层/编号在历史上被让过号」的键（目前仅 infra/107↔112 一例），核对引用文件里 import 的是不是同号的那个文件；指错即点名（不判红，先只报）。纯 tests/，不碰主代码。 | open | - | - |
 | 37 | 强制开关登记漂移守门的未登记 7 条收口（补登记 or 抬棘轮，二选一） | `tests/force-switch-registry-drift-guard.mjs` 长期 TRIP：「未登记 7 条 > 棘轮上限 5」（forceHanLiSa/forceMingUnit/forcePang/forceSectUnit/forceSoloWeakElite/forceWeakElite/forceZhang）。#31 已把体检通道（RULE_META/collectForceFlags）补了 forceHanLiSa + forcePang，但**回放器通道**（`tests/_lib/forced-case-normalize.mjs` 的 FORCE_KEYS，仍 3 条）没补 ⇒ 守门读的仍是 7 条。验收：逐条给结论（该登记的补进 FORCE_KEYS / 纯工具开关注明理由），把 7 条降到棘轮上限以内；棘轮上限只许降不许升（抬闸门属为刷绿，须拍板并写理由）。 | done | AI编程助手 | 2026-11-17 |
 | 38 | 本地提交双推被环境阻塞的兜底通道（沙箱内 git push 不可用） | 本会话连续多轮双推全部失败，且已逐条排除「不是我的问题」：① SSH 握手**实测成功**（`ssh -T git@ssh.github.com` ⇒ `Hi luzhigui!`）⇒ 密钥/账号没问题；② 失败点是 git 在 Windows 下用 `D:\Git\usr\bin\sh.exe` 跑 ssh 传输子进程，该进程崩在 `couldn't create signal pipe, Win32 error 5`（沙箱禁止进程信号管道，与仓库无关）；③ 已试 GIT_SSH_VARIANT / GIT_SSH_COMMAND / core.sshCommand / .bat 包装 / 系统 OpenSSH / 显式 URL，全部撞同一堵墙；④ gitee 侧是 credential manager 需交互输入（无头不可用）+ `SEC_E_NO_CREDENTIALS (0x8009030e)`。验收：产出一条**可复制的双推手册**（含每种失败现象的判别与对应处置），落到 `tests/_registry/` 下的文档，让后续会话遇到同一阻塞时能直接照做、而不是重复试 6 种绕法。纯文档，不改任何判据/基线/主代码。 | done | AI编程助手 | 2026-11-17 |
 | 39 | 看板状态列格式统一（多行行导致 open 计数漏读） | 看板表格里有些任务行是**跨两行**写的（标题行 + 说明行 + 状态行，见 #26/#27 的写法），导致按 `^\|\s*\d+\s*\|` 逐行解析时**状态列取不到**（本次实测：脚本数出 3 个 open，人工看是 4 个 —— #27 被漏）。这会让「永远 ≥3 个 open」这条纪律**无法被机器校验**，也可能让后续会话误判看板余量。验收：① 把跨行写法改成单行（状态列在同一行），或 ② 提供一个解析脚本按「取该编号首次出现行的状态」口径统一统计 open 数，并挂进 run-all（只报不改分母）；机器读出来的 open 数必须与人工一致。纯 tests/ + 看板文档，不碰主代码/判据/基线。 | open | - | - |
+| 41 | 看板解析脚本（机器校验 open 计数 ≥3） | #39 验收的落地件：写一个 `tests/board-state-count-guard.mjs`，按「取该编号首次出现行的状态列」口径解析 `tests/_registry/HEALTH_BOARD.md`，统计 open 数并退码 1（<3 即红）。自证正负路径（真 3 个 open 绿 / 删到 2 个红 / 跨行格式不误判）。挂进 run-all CHECKS，不改分母。纯 tests/。 | open | - | - |
 
 ## 状态约定
 - `open`：待领；`doing`：进行中（同一时刻建议仅 1 人占）；`blocked`：等外部（主代码落地 / 拍板）；`done`：已闭环（含验证结论）。
