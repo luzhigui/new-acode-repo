@@ -12,7 +12,8 @@
 // V2.4.1 | 2026-11-18 普通桶0.8转化+强化蓄力跳过行动(护盾累加保armorBonus)+删_hlsPowerShielded
 // V2.4.2 | 2026-11-18 起蓄盾改30%+20%独立池(先普通后独立,爆发清零)/行动刷新30%/全轰按排两档+加攻击力(rowDen)
 // V2.4.3 | 2026-11-18 轰拳基数+一下普攻攻击额度(普通/强化都加,2026-11-18拍板)
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.3';
+// V2.4.4 | 2026-11-18 攻击力笔改记进桶(蓄力行动时,全额)+撤基数加笔
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.4';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
@@ -221,18 +222,25 @@ export function createHanLiSaComponent() {
                 // 相位 2（强化蓄力）也跳过行动（2026-11-18 老板拍板：蓄力期间不该还能攻击），与普通蓄力同轨产 PASS
                 if (charging !== 1 && charging !== 2 && charging !== 3) return;
                 data.declaration.skip = true;
+                // 2026-11-18 老板拍板：轮到行动（虽不出手）往承伤桶记一笔自己的攻击力——全额入桶，不吃 bucketConvert 折扣
+                const addAtkEntry = () => {
+                    const arr = hls.state._hlsTaken;
+                    if (Array.isArray(arr) && arr.length > 0) arr[arr.length - 1] += Math.floor(getStat(hls, 'atk'));
+                };
                 if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
                 if (charging === 2) {
-                    // 2026-11-18 老板拍板：轮到行动刷新 30% 盾（与普通蓄力同「重置为上限」语义）；20% 独立池不刷新
+                    // 轮到行动刷新 30% 盾（与普通蓄力同「重置为上限」语义）；20% 独立池不刷新
                     hls.state._shield = hls.maxHp * (powerCfg.shieldPct || 0);
+                    addAtkEntry();
                     hls.state._hlsCharging = 3;
-                    announce({ log: data.log }, `🌀 ${hls.name} 强化蓄力中（本回合不行动，回合末爆发，30% 盾已刷新）`);
+                    announce({ log: data.log }, `🌀 ${hls.name} 强化蓄力中（本回合不行动，攻击力记入轰拳基数，回合末爆发，30% 盾已刷新）`);
                     return;
                 }
                 hls.state._shield = hls.maxHp * xl.shieldPct;
                 if (charging === 1) {
                     hls.state._hlsCharging = 3;
-                    announce({ log: data.log }, `🌀 ${hls.name} 蓄力中（本回合不行动，护盾刷新）`);
+                    addAtkEntry();
+                    announce({ log: data.log }, `🌀 ${hls.name} 蓄力中（本回合不行动，攻击力记入轰拳基数，护盾刷新）`);
                 } else {
                     const atkBonus = Math.floor(getStat(hls, 'atk'));
                     hls.state._hlsExtraBonus = (hls.state._hlsExtraBonus || 0) + atkBonus;
@@ -292,9 +300,9 @@ export function createHanLiSaComponent() {
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-                        // N = 最近三回合承伤总和 + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）
-                        //   + 折算的一下普攻攻击额度（2026-11-18 老板拍板：普通/强化轰击都加）。
-                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0) + Math.floor(getStat(hls, 'atk')));
+                        // N = 最近三回合承伤桶总和（含蓄力行动时记入的攻击力笔，见 BEFORE_ACTION_SKIP）
+                        //   + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）。
+                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));
 
                         // —— 瞄准位：player/42 回合末交互写入优先（华丽模式按住-拖-松手）；
                         //    V2.4.0（2026-11-17 老板拍板）：没写（简单/全自动/快进/AI/PVP）不再随机前排赌单点，
