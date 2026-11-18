@@ -6,6 +6,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractRedLines, parseBugCandidates } from './_lib/health-report-parse.mjs';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -101,7 +102,7 @@ try {
 const elapsed = ((Date.now() - t0) / 1000).toFixed(0);
 
 // 从汇总表里抓 "  ❌ xxx" 行（按原顺序的汇总，不含并发打印前缀）
-const redLines = out.split(/\r?\n/).filter(l => /^  ❌/.test(l)).map(l => l.replace(/^  ❌\s*/, ''));
+const redLines = extractRedLines(out);
 const rawResult = out.split(/\r?\n/).find(l => /^结果：/.test(l)) || '（未找到结果行）';
 // run-all 原文形如「结果：13/23 通过，耗时 22.1s，X 10 项红…」——"结果："重复、X 是它的字面符号
 const resultLine = rawResult.replace(/^结果：/, '').replace(/，X (\d+) 项红/, '，$1 项红');
@@ -112,13 +113,8 @@ const reds = redLines.map(humanLine);
 //   这些原本挂在"覆盖率/空转红线"名字下、只显形不计退码，用户和我都当噪声放过了——
 //   但它们才是"一茬茬 bug 没被抓到"的真相（例：伤害印数 fail=85，差 15-16 点=护盾口径不同源）。
 //   格式（coverage-report.mjs）：`  156  100.0% 71/85/0   ❌ 伤害印数与血条实落同源`
-const bugCandidates = [];
-for (const line of redLines) {
-    const m = line.match(/(\d+)\/(\d+)\/(\d+)\s+❌\s+(.+)$/);
-    if (!m) continue;
-    const [, pass, fail, skip, name] = m;
-    if (Number(fail) > 0) bugCandidates.push({ name: name.trim(), pass: +pass, fail: +fail, skip: +skip });
-}
+// ★ 真实 bug 候选：用公共件解析（--selftest 7/7 可离线验证）
+const bugCandidates = parseBugCandidates(redLines);
 
 // 生成人话 HTML 报告（纯呈现）
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
