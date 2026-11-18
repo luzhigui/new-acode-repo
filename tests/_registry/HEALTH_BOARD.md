@@ -42,7 +42,16 @@
 | 30 | 一键报告人话翻译覆盖度自检（防新红项翻成"其他"） | #28 的 one-click-health.mjs 用关键词表把红项翻成人话，第25轮实跑补齐后 7/7 有标题，但表是人工维护的——新增检查项后又会翻成"其他"。验收：加一个自检——跑一次全量，报告里"其他"标题数应 0；若 >0 提示补 MEANING 表。挂 OBSERVES 不改 CHECKS 分母；纯 tests/。 | done | AI编程助手 | 2026-11-17 |
 | 31 | 主代码 force 开关按需登记核对（10 个 vs 体检用 4 个） | #29 静态槽位只报"登记了主代码没有的"（真错），反方向"主代码有但体检未登记"按设计不报（按需）。但实测 modules/330 有 10 个 force 开关（forceHanLiSa/forcePang/forceSectUnit/forceMingUnit/forceWeakElite/forceSoloWeakElite 等），体检只登记 4 个——需核对哪些是"该登记但漏了"（能让规则少跳过）、哪些是纯工具开关（不该登记）。验收：逐条给结论 + 值得登记的就补（同 #26 带值写法），不值得的注明理由。 | done | AI编程助手 | 2026-11-17 |
 | 32 | 主代码编号唯一性 + 陈旧引用扫描（两件新增守门） | 由头：duplicate-number-guard 只守 tests/health-rules/，主代码七层撞号无人拦（infra/107 两文件长期同号、靠人肉发现）；注释里 300+ 键旧短编号引用（core/10、player/46、render/30…）也在 123static-scan 射程外。★ **闭环（本会话）**：新建 `tests/main-number-guard.mjs`(V1.0.0) + `tests/comment-ref-scan.mjs`(V1.0.0)，均挂进 run-all CHECKS（`V1.57.0→V1.58.0`，CHECKS 29→31）。不拦路设计：引用侧存量 368 键冻结进 `tests/comment-ref-baseline.json`（键=文件::引用、**不含行号**，行号漂移零噪声，`--update` 只许收缩）；编号侧实测七层 151 文件全唯一、无未编号 ⇒ 只在新增撞号/新增未编号时退码 1。证据：干净树两件 EXIT=0；仓库外 detached worktree 三路咬牙**均 EXIT=1**（造 infra/107 撞号→点名两文件；造无编号文件→点名；注入 `core/999`+`player/88` 新引用→精确报 L231 两处）；还原后 EXIT=0。`pack-manifest-check` 已自动补登两件进 806（幂等，diff 稳定 4 行）、`run-all-integrity-selftest` 清单 74 条断链 0、CHECKS 31/OBSERVES 43 自洽。判据阈值/基线/主代码一字未动。 | done | AI编程助手 | 2026-11-17 |
-| 33 | 主代码陈旧引用存量清理（366 键 · 分批还账） | `comment-ref-scan` 基线现有 366 键存量，均为旧编号体系残留（如 `core/10`→`core/210`、`player/46`→`player/504`、`render/30`→`render/403`）。验收：逐批把注释里的旧编号改成真实路径或删掉过时注释，每批改完跑 `node tests/comment-ref-scan.mjs --update` 收缩基线，最终基线归零且扫描 EXIT=0。分批建议：按层（infra→core→modules→player→render→ui→fx）推进，每层单独 commit。 | open | - | - |
+| 33 | 主代码陈旧引用存量清理（366 键 · 分批还账） | `comment-ref-scan` 基线现有 366 键存量，均为旧编号体系残留（如 `core/10`→`core/210`、`player/46`→`player/504`、`render/30`→`render/403`）。验收：逐批把注释里的旧编号改成真实路径或删掉过时注释，每批改完跑 `node tests/comment-ref-scan.mjs --update` 收缩基线，最终基线归零且扫描 EXIT=0。分批建议：按层（infra→core→modules→player→render→ui→fx）推进，每层单独 commit。 | blocked | AI编程助手 | 2026-11-18 |
+===== 转交块 T-N33 (主代码注释旧编号替换) =====
+目标：清理 comment-ref-scan 基线里 366 个陈旧引用键（文件::引用），对应主代码注释里的旧短编号体系（core/10、player/46、render/30 等），需逐批替换为真实路径或删掉过时注释。
+已知基线分布：core 150、render 57、fx 46、modules 42、ui 29、player 26、infra 18
+处置口径：
+- 只改注释文字，不改逻辑
+- 每层改完跑 `node tests/comment-ref-scan.mjs --update`，基线同步收缩（只许收缩不许洗大，棘轮已硬化）
+- 最终基线归零、常规扫描 EXIT=0
+建议顺序：infra(18) → core(150) → modules(42) → player(26) → render(57) → ui(29) → fx(46)
+===== END =====
 | 34 | 陈旧引用基线「只许收缩」棘轮 | 当前 `comment-ref-scan.mjs` 只在**新增**时退码，存量被修掉只提示 `--update`、不判红 ⇒ 基线可以被悄悄写大（有人跑 `--update` 就把新债洗成存量）。验收：加一条棘轮——基线键数 > 上次登记数即退码 1（与 `entry-path-guard` / `transfer-block-guard` 同款「只降不抬」口径）；配自证正负路径（洗长→红、收缩→绿）。 | done | AI编程助手 | 2026-11-17 |
 | 35 | 主代码无编号文件/撞号的历史成因排查 | `main-number-guard` 已把「撞号 + 无编号」钉成硬红，但当前七层实测为 0 —— 说明历史欠账已被并行会话清掉（`infra/107-store-schema` → `112`）。验收：核对该次改名的引用面是否全部同步（`grep` 全库 `107-store-schema` 与 `infra/107` 旧写法），确认无残留断链；若发现遗漏，登记为转交块交主代码侧。 | done | AI编程助手 | 2026-11-17 |
 | 40 | ★ 伤害印数 85 失败定性 + 让它浮出到主报告（用户"查不到bug"真凶） | 第27轮坐实：用户手动全能体检查不到的一茬茬bug，其实规则303在回放里**一直报85个失败**（干净树4c504874实测 `node tests/rules-replay.mjs` → pass=71 fail=85 skip=0；明细「印23而血条实落6.5 差16.5」「印22实落7 差15」）。但①它挂在"覆盖率/空转红线"这个OBSERVE名字下、只显形不计退码；②浏览器侧规则303因无damage-text结构返回skip；⇒ 用户和我都把它当"覆盖噪声"放过了。构造样本 d1-damage-rounding-case 全绿(27例)、护盾吸收豁免正常，说明判据没坏，是真实日志的护盾吸收格式/位置跟构造不同 ⇒ 属"判据跟随新机制"，改它会改变结论、须拍板。本轮交付：①坐实定性(不擅自放宽判据)；②让这85条从OBSERVE噪声变成人话可见——一键报告/守门里显式列出"真实bug候选"区。验收：取证命令+结论行；报告能一眼看到这85条，不再被"覆盖率"名字掩盖；判据阈值/基线/主代码一字不动。 | doing | 钟老师/第27轮 | 2026-11-18 |
