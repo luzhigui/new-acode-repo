@@ -69,6 +69,15 @@ function cleanWorktree() {
         console.error('  可能原因：体检子进程未退出（红线③）。请确认无 node 进程后再删：');
         console.error('  rmdir /s /q "' + WORKTREE + '"');
     }
+    // 陈旧 worktree 注册检测：同名 worktree 若注册多于1条 = 历史嵌套残留。
+    //   不自动删 .git/worktrees/*（危险、可能碰别人），只报错让人处理（第27轮踩过5条陈旧注册）。
+    const wl = spawnSync('git', ['worktree', 'list', '--porcelain'], { cwd: ROOT, encoding: 'utf8' });
+    const paths = String(wl.stdout || '').split(/\r?\n/).filter(l => l.startsWith('worktree ') && l.includes('oneclick-health'));
+    if (paths.length > 1) {
+        console.error('[陈旧注册] 检测到 ' + paths.length + ' 条 oneclick worktree 注册（应为0~1）：');
+        paths.forEach(l => console.error('  ' + l));
+        console.error('  请人工清理 .git/worktrees/-tmp-oneclick-health* 后重跑（脚本不自动删，防误伤）。');
+    }
 }
 cleanWorktree();  // 清理上次残留
 const wt = spawnSync('git', ['worktree', 'add', '--detach', WORKTREE, 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
