@@ -4,10 +4,12 @@
 // shapeCellsAt（形状全格：预警凸包/深度/张角/蓄力红闪）与 hitCellsAt（实有命中：伤害数字/击退）必须拆开——
 //   预警按九位九形画全格（空位也罩住），命中只对有人的格。
 // 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
-export const VER = 'ui/720-hanlisa-aim.js V3.5.5';
+// V3.5.6 | 2026-11-18 全轰预览按排两档+加攻击力(与319同口径),colDen→rowDen
+export const VER = 'ui/720-hanlisa-aim.js V3.5.6';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
+import { getStat } from '../core/214-battle-shared.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
 
@@ -206,19 +208,19 @@ function dmgMapFor(aim, N, xl, enemies) {
         }
     } else {
         // V2.4.0 按列穿深（老板 2026-11-17 拍板）：与 modules/319 引擎同口径——每列最前排 N/3、列内第二人 N/4、其余敌人 N/5
-        if (!xl.colDen) throw new Error('缺技能参数: 寒离飒.xuLi.colDen');
-        const cd = xl.colDen;
-        const picked = new Set();
-        for (const col of [[1, 4, 7], [2, 5, 8], [3, 6, 9]]) {
-            const inCol = enemies.filter(e => e && e.alive && col.includes(e.pos)).sort((a, b) => a.pos - b.pos);
-            if (inCol[0]) { map[inCol[0].pos] = { dmg: Math.floor(N / cd.front), tier: 'colFront' }; picked.add(inCol[0].pos); }
-            if (inCol[1]) { map[inCol[1].pos] = { dmg: Math.floor(N / cd.second), tier: 'colSecond' }; picked.add(inCol[1].pos); }
-        }
-        enemies.filter(e => e && e.alive && !picked.has(e.pos)).forEach(e => { map[e.pos] = { dmg: Math.floor(N / cd.rest), tier: 'colRest' }; });
+        // 2026-11-18 老板拍板：按排两档，与 modules/319 引擎同口径——第一排 N/4+攻、第二排及以后 N/5+攻
+        if (!xl.rowDen) throw new Error('缺技能参数: 寒离飒.xuLi.rowDen');
+        const rd = xl.rowDen;
+        const hlsAtk = Math.floor(getStat(hls, 'atk'));
+        const frontRow = Math.min(...enemies.filter(e => e && e.alive).map(e => Math.floor((e.pos - 1) / 3)));
+        enemies.filter(e => e && e.alive).forEach(e => {
+            const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
+            map[e.pos] = { dmg: Math.floor(N / (isFront ? rd.front : rd.back)) + hlsAtk, tier: isFront ? 'rowFront' : 'rowBack' };
+        });
     }
     return map;
 }
-const TIER_F = { direct: 1.0, eight: 1.0, colFront: 1.0, near: 0.85, colSecond: 0.85, far: 0.72, colRest: 0.72 };
+const TIER_F = { direct: 1.0, eight: 1.0, colFront: 1.0, rowFront: 1.0, near: 0.85, colSecond: 0.85, far: 0.72, colRest: 0.72, rowBack: 0.72 };
 
 /* ================= 三、战场活格现查（图标/分档色/视觉序） ================= */
 function liveLook(gridId, pos) {
@@ -785,8 +787,8 @@ export function showHanlisaAim(c, hls, payload, resolve) {
     // 故：显式 console.error 报出缺失字段 + 立刻 resolve「未瞄准」，由引擎侧按列穿深结算（modules/319 有真值路径）。
     // 2026-11-17 老板拍板：预检键同步 colDen/vampPct（fullDen/vampDiv 已废）
     const xl = getSkillParams('寒离飒', 'xuLi');
-    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.colDen || xl.vampPct == null || xl.shieldPct == null || !xl.hitShapes) {
-        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/colDen/vampPct/shieldPct/hitShapes）——瞄准窗口中止，走引擎兜底',
+    if (!xl || !xl.tierDen || xl.eightDen == null || !xl.rowDen || xl.vampPct == null || xl.shieldPct == null || !xl.hitShapes) {
+        console.error('[蓄意轰拳] 缺技能参数: 寒离飒.xuLi（tierDen/eightDen/rowDen/vampPct/shieldPct/hitShapes）——瞄准窗口中止，走引擎兜底',
             { got: xl ? Object.keys(xl) : null });
         resolve({ aim: 0, holdMs: 0 });
         return;

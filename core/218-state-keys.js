@@ -104,6 +104,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _shield:                 { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 永久护盾（九阳满血溢出）：与蓄力临时护盾分家——蓄力爆发结算只清 _shield，不清本字段
     _permShield:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 独立护盾池（寒离飒强化 20%）：先扣普通盾后扣本池，爆发时随 _shield 一并清零
+    _shieldExtra:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _shieldAbsorbed:         { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 寒离飒：本局「九阳 / 寒毒」各触发过一次后解锁蓄力
     _hlsJiuYangDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },

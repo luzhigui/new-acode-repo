@@ -378,6 +378,14 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         shieldAbsorbed += a;
         hpLoss -= a;
     }
+    // 独立护盾池（寒离飒强化 20%，2026-11-18 老板拍板）：先扣普通蓄力盾，吃完才轮到本池，再轮永久池
+    const extraLeft = target.state._shieldExtra || 0;
+    if (extraLeft > 0 && hpLoss > 0) {
+        const a = Math.min(extraLeft, hpLoss);
+        target.state._shieldExtra = extraLeft - a;
+        shieldAbsorbed += a;
+        hpLoss -= a;
+    }
     const permLeft = target.state._permShield || 0;
     if (permLeft > 0 && hpLoss > 0) {
         const a = Math.min(permLeft, hpLoss);
@@ -513,7 +521,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, cappedLoss, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _permShield: target.state._permShield || 0 };
+    return { dmg, dead, cappedLoss, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0 };
 }
 
 // 步骤5：构建攻击事实

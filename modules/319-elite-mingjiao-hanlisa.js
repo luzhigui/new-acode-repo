@@ -10,7 +10,8 @@
 //      寒离飒开局常驻 _ctrlImmune（击退/换位/闪避反击眩晕只掉血不动窝，守卫在 core/12+13）。
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // V2.4.1 | 2026-11-18 普通桶0.8转化+强化蓄力跳过行动(护盾累加保armorBonus)+删_hlsPowerShielded
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.1';
+// V2.4.2 | 2026-11-18 起蓄盾改30%+20%独立池(先普通后独立,爆发清零)/行动刷新30%/全轰按排两档+加攻击力(rowDen)
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.2';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
@@ -82,7 +83,9 @@ export function createHanLiSaComponent() {
                 hls.state._hlsCharging = 2;   // 相位 2 = 本回合蓄力且回合末爆发；不经过相位 1，所以不跳过行动
                 hls.state._hlsTaunt = true;
                 hls.state._hlsTrueAbsorb = true;
-                hls.state._shield = (hls.state._shield || 0) + (powerCfg.armorBonus || 0);
+                // 2026-11-18 老板拍板：起蓄盾与普通蓄力同口径（30% 重置语义）+ 20% 独立护盾池（先扣普通盾，爆发清零）
+                hls.state._shield = hls.maxHp * (powerCfg.shieldPct || 0);
+                hls.state._shieldExtra = hls.maxHp * (powerCfg.extraShieldPct || 0);
                 pushSkillAnnounce(data.log, hls, '寒离飒强化',
                     `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按对方攻击力全额计入轰拳）`,
                     { floatText: '🌀强化', floatUid: hls.uid });
@@ -219,11 +222,10 @@ export function createHanLiSaComponent() {
                 data.declaration.skip = true;
                 if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
                 if (charging === 2) {
-                    // 强化护盾口径：armorBonus（起蓄时已给）不能被普通蓄力的「重置为上限」语义抹掉 → 累加
-                    const addShield = hls.maxHp * (powerCfg.shieldPct || 0);
-                    hls.state._shield = (hls.state._shield || 0) + addShield;
+                    // 2026-11-18 老板拍板：轮到行动刷新 30% 盾（与普通蓄力同「重置为上限」语义）；20% 独立池不刷新
+                    hls.state._shield = hls.maxHp * (powerCfg.shieldPct || 0);
                     hls.state._hlsCharging = 3;
-                    announce({ log: data.log }, `🌀 ${hls.name} 强化蓄力中（本回合不行动，回合末爆发）`);
+                    announce({ log: data.log }, `🌀 ${hls.name} 强化蓄力中（本回合不行动，回合末爆发，30% 盾已刷新）`);
                     return;
                 }
                 hls.state._shield = hls.maxHp * xl.shieldPct;
@@ -326,16 +328,17 @@ export function createHanLiSaComponent() {
                         } else {
                             // V2.4.0 按列穿深（老板 2026-11-17 拍板）：每列最前排 N/3、列内第二人 N/4、其余所有敌人 N/5；
                             //   列 = {1,4,7}/{2,5,8}/{3,6,9}，前排 = pos 最小（同 getFronts 语义）；按位结算，不排浮空
-                            if (!xl.colDen) throw new Error('缺技能参数: 寒离飒.xuLi.colDen');
-                            const cd = xl.colDen;
+                            // 2026-11-18 老板拍板：按排两档——第一排 N/4 + 攻击力，第二排及以后 N/5 + 攻击力；
+                            //   行 = floor((pos-1)/3)（1-3/4-6/7-9），第一排 = 存活敌人最靠前的行（空排自动跳过）
+                            if (!xl.rowDen) throw new Error('缺技能参数: 寒离飒.xuLi.rowDen');
+                            const rd = xl.rowDen;
+                            const hlsAtk = Math.floor(getStat(hls, 'atk'));
                             cells = [];
-                            const picked = new Set();
-                            for (const col of [[1, 4, 7], [2, 5, 8], [3, 6, 9]]) {
-                                const inCol = enemies.filter(e => e.alive && col.includes(e.pos)).sort((a, b) => a.pos - b.pos);
-                                if (inCol[0]) { cells.push({ pos: inCol[0].pos, tier: 'colFront', den: cd.front }); picked.add(inCol[0].pos); }
-                                if (inCol[1]) { cells.push({ pos: inCol[1].pos, tier: 'colSecond', den: cd.second }); picked.add(inCol[1].pos); }
-                            }
-                            enemies.filter(e => e.alive && !picked.has(e.pos)).forEach(e => cells.push({ pos: e.pos, tier: 'colRest', den: cd.rest }));
+                            const frontRow = Math.min(...enemies.filter(e => e.alive).map(e => Math.floor((e.pos - 1) / 3)));
+                            enemies.filter(e => e.alive).forEach(e => {
+                                const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
+                                cells.push({ pos: e.pos, tier: isFront ? 'rowFront' : 'rowBack', den: isFront ? rd.front : rd.back, atkAdd: hlsAtk });
+                            });
                         }
 
                         // —— 真伤声明（ROUND_STAT_GRANT：不吃防不吃闪避，与旧 2/5/8 真伤同通道）——
@@ -345,7 +348,7 @@ export function createHanLiSaComponent() {
                             cells.forEach(cell => {
                                 const u = enemies.find(e => e.alive && e.pos === cell.pos);
                                 if (!u) return;
-                                const dmg = Math.floor(N / cell.den);
+                                const dmg = Math.floor(N / cell.den) + (cell.atkAdd || 0);
                                 if (dmg <= 0) return;
                                 decls.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: -dmg, target: u, source: hls, reason: '蓄意轰拳·真伤' });
                                 // 第 106 轮补：轰拳真伤记账（纯记账，零游戏逻辑副作用）——该伤害经
@@ -437,6 +440,7 @@ export function createHanLiSaComponent() {
                         resolveDeaths(data.A, data.B, data.log);
                         // 蓄力结束护盾消散
                         hls.state._shield = 0;
+                        hls.state._shieldExtra = 0;   // 20% 独立池随爆发一并清零（2026-11-18 老板拍板）
                     }
             });
         }
