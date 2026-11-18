@@ -2,7 +2,7 @@
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
-export const VER = 'core/210-battle-round.js V6.3.42';
+export const VER = 'core/210-battle-round.js V6.3.43';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -539,7 +539,11 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
         // 首个友方回合相位：回合组件实现 onFirstAllyTurn 钩子（组件自找目标触发附身），
         //   返回 true = 插播一段演出，主循环 yield 一步
-        if (currentSide === CAMP_TYPES.ALLY && !A._butterflyTriggered) {
+        // 补：衍生技/召唤在中盘才拉出小昭·姊时，_butterflyTriggered 早已置位 → 她整场不附身。
+        //   因此只要场上出现「从未附身过」的姊，就再给一次相位（组件内部仍按 fsm 状态去重）。
+        const pendingAttach = A.some(u => u && u.alive && u.isXiaoZhaoSister
+            && !u.state._butterflyHost && !u.state._butterflyEverAttached);
+        if (currentSide === CAMP_TYPES.ALLY && (!A._butterflyTriggered || pendingAttach)) {
             A._butterflyTriggered = true;
             for (const comp of roundComps) {
                 if (typeof comp.onFirstAllyTurn !== 'function') continue;

@@ -1,6 +1,7 @@
 // modules/335-common-heal-ally.js — 峨眉素问·妙手回春（普通兵机制）
-// 规则：每次攻击或被攻击（结算完伤害后），随机一名存活友方回复 healAmount 点生命值。
-export const VER = 'modules/335-common-heal-ally.js V1.0.1';
+// 规则：每次攻击或被攻击（结算完伤害后），随机一名存活友方回复 healAmount 点生命值；
+//       溢出部分转为永久防御，单次上限 overflowDefCap（2026-11-18 老板拍板：15 → 10）。
+export const VER = 'modules/335-common-heal-ally.js V1.0.3';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -10,7 +11,7 @@ import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 export const healAllyOnHitHandler = {
-    fields: { healAmount: 'number' },
+    fields: { healAmount: 'number', overflowDefCap: 'number' },
     install({ eventBus, A, B, decl }) {
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -36,8 +37,10 @@ export const healAllyOnHitHandler = {
                 //   治疗量 10 点，实际回血 = min(10, 缺口)，溢出 = 10 - 实际回血 → addMod 永久 def。
                 //   之前「满血直接 return」改成「满血整笔转防御」——触发次数不变，但每次都有产出。
                 //   溢出是永久 add（group 'healAllyDef'），30 回合累积到 +60~+100 防，越打越硬。
+                // 2026-11-18 老板拍板削一刀：单次溢出转防御封顶 overflowDefCap（10），
+                //   原口径 healAmount=15 时满血一次 +15 防，累积过快 → Δ 表素问 -9.9 明显偏强。
                 const healAmount = Math.min(decl.healAmount, pick.maxHp - pick.hp);
-                const overflow = decl.healAmount - healAmount;
+                const overflow = Math.min(decl.overflowDefCap, decl.healAmount - healAmount);
                 const hpBefore = Math.floor(pick.hp);
                 if (healAmount > 0) {
                     applyStatChange(pick, 'hp', healAmount, self, '妙手回春');
@@ -45,6 +48,9 @@ export const healAllyOnHitHandler = {
                 if (overflow > 0) {
                     addMod(pick, 'def', { source: '妙手回春·溢甲', value: overflow, ttl: 'permanent', group: 'healAllyDef', op: 'add' });
                 }
+                // 溢出转防御必须有可见飘字（2026-11-18 老板实机：日志写「溢出 10 转防御」，场上只有 🌿，看不到加防）。
+                //   回血本身有 HEAL fact 的 🌿 通道，这里改挂 🛡️+N 专表防值，两个数值各走各的飘字。
+                const defFloat = overflow > 0 ? `🛡️+${fmtNum(overflow)}` : '🌿';
 
                 if (log) {
                     // 只有真回血才推 HEAL fact（溢出全转防御时没有回血数值）
@@ -68,11 +74,11 @@ export const healAllyOnHitHandler = {
                     }
                     const reason = isAttacker ? '攻击后' : '被攻击后';
                     if (healAmount > 0 && overflow > 0) {
-                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命，溢出 ${fmtNum(overflow)} 转防御`, { floatText: '🌿', floatUid: pick.uid });
+                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命，溢出 ${fmtNum(overflow)} 转防御`, { floatText: defFloat, floatUid: pick.uid });
                     } else if (healAmount > 0) {
-                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命`, { floatText: '🌿', floatUid: pick.uid });
+                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 回复 ${fmtNum(healAmount)} 点生命`, { floatText: defFloat, floatUid: pick.uid });
                     } else if (overflow > 0) {
-                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 满血，溢出 ${fmtNum(overflow)} 转防御`, { floatText: '🌿', floatUid: pick.uid });
+                        pushSkillAnnounce(log, self, '妙手回春', `🌿 ${self.name} ${reason}触发妙手回春：${pick.name} 满血，溢出 ${fmtNum(overflow)} 转防御`, { floatText: defFloat, floatUid: pick.uid });
                     }
                 }
             }

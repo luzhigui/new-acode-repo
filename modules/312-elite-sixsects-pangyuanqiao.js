@@ -1,5 +1,5 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.11';
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.12';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
@@ -140,7 +140,10 @@ export function createPangYuanQiaoComponent() {
                 // pangDefGain 随 SKILL_ANNOUNCE 事实走（在 AFTER_SELECT_TARGET 落，早于命中判定，命中/被闪都发），
                 //   与 BEFORE_SELECT_TARGET 的 addMod 同触发点 ⇒ 账实一致；只挂 ATTACK 事实时被闪不发、会漏报。
                 pushSkillAnnounce(data.log, pang, decl.kind === 'clumsy' ? '年轻气盛' : '正义国字脸', note, {
-                    pangDefGain: decl.kind === 'face' ? face.defGain : 0
+                    pangDefGain: decl.kind === 'face' ? face.defGain : 0,
+                    // 国字脸是自己独立的一步（回合锁目标提示），必须与前后攻击组用分隔符隔开；
+                    //   年轻气盛解释的是本击打歪，留在攻击组内。
+                    needsSeparator: decl.kind === 'face'
                 });
             });
 

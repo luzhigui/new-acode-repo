@@ -1,11 +1,10 @@
 // modules/338-elite-mingjiao-pengyingyu.js — 明教·五散人 彭莹玉「双面观音」
-// V1.0.10 | 女装＝别人不忍下手 ⇒ 敌方候选池有多人时不选她（core/07 registerTargetFilter），
-//   她是唯一可选目标时由 AFTER_SELECT_TARGET 改打攻击方自己的队友；队友也没了＝本击跳过，她不挨打。
-export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.10';
+// V1.0.11 | 女装＝别人不忍下手 ⇒ 敌方照常可以选她，一旦选中就由 AFTER_SELECT_TARGET 改打攻击方
+//   自己的队友；队友也没了＝本击跳过，她不挨打。（不再从候选池里剔除她）
+export const VER = 'modules/338-elite-mingjiao-pengyingyu.js V1.0.11';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { registerTargetFilter } from '../core/207-target-strategies.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
@@ -25,22 +24,6 @@ export const doubleFaceHandler = {
         const disguiseChance = params.disguiseChance;
         const openingChance = params.openingChance;
         const duration = params.duration;
-
-        // 女装＝「别人不忍下手」：敌方选目标时，只要池里还有别的合法可选目标，就把她排除。
-        //   挂在 core/07 的 registerTargetFilter（全局选敌面：core/12 selectAttackTarget 与
-        //   buildTargetCandidates 都跑）；core/10 每回合清场，本 install 每回合重跑，同 id 覆盖＝幂等。
-        //   只对敌方阵营的攻击者生效（她自己的队友不受影响）；池里只剩她一人时不剔除——
-        //   保留「唯一可选目标」交给 AFTER_SELECT_TARGET 改打攻击方自己的队友。
-        //   不写 state、不 splice 引擎数组、不抽签：同种子 RNG 序完全不变。
-        const FILTER_ID = `modules/338:doubleFace:${self.uid}`;
-        registerTargetFilter(FILTER_ID, (attacker, candidates) => {
-            if (!attacker || attacker.camp === self.camp) return null;
-            if (!self.alive || self.state._crossdressRounds <= 0) return null;
-            const rest = candidates.filter(c => c !== self);
-            // 没有别人可选：她仍留在池里（唯一目标语义，由 AFTER_SELECT_TARGET 接手）
-            if (rest.length === 0) return null;
-            return rest.length === candidates.length ? null : rest;
-        });
 
         // 女装轮转：每回合开始先递减剩余回合，到 0 再掷骰进入；首回合用更高的 openingChance。
         registerSettlementHook({
@@ -107,9 +90,8 @@ export const doubleFaceHandler = {
             }
         });
 
-        // 「唯一可选目标」才走这里（V1.0.10）：多目标时上面的 registerTargetFilter 已把她排除，
-        //   选目标阶段根本不会落到她；只有池里只剩她一个（或锁定目标等额外攻击路径）时才会进来。
-        //   此时改打「攻击方自己的队友」——不新增抽签，按 pos 取第一个存活可选队友（同种子 RNG 序不变）。
+        // 女装＝「别人不忍下手」（V1.0.11）：敌方照常可以选她，选中后在这里改打「攻击方自己的队友」——
+        //   不新增抽签，按 pos 取第一个存活可选队友（同种子 RNG 序不变）。
         //   挂 AFTER_SELECT_TARGET：core/12 选敌完成、命中/闪避判定之前；core/209 回读后重算目标账，
         //   因此改人后的护罩/减伤都按队友算，不会拿彭莹玉的账去打队友。
         //   攻击方队友全灭＝本击跳过、她不挨打，写一条看得懂的理由（不兜底去打她）。

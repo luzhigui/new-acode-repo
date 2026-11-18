@@ -1,5 +1,5 @@
 // modules/322-elite-mingjiao-xiaozhao-sister.js — 明教精英「小昭·姊」：组件工厂（蝶变/蝴蝶附身全套）
-export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.12';
+export const VER = 'modules/322-elite-mingjiao-xiaozhao-sister.js V1.0.13';
 
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -393,7 +393,10 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister) sister = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u));
             if (!sister || sister.state._butterflyHost) return null;
             const fsm = sister._fsm;
-            if (fsm && fsm.is('normal') && !globalThis.MING_ABLATION?.noAttach) fsm.transition('attaching', { log });   // 831 消融实验室：附身关闭则保持地面形态
+            if (fsm && fsm.is('normal') && !globalThis.MING_ABLATION?.noAttach) {
+                sister.state._butterflyEverAttached = true;   // 附过身的姊不再被 core/210 的补挂相位重复拉去附身
+                fsm.transition('attaching', { log });   // 831 消融实验室：附身关闭则保持地面形态
+            }
             return sister;
         },
         executeReturn(sister, A, log) {
@@ -407,6 +410,9 @@ export function createXiaoZhaoSisterComponent() {
         onFirstAllyTurn(A, B, log) {
             const sisterForAttach = findAlive(A, 'isXiaoZhaoSister', u => !isControlled(u) && !u.state._butterflyHost);
             if (!sisterForAttach) return false;
+            // 只有真能起附身（fsm=normal 且未关附身）才 yield；否则 core/210 的补挂相位会每回合空转一步
+            const fsm = sisterForAttach._fsm;
+            if (!fsm || !fsm.is('normal') || globalThis.MING_ABLATION?.noAttach) return false;
             this.executeAttach(A, log);
             return true;
         },

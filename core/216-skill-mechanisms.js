@@ -8,6 +8,7 @@ import { getBattleRng, previewHeal, getStat } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/106-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './219-mechanic-registry.js';
+import { stealShieldHalf } from '../modules/341-common-shield-steal.js';
 
 // 四类内层容器允许的元素 type 名单（值来自 infra/56 枚举，JSON 侧字符串由安装期校验兜）。
 const LOCAL_EFFECT_TYPES = Object.freeze({
@@ -267,7 +268,7 @@ function submitOnHitEffects(data, onHitDecls) {
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, auditGroup: 'nineYangHeal', auditSource: '九阳神功治疗', factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                 }
                 if (shieldGain > 0) {
-                    unit.state._permShield = (unit.state._permShield || 0) + shieldGain;
+                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldHalf(unit, shieldGain, A, B);
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 // 免疫毒素（庄铮·断锤形态）：完全不上毒，格子不挂 ❄️

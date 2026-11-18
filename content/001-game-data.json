@@ -402,8 +402,8 @@
       "skills": {
         "duanChui": {
           "name": "断锤三式",
-          "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；触发瞬间攻击力减半（减掉的量记为 N），此后每次出手后攻击 +N、自身生命 -{selfCost}。",
-          "params": { "keepHp": 10, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5 }
+          "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；形态期间免疫毒素与斩杀（白骨爪仍可逐爪造成 {cap} 点、可被连击磨死）；触发瞬间攻击力、防御力各减半（减掉的量分别记为 N、M），此后每次出手后攻击 +N、防御 +M、自身生命 -{selfCost}。",
+          "params": { "keepHp": 8, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5, "defHalfRatio": 0.5 }
         }
       }
     },
@@ -465,13 +465,14 @@
         {
           "camp": "enemy",
           "type": "healAllyOnHit",
-          "healAmount": 15
+          "healAmount": 15,
+          "overflowDefCap": 10
         }
       ],
       "skills": {
         "healAlly": {
           "name": "妙手回春",
-          "desc": "每次攻击或被攻击后，随机一名友方回复 15 点生命值。"
+          "desc": "每次攻击或被攻击后，随机一名友方回复 15 点生命值；目标满血时，溢出的治疗量转为永久防御（每次最多 10 点）。"
         }
       }
     },
@@ -1111,7 +1112,14 @@
 
       "tags": ["六大派", "武当", "普通"],
 
-      "m": 100, "poolTier": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 23, "titleOrder": 4
+      "m": 100, "poolTier": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 23, "titleOrder": 4,
+
+      "skills": {
+        "steal": {
+          "name": "智取",
+          "desc": "每当敌方有人获得护盾时，将其护盾数值减半，并把减掉的那一半加到自己身上。"
+        }
+      }
 
     },
 
@@ -1331,7 +1339,7 @@
 
       "tags": ["六大派", "武当", "普通"],
 
-      "m": 97, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": false, "encounter": true
+      "m": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": false, "encounter": true
 
     },
 
@@ -1460,7 +1468,7 @@
             { "name": "俞莲舟", "role": "防战", "m": 100 },
             { "name": "张松溪", "role": "远程", "m": 104 },
             { "name": "俞岱岩", "role": "远程", "m": 100 },
-            { "name": "殷梨亭", "role": "战士", "m": 97 }
+            { "name": "殷梨亭", "role": "战士", "m": 100 }
           ],
           "posTemplate": { "防战": [1], "战士": [3], "远程": [7, 8] }
         }

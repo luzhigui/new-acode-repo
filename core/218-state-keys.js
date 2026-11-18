@@ -265,8 +265,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _killerUid:              { type: STATE_FIELD_TYPES.STRING,  default: null },
     // 寒离飒·控制免疫标记（core/14 惑心换位 / core/12 攻击链 / core/13 控制判定读取；持久化与现状一致放 battle 级）
     _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.CC_IMMUNE] },
-    // 庄铮·断锤形态免疫标记（modules/337 触发时挂，modules/310 白骨爪 / 挂毒入口读取）
-    _immuneClaw:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 庄铮·断锤形态免疫标记（modules/337 触发时挂；_immuneExecute 由 modules/310 白骨爪斩杀读取，挂毒入口读 _immunePoison）
     _immunePoison:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
     _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
@@ -287,10 +286,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 少林圆真·现原形（modules/336）：已现形 / 开局那一次概率已掷过（整场级，跨回合克隆保留）
     _yuanzhenRevealed:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _yuanzhenOpenRolled:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 庄铮·断锤三式（modules/337）：保命已触发 / 反击重入锁 / 触发瞬间攻击力减半量 N（此后每出手 +N）
+    // 庄铮·断锤三式（modules/337）：保命已触发 / 反击重入锁 / 触发瞬间攻击力减半量 N、防御力减半量 M（此后每出手各 +N、+M）
     _duanChuiTriggered:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiCountering:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _duanChuiN:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _duanChuiM:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 庄铮·断锤三式演出提示（modules/337 BEFORE_DAMAGE_APPLY 写、AFTER_ATTACK_IMMUNE 读后置 null，仅本击内有效）
     _duanChuiHalveCue:       { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 上限锁（庄铮·断锤三式）：有值时 getStat('maxHp') 直接返回该绝对值，无视一切词条增删。

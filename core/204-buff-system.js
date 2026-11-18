@@ -2,7 +2,7 @@
 // V6.9.5 | 2026-11-17 张无忌专属「快来护驾」召唤迁入本文件（原 modules/302-summonZhangRescue）：专属改走普通池后
 //   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
 //   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。
-export const VER = 'core/204-buff-system.js V6.9.5';
+export const VER = 'core/204-buff-system.js V6.9.6';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -767,8 +767,10 @@ function reviveHolyFireUnit(u, team, log, slot) {
         ratio = brotherHFEnh.reviveRatio;
         reviveTier = 1;               // 妹独立名额每局 1 次，档位恒第 1 次
     } else {
-        // 姊强化：首复活 70% / 次复活 40%（读 002 sister.holyFire，按本人已用次数选档）；无强化回落普通版
-        const used = u.state._holyFireUses || 0;
+        // 姊强化：首复活 70% / 次复活 40%（读 002 sister.holyFire，按**全队**已复活次数选档）；无强化回落普通版
+        //   档位必须按队伍累计：名额（reviveCount=2）是队伍级的，若按被复活者自己的 _holyFireUses 选档，
+        //   第二个复活的角色仍会拿到 70%（2026-11-14 实机：张中 复活回 109，应为 40%）。
+        const used = (team || []).reduce((n, x) => n + (((x && x.state && x.state._holyFireUses) || 0)), 0);
         ratio = enhance
             ? (used === 0 ? (enhance.firstReviveRatio != null ? enhance.firstReviveRatio : 1.0)
                           : (enhance.secondReviveRatio != null ? enhance.secondReviveRatio : 0.7))

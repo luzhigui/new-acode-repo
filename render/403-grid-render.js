@@ -1,7 +1,7 @@
 // render/403-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-export const VER = 'render/403-grid-render.js V7.1.12';
+export const VER = 'render/403-grid-render.js V7.1.13';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -216,6 +216,7 @@ export function renderGrid(id, camp) {
         // 名字颜色分档（老板拍板 黑蓝紫金）：m≥112 金（boss 档）、m≥107 紫（精英）、m≥104 且具名 蓝（弱精英）、其余黑。
         //   张无忌/灭绝 m115 原描金特判天然并入金档；成昆幻影跟随被模仿者的 m（跟 displayName 同口径换算，不剧透本体档位）。
         let displayTierM = unit.m || 0;
+        let phantomGiven = false;   // 幻影伪装是否真的接管了名字（目标找不到时不接管，回落成昆）
         if (unit.isChengKun && unit.state && unit.state._phantomTarget) {
             const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
             const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
@@ -223,11 +224,13 @@ export function renderGrid(id, camp) {
                 displayName = displayNameOf(mimicTarget);
                 displayTierM = mimicTarget.m || 0;
                 roleIcon = mimicTarget.role===ROLE_TYPES.WARRIOR?'⚔️':(mimicTarget.role===ROLE_TYPES.DEFENDER?'🛡️':(mimicTarget.role===ROLE_TYPES.RANGED?'🏹':(mimicTarget.role===ROLE_TYPES.JAVELIN?'🪠':'🦅')));
+                phantomGiven = true;
             }
         }
         // 圆真现原形 → 真变身：实体已是成昆（内部 name 仍「少林圆真」，机制声明按它克隆），显示名单独走这层。
-        //   幻影伪装激活时被模仿者名字优先（2026-11-15 老板拍板：格子全跟随对面名字+技能logo，不露成昆本体）
-        if (unit.state && unit.state._displayName && !(unit.isChengKun && unit.state._phantomTarget)) displayName = unit.state._displayName;
+        //   幻影伪装激活时被模仿者名字优先（2026-11-15 老板拍板：格子全跟随对面名字+技能logo，不露成昆本体）。
+        //   伪装目标已死/查不到 → 回落成昆（2026-11-18 老板拍板：现原形后就是成昆，不再显示少林圆真）。
+        if (unit.state && unit.state._displayName && !phantomGiven) displayName = unit.state._displayName;
         let latestUnit = unit;
         if (store) {
             const state = store.getState();

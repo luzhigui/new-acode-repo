@@ -1,5 +1,5 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.6';
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.8';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -28,6 +28,63 @@ export const duanChuiHandler = {
         // 触发瞬间的攻击力保留比例（0.5 = 减半）。旧代码写死 atkNow / 2，2026-11-08 参数化，数值不变。
         const atkHalfRatio = params.atkHalfRatio;
         if (atkHalfRatio == null) throw new Error(`缺技能参数: ${decl.name}.duanChui.atkHalfRatio`);
+        // 2026-11-18 老板拍板：触发瞬间防御同样减半（减掉的量记为 M），此后每次出手 +M。
+        const defHalfRatio = params.defHalfRatio;
+        if (defHalfRatio == null) throw new Error(`缺技能参数: ${decl.name}.duanChui.defHalfRatio`);
+
+        // 不死触发（供普通伤害与白骨爪两条管线共用）。调用前 self 必须仍存活、且尚未触发。
+        //   白骨爪走 core/217 独立结算、不发 BEFORE_DAMAGE_APPLY，所以不能只靠那个钩子。
+        const triggerDuanChui = () => {
+            // 2026-11-12 老板拍板：触发瞬间 maxHp 锁到 keepHp（8 点），面板显示 8/8，而不是 8/162。
+            //   上限锁走绝对值字段（core/214 getStat 直接返回），不写差值 add 词条：
+            //   差值会把锁定时生效的 ttl:'round' 词条（carry 的 +maxHp 等）算进去，
+            //   回合末清临时词条后 base+差值 落到负数、被 refreshMaxHp 夹到 1 —— 就是「carry 结束后没回到 8」。
+            //   绝对值锁无视词条增删，carry 在不在都恒等于 keepHp。
+            //   refreshMaxHp 的等比缩会把 hp 按 (8/原上限) 缩到 <8，随后再拉一次到 keepHp——两步顺序不能反。
+            self.state._maxHpLock = keepHp;
+            refreshMaxHp(self, null, '断锤三式·锁血');
+            if (self.hp < keepHp) applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
+            self.state._duanChuiTriggered = true;
+            self.state._dmgCap = cap;
+            // 断锤形态整套免疫（2026-11-11 老板拍板，2026-11-18 调整）：
+            //   _ctrlImmune    霸体免疫眩晕（组四订阅 STUNNED 清 _stunned）
+            //   _neverMiss     必中（不未命中）
+            //   _ignoreDodge   必中（不被闪避；对方不闪避 → 闪避反击链断）
+            //   _immuneExecute 免疫斩杀（core/203 getExecuteBlockReason / modules/310 白骨爪斩杀 已读）
+            //   _immunePoison  免疫毒素（2026-11-18 老板拍板加回；消费点 core/216 挂毒 / 331 dotTick / 319 寒毒 / 339 蹦蹦寒毒）
+            // 2026-11-18 老板拍板删 _immuneClaw：该字段全仓无人读取（旧注释称 modules/310 读，实际 310 读的是 _immuneExecute），
+            //   白骨爪改为「照样连击、每爪只 1 点」，由 _dmgCap 在 core/217 落地时截断，可被连击磨死。
+            Object.assign(self.state, {
+                _ctrlImmune: true,
+                _neverMiss: true,
+                _ignoreDodge: true,
+                _immuneExecute: true,
+                _immunePoison: true
+            });
+            // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
+            //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
+            const atkNow = getStat(self, 'atk');
+            const n = atkNow * atkHalfRatio;
+            if (n > 0) {
+                addMod(self, 'atk', { source: '断锤三式·减半', value: -n, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
+                self.state._duanChuiN = n;
+            }
+            // 防御同口径减半：M = 当前 def 的一半，此后每次出手 +M（与攻击 N 同一套成长节奏）
+            const defNow = getStat(self, 'def');
+            const m = defNow * defHalfRatio;
+            if (m > 0) {
+                addMod(self, 'def', { source: '断锤三式·减半', value: -m, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
+                self.state._duanChuiM = m;
+            }
+            // 演出：攻击数字被剥走一半往上飘（fx/619），只表现，减半数值仍以上面 addMod 为准
+            // 日志不在这里推（2026-11-13 老板拍板修正顺位）：BEFORE_DAMAGE_APPLY 时 IMMUNE fact 还没落账，
+            //   pushSkillAnnounce 会排到 IMMUNE 前面 → 读起来像「还没被打就提示锤裂」。
+            //   挪到 AFTER_ATTACK_IMMUNE（IMMUNE fact 已 push、反击 extraRequests 还未 push），
+            //   顺位自然变成 IMMUNE → SKILL_ANNOUNCE → 反击攻击组。
+            self.state._duanChuiHalveCue = (self.pos != null && n > 0)
+                ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
+                : null;
+        };
 
         // ① 首击保命：先把血收到 keepHp，再挂 _dmgCap —— 顺序反了会把自己这一收截成只掉 cap 点。
         registerSettlementHook({
@@ -37,54 +94,38 @@ export const duanChuiHandler = {
                 if (data.target !== self || !self.alive) return;
                 if (self.state._duanChuiTriggered) return;
                 if (self.hp - data.dmg > 0) return;
-                // 2026-11-12 老板拍板：触发瞬间 maxHp 锁到 keepHp（5 点），面板显示 5/5，而不是 5/162。
-                //   上限锁走绝对值字段（core/214 getStat 直接返回），不写差值 add 词条：
-                //   差值会把锁定时生效的 ttl:'round' 词条（carry 的 +maxHp 等）算进去，
-                //   回合末清临时词条后 base+差值 落到负数、被 refreshMaxHp 夹到 1 —— 就是「carry 结束后没回到 5」。
-                //   绝对值锁无视词条增删，carry 在不在都恒等于 keepHp。
-                //   refreshMaxHp 的等比缩会把 hp 按 (5/原上限) 缩到 <5，随后再拉一次到 keepHp——两步顺序不能反。
-                self.state._maxHpLock = keepHp;
-                refreshMaxHp(self, null, '断锤三式·锁血');
-                if (self.hp < keepHp) applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
-                self.state._duanChuiTriggered = true;
-                self.state._dmgCap = cap;
-                // 断锤形态整套免疫（2026-11-11 老板拍板）：
-                //   _ctrlImmune    霸体免疫眩晕（组四订阅 STUNNED 清 _stunned）
-                //   _neverMiss     必中（不未命中）
-                //   _ignoreDodge   必中（不被闪避；对方不闪避 → 闪避反击链断）
-                //   _immuneExecute 免疫斩杀（core/203 getExecuteBlockReason 已读，core 不动）
-                //   _immuneClaw    免疫白骨爪（组十二 modules/310 读）
-                // 2026-11-13 老板拍板去掉 _immunePoison：庄铮触发断锤后照样中毒。
-                //   消费点（core/216 挂毒 / modules/331 dotTick / modules/319 寒毒 / modules/339 蹦蹦寒毒）
-                //   的 `if (state._immunePoison)` 检查是防御性空转——字段不再被任何地方设置，恒为 false，
-                //   无副作用；消费点不动，只断「谁设置它」。
                 // 拒绝回血/吸血不额外挂标记：_dmgCap > 0 已由 core/214 拦正向治疗；
                 //   姐姐附身 isHeal=false 不受拦，仍可加血 → 组五按契约回退到 keepHp。
-                Object.assign(self.state, {
-                    _ctrlImmune: true,
-                    _neverMiss: true,
-                    _ignoreDodge: true,
-                    _immuneExecute: true,
-                    _immuneClaw: true
-                });
-                // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
-                //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
-                const atkNow = getStat(self, 'atk');
-                const n = atkNow * atkHalfRatio;
-                if (n > 0) {
-                    addMod(self, 'atk', { source: '断锤三式·减半', value: -n, ttl: 'permanent', group: 'duanChuiHalve', op: 'add' });
-                    self.state._duanChuiN = n;
-                }
-                // 演出：攻击数字被剥走一半往上飘（fx/619），只表现，减半数值仍以上面 addMod 为准
-                // 日志不在这里推（2026-11-13 老板拍板修正顺位）：BEFORE_DAMAGE_APPLY 时 IMMUNE fact 还没落账，
-                //   pushSkillAnnounce 会排到 IMMUNE 前面 → 读起来像「还没被打就提示锤裂」。
-                //   挪到 AFTER_ATTACK_IMMUNE（IMMUNE fact 已 push、反击 extraRequests 还未 push），
-                //   顺位自然变成 IMMUNE → SKILL_ANNOUNCE → 反击攻击组。
-                self.state._duanChuiHalveCue = (self.pos != null && n > 0)
-                    ? { kind: SKILL_CUE_KINDS.ATK_HALVE, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
-                    : null;
+                triggerDuanChui();
                 data.declarations.push({ immune: true, reason: `🔨 断锤三式：${self.name} 屹立不倒` });
             }
+        });
+
+        // ①-白骨爪保命（2026-11-18 老板拍板）：白骨爪走 core/217 独立结算，不发 BEFORE_DAMAGE_APPLY，
+        //   旧实现里庄铮会在「首爪致死」时被直接打死、断锤根本触发不了（实测第4关 52% 的死亡都属于这一类）。
+        //   这里挂在「先广播后扣血」的 CLAW_HIT_APPLIED 上，致死时把本爪整爪减伤掉（reduce 拉满），
+        //   再由 triggerDuanChui 把血收到 keepHp；此后每爪由 _dmgCap 截到 1 点，可被连击磨死。
+        //   白骨爪分支不触发反手（连击中插反击会打断链条），与普通伤害分支的差异仅此一处。
+        eventBus.on(SIGNAL_TYPES.CLAW_HIT_APPLIED, 5, (data) => {
+            if (!data || data.target !== self || !self.alive) return;
+            if (self.state._duanChuiTriggered) return;
+            if (self.hp - data.dmg > 0) return;
+            triggerDuanChui();
+            data.reduce = Math.max(data.reduce || 0, data.dmg);
+            self.state._duanChuiHalveCue = null;   // 白骨爪不经过 AFTER_ATTACK_IMMUNE，cue 不会被消费，清掉免得残留
+        });
+
+        // ①-斩杀保命（2026-11-18 补）：战士斩杀走 EXECUTE→killUnit，不是一次伤害、不经 BEFORE_DAMAGE_APPLY，
+        //   未触发断锤时会被直接清零（实机：庄铮被素问打到 5.8 血，紧接「战士斩杀」当场带走，断锤一次没触发）。
+        //   这里把本次斩杀拦下，照常走 triggerDuanChui 保命（收血到 keepHp + 挂免疫/减半）；
+        //   不反手，与白骨爪分支同口径（斩杀在结算管线内部，插反手会打乱本击的账）。
+        eventBus.on(SIGNAL_TYPES.EXECUTE_APPLIED, 5, (data) => {
+            if (!data || data.target !== self || !self.alive) return;
+            if (self.state._duanChuiTriggered) return;
+            triggerDuanChui();
+            self.state._duanChuiHalveCue = null;   // 同上：不走 AFTER_ATTACK_IMMUNE，cue 不会被消费
+            data.cancelled = true;
+            data.reason = `🔨 断锤三式：${self.name} 屹立不倒，保留 ${fmtNum(keepHp)} 点生命（攻击减半）`;
         });
 
         // ①-反击：只在免疫分支（保命那一下必然走这里），锁攻击者为目标直接出手一次。
@@ -129,7 +170,7 @@ export const duanChuiHandler = {
             }
         });
 
-        // ③ 出手后成长：攻击永久 +N（触发时减半量，N→2N→3N），生命 -selfCost（hp≤1 不扣，被动出手同样算一次出手）
+        // ③ 出手后成长：攻击永久 +N、防御永久 +M（触发时各自减半的量），生命 -selfCost（hp≤1 不扣，被动出手同样算一次出手）
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_ATTACK,
             priority: L.AFTER_ATTACK.PANG_TAUNT + 5,
@@ -137,6 +178,7 @@ export const duanChuiHandler = {
                 if (data.unit !== self || !self.alive) return;
                 if (!self.state._duanChuiTriggered) return;
                 const n = self.state._duanChuiN;
+                const m = self.state._duanChuiM;
                 if (n > 0) {
                     addMod(self, 'atk', { source: '断锤三式', value: n, ttl: 'permanent', group: 'duanChuiGrow', op: 'add' });
                     // 演出：每次出手后攻击数字回补一格（⚔+N 飘字），只表现、不改回涨数值
@@ -146,6 +188,10 @@ export const duanChuiHandler = {
                             cue: { kind: SKILL_CUE_KINDS.ATK_GROW, unit: { uid: self.uid, camp: self.camp, pos: self.pos }, amount: n }
                         });
                     }
+                }
+                // 防御回补（2026-11-18 老板拍板）：与攻击同一节奏，+M 永久叠加；不单独出飘字
+                if (m > 0) {
+                    addMod(self, 'def', { source: '断锤三式', value: m, ttl: 'permanent', group: 'duanChuiGrow', op: 'add' });
                 }
                 if (self.hp > 1) applyStatChange(self, 'hp', -selfCost, null, '断锤·耗血', false, false);
             }

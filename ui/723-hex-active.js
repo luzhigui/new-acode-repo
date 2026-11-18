@@ -4,7 +4,7 @@
 //     点「继续」（PAUSED→RUNNING 或 waitingForNextRound→RUNNING）→ onContinueForHex → 飞入中央
 //     拖动中央 slot → 落红血单位 → 本地预演 + submitHexAction 入队 → 下一 makeStep 引擎消费
 //   状态机：idle → pending → centered → dragging → used
-export const VER = 'ui/723-hex-active.js V1.0.1';
+export const VER = 'ui/723-hex-active.js V1.0.2';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { submitHexAction } from '../core/210-battle-round.js';
@@ -229,11 +229,23 @@ function stopFlowDots() {
     $('hexFlowDots').innerHTML = '';
 }
 
+// 格子上的 dataset.hp/maxHp/camp 从来没人写（render/403 只盖 uid/pos），
+//   旧 getMode 读 NaN + undefined → 永远走 dmg：把圣火令丢给自己人也在扣血（2026-11-17 实机）。
+//   改为按 uid 现查 store，敌我按本机阵营判定（从机执六大派，敌我视角相反）。
+function findUnitByUid(uid) {
+    if (!uid) return null;
+    const store = GlobalStore.get('battleStore');
+    const units = (store && store.getState && store.getState().units) || [];
+    return units.find(u => u && u.uid === uid) || null;
+}
+
 function getMode(cell) {
-    const hp = +cell.dataset.hp;
-    const maxHp = +cell.dataset.maxHp;
-    if (hp / maxHp >= LOW_HP) return null;
-    return cell.dataset.camp === 'ally' ? 'heal' : 'dmg';
+    const u = findUnitByUid(cell.dataset.uid);
+    if (!u || !u.alive) return null;
+    if (!(u.hp / u.maxHp < LOW_HP)) return null;
+    const myCamp = GlobalStore.get('netRole') === 'guest' ? 'enemy' : 'ally';
+    const cellCamp = u.camp === 'enemy' ? 'enemy' : 'ally';
+    return cellCamp === myCamp ? 'heal' : 'dmg';
 }
 
 function clearHover() {
@@ -245,8 +257,10 @@ function clearHover() {
 // ═══ 生效：本地预演 + 引擎队列 ═══
 function applyEffect(cell, mode) {
     const uid = cell.dataset.uid;
-    const hp = +cell.dataset.hp;
-    const maxHp = +cell.dataset.maxHp;
+    const u = findUnitByUid(uid);
+    if (!u) return;
+    const hp = u.hp;
+    const maxHp = u.maxHp;
 
     // 本地预演（血条 + toast；引擎下一步消费时数值一致，不会回跳）
     let newHp;

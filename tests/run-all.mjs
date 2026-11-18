@@ -1,3 +1,8 @@
+// V1.61.0 | 2026-11-18 第41轮：挂「看板 open 计数守门」tests/board-state-count-guard.mjs（新建 V1.0.0）。
+//   由头（#39 验收落地件）：看板有些任务行跨两行写（标题行 + 说明行 + 状态行），按行解析会漏读
+//   状态列 ⇒ 「永远 ≥3 个 open」这条纪律无法被机器校验。本件按「取该编号首次出现行的状态列」口径
+//   解析看板，open<3 即退码 1（红线守门）。自证正负路径（5/5）：首次出现行口径 / 跨行不误判 /
+//   边界 3 绿 / 2 红 / 0 绿不误报。挂 CHECKS 计入分母（确定性事实，非研判灰度）；纯 tests/ 只读看板。
 // V1.59.0 | 2026-11-17 第37轮：挂「强制开关复位形态自检」tests/forced-case-reset-selftest.mjs（新建 V1.0.0）。
 //   由头（本轮真踩出来的坑）：第37轮把 FORCE_KEYS 从 3 条补到 9 条后，resetForces 沿用
 //   「一律设 false」的旧写法 ⇒ 3 个**带值**开关（forceMingUnit/forceSectUnit/forceWeakElite）
@@ -297,7 +302,12 @@ const CHECKS = [
     //   只拦新增 ⇒ 日常不制造噪声。牙：撞号/无编号/新陈旧引用三路均实测 EXIT=1，干净树 EXIT=0。
     { name: '主代码编号守门', script: 'tests/main-number-guard.mjs', args: [] },
     { name: '主代码陈旧引用扫描', script: 'tests/comment-ref-scan.mjs', args: [] },
-    // V1.59.0 | 2026-11-17 第37轮：挂「强制开关复位形态自检」tests/forced-case-reset-selftest.mjs（新建 V1.0.0）。
+    // V1.61.0 | 2026-11-18 第41轮：挂「看板 open 计数守门」tests/board-state-count-guard.mjs（新建 V1.0.0）。
+//   由头（#39 验收落地件）：看板有些任务行跨两行写（标题行 + 说明行 + 状态行），按行解析会漏读
+//   状态列 ⇒ 「永远 ≥3 个 open」这条纪律无法被机器校验。本件按「取该编号首次出现行的状态列」口径
+//   解析看板，open<3 即退码 1（红线守门）。自证正负路径（5/5）：首次出现行口径 / 跨行不误判 /
+//   边界 3 绿 / 2 红 / 0 绿不误报。挂 CHECKS 计入分母（确定性事实，非研判灰度）；纯 tests/ 只读看板。
+// V1.59.0 | 2026-11-17 第37轮：挂「强制开关复位形态自检」tests/forced-case-reset-selftest.mjs（新建 V1.0.0）。
     //   由头（本轮真踩出来的坑）：第37轮把 FORCE_KEYS 从 3 条补到 9 条后，resetForces 沿用
     //   「一律设 false」的旧写法 ⇒ 3 个**带值**开关（forceMingUnit/forceSectUnit/forceWeakElite）
     //   在 schema 里是 STRING 型，塞 boolean 被 GlobalStore.set 当场拒 ⇒ 消费方
@@ -583,6 +593,7 @@ const OBSERVES = [
     //   跑 --selftest 可复核。挂观察项不改分母，理由同前几轮。
     { name: '强制开关登记漂移守门', script: 'tests/force-switch-registry-drift-guard.mjs', args: [] },
     { name: '语义陈旧引用扫描', script: 'tests/semantic-stale-ref-scan.mjs', args: [] },
+    { name: '看板 open 计数守门', script: 'tests/board-state-count-guard.mjs', args: [] },
     // V1.36.0 | 2026-11-05 迭代：补编排器漏接的三件真·node 自检（详见头顶 V1.36.0 日志行）。
     //   三者纯 node、exit=0、不依赖浏览器；挂观察项不改分母，是否升 CHECKS 开红待拍板。
     { name: 'fact 覆盖交叉自检', script: 'tests/fact-coverage-selftest.mjs', args: [] },

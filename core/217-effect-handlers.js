@@ -1,5 +1,5 @@
 // core/217-effect-handlers.js — 伤害结算后的特效裁定器（回血、吸血、溅射、反伤等 Effect Handler）
-export const VER = 'core/217-effect-handlers.js V6.3.0';
+export const VER = 'core/217-effect-handlers.js V6.3.1';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -318,6 +318,22 @@ registerEffectHandler(EFFECT_TYPES.EXECUTE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
+        // 落地前广播（2026-11-18）：斩杀不是伤害、不经 BEFORE_DAMAGE_APPLY，庄铮·断锤三式若尚未触发
+        //   会被直接带走（实机：34→5.8 后紧跟战士斩杀，技能一次没触发）。监听方可把本次拦截下来。
+        const execPayload = { target: decl.target, source: decl.source, cancelled: false, reason: '' };
+        eventBus.emit(SIGNAL_TYPES.EXECUTE_APPLIED, execPayload);
+        if (execPayload.cancelled) {
+            if (ctx.log && execPayload.reason) {
+                ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                    unitName: decl.target.name, unitUid: decl.target.uid, camp: decl.target.camp,
+                    skillName: '免疫斩杀', note: execPayload.reason, line: false,
+                    floatText: '🔨屹立不倒', floatUid: decl.target.uid
+                } });
+            }
+            decl._events = flushBattleEvents();
+            executed.push(decl);
+            continue;
+        }
         // 死亡收口统一走 killUnit：处决是「把血归零」不是一次受伤，内部固定 ignoreCap=true
         //   （庄铮·断锤三式），并记审计账 + 挂 _pendingDeath（攻击组 isDead 据此标记）。
         killUnit(decl.target, decl.source, '斩杀');
@@ -364,6 +380,11 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
                 hpLoss -= a;
             }
             hpLoss = Math.round(hpLoss * 10) / 10;   // ★ 源头收敛：护盾抵扣后的浮点减法仍出尾巴，fact/审计/掉血三方必须同源且收敛
+            // 护盾抵挡量必须在截断前算好（截断吃掉的部分不是护盾吸的）
+            const shieldAbsorb = Math.round((applied - hpLoss) * 10) / 10;
+            // 单次受伤上限（庄铮·断锤三式）：与 core/212 主链路同口径，截在扣血之前——
+            //   否则 applyStatChange 只掉 1 点血、战报/飘字却报 3.1（2026-11-14 实机：爪击三行全报 3/3.1/3.1）。
+            if (chainTarget.state._dmgCap > 0) hpLoss = Math.min(hpLoss, chainTarget.state._dmgCap);
             applyStatChange(chainTarget, 'hp', -hpLoss, chainSource, '九阴白骨爪');
             // 2026-11-18 老板拍板：白骨爪伤害也进寒离飒承伤桶——实扣值走窄通道（AFTER_DAMAGE_APPLIED 会惊动反击/吸血老监听，不发）
             eventBus.emit(SIGNAL_TYPES.CLAW_DAMAGE_APPLIED, { target: chainTarget, dmg: hpLoss, source: chainSource });
@@ -374,7 +395,6 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             //   dmg 必须是 hpLoss 而不是 applied：applyStatChange 与 recordHpAudit 用的都是 hpLoss，
             //   三方同源才成立（否则玩家看到「造成 13.4」而血条只掉 0）。护盾抵挡量另存 shieldAbsorb 只给渲染补充显示。
             hit.data.designedDmg = hit.dmg;
-            const shieldAbsorb = Math.round((applied - hpLoss) * 10) / 10;
             hit.data.dmg = hpLoss;
             if (shieldAbsorb > 0) hit.data.shieldAbsorb = shieldAbsorb;
             hit.data.hpAfter = chainTarget.hp;
@@ -385,6 +405,23 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             if (hit._events && hit._events.length) decl._events.push(...hit._events);
         }
         if (decl.execute && chainTarget.alive && !chainTarget._pendingDeath && chainTarget.hp > 0) {
+            // 斩杀落地前广播（与 EXECUTE handler 同信号）：庄铮·断锤三式对白骨爪斩杀同样要能拦——
+            //   2026-11-17 实机：庄铮 55 血被 5 段爪打到快 0，第 6 段「斩杀」直接带走，断锤一次没触发。
+            const execGuard = { target: chainTarget, source: chainSource, cancelled: false, reason: '' };
+            eventBus.emit(SIGNAL_TYPES.EXECUTE_APPLIED, execGuard);
+            if (execGuard.cancelled) {
+                if (ctx.log && execGuard.reason) {
+                    ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                        unitName: chainTarget.name, unitUid: chainTarget.uid, camp: chainTarget.camp,
+                        skillName: '免疫斩杀', note: execGuard.reason, line: false,
+                        floatText: '🔨屹立不倒', floatUid: chainTarget.uid
+                    } });
+                }
+                decl.execute = null;   // 斩杀条目作废，由上面的飘字/报幕替代
+                decl._events = flushBattleEvents();
+                executed.push(decl);
+                continue;
+            }
             // 斩杀那一刀也广播：照杀不减（noReduce），只触发乾坤衍生的治疗+加攻；条目挂 execute 随斩杀行落组
             const execPayload = { unit: chainSource, target: chainTarget, dmg: Math.round(chainTarget.hp), noReduce: true, derivedEntries: [] };
             eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, execPayload);

@@ -1,7 +1,8 @@
 // core/203-battle-utils.js — 战斗通用工具（选敌基础、空列/残血光环、未命中、破防/成长/斩杀的声明）
-// V6.5.0 | 2026-11-17 FIX-2026-1117-11（老板拍板「近战打前排是硬规则」）：抽 getFrontsPure（无 RNG 兜底）
-//   + 新增 getMeleeLegalTargetSet / isMeleeLegalTarget 作近战合法目标单一真源；getFronts 重构为 Pure+RNG 兜底，行为不变。
-export const VER = 'core/203-battle-utils.js V6.5.0';
+// V6.5.1 | 2026-11-18 大规则保留、小规则归位：近战打前排仍为硬规则（WARRIOR/DEFENDER/拒马），
+//   但飞行属近战大类且有越级例外（可越前排打残血，且不吃遮挡）→ 不再被前排硬规则裁剪。
+//   修复宋青书 highestHpPct / 韦一笑 lowestHp 只能在前排里选、飞行手动拖拽只能点前排。
+export const VER = 'core/203-battle-utils.js V6.5.1';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus, baseHeroName } from './202-unit.js';
@@ -103,15 +104,17 @@ export function canBeTargeted(unit) {
 }
 
 // ── 近战打前排 = 硬规则（2026-11-17 老板拍板「这他妈就是硬规则」）──────────────────
-// 口径完全复用 getFronts：各纵列最前的存活非飞天敌人 = 近战的合法攻击目标全集。
-//   isMelee 已含 WARRIOR/DEFENDER/FLYER，isHorse（拒马）同样算近战，一并受约束；
-//   远程/蝴蝶/标枪不受限（返回 null 表示「该攻击者无近战限制」）。
+// 大规则：近战只能打前排，口径完全复用 getFronts（各纵列最前的存活非飞天敌人）。
+// 小规则（越级例外）：飞行属近战大类，但可越过前排限制——飞行不吃遮挡（isBlocked 早已豁免），
+//   且选敌策略「残血优先」要能锁到后排残血（core/07 飞行分支：<40% 血优先 → 前排 → 随机）。
+//   因此 FLYER 在此返回 null（不受前排硬规则约束），其余仍受约束：WARRIOR / DEFENDER + isHorse（拒马）。
 // 引擎 selectAttackTarget 手动/自动/声明三路 + UI 拖拽高亮全部走这里，
 //   做到「引擎能打谁 = UI 亮谁」，杜绝亮了打不到 / 能打没亮。
 // opts.noFallback：UI 侧传 true —— 无地面前排时直接给空集，绝不触发 getFronts 的 RNG 兜底。
 export function getMeleeLegalTargetSet(attacker, enemySide, opts = {}) {
     if (!attacker) return null;
     if (!isMelee(attacker.role) && !attacker.isHorse) return null;
+    if (attacker.role === ROLE_TYPES.FLYER) return null;
     const units = enemySide || [];
     if (opts.noFallback && getFrontsPure(units).length === 0) return new Set();
     return new Set(getFronts(units).map(u => u.uid));

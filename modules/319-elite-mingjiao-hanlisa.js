@@ -14,7 +14,8 @@
 // V2.4.3 | 2026-11-18 轰拳基数+一下普攻攻击额度(普通/强化都加,2026-11-18拍板)
 // V2.4.4 | 2026-11-18 攻击力笔改记进桶(蓄力行动时,全额)+撤基数加笔
 // V2.4.5 | 2026-11-18 白骨爪伤入桶(CLAW_DAMAGE_APPLIED窄通道)+全轰每格半攻
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.5';
+// V2.4.6 | 2026-11-18 蓄力报幕带 needsSeparator，自成一组（不再粘在上一家攻击组尾部）
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.6';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
@@ -23,6 +24,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { resolveRoundStatGrants } from '../core/217-effect-handlers.js';
 import { resolveDeaths } from '../core/211-battle-attack-steps.js';
+import { stealShieldHalf } from './341-common-shield-steal.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
@@ -56,7 +58,8 @@ export function createHanLiSaComponent() {
 
             const announce = (ctx, note) => {
                 if (!ctx || !Array.isArray(ctx.log)) return;
-                pushSkillAnnounce(ctx.log, hls, '蓄力', note);
+                // 蓄力是独立的一步（不攻击），必须自带分隔符自成一组，否则接在上一家攻击组屁股后面
+                pushSkillAnnounce(ctx.log, hls, '蓄力', note, { needsSeparator: true });
             };
             // 头顶弹幕（「技能1/技能2 出手说明」）：复用灭绝反击/何太冲的
             //   SKILL_ANNOUNCE + floatText/floatUid 通道（render/38 → SKILL_FLOAT → fx/80 头顶放大上浮）；
@@ -87,7 +90,7 @@ export function createHanLiSaComponent() {
                 hls.state._hlsTaunt = true;
                 hls.state._hlsTrueAbsorb = true;
                 // 2026-11-18 老板拍板：起蓄盾与普通蓄力同口径（30% 重置语义）+ 20% 独立护盾池（先扣普通盾，爆发清零）
-                hls.state._shield = hls.maxHp * (powerCfg.shieldPct || 0);
+                hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), data.A, data.B);
                 hls.state._shieldExtra = hls.maxHp * (powerCfg.extraShieldPct || 0);
                 pushSkillAnnounce(data.log, hls, '寒离飒强化',
                     `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按对方攻击力全额计入轰拳）`,
@@ -134,7 +137,7 @@ export function createHanLiSaComponent() {
                         });
                     }
                     if (shieldGain > 0) {
-                        hls.state._permShield = (hls.state._permShield || 0) + shieldGain;
+                        hls.state._permShield = (hls.state._permShield || 0) + stealShieldHalf(hls, shieldGain, data.A, data.B);
                     }
                     const healText = heal > 0 ? `回复 ${fmtNum(heal)} 点生命` : '满血';
                     const shieldText = shieldGain > 0 ? `，${heal > 0 ? '溢出' : ''}转化为 ${fmtNum(shieldGain)} 点护盾` : '';
@@ -242,13 +245,13 @@ export function createHanLiSaComponent() {
                 if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
                 if (charging === 2) {
                     // 轮到行动刷新 30% 盾（与普通蓄力同「重置为上限」语义）；20% 独立池不刷新
-                    hls.state._shield = hls.maxHp * (powerCfg.shieldPct || 0);
+                    hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), data.A, data.B);
                     addAtkEntry();
                     hls.state._hlsCharging = 3;
                     announce({ log: data.log }, `🌀 ${hls.name} 强化蓄力中（本回合不行动，攻击力记入轰拳基数，回合末爆发，30% 盾已刷新）`);
                     return;
                 }
-                hls.state._shield = hls.maxHp * xl.shieldPct;
+                hls.state._shield = stealShieldHalf(hls, hls.maxHp * xl.shieldPct, data.A, data.B);
                 if (charging === 1) {
                     hls.state._hlsCharging = 3;
                     addAtkEntry();

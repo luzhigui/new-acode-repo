@@ -1,7 +1,7 @@
 // modules/310-elite-sixsects-songqingshu.js — 宋青书（叛逆突袭 / 苦练 / 新婚 / 性奋 / 白骨爪连锁）
 // 白骨爪连锁概率：基础 0.80，按周芷若自身已损血比线性升到 1.00，无存活宋青书再 +0.10（可超 1.00，等价「保底必连几爪」）；
 //   链条内每多连一爪概率 −0.01，累减到 ≤0 必断——这是「不会无限连」的唯一保证，不要改成固定概率。
-export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.3';
+export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.4';
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
@@ -142,6 +142,11 @@ export const chainClawHandler = {
                     simulatedPermShield -= a;
                     hpLoss -= a;
                 }
+                // 2026-11-18 老板拍板：单次受伤上限（庄铮·断锤三式 _dmgCap）在模拟层同样要截断。
+                //   不截的话首爪就把模拟血打穿 → 连锁在第 1 爪就断，而实际落地每爪只掉 1 点、能连 8 爪。
+                //   顺序与 core/217 落地一致：先扣护盾，再按 cap 截断。
+                const dmgCap = target.state._dmgCap || 0;
+                if (dmgCap > 0 && hpLoss > dmgCap) hpLoss = dmgCap;
                 simulatedTargetHp -= hpLoss;
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
