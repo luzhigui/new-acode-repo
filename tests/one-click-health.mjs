@@ -61,13 +61,19 @@ if (wt.status !== 0) {
 }
 console.log('已在干净树上开跑（避免脏树假红）…');
 const t0 = Date.now();
-let r, out, exit;
+let r, out, exit, coverageOut = '';
 try {
     r = spawnSync(process.execPath, [path.join(WORKTREE, 'tests', 'run-all.mjs'), '--quick', '--jobs', '4'], {
         cwd: WORKTREE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     });
     out = (r.stdout || '') + (r.stderr || '');
     exit = r.status;
+    // ★ 真实 bug 候选的数据源：单独跑一次 coverage-report 拿【干净格式】。
+    //   不要从 run-all 的并发混杂输出里解析——它的 key 行按完成序打印、带 ▶ 前缀，格式不稳（第27轮踩过）。
+    const cov = spawnSync(process.execPath, [path.join(WORKTREE, 'tests', 'coverage-report.mjs')], {
+        cwd: WORKTREE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+    });
+    coverageOut = (cov.stdout || '') + (cov.stderr || '');
 } finally {
     // 无论成败都清临时树，别留垃圾
     cleanWorktree();
@@ -82,12 +88,12 @@ const resultLine = rawResult.replace(/^结果：/, '').replace(/，X (\d+) 项�
 const passCount = (resultLine.match(/(\d+)\/(\d+)\s*通过/) || []).slice(1);
 const reds = redLines.map(humanLine);
 
-// ★ 真实 bug 候选：从 coverage-report 的 OBSERVE 输出里抓「规则 fail>0」。
+// ★ 真实 bug 候选：从【单独跑的 coverage-report】输出抓「规则 fail>0」。
 //   这些原本挂在"覆盖率/空转红线"名字下、只显形不计退码，用户和我都当噪声放过了——
 //   但它们才是"一茬茬 bug 没被抓到"的真相（例：伤害印数 fail=85，差 15-16 点=护盾口径不同源）。
 //   格式（coverage-report.mjs）：`  156  100.0% 71/85/0   ❌ 伤害印数与血条实落同源`
 const bugCandidates = [];
-for (const line of out.split(/\r?\n/)) {
+for (const line of coverageOut.split(/\r?\n/)) {
     const m = line.match(/^\s*\d+\s+[\d.]+%\s+(\d+)\/(\d+)\/(\d+)\s+❌\s+(.+)$/);
     if (!m) continue;
     const [, pass, fail, skip, name] = m;
