@@ -1,5 +1,5 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.10';
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.11';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
@@ -112,9 +112,13 @@ export function createPangYuanQiaoComponent() {
                     return;
                 }
                 // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗），
-                //   同时自身防御永久 +defGain。癫时 validTargets 含队友，只标记敌方阵营，
-                //   否则会把队友也嘲讽成「只能打胖远桥」。
-                for (const foe of cands) {
+                //   同时自身防御永久 +defGain。
+                // 修复：标记必须遍历全场存活敌人（data.enemySide），不能只遍历当前目标池 cands——
+                //   core/212 V1.0.18 起近战候选池被「近战打前排=硬规则」裁成只剩前排，不在池里的
+                //   后排敌人（如明教弟子3）会漏掉嘲讽标记，后续行动时无视嘲讽去打别人。
+                //   癫时 core/333 已含队友的目标在 cands，此处只标记敌方阵营，队友不受嘲讽。
+                const allEnemies = (data.enemySide || []).filter(t => t && t.alive && t !== pang);
+                for (const foe of allEnemies) {
                     if (foe.camp !== pang.camp) foe.state._tauntedByPang = true;
                 }
                 addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });
