@@ -7,7 +7,8 @@
 // V3.5.6 | 2026-11-18 全轰预览按排两档+加攻击力(与319同口径),colDen→rowDen
 // V3.5.7 | 2026-11-18 预览基数+攻击额度(与319同口径)
 // V3.5.8 | 2026-11-18 预览撤基数加笔(与319同口径,攻击力笔已在桶内)
-export const VER = 'ui/720-hanlisa-aim.js V3.5.8';
+// V3.5.9 | 2026-11-18 预览全轰半攻(与319同口径)
+export const VER = 'ui/720-hanlisa-aim.js V3.5.9';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -217,7 +218,7 @@ function dmgMapFor(aim, N, xl, enemies) {
         const frontRow = Math.min(...enemies.filter(e => e && e.alive).map(e => Math.floor((e.pos - 1) / 3)));
         enemies.filter(e => e && e.alive).forEach(e => {
             const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
-            map[e.pos] = { dmg: Math.floor(N / (isFront ? rd.front : rd.back)) + hlsAtk, tier: isFront ? 'rowFront' : 'rowBack' };
+            map[e.pos] = { dmg: Math.floor(N / (isFront ? rd.front : rd.back)) + Math.floor(hlsAtk / 2), tier: isFront ? 'rowFront' : 'rowBack' };
         });
     }
     return map;

@@ -346,7 +346,8 @@ export const SIGNAL_TYPES = Object.freeze({
     SPLASH_DAMAGED: 'splashDamaged',
     // 白骨爪连锁逐爪广播：CLAW_CHAIN 每结算一爪发一次（爪击不走伤害计算管线，无 dmgCalc）。
     //   专供小昭·姊乾坤衍生——BEFORE_DAMAGE_CALC 每次攻击只 emit 一次，爪击拿不到「每爪」语义。
-    CLAW_HIT_APPLIED: 'clawHitApplied'
+    CLAW_HIT_APPLIED: 'clawHitApplied',
+    CLAW_DAMAGE_APPLIED: 'clawDamageApplied'   // 白骨爪实扣值落地（窄通道，不惊动 AFTER_DAMAGE_APPLIED 老监听）
 });
 
 /** 单位状态变化类型：ON_UNIT_STATE_CHANGE 信号的 changeType 唯一来源 */

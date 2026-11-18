@@ -353,6 +353,11 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
                 chainTarget.state._shield -= a;
                 hpLoss -= a;
             }
+            if (chainTarget.state._shieldExtra > 0) {   // 20% 独立池与 core/212 同序：普通盾 → 独立池 → 永久盾
+                const a = Math.min(chainTarget.state._shieldExtra, hpLoss);
+                chainTarget.state._shieldExtra -= a;
+                hpLoss -= a;
+            }
             if (chainTarget.state._permShield > 0) {
                 const a = Math.min(chainTarget.state._permShield, hpLoss);
                 chainTarget.state._permShield -= a;
@@ -360,6 +365,8 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             }
             hpLoss = Math.round(hpLoss * 10) / 10;   // ★ 源头收敛：护盾抵扣后的浮点减法仍出尾巴，fact/审计/掉血三方必须同源且收敛
             applyStatChange(chainTarget, 'hp', -hpLoss, chainSource, '九阴白骨爪');
+            // 2026-11-18 老板拍板：白骨爪伤害也进寒离飒承伤桶——实扣值走窄通道（AFTER_DAMAGE_APPLIED 会惊动反击/吸血老监听，不发）
+            eventBus.emit(SIGNAL_TYPES.CLAW_DAMAGE_APPLIED, { target: chainTarget, dmg: hpLoss, source: chainSource });
             // 审计账本：爪击自身 hp 贡献记进 unit._audit.hp，供体检按 group='clawHit' 比对
             recordHpAudit(chainTarget, 'clawHit', -hpLoss, '九阴白骨爪');
             // fact 回填实际落地值：本爪后血量 + **实际掉血**（减伤后、再扣护盾）+ 护盾抵挡量，播放层文本/血条都读这里；
@@ -372,6 +379,7 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             if (shieldAbsorb > 0) hit.data.shieldAbsorb = shieldAbsorb;
             hit.data.hpAfter = chainTarget.hp;
             hit.data._shield = chainTarget.state._shield || 0;
+            hit.data._shieldExtra = chainTarget.state._shieldExtra || 0;
             hit.data._permShield = chainTarget.state._permShield || 0;
             hit._events = flushBattleEvents();
             if (hit._events && hit._events.length) decl._events.push(...hit._events);
@@ -382,10 +390,12 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, execPayload);
             if (execPayload.derivedEntries.length > 0) decl.execute._derivedEntries = execPayload.derivedEntries;
             // 斩杀伤害取广播后的血量（衍生治疗可能落在被爪者身上），保证 fact 数字 = 实际扣掉的量
-            if (decl.execute.data) decl.execute.data.dmg = Math.round(chainTarget.hp);
+            const execLoss = Math.round(chainTarget.hp);
+            if (decl.execute.data) decl.execute.data.dmg = execLoss;
             // 白骨爪斩杀同样走 killUnit（此前直调 applyStatChange 漏了 ignoreCap → 庄铮 _dmgCap 下
             //   只掉 1 点血、fact 却写「斩杀」；这是漏传的第二个调用点，收口后不会再漏）
             killUnit(chainTarget, chainSource, '白骨爪斩杀');
+            eventBus.emit(SIGNAL_TYPES.CLAW_DAMAGE_APPLIED, { target: chainTarget, dmg: execLoss, source: chainSource });
             decl.execute._events = flushBattleEvents();
             if (decl.execute._events && decl.execute._events.length) decl._events.push(...decl.execute._events);
         }

@@ -13,7 +13,8 @@
 // V2.4.2 | 2026-11-18 起蓄盾改30%+20%独立池(先普通后独立,爆发清零)/行动刷新30%/全轰按排两档+加攻击力(rowDen)
 // V2.4.3 | 2026-11-18 轰拳基数+一下普攻攻击额度(普通/强化都加,2026-11-18拍板)
 // V2.4.4 | 2026-11-18 攻击力笔改记进桶(蓄力行动时,全额)+撤基数加笔
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.4';
+// V2.4.5 | 2026-11-18 白骨爪伤入桶(CLAW_DAMAGE_APPLIED窄通道)+全轰每格半攻
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.5';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
@@ -164,6 +165,17 @@ export function createHanLiSaComponent() {
                     //   maxHp×shieldPct，不会叠成 60%/90%。
                     Object.assign(hls.state, { _hlsCharging: 1, _shield: shield });
                     pushInfo(data, `<span class="gold">🌀 寒离飒起手蓄力：获得 ${fmtNum(shield)} 点护盾（下回合凝聚）</span>`);
+                }
+            });
+
+            // 白骨爪独立管线不广播 AFTER_DAMAGE_APPLIED（core/217 手写护盾抵扣）——2026-11-18 老板拍板：爪伤也进桶
+            eventBus.on(SIGNAL_TYPES.CLAW_DAMAGE_APPLIED, 50, (data) => {
+                if (data.target !== hls) return;
+                if (data.dmg && data.dmg > 0) {
+                    const arr = hls.state._hlsTaken;
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        arr[arr.length - 1] += Math.floor(data.dmg * xl.bucketConvert);
+                    }
                 }
             });
 
@@ -347,7 +359,7 @@ export function createHanLiSaComponent() {
                             const frontRow = Math.min(...enemies.filter(e => e.alive).map(e => Math.floor((e.pos - 1) / 3)));
                             enemies.filter(e => e.alive).forEach(e => {
                                 const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
-                                cells.push({ pos: e.pos, tier: isFront ? 'rowFront' : 'rowBack', den: isFront ? rd.front : rd.back, atkAdd: hlsAtk });
+                                cells.push({ pos: e.pos, tier: isFront ? 'rowFront' : 'rowBack', den: isFront ? rd.front : rd.back, atkAdd: Math.floor(hlsAtk / 2) });   // 2026-11-18 老板拍板：全轰每格加一半攻击力
                             });
                         }
 
