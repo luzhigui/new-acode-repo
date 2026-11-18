@@ -5,7 +5,8 @@
 //   预警按九位九形画全格（空位也罩住），命中只对有人的格。
 // 准星钉在锁定格中心（带四向刻度），不按「锥深位置」——否则会出现「移到 2 号圆圈却在 5 号」。
 // V3.5.6 | 2026-11-18 全轰预览按排两档+加攻击力(与319同口径),colDen→rowDen
-export const VER = 'ui/720-hanlisa-aim.js V3.5.6';
+// V3.5.7 | 2026-11-18 预览基数+攻击额度(与319同口径)
+export const VER = 'ui/720-hanlisa-aim.js V3.5.7';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -794,7 +795,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         return;
     }
     const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-    const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
+    const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + Math.floor(getStat(hls, 'atk')));
 
     // 阵容（图标/分档色从战场活格现查）
     const ENEMY = {}, ALLY = {};

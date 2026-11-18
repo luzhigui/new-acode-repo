@@ -4,7 +4,8 @@
 // V6.5.0 | 2026-11-17 专属海克斯改制：删开局三选一弹窗（showZhangExclusivePopup），
 //   专属改与普通海克斯等概率进普通池；抽中家族任一成员即整族一起进候选；选完整族终身不再出现。详见 modules/329。
 // V6.5.1 | 2026-11-18 专属家族抽取套旧版专属弹窗皮肤（金字深蓝底+金卡，普通抽取不变）
-export const VER = 'ui/711-buff-dialog.js V6.5.1';
+// V6.5.2 | 2026-11-18 修esc作用域雷(块外不可见,线上ReferenceError)
+export const VER = 'ui/711-buff-dialog.js V6.5.2';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -74,13 +75,14 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
 
         // 专属家族抽取（2026-11-18 老板要求）：候选含专属家族成员时套旧版专属弹窗皮肤（金字深蓝底），普通抽取仍走通用皮肤
         const isExclusive = choices.some(k => familyOf(k));
+        // esc 必须与按钮循环同层（2026-11-18 线上 ReferenceError 教训：藏在 if 块内 = 块外不可见）
+        const esc = (x) => String(x == null ? '' : x).replace(/</g, '&lt;');
         let text = '选择海克斯（' + (CAMP_LABEL[camp] || '') + '方）';
         let buttons = choices.map(key => {
             let buff = CONFIG.BUFFS[key] || { name: key, icon: '?' };
             return { text: (buff.icon || '?') + ' ' + (buff.name || key) + '\n' + (buff.desc || ''), value: key, cls: 'buff', buff };
         });
         if (isExclusive) {
-            const esc = (x) => String(x == null ? '' : x).replace(/</g, '&lt;');
             text = '⭐ 专属海克斯 · 三选一（' + (CAMP_LABEL[camp] || '') + '方）<br><span style="color:#aaa;font-size:11px;">选定后本局锁定此路线，整族终身不再出现</span>';
         }
 

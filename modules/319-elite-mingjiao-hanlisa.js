@@ -11,7 +11,8 @@
 //      结算完复原普攻循环并清两个标记——蓄过一次必须再各出一次九阳/寒冰才能再蓄（实机指正「怎么老蓄力」）
 // V2.4.1 | 2026-11-18 普通桶0.8转化+强化蓄力跳过行动(护盾累加保armorBonus)+删_hlsPowerShielded
 // V2.4.2 | 2026-11-18 起蓄盾改30%+20%独立池(先普通后独立,爆发清零)/行动刷新30%/全轰按排两档+加攻击力(rowDen)
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.2';
+// V2.4.3 | 2026-11-18 轰拳基数+一下普攻攻击额度(普通/强化都加,2026-11-18拍板)
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.3';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
@@ -291,8 +292,9 @@ export function createHanLiSaComponent() {
                     if (hls.alive) {
                         const enemies = enemyOf();
                         const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-                        // N = 最近三回合承伤总和 + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）。
-                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));
+                        // N = 最近三回合承伤总和 + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）
+                        //   + 折算的一下普攻攻击额度（2026-11-18 老板拍板：普通/强化轰击都加）。
+                        const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0) + Math.floor(getStat(hls, 'atk')));
 
                         // —— 瞄准位：player/42 回合末交互写入优先（华丽模式按住-拖-松手）；
                         //    V2.4.0（2026-11-17 老板拍板）：没写（简单/全自动/快进/AI/PVP）不再随机前排赌单点，
