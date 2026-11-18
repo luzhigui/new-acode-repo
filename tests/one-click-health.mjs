@@ -5,6 +5,7 @@
 // 红线：只读跑现有测试，不改任何判据/阈值/基线/主代码；本报告纯呈现，不参与任何判定。
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,10 +45,15 @@ function humanLine(raw) {
 // ★ 必须在干净树上跑：共享主树常年有并行会话 WIP，规则回放会崩/失真，
 //   报出来的"脏树警告"是假红，不能给用户当结论（skill §1.5 铁律）。
 //   做法：从当前 HEAD 建一个临时 detached worktree，在里面跑，跑完即删。
-const WORKTREE = path.join(ROOT, '.tmp-oneclick-health');
-// 清理上次残留（循环重跑用）
-spawnSync('git', ['worktree', 'remove', '--force', WORKTREE], { cwd: ROOT, encoding: 'utf8' });
-try { fs.rmSync(WORKTREE, { recursive: true, force: true }); } catch (e) {}
+// ★ 临时树必须在【仓库外】：放 ROOT 内会被 worktree 复制进去层层嵌套
+// （第27轮踩过：连跑5次嵌套5层，跑批从4分钟劣化到18分钟卡死）。
+const WORKTREE = path.join(os.tmpdir(), 'guangmingding-oneclick-health');
+function cleanWorktree() {
+    spawnSync('git', ['worktree', 'remove', '--force', WORKTREE], { cwd: ROOT, encoding: 'utf8' });
+    spawnSync('git', ['worktree', 'prune'], { cwd: ROOT, encoding: 'utf8' });
+    try { fs.rmSync(WORKTREE, { recursive: true, force: true }); } catch (e) {}
+}
+cleanWorktree();  // 清理上次残留
 const wt = spawnSync('git', ['worktree', 'add', '--detach', WORKTREE, 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
 if (wt.status !== 0) {
     console.error('建干净工作树失败：' + (wt.stderr || wt.stdout || ''));
@@ -64,8 +70,7 @@ try {
     exit = r.status;
 } finally {
     // 无论成败都清临时树，别留垃圾
-    spawnSync('git', ['worktree', 'remove', '--force', WORKTREE], { cwd: ROOT, encoding: 'utf8' });
-    try { fs.rmSync(WORKTREE, { recursive: true, force: true }); } catch (e) {}
+    cleanWorktree();
 }
 const elapsed = ((Date.now() - t0) / 1000).toFixed(0);
 
@@ -76,6 +81,18 @@ const rawResult = out.split(/\r?\n/).find(l => /^结果：/.test(l)) || '（未�
 const resultLine = rawResult.replace(/^结果：/, '').replace(/，X (\d+) 项红/, '，$1 项红');
 const passCount = (resultLine.match(/(\d+)\/(\d+)\s*通过/) || []).slice(1);
 const reds = redLines.map(humanLine);
+
+// ★ 真实 bug 候选：从 coverage-report 的 OBSERVE 输出里抓「规则 fail>0」。
+//   这些原本挂在"覆盖率/空转红线"名字下、只显形不计退码，用户和我都当噪声放过了——
+//   但它们才是"一茬茬 bug 没被抓到"的真相（例：伤害印数 fail=85，差 15-16 点=护盾口径不同源）。
+//   格式（coverage-report.mjs）：`  156  100.0% 71/85/0   ❌ 伤害印数与血条实落同源`
+const bugCandidates = [];
+for (const line of out.split(/\r?\n/)) {
+    const m = line.match(/^\s*\d+\s+[\d.]+%\s+(\d+)\/(\d+)\/(\d+)\s+❌\s+(.+)$/);
+    if (!m) continue;
+    const [, pass, fail, skip, name] = m;
+    if (Number(fail) > 0) bugCandidates.push({ name: name.trim(), pass: +pass, fail: +fail, skip: +skip });
+}
 
 // 生成人话 HTML 报告（纯呈现）
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -105,6 +122,12 @@ h1{font-size:20px;margin:0 0 6px;} .meta{color:#666;font-size:13px;margin-bottom
 .q,.why,.act{color:#333;} .act{color:#993c1d;} .raw{color:#999;font-size:11px;margin-top:6px;word-break:break-all;}
 .allgreen{background:#e1f5ee;border:1px solid #9fe1cb;border-radius:10px;padding:24px;font-size:15px;}
 .allgreen span{font-size:13px;color:#0f6e56;}
+.bugs{background:#fff4f2;border:1px solid #f5c4b3;border-radius:10px;padding:16px 18px;margin-bottom:16px;}
+.bugs h2{font-size:15px;margin:0 0 6px;color:#993c1d;}
+.bugs .lead{font-size:12px;color:#712b13;line-height:1.7;margin-bottom:10px;}
+.bugs .item{font-size:13px;padding:7px 0;border-top:1px solid #f5c4b3;line-height:1.6;}
+.bugs .item b{color:#993c1d;} .bugs .item .n{color:#d85a30;font-weight:600;}
+.bugs .hint{font-size:12px;color:#712b13;margin-top:10px;}
 .foot{color:#888;font-size:12px;margin-top:20px;line-height:1.7;}
 </style></head><body><div class="wrap">
 <h1>深度体检报告</h1>
@@ -114,6 +137,13 @@ h1{font-size:20px;margin:0 0 6px;} .meta{color:#666;font-size:13px;margin-bottom
   <div class="sub">这份是"深度体检"——它不打开游戏，直接读代码、对账本、扫判据，查的是全能体检（边打边抓现行）查不到的那类问题。<br>
   每项红下面都写了：这项在查什么、红了大概意味着什么、要不要管。看不懂原始输出没关系，看这三行就行。</div>
 </div>
+${bugCandidates.length ? `
+<div class="bugs">
+  <h2>真实 bug 候选（${bugCandidates.length} 条规则在回放里判了失败）</h2>
+  <div class="lead">这些是<div style="display:inline">规则回放</div>里真正判fail的问题——之前挂在「覆盖率」这个名字下、只显形不计红，容易被当成"覆盖不够"放过。<b>它们才可能是你记得的那一茬茬 bug。</b></div>
+  ${bugCandidates.map(b => `<div class="item"><b>${esc(b.name)}</b>　<span class="n">${b.fail} 个失败</span>（通过 ${b.pass} / 跳过 ${b.skip}）</div>`).join('')}
+  <div class="hint">注意：判 fail 不等于确认是 bug——也可能是规则判据没跟上新机制。需要逐条定性（看回放明细里每个 seed/stage 的具体数字），不要直接当成主代码缺陷改，也不要直接放宽规则放过。</div>
+</div>` : ''}
 ${rows}
 <div class="foot">本报告由 tests/one-click-health.mjs 自动生成，纯呈现、不改任何判据/阈值/基线/主代码。<br>
 "没报红"不等于"主代码没毛病"，只等于这次这些检查项没抓到——不同检查项查的是不同东西。</div>
