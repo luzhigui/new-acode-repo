@@ -3,12 +3,13 @@
 //   + pickBuffChoices（家族折叠在此单点实现），本弹窗不再自建洗牌逻辑。
 // V6.5.0 | 2026-11-17 专属海克斯改制：删开局三选一弹窗（showZhangExclusivePopup），
 //   专属改与普通海克斯等概率进普通池；抽中家族任一成员即整族一起进候选；选完整族终身不再出现。详见 modules/329。
-export const VER = 'ui/711-buff-dialog.js V6.5.0';
+// V6.5.1 | 2026-11-18 专属家族抽取套旧版专属弹窗皮肤（金字深蓝底+金卡，普通抽取不变）
+export const VER = 'ui/711-buff-dialog.js V6.5.1';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
-import { createBuffObject, buffsOfCamp, filterAvailableBuffs, recordUsedBuffKey, pickBuffChoices } from '../modules/329-buff-tools.js';
+import { createBuffObject, buffsOfCamp, filterAvailableBuffs, recordUsedBuffKey, pickBuffChoices, familyOf } from '../modules/329-buff-tools.js';
 import { getBattleRng } from '../core/214-battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 // 2026-11-10 下线存档：新手引导已搬 archive/712-tutorial.js（恢复见 archive/README.md）；空实现保调用点不动
@@ -71,16 +72,27 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
         const fnSync = GlobalStore.getUIHandler('syncPauseState');
         if (fnSync) fnSync();
 
+        // 专属家族抽取（2026-11-18 老板要求）：候选含专属家族成员时套旧版专属弹窗皮肤（金字深蓝底），普通抽取仍走通用皮肤
+        const isExclusive = choices.some(k => familyOf(k));
         let text = '选择海克斯（' + (CAMP_LABEL[camp] || '') + '方）';
         let buttons = choices.map(key => {
             let buff = CONFIG.BUFFS[key] || { name: key, icon: '?' };
-            return { text: (buff.icon || '?') + ' ' + (buff.name || key) + '\n' + (buff.desc || ''), value: key, cls: 'buff' };
+            return { text: (buff.icon || '?') + ' ' + (buff.name || key) + '\n' + (buff.desc || ''), value: key, cls: 'buff', buff };
         });
+        if (isExclusive) {
+            const esc = (x) => String(x == null ? '' : x).replace(/</g, '&lt;');
+            text = '⭐ 专属海克斯 · 三选一（' + (CAMP_LABEL[camp] || '') + '方）<br><span style="color:#aaa;font-size:11px;">选定后本局锁定此路线，整族终身不再出现</span>';
+        }
 
         let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'buffModalOverlay';
         let box = document.createElement('div'); box.className = 'modal-box';
         let inner = `<div class="modal-text">${text}</div><span class="modal-minimize" id="buffModalMinimize">∧</span><div class="modal-buttons"></div>`;
         box.innerHTML = inner;
+        if (isExclusive) {
+            box.style.cssText += ';max-width:380px;background:#1a1a35;border:1px solid #b8860b;box-shadow:0 0 24px rgba(255,215,0,0.35),0 8px 30px rgba(0,0,0,0.6);';
+            const titleEl = box.querySelector('.modal-text');
+            if (titleEl) titleEl.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;text-align:center;margin-bottom:12px;';
+        }
         let btnsDiv = box.querySelector('.modal-buttons');
         let unsubSkip = null;
         function closeAndResolve(buffObj) {
@@ -99,7 +111,13 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
 
         buttons.forEach(b => {
             let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || '');
-            btn.textContent = b.text;
+            if (isExclusive) {
+                // 旧版专属卡同款（c356e2c4 删掉的 showZhangExclusivePopup）：金名 + 灰描述，深蓝底金边
+                btn.style.cssText = 'display:block;width:100%;margin-bottom:8px;padding:10px 12px;text-align:left;background:#2a2a4e;color:#eee;border:1px solid #b8860b;border-radius:8px;font-size:12px;line-height:1.5;cursor:pointer;';
+                btn.innerHTML = '<div style="color:#ffd700;font-weight:bold;font-size:13px;margin-bottom:2px;">' + esc(b.buff.icon) + ' ' + esc(b.buff.name || b.value) + '</div><div style="color:#bbb;font-size:11px;">' + esc(b.buff.desc) + '</div>';
+            } else {
+                btn.textContent = b.text;
+            }
             btn.addEventListener('click', () => {
                 const newBuff = createBuffObject(b.value, null, camp, team);
                 recordUsedBuffKey(b.value);
