@@ -5,13 +5,14 @@
 // 红线：只读跑现有测试，不改任何判据/阈值/基线/主代码；本报告纯呈现，不参与任何判定。
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
-const OUT = path.join(ROOT, 'tests', 'output', 'one-click-health-report.html');
+// 报告是产物，按用户红线①也放仓库外（与临时树同一父目录）
+const OUTER_BASE = path.resolve(ROOT, '..', '_仓库外产物');
+const OUT = path.join(OUTER_BASE, 'one-click-health-report.html');
 
 // 每项红的人话解释：查的是什么 / 红了大概意味着 / 要不要管
 //   —— 只做"翻译"，不替判据下结论；红线见上。
@@ -45,13 +46,29 @@ function humanLine(raw) {
 // ★ 必须在干净树上跑：共享主树常年有并行会话 WIP，规则回放会崩/失真，
 //   报出来的"脏树警告"是假红，不能给用户当结论（skill §1.5 铁律）。
 //   做法：从当前 HEAD 建一个临时 detached worktree，在里面跑，跑完即删。
-// ★ 临时树必须在【仓库外】：放 ROOT 内会被 worktree 复制进去层层嵌套
-// （第27轮踩过：连跑5次嵌套5层，跑批从4分钟劣化到18分钟卡死）。
-const WORKTREE = path.join(os.tmpdir(), 'guangmingding-oneclick-health');
+// ★ 三条红线（用户 2026-11-18 明确）：
+//   ① 临时产物一律放【仓库外】——用户指定 D 盘 new-acode-repo 的同级 `_仓库外产物/` 下；
+//      放 ROOT 内会被 git worktree 复制进去层层嵌套（第27轮踩过5层、跑批劣化到18分钟卡死）。
+//   ② 不在临时目录 git init / git clone —— 本脚本只用 `git worktree add --detach`（由主仓注册、
+//      临时树里只有一个 .git 指针文件，不是独立仓库），且路径在仓库外，主仓目录树里不会出现嵌套 .git。
+//   ③ 不设任何 ACL；所有 spawn 均 spawnSync 同步等待，脚本退出前子进程必已结束，不留句柄占目录。
+const WORKTREE = path.join(OUTER_BASE, '.tmp-oneclick-health');
+// 硬断言：临时树绝不能落在主仓目录树内（防嵌套/误跟踪）
+if (WORKTREE === ROOT || WORKTREE.startsWith(ROOT + path.sep)) {
+    console.error('[红线] 临时目录必须在仓库外，当前=' + WORKTREE + ' 主仓=' + ROOT);
+    process.exit(2);
+}
+fs.mkdirSync(OUTER_BASE, { recursive: true });
 function cleanWorktree() {
     spawnSync('git', ['worktree', 'remove', '--force', WORKTREE], { cwd: ROOT, encoding: 'utf8' });
     spawnSync('git', ['worktree', 'prune'], { cwd: ROOT, encoding: 'utf8' });
     try { fs.rmSync(WORKTREE, { recursive: true, force: true }); } catch (e) {}
+    // 不静默吞失败：目录还在 = 有子进程占句柄（用户红线③），明确报错 + 给手动清理命令
+    if (fs.existsSync(WORKTREE)) {
+        console.error('[清理失败] 临时目录仍被占用：' + WORKTREE);
+        console.error('  可能原因：体检子进程未退出（红线③）。请确认无 node 进程后再删：');
+        console.error('  rmdir /s /q "' + WORKTREE + '"');
+    }
 }
 cleanWorktree();  // 清理上次残留
 const wt = spawnSync('git', ['worktree', 'add', '--detach', WORKTREE, 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
@@ -61,20 +78,13 @@ if (wt.status !== 0) {
 }
 console.log('已在干净树上开跑（避免脏树假红）…');
 const t0 = Date.now();
-let r, out, exit, coverageOut = '';
+let r, out, exit;
 try {
     r = spawnSync(process.execPath, [path.join(WORKTREE, 'tests', 'run-all.mjs'), '--quick', '--jobs', '4'], {
         cwd: WORKTREE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     });
     out = (r.stdout || '') + (r.stderr || '');
     exit = r.status;
-    // ★ 真实 bug 候选的数据源：单独跑一次 coverage-report 拿【干净格式】。
-    //   不要从 run-all 的并发混杂输出里解析——它的 key 行按完成序打印、带 ▶ 前缀，格式不稳（第27轮踩过）。
-    const cov = spawnSync(process.execPath, ['tests/coverage-report.mjs'], {
-        cwd: WORKTREE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-    });
-    coverageOut = (cov.stdout || '') + (cov.stderr || '');
-    if (cov.status !== 0) console.log('[coverage诊断] status=' + cov.status + ' err=' + JSON.stringify(coverageOut.slice(0, 200)));
 } finally {
     // 无论成败都清临时树，别留垃圾
     cleanWorktree();
@@ -89,13 +99,13 @@ const resultLine = rawResult.replace(/^结果：/, '').replace(/，X (\d+) 项�
 const passCount = (resultLine.match(/(\d+)\/(\d+)\s*通过/) || []).slice(1);
 const reds = redLines.map(humanLine);
 
-// ★ 真实 bug 候选：从【单独跑的 coverage-report】输出抓「规则 fail>0」。
+// ★ 真实 bug 候选：从 run-all 已抓的 coverage 关键行抓「规则 fail>0」（不再单独 spawn，%TEMP%下模块解析失败）。
 //   这些原本挂在"覆盖率/空转红线"名字下、只显形不计退码，用户和我都当噪声放过了——
 //   但它们才是"一茬茬 bug 没被抓到"的真相（例：伤害印数 fail=85，差 15-16 点=护盾口径不同源）。
 //   格式（coverage-report.mjs）：`  156  100.0% 71/85/0   ❌ 伤害印数与血条实落同源`
 const bugCandidates = [];
-for (const line of coverageOut.split(/\r?\n/)) {
-    const m = line.match(/^\s*\d+\s+[\d.]+%\s+(\d+)\/(\d+)\/(\d+)\s+❌\s+(.+)$/);
+for (const line of redLines) {
+    const m = line.match(/(\d+)\/(\d+)\/(\d+)\s+❌\s+(.+)$/);
     if (!m) continue;
     const [, pass, fail, skip, name] = m;
     if (Number(fail) > 0) bugCandidates.push({ name: name.trim(), pass: +pass, fail: +fail, skip: +skip });
