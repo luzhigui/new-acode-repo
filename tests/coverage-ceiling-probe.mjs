@@ -21,11 +21,12 @@
 // 用法：
 //   node tests/coverage-ceiling-probe.mjs                # 默认 12 场 + 静态侧
 //   node tests/coverage-ceiling-probe.mjs --cases 24     # 多跑几场
+//   node tests/coverage-ceiling-probe.mjs --jobs 4        # 并行跑（单场回放每次要付一次引擎启动≈90s，串行很慢）
 //   node tests/coverage-ceiling-probe.mjs --json out.json
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { RULE_META } from './124rule-recipes.js';
 
@@ -40,6 +41,8 @@ const jsonIdx = argv.indexOf('--json');
 const JSON_OUT = jsonIdx >= 0 ? argv[jsonIdx + 1] : null;
 const caseIdx = argv.indexOf('--cases');
 const CASE_COUNT = caseIdx >= 0 ? Math.max(1, Number(argv[caseIdx + 1]) || 12) : 12;
+const jobsIdx = argv.indexOf('--jobs');
+const JOBS = jobsIdx >= 0 ? Math.max(1, Number(argv[jobsIdx + 1]) || 1) : 1;
 
 // 采样场次：跨 7 个关卡铺开（每关卡先取 seed 1，再 seed 2……），避免只测第一关。
 function buildCases(n) {
@@ -95,18 +98,16 @@ function staticSide() {
 }
 
 // ---------------------------------------------------------------- 实测侧：一场一场跑，读每条的 pass/fail/skip
-function runOneCase(seed, stage, tmpDir) {
-    const outFile = path.join(tmpDir, `stats_${seed}_${stage}.json`);
-    const env = { ...process.env, SEEDS: String(seed), STAGES: String(stage), RULE_STATS_OUT: outFile };
-    const r = spawnSync(process.execPath, [REPLAY], { cwd: repoRoot, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+function readCase(c, res) {
+    const outFile = path.join(tmpDir, `stats_${c.seed}_${c.stage}.json`);
     if (!fs.existsSync(outFile)) {
-        return { seed, stage, error: '回放未落盘（RULE_STATS_OUT）· 退出码 ' + r.status + ' · ' + String(r.stderr || '').slice(0, 200) };
+        return { seed: c.seed, stage: c.stage, error: '回放未落盘（RULE_STATS_OUT）· 退出码 ' + res.code };
     }
     let stats;
     try {
         stats = JSON.parse(fs.readFileSync(outFile, 'utf8'));
     } catch (e) {
-        return { seed, stage, error: '落盘文件解析失败：' + e.message };
+        return { seed: c.seed, stage: c.stage, error: '落盘文件解析失败：' + e.message };
     }
     const executed = [];
     const skipped = [];
@@ -114,15 +115,15 @@ function runOneCase(seed, stage, tmpDir) {
         if ((a.pass || 0) + (a.fail || 0) > 0) executed.push(name);
         else skipped.push(name);
     }
-    const resultLine = String(r.stdout || '').split('\n').filter(l => l.startsWith('RESULT:')).slice(-1)[0] || '';
+    const resultLine = String(res.out || '').split('\n').filter(l => l.startsWith('RESULT:')).slice(-1)[0] || '';
     return {
-        seed, stage,
+        seed: c.seed, stage: c.stage,
         ruleCount: stats.ruleCount,
         executedCount: executed.length,
         skippedCount: skipped.length,
         executed,
         skipped,
-        replayExit: r.status,
+        replayExit: res.code,
         resultLine
     };
 }
@@ -142,17 +143,31 @@ console.log('【静态侧】⇒ 单场理论覆盖上限 ≈ ' + st.perMatchMax 
 const cases = buildCases(CASE_COUNT);
 const measured = [];
 let failed = 0;
-for (const c of cases) {
-    const m = runOneCase(c.seed, c.stage, tmpDir);
-    if (m.error) {
-        failed++;
-        console.log('  ❌ seed=' + c.seed + ' stage=' + c.stage + ' ' + m.error);
-        continue;
-    }
-    measured.push(m);
-    console.log('  · seed=' + c.seed + ' stage=' + c.stage + '：执行 ' + m.executedCount + '/' + m.ruleCount
-        + ' 条（skip ' + m.skippedCount + '）' + (m.resultLine ? ' · ' + m.resultLine : ''));
+// 并行跑：每场回放都要付一次引擎启动（≈90s），串行很慢；各场只写自己的 stats 文件，互不干扰。
+async function runPool() {
+    let idx = 0;
+    const workers = Array.from({ length: Math.min(JOBS, cases.length) }, async () => {
+        while (idx < cases.length) {
+            const c = cases[idx++];
+            const m = await new Promise(resolve => {
+                const child = spawn(process.execPath, [REPLAY], { cwd: repoRoot, env: { ...process.env, SEEDS: String(c.seed), STAGES: String(c.stage), RULE_STATS_OUT: path.join(tmpDir, `stats_${c.seed}_${c.stage}.json`) }, stdio: ['ignore', 'pipe', 'pipe'] });
+                let out = '';
+                child.stdout.on('data', d => { out += d; });
+                child.stderr.on('data', () => {});
+                child.on('close', code => resolve({ code, out }));
+            });
+            const m2 = readCase(c, m);
+            if (m2.error) { failed++; console.log('  ❌ seed=' + c.seed + ' stage=' + c.stage + ' ' + m2.error); }
+            else {
+                measured.push(m2);
+                console.log('  · seed=' + c.seed + ' stage=' + c.stage + '：执行 ' + m2.executedCount + '/' + m2.ruleCount
+                    + ' 条（skip ' + m2.skippedCount + '）' + (m2.resultLine ? ' · ' + m2.resultLine : ''));
+            }
+        }
+    });
+    await Promise.all(workers);
 }
+await runPool();
 
 if (!measured.length) {
     console.log('❌ 一场都没跑起来，测量不成立（不是结论，是环境阻塞）');
