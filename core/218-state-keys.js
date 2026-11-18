@@ -120,7 +120,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsPowerUsed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _hlsTaunt:               { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _hlsTrueAbsorb:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _hlsPowerShielded:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 最近三回合承伤（每回合一个桶，回合开始滚动；蓄力真伤 = 桶和）
     _hlsTaken:               { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     // 寒冰神掌寒毒（结构同 _xuanmingPoison：{remaining, dotPercents}，modules/27 组件自结算）
