@@ -6,7 +6,9 @@
 // V6.9.10 | 2026-11-19 背水一战实时触发改挂 applyStatChange 掉血钩子（setHpLossHook）：反击/白骨爪/寒毒/
 //   圣火令/反弹这些窄通道原来的 AFTER_DAMAGE_APPLIED 收不到，跌破阈值只能等下一回合开始才生效。
 //   fact 走内存队列，210 每步 drain 收口；setLastStandTeams(A,B) 每回合重挂双方阵容。
-export const VER = 'core/204-buff-system.js V6.9.10';
+// V6.9.11 | 2026-11-19 死亡即时剔除：摄魂点名池/乘风溅射/飞箭雨/流星溅射/飞行再生统一改用 203 isEffectivelyAlive
+//   （hp 归零即 _pendingDeath，不能等 resolveDeaths 才排除；否则飞行再生会给尸体回血、选人还会选中刚死的人）。
+export const VER = 'core/204-buff-system.js V6.9.11';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -16,7 +18,7 @@ import {
 } from './215-buff-effects.js';
 import { CONFIG, getGameData, getSkillParams, getBrotherHexEnhance } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
-import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './203-battle-utils.js';
+import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions, isEffectivelyAlive } from './203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal, stealHealByHook, setHpLossHook } from './214-battle-shared.js';
 import { findFreePos, spawnUnit } from './205-battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
@@ -104,7 +106,7 @@ export function preparePermanentSoulDrain(casterSide, targetSide, ctx) {
         throw new Error('002-hex-enhance.json 缺 brother.soulDrain.pointChance/pointRounds');
     }
     if (ctx.rng.next() >= enh.pointChance) return;
-    const pool = targetSide.filter(u => u.alive && !u.isHorse && !u.isSummon);
+    const pool = targetSide.filter(u => isEffectivelyAlive(u) && !u.isHorse && !u.isSummon);
     if (!pool.length) return;
     const pick = pool[ctx.rng.nextInt(0, pool.length - 1)];
     pick.state._soulDrainRounds = enh.pointRounds;
@@ -575,7 +577,7 @@ export function submitWindAssaultDeclaration(data) {
     if (rng.nextInt(1, 100) <= hitProb) {
         // 姊强化不再额外加伤（改为持续 +1 回合，见 modules/28 createBuffObject）
         const row = getUnitRow(target.pos);
-        const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
+        const rowTargets = enemySide.filter(u => isEffectivelyAlive(u) && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
         if (rowTargets.length > 0) {
             const splashDmg = Math.floor(dmg);
             // 主伤被护罩全吸收时 dmg=0：0 伤害的溅射仍会触发挨打增益/流星成长等副作用，直接不声明
@@ -627,7 +629,7 @@ export function submitMeteorShowerDeclaration(data) {
     //   原实现直接 return 跳过整套结算，姐姐版实际只剩真伤）
     const meteorEnh = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
     if (active && meteorEnh && meteorEnh.trueDmgPct > 0) {
-        const foes = (enemySide || []).filter(u => u.alive && !u.isHorse);
+        const foes = (enemySide || []).filter(u => isEffectivelyAlive(u) && !u.isHorse);
         if (!data.declarations) data.declarations = [];
         const rows = [];
         for (const u of foes) {
@@ -653,7 +655,7 @@ export function submitMeteorShowerDeclaration(data) {
     const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
     const adjPositions = getAdjacentPositions(target.pos);
     const splashSide = target.camp === unit.camp ? allySide : enemySide;
-    const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
+    const splashTargets = splashSide.filter(u => isEffectivelyAlive(u) && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
     // 0 伤害溅射不声明：主伤被护罩全吸收时 dmg=0，声明出去会白触发挨打增益/流星成长（体检 2/156 场）
     if (splashTargets.length > 0 && splashDmg > 0) {
         data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: splashTargets, buffType: BUFF_SUBTYPES.METEOR_SPLASH, attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg, factType: FACT_TYPES.METEOR_SHOWER_SPLASH, factData: { label, targets: splashTargets.map(st => ({ uid: st.uid, name: st.name })), splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 } });
@@ -699,7 +701,7 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
     if (typeof regen !== 'number' || regen <= 0) return;
     const gain = regen * dead.length;
     for (const u of [...A, ...B]) {
-        if (!u || !u.alive || u.isHorse || u.role !== ROLE_TYPES.FLYER) continue;
+        if (!isEffectivelyAlive(u) || u.isHorse || u.role !== ROLE_TYPES.FLYER) continue;
         const before = u.hp;
         // 智取抢血（2026-11-19 老板拍板：飞行再生/休息回血也属回血，可被抢）：
         //   按缺口夹取后再过 341 注册的前置钩子，返回实落值；钩子内部自带「敌方/我方」与满血判定。

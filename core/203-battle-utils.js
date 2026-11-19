@@ -90,6 +90,14 @@ export function isBlocked(unit, allies) {
     return unit.pos > front;
 }
 
+// 有效存活（全仓唯一判据）：alive 要等死亡结算才翻 false，hp 归零瞬间只有 _pendingDeath。
+//   「已经死了」= 血量归零 / 已挂待死 —— 后续上毒、发护盾、回血、选人都必须按这个口径剔除，
+//   不能只看 alive（2026-11-19 老板报：殷梨亭血归零后还被寒冰上毒、被智取分护盾）。
+//   复活/替死类机制例外：它们本来就要处理待死单位，不要用本判据。
+export function isEffectivelyAlive(unit) {
+    return !!(unit && unit.alive && unit.hp > 0 && !(unit.state && unit.state._pendingDeath));
+}
+
 // 能否被选中：存活 + 未被标记不可选 + 不处于飞天/附身状态
 // 供成昆模仿有效性、混乱目标校验、锁定目标校验等共用
 export function canBeTargeted(unit) {

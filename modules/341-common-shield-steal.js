@@ -13,6 +13,7 @@
 // V1.0.0 | 2026-11-18 张松溪「智取」：抢夺敌方新获护盾的一半。调用点：319 五处 + 216 九阳溢出转盾。
 
 import { applyStatChange, addMod, refreshMaxHp, recordHpAudit, setHealStealHook } from '../core/214-battle-shared.js';
+import { isEffectivelyAlive } from '../core/203-battle-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
@@ -21,11 +22,9 @@ export const VER = 'modules/341-common-shield-steal.js V1.2.4';
 
 const STEALER_NAME = '张松溪';
 
-// 有效存活：alive 要等死亡结算才翻 false，hp 已归零 / 已挂待死标记的单位不能再吃护盾或回血
-//   （2026-11-19 老板报「殷梨亭血量归零了，智取还给他分了护盾」）。
-function isValid(u) {
-    return !!(u && u.alive && u.hp > 0 && !(u.state && u.state._pendingDeath));
-}
+// 有效存活统一走 core/203 单点判据：alive 要等死亡结算才翻 false，hp 已归零 / 已挂待死标记的单位
+//   不能再吃护盾、回血或当抢血目标（2026-11-19 老板报「殷梨亭血量归零了，智取还给他分了护盾」）。
+const isValid = isEffectivelyAlive;
 
 function findStealer(A, B) {
     return [...(A || []), ...(B || [])].find(u => isValid(u) && u.name === STEALER_NAME) || null;

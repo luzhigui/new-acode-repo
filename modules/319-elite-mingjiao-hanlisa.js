@@ -16,9 +16,11 @@
 // V2.4.5 | 2026-11-18 白骨爪伤入桶(CLAW_DAMAGE_APPLIED窄通道)+全轰每格半攻
 // V2.4.6 | 2026-11-18 蓄力报幕带 needsSeparator，自成一组（不再粘在上一家攻击组尾部）
 // V2.4.7 | 2026-11-19 独立池接偷盾(341对称)
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.7';
+// V2.4.8 | 2026-11-19 死亡即时剔除：寒冰不再给本击打死的目标（hp 归零·待死）上寒毒/飘字
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.8';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
+import { isEffectivelyAlive } from '../core/203-battle-utils.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { registerTargetFilter } from '../core/207-target-strategies.js';
 import { emitStateChange } from '../infra/108-state-change.js';
@@ -147,17 +149,21 @@ export function createHanLiSaComponent() {
                 // ② 右拳·寒冰：另 50% —— 给被打目标挂寒毒
                 } else {
                     hls.state._hlsHanBingDone = true;   // 「已出寒冰」计数照记，只不挂毒
-                    // 免疫毒素（庄铮·断锤形态）：完全不上寒毒
-                    if (target.state && target.state._immunePoison) {
-                        pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 免疫寒气（断锤形态）</span>`);
-                        announceFloat(data, '右拳·寒冰', '🚫 免疫寒气');
-                    } else {
-                        const prev = target.state._hlsHanDu;
-                        const stacks = (prev && prev.remaining > 0 && prev.stacks > 0 ? prev.stacks : 0) + 1;
-                        target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04])], stacks };
-                        const pctText = Math.round(((hb.dotPercents || [0.04])[0] || 0) * 100);
-                        pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 寒气入体（${hb.duration ?? 3} 回合，每回合 ${pctText}%×${stacks} 层最大生命）</span>`);
-                        announceFloat(data, '右拳·寒冰', '❄️ 右拳·寒冰');
+                    // 死亡即时剔除（2026-11-19 老板报）：这一击已把目标打进待死（hp 归零，alive 还没翻）
+                    //   → 不再给尸体上寒毒、不再飘「寒气入体」。
+                    if (isEffectivelyAlive(target)) {
+                        // 免疫毒素（庄铮·断锤形态）：完全不上寒毒
+                        if (target.state && target.state._immunePoison) {
+                            pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 免疫寒气（断锤形态）</span>`);
+                            announceFloat(data, '右拳·寒冰', '🚫 免疫寒气');
+                        } else {
+                            const prev = target.state._hlsHanDu;
+                            const stacks = (prev && prev.remaining > 0 && prev.stacks > 0 ? prev.stacks : 0) + 1;
+                            target.state._hlsHanDu = { remaining: hb.duration ?? 3, dotPercents: [...(hb.dotPercents || [0.04])], stacks };
+                            const pctText = Math.round(((hb.dotPercents || [0.04])[0] || 0) * 100);
+                            pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 寒气入体（${hb.duration ?? 3} 回合，每回合 ${pctText}%×${stacks} 层最大生命）</span>`);
+                            announceFloat(data, '右拳·寒冰', '❄️ 右拳·寒冰');
+                        }
                     }
                 }
 
