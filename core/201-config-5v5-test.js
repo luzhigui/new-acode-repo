@@ -1,7 +1,8 @@
 // V%s | 2026-11-08 known-transfers 商店三条(1)：宝箱掉率收口为单表 content/001 dropRates，
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
 //   禁止 JS/商店页再写第二份数字。
-export const VER = 'core/201-config-5v5-test.js V6.9.11';
+// V6.9.12 | 2026-11-19 众志召唤池改为「带技能即入池」（skills 有真技能或 mechanics 非空），不再只看 summon 开关
+export const VER = 'core/201-config-5v5-test.js V6.9.12';
 // V6.9.11 | 2026-11-17 废弃 ZHANG_EXCLUSIVE_CHANCE（值保留 0.2，仅防旧引用报错，主代码已无调用点）：
 //   老板改口径——张无忌三个专属不再走「开局独立概率弹窗」，改与普通海克斯等概率进普通池、任何回合都能抽到；
 //   抽中家族任一成员即整族一起进候选，选完整族终身不再出现。家族规则实现见 modules/329（familyOf/pickBuffChoices）。
@@ -308,8 +309,19 @@ function getHeroPools() {
         titles[sect] = enemyEveryday.filter(n => H[n].sect === sect && H[n].titleOrder != null).sort(order('titleOrder'));
     }
     titles.default = data.roster.enemySects.map(s => `${s}弟子`);
-    const recruit = (camp) => pick(n => H[n].camp === camp && H[n].summon)
-        .sort(order('recruitOrder')).map(n => ({ name: n, role: roleOf(n) }));
+    // 众志召唤池（2026-11-19 老板拍板）：带技能即入池，不再只看 summon 开关，也不看 M 高低。
+    //   判据 = skills 里有真技能（排除白板 basicStrike「基础挥砍」），或有 mechanics（反伤弟子这类被动机制）。
+    const hasSkill = (n) => {
+        const h = H[n];
+        const skills = h.skills || {};
+        const realSkill = Object.keys(skills).some(k => {
+            const s = skills[k];
+            return !!(s && s.name && s.name !== '基础挥砍' && s.name !== '基础攻击');
+        });
+        return realSkill || (Array.isArray(h.mechanics) && h.mechanics.length > 0);
+    };
+    const recruit = (camp) => pick(n => H[n].camp === camp && (H[n].summon || hasSkill(n)))
+        .sort(order('recruitOrder')).map(n => ({ name: n, role: roleOf(n) || '战士' }));
     heroPoolsCache = {
         mingAll: pick(n => H[n].mingAll).sort(order('mingOrder')),
         mingM: mapOf(mingEveryday),
