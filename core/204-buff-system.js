@@ -3,7 +3,10 @@
 //   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
 //   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。
 // V6.9.8 | 2026-11-19 | fact 出口收口（T-EP-1）：召唤事实裸 log.push → pushFact
-export const VER = 'core/204-buff-system.js V6.9.8';
+// V6.9.9 | 2026-11-19 背水一战实时触发改挂 applyStatChange 掉血钩子（setHpLossHook）：反击/白骨爪/寒毒/
+//   圣火令/反弹这些窄通道原来的 AFTER_DAMAGE_APPLIED 收不到，跌破阈值只能等下一回合开始才生效。
+//   fact 走内存队列，210 每步 drain 收口；setLastStandTeams(A,B) 每回合重挂双方阵容。
+export const VER = 'core/204-buff-system.js V6.9.9';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -14,7 +17,7 @@ import {
 import { CONFIG, getGameData, getSkillParams, getBrotherHexEnhance } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './203-battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal } from './214-battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal, setHpLossHook } from './214-battle-shared.js';
 import { findFreePos, spawnUnit } from './205-battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
@@ -536,18 +539,22 @@ export function registerLastStandLeech(eventBus) {
 }
 
 // 背水一战·实时触发：受伤扣血后，若跌破阈值立即原地触发（回合开始逻辑保留作为初始/毒发兜底）
+//   V6.9.7（2026-11-19 老板拍板）：改挂 applyStatChange 的掉血即时钩子——旧版只挂 AFTER_DAMAGE_APPLIED，
+//   反击/白骨爪/寒毒/圣火令/反弹这些窄通道不发那条信号，跌破阈值只能拖到下一回合开始才触发。
+//   fact 先进内存队列，由回合侧（210）按步 drain 收口，保证战报可见。
+let _standTeams = { A: null, B: null };
+export function setLastStandTeams(A, B) { _standTeams = { A, B }; }
+const _standPendingFacts = [];
+export function drainLastStandFacts(log) {
+    if (!log) return;
+    while (_standPendingFacts.length) log.push(_standPendingFacts.shift());
+}
 export function registerLastStand(eventBus) {
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
-        priority: L.AFTER_DAMAGE_APPLIED.LEECH + 1, // 排在吸血前，让本次触发带来的上限提升能吃到当次回血
-        handler: (data) => {
-            const u = data.target;
-            if (!u || !u.alive || u.state._lastStandTriggered) return;
-            const team = u.camp === CAMP_TYPES.ALLY ? data.A : data.B;
-            if (!team) return;
-            const buffs = team._activeBuffs || [];
-            applyLastStandBonus(u, team, buffs, data.log);
-        }
+    setHpLossHook((u) => {
+        if (!u || !u.alive || (u.state && u.state._lastStandTriggered)) return;
+        const team = u.camp === CAMP_TYPES.ALLY ? _standTeams.A : _standTeams.B;
+        if (!Array.isArray(team)) return;
+        applyLastStandBonus(u, team, team._activeBuffs || [], _standPendingFacts);
     });
 }
 

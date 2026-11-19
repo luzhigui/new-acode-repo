@@ -3,12 +3,12 @@
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
 // V6.3.45 | 2026-11-19 | fact 出口收口（T-EP-1）：圣火令·救援/打击两条事实裸 log.push → pushFact
-export const VER = 'core/210-battle-round.js V6.3.45';
+export const VER = 'core/210-battle-round.js V6.3.46';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
 import { isMelee, isBlocked, hasBuff, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerDoubleStrike } from './203-battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, spawnZhangRescueIfNeeded, installBuffMechanics, onUnitDeathFlyerRegen, isTeamHexExcluded } from './204-buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, applySoulDrain, preparePermanentSoulDrain, spawnCarryEagle, applyLastStandBonus, applyUnityBonus, spawnUnityRecruits, spawnBrotherPermanentUnityRecruit, spawnZhangRescueIfNeeded, installBuffMechanics, onUnitDeathFlyerRegen, isTeamHexExcluded, setLastStandTeams, drainLastStandFacts } from './204-buff-system.js';
 import { applyMindControl_Normal, applyMindControl_Sister } from './215-buff-effects.js';
 import { spawnHorse, destroyHorse } from './205-battle-horse.js';
 import { Unit } from './202-unit.js';
@@ -177,6 +177,8 @@ function installRoundMechanics(A, B, state, ctx, ds) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
+    // 背水一战实时触发需要「当前回合双方阵容」：A/B 每回合新克隆，每回合重挂一次
+    setLastStandTeams(A, B);
     registerDoubleStrike(eventBus, ds.unitUids, A, A._activeBuffs);
     registerDoubleStrike(eventBus, ds.enemyUids, B, B._activeBuffs);
     // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
@@ -405,6 +407,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     const makeStep = (logs, evs, winner = null, done = false) => {
         // 圣火令主动：每步开头消费队列。
         consumeHexActions(A, B, logs);
+        // 背水一战实时触发产生的 fact：本步收口（数值早已生效，这里只补战报）
+        drainLastStandFacts(logs);
         const frozenValues = {};
         for (const u of [...A, ...B]) {
             frozenValues[u.uid] = {
@@ -713,6 +717,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     //   旧版只在 makeStep 开头消费，回合最后一手之后才提交的令会被塞进回合结束之后，看起来像「用了令反而先结束回合」。
     consumeHexActions(A, B, log);
     resolveDeaths(A, B, log);
+    drainLastStandFacts(log);
 
     const { winner, done, endEvents } = finalizeRoundEnd(A, B, { log, round });
     yield makeStep(log, endEvents, winner, done);

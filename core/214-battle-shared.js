@@ -1,5 +1,5 @@
 // core/214-battle-shared.js — 属性词条系统 + 战斗状态收口（addMod / getStat / applyStatChange / killUnit / refreshMaxHp）
-export const VER = 'core/214-battle-shared.js V6.4.12';
+export const VER = 'core/214-battle-shared.js V6.4.13';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -226,6 +226,11 @@ function previewHeal(target, raw, rawOnly = false) {
 // ignoreCap=true：**只由 killUnit 使用**——死亡收口的「把血归零」不是一次受伤，不吃 _dmgCap
 //   （否则被截在 0 以上 → 出现 alive=false 却 hp=97 的分裂状态；fuzz s76/r35 平局清算即此路径）。
 //   任何其它直扣血出口都不得传 true，否则 _dmgCap 形同废止。
+// 掉血即时钩子（全局唯一）：由 buff 机制侧注册，applyStatChange 所有 hp 负向落账后回调。
+//   只传 unit（不带日志）——日志由注册方挂队列，由回合侧按步收口。
+let _hpLossHook = null;
+export function setHpLossHook(fn) { _hpLossHook = typeof fn === 'function' ? fn : null; }
+
 function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false, ignoreHealReduce = false) {
     // ignoreHealReduce（2026-11-17 老板拍板）：真实吸血通道——跳过截脉/寒毒抑疗打折（庄铮断锤免疗不受此旗影响，那是免疫不是抑疗）
     if (delta === 0 || !target || !target.alive) return false;
@@ -290,6 +295,12 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
         // 击杀者记账（唐文亮·同归于尽反噬击杀者用）：存 uid 不存引用（战报快照深拷/JSON 序列化会炸引用）。
         //   source 为空（死亡结算/自损）不写入；有 source 即覆盖 = 补刀者算最后一击的凶手
         if (source && source.uid) target.state._killerUid = source.uid;
+    }
+    if (field === 'hp' && target.hp < oldVal && target.hp > 0 && target.alive && _hpLossHook) {
+        // 掉血即时钩子（背水一战等「挨打立刻触发」类机制）：收口全部扣血出口——
+        //   AFTER_DAMAGE_APPLIED 只覆盖正规攻击，反击/白骨爪/毒/圣火令/反弹都不发那条信号，
+        //   旧版只挂信号 → 这些路径跌破阈值只能等下一回合开始才触发（老板 2026-11-19 报）。
+        try { _hpLossHook(target); } catch (e) { /* 机制异常不得打断扣血 */ }
     }
     emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
         hp: target.hp, maxHp: target.maxHp, alive: target.alive,
