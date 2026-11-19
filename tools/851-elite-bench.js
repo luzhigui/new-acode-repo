@@ -68,7 +68,7 @@ function roleOf(name) {
 //   ② 小昭拆姐妹两档（主游戏 forceXiaoZhao 形态）：姐姐固定职业、妹妹职业随机。
 //   ③ 无职业标签的具名精英（素问/说不得等 tags 里没有职业）也要进榜：
 //      优先取关卡阵容里官方给过的职业（第3关变体 俞莲舟=防战 / 张松溪=远程），
-//      查不到的按战士计（中位口径），界面标注「职业按战士计」。
+//      查不到的主游戏本来就是随机四选一——榜里同样每场随机掷职业（randomRole），不按战士计。
 function roleFromEncounters(name) {
     const enc = getGameData()?.encounters || {};
     const lists = Object.values(enc.enemySquads || {});
@@ -102,7 +102,12 @@ function collectCands() {
             continue;
         }
         const inferred = role || roleFromEncounters(n);
-        out.push({ name: n, camp: c.camp, m: c.m || 0, role: inferred || '战士', note: inferred ? '' : '职业按战士计' });
+        out.push({
+            name: n, camp: c.camp, m: c.m || 0,
+            role: inferred || null,
+            randomRole: !inferred,
+            note: inferred ? '' : '职业随机（每场四选一）'
+        });
     }
     return out.sort((a, b) => b.m - a.m || a.name.localeCompare(b.name, 'zh'));
 }
@@ -154,12 +159,15 @@ function composeMany(skel, camp, members) {
 }
 
 // 换入被测：同职业优先，退到同站位类（前排/后排），再退末位
+//   无职业单位（randomRole）：站位固定末位，职业留给 worker 每场随机掷
 function compose(skel, camp, cand) {
     const arr = sanitize(skel, camp, cand.name);
-    let i = arr.findIndex(u => u.role === cand.role);
-    if (i < 0) i = arr.findIndex(u => front(u.role) === front(cand.role));
+    let i = cand.role ? arr.findIndex(u => u.role === cand.role) : -1;
+    if (i < 0 && cand.role) i = arr.findIndex(u => front(u.role) === front(cand.role));
     if (i < 0) i = arr.length - 1;
-    arr[i] = { name: cand.name, role: cand.role, pos: arr[i].pos };
+    arr[i] = cand.randomRole
+        ? { name: cand.name, role: null, randomRole: true, pos: arr[i].pos }
+        : { name: cand.name, role: cand.role, pos: arr[i].pos };
     return arr;
 }
 
@@ -364,7 +372,7 @@ function render(rows, meta) {
     rows.forEach((r, i) => {
         const bg = r.camp === '明教' ? 'rgba(255,215,0,.05)' : 'rgba(79,195,247,.05)';
         html += `<tr style="background:${bg}">`
-            + `<td>${i + 1}</td><td><b>${r.name}</b></td><td>${campTag(r)}</td><td>${r.m || '—'}</td><td>${r.role}</td>`
+            + `<td>${i + 1}</td><td><b>${r.name}</b></td><td>${campTag(r)}</td><td>${r.m || '—'}</td><td>${r.role || '随机'}</td>`
             + `<td style="color:${r.score >= 0 ? '#4caf50' : '#f44336'};font-weight:bold">${fmt(r.score)}</td>`
             + `<td style="color:#888">${fmt(r.lo)} ~ ${fmt(r.hi)}</td>`
             + `<td>${delta(r)}</td>`
@@ -382,7 +390,7 @@ function render(rows, meta) {
     resultEl.innerHTML = html;
 
     const L = [['#', '单位', '阵营', 'M', '职业', '强度分', 'lo', 'hi', 'Δ上次', '胜', '平', '负', '场次'].join('\t')];
-    rows.forEach((r, i) => L.push([i + 1, r.name, r.camp, r.m || '', r.role, r.score.toFixed(1), r.lo.toFixed(1), r.hi.toFixed(1),
+    rows.forEach((r, i) => L.push([i + 1, r.name, r.camp, r.m || '', r.role || '随机', r.score.toFixed(1), r.lo.toFixed(1), r.hi.toFixed(1),
         r.prev == null ? '' : (r.score - r.prev).toFixed(1), r.wins, r.draws, r.runs - r.wins - r.draws, r.runs].join('\t')));
     lastText = L.join('\n');
 }

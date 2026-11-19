@@ -783,6 +783,8 @@ function buildFromTemplate(specs, camp, rng) {
         const ch = getGameData().characters[baseName];
         if (!ch) throw new Error('未知角色: ' + s.name);
         let role = s.role;
+        // 无职业具名精英（素问/说不得等）：主游戏每场随机四选一，851 传 randomRole 让 worker 逐场掷
+        if (s.randomRole) role = CONFIG.ROLES[rng.nextInt(0, 3)];
         if (isXz && fz === 'brother') role = CONFIG.ROLES[rng.nextInt(0, 3)];
         const u = new Unit(baseName, ch.m, role, camp);
         applyHeroFlags(u);
@@ -811,18 +813,20 @@ function runTemplateABJob(job) {
         // clear 会清 force，每场都要在 clear 之后重设（同 runSoloEliteJob 口径）
         if (forceXiaoZhao) GlobalStore.set('forceXiaoZhao', forceXiaoZhao);
         const seed = 3000001 + (startIndex + i) * 7919;
+        const rng = new SeededRNG(seed);
         const bSpecs = bUnits.map(s => ({ ...s }));
         if (cand) {
+            // 无职业单位（role 为空）：每场随机四选一，换入位随掷出的职业走
+            const candRole = cand.role || CONFIG.ROLES[rng.nextInt(0, 3)];
             let k = cand.pos ? bSpecs.findIndex(s => s.pos === cand.pos) : -1;
-            if (k < 0) k = bSpecs.findIndex(s => s.role === cand.role);
+            if (k < 0) k = bSpecs.findIndex(s => s.role === candRole);
             if (k < 0) {
                 const front = r => r === '防战' || r === '战士';
-                k = bSpecs.findIndex(s => front(s.role) === front(cand.role));
+                k = bSpecs.findIndex(s => front(s.role) === front(candRole));
             }
             if (k < 0) k = bSpecs.length - 1;
-            bSpecs[k] = { name: cand.name, role: cand.role, pos: bSpecs[k].pos };
+            bSpecs[k] = { name: cand.name, role: candRole, pos: bSpecs[k].pos };
         }
-        const rng = new SeededRNG(seed);
         const ally = buildFromTemplate(bSpecs, CAMP_TYPES.ALLY, rng);
         const enemy = buildFromTemplate(aUnits, CAMP_TYPES.ENEMY, rng);
         setBattleRng(new SeededRNG(seed + 2));
