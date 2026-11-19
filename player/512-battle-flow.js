@@ -1,7 +1,8 @@
 // player/512-battle-flow.js — 回合间流程（选 Buff / 联网双向选 / 蝶变方向 / 蓄意轰拳瞄准窗口）
 // 全自动选 buff 的候选门槛必须与 modules/28 generateBuffChoices、tools 同口径：众志成城要求本阵营存活 <4 人。
 // permanent:true 的海克斯（背水/圣火）按 modules/329 createBuffObject 实现取 CONFIG.MAX_ROUND（35）：有限值、逐回合 -1，到期正好卡在 35 回合上限；显示文案为「整局」。
-export const VER = 'player/512-battle-flow.js V6.4.7';
+// V6.4.8 | 2026-11-19 张无忌专属：5 号位他在场时 carry 额外持续一回合
+export const VER = 'player/512-battle-flow.js V6.4.8';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -37,6 +38,11 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
     }
     
     if (newBuff) {
+        // 张无忌专属（2026-11-19 老板拍板）：他在 5 号位吃到 carry 时，默认额外持续一回合。
+        if (camp === CAMP_TYPES.ALLY && newBuff.key === BUFF_TYPES.CARRY && !newBuff.permanent) {
+            const zhang = ((c.UI && c.UI.allyTeam) || []).find(u => u.isZhang && u.alive && u.pos === 5);
+            if (zhang) newBuff.remaining = (newBuff.remaining || 0) + 1;
+        }
         nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
         recordUsedBuffKey(newBuff.key);
         appendLogHTML(`<span class="gold">✨ ${label}方获得Buff：${newBuff.name}（${newBuff.permanent ? '整局' : '持续' + newBuff.remaining + '回合'}）</span><br>`);
