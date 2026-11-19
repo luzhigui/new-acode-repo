@@ -25,12 +25,18 @@
         /* 2026-11-14：页签数增多（现 6 个），单行平分宽度导致文字全被截断成省略号；
            改为 flex + 自动换行，每个页签宽度随内容自适应，排不下自动换行 */
         .tab-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 5px; }
-        .tab-btn { flex: 1 1 calc(33.33% - 6px); min-width: 100px; padding: 10px 4px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; text-align: center; line-height: 1.4; }
+        .tab-btn { flex: 1 1 calc(25% - 6px); min-width: 100px; padding: 10px 4px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; text-align: center; line-height: 1.4; }
         .tab-btn:hover { background: #3a3a6e; color: #ddd; }
         .tab-btn.active { background: #ffd700; color: #1a1a2e; }
 
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        /* 2026-11-19 精英评级三合一：子页签（默认交叉积分赛 = 统一基准） */
+        .subtab-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .subtab-btn { padding: 7px 14px; border: 1px solid #3a3a5e; background: #1c1c2e; color: #aaa; border-radius: 8px; font-family: inherit; font-size: 12px; cursor: pointer; }
+        .subtab-btn.active { background: #ffd700; color: #1a1a2e; border-color: #ffd700; font-weight: bold; }
+        .subtab-panel { display: none; }
+        .subtab-panel.active { display: block; }
 
         button { cursor: pointer; font-family: monospace; }
         .status-text { text-align: center; color: #888; min-height: 20px; margin-top: 8px; }
@@ -251,9 +257,7 @@
         <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
         <button class="tab-btn" data-tab="tab-weak-elite">🐦 弱精英评测</button>
-        <button class="tab-btn" data-tab="tab-template-power">⚔ 模板战力</button>
-        <button class="tab-btn" data-tab="tab-cup-rank">🏆 交叉积分赛</button>
-        <button class="tab-btn" data-tab="tab-stage-elite">🎯 关卡精英评分</button>
+        <button class="tab-btn" data-tab="tab-elite-rating">⚔ 精英评级</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
@@ -502,7 +506,18 @@
 
     <!-- 2026-11-11 弱精英评测从「⚔️ 精英战力评测」页签拆出，独立成页签（算法/排版 1:1 照抄，实现在 846-weak-elite-eval.js）
          2026-11-11 V1.1.0：名单改为 M104/M100/M97 全档位具名单位（运行时从 game.characters 收集），跑批改 816 kind:'unitAB'（同种子直接 A/B） -->
-    <div class="tab-content" id="tab-cup-rank">
+    <!-- 2026-11-19 精英评价三合一入口（用户拍板：合并入口、算法一行不改）：
+         ① 交叉积分赛 = 统一基准（全员两两对打，可排序、无饱和）→ 默认页；
+         ② 模板战力 = 跨版本绝对刻度（打固定靶）；
+         ③ 关卡精英评分 = 七关真实场景分。
+         三个 panel 的元素 id 全部原样保留，848/849/850 脚本零改动。 -->
+    <div class="tab-content" id="tab-elite-rating">
+        <div class="subtab-bar">
+            <button class="subtab-btn active" data-sub="sub-cup">🏆 交叉积分赛 · 统一基准</button>
+            <button class="subtab-btn" data-sub="sub-template">⚔ 模板战力 · 跨版本刻度</button>
+            <button class="subtab-btn" data-sub="sub-stage">🎯 关卡精英评分 · 场景分</button>
+        </div>
+        <div class="subtab-panel active" id="sub-cup">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             交叉积分赛：明教每个被测单位 × 六大派每个被测单位两两对战（各配本方均衡骨架、同职业替换），每场胜 3 分 / 平 1 分 / 负 0 分，按总积分出两个阵营的排名。双海克斯。
         </p>
@@ -513,11 +528,11 @@
         </div>
         <div id="cupProgress" class="status-text"></div>
         <div id="cupResult"></div>
-    </div>
+        </div>
 
     <!-- 2026-11-14 关卡精英评分（850-stage-elite-panel.js）：固定明教骨架 vs 七关原生防守，
          明教精英榜（换进骨架）/ 六大派防守榜（换进该关防守），只统计明教胜率。 -->
-    <div class="tab-content" id="tab-stage-elite">
+        <div class="subtab-panel" id="sub-stage">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             固定两套明教普通兵阵容（队友永远同一批），被测明教精英按同职业换进骨架打七关；六大派精英按同职业换进该关原生防守（攻方固定为阵容 A + 寒离飒）。只统计明教胜率，越低＝防守越强。
         </p>
@@ -529,9 +544,9 @@
         </div>
         <div id="seProgress" class="status-text"></div>
         <div id="seResult"></div>
-    </div>
+        </div>
 
-    <div class="tab-content" id="tab-template-power">
+    <div class="subtab-panel" id="sub-template">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             模板战力：A 池 = 靶子阵容（弱/中/强，明教与六大派各一套），B 池 = 被测骨架。被测单位替换 B 队同职业位，逐套打 A，统计被测方胜率。双海克斯、双方各自独立随机。
         </p>
@@ -544,6 +559,7 @@
         <div id="tpProgress" class="status-text"></div>
         <div id="tpPools"></div>
         <div id="tpResult"></div>
+        </div>
     </div>
 
     <div class="tab-content" id="tab-weak-elite">
@@ -753,6 +769,23 @@
         import { loadGameData, loadHexEnhanceData } from '../core/201-config-5v5-test.js';
         loadGameData().catch(e => console.warn('游戏数据预加载失败（使用时各工具会重试）:', e));
         loadHexEnhanceData().catch(e => console.warn('海克斯强化数据(201)预加载失败（使用时各工具会重试）:', e));
+    </script>
+    <script>
+        // 2026-11-19 精英评级三合一：子页签切换（默认交叉积分赛 = 统一基准）。
+        //   848/849/850 三个 panel 的元素与 id 全部原样保留，只切显隐，算法零改动。
+        (function () {
+            var bar = document.querySelector('.subtab-bar');
+            if (!bar) return;
+            bar.addEventListener('click', function (e) {
+                var btn = e.target.closest('.subtab-btn');
+                if (!btn) return;
+                bar.querySelectorAll('.subtab-btn').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                document.querySelectorAll('.subtab-panel').forEach(function (p) { p.classList.remove('active'); });
+                var panel = document.getElementById(btn.dataset.sub);
+                if (panel) panel.classList.add('active');
+            });
+        })();
     </script>
     <script>
         // 页面更新时间戳：与 dev-index.html 同口径——读 GitHub 仓库最新提交时间（真值，一推代码就变），
