@@ -5,7 +5,7 @@
 // V1.1.0 | 2026-11-19 智取偷盾补提示（战报行 + 弹幕）。
 // V1.0.0 | 2026-11-18 张松溪「智取」：抢夺敌方新获护盾的一半。调用点：319 五处 + 216 九阳溢出转盾。
 
-import { applyStatChange, addMod, refreshMaxHp } from '../core/214-battle-shared.js';
+import { applyStatChange, addMod, refreshMaxHp, recordHpAudit } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 const STEALER_NAME = '张松溪';
@@ -74,11 +74,17 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     const eaten = { mate: 0, thief: 0, maxHpUp: 0 };
     if (mate) {
         eaten.mate = Math.min(pool, Math.max(0, Math.floor(mate.maxHp - mate.hp)));
-        if (eaten.mate > 0) applyStatChange(mate, 'hp', eaten.mate, null, '智取抢血', true, true);
+        if (eaten.mate > 0) {
+            applyStatChange(mate, 'hp', eaten.mate, thief, '智取抢血', true, true);   // 产出者=张松溪：抢来的血算张松溪的治疗产出（214 治疗记账口径）
+            recordHpAudit(mate, 'zhiQuHeal', eaten.mate, '智取抢血');
+        }
         pool -= eaten.mate;
     }
     eaten.thief = Math.min(pool, Math.max(0, Math.floor(thief.maxHp - thief.hp)));
-    if (eaten.thief > 0) applyStatChange(thief, 'hp', eaten.thief, null, '智取抢血', true, true);
+    if (eaten.thief > 0) {
+        applyStatChange(thief, 'hp', eaten.thief, thief, '智取抢血', true, true);
+        recordHpAudit(thief, 'zhiQuHeal', eaten.thief, '智取抢血');
+    }
     pool -= eaten.thief;
     if (pool > 0) {
         eaten.maxHpUp = Math.floor(pool / 2);
