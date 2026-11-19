@@ -403,7 +403,7 @@
         "duanChui": {
           "name": "断锤三式",
           "desc": "首次受到致死伤害时屹立不倒（保留 {keepHp} 点生命），并立即反手攻击攻击者一次；此后每次受伤最多只受 {cap} 点；形态期间免疫毒素与斩杀（白骨爪仍可逐爪造成 {cap} 点、可被连击磨死）；触发瞬间攻击力、防御力各减半（减掉的量分别记为 N、M），此后每次出手后攻击 +N、防御 +M、自身生命 -{selfCost}。",
-          "params": { "keepHp": 8, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5, "defHalfRatio": 0.5 }
+          "params": { "keepHp": 6, "cap": 1, "selfCost": 1, "atkHalfRatio": 0.5, "defHalfRatio": 0.5 }
         }
       }
     },
@@ -418,7 +418,7 @@
         "doubleFace": {
           "name": "双面观音",
           "desc": "每回合开始 {disguiseChance}% 概率（首回合 {openingChance}%）换女装上阵，持续 {duration} 回合；女装期间众人不忍下手（不会挨打），自身造成的伤害 ×{dmgBonus}。",
-          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 3, "dmgBonus": 1.5 }
+          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 2, "dmgBonus": 1.5 }
         }
       }
     },
@@ -466,13 +466,13 @@
           "camp": "enemy",
           "type": "healAllyOnHit",
           "healAmount": 15,
-          "overflowDefCap": 10
+          "overflowDefCap": 5
         }
       ],
       "skills": {
         "healAlly": {
           "name": "妙手回春",
-          "desc": "每次攻击或被攻击后，随机一名友方回复 15 点生命值；目标满血时，溢出的治疗量转为永久防御（每次最多 10 点）。"
+          "desc": "每次攻击或被攻击后，随机一名友方回复 15 点生命值；目标满血时，溢出的治疗量转为永久防御（每次最多 5 点）。"
         }
       }
     },

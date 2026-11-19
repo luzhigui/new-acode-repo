@@ -40,7 +40,7 @@ export function stealShieldHalf(unit, amount, A, B, ctx) {
     if (!unit || !(amount > 0)) return amount;
     const thief = findStealer(A, B);
     if (!thief || thief.camp === unit.camp) return amount;
-    const share = Math.floor(amount / 4);
+    const share = Math.floor(amount * 0.3);   // 抢夺比例 0.6：两份各 0.3，敌方实得 0.4（2026-11-19 用户拍板）
     if (share <= 0) return amount;
     thief.state._permShield = (thief.state._permShield || 0) + share;
     const mate = pickNeediestMate(thief, sideOf(thief, A, B));
@@ -67,7 +67,7 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     if (!target || !(nominal > 0)) return { kept: nominal, stolen: 0 };
     const thief = findStealer(A, B);
     if (!thief || thief.camp === target.camp) return { kept: nominal, stolen: 0 };
-    const share = Math.floor(nominal / 4);
+    const share = Math.floor(nominal * 0.3);   // 抢夺比例 0.6：两份各 0.3（2026-11-19 用户拍板）
     if (share <= 0) return { kept: nominal, stolen: 0 };
     const mate = pickNeediestMate(thief, sideOf(thief, A, B));
     let pool = share * 2;
@@ -87,7 +87,7 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     }
     pool -= eaten.thief;
     if (pool > 0) {
-        eaten.maxHpUp = Math.floor(pool / 2);
+        eaten.maxHpUp = pool;   // 溢出 100% 转生命上限（2026-11-19 用户拍板，原为一半）
         if (eaten.maxHpUp > 0) {
             addMod(thief, 'maxHp', { source: '智取', value: eaten.maxHpUp, ttl: 'permanent', group: 'zhiQu', op: 'add' });
             refreshMaxHp(thief, null, '智取溢出转上限');

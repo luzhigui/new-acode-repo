@@ -19,6 +19,9 @@ export const doubleFaceHandler = {
         const self = selfTeam.find(u => u.alive && u.name === decl.name);
         if (!self) return;
 
+        // 双面观音对这两位无效（2026-11-19 用户拍板）：她们无视女装，选中彭莹玉照常下手、不重定向
+        const IMMUNE_TARGETS = ['周芷若', '灭绝师太'];
+
         const params = getSkillParams(decl.name, 'doubleFace');
         if (!params) throw new Error(`缺技能参数: ${decl.name}.doubleFace`);
         const disguiseChance = params.disguiseChance;
@@ -102,6 +105,7 @@ export const doubleFaceHandler = {
                 if (!self.alive || self.state._crossdressRounds <= 0) return;
                 if (data.target !== self) return;
                 if (!data.unit || data.unit.camp === self.camp) return;
+                if (IMMUNE_TARGETS.includes(data.unit.name)) return;   // 周芷若/灭绝师太：不识女装，照常打她
                 const mates = (data.unit.camp === CAMP_TYPES.ALLY ? data.A : data.B)
                     .filter(u => u && u.alive && u.uid !== data.unit.uid && canBeTargeted(u))
                     .sort((a, b) => (a.pos == null ? 99 : a.pos) - (b.pos == null ? 99 : b.pos));
