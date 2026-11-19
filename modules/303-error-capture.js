@@ -1,6 +1,7 @@
 // modules/303-error-capture.js — 全局报错捕获、Bug 面板 UI 与切片数据生成
-// V6.6.3 | 2026-11-19 手机软键盘遮挡「保存」：overlay 跟随 visualViewport 收缩、底部按钮行 sticky 贴底。
-export const VER = 'modules/303-error-capture.js V6.6.3';
+// V6.6.4 | 2026-11-19 记录框瘦身：删顶部「手动新建」大按钮、三项提示并入 placeholder；
+//   面板打开时隐藏「倒针」悬浮入口（z-index 2.1 亿会浮在弹层上挡字）。
+export const VER = 'modules/303-error-capture.js V6.6.4';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -51,7 +52,9 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'body.dsh-log-pick #log > div{cursor:pointer;}' +
             /* 高亮：金色左边条 + 背景，只作用在被点中的那一行（box-shadow 不占布局） */
             'body.dsh-log-pick #log > div.dsh-log-anchor{background:rgba(255,215,0,.22)!important;box-shadow:inset 3px 0 0 #ffd700;}' +
-            'body.dsh-log-pick #log > div.dsh-log-anchor,body.dsh-log-pick #log > div.dsh-log-anchor *{color:#ffe9a8!important;}';
+            'body.dsh-log-pick #log > div.dsh-log-anchor,body.dsh-log-pick #log > div.dsh-log-anchor *{color:#ffe9a8!important;}' +
+            /* Bug 面板开着时压掉「倒针」悬浮入口：它 z-index 极高（2.1亿），会浮在弹层上面挡字 */
+            'body.dsh-bug-open #rewind-entry{display:none!important;}';
         document.head.appendChild(st);
     })();
     function setLogPickMode(on) {
@@ -457,6 +460,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                 el.remove();
             }
         });
+        document.body.classList.remove('dsh-bug-open');
         // 关面板 = 退出「在日志区翻找」的状态：日志滚回底部、0.5 倍速自动还原。
         //   否则点完锚点/保存后，日志还停在半路，必须手动点右下角下拉箭头才能恢复速度。
         try { const fn = GlobalStore.getUIHandler('scrollLogToBottom'); if (fn) fn(); } catch (e) {}
@@ -477,6 +481,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'box-shadow:0 8px 28px rgba(0,0,0,.7);position:relative;';
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+        document.body.classList.add('dsh-bug-open');
         // 手机软键盘弹出时 layout viewport 不变、只有 visualViewport 变矮：
         //   不跟着收缩，底部「保存」就被键盘盖住，必须先下滑才能点到。
         const vv = window.visualViewport;
@@ -540,16 +545,8 @@ import { GlobalStore } from '../infra/104-global-store.js';
         makeTitle(box, '🐞 记录 Bug');
         const titleRow = box.firstElementChild;      // 收缩成顶部一条时只留标题行
 
-        let manualMode = false;
-        const chips = new Map();       // uid -> { btn, name }
-
-        // 手动入口：程序自己没报错、但肉眼看出不对时，也能直接新建
-        const manualBtn = makeBtn('✚ 我发现了问题（手动新建）', false);
-        manualBtn.style.cssText +=
-            'width:100%;margin-bottom:10px;border-color:#d48a2a;color:#ffcf7a;background:#2a1a08;';
-        box.appendChild(manualBtn);
-
         const candidates = bugRecords.filter(r => r.type === 'error' || r.type === 'warn');
+        const chips = new Map();       // uid -> { btn, name }
 
         // 小标题 + 全选/全不选
         const sec = document.createElement('div');
@@ -573,7 +570,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const picks = [];
         if (!candidates.length) {
             const empty = document.createElement('div');
-            empty.textContent = '本次会话没有错误/告警，点「我发现了问题」直接写。';
+            empty.textContent = '本次会话没有错误/告警，直接在下面写问题描述即可。';
             empty.style.cssText = 'padding:12px;font-size:12px;color:#9a8a6a;text-align:center;';
             listBox.appendChild(empty);
         } else {
@@ -604,25 +601,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
         allBtn.onclick = () => picks.forEach(p => { p.input.checked = true; });
         noneBtn.onclick = () => picks.forEach(p => { p.input.checked = false; });
 
-        // 补充提示：切片只带数据，这三项只能人手写进描述（写清一条就少问一轮）
-        const noteHint = document.createElement('div');
-        noteHint.style.cssText =
-            'font-size:11px;line-height:1.6;color:#9c8a68;margin-bottom:8px;padding:7px 9px;' +
-            'border-left:2px solid #7a5c2e;background:#140f09;border-radius:0 6px 6px 0;';
-        noteHint.innerHTML =
-            '切片只带数据，下面三项请写进描述：<br>' +
-            '① <b>期望结果</b>：本来应该是……<br>' +
-            '② <b>操作路径</b>：第几回合、点了谁、放什么技能 / 选了哪个模式<br>' +
-            '③ <b>异常表现</b>：看到了什么，最好带数字（如“后排少林掉了 120 血”）';
-        box.appendChild(noteHint);
-
-        // 用户备注 / 手动问题描述
+        // 三项补充不占独立高度：直接放进输入框 placeholder（切片只有数据，这几项只能人写）
         const noteLabel = document.createElement('div');
         noteLabel.textContent = '我当时在干什么？（可不填）';
         noteLabel.style.cssText = 'font-size:12px;color:#cbb98f;margin-bottom:5px;';
         box.appendChild(noteLabel);
         const note = document.createElement('textarea');
-        note.placeholder = '例如：点了加速后，第 3 回合放技能时报错';
+        note.placeholder = '本来应该怎样 / 第几回合·点了谁·放什么技能·哪个模式 / 看到什么（带数字）';
         note.style.cssText =
             'width:100%;height:62px;box-sizing:border-box;resize:vertical;' +
             'background:#0e0a06;border:1px solid #5a4630;color:#f2e6c9;border-radius:8px;' +
@@ -753,15 +738,11 @@ import { GlobalStore } from '../infra/104-global-store.js';
             });
         };
 
-        manualBtn.onclick = () => {
-            manualMode = true;
-            noteLabel.textContent = '问题描述（手动记录，必填）';
-            note.placeholder = '一句话说清哪里不对，例如：张三丰放大招时特效没出来';
+        // 0 报错时就是纯手动记录：顺手把「关联单位」候选露出来（有报错时不占高度）
+        if (!candidates.length) {
             unitBar.style.display = 'block';
-            if (!chips.size) buildUnitChips();
-            status.textContent = '手动记录：写一句问题描述即可，0 报错也能存';
-            try { note.focus(); } catch (e) {}
-        };
+            buildUnitChips();
+        }
 
         // 附带详细数据
         const detailRow = document.createElement('label');
@@ -806,14 +787,14 @@ import { GlobalStore } from '../infra/104-global-store.js';
         saveBtn.onclick = () => {
             const selected = picks.filter(p => p.input.checked).map(p => p.rec);
             const noteVal = note.value.trim();
-            const mode = (manualMode || !selected.length) ? 'manual' : 'auto';
+            const mode = selected.length ? 'auto' : 'manual';
             if (mode === 'manual' && !noteVal) {
                 status.textContent = '请写一句问题描述（哪里不对、你本来期待什么）';
                 try { note.focus(); } catch (e) {}
                 return;
             }
             if (!selected.length && !noteVal) {
-                status.textContent = '至少勾一条错误，或者点「我发现了问题」写一句描述';
+                status.textContent = '至少勾一条错误，或者直接在下面写清问题';
                 return;
             }
             const unitNames = [];
@@ -943,7 +924,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
 
         if (!list.length) {
             const empty = document.createElement('div');
-            empty.textContent = '还没有记录。点「继续记录」，挑错误或点「我发现了问题」手动新建。';
+            empty.textContent = '还没有记录。点「继续记录」，勾一条错误或在描述里直接写问题。';
             empty.style.cssText = 'padding:18px;font-size:12px;color:#9a8a6a;text-align:center;';
             listBox.appendChild(empty);
         } else {
