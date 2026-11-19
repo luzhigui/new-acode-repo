@@ -569,7 +569,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (dmgResult.horseReboundDeclarations && dmgResult.horseReboundDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.horseReboundDeclarations);
     }
-    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs, log);
+    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs, log, enemySide);
     for (const decl of executedDecls) {
         if (decl._events && decl._events.length > 0) {
             if (!group._events) group._events = [];
@@ -617,7 +617,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         // 先处理攻盾等回合级状态授予（不参与八类结算）
         resolveRoundStatGrants(afterAttackData.declarations);
         // 再处理既有八类结算
-        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs, log);
+        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs, log, enemySide);
         // 先处理爪击链日志，确保宋青书回血日志最后出现
         for (const decl of clawExecuted) {
             if (decl._events && decl._events.length > 0) {

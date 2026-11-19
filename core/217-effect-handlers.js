@@ -6,6 +6,7 @@ import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recor
 import { flushBattleEvents, fmtHp } from '../infra/102-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { registerCalcModifier } from './222-registry-calc.js';
+import { stealHealHalf } from '../modules/341-common-shield-steal.js';   // 张松溪·智取抢血（与 216 同例，机制 helper 落 modules）
 
 const effectHandlers = new Map();
 
@@ -172,7 +173,10 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.source || !decl.source.alive) continue;
-        const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
+        const capped0 = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
+        // 智取抢血（张松溪，2026-11-19）：回血实落 0.5，张松溪与其 needy 队友各分 0.25（341 单点分配）
+        const zq = stealHealHalf(decl.source, capped0, ctx.allySide, ctx.enemySide, { log: ctx.log });
+        const capped = zq.kept;
         const hpBefore = decl.source.hp;
         if (capped > 0) {
             applyStatChange(decl.source, 'hp', capped, null, '回血');
@@ -195,6 +199,7 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
                 const mods = healModReasons(decl.source);
                 if (mods.length > 0) decl.factData.healMods = mods;
             }
+            delete decl.source.state._zhiQuNote;   // 智取后缀一次性，读后即清（防残留到下一次回血行）
         }
         // 审计账本：与 factData.heal 同源（同一个 actual 变量）。声明期只发预演的声明（core/216 九阳、
         //   modules/319 左拳九阳已改为声明只带 auditGroup/auditSource），记账统一收口到这里，
@@ -217,6 +222,7 @@ function healModReasons(unit) {
         mods.push(`点穴截脉（回复-${pct}%）`);
     }
     const xp = st._xuanmingPoison, hd = st._hlsHanDu, bd = st._bengHanDu;
+    if (st._zhiQuNote) mods.push(st._zhiQuNote);   // 智取抢血后缀（341 写入，本函数消费）
     const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
         || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
         || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);

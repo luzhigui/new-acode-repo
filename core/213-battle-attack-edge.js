@@ -71,8 +71,8 @@ export function resolveDamageImmune(declarations) {
     return immuneDecls[0];
 }
 
-// 攻击后效果结算
-export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs, log) {
+// 攻击后效果结算（enemySide 2026-11-19 补传：HEAL 结算里智取抢血需全集定位张松溪与队友）
+export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs, log, enemySide = null) {
     if (!declarations || declarations.length === 0) return [];
 
     const executed = [];
@@ -104,7 +104,8 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
             group,
             allySide,
             unitBuffs,
-            log
+            log,
+            enemySide
         });
         if (result && result.executed) executed.push(...result.executed);
     }

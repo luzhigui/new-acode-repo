@@ -1,35 +1,79 @@
-// modules/341-common-shield-steal.js — 武当张松溪·智取（普通兵机制）
-// 规则：敌方（明教）任一单位获得护盾时，该次护盾减半，另一半转给场上的张松溪（进永久护盾 _permShield）。
-// 说明：护盾写入点分散在 modules/319（寒离飒蓄力/九阳）与 core/216（通用九阳溢出）两处，
-//       这里提供统一入口，写入点各调用一次；取不到 A/B 时原样返回，不影响原逻辑。
-export const VER = 'modules/341-common-shield-steal.js V1.0.0';
+// V1.2.0 | 2026-11-19 智取二段分配 + 回血抢夺：
+//   1) 护盾：敌方获得 N → 实得 0.5N，张松溪 0.25N，其血量百分比最低的存活队友 0.25N（无队友则两份全归张松溪）；
+//   2) 回血：同口径（由 core/217 HEAL handler 调 stealHealHalf，213/209 补传 enemySide）；
+//   3) 图标 🧠 → 💡；偷取成功落「💡 智取」战报行 + 头顶弹幕（pushSkillAnnounce 通道，与吸星同路径）。
+// V1.1.0 | 2026-11-19 智取偷盾补提示（战报行 + 弹幕）。
+// V1.0.0 | 2026-11-18 张松溪「智取」：抢夺敌方新获护盾的一半。调用点：319 五处 + 216 九阳溢出转盾。
 
-import { CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { applyStatChange } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 const STEALER_NAME = '张松溪';
 
+function findStealer(A, B) {
+    return [...(A || []), ...(B || [])].find(u => u && u.alive && u.name === STEALER_NAME) || null;
+}
+
+// 张松溪同阵营中「血量百分比最低」的存活队友（不含张松溪、不含战马）；无队友返回 null
+function pickNeediestMate(thief, sideUnits) {
+    const mates = (sideUnits || []).filter(u => u && u.alive && u !== thief && !u.isHorse);
+    if (mates.length === 0) return null;
+    return mates.reduce((low, u) => (u.hp / u.maxHp < low.hp / low.maxHp ? u : low), mates[0]);
+}
+
+function announceZhiQu(log, thief, detail) {
+    if (!Array.isArray(log)) return;
+    pushSkillAnnounce(log, thief, '智取', `💡 智取：${detail}`, { floatText: '💡', floatUid: thief.uid });
+}
+
+// A/B 全集里张松溪所在阵营的存活成员列表
+function sideOf(thief, A, B) {
+    return [...(A || []), ...(B || [])].filter(u => u && u.alive && u.camp === thief.camp);
+}
+
 /**
- * @param {object} unit   获得护盾的单位
- * @param {number} amount 本次获得护盾的数值
- * @param {Array}  A      明教方队伍
- * @param {Array}  B      六大派方队伍
- * @param {object} [ctx]  可选 { log }：传了且偷成功时，落一条「智取」战报行 + 头顶弹幕
- * @returns {number} 实际留给 unit 的护盾值（被偷走的部分已转给张松溪）
+ * 护盾抢夺：unit 本要获得 amount 的护盾。
+ * 实得 amount - 2×share；share 各归张松溪与 needy（各自 _permShield += share）。
+ * @returns {number} 实际留给 unit 的护盾值
  */
 export function stealShieldHalf(unit, amount, A, B, ctx) {
     if (!unit || !(amount > 0)) return amount;
-    if (!Array.isArray(A) || !Array.isArray(B)) return amount;
-    const foes = unit.camp === CAMP_TYPES.ALLY ? B : A;
-    const thief = foes.find(u => u && u.alive && u.name === STEALER_NAME);
-    if (!thief) return amount;
-    const stolen = Math.floor(amount / 2);
-    if (stolen <= 0) return amount;
-    thief.state._permShield = (thief.state._permShield || 0) + stolen;
-    if (ctx && Array.isArray(ctx.log)) {
-        pushSkillAnnounce(ctx.log, thief, '智取',
-            `🧠 智取：张松溪 偷取 ${unit.name} 的护盾 ${stolen} 点（自身护盾 +${stolen}）`,
-            { floatText: '🧠', floatUid: thief.uid });
+    const thief = findStealer(A, B);
+    if (!thief || thief.camp === unit.camp) return amount;
+    const share = Math.floor(amount / 4);
+    if (share <= 0) return amount;
+    thief.state._permShield = (thief.state._permShield || 0) + share;
+    const mate = pickNeediestMate(thief, sideOf(thief, A, B));
+    let detail;
+    if (mate) {
+        mate.state._permShield = (mate.state._permShield || 0) + share;
+        detail = `抢取 ${unit.name} 的护盾 ${amount}（自得 ${share}，分给 ${mate.name} ${share}）`;
+    } else {
+        thief.state._permShield = (thief.state._permShield || 0) + share;
+        detail = `抢取 ${unit.name} 的护盾 ${amount}（无队友，${share * 2} 全并入自身）`;
     }
-    return amount - stolen;
+    announceZhiQu(ctx && ctx.log, thief, detail);
+    return amount - share * 2;
+}
+
+/**
+ * 回血抢夺：target 本要回复 nominal 点生命（已过抑疗、未夹上限）。
+ * 实落 nominal - stolen；抢走份额走 applyStatChange 直落（吃各自满血夹取与异常免疫）。
+ * @returns {{kept:number, stolen:number}} kept=实落值；stolen=抢走总额
+ */
+export function stealHealHalf(target, nominal, A, B, ctx) {
+    if (!target || !(nominal > 0)) return { kept: nominal, stolen: 0 };
+    const thief = findStealer(A, B);
+    if (!thief || thief.camp === target.camp) return { kept: nominal, stolen: 0 };
+    const share = Math.floor(nominal / 4);
+    if (share <= 0) return { kept: nominal, stolen: 0 };
+    const mate = pickNeediestMate(thief, sideOf(thief, A, B));
+    applyStatChange(thief, 'hp', share, null, '智取抢血', true, true);
+    if (mate) applyStatChange(mate, 'hp', share, null, '智取抢血', true, true);
+    else applyStatChange(thief, 'hp', share, null, '智取抢血', true, true);
+    const stolen = share * 2;
+    // 战报行自动带「智取（…，原 N）」后缀：healModReasons 读该临时字段（core/217 消费后清除）
+    target.state._zhiQuNote = `智取（张松溪抢 ${stolen}）`;
+    announceZhiQu(ctx && ctx.log, thief, `抢取 ${target.name} 的回血，实落 ${nominal - stolen}（抢走 ${stolen}）`);
+    return { kept: nominal - stolen, stolen };
 }
