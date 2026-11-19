@@ -154,8 +154,9 @@ export function createZhangWujiComponent() {
             // ═══════════════════════════════════════════════════════════
             // 张无忌专属 · 武学奇才（2026-11-13）：被攻击触发九阳回血 + 融会分支。
             //   ① 九阳回血 12%（不看是否满血）
-            //   ② 已学会融会（_zhangSwitched）：对攻击者追融会伤害——公式与现有融会同源
-            //      （目标攻+防）×0.5，走 BONUS_DMG declaration（飘字/落账与现有融会一致）
+            //   ② 已学会融会（_zhangSwitched）：对攻击者追融会伤害——公式与主动融会同源
+            //      calcRonghuiExtra：|目标攻 − 目标防| × CONFIG.ZHANG_RONGHUI_RATIO，
+            //      走 BONUS_DMG declaration（飘字/落账与现有融会一致）
             //   ③ 未学会：被挨打也算练武——nearAtkCount +1（加速学融会）+ 叠 1 层战士加成
             //   持续 3 回合由 buff remaining 控制，buff 不在场不触发。
             // ═══════════════════════════════════════════════════════════
