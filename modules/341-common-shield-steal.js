@@ -5,7 +5,7 @@
 // V1.1.0 | 2026-11-19 智取偷盾补提示（战报行 + 弹幕）。
 // V1.0.0 | 2026-11-18 张松溪「智取」：抢夺敌方新获护盾的一半。调用点：319 五处 + 216 九阳溢出转盾。
 
-import { applyStatChange } from '../core/214-battle-shared.js';
+import { applyStatChange, addMod, refreshMaxHp } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 const STEALER_NAME = '张松溪';
@@ -58,7 +58,9 @@ export function stealShieldHalf(unit, amount, A, B, ctx) {
 
 /**
  * 回血抢夺：target 本要回复 nominal 点生命（已过抑疗、未夹上限）。
- * 实落 nominal - stolen；抢走份额走 applyStatChange 直落（吃各自满血夹取与异常免疫）。
+ * 实落 nominal - stolen；抢走 2×share 进池，分配（2026-11-19 用户拍板）：
+ *   队友（血量百分比最低者）优先吃 → 张松溪吃剩余 → 都吃不下（满血）时溢出的一半永久转为张松溪生命上限。
+ * 份额吃满血夹取；溢出转上限走 addMod('maxHp') permanent。
  * @returns {{kept:number, stolen:number}} kept=实落值；stolen=抢走总额
  */
 export function stealHealHalf(target, nominal, A, B, ctx) {
@@ -68,12 +70,30 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     const share = Math.floor(nominal / 4);
     if (share <= 0) return { kept: nominal, stolen: 0 };
     const mate = pickNeediestMate(thief, sideOf(thief, A, B));
-    applyStatChange(thief, 'hp', share, null, '智取抢血', true, true);
-    if (mate) applyStatChange(mate, 'hp', share, null, '智取抢血', true, true);
-    else applyStatChange(thief, 'hp', share, null, '智取抢血', true, true);
+    let pool = share * 2;
+    const eaten = { mate: 0, thief: 0, maxHpUp: 0 };
+    if (mate) {
+        eaten.mate = Math.min(pool, Math.max(0, Math.floor(mate.maxHp - mate.hp)));
+        if (eaten.mate > 0) applyStatChange(mate, 'hp', eaten.mate, null, '智取抢血', true, true);
+        pool -= eaten.mate;
+    }
+    eaten.thief = Math.min(pool, Math.max(0, Math.floor(thief.maxHp - thief.hp)));
+    if (eaten.thief > 0) applyStatChange(thief, 'hp', eaten.thief, null, '智取抢血', true, true);
+    pool -= eaten.thief;
+    if (pool > 0) {
+        eaten.maxHpUp = Math.floor(pool / 2);
+        if (eaten.maxHpUp > 0) {
+            addMod(thief, 'maxHp', { source: '智取', value: eaten.maxHpUp, ttl: 'permanent', group: 'zhiQu', op: 'add' });
+            refreshMaxHp(thief, null, '智取溢出转上限');
+        }
+    }
     const stolen = share * 2;
+    const parts = [];
+    if (mate && eaten.mate > 0) parts.push(`${mate.name} 回血 ${eaten.mate}`);
+    if (eaten.thief > 0) parts.push(`张松溪 回血 ${eaten.thief}`);
+    if (eaten.maxHpUp > 0) parts.push(`溢出 ${pool} 的一半转生命上限 +${eaten.maxHpUp}`);
     // 战报行自动带「智取（…，原 N）」后缀：healModReasons 读该临时字段（core/217 消费后清除）
     target.state._zhiQuNote = `智取（张松溪抢 ${stolen}）`;
-    announceZhiQu(ctx && ctx.log, thief, `抢取 ${target.name} 的回血，实落 ${nominal - stolen}（抢走 ${stolen}）`);
+    announceZhiQu(ctx && ctx.log, thief, `抢取 ${target.name} 的回血 ${stolen}（${parts.join('；') || '无人可吃'}）`);
     return { kept: nominal - stolen, stolen };
 }
