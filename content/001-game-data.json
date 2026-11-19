@@ -698,7 +698,7 @@
         "butterflyAttach": {
           "name": "蝶变附身",
           "desc": "明教首次攻击前附身到4号位后最近队友：向右飞转移攻击的{atkRatioRight}%、向左飞转移防御的{defRatioLeft}%、血量转移{hpRatio}%",
-          "params": { "atkRatioRight": 0.4, "defRatioLeft": 0.4, "hpRatio": 0.4 }
+          "params": { "atkRatioRight": 0.35, "defRatioLeft": 0.35, "hpRatio": 0.35 }
         },
         "butterflyReturn": {
           "name": "蝶变飞回",
@@ -708,12 +708,12 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 1.6, "defToHeal": 0.12, "defToAtk": 0.03 }
+          "params": { "defToReduce": 1.45, "defToHeal": 0.10, "defToAtk": 0.025 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
           "desc": "张无忌在场且小昭为姊时，全队减伤{reducePct}%并反弹{reboundPct}%（无忌自伤{selfDmgPct}%）",
-          "params": { "reducePct": 0.4, "reboundPct": 0.3, "selfDmgPct": 0.1 }
+          "params": { "reducePct": 0.36, "reboundPct": 0.27, "selfDmgPct": 0.11 }
         },
         "spiderTransform": {
           "name": "蛛变",
