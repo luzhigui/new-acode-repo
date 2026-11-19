@@ -2,7 +2,8 @@
 // V6.9.5 | 2026-11-17 张无忌专属「快来护驾」召唤迁入本文件（原 modules/302-summonZhangRescue）：专属改走普通池后
 //   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
 //   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。
-export const VER = 'core/204-buff-system.js V6.9.7';
+// V6.9.8 | 2026-11-19 | fact 出口收口（T-EP-1）：召唤事实裸 log.push → pushFact
+export const VER = 'core/204-buff-system.js V6.9.8';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -18,7 +19,7 @@ import { findFreePos, spawnUnit } from './205-battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
-import { fmtNum } from '../infra/102-core-utils.js';
+import { fmtNum, pushFact } from '../infra/102-core-utils.js';
 const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, ctx) {
@@ -933,12 +934,10 @@ export function summonZhangRescue(team, log) {
     const role = ch.role || (ch.tags || []).find(t => ROLE_POOL.includes(t)) || ROLE_TYPES.WARRIOR;
     const unit = spawnUnit(team, finalName, ch.m, role, landPos);
     if (finalName === '小昭·姊' && team._flyDirection == null) team._flyDirection = 'right';
-    if (log) {
-        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: {
-            summonName: finalName, summonUid: unit.uid, pos: landPos,
-            byName: '张无忌', byUid: (team.find(u => u.isZhang) || {}).uid || null
-        } });
-    }
+    pushFact(log, FACT_TYPES.SUMMON_UNIT, {
+        summonName: finalName, summonUid: unit.uid, pos: landPos,
+        byName: '张无忌', byUid: (team.find(u => u.isZhang) || {}).uid || null
+    });
     return unit;
 }
 

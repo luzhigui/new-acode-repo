@@ -4,7 +4,8 @@
 //   妹在场回落 10/10 基础档——妹引擎自转不吃强化档燃料，姊的补偿定位不变。消融开关 noQianKunUpgrade 语义不变（姊在场时仍可关档）。
 // V6.4.4 | 2026-11-17 summonZhangRescue 迁出至 core/204-buff-system.js（专属改走普通池后召唤须在引擎回合开头执行，
 //   而 core 不许反向 import modules）。本文件原地保留指针注释，调用方改指 core/204 的 spawnZhangRescueIfNeeded。
-export const VER = 'modules/302-elite-skills.js V6.4.4';
+// V6.4.5 | 2026-11-19 | fact 出口收口（T-EP-1）：姊强化未生效 SKILL_ANNOUNCE 裸 log.push → pushFact
+export const VER = 'modules/302-elite-skills.js V6.4.5';
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { spawnUnit } from '../core/205-battle-horse.js';
@@ -17,7 +18,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerRoundHook } from '../core/208-registry-elite.js';
 import { registerDodgeRule, sealBaseDodgeRules } from '../core/221-registry-dodge.js';
-import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
+import { pushSkillAnnounce, findAlive, requireSkillParams, emitHpChange, pushFact } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 import { isControlled } from '../core/218-state-keys.js';
 
@@ -337,10 +338,10 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey, log) {
             //   camp 一律取队伍真值，无队伍回落 ALLY。
             const sis = Array.isArray(allyTeam) ? allyTeam.find(u => u && u.isXiaoZhaoSister) : null;
             const teamCamp = (Array.isArray(allyTeam) && allyTeam[0] && allyTeam[0].camp) || CAMP_TYPES.ALLY;
-            log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+            pushFact(log, FACT_TYPES.SKILL_ANNOUNCE, {
                 unitName: '小昭·姊', unitUid: (sis && sis.uid) || ('sisterHex:' + hexKey), camp: (sis && sis.camp) || teamCamp,
                 skillName: '海克斯增强', note: `🔎 姊强化未生效（${hexKey}）：${reason}`
-            } });
+            });
         }
         return null;
     };

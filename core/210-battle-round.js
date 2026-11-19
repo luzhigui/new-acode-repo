@@ -2,7 +2,8 @@
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
-export const VER = 'core/210-battle-round.js V6.3.44';
+// V6.3.45 | 2026-11-19 | fact 出口收口（T-EP-1）：圣火令·救援/打击两条事实裸 log.push → pushFact
+export const VER = 'core/210-battle-round.js V6.3.45';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -805,12 +806,10 @@ export function applyHexActive(A, B, target, mode, log) {
     if (mode === 'heal') {
         const heal = Math.floor(maxHp * 0.30);
         applyStatChange(target, 'hp', heal, null, '圣火令·救援');
-        if (log) {
-            log.push({ factType: FACT_TYPES.HEX_ACTIVE_HEAL, data: {
-                unitUid: target.uid, unitName: target.name, camp: target.camp,
-                heal, hpBefore, hpAfter: target.hp, maxHp
-            } });
-        }
+        pushFact(log, FACT_TYPES.HEX_ACTIVE_HEAL, {
+            unitUid: target.uid, unitName: target.name, camp: target.camp,
+            heal, hpBefore, hpAfter: target.hp, maxHp
+        });
         return true;
     }
     if (mode === 'dmg') {
@@ -820,12 +819,10 @@ export function applyHexActive(A, B, target, mode, log) {
         if (isExecute && target.hp > 0) {
             killUnit(target, null, '圣火令斩杀');
         }
-        if (log) {
-            log.push({ factType: FACT_TYPES.HEX_ACTIVE_DMG, data: {
-                unitUid: target.uid, unitName: target.name, camp: target.camp,
-                dmg, hpBefore, hpAfter: target.hp, maxHp, isExecute
-            } });
-        }
+        pushFact(log, FACT_TYPES.HEX_ACTIVE_DMG, {
+            unitUid: target.uid, unitName: target.name, camp: target.camp,
+            dmg, hpBefore, hpAfter: target.hp, maxHp, isExecute
+        });
         return true;
     }
     return false;

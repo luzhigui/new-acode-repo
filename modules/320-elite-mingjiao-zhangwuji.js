@@ -1,7 +1,8 @@
 // modules/320-elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
 // V1.3.0 | 2026-11-19 融会贯通改「攻防差」口径：新增 calcRonghuiExtra（|攻−防|×系数，唯一出口），
 //   武学奇才反伤与主动融会两处共用；攻防被拉平（张三丰太极归一）时差值归零。系数 0.5→0.8（core/201）。
-export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.0';
+// V1.3.1 | 2026-11-19 | fact 出口收口（T-EP-1）：武学奇才两条 SKILL_ANNOUNCE 裸 data.log.push → pushFact
+export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.1';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/203-battle-utils.js';
 import { getRoleBonus } from '../core/202-unit.js';
@@ -10,7 +11,7 @@ import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event
 import { StateMachine } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { hasBuff } from '../core/203-battle-utils.js';
-import { fmtNum } from '../infra/102-core-utils.js';
+import { fmtNum, pushFact } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { watchUnit } from '../core/220-unit-watch.js';
 // 融会贯通真伤公式（唯一出口，2026-11-19 改差值口径）：
@@ -179,11 +180,11 @@ export function createZhangWujiComponent() {
                         } else {
                             applyStatChange(attacker, 'hp', -extra, zhang, '融会贯通·反击');
                         }
-                        if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                        pushFact(data.log, FACT_TYPES.SKILL_ANNOUNCE, {
                             unitName: zhang.name, unitUid: zhang.uid, camp: zhang.camp,
                             skillName: '武学奇才', note: `⚡ 武学奇才：${zhang.name} 融会贯通反伤 ${attacker.name} ${fmtNum(extra)} 点`,
                             line: false, floatText: '⚡', floatUid: attacker.uid
-                        } });
+                        });
                     }
                 } else {
                     zhang.nearAtkCount = (zhang.nearAtkCount || 0) + 1;
@@ -192,11 +193,11 @@ export function createZhangWujiComponent() {
                     addMod(zhang, 'def', { source: '武学奇才', value: warriorBonus.def, ttl: 'permanent', group: 'zhangProdigy', op: 'add' });
                     addMod(zhang, 'maxHp', { source: '武学奇才', value: warriorBonus.maxHp, ttl: 'permanent', group: 'zhangProdigy', op: 'add' });
                     refreshMaxHp(zhang, null, '武学奇才');
-                    if (data.log) data.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                    pushFact(data.log, FACT_TYPES.SKILL_ANNOUNCE, {
                         unitName: zhang.name, unitUid: zhang.uid, camp: zhang.camp,
                         skillName: '武学奇才', note: `⚡ 武学奇才：${zhang.name} 被打不慌，融会渐悟 +1 层，战士加成 +1 层（攻+3/防+3/血+30）`,
                         line: false, floatText: '⚡', floatUid: zhang.uid
-                    } });
+                    });
                 }
             });
         },

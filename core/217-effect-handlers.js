@@ -1,9 +1,10 @@
 // core/217-effect-handlers.js — 伤害结算后的特效裁定器（回血、吸血、溅射、反伤等 Effect Handler）
-export const VER = 'core/217-effect-handlers.js V6.3.2';
+// V6.3.3 | 2026-11-19 | fact 出口收口（T-EP-1）：免疫斩杀两条 SKILL_ANNOUNCE 裸 ctx.log.push → pushFact
+export const VER = 'core/217-effect-handlers.js V6.3.3';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
-import { flushBattleEvents, fmtHp } from '../infra/102-core-utils.js';
+import { flushBattleEvents, fmtHp, pushFact } from '../infra/102-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { registerCalcModifier } from './222-registry-calc.js';
 import { stealHealHalf } from '../modules/341-common-shield-steal.js';   // 张松溪·智取抢血（与 216 同例，机制 helper 落 modules）
@@ -330,12 +331,12 @@ registerEffectHandler(EFFECT_TYPES.EXECUTE, (ctx) => {
         const execPayload = { target: decl.target, source: decl.source, cancelled: false, reason: '' };
         eventBus.emit(SIGNAL_TYPES.EXECUTE_APPLIED, execPayload);
         if (execPayload.cancelled) {
-            if (ctx.log && execPayload.reason) {
-                ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+            if (execPayload.reason) {
+                pushFact(ctx.log, FACT_TYPES.SKILL_ANNOUNCE, {
                     unitName: decl.target.name, unitUid: decl.target.uid, camp: decl.target.camp,
                     skillName: '免疫斩杀', note: execPayload.reason, line: false,
                     floatText: '🔨屹立不倒', floatUid: decl.target.uid
-                } });
+                });
             }
             decl._events = flushBattleEvents();
             executed.push(decl);
@@ -417,12 +418,12 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
             const execGuard = { target: chainTarget, source: chainSource, cancelled: false, reason: '' };
             eventBus.emit(SIGNAL_TYPES.EXECUTE_APPLIED, execGuard);
             if (execGuard.cancelled) {
-                if (ctx.log && execGuard.reason) {
-                    ctx.log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
+                if (execGuard.reason) {
+                    pushFact(ctx.log, FACT_TYPES.SKILL_ANNOUNCE, {
                         unitName: chainTarget.name, unitUid: chainTarget.uid, camp: chainTarget.camp,
                         skillName: '免疫斩杀', note: execGuard.reason, line: false,
                         floatText: '🔨屹立不倒', floatUid: chainTarget.uid
-                    } });
+                    });
                 }
                 decl.execute = null;   // 斩杀条目作废，由上面的飘字/报幕替代
                 decl._events = flushBattleEvents();

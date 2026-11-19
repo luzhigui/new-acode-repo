@@ -3,7 +3,8 @@
 //   全场真英雄生命均摊一次（各自封顶，装不下的作废）；buff 期间每次受张三丰治疗，其攻防拉平为
 //   (攻+防)/2 —— 攻防差归零，克制张无忌融会贯通（差值口径）。词条 ttl:'round' + 先清后挂，buff 到期即失效。
 //   （V6.27.5：蓄意抑疗可见 / 溢出按抑疗后额度算——更早版本见 记录-更改履历.md）
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.0';
+// V6.28.1 | 2026-11-19 | fact 出口收口（T-EP-1）：严阵以待 BUFF_SUMMARY 裸 data.log.push → pushFact
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.1';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange } from '../core/214-battle-shared.js';
 import { getBenefitTargets, canBeTargeted, hasBuff } from '../core/203-battle-utils.js';
@@ -11,7 +12,7 @@ import { EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
-import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
+import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams, pushFact } from './305-elite-helpers.js';
 import { grantCrazy, revokeCrazy } from './333-elite-mingjiao-crazy.js';
 import { healModReasons } from '../core/217-effect-handlers.js';
 // 张三丰（六大派·防战）：不攻击的续航核心
@@ -323,15 +324,10 @@ export function createZhangSanfengComponent() {
                 if (!zhangDefMods.some(m => m.group === 'fortify' && m.ttl === 'round')) {
                     addMod(zhang, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
                 }
-                if (data.log) {
-                    data.log.push({
-                        factType: FACT_TYPES.BUFF_SUMMARY,
-                        data: {
-                            buff: { key: BUFF_TYPES.FORTIFY, name: '严阵以待', remaining: Infinity },
-                            allyTeamUids: [zhang.uid]
-                        }
-                    });
-                }
+                pushFact(data.log, FACT_TYPES.BUFF_SUMMARY, {
+                    buff: { key: BUFF_TYPES.FORTIFY, name: '严阵以待', remaining: Infinity },
+                    allyTeamUids: [zhang.uid]
+                });
             });
 
             // 严阵以待反弹：仅张三丰自身（不走 camp buff 检查，故不受 core/12 那条影响）

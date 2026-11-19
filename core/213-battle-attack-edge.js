@@ -2,13 +2,14 @@
 // 归属判据：这些函数被「攻击链之外」的调用方单独使用（modules/26-tangwenliang 取 computeDodgeChance +
 //   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
 //   攻击链内部流转留在 212-battle-attack-chain.js，保持「一条攻击链一个文件」。
-export const VER = '213-battle-attack-edge.js V1.0.5';
+// V1.0.6 | 2026-11-19 | fact 出口收口（T-EP-1）：SUMMON_DEAD 事实裸 log.push → pushFact
+export const VER = '213-battle-attack-edge.js V1.0.6';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';
 import { getEffectHandler, hasEffectHandler, validateDeclarationFields } from './217-effect-handlers.js';
 import { emitEvent, killUnit, getStat } from './214-battle-shared.js';
-import { fmtHp } from '../infra/102-core-utils.js';
+import { fmtHp, pushFact } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { isControlled } from './218-state-keys.js';
@@ -155,10 +156,10 @@ export function resolveDeaths(allySide, enemySide, log) {
             } });
             // 召唤物阵亡显式事实：此前只能从 ATTACK 的 dmgResult.dead 反推，被 DOT / 替死 / 非攻击来源打到归零时看不见
             if (u.isSummon) {
-                log.push({ factType: FACT_TYPES.SUMMON_DEAD, data: {
+                pushFact(log, FACT_TYPES.SUMMON_DEAD, {
                     summonUid: u.uid, summonName: u.name, camp: u.camp, pos: u.pos,
                     cause: '死亡结算', hpBefore, hpAfter: u.hp
-                } });
+                });
             }
         }
         died.push(u);
