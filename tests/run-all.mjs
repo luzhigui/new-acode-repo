@@ -594,6 +594,7 @@ const OBSERVES = [
     { name: '强制开关登记漂移守门', script: 'tests/force-switch-registry-drift-guard.mjs', args: [] },
     { name: '语义陈旧引用扫描', script: 'tests/semantic-stale-ref-scan.mjs', args: [] },
     { name: '看板 open 计数守门', script: 'tests/board-state-count-guard.mjs', args: [] },
+    { name: '看板 open 数自动补格', script: 'tests/board-open-seed-guard.mjs', args: [] },
     // V1.36.0 | 2026-11-05 迭代：补编排器漏接的三件真·node 自检（详见头顶 V1.36.0 日志行）。
     //   三者纯 node、exit=0、不依赖浏览器；挂观察项不改分母，是否升 CHECKS 开红待拍板。
     { name: 'fact 覆盖交叉自检', script: 'tests/fact-coverage-selftest.mjs', args: [] },
