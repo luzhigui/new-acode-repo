@@ -4,7 +4,7 @@
 //     点「继续」（PAUSED→RUNNING 或 waitingForNextRound→RUNNING）→ onContinueForHex → 飞入中央
 //     拖动中央 slot → 落红血单位 → 本地预演 + submitHexAction 入队 → 下一 makeStep 引擎消费
 //   状态机：idle → pending → centered → dragging → used
-export const VER = 'ui/723-hex-active.js V1.0.2';
+export const VER = 'ui/723-hex-active.js V1.1.0';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { submitHexAction } from '../core/210-battle-round.js';
@@ -17,6 +17,7 @@ let dragging = false;
 let hoverCell = null;
 let slotCenter = { x: 0, y: 0 };
 let _flyingIn = false;
+let _flyingBack = false;           // 「继续」后飞回动画进行中
 
 const $ = (id) => document.getElementById(id);
 
@@ -51,7 +52,9 @@ export function onContinueForHex() {
 }
 
 function triggerFlyIn() {
-    if (hexState !== 'pending' || _flyingIn) return;
+    if (hexState !== 'pending' || _flyingIn || _flyingBack) return;
+    // 暂停态门禁：只有 PAUSED 才允许飞入（防运行中点待用图标/其他路径误触发）
+    if (GlobalStore.get('gs') !== 'PAUSED') return;
     _flyingIn = true;
 
     const p = $('hexPending');
@@ -109,6 +112,8 @@ function triggerFlyIn() {
 // ═══ 拖动 ═══
 function onDown(e) {
     if (hexState !== 'centered') return;
+    // 暂停态门禁：恢复运行后 slot 会被飞回逻辑收走，这里再挡一层
+    if (GlobalStore.get('gs') !== 'PAUSED') return;
     e.preventDefault();
     dragging = true;
     hexState = 'dragging';
@@ -283,6 +288,11 @@ function applyEffect(cell, mode) {
     // 引擎队列
     submitHexAction(uid, mode);
 
+    // 日志立即留痕（引擎会在下一步开头消费，治疗/伤害作为独立动作组先播）
+    pushLogTip(mode === 'heal'
+        ? `🔥 圣火令 → ${u.name}（继续播放时结算）`
+        : `🔥 圣火令 → ${u.name}（继续播放时结算）`);
+
     // 本局已用：slot 消失
     hexState = 'used';
     const slot = $('hexSlot');
@@ -317,7 +327,7 @@ function showToast(msg, ms) {
     _tTimer = setTimeout(() => { el.style.opacity = '0'; }, ms || 1500);
 }
 
-// ═══ 跨局重置 ═══
+// ═══ 跨局重置 + 继续后飞回 ═══
 GlobalStore.on('gs', (v) => {
     if (v === 'IDLE') {
         hexState = 'idle';
@@ -325,8 +335,70 @@ GlobalStore.on('gs', (v) => {
         const p = $('hexPending'); if (p) p.classList.remove('visible');
         const s = $('hexSlot'); if (s) { s.classList.remove('visible', 'landing', 'dragging'); s.style.cssText = ''; }
         const tip = $('hexTip'); if (tip) tip.className = '';
+        return;
     }
+    // 恢复运行（PAUSED→RUNNING）：中央 slot 飞回右下角待用图标
+    if (v === 'RUNNING') flyBackIfCentered();
 });
+
+function flyBackIfCentered() {
+    if (hexState !== 'centered' && hexState !== 'dragging') return;
+    if (_flyingBack) return;
+
+    // 拖拽中先收尾（恢复监听/特效/ghost）
+    if (dragging) {
+        dragging = false;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        stopFlowDots();
+        clearHover();
+        hoverCell = null;
+        const g = $('hexGhost'); if (g) g.classList.remove('visible');
+        const l = $('hexLinkSvg'); if (l) l.classList.remove('visible');
+        const t = $('hexTip'); if (t) t.className = '';
+        const ds = $('hexSlot'); if (ds) ds.classList.remove('dragging');
+        hexState = 'centered';
+    }
+
+    const p = $('hexPending');
+    const s = $('hexSlot');
+    const bf = $('battlefield');
+    if (!p || !s || !bf) { hexState = 'pending'; return; }
+    _flyingBack = true;
+    hexState = 'pending';               // 先归位，飞行只是动画
+
+    const br = bf.getBoundingClientRect();
+    const sr = s.getBoundingClientRect();
+    const pr = p.getBoundingClientRect();
+    const sx = sr.left + sr.width / 2 - br.left;
+    const sy = sr.top + sr.height / 2 - br.top;
+    const tx = pr.left + pr.width / 2 - br.left;
+    const ty = pr.top + pr.height / 2 - br.top;
+    s.classList.remove('visible', 'landing');
+
+    const fly = document.createElement('div');
+    fly.id = 'hexFlyBack';
+    fly.textContent = '🔥';
+    fly.style.cssText = `position:absolute;left:${sx - 24}px;top:${sy - 24}px;width:48px;height:48px;
+        display:flex;align-items:center;justify-content:center;font-size:30px;
+        border-radius:50%;background:rgba(30,18,6,0.95);border:2px solid #ff9a2e;
+        box-shadow:0 0 24px rgba(255,140,30,0.7);pointer-events:none;z-index:52;
+        transition:left .5s cubic-bezier(.3,.9,.4,1),top .5s cubic-bezier(.3,.9,.4,1),
+        transform .5s,opacity .5s;`;
+    bf.appendChild(fly);
+    requestAnimationFrame(() => {
+        fly.style.left = (tx - 24) + 'px';
+        fly.style.top = (ty - 24) + 'px';
+        fly.style.transform = 'scale(0.5)';
+        fly.style.opacity = '0.2';
+    });
+    setTimeout(() => {
+        fly.remove();
+        p.classList.add('visible');
+        _flyingBack = false;
+    }, 520);
+}
 
 // ═══ UIHandler 注册 ═══
 GlobalStore.setUIHandler('onHolyTokenDrop', onHolyTokenDrop);
