@@ -6,7 +6,7 @@ import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra
 import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-export const VER = 'render/407-facts-attack.js V1.5.13';
+export const VER = 'render/407-facts-attack.js V1.5.14';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -364,7 +364,8 @@ export function renderHexActiveDmgFact(fact) {
         text: `<span class="red">🔥 圣火令·打击：${fact.unitName} 受到 ${fmtNum(fact.dmg)} 点真实伤害（${fmtHpText(fact.hpBefore)} → ${fmtHpText(fact.hpAfter)}）${execTag}</span>`,
         fx: [{ kind: 'dmg', amount: fact.dmg }],
         uidD: fact.unitUid,
-        isDead: fact.isExecute && fact.hpAfter <= 0
+        isDead: fact.isExecute && fact.hpAfter <= 0,
+        needsSeparator: true          // 圣火令主动技独立成组（2026-11-19）：不与前面那次攻击挤在一组
     };
 }
 registerFactRenderer(FACT_TYPES.HEX_ACTIVE_DMG, renderHexActiveDmgFact);

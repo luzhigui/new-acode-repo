@@ -4,7 +4,7 @@
 //     点「继续」（PAUSED→RUNNING 或 waitingForNextRound→RUNNING）→ onContinueForHex → 飞入中央
 //     拖动中央 slot → 落红血单位 → 本地预演 + submitHexAction 入队 → 下一 makeStep 引擎消费
 //   状态机：idle → pending → centered → dragging → used
-export const VER = 'ui/723-hex-active.js V1.1.0';
+export const VER = 'ui/723-hex-active.js V1.1.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { submitHexAction } from '../core/210-battle-round.js';
@@ -288,10 +288,8 @@ function applyEffect(cell, mode) {
     // 引擎队列
     submitHexAction(uid, mode);
 
-    // 日志立即留痕（引擎会在下一步开头消费，治疗/伤害作为独立动作组先播）
-    pushLogTip(mode === 'heal'
-        ? `🔥 圣火令 → ${u.name}（继续播放时结算）`
-        : `🔥 圣火令 → ${u.name}（继续播放时结算）`);
+    // 2026-11-19 老板拍板：撤掉这里立即写日志的做法——那行会插进当前攻击组中间；
+    //   引擎消费时会产出 HEX_ACTIVE_* fact（已标 needsSeparator），继续播放后自成一组。
 
     // 本局已用：slot 消失
     hexState = 'used';

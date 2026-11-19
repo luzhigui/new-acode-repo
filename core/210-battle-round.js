@@ -2,7 +2,7 @@
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
-export const VER = 'core/210-battle-round.js V6.3.43';
+export const VER = 'core/210-battle-round.js V6.3.44';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -707,6 +707,11 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         const eSpec = getStateTransitionSpec(decl.type);
         if (eSpec && eSpec.deferred) eSpec.dispatch(roundComps, decl, A, B, log);
     }
+
+    // 圣火令主动（2026-11-19 老板拍板）：暂停中提交的动作必须在「回合结束」之前结算。
+    //   旧版只在 makeStep 开头消费，回合最后一手之后才提交的令会被塞进回合结束之后，看起来像「用了令反而先结束回合」。
+    consumeHexActions(A, B, log);
+    resolveDeaths(A, B, log);
 
     const { winner, done, endEvents } = finalizeRoundEnd(A, B, { log, round });
     yield makeStep(log, endEvents, winner, done);

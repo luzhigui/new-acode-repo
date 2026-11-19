@@ -2,7 +2,7 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/410-facts-heal.js V1.2.4';
+export const VER = 'render/410-facts-heal.js V1.2.5';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeHealRenderer, healDisplay } from './413-generic-renderers.js';
@@ -165,7 +165,13 @@ registerFactRenderer(FACT_TYPES.ENDLESS_BREATH, renderEndlessBreathFact);
 registerFactRenderer(FACT_TYPES.CLAW_HEAL, renderClawHealFact);
 
 // 圣火令·救援（2026-11-13）：走通用工厂，与其它回血同构
-export const renderHexActiveHealFact = makeHealRenderer({
+// 独立成组（2026-11-19 老板拍板）：主动技不与前面那次攻击挤在同一组
+const _renderHexActiveHeal = makeHealRenderer({
     icon: '🔥', label: '圣火令·救援', mode: 'plusTrail', anchorVerb: '恢复'
 });
+export function renderHexActiveHealFact(fact) {
+    const e = _renderHexActiveHeal(fact);
+    if (e && !Array.isArray(e)) e.needsSeparator = true;
+    return e;
+}
 registerFactRenderer(FACT_TYPES.HEX_ACTIVE_HEAL, renderHexActiveHealFact);
