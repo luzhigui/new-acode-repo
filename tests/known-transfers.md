@@ -419,3 +419,33 @@
 
 - **处置**：本条**不计入退出码**（转交中 ≠ 体检坏）；主代码落地后划掉本条并复跑 `node tests/main-number-guard.mjs` 与 `node tests/comment-ref-scan.mjs` 确认仍绿。
 
+- **★ 入口路径强制守门判红：8 处新增裸写 `log.push({factType,data})` 绕过公共出口**（主代码，红线不碰）
+
+  干净树 `dacc1ee7` 实测 `node tests/entry-path-guard.mjs --enforce` → 「❌ 新增违规 8 项（--enforce 判红）」「RESULT: FAIL（新增 8 / 已还清 1 / 存量 156）」EXIT=1；这 8 处**已提交进 main**（干净树与脏树同数，不是并行 WIP）。
+
+  ```
+  ===== START 转交块 T-EP-1（11 处裸写 fact.push → 公共出口 pushFact）=====
+  改法：逐处把 log.push({ factType: F, data: D }) 换成 pushFact(log, F, D)；ctx.log / data.log 同理（第一个参数就是那个 log）。
+  payload 一个字不动；「if (log) log.push(...)」那几处去掉 if —— pushFact 内部已判空（infra/102-core-utils.js:107 `if (!log) return;`）。
+  import：core/204·209·210·213·217 从 '../infra/102-core-utils.js' 引 pushFact；modules/302·311·320 从 './305-elite-helpers.js' 引（305 转口 `export { emitHpChange, pushFact }`）。
+  行号按 dacc1ee7：
+    core/204-buff-system.js L933                  → pushFact(log, FACT_TYPES.SUMMON_UNIT, { … })
+    core/209-battle-attack.js L467                 → pushFact(log, FACT_TYPES.IMMUNE, immuneFact);
+    core/210-battle-round.js L804                  → pushFact(log, FACT_TYPES.HEX_ACTIVE_HEAL, { … })
+    core/210-battle-round.js L819                  → pushFact(log, FACT_TYPES.HEX_ACTIVE_DMG, { … })
+    core/213-battle-attack-edge.js L158            → pushFact(log, FACT_TYPES.SUMMON_DEAD, { … })
+    core/217-effect-handlers.js L333               → pushFact(ctx.log, FACT_TYPES.SKILL_ANNOUNCE, { … })
+    core/217-effect-handlers.js L420               → pushFact(ctx.log, FACT_TYPES.SKILL_ANNOUNCE, { … })
+    modules/302-elite-skills.js L340               → pushFact(log, FACT_TYPES.SKILL_ANNOUNCE, { … })
+    modules/311-elite-sixsects-zhangsanfeng.js L252 → pushFact(data.log, FACT_TYPES.BUFF_SUMMARY, { … });
+    modules/320-elite-mingjiao-zhangwuji.js L171    → pushFact(data.log, FACT_TYPES.SKILL_ANNOUNCE, { … });
+    modules/320-elite-mingjiao-zhangwuji.js L184    → pushFact(data.log, FACT_TYPES.SKILL_ANNOUNCE, { … });
+  怎么验：
+    1) node tests/entry-path-guard.mjs --enforce → 「新增违规 0 项」（存量 156 属历史欠账，另走 --update-baseline 分批收缩，别一步洗掉）
+    2) node tests/run-all.mjs --jobs 4 → 「入口路径强制」项由 ❌ 转 ✅，总红项不增加
+    3) node tests/rules-replay.mjs → 失败规则数与改前一致（pushFact 与裸写逐字同义，不应改变任何结论）
+  ===== END 转交块 T-EP-1 =====
+  ```
+
+- **处置**：本条**不计入退出码**（转交中 ≠ 体检坏）；主代码落地后划掉本条并复跑上面 3 条命令确认仍绿。
+
