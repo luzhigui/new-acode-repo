@@ -3,7 +3,10 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.12.0';
+export const VER = 'tools/812-elite-eval.js V3.13.0';
+// V3.13.0 | 2026-11-19 Boss（张无忌 M115）不再单独一张表，并进「⚔ 强精英」同一张表一起评：
+//   812 的 Boss 按钮/进度/结果容器移除，快照只存 solo（含张无忌）；旧快照里的 parts.boss 仍由 826 照读，
+//   826 判读时「没有 boss 分表就从 solo 表里抽张无忌」。
 // V3.12.0 | 2026-11-15 修「打开页面自动载入上次结果失败：Cannot access 'SOLO_NOTE' before initialization」：
 //   SOLO_NOTE / BOSS_NOTE 定义在 applySnap 之后，而 autoRestoreLatest 在模块顶层立即执行并调 applySnap，
 //   任何含 solo/boss 表的历史快照都会撞 const TDZ，被 try/catch 吞掉显示「上次结果载入失败」。
@@ -40,9 +43,9 @@ const enemyHexOn = () => !!(document.getElementById('eliteEnemyHex') && document
 
 // 名单统一由 827-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
+// 2026-11-19 老板拍板：Boss（张无忌 M115）不再单独一张表，并进「强精英」同一张表一起评
 const configs = NATURAL_ELITES.map(name => ({ name }));
-const SOLO_ELITES = SOLO_ELITE_NAMES.map(name => ({ name }));
-const BOSS_ELITES = BOSS_ELITE_NAMES.map(name => ({ name }));
+const SOLO_ALL = [...SOLO_ELITE_NAMES, ...BOSS_ELITE_NAMES].map(name => ({ name }));
 const VARIANTS = ENEMY_VARIANTS;
 // 拆行口径（V3.4.0）：content 里只有第 3 关配了 squadVariants，所以「关卡变体」只属于第 3 关。
 //   其它关出现的同名精英来自六大派额外混入（M107/M100 档）或关卡固定阵容，不属于变体，不单列成行。
@@ -87,13 +90,10 @@ const resultEl = document.getElementById('eliteResult');
 const soloBtn = document.getElementById('eliteSoloBtn');       // 2026-10-08 单英雄胜率（强精英）
 const soloProgressEl = document.getElementById('eliteSoloProgress');
 const soloResultEl = document.getElementById('eliteSoloResult');
-const bossBtn = document.getElementById('eliteBossBtn');       // 2026-10-21 Boss·张无忌（M115）
-const bossProgressEl = document.getElementById('eliteBossProgress');
-const bossResultEl = document.getElementById('eliteBossResult');
 const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
 const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
 const noEliteResultEl = document.getElementById('eliteNoEliteResult');
-const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/Boss/无精英）专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
+const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/无精英）专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
 
 const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
@@ -104,15 +104,14 @@ const TABLE_LABEL = { elite: '主表·自然出场', solo: '强精英', boss: 'B
 // 表头说明（定义在 applySnap 之前：autoRestoreLatest 在模块顶层立即执行，若定义靠后，
 //   const 尚在 TDZ，任何含 solo/boss 的历史快照都会触发 Cannot access 'SOLO_NOTE' before initialization，
 //   被 try/catch 吞掉显示「上次结果载入失败」。2026-11-15 上移修复）
-const SOLO_NOTE = '强精英单挑 = force 该精英单核（抑制随机轮盘、海克斯开、胜=明教）。与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。';
-const BOSS_NOTE = 'Boss·张无忌 = force 张无忌单核（M115 boss 档、抑制随机轮盘、海克斯开、胜=明教）。单独一表，避免与 M107 强精英混在同一把尺子上比较。';
+const SOLO_NOTE = '强精英单挑 = force 该精英单核（抑制随机轮盘、海克斯开、胜=明教），含 Boss·张无忌（M115）。与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。';
 const snapSelect = document.getElementById('eliteSnapSelect');
 const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
 const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
 const snapDropBtn = document.getElementById('eliteDropSnapBtn');
 const snapStatusEl = document.getElementById('eliteSnapStatus');
 // 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage, ts, seed, ver }
-let latest = { elite: null, solo: null, boss: null, none: null };
+let latest = { elite: null, solo: null, none: null };
 
 // V3.5.0 批次元数据：每张表各自记完成时间 / 种子 / 版本，不再由快照统一盖一个 ts
 const TOOL_VER = VER.replace(/^tools\/812-elite-eval\.js\s*/, '');
@@ -203,7 +202,7 @@ function saveSnap(keys) {
 }
 
 snapSaveBtn.addEventListener('click', () => {
-    snapStatusEl.textContent = saveSnap(['elite', 'solo', 'boss', 'none']).msg;
+    snapStatusEl.textContent = saveSnap(['elite', 'solo', 'none']).msg;
 });
 
 // 载入一条快照到页面（按钮和「打开页面自动恢复」共用）
@@ -214,8 +213,8 @@ function applySnap(rec, auto) {
     const label = snapLabel(rec) + (snapVerMixed(rec) ? '｜⚠️版本不一致，跨版本胜率不能直接比' : '');
     let loaded = 0;
     if (p.elite) { latest.elite = p.elite; renderResults(p.elite.byStage, p.elite.stages); progressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
-    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ELITES, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
-    if (p.boss) { latest.boss = p.boss; renderSoloResults(p.boss.byStage, p.boss.stages, BOSS_ELITES, bossResultEl, BOSS_NOTE, p.boss); bossProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
+    // p.boss 是旧快照的 Boss 分表：已并入强精英（V3.13.0），页面不再单独渲染；826 判读仍会读它
+    if (p.solo) { latest.solo = p.solo; renderSoloResults(p.solo.byStage, p.solo.stages, SOLO_ALL, soloResultEl, SOLO_NOTE, p.solo); soloProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
     if (p.none) { latest.none = p.none; renderNoEliteResults(p.none.byStage, p.none.stages); noEliteProgressEl.textContent = `${auto ? '📂 上次结果' : '📂 已载入历史快照'} ${label}`; loaded++; }
     // V3.9.0：旧快照里可能带 parts.weak（弱精英已拆到 846），这里直接跳过，不报错
     snapStatusEl.textContent = auto ? `📂 已自动显示上次结果 ${label}（想刷新就重新跑）` : `📂 已载入 ${label}`;
@@ -397,11 +396,8 @@ async function runSoloGroup(list, ui) {
     }
 }
 
-soloBtn.addEventListener('click', () => runSoloGroup(SOLO_ELITES, {
+soloBtn.addEventListener('click', () => runSoloGroup(SOLO_ALL, {
     btn: soloBtn, progressEl: soloProgressEl, resultEl: soloResultEl, key: 'solo', title: '强精英', note: SOLO_NOTE
-}));
-bossBtn.addEventListener('click', () => runSoloGroup(BOSS_ELITES, {
-    btn: bossBtn, progressEl: bossProgressEl, resultEl: bossResultEl, key: 'boss', title: 'Boss', note: BOSS_NOTE
 }));
 
 function renderSoloResults(byStage, stages, list, resultEl, note, meta) {

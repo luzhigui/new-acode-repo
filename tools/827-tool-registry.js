@@ -5,7 +5,7 @@
 // ── 覆盖边界声明（主代码 registerElite 共 20 个精英，本文件精选覆盖）──
 //   明教自然核心(6，NATURAL_ELITES + ELITE_UNIT_META)：张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒
 //   强精英单挑(5，SOLO_ELITES)：韦一笑 / 小昭·姊 / 小昭·妹 / 金毛狮王谢逊 / 寒离飒
-//   Boss(1，BOSS_ELITES)：张无忌
+//   Boss(1，BOSS_ELITES)：张无忌 —— 2026-11-19 起并进 112「强精英」同一张表一起评（BOSS_ELITES 仍单独导出给 826 判读用）
 //   弱精英(5，WEAK_ELITES + WEAK_UNIT_FLAG)：杨逍(ally) / 殷天正(ally) / 何太冲(enemy) / 唐文亮(enemy) / 空见(enemy)
 //   敌方阵容变体(ENEMY_VARIANTS)：胖远桥 / 宋青书 / 标准（基线）
 //   —— 以下为「设计性不单列」，非遗漏：

@@ -347,7 +347,7 @@ function hexIssues(mode) {
 /* ========== 规则三：精英过强/过弱（读 112 快照，按各表理想线/Δ 判） ========== */
 function eliteIssues() {
     const snaps = readJSON(SNAP_KEY, []);
-    if (!snaps.length) return { missing: '精英评测还没有快照 —— 到精英评测页跑「主表·自然出场」「强精英」「Boss·张无忌」「无精英」和「弱精英」，跑完自动存盘（也可点「💾 存结果」），本工具才有数据可判。' };
+    if (!snaps.length) return { missing: '精英评测还没有快照 —— 到精英评测页跑「主表·自然出场」「强精英（含Boss·张无忌）」「无精英」和「弱精英」，跑完自动存盘（也可点「💾 存结果」），本工具才有数据可判。' };
     // 112 自动存是「一张表一条」，单条常缺表；从新到旧合并，按表类型取最近一条含该表的快照
     const WANT = ['elite', 'solo', 'boss', 'none', 'weak'];
     const LABEL = { elite: '主表', solo: '强精英', boss: 'Boss', none: '无精英', weak: '弱精英' };
@@ -389,6 +389,22 @@ function eliteIssues() {
         detail: `${oldK.map(k => `${LABEL[k]}（${((Date.now() - pickedMeta[k].ts) / 86400000).toFixed(1)} 天前）`).join('、')}`
             + `。这些表不是最新一批的数据，与其余表不是同一时点，判读时别当成同一次体检。`
     });
+
+    // Boss 并入强精英后的取数：从 solo 表里只抽 BOSS_ELITES（结构保持 stages/byStage）
+    function bossSubsetOf(soloPart) {
+        if (!soloPart || !soloPart.byStage) return null;
+        const out = { stages: soloPart.stages, byStage: {} };
+        let any = false;
+        for (const st of soloPart.stages || []) {
+            out.byStage[st] = {};
+            for (const [v, row] of Object.entries(soloPart.byStage[st] || {})) {
+                const sub = {};
+                for (const n of BOSS_ELITES) if (row && row[n]) { sub[n] = row[n]; any = true; }
+                out.byStage[st][v] = sub;
+            }
+        }
+        return any ? out : null;
+    }
 
     // 绝对值表（自然 / 强精英 / Boss）：逐精英累加，对表理想线判偏离
     function absTable(part, names, target, label) {
@@ -506,7 +522,8 @@ function eliteIssues() {
 
     const natural = absTable(P.elite, ELITES, TH.NATURAL, '自然出场');
     const solo = absTable(P.solo, SOLO_ELITES, TH.SOLO, '强精英');
-    const boss = absTable(P.boss, BOSS_ELITES, TH.BOSS, 'Boss·张无忌');
+    // 2026-11-19 Boss 已并入强精英表：优先从最新的 solo 里抽张无忌，旧快照没有才退回 parts.boss 分表
+    const boss = absTable(bossSubsetOf(P.solo) || P.boss, BOSS_ELITES, TH.BOSS, 'Boss·张无忌');
     const weak = weakTable(P.weak);
     // 覆盖缺口汇总（V2.7.0）：三张绝对值表逐个查，只在「部分缺」时报（整表缺由前面的 missing 分支管）
     const covGaps = [];
@@ -677,7 +694,7 @@ function snapshotTrend() {
     // 每张表各自比对
     const TABLES = [
         ['elite', ELITES, '自然出场'],
-        ['solo', SOLO_ELITES, '强精英'],
+        ['solo', [...SOLO_ELITES, ...BOSS_ELITES], '强精英'],
         ['boss', BOSS_ELITES, 'Boss·张无忌']
     ];
     const sections = [];

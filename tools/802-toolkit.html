@@ -195,20 +195,19 @@
         .elite-stage-group label { color: #aaa; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 3px; }
         /* 2026-10-28 只统一形状，不统一颜色：「弱精英评测」原先缺样式会退化成浏览器默认灰按钮，
            现补上与其他按钮一致的形状/字号/圆角，但各组业务配色全部恢复原样
-           （金=主表 / 蓝=强精英 / 橙=Boss / 灰蓝=无精英 / 绿=弱精英 / 绿=存结果 / 蓝=载入 / 棕=清历史）。 */
-        #eliteStartBtn, #eliteSoloBtn, #eliteBossBtn, #eliteNoEliteBtn, #weakEliteStartBtn,
+           （金=主表 / 蓝=强精英 / 灰蓝=无精英 / 绿=弱精英 / 绿=存结果 / 蓝=载入 / 棕=清历史）。 */
+        #eliteStartBtn, #eliteSoloBtn, #eliteNoEliteBtn, #weakEliteStartBtn,
         #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn, #weakEliteDropBtn {
             border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
         #eliteStartBtn { background: #ffd700; color: #1a1a2e; }
         #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; }
-        #eliteBossBtn { background: #ff9800; color: #1a1a2e; }
         #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; }
         #weakEliteStartBtn { background: #4caf50; color: #1a1a2e; }
         #eliteSaveSnapBtn { background: #4caf50; color: #fff; }
         #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; padding: 10px 16px; }
         #eliteDropSnapBtn, #weakEliteDropBtn { background: #6d4c41; color: #ddd; padding: 10px 16px; }
-        #eliteStartBtn:disabled, #eliteSoloBtn:disabled, #eliteBossBtn:disabled,
+        #eliteStartBtn:disabled, #eliteSoloBtn:disabled,
         #eliteNoEliteBtn:disabled, #weakEliteStartBtn:disabled, #eliteSaveSnapBtn:disabled,
         #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled, #weakEliteDropBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
@@ -487,12 +486,11 @@
             </div>
             <button id="eliteStartBtn">▶ 开始评测</button>
             <label style="color:#aaa; font-size:12px;">控制变量场数：</label>
-            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 强精英胜率」「👑 Boss·张无忌」「🛡 无精英基线」三张控制变量表；普通评测仍用左侧「每关总场次」">
-            <button id="eliteSoloBtn" title="强精英（M107）逐一单核选中关卡：韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒（force 单精英抑制轮盘）">⚔ 强精英胜率</button>
-            <button id="eliteBossBtn" title="Boss（张无忌·M115）单核：force 张无忌、抑制随机轮盘，单独一表避免与 M107 强精英混比">👑 Boss·张无忌</button>
+            <input type="number" id="eliteSoloRunsInput" value="400" min="100" max="5000" step="100" title="只作用于「⚔ 强精英胜率」「🛡 无精英基线」两张控制变量表；普通评测仍用左侧「每关总场次」">
+            <button id="eliteSoloBtn" title="强精英逐一单核选中关卡：韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒 + Boss 张无忌（M115），同一张表一起评">⚔ 强精英胜率</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
             <span style="color:#555">｜</span>
-            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的四张表（主表·自然出场 / 强精英 / Boss·张无忌 / 无精英）合并再存一条。最多留 10 条">💾 存结果</button>
+            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的三张表（主表·自然出场 / 强精英（含Boss） / 无精英）合并再存一条。最多留 10 条">💾 存结果</button>
             <button id="eliteLoadSnapBtn" title="载入选中的历史快照，重新渲染对应的表（不重跑）">📂 载入</button>
             <button id="eliteDropSnapBtn" title="删除全部历史快照（不影响页面上当前的表）">🗑 清空历史</button>
             <select id="eliteSnapSelect" title="历史快照列表：时间｜关卡｜含哪几张表"></select>
@@ -501,9 +499,7 @@
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
         <div class="elite-progress" id="eliteSoloProgress" style="margin-top:14px;"></div>
-        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方「⚔ 强精英胜率」按钮）</div></div>
-        <div class="elite-progress" id="eliteBossProgress" style="margin-top:14px;"></div>
-        <div id="eliteBossResult"><div class="elite-empty">Boss·张无忌：尚未运行（勾选关卡后点上方「👑 Boss·张无忌」按钮）</div></div>
+        <div id="eliteSoloResult"><div class="elite-empty">强精英胜率：尚未运行（勾选关卡后点上方「⚔ 强精英胜率」按钮，含 Boss·张无忌）</div></div>
         <div class="elite-progress" id="eliteNoEliteProgress" style="margin-top:14px;"></div>
         <div id="eliteNoEliteResult"><div class="elite-empty">无精英基线：尚未运行（勾选关卡后点上方「🛡 无精英基线」按钮）</div></div>
     </div>
