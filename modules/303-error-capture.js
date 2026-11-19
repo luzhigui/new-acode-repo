@@ -3,7 +3,8 @@
 //   面板打开时隐藏「倒针」悬浮入口（z-index 2.1 亿会浮在弹层上挡字）。
 // V6.6.5 | 2026-11-19 支持 index.html?buglist=1 直开已保存 Bug 列表（dev-index「🐛 Bug记录」按钮）
 // V6.6.6 | 2026-11-19 撤销 V6.6.5 的 ?buglist 直开：列表已改为 tools/838-bug-records.html 独立页，不必进游戏
-export const VER = 'modules/303-error-capture.js V6.6.6';
+// V6.6.7 | 2026-11-19 记录框 textarea 随内容自动长高（手机无 resize 把手），超屏 42% 转内部滚动。
+export const VER = 'modules/303-error-capture.js V6.6.7';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -611,9 +612,20 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const note = document.createElement('textarea');
         note.placeholder = '本来应该怎样 / 第几回合·点了谁·放什么技能·哪个模式 / 看到什么（带数字）';
         note.style.cssText =
-            'width:100%;height:62px;box-sizing:border-box;resize:vertical;' +
+            'width:100%;height:62px;box-sizing:border-box;resize:none;' +
             'background:#0e0a06;border:1px solid #5a4630;color:#f2e6c9;border-radius:8px;' +
             'padding:8px;font-size:14px;line-height:1.4;margin-bottom:10px;';
+        // 随内容自动长高（2026-11-19 老板报「输入框不会变大」）：
+        //   手机上没有 resize:vertical 的拖拽把手，只能跟着 scrollHeight 长；超过屏幕 42% 改为内部滚动，
+        //   避免把弹层顶出屏幕。
+        const autoGrow = () => {
+            note.style.height = 'auto';
+            const cap = Math.round(window.innerHeight * 0.42);
+            const h = Math.min(note.scrollHeight + 2, cap);
+            note.style.height = h + 'px';
+            note.style.overflowY = note.scrollHeight + 2 > h ? 'auto' : 'hidden';
+        };
+        note.addEventListener('input', autoGrow);
         box.appendChild(note);
 
         // ---------- 锚点状态：日志区点过哪一行（点选在 #log 上完成，这里只显示/清除） ----------
