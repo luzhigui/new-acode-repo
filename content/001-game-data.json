@@ -1108,9 +1108,9 @@
 
     "张松溪": {
 
-      "named": false,
+      "named": true,
 
-      "tags": ["六大派", "武当", "普通"],
+      "tags": ["六大派", "武当"],
 
       "m": 100, "poolTier": 100, "flag": null, "tier": "normal", "camp": "六大派", "sect": "武当", "summon": false, "everyday": true, "encounter": true, "enemyOrder": 23, "titleOrder": 4,
 
@@ -1466,7 +1466,7 @@
           "squad": [
             { "name": "胖远桥", "role": "战士", "m": 107 },
             { "name": "俞莲舟", "role": "防战", "m": 100 },
-            { "name": "张松溪", "role": "远程", "m": 104 },
+            { "name": "张松溪", "role": "远程", "m": 100 },
             { "name": "俞岱岩", "role": "远程", "m": 100 },
             { "name": "殷梨亭", "role": "战士", "m": 100 }
           ],

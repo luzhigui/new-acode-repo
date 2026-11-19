@@ -16,7 +16,7 @@ let gameData = null;
 
 async function loadGameData() {
     if (gameData) return gameData;
-    const resp = await fetch(new URL('../content/001-game-data.json', import.meta.url));
+    const resp = await fetch(new URL('../content/001-game-data.json', import.meta.url), { cache: 'no-store' });
     if (!resp.ok) throw new Error(`游戏数据加载失败：HTTP ${resp.status}`);
     gameData = await resp.json();
     // 掉率表真源在 content（引擎与商店页双端可达）：加载即合并进 CONFIG。
@@ -53,7 +53,7 @@ let hexEnhanceData = null;
 
 async function loadHexEnhanceData() {
     if (hexEnhanceData) return hexEnhanceData;
-    const resp = await fetch(new URL('../content/002-hex-enhance.json', import.meta.url));
+    const resp = await fetch(new URL('../content/002-hex-enhance.json', import.meta.url), { cache: 'no-store' });
     if (!resp.ok) throw new Error(`海克斯强化数据加载失败：HTTP ${resp.status}`);
     hexEnhanceData = await resp.json();
     return hexEnhanceData;
