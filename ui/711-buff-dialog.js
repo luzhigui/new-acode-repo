@@ -5,7 +5,8 @@
 //   专属改与普通海克斯等概率进普通池；抽中家族任一成员即整族一起进候选；选完整族终身不再出现。详见 modules/329。
 // V6.5.1 | 2026-11-18 专属家族抽取套旧版专属弹窗皮肤（金字深蓝底+金卡，普通抽取不变）
 // V6.5.2 | 2026-11-18 修esc作用域雷(块外不可见,线上ReferenceError)
-export const VER = 'ui/711-buff-dialog.js V6.5.2';
+// V6.5.3 | 2026-11-19 全自动/评测档专属家族默认只选「快来护驾」（我命由我/武学奇才自动档无意义）
+export const VER = 'ui/711-buff-dialog.js V6.5.3';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -54,7 +55,10 @@ export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null, i
         // ====== 全自动模式：不画 UI，直接内部选完返回 ======
         if (isFullAuto) {
             const rng = getBattleRng();
-            const pick = choices[rng.nextInt(0, choices.length - 1)];
+            // 专属家族三选一：全自动/评测档默认只选「快来护驾」（2026-11-19 老板拍板）——
+            //   我命由我（要拖目标）、武学奇才（要人挑招）在自动档都没意义，选了等于白占名额。
+            const pick = choices.find(k => k === BUFF_TYPES.ZHANG_RESCUE)
+                || choices[rng.nextInt(0, choices.length - 1)];
             const newBuff = createBuffObject(pick, null, camp, team);
             recordUsedBuffKey(pick);
             if (camp === CAMP_TYPES.ALLY) {

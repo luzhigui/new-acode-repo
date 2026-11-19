@@ -1,5 +1,5 @@
 // ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
-export const VER = 'ui/706-main-battle.js V6.1.8';
+export const VER = 'ui/706-main-battle.js V6.1.9';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -61,7 +61,9 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
 // 战斗-弹窗：姐姐附身方向选择（左防御/右攻击）
 export function showFlyDirectionPopup(callback) {
     // 快进/跳过直接默认：2026-10-02 定案改为向左飞（防+血），原为向右
-    if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')) {
+    // 全自动档（2026-11-19 老板拍板）：不弹窗，直接默认向左飞（防+血）
+    if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')
+        || GlobalStore.get('autoLevel') === 'full-auto') {
         callback('left');
         return;
     }
