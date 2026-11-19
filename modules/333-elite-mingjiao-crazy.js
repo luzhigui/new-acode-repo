@@ -2,7 +2,8 @@
 // 规则：初始携带「癫」，攻击随机不分敌友，命中后传给被打者；
 // 死亡时传给攻击者，找不到给周颠，周颠死了随机传。
 // 带「癫」时：必中，且无视目标闪避（从而不会触发闪避反击）。
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.3';
+// V1.1.4 | 2026-11-19 grant/revoke 导出给 311：张三丰持癫乱回后传染走同一出口
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.4';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -13,13 +14,14 @@ import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 // 统一管理癫的赋予与撤销，同时控制必中与无视闪避
-function grantCrazy(unit) {
+// 导出给 311 张三丰用：持癫乱回后传染同一出口（2026-11-19 老板拍板），状态字段单点维护不散抄
+export function grantCrazy(unit) {
     if (!unit || !unit.alive) return;
     unit.state._isCrazy = true;
     unit.state._neverMiss = true;
     unit.state._ignoreDodge = true;
 }
-function revokeCrazy(unit) {
+export function revokeCrazy(unit) {
     if (!unit) return;
     unit.state._isCrazy = false;
     unit.state._neverMiss = false;

@@ -1,13 +1,15 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.3';
+// V6.27.4 | 2026-11-19 持癫乱回：张三丰被传染「癫」后，轮到自己的付费生生不息改为全场随机乱灌+癫传染
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.4';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/214-battle-shared.js';
-import { getBenefitTargets } from '../core/203-battle-utils.js';
+import { getBenefitTargets, canBeTargeted } from '../core/203-battle-utils.js';
 import { EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
+import { grantCrazy, revokeCrazy } from './333-elite-mingjiao-crazy.js';
 // 张三丰（六大派·防战）：不攻击的续航核心
 // 技能1 生生不息 / 技能3 八卦阵 / 技能5 第三回合严阵以待
 // 技能4 不争（仅剩一人判负）在 core/11 的胜负判定里
@@ -117,6 +119,68 @@ export function createZhangSanfengComponent() {
                 }
             }
 
+            // 技能1·持癫乱回（2026-11-19 老板拍板）：张三丰被传染「癫」后，轮到自己的付费回血不再回自己，
+            //   改为全场随机乱灌一个（不分敌友、排除自己、canBeTargeted 过滤与癫打人同口径、拒马不进池），
+            //   并把癫传染给被灌者（grant/revoke 走 333 同一出口）。回合开始免费回血与八卦阵触发不变。
+            // 加成口径：实疗/二次溢出两档全给被灌者（与原版「溢出转给队友那笔」完全同款）；满血被灌中 → 全额按溢出档给加成。
+            // fact 复用 ENDLESS_BREATH 契约（heal=0 / overflow=全额 / overflowTo=被灌者），渲染零改动。
+            function triggerCrazyBreath(unit, log, cost) {
+                if (!unit || !unit.alive) return;
+                const heal = Math.floor(unit.maxHp * s.healPct);
+                const pool = [...A, ...B].filter(u => u && u.alive && u.uid !== unit.uid && canBeTargeted(u));
+                let receiver = null;
+                let receiverHealed = 0;
+                if (pool.length > 0) {
+                    const pick = pool[getBattleRng().nextInt(0, pool.length - 1)];
+                    const rHpBefore = pick.hp;
+                    const willHeal = previewHeal(pick, heal);
+                    // source 传张三丰：治疗统计按产出者记账（与溢出转嫁同口径）
+                    applyStatChange(pick, 'hp', heal, unit, '生生不息·癫乱回');
+                    receiver = pick;
+                    receiverHealed = Math.round(Math.max(0, Math.min(willHeal, receiver.hp - rHpBefore)));
+                    // 癫传染：撤销自己 → 传给被灌者（与 333 攻击传染完全同款）
+                    revokeCrazy(unit);
+                    grantCrazy(receiver);
+                    if (log) pushSkillAnnounce(log, unit, '癫',
+                        `🤪 ${unit.name} 受「癫」影响，生生不息乱灌 ${receiver.name} ${heal} 点生命，并把「癫」传染给了 ${receiver.name}`,
+                        { floatText: '🤪', floatUid: receiver.uid });
+                } else if (log) {
+                    pushSkillAnnounce(log, unit, '癫', `🤪 ${unit.name} 受「癫」影响想乱灌生生不息，但全场无人可接，白白消散`, { floatText: '🤪', floatUid: unit.uid });
+                }
+                // 攻防转化：side 掷一次，实疗+二次溢出两档全给被灌者（满血被灌中=全额作废进溢出档，仍给加成）
+                const gainOf = (amount, div) => amount > 0 ? Math.max(s.minBonus, amount / div) : 0;
+                const side = getBattleRng().nextInt(0, 1) === 0 ? 'atk' : 'def';
+                const receiverOverflow = Math.max(0, heal - receiverHealed);
+                const recvAtkGain = side === 'atk' ? gainOf(receiverHealed, s.healAtkDiv) + gainOf(receiverOverflow, s.overflowAtkDiv) : 0;
+                const recvDefGain = side === 'def' ? gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv) : 0;
+                if (receiver && recvAtkGain > 0) addMod(receiver, 'atk', { source: '生生不息', value: recvAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                if (receiver && recvDefGain > 0) addMod(receiver, 'def', { source: '生生不息', value: recvDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                // 太极印：灌给谁亮谁的格子（无人可接退回张三丰）
+                if (!GlobalStore.get('fastForwardActive')) {
+                    eventBus.emit(FX_SIGNALS.MEDITATE, { unit: receiver || unit });
+                }
+                if (log) {
+                    log.push({
+                        factType: FACT_TYPES.ENDLESS_BREATH,
+                        data: {
+                            unitName: unit.name, unitUid: unit.uid,
+                            heal: 0,
+                            hpAfter: unit.hp,
+                            overflow: heal,
+                            cost,
+                            atkGain: 0,
+                            defGain: 0,
+                            overflowToName: receiver ? receiver.name : null,
+                            overflowToUid: receiver ? receiver.uid : null,
+                            overflowHealed: receiverHealed,
+                            overflowToHpAfter: receiver ? receiver.hp : null,
+                            overflowAtkGain: recvAtkGain,
+                            overflowDefGain: recvDefGain
+                        }
+                    });
+                }
+            }
+
             // 技能1：回合开始时触发
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 12, (data) => {
                 if (!zhang.alive) return;
@@ -135,7 +199,9 @@ export function createZhangSanfengComponent() {
                     return;
                 }
                 addMod(actor, 'atk', { source: '生生不息', value: -s.atkCost, ttl: 'permanent', group: 'endlessBreathCost', op: 'add' });
-                triggerEndlessBreath(actor, data.log, s.atkCost);
+                // 持癫分支：付费回血变全场乱灌+传染（见 triggerCrazyBreath 注释）
+                if (actor.state && actor.state._isCrazy) triggerCrazyBreath(actor, data.log, s.atkCost);
+                else triggerEndlessBreath(actor, data.log, s.atkCost);
             });
 
             // 技能3：八卦阵——被攻击时 procChance(50%) 概率触发：消耗 atkCost(3) 点攻击力，并触发生生不息
