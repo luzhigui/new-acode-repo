@@ -1,9 +1,9 @@
-// core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
+﻿// core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
 // V6.3.45 | 2026-11-19 | fact 出口收口（T-EP-1）：圣火令·救援/打击两条事实裸 log.push → pushFact
-export const VER = 'core/210-battle-round.js V6.3.46';
+export const VER = 'core/210-battle-round.js V6.3.47';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -21,7 +21,7 @@ import { clearAllWatchers } from './220-unit-watch.js';
 import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced, getRoundHooks } from './208-registry-elite.js';
 import { processUnitAttack } from './209-battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/101-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng, query } from './214-battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange, killUnit, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp, getBattleRng, query, stealHealByHook } from './214-battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { flushBattleEvents, setBattleState, pushFact } from '../infra/102-core-utils.js';
 import { SeededRNG } from '../infra/102-core-utils.js';
@@ -577,12 +577,23 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const hpBefore = unit.hp;
             let hpAfter = hpBefore;
             let actualHeal = 0;
+            let restWant = 0;
             if (unit.alive && (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息' || reason === '无力攻击')) {
-                applyStatChange(unit, 'hp', 15, null, '休息回复');
+                // 智取抢血（2026-11-19 老板拍板）：休息回血同属回血，敌方张松溪可抢三成×2。
+                //   先按缺口夹取再过 341 前置钩子，钩子返回实落值。
+                const want = Math.min(15, Math.max(0, unit.maxHp - unit.hp));
+                const kept = stealHealByHook(unit, want, A, B, log);
+                applyStatChange(unit, 'hp', kept, null, '休息回复');
                 hpAfter = unit.hp;
                 actualHeal = hpAfter - hpBefore;
+                restWant = want;
             }
             const passFact = { unit: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, hp: unit.hp }, reason, hpBefore, hpAfter, actualHeal, events: [] };
+            if (unit.state && unit.state._zhiQuNote) {
+                passFact.zhiQuNote = unit.state._zhiQuNote;
+                passFact.healNominal = restWant;
+                delete unit.state._zhiQuNote;
+            }
             passFact.events = flushBattleEvents();
             log.push({ factType: FACT_TYPES.PASS, data: passFact });
             // 行动完成广播（休息/遮挡/生生不息都算一次行动）

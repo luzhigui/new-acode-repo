@@ -1,12 +1,12 @@
-// core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
+﻿// core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
 // V6.9.5 | 2026-11-17 张无忌专属「快来护驾」召唤迁入本文件（原 modules/302-summonZhangRescue）：专属改走普通池后
 //   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
 //   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。
 // V6.9.8 | 2026-11-19 | fact 出口收口（T-EP-1）：召唤事实裸 log.push → pushFact
-// V6.9.9 | 2026-11-19 背水一战实时触发改挂 applyStatChange 掉血钩子（setHpLossHook）：反击/白骨爪/寒毒/
+// V6.9.10 | 2026-11-19 背水一战实时触发改挂 applyStatChange 掉血钩子（setHpLossHook）：反击/白骨爪/寒毒/
 //   圣火令/反弹这些窄通道原来的 AFTER_DAMAGE_APPLIED 收不到，跌破阈值只能等下一回合开始才生效。
 //   fact 走内存队列，210 每步 drain 收口；setLastStandTeams(A,B) 每回合重挂双方阵容。
-export const VER = 'core/204-buff-system.js V6.9.9';
+export const VER = 'core/204-buff-system.js V6.9.10';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -17,7 +17,7 @@ import {
 import { CONFIG, getGameData, getSkillParams, getBrotherHexEnhance } from './201-config-5v5-test.js';
 import { getRoleBonus } from './202-unit.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './203-battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal, setHpLossHook } from './214-battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat, removeModsByGroup, recordHpAudit, previewHeal, stealHealByHook, setHpLossHook } from './214-battle-shared.js';
 import { findFreePos, spawnUnit } from './205-battle-horse.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
@@ -701,15 +701,28 @@ export function onUnitDeathFlyerRegen(data, A, B, log) {
     for (const u of [...A, ...B]) {
         if (!u || !u.alive || u.isHorse || u.role !== ROLE_TYPES.FLYER) continue;
         const before = u.hp;
-        applyStatChange(u, 'hp', gain, null, '飞行再生');
+        // 智取抢血（2026-11-19 老板拍板：飞行再生/休息回血也属回血，可被抢）：
+        //   按缺口夹取后再过 341 注册的前置钩子，返回实落值；钩子内部自带「敌方/我方」与满血判定。
+        const want = Math.min(gain, Math.max(0, u.maxHp - u.hp));
+        const kept = stealHealByHook(u, want, A, B, log);
+        applyStatChange(u, 'hp', kept, null, '飞行再生');
         if (log && u.hp > before) {
             // 回血出口保实数：hp 是 0.1 精度（applyStatChange 落 step 到 0.1），差值的浮点尾巴（73.7-63.7 =
             //   10.000000000000007）由显示侧 fmtNum 收口；原 Math.round 会把 0.4 的真实回复取整成 0，
             //   打出「飞行再生：XX 回复 0 点生命」的空行（守卫 u.hp > before 已保证实际有回血）。
             const healed = Math.max(0, u.hp - before);
-            log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: healed, deadCount: dead.length } });
+            const fd = { unitName: u.name, unitUid: u.uid, heal: healed, deadCount: dead.length };
+            // 智取后缀（341 写 _zhiQuNote）挂到本行，读后即清
+            if (u.state && u.state._zhiQuNote) {
+                fd.healMods = [u.state._zhiQuNote];
+                fd.healNominal = want;
+                delete u.state._zhiQuNote;
+            }
+            log.push({ factType: FACT_TYPES.FLYER_REGEN, data: fd });
             // 审计账本：value 与 fact heal 同一个 healed，保精确相等
             recordHpAudit(u, 'flyerRegen', healed, '飞行再生');
+        } else if (u.state && u.state._zhiQuNote) {
+            delete u.state._zhiQuNote;   // 没落账（满血/被免疗）时清掉，防后缀残留到下一次回血行
         }
     }
 }

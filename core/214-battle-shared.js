@@ -1,5 +1,5 @@
-// core/214-battle-shared.js — 属性词条系统 + 战斗状态收口（addMod / getStat / applyStatChange / killUnit / refreshMaxHp）
-export const VER = 'core/214-battle-shared.js V6.4.13';
+﻿// core/214-battle-shared.js — 属性词条系统 + 战斗状态收口（addMod / getStat / applyStatChange / killUnit / refreshMaxHp）
+export const VER = 'core/214-battle-shared.js V6.4.14';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -230,6 +230,14 @@ function previewHeal(target, raw, rawOnly = false) {
 //   只传 unit（不带日志）——日志由注册方挂队列，由回合侧按步收口。
 let _hpLossHook = null;
 export function setHpLossHook(fn) { _hpLossHook = typeof fn === 'function' ? fn : null; }
+// 回血前置钩子（张松溪·智取抢血）：不走 EFFECT_TYPES.HEAL 声明的直回血出口（飞行再生/休息回复…）
+//   在 applyStatChange 之前先过它，返回实际可落账的值。core 不反向 import modules，故由 341 注册。
+let _healStealHook = null;
+export function setHealStealHook(fn) { _healStealHook = typeof fn === 'function' ? fn : null; }
+export function stealHealByHook(unit, amount, A, B, log) {
+    if (!(amount > 0) || !_healStealHook) return amount;
+    try { return _healStealHook(unit, amount, A, B, log); } catch (e) { return amount; }
+}
 
 function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false, ignoreHealReduce = false) {
     // ignoreHealReduce（2026-11-17 老板拍板）：真实吸血通道——跳过截脉/寒毒抑疗打折（庄铮断锤免疗不受此旗影响，那是免疫不是抑疗）

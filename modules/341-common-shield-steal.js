@@ -1,3 +1,5 @@
+﻿// V1.2.3 | 2026-11-19 直回血出口纳入智取：飞行再生/休息回血（不走 HEAL 声明）经 214 前置钩子抢三成×2；
+//   战报行带「智取（…，原 N）」后缀（飞行再生走 healMods、休息回复走 PASS 的 zhiQuNote）。
 // V1.2.2 | 2026-11-19 智取文案小数点约整（fmtNum 同口径）：护盾/回血/溢出转上限数字不再露长浮点；
 //   顺手修正「溢出一半转上限」旧文案——实际早已是 100% 转（V1.2.0 拍板）。
 // V1.2.1 | 2026-11-19 连续智取合并灯泡：同一步内张松溪已报过「智取」→ 后续只落战报行，不再重复飞 💡
@@ -8,12 +10,12 @@
 // V1.1.0 | 2026-11-19 智取偷盾补提示（战报行 + 弹幕）。
 // V1.0.0 | 2026-11-18 张松溪「智取」：抢夺敌方新获护盾的一半。调用点：319 五处 + 216 九阳溢出转盾。
 
-import { applyStatChange, addMod, refreshMaxHp, recordHpAudit } from '../core/214-battle-shared.js';
+import { applyStatChange, addMod, refreshMaxHp, recordHpAudit, setHealStealHook } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.2';
+export const VER = 'modules/341-common-shield-steal.js V1.2.3';
 
 const STEALER_NAME = '张松溪';
 
@@ -122,3 +124,9 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     announceZhiQu(ctx && ctx.log, thief, `抢取 ${target.name} 的回血 ${fmtNum(stolen)}（${parts.join('；') || '无人可吃'}）`);
     return { kept: nominal - stolen, stolen };
 }
+
+// 注册「直回血出口」的前置钩子（2026-11-19 老板拍板：飞行再生/休息回血也可被智取）：
+//   这两条不走 EFFECT_TYPES.HEAL 声明，core 侧在 applyStatChange 前调 stealHealByHook 过这里；
+//   core 不反向 import modules，故由本模块自注册。
+setHealStealHook((unit, amount, A, B, log) => stealHealHalf(unit, amount, A, B, { log }).kept);
+

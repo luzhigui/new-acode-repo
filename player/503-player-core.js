@@ -1,6 +1,6 @@
-// player/503-player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
-// V7.0.4 | 2026-11-19 吸星单独表演时间：含吸星 cue 的步之后间隔 300ms→1200ms（连线/飘字读完再进下一步）
-export const VER = 'player/503-player-core.js V7.0.4';
+﻿// player/503-player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
+// V7.0.5 | 2026-11-19 吸星单独表演时间：含吸星 cue 的步之后间隔 300ms→1200ms（连线/飘字读完再进下一步）
+export const VER = 'player/503-player-core.js V7.0.5';
 
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
@@ -33,9 +33,13 @@ function getCtx() { return getPlayerContext(); }
 //   连线 1000ms + 飘字 1700ms（全部逻辑时间、受 clock 倍速缩放），常规 300ms 步间隔读不完，
 //   下一步俞莲舟的攻击立刻盖上来。这里只加「本步之后」的等待，不改演出时长、不阻塞快进档。
 function stepHoldMs(step) {
-    const hasAbsorbCue = Array.isArray(step && step.log) && step.log.some(e =>
+    const entries = Array.isArray(step && step.log) ? step.log : [];
+    const hasAbsorbCue = entries.some(e =>
         e && e.factType === 'skillAnnounce' && e.data && e.data.cue && e.data.cue.type === SKILL_CUE_KINDS.ABSORB);
-    return hasAbsorbCue ? 1200 : 300;
+    // 智取 💡（2026-11-19）：灯泡是飘字动画，回合开始那步只有 300ms 会直接被切；同样放宽到 1200ms。
+    const hasZhiQu = entries.some(e =>
+        e && e.factType === 'skillAnnounce' && e.data && e.data.skillName === '智取');
+    return (hasAbsorbCue || hasZhiQu) ? 1200 : 300;
 }
 
 export { clearAllEffects } from './510-renderer.js';

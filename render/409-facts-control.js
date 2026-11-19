@@ -1,7 +1,7 @@
-// render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
+﻿// render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
-export const VER = 'render/409-facts-control.js V1.0.5';
+export const VER = 'render/409-facts-control.js V1.0.6';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeFXSnapshot, fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
@@ -59,6 +59,10 @@ export function renderPassFact(fact) {
         const hpAfter = fmtHpText(fact.hpAfter !== undefined ? fact.hpAfter : unit.hp, unit.alive);
         const actualHeal = fact.actualHeal;
         const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+        // 智取后缀（2026-11-19）：休息回血也能被张松溪抢，与回血族同版式「（智取（…），原 N）」
+        const zqText = fact.zhiQuNote
+            ? (typeof fact.healNominal === 'number' ? `（${fact.zhiQuNote}，原 ${fmtNum(fact.healNominal)}）` : `（${fact.zhiQuNote}）`)
+            : '';
         const headText = reason === '幼狮休息'
             ? `🐱 ${campName} ${unit.name} 尚幼，无法攻击`
             : (reason === '无力攻击'
@@ -69,7 +73,7 @@ export function renderPassFact(fact) {
             entries:[
                 {type:'info', text:`<span class="gray">${headText}</span>`},
                 // actualHeal 现在是实数差值（可能 14.999999999999998）：文本走 fmtNum，动效 healAmount 仍用原值
-                {type:'info', text:`<span class="green">😴 休息回复 ${fmtNum(actualHeal)} 点生命（${fmtNum(hpBefore)} → ${fmtNum(hpAfter)}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
+                {type:'info', text:`<span class="green">😴 休息回复 ${fmtNum(actualHeal)} 点生命${zqText}（${fmtNum(hpBefore)} → ${fmtNum(hpAfter)}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
             ],
             isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
