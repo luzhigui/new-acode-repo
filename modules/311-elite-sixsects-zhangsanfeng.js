@@ -6,7 +6,8 @@
 // V6.28.1 | 2026-11-19 | fact 出口收口（T-EP-1）：严阵以待 BUFF_SUMMARY 裸 data.log.push → pushFact
 // V6.28.2 | 2026-11-19 第二关加强：生生不息回血 16%→19.2%、转攻防系数各 +20%、付费触发消耗攻 2→3；
 //   严阵以待第 12 回合后反弹 40%→60%（回合计数改为一直累加，不再触发后冻结）
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.2';
+// V6.28.3 | 2026-11-19 太极归一期间生生不息回复量翻倍（普通与持癫两分支同口径）
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.3';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange } from '../core/214-battle-shared.js';
 import { getBenefitTargets, canBeTargeted, hasBuff } from '../core/203-battle-utils.js';
@@ -55,7 +56,7 @@ export function createZhangSanfengComponent() {
             // 拒马也算友方；满血队友也可被选中（选中即作废，不改选）；随机走战斗 RNG（getBattleRng），保证 PVP 双端同源
             function triggerEndlessBreath(unit, log, cost) {
                 if (!unit || !unit.alive) return;
-                const heal = Math.floor(unit.maxHp * s.healPct);
+                const heal = Math.floor(unit.maxHp * s.healPct) * (taijiActive() ? 2 : 1);   // 太极归一期间回复量翻倍
                 // 抑疗（截脉/寒毒，统一 -33%）：应发额度按核心同一口径先打折（previewHeal rawOnly），
                 //   实回由 applyStatChange 内部再打一次；溢出只算「抑疗后仍装不下」的部分——
                 //   抑疗罚掉的量不转给队友（2026-11-19 老板拍板）。
@@ -168,7 +169,7 @@ export function createZhangSanfengComponent() {
             // fact 复用 ENDLESS_BREATH 契约（heal=0 / overflow=全额 / overflowTo=被灌者），渲染零改动。
             function triggerCrazyBreath(unit, log, cost) {
                 if (!unit || !unit.alive) return;
-                const heal = Math.floor(unit.maxHp * s.healPct);
+                const heal = Math.floor(unit.maxHp * s.healPct) * (taijiActive() ? 2 : 1);   // 太极归一期间回复量翻倍
                 const pool = [...A, ...B].filter(u => u && u.alive && u.uid !== unit.uid && canBeTargeted(u));
                 let receiver = null;
                 let receiverHealed = 0;
