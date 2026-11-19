@@ -401,7 +401,9 @@ soloBtn.addEventListener('click', () => runSoloGroup(SOLO_ALL, {
 }));
 
 function renderSoloResults(byStage, stages, list, resultEl, note, meta) {
-    let html = metaLine(meta) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    // 含 Boss 后 6 个精英列，不能再套 elite-table-fit（table-layout:fixed 会把数字挤成多行）：
+    //   改回自适应列宽 + 最小宽度，窄屏放不下时整表横向滚动
+    let html = metaLine(meta) + `<div class="elite-table-scroll"><table class="elite-table" style="min-width:${64 + list.length * 130}px"><colgroup><col style="width:64px">`;
     for (const cfg of list) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of list) html += `<th class="elite-th">${cfg.name}</th>`;
@@ -421,7 +423,7 @@ function renderSoloResults(byStage, stages, list, resultEl, note, meta) {
     html += '<tr><td class="elite-stage">总评</td>';
     for (const cfg of list) html += soloCellHtml(soloTotalsOf(cfg, byStage, stages));
     html += '</tr>';
-    html += '</table>';
+    html += '</table></div>';
     html += `<div style="font-size:11px;color:#999;margin-top:6px;">${note}</div>`;
     resultEl.innerHTML = html;
     attachCopyBtn(resultEl);

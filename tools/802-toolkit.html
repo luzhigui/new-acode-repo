@@ -220,6 +220,8 @@
         /* 2026-09-24 手机窄屏适配：仅精英评测表用——锁宽+均分列宽+该折就折，不再横向溢出。
            113/114/115 的宽表（12列/10列）共用 .elite-table 但不挂 fit 类，保持原有横向滚动行为 */
         table.elite-table-fit { table-layout: fixed; }
+        /* 812 强精英表（含 Boss，6 列）：不压缩单元格，窄屏放不下时整表横向滑动 */
+        .elite-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .elite-table-fit th, .elite-table-fit td { overflow-wrap: anywhere; }
         .elite-table-fit .elite-th, .elite-table-fit .elite-stage { white-space: normal; }
         .elite-th { white-space: nowrap; }
