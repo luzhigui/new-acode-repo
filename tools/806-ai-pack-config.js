@@ -449,14 +449,9 @@ export const ALL_PROJECT_FILES = [
     '../tools/836-voice-commentary.js', '../tools/837-voice-panel.js',
     // 2026-11-11 弱精英评测从 812 拆出，独立成 802「🐦 弱精英评测」页签（838 弱精英机制贡献单页已下线删除）
     '../tools/846-weak-elite-eval.js',
-    // 2026-11-14 补登记 847~850：模板战力 / 交叉积分赛 / 关卡精英评分的 802 页签前端，
-    //   以及 848/849 运行时 fetch 的模板名单 847-templates.json。
-    //   漏登 = 包内这几个页签 404 或模板名单读取失败（847-template-power.mjs 是本机 node CLI，
-    //   与 828/829/830 同类，按本表定案不随包，故不登记）。
-    '../tools/847-templates.json',
-    '../tools/848-template-power-panel.js',
-    '../tools/849-cup-rank-panel.js',
-    '../tools/850-stage-elite-panel.js',
+    // 2026-11-19 精英评价收口为「⚔ 精英评级」单一入口（851 单榜：交叉对战矩阵 + Bradley-Terry 强度分）。
+    //   同日删除 847-templates.json / 848 / 849 / 850 四条登记——旧的模板战力/交叉积分赛/关卡精英评分已下线。
+    '../tools/851-elite-bench.js',
     // 2026-11-10 补登记 831：消融实验室单页（802 备用工具卡片「🧪 消融实验室」直接打开，跑批走 816 V1.22.0
     //   kind:'ablation'，开关 globalThis.MING_ABLATION）。与 833/834/835/838 同类的**页面件**，
     //   属「网页端阅读需要」——漏登则包内工具箱点开这张卡 404。（对照：828/829/830 是本机 node 脚本，
