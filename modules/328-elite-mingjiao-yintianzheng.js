@@ -52,7 +52,7 @@ export function createYinTianZhengComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === yin) return;
-                const prob = Math.min(0.75, (counter.counterProb ?? 0) + (yin.state._counterProbBonus || 0));
+                const prob = Math.min(0.9, (counter.counterProb ?? 0) + (yin.state._counterProbBonus || 0));
                 if (getBattleRng().next() >= prob) return;
                 yin.state._yinCounterPending = {
                     attackerUid: attacker.uid,

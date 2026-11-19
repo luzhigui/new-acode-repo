@@ -194,8 +194,8 @@
       "skills": {
         "qiShangQuan": {
           "name": "七伤拳",
-          "desc": "每次出手前自损 4% 最大生命（最少 1 点，留 1 血不死），本次伤害×1.45；自身生命低于 30% 时×1.75；自损与「伤己」计数 7 次为一循环。被击中时同样推进计数（无概率，每次被击必涨 1 点）",
-          "params": { "selfHpPct": 0.04, "minSelfDmg": 1, "dmgBonus": 0.45, "lowHpThreshold": 0.30, "lowHpExtra": 0.30 }
+          "desc": "每次出手前自损 4% 最大生命（最少 1 点，留 1 血不死），本次伤害×1.3（自身生命低于 30% 时同为×1.3，不额外加成）；自损与「伤己」计数 7 次为一循环。被击中时同样推进计数（无概率，每次被击必涨 1 点）",
+          "params": { "selfHpPct": 0.04, "minSelfDmg": 1, "dmgBonus": 0.3, "lowHpThreshold": 0.30, "lowHpExtra": 0 }
         },
         "huiChunShu": {
           "name": "回春术",
@@ -648,13 +648,13 @@
         },
         "yingWangWeiYa": {
           "name": "鹰王威压",
-          "desc": "每次反击命中后永久削弱目标：攻击 −3、防御 −3、生命上限 −3（可无限叠加，越打越削，跨回合延续）",
-          "params": { "atkDown": 3, "defDown": 3, "maxHpDown": 3 }
+          "desc": "每次反击命中后永久削弱目标：攻击 −3、防御 −3、生命上限 −7.5（可无限叠加，越打越削，跨回合延续）",
+          "params": { "atkDown": 3, "defDown": 3, "maxHpDown": 7.5 }
         },
         "laoDangYiZhuang": {
           "name": "老当益壮",
-          "desc": "每次反击命中后自身永久成长：攻击 +3、防御 +3、生命上限 +3、反击概率 +3%（本局累计，越打越硬）",
-          "params": { "atkGain": 3, "defGain": 3, "maxHpGain": 3, "probGain": 0.03 }
+          "desc": "每次反击命中后自身永久成长：攻击 +3、防御 +3、生命上限 +7.5、反击概率 +3%（本局累计，越打越硬）",
+          "params": { "atkGain": 3, "defGain": 3, "maxHpGain": 7.5, "probGain": 0.03 }
         }
       },
       "taunts": {
