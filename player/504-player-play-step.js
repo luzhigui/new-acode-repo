@@ -1,11 +1,12 @@
 // player/504-player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
-export const VER = 'player/504-player-play-step.js V1.1.2';
+// V1.1.3 | 2026-11-19 提示跑错攻击组根治：报幕事实若是本人出手的开场白（后接本人攻击事实），强制独立起组
+export const VER = 'player/504-player-play-step.js V1.1.3';
 
 import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { GlobalStore, getState } from '../infra/104-global-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, STAGE_ACTION_TYPES, DROP_TYPES, LOG_ENTRY_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, STAGE_ACTION_TYPES, DROP_TYPES, LOG_ENTRY_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 
 import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './502-player-buff-ui.js';
 import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './508-event-handlers.js';
@@ -21,6 +22,52 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     const pendingDeaths = [];
     const actions = step.stageActions || [];
     const log = step.log || [];
+
+    // 「提示跑到上一个攻击组」根治（2026-11-19）：报幕事实若紧跟在本人的攻击事实之前，
+    //   它就是这一手的开场白（年轻气盛/智取/国字脸…），必须在它前面画分隔线独立起组；
+    //   否则播放器只会把它粘到上一组末尾，看起来像上一个人的日志。
+    //   判据只看事实序列，不认具体技能名：往后跳过非动作事实与同一人的连串报幕，
+    //   遇到的第一个动作若是本人攻击 → 这一串报幕的第一条起组。
+    const _leadAnnounce = new Set();
+    for (let _i = 0; _i < log.length; _i++) {
+        const _f = log[_i];
+        if (!_f || _f.factType !== FACT_TYPES.SKILL_ANNOUNCE) continue;
+        const _uid = _f.data && _f.data.unitUid;
+        if (!_uid) continue;
+        // 同一人的连串报幕：前一条已判过，后续不再各自起组（否则会出现空组）
+        const _prev = log[_i - 1];
+        if (_prev && _prev.factType === FACT_TYPES.SKILL_ANNOUNCE && _prev.data && _prev.data.unitUid === _uid) continue;
+        // 刚打完/刚挨打的反应报幕（吸血、护盾吸收、寒气入体…）留在那一组里，不拆组：
+        //   看上一条非报幕事实是本人出手（attacker）还是本人挨打（target/dodger）
+        let _prevAct = null;
+        for (let _p = _i - 1; _p >= 0; _p--) {
+            const _pf = log[_p];
+            if (!_pf) continue;
+            if (_pf.factType === FACT_TYPES.SKILL_ANNOUNCE) continue;
+            _prevAct = _pf;
+            break;
+        }
+        if (_prevAct && _prevAct.data) {
+            const _pd = _prevAct.data;
+            const _paUid = _pd.attacker && _pd.attacker.uid;
+            const _pdUid = (_pd.target && _pd.target.uid) || (_pd.defender && _pd.defender.uid) || (_pd.dodger && _pd.dodger.uid);
+            if (_paUid === _uid || _pdUid === _uid) continue;
+        }
+        for (let _k = _i + 1; _k < log.length; _k++) {
+            const _nf = log[_k];
+            if (!_nf) continue;
+            if (_nf.factType === FACT_TYPES.SKILL_ANNOUNCE) {
+                if (_nf.data && _nf.data.unitUid === _uid) continue;   // 同一人的开场白连串
+                break;                                                  // 别人的报幕 → 不是本人开场
+            }
+            const _atkUid = _nf.data && _nf.data.attacker && _nf.data.attacker.uid;
+            if (_atkUid) {
+                if (_atkUid === _uid) _leadAnnounce.add(_i);
+                break;
+            }
+            // 其余非动作事实（破防/挂状态等）跳过，继续找第一个动作
+        }
+    }
     // Bug5 同组横幅判据按 factIndex 记，而 factIndex 是「每步内」索引，跨步会重号。
     //   每步开头清一次，避免上一步末尾的 PUSH 和本步第一个 PUSH 恰好同号时
     //   被误判成同一组、横幅被跳过。
@@ -98,6 +145,8 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
             continue;
         }
         if (!Array.isArray(entries)) entries = [entries];
+        // 本人出手的开场报幕：强制在本条之前画分隔线（独立起组，不再粘上一组）
+        if (_leadAnnounce.has(i) && entries.length > 0 && entries[0]) entries[0].needsSeparator = true;
         const _battleLog = GlobalStore.get('battleLog');
         if (Array.isArray(_battleLog)) { for (const entry of entries) { if (entry) _battleLog.push(entry); } }
 
