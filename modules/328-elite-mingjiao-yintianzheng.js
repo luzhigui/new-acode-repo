@@ -75,6 +75,7 @@ export function createYinTianZhengComponent() {
                     targetUid: pend.attackerUid,
                     reason: 'counterAttack',
                     dmgRatio: pend.dmgRatio,
+                    ignoreDodge: true,   // 鹰爪功反击必中（2026-11-19 用户拍板；core/209 额外请求通道原生支持）
                     actedMode: 'restore',
                     actedSnapshot: pend.actedSnapshot,
                     priority: 12,
