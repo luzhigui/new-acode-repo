@@ -774,22 +774,42 @@ function buildRandomTeam(size, camp, rng, force) {
 // 847 模板战力：A 靶子 vs B 骨架（可替换被测单位），双方具名模板，双海克斯
 function buildFromTemplate(specs, camp, rng) {
     return specs.map(s => {
-        const ch = getGameData().characters[s.name];
+        // 2026-11-19 小昭姐妹形态（851 精英评级用）：与 330 pushElite 同款初始化——
+        //   先按 content 里的「小昭」构造，再改名 + initXiaoZhao + applyBonus(true)（不吃职业加成）。
+        //   姐姐沿用 content 职业；妹妹职业随机四选一（同 330 的 initRole 分支）。
+        const baseName = String(s.name).split('·')[0];
+        const isXz = baseName === '小昭';
+        const fz = isXz ? GlobalStore.get('forceXiaoZhao') : null;
+        const ch = getGameData().characters[baseName];
         if (!ch) throw new Error('未知角色: ' + s.name);
-        const u = new Unit(s.name, ch.m, s.role, camp);
+        let role = s.role;
+        if (isXz && fz === 'brother') role = C.ROLES[rng.nextInt(0, 3)];
+        const u = new Unit(baseName, ch.m, role, camp);
         applyHeroFlags(u);
-        u.init(rng);
-        u.applyBonus();
+        if (isXz && (fz === 'sister' || fz === 'brother')) {
+            u.isXiaoZhaoSister = fz === 'sister';
+            u.isXiaoZhaoBrother = fz === 'brother';
+            u.name = fz === 'sister' ? '小昭·姊' : '小昭·妹';
+            applyHeroFlags(u);
+            u.initXiaoZhao();
+            u.applyBonus(true);
+            u.state._baseMaxHp = u.maxHp; u.state._baseAtk = u.atk; u.state._baseDef = u.def;
+        } else {
+            u.init(rng);
+            u.applyBonus();
+        }
         u.pos = s.pos;
         return u;
     });
 }
 
 function runTemplateABJob(job) {
-    const { aUnits, bUnits, cand, runs, startIndex = 0 } = job;
+    const { aUnits, bUnits, cand, runs, startIndex = 0, forceXiaoZhao = null } = job;
     let wins = 0, draws = 0;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
+        // clear 会清 force，每场都要在 clear 之后重设（同 runSoloEliteJob 口径）
+        if (forceXiaoZhao) GlobalStore.set('forceXiaoZhao', forceXiaoZhao);
         const seed = 3000001 + (startIndex + i) * 7919;
         const bSpecs = bUnits.map(s => ({ ...s }));
         if (cand) {

@@ -62,15 +62,34 @@ function roleOf(name) {
     return null;
 }
 
-// 全部精英 = 有技能的单位（明教 + 六大派），按 M 值分档展示
+// 全部精英 = 有技能的单位（明教 + 六大派），按 M 值分档展示。
+//   2026-11-19 三条口径（老板提的）：
+//   ① 玄冥二老合并成一个评价单位（连体、同进同出）：采样时两人同时进六大派骨架（占 2 个实体）。
+//   ② 小昭拆姐妹两档（主游戏 forceXiaoZhao 形态）：姐姐固定职业、妹妹职业随机。
+//   ③ 无职业标签的具名精英（素问/说不得等 tags 里没有职业）也要进榜：
+//      主游戏是随机四选一，榜里统一按战士计（中位口径），界面标注「职业按战士计」。
 function collectCands() {
     const out = [];
-    for (const [n, c] of Object.entries(getGameData()?.characters || {})) {
+    const chars = getGameData()?.characters || {};
+    for (const [n, c] of Object.entries(chars)) {
         if (c.camp !== '明教' && c.camp !== '六大派') continue;
         if (Object.keys(c.skills || {}).length === 0) continue;
-        const role = c.role || ROLES.find(r => (c.tags || []).includes(r));
-        if (!role) continue;
-        out.push({ name: n, camp: c.camp, m: c.m || 0, role });
+        const role = c.role || ROLES.find(r => (c.tags || []).includes(r)) || null;
+        if (n === '鹤笔翁') continue;
+        if (n === '鹿杖客') {
+            out.push({
+                name: '玄冥二老', camp: c.camp, m: c.m || 0, role: '远程',
+                members: [{ name: '鹿杖客', role: '远程' }, { name: '鹤笔翁', role: '飞行' }],
+                note: '连体，两人同场'
+            });
+            continue;
+        }
+        if (n === '小昭') {
+            out.push({ name: '小昭·姊', base: '小昭', camp: c.camp, m: c.m || 0, role: role || '远程', forceXiaoZhao: 'sister' });
+            out.push({ name: '小昭·妹', base: '小昭', camp: c.camp, m: c.m || 0, role: role || '远程', forceXiaoZhao: 'brother', note: '职业随机' });
+            continue;
+        }
+        out.push({ name: n, camp: c.camp, m: c.m || 0, role: role || '战士', note: role ? '' : '职业按战士计' });
     }
     return out.sort((a, b) => b.m - a.m || a.name.localeCompare(b.name, 'zh'));
 }
@@ -105,6 +124,22 @@ function sanitize(skel, camp, candName) {
     });
 }
 
+// 一次换入多个成员（玄冥二老连体：鹿+鹤同时进骨架，各占一个实体位）
+function composeMany(skel, camp, members) {
+    let arr = skel.map(u => ({ ...u }));
+    for (const mem of members) arr = sanitize(arr, camp, mem.name);
+    const used = new Set();
+    for (const mem of members) {
+        let i = arr.findIndex(u => !used.has(u.pos) && u.role === mem.role);
+        if (i < 0) i = arr.findIndex(u => !used.has(u.pos) && front(u.role) === front(mem.role));
+        if (i < 0) i = arr.findIndex(u => !used.has(u.pos));
+        if (i < 0) continue;
+        used.add(arr[i].pos);
+        arr[i] = { name: mem.name, role: mem.role, pos: arr[i].pos };
+    }
+    return arr;
+}
+
 // 换入被测：同职业优先，退到同站位类（前排/后排），再退末位
 function compose(skel, camp, cand) {
     const arr = sanitize(skel, camp, cand.name);
@@ -126,7 +161,9 @@ function renderCands() {
             + `<span class="eb-tier">M${m}（${list.length}）</span>`
             + '<button type="button" class="eb-all" data-act="all">全选</button>'
             + '<button type="button" class="eb-all" data-act="none">全不选</button>'
-            + list.map(c => `<label><input type="checkbox" class="eb-cand" value="${c.name}" checked>${c.name}<span style="color:#777">·${c.camp === '明教' ? '明' : '派'}</span></label>`).join('')
+            + list.map(c => `<label><input type="checkbox" class="eb-cand" value="${c.name}" checked>${c.name}`
+                + (c.note ? `<span style="color:#666">（${c.note}）</span>` : '')
+                + `<span style="color:#777">·${c.camp === '明教' ? '明' : '派'}</span></label>`).join('')
             + '</div>';
     }).join('');
     candEl.querySelectorAll('.eb-all').forEach(btn => btn.addEventListener('click', () => {
@@ -195,11 +232,13 @@ async function run() {
         jobs.push({
             key: m.name + '|' + s.name,
             m, s,
-            // 六大派侧预先换好（worker 只认一个 cand，换的是 bUnits 明教侧）
-            aUnits: compose(SECT_SKEL, '六大派', s),
+            // 六大派侧预先换好（worker 只认一个 cand，换的是 bUnits 明教侧）；
+            //   玄冥二老走 composeMany：鹿+鹤同时进骨架（占 2 个实体位）
+            aUnits: s.members ? composeMany(SECT_SKEL, '六大派', s.members) : compose(SECT_SKEL, '六大派', s),
             // 明教侧只净化同名片，换入交给 worker 的 cand（与 849 同口径）
-            bUnits: sanitize(MING_SKEL, '明教', m.name),
-            cand: m,
+            bUnits: sanitize(MING_SKEL, '明教', m.base || m.name),
+            cand: { name: m.base || m.name, role: m.role },
+            forceXiaoZhao: m.forceXiaoZhao || null,
             runs: RUNS
         });
     }
@@ -215,7 +254,8 @@ async function run() {
             nextJobMsg: (job, id) => ({
                 jobId: id, kind: 'templateAB',
                 aUnits: job.aUnits, bUnits: job.bUnits,
-                cand: { name: job.m.name, role: job.m.role },
+                cand: job.cand,
+                forceXiaoZhao: job.forceXiaoZhao,
                 runs: job.runs, startIndex: 0
             }),
             onJobDone: (done, total, job, part) => {
