@@ -8,7 +8,8 @@
 // V3.5.7 | 2026-11-18 预览基数+攻击额度(与319同口径)
 // V3.5.8 | 2026-11-18 预览撤基数加笔(与319同口径,攻击力笔已在桶内)
 // V3.5.9 | 2026-11-18 预览全轰半攻(与319同口径)
-export const VER = 'ui/720-hanlisa-aim.js V3.5.9';
+// V3.5.10 | 2026-11-19 修全屏轰拳 ReferenceError：dmgMapFor 未接 hls 却用 getStat(hls,'atk')
+export const VER = 'ui/720-hanlisa-aim.js V3.5.10';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -195,7 +196,7 @@ function tierOf(aim, p) {
     const d = Math.abs(r1 - r2) + Math.abs(c1 - c2);
     return d <= 0 ? 'direct' : (d === 1 ? 'near' : 'far');
 }
-function dmgMapFor(aim, N, xl, enemies) {
+function dmgMapFor(aim, N, xl, enemies, hls) {
     const map = {};
     if (aim >= 1 && aim <= 9) {
         // 无兜底：参数缺失一律抛错（旧版兜底成 direct:2/eightDen:3 会静默算出与引擎不一致的伤害）
@@ -1027,7 +1028,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         APP.releaseLevel = APP.level;
         stage.S.level = APP.level;
         stage.S.aim = APP.aim;
-        stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl, enemies));
+        stage.release(APP.level, APP.aimCellIndex, dmgMapFor(APP.aimCellIndex || 0, N, xl, enemies, hls));
         // 吸血真值（与 modules/319 同公式：总伤 10% 封顶缺失生命；真实吸血不走抑疗打折，预览同口径）
         const total = stage.S.hits.reduce((s, h) => s + (h.dmg || 0), 0);
         const vampPct = xl.vampPct;
