@@ -5,6 +5,7 @@
 export const VER = 'modules/341-common-shield-steal.js V1.0.0';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { pushSkillAnnounce } from './305-elite-helpers.js';
 
 const STEALER_NAME = '张松溪';
 
@@ -13,9 +14,10 @@ const STEALER_NAME = '张松溪';
  * @param {number} amount 本次获得护盾的数值
  * @param {Array}  A      明教方队伍
  * @param {Array}  B      六大派方队伍
+ * @param {object} [ctx]  可选 { log }：传了且偷成功时，落一条「智取」战报行 + 头顶弹幕
  * @returns {number} 实际留给 unit 的护盾值（被偷走的部分已转给张松溪）
  */
-export function stealShieldHalf(unit, amount, A, B) {
+export function stealShieldHalf(unit, amount, A, B, ctx) {
     if (!unit || !(amount > 0)) return amount;
     if (!Array.isArray(A) || !Array.isArray(B)) return amount;
     const foes = unit.camp === CAMP_TYPES.ALLY ? B : A;
@@ -24,5 +26,10 @@ export function stealShieldHalf(unit, amount, A, B) {
     const stolen = Math.floor(amount / 2);
     if (stolen <= 0) return amount;
     thief.state._permShield = (thief.state._permShield || 0) + stolen;
+    if (ctx && Array.isArray(ctx.log)) {
+        pushSkillAnnounce(ctx.log, thief, '智取',
+            `🧠 智取：张松溪 偷取 ${unit.name} 的护盾 ${stolen} 点（自身护盾 +${stolen}）`,
+            { floatText: '🧠', floatUid: thief.uid });
+    }
     return amount - stolen;
 }

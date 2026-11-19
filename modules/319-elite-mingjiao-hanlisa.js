@@ -91,8 +91,8 @@ export function createHanLiSaComponent() {
                 hls.state._hlsTaunt = true;
                 hls.state._hlsTrueAbsorb = true;
                 // 2026-11-18 老板拍板：起蓄盾与普通蓄力同口径（30% 重置语义）+ 20% 独立护盾池（先扣普通盾，爆发清零）
-                hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), data.A, data.B);
-                hls.state._shieldExtra = stealShieldHalf(hls, hls.maxHp * (powerCfg.extraShieldPct || 0), data.A, data.B);   // 独立池同样过偷盾（341 规则对称，2026-11-19 补）
+                hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), A, B, { log: data.log });
+                hls.state._shieldExtra = stealShieldHalf(hls, hls.maxHp * (powerCfg.extraShieldPct || 0), A, B, { log: data.log });   // 独立池同样过偷盾（341 规则对称，2026-11-19 补）
                 pushSkillAnnounce(data.log, hls, '寒离飒强化',
                     `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按对方攻击力全额计入轰拳）`,
                     { floatText: '🌀强化', floatUid: hls.uid });
@@ -138,7 +138,7 @@ export function createHanLiSaComponent() {
                         });
                     }
                     if (shieldGain > 0) {
-                        hls.state._permShield = (hls.state._permShield || 0) + stealShieldHalf(hls, shieldGain, data.A, data.B);
+                        hls.state._permShield = (hls.state._permShield || 0) + stealShieldHalf(hls, shieldGain, A, B, { log: data.log });
                     }
                     const healText = heal > 0 ? `回复 ${fmtNum(heal)} 点生命` : '满血';
                     const shieldText = shieldGain > 0 ? `，${heal > 0 ? '溢出' : ''}转化为 ${fmtNum(shieldGain)} 点护盾` : '';
@@ -167,7 +167,7 @@ export function createHanLiSaComponent() {
                     const shield = hls.maxHp * xl.shieldPct;
                     // 护盾改成「重置为上限值」而非累加：起手 / 蓄力回合 / 被雄鹰恢复 三处都刷到
                     //   maxHp×shieldPct，不会叠成 60%/90%。
-                    Object.assign(hls.state, { _hlsCharging: 1, _shield: shield });
+                    Object.assign(hls.state, { _hlsCharging: 1, _shield: stealShieldHalf(hls, shield, A, B, { log: data.log }) });
                     pushInfo(data, `<span class="gold">🌀 寒离飒起手蓄力：获得 ${fmtNum(shield)} 点护盾（下回合凝聚）</span>`);
                 }
             });
@@ -246,13 +246,13 @@ export function createHanLiSaComponent() {
                 if (xl.shieldPct == null) throw new Error('缺技能参数: 寒离飒.xuLi.shieldPct');
                 if (charging === 2) {
                     // 轮到行动刷新 30% 盾（与普通蓄力同「重置为上限」语义）；20% 独立池不刷新
-                    hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), data.A, data.B);
+                    hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), A, B, { log: data.log });
                     addAtkEntry();
                     hls.state._hlsCharging = 3;
                     announce({ log: data.log }, `🌀 ${hls.name} 强化蓄力中（本回合不行动，攻击力记入轰拳基数，回合末爆发，30% 盾已刷新）`);
                     return;
                 }
-                hls.state._shield = stealShieldHalf(hls, hls.maxHp * xl.shieldPct, data.A, data.B);
+                hls.state._shield = stealShieldHalf(hls, hls.maxHp * xl.shieldPct, A, B, { log: data.log });
                 if (charging === 1) {
                     hls.state._hlsCharging = 3;
                     addAtkEntry();

@@ -268,7 +268,7 @@ function submitOnHitEffects(data, onHitDecls) {
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, auditGroup: 'nineYangHeal', auditSource: '九阳神功治疗', factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                 }
                 if (shieldGain > 0) {
-                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldHalf(unit, shieldGain, A, B);
+                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldHalf(unit, shieldGain, A, B, { log: data.log });
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 // 免疫毒素（庄铮·断锤形态）：完全不上毒，格子不挂 ❄️
