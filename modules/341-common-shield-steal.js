@@ -1,3 +1,4 @@
+// V1.2.1 | 2026-11-19 连续智取合并灯泡：同一步内张松溪已报过「智取」→ 后续只落战报行，不再重复飞 💡
 // V1.2.0 | 2026-11-19 智取二段分配 + 回血抢夺：
 //   1) 护盾：敌方获得 N → 实得 0.5N，张松溪 0.25N，其血量百分比最低的存活队友 0.25N（无队友则两份全归张松溪）；
 //   2) 回血：同口径（由 core/217 HEAL handler 调 stealHealHalf，213/209 补传 enemySide）；
@@ -7,6 +8,9 @@
 
 import { applyStatChange, addMod, refreshMaxHp, recordHpAudit } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { FACT_TYPES } from '../infra/106-battle-enums.js';
+
+export const VER = 'modules/341-common-shield-steal.js V1.2.1';
 
 const STEALER_NAME = '张松溪';
 
@@ -23,7 +27,19 @@ function pickNeediestMate(thief, sideUnits) {
 
 function announceZhiQu(log, thief, detail) {
     if (!Array.isArray(log)) return;
-    pushSkillAnnounce(log, thief, '智取', `💡 智取：${detail}`, { floatText: '💡', floatUid: thief.uid });
+    // 连续智取合并灯泡（2026-11-19 老板拍板）：同一步内已报过「智取」→ 本条只落战报行，不再飞第二个 💡。
+    //   判据从尾部往前找：先遇到张松溪的智取公告 → 合并；先遇到攻击事实 → 不是连击，正常飞。
+    let merged = false;
+    for (let i = log.length - 1; i >= 0; i--) {
+        const f = log[i];
+        if (!f || !f.data) continue;
+        if (f.data.attacker && f.data.attacker.uid) break;               // 中间隔了攻击 → 不算连续
+        if (f.factType === FACT_TYPES.SKILL_ANNOUNCE && f.data.unitUid === thief.uid && f.data.skillName === '智取') {
+            merged = true;
+            break;
+        }
+    }
+    pushSkillAnnounce(log, thief, '智取', `💡 智取：${detail}`, merged ? {} : { floatText: '💡', floatUid: thief.uid });
 }
 
 // A/B 全集里张松溪所在阵营的存活成员列表
