@@ -7,7 +7,8 @@
 //   额外混入按关卡解锁范围过滤：后段专属精英（如灭绝师太只属第7关固定池）不得提前出现在前段关，
 //   越界则本次不补（少补一人），不删名单也保证后段该出还能出。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
-export const VER = 'modules/330-battle-init.js V7.9.0';
+// V7.9.1 | 2026-11-19 我方阵容存档：saveAllyLineup/clearAllyLineup/readAllyLineup（localStorage 只存名单+站位，属性与海克斯仍随机）
+export const VER = 'modules/330-battle-init.js V7.9.1';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -741,6 +742,74 @@ export function initBattleTeams(currentStage, _rng) {
         enemyTeam = allUnits;
     }
 
+    // 我方阵容存档（2026-11-19 老板拍板）：只存「单位名单 + 站位」，海克斯仍随机。
+    //   建队抽完签后按存档重建我方名单（属性照常随机掷），下一局沿用同一套精英与站位。
+    //   拒马/召唤物不入档；联机从机由房主下发阵容，不会走到这里。
+    const _preset = readAllyLineup();
+    if (_preset && _preset.units.length) {
+        const built = buildAllyFromLineup(_preset.units, _rng);
+        if (built.length) allyTeam = built;
+    }
+
     // rngContractVersion：本局阵容由哪一版抽签契约产出（跑批 / 回放 / 联机对账靠它识别失配，别按阵容反推）
     return { allyTeam, enemyTeam, encounterVariant, rngContractVersion: RNG_CONTRACT_VERSION };
+}
+
+// ── 我方阵容存档（localStorage）：只存单位名单 + 站位，不存属性/海克斯 ──────────────
+const ALLY_LINEUP_KEY = 'ming_ally_lineup_v1';
+
+export function saveAllyLineup(allyTeam) {
+    try {
+        const units = (allyTeam || [])
+            .filter(u => u && !u.isHorse && !u.isSummon)
+            .map(u => ({
+                name: u.name,
+                m: u.m,
+                role: u.role,
+                pos: typeof u.pos === 'number' ? u.pos : null,
+                sister: !!u.isXiaoZhaoSister,
+                brother: !!u.isXiaoZhaoBrother
+            }));
+        localStorage.setItem(ALLY_LINEUP_KEY, JSON.stringify({ ver: 1, units }));
+        return units.length;
+    } catch (e) { return 0; }
+}
+
+export function clearAllyLineup() {
+    try { localStorage.removeItem(ALLY_LINEUP_KEY); return true; } catch (e) { return false; }
+}
+
+export function readAllyLineup() {
+    try {
+        const raw = localStorage.getItem(ALLY_LINEUP_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || data.ver !== 1 || !Array.isArray(data.units)) return null;
+        return data;
+    } catch (e) { return null; }
+}
+
+// 按存档名单重建我方单位：属性仍按规则随机掷（存档只锁定「谁上场、站哪」）
+function buildAllyFromLineup(units, _rng) {
+    const out = [];
+    for (const it of units) {
+        if (!it || !it.name || typeof it.m !== 'number') continue;
+        const unit = new Unit(it.name, it.m, it.role || C.ROLES[0], CAMP_TYPES.ALLY);
+        if (it.sister || it.brother) {
+            if (it.sister) unit.isXiaoZhaoSister = true; else unit.isXiaoZhaoBrother = true;
+            unit.name = it.sister ? '小昭·姊' : '小昭·妹';
+            applyHeroFlags(unit);
+            unit.initXiaoZhao(); unit.applyBonus(true);
+            unit.state._baseMaxHp = unit.maxHp;
+            unit.state._baseAtk = unit.atk;
+            unit.state._baseDef = unit.def;
+        } else {
+            unit.init(_rng);
+            unit.applyBonus();
+        }
+        unit.pos = typeof it.pos === 'number' ? it.pos : null;
+        if (unit.pos != null) unit.state._originalPos = unit.pos;
+        out.push(unit);
+    }
+    return out;
 }

@@ -1,7 +1,7 @@
 // ui/709-ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
-export const VER = 'ui/709-ui-controls.js V7.9.4';
+export const VER = 'ui/709-ui-controls.js V7.9.5';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -12,6 +12,7 @@ import { resetBattleRuntime } from './715-reset-runtime.js';
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { onAnyButtonClick, restoreSpeedFromScroll } from './718-speed-controls.js';
+import { saveAllyLineup, clearAllyLineup } from '../modules/330-battle-init.js';
 
 // 77/78 拆出后的 re-export：61/63/75/76 的 import 点全部保持不变
 export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, initSpeedButtons } from './718-speed-controls.js';
@@ -298,6 +299,24 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
             const fnLineup = GlobalStore.getUIHandler('sendNetLineup');
             if (typeof fnLineup === 'function') fnLineup();
         }, false, false);
+    });
+}
+
+// 阵容存档按钮（2026-11-19）：只存我方单位 + 站位，下局建队时 330 自动沿用；海克斯仍随机。
+export function bindLineupButtons() {
+    const saveBtn = document.getElementById('btnSaveLineup');
+    if (saveBtn) saveBtn.addEventListener('click', () => {
+        onAnyButtonClick();
+        const n = saveAllyLineup(getState.UI().allyTeam);
+        saveBtn.textContent = n > 0 ? `✅ 已存 ${n} 人` : '⚠️ 无阵容';
+        setTimeout(() => { saveBtn.textContent = '💾 存阵'; }, 1600);
+    });
+    const clearBtn = document.getElementById('btnClearLineup');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        onAnyButtonClick();
+        clearAllyLineup();
+        clearBtn.textContent = '✅ 已清除';
+        setTimeout(() => { clearBtn.textContent = '🗑 清阵'; }, 1600);
     });
 }
 

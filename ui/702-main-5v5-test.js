@@ -1,7 +1,7 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
 // V6.14.9 | 2026-11-19 Bug 切片提精度：日志单条截断 60→200 字；actions 带 data 参数（≤160 字）；
 //   补 page（pathname+hash），解决「在哪个界面」定位缺失。
-export const VER = 'ui/702-main-5v5-test.js V6.14.9';
+export const VER = 'ui/702-main-5v5-test.js V6.14.10';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -36,7 +36,7 @@ import {
 } from './706-main-battle.js';
 import { setBGMVolume, fadeBGMTo, lowerBGM } from './707-audio-control.js';
 import { toggleFxPanel, syncFxButton } from './708-fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindXiaoZhaoSwitchButton, bindGridClick, initSpeedButtons } from './709-ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindXiaoZhaoSwitchButton, bindGridClick, bindLineupButtons, initSpeedButtons } from './709-ui-controls.js';
 import { bindCopyLogButton } from './705-main-dialogs.js';
 import * as net from '../infra/109-net-pvp.js';
 // 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场 CG（原 ui/713-opening-cg.js）已搬 archive/。
@@ -226,6 +226,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindDodgeButton(toggleFxPanel);
     bindSettleButton(() => getState.currentStage(), { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
     bindStageSelectButton(() => getState.currentStage(), getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
+    bindLineupButtons();
     bindVoteFloat();
     bindXiaoZhaoSwitchButton();   // 小昭姊/妹摆位切换悬浮按钮（只在摆位阶段显示）
     bindGridClick(getState, setState, updateUI);
