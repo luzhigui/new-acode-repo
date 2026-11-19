@@ -418,7 +418,7 @@
         "doubleFace": {
           "name": "双面观音",
           "desc": "每回合开始 {disguiseChance}% 概率（首回合 {openingChance}%）换女装上阵，持续 {duration} 回合；女装期间众人不忍下手（不会挨打），自身造成的伤害 ×{dmgBonus}。",
-          "params": { "disguiseChance": 0.15, "openingChance": 1.0, "duration": 2, "dmgBonus": 1.5 }
+          "params": { "disguiseChance": 0.1, "openingChance": 1.0, "duration": 2, "dmgBonus": 1.5 }
         }
       }
     },
@@ -643,7 +643,7 @@
       "skills": {
         "yingZhuaGong": {
           "name": "鹰爪功",
-          "desc": "被攻击后 33% 概率反击攻击者，伤害×1.0，反击必中；每反击命中一次，概率再 +3%（老当益壮，封顶 90%）",
+          "desc": "被攻击后 33% 概率反击攻击者，伤害×1.0，反击必中；每反击命中一次，概率再 +3%（老当益壮，封顶 75%）",
           "params": { "counterProb": 0.33, "dmgRatio": 1.0 }
         },
         "yingWangWeiYa": {
@@ -799,13 +799,13 @@
       "skills": {
         "bagTrap": {
           "name": "布袋",
-          "desc": "命中后 {triggerChance}% 触发布袋：己方有红血（< {redHpThreshold}%）→ 装己方最残者、下一回合末放出回 {protectHeal} 血；否则 → 装敌方血最多者、下一回合末放出扣 {captureMaxHpPct}% 最大生命。装袋期间不可选中/行动。",
+          "desc": "命中后 {triggerChance}% 触发布袋：己方有红血（< {redHpThreshold}%）→ 装己方最残者、下一回合末放出回 {protectMaxHpPct}% 最大生命；否则 → 装敌方血最多者、下一回合末放出扣 {captureMaxHpPct}% 最大生命（真伤）。装袋期间不可选中/行动。",
           "params": {
             "triggerChance": 0.5,
             "protectBranchChance": 0.5,
             "redHpThreshold": 0.4,
-            "protectHeal": 10,
-            "captureMaxHpPct": 0.1
+            "protectMaxHpPct": 0.2,
+            "captureMaxHpPct": 0.2
           }
         }
       },

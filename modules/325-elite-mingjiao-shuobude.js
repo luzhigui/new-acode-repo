@@ -22,7 +22,7 @@ import { isImmuneTo } from '../core/218-state-keys.js';
 function getBagTrapParams() {
     const p = getSkillParams('说不得', 'bagTrap');
     if (!p) throw new Error('content/001-game-data.json 缺 说不得.skills.bagTrap.params');
-    for (const k of ['triggerChance', 'protectBranchChance', 'redHpThreshold', 'protectHeal', 'captureMaxHpPct']) {
+    for (const k of ['triggerChance', 'protectBranchChance', 'redHpThreshold', 'protectMaxHpPct', 'captureMaxHpPct']) {
         if (p[k] == null) throw new Error(`content/001-game-data.json 缺 说不得.skills.bagTrap.params.${k}`);
     }
     return p;
@@ -145,8 +145,9 @@ function releaseBag(data) {
         Object.assign(target.state, { _untargetable: false, _stunned: false });
         const p = getBagTrapParams();
         if (bag.mode === 'protect') {
-            // 保护：回复 protectHeal 点生命（走 applyStatChange，吃截脉/寒毒打折是合理口径）
-            applyStatChange(target, 'hp', p.protectHeal, caster, '布袋·放生');
+            // 保护：回复 protectMaxHpPct × 最大生命（2026-11-19 用户拍板，原为固定 protectHeal 点；走 applyStatChange，吃截脉/寒毒打折是合理口径）
+            const heal = Math.floor(target.maxHp * p.protectMaxHpPct);
+            applyStatChange(target, 'hp', heal, caster, '布袋·放生');
         } else {
             // 抓敌：扣 captureMaxHpPct 最大生命值（伤害语义，source 记说不得，走死亡结算）
             const dmg = Math.floor(target.maxHp * p.captureMaxHpPct);
@@ -159,8 +160,8 @@ function releaseBag(data) {
         });
         if (data.log) {
             const note = bag.mode === 'protect'
-                ? `🛍️ 布袋放生：${caster.name} 把 ${target.name} 放出来，回复 ${fmtNum(p.protectHeal)} 点生命`
-                : `🛍️ 布袋憋死：${caster.name} 把 ${target.name} 放出来，扣 ${Math.round(p.captureMaxHpPct * 100)}% 最大生命`;
+                ? `🛍️ 布袋放生：${caster.name} 把 ${target.name} 放出来，回复 ${Math.round(p.protectMaxHpPct * 100)}% 最大生命（${fmtNum(Math.floor(target.maxHp * p.protectMaxHpPct))} 点）`
+                : `🛍️ 布袋憋死：${caster.name} 把 ${target.name} 放出来，扣 ${Math.round(p.captureMaxHpPct * 100)}% 最大生命（${fmtNum(Math.floor(target.maxHp * p.captureMaxHpPct))} 点真伤）`;
             pushSkillAnnounce(data.log, caster, '布袋', note, { floatText: '🛍️', floatUid: target.uid });
         }
     }

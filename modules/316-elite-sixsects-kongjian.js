@@ -4,7 +4,7 @@
 // 触发时只入待发队列，AFTER_ATTACK（整组攻击含溅射/追击/双击全部打完）统一发出，避免被流星赶月二段打掉。
 // 空见自己阵亡也算「友方阵亡」条件，但立即发出（他的组件下回合不再注册）。
 
-import { getBattleRng } from '../core/214-battle-shared.js';
+import { getBattleRng, addMod } from '../core/214-battle-shared.js';
 import { eventBus } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
@@ -44,9 +44,11 @@ export function createKongJianComponent() {
                 const pick = candidates[rng.nextInt(0, candidates.length - 1)];
                 pick.state._immuneShield = { sourceUid: kj.uid, sourceName: kj.name };
                 kj.state._kongJianUsed = (kj.state._kongJianUsed || 0) + 1;
+                // 金钟罩反馈：每次成功加持，空见自身防御永久 +1（2026-11-19 用户拍板）
+                addMod(kj, 'def', { source: '金刚不坏', value: 1, op: 'add', ttl: 'permanent', group: 'jinGangBuHuai' });
                 if (outLog) {
                     const nth = kj.state._kongJianUpgraded ? '' : `（第 ${kj.state._kongJianUsed}/${maxUses} 次）`;
-                    pushSkillAnnounce(outLog, kj, '金刚不坏', `🛡️ 金刚不坏：${kj.name} 为 ${pick.name} 加持护罩${nth}（${tag}）`);
+                    pushSkillAnnounce(outLog, kj, '金刚不坏', `🛡️ 金刚不坏：${kj.name} 为 ${pick.name} 加持护罩${nth}（${tag}），自身防御+1`, { floatText: '🛡️', floatUid: kj.uid });
                 }
                 return true;
             }
