@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <!-- tools/838-bug-records.html — Bug 记录独立浏览页（不进游戏）
+     V1.0.2 | 2026-11-19 新建表单拆成三个常驻小标题的框（①本来应该怎样 ②怎么复现 ③实际看到什么），
+       保存合并成【应该】【步骤】【实际】三段，与 modules/303 V6.6.8 完全同口径。
      V1.0.1 | 2026-11-19 新增「＋ 新建一条」（页面内直接手写一条记录，存同一份 localStorage）；
        卡片按时间顺序编号 #N，与「一键复制/下载报告」的条目号一一对应（最新 = 最大号）。
      V1.0.0 | 2026-11-19 新建：把游戏内「🐞 记录Bug → 打开列表」整段拎出来，
@@ -60,7 +62,8 @@
   .modal h2 { margin: 0 0 10px; font-size: 15px; color: var(--gold); font-weight: 600; }
   .modal textarea, .modal input { width: 100%; background: #0f1115; color: var(--text);
     border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
-  .modal textarea { min-height: 130px; resize: vertical; }
+  .modal textarea { min-height: 54px; resize: vertical; }
+  .modal .fl { display: block; font-size: 12px; color: #cbb98f; margin: 6px 0 4px; }
   .modal .hint { color: var(--dim); font-size: 11px; margin: -4px 0 10px; }
   .modal .ops { margin-top: 4px; justify-content: flex-end; }
   .modal .ops .primary { padding: 6px 16px; }
@@ -86,7 +89,12 @@
 <div class="mask" id="newMask">
   <div class="modal">
     <h2>新建一条 Bug 记录</h2>
-    <textarea id="newNote" placeholder="哪里不对 / 你本来期待什么（例：寒离飒全场轰拳后报错，整场卡住不动）"></textarea>
+    <label class="fl">① 本来应该怎样</label>
+    <textarea id="newNote1" placeholder="例：这个技能应该打敌方，不该打自己人"></textarea>
+    <label class="fl">② 怎么复现</label>
+    <textarea id="newNote2" placeholder="例：第7回合 · 暂停后点圣火令 · 拖到寒离飒 · 全自动模式"></textarea>
+    <label class="fl">③ 实际看到什么</label>
+    <textarea id="newNote3" placeholder="例：寒离飒掉了 19 血，日志显示「受到 19 点伤害」"></textarea>
     <input id="newUnits" placeholder="涉及角色（可选，用顿号或逗号分隔，例：寒离飒、张松溪）">
     <div class="hint">保存后与游戏内记录存在同一份本地列表里，复制 / 下载口径完全一致。</div>
     <div class="ops">
@@ -328,13 +336,25 @@
     // ---------- 新建一条：页面内直接手写，存同一份本地列表（结构与 modules/303 手动记录一致） ----------
     var MAX_SAVED = 60;
     var newMask = document.getElementById('newMask');
-    var newNote = document.getElementById('newNote');
+    var newNotes = [
+        { key: '应该', el: document.getElementById('newNote1') },
+        { key: '步骤', el: document.getElementById('newNote2') },
+        { key: '实际', el: document.getElementById('newNote3') }
+    ];
+    // 三段合并成一条备注（空段跳过），与游戏内 303 完全同口径
+    function newNoteValue() {
+        return newNotes
+            .map(function (x) { return { key: x.key, v: x.el.value.trim() }; })
+            .filter(function (x) { return x.v; })
+            .map(function (x) { return '【' + x.key + '】' + x.v; })
+            .join('\n');
+    }
     var newUnits = document.getElementById('newUnits');
     function openNew() {
-        newNote.value = '';
+        newNotes.forEach(function (x) { x.el.value = ''; });
         newUnits.value = '';
         newMask.classList.add('on');
-        setTimeout(function () { try { newNote.focus(); } catch (e) {} }, 30);
+        setTimeout(function () { try { newNotes[0].el.focus(); } catch (e) {} }, 30);
     }
     function closeNew() { newMask.classList.remove('on'); }
     document.getElementById('btnNew').onclick = openNew;
@@ -342,8 +362,8 @@
     newMask.onclick = function (e) { if (e.target === newMask) closeNew(); };
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeNew(); });
     document.getElementById('btnNewSave').onclick = function () {
-        var noteVal = newNote.value.trim();
-        if (!noteVal) { toast('先写一句问题描述'); try { newNote.focus(); } catch (e) {} return; }
+        var noteVal = newNoteValue();
+        if (!noteVal) { toast('请至少填①②③中的一项'); try { newNotes[0].el.focus(); } catch (e) {} return; }
         var units = newUnits.value.split(/[、,，\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
         var rec = {
             id: String(Date.now()) + '-' + Math.floor(Math.random() * 1000),

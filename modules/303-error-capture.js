@@ -4,7 +4,9 @@
 // V6.6.5 | 2026-11-19 支持 index.html?buglist=1 直开已保存 Bug 列表（dev-index「🐛 Bug记录」按钮）
 // V6.6.6 | 2026-11-19 撤销 V6.6.5 的 ?buglist 直开：列表已改为 tools/838-bug-records.html 独立页，不必进游戏
 // V6.6.7 | 2026-11-19 记录框 textarea 随内容自动长高（手机无 resize 把手），超屏 42% 转内部滚动。
-export const VER = 'modules/303-error-capture.js V6.6.7';
+// V6.6.8 | 2026-11-19 记录输入拆成三个常驻小标题的框（①本来应该怎样 ②怎么复现 ③实际看到什么），
+//   保存时合并成【应该】【步骤】【实际】三段文本，与旧版纯字符串完全兼容。
+export const VER = 'modules/303-error-capture.js V6.6.8';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -604,29 +606,49 @@ import { GlobalStore } from '../infra/104-global-store.js';
         allBtn.onclick = () => picks.forEach(p => { p.input.checked = true; });
         noneBtn.onclick = () => picks.forEach(p => { p.input.checked = false; });
 
-        // 三项补充不占独立高度：直接放进输入框 placeholder（切片只有数据，这几项只能人写）
-        const noteLabel = document.createElement('div');
-        noteLabel.textContent = '我当时在干什么？（可不填）';
-        noteLabel.style.cssText = 'font-size:12px;color:#cbb98f;margin-bottom:5px;';
-        box.appendChild(noteLabel);
-        const note = document.createElement('textarea');
-        note.placeholder = '本来应该怎样 / 第几回合·点了谁·放什么技能·哪个模式 / 看到什么（带数字）';
-        note.style.cssText =
-            'width:100%;height:62px;box-sizing:border-box;resize:none;' +
-            'background:#0e0a06;border:1px solid #5a4630;color:#f2e6c9;border-radius:8px;' +
-            'padding:8px;font-size:14px;line-height:1.4;margin-bottom:10px;';
-        // 随内容自动长高（2026-11-19 老板报「输入框不会变大」）：
-        //   手机上没有 resize:vertical 的拖拽把手，只能跟着 scrollHeight 长；超过屏幕 42% 改为内部滚动，
-        //   避免把弹层顶出屏幕。
-        const autoGrow = () => {
-            note.style.height = 'auto';
-            const cap = Math.round(window.innerHeight * 0.42);
-            const h = Math.min(note.scrollHeight + 2, cap);
-            note.style.height = h + 'px';
-            note.style.overflowY = note.scrollHeight + 2 > h ? 'auto' : 'hidden';
+        // 补充描述（2026-11-19 老板拍板）：单框拆成三个带常驻小标题的框——输入后提示不会消失，照着填。
+        const NOTE_FIELDS = [
+            { key: '应该', label: '① 本来应该怎样', ph: '例：这个技能应该打敌方，不该打自己人' },
+            { key: '步骤', label: '② 怎么复现', ph: '例：第7回合 · 暂停后点圣火令 · 拖到寒离飒 · 全自动模式' },
+            { key: '实际', label: '③ 实际看到什么', ph: '例：寒离飒掉了 19 血，日志显示「受到 19 点伤害」' }
+        ];
+        const noteInputs = [];
+        for (const f of NOTE_FIELDS) {
+            const lb = document.createElement('div');
+            lb.textContent = f.label;
+            lb.style.cssText = 'font-size:12px;color:#cbb98f;margin:6px 0 4px;';
+            box.appendChild(lb);
+            const ta = document.createElement('textarea');
+            ta.placeholder = f.ph;
+            ta.style.cssText =
+                'width:100%;height:34px;box-sizing:border-box;resize:none;' +
+                'background:#0e0a06;border:1px solid #5a4630;color:#f2e6c9;border-radius:8px;' +
+                'padding:7px 8px;font-size:14px;line-height:1.4;margin-bottom:2px;';
+            // 随内容自动长高（手机没有 resize 把手）；超过屏幕 30% 转内部滚动
+            const grow = () => {
+                ta.style.height = 'auto';
+                const cap = Math.round(window.innerHeight * 0.3);
+                const h = Math.min(ta.scrollHeight + 2, cap);
+                ta.style.height = h + 'px';
+                ta.style.overflowY = ta.scrollHeight + 2 > h ? 'auto' : 'hidden';
+            };
+            ta.addEventListener('input', grow);
+            box.appendChild(ta);
+            noteInputs.push({ key: f.key, el: ta });
+        }
+        // 三段合并成一条备注（空段跳过），存取格式与旧版一致：仍是纯字符串
+        const noteValue = () => noteInputs
+            .map(x => ({ key: x.key, v: x.el.value.trim() }))
+            .filter(x => x.v)
+            .map(x => `【${x.key}】${x.v}`)
+            .join('\n');
+        const focusNote = () => {
+            const first = noteInputs.find(x => !x.el.value.trim()) || noteInputs[0];
+            try { first.el.focus(); } catch (e) { /* noop */ }
         };
-        note.addEventListener('input', autoGrow);
-        box.appendChild(note);
+        const gap = document.createElement('div');
+        gap.style.cssText = 'height:8px;';
+        box.appendChild(gap);
 
         // ---------- 锚点状态：日志区点过哪一行（点选在 #log 上完成，这里只显示/清除） ----------
         const anchorSec = document.createElement('div');
@@ -800,11 +822,11 @@ import { GlobalStore } from '../infra/104-global-store.js';
 
         saveBtn.onclick = () => {
             const selected = picks.filter(p => p.input.checked).map(p => p.rec);
-            const noteVal = note.value.trim();
+            const noteVal = noteValue();
             const mode = selected.length ? 'auto' : 'manual';
             if (mode === 'manual' && !noteVal) {
-                status.textContent = '请写一句问题描述（哪里不对、你本来期待什么）';
-                try { note.focus(); } catch (e) {}
+                status.textContent = '请至少填①②③中的一项（本来应该怎样 / 复现步骤 / 实际看到什么）';
+                focusNote();
                 return;
             }
             if (!selected.length && !noteVal) {
