@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.18</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.19</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         /* 生涯记录面板内的表格：表头/数字单元格禁止换行，避免窄屏下表头与内容错行；
@@ -57,7 +57,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.3.18 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.3.19 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -109,13 +109,19 @@
                     <button class="big-btn btn-play" id="btnSuWen" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
                 </div>
                 <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
+                <!-- 调试/工具入口两两一行（2026-11-19 老板要求）：全是纯跳转，不需要独占整行 -->
                 <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnBugMode" style="flex:1;background:linear-gradient(135deg, #f44336, #212121);">🐛 Bug模式（海克斯全开）</button>
+                    <button class="big-btn btn-play" id="btnBugMode" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #f44336, #212121);">🐛 Bug模式</button>
+                    <button class="big-btn btn-play" id="btnShop" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 </div>
-                <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
-                <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
-                <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
-                <button class="big-btn btn-tool" id="btnCareerLog">📊 生涯记录</button>
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-health" id="btnHealthCheck" style="flex:1;border-radius:10px 0 0 10px;">🩺 全面体检</button>
+                    <button class="big-btn btn-tool" id="btnTools" style="flex:1;border-radius:0 10px 10px 0;">🧰 工具箱</button>
+                </div>
+                <div style="display:flex;gap:0;">
+                    <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;border-radius:10px 0 0 10px;">📊 生涯记录</button>
+                    <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;border-radius:0 10px 10px 0;">🐛 Bug记录</button>
+                </div>
             </div>
         </div>
 
@@ -152,7 +158,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.18 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.19 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -204,6 +210,11 @@
         // 生涯记录：读本地累积的单局摘要，导出 Markdown（可直接喂 AI 分析）
         document.getElementById('btnCareerLog').addEventListener('click', () => {
             showCareerDialog();
+        });
+        // 🐛 Bug记录：直接进游戏并自动弹出「已保存的 Bug 列表」（2026-11-19 老板要求，
+        //   省掉 进局 → 暂停 → 记录Bug → 打开列表 四步；列表读的还是同一份 localStorage）
+        document.getElementById('btnBugRecords').addEventListener('click', () => {
+            window.location.href = 'index.html?buglist=1';
         });
 
         function showCareerDialog() {
