@@ -1,7 +1,8 @@
 // render/403-grid-render.js — 战场九宫格渲染主循环（camp/team 装配 + buff 图标 + 展示层合成）
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
-export const VER = 'render/403-grid-render.js V7.1.13';
+// V7.1.14 | 2026-11-19 寒毒图标去重：玄冥毒/寒离飒/蹦蹦三源同时挂时格子上只出一个 ❄️
+export const VER = 'render/403-grid-render.js V7.1.14';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -359,11 +360,13 @@ export function renderGrid(id, camp) {
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
         if (unit.isChengKun && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
-        if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        // 寒离飒·寒冰神掌寒毒：与玄冥毒同款 ❄️ 标记
-        if (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
-        // 蹦蹦寒毒（张中召唤）：同款 ❄️
-        if (unit.state._bengHanDu && unit.state._bengHanDu.remaining > 0) eliteSkillIcon += ' ❄️';
+        // 寒毒统一图标（2026-11-19 老板拍板）：玄冥毒 / 寒离飒寒冰神掌 / 蹦蹦寒毒三种来源可同时挂，
+        //   格子上只出一个 ❄️（旧版每源各拼一个，会看到两三个雪花）
+        if ((unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0)
+            || (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0)
+            || (unit.state._bengHanDu && unit.state._bengHanDu.remaining > 0)) {
+            eliteSkillIcon += ' ❄️';
+        }
         // 唐文亮·回春术层标记（老板需求）：🌿——不然看不出他攒着回血；层数不再显示（格子放不下），
         //   具体几层看战报行「回春术+N」
         if (unit.isTangWenLiang && Array.isArray(unit.state._hcStacks) && unit.state._hcStacks.length > 0) {
