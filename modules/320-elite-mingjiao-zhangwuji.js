@@ -2,7 +2,9 @@
 // V1.3.0 | 2026-11-19 融会贯通改「攻防差」口径：新增 calcRonghuiExtra（|攻−防|×系数，唯一出口），
 //   武学奇才反伤与主动融会两处共用；攻防被拉平（张三丰太极归一）时差值归零。系数 0.5→0.8（core/201）。
 // V1.3.1 | 2026-11-19 | fact 出口收口（T-EP-1）：武学奇才两条 SKILL_ANNOUNCE 裸 data.log.push → pushFact
-export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.1';
+// V1.3.2 | 2026-11-19 张无忌光环：按当前站位给四邻加成——正前 +5 防、左右 +15 血、正后 +4 攻
+//   （走 round 词条：每回合开局按最新站位重算，回合末自然失效，阵亡后零残留）
+export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.2';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/203-battle-utils.js';
 import { getRoleBonus } from '../core/202-unit.js';
@@ -22,6 +24,26 @@ function calcRonghuiExtra(u) {
     if (!u || !u.alive) return 0;
     return Math.floor(Math.abs(getStat(u, 'atk') - getStat(u, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
 }
+// 张无忌光环（2026-11-19 老板拍板）：按他当前站位给四邻加成——
+//   正前 +5 防、左右 +15 血（生命上限）、正后 +4 攻。
+//   走 round 词条：每回合开局按最新站位重算，回合末自然失效；他阵亡后不再施加，零残留。
+const ZHANG_AURA = { frontDef: 5, sideMaxHp: 15, backAtk: 4 };
+function applyZhangAura(zhang, A) {
+    if (!zhang || !zhang.alive) return;
+    const row = Math.floor((zhang.pos - 1) / 3);
+    for (const c of A) {
+        if (!c || !c.alive || c.uid === zhang.uid || c.isHorse || c.isLionCub) continue;
+        const sameRow = Math.floor((c.pos - 1) / 3) === row;
+        let stat = null, value = 0;
+        if (c.pos === zhang.pos - 3) { stat = 'def'; value = ZHANG_AURA.frontDef; }          // 正前
+        else if (c.pos === zhang.pos + 3) { stat = 'atk'; value = ZHANG_AURA.backAtk; }        // 正后
+        else if (sameRow && Math.abs(c.pos - zhang.pos) === 1) { stat = 'maxHp'; value = ZHANG_AURA.sideMaxHp; } // 左右
+        if (!stat) continue;
+        addMod(c, stat, { source: '张无忌光环', value, ttl: 'round', group: 'zhangAura', op: 'add' });
+        if (stat === 'maxHp') refreshMaxHp(c, null, '张无忌光环');
+    }
+}
+
 function checkZhangSwitch(zhang, A, log) {
     // 多实例化（老板拍板「完全真技能」）：由调用方传自己的单位实例，不再全场 find 第一个——
     //   双张无忌时 find 会误切「非触发者」（A 未满足切换条件也被切、触发者反而只转了形态没加攻防）
@@ -126,6 +148,7 @@ export function createZhangWujiComponent() {
             // 多实例化（老板拍板「完全真技能」）：组件认 self=本实例单位；self 阵亡回退全场 find
             const zhang = (self && self.alive) ? self : A.find(u => u.isZhang && u.alive);
             if (!zhang) return;
+            applyZhangAura(zhang, A);
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
             // 深夜复验（探针三场景实锤）：StateMachine 构造只设 current、不执行初始 onEnter，
