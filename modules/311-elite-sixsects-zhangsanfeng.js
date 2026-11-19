@@ -1,6 +1,6 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-// V6.27.4 | 2026-11-19 持癫乱回：张三丰被传染「癫」后，轮到自己的付费生生不息改为全场随机乱灌+癫传染
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.4';
+// V6.27.5 | 2026-11-19 蓄意抑疗可见：生生不息战报显示「应回→抑疗后→实回」；溢出改按抑疗后额度算（罚金不转队友）
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.5';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets, canBeTargeted } from '../core/203-battle-utils.js';
@@ -10,6 +10,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
 import { grantCrazy, revokeCrazy } from './333-elite-mingjiao-crazy.js';
+import { healModReasons } from '../core/217-effect-handlers.js';
 // 张三丰（六大派·防战）：不攻击的续航核心
 // 技能1 生生不息 / 技能3 八卦阵 / 技能5 第三回合严阵以待
 // 技能4 不争（仅剩一人判负）在 core/11 的胜负判定里
@@ -31,10 +32,15 @@ export function createZhangSanfengComponent() {
             function triggerEndlessBreath(unit, log, cost) {
                 if (!unit || !unit.alive) return;
                 const heal = Math.floor(unit.maxHp * s.healPct);
+                // 抑疗（截脉/寒毒，统一 -33%）：应发额度按核心同一口径先打折（previewHeal rawOnly），
+                //   实回由 applyStatChange 内部再打一次；溢出只算「抑疗后仍装不下」的部分——
+                //   抑疗罚掉的量不转给队友（2026-11-19 老板拍板）。
+                const afterReduce = previewHeal(unit, heal, true);
+                const healMods = afterReduce < heal ? healModReasons(unit) : [];
                 const hpBefore = unit.hp;
                 applyStatChange(unit, 'hp', heal, null, '生生不息');
                 const healed = Math.round(Math.max(0, unit.hp - hpBefore));
-                const overflow = Math.max(0, heal - healed);
+                const overflow = Math.max(0, afterReduce - healed);
 
                 // 溢出转嫁：从「存活友方」里随机挑一个（不含自己，满血也可被选中）；挑中满血者则该次溢出作废，不再改选
                 let receiver = null;
@@ -101,6 +107,12 @@ export function createZhangSanfengComponent() {
                         data: {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: healed,
+                            // 抑疗提示（2026-11-19 老板拍板）：healRaw=声明值 / healNominal=抑疗后应发 /
+                            //   healMods=原因清单（无修正不挂，渲染层不给正常回血加噪音）
+                            healRaw: heal,
+                            healNominal: afterReduce,
+                            healActual: healed,
+                            healMods,
                             // 回血后的引擎真值：演出层在场就按它落 store（血条当场刷新），
                             //   不然这笔回血要等「同一个 step 里下一个出手单位的步末同步」才显形（老板实机：攒到队友攻击才刷）
                             hpAfter: unit.hp,
@@ -130,19 +142,29 @@ export function createZhangSanfengComponent() {
                 const pool = [...A, ...B].filter(u => u && u.alive && u.uid !== unit.uid && canBeTargeted(u));
                 let receiver = null;
                 let receiverHealed = 0;
+                let receiverReduce = 0;      // 抑疗后被灌者应发额度（无接盘者 = 0）
+                let receiverMods = [];       // 被灌者的凝疗原因（截脉/寒毒）
                 if (pool.length > 0) {
                     const pick = pool[getBattleRng().nextInt(0, pool.length - 1)];
                     const rHpBefore = pick.hp;
+                    // 抑疗口径与 triggerEndlessBreath 同源：先算出「抑疗后应发」，实回由 applyStatChange 打，
+                    //   溢出只算「抑疗后仍装不下」的部分（抑疗罚掉的量不算乱灌量）
+                    const afterReduce = previewHeal(pick, heal, true);
+                    const mods = afterReduce < heal ? healModReasons(pick) : [];
                     const willHeal = previewHeal(pick, heal);
                     // source 传张三丰：治疗统计按产出者记账（与溢出转嫁同口径）
                     applyStatChange(pick, 'hp', heal, unit, '生生不息·癫乱回');
                     receiver = pick;
                     receiverHealed = Math.round(Math.max(0, Math.min(willHeal, receiver.hp - rHpBefore)));
+                    receiverReduce = afterReduce;
+                    receiverMods = mods;
                     // 癫传染：撤销自己 → 传给被灌者（与 333 攻击传染完全同款）
                     revokeCrazy(unit);
                     grantCrazy(receiver);
                     if (log) pushSkillAnnounce(log, unit, '癫',
-                        `🤪 ${unit.name} 受「癫」影响，生生不息乱灌 ${receiver.name} ${heal} 点生命，并把「癫」传染给了 ${receiver.name}`,
+                        `🤪 ${unit.name} 受「癫」影响，生生不息乱灌 ${receiver.name} ${afterReduce} 点生命` +
+                        (mods.length ? `（${mods.join('+')}：应灌${heal}）` : '') +
+                        `，并把「癫」传染给了 ${receiver.name}`,
                         { floatText: '🤪', floatUid: receiver.uid });
                 } else if (log) {
                     pushSkillAnnounce(log, unit, '癫', `🤪 ${unit.name} 受「癫」影响想乱灌生生不息，但全场无人可接，白白消散`, { floatText: '🤪', floatUid: unit.uid });
@@ -150,7 +172,7 @@ export function createZhangSanfengComponent() {
                 // 攻防转化：side 掷一次，实疗+二次溢出两档全给被灌者（满血被灌中=全额作废进溢出档，仍给加成）
                 const gainOf = (amount, div) => amount > 0 ? Math.max(s.minBonus, amount / div) : 0;
                 const side = getBattleRng().nextInt(0, 1) === 0 ? 'atk' : 'def';
-                const receiverOverflow = Math.max(0, heal - receiverHealed);
+                const receiverOverflow = Math.max(0, (receiver ? receiverReduce : heal) - receiverHealed);
                 const recvAtkGain = side === 'atk' ? gainOf(receiverHealed, s.healAtkDiv) + gainOf(receiverOverflow, s.overflowAtkDiv) : 0;
                 const recvDefGain = side === 'def' ? gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv) : 0;
                 if (receiver && recvAtkGain > 0) addMod(receiver, 'atk', { source: '生生不息', value: recvAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
@@ -166,7 +188,11 @@ export function createZhangSanfengComponent() {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: 0,
                             hpAfter: unit.hp,
-                            overflow: heal,
+                            overflow: receiver ? receiverReduce : heal,
+                            healRaw: heal,
+                            healNominal: receiver ? receiverReduce : heal,
+                            healActual: 0,
+                            healMods: receiverMods,
                             cost,
                             atkGain: 0,
                             defGain: 0,

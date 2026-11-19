@@ -1,5 +1,5 @@
 // core/217-effect-handlers.js — 伤害结算后的特效裁定器（回血、吸血、溅射、反伤等 Effect Handler）
-export const VER = 'core/217-effect-handlers.js V6.3.1';
+export const VER = 'core/217-effect-handlers.js V6.3.2';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
@@ -214,7 +214,8 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
 });
 
 // 回血被修正的原因清单（只在状态里查，不重算数值）：供战报「实际值（原因，原 N）」后缀用。
-function healModReasons(unit) {
+//   2026-11-19 导出：modules/311 生生不息直扣血（不走 HEAL 声明），也要挂同一份原因清单。
+export function healModReasons(unit) {
     const st = (unit && unit.state) || {};
     const mods = [];
     if (st._jinMai && st._jinMai.rounds > 0) {

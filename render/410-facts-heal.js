@@ -2,7 +2,7 @@
 //   回血族（吸血/回血/九阳/飞行再生/乾坤衍生/生生不息/白骨爪回复）11 条整块迁入。
 //   makeHealRenderer 工厂产物与本族手动版放在一起——「加新回血 = 工厂一行 / 手写」，对照更近。
 //   dot 工厂产物（玄冥中毒）不在本族：中毒不是回血，放 misc。
-export const VER = 'render/410-facts-heal.js V1.2.3';
+export const VER = 'render/410-facts-heal.js V1.2.4';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeHealRenderer, healDisplay } from './413-generic-renderers.js';
@@ -117,7 +117,19 @@ export function renderEndlessBreathFact(fact) {
     const wrap = (t) => t ? `（${t}）` : '';
     // 付费触发：付费路径句首带「消耗N点攻击力」（回合开始免费无此前缀）
     const costTag = fact.cost ? `消耗${fmtNum(fact.cost)}点攻击力，` : '';
-    const self = `${costTag}${fact.heal > 0 ? `回复${fmtNum(fact.heal)}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
+    // 抑疗提示（2026-11-19）：生生不息直扣血不走 HEAL 声明，抑疗三件套由 311 挂上
+    //   （healRaw 声明值 / healNominal 抑疗后应发 / healMods 原因清单）——只在自己真回了血时显示，
+    //   正常回血零噪音；癫乱回（heal=0）不套这里，原因写在 311 的公告行。
+    const modNote = (() => {
+        const mods = Array.isArray(fact.healMods) ? fact.healMods : [];
+        if (mods.length === 0 || !(fact.heal > 0)) return '';
+        const parts = [];
+        if (typeof fact.healRaw === 'number') parts.push(`应回${fmtNum(fact.healRaw)}`);
+        if (typeof fact.healNominal === 'number' && fact.healNominal !== fact.healRaw) parts.push(`抑疗后${fmtNum(fact.healNominal)}`);
+        if (typeof fact.healNominal === 'number' && fact.heal < fact.healNominal) parts.push(`缺口仅${fmtNum(fact.heal)}`);
+        return parts.length > 0 ? `（${mods.join('+')}：${parts.join('，')}）` : `（${mods.join('+')}）`;
+    })();
+    const self = `${costTag}${fact.heal > 0 ? `回复${fmtNum(fact.heal)}点生命${modNote}` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
     let tail = '';
     if (fact.overflow > 0) {
         // 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
