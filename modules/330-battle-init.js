@@ -446,43 +446,42 @@ export function initBattleTeams(currentStage, _rng) {
         const squadSize = Array.isArray(C.ENEMY_SQUADS[currentStage]) ? C.ENEMY_SQUADS[currentStage].length : 5;
 
         // 配对精英（2026-11-13 老板拍板：玄冥二老看作一个单位）：
-        //   整组作为【一个候选签】参与抽奖，抽到就占 group.length 个坑（多成员同时出场）；
+        //   整组作为【一个候选签】参与抽奖，且只占 1 个坑（多成员同时出场）；
         //   不是「特殊待遇掷骰决定出不出」——跟灭绝/周芷若/张三丰完全平级，都是池子里一个条目。
-        //   剩余坑位放不下这组时从池里剔除继续抽（消耗 RNG 但池子有限，必然收敛）。
+        //   2026-11-19 老板再拍板：占坑按 1 算——第一关抽中玄冥，六大派实到 6 人（4 单人 + 鹿鹤两人）。
         //   未来加新组合只加 PAIRED_GROUPS 一行，逻辑不动。
         const PAIRED_GROUPS = [['鹿杖客', '鹤笔翁']];
         const pairedNames = new Set(PAIRED_GROUPS.flat());
         const soloPool = elitePool.filter(e => !pairedNames.has(e.name));
 
-        // 候选池：每个单人是 size=1 的候选，每个配对组是 size=N 的候选
+        // 候选池：单人候选占 1 坑；配对组也占 1 坑（两人算一个单位，抽中即两人同场出场）
         const candidates = soloPool.map(e => ({
             members: [{ name: e.name, m: e.m }],
-            size: 1
+            slots: 1
         }));
         for (const group of PAIRED_GROUPS) {
             if (group.every(n => allChars[n])) {
                 candidates.push({
                     members: group.map(n => ({ name: n, m: allChars[n].m })),
-                    size: group.length
+                    slots: 1
                 });
             }
         }
 
-        // 无放回随机抽：每次从 remaining 抽一条，抽中即移除；剩余坑位放不下这组就剔除重抽
+        // 无放回随机抽：按「坑位」计数（不按出场人数），抽中即移除；
+        //   配对组只占 1 坑但出 2 人 → 抽中时本关六大派实到 squadSize+1 人
         const pickedSquad = [];
         const remaining = candidates.slice();
-        while (pickedSquad.length < squadSize && remaining.length > 0) {
+        let pickedSlots = 0;
+        while (pickedSlots < squadSize && remaining.length > 0) {
             const idx = _rng.nextInt(0, remaining.length - 1);
             const cand = remaining[idx];
-            if (squadSize - pickedSquad.length < cand.size) {
-                remaining.splice(idx, 1);
-                continue;
-            }
             remaining.splice(idx, 1);
             for (const m of cand.members) {
                 const role = resolveEnemyRole(m.name);
                 pickedSquad.push({ name: m.name, role, m: m.m });
             }
+            pickedSlots += cand.slots;
         }
 
         enemySquad = pickedSquad;

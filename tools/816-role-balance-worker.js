@@ -783,7 +783,7 @@ function buildFromTemplate(specs, camp, rng) {
         const ch = getGameData().characters[baseName];
         if (!ch) throw new Error('未知角色: ' + s.name);
         let role = s.role;
-        if (isXz && fz === 'brother') role = C.ROLES[rng.nextInt(0, 3)];
+        if (isXz && fz === 'brother') role = CONFIG.ROLES[rng.nextInt(0, 3)];
         const u = new Unit(baseName, ch.m, role, camp);
         applyHeroFlags(u);
         if (isXz && (fz === 'sister' || fz === 'brother')) {
