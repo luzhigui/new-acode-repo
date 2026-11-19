@@ -1,5 +1,6 @@
 // player/503-player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
-export const VER = 'player/503-player-core.js V7.0.3';
+// V7.0.4 | 2026-11-19 吸星单独表演时间：含吸星 cue 的步之后间隔 300ms→1200ms（连线/飘字读完再进下一步）
+export const VER = 'player/503-player-core.js V7.0.4';
 
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
@@ -7,11 +8,12 @@ import { setBattleRng, setPresentationRng } from '../core/214-battle-shared.js';
 import { createRoundStepper } from '../core/210-battle-round.js';
 import { GlobalStore, getState, setState, getPlayerContext } from '../infra/104-global-store.js';
 import { createStore, battleReducer } from '../modules/306-battle-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { AudioManager } from '../modules/304-audio-manager.js';   // 原走 window.AudioManager 全局（10-18 拆桥后不存在），typeof 守卫永远 false、BGM 音量恢复一直静默失效——V7.0.1 补 import 救活
 
 import { autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, setBtnDisabled, initRenderer, initLogScrollControls, showScoreFloat } from './510-renderer.js';
 import { setGridStore } from '../render/403-grid-render.js';
+
 import { setGridRenderCtx } from '../render/403-grid-render.js';
 import { clock } from '../infra/103-clock.js';
 import { getNoTableScale } from '../core/223-perf-params.js';
@@ -26,6 +28,15 @@ import { readRound, setupDeathTimers } from './506-player-step-sync.js';
 import { playStepInterleaved } from './504-player-play-step.js';
 
 function getCtx() { return getPlayerContext(); }
+
+// 步间隔：含吸星 cue 的步多留表演时间（2026-11-19 老板报「吸星特效和攻击特效几乎重叠」）。
+//   连线 1000ms + 飘字 1700ms（全部逻辑时间、受 clock 倍速缩放），常规 300ms 步间隔读不完，
+//   下一步俞莲舟的攻击立刻盖上来。这里只加「本步之后」的等待，不改演出时长、不阻塞快进档。
+function stepHoldMs(step) {
+    const hasAbsorbCue = Array.isArray(step && step.log) && step.log.some(e =>
+        e && e.factType === 'skillAnnounce' && e.data && e.data.cue && e.data.cue.type === SKILL_CUE_KINDS.ABSORB);
+    return hasAbsorbCue ? 1200 : 300;
+}
 
 export { clearAllEffects } from './510-renderer.js';
 export { readRound } from './506-player-step-sync.js';
@@ -152,7 +163,7 @@ export async function playBattle() {
             feedBattleStep(step, c.activeBuffs);   // 战报导出：与联机同源同净化
             await playStepInterleaved(c, step, isFirstAttackRef);
             c._rewindLastStep = step;   // 倒针：记「最后播完的一步」，一键回最新从这里还原
-            await clock.wait(300);
+            await clock.wait(stepHoldMs(step));
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
         }
 
@@ -392,7 +403,7 @@ export async function playBattleGuest() {
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
         feedBattleStep(step, step.activeBuffs || c.activeBuffs);   // 战报导出：从机喂房主发来的 step
         await playStepInterleaved(c, step, isFirstAttackRef);
-        await clock.wait(300);
+        await clock.wait(stepHoldMs(step));
         if (step.winner) { finalWinner = step.winner; isBattleOver = true; }
     }
 
@@ -452,7 +463,7 @@ export async function playBattleReplay(report) {
         if (!!step.ff !== !!GlobalStore.get('fastForwardActive')) GlobalStore.set('fastForwardActive', !!step.ff);
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
         await playStepInterleaved(c, step, isFirstAttackRef);
-        await clock.wait(300);
+        await clock.wait(stepHoldMs(step));
         if (step.winner) { finalWinner = step.winner; break; }
     }
 
