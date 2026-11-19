@@ -4,7 +4,9 @@
 //   (攻+防)/2 —— 攻防差归零，克制张无忌融会贯通（差值口径）。词条 ttl:'round' + 先清后挂，buff 到期即失效。
 //   （V6.27.5：蓄意抑疗可见 / 溢出按抑疗后额度算——更早版本见 记录-更改履历.md）
 // V6.28.1 | 2026-11-19 | fact 出口收口（T-EP-1）：严阵以待 BUFF_SUMMARY 裸 data.log.push → pushFact
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.1';
+// V6.28.2 | 2026-11-19 第二关加强：生生不息回血 16%→19.2%、转攻防系数各 +20%、付费触发消耗攻 2→3；
+//   严阵以待第 12 回合后反弹 40%→60%（回合计数改为一直累加，不再触发后冻结）
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.2';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange } from '../core/214-battle-shared.js';
 import { getBenefitTargets, canBeTargeted, hasBuff } from '../core/203-battle-utils.js';
@@ -313,11 +315,10 @@ export function createZhangSanfengComponent() {
             // 技能5：第 3 回合结束后仍未分胜负（即第 4 回合开始）→ 张三丰获得严阵以待（仅限自身）
             // 不走 B._activeBuffs：那条会让六大派全体防战都吃到；改为直接挂词条 + 组件自算反弹
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 45, (data) => {
-                if (!zhang.state._tenRoundFired) {
-                    zhang.state._roundCountForFortify = (zhang.state._roundCountForFortify || 0) + 1;
-                    if (zhang.state._roundCountForFortify <= tf.round) return;
-                    zhang.state._tenRoundFired = true;
-                }
+                // 回合计数一直累加：第 12 回合后的反弹强化要靠它判定，不能像旧版那样触发后就冻结
+                zhang.state._roundCountForFortify = (zhang.state._roundCountForFortify || 0) + 1;
+                if (zhang.state._roundCountForFortify <= tf.round) return;
+                zhang.state._tenRoundFired = true;
                 // 防御 +50%（ttl: round，每回合开始重挂，跟明教同源参数）
                 //   去重：若团队版严阵以待已挂（applyFortifyDef 先挂的），不再叠第二条
                 const zhangDefMods = (zhang._mods && zhang._mods.def) || [];
@@ -344,8 +345,11 @@ export function createZhangSanfengComponent() {
                 if (!attacker || !attacker.alive || attacker === zhang) return;
                 if (typeof data.atkAct !== 'number' || typeof data.defAct !== 'number') return;
                 const baseDmg = Math.floor(data.atkAct * (data.atkAct / (data.atkAct + data.defAct)));
-                // 反弹比例走配置（与 core/12 通用防战同源），不再写死一半
-                const fortifyRatio = CONFIG.BUFFS.fortify.reboundRatio ?? 0.5;
+                // 反弹比例走配置（与 core/12 通用防战同源），不再写死一半；
+                //   第 reboundBoostRound 回合后强化为 reboundBoostRatio（默认 12 回合后 60%）
+                const fortifyRatio = (zhang.state._roundCountForFortify || 0) > (tf.reboundBoostRound ?? 12)
+                    ? (tf.reboundBoostRatio ?? 0.6)
+                    : (CONFIG.BUFFS.fortify.reboundRatio ?? 0.5);
                 const rebound = Math.floor((data.atkAct - baseDmg) * fortifyRatio);
                 if (rebound <= 0) return;
                 data.declarations = data.declarations || [];

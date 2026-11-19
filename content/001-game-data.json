@@ -513,7 +513,7 @@
         "endlessBreath": {
           "name": "生生不息",
           "desc": "不攻击；每回合开始回复最大生命{healPct}%；轮到自己行动时与八卦阵触发均需消耗{atkCost}点攻击力（攻不足则不触发）。回血同时永久加成，攻或防随机二选一：实际回血每{healAtkDiv}点→攻+1、每{healDefDiv}点→防+1；溢出每{overflowAtkDiv}点→攻+1、每{overflowDefDiv}点→防+1（每档至少+{minBonus}；加成记在血量落点单位身上）",
-          "params": { "healPct": 0.16, "healAtkDiv": 25, "healDefDiv": 10, "overflowAtkDiv": 12.5, "overflowDefDiv": 5, "minBonus": 1, "atkCost": 2 }
+          "params": { "healPct": 0.192, "healAtkDiv": 21, "healDefDiv": 8.5, "overflowAtkDiv": 10.5, "overflowDefDiv": 4, "minBonus": 1, "atkCost": 3 }
         },
         "baguaArray": {
           "name": "八卦阵",
@@ -526,8 +526,8 @@
         },
         "tenRoundFortify": {
           "name": "第三回合",
-          "desc": "第{round}回合结束后仍未分胜负，获得严阵以待（防御+40%、反弹40%）",
-          "params": { "round": 3 }
+          "desc": "第{round}回合结束后仍未分胜负，获得严阵以待（防御+40%、反弹40%）；第{reboundBoostRound}回合后反弹提升至60%",
+          "params": { "round": 3, "reboundBoostRound": 12, "reboundBoostRatio": 0.6 }
         }
       },
       "taunts": { "attack": [], "kill": [] }

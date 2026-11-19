@@ -79,7 +79,7 @@ export const ENGINE_READ = {
     lionInspire:     ['atkPerHit'],
     endlessBreath:   ['healPct', 'healAtkDiv', 'healDefDiv', 'overflowAtkDiv', 'overflowDefDiv', 'minBonus', 'atkCost'],
     baguaArray:      ['procChance', 'atkCost'],
-    tenRoundFortify: ['round'],
+    tenRoundFortify: ['round', 'reboundBoostRound', 'reboundBoostRatio'],
     targetMark:      ['rounds', 'allyMult', 'carrierMult'],
     redBlood:        ['thresholdPct', 'soloMult'],
     qianKun:         ['reducePct', 'reboundPct', 'selfDmgPct'],
