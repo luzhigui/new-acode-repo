@@ -51,7 +51,7 @@ export function selftestWorktreeRedline() {
     const p1 = 'worktree ' + outside + '\nHEAD abc\n';
     eq(countRegistrations(p1, outside), 1, '②a 单注册');
     eq(countRegistrations(p1.replace(/\//g, '\\'), outside), 1, '②b 反斜杠归一');
-    eq(countRegistrations(p1 + 'worktree ' + outside + '/\n', outside), 1, '②c 尾斜杠归一（同路径不算两次）');
+    eq(countRegistrations('worktree ' + outside + '/\nHEAD x\n', outside), 1, '②c 尾斜杠归一（单条带尾斜杠仍算1）');
     eq(countRegistrations(p1 + p1, outside), 2, '②d 双注册=嵌套残留');
     eq(countRegistrations('worktree D:/other/wt\nHEAD x\n', outside), 0, '②e 别人的worktree不数');
     eq(countRegistrations('', outside), 0, '②f 空输出=未建/已清');

@@ -1,7 +1,6 @@
 // modules/303-error-capture.js — 全局报错捕获、Bug 面板 UI 与切片数据生成
-// V6.6.1 | 2026-11-17 Bug 面板单条复制：记录卡「下载这一条」改为「复制这一条」（内容追加现场切片 JSON）；
-//   复制→提示→失败降级下载收口到 copyOrDownload，「一键复制全部」同用，不写第二套。
-export const VER = 'modules/303-error-capture.js V6.6.1';
+// V6.6.3 | 2026-11-19 手机软键盘遮挡「保存」：overlay 跟随 visualViewport 收缩、底部按钮行 sticky 贴底。
+export const VER = 'modules/303-error-capture.js V6.6.3';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -453,7 +452,10 @@ import { GlobalStore } from '../infra/104-global-store.js';
         // 两个 overlay：记录面板 / 已记录列表；点选态在上两行已单独收
         ['bugRecorderOverlay', 'bugListOverlay'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.remove();
+            if (el) {
+                try { if (el.__vvCleanup) el.__vvCleanup(); } catch (e) {}
+                el.remove();
+            }
         });
         // 关面板 = 退出「在日志区翻找」的状态：日志滚回底部、0.5 倍速自动还原。
         //   否则点完锚点/保存后，日志还停在半路，必须手动点右下角下拉箭头才能恢复速度。
@@ -475,6 +477,25 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'box-shadow:0 8px 28px rgba(0,0,0,.7);position:relative;';
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+        // 手机软键盘弹出时 layout viewport 不变、只有 visualViewport 变矮：
+        //   不跟着收缩，底部「保存」就被键盘盖住，必须先下滑才能点到。
+        const vv = window.visualViewport;
+        if (vv) {
+            const sync = () => {
+                const shrunk = vv.height < window.innerHeight - 120;
+                overlay.style.height = vv.height + 'px';
+                overlay.style.top = vv.offsetTop + 'px';
+                overlay.style.paddingTop = shrunk ? '8px' : '6vh';
+                box.style.maxHeight = Math.max(220, vv.height - (shrunk ? 20 : 40)) + 'px';
+            };
+            vv.addEventListener('resize', sync);
+            vv.addEventListener('scroll', sync);
+            overlay.__vvCleanup = () => {
+                vv.removeEventListener('resize', sync);
+                vv.removeEventListener('scroll', sync);
+            };
+            sync();
+        }
         return { overlay, box };
     }
     function makeTitle(box, text) {
@@ -582,6 +603,18 @@ import { GlobalStore } from '../infra/104-global-store.js';
         }
         allBtn.onclick = () => picks.forEach(p => { p.input.checked = true; });
         noneBtn.onclick = () => picks.forEach(p => { p.input.checked = false; });
+
+        // 补充提示：切片只带数据，这三项只能人手写进描述（写清一条就少问一轮）
+        const noteHint = document.createElement('div');
+        noteHint.style.cssText =
+            'font-size:11px;line-height:1.6;color:#9c8a68;margin-bottom:8px;padding:7px 9px;' +
+            'border-left:2px solid #7a5c2e;background:#140f09;border-radius:0 6px 6px 0;';
+        noteHint.innerHTML =
+            '切片只带数据，下面三项请写进描述：<br>' +
+            '① <b>期望结果</b>：本来应该是……<br>' +
+            '② <b>操作路径</b>：第几回合、点了谁、放什么技能 / 选了哪个模式<br>' +
+            '③ <b>异常表现</b>：看到了什么，最好带数字（如“后排少林掉了 120 血”）';
+        box.appendChild(noteHint);
 
         // 用户备注 / 手动问题描述
         const noteLabel = document.createElement('div');
@@ -749,9 +782,11 @@ import { GlobalStore } from '../infra/104-global-store.js';
         status.style.cssText = 'font-size:11px;color:#ff9a8a;min-height:16px;margin-bottom:6px;';
         box.appendChild(status);
 
-        // 底部按钮
+        // 底部按钮：sticky 贴住滚动容器底部，键盘弹出后仍可见可点，不用下滑
         const btnRow = document.createElement('div');
-        btnRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+        btnRow.style.cssText =
+            'display:flex;gap:8px;flex-wrap:wrap;position:sticky;bottom:-14px;z-index:2;' +
+            'padding:8px 0 14px;margin-top:2px;background:#1d140c;border-top:1px solid #3a2a16;';
         const saveBtn = makeBtn('保存', true);
         saveBtn.style.flex = '1';
         const listBtn = makeBtn('打开列表');

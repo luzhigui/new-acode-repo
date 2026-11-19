@@ -1,7 +1,7 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
-// V6.14.8 | 2026-11-17 删开局张无忌专属三选一弹窗（ZHANG_EXCLUSIVE_CHANCE 掷骰一并移除）：
-//   专属改与普通海克斯等概率进普通池、任何回合都能抽到，抽中整族进候选、选定后整族终身不再出现。
-export const VER = 'ui/702-main-5v5-test.js V6.14.8';
+// V6.14.9 | 2026-11-19 Bug 切片提精度：日志单条截断 60→200 字；actions 带 data 参数（≤160 字）；
+//   补 page（pathname+hash），解决「在哪个界面」定位缺失。
+export const VER = 'ui/702-main-5v5-test.js V6.14.9';
 
 import '../infra/104-global-store.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -592,7 +592,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         const byUid = new Map(all.map(u => [u.uid, u]));
         const facts = (GlobalStore.get('battleFacts') || []).slice(-5);
         const battleLog = GlobalStore.get('battleLog') || [];
-        const recentLog = flattenBugLog(battleLog.slice(-5)).map(s => s.slice(0, 60));
+        // 每条日志留 200 字：一条战斗日志常 40~80 字，截 60 字会把伤害值/剩余血量切掉
+        const recentLog = flattenBugLog(battleLog.slice(-5)).map(s => s.slice(0, 200));
 
         // 自动记录：报错文字点名的单位 → 最近 fact 里出现过的单位 → 最近日志点名的单位 → 前两个存活
         let picked = all.filter(u => u.name && hint.includes(u.name)).slice(0, 2);
@@ -676,9 +677,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             skill = (cfg && cfg.name) || related[0];
         }
 
+        // actions 带关键参数（类型 + data 紧凑 JSON ≤160 字）：排查"谁对谁、多少数值"必需
+        const compactFact = (f) => {
+            if (!f || !f.factType) return null;
+            let s = '';
+            try { s = JSON.stringify(f.data); } catch (e) { s = String(f.data); }
+            if (!s) return f.factType;
+            return f.factType + ' ' + (s.length > 160 ? s.slice(0, 160) + '…' : s);
+        };
+
         const out = {
             ver: VER,
             cfgVer: CFG_VER,
+            page: location.pathname + (location.hash || ''),   // 在哪个界面（对症分支原本不带 location，补这条）
             stage: getState.currentStage(),
             round: ui && ui.round,
             gs: getState.gs(),
@@ -691,7 +702,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             factTotal: (GlobalStore.get('battleFacts') || []).length,
             mode: manual ? 'manual' : 'auto',
             where: { skill: skill, lastAction: recentLog[recentLog.length - 1] || null },
-            actions: facts.map(f => f && f.factType).filter(Boolean),
+            actions: facts.map(compactFact).filter(Boolean),
             log: recentLog,
             buffs: buffs,
             units: units,
