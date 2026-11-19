@@ -67,7 +67,19 @@ function roleOf(name) {
 //   ① 玄冥二老合并成一个评价单位（连体、同进同出）：采样时两人同时进六大派骨架（占 2 个实体）。
 //   ② 小昭拆姐妹两档（主游戏 forceXiaoZhao 形态）：姐姐固定职业、妹妹职业随机。
 //   ③ 无职业标签的具名精英（素问/说不得等 tags 里没有职业）也要进榜：
-//      主游戏是随机四选一，榜里统一按战士计（中位口径），界面标注「职业按战士计」。
+//      优先取关卡阵容里官方给过的职业（第3关变体 俞莲舟=防战 / 张松溪=远程），
+//      查不到的按战士计（中位口径），界面标注「职业按战士计」。
+function roleFromEncounters(name) {
+    const enc = getGameData()?.encounters || {};
+    const lists = Object.values(enc.enemySquads || {});
+    for (const arr of Object.values(enc.squadVariants || {})) for (const v of arr) lists.push(v?.squad || []);
+    for (const list of lists) {
+        const hit = (list || []).find(it => it && it.name === name && it.role);
+        if (hit) return hit.role;
+    }
+    return null;
+}
+
 function collectCands() {
     const out = [];
     const chars = getGameData()?.characters || {};
@@ -89,7 +101,8 @@ function collectCands() {
             out.push({ name: '小昭·妹', base: '小昭', camp: c.camp, m: c.m || 0, role: role || '远程', forceXiaoZhao: 'brother', note: '职业随机' });
             continue;
         }
-        out.push({ name: n, camp: c.camp, m: c.m || 0, role: role || '战士', note: role ? '' : '职业按战士计' });
+        const inferred = role || roleFromEncounters(n);
+        out.push({ name: n, camp: c.camp, m: c.m || 0, role: inferred || '战士', note: inferred ? '' : '职业按战士计' });
     }
     return out.sort((a, b) => b.m - a.m || a.name.localeCompare(b.name, 'zh'));
 }
