@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.19</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.20</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         /* 生涯记录面板内的表格：表头/数字单元格禁止换行，避免窄屏下表头与内容错行；
@@ -57,7 +57,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.3.19 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.3.20 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -158,7 +158,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.19 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.20 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -211,10 +211,10 @@
         document.getElementById('btnCareerLog').addEventListener('click', () => {
             showCareerDialog();
         });
-        // 🐛 Bug记录：直接进游戏并自动弹出「已保存的 Bug 列表」（2026-11-19 老板要求，
-        //   省掉 进局 → 暂停 → 记录Bug → 打开列表 四步；列表读的还是同一份 localStorage）
+        // 🐛 Bug记录：直接开独立浏览页（tools/838-bug-records.html），不进游戏
+        //   （2026-11-19 二改：先进游戏再弹列表等于没省事，改成同源页直读 localStorage）
         document.getElementById('btnBugRecords').addEventListener('click', () => {
-            window.location.href = 'index.html?buglist=1';
+            window.location.href = 'tools/838-bug-records.html';
         });
 
         function showCareerDialog() {

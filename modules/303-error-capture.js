@@ -2,7 +2,8 @@
 // V6.6.4 | 2026-11-19 记录框瘦身：删顶部「手动新建」大按钮、三项提示并入 placeholder；
 //   面板打开时隐藏「倒针」悬浮入口（z-index 2.1 亿会浮在弹层上挡字）。
 // V6.6.5 | 2026-11-19 支持 index.html?buglist=1 直开已保存 Bug 列表（dev-index「🐛 Bug记录」按钮）
-export const VER = 'modules/303-error-capture.js V6.6.5';
+// V6.6.6 | 2026-11-19 撤销 V6.6.5 的 ?buglist 直开：列表已改为 tools/838-bug-records.html 独立页，不必进游戏
+export const VER = 'modules/303-error-capture.js V6.6.6';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -1205,15 +1206,6 @@ import { GlobalStore } from '../infra/104-global-store.js';
         btnBar.style.display = 'block';
         errorPanel.scrollTop = errorPanel.scrollHeight;
     }
-
-    // ---------- 外链直开：dev-index「🐛 Bug记录」→ index.html?buglist=1 ----------
-    //   省掉 进局 → 暂停 → 记录Bug → 打开列表 四步；延后一拍等其余模块（store / 日志区）就绪，
-    //   失败就静默（列表本身还能从游戏内入口打开，不因这条捷径报错）。
-    try {
-        if (new URLSearchParams(location.search).get('buglist') === '1') {
-            setTimeout(() => { try { openSavedList(); } catch (e) { /* 面板未就绪则忽略 */ } }, 400);
-        }
-    } catch (e) { /* 环境不支持 URLSearchParams 则忽略 */ }
 
     // ---------- 全局错误 ----------
 window.addEventListener('error', function(e) {
