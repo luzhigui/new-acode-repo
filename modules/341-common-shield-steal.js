@@ -1,3 +1,5 @@
+// V1.2.2 | 2026-11-19 智取文案小数点约整（fmtNum 同口径）：护盾/回血/溢出转上限数字不再露长浮点；
+//   顺手修正「溢出一半转上限」旧文案——实际早已是 100% 转（V1.2.0 拍板）。
 // V1.2.1 | 2026-11-19 连续智取合并灯泡：同一步内张松溪已报过「智取」→ 后续只落战报行，不再重复飞 💡
 // V1.2.0 | 2026-11-19 智取二段分配 + 回血抢夺：
 //   1) 护盾：敌方获得 N → 实得 0.5N，张松溪 0.25N，其血量百分比最低的存活队友 0.25N（无队友则两份全归张松溪）；
@@ -9,8 +11,9 @@
 import { applyStatChange, addMod, refreshMaxHp, recordHpAudit } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
+import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.1';
+export const VER = 'modules/341-common-shield-steal.js V1.2.2';
 
 const STEALER_NAME = '张松溪';
 
@@ -63,10 +66,10 @@ export function stealShieldHalf(unit, amount, A, B, ctx) {
     let detail;
     if (mate) {
         mate.state._permShield = (mate.state._permShield || 0) + share;
-        detail = `抢取 ${unit.name} 的护盾 ${amount}（自得 ${share}，分给 ${mate.name} ${share}）`;
+        detail = `抢取 ${unit.name} 的护盾 ${fmtNum(amount)}（自得 ${share}，分给 ${mate.name} ${share}）`;
     } else {
         thief.state._permShield = (thief.state._permShield || 0) + share;
-        detail = `抢取 ${unit.name} 的护盾 ${amount}（无队友，${share * 2} 全并入自身）`;
+        detail = `抢取 ${unit.name} 的护盾 ${fmtNum(amount)}（无队友，${share * 2} 全并入自身）`;
     }
     announceZhiQu(ctx && ctx.log, thief, detail);
     return amount - share * 2;
@@ -111,11 +114,11 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     }
     const stolen = share * 2;
     const parts = [];
-    if (mate && eaten.mate > 0) parts.push(`${mate.name} 回血 ${eaten.mate}`);
-    if (eaten.thief > 0) parts.push(`张松溪 回血 ${eaten.thief}`);
-    if (eaten.maxHpUp > 0) parts.push(`溢出 ${pool} 的一半转生命上限 +${eaten.maxHpUp}`);
+    if (mate && eaten.mate > 0) parts.push(`${mate.name} 回血 ${fmtNum(eaten.mate)}`);
+    if (eaten.thief > 0) parts.push(`张松溪 回血 ${fmtNum(eaten.thief)}`);
+    if (eaten.maxHpUp > 0) parts.push(`溢出 ${fmtNum(pool)} 转生命上限 +${fmtNum(eaten.maxHpUp)}`);
     // 战报行自动带「智取（…，原 N）」后缀：healModReasons 读该临时字段（core/217 消费后清除）
-    target.state._zhiQuNote = `智取（张松溪抢 ${stolen}）`;
-    announceZhiQu(ctx && ctx.log, thief, `抢取 ${target.name} 的回血 ${stolen}（${parts.join('；') || '无人可吃'}）`);
+    target.state._zhiQuNote = `智取（张松溪抢 ${fmtNum(stolen)}）`;
+    announceZhiQu(ctx && ctx.log, thief, `抢取 ${target.name} 的回血 ${fmtNum(stolen)}（${parts.join('；') || '无人可吃'}）`);
     return { kept: nominal - stolen, stolen };
 }
