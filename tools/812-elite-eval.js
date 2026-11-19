@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.13.0';
+export const VER = 'tools/812-elite-eval.js V3.13.1';
+// V3.13.1 | 2026-11-19 主表·自然出场 + 强精英表（各 6 个精英列）不再套 elite-table-fit：
+//   固定列宽会把每格压窄导致文字互相重叠，改成按内容自适应 + 最小列宽，窄屏放不下整表横向滑动。
 // V3.13.0 | 2026-11-19 Boss（张无忌 M115）不再单独一张表，并进「⚔ 强精英」同一张表一起评：
 //   812 的 Boss 按钮/进度/结果容器移除，快照只存 solo（含张无忌）；旧快照里的 parts.boss 仍由 826 照读，
 //   826 判读时「没有 boss 分表就从 solo 表里抽张无忌」。
@@ -566,7 +568,9 @@ function noEliteTotalsOf(byStage, stages) {
 }
 
 function renderResults(byStage, stages) {
-    let html = metaLine(latest.elite) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    // 6 个精英列再套 elite-table-fit（固定列宽）会把每格压到文字互相重叠（手机截图已确认）：
+    //   改成按内容自适应 + 最小列宽，窄屏放不下时整表横向滑动
+    let html = metaLine(latest.elite) + `<div class="elite-table-scroll"><table class="elite-table" style="min-width:${64 + configs.length * 130}px"><colgroup><col style="width:64px">`;
     for (const cfg of configs) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
@@ -612,7 +616,7 @@ function renderResults(byStage, stages) {
         <div class="cell-sub">第 ${s.rank} / ${ranked.length} 名</div>
         <div class="cell-sub">胜率 70% ＋ 存活 30%</div></td>`;
     }
-    html += '</tr></table>';
+    html += '</tr></table></div>';
     html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列六名精英、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
     attachCopyBtn(resultEl);
