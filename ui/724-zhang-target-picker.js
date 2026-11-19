@@ -9,7 +9,10 @@
 //   全部 JS 内动态建 DOM + inline style（含运行时注入 <style> 的 keyframes），**不碰 index.html CSS 块**。
 //   ② 合法目标口径改调 core/203 getMeleeLegalTargetSet(...,{noFallback:true})，与引擎手动/自动三路同源：
 //   近战够不着后排 → 后排灰显不可选，杜绝「亮了打不到 / 能打没亮」。零引擎改动（本文件自身）。
-export const VER = 'ui/724-zhang-target-picker.js V1.1.0';
+// V1.1.1 | 2026-11-19 FIX「一拖就没了」：① 压暗层加 pointer-events:none（旧版全屏遮罩把起点/终点指针全吃掉）；
+//   ② 高亮格同步挂 touch-action:none（手机拖拽被当滚动 → pointercancel 直接取消窗口）；
+//   ③ 点空白＝取消改由 document pointerdown 兜（遮罩不再拦后补回该语义）。
+export const VER = 'ui/724-zhang-target-picker.js V1.1.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getMeleeLegalTargetSet } from '../core/203-battle-utils.js';
@@ -31,9 +34,11 @@ export function showZhangTargetPicker(c, step, resolve) {
     const enemyUids = new Set(enemySide.filter(u => u && u.alive && u.camp !== zhang.camp && !u.isHorse).map(u => u.uid));
 
     // 高亮底账：每个格子记原 style，收尾精确还原
-    const GLOW_ZHANG = ';box-shadow:0 0 24px rgba(255,215,0,0.95);position:relative;z-index:10011;';
-    const GLOW_LEGAL = ';box-shadow:0 0 18px rgba(255,215,0,0.9);position:relative;z-index:10011;';
-    const GLOW_ILLEGAL = ';box-shadow:0 0 10px rgba(130,130,130,0.5);filter:grayscale(0.85) brightness(0.72);position:relative;z-index:10011;';
+    //   touch-action:none 跟着高亮一起挂（2026-11-19）：手机上拖拽会被浏览器当成滚动 → 触发 pointercancel
+    //   → 选目标窗当场 resolve(null)（「还没拖到人就没了」）。挂 none 后手势交给我们的 pointer 事件。
+    const GLOW_ZHANG = ';box-shadow:0 0 24px rgba(255,215,0,0.95);position:relative;z-index:10011;touch-action:none;';
+    const GLOW_LEGAL = ';box-shadow:0 0 18px rgba(255,215,0,0.9);position:relative;z-index:10011;touch-action:none;';
+    const GLOW_ILLEGAL = ';box-shadow:0 0 10px rgba(130,130,130,0.5);filter:grayscale(0.85) brightness(0.72);position:relative;z-index:10011;touch-action:none;';
     const GLOW_HOVER_OK = ';box-shadow:0 0 36px rgba(255,215,0,1),0 0 14px rgba(255,215,0,0.9) inset;filter:none;';
     const GLOW_HOVER_BAD = ';box-shadow:0 0 22px rgba(170,170,170,0.95);filter:grayscale(1) brightness(0.6);';
     const baseZhang = zhangCell.getAttribute('style') || '';
@@ -58,9 +63,11 @@ export function showZhangTargetPicker(c, step, resolve) {
     document.head.appendChild(styleTag);
 
     // 全屏压暗层 + 提示
+    //   V1.1.1：压暗层必须 pointer-events:none——旧版它是全屏实体层，把下面所有格子的指针事件全吃掉，
+    //   起点按不住/终点 elementFromPoint 永远拿到遮罩 → 拖一下就 resolve(null)（老板报「一拖就没了」）。
     const overlay = document.createElement('div');
     overlay.id = 'zhangTargetOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10010;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10010;pointer-events:none;';
     const tipBar = document.createElement('div');
     tipBar.textContent = '☀️ 按住张无忌，金色可打／灰色是够不着的后排（松手在空白=取消）';
     tipBar.style.cssText = 'position:absolute;bottom:18%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(0,0,0,0.9);white-space:nowrap;';
@@ -194,13 +201,22 @@ export function showZhangTargetPicker(c, step, resolve) {
         styleTag.remove();
         overlay.remove();
         zhangCell.setAttribute('style', baseZhang);
+        zhangCell.removeEventListener('pointerdown', onDown);
         enemyCells.forEach((cell, uid) => cell.setAttribute('style', baseCells.get(uid)));
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
         document.removeEventListener('pointercancel', onUp);
         document.removeEventListener('keydown', onKey);
+        document.removeEventListener('pointerdown', onDocDown);
     };
     const onKey = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
+    // 压暗层不再拦事件后，点空白＝取消由这里兜（旧版靠遮罩吃掉点击，用户点了没反应）
+    const onDocDown = (e) => {
+        if (dragging) return;
+        if (e.target === zhangCell || (zhangCell.contains && zhangCell.contains(e.target))) return;
+        cleanup();
+        resolve(null);
+    };
     const onMove = (e) => {
         ghost.style.left = e.clientX + 'px';
         ghost.style.top = e.clientY + 'px';
@@ -235,6 +251,7 @@ export function showZhangTargetPicker(c, step, resolve) {
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
     document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDocDown);
 }
 
 GlobalStore.setUIHandler('showZhangTargetPicker', showZhangTargetPicker);
