@@ -1,5 +1,7 @@
 // core/216-skill-mechanisms.js — 数据驱动技能机制的安装期校验与统一装配
-export const VER = 'core/216-skill-mechanisms.js V6.8.7';
+// V6.8.8 | 2026-11-19 | 九阳护盾溢出 stealShieldHalf 的 A/B 改从 payload 取（本函数形参只有 data/onHitDecls，
+//   裸 A/B 必抛 ReferenceError 且会中断本条命中的后续 onHit 效果；core/209 L564 载荷已带 A,B）
+export const VER = 'core/216-skill-mechanisms.js V6.8.8';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
@@ -268,7 +270,7 @@ function submitOnHitEffects(data, onHitDecls) {
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, auditGroup: 'nineYangHeal', auditSource: '九阳神功治疗', factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                 }
                 if (shieldGain > 0) {
-                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldHalf(unit, shieldGain, A, B, { log: data.log });
+                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldHalf(unit, shieldGain, data.A, data.B, { log: data.log });
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 // 免疫毒素（庄铮·断锤形态）：完全不上毒，格子不挂 ❄️
