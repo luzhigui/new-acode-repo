@@ -1,3 +1,6 @@
+// tests/isdead-fix-guard.mjs V1.0.4 | 2026-11-19 第30轮：引擎信号处理抛错必须判红——
+//   挂 _lib/eventbus-error-guard 陷阱；实测本护栏在 core/216:271 `ReferenceError: A is not defined` 时仍判 ✅
+//   （异常被 EventBus try/catch 吞掉，只 console.error），样本可信度被高估。MIN_HITS 与门禁/诊断口径一字未动。
 // tests/isdead-fix-guard.mjs V1.0.2 | 2026-11-08 体检迭代：删掉 helper 之前重复手抄装配 302
 //   （总入口 301 已装载，装配收口守门 V1.0.2 当场点名）；功能代码与判据一字未动。
 // tests/isdead-fix-guard.mjs V1.0.1 （第 164 轮：fact 采集补 data.phantomFact 层 —— 幻影 fact 与 data.entries 并列、不在 entries 里，原两层口径对它恒不可见；只补视野、不缩面、不改判据）
@@ -37,9 +40,10 @@ import { SeededRNG } from '../infra/102-core-utils.js';
 import { createRoundStepper } from '../core/210-battle-round.js';
 import { initBattleTeams } from '../modules/330-battle-init.js';
 import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
+import { installEventBusErrorTrap, formatEventBusErrors } from './_lib/eventbus-error-guard.mjs';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 
-const VER = 'tests/isdead-fix-guard.mjs V1.0.2';
+const VER = 'tests/isdead-fix-guard.mjs V1.0.4';
 const argv = process.argv.slice(2);
 const N_SEEDS = Number(process.env.SEEDS_N || (argv.includes('--seeds') ? argv[argv.indexOf('--seeds') + 1] : 30));
 const SEEDS = Array.from({ length: N_SEEDS }, (_, i) => i + 1);
@@ -75,6 +79,7 @@ async function main() {
     // 第 162 轮：上游把小昭.hexEnhance 整段迁到 content/002-hex-enhance.json，启动链必须一并 loadHexEnhanceData（缺口由 tests/hex-boot-chain-guard.mjs 点名）
     await loadHexEnhanceData();
 
+    const busTrap = installEventBusErrorTrap();   // 第30轮：捞被 EventBus 吞掉的监听器异常
     const trueHits = [];                 // isDead===true 的命中明细
     const deadUids = new Set();          // 跨所有 step 累积的死亡 uid（一旦死即记）
     let battles = 0, scanned = 0;
@@ -145,6 +150,14 @@ async function main() {
     }
 
     // ① 门禁：修复必须活着（命中数达标）
+    // 第30轮：引擎级异常优先报红——异常被吞掉时下面的命中数/诊断都不可信
+    const busErrs = busTrap.drain();
+    if (busErrs.length) {
+        console.log(formatEventBusErrors(busErrs));
+        console.log(`RESULT: isDead护栏 引擎信号处理抛错${busErrs.length}次（异常被 EventBus 吞掉，样本结论不可信）`);
+        process.exit(1);
+    }
+
     if (trueCount < MIN_HITS) {
         console.log(`RESULT: isDead回归 真值命中${trueCount} < 下限${MIN_HITS}（修复可能已退回恒false）`);
         process.exit(1);

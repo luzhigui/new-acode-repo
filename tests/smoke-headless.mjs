@@ -1,5 +1,8 @@
 // tests/smoke-headless.mjs — 无头冒烟：真跑引擎，不靠"语法通过"糊弄
-export const VER = 'tests/smoke-headless.mjs V1.3.0';
+export const VER = 'tests/smoke-headless.mjs V1.4.0';
+// V1.4.0 | 2026-11-19 第30轮：引擎信号处理抛错不再算「无异常」。挂 _lib/eventbus-error-guard 陷阱，
+//        | 跑完把被 EventBus try/catch 吞掉、只 console.error 的异常计入本项失败（实测 ReferenceError:
+//        | A is not defined 时本项原本仍判 ✅ —— 机制静默没跑，断言自然不响）。判据阈值一字未动。
 // V1.3.0 | 2026-11-07 数据卫生：characters 每条必须显式写 named（缺字段即判失败）；
 //        | 该字段是 isNamedCharacter 的唯一判据，缺省会被静默当成杂兵（104 档刷蓝回归同源）。
 // 用法: node tests/smoke-headless.mjs [局数]
@@ -10,6 +13,7 @@ export const VER = 'tests/smoke-headless.mjs V1.3.0';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { installEventBusErrorTrap, formatEventBusErrors } from './_lib/eventbus-error-guard.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -92,6 +96,8 @@ try {
 } catch (e) { bad('FACT_SPECS 映射', e); }
 
 console.log('\n=== 3. 真跑战斗 ===');
+// 第30轮：真跑前挂陷阱，把 EventBus 吞掉的监听器异常捞出来（见 _lib/eventbus-error-guard.mjs 头注）
+const busTrap = installEventBusErrorTrap();
 const { Unit } = mods.unit;
 const { CAMP_TYPES, ROLE_TYPES } = mods.enums;
 const { SeededRNG } = mods.utils;
@@ -170,6 +176,11 @@ for (let seed = 1; seed <= rounds; seed++) {
 
 if (errors === 0) ok(`${ran} 局全部跑完，无异常`);
 else bad(`${errors}/${rounds} 局抛异常`, '见上');
+
+// 第30轮：引擎级异常也必须算失败——被 EventBus catch 掉的监听器抛错不会进上面的 errors 计数
+const busErrs = busTrap.drain();
+if (busErrs.length) bad('引擎信号处理抛错（被 EventBus 吞掉）', formatEventBusErrors(busErrs));
+else ok('引擎信号处理无异常（无被吞掉的监听器错误）');
 
 if (ran > 0 && decided === 0) bad('胜负收敛', `${ran} 局无一场分出胜负（疑似死循环或判定失效）`);
 else if (ran > 0) ok(`${decided}/${ran} 局分出胜负，最长 ${maxRounds} 回合`);

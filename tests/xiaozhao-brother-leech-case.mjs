@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-// tests/xiaozhao-brother-leech-case.mjs | V1.3.0 | 2026-11-12 夜间第 213 轮：给 core/204 嗜血路径补带倍率锚（上一轮 ⑤ 只锚了 324 一条路径）
+// tests/xiaozhao-brother-leech-case.mjs | V1.4.0 | 2026-11-19 第30轮：引擎信号处理抛错必须判红——
+//   挂 _lib/eventbus-error-guard 陷阱；实测本用例在 core/216:271 `ReferenceError: A is not defined` 时仍判 ✅，
+//   属「机制静默没跑、断言自然不响」的假绿（第30轮 run-all 实证）。断言①②③⑤⑥ 与 MIN_HITS 一字未动。
+// V1.3.0 | 2026-11-12 夜间第 213 轮：给 core/204 嗜血路径补带倍率锚（上一轮 ⑤ 只锚了 324 一条路径）
 //   · 第 213 轮（V1.2.0 → V1.3.0）一件事，承接第 212 轮 §5 第 6 条「全库扫 healActual 的比对方」：
 //     全库扫描结论：`healActual` 只出现在本件与 wei-leech-quota-selftest（后者是纯合成夹具、不碰渲染）⇒ 无新增同类漏点。
 //     但顺着「用被测值验被测值」这条线继续查本件，发现**上一轮的 ⑤ 只锚了 324 一条路径**：
@@ -63,6 +66,7 @@
 
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import { installEventBusErrorTrap, formatEventBusErrors } from './_lib/eventbus-error-guard.mjs';
 
 // 环境 mock（不改引擎源码，Node 补浏览器能力）—— 必须在任何引擎 import 之前
 globalThis.fetch = async (url) => {
@@ -74,7 +78,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.3.0';
+export const VER = 'tests/xiaozhao-brother-leech-case.mjs V1.4.0';
 
 const SCAN_ONLY = process.argv.includes('--scan');
 // 默认 20 seeds × 7 stages = 140 场（run-all 每次跑的量）。实测命中率 ≈18.6%，
@@ -268,6 +272,7 @@ async function main() {
     let cnt204 = 0, cnt204exact = 0, cnt204noRaw = 0;
     const allHits = [];
     const auditMismatch = [];
+    const busTrap = installEventBusErrorTrap();   // 第30轮：捞被 EventBus 吞掉的监听器异常
     for (const seed of seeds) {
         for (const stage of STAGES) {
             battles++;
@@ -457,6 +462,9 @@ async function main() {
     // 第 213 轮：断言⑥的覆盖强度如实上报（三桶分开数，防「判据在、但没跑」再次发生）
     console.log('· 断言⑥（204 嗜血路径倍率锚）覆盖：' + cnt204 + '/' + allHits.length + ' 条走 204 路径 —— '
         + '逐条对拍声明原值 ' + cnt204exact + ' 条 / 取不到声明原值 ' + cnt204noRaw + ' 条（结构变更即在此显形）');
+    // 第30轮：引擎级异常同样计入失败（被 EventBus 吞掉的监听器抛错不进任何断言）
+    const busErrs = busTrap.drain();
+    if (busErrs.length) { bad += busErrs.length; console.log(formatEventBusErrors(busErrs)); }
     if (bad) { console.log('❌ 蝶血分支断言失败 ' + bad + ' 项'); process.exit(1); }
     if (allHits.length < MIN_HITS) {
         console.log('❌ 蝶血命中 ' + allHits.length + ' 次 < 下限 ' + MIN_HITS + ' ⇒ 永久继承链路可能已坏（_permanentBuffs 写入 / picker 共享模块 / isXiaoZhaoPermanentActive / core/04 L278 分支），须查');
