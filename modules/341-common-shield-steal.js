@@ -1,4 +1,4 @@
-﻿// V1.2.3 | 2026-11-19 直回血出口纳入智取：飞行再生/休息回血（不走 HEAL 声明）经 214 前置钩子抢三成×2；
+﻿// V1.2.4 | 2026-11-19 直回血出口纳入智取：飞行再生/休息回血（不走 HEAL 声明）经 214 前置钩子抢三成×2；
 //   战报行带「智取（…，原 N）」后缀（飞行再生走 healMods、休息回复走 PASS 的 zhiQuNote）。
 // V1.2.2 | 2026-11-19 智取文案小数点约整（fmtNum 同口径）：护盾/回血/溢出转上限数字不再露长浮点；
 //   顺手修正「溢出一半转上限」旧文案——实际早已是 100% 转（V1.2.0 拍板）。
@@ -15,17 +15,23 @@ import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.3';
+export const VER = 'modules/341-common-shield-steal.js V1.2.4';
 
 const STEALER_NAME = '张松溪';
 
+// 有效存活：alive 要等死亡结算才翻 false，hp 已归零 / 已挂待死标记的单位不能再吃护盾或回血
+//   （2026-11-19 老板报「殷梨亭血量归零了，智取还给他分了护盾」）。
+function isValid(u) {
+    return !!(u && u.alive && u.hp > 0 && !(u.state && u.state._pendingDeath));
+}
+
 function findStealer(A, B) {
-    return [...(A || []), ...(B || [])].find(u => u && u.alive && u.name === STEALER_NAME) || null;
+    return [...(A || []), ...(B || [])].find(u => isValid(u) && u.name === STEALER_NAME) || null;
 }
 
 // 张松溪同阵营中「血量百分比最低」的存活队友（不含张松溪、不含战马）；无队友返回 null
 function pickNeediestMate(thief, sideUnits) {
-    const mates = (sideUnits || []).filter(u => u && u.alive && u !== thief && !u.isHorse);
+    const mates = (sideUnits || []).filter(u => isValid(u) && u !== thief && !u.isHorse);
     if (mates.length === 0) return null;
     return mates.reduce((low, u) => (u.hp / u.maxHp < low.hp / low.maxHp ? u : low), mates[0]);
 }
@@ -49,7 +55,7 @@ function announceZhiQu(log, thief, detail) {
 
 // A/B 全集里张松溪所在阵营的存活成员列表
 function sideOf(thief, A, B) {
-    return [...(A || []), ...(B || [])].filter(u => u && u.alive && u.camp === thief.camp);
+    return [...(A || []), ...(B || [])].filter(u => isValid(u) && u.camp === thief.camp);
 }
 
 /**
@@ -58,7 +64,7 @@ function sideOf(thief, A, B) {
  * @returns {number} 实际留给 unit 的护盾值
  */
 export function stealShieldHalf(unit, amount, A, B, ctx) {
-    if (!unit || !(amount > 0)) return amount;
+    if (!isValid(unit) || !(amount > 0)) return amount;
     const thief = findStealer(A, B);
     if (!thief || thief.camp === unit.camp) return amount;
     const share = Math.floor(amount * 0.3);   // 抢夺比例 0.6：两份各 0.3，敌方实得 0.4（2026-11-19 用户拍板）
@@ -85,7 +91,7 @@ export function stealShieldHalf(unit, amount, A, B, ctx) {
  * @returns {{kept:number, stolen:number}} kept=实落值；stolen=抢走总额
  */
 export function stealHealHalf(target, nominal, A, B, ctx) {
-    if (!target || !(nominal > 0)) return { kept: nominal, stolen: 0 };
+    if (!isValid(target) || !(nominal > 0)) return { kept: nominal, stolen: 0 };
     const thief = findStealer(A, B);
     if (!thief || thief.camp === target.camp) return { kept: nominal, stolen: 0 };
     const share = Math.floor(nominal * 0.3);   // 抢夺比例 0.6：两份各 0.3（2026-11-19 用户拍板）
