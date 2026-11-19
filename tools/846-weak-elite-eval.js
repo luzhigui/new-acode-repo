@@ -31,6 +31,7 @@ const enemyHexChk = document.getElementById('weakEliteEnemyHex');
 const progressEl = document.getElementById('weakEliteProgress');
 const resultEl = document.getElementById('weakEliteResult');
 const snapStatusEl = document.getElementById('weakEliteSnapStatus');
+const snapDropBtn = document.getElementById('weakEliteDropBtn');
 const candRowEl = document.getElementById('weakEliteCandRow');
 
 let game = null;
@@ -128,17 +129,29 @@ function restoreLatestWeak() {
 
 // 存一条只含 weak 的快照：结构与 812 的表级记录一致（stages/runs/byStage/ts/seed/ver），826 直接读 parts.weak
 function saveWeakSnap(part) {
-    const snaps = readSnaps();
+    // 弱精英只保留最新一条：本页只会恢复最新一条、826 也只取最新一条含 weak 的快照，
+    //   旧 weak-only 快照没人回放，留着只会把 812 的精英快照挤出共用的 10 条上限。
+    const snaps = readSnaps().filter(s => !(s && s.parts && s.parts.weak && Object.keys(s.parts).length === 1));
     const rec = { id: 'snap_' + Date.now(), ts: Date.now(), parts: { weak: part } };
     snaps.unshift(rec);                                    // 新的排最前
     if (snaps.length > SNAP_LIMIT) snaps.length = SNAP_LIMIT;
     try {
         localStorage.setItem(SNAP_KEY, JSON.stringify(snaps));
     } catch (e) {
-        return { ok: false, msg: `⚠️ 存盘失败（${(e && e.name) || e}）——本地存储配额已满，先到「⚔️ 精英战力评测」页签点「🗑 清空历史」再跑` };
+        return { ok: false, msg: `⚠️ 存盘失败（${(e && e.name) || e}）——本地存储配额已满，先点上方「🗑 清空本页历史」或到「⚔️ 精英战力评测」页签点「🗑 清空历史」再跑` };
     }
-    return { ok: true, msg: `✅ 已存弱精英快照（1 张表），现存 ${snaps.length} 条「精英评测」历史` };
+    return { ok: true, msg: `✅ 已存弱精英快照（覆盖上一条弱精英），历史库共 ${snaps.length} 条（含精英评测）` };
 }
+
+// 只清本页的弱精英快照（weak-only），不碰 812 的精英/主表历史
+if (snapDropBtn) snapDropBtn.addEventListener('click', () => {
+    if (!confirm('确认删除全部弱精英快照？只删本页存的快照，不影响「精英战力评测」的历史和页面上当前的结果')) return;
+    const rest = readSnaps().filter(s => !(s && s.parts && s.parts.weak && Object.keys(s.parts).length === 1));
+    try {
+        localStorage.setItem(SNAP_KEY, JSON.stringify(rest));
+    } catch (e) { /* 配额满时删条目反而更小，不处理 */ }
+    if (snapStatusEl) snapStatusEl.textContent = `🗑 弱精英快照已清空（保留其他 ${rest.length} 条）`;
+});
 
 // ============ 候选单位：运行时从游戏数据收集 M104/M100/M97 且带技能的单位 ============
 // 依据 content/001-game-data.json：M104/M100/M97 三档且有 skills 的单位，共 14 个（明教 8 / 六大派 6）。

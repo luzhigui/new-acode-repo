@@ -197,7 +197,7 @@
            现补上与其他按钮一致的形状/字号/圆角，但各组业务配色全部恢复原样
            （金=主表 / 蓝=强精英 / 橙=Boss / 灰蓝=无精英 / 绿=弱精英 / 绿=存结果 / 蓝=载入 / 棕=清历史）。 */
         #eliteStartBtn, #eliteSoloBtn, #eliteBossBtn, #eliteNoEliteBtn, #weakEliteStartBtn,
-        #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn {
+        #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn, #weakEliteDropBtn {
             border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
         #eliteStartBtn { background: #ffd700; color: #1a1a2e; }
@@ -207,10 +207,10 @@
         #weakEliteStartBtn { background: #4caf50; color: #1a1a2e; }
         #eliteSaveSnapBtn { background: #4caf50; color: #fff; }
         #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; padding: 10px 16px; }
-        #eliteDropSnapBtn { background: #6d4c41; color: #ddd; padding: 10px 16px; }
+        #eliteDropSnapBtn, #weakEliteDropBtn { background: #6d4c41; color: #ddd; padding: 10px 16px; }
         #eliteStartBtn:disabled, #eliteSoloBtn:disabled, #eliteBossBtn:disabled,
         #eliteNoEliteBtn:disabled, #weakEliteStartBtn:disabled, #eliteSaveSnapBtn:disabled,
-        #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled, #weakEliteDropBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
         #eliteSnapStatus, #weakEliteSnapStatus { color: #8bc34a; font-size: 12px; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
@@ -559,6 +559,7 @@
                 <label><input type="checkbox" class="weak-elite-stage-check" value="7" checked>7</label>
             </div>
             <button id="weakEliteStartBtn">▶ 开始评测</button>
+            <button id="weakEliteDropBtn" title="只删本页的弱精英快照（不会动「精英战力评测」的历史表和当前页面上的结果）">🗑 清空本页历史</button>
             <span id="weakEliteSnapStatus"></span>
             <div id="weakEliteCandRow"><span style="color:#888;font-size:12px;">候选名单加载中…</span></div>
         </div>
