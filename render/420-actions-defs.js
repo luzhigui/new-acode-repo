@@ -12,7 +12,7 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.7';
+export const VER = 'render/420-actions-defs.js V1.7.8';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -563,17 +563,20 @@ export const STAGE_ACTION_DEFS = {
         timing: (action) => (action && action.timing) || 'beforeText',
         fx: async (c, action) => {
             // 阻塞横幅：等待横幅播放完成，日志和动画按序推进
+            //   warReport：战报条样式（暗底金边 + 数值副标题 + 2.4s），众志成城九人满员专用
             if (action.text && !GlobalStore.get('fastForwardActive')) {
                 const { showBuffBanner } = await import('../fx/608-fx-manager.js');
-                await showBuffBanner(action.text);
+                await showBuffBanner(action.text, action.warReport ? { warReport: true, subtitle: action.subtitle } : undefined);
             }
             // 全队金光：众志成城九人满员彩蛋专用（goldGlow 标记）。
-            //   复用 fx/613 的 glowPulse：unit 传 null = 不做狮吼环/吼字，只给每个存活单位套金圈脉冲。
+            //   2026-11-19 改涟漪式：按站位每 70ms 点亮一人（复用 fx/613 的 glowPulse，unit 传 null = 只套金圈），
+            //   扫完后全体齐闪收尾——「九人满员」的规模感来自全队逐个变金，而不是那行字。
             if (action.goldGlow && c.store) {
-                const units = c.store.getState().units.filter(u => u.alive && !u.isHorse);
+                const units = c.store.getState().units.filter(u => u.alive && !u.isHorse).sort((a, b) => (a.pos || 0) - (b.pos || 0));
                 if (units.length > 0) {
                     const { showLionRoar } = await import('../fx/613-fx-lion-roar.js');
-                    showLionRoar(null, units);
+                    units.forEach((u, i) => { clock.wait(i * 70).then(() => showLionRoar(null, [u])); });
+                    clock.wait(units.length * 70).then(() => showLionRoar(null, units));
                 }
             }
         }

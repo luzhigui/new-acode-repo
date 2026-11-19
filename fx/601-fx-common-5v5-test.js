@@ -1,5 +1,5 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.16';
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.17';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -583,25 +583,52 @@ export function showMeditateEffect(unit) {
     clock.wait(1500).then(() => { if (sigil.parentNode) sigil.remove(); });
 }
 
-// 全屏横幅
-function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;animation:bannerPop 1.5s ease-out forwards;'; return d; }
+// 全屏横幅（2026-11-19 起两种形态：普通横幅 1.5s / 战报条 2.4s）。
+//   基础定位/层级固定在 create 里，形态差异由 showBuffBanner 的 setup 全量覆盖 style。
+function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10030;pointer-events:none;white-space:nowrap;'; return d; }
 initPool('buffBanner', createBuffBannerEl);
 
-export async function showBuffBanner(text) {
+// 战报条（众志成城九人满员专用）：暗底金边横贯屏宽 + 主标题 + 数值副标题，横向展开入场
+const WAR_BANNER_MAIN_CSS = 'font-size:3rem;font-weight:bold;color:#ffd700;letter-spacing:2px;text-shadow:0 0 22px rgba(255,215,0,.9),0 2px 0 #6b4a00;';
+const WAR_BANNER_SUB_CSS = 'font-size:1rem;color:#ffe9a8;letter-spacing:1px;text-shadow:0 1px 2px #000;';
+
+export async function showBuffBanner(text, opts) {
+    const war = !!(opts && opts.warReport);
+    const dur = (opts && opts.duration) || (war ? 2400 : 1500);
     return new Promise(resolve => {
         try {
             acquireFromPool('buffBanner', (banner) => {
                 if (!banner) return;
-                banner.textContent = text;
-                banner.style.animation = 'none';
-                banner.offsetHeight;
-                banner.style.animation = 'bannerPop 1.5s ease-out forwards';
-            }, 1500);
+                if (war) {
+                    // 池元素会被普通横幅复用，样式与子节点每次全量重建，防旧样式残留
+                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10030;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 72px;white-space:nowrap;background:linear-gradient(90deg,transparent,rgba(10,8,2,.82) 18%,rgba(10,8,2,.82) 82%,transparent);border-top:1px solid rgba(255,215,0,.75);border-bottom:1px solid rgba(255,215,0,.75);box-shadow:0 0 32px rgba(255,215,0,.18);';
+                    banner.textContent = '';
+                    const main = document.createElement('div');
+                    main.textContent = text;
+                    main.style.cssText = WAR_BANNER_MAIN_CSS;
+                    banner.appendChild(main);
+                    if (opts.subtitle) {
+                        const sub = document.createElement('div');
+                        sub.textContent = opts.subtitle;
+                        sub.style.cssText = WAR_BANNER_SUB_CSS;
+                        banner.appendChild(sub);
+                    }
+                    banner.style.animation = 'none';
+                    banner.offsetHeight;
+                    banner.style.animation = `warBannerPop ${dur}ms ease-out forwards`;
+                } else {
+                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;';
+                    banner.textContent = text;
+                    banner.style.animation = 'none';
+                    banner.offsetHeight;
+                    banner.style.animation = `bannerPop ${dur}ms ease-out forwards`;
+                }
+            }, dur);
         } catch (e) {
             console.error('showBuffBanner 对象池异常:', e);
         }
         // 阻塞横幅：clock.wait 在暂停时挂起、快进时立即完成，不会死锁
-        clock.wait(1500).then(resolve);
+        clock.wait(dur).then(resolve);
     });
 }
 

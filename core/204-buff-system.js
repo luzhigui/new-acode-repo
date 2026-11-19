@@ -2,7 +2,7 @@
 // V6.9.5 | 2026-11-17 张无忌专属「快来护驾」召唤迁入本文件（原 modules/302-summonZhangRescue）：专属改走普通池后
 //   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
 //   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。
-export const VER = 'core/204-buff-system.js V6.9.6';
+export const VER = 'core/204-buff-system.js V6.9.7';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -274,7 +274,11 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
             log.push({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
                 unitName: unit.name, unitUid: unit.uid, camp: unit.camp, skillName: '众志成城',
                 note: `🤝 众志成城 · 九人满员！全队攻防达到巅峰！`,
-                line: false, bannerText: '🤝 众志成城 · 九人满员！'
+                line: false, bannerText: '🤝 众志成城 · 九人满员！',
+                // 战报条（2026-11-19 老板拍板）：主标题下加数值副标题，一眼看出满员加了多少；
+                //   数值取自同一 tier（9 人档），前端不写死。bannerWar 让渲染层出战报条样式
+                bannerSubtitle: `全队 攻 +${Math.round(tier.atkBonus * 100)}% · 防 +${Math.round(tier.defBonus * 100)}%（${aliveN} 人满员）`,
+                bannerWar: true
             } });
         }
     }

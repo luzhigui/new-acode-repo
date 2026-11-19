@@ -1,6 +1,6 @@
 // render/419-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/419-actions-translate-stat.js V1.1.0';
+export const VER = 'render/419-actions-translate-stat.js V1.1.1';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -221,7 +221,12 @@ function translateSkillAnnounce(data, index) {
     //   这条彩蛋从上线起就是死的（既不落行也没横幅）。
     //   goldGlow：全体存活单位套金圈脉冲（420 的 BANNER.fx 消费）。
     if (data.bannerText) {
-        return { kind: STAGE_ACTION_TYPES.BANNER, text: data.bannerText, goldGlow: true, factIndex: index, timing: 'beforeText' };
+        return {
+            kind: STAGE_ACTION_TYPES.BANNER, text: data.bannerText,
+            // bannerSubtitle / bannerWar：众志成城九人满员的战报条增强（数值副标题 + 暗底金边 + 2.4s）
+            subtitle: data.bannerSubtitle || null, warReport: !!data.bannerWar,
+            goldGlow: true, factIndex: index, timing: 'beforeText'
+        };
     }
     // 轻量技能演出载荷（cue）：只出演出、不落行、不改数值；line:false 的缺口报幕也靠这里播出。
     //   一条 cue 只经这一条舞台动作 → 保证「同一动作只有一个演出者」。
