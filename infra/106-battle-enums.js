@@ -112,7 +112,9 @@ export const BUFF_TYPES = Object.freeze({
     // 张无忌专属三选一（2026-11-13）：开局三选一，选完锁定这局路线
     ZHANG_DESTINY: 'zhangDestiny',   // 我命由我不由天：华丽模式手动拖拽选目标
     ZHANG_RESCUE: 'zhangRescue',     // 快来护驾：一次性召唤明教带技能角色
-    ZHANG_PRODIGY: 'zhangProdigy'    // 武学奇才：3 回合，被攻击触发九阳回血+融会
+    ZHANG_PRODIGY: 'zhangProdigy',   // 武学奇才：3 回合，被攻击触发九阳回血+融会
+    // 张三丰专属（2026-11-19）：太极归一——全场生命均摊一次 + 期间受疗者攻防拉平（攻防差归零，克制张无忌融会）
+    TAIJI_UNITY: 'taijiUnity'
 });
 
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */

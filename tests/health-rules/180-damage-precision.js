@@ -430,11 +430,9 @@ export const rule185 = {
 };
 
 // 真伤：不走防御、不走护盾，直接扣血（core/217 BONUS_DMG → applyStatChange）。
-//   ① 融会贯通：extra = floor((目标攻 + 目标防) × ZHANG_RONGHUI_RATIO)（modules/320 L154），
-//      目标攻/防在 fact 里各自已被 floor，求和误差 <2 点 ⇒ 容差 = 系数×2 + 0.5；
-//      口径史：V1.3.1 曾向引擎当时的「攻防差」公式看齐判绿（2026-11-08 归因），2026-11-09
-//      实机确认「攻防差的一半」本身就是错的（04cd1506 残差公式是错的），引擎改回攻防求和、
-//      判据同步回归——判据只能跟随「拍板过的正确口径」，不能无脑跟代码现状。
+//   ① 融会贯通：extra = floor(|目标攻 − 目标防| × ZHANG_RONGHUI_RATIO)（modules/320 calcRonghuiExtra），
+//      2026-11-19 老板拍板改「攻防差」口径（原「攻+防」求和作废）：攻防被拉平（张三丰太极归一）时归零。
+//      目标攻/防在 fact 里各自已被 floor，差值误差 <2 点 ⇒ 容差 = 系数×2 + 0.5；
 //   ② 飞箭雨：公告文案「受 N 真伤」的 N 必须是正整数（core/204 L566-570 已跳过 0）。
 //   真伤有没有真的扣到血、有没有误吃护盾，fact 不带目标扣血实数 —— 需主模块补字段（已登记需求）。
 export const rule186 = {
@@ -451,10 +449,10 @@ export const rule186 = {
             if (f.factType === FACT_TYPES.RONG_HUI_BONUS) {
                 if (!isNum(d.extra) || !isNum(d.targetAtk) || !isNum(d.targetDef)) continue;
                 checked++;
-                const expect = Math.floor((d.targetAtk + d.targetDef) * ratio);
+                const expect = Math.floor(Math.abs(d.targetAtk - d.targetDef) * ratio);
                 const tol = ratio * 2 + 0.5;
                 if (Math.abs(d.extra - expect) > tol) {
-                    return { fail: true, msg: '复发：融会贯通真伤与公式不一致 — extra=' + d.extra + ' / 按(目标攻+目标防)×比例算=' + expect + '（攻=' + d.targetAtk + ', 防=' + d.targetDef + '）' };
+                    return { fail: true, msg: '复发：融会贯通真伤与公式不一致 — extra=' + d.extra + ' / 按|目标攻−目标防|×比例算=' + expect + '（攻=' + d.targetAtk + ', 防=' + d.targetDef + '）' };
                 }
                 if (d.extra < 0 || Math.abs(d.extra - Math.round(d.extra)) > 1e-6) {
                     return { fail: true, msg: '复发：融会贯通真伤非自然数 — extra=' + d.extra };

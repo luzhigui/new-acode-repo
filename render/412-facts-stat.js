@@ -139,7 +139,7 @@ export function renderXingFenCostFact(fact) {
 
 // 融会贯通
 export function renderRongHuiBonusFact(fact) {
-    return { type:'info', text:`<span class="red">🔥 融会贯通额外${sgn(fact.extra)}（目标攻击${fmtNum(fmtAtk(fact.targetAtk))} 防御${fmtNum(fact.targetDef)}，攻防之和×${fmtNum(CONFIG.ZHANG_RONGHUI_RATIO*100)}%）</span>` };
+    return { type:'info', text:`<span class="red">🔥 融会贯通额外${sgn(fact.extra)}（目标攻击${fmtNum(fmtAtk(fact.targetAtk))} 防御${fmtNum(fact.targetDef)}，攻防之差×${fmtNum(CONFIG.ZHANG_RONGHUI_RATIO*100)}%）</span>` };
 }
 
 // 小昭·妹 拒马 / 连击

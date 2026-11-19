@@ -1,5 +1,7 @@
 // modules/320-elite-mingjiao-zhangwuji.js — 明教精英「张无忌」：组件工厂 + 近身切换私有 checkZhangSwitch
-export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.2.2';
+// V1.3.0 | 2026-11-19 融会贯通改「攻防差」口径：新增 calcRonghuiExtra（|攻−防|×系数，唯一出口），
+//   武学奇才反伤与主动融会两处共用；攻防被拉平（张三丰太极归一）时差值归零。系数 0.5→0.8（core/201）。
+export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.0';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/203-battle-utils.js';
 import { getRoleBonus } from '../core/202-unit.js';
@@ -11,6 +13,14 @@ import { hasBuff } from '../core/203-battle-utils.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { watchUnit } from '../core/220-unit-watch.js';
+// 融会贯通真伤公式（唯一出口，2026-11-19 改差值口径）：
+//   extra = |目标攻 − 目标防| × CONFIG.ZHANG_RONGHUI_RATIO。
+//   取差值不取和：攻防被拉平（张三丰「太极归一」）时差值 = 0，太极化去乾坤。
+//   两处调用（武学奇才·被打反伤 / 主动攻击·融会）必须共用本函数——一处改了一处没改就是两个口径。
+function calcRonghuiExtra(u) {
+    if (!u || !u.alive) return 0;
+    return Math.floor(Math.abs(getStat(u, 'atk') - getStat(u, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
+}
 function checkZhangSwitch(zhang, A, log) {
     // 多实例化（老板拍板「完全真技能」）：由调用方传自己的单位实例，不再全场 find 第一个——
     //   双张无忌时 find 会误切「非触发者」（A 未满足切换条件也被切、触发者反而只转了形态没加攻防）
@@ -161,7 +171,7 @@ export function createZhangWujiComponent() {
                 if (capped > 0) applyStatChange(zhang, 'hp', capped, null, '九阳神功·武学奇才');
                 // ②/③ 融会分支
                 if (zhang.state._zhangSwitched) {
-                    const extra = Math.floor((getStat(attacker, 'atk') + getStat(attacker, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
+                    const extra = calcRonghuiExtra(attacker);
                     if (extra > 0) {
                         if (data.declarations) {
                             data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: extra, target: attacker, logText: null });
@@ -199,8 +209,8 @@ export function createZhangWujiComponent() {
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: secondTaunt } }); }
                 if (unit.nearAtkCount >= CONFIG.ZHANG_NEAR_ATK_LIMIT) {
                     if (!fsm.is('ronghui')) fsm.transition('ronghui');
-                    // 口径：目标「攻击 + 防御」之和 × 系数（不是攻防差的一半——残差公式是错的）
-                    const extra = Math.floor((getStat(target, 'atk') + getStat(target, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
+                    // 口径：目标「攻击 − 防御」之差的绝对值 × 系数（2026-11-19 老板拍板改差值，攻防拉平即归零）
+                    const extra = calcRonghuiExtra(target);
                     if (data && data.declarations) {
                         data.declarations.push({
                             type: EFFECT_TYPES.BONUS_DMG,

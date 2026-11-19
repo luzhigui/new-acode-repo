@@ -114,5 +114,7 @@ export const HEX_NAMES = {
     weiExclusive: '韦一笑强化1',
     zhangDestiny: '我命由我不由天',
     zhangRescue: '快来护驾',
-    zhangProdigy: '武学奇才'
+    zhangProdigy: '武学奇才',
+    // 2026-11-19 张三丰专属（六大派抽取）：太极归一
+    taijiUnity: '太极归一'
 };

@@ -1,11 +1,14 @@
 // modules/311-elite-sixsects-zhangsanfeng.js — 六大派精英「张三丰」：生生不息 / 八卦阵 / 严阵以待（不攻击的续航核心）
-// V6.27.5 | 2026-11-19 蓄意抑疗可见：生生不息战报显示「应回→抑疗后→实回」；溢出改按抑疗后额度算（罚金不转队友）
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.27.5';
+// V6.28.0 | 2026-11-19 新增张三丰专属海克斯「太极归一」（taijiUnity，六大派抽取）：获得后下一回合开始
+//   全场真英雄生命均摊一次（各自封顶，装不下的作废）；buff 期间每次受张三丰治疗，其攻防拉平为
+//   (攻+防)/2 —— 攻防差归零，克制张无忌融会贯通（差值口径）。词条 ttl:'round' + 先清后挂，buff 到期即失效。
+//   （V6.27.5：蓄意抑疗可见 / 溢出按抑疗后额度算——更早版本见 记录-更改履历.md）
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.0';
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { applyStatChange, addMod, getStat, getBattleRng, previewHeal } from '../core/214-battle-shared.js';
-import { getBenefitTargets, canBeTargeted } from '../core/203-battle-utils.js';
+import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange } from '../core/214-battle-shared.js';
+import { getBenefitTargets, canBeTargeted, hasBuff } from '../core/203-battle-utils.js';
 import { EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams } from './305-elite-helpers.js';
@@ -25,6 +28,24 @@ export function createZhangSanfengComponent() {
             const s = requireSkillParams('张三丰', 'endlessBreath');
             const ba = requireSkillParams('张三丰', 'baguaArray');
             const tf = requireSkillParams('张三丰', 'tenRoundFortify');
+
+            // ── 太极归一（张三丰专属海克斯 taijiUnity）──────────────────────────────
+            // buff 在本方阵营（张三丰在六大派 → B）时生效；判据随手可查，不做缓存。
+            const taijiActive = () => hasBuff((zhang.camp === CAMP_TYPES.ALLY ? A : B)._activeBuffs || [], BUFF_TYPES.TAIJI_UNITY);
+            // 攻防拉平：先清同组旧词条再按当前值重算——addMod 不去重、永久词条不清，不先清会越叠越多。
+            //   口径：floor((攻+防)/2) 双向补齐；ttl:'round' 保证 buff 到期后自然失效，不残留整局。
+            function applyTaijiNormalize(target) {
+                if (!target || !target.alive) return;
+                removeModsByGroup(target, 'taijiNormalize');
+                const atk = getStat(target, 'atk');
+                const def = getStat(target, 'def');
+                const half = Math.floor((atk + def) / 2);
+                const atkDelta = half - atk;
+                const defDelta = half - def;
+                if (atkDelta !== 0) addMod(target, 'atk', { source: '太极归一', value: atkDelta, ttl: 'round', group: 'taijiNormalize', op: 'add' });
+                if (defDelta !== 0) addMod(target, 'def', { source: '太极归一', value: defDelta, ttl: 'round', group: 'taijiNormalize', op: 'add' });
+                if (atkDelta !== 0 || defDelta !== 0) emitHpChange(target);
+            }
 
             // 生生不息：只回 healPct 上限（三处触发共用：回合开始[免费] / 轮到自己[付费atkCost攻] / 八卦阵[付费atkCost攻]）；回血同时转永久攻防，见下
             // 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，
@@ -88,6 +109,12 @@ export function createZhangSanfengComponent() {
                     receiverDefGain = side === 'def' ? gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv) : 0;
                     if (receiverAtkGain > 0) addMod(receiver, 'atk', { source: '生生不息', value: receiverAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                     if (receiverDefGain > 0) addMod(receiver, 'def', { source: '生生不息', value: receiverDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                }
+
+                // 太极归一：本次受疗者（张三丰自己 + 溢出接盘者）攻防拉平——攻防差归零，张无忌融会贯通打不动
+                if (taijiActive()) {
+                    applyTaijiNormalize(unit);
+                    if (receiver) applyTaijiNormalize(receiver);
                 }
 
                 // 回血弹幕不在这里发了：改由下面的 fact → render/38 翻译 → 39 HEAL 动作，
@@ -206,6 +233,28 @@ export function createZhangSanfengComponent() {
                     });
                 }
             }
+
+            // 太极归一·众生平等（2026-11-19 老板拍板）：拿到海克斯后的下一回合开始，一次性把全场真英雄
+            //   （非拒马 isHorse / 非召唤物 isSummon）生命均摊到同一水平；各自按 maxHp 封顶，装不下的量作废
+            //   （老板拍板：浪费就浪费）。只做一次——标记挂 buff 对象（跨回合同一引用；单位 state 会被回合重置）。
+            //   优先级 11 < 下面生生不息 12：先平血、再回血，避免「刚补齐又被治疗顶到上限」。
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 11, (data) => {
+                if (!zhang.alive) return;
+                const buffs = (zhang.camp === CAMP_TYPES.ALLY ? data.A : data.B)?._activeBuffs || [];
+                const buff = buffs.find(b => b.key === BUFF_TYPES.TAIJI_UNITY);
+                if (!buff || buff._taijiShared) return;
+                buff._taijiShared = true;
+                const all = [...(data.A || []), ...(data.B || [])].filter(u => u && u.alive && !u.isHorse && !u.isSummon);
+                if (!all.length) return;
+                const avg = all.reduce((sum, u) => sum + u.hp, 0) / all.length;
+                for (const u of all) {
+                    const delta = Math.round(Math.min(u.maxHp, avg) - u.hp);
+                    if (delta !== 0) applyStatChange(u, 'hp', delta, null, '太极归一·众生平等');
+                }
+                if (data.log) pushSkillAnnounce(data.log, zhang, '太极归一',
+                    `☯️ 太极归一：全场 ${all.length} 名真英雄生命均摊至 ${Math.round(avg)}`,
+                    { floatText: '☯️', floatUid: zhang.uid });
+            });
 
             // 技能1：回合开始时触发
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 12, (data) => {

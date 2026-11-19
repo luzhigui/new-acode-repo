@@ -1433,6 +1433,13 @@
       "heroRequirement": "isZhang",
       "zhangExclusive": true,
       "effects": ["zhangProdigy"]
+    },
+    "taijiUnity": {
+      "name": "太极归一",
+      "desc": "张三丰专属·持续4回合：获得后的下一回合开始，全场真英雄（不含拒马/召唤物）生命值均摊到同一水平，各自按自身上限封顶、装不下的量作废；此后每次被张三丰收疗（含生生不息溢出），其攻防拉平成（攻+防）/2 —— 攻防差归零，张无忌的融会贯通打不动。",
+      "icon": "☯️",
+      "duration": 4,
+      "heroRequirement": "isZhangSanfeng"
     }
   },
 
