@@ -11,7 +11,7 @@
 //   3) 自损 N ≠ min(max(minSelfDmg, round(maxHp×4%)), 剩余血-1)（配置改了引擎没跟 / 写死旧值）。
 // 误报规避：本场无唐文亮命中报幕直接 skip；快照血量是展示取整值，自损公式允许 ±1 误差；
 //   出手计数（伤己 i/7）由被击/冲刺路径共同推进，本规则不校验序号，只校验「分母=content cycle」。
-export const VER = 'tests/health-rules/191-tangwenliang-qishang.js V1.0.0';
+export const VER = 'tests/health-rules/191-tangwenliang-qishang.js V1.1.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { getSkillParams } from '../../core/201-config-5v5-test.js';
 import { plain } from '../122health-utils.js';
@@ -71,10 +71,21 @@ export const rule191 = {
             // 出手前血量只能用展示取整快照反推，靠近阈值时不可靠 —— 只校验倍率档位 + 文案标注一致
             var highMult = 1 + dmgBonus + lowHpExtra;
             var noteSaysLow = text.indexOf('临危') !== -1;
+            // ★ V1.1.0（第 246 轮）：临危档必须**真的有加成**。
+            //   上游 4ef115795 把 lowHpExtra 从 0.30 归零（desc 同步改成「低于 30% 时同为 ×1.3，不额外加成」），
+            //   而 315 的报幕仍写 `lowHp ? '（临危加成）' : ''` —— 引擎按参数算得对，但战报在低血时
+            //   仍然喊「临危加成」，实际倍率一点没加。旧版判据把「标注」与「倍率是不是高档」绑在一起，
+            //   lowHpExtra=0 时两档相等，这条就成了恒假命题，永远抓不到「标注名不副实」。
+            //   新判据：配了 lowHpExtra>0 ⇒ 标临危必须走高档（下面的旧判据管）；配成 0 ⇒ 标临危就是错，
+            //   因为它宣称的加成根本不存在。判据方向是「更严」，不是放宽。
+            if (noteSaysLow && !(lowHpExtra > 0)) {
+                return { fail: true, msg: '复发：七伤拳报幕标「临危加成」，但 content 的 lowHpExtra=' + lowHpExtra
+                    + '（临危档不额外加成），标注名不副实。引擎按参数算对、是渲染侧把「低血」当成了「有加成」' };
+            }
             if (Math.abs(noteMult - (1 + dmgBonus)) > 0.005 && Math.abs(noteMult - highMult) > 0.005) {
                 return { fail: true, msg: '复发：唐文亮七伤拳报幕倍率×' + noteMult + ' 不在配置档位 ×' + (1 + dmgBonus) + ' / ×' + (Math.round(highMult * 100) / 100) + ' 内' };
             }
-            if (noteSaysLow !== (Math.abs(noteMult - highMult) <= 0.005)) {
+            if (lowHpExtra > 0 && noteSaysLow !== (Math.abs(noteMult - highMult) <= 0.005)) {
                 return { fail: true, msg: '复发：七伤拳「临危加成」标注与倍率×' + noteMult + '不一致（低血档文案/倍率脱钩）' };
             }
 
