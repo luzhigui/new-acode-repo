@@ -1,7 +1,9 @@
 // core/216-skill-mechanisms.js — 数据驱动技能机制的安装期校验与统一装配
 // V6.8.8 | 2026-11-19 | 九阳护盾溢出 stealShieldHalf 的 A/B 改从 payload 取（本函数形参只有 data/onHitDecls，
 //   裸 A/B 必抛 ReferenceError 且会中断本条命中的后续 onHit 效果；core/209 L564 载荷已带 A,B）
-export const VER = 'core/216-skill-mechanisms.js V6.8.8';
+// V6.8.9 | 2026-11-20 | lowestHp 目标规则提前到嘲讽之前（priority 17）+ 打 lowestHpLocked 标记：
+//   韦一笑咬血最少的，胖远桥的正义国字脸嘲讽不再把他拉回来。
+export const VER = 'core/216-skill-mechanisms.js V6.8.9';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
@@ -148,7 +150,11 @@ function submitLowestHpTarget(data, decl) {
     //   此时 lowestHp（priority 20）不该覆盖成「血最少的敌人」——韦一笑中了癫就该不分敌友随机打。
     if (data.declaration.targetResult) return;
     const sorted = [...data.validTargets].sort((a, b) => a.hp - b.hp);
-    if (sorted[0]) data.declaration.targetResult = sorted[0];
+    if (sorted[0]) {
+        data.declaration.targetResult = sorted[0];
+        // 锁定标记（2026-11-20 老板拍板）：青翼蝠王咬死血最少的目标，胖远桥的嘲讽拉不回来。
+        data.declaration.lowestHpLocked = true;
+    }
 }
 
 function submitHighestHpPctTarget(data, decl) {
@@ -174,7 +180,8 @@ function installTargetRule(eventBus, A, B, decl) {
     if (rule === MECHANIC_TARGET_RULES.LOWEST_HP) {
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-            priority: L.BEFORE_SELECT_TARGET.REBEL,
+            // 先于嘲讽（PANG_TAUNT_FORCE=18）执行：血最少锁定要能挡住嘲讽覆盖
+            priority: L.BEFORE_SELECT_TARGET.PANG_TAUNT_FORCE - 1,
             handler: (data) => { submitLowestHpTarget(data, decl); }
         });
     } else if (rule === MECHANIC_TARGET_RULES.HIGHEST_HP_PCT) {
