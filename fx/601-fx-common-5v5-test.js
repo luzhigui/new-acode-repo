@@ -1,6 +1,6 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-// V6.3.20 | 2026-11-20 九人战报条禁换行：主标题/副标题各一行，只靠字号缩放适配手机宽度
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.20';
+// V6.3.21 | 2026-11-20 乘风突袭爪痕改「爪子挥击」：三道固定平行斜爪 + 两头尖 clip-path + 0.28s 快闪（原随机短线像毛笔刷）
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.21';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -470,6 +470,7 @@ function _executeBrush(div) {
 export function applyBrushEffect(div) { _executeBrush(div); }
 
 // 乘风突袭波及爪痕特效（视觉由 CSS 动画承担，clock 只负责移除时机）
+//   2026-11-20 老板：原来是「毛笔在格子上挥两下」，改成快准狠的爪子挥击——三道平行斜爪、两头尖、0.28s 一闪而过。
 export function showWindClaw(unit) {
     let grid = document.querySelector(`[data-uid="${unit.uid}"]`);
     if (!grid) return;
@@ -477,28 +478,29 @@ export function showWindClaw(unit) {
     const rect = grid.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
+    // 三道固定平行爪痕（不再随机角度，避免看起来像乱刷），整体从右上划到左下
+    const CLAW_ANGLES = [-52, -47, -57];
+    const CLAW_OFFSETS = [-11, 0, 11];
 
     for (let i = 0; i < 3; i++) {
         const claw = document.createElement('div');
         claw.setAttribute('data-fx', 'temporary');
-        const angle = -30 + Math.random() * 20;
-        const len = 20 + Math.random() * 15;
-        const thickness = 1 + Math.random() * 2.5;
-        const offsetX = (Math.random() - 0.5) * 20;
-        const offsetY = (Math.random() - 0.5) * 20;
+        const len = rect.width * 1.05;
         claw.style.cssText = `
-            position:fixed; left:${cx + offsetX}px; top:${cy + offsetY}px;
-            width:${len}px; height:${thickness}px;
-            background: linear-gradient(to right, rgba(45,45,50,0.95), rgba(15,15,20,0.35));
-            transform: rotate(${angle}deg);
+            position:fixed; left:${cx - len / 2 + CLAW_OFFSETS[i] * 0.6}px; top:${cy - 2 + CLAW_OFFSETS[i]}px;
+            width:${len}px; height:4px;
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.95) 12%, rgba(30,30,38,0.95) 38%, rgba(10,10,14,0.9) 85%, rgba(255,255,255,0) 100%);
+            --ang:${CLAW_ANGLES[i]}deg;
+            transform: rotate(${CLAW_ANGLES[i]}deg);
+            clip-path: polygon(0% 50%, 10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%);
+            transform-origin: 50% 50%;
             z-index:10010; pointer-events:none;
-            border-radius: 1px;
-            filter: drop-shadow(0 0 5px rgba(255,255,255,0.55)) drop-shadow(0 0 2px rgba(0,0,0,0.7));
-            animation: clawSlash 0.5s ease-out forwards;
-            animation-delay: ${i * 0.08}s;
+            filter: drop-shadow(0 0 4px rgba(255,255,255,0.85)) drop-shadow(0 0 2px rgba(0,0,0,0.8));
+            animation: clawSlash 0.28s cubic-bezier(.18,.9,.1,1) forwards;
+            animation-delay: ${i * 0.045}s;
         `;
         document.body.appendChild(claw);
-        clock.wait(600).then(() => { if (claw.parentNode) claw.remove(); });
+        clock.wait(450).then(() => { if (claw.parentNode) claw.remove(); });
     }
 }
 
