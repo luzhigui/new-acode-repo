@@ -1,5 +1,6 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
-export const VER = 'render/412-facts-stat.js V1.0.4';
+// V1.0.5 | 2026-11-20 巨马召唤文案用 fact.horseName（姐姐专属海克斯 → 强化巨马）；无该字段退回「拒马」
+export const VER = 'render/412-facts-stat.js V1.0.5';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
@@ -42,7 +43,7 @@ export function renderCarryApplyFact(fact) {
 function buildHorseSummonEntry(fact, label, taunt) {
     return {
         type: 'buff-summon',
-        text: `<span class="gold">🐴 ${label}：拒马出现在${fact.pos}号位！</span>`,
+        text: `<span class="gold">🐴 ${label}：${fact.horseName || '拒马'}出现在${fact.pos}号位！</span>`,
         buffType: BUFF_SUBTYPES.SUMMON,
         horsePos: fact.pos,
         horseUid: fact.horseUid,
@@ -219,7 +220,7 @@ export function renderClawHitFact(fact) {
         : (fmtNum(fact.dmg) === 0
             ? `伤害被护盾全部抵挡（${absorbed} 点）`
             : `造成 ${fmtNum(fact.dmg)} 点伤害，护盾抵挡 ${absorbed} 点`);
-    return { type:'info', hpAfter: fmtNum(fact.hpAfter), clawTargetUid: fact.targetUid, dmg: fmtNum(fact.dmg), designedDmg: fact.designedDmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} ${dmgText}${fact.jealous?'【嫉妒】':''}</span>` };
+    return { type:'info', hpAfter: fmtNum(fact.hpAfter), clawTargetUid: fact.targetUid, dmg: fmtNum(fact.dmg), designedDmg: fact.designedDmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} ${dmgText}${fact.jealous?(fact.jealousTier===2?'【嫉妒2】':'【嫉妒】'):''}</span>` };
 }
 
 export function renderClawExecuteFact(fact) {

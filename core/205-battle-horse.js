@@ -1,5 +1,6 @@
 // core/205-battle-horse.js — 拒马的生成、销毁、空格查询与指定格召唤
-export const VER = 'core/205-battle-horse.js V6.3.4';
+// V6.3.5 | 2026-11-20 姐姐专属海克斯生成的马改名「强化巨马」（仅名字，防/血/反伤/不可销毁一律不动）
+export const VER = 'core/205-battle-horse.js V6.3.5';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff } from './203-battle-utils.js';
@@ -23,9 +24,10 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         [available[i], available[j]] = [available[j], available[i]];
     }
     let horsePos = available[0];
-    let horse = new Unit('拒马', C.HORSE_M, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
+    // 姐姐专属海克斯（强化巨马）走独立名字，普通巨马仍叫「拒马」（2026-11-20 老板：只改名，属性一律不动）
     // 不传 log：小昭不在时底层推的“未生效”诊断不该刷进玩家战报
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
+    let horse = new Unit(xiaoHEnhance ? '强化巨马' : '拒马', C.HORSE_M, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
     horse.atk = 0;
     // 拒马血量系数分档：按 50% 血量占位取档，唯一来源 02unit.getHpDmgRatio（原先此处硬编码 0.06）
     horse.state._hpDmgRatio = getHpDmgRatio(0.5);

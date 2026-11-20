@@ -1,9 +1,10 @@
 ﻿// core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
+// V6.3.48 | 2026-11-20 巨马召唤 fact 带 horseName：强化巨马改名后日志能显示正确名字（属性一律不动）
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
 // V6.3.45 | 2026-11-19 | fact 出口收口（T-EP-1）：圣火令·救援/打击两条事实裸 log.push → pushFact
-export const VER = 'core/210-battle-round.js V6.3.47';
+export const VER = 'core/210-battle-round.js V6.3.48';
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -72,11 +73,11 @@ function clearRoundEntries(A, B, state, ctx) {
 function spawnHorsesAndPickDoubleStrike(A, B, state, ctx) {
     const teamHorseA = spawnHorse(A, ctx.log, B);
     if (teamHorseA) {
-        ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
+        ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseName: teamHorseA.name, horseTaunt: '嘶——！' } });
     }
     const teamHorseB = spawnHorse(B, ctx.log, A);
     if (teamHorseB) {
-        ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
+        ctx.log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseName: teamHorseB.name, horseTaunt: '嘶——！' } });
     }
 
     let unitUids = [];
