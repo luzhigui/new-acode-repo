@@ -1,12 +1,12 @@
 // modules/303-error-capture.js — 全局报错捕获、Bug 面板 UI 与切片数据生成
 // V6.6.4 | 2026-11-19 记录框瘦身：删顶部「手动新建」大按钮、三项提示并入 placeholder；
-//   面板打开时隐藏「倒针」悬浮入口（z-index 2.1 亿会浮在弹层上挡字）。
+//   ［2026-11-20 V6.6.9］倒针回看已移出主代码（tools/839-rewind 归档），删面板压制 #rewind-entry 的规则。
 // V6.6.5 | 2026-11-19 支持 index.html?buglist=1 直开已保存 Bug 列表（dev-index「🐛 Bug记录」按钮）
 // V6.6.6 | 2026-11-19 撤销 V6.6.5 的 ?buglist 直开：列表已改为 tools/838-bug-records.html 独立页，不必进游戏
 // V6.6.7 | 2026-11-19 记录框 textarea 随内容自动长高（手机无 resize 把手），超屏 42% 转内部滚动。
 // V6.6.8 | 2026-11-19 记录输入拆成三个常驻小标题的框（①本来应该怎样 ②怎么复现 ③实际看到什么），
 //   保存时合并成【应该】【步骤】【实际】三段文本，与旧版纯字符串完全兼容。
-export const VER = 'modules/303-error-capture.js V6.6.8';
+export const VER = 'modules/303-error-capture.js V6.6.9';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -57,9 +57,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
             'body.dsh-log-pick #log > div{cursor:pointer;}' +
             /* 高亮：金色左边条 + 背景，只作用在被点中的那一行（box-shadow 不占布局） */
             'body.dsh-log-pick #log > div.dsh-log-anchor{background:rgba(255,215,0,.22)!important;box-shadow:inset 3px 0 0 #ffd700;}' +
-            'body.dsh-log-pick #log > div.dsh-log-anchor,body.dsh-log-pick #log > div.dsh-log-anchor *{color:#ffe9a8!important;}' +
-            /* Bug 面板开着时压掉「倒针」悬浮入口：它 z-index 极高（2.1亿），会浮在弹层上面挡字 */
-            'body.dsh-bug-open #rewind-entry{display:none!important;}';
+            'body.dsh-log-pick #log > div.dsh-log-anchor,body.dsh-log-pick #log > div.dsh-log-anchor *{color:#ffe9a8!important;}';
         document.head.appendChild(st);
     })();
     function setLogPickMode(on) {

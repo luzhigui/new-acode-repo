@@ -26,7 +26,7 @@ export function startBattleRecording(meta) {
     };
 }
 
-/** 倒针调试只读出口：本局已录制的完整步（未瘦身，未开局返回空数组）。 */
+/** 战报调试只读出口：本局已录制的完整步（未瘦身，未开局返回空数组）。 */
 export function getLiveRecordedSteps() {
     return _recording ? _recording.steps : [];
 }

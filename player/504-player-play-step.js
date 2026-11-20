@@ -113,7 +113,6 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     const processedAfterIndexes = new Set();
 
     // action 完整生命周期：store(前置) → fx(演出) → storeAfter(收尾)
-    //   倒针静默重演（c.isRewinding）时跳过 FX：历史死亡画笔/飘字不许重放
     const runAction = async (action) => {
         applyStageActionToStore(c, action, pendingDeaths);
         // 同一 factIndex 内连续多条 PUSH：只弹一次 banner。
@@ -121,7 +120,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
         //   三连弹 4.5s 就是「磨蹭」的主要来源。
         const prev = c._lastPangBannerGroupKey;
         const key = action.kind === STAGE_ACTION_TYPES.PUSH && action.factIndex != null ? action.factIndex : null;
-        if (!c.isRewinding && getActionFx(action) !== 'none') {
+        if (getActionFx(action) !== 'none') {
             if (action.kind === STAGE_ACTION_TYPES.PUSH && key === prev) {
                 // 同组内的第 2/3 条 PUSH：跳过 banner，只走位移（fx 里 banner 与位移是分开的两段）
                 await applyStageActionToFX(c, { ...action, skipBanner: true });
@@ -159,12 +158,9 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
                 const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'beforeText');
                 for (const action of beforeActions) {
                     applyStageActionToStore(c, action, pendingDeaths);
-                    if (!c.isRewinding) {
-                        if (action.nonBlocking) applyStageActionToFX(c, action);
-                        else await applyStageActionToFX(c, action);
-                    }
+                    if (action.nonBlocking) applyStageActionToFX(c, action);
+                    else await applyStageActionToFX(c, action);
                     applyStageActionToStoreAfter(c, action, pendingDeaths);
-                    if (c._rewindCue) await c._rewindCue('beforeText', action);   // 倒针停点：文字前动作后
                 }
             }
 
@@ -176,7 +172,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
                     entry._fxSpecs = fxActions.map((a) => ({
                         cb: () => {
                             applyStageActionToStore(c, a, pendingDeaths);
-                            if (!c.isRewinding) applyStageActionToFX(c, a);
+                            applyStageActionToFX(c, a);
                             applyStageActionToStoreAfter(c, a, pendingDeaths);
                         }
                     }));
@@ -184,14 +180,12 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
             }
 
             await playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex);
-            if (c._rewindCue) await c._rewindCue('anchor', entry);   // 倒针停点：图中锚点动作后
 
             if (!processedAfterIndexes.has(factIndex)) {
                 processedAfterIndexes.add(factIndex);
                 const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => hasStageWork(a) && getActionTiming(a) === 'afterText');
                 for (const action of afterActions) {
                     await runAction(action);
-                    if (c._rewindCue) await c._rewindCue('afterText', action);   // 倒针停点：文字后动作后
                 }
             }
         }
@@ -200,7 +194,7 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     for (const action of actions) {
         if (action.factIndex == null || !actionsByFactIndex.has(action.factIndex)) {
             applyStageActionToStore(c, action, pendingDeaths);
-            if (!c.isRewinding && getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
+            if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
             applyStageActionToStoreAfter(c, action, pendingDeaths);
         }
     }
@@ -209,7 +203,6 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     //   syncStoreFromStep 是整步血量/生死的唯一权威落账点，必须排在死亡红叉之前：
     //   先 SET_UNITS（hp=0 + alive=false），再切 DEAD 态，避免「特效先播、血条还没归零」。
     syncStoreFromStep(c, step);
-    if (c._rewindCue) await c._rewindCue('settle', step);   // 倒针停点：整步落账后
 
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
@@ -221,14 +214,13 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     }
 
     const hasDeathAction = actions.some(a => a.dead && (a.kind === STAGE_ACTION_TYPES.ATTACK || a.kind === STAGE_ACTION_TYPES.DEATH || a.kind === STAGE_ACTION_TYPES.DOT));
-    if (c._rewindCue) await c._rewindCue('death', step);   // 倒针停点：死亡红叉后
-    if (hasDeathAction && !c.isRewinding) {   // 倒针静默重演时不刷历史死亡红墨
+    if (hasDeathAction) {
         const logDiv = document.getElementById('log');
         if (logDiv && logDiv.lastElementChild) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
     }
 }
 
-// 倒针逐段重演复用点：单条日志走与主流程完全相同的播放（掉血飘字/血条/黄闪/日志打字）
+// 单条日志独立播放出口：与主流程完全相同的播放（掉血飘字/血条/黄闪/日志打字）
 export async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     let lastEntryType = c._lastLogType || null;
     let abortSig = c.abortController ? c.abortController.signal : null;

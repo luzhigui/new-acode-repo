@@ -1,20 +1,21 @@
-// ui/727-rewind-core.js — 倒针回看（调试）：按步/按演出段回拨，复用本局战报录制，不碰引擎
-//   开关默认关：只有地址栏带 ?rewind=1 或 localStorage.gmd_rewind='1' 才生效。
+// tools/839-rewind/727-rewind-core.js — 倒针回看（低频工具，已移出主代码）：按步/按演出段回拨，复用本局战报录制
+//   注意：player/503、504 的倒针挂点（_rewindGate/_rewindLastStep/_rewindCue/isRewinding）已随功能一并删除，
+//   本文件仅作归档参考；要重新启用需自行在播放器里补回停点。
 //   数据源：player/513 的在录步（每步自带两队快照 + 日志 + 演出动作清单），不额外存快照。
-export const VER = 'ui/727-rewind-core.js V1.2.1';
+export const VER = 'tools/839-rewind/727-rewind-core.js V1.3.0';
 
-import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, DROP_TYPES, LOG_ENTRY_TYPES } from '../infra/106-battle-enums.js';
-import { STATE } from '../core/201-config-5v5-test.js';
-import { getLiveRecordedSteps } from '../player/513-battle-export.js';
-import { syncStoreFromStep, setRound } from '../player/506-player-step-sync.js';
-import { playStepInterleaved, playSingleLogEntry } from '../player/504-player-play-step.js';
-import { appendLogHTML, renderSeparator, renderStaticLogEntry, clearAllEffects } from '../player/510-renderer.js';
-import { shouldStartNewGroup } from '../player/508-event-handlers.js';
+import { GlobalStore, getPlayerContext } from '../../infra/104-global-store.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, DROP_TYPES, LOG_ENTRY_TYPES } from '../../infra/106-battle-enums.js';
+import { STATE } from '../../core/201-config-5v5-test.js';
+import { getLiveRecordedSteps } from '../../player/513-battle-export.js';
+import { syncStoreFromStep, setRound } from '../../player/506-player-step-sync.js';
+import { playStepInterleaved, playSingleLogEntry } from '../../player/504-player-play-step.js';
+import { appendLogHTML, renderSeparator, renderStaticLogEntry, clearAllEffects } from '../../player/510-renderer.js';
+import { shouldStartNewGroup } from '../../player/508-event-handlers.js';
 import {
     prepareLogEntry, getActionTiming, getActionFx, hasStageWork,
     applyStageActionToStore, applyStageActionToFX, applyStageActionToStoreAfter
-} from '../player/505-player-stage-actions.js';
+} from '../../player/505-player-stage-actions.js';
 
 const CANCEL = Symbol('rewind-cancel');
 const KIND_LABEL = {

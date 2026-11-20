@@ -146,10 +146,10 @@ export const STAGE_ACTION_TYPES = Object.freeze({
 
 /**
  * 日志条目类型白名单：哪些「渲染后 entry.type」会上屏。
- *   唯一真源。player/504 的 switch 与 ui/727 的回看白名单都必须与本表同口径——
- *   以前两处各自手抄一份，改一处漏一处就漂移（真播有、回看没有，或反之）。
+ *   唯一真源。player/504 的 switch 必须与本表同口径——
+ *   以前两处各自手抄一份，改一处漏一处就漂移。
  *   加一种新的上屏类型：这里加一行；504 补一个 case（漏了跑局时由 default 分支报错）。
- *   不在此表的类型（如顶层 detail：攻盾/远程熟练）真播本就不上屏，回看也必须一致。
+ *   不在此表的类型（如顶层 detail：攻盾/远程熟练）真播本就不上屏。
  */
 export const LOG_ENTRY_TYPES = Object.freeze({
     INFO: 'info',

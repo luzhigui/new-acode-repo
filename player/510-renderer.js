@@ -51,7 +51,7 @@ export function appendHiddenDetail(text) {
     appendLogElement(div);
 }
 
-// info/detail 行的静态渲染出口：真播（509）与倒针回看（727）共用同一套口径/排版。
+// info/detail 行的静态渲染出口：真播（509）与战报回放共用同一套口径/排版。
 //   折叠判据与真播一致：只有 logLevel === 'brief' 时 detail 才进折叠区，其余正文整行直接出。
 export function renderStaticLogEntry(entry) {
     if (!entry || entry.text == null) return;

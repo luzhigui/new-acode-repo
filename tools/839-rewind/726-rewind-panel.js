@@ -1,8 +1,8 @@
-// ui/726-rewind-panel.js — 倒针面板（默认开，暂停时才露入口）：入口按钮 + 底部小面板
-//   默认不需要任何地址参数；?rewind=0 或 localStorage.gmd_rewind='0' 可彻底关掉（不建 DOM、不起定时器）。
-export const VER = 'ui/726-rewind-panel.js V1.0.0';
-import { GlobalStore } from '../infra/104-global-store.js';
-import { STATE } from '../core/201-config-5v5-test.js';
+// tools/839-rewind/726-rewind-panel.js — 倒针面板（低频工具，已移出主代码）：入口按钮 + 底部小面板
+//   index.html 不再加载本文件；要临时调试回看，手动把它当 module 引入即可（?rewind=0 可彻底关掉）。
+export const VER = 'tools/839-rewind/726-rewind-panel.js V1.1.0';
+import { GlobalStore } from '../../infra/104-global-store.js';
+import { STATE } from '../../core/201-config-5v5-test.js';
 import {
     isRewindEnabled, isActive, getView, enterReview, exitReview,
     prevStep, nextStep, prevCue, nextCue, pausePlay, resumePlay, fastForward
