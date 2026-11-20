@@ -1,3 +1,4 @@
+// tests/isdead-fix-guard.mjs V1.0.5 | 2026-11-20 第191轮（豆包体检会话）：移植夜间第243轮 exit=2 证据块（首个栈落点进结论行），保留 V1.0.4 EventBus 陷阱判红与 #9 脏树守卫；判据/门禁一字未动。
 // tests/isdead-fix-guard.mjs V1.0.4 | 2026-11-19 第30轮：引擎信号处理抛错必须判红——
 //   挂 _lib/eventbus-error-guard 陷阱；实测本护栏在 core/216:271 `ReferenceError: A is not defined` 时仍判 ✅
 //   （异常被 EventBus try/catch 吞掉，只 console.error），样本可信度被高估。MIN_HITS 与门禁/诊断口径一字未动。
@@ -43,7 +44,7 @@ import { tickAndPickBuffs } from './_lib/buff-picker.mjs';
 import { installEventBusErrorTrap, formatEventBusErrors } from './_lib/eventbus-error-guard.mjs';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 
-const VER = 'tests/isdead-fix-guard.mjs V1.0.4';
+const VER = 'tests/isdead-fix-guard.mjs V1.0.5';
 const argv = process.argv.slice(2);
 const N_SEEDS = Number(process.env.SEEDS_N || (argv.includes('--seeds') ? argv[argv.indexOf('--seeds') + 1] : 30));
 const SEEDS = Array.from({ length: N_SEEDS }, (_, i) => i + 1);
@@ -166,4 +167,28 @@ async function main() {
     process.exit(0);
 }
 
-main().catch(e => { console.error('护栏运行异常:', e); process.exit(2); });
+// V1.0.5（第191轮移植夜间第243轮）：exit=2 的证据要活到汇总层。
+//   病：run-all 的 pickKeyLine 只取一行且截 100 字，栈帧行（"    at …"）不含负向关键词被丢弃
+//   ⇒ 汇总层只看到「护栏运行异常」，不知道挂在哪个文件哪一行。
+//   修法：把首个栈落点压进结论行（@ x.js:行:列），message 压单行、栈尾 6 行打进证据块。
+//   ★ 纯呈现：退码仍 2；#9 脏树守卫与第30轮 EventBus 陷阱判红全部保留，一字未动。
+main().catch(e => {
+    const msg = (e && e.message) ? String(e.message) : String(e);
+    const msgOne = msg.replace(/\s*\r?\n\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    const stackLines = String((e && e.stack) || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const firstFrame = stackLines.find(l => /^at\s/.test(l)) || '';
+    const frameShort = (firstFrame.match(/([\w.-]+\.js:\d+:\d+)/) || [])[1]
+        || (firstFrame ? firstFrame.replace(/^at\s+/, '').slice(0, 40) : '无栈帧（非 Error 抛出）');
+    console.error('护栏运行异常:', e);
+    console.error('   ↳ 证据块（message + 栈尾 6 行，相邻重复行已折叠）：');
+    console.error('    ' + msgOne.slice(0, 200));
+    const tail = [];
+    for (const l of stackLines.slice(-6)) {
+        if (tail.length && tail[tail.length - 1] === l) continue;
+        tail.push(l);
+    }
+    if (tail.length) console.error(tail.map(l => '    ' + l.slice(0, 200)).join('\n'));
+    // 落点放前面：run-all 只留 100 字，长 message 会把落点顶出窗口。
+    console.error(`RESULT: isDead护栏异常(exit=2) @ ${frameShort.slice(0, 30)} ${msgOne.slice(0, 40)}`);
+    process.exit(2);
+});

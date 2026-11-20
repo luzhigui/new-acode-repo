@@ -1,8 +1,31 @@
 #!/usr/bin/env node
+// V1.0.19 | 2026-11-20 第191轮（豆包体检会话）：移植夜间 242-243 的「陈旧点名」（V1.0.15/16/17/18 增量）到 main。
+//   保留 main 独有两项：① #9 脏树守卫（warnIfDirty+exit1，本仓 worktree-guard 无 exitDirtyByGuard）；
+//   ② V1.0.13「产物缺失按仅本地跳过」——夜间 V1.0.18 改硬红会令无产物环境新增红项，与本轮验收「红项集合不新增」冲突。
+//   新增强化：陈旧点名六类压成一行收尾、aggNormMsg 剥回合序号/行尾括号、structKey 抹空值、parseEvidence 用 /\r?\n/。
+//   判据七项、三阈值、聚合棘轮口径一字未动。
+// V1.0.18 | 2026-11-19 夜间第 243 轮：陈旧红**点名四项**——此前只打一句「证据已陈旧」，
+//   而 mutation-teeth 明明已逐条给出 VER/MUTFP/RULEFP/ENGFP/覆盖/树 哪几项不符，本文件却只做转发、
+//   末尾又只留一个结论行；run-all 汇总层只取一行且截 100 字 ⇒ 白天会话看到「陈旧」看不到「陈旧在哪」。
+//   本版把「哪几项、两侧指纹各是什么」压成一行收尾结论（纯呈现：不改判定、不改退码 1、不放行、不动七项断言与三阈值）。
+// V1.0.17 | 2026-11-18 夜间第 238 轮：脏树拒答改走 exitDirtyByGuard（退码 3），与判据真红退码 1 分家；
+//   七项断言、聚合型棘轮口径、证据文件格式一字未动。
+// V1.0.16 | 2026-11-18 夜间第 238 轮：补头注释对齐既有 VER 常量（第 237 轮末笔 1a19eea 抬了 VER 却漏了本注释，
+//   直接把 `版本号遗忘抬升绊线` 从绿打成红 —— 一颗只影响一行注释的钉子，代价是整份体检少一格）。
+//   本行零判据变化：七项断言、聚合型棘轮口径、证据文件格式一字未动，仅补回缺失的版本声明。
+// V1.0.15 | 2026-11-17 夜间第 231 轮：`parseEvidence` 切行改 /\r?\n/（换行一致性收口；判据七项、阈值、
+//   聚合型棘轮口径一字未动，证据文件恒 LF 时行为逐字相同）。
 // V1.0.14 | 2026-11-14 #9 引擎依赖体检脚本脏树前置守卫：main() 开头挂 tests/_lib/worktree-guard.mjs 的 checkWorktreeClean，工作树有未提交改动或 HEAD≠远端稳定 tip 时显式告警并 exit(1)，禁止在叠 WIP 的主树上下「恒空转/假绿/覆盖不足」结论（#3 脏树 skip=156 误判教训）。判据阈值一字未动。
+// V1.0.14 | 2026-11-13 夜间第 219 轮（合流裁决，与上行并存）：不采纳上游 V1.0.13「产物缺失即 exit 0 跳过」，保留硬红；
+//   两者不冲突：脏树守卫管「结论能不能下」，产物缺失硬红管「没取证不算通过」，两条都留。
 // V1.0.13 | 2026-11-13 环境依赖处置（按体检交接 spec 选项②）：teeth-results.txt 由变异树取证产出、被 .gitignore 排除、
 //   CI checkout 里永远不存在 ⇒ 此前在 push 门禁下恒红（属「环境缺失」而非「判据失败」）。改为「产物缺失时显式跳过
 //   （exit 0）并打 loud 警告」：CI 不跑此项、本地有产物时仍全量校验；不削弱任何判据、不降阈值、不静默放行。
+// ★ 第 219 轮（合流裁决，本会话立场）：上游 V1.0.13 的「产物缺失即 exit 0 跳过」**不采纳**。
+//   理由：本项的对象就是「牙口结论有没有证据」，产物缺失时若判绿，等于把「没取证」当「取证通过」——
+//   这正是 295 号规则点名的恒绿线形态，与夜间轮一以贯之的「没场景 ≠ 通过」口径相反。
+//   CI checkout 缺产物属事实，但正确修法是让 CI 先生成产物（或把本项在 CI 显式排除出清单），
+//   而不是让体检自己在缺证据时放行。本轮保留 V1.0.12 的硬红与 V1.0.8 的空值归一化。
 // V1.0.12 | 2026-11-10 白天迭代：给 aggNormMsg 补双向负路径自证。
 //   该函数是「聚合型分支」判定的唯一归一化入口，V1.0.5→V1.0.11 连改 6 版口径却零自证；
 //   最坏情形是它退化成恒等映射 —— 所有 msg 归一成同一个 rk、聚合分支全塌，
@@ -68,7 +91,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs';
+import { checkWorktreeClean, warnIfDirty } from './_lib/worktree-guard.mjs'; // 第191轮移植：main 侧守卫仍是 V1.0.1（未提供 exitDirtyByGuard），保留本仓告警口径
 import { scanAllBranches, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
 import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mjs';
 
@@ -76,7 +99,7 @@ import { BITTEN_BASELINE, NO_FP_WHITELIST } from './rule-branch-idle-selftest.mj
 //   头版本日志抬到 V1.0.3（加了断言⑦单条聚合度峰值硬上限 SINGLE_AGG_CAP），却漏抬本 VER 常量，
 //   于是「版本常量漂移自检」与「版本号遗忘抬升绊线」双双报红。★ 这与本线第 172 轮自踩同款
 //   （抬了日志漏了常量），区别只是这次是上游会话犯的 —— 绊线照样当场咬住，不是只盯自己人。
-export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.14';
+export const VER = 'tests/rule-teeth-evidence-selftest.mjs V1.0.19';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE = path.join(here, '.mut', 'teeth-results.txt');
@@ -183,6 +206,20 @@ export function aggNormMsg(m) {
     //   ★ 判据面：只在【…】内部吃数字（与 normMsg 同口径），字母/中文原样保留 —— 标签本身就是
     //     「哪一个出口」，抹掉它等于把本函数要数的东西先扔掉。标签外的抹除口径一字不动。
     //   ★ 边界与 V1.0.7/V1.0.9 相同：只管数种子，不动 findBranchByMsg、不动 rotten 键、不动任何阈值。
+    // ⑤'''' V1.0.16（第 237 轮）：剥「实例计数壳」—— 第#回合 / 第#轮 / 共#个 这类**落在样例正文里的
+    //   序号**，与 V1.0.10 的「共#处」同一性质：串到第几回合由「本次命中的是哪一场」决定，与「是哪一种
+    //   病因」无关。实测（第 237 轮补全到 48 个变异体的完整取证）：232 的 `同回合出现两次复活公告：
+    //   吴劲草 第#回合重复发放行动权` 与无回合号写法被数成 2 种病因 → 232 整条被抬进聚合型分支。
+    //   ★ 只剥「第 + 数字 + 回合/轮/局/场」与「共 + 数字 + 量词」两种定式，不做泛化抹数字 ——
+    //     正文里的「重算# vs getStat#」这类数值正是病因本身，泛化就会把真病因洗掉。
+    s = s.replace(/第\s*#\s*(?:回合|轮|局|场)/g, '第#回合');
+    // ⑤''''' V1.0.16 同笔：剥「括号补充说明尾巴」与「正文截断尾巴」。
+    //   实测 158（第 237 轮补全取证后才暴露）：同一出口【嗜血狂刀吸血】下，正文有的写
+    //   `🗡️ 周芷若 的嗜血狂刀吸血+#`，有的多一截 `（点穴截脉（回复-#%），原 #）` —— 那截是
+    //   本次命中的战报条目额外带的因果说明，不是第二种病因；结尾的 `</` 更是 slice(#) 截断的产物。
+    //   ★ 只剥**行尾**的括号段与行尾残缺标签，不动正文中间的括号（中间括号里的「不同源」等病因词必须留）。
+    for (let k = 0; k < 3; k++) s = s.replace(/（[^（）]*）\s*$/, '');
+    s = s.replace(/<\/?\s*$/, '');
     const tags = [];
     s = s.replace(/【[^】]*】/g, (x) => { tags.push(x.replace(/\d+/g, '#')); return '\u0001' + (tags.length - 1) + '\u0001'; });
     // ①② 中文串：先把病因标签词替换成占位符，再把剩余中文整体抹成 ◆
@@ -261,7 +298,11 @@ function rottenKey(e) { return e.rule + '|' + normMsg(e.msg); }
 //   · 抹完只剩 1 类 = 同一句话换了单位/数量（疑似实例差异，拆了也只多几条无关分支）；
 //   · 抹完仍多类 = 真的结构不同的病因（该拆）。
 //   典型 166：19 种按 structKey 归并后是 **7 类**（真多种病因，该拆；不是「换单位」造成的虚高）—— 详见报告段逐类输出。
-function structKey(m) { return m.replace(/[\u4e00-\u9fa5]+/g, '◆').replace(/\d+/g, '#'); }
+// ★ V1.0.8（第 200 轮）：先抹空值再抹中文/数字。`undefined` / `null` / `NaN` 是「取不到值」的同一种
+//   形态，旧口径把它们当英文原样留下 ⇒ 同一条模板被拆成「有值」与「无值」两类，报告里虚增结构模板数、
+//   把「实例差异·不必拆」误判成「需拆」。只动**报告分类**（fmtAggBranch 的严重度标注），
+//   不动聚合判定（aggLoad 仍按真实 msg 数子病因）、不动棘轮阈值、不动任何规则判据。
+function structKey(m) { return m.replace(/\b(?:undefined|null|NaN)\b/g, '◇').replace(/[\u4e00-\u9fa5]+/g, '◆').replace(/\d+/g, '#'); }
 
 // V1.0.5：把一个聚合分支的「结构模板类」渲染成多行文本 —— main 报告段与「陈旧诊断」段共用，避免两处各写一套导致输出形态分叉。
 //   对「需拆/严重」(sset>=3) 分支：逐类列出结构模板 + 代表样本（此前只混排 3 条，看不出 166 的 7 类各自长什么样，拆哪条无据可依）；
@@ -323,6 +364,40 @@ function computeTeethMaps(evid, branches) {
     return { byRuleFp, rotten, aggLoad, aggBranches, totalMsg, parsedMsg };
 }
 
+// ── 陈旧点名（V1.0.18，第 243 轮）──────────────────────────────────────────
+// 病：mutation-teeth --report 明明已逐条打出「哪几项不符、两侧指纹各是什么」，本文件只做转发，
+//   末尾仅留一句「证据已陈旧」；run-all 汇总层 pickKeyLine 只取**一行**且截 100 字
+//   ⇒ 白天会话看到「陈旧」，看不到「陈旧在哪、是不是又被并行会话改了主代码」。
+// 修法：只做摘要（纯呈现）—— 从已有输出里认出不符项，压成一行短的收尾结论。
+//   ★ 不改判定、不改退码 1、不放行、不动七项断言与三阈值；解析不出来就说「没解析到」，绝不伪造「无问题」。
+const STALE_KINDS = [
+    { short: 'VER', re: /判据版本不符|缺少 #META VER/ },
+    { short: 'MUTFP', re: /变异表指纹不符|缺少 #META MUTFP/ },
+    { short: 'RULEFP', re: /规则文件指纹不符|缺少 #META RULEFP/ },
+    { short: 'ENGFP', re: /引擎源码指纹不符|缺少 #META ENGFP/ },
+    { short: '覆盖', re: /结果覆盖不全/ },
+    { short: '树', re: /变异树已重建但未重跑/ },
+];
+
+/** 从 mutation-teeth --report 的输出里抽「哪几项不符」；只认 `·` 开头的条目行（那是 why 的形态）。 */
+export function summarizeStale(txt) {
+    const lines = String(txt == null ? '' : txt).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const items = lines.filter(l => l.startsWith('·'));
+    const kinds = [], detail = [];
+    for (const k of STALE_KINDS) {
+        const hit = items.find(l => k.re.test(l));
+        if (!hit) continue;
+        kinds.push(k.short);
+        const m = hit.match(/结果侧\s*([0-9a-f]{6,})[，,]\s*当前\s*([0-9a-f]{6,})/i);
+        if (m) detail.push(k.short + ' ' + m[1].slice(0, 8) + '≠' + m[2].slice(0, 8));
+        else {
+            const n = hit.match(/（(\d+)\s*条缺结果块）/);
+            detail.push(k.short + ' ' + (n ? '缺' + n[1] + '块' : '不符'));
+        }
+    }
+    return { kinds, detail, text: kinds.join('/') };
+}
+
 // ⑧ 结果新鲜度闸门（第139轮 item ③ 延伸 / 第138轮夜检点名）：
 //    本自检七条断言对账的"证据地基" teeth-results.txt，若比当前判据/引擎源码陈旧，
 //    则七条全绿也是假的（证据是旧的）。mutation-teeth --report 自带 ENGFP/MUTFP 鲜度守卫，
@@ -340,12 +415,19 @@ function checkEvidenceFreshness() {
         return; // 新鲜，放行
     } catch (e) {
         const errTxt = ((e.stdout || '') + '\n' + (e.stderr || '')).trim();
+        const stale = summarizeStale(errTxt);
+        const fpDetail = stale.detail.filter(d => /FP/.test(d)).slice(0, 2);
+        const staleOneLine = '❌ 陈旧点名 ' + stale.kinds.length + ' 项：'
+            + (stale.kinds.length ? stale.text : '未能从输出解析出不符项（原始输出见上，勿当作无问题）')
+            + (fpDetail.length ? ' —— ' + fpDetail.join(' ') : '');
         if (allowStale && /陈旧|stale|ENGFP|MUTFP/i.test(errTxt)) {
             console.log('  ⚠️ 牙口证据结果已陈旧（引擎/变异表已变），因 --allow-stale 放行——七条断言即便全绿也基于过期证据，须重跑变异树取证刷新');
+            console.log('  ' + staleOneLine);
             return;
         }
         console.log('❌ 牙口证据结果已陈旧，须重跑变异树取证刷新 ' + EVIDENCE + '：');
         console.log(errTxt.split('\n').slice(0, 14).map(l => '    ' + l).join('\n'));
+        if (stale.detail.length) console.log('   ↳ 陈旧归因：' + stale.detail.join(' / '));
         // V1.0.4 诊断增强：即使证据陈旧，也把「聚合型分支清单」打出来——否则断言⑧ 一拦就看不到哪几条该拆。
         //   只在陈旧路径额外算一遍（证据仍可读，只是配不上当前代码），不污染主路径；算不出就静默跳过，不阻断闸门。
         try {
@@ -361,6 +443,9 @@ function checkEvidenceFreshness() {
             }
         } catch (_) { /* 证据不可读/结构异常时跳过诊断，不阻断主闸门 */ }
         console.log('    处置：node tests/mutation-teeth.mjs --emit-prep > tests/.mut/prep.sh && bash tests/.mut/prep.sh && node tests/mutation-teeth.mjs --emit-run > tests/.mut/run.sh && bash tests/.mut/run.sh');
+        // ★ 收尾结论行（第 243 轮）：必须是**最后一条**含 ❌ 的行 —— run-all 的 pickKeyLine 在红路径取最后一条负向行，
+        //   所以「哪几项不符」必须压在这一行里，否则汇总层永远只看到「陈旧」两个字。
+        console.log(staleOneLine);
         process.exit(1);
     }
 }
@@ -388,7 +473,7 @@ function isEvidenceMsgLine(l) {
     return /^(?:@M@)?\s{6,}\[seed=\d+\s+stage=\d+\]/.test(l);
 }
 function parseEvidence(txt) {
-    const lines = txt.split('\n');
+    const lines = txt.split(/\r?\n/);
     const entries = [];
     let curMut = null;
     let inObservations = false;
@@ -443,11 +528,8 @@ function main() {
     const { files, branches } = scanAllBranches();
 
     // --- 证据解析 ---
-    // ★ V1.0.13（环境依赖处置，spec 选项②）：teeth-results.txt 是变异树取证产物、被 .gitignore 排除，
-    //   CI checkout 里永远不存在 ⇒ 在 push 门禁下恒红（属「环境缺失」非「判据失败」）。
-    //   改为产物缺失时显式跳过（exit 0）并打 loud 警告：CI 不跑此项；本地跑过变异树（node tests/mutation-teeth.mjs
-    //   生成 teeth-results.txt）后仍全量校验。不削弱任何判据、不降阈值、不静默放行——跳过原因明确写进输出。
     if (!fs.existsSync(EVIDENCE)) {
+        // 第191轮移植裁决：保留本仓 V1.0.13「仅本地」口径（夜间 V1.0.18 改硬红会令无产物环境新增红项）。
         console.log('⚠️ [仅本地] 牙口证据链对账跳过：变异树产物 ' + EVIDENCE +
             ' 不存在（被 .gitignore 排除，CI checkout 不含此文件）。');
         console.log('   ⇒ 本项在 CI push 门禁下按「仅本地」处理、不计入红项；本地运行 node tests/mutation-teeth.mjs 生成产物后即全量校验。');
