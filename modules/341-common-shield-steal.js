@@ -1,4 +1,5 @@
-﻿﻿// V1.2.5 | 2026-11-20 智取回血改为各分一半：张松溪固定先拿自己那份（队友满血吃不完才转给他），
+﻿﻿// V1.2.6 | 2026-11-20 智取抢来的回血补飘字：张松溪/受益队友吃血后推 HEAL fact（💡 智取），血条不再无声上涨。
+// V1.2.5 | 2026-11-20 智取回血改为各分一半：张松溪固定先拿自己那份（队友满血吃不完才转给他），
 //   修「抢来的回血全喂给没满血的队友、张松溪一点不分」。
 // V1.2.4 | 2026-11-19 智取分配排除已死/待死单位：hp=0 或 _pendingDeath 不再吃盾、不再回血、不当抢血目标
 //   （老板报「殷梨亭血量已归零，智取还给他分了护盾」——alive 要等死亡结算才翻 false）。
@@ -20,7 +21,7 @@ import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.5';
+export const VER = 'modules/341-common-shield-steal.js V1.2.6';
 
 const STEALER_NAME = '张松溪';
 
@@ -59,6 +60,21 @@ function announceZhiQu(log, thief, detail) {
 // A/B 全集里张松溪所在阵营的存活成员列表
 function sideOf(thief, A, B) {
     return [...(A || []), ...(B || [])].filter(u => isValid(u) && u.camp === thief.camp);
+}
+
+// 抢来的回血也走回血飘字（2026-11-20）：受益者吃血后推一条 HEAL fact（💡 智取），
+//   与目标那侧的「飞行再生/休息回复」动效同源，避免血条无声上涨。
+function pushZhiQuHeal(log, unit, hpBefore, heal) {
+    if (!Array.isArray(log) || !(heal > 0)) return;
+    log.push({
+        factType: FACT_TYPES.HEAL,
+        data: {
+            unitName: unit.name, unitUid: unit.uid,
+            heal, maxHp: unit.maxHp, stacks: 1,
+            hpBefore, hpAfter: unit.hp,
+            icon: '💡', label: '智取'
+        }
+    });
 }
 
 /**
@@ -107,8 +123,10 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     if (mate) {
         eaten.mate = Math.min(share, Math.max(0, Math.floor(mate.maxHp - mate.hp)));
         if (eaten.mate > 0) {
+            const before = mate.hp;
             applyStatChange(mate, 'hp', eaten.mate, thief, '智取抢血', true, true);   // 产出者=张松溪：抢来的血算张松溪的治疗产出（214 治疗记账口径）
             recordHpAudit(mate, 'zhiQuHeal', eaten.mate, '智取抢血');
+            pushZhiQuHeal(ctx && ctx.log, mate, before, eaten.mate);
         }
         toThief += share - eaten.mate;   // 队友满血吃不完的，转给张松溪
     } else {
@@ -116,8 +134,10 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     }
     eaten.thief = Math.min(toThief, Math.max(0, Math.floor(thief.maxHp - thief.hp)));
     if (eaten.thief > 0) {
+        const before = thief.hp;
         applyStatChange(thief, 'hp', eaten.thief, thief, '智取抢血', true, true);
         recordHpAudit(thief, 'zhiQuHeal', eaten.thief, '智取抢血');
+        pushZhiQuHeal(ctx && ctx.log, thief, before, eaten.thief);
     }
     const pool = toThief - eaten.thief;
     if (pool > 0) {
