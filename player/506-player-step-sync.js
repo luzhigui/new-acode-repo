@@ -79,26 +79,38 @@ export function setupDeathTimers(c) {
                     // 复活识别（与 syncStoreFromStep 出黑名单同源的双保险）：触发时 store 已报活 → 不摘格子
                     const cur = c.store.getState().units.find(u => u.uid === uid);
                     if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) return;
-                    // 摘尸改到「步末」执行（2026-11-20 老板报韦一笑尸体换位到一半变空格）：
-                    //   死亡同一步里常有击退/换位动画，定时到点就 REMOVE_UNIT 会把正被动画移动的格子清空；
-                    //   这里只登记到期，由 flushCorpseDue 在每个 step 播完后统一摘。
-                    if (!c._corpseDue) c._corpseDue = new Set();
-                    c._corpseDue.add(uid);
+                    // 计时起点修正（2026-11-20 老板报韦一笑尸体换位到一半变空格）：
+                    //   corpseDelay 从「死亡瞬间」起算，但同一步后面还有 8 条事实+击退动画要播，
+                    //   低倍速档（speed300→2100ms）走到换位时已到点清格。步内到点只登记，步末重新计满一整档。
+                    if (c._stepPlaying) {
+                        if (!c._corpseDue) c._corpseDue = new Set();
+                        c._corpseDue.add(uid);
+                        return;
+                    }
+                    if (c._removedUids) c._removedUids.add(uid);
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
                 }, getPerfParam('corpseDelay', GlobalStore.get('speed') || 300) || 3000);
             }
         }
     });
 }
 
-// 步末统一摘尸：到期且未复活才 REMOVE_UNIT（由 503 每步播完后调用）
+// 步末重挂尸体计时：步内到点的尸体，从「本步播完」此刻起再保留完整一档 corpseDelay 才摘格
 export function flushCorpseDue(c) {
     if (!c || !c._corpseDue || !c._corpseDue.size || !c.store) return;
     const due = [...c._corpseDue];
     c._corpseDue.clear();
+    const delay = getPerfParam('corpseDelay', GlobalStore.get('speed') || 300) || 3000;
     for (const uid of due) {
         const cur = c.store.getState().units.find(u => u.uid === uid);
         if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) continue;
-        if (c._removedUids) c._removedUids.add(uid);
-        c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
+        c._deathTimers[uid] = setTimeout(() => {
+            delete c._deathTimers[uid];
+            if (!c.store) return;
+            const u2 = c.store.getState().units.find(u => u.uid === uid);
+            if (u2 && u2.alive === true && !(u2.state && u2.state._isDead)) return;
+            if (c._removedUids) c._removedUids.add(uid);
+            c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
+        }, delay);
     }
 }
