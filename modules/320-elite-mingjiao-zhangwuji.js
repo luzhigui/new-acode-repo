@@ -4,11 +4,14 @@
 // V1.3.1 | 2026-11-19 | fact 出口收口（T-EP-1）：武学奇才两条 SKILL_ANNOUNCE 裸 data.log.push → pushFact
 // V1.3.2 | 2026-11-19 张无忌光环：按当前站位给四邻加成——正前 +5 防、左右 +15 血、正后 +4 攻
 //   （走 round 词条：每回合开局按最新站位重算，回合末自然失效，阵亡后零残留）
-export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.2';
+// V1.3.3 | 2026-11-20 修光环只活一回合：round 词条被 core/210 每回合开局清理，此前只在 register 挂一次；
+//   现补 ON_ROUND_START(ZHANG_AURA=46) 每回合重挂，且先清同组词条防叠层
+// V1.3.4 | 2026-11-20 光环面板可见：content 补 skills.zhangAura「四邻光环」，数值真源迁到 params
+export const VER = 'modules/320-elite-mingjiao-zhangwuji.js V1.3.4';
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getZhangNearTaunt } from '../core/203-battle-utils.js';
 import { getRoleBonus } from '../core/202-unit.js';
-import { emitEvent, applyStatChange, refreshMaxHp, addMod, getStat } from '../core/214-battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, addMod, getStat, removeModsByGroup } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { StateMachine } from '../infra/102-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
@@ -25,19 +28,29 @@ function calcRonghuiExtra(u) {
     return Math.floor(Math.abs(getStat(u, 'atk') - getStat(u, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
 }
 // 张无忌光环（2026-11-19 老板拍板）：按他当前站位给四邻加成——
-//   正前 +5 防、左右 +15 血（生命上限）、正后 +4 攻。
+//   正前 +8 防、左右 +20 血（生命上限）、正后 +6 攻；数值真源在 content 张无忌.skills.zhangAura.params。
 //   走 round 词条：每回合开局按最新站位重算，回合末自然失效；他阵亡后不再施加，零残留。
-const ZHANG_AURA = { frontDef: 5, sideMaxHp: 15, backAtk: 4 };
+function getZhangAuraParams() {
+    const p = getSkillParams('张无忌', 'zhangAura');
+    if (!p || p.frontDef == null || p.sideMaxHp == null || p.backAtk == null) {
+        throw new Error('缺技能参数: 张无忌.zhangAura');
+    }
+    return p;
+}
 function applyZhangAura(zhang, A) {
     if (!zhang || !zhang.alive) return;
+    const AURA = getZhangAuraParams();
     const row = Math.floor((zhang.pos - 1) / 3);
     for (const c of A) {
-        if (!c || !c.alive || c.uid === zhang.uid || c.isHorse || c.isLionCub) continue;
+        if (!c || c.uid === zhang.uid || c.isHorse || c.isLionCub) continue;
+        // 先清同组旧词条再按当前位置重算：重复调用（注册 + 每回合开局）不会叠层
+        removeModsByGroup(c, 'zhangAura');
+        refreshMaxHp(c, null, '张无忌光环重算');
         const sameRow = Math.floor((c.pos - 1) / 3) === row;
         let stat = null, value = 0;
-        if (c.pos === zhang.pos - 3) { stat = 'def'; value = ZHANG_AURA.frontDef; }          // 正前
-        else if (c.pos === zhang.pos + 3) { stat = 'atk'; value = ZHANG_AURA.backAtk; }        // 正后
-        else if (sameRow && Math.abs(c.pos - zhang.pos) === 1) { stat = 'maxHp'; value = ZHANG_AURA.sideMaxHp; } // 左右
+        if (c.pos === zhang.pos - 3) { stat = 'def'; value = AURA.frontDef; }          // 正前
+        else if (c.pos === zhang.pos + 3) { stat = 'atk'; value = AURA.backAtk; }        // 正后
+        else if (sameRow && Math.abs(c.pos - zhang.pos) === 1) { stat = 'maxHp'; value = AURA.sideMaxHp; } // 左右
         if (!stat) continue;
         addMod(c, stat, { source: '张无忌光环', value, ttl: 'round', group: 'zhangAura', op: 'add' });
         if (stat === 'maxHp') refreshMaxHp(c, null, '张无忌光环');
@@ -149,6 +162,9 @@ export function createZhangWujiComponent() {
             const zhang = (self && self.alive) ? self : A.find(u => u.isZhang && u.alive);
             if (!zhang) return;
             applyZhangAura(zhang, A);
+            // 光环是 round 词条，core/210 每回合开局会统一清掉 → 这里每回合按最新站位重挂，
+            //   否则只在注册那一刻生效一回合（2026-11-20 修：此前「加到位」其实第一回合就没了）
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.ZHANG_AURA, () => applyZhangAura(zhang, A));
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
             // 深夜复验（探针三场景实锤）：StateMachine 构造只设 current、不执行初始 onEnter，

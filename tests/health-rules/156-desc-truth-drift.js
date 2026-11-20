@@ -68,12 +68,12 @@ export function checkDescHygiene() {
         for (const skillKey of Object.keys(skills)) {
             const skill = skills[skillKey];
             if (!skill || !skill.desc) continue;
-            // 非强化档必渲染；有 descJealous 的额外渲染一次强化档
-            const jealousLevels = skill.descJealous ? [false, true] : [false];
+            // 非强化档必渲染；有 descJealous 的额外渲染嫉妒1档，有 descJealous2 的再渲染嫉妒2档
+            const jealousLevels = skill.descJealous2 ? [0, 1, 2] : (skill.descJealous ? [0, 1] : [0]);
             for (const jealous of jealousLevels) {
                 const text = getSkillDesc(characterName, skillKey, jealous);
                 if (!text) continue;
-                const tag = characterName + '.' + skillKey + (jealous ? '(强化档)' : '');
+                const tag = characterName + '.' + skillKey + (jealous === 2 ? '(嫉妒2档)' : (jealous ? '(强化档)' : ''));
                 const rm = text.match(RESIDUAL_PLACEHOLDER);
                 if (rm) problems.push('未替换占位符：' + tag + ' 残留 ' + rm[0]);
                 SMALL_PCT.lastIndex = 0;

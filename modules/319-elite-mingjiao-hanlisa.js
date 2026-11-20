@@ -1,9 +1,9 @@
 // modules/319-elite-mingjiao-hanlisa.js — 明教精英「寒离飒」：战士 · 弱精英 M107（与韦一笑同池）· 恒定 2 号位
 //   ① 九阳神拳 / ② 寒冰神掌：每次普攻独立掷 50/50 —— 出九阳则回复自身最大生命 12%（同张无忌），
 //      否则出寒冰神掌给被打目标挂寒毒（3 回合每层 4% 最大生命、叠层无上限，再命中刷新）；同一种可连续出，不锁
-//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 30% 最大生命护盾并蓄力；下一回合跳过行动，
-//      蓄力回合收尾（ON_ROUND_END·forced:true）轰出蓄意轰拳，基数 N = 最近三回合自身承受总伤害：
-//      玩家瞄准敌方一格按九位九形取格——目标格 N×1.4（tierDen.direct=0.7143，2026-11-17 老板拍板 1.2→1.4）、相邻格 N/4、更远格 N/6（全部真伤）；
+//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 25% 最大生命护盾并蓄力；下一回合跳过行动，
+//      蓄力回合收尾（ON_ROUND_END·forced:true）轰出蓄意轰拳，基数 N = 最近两回合自身承受总伤害 ×80%：
+//      玩家瞄准敌方一格按九位九形取格——目标格 N×1.2（tierDen.direct=0.8333，2026-11-20 老板拍板回 1.4→1.2）、相邻格 N/4、更远格 N/6（全部真伤）；
 //      不瞄（V2.4.0 老板拍板，替换原随机前排兜底+行分档全屏）=按列穿深：每列最前排 N/3、列内第二人 N/4、其余敌人 N/5；
 //      瞄 8 特例：8 吃 N/2 且被轰穿中列落 2 号位撞边眩晕，途经 2/5 被崩向两侧（一左一右）；轰完吸血 = 总伤害 1/3。
 //      瞄准由「瞄准窗口标记步」（core/11 回合收尾前 yield）的播放层黑幕写 _hlsAim，否则按列穿深 AoE；
@@ -17,7 +17,11 @@
 // V2.4.6 | 2026-11-18 蓄力报幕带 needsSeparator，自成一组（不再粘在上一家攻击组尾部）
 // V2.4.7 | 2026-11-19 独立池接偷盾(341对称)
 // V2.4.8 | 2026-11-19 死亡即时剔除：寒冰不再给本击打死的目标（hp 归零·待死）上寒毒/飘字
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.8';
+// V2.4.9 | 2026-11-19 蓄意轰拳基数窗口 3→2 回合（slice 改读 recentRounds）、承伤转化 0.7→0.8、
+//   基础蓄力护盾 25%→40%（content xuLi.params 真源）
+// V2.4.10 | 2026-11-20 护盾回落 40%→25%、目标格 1.4N→1.2N（tierDen.direct 0.8333）、
+//   全轰每格攻击力加成 50%→30%（新参数 rowAtkRatio，不再硬编码 hlsAtk/2）
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.10';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
@@ -321,8 +325,8 @@ export function createHanLiSaComponent() {
                     const decls = [];   // ROUND_END 无 declarations 通道，本地攒齐后统一走 core/16 应用器
                     if (hls.alive) {
                         const enemies = enemyOf();
-                        const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-                        // N = 最近三回合承伤桶总和（含蓄力行动时记入的攻击力笔，见 BEFORE_ACTION_SKIP）
+                        const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-(xl.recentRounds || 2)) : [];
+                        // N = 最近 recentRounds 回合承伤桶总和（含蓄力行动时记入的攻击力笔，见 BEFORE_ACTION_SKIP）
                         //   + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）。
                         const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));
 
@@ -363,13 +367,14 @@ export function createHanLiSaComponent() {
                             // 2026-11-18 老板拍板：按排两档——第一排 N/4 + 攻击力，第二排及以后 N/5 + 攻击力；
                             //   行 = floor((pos-1)/3)（1-3/4-6/7-9），第一排 = 存活敌人最靠前的行（空排自动跳过）
                             if (!xl.rowDen) throw new Error('缺技能参数: 寒离飒.xuLi.rowDen');
+                            if (xl.rowAtkRatio == null) throw new Error('缺技能参数: 寒离飒.xuLi.rowAtkRatio');
                             const rd = xl.rowDen;
                             const hlsAtk = Math.floor(getStat(hls, 'atk'));
                             cells = [];
                             const frontRow = Math.min(...enemies.filter(e => e.alive).map(e => Math.floor((e.pos - 1) / 3)));
                             enemies.filter(e => e.alive).forEach(e => {
                                 const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
-                                cells.push({ pos: e.pos, tier: isFront ? 'rowFront' : 'rowBack', den: isFront ? rd.front : rd.back, atkAdd: Math.floor(hlsAtk / 2) });   // 2026-11-18 老板拍板：全轰每格加一半攻击力
+                                cells.push({ pos: e.pos, tier: isFront ? 'rowFront' : 'rowBack', den: isFront ? rd.front : rd.back, atkAdd: Math.floor(hlsAtk * xl.rowAtkRatio) });   // 全轰每格加 攻击力×rowAtkRatio（2026-11-20 老板拍板 0.3）
                             });
                         }
 

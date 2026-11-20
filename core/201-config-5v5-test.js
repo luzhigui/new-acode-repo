@@ -240,12 +240,16 @@ function getSkillDesc(characterName, skillKey, jealous) {
     const ch = gameData?.characters?.[characterName];
     const skill = ch?.skills?.[skillKey];
     if (!skill) return '';
-    const template = jealous ? (skill.descJealous || skill.desc) : skill.desc;
-    const params = jealous ? (skill.paramsJealous || skill.params) : (skill.params || {});
+    // 嫉妒档（2026-11-20）：2 = 嫉妒2（小昭姐妹在场）；1/true = 嫉妒1（无忌在场）；0/false = 普通
+    const tier = jealous === 2 ? 2 : (jealous ? 1 : 0);
+    const template = tier === 2 ? (skill.descJealous2 || skill.descJealous || skill.desc)
+        : tier === 1 ? (skill.descJealous || skill.desc) : skill.desc;
+    const params = tier === 2 ? (skill.paramsJealous2 || skill.paramsJealous || skill.params)
+        : tier === 1 ? (skill.paramsJealous || skill.params) : (skill.params || {});
     // 替换 {key} 占位符：key 支持点路径（如 grow.prob），逐段下钻 params。
     //   非强化档一律「真值优先」——命中 DESC_TRUTH 走 mechanics，未命中回落 params
     return template.replace(/\{([\w.]+)\}/g, (_, key) => {
-        if (!jealous) {
+        if (tier === 0) {
             const truth = resolveDescValue(characterName, skillKey, key);
             if (truth !== undefined) return truth;
         }

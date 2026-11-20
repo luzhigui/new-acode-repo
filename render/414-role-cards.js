@@ -177,11 +177,12 @@ export function getRoleSkills(u) {
             const skill = ch.skills[key];
             if (!skill || !skill.desc) continue;
 
-            // 周芷若的特例：同时展示普通状态与嫉妒强化状态
+            // 周芷若的特例：同时展示普通 / 嫉妒1（无忌在场）/ 嫉妒2（小昭姐妹在场）三档
             if (charName === '周芷若' && key === 'nineYinClaw') {
                 const descNormal = getSkillDesc(charName, key, false);
-                const descJealous = getSkillDesc(charName, key, true);
-                list.push(`🐾 ${descNormal}（无忌在场：${descJealous}），可连锁`);
+                const descJealous = getSkillDesc(charName, key, 1);
+                const descJealous2 = getSkillDesc(charName, key, 2);
+                list.push(`🐾 ${descNormal}（无忌在场：${descJealous}）（小昭姐妹在场：${descJealous2}），可连锁`);
                 continue;
             }
 

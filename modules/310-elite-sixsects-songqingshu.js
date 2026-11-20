@@ -1,7 +1,9 @@
 // modules/310-elite-sixsects-songqingshu.js — 宋青书（叛逆突袭 / 苦练 / 新婚 / 性奋 / 白骨爪连锁）
 // 白骨爪连锁概率：基础 0.80，按周芷若自身已损血比线性升到 1.00，无存活宋青书再 +0.10（可超 1.00，等价「保底必连几爪」）；
 //   链条内每多连一爪概率 −0.01，累减到 ≤0 必断——这是「不会无限连」的唯一保证，不要改成固定概率。
-export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.4';
+// V6.28.5 | 2026-11-20 周芷若嫉妒2：敌方有 小昭·姊/妹 存活时走 mechanics.jealous2（数值暂同嫉妒1）；
+//   张无忌优先（两者同时在场仍走嫉妒1）。战报 【嫉妒】/【嫉妒2】 分档
+export const VER = 'modules/310-elite-sixsects-songqingshu.js V6.28.5';
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getBattleRng, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
@@ -86,7 +88,7 @@ function consumeXingFen(attacker) {
 
 // 机制① 九阴白骨爪连锁
 export const chainClawHandler = {
-    // jealous 为可选嫉妒态覆盖对象（张三丰在场时用），不进必需字段
+    // jealous / jealous2 为可选嫉妒态覆盖对象（张无忌在场 / 小昭姐妹在场时用），不进必需字段
     fields: {
         baseDmg: 'number', chainProcChance: 'number', chainProcMax: 'number',
         chainProcRampAt: 'number', songDeadBonus: 'number', chainProcDecay: 'number',
@@ -102,8 +104,12 @@ export const chainClawHandler = {
             //   旧版演 0 伤害 + 链断，观感像「抓不穿 / 爪子对无敌无效」。
             const rng = getBattleRng();
             const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
-            const baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg;
-            const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
+            // 嫉妒档（2026-11-20）：1 = 张无忌在场（原嫉妒）；2 = 小昭·姊/妹在场（嫉妒2，数值暂同嫉妒1，后续再分化）
+            const xiaoZhaoAlive = enemySide && enemySide.some(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
+            const jealousTier = zhangAlive ? 1 : (xiaoZhaoAlive ? 2 : 0);
+            const s = jealousTier === 2 ? { ...decl, ...(decl.jealous2 || decl.jealous || {}) }
+                : jealousTier === 1 ? { ...decl, ...(decl.jealous || {}) } : decl;
+            const baseHit = s.baseDmg;
             // 首爪必发（老板拍板）：取消「每回合首次出手」的进入门槛，每次出手第一爪都必发，
             //   只有后续每爪才掷骰（见下方 while 循环）。
             // 连锁概率终版（老板拍板）：满血基准 chainProcChance(0.80)，按周芷若**自身**已损失血量
@@ -156,7 +162,7 @@ export const chainClawHandler = {
                 // hpAfter 出口洗一位小数：连锁是「累减→重算」循环，simulatedTargetHp 浮点减法会攒尾巴（7.8000…001），
                 //   不洗会渗进血条同步（player/46 HP_CHANGE）和下一爪的 lostHp 输入
                 const hpAfterClean = Math.round(simulatedTargetHp * 10) / 10;
-                hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: hpAfterClean, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
+                hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: jealousTier > 0, jealousTier, depth, hpAfter: hpAfterClean, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
                 if (song && song.alive) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
                     totalHeal += healAmount;
