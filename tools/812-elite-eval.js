@@ -3,7 +3,8 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.13.3';
+export const VER = 'tools/812-elite-eval.js V3.13.4';
+// V3.13.4 | 2026-11-20 强精英表列顺序与主表·自然出场对齐：张无忌（Boss）放第一列，不再排最后。
 // V3.13.3 | 2026-11-20 首列变体标签去掉「·」：原来「第3关·胖远桥」中的点把首列撑到 4 字宽，
 //   改成两行「第3关 / 胖远桥」左对齐，首列 64px → 56px，把宽度让给精英列。
 // V3.13.2 | 2026-11-19 回滚横向滑动：两张表继续用 elite-table-fit 锁宽均分；
@@ -48,9 +49,9 @@ const enemyHexOn = () => !!(document.getElementById('eliteEnemyHex') && document
 
 // 名单统一由 827-tool-registry.js 提供（自然 6 人 / 强精英 5 人 / Boss 1 人 / 弱精英 4 人 / 敌方变体）
 // 本文件只做形态适配：127 存字符串原始形态，112 各处用 { name } 对象数组
-// 2026-11-19 老板拍板：Boss（张无忌 M115）不再单独一张表，并进「强精英」同一张表一起评
+// 2026-11-20 顺序与主表·自然出场一致：张无忌（Boss）放第一个，其余强精英随后
 const configs = NATURAL_ELITES.map(name => ({ name }));
-const SOLO_ALL = [...SOLO_ELITE_NAMES, ...BOSS_ELITE_NAMES].map(name => ({ name }));
+const SOLO_ALL = [...BOSS_ELITE_NAMES, ...SOLO_ELITE_NAMES].map(name => ({ name }));
 const VARIANTS = ENEMY_VARIANTS;
 // 拆行口径（V3.4.0）：content 里只有第 3 关配了 squadVariants，所以「关卡变体」只属于第 3 关。
 //   其它关出现的同名精英来自六大派额外混入（M107/M100 档）或关卡固定阵容，不属于变体，不单列成行。
