@@ -3,7 +3,7 @@
 //        —— 直接求值引擎侧真实源码里的分档/伤害函数，不复刻实现（规则不许复制产品旧实现）。
 //   零触发守卫：真值/引擎源码任一读取失败、或对账格子数为 0 → 硬红（解析失效 = 空跑出绿，不许有）。
 // 用法：node tests/hit-shapes-consistency.mjs
-export const VER = 'tests/hit-shapes-consistency.mjs V1.2.0';
+export const VER = 'tests/hit-shapes-consistency.mjs V1.3.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -40,35 +40,47 @@ export function extractFunctionSource(src, name) {
 }
 
 // ---- 从 modules/27 的结算块里抽「取格分档」原文并求值 ----
-// modules/27 的分档逻辑是一段内联块（tierOf + shapes/tierDen/eightDen/fullDen 组 cells），不是独立函数。
+// modules/27 的分档逻辑是一段内联块（tierOf + shapes/tierDen/eightDen + 按排 rowDen 组 cells），不是独立函数。
 // 抽取策略：按锚点切出该块原文，包成函数体后求值——求值的是引擎源码本身，不是本检查复刻的版本。
-// 锚点要点：起点必须含 else 分支里 `cells = [[...]]` 的赋值头（flatMap 是它的续行，切断会缺左值）；
-//           终点取 flatMap 整行（含结尾 `));`）。
+// V1.3.0 | 2026-11-20 第32轮：引擎两次改口径（11-17 按列穿深 → 11-18 按排两档+半攻击力），
+//   旧 flatMap 整行锚点已不存在。新结构 = tierOf 定义 + if(有形状)/else(按排) 两个 cells 赋值分支；
+//   抽取范围 = 「tierOf 起点 → 真伤声明注释之前」，仍抽引擎源码本体求值，不复刻实现。
 export function extractSettlementBlock(src) {
     const startAnchor = 'const tierOf = (a, p) => {';
-    // else 分支是「赋值头 + 换行 + .flatMap(...)」两行，起点必须含赋值头，否则抽出的表达式缺左值；
-    // 终点必须含 if/else 的收尾 `}`，否则整块少一个花括号、无法求值（用正则以兼容 CRLF/LF 两种行尾）。
-    const endRe = /\.flatMap\(\(\[a, b, c, d, t\]\) => \[a, b, c\]\.map\(p => \(\{ pos: p, tier: t, den: d \}\)\)\);[\r\n\s]*\}/;
+    const endAnchor = '// —— 真伤声明';
     const s = src.indexOf(startAnchor);
-    const em = endRe.exec(src);
-    if (s < 0 || !em || em.index <= s) return null;
-    return src.slice(s, em.index + em[0].length);
+    const e = s < 0 ? -1 : src.indexOf(endAnchor, s);
+    if (s < 0 || e < 0 || e <= s) return null;
+    return src.slice(s, e);
 }
 
 // 结算块求值 → 返回 { cellsByAim, fullCells }：cellsByAim[aim] = [{pos,tier,den}]
 // （整段当脚本在 vm 沙箱里跑，注入 xl/aim；跑的是引擎源码本体，不复刻实现）
-function evalCells(blockSrc, xl, aim) {
-    const sandbox = { xl, aim, __cells: undefined };
+function evalCells(blockSrc, xl, aim, enemies = [], hls = null) {
+    // 第32轮：新结算块的全轰分支调用 getStat(hls,'atk') 并按 enemies 站位分档；
+    //   注入固定的假输入，跑的仍是引擎源码本体（不是复刻实现）。getStat 返回固定攻击力，
+    //   使两侧对账可复现；注入值经 HLS_ATK 常量固定，咬牙测试改它会红。
+    const HLS_ATK = 20;
+    const sandbox = {
+        xl, aim, enemies, hls,
+        getStat: (u, field) => (field === 'atk' ? HLS_ATK : 0),
+        __cells: undefined
+    };
     vm.createContext(sandbox);
     new vm.Script(blockSrc + '\n;this.__cells = cells;', { filename: 'hanlisa-settle-block.js' }).runInContext(sandbox);
     return sandbox.__cells;
 }
 
 // ---- 引擎结算侧：全屏兜底 + 9 个瞄位，逐格取 (pos,tier,den) ----
+// 固定敌人阵列：pos 1..9 全在，供全轰分支按排分档对账（与 UI 侧注入同一份，保证可比）。
+export const FULL_ENEMIES = Object.freeze(
+    Array.from({ length: 9 }, (_, i) => Object.freeze({ pos: i + 1, alive: true }))
+);
+
 function settlementCells(blockSrc, xl) {
     const byAim = {};
-    for (let aim = 1; aim <= 9; aim++) byAim[aim] = evalCells(blockSrc, xl, aim);
-    byAim[0] = evalCells(blockSrc, xl, 0); // 0 = 不瞄（引擎走全屏兜底）
+    for (let aim = 1; aim <= 9; aim++) byAim[aim] = evalCells(blockSrc, xl, aim, FULL_ENEMIES, null);
+    byAim[0] = evalCells(blockSrc, xl, 0, FULL_ENEMIES, null); // 0 = 不瞄（引擎走按排两档）
     return byAim;
 }
 
@@ -119,9 +131,13 @@ function evalDmgMapFor(src, xl) {
     const shaped = evalHitShapeOf(src, xl);
     try {
         if (shaped) {
-            // 新口径：dmgMapFor 依赖 hitShapeOf / tierOf 两个自由变量
-            const fn = new Function('hitShapeOf', 'tierOf', 'return (' + fnSrc + ');');
-            return { dmgMapFor: fn(shaped.shapeFn, tierFn), hitMap: shaped.hitMap };
+            // 第32轮：dmgMapFor 新签名 (aim, N, xl, enemies, hls)，全轰分支还依赖 getStat(hls,'atk')。
+            //   注入与结算侧同口径的固定攻击力与敌人阵列，保证两侧可比（都跑引擎源码本体）。
+            const HLS_ATK = 20;
+            const getStat = (u, field) => (field === 'atk' ? HLS_ATK : 0);
+            const fn = new Function('hitShapeOf', 'tierOf', 'getStat', 'return (' + fnSrc + ');');
+            const uiFn = (aim, N, config) => fn(shaped.shapeFn, tierFn, getStat)(aim, N, config, FULL_ENEMIES, {});
+            return { dmgMapFor: uiFn, hitMap: shaped.hitMap };
         }
         // 旧口径回退（仍认 const HIT_MAP）：仅为兼容历史写法，正常路径不该走这里
         const hitMap = extractHitMap(src);
@@ -183,7 +199,7 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
     const shapes = xl.hitShapes || {};
     const shapeKeys = Object.keys(shapes);
     if (shapeKeys.length !== 9) problems.push(`真值 hitShapes 应有 9 个瞄位，实为 ${shapeKeys.length} 个`);
-    for (const f of ['tierDen', 'eightDen', 'fullDen', 'shieldPct', 'vampDiv']) {
+    for (const f of ['tierDen', 'eightDen', 'rowDen', 'shieldPct', 'vampPct']) {
         if (xl[f] == null) problems.push(`真值 xuLi.params 缺字段 ${f}`);
     }
     if (problems.length) return { problems, stats };
@@ -263,17 +279,24 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
     }
     problems.push(...dmgMismatch);
 
-    // ---- 检查③：全屏兜底（不瞄）对账 ----
+    // ---- 检查③：全轰（不瞄）对账 ----
+    // V1.3.0 | 2026-11-20 第32轮：口径已改「按排两档 + 一半攻击力」（老板 11-18 拍板，engine/UI/desc 三方同口径）。
+    //   结算侧 cells 带 den 与 atkAdd(=floor(atk/2))；UI 侧 dmgMapFor 已含 atkAdd；
+    //   真值参考独立按 content.rowDen.front/back 与同一固定攻击力算，不复用被测对象的结果。
     const fullSettle = (cellsByAim[0] || []);
     const fullUi = ui.dmgMapFor(0, N, xl);
     let fullCompared = 0;
+    const HLS_ATK = 20;
+    const atkAdd = Math.floor(HLS_ATK / 2);
+    const frontRow = Math.min(...FULL_ENEMIES.filter(e => e.alive).map(e => Math.floor((e.pos - 1) / 3)));
     for (const c of fullSettle) {
         fullCompared++;
-        const s = Math.floor(N / c.den), u = fullUi[c.pos] && fullUi[c.pos].dmg;
-        const rowDen = c.pos <= 3 ? xl.fullDen.row123 : (c.pos <= 6 ? xl.fullDen.row456 : xl.fullDen.row789);
-        const r = Math.floor(N / rowDen);
-        if (s !== r || u !== r) problems.push(`全屏 位${c.pos}（N=${N}）：结算侧 ${s} / UI 侧 ${u} / 真值参考 ${r} 不一致`);
+        const s = Math.floor(N / c.den) + (c.atkAdd || 0), u = fullUi[c.pos] && fullUi[c.pos].dmg;
+        const isFront = Math.floor((c.pos - 1) / 3) === frontRow;
+        const r = Math.floor(N / (isFront ? xl.rowDen.front : xl.rowDen.back)) + atkAdd;
+        if (s !== r || u !== r) problems.push(`全轰 位${c.pos}（N=${N}）：结算侧 ${s} / UI 侧 ${u} / 真值参考 ${r} 不一致`);
     }
+    if (fullCompared === 0) problems.push('全轰对账 0 格 —— 结算块没产出 cells，检查未真正执行（不许空跑出绿）');
 
     // ---- 检查④：兜底扫描 ----
     // 名单（嵌套对象项）+ 由真值标量字段推导的兜底（V1.2.0 新增，见 derivedFallbackPatterns）
@@ -353,39 +376,42 @@ export function checkDescCrossTruth(desc, xl) {
     // ① 「该格吃基数 X 倍」「相邻格 A/B」「更远格 A/B」
     let m;
     const directRe = /该格吃基数\s*([\d.]+)\s*倍/;
-    if ((m = directRe.exec(desc))) foundFrac.push(['1', String(1 / Number(m[1]))]);
+    // direct 是除数（tierDen.direct=0.7143），desc 写的是倍率（1.4 倍 = 1/0.7143）；
+    //   故 foundFrac 直接存 desc 的倍率 1.4，expected 侧存 1/tierDen.direct，两边同口径。
+    //   旧版把这里存成 1/1.4=0.714 却拿 1/0.7143=1.4 去比，是一条被抽取失败短路掩盖的恒假红。
+    if ((m = directRe.exec(desc))) foundFrac.push([m[1], '1']);
     // 相邻/更远：A/B 或 X 倍
     const adjRe = /相邻格\s*(\d+)\s*\/\s*(\d+)\s*(?:、|$|，|,)/;
     if ((m = adjRe.exec(desc))) push(m[1], m[2]);
     const farRe = /更远格\s*(\d+)\s*\/\s*(\d+)/;
     if ((m = farRe.exec(desc))) push(m[1], m[2]);
-    // ② 「全屏：敌方 1/2/3 号位各 1/3、4/5/6 各 1/4、7/8/9 各 1/5」——只抠「各 1/X」里的分母
-    //    （不用 [^。]*? 惰性：那样第一次匹配会把整句吃掉，后面两档漏抓）
-    const fullRe = /各\s*1\s*\/\s*(\d+)/g;
-    while ((m = fullRe.exec(desc)) !== null) push(1, m[1]);
+    // ② 全轰按排两档（11-18 新口径）：「第一排承受 1/4 + …攻击力，第二排及以后承受 1/5 + …」
+    const rowFrontRe = /第一排承受\s*1\s*\/\s*(\d+)/;
+    if ((m = rowFrontRe.exec(desc))) push(1, m[1]);
+    const rowBackRe = /第二排及以后承受\s*1\s*\/\s*(\d+)/;
+    if ((m = rowBackRe.exec(desc))) push(1, m[1]);
     // ③ 「8 号吃 0.4 倍」
     const eightRe = /8\s*号吃\s*([\d.]+)\s*倍/;
     if ((m = eightRe.exec(desc))) foundFrac.push(['1', String(1 / Number(m[1]))]);
 
-    // 期望集合：直击 1/direct、相邻 1/near、更远 1/far、8号特例 1/eightDen、全屏 1/row123 1/row456 1/row789
+    // 期望集合：直击/相邻/更远/8号特例 + 全轰按排 front/back（不再有 fullDen.row123/456/789）
     const expected = [
-        { key: 'tierDen.direct', ratio: 1 / xl.tierDen.direct },
+        { key: 'tierDen.direct(倍)', ratio: 1 / xl.tierDen.direct },
         { key: 'tierDen.near', ratio: 1 / xl.tierDen.near },
         { key: 'tierDen.far', ratio: 1 / xl.tierDen.far },
         { key: 'eightDen', ratio: 1 / xl.eightDen },
-        { key: 'fullDen.row123', ratio: 1 / xl.fullDen.row123 },
-        { key: 'fullDen.row456', ratio: 1 / xl.fullDen.row456 },
-        { key: 'fullDen.row789', ratio: 1 / xl.fullDen.row789 }
+        { key: 'rowDen.front', ratio: 1 / xl.rowDen.front },
+        { key: 'rowDen.back', ratio: 1 / xl.rowDen.back }
     ];
     // desc 里出现的每条倍率都该能在期望集合里找到同值（允许 1/4 同时匹配 near 与 row456）
     for (const [a, z] of foundFrac) {
         const ratio = Number(a) / Number(z);
-        const hit = expected.some(e => Math.abs(e.ratio - ratio) < 1e-6);
+        const hit = expected.some(e => e.ratio > 0 && Math.abs(e.ratio - ratio) / e.ratio < 0.005); // 除数 content 只存 4 位小数(0.7143)，倒数有 ~0.003% 误差；0.5% 相对容差足够严，真脱节(如 8% vs 80%)差一个数量级必红
         if (!hit) problems.push(`技能说明里的「${a}/${z}」与 params 算出的任何档位倍率都对不上（${expected.map(e => e.key + '=' + e.ratio.toFixed(4)).join('、')}）——说明与数值脱节`);
     }
     // 期望集合里每一条都该在 desc 里出现过（否则说明漏写了某档）
     for (const e of expected) {
-        const inDesc = foundFrac.some(([a, z]) => Math.abs(Number(a) / Number(z) - e.ratio) < 1e-6);
+        const inDesc = foundFrac.some(([a, z]) => e.ratio > 0 && Math.abs(Number(a) / Number(z) - e.ratio) / e.ratio < 0.005);
         if (!inDesc) problems.push(`params 的 ${e.key}（= ${e.ratio.toFixed(4)} 倍）在技能说明里找不到对应写法——数值改了但说明没同步`);
     }
 
@@ -397,14 +423,17 @@ export function checkDescCrossTruth(desc, xl) {
             problems.push(`技能说明写「最大生命 ${shieldPctInDesc[1]}% 护盾」，但 params.shieldPct=${xl.shieldPct} —— 说明与数值脱节`);
         }
     }
-    // 吸血除数：desc 写「吸血 = 总伤害的 1/3」
-    const vampInDesc = /吸血[^。]*?总伤害的\s*(\d+)\s*\/\s*(\d+)/.exec(desc);
+    // 吸血比例（11-18 新口径）：desc 写「吸血 = 总伤害的 8%」，真值字段 vampPct=0.08
+    const vampInDesc = /吸血[^。]*?总伤害的\s*(\d+(?:\.\d+)?)\s*%/.exec(desc);
     if (vampInDesc) {
-        const want = Number(vampInDesc[2]) / Number(vampInDesc[1]);
-        if (Math.abs(xl.vampDiv - want) > 1e-9) {
-            problems.push(`技能说明写「吸血 = 总伤害的 ${vampInDesc[1]}/${vampInDesc[2]}」，但 params.vampDiv=${xl.vampDiv} —— 说明与数值脱节`);
+        const want = Number(vampInDesc[1]) / 100;
+        if (Math.abs(xl.vampPct - want) > 1e-9) {
+            problems.push(`技能说明写「吸血 = 总伤害的 ${vampInDesc[1]}%」，但 params.vampPct=${xl.vampPct} —— 说明与数值脱节`);
         }
     }
+    // 注意：desc「转化总伤害的 8% 为最大生命」不对应 bucketConvert —— 后者是「承伤入桶系数 0.8」
+    //   （modules/319 L189/203，2026-11-18 老板拍板普通桶转化 80%），是两个不同机制、不可对账。
+    //   曾把它错配成 bucketConvert 会凭空造出「8% vs 80%」十倍差假红；此处刻意不比对，避免编造对应关系。
     // 双拳阈值与概率：desc 写「生命低于 40% 时 50% 概率追加一拳」
     const dblInDesc = /生命低于\s*(\d+(?:\.\d+)?)\s*%.*?(\d+(?:\.\d+)?)\s*%.*?概率/.exec(desc);
     if (dblInDesc) {
