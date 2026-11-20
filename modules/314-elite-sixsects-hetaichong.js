@@ -1,5 +1,7 @@
 // modules/314-elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
-export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.1';
+// V6.27.2 | 2026-11-20 两仪连接修复：双方 `_dualSchools` 全给「战士+远程」两系（原只写对方单个职业，
+//   何太冲 role 非精确『远程』时连自身远程成长一起丢）；搭档候选改按「系」配对（战士系 ↔ 远程系）。
+export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.2';
 
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent, applyStatChange } from '../core/214-battle-shared.js';
@@ -47,13 +49,20 @@ export function createHeTaichongComponent() {
             }
 
             // ── 机制① 两仪连接（建立一次即绑定，不更换） ──
+            // 2026-11-20 修复：连接后双方**两系能力全给**（战士破防/斩杀 + 远程成长），
+            //   不再只写「对方那一个职业」——何太冲自身 role 若不是精确 '远程'，会连远程成长一起丢。
             if (he.state._liangyiPartnerUid == null) {
-                const foeRole = he.role === ROLE_TYPES.WARRIOR ? ROLE_TYPES.RANGED : ROLE_TYPES.WARRIOR;
-                const candidates = team.filter(u => u.alive && u.uid !== he.uid && u.role === foeRole && !u.isHorse);
+                const isWarriorSchool = (r) => r === ROLE_TYPES.WARRIOR || r === ROLE_TYPES.DEFENDER;
+                const heIsWarrior = isWarriorSchool(he.role);
+                const candidates = team.filter(u => {
+                    if (!u.alive || u.uid === he.uid || u.isHorse) return false;
+                    return isWarriorSchool(u.role) !== heIsWarrior;
+                });
                 if (candidates.length > 0) {
                     const partner = candidates[getBattleRng().nextInt(0, candidates.length - 1)];
-                    Object.assign(he.state, { _liangyiPartnerUid: partner.uid, _dualSchools: [foeRole] });
-                    Object.assign(partner.state, { _liangyiPartnerUid: he.uid, _dualSchools: [he.role] });
+                    const bothSchools = [ROLE_TYPES.WARRIOR, ROLE_TYPES.RANGED];
+                    Object.assign(he.state, { _liangyiPartnerUid: partner.uid, _dualSchools: bothSchools.slice() });
+                    Object.assign(partner.state, { _liangyiPartnerUid: he.uid, _dualSchools: bothSchools.slice() });
                     if (log) pushSkillAnnounce(log, he, '两仪双修', `☯ 两仪连接：${he.name} 与 ${partner.name}`);
                 }
             }
