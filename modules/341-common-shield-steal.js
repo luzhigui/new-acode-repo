@@ -1,4 +1,6 @@
-﻿// V1.2.4 | 2026-11-19 智取分配排除已死/待死单位：hp=0 或 _pendingDeath 不再吃盾、不再回血、不当抢血目标
+﻿﻿// V1.2.5 | 2026-11-20 智取回血改为各分一半：张松溪固定先拿自己那份（队友满血吃不完才转给他），
+//   修「抢来的回血全喂给没满血的队友、张松溪一点不分」。
+// V1.2.4 | 2026-11-19 智取分配排除已死/待死单位：hp=0 或 _pendingDeath 不再吃盾、不再回血、不当抢血目标
 //   （老板报「殷梨亭血量已归零，智取还给他分了护盾」——alive 要等死亡结算才翻 false）。
 // V1.2.3 | 2026-11-19 直回血出口纳入智取：飞行再生/休息回血（不走 HEAL 声明）经 214 前置钩子抢三成×2；
 //   战报行带「智取（…，原 N）」后缀（飞行再生走 healMods、休息回复走 PASS 的 zhiQuNote）。
@@ -18,7 +20,7 @@ import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.4';
+export const VER = 'modules/341-common-shield-steal.js V1.2.5';
 
 const STEALER_NAME = '张松溪';
 
@@ -98,22 +100,26 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     const share = Math.floor(nominal * 0.3);   // 抢夺比例 0.6：两份各 0.3（2026-11-19 用户拍板）
     if (share <= 0) return { kept: nominal, stolen: 0 };
     const mate = pickNeediestMate(thief, sideOf(thief, A, B));
-    let pool = share * 2;
+    // 分配（2026-11-20 老板拍板）：抢来的两半各归一个人——张松溪固定先拿自己那一半，
+    //   不再「队友吃满才轮到张松溪」（旧顺序会把回血全喂给没满血的队友，张松溪一点不剩）。
     const eaten = { mate: 0, thief: 0, maxHpUp: 0 };
+    let toThief = share;
     if (mate) {
-        eaten.mate = Math.min(pool, Math.max(0, Math.floor(mate.maxHp - mate.hp)));
+        eaten.mate = Math.min(share, Math.max(0, Math.floor(mate.maxHp - mate.hp)));
         if (eaten.mate > 0) {
             applyStatChange(mate, 'hp', eaten.mate, thief, '智取抢血', true, true);   // 产出者=张松溪：抢来的血算张松溪的治疗产出（214 治疗记账口径）
             recordHpAudit(mate, 'zhiQuHeal', eaten.mate, '智取抢血');
         }
-        pool -= eaten.mate;
+        toThief += share - eaten.mate;   // 队友满血吃不完的，转给张松溪
+    } else {
+        toThief += share;                // 无队友：两半都归张松溪
     }
-    eaten.thief = Math.min(pool, Math.max(0, Math.floor(thief.maxHp - thief.hp)));
+    eaten.thief = Math.min(toThief, Math.max(0, Math.floor(thief.maxHp - thief.hp)));
     if (eaten.thief > 0) {
         applyStatChange(thief, 'hp', eaten.thief, thief, '智取抢血', true, true);
         recordHpAudit(thief, 'zhiQuHeal', eaten.thief, '智取抢血');
     }
-    pool -= eaten.thief;
+    const pool = toThief - eaten.thief;
     if (pool > 0) {
         eaten.maxHpUp = pool;   // 溢出 100% 转生命上限（2026-11-19 用户拍板，原为一半）
         if (eaten.maxHpUp > 0) {
