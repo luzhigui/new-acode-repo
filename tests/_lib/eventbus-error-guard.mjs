@@ -15,6 +15,8 @@
 //   console.log(formatEventBusErrors(errs));     // 打印证据
 //   if (errs.length) fail(...)                   // 计入本用例的失败
 // 注意：不吞原输出（透传给原 console.error），不影响任何既有日志格式。
+// 第33轮补 VER 常量（原文件版本史写在头注释第一行、没有 export const VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/_lib/eventbus-error-guard.mjs V1.0.1';
 
 const MARK_BUS = '[EventBus]';
 const MARK_THROW = '监听器执行出错';

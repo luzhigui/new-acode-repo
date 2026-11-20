@@ -210,6 +210,7 @@ export const SCAN_FILES = [
     './health-rules/307-hetaichong-liangyi-pair.js',
     './health-rules/308-hetaichong-mark-lifecycle.js',
     './health-rules/309-hetaichong-red-swap-account.js',
+    './health-rules/311-mind-swap-bag-exclusion.js',
     './health-rules/303-damage-printed-vs-hp.js',
     './health-rules/304-break-def-order-and-zero.js',
     './health-rules/305-true-splash-display-source.js',

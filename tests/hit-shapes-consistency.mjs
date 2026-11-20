@@ -3,7 +3,7 @@
 //        —— 直接求值引擎侧真实源码里的分档/伤害函数，不复刻实现（规则不许复制产品旧实现）。
 //   零触发守卫：真值/引擎源码任一读取失败、或对账格子数为 0 → 硬红（解析失效 = 空跑出绿，不许有）。
 // 用法：node tests/hit-shapes-consistency.mjs
-export const VER = 'tests/hit-shapes-consistency.mjs V1.3.0';
+export const VER = 'tests/hit-shapes-consistency.mjs V1.3.1';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -199,7 +199,7 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
     const shapes = xl.hitShapes || {};
     const shapeKeys = Object.keys(shapes);
     if (shapeKeys.length !== 9) problems.push(`真值 hitShapes 应有 9 个瞄位，实为 ${shapeKeys.length} 个`);
-    for (const f of ['tierDen', 'eightDen', 'rowDen', 'shieldPct', 'vampPct']) {
+    for (const f of ['tierDen', 'eightDen', 'rowDen', 'rowAtkRatio', 'shieldPct', 'vampPct']) {
         if (xl[f] == null) problems.push(`真值 xuLi.params 缺字段 ${f}`);
     }
     if (problems.length) return { problems, stats };
@@ -281,13 +281,15 @@ export function checkConsistency({ truth, settleBlock, uiSrc, settleSrc }) {
 
     // ---- 检查③：全轰（不瞄）对账 ----
     // V1.3.0 | 2026-11-20 第32轮：口径已改「按排两档 + 一半攻击力」（老板 11-18 拍板，engine/UI/desc 三方同口径）。
-    //   结算侧 cells 带 den 与 atkAdd(=floor(atk/2))；UI 侧 dmgMapFor 已含 atkAdd；
-    //   真值参考独立按 content.rowDen.front/back 与同一固定攻击力算，不复用被测对象的结果。
+    //   结算侧 cells 带 den 与 atkAdd(=floor(atk × xl.rowAtkRatio))；UI 侧 dmgMapFor 已含 atkAdd；
+    //   真值参考独立按 content.rowDen.front/back + content.rowAtkRatio 与同一固定攻击力算，不复用被测对象的结果。
+    //   V1.3.1 | 2026-11-20 第33轮复核：老板把全轰加成 50%→30% 并新增 rowAtkRatio 参数，
+    //          旧版写死 /2 会让"UI 漏跟参数"的真缺陷被 9 条假红淹没，故真值侧改读 content 参数。
     const fullSettle = (cellsByAim[0] || []);
     const fullUi = ui.dmgMapFor(0, N, xl);
     let fullCompared = 0;
     const HLS_ATK = 20;
-    const atkAdd = Math.floor(HLS_ATK / 2);
+    const atkAdd = Math.floor(HLS_ATK * xl.rowAtkRatio);
     const frontRow = Math.min(...FULL_ENEMIES.filter(e => e.alive).map(e => Math.floor((e.pos - 1) / 3)));
     for (const c of fullSettle) {
         fullCompared++;
