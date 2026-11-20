@@ -2,7 +2,7 @@
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
 //   禁止 JS/商店页再写第二份数字。
 // V6.9.12 | 2026-11-19 众志召唤池改为「带技能即入池」（skills 有真技能或 mechanics 非空），不再只看 summon 开关
-export const VER = 'core/201-config-5v5-test.js V6.9.12';
+export const VER = 'core/201-config-5v5-test.js V6.9.13';
 // V6.9.11 | 2026-11-17 废弃 ZHANG_EXCLUSIVE_CHANCE（值保留 0.2，仅防旧引用报错，主代码已无调用点）：
 //   老板改口径——张无忌三个专属不再走「开局独立概率弹窗」，改与普通海克斯等概率进普通池、任何回合都能抽到；
 //   抽中家族任一成员即整族一起进候选，选完整族终身不再出现。家族规则实现见 modules/329（familyOf/pickBuffChoices）。
@@ -507,7 +507,8 @@ const CONFIG = {
     XUANMING_EXTRA_M: 104,            // 第 5 关玄冥二老齐出时额外补的普通兵 M 值
 
     // ── 参数体系收敛批 3：战斗通用规则常量 ──
-    LOW_HP_THRESHOLD: 0.4,                 // 低血判据阈值（03 攻击未命中残血光环）
+    // 红血唯一定义：血条变红 / 残血光环判据 / 圣火令可用门槛 全部引用本值（2026-11-20 拍板，禁止再各写一份）
+    LOW_HP_THRESHOLD: 0.4,
     EXEC_THRESHOLD: 0.15,                  // 战士斩杀阈值（03）
     EXEC_THRESHOLD_BLOODTHIRST: 0.20,      // 嗜血状态下战士斩杀阈值（03）
     HORSE_M: 15,                           // 拒马单位预算 M（05 spawnHorse）

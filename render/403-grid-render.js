@@ -2,7 +2,7 @@
 // 计数胶囊占用 logo 名额：胶囊（1/7、2/3）原来白占宽度不进上限，
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
 // V7.1.14 | 2026-11-19 寒毒图标去重：玄冥毒/寒离飒/蹦蹦三源同时挂时格子上只出一个 ❄️
-export const VER = 'render/403-grid-render.js V7.1.14';
+export const VER = 'render/403-grid-render.js V7.1.15';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -257,8 +257,10 @@ export function renderGrid(id, camp) {
         else if (totalDefChange < 0) defDisplayHtml = `<span style="color:var(--c-danger);font-weight:bold;">${displayDef}</span>`;
 
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
-        let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
-        let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
+        // 红血阈值唯一源 = CONFIG.LOW_HP_THRESHOLD（2026-11-20 统一：血条/圣火令可用门槛共用）
+        const RED_PCT = Math.round(CONFIG.LOW_HP_THRESHOLD * 100);
+        let hpColorClass = hpPct>70?'hp-text-green':(hpPct>RED_PCT?'hp-text-orange':'hp-text-red');
+        let barColor = hpPct>70?'#4caf50':(hpPct>RED_PCT?'#ff9800':'#f44336');
         // 护盾表现（寒离飒蓄力起通用）：血条上叠一层白色半透明，厚度=剩余护盾/最大生命
         // 临时（蓄力）+ 永久（九阳溢出）护盾合计显示
         const shieldVal = (unit.state._shield || 0) + (unit.state._permShield || 0);

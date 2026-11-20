@@ -4,12 +4,15 @@
 //     点「继续」（PAUSED→RUNNING 或 waitingForNextRound→RUNNING）→ onContinueForHex → 飞入中央
 //     拖动中央 slot → 落红血单位 → 本地预演 + submitHexAction 入队 → 下一 makeStep 引擎消费
 //   状态机：idle → pending → centered → dragging → used
-export const VER = 'ui/723-hex-active.js V1.1.1';
+export const VER = 'ui/723-hex-active.js V1.1.2';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { submitHexAction } from '../core/210-battle-round.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 
-const LOW_HP = 0.30;
+// 红血门槛唯一源 = CONFIG.LOW_HP_THRESHOLD（2026-11-20 拍板：圣火令只认血条那个红，
+//   禁止再单独定义 0.30——此前 0.30 与血条 40% 打架，30%~40% 看着红却用不了）
+const LOW_PCT = Math.round(CONFIG.LOW_HP_THRESHOLD * 100);
 const EXEC_HP = 0.10;
 
 let hexState = 'idle';
@@ -183,7 +186,7 @@ function onUp() {
     clearHover();
     hoverCell = null;
     hexState = 'centered';
-    if (wasInvalid) showToast('❌ 该目标未红血，不可使用', 1300);
+    if (wasInvalid) showToast('❌ 该目标未红血（血量需 ≤' + LOW_PCT + '%），不可使用', 1500);
 }
 
 function updateLink(px, py) {
@@ -247,7 +250,7 @@ function findUnitByUid(uid) {
 function getMode(cell) {
     const u = findUnitByUid(cell.dataset.uid);
     if (!u || !u.alive) return null;
-    if (!(u.hp / u.maxHp < LOW_HP)) return null;
+    if (!(Math.floor((u.hp / u.maxHp) * 100) <= LOW_PCT)) return null;
     const myCamp = GlobalStore.get('netRole') === 'guest' ? 'enemy' : 'ally';
     const cellCamp = u.camp === 'enemy' ? 'enemy' : 'ally';
     return cellCamp === myCamp ? 'heal' : 'dmg';
@@ -282,7 +285,7 @@ function applyEffect(cell, mode) {
     cell.dataset.hp = newHp;
     const bar = cell.querySelector('.hp-bar-inner');
     if (bar) bar.style.height = ((newHp / maxHp) * 100) + '%';
-    if (newHp / maxHp < LOW_HP) cell.classList.add('low-hp');
+    if (Math.floor((newHp / maxHp) * 100) <= LOW_PCT) cell.classList.add('low-hp');
     else cell.classList.remove('low-hp');
 
     // 引擎队列
