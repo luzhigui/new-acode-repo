@@ -1,5 +1,6 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.17';
+// V6.3.18 | 2026-11-20 横幅手机适配：字号 vw 夹取 + 容器 max-width 94vw + 允许换行（九人满员战报条不再超屏）
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.18';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -589,8 +590,9 @@ function createBuffBannerEl() { let d = document.createElement('div'); d.style.c
 initPool('buffBanner', createBuffBannerEl);
 
 // 战报条（众志成城九人满员专用）：暗底金边横贯屏宽 + 主标题 + 数值副标题，横向展开入场
-const WAR_BANNER_MAIN_CSS = 'font-size:3rem;font-weight:bold;color:#ffd700;letter-spacing:2px;text-shadow:0 0 22px rgba(255,215,0,.9),0 2px 0 #6b4a00;';
-const WAR_BANNER_SUB_CSS = 'font-size:1rem;color:#ffe9a8;letter-spacing:1px;text-shadow:0 1px 2px #000;';
+//   2026-11-20 手机适配：字号改 vw 夹取 + 容器最大 94vw，九人横幅不再超出屏幕宽度。
+const WAR_BANNER_MAIN_CSS = 'font-size:clamp(1.35rem,5.4vw,3rem);font-weight:bold;color:#ffd700;letter-spacing:2px;text-align:center;text-shadow:0 0 22px rgba(255,215,0,.9),0 2px 0 #6b4a00;';
+const WAR_BANNER_SUB_CSS = 'font-size:clamp(0.72rem,2.8vw,1rem);color:#ffe9a8;letter-spacing:1px;text-align:center;text-shadow:0 1px 2px #000;';
 
 export async function showBuffBanner(text, opts) {
     const war = !!(opts && opts.warReport);
@@ -601,7 +603,7 @@ export async function showBuffBanner(text, opts) {
                 if (!banner) return;
                 if (war) {
                     // 池元素会被普通横幅复用，样式与子节点每次全量重建，防旧样式残留
-                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10030;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 72px;white-space:nowrap;background:linear-gradient(90deg,transparent,rgba(10,8,2,.82) 18%,rgba(10,8,2,.82) 82%,transparent);border-top:1px solid rgba(255,215,0,.75);border-bottom:1px solid rgba(255,215,0,.75);box-shadow:0 0 32px rgba(255,215,0,.18);';
+                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10030;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px clamp(8px,4vw,72px);max-width:94vw;box-sizing:border-box;white-space:normal;text-align:center;background:linear-gradient(90deg,transparent,rgba(10,8,2,.82) 18%,rgba(10,8,2,.82) 82%,transparent);border-top:1px solid rgba(255,215,0,.75);border-bottom:1px solid rgba(255,215,0,.75);box-shadow:0 0 32px rgba(255,215,0,.18);';
                     banner.textContent = '';
                     const main = document.createElement('div');
                     main.textContent = text;
@@ -617,7 +619,7 @@ export async function showBuffBanner(text, opts) {
                     banner.offsetHeight;
                     banner.style.animation = `warBannerPop ${dur}ms ease-out forwards`;
                 } else {
-                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;';
+                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(1.2rem,4.8vw,2.5rem);font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:normal;text-align:center;max-width:94vw;box-sizing:border-box;';
                     banner.textContent = text;
                     banner.style.animation = 'none';
                     banner.offsetHeight;

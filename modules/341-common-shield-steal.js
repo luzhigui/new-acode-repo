@@ -21,7 +21,7 @@ import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.6';
+export const VER = 'modules/341-common-shield-steal.js V1.2.7';
 
 const STEALER_NAME = '张松溪';
 
@@ -62,8 +62,9 @@ function sideOf(thief, A, B) {
     return [...(A || []), ...(B || [])].filter(u => isValid(u) && u.camp === thief.camp);
 }
 
-// 抢来的回血也走回血飘字（2026-11-20）：受益者吃血后推一条 HEAL fact（💡 智取），
+// 抢来的回血也走回血飘字（2026-11-20）：受益者吃血后推一条 HEAL fact（💚 智取），
 //   与目标那侧的「飞行再生/休息回复」动效同源，避免血条无声上涨。
+//   老板澄清：要的是回血数值飘字，不是技能灯泡——icon 用 💚，fx 走 heal 数值。
 function pushZhiQuHeal(log, unit, hpBefore, heal) {
     if (!Array.isArray(log) || !(heal > 0)) return;
     log.push({
@@ -72,7 +73,7 @@ function pushZhiQuHeal(log, unit, hpBefore, heal) {
             unitName: unit.name, unitUid: unit.uid,
             heal, maxHp: unit.maxHp, stacks: 1,
             hpBefore, hpAfter: unit.hp,
-            icon: '💡', label: '智取'
+            icon: '💚', label: '智取'
         }
     });
 }
