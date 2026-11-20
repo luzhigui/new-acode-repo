@@ -1,6 +1,6 @@
 // modules/312-elite-sixsects-pangyuanqiao.js — 六大派精英「胖远桥」：莽撞 / 正义国字脸 / 年轻气盛
-// V6.29.13 | 2026-11-20 嘲讽放行 lowestHpLocked（韦一笑等血最少锁定不被拉回）
-export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.13';
+// V6.29.14 | 2026-11-20 嘲讽放行 targetRuleApplied（韦一笑/宋青书自带选敌规则）与杨逍（优先未行动）
+export const VER = 'modules/312-elite-sixsects-pangyuanqiao.js V6.29.14';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { addMod, getStat, getBattleRng, resolvePushOrStun, previewHeal } from '../core/214-battle-shared.js';
 import { fmtHp, fmtNum } from '../infra/102-core-utils.js';
@@ -207,8 +207,10 @@ export function createPangYuanQiaoComponent() {
                 const u = data.unit;
                 if (!u || !u.state) return;
                 if (!u.state._tauntedByPang) return;
-                // 血最少锁定（韦一笑等 lowestHp 声明）优先于嘲讽，不被拉回胖远桥（2026-11-20 老板拍板）
-                if (data.declaration && data.declaration.lowestHpLocked) return;
+                // 自带选敌规则优先于嘲讽（2026-11-20 老板拍板）：韦一笑咬血最少 / 宋青书咬血最多由
+                //   core/216 打 targetRuleApplied 标记；杨逍「优先未行动」走 core/07 池过滤，一并放行。
+                if (data.declaration && data.declaration.targetRuleApplied) return;
+                if (u.isYangXiao) return;
                 if (!pang.alive || !canBeTargeted(pang)) return;
                 data.declaration.targetResult = pang;
             });

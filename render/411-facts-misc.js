@@ -1,7 +1,7 @@
 ﻿﻿/// render/411-facts-misc.js — 效果域·系统/离散项 fact 渲染器
 //   系统行 + 离散精英项（幻影识破/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）。
 // V1.1.10 | 热血奋战摘要按 critPattern 判「全部翻倍」，周期数不再写死 3。
-export const VER = 'render/411-facts-misc.js V1.1.10';
+export const VER = 'render/411-facts-misc.js V1.1.11';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -32,7 +32,9 @@ export function renderHorseDestroyFact(fact) {
 //   否则摘要按普通版读数（如圣火令 +30%，实际姊版 +25%），与玩家看到的加成对不上。
 function withSisterValues(key, cfg, allyTeam) {
     const hasSister = (allyTeam || []).some(u => u.alive && u.isXiaoZhaoSister);
-    if (!hasSister) return cfg;
+    // 专属海克斯（heroRequirement：韦一笑强化/寒离飒强化/张无忌专属…）只强化该英雄自身，
+    //   不参与团队姊/妹强化体系，002 里本就没有 sister 段 → 直接读普通版，不走「缺段报错」。
+    if (!hasSister || (cfg && cfg.heroRequirement)) return cfg;
     const enh = getSisterHexEnhance(key);
     if (!enh) throw new Error(`002-hex-enhance.json 缺 sister.${key}`);
     return { ...cfg, ...enh };
