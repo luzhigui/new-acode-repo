@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+// V1.4.3 | 2026-11-19 夜间第 242 轮：回放未产出分支 msg 落盘时打出证据块（剥噪 + 点出最后一条终止原因 + 尾部 8 行），
+//   判据与退码一字未动。由头：开场 17 红里本件是唯一一条「同根因却归并不进去」的 —— 它只报 exit=1，
+//   子进程真因（[core/218] 状态字段未注册）没被转上来，汇总层只好把它当成另一种故障。
+//   证据整理走 tests/_lib/stderr-evidence.mjs（与 coverage-report 共用唯一来源，不再各抄一份）；退码仍 1、仍不放行。
+//   另：子进程退码 3 单列说明（回放的脏树护栏拒跑，说明在 stdout 上，只看 stderr 会误读成"回放挂了"）。
+// V1.4.2 | 2026-11-17 夜间第 234 轮：只补观测值注释（MIN_CASES 实测 156 / MIN_RULE_FILES 实测 167 / MIN_BRANCHES 实测 616），**三个阈值一字未动**。
+//   由头：同 rule-idle，规模闸门此前不记实测值；写入后可见后两根线余量 3.7 / 4.1 倍，只在几近清零时才拦。
+// V1.4.1 | 2026-11-13 夜间第 219 轮：合流上游 V1.1.5 时保留本地 V1.4.0「分支 × 前缀二维比对」，仅抬版本号。
+// tests/rule-branch-idle-selftest.mjs | V1.4.0 | 2026-11-09 夜间第 200 轮：断言「指纹可区分性」由「一维前缀撞车」改「分支 × 前缀二维比对」（fpsByRule 存 b.fps 数组，按 owner:前缀→分支下标 Set 判定，同分支内自比不算撞车），修 307 这类「多条出口共享同一组 push 点」被误判重复的老毛病；fired msg 匹配率 51.6%(113/219) → 99.5%(218/219)，分支 510→511。判据阈值一字未动。
 // tests/rule-branch-idle-selftest.mjs | V1.1.5 | 2026-11-07 第 189 棒（体检侧·MiniMax）：订正「142 是否登记回 BITTEN_BASELINE」的误解 + 补 A30 变异语义逐行核对
 // V1.1.5 | 2026-11-07 第 189 棒（体检侧·MiniMax）：两件事，**基线值一字未动**（仍是 141 一条）：
 //   ① 订正第 187 棒的一处误解（下方留痕里已写清）：第 187 棒交接说「全量刷新后再把 142
@@ -69,13 +78,18 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scanAllBranches, keyOf, bittenKeyOf, findBranchByMsg } from './_lib/rule-branch-extract.mjs';
+import { evidenceBlock } from './_lib/stderr-evidence.mjs'; // V1.4.3：剥噪/取真因收口为唯一来源（第 242 轮）
 
-export const VER = 'tests/rule-branch-idle-selftest.mjs V1.1.5';
+export const VER = 'tests/rule-branch-idle-selftest.mjs V1.4.3';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 
 // --- 规模闸门（低于下限 ⇒ 自检结论不可信，防静默恒绿）---
+// ★ 第 234 轮补实测量：MIN_CASES 实测 156（余量 1.1 倍，咬得住）；
+//   MIN_RULE_FILES 实测 167（余量 3.7 倍）、MIN_BRANCHES 实测 616（余量 4.1 倍）：
+//   后两根线要到「规则文件掉到 46」「分支掉到 151」才响，等于只在**几近清零**时才拦。
+//   本轮只补观测值、不动阈值（改这三个数就是改判据，须拍板）。
 const MIN_CASES = 140;
 const MIN_RULE_FILES = 45;
 const MIN_BRANCHES = 150;
@@ -171,7 +185,19 @@ function main() {
         maxBuffer: 64 * 1024 * 1024
     });
     if (!fs.existsSync(tmp)) {
+        // V1.4.3（2026-11-19 第 242 轮）：★ 转发子进程 stderr 尾部。
+        //   与 rule-idle-selftest V1.5.5 同因同理：只报 exit 码等于让汇总层瞎猜，
+        //   子进程的真因（[core/218] 未注册 / ReferenceError）必须活到这一层才有归并的可能。
+        //   ★ 只加输出：判据、退码（仍 1）、落盘口径一字未动，仍不放行。
+        //   ★ 退码 3 单列：那是回放自己的脏树护栏拒跑（环境不洁，非代码缺陷），
+        //     它的说明在子进程 stdout 上，只看 stderr 会误读成"回放挂了"。
+        if (res.status === 3) {
+            console.log('❌ 判据分支级空转自检未获结论：回放因脏树护栏拒跑（exit=3），属环境不洁、非代码缺陷');
+            console.log('   ↳ 处置：提交或清洁工作树后复跑 node tests/rule-branch-idle-selftest.mjs');
+            process.exit(1);
+        }
         console.log('❌ 判据分支级空转自检失败：回放未产出分支 msg 落盘（exit=' + res.status + '），无法判定');
+        console.log(evidenceBlock(res.stderr, { n: 8 }));
         process.exit(1);
     }
     let dump;
@@ -253,27 +279,45 @@ function main() {
     //    命中判定是「fired msg 以某分支指纹为前缀 ⇒ 该分支命中」，指纹撞车或互为前缀时匹配会被
     //    先命中者抢走 ⇒ 分支级判定**静默退化成规则级**，而报告照样写"分支级自检通过"——这类假绿
     //    比无指纹更隐蔽，故单列一条断言常驻。
+    // ★ V1.4.0：原来只拿 `b.fp`（每条分支的**首个**前缀）比对，join 形态的多前缀分支
+    //   （`msg: msgs.join(' | ')`，同一分支带 N 个子病因前缀）会被判成「N 条分支共用首个前缀」——
+    //   307 何太冲两仪双修 就这么被误报成 2 条重复。实测 b.fps 有 7 条、逐条互不相同，
+    //   **真实可判定性没有任何损失**。改为：同一分支的 fps 集合内自比不算撞车；
+    //   只要存在「两条不同分支共用一个前缀」或「A 的前缀集里有 B 的前缀前缀」才判红。
+    //   判据方向不变（仍须为 0 组），只是把「分支 × 前缀」二维关系算对了。
     const fpsByRule = new Map();
     for (const b of branches) {
-        if (!b.fp) continue;
+        const ps = (b.fps && b.fps.length ? b.fps : (b.fp ? [b.fp] : []));
+        if (!ps.length) continue;
         if (!fpsByRule.has(b.rule)) fpsByRule.set(b.rule, []);
-        fpsByRule.get(b.rule).push(b.fp);
+        fpsByRule.get(b.rule).push(ps);
     }
     let dupGroups = 0, prefixGroups = 0;
-    for (const [rule, fps] of fpsByRule) {
-        const uniq = [...new Set(fps)];
-        const cnt = new Map();
-        for (const fpx of fps) cnt.set(fpx, (cnt.get(fpx) || 0) + 1);
-        for (const [fpx, c] of cnt) {
-            if (c > 1) {
+    for (const [rule, groups] of fpsByRule) {
+        // owner：前缀 → 拥有它的分支下标集合（同一分支内重复只算一次）
+        const owner = new Map();
+        groups.forEach((ps, bi) => {
+            for (const fpx of ps) {
+                if (!owner.has(fpx)) owner.set(fpx, new Set());
+                owner.get(fpx).add(bi);
+            }
+        });
+        for (const [fpx, set] of owner) {
+            if (set.size > 1) {
                 dupGroups++;
-                problems.push(fail('同规则内指纹重复：' + rule + ' 有 ' + c + ' 条分支共用指纹「' + fpx +
+                problems.push(fail('同规则内指纹重复：' + rule + ' 有 ' + set.size + ' 条分支共用指纹「' + fpx +
                     '」⇒ 命中判定只会记到其中一条，被抢的那条永久不可判定，须给它们各补可区分的静态前缀'));
             }
         }
+        const uniq = [...owner.keys()];
         for (const a of uniq) {
             for (const b2 of uniq) {
                 if (a === b2 || !b2.startsWith(a)) continue;
+                // 只在不同分支之间才算抢占；同一分支的多前缀本就是同一分支的子病因
+                const oa = owner.get(a), ob = owner.get(b2);
+                let cross = false;
+                for (const i of oa) { if (!ob.has(i)) { cross = true; break; } }
+                if (!cross) continue;
                 prefixGroups++;
                 problems.push(fail('同规则内指纹互为前缀：' + rule + ' 中「' + a + '」是「' + b2 +
                     '」的前缀 ⇒ 长那条分支永远匹配不到（被短的抢先），须把分叉点提前到静态前缀里'));
