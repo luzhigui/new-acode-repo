@@ -11,7 +11,13 @@
 //   那等价"恒 skip"，是真正的空转，不该静默。
 // 运行：node tests/coverage-report.mjs
 //      SEEDS=1,2,3 STAGES=2,4 node tests/coverage-report.mjs   （环境变量同样作用于回放器）
-export const VER = 'tests/coverage-report.mjs V1.0.0';
+// V1.1.0 | 2026-11-20 第31轮（移植夜间第242轮成果）：空结果/异常时打「证据块」——把被吞掉的真因点名出来，
+//        | 而不是只说「格式可能变了」。走 tests/_lib/stderr-evidence.mjs 公共件（V1.1.0 补 EventBus 回退口径）。
+//        | 只改呈现：退码口径不变（触发=0 仍 1、异常仍 1），WARN_RATE 与全部判据一字未动。
+// V1.0.0 | 取证结论：低覆盖规则不是判据坏了 —— 放大样本后触发数按比例增长。
+export const VER = 'tests/coverage-report.mjs V1.1.0';
+
+import { evidenceBlock } from './_lib/stderr-evidence.mjs';
 
 const WARN_RATE = 0.10; // 触发率低于 10% 列为「覆盖偏薄」
 
@@ -35,7 +41,10 @@ function buildReport() {
         rows.push({ name: m[1].trim(), pass, fail, skip, trig: pass + fail });
     }
     if (!rows.length) {
+        // 第31轮：真因就在手边的 lines 里（回放器的 console.error / 栈帧被进程内 import 一起收进来了），
+        // 旧版只说「格式可能变了」把它扔掉，汇总层读成「工具坏了」。改成点名真因 + 证据块，仍退 1、不放行。
         console.error('[coverage] 没解析到任何规则结果 —— 回放器输出格式可能变了，或回放本身失败');
+        console.error(evidenceBlock(out, { n: 8, label: '回放' }));
         process.exitCode = 1;
         return;
     }
