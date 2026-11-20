@@ -1,7 +1,8 @@
 // ui/709-ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
-export const VER = 'ui/709-ui-controls.js V7.9.5';
+// V7.10.0 | 2026-11-20 阵容按钮合并为「📋 阵容」弹窗：多套存档列表/命名保存/设为下局/删除/清除启用
+export const VER = 'ui/709-ui-controls.js V7.10.0';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -12,7 +13,7 @@ import { resetBattleRuntime } from './715-reset-runtime.js';
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { onAnyButtonClick, restoreSpeedFromScroll } from './718-speed-controls.js';
-import { saveAllyLineup, clearAllyLineup } from '../modules/330-battle-init.js';
+import { saveAllyLineup, clearAllyLineup, listAllyLineups, useAllyLineup, deleteAllyLineup } from '../modules/330-battle-init.js';
 
 // 77/78 拆出后的 re-export：61/63/75/76 的 import 点全部保持不变
 export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, initSpeedButtons } from './718-speed-controls.js';
@@ -302,21 +303,80 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
     });
 }
 
-// 阵容存档按钮（2026-11-19）：只存我方单位 + 站位，下局建队时 330 自动沿用；海克斯仍随机。
+// 阵容管理弹窗（2026-11-20）：一个「📋 阵容」按钮管全部——保存多套、看列表、设为下局、删除。
+//   存档只锁「谁上场、站几号位」，属性与海克斯照常随机；选定后下一局建队生效。
+const _escText = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function showLineupModal() {
+    const old = document.getElementById('lineupModalOverlay');
+    if (old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'lineupModalOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    const card = document.createElement('div');
+    card.style.cssText = 'width:min(560px,92vw);max-height:80vh;overflow:auto;background:#1e2229;color:#e8e8e8;border:1px solid #3a4150;border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.6;';
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    const btnCss = 'background:#2b3240;color:#e8e8e8;border:1px solid #3a4150;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;';
+
+    const render = () => {
+        const d = listAllyLineups();
+        const rows = d.items.length ? d.items.map(it => {
+            const names = it.units.map(u => `${u.name}${u.pos ? `(${u.pos})` : ''}`).join('、');
+            const when = new Date(it.at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const active = it.id === d.activeId;
+            return `<div style="border:1px solid ${active ? '#4f8cff' : '#333a46'};border-radius:8px;padding:8px 10px;margin:8px 0;background:${active ? 'rgba(79,140,255,.12)' : 'transparent'};">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                    <b>${active ? '✅ ' : ''}${_escText(it.name)}</b>
+                    <span style="color:#8b93a3;font-size:12px;">${it.units.length} 人 · ${when}</span>
+                </div>
+                <div style="color:#b7bdc9;font-size:12px;margin:4px 0 6px;">${_escText(names)}</div>
+                <div style="display:flex;gap:6px;">
+                    <button data-use="${it.id}" style="${btnCss}" ${active ? 'disabled' : ''}>${active ? '下一局使用中' : '设为下局'}</button>
+                    <button data-del="${it.id}" style="${btnCss}color:#ff7b7b;">删除</button>
+                </div>
+            </div>`;
+        }).join('') : '<div style="color:#8b93a3;padding:10px 0;">还没有存档，先在下面保存当前阵容。</div>';
+
+        card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <b style="font-size:15px;">📋 阵容管理</b>
+                <button data-close="1" style="${btnCss}">✕</button>
+            </div>
+            <div style="color:#8b93a3;font-size:12px;margin:6px 0 10px;">只存明教名单与站位；属性、海克斯仍随机。选定后下一局开局生效。</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <input id="lineupNameInput" placeholder="给这套阵容起个名（可不填）" style="flex:1;background:#151920;color:#e8e8e8;border:1px solid #3a4150;border-radius:6px;padding:6px 8px;">
+                <button data-save="1" style="${btnCss}">💾 保存当前阵容</button>
+            </div>
+            <div style="border-top:1px solid #2c323d;margin:10px 0;"></div>
+            ${rows}
+            <div style="margin-top:10px;text-align:right;"><button data-clear="1" style="${btnCss}color:#ffb86b;">清除启用（下局随机）</button></div>
+        `;
+
+        card.querySelector('[data-close]').onclick = close;
+        card.querySelector('[data-save]').onclick = () => {
+            const input = card.querySelector('#lineupNameInput');
+            const n = saveAllyLineup(getState.UI().allyTeam, input ? input.value : '');
+            if (!n) alert('当前没有可保存的阵容');
+            render();
+        };
+        card.querySelectorAll('[data-use]').forEach(b => { b.onclick = () => { useAllyLineup(b.dataset.use); render(); }; });
+        card.querySelectorAll('[data-del]').forEach(b => { b.onclick = () => { deleteAllyLineup(b.dataset.del); render(); }; });
+        card.querySelector('[data-clear]').onclick = () => { clearAllyLineup(); render(); };
+    };
+    render();
+}
+
+// 阵容按钮（2026-11-20 合并）：点一下开弹窗，保存/选用/删除都在里面
 export function bindLineupButtons() {
-    const saveBtn = document.getElementById('btnSaveLineup');
-    if (saveBtn) saveBtn.addEventListener('click', () => {
+    const btn = document.getElementById('btnSaveLineup');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
         onAnyButtonClick();
-        const n = saveAllyLineup(getState.UI().allyTeam);
-        saveBtn.textContent = n > 0 ? `✅ 已存 ${n} 人` : '⚠️ 无阵容';
-        setTimeout(() => { saveBtn.textContent = '💾 存阵'; }, 1600);
-    });
-    const clearBtn = document.getElementById('btnClearLineup');
-    if (clearBtn) clearBtn.addEventListener('click', () => {
-        onAnyButtonClick();
-        clearAllyLineup();
-        clearBtn.textContent = '✅ 已清除';
-        setTimeout(() => { clearBtn.textContent = '🗑 清阵'; }, 1600);
+        showLineupModal();
     });
 }
 

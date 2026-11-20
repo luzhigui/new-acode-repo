@@ -8,7 +8,8 @@
 //   越界则本次不补（少补一人），不删名单也保证后段该出还能出。
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
 // V7.9.1 | 2026-11-19 我方阵容存档：saveAllyLineup/clearAllyLineup/readAllyLineup（localStorage 只存名单+站位，属性与海克斯仍随机）
-export const VER = 'modules/330-battle-init.js V7.9.1';
+// V7.9.2 | 2026-11-20 阵容存档升级多档：list/save/use/delete/clear 五个 API，旧 v1 单档兼容读取
+export const VER = 'modules/330-battle-init.js V7.9.2';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -756,30 +757,80 @@ export function initBattleTeams(currentStage, _rng) {
 }
 
 // ── 我方阵容存档（localStorage）：只存单位名单 + 站位，不存属性/海克斯 ──────────────
+// 2026-11-20：单档升级为多档集合（可命名、列表查看、随时切换启用），旧 v1 单档保留迁移读取。
 const ALLY_LINEUP_KEY = 'ming_ally_lineup_v1';
+const ALLY_LINEUP_LIST_KEY = 'ming_ally_lineups_v2';
 
-export function saveAllyLineup(allyTeam) {
+function readLineupList() {
     try {
-        const units = (allyTeam || [])
-            .filter(u => u && !u.isHorse && !u.isSummon)
-            .map(u => ({
-                name: u.name,
-                m: u.m,
-                role: u.role,
-                pos: typeof u.pos === 'number' ? u.pos : null,
-                sister: !!u.isXiaoZhaoSister,
-                brother: !!u.isXiaoZhaoBrother
-            }));
-        localStorage.setItem(ALLY_LINEUP_KEY, JSON.stringify({ ver: 1, units }));
-        return units.length;
-    } catch (e) { return 0; }
+        const raw = localStorage.getItem(ALLY_LINEUP_LIST_KEY);
+        const d = raw ? JSON.parse(raw) : null;
+        if (d && d.ver === 2 && Array.isArray(d.items)) return d;
+    } catch (e) { /* 损坏则当空 */ }
+    return { ver: 2, activeId: null, items: [] };
 }
 
+function writeLineupList(d) {
+    try { localStorage.setItem(ALLY_LINEUP_LIST_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
+}
+
+function unitsFromTeam(allyTeam) {
+    return (allyTeam || [])
+        .filter(u => u && !u.isHorse && !u.isSummon)
+        .map(u => ({
+            name: u.name,
+            m: u.m,
+            role: u.role,
+            pos: typeof u.pos === 'number' ? u.pos : null,
+            sister: !!u.isXiaoZhaoSister,
+            brother: !!u.isXiaoZhaoBrother
+        }));
+}
+
+// 列表（弹窗用）：{ ver, activeId, items:[{id,name,at,units}] }
+export function listAllyLineups() { return readLineupList(); }
+
+// 保存当前阵容为新的一档并立即启用；返回人数（0 = 无有效阵容）
+export function saveAllyLineup(allyTeam, name) {
+    const units = unitsFromTeam(allyTeam);
+    if (!units.length) return 0;
+    const d = readLineupList();
+    const id = 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    d.items.unshift({ id, name: (name || '').trim() || `阵容 ${d.items.length + 1}`, at: Date.now(), units });
+    d.activeId = id;
+    writeLineupList(d);
+    return units.length;
+}
+
+export function useAllyLineup(id) {
+    const d = readLineupList();
+    if (!d.items.some(it => it.id === id)) return false;
+    d.activeId = id;
+    return writeLineupList(d);
+}
+
+export function deleteAllyLineup(id) {
+    const d = readLineupList();
+    d.items = d.items.filter(it => it.id !== id);
+    if (d.activeId === id) d.activeId = d.items[0] ? d.items[0].id : null;
+    return writeLineupList(d);
+}
+
+// 清除启用（列表保留）：下局回到随机阵容
 export function clearAllyLineup() {
-    try { localStorage.removeItem(ALLY_LINEUP_KEY); return true; } catch (e) { return false; }
+    try { localStorage.removeItem(ALLY_LINEUP_KEY); } catch (e) { /* 忽略 */ }
+    const d = readLineupList();
+    d.activeId = null;
+    return writeLineupList(d);
 }
 
 export function readAllyLineup() {
+    const d = readLineupList();
+    if (d.items.length) {
+        const it = d.activeId ? d.items.find(x => x.id === d.activeId) : null;
+        return it ? { ver: 1, units: it.units } : null;
+    }
+    // 老数据迁移：只有集合为空时才回落到旧单档
     try {
         const raw = localStorage.getItem(ALLY_LINEUP_KEY);
         if (!raw) return null;
