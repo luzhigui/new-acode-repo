@@ -9,7 +9,8 @@
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
 // V7.9.1 | 2026-11-19 我方阵容存档：saveAllyLineup/clearAllyLineup/readAllyLineup（localStorage 只存名单+站位，属性与海克斯仍随机）
 // V7.9.2 | 2026-11-20 阵容存档升级多档：list/save/use/delete/clear 五个 API，旧 v1 单档兼容读取
-export const VER = 'modules/330-battle-init.js V7.9.2';
+// V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
+export const VER = 'modules/330-battle-init.js V7.9.3';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -751,6 +752,11 @@ export function initBattleTeams(currentStage, _rng) {
         const built = buildAllyFromLineup(_preset.units, _rng);
         if (built.length) allyTeam = built;
     }
+    // 对面六大派也按存档还原（2026-11-20 老板拍板）：两边一起存、一起用；旧档无 enemyUnits 则对面照常随机
+    if (_preset && Array.isArray(_preset.enemyUnits) && _preset.enemyUnits.length) {
+        const builtEnemy = buildEnemyFromLineup(_preset.enemyUnits, _rng);
+        if (builtEnemy.length) enemyTeam = builtEnemy;
+    }
 
     // rngContractVersion：本局阵容由哪一版抽签契约产出（跑批 / 回放 / 联机对账靠它识别失配，别按阵容反推）
     return { allyTeam, enemyTeam, encounterVariant, rngContractVersion: RNG_CONTRACT_VERSION };
@@ -790,13 +796,14 @@ function unitsFromTeam(allyTeam) {
 // 列表（弹窗用）：{ ver, activeId, items:[{id,name,at,units}] }
 export function listAllyLineups() { return readLineupList(); }
 
-// 保存当前阵容为新的一档并立即启用；返回人数（0 = 无有效阵容）
-export function saveAllyLineup(allyTeam, name) {
+// 保存当前阵容为新的一档并立即启用；明教+六大派两边都存（2026-11-20 老板拍板）；返回人数（0 = 无有效阵容）
+export function saveAllyLineup(allyTeam, name, enemyTeam) {
     const units = unitsFromTeam(allyTeam);
     if (!units.length) return 0;
+    const enemyUnits = unitsFromTeam(enemyTeam);
     const d = readLineupList();
     const id = 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    d.items.unshift({ id, name: (name || '').trim() || `阵容 ${d.items.length + 1}`, at: Date.now(), units });
+    d.items.unshift({ id, name: (name || '').trim() || `阵容 ${d.items.length + 1}`, at: Date.now(), units, enemyUnits });
     d.activeId = id;
     writeLineupList(d);
     return units.length;
@@ -828,7 +835,7 @@ export function readAllyLineup() {
     const d = readLineupList();
     if (d.items.length) {
         const it = d.activeId ? d.items.find(x => x.id === d.activeId) : null;
-        return it ? { ver: 1, units: it.units } : null;
+        return it ? { ver: 1, units: it.units, enemyUnits: Array.isArray(it.enemyUnits) ? it.enemyUnits : [] } : null;
     }
     // 老数据迁移：只有集合为空时才回落到旧单档
     try {
@@ -840,13 +847,13 @@ export function readAllyLineup() {
     } catch (e) { return null; }
 }
 
-// 按存档名单重建我方单位：属性仍按规则随机掷（存档只锁定「谁上场、站哪」）
-function buildAllyFromLineup(units, _rng) {
+// 按存档名单重建单位（双方通用，2026-11-20）：属性仍按规则随机掷（存档只锁定「谁上场、站哪」）
+function buildUnitsFromLineup(units, _rng, camp) {
     const out = [];
     for (const it of units) {
         if (!it || !it.name || typeof it.m !== 'number') continue;
-        const unit = new Unit(it.name, it.m, it.role || C.ROLES[0], CAMP_TYPES.ALLY);
-        if (it.sister || it.brother) {
+        const unit = new Unit(it.name, it.m, it.role || C.ROLES[0], camp);
+        if (camp === CAMP_TYPES.ALLY && (it.sister || it.brother)) {
             if (it.sister) unit.isXiaoZhaoSister = true; else unit.isXiaoZhaoBrother = true;
             unit.name = it.sister ? '小昭·姊' : '小昭·妹';
             applyHeroFlags(unit);
@@ -864,3 +871,5 @@ function buildAllyFromLineup(units, _rng) {
     }
     return out;
 }
+function buildAllyFromLineup(units, _rng) { return buildUnitsFromLineup(units, _rng, CAMP_TYPES.ALLY); }
+function buildEnemyFromLineup(units, _rng) { return buildUnitsFromLineup(units, _rng, CAMP_TYPES.ENEMY); }

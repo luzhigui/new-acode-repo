@@ -1,8 +1,8 @@
 // ui/709-ui-controls.js — 按钮事件绑定层（倍速在 77、按钮状态/buff 槽在 78、日志工具在 64）
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
-// V7.10.0 | 2026-11-20 阵容按钮合并为「📋 阵容」弹窗：多套存档列表/命名保存/设为下局/删除/清除启用
-export const VER = 'ui/709-ui-controls.js V7.10.0';
+// V7.10.1 | 2026-11-20 阵容存档含对面：保存/列表/还原都带六大派（弹窗分行显示「明教：… / 敌方：…」）
+export const VER = 'ui/709-ui-controls.js V7.10.1';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -325,15 +325,19 @@ function showLineupModal() {
     const render = () => {
         const d = listAllyLineups();
         const rows = d.items.length ? d.items.map(it => {
-            const names = it.units.map(u => `${u.name}${u.pos ? `(${u.pos})` : ''}`).join('、');
+            const fmtSide = (list) => (list || []).map(u => `${u.name}${u.pos ? `(${u.pos})` : ''}`).join('、');
             const when = new Date(it.at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
             const active = it.id === d.activeId;
+            const enemyLine = Array.isArray(it.enemyUnits) && it.enemyUnits.length
+                ? `<div style="color:#b7bdc9;font-size:12px;margin:2px 0 6px;">敌方：${_escText(fmtSide(it.enemyUnits))}</div>`
+                : '';
             return `<div style="border:1px solid ${active ? '#4f8cff' : '#333a46'};border-radius:8px;padding:8px 10px;margin:8px 0;background:${active ? 'rgba(79,140,255,.12)' : 'transparent'};">
                 <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
                     <b>${active ? '✅ ' : ''}${_escText(it.name)}</b>
-                    <span style="color:#8b93a3;font-size:12px;">${it.units.length} 人 · ${when}</span>
+                    <span style="color:#8b93a3;font-size:12px;">${it.units.length}+${(it.enemyUnits || []).length} 人 · ${when}</span>
                 </div>
-                <div style="color:#b7bdc9;font-size:12px;margin:4px 0 6px;">${_escText(names)}</div>
+                <div style="color:#b7bdc9;font-size:12px;margin:4px 0 2px;">明教：${_escText(fmtSide(it.units))}</div>
+                ${enemyLine}
                 <div style="display:flex;gap:6px;">
                     <button data-use="${it.id}" style="${btnCss}" ${active ? 'disabled' : ''}>${active ? '下一局使用中' : '设为下局'}</button>
                     <button data-del="${it.id}" style="${btnCss}color:#ff7b7b;">删除</button>
@@ -346,10 +350,10 @@ function showLineupModal() {
                 <b style="font-size:15px;">📋 阵容管理</b>
                 <button data-close="1" style="${btnCss}">✕</button>
             </div>
-            <div style="color:#8b93a3;font-size:12px;margin:6px 0 10px;">只存明教名单与站位；属性、海克斯仍随机。选定后下一局开局生效。</div>
+            <div style="color:#8b93a3;font-size:12px;margin:6px 0 10px;">存双方名单与站位（明教+六大派）；属性、海克斯仍随机。选定后下一局开局生效。</div>
             <div style="display:flex;gap:6px;margin-bottom:6px;">
                 <input id="lineupNameInput" placeholder="给这套阵容起个名（可不填）" style="flex:1;background:#151920;color:#e8e8e8;border:1px solid #3a4150;border-radius:6px;padding:6px 8px;">
-                <button data-save="1" style="${btnCss}">💾 保存当前阵容</button>
+                <button data-save="1" style="${btnCss}">💾 保存双方阵容</button>
             </div>
             <div style="border-top:1px solid #2c323d;margin:10px 0;"></div>
             ${rows}
@@ -359,7 +363,8 @@ function showLineupModal() {
         card.querySelector('[data-close]').onclick = close;
         card.querySelector('[data-save]').onclick = () => {
             const input = card.querySelector('#lineupNameInput');
-            const n = saveAllyLineup(getState.UI().allyTeam, input ? input.value : '');
+            const ui = getState.UI();
+            const n = saveAllyLineup(ui.allyTeam, input ? input.value : '', ui.enemyTeam);
             if (!n) alert('当前没有可保存的阵容');
             render();
         };
