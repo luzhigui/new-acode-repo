@@ -1,6 +1,6 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-// V6.3.19 | 2026-11-20 横幅三分口径定稿：普通横幅回原样(2.5rem)、九人战报条 clamp 94vw、闪避反击条 clamp 94vw
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.19';
+// V6.3.20 | 2026-11-20 九人战报条禁换行：主标题/副标题各一行，只靠字号缩放适配手机宽度
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.20';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -590,9 +590,9 @@ function createBuffBannerEl() { let d = document.createElement('div'); d.style.c
 initPool('buffBanner', createBuffBannerEl);
 
 // 战报条（众志成城九人满员专用）：暗底金边横贯屏宽 + 主标题 + 数值副标题，横向展开入场
-//   2026-11-20 手机适配：字号改 vw 夹取 + 容器最大 94vw，九人横幅不再超出屏幕宽度。
-const WAR_BANNER_MAIN_CSS = 'font-size:clamp(1.35rem,5.4vw,3rem);font-weight:bold;color:#ffd700;letter-spacing:2px;text-align:center;text-shadow:0 0 22px rgba(255,215,0,.9),0 2px 0 #6b4a00;';
-const WAR_BANNER_SUB_CSS = 'font-size:clamp(0.72rem,2.8vw,1rem);color:#ffe9a8;letter-spacing:1px;text-align:center;text-shadow:0 1px 2px #000;';
+//   2026-11-20 手机适配：只缩字号、绝不换行——主标题一行、副标题一行（老板：换行丑）。
+const WAR_BANNER_MAIN_CSS = 'font-size:clamp(1.05rem,4.4vw,3rem);font-weight:bold;color:#ffd700;letter-spacing:1px;white-space:nowrap;text-align:center;text-shadow:0 0 22px rgba(255,215,0,.9),0 2px 0 #6b4a00;';
+const WAR_BANNER_SUB_CSS = 'font-size:clamp(0.68rem,2.6vw,1rem);color:#ffe9a8;letter-spacing:1px;white-space:nowrap;text-align:center;text-shadow:0 1px 2px #000;';
 
 export async function showBuffBanner(text, opts) {
     const war = !!(opts && opts.warReport);
@@ -603,7 +603,7 @@ export async function showBuffBanner(text, opts) {
                 if (!banner) return;
                 if (war) {
                     // 池元素会被普通横幅复用，样式与子节点每次全量重建，防旧样式残留
-                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10030;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px clamp(8px,4vw,72px);max-width:94vw;box-sizing:border-box;white-space:normal;text-align:center;background:linear-gradient(90deg,transparent,rgba(10,8,2,.82) 18%,rgba(10,8,2,.82) 82%,transparent);border-top:1px solid rgba(255,215,0,.75);border-bottom:1px solid rgba(255,215,0,.75);box-shadow:0 0 32px rgba(255,215,0,.18);';
+                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10030;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px clamp(8px,3vw,72px);max-width:96vw;box-sizing:border-box;white-space:nowrap;text-align:center;background:linear-gradient(90deg,transparent,rgba(10,8,2,.82) 18%,rgba(10,8,2,.82) 82%,transparent);border-top:1px solid rgba(255,215,0,.75);border-bottom:1px solid rgba(255,215,0,.75);box-shadow:0 0 32px rgba(255,215,0,.18);';
                     banner.textContent = '';
                     const main = document.createElement('div');
                     main.textContent = text;
