@@ -1,6 +1,42 @@
 // fx/616-tangwenliang-dash.js — 唐文亮「冲刺·七伤齐发」多人推挤演出
 // V3.0.0 视觉整体对齐 demo（2026-11-02）：位置/缩放分离、克隆体自绘、标枪收尾、血条防剧透
-export const VER = 'fx/616-tangwenliang-dash.js V3.0.6';
+export const VER = 'fx/616-tangwenliang-dash.js V3.0.7';
+
+// ── 冲刺演出诊断钩子（2026-11-20 老板要求：卡住时自动反馈，不用手敲命令）──
+//   演出每推进一步就记一笔；超过 8 秒没推进 → 自动把播放器状态写进 window.__DASH_DIAG__.stuck
+//   并 console.warn。下次卡住只需截图/复制控制台那一条。
+function dashDiag(stage) {
+    if (typeof window === 'undefined') return;
+    const d = window.__DASH_DIAG__ || (window.__DASH_DIAG__ = { marks: [], stuck: null });
+    d.active = true;
+    d.lastAt = Date.now();
+    d.lastStage = stage;
+    d.marks.push({ stage, at: d.lastAt });
+    if (d.marks.length > 60) d.marks.shift();
+}
+function dashDiagDone() {
+    if (typeof window !== 'undefined' && window.__DASH_DIAG__) window.__DASH_DIAG__.active = false;
+}
+let _dashWd = null;
+function ensureDashWatchdog() {
+    if (_dashWd) return;
+    _dashWd = setInterval(() => {
+        const d = (typeof window !== 'undefined') ? window.__DASH_DIAG__ : null;
+        if (!d || !d.active || d.stuck) return;
+        const idle = Date.now() - (d.lastAt || 0);
+        if (idle < 8000) return;
+        const arrLen = (a) => (Array.isArray(a) ? a.length : -1);
+        d.stuck = {
+            stage: d.lastStage, idleMs: idle,
+            paused: clock.paused, running: clock._running, fastForward: clock.fastForward,
+            timescale: clock.timescale, now: clock.now, realNow: clock._realNow,
+            tweens: arrLen(clock._tweens), realTweens: arrLen(clock._realTweens),
+            waits: arrLen(clock._waits), realWaits: arrLen(clock._realWaits),
+            at: new Date().toISOString()
+        };
+        console.warn('[dash] 冲刺演出停滞（>8s），诊断：window.__DASH_DIAG__', d.stuck);
+    }, 3000);
+}
 // 强推挤压版：单目标双克隆 → moves 多人克隆 + 金线对拉 + 冲击环/火花/屏震。
 //   纯装饰：位置由引擎 doDash 经 moveUnitPosition 落定（POS_CHANGE/STATE_CHANGE 事件走 core/13 既有链）。
 //   交接顺序（别搞反，否则旧格闪回一帧）：克隆体落定 → storeAfter 清 fly 显真格 → 克隆体才淡出。
@@ -359,6 +395,8 @@ async function performFinishingPunch(twEl, targetEl, T = (v) => v) {
 //   返回 ghosts 交 render/39 storeAfter 淡出（交棒顺序与快版一致：先清 fly 显真格，再淡出克隆体）。
 async function showTangWenLiangDashSlow(dash) {
     if (!dash || isFxSkipped()) return [];
+    ensureDashWatchdog();
+    dashDiag('slow-enter');
 
     let moves = Array.isArray(dash.moves) ? dash.moves.filter(m => m && m.uid != null) : [];
     if (moves.length === 0 && dash.fromUid != null && dash.fromPos != null && dash.toPos != null) {
@@ -370,7 +408,7 @@ async function showTangWenLiangDashSlow(dash) {
     moves = moves.filter(m => m.from !== m.to && m.to != null);
     // 双方原地未动（唐文亮已在该列前排 / 目标本来就在前排 / 全部落位失败）不放弃演出：
     //   克隆体为空时下面回落到真格锚点，锁链→冲击→标枪照常演完；只有 payload 连 from/to 都缺才走空
-    if (moves.length === 0 && dash.fromCamp == null) return [];
+    if (moves.length === 0 && dash.fromCamp == null) { dashDiagDone(); return []; }
 
     let skipped = false;
     const created = [];
@@ -483,7 +521,8 @@ async function showTangWenLiangDashSlow(dash) {
     }
 
     await clock.animate(T(350), (p) => { mask.style.opacity = String(0.34 * p); }, { minRealMs: T(350) });
-    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
+    dashDiag('slow-mask-in');
+    if (skipped) { dashDiagDone(); cleanupAll(); activeGhosts = []; return []; }
 
     // ③ 粗锁链展开（唐文亮 → 目标），双层发光
     const chainGlow = track(document.createElement('div'));
@@ -524,9 +563,10 @@ async function showTangWenLiangDashSlow(dash) {
             chainHead.style.opacity = String(p);
         }, { minRealMs: T(240) });
     }
-    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
+    if (skipped) { dashDiagDone(); cleanupAll(); activeGhosts = []; return []; }
 
     // ④ 走位：left/top 写位置、transform 只放 scale（避免双算位移冲出格子）
+    dashDiag('slow-walk');
     const twFrom = twGH ? twGH.g.from : null, twTo = twGH ? twGH.toRect : null;
     const tgtFrom = tgtGH ? tgtGH.g.from : null, tgtTo = tgtGH ? tgtGH.toRect : null;
     await clock.animate(T(620), (p) => {
@@ -577,7 +617,7 @@ async function showTangWenLiangDashSlow(dash) {
         chainSet(1);
     }, { minRealMs: T(620) });
     if (staticCell) staticCell.style.transform = '';
-    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
+    if (skipped) { dashDiagDone(); cleanupAll(); activeGhosts = []; return []; }
 
     // 走位落定：把 left/top 固化到终点（后续标枪/收势不再动位置，不会弹回起点）
     freezeGhosts(ghosts);
@@ -630,7 +670,7 @@ async function showTangWenLiangDashSlow(dash) {
     chainCore.style.opacity = '0';
     chainHead.style.opacity = '0';
     clearHl();
-    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
+    if (skipped) { dashDiagDone(); cleanupAll(); activeGhosts = []; return []; }
 
     // ⑥ 真伤数字浮出（dash.hits 载荷里带 dmg）
     //   注意：不 store.dispatch(HP_CHANGE) —— 引擎 doDash 已经扣过血（syncStoreFromStep 会用引擎权威值覆盖回去，
@@ -656,7 +696,8 @@ async function showTangWenLiangDashSlow(dash) {
         });
     });
     await realWait(T(900));
-    if (skipped) { cleanupAll(); activeGhosts = []; return []; }
+    dashDiag('slow-pre-punch');
+    if (skipped) { dashDiagDone(); cleanupAll(); activeGhosts = []; return []; }
 
     // ⑦ 遮罩淡出（真格已在终位，克隆体留给 storeAfter 淡出）
     await clock.animate(T(400), (p) => { mask.style.opacity = String(0.34 * (1 - p)); }, { minRealMs: T(400) });
@@ -674,6 +715,8 @@ async function showTangWenLiangDashSlow(dash) {
     }
 
     slowFinished = true;
+    dashDiag('slow-done');
+    dashDiagDone();
     return ghosts;
 }
 
@@ -694,7 +737,7 @@ export async function showTangWenLiangDash(dash, opts) {
     }
     moves = moves.filter(m => m.from !== m.to && m.to != null);   // 原地未动（被挡侧 from=to）不克隆
     // 无人位移也照常演：克隆体为空时下面全部回落到真格锚点（旧版这里直接 return，冲刺整段消失）
-    if (moves.length === 0 && dash.fromCamp == null) return [];
+    if (moves.length === 0 && dash.fromCamp == null) { dashDiagDone(); return []; }
 
     // 血条快照：入口记 hpBefore，克隆体用它初始化（落定帧 reveal 后切到 store 当前值）
     snapshotHpBefore(dash);
