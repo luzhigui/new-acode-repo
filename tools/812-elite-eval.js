@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.13.2';
+export const VER = 'tools/812-elite-eval.js V3.13.3';
+// V3.13.3 | 2026-11-20 首列变体标签去掉「·」：原来「第3关·胖远桥」中的点把首列撑到 4 字宽，
+//   改成两行「第3关 / 胖远桥」左对齐，首列 64px → 56px，把宽度让给精英列。
 // V3.13.2 | 2026-11-19 回滚横向滑动：两张表继续用 elite-table-fit 锁宽均分；
 //   重叠的根因是 802 里 fit 表的数据格被全局 white-space:nowrap 压住不能折行，已在 802 放行换行。
 // V3.13.1 | （已废弃）曾改成自适应列宽 + 横向滑动，被否。
@@ -404,7 +406,7 @@ soloBtn.addEventListener('click', () => runSoloGroup(SOLO_ALL, {
 }));
 
 function renderSoloResults(byStage, stages, list, resultEl, note, meta) {
-    let html = metaLine(meta) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    let html = metaLine(meta) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:56px">';
     for (const cfg of list) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of list) html += `<th class="elite-th">${cfg.name}</th>`;
@@ -414,7 +416,9 @@ function renderSoloResults(byStage, stages, list, resultEl, note, meta) {
         for (const { variant: v, bucket: slot } of rowsOfStage(st, byStage)) {
             const hasData = slot && list.some(cfg => slot[cfg.name] && slot[cfg.name].runs > 0);
             if (!hasData) continue;
-            const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+            // V3.13.3：变体不再用「第3关·胖远桥」一行（那个「·」把首列撑宽到 4 字），
+            //   改成两行：第 3 关 / 胖远桥，左对齐，首列可缩到 56px
+            const label = v === '标准' ? `第${st}关` : `第${st}关<br>${v}`;
             html += `<tr><td class="elite-stage">${label}</td>`;
             for (const cfg of list) html += soloCellHtml(slot[cfg.name]);
             html += '</tr>';
@@ -530,7 +534,7 @@ function renderNoEliteResults(byStage, stages) {
     for (const st of stages) {
         for (const { variant: v, bucket: d } of rowsOfStage(st, byStage)) {   // 拆行口径同主表（V3.4.0）
             if (!d || !d.runs) continue;
-            const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+            const label = v === '标准' ? `第${st}关` : `第${st}关<br>${v}`;
             html += noEliteRowHtml(label, d);
         }
     }
@@ -567,18 +571,19 @@ function noEliteTotalsOf(byStage, stages) {
 }
 
 function renderResults(byStage, stages) {
-    let html = metaLine(latest.elite) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    let html = metaLine(latest.elite) + '<table class="elite-table elite-table-fit"><colgroup><col style="width:56px">';
     for (const cfg of configs) html += '<col>';
     html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
     html += '</tr>';
 
     for (const st of stages) {
-        // 拆行口径（V3.4.0）：只有第 3 关有阵容变体 → 拆「·胖远桥」「·宋青书」两行；其余关单行
+        // 拆行口径（V3.4.0）：只有第 3 关有阵容变体 → 拆「胖远桥」「宋青书」两行；其余关单行
         for (const { variant: v, bucket } of rowsOfStage(st, byStage)) {
             const hasData = bucket && Object.values(bucket).some(d => d && d.runs > 0);
             if (!hasData) continue;
-            const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+            // V3.13.3：变体改两行（第 3 关 / 胖远桥），去掉撑宽首列的「·」
+            const label = v === '标准' ? `第${st}关` : `第${st}关<br>${v}`;
             html += `<tr><td class="elite-stage">${label}</td>`;
             for (const cfg of configs) {
                 html += cellHtml(bucket[cfg.name]);
