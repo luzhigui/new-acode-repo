@@ -2,7 +2,8 @@
 // V2.11.3 | 2026-11-19 补登记 _butterflyEverAttached（小昭·姊「本局曾附身」，modules/322 写、core/210 读）：
 //           322 新增时漏登记 ⇒ Unit.clone 的 assertStateFullyRegistered 抛错，带小昭·姊的对局
 //           （主游戏 + 816/808/809/811/812 全部跑批）在第 2 轮 stepper clone 时全炸。
-export const VER = 'core/218-state-keys.js V2.11.3';
+// V2.11.4 | 2026-11-20 | 补登记 _zhiQuNote（341 写入/204·210·217 读取后清，漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered）
+export const VER = 'core/218-state-keys.js V2.11.4';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -181,6 +182,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 小昭·姊：本局曾附身过（modules/322 写入；core/210 补挂相位据此跳过，防止重复拉去附身）。
     //   2026-11-19 补登记：322 新增时漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered，带姊的对局全炸
     _butterflyEverAttached:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 智取（modules/341 写入，core/204/210/217 读取后 delete）：此前只写未登记 ⇒ clone 撞 assertStateFullyRegistered
+    _zhiQuNote:              { type: STATE_FIELD_TYPES.STRING,  default: '' },
     _zhangTauntDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 张无忌·我命由我（2026-11-13）：拖拽选目标窗（ui/724）写入，core/212 选目标时优先读、core/210 回合收尾清；
     //   此前只写未登记 ⇒ clone 撞 assertStateFullyRegistered（浏览器端同样炸）

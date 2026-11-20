@@ -2,7 +2,8 @@
 //   ① 七伤拳（出手自损换增伤 / 临危更凶） + ② 回春术（可叠加的持续回血） +
 //   ③ 冲刺·七伤齐发（满 7 次出手冲前排、拽目标到 123 位、双方各受当前生命 45% 真伤、转近战战士） +
 //   ④ 同归于尽（阵亡反噬击杀者）
-export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.8';
+// V7.1.9 | 2026-11-20 | 七伤拳报幕「临危加成」改成只在 lowHpExtra>0 时才喊（content 已归零，低血档不再额外加成）
+export const VER = 'modules/315-elite-sixsects-tangwenliang.js V7.1.9';
 
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, applyStatChange, emitEvent, getBattleRng, getStat, moveUnitPosition, refreshMaxHp, recordHpAudit, previewHeal } from '../core/214-battle-shared.js';
@@ -381,7 +382,7 @@ export function createTangWenLiangComponent() {
                 }
                 // 报幕文本 + 满档横幅先存 state：此刻攻击组还没建（group 由 core/10 命中结算后 buildAttackGroup
                 //   才产出），由下面 ①-b 钩子搬进「唐文亮自己的攻击组」，不做组外扁平行
-                tw.state._qiShangNote = `👊 唐文亮七伤拳：自损 ${fmtNum(real)} 点生命${real <= 0 ? '（残血保命，已无可损）' : (idxInCycle > 0 ? `（伤己 ${idxInCycle}/${dash.cycle}）` : '')}，本次伤害 ×${mult.toFixed(2)}${lowHp ? '（临危加成）' : ''}`;
+                tw.state._qiShangNote = `👊 唐文亮七伤拳：自损 ${fmtNum(real)} 点生命${real <= 0 ? '（残血保命，已无可损）' : (idxInCycle > 0 ? `（伤己 ${idxInCycle}/${dash.cycle}）` : '')}，本次伤害 ×${mult.toFixed(2)}${(lowHp && qi.lowHpExtra > 0) ? '（临危加成）' : ''}`;
                 tw.state._qiShangBanner = idxInCycle === dash.cycle ? '💢 七伤齐发！' : null;
             });
 

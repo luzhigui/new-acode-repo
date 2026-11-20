@@ -7,7 +7,7 @@
 // 下一回合末放出（装袋当回合不放）：保护回 protectHeal 点血；抓敌扣 captureMaxHpPct 最大生命值的伤害。
 // 袋子同时最多装一个；已装人时再触发 → 本次作废。
 // 参数唯一真源：content/001-game-data.json 说不得.skills.bagTrap.params（缺哪键报哪键，不再硬编码）。
-export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.0.3';
+export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.1.0';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, applyStatChange, emitEvent, getStat } from '../core/214-battle-shared.js';

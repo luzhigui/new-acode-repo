@@ -2,7 +2,8 @@
 //   载入时合并进 CONFIG（CHEST_DROP_RATE/CHEST_CLEAR_RATES/CHEST_FIRST_CLEAR_BONUS），
 //   禁止 JS/商店页再写第二份数字。
 // V6.9.12 | 2026-11-19 众志召唤池改为「带技能即入池」（skills 有真技能或 mechanics 非空），不再只看 summon 开关
-export const VER = 'core/201-config-5v5-test.js V6.9.13';
+// V6.9.14 | 2026-11-20 | PCT_PARAM_KEYS 补登 protectMaxHpPct（说不得布袋保护回血 0.2 → 20%，缺登会显示 0.2%）
+export const VER = 'core/201-config-5v5-test.js V6.9.14';
 // V6.9.11 | 2026-11-17 废弃 ZHANG_EXCLUSIVE_CHANCE（值保留 0.2，仅防旧引用报错，主代码已无调用点）：
 //   老板改口径——张无忌三个专属不再走「开局独立概率弹窗」，改与普通海克斯等概率进普通池、任何回合都能抽到；
 //   抽中家族任一成员即整族一起进候选，选完整族终身不再出现。家族规则实现见 modules/329（familyOf/pickBuffChoices）。
@@ -233,7 +234,7 @@ const PCT_PARAM_KEYS = new Set(['reducePct', 'reboundPct', 'selfDmgPct', 'leechM
     'landHealRatio', 'landHealRatioDeath', 'eggHatchHpRatio',   // 小昭·飞天落地回血档位比（70/40 1% / 致死 5%）+ 孵化保留血量比 30%
     'lostHpRatio', 'maxHpRatio', 'executeThreshold',
     'openChance', 'hitChance', 'disguiseChance', 'openingChance',   // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）；本轮圆真/彭莹玉的触发概率
-    'triggerChance', 'protectBranchChance', 'redHpThreshold', 'captureMaxHpPct']);   // 说不得·布袋（content/001 skills.bagTrap.params）
+    'triggerChance', 'protectBranchChance', 'redHpThreshold', 'captureMaxHpPct', 'protectMaxHpPct']);   // 说不得·布袋（content/001 skills.bagTrap.params）
 
 function getSkillDesc(characterName, skillKey, jealous) {
     const ch = gameData?.characters?.[characterName];
