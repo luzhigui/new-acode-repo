@@ -449,3 +449,28 @@
 
 - **处置**：本条**不计入退出码**（转交中 ≠ 体检坏）；主代码落地后划掉本条并复跑上面 3 条命令确认仍绿。
 
+
+- **★ 规则303「伤害印数与血条实落同源」要与引擎账对账，主代码侧得先把三个结算数带出来**（主代码，红线不碰）
+
+  干净树 `45d68168` 实测 `node tests/rules-replay.mjs` → 「❌ 伤害印数与血条实落同源(回归) pass=49 fail=107 skip=0」（取证全过程见 `tests/体检迭代日志.md` 第191轮）。本条只登记主代码侧要改的三处；规则侧口径变更属改判据、待 zhong 拍板后由体检侧落地。
+
+  ```
+  ===== START 转交块 T-D303-1（普攻 fact / 伤害条目带出三个结算数：本次扣血 / 护盾吸收 / 上限截断）=====
+  改法：2 个文件、3 处，只加字段，结算行为一字不动。
+  1) core/212-battle-attack-chain.js，在 `const cappedLoss = Math.max(0, hpLossBeforeCap - hpLoss);` 下一行加：
+         const hpLossApplied = hpLoss;   // 护盾与上限都扣完之后、真正落到血条上的那笔
+  2) core/212-battle-attack-chain.js，函数末尾那行 return（`return { dmg, dead, cappedLoss, horseReboundDeclarations, ...`）改成：
+         return { dmg, dead, cappedLoss, hpLossApplied, shieldAbsorbed, horseReboundDeclarations, ... };
+     （hpLossApplied 见第 1 步；shieldAbsorbed 本来就在这个函数作用域里，不用新声明）
+  3) render/407-facts-attack.js，伤害条目（`type:'damage-text'` 那段）里 `_shield: dmgResult._shield,` 之后加三行：
+         hpLossApplied: dmgResult.hpLossApplied,
+         shieldAbsorb: dmgResult.shieldAbsorbed,
+         cappedLoss: dmgResult.cappedLoss,
+  怎么验：
+    1) node tests/rules-replay.mjs → 规则303 的 fail 明细从「印 X 而血条实落 Y」变成「印 X ≠ 引擎账（扣血 A + 护盾 B = C）」，且 fail 条数从 107 大幅下降（规则侧须同步按新口径改才看得到）
+    2) node tests/run-all.mjs --jobs 4 → 红项集合不新增
+    3) 抽查：打印某次 ATTACK fact 的 data.dmgResult.hpLossApplied，应等于该击目标血条的真实减少量（不含同帧回血）
+  ===== END 转交块 T-D303-1 =====
+  ```
+
+- **处置**：本条**不计入退出码**（转交中 ≠ 体检坏）；主代码落地后划掉本条并复跑上面 3 条命令确认仍绿。
