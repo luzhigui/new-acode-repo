@@ -1,5 +1,6 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.8';
+// V1.0.9 | 2026-11-20 触发后单次上限 _dmgCap 丢失自愈（防「一次掉 4 点」）
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.9';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -92,7 +93,12 @@ export const duanChuiHandler = {
             priority: L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE + 1,
             handler: (data) => {
                 if (data.target !== self || !self.alive) return;
-                if (self.state._duanChuiTriggered) return;
+                if (self.state._duanChuiTriggered) {
+                    // 自愈（2026-11-20）：触发标记在、单次上限丢了 → 补回 cap。否则后续每击按原伤害掉血，
+                    //   实机出现「庄铮 8.1 → 4」这种一次掉 4 点的情况。
+                    if (!(self.state._dmgCap > 0)) self.state._dmgCap = cap;
+                    return;
+                }
                 if (self.hp - data.dmg > 0) return;
                 // 拒绝回血/吸血不额外挂标记：_dmgCap > 0 已由 core/214 拦正向治疗；
                 //   姐姐附身 isHeal=false 不受拦，仍可加血 → 组五按契约回退到 keepHp。
@@ -108,7 +114,10 @@ export const duanChuiHandler = {
         //   白骨爪分支不触发反手（连击中插反击会打断链条），与普通伤害分支的差异仅此一处。
         eventBus.on(SIGNAL_TYPES.CLAW_HIT_APPLIED, 5, (data) => {
             if (!data || data.target !== self || !self.alive) return;
-            if (self.state._duanChuiTriggered) return;
+            if (self.state._duanChuiTriggered) {
+                if (!(self.state._dmgCap > 0)) self.state._dmgCap = cap;   // 同上：上限丢失自愈
+                return;
+            }
             if (self.hp - data.dmg > 0) return;
             triggerDuanChui();
             data.reduce = Math.max(data.reduce || 0, data.dmg);
