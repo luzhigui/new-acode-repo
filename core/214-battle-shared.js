@@ -1,5 +1,6 @@
-﻿// core/214-battle-shared.js — 属性词条系统 + 战斗状态收口（addMod / getStat / applyStatChange / killUnit / refreshMaxHp）
-export const VER = 'core/214-battle-shared.js V6.4.14';
+﻿﻿// core/214-battle-shared.js — 属性词条系统 + 战斗状态收口（addMod / getStat / applyStatChange / killUnit / refreshMaxHp）
+// V6.4.15 | 2026-11-20 断锤锁血期 maxHp 加保命下限（不得低于 _maxHpLock），修「保留 6 点」实际只剩 2.9
+export const VER = 'core/214-battle-shared.js V6.4.15';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
@@ -469,7 +470,9 @@ export function getStat(unit, stat) {
     if (stat === 'maxHp') {
         const lock = unit.state?._maxHpLock;
         if (typeof lock === 'number' && lock > 0) {
-            return Math.max(1, (lock + addSum) * (1 + mulSum));
+            // 保命下限（2026-11-20）：锁血期 maxHp 不得低于锁值。负向 maxHp 词条（冲刺激活时的减法、
+            //   减上限 debuff）会把 (lock+addSum) 压到 2.9，导致「保留 6 点生命」实际只剩 2.9。
+            return Math.max(lock, 1, (lock + addSum) * (1 + mulSum));
         }
     }
     return Math.max(0, result);
