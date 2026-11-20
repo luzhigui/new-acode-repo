@@ -1,6 +1,6 @@
 ﻿// player/503-player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
-// V7.0.5 | 2026-11-19 吸星单独表演时间：含吸星 cue 的步之后间隔 300ms→1200ms（连线/飘字读完再进下一步）
-export const VER = 'player/503-player-core.js V7.0.5';
+// V7.0.6 | 2026-11-20 尸体摘格改到步末：每步播完后 flushCorpseDue，死亡同一步的击退/换位动画不再被清格打断
+export const VER = 'player/503-player-core.js V7.0.6';
 
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
@@ -24,7 +24,7 @@ import * as net from '../infra/109-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './513-battle-export.js';
 import { summarizeRoundStep, buildCareerRecord, appendCareerRecord } from '../modules/332-career-log.js';
 
-import { readRound, setupDeathTimers } from './506-player-step-sync.js';
+import { readRound, setupDeathTimers, flushCorpseDue } from './506-player-step-sync.js';
 import { playStepInterleaved } from './504-player-play-step.js';
 
 function getCtx() { return getPlayerContext(); }
@@ -168,6 +168,7 @@ export async function playBattle() {
             await playStepInterleaved(c, step, isFirstAttackRef);
             c._rewindLastStep = step;   // 倒针：记「最后播完的一步」，一键回最新从这里还原
             await clock.wait(stepHoldMs(step));
+            flushCorpseDue(c);          // 步末才摘尸：让同一步里的死亡+击退换位动画完整播完
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
         }
 
@@ -408,6 +409,7 @@ export async function playBattleGuest() {
         feedBattleStep(step, step.activeBuffs || c.activeBuffs);   // 战报导出：从机喂房主发来的 step
         await playStepInterleaved(c, step, isFirstAttackRef);
         await clock.wait(stepHoldMs(step));
+        flushCorpseDue(c);
         if (step.winner) { finalWinner = step.winner; isBattleOver = true; }
     }
 
@@ -468,6 +470,7 @@ export async function playBattleReplay(report) {
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
         await playStepInterleaved(c, step, isFirstAttackRef);
         await clock.wait(stepHoldMs(step));
+        flushCorpseDue(c);
         if (step.winner) { finalWinner = step.winner; break; }
     }
 

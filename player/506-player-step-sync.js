@@ -1,7 +1,7 @@
 // player/506-player-step-sync.js — 引擎 step → battleStore 同步 + 阵亡摘格 timer + 回合号读写
 //   syncStoreFromStep / readRound / setRound / setupDeathTimers 整块迁入。
 //   readRound 仍对外（45 经 42 barrel 取），本文件 export。
-export const VER = 'player/506-player-step-sync.js V1.0.2';
+export const VER = 'player/506-player-step-sync.js V1.0.3';
 
 import { STORE_ACTION_TYPES, FLASH_TYPES } from '../infra/106-battle-enums.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -66,6 +66,7 @@ export function setRound(c, round) {
 
 export function setupDeathTimers(c) {
     c._deathTimers = {};
+    c._corpseDue = new Set();
     c.store.subscribe((state) => {
         if (!c.UI) return;
         for (const su of state.units) {
@@ -78,10 +79,26 @@ export function setupDeathTimers(c) {
                     // 复活识别（与 syncStoreFromStep 出黑名单同源的双保险）：触发时 store 已报活 → 不摘格子
                     const cur = c.store.getState().units.find(u => u.uid === uid);
                     if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) return;
-                    if (c._removedUids) c._removedUids.add(uid);
-                    c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
+                    // 摘尸改到「步末」执行（2026-11-20 老板报韦一笑尸体换位到一半变空格）：
+                    //   死亡同一步里常有击退/换位动画，定时到点就 REMOVE_UNIT 会把正被动画移动的格子清空；
+                    //   这里只登记到期，由 flushCorpseDue 在每个 step 播完后统一摘。
+                    if (!c._corpseDue) c._corpseDue = new Set();
+                    c._corpseDue.add(uid);
                 }, getPerfParam('corpseDelay', GlobalStore.get('speed') || 300) || 3000);
             }
         }
     });
+}
+
+// 步末统一摘尸：到期且未复活才 REMOVE_UNIT（由 503 每步播完后调用）
+export function flushCorpseDue(c) {
+    if (!c || !c._corpseDue || !c._corpseDue.size || !c.store) return;
+    const due = [...c._corpseDue];
+    c._corpseDue.clear();
+    for (const uid of due) {
+        const cur = c.store.getState().units.find(u => u.uid === uid);
+        if (cur && cur.alive === true && !(cur.state && cur.state._isDead)) continue;
+        if (c._removedUids) c._removedUids.add(uid);
+        c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
+    }
 }
