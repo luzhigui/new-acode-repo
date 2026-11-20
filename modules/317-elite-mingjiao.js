@@ -2,10 +2,9 @@
 // 编号 27 = 「明教精英」模块族，不是单文件序号；族内拆文件共享父号、用语义后缀区分。
 // 本文件只做集中注册（registerElite × 9 + targetPoolFilter + roundComponent × 2 + holyFlameEnhancer
 //   + buffRoundTransformer + stateTransition × 4），不写具体逻辑。
-export const VER = 'modules/317-elite-mingjiao.js V7.3.4';
+export const VER = 'modules/317-elite-mingjiao.js V7.3.5';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/208-registry-elite.js';
-import { registerTargetPoolFilter } from '../core/207-target-strategies.js';
 
 import { BUFF_TYPES, CAMP_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
 import { createEagleComponent } from './318-elite-mingjiao-eagle.js';
@@ -38,13 +37,8 @@ registerElite('寒离飒', createHanLiSaComponent);
 // 说不得·布袋：普通兵数据驱动机制（MECHANIC_TYPES.BAG_TRAP），注册进 core/18 注册表
 registerMechanicHandler(MECHANIC_TYPES.BAG_TRAP, bagTrapHandler);
 
-// 杨逍·选敌 pool-filter（core/07 通用飞行分支取目标前调用）：
-//   优先未行动且未被点穴的敌人（控到还有行动权的 target 才有意义）；非杨逍返回 null（不干预）；
-//   敌方全部已行动时候选排空 → runTargetPoolFilters 不替换池，按飞行默认照打（与组件内追击 ×1.3 同一条件）。
-registerTargetPoolFilter((unit, candidates) => {
-    if (!unit.isYangXiao) return null;
-    return candidates.filter(e => !e.state._acted && !isControlled(e));
-});
+// 杨逍·选敌：2026-11-20 上移到 core/207 的分层策略（①未行动且点穴/截脉不在冷却 ②已行动但冷却中 ③飞行通用），
+//   原 pool-filter 只保留「未行动且未被控」一档，会把 ② 直接筛没，已删除。
 
 // ——V7.5.13 回合钩子注册（core/11 特判收口）：小昭的知识搬回小昭家 ——
 // 回合组件：姊/妹工厂产的是带相位方法的组件（onFirstAllyTurn/executeAttach/executeFly…），

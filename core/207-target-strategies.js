@@ -1,7 +1,7 @@
 // core/207-target-strategies.js
 // 与 registerDodgeRule 同模式：策略按注册顺序跑，第一个非 null 胜出。
 // 声明层（BEFORE_SELECT_TARGET）优先于本表——声明给出 targetResult 时根本不会进本表。
-export const VER = 'core/207-target-strategies.js V1.3.1';
+export const VER = 'core/207-target-strategies.js V1.3.2';
 
 import { getFronts, canBeTargeted, isMelee } from './203-battle-utils.js';
 import { getGameData } from './201-config-5v5-test.js';
@@ -118,6 +118,17 @@ registerTargetStrategy((unit, validTargets, ctx) => {
     if (unit.role !== ROLE_TYPES.FLYER) return null;
     const rng = ctx.rng;
     const pool = runTargetPoolFilters(unit, validTargets, ctx);
+    // 杨逍·鹰眼选敌分层（2026-11-20 老板口径）：
+    //   ① 未行动 且 点穴/截脉不在冷却（这一击能真正控住人）
+    //   ② 已行动 但 点穴/截脉冷却中（至少能打掉 cd）
+    //   ③ 其余按飞行通用（低血 → 前排 → 随机）
+    if (unit.isYangXiao) {
+        const hasCd = (e) => !!(e.state && e.state._dianXueCd > 0);
+        const canControl = pool.filter(e => !e.state._acted && !hasCd(e));
+        if (canControl.length > 0) return { target: canControl[rng.nextInt(0, canControl.length - 1)] };
+        const cdActed = pool.filter(e => e.state._acted && hasCd(e));
+        if (cdActed.length > 0) return { target: cdActed[rng.nextInt(0, cdActed.length - 1)] };
+    }
     const lowHpTargets = pool.filter(u => u.hp / u.maxHp < 0.4);
     if (lowHpTargets.length > 0) {
         return { target: lowHpTargets[rng.nextInt(0, lowHpTargets.length - 1)] };
