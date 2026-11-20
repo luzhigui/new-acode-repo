@@ -1,6 +1,6 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
-// V6.3.18 | 2026-11-20 横幅手机适配：字号 vw 夹取 + 容器 max-width 94vw + 允许换行（九人满员战报条不再超屏）
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.18';
+// V6.3.19 | 2026-11-20 横幅三分口径定稿：普通横幅回原样(2.5rem)、九人战报条 clamp 94vw、闪避反击条 clamp 94vw
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.19';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -619,7 +619,8 @@ export async function showBuffBanner(text, opts) {
                     banner.offsetHeight;
                     banner.style.animation = `warBannerPop ${dur}ms ease-out forwards`;
                 } else {
-                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(1.2rem,4.8vw,2.5rem);font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:normal;text-align:center;max-width:94vw;box-sizing:border-box;';
+                    // 普通横幅恢复原尺寸（2026-11-20 老板：只让九人战报条变小，热血奋战等别动）
+                    banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;';
                     banner.textContent = text;
                     banner.style.animation = 'none';
                     banner.offsetHeight;
@@ -639,7 +640,8 @@ export function showCriticalBanner(text) {
     return new Promise(resolve => {
         const banner = document.createElement('div');
         banner.textContent = text;
-        banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3.5rem;font-weight:bold;color:#FFD700;z-index:10050;pointer-events:none;text-shadow:0 0 30px rgba(255,215,0,0.9), 0 0 10px black;white-space:nowrap;animation:bannerPop 2.5s ease-out forwards;';
+        // 闪避反击等大横幅：字号随屏宽缩放，最长不超 94vw（原 3.5rem 在手机上超出屏幕）
+        banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(1.6rem,6vw,3.5rem);font-weight:bold;color:#FFD700;z-index:10050;pointer-events:none;text-shadow:0 0 30px rgba(255,215,0,0.9), 0 0 10px black;white-space:nowrap;max-width:94vw;animation:bannerPop 2.5s ease-out forwards;';
         document.body.appendChild(banner);
         clock.wait(2500).then(() => {
             if (banner.parentNode) banner.remove();
