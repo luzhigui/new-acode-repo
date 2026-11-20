@@ -21,7 +21,8 @@
 //   基础蓄力护盾 25%→40%（content xuLi.params 真源）
 // V2.4.10 | 2026-11-20 护盾回落 40%→25%、目标格 1.4N→1.2N（tierDen.direct 0.8333）、
 //   全轰每格攻击力加成 50%→30%（新参数 rowAtkRatio，不再硬编码 hlsAtk/2）
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.10';
+// V2.4.11 | 2026-11-20 recentRounds 去掉 `|| 2` 字面量兜底，改 register 期显式校验（缺参数当场报错）
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.11';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
@@ -62,6 +63,7 @@ export function createHanLiSaComponent() {
                 throw new Error('缺技能参数: 寒离飒.xuLi.doublePunchHpPct / doublePunchProb');
             }
             if (xl.bucketConvert == null) throw new Error('缺技能参数: 寒离飒.xuLi.bucketConvert');
+            if (xl.recentRounds == null) throw new Error('缺技能参数: 寒离飒.xuLi.recentRounds');
 
             const announce = (ctx, note) => {
                 if (!ctx || !Array.isArray(ctx.log)) return;
@@ -325,7 +327,7 @@ export function createHanLiSaComponent() {
                     const decls = [];   // ROUND_END 无 declarations 通道，本地攒齐后统一走 core/16 应用器
                     if (hls.alive) {
                         const enemies = enemyOf();
-                        const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-(xl.recentRounds || 2)) : [];
+                        const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-xl.recentRounds) : [];
                         // N = 最近 recentRounds 回合承伤桶总和（含蓄力行动时记入的攻击力笔，见 BEFORE_ACTION_SKIP）
                         //   + 蓄力期被雄鹰恢复累加的额外基数（攻击力原值，真伤）。
                         const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));

@@ -9,7 +9,8 @@
 // V3.5.8 | 2026-11-18 预览撤基数加笔(与319同口径,攻击力笔已在桶内)
 // V3.5.9 | 2026-11-18 预览全轰半攻(与319同口径)
 // V3.5.10 | 2026-11-19 修全屏轰拳 ReferenceError：dmgMapFor 未接 hls 却用 getStat(hls,'atk')
-export const VER = 'ui/720-hanlisa-aim.js V3.5.10';
+// V3.5.11 | 2026-11-20 全轰预览的攻击力加成改读 rowAtkRatio（原写死 /2，实战已按 0.3 算 ⇒ 预览高估）；缺参数 throw 不兜底
+export const VER = 'ui/720-hanlisa-aim.js V3.5.11';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -214,12 +215,13 @@ function dmgMapFor(aim, N, xl, enemies, hls) {
         // V2.4.0 按列穿深（老板 2026-11-17 拍板）：与 modules/319 引擎同口径——每列最前排 N/3、列内第二人 N/4、其余敌人 N/5
         // 2026-11-18 老板拍板：按排两档，与 modules/319 引擎同口径——第一排 N/4+攻、第二排及以后 N/5+攻
         if (!xl.rowDen) throw new Error('缺技能参数: 寒离飒.xuLi.rowDen');
+        if (xl.rowAtkRatio == null) throw new Error('缺技能参数: 寒离飒.xuLi.rowAtkRatio');
         const rd = xl.rowDen;
         const hlsAtk = Math.floor(getStat(hls, 'atk'));
         const frontRow = Math.min(...enemies.filter(e => e && e.alive).map(e => Math.floor((e.pos - 1) / 3)));
         enemies.filter(e => e && e.alive).forEach(e => {
             const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
-            map[e.pos] = { dmg: Math.floor(N / (isFront ? rd.front : rd.back)) + Math.floor(hlsAtk / 2), tier: isFront ? 'rowFront' : 'rowBack' };
+            map[e.pos] = { dmg: Math.floor(N / (isFront ? rd.front : rd.back)) + Math.floor(hlsAtk * xl.rowAtkRatio), tier: isFront ? 'rowFront' : 'rowBack' };
         });
     }
     return map;
