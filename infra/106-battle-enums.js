@@ -365,6 +365,7 @@ export const SIGNAL_TYPES = Object.freeze({
     //   专供小昭·姊乾坤衍生——BEFORE_DAMAGE_CALC 每次攻击只 emit 一次，爪击拿不到「每爪」语义。
     CLAW_HIT_APPLIED: 'clawHitApplied',
     CLAW_DAMAGE_APPLIED: 'clawDamageApplied',  // 白骨爪实扣值落地（窄通道，不惊动 AFTER_DAMAGE_APPLIED 老监听）
+    HP_LOSS_APPLIED: 'hpLossApplied',          // 2026-11-21 老板拍板：承伤桶口径=所有实扣伤害——core/214 applyStatChange 咽喉统一广播
     // 斩杀落地前广播（EXECUTE handler 每处决一个目标发一次）：监听方可把本次斩杀拦下（payload.cancelled=true）。
     //   专供庄铮·断锤三式——斩杀不是伤害、不经 BEFORE_DAMAGE_APPLY，未触发时会被直接带走。
     EXECUTE_APPLIED: 'executeApplied'

@@ -4,7 +4,8 @@ export const VER = 'core/214-battle-shared.js V6.4.15';
 
 import { CONFIG } from './201-config-5v5-test.js';   // getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/102-core-utils.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES, SIGNAL_TYPES } from '../infra/106-battle-enums.js';
+import { eventBus } from '../infra/101-event-bus.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { isAirborne } from './203-battle-utils.js';
 import { isCCImmune } from './218-state-keys.js';     // 免控语义（core/218 标签表单一真源）   // 飞天/附身判据全库唯一一份（第 184 轮收口）
@@ -307,6 +308,11 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
                 actualAmount: actualDelta
             });
         }
+    }
+    if (field === 'hp' && target.hp < oldVal) {
+        // 2026-11-21 老板拍板：承伤期间所有实扣伤害都进承伤桶（毒掉血/圣火令/反弹/溅射…全走本咽喉统一广播实扣值）。
+        //   寒离飒桶改单监听本信号；旧 AFTER_DAMAGE/CLAW 两个入桶口同日撤除防双计。
+        eventBus.emit(SIGNAL_TYPES.HP_LOSS_APPLIED, { target, dmg: Math.abs(target.hp - oldVal), source, reason });
     }
     if (field === 'hp' && target.hp <= 0) {
         target.state._pendingDeath = true;

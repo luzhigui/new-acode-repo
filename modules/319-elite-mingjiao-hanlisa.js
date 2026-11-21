@@ -23,7 +23,12 @@
 //   全轰每格攻击力加成 50%→30%（新参数 rowAtkRatio，不再硬编码 hlsAtk/2）
 // V2.4.11 | 2026-11-20 recentRounds 去掉 `|| 2` 字面量兜底，改 register 期显式校验（缺参数当场报错）
 // V2.4.12 | 2026-11-21 全轰回调：护盾 25%→30%、每格攻击力加成 30%→40%、前排分母 4→3（N/3）
+<<<<<<< HEAD
 // V2.4.13 | 2026-11-21 承伤转化 0.8→1（全量入桶）、目标格 1.2N→1.1N（tierDen.direct 0.9091）
+=======
+// V2.4.13 | 2026-11-21 承伤桶改HP_LOSS_APPLIED单监听(所有实扣伤害都进,强化真转化改实际伤害)
+export const VER
+>>>>>>> bf424b81 (承伤桶口径升级：所有实扣伤害统一进桶（HP_LOSS_APPLIED咽喉广播,撤AFTER/CLAW双口防双计）+强化真转化改按实际伤害（攻击力代伤少算,老板拍板）)
 export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.13';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange, poisonBlockedByHook } from '../core/214-battle-shared.js';
@@ -104,7 +109,7 @@ export function createHanLiSaComponent() {
                 hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), A, B, { log: data.log });
                 hls.state._shieldExtra = stealShieldHalf(hls, hls.maxHp * (powerCfg.extraShieldPct || 0), A, B, { log: data.log });   // 独立池同样过偷盾（341 规则对称，2026-11-19 补）
                 pushSkillAnnounce(data.log, hls, '寒离飒强化',
-                    `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按对方攻击力全额计入轰拳）`,
+                    `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按实际伤害全额计入轰拳）`,
                     { floatText: '🌀强化', floatUid: hls.uid });
             });
 
@@ -187,20 +192,23 @@ export function createHanLiSaComponent() {
                 }
             });
 
-            // 白骨爪独立管线不广播 AFTER_DAMAGE_APPLIED（core/217 手写护盾抵扣）——2026-11-18 老板拍板：爪伤也进桶
-            eventBus.on(SIGNAL_TYPES.CLAW_DAMAGE_APPLIED, 50, (data) => {
+            // —— 承伤桶单监听（2026-11-21 老板拍板：承伤期间所有实扣伤害都进桶——毒掉血/圣火令/反弹/溅射/白骨爪…）——
+            // 全部伤害统一走 core/214 applyStatChange 咽喉广播实扣值（HP_LOSS_APPLIED），
+            // 旧 AFTER_DAMAGE_APPLIED / CLAW_DAMAGE_APPLIED 两个入桶口同日撤除防双计。
+            // 强化回合真转化 = 实际伤害全额（不再用攻击力代伤——有的角色伤害比攻击力高，代伤会少算）
+            eventBus.on(SIGNAL_TYPES.HP_LOSS_APPLIED, 50, (data) => {
                 if (data.target !== hls) return;
-                if (data.dmg && data.dmg > 0) {
-                    const arr = hls.state._hlsTaken;
-                    if (Array.isArray(arr) && arr.length > 0) {
-                        arr[arr.length - 1] += Math.floor(data.dmg * xl.bucketConvert);
-                    }
+                if (!(data.dmg > 0)) return;
+                const arr = hls.state._hlsTaken;
+                if (Array.isArray(arr) && arr.length > 0) {
+                    arr[arr.length - 1] += Math.floor(data.dmg * (hls.state._hlsTrueAbsorb ? 1 : xl.bucketConvert));
                 }
             });
 
-            // —— 承伤累计（最近三回合桶）+ 护盾吸收提示 ——
+            // —— 护盾吸收播报（承伤累计已迁 HP_LOSS_APPLIED 单监听，2026-11-21 老板拍板）——
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LEECH + 3, (data) => {
                 if (data.target !== hls) return;
+<<<<<<< HEAD
                 if (data.dmg && data.dmg > 0) {
                     const arr = hls.state._hlsTaken;
                     if (Array.isArray(arr) && arr.length > 0) {
@@ -210,6 +218,8 @@ export function createHanLiSaComponent() {
                             : Math.floor(data.dmg * xl.bucketConvert);   // 普通桶按 bucketConvert 转化（2026-11-18 0.8；2026-11-21 老板拍板改 1 = 全量）
                     }
                 }
+=======
+>>>>>>> bf424b81 (承伤桶口径升级：所有实扣伤害统一进桶（HP_LOSS_APPLIED咽喉广播,撤AFTER/CLAW双口防双计）+强化真转化改按实际伤害（攻击力代伤少算,老板拍板）)
                 // core/12 写在本击的 absorbed 量：谁的日志归谁——护盾吸收是寒离飒的承伤反应，
                 //   不再插进攻击者的攻击组（pushInfo），改为紧跟本击攻击组之后的独立播报行
                 if (hls.state._shieldAbsorbed > 0) {
