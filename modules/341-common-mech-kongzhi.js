@@ -124,7 +124,6 @@ export const stealSkillHandler = {
                 //   mechanics 同 type 项嫁接进偷学者的运行时配置（同 type 幂等覆盖，配置是内存对象）。
                 const originCfg = gd && gd.characters && gd.characters[picked.name];
                 const selfCfg = gd && gd.characters && gd.characters[self.name];
-                try {
                 if (originCfg && selfCfg) {
                     if (originCfg.skills && originCfg.skills[picked.type]) {
                         selfCfg.skills = selfCfg.skills || {};
