@@ -4,7 +4,8 @@
 //   载荷全部是可序列化的 uid/camp/pos/数值 → 回放、联机从机都能播同一份演出。
 //   一条 cue 只在这里演出一次；快进由 fx/610 订阅侧统一拦（不阻塞战斗）。
 // V1.1.1 | 2026-11-21 新增 blazeBurst：炎魔狮王炎爆改为「掌心凝球→拖尾飞行→命中爆开」三段演出（纯 CSS 火球，不再只飘 emoji）
-export const VER = 'fx/619-skill-cues.js V1.1.1';
+// V1.1.2 | 2026-11-21 炎爆三段加 minRealMs 保底（320/380/240），倍速/快进下也看得清凝聚与飞行
+export const VER = 'fx/619-skill-cues.js V1.1.2';
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
@@ -324,7 +325,7 @@ function showBlazeBurst(cue) {
         const grow = Math.min(1, p / 0.82);
         const pulse = 0.08 * Math.sin(p * Math.PI * 6) * grow;
         orb.style.transform = `translate(-50%,-50%) scale(${(0.15 + 0.85 * grow + pulse).toFixed(3)})`;
-    }).then(() => {
+    }, { minRealMs: 320 }).then(() => {
         drop(orb);
         fly();
     });
@@ -356,7 +357,7 @@ function showBlazeBurst(cue) {
             tail.style.width = len.toFixed(1) + 'px';
             tail.style.transform = `rotate(${ang}rad)`;
             tail.style.opacity = (0.9 * (1 - p * 0.45)).toFixed(2);
-        }).then(() => {
+        }, { minRealMs: 380 }).then(() => {
             drop(ball); drop(tail);
             impact();
         });
@@ -376,6 +377,6 @@ function showBlazeBurst(cue) {
             ring.style.opacity = (0.95 * (1 - p)).toFixed(2);
             flash.style.transform = `translate(-50%,-50%) scale(${(0.6 + 0.9 * p).toFixed(2)})`;
             flash.style.opacity = (0.95 * (1 - p)).toFixed(2);
-        }).then(() => { drop(ring); drop(flash); });
+        }, { minRealMs: 240 }).then(() => { drop(ring); drop(flash); });
     }
 }
