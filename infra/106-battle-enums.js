@@ -222,9 +222,12 @@ export const MECHANIC_TYPES = Object.freeze({
     DOUBLE_FACE: 'doubleFace',         // 彭莹玉·双面观音（modules/338）
     SUMMON_BENGBENG: 'summonBengBeng', // 张中·召唤蹦蹦（modules/339）
     // M97 机制弟子（modules/340）
-    WOODEN_DUMMY: 'woodenDummy',       // 木桩弟子：攻击归零、同列后方队友受伤转移 50%
+    WOODEN_DUMMY: 'woodenDummy',       // 木桩弟子：攻击全转防御、同列队友被选中时由木桩代受
     DESPERATE: 'desperate',            // 拼命弟子：免疫治疗、每损失 10% 生命永久 +10% 攻击
-    ANTI_POISON: 'antiPoison'          // 防化弟子：全场毒素无效化，每次拦毒给明教全体回 3% 最大生命
+    ANTI_POISON: 'antiPoison',         // 防化弟子：全场毒素无效化，每次拦毒给明教全体回 3% 最大生命
+    // 空智（modules/341）
+    WU_CHI: 'wuChi',                   // 武痴：场上他人攻防单次变化 ≥2 → 30% 随机顿悟
+    STEAL_SKILL: 'stealSkill'          // 11门绝技：每回合偷敌方一条 mechanic 声明
 });
 
 /**

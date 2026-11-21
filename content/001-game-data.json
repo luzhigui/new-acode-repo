@@ -1027,7 +1027,12 @@
 
       "tags": ["六大派", "少林", "普通"],
 
-      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 1, "titleOrder": 1
+      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 1, "titleOrder": 1,
+
+      "mechanics": [
+        { "camp": "enemy", "type": "wuChi" },
+        { "camp": "enemy", "type": "stealSkill" }
+      ]
 
     },
 

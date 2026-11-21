@@ -284,6 +284,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _antiPoisonPulse:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 拼命弟子：当前攻击加成层数（每损失满 10% 生命 1 层），层数变化才重挂乘率
     _desperateStacks:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 武痴（空智）：走火入魔后本回合失效（回合开始由 modules/341 清回 false）
+    _wuChiDisabled:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
     _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 寒离飒·瞄准窗口状态（player/49 瞄准标记步写，hanlisa.js 消费后清零；持久化同现状放 battle 级）
