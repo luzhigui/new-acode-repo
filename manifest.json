@@ -1,11 +1,11 @@
 {
- "ver": "f4ea919769ea6746fecb63fa09ac2a6d0261e51cbc33eb7adaf667392147470a",
+ "ver": "d9079e4fbbfcddb0a6c6abd0a925ebae9c252afe82565e7f595049d1ca8a6bc9",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
   [
    "content/001-game-data.json",
-   "b1834ca9c3ba47123d37ded0bcff190da6ea78d20473961c1ba2e88a1fc82059"
+   "578998087556a2897616736354962dbbc0e71d0a4ed604a1aee23a48933c5696"
   ],
   [
    "content/002-hex-enhance.json",
@@ -69,7 +69,7 @@
   ],
   [
    "core/214-battle-shared.js",
-   "7684b4f2bef65f5532093d06e8fbe1f9cc255520b61d3cab534d58e9a46be959"
+   "dadd6dde9d9b15d62718d4dda66ee9ff613d0b334e6a6abcb8cfb08566f29029"
   ],
   [
    "core/215-buff-effects.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "591ab9cc709cfd5a90362bc338b948490a65473d7343c0fabff98ec719185aea"
+   "8b11b2e49d99c16699c12303f182cf4cd1194e4138dd34c3dde240dca8d83783"
   ],
   [
    "infra/107-fact-contract.js",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "139d7649c3779d845eaf432d4caa74c79f7e006896afbafbfefebe5bfcb01f0a"
+   "78d5f988a1289a9f21db5947b53cb80b7ebc491dc07b3e2dcd525eabe5a33af5"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
