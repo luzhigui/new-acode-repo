@@ -119,6 +119,7 @@
                     <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
                     <button class="big-btn btn-play" id="btnYuanZhen" style="flex:1;background:linear-gradient(135deg, #ffd54f, #5d4037);">🎭 圆真</button>
                     <button class="big-btn btn-play" id="btnSuWen" style="flex:1;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
+                    <button class="big-btn btn-play" id="btnKongZhi" style="flex:1;background:linear-gradient(135deg, #ce93d8, #4a148c);">📿 空智</button>
                 </div>
                 <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
                 <div class="btn-row">
@@ -766,6 +767,11 @@
         document.getElementById('btnSuWen').addEventListener('click', () => {
             clearDemoFlags();
             mustSet('_forceSectUnit', '素问');
+            window.location.href = 'index.html';
+        }); 
+        document.getElementById('btnKongZhi').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSectUnit', '空智');
             window.location.href = 'index.html';
         });
         // 🐛 Bug 模式：海克斯选卡全部可选（2026-11-10 恢复；一次生效，进游戏消费后即清）

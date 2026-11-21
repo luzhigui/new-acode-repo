@@ -1,13 +1,15 @@
 // modules/340-common-mech-disciples.js — M97 机制弟子：拼命 / 木桩 / 防化
 //   content/001 的 characters.<弟子名>.mechanics 顶层声明 → core/15 安装期按 type 查本文件注册的 handler。
 // V1.1.0 | 2026-11-21 拼命改禁疗（统一读 CONFIG.HEAL_REDUCE_MULT=减疗33%）+ 每 5% 血一层攻；木桩 atk×200% 入防；防化拦毒回 5%
-export const VER = 'modules/340-common-mech-disciples.js V1.1.0';
+// V1.1.1 | 2026-11-22 木桩代受修真雷:旧钩子读恒null的targetResult从未生效,改registerTargetFilter(同列候选换桩)
+export const VER = 'modules/340-common-mech-disciples.js V1.1.1';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { getStat, addMod, removeModsByGroup, setPoisonBlockedHook } from '../core/214-battle-shared.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
+import { registerTargetFilter } from '../core/207-target-strategies.js';
 
 const allOf = (data) => [...((data && data.A) || []), ...((data && data.B) || [])];
 const findByName = (data, name) => allOf(data).find(u => u.name === name) || null;
@@ -61,23 +63,17 @@ export const woodenDummyHandler = {
             self0.state._baseAtk = 0;
             self0.state._baseDef = (self0.state._baseDef ?? getStat(self0, 'def')) + atk * 2;
         }
-        registerSettlementHook({
-            when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-            priority: L.BEFORE_SELECT_TARGET.PANG_TAUNT_FORCE,
-            handler: (data) => {
-                const dec = data && data.declaration;
-                const target = dec && dec.targetResult;
-                if (!target || !data) return;
-                const team = decl.camp === CAMP_TYPES.ALLY ? (data.A || []) : (data.B || []);
-                if (!team.includes(target)) return;                 // 只替自己人挡
-                const self = team.find(u => u.name === decl.name);
-                if (!self || !self.alive || self === target) return;
-                if (self.pos == null || target.pos == null) return;
-                // 同列判定：pos 1..9 按 3 列排布，列 = (pos-1) % 3
-                if ((target.pos - 1) % 3 !== (self.pos - 1) % 3) return;
-                if (!canBeTargeted(self)) return;
-                dec.targetResult = self;
-            }
+        registerTargetFilter('woodenDummyShare', (unit, candidates) => {
+            const team = (decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []));
+            const self = team.find(u => u.name === decl.name);
+            if (!self || !self.alive || self.pos == null) return null;
+            const pool = Array.isArray(candidates) ? candidates : [];
+            // 木桩不在合法候选池（近战裁前排等）就不代受——不把后排塞进近战池破硬规则
+            if (!pool.some(c => c && c.uid === self.uid)) return null;
+            const sameCol = pool.filter(c => c && c !== self && c.pos != null && (c.pos - 1) % 3 === (self.pos - 1) % 3);
+            if (sameCol.length === 0) return null;
+            //   改走 core/07 过滤注册面：同列队友的候选位原地换成木桩，策略选中谁就打谁——选中同列=打木桩。
+            return pool.map(c => sameCol.includes(c) ? self : c);
         });
     }
 };
