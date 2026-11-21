@@ -16,7 +16,8 @@
     "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 }, "baseRegen": 10 },
     "标枪": { "icon": "🪠", "label": "标枪",
       "rangeByRow": { "front": [1, 2, 3, 4, 5, 6, 7, 8, 9], "mid": [1, 2, 3, 4, 5, 6], "back": [1, 2, 3] } },
-    "蝴蝶": { "icon": "🦋", "label": "蝴蝶", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } }
+    "蝴蝶": { "icon": "🦋", "label": "蝴蝶", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } },
+    "炎魔": { "icon": "🐲", "label": "炎魔", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } }
   },
 
   "characters": {
@@ -231,17 +232,19 @@
       ]
     },
 
-    "魔化谢逊": {
+    "炎魔狮王": {
       "named": false, "tags": ["六大派", "少林", "首领"],
-      "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "m": 171, "poolTier": 171, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "role": "炎魔",
+      "fixedStats": { "atk": 28, "def": 28, "maxHp": 288 },
       "skills": {
-        "demonHowl": {
-          "name": "狂魔怒吼",
-          "desc": "被金刚伏魔圈锁住，无法行动。每回合开始时，随机对一名明教角色造成28点真实伤害。"
+        "blazeBurst": {
+          "name": "炎爆",
+          "desc": "被金刚伏魔圈锁住，无法行动。每回合开始时随机对一名明教角色打出一发炎爆，造成28点真实伤害。"
         }
       },
       "mechanics": [
-        { "camp": "enemy", "type": "demonXiexun" }
+        { "camp": "enemy", "type": "blazeLionKing" }
       ]
     },
 
@@ -1622,7 +1625,7 @@
         { "squad": [{ "name": "成昆", "role": "防战", "m": 112 }, 104, 104, 104, 100] },
         {
           "squad": [
-            { "name": "魔化谢逊", "role": "防战", "m": 115 },
+            { "name": "炎魔狮王", "role": "炎魔", "m": 171 },
             { "name": "渡厄", "role": "防战", "m": 104 },
             { "name": "渡劫", "role": "战士", "m": 104 },
             { "name": "渡难", "role": "飞行", "m": 104 }
@@ -1659,7 +1662,7 @@
         { "name": "渡厄", "role": "防战", "m": 104, "skill": "monkFixedBuff" },
         { "name": "渡劫", "role": "战士", "m": 104, "skill": "monkFixedBuff" },
         { "name": "渡难", "role": "飞行", "m": 104, "skill": "monkFixedBuff" },
-        { "name": "魔化谢逊", "role": "防战", "m": 115, "skill": "demonXiexun" }
+        { "name": "炎魔狮王", "role": "炎魔", "m": 171, "skill": "blazeBurst" }
       ],
       "7": [
         { "name": "灭绝师太", "role": "战士", "m": 115, "skill": "counterAttack" }

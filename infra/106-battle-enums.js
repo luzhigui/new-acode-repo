@@ -230,7 +230,7 @@ export const MECHANIC_TYPES = Object.freeze({
     STEAL_SKILL: 'stealSkill',         // 11门绝技：每回合偷敌方一条 mechanic 声明
     // 第6关·少林三渡正三角（modules/342）
     MONK_FIXED_BUFF: 'monkFixedBuff',   // 三渡固定被动：防御+40% / 每回合两次攻击 / 闪避+25%
-    DEMON_XIEXUN: 'demonXiexun'         // 魔化谢逊：永久无法行动，每回合真伤一名明教
+    BLAZE_LION_KING: 'blazeLionKing'    // 炎魔狮王：锁死不动，每回合随机一发炎爆（28 真伤）
 });
 
 /**
@@ -323,7 +323,10 @@ export const ROLE_TYPES = Object.freeze({
     // 蝴蝶（小昭·姊独占·身份职业）：目的只是「不再是远程身份」，避免把流星赶月拉进海克斯候选池；
     //   进 CONFIG.ROLES 会污染随机职业池，故同标枪先例只作身份职业。
     //   打人方式不变：未命中基础、远程成长、射箭演出由 core/03、fx/88 显式并入 RANGED 分支。
-    BUTTERFLY: '蝴蝶'
+    BUTTERFLY: '蝴蝶',
+    // 炎魔（第6关·炎魔狮王独占·身份职业）：图标 🐲；不进 CONFIG.ROLES，只用于关卡展示与身份。
+    //   该单位不普攻，打人方式由 mechanic 驱动；加成同远程（content roles.炎魔）。
+    BLAZE_LORD: '炎魔'
 });
 
 /** 战斗信号类型：eventBus.on / eventBus.emit 的信号名唯一来源 */

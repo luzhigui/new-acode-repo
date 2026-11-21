@@ -1,13 +1,13 @@
-// modules/342-elite-sixsects-san-du.js — 少林三渡与魔化谢逊（第6关·正三角·金刚伏魔阵）
+// modules/342-elite-sixsects-san-du.js — 少林三渡与炎魔狮王（第6关·正三角·金刚伏魔阵）
 // 设计：三渡技能固定、职业随站位随机（2号位=防战 / 7号位=战士 / 9号位=飞行，由 modules/330 抽位改写）。
 //   渡厄：防御 +40%（严阵以待）
 //   渡劫：每回合攻击两次（必发；走引擎 doubleStrike 额外出手通道）
 //   渡难：自带流云身法，闪避 +25%
 //   共有：站 7~9 号位时每回合开始回复 30 点生命（金刚伏魔阵）
-//   魔化谢逊：锁在 5 号位、永久无法行动；每回合开始随机对一名明教角色造成 28 点真实伤害。
+//   炎魔狮王：锁在 5 号位、永久无法行动；每回合开始随机对一名明教角色打出一发炎爆（28 点真实伤害）。
 // 注：引擎的 ON_ROUND_END 在每个出手后都会广播（并非整回合只一次），
 //   故「每回合」类效果统一挂 ON_ROUND_START，保证每回合各结算一次。
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.0.0';
+export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.0';
 
 import { registerSettlementHook } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -79,8 +79,8 @@ export const monkFixedBuffHandler = {
     }
 };
 
-// ── 魔化谢逊：被金刚伏魔圈锁死 ──
-export const demonXiexunHandler = {
+// ── 炎魔狮王：被金刚伏魔圈锁死 ──
+export const blazeLionKingHandler = {
     fields: {},
     install({ A, B, decl }) {
         const self = findSelf(A, B, decl);
@@ -98,14 +98,14 @@ export const demonXiexunHandler = {
                     .filter(u => u && u.alive && u.camp === CAMP_TYPES.ALLY && !u.isSummon);
                 if (victims.length === 0) return;
                 const victim = victims[getBattleRng().nextInt(0, victims.length - 1)];
-                applyStatChange(victim, 'hp', -28, self, '魔化谢逊·狂魔怒吼', true, false);
-                pushSkillAnnounce(data.log, self, '狂魔怒吼',
-                    `💀 魔化谢逊双目赤红，随机对 ${victim.name} 造成 28 点真实伤害！`,
-                    { floatText: '💀', floatUid: victim.uid });
+                applyStatChange(victim, 'hp', -28, self, '炎魔狮王·炎爆', true, false);
+                pushSkillAnnounce(data.log, self, '炎爆',
+                    `🚀 炎魔狮王张口喷出炎爆，随机命中 ${victim.name}，造成 28 点真实伤害！`,
+                    { floatText: '🚀', floatUid: victim.uid });
             }
         });
     }
 };
 
 registerMechanicHandler(MECHANIC_TYPES.MONK_FIXED_BUFF, monkFixedBuffHandler);
-registerMechanicHandler(MECHANIC_TYPES.DEMON_XIEXUN, demonXiexunHandler);
+registerMechanicHandler(MECHANIC_TYPES.BLAZE_LION_KING, blazeLionKingHandler);

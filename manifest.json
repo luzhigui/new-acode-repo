@@ -1,11 +1,11 @@
 {
- "ver": "153e779f4af4b586ed8b705a16f8de0dd8c1caaac930a46ae13a070a13fa3a9a",
+ "ver": "9c6eb5349b4e8178d70b2da15b8b3c38fc41e3a7923e6e4fb69cf7dd687174cf",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
   [
    "content/001-game-data.json",
-   "52af14d5bb352a163a70fefd13ba4320a80fff957fcd6d4790be1767b18e253f"
+   "b1834ca9c3ba47123d37ded0bcff190da6ea78d20473961c1ba2e88a1fc82059"
   ],
   [
    "content/002-hex-enhance.json",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "0c140cd5cf23b75563a977a48913764089de90f75dbd61e24937ac231dfa6408"
+   "02368305a85646c09d5ba3d9d7d01501474e9369d25a0471f349bec750f0d34d"
   ],
   [
    "infra/107-fact-contract.js",
@@ -241,7 +241,7 @@
   ],
   [
    "modules/301-reg-mechanics.js",
-   "99bc3dd0d1d90a2eecf3a1d33ddfd168eee6cf4c3135dae5258f3119e3b41435"
+   "941bcf7e3a0ef4dd08b9c793b5b4314d822cf0a15d41f11de10d9530e1057099"
   ],
   [
    "modules/302-elite-skills.js",
@@ -357,7 +357,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "0ef0450bf3aaca3d8cc79d5c42af9600d89d1314a43b094fc695b280455b252c"
+   "2009c9754c8bbc609fb729676d12d77817bd0013f5a120e38769269523b12e9f"
   ],
   [
    "modules/331-custom-effects.js",
@@ -409,7 +409,7 @@
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "0c42507a00fa38a50ec77ce4f5deb4342b7cd6da41402d65611ec8952daf79ff"
+   "60bfede534046f2f88a4fccd77b464868ce9ade2b36143ac1b8ddccb9a11487b"
   ],
   [
    "player/501-player-text.js",
@@ -517,7 +517,7 @@
   ],
   [
    "render/414-role-cards.js",
-   "b67a8532709e49f33b4bf0bea9602961615ee29dbd01095370b18a4289c3857b"
+   "268bcacc0ef8b0b6da28bec400c8919ecde6f30ee912f89fb60885088ab4e8c2"
   ],
   [
    "render/415-actions-translate.js",

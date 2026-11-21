@@ -101,7 +101,8 @@ export function getRoleIcon(u, ctx) {
     return u.role === ROLE_TYPES.WARRIOR ? '⚔️'
         : (u.role === ROLE_TYPES.DEFENDER ? '🛡️'
             : (u.role === ROLE_TYPES.RANGED ? '🏹'
-                : (u.role === ROLE_TYPES.JAVELIN ? '🪠' : '🦅')));
+                : (u.role === ROLE_TYPES.JAVELIN ? '🪠'
+                    : (u.role === ROLE_TYPES.BLAZE_LORD ? '🐲' : '🦅'))));
 }
 
 // 战斗日志标签（如 [拒马] / [无忌] / [韦一笑]）
@@ -131,6 +132,7 @@ const SKILL_ICONS = {
     endlessBreath: '☯', baguaArray: '🔮', noContend: '🚫', tenRoundFortify: '🛡️',
     summonLion: '🦁', lionInspire: '⚔️', lionFollow: '🏹',
     rageOnHit: '💢', righteousFace: '🐷', youngBlood: '🔥',
+    blazeBurst: '🚀',
     normalAttack: '✋', counterAttack: '⚔️', thirdStrike: '🗡️', summonZhou: '👭',
     bagTrap: '🧳', damageReflect: '⚡'
 };

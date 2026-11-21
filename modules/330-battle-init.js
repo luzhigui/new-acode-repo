@@ -10,7 +10,7 @@
 // V7.9.1 | 2026-11-19 我方阵容存档：saveAllyLineup/clearAllyLineup/readAllyLineup（localStorage 只存名单+站位，属性与海克斯仍随机）
 // V7.9.2 | 2026-11-20 阵容存档升级多档：list/save/use/delete/clear 五个 API，旧 v1 单档兼容读取
 // V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
-export const VER = 'modules/330-battle-init.js V7.9.4';
+export const VER = 'modules/330-battle-init.js V7.9.5';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -685,15 +685,15 @@ export function initBattleTeams(currentStage, _rng) {
             }
         }
         let allUnits = [...enemyUnits];
-        // 三渡正三角锁位：2/7/9 号位 + 魔化谢逊 5 号位（先占位，模板排位与随机补齐自动跳过）
+        // 三渡正三角锁位：2/7/9 号位 + 炎魔狮王 5 号位（先占位，模板排位与随机补齐自动跳过）
         if (sanDuLayout) {
             for (const u of allUnits) {
                 const lay = sanDuLayout.get(u.name);
                 if (!lay) continue;
                 u.pos = lay.pos; u.state._originalPos = lay.pos; enemyPosSet.add(lay.pos);
             }
-            const moXieXun = allUnits.find(u => u.name === '魔化谢逊');
-            if (moXieXun) { moXieXun.pos = 5; moXieXun.state._originalPos = 5; enemyPosSet.add(5); }
+            const blazeKing = allUnits.find(u => u.name === '炎魔狮王');
+            if (blazeKing) { blazeKing.pos = 5; blazeKing.state._originalPos = 5; enemyPosSet.add(5); }
         }
         let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
@@ -802,6 +802,16 @@ export function initBattleTeams(currentStage, _rng) {
     if (_preset && Array.isArray(_preset.enemyUnits) && _preset.enemyUnits.length) {
         const builtEnemy = buildEnemyFromLineup(_preset.enemyUnits, _rng);
         if (builtEnemy.length) enemyTeam = builtEnemy;
+    }
+
+    // content.fixedStats：跳过掷点、直接锁死攻/防/血（炎魔狮王 28/28/288）。
+    //   放在阵容存档还原之后，两条建队路径（正常生成 / 存档还原）都能吃到。
+    for (const u of enemyTeam) {
+        const fs = getGameData().characters?.[u.name]?.fixedStats;
+        if (!fs) continue;
+        u.atk = fs.atk; u.def = fs.def; u.maxHp = fs.maxHp; u.hp = fs.maxHp;
+        u.state._baseAtk = fs.atk; u.state._baseDef = fs.def; u.state._baseMaxHp = fs.maxHp;
+        u.state._initAtk = fs.atk; u.state._initDef = fs.def; u.state._initMaxHp = fs.maxHp;
     }
 
     // rngContractVersion：本局阵容由哪一版抽签契约产出（跑批 / 回放 / 联机对账靠它识别失配，别按阵容反推）
