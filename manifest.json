@@ -1,11 +1,11 @@
 {
- "ver": "b7c6600c9f1dc279502a7659ed85682d1cdf16909ce1ba59b39d62ee53b5fca7",
+ "ver": "24399e1b850da1e31048ce98a3e5976cb9fc88879b4c5695504cf22505850016",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
   [
    "content/001-game-data.json",
-   "578998087556a2897616736354962dbbc0e71d0a4ed604a1aee23a48933c5696"
+   "ac4940c5fbffe78d1e91f442290060f4cddadba4ef0e9f48bcda8dc5a48d149f"
   ],
   [
    "content/002-hex-enhance.json",
@@ -17,7 +17,7 @@
   ],
   [
    "core/201-config-5v5-test.js",
-   "a90ef11732b5e28687b08d44baa3ad1a86d7d51282eba9a4a90256ec62721e34"
+   "3c29f3e5b21d619c9fd534a8486be255ff20e0858c78d8431d5f06ba13f1b0db"
   ],
   [
    "core/202-unit.js",
@@ -53,7 +53,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "e7c4f01c13527da22fe3ba16b737bac5ce4bb7ca8907906e18f990d3dacb0f0b"
+   "3bec910cabe2a5d054d4137bfc432bccf717dd30dc858c809f2ad653c16c2229"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -61,15 +61,15 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "ad463aab3c1d16454814abb2252fef4d45d7a097aeb5e171f9f5d3d3bce3c070"
+   "0002701ea8e771b5573b9fb6e216d3a1d5e1cee0cde734683d572443b2b6af97"
   ],
   [
    "core/213-battle-attack-edge.js",
-   "dc534e76a5c186bcfbd475041f9cabcaadd3dc39baa91d53aeefbd62c6aa84b8"
+   "444eefe315dd46435a2d80d76f0fa5cd8fd9e1a4787626665f299b2ee4b04fd0"
   ],
   [
    "core/214-battle-shared.js",
-   "dadd6dde9d9b15d62718d4dda66ee9ff613d0b334e6a6abcb8cfb08566f29029"
+   "2dcdceb7bd3a00980f7cdf974b51e3d2bc5edfa2e48103dcbc84b8e7cbcd813c"
   ],
   [
    "core/215-buff-effects.js",
@@ -85,7 +85,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "4430363c85eb997a4d9d9d11b35a34cf56edc2dcfd80f51afe333b39d8c616ac"
+   "e89a9fb7251d4c09166274c200dce61dd424ff1ed9503352036dbd8b43a7c772"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -181,7 +181,7 @@
   ],
   [
    "fx/619-skill-cues.js",
-   "49ad3ff621423fe199be0d42103f7fd86d0090d758eeb21e0d9d5982d4249b99"
+   "bcc62b04d180f5281bb7556bd8ac68ee1752231b0e73db8138eb93d02470b63a"
   ],
   [
    "fx/620-sword-rain.js",
@@ -189,7 +189,7 @@
   ],
   [
    "index.html",
-   "c934f2dc998be8f437922621a3e28299ae189911961d1def4d7dbf7b7cea0ef1"
+   "7d9096e80d3f5481aa867e8f36663377772968e520b8cda869afc6356d650eba"
   ],
   [
    "infra/101-event-bus.js",
@@ -237,7 +237,7 @@
   ],
   [
    "infra/112-store-schema.js",
-   "e932087fabafe0fa6ab69f514e1fa4bd18ca7574b0676fd4a96fb0eb068a893a"
+   "450561f66492c371af5327e0d1c65e5f6732ca6019bd2201eb76eec198da9ba5"
   ],
   [
    "modules/301-reg-mechanics.js",
@@ -249,7 +249,7 @@
   ],
   [
    "modules/303-error-capture.js",
-   "224de3631ddde558baeb791398009d46c93311db6efae5f1718d3f117177aea5"
+   "9fd246231ac2b71a419a127ee71c93cac3305d04beabba7dd2a0187e916a33b4"
   ],
   [
    "modules/304-audio-manager.js",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "43be597d5d7e30e91785b306faee353d5715b6f4ff2bf9bf0344a6f625372804"
+   "e165e142745553e87ce759b030b86095dbd2f85d36957a00ba240587b989cfe6"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
@@ -345,7 +345,7 @@
   ],
   [
    "modules/327-elite-mingjiao-yangxiao.js",
-   "f9f6c05c4b50e43464bcbbfaf21f1492858235cdb53b562ac9c209c584ecd13c"
+   "c27897e953b0b06bb500686c1b0f6aee240943445623a87ce668958b6e62ee97"
   ],
   [
    "modules/328-elite-mingjiao-yintianzheng.js",
@@ -357,7 +357,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "2009c9754c8bbc609fb729676d12d77817bd0013f5a120e38769269523b12e9f"
+   "80717ff8891529e753de3b2903979bb035e03161cbb48c68cefda914bfefe331"
   ],
   [
    "modules/331-custom-effects.js",
@@ -381,11 +381,11 @@
   ],
   [
    "modules/336-elite-sixsects-yuanzhen.js",
-   "e969af3fa40d4c19afb21197a32e6aed79b8861da08ac4d2a1b0c0f06b607d4b"
+   "99ac5ec42ab2b45a560428d75d600ef9162116f7536a78d8ae001ed20b14ccc8"
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
-   "040903d902adcd53756fc1036b235552768fdad68faff2b4b5581abe3ae53cae"
+   "891ede7e375cb9dd88a19bc79033936b62c768d1323904fb145a64880b164822"
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
@@ -397,7 +397,7 @@
   ],
   [
    "modules/340-common-mech-disciples.js",
-   "71feaf46b4c5dd5d2a73b7b2b77b16ffff04e2ac1bfc33755a6f900c5b9ff8f6"
+   "f33c3051538b96f44397eb839a63d3b22e086dab5c4675a57e138caf62a10d81"
   ],
   [
    "modules/341-common-mech-kongzhi.js",
@@ -405,11 +405,11 @@
   ],
   [
    "modules/341-common-shield-steal.js",
-   "7c098d66c0c209aa357aafdcd03ad57f3decfb531cf757b9d7b1a8822f1bfec8"
+   "624bb18f3645d03523839813c372eea76ff52b59bf0814830f6d2b9208913552"
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "6c7d3fc4718a8d5027cab41061df000df844ea40b0da87371bd067774b185a5f"
+   "5838ddec8a981e272f8116a5c07d6ffef18a1fe733e9c1dadf5ba301ae91665d"
   ],
   [
    "player/501-player-text.js",
@@ -473,7 +473,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "57cf188b4c0d8a2e4142f86f34b6c7eba1313341b44212ce30d296cf3854f8de"
+   "5df2644c0826c4e338244c1a7ccb6259baf87675673235d9fd9bb240168507b1"
   ],
   [
    "render/404-grid-badges.js",
@@ -505,7 +505,7 @@
   ],
   [
    "render/411-facts-misc.js",
-   "14e8312c2fd302a57912565946760efe4483858428e820ed629f30b47d009190"
+   "2a5e2ff08a2180f8c819b15d18ceed801b28a1f64f7c732ad9ce89ba2c4cd948"
   ],
   [
    "render/412-facts-stat.js",
@@ -517,7 +517,7 @@
   ],
   [
    "render/414-role-cards.js",
-   "268bcacc0ef8b0b6da28bec400c8919ecde6f30ee912f89fb60885088ab4e8c2"
+   "3035612a128c5b44000b87a12fd74a0f9b124fdd4f2e298fbab7e34f5bb75641"
   ],
   [
    "render/415-actions-translate.js",
@@ -545,11 +545,11 @@
   ],
   [
    "ui/701-main-utils.js",
-   "718f91886457a9b893aafbd9b7d742e63d6ca8fb79c417c4e4667801e738ba3c"
+   "d2a1c3a4663a5f6ec7397ab441912ffb6bbf242406bb739906105c8297941d2f"
   ],
   [
    "ui/702-main-5v5-test.js",
-   "8c0342157387ce1bb2c7bb8adb2bfd2769d546038cf7ccd9899058cb2716f805"
+   "8d6bb1a1eef85571b0914775b84dd208ee8667fca3fae25e1c6e7abc0779d230"
   ],
   [
    "ui/703-ui-render-5v5-test.js",
@@ -613,7 +613,7 @@
   ],
   [
    "ui/720-hanlisa-aim.js",
-   "ac94771ed16bce0e20a171cbfbea5d6f6702c0d5bbad81d85ea7862c96094e8e"
+   "493b1a7e2a247930f10b70bd6aec95732b8d495be212171c0569291a48da3d3c"
   ],
   [
    "ui/721-perf-panel.js",
